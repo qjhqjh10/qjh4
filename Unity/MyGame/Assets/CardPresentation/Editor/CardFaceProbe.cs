@@ -125,7 +125,10 @@ public static class CardFaceProbe
                 Debug.Log($"[cardface] {name}/{t.name}  fontSize={t.fontSize:F3}  "
                         + $"rect宽={t.rectTransform.sizeDelta.x:F3}  "
                         + $"bounds={t.textBounds.size.x:F3}x{t.textBounds.size.y:F3}  "
-                        + $"lines={t.textInfo.lineCount}  text='{Trim(t.text)}'");
+                        + $"lines={t.textInfo.lineCount}  "
+                        + $"vAlign={(int)t.verticalAlignment}  "     // 🔴 A848：原版卡名那层是 Midline(4096)
+                        + $"inkCenterY={InkCenterY(t):F4}  boxCenterY={t.textBounds.center.y:F4}  "
+                        + $"text='{Trim(t.text)}'");
             }
             Object.DestroyImmediate(root);
 
@@ -231,6 +234,30 @@ public static class CardFaceProbe
 
     static string Trim(string s)
         => string.IsNullOrEmpty(s) ? "" : (s.Length <= 24 ? s : s.Substring(0, 24) + "…");
+
+    /// <summary>**字墨**的纵向中心（TMP 本地坐标）—— 取该 TMP **全部可见字形顶点** y 范围的中点。
+    ///
+    /// 🔴 为什么要它（`A848` 那条账）：原版卡名那一层是 **`Midline`**，而 `textBounds` 给的是
+    /// **排版框**、**不是字墨** —— 卡名是**混合大小写、带下伸部**（`Howling Banshee Exarch`），
+    /// 两者的中心差得很明显（`Label.OrigInkCenterPx(Midline)` 对这类串恒返回 0、只覆盖
+    /// 「全大写/数字串」）。⇒ **只能用网格顶点量**。
+    /// ⚠️ 调用前必须已经 `ForceMeshUpdate()`（对象激活之后再调，否则 `textInfo` 是垃圾）。
+    /// ⚠️ 只取 `meshInfo[0]`：一张卡面 TMP 只用一个字体材质；将来若真有 TMP 切多材质，这里要改成遍历全部。</summary>
+    static float InkCenterY(TMP_Text t)
+    {
+        var ti = t.textInfo;
+        if (ti == null || ti.meshInfo == null || ti.meshInfo.Length == 0) return 0f;
+        var v = ti.meshInfo[0].vertices;
+        if (v == null || v.Length == 0) return 0f;
+        float lo = float.MaxValue, hi = float.MinValue;
+        for (int i = 0; i < v.Length; i++)
+        {
+            float y = v[i].y;
+            if (y < lo) lo = y;
+            if (y > hi) hi = y;
+        }
+        return (lo + hi) * 0.5f;
+    }
 
     /// <summary>把这张卡单独渲进一张图 —— 相机正交、正好框住整张卡（含卡框外沿）</summary>
     static void Shot(CardView view, string path, bool quiet = false)

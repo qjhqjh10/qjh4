@@ -138,9 +138,17 @@ namespace CardPresentation
 
             // 文字**右对齐**在条内右侧（原版 `H=4(Right)`）—— 我们这块 `Label` 只有居中
             // ⇒ 用「中心点右移」近似（**我们挑的**，见文件头 ④）
-            _barText = Label.Create(_root, "继续", Pos(BarCx + BarW * 0.5f - 60f, BarCy, ZContent), 38,
+            // 🔴 **2026-10-18（第十二轮 · W6）**：那颗钮上的字走**原版词条** `Battle/Mulligan/ButtonDone`
+            //    （原版 `Generic Multi Card Display Combat < BattleContinueButton < Text` 挂的就是它，
+            //     TMP 原文 `Continue`）—— 原来写死的是中文 `"继续"`（与换牌面板那条是**同一条**词条）。
+            _barText = Label.Create(_root, Loc.T(MulliganPanel.DoneTerm), Pos(BarCx + BarW * 0.5f - 60f, BarCy, ZContent), 38,
                                     Color.white, new Vector2(0.5f, 0.5f), "mcd_continue");
 
+            // ⚠️ **这行提示是我们自加的**：原版 `Generic Multi Card Display Combat` 下只有
+            //    `Header Text`（TMP = `Header Text`、**无 `Localize`**）· `BattleContinueButton` ·
+            //    `CardUI Reference` · `Viewport` ⇒ **原版这一格零词条**（铁律 11 例外①）。
+            //    它里面那个「继续」是**夹在中文句子里**的 ⇒ 英文档下这行会露中文 ——
+            //    **这是已知缺口**（没有原版键可接，要修得先自拟一条两条语言都编的键），已记进交件报告。
             _hint = Label.Create(_root, "点「继续」或再点一下牌堆关闭", Pos(960f, BandBottomPx + 34f, ZContent),
                                  2, new Color(0.7f, 0.7f, 0.75f), new Vector2(0.5f, 0.5f), "mcd_hint");
 

@@ -137,6 +137,15 @@ namespace CardPresentation
         /// 📌 读者只有一个：`EndPanel.ExitReady` → `BattleDriver.HandleEndBattleExit()`（点/ESC 走人）。</summary>
         public bool Finished { get { return _finished; } }
 
+        /// <summary>🔴 **这一轮开门视频的【最后一帧】还留着当底图吗**（自检用）。
+        /// 默认 `false`（原版行为：`Advance` 推够片长后 `Pause()`，**画面停在最后一帧**）；
+        /// `DropFrame()` 之后为 `true`（那一帧**不再留**，视频层也不画了）。
+        /// 📌 判据：`BattleDoors.Advance` 的收尾是 `_player.Pause()` —— 解码器停在最后一帧、
+        ///   `_screen` 那颗 quad 也还 active ⇒ **结算面板底下永远垫着那帧画面**。
+        ///   原版那一支（`_CloseBattleDoors` 协程）之后会走 `BattleHud.ToggleWithAnimation` 等收尾，
+        ///   我们这边没有对应的收帧动作 ⇒ 「跳过演出」这一档要**显式**把帧丢掉（`Z1′`）。</summary>
+        public bool FrameDropped { get; private set; }
+
         /// <summary>显示区尺寸（照 dump 里 `Video Image` 的 1920×1080）。</summary>
         public const float ScreenWidthPx = 1920f;
         public const float ScreenHeightPx = 1080f;
@@ -206,6 +215,7 @@ namespace CardPresentation
             //    （`ClipName` 里没有这一档 / `Resources.Load` 拿不到资产 / `Art/` 被删）
             //    都自动落在「没片可等 ⇒ 当场可走」这一档（原版 `WaitForSeconds(0)`）。
             _finished = true;
+            FrameDropped = false;      // 新的一轮开门 ⇒ 上一轮「丢掉的那一帧」这件事作废
 
             string name;
             if (!ClipName.TryGetValue(r, out name)) return 0f;
@@ -255,6 +265,9 @@ namespace CardPresentation
             _t = 0f;
             _finished = false;      // 重播 = 闸门重新关上（再等这一遍片长；照原版「一次开门 = 一次等待」）
             Playing = true;
+            // 🆕 上一轮若 `DropFrame()` 过，这里把显示层挂回来（否则重播看得见声音、看不见画面）
+            if (_screen != null && !_screen.gameObject.activeSelf) _screen.gameObject.SetActive(true);
+            FrameDropped = false;
             _player.gameObject.SetActive(true);
             _player.Play();
         }
@@ -331,6 +344,26 @@ namespace CardPresentation
                 //    → `BattleManager._CloseBattleDoors_d__393__MoveNext.c:72` `matchFinishedAndWaitingToLeave = true`。
                 _finished = true;
             }
+        }
+
+        /// <summary>🆕 2026-10-18（`A940` 尾账 `Z1′`）：**把最后一帧丢干净** —— 视频层不再画、解码器停掉。
+        ///
+        /// 🔴 **为什么需要它**：「跳过正常结算演出」那一档（`skipNormalBattleEnd*`）我们的做法是
+        ///   把时间**一帧推完**（`Advance(_length)`，见 `EndPanel.Show` 的 `skipSequence`），
+        ///   而 `Advance` 的收尾是 `_player.Pause()` ⇒ **解码器停在最后一帧、`_screen` 还 active**
+        ///   ⇒ 玩家「跳过」之后，结算面板底下**仍然垫着那段视频的最后一帧**。
+        ///   这一条只做一件事：**把那一帧扔掉**（⛔ 不碰 `_finished` / 不碰闸门 —— 「跳过之后能不能走」
+        ///   由 `Advance` 那一步决定，两者是两件事，别在这里顺手开闸）。
+        ///
+        /// ⚠️ **幂等**；⚠️ **没有视频**（`HasVideo == false`）时什么都不做（也就没有「最后一帧」可丢）。
+        /// ⚠️ 下一轮 `SetupDoor()` 会把 <see cref="FrameDropped"/> 清回 false 并把显示层重新挂出来。
+        /// </summary>
+        public void DropFrame()
+        {
+            if (!HasVideo) return;
+            if (_player != null) _player.Stop();      // 解码器停掉（不再 hold 最后一帧）
+            if (_screen != null) _screen.gameObject.SetActive(false);
+            FrameDropped = true;
         }
 
         /// <summary>视频那层显不显示（自检用）。</summary>

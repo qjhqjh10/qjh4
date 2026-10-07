@@ -87,21 +87,48 @@ namespace CardPresentation
         }
 
         Bubble _player, _enemy;
-        float _left;                 // 还剩多少秒（两边的气泡共用一个倒计时 —— 原版是两条独立的，
+        /// <summary>🆕 2026-10-18（`A940` 尾账 · 聊天三档）：**第三颗气泡 `RadioChat`**
+        /// （原版 `UnitsVoiceLinesPanel/Unit Chat/RadioChat`）。
+        /// 🔴 **判据 = 序号 2**：`VoiceLinesController__ShowRadioMessage.c` →
+        ///    `UnitsVoiceLinesPanel__ShowChatBox(panel, **2**, data)`；而
+        ///    `UnitsVoiceLinesPanel__GetChatBox.c` 里 `param_2 == 0 ⇒ +0x20` / `== 1 ⇒ +0x28` / `== 2 ⇒ +0x30`
+        ///    ⇒ 三颗气泡按 0/1/2 编号。另两颗 = `DisplayChatBox` 的 `card+0x40`（谁说的）⇒ 0/1。
+        /// 位置：运行时 dump 实读 `…/Unit Chat	RadioChat	RT	-25.0,-126.0	648.8,236.5	anchor 1,1 · pivot 1,1`
+        ///    （`资料/原版参照图/Unity参照管线_0825/data/panel_0914/runtime_ui_dump_drive.tsv:430`）⇒
+        ///    **右上角贴着屏幕右边 25 px、顶上往下 126 px**（与另两颗都在左侧不同 —— 它是「电台」）。
+        ///    ⚠️ 场景树里那一份 `[-674,1206 649x237]` 是**布局前**的序列化位（`(inactive)`），别拿它当位置。</summary>
+        Bubble _radio;
+        float _left;                 // 还剩多少秒（三边的气泡共用一个倒计时 —— 原版是三条独立的，
                                      // 但我们同一时刻只会显示一条：对手说话时我没在说）
         Bubble _current;
 
+        /// <summary>一颗气泡的**左上角**（屏幕 px · y 自顶）—— `left` 自左缘、`top` 自上缘。
+        /// ⚠️ 三颗的子件（`Mask`/`Background`/`wave`/`ChatText`）在原版里 `anchoredPosition` **逐字相同**
+        ///    （`324.4,118.3` / `111.1,49.6` / `-219.9,5.1` / `-2.5,-5.0`），而 uGUI 的 `anchor (0,0)`
+        ///    指的是**父矩形左下角**（与父的 pivot 无关）⇒ 三颗**共用同一套相对常量**，只是整体平移。
+        ///    ⇒ `MakeBubble` 收一个 `left/top` 就够了，别为哪一颗另立一套。</summary>
+        struct Slot { public float left, top; }
+        static readonly Slot SlotPlayer = new Slot { left = 12.61f, top = 643.50f };
+        static readonly Slot SlotEnemy  = new Slot { left = 12.61f, top = 173.50f };
+        /// <summary>🆕 `RadioChat`：右上角贴屏（出处 = `RadioChat` 那一行的运行时 dump，见 `_radio` 的注释）。
+        /// `left = (1920 − 25) − 648.8 = 1246.2`、`top = 126`。</summary>
+        static readonly Slot SlotRadio  = new Slot { left = 1246.2f, top = 126.0f };
+
         public bool Ready { get { return _player != null && _player.bg != null; } }
-        /// <summary>自检用：现在亮着的是哪一侧（`-1` = 都没显示）</summary>
+        /// <summary>自检用：现在亮着的是哪一侧（`-1` = 都没显示；`2` = `RadioChat`）。
+        /// ⚠️ 顺序固定 0 → 1 → 2（同一时刻只有一颗亮着，见 `Speak` 开头的 `HideAll()`）。</summary>
         public int ShownSide
         {
             get
             {
                 if (_player != null && _player.Visible) return 0;
                 if (_enemy != null && _enemy.Visible) return 1;
+                if (_radio != null && _radio.Visible) return 2;
                 return -1;
             }
         }
+        /// <summary>自检用：`RadioChat` 那一颗建出来了没有（原版那颗在场景里是 `(inactive)`）。</summary>
+        public bool HasRadio { get { return _radio != null && _radio.bg != null; } }
         /// <summary>自检用：条上写的字</summary>
         public string ShownText
         {
@@ -144,12 +171,6 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>自检用：气泡中点的世界坐标（断言它落在原版矩形上）</summary>
-        public Vector3 BubbleCenterWorld(int side)
-        {
-            var b = side == 0 ? _player : _enemy;
-            return b != null && b.bg != null ? b.bg.transform.position : Vector3.zero;
-        }
         /// <summary>自检用：气泡的世界尺寸（原版 648.77×236.50 px）</summary>
         public Vector2 BubbleWorldSize
         {
@@ -178,16 +199,19 @@ namespace CardPresentation
         void Build()
         {
             // 我方在下（y 643.5 起）、敌方在上（y 173.5 起）—— 和原版一致
-            _player = MakeBubble("PlayerChatDisplay", 643.50f);
-            _enemy = MakeBubble("EnemyChatDisplay", 173.50f);
+            _player = MakeBubble("PlayerChatDisplay", SlotPlayer);
+            _enemy  = MakeBubble("EnemyChatDisplay",  SlotEnemy);
+            // 🆕 2026-10-18：第三颗 —— `RadioChat`（右上角贴屏；原版场景里是 `(inactive)`，
+            //   只有 `RadioMessage(90)` 那一档才亮）。出处见 `_radio` / `SlotRadio` 的注释。
+            _radio  = MakeBubble("RadioChat",         SlotRadio);
             HideAll();
         }
 
-        Bubble MakeBubble(string name, float topPx)
+        Bubble MakeBubble(string name, Slot at)
         {
             var b = new Bubble();
-            b.left = 12.61f;
-
+            b.left = at.left;
+            float topPx = at.top;
             var radio = CardArt.Ui("40k_voicelines_radio");
             var waveTex = CardArt.Ui("40k_voicelines_radio_wave_equalizer");
             if (radio == null || waveTex == null)
@@ -235,14 +259,15 @@ namespace CardPresentation
         /// <summary>分辨率变了要重算（`BattleDriver.ReanchorHud` 里调）。</summary>
         public void RefreshLayout()
         {
-            Place(_player, 643.50f, BubbleW, PortraitW, PortraitH);
-            Place(_enemy, 173.50f, BubbleW, PortraitW, PortraitH);
+            Place(_player, SlotPlayer, BubbleW, PortraitW, PortraitH);
+            Place(_enemy,  SlotEnemy,  BubbleW, PortraitW, PortraitH);
+            Place(_radio,  SlotRadio,  BubbleW, PortraitW, PortraitH);
         }
 
-        void Place(Bubble b, float topPx, float bubbleW, float pw, float ph)
+        void Place(Bubble b, Slot at, float bubbleW, float pw, float ph)
         {
             if (b == null) return;
-            float left = 12.61f;
+            float left = at.left, topPx = at.top;
             if (b.bg != null)
             {
                 var p = Spot(left + bubbleW * 0.5f, topPx + BubbleH * 0.5f, ZBg);
@@ -263,14 +288,15 @@ namespace CardPresentation
         }
 
         /// <summary>
-        /// 说一句。<paramref name="artKey"/> = 立绘键（`BattleDriver.ArtKey`，**判据只此一处**）；
+        /// 说一句。<paramref name="side"/> = **0 我方 / 1 敌方 / 2 `RadioChat`**（编号判据 → `_radio` 的注释）。
+        /// <paramref name="artKey"/> = 立绘键（`BattleDriver.ArtKey`，**判据只此一处**）；
         /// <paramref name="text"/> 为空时退回显示 <paramref name="fallbackName"/>（卡名）。
         /// <paramref name="clip"/> 为 null = 这张卡没语音（那就不该调用本方法）。
         /// </summary>
         public void Speak(int side, string cardId, string evt, string artKey, string fallbackName,
                           string text, AudioClip clip, string clipFile = null)
         {
-            var b = side == 0 ? _player : _enemy;
+            var b = BubbleFor(side);
             if (b == null) return;
 
             HideAll();                                  // 同时只显示一条（另一侧说话就把这条顶掉）
@@ -339,8 +365,31 @@ namespace CardPresentation
         {
             if (_player != null) _player.SetActive(false);
             if (_enemy != null) _enemy.SetActive(false);
+            if (_radio != null) _radio.SetActive(false);
             _current = null;
             _left = 0f;
+        }
+
+        /// <summary>三颗气泡按原版那三个序号取（`0 = PlayerChatDisplay` · `1 = EnemyChatDisplay`
+        /// · `2 = RadioChat`）。认不出的序号 ⇒ null + **出声**（⛔ 不静默，也别顺手落到某一颗上 ——
+        /// 那会把「电台」的话说成某一边督军的）。</summary>
+        Bubble BubbleFor(int side)
+        {
+            if (side == 0) return _player;
+            if (side == 1) return _enemy;
+            if (side == 2) return _radio;
+            Debug.LogWarning($"[UnitChat] 气泡序号 `{side}` 认不出（原版只有 0/1/2 三颗："
+                           + "`PlayerChatDisplay` / `EnemyChatDisplay` / `RadioChat`，"
+                           + "判据 `UnitsVoiceLinesPanel__GetChatBox.c`）⇒ 这一句**不显示**。");
+            return null;
+        }
+
+        /// <summary>自检用：某一颗气泡的**世界中心**（`0/1/2`，见 <see cref="BubbleFor"/>）。
+        /// 那颗没建出来 ⇒ `Vector3.zero`。</summary>
+        public Vector3 BubbleCenterWorld(int side)
+        {
+            var b = BubbleFor(side);
+            return b != null && b.bg != null ? b.bg.transform.position : Vector3.zero;
         }
 
         /// <summary>走表（`BattleDriver.AdvanceTimeline` 里每帧推，批处理靠 `Step` 推）。</summary>

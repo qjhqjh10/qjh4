@@ -55,14 +55,27 @@ namespace CardPresentation
     public class MulliganPanel : MonoBehaviour
     {
         /// <summary>面板开着吗。开着时**吃掉点击**，别让底下的棋盘/手牌也响应。</summary>
-        /// <summary>「完成换牌」那颗钮上的默认文字。
-        /// ⚠️ **文案是我们起的**（原版是 I2 词条 `Battle/Mulligan/ButtonDone`，词条内容本地没有）。
+        /// <summary>「完成换牌」那颗钮上的默认文字 = **原版词条** `Battle/Mulligan/ButtonDone`。
+        /// 🔴 **2026-10-18（第十二轮 · W6）就地订正（铁律 5）**：原来这里写「**文案是我们起的**
+        /// （原版是 I2 词条 `Battle/Mulligan/ButtonDone`，**词条内容本地没有**）」—— **后半句不成立**：
+        /// 键在本地、**TMP 英文原文也在本地**（13 个 arena 各 3 颗同键，TMP 逐字 `Continue`；
+        /// 判据全文 → `Core/Loc.cs` 那一块）。
         /// 倒计时进最后 10 秒时会把它换成剩余秒数（原版 `MulliganManager.SetMulliganTimer`，见 `BattleDriver.TickMulligan`）</summary>
-        public const string DoneLabel = "完成换牌";
+        public static string DoneLabel { get { return Loc.T(DoneTerm); } }
+        /// <summary>完成钮的词条键 —— **只此一份**。</summary>
+        public const string DoneTerm = "Battle/Mulligan/ButtonDone";
 
         /// <summary>把「完成换牌」那颗钮上的字换掉（原版 `MulliganManager.mulliganButtonText`）。
         /// 原版倒计时 `&lt;10` 秒时**每秒**刷一次这个字（`MulliganCountdown` → `SetMulliganTimer`）。</summary>
-        public void SetDoneText(string s) { if (_doneText != null) _doneText.SetText(s); }
+        public void SetDoneText(string s)
+        {
+            if (_doneText == null) return;
+            _doneText.SetText(s);
+            // 🔴 **2026-10-18（W6）**：字号跟着**这一串**的语种走 —— 倒计时那几秒写的是**数字**
+            //    （拉丁 ⇒ `SetCapHeight(0.72em)`），而默认那串在中文档是汉字（⇒ `SetGlyphHeight(1em)`）。
+            //    写死一种的话，另一档不是小 28% 就是大 39%（本工程记过的那条：`Loc.HasCjk` 是唯一一份判据）。
+            SetScriptFont(_doneText, s, DoneH * 0.45f);
+        }
 
         /// <summary>自检用：那颗钮上现在写的是什么。
         /// 🔴 **A245：没建出来时返回 `null`**（原来返 `"&lt;无>"`）—— 同族一个口径，见 `PromptText`。</summary>
@@ -82,12 +95,66 @@ namespace CardPresentation
         /// 判据 → `资料/加时与冲突模式_原版规格.md` §2.8（原版 `MulliganManager.ActivateMulligan` 的二选一）。</summary>
         public void SetTurnText(bool playerGoesSecond)
         {
-            if (_turnText != null) _turnText.SetText(playerGoesSecond ? TurnSecond : TurnFirst);
+            if (_turnText == null) return;
+            string t = playerGoesSecond ? TurnSecond : TurnFirst;
+            _turnText.SetText(t);
+            // 🔴 **字号按【这一串字】的语种选** —— 汉字 ≈ 1 em、拉丁大写 ≈ 0.72 em
+            //    （判据 = `Battle/Label.SetCapHeight`/`SetGlyphHeight` 的 doc，`Loc.HasCjk` 是那条判据的**唯一一份**）。
+            //    原来这里写死 `SetGlyphHeight`：中文档对，但英文档（`You go second`）会**大 39%**。
+            SetScriptFont(_turnText, t, TurnPx);
         }
 
-        /// <summary>后手那句照原版英文兜底 `"You go second"` 译；先手那句**原版英文没查到**（只有词条名 `GoFirst`）⇒ 我们译的。</summary>
-        public const string TurnFirst = "你先手";
-        public const string TurnSecond = "你后手";
+        /// <summary>提示行那条的词条键 —— **只此一份**（`Build()` 与自检都取它）。
+        /// ⚠️ 原版的 `WaitText`（`Battle/Mulligan/WaitEnemy`）是**另一条**键，挂在等待横幅上，
+        /// ⛔ 别把两条并成一条（它们挂在不同节点、`BattleDriver.cs:3662` 那一格根本没有对应词条）。</summary>
+        public const string PromptTerm = "Battle/Mulligan/Instructions";
+
+        /// <summary>每张牌上那颗「换」钮的词条键 —— **只此一份**（判据全文 → `Core/Loc.cs`）。</summary>
+        public const string ReplaceTerm = "Battle/Mulligan/Replace";
+
+        /// <summary>🆕 **2026-10-18（第十三轮 · G2b）**：同一颗钮上**第二档**文字的词条
+        /// —— 那张牌**已经被标记要换**时改印这条（原版那颗钮是**同一个对象换 term**，不是第二颗钮）。
+        /// <para>判据（**唯一一处**，2026-10-18 亲读）：`MulliganFrame.ChangeCardButtonOnClick`
+        /// 与 `MulliganFrame.SetupMulligan` / `MulliganFrame.UpdateButtonText`
+        /// （`d:/2/tools/decomp_full/MulliganFrame__{ChangeCardButtonOnClick,SetupMulligan,UpdateButtonText}.c`）
+        /// 三处逐字相同的三行：
+        /// <c>uVar = "Battle/Mulligan/Replace"; if (*(int*)(card + 0x228) == 0xe) uVar = "Battle/Mulligan/Undo";</c>
+        /// 然后 <c>Localize.set_Term(那颗钮, uVar)</c>。
+        /// 那个 `0xe` 是 `CardScript` 上「这张已被选作换掉」的状态（同一次点击刚调过
+        /// `CardScript.ClickMulliganSelected(true)`）⇒ **选中 = `Undo`、没选中 = `Replace`**。
+        /// ⚠️ 文案两列**都自拟**（该键只在代码字面量里，值在远端 I2 表；`zh_CN.csv` 里
+        /// **没有 `Undo` 这个英文串** —— 2026-10-18 按第一列精确查过）—— 如实标在 `Core/Loc.cs`。</para></summary>
+        public const string UndoTerm = "Battle/Mulligan/Undo";
+
+        /// <summary>那颗钮现在该写什么 —— **判据只此一处**（建钮和 `ApplyMarks` 都取它，
+        /// ⛔ 别在两处各判一次 `marked`）。</summary>
+        public static string CardBtnWord(bool marked)
+        {
+            return Loc.T(marked ? UndoTerm : ReplaceTerm);
+        }
+
+        /// <summary>按**这段文本的语种**定字号 —— 转发到 `Label.SetScriptHeight`（那条判据的**唯一一份**实现，
+        /// 内部接的是 `Loc.HasCjk`）；本件只负责 px→世界单位那一跳（`U()` = /108）。
+        /// 同族的另一处调用点见 `Battle/SettingsPanel.ApplyLangFont`（它现在也是转发）。</summary>
+        internal static void SetScriptFont(Label l, string text, float px)
+        {
+            if (l == null) return;
+            l.SetScriptHeight(text, px, 108f);
+        }
+
+        /// <summary>先手 / 后手那两句 = **原版词条**（各一条，⛔ 别合并）。
+        /// 🔴 **2026-10-18（第十二轮 · W6）改**：原来这两个是写死的**中文字面量**，注释写
+        /// 「后手那句照原版英文兜底译；先手那句**原版英文没查到**（只有词条名 `GoFirst`）⇒ 我们译的」。
+        /// **键那一半现在查清了**：`Battle/Tips/GoFirst` 与 `Battle/Mulligan/secondTurn` **都在本地能读到**
+        /// （前者只在**代码字面量**里 —— `d:/2/tools/il2cpp_out/stringliteral.json` `0x428A128`，
+        /// prefab 上零 `Localize`；后者是 prefab `mTerm`，TMP 原文 `You go second`）。
+        /// ⚠️ **文案那一半没变**：`Battle/Tips/GoFirst` 的英文原文**本地取不到**（远端 I2 表）
+        /// ⇒ `Loc` 表里那一条 EN/ZH **都自拟**（如实标着，⛔ 别写成「照抄原版」）。</summary>
+        public static string TurnFirst { get { return Loc.T(TurnFirstTerm); } }
+        public static string TurnSecond { get { return Loc.T(TurnSecondTerm); } }
+        /// <summary>先手 / 后手那两条词条键 —— **只此一份**。</summary>
+        public const string TurnFirstTerm = "Battle/Tips/GoFirst";
+        public const string TurnSecondTerm = "Battle/Mulligan/secondTurn";
 
         public bool Visible { get; private set; }
 
@@ -154,16 +221,21 @@ namespace CardPresentation
             }
 
             // 提示行（原版 `MulliganText` 那块 1344×79.4，中心 (967,106.5)）
-            // ⚠️ 文案是我们起的（I2 词条本地没有）；字号按那块框的高度取的 —— **也是我们挑的**。
-            // 「回车」那半句是我们加的兜底（原版只有按钮）—— 换牌卡在开局之前，点不动就开不了局
+            // 🔴 **2026-10-18（第十二轮 · W6）**：文案改成**原版词条** `Battle/Mulligan/Instructions`
+            //   （TMP 原文 `Choose cards to replace in first hand`，见 `Core/Loc.cs`）。
+            //   ⚠️ **原来那半句「（回车 = 完成）」已去掉** —— 原版文案里没有它；留一个只在中文档出现的
+            //      括号半句就等于**又开一条写死路径**（本工程红线）。回车那把快捷键**照旧能用**
+            //      （接线在 `BattleDriver` 的键处理里），只是不再印在提示行上。
+            //   ⚠️ 字号按那块框的高度取 —— **原来是我们挑的**（保留原样，本轮不动版面）。
             // 🔴 **颜色照原版（2026-09-30 亲读原版资产）**：`bundle_scenes_scenes_battlearena1/MonoBehaviour/`
             //   `MonoBehaviour_3731.json`（`Choose cards to replace in first hand`）与 `MonoBehaviour_3856.json`
             //   （`You go second`）的 **`m_fontColor32` 都是 `4294967295`（= `0xFFFFFFFF` 纯白）**、
             //   `m_fontColor` 都是 `(1,1,1,1)`。原来两行都用暖色 `(1, 0.94, 0.82)` ⇒ **改成纯白**。
             //   （旁证：`资料/战斗规格/战斗重建_0827/战斗界面JSON权威表_0827.md:274-275` 记「白」。）
-            p._prompt = Label.Create(go.transform, "选择要换掉的牌（回车 = 完成）", At(PromptCx, PromptCy), 8,
+            string promptText = Loc.T(PromptTerm);
+            p._prompt = Label.Create(go.transform, promptText, At(PromptCx, PromptCy), 8,
                                      Color.white, new Vector2(0.5f, 0.5f), "MulliganPrompt");
-            if (p._prompt != null) p._prompt.SetCapHeight(U(PromptH * 0.55f));
+            SetScriptFont(p._prompt, promptText, PromptH * 0.55f);
 
             // 🆕 2026-09-26：**开局谁先手那一行** —— 判据（唯一）→ `资料/加时与冲突模式_原版规格.md` §2.8：
             //   原版在 `MulliganManager.ActivateMulligan` 里把这一行的词条**按先手/后手二选一**
@@ -175,7 +247,10 @@ namespace CardPresentation
             //   ⚠️ 文案：后手那句照原版英文兜底译；**先手那句只有词条名 `GoFirst`（英文原文没查到）⇒ 我们译的**。
             p._turnText = Label.Create(go.transform, "", At(TurnCx, TurnCy), 7,
                                        Color.white, new Vector2(0.5f, 0.5f), "MulliganTurnText");
-            if (p._turnText != null) p._turnText.SetGlyphHeight(U(TurnPx));   // 原版 `m_fontSize = 55`（em 的像素值）
+            // ⚠️ 出厂这一下只是给个尺寸，**真正的字号按语种在 `SetTurnText` 里再设一遍**
+            //    （那一行是**唯一**的口径：中文 `SetGlyphHeight` / 英文 `SetCapHeight(0.72em)`）。
+            //    原版那一颗是 `m_fontSize = 55`（em 的像素值）。
+            if (p._turnText != null) p._turnText.SetGlyphHeight(U(TurnPx));
 
             // 完成按钮：底图 `40k_bt_underbutton`（原版 577.5×63.8）+ 圆形播放钮 `40k_UI_bt_play`
             p._bar = ImageQuad.Create(go.transform, CardArt.Ui("40k_bt_underbutton"), At(BarCx, BarCy),
@@ -190,9 +265,10 @@ namespace CardPresentation
             if (p._bar != null) p._bar.SetAspect(BarW / BarH);
             p._play = ImageQuad.Create(go.transform, CardArt.Ui("40k_UI_bt_play"), At(PlayCx, PlayCy),
                                        U(PlayH), new Vector2(0.5f, 0.5f), "MulliganContinueCircle");
+            // ⚠️ 字号在 `SetDoneText` 里按**当前这一串**的语种设（原版那颗钮上会短暂变成倒计时秒数）。
             p._doneText = Label.Create(go.transform, DoneLabel, At(DoneCx, DoneCy), 6,
                                        new Color(1f, 0.92f, 0.75f), new Vector2(0.5f, 0.5f), "MulliganDoneText");
-            if (p._doneText != null) p._doneText.SetCapHeight(U(DoneH * 0.45f));
+            p.SetDoneText(DoneLabel);
 
             // 眼睛（原版 `HideMulliganButton`，图 `40k_ui_bt_eye`）—— 暂时收起卡片上的按钮
             p._eye = ImageQuad.Create(go.transform, CardArt.Ui("40k_UI_bt_eye"), At(EyeCx, EyeCy),
@@ -282,11 +358,18 @@ namespace CardPresentation
                 q.SetAspect(410f / 124f);                            // 图是 410×124 的横条
                 _cardBtns.Add(q);
 
-                var t = Label.Create(transform, "换", pos, 5, new Color(1f, 0.9f, 0.7f),
+                // 🔴 **2026-10-18（第十二轮 · W6）**：那颗钮上的字走**原版词条**
+                //    `Battle/Mulligan/Replace`（TMP 原文 `Replace`，全库只 1 颗 —— `battleprefabs_vfxandmisc`
+                //    的 `ReplaceText`；判据全文 → `Core/Loc.cs`）。原来那个写死的 `"换"` 已删。
+                // 🔴 **2026-10-18（第十三轮 · G2b）**：**同一颗钮有两档字** —— 被标记的牌印
+                //    `Battle/Mulligan/Undo`（判据见 `UndoTerm` 的 doc）。原来我们**只有一档**，
+                //    标记之后那张牌上还写着「换」（= 原版那一刻印的是 Undo）。
+                string btnText = CardBtnWord(_marked.Contains(i));
+                var t = Label.Create(transform, btnText, pos, 5, new Color(1f, 0.9f, 0.7f),
                                      new Vector2(0.5f, 0.5f), "MulliganBtnText_" + i);
                 if (t != null)
                 {
-                    t.SetCapHeight(U(28f));
+                    SetScriptFont(t, btnText, 28f);           // 语种定字号（英文档不再大 39%）
                     t.transform.localPosition += new Vector3(0f, 0f, Z - 0.05f);
                 }
                 _cardTexts.Add(t);
@@ -354,7 +437,8 @@ namespace CardPresentation
 
         public bool IsMarked(int i) { return _marked.Contains(i); }
 
-        /// <summary>标记的样子：卡**置灰**（`Unplayable` 那一档）+ 按钮换成按下态那张图</summary>
+        /// <summary>标记的样子：卡**置灰**（`Unplayable` 那一档）+ 按钮换成按下态那张图
+        /// + 钮上的字换档（标记 ⇒ `Battle/Mulligan/Undo`）。**判据只此一处**（`CardBtnWord`）。</summary>
         void ApplyMarks()
         {
             for (int i = 0; i < _cards.Count; i++)
@@ -365,6 +449,9 @@ namespace CardPresentation
                 c.SetHighlight(m ? CardHighlightState.Unplayable : CardHighlightState.Normal);
                 if (i < _cardBtns.Count && _cardBtns[i] != null)
                     _cardBtns[i].SetTexture(CardArt.Ui(m ? "UI_Button_Mulligan_Pressed" : "UI_Button_Mulligan"));
+                // 🆕 2026-10-18（第十三轮 · G2b）：**字跟着档走**（原版三处都是点一下就把 term 重设一遍）
+                if (i < _cardTexts.Count && _cardTexts[i] != null)
+                    _cardTexts[i].SetText(CardBtnWord(m));
             }
         }
 
@@ -453,6 +540,15 @@ namespace CardPresentation
         public bool ShadeActive { get { return _shade != null && _shade.gameObject.activeSelf; } }
         public string BarTex { get { return _bar != null && _bar.Texture != null ? _bar.Texture.name : "<无>"; } }
         public string EyeTex { get { return _eye != null && _eye.Texture != null ? _eye.Texture.name : "<无>"; } }
+        /// <summary>🆕 **2026-10-18（W6）**：第 <paramref name="i"/> 张牌那颗钮上**写的什么**
+        /// （自检用；没建出来时返回 `null`，同 `DoneText`/`TurnText` 那个口径 A245）。
+        /// 🔴 **2026-10-18（第十三轮 · G2b）**：现在是**两档** —— 未标记 = `Battle/Mulligan/Replace`、
+        /// 已标记 = `Battle/Mulligan/Undo`（判据 → `UndoTerm` 的 doc；档由 `CardBtnWord` 一处决定）。</summary>
+        public string CardBtnWordAt(int i)
+        {
+            return i >= 0 && i < _cardTexts.Count && _cardTexts[i] != null ? _cardTexts[i].Text : null;
+        }
+
         /// <summary>第 i 张牌那个按钮现在用的图（按下态应当是 `UI_Button_Mulligan_Pressed`）</summary>
         public string CardBtnTex(int i)
         {

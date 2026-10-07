@@ -157,6 +157,38 @@ namespace CardPresentation
         public const string TermPromote = "SocialMenu/Alliances/Promote";
         public const string TermTransferLeadership = "SocialMenu/Alliances/TransferLeadership";
 
+        // ============================================================ 🔴 **2026-10-18（第十一轮）：四颗钮的文案走词条**
+
+        /// <summary>一颗钮的节点名 → 它在 `Loc` 表里的**键**（= 原版那颗 `Button Text` 的 `Localize.mTerm` 原文；
+        /// 本批按 pid 亲读，父链 = `Button Text < {Promote,Demote,Kick,Quit} < Buttons < Member Options Panel`
+        /// ⇒ **节点名与我们 `Buttons[i].Node` 逐字相同**）。**`null` = 这个名字没有词条**。</summary>
+        /// <para>🔴 **其余四颗（`Challenge` / `Add as a friend` / `Profile` / `Debug Add Skulls`）返回 `null`，这是对的**：
+        /// 本批把 `bundle_menus_assets_all` 里 `SocialMenu/Alliances/*` 的 `mTerm` **全表列了一遍（共 21 条）**，
+        /// **没有** `Challenge` / `AddAsFriend` / `Profile` / `Debug*` 这几条 —— 而那四颗的出厂字面文案是
+        /// **西语占位串**（`Retar` / `Añadir como amigo` / `Perfil` / `ADD SKULLS TO CURRENT EVENT`）
+        /// ⇒ 原版**没给它们词条**（铁律 11 例外①）⇒ ⛔ **别硬编**（保持 prefab 出厂原文）。</para>
+        public static string BtnTerm(string node)
+        {
+            switch (node)
+            {
+                case "Promote": return "SocialMenu/Alliances/Promote";
+                case "Demote":  return "SocialMenu/Alliances/Demote";
+                case "Kick":    return "SocialMenu/Alliances/KickPlayer";   // ⚠️ 节点名 `Kick` / 词条名 `KickPlayer`
+                case "Quit":    return "SocialMenu/Alliances/Quit";
+                default:        return null;
+            }
+        }
+
+        /// <summary>🔴 **为什么要在【建窗时】过一手、而不是改 `Buttons` 那张表**：`Buttons` 是
+        /// **`static readonly`** ⇒ 它的初始化式里调 `Loc.T` 只在**类首次加载**时求值一次
+        /// （早于任何语言设置、之后换语言也不会变）—— 同 `SocialWindow.Buttons` 那个坑。
+        /// ⇒ 表里那一列**保持 prefab 出厂原文**（同时也是留档），由本方法在**建窗那一趟**把有词条的换成词条。</summary>
+        public static string BtnLabel(Btn b)
+        {
+            var term = BtnTerm(b.Node);
+            return term == null ? b.Label : Loc.T(term);
+        }
+
         // ============================================================ 数据（= 原版从 `GroupMember` / `FriendsData` 读的那几个）
         /// <summary>被选中的那一员 + 本机玩家的相对关系（原版是由 `get_Member()` 与两个单例现算的，
         /// 我们收成一份只读入参 —— 那四个来源本地都没有）。
@@ -351,7 +383,9 @@ namespace CardPresentation
                                         true, "Image",
                                         new Vector4(333f / 3f, 96f / 3f, 333f / 3f, 96f / 3f));
                 var bq = bgo != null ? bgo.GetComponentInChildren<ImageQuad>() : null;
-                var tx = MenuDraw.TextBox(bn, BtnTextRect(br), bt.Label, Color.white, "Button Text",
+                // 🔴 **2026-10-18（第十一轮）**：文案那一个实参从 `bt.Label`（= prefab 出厂原文，**含西语占位串**）
+                //   换成 `BtnLabel(bt)`（有词条走词条、没有就原样）—— ⛔ 节点名 `bt.Node` 与字体/色/矩形都没动。
+                var tx = MenuDraw.TextBox(bn, BtnTextRect(br), BtnLabel(bt), Color.white, "Button Text",
                                           bt.Font, BtnTextFontMin, QBtnText, BtnTextFontMax, BtnTextFontBase);
                 int idx = i;
                 // ⚠️ 换图那一跳**不在 `Hit` 里传 `target`** —— 九宫格被切成 9 张小 quad，只换中心那格

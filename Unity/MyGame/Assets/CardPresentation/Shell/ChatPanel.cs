@@ -248,7 +248,13 @@ namespace CardPresentation
             //   （原版 `Left/Top`，我们两侧都没对齐 ⇒ 画成居中）—— ~~不在本批三条账上，只报不改~~
             //   ✅ **2026-10-14（A525）已补 `alignLeft: true`**（原来只在 `资料/普查产出_1013/W403_A414_对齐与字号.md` §七·1 挂着）。
             //   上面那句「只报不改」是 W403 立项时的话，改法落地后就地作废（铁律 5：保留更正痕迹）。
-            var ph = Text(input, InputR, "Type message", new Color(1f, 1f, 1f, 0.439f), "Placeholder", 28f, QText,
+            // 🔴 **2026-10-18（第七轮）：占位符走词条** —— 键 = 原版那颗 `Placeholder` 的
+            //   `Localize.mTerm` 原文 `MainMenu/Chat/TypeMessage`（1 颗；父链 =
+            //   `Placeholder < Text Area < InputField (TMP) < Enter Text < Chat < Holder < ChatPanel`
+            //   ⇒ **节点名与路径都和我们这一颗一致**）。
+            //   英文列 = TMP 原文 `Type message`；中文列 = 「输入消息」(`zh_CN.csv:183` 精确命中)。
+            //   ⛔ 节点名 `"Placeholder"` 与那串字号/对齐实参没动。
+            var ph = Text(input, InputR, Loc.T("MainMenu/Chat/TypeMessage"), new Color(1f, 1f, 1f, 0.439f), "Placeholder", 28f, QText,
                  autoMin: 0f, alignLeft: true);
             // 🔴 **2026-10-14（A526）**：原版这一颗是 **`折行 = 3`（`PreserveWhitespaceNoWrap`）**，
             //   而 `MenuDraw.TextBox` 建出来的恒是 `Normal(1)` ⇒ **只有输入框这一族这一格不对**

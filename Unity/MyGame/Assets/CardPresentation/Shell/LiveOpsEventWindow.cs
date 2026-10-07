@@ -504,7 +504,20 @@ namespace CardPresentation
                                      new PxRect(CreateBtnL, CreateBtnT, CreateBtnR, CreateBtnB));
             var cbtnBg = MenuDraw.Rect(cbtn, Tex(ArtMulligan), new PxRect(CreateBtnL, CreateBtnT, CreateBtnR, CreateBtnB),
                           "Bg", QArt, null, true);
-            MenuDraw.Text(cbtn, new PxRect(CreateTxL, CreateTxT, CreateTxR, CreateTxB), "Create deck",
+            // 🔴 **2026-10-18（A891 的续）：这一颗的字走 `Loc.T`** —— 本批**先认树验 `Localize`**
+            //   （铁律 2/10；做法 = `工具/menu_rect.py … "Ranked Deck Selection" --depth 4` 沿 `m_Children` 走，
+            //    再按 pid 读 `MonoBehaviour/*.json`）。结论：
+            //     · 本节点 = `{RankedEventWindowV2 | SkirmishModeEventWindow | Ranked Deck Selection} >
+            //       Ranked Deck Selection > No Deck Text > Generic Simplified UI Button > Button Text`（3 颗同族）；
+            //     · `Localize.mTerm` = **`MainMenu/Ranked/GoToCreateDeck`** —— ⛔ **不是** `MenuDeck/MenuButtons/CreateDeck`
+            //       （那条的父链在 `Collection Menu Variant > … > Control Buttons/Create`，**另一棵树**）；
+            //     · 那颗 TMP 的 `m_text` = **`Create deck`**（小写 d）—— 与我们原来写死的这 11 个字符**逐字符相同**
+            //       ⇒ 这次换口**画面上一个像素都不变**（中文档才会变成「创建卡组」）。
+            //   ⚠️ 别把**父节点** `No Deck Text` 扯进来：那一颗才是西语占位串（`Tienes …{0} {1} Comandante(s)…`，
+            //     见上面 `No Deck Text` 那一段），而且**它是我们写的**、不是复刻。
+            //   ⛔ 节点名 `"Button Text"` 不动（`FindChild(钮,"Button Text")` 靠它）。
+            MenuDraw.Text(cbtn, new PxRect(CreateTxL, CreateTxT, CreateTxR, CreateTxB),
+                          Loc.T("MainMenu/Ranked/GoToCreateDeck"),
                           Color.white, "Button Text", 55f, QText);      // 原版 hAlign = Center ⇒ 不调 Align*
             // 🆕 A17：原版 `Ranked Deck Selection>No Deck Text>Generic Simplified UI Button` 是 SpriteSwap（普查 §块 4 第 16 行）
             MenuDraw.Hit(none, "CreateDeckHit", new PxRect(CreateBtnL, CreateBtnT, CreateBtnR, CreateBtnB), QHit,

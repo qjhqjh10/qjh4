@@ -726,7 +726,9 @@ namespace RuleEngine
         /// ③ 结算层 `ResolveTargets` **没有手牌目标池**。⇒ 只加场上、**不报错、不打 `*`**。
         ///
         /// 现在：解析层置位（看到目标短语里有 `in hand` / `in your hand`），
-        /// 结算层 `EffectResolver.GrantHandBuffForTargets` 按它往 `ctx.HandBuffs` 登记 ——
+        /// 结算层 `EffectResolver.GrantHandBuffForTargets` 按它往 **`CardInstance.HandEffects`**
+        /// 登记（⚠️ **2026-10-18（`A885`）就地订正**：原来这里写的是 `ctx.HandBuffs` ——
+        /// 那张**对局级的表已删**，现在挂在**每一份牌自己**身上，见 `BattleContext.cs:501-511`）——
         /// **兑现点一个字没动**（还是 `RuleCore.ApplyHandBuffs`，在这次之后打出那个单位时生效）。
         /// </summary>
         public bool AlsoHand;
@@ -741,6 +743,27 @@ namespace RuleEngine
         /// `GrantHandBuffForTargets` 登记（它只看 `AlsoHand`）。
         /// </summary>
         public bool HandOnly;
+
+        /// <summary>
+        /// 🆕 **2026-10-18（`W5` · 审查 §5 账 9「criteria 根治」）**：
+        /// **代词（`them` / `it`）的【先行词】给出的筛选条件** —— 原版 `HandEffect.targetCriteria`
+        /// 在我们解析层的落点。
+        ///
+        /// 🔴 **为什么必须有它**：`it` / `them` 解析成 `Kind = "prev"`（`ParseTarget` 那条
+        ///   `else if (t.Contains("target")) spec.Kind = "prev";` 旁边），而 `CardCriteria.FromTarget`
+        ///   对 `"prev"` 返回 **`null`**（它不是兵种词）⇒ `RuleCore.HandEffectFits` 落到
+        ///   **「判不出来就放行单位卡」那一档** ⇒ 手牌登记表会把这条效果**发给每一个后进手牌的部队**，
+        ///   而卡面写的是「**刚抽到的那几张**」（`Draw two **troops** and give them +1`）。
+        ///
+        /// **填法**：`Parse` 收尾时跑一趟 `LinkPrevAntecedent` —— 上一条 op 是
+        ///   `drawtype` / `draw`（它带着「从牌库挑什么」那个词，如 `troops` / `vehicle`）时，
+        ///   把那个词变成 `CardCriteria.KindWord` 填进来。
+        /// **不作它用**：这一格**只喂手牌那一侧的 criteria**，⛔ **不参与 `ResolveTargets`**
+        ///   （`Kind` 仍是 `"prev"`，`DoGive` 靠 `spec.Side == "prev" && spec.Kind == "prev"`
+        ///   走「场上拿不到就看手里」那条路 —— 改了 `Kind` 会把那条路**静默断掉**）。
+        /// `null` = **没有先行词可判** ⇒ `HandEffectFits` 按「判不出来」处理。
+        /// </summary>
+        public CardCriteria PrevAntecedent;
 
         /// <summary>
         /// 目标里写的是**具体某张卡的名字**（`a Stormboy` / `an Eliminator`）。
@@ -1027,7 +1050,51 @@ namespace RuleEngine
                     if (ops[j].Verb != "paidmod") prev.Add(ops[j]);
                 ops[i].BaseOps = prev;
             }
+
+            // 🆕 **2026-10-18（`W5` · 审查 §5 账 9「criteria 根治」）**：
+            //   代词（`them` / `it`）的**先行词**回填 —— 逐句解析看不到「前面刚抽的是哪一类牌」，
+            //   所以和上面 `repeat` / `paidmod` 同一个道理：**整条 desc 拼完再统一回填**。
+            //   判据与用途见 <see cref="EffectTargetSpec.PrevAntecedent"/>。
+            LinkPrevAntecedent(ops);
             return ops;
+        }
+
+        /// <summary>
+        /// 🆕 **2026-10-18（`W5`）**：把 `give them …` / `give it …` 里那个**代词**的先行词
+        /// （上一条 `drawtype` / `draw` 带着的「抽的是哪一类牌」）填进
+        /// <see cref="EffectTargetSpec.PrevAntecedent"/>。
+        ///
+        /// **为什么需要**：那一格是原版 `HandEffect.targetCriteria` 在我们解析层的落点 ——
+        /// 没有它，`RuleCore.HandEffectFits` 只能对这类记录走「判不出来就放行单位卡」那一档
+        /// （详见 `PrevAntecedent` 的注释）。
+        ///
+        /// 🔴 **判据收得很紧（宁可留空，不许猜）**：
+        ///   · 只认「**紧邻的上一条 op**」是 `drawtype` / `draw` —— ⛔ 不跨 op 找
+        ///     （隔了一条就不知道 `them` 指谁了，猜错 = 静默打宽）；
+        ///   · 那个词的原文要过 <see cref="CreatePool.IsKindWord"/>（`troops` / `vehicle` / `beast` …）
+        ///     —— ⛔ 认不出（`choosecard` 的 `what=[card]` 那种）**留 `null`**，不硬塞。
+        ///
+        /// ⚠️ 只回填 **`Kind == "prev"`** 的目标规格（代词那一族）—— 明写目标的那些
+        ///    `CardCriteria.FromTarget` 本来就转得出来，别去覆盖它们。
+        /// </summary>
+        static void LinkPrevAntecedent(List<EffectOp> ops)
+        {
+            if (ops == null) return;
+            for (int i = 1; i < ops.Count; i++)
+            {
+                var op = ops[i];
+                if (op == null || op.Target == null) continue;
+                if (op.Target.Kind != "prev") continue;
+                if (op.Target.PrevAntecedent != null) continue;   // `Parse` 会被反复调用，别覆盖已填的
+
+                var prevOp = ops[i - 1];
+                if (prevOp == null) continue;
+                if (prevOp.Verb != "drawtype" && prevOp.Verb != "draw") continue;
+                string word = (prevOp.Payload ?? "").Trim().ToLowerInvariant();
+                if (word.Length == 0 || !CreatePool.IsKindWord(word)) continue;
+
+                op.Target.PrevAntecedent = new CardCriteria { KindWord = word };
+            }
         }
 
         /// <summary>
@@ -1244,7 +1311,11 @@ namespace RuleEngine
             // **选效果：作用域「给手牌」** —— 🆕 **2026-09-16 做掉了**，所以这条判据**撤掉**。
             // 原来的理由（「手牌里放的是共享不可变的 `CardDef`，没有卡实例可以挂加成」）**只对了一半**：
             // 这张卡给的是「手牌里**所有**部队」、**每一份都要给** ⇒ 按「卡 + 份数」记账与
-            // 「实例身份」**语义等价**（见 `BattleContext.HandBuff`）。落地三处：
+            // 「实例身份」**语义等价**（见 `CardInstance.HandEffects`）。
+            // ⚠️ **2026-10-18（`A885`）就地订正**：原来这里写的是 `BattleContext.HandBuff` ——
+            // 那个**类已删**（连后来的对局表 `BattleContext.HandBuffs` 一起删了），
+            // 现在挂在**每一份牌自己**身上（`CardInstance.HandEffects` / `HandBuffOps`，
+            // = 原版 `CardScript +0x108`；订正痕迹 → `BattleContext.cs:501-511`）。落地三处：
             // `EffectResolver.GrantHandBuff`（登记）· `RuleCore.ApplyHandBuffs`（打出时兑现）·
             // `RepeatTacticOnAdjacent` 那一支的分流（`handScope`）。
             // ⚠️ 判据**别删成注释**：它现在是**真机制**，`ImplementedEffectVerbs` 那一路会放行，
@@ -4150,7 +4221,9 @@ namespace RuleEngine
         /// （⚠️ 更正：原来指 `资料/选牌Choose_数据与设计.md`，2026-10-10 已并入）
         /// 🔴 **2026-10-17（B14）就地订正（铁律 5）：上面那两行【已过期】—— 结算层 2026-09-16 就做完了。**
         ///    真实状态：**引擎侧做完了**（`DoChooseEffect` 的 `handScope` 分支 → `GrantHandBuff` →
-        ///    `ctx.HandBuffs` → `RuleCore.ApplyHandBuffs`；理由「按卡 + 份数记账与实例身份语义等价」）；
+        ///    **`CardInstance.HandEffects`** → `RuleCore.ApplyHandBuffs`；理由「按卡 + 份数记账与实例身份语义等价」）；
+        ///    ⚠️ **2026-10-18（`A885`）就地订正**：这一行原来写的是 `ctx.HandBuffs` —— 那张**对局级的表已删**，
+        ///    现在挂在**每一份牌自己**身上（订正痕迹 → `BattleContext.cs:501-511`）。
         ///    ✅ **2026-10-17（B24）就地订正（铁律 5）**：这一行原来写着
         ///    「**面板那一侧仍然没做**（`BattleDriver.ShowAsk` 见到 `ChooseEffectIsHand` 就不问了）」
         ///    —— **已不成立**：A905（2026-10-17）把那条短路删掉了（痕迹 → `BattleDriver.cs:4714-4724`；⚠️ **2026-10-18 订正**：原写 `:4446`，那是 `AddQuota` 里、与 A905 无关 —— 全文件 `grep -n "A905"` 独占命中 `:4716`）
@@ -6552,9 +6625,30 @@ namespace RuleEngine
             if (!m.Success) return null;
             var op = new EffectOp { Verb = "lose", Source = src };
             string subj = m.Groups[1].Success ? m.Groups[1].Value.Trim() : "";
-            op.Payload = m.Groups[2].Value.Trim();
+            // 🔴 **2026-10-18（`W5` · 审查 §5 账 4 的连带缺陷）就地补齐（铁律 5）**：
+            //   `ReLose` 的**第二条备选**（`^(?:all\s+)?loses?\s+(.+)$`）只填 **group 3**，
+            //   而这里原来只读 group 2 ⇒ **没写主语的 `Lose X` 载荷恒为空串**。
+            //   后果：`HandListenerSelfOp` 那三条闸里的「有载荷原文」过不去（`lose` 永远收不进手牌，
+            //   见那个方法的注释），而结算层会打一句「载荷「」本版不认识 —— 这条没生效」。
+            //   实测：`EffectText.Parse("Lose 1 Attack")` 在本批之前解出 `payload=""`。
+            //   ⚠️ 全池**没有卡**用这个形状（含 `lose` 的 6 张主语都写全）⇒ `ruleprobe check` 0 差异。
+            op.Payload = (m.Groups[2].Success ? m.Groups[2].Value : m.Groups[3].Value).Trim();
             op.Duration = ExtractDuration(ref op.Payload, ref subj);
-            op.Target = subj.Length == 0 ? null : ParseTarget(subj);
+            // 🔴 **2026-10-18（`W5` · 审查 §5 账 4「`HandListenerSelfOp` 不收 `lose`」）就地补齐**：
+            //   卡面**没写主语**时，`lose X` 与 `give X` **同一条口径** ——
+            //   「有施放者就是施放者自己，否则己方全体」（`EffectTargetSpec.Subjectless`）。
+            //   ⛔ 原来这里是 `Target = null` ⇒ 结算层 `DoGive` 的 `op.Target ?? …` 兜底把它
+            //   当成「**己方全体**」⇒ 一张卡自己 `lose 1 Attack` 会**洒给全队**。
+            //   判据/写法与 `TryGive` 的那一段**逐字同源**（`Target` 那一行），别另写一份。
+            //   ⚠️ **实测无卡走这一支**（全池含 `lose` 的 6 张卡主语都写全了：`All enemies lose …`）
+            //     ⇒ 这是**机制对齐**、不是修一个已发生的错；⛔ 别写成「修掉了一个可见缺陷」。
+            op.Target = subj.Length == 0
+                ? new EffectTargetSpec
+                  {
+                      Raw = "(未写目标：有施放者就是施放者自己，否则己方全体)",
+                      Side = "own", Kind = "unit", Count = 0, Auto = true, Subjectless = true,
+                  }
+                : ParseTarget(subj);
             return op;
         }
         static readonly Regex ReLose = new Regex(

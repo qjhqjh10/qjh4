@@ -12,6 +12,23 @@
 //      `ExecuteAction` 不碰它 ⇒ **把挑出来的动作原样重放即可**，AI 不必重跑。
 //    ⇒ **一条动作 = 一个 `MsgAction`**，这正是联机重连重放用的那个结构（`NetApply.Apply` 是唯一的落地实现）。
 //
+// ---- 🔴 记账口一共【三个】（改动时照这张表核对，正本 = `BattleDriver.cs` 文件头那张清单）----
+//   ① **玩家动作** —— `BattleDriver.LocalAct`（出牌 / 技能 / 攻击 / 收集灵魂石）+ `EndPlayerTurn` 里那条；
+//   ② **AI 动作** —— `SimpleAI.Executed`（挂在引擎边界上，见 `SimpleAI.cs:1152`）；
+//   ③ 🆕 **2026-10-18（A938）教程脚本动作** —— `TutorialScript.Executed`
+//      （`RuleEngine/Core/TutorialScript.cs`，**形状与 ② 一样**：执行器在引擎边界上发「已执行的动作」）。
+//      🔴 **为什么非有它不可**：教程脚本驱动的那些动作**既不是玩家挑的、也不是 AI 挑的**
+//      （原版没有这个概念）⇒ ①②**一个都盖不到** ⇒ 不记的话**教程局录像从那里开始演成另一局**。
+//      ⚠️ 它带的那份 `ScriptedActionDone` **不是 `AiAction`**（`Core/` 不许引 `Data/`，
+//        离屏探针只编 `Core/*.cs`）—— 由 `BattleDriver.OnTutorialScriptExecuted` 翻成
+//        `AiAction`（`PlayCard` / `Attack` 走正常那条）或**两个伪 kind**
+//        （`RecKindTutorialDraw 201` / `RecKindTutorialAttackType 202`，与 `RecKindForfeit` 同族，
+//         `PlayReplay` 里单独一支落回引擎）。
+//      ⚠️ **「等玩家」的那 110 条不在 ③ 上** —— 它们由玩家自己做，照旧走 ①。
+//    ⚠️ **怎么验「三个口都记全了」**：结算时记 `NetProtocol.StateHash(Ctx)`，回放完再算一次对比
+//       （`BattleDriver.PlayReplay` 末了一段）；不一致就出声。教程局这条链的自检落点 =
+//       `Editor/BattleScene.cs` 的「教程局」那一段（`回放 → 比终局局面哈希`）。
+//
 // ---- 存在哪（用户 2026-09-27 问的「专门的文件夹」）----
 // `Application.persistentDataPath/WarpforgeReplays/` —— 与 `NetConfig`（`WarpforgeNet.json`）·
 // `DeckStore` 同一套（`JsonUtility` + 一个给自检用的 `OverrideDir`）。
@@ -54,6 +71,32 @@ namespace CardPresentation
         public string myHero = "", foeHero = "";
         /// <summary>开局参数（**重建这一局要的全部东西**）。</summary>
         public MsgStart start;
+        /// <summary>🆕 2026-10-18（A938）：**这一局是教程第几关**（`stage`，**1..6**；
+        /// **`0` = 不是教程局**）。
+        ///
+        /// 🔴 **为什么非记不可**：教程局的开局**不是**「种子 + 两副牌」能重建出来的 ——
+        ///   它少洗一次牌、起始单位是关卡摆的、起手是关卡点名的那几张、连「谁先手」都照关卡
+        ///   （`RuleCore.NewBattle` 那六条开关**全读 `ctx.Tutorial`**）。
+        ///   ⇒ 不记这一格，回放放出来的**根本不是同一局**（棋盘一开始就不一样）。
+        ///   ⚠️ 它**不属于 `MsgStart`**（那个结构在 `Net/NetProtocol.cs`，是联机协议的一部分，
+        ///     原版也没有「教程关号」这个字段）⇒ 放在录像自己的头里。
+        ///
+        /// 🔴 **哨兵取 `0` 而不是 `-1`（审查 R10/K7 的整改）**：这一格是**新加的**，老录像的 JSON 里
+        ///   **没有这个键**，读出来是什么**取决于 `JsonUtility.FromJson` 会不会跑字段初始化器** ——
+        ///   而那条行为**本地没有判据**（审查查过，没查到）。若它**不跑**初始化器 ⇒ 读出来是 `0`；
+        ///   而如果哨兵写成 `-1`，那一刻**所有老录像都会被当成「教程第 1 关」放**（静默错）。
+        ///   ⇒ 把「不是教程局」定成 **`0`（= `int` 的默认值）**：**初始化器跑不跑都给 `0`**，
+        ///     这条兼容**不依赖任何未查清的行为**。⛔ 别把它改成 `-1`，也别改成 `0` 表示别的意思。
+        ///   用 <see cref="TutorialStageIndex"/> 读它（那里面才是「0..5 的关号 / -1 = 不是教程局」的换算）。
+        ///   ⚠️ **`version` 不 +1**：这是**纯新增**字段，老录像读出来是 `0` = 「不是教程局」
+        ///     —— 正好是它们本来的行为。与该字段那条「改结构就 +1」的规矩不冲突（那条防的是**同一格换语义**）。</summary>
+        public int tutorialStage = 0;
+
+        /// <summary>教程关号（`tutorialIndex`：**0..5**；**`-1` = 不是教程局**）—— 唯一读法。
+        /// ⚠️ 它是**属性**：`JsonUtility` 只序列化**字段**（public 字段 / `[SerializeField]`）⇒
+        ///    它不会进 `.json`，也不会在 `FromJson` 时被写（所以不存在「读出来是 0」那一类问题）。</summary>
+        public int TutorialStageIndex { get { return tutorialStage >= 1 ? tutorialStage - 1 : -1; } }
+
         /// <summary>动作流（含换牌那两条：`kind = 100/101`）。</summary>
         public List<MsgAction> actions = new List<MsgAction>();
         /// <summary>🆕 2026-09-27：**逐条动作之后的引擎指纹**（`trace[i]` = 第 i 条动作落地后的状态）。

@@ -488,6 +488,14 @@ public static class TmpSetup
     /// `CardText` 里那张表（26 张卡的译名 + 关键词 + 效果小字）。
     /// ⚠️ 中文那部分**从 `CardText.AllChinese()` 取，不手抄** —— 以后加卡/加关键词，
     ///    字自动进语料，不会漏（「两处写同一条规则 = 迟早不一致」）。
+    /// 🔴🆕 **2026-10-18（第十五轮 · `G5`）就地订正**：这里原来只收 `CardText` **自己那几张表**，
+    ///    **⛔ 不含 `Core/Loc.cs` 的中文列** ⇒ `W6` / `G2b` / `G8` / `G9` 新加的那一大批战斗侧中文
+    ///    （`手牌剩余` / `牌库剩余` / `结束回合` / `可用 {0}` / `撤销` …）**一条都不在语料里**。
+    ///    今天**不会真缺字**（字体资产是 TMP **Dynamic**、运行期按需补字形），但
+    ///    「**改了文案忘了重烘**」这一族就再也拦不住了。
+    ///    ⇒ 现在那句 `foreach` 由 `CardText.AllChinese()` **内转**调 `Loc.AllChinese()`
+    ///      （判据与断言 → `Core/Loc.cs` 的 `AllChinese()` doc + `Editor/BattleScene.cs` §14b4c）。
+    ///    📌 **改完语料要重跑一次 `BuildCjkFontAsset`** 再跑 `CheckCoverage` 那一步。
     /// </summary>
     static string Corpus()
     {

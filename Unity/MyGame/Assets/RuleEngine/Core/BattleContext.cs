@@ -504,11 +504,17 @@ namespace RuleEngine
         ///    `PlayerHand__SetupCardInHand.c:71` · `PlayerHand__AddHandEffect.c:126-135`，
         ///    存在 `CardScript +0x108` 的 `List<CardEffect>`），打出时**跟着那张牌上场**
         ///    （`RemoveCardFromHand.c:20` 只把牌从 `currentHand` 里摘掉，不销毁不重建）。
-        ///    ⇒ 存放处搬到 **`CardInstance.HandBuffOps` / `HandBuffSource` / `HandBuffExpire*` /
-        ///      `HandBuffUsesRef`**（每个实例一份），**这里不再有那张表**。
+        ///    ⇒ 存放处搬到 **`CardInstance.HandEffects`**（每个实例一份；旧名 `HandBuffOps` 等
+        ///      四个标量现在是**只读兼容视图**），**这里不再有那张表**。
         ///    ⛔ **别再在对局表上重建一份** —— 两处各存一份 = 迟早不一致（铁律 §三）。
         ///    ⚠️ 过期与次数上限（原版 `PlayerHand.UpdateCardEffects` / `CardPlayedWithEffects`）
         ///      也落在实例那几个字段上，清扫点 = `RuleCore.ExpireHandBuffs`（`EndTurn` 里调）。
+        ///    🆕 **2026-10-18（`A885` ②④）再订正两处**：
+        ///      · **每条效果各带各的到期位**（`CardInstance.HandEffect`，一份牌可挂多条 ——
+        ///        原版一条 `CardEffect` 一个到期位）；那四个标量视图只反映**最后挂上那条**。
+        ///      · **「后进手牌的牌也吃上既有手牌效果」那一层做了**
+        ///        （`RuleCore.SetupCardInHand`，原版 `PlayerHand__SetupCardInHand.c`）——
+        ///        登记表是**现场扫手牌实例**扫出来的，⛔ **仍然没有对局级的表**。
         ///
         /// 📌 历史留痕（2026-09-18 当时的状态，只留结论）：原来按「卡 + 份数」记
         ///    （`CardDef Card; int Count;`）—— 那是「没有卡实例身份」时代的近似。</summary>
@@ -582,6 +588,20 @@ namespace RuleEngine
 
         /// <summary>本局已经发出去几份（报表 / 断言用；它等于「发过的最大编号」）。</summary>
         public int InstanceCount { get { return _nextInstanceId - 1; } }
+
+        // ---- 🆕 2026-10-18（`W4` 整改 · 审查问题 6）「同一次手牌效果挂载」的记录号 ----
+
+        int _nextHandEffectRecordId = 1;
+
+        /// <summary>
+        /// 发一个**「同一次手牌效果挂载」的记录号** —— 一次调用发给 N 张牌，N 张身上那 N 条
+        /// 共用这一个号（原版是**一个 `HandEffect` 记录 / 一个 `CardEffect` 对象**发给 N 张牌，
+        /// `PlayerHand__AddHandEffect.c:112-139`）。用途与该号为什么必须在：
+        /// <see cref="CardInstance.HandEffect.RecordId"/>。
+        /// ⚠️ **跟着 `BattleContext` 走**（每局从 1 开始）⇒ 同种子必然同序号（对局可复现）；
+        ///    ⛔ 别用 `Guid` / `UnityEngine.Random`。
+        /// </summary>
+        public int NextHandEffectRecord() { return _nextHandEffectRecordId++; }
 
         public PlayerState ActivePlayer { get { return Players[Active]; } }
         public PlayerState Opponent { get { return Players[1 - Active]; } }

@@ -1030,6 +1030,29 @@ public static class CollectionScene
                 }
             }
 
+            // 🆕 **2026-10-18（第三轮整改 · 审查 P4）：四个页的空态那行字 —— 全部走词条** ----
+            //   原版四份 `Empty Collection Warning/Warning` 各挂一条 `MenuCollection/*No*Found`
+            //   （本审查先认树、再按 pid 亲读 `mTerm` + TMP 的 `m_text`）：
+            //     Deck 页 `MenuCollection/NoDecksFound` · Cards/异画页 `MenuCollection/NoCardsFound` ·
+            //     卡背页 `MenuCollection/NoCardbackFound`（卡背抽屉那一份在 `DeckRuntime`，另有断言）。
+            //   ⚠️ 这里只断**字**：四页的 `act=F` 出厂态与显隐判据由上面那几条 / `BuildDeckList` 管。
+            {
+                var eKeys = new[] { "MenuCollection/NoDecksFound", "MenuCollection/NoCardsFound",
+                                    "MenuCollection/NoCardbackFound", "MenuCollection/NoCardsFound" };
+                var ePage = new[] { "Deck 页(0)", "Cards 页(1)", "卡背页(2)", "异画页(3)" };
+                for (int pi = 0; pi < eKeys.Length; pi++)
+                {
+                    CheckTrue(Loc.HasEntry(eKeys[pi]),
+                              $"（前提）词条 `{eKeys[pi]}` 在表里（⛔ 不在 ⇒ {ePage[pi]} 那条两边一起退化成键名 = 假绿）");
+                    var ewN = FindChild(win.PageRoot(pi), "Empty Collection Warning");
+                    var wlb = ewN != null ? FindChild(ewN, "Warning") : null;
+                    CheckTrue(wlb != null, $"{ePage[pi]} 的 `Empty Collection Warning/Warning` 节点在");
+                    CheckText(wlb != null ? TextOf(wlb) : null, Loc.T(eKeys[pi]),
+                              $"{ePage[pi]} 空态那行字 = `Loc.T(\"{eKeys[pi]}\")`（随语档；"
+                            + "原文 = 原版那颗 `Warning` 的 TMP `m_text`）");
+                }
+            }
+
             // ---------------- 交互：点一格 / 点 Create / 滚动 ----------------
             Section("交互（批处理直调，与真点同一条 `WindowButton.onClick`）");
             int before = CollectionData.CurrentIndex();
@@ -1084,8 +1107,17 @@ public static class CollectionScene
                               $"`Clear filters`（右缘 **{cfR:F0}**）与 `Import Deck`（左缘 **{iL:F0}**）**不叠**"
                               + " —— 判据是 A2 §161 的实测落点 612.2，**别自己按容器推**");
                 }
-                CheckText(TextOf(FindChild(tabsRoot, "Import Text")), "Import Deck", "`Import` 钮文案（原版 `Import Deck`）");
-                CheckText(TextOf(FindChild(tabsRoot, "Create Text")), "Create Deck", "`Create` 钮文案（原版 `Create Deck`）");
+                // 🔴 **2026-10-18（A891 的续）改「随语档」**：`Import` / `Create` 两颗钮的字从本批起走词条
+                //   （`Shell/CollectionWindow.cs` 那两处 `Loc.T(...)`）⇒ 宿主跑在**出厂语言 = 中文**时，
+                //   原来写死的 `"Import Deck"` / `"Create Deck"` 必红。原文本身没丢：两条词条的**英文列**
+                //   = 原版 prefab 那颗 TMP 的 `m_text` 原文（本批按 pid 亲读）—— 见 `Core/Loc.cs` 的注释。
+                CheckTrue(Loc.HasEntry("MenuDeck/MenuButtons/ImportDeck")
+                          && Loc.HasEntry("MenuDeck/MenuButtons/CreateDeck"),
+                          "（前提）两条 `MenuDeck/MenuButtons/*` 词条在表里（⛔ 不在 ⇒ 下面两条两边一起退化成键名）");
+                CheckText(TextOf(FindChild(tabsRoot, "Import Text")), Loc.T("MenuDeck/MenuButtons/ImportDeck"),
+                          "`Import` 钮文案（键 `MenuDeck/MenuButtons/ImportDeck`，原版 TMP 原文 `Import Deck`；随语档）");
+                CheckText(TextOf(FindChild(tabsRoot, "Create Text")), Loc.T("MenuDeck/MenuButtons/CreateDeck"),
+                          "`Create` 钮文案（键 `MenuDeck/MenuButtons/CreateDeck`，原版 TMP 原文 `Create Deck`；随语档）");
             }
             // 🔴 **2026-10-05（A89）补：`Control Buttons` 的三颗视觉序** —— 原版那个 HLG 是
             //    **`m_ReverseArrangement = 1`**（spacing 25 · `pad.right` 14 · align `MiddleRight` · `expandW=1`）
@@ -3579,6 +3611,15 @@ public static class CollectionScene
                 CheckTrue(bl != null, "`Shared/Close Button/Button Text` 在（A22② 那颗 Back 钮）");
                 Check(bl != null ? bl.WrappingMode : -1, 0,
                       "★ `Back` 那颗钮的字 **`折行=0`**（原版实读，别让 `SetAutoFitBox` 开的折行留着）");
+                // 🔴 **2026-10-18（第三轮整改 · 审查 P4）**：这颗钮的字从第三轮起**走词条**
+                //   （`Shell/CollectionWindow` 的 `Loc.T("MainMenu/MainButtons/ButtonLabel/Back")`，
+                //   键 = 原版那颗 `Button Text` 的 `mTerm` 原文）⇒ 顺手把它的**文案**也断上
+                //   （原来这一节只断折行/框宽，一个字都没断 ⇒ 「字有没有接上词条」看不见）。
+                CheckTrue(Loc.HasEntry("MainMenu/MainButtons/ButtonLabel/Back"),
+                          "（前提）词条 `MainMenu/MainButtons/ButtonLabel/Back` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名）");
+                Check(bl != null ? bl.Text : null, Loc.T("MainMenu/MainButtons/ButtonLabel/Back"),
+                      "★ `Back` 那颗钮的**文案** = `Loc.T(\"MainMenu/MainButtons/ButtonLabel/Back\")`（随语档；"
+                      + "原版 TMP 原文 `Back` / 中文「返回」`zh_CN.csv:5`）");
                 // 🆕 **2026-10-09（A265）**：那颗 `Button Text` 用的是**它自己的矩形 132.86×48.24**，
                 //   **不是**整颗钮的 150×60。中心只差 0.25px ⇒ `CheckAt` 那一档**分辨不出**这两态，
                 //   所以必须**单独断框宽/框高**（`SetAutoFitBox` 写进 `sizeDelta` 的就是这两数）。
@@ -3822,9 +3863,22 @@ public static class CollectionScene
                 //   🔴 **2026-10-05（A93②）**：判据那句 `hAlign=Center` 是**读错了** —— 原版是 `Left/Middle`
                 //      （判据 = `Core/FilterPanelModel.cs` 的 `TitleFontPx` 那段，两扇窗逐行实读）。
                 //      对齐单独断（下面那四条量**左沿**），不只是「在不在」。
-                foreach (var ttl in new[] { "Army", "Rarity" })
-                    CheckText(TextOf(FindChild(fltPanel, "Title " + ttl)), ttl,
-                              $"小标题 `{ttl}` 在（原版 `Title` TMP fs32；它在**顶部视野内**）");
+                // 🔴 **2026-10-18（A891 的续 · 续做 A）：四行小标题全走词条**（键 = 原版那颗 `Localize.mTerm`
+                //   的原文，判据见 `Core/FilterPanelModel.cs` 的 `TitleTerm`）⇒ 期望值随语档。
+                //   🔴🔴 **第三轮整改（审查 P1）就地订正（铁律 5）**：这一段原来写「`Energy Cost` 那一行
+                //   原版**没有** `Localize`（全库 3 颗）⇒ 它恒英文」—— **那是错的**。错因 = **「全库」只扫了
+                //   `bundle_menus_assets_all` 一个包**。复跑全部 80 个 bundle：`m_text == "Energy Cost"` 的 TMP
+                //   **17 颗 / 15 个 bundle**，**每颗都挂 `Localize.mTerm = "Battle/Tips/EnergyCost"`**
+                //   ⇒ 它是正经词条，已接上（本文件下面那条断言就是正面判据）。
+                //   ⚠️ 上面那句「键在表里」是**必须的**：键不在 ⇒ `Loc.T` 返回键名本身、渲染那一侧同样返回
+                //   键名 ⇒ 只比相等会**假绿**（两边一起退化）。
+                CheckTrue(Loc.HasEntry("MenuDeck/Filters/Army") && Loc.HasEntry("MenuDeck/HUD/Rarity")
+                          && Loc.HasEntry("MenuDeck/Filters/Type") && Loc.HasEntry("Battle/Tips/EnergyCost"),
+                          "（前提）四行小标题词条都在 `Loc` 表里（⛔ 有一条不在 ⇒ 下面四条两边一起退化成键名 = 假绿）");
+                CheckText(TextOf(FindChild(fltPanel, "Title Army")), Loc.T("MenuDeck/Filters/Army"),
+                          "小标题 `Army` 在（原版 `Title` TMP fs32；键 `MenuDeck/Filters/Army`，随语档；顶部视野内）");
+                CheckText(TextOf(FindChild(fltPanel, "Title Rarity")), Loc.T("MenuDeck/HUD/Rarity"),
+                          "小标题 `Rarity` 在（键 `MenuDeck/HUD/Rarity`，随语档；顶部视野内）");
                 // 🔴 **左沿断言（4 条，2026-10-05 A93②）** —— 期望值是**原版的读数**，不是我们的常量：
                 //   原版面板内左沿 = Army 行 **0** · 其余三行 **25**（`Collection Menu Variant` 的 Cards 页
                 //   `Title` 实读 `0.3 / 25.3`、面板原点 `0.3`；卡组编辑那棵同族 `2.2 / 27.2`、原点 `2.2`）
@@ -3845,9 +3899,13 @@ public static class CollectionScene
                 if (fscr != null)
                 {
                     fscr.ScrollBy(fscr.MaxOffset);
-                    foreach (var ttl in new[] { "Energy Cost", "Type" })
-                        CheckText(TextOf(FindChild(fltPanel, "Title " + ttl)), ttl,
-                                  $"小标题 `{ttl}` 在（滚到底之后才够得着）");
+                    // 🔴 2026-10-18（A891 的续 · 续做 A）：`Energy Cost` / `Type` 都走词条（随语档）。
+                    //   ⚠️ **第三轮整改（审查 P1）**：`Energy Cost` 原来这条**把「原版无词条」钉成了检验标准**
+                    //   —— 是最坏的一档（下一个人要接它时会先撞红）。现改为正面判据。
+                    CheckText(TextOf(FindChild(fltPanel, "Title Energy Cost")), Loc.T("Battle/Tips/EnergyCost"),
+                              "小标题 `Energy Cost` 在（键 `Battle/Tips/EnergyCost`，随语档；滚到底之后才够得着）");
+                    CheckText(TextOf(FindChild(fltPanel, "Title Type")), Loc.T("MenuDeck/Filters/Type"),
+                              "小标题 `Type` 在（键 `MenuDeck/Filters/Type`，随语档；滚到底之后才够得着）");
                     // 同样量左沿（**滚到底之后**才够得着 ⇒ 这两条必须在 `ScrollBy(-MaxOffset)` 之前）
                     CheckNear(TitleLeftPx(fltPanel, "Energy Cost"), 25.25f, 1f,
                               "小标题 `Energy Cost` 的**渲染左沿** = 面板内 **25**（滚到底时量的）");
@@ -3919,8 +3977,15 @@ public static class CollectionScene
                     // 🔴 2026-09-23 实拍抓的：**搜索框停在 `impe_` 没回到占位符**（断言当时一条都没报）
                     //    ⇒ 补这一条盯**画面上的字**（`Label.Text`），别只盯状态
                     var nf = FindChild(FindChild(fltPanel, "Name Filter"), "Input Text");
-                    CheckText(TextOf(nf), "Search",
-                              "清空后搜索框回到占位符 `Search`（**实拍抓出来的那条**：光看状态量不到）");
+                    // 🔴 **2026-10-18（A891 的续）改「随语档」**：占位符从本批起走词条
+                    //   （`Core/FilterPanelModel.InputPlaceholder` → `Loc.T("MenuDeck/HUD/SearchFilter")`）
+                    //   ⇒ 宿主跑中文档时写死的 `"Search"` 必红。原文（`Search`）留在 `Loc` 的英文列里
+                    //   （= 原版 `Placeholder` 那颗 TMP 的 `m_text` 原文）。
+                    CheckTrue(Loc.HasEntry("MenuDeck/HUD/SearchFilter"),
+                              "（前提）词条 `MenuDeck/HUD/SearchFilter` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名）");
+                    CheckText(TextOf(nf), Loc.T("MenuDeck/HUD/SearchFilter"),
+                              "清空后搜索框回到占位符（键 `MenuDeck/HUD/SearchFilter`，随语档；"
+                              + "**实拍抓出来的那条**：光看状态量不到）");
                 }
 
                 // 🔴 层序：筛选栏**必须盖在卡池之上**（原版兄弟序 `Collection Display` 在前、`Card Filters` 在后）
@@ -4309,12 +4374,32 @@ public static class CollectionScene
                 }
             }
             // 页头（A3 那条「每页自己的实例值」：本页 35/33，**异画页是 42**）
-            CheckText(TextOf(FindChild(cpage, "Header Label")), "Your cosmetics collection",
-                      "页头标题 = `Your cosmetics collection`（原版 fs38）");
-            CheckText(TextOf(FindChild(cpage, "Filters Label")), "Filters",
-                      "页头 `Filters` 文案在（原版 **fs35** auto 10-35 —— ⚠️ 异画页同名的是 42）");
-            CheckText(TextOf(FindChild(cpage, "Clear filters Text")), "Clear filters",
-                      "页头 `Clear filters` 文案在（原版 **fs33** auto 10-33）");
+            // 🔴 **2026-10-18（第三轮整改 · 审查 P4）改「随语档」**：本页页头标题从第三轮起走词条
+            //   （`Shell/CollectionWindow.BuildCosmeticsPage` 的 `Loc.T("MenuCollection/Label/Cosmetics")`，
+            //   键 = 原版那颗 `label` 的 `mTerm` 原文）⇒ 宿主跑中文档时写死的 `"Your cosmetics collection"` 必红。
+            CheckTrue(Loc.HasEntry("MenuCollection/Label/Cosmetics"),
+                      "（前提）词条 `MenuCollection/Label/Cosmetics` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
+            CheckText(TextOf(FindChild(cpage, "Header Label")), Loc.T("MenuCollection/Label/Cosmetics"),
+                      "页头标题 = `Loc.T(\"MenuCollection/Label/Cosmetics\")`（随语档；"
+                      + "原版 TMP 原文 `Your cosmetics collection` · 原版 fs38）");
+            // 🔴 **2026-10-18（A891 的续 · 续做 B）改「随语档」**：页头那颗字从本批起走词条
+            //   （`Shell/CollectionWindow.BuildFilterHeader` 的 `Loc.T("MenuDeck/Filters/Filters")` —— 与
+            //   卡组编辑窗页头那颗**同一条键**）⇒ 宿主跑中文档时写死的 `"Filters"` 必红。
+            //   原文 = 原版那颗 TMP 的 `m_text`（`Filters`），留在 `Loc` 的英文列里（中文列 = 原版实拍「过滤器」）。
+            CheckTrue(Loc.HasEntry("MenuDeck/Filters/Filters"),
+                      "（前提）词条 `MenuDeck/Filters/Filters` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
+            CheckText(TextOf(FindChild(cpage, "Filters Label")), Loc.T("MenuDeck/Filters/Filters"),
+                      "页头 `Filters` 文案在（键 `MenuDeck/Filters/Filters`，随语档；"
+                      + "原版 **fs35** auto 10-35 —— ⚠️ 异画页同名的是 42）");
+            // 🔴 **2026-10-18（A891 的续）改「随语档」**：页头那颗字从本批起走词条
+            //   （`Shell/CollectionWindow.BuildFilterHeader` 的 `Loc.T("MenuDeck/Filters/ClearFilters")`）
+            //   ⇒ 宿主跑中文档时写死的 `"Clear filters"` 必红。原文 = 原版那颗 TMP 的 `m_text`（`Clear filters`），
+            //   留在 `Loc` 的英文列里。⛔ 下面找底图那句（节点名 `"Clear filters"`）**不动**。
+            CheckTrue(Loc.HasEntry("MenuDeck/Filters/ClearFilters"),
+                      "（前提）词条 `MenuDeck/Filters/ClearFilters` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名）");
+            CheckText(TextOf(FindChild(cpage, "Clear filters Text")), Loc.T("MenuDeck/Filters/ClearFilters"),
+                      "页头 `Clear filters` 文案在（键 `MenuDeck/Filters/ClearFilters`，随语档；"
+                      + "原版 **fs33** auto 10-33）");
             // 🔴 **实拍抓的一条**：第一版照抄了 dump 的 `1405`（= **布局组跑之前的模板位**，
             //    父容器 `Header/Filters` 是 425..1385 的 VLG）⇒ **它和右对齐到 1821 的标题叠在一起**。
             //    ⇒ 现在断「按钮在容器内」**并且**「标题与按钮不叠」—— 这类错**矩形断言量不到**，
@@ -6052,6 +6137,23 @@ public static class CollectionScene
                     Check(chat.CurrentState, WindowState.Open, "聊天窗开得起来（`ChatPanel.Create` + `OpenWindow`）");
                     Check(chat.type, WindowType.Popup, "`type` = **1 Popup**（与社交窗相反）");
                     CheckTrue(ChatPanel.LastOpened == chat, "`ChatPanel.LastOpened` 指到它（自检口）");
+
+                    // 🔴 **2026-10-18（第七轮）：输入框占位符走词条** —— 键 = 原版那颗 `Placeholder` 的
+                    //   `Localize.mTerm` 原文 `MainMenu/Chat/TypeMessage`（1 颗；父链 =
+                    //   `Placeholder < Text Area < InputField (TMP) < Enter Text < Chat < Holder < ChatPanel`
+                    //   ⇒ 节点名与路径都和我们这一颗一致）。
+                    //   ⚠️ 我们的树上**没有 `Text Area` 那一层**（`Text(...)` 直接把字挂在 `InputField (TMP)` 下）
+                    //   ⇒ 路径少一节，别照抄原版那条。
+                    {
+                        var ci = FindChild(FindChild(FindChild(FindChild(chat.transform, "Holder"), "Chat"), "Enter Text"),
+                                           "InputField (TMP)");
+                        var cph = ci != null ? FindChild(ci, "Placeholder") : null;
+                        CheckTrue(Loc.HasEntry("MainMenu/Chat/TypeMessage"),
+                                  "（前提）词条 `MainMenu/Chat/TypeMessage` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
+                        CheckText(TextOf(cph), Loc.T("MainMenu/Chat/TypeMessage"),
+                                  "★ 聊天窗输入框占位 = `Loc.T(\"MainMenu/Chat/TypeMessage\")`（随语档；"
+                                + "原版 TMP 原文 `Type message` / 中文「输入消息」`zh_CN.csv:183`）");
+                    }
 
                     // ① 压暗层命中区（A77⑧）：档 = 压暗层自己那一档（`QPanel` = 3300）、且严格低于内容档
                     //    （`QHit` = 3308）；并且**确实是公共件 `MenuDraw.ShadeHit` 建的**（改回本窗自己那份

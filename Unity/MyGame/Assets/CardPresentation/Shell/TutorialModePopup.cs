@@ -41,9 +41,20 @@
 //   ① **教程关卡执行器** —— ✅ **引擎侧已落地**（`RuleEngine/Core/TutorialScript.cs`：单指针状态机 +
 //      玩家动作白名单闸门 + `playerAlwaysWins`/`preventPlayerResign`）；数据源是
 //      `Resources/tutorial_stages.json`（6 关 / 79 回合 / 462 动作，全量版）。
-//      ⚠️ **但动作只接了 `DrawCard`（+ `PlayerChoice` 的空转）**：`PlayCard` / `Attack` / `ActiveAbility` /
-//      `ChangeToX` 四族**还没接**（它们要按 `ourId` 认卡 + 算落点/目标，属下一批）——
-//      **未接的那几档会被消费掉并出声**（`TutorialScript.Unhandled`），⛔ 不是静默跳过。
+//      🔴 **2026-10-18 更正（原来写「动作只接了 `DrawCard`（+ `PlayerChoice` 的空转）、`PlayCard`/`Attack`/
+//      `ActiveAbility`/`ChangeToX` 四族还没接」—— 那句**已过期**，铁律 5）**：
+//      ① 真正的病根不是「接得少」，是 **执行器在真局里一次都没被驱动**（`PlayScriptedTurn` /
+//         `UpdateTurn` / `PermitsPlayerAction` 在 `CardPresentation/` 生产代码里**零调用点**、
+//         `Ctx.Tutorial` 从没被读过）⇒ 当时实际是 **0 条**在执行，不是「只接了 DrawCard」；
+//         **2026-10-18 已接线**（AI 回合脚本接管 · 玩家回合每帧推一步 · 四个 `BeginTurn` 后跟
+//         `SyncTutorialTurn` · 新增 `ContinueTutorialScript()` = 原版「玩家做完 ⇒ 指针 +1」那个口）。
+//      ② 六档**已实现**：`PlayCard` / `Attack` / `AttackFreeMode` / `ChangeToRanged` / `ChangeToMelee`；
+//         **`ActiveAbility` 教程数据 0 条** ⇒ 只留**桩 + 出声**（原版 `ExecuteAction` 里有它，6 关不用）。
+//      ③ 认不出的动作**不执行 + 出声**并记进 `TutorialScript.Unhandled`；⚠️ 「**原版本来就没有**的档」
+//         （如 `EndTurn` 73 条 —— 原版 `ExecuteAction` 里根本没有分支 = no-op）另记 `StageActions`
+//         ⇒ ⛔ **别把这两本账混读成同一件事**（一本是「我们没做」，一本是「原版就没有」）。
+//      🔴 **仍没做的**：教程**表现层**（小提示 / 左右箭头 / 高亮 / 指点光标 / 教学标注 / 跳过钮 /
+//         聊天三档含 `RadioChat` / 音效 / 督军两拍落场 / 五个 `hide*`）与 **`A939` 胜利脚本 13 条**。
 //   ② **教程对局规则** —— ✅ **已进引擎**：不洗牌 / 先手照关卡 / 不起换牌阶段 / 起手卡插牌库顶 /
 //      起始单位落场 / 初始法力（6 关全 0）/ `playerAlwaysWins`（6 关全 false）逐条照做；
 //      参数收在 `GameplayVariables.Tutorial`（`For(GameMode.Tutorial)` 唯一入口）。

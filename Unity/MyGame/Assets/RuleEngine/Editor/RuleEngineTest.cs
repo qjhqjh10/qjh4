@@ -191,7 +191,7 @@ public static partial class RuleEngineTest
         Section("伏击 `Ambush`（面朝下打出、挨伤害就作废、撑一轮才触发）");
         Step(TestAmbush);
 
-        Section("伴生 `Companion X`（打出时带出手里的伴生部队）");
+        Section("伴生 `Companion X`（打出时**造一张伴生卡进手牌** —— 原版 `ProcessCompanion`）");
         Step(TestCompanion);
 
         Section("战术卡能打（解析 → 结算 → 弃牌堆）");
@@ -410,6 +410,37 @@ public static partial class RuleEngineTest
 
         Section("伴生 / 潮涌 都不写「本局打出过的牌」（A920）");
         Step(TestPlayedCardsExcludesCompanionAndTide);
+
+        // ============================================================
+        //  🆕 2026-10-18（A938）：教程执行器的**引擎侧那一半**
+        // ============================================================
+        //  这一节只验「引擎里的东西」：① 卡上持久的攻击型（`UnitState.CurrentAttackType`，原版 `+0x120`）
+        //  ② 照它打的 `DeclareAttackByCurrentType`（原版 `Attack(30)` 那一支）
+        //  ③ 脚本「谁 / 打谁」的解析（`TutorialRules` 那三个方法，含**认不出就不猜**）。
+        //  ⚠️ 「脚本真的被驱动 / 六档真的改了局面 / 录像能回放」在 `Editor/BattleScene.cs` 那一节
+        //     （那边才有真的 `BattleDriver` 与真的关卡数据）。
+        Section("教程执行器 · 引擎侧：卡上攻击型 + 脚本动作解析（A938）");
+        Step(TestTutorialEngineHalf);
+
+        // ============================================================
+        //  🆕 2026-10-18（W5）：引擎侧那一批残账（5 件）
+        // ============================================================
+        //  ① `K3`：`+0x120`（当前攻击型）的**其余写点**（审计当时只落了「构造 + ChangeAttackType」两处）
+        //  ② `criteria` 根治：解析层产出 `PrevAntecedent` + 退路档从「放行」收成「不放行」
+        //  ③ 潮涌漏调 `EnforceHandLimit`
+        //  ④ 事件广播次序：**棋盘那一跳在手牌那一跳之前**（原版三跳）
+        //  ⑤ 起手发牌**不算「抽到」**（不发 `draw` 广播、不置 `DrawnThisTurn`）
+        Section("🆕 引擎残账 5 件（攻击型其余写点 / criteria 根治 / 潮涌上限 / 广播次序 / 起手不算抽到）");
+        Step(TestW5EngineBacklog);
+
+        // ============================================================
+        //  🆕 2026-10-18（G3）：三笔**已查实的真差异**
+        // ============================================================
+        //  ① 手牌效果 **先登记记录、再贴牌**（原版 `AddHandEffect`）—— 手里没有符合条件的时记录照样在
+        //  ② `DeckLibrary` 判「读存档失败」**不看汉字**（原来 `note.Contains("失败")`）
+        //  ③ `BroadcastWhen` 棋盘那一跳的 `ctx.EventTarget` **要还原**
+        Section("🆕 真差异 3 笔（手牌效果先记后贴 / 卡组库错误类型 / 事件宾语还原）");
+        Step(TestG3EngineRealDiffs);
 
         // ---- 汇总 ----
         int total = _pass + _fail;
@@ -1534,6 +1565,16 @@ public static partial class RuleEngineTest
         return -1;
     }
 
+    /// <summary>🆕 2026-10-18（`W5`）：**手牌里按卡名索引的那几份实例**（`HandIdx` 的实例版）。
+    /// 手牌效果的那几条断言要拿到**那一份**（效果挂在实例上），只有下标记号不够用。</summary>
+    static Dictionary<string, CardInstance> HandByName(BattleContext ctx, int p)
+    {
+        var d = new Dictionary<string, CardInstance>();
+        foreach (var h in ctx.Players[p].Hand)
+            if (h != null && h.Card != null) d[h.Card.Name] = h;
+        return d;
+    }
+
     static UnitState Board(BattleContext ctx, int p, int slot) { return ctx.Players[p].Board[slot]; }
 
     /// <summary>
@@ -1558,6 +1599,30 @@ public static partial class RuleEngineTest
         foreach (var inst in ctx.Players[p].Hand)
             if (inst != null) n += inst.HandBuffOps.Count;
         return n;
+    }
+
+    /// <summary>🆕 2026-10-18（`A887` 的续）：**手牌里名叫 <paramref name="cardName"/> 的那一份**
+    /// 身上挂了几条手牌效果（多条时取条数最多的那一份）。
+    /// 用来钉「手牌监听器**正文没写主语**的那句落在它自己身上」——
+    /// 「洒给己方全体」的写法在这一条上必红（那份身上会是 0 条）。</summary>
+    static int HandEffectCountOn(BattleContext ctx, int p, string cardName)
+    {
+        int best = 0;
+        foreach (var inst in ctx.Players[p].Hand)
+            if (inst != null && inst.Card != null && inst.Card.Name == cardName)
+                if (inst.HandEffects.Count > best) best = inst.HandEffects.Count;
+        return best;
+    }
+
+    /// <summary>🆕 2026-10-18（`W4` 整改 · 审查要求）：**手牌里有没有名叫 <paramref name="cardName"/>
+    /// 的那一份**。用途 = 给 <see cref="HandEffectCountOn"/> 的 `== 0` 那一族**钉住前提**：
+    /// 手牌里那份不存在时 `HandEffectCountOn` 也返回 0 ⇒ 「`0 == 0`」**恒绿**（假断言）。
+    /// ⛔ 别删这条前提 —— 另一条腿（谁把手牌塞满/换成别的夹具）一改，那一族就会变假绿。</summary>
+    static bool HandHasInst(BattleContext ctx, int p, string cardName)
+    {
+        foreach (var inst in ctx.Players[p].Hand)
+            if (inst != null && inst.Card != null && inst.Card.Name == cardName) return true;
+        return false;
     }
 
     /// <summary>把一个单位直接摆到场上（跳过部署流程，只为构造攻击场景）</summary>
@@ -2081,16 +2146,28 @@ public static partial class RuleEngineTest
             CheckCode(RuleCore.PlayCard(ctx, 1, HandIdx(ctx, 1, "Pawn2"), 1), RuleCodes.OK, "对手打出一张部队");
             Check(Board(ctx, 0, 3).Attack, atk,
                   "**对手**打出单位时**不**触发（`you` = 本方；修之前这里会 +1）");
+            // 🔴 **2026-10-18（`A887` 的续）补的判别式②**：极性写反时，手里那份监听器
+            //    现在**不再洒全队**（那条 +1 会落在它自己那份实例上）⇒ 上面那条**看不出来了**。
+            //    显式钉「手里那份身上一条都没有」才保得住这一格的判别力。
+            CheckTrue(HandHasInst(ctx, 0, "W2"),
+                      "（前提）**手里那份 `W2` 真在** —— 不在的话下面那条 `0 == 0` 恒绿（假断言）");
+            Check(HandEffectCountOn(ctx, 0, "W2"), 0,
+                  "★ **判别式②**：手里那份 `watcher` 身上**一条都没有**（极性写反的话这里会是 1）");
         }
 
         // ---- ③ `When your opponent plays a Stratagem, …` ----
-        //     ⚠️ 必须用**卡池里真的计策卡**：`stratagem` 这个词在兵种表里判的是
+        //     ⚠️ 必须用**卡池里真的策略卡**：`stratagem` 这个词在兵种表里判的是
         //        `subtype == "Stratagem"`，我们自造的 `Tactic(...)` 没有 subtype ⇒ 永远匹配不上。
+        //     ⚠️ **2026-10-18（`W5` · 审查 §9 消息订正）**：下面这两句原来把中文写成「计策」——
+        //        `A879` 已把词条统一成 **`策略`**（判据 `Unity/数据/本地化/i18n/zh_CN.csv:6378`
+        //        = `Stratagem,~,策略`；`Core/Loc.cs:357` 同）。
+        //        ⚠️ **只改字眼**：这一条比的仍是**英文** `subtype`（`c.Subtype == "Stratagem"`）
+        //        ⇒ **逻辑一字未动、判别力不受影响**（改回「计策」也不会红）。
         {
             var realTac = null as CardDef;
             foreach (var c in pool)
                 if (c.Type == "tactic" && c.Subtype == "Stratagem") { realTac = c; break; }
-            CheckTrue(realTac != null, "卡池里挑得到一张真的「计策」（subtype=Stratagem）");
+            CheckTrue(realTac != null, "卡池里挑得到一张真的「策略」（subtype=Stratagem）");
             if (realTac != null)
             {
                 var watcher = new CardDef("W3", "W3", "unit",
@@ -2105,16 +2182,25 @@ public static partial class RuleEngineTest
                 CheckCode(RuleCore.PlayTactic(ctx, 1, HandIdx(ctx, 1, realTac.Name), -1), RuleCodes.OK,
                           $"对手打出「{realTac.Name}」");
                 int atkNow = Board(ctx, 0, 3).Attack;
-                // ⚠️ **2026-10-18：期望值 `atk + 1` → `atk + 2`。** `watcher` 有**两份**：
-                //    摆在 3 号格的那份 + **还在座位 0 手里的那份**（`Deck(hand0)` 让它起手就上手；
-                //    `Place` **不摘手牌**）。接通**手牌那一跳**之后两份**各响一次**
-                //    （`EffectResolver.BroadcastHandWhen`，原版判据
-                //    `BattleManagerSupport__BroadcastUnitSummoned.c:43-52`）
-                //    ⇒ **多出来的那 1 点就是手牌那一跳**。
-                //    🔴 判别力：把 `BroadcastWhen` 的 ⓪-d（那一跳）关掉 ⇒ 这里**实得 1** ⇒ 红。
-                Check(atkNow - atk, 2,
-                      $"**对手打计策 → 触发**（攻 {atk} → {atkNow}：棋盘那份 +1、**手里那份 +1**）"
-                      + LogTail(ctx));
+                // 🔴 **2026-10-18（`A887` 的续）· 期望值 `atk + 2` → `atk + 1`（改口）。**
+                //    `watcher` 有**两份**：摆在 3 号格的那份 + **还在座位 0 手里的那份**
+                //    （`Deck(hand0)` 让它起手就上手；`Place` **不摘手牌**）—— ⚠️ 这是**原版不可能**
+                //    的局面（原版打出一张牌 = **把同一个 `CardScript` 从手牌搬到棋盘**），如实标着。
+                //    两份**各响一次**（`EffectResolver.BroadcastHandWhen`，原版判据
+                //    `BattleManagerSupport__BroadcastUnitSummoned.c:43-52`），但**落在哪儿不同**：
+                //      · 场上那份：`source` = 它自己 ⇒ +1 落在**它自己**身上；
+                //      · 手里那份：正文**没写主语** ⇒ **落在那一份手牌实例上**
+                //        （`CardInstance.HandEffects`，打出时兑现）—— ⛔ **不再洒给己方全体**。
+                //    ⇒ 棋盘上只多 1 点。两条判别力（缺一条都不是这条）：
+                //      🔴 ① 把 `BroadcastWhen` 的 ⓪-d（手牌那一跳）关掉 ⇒ 实得 0 ⇒ 红；
+                //      🔴 ② 把「落在它自己身上」改回「洒给己方全体」⇒ 实得 2 ⇒ 红。
+                Check(atkNow - atk, 1,
+                      $"**对手打策略 → 触发**（攻 {atk} → {atkNow}：棋盘那份 +1 落在自己身上；"
+                      + "**手里那份落在它自己身上**（打出时兑现），不再洒全队）" + LogTail(ctx));
+                Check(HandEffectCountOn(ctx, 0, "W3"), 1,
+                      "★ **判别式②**：手里那份 `watcher` 身上**真的挂了一条** —— "
+                      + "那句「没写主语」落到了 **acting card 自己**身上"
+                      + "（「洒给己方全体」的写法在这一条上必红，那份会是 0 条）");
             }
         }
 
@@ -2126,15 +2212,64 @@ public static partial class RuleEngineTest
             ToP1Turn(ctx, 1);
             Place(ctx, 0, 3, watcher);
             int atk = Board(ctx, 0, 3).Attack;
+            // 🔴 **2026-10-18 更正（铁律 5，只读诊断 D1 的结论）：下面两条期望值原来写死 `1` 与 `3`** —— 那是**按「只会有一条记录」**写的。
+            //   实测：这个夹具**一共会发 5 次 `draw` 事件**（起手 3 张 + 回合 1 那张 + 这里显式这次）⇒ 手牌那份 `watcher`
+            //   从开局就在手里，**每次事件各挂一条** ⇒ 手里共 **5** 条（不是 1）。
+            //   ✅ **方向是对的**：原版**确实每次抽牌都发给手牌**（`BroadcastCardDrawn.c:19` 被抽那张自己先响 + `:44-64` 扫两边手牌）
+            //   ⇒ 错的是**期望值**、不是实现。⇒ 改**增量写法**（只认「这一次抽牌让它多了一条」，与起手发过几次无关）。
+            //   ⚠️「**起手牌算不算抽到**」是**另一笔账**（证据倾向「不算」⇒ 我们 `NewBattle` 用 `Draw()` 发起手可能多发 3 次广播），
+            //      **单独记着、⛔ 别塞进这条修法**（增量写法与它无关）。
+            //   🔴 **2026-10-18（`W5`）就地更新**：那笔账**已经做完了**（`DealOpeningHand`，
+            //      判据 = `BattleManager._ResolveDrawCard_d__432__MoveNext.c:283-295` 把广播与
+            //      `SetCardTurnDrawn` 都包在 `!IsDuringMulligan` 里）⇒ 这个夹具现在**只发 2 次**
+            //      `draw`（回合 1 那张 + 下面这次），`n0` 从 5 变 1。
+            //      ⚠️ 这一条**仍然是增量写法** ⇒ 两种口径下都绿（这正是当初改用增量的价值）。
+            int n0 = HandEffectCountOn(ctx, 0, "W4");
             RuleCore.Draw(ctx, 0);
-            // ⚠️ **2026-10-18：期望值 `atk + 1` → `atk + 2`。** `watcher` 有**两份**：
-            //    摆在 3 号格的那份 + **还在座位 0 手里的那份**（`Deck(hand0)` 让它起手就上手；
-            //    `Place` **不摘手牌**）。接通**手牌那一跳**之后两份**各响一次**
-            //    （`EffectResolver.BroadcastHandWhen`，原版判据
-            //    `BattleManagerSupport__BroadcastUnitSummoned.c:43-52`）
-            //    ⇒ **多出来的那 1 点就是手牌那一跳**。
-            Check(Board(ctx, 0, 3).Attack, atk + 2,
-                  $"**抽牌 → 触发**（攻 {atk} → {atk + 2}：棋盘那份 +1、**手里那份 +1**）" + LogTail(ctx));
+            // 🔴 **2026-10-18（`A887` 的续）· 期望值 `atk + 2` → `atk + 1`（改口，理由同 ③）。**
+            Check(Board(ctx, 0, 3).Attack, atk + 1,
+                  $"**抽牌 → 触发**（攻 {atk} → {atk + 1}：棋盘那份 +1 落在自己身上；"
+                  + "**手里那份落在它自己身上**，不再洒全队）" + LogTail(ctx));
+            Check(HandEffectCountOn(ctx, 0, "W4"), n0 + 1,
+                  $"★ **判别式②**：手里那份 `watcher` 身上**多了一条**（{n0} → {n0 + 1}；"
+                  + "作用在 acting card 自己身上。⚠️ 写「多一条」而不是「总共一条」—— 这个夹具会发多次 `draw`，见上面那条更正）");
+
+            // ---- 🔴 ④-b **端到端**（`A887` 的续 · 审查要求）：上面那几条只量**内部表**
+            //      （`HandEffectCountOn`），**没有一条**验「打出后真的 +N」。这里补上。----
+            {
+                int hi = -1;
+                for (int i = 0; i < ctx.Players[0].Hand.Count; i++)
+                {
+                    var hh = ctx.Players[0].Hand[i];
+                    if (hh != null && hh.Card != null && hh.Card.Name == "W4"
+                        && hh.HandEffects.Count > 0) { hi = i; break; }
+                }
+                CheckTrue(hi >= 0, "夹具（④-b）：手里那份**带着效果**的 `watcher` 还在");
+                if (hi >= 0)
+                {
+                    var inst = ctx.Players[0].Hand[hi];
+                    ctx.Players[0].Energy = 30;
+                    CheckCode(RuleCore.PlayCard(ctx, 0, hi, 5), RuleCodes.OK,
+                              "把**手里那份带效果**的 watcher 打出去");
+                    UnitState u = null;      // ⚠️ 按**实例引用**找，别按格号/名字（棋盘是「插入推人」模型）
+                    for (int s = 0; s < BoardSpec.Size; s++)
+                        if (Board(ctx, 0, s) != null
+                            && object.ReferenceEquals(Board(ctx, 0, s).Instance, inst))
+                        { u = Board(ctx, 0, s); break; }
+                    CheckTrue(u != null, "它落到场上了（按实例认，不按格号）");
+                    // 🔴 **2026-10-18 更正（铁律 5，D1 的结论）：期望值原来是写死的 `3`**（= `2 + 1`，按「手里只有一条记录」算）。
+                    //   实测这份实例身上挂着 **`n0 + 1` 条**（这个夹具会发多次 `draw`，见 ④ 那一节的更正）⇒ 打出时逐条兑现 ⇒ `2 + (n0+1)`。
+                    Check(u != null ? u.Attack : -1, 2 + (n0 + 1),
+                          $"★ **端到端**：那个单位 **2 → {2 + (n0 + 1)} 攻** —— 手里监听器那句「没写主语」"
+                          + "落**在它自己**身上、**打出时真的兑现**了（**逐条**兑现：手里 N 条 ⇒ +N）。"
+                          + "🔴 判别力：把 `BroadcastHandWhen` 那一段「落在它自己身上」去掉 ⇒ "
+                          + "这条实得 2（只量 `HandEffectCountOn` 的写法在这一条上**看不见**）"
+                          + LogTail(ctx, 6));
+                    Check(inst.HandEffects.Count, 0,
+                          "……而且**兑现即摘**：那一份打出去之后自己身上清了 "
+                          + "（= 既有口径，见 `RuleCore.ApplyHandBuffs`）");
+                }
+            }
         }
 
         // ---- ⑤ `When Reanimated, …` + `reanimate`（最后一个没实现的动词）----
@@ -2204,15 +2339,19 @@ public static partial class RuleEngineTest
             pr.Exhausted = false;                            // 祈祷是**缓慢**的：部署当回合不能动
             int atk = Board(ctx, 0, 2).Attack;
             CheckCode(RuleCore.UseAlternative(ctx, 0, 3, "pray"), RuleCodes.OK, "W7 祈祷");
-            // ⚠️ **2026-10-18：期望值 `atk + 2` → `atk + 4`（多出 2 点）。** `watcher` 有**两份**：
-            //    摆在 2 号格的那份 + **还在座位 0 手里的那份**（`Deck(hand0)` 让它起手就上手；
-            //    `Place` **不摘手牌**）。接通**手牌那一跳**之后两份**各响一次**，每条正文是
-            //    `gain +2 Attack` ⇒ 2 × 2 = **4**（`EffectResolver.BroadcastHandWhen`，
-            //    原版判据 `BattleManagerSupport__BroadcastUnitSummoned.c:43-52`）。
+            // 🔴 **2026-10-18（`A887` 的续）· 期望值 `atk + 4` → `atk + 2`（改口）。**
+            //    `watcher` 有**两份**：摆在 2 号格的那份 + **还在座位 0 手里的那份**。
+            //    两份**各响一次**（`EffectResolver.BroadcastHandWhen`，原版判据
+            //    `BattleManagerSupport__BroadcastUnitSummoned.c:43-52`），但**落在哪儿不同**：
+            //    场上那份 +2 落在自己身上；手里那份**落在它自己那份实例上**（打出时兑现），
+            //    ⛔ 不再洒给己方全体 ⇒ 棋盘上只多 2 点。
             //    🔴 下面那个反例（放职责）**期望值没变** —— 职责根本不广播 `prays`，
             //    两份都不响 ⇒ 这一对合起来才说明「多出来的 2 点 = 手牌那一跳」。
-            Check(Board(ctx, 0, 2).Attack, atk + 4,
-                  $"**有人祈祷 → 触发**（攻 {atk} → {atk + 4}：棋盘那份 +2、**手里那份 +2**）");
+            Check(Board(ctx, 0, 2).Attack, atk + 2,
+                  $"**有人祈祷 → 触发**（攻 {atk} → {atk + 2}：棋盘那份 +2 落在自己身上；"
+                  + "**手里那份落在它自己身上**，不再洒全队）");
+            Check(HandEffectCountOn(ctx, 0, "W6"), 1,
+                  "★ **判别式②**：手里那份 `watcher` 身上挂上了那一条（+2 落在 acting card 自己身上）");
 
             // 反例：**放职责**不该让 `prays` 响（拆开之前两个都会响）
             var dutyer = new CardDef("W7b", "W7b", "unit", "Duty: Gain Shield",
@@ -2238,14 +2377,12 @@ public static partial class RuleEngineTest
             Place(ctx, 0, 3, troop);
             int atk = Board(ctx, 0, 2).Attack;
             RuleCore.GrantDarkPact(ctx, 0, Board(ctx, 0, 3), "of blood", "自检");
-            // ⚠️ **2026-10-18：期望值 `atk + 1` → `atk + 2`。** `watcher` 有**两份**：
-            //    摆在 2 号格的那份 + **还在座位 0 手里的那份**（`Deck(hand0)` 让它起手就上手；
-            //    `Place` **不摘手牌**）。接通**手牌那一跳**之后两份**各响一次**
-            //    （`EffectResolver.BroadcastHandWhen`，原版判据
-            //    `BattleManagerSupport__BroadcastUnitSummoned.c:43-52`）
-            //    ⇒ **多出来的那 1 点就是手牌那一跳**。
-            Check(Board(ctx, 0, 2).Attack, atk + 2,
-                  $"**有人收到黑暗契约 → 触发**（攻 {atk} → {atk + 2}：棋盘那份 +1、**手里那份 +1**）");
+            // 🔴 **2026-10-18（`A887` 的续）· 期望值 `atk + 2` → `atk + 1`（改口，理由同 ③⑥）。**
+            Check(Board(ctx, 0, 2).Attack, atk + 1,
+                  $"**有人收到黑暗契约 → 触发**（攻 {atk} → {atk + 1}：棋盘那份 +1 落在自己身上；"
+                  + "**手里那份落在它自己身上**，不再洒全队）");
+            Check(HandEffectCountOn(ctx, 0, "W8"), 1,
+                  "★ **判别式②**：手里那份 `watcher` 身上挂上了那一条");
         }
     }
 
@@ -3591,6 +3728,78 @@ public static partial class RuleEngineTest
         }
 
         // ==================================================================
+        //  ②′ 🔴 **到期位粒度**（`A885` ④）：**一份牌上多条、各带各的到期**
+        //      —— 原版一条 `CardEffect` **自己带**那几个到期旗标
+        //         （`PlayerHand__UpdateCardEffects.c` 逐条读 `entry.cardEffect` 的 `+0x32/+0x33/…`），
+        //         而牌身上是一张 `List<CardEffect>`（`CardScript +0x108`；
+        //         `PlayerHand__RemoveHandEffectAt.c:30-40` 用 `List.Contains` 逐条摘）。
+        // ==================================================================
+        //  🔴 **这一节是【新写的】**：改结构之前全仓 `grep -n "HandBuffExpire" Editor/` **零命中**
+        //     ⇒ 「一份牌一个到期位」改成「一条效果一个到期位」时**没有任何断言挡着**（改了没人看得见）。
+        //  ⚠️ **今天卡池里照不出来**：现扫 1126 张，带 `in hand` 的 77 张**全是 create/draw 族**、
+        //     一句都不带时长 ⇒ 只能**用夹具造出「同一份牌上两条不同到期」**。
+        //  🔴 判别力（两条缺一不可）：
+        //     ① 老结构（4 个标量 + 1 条平表）在这一节**必红** —— 它读的是**最后挂上那条**的到期
+        //        ⇒ 顺序 A 会实得「两条都活着」、顺序 B 会实得「两条都被摘」；
+        //     ② `HandEffects` 逐条读（新结构）。
+        {
+            var ctx = Battle(new[] { def, def, def, Unit("T_pad2b", 1, 0, 1) },
+                             new[] { Unit("X", 1, 1, 9) });
+            ToP1Turn(ctx, 1);
+            ctx.Players[0].Energy = 30;
+            var same = new List<CardInstance>();
+            foreach (var h in ctx.Players[0].Hand)
+                if (h != null && object.ReferenceEquals(h.Card, def)) same.Add(h);
+            Check(same.Count, 3, "夹具（②′）：手上是**同一张卡模板的三份**");
+
+            // ---- 顺序 A：先 `this turn`、再**不带时长** ----
+            //    老结构：写到期的那个标量被**第二条覆盖**成 `Never` ⇒ 两条都不会被摘。
+            RuleCore.AttachHandEffectToInstances(ctx, "T_A_turn", "+1 attack", "turn",
+                                                 0, new List<CardInstance> { same[0] });
+            RuleCore.AttachHandEffectToInstances(ctx, "T_A_forever", "+2 attack", null,
+                                                 0, new List<CardInstance> { same[0] });
+            Check(same[0].HandEffects.Count, 2,
+                  "★ 同一份牌上挂着**两条**（原版 `CardScript +0x108` 那张表上就是多条）");
+            Check(same[0].HandEffects[0].Source + "/" + same[0].HandEffects[1].Source,
+                  "T_A_turn/T_A_forever", "★ 夹具：两条的**来源各是各的**（顺序也对得上）");
+            Check(same[0].HandEffects[0].Expire, CardInstance.HandBuffExpiry.EndOfTurn,
+                  "★ **到期位长在【那一条】上**：第一条 = `this turn`（`+0x32`）");
+            Check(same[0].HandEffects[1].Expire, CardInstance.HandBuffExpiry.Never,
+                  "★ ……第二条 = **不过期**（原版四个 `until*` 全为假）");
+
+            RuleCore.EndTurn(ctx);
+            Check(same[0].HandEffects.Count, 1,
+                  "★ **顺序 A ⇒ 只摘走 `this turn` 那条**（老结构会两条都留着 ⇒ 这里实得 2 ⇒ 红）");
+            Check(same[0].HandEffects[0].Source, "T_A_forever",
+                  "★ 留下来的正好是**不带时长**那条（不是随便留一条）");
+
+            // ---- 顺序 B：先**不带时长**、再 `this turn`（换个顺序再钉一次）----
+            //    老结构：到期标量被第二条覆盖成 `EndOfTurn` ⇒ **两条一起被摘**。
+            RuleCore.AttachHandEffectToInstances(ctx, "T_B_forever", "+1 attack", null,
+                                                 0, new List<CardInstance> { same[1] });
+            RuleCore.AttachHandEffectToInstances(ctx, "T_B_turn", "+2 attack", "turn",
+                                                 0, new List<CardInstance> { same[1] });
+            Check(same[1].HandEffects.Count, 2, "夹具（顺序 B）：同一份牌上两条");
+            RuleCore.EndTurn(ctx);
+            Check(same[1].HandEffects.Count, 1,
+                  "★ **顺序 B ⇒ 也只摘走 `this turn` 那条**（老结构会两条一起摘 ⇒ 这里实得 0 ⇒ 红）");
+            Check(same[1].HandEffects[0].Source, "T_B_forever", "★ 留下来的是**不带时长**那条");
+
+            // ---- 顺序 C：`until your next turn` 与 `this turn` 混着 —— 各走各的支线 ----
+            RuleCore.AttachHandEffectToInstances(ctx, "T_C_next", "+1 attack", "nextturn",
+                                                 0, new List<CardInstance> { same[2] });
+            RuleCore.AttachHandEffectToInstances(ctx, "T_C_turn", "+2 attack", "turn",
+                                                 0, new List<CardInstance> { same[2] });
+            RuleCore.EndTurn(ctx);
+            Check(same[2].HandEffects.Count, 1,
+                  "★ **顺序 C**：`this turn` 那条当场走，`until your next turn` 那条"
+                  + "（`+0x33`/`+0x35`）走**另一条支线**（`ctx.Active != pl` 才摘）⇒ 它还活着"
+                  + "（老结构在这一格实得 0 —— 两条一起被摘）");
+            Check(same[2].HandEffects[0].Expire, CardInstance.HandBuffExpiry.OwnerTurnStart,
+                  "★ 而且留下那条的到期档位确实是 `OwnerTurnStart`（不是 Never、也不是 EndOfTurn）");
+        }
+
+        // ==================================================================
         //  ③ 次数上限（`limitedUses`）：**一批牌共享一个计数**，用尽 ⇒ 从整副手上摘
         // ==================================================================
         {
@@ -3644,6 +3853,205 @@ public static partial class RuleEngineTest
             RuleCore.AttachHandEffectToInstances(ctx, "T_Free", "+1 attack", null, 0, more);
             Check(same[2].HandBuffUsesRef, null, "★ 不限次的那条**没有计数盒**（`null`）");
             Check(same[2].HandBuffOps.Count, 1, "……而且它照常挂在那一份上（不会被别条用尽顺手带走）");
+        }
+
+        // ==================================================================
+        //  ④ 🔴 **登记表按【记录】去重**（`A885` ② · `W4` 整改 · 审查问题 6）
+        //      —— 「同一来源连挂 N 次」= **N 条独立记录**，不许被压成一条
+        // ==================================================================
+        //  判据：原版 `PlayerHand.activeEffects` 是**记录表**，`SetupCardInHand` 逐**记录**遍历
+        //        （`PlayerHand__SetupCardInHand.c:38`）；`AddHandEffect` 每调一次产**一个**记录
+        //        （`PlayerHand__AddHandEffect.c:112-139`）⇒ `Beast Snagga Nob` 撑三个回合
+        //        结束 = **三条记录** ⇒ 后来进手牌的牌该吃 **+3**，不是 +1。
+        //  🔴 判别力：把登记表的去重键换回「来源 + 载荷」那种**字符串**键 ⇒ 下面这条实得 **1** ⇒ 红。
+        {
+            var def2 = Unit("T_HInst2", 0, 2, 4);
+            var ctx = Battle(new[] { def2, def2, Unit("T_pad4", 1, 0, 1) },
+                             new[] { Unit("X", 1, 1, 9) });
+            ToP1Turn(ctx, 1);
+            ctx.Players[0].Energy = 30;
+            var same = new List<CardInstance>();
+            foreach (var h in ctx.Players[0].Hand)
+                if (h != null && object.ReferenceEquals(h.Card, def2)) same.Add(h);
+            Check(same.Count, 2, "夹具（④）：手上是**同一张卡模板的两份**");
+
+            // 同一来源、同一载荷，**挂两次**（= 两个独立记录，像 `Beast Snagga Nob` 撑两回合）
+            RuleCore.AttachHandEffectToInstances(ctx, "T_STACK", "+1 attack", null, 0,
+                                                 new List<CardInstance> { same[0] });
+            RuleCore.AttachHandEffectToInstances(ctx, "T_STACK", "+1 attack", null, 0,
+                                                 new List<CardInstance> { same[0] });
+            Check(same[0].HandEffects.Count, 2,
+                  "夹具：同一个来源挂两次 ⇒ 那一份身上**两条**（两个记录号）");
+            CheckTrue(same[0].HandEffects[0].RecordId != same[0].HandEffects[1].RecordId,
+                      "★ 两条的 `RecordId` **不同**（= 两次挂载 = 两个记录）");
+
+            // 后进手牌的那一份 ⇒ **两条都该补给它**
+            Check(RuleCore.SetupCardInHand(ctx, 0, same[1]), 2,
+                  "★ 后进手牌那份**补到 2 条**（两条记录各一条）—— "
+                  + "🔴 判别力：登记表用「来源 + 载荷」字符串键去重的写法**在这条上实得 1** ⇒ 红");
+            Check(same[1].HandEffects.Count, 2, "……而且那 2 条真的落在它自己身上");
+
+            // 再补一次 ⇒ **一条都不该多**（原版 `CardScript.AlreadyContainsEffect`，按记录认）
+            Check(RuleCore.SetupCardInHand(ctx, 0, same[1]), 0,
+                  "★ 再补一次是**幂等**的（原版 `AlreadyContainsEffect` 按记录认）");
+            Check(same[1].HandEffects.Count, 2, "……条数没变");
+
+            // 兑现：两份的 +1 各跑一遍 ⇒ 打出后是 2 + 2 = 4 攻
+            int i0 = -1;
+            for (int i = 0; i < ctx.Players[0].Hand.Count; i++)
+                if (object.ReferenceEquals(ctx.Players[0].Hand[i], same[1])) { i0 = i; break; }
+            CheckCode(RuleCore.PlayCard(ctx, 0, i0, 3), RuleCodes.OK, "把补过效果的那一份打出去");
+            var u = Board(ctx, 0, 3);
+            CheckTrue(u != null && u.Attack == 4,
+                      "★ **端到端**：打出后 **2 → 4 攻**（两条记录各 +1 = 真·叠加）—— "
+                      + "被压成一条的写法这里实得 3" + LogTail(ctx, 6));
+        }
+
+        // ==================================================================
+        //  ⑤ 🔴 **`create N … 进手牌` 也是「进手牌」**（`W4` 整改 · 审查问题 1 的**漏点**）
+        // ==================================================================
+        //  原版这一支：`_ResolveCreateHandCard_d__512:135` → `PlayerHand.AddCardNotDrawnToHand`
+        //  → `:34` 内部 `SetupCardInHand`。上一轮**漏插**了这一个入口
+        //  （`RuleCore.cs` 的潮涌 / 伴生都插了）⇒ 这一条专门钉它。
+        //  🔴 判别力：把 `EffectResolver` 那一句 `SetupCardInHand` 去掉 ⇒ 这里实得 **0** ⇒ 红。
+        {
+            var mkTac = Tactic("T_MkDrone5", 0, "Create a FixtureMadeUnit in your hand");
+            var mkUnit = Unit("FixtureMadeUnit", 1, 1, 1);
+            var mkHost = Unit("FixtureHost5", 0, 2, 4);
+            var pool5 = new List<CardDef> { mkTac, mkUnit, mkHost };
+            var ctx = BattlePool(new[] { mkHost, mkTac }, new[] { Unit("EFoe5", 1, 0, 9) }, pool5,
+                                 warlordFaction: "TauEmpire");
+            ToP1Turn(ctx, 4);
+
+            var hosts = new List<CardInstance>();
+            foreach (var h in ctx.Players[0].Hand)
+                if (h != null && h.Card != null && h.Card.Name == "FixtureHost5") hosts.Add(h);
+            CheckTrue(hosts.Count > 0, "夹具（⑤）：手上有那张宿主");
+            if (hosts.Count > 0)
+            {
+                RuleCore.AttachHandEffectToInstances(ctx, "T_MK", "+1 attack", null, 0, hosts);
+                Check(hosts[0].HandEffects.Count, 1, "（前提）登记表上有一条还活着的手牌效果");
+
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_MkDrone5"), -1), RuleCodes.OK,
+                          "打出 `Create a FixtureMadeUnit in your hand`");
+                int madeN = 0, withEffect = 0;
+                foreach (var h in ctx.Players[0].Hand)
+                    if (h != null && h.Card != null && h.Card.Name == "FixtureMadeUnit")
+                    { madeN++; if (h.HandEffects.Count > 0) withEffect++; }
+                Check(madeN, 1, "（前提）造出来的那一张**在手里**");
+                Check(withEffect, 1,
+                      "★ **`create … 进手牌` 也走消费者**（原版 `_ResolveCreateHandCard_d__512:135` →"
+                      + " `AddCardNotDrawnToHand:34` → `SetupCardInHand`）—— "
+                      + "🔴 判别力：漏掉那一句（本轮修之前的状态）这里实得 0");
+            }
+        }
+
+        // ==================================================================
+        //  ⑥ 🔴 **记录表**（`W4` 整改 · 账 5）：**载体离开手牌之后，记录还在**
+        // ==================================================================
+        //  🔴 判据：原版 `PlayerHand__SetupCardInHand.c:38` 遍历的是
+        //     `PlayerHand.activeEffects // +0x48` 那张**记录表**，**不是手牌**
+        //     ⇒ 某条效果的**载体全部离开手牌**之后，记录还在，**后来进手牌的牌照样吃得上**。
+        //     我们原来是从手牌实例上**现场扫**（`HandEffectRegistry`）⇒ 那一刻就看不见它了。
+        //  🔴 判别力：把 `HandEffectRegistry` 改回「现场扫手牌实例」（或删掉
+        //     `PlayerState.HandEffectRecords`）⇒ 下面第二条**实得 0** ⇒ 红。
+        //     这是本账**要求的那一条断言**。
+        {
+            var carrier = Unit("T_Carrier", 0, 2, 4);
+            var ctx = Battle(new[] { carrier }, new[] { Unit("X", 1, 1, 9) });
+            ToP1Turn(ctx, 1);
+            ctx.Players[0].Energy = 30;
+
+            CardInstance ca = null;
+            foreach (var h in ctx.Players[0].Hand)
+                if (h != null && object.ReferenceEquals(h.Card, carrier)) { ca = h; break; }
+            CheckTrue(ca != null, "夹具（⑥）：手上那张载体找得到");
+            if (ca != null)
+            {
+                RuleCore.AttachHandEffectToInstances(ctx, "T_HOLD", "+1 attack", null, 0,
+                                                     new List<CardInstance> { ca });
+                Check(ctx.Players[0].HandEffectRecords.Count, 1,
+                      "★ **挂载即登记进记录表**（`PlayerState.HandEffectRecords` = 原版 "
+                      + "`PlayerHand.activeEffects // +0x48`）");
+
+                // 让载体**离开手牌**（走真路径：打出去）
+                int ci = -1;
+                for (int i = 0; i < ctx.Players[0].Hand.Count; i++)
+                    if (object.ReferenceEquals(ctx.Players[0].Hand[i], ca)) { ci = i; break; }
+                CheckCode(RuleCore.PlayCard(ctx, 0, ci, 3), RuleCodes.OK, "把载体打出去（它离开手牌）");
+                CheckTrue(!ctx.Players[0].Hand.Contains(ca), "（前提）它确实不在手牌里了");
+                Check(ctx.Players[0].HandEffectRecords.Count, 1,
+                      "★ **载体走了，记录还在** —— 记录表与手牌是两回事（原版 `SetupCardInHand.c:38`）");
+
+                // 后来进手牌的牌 ⇒ **照样吃得上**
+                var deck = ctx.Players[0].Deck;
+                CheckTrue(deck.Count > 0, "夹具（⑥）：牌库还有牌可抽");
+                if (deck.Count > 0)
+                {
+                    var top = deck[deck.Count - 1];
+                    RuleCore.Draw(ctx, 0);
+                    Check(top.HandEffects.Count, 1,
+                          "★ **后来进手牌的牌照样吃得上**（原版遍历的是**记录表**）—— "
+                          + "🔴 判别力：把登记表改回「现场扫手牌实例」⇒ 这条**实得 0** ⇒ 红。实得 "
+                          + top.HandEffects.Count);
+                }
+            }
+        }
+
+        // ==================================================================
+        //  ⑦ 🔴 **兵种筛**（`W4` 第四轮）：记录带 `SubtypeFilter` 时**只发给那个兵种**
+        // ==================================================================
+        //  判据：原版 `PlayerHand__SetupCardInHand.c:58` 那句
+        //        `FilterMethods.CheckIfMeetsCriteria(card, handEffect.targetCriteria)`；
+        //        而 `CardCriteria.FromTarget` **不看** `EffectTargetSpec.SubtypeFilter`
+        //        （它只读 `Kind` / `KeywordFilter` / `NameFilter`）⇒ 那一道由 `HandEffectFits`
+        //        自己补，写法抄 `GrantHandBuffForTargets` 收候选那一段。
+        //  🔴 **正例 + 负例两条一起才判得出**：只写负例的话，「整个消费者不工作」时它也是 0 ⇒ **假绿**。
+        //  🧨 **判别力**：把 `HandEffectFits` 里那道兵种筛删掉 ⇒ `crit` 判不出来 ⇒ 走退路档放行
+        //     ⇒ **负例实得 1 ⇒ 红**。
+        {
+            var sfBeast = new CardDef("T_SFBeast", "T_SFBeast", "unit", "", "common", "Test",
+                                      1, 2, 4, 0, null, subtype: "Beast");
+            var sfFoot = new CardDef("T_SFFoot", "T_SFFoot", "unit", "", "common", "Test",
+                                     1, 2, 4, 0, null, subtype: "Infantry");
+            var sfCarrier = new CardDef("T_SFCarrier", "T_SFCarrier", "unit", "", "common", "Test",
+                                        0, 2, 4, 0, null, subtype: "Beast");
+            var ctx = Battle(new[] { sfCarrier, sfBeast, sfFoot }, new[] { Unit("X", 1, 1, 9) });
+            ToP1Turn(ctx, 1);
+            ctx.Players[0].Energy = 30;
+
+            var byName = new Dictionary<string, CardInstance>();
+            foreach (var h in ctx.Players[0].Hand)
+                if (h != null && h.Card != null) byName[h.Card.Name] = h;
+            CheckTrue(byName.ContainsKey("T_SFCarrier") && byName.ContainsKey("T_SFBeast")
+                      && byName.ContainsKey("T_SFFoot"),
+                      "夹具（⑦）：载体 / 同兵种 / 异兵种 三张**都在手里**"
+                      + "（不在的话下面的 `0` 会变成假绿）");
+            if (byName.ContainsKey("T_SFCarrier") && byName.ContainsKey("T_SFBeast")
+                && byName.ContainsKey("T_SFFoot"))
+            {
+                // 一条**带兵种筛**的记录（夹具直接给 `EffectTargetSpec`，不必走真卡链）
+                var spec = new EffectTargetSpec
+                {
+                    Raw = "(夹具：手牌里的野兽)", Side = "own", Kind = "unit",
+                    SubtypeFilter = "Beast", Count = 0, Auto = true,
+                };
+                RuleCore.AttachHandEffectToInstances(ctx, "T_SF", "+1 attack", null, 0,
+                                                     new List<CardInstance> { byName["T_SFCarrier"] },
+                                                     spec);
+                Check(byName["T_SFCarrier"].HandEffects.Count, 1,
+                      "（前提）那条记录挂上去了，而且带着兵种筛");
+
+                Check(RuleCore.SetupCardInHand(ctx, 0, byName["T_SFBeast"]), 1,
+                      "★ **正例**：**同兵种**（`Beast`）的卡进手牌 ⇒ **吃到了**那一条"
+                      + "（= 「筛对了」，而不是「整个消费者不工作」）");
+                Check(RuleCore.SetupCardInHand(ctx, 0, byName["T_SFFoot"]), 0,
+                      "★ **负例**：**不是**那个兵种（`Infantry`）的卡进手牌 ⇒ **一条都不给** —— "
+                      + "🧨 判别力：删掉 `HandEffectFits` 那道兵种筛 ⇒ 退路档放行 ⇒ 这里实得 1 ⇒ 红");
+                Check(byName["T_SFFoot"].HandEffects.Count, 0,
+                      "……而且它**牌身上**确实一条都没有（换一条读法再钉一次）");
+                Check(byName["T_SFBeast"].HandEffects.Count, 1, "……而同兵种那张身上是 1 条");
+            }
         }
     }
 
@@ -9755,20 +10163,31 @@ public static partial class RuleEngineTest
                           RuleCodes.OK, "打出一张 **Ephemeral** 战术卡");
                 Check(w.Attack, a0, "★ 反例：`Ephemeral` 战术卡**不**触发（`non-Ephemeral` 限定）"
                       + LogTail(ctx));
+                // 🔴 **2026-10-18（`A887` 的续）补的判别式②**：那 +1 现在落在**手里那份自己**身上，
+                //    ⇒ 上面那条（量 `w.Attack`）**看不出**手牌那一跳响没响了。显式钉住。
+                CheckTrue(HandHasInst(ctx, 0, "FixtureNonEph"),
+                          "（前提）**手里那份监听器真在** —— 不在的话下面那条 `0 == 0` 恒绿（假断言）");
+                Check(HandEffectCountOn(ctx, 0, "FixtureNonEph"), 0,
+                      "★ **判别式②**：`Ephemeral` 那一趟手里那份监听器**一条都没挂**"
+                      + "（`non-Ephemeral` 限定失效的话这里会是 1）");
                 CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_PlainSpellNE"), -1),
                           RuleCodes.OK, "打出一张普通战术卡");
-                // ⚠️ **2026-10-18：期望值 `a0 + 1` → `a0 + 2`。** `watcher` 有**两份**：
-                //    摆在 3 号格的那份 + **还在座位 0 手里的那份**（`Deck(hand0)` 把它放进牌库、
-                //    起手就抽上手了；`Place` **不摘手牌**）。接通**手牌那一跳**之后两份**各响一次**
-                //    （`EffectResolver.BroadcastHandWhen`，原版判据
-                //    `BattleManagerSupport__BroadcastUnitSummoned.c:43-52`）
-                //    ⇒ **多出来的那 1 点就是手牌那一跳**。上一句那条反例（`Ephemeral` 不触发）
+                // 🔴 **2026-10-18（`A887` 的续）· 期望值 `a0 + 2` → `a0 + 1`（改口）。**
+                //    `watcher` 有**两份**：摆在 3 号格的那份 + **还在座位 0 手里的那份**
+                //    （`Deck(hand0)` 把它放进牌库、起手就抽上手了；`Place` **不摘手牌**）。
+                //    两份**各响一次**（`EffectResolver.BroadcastHandWhen`，原版判据
+                //    `BattleManagerSupport__BroadcastUnitSummoned.c:43-52`），但**落在哪儿不同**：
+                //    场上那份 +1 落在自己身上；手里那份**落在它自己那份实例上**（打出时兑现），
+                //    ⛔ 不再洒给己方全体 ⇒ 棋盘上只多 1 点。上一句那条反例（`Ephemeral` 不触发）
                 //    两边都不响，所以它的期望值**没变** —— 这一对合起来才说明「多出来的是手牌那一跳」。
-                Check(w.Attack, a0 + 2, "★ 普通战术卡**触发**（`Whenever you play a Stratagem`）"
+                Check(w.Attack, a0 + 1, "★ 普通战术卡**触发**（`Whenever you play a Stratagem`）"
                       + LogTail(ctx));
+                Check(HandEffectCountOn(ctx, 0, "FixtureNonEph"), 1,
+                      "★ **判别式②**：手里那份 `watcher` 身上挂上了那一条（落在 acting card 自己身上）");
             }
 
-            // ---- ⑥ `Heal N and gain …` 的**尾句共目标**（2026-09-14 A5 批 2）----            //    `give` / `gain` / `lose` 本来就是同一套载荷机制，原来只有 `give` 能接目标
+            // ---- ⑥ `Heal N and gain …` 的**尾句共目标**（2026-09-14 A5 批 2）----
+            //    `give` / `gain` / `lose` 本来就是同一套载荷机制，原来只有 `give` 能接目标
             //    ⇒ 这两句整句判「半懂」、卡面打 `*`，而它们该是「治自己 + 给自己加关键词」。
             {
                 var ops = EffectText.Parse("Heal 5 and gain Vanguard until your next turn",
@@ -10206,6 +10625,50 @@ public static partial class RuleEngineTest
                           "★ `Talent: <名>` 判**已由天赋接手**（35 次）");
                 CheckTrue(CardDef.HandledByOtherLayer(cold, "Companion 2: Marker Drone") != null,
                           "★ `Companion N: <卡名>` 判**已由伴生接手**（8 次）");
+
+                // 🔴 **2026-10-18（`W4` 整改 · 输入侧）：三张卡原来在【输入层】就是死的。**
+                //    `keywords` 数组里没有 `Companion`（`TAU38`/`TAU28`）或只有**裸词没数字**
+                //    （`TAU13`）⇒ `Has(Companion)` 恒假 / `KwValue` 兜底 1 ⇒
+                //    `RuleCore.PlayCompanions` 要么静默不触发、要么链长读错。
+                //    修法 = `CardDef.CollectCompanionKeyword`（从 `desc` 补关键词 + 取 N）。
+                //    ⚠️ **三张都逐张看过成品卡图**（铁律 7）：
+                //      `d:/2/Warpforge部队卡片/Tau/3部队/Warpforge_38_Coldstar-Battlesuit.png`（`Companion 2: Marker Drone`）·
+                //      `…_28_Strike-Team.png`（`Companion: DS8 Support Turret`，**无数字**）·
+                //      `…_13_Pathfinder.png`（`Companion 2: Marker Drone`，而 `keywords` 里是**裸 `Companion`**）。
+                {
+                    var cold2 = CreatePool.FindByName(pool, "Coldstar Battlesuit");   // keywords 里**没有**它
+                    var strike = CreatePool.FindByName(pool, "Strike Team");          // keywords = []
+                    var pathf = CreatePool.FindByName(pool, "Pathfinder");            // 裸 `Companion`
+                    CheckTrue(cold2 != null && strike != null && pathf != null,
+                              "卡池里有那三张待修的伴生卡（`Coldstar Battlesuit` / `Strike Team` / `Pathfinder`）");
+                    CheckTrue(cold2 == null || cold2.Has(KeywordTable.Companion),
+                              "★ `Coldstar Battlesuit`：`desc` 印着 `Companion 2: Marker Drone` ⇒ "
+                              + "**`Has(Companion)` 该为真**（修之前：`keywords` 是 `['Flying','Armour 1']` ⇒ 恒假、"
+                              + "机制静默不触发）");
+                    CheckTrue(cold2 == null || cold2.KwValue(KeywordTable.Companion) == 2,
+                              "★ ……而且 `N = 2`（卡面 `Companion 2`）—— 实得 "
+                              + (cold2 == null ? "?" : cold2.KwValue(KeywordTable.Companion).ToString()));
+                    CheckTrue(strike == null || strike.Has(KeywordTable.Companion),
+                              "★ `Strike Team`：`desc` 印着 `Companion: DS8 Support Turret` ⇒ "
+                              + "**该认得**（修之前 `keywords = []` ⇒ 恒假）");
+                    CheckTrue(strike == null || strike.KwValue(KeywordTable.Companion) == 1,
+                              "★ ……`Companion:` **没写数字** ⇒ 记 1（= 链长 1，只造一张，与卡面一致）；"
+                              + "⛔ 别用 `FirstNumber(整串)` —— 那会把伴生名里的 `DS8` 读成 **8**。实得 "
+                              + (strike == null ? "?" : strike.KwValue(KeywordTable.Companion).ToString()));
+                    CheckTrue(pathf == null || pathf.KwValue(KeywordTable.Companion) == 2,
+                              "★ `Pathfinder`：`keywords` 里是**裸 `Companion`**（兜底 1），"
+                              + "而卡面印 `Companion 2: Marker Drone` ⇒ **`N` 该以 `desc` 为准 = 2**。实得 "
+                              + (pathf == null ? "?" : pathf.KwValue(KeywordTable.Companion).ToString()));
+                }
+                // 反例：`Talent: Drone Companion` 那类**名字里带 Companion** 的写法
+                // **不许**被误当成伴生词条（`Commander O'Maisos` 卡面是 `Talent: Drone Companion`）
+                {
+                    var om = CreatePool.FindByName(pool, "Commander O'Maisos");
+                    CheckTrue(om == null || om.CompanionName == null,
+                              "★ 反例：`Commander O'Maisos` 的 `Talent: Drone Companion` "
+                              + "**不是一个伴生名**（正则要求 `Companion` 后面跟着冒号）—— 实得 "
+                              + (om == null ? "?" : "「" + (om.CompanionName ?? "(null)") + "」"));
+                }
 
                 // 🆕 2026-09-18：**改名会把 `cardface_fixes.json` 的键孤立** ⇒ 那两条修正静默失效。
                 //    实测这两张死灵督军：`Diviner`→`Orikan the Diviner` 改名后，
@@ -10794,12 +11257,17 @@ public static partial class RuleEngineTest
     }
 
     /// <summary>
-    /// **伴生 `Companion X`**（2026-09-13 A2）—— 规则书 `:176`「**从手牌打出时，可打出至多 X 张
-    /// 其伴生部队**」。
+    /// **伴生 `Companion X`**（2026-09-13 A2）。
     ///
-    /// 三条：① 手里有伴生部队 → 打出来**免费带出**（最多 X 张）· ② 手里有 3 张、X = 2 → **只带 2 张** ·
-    /// ③ 手里没有 → **一张都不带**（而且日志要说清，不静默）。
-    /// ⚠️ 原版是「**可**打出」（玩家选），我们**自动带满** —— 这条测试同时把这个近似钉在案上。
+    /// 🔴 **2026-10-18（`A920` 的续）整节重写**：判据从**粉丝实体版规则书** `:176`
+    /// （「从手牌打出时，可打出至多 X 张其伴生部队」—— 那份**不是官方文档**）
+    /// 换成**反编译**（`CardScript__ProcessCompanion.c` 全链，见 `RuleCore.PlayCompanions` 的头注释）。
+    /// 改前改后**三点全反**：源（手牌同名 ↔ **卡定义**）· 去向（场上 ↔ **手牌**）· 有无移除（有 ↔ **无**）。
+    ///
+    /// 四条：① 打出宿主 ⇒ **造一张伴生卡进手牌**（不是上场、不是从手里拿）·
+    /// ② 那张新卡带 `isCompanion` + `companionCounter = X − 1` ·
+    /// ③ **递归链**：把那张伴生卡再打出来 ⇒ **再造一张它自己**、计数归 0 ·
+    /// ④ 卡池里查不到那个名字 ⇒ 一张都不造（**而且日志说清**，不静默）。
     /// </summary>
     static void TestCompanion()
     {
@@ -10809,7 +11277,7 @@ public static partial class RuleEngineTest
                                "common", "Test", 3, 2, 5, 0,
                                new[] { "Companion 2: FixtureDrone" }, subtype: "Battlesuit");
 
-        // ---- ① / ② 手里 3 张 → 带 2 张 ----
+        // ---- ① / ② 打出宿主 ⇒ 造一张 Drone 进手牌，带 isCompanion + counter = X−1 ----
         {
             // ⚠️ **2026-09-29：给对手一副像样的牌库。** `ProbeBattle` 的牌库 = 「督军 + 传进来的那几张」，
             //   这里原来只传 1 张 ⇒ **一开局就连吃疲劳**，而本用例要推到第 6 个我方回合。
@@ -10817,7 +11285,12 @@ public static partial class RuleEngineTest
             //   **疲劳致死提前一回合** ⇒ 推进超限。给足牌是**夹具本来就该有的样子**，不是迁就实现。
             var foeDeck = new CardDef[10];
             for (int i = 0; i < foeDeck.Length; i++) foeDeck[i] = Unit("EFoe", 1, 0, 9);
-            var ctx = ProbeBattle(new[] { host, drone, drone, drone }, foeDeck);
+            // 🔴 **必须带卡池**：卡面 `Companion 2: FixtureDrone` 里的名字是 `relatedCard1`
+            //    那个序列化引用的**替身**，要在卡池里按名字查（`CreatePool.FindByName`）。
+            //    `ProbeBattle` 的卡池是**空表** ⇒ 这条链在它上面永远「查不到」。
+            var pool = new List<CardDef> { host, drone };
+            var ctx = BattlePool(new[] { host, drone, drone, drone }, foeDeck, pool,
+                                 warlordFaction: "TauEmpire");
             ToP1Turn(ctx, 6);
             Check(host.CompanionName, "FixtureDrone", "伴生名字读得出来（`Companion 2: FixtureDrone`）");
             Check(host.KwValue(KeywordTable.Companion), 2, "数量读得出来（= 2）");
@@ -10827,21 +11300,70 @@ public static partial class RuleEngineTest
             int dronesOnBoard = 0;
             for (int s = 0; s < BoardSpec.Size; s++)
                 if (Board(ctx, 0, s) != null && Board(ctx, 0, s).Name == "FixtureDrone") dronesOnBoard++;
-            Check(dronesOnBoard, 2, "★ **带出 2 张伴生部队**（正好是 X）");
-            Check(ctx.Players[0].Hand.Count, hand0 - 3,
-                  "★ 手牌少了 3 张（打出宿主 1 + 带出的 2）—— 第 3 张 Drone **留在手里**");
+            Check(dronesOnBoard, 0,
+                  "★ **一张都没上场** —— 原版 `ProcessCompanion` → `AddNewCardToHand`，"
+                  + "进的是**手牌**（改之前 `DeployFree` 会在这里实得 2 张，静默偏离）");
+            // 手牌：打出宿主 −1、造出来的 Drone +1 ⇒ 净不变
+            Check(ctx.Players[0].Hand.Count, hand0,
+                  "★ 手牌**张数不变**：打出宿主 −1、造出的那张 +1 —— "
+                  + "而手里原来那 3 张 Drone **一张都没动**（改之前会少 3 张：宿主 1 + 带出的 2）");
+            CardInstance made = null;
+            foreach (var h in ctx.Players[0].Hand)
+                if (h != null && h.Card != null && h.Card.Name == "FixtureDrone" && h.IsCompanion)
+                { made = h; break; }
+            CheckTrue(made != null,
+                      "★ 造出来的那一张**在手里**、而且带着 `isCompanion`（原版 `newCard + 0x64 = 1`）");
+            CheckTrue(made != null && made.CompanionCounter == 1,
+                      "★ 它的 `companionCounter = X − 1 = 1`（原版 `newCard + 0x60 = 源 +0x60 − 1`）"
+                      + " —— **一次只造一张**，那个 `N` 是**链长**不是张数");
+
+            // ---- ③ **递归链**：把刚造的那张打出来 ⇒ 再造一张它自己、计数归 0 ----
+            if (made != null)
+            {
+                int mi = -1;
+                for (int i = 0; i < ctx.Players[0].Hand.Count; i++)
+                    if (object.ReferenceEquals(ctx.Players[0].Hand[i], made)) { mi = i; break; }
+                CheckTrue(mi >= 0, "夹具：按**实例身份**在手牌里找得到那一份");
+                int before = ctx.Players[0].Hand.Count;
+                CheckCode(RuleCore.PlayCard(ctx, 0, mi, 1), RuleCodes.OK, "把伴生链上那张打出来");
+                CardInstance made2 = null;
+                foreach (var h in ctx.Players[0].Hand)
+                    if (h != null && h.Card != null && h.Card.Name == "FixtureDrone"
+                        && h.IsCompanion && h.CompanionCounter == 0) { made2 = h; break; }
+                CheckTrue(made2 != null,
+                          "★ **递归链**：那一张（自己**不带** `Companion` 词条、但计数 > 0）打出时"
+                          + "**再造一张【它自己】**、计数归 0 —— 原版 `ProcessCompanion.c:29/:70`"
+                          + "（不带词条时源就是它自己的 `rawCardData`）");
+                Check(ctx.Players[0].Hand.Count, before,
+                      "★ 这一环也**不消耗手牌**（打出 −1、造出 +1）");
+            }
         }
 
-        // ---- ③ 手里没有 → 一张都不带 ----
+        // ---- ④ 卡池里查不到那个名字 ⇒ 一张都不造（而且日志说清）----
         {
-            var ctx = ProbeBattle(new[] { host }, new[] { Unit("EFoe", 1, 0, 9) });
+            var host2 = new CardDef("FixtureHost2", "FixtureHost2", "unit",
+                                    "Companion 2: FixtureDrone",   // ⚠️ 名字读得出来，但**卡池里不摆**它
+                                    "common", "Test", 3, 2, 5, 0,
+                                    new[] { "Companion 2: FixtureDrone" }, subtype: "Battlesuit");
+            var ctx = BattlePool(new[] { host2 }, new[] { Unit("EFoe", 1, 0, 9) },
+                                 new List<CardDef> { host2 },   // ⚠️ 池子里**故意不摆** FixtureDrone
+                                 warlordFaction: "TauEmpire");
             ToP1Turn(ctx, 4);      // ⚠️ 别推太远：垫牌抽空后督军会吃疲劳（实测踩过）
-            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureHost"), 0), RuleCodes.OK,
-                      "打出带伴生的单位（手里没有伴生部队）");
-            int dronesOnBoard = 0;
+            int h0 = ctx.Players[0].Hand.Count;
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureHost2"), 0), RuleCodes.OK,
+                      "打出带伴生的单位（卡池里没有那张伴生卡）");
+            int drones = 0;
             for (int s = 0; s < BoardSpec.Size; s++)
-                if (Board(ctx, 0, s) != null && Board(ctx, 0, s).Name == "FixtureDrone") dronesOnBoard++;
-            Check(dronesOnBoard, 0, "★ **一张都没带出来**（不凭空生成 —— 卡面说的是「**从手牌**打出」）");
+                if (Board(ctx, 0, s) != null && Board(ctx, 0, s).Name == "FixtureDrone") drones++;
+            foreach (var h in ctx.Players[0].Hand)
+                if (h != null && h.Card != null && h.Card.Name == "FixtureDrone") drones++;
+            Check(drones, 0,
+                  "★ **一张都没造出来**：那张卡的定义（原版 `relatedCard1`）**本地取不到**，"
+                  + "我们只能按名字查卡池 —— 查不到就**如实打日志、不静默兜底**");
+            Check(ctx.Players[0].Hand.Count, h0 - 1,
+                  "★ 手牌只少了打出的宿主那一张（没有凭空补一张进来）");
+            CheckTrue(Joined(ctx).IndexOf("在卡池里查不到") >= 0,
+                      "★ 而且**出声了**（日志里那句「在卡池里查不到」）—— 不许静默" + LogTail(ctx, 8));
         }
     }
 
@@ -13249,18 +13771,24 @@ public static partial class RuleEngineTest
                 Check(ctx.Active, 1, "换到对手的回合");
                 CheckCode(RuleCore.DeclareAttack(ctx, 1, 3, 0, 3), RuleCodes.OK, "对手打死我方炮灰");
                 Check(SlotOf(ctx, 0, "FixtureFoe"), -1, "**友方**炮灰确实死了");
-                // ⚠️ **2026-10-18：期望值 5 → 8（多 3 点）。** `watcher` 有**两份**：
-                //    摆在 2 号格的那份 + **还在座位 0 手里的那份**（`BattlePool` 把它放进牌库、
-                //    起手就上手；`Place` **不摘手牌**）。接通**手牌那一跳**之后两份**各响一次**，
-                //    每条正文是 `gain +3 Attack` ⇒ 2 + 3 + 3 = **8**
-                //    （`EffectResolver.BroadcastHandWhen`，原版判据
-                //    `BattleManagerSupport__BroadcastUnitSummoned.c:43-52`；
-                //    死亡事件那一族同样扫手牌 —— 43 个 `Broadcast*.c` 里 37 个调 `GetCardsInHandRef`）。
-                //    🔴 判别力：关掉 ⓪-d ⇒ 实得 5 ⇒ 红。下面 ②-b 那条反例**期望值没变**
-                //       （敌方单位死，两份都不响）—— 这一对合起来才说明「多出来的 3 点 = 手牌那一跳」。
-                Check(w.Attack, 8,
-                      "★ **友方 troop 死 → 监听器真的结算了**（攻 2 → **8**：场上那份 +3、**手里那份 +3**）—— "
+                // 🔴 **2026-10-18（`A887` 的续）· 期望值 `8` → `5`（改口）。**
+                //    `watcher` 有**两份**：摆在 2 号格的那份 + **还在座位 0 手里的那份**
+                //    （`BattlePool` 把它放进牌库、起手就上手；`Place` **不摘手牌**）—— 这是
+                //    **原版不可能**的局面（原版打出一张牌 = 把**同一个 `CardScript`** 从手牌搬到棋盘）。
+                //    两份**各响一次**（`EffectResolver.BroadcastHandWhen`，原版判据
+                //    `BattleManagerSupport__BroadcastUnitSummoned.c:43-52`；死亡事件那一族同样扫手牌
+                //    —— 43 个 `Broadcast*.c` 里 37 个调 `GetCardsInHandRef`），但**落在哪儿不同**：
+                //    场上那份 +3 落在自己身上；手里那份正文**没写主语** ⇒ 落在**它自己那份实例上**
+                //    （打出时兑现），⛔ 不再洒给己方全体 ⇒ 棋盘上只多 3 点。
+                //    🔴 判别力两条：① 关掉 ⓪-d（手牌那一跳）⇒ 实得 2 ⇒ 红；
+                //      ② 「落在它自己身上」改回「洒给己方全体」⇒ 实得 8 ⇒ 红。下面 ②-b 那条反例
+                //      还额外钉了「手里那份**一条都不该挂**」。
+                Check(w.Attack, 5,
+                      "★ **友方 troop 死 → 监听器真的结算了**（攻 2 → **5**：场上那份 +3 落在自己身上；"
+                      + "**手里那份落在它自己身上**，不再洒全队）—— "
                       + "而且是在**对手的回合**里触发的（被动监听不该挑回合）");
+                Check(HandEffectCountOn(ctx, 0, "FixtureWatcher"), 1,
+                      "★ **判别式②**：手里那份 `watcher` 身上**真的挂了一条**（那 +3 落在 acting card 自己身上）");
             }
 
             // ---- ②-b **敌方**单位死 —— 监听的是「**友方** troop 死」，所以**不该**触发 ----
@@ -13287,6 +13815,12 @@ public static partial class RuleEngineTest
                 Check(w.Attack, 2,
                       "★ **敌方**单位死 → 监听「**友方** troop 死」的那张**不动**"
                       + "（极性反了这条就亮：会变成 5）");
+                // 🔴 **2026-10-18（`A887` 的续）补的判别式②**：极性写反时，手里那份监听器的 +3
+                //    现在**不再洒全队**（会落在它自己那份实例上）⇒ 上面那条**看不出来了**。
+                CheckTrue(HandHasInst(ctx, 0, "FixtureWatcher"),
+                          "（前提）**手里那份 `watcher` 真在** —— 不在的话下面那条 `0 == 0` 恒绿（假断言）");
+                Check(HandEffectCountOn(ctx, 0, "FixtureWatcher"), 0,
+                      "★ **判别式②**：手里那份 `watcher` 身上**一条都没挂**（极性反了这里会是 1）");
             }
         }
 
@@ -13599,15 +14133,20 @@ public static partial class RuleEngineTest
             CheckCode(RuleCore.DeclareAttack(ctx, 1, 3, 0, 3), RuleCodes.OK,
                       "对手打我方那个 20 血单位");
             Check(SlotOf(ctx, 0, "FixtureHurtTarget"), 3, "挨打的那个还活着（没被这一下打死）");
-            // ⚠️ **2026-10-18：期望值 4 → 6（多 2 点）。** `watcher` 有**两份**：摆在 2 号格的那份
-            //    + **还在座位 0 手里的那份**（`ProbeBattle(hand0)` 让它起手就上手；`Place` **不摘手牌**）。
-            //    接通**手牌那一跳**之后两份**各响一次**，每条正文 `gain +2 Attack` ⇒ 2+2+2 = **6**
-            //    （`EffectResolver.BroadcastHandWhen`，原版判据
-            //    `BattleManagerSupport__BroadcastUnitSummoned.c:43-52`；`damaged` 那一族的广播器
-            //    `BroadcastUnitDamaged.c` 同样扫手牌）。
-            Check(w.Attack, 6,
-                  "★ **damaged 事件真的广播出来了**（监听者 2 → 6：场上那份 +2、**手里那份 +2**）"
-                  + " —— 接上广播之前实得 2" + LogTail(ctx));
+            // 🔴 **2026-10-18 更正（铁律 5，只读诊断 D1 的结论）：期望值 `6` → `4`。**
+            //    `6` 是**上一轮 `A887` 那版**写的（当时手牌那一跳**洒己方全体** ⇒ 棋盘那份**再 +2**、2+2+2=6）。
+            //    本批 **`A887` 的续** 把落点改成「**落在手牌那份实例自己身上**」（打出时才兑现）⇒
+            //    它就**不再**加到棋盘这份 `w` 上 ⇒ 棋盘只得**场上那份监听器**的 +2 ⇒ **4**。
+            //    ⚠️ **漏改原因**：这一条在 `TestEventLayerTail` 里，`W4_引擎手牌族交件.md` §6 的改口清单**没有它**。
+            //    ⛔ 别反过来把实现改回「洒全队」（那与 `A887 的续` 的原版判据相反）。
+            Check(w.Attack, 4,
+                  "★ **damaged 事件真的广播出来了**（监听者 2 → 4：**场上那份 +2**；"
+                  + "**手里那份落在它自己身上、不落到棋盘**） —— 接上广播之前实得 2" + LogTail(ctx));
+            // 🔴 **同批补的判别式**（D1 点名：只把 6 改成 4 会**丢掉鉴别力** —— 「手牌那一跳整个不工作」时也会是 4）。
+            //    照 W4 在另外 6 处的做法，把「手里那份**确实挂上了**」独立钉住。
+            Check(HandEffectCountOn(ctx, 0, "FixtureHurtWatcher"), 1,
+                  "★ **判别式**：手里那份 `FixtureHurtWatcher` 身上**挂上了那一条**"
+                  + "（⇒ 上面那个 4 是「手牌那份落在它自己身上」的结果，**不是**「手牌那一跳没工作」）");
         }
 
         // ---- ④ 反例：**敌方**单位受伤 → 监听「**友方**受伤」的那张**不该动** ----
@@ -13742,19 +14281,22 @@ public static partial class RuleEngineTest
             CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3), RuleCodes.OK,
                       "打死那个带猎杀标记的敌方部队");
             Check(SlotOf(ctx, 1, "FixturePrey"), -1, "它确实死了");
-            // ⚠️ **2026-10-18：期望值 `before + 1` → `before + 2`。** `hunter` 有**两份**：
-            //    摆在 2 号格的那份 + **还在座位 0 手里的那份**（`ProbeBattle(hand0)` 让它起手就上手；
-            //    `Place` **不摘手牌**）。接通**手牌那一跳**之后两份**各响一次**
-            //    （`EffectResolver.BroadcastHandWhen`，原版判据
-            //    `BattleManagerSupport__BroadcastUnitSummoned.c:43-52` / `BroadcastDeadUnit.c`）
-            //    ⇒ 每份 `gain +1 Attack` ⇒ **多出来的那 1 点就是手牌那一跳**。
+            // 🔴 **2026-10-18（`A887` 的续）· 期望值 `before + 2` → `before + 1`（改口）。**
+            //    `hunter` 有**两份**：摆在 2 号格的那份 + **还在座位 0 手里的那份**
+            //    （`ProbeBattle(hand0)` 让它起手就上手；`Place` **不摘手牌**）。
+            //    两份**各响一次**（`EffectResolver.BroadcastHandWhen`，原版判据
+            //    `BattleManagerSupport__BroadcastUnitSummoned.c:43-52` / `BroadcastDeadUnit.c`），
+            //    但**落在哪儿不同**：场上那份 +1 落在自己身上；手里那份**落在它自己那份实例上**
+            //    （打出时兑现），⛔ 不再洒给己方全体 ⇒ 棋盘上只多 1 点。
             //    ⚠️ **这一格真正要钉的东西没变**：`Hunt Mark` 是**运行时**加的、卡面没印 ——
             //      判据只认卡面的话两份都判不中，这里会实得 `before`（0 点）。下面那条反例
             //      （同样打死敌方部队但**没有**标记）**期望值也没变**，两份都不响。
-            Check(w.Attack, before + 2,
+            Check(w.Attack, before + 1,
                   "★ **带「运行时关键词」的筛选条件真的判中了** —— 卡面没印 `Hunt Mark`，"
                   + "只按卡面比的话这条会实得 " + before
-                  + $"（场上那份 +1、**手里那份 +1** ⇒ {before} → {before + 2}）");
+                  + $"（场上那份 +1 落在自己身上；**手里那份落在它自己身上** ⇒ {before} → {before + 1}）");
+            Check(HandEffectCountOn(ctx, 0, "FixtureHuntWatch"), 1,
+                  "★ **判别式②**：手里那份 `hunter` 身上挂上了那一条");
 
             // ---- 反例：同样打死一只敌方部队，但它**没有**猎杀标记 ⇒ **不该响** ----
             var ctx2 = ProbeBattle(new[] { hunter }, new[] { prey });
@@ -13766,6 +14308,13 @@ public static partial class RuleEngineTest
                       "打死一只**没有**猎杀标记的敌方部队");
             Check(w2.Attack, 2,
                   "★ **没标记的就不响** —— 筛选条件被忽略的话这条会实得 3");
+            // 🔴 **2026-10-18（`A887` 的续）补的判别式②**：那 +1 现在落在**手里那份自己**身上，
+            //    ⇒ 上面那条（量 `w2.Attack`）**看不出**手牌那一跳响没响了。显式钉住。
+            CheckTrue(HandHasInst(ctx2, 0, "FixtureHuntWatch"),
+                      "（前提）**手里那份 `hunter` 真在** —— 不在的话下面那条 `0 == 0` 恒绿（假断言）");
+            Check(HandEffectCountOn(ctx2, 0, "FixtureHuntWatch"), 0,
+                  "★ **判别式②**：手里那份 `hunter` 身上**一条都没挂**"
+                  + "（筛选条件被忽略的话这里会是 1）");
         }
 
         // ---- ⑧ 「关键词被**给予 / 失去**」族：解析层（2026-09-13 第三十四轮）----
@@ -14463,25 +15012,27 @@ public static partial class RuleEngineTest
             Check(m.Attack, 2, "出手前：触发者 2 攻");
             Check(w.Attack, 2, "出手前：监听者 2 攻");
             CheckCode(RuleCore.DeclareAttack(ctx, 0, 2, 1, 3), RuleCodes.OK, "己方**近战**打一下");
-            // ⚠️ **2026-10-18：这两个数从 3 / 4 改成 5 / 6（各多 2 点）。** 两处 `+2` 的来历不同：
-            //    · `w`（监听者）：**场上那份** `watcher` 响一次（+2，落在它自己身上）
-            //      + **手里那份** `watcher` 也响一次（+2）⇒ 2 + 2 + 2 = **6**；
-            //    · `m`（触发者）：自己那条 `Mob:` +1 ⇒ 3，**再加手里那份监听器的 +2** ⇒ **5**。
-            //    接通的是**手牌那一跳**（`EffectResolver.BroadcastHandWhen`，原版判据
-            //    `BattleManagerSupport__BroadcastUnitSummoned.c:43-52`）：`ProbeBattle(hand0)` 把
-            //    `watcher` 放进牌库、起手就上手，而 `Place` **不摘手牌** ⇒ **两份各响一次**。
-            //    🔴 **手里那份落在【己方全体】、不是它自己** —— 这是本件带出来的一处**真偏离**
-            //      （留痕在 `EffectResolver.BroadcastHandWhen` 的注释里）：手牌里的牌**没有
-            //      `UnitState`** ⇒ `ResolveOps` 收到 `source = null` ⇒ 正文没写主语时走
-            //      `EffectResolver.cs:603-616` 那条「没有施放者 ⇒ 退回**己方全体**」的近似。
-            //      原版里这张牌自己是 acting card，该只落在**自己那张牌**对应的单位上。**没修**
-            //      （要等「手牌牌身上有 `UnitState` 等价物」那一族 = `A885`）。
-            Check(m.Attack, 5,
-                  "触发者 5 = 2 + 1（自己那条 `Mob:`）+ **2（手里那份监听器的全队 `+2`）**"
-                  + LogTail(ctx));
-            Check(w.Attack, 6,
+            // 🔴 **2026-10-18（`A887` 的续）· 这两个数从 5 / 6 改回 3 / 4（各少 2 点）。**
+            //    5 / 6 的来历 = 「手里那份监听者**没写主语**的 +2 洒给了**己方全体**」
+            //    （这里当天就地标注过是一处**真偏离**）—— **现在修了**：
+            //    那 +2 落在**手里那一份 `watcher` 自己身上**（`CardInstance.HandEffects`，
+            //    打出时兑现），⛔ 不再洒全队 ⇒
+            //      · `m`（触发者）= 自己那条 `Mob:` +1 ⇒ 2 + 1 = **3**；
+            //      · `w`（场上那份监听者）= 2 + 2（它自己响的那一次）= **4**。
+            //    `ProbeBattle(hand0)` 把 `watcher` 放进牌库、起手就上手，而 `Place` **不摘手牌**
+            //    ⇒ **两份各响一次**（`EffectResolver.BroadcastHandWhen`，原版判据
+            //    `BattleManagerSupport__BroadcastUnitSummoned.c:43-52`）。
+            //    两条判别力（缺一条都不是这条）：
+            //      🔴 ① 把手牌那一跳关掉 ⇒ 那份身上 0 条 ⇒ 下面第二条红；
+            //      🔴 ② 把「落在它自己身上」改回「洒给己方全体」⇒ 这里实得 5 / 6 ⇒ 红。
+            Check(m.Attack, 3,
+                  "触发者 3 = 2 + 1（自己那条 `Mob:`）—— **手里那份监听者的 +2 落它自己身上**，"
+                  + "不再洒全队" + LogTail(ctx));
+            Check(w.Attack, 4,
                   "★ **`When a friendly unit triggers Mob` 真的响了** —— 监听者 2 + 2（场上那份）"
-                  + " + **2（手里那份）** = 6；**广播没接的话它会停在 2**" + LogTail(ctx));
+                  + " = 4；**广播没接的话它会停在 2**" + LogTail(ctx));
+            Check(HandEffectCountOn(ctx, 0, "FixtureKwListen"), 1,
+                  "★ **判别式**：手里那份 `watcher` 身上**真的挂了一条**（那 +2 落在 acting card 自己身上）");
         }
 
         // ④-b **反例**：**敌方**触发 Mob → `a friendly unit triggers Mob` **不该**响
@@ -14500,6 +15051,14 @@ public static partial class RuleEngineTest
                   "★ **敌方触发 Mob → 我方监听器不动** —— 敌方那张只有自己那份（2 → 3）；"
                   + "`friendly` 那半段被丢掉的话，它会变成 **5**");
             Check(w.Attack, 2, "我方监听者始终 2 攻（没被敌方的事件带着走）");
+            // 🔴 **2026-10-18（`A887` 的续）补的判别式②**：极性写反时，手里那份监听器的 +2
+            //    现在**不再洒全队**（会落在它自己那份实例上）⇒ 上面两条**都看不出来了**。
+            //    显式钉「手里那份身上一条都没有」才保得住这一格的判别力。
+            CheckTrue(HandHasInst(ctx, 0, "FixtureKwListen"),
+                      "（前提）**手里那份 `watcher` 真在** —— 不在的话下面那条 `0 == 0` 恒绿（假断言）");
+            Check(HandEffectCountOn(ctx, 0, "FixtureKwListen"), 0,
+                  "★ **判别式②**：手里那份 `watcher` 身上**一条都没挂**"
+                  + "（`friendly` 那半段被丢掉的话这里会是 1）");
         }
     }
 
@@ -17748,6 +18307,61 @@ public static partial class RuleEngineTest
                           new[] { Unit("X", 1, 1, 1), Unit("Y", 1, 1, 1), Unit("Z", 1, 1, 1) });
         Check(RuleCore.Forfeit(ctx3, 7), 0, "非法玩家号 → 返回 0、不改状态");
         Check(ctx3.Winner, 0, "…结果也还是「进行中」");
+
+        // ------------------------------------------------------------
+        //  🆕 2026-10-18（**A913**）：**理由码** —— 原版
+        //     `BattleManager.DeadHero(bool isPlayerDying, BattleResult battleResult)` 的**第二个实参**。
+        //  判据：取值表 `d:/2/Warpforge_code/Scripts/Assembly-CSharp/BattleResult.cs`（7 个值，逐值见
+        //  `RuleEngine.BattleResult`）；13 个调用点逐条现读 → `资料/普查产出_1018/R3_联机三档现核.md` §2·1。
+        //  🔴 它在本工程里的**唯一落点** = `ctx.Events` 上那一行 `[BattleResult] …` token
+        //     （码**不过网、不进制指纹、不进任何状态** —— 主对话 2026-10-18 已裁，理由是零回放风险；
+        //      原版本身也「不过网」：`BattleCommsManager.SendForfeit` 发的是空参数表）。
+        //  ⚠️ 下面一律认那个 **token**，⛔ 不认中文措辞（措辞会改、翻译会改 ⇒ 那就是
+        //     「拿给人看的句子当逻辑」—— 本批已经栽过四次的模式）。
+        //  🧨 **判别式**：把 `Forfeit` 里那句 token 的 `{reason}` 换成写死的 `BattleResult.Forfeit`
+        //     ⇒ **A 组与 D 组同时红**（B、C 照绿）；把形参默认值改掉 ⇒ **C 组红**。
+        //     这就是为什么要 A / B **正负成对**、并把 `Undefined`(0) **单列一档**。
+        // ------------------------------------------------------------
+        //  A：**掉线那一档**（原版 `…_d__322__MoveNext.c:144` 判对面 · `FailedToReconnectAfterDisconnect.c:32` 判自己）
+        var ctxDown = Battle(new[] { Unit("A", 1, 1, 1), Unit("F1", 1, 1, 1), Unit("F2", 1, 1, 1) },
+                             new[] { Unit("X", 1, 1, 1), Unit("Y", 1, 1, 1), Unit("Z", 1, 1, 1) });
+        RuleCore.Forfeit(ctxDown, 0, BattleResult.Disconnect);
+        CheckTrue(ctxDown.Events.Exists(e => e.Contains("[BattleResult] Disconnect(3) seat=0")),
+                  "★ 掉线那一档 ⇒ 日志里写明 **`Disconnect`(3)**"
+                + "（原版判据 = `DeadHero(对面, 3)`：第三个实参就是 3）");
+        CheckTrue(!ctxDown.Events.Exists(e => e.Contains("[BattleResult] Forfeit(2)")),
+                  "★ **反向（与上一条成对的那一半）**：这一局**不许**出现「投降」那一档的 token"
+                + " —— 没有这一条，「两个码都写进去」或「写死成 2」也照样绿（弱断言）");
+        Check(ctxDown.ForfeitedBy, 0, "★ …码只管日志：谁弃权 / 谁获胜那一套一个字都没变");
+
+        //  B：**投降那一档**（原版 `ClickExitBattle.c:59` 我点退出 · `ReceiveEnemyForfeit.c:37` 对面投降）
+        var ctxFq = Battle(new[] { Unit("A", 1, 1, 1), Unit("F1", 1, 1, 1), Unit("F2", 1, 1, 1) },
+                           new[] { Unit("X", 1, 1, 1), Unit("Y", 1, 1, 1), Unit("Z", 1, 1, 1) });
+        RuleCore.Forfeit(ctxFq, 1, BattleResult.Forfeit);
+        CheckTrue(ctxFq.Events.Exists(e => e.Contains("[BattleResult] Forfeit(2) seat=1")),
+                  "★ 投降那一档 ⇒ 日志里写明 **`Forfeit`(2)**（原版那两跳的第三个实参都是 2）");
+        CheckTrue(!ctxFq.Events.Exists(e => e.Contains("[BattleResult] Disconnect(3)")),
+                  "★ **反向**：投降这一局**不许**出现掉线那一档的 token"
+                + " —— 与 A 组合起来 = **两档真的分辨得出**（只断一条的话，两档可以同时绿）");
+
+        //  C：**形参默认值** —— 不传码 = 本方法今天那个语义（「有人投降」）
+        var ctxDef = Battle(new[] { Unit("A", 1, 1, 1), Unit("F1", 1, 1, 1), Unit("F2", 1, 1, 1) },
+                            new[] { Unit("X", 1, 1, 1), Unit("Y", 1, 1, 1), Unit("Z", 1, 1, 1) });
+        RuleCore.Forfeit(ctxDef, 0);
+        CheckTrue(ctxDef.Events.Exists(e => e.Contains("[BattleResult] Forfeit(2) seat=0")),
+                  "★ 不传码 ⇒ 默认 **`Forfeit`(2)**（`Forfeit` 这个名字今天就是这个语义、玩家那颗钮也是它）"
+                + " —— 🧨 改坏法：改掉形参默认值 ⇒ 只红这一条");
+
+        //  D：**判不出理由** ⇒ `Undefined`(0)，它是一个**独立可辨**的状态，⛔ 不许拿 2 顶替
+        var ctxUnk = Battle(new[] { Unit("A", 1, 1, 1), Unit("F1", 1, 1, 1), Unit("F2", 1, 1, 1) },
+                            new[] { Unit("X", 1, 1, 1), Unit("Y", 1, 1, 1), Unit("Z", 1, 1, 1) });
+        RuleCore.Forfeit(ctxUnk, 0, BattleResult.Undefined);
+        CheckTrue(ctxUnk.Events.Exists(e => e.Contains("[BattleResult] Undefined(0) seat=0")),
+                  "★ 拿不到理由时**如实写 `Undefined`(0)**（今天唯一这么传的是录像重放那一跳 ——"
+                + "录像里没记这个码，`BattleDriver.PlayReplay` 不许拿 `Forfeit` 顶替）");
+        CheckTrue(!ctxUnk.Events.Exists(e => e.Contains("[BattleResult] Forfeit(2)")),
+                  "★ **反向**：它**不冒充**投降那一档"
+                + "（🧨 把 `Undefined` 折成 `Forfeit`、或给它一个「反正看起来像投降」的兜底 ⇒ 本条红）");
     }
 
     static void TestDrawIsDraw()
@@ -18008,6 +18622,291 @@ public static partial class RuleEngineTest
               + HitDetail(r.Unity));
     }
 
+    // ==================================================================
+    //  🆕 2026-10-18（A938）：教程执行器 · **引擎侧那一半**
+    // ==================================================================
+    //
+    //  这一节**只验引擎**：卡上持久的攻击型（原版 `EntityScript.currentAttackType`，偏移 `+0x120`）、
+    //  照它打的 `DeclareAttackByCurrentType`（原版 `AiScripted.ExecuteAction` 的 `Attack(30)` 那支），
+    //  以及脚本「谁 / 打谁」的解析（`TutorialRules` 那三个方法，含**认不出就不猜**）。
+    //  ⚠️ 「脚本真的被驱动 / 六档真的改了局面 / 录像能回放」在 `Editor/BattleScene.cs` 那一节
+    //     （那边才有真 `BattleDriver` 与真关卡数据）。
+    //
+    //  判据（全部现读 `d:/2/tools/decomp_full/`）：
+    //   · 初值 = **1**（`EntityScript__.ctor.c:5`），随后被 `CardScript__CardSetup.c:263-267` /
+    //     `CardScript__ChooseAttackTypeAutomatically.c:10-12` 按 **`(近战 < 远程) + 1`** 覆盖
+    //     ⇒ **远程更高才取远程、平手取近战**；
+    //   · `ChangeToRanged/Melee` 走 `CardScript.ChangeAttackType(card, 2|1, true)`
+    //     （`AiScripted__ExecuteAction.c:1201,:1249` → `CardScript__ChangeAttackType.c:15`）；
+    //   · `Attack(30)` 读的正是这一格（`AiScripted__ExecuteAction.c:1139` 的 `uVar18`）。
+    static void TestTutorialEngineHalf()
+    {
+        var emptyStage = new TutorialStageData { stage = 90, so = "<自检合成·引擎侧>" };
+
+        // ------------------------------------------------------------
+        //  ① 卡上攻击型的**初值**：原版 `(近战 < 远程) + 1`
+        // ------------------------------------------------------------
+        {
+            var ctx = Battle(new[] { Unit("A", 1, 0, 9) }, new[] { Unit("X", 1, 0, 9) });
+            var melee = Place(ctx, 0, 3, Ranged("MeleeHigh", 1, 4, 9, 0));
+            var gun = Place(ctx, 0, 2, Ranged("RangedHigh", 1, 1, 9, 5));
+            var tie = Place(ctx, 0, 1, Ranged("Tie", 1, 3, 9, 3));
+            Check(melee.CurrentAttackType, UnitState.AttackTypeMelee,
+                  "近战 4 / 远程 0 ⇒ 当前攻击型 = **1 近战**（原版 `CardSetup` 的 `(近战<远程)+1`）");
+            Check(gun.CurrentAttackType, UnitState.AttackTypeRanged,
+                  "近战 1 / 远程 5 ⇒ **2 远程**（远程更高才取远程）");
+            Check(tie.CurrentAttackType, UnitState.AttackTypeMelee,
+                  "★ **判别式**：近战 3 / 远程 3 **平手** ⇒ 取 **1 近战**（`(3<3)+1` = 1）"
+                + "｜🧨 把算式写成 `<=` ⇒ 本条红");
+        }
+
+        // ------------------------------------------------------------
+        //  ② 照卡上那一格打：`DeclareAttackByCurrentType`（原版 `Attack(30)`）
+        //     🔴 **灭自证那一对**：同一句调用、同一套牌，**只改那一格** ⇒ 打出来的是两种伤害。
+        // ------------------------------------------------------------
+        {
+            var ctxA = Battle(new[] { Unit("A", 1, 0, 9) }, new[] { Unit("X", 1, 0, 40) });
+            var atkA = Place(ctxA, 0, 3, Ranged("Hybrid", 1, 1, 9, 5));      // 近战 1 / 远程 5
+            var tgtA = Place(ctxA, 1, 3, Unit("T", 1, 0, 40));
+            Check(atkA.CurrentAttackType, UnitState.AttackTypeRanged, "（前提）这一张当前是远程");
+            Check(RuleCore.DeclareAttackByCurrentType(ctxA, 0, 3, 1, 3), RuleCodes.OK, "照当前攻击型打出去");
+            Check(tgtA.Health, 35, $"挨的是**远程 5**（40 → {tgtA.Health}）");
+
+            var ctxB = Battle(new[] { Unit("A", 1, 0, 9) }, new[] { Unit("X", 1, 0, 40) });
+            var atkB = Place(ctxB, 0, 3, Ranged("Hybrid", 1, 1, 9, 5));
+            var tgtB = Place(ctxB, 1, 3, Unit("T", 1, 0, 40));
+            Check(RuleCore.SetCurrentAttackType(ctxB, 0, 3, UnitState.AttackTypeMelee), true,
+                  "把这一格拨回近战（= 原版 `ChangeAttackType(card, 1, true)`）");
+            Check(atkB.CurrentAttackType, UnitState.AttackTypeMelee, "★ 拨完就是近战（**持久状态**，不是一次性的）");
+            Check(RuleCore.DeclareAttackByCurrentType(ctxB, 0, 3, 1, 3), RuleCodes.OK, "同一句调用再打一次");
+            Check(tgtB.Health, 39, $"★ **判别式**：同一局面 ⇒ 这一下是**近战 1**（40 → {tgtB.Health}）"
+                + " —— 与上面那一格**结构上不可能同时成立**（同一句调用、两种结果只差那一格）");
+        }
+
+        // ------------------------------------------------------------
+        //  ③ 旧调用点**不许被改道**：`DeclareAttack` 省略 `ranged` 仍然 = 近战
+        //     （这一条是「别把默认值改成读当前攻击型」的守门员 —— 全工程 60+ 处省略它）
+        // ------------------------------------------------------------
+        {
+            var ctx = Battle(new[] { Unit("A", 1, 0, 9) }, new[] { Unit("X", 1, 0, 40) });
+            var atk = Place(ctx, 0, 3, Ranged("Hybrid", 1, 1, 9, 5));        // 当前攻击型 = 远程
+            var tgt = Place(ctx, 1, 3, Unit("T", 1, 0, 40));
+            Check(atk.CurrentAttackType, UnitState.AttackTypeRanged, "（前提）卡上那一格是远程");
+            Check(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3), RuleCodes.OK, "旧调用点（省略 `ranged`）");
+            Check(tgt.Health, 39, $"★ 它打的**仍然是近战 1**（40 → {tgt.Health}）—— `DeclareAttack` 的默认值"
+                + "没被 `CurrentAttackType` 改道｜🧨 把默认值改成「读当前攻击型」⇒ 本条红（那会静默改掉 60+ 处）");
+        }
+
+        // ------------------------------------------------------------
+        //  ④ 空格的读 / 写：如实返回 false（调用方出声），不静默
+        // ------------------------------------------------------------
+        {
+            var ctx = Battle(new[] { Unit("A", 1, 0, 9) }, new[] { Unit("X", 1, 0, 9) });
+            Check(RuleCore.SetCurrentAttackType(ctx, 0, 0, UnitState.AttackTypeRanged), false,
+                  "空格上 `SetCurrentAttackType` ⇒ **false**（原版 `ChangeAttackType` 传 null 会抛，我们不抛但要如实报）");
+            Check(RuleCore.CurrentAttackIsRanged(ctx, 0, 0), false, "空格读「是不是远程」⇒ **false**（不抛）");
+            Check(RuleCore.SetCurrentAttackType(ctx, 5, 3, UnitState.AttackTypeRanged), false, "非法座位 ⇒ false");
+        }
+
+        // ------------------------------------------------------------
+        //  ⑤ 脚本「谁」→ 我们的座位（原版 `AiScripted__GetActingCard.c` 那张表）
+        // ------------------------------------------------------------
+        {
+            Check(TutorialRules.SideOfUnitType((int)ScriptedActionUnit.PlayerWarlord), 0, "10 PlayerWarlord ⇒ 座位 0");
+            Check(TutorialRules.SideOfUnitType((int)ScriptedActionUnit.PlayerMinion), 0, "30 PlayerMinion ⇒ 座位 0");
+            Check(TutorialRules.SideOfUnitType((int)ScriptedActionUnit.PlayerMinionLeft), 0, "31 ⇒ 座位 0（与 30 同路）");
+            Check(TutorialRules.SideOfUnitType((int)ScriptedActionUnit.PlayerCardInHand), 0, "50 ⇒ 座位 0");
+            Check(TutorialRules.SideOfUnitType((int)ScriptedActionUnit.AiWarlord), 1, "20 AiWarlord ⇒ 座位 1");
+            Check(TutorialRules.SideOfUnitType((int)ScriptedActionUnit.EnemyMinion), 1, "40 ⇒ 座位 1");
+            Check(TutorialRules.SideOfUnitType((int)ScriptedActionUnit.EnemyCardInHand), 1, "60 ⇒ 座位 1");
+            Check(TutorialRules.SideOfUnitType(0), -1, "★ **判别式**：`None(0)` ⇒ **-1**（原版这一档 LogWarning + null）");
+            Check(TutorialRules.SideOfUnitType(99), -1, "认不出的号 ⇒ -1（⛔ 不许默认成 0）");
+        }
+
+        // ------------------------------------------------------------
+        //  ⑥ 脚本「谁」→ 场上的格号 / 手牌下标（**认不出就不猜**）
+        // ------------------------------------------------------------
+        {
+            var ctx = Battle(new[] { Unit("Mine", 1, 1, 5) }, new[] { Unit("Foe", 1, 1, 5) });
+            var me = Place(ctx, 0, 3, Unit("OnBoard", 1, 1, 5));
+            Place(ctx, 1, 3, Unit("TheirGuy", 1, 1, 5));
+
+            int side, slot; string why;
+            Check(TutorialRules.FindBoardUnit(ctx, new TutorialUnitRef { unitType = 10 }, out side, out slot, out why),
+                  true, "督军那一档**按类型就定得下来**（原版 `GetHero`，不需要 id）");
+            Check(side == 0 && slot == BoardSpec.WarlordSlot, true, $"督军落在座位 0 的 {BoardSpec.WarlordSlot} 号格");
+
+            Check(TutorialRules.FindBoardUnit(ctx, new TutorialUnitRef { unitType = 20 }, out side, out slot, out why),
+                  true, "`AiWarlord(20)` 同理 ⇒ 座位 1 的督军格");
+            Check(side == 1 && slot == BoardSpec.WarlordSlot, true, "AI 督军落在座位 1 的督军格");
+
+            var byId = new TutorialUnitRef { unitType = 30, ourId = "OnBoard" };
+            Check(TutorialRules.FindBoardUnit(ctx, byId, out side, out slot, out why), true,
+                  "`PlayerMinion(30)` + `ourId` 命中 ⇒ 认得出是哪一格");
+            Check(side == 0 && slot == 3 && me != null, true, "认出来的是 0 号位 3 号格那只");
+
+            var noId = new TutorialUnitRef { unitType = 30, ourId = "", name = "" };
+            Check(TutorialRules.FindBoardUnit(ctx, noId, out side, out slot, out why), false,
+                  "★ **判别式**：`ourId` 空（产物解不出我们的卡 id）⇒ **false**，⛔ 不退回 `list[0]`"
+                + "（原版 `GetChosenCard` 会那样做 —— 那会**静默打错目标**）");
+            CheckTrue(!string.IsNullOrEmpty(why), "被拒时要给出**人话理由**（调用方拿它出声）：" + (why ?? "<null>"));
+
+            var wrongId = new TutorialUnitRef { unitType = 30, ourId = "NotOnBoard" };
+            Check(TutorialRules.FindBoardUnit(ctx, wrongId, out side, out slot, out why), false,
+                  "★ 场上**没有**那一张 ⇒ 也 false（不是「随便挑一只」）");
+
+            var theirGuy = new TutorialUnitRef { unitType = 40, ourId = "TheirGuy" };
+            Check(TutorialRules.FindBoardUnit(ctx, theirGuy, out side, out slot, out why) && side == 1,
+                  true, "`EnemyMinion(40)` 认的是**座位 1** 那一侧");
+
+            // 手牌：`NewBattle` 已发过起手 ⇒ 我方手牌 = [Mine, …]（`shuffle:false` 时从牌库末尾抽，见 `Draw`）
+            int hi = TutorialRules.FindHandIndex(ctx, new TutorialUnitRef { unitType = 50, ourId = "Mine" }, out why);
+            Check(hi, 0, $"（前提）`50` + `ourId` ⇒ 我方手牌第 {hi} 张（`shuffle:false` 时起手第一张就是那张）");
+            Check(TutorialRules.FindHandIndex(ctx, new TutorialUnitRef { unitType = 50, ourId = "Nobody" }, out why),
+                  -1, "★ 手牌里没有那一张 ⇒ **-1**（理由非空，同上）");
+            CheckTrue(!string.IsNullOrEmpty(why), "手牌认不出也给理由：" + (why ?? "<null>"));
+        }
+
+        // ------------------------------------------------------------
+        //  ⑦ 六个脚本动作档：`ChangeToMelee` / `Attack` / `PlayCard` **真的改了引擎状态**
+        //     （`ActiveAbility` 6 关 0 条 ⇒ 只留桩，见 `BattleScene` 那一节钉的出声）
+        // ------------------------------------------------------------
+        {
+            // ⑦-a `ChangeToMelee`：把督军的攻击型拨成近战（原版 `ChangeAttackType(card, 1, true)`）
+            var ctxC = Battle(new[] { Unit("A", 1, 0, 9) }, new[] { Unit("X", 1, 0, 9) });
+            RuleCore.SetCurrentAttackType(ctxC, 0, BoardSpec.WarlordSlot, UnitState.AttackTypeRanged);
+            var chAct = new TutorialAction
+            {
+                type = "ChangeToMelee",
+                data = new[] { new TutorialActionData
+                {
+                    type = (int)ScriptedActionType.ChangeToMelee,
+                    acting = new TutorialUnitRef { unitType = (int)ScriptedActionUnit.PlayerWarlord },
+                } },
+            };
+            var scC = new TutorialScript(emptyStage);
+            ScriptedActionDone gotC = default(ScriptedActionDone);
+            bool firedC = false, okC = false;
+            System.Action<BattleContext, TutorialAction, ScriptedActionDone, bool> cbC =
+                (c, a, d, ok) => { gotC = d; okC = ok; firedC = true; };
+            TutorialScript.Executed += cbC;
+            try { Check(scC.ExecuteAction(ctxC, chAct), true, "`ChangeToMelee` 这一档**执行成功**"); }
+            finally { TutorialScript.Executed -= cbC; }
+            Check(ctxC.Players[0].Warlord.CurrentAttackType, UnitState.AttackTypeMelee,
+                  "★ 引擎状态真的变了：督军的当前攻击型 = **近战**");
+            Check(firedC && okC, true, "★ **第三条记账口发出来了**（`TutorialScript.Executed`，带 `ok = true`）"
+                + " —— 录像靠它才记得到这条动作");
+            Check(gotC.Kind, ScriptedActionType.ChangeToMelee, "记账口带的大类是 `ChangeToMelee`");
+            Check(gotC.AttackType, UnitState.AttackTypeMelee, "记账口带的「改成哪一档」= 近战");
+            Check(gotC.Seat, 0, "记账口带的座位 = 0");
+
+            // ⑦-a′ 判别式：同一张脚本、同一个局面，**反过来**那一档 ⇒ 拨成远程
+            var ctxC2 = Battle(new[] { Unit("A", 1, 0, 9) }, new[] { Unit("X", 1, 0, 9) });
+            var chAct2 = new TutorialAction
+            {
+                type = "ChangeToRanged",
+                data = new[] { new TutorialActionData
+                {
+                    type = (int)ScriptedActionType.ChangeToRanged,
+                    acting = new TutorialUnitRef { unitType = (int)ScriptedActionUnit.PlayerWarlord },
+                } },
+            };
+            new TutorialScript(emptyStage).ExecuteAction(ctxC2, chAct2);
+            Check(ctxC2.Players[0].Warlord.CurrentAttackType, UnitState.AttackTypeRanged,
+                  "★ **判别式**：换成 `ChangeToRanged` ⇒ 拨成**远程**（一近一远 ⇒ 不是「恒改同一个值」）");
+
+            // ⑦-a″ 认不出就不猜：acting 的 `ourId` 空 + 是「部队」那一档 ⇒ 不执行、记账 + 出声
+            var ctxC3 = Battle(new[] { Unit("A", 1, 0, 9) }, new[] { Unit("X", 1, 0, 9) });
+            var scC3 = new TutorialScript(emptyStage);
+            var chBad = new TutorialAction
+            {
+                type = "ChangeToMelee",
+                data = new[] { new TutorialActionData
+                {
+                    type = (int)ScriptedActionType.ChangeToMelee,
+                    acting = new TutorialUnitRef { unitType = (int)ScriptedActionUnit.PlayerMinion, ourId = "" },
+                } },
+            };
+            Check(scC3.ExecuteAction(ctxC3, chBad), false, "★ 认不出「要改的是哪一张」⇒ **不执行**（返回 false）");
+            int badN; scC3.Unresolved.TryGetValue(ScriptedActionType.ChangeToMelee, out badN);
+            Check(badN, 1, "★ 而且**记了账**（`Unresolved`）—— 不许静默跳过");
+
+            // ⑦-b `Attack(30)`：脚本驱动的一刀**真的打在 AI 督军身上**
+            var ctxD = Battle(new[] { Unit("A", 1, 0, 9) }, new[] { Unit("X", 1, 0, 9) });
+            Place(ctxD, 0, 3, Unit("Bruiser", 1, 3, 9));      // 近战 3 / 远程 0 ⇒ 当前攻击型 = 近战
+            int hpBefore = ctxD.Players[1].Warlord.Health;
+            var atkAct = new TutorialAction
+            {
+                type = "Attack",
+                data = new[] { new TutorialActionData
+                {
+                    type = (int)ScriptedActionType.Attack,
+                    acting = new TutorialUnitRef { unitType = (int)ScriptedActionUnit.PlayerMinion, ourId = "Bruiser" },
+                    target = new TutorialUnitRef { unitType = (int)ScriptedActionUnit.AiWarlord },
+                } },
+            };
+            Check(new TutorialScript(emptyStage).ExecuteAction(ctxD, atkAct), true, "`Attack` 这一档执行成功");
+            Check(ctxD.Players[1].Warlord.Health, hpBefore - 3,
+                  $"★ 打的是**近战 3**（AI 督军 {hpBefore} → {ctxD.Players[1].Warlord.Health}）"
+                + " —— `Attack(30)` 读的就是卡上那一格（原版 `ExecuteAction.c:1139`）");
+
+            // ⑦-b′ 目标认不出 ⇒ 不执行（**不猜一只顶着**）
+            var ctxD2 = Battle(new[] { Unit("A", 1, 0, 9) }, new[] { Unit("X", 1, 0, 9) });
+            Place(ctxD2, 0, 3, Unit("Bruiser", 1, 3, 9));
+            var atkBad = new TutorialAction
+            {
+                type = "Attack",
+                data = new[] { new TutorialActionData
+                {
+                    type = (int)ScriptedActionType.Attack,
+                    acting = new TutorialUnitRef { unitType = (int)ScriptedActionUnit.PlayerMinion, ourId = "Bruiser" },
+                    target = new TutorialUnitRef { unitType = (int)ScriptedActionUnit.PlayerMinion, ourId = "" },
+                } },
+            };
+            int hpB = ctxD2.Players[1].Warlord.Health;
+            Check(new TutorialScript(emptyStage).ExecuteAction(ctxD2, atkBad), false,
+                  "★ 目标 `ourId` 空 ⇒ **不执行**（⛔ 不退回 `list[0]`）");
+            Check(ctxD2.Players[1].Warlord.Health, hpB, "而且要**真的没打**（督军血量一点没动）");
+        }
+
+        // ------------------------------------------------------------
+        //  ⑧ `PlayCard(20)`：脚本让 AI 从**它自己的手牌**里出一张（数据里 acting 全是 `EnemyCardInHand(60)`）
+        // ------------------------------------------------------------
+        {
+            // 先手给 AI（`firstSeat: 1`）：`CanPlayCard` 要求 `p == ctx.Active`
+            var ctxP = RuleCore.NewBattle(Deck(new[] { Unit("Filler", 1, 0, 1) }),
+                                          Deck(new[] { Unit("FoeCard", 1, 1, 5) }),
+                                          seed: 0, shuffle: false, firstSeat: 1);
+            RuleCore.BeginTurn(ctxP);       // 发能量（起始 2）⇒ 1 费的牌真能打出去
+            Check(ctxP.Active, 1, "（前提）这一局先手是 AI ⇒ `ctx.Active == 1`");
+            int handBefore = ctxP.Players[1].Hand.Count;
+            int hIdx = TutorialRules.FindHandIndex(ctxP,
+                          new TutorialUnitRef { unitType = (int)ScriptedActionUnit.EnemyCardInHand, ourId = "FoeCard" },
+                          out _);
+            CheckTrue(hIdx >= 0, $"（前提）AI 手上有 `FoeCard`（下标 {hIdx}）");
+
+            var playAct = new TutorialAction
+            {
+                type = "PlayCard",
+                data = new[] { new TutorialActionData
+                {
+                    type = (int)ScriptedActionType.PlayCard,
+                    acting = new TutorialUnitRef { unitType = (int)ScriptedActionUnit.EnemyCardInHand, ourId = "FoeCard" },
+                } },
+            };
+            Check(new TutorialScript(emptyStage).ExecuteAction(ctxP, playAct), true, "`PlayCard` 这一档执行成功");
+            Check(ctxP.Players[1].Hand.Count, handBefore - 1,
+                  $"★ 那张牌**真的离手了**（{handBefore} → {ctxP.Players[1].Hand.Count}）");
+            int onBoard = 0;
+            for (int s = 0; s < BoardSpec.Size; s++)
+            {
+                var u = ctxP.Players[1].Board[s];
+                if (u != null && !u.IsWarlord) onBoard++;
+            }
+            Check(onBoard, 1, $"★ 而且**真的落场了**（AI 场上多了一只，实得 {onBoard}）");
+        }
+    }
+
     /// <summary>命中清单（空 ⇒ 空串；只列头 10 条，别把日志刷爆）。</summary>
     static string HitDetail(List<string> hits)
     {
@@ -18179,10 +19078,12 @@ public static partial class RuleEngineTest
     ///     （`BattleManager__AddNewCardToHand.c:97`）⇒ **不是「打出」**。两者的调用点各只有一处：
     ///     `BattleManager._ResolvePlayCardFromHand_d__447__MoveNext.c:1337`（潮涌）/ `:1340`（伴生）。
     ///
-    /// ⚠️ **这条对潮涌是原样一致的**；对**伴生**只对「放不放表」这一件事成立 ——
-    ///    🔴 **机制本身我们与原版不同**（我们 `RuleCore.PlayCompanions` 是**免费带上场**，
-    ///    原版是**进手牌**）⇒ 所以下面②的「前提」那条**两种都接受**（见那句注释）；
-    ///    那条差异**不在本用例的判据范围**，另记。
+    /// ⚠️ **这条对潮涌是原样一致的**；对**伴生**那一支 ——
+    ///    🔴 **2026-10-18（`A920` 的续）· 就地订正（铁律 5）**：这一段原来写的是
+    ///    「**机制本身我们与原版不同**（我们 `RuleCore.PlayCompanions` 是**免费带上场**，
+    ///     原版是**进手牌**）⇒ 所以下面②的「前提」那条**两种都接受**」—— **已不成立**：
+    ///    `PlayCompanions` 当天已照原版整条重写（**按卡定义造一张新卡 · 进手牌 · 零移除**），
+    ///    ⇒ 下面②现在**钉死「不上场、在手里」**（那条「两种都接受」的宽松断言收紧了）。
     /// </summary>
     static void TestPlayedCardsExcludesCompanionAndTide()
     {
@@ -18209,22 +19110,710 @@ public static partial class RuleEngineTest
             var host = new CardDef("A920Host", "A920Host", "unit", "Companion 1: A920Drone",
                                    "common", "Test", 3, 2, 5, 0, new[] { "Companion 1: A920Drone" },
                                    subtype: "Battlesuit");
-            var ctx = ProbeBattle(new[] { host, drone }, new[] { Unit("A920Foe2", 1, 0, 9) });
+            var ctx = BattlePool(new[] { host, drone }, new[] { Unit("A920Foe2", 1, 0, 9) },
+                                 new List<CardDef> { host, drone }, warlordFaction: "TauEmpire");
             ToP1Turn(ctx, 1);
             ctx.Players[0].Energy = 20;
             int n0 = ctx.PlayedCards.Count;
             CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "A920Host"), 0), RuleCodes.OK,
                       "② 打出带伴生的部队");
-            int drones = 0;
+            int onBoard = 0, inHand = 0;
             for (int s = 0; s < BoardSpec.Size; s++)
-                if (Board(ctx, 0, s) != null && Board(ctx, 0, s).Name == "A920Drone") drones++;
+                if (Board(ctx, 0, s) != null && Board(ctx, 0, s).Name == "A920Drone") onBoard++;
             foreach (var h in ctx.Players[0].Hand)
-                if (h.Card != null && h.Card.Name == "A920Drone") drones++;
-            // ⚠️ **两种都算**：原版是「进手牌」、我们是「带上场」—— 那条机制差异还没改
-            //    （见 §二 那条 A920 的注）。这里只保证「伴生确实出来了」，别把**已知偏离**钉死。
-            CheckTrue(drones >= 1, "② **前提**：伴生确实出来了（上场或进手牌 —— 两种都算）");
+                if (h.Card != null && h.Card.Name == "A920Drone") inHand++;
+            // 🔴 **2026-10-18（`A920` 的续）：那条「已知偏离」已经改掉了** —— 原版进**手牌**，
+            //    我们现在也进手牌（`RuleCore.PlayCompanions` 整条重写）。
+            Check(onBoard, 0, "② **前提（已按原版改正）**：伴生**不上场**（原版进的是手牌）");
+            CheckTrue(inHand >= 1, "② **前提**：伴生确实造出来了、**在手里**（`AddNewCardToHand`）");
             Check(ctx.PlayedCards.Count - n0, 1,
                   "★ ② 伴生**不进**「本局打出过的牌」（原版 `ProcessCompanion` 只 `AddNewCardToHand`）");
+        }
+    }
+
+    /// <summary>
+    /// 🆕 **2026-10-18（`W5`）引擎侧那一批残账（5 件）** —— 每条都带「🧨 改回去 ⇒ 红」的判别式。
+    ///
+    /// | # | 件 | 判据（现读 `d:/2/tools/decomp_full/`） |
+    /// |---|---|---|
+    /// | ① | `+0x120` 的**其余写点** | `CardScript__AddEffect.c:479-480`（blind⇒1）/ `:625-626`（pindown⇒2）· `CardScript__ActivateMinion.c:43-47,70-72`（召唤病+ferocity/oath⇒4）· `CardScript__OnTurnEnd.c:214-218`（oath）· `CardScript__ResolveActiveAbilityPlayed.c:35-42`（duty/ferocity/oath）· `CardScript__UpdateAttackText.c:21-29`（数值一变就重挑） |
+    /// | ② | `criteria` 根治 | `PlayerHand__SetupCardInHand.c:58`（`FilterMethods.CheckIfMeetsCriteria(card, handEffect.targetCriteria)`）+ `HandEffect.targetCriteria`（`HandEffect.cs` 那一格） |
+    /// | ③ | 潮涌补手牌上限 | `CardScript__ProcessTide.c:68` → `BattleManager__AddNewCardToHand` → `PlayerHand._AddCardNotDrawnToHand_d__39__MoveNext.c:26-30/63-65`（满了 `SendToCemetery`） |
+    /// | ④ | 广播次序 | `BattleManagerSupport__BroadcastUnitSummoned.c:21 / :25-39 / :44-64`（自己 → 棋盘 → 手牌） |
+    /// | ⑤ | 起手不算「抽到」 | `BattleManager._ResolveDrawCard_d__432__MoveNext.c:283-295`（两件事都包在 `!IsDuringMulligan` 里） |
+    /// </summary>
+    static void TestW5EngineBacklog()
+    {
+        // ============================================================
+        //  ① `K3`：`+0x120` 其余写点（5 条）
+        // ============================================================
+        //  ①a `blind` ⇒ 1 近战 / `pindown` ⇒ 2 远程（原版 `CardScript.AddEffect` 里那两条）
+        {
+            var ctx = Battle(new[] { Unit("A", 1, 0, 9) }, new[] { Unit("X", 1, 0, 9) });
+            var gun = Place(ctx, 0, 3, Ranged("W5Gun", 1, 1, 9, 5));    // 近战 1 / 远程 5 ⇒ 当前 = 2
+            Check(gun.CurrentAttackType, UnitState.AttackTypeRanged, "（前提）远程更高 ⇒ 当前攻击型 = 2");
+            gun.AddKeyword("blind", 1);
+            Check(gun.CurrentAttackType, UnitState.AttackTypeMelee,
+                  "★ `blind` 一挂 ⇒ 当前攻击型 = **1 近战**"
+                  + "（原版 `CardScript__AddEffect.c:479-480`：trait `0x3cf = 975 = blind` ⇒ `+0x120 = 1`）"
+                  + "｜🧨 删掉 `UnitState.SyncKeywordState` 里那两行 ⇒ 仍是 2 ⇒ 红");
+            gun.RemoveAll("blind");
+            CheckTrue(!gun.IsBlind, "（对照）`IsBlind` 那一格跟着摘掉了");
+            Check(gun.CurrentAttackType, UnitState.AttackTypeMelee,
+                  "★ 摘掉 `blind` **当场不回挑**（原版那两条是**单向**的：`RemoveTraitSilently` 不碰这一格）"
+                  + "｜🧨 顺手在摘除处「按数值重挑」⇒ 这里会变回 2 ⇒ 红");
+
+            var fist = Place(ctx, 0, 4, Unit("W5Fist", 1, 4, 9));        // 近战 4 / 远程 0 ⇒ 当前 = 1
+            Check(fist.CurrentAttackType, UnitState.AttackTypeMelee, "（前提）近战更高 ⇒ 当前攻击型 = 1");
+            fist.AddKeyword("pindown", 1);
+            Check(fist.CurrentAttackType, UnitState.AttackTypeRanged,
+                  "★ `pindown` 一挂 ⇒ 当前攻击型 = **2 远程**"
+                  + "（原版 `CardScript__AddEffect.c:625-626`：trait `0x3ca = 970 = pindown` ⇒ `+0x120 = 2`）"
+                  + "｜🧨 删掉那一行 ⇒ 仍是 1 ⇒ 红");
+        }
+
+        //  ①b 召唤病 + `oath` ⇒ **4 主动技能**（原版 `ActivateMinion`）—— 走**真部署**这一条入口
+        {
+            var oathGuy = new CardDef("W5OathGuy", "W5OathGuy", "unit", "", "common", "Test",
+                                      1, 4, 9, 0, new[] { "oath" }, subtype: "Infantry");
+            var plainGuy = new CardDef("W5PlainGuy", "W5PlainGuy", "unit", "", "common", "Test",
+                                       1, 4, 9, 0, null, subtype: "Infantry");
+            var ctx = Battle(new[] { oathGuy, plainGuy }, new[] { Unit("X", 1, 0, 9) });
+            ToP1Turn(ctx, 1);
+            ctx.Players[0].Energy = 30;
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "W5PlainGuy"), 1), RuleCodes.OK,
+                      "①b 先打一个**对照**（不带 `oath`）");
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "W5OathGuy"), 2), RuleCodes.OK,
+                      "①b 打一个带 `oath` 的部队");
+            int sPlain = SlotOf(ctx, 0, "W5PlainGuy"), sOath = SlotOf(ctx, 0, "W5OathGuy");
+            CheckTrue(sPlain >= 0 && sOath >= 0, "①b （前提）两张都在场上");
+            if (sPlain >= 0 && sOath >= 0)
+            {
+                CheckTrue(Board(ctx, 0, sOath).Exhausted,
+                          "①b （前提）`oath` 那张**带着召唤病**（`oath` **不是**部署豁免）");
+                Check(Board(ctx, 0, sOath).CurrentAttackType, UnitState.AttackTypeActive,
+                      "★ 召唤病 + `oath` ⇒ 当前攻击型 = **4 主动技能**"
+                      + "（原版 `CardScript__ActivateMinion.c:43-47,70-72`）"
+                      + "｜🧨 删掉 `RuleCore.ForceAttackTypeOnDeploy` 那一句 ⇒ 实得 1 ⇒ 红");
+                Check(Board(ctx, 0, sPlain).CurrentAttackType, UnitState.AttackTypeMelee,
+                      "★ **判别式**：**不带** `oath` 的对照那张按数值取 **1 近战**（4/0）——"
+                      + "把这一支写成无条件 `= 4` ⇒ 它也会变 4 ⇒ 红");
+            }
+        }
+
+        //  ①c 回合结束：**只对带 `oath` 的**重挑（原版 `OnTurnEnd`）
+        {
+            var oathEnd = new CardDef("W5OathEnd", "W5OathEnd", "unit", "", "common", "Test",
+                                      1, 1, 9, 5, new[] { "oath" }, subtype: "Infantry");   // 1/5 ⇒ 远程
+            var plainEnd = new CardDef("W5PlainEnd", "W5PlainEnd", "unit", "", "common", "Test",
+                                       1, 1, 9, 5, null, subtype: "Infantry");
+            var ctx = Battle(new[] { oathEnd, plainEnd }, new[] { Unit("X", 1, 0, 9) });
+            ToP1Turn(ctx, 1);
+            var a = Place(ctx, 0, 3, oathEnd);
+            var b = Place(ctx, 0, 4, plainEnd);
+            Check(a.CurrentAttackType, UnitState.AttackTypeRanged, "①c （前提）`oath` 那张当前是远程");
+            Check(b.CurrentAttackType, UnitState.AttackTypeRanged, "①c （前提）对照那张也是远程");
+            RuleCore.SetCurrentAttackType(ctx, 0, 3, UnitState.AttackTypeMelee);
+            RuleCore.SetCurrentAttackType(ctx, 0, 4, UnitState.AttackTypeMelee);
+            RuleCore.EndTurn(ctx);
+            Check(a.CurrentAttackType, UnitState.AttackTypeRanged,
+                  "★ 回合结束：带 `oath` 的单位**按当前数值重挑**回远程"
+                  + "（原版 `CardScript__OnTurnEnd.c:214-218`）｜🧨 删掉 `EndTurn` 里那一段 ⇒ 仍是 1 ⇒ 红");
+            Check(b.CurrentAttackType, UnitState.AttackTypeMelee,
+                  "★ **判别式**：**不带** `oath` 的对照那张**保持原样**（1）——"
+                  + "把那一支写成「全场重挑」⇒ 它也会变 2 ⇒ 红");
+        }
+
+        //  ①d 用了主动能力：带 `duty`/`ferocity`/`oath` 的重挑（原版 `ResolveActiveAbilityPlayed`）
+        {
+            var duty = new CardDef("W5Duty", "W5Duty", "unit", "Duty: Gain +2 Attack",
+                                   "common", "Test", 1, 1, 9, 0, new[] { "Duty" }, subtype: "Infantry");
+            var ctx = Battle(new[] { duty }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(ctx, 1);
+            var u = Place(ctx, 0, 3, duty);
+            u.Exhausted = false;
+            Check(u.CurrentAttackType, UnitState.AttackTypeMelee, "①d （前提）1 攻 / 0 远程 ⇒ 当前 = 1");
+            RuleCore.SetCurrentAttackType(ctx, 0, 3, UnitState.AttackTypeRanged);   // 造一个「与数值不符」的值
+            CheckCode(RuleCore.UseAlternative(ctx, 0, 3, "duty"), RuleCodes.OK, "①d 用一次职责");
+            Check(u.CurrentAttackType, UnitState.AttackTypeMelee,
+                  "★ 用了主动能力 ⇒ 带 `duty` 的单位**重挑**回近战"
+                  + "（原版 `CardScript__ResolveActiveAbilityPlayed.c:35-42`）"
+                  + "｜🧨 删掉 `RecomputeAttackTypeAfterActiveAbility` 那一句 ⇒ 仍是 2 ⇒ 红");
+        }
+
+        //  ①e **数值一变就重挑**（原版 `UpdateAttackText`，它被所有改属性的地方调到）—— 增、撤各钉一次
+        {
+            var ctx = Battle(new[] { Unit("A", 1, 0, 9) }, new[] { Unit("X", 1, 0, 9) });
+            var u = Place(ctx, 0, 3, Ranged("W5Buff", 1, 1, 9, 2));    // 近战 1 / 远程 2 ⇒ 远程
+            Check(u.CurrentAttackType, UnitState.AttackTypeRanged, "①e （前提）当前是远程");
+            u.RecordGrant("attack", 3, "W5Src");                       // 近战 1+3 = 4 > 远程 2
+            Check(u.CurrentAttackType, UnitState.AttackTypeMelee,
+                  "★ **数值一变就重挑**：近战涨到 4 > 远程 2 ⇒ 当前攻击型变近战"
+                  + "（原版 `CardScript__UpdateAttackText.c:21-29`）"
+                  + "｜🧨 删掉 `UnitState.SyncAttackTypeAfterStatChange` 的调用 ⇒ 仍是 2 ⇒ 红");
+            u.RevertGrantsFrom("W5Src");
+            Check(u.CurrentAttackType, UnitState.AttackTypeRanged,
+                  "★ **撤也走同一条链**：那份加成撤掉（近战回 1）⇒ 又重挑回远程"
+                  + "（只在「加」的那一侧重挑的写法在这条上必红）");
+        }
+
+        // ============================================================
+        //  ② `criteria` 根治：解析层产出 `PrevAntecedent` + 退路档收窄
+        // ============================================================
+        {
+            List<string> un, pa;
+            var ops = EffectText.Parse("Draw two troops and give them +1", out un, out pa);
+            Check(ops.Count, 2, "② 夹具句解析成两条 op");
+            CheckTrue(ops[1].Target != null && ops[1].Target.Kind == "prev",
+                      "② 代词目标的 `Kind` **仍然是 `prev`** —— ⛔ 不许改成兵种词"
+                      + "（`DoGive` 靠 `Side==prev && Kind==prev` 走「场上拿不到就看手里」那条路）");
+            CheckTrue(ops[1].Target.PrevAntecedent != null
+                      && ops[1].Target.PrevAntecedent.KindWord == "troops",
+                      "★ ② **先行词回填了**（`troops`）—— 这一格就是原版 `HandEffect.targetCriteria`"
+                      + " 在我们解析层的落点（`EffectText.LinkPrevAntecedent`）"
+                      + "｜🧨 删掉那次回填 ⇒ null ⇒ 红");
+
+            var ops2 = EffectText.Parse("Draw a card and give it +1", out un, out pa);
+            CheckTrue(ops2.Count >= 2 && ops2[1].Target != null
+                      && ops2[1].Target.PrevAntecedent == null,
+                      "★ ② **反例**：上一条是 `draw a card`（`card` **不是**兵种词）⇒ **留空**"
+                      + "（⛔ 不猜 —— 这就是「认不出宁可空着」那条纪律）");
+        }
+        {
+            // ②-1 **判不出来 ⇒ 不放行**（收窄后的退路档）
+            //  🔴 **必须查【另一张】卡**：载体自己按 `RecordId` 去重（`AttachHandEffectCopy`），
+            //     查它**永远**是 0 —— 那是「自证式假断言」。离线探针第一次就是这么写红的。
+            var carrierA = new CardDef("W5CCarrier", "W5CCarrier", "unit", "", "common", "Test", 0, 2, 4, 0,
+                                       null, subtype: "Infantry");
+            var chk = new CardDef("W5CCheck", "W5CCheck", "unit", "", "common", "Test", 1, 2, 4, 0,
+                                  null, subtype: "Infantry");
+            var spare = new CardDef("W5CSpare", "W5CSpare", "unit", "", "common", "Test", 1, 2, 4, 0,
+                                    null, subtype: "Infantry");
+            var ctxA = Battle(new[] { carrierA, chk, spare }, new[] { Unit("X", 1, 1, 9) });
+            ToP1Turn(ctxA, 1);
+            var byNameA = HandByName(ctxA, 0);
+            CheckTrue(byNameA.ContainsKey("W5CCarrier") && byNameA.ContainsKey("W5CCheck")
+                      && byNameA.ContainsKey("W5CSpare"),
+                      "②-1 夹具：载体 / 待查卡 / 备胎 三张**都在手里**");
+            if (byNameA.ContainsKey("W5CCarrier") && byNameA.ContainsKey("W5CCheck")
+                && byNameA.ContainsKey("W5CSpare"))
+            {
+                RuleCore.AttachHandEffectToInstances(ctxA, "W5C-null", "+1 attack", null, 0,
+                                                     new List<CardInstance> { byNameA["W5CCarrier"] },
+                                                     null);
+                Check(byNameA["W5CCarrier"].HandEffects.Count, 1, "②-1 （前提）那条记录挂上去了");
+                Check(RuleCore.SetupCardInHand(ctxA, 0, byNameA["W5CCheck"]), 0,
+                      "★ ②-1 **判不出筛选条件**的记录 ⇒ 后进手牌的卡 **一条都不给**"
+                      + "｜🧨 把 `HandEffectFits` 的退路档改回「判不出来就按单位卡放行」⇒ 实得 1 ⇒ 红");
+                Check(byNameA["W5CCheck"].HandEffects.Count, 0,
+                      "……而且那张牌身上确实一条都没有（换一条读法再钉一次）");
+            }
+
+            // ②-1b **删掉那道 `Type != "unit"` 的闸之后，非单位卡照样进不来** ——
+            //      「非单位卡吃不上」现在是 **criteria 判出来的结果**（`KindWord=unit` → `MatchesKind`），
+            //      不再是 `HandEffectFits` 里另加的一条闸（两处写同一条规则 = 迟早不一致）。
+            var carrierC = new CardDef("W5C3Carrier", "W5C3Carrier", "unit", "", "common", "Test", 0, 2, 4, 0,
+                                       null, subtype: "Infantry");
+            var tacC = new CardDef("W5C3Tac", "W5C3Tac", "tactic", "", "common", "Test", 1, 0, 0, 0,
+                                   null, subtype: "Stratagem");
+            var spareC = new CardDef("W5C3Spare", "W5C3Spare", "unit", "", "common", "Test", 1, 2, 4, 0,
+                                     null, subtype: "Infantry");
+            var ctxC = Battle(new[] { carrierC, tacC, spareC }, new[] { Unit("X", 1, 1, 9) });
+            ToP1Turn(ctxC, 1);
+            var byNameC = HandByName(ctxC, 0);
+            CheckTrue(byNameC.ContainsKey("W5C3Carrier") && byNameC.ContainsKey("W5C3Tac")
+                      && byNameC.ContainsKey("W5C3Spare"),
+                      "②-1b 夹具：载体 / 战术卡 / 备胎 三张**都在手里**");
+            if (byNameC.ContainsKey("W5C3Carrier") && byNameC.ContainsKey("W5C3Tac")
+                && byNameC.ContainsKey("W5C3Spare"))
+            {
+                var unitSpec = new EffectTargetSpec
+                {
+                    Raw = "(手牌里的部队)", Side = "own", Kind = "unit", Count = 0, Auto = true,
+                };
+                RuleCore.AttachHandEffectToInstances(ctxC, "W5C3", "+1 attack", null, 0,
+                                                     new List<CardInstance> { byNameC["W5C3Carrier"] },
+                                                     unitSpec);
+                Check(RuleCore.SetupCardInHand(ctxC, 0, byNameC["W5C3Tac"]), 0,
+                      "★ ②-1b **非单位卡**进手牌 ⇒ criteria（`KindWord = unit`）判它不合 ⇒ 不给"
+                      + "｜🧨 把那条 `Kind` 判据删掉、改成「是任何卡就算」⇒ 实得 1 ⇒ 红");
+                Check(RuleCore.SetupCardInHand(ctxC, 0, byNameC["W5C3Spare"]), 1,
+                      "★ ②-1b **对照**：单位卡进手牌 ⇒ 吃到"
+                      + "（证明上面那个 `0` 不是「整个消费者没工作」= 不是假绿）");
+            }
+
+            // ②-2 **代词那一族走先行词**（`Draw a Vehicle and give it Armour 2` 那个形状）
+            //  ⚠️ 另开一个对局：一条断言只说一件事（混在一起时「不放行」那条会盖住这一条）。
+            var veh = new CardDef("W5CVeh", "W5CVeh", "unit", "", "common", "Test", 1, 2, 4, 0,
+                                  null, subtype: "Vehicle");
+            var foot = new CardDef("W5CFoot", "W5CFoot", "unit", "", "common", "Test", 1, 2, 4, 0,
+                                   null, subtype: "Infantry");
+            var carrierB = new CardDef("W5C2Carrier", "W5C2Carrier", "unit", "", "common", "Test", 0, 2, 4, 0,
+                                       null, subtype: "Infantry");
+            var ctxB = Battle(new[] { carrierB, veh, foot }, new[] { Unit("X", 1, 1, 9) });
+            ToP1Turn(ctxB, 1);
+            var byNameB = HandByName(ctxB, 0);
+            CheckTrue(byNameB.ContainsKey("W5C2Carrier") && byNameB.ContainsKey("W5CVeh")
+                      && byNameB.ContainsKey("W5CFoot"),
+                      "②-2 夹具：载体 / 载具 / 步兵 三张**都在手里**");
+            if (byNameB.ContainsKey("W5C2Carrier") && byNameB.ContainsKey("W5CVeh")
+                && byNameB.ContainsKey("W5CFoot"))
+            {
+                var prevSpec = new EffectTargetSpec
+                {
+                    Raw = "it", Side = "prev", Kind = "prev", Count = 1, Auto = true,
+                    PrevAntecedent = new CardCriteria { KindWord = "vehicle" },
+                };
+                RuleCore.AttachHandEffectToInstances(ctxB, "W5C-prev", "+1 attack", null, 0,
+                                                     new List<CardInstance> { byNameB["W5C2Carrier"] },
+                                                     prevSpec);
+                Check(RuleCore.SetupCardInHand(ctxB, 0, byNameB["W5CVeh"]), 1,
+                      "★ ②-2 代词那一族按**先行词**判：载具进手牌 ⇒ **吃到**"
+                      + "｜🧨 删掉 `HandEffectFits` 里读 `PrevAntecedent` 那一行 ⇒ 实得 0 ⇒ 红");
+                Check(RuleCore.SetupCardInHand(ctxB, 0, byNameB["W5CFoot"]), 0,
+                      "★ ②-2 **负例**：**步兵**进手牌 ⇒ 一条都不给（先行词是 `vehicle`）"
+                      + "｜⚠️ 只有负例是不够的（「整个消费者不工作」时它也是 0）—— 上面那条正例才是主体");
+            }
+        }
+
+        // ============================================================
+        //  ③ 潮涌：**补上 `EnforceHandLimit`**（原来一句都不收）
+        // ============================================================
+        {
+            var tide = new CardDef("W5TideLimit", "W5TideLimit", "unit", "", "common", "Test",
+                                   2, 2, 3, 0, new[] { "Tide 9" }, subtype: "Infantry");
+            var ctx = Battle(new[] { tide }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 1);
+            var ps = ctx.Players[0];
+            ps.Hand.Clear();
+            for (int i = 0; i < 9; i++) ps.Hand.Add(ctx.NewInstance(Unit("W5HandFiller" + i, 1, 0, 1)));
+            ps.Hand.Add(ctx.NewInstance(tide));                 // 第 10 张 = 潮涌卡（手牌已满）
+            ps.Energy = 9;
+            ps.Discard.Clear();
+            Check(ps.Hand.Count, ctx.Vars.handLimit, "③ （前提）手牌正好在上限上");
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "W5TideLimit"), 2), RuleCodes.OK,
+                      "③ 打出潮涌部队（`Tide 9`）");
+            Check(ps.Hand.Count, ctx.Vars.handLimit,
+                  "★ ③ 手牌**收回到上限**（打出 1 张 + 造 9 张 ⇒ 不设防的话是 18 张）"
+                  + "｜🧨 删掉 `SpawnTideCopies` 里那句 `EnforceHandLimit` ⇒ 实得 18 ⇒ 红");
+            Check(ps.Discard.Count, 8,
+                  "★ ③ 超出来的 **8 张进弃牌堆**（丢的是**表尾**= 刚造的那几张，与原版"
+                  + "「满了就 `SendToCemetery(刚造那张)`」在未超上限时等价）");
+        }
+
+        // ============================================================
+        //  ④ 广播次序：**棋盘那一跳在手牌那一跳【之前】**（原版三跳：自己 → 棋盘 → 手牌）
+        // ============================================================
+        //  🔴 **怎么分辨两种次序**：两个监听者都出声（棋盘那份打「…的监听器 →」、
+        //     手里那份打「…**在 X 手里**监听 →」），**看日志里谁先**。
+        //     ⚠️ 用 `LastIndexOf`（`ToP1Turn` 的回合抽牌也会打同样的行，取最后一次 = 我这一趟）。
+        {
+            var watcher = new CardDef("W5OrderWatch", "W5OrderWatch", "unit",
+                                      "When you draw a card, gain +1 Attack",
+                                      "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+            var ctx = Battle(new[] { watcher }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(ctx, 1);
+            Place(ctx, 0, 3, watcher);          // 棋盘那一份（手牌那一份还在手里）
+            RuleCore.Draw(ctx, 0);              // 广播一整套三跳
+            string log = LogTail(ctx, 30);
+            int ib = log.LastIndexOf("的监听器 →");
+            int ih = log.LastIndexOf("手里**监听 →");
+            CheckTrue(ib >= 0, "④ （前提）**棋盘那一跳出声了**（找不到它的话下面那条会变假绿）");
+            CheckTrue(ih >= 0, "④ （前提）**手牌那一跳也出声了**");
+            CheckTrue(ib >= 0 && ih >= 0 && ib < ih,
+                      "★ ④ 次序 = **棋盘那一跳 → 手牌那一跳**"
+                      + "（原版 `BroadcastUnitSummoned.c:25-39` 在 `:44-64` 之前；"
+                      + " `BroadcastUnitDamaged.c:20-61` 在 `:63-82` 之前）"
+                      + "｜🧨 把手牌那几条跳挪回棋盘快照**之前** ⇒ 两行的先后颠倒 ⇒ 红");
+
+            // ④-b **守门员（反方向）**：棋盘上一个监听者都没有时，**手牌那一跳照样要跑** ——
+            //      改动前那四条排在棋盘快照之前，正是为了躲下面那句「场上没人听就 return」；
+            //      挪到后面时**很容易顺手把那句早退留在原地**（那会把这一族**静默跳过**）。
+            var w2 = new CardDef("W5OrderWatch2", "W5OrderWatch2", "unit",
+                                 "When you draw a card, gain +1 Attack",
+                                 "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+            var c2 = Battle(new[] { w2 }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(c2, 1);
+            Check(HandEffectCountOn(c2, 0, "W5OrderWatch2"), 1,
+                  "④-b （前提）回合开始抽一张 ⇒ 1 条（棋盘上**没人**听，只有手里那份在听）");
+            RuleCore.Draw(c2, 0);
+            Check(HandEffectCountOn(c2, 0, "W5OrderWatch2"), 2,
+                  "★ ④-b **棋盘上一个监听者都没有时，手牌那一跳照样跑**"
+                  + "｜🧨 把 `BroadcastWhen` 里那句 `if (listeners.Count == 0) return;` 留在"
+                  + "棋盘块**之前** ⇒ 这里实得 1（少一次）⇒ 红");
+        }
+
+        // ============================================================
+        //  ④b `lose` 也收（原版 `CardScript.AddEffect` 收的是**任意** `CardEffect`）
+        // ============================================================
+        //  判据：`PlayerHand.SetupCardInHand.c:71` 传的是 `handEffect.cardEffect`，
+        //  而 `AddHandEffect` / `SetupCardInHand` **没有任何按效果类型过滤**的闸
+        //  ⇒ 「手牌监听器 + `lose`」在原版照样挂到**那张牌自己**身上。
+        //  ⚠️ 全池**没有卡**用这个形状（含 `lose` 的 6 张主语都写全）⇒ 机制对齐、不是缺陷修复。
+        {
+            List<string> un, pa;
+            var loseOps = EffectText.Parse("Lose 1 Attack", out un, out pa);
+            CheckTrue(loseOps.Count == 1 && loseOps[0].Verb == "lose", "④b 认得 `lose`");
+            CheckTrue(loseOps[0].Target != null && loseOps[0].Target.Subjectless,
+                      "★ ④b **没写主语**的 `lose X` ⇒ `Subjectless` 目标（原来 `Target = null`，"
+                      + "结算层兜底会把它当成**己方全体**）"
+                      + "｜🧨 把 `TryLose` 改回 `Target = null` ⇒ 本条红");
+            CheckTrue(!string.IsNullOrEmpty(loseOps[0].Payload)
+                      && loseOps[0].Payload.IndexOf("attack", System.StringComparison.OrdinalIgnoreCase) >= 0,
+                      "★ ④b **载荷也读到了**（`ReLose` 的第二条备选只填 group 3，"
+                      + "原来只读 group 2 ⇒ 载荷恒空串 ⇒ `HandListenerSelfOp` 那道「有载荷」的闸过不去）"
+                      + "｜🧨 把 payload 那一行改回只读 group 2 ⇒ 本条红");
+
+            var loseWatch = new CardDef("W5LoseWatch", "W5LoseWatch", "unit",
+                                        "When you draw a card, lose 1 Attack",
+                                        "common", "Test", 1, 4, 9, 0, null, subtype: "Infantry");
+            var ctx = Battle(new[] { loseWatch }, new[] { Unit("X", 1, 1, 5) });
+            Check(HandEffectCountOn(ctx, 0, "W5LoseWatch"), 0,
+                  "④b （前提/对照）起手不算抽到 ⇒ 它身上 0 条（同 ⑤）");
+            ToP1Turn(ctx, 1);
+            int n0 = HandEffectCountOn(ctx, 0, "W5LoseWatch");
+            Check(n0, 1, "④b （前提）回合开始抽一张 ⇒ 1 条（监听器认得出这条触发）");
+            RuleCore.Draw(ctx, 0);
+            Check(HandEffectCountOn(ctx, 0, "W5LoseWatch"), n0 + 1,
+                  "★ ④b 手牌监听器里那条**没写主语的 `lose`** 也落到了**它自己**身上（+1）"
+                  + "｜🧨 把 `lose` 从 `HandListenerSelfOp` 的动词表里去掉 ⇒ 实得 0（一条都不加）⇒ 红");
+        }
+
+        // ============================================================
+        //  ⑤ 起手发牌**不算「抽到」**
+        // ============================================================
+        //  🔴 **判据**：原版 `_ResolveDrawCard_d__432__MoveNext.c:283-295` 把
+        //     `BroadcastCardDrawn` 与 `SetCardTurnDrawn` **都**包在 `!IsDuringMulligan` 里
+        //     ⇒ 换牌阶段（起手那一趟）**两件都不发生**。
+        //  **怎么分辨两种写法**：那份手牌监听器**每听见一次 `draw` 就给自己挂一条** ——
+        //     起手 3 张各广播一次 ⇒ 旧写法会有 **3** 条（+ 回合抽牌若干），新写法是 **0** 条。
+        {
+            var watcher = new CardDef("W5DrawWatch", "W5DrawWatch", "unit",
+                                      "When you draw a card, gain +1 Attack",
+                                      "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+            var ctx = Battle(new[] { watcher }, new[] { Unit("X", 1, 1, 5) });
+            CheckTrue(HandHasInst(ctx, 0, "W5DrawWatch"),
+                      "⑤ （前提）那份监听器**真在手里**（不在的话下面的 `0 == 0` 恒绿）");
+            Check(HandEffectCountOn(ctx, 0, "W5DrawWatch"), 0,
+                  "★ ⑤ 起手发的那几张**不算「抽到」** ⇒ 它身上**一条都没有**"
+                  + "（旧写法：起手 3 张各广播一次 ⇒ 这里会是 3）"
+                  + "｜🧨 把 `DealOpeningHand` 换回 `Draw` ⇒ 实得 3 ⇒ 红");
+            CheckTrue(!ctx.Players[0].Hand[HandIdx(ctx, 0, "W5DrawWatch")].DrawnThisTurn,
+                      "★ ⑤ 起手那几张**也不置 `DrawnThisTurn`**"
+                      + "（原版 `SetCardTurnDrawn` 与广播**在同一个 `if` 里**）"
+                      + "｜🧨 换回 `Draw` ⇒ 这一格变 true ⇒ 红");
+            RuleCore.Draw(ctx, 0);
+            Check(HandEffectCountOn(ctx, 0, "W5DrawWatch"), 1,
+                  "★ ⑤ 对照：**真·抽一张**才挂上一条（0 → 1 只差「发牌的方式」）");
+            // 🔴 抽到的那张**不是**监听器那张（监听器在起手就已经在手里了）——
+            //    所以这里数**整只手牌里有几份置了 `DrawnThisTurn`**，别去点监听器那一格
+            //    （第一版就是那么写的，离线探针当场打回来：`DrawnThisTurn` 在 filler 那份上）。
+            int nDrawn = 0;
+            foreach (var h in ctx.Players[0].Hand) if (h != null && h.DrawnThisTurn) nDrawn++;
+            Check(nDrawn, 1, "……而同一步过后**恰好有一份**置了 `DrawnThisTurn`（真抽的那一张）"
+                  + "｜🧨 起手也置的话这里会是 4（起手 3 + 这一张）");
+        }
+    }
+
+    /// <summary>
+    /// 🆕 **2026-10-18（`G3`）三笔【已查实的真差异】** —— 每条都带「🧨 改回去 ⇒ 红」的判别式。
+    ///
+    /// | # | 件 | 判据（现读 `d:/2/tools/decomp_full/`） |
+    /// |---|---|---|
+    /// | ① | 手牌效果：**先登记记录、再贴牌** | `PlayerHand__AddHandEffect.c:90-110`（先收进 `activeEffects`）/ `:112-139`（**之后**才遍历 `currentHand` 逐张 `CardScript.AddEffect`） |
+    /// | ② | `DeckLibrary` 判错误类型**不看汉字** | `DeckStore.LoadAll` 那三条 `note` 是**给人看的句子**（`DeckStore.cs:55/64/90`）；类型判据 = 「存档文件在不在」+「有没有话要说」 |
+    /// | ③ | `BroadcastWhen` 的 `ctx.EventTarget` **要还原** | `BattleContext.EventTarget` 的注释「由 `BroadcastWhen` 广播时设、**广播完恢复**」；另两跳（`:4750` 区域的 `BroadcastPersistentWhen` / `:5025` 区域的 `BroadcastHandWhen`）本来就有还原 |
+    /// </summary>
+    static void TestG3EngineRealDiffs()
+    {
+        var pool = CardDatabase.Load();
+
+        // ============================================================
+        //  ① 手牌效果：**登记记录**与**贴到当前这几张牌**是两步（原版 `AddHandEffect`）
+        // ============================================================
+        //  🔴 **判别式**：手里**一个符合条件的都没有**时，记录**照样要进登记表** ——
+        //     `PlayerState.HandEffectRecords`（= 原版 `PlayerHand.activeEffects // +0x48`）；
+        //     而且**之后才进手牌的牌照样吃得上**（`RuleCore.SetupCardInHand` 那条消费者路）。
+        //     ⚠️ 两条都要断：只断「记录在」的话，「记录在但没人读」照样会绿；
+        //        只断「后来者吃得上」的话，说不出是哪一步错了。
+
+        // ---- ①-a 卡面**直接写死**载荷那条（`GrantHandBuffForTargets`，真卡 `GOF81`）----
+        //   卡面（逐张开图核过 `d:/2/Warpforge部队卡片/Orks/3部队/Warpforge_07_Beast-Snagga-Nob.png`）：
+        //   `At the end of your turn, give +1 to all Beasts in your hand`
+        //   ⇒ `atturn` 的内层 op → `DoGive` → `GrantHandBuffForTargets`（本笔要修的那一支）。
+        {
+            var nb = FindCard(pool, "Beast Snagga Nob");       // `GOF81`
+            var beast = new CardDef("G3Beast", "G3Beast", "unit", "", null, "Test",
+                                    2, 2, 3, 0, null, subtype: "Beast");
+            CheckTrue(nb != null, "①-a 夹具：卡池里找得到 `Beast Snagga Nob`（`GOF81`）");
+            if (nb != null)
+            {
+                var ctx = Battle(new[] { nb }, new[] { Unit("G3Foe", 1, 1, 9) });
+                ToP1Turn(ctx, 9);
+                Place(ctx, 0, 3, nb);              // 触发源在**棋盘上**（`atturn` ②那一趟扫的就是它）
+                // ⚠️ **两样都要清干净，账才干净**（离线探针实测）：① `ToP1Turn(9)` 这一路上 nb
+                //    **在手里**时，它那份「回合结束」正文还会走**手牌陷阱那一趟**（`ResolveAtTurn` ①）
+                //    ⇒ 已经攒了一把记录；② 那些记录会让「+1 条」看不出来（不清的话这里是 9 → 10，
+                //    看着像绿）。清掉之后 `recs0 == 0`，下面那条「+1」才是真的在量这一笔。
+                ctx.Players[0].Hand.Clear();       // ⇒ **手上一个符合条件的都没有**
+                ctx.Players[0].HandEffectRecords.Clear();
+                Check(ctx.Players[0].Hand.Count, 0, "①-a （前提）手牌是空的（一个候选都没有）");
+                int recs0 = ctx.Players[0].HandEffectRecords.Count;
+                Check(recs0, 0, "①-a （前提）登记表也是空的（离线探针实测：不清的话这里是 9）");
+                RuleCore.EndTurn(ctx);             // 回合结束 ⇒ `ResolveAtTurn("turn_end")`
+                Check(ctx.Players[0].HandEffectRecords.Count, recs0 + 1,
+                      "★ ①-a 手牌里**一个符合条件的都没有**时，那条记录**照样登记**"
+                      + "（原版 `PlayerHand__AddHandEffect.c:90-110` 先收记录、`:112-139` 之后才逐张贴）"
+                      + "｜🧨 改回「贴到 0 张就不登记」（`GrantHandBuff` 那个 `n == 0` 早退分支）"
+                      + "⇒ 实得 " + recs0 + " ⇒ 红");
+
+                // ---- ①-a′ **之后才进手牌的牌照样吃得上**（这就是「记录无条件登记」的用处）----
+                CheckTrue(!HandHasInst(ctx, 0, "G3Beast"), "①-a′ （前提）此刻手里没有野兽");
+                var bInst = ctx.NewInstance(beast);
+                ctx.Players[0].Deck.Add(bInst);    // 牌库顶（`Draw` 是 pop_back）
+                RuleCore.Draw(ctx, 0);             // 「后来才进手牌」
+                CheckTrue(HandHasInst(ctx, 0, "G3Beast"), "①-a′ （前提）野兽真的进手牌了");
+                Check(HandEffectCountOn(ctx, 0, "G3Beast"), 1,
+                      "★ ①-a′ **后来才进手牌的野兽照样吃得上**"
+                      + "（原版那条记录长在 `PlayerHand` 上、与「当时手里有没有」无关；"
+                      + "消费者 = `PlayerHand__SetupCardInHand.c:71`）"
+                      + "｜🧨 同 ①-a 改回去 ⇒ 实得 0 ⇒ 红");
+            }
+        }
+
+        // ---- ①-b **对照**：手里**有**符合条件的 ⇒ 贴得上 **且** 记录在 ----
+        //   （没有这一条，「整个消费者不工作」时 ①-a 那两条也可能是绿 —— 弱断言分不出两种状态）
+        {
+            var nb = FindCard(pool, "Beast Snagga Nob");
+            var beast = new CardDef("G3Beast", "G3Beast", "unit", "", null, "Test",
+                                    2, 2, 3, 0, null, subtype: "Beast");
+            if (nb != null)
+            {
+                var ctx = Battle(new[] { nb, beast }, new[] { Unit("G3Foe", 1, 1, 9) });
+                ToP1Turn(ctx, 9);
+                Place(ctx, 0, 3, nb);
+                CheckTrue(HandHasInst(ctx, 0, "G3Beast"), "①-b （前提）**手里有**野兽");
+                // ⚠️ 清干（同 ①-a，离线探针实测）：**手里那一份 nb 也要摘掉** —— 它自己会走
+                //    「手牌陷阱那一趟」（`ResolveAtTurn` ①）⇒ 同一回合会有**两笔**登记
+                //    （棋盘 + 手牌），账就成了 2 而不是 1。
+                ctx.Players[0].Hand.RemoveAll(
+                    h => h != null && h.Card != null && h.Card.Name == "Beast Snagga Nob");
+                var bi = ctx.Players[0].Hand.Find(          // ⛔ 别用 `FirstOrDefault`：本文件没有 `using System.Linq`
+                    h => h != null && h.Card != null && h.Card.Name == "G3Beast");
+                CheckTrue(bi != null, "①-b （前提）手里那份野兽实例拿到了");
+                if (bi != null)
+                {
+                    bi.HandEffects.Clear();                            // 只留这一次要量的那一笔
+                    ctx.Players[0].HandEffectRecords.Clear();
+                    int recs0 = ctx.Players[0].HandEffectRecords.Count;
+                    RuleCore.EndTurn(ctx);
+                    Check(bi.HandEffects.Count, 1,
+                          "★ ①-b 对照：手里那份野兽**真被贴上了**（打出时兑现 +1）");
+                    Check(ctx.Players[0].HandEffectRecords.Count, recs0 + 1,
+                          "★ ①-b 对照：**记录也在**（贴牌与登记两条路都要通）");
+                }
+            }
+        }
+
+        // ---- ①-c 「选一个效果，给手牌里的所有部队」那条（`GrantHandBuff`，`n == 0` 那支）----
+        //   判据同 ①：原版先记后贴；而**我们那条路原来在 `n == 0` 时 `return false` + `unresolved`**
+        //   ⇒ 记录不存在 ⇒ 后来的来客吃不上（真卡 `TL53 Infinite Biomorphologies`）。
+        {
+            var card = CreatePool.FindByName(pool, "Infinite Biomorphologies");
+            var troopA = new CardDef("G3TroopA", "G3TroopA", "unit", "", "common", "Test",
+                                     1, 2, 5, 0, null, subtype: "Infantry");
+            CheckTrue(card != null, "①-c 夹具：卡池里有 `Infinite Biomorphologies`");
+            if (card != null)
+            {
+                var ctx = BattlePool(new[] { card, troopA }, new[] { Unit("G3Foe", 1, 1, 5) }, pool,
+                                     warlordFaction: "Leviathan");
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 12;
+                // 把所有**部队卡**从手里拿走（留着的都是非单位卡）⇒ 落到「手上一个部队都没有」那一支
+                int removed = ctx.Players[0].Hand.RemoveAll(
+                    h => h != null && h.Card != null && h.Card.Type == "unit");
+                CheckTrue(removed > 0, "①-c （前提）清掉了几张手里的部队卡：" + removed);
+                int recs0 = ctx.Players[0].HandEffectRecords.Count;
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Infinite Biomorphologies"), -1),
+                          RuleCodes.OK, "①-c 打出 `Infinite Biomorphologies`（选效果 → 给手牌）");
+                Check(ctx.Players[0].HandEffectRecords.Count, recs0 + 1,
+                      "★ ①-c 手上**一个部队都没有** ⇒ 记录**照样登记**"
+                      + "｜🧨 改回 `n == 0` 直接 `return false`（不登记）⇒ 实得 " + recs0 + " ⇒ 红");
+                CheckTrue(string.Join("\n", ctx.Events).IndexOf("已经登记", StringComparison.Ordinal) >= 0,
+                      "★ ①-c 而且**说出来了**（「效果已经登记」—— 记录生效了不是「没生效」，"
+                      + "⛔ 别静默，也别把它塞进 `unresolved` 当「本版没结算」）");
+
+                // 后来进手牌的部队照样吃得上（同 ①-a′，这条走的是 `HandTroopCriteria` 那一档）
+                var bInst = ctx.NewInstance(troopA);
+                ctx.Players[0].Deck.Add(bInst);
+                RuleCore.Draw(ctx, 0);
+                Check(HandEffectCountOn(ctx, 0, "G3TroopA"), 1,
+                      "★ ①-c **后来才进手牌的部队照样吃得上**"
+                      + "（记录上的 `Target = HandTroopCriteria` 过 `RuleCore.SetupCardInHand`）"
+                      + "｜🧨 同上 ⇒ 实得 0 ⇒ 红");
+            }
+        }
+
+        // ============================================================
+        //  ② `DeckLibrary`：**错误类型**由结构性判据判，**不是**拿中文字串 `Contains("失败")`
+        // ============================================================
+        //  改之前：`LastError = note.Contains("失败") ? note : null` —— 判据绑在那几句**给人看的
+        //  中文文案**上（`DeckStore.cs:55/64/90`）⇒ 一旦它们走本地化 / 改一次措辞，
+        //  `LastError` **恒 null** ⇒ 「这份存档读不出来」这件事**一声不响**。
+        //  🔴 **2026-10-18（`G9`）就地订正（铁律 5）**：本行原来把落点写成
+        //  「卡组编辑窗底部那条报错横幅（`DeckRuntime._storeErr`）」—— **那件 2026-10-17 已按 `D10` 删件删掉**
+        //  （原版侧栏没有它；`DeckRuntime.cs:2978` 那一段与 `DeckLibrary.cs:52` 都记着这件事）
+        //  ⇒ 今天的落点是**两条**、都不是那件横幅：
+        //    ① `DeckLibrary.LastLoadIssue`（类型，**结构性**判据，`ClassifyLoad` 判——本节的 ②-1/②-2 就是它）；
+        //    ② `DeckLibrary.LastLoadIssueTerm` → `CardPresentation.Loc.T(...)` 那条**词条**
+        //       （人话；消费点在 `BattleDriver.PickSavedDeck` 的 `note`，见 `G9` 那一笔）。
+        {
+            var path = System.IO.Path.GetFullPath(
+                System.IO.Path.Combine(Application.dataPath, "../Temp/_g3_deckload.json"));
+            string oldPath = RuleEngine.DeckStore.OverridePath;
+            RuleEngine.DeckStore.OverridePath = path;
+            try
+            {
+                // ---- ②-1 判据/文案分离：**同一件事换一句英文，类型照样判得出来** ----
+                Check(RuleEngine.DeckLibrary.ClassifyLoad("存档读取失败：boom", true),
+                      RuleEngine.DeckLibrary.DeckLoadIssue.Failed,
+                      "②-1 中文档：存档在 + `DeckStore` 有话 ⇒ **Failed**");
+                Check(RuleEngine.DeckLibrary.ClassifyLoad("save read failed: boom", true),
+                      RuleEngine.DeckLibrary.DeckLoadIssue.Failed,
+                      "★ ②-1 **英文档**（或换个措辞）：照样 **Failed** —— 判据**不看汉字**"
+                      + "｜🧨 改回 `note.Contains(\"失败\")` ⇒ 实得 None ⇒ 红");
+                Check(RuleEngine.DeckLibrary.ClassifyLoad("还没有存档", false),
+                      RuleEngine.DeckLibrary.DeckLoadIssue.NoSaveFile,
+                      "★ ②-1 **对照（反方向）**：**存档文件不在** ⇒ `NoSaveFile`"
+                      + "（第一次跑 —— **不是失败**，那条报错横幅不该弹）");
+                Check(RuleEngine.DeckLibrary.ClassifyLoad(null, true),
+                      RuleEngine.DeckLibrary.DeckLoadIssue.None,
+                      "★ ②-1 对照：`DeckStore` 无话可说 ⇒ **None**（读到了，哪怕是 0 套的合法存档）");
+
+                // ---- ②-2 端到端：真走一遍 `Load()` —— 类型与文案两条出口都对 ----
+                RuleEngine.DeckStore.DeleteFile();
+                var libNew = RuleEngine.DeckLibrary.Load();
+                Check(libNew.LastLoadIssue, RuleEngine.DeckLibrary.DeckLoadIssue.NoSaveFile,
+                      "②-2 端到端：没有存档 ⇒ `NoSaveFile`");
+                CheckTrue(libNew.LastError == null,
+                      "★ ②-2 端到端：而且 `LastError` 是 null（第一次跑不弹报错横幅 —— 老行为不变）");
+                // 🔴 **2026-10-18（`G9`）**：`LastLoadCode` 是显示层挑词条的**真状态**
+                //   （`DeckLibrary.LastLoadIssueTerm` 从它来），所以两个端到端用例**把码也断上**。
+                //   ⚠️ **本笔没有把「分类」改成走码** —— `ClassifyLoad` 照旧只看「有没有话 + 文件在不在」
+                //   两件结构性的事（上面 ②-1 那四条断言因此**照旧成立**，⛔ 不用动）。
+                CheckTrue(libNew.LastLoadCode == RuleEngine.DeckStore.LoadNote.NoSaveFile,
+                      "★ G9：码也记下来了（`LastLoadCode = NoSaveFile`；没有存档 ⇒ 它**没有词条**）");
+
+                // ⚠️ 写一段**合法 JSON 但缺 `decks` 键**的存档 —— 这是 `DeckStore.LoadAll` 里
+                //    「`dto == null || dto.decks == null`」那一支（`DeckStore.cs:64`），**必然**判 Failure；
+                //    ⛔ 别写一段**语法坏掉的**文本：那要看 Unity 的 `JsonUtility` 是抛异常还是回 null
+                //    （两条路都落 `Failed`，但写死一条**确定**的更稳，离线探针验不了 Unity 那一半）。
+                System.IO.File.WriteAllText(path, "{ \"version\": 1, \"current\": 0 }");
+                var libBad = RuleEngine.DeckLibrary.Load();
+                Check(libBad.LastLoadIssue, RuleEngine.DeckLibrary.DeckLoadIssue.Failed,
+                      "★ ②-2 端到端：**坏存档**（文件在、读不出来）⇒ `Failed`");
+                CheckTrue(!string.IsNullOrEmpty(libBad.LastError),
+                      "★ ②-2 端到端：而且**话说出来了**（`LastError` 非空 = 那条横幅有内容）"
+                      + "｜🧨 把判据换回 `note.Contains(\"失败\")` 且文案改英文 ⇒ 这里是 null ⇒ 红");
+                CheckTrue(libBad.LastLoadCode == RuleEngine.DeckStore.LoadNote.Empty,
+                      "★ G9：这一支的码 = `Empty`（缺 `decks` 键 ⇒ `JsonUtility` 给 null）");
+                CheckTrue(libBad.LastLoadIssueTerm == RuleEngine.DeckStore.ErrorLoadDeckTerm,
+                      "★ G9：⇒ 显示层挑到的词条键 = `" + RuleEngine.DeckStore.ErrorLoadDeckTerm + "`"
+                    + "｜🧨 把 `TermKeyOf` 改成返回 null ⇒ 玩家那边**一声不响** ⇒ 红");
+                CheckTrue(RuleEngine.DeckLibrary.ClassifyLoad("save file has no decks", true)
+                          == RuleEngine.DeckLibrary.DeckLoadIssue.Failed,
+                      "★ G9：拿 `G8` 起**真会出现的诊断串**再断一次 ⇒ 照样 `Failed`"
+                    + "（判据只看「有没有话」+「文件在不在」，与它写了什么无关 —— 两半同时成立）");
+            }
+            finally
+            {
+                RuleEngine.DeckStore.DeleteFile();
+                RuleEngine.DeckStore.OverridePath = oldPath;      // ⛔ 别动玩家的真存档目录
+            }
+        }
+
+        // ============================================================
+        //  ③ 广播结束后 `ctx.EventTarget` **要回到进入前的值**
+        // ============================================================
+        //  🔴 棋盘那一跳原来**存了 `savedEventTarget` 但从没还原**（另两跳都有）⇒ 广播结束后
+        //     它**留着上一次的宾语**，同一次结算里后续读 `the target of the attack`
+        //     （`ResolveTargets` 的 `eventtarget` 支）/ `AdjacentAnchor.TargetIfMeetsCriteria`
+        //     会读到**陈旧值**。判据 = `BattleContext.EventTarget` 的注释（「广播完恢复」）。
+        //  🔴 **两条要一起断**：只断「还原了」的话，**把种值那一行也删掉**同样会绿（那是假绿）；
+        //     只断「内部用上了新宾语」的话，本笔要修的漏还原**看不见**。
+        {
+            var watcher = new CardDef("G3EvtWatch", "G3EvtWatch", "unit",
+                "When a friendly unit attacks, deal 3 damage to the target of the attack",
+                "common", "Test", 9, 0, 9, 0, null, subtype: "Infantry");
+            var prey = new CardDef("G3EvtPrey", "G3EvtPrey", "unit", "",
+                                   "common", "Test", 1, 0, 9, 0, null, subtype: "Infantry");
+            var ctx = Battle(new[] { watcher }, new[] { prey });
+            ToP1Turn(ctx, 2);
+            // ⚠️ 手里那一份监听器**摘掉**：手牌那一跳会**再打一次**（账分成两笔不好算，
+            //    而这一格要的只是「棋盘那一跳确实种过宾语」这一件事）。
+            ctx.Players[0].Hand.RemoveAll(h => h != null && h.Card != null && h.Card.Name == "G3EvtWatch");
+            var w = Place(ctx, 0, 2, watcher, exhausted: true);
+            var atk = Place(ctx, 0, 3, Unit("G3EvtAttacker", 1, 1, 9), exhausted: false);
+            var tgt = Place(ctx, 1, 3, prey, exhausted: true);            // 0 攻 ⇒ 不反击，账干净
+            var marker = Place(ctx, 0, 0, Unit("G3EvtMarker", 1, 0, 9), exhausted: true);
+            Check(w.Card.WhenTriggers.Count, 1, "③ （前提）监听器注册上了");
+            ctx.EventTarget = marker;                                     // 「进入前」的宾语
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3), RuleCodes.OK, "③ 友方单位打那个敌人");
+            Check(tgt.Health, 9 - 1 - 3,
+                  "★ ③ **对照**：广播**内部**那一刻 `EventTarget` 确实是**新的宾语** —— "
+                  + "监听器那 3 点落在**被打的那个**身上（9 − 1 攻击 − 3 监听 = 5）"
+                  + "｜🧨 把「种值」那句也删掉（顺手「修」成不还原）⇒ 实得 8 ⇒ 红"
+                  + "（⇒ 下面那条「还原了」**不是**「这字段压根没被赋过值」的假绿）");
+            Check(atk.Health, 9, "③ 对照：**攻击者**没挨那 3 点（宾语不是它）");
+            CheckTrue(ReferenceEquals(ctx.EventTarget, marker),
+                  "★ ③ 广播结束后 `ctx.EventTarget` **回到进入前的值**"
+                  + "（`BattleContext.EventTarget` 的注释：由 `BroadcastWhen` 设、**广播完恢复**；"
+                  + "另两跳本来就有还原，只有棋盘那一跳漏了）"
+                  + "｜🧨 删掉 `EventSlotsScope` 的还原（或退回原来那份手写 save）⇒ "
+                  + "剩下的是**被打的那个**（`G3EvtPrey`）⇒ 红");
+        }
+
+        // ============================================================
+        //  ④ 顺手补 `W5` 项 1 的弱覆盖：**另外两条主动能力路**（`Ability:` / `Oath N:`）
+        // ============================================================
+        //  `W5` 当时只断了 `UseAlternative("duty")`（那一条是「关键词替代行动」那条路）；
+        //  `RecomputeAttackTypeAfterActiveAbility` 的**另外两个调用点**
+        //  （`UseAbility` / `UseOathAbility`）没有夹具 ⇒ 这里各补一条。
+        //  判据同 `K3`：`CardScript__ResolveActiveAbilityPlayed.c:29-42`
+        //  （`duty` / `ferocity` / `oath` 三个关键词的单位 ⇒ 重挑 `+0x120`）。
+        {
+            // ---- ④-a `Ability:`（我们自定的构造）那条 —— 关键词**运行时挂**上去 ----
+            //   ⚠️ 这样只用到「已被 `TestAbility` 证过」的那一种卡构造（`Ability:` 放进 keywords），
+            //      不新造一种没人跑过的写法。
+            var caster = Unit("G3AbDuty", 3, 1, 9, "Ability: Damage 3 EnemyUnit");
+            var ctxA = Battle(new[] { caster }, new[] { Unit("G3FoeA", 1, 1, 9) });
+            ToP1Turn(ctxA, 1);
+            var ua = Place(ctxA, 0, 3, caster);
+            Place(ctxA, 1, 3, Unit("G3FoeA2", 1, 1, 9));                 // 技能的目标（`EnemyUnit`）
+            ua.AddKeyword(KeywordTable.Duty, 1);                          // 「卡面印的 + 运行时加的」全集
+            RuleCore.SetCurrentAttackType(ctxA, 0, 3, UnitState.AttackTypeRanged);  // 造一个与数值不符的值
+            CheckCode(RuleCore.UseAbility(ctxA, 0, 3, 3), RuleCodes.OK,
+                      "④-a 放一次主动技能（`Ability:` 那条路）");
+            Check(ua.CurrentAttackType, UnitState.AttackTypeMelee,
+                  "★ ④-a `UseAbility` 那条路也重挑（带 `duty`）"
+                  + "｜🧨 删掉 `UseAbility` 里那句 `RecomputeAttackTypeAfterActiveAbility` ⇒ 仍是 2 ⇒ 红");
+
+            // ---- ④-b `Oath N:`（**付费激活**）那条 ----
+            //   夹具 = 既有的誓约夹具（`RuleEngineTest:12508` 那一份）**外加 `oath` 关键词** ——
+            //   关键词是必须的：重挑那道闸读 `u.Has(KeywordTable.Oath)`（`RuleCore.cs:2137`），
+            //   而 `Oath N:` 那段正文**不会**自动登记这个关键词（全仓只有三处**读**它、没有写点）。
+            var oathGuy = new CardDef("G3Oath", "G3Oath", "unit", "Oath 1: Gain Armour 1",
+                                      "common", "Test", 1, 1, 9, 0, new[] { "oath" }, subtype: "Infantry");
+            var ctxO = Battle(new[] { oathGuy }, new[] { Unit("G3FoeO", 1, 1, 9) });
+            ToP1Turn(ctxO, 1);
+            ctxO.Players[0].Energy = 5;
+            var uo = Place(ctxO, 0, 3, oathGuy, exhausted: true);          // 誓约不占那次行动
+            RuleCore.SetCurrentAttackType(ctxO, 0, 3, UnitState.AttackTypeRanged);
+            CheckCode(RuleCore.UseOathAbility(ctxO, 0, 3), RuleCodes.OK, "④-b 付费激活 `Oath 1:`");
+            Check(uo.CurrentAttackType, UnitState.AttackTypeMelee,
+                  "★ ④-b `UseOathAbility` 那条路也重挑（带 `oath`）"
+                  + "｜🧨 删掉 `UseOathAbility` 里那句 `RecomputeAttackTypeAfterActiveAbility` ⇒ "
+                  + "仍是 2 ⇒ 红");
         }
     }
 }

@@ -303,27 +303,43 @@ namespace RuleEngine
             return n;
         }
 
-        /// <summary>给 UI 用的人话。`None` 返回空串。</summary>
+        /// <summary>`MenuDeck/Error/` 那一族的**前缀**（原版两族键共用的那一段）。</summary>
+        public const string TermPrefix = "MenuDeck/Error/";
+
+        /// <summary>
+        /// 错误码 → **I2 术语【键】**（⛔ **本层一个给人看的字都不产** —— 见下面那段判据）。
+        ///
+        /// <para>🔴 **2026-10-18（`G9`）改口径**：本方法**原来是引擎侧唯一一处造中文句子**的地方
+        /// （`DeckError` 枚举 → 中文整句），而它同时被**显示层**（卡组编辑的消息通道 / 收藏线的
+        /// `DeckInfoPopup` 日志）与**断言**当文案用 ⇒ 换语言时它**静默不跟**
+        /// （正是「不许拿给人看的句子当逻辑」那一族）。现在它**只出键**，
+        /// 由显示层走 <c>CardPresentation.Loc.T(键)</c> 取词条（两列文案在 `Core/Loc.cs` 的表里）。</para>
+        ///
+        /// <para>🔴 **键名的判据（原版的【具名】那一族）**：原版 `CardDeck.CanAddCard` /
+        /// `CanAddHero` / `CanAddDefensive`（`d:/2/tools/decomp_full/`，三个方法体逐个读完）
+        /// 出的是 <c>"MenuDeck/Error/" + 名字</c>，地址表实读（`d:/2/tools/il2cpp_out/stringliteral.json`）：
+        /// <c>0x42CF3F0=InvalidArmy</c> · <c>0x42CF4F0=InvalidCard</c> · <c>0x42CF5F0=InvalidDeck</c> ·
+        /// <c>0x42CF6F0=InvalidDeck/Short</c> · <c>0x42CF7F0=MaxCopiesReached</c> ·
+        /// <c>0x42CF8F0=MaxLegendayCopiesReached</c> · <c>0x42CF9F0=MissingCopies</c> ·
+        /// <c>0x42CFAF0=ThisCardIsBanned</c> · <c>0x42CF1F0=FailedToDelete</c> ·
+        /// <c>0x42CF2F0=HasNotAssignedDefensiveCard</c>。
+        /// ⚠️ **另有【数字】一族**（`0x42CFBF0 = "MenuDeck/Error/{0}"`，`{0}` = 原版 `DeckError` 的号；
+        /// 表现层那半边 `CardPresentation.DeckRuntime.MenuDeckErrorNumber` 出的是它）——
+        /// 两族**并存**，我们用具名那一族（它才是「给玩家看的那句话」的载体，
+        /// 数字那一族只给 `WindowsManager.ShowPopUp` 用）。</para>
+        ///
+        /// <para>🔴 **我们这 13 条键是【自拟】的**：原版具名族只有上面那 8 条 + `{0}`/`{0}/Short` 两条，
+        /// 而我们的 `DeckError` 有 13 档、名字也**一个都不重名**
+        /// ⇒ 键名 = `"MenuDeck/Error/" + 枚举名`（形状照原版那一族）。
+        /// ⛔ **别把这几条当成原版实有的字面量** —— 要看原版实有哪几条，看上面那张地址表。
+        /// 两列文案同样是我们起的（原版那套在**远端 I2 语言表**，本地取不到）。</para>
+        ///
+        /// <para>`None` ⇒ **空串**（原版 `ToRawLocalizationString` 的 `err == 0` 那一支；
+        /// `Loc.T("")` 也返回空串 ⇒ 调用点不用再判一次）。</para>
+        /// </summary>
         public static string Describe(DeckError e)
         {
-            switch (e)
-            {
-                case DeckError.None: return "";
-                case DeckError.UnknownCard: return "卡组里有卡不在卡池中";
-                case DeckError.NoWarlord: return "还没有选战将";
-                case DeckError.WarlordNotHero: return "战将位放的不是战将";
-                case DeckError.DefensiveMissing: return "还缺 1 张防御卡";
-                case DeckError.DefensiveNotDefence: return "防御卡位放的不是防御卡";
-                case DeckError.WrongFaction: return "有卡和战将不同阵营";
-                case DeckError.TooManyCards: return "卡组张数超了";
-                case DeckError.TooFewCards: return "卡组张数不够";
-                case DeckError.CopyLimitExceeded: return "有卡超过了同名上限（传说 1 张，其余 2 张）";
-                case DeckError.WarlordInCards: return "战将/防御卡不能放在普通卡位里";
-                case DeckError.WarlordAlreadySet: return "已经选过战将了（换战将要先把原来的撤掉）";
-                case DeckError.DefensiveAlreadySet: return "已经有防御卡了（不能带两张）";
-                case DeckError.EffectOnlyCard: return "这张是**效果生成的卡**（药剂/破坏/秘仪），不能放进卡组";
-                default: return e.ToString();
-            }
+            return e == DeckError.None ? "" : TermPrefix + e;
         }
     }
 

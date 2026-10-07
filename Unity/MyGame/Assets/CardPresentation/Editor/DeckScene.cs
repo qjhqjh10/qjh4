@@ -201,6 +201,33 @@ public static class DeckScene
             return null;
         }
 
+        /// <summary>🆕 **2026-10-18（A891 的续 · 续做 A）**：筛选栏一行小标题**该印什么字**（随语档）。
+        /// <para>🔴 键**逐条写死在这里**，⛔ **不从 `FilterPanelModel.TitleText` / 产物读回来** ——
+        /// 那是自证（实现与检测器用同一个口 ⇒ 两边一起改回去照样绿）。键本身 = 原版那颗 `Localize.mTerm`
+        /// 的原文（判据见 `Core/FilterPanelModel.cs` 的 `TitleTerm`）：
+        /// `Army` → `MenuDeck/Filters/Army` · `Rarity` → `MenuDeck/HUD/Rarity` · `Type` → `MenuDeck/Filters/Type` ·
+        /// `Energy Cost` → `Battle/Tips/EnergyCost`（⚠️ 最后这条是 **2026-10-18 第三轮整改** 补的，见下）。</para>
+        /// <para>🔴🔴 **2026-10-18（第三轮整改 · 审查 P1）就地订正（铁律 5）**：本函数原来写着
+        /// 「`Energy Cost` 与任何别的名字都返回原样（英文）—— 原版那一行没有 `Localize`（全库 3 颗）」——
+        /// **那是错的**（错因：**「全库」只扫了 `bundle_menus_assets_all` 一个包**）。
+        /// 复跑全部 80 个 bundle：`m_text == "Energy Cost"` 的 TMP **17 颗 / 15 个 bundle**，
+        /// **每颗都挂着 `Localize.mTerm = "Battle/Tips/EnergyCost"`** ⇒ **它是正经词条**，已按下面那条 `case` 接上。</para>
+        /// <para>`default` 这一支**保留**（名字对不上任何键 ⇒ 照原样印英文；⛔ 不静默编词条），
+        /// 但它现在**不再覆盖 `Energy Cost`**。</para>
+        /// <para>「键在表里」由调用点各自那条 `Loc.HasEntry` 钉（键不在 ⇒ `Loc.T` 返回键名本身、
+        /// 渲染那一侧同样返回键名 ⇒ 只比相等会**假绿**）。</para></summary>
+        static string ExpectedTitleText(string title)
+        {
+            switch (title)
+            {
+                case "Army":        return Loc.T("MenuDeck/Filters/Army");
+                case "Rarity":      return Loc.T("MenuDeck/HUD/Rarity");
+                case "Type":        return Loc.T("MenuDeck/Filters/Type");
+                case "Energy Cost": return Loc.T("Battle/Tips/EnergyCost");   // 🔴 第三轮整改（审查 P1）
+                default:            return title;                             // 名字对不上任何键 ⇒ 照原样（英文）
+            }
+        }
+
         /// <summary>筛选栏里一行小标题**渲出来的左沿**（画布 px · 左上原点 · y 向下）。
         /// 🔴 量的东西：`Label.WorldW`（TMP `textBounds` 的**真测量**）反推的左缘 ——
         /// **不是**节点位置、更**不是**「对齐枚举 == Left」（那是同义反复：把渲染那句删掉照样绿）。
@@ -209,13 +236,17 @@ public static class DeckScene
         /// **不静默放过**（宽度上下界那道守卫与 `Label.HasMeasuredWidth` 同一条：TMP 在未激活 / 空串时
         /// 给的是天文数字，实测 4.29e9）。
         /// ⚠️ 节点名 = `DeckRuntime.BuildFilterFixedParts()` 的 `"flt_title_" + tl.Text.Replace(" ", "_")`
-        /// ⇒ 这里**同样要把空格换成下划线**（`Energy Cost` → `flt_title_Energy_Cost`）。</summary>
+        /// ⇒ 这里**同样要把空格换成下划线**（`Energy Cost` → `flt_title_Energy_Cost`）。
+        /// 🔴 **2026-10-18（A891 的续 · 续做 A）**：认节点那一步**仍用英文原名**（节点名没变），
+        /// 但**比字那一步换成 <see cref="ExpectedTitleText"/>** —— 三行标题的本批起走词条（`Loc.T(键)`），
+        /// 原来那句 `lb.Text != title` 会把**中文档下印中文的那颗**判成「认错节点」⇒ 整族假红。
+        /// ⛔ 期望值**不从 `FilterPanelModel` 读回来**（见 `ExpectedTitleText` 的注释）。</summary>
         static float TitleLeftPx(string title)
         {
             var root = _rt != null ? _rt.Root : _root;
             var t = FindDeep(root, "flt_title_" + title.Replace(" ", "_"));
             var lb = t != null ? t.GetComponent<Label>() : null;
-            if (lb == null || lb.Text != title) return -9999f;     // 找不到 / 认错节点 ⇒ 必红
+            if (lb == null || lb.Text != ExpectedTitleText(title)) return -9999f;   // 找不到 / 认错节点 ⇒ 必红
             float w = lb.WorldW * PxPerUnit;
             if (!(w > 20f && w < 2000f)) return -9999f;
             return DeckRuntime.PxOfWorld(lb.transform.position).x - w * 0.5f;
@@ -341,13 +372,14 @@ public static class DeckScene
         }
 
         /// <summary>🆕 **2026-10-11（A289）**：筛选栏里那一行小标题的 `Label`（按**名字**取，找不到 / 认错 ⇒ null）。
-        /// 节点名 = `"flt_title_" + 空格换下划线`（同 `TitleLeftPx` 那句）。</summary>
+        /// 节点名 = `"flt_title_" + 空格换下划线`（同 `TitleLeftPx` 那句）。
+        /// 🔴 **2026-10-18（A891 的续 · 续做 A）**：比字那一步改用 <see cref="ExpectedTitleText"/>（随语档）。</summary>
         static Label FilterTitleLabel(string title)
         {
             var root = _rt != null ? _rt.Root : _root;
             var t = FindDeep(root, "flt_title_" + title.Replace(" ", "_"));
             var lb = t != null ? t.GetComponent<Label>() : null;
-            return lb != null && lb.Text == title ? lb : null;      // ⛔ 认错节点 = 当没找到（不静默放过）
+            return lb != null && lb.Text == ExpectedTitleText(title) ? lb : null;   // ⛔ 认错节点 = 当没找到（不静默放过）
         }
 
         /// <summary>🆕 **2026-10-11（A289）**：一段文字**渲染网格**的外接矩形（画布 px · 左上原点 · y 向下）。
@@ -1966,7 +1998,16 @@ public static class DeckScene
                         2.2f + 25.21f + 281.28f * 0.5f, 156f + 19.51f + 20f, 281.28f, 40f);
             CheckRectPx("flt_searchicon", icnX + icnW * 0.5f, icnY + icnH * 0.5f, icnW, icnH,
                         2.2f + 266.55f + 17.5f, 156f + 24.51f + 15f, 35f, 30f);
-            Check(_rt.UiFilterInputText, "Search", "空的时候搜索框画的是**占位符**（原版 `Placeholder` 原文）");
+            // 🔴 **2026-10-18（A891 的续）改「随语档」**：占位符从本批起**走词条**
+            //   （`Core/FilterPanelModel.InputPlaceholder` → `Loc.T("MenuDeck/HUD/SearchFilter")`），
+            //   而本宿主跑在**出厂语言 = 中文**（`Core/Loc.cs` 的 `Default`）⇒ 原来写死的 `"Search"` 必红。
+            //   期望值 = **同一个取词口**（`Loc.T`），但**不是**同义反复 —— 下面那条 `HasEntry` 钉住
+            //   「键在表里」：键不在 ⇒ `Loc.T` 返回**键名本身**、渲染那一侧也返回键名 ⇒ 两边一起退化，
+            //   只有靠 `HasEntry` 那条才红得出来（形状同 `Editor/CollectionScene.cs` ⑨ 那一节）。
+            CheckTrue(Loc.HasEntry("MenuDeck/HUD/SearchFilter"),
+                      "（前提）词条 `MenuDeck/HUD/SearchFilter` 在 `Loc` 表里 —— ⛔ 不在的话下面那条会两边同时退化成键名（假绿）");
+            Check(_rt.UiFilterInputText, Loc.T("MenuDeck/HUD/SearchFilter"),
+                  "空的时候搜索框画的是**占位符**（原版 `Placeholder` 挂 `Localize.mTerm = MenuDeck/HUD/SearchFilter` ⇒ 文案随语档）");
 
             // ============================================================ 🆕 2026-10-09（A190）
             // **同族第五条读数 `UiLabelText`** —— 它是 `DeckRuntime` 里最后一个「按名字找节点」的自检口。
@@ -1978,8 +2019,12 @@ public static class DeckScene
             // 🔴 期望值**不是**从这条读数自己读回来的（⛔ 自证）：
             //   · 「它在 `Root` 那棵树里、但**不是**直接子件」由**本文件自己的** `FindDeep`
             //     （另一份实现：`GetComponentsInChildren<Transform>`）作证 = 缺第二步时看不见它的**原因**；
-            //   · `'Army'` 取自**原版行小标题的文案**（`FilterPanelModel.BuildTitles` 的 `Title.Text`）；
-            //   · `'Search'` 取自**原版 `Placeholder` 原文**（上一行 `UiFilterInputText` 刚量的是**同一颗**节点）。
+            //   · `Army` 那是**四行小标题**那一族（`FilterPanelModel.BuildTitles` 的 `Title.Text`）——
+            //     🔴 **2026-10-18（A891 的续 · 续做 A）起它也走词条了**（`MenuDeck/Filters/Army`），
+            //     期望值见下面那条（`Loc.T(键)`），⛔ 别写成中文或英文的字面量；
+            //   · 搜索框那颗（`flt_input_t`）**本批起走词条**（`FilterPanelModel.InputPlaceholder` →
+            //     `Loc.T("MenuDeck/HUD/SearchFilter")`）⇒ 期望值也改成那个取词口，⛔ 不再写死 `'Search'`
+            //     （上一行 `UiFilterInputText` 刚量的是**同一颗**节点）。
             // 🔴 改坏法：把 `DeckRuntime.UiLabelText` 里 `FindDeep` 那一步删掉（退回只走 `Root.Find`）
             //   ⇒ 下面**两条字串断言都读成 `null`** ⇒ 两条红（`poolcnt_0` 那种直接子件不受影响，
             //   见本文件既有那两条 —— 本节顺带就是「直接子件那一路没被挤掉」的对照）。
@@ -1989,12 +2034,17 @@ public static class DeckScene
                           "结构前提：`flt_title_Army`（`Army` 小标题那颗 `Label`）**在 Root 那棵树里、"
                           + "但不是直接子件**（父级 = 抽屉容器）—— 这正是缺 `FindDeep` 时看不见它的原因"
                           + "（这条若红：下面两条失去判别力，先修这里）");
-                Check(_rt.UiLabelText("flt_title_Army"), "Army",
+                CheckTrue(Loc.HasEntry("MenuDeck/Filters/Army"),
+                          "（前提）词条 `MenuDeck/Filters/Army` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
+                Check(_rt.UiLabelText("flt_title_Army"), Loc.T("MenuDeck/Filters/Army"),
                       "`UiLabelText(flt_title_Army)` 读得到**容器下**的 `Label`"
-                      + "（A190：只走 `Root.Find` 的旧写法在这里**静默答 `null`**）");
-                Check(_rt.UiLabelText("flt_input_t"), "Search",
+                      + "（A190：只走 `Root.Find` 的旧写法在这里**静默答 `null`**；"
+                      + "**2026-10-18（A891 的续 · 续做 A）起期望值随语档** —— 原来是字面量 `Army`）");
+                CheckTrue(Loc.HasEntry("MenuDeck/HUD/SearchFilter"),
+                          "（前提）词条 `MenuDeck/HUD/SearchFilter` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
+                Check(_rt.UiLabelText("flt_input_t"), Loc.T("MenuDeck/HUD/SearchFilter"),
                       "……另一族容器下的 `Label`：搜索框那颗（与上一行同**一颗**节点，这条按**名字**走；"
-                      + "旧写法同样答 `null`）");
+                      + "旧写法同样答 `null`。**2026-10-18（A891 的续）起期望值随语档**）");
                 // 负例：**哪儿都没有**的名字 —— 照旧答 `null`（钉住这一步**不是恒真**）
                 CheckTrue(_rt.UiLabelText("flt_title_zzz") == null,
                           "负例：查一个**哪儿都没有**的名字 ⇒ 照旧答 `null`（钉住兜底不是恒真）");
@@ -2148,6 +2198,16 @@ public static class DeckScene
             //   ⚠️ 「量不出来」也不放过：`TitleLeftPx` 给 **−9999** ⇒ 照样红（不静默）。
             // ⚠️ 本节**自己开、自己关** —— 量完把抽屉收回 false，不改后续用例的初态。
             Section("筛选栏四行小标题的**渲染左沿**（原版 `Title` = Left/Middle；⛔ 不是 Center）");
+            // 🔴 **2026-10-18（A891 的续 · 续做 A）**：本节的四条都过 `TitleLeftPx` → `ExpectedTitleText`，
+            //   而四行小标题在**中文档**下印的都是中文 ⇒ 这里先钉住「键在表里」：
+            //   键不在 ⇒ `Loc.T` 返回**键名本身**、渲染那一侧同样返回键名 ⇒ 比字两边一起退化 = **假绿**。
+            // 🔴 **第三轮整改（审查 P1）**：`Energy Cost` 也在这一组里了（它原来被误判成「原版无词条」；
+            //   复跑全部 80 个 bundle ⇒ 它挂 `Battle/Tips/EnergyCost`）。
+            //   ⚠️ 这条**真的抓到过一次**：本批第一版 `TitleTerm` 给 `Rarity`/`Type` 返回了两个
+            //   `Loc` 表里**当时还不存在**的键 ⇒ 界面上会印键名本身，就是靠这一条变红的。
+            CheckTrue(Loc.HasEntry("MenuDeck/Filters/Army") && Loc.HasEntry("MenuDeck/HUD/Rarity")
+                      && Loc.HasEntry("MenuDeck/Filters/Type") && Loc.HasEntry("Battle/Tips/EnergyCost"),
+                      "（前提）四行小标题的词条都在 `Loc` 表里（⛔ 有一条不在 ⇒ 本节四条会两边一起退化成键名）");
             Check(_rt.FiltersOpen, false, "（前提）进本节时抽屉是关着的（上一节收尾如此）");
             _rt.UiToggleFilters();                    // 摆位 + 对齐只在逻辑态开着时做 ⇒ 必须先开
             Check(_rt.FiltersOpen, true, "点 `Filters` ⇒ 抽屉打开（这时才摆小标题）");
@@ -2348,6 +2408,17 @@ public static class DeckScene
                 }
                 // 导入弹窗那两颗是**模态件**（`_modalOnly` 出厂 `SetActive(false)`）⇒ 先打开再验
                 _rt.UiOpenImport();
+                // 🔴 **2026-10-18（A891 的续 · 续做 B）：那颗钮的字走词条** —— 键 = 原版
+                //   `Import Deck Popup/Window/Buttons/Generic UI Button/Button Text` 那颗 `Localize.mTerm`
+                //   的原文 **`MainMenu/General/Confirm`**。⚠️ 本批之前 `DeckRuntime` 这边是**写死 `"Confirm"`**，
+                //   而**同一扇窗的另一份实现**（`Shell/ImportDeckPopup.cs`）早就走这条键了
+                //   ⇒ 中文档下两扇窗那颗钮一个字中文一个字英文（「两处写同一条规则」的现成例子）。
+                //   期望值 = `Loc.T(键)`；「键在表里」单独钉（键不在 ⇒ 两边一起退化成键名 = 假绿）。
+                CheckTrue(Loc.HasEntry("MainMenu/General/Confirm"),
+                          "（前提）词条 `MainMenu/General/Confirm` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
+                Check(_rt.UiLabelText("imp_ok_t"), Loc.T("MainMenu/General/Confirm"),
+                      "导入弹窗 `Confirm` 钮的**字** = `Loc.T(\"MainMenu/General/Confirm\")`（随语档；"
+                      + "原版那颗 TMP 的 `m_text` 原文 = `Confirm`）");
                 CheckHoverOne("imp_ok", "imp_ok", "40K_button", "40K_button_hover", "40K_button_pressed",
                               "导入弹窗 `Confirm`");
                 // ⚠️ 这颗的 `m_TargetGraphic` 实测 = **子件 `Icon`**（= 我们那颗 `imp_close_x`），
@@ -3418,9 +3489,54 @@ public static class DeckScene
                       + "不 UploadDeck；把 `SaveAndSay()` 里那道闸删掉/改成 `if (false)` ⇒ 这条红）");
                 Check(DeckLibrary.Load().Current.CardIds.Count, keepIds.Count, "★ ……而且盘上张数也没变");
                 CheckTrue(_rt.UiLastSay != noticeBefore
-                          && (_rt.UiLastSay ?? "").Contains(DeckRules.Describe(DeckError.TooFewCards)),
-                          "★ ……而且**出声了**（`Say()` 那句：「" + _rt.UiLastSay
-                          + "」—— 静默挡下 = 这条红）");
+                          && (_rt.UiLastSay ?? "").Contains("卡组张数不够"),
+                          "★ ……而且**出声了**，印的是那条词条的**中文列**（`Say()` 那句：「" + _rt.UiLastSay
+                        + "」—— 静默挡下 = 这条红）。"
+                        + "｜🔴 **2026-10-18（`G9`）灭自证**：期望值原来是 `DeckRules.Describe(…)`"
+                        + "（**取自实现本身**）⇒ 那时「让 `Describe` 返回空串」照样绿；现在钉的是**字面量**。");
+
+                // ==== 🆕 2026-10-18（`G9`）：`DeckRules.Describe` 从「造中文句子」改成「出词条键」====
+                //   判据链：① 键的**形状**（照原版具名族 `"MenuDeck/Error/" + 名字`）；
+                //          ② **表里真有这条键**（⛔ 坑表 #18：「原版有词条」≠「我们表里有键」——
+                //             键不在 ⇒ `Loc.T` 返回**键名本身**、界面上就印键名）；
+                //          ③ **中英两档各印一句话**且**逐字不同**（这才是「显示层真的走词条了」）。
+                {
+                    string kFew = DeckRules.Describe(DeckError.TooFewCards);
+                    Check(kFew, "MenuDeck/Error/TooFewCards",
+                          "★ G9：`Describe(TooFewCards)` 出的是**词条键**、形状照原版具名族"
+                        + "｜🧨 改回返回中文整句（或返回空串）⇒ 红");
+                    Check(DeckRules.Describe(DeckError.None), "",
+                          "★ G9：`None` ⇒ **空串**（原版 `ToRawLocalizationString` 的 `err==0` 那一支）");
+                    CheckTrue(Loc.HasEntry(kFew),
+                          $"★ G9：`{kFew}` **在 `Loc` 表里** —— 键不在 ⇒ 界面上印的是键名（不是中文、也不是英文）");
+                    CheckTrue(Loc.HasEntry(DeckRules.Describe(DeckError.WrongFaction))
+                              && Loc.HasEntry(DeckRules.Describe(DeckError.EffectOnlyCard)),
+                          "★ G9：13 条键**抽查三条**都在表里（`WrongFaction` / `EffectOnlyCard` 各一）");
+
+                    Loc.RestoreForTest(AvailableLanguages.Chinese);
+                    string zhMsg = DeckRuntime.DeckErrorText(DeckError.TooFewCards);
+                    Loc.RestoreForTest(AvailableLanguages.English);
+                    string enMsg = DeckRuntime.DeckErrorText(DeckError.TooFewCards);
+                    Loc.RestoreForTest(AvailableLanguages.Chinese);       // 收尾：还给本节的语档
+                    Check(zhMsg, "卡组张数不够", "★ G9 **中文档**：键取到的是中文那一列（**字面量**，不是从实现里读）");
+                    CheckTrue(enMsg.Length > 0 && enMsg != zhMsg && enMsg != kFew,
+                          $"★ G9 **英文档**：同一把键取到**另一句话**（「{enMsg}」）"
+                        + "｜🧨 那半边原来是引擎里写死的中文 ⇒ 英文档下**照样印中文** ⇒ 红");
+
+                    // 🧨 **`Loc.HasEntry(null)` 不该抛**（`Dictionary.ContainsKey(null)` 会抛
+                    //    `ArgumentNullException`）—— 上游只要有一处把「本该非空的键」算成 null，
+                    //    整条自检就**崩掉**（没有「期望 X / 实得 Y」，还容易被当成环境问题放过去）。
+                    bool threw = false, got = true;
+                    try { got = Loc.HasEntry(null); }
+                    catch (System.Exception ex)
+                    { threw = true; Debug.LogWarning("[DeckScene] `Loc.HasEntry(null)` 抛了：" + ex.GetType().Name); }
+                    CheckTrue(!threw && !got,
+                          "★ G9：`Loc.HasEntry(null)` **不抛异常**、返回 `false`（并出声）"
+                        + "｜🧨 把那道判空删掉（退回裸的 `Table.ContainsKey(key)`）⇒ 抛 "
+                        + "`ArgumentNullException` ⇒ 红");
+                    CheckTrue(!Loc.HasEntry("MenuDeck/Error/__没有这条键__"),
+                          "★ G9 对照：**有键名的**查不到照样返回 `false`（不是「恒 true」那种假保护）");
+                }
 
                 // ---- ④ `ESC` = **同一个函数** ⇒ 也不落盘 ----
                 //    谁是「只给 Done 那一支加闸、ESC 那支绕过」⇒ 这条红（两处写同一条规则的老毛病）。
@@ -4644,10 +4760,18 @@ public static class DeckScene
                               "★ A547：……而且**脏标记留着**（下次 `Done` 还会再试）—— 退回 `DeckDirty = false`"
                             + " ⇒ **这条红**，那正是「关掉编辑器就永久丢」的成因");
                     string spoken = string.Join("\n", logs);
-                    CheckTrue(spoken.Contains("导入失败"),
-                              "★ A547：……而且**出声**了（日志里有一句「导入失败」）—— 静默失败 = 红线");
-                    CheckTrue(!spoken.Contains("已导入"),
-                              "★ A547：……⛔ **不许**再说「已导入」—— 页脚把失败说成成功正是原来的缺陷");
+                    // 🔴 **2026-10-18（`G8` · 同族排查 ④）就地改判据** —— 这两条原来是
+                    //   `spoken.Contains("导入失败")` / `!spoken.Contains("已导入")`：**拿中文串当判据**，
+                    //   而且**一正一反不对称** —— 正面那条文案一改就红（看得见），反面那条会**恒真**
+                    //   （英文档里永远不会出现「已导入」⇒ **静默通过**，正是本工程最怕的那种绿）。
+                    //   现在判据 = `DeckRuntime.LastImportOutcome`（枚举，`TryImport` 与那句话**同一步**写）。
+                    Check(_rt.LastImportOutcome, DeckRuntime.ImportOutcome.NotPersisted,
+                          "★ A547：……而且**结局码**是 `NotPersisted`（串读了、进了库、**没进存档**）"
+                        + " —— 退回「不看落盘结果」⇒ 这里会变成 `Ok` ⇒ 红");
+                    CheckTrue(logs.Exists(l => l != null && l.StartsWith("[Deck] ")),
+                              "★ A547：……而且**出声**了（`Say()` 仍然 `Debug.Log`，前缀 `[Deck] `）"
+                            + " —— 静默失败 = 红线；"
+                            + "⛔ 本条**不**再去比那句中文（那正是 `G8` 拆掉的形状，见上一条注释）");
                     CheckTrue(spoken.Contains(lib.LastError),
                               "★ A547：……而且报的是**真原因**（`DeckLibrary.LastError` 那句原话出现在日志里）"
                             + " —— 这一条把「随便说一句话」与「把原因说出来」分开");
@@ -4657,8 +4781,156 @@ public static class DeckScene
                     RuleEngine.DeckStore.OverridePath = keepPath;          // 夹具那条路径还回去
                     try { if (System.IO.File.Exists(goodPath)) System.IO.File.Delete(goodPath); } catch { }
                     // 收尾：把脏标记与 `LastError` 收回去 —— 页头印的就是 `Library.LastError`（A330），
-                    // 留着会污染后面那张 `deck_editor.png` 截图；走生产那条路（`SaveAndSay` 里那一下）。
+                    // ⚠️ **2026-10-18（`G8`）就地更正**：那件（`_storeErr`）2026-10-17 已按 **D10 删件**删掉了，
+                    //    「留着会污染截图」这半句**不再成立**；留着它的真理由 = 后面几节（A398/G8）读
+                    //    `_rt.Library.LastError == null` 当「上一次落盘成没成」的判据 —— 不清会**串味**。
+                    //    走**生产那条路**（`CommitDeck()`，`SaveAndSay()` 里也是它）。
                     _rt.CommitDeck();
+                    CheckTrue(!_rt.DeckDirty && _rt.Library.LastError == null,
+                              "（收尾）路径恢复之后那一下真的落得下去（脏标记清、`LastError` 空）");
+                }
+            }
+
+            // ============================================================ 🆕 **2026-10-18（`G8`）：卡组存档那一层
+            //  **出【错误码】、不出「给人看的中文」** —— 两语档各断一次
+            //
+            //  背景（`G3` 交回的那半）：`DeckStore.LoadAll` 的三条出口原来是**写死的整句中文**
+            //  （`DeckStore.cs:55/64/90`），`DeckLibrary` 只能拿 `Contains("失败")` 去猜类型
+            //  ⇒ 换语言 / 改一次措辞就**静默失效**。本笔把那三条换成 `LoadNote` **错误码** +
+            //  一句**诊断串**；给人看的文案走**词条**（`CustomErrors/ErrorLoadDeck` /
+            //  `MenuDeck/Error/SaveFailed` —— 两条的载体与出处写在 `Core/Loc.cs` 上）。
+            //
+            //  🔴 **判据都是结构性的 / 原版的，不从实现里读回来**：
+            //    · 错误码 = `DeckStore.LoadNote` 的枚举值（三条出口各一个）；
+            //    · 「不产中文」= `Loc.HasCjk(detail)` 为假（`Loc.HasCjk` 是**唯一一份**汉字判据）；
+            //    · 「换语言不出错」= **两档各跑一遍**：类型与诊断**逐字不变**、显示文案**逐字不同**；
+            //    · 「显示层真的走词条了」= 那句人话里**含 `Loc.T(键)` 在当前语档下的值**。
+            //  🧨 改坏法：把 `DeckStore` 那三条改回写死中文 ⇒ ① 那三条红（`Loc.HasCjk` 与 `StartsWith`）；
+            //     把 `DeckRuntime.SaveFailReason()` 改回写死中文 ⇒ ③ 的**英文档**那条红。
+            Section("G8：卡组存档出【错误码】不出「给人看的中文」（两语档）");
+            {
+                string keepPath = RuleEngine.DeckStore.OverridePath;
+                string probeDir = System.IO.Path.GetDirectoryName(keepPath);
+                CheckTrue(!string.IsNullOrEmpty(probeDir) && System.IO.Directory.Exists(probeDir),
+                          $"（前提）探针目录存在（{probeDir}）—— 不存在 ⇒ 下面全是假绿");
+                string p = System.IO.Path.Combine(probeDir, "_g8_deckload.json");
+                var langWas = Loc.Current;
+                try
+                {
+                    RuleEngine.DeckStore.OverridePath = p;
+
+                    // ---- ① 三条出口各一个【错误码】；`detail` 是诊断串（不是中文整句） ----
+                    //  ⚠️ `Empty` / `ReadFailed` 两条走的都是 `DeckStore` **自己拼的**那种串
+                    //     ⇒ 可以逐条钉形状；`ReadFailed` 那一条**还缀着异常自己的话**（.NET/Unity 给的，
+                    //     OS 是中文时也可能是中文）⇒ 对它只钉**前缀**（那正是我们写的那一段）。
+                    try { if (System.IO.File.Exists(p)) System.IO.File.Delete(p); } catch { }
+                    RuleEngine.DeckStore.LoadNote code; string detail; int cur;
+                    RuleEngine.DeckStore.LoadAll(out code, out detail, out cur);
+                    Check(code, RuleEngine.DeckStore.LoadNote.NoSaveFile, "①-a 没有存档 ⇒ 码 `NoSaveFile`");
+                    CheckTrue(!string.IsNullOrEmpty(detail),
+                              "①-a ……而且 `detail` **非空** —— 那是「`DeckStore` 有没有话要说」这个信号，"
+                            + "改成 null 会把「第一次跑」**静默**判成「读到了」（`ClassifyLoad` 就是这么看的）");
+                    CheckTrue(!Loc.HasCjk(detail),
+                              $"★ ①-a ……而且它**一个汉字都没有**（实际「{detail}」）"
+                            + "｜🧨 改回写死「还没有存档」⇒ 红");
+
+                    System.IO.File.WriteAllText(p, "{ \"version\": 1, \"current\": 0 }");  // 合法 JSON、缺 `decks`
+                    RuleEngine.DeckStore.LoadAll(out code, out detail, out cur);
+                    Check(code, RuleEngine.DeckStore.LoadNote.Empty, "①-b 存档在、解析出来是空的 ⇒ 码 `Empty`");
+                    CheckTrue(!Loc.HasCjk(detail),
+                              $"★ ①-b ……诊断串也没有汉字（实际「{detail}」）"
+                            + "｜🧨 改回写死「存档解析失败（内容为空）」⇒ 红");
+
+                    //  ⚠️ **语法坏掉那段文本**不写死判哪一支：Unity 的 `JsonUtility.FromJson` 是**抛异常**
+                    //     还是**回 null** 取决于它（两条都落 `Failed`，但**错误码不同**）⇒ 这里断言
+                    //     「两个码里必居其一」+ 各自该有的形状（⛔ 别把一条**不一定成立**的写死）。
+                    System.IO.File.WriteAllText(p, "{ 这不是 json ");
+                    RuleEngine.DeckStore.LoadAll(out code, out detail, out cur);
+                    CheckTrue(code == RuleEngine.DeckStore.LoadNote.Empty
+                              || code == RuleEngine.DeckStore.LoadNote.ReadFailed,
+                              $"①-c 语法坏掉的存档 ⇒ 码是 `Empty` 或 `ReadFailed`（实得 `{code}`）");
+                    if (code == RuleEngine.DeckStore.LoadNote.ReadFailed)
+                        CheckTrue(detail != null && detail.StartsWith("read failed:"),
+                                  $"★ ①-c ……走 `ReadFailed` 那一支：诊断串前缀是我们写的那一段（实际「{detail}」）"
+                                + "｜🧨 改回写死「存档读取失败：」⇒ 这条红（老前缀不是这个）");
+                    else
+                        CheckTrue(!Loc.HasCjk(detail),
+                                  $"★ ①-c ……走 `Empty` 那一支：诊断串没有汉字（实际「{detail}」）");
+
+                    // ---- ② 中英两档：**类型与诊断逐字不变**、**显示文案逐字不同** ----
+                    //  盘上放一段**确定性**的坏存档（合法 JSON、缺 `decks` 键 ⇒ `JsonUtility` 给 null
+                    //  ⇒ 必落 `Empty` 那一支，`G3` 的 ②-2 用的就是它）—— 两档各 `Load()` 一次。
+                    System.IO.File.WriteAllText(p, "{ \"version\": 1, \"current\": 0 }");
+                    Loc.RestoreForTest(AvailableLanguages.Chinese);
+                    var libZh = RuleEngine.DeckLibrary.Load();
+                    Check(libZh.LastLoadIssue, RuleEngine.DeckLibrary.DeckLoadIssue.Failed,
+                          "②-a 中文档：坏存档 ⇒ 类型 `Failed`");
+                    Check(libZh.LastLoadCode, RuleEngine.DeckStore.LoadNote.Empty,
+                          "②-a ……错误码 = `Empty`（比类型细一档 —— 两个都得有，显示层挑词条用码）");
+                    string zhTerm = libZh.LastLoadIssueTerm, zhDiag = libZh.LastError;
+                    string zhText = Loc.T(zhTerm);
+
+                    Loc.RestoreForTest(AvailableLanguages.English);
+                    var libEn = RuleEngine.DeckLibrary.Load();
+                    Check(libEn.LastLoadIssue, RuleEngine.DeckLibrary.DeckLoadIssue.Failed,
+                          "★ ②-b **英文档**：同一件读不出的存档**照样** `Failed` —— 类型不随语言变"
+                        + "｜🧨 判据换回 `note.Contains(\"失败\")` ⇒ 这里变 `None` ⇒ 红");
+                    Check(libEn.LastLoadCode, RuleEngine.DeckStore.LoadNote.Empty,
+                          "②-b ……错误码也不随语言变");
+                    string enTerm = libEn.LastLoadIssueTerm, enDiag = libEn.LastError;
+                    string enText = Loc.T(enTerm);
+
+                    CheckTrue(Loc.HasEntry(zhTerm ?? ""),
+                              $"②-c 词条键在表里（`{zhTerm}`）—— ⛔ 坑表 #18：「原版有词条」≠「我们表里有键」，"
+                            + "两条都要断。键不在 ⇒ `Loc.T` 返回键名本身、界面上印键名");
+                    CheckTrue(!string.IsNullOrEmpty(zhTerm) && zhTerm == enTerm,
+                              $"②-c 词条键**两档同一个**（键不随语言变，只有值变）—— 实测「{zhTerm}」/「{enTerm}」");
+                    CheckTrue(zhDiag != null && !Loc.HasCjk(zhDiag) && zhDiag == enDiag,
+                              "★ ②-d **灭自证**：诊断串**非空**、**逐字不随语档变**、且不含汉字 —— "
+                            + "证明「状态」没跟着语言走（它压根不该跟着走）。"
+                            + "⛔ 少了「非空」那半，`null == null` 会让这条**假绿**");
+                    CheckTrue(zhText != enText && zhText.Length > 0 && enText.Length > 0,
+                              $"★ ②-e 显示文案**两档逐字不同**（中「{zhText}」/ 英「{enText}」）—— "
+                            + "这一条把「键在表里且真有两列」钉住");
+
+                    // ---- ③ 落盘失败那条**人话**随语档换（= 显示层真的改走词条了） ----
+                    //  走**生产那条路**（`UiPressDone()` → `SaveAndSay()`），不另造出口。
+                    if (_rt.State.Validate() != DeckError.None)
+                    {
+                        Check(true, false, $"（前提）③ 需要一副**合法**卡组（此刻是 `{_rt.State.Validate()}`）"
+                                         + " ⇒ 这一段没法验（红 —— 别让它静默跳过）");
+                    }
+                    else
+                    {
+                        string badPath = System.IO.Path.Combine(probeDir, "__wf_g8_no_such_dir__", "x.json");
+                        RuleEngine.DeckStore.OverridePath = badPath;
+                        Loc.RestoreForTest(AvailableLanguages.Chinese);
+                        string wantZh = Loc.T(DeckRuntime.TermSaveFailed);
+                        _rt.UiPressDone();
+                        string sayZh = _rt.UiLastSay ?? "";
+                        Loc.RestoreForTest(AvailableLanguages.English);
+                        string wantEn = Loc.T(DeckRuntime.TermSaveFailed);
+                        _rt.UiPressDone();
+                        string sayEn = _rt.UiLastSay ?? "";
+
+                        CheckTrue(Loc.HasEntry(DeckRuntime.TermSaveFailed),
+                                  $"③-a 词条键在表里（`{DeckRuntime.TermSaveFailed}`）");
+                        CheckTrue(wantZh != wantEn && wantZh.Length > 0 && wantEn.Length > 0,
+                                  $"③-a ……而且两档逐字不同（中「{wantZh}」/ 英「{wantEn}」）");
+                        CheckTrue(sayZh.Contains(wantZh),
+                                  $"★ ③ 中文档：落盘失败那句人话 = `Loc.T(键)`（实测「{sayZh}」）");
+                        CheckTrue(sayEn.Contains(wantEn),
+                                  $"★ ③ **英文档**：**同一处**跟着换成英文（实测「{sayEn}」）—— "
+                                + "即 `SaveFailReason()` 的人话那一半真的走词条了"
+                                + "｜🧨 把它改回写死「写不进存档文件」⇒ **只有这条红**（中文档那条照样绿）");
+                    }
+                }
+                finally
+                {
+                    RuleEngine.DeckStore.OverridePath = keepPath;
+                    try { if (System.IO.File.Exists(p)) System.IO.File.Delete(p); } catch { }
+                    Loc.RestoreForTest(langWas);                 // ⛔ 自检一个字节都不写 `PlayerPrefs`
+                    _rt.CommitDeck();                            // 把 ③ 留下的脏标记与 `LastError` 收回去
                     CheckTrue(!_rt.DeckDirty && _rt.Library.LastError == null,
                               "（收尾）路径恢复之后那一下真的落得下去（脏标记清、`LastError` 空）");
                 }
@@ -4758,6 +5030,15 @@ public static class DeckScene
                     {
                         Check(hlb.VAlignTier, Label.VAlign.Capline,
                               "★ D34：占位符的垂直档 = 原版 `m_VerticalAlignment = 8192` = **Capline**");
+                        // 🔴 **2026-10-18（第三轮整改 · 审查 P4）：这颗占位符的字也走词条了** ——
+                        //   键 `MenuDeck/HUD/EditDeckName`（原版那颗 `Placeholder` 的 `mTerm` 原文，
+                        //   全库只 1 颗）。期望值 `Loc.T(键)` + 单独钉「键在表里」。
+                        //   ⚠️ 它左对齐 ⇒ 文案宽窄变了也不动左沿（下面那条 19.5 仍旧成立）。
+                        CheckTrue(Loc.HasEntry("MenuDeck/HUD/EditDeckName"),
+                                  "（前提）词条 `MenuDeck/HUD/EditDeckName` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名）");
+                        Check(hlb.Text, Loc.T("MenuDeck/HUD/EditDeckName"),
+                              "★ D34：占位符文案 = `Loc.T(\"MenuDeck/HUD/EditDeckName\")`（随语档；"
+                            + "原版 TMP 原文 `Tap to edit deck name` / 中文「点击编辑卡组名」）");
                         float w = hlb.WorldW * PxPerUnit;
                         CheckTrue(w > 20f && w < 2000f, "（前提）占位符量到了真实宽度（" + w.ToString("F1") + "px）");
                         if (w > 20f && w < 2000f)
@@ -4904,7 +5185,14 @@ public static class DeckScene
                                           + "（`RefreshCosmoFilters` 那条链原来只调 `BuildCosmetics`）");
                     if (al != null)
                     {
-                        Check(al.Text, "Army", "★ D43：……文案 = `Army`");
+                        // 🔴 **2026-10-18（A891 的续）改「随语档」**：这颗的字从本批起走词条
+                        //   （`DeckRuntime.cs` 那处 `Txt("cosmoflt_title", Loc.T("MenuDeck/Filters/Army"), …)`，
+                        //   词条键 = 原版那颗 `Localize.mTerm` 的原文）⇒ 宿主跑中文档时写死的 `"Army"` 必红。
+                        //   期望值 = 同一个取词口；「键在表里」由上面那条 `HasEntry` 之外**这一条自己带**：
+                        CheckTrue(Loc.HasEntry("MenuDeck/Filters/Army"),
+                                  "（前提·D43）词条 `MenuDeck/Filters/Army` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名）");
+                        Check(al.Text, Loc.T("MenuDeck/Filters/Army"),
+                              "★ D43：……文案 = `Loc.T(\"MenuDeck/Filters/Army\")`（随语档；原版 `Army` / `zh_CN.csv:11`「军队」）");
                         Check(al.VAlignTier, Label.VAlign.Middle,
                               "★ D43：……垂直档 = 原版 `VA 512` = **Middle**");
                         float aw = al.WorldW * PxPerUnit;
@@ -4915,6 +5203,22 @@ public static class DeckScene
                     }
                     _rt.UiToggleFilters();
                     _rt.UiSetTab(0);
+                }
+
+                // ---- ⑪·b 🆕 **2026-10-18（第三轮整改 · 审查 P4）：卡背抽屉那条空态** ----
+                //   原版 `…/Cosmetic Display/Scroll View/Empty Collection Warning/Warning` 挂
+                //   `MenuCollection/NoCardsFound`（与收藏窗 Cards 页**同一条键**，原版 4 颗之一）。
+                //   ⚠️ 它出厂 `act=F`（判据 = 过滤后为空）⇒ 这里只断**字**，不断显隐（显隐由 `RefreshCosmoFilters` 管）。
+                {
+                    var zt = FindDeep(_rt.Root, "cosm_empty_t");
+                    var zl = zt != null ? zt.GetComponent<Label>() : null;
+                    CheckTrue(zl != null, "★ P4：卡背抽屉那条空态字 `cosm_empty_t` **建出来了**");
+                    CheckTrue(Loc.HasEntry("MenuCollection/NoCardsFound"),
+                              "（前提）词条 `MenuCollection/NoCardsFound` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名）");
+                    if (zl != null)
+                        Check(zl.Text, Loc.T("MenuCollection/NoCardsFound"),
+                              "★ P4：那条字 = `Loc.T(\"MenuCollection/NoCardsFound\")`（随语档；"
+                            + "原版 TMP 原文 `There are no cards in your collection for the selected filters`）");
                 }
 
                 // ---- ⑫ 附加条：行上那**两件**按 `CardRarityColorsSO` 上色 ----
@@ -5140,6 +5444,140 @@ public static class DeckScene
                             Check(Loc.T(lTerms[i]), lEn[i],
                                   "★ D2/D3/D4 词条层：`" + lTerms[i] + "` 的英文列 = 那颗 TMP 的 `m_text`「"
                                 + lEn[i] + "」");
+
+                        // ---- ③ 🆕 **2026-10-18（第三轮整改 · 审查 S1）：本批新接的词条【两列都钉死】** ----
+                        //   🔴 **为什么需要这一段**：本批其余每一条断言都是 `Check(渲染值, Loc.T(同一把键))`
+                        //     —— 两边都过 `Loc.T` ⇒ **把 `Core/Loc.cs` 里那条【中文值】改坏（例如
+                        //     `MenuDeck/Filters/Army` 的「军队」改成「兵力」），全部断言照绿**
+                        //     （`Loc.HasEntry` 只挡「键不在表里」，挡不了「值不对」）。
+                        //   ⇒ 这里把**玩家最常看到 + 本批新接**的那一批的**中英两列都写成字面量**
+                        //     （⛔ 没过 `Loc.T` 取期望值 —— 那就是自证）。中文来源逐条写在 `sSrc` 里。
+                        //   ⚠️ **只钉这一批**（范围内）；其余仍走 `Loc.T`（维护成本，理由见交件报告 §9）。
+                        //   ⚠️ 循环里来回切语言，**每轮末尾切回中文** —— 下面 ② 那一段假设当前是中文档。
+                        {
+                            var sTerms = new[]
+                            {
+                                "MenuDeck/Filters/Filters",           // 本批 B 组接的（原已存在，一并钉住）
+                                "MenuDeck/Filters/ClearFilters",
+                                "MenuDeck/HUD/SearchFilter",
+                                "MenuDeck/Filters/Army",
+                                "MenuDeck/HUD/Rarity",
+                                "MenuDeck/Filters/Type",
+                                "Battle/Tips/EnergyCost",
+                                "MenuDeck/MenuButtons/CreateDeck",
+                                "MenuDeck/MenuButtons/ImportDeck",
+                                "MenuDeck/Button/Random",
+                                "MainMenu/General/Confirm",
+                                "MainMenu/Ranked/GoToCreateDeck",
+                                "MenuDeck/HUD/EditDeckName",
+                                "MenuCollection/NoCardsFound",
+                                "MenuCollection/NoCardbackFound",
+                                "MenuCollection/NoDecksFound",
+                                "MenuCollection/Label/Cosmetics",
+                                "MainMenu/MainButtons/ButtonLabel/Back",
+                            };
+                            var sWhere = new[]
+                            {
+                                "Deck Editing Menu/…/Header/Filters/Label",
+                                "…/Header/Filters/Generic Simplified UI Button_updated/Button Text",
+                                "…/Card Filters/…/Name FIlter/Input Field/Text Area/Placeholder",
+                                "…/Card Filters/Filters/Army Filter/Title",
+                                "…/Card Filters/Filters/Rarity FIlter/Title",
+                                "…/Card Filters/Filters/Type Filter/Title",
+                                "…/Card Filters/Filters/Cost Filter/Title（+ 另外 14 个 bundle）",
+                                "Collection Menu Variant/…/Control Buttons/Create/Button Text",
+                                "同上的兄弟 Import/Button Text",
+                                "Deck Selection Popup with Tabs/…/Practice buttons/…/Button Text",
+                                "Import Deck Popup/Window/Buttons/Generic UI Button/Button Text",
+                                "Ranked Deck Selection/No Deck Text/Generic Simplified UI Button/Button Text",
+                                "Deck Editing Menu/…/Deck Name/Text Area/Placeholder",
+                                "…/Empty Collection Warning/Warning（Cards 页 + 异画页 + 卡背抽屉）",
+                                "…/Empty Collection Warning/Warning（卡背页）",
+                                "…/Empty Collection Warning/Warning（Deck 页）",
+                                "Collection Menu Variant/…/Cardback Tab/Header/label",
+                                "Collection Menu Variant/…/Tabs/Shared/Close Button/Button Text",
+                            };
+                            var sZh = new[]
+                            {
+                                "过滤器", "清除筛选", "搜索", "军队", "稀有度", "类型", "能量费用",
+                                "创建卡组", "导入卡组", "随机", "确认", "创建卡组", "点击编辑卡组名",
+                                "没有符合当前筛选的卡牌", "没有符合当前筛选的卡背", "没有符合当前筛选的卡组",
+                                "你的装饰收藏", "返回",
+                            };
+                            var sEn = new[]
+                            {
+                                "Filters", "Clear filters", "Search", "Army", "Rarity", "Type", "Energy Cost",
+                                "Create Deck", "Import Deck", "Random", "Confirm", "Create deck", "Tap to edit deck name",
+                                "There are no cards in your collection for the selected filters",
+                                "There are no cardbacks in your collection for the selected filters",
+                                "There are no deck in your collection for the selected filters",
+                                "Your cosmetics collection", "Back",
+                            };
+                            var sSrc = new[]
+                            {
+                                "**原版实拍**（用户 1017 截图；⚠️ 与我们那份 `zh_CN.csv:8` 的「筛选」**不同**）",
+                                "`zh_CN.csv:9`", "`zh_CN.csv:10`", "`zh_CN.csv:11`",
+                                "`zh_CN.csv:150`", "`zh_CN.csv:182`", "`zh_CN.csv:98`（英文串索引 · 不确定性见 `Loc.cs`）",
+                                "`zh_CN.csv:7`", "**我们自拟**（CSV 无此键）", "**我们自拟**（原版 TMP 是空串）",
+                                "`zh_CN.csv:83`", "`zh_CN.csv:230`", "`zh_CN.csv:172`",
+                                "`zh_CN.csv:177`", "**我们自拟**（CSV 无此键）", "`zh_CN.csv:178` 近邻（串差一个字母）",
+                                "`zh_CN.csv:25`", "`zh_CN.csv:5`",
+                            };
+                            CheckTrue(sTerms.Length == sWhere.Length && sTerms.Length == sZh.Length
+                                      && sTerms.Length == sEn.Length && sTerms.Length == sSrc.Length,
+                                      "（前提）四张表的行数一致（" + sTerms.Length + "）");
+                            for (int si = 0; si < sTerms.Length; si++)
+                            {
+                                Loc.SetLanguage(AvailableLanguages.Chinese);
+                                Check(Loc.T(sTerms[si]), sZh[si],
+                                      "★ S1 **中文列钉死**（⛔ 不过 `Loc.T` 取期望）：`" + sTerms[si] + "`（" + sWhere[si]
+                                    + "）= 「" + sZh[si] + "」—— 来源 = " + sSrc[si]);
+                                Loc.SetLanguage(AvailableLanguages.English);
+                                Check(Loc.T(sTerms[si]), sEn[si],
+                                      "★ S1 **英文列钉死**：`" + sTerms[si] + "` = `" + sEn[si]
+                                    + "`（= 原版那颗 TMP 的 `m_text` 原文；`Random` 那条例外，见 `Core/Loc.cs`）");
+                            }
+                            Loc.SetLanguage(AvailableLanguages.Chinese);   // ⚠️ 收尾：② 那一段假设当前是中文档
+                            Check(Loc.Current, AvailableLanguages.Chinese, "（收尾）语言放回中文档");
+                        }
+
+                        // ---- ④ 🆕 **2026-10-18（第四轮 · 审查 S2）：`Loc.T` 自身退化的两条守卫** ----
+                        //   🔴 为什么需要：本批**所有**渲染断言都是 `Check(渲染值, Loc.T(键))` —— 两边都过同一个口
+                        //     ⇒ 若 `Loc.T` **退化成「恒返回键名」**，两边一起退化 = **全绿**（`Loc.HasEntry` 也照绿，
+                        //     因为它只问「键在不在表里」，不问「T 有没有真的查表」）。这两条把它挡住：
+                        //       ① 一个**表里没有**的键 ⇒ 返回**键名本身** + **确实出声**（抓日志）；
+                        //       ② **同一个键问两次 ⇒ 只出声一次**（去重 —— ⛔ 删掉那句 `_warnedMissing.Add` ⇒ 红）。
+                        //   ⚠️ 打头先 `ResetMissingWarnedForTest()` ⇒ 本段**不依赖这个进程跑过几遍**。
+                        //   ⚠️ 本段**不建窗、不碰盘**（只读 `Loc` 的静态记账 + 抓日志）。
+                        {
+                            const string ghostKey = "No/Such/Key/__W1_S2__";
+                            Loc.ResetMissingWarnedForTest();          // ⛔ 只清去重表，不动 PlayerPrefs
+                            CheckTrue(!Loc.HasEntry(ghostKey),
+                                      $"（前提）`{ghostKey}` **不在**表里（⛔ 在的话下面两条失去意义）");
+                            CheckTrue(!Loc.HasWarnedMissing(ghostKey), "（前提）清完去重表 ⇒ 这个键还没出过声");
+                            int mc0 = Loc.MissingCount;
+                            var logsS2 = new List<string>();
+                            Application.LogCallback cbS2 = (cond, stack, type) =>
+                            { if (type == LogType.Warning && cond != null) logsS2.Add(cond); };
+                            Application.logMessageReceived += cbS2;
+                            string got1, got2;
+                            try
+                            {
+                                got1 = Loc.T(ghostKey);
+                                got2 = Loc.T(ghostKey);
+                            }
+                            finally { Application.logMessageReceived -= cbS2; }
+                            Check(got1, ghostKey, "★ S2①：表里没有的键 ⇒ 返回**键名本身**（⛔ 不是空串、不是英文）");
+                            Check(got2, ghostKey, "★ S2①（第二次调用）：同样返回键名本身");
+                            Check(Loc.MissingCount, mc0 + 2,
+                                  "★ S2①：**记账**照旧每次 +1（去重只管日志，⛔ 别把 `MissingCount` 也去重了）");
+                            int hits = 0;
+                            for (int li = 0; li < logsS2.Count; li++) if (logsS2[li].Contains(ghostKey)) hits++;
+                            Check(hits, 1, "★ S2②：**同一条键问两次 ⇒ 只出声一次**（判据 = 抓到含该键的 Warning 条数）"
+                                         + " —— 🧨 删掉 `Loc.T` 里那句 `if (_warnedMissing.Add(key))`（或把去重表整个删掉）"
+                                         + "⇒ 这里变 **2** ⇒ 红");
+                            CheckTrue(Loc.HasWarnedMissing(ghostKey), "…并且这个键被记进了去重表（`HasWarnedMissing`）");
+                        }
 
                         // ---- ② 实况层：**在中文档下真建一扇窗**，量那五颗标签到底印了什么 ----
                         //   ⚠️ 为什么不量 `_rt`：那扇窗是按**玩家当前语言**建的（自检不许假设它是中文）

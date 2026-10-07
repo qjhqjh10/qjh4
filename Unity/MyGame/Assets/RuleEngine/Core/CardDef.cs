@@ -364,6 +364,12 @@ namespace RuleEngine
             CollectBareKeywordBody(keywords);
             // ⑥ **伴生部队的名字**（`Companion 2: Missile Drone`）—— 2026-09-13 A2。
             CollectCompanionName(keywords);
+            // ⑥-bis 🔴 **2026-10-18（`W4` 整改 · 输入侧）：把 `keywords` 数组里漏掉 / 写残的
+            //    `Companion` 从 `desc` 补回来。** 见 <see cref="CollectCompanionKeyword"/>：
+            //    实测三张卡在输入侧就是死的（`TAU38 Coldstar` / `TAU28 Strike Team` 的 `keywords`
+            //    里**没有** `Companion` 条目、`TAU13 Pathfinder` 的是**裸词没数字**），
+            //    而卡面逐张印着 `Companion 2: Marker Drone` / `Companion: DS8 Support Turret`。
+            CollectCompanionKeyword(keywords);
             // ⑦ 🆕 **静态条件降费**（`This costs N less if you control a unit with Stealth`）
             //    —— 2026-09-13 A4 批 1。见 <see cref="CostIfControl"/>。
             CollectCostIfControl(keywords);
@@ -567,6 +573,79 @@ namespace RuleEngine
             {
                 _companionName = ExtractCompanionName(item);
                 if (_companionName != null) return;
+            }
+        }
+
+        /// <summary>
+        /// 🔴 **2026-10-18（`W4` 整改 · 输入侧）：`Companion` 关键词本身也要能从 `desc` 补回来。**
+        ///
+        /// **为什么需要它**（实测三张卡在**输入侧**就是死的 —— 不是规则错）：
+        ///   · `TAU38 Coldstar Battlesuit`：`keywords = ['Flying','Armour 1']`（**没有** `Companion`），
+        ///     而卡面印着 `Companion 2: Marker Drone` ⇒ `Has(Companion)` **恒假**
+        ///     ⇒ `RuleCore.PlayCompanions` 走 `else return;`，**连日志都没有**（红线）；
+        ///   · `TAU28 Strike Team`：`keywords = []`，卡面印 `Companion: DS8 Support Turret` —— 同上；
+        ///   · `TAU13 Pathfinder`：`keywords = ['Rally','Companion']`（**裸词、没数字**），
+        ///     卡面印 `Companion 2: Marker Drone` ⇒ `KeywordTable.Parse` 的 `FirstNumber` 兜底 **1**
+        ///     ⇒ 链长读成 1，而卡面是 **2**。
+        /// ⚠️ 三张都**逐张看过成品卡图**（铁律 7）：
+        ///   `d:/2/Warpforge部队卡片/Tau/3部队/Warpforge_{38_Coldstar-Battlesuit,28_Strike-Team,13_Pathfinder}.png`
+        ///   —— `Companion 2: Marker Drone` / `Companion: DS8 Support Turret` / `Companion 2: Marker Drone`。
+        ///
+        /// **同族先例**（照抄它的做法）：`CollectBareKeywordBody` 里给 `Ecstasy` 补的那一条
+        /// （`Maulerfiend` 的 `keywords` 数组里也没有 `Ecstasy`，而 `desc` 就是
+        /// `Ecstasy 5: …` ⇒ `Has("ecstasy")` 恒假、机制静默不跑）。
+        ///
+        /// **只补「认得出 + 值对」这一层**：`N` 取 `desc` 里 `Companion` **冒号前**那个数字；
+        /// 冒号前没数字（`Companion: DS8 Support Turret`）⇒ **记 1** —— 那时
+        /// `RuleCore.PlayCompanions` 算出的 `n = 1 − 1 = 0` ⇒ **只造一张**，正是原版的行为
+        /// （原版这一支的闸门在词条 + `relatedCard1`，不看计数，新卡计数 = −1）。
+        /// ⚠️ **别拿 `KeywordTable.FirstNumber(整串)` 取 N** —— 它会抓到伴生名里的数字
+        /// （`Companion: DS8 Support Turret` 会读成 **8**）；判据必须只扫**冒号之前**那半段。
+        ///
+        /// ⚠️ **不动 `_numericKeywords`**（卡面角标那一列）：那个是**卡面**的事，
+        /// 由表现层那一族管；这一条只修引擎读得到的 `_keywords`。两边的口径要不要对齐，
+        /// 见本轮交件报告的「顺手发现」。
+        /// </summary>
+        void CollectCompanionKeyword(IEnumerable<string> keywords)
+        {
+            // ---- ① `desc` 里那一处 `Companion N?:`（只扫冒号之前，别抓到伴生名里的数字）----
+            bool inDesc = false;
+            int descN = 0;
+            if (!string.IsNullOrEmpty(Desc))
+            {
+                var m = System.Text.RegularExpressions.Regex.Match(
+                    Desc, @"companion\s*(\d*)\s*:",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                if (m.Success)
+                {
+                    inDesc = true;
+                    int.TryParse(m.Groups[1].Value, out descN);
+                }
+            }
+
+            // ---- ② `keywords` 里那条 `Companion` 原文：在不在、写没写数字 ----
+            bool inKw = false, kwHasNumber = false;
+            if (keywords != null)
+                foreach (string item in keywords)
+                {
+                    if (KeywordTable.Normalize(item) != KeywordTable.Companion) continue;
+                    inKw = true;
+                    if (KeywordTable.HasNumber(item)) kwHasNumber = true;
+                    break;
+                }
+
+            if (!inDesc && !inKw) return;
+            int value = descN >= 1 ? descN : 1;
+            if (!inKw)
+            {
+                // `keywords` 里根本没有它 ⇒ 从 `desc` 登记（= `Ecstasy` 那条先例）
+                _keywords[KeywordTable.Companion] = value;
+            }
+            else if (!kwHasNumber && descN >= 1)
+            {
+                // 裸词（`keywords` 里写的是没数字的 `Companion`）而 `desc` 有数字 ⇒ 以 `desc` 为准
+                // （`TAU13 Pathfinder`：裸 `Companion` + `Companion 2: Marker Drone` ⇒ **2**）
+                _keywords[KeywordTable.Companion] = descN;
             }
         }
 
@@ -2049,6 +2128,15 @@ namespace RuleEngine
         /// <summary>**狂暴**（太空野狼）：`快速非战斗行动；执行时触发效果，然后洗回牌库`（规则书 `:186`）。
         /// ⚠️ 卡面核对：13 张里**只有 9 张真带这个词**，另 4 张只是正文里提到它（见 §一之三·候选 E）。</summary>
         public const string Ferocity = "ferocity";
+        /// <summary>🆕 2026-10-18（`W5` · `K3` 账）：**誓约**。原来这个规范名只以**字面量**
+        /// `"oath"` 出现在别名表（本文件 `new[] { "oath", "oath" }`）与 `EffectText` 的付费前缀
+        /// （`CostKind = "oath"`）里，没有常量 —— 加它是因为 `K3` 那条链（原版
+        /// `CardScript__ActivateMinion.c:43-47` / `OnTurnEnd.c:214` / `ResolveActiveAbilityPlayed.c:34`
+        /// 读的 `0x4fb` = `DefinedTrait.oath`）要在 `RuleCore` 里按名字判它，
+        /// 而**字面量散在多处**正是本工程反复踩的坑（两处写同一条规则 = 迟早不一致）。
+        /// 原版 trait id = **`0x4fb` (1275)**（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/DefinedTrait.cs:132`）。
+        /// ⚠️ **纯新增常量**：不改任何现有解析（`KeywordTable.Prefixes` 那一行**不动**）。</summary>
+        public const string Oath = "oath";
         /// <summary>🆕 2026-09-30：**嗜血**。原来只以字面量 `"bloodthirst"` 出现在规范化表与配额判定里，
         /// 没有常量 —— 加它是为了让「触发点」能按规范键发事件（见 `RuleCore.EmitBloodThirst`）。
         /// 原版 trait id = **`0xdc` (220)**（`DefinedTrait.cs:21`）。</summary>
@@ -2096,6 +2184,27 @@ namespace RuleEngine
         /// ⚠️ 实测只有 7 张（TauEmpire 一族）。
         /// </summary>
         public const string Companion = "companion";
+
+        /// <summary>
+        /// 🆕 2026-10-18（`W4` 整改 · 审查问题 6）：**`jam`（干扰）** ——
+        /// 原版 `DefinedTrait.jam = 130`（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/DefinedTrait.cs:13`，
+        /// 十进制 **130** = 反编译里那个 `0x82`）。同一句也早已记在 `Core/BattleContext.cs:374`
+        /// （「`jam` = `DefinedTrait.jam = 130`。**不建模**：全池 0 张卡提到它」）。
+        ///
+        /// **为什么现在要认它**：`RuleCore.HandEffectExpired` 那条**原版判据**
+        /// （`PlayerHand__UpdateCardEffects.c:235`：`extrinsic && HasCurrentTrait(施放者, 0x82)` ⇒ 摘）
+        /// 没有这个词就**恒假 = 死代码**（不认 = 不说实话）。⇒ 照 `Ecstasy` / `Talent` 那两族先例，
+        /// 先把「认得出」这一层补上（`KeywordTable.Prefixes` 里登记），**机制那一半**在
+        /// `HandEffectExpired`。
+        ///
+        /// ⚠️ **前缀撞车已核（审查列的那条存疑）**：`Prefixes` 表里**没有任何**以 `j` 开头的条目
+        /// ⇒ 不会抢先吃掉别人；反过来查了卡池（1126 张全文扫 `jam` 词根，只有一张战术卡
+        /// **名字**叫 `Jammed Communications`，**没有任何一张**卡带 `jam` 词条）
+        /// ⇒ 加它**不改动任何现有解析结果**。
+        /// ⚠️ **没有进 `Implemented`**：这个词的机制只做了「摘除那一支」，而全池 0 张卡带着它
+        /// ⇒ 不把它报成「已实现关键词」（0 张卡受影响）。
+        /// </summary>
+        public const string Jam = "jam";
 
         /// <summary>
         /// **虫群**（`Swarm`，2026-09-13 A2）：**打出在同名部队左侧时合并**（置于其下、攻击生命相加）。
@@ -2238,8 +2347,24 @@ namespace RuleEngine
             // 伏击（2026-09-13 A2）：**面朝下打出**；挨到伤害就翻开（无效果），
             // 撑到控制者下个回合就翻开**并触发**自己那条 `Ambush:` 正文。
             Ambush,
-            // 伴生（2026-09-13 A2）：**从手牌打出时带出至多 X 张同名伴生部队**（`RuleCore.PlayCompanions`）。
-            // ⚠️ 原版是「**可**打出」（玩家选），我们**自动带满** —— 近似，见那个函数的注释。
+            // 伴生（2026-09-13 A2）：**打出带 `Companion` 的卡时，按卡定义造一张伴生卡进手牌**
+            // （`RuleCore.PlayCompanions`）。
+            // 🔴 **2026-10-18（`W4` · 铁律 5 就地订正）**：这一格原来写的是
+            //    「**从手牌打出时带出至多 X 张同名伴生部队**」+「原版是「**可**打出」（玩家选），
+            //     我们**自动带满** —— 近似」—— **两句都不成立**：
+            //    · 「从手牌带出」= 粉丝实体版规则书 `:176` 的说法，**那份不是官方文档**；
+            //    · 原版（反编译）是**无条件造一张**（手牌满时 `SendToCemetery` 且**仍发**
+            //      `BroadcastCardCreated`），**没有「玩家选」这一步**。
+            //    **新判据** = 打出带 `Companion` 词条的卡（或 `companionCounter > 0` 的卡）时：
+            //      按**卡定义**造一张新卡（带词条 ⇒ `rawCardData.relatedCard1`；不带 ⇒ 它自己的
+            //      `rawCardData`）**放进手牌**，并把 `companionCounter = 源 − 1` 回填到新卡上
+            //      形成**递归链**；**全程零移除、不上场、不读手牌**。
+            //    出处：`CardScript__ProcessCompanion.c:26/29/35/70/74/85/88-89` ·
+            //      `CardScript__ShouldTriggerCompanion.c:12-29` ·
+            //      `BattleManager__AddNewCardToHand.c:65/:97` ·
+            //      `BattleManager._ResolveCreateHandCard_d__512:135` ·
+            //      `BattleManager__BroadcastCardCreated.c`。
+            //    ⚠️ `N` 是**链长**不是张数（打一次给一张），见 `RuleCore.PlayCompanions` 的头注释。
             // ⚠️ 它**没有卡面正文**（`Companion 2: Missile Drone` 只是个名字）⇒ 不进 `RoutableTriggers`。
             Companion,
 
@@ -2399,6 +2524,10 @@ namespace RuleEngine
             new[] { "pray", "pray" }, new[] { "penitence", Penitence }, new[] { "ecstasy", "ecstasy" },
             new[] { "sentry", "sentry" }, new[] { "markerlight", "markerlight" },
             new[] { "companion", "companion" },
+            // 🆕 2026-10-18（`W4` 整改）：**`jam`（干扰）** —— 原版 `DefinedTrait.jam = 130`
+            //    （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/DefinedTrait.cs:13` = 反编译里的 `0x82`）。
+            //    判据出处与影响面（前缀不撞车、全池 0 张卡带它）见 <see cref="KeywordTable.Jam"/>。
+            new[] { "jam", KeywordTable.Jam },
             new[] { "stimulation", "stimulation" },
             // 🔴 2026-09-13 补（派子代理做「关键词三列对账」时查出）：这三个词**根本不在表里**，
             //    于是 `Normalize` 返回 null → `Parse`/构造函数**双双丢弃**

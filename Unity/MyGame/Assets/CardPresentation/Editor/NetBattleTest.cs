@@ -43,13 +43,48 @@ public static class NetBattleTest
         /// 🔴 为什么要数它、而不是只看 `Ctx.Winner`：`RuleCore.Forfeit` 自己那条「已经判过就不再判」的早退
         ///    （`RuleCore.cs:3685`）会把「**已经打完的局又判了一次**」这个错**完全吃掉**
         ///    ⇒ 只盯 `Winner` 的话，把 `Ctx.IsOver` 那道闸删掉也一样绿（两边一起变）。</summary>
+        /// <summary>🆕 2026-10-17（B27·A912）：**判负入口被调过几次**。
+        /// 🔴 为什么要数它、而不是只看 `Ctx.Winner`：`RuleCore.Forfeit` 自己那条「已经判过就不再判」的早退
+        ///    （`RuleCore.cs:3685`）会把「**已经打完的局又判了一次**」这个错**完全吃掉**
+        ///    ⇒ 只盯 `Winner` 的话，把 `Ctx.IsOver` 那道闸删掉也一样绿（两边一起变）。</summary>
         public int ResignCalls;
+        /// <summary>🆕 **2026-10-18（A914 第四续）**：**`NetSelfResign`（判本机负）被调过几次**。
+        /// 与 `ResignCalls` 分开数 —— 两端判的**不是同一个人**（本端判 `MySeat`、对面端判 `1-MySeat`），
+        /// 只数一个计数器就分不出「谁该判谁」（那正是 R3 那半条要钉的东西）。</summary>
+        public int SelfResignCalls;
+        /// <summary>🆕 **2026-10-18（A913）**：**两个判负口各自收到的理由码**
+        /// （原版 `DeadHero(bool, BattleResult)` 的**第二个实参**）。
+        /// 🔴 它与 `RuleCore.Forfeit` 里那句 `ctx.Log`（`Ctx.Events` 上的 `[BattleResult] …` token）是
+        /// **两个不同源**的观测口：这一格盯「**调用方传的是哪个码**」，
+        /// 那个 token 盯「**引擎有没有照码落地**」——
+        /// 把 `Forfeit` 里那句 `reason` 写死 ⇒ **只有 token 那组红**；把调用点的码传错 ⇒ **只有这一格红**。
+        /// ⚠️ `HasRemoteReason` / `HasSelfReason`：那两个口被调过没有 —— 没有它，
+        /// 「没调过」与「传了 `Undefined`(0)」在读出来的值上**一模一样**（弱断言）。</summary>
+        public BattleResult LastResignReason, LastSelfResignReason;
+        public bool HasRemoteReason, HasSelfReason;
         public int ApplyLoggedAction(MsgAction m)
         {
             return NetApply.Apply(Ctx, m, MySeat, s => Debug.Log(P + "  · " + s));
         }
         public void NetSay(string s) { LastSay = s; }
-        public void NetRemoteResign() { ResignCalls++; RuleCore.Forfeit(Ctx, 1); }   // 对面（本机视角的 1 号位）投降
+        /// <summary>对面投降 ⇒ 判**对面**负。
+        /// 🔴 **2026-10-18 订正**：原来这里把座位写死成 `1`（「1 号位 = 对面」）—— 那只对 `MySeat == 0` 成立。
+        ///    改成 `1 - MySeat`（与真宿主 `BattleDriver.NetRemoteResign` 的 `1 - _me` **同口径**）。
+        ///    ⚠️ 这不只是好看：R3 那条断言要能分辨「判自己 vs 判对面」，**桩要是把座位写死，就分不出来**
+        ///    （`MySeat == 1` 时两边的结果会**碰巧一样** ⇒ 断言恒绿）。</summary>
+        public void NetRemoteResign(BattleResult reason)
+        {
+            ResignCalls++; LastResignReason = reason; HasRemoteReason = true;
+            RuleCore.Forfeit(Ctx, 1 - MySeat, reason);
+        }
+        /// <summary>🆕 2026-10-18（A914 第四续）：**本机自己**判负（判 `MySeat`）。
+        /// 与上面那个**只差一个座位号** —— 这正是要钉的那一格。
+        /// 🆕 **A913**：理由码照收照传（观测口见 `LastResignReason` 那一段）。</summary>
+        public void NetSelfResign(BattleResult reason)
+        {
+            SelfResignCalls++; LastSelfResignReason = reason; HasSelfReason = true;
+            RuleCore.Forfeit(Ctx, MySeat, reason);
+        }
         /// <summary>重连重放用：按**本自检当初建局的那份输入**重建（真驱动走的是
         /// `BeginFromPendingCore` —— 两边都是「同输入 ⇒ 同状态」）。</summary>
         public Func<BattleContext> Rebuild;
@@ -885,6 +920,13 @@ public static class NetBattleTest
                         //      那会让 `Tick` 走「回来了」那一支而不是「到点」那一支 ⇒ 先钉住前提）。
                         Ok(hsC.State == NetState.WaitingReconnect,
                            "（判弃权）夹具：到点这一刻**对面还没接回来**（不然下面验的就不是「到点」那一条）");
+                        // 🆕 **正例（独立审查 R1 要的那一半）**：到点**之前**，客机自己那一端
+                        //   `_wasInBattle` **必须还是真** —— 没有这一条，下面 ③-6 的「变假了」就分不出
+                        //   「清掉了」和「本来就是假」（弱断言 / 假绿）。它是那一对的**前半**。
+                        Ok(csC.WasInBattleForTest,
+                           "★（A914 正例）到点之前：**客机自己那一端**的「掉线前在对局中」标记仍是**真**"
+                         + "（`NetSession.WasInBattleForTest`）—— 这一条是下面「到点之后变假」那一条的**对照**，"
+                         + "没它那一条就是弱断言");
                         int hideBefore2 = NetRuntime.HidePopupCallsForTest;
                         clk += 27f;
                         hNBC.Tick();
@@ -892,12 +934,125 @@ public static class NetBattleTest
                         Eq(hbC.Ctx.ForfeitedBy, 1,
                            "★ …「谁弃的权」记的是**对面**（走的是现成入口 `INetBattleHost.NetRemoteResign` ="
                          + " `RuleCore.Forfeit(Ctx, 1−_me)`，原版那一跳是 `DeadHero(对面, 3)`）");
+                        // 🆕 **2026-10-18（A914 第四续）两端判别式 · 主机那一半**
+                        //   主机 = 【对面掉线那一端】⇒ 该调 `NetRemoteResign`（判对面）、**不该**调 `NetSelfResign`。
+                        //   🧨 把主机那一支改成 `NetSelfResign()` ⇒ 下面第二条红（`Ctx` 也会跟着变 ⇒ 上面那条也红）。
+                        Eq(hbC.ResignCalls, 1,
+                           "★（A914·两端判别式）**主机这一端**走的是 `NetRemoteResign`（判**对面**）—— 恰一次");
+                        Eq(hbC.SelfResignCalls, 0,
+                           "★（A914·两端判别式）…而且**一次都没判自己**（主机不是断线那一端）"
+                         + " —— 🧨 改坏法：把主机那一支改成调 `NetSelfResign()` ⇒ 红");
+                        // ---- ③-5' 🆕 2026-10-18（**A913**）：**理由码**（原版 `DeadHero(_, _, BattleResult)`）----
+                        //   这一档「掉线到点」= 原版 `…_d__322__MoveNext.c:144` 的 `DeadHero(对面, 3)` ⇒ **码 3**。
+                        //   🔴 两个**不同源**的观测口都断（缺一个，就有一半改坏法测不出来）：
+                        //     ① 桩记下的「**调用方传的码**」（`BareHost.LastResignReason`）；
+                        //     ② 引擎 `ctx.Events` 上那个 `[BattleResult] …` **token**（码有没有「照着落地」）。
+                        //   🧨 判别式：调用点把码传成 2 ⇒ 只红 ①②里的正例；`RuleCore.Forfeit` 里那句
+                        //      写死成 `Forfeit` ⇒ 只红 ②（①照样绿）—— 这正是要把两个口分开的原因。
+                        Ok(hbC.HasRemoteReason,
+                           "（A913）夹具：这一档**真的从判负入口走过**（不然下面读到的 `Disconnect` 可能只是默认值 0/2）");
+                        Eq((int)hbC.LastResignReason, (int)BattleResult.Disconnect,
+                           "★★（A913）**掉线倒计时到点 ⇒ 理由码 `Disconnect`(3)**"
+                         + "（原版 `…_d__322__MoveNext.c:144` `DeadHero(对面, 3)`）"
+                         + " —— 🧨 改坏法：把 `ReconnectCountdownExpired` 那一句改成传 `BattleResult.Forfeit` ⇒ 红");
+                        Ok(hbC.LastResignReason != BattleResult.Forfeit,
+                           "★★（A913）…而且**不是**投降那一档（2）—— 两码在这一格里**互斥**"
+                         + "（只断一条的话，「两档都传 3」也照样绿 = 弱断言分不出两态）");
+                        Ok(hbC.Ctx.Events.Exists(e => e.Contains("[BattleResult] Disconnect(3) seat=1")),
+                           "★★（A913）…而且**引擎照着这个码落了地**（`ctx.Events` 那个 token = 第二个观测口，"
+                         + "与上面那个桩**不同源**）—— 🧨 把 `RuleCore.Forfeit` 里那句 token 写死成 `Forfeit` ⇒ 只红这一条");
+                        Ok(!hbC.Ctx.Events.Exists(e => e.Contains("[BattleResult] Forfeit(2)")),
+                           "★★（A913）…反向：这一局**没有**出现投降那一档的 token");
                         Ok(!hNBC.ReconnectCountdownRunning && !hNBC.ClockPaused,
                            "★ 判完**倒计时收掉、闸也放开**（不留一个还在跑的状态）");
                         Ok(NetRuntime.HidePopupCallsForTest > hideBefore2,
                            "★ 判负那一刻**先把那扇提示窗撤掉**"
                          + "（原版那一刻状态置 3 = `Disconnected` ⇒ `…ConnectionStatusChanged.c:41-43` 的 `CloseAllWindows()`"
                          + " —— **是关窗不是开窗**）");
+
+                        // ---- ③-6 🆕 2026-10-18（`A914`，**按独立审查 R1/R3 重写**）：判负之后**分端**收尾 ----
+                        //   🔴 **原版两端行为【不同】**（第一版把两端当一回事 = **真偏离**，`REV_W3_联机.md` R3）：
+                        //     · **【对面掉线那一端】**（判**对面**弃权）⇒ `…_d__322__MoveNext.c:142-144`
+                        //       的 `LeaveBattleRoom(false)` + `AddResignAction` + `DeadHero(对面,3)`
+                        //       ⇒ **离开房间**（`LeaveBattleRoom.c:41-44` 的 `RemoveRoomAfterLeaving()`
+                        //       = `Room.EmptyRoomTtl = 0`，`:46-49` `LeaveRoom()`）。
+                        //     · **【本机是断线那一端】**（自己掉了、重连也失败）⇒
+                        //       `BattleManager__FailedToReconnectAfterDisconnect.c:14` 的
+                        //       `StopCoroutine(AttemptReconnect)` + `:26-27 AddResignAction(1)+DeadHero(我,3)`
+                        //       —— **全函数里没有 `LeaveBattleRoom`** ⇒ **不离开房间**，只**停重连**。
+                        //   ⚠️ 「本机是哪一端」的判据 = `_s.Role == NetRole.Client`（**这是我们自拟的**：
+                        //      我们这套里只有客机有主动重连那条路；原版两端各有 `AttemptReconnect`）。
+                        //   🧨 **判别式（两条不同源，删任一端的分支必红对的那条）**：
+                        //     · 删掉主机那一支的 `Close` ⇒ **`hsC.State == Off` 那条红**；
+                        //     · 删掉客机那一支的 `StopReconnecting()` ⇒ **`!csC.WasInBattleForTest` 那条红**。
+                        //   ⚠️ **`:886` 上面那条 `WaitingReconnect` 断言【不红】**（求值在 `Tick()` **之前**）。
+                        Ok(hsC.State == NetState.Off,
+                           "★★（A914·**对面掉线那一端** = 本机是主机）会话**真的离开了房间**"
+                         + $"（`Close` ⇒ `SetState(Off)`；实际 {hsC.State}）"
+                         + " —— 判据 = 原版 `…_d__322:142 LeaveBattleRoom(false)` 里的 `LeaveRoom()`；"
+                         + "🧨 删掉 `ReconnectCountdownExpired` 末尾主机那一支的 `Close(...)` ⇒ 只红这一条");
+                        Ok(hsC.StatusText != null && hsC.StatusText.Contains("这一局的联机房间已经散了"),
+                           $"★（A914）…而且是**这一跳**把它请出去的（状态字里带那句理由；实得「{hsC.StatusText}」）"
+                         + " —— 与上一条**不同源**：上一条只看「走没走」，这一条看「走的是不是这条路」"
+                         + "；⚠️ 那句措辞是**中性**的（它会经 `MsgBye.reason` 显示在**对面**界面上 —— 见 R7）");
+
+                        // ---- ③-7 🆕 **本机是断线那一端**（客机自己的倒计时到点）⇒ 只停重连、**不离开房间** ----
+                        //   `clk` 一次推到 60（**不依赖客机那一端 L0 究竟是 27 还是 30** —— 它取决于
+                        //   客机的 `enemyDisconnects` 走到几，那是它自己那条 `OnPeerLost` 的时序，
+                        //   本自检不去赌它）。到点那一跳在 `ReconnectCountdownExpired` 里，与主机的同源。
+                        clk += 60f;
+                        cNBC.Tick();
+                        Ok(csC.State == NetState.WaitingReconnect,
+                           "★★（A914·**本机是断线那一端** = 本机是客机）会话**【没有】离开房间**"
+                         + $"（仍是 `WaitingReconnect`；实际 {csC.State}）"
+                         + " —— 判据 = 原版 `FailedToReconnectAfterDisconnect.c` **全函数里没有 `LeaveBattleRoom`**"
+                         + " ⇒ 我们**不做那一跳**（多做就是偏离）；🧨 把那一支也改成 `Close(...)` ⇒ 只红这一条"
+                         + "（它与上面主机那条**互为反例**：同一方法、两端不同行为）");
+                        Ok(!csC.WasInBattleForTest,
+                           "★（A914）…但客机那条**每 2 秒重连**的退避**停了**（`StopReconnecting()`）"
+                         + " —— 原版那一刻是 `StopCoroutine(AttemptReconnect)`"
+                         + "（`FailedToReconnectAfterDisconnect.c:14`）"
+                         + "；🧨 删掉客机那一支的 `_s.StopReconnecting()` ⇒ 只红这一条"
+                         + "（⚠️ 上面两条钉不到它 —— `State` 那一格在**两支**里都不会是 `WaitingReconnect` 之外的东西）");
+
+                        // ---- ③-8 🆕 2026-10-18（A914 第四续）：**判负对象两端不同** ----
+                        //   客机 = 【本机是断线那一端】⇒ 该调 `NetSelfResign`（判**自己**）、**不该**调 `NetRemoteResign`。
+                        //   判据 = 原版 `FailedToReconnectAfterDisconnect.c:26-27` 的 `DeadHero(我, 3)`（第二个实参 = 1）。
+                        //   🧨 **判别式（两端不同源，删任一端分支只红对的那条）**：
+                        //     · 把客机那一支改成 `_d.NetRemoteResign(...)` ⇒ **下面三条全红**（`SelfResignCalls` 停在 0、
+                        //       `ResignCalls` 变 1、`cbC.Ctx` 的 `ForfeitedBy` 变成 **0**）；
+                        //     · 把主机那一支改成 `NetSelfResign(...)` ⇒ **上面 ③-5 那两条红**（不是这三条）。
+                        //     ⚠️ A913 之后这两个口**各多带一个理由码** ⇒ 这里写「改成另一个口」时记得照抄它那一档的码
+                        //       （`NetRemoteResign(BattleResult.Disconnect)` / `NetSelfResign(BattleResult.Disconnect)`）。
+                        Eq(cbC.SelfResignCalls, 1,
+                           "★★（A914·两端判别式）**客机这一端**走的是 `NetSelfResign`（判**自己**）—— 恰一次"
+                         + " —— 判据 = 原版 `FailedToReconnectAfterDisconnect.c:26-27`"
+                         + "（`AddResignAction(1)` + `DeadHero(param_1, 1, 3)`，第二个实参 `1` = **本机死**）");
+                        Eq(cbC.ResignCalls, 0,
+                           "★★（A914·两端判别式）…而且**一次都没判对面**"
+                         + " —— 🧨 改坏法：把客机那一支改回 `_d.NetRemoteResign()` ⇒ 红"
+                         + "（它与主机那两条**不同源**：同一方法、两端判的不是同一个人）");
+                        // ---- ③-8' 🆕 2026-10-18（**A913**）：**本机是断线那一端**的理由码 ----
+                        //   原版 `FailedToReconnectAfterDisconnect.c:32`：`DeadHero(param_1, 1, 3)`
+                        //   —— 第二个实参 `1` = 本机死、**第三个实参 3 = `Disconnect`**。
+                        Ok(cbC.HasSelfReason, "（A913）夹具：客机那一端真的走过 `NetSelfResign`（不是没调）");
+                        Eq((int)cbC.LastSelfResignReason, (int)BattleResult.Disconnect,
+                           "★★（A913）**本机重连失败 ⇒ 理由码也是 `Disconnect`(3)**"
+                         + "（原版 `FailedToReconnectAfterDisconnect.c:32` 的 `DeadHero(param_1, 1, 3)`）"
+                         + " —— 🧨 改坏法：把那一句传成 `BattleResult.Forfeit` ⇒ 红");
+                        Ok(cbC.LastSelfResignReason != BattleResult.Forfeit,
+                           "★★（A913）…不是投降那一档"
+                         + "（⚠️ 与主机那一格**互为对照**：两边判的都是**座位 1**（A914 要的那个一致性），"
+                         + "所以分辨力只能来自**理由码**这两条，⛔ 别把它写成座位断言）");
+                        Ok(cbC.Ctx.Events.Exists(e => e.Contains("[BattleResult] Disconnect(3) seat=1")),
+                           "★★（A913）…客机那一份 `ctx.Events` 上同样落了地（座位 1 = 本机）");
+                        Ok(!cbC.Ctx.Events.Exists(e => e.Contains("[BattleResult] Forfeit(2)")),
+                           "★★（A913）…反向：没有投降那一档的 token");
+                        Eq(cbC.Ctx.ForfeitedBy, hbC.Ctx.ForfeitedBy,
+                           "★★（A914）**两端报的是同一个座位**（本端判 `_me`、对端判 `1−对面_me` ⇒ 两边 `ForfeitedBy` 相同）"
+                         + $"（客机 `{cbC.Ctx.ForfeitedBy}` vs 主机 `{hbC.Ctx.ForfeitedBy}`）"
+                         + " —— 🔴 **这正是「判本机负」修掉的那件事**：改回旧写法时两端**各判自己赢**、`ForfeitedBy` 一家说 0 一家说 1"
+                         + "；🧨 把客机那一支改回 `NetRemoteResign()` ⇒ 红");
 
                         hNBC.Detach(); cNBC.Detach();
                         hsC.Close(false); csC.Close(false);
@@ -1049,7 +1204,8 @@ public static class NetBattleTest
                     {
                         var f = SetupA912(pool, 20261031, "A912·局已打完");
                         // 让这一局先结束掉：本机投降（`ForfeitedBy = 0`、`Winner = 2`）—— 与「对面 bye」无关
-                        RuleCore.Forfeit(f.hb.Ctx, 0);
+                        // 🆕 A913：投的是**投降**那一档 ⇒ 理由码显式给 `Forfeit`(2)
+                        RuleCore.Forfeit(f.hb.Ctx, 0, BattleResult.Forfeit);
                         Ok(f.hb.Ctx.IsOver && f.hb.Ctx.ForfeitedBy == 0,
                            "（A912③）夹具：这一局**已经结束**了（本机先投的降；`ForfeitedBy` = 0）");
                         NetRuntime.DrainNoticesForTest();
@@ -1128,6 +1284,39 @@ public static class NetBattleTest
                     NetRuntime.DrainNoticesForTest();
                     NetConfig.Current.port = savedPort12;
                 }
+            }
+
+            // ---- 13) 🆕 2026-10-18（**A913**）：**对面真的「点了投降」那一档** ⇒ 理由码 `Forfeit`(2) ----
+            //   为什么单开一格：A913 这条账的**全部内容**就是「原来**两档走同一个口**」——
+            //   上面 ③-5' / ③-8' 钉的是「掉线 ⇒ 3」，这一格钉它的**反面**：「点了投降 ⇒ 2」。
+            //   ⛔ 少了这一格，**把两档都传 3 也照样全绿**（`Disconnect` 那一组一条都不会红）——
+            //   那正是「弱断言分不出两态」。
+            //   走的是**真链**（不是直调）：`NetBattle.OnLocalResign()`（= `BattleDriver.Forfeit()`
+            //   末尾那一跳）→ `NetKind.Resign` → 对面 `Dispatch` 的 `case NetKind.Resign`。
+            {
+                int savedPort13 = NetConfig.Current.port;
+                var f13 = SetupA912(pool, 20261040, "A913·对面点投降");
+                f13.hb.LastSay = null;
+                Ok(!f13.hb.Ctx.IsOver && !f13.cb.Ctx.IsOver, "（A913·投降）夹具：这一局**还没打完**");
+                f13.cNB.OnLocalResign();                       // 客机点了投降（真入口）
+                Ok(PumpUntil2(f13.hs, f13.cs, f13.hNB, f13.cNB, () => f13.hb.Ctx.IsOver, 8000),
+                   $"（A913·投降）主机收到那条 `Resign` ⇒ 立刻判完（`Winner` = {f13.hb.Ctx.Winner}）");
+                Ok(f13.hb.HasRemoteReason, "（A913·投降）夹具：走的是判负入口（不是「一次都没调」）");
+                Eq((int)f13.hb.LastResignReason, (int)BattleResult.Forfeit,
+                   "★★（A913）**对面点投降 ⇒ 理由码 `Forfeit`(2)**"
+                 + "（原版 `BattleManager__ReceiveEnemyForfeit.c:37` 就是 `DeadHero(param_1, 0, 2)` —— 那个 2 是**写死**的，"
+                 + "因为对面发的那条 RPC 根本不带参数）"
+                 + " —— 🧨 改坏法：把 `case NetKind.Resign` 那一句改成传 `BattleResult.Disconnect` ⇒ 红");
+                Ok(f13.hb.LastResignReason != BattleResult.Disconnect,
+                   "★★（A913）…而且**不是**掉线那一档（3）"
+                 + " —— 与 ③-5' 那两条**互为反例**：**同一个方法**（`INetBattleHost.NetRemoteResign`）"
+                 + "在两档里必须给出**不同的**码（那正是这条账要钉的东西）");
+                Ok(f13.hb.Ctx.Events.Exists(e => e.Contains("[BattleResult] Forfeit(2) seat=1")),
+                   "★★（A913）…引擎照着码落了地（`ctx.Events` token = 第二个观测口，与桩不同源）");
+                Ok(!f13.hb.Ctx.Events.Exists(e => e.Contains("[BattleResult] Disconnect(3)")),
+                   "★★（A913）…反向：这一局**没有**掉线那一档的 token");
+                f13.hs.Close(false); f13.cs.Close(false);
+                NetConfig.Current.port = savedPort13;
             }
         }
         catch (Exception e)

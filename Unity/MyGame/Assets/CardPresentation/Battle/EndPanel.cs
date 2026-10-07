@@ -74,8 +74,43 @@ namespace CardPresentation
         /// <summary>骷髅那一行的容器（原版 `SkullsHolder`）。自检用它验「0 个时整行连底板一起藏」。</summary>
         public Transform SkullRow { get { return _skullRow; } }
 
-        /// <summary>结果文字（自检用）：`胜利` / `失败` / `平局`。没显示时是空串。</summary>
-        public string ResultText { get; private set; }
+        /// <summary>🔴 **2026-10-18（第十二轮 · 战斗侧 · W6）新增：本局的结局 = 一个【枚举】，不是一句文案。**
+        /// <para>**为什么必须分开**：原版这一格原来是把 `"胜利"/"失败"/"平局"` 三个中文字符串当**状态哨兵**
+        /// （产在 `:265`、再拿 `==` 去比 `:272` 与 `:293-294`）—— 那是「拿显示文案当状态」。
+        /// 两个后果，都是**看得见的**：① 一旦这几句走 `Loc.T`（中英切换），那些 `==` 比较**全部失效**
+        /// （英文档下标题与**开门视频**都会判错）；② 顺带确认 `CardText.Phrase("VICTORY"/"DEFEAT")`
+        /// 当年在 `Phrases` 表里**根本没有这两个键** ⇒ 中文档下结算大标题印的是英文 `VICTORY`。
+        /// ⇒ 现在：**状态 = 本枚举**（`Outcome`），**显示文案 = `Loc.T(<原版词条>)`**，两者不再互为依据。</para></summary>
+        public enum EndOutcome { None = 0, Victory = 1, Defeat = 2, Draw = 3 }
+
+        /// <summary>本局的结局。**没显示时是 <see cref="EndOutcome.None"/>**。
+        /// 🔴 判据（自检/开门视频/对局记录）一律读它，⛔ **别再去比较 <see cref="ResultText"/>**
+        /// —— 那串字**跟着语言变**，用它当状态就是本类原来那个缺陷。</summary>
+        public EndOutcome Outcome { get; private set; }
+
+        /// <summary>结局 → 原版词条键。**只此一份**（显示与断言都走它）。
+        /// 判据（键名出处、谁是原版载体）→ `Core/Loc.cs` 那一块 `Battle/` 的注释，⛔ 别在这儿抄第二份。</summary>
+        public static string TermOf(EndOutcome o)
+        {
+            switch (o)
+            {
+                case EndOutcome.Victory: return "Battle/BattleEnd/Victory";
+                case EndOutcome.Defeat:  return "Battle/BattleEnd/Defeat";
+                case EndOutcome.Draw:    return "Battle/BattleEnd/Draw";
+                default:                 return null;
+            }
+        }
+
+        /// <summary>结果文字（自检用）：`Loc.T(TermOf(Outcome))` —— **跟着当前语言变**。没显示时是空串。
+        /// ⚠️ **它只用来显示/比对界面**；判状态请读 <see cref="Outcome"/>。</summary>
+        public string ResultText
+        {
+            get
+            {
+                string t = TermOf(Outcome);
+                return t == null ? "" : Loc.T(t);
+            }
+        }
         /// <summary>副标题那行（`N 回合   敌方督军最低生命 X` / 投降时是另一种写法）。自检读它。</summary>
         public string SubText { get { return _sub != null ? _sub.Text : null; } }
 
@@ -158,6 +193,17 @@ namespace CardPresentation
             // 结果：原版这块的文字是运行时填的，dump 里 `EndBattlePanel` 子树下没有结果文字节点
             //（只有 Video Image / AllRewardsHolder 那几块）→ **字号是我们挑的**。
             //
+            // 🔴 **2026-10-18（第十二轮 · W6）就地补判据（铁律 5）**：原来这里只写了「子树下没有结果文字节点」
+            //    —— **那句仍然成立**（原版 `EndBattlePanel` 确实没有标题节点，胜负靠那段视频），
+            //    但**「所以没有词条」是错的**：原版**有** `Battle/BattleEnd/{Victory,Defeat,Draw}` 三条键，
+            //    载体是 `bundle_menus_assets_all` 的 **`BattleLogItem`**（战报条目：
+            //    `MonoBehaviour_-7028880557435028942.json` / `…_8607776031950241599.json` 的
+            //    `victoryKey`/`defeatKey`/`drawKey` 三个 `LocalizedString` 字段）。
+            //    ⇒ 我们这两句标题**本身仍是自加的**（如实标着），只是**取原版语义相同的键**（`Loc.T`），
+            //      而不再借 `CardText.Phrase` 那条兜底路（那条路当年**根本没有这两个键** ⇒ 中文档印英文）。
+            //    ⚠️ 英文列只有 `Victory` 有本地实据（那两颗 `result` TMP 的 `m_text = 'Victory'`）；
+            //      `Defeat`/`Draw` 取不到 ⇒ 自拟，逐条写在 `Core/Loc.cs` 那一块。
+            //
             // ⚠️ **纵向位置改过一轮（2026-09-12，加开门视频那轮）**：
             //    第一版把这一整块放在**上方**（标题 260 起），理由是「避开棋盘」——
             //    当时压暗还没铺满（`ImageQuad` 宽高比那个坑），棋盘会透出来。
@@ -239,19 +285,60 @@ namespace CardPresentation
         /// <param name="minFoeWarlordHealth">敌方督军降到过的最低生命（`-1` = 不知道）。⚠️ **只用于副标题
         /// 那行字** —— 原版 `EndBattlePanel` 子树里**没有**这行说明，**它是我们自加的**（如实标着）；
         /// 与骷髅数**不再是同一件事**（2026-10-06 起拆开）。</param>
+        /// <param name="skipSequence">🆕 2026-10-18（A940 收尾）：**跳过「正常结算演出」那一段**
+        /// （= 原版 `TutorialStage.skipNormalBattleEndOnVictory` / `…OnDefeat`
+        ///  —— **字段偏移 / 判据**：`d:/2/tools/il2cpp_out/dump.cs:42066`（`+0x60`）与 `:42068`（`+0x70`），
+        ///  `TutorialStage` TypeDefIndex 828）。
+        ///
+        /// 🔴 **读数点如实标（本地产物里查不到）**：R2 §4 把它的消费者记成
+        /// `BattleManager__BattleFinished.c` 的 `BasicBattleEndSequence` 分支 —— 我把那三份都读了
+        /// （`BattleManager__BattleFinished.c` · `BattleManager__BasicBattleEndSequence.c` ·
+        ///  `BattleManager._BasicBattleEndSequence_d__391__MoveNext.c`），**它们都没有读 `stage+0x60/+0x70`**
+        /// （也没有 `GetCurrentTutorialStage`）；全库交叉搜「`GetCurrentTutorialStage` 之后 800 字符内出现
+        /// `+ 0x60)` / `+ 0x70)`」**零命中**；🔁 换**文件级共现**那种搜法复核过，命中的 3 份
+        /// （`_SetupMulliganPhase_d__341` / `DeadHero` / `GetWinnerAfterBattleEnd`）**全是「不同基址」的假命中**
+        /// （详见 `BattleDriver.TutorialSkipsNormalEnd` 的注释）⇒ **真正的读数点在本地产物里拿不到**
+        /// （疑似方法体缺失，同「教程那份 `PlayScriptedTurn` 的 `.c` 缺失」那一族）。
+        /// ⛔ **不假装知道它在哪**：下面这条语义（「跳掉演出、直接进结算面板」）是按**字段名 + R2 的结论**
+        /// 定的，**不是照原文照抄的**。
+        /// ⚠️ 6 关的数据**两个值全是 false** ⇒ 今天**零可见影响**（铁律 11：机制仍要接上）。
+        /// </param>
         public void Show(int winner, int myIndex, int skullsObtained, int rounds, int forfeitedBy = -1,
-                         int minFoeWarlordHealth = -1)
+                         int minFoeWarlordHealth = -1, bool skipSequence = false)
         {
             Visible = true;
             ShownSkulls = skullsObtained;
-            ResultText = winner == 3 ? "平局" : (winner == myIndex + 1 ? "胜利" : "失败");
+            // 🔴 **状态与文案在这里分开**（见 `EndOutcome` 的 doc）：先定**枚举**，文案再由它推。
+            Outcome = winner == 3 ? EndOutcome.Draw
+                    : (winner == myIndex + 1 ? EndOutcome.Victory : EndOutcome.Defeat);
 
             // ⚠️ **先激活再写文字** —— 反过来的话 `Label.SetText` 在未激活的物体上跑，
             //    字形网格没重建，标题/副标题/评分全是空白（截图才发现）
             SetVisible(true);
 
-            string r = ResultText;
-            _title.SetText(r == "胜利" ? CardText.Phrase("VICTORY") : (r == "失败" ? CardText.Phrase("DEFEAT") : r));
+            _title.SetText(ResultText);          // = `Loc.T(Battle/BattleEnd/*)`，中文档印中文
+            // ⚠️ 副标题那行**是我们自加的**（原版 `EndBattlePanel` 子树里没有它）。
+            //    🔴 **2026-10-18（第十二轮 · W6）补判据**：原版**有**三块战报统计的键 ——
+            //    `Battle/BattleEnd/DamageDone` · `Battle/BattleEnd/Tactics` · `Battle/BattleEnd/TroopsDead`
+            //    （`d:/2/tools/il2cpp_out/stringliteral.json` `0x4285268/0x4285368/0x4285460`）——
+            //    但它们是**三个「标签 + 数值」的统计格**，**不是**我们这行「N 回合　敌方战将最低生命 X」；
+            //    我们这行的形状原版没有对应件 ⇒ **仍按「我们自加」如实标**（⛔ 别拿那三条硬套）。
+            //    🔴🔴 **2026-10-18（第十五轮 · `G5`）：那三个格的宿主本批查了一遍 —— 本地取不到。**
+            //    方法体判据齐（`decomp_full/BattleEndPlayerData__Setup.c`，
+            //    `BattleEndPlayerData` = TypeDefIndex 532，字段 `troopsText`(0x58) / `tacticsText`(0x60) /
+            //    `damageText`(0x68)）：
+            //      拼法 = `GetTranslation(词条) + ": " + 数值`（那个 `": "` 字面量 = `0x42C7DF8`，
+            //      `stringliteral.json` 实读）；**顺序 = TroopsDead → Tactics → DamageDone**
+            //      （值取 `MatchResultData + 0x48` 那个结构体的 `+0x10 / +0x14 / +0x18`）。
+            //    **但它没有实例**：`assets_full`（91 个包 / 24.7 万文件）全盘按类名与字段名
+            //      （`BattleEndPlayerData` / `troopsText` / `tacticsText` / `damageText` / `quoteText` /
+            //       `cantLoseRankText`）搜过 —— **只命中 `globalgamemanagers/MonoScript/MonoScript_3980.json`
+            //       那一条类注册**，**没有任何 prefab / 场景实例**；`Setup` 的调用点在
+            //      `decomp_full` 的 25,096 个方法体里也**一个都搜不到**（只有它自己）。
+            //      ⇒ 宿主 prefab 本地取不到 ⇒ **这一格不是「原版没有」，而是「我们看不见它长什么样」**
+            //      （按铁律 11 记 **要做**，判据已抄在本段；**先做哪一步** → 先找到/进真 Play 看到那件 prefab）。
+            //    ⚠️ 同族的 `EndBattlePanel` 子树（13 个战场场景里都有）里**没有**这三个格
+            //      （它只有 `Background` / `Video Image` / `AllRewardsHolder`）⇒ ⛔ 别在结算面板上硬加。
             _sub.SetText(forfeitedBy >= 0
                          ? $"{rounds} 回合   " + (forfeitedBy == myIndex ? "我方投降" : "对方投降")
                          : (minFoeWarlordHealth >= 0
@@ -272,12 +359,33 @@ namespace CardPresentation
             // ---- 开门（原版 `EndBattleDoors`）----
             // 原版 `SetupDoor` 返回 `VideoClip.length + 一个常量`，调用方拿它等 —— 我们照这个约定，
             // 片长由 `BattleDoors` 拿着，`Advance` 推够就停。
-            BattleDoors.Result doorRes = ResultText == "胜利" ? BattleDoors.Result.Victory
-                                       : ResultText == "失败" ? BattleDoors.Result.Defeat
+            BattleDoors.Result doorRes = Outcome == EndOutcome.Victory ? BattleDoors.Result.Victory
+                                       : Outcome == EndOutcome.Defeat ? BattleDoors.Result.Defeat
                                        : BattleDoors.Result.Draw;
             float len = _doors == null ? 0f : _doors.SetupDoor(doorRes);
             bool video = len > 0f;
-            if (video) _doors.Play();
+            if (video)
+            {
+                _doors.Play();
+                // 🔴 **`skipSequence` = 把这一段演出【一帧推完】**（原版那两个开关的语义，见 `Show` 的
+                //    `<param name="skipSequence">` —— 读数点本地拿不到，这是我们按字段名定的边界）。
+                //    ⚠️ **为什么必须「推完」而不是「不 SetupDoor」**：出口那个闸门是
+                //    `ExitReady = Visible && _doors.Finished`（本文件 `:94`），而 `_finished` **只有**
+                //    两处会置真：没片时 `SetupDoor` 自己置、有片时 `Advance` 推够 `_length`。
+                //    ⇒ 光「不播」会把闸门**永久关死**（玩家出不去，静默）。
+                //    ⚠️ 代价（**2026-10-18 已消除**）：`BattleDoors.Advance` 把解码器 `Pause` 在最后一帧、
+                //    **留着当底图**（那是它既定的收尾行为，见它 `Stop` 的注释）⇒ 「跳掉」在这一档下
+                //    原来**仍会看到那段视频的最后一帧**。
+                //    🆕 现在紧跟一句 `DropFrame()`（= `Z1′`，`BattleDoors.cs` 那一件本轮已授权）——
+                //    **只推完、再把那帧扔掉**：闸门照旧由 `Advance` 开，画面不再留底。
+                //    ⛔ 两句顺序不能反（`DropFrame` 不碰闸门，但 `Advance` 之前丢帧等于什么都没丢）。
+                //    ⚠️ 只有**跳过**那一档丢帧；正常那一路照旧停在最后一帧（**原版如此**，别顺手改）。
+                if (skipSequence)
+                {
+                    _doors.Advance(_doors.Length);
+                    _doors.DropFrame();
+                }
+            }
 
             // 奖励跟视频**同时**出。判据不是猜的：`EndBattleDoors.SetupDoor` 里
             // **自己就调了 `EndBattleDoors__ShowRewards(...)`**（反编译 `decomp_out/EndBattleDoors__SetupDoor.c:105`，
@@ -335,7 +443,7 @@ namespace CardPresentation
         {
             Visible = false;
             ShownSkulls = 0;
-            ResultText = "";
+            Outcome = EndOutcome.None;          // 🔴 状态复位（`ResultText` 由它推出来 = 空串）
             if (_doors != null) _doors.Stop();
             SetVisible(false);
         }

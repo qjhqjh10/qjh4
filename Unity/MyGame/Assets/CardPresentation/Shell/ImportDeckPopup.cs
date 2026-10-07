@@ -214,7 +214,16 @@ namespace CardPresentation
                      QImpRow, "Confirm Bg");
                 // 🔴 **2026-10-17（A891）**：钮上的字走**词条**（`ConfirmTerm`，见那颗常量的 doc）——
                 //   原版那颗 `Button Text` 挂着 `Localize`（`mTerm = "MainMenu/General/Confirm"`）⇒ 跟着语言变。
-                Txt(b.transform, Loc.T(ConfirmTerm), r.x1, r.y1, r.x2, r.y2, 45f, Align.Center, "Confirm Text", QImpText);
+                var okLb = Txt(b.transform, Loc.T(ConfirmTerm), r.x1, r.y1, r.x2, r.y2, 45f, Align.Center, "Confirm Text", QImpText);
+                // 🔴 **2026-10-18（A892）：纵向档显式落成 `Midline`。** 判据 = 原版那颗 TMP 按 pid 亲读
+                //   （`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_6959005812579893394.json`）：
+                //   `m_text='Confirm'` · **`m_VerticalAlignment = 4096`（= `Midline`）** · `m_HorizontalAlignment = 2`（Center）·
+                //   `m_fontSize = 45`（上面那个 `45f` 就是它）。我方 `Battle/Label.cs` 的出厂档是
+                //   `_vTier = VAlign.Middle`（= **512**）⇒ 不显式设就是**另一档**。
+                //   ⚠️ 这批**只在这两处设档、不动 `Label` 的出厂值**（改出厂值会牵动全工程所有宿主
+                //   —— `MenuDraw.SetVAlign` 的 doc 写着）。框高按**这颗钮自己的矩形**给。
+                //   ⚠️ 与 `Deck/DeckRuntime.cs` 建的那扇同款窗（`imp_ok_t`）是**同一颗原版节点**、两处都设。
+                if (okLb != null) MenuDraw.SetVAlign(okLb, Label.VAlign.Midline, r);
                 // A17：原版 `Window>Buttons>Generic UI Button` 是 SpriteSwap（普查 §块 3 第 11 行）
                 var okHit = HitOn(b.transform, b.transform, "OkHit", r, () => TryImport());
                 var okWb = okHit != null ? okHit.GetComponent<WindowButton>() : null;

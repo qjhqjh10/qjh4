@@ -1350,6 +1350,16 @@ public static class ShopScene
             CheckTrue((FindChild(tc, "RefreshText") != null) == asText,
                       asText ? "本页时间条是**文字**（原版 `Refreshes in:`）"
                              : "本页时间条是**时钟图标**（原版 `Clock Icon` = `WF_icon_clock`，preferredWidth 26）");
+            // 🔴 **2026-10-18（第四轮）**：那一颗的字从本批起**走词条**
+            //   （`Shell/ShopWindow.cs` 的 `Loc.T("MenuShop/RefreshCounter")`，键 = 原版那颗 `RefreshText`
+            //   的 `Localize.mTerm` 原文）⇒ **顺手把文案也断上**（本段原来只断「节点在不在 / 是文字还是图标」，
+            //   一个字都没断 ⇒ 「字有没有接上词条」看不见）。
+            CheckTrue(Loc.HasEntry("MenuShop/RefreshCounter"),
+                      "（前提）词条 `MenuShop/RefreshCounter` 在表里（⛔ 不在 ⇒ 下面那条两边一起退化成键名 = 假绿）");
+            if (asText)
+                Check(TextOf(FindChild(tc, "RefreshText")), Loc.T("MenuShop/RefreshCounter"),
+                      "★ 时间条那颗字的**文案** = `Loc.T(\"MenuShop/RefreshCounter\")`（随语档；"
+                    + "原版 `Card Shop Tab` 那颗 TMP 原文 = `Refreshes in:` / 中文「刷新于：」`zh_CN.csv:303`）");
             if (!asText)
             {
                 CheckArt(FindChild(tc, "Clock Icon"), "WF_icon_clock", "时钟图标");
@@ -1532,6 +1542,16 @@ public static class ShopScene
             var ew = FindChild(pg, "Empty Collection Warning");
             CheckTrue(ew != null && !ew.gameObject.activeSelf,
                       "`Empty Collection Warning` **建成但不显示**（原版在列表为空时才开）");
+            // 🔴 **2026-10-18（第四轮）**：那句空态字从本批起**走词条**
+            //   （`ShopTabPage.TxtEmpty` → `Loc.T("MenuCollection/NoDecksFound")` —— 与收藏窗 Deck 页**同一条键**，
+            //   原版那一颗 `Warning` 的 `Localize.mTerm`）⇒ 同批把文案断上。
+            //   ⚠️ 显隐那半条在上面（恒 `act=F`）；这里断的是**字**。
+            CheckTrue(Loc.HasEntry("MenuCollection/NoDecksFound"),
+                      "（前提）词条 `MenuCollection/NoDecksFound` 在表里（⛔ 不在 ⇒ 下面那条两边一起退化成键名 = 假绿）");
+            var ewt = ew != null ? FindChild(ew, "Warning") : null;
+            Check(ewt != null ? TextOf(ewt) : null, Loc.T("MenuCollection/NoDecksFound"),
+                  "★ 空态那句字 = `Loc.T(\"MenuCollection/NoDecksFound\")`（随语档；原版那颗 TMP 的 `m_text` 原文 "
+                + "= `There are no deck in your collection for the selected filters`，**含原版自己的语病**）");
         }
 
         // ---------------- 买一件（红线：点了必须有反应）----------------
@@ -4158,8 +4178,28 @@ public static class ShopScene
                   "★ `Debug Add Skulls` **关着**（判据 = `Awake()` 第一句无条件 `SetActive(false)`）");
             CheckTrue(amop.BtnNode(0) != null && amop.BtnNode(0).gameObject.activeSelf,
                       "★（反例）`Challenge` **开着** ⇒ 「有一颗关着」不是「八颗都没建」蒙出来的");
-            Check(amop.BtnText(3) != null ? amop.BtnText(3).Text : "-", "Promote",
-                  "★ `Promote` 那颗的字 = prefab 出厂原文（原版运行期会按 role 换成两个 I2 词条之一，本地没有词条表）");
+            // 🔴 **2026-10-18（第十一轮）改「随语档」+ 同批补另外三颗**：这四颗的文案从本轮起走词条
+            //   （`Shell/AllianceMemberOptionsPopup.cs` 的 `BtnLabel(bt)`；表里那一列仍留 prefab 出厂原文）。
+            //   键逐颗写死在这里（⛔ 不读 `AllianceMemberOptionsPopup.BtnTerm` —— 那是实现里的口 = 自证）。
+            //   ⚠️ **另四颗**（`Challenge`/`Add as a friend`/`Profile`/`Debug Add Skulls`）**原版没有词条**
+            //   （把 `bundle_menus_assets_all` 里 `SocialMenu/Alliances/*` 的 `mTerm` 全表列过、共 21 条，没有它们；
+            //    出厂字面文案是西语占位串）⇒ 保持原样、⛔ 别编。
+            {
+                var moTerms = new[] { "SocialMenu/Alliances/Promote", "SocialMenu/Alliances/Demote",
+                                      "SocialMenu/Alliances/KickPlayer", "SocialMenu/Alliances/Quit" };
+                for (int mi = 0; mi < moTerms.Length; mi++)
+                {
+                    var bt2 = amop.BtnText(3 + mi);          // 下标 3..6 = Promote / Demote / Kick / Quit
+                    CheckTrue(Loc.HasEntry(moTerms[mi]),
+                              $"（前提）词条 `{moTerms[mi]}` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
+                    Check(bt2 != null ? bt2.Text : "-", Loc.T(moTerms[mi]),
+                          $"★ `{amop.ButtonNames()[3 + mi]}` 那颗的字 = `Loc.T(\"{moTerms[mi]}\")`（随语档；"
+                        + "原版那颗 `Button Text` 挂着 `Localize`）");
+                }
+                // ⚠️ **`Promote` 那颗的运行期换字（`role == Admin ⇒ TransferLeadership`）本批没接** ——
+                //   那个键的同族 `Localize` 在 menus 包里**没有**（键名只在二进制字面量里，见 `TermTransferLeadership`）
+                //   ⇒ 如实记：这颗的运行期换字仍是「只出声、不换字」。
+            }
             Check(amop.BtnText(7) != null ? amop.BtnText(7).Text : "-", "ADD SKULLS TO CURRENT EVENT",
                   "★ `Debug Add Skulls` 的字（**唯一一颗带全大写长文案的**）");
             // 几何（冻结字面量 · 绝对框）

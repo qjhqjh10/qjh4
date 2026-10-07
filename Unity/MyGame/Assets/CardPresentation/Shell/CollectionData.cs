@@ -270,12 +270,18 @@ namespace CardPresentation
         }
 
         /// <summary>落盘失败的原因（人话）—— **上面四个口共用这一句**（两处写同一条规则 = 迟早不一致，CLAUDE.md §三）。
-        /// 走的是**已有**的那条通道：`DeckLibrary.Save()` 写进 `LastError` 的原因；它没给原因时兜一句
-        /// （兜底那句与 `DeckRuntime.SaveAndSay` 的措辞一致）。⛔ 别在别处另写一套文案。</summary>
+        /// 🔴 **2026-10-18（`G9`）改成与 `DeckRuntime.SaveFailReason()` 【逐字同一形状】**：
+        ///   · **人话**那一半走词条 —— `Loc.T(DeckRuntime.TermSaveFailed)`（键 `MenuDeck/Error/SaveFailed`，
+        ///     在 `Core/Loc.cs` 的表里；中文列就是原来写死的那句「写不进存档文件」⇒ **中文档零变化**）；
+        ///   · `Lib.LastError` 只用**兜底诊断**缀在括号里（⛔ 不再是显示主路 —— `G8` 起它装的是诊断串）。
+        /// ⚠️ **改之前**这里是写死的中文「写不进存档文件」⇒ 与 `DeckRuntime` 那一半在**英文档**下分叉
+        ///   （`DeckRuntime` 那一半 `G8` 已改走词条，本半没跟）。现在两半**同一形状**。
+        /// 🔴 键名**只从 `DeckRuntime.TermSaveFailed` 取一处**，⛔ 别在这儿再抄一遍字面量。</summary>
         static string SaveFailReason()
         {
-            string e = Lib.LastError;
-            return string.IsNullOrEmpty(e) ? "写不进存档文件" : e;
+            string why = Loc.T(DeckRuntime.TermSaveFailed);
+            string diag = Lib.LastError;
+            return string.IsNullOrEmpty(diag) ? why : why + "（" + diag + "）";
         }
 
         /// <summary>自检用：把缓存丢掉，下次重新从存档读。</summary>

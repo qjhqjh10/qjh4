@@ -77,6 +77,28 @@ namespace CardPresentation
         /// </summary>
         public Func<int, CardView, bool> CanDropAtSlot = (slot, card) => true;
 
+        /// <summary>🔴🆕 2026-10-18（`A915`）：**对手掉线/等待重连期间 ⇒ 这一层也禁操作**。
+        ///
+        /// 判据 = 原版 `BattleManager__Update.c:104-115` 那道**整帧闸**（`ConnectionStatus ∉ {0,3} ⇒ return`）
+        /// —— 它拦的是「整个 `BattleManager` 这一帧」，而**手牌拖拽不走 `BattleDriver`**
+        /// （本组件是个独立的 `MonoBehaviour`，有自己的 `Update`）⇒ 光在驱动那一侧拦，
+        /// 掉线期间**手牌照样能拖、能打出去**（那是真越权）。
+        ///
+        /// ⛔ **不是**复用 `enabled`（那个位在本文件里已经承担**换牌**语义）——
+        ///    这里另开一个**只读委托**，由 `BattleDriver.Begin` 接上（默认恒 false ⇒ 不接也能跑）。
+        /// ⚠️ 语义与 `BattleDriver.PlayerInputFrozen` **同一个来源**（`NetClockPaused`），
+        ///    ⛔ 别在这儿另写一条判断（两处写同一条规则 = 迟早不一致）。
+        /// </summary>
+        public Func<bool> Frozen = () => false;
+
+        bool _frozenForTest;
+        bool _frozenWarned;
+        /// <summary>自检用：把「冻结」这一档直接拨过去（产品里由 `BattleDriver` 那条委托喂；
+        /// 批处理里没有真掉线，只能显式拨）。⛔ **只影响 `Update` 那一条闸**，不碰别的语义。</summary>
+        public void SetFrozenForTest(bool on) { _frozenForTest = on; }
+        /// <summary>现在是不是「禁操作」那一档（自检用）。判据两半合一，⛔ 别在别处再拼一次。</summary>
+        public bool FrozenNow { get { return _frozenForTest || (Frozen != null && Frozen()); } }
+
         /// <summary>
         /// 🔴 **2026-10-01 加：请求的落点 → 它真正会落在哪一格**（棋盘是**连续无洞**模型，
         /// 插进中间会把后面的单位整体外移一格 ⇒ 「拖到哪」和「落在哪」不是一回事）。
@@ -148,6 +170,23 @@ namespace CardPresentation
         {
             if (cam == null || hand == null || board == null) return;
             if (_cards.Count == 0) return;
+            // 🔴🆕 2026-10-18（`A915`）：**掉线/等重连 ⇒ 这一帧什么都不做**（判据 → `Frozen` 的注释）。
+            //    ⚠️ 排在**取指针之前**（`PointerWorldSafe` 也读输入）⇒ 这一档连指针都不动。
+            //    ⚠️ **中途断线时拖拽状态照旧留着**（`_dragging` 不清）—— 原版那道闸也是直接 `return`，
+            //       没做「把拖着的牌收回去」；重连回来那一下松手会照常结算。
+            //    ⛔ 不静默：出声一次（同一条只吼一次）。
+            if (FrozenNow)
+            {
+                if (!_frozenWarned)
+                {
+                    _frozenWarned = true;
+                    Debug.LogWarning("[Hand] 对手掉线/等重连期间**手牌这一层禁操作**"
+                        + "（原版 `BattleManager__Update.c:104-115` 那道整帧闸；"
+                        + "本组件不走 `BattleDriver`，所以这里另有一道）—— 这一档结束会自动恢复。");
+                }
+                return;
+            }
+            _frozenWarned = false;
 
             // ⚠️ 用**带野值防护**的那个（见 `PointerWorldSafe` 的注释）——
             //    `Release` 判的是卡的位置，而卡跟着指针走，所以野一帧就判错。

@@ -111,7 +111,7 @@
   "🔴 有 8 个 pid **连名字都拿不到**（`unresolvedNoName`）：它们是 `scriptedActionData` 里引用的卡 SO，住在 **`allcards_assets_all.bundle`**（= SO externals 的第 3 项 `CAB-fb8f01449289635703d83d52c3f18245`）——那个包**在 catalog 里有、本地 84 个 bundle 里没有**（同缺的还有 `alternateartstyles`/`localization`）⇒ 解不出名字。⚠️ 名字的**唯一**来源是 SO 自己的 `actionType` 字符串（只写发起单位），所以「只当目标」的那些 pid 天然没名字（督军那几种由 `unitType` 就够用了，不需要卡名）",
   "🔴 有 0 张卡**有名字但我们的池里没有**（`unresolvedNotPool`）—— **没有猜**：`ourId` 留空、线索写进该 ref 的 `note`（= `card_stats.json` 的 `ocrName` 列）。要落地得像别的账一样先裁定",
   "🔴 2 张卡走了**裁定映射**（`ocrNameFixes`）：**判据 = `card_stats.json` 的 `ocrName` 列与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包本地没有 ⇒ 钉不死）。产物里 **SO 原名一字未改**（`name`），只在 `ourId` 写我们的 id、`matchTier` = `ocrName`（与 exact/norm 分开，别当「名字对上了」）",
-  "`sound.volume` 原样保留：多数是 0.0，原版自己也这么存 —— `BattleManager.PlayNextSoundInQueue.c` 是 `PlayOneShot(clip, AudioListener.volume * sound.volume)` ⇒ **0 就是静音**。⛔ 别「顺手修」成 1.0（那是改原版）",
+  "`sound.volume` 原样保留（SO 序列化那一层）：多数是 0.0（82/95），少数 1.0。🔴 **2026-10-18 就地订正（铁律 5）**：本行原文写着「`BattleManager.PlayNextSoundInQueue.c` 是 `PlayOneShot(clip, AudioListener.volume * sound.volume)` ⇒ **0 就是静音**」——**后半句是错的**：运行时读的那支音量**不是** SO 里这一格，而是 `ScriptedActionCampaignData__GetSoundAsset.c` 新建 `SoundAsset` 时**硬编码写死的 `0x3f800000`（= 1.0）**（`*(lVar2 + 0x18) = 0x3f800000`）。SO 那一格**在运行时根本不被采信** ⇒ 0.0 的那些**照样出声**（`PlayOneShot(clip, AudioListener.volume * 1.0)`）。⛔ 所以「别顺手修成 1.0」那句要反过来理解：**播放侧就该按 1.0**（照 `GetSoundAsset`），而产物里这一格留着只作**记账/对账**。",
   "教程文案的**本地化表在远端**（`textReference` = `Tutorial1/Turn1/Tip1` 这类键，84 个 bundle 里没有语言表）⇒ 只能沿用 SO 内嵌的英文（`arg` 字段就是它）",
   "教程关卡的**第一句对白/提示的时序**：本产物把 `preMulligan` 与每回合的动作分成独立数组、**组内保持原序**（tip 就是组里的一条 `SmallTip` 动作）⇒ 「第几条 tip 在第几个动作之前」这层信息在，别重排"
  ],

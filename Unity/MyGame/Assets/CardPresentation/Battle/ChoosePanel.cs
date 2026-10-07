@@ -47,11 +47,19 @@ namespace CardPresentation
     /// <summary>原版 `ChooseCardMenu`：**选牌**与**选效果**共用（靠标题区分）。**单选**。</summary>
     public class ChoosePanel : CardChoicePanel
     {
-        /// <summary>原版运行时实测的标题兜底文案（词条 key `Battle/ChooseCard/Instructions` 的中文）。
-        /// 出处：实况报告 §③ / `资料/选牌_数据与规格.md` §丙·四（2026-09-14 晚更正：**运行时是中文**；⚠️ 2026-10-10 更正：原来指 `选牌与选效果面板_原版数值.md`，已并入）。</summary>
-        public const string DefaultTitle = "选择一张牌";
-        /// <summary>原版 `Battle/Mulligan/ButtonDone` 的中文 —— 选牌**复用了换牌那条**词条。</summary>
-        public const string ConfirmLabel = "继续";
+        /// <summary>原版标题的兜底文案 = **原版词条** `Battle/ChooseCard/Instructions`
+        /// （英文原文 `Choose one card`，出处 = `…battlearena1/MonoBehaviour_4871.json` 那颗 `Localize.mTerm`
+        /// + 同族 TMP；全在 `Core/Loc.cs` 那一块里逐条记着，⛔ 别在这儿抄第二份）。
+        /// 🔴 **2026-10-18（第十二轮 · W6）改**：以前这里是一个写死的中文 `const`（`"选择一张牌"`）——
+        /// 那是「同一条语义两处写」（`Loc` 表里也有），而且**不跟语言走**。现在只留**一个来源**：
+        /// `Loc.T(词条)`。⚠️ 它在 `Create()` 那一刻求值（面板是**每局新建**的，同战斗侧其余件）。</summary>
+        public static string DefaultTitle { get { return Loc.T(TitleTerm); } }
+        /// <summary>标题词条键 —— **只此一份**（`Create()` 与自检都取它）。</summary>
+        public const string TitleTerm = "Battle/ChooseCard/Instructions";
+        /// <summary>确认钮的字 = **原版词条** `Battle/Mulligan/ButtonDone`（选牌**复用了换牌那条**词条 ——
+        /// 原版 `ChooseCardMenu/ButtonsGroup/Continue Button/ContinueText` 挂的就是它，TMP 原文 `Continue`）。
+        /// 🔴 **2026-10-18 就地订正**：原来写「词条内容本地没有 ⇒ 用写死的中文」—— **键与英文原文都在本地**。</summary>
+        public static string ConfirmLabel { get { return Loc.T("Battle/Mulligan/ButtonDone"); } }
 
         // ---- 🔴 2026-09-18：原来这里还有 `ChooseOneTitle`("选择一项") / `ChooseEffectTitle`("选择一个效果")，**已删** ----
         //   **为什么删**：原版**只有一个标题对象** —— `ChooseCardMenu` 的子物体只有 3 个
@@ -66,8 +74,18 @@ namespace CardPresentation
         //      ⇒ 那部分仍**没闭合**，别当已定案。
 
         /// <summary>原版每张牌下面那颗按钮上的字（`CardChooseCardButtonFrame` 里的 `Select`）。
-        /// ⚠️ 中文词条查不到（I2 表本地没有）⇒ **留英文**，如实标着。</summary>
-        public const string CardBtnWord = "Select";
+        /// 🔴 **2026-10-18（第十二轮 · W6）就地订正（铁律 5）**：这里原来写
+        /// 「**中文词条查不到**（I2 表本地没有）⇒ 留英文，如实标着」—— **不成立**。
+        /// 键**就在本地**：`Battle/Prebattle/SelectButton`，挂在
+        /// `bundle_battlesharedresources_assets_all/MonoBehaviour_-7067688171680277716.json`
+        /// （父链 `CardChooseCardButtonFrame < Generic Simplified UI Button_updated < Button Text`），
+        /// TMP 原文逐字 `Select`（全库 4 颗同键）。
+        /// **错因**：上一轮只扫了 `bundle_menus_assets_all` **一个包**（正是「D 类：除 `menus` 之外的 bundle」
+        /// 那一格）—— 同 `资料/已知的坑.md` #20「在一处找不到 ⇒ 说成『本地没有』」。
+        /// ⇒ 现在走 `Loc.T(SelectTerm)`。</summary>
+        public static string CardBtnWord { get { return Loc.T(SelectTerm); } }
+        /// <summary>每张牌那颗钮的词条键 —— **只此一份**。</summary>
+        public const string SelectTerm = "Battle/Prebattle/SelectButton";
 
         public static ChoosePanel Create(Transform parent)
         {
@@ -95,7 +113,10 @@ namespace CardPresentation
 
         /// <summary>本地词条表 —— **故意留空**。原版这条链查的是 I2.Loc 语言表，而**本地一张表都没有**
         /// （词条在远端 CCD；判据 → `资料/全量反编译复核_靠推断的清单.md` §2.1「词条正文在远端本地化表，本地没有」）。
-        /// ⇒ 现在**必然查不到**、必然走到调用方兜底那一档。将来拿到表就往这里填，**不用改任何调用点**。
+        /// ⇒ **2026-10-18（第十二轮 · W6）就地订正**：无后缀那条现在**在 `Loc` 表里**（见 `TitleTerm`），
+        ///    本地真正取不到的只有**带后缀**那一档（`…-&lt;uniqueId&gt;` 是运行期拼出来的，
+        ///    任何 prefab 上都不可能存在 ⇒ 原版那套在远端 I2 表）。
+        ///    现在的链 = **本表（覆盖 / 自检注入）→ `Loc` 表 → 调用方兜底**。
         /// 键 = 原版词条 key（`Battle/ChooseCard/Instructions` 与 `…-&lt;uniqueId>`）。</summary>
         public static readonly Dictionary<string, string> Terms = new Dictionary<string, string>();
 

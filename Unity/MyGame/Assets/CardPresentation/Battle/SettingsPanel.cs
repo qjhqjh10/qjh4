@@ -115,8 +115,13 @@ namespace CardPresentation
         WfSlider _musicSlider, _fxSlider, _voiceSlider;
         Label _musicLabel, _fxLabel, _voiceLabel;
         // 原版标签是 `Music` / `Sound Effects` / `Voice-overs`（fs42 白，左对齐 / **VAlign Bottom**）。
-        // 🔴 **2026-09-19 用户口径：这些地方先用英文**（原版本来就是英文；中文原版**查不到** ——
-        //    客户端没有 I2 语言表），**之后再做一次彻底的完全翻译**。所以这里照抄原版英文。
+        // 🔴 **2026-10-18（第十二轮 · W6）改**：原来这里是一个写死的英文 `const string[] SliderNames`
+        //    （2026-09-19 的口径「这些地方先用英文」）⇒ **现在走原版词条**（三条键逐条判据 → `Core/Loc.cs`）：
+        //      · `MainMenu/Settings/SettingLabel/Music`   → TMP 原文 `Music`
+        //      · `MainMenu/Settings/SettingLabel/SoundFx` → TMP 原文 `Sound Effects`
+        //      · `Settings/Media/VoiceOvers`              → TMP 原文 `Voice-overs`
+        //    英文那一列与原来那三个写死串**逐字相同**（所以英文档零变化），中文档从「印英文」变成印中文。
+        //    ⚠️ 字号**必须按语种选**（`ApplyLangFont`）—— 见下面 `SliderLabel` 里那条注释。
         const float SliderCx = -2.00f;
         static readonly float[] SliderCy = { 120.07f, 3.44f, -113.18f };
         static readonly float[] LabelBoxCy = { 178.17f, 61.57f, -55.13f };   // 原版那三颗 `Text` 的**框心**（面板内，y 向上）
@@ -125,7 +130,13 @@ namespace CardPresentation
         const float LabelBoxH = 55.00f;
         const float LabelLeftX = -282.54f;
         const float LabelFontPx = 42f;                       // 原版 fs42（autoSizing 10–42）
-        static readonly string[] SliderNames = { "Music", "Sound Effects", "Voice-overs" };
+        /// <summary>三根音量滑块标签的**原版词条键**（顺序 = `SliderCy` / `LabelBoxCy` 的顺序）。</summary>
+        static readonly string[] SliderNameTerms =
+        {
+            "MainMenu/Settings/SettingLabel/Music",
+            "MainMenu/Settings/SettingLabel/SoundFx",
+            "Settings/Media/VoiceOvers",
+        };
         /// <summary>正在被拖动的那根（拖动期间不把指针当点击）。</summary>
         WfSlider _dragSlider;
 
@@ -153,6 +164,9 @@ namespace CardPresentation
         const float ResignFontPx = 38f;
         /// <summary>原版按钮染色（`MonoBehaviour_4755.json` 那个 Image 的 `m_Color`）。</summary>
         static readonly Color ResignTint = new Color(0.3686f, 0.8941f, 0.5874f, 1f);
+        /// <summary>投降钮那颗字的**原版词条键** —— **只此一份**（`Create` 与 `RefreshTexts` 都取它）。
+        /// 判据（TMP 原文 `Resign`、挂在哪颗 `Localize` 上）→ `Core/Loc.cs` 那一块，⛔ 别在这儿抄第二份。</summary>
+        public const string ResignTerm = "Battle/Settings/ResignButton";
 
         // ---- 🆕 「Auto Zoom」那一行：**原版真值**（A424）----
         // 面板内（原点 = 面板中心，y **向上**）px。出处 = `bundle_scenes_scenes_battlearena1` 亲读：
@@ -422,6 +436,12 @@ namespace CardPresentation
 
             // 🔴 2026-09-19 用户口径：面板上这些**先用英文**（之后做彻底的完全翻译）。
             // ⚠️ 原版这个面板**有没有标题查不到**（规格文档 §① 里没记标题这一项）⇒ `Settings` 是**我们起的**。
+            // 🔴 **2026-10-18（第十二轮 · W6）补判据（结论不变）**：本轮把「查不到」升级成**否定证据**——
+            //    `battlearena1` 那棵树**逐文本节点**走了一遍（**137 个**有字或有词条的节点），
+            //    `BattleSettingsPanel` 子树里**没有一个标题节点**；而且 `Battle/` 前缀的
+            //    **93 条代码字面量**（`d:/2/tools/il2cpp_out/stringliteral.json`）里也**没有**标题键
+            //    （`Battle/Settings/` 那一族只有 `Exit` / `ResignButton` / `SkipTutorial` 三条）。
+            //    ⇒ **原版确实没有这一格**（铁律 11 例外①）⇒ 保留英文/中文自拟，⛔ 别去替它编一条原版键。
             _title = Label.Create(transform, "Settings", new Vector3(0f, U(PanelH * 0.5f) - U(70f), Z - 0.01f),
                                   4, new Color(0.95f, 0.93f, 0.88f), new Vector2(0.5f, 0.5f), "settings_title");
 
@@ -471,9 +491,9 @@ namespace CardPresentation
             // 文字：原版 `Resign`（本地化 key `Battle/Settings/ResignButton`）。
             // 🔴 **2026-09-19 用户口径：先用英文**（原版就是英文；中文**查不到** —— 客户端没有 I2 语言表），
             //    之后再做彻底的完全翻译。字号 fs38 按**拉丁大写高度**定（见 `SliderLabel` 那条注释）。
-            _resignText = Label.Create(transform, "Resign", new Vector3(U(ResignCxPx), U(ResignCyPx), Z - 0.02f),
+            _resignText = Label.Create(transform, Loc.T(ResignTerm), new Vector3(U(ResignCxPx), U(ResignCyPx), Z - 0.02f),
                                        4, Color.white, new Vector2(0.5f, 0.5f), "settings_resign_text");
-            if (_resignText != null) _resignText.SetCapHeight(U(ResignFontPx * 0.72f));
+            ApplyLangFont(_resignText, Loc.T(ResignTerm), ResignFontPx);
 
             // ---- 对手难度（🆕 2026-09-17）----
             // 用的是**现成的两样东西**：投降那颗钮同一张原版按钮图 `40K_button`（同宽 249 px，
@@ -572,9 +592,9 @@ namespace CardPresentation
                                            queue: QPanel, handlePx: 34.406f,
                                            handleOffset: WfSlider.HandleOffsetPx, capScale: 1f);
 
-            _musicLabel = SliderLabel(SliderNames[0], 0, Z);
-            _fxLabel = SliderLabel(SliderNames[1], 1, Z);
-            _voiceLabel = SliderLabel(SliderNames[2], 2, Z);
+            _musicLabel = SliderLabel(SliderNameTerms[0], 0, Z);
+            _fxLabel    = SliderLabel(SliderNameTerms[1], 1, Z);
+            _voiceLabel = SliderLabel(SliderNameTerms[2], 2, Z);
 
             // 🆕 2026-10-17：语言那一行（原版 `BattleSettingsPanel/Language Selector`）
             BuildLanguageRow(Z);
@@ -652,9 +672,10 @@ namespace CardPresentation
         /// （本文件 `SliderLabel` 那条注释里早写着「彻底翻译成中文时这里要跟着换」—— 就是这一处）。</summary>
         static void ApplyLangFont(Label l, string text, float px)
         {
+            // 🔴 **2026-10-18（W6）收口**：语种→字号的判据**只留一份**（`Label.SetScriptHeight`，
+            //    它内部接的是 `Loc.HasCjk` 那条唯一判据）。这里只是把本件的 px→世界单位换算（`U()` = /108）传进去。
             if (l == null) return;
-            if (Loc.HasCjk(text)) l.SetGlyphHeight(U(px));
-            else l.SetCapHeight(U(px * 0.72f));
+            l.SetScriptHeight(text, px, 108f);
         }
 
         /// <summary>把本面板**跟着语言走**的那两行字重设一遍（框里的语言名 + 左边那颗标签）。
@@ -662,6 +683,23 @@ namespace CardPresentation
         /// （同 `Shell/SettingsWindow.RefreshTexts`）。</summary>
         public void RefreshTexts()
         {
+            // 🔴 **2026-10-18（W6）扩**：本面板**自己就有**语言下拉（`BuildLanguageRow`）⇒ 在同一扇窗里换语言时，
+            //    跟着语言走的那几行字**必须当场重设**（否则要等下次开窗才对）。
+            //    ⛔ 别把它做成静态事件广播（同 `Shell/SettingsWindow.RefreshTexts`、`Loc` 不发事件那条）。
+            if (_resignText != null)
+            {
+                string r = Loc.T(ResignTerm);
+                _resignText.SetText(r);
+                ApplyLangFont(_resignText, r, ResignFontPx);
+            }
+            var sliders = new[] { _musicLabel, _fxLabel, _voiceLabel };
+            for (int i = 0; i < sliders.Length; i++)
+            {
+                if (sliders[i] == null) continue;
+                string t = Loc.T(SliderNameTerms[i]);
+                sliders[i].SetText(t);
+                ApplyLangFont(sliders[i], t, LabelFontPx);
+            }
             if (_langSelText != null)
             {
                 string t = Loc.T(LangLabelTermKey);
@@ -978,14 +1016,15 @@ namespace CardPresentation
         ///    `WA712` §三 —— 那条 doc 原来把本处列为「不在这个前提里」的两处之一）。
         ///    `Bottom` 这一档要的也是「框心 − 框高/2」⇒ 不给定框心就没法精确落档。
         ///    ⚠️ 锚点换档**只动纵向**（横向还是「文字块左缘 = 节点 x」，`anchor.x` 仍是 0）。</summary>
-        Label SliderLabel(string text, int i, float z)
+        Label SliderLabel(string term, int i, float z)
         {
+            string text = Loc.T(term);                                  // 原版词条（见 `SliderNameTerms`）
             var l = Label.Create(transform, text, new Vector3(U(LabelLeftX), U(LabelBoxCy[i]), z - 0.01f),
                                  4, Color.white, new Vector2(0f, 0.5f), "settings_slider_label_" + i);
-            // ⚠️ **英文用「拉丁大写高度」定字号**：fs42 是 TMP 的 font size，而拉丁大写只占约 0.72 em
-            //    —— 套 `SetGlyphHeight`（按 1 em 算）会让字**大 39%**。判据同 `UnitChatPanel.cs` 里那处 `SetGlyphHeight`。
-            //    （中文那条路才用 `SetGlyphHeight`；彻底翻译成中文时这里要跟着换。）
-            if (l != null) l.SetCapHeight(U(LabelFontPx * 0.72f));
+            // 🔴 **字号按语种选**（唯一一份实现 = `ApplyLangFont`）：fs42 是 TMP 的 font size，
+            //    拉丁大写只占约 **0.72 em**、汉字约占 **1 em** —— 写死一种就会让另一档差 28%/39%。
+            //    （这两条标签自 2026-10-18 起**跟着语言变**，所以这里不能再写死 `SetCapHeight(0.72em)`。）
+            ApplyLangFont(l, text, LabelFontPx);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向档 = 原版那三颗 `Text` 的 **`VAlign Bottom`**
             //   （判据 = 本文件 `:48` 引的那条实读「标签文字 Music / Sound Effects / Voice-overs，
             //    fs42 白，左对齐 / **VAlign Bottom**」+ `menu_dump.py` 现读的 `对齐=Left/Bottom`）。

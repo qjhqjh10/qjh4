@@ -284,7 +284,22 @@ namespace CardPresentation
 
         /// <summary>`Empty Collection Warning`：实测 **164.76,42.62 → 1970.00,1080.00**（**比父还宽，左右都溢出**）。</summary>
         public static readonly PxRect EmptyWarn = new PxRect(164.76f, 42.62f, 1970.00f, 1080.00f);
-        public const string TxtEmpty = "There are no deck in your collection for the selected filters";
+        /// <summary>🔴 **2026-10-18（A891 的续 · 第四轮）：那句空态文案走词条**（原来写死英文 —— 见下）。
+        /// <para>键 = 原版那颗 `Warning` 的 `Localize.mTerm` 原文 **`MenuCollection/NoDecksFound`**
+        /// （原版 `Collection Menu Variant > Decks Tab … > Empty Collection Warning/Warning` 那一份，
+        /// **与本窗这一份同一条 mTerm**）。英文列 = 那颗 TMP 的 `m_text` 原文、**含原版自己的语病**
+        /// （`There are no **deck** …` 单数，见 <see cref="TxtEmptyEn"/>）；中文列 = 「没有符合当前筛选的卡组」。</para>
+        /// <para>⛔ **别改回 `const`** —— 常量跟不了语言（这正是它原来「中文档印英文」的原因）。
+        /// 渲染只读本属性；消费点 = `Build()` 那一处 `_win.Text(ew, TxtEmpty, …)`。</para>
+        /// <para>⚠️ 本窗每一页都有商品 ⇒ 它**恒不显示**（`ew.gameObject.SetActive(false)`），
+        /// 但文案仍按词条走（将来真出现空列表时直接就是对的）。</para></summary>
+        public static string TxtEmpty { get { return Loc.T(TxtEmptyTerm); } }
+        /// <summary>上面那条词条的**键**（原版 `Localize.mTerm` 原文；自检/诊断口与
+        /// <see cref="TxtEmpty"/> 共用这一份）。</summary>
+        public const string TxtEmptyTerm = "MenuCollection/NoDecksFound";
+        /// <summary>原版那颗 TMP 的 `m_text` **原文**（留档用：本地唯一那份英文；渲染**不**读它）。
+        /// 🔴 **含原版自己的语病**（`no deck` 单数、`for the selected filters` 复数）—— ⛔ 别「顺手修正」。</summary>
+        public const string TxtEmptyEn = "There are no deck in your collection for the selected filters";
 
         // ---- 格里（相对 `Catalog Item Shop Container` 的 335.6×475；`menu_rect --root-size 335.6x475 --relative`）----
         public static readonly PxRect CellBg = new PxRect(-1f, -1f, 336.60f, 476f);
@@ -430,7 +445,14 @@ namespace CardPresentation
 
             if (asText)
             {
-                var lb = _win.Text(tc, ShopData.RefreshText, TimeCounter.x1, TimeCounter.x2,
+                // 🔴 **2026-10-18（第四轮）：这一颗的字走词条** —— 键 = 原版那颗 `RefreshText` 的
+                //   `Localize.mTerm` 原文 **`MenuShop/RefreshCounter`**（4 颗同键；`Card Shop Tab` 那颗
+                //   TMP = `Refreshes in:`、`Daily Shop Tab` 那颗 = **葡语占位串** `Atualiza em:`
+                //   —— 但**同一条 mTerm** ⇒ 原版两页共用一条键，我们也共用）。
+                //   ⚠️ 原来读的是 `Shell/ShopData.cs:240` 那个**写死的英文常量** `ShopData.RefreshText`
+                //   —— 它留着当「原版英文原文」的留档（⛔ 那份文件不在本批白名单里，一个字没动它）。
+                //   ⛔ 节点名 `"RefreshText"` 不动（`Editor/ShopScene.cs` 按名找）。
+                var lb = _win.Text(tc, Loc.T("MenuShop/RefreshCounter"), TimeCounter.x1, TimeCounter.x2,
                                    TimeCounter.y1, TimeCounter.y2, 5, Color.white, "RefreshText", 30f);
                 if (lb != null) { lb.SetRenderQueue(QHeaderText); parts.Add(lb.transform); widths.Add(lb.WorldW * 108f); }
             }

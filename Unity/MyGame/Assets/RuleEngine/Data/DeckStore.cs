@@ -43,16 +43,90 @@ namespace RuleEngine
             public List<PlayerDeck> decks;
         }
 
-        /// <summary>读全部卡组，顺带把「当前选中的是第几套」带出来。
-        /// 文件不存在/坏了都返回空表 —— 不抛异常，让调用方能自己决定怎么提示。</summary>
-        public static List<PlayerDeck> LoadAll(out string note, out int current)
+        /// <summary>
+        /// 🔴 **2026-10-18（`G8` · `G3` 交回的那半）：「读存档出了什么事」的【类型】= 错误码。
+        /// 判据是它，不是文案。**
+        ///
+        /// **改之前**：`LoadAll` 的三条出口（`:55` / `:64` / `:90`）直接拼**给人看的整句中文** ——
+        /// `"还没有存档"` / `"存档解析失败（内容为空）"` / `"存档读取失败：" + e.Message`。
+        /// 调用方只能拿 `note.Contains("失败")` 去猜类型（`G3` 已把它换成结构性判据），
+        /// 而**那句话本身仍然是中文整句** ⇒ 一旦显示层走本地化，`LastError`（= 这句话）
+        /// 就会把中文/英文**直接喷进英文界面**，或者更糟：判据跟着语言变（`资料/已知的坑.md` 那一族）。
+        ///
+        /// **照原版的形状**：原版把「出了什么事」拆成**枚举 + 词条键**两段 ——
+        ///   · **枚举** = `CustomError`（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/CustomError.cs:24`
+        ///     `ErrorLoadDeck = 170`）；
+        ///   · **键** = **`"CustomErrors/" + 枚举名`** —— 拼法在
+        ///     `d:/2/tools/decomp_full/CloudscriptHandler__HandleCustomError.c` 里**实读**：
+        ///     `String.Concat(DAT_18425cca8 /* = "CustomErrors/"，stringliteral.json 0x425CCA8 */, 枚举名)`
+        ///     → `WindowsManager.ShowPopUp(键)`（界面文案由它自己去 I2 表取）。
+        ///   ⇒ **代码出码、界面出词条**，本层**一个给人看的字都不产**（见 <see cref="TermKeyOf"/>）。
+        /// ⛔ 别在这一层拼中文/英文句子 —— 那正是「换语言就静默失效」的来源。
+        /// </summary>
+        public enum LoadNote
         {
-            note = null;
+            /// <summary>读到了（`DeckStore` 没话说 —— 哪怕是 0 套的合法存档）。</summary>
+            None = 0,
+            /// <summary>**存档文件不在**（第一次跑）—— ✅ **不是失败**（⛔ 界面上不该弹错）。</summary>
+            NoSaveFile = 1,
+            /// <summary>存档在，但解析出来是空的（`dto == null || dto.decks == null`）。</summary>
+            Empty = 2,
+            /// <summary>存档在，但读的时候抛了（`File.ReadAllText` / `JsonUtility.FromJson`）。</summary>
+            ReadFailed = 3,
+        }
+
+        /// <summary>读存档失败时该显示的那条**原版词条键**（`DeckLibrary.LastLoadIssueTerm` 用它）。
+        ///
+        /// 🔴 **键名 `CustomErrors/ErrorLoadDeck` 的载体（坑表 #20：报「没有」之前要把载体打全）**：
+        ///   ① **代码字面量** —— `d:/2/tools/il2cpp_out/stringliteral.json` 的 `0x425D0A8`
+        ///      （`RVA = 地址 − 0x180000000` ⇒ 反编译里那个 `DAT_18425d0a8`）；
+        ///   ② **消费点** —— `d:/2/tools/decomp_full/SearchOpponentManager__SearchOpponent.c:89-90`：
+        ///      `I2.Loc.LocalizationManager.GetTermTranslation(DAT_18425d0a8, …)`，结果交给一个回调
+        ///      （那一支 = 原版「这副牌校验不过 ⇒ 把这句话说出去」）；
+        ///   ③ **枚举** —— `CustomError.ErrorLoadDeck = 170`（同族键 = `"CustomErrors/" + 名字`）。
+        /// ⚠️ **载波①（prefab 上那颗 `Localize.mTerm`）里没有这一条** —— 全库 24.7 万文件扫
+        ///    `"mTerm": "CustomErrors/…"` 只命中 **2 条**（`DuplicateConnection` / `ErrorSavingMatch`，
+        ///    都在 13 个战场场景里那颗 `BattleErrorUIManager` 上；`bundle_scenes_scenes_battlearena*/`）。
+        ///    ⇒ 这条**不是「原版没有」，是载体不同**（只活在代码字面量里）。
+        /// ⚠️ **英文/中文两列本地都取不到**（原版那套在**远端 I2 语言表**）—— `Loc.cs` 那一条**是我们自拟的**，
+        ///    已如实标注。`数据/本地化/i18n/zh_CN.csv` 里也没有对应的英文源串（按第一列查过，0 命中）。</summary>
+        public const string ErrorLoadDeckTerm = "CustomErrors/ErrorLoadDeck";
+
+        /// <summary>错误码 → **原版词条键**；`None` / `NoSaveFile` **没有词条** ⇒ `null`。
+        /// （原版卡组存在**服务器**上，没有「本机还没有存档」这件事；「第一次跑」在界面上本来就该
+        ///  **什么都不显示** —— ⛔ 别为它编一条。）</summary>
+        public static string TermKeyOf(LoadNote n)
+        {
+            switch (n)
+            {
+                case LoadNote.Empty:
+                case LoadNote.ReadFailed:
+                    return ErrorLoadDeckTerm;
+                default:
+                    return null;
+            }
+        }
+
+        /// <summary>读全部卡组。返回**错误码**（<paramref name="note"/>）与一句**诊断串**
+        /// （<paramref name="detail"/> —— **技术用，不是给人看的界面文案**；界面文案走
+        /// <see cref="TermKeyOf"/> 那个键 + `CardPresentation.Loc`）。
+        ///
+        /// 文件不存在/坏了都返回空表 —— **不抛异常**，让调用方能自己决定怎么提示。
+        ///
+        /// ⚠️ <paramref name="detail"/> 在「有话要说」的三种情形下**一律非空** ——
+        /// 它是「`DeckStore` 有没有话要说」这个**信号**（`DeckLibrary.ClassifyLoad` 拿它区分
+        /// `None` 与「有话」）⇒ ⛔ 别把 `NoSaveFile` 那一条改成 `null`（那会把「第一次跑」
+        /// 静默判成「读到了」）。</summary>
+        public static List<PlayerDeck> LoadAll(out LoadNote note, out string detail, out int current)
+        {
+            note = LoadNote.None;
+            detail = null;
             current = 0;
             var path = Path;
             if (!File.Exists(path))
             {
-                note = "还没有存档";
+                note = LoadNote.NoSaveFile;
+                detail = "no save file";
                 return new List<PlayerDeck>();
             }
             try
@@ -61,7 +135,8 @@ namespace RuleEngine
                 var dto = JsonUtility.FromJson<Dto>(text);
                 if (dto == null || dto.decks == null)
                 {
-                    note = "存档解析失败（内容为空）";
+                    note = LoadNote.Empty;
+                    detail = "save file has no decks";
                     return new List<PlayerDeck>();
                 }
                 // 归一化：JsonUtility 会把缺字段的字符串写成 null，UI 不想到处判空
@@ -87,16 +162,38 @@ namespace RuleEngine
             }
             catch (Exception e)
             {
-                note = "存档读取失败：" + e.Message;
+                note = LoadNote.ReadFailed;
+                // 诊断串 = 异常类型 + 异常自己的话。⚠️ 后半段是 .NET/Unity 给的（非中文 OS 上是英文），
+                //    不是「我们产出的给人看的中文」；但它**仍然不该**当界面主文案
+                //    （显示层一律走 `TermKeyOf` 那条键 + `Loc`）—— 它只是「兜底诊断」。
+                detail = "read failed: " + e.GetType().Name + ": " + e.Message;
                 return new List<PlayerDeck>();
             }
+        }
+
+        /// <summary>⚠️ **兼容重载（旧的 `out string note`）** —— 只给
+        /// `RuleEngine/Editor/DeckRulesTest.cs:217/241/457` 那几条既存断言用（**那个文件不在本件白名单里**，
+        /// ⇒ 没跟着改；`DeckRulesTest.cs:243` 的 `note.Contains("失败")` 因此会红，见交件报告）。
+        ///
+        /// 🔴 **它现在吐的是 `detail`（诊断串），不再是「还没有存档」那类中文整句**
+        /// （`"no save file"` / `"save file has no decks"` / `"read failed: …"`）。
+        /// ⛔ 新代码一律走上面那个 `out LoadNote` 的版本 —— **判类型别拿这句话去比字**
+        /// （那正是 `G3` 拆掉的那个坑）。</summary>
+        public static List<PlayerDeck> LoadAll(out string note, out int current)
+        {
+            LoadNote _;
+            return LoadAll(out _, out note, out current);
         }
 
         public static List<PlayerDeck> LoadAll(out string note) { int _; return LoadAll(out note, out _); }
 
         public static List<PlayerDeck> LoadAll() { string _; int __; return LoadAll(out _, out __); }
 
-        /// <summary>写全部卡组。返回 true = 写成功；失败时 `error` 里是人话。</summary>
+        /// <summary>写全部卡组。返回 true = 写成功；失败时 `error` 里是**诊断串**
+        /// （🔴 **不是给人看的界面文案** —— 界面文案走 `CardPresentation.Loc`；
+        /// 见 `LoadNote` 那段注释：本层一个给人看的字都不产）。
+        /// ⚠️ 调用方拿它当**兜底诊断**（`DeckRuntime.SaveFailReason` 就这么用），
+        /// ⛔ 别拿它去比字判类型。</summary>
         public static bool SaveAll(List<PlayerDeck> decks, int current, out string error)
         {
             error = null;
@@ -113,7 +210,7 @@ namespace RuleEngine
             }
             catch (Exception e)
             {
-                error = "存档写入失败：" + e.Message;
+                error = "write failed: " + e.GetType().Name + ": " + e.Message;
                 return false;
             }
         }

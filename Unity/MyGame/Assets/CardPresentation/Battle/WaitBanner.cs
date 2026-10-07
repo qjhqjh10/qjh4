@@ -12,8 +12,17 @@
 // 🔴 **这份文档有两处是我们挑的，都写在下面**（原版查不到，别当成复刻）：
 //   ① **什么时机显示** —— 原版 `WaitText` 的触发点在反编译与场景 JSON 里**都查不到**。
 //      我们接的是「**不是我的回合、且不在换牌/结算**」，也就是对手思考的那段时间。
-//   ② **文字文案** —— dump 里 `Text` 节点是**空的**（运行时才赋），原版的本地化 key 没解出来。
-//      我们用 `CardText.Phrase("WAITING FOR OPPONENT")`（这一条是**我们加的**词条）。
+//   ② **文字文案** —— 🔴 **2026-10-18（第十二轮 · W6）就地订正（铁律 5）**：这里原来写
+//      「dump 里 `Text` 节点是**空的**（运行时才赋），原版的本地化 key 没解出来 ⇒ 这条是我们加的词条」
+//      —— **整句不成立**。原版那颗节点的**字与键都在**：
+//        · 父链 `BackCanvas < WaitText < Generic Popup Background < Text`（与上面 dump 逐级对得上）；
+//        · TMP 原文 = **`Waiting for enemy`**；
+//        · `mTerm` = **`Battle/Mulligan/WaitEnemy`**
+//          （实据 = `d:/2/新解包资源/assets_full/bundle_scenes_scenes_battlearena1/MonoBehaviour/
+//            MonoBehaviour_4804.json` 的 `mTerm` + 同族那颗 TMP，2026-10-18 亲读；13 个 arena 每场 1 颗）。
+//      **错因**：当年只看了运行时 dump（那一刻节点是空的），**没回 prefab 里找 `Localize.mTerm`**。
+//      ⇒ 现在走 `Loc.T(WaitTerm)`（键名照原版），**不再是我们的词条**。
+//      ⚠️ 中文那一列（`等待对手`）仍然是我们的译法，出处写在 `Core/Loc.cs` 那一行。
 //
 // ⚠️ **底板：2026-09-17 已改回原版**（原来写「我们没九宫格 ⇒ 自建实底」，见 `Build()` 里那段更正）——
 //    现在用 `MenuDraw.Nine`（`40k_popup`，Sliced）+ `MenuDraw.Tiled`（`40k_popup_texture`，Tiled）。
@@ -268,10 +277,14 @@ namespace CardPresentation
                 else Debug.LogWarning("[WaitBanner] 填充层没建起来（`40k_popup_texture` 没取到？）");
             }
 
-            _text = Label.Create(transform, CardText.Phrase("WAITING FOR OPPONENT"),
+            _text = Label.Create(transform, Loc.T(WaitTerm),
                                  new Vector3(cx, cy, Z - 0.01f), 4,
                                  new Color(0.95f, 0.93f, 0.88f), new Vector2(0.5f, 0.5f), "wait_text");
         }
+
+        /// <summary>提示条走的那条原版词条。🔴 **只此一份**（`Build()` 与自检都取它）。
+        /// 键名 = 原版那颗 `Localize.mTerm` 的原文，出处见文件头那条订正。</summary>
+        public const string WaitTerm = "Battle/Mulligan/WaitEnemy";
 
         /// <summary>开 / 关。**重复调用同一个值不会重复设置**（`UpdateHud` 每帧都会调它）。</summary>
         public void SetVisible(bool on)

@@ -672,6 +672,11 @@ public static class SettingsScene
 
                 // ⑤ 表里没有的键 ⇒ 返回**键名本身** + 出声（画出来就看得见，⛔ 不是空串）
                 int miss0 = Loc.MissingCount;
+                // 🔴 **2026-10-18（第五轮）补的这一行**：`Loc.T` 缺键那声 `LogWarning` 从第四轮起**按键去重**
+                //   （同一条键只出声一次，见 `Core/Loc.cs` 的 `_warnedMissing`）⇒ 下面那条 `missLogged`
+                //   原本隐含了「**本进程里这个键还没被问过**」这个前提。补这一行让语义**与跑了几遍无关**
+                //   （⛔ 只清去重表：不动 `PlayerPrefs`、不动 `MissingCount`、不改「缺键要出声」这条语义本身）。
+                Loc.ResetMissingWarnedForTest();
                 var missLogs = CaptureLogs(() => { miss = Loc.T("No/Such/Key/___"); });
                 Check(miss, "No/Such/Key/___", "表里没有的键 ⇒ 返回**键名本身**（那一行画出来一眼看得见）");
                 CheckTrue(Loc.MissingCount == miss0 + 1 && Loc.LastMissingKey == "No/Such/Key/___",

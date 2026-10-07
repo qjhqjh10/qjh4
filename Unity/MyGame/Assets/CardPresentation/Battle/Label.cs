@@ -252,6 +252,23 @@ namespace CardPresentation
         }
 
         /// <summary>
+        /// 按「**这段文本的语种**」定字号 —— **全工程唯一一份这个判据在 `Label` 上的实现**。
+        /// <para>`px` = 原版那一颗 TMP 的 `m_fontSize`（em 的像素值）、`pxPerUnit` = 本现场的「1 世界单位 = 多少 px」。
+        /// 汉字用 <see cref="SetGlyphHeight"/>（≈1 em）、拉丁用 <see cref="SetCapHeight"/>（≈0.72 em）——
+        /// 语种判据本身 = `Loc.HasCjk`（**它才是唯一一份**，本方法只是把它接到 `Label` 上）。</para>
+        /// <para>**为什么要有它**：同一个 `Label` 上的字会**跟着语言变**（`Loc.T`）。
+        /// 写死 `SetCapHeight(px×0.72)` 的话中文会**小 28%**、写死 `SetGlyphHeight(px)` 的话英文会**大 39%**
+        /// —— 两条都在这个工程里真发生过（`Battle/SettingsPanel` 那三根滑块的标签、
+        /// `Battle/MulliganPanel` 的先手/后手行与倒计时那几秒）。</para>
+        /// </summary>
+        public void SetScriptHeight(string text, float px, float pxPerUnit)
+        {
+            if (pxPerUnit <= 0f) return;
+            if (Loc.HasCjk(text)) SetGlyphHeight(px / pxPerUnit);
+            else SetCapHeight(px * 0.72f / pxPerUnit);      // 0.72 em = 拉丁大写那一条（见 `TmpFont` / `Loc.HasCjk` 的 doc）
+        }
+
+        /// <summary>
         /// **让文字折行**，折行宽度 = `worldWidth` 个世界单位。
         /// 🔴 为什么需要它：`BuildTmp()` 里给 HUD 单行标签**硬写了 `NoWrap`**，
         ///    所以面板里的长文案（弹窗正文 / 语音台词）**不显式调它就会画出框外** ——

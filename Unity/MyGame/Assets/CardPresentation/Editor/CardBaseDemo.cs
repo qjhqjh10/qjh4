@@ -240,6 +240,8 @@ public static class CardBaseDemo
         // ---- 4b. 卡面第四件：兵种行中文化（D5，2026-10-17）----
         Debug.Log(P + "--- 卡面：兵种行（原版 `RaceText`）按语言取词 ---");
         AssertSubtypeLine();
+        AssertCardTextLanguageGate();     // 🔴 2026-10-18：`CardText.Zh` 改成语言闸（+ `Name` 补闸）
+        AssertTitleMidline();             // 🔴 2026-10-18：`A848` —— 卡名那层 = 原版的 `Midline`
 
         // ---- 5. 手牌布局四件（B1 批 2026-10-17）----
         Debug.Log(P + "--- 手牌布局：小屏档触发 · 最近空位 · 选中让位 · 层序 ---");
@@ -577,6 +579,88 @@ public static class CardBaseDemo
     /// 🧨 **改坏法（③ 才是灭自证的那一条）**：把 `SubtypeLine` 的出口改回 `return d.subtype`
     /// （硬编码英文）—— **只做这一件事**，①② 仍然全绿、**③ 红**；反过来清空词条表也过不了 ①。
     /// </summary>
+    /// <summary>🔴 **`A848`：卡名那层的纵向对齐 = 原版的 `Midline`(4096)**（2026-10-18 补）。
+    ///
+    /// 判据：原版 **78 颗卡名实例（6 个互斥变体 × 13 个场景实例）全是 `Midline`+Asar**
+    /// （`资料/普查产出_1018/R4_卡面与手牌现核.md`）。⚠️ **另三层（`keywords`/`army`/`race`）原版本来就是
+    /// `Middle`** ⇒ **只有卡名这一层该是 Midline** —— 所以这条断言**同时把那三层钉成「不是 Midline」**
+    /// （一刀切把四层都改会改错）。
+    ///
+    /// 🧨 **改坏法**：删掉 `CardView` 里那句 `_title.verticalAlignment = Midline` ⇒ ① 红；
+    /// 把四层一刀切改成 Midline ⇒ ② 那三条红。
+    /// </summary>
+    static void AssertTitleMidline()
+    {
+        var root = new GameObject("title_probe");
+        var d = CardData.Placeholder(0);
+        d.type = "unit";                      // 走单位卡那一支（卡名/阵营/兵种三层都建）
+        d.title = "Probe Title";              // 卡名非空才会建那一层（`Fill` 对空串直接返回 null）
+        CardView.Create(root.transform, d, "title_probe_card");
+        try
+        {
+            var tmps = root.GetComponentsInChildren<TMPro.TextMeshPro>(true);
+            TMPro.TextMeshPro title = null;
+            bool armySeen = false, raceSeen = false;
+            foreach (var t in tmps)
+            {
+                if (t.name == "title") title = t;
+                else if (t.name == "army") armySeen = true;
+                else if (t.name == "race") raceSeen = true;
+            }
+            Check(title != null, "① 卡名那层建出来了（节点名 = `title`）");
+            if (title == null) return;
+            Check((int)title.verticalAlignment == 4096,
+                  $"① ★ 卡名对齐 = **原版那一档 `Midline`(4096)**（实得 {(int)title.verticalAlignment}）"
+                + "｜🧨 删掉 `_title.verticalAlignment = Midline` ⇒ 本条红");
+            // ② 对照：另三层**原版就是 Middle**（一刀切会改错，所以这三条是**反方向**的判别式）
+            Check(armySeen && raceSeen, "② 前提：`army` / `race` 两层也建出来了（否则下面两条会退化成空跑）");
+            foreach (var t in tmps)
+                if (t.name == "army" || t.name == "race")
+                    Check((int)t.verticalAlignment == 512,
+                          $"② 对照：`{t.name}` 那层**原版就是 `Middle`(512)**（实得 {(int)t.verticalAlignment}）"
+                        + "｜🧨 一刀切把四层都改成 Midline ⇒ 本条红");
+        }
+        finally { Object.DestroyImmediate(root); }
+    }
+
+    /// <summary>🔴 **`CardText.Zh` 是【语言闸】不是【字体闸】**（2026-10-18 改；判据 = 原版有语言选择器 ⇒ 选了英文卡面就该是英文）。
+    ///
+    /// 改之前：`Zh = TmpFont.Available` —— 中文字体资产一进仓库它**恒真** ⇒ **切成 English 之后，
+    /// 卡名/阵营/关键词/效果文字/`Phrases` 兜底那 17 条仍然是中文**（只有走 `Loc.T` 的件会变）。
+    /// 改之后：`Zh = TmpFont.Available && Loc.Current == Chinese`；**并且** `Name(id, nameZh)` 也补上了这道闸
+    /// （它原来**无条件**返回 `nameZh` ⇒ 绕过语言闸）。
+    ///
+    /// 🧨 **改坏法（逐条指出哪一条会红）**：
+    ///   · 把 `Zh` 改回 `TmpFont.Available` ⇒ **②** 红；
+    ///   · 只改 `Zh`、不改 `Name(id,nameZh)` 那道闸 ⇒ **③** 红（那一条正是绕过闸的那处）。
+    /// </summary>
+    static void AssertCardTextLanguageGate()
+    {
+        var langBack = Loc.Current;
+        Loc.PersistOverride = true;                       // 自检不许动玩家的真设置
+        try
+        {
+            // ---- ① 中文档：行为**与改之前逐字相同**（默认语档就是中文 ⇒ 零变化）----
+            Loc.SetLanguage(AvailableLanguages.Chinese);
+            Check(CardText.Zh, "① 中文档下 `CardText.Zh` = true（字体 + 语档两条都满足）");
+            string zhName = CardText.Name("TAU52", "石之感知");
+            Check(zhName == "石之感知", $"① 中文档卡名走卡表那一列（实得「{zhName}」）");
+
+            // ---- ② 英文档：**卡名必须回英文** ----
+            Loc.SetLanguage(AvailableLanguages.English);
+            Check(!CardText.Zh,
+                  "② 英文档下 `CardText.Zh` = **false** —— 🧨 把 `Zh` 改回只判 `TmpFont.Available` ⇒ 本条红");
+
+            // ---- ③ 绕过闸的那一处：`Name(id, nameZh)` 原来无条件返回中文名 ----
+            string enName = CardText.Name("TAU52", "石之感知");
+            Check(enName == "TAU52",
+                  $"③ ★ 英文档卡名回**英文 id**（实得「{enName}」）—— 🧨 只改 `Zh`、不给 `Name(id,nameZh)` 补闸 ⇒ 本条红");
+            Check(enName != zhName,
+                  "③ 判别式：两档的卡名**不是同一串**（防「两边都返回 id」也照样过）");
+        }
+        finally { Loc.RestoreForTest(langBack); Loc.PersistOverride = false; }
+    }
+
     static void AssertSubtypeLine()
     {
         // ---- ① 键：会印到卡面上的 19 个（= 数据里出现过的 subtype ∩ `SubtypeLine` 会印）----

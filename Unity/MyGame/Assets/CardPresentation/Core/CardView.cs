@@ -1691,6 +1691,18 @@ namespace CardPresentation
 
             // ① 卡名：字号来自原版实测（见 `TitleFontSize`），太长/太高再回缩进版面
             _title = Fill(_title, "title", d.title, nameAt, nameW, TitleFontSize, InkName, false, nameH);
+            // 🔴 **2026-10-18（`A848` 那笔账的落点）**：**卡名那层的纵向对齐 = 原版的 `Midline`(4096)**。
+            //   判据：原版**78 颗卡名实例（6 个互斥变体 × 13 个场景实例）全是 `Midline`+Asar**
+            //   （`资料/普查产出_1018/R4_卡面与手牌现核.md`）；而 `TmpFont.NewText` 出厂是 `Middle`(512)
+            //   ⇒ 我们**一直差这一档**。⚠️ **另三层（`keywords`/`army`/`race`）原版本来就是 `Middle`** ⇒ ⛔ 只有这一层要改。
+            //   🔑 **枚举名对不上、数值对得上**：我们这版 TMP 的 `VerticalAlignmentOptions` **没有 `Midline` 这个名字**
+            //   （成员是 `Top/Middle/Bottom/Baseline/`**`Geometry=0x1000`**`/Capline` —— 见
+            //   `Library/PackageCache/com.unity.ugui@…/Runtime/TMP/TMP_Text.cs:82-85`），
+            //   而 `TextAlignmentOptions.Midline = Center | VerticalAlignmentOptions.Geometry`（同文件 `:55`）
+            //   ⇒ **`Midline` 的竖半就是 `Geometry` = `0x1000` = 4096**，与原版序列化值**逐位相同**。
+            //   **实测读数**（`CardFaceProbe` 的 `vAlign`/`inkCenterY` 两列，2026-10-18）：改之前 `vAlign=512`、
+            //   `inkCenterY=-0.0116`（`Heavy Intercessor`，卡单位）。
+            if (_title != null) _title.verticalAlignment = VerticalAlignmentOptions.Geometry;
 
             // ② 效果文字：名字下面，超宽折行；行数多了按**原版那块版面框**的高度回缩。
             //    ⚠️ **上沿对齐**（不是居中）：我们的块会随行数长高，居中的话行数一多就往上长、

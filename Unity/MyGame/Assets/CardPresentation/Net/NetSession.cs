@@ -77,6 +77,23 @@ namespace CardPresentation.Net
         ///    （判据链 → `Pump()` 里「主机：有新连接进来就握手」那一段）。</summary>
         public long SinceLastRecvMsForTest { get { return NowMs - _lastRecvMs; } }
 
+        /// <summary>🆕 自检读口：**掉线之前是不是在对局中**（== 要不要走客机那条 2 秒重连退避）。
+        /// 🔴 账 `A914` 钉的正是它：判负倒计时**到点之后**它必须已经是 `false` ——
+        /// 否则客机会**每 2 秒真去 `Connect` 一次、永不停止**（`Pump()` 里那一支的判据就是这个字段），
+        /// 连上还会把状态字改成「连上了，正在补上这一局的进度…」（玩家刚被告知判负，转头字就变了）。</summary>
+        public bool WasInBattleForTest { get { return _wasInBattle; } }
+
+        /// <summary>🆕 🔴 **A961（2026-10-18）**：把**对端可控**的文本钳到
+        /// <see cref="NetProtocol.MaxPeerTextChars"/>（超出 = 截断 + 一个 `…`）。
+        /// 口径、取值判据与「这是我们自拟的、原版没有先例」那条**全文** →
+        /// `NetProtocol.MaxPeerTextChars` 的注释。⛔ 只钳**对面发来的**字符串，
+        /// **别拿它去钳我们自己写的文案**（自己写的那些本来就有出处、也没上限问题）。</summary>
+        public static string ClampPeerText(string s)
+        {
+            if (string.IsNullOrEmpty(s) || s.Length <= NetProtocol.MaxPeerTextChars) return s;
+            return s.Substring(0, NetProtocol.MaxPeerTextChars) + "…";
+        }
+
         public NetSession(INetTransport transport)
         {
             _t = transport;
@@ -212,11 +229,29 @@ namespace CardPresentation.Net
             //      超时照旧成立（自检里那条对照就是钉这一点的）。
             if (Role == NetRole.Host && _t.AcceptedCount != _lastAccepted)
             {
+                // ⛔ **别把下面这一句挪到 `Send` 成功之后**（R3 报告 §4 建议过；2026-10-18 主对话已裁「不挪」）：
+                //    ① 实测会变成**每帧重试** —— 连接断着而 `AcceptedCount` 已经变过时，这一支**每帧都进**
+                //       （判据一直是 `不等于`）⇒ 每帧一次 `NewToken()`（加密随机数 + 十六进制串）
+                //       与一次 `SetState()`（每次都 `Debug.Log`），**一直刷到下一次连接进来为止**；
+                //    ② 这一句正是 `A943` 读侧确认（下面 `if (_t.IsConnected && (Role != NetRole.Host ||`
+                //       `_t.AcceptedCount == _lastAccepted) …)` 那半句）依赖的那一处 —— 动它要重走整段 §P。
+                //    ⇒ 要「边沿不被吃掉」请走**别的**路（例如给这一支加 `&& _t.IsConnected`），**别挪这一句**。
                 _lastAccepted = _t.AcceptedCount;
                 _lastRecvMs = now;
                 bool wasReconnect = _wasInBattle;
                 _nonce = NewToken();
-                Send(NetKind.Challenge, new MsgChallenge { nonce = _nonce });
+                // 🔴 **2026-10-18（账：「`Send()` 静默丢」）**：这一句原来是**放空**的。
+                //   它丢掉的后果比别处重 —— 这一支的**边沿在上一句就已经消费掉了**（它按 `AcceptedCount`
+                //   变没变触发）⇒ 这条连接**这一辈子不会再发第二个 `Challenge`**，对面永远握不上手。
+                //   ⚠️ 真发生的那一刻连接**已经断了**（`Send` 只在 `!_t.IsConnected` 时丢，而 A943 里
+                //      连接位与计数由同一次 CAS 发布 ⇒ 计数动了就说明那一下是活的）⇒ 它不是「永久停摆」，
+                //      R3 报告 §5 已逐帧推演过。**本笔只补「出声」**；「把 `_lastAccepted` 挪到发送成功之后」
+                //      那条建议**没做**，理由写在下面 `Send()` 的注释里（会变成每帧重试）。
+                if (!Send(NetKind.Challenge, new MsgChallenge { nonce = _nonce }))
+                    Debug.LogWarning("[Net] ⚠️ 握手 `Challenge` **没发出去**，而这一支的边沿（上面那句 "
+                                   + "`_lastAccepted = …`）**已经消费掉了** ⇒ 这条连接不会再收到第二个 `Challenge`"
+                                   + "（要等下一次连接进来）。那一刻连接确实已经断了，所以它**不是**「永久停摆」"
+                                   + "（`资料/普查产出_1018/R3_联机三档现核.md` §5 逐帧推演过）—— 但**必须说出来**（红线）");
                 SetState(NetState.Handshaking, wasReconnect
                          ? "有连接进来，正在核对是不是刚才那个人…" : "有客机连进来了，正在核对…");
             }
@@ -333,7 +368,11 @@ namespace CardPresentation.Net
                         else if (string.IsNullOrEmpty(_hostPassword))
                             Debug.LogWarning("[Net] 本局**没有设密码** —— 局域网自用可以，公网请设一个");
                     }
-                    PeerName = m != null ? m.name : null;
+                    // 🔴 **A961（2026-10-18）**：`MsgProof.name` **是对端可控的**，而它会被拼进 `StatusText`
+                    //   （本文件 `:348` · `:352` · `:411`，设置→联机页那一行字）⇒ **进界面前先钳**。
+                    //   口径与取值 → `NetProtocol.MaxPeerTextChars`（⚠️ 是**我们自拟的**，原版把玩家名的长度
+                    //   校验放在 PlayFab 服务端，客户端一次都不查）。
+                    PeerName = ClampPeerText(m != null ? m.name : null);
                     Send(NetKind.Ack, new MsgAck { ok = why == null, reason = why ?? "", sessionToken = SessionToken });
                     if (why != null)
                     {
@@ -359,7 +398,11 @@ namespace CardPresentation.Net
                     var m = NetProtocol.Unpack<MsgAck>(f.payload);
                     if (m == null || !m.ok)
                     {
-                        string why = m != null && !string.IsNullOrEmpty(m.reason) ? m.reason : "对面拒绝了连接";
+                        // 🔴 **A961（2026-10-18）**：`MsgAck.reason`（`NetProtocol.cs:54`）**也是对端可控的** ——
+                        //   它往下进 `StatusText`（下面那句 `SetState`）与 `OnClosed`（→ `NetMatchmaking` /
+                        //   `NetBattle` 的提示行与弹窗）⇒ 与 `PeerName` / `MsgBye.reason` **同一处口径**：先钳。
+                        string why = m != null && !string.IsNullOrEmpty(m.reason)
+                                   ? ClampPeerText(m.reason) : "对面拒绝了连接";
                         LastError = why;
                         SetState(NetState.Closed, why);
                         _t.Close();
@@ -426,7 +469,13 @@ namespace CardPresentation.Net
                 case NetKind.Bye:
                 {
                     var m = NetProtocol.Unpack<MsgBye>(f.payload);
-                    string why = m != null && !string.IsNullOrEmpty(m.reason) ? m.reason : "对面退出了";
+                    // 🔴 **A961（2026-10-18）**：`MsgBye.reason` **是对端可控的**，上界原来只有
+                    //   `NetProtocol.MaxFrame = 4 MiB` ⇒ 对面一句话能把提示行 / 弹窗 / 状态字**全顶爆**。
+                    //   这里是**收口点**（三个入口都在本文件）：钳完再往下走，`StatusText` 与 `OnClosed`
+                    //   的每一个消费方（`NetMatchmaking` 的提示行+弹窗、`NetBattle.HandlePeerClosed`）
+                    //   **自动都拿到钳过的那一段**。取值与「这是我们的口径、原版没有先例」→ `NetProtocol.MaxPeerTextChars`。
+                    string why = m != null && !string.IsNullOrEmpty(m.reason)
+                               ? ClampPeerText(m.reason) : "对面退出了";
                     SetState(NetState.Closed, why);
                     _t.Close();
                     if (OnClosed != null) OnClosed(why);
@@ -445,13 +494,53 @@ namespace CardPresentation.Net
         //  发
         // ==================================================================
 
-        public void Send(string kind, string payloadJson)
+        /// <summary>发一条。**返回「这条到底发出去了没有」** —— 没连上时返回 `false` 并且**一定出声**
+        /// （`Debug.LogWarning`）。调用方只有需要据此做别的事时才接这个返回值（原来返回 `void`）。
+        ///
+        /// <para>🔴 **2026-10-18（账：「`Send()` 静默丢」）**：原来这一支是 `if (…) return;` —— **连日志都没有**。
+        /// 而握手包 / 开局包 / 指纹 / 投降**全都走这里** ⇒ 一条包丢了，日志里一个字都没有，
+        /// 只剩玩家那边「什么都没发生」（红线：不许静默失败）。</para>
+        ///
+        /// <para>🔴 **2026-10-18（第五轮 · 账 ①）**：**过了守卫、底层仍可能失败** —— 那种情况的消费点
+        /// 就在本方法里（调传输层**前后各读一次 `_t.LastError`**，变了就出声 + 返回 `false`）。
+        /// ⛔ 别把它改成「判 `LastError` 非空」：那个字段是**粘的**（只在 `Setup`/`Listen` 里清零）。</para>
+        ///
+        /// <para>🔴 **为什么不顺手把 `_lastAccepted` 挪到「发送成功之后」**（R3 报告 §4 建议过这一步）：
+        /// 实测会变成**每帧重试** —— 连接断着而 `AcceptedCount` 已经变过的话，`Pump()` 里那一支
+        /// **每帧都会进**（判据是 `AcceptedCount != _lastAccepted`，而它一直不相等），于是每帧一次
+        /// `NewToken()`（加密随机数 + 十六进制串）与一次 `SetState()`（每次都 `Debug.Log`），
+        /// 一直刷到下一次连接进来为止 —— 比「丢一条握手包」更糟（而且会刷日志）。
+        /// 何况那一支正是 `A943` 读侧确认（`Pump()` 里 `_t.AcceptedCount == _lastAccepted` 那半句）依赖的地方，
+        /// 动它要重走整段 §P。⇒ **本笔按账上要求只补「出声」**；次序那条**如实挂给主对话裁**
+        /// （理由与建议见 `资料/普查产出_1018/W3_联机收尾交件.md`）。</para></summary>
+        public bool Send(string kind, string payloadJson)
         {
-            if (_t == null || !_t.IsConnected) return;         // 没连上就丢：调用方看 StatusText/LastError
+            if (_t == null || !_t.IsConnected)
+            {
+                // 没连上就丢：调用方看 StatusText/LastError —— **但要出声**（红线）。
+                Debug.LogWarning("[Net] 这条 `" + kind + "` **没发出去、被丢掉了**：这一刻没有活的连接"
+                               + $"（会话 {State} · 本机角色 {Role}）—— 如实说出来，别让玩家只看到「什么都没发生」");
+                return false;
+            }
+            string errBefore = _t.LastError;
             _t.Send(kind, payloadJson);
+            // 🔴 **2026-10-18（第五轮 · 账 ①）：`_lastError` 的【消费点】。**
+            //   传输层「过了守卫、但底层真写失败」（`TcpTransport.Send` 的 `catch`）只把原因写进
+            //   `_lastError` —— 那个字段**原来没有任何生产者路径读它** ⇒ 真失败被吞。
+            //   这里**前后各读一次**：**变了**才算这次失败（`_lastError` 是**粘的** —— 只在 `Setup`/`Listen`
+            //   里清零，直接判非空会把一次旧失败**永久**报成新失败）。
+            //   ⛔ 别改成「判 `!string.IsNullOrEmpty`」——那是上面那个粘性坑。
+            string errAfter = _t.LastError;
+            if (!string.IsNullOrEmpty(errAfter) && !string.Equals(errAfter, errBefore, StringComparison.Ordinal))
+            {
+                Debug.LogWarning("[Net] 这条 `" + kind + "` 在**传输层报失败了**（写失败 / 链路刚断）："
+                               + errAfter + " —— 对面的那半边收不到它（红线：不许静默失败）");
+                return false;
+            }
+            return true;
         }
 
-        public void Send<T>(string kind, T msg) { Send(kind, NetProtocol.Pack(msg)); }
+        public bool Send<T>(string kind, T msg) { return Send(kind, NetProtocol.Pack(msg)); }
 
         /// <summary>进对局（上层在 `Begin` 之后调）。之后掉线才走「等重连」。</summary>
         public void EnterBattle(int lastSeq = 0)
@@ -461,11 +550,22 @@ namespace CardPresentation.Net
             SetState(NetState.InBattle, "对局中" + (Role == NetRole.Host ? "（本机是主机，动作由本机定序）" : "（客机：操作由主机确认）"));
         }
 
-        /// <summary>主动收工（用户退出 / 打完）。`say=true` 时给对面捎一句 `bye`。</summary>
+        /// <summary>主动收工（用户退出 / 打完）。`say=true` 时给对面捎一句 `bye`。
+        /// 🔴 **2026-10-18（独立审查 R5）**：`say=true` 而**这一刻发不出去**时**要出声** ——
+        /// 原来那一句写成 `if (say &amp;&amp; _t != null &amp;&amp; _t.IsConnected &amp;&amp; State != Off) Send(…)`，
+        /// 条件不成立就**一声不响**（而 `Send` 新加的那声警告**永远走不到**这一步）⇒
+        /// 「丢包一定出声」这条**恰好在「我们最需要对面收到的那句话」上不成立**。现在补上。</summary>
         public void Close(bool say = true, string reason = null)
         {
-            if (say && _t != null && _t.IsConnected && State != NetState.Off)
-                Send(NetKind.Bye, new MsgBye { reason = reason ?? "对面结束了这一局" });
+            if (say)
+            {
+                if (_t == null || !_t.IsConnected || State == NetState.Off)
+                    Debug.LogWarning("[Net] 本来要给对面捎一句 `bye`（" + (reason ?? "对面结束了这一局") + "）"
+                                   + $"—— 但**这一刻没有活的连接**（会话 {State}）⇒ 这句话**没发出去**，"
+                                   + "对面**不会收到任何通知**（它那边只能靠心跳超时发现）。如实说出来（红线）");
+                else
+                    Send(NetKind.Bye, new MsgBye { reason = reason ?? "对面结束了这一局" });
+            }
             // 🆕 关台时**把要来的那条映射撤掉**（别在玩家路由器上留一条没人用的转发规则）。
             //    端口要在 `Close()` 之前抓 —— 关完就取不到了。
             if (Role == NetRole.Host && _t != null) UpnpPortMapper.UnmapAsync(_t.Port);
@@ -473,6 +573,44 @@ namespace CardPresentation.Net
             SetState(NetState.Off, reason ?? "未连接");
             _checkMode = false;
             _wasInBattle = false;
+            // 🔴 **为什么这里【故意不清】`SessionToken`**（2026-10-18 第五轮 · 账 ③，现核过全仓读者）：
+            //   ① 它的**两个写点都在「新连接的开头」** —— `StartHost`（新一把 `NewToken()`）与
+            //      收 `Ack` 时（`:413 SessionToken = m.sessionToken`）⇒ **不存在「把陈旧钥匙带到下一局」的路径**
+            //      （`NetRuntime.Reset()` 更是直接**换一台新会话对象**）。自检 §Q⑦ 把这条**钉住**了。
+            //   ② 反过来，**清掉它是有风险的**：重连鉴权那一句写成
+            //      `if (m == null || (SessionToken != null && m.sessionToken != SessionToken))` ——
+            //      把它清成 `null` 会让**任何** `reconnect` 都通过（鉴权被短路）。虽然那一刻会话通常是
+            //      `Off`（收不到包），但**拿一个「现在没事、改天有事」的短路去换一个不存在的收益**不值得。
+            //   ③ `Pump()` 里那条客机重连门（`!string.IsNullOrEmpty(SessionToken)`）也不靠 `Close` 来关：
+            //      它另有两道闸（`State == WaitingReconnect`、`_wasInBattle`），`Close` 把 `State` 置 `Off`
+            //      ⇒ 那一条**本来就已经死了**。
+            //   ⇒ **结论：不该清**（不是漏做）。⛔ 下一个人别把它当漏项补上。
+        }
+
+        /// <summary>🆕 🔴 **A914 / 独立审查 R3（2026-10-18）**：**停掉客机那条「每 2 秒重连一次」的退避**，
+        /// 但**不关台、不离开房间**。
+        ///
+        /// <para>对应原版 **`BattleManager__FailedToReconnectAfterDisconnect.c:14`** 的
+        /// **`StopCoroutine(AttemptReconnect)`** —— 「**本机**是断线那一端、重连也失败了」那一支
+        /// （`:26-27` 只有 `AddResignAction(1) + DeadHero(我,3)`，**整个函数里没有 `LeaveBattleRoom`**，
+        /// 现读 `d:/2/tools/decomp_full/BattleManager__FailedToReconnectAfterDisconnect.c` 确认）
+        /// ⇒ 对到我们这儿 = **别调 `Close`**（那是原版**另一端**那一跳才有的），只把这条循环停掉。</para>
+        ///
+        /// <para>落地 = 清 `_wasInBattle`：那正是退避支判据里的一项（`Pump()` 里「客机：重连退避」）。
+        /// 而 `_t.PeerLost` 那一支**不会**再把它置回来 —— 它要求状态**不是** `WaitingReconnect`，
+        /// 而这里**故意不改状态**。</para>
+        ///
+        /// <para>⚠️ **状态仍然是 `WaitingReconnect`**（我们**不新造状态**）⇒ 心跳块与静默超时块在这一端
+        /// 仍被跳过（它们都要求状态不是它）。**如实记着**，别以为这一端已经收干净。
+        /// ⚠️ 这一端**还欠「判本机负」**（原版 `DeadHero(我,3)`）—— 那要给 `INetBattleHost` 加一个口
+        /// （`BattleDriver` 实现），**不在本笔白名单**，见交件报告 §11。</para></summary>
+        public void StopReconnecting()
+        {
+            if (!_wasInBattle) return;                 // 幂等：本来就没在重连 ⇒ 不重复出声
+            _wasInBattle = false;
+            Debug.Log("[Net] 本机这一端的重连退避**停了**（原版 `FailedToReconnectAfterDisconnect.c:14` 的 "
+                    + "`StopCoroutine(AttemptReconnect)`）—— ⚠️ **不关台、不离开房间**"
+                    + "（原版那一支里没有 `LeaveBattleRoom`）");
         }
 
         void SetState(NetState s, string text)

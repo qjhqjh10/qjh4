@@ -13,9 +13,13 @@
 //      （红线第 4 条讲的是「原版解包资源与直接衍生物留在本地」，这条数据在 2026-09-12 之前就已经在仓库里了，
 //      本次只是把中文和它并到一起，**没有新开口子**）。真要发布，两份一起换掉。
 //
-// ⚠️ 走中文的前提是**拿得到中文字体资产**（`TmpFont.Available`）：自写的 5×7 点阵字库
-//    一个汉字也画不出来。字体不在就**自动回英文**，不会出现「汉字变方块/空白」。
-//    建字体资产时统计要烘哪些字走 `AllChinese()`（那个不看当前语言，永远给中文）。
+// ⚠️ 走中文的前提是**两个**：① **拿得到中文字体资产**（`TmpFont.Available`）—— 自写的 5×7 点阵字库
+//    一个汉字也画不出来；② **当前语档就是中文**（`Loc.Current == AvailableLanguages.Chinese`）。
+//    两条缺一条就**自动回英文**（不会出现「汉字变方块/空白」，也不会出现「选了 English 卡面还是中文」）。
+//    🔴 **2026-10-18 更正（铁律 5）**：原来这里只写第 ① 条、`Zh` 也只判字体 —— 而**中文字体资产早已进仓库**
+//      ⇒ `Zh` **恒真** ⇒ **切成 English 之后，卡名/阵营/关键词/效果文字/`Phrases` 兜底那 17 条仍是中文**
+//      （只有走 `Loc.T` 的件会变）。原版有语言选择器 ⇒ 选了英文就该是英文，故补上第 ② 条。
+//    建字体资产时统计要烘哪些字走 `AllChinese()`（那个**不看当前语言，永远给中文** —— ⛔ 别把它也闸上）。
 using System.Collections.Generic;
 using RuleEngine;
 
@@ -23,8 +27,14 @@ namespace CardPresentation
 {
     public static class CardText
     {
-        /// <summary>当前显示中文吗。没字体就回英文 —— 见文件头</summary>
-        public static bool Zh { get { return TmpFont.Available; } }
+        /// <summary>当前显示中文吗。**两个条件都满足才算**：① 拿得到中文字体资产 ② 当前语档是中文 —— 见文件头。
+        /// ⚠️ 改这个属性会**连带**卡名/阵营/关键词/效果文字/`Phrases` 兜底那一族的行为（它们都走它）⇒ 改完要并排比（铁律 10⑥）。</summary>
+        public static bool Zh
+        {
+            // 🔴 **2026-10-18 更正（铁律 5）**：原来只有 `TmpFont.Available` 一项 ⇒ 字体资产一进仓库它就**恒真**，
+            //   「选了 English」对它毫无影响（**拿字体闸当语言闸**）。补上语档那一项。
+            get { return TmpFont.Available && Loc.Current == AvailableLanguages.Chinese; }
+        }
 
         // ==================================================================
         //  卡名（键 = `CardDef.Name`，也就是英文 id）
@@ -323,13 +333,26 @@ namespace CardPresentation
 
         static readonly Dictionary<string, string> Phrases = new Dictionary<string, string>
         {
+            // 🔴 **2026-10-18（第十三轮 · G2b）：下面这三条【已降级成兜底】。**
+            //    `END TURN` / `YOUR TURN` / `ENEMY TURN` 原版**都有确凿 `mTerm`**
+            //    （`Battle/HUD/{EndTurn,YourTurn,EnemyTurn}`，载波 = 代码字面量）⇒ 权威**已经搬到
+            //    `Core/Loc.cs` 那张表**，本表这三行只在「那张表里没有这个键」时才被读到
+            //    （转发见上面的 `PhraseTerms`）。留着的用处 = 表被误删时**HUD 不退化成键名**。
+            //    ⚠️ 本表**只有中文一列** ⇒ 走兜底时英文档也会印中文（`Phrase` 的老行为，未改）；
+            //      这也是「两处写同一条规则」曾经的具体后果 —— 所以权威只许有一处。
             { "END TURN",     "结束回合" },
             { "YOUR TURN",    "你的回合" },
             { "ENEMY TURN",   "对手回合" },
-            // 🆕 2026-09-17：原版 `WaitText` 的文案**没查到**（dump 里那个 `Text` 节点是空的、
-            //    运行时才赋；本地化 key 也没解出来）⇒ **这条是我们加的**，不是复刻。
-            //    用在 `Battle/WaitBanner.cs`（对手思考时那条提示）。
-            { "WAITING FOR OPPONENT", "等待对手…" },
+            // 🔴 **2026-10-18（第十二轮 · 战斗侧）就地订正（铁律 5）**：这里原来写
+            //    「原版 `WaitText` 的文案**没查到**（dump 里那个 `Text` 节点是空的、本地化 key 也没解出来）
+            //     ⇒ 这条是我们加的」—— **不成立**。原版那颗 `BackCanvas/WaitText` 下的 `Text` 节点
+            //    **有字也有键**：TMP 原文 = **`Waiting for enemy`**、`mTerm` = **`Battle/Mulligan/WaitEnemy`**
+            //    （`bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_4804.json`，2026-10-18 亲读）。
+            //    **错因**：当年只看了一份运行时 dump（那一刻 `Text` 是空的），没去 prefab 里找。
+            //    ⇒ 消费侧 `Battle/WaitBanner.cs` 现在直接走 `Loc.T("Battle/Mulligan/WaitEnemy")`，
+            //      **本表不再收这一条**（键名照原版 `mTerm`；同一语义只留一条路径）。
+            //    📌 同族还有两处一并订正：`ChoosePanel.CardBtnWord`（键在本地的 `Battle/Prebattle/SelectButton`）
+            //      与 `MulliganPanel.DoneLabel`/`ChoosePanel.ConfirmLabel`（键+英文原文都在本地）。
             { "GAME OVER",    "对局结束" },
             { "YOU WIN",      "你赢了" },
             { "YOU LOSE",     "你输了" },
@@ -343,23 +366,84 @@ namespace CardPresentation
             { "NO LEGAL TARGET", "没有合法目标" },
             { "MELEE",        "近战" },
             { "RANGED",       "远程" },
+            // 🔴 **2026-10-18（第十二轮）补**：`BattleDriver.cs:6758` 的选目标提示拼的是
+            //    `Phrase(what) + " - " + …`，`what` 三档 = `ABILITY` / `RANGED` / `MELEE`
+            //    （`AttackKind`），而表里**只有后两个** ⇒ 中文档下技能那一档印的是裸英文 `ABILITY`。
+            //    ⚠️ **这一条原版查不到对应词条**（原版 `Battle/Tips/*` 那 20 条里没有「技能可以指目标」这一档，
+            //    见 `d:/2/tools/il2cpp_out/stringliteral.json` 的 `Battle/Tips/` 全表）
+            //    ⇒ 按铁律 11 例外①**留在本表当兜底**，键名是我们自己起的（**不是**原版 `mTerm`）。
+            { "ABILITY",      "技能" },
+            // 🔴🆕 **2026-10-18（第十五轮 · `G5`）就地订正**：下面第一条**不是「原版查不到」** ——
+            //   它只是**键名不是原版那个写法**：原版这一档的键 = **`Battle/Tips/UnitNotReady`**
+            //   （`0x428AAB0`，消费点 `BattleManager.CanUseActiveAbility`，判据字段 `CardScript.canAct`）
+            //   ⇒ `BattleDriver.OpenCommand` 那一处**已改走 `Loc.T`**（见 `BattleDriver.UnitNotReadyTerm`）。
+            //   ⚠️ 本行**留着当兜底**（`Phrase` 的两级查找顺序不变），但**它今天已经没有消费点了**
+            //   —— ⛔ 别照着它再写一处（那会变成「同一个语义两条路径」，正是本工程的红线）。
+            //   另两条（`STUNNED` / `THIS UNIT CANNOT ACT`）**仍然没有原版键**（`Battle/Tips/` 那 24 条里没有），
+            //   如实保留。
             { "THIS UNIT ALREADY ACTED", "这个单位已经行动过了" },
             { "STUNNED",      "眩晕中" },
             { "THIS UNIT CANNOT ACT",    "这个单位无法行动" },
         };
 
-        /// <summary>固定短语的中文。**没收录的照原样回英文**（不静默变空白）</summary>
+        /// <summary>🔴 **短语键 → 原版 I2 词条**（`Core/Loc.cs` 那张表里的键名）。
+        /// <para>**为什么要有它**：这一族短语**两处都有人用** —— 战斗侧（窗口/HUD）走 `Loc.T`、
+        /// 而这几个键**另有白名单外的调用点**（`Shell/BattleLogData.cs` 的 `DisplayOf` 还在用
+        /// `Phrase("VICTORY"/"DEFEAT"/"DRAW")`）。**同一条语义只许有一条权威**（工程红线：
+        /// 两处写同一条规则 = 迟早不一致）⇒ 权威留在 `Loc` 那张表，这里只做**转发**：
+        /// 表里**有**这个键 ⇒ 走它；**没有** ⇒ 才回落到本文件 `Phrases` 那份兜底。
+        /// ⚠️ 表里那三条的判据（键名从哪来、谁是原版载体）写在 `Loc.cs` 那一块的注释里，⛔ 别在这儿抄第二份。</para>
+        /// <para>⚠️ **本函数仍然守着 `Zh` 那道闸**（拿不到中文字体资产就一律回英文）——
+        /// 这是本文件存在的理由（见文件头），转发**不能**把它绕过去。</para></summary>
+        static readonly Dictionary<string, string> PhraseTerms = new Dictionary<string, string>
+        {
+            { "VICTORY", "Battle/BattleEnd/Victory" },
+            { "DEFEAT",  "Battle/BattleEnd/Defeat"  },
+            { "DRAW",    "Battle/BattleEnd/Draw"    },
+            // 🆕 **2026-10-18（第十三轮 · G2b）**：回合那三条 —— 原版**都有确凿 `mTerm`**
+            //   （`Battle/HUD/{EndTurn,YourTurn,EnemyTurn}`，载波 = 代码字面量；逐条判据写在
+            //    `Core/Loc.cs` 那一块）。它们原来只在本文件 `Phrases` 那张**兜底表**里
+            //   ⇒ 中文档印中文、**英文档仍印中文**（`Phrases` 只有中文一列）——
+            //   统一到 `Loc` 之后**两档都对**，本表那三行因此降级成兜底（见 `Phrase`）。
+            { "END TURN",   "Battle/HUD/EndTurn"   },
+            { "YOUR TURN",  "Battle/HUD/YourTurn"  },
+            { "ENEMY TURN", "Battle/HUD/EnemyTurn" },
+        };
+
+        /// <summary>**从词条表取字，并守住那道字体闸**（= `Phrase` 的头一道 `if`）。
+        /// <para>走 <see cref="Loc.T"/>（按当前语言取；缺键会出声并回键名），但
+        /// **拿不到中文字体资产时一律回英文列**（<see cref="Loc.EnOf"/>）——
+        /// 直接 `Loc.T` 会绕过这道闸，字体资产一缺，中文就画成空格/方块（本工程的静默失败红线）。</para>
+        /// <para>⚠️ **只给「原版有对应 `mTerm`」的那一族用**（键名 = 原版 `Localize.mTerm` 原文）；
+        /// 原版没有词条的仍然留在本文件 `Phrases` 那张兜底表里。⛔ 别拿它当通用取值口。</para></summary>
+        public static string Term(string term)
+        {
+            if (string.IsNullOrEmpty(term)) return "";
+            if (!Loc.HasEntry(term)) return Loc.T(term);       // 表里没有 ⇒ 让它出声 + 回键名（不静默）
+            return Zh ? Loc.T(term) : Loc.EnOf(term);          // 闸：没有中文字体资产 ⇒ 回英文
+        }
+
+        /// <summary>固定短语的中文。**没收录的照原样回英文**（不静默变空白）。
+        /// 先查 <see cref="PhraseTerms"/> 那张**转发表**（权威 = `Loc` 表），再查本文件那张兜底表。</summary>
         public static string Phrase(string en)
         {
             if (!Zh || string.IsNullOrEmpty(en)) return en;
+            string term;
+            if (PhraseTerms.TryGetValue(en, out term) && Loc.HasEntry(term)) return Term(term);
             string zh;
             return Phrases.TryGetValue(en, out zh) ? zh : en;
         }
 
-        /// <summary>`TURN 3` / `第 3 回合`（数字在中间，所以单列一个）</summary>
+        /// <summary>`TURN 3` / `第 3 回合`（数字在中间，所以单列一个）。
+        /// 🔴 **2026-10-18（第十三轮 · G2b）就地修一处同族缺陷**：原来写的是
+        /// `Zh ? "第 N 回合" : "TURN N"`，而 `Zh` = **拿得到中文字体资产**（不是「玩家选了中文」）
+        /// ⇒ **英文档下这一行仍然印中文**（「第 3 回合   YOUR TURN」）。这一行与 `Phrase` 那三条
+        /// 一起显示在同一处（`BattleDriver.UpdateHud` 的回合行）⇒ 只改 `Phrase` 会半中半英。
+        /// ⇒ 判据补上「**当前语档是中文**」那一半。⚠️ 本串**原版没有对应词条**（`Battle/HUD/*` 那 8 条里
+        /// 没有「回合 N」这一条，2026-10-18 逐条核过）⇒ 中文仍是我们自己的写法，如实标着。</summary>
         public static string TurnLabel(int n)
         {
-            return Zh ? "第 " + n + " 回合" : "TURN " + n;
+            return (Zh && Loc.Current == AvailableLanguages.Chinese) ? "第 " + n + " 回合" : "TURN " + n;
         }
 
         /// <summary>阵营名（键 = `CardDef.Faction` / `StarterCards.*Faction`）</summary>
@@ -450,7 +534,9 @@ namespace CardPresentation
         /// </summary>
         public static string Name(string id, string nameZh)
         {
-            if (!string.IsNullOrEmpty(nameZh)) return nameZh;
+            // 🔴 **2026-10-18 更正（铁律 5，由 G2b 点名）**：原来这里**无条件**返回 `nameZh` —— 那等于**绕过语言闸**
+            //   （英文档下卡名照样印中文）。补上 `Zh` 这一道，与 `Name(id)` 那条路同口径。
+            if (Zh && !string.IsNullOrEmpty(nameZh)) return nameZh;
             return Name(id);
         }
 
@@ -522,10 +608,19 @@ namespace CardPresentation
                       : "Deal " + spec.Amount + " damage to " + TargetEn(spec.Target);
         }
 
-        /// <summary>技能卡面板上的「可选目标数」：`3 available`（原版默认文本 `"0 available"`）/`可选目标 3`</summary>
+        /// <summary>技能卡面板上的「可选目标数」：原版 `SupportMethods.GetTargetsAvailableText(n)` =
+        /// `GetTranslation("Battle/HUD/TargetsAvailable")` 之后 **`String.Replace("{0}", n)`**
+        /// （方法体 + 那个 `"{0}"` 字面量都亲读过，出处写在 `Core/Loc.cs` 那一块）⇒ 词条值是**带占位符**的。
+        /// <para>🔴 **2026-10-18（第十三轮 · G2b）**：这里原来拼的是 `可选目标 N` / `N available`
+        /// （`Zh` 二选一）—— 现在走词条 ⇒ 两档都跟语言走，中文是 `可用 N`（`zh_CN.csv:49` 的同一个模式）。
+        /// ⚠️ 那道字体闸照旧（见 <see cref="Term"/>）；占位符**只有这一个口**替换。</para></summary>
         public static string TargetsAvailable(int n)
         {
-            return Zh ? WTargets + " " + n : n + " available";
+            string s = Term("Battle/HUD/TargetsAvailable");
+            // 词条值 = `{0} available` / `可用 {0}`；表里万一没有 ⇒ `Term` 已回键名（不静默），这里原样返回
+            return s.IndexOf("{0}", System.StringComparison.Ordinal) >= 0
+                 ? s.Replace("{0}", n.ToString())
+                 : s;
         }
 
         /// <summary>
@@ -539,6 +634,12 @@ namespace CardPresentation
             foreach (var v in KeywordNames.Values) yield return v;
             foreach (var v in Phrases.Values) yield return v;
             foreach (var v in FactionNames.Values) yield return v;
+            // 🔴 **2026-10-18（第十五轮 · `G5`）**：`Loc` 表的中文列**也要进语料**。
+            //   本文件那几张表只覆盖**卡面/关键词/兜底短语**；而 `Core/Loc.cs` 是**全工程唯一一份**
+            //   窗口/HUD 文案（`W6`/`G2b`/`G8`/`G9` 新加的那一大批战斗侧中文全在那儿）
+            //   —— 不进语料 ⇒ `TmpSetup` 那条覆盖自检**看不到它们**。
+            //   ⚠️ 语料**永远是中文**（建资产那会儿字体还不存在）⇒ ⛔ 别给它加语言闸（见本文件头那条）。
+            foreach (var v in Loc.AllChinese()) yield return v;
             yield return WDamage; yield return WHeal; yield return WDraw;
             yield return WSelf; yield return WOwnWarlord;
             yield return WEnemyWarlord; yield return WEnemyUnit;

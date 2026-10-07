@@ -122,7 +122,15 @@ namespace CardPresentation
             _viewLb = MenuDraw.Node(_inAlliance, "View Leaderboard Button", vr);
             var vbg = MenuDraw.Rect(_viewLb, Art(ArtMulligan), vr, "Bg", QArt);
             var vtx = Off(ViewLbTxR, x1, y1);
-            MenuDraw.Text(_viewLb, vtx, "Leaderboard", Color.white, "Button Text", 40f, QText);
+            // 🔴 **2026-10-18（第六轮）：这颗钮的字走词条** —— 键 = 原版那颗 `Button Text` 的
+            //   `Localize.mTerm` 原文 **`MainMenu/RankedWindow/Leaderboard`**（本批按 pid 亲读；那颗的父链 =
+            //   `Button Text < View Leaderboard Button < In Alliance < Alliance Event Score Panel < …`
+            //   ⇒ **与我们这颗逐节同名**）。
+            //   ⚠️🔴 **这是一条【跨窗共用】的键，不是排位窗专属**：全库 6 颗，横跨排位窗
+            //   （`Ranked Division Info/RankedEventWindow[*]` 的 `LeaderboardButton`）· **本面板**（这一颗 +
+            //   下面那颗 `Leaderboard Button`）· 头像页（`Profile Tab > Ranking > Current Rank/Highest Rank`）。
+            //   英文列 = TMP 原文 `Leaderboard`；中文列 = `zh_CN.csv:119`「排行榜」。
+            MenuDraw.Text(_viewLb, vtx, Loc.T("MainMenu/RankedWindow/Leaderboard"), Color.white, "Button Text", 40f, QText);
             MenuDraw.Hit(_viewLb, "ButtonHit", vr, QHit, OnLeaderboardClick, vbg, ArtMulligan,
                          ArtMulligan + "_hover", ArtMulligan + "_Pressed");
 
@@ -135,19 +143,38 @@ namespace CardPresentation
             MenuDraw.Nine(_noAlliance, Art(ArtNoBg), Off(NoBgR, x1, y1), NoBgBorder, 69f, 63f, QBg,
                           NoBgTint, true, "Background");
             var jtR = Off(JoinTxR, x1, y1);
-            var jt = MenuDraw.TextBox(_noAlliance, jtR, "Join an alliance to gain additional rewards",
+            // 🔴 **2026-10-18（第六轮）：这句字走词条** —— 键 = 原版那颗 `Join Alliance text` 的
+            //   `Localize.mTerm` 原文 `SocialMenu/Alliances/JointToEarnRewards`（2 颗；父链 =
+            //   `Join Alliance text < No Alliance < Alliance Event Score Panel < …` ⇒ **节点名与我们这颗逐字相同**）。
+            //   英文列 = TMP 原文 `Join an alliance to gain additional rewards`；中文列取 `zh_CN.csv:263` 的**近邻**
+            //   （⚠️ 那条的英文串是 `Join an Alliance for extra Rewards`，与我们这串**不同** ⇒ 属最近邻、不是精确命中）。
+            //   ⛔ 节点名 `"Join Alliance text"` 与那串字号/基准实参没动。
+            var jt = MenuDraw.TextBox(_noAlliance, jtR, Loc.T("SocialMenu/Alliances/JointToEarnRewards"),
                                       Color.white, "Join Alliance text", 41.4f, 18f, QText, 41.4f, 36f);
             if (jt != null) { /* hAlign = Center/Middle ⇒ 不调 Align* */ }
             var jbR = Off(JoinBtnR, x1, y1);
             _joinBtn = MenuDraw.Node(_noAlliance, "Join Alliances Button", jbR);
             var jbg = MenuDraw.Rect(_joinBtn, Art(ArtMulligan), jbR, "Bg", QArt);
-            MenuDraw.Text(_joinBtn, Off(JoinBtnTxR, x1, y1), "Search", Color.white, "Button Text", 36f, QText);
+            // 🔴 **2026-10-18（第五轮）：这颗钮的字走词条** —— 键 = 原版那颗 `Button Text` 的
+            //   `Localize.mTerm` 原文 **`MenuDeck/HUD/SearchFilter`**（**与卡组线那几颗、以及
+            //   `Shell/AlliancesTab.cs` 的搜索框占位符**同一条 mTerm！本批按 pid 亲读：该 mTerm 全库 11 颗，
+            //   6 颗在 `SocialMenu/` / `Draft Mode` 族 —— 本颗 = `No Alliance > Join Alliances Button >
+            //   Button Text`，其父链里还有 `Alliance Event Score Panel`）。
+            //   ⚠️ 同一条 mTerm 跨族 ⇒ 见 `Shell/AlliancesTab.cs` 那条注释里的就地订正。
+            //   英文列 = 那颗 TMP 的 `m_text` 原文 `Search`；中文列 = 「搜索」(`zh_CN.csv:10`)。
+            //   ⛔ 节点名 `"Button Text"` 不动（`Editor/MainMenuScene.cs` 的 §A103 那一节按名找它）。
+            MenuDraw.Text(_joinBtn, Off(JoinBtnTxR, x1, y1), Loc.T("MenuDeck/HUD/SearchFilter"),
+                          Color.white, "Button Text", 36f, QText);
             MenuDraw.Hit(_joinBtn, "ButtonHit", jbR, QHit, OnJoinAllianceClick, jbg, ArtMulligan,
                          ArtMulligan + "_hover", ArtMulligan + "_Pressed");
             var lbR = Off(NoLbR, x1, y1);
             _noLb = MenuDraw.Node(_noAlliance, "Leaderboard Button", lbR);
             var lbg = MenuDraw.Rect(_noLb, Art(ArtMulligan), lbR, "Bg", QArt);
-            MenuDraw.Text(_noLb, Off(NoLbTxR, x1, y1), "Leaderboard", Color.white, "Button Text", 36f, QText);
+            // 🔴 **2026-10-18（第六轮）**：同一条键（`MainMenu/RankedWindow/Leaderboard`，**跨窗共用**，
+            //   见上面 `View Leaderboard Button` 那颗的注释）。本颗的父链实测 =
+            //   `Button Text < Leaderboard Button < No Alliance < Alliance Event Score Panel < …` ⇒ 与我们的逐节同名。
+            MenuDraw.Text(_noLb, Off(NoLbTxR, x1, y1), Loc.T("MainMenu/RankedWindow/Leaderboard"),
+                          Color.white, "Button Text", 36f, QText);
             MenuDraw.Hit(_noLb, "ButtonHit", lbR, QHit, OnLeaderboardClick, lbg, ArtMulligan,
                          ArtMulligan + "_hover", ArtMulligan + "_Pressed");
 

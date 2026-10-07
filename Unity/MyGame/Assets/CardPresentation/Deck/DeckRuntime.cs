@@ -968,7 +968,18 @@ namespace CardPresentation
             Hover("hdr_clear",
                   Img("hdr_clear", "UI_Button_Mulligan", HdrClearX, HdrClearY, HdrClearW, HdrClearH, QRow),
                   "UI_Button_Mulligan");
-            Txt("hdr_clear_t", "Clear filters", HdrClearX, HdrClearY, HdrClearW, HdrClearH, 2, Ink, QText);
+            // 🔴 **2026-10-18（A891 的续）：文案走 `Loc.T`** —— 词条键 = 原版 prefab 上那颗 `Localize.mTerm`
+            //   的原文 `MenuDeck/Filters/ClearFilters`（5 颗同键，节点名一律 `Button Text`；本批按 pid 亲读）。
+            //   🔴 **本窗这颗的父链**（2026-10-18 第三轮整改 · 审查 P3 就地订正，铁律 5）：
+            //     `Deck Editing Menu > Content Area > Header > Filters > **Generic Simplified UI Button_updated** > Button Text`
+            //   —— 本行原来写的是 `… > Header/Filters/**Clear Filter Button**/Button Text`：**中间那个节点名写错了**。
+            //   `Clear Filter Button` 是**收藏窗那 4 颗**的父名（`… > Header Filters/Header > Clear Filter Button >
+            //   Button Text`）—— 两棵树的中间节点名**不同**，当时混成一个了。
+            //   英文那一列 = 那颗 TMP 的 `m_text` 原文 `Clear filters`；中文列 = 「清除筛选」
+            //   （源 `数据/本地化/i18n/zh_CN.csv:9`，⚠️ 是我们译的）。
+            //   ⛔ 节点名 `hdr_clear_t` 不动（`Editor/DeckScene.cs` 按名找）。
+            Txt("hdr_clear_t", Loc.T("MenuDeck/Filters/ClearFilters"),
+                HdrClearX, HdrClearY, HdrClearW, HdrClearH, 2, Ink, QText);
             Btn_("hdr_clear", HdrClearX, HdrClearY, HdrClearW, HdrClearH);
 
             // Wildcard Counter：底板 + 四个稀有度图标（30×44）+ 各自的数量
@@ -1166,7 +1177,13 @@ namespace CardPresentation
                 }
             }
             _deckNameText = Txt("name_t", "", NameTxX, NameTxY, NameTxW, NameTxH, 2, Ink, QText);
-            _deckNameHint = Txt("name_h", "Tap to edit deck name", NameTxX, NameTxY, NameTxW, NameTxH, 2,
+            // 🔴 **2026-10-18（A891 的续 · 第三轮整改 · 审查 P4）：占位符走 `Loc.T`** —— 键 = 原版那颗
+            //   `Placeholder` 的 `Localize.mTerm` 原文 `MenuDeck/HUD/EditDeckName`（全库只 1 颗，就是这一颗：
+            //   `Deck Editing Menu > Content Area > Sidebar > Window Options > Deck Name > Text Area > Placeholder`）。
+            //   英文列 = TMP 原文 `Tap to edit deck name`；中文列 = 「点击编辑卡组名」(`zh_CN.csv:172`)。
+            //   ⛔ 节点名 `name_h` 不动（`Editor/DeckScene.cs` 的 D34 那一节按名找它量档位/左沿）；
+            //   ⚠️ 它左对齐 ⇒ 文案变宽窄**不动左沿**，D34 那条 19.5 不受影响。
+            _deckNameHint = Txt("name_h", Loc.T("MenuDeck/HUD/EditDeckName"), NameTxX, NameTxY, NameTxW, NameTxH, 2,
                                 new Color(1f, 1f, 1f, 0.42f), QText);
             // 🔴 **2026-10-17（D34）**：这两个（原版 `EverguildInputField` 的 `Text` 与 `Placeholder`）
             //   都是 **`m_HorizontalAlignment = 1`(Left) / `m_VerticalAlignment = **8192**`** ——
@@ -1377,7 +1394,13 @@ namespace CardPresentation
             //     （`ClearCosmoFlt()` 会 Destroy 那一批；标题跟着走就会在每次筛选后被删掉）。
             var cosmoArmyR = new PxRect(FltX, FltY + FilterPanelModel.CosmoSpacing1,
                                         FltX + FltW, FltY + FilterPanelModel.CosmoSpacing1 + FilterPanelModel.TitleH);
-            _cosmoArmyTitle = Txt("cosmoflt_title", "Army", cosmoArmyR.x1, cosmoArmyR.y1, cosmoArmyR.W, cosmoArmyR.H,
+            // 🔴 **2026-10-18（A891 的续）：那一行字走 `Loc.T`** —— 词条键 = 原版 prefab 上那颗
+            //   `Localize.mTerm` 的**原文** `MenuDeck/Filters/Army`（6 颗同键，节点名一律 `Title`；
+            //   本窗这一棵 = `Deck Editing Menu > Content Area > Cosmetic Display > Cosmetic FIlter >
+            //   Filters > Army Filter/Title`）。英文列 = 那颗 TMP 的 `m_text` 原文 `Army`；
+            //   中文列 = 「军队」（源 `数据/本地化/i18n/zh_CN.csv:11`，⚠️ 是我们译的）。
+            //   ⛔ 节点名 `cosmoflt_title` 不动（`Editor/DeckScene.cs:4901` 按名找）。
+            _cosmoArmyTitle = Txt("cosmoflt_title", Loc.T("MenuDeck/Filters/Army"), cosmoArmyR.x1, cosmoArmyR.y1, cosmoArmyR.W, cosmoArmyR.H,
                                   1, Ink, QFltText, CosmoFltParent);
             if (_cosmoArmyTitle != null)
             {
@@ -1652,7 +1675,14 @@ namespace CardPresentation
             foreach (var tl in titles)
             {
                 var r = new PxRect(FltX + tl.R.x1, FltY + tl.R.y1, FltX + tl.R.x2, FltY + tl.R.y2);
-                var lb = Txt("flt_title_" + tl.Text.Replace(" ", "_"), tl.Text, r.x1, r.y1, r.W, r.H, 1, Ink,
+                // 🔴 **2026-10-18（A891 的续 · 续做 A）：显示文案走词条，节点名【不变】** ——
+                //   `tl.Text` 是**英文原名**（`Army`/`Rarity`/`Energy Cost`/`Type`），它**一行两用**：
+                //   节点名 `"flt_title_" + tl.Text.Replace(" ","_")` 与显示文案。本批**只换显示那一个实参**
+                //   （`FilterPanelModel.TitleText(tl.Text)`，内部 = `Loc.T(键)`），
+                //   ⛔ **节点名那半句一个字没动** —— `Editor/DeckScene.cs` 的 `TitleLeftPx` / `FilterTitleLabel`
+                //   按名找（`flt_title_Army` / `flt_title_Energy_Cost` …），名字一换整族断言红。
+                //   ⚠️ `Energy Cost` **原版没有 `Localize`** ⇒ `TitleText` 原样返回英文（见 `TitleTerm` 的 doc）。
+                var lb = Txt("flt_title_" + tl.Text.Replace(" ", "_"), FilterPanelModel.TitleText(tl.Text), r.x1, r.y1, r.W, r.H, 1, Ink,
                              QFltText, FltParent);
                 if (lb != null)
                 {
@@ -1947,7 +1977,12 @@ namespace CardPresentation
             // 出厂 `act=F`、**运行期才按数据开** ⇒ 建出来先关着。判据写在 `RefreshTabVisibility` 一处
             //（本页还没有筛选抽屉 ⇒ 233 张永远非空 ⇒ 实际上永远不显示，与原版「没筛就不空」一致）。
             _cosmEmptyWarn = NewGo("cosm_empty");
-            var emptyTx = Txt("cosm_empty_t", "There are no cards in your collection for the selected filters",
+            // 🔴 **2026-10-18（第三轮整改 · 审查 P4）：字走 `Loc.T`** —— 卡背抽屉这一份与收藏窗 Cards 页
+            //   **同一条键**（`MenuCollection/NoCardsFound`，原版 4 颗里的 `Deck Editing Menu` 那一颗：
+            //   `… > Content Area > Cosmetic Display > Scroll View > Empty Collection Warning/Warning`）。
+            //   英文列 = TMP 原文逐字符；中文列 = 「没有符合当前筛选的卡牌」(`zh_CN.csv:177`)。
+            //   ⛔ 节点名 `cosm_empty_t` 不动。
+            var emptyTx = Txt("cosm_empty_t", Loc.T("MenuCollection/NoCardsFound"),
                               135.23f, 70.97f, 1970.00f, 1080.03f, 5, Ink, QText);
             if (_cosmEmptyWarn != null)
             {
@@ -2403,7 +2438,7 @@ namespace CardPresentation
             if (scroll) return false;                    // 滚动的手势：不弹错、也不起拖
             if (err != DeckError.None)
             {
-                Say("拖不进去：" + DeckRules.Describe(err));
+                Say("拖不进去：" + DeckErrorText(err));
                 Debug.Log("[Drag] `CanAdd` 没过（" + err + "）⇒ **不起拖**（原版这一支 = `UIMessageController.ShowError`）");
                 return false;
             }
@@ -2521,7 +2556,24 @@ namespace CardPresentation
             //    `WindowButton` 的两张表推得出）
             const float okX = 720.83f, okY = 569.93f, okW = 478.343f, okH = 75f;
             Hover("imp_ok", Img("imp_ok", "40K_button", okX, okY, okW, okH, QModalRow), "40K_button");
-            _impOkTx = Txt("imp_ok_t", "Confirm", okX, okY, okW, okH, 2, Ink, QModalText);
+            // 🔴 **2026-10-18（A891 的续 · 续做 B）：这一颗的字也走词条** —— 键 = 原版那颗 `Button Text` 的
+            //   `Localize.mTerm` 原文 **`MainMenu/General/Confirm`**（⚠️ 不是 `MenuDeck/` 族 —— 原版自己
+            //   复用了主菜单那条**通用按钮词条**；同 `Shell/ImportDeckPopup.cs` 的 `ConfirmTerm`）。
+            //   🔴 **本批之前这里是写死 `"Confirm"`** —— 而同一扇窗（`Import Deck Popup`）的**另一份实现**
+            //   （`Shell/ImportDeckPopup.cs:217`）早就走词条了 ⇒ 正是 CLAUDE.md §三
+            //   「**两处写同一条规则 = 迟早不一致**」的现成例子（中文档下两扇窗那颗钮一个字中文一个字英文）。
+            //   英文列 = 那颗 TMP 的 `m_text` 原文 `Confirm`；中文列 = 「确认」（`zh_CN.csv:83`）。
+            //   ⛔ 节点名 `imp_ok_t` 不动（自检按名读，见 `Editor/DeckScene.cs` 导入弹窗那一节）。
+            _impOkTx = Txt("imp_ok_t", Loc.T("MainMenu/General/Confirm"), okX, okY, okW, okH, 2, Ink, QModalText);
+            // 🔴 **2026-10-18（A892）：纵向档显式落成 `Midline`。** 判据 = 原版那颗 TMP 按 pid 亲读
+            //   （`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_6959005812579893394.json`）：
+            //   `m_text='Confirm'` · **`m_VerticalAlignment = 4096`（= `Midline`）** · `m_HorizontalAlignment = 2`（Center）·
+            //   `m_fontSize = 45`。我方 `Battle/Label.cs` 的出厂档 `_vTier = VAlign.Middle`（= **512**）
+            //   ⇒ 不显式设就是**另一档**（字墨会比原版低一点点）。⚠️ 这批**只设档、不动出厂值**
+            //   （改 `Label` 出厂值会牵动全工程所有宿主 —— 见 `MenuDraw.SetVAlign` 的 doc）。
+            //   框高按**这颗钮自己的矩形**给（`Midline` 用不到它，但传对才是同一条口径）。
+            if (_impOkTx != null)
+                MenuDraw.SetVAlign(_impOkTx, Label.VAlign.Midline, new PxRect(okX, okY, okX + okW, okY + okH));
             Img("imp_close", "UI_Button_Round_background", 1317f, 202f, 75f, 75f, QModalRow);
             // 🆕 A24：这颗的 `m_TargetGraphic` 实测 = **子件 `Icon`**（就是这张 `40k_bt_close`），
             //   **不是**按钮自己那个圆底 —— 普查 §二 块 B 写的「常态图 = `UI_Button_Round_background`」
@@ -2564,6 +2616,10 @@ namespace CardPresentation
         //   ⇒ ⛔ 别「顺手补回来」；`Say()` 那条**消息通道**仍在（`Debug.Log` + `UiLastSay`）。
         //   ⚠️ `Library.LastError` 也**没有**丢掉出口：`SaveAndSay()` / `TryImport` 会把它念出来
         //      （`Say(...)` 那句日志、`DeckScene` 的 A398/A547 两条断言读的就是它）。
+        //   🔴 **2026-10-18（`G8`）**：`LastError` 从那一天起装的是**诊断串**（`DeckStore` 不再拼中文整句）
+        //      ⇒ 显示层**不许**再拿它当主文案：给玩家看的人话走 `Loc.T(TermSaveFailed)`
+        //      （`SaveFailReason()`，`LastError` 只缀在括号里当兜底诊断）；
+        //      读存档那条路走 `DeckLibrary.LastLoadIssueTerm`（从错误码来，见那个属性）。
 
         // ============================================================ 刷新
 
@@ -3388,7 +3444,7 @@ namespace CardPresentation
             var err = State.Validate();
             if (err != DeckError.None)
             {
-                Say("卡组不合法，没有保存：" + DeckRules.Describe(err));
+                Say("卡组不合法，没有保存：" + DeckErrorText(err));
                 ShowInvalidDeckPopUp(err);                 // 🆕 A364：= 原版 `__TrySaveDeck.c:94 ShowPopUp(...)`
                 return;                                    // ⛔ 不调 `CommitDeck()` —— 原版这里 return，不 UploadDeck
             }
@@ -3402,13 +3458,53 @@ namespace CardPresentation
             Say("已保存");
         }
 
-        /// <summary>落盘失败的原因（人话）—— 本窗**只写这一份**（`SaveAndSay` 与 `TryImport` 共用；
-        /// 「两处写同一条规则 = 迟早不一致」）。走的是**已有**的那条通道：`DeckLibrary.Save()` 把原因
-        /// 写进 `LastError`；它没给原因时兜一句 —— 兜底措辞与收藏窗那一半
-        /// `Shell/CollectionData.SaveFailReason()`（A503）**同一句**。⛔ 别在别处另写一套文案。</summary>
+        /// <summary>`DeckError` → **给玩家看的那句人话**（`Describe` 出键、`Loc.T` 取词）。
+        ///
+        /// 🔴 **2026-10-18（`G9`）新开这一个口，就是为了「同一语义只有一条路径」**：
+        /// `RuleEngine/DeckRules.Describe` 从这一天起**只出词条键**（⛔ 引擎层不再产人话），
+        /// 而所有显示点都得做「键 → 当前语言那句话」这一跳。⛔ **别在调用点手写 `Loc.T(Describe(...))`**
+        /// —— 那会散成好几处，将来加一层（比如字体闸）就得每处都改。
+        /// ⚠️ 本类**没法**替 `DeckEditorState.TryAdd` 收口：那个 `out string why` 出的也是键
+        /// （`Deck/DeckEditorState.cs` 不在本笔白名单里）⇒ 谁显示它谁负责过一道 `Loc.T`。
+        /// </summary>
+        public static string DeckErrorText(DeckError e) { return Loc.T(DeckRules.Describe(e)); }
+
+        /// <summary>「卡组存档**写不进去**」那条**人话**的词条键（🔴 **2026-10-18 `G8` 自拟**）。
+        ///
+        /// ⚠️ **原版没有这一条** —— 原版的卡组存在**服务器**上（`CardDeck.syncedToServer`），
+        /// 落盘失败这件事在本地不存在。四种载体都查过、**都查不到**：
+        ///   · prefab `Localize.mTerm`：全库扫 `"mTerm": "CustomErrors/…"` 只命中 2 条
+        ///     （`DuplicateConnection` / `ErrorSavingMatch`）、`MenuDeck/Error/*` 11 条里也没有「保存卡组失败」
+        ///     （只有 `FailedToDelete`）；
+        ///   · 代码字面量（`stringliteral.json`，26,507 条）：`CustomErrors/*` **13** 条 +
+        ///     `MenuDeck/Error/*` **12** 条 + `MainMenu/General/*` **13** 条，**逐条看过**，无此语义；
+        ///   · `decomp_full`：`CustomError` 枚举里最接近的是 `ErrorSavingMatch`（**保存对局**，不是卡组存档）
+        ///     ⇒ 语义不同，⛔ 不借它；
+        ///   · `assets_full`：同 prefab 那一路，无。
+        /// ⇒ 键名与两列文案**都是我们起的**（形状照原版 `MenuDeck/Error/*` 那一族）。
+        /// ⚠️ **中文那一列就是改之前那句写死的原话**（`"写不进存档文件"`）⇒ **今天中文档零变化**；
+        /// 英文那一列是我们译的（原版英文在远端 I2 表，本地取不到）。</summary>
+        public const string TermSaveFailed = "MenuDeck/Error/SaveFailed";
+
+        /// <summary>落盘失败的原因 —— 🔴 **`2026-10-18（G8）` 起改成「人话走 `Loc`、诊断当兜底」**。
+        ///
+        /// **改之前**：`string.IsNullOrEmpty(Library.LastError) ? "写不进存档文件" : Library.LastError`
+        /// —— 一句话全写死在这里，且**直接拿 `LastError` 当显示主路**。
+        /// **现在**：
+        ///   · **人话**那一半走词条（`Loc.T(TermSaveFailed)`，随语档）；
+        ///   · `Library.LastError`（🔴 现在是一串**诊断**，见 `DeckStore.SaveAll` 的注释）
+        ///     只当**兜底诊断**，缀在括号里 —— ① 「不许静默失败」要求原因**看得见**，
+        ///     ② `Editor/DeckScene.cs` 的 A547 那条断言（「报的是**真原因**」）读的就是它出现在日志里。
+        ///
+        /// ⚠️ 与收藏窗那一半 `Shell/CollectionData.SaveFailReason()`（A503）原来是**逐字同一句**；
+        /// 本笔把这一半改成走词条之后，两半在**英文档**下会不一样（那半边在 `Shell/**`，
+        /// **不在本件白名单**）⇒ 如实记进交件报告，⛔ 不是「两处写同一条规则」被打破
+        /// （中文档下两句**仍然逐字相同**，因为词条的中文列就是原话）。</summary>
         string SaveFailReason()
         {
-            return string.IsNullOrEmpty(Library.LastError) ? "写不进存档文件" : Library.LastError;
+            string why = Loc.T(TermSaveFailed);
+            string diag = Library.LastError;
+            return string.IsNullOrEmpty(diag) ? why : why + "（" + diag + "）";
         }
 
         // ============================================================ 关窗（原版 `DeckEditingWindow.TryClose`）
@@ -3697,6 +3793,7 @@ namespace CardPresentation
         void OpenImport()
         {
             _importOpen = true; _importText = ""; _importError = "";
+            LastImportOutcome = ImportOutcome.None;      // 🔴 G8：开窗复位（同 `_importError`）
             // 🔴 **2026-10-17（F2 · 修 D46 的调用时机）**：**先激活、再刷文本** ——
             //   `RefreshImportText()` 末句是 `AlignLeftOn(630)`，它按 `WorldW`（TMP 的 `textBounds`）摆位，
             //   而 **TMP 在对象没激活时量不出尺寸**（`CLAUDE.md` §三 那条坑：未激活时 `textBounds` 是
@@ -3738,6 +3835,9 @@ namespace CardPresentation
             var deck = DeckLibrary.ImportString(_importText, State.Find);
             if (deck == null)
             {
+                // 🔴 `G8`：结局码与那句话**同一步**写（⛔ 别只改一处 —— 判据与文案分家就会打架）
+                LastImportOutcome = string.IsNullOrWhiteSpace(_importText)
+                    ? ImportOutcome.EmptyInput : ImportOutcome.BadString;
                 _importError = string.IsNullOrWhiteSpace(_importText) ? "先粘贴卡组串" : "这不是一条合法的卡组串";
                 RefreshImportText();
                 return false;
@@ -3763,11 +3863,13 @@ namespace CardPresentation
                 //   A547 那节现在钉了第三种；同族出口 = `Shell/CollectionData.ImportDeck`，A503 修的）。
                 //   ⛔ 文案与 `Say` 那句**同一条**：先算进 `fail` 再两处用 —— 两处各写一份迟早不一致。
                 string fail = "导入失败：卡组串读出来了，但**没写进存档**——" + SaveFailReason() + "（重启就没了）";
+                LastImportOutcome = ImportOutcome.NotPersisted;      // 🔴 G8：结局码与那句话同一步
                 _importError = fail;
                 RefreshImportText();
                 Say(fail);
                 return false;
             }
+            LastImportOutcome = ImportOutcome.Ok;                        // 🔴 G8
             Say("已导入「" + deck.Name + "」" +
                 (DeckLibrary.LastDroppedIds.Count > 0
                  ? "（有 " + DeckLibrary.LastDroppedIds.Count + " 张卡在我们卡池里没有，已按原版丢掉）" : ""));
@@ -4233,6 +4335,31 @@ namespace CardPresentation
         /// 调用方按它分不出「为什么 false」。⚠️ 只在**导入窗开着那一拍**有意义：
         /// `OpenImport()` 会把它清空（`CloseImport()` 不清）。</summary>
         public string ImportError { get { return _importError; } }
+
+        /// <summary>🔴 **2026-10-18（`G8` · 同族排查 ④）：`TryImport` 的【结局码】。**
+        ///
+        /// **为什么非有它不可**：原来「导入了没有 / 成没成」只能**去 `Say()` 那段中文里找字**
+        /// —— `Editor/DeckScene.cs` 的 A547 那一节读的就是 `spoken.Contains("导入失败")` 与
+        /// `!spoken.Contains("已导入")`。那是**拿给人看的句子当判据**，而且**一正一反不对称**：
+        /// 一旦那两句走了本地化，**正面那条会红**（看得见），**反面那条会恒真**（`spoke` 里
+        /// 永远不含英文档不会出现的「已导入」⇒ **静默通过**）—— 这正是本工程最怕的那一种绿。
+        /// ⇒ 判据改成**枚举**（`Say` 那两句怎么改词都不影响它）。</summary>
+        public enum ImportOutcome
+        {
+            /// <summary>还没试过 / 窗刚开（`OpenImport` 复位）。</summary>
+            None = 0,
+            /// <summary>导进来了、也落盘了。</summary>
+            Ok = 1,
+            /// <summary>输入框是空的（`先粘贴卡组串`）。</summary>
+            EmptyInput = 2,
+            /// <summary>那串不是合法卡组串（不是 Base64 / 不是这个格式）。</summary>
+            BadString = 3,
+            /// <summary>🔴 串**读出来了**、也**进了库**，但**没写进存档**（A547 那一种）。</summary>
+            NotPersisted = 4,
+        }
+
+        /// <summary>最近一次 <see cref="TryImport"/> 的结局码（**判据用它，⛔ 别去比 `Say` 的字**）。</summary>
+        public ImportOutcome LastImportOutcome { get; private set; }
         public void UiOpenImport() { OpenImport(); }
         public void UiSetImportText(string s) { _importText = s ?? ""; RefreshImportText(); }
         public bool UiTryImport() { return TryImport(); }
@@ -5608,7 +5735,7 @@ namespace CardPresentation
         {
             string why;
             if (State.TryAdd(def, out why)) { MarkDeckDirty(); RefreshAll(); Say("已加入：" + CardText.Name(def.Name, def.NameZh)); }
-            else Say(why);
+            else Say(Loc.T(why));
         }
 
         /// <summary>🆕 **2026-10-12（A363）**：**标脏 + 刷界面** —— 突变只走这一条，**不落盘**。
@@ -5628,7 +5755,10 @@ namespace CardPresentation
 
         /// <summary>**真写回卡组库（落盘）** —— 全窗**只有 `SaveAndSay()` 一处**会走到它
         /// （🆕 A363 改向；判据 = 原版 `UploadDeck` 只由 `__TrySaveDeck` 的成功支调用）。
-        /// 写成功才清脏标记；失败**不吞**（`Library.LastError` 由页头 `_storeErr` 显示出来），
+        /// 写成功才清脏标记；失败**不吞**（⚠️ **2026-10-18（`G8`）就地更正**：这里原来写「`Library.LastError`
+        /// 由页头 `_storeErr` 显示出来」—— **那件 2026-10-17 已按 D10 删件删掉**（原版侧栏没有它），
+        /// 见 `:611` 那段。今天这条通道是：`SaveAndSay()` 的 `Say(...)` 日志 + `UiLastSay`（自检读它）；
+        /// 给玩家看的人话走词条 `Loc.T(TermSaveFailed)`，`LastError` 只当**兜底诊断**），
         /// 返回给调用方，让 `SaveAndSay()` 能如实出声「保存失败」而不是照样说「已保存」。
         ///
         /// <para>🔴 **2026-10-12（A363）**：原来那句注释写「原版是 `syncedToServer=false` 标脏 +

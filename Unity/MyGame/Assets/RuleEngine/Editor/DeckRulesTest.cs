@@ -198,9 +198,19 @@ public static partial class RuleEngineTest
         Check(RuleEngine.DeckRules.Validate(legal, lookup, skirmish: true), RuleEngine.DeckError.TooManyCards,
               "经典卡组拿去做遭遇模式校验 → 张数超了");
 
-        // 错误码有人话
-        CheckTrue(RuleEngine.DeckRules.Describe(RuleEngine.DeckError.None) == "", "None 的人话是空串");
-        CheckTrue(RuleEngine.DeckRules.Describe(RuleEngine.DeckError.NoWarlord).Length > 0, "其它错误码有人话");
+        // `Describe` 出的是**词条键**（🔴 2026-10-18（`G9`）：⛔ 引擎层**不再产人话** ——
+        // 它原来直接造中文整句，而显示层和断言都拿它当文案用 ⇒ 换语言时静默不跟）。
+        // 判据 → `RuleEngine/Core/DeckRules.cs` 的 `Describe` 整段注释（原版两族键的地址表）。
+        CheckTrue(RuleEngine.DeckRules.Describe(RuleEngine.DeckError.None) == "",
+                  "★ G9：`None` ⇒ 空串（原版 `ToRawLocalizationString` 的 `err==0` 那一支）");
+        CheckTrue(RuleEngine.DeckRules.Describe(RuleEngine.DeckError.NoWarlord)
+                  == RuleEngine.DeckRules.TermPrefix + RuleEngine.DeckError.NoWarlord,
+                  "★ G9：其它错误码出的是**键** = `" + RuleEngine.DeckRules.TermPrefix + "<枚举名>`"
+                + "｜🧨 改回返回中文句子（或返回 `e.ToString()`）⇒ 红");
+        // ⛔ 引擎层**不许**有汉字 —— 这一条把「它再也不产人话」钉死（上面那条只钉了形状，
+        //   万一有人写成 `"MenuDeck/Error/" + "…"` 那种带中文的键，形状照样对、这条会红）。
+        CheckTrue(!RuleEngine.DeckRules.Describe(RuleEngine.DeckError.WrongFaction).Contains("卡"),
+                  "★ G9：键里**一个汉字都没有**（人话在 `CardPresentation/Core/Loc.cs` 的表里）");
     }
 
     // ---------------------------------------------------------------- 存档
@@ -238,9 +248,15 @@ public static partial class RuleEngineTest
 
             // 坏文件不许炸
             File.WriteAllText(path, "{ 这不是 json ");
-            var broken = RuleEngine.DeckStore.LoadAll(out note);
+            // 🔴 **2026-10-18 更正（铁律 5，由 G8 点名）**：这里原来断的是 `note.Contains("失败")` —— 那是
+            //   **拿给人看的中文当判据**（本工程红线「不许拿给人看的句子当逻辑」），而且 **G8 已把 `DeckStore` 的
+            //   `note` 改成【诊断串】、不再产中文** ⇒ 那句 `Contains` 会**恒假**。判据改走**错误码**（同一口径）。
+            RuleEngine.DeckStore.LoadNote code; string detail; int cur2;
+            var broken = RuleEngine.DeckStore.LoadAll(out code, out detail, out cur2);
             Check(broken.Count, 0, "存档损坏时返回空表");
-            CheckTrue(note != null && note.Contains("失败"), $"并说明失败（实际：{note}）");
+            CheckTrue(code == RuleEngine.DeckStore.LoadNote.ReadFailed
+                      || code == RuleEngine.DeckStore.LoadNote.Empty,
+                      $"并说明失败（实际：{code} / {detail}）");
 
             RuleEngine.DeckStore.DeleteFile();
             CheckTrue(!File.Exists(path), "DeleteFile 能删掉");

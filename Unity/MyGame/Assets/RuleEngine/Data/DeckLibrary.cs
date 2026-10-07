@@ -19,7 +19,11 @@ namespace RuleEngine
 {
     /// <summary>
     /// 卡组库。**改这个类就要加断言**（`DeckScene.Run` 里那一段）。
-    /// 所有会改内容的操作都会立刻落盘（`Save`），失败时不吞掉 —— `LastError` 里有人话。
+    /// 所有会改内容的操作都会立刻落盘（`Save`），失败时不吞掉 —— `LastError` 里**说得出原因**。
+    /// ⚠️ 🔴 **2026-10-18（`G8`）就地更正**：本行原来写「`LastError` 里**有人话**」——
+    /// 从那一天起它是**诊断串**（技术用，`DeckStore` 不再拼中文整句），
+    /// **不再是给玩家看的主文案**；显示层走 `Loc`（读存档 → <see cref="LastLoadIssueTerm"/>；
+    /// 落盘失败 → `CardPresentation.DeckRuntime.TermSaveFailed`）。
     ///
     /// <para>🔴 **2026-10-12（A398）**：那几个「改完就落盘」的方法，**返回值必须说得清「落盘成没成」** ——
     /// · 返回 <c>bool</c> 的（<see cref="CommitCurrent"/> / <see cref="Rename"/> / <see cref="Delete"/>）
@@ -37,17 +41,100 @@ namespace RuleEngine
         /// <summary>上一次落盘失败的原因（成功时是 null）。UI 上该把它显示出来。</summary>
         public string LastError { get; private set; }
 
+        /// <summary>
+        /// 🔴 **2026-10-18（`G3` · 真差异 ②）：「读存档」这件事的**类型** —— 判据是它，**不是文案**。
+        ///
+        /// **改之前**：`LastError = note.Contains("失败") ? note : null` —— 拿**中文字符串**当判据。
+        /// 那几条 `note` 是 `DeckStore.LoadAll` 写给**人**看的句子；一旦它们走本地化
+        /// （英文档 / 改一次措辞），`Contains("失败")` 恒 false ⇒ `LastError` **永远是 null**
+        /// ⇒ 卡组编辑窗底部那条报错横幅（`DeckRuntime._storeErr`）**静默消失**：玩家看到的是
+        /// 「读取成功、只是卡组没了」。
+        /// ⚠️ **2026-10-18（`G8`）补一句**：那条横幅（`_storeErr`）2026-10-17 已按 **D10 删件**删掉
+        /// （原版侧栏没有它），而 `DeckStore` 那三条 `note` 也**改成了诊断串**（不再是中文整句）
+        /// ⇒ 上面那个「静默消失」的**入口**今天已经不存在了，这条判据仍然要留着：
+        /// 它挡的是「**类型跟着文案走**」这个形状，而不是某一条具体路径。
+        ///
+        /// **现在**：类型由 <see cref="ClassifyLoad"/> 判（结构性判据 = 「有没有存档文件」+
+        /// 「`DeckStore` 有没有话要说」），文案只是 <see cref="LastError"/> 里的那句话
+        /// ⇒ **换语言 / 换措辞都不会改类型**。
+        /// 🔴 **2026-10-18（`G8`）**：显示层要挑词条就走 <see cref="LastLoadIssueTerm"/>
+        /// （**从错误码来**），⛔ 别读 `LastError` 那串字。
+        /// </summary>
+        public enum DeckLoadIssue
+        {
+            /// <summary>读到了（`DeckStore` 没话说）。</summary>
+            None = 0,
+            /// <summary>**还没有存档**（第一次跑）—— ✅ **不是失败**（不该弹报错横幅）。</summary>
+            NoSaveFile = 1,
+            /// <summary>存档在、但读不出来 / 解析不了 —— 🔴 **要出声**（写进 <see cref="LastError"/>）。</summary>
+            Failed = 2,
+        }
+
+        /// <summary>上次 <see cref="Load"/> 读存档的结果类型（**判类型用它，判文案用 <see cref="LastError"/>**）。</summary>
+        public DeckLoadIssue LastLoadIssue { get; private set; }
+
+        /// <summary>上次 <see cref="Load"/> 读存档的**错误码**（= `DeckStore.LoadNote`，
+        /// 🔴 **2026-10-18 `G8` 新增**）—— 它比 <see cref="LastLoadIssue"/> 细一档
+        /// （`Empty` 与 `ReadFailed` 在那个枚举里都是 `Failed`）。
+        ///
+        /// 🔴 **显示层挑词条走 <see cref="LastLoadIssueTerm"/>（它从这个码来）**，
+        /// ⛔ **别去读 <see cref="LastError"/> 那串字** —— 那一串是**诊断**（技术用），
+        /// 拿它当显示主路 = 把英文/中文技术串喷到界面上（`G3` 拆的就是这个坑）。</summary>
+        public DeckStore.LoadNote LastLoadCode { get; private set; }
+
+        /// <summary>读存档出问题时该显示的**原版词条键**（`"CustomErrors/ErrorLoadDeck"`）；
+        /// 读到了 / 第一次跑 ⇒ `null`（**那两个都不该显示任何东西**）。
+        ///
+        /// ⚠️ **显示层必须走 `Loc.T(它)`** —— 键名照原版（出处与载体写在
+        /// `DeckStore.ErrorLoadDeckTerm` / `DeckStore.TermKeyOf` 上）。
+        /// 消费侧今天在 `CardPresentation/Battle/BattleDriver.cs:2380`（`PickSavedDeck` 的 `note`，
+        /// 出在开局提示行上）—— 那一处在 `Battle/**`（**不在 `G8` 的白名单**）⇒ 只留指针，见交件报告。</summary>
+        public string LastLoadIssueTerm { get { return DeckStore.TermKeyOf(LastLoadCode); } }
+
+        /// <summary>
+        /// **「这次读存档算不算失败」的【唯一】判据** —— `Load()` 与自检**共用这一处**
+        /// （⛔ 别再往 `Load` 里写第二份 `Contains("失败")`：两处写同一条规则 = 迟早不一致）。
+        ///
+        /// 判据是**结构性的**、与文案无关：
+        ///   · `note == null` ⇒ `DeckStore` 无话可说 = 读到了一份存档（哪怕是 0 套的合法存档）⇒ `None`；
+        ///   · `note != null` + **存档文件在** ⇒ 文件在却读不出 = **失败**（解析不了 / 读异常，
+        ///     `DeckStore.LoadAll` 那两条 `note` 都在这个分支里）；
+        ///   · `note != null` + **文件不在** ⇒ 第一次跑（`DeckStore` 的 `LoadNote.NoSaveFile`）⇒ **不是失败**。
+        /// ⚠️ `note` 里的**字句一个字都没参与判断** —— 这正是本次整改要的那条性质。
+        /// 🔴 **2026-10-18（`G8`）**：`note` 现在**已经不是中文句子**，而是**诊断串**
+        /// （`"no save file"` / `"save file has no decks"` / `"read failed: …"`）——
+        /// 本判据**照旧不看它写了什么**，只看它**是不是 null**（那是「`DeckStore` 有没有话要说」这个信号）。
+        /// </summary>
+        /// <param name="note">`DeckStore.LoadAll` 带出来的那句**诊断**（`null` = 没话说）。</param>
+        /// <param name="saveFileExisted">**调用 `LoadAll` 之前**存档文件在不在。</param>
+        public static DeckLoadIssue ClassifyLoad(string note, bool saveFileExisted)
+        {
+            if (note == null) return DeckLoadIssue.None;
+            return saveFileExisted ? DeckLoadIssue.Failed : DeckLoadIssue.NoSaveFile;
+        }
+
         /// <summary>读存档目录里的全部卡组。读不到就是空库（**不抛异常**）。</summary>
         public static DeckLibrary Load()
         {
             var lib = new DeckLibrary();
-            string note;
+            DeckStore.LoadNote note;
+            string detail;
             int current;
-            var list = DeckStore.LoadAll(out note, out current);
+            // ⚠️ 「文件在不在」必须在 **`LoadAll` 之前**取 —— 读取失败/成功都会改动文件系统状态，
+            //    取在之后就会把「第一次跑」和「文件在但读不出来」判反。
+            bool existed = System.IO.File.Exists(DeckStore.Path);
+            var list = DeckStore.LoadAll(out note, out detail, out current);
             if (list != null) lib._decks.AddRange(list);
             // 「上次在编辑哪一套」也存了 —— 重新打开还停在那一套上
             if (list != null && list.Count > 0) lib._current = (current >= 0 && current < list.Count) ? current : 0;
-            lib.LastError = (note != null && note.Contains("失败")) ? note : null;
+            // 🔴 **2026-10-18（`G3`）**：类型走 `ClassifyLoad`（**不看汉字**）。
+            // 🔴 **2026-10-18（`G8`）**：上面那个 `detail` 现在**是诊断串**（不是给人看的中文句子），
+            //    `ClassifyLoad` 的判据照旧**只**看「有没有话」+「文件在不在」两件结构性的事
+            //    ⇒ **两处都不看文案**。另存一份错误码（`LastLoadCode`）给显示层挑词条用。
+            lib.LastLoadCode = note;
+            lib.LastLoadIssue = ClassifyLoad(detail, existed);
+            // `LastError` 里装的是**诊断**（技术用），⛔ 不是显示主路 —— 显示层走 `LastLoadIssueTerm`。
+            lib.LastError = lib.LastLoadIssue == DeckLoadIssue.Failed ? detail : null;
             return lib;
         }
 
@@ -151,7 +238,8 @@ namespace RuleEngine
             return Save();
         }
 
-        /// <summary>落盘。失败不吞 —— 写进 <see cref="LastError"/>，UI 该显示出来。</summary>
+        /// <summary>落盘。失败不吞 —— 原因（**诊断串**，见类头那条更正）写进 <see cref="LastError"/>，
+        /// 调用方要出声就出声；⛔ 别把它当界面文案（显示层走 `Loc`）。</summary>
         public bool Save()
         {
             string err;
@@ -165,7 +253,8 @@ namespace RuleEngine
         /// <para>🔴 **2026-10-12（A398）**：<see cref="Create"/> / <see cref="Duplicate"/> / <see cref="Add"/>
         /// 返回的是它们造出来的对象（`PlayerDeck`，不是 `bool`）⇒ **`return Save();` 编不过**，
         /// 那三处原来写的是「`Save();` + `return &lt;对象&gt;;`」= 把落盘结果吞了。本笔补两条出口：
-        /// ① `Save()` 内部照旧把原因写进 <see cref="LastError"/>（卡组编辑窗的页头 `_storeErr` 会显示它）；
+        /// ① `Save()` 内部照旧把原因写进 <see cref="LastError"/>（⚠️ **2026-10-18 `G8` 起是诊断串** ——
+        /// 「卡组编辑窗的页头 `_storeErr` 会显示它」那半句**已过期**：那件 2026-10-17 按 D10 删件删掉了）；
         /// ② 这里再打一条**警告** —— 调用点哪怕完全不看 `LastError`，控制台也不会一声不响
         /// （红线「不许静默失败」）。</para>
         ///

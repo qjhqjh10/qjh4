@@ -3352,8 +3352,20 @@ public static class MainMenuScene
                                      "`Avatar Name`（⚠️ 这一行装的是**称号名**，不是玩家名）");
                         CheckAtWorld(FindChild(sel, "Select Avatar Button"), 343.49f, 562.21f, 670.43f, 736.48f,
                                      "`Select Avatar Button`");
+                        // 🔴 **2026-10-18（A891 的续 · W1 现核）就地留痕：上面那句「还没挂 `Localize`」经复查【成立】，
+                        //   不订正** —— 本轮把 `bundle_menus_assets_all` 里**三颗** `Select Avatar Button`
+                        //   （`Avatar Tab` / `Title Tab` / `Profile Cosmetic Tab`）的 `Button Text` 逐颗按 pid 读了一遍：
+                        //   三颗的 TMP `m_text` 全是葡语占位串 **`Selecionar`**，**一颗 `Localize` 都没有**
+                        //   （`Localize` 的 `m_Script` = `8610481073976370760`，那三颗的组件表里找不到它）。
+                        //   ⚠️ **别把这颗与另一颗混了**（本轮差点混）：`MenuDeck/MenuButtons/Select` 那条词条
+                        //   **只有一个实例**、挂在**另一棵树** —— `Deck info Popup > Buttons > Select Deck > Button Text`
+                        //   （`MonoBehaviour_1813973329225681320.json`，同 GameObject 的 TMP 是**西语** `Seleccionar`，
+                        //   两个 `c`）。⇒ **本颗的判据是空的**（铁律 11 的例外①：原版本身没有）⇒
+                        //   照现状**不接词条**（若哪天要接，落点是 `Shell/TitleTab.cs:66` / `Shell/AvatarTab.cs:83`
+                        //   那两个 `BtnLabel = "Select"`，⛔ 不在 A891 的续那批的文件白名单里）。
                         CheckText(TextOf(FindChild(sel, "Button Text")), "Select",
-                                  "按钮文案 = `Select`（⚠️ **我们挑的**：原版那条是**葡语占位串 `Selecionar`**、还没挂 `Localize`）");
+                                  "按钮文案 = `Select`（⚠️ **我们挑的**：原版那条是**葡语占位串 `Selecionar`**、还没挂 `Localize` —— "
+                                + "2026-10-18 逐颗按 pid 复查过，见上面那条留痕）");
                         CheckTrue(FindChild(sel, "Toggle borde") == null,
                                   "`Toggle borde` **不建**（出厂 act=F + 全包无 MonoBehaviour 指向它 + 无 Animation ⇒ 死节点）");
 
@@ -5879,13 +5891,23 @@ public static class MainMenuScene
                     CheckAtWorld(FindChild(FindChild(t, "Content Area"), "Tabs"), 167.17f, 1920.00f, 70.94f, 1080f, "`Tabs`");
 
                     // 左栏两键：`Alliances` / `Friends`（**位置是 VLG 算出来的**，165×180，顶 190.94 / 370.94）
+                    // 🔴 **2026-10-18（第七轮）**：这两颗的**文案**从本轮起走词条（`Shell/SocialWindow.cs` 的
+                    //   `LocalizedButtons()` —— 建窗时把静态那份 `Buttons` 的 `Label` 换成 `Loc.T(键)`）。
+                    //   ⛔ **键逐颗写死在下面这张表里**，**不读** `SocialWindow.LabelTermFor`（读了 = 实现与
+                    //   检测器同一个口、一起改回去照样绿 = 自证）。⚠️ 渲染时基类会 `ToUpperInvariant()`：
+                    //   英文档 `ALLIANCES`/`FRIENDS`、中文档是中文字（CJK 不受影响）—— 期望值也过同一个 `ToUpperInvariant`。
+                    var socialTabTerms = new[] { "SocialMenu/Alliances", "SocialMenu/Friends" };
                     for (int i = 0; i < SocialWindow.Buttons.Length; i++)
                     {
                         float top = 70.94f + 120f + 180f * i, bot = top + 180f;
                         var br = FindChild(bar2, "SocialTabButton_" + i);
                         CheckAtWorld(br, 167.17f, 332.17f, top, bot, $"左栏第 {i + 1} 键（165×180）");
-                        CheckText(TextOf(FindChild(br, "Text")), SocialWindow.Buttons[i].Label.ToUpperInvariant(),
-                                  $"左栏第 {i + 1} 键文案 = `{SocialWindow.Buttons[i].Label}`（原版 TMP 是 UpperCase 款）");
+                        CheckTrue(i < socialTabTerms.Length && Loc.HasEntry(socialTabTerms[i]),
+                                  $"（前提）左栏第 {i + 1} 键的词条 `{socialTabTerms[i]}` 在表里"
+                                + "（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
+                        CheckText(TextOf(FindChild(br, "Text")), Loc.T(socialTabTerms[i]).ToUpperInvariant(),
+                                  $"左栏第 {i + 1} 键文案 = `Loc.T(\"{socialTabTerms[i]}\")` 转大写（随语档；"
+                                + $"原版 TMP 原文 = `{SocialWindow.Buttons[i].Label}`，渲染是 UpperCase 款）");
                         // 🆕 **2026-10-08（波 C3 · A212 主表 #31 验收）：左栏键文案的【渲染】断言**
                         //   （四窗这一族原来一条都没有；本窗 = 第 4 扇，宿主就是本文件）。
                         //   判据 = 原版四窗左栏键文案的 `m_TextWrappingMode` **一律 `0`（`NoWrap`）**；
@@ -6008,11 +6030,20 @@ public static class MainMenuScene
                     CheckAtWorld(hdr, 331.67f, 1920.00f, 89.87f, 162.04f, "`Alliance Header Buttons`");
                     CheckAtWorld(FindChild(hdr, "Generic Tab UI Button Search"), 360.47f, 620.47f, 90.30f, 157.94f,
                                  "`Join` 键（`40K_tab_button_overwindow` 489×97 · 九宫 188,0,99,30）");
-                    CheckText(TextOf(FindChild(hdr, "Generic Tab UI Button Search")), "Join",
-                              "第一个键的文案是 **`Join`**（⚠️ 节点名叫 `…Button Search`）");
+                    // 🔴 **2026-10-18（第八轮）改「随语档」**：这两颗页签的字从本轮起走词条
+                    //   （`Shell/AlliancesTab.cs` 的 `TabToggle(…, LabelJoin, …)` 与 `Loc.T("…/Create")`）
+                    //   ⇒ 宿主跑中文档时写死的 `"Join"` / `"Create"` 必红。
+                    //   🔴 第一颗的键**必须**与 `LabelJoin`（那个属性）用**同一把** —— 它运行期会被
+                    //   `SetJoinLabel` 重设（详情态换 `Back`、回来换回本键），下面 §详情态 那一节还有一条钉它。
+                    CheckTrue(Loc.HasEntry("SocialMenu/Alliances/Join") && Loc.HasEntry("SocialMenu/Alliances/Create"),
+                              "（前提）两条页签词条都在表里（⛔ 不在 ⇒ 下面两条两边一起退化成键名 = 假绿）");
+                    CheckText(TextOf(FindChild(hdr, "Generic Tab UI Button Search")), Loc.T("SocialMenu/Alliances/Join"),
+                              "第一个键的文案 = `Loc.T(\"SocialMenu/Alliances/Join\")`（随语档；"
+                            + "原版 TMP 原文 `Join` / ⚠️ 节点名叫 `…Button Search`）");
                     CheckAtWorld(FindChild(hdr, "Generic Tab UI Button Create"), 632.92f, 892.92f, 90.30f, 157.94f,
                                  "`Create` 键");
-                    CheckText(TextOf(FindChild(hdr, "Generic Tab UI Button Create")), "Create", "第二个键的文案 `Create`");
+                    CheckText(TextOf(FindChild(hdr, "Generic Tab UI Button Create")), Loc.T("SocialMenu/Alliances/Create"),
+                              "第二个键的文案 = `Loc.T(\"SocialMenu/Alliances/Create\")`（随语档；原版 TMP 原文 `Create`）");
                     var lv = FindChild(nmv, "List View");
                     CheckAtWorld(lv, 360.99f, 1902.59f, 162.04f, 1080.02f, "`List View`（`JoinAllianceMenu`）");
                     CheckAtWorld(FindChild(lv, "Search Field"), 1402.00f, 1798.57f, 172.90f, 229.86f, "搜索框");
@@ -6039,6 +6070,14 @@ public static class MainMenuScene
                         var phF = FindChild(lv, "Search Field");
                         CheckWrapMode(phF != null ? FindChild(phF, "Placeholder") : null, 0,
                                       "★ 搜索框占位 `Search` **不折行**（原版 `折行=0`，`字号=50 auto[18~50]`）");
+                        // 🔴 **2026-10-18（第五轮）**：占位符那句字**走词条**了（`Shell/AlliancesTab.cs` 的
+                        //   `Loc.T("MenuDeck/HUD/SearchFilter")` —— 与卡组线那几颗**同一条 mTerm**）⇒ 同批断文案。
+                        CheckTrue(Loc.HasEntry("MenuDeck/HUD/SearchFilter"),
+                                  "（前提）词条 `MenuDeck/HUD/SearchFilter` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
+                        CheckText(TextOf(phF != null ? FindChild(phF, "Placeholder") : null),
+                                  Loc.T("MenuDeck/HUD/SearchFilter"),
+                                  "★ 搜索框占位那句字 = `Loc.T(\"MenuDeck/HUD/SearchFilter\")`（随语档；"
+                                + "原版 TMP 原文 `Search` / 中文「搜索」`zh_CN.csv:10`）");
                     }
                     // ------------------------------------------------ 🆕 **2026-10-13（A528 · A414 那一批）**
                     // 🔴 **期望值一律取【原版 dump 的字面量】** —— `python 工具/menu_dump.py bundle_menus_assets_all
@@ -6069,6 +6108,15 @@ public static class MainMenuScene
                         CheckFontWindow(FindChild(FindChild(lv, "Open Alliances"), "Title"), 18f, 72f,
                                         "★ A414（表 #4）`Open Alliances > Title` 的自适应窗口 = 原版 **auto[18.0~72.0]**"
                                         + "（表 #3/#4 是本节**仅有**的两条「上界有牙」—— 其余站原版 max 正好等于 `fontPx`）");
+                        // 🔴 **2026-10-18（第六轮）**：这颗 `Title` 的字从本轮起**走词条**
+                        //   （`Shell/AlliancesTab.cs` 的 `Loc.T("SocialMenu/Alliances/OpenAlliances")`，
+                        //   键 = 原版那颗 `Title` 的 `Localize.mTerm` 原文）⇒ 同批断文案。
+                        CheckTrue(Loc.HasEntry("SocialMenu/Alliances/OpenAlliances"),
+                                  "（前提）词条 `SocialMenu/Alliances/OpenAlliances` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
+                        CheckText(TextOf(FindChild(FindChild(lv, "Open Alliances"), "Title")),
+                                  Loc.T("SocialMenu/Alliances/OpenAlliances"),
+                                  "★ `Open Alliances > Title` 的字 = `Loc.T(\"SocialMenu/Alliances/OpenAlliances\")`"
+                                + "（随语档；原版 TMP 原文 `Open alliances:` **带冒号** / 中文「开放联盟：」**我们自拟**）");
                         // 表 #1（A6）：两颗页签键的 `m_fontSizeBase` = 原版 **12.0**
                         //   **改坏法**：删 `Shell/AlliancesTab.cs` 里那句 `autoBasePx: 12f` ⇒ base 退回 `fontPx` **60** ⇒ 红。
                         //   ⚠️ 窗口那一格（原版 `auto[12~60]`）**没牙**：我们的 `fontPx` 就是 60 ⇒ 不在这里断。
@@ -6174,8 +6222,52 @@ public static class MainMenuScene
                         //    ⇒ 断得了；⛔ 换成 `CheckFontWindow` / `CheckFont`（那两条**不带 `true`**）会红成「节点不在」。
                         CheckFontBase(FindChild(cav, "Create Alliance Text"), 36f,
                                       "★ A414（表 #12）`Create Alliance Text` 的 `m_fontSizeBase` = 原版 **36.0**");
+                        // 🔴 **2026-10-18（第六轮）**：这颗的字也从本轮起**走词条** ⇒ 同批断文案。
+                        //   ⚠️ 它在上面的 `cav`（出厂关着的 `Create Alliance View`）里 ⇒ `TextOf` 读 `Label.Text`
+                        //   **字段**（不是渲染）⇒ 读得到。
+                        CheckTrue(Loc.HasEntry("SocialMenu/Alliances/CreateAlliance"),
+                                  "（前提）词条 `SocialMenu/Alliances/CreateAlliance` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名）");
+                        CheckText(TextOf(FindChild(cav, "Create Alliance Text")),
+                                  Loc.T("SocialMenu/Alliances/CreateAlliance"),
+                                  "★ `Create Alliance Text` 的字 = `Loc.T(\"SocialMenu/Alliances/CreateAlliance\")`"
+                                + "（随语档；原版 TMP 原文 `Create alliance` / 中文「创建联盟」**我们自拟** ——"
+                                + "`zh_CN.csv:229` 那条是 `Create Alliance (1000 Gold)`，**另一个串**）");
                         CheckFontBase(nt, 36f,
                                       "★ A414（表 #14）`Name input title` 的 `m_fontSizeBase` = 原版 **36.0**");
+                        // 🔴 **2026-10-18（第八轮）**：建盟页那两行标题的**字**也从本轮起走词条 ⇒ 同批断文案
+                        //   （同 `cav` 那道「出厂关着 ⇒ `TextOf` 读字段」的口径）。
+                        CheckTrue(Loc.HasEntry("SocialMenu/Alliances/NameInput")
+                                  && Loc.HasEntry("SocialMenu/Alliances/DescriptionInput"),
+                                  "（前提）两条词条都在表里（⛔ 不在 ⇒ 下面两条两边一起退化成键名 = 假绿）");
+                        CheckText(TextOf(nt), Loc.T("SocialMenu/Alliances/NameInput"),
+                                  "★ `Name input title` 的字 = `Loc.T(\"SocialMenu/Alliances/NameInput\")`"
+                                + "（随语档；原版 TMP 原文 `Alliance Name`）");
+                        CheckText(TextOf(FindChild(cav, "Desc input title")), Loc.T("SocialMenu/Alliances/DescriptionInput"),
+                                  "★ `Desc input title` 的字 = `Loc.T(\"SocialMenu/Alliances/DescriptionInput\")`"
+                                + "（随语档；原版 TMP 原文 `Alliance Description`）");
+                        // 🔴 **2026-10-18（第十轮 · B 类）**：建盟页那两个下拉的**标题**也从本轮起走词条
+                        //   （`Shell/AlliancesTab.cs` 的 `Dropdown(…, Loc.T("…/SelectLanguage"|"…/SelectPrivacy"), …)`）
+                        //   ⇒ 同批断文案（⚠️ 同为 `cav` 里出厂关着的件 ⇒ `TextOf` 读字段）。
+                        //   🔴 这两条键与设置窗那条 `MainMenu/Settings/ButtonLabel/SelectLanguage` **是两条不同的键**
+                        //     （中文同为「选择语言」但**不许合并** —— 键名照原版 `mTerm`）。
+                        CheckTrue(Loc.HasEntry("SocialMenu/Alliances/SelectLanguage")
+                                  && Loc.HasEntry("SocialMenu/Alliances/SelectPrivacy"),
+                                  "（前提）两条下拉标题词条都在表里（⛔ 不在 ⇒ 下面两条两边一起退化成键名 = 假绿）");
+                        CheckText(TextOf(FindChild(cav, "Select Language")), Loc.T("SocialMenu/Alliances/SelectLanguage"),
+                                  "★ `Select Language` 标题的字 = `Loc.T(\"SocialMenu/Alliances/SelectLanguage\")`"
+                                + "（随语档；原版 TMP 原文 `Select language` ⚠️ **小写 l**）");
+                        CheckText(TextOf(FindChild(cav, "Select Privacy")), Loc.T("SocialMenu/Alliances/SelectPrivacy"),
+                                  "★ `Select Privacy` 标题的字 = `Loc.T(\"SocialMenu/Alliances/SelectPrivacy\")`"
+                                + "（随语档；原版 TMP 原文 `Select privacy` ⚠️ **小写 p**）");
+                        // 🔴 **2026-10-18（第十轮 · B 类）**：邀请行那颗 `Dismiss`（节点名 `Reject`）也从本轮起走词条
+                        //   （`Shell/AlliancesTab.cs` 的 `RowButton(…, "Reject", Loc.T("SocialMenu/Alliances/Dismiss"), …)`）。
+                        //   ⚠️ **这一颗【断不了渲染值】**：本地夹具**从不填** `SocialData.Invitations`
+                        //     （上面 `:6134` 明断 `Invitations.Count + OpenAlliances.Count == 0`、`:6136` 断
+                        //      `Invitation List Entry == null`）⇒ **邀请行一行都不建**、那个节点不存在。
+                        //   ⇒ 这里**只钉「键在表里」**（防「键不在 ⇒ 界面上印键名」那一档），并**如实记**这一格没有渲染断言。
+                        CheckTrue(Loc.HasEntry("SocialMenu/Alliances/Dismiss"),
+                                  "（前提）词条 `SocialMenu/Alliances/Dismiss` 在表里"
+                                + "（⚠️ 邀请行那两颗钮**本地一行都不建** ⇒ 渲染值断不了，只钉键在不在）");
                         CheckFontBase(ptTx, 39f,
                                       "★ A414（表 #13）`Price Display Button … text` 的 `m_fontSizeBase` = 原版 **39.0**"
                                       + "（⚠️ 同族里**唯独这一格是 39 不是 36** —— 别按同族一刀切）");
@@ -6212,7 +6304,14 @@ public static class MainMenuScene
                     var fp = FindChild(hd, "Find players panel");
                     CheckAtWorld(fp, 357.37f, 1100.86f, 147.14f, 256.53f, "`Find players panel`");
                     CheckAtWorld(FindChild(fp, "Search Field"), 398.77f, 925.42f, 173.35f, 230.31f, "搜索框");
-                    CheckText(TextOf(FindChild(fp, "Search Field")), "Enter player name", "占位文案 `Enter player name`");
+                    // 🔴 **2026-10-18（第七轮）改「随语档」**：占位文案从本轮起走词条
+                    //   （`Shell/FriendsTab.cs` 的 `PlaceholderText` → `Loc.T("Demo/FriendsMenu/EnterPlayerName")`）
+                    //   ⇒ 宿主跑中文档时写死的 `"Enter player name"` 必红。原文留在 `Loc` 的英文列里。
+                    CheckTrue(Loc.HasEntry("Demo/FriendsMenu/EnterPlayerName"),
+                              "（前提）词条 `Demo/FriendsMenu/EnterPlayerName` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
+                    CheckText(TextOf(FindChild(fp, "Search Field")), Loc.T("Demo/FriendsMenu/EnterPlayerName"),
+                              "占位文案 = `Loc.T(\"Demo/FriendsMenu/EnterPlayerName\")`（随语档；"
+                            + "原版 TMP 原文 `Enter player name` / 中文「输入玩家名」`zh_CN.csv:101`）");
                     // 🆕 **2026-10-09（A263）**：搜索框占位那颗的**折行真值**（原版 **`折行=0`**）。
                     //   波 C3 + 收尾件 Y 已把 `wrap: false` 落进实现（`Shell/FriendsTab.cs` 里那句 `wrap: false`），
                     //   **但当时一条断言都没有** ⇒ 谁改回去都不会红（Y 报告 §4·4 明写这条缺口）。
@@ -6235,7 +6334,13 @@ public static class MainMenuScene
                                  "`Instant duel Button`");
                     CheckText(TextOf(FindChild(fp, "Search Player")), "Search player", "`Search Player` 那行字");
                     var fl = FindChild(fr, "Friends List");
-                    CheckText(TextOf(FindChild(fl, "Friends Title")), "Your friends:", "`Your friends:`");
+                    // 🔴 **2026-10-18（第七轮）改「随语档」**：这一行从本轮起走词条
+                    //   （`Shell/FriendsTab.cs` 的 `Loc.T("Demo/FriendsMenu/YourFriends")`）⇒ 写死的 `"Your friends:"` 必红。
+                    CheckTrue(Loc.HasEntry("Demo/FriendsMenu/YourFriends"),
+                              "（前提）词条 `Demo/FriendsMenu/YourFriends` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
+                    CheckText(TextOf(FindChild(fl, "Friends Title")), Loc.T("Demo/FriendsMenu/YourFriends"),
+                              "`Friends Title` 的字 = `Loc.T(\"Demo/FriendsMenu/YourFriends\")`（随语档；"
+                            + "原版 TMP 原文 `Your friends:` **带冒号** / 中文「你的好友：」`zh_CN.csv:342`）");
                     CheckAtWorld(FindChild(fl, "Divisor line"), 343.14f, 1898.89f, 311.12f, 314.80f, "分隔线");
                     var fcont = FindChild(fl, "Friends Container");
                     CheckAtWorld(fcont, 332.15f, 1875.80f, 314.80f, 1080.06f, "`Friends Container`（`ScrollRect`）");
@@ -6545,6 +6650,32 @@ public static class MainMenuScene
                                 float aTop0, aBot0, aTop1, aBot1;
                                 CheckTrue(RowSpan(oaList, "Entry", RowH0, out aTop0, out aBot0),
                                           "建出来的行节点都在（量它们的位置，不量被裁过的 quad）");
+                                // 🔴 **2026-10-18（第六轮）**：行里那两格小标题从本轮起**走词条**
+                                //   （`Shell/AlliancesTab.cs` 的 `RowTexts`：`Members Header` / `Ranking Header`
+                                //   —— 键 = 原版同**名**、同路径那两颗的 `mTerm` 原文；配对判据见该文件那一处的注释）。
+                                //   ⚠️ 这里拿**第一颗建出来的行**读字（`TextOf` 读 `Label.Text` 字段 ⇒ 与显隐无关）。
+                                {
+                                    var e0 = FindChild(oaList, "Entry");
+                                    CheckTrue(Loc.HasEntry("SocialMenu/Alliances/Members")
+                                              && Loc.HasEntry("SocialMenu/Alliances/Ranking"),
+                                              "（前提）词条 `SocialMenu/Alliances/{Members,Ranking}` 都在表里"
+                                            + "（⛔ 不在 ⇒ 下面两条两边一起退化成键名 = 假绿）");
+                                    CheckText(TextOf(e0 != null ? FindChild(e0, "Members Header") : null),
+                                              Loc.T("SocialMenu/Alliances/Members"),
+                                              "★ 行 `Members Header` 的字 = `Loc.T(\"SocialMenu/Alliances/Members\")`"
+                                            + "（随语档；原版 TMP 原文 `Members:` **带冒号**）");
+                                    CheckText(TextOf(e0 != null ? FindChild(e0, "Ranking Header") : null),
+                                              Loc.T("SocialMenu/Alliances/Ranking"),
+                                              "★ 行 `Ranking Header` 的字 = `Loc.T(\"SocialMenu/Alliances/Ranking\")`"
+                                            + "（随语档；原版 TMP 原文 `Ranking:` **带冒号**）");
+                                    // 🔴 **2026-10-18（第八轮）**：公开列表行尾那颗 `Join` 钮的字也走词条
+                                    //   （与页签**同一条键**；父链 = `Button Text < Generic UI Button < Entry < …`）。
+                                    //   ⚠️ 节点名是 `"Generic UI Button"`（不是 `"Join"` —— 两处 `RowButton` 的节点名不同）。
+                                    CheckText(TextOf(e0 != null ? FindChild(FindChild(e0, "Generic UI Button"), "Button Text") : null),
+                                              Loc.T("SocialMenu/Alliances/Join"),
+                                              "★ 行尾 `Generic UI Button/Button Text` 的字 = `Loc.T(\"SocialMenu/Alliances/Join\")`"
+                                            + "（随语档；与 `Alliance Header Buttons` 那颗页签**同一条键**）");
+                                }
                                 CheckNear(aTop0, VTop, 0.5f, "最上面那行的顶边 = 视口顶 337.29（顺带证明偏移是 0）");
                                 CheckTrue(aBot0 > VBot + 0.5f,
                                           $"…而最后一颗建出来的行**压在视口下沿上**（行底 {aBot0:F2} > 视口底 {VBot:F2}）"
@@ -6750,6 +6881,21 @@ public static class MainMenuScene
                                 // ① 那 7 处原版 **`折行 = 0`**
                                 CheckWrapMode(tabRow != null ? FindChild(FindChild(tabRow, "Generic Tab UI Button Info"), "Button Text") : null, 0,
                                               "★ 二级页签键 `Button Text`（`General`）**不折行**（原版 `折行=0`）");
+                                // 🔴 **2026-10-18（第七轮）**：这两颗二级页签的**字**从本轮起走词条 ⇒ 同批断文案。
+                                //   ⚠️ 第一颗的键 = **`Settings/General/Title`** —— 原版**自己复用了设置窗那条通用词条**
+                                //   （不是我们挑的；这就是「同一条 term 挂两个窗」的又一例）；
+                                //   第二颗 = `SocialMenu/Alliances/Trophies`。配对判据（父链逐节同名）写在那两处实现里。
+                                CheckTrue(Loc.HasEntry("Settings/General/Title")
+                                          && Loc.HasEntry("SocialMenu/Alliances/Trophies"),
+                                          "（前提）两条词条都在表里（⛔ 不在 ⇒ 下面两条两边一起退化成键名 = 假绿）");
+                                CheckText(TextOf(tabRow != null ? FindChild(FindChild(tabRow, "Generic Tab UI Button Info"), "Button Text") : null),
+                                          Loc.T("Settings/General/Title"),
+                                          "★ 二级页签 `Generic Tab UI Button Info/Button Text` 的字 = `Loc.T(\"Settings/General/Title\")`"
+                                        + "（随语档；原版 TMP 原文 `General` —— ⚠️ 原版复用设置窗那条键）");
+                                CheckText(TextOf(tabRow != null ? FindChild(FindChild(tabRow, "Generic Tab UI Button Trophies"), "Button Text") : null),
+                                          Loc.T("SocialMenu/Alliances/Trophies"),
+                                          "★ …`Generic Tab UI Button Trophies/Button Text` 的字 = `Loc.T(\"SocialMenu/Alliances/Trophies\")`"
+                                        + "（随语档；原版 TMP 原文 `Trophies`）");
                                 CheckWrapMode(tro != null ? FindChild(FindChild(tro, "CurrentActiveBadge Name"), "Text") : null, 0,
                                               "★ `CurrentActiveBadge Name > Text`（`Featured: Trophy Name`）**不折行**（原版 `折行=0`）");
                                 CheckWrapMode(tro != null ? FindChild(FindChild(tro, "CurrentActiveBadge Count"), "Text") : null, 0,
@@ -7606,9 +7752,17 @@ public static class MainMenuScene
                                                           + " `Battle/Label.cs` 的 `RefreshBounds` 里那一项 `+ _vOffset`"
                                                           + " ⇒ 量成 −1.65px 量级（我们字体的字墨天生在行盒心**之下**）");
                                             }
-                                            CheckText(TextOf(pNext), "Next Tier:",
-                                                      "…字 = prefab 里的**字面串**（它身上带 `Localize` ⇒ 原版走 I2 词条，"
-                                                      + "而词条表在远端 CCD ⇒ 只能照抄那个串本身）");
+                                            // 🔴 **2026-10-18（第十一轮）改「随语档」+ 就地订正（铁律 5）**：
+                                            //   这一段原来写「字 = prefab 里的**字面串**（它身上带 `Localize` ⇒ 原版走 I2
+                                            //   词条，而**词条表在远端 CCD** ⇒ 只能照抄那个串本身）」—— **后半不成立**：
+                                            //   那颗 `Localize` 的 **`mTerm` 就在 prefab 上**（键名本地读得到），取不到的只是**译文**；
+                                            //   而中文列本来就是我们自己译的 ⇒ 完全可以接（同 `LabelBack` 那次同类错，见 §15）。
+                                            CheckTrue(Loc.HasEntry("SocialMenu/Alliances/Trophies/NextTier"),
+                                                      "（前提）词条 `SocialMenu/Alliances/Trophies/NextTier` 在表里"
+                                                    + "（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
+                                            CheckText(TextOf(pNext), Loc.T("SocialMenu/Alliances/Trophies/NextTier"),
+                                                      "…字 = `Loc.T(\"SocialMenu/Alliances/Trophies/NextTier\")`（随语档；"
+                                                      + "原版 TMP 原文 `Next Tier:` **带冒号**）");
 
                                             // ---- 进度条那一叠 ----
                                             var pProg = FindChild(pRs, "Progress");
@@ -7734,8 +7888,16 @@ public static class MainMenuScene
                                             CheckTintOn(pMarkQ, new Color(0.575f, 0.209f, 0.209f, 0f), 0.01f,
                                                         "零值态（未选中）⇒ 勾的 **alpha = 0**"
                                                         + "（原版显隐走 `Toggle.graphic` 的 alpha，不是 `SetActive`）");
-                                            CheckText(TextOf(FindChild(pChk, "Label")), "Alliance featured trophy",
-                                                      "└ `Label` 的字 = prefab 里的字面串");
+                                            // 🔴 **2026-10-18（第十一轮）改「随语档」**：这一行走词条了
+                                            //   （`Shell/TrophyInfoPopup.cs` 的 `FeatureLabel` → `Loc.T(键)`）。
+                                            CheckTrue(Loc.HasEntry("SocialMenu/Alliances/Trophies/FeaturedTrophyLabel"),
+                                                      "（前提）词条 `SocialMenu/Alliances/Trophies/FeaturedTrophyLabel` 在表里"
+                                                    + "（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
+                                            CheckText(TextOf(FindChild(pChk, "Label")),
+                                                      Loc.T("SocialMenu/Alliances/Trophies/FeaturedTrophyLabel"),
+                                                      "└ `Label` 的字 = `Loc.T(\"SocialMenu/Alliances/Trophies/FeaturedTrophyLabel\")`"
+                                                    + "（随语档；原版 TMP 原文 `Alliance featured trophy` /"
+                                                    + " 中文「联盟精选奖杯」= `zh_CN.csv:53` 精确命中）");
 
                                             // ---- 数据路（自检喂一条；产品路径上那份数据来自服务器）----
                                             popT.SetTrophy(new TrophyInfoPopup.TrophyView
@@ -8157,11 +8319,20 @@ public static class MainMenuScene
                                 CheckTint(FindChild(nmv, "Generic Tab UI Button Create"),
                                           new Color(1f, 0.544f, 0f, 1f), 0.01f,
                                           "详情态：`Create` 键也是 **off 色**（两颗都灭）");
+                                // 🔴 **2026-10-18（第九轮）改「随语档」+ 就地订正（铁律 5）**：
+                                //   这一段原来写「`Back` 是**我们挑的兜底串**（原版词条在远端本地化表，本地取不到）」
+                                //   —— **那是错的**：详情态那条 term 本地能读到，键 = `MainMenu/MainButtons/ButtonLabel/Back`
+                                //   （判据 = `d:/2/tools/il2cpp_out/stringliteral.json` 的 RVA `0x42BFC18`；
+                                //    见 `Shell/AlliancesTab.cs` 的 `LabelBack` 那段订正）。⇒ 期望值改成 `Loc.T(键)`。
+                                //   🧨 鉴别式同上一轮：把 `LabelBack` 改回 `const "Back"` ⇒ 中文档读到 `Back` ≠ `Loc.T(键)` ⇒ 红。
+                                CheckTrue(Loc.HasEntry("MainMenu/MainButtons/ButtonLabel/Back"),
+                                          "（前提）词条 `MainMenu/MainButtons/ButtonLabel/Back` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名）");
                                 CheckText(TextOf(FindChild(FindChild(nmv, "Alliance Header Buttons"),
-                                                           "Generic Tab UI Button Search")), "Back",
-                                          "★ 详情态里 `Join` 那颗的**字换了**（原版 `joinButtonText ← "
-                                          + "GetTranslation(另一个词条)`）—— ⚠️ `Back` 是**我们挑的兜底串**"
-                                          + "（原版词条在远端本地化表，本地取不到；见 `AlliancesTab.LabelBack`）");
+                                                           "Generic Tab UI Button Search")),
+                                          Loc.T("MainMenu/MainButtons/ButtonLabel/Back"),
+                                          "★ 详情态里 `Join` 那颗的**字换了** = `Loc.T(\"MainMenu/MainButtons/ButtonLabel/Back\")`"
+                                        + "（随语档；原版 `joinButtonText ← GetTranslation(DAT_1842bfc18)`"
+                                        + " —— 那条 term 的**键名**就是它，本地读得到）");
                                 // ---- 退路：点 `Join` 键（原版 `ShowJoinAllianceMenu` 把 isOn 置回 1）----
                                 var jHit = FindChild(FindChild(nmv, "Alliance Header Buttons"), "JoinHit");
                                 var jWb = jHit != null ? jHit.GetComponent<WindowButton>() : null;
@@ -8173,9 +8344,16 @@ public static class MainMenuScene
                                               "★ 点 `Join` 键 ⇒ **退回公开列表**（详情那一棵关掉）");
                                     CheckTrue(FindChild(nmv, "List View").gameObject.activeSelf,
                                               "⇒ `List View` 又亮了");
+                                    // 🔴 **2026-10-18（第八轮）改「随语档」**：这颗键的字从本轮起走词条
+                                    //   （`Shell/AlliancesTab.cs` 的 `LabelJoin` **属性**）⇒ 退回列表时
+                                    //   `SetJoinLabel(LabelJoin)` 重新取的就是**当前语言**那一列。
+                                    //   🧨 这条是本轮那个「属性 vs const」处理的**鉴别式**：若把 `LabelJoin`
+                                    //   改回 `const "Join"`，中文档下这一条会读到 `Join`（≠ `Loc.T(键)`）⇒ 红。
                                     CheckText(TextOf(FindChild(FindChild(nmv, "Alliance Header Buttons"),
-                                                               "Generic Tab UI Button Search")), "Join",
-                                              "⇒ 那颗键的字**换回 `Join`**（`ShowJoinAllianceMenu` 里那一次 GetTranslation）");
+                                                               "Generic Tab UI Button Search")),
+                                              Loc.T("SocialMenu/Alliances/Join"),
+                                              "⇒ 那颗键的字**换回 `Loc.T(\"SocialMenu/Alliances/Join\")`**"
+                                            + "（`ShowJoinAllianceMenu` 里那一次 GetTranslation；随语档）");
                                     CheckTint(FindChild(nmv, "Generic Tab UI Button Search"),
                                               new Color(1f, 0.631f, 0f, 1f), 0.01f,
                                               "⇒ 它又回到 **on 色**（`onColor (1,0.631,0,1)`）");
@@ -9122,6 +9300,33 @@ public static class MainMenuScene
                           "★ …而它**自己 `activeSelf` 是 T**（照 prefab 字段 —— ⛔ 不是我们把它关掉的）");
                 CheckTrue(jb != null && !jb.gameObject.activeInHierarchy,
                           "★ …但**祖先关着** ⇒ `activeInHierarchy` 是 F（= 原版出厂不画它，判据是整条父链）");
+                // 🔴 **2026-10-18（第五轮）**：这颗钮的字**走词条**了（`Shell/AllianceEventScorePanel.cs` 的
+                //   `Loc.T("MenuDeck/HUD/SearchFilter")` —— 与 `AlliancesTab` 的搜索框占位、以及卡组线那几颗
+                //   **同一条 mTerm**）⇒ 同批断文案。
+                //   ⚠️ 它祖先关着，但 `TextOf` 读的是 `Label.Text` **字段**（不是渲染结果）⇒ 照样读得到。
+                CheckTrue(Loc.HasEntry("MenuDeck/HUD/SearchFilter"),
+                          "（前提）词条 `MenuDeck/HUD/SearchFilter` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
+                CheckText(TextOf(jb != null ? FindChild(jb, "Button Text") : null), Loc.T("MenuDeck/HUD/SearchFilter"),
+                          "★ `Join Alliances Button/Button Text` 的字 = `Loc.T(\"MenuDeck/HUD/SearchFilter\")`（随语档；"
+                        + "原版 TMP 原文 `Search` / 中文「搜索」）");
+                // 🔴 **2026-10-18（第六轮）**：本面板另三处写死英文也从本轮起**走词条** ⇒ 同批断文案。
+                //   ⚠️ 它们（`Join Alliance text` / 两颗 `Leaderboard`）都在**出厂关着**的子树里 ⇒
+                //   `TextOf` 读 `Label.Text` **字段**（不是渲染）⇒ 读得到。
+                CheckTrue(Loc.HasEntry("SocialMenu/Alliances/JointToEarnRewards")
+                          && Loc.HasEntry("MainMenu/RankedWindow/Leaderboard"),
+                          "（前提）词条 `SocialMenu/Alliances/JointToEarnRewards` 与 `MainMenu/RankedWindow/Leaderboard`"
+                        + " 都在表里（⛔ 不在 ⇒ 下面三条两边一起退化成键名 = 假绿）");
+                CheckText(TextOf(FindChild(panel.NoAllianceGo.transform, "Join Alliance text")),
+                          Loc.T("SocialMenu/Alliances/JointToEarnRewards"),
+                          "★ `Join Alliance text` 的字 = `Loc.T(\"SocialMenu/Alliances/JointToEarnRewards\")`（随语档；"
+                        + "原版节点名与我们这颗**逐字相同** / 中文取自 `zh_CN.csv:263` 的近邻）");
+                CheckText(TextOf(FindChild(FindChild(panel.InAllianceGo.transform, "View Leaderboard Button"), "Button Text")),
+                          Loc.T("MainMenu/RankedWindow/Leaderboard"),
+                          "★ `View Leaderboard Button/Button Text` 的字 = `Loc.T(\"MainMenu/RankedWindow/Leaderboard\")`"
+                        + "（随语档；🔴 这是一条**跨窗共用**的键 —— 排位窗/本面板/头像页都在用）");
+                CheckText(TextOf(FindChild(FindChild(panel.NoAllianceGo.transform, "Leaderboard Button"), "Button Text")),
+                          Loc.T("MainMenu/RankedWindow/Leaderboard"),
+                          "★ `Leaderboard Button/Button Text` 的字 = 同一条键（随语档；原版 TMP 原文 `Leaderboard`）");
             }
             // 几何（**冻结的原版 px 字面量**，`menu_dump --relative` 现读）
             CheckAtWorld(panel.transform.Find("In Alliance"), 0f, 383.59f, -9.56f, 501.96f, "`In Alliance`");

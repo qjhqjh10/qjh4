@@ -107,8 +107,16 @@ namespace CardPresentation.Net
                 Seat0Faction = s.hostFaction,
                 Seat1Faction = s.clientFaction,
                 FirstSeat = s.hostFirst,                  // 字段名照协议（host = 座位 0）；
-                MyName = isHost ? s.myName : s.foeName,   // 它的值就是**绝对先手座位**
-                FoeName = isHost ? s.foeName : s.myName,
+                // 🔴 **A961（2026-10-18，主对话裁定「接着做完」）**：`MsgStart.myName / foeName`
+                //   （`NetProtocol.cs:74`）**两个都是对端可控的** ⇒ 与另外三个入口**同一处口径**：先钳
+                //   （复用 `NetSession.ClampPeerText`）。
+                //   ⚠️ 这两个字段**目前全仓没有消费方**（`Net/NetMatchmaking.cs:549` 那句注释已记这一点）
+                //      ⇒ 钳在这里是**给将来接上界面的那道口先装上限**。
+                //   🔴 **真正在界面上显示对端名的那条路不是这里** —— 是
+                //      `Net/NetMatchmaking.cs:475`（`FoeName = st.myName`）→ `BattleDriver` 的敌方名；
+                //      那份文件**不在本笔白名单**⇒ **还没钳**，如实记在交件报告 §9 续（别以为已经封上了）。
+                MyName = NetSession.ClampPeerText(isHost ? s.myName : s.foeName),   // 它的值就是**绝对先手座位**
+                FoeName = NetSession.ClampPeerText(isHost ? s.foeName : s.myName),
                 Raw = s,
             };
         }
@@ -135,8 +143,31 @@ namespace CardPresentation.Net
         /// 🔴 座位是**绝对编号** ⇒ **不用翻**（翻座位那套已作废，见 `NetProtocol.Fingerprint` 的注释）。</summary>
         int ApplyLoggedAction(MsgAction m);
         void NetSay(string s);
-        /// <summary>对面投降 ⇒ 本机判胜（`RuleCore.Forfeit` + 表现层刷新都在宿主里）。</summary>
-        void NetRemoteResign();
+        /// <summary>对面投降 ⇒ 本机判胜（`RuleCore.Forfeit` + 表现层刷新都在宿主里）。
+        /// <para>🆕 **2026-10-18（A913）**：多带一个**理由码**（原版 `DeadHero(bool, BattleResult)`
+        /// 的第二个实参）。🔴 **本口服务三档不同的理由**（这就是它必须带码的原因）：
+        /// `NetKind.Resign` 那条消息 ⇒ <see cref="BattleResult.Forfeit"/>(2)；
+        /// 掉线倒计时到点 ⇒ <see cref="BattleResult.Disconnect"/>(3)；
+        /// 对面没投降就把台关了（`bye`）⇒ 也是 3。⛔ **不许写默认值** —— 三档各写各的，
+        /// 给了默认值就有一档会**静默说错**（本批反复强调的那个模式）。</para></summary>
+        void NetRemoteResign(BattleResult reason);
+        /// <summary>🆕 **2026-10-18（A914 第四续）**：**本机自己**判负（对手没输，是**我**这一端掉了、
+        /// 重连也失败）。
+        ///
+        /// <para>判据 = 原版 `BattleManager__FailedToReconnectAfterDisconnect.c:26-27`：
+        /// `AddResignAction(param_1, 1)` + `DeadHero(param_1, 1, 3)`（第二个实参 `1` = **本机死**）。
+        /// 与 <see cref="NetRemoteResign"/> 的差别**只有一个座位号**（那边判 `1 - _me`）。</para>
+        ///
+        /// <para>🔴 **落地必须走既有的记账口**（宿主那份 = `RecRaw(RecKindForfeit)`【= 原版 `AddResignAction`
+        /// + 本地录像】+ `RuleCore.Forfeit(Ctx, _me, reason)` + 刷新）—— ⛔ **调用方不许自己直接调 `RuleCore.Forfeit`**
+        /// （那会绕过录像口 ⇒ 回放从这里开始演成另一局，`CLAUDE.md` §三）。</para>
+        ///
+        /// <para>🔴 **它同时修掉一个两端不一致**：原来两端都判「对面」负 ⇒ 各判自己赢、`ForfeitedBy` 两家各说各的；
+        /// 现在本端判 `_me`、对端判 `1-对面_me` ⇒ **两端报的是同一个座位**。</para>
+        ///
+        /// <para>🆕 **2026-10-18（A913）**：理由码同 <see cref="NetRemoteResign"/>（今天唯一一档 =
+        /// `Disconnect`(3)，判据见上）。</para></summary>
+        void NetSelfResign(BattleResult reason);
         /// <summary>重连：**丢掉本地状态、从种子重建、按序全量重放**。</summary>
         void NetReplayFromNet(MsgStart start, List<MsgAction> actions);
     }
@@ -381,8 +412,11 @@ namespace CardPresentation.Net
             }
             Debug.Log("[Net] 对面**没点投降就没了**（收到 `bye`，本局 `Ctx.IsOver == false`）⇒ **直接判他弃权**"
                     + "（原版 `ClickExitBattle` 那条路会先 `SendForfeit`、`QuitApplication` 那条**不发** ⇒"
-                    + " 「对面不会回来了」这一档由我们判；落地 = `NetRemoteResign()` → `RuleCore.Forfeit(Ctx, 1-_me)`）");
-            _d.NetRemoteResign();
+                    + " 「对面不会回来了」这一档由我们判；落地 = `NetRemoteResign()` → `RuleCore.Forfeit(Ctx, 1-_me)`）"
+                    + " —— 🆕 理由码取 **`Disconnect`(3)**：原版「对面不会回来了」本来就走掉线那条链"
+                    + "（`NetworkCustomManager.OnPhotonPlayerDisconnected` → … → `DeadHero(对面, 3)`），"
+                    + "⛔ 不是 `Forfeit`(2)（那要对面**真的点了**投降 —— 那一条由 `NetKind.Resign` 走）");
+            _d.NetRemoteResign(BattleResult.Disconnect);
             return true;
         }
 
@@ -438,11 +472,13 @@ namespace CardPresentation.Net
         //  🔴 **我们这边的对应物**（一个都不新造）：
         //   · 时钟闸 = `BattleDriver.NetClockPaused`（它读本类的 `ClockPaused`）——
         //     单机局 `_net == null` ⇒ 判据恒 false ⇒ **单机路径一个字节都没变**。
-        //   · 判负入口 = **`INetBattleHost.NetRemoteResign()`**（现成的，`BattleDriver` 那一份 =
-        //     `RecRaw(RecKindForfeit)`【= 原版 `AddResignAction`】+ `RuleCore.Forfeit(Ctx, 1-_me)`）。
-        //     ⚠️ 原版到点是 `DeadHero(对面, 3)`、对面自己点投降是 `DeadHero(对面, 2)` ——
-        //     我们引擎的 `RuleCore.Forfeit` **没有「理由码」这一个参数**，两档走同一个口
-        //     （**这是差异，如实记在报告里**；效果相同 = 立刻判对面负、不看督血）。
+        //   · 判负入口 = **`INetBattleHost.NetRemoteResign(reason)`**（现成的，`BattleDriver` 那一份 =
+        //     `RecRaw(RecKindForfeit)`【= 原版 `AddResignAction`】+ `RuleCore.Forfeit(Ctx, 1-_me, reason)`）。
+        //     ✅ **2026-10-18（A913）订正**：这里原来写「我们引擎的 `RuleCore.Forfeit` **没有「理由码」
+        //     这一个参数**，两档走同一个口（这是差异，如实记在报告里）」—— **那条差异已经消掉**：
+        //     `RuleCore.Forfeit` 现在有第三个形参 `BattleResult reason`，本文件三处逐档传码
+        //     （倒计时到点的两半 = `Disconnect`(3)，原版那一跳就是 `DeadHero(对面,3)` / `DeadHero(我,3)`；
+        //      `case NetKind.Resign` = `Forfeit`(2)）。
         //   · 撤窗 = `NetRuntime.HideNoticePopup()`（`WindowsManager.HidePopUp(false)`）——
         //     ⛔ 我们**不调 `CloseAllWindows`**（理由见 B13 报告 §②：它会把玩家这一刻自己开的窗一起关掉）。
         //   · 每秒那一拍 = 提示行（`NetSay`）+ 弹窗正文（`NetRuntime.UpdateReconnectPopup`）。
@@ -540,6 +576,68 @@ namespace CardPresentation.Net
             NetRuntime.UpdateReconnectPopup(ReconnectPopup(sec));
         }
 
+        // ================================================================================
+        //  🔴 **2026-10-18（第十二轮 · W6）：本文件那 8 处中文硬串的「原版对照」查清了 —— 全部照旧不动，但记载改写**
+        //
+        //  背景：本文件这几句是**我们自拟的中文**，落在 HUD 提示行上
+        //  （`NetSay` → `BattleDriver.NetSay` → `SetHint`）+ `NetRuntime.Notice`/`UpdateReconnectPopup` 的弹窗正文。
+        //  之前的普查只记了「同一块屏，但没给原版对照」。**本批找到了原版那一族的词条键**（载体 = 代码里的
+        //  `LocalizedString` 字段，**不是** `Localize.mTerm` —— 所以按 `mTerm` 扫是**无效否定**，
+        //  `资料/已知的坑.md` #20 的第二/第三种载体）：
+        //    · 类 = `Everguild.BattleErrorUIManager`（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/Everguild/BattleErrorUIManager.cs`），
+        //      实例在 13 个 `bundle_scenes_scenes_battlearena*` 里（`MonoBehaviour_4062.json` 那一族），
+        //      9 个 `LocalizedString` 字段（偏移见 `d:/2/tools/il2cpp_out/dump.cs` 的 `BattleErrorUIManager`）：
+        //        `LostConnection`        → **`Battle/HUD/LostConnectionMsg`**
+        //        `WaitingForOpponent`    → **`Battle/HUD/WaitOpponentConnectionMsg`**
+        //        `WaitForConnection`     → **`Battle/HUD/PleaseWaitConnection`**
+        //        `MatchEndedWhileReconnecting` → **`Battle/HUD/MatchAlreadyFinished`**
+        //        `EnemySyncError`        → **`Battle/EnemySyncError`**
+        //        `SubmitButton` → `MainMenu/General/OK` · `SaveMatchError`/`SaveMatchFail` → `CustomErrors/ErrorSavingMatch`
+        //        · `GameBlockedDuplicateConnection` → `CustomErrors/DuplicateConnection`
+        //    · **重连弹窗正文的拼法有确凿方法体**：`BattleErrorUIManager.UpdateReconnectWindow(sec)`
+        //      （`d:/2/tools/decomp_full/Everguild.BattleErrorUIManager__UpdateReconnectWindow.c:27-30`）=
+        //      `LocalizedString.op_Implicit(isPlayer ? LostConnection : WaitingForOpponent)` **换行** +
+        //      `TimeSpan.FromSeconds(sec).ToString()`；
+        //      而 `isPlayer`（字段 `+0x108`）由 `ShowDisconnectionPopUp(bool localPlayerDisconnected)` 那一支决定
+        //      （`ConnectionStatusChanged`：状态 1 ⇒ 本机断线、状态 2 ⇒ 对面断线）。
+        //
+        //  ⛔ **本批【没有】把这几句接上 `Loc.T`，如实写出两条理由**（不是「影响小所以不做」）：
+        //    ① **两个语档的文案本地【都】取不到** —— 那 9 条是 `LocalizedString` 字段，**值**在远端 I2 表里
+        //       （同 `Shell/AllianceMemberOptionsPopup` 那三颗西语占位的处境，但更彻底：连出厂占位串都没有）。
+        //       接上去 = **中英两列全是我们自己编的**，比现在「只编中文」更糟（会让人以为英文也是原版）。
+        //    ② **那一格不是我们这一格**：原版那几条是**通用短句**、落在 `WindowsManager.ShowPopUp(...)`
+        //       的**弹窗**里（还带一颗 `SubmitButton` = `MainMenu/General/OK`）；
+        //       而我们这几句是**带运行期参数的整句**（秒数 / 掉线原因）、落点是 **HUD 提示行**。
+        //       硬套会把「对局已暂停、对面回来就能接着打」这类信息丢掉。
+        //    ⇒ 已登记成待办（拿到远端 I2 表 / 或决定自拟两列时再做），⛔ 别当成「原版没有」。
+        //
+        //  🆕 **2026-10-18（第十三轮 · G2b）逐处点清：本文件「面向玩家」的中文硬串【全部】在这里**，
+        //    一条都不接 `Loc.T`（理由就是上面那两条，⛔ 已由主对话裁定接受）。
+        //    ⚠️ 与上面那 8 处的「计数」口径无关：下面是**按落点**数出来的（同一处可能横跨两行），
+        //       而且**只列面向玩家的**（`Debug.Log*` 那些中文诊断串不在内，它们不上屏）：
+        //      · `:223`            `_d.NetSay("联机对局中止：" + why)` —— **HUD 提示行**，`why` 是运行期串
+        //      · `:227-229`        `NetRuntime.Notice("联机对局中止：" + why + "\n…")` —— **弹窗正文**（整段）
+        //      · `:372`            `"对面离开了这一局"` —— 只是 `:376` 那句的**主语片段**（`body` 的兜底值）
+        //      · `:376` / `:377-380` `SayPeerGone(...)` 的**提示行那句 + 弹窗那句**（各带 `body`/`forfeited`）
+        //      · `:603`            `ReconnectHint(sec)` —— 提示行，**带秒数**
+        //      · `:607-608`        `ReconnectPopup(sec)` —— 弹窗正文，**带秒数**
+        //      · `:717`            `NetSay($"重连没成功（超过 {sec} 秒）—— 这一局判你负")` —— 提示行，**带秒数**
+        //      · `:729`            `NetSay($"对手掉线超过 {sec} 秒还没回来 —— 判他弃权，这一局你赢了")` —— 同上
+        //      · `:906-907`        `"对手回来了 —— 联机已恢复（…）" / "…接着打"` —— 提示行（两档措辞）
+        //      · `:749`            `_s.Close(true, "这一局的联机房间已经散了")` —— **离房原因串**（走后端）
+        //      · `:952`            `MsgReject.reason = "不是你的回合"` —— 🔴 **走线**的拒绝理由，见下
+        //    🔴 **`:952` 是唯一一处「形状像短句」的**（`"不是你的回合"`，与 `Battle/Tips/NotYourTurn`
+        //      / `RuleCodes` 那条同义）—— **仍然不接**，两条判据：
+        //      ① 它是 **wire 载荷**：`MsgReject.reason` 发给**对面**、由对面 `:1007`
+        //         （`"主机拒绝了我的动作：" + reason`，那一句带前缀和冒号）念出来
+        //         ⇒ 接 `Loc.T` 会把这个**发送方**的界面语言**灌到接收方**的屏幕上
+        //         （原版怎么处理没查到；本地拿不到那一侧的证据）。
+        //      ② 形状也对不上：原版 `Battle/Tips/NotYourTurn` 是**本机 HUD 的提示行**（`BattleManager.CanPlayCard`
+        //         那一支），**不是**网络上回给对面的拒绝码。
+        //      ⇒ 归「判据是空的 + 形状不同」那一档；**要做的话得先定「wire 上的文案算谁的」这条口径**，
+        //        那是跨面的决定 ⇒ 交主对话，⛔ 本批不自作主张。
+        // ================================================================================
+
         static string ReconnectHint(int sec)
         {
             return $"对手掉线了 —— 正在等他回来（{sec} 秒后判他弃权）";
@@ -588,11 +686,109 @@ namespace CardPresentation.Net
             // ⇒ **是关窗不是开窗**），再判负。
             NetRuntime.HideNoticePopup();
             ClockPaused = false;     // 这一局就到此为止，闸先放开（下一局是**另一个** `NetBattle`）
-            Debug.Log($"[Net] 对手掉线超过 {sec} 秒没回来 ⇒ **判对面弃权**"
-                    + "（原版 `…_d__322__MoveNext.c:143-144`：`AddResignAction` + `DeadHero(对面, 3)`；"
-                    + "我们的对应物 = `NetRemoteResign()` → `RuleCore.Forfeit(Ctx, 1-_me)`）");
-            if (_d != null) _d.NetSay($"对手掉线超过 {sec} 秒还没回来 —— 判他弃权，这一局你赢了");
-            _d.NetRemoteResign();
+
+            // 🔴 **判负对象按【两端】分**（2026-10-18 **第四续**：`INetBattleHost.NetSelfResign()` 补上之后，
+            //    两端连「判谁负」都不一样了）—— 「本机是哪一端」的判据与理由见下面那一段长注释。
+            bool iAmDisconnectedEnd = _s != null && _s.Role == NetRole.Client;
+
+            // ==================================================================
+            //  🔴 **A914（2026-10-18，按独立审查 `REV_W3_联机.md` R3 改成【分端】）：判完这一局怎么收尾**
+            // ==================================================================
+            //  🔴 **原版【两端行为不同】，这不是同一跳**（第一版把两端当一回事，是**真偏离**）：
+            //
+            //  · **【对面掉线那一端】**（观察到对面没了、判**对面**弃权）——
+            //    `BattleManager._ForfeitDisconnectedEnemy_d__322__MoveNext.c`：
+            //      `:142` **`BattleNetworkManager.LeaveBattleRoom(mgr, false)`**
+            //        —— `LeaveBattleRoom.c:41-44`：`param_2 == false` ⇒ 额外调
+            //           `NetworkCustomManager.RemoveRoomAfterLeaving()`（`RemoveRoomAfterLeaving.c:26`
+            //           = `Room.EmptyRoomTtl = 0` ⇒ 人一走房间就散），`:46-49` 才是 `LeaveRoom()`；
+            //      `:143` `AddResignAction` + `:144` `DeadHero(对面, 3)`。
+            //    ⇒ **这一端才「离开房间」**（我们的等价物 = `NetSession.Close`，与 `BattleDriver.LeaveNetRoom()`
+            //      是同一句）。
+            //
+            //  · **【本机是断线那一端】**（本机自己掉了、重连也失败）——
+            //    `BattleManager__FailedToReconnectAfterDisconnect.c`（**现读全函数**）：
+            //      `:14` **`StopCoroutine(AttemptReconnect)`** · `:26-27` `AddResignAction(1)` + `DeadHero(我, 3)`
+            //      —— **整个函数里没有 `LeaveBattleRoom`**。
+            //    ⇒ **这一端【不】离开房间**（原版没有那一跳，多做就是偏离）；动作 = **停掉重连退避**
+            //      （等价物 = `NetSession.StopReconnecting()`，它对应的就是上面那句 `StopCoroutine(AttemptReconnect)`）。
+            //    ⚠️ **「本机是哪一端」这个判据是我们自拟的**：我们这套里**只有客机**有主动重连那条路
+            //      （`NetSession.Pump` 里「客机：重连退避」那一支的判据含 `Role == NetRole.Client`）
+            //      ⇒ 「本机正在重连的那一端」在我们这儿**恒等于客机**（原版两端各有自己的 `AttemptReconnect`）。
+            //      ⚠️ 因此「**主机自己掉线**」那一端在我们这儿仍走「离开房间」—— **如实记着**（交件报告 §11）。
+            //    ✅ **这一端「判本机负」2026-10-18 第四续已补上**：`INetBattleHost.NetSelfResign()`
+            //      （`BattleDriver` 那份 = 把 `NetRemoteResign` 的 `1-_me` 换成 `_me`，**仍走既有记账口**
+            //      `RecRaw(RecKindForfeit)`）⇒ 这一端现在判的是**自己**（见下面那一支的注释）。
+            //      🔴 **它顺带修掉了一个两端不一致**：原来两端都判「对面」负 ⇒ **各判自己赢**；
+            //      现在两端**都说是同一个座位弃的权**（本端 `Forfeit(Ctx, _me)`、对端 `Forfeit(Ctx, 1-对面_me)`
+            //      ⇒ 两边 `ForfeitedBy` 恰好相同）—— 断言钉在 `NetBattleTest` §10③-8。
+            //
+            //  🔴 **不做的后果**（`资料/普查产出_1018/R3_联机三档现核.md` §2 现核出来的、账上没写的那半）：
+            //    `NetSession` 停在 `WaitingReconnect`，而它的 `_wasInBattle` 仍是 **true**
+            //    ⇒ 客机那条退避分支**每 2 秒真去 `Connect` 一次、永不停止**，连上就把状态字改成
+            //    「连上了，正在补上这一局的进度…」—— 玩家刚被告知判负，转头字就变了（说错话 = 另一种静默）。
+            //    （原版停那个循环靠的正是 `StopCoroutine(AttemptReconnect)`。）
+            //
+            //  ⚠️ **位置是硬的：必须排在上面那道「会话已关/已停 ⇒ 不判他弃权」的闸【之后】。**
+            //      那道闸同形于原版 `…_d__322:146-161`（状态不是 70 就什么都不做）。把这一段挪到它前面
+            //      ⇒ 会话先被置成 `Off` ⇒ 下次到点直接走「不判弃权」那一支（**判负整个失效**，而且静默）。
+            //
+            //  ⚠️ **语句顺序与原版【相反】，如实标出（独立审查 R6）**：原版是
+            //      `:142 LeaveBattleRoom` → `:143 AddResignAction` → `:144 DeadHero`；
+            //      我们是**上面那句 `_d.NetRemoteResign()`（判负）在前、这一段收尾在后**。
+            //      对端**只看得见 `bye` 这一条**（`MsgBye.reason`）⇒ 这个顺序差**不可观测**，
+            //      所以**没改**；只是别再把「照原版顺序」当成事实写进注释。
+            //
+            //  ⚠️ **不写成「在 `Dispatch` 的 `case NetKind.Resign` 里一并离开房间」**：那会让
+            //      `Editor/BattleScene.cs` 里「`bye` 恰好 1 条」那条线路上判别式红（主对话已裁：不归本笔）。
+            //
+            //  📌 **还差一处（交回主对话裁）**：结算段要不要调 `BattleDriver.LeaveNetRoom()`
+            //      （`BattleDriver.cs:5423-5439`，除关会话外还做表现层收尾）—— 那份文件在另一个写手手里，
+            //      **本笔一个字节都没碰**。建议与理由 → 交件报告 §7。
+            if (iAmDisconnectedEnd)
+            {
+                // ================= 【本机是断线那一端】：判**本机**负 + 停重连，⛔ 不离开房间 =================
+                //   判据 = `BattleManager__FailedToReconnectAfterDisconnect.c:26-27`
+                //     （`AddResignAction(param_1, 1)` + `DeadHero(param_1, 1, 3)` —— `isPlayerDying = 1` = **我死**）。
+                //   `NetSelfResign()` 走的是**同一套既有记账口**（`BattleDriver` 那份 = `RecRaw(RecKindForfeit)` +
+                //   `RuleCore.Forfeit(Ctx, _me)` + 刷新）—— ⛔ **不是**这里直接调 `RuleCore.Forfeit`（那会绕过录像口）。
+                Debug.Log($"[Net] 本机掉线超过 {sec} 秒、重连没成功 ⇒ **判本机负**"
+                        + "（原版 `FailedToReconnectAfterDisconnect.c:26-27`：`AddResignAction(1)` + `DeadHero(我, 3)`）");
+                if (_d != null) _d.NetSay($"重连没成功（超过 {sec} 秒）—— 这一局判你负");
+                _d.NetSelfResign(BattleResult.Disconnect);   // 🆕 A913：码 3 = 原版那一跳的第三个实参
+                // 停重连 = 原版同一支 `:14` 的 `StopCoroutine(AttemptReconnect)`；
+                // ⛔ 这一端**不**离开房间（原版那一支里没有 `LeaveBattleRoom`）。
+                _s.StopReconnecting();
+            }
+            else
+            {
+                // ================= 【对面掉线那一端】：判**对面**弃权 + 离开房间 =================
+                Debug.Log($"[Net] 对手掉线超过 {sec} 秒没回来 ⇒ **判对面弃权**"
+                        + "（原版 `…_d__322__MoveNext.c:143-144`：`AddResignAction` + `DeadHero(对面, 3)`；"
+                        + "我们的对应物 = `NetRemoteResign()` → `RuleCore.Forfeit(Ctx, 1-_me)`）");
+                if (_d != null) _d.NetSay($"对手掉线超过 {sec} 秒还没回来 —— 判他弃权，这一局你赢了");
+                _d.NetRemoteResign(BattleResult.Disconnect);   // 🆕 A913：码 3（原版第三个实参）
+
+                if (_s == null)
+                {
+                    // 🔴 **R4（独立审查）**：这一格原来是 `_s.State != NetState.Off` —— **死条件**
+                    //    （上面那道闸对 `Closed/Off` 已经返回过了）。换成真正有意义的那一格（`_s == null`），
+                    //    并且**出声**：同族原版那道「已经离开过就不再走」的闸本来就是出声的
+                    //    （`BattleManager__LeaveBattle.c:40 CustomDebug.LogWarning`，见 `BattleDriver.cs` 自己的注释）。
+                    Debug.LogWarning("[Net] 倒计时到点、判完弃权，但**本类没有挂会话**（`_s == null`）"
+                                   + "⇒ 「离开房间」这一跳**走不了**（原版那一刻会走 `LeaveBattleRoom(false)`）"
+                                   + " —— 如实说出来，别假装收干净了");
+                }
+                else
+                {
+                    // ⚠️ 措辞**中性**（**R7**）：这一句会经 `MsgBye.reason` 送到**对面**，由对端的
+                    //    `HandlePeerClosed` → `SayPeerGone("联机对局结束：" + body …)` 显示**在对面的界面上**
+                    //    ⇒ 写成「对手掉线判负」在对面读起来是**反的**（那句在描述它自己那个座位）。
+                    //    ⛔ 不许写成对面视角的「你掉线了」、也不许写成我们视角的「对手掉线」——
+                    //      写成**对双方都成立的陈述**。
+                    _s.Close(true, "这一局的联机房间已经散了");
+                }
+            }
         }
 
         /// <summary>对手回来了 / 这一局拆了 ⇒ **撤窗 + 恢复时钟 + 取消倒计时**（原版
@@ -700,13 +896,32 @@ namespace CardPresentation.Net
         /// <summary>每回合末对一次指纹（**两端算的是同一个状态点**：`EndTurn` + `BeginTurn` 之后）。</summary>
         public void SendFingerprint()
         {
-            if (_d == null || _d.Ctx == null) return;
+            // 🔴 2026-10-18（同族静默失败，本笔顺手补）：原来是一条**无声的 `return`** ——
+            //   没有对局状态时这一回合的指纹对账**悄悄没了**（红线：不许静默失败）。
+            if (_d == null || _d.Ctx == null)
+            {
+                Debug.LogWarning("[Net] 该对指纹了，但本机**没有对局状态**（`Ctx == null`）"
+                               + "—— 这一回合的指纹对账落空（两端打岔就发现不了了）");
+                return;
+            }
             int h = NetProtocol.Fingerprint(_d.Ctx);
             _lastHashTurn = _d.Ctx.Turn; _lastHash = h;
             Send(NetKind.Hash, new MsgHash { turn = _d.Ctx.Turn, hash = h });
         }
 
-        void Send<T>(string kind, T msg) { if (_s != null) _s.Send(kind, msg); }
+        /// <summary>发一条（本类所有出站消息都走这里）。🔴 2026-10-18：`_s == null`（压根没接上会话）
+        /// 原来是**无声丢掉** —— 同族静默失败，现在出声。真正的「没连上」那一档由
+        /// `NetSession.Send` 自己出声（它返回 `false`）。</summary>
+        void Send<T>(string kind, T msg)
+        {
+            if (_s == null)
+            {
+                Debug.LogWarning("[Net] 这条 `" + kind + "` **没发出去**：本类**没有挂会话**（`_s == null`）"
+                               + " —— 话没传到对面，如实说出来");
+                return;
+            }
+            _s.Send(kind, msg);
+        }
 
         // ==================================================================
         //  收：主线程泵（`BattleDriver.Update` 调；自检里显式调）
@@ -753,8 +968,22 @@ namespace CardPresentation.Net
                 {
                     if (!IsHost) { Debug.LogWarning("[Net] 客机收到了 `action`（该由主机收）—— 忽略"); return; }
                     var m = NetProtocol.Unpack<MsgAction>(f.payload);
-                    if (m == null) return;
-                    if (_d.Ctx == null) return;
+                    // 🔴 **2026-10-18（账：「`Send()` 静默丢」的同族静默失败）**：原来这两句是
+                    //   **光秃秃的 `return`** —— 对面发来一条解不出来的 `action`，本机**一点痕迹都没有**
+                    //   （对照：同一段 `:829` 不认识的 kind **有** `LogWarning`；`NetSession.cs:334`
+                    //    那个「没设密码」也有 ⇒ 同文件里原来两种口径）。⇒ 全部改成出声。
+                    if (m == null)
+                    {
+                        Debug.LogWarning("[Net] 对面发来的 `action` **解不出来**（payload 坏了 / 版本对不上）"
+                                       + $"—— 丢掉这一条，不做任何落地。会话 {f.kind}");
+                        return;
+                    }
+                    if (_d.Ctx == null)
+                    {
+                        Debug.LogWarning("[Net] 收到对面的 `action`，但本机**没有对局状态**（`Ctx == null`）"
+                                       + "—— 丢掉这一条（这一档只在没有 `Ctx` 的宿主里会走到）");
+                        return;
+                    }
                     // 🆕 2026-09-30：**进攻卡 / 防御卡**那两条发生在开打之前 ⇒ 「不是你的回合」那道
                     //   守卫对它们不适用（那时候还没轮到谁）。其余动作照旧拦。
                     if (!NetApply.IsEnvPick(m) && _d.Ctx.Active != RemoteSeat)
@@ -780,9 +1009,22 @@ namespace CardPresentation.Net
                 }
                 case NetKind.Applied:                                   // 只有客机会收到
                 {
-                    if (IsHost) return;
+                    // 🔴 2026-10-18（同族静默失败）：主机收到 `applied` 本来是**无声忽略** ——
+                    //   这是「消息走反了方向」的征兆（主机才是发 `applied` 的那一端）⇒ 出声。
+                    if (IsHost)
+                    {
+                        Debug.LogWarning("[Net] 主机收到了 `applied`（这条该只有客机收）—— 忽略；"
+                                       + "它说明有一端把消息发反了方向");
+                        return;
+                    }
                     var m = NetProtocol.Unpack<MsgAction>(f.payload);
-                    if (m == null) return;
+                    // 🔴 2026-10-18（同族静默失败）：原来也是光秃秃的 `return`（上面 `action` 那两条同理）。
+                    if (m == null)
+                    {
+                        Debug.LogWarning("[Net] 主机广播来的 `applied` **解不出来**（payload 坏了）"
+                                       + "—— 丢掉这一条；⚠️ 本机日志会因此**少一格 seq**，指纹迟早会对不上");
+                        return;
+                    }
                     // 日志按 seq 对齐（自己发出去的那条也会被广播回来 ⇒ 靠 seq 认领）
                     while (Log.Count <= m.seq) Log.Add(null);
                     if (m.seq >= 0 && m.seq < Log.Count) Log[m.seq] = m;
@@ -797,7 +1039,12 @@ namespace CardPresentation.Net
                 case NetKind.Reject:
                 {
                     var m = NetProtocol.Unpack<MsgReject>(f.payload);
-                    Abort($"主机拒绝了我的动作：{(m != null ? m.reason : "?")}");
+                    // 🔴 **A961（2026-10-18，主对话裁定「接着做完」）**：`MsgReject.reason`（`NetProtocol.cs:148`）
+                    //   **是对端可控的**，而它经 `Abort` 进**提示行**（`NetSay`）+ **弹窗**（`NetRuntime.Notice`）
+                    //   ⇒ 与另外三个入口（`MsgBye.reason` / `MsgProof.name` / `MsgAck.reason`）**同一处口径**：
+                    //   **进界面前先钳**（复用现成的 `NetSession.ClampPeerText`，⛔ 不写第二份）。
+                    //   ⚠️ 这是我们自拟的（原版没有对端文本进界面的先例）→ `NetProtocol.MaxPeerTextChars`。
+                    Abort($"主机拒绝了我的动作：{(m != null ? NetSession.ClampPeerText(m.reason) : "?")}");
                     return;
                 }
                 case NetKind.Mulligan:                                  // 主机收
@@ -811,7 +1058,20 @@ namespace CardPresentation.Net
                 case NetKind.Hash:
                 {
                     var m = NetProtocol.Unpack<MsgHash>(f.payload);
-                    if (m == null || _d.Ctx == null) return;
+                    // 🔴 2026-10-18（同族静默失败）：原来是一条**合取的 `return`**（两个原因共用一句）——
+                    //   拆开各自出声，否则「包坏了」和「本机没有对局状态」在日志里长得一样。
+                    if (m == null)
+                    {
+                        Debug.LogWarning("[Net] 对面发来的 `hash` **解不出来**（payload 坏了）—— 丢掉这一条"
+                                       + "；⚠️ 这一回合的指纹对账就此落空（下一次对账还有机会）");
+                        return;
+                    }
+                    if (_d.Ctx == null)
+                    {
+                        Debug.LogWarning("[Net] 收到对面的 `hash`，但本机**没有对局状态**（`Ctx == null`）"
+                                       + "—— 没法对账，丢掉这一条");
+                        return;
+                    }
                     if (m.turn != _d.Ctx.Turn) { Debug.Log($"[Net] 指纹回合对不上（对面 {m.turn} / 本机 {_d.Ctx.Turn}）—— 可能是交叉到达，先不判"); return; }
                     int mine = NetProtocol.Fingerprint(_d.Ctx);
                     if (mine != m.hash)
@@ -821,8 +1081,12 @@ namespace CardPresentation.Net
                 }
                 case NetKind.Resign:
                 {
-                    Debug.Log("[Net] 对面投降了");
-                    if (_d != null) _d.NetRemoteResign();
+                    // 🆕 2026-10-18（A913）：这一档的理由码 = **`Forfeit`(2)** —— 判据 = 原版
+                    //   `BattleManager__ReceiveEnemyForfeit.c:37`：对面那条 RPC 收到之后
+                    //   `DeadHero(param_1, 0, 2)`，那个 `2` 是**写死**的（对面点投降时
+                    //   `SendForfeit` 根本不带参数 —— 见 `BattleResult` 的注）。
+                    Debug.Log("[Net] 对面投降了（`NetKind.Resign` ⇒ 理由码 `Forfeit`(2)，原版 `ReceiveEnemyForfeit.c:37`）");
+                    if (_d != null) _d.NetRemoteResign(BattleResult.Forfeit);
                     return;
                 }
             }

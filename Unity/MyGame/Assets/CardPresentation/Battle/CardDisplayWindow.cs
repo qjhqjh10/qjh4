@@ -192,6 +192,12 @@ namespace CardPresentation
                                   "Menu Dark Background", QChrome, CardWinBox.ShadeColor);
             SetZ(_mask, ZMask);
 
+            // 🔴 **2026-10-18（W12 · W6 顺手核）：「这行是我们自加的」成立，判据补齐** ——
+            //    原版 `Card Display Window` 子树里**没有**「再点一下关闭」这样的节点
+            //    （2026-10-18 逐节点走了一遍 `battlearena1` 那棵树；`Battle/` 那 93 条代码字面量里
+            //     也没有对应的键，见 `d:/2/tools/il2cpp_out/stringliteral.json`）。
+            //    ⇒ 铁律 11 例外①（原版没有）⇒ **保留中文、不改**，只把判据落在这里。
+            //    ⚠️ 代价如实记：**英文档下这行会露中文**（没有原版键可接）。
             _hint = Label.Create(_root, "再点一下关闭", EndPanel.Pos(960f, 1064f, ZContent), 2,
                                  new Color(0.7f, 0.7f, 0.75f), new Vector2(0.5f, 0.5f), "cdw_hint");
             if (_hint != null) _hint.SetRenderQueue(QChrome);
@@ -333,9 +339,16 @@ namespace CardPresentation
         ///  那反而与「原版被夹到 max」**不同** —— 单位不同的两个数不能直接对填。）</para></summary>
         const float FxTitleAutoMax = 38.5f, FxTextAutoMax = 32.6f, LoreAutoMax = 32f;
 
-        /// <summary>标题那句。⚠️ **这是我们写的** —— 原版那条词条（`Battle/HUD/AffectedBy`）在**远端 I2 语言表**里，
-        /// 本地只有一条英文样例 `'Affected by:'`（判据 → `资料/待办判据_战场与战斗视图.md` §8b）。</summary>
-        public const string TitleText = "受到以下影响：";
+        /// <summary>标题那句 = **原版词条** `Battle/HUD/AffectedBy`（`Loc.T`）。
+        /// 🔴 **2026-10-18（第十二轮 · W6）就地订正（铁律 5）**：这里原来写
+        /// 「**这是我们写的** —— 原版那条词条在**远端 I2 语言表**里，本地只有一条英文样例 `'Affected by:'`」
+        /// —— **「这是我们写的」不成立**：键和英文原文**都在本地**（那颗 `Localize` 就在
+        /// `bundle_scenes_scenes_battlearena1/MonoBehaviour_4578.json`，`mTerm = Battle/HUD/AffectedBy`，
+        /// 同族 TMP 逐字 `Affected by:`；判据全文 → `Core/Loc.cs` 那一块）。
+        /// **错因**：「本地只有一条英文样例」被读成了「拿不到词条」—— 其实那条样例**就是**原版文案。</summary>
+        public static string TitleText { get { return Loc.T(TitleTerm); } }
+        /// <summary>标题词条键 —— **只此一份**。</summary>
+        public const string TitleTerm = "Battle/HUD/AffectedBy";
 
         /// <summary>一行效果：**谁给的** + **给了什么**。</summary>
         public struct EffectRow
@@ -344,9 +357,19 @@ namespace CardPresentation
             public EffectRow(string who, string what) { Who = who; What = what; }
         }
 
-        /// <summary>把引擎的限时增益（`UnitState.TempBuffs`）翻成两行文字。
-        /// ⚠️ **原版那几句模板在服务端**（`GameStaticData.GetEffectDesc`，本地只有一条样例
-        /// `'Get {0} Melee Attack, {1} Ranged Attack and {2} Health'`）⇒ **这里的措辞是我们写的**，如实标注。
+        /// <summary>把引擎的限时增益（`UnitState.TempBuff`）翻成两行文字。
+        /// <para>🔴 **2026-10-18（第十五轮 · `G5`）就地订正**：这里原来写「原版那几句模板在服务端
+        /// （`GameStaticData.GetEffectDesc`，本地只有一条样例）⇒ **这里的措辞是我们写的**」——
+        /// **「措辞是我们写的」这句在【中文】上仍然成立，但「原版模板在服务端」这个理由不完整**：
+        /// 模板的**键**在本地（`Battle/Effect/Change*OneTurn`，见 `Core/Loc.cs` 那一块），
+        /// 只有**值**在远端 I2 表。本批把消费面也钉死了 —— 原版是
+        /// `CardEffectItem.LoadEffect` → `GameStaticData.GetEffectDesc`（`decomp_full` 两个方法体亲读），
+        /// 而那正对应我们这一块（展示窗的「受到以下影响：」两行）。</para>
+        /// <para>⇒ 现在**属性那几行走原版键**（`Battle/Effect/Change{MeleeAttack,RangedAttack,Health,Armour}OneTurn`，
+        /// 占位符 `{0}` 填**带符号的数值**）；**关键词那几行照旧走 `CardText`**（关键词有它自己那一族词条，
+        /// ⛔ 不是 `Battle/Effect/*`）。认不出来的名字**原样打出来**（不静默、不自造）。</para>
+        /// <para>⚠️ 中文列 = 改之前 `AttrZh` 的原话（`"{0} 近战"` + `+2` ⇒ 逐字等于原来的 `"+2 近战"`）
+        /// ⇒ **今天中文档零变化**；英文档从「中文」变成英文。</para>
         /// 「谁给的」用 `SourceCard`（施加它的**真卡名**，不是那个恒为「战术卡」的 `Src` —— 两者**别混**）。</summary>
         public static List<EffectRow> RowsOf(IReadOnlyList<UnitState.TempBuff> buffs)
         {
@@ -356,9 +379,10 @@ namespace CardPresentation
             {
                 var b = buffs[i];
                 if (b == null) continue;
-                string what = b.IsKeyword ? CardText.KeywordZh(b.Name) : AttrZh(b.Name);
+                string what;
+                if (b.IsKeyword) what = CardText.KeywordZh(b.Name);   // 关键词：它自己那一族词条，⛔ 不是 `Battle/Effect/*`
+                else what = AttrText(b.Name, b.Value);
                 if (string.IsNullOrEmpty(what)) what = b.Name;      // 认不出来就**原样打出来**（不静默、不自造）
-                else if (!b.IsKeyword && b.Value != 0) what = (b.Value > 0 ? "+" : "") + b.Value + " " + what;
                 string who = b.SourceCard;
                 if (string.IsNullOrEmpty(who)) who = b.Src;         // 兜底；两个都空才留白（上面那半句还在）
                 rows.Add(new EffectRow(who, what));
@@ -366,16 +390,39 @@ namespace CardPresentation
             return rows;
         }
 
-        static string AttrZh(string name)
+        /// <summary>属性名 → 原版词条键（**只此一份**）。`null` = 认不出来（调用方原样打名字）。
+        /// <para>🔴 键名的判据 = `GameStaticData.GetEffectDesc` 的 `case` 分派（`decomp_full` 亲读，
+        /// 那 25 条键逐条列在 `Core/Loc.cs`）：`"attack"` 那一档在 `case 1` 里按
+        /// `*(char*)(struct+0x32..0x35)`（哪几个属性非零）**多选一**——
+        /// 单属性那四条是 `ChangeMeleeAttackOneTurn` / `ChangeRangedAttackOneTurn` /
+        /// `ChangeHealthOneTurn` / `ChangeArmourOneTurn`（我们这边一条 `TempBuff` 只带一个属性 ⇒ 正好对上那些单属性键）。</para>
+        /// <para>⚠️ **`…OneTurn` 而不是无后缀那四条**：`TempBuff` 是**限时**增益（到回合边界必撤，
+        /// 见 `UnitState.RevertBuffs`），而原版无后缀的 `ChangeX` 是**永久**改属性 ⇒ 别拿错档。</para></summary>
+        static string AttrTerm(string name)
         {
             switch (name)
             {
-                case "attack": return "近战";
-                case "ranged": return "远程";
-                case "health": return "生命";
-                case "armour": return "护甲";
+                case "attack": return "Battle/Effect/ChangeMeleeAttackOneTurn";
+                case "ranged": return "Battle/Effect/ChangeRangedAttackOneTurn";
+                case "health": return "Battle/Effect/ChangeHealthOneTurn";
+                case "armour": return "Battle/Effect/ChangeArmourOneTurn";
             }
             return null;
+        }
+
+        /// <summary>属性那半句 = 原版词条 + 把 `{0}` 换成**带符号的数值**（正值带 `+`）。
+        /// 属性名认不出 ⇒ 返回 `null`（调用方原样打名字）。
+        /// <para>⚠️ **数值为 0 时只印属性名、不印 `{0}`**：原版 `GetEffectDesc` 在同类字段全 0 时
+        /// 直接回**空串**（`case 1` 那条 `return DAT_1842b80e0`），我们**故意比原版多说一个词**
+        /// （印属性名比印空白对玩家有用）—— 如实标，⛔ 别当成原版行为。</para></summary>
+        static string AttrText(string name, int value)
+        {
+            string term = AttrTerm(name);
+            if (term == null) return null;
+            string s = Loc.T(term);
+            if (s.IndexOf("{0}", System.StringComparison.Ordinal) < 0) return s;   // 表里那条没带占位符 ⇒ 原样
+            if (value == 0) return s.Replace("{0} ", "").Replace(" {0}", "").Replace("{0}", "").Trim();
+            return s.Replace("{0}", (value > 0 ? "+" : "") + value);
         }
 
         /// <summary>摆/收这块（`rows` 为空 = 整组不出现 —— 原版就是「有 buff 才露」）。

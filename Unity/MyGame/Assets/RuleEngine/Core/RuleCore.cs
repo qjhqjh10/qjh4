@@ -28,6 +28,49 @@ using System.Collections.Generic;
 
 namespace RuleEngine
 {
+    /// <summary>🆕 **2026-10-18（A913）**：原版 `BattleResult` 的**逐值复刻**
+    /// （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/BattleResult.cs` —— 7 个值、名字与数值一字不差）。
+    ///
+    /// <para>它是什么：原版 `BattleManager.DeadHero(bool isPlayerDying, BattleResult battleResult)`
+    /// 的**第二个实参** = 「这一局是**怎么**结束的」。13 个调用点逐条现读 →
+    /// `资料/普查产出_1018/R3_联机三档现核.md` §2·1。</para>
+    ///
+    /// <para>🔴 **它不过网**（硬判据）：原版 `BattleCommsManager.SendForfeit` 发的是
+    /// `PhotonView.RPC(…, System.Array.Empty&lt;T&gt;())` = **空参数表**，对面
+    /// `BattleManager.ReceiveEnemyForfeit` **把 2 写死** ⇒ 两端各按**本地知道的那一半**填码，
+    /// 协议里从来没有它。⇒ 我们**也不往 `MsgResign` 里塞**（它是个空类）。</para>
+    ///
+    /// <para>🔴 **只用于调用点日志/文案**（`RuleCore.Forfeit` 里那两句 `ctx.Log`）。
+    /// ⛔ **不写进 `ctx` 的任何参与回放/指纹的字段** —— `NetProtocol.Fingerprint` / `StateHash`
+    /// 里都没有它，加了会让**旧录像、旧联机局立刻假红**（主对话 2026-10-18 已裁定）。</para>
+    ///
+    /// <para>🔴 **零 UI 消费者**（原版全量反编译里这个类型只被 6 个文件引用：`DeadHero` /
+    /// `BasicBattleEndSequence` / `GameAnalytics`×3 / `SaveMatchWinnerInServer`，**没有任何 UI 文件**）
+    /// ⇒ ⛔ 别拿它去改 `EndPanel` 的副标题（那是我们自加的，按码改**不算复刻**）。</para>
+    /// </summary>
+    public enum BattleResult
+    {
+        /// <summary>0 —— 没指定（我们拿不到理由时用它，日志里会写明「未指定」；⛔ 不许拿它冒充某一档）。</summary>
+        Undefined = 0,
+        /// <summary>1 —— 正常打完（督军倒下）。原版唯一一处用它的调用点是 `FinishResolvingAction.c:84`；
+        /// 我们这条路由 <see cref="RuleCore.CheckWinner"/> 走，**不经过 <see cref="RuleCore.Forfeit"/>**。</summary>
+        BattleVictory = 1,
+        /// <summary>2 —— **有人点了投降**（原版 `ClickExitBattle.c:59` 我点退出对局 ·
+        /// `ReceiveEnemyForfeit.c:37` 收到对面投降）。</summary>
+        Forfeit = 2,
+        /// <summary>3 —— **掉线那一档**（原版 `_d__322__MoveNext.c:144` 掉线倒计时到点判对面 ·
+        /// `FailedToReconnectAfterDisconnect.c:32` 本机重连失败判自己）。</summary>
+        Disconnect = 3,
+        /// <summary>4 —— 跳过 / 调试直接判胜（原版 `ClickSkip.c:29` · `DebugWinBattle.c:15` ·
+        /// `ClickSkipTutorial.c:42`）。我们**没有**对应的调试入口。</summary>
+        WinButton = 4,
+        /// <summary>5 —— 取消匹配（原版 `CancelMatch.c:29`）。</summary>
+        Cancelled = 5,
+        /// <summary>6 —— 调试判平（原版 `DebugDrawBattle.c:14`）。
+        /// ⚠️ `GetWinnerAfterBattleEnd` **只对 6 特判成平局** —— 我们引擎的平局走 `Winner = 3`，与这条不是一回事。</summary>
+        DrawButton = 6,
+    }
+
     public static partial class RuleCore
     {
         // ---- 规则常量（对齐 rule_core.gd:44-49）----
@@ -133,6 +176,19 @@ namespace RuleEngine
             //     而不是两边都发。用户 2026-09-26 指出这一点。
             ctx.Players[0] = BuildPlayer(ctx, deckA, "P1", shuffle, getsDefenceCard: ctx.FirstSeat == 1);
             ctx.Players[1] = BuildPlayer(ctx, deckB, "P2", shuffle, getsDefenceCard: ctx.FirstSeat == 0);
+            // 🆕 **2026-10-18（`W5` · 审查 §2 作者自陈 b 那一笔的收尾）**：
+            //   原版 `PlayerHand.SetupCardInHand` 的**四个调用点**都在「进手牌」那一刻、**不看卡类型**
+            //   （`PlayerHand__SetupCardInHand.c:31/34/35/118`）⇒ 「每一个进手牌入口都要调它」。
+            //   ⚠️ `BuildPlayer` 里那次（后手起手就把防御卡放进 `p.Hand`）**当时拿不到座位号** ——
+            //      它是 `static PlayerState BuildPlayer(...)`，`ctx.Players[seat]` 此刻还是 `null`
+            //      （正是上面这两行的赋值在写它）。⇒ **不硬塞进 `BuildPlayer`**，改成**两边都建好之后**
+            //      统一补调一次：语义等价（都发生在「牌已进手牌、对局还没开始行动」这个窗口里），
+            //      而且 `SetupCardInHand` 自己的守卫（`ctx.Players[owner] == null ⇒ 0`）在这里天然成立。
+            //   ⚠️ **今天这一趟实际是空过**（建场期手牌登记表必然是空的）—— 但**理由不能是「空过」**，
+            //      而是「原版每一个入口都调」（审查 §2 b 点名否掉的就是「插了也空过」这个理由）。
+            for (int seat = 0; seat < 2; seat++)
+                foreach (var handInst in ctx.Players[seat].Hand)
+                    SetupCardInHand(ctx, seat, handInst);
             ctx.Active = ctx.FirstSeat;
             ctx.Turn = 0;
 
@@ -142,8 +198,14 @@ namespace RuleEngine
             {
                 for (int i = 0; i < startHand; i++)
                 {
-                    Draw(ctx, 0);
-                    Draw(ctx, 1);
+                    // 🔴 **2026-10-18（`W5` · `D1` §5·1）：起手发牌走 `DealOpeningHand`、不走 `Draw`。**
+                    //   差别只有两条：**不发 `When the card is drawn` 广播**、**不置
+                    //   `DrawnThisTurn`**（判据见 `DealOpeningHand` 的头注释
+                    //   —— 原版 `_ResolveDrawCard_d__432__MoveNext.c:283-295` 把两件事都
+                    //   包在 `!IsDuringMulligan` 里）。改之前我们用 `Draw` ⇒ 起手那几张
+                    //   会**多发 3 次 `draw` 广播**（`D1` 那两条红的根因之一就是它）。
+                    DealOpeningHand(ctx, 0);
+                    DealOpeningHand(ctx, 1);
                 }
             }
             else
@@ -188,7 +250,11 @@ namespace RuleEngine
             //      不是「某张卡必上手」那种额外指定。
             //   ⚠️ 教程那一档 `Vars.secondExtraCards = 0`（【TutorialScenario】）⇒ 这段对教程是空转。
             int extraCards = ctx.Vars.secondExtraCards;
-            for (int i = 0; i < extraCards; i++) Draw(ctx, ctx.SecondSeat);
+            // 🔴 **2026-10-18（`W5`）：也走 `DealOpeningHand`** —— 这一批是**起手的一部分**
+            //   （上限注释里写着：`startingHand + N`，原版它由 `PlayerHand.GetSecondExtraCardsCount`
+            //   折进 `AddCardsToMulligan` 的张数）⇒ 与上面那 `startHand` 张同一条口径
+            //   （都在换牌阶段之前、都不算「抽到」）。
+            for (int i = 0; i < extraCards; i++) DealOpeningHand(ctx, ctx.SecondSeat);
             if (tutorial == null)
             {
                 ctx.Log($"开局：双方各起手 {startHand} 张"
@@ -329,6 +395,15 @@ namespace RuleEngine
                     removed++;
                 }
             ps.Hand.Add(ctx.NewInstance(card));
+            // 🆕 2026-10-18（`W4` 整改 · 审查 §2 作者自陈 b）：**照原版口径，进手牌就调**
+            //    （`PlayerHand__SetupCardInHand.c:31/34/35/118` **不看卡类型**）。
+            //    这一处两步都空过：① 防御卡不是单位（`HandEffectFits` 那一档会拒）；
+            //    ② 这一步跑在**换牌之后、开战之前** ⇒ 手牌登记表本来就是空的。
+            //    ⚠️ 之所以还是插上：**理由不能是「插了也空过」**（那是拿结果当借口），
+            //      而是「原版每一个进手牌入口都调」——
+            //      `BuildPlayer` 里那一处（后手起手发防御卡）**拿不到座位号**（`BuildPlayer` 没有
+            //      玩家下标参数）⇒ 那一处如实留在报告里，不硬塞。
+            SetupCardInHand(ctx, seat, ps.Hand[ps.Hand.Count - 1]);
             ctx.Log($"后手（P{seat + 1}）的防御卡换成「{card.Name}」"
                   + $"（原版 `ClickChosenCardDone` → 进后手方手牌；先摘掉了原来那张 {removed} 张）");
         }
@@ -565,6 +640,7 @@ namespace RuleEngine
                 var give = at >= 0 ? ps.Deck[at] : ctx.NewInstance(card);
                 if (at >= 0) ps.Deck.RemoveAt(at);
                 ps.Hand.Add(give);
+                SetupCardInHand(ctx, p, give);     // 🆕 `A885` ②：进手牌就补登记表上的效果
                 ctx.Log($"{ps.Name}：「{ps.Warlord.Name}」开局把「{card.Name}」直接放进手牌"
                       + (at >= 0 ? "（从牌库里拿的）" : "（牌库里本来没有，**补了一张**）"));
             }
@@ -941,6 +1017,26 @@ namespace RuleEngine
                     }
                 }
 
+            // ---- 🆕 2026-10-18（`W5` · `K3` 账 · `+0x120` 第 8 个写点）：**带 `oath` 的单位重挑攻击型** ----
+            //   原版 `CardScript.OnTurnEnd`（`CardScript__OnTurnEnd.c:214-218`）：
+            //   ```
+            //   cVar11 = HasCurrentTrait(param_1, 0x4fb /*oath 1275*/);
+            //   if (cVar11 != '\0') { iVar12 = (melee < ranged) + 1;
+            //                         if (*(int *)(param_1 + 0x120) != iVar12) *(int *)(param_1 + 0x120) = iVar12; }
+            //   ```
+            //   ⇒ **只对带 `oath` 的单位**（不是全场），算式 = `ChooseAttackTypeAutomatically`。
+            //   ⚠️ 时机：原版这一支在 `BattleManager.ResolveEndTurn` 的逐卡循环里（回合翻面**之前**）
+            //     ⇒ 放在这里（`ctx.Active` 换边之前）。⚠️ **我们这边没有逐卡的 `OnTurnEnd`**
+            //     （那边是「每张牌一个 `CardScript`」），所以用一趟双方棋盘的循环代替 —— 判据是
+            //     「谁带 `oath`」，与逐卡等价。
+            for (int pl = 0; pl < 2; pl++)
+            {
+                var b = ctx.Players[pl].Board;
+                for (int s = 0; s < b.Length; s++)
+                    if (b[s] != null && b[s].Has(KeywordTable.Oath))
+                        b[s].CurrentAttackType = ChooseAttackTypeAutomatically(b[s]);
+            }
+
             // 未用完的能量：**遭遇模式保存 1 点**（`manaAccumulation`），经典不保存（它是 0）。
             // 🔴 **2026-09-26 修（原来从来没生效过）**：这一段原来只有 `p.Energy = 0;`，
             //   而 `BeginTurn` 判结转用的是 `p.Energy > 0` —— 进到这里时 `Energy` 已经被清成 0，
@@ -1038,6 +1134,31 @@ namespace RuleEngine
         /// </summary>
         public static void Draw(BattleContext ctx, int p)
         {
+            var inst = MoveDeckTopToHand(ctx, p);
+            if (inst == null) return;                   // 牌库空 ⇒ 已经走过疲劳那一支
+            var card = inst.Card;
+            // 🆕 **「这一份是这回合从牌库抽到的」** 记账（2026-09-13 A2，2026-09-18 第 3 步搬到实例上）——
+            // 传送（`Teleport`）判的就是它：规则书 `:219`「**当回合从牌库抽到即打出时**触发能力」。
+            // 🔴 现在是**一份一个布尔**（`CardInstance.DrawnThisTurn`）：同名两张里
+            //    抽到一张、打出另一张，**不会再误触发**（改之前按卡模板记份数，会）。
+            inst.DrawnThisTurn = true;
+            // 🆕 `When you draw a card, …`（2026-09-13 第三十三轮）。
+            // ⚠️ 发在**入牌库 → 进手牌之后**：监听方看到的是「抽到了」这个事实。
+            // ⚠️ `card` 传进去 —— 监听器的筛选（`a troop` / `a Stratagem`）要拿它判。
+            BroadcastWhen(ctx, WhenEventKind.Draw, p, card, null);
+        }
+
+        /// <summary>
+        /// **把牌库顶那一张挪进手牌** —— `Draw` 与 <see cref="DealOpeningHand"/> 的**共用中段**
+        /// （含 `SetupCardInHand` 与 `EnforceHandLimit`）。
+        /// 牌库空 ⇒ 疲劳 +1、督军挨那一下伤害、复查胜负，**返回 `null`**。
+        ///
+        /// ⛔ **它【不】做那两件「抽牌才有」的事**（由调用方决定）：
+        /// `CardInstance.DrawnThisTurn = true` 与 `BroadcastWhen(Draw, …)`。
+        /// 判据见 <see cref="DealOpeningHand"/> —— 原版起手那一趟**两件都不做**。
+        /// </summary>
+        static CardInstance MoveDeckTopToHand(BattleContext ctx, int p)
+        {
             var ps = ctx.Players[p];
 
             if (ps.Deck.Count == 0)
@@ -1049,26 +1170,61 @@ namespace RuleEngine
                 // 否则画面上督军莫名其妙掉血、一点反馈都没有
                 ctx.Emit(EvtKind.Hit, p, BoardSpec.WarlordSlot, ps.Warlord.Name, amount: ps.Fatigue);
                 CheckWinner(ctx);
-                return;
+                return null;
             }
 
             // 从牌库**末尾**抽（和 rule_core 的 pop_back 一致）——
             // 这样 `_deck([a,b,c])` 这种「构造好顺序的牌库」测试才和原实现对得上
             int last = ps.Deck.Count - 1;
             var inst = ps.Deck[last];          // 第 7 行第 2 步：牌库里是**实例**
-            var card = inst.Card;
             ps.Deck.RemoveAt(last);
             ps.Hand.Add(inst);                 // ……**挪那一份**（实例跟着牌走，不新发）
-            // 🆕 **「这一份是这回合从牌库抽到的」** 记账（2026-09-13 A2，2026-09-18 第 3 步搬到实例上）——
-            // 传送（`Teleport`）判的就是它：规则书 `:219`「**当回合从牌库抽到即打出时**触发能力」。
-            // 🔴 现在是**一份一个布尔**（`CardInstance.DrawnThisTurn`）：同名两张里
-            //    抽到一张、打出另一张，**不会再误触发**（改之前按卡模板记份数，会）。
-            inst.DrawnThisTurn = true;
+            // 🆕 **2026-10-18（`A885` ②）：进手牌就把「还在生效的手牌效果」补给它** ——
+            //    原版 `PlayerHand.SetupCardInHand`（调用点之一是 `_AddDrawnCardToHand_d__37:118`，
+            //    正是抽牌这一条路）。这是我们这一侧**最主要的那个入口**。
+            SetupCardInHand(ctx, p, inst);
             EnforceHandLimit(ctx, p);
-            // 🆕 `When you draw a card, …`（2026-09-13 第三十三轮）。
-            // ⚠️ 发在**入牌库 → 进手牌之后**：监听方看到的是「抽到了」这个事实。
-            // ⚠️ `card` 传进去 —— 监听器的筛选（`a troop` / `a Stratagem`）要拿它判。
-            BroadcastWhen(ctx, WhenEventKind.Draw, p, card, null);
+            return inst;
+        }
+
+        /// <summary>
+        /// 🆕 **2026-10-18（`W5` · D1 §5·1「起手牌到底算不算『抽到』」）**：
+        /// **起手发牌** —— 把牌库顶那一张挪进手牌，但**不做**「抽牌」那两件事：
+        /// **不置 `DrawnThisTurn`**、**不发 `WhenEventKind.Draw` 广播**。
+        ///
+        /// 🔴 **判据（查实了，不再是「倾向」）**：原版 `BattleManager._ResolveDrawCard` 的
+        ///   协程里那两件事**都包在同一个 `IsDuringMulligan` 守卫里**
+        ///   （`BattleManager._ResolveDrawCard_d__432__MoveNext.c:283-295`）：
+        ///   ```
+        ///   cVar4 = BattleManager__IsDuringMulligan(lVar8);
+        ///   if (cVar4 == '\0') {
+        ///       BattleManagerSupport__BroadcastCardDrawn(lVar8, card);   // ← 抽到才广播
+        ///       … BroadcastTrapResolved … CemeteryManager.AddDrawTrapAction …
+        ///       CardScript__SetCardTurnDrawn(card);                      // ← 抽到才记「本回合抽的」
+        ///   }
+        ///   ```
+        ///   ⇒ **换牌阶段（= 起手那一趟）里，`CardDrawn` 广播与「本回合抽到的」记账【两件都不发生】**。
+        ///   旁证两条（互相独立）：
+        ///    · `PlayerHand._AddCardsToMulligan_d__41__MoveNext` 里对
+        ///      `CardDrawn / DrawCard / ResolveDraw` **零命中**（起手走的是 `MoveCardToMulliganPos` /
+        ///      `SetupCardInMulligan` 那条路，与抽牌协程无关）；
+        ///    · `BattleManagerSupport__BroadcastCardDrawn` 的**唯一**调用点就是上面那一处。
+        ///
+        /// ⚠️ **范围**：只改**普通局的两处起手发牌**（`NewBattle` 的轮流发牌 + 后手的
+        ///   `secondExtraCards`）。⛔ **不动**回合开始那一抽（`BeginTurn`，`RuleCore.cs` 的
+        ///   `for (nDraw)`）—— 那是真·抽牌，走 `Draw`。
+        /// ⚠️ 教程局的起手走 `TutorialRules.SetupInitialHand` → `RuleCore.Draw`，**本条不动它**：
+        ///   教程**根本不跑换牌阶段**（`_TutorialStartSequence`），`IsDuringMulligan` 那一刻是不是真
+        ///   我们**判不出来**（原版那个协程的启动点 grep 不到）⇒ 如实挂着、不猜。
+        /// ⚠️ **`DrawnThisTurn` 那一半今天【观测不到】差异**（如实标着）：`BeginTurn` 会清掉
+        ///   **当前行动方**名下所有牌的 `DrawnThisTurn`（`RuleCore.cs` 那一趟三循环），
+        ///   而任何一个座位能在自己回合里出牌之前，必然已经过了自己的 `BeginTurn`
+        ///   ⇒ 起手牌的那个布尔**在它能被读到之前就被清掉了**。仍然照原版做（铁律 11），
+        ///   但别把这条写成「修掉了一个可见缺陷」。
+        /// </summary>
+        static void DealOpeningHand(BattleContext ctx, int p)
+        {
+            MoveDeckTopToHand(ctx, p);
         }
 
         /// <summary>
@@ -1082,6 +1238,20 @@ namespace RuleEngine
         {
             var ps = ctx.Players[p];
             // 🆕 2026-09-26：上限从 `ctx.Vars` 读（经典 10 · 遭遇 8）。
+            // 🔴 **2026-10-18（`W4` 整改 · 审查问题 11）· 就地把「语义一致」那句改诚实（铁律 5）**：
+            //    它**丢表尾那一张**，而原版是 `_AddCardNotDrawnToHand_d__39:26-30/63-65`
+            //    **先判 `Count < MaxCardsInHand` 再 `Add`**、满了就 `SendToCemetery(刚造那张)`。
+            //    ⇒ **手牌没超上限时两者等价**（刚造的那张 `Add` 在末尾 = 被丢的就是它）；
+            //      **手牌本来就已经超上限时我们会多丢**（原版那一张根本不会进手牌）。
+            //    ⚠️ 手牌**可以**超上限：`SpawnTideCopies`（潮涌）**不调**这个方法，
+            //      打完一轮潮涌手里可能就 >10 ⇒ 「多丢」这一支是真会走到的（不是理论情形）。
+            //    🔴 **2026-10-18（`W5` · 审查 §9·3）就地改口（铁律 5）**：上面那半句
+            //      「`SpawnTideCopies` **不调**这个方法」**已经过期** —— 潮涌那一路**补上了**
+            //      （判据：原版 `ProcessTide` 也是走 `AddNewCardToHand` → `AddCardNotDrawnToHand`，
+            //       与伴生同一条路；见 `SpawnTideCopies` 里那段注释）。
+            //      ⚠️ **「多丢」那一支仍然存在**（别的路仍可能把手牌堆到上限之上，
+            //      例如「造牌进手牌」的其它入口在**同一次结算里连着造**）⇒ 这句提醒留着。
+            //    ⛔ 别把这里读成「与原版逐字一致」。
             int limit = ctx.Vars.handLimit;
             while (ps.Hand.Count > limit)
             {
@@ -1258,6 +1428,22 @@ namespace RuleEngine
             //       `Exhausted = true`，一律解掉会把它们放活（静默错）。判据共用 `HasDeployExemption`。
             unit.Exhausted = !HasDeployExemption(unit);
 
+            // ---- 🆕 2026-10-18（`W5` · `K3` 账）：**部署收尾按【当前】数值重挑攻击型** ----
+            //   `+0x120` 的写点里，原版有**两个**都落在这一刻：
+            //     · `CardScript__CardSetup.c:263-267`（卡初始化那一刻，`(近战<远程)+1`）
+            //       —— 我们的「初始化」= `new UnitState(...)` 那一刻，那时**手牌加成与光环都还没落**
+            //         （构造器里的快照只用了卡面数值）⇒ 在这里补一次才是「当时的数值」；
+            //     · `CardScript__UpdateAttackText.c:21-29`（数值一变就重挑）—— 上面那两句
+            //       `ApplyHandBuffs` / `Auras.Recompose` 正是我们这边「数值变了」的时刻。
+            //   ⚠️ **只重挑刚部署的这一个** —— 全场重挑留给 `RecomputeCurrentAttackTypes`
+            //      （那几处挂在 `Auras.Recompose` 后面，见那些调用点）。
+            RecomputeCurrentAttackType(ctx, p, slot);
+            //   · `CardScript__ActivateMinion.c:70-72`（召唤病 + `ferocity`/`oath` ⇒ 写 `4`）
+            //     —— 原版 `ActivateMinion` 排在 `CardSetup` **之后**（它会被反复调），
+            //     所以这一句排在重挑**之后**。⛔ 别把两条并成一条（一个是 `(近战<远程)+1`、
+            //     一个是**无条件 4**，合并就丢了一条）。
+            ForceAttackTypeOnDeploy(ctx, p, slot);
+
             // ---- 🆕 伏击（`Ambush`）：**面朝下打出**（规则书 `:166`）----
             // 之后两条出口各有一处判据：`ApplyDamage`（挨到伤害 → 翻开、无效果）与
             // `RevealAmbush`（撑到自己下个回合开始 → 翻开并触发）。
@@ -1298,13 +1484,12 @@ namespace RuleEngine
             // Energy cost of copies is the same as the original Troop played.」
             SpawnTideCopies(ctx, p, inst, unit.KwValue(KeywordTable.Tide), costPaid);
 
-            // ---- 🆕 伴生（`Companion X: <部队名>`）：从手牌打出时，可带出至多 X 张伴生部队 ----
-            // 规则书 `:176`「**从手牌打出时，可打出至多 X 张其伴生部队**」。
-            // ⚠️ **伴生部队来自手牌**（不是凭空生成）—— 卡面 `Companion 2: Missile Drone`
-            //    指的就是那张同名的部队卡；手里没有就带不出来（日志会说）。
-            // ⚠️ **近似（如实标着）**：原版这里是**玩家可选**的（「可打出」），我们没有那一步 UI，
-            //    所以**自动带满**（最多 X 张）——行为是确定的（不掷骰），但**替玩家做了决定**。
-            PlayCompanions(ctx, p, card);
+            // ---- 🆕 伴生（`Companion X: <部队名>`）：**造一张新卡放进手牌** ----
+            // 🔴 **2026-10-18（`A920` 的续）· 就地订正（铁律 5）**：这一段原来写的是
+            // 规则书 `:176`「从手牌打出时，可打出至多 X 张其伴生部队」+「伴生部队来自手牌」——
+            // **两句话都错**（那是粉丝实体版规则书，非官方；原版是**造一张新的进手牌**）。
+            // 判据与全链见 `PlayCompanions` 的头注释。
+            PlayCompanions(ctx, p, card, inst);
 
             // ---- 🆕 起义（`Uprising`）：**之后每部署一个部队时**，场上带它的单位各触发一次 ----
             // 规则书 `:222`「本单位**之后**部署的部队，在其部署当回合触发能力」；
@@ -1409,8 +1594,32 @@ namespace RuleEngine
                 var copy = ctx.NewInstance(card);      // 复制品 = **新的一份**（不是原件那一份）
                 copy.EphemeralMarked = true;           // 第 7 行第 3 步：标记打在**那一份**上
                 ps.Hand.Add(copy);
+                // 🆕 2026-10-18（`A885` ②）：造牌进手牌**也是进手牌** —— 补登记表上的效果
+                //    （原版这一支走 `PlayerHand.AddCardNotDrawnToHand`，而它内部就叫
+                //     `SetupCardInHand`，见 `PlayerHand__SetupCardInHand.c` 的四个调用点）。
+                SetupCardInHand(ctx, p, copy);
                 copies.Add(copy);
             }
+            // 🆕 **2026-10-18（`W5` · 审查 §9·3 那条残账）**：**潮涌也要收手牌上限。**
+            //
+            //   判据（第一权威 = 反编译）：原版这一支造完牌同样走 `PlayerHand.AddCardNotDrawnToHand`
+            //   （`BattleManager._ResolveCreateHandCard_d__512` 那一族），而它**先判 `Count < MaxCardsInHand`
+            //   再 `Add`**、满了就 `SendToCemetery(刚造的那张)`，随后内部调 `SetupCardInHand`
+            //   （`PlayerHand._AddCardNotDrawnToHand_d__39__MoveNext.c:26-30/63-65` ·
+            //   （`PlayerHand._AddCardNotDrawnToHand_d__39__MoveNext.c:26-30/63-65` ·
+            //    `PlayerHand__AddCardNotDrawnToHand.c`）—— 也就是说**造牌这条路本来就有上限**。
+            //   ⇒ 我们这里原来**一句都不收**（手牌能无限超上限），而 `PlayCompanions` 那一支
+            //     （同样造牌进手牌）**早就调了** `EnforceHandLimit` —— 同一条规则两处写法不一致。
+            //
+            //   ⚠️ **这是近似，如实标着**（与 `EnforceHandLimit` 方法头那条注释同源）：
+            //     原版是**逐张**「满了就不进手牌」，我们是**先全进、再丢表尾** ——
+            //     手牌**没超上限**时两者等价（丢的正是刚 `Add` 在末尾的那一批）；
+            //     手牌**本来就已经超上限**时我们**多丢**（原版那几张根本不会进）。
+            //     手牌真能超上限的原因之一就是**这之前没调它**（本批补上之后这一支会收窄）。
+            EnforceHandLimit(ctx, p);
+            // ⚠️ 被上限丢进弃牌堆的那几份**不再发 `CostMod`**（它们已经不在手牌里了）——
+            //    否则会在 `ctx.CostMods` 里留一条指向弃牌堆实例的死记录。
+            copies.RemoveAll(c => c == null || !ps.Hand.Contains(c));
             // ⚠️ **delta 要拿「当时的现价」比**，不是拿牌面价：首张本身可能已经被别的效果
             //    折扣过（例如 `-1`），拿牌面价算会**再折一次**（实测：3 → 实付 2 → 复制品变成 1）。
             int delta = paidCost - CostOf(ctx, p, origin);
@@ -1429,45 +1638,153 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// **伴生**（`Companion X: &lt;部队名&gt;`，2026-09-13 A2）—— 规则书 `:176`
-        /// 「**从手牌打出时，可打出至多 X 张其伴生部队**」。
+        /// **伴生**（`Companion X: &lt;部队名&gt;`，2026-09-13 A2）。
         ///
-        /// 做法：从**手牌**里找同名的部队卡，最多 `X` 张，用 `DeployFree` 免费落到空格位。
-        ///   · 手里的伴生部队**不够 X 张** → 有多少带多少，**日志说清**；
-        ///   · 一张都没有（或场上没空格）→ **什么都不做**，日志说「没带出来」——不静默。
+        /// 🔴 **2026-10-18（`A920` 的续）：整条链照原版重写（铁律 5 就地订正 + 铁律 11）。**
+        ///    改之前这一段的判据写的是**粉丝实体版规则书**（`Warpforge_Offline_Rulebook_…:176`
+        ///    「从手牌打出时，可打出至多 X 张其伴生部队」）—— 那份**不是官方文档**
+        ///    （它自己第 5 行写着 `Not official. Fan project.`，见 `CLAUDE.md` §一·2）
+        ///    ⇒ **只能当第二来源**，不能拿来定机制。做法也与原版**三点全反**：
+        ///    「遍历手牌找同名」·「`DeployFree` 直接上场」·「`Hand.RemoveAt` 把它从手里拿走」。
         ///
-        /// ⚠️ **近似（如实标着）**：原版是「**可**打出」（玩家选），我们没有那一步 UI ⇒ **自动带满**。
-        ///    行为确定（不掷骰、可复现），但**替玩家做了决定**；要精确得给表现层加一次选择。
+        ///    **原版判据（第一权威 = 反编译，逐跳核过）**：
+        ///    ```
+        ///    _ResolvePlayCardFromHand_d__447:1337/:1340  ProcessTide / ProcessCompanion(打出的那张牌)
+        ///    CardScript__ProcessCompanion.c:26  HasCurrentTrait(0x49c = `Companion`)
+        ///                                   :28  带词条 ⇒ 取 `rawCardData.relatedCard1 // +0xE8`
+        ///                                   :29  不带词条 ⇒ `if (companionCounter < 1) return;`
+        ///                                   :70  不带词条 ⇒ 源 = **它自己的 `rawCardData`**（= 造一张自己）
+        ///                                   :85  AddNewCardToHand(manager, 源【卡定义】, 源卡, isPlayer, …)
+        ///    BattleManager__AddNewCardToHand.c:65  BattleCardManager.CreateCard(…) ← **新造一张**
+        ///                                   :97  BattleActionType 0x17 = createHandCard（`BattleActionType.cs:26`）
+        ///    _ResolveCreateHandCard_d__512:135     PlayerHand.AddCardNotDrawnToHand(新卡) ← **进手牌**
+        ///    ProcessCompanion.c:88-89  newCard.isCompanion = 1 · newCard.companionCounter = 源 − 1
+        ///    ```
+        ///    ⇒ 三点：**按【卡定义】造一张新卡 · 进【手牌】· 全程零 `Remove*`**
+        ///      （P1 已把全链五个方法体逐符号搜过：`RemoveCardFromHand` / `RemoveFromGameCard` /
+        ///       `RemoveFromDeck` / `SendToCemetery` / `RemoveCard` / `FindCard` / `GetCard` **零命中**）。
+        ///
+        ///    🔴 **那个 `N` 是【链长】，不是「一次给 N 张」**：原版一次 `ProcessCompanion` **只造一张**、
+        ///    并把 `companionCounter = 源 − 1` 回填到**新卡**上；那张新卡（自己**不带** `Companion` 词条）
+        ///    再被打出时走 `:29` 那一支 ⇒ **再造一张自己**、计数再减一。
+        ///    ⇒ `Companion 2: Gun Drone` 一共带出 **2 张**，但是「**打一次给一张**」。
+        ///    同一说明见 `CardInstance.CompanionCounter` 的注释。
+        ///
+        ///    ⚠️ **`relatedCard1` 本地拿不到**（序列化引用，解包资产里为空 ——
+        ///    `资料/阶段二_卡片详情窗_原版规格.md:199-200` 已定案「数据不在库里」）⇒
+        ///    名字那一跳仍然得留着：把卡面 `Companion X: &lt;名字&gt;` 里的 `&lt;名字&gt;`
+        ///    当 `relatedCard1` 的**替身**去卡池里查（`CreatePool.FindByName`）。
+        ///    ⛔ 但**绝不能**拿它当「从手牌取同名卡」的理由 —— 那是两件事。
+        ///
+        ///    ⚠️ **查不到那张卡时不许静默**：如实打日志（红线）。
         /// </summary>
-        static void PlayCompanions(BattleContext ctx, int p, CardDef card)
+        static void PlayCompanions(BattleContext ctx, int p, CardDef card, CardInstance inst)
         {
-            if (card == null || !card.Has(KeywordTable.Companion)) return;
-            string name = card.CompanionName;
-            int x = card.KwValue(KeywordTable.Companion);
-            if (string.IsNullOrEmpty(name) || x <= 0)
+            if (card == null) return;
+
+            // ---- ① 该不该触发 + 要造的是**哪一张卡的定义** ----
+            //   原版 `ShouldTriggerCompanion`（`CardScript__ShouldTriggerCompanion.c:12-29`）：
+            //   「（带 `Companion` 词条 **且** `relatedCard1 != null`）**或** `companionCounter > 0`」。
+            CardDef def;                    // 要造的那张卡的**定义**
+            int n;                          // 回填到新卡上的 `companionCounter`
+            string why;
+            if (card.Has(KeywordTable.Companion))
             {
-                ctx.Log($"伴生：{card.Name} 有 `Companion` 但**名字或数量读不出来**"
-                      + $"（名字「{name}」，数量 {x}）—— 这次没带出任何一张");
+                string name = card.CompanionName;
+                int x = card.KwValue(KeywordTable.Companion);
+                if (string.IsNullOrEmpty(name) || x <= 0)
+                {
+                    ctx.Log($"伴生：{card.Name} 有 `Companion` 但**名字或数量读不出来**"
+                          + $"（名字「{name}」，数量 {x}）—— 这次没带出任何一张");
+                    return;
+                }
+                if (ctx.CardPool == null)
+                {
+                    ctx.Log($"伴生：{card.Name} 要给一张「{name}」，但**这一局没给卡池**"
+                          + " —— 查不了（原版这里是 `rawCardData.relatedCard1` 那个引用）");
+                    return;
+                }
+                def = CreatePool.FindByName(ctx.CardPool, name);
+                if (def == null)
+                {
+                    ctx.Log($"伴生：{card.Name} 的伴生部队「{name}」**在卡池里查不到**"
+                          + "（原版取的是 `rawCardData.relatedCard1` 那个引用，本地解包资产里是空的"
+                          + " ⇒ 我们只能按名字查）—— 这次没带出任何一张");
+                    return;
+                }
+                n = x - 1;
+                why = $"`Companion {x}: {name}`";
+                // ⚠️ **表示上的已知差异（行为等价，2026-10-18 第三轮如实记着）**：
+                //    原版新卡的 `companionCounter = 源 +0x60 − 1`，而源卡的 `+0x60` 是
+                //    **词条值** —— `Companion:`（**没写数字**，如 `Strike Team`）时那一格是 **0**
+                //    ⇒ 原版记 **−1**，我们（`KwValue` 兜底 1）记 **0**。
+                //    **判据（下游只看正负）**：`ProcessCompanion.c:29` 是 `if (counter < 1) return;`
+                //    ⇒ −1 与 0 **行为完全一样**（都只造一张、都停）。⛔ 别为了「数字对齐」去改兜底 1
+                //    （`CardDef.cs` 的 `FirstNumber` 那条兜底被几十处当「有这个关键词」用）。
+                // ⚠️ **同名多份** ⇒ `FindByName` 取的是**池序第一个**（可能张冠李戴）⇒ **出声**。
+                //    原版这里是 `rawCardData.relatedCard1` 那个**引用**、不会歧义；我们的替身只能按名字查。
+                //    实测（审查 2026-10-18）：全池有 3 组同名归一化（`Terminator Champion`（BL44/EC33）·
+                //    `Maulerfiend`（BL46/EC39）· `Terminator`（EC22/UM82））—— **今天不咬人**
+                //    （8 张伴生卡的伴生名全是 Tau Drone 一族），但这条歧义是潜伏的 ⇒ 走到就报。
+                {
+                    string want = CreatePool.Norm(name);
+                    int dupN = 0;
+                    foreach (var cc in ctx.CardPool)
+                        if (cc != null && CreatePool.Norm(cc.Name) == want) dupN++;
+                    if (dupN > 1)
+                        ctx.Log($"伴生：卡池里有 **{dupN} 张**叫「{name}」的卡 —— 我们取的是"
+                              + "**池序第一个**（原版取的是 `rawCardData.relatedCard1` 那个引用、"
+                              + "不会有歧义；我们的替身只能按名字查）");
+                }
+            }
+            else if (inst != null && inst.CompanionCounter > 0)
+            {
+                // 不带词条但计数 > 0 ⇒ **再造一张【自己】**（`ProcessCompanion.c:70`：
+                // 不带 `Companion` 词条时源就是它自己的 `rawCardData`）。
+                def = card;
+                n = inst.CompanionCounter - 1;
+                why = $"伴生链还剩 {inst.CompanionCounter} 环";
+            }
+            else
+            {
+                // ---- 无事可做（原版 `ProcessCompanion.c:29` 就是 `return`）----
+                // 🔴 **2026-10-18（`W4` 整改 · 审查问题 4）：这一支不许「静默地」吞掉我们自己的漏解析。**
+                //    原版这儿**真的没有事可做**（没词条、计数 0）⇒ 对**普通卡**打日志是噪声、
+                //    而且会淹掉战斗日志面板（每次部署都来一行）—— 那不是「复刻」。
+                //    ⇒ 出声的条件收紧成**我们自己的失败长相**：**卡面/关键词里读得出伴生名，
+                //      却没有 `Companion` 词条**（`TAU38 Coldstar` / `TAU28 Strike Team` 修之前
+                //      就是这个长相：`desc` 印着 `Companion 2: Marker Drone`、
+                //      `keywords` 数组里却没有它 ⇒ `Has(Companion)` 恒假）。
+                //    ⚠️ `CardDef.CollectCompanionKeyword`（2026-10-18 同批修的**输入侧**）落地之后
+                //      这一支**预期永不触发** —— 留着它是**护栏**：将来再有同类数据缺陷，这里会喊。
+                if (!string.IsNullOrEmpty(card.CompanionName))
+                    ctx.Log($"伴生：{card.Name} 的卡面/关键词里**读得出伴生名**"
+                          + $"（「{card.CompanionName}」），但**没有 `Companion` 词条**"
+                          + " —— 这是**我们解析层漏了**（`CardDef.CollectCompanionKeyword` 那一层），"
+                          + "这次没带出任何一张");
                 return;
             }
 
+            // ---- ② 造一张新卡 → **进手牌** ----
+            //   ⛔ **不碰手牌里的同名卡**（原版全链一次都没读 `currentHand` / 牌库）
+            //   ⛔ **不 `DeployFree`**（原版进的是**手牌**，不是场）
+            //   ⛔ **不 `Remove`**（原版全链零移除）
             var ps = ctx.Players[p];
-            int played = 0;
-            for (int i = 0; i < ps.Hand.Count && played < x; )
-            {
-                var c = ps.Hand[i];
-                if (c == null || c.Card.Name != name) { i++; continue; }
-                int slot;
-                if (!DeployFree(ctx, p, c, out slot)) break;      // 满场 → 带不下了（第 7 行第 2 步：连实例一起带上去）
-                ps.Hand.RemoveAt(i);
-                played++;
-                ctx.Log($"伴生：{card.Name} 带出了 {c.Card.Name}（{played}/{x}，落在 {slot} 号格）");
-            }
-            if (played == 0)
-                ctx.Log($"伴生：{card.Name} 的伴生部队「{name}」**不在手里**（或场上没空格）"
-                      + " —— 这次没带出任何一张");
-            else if (played < x)
-                ctx.Log($"伴生：手上只有 {played} 张「{name}」（最多可带 {x} 张）");
+            var made = ctx.NewInstance(def);
+            made.IsCompanion = true;        // 原版 `newCard + 0x64 = 1`
+            made.CompanionCounter = n;      // 原版 `newCard + 0x60 = 源 +0x60 − 1`
+            ps.Hand.Add(made);
+            // 🆕 进手牌 ⇒ 也要吃上「还在生效的手牌效果」（原版同一条路
+            //    `PlayerHand.AddCardNotDrawnToHand` 内部就叫 `SetupCardInHand` —— `A885` ②）。
+            SetupCardInHand(ctx, p, made);
+            // ⚠️ 手牌满 ⇒ 原版把**刚造的这张** `SendToCemetery`（`AddCardNotDrawnToHand_d__39:64`）。
+            //    我们这边 `EnforceHandLimit` 丢**表尾那一张**，而上面刚把它 `Add` 在末尾
+            //    ⇒ **手牌没超上限时**丢的就是它（等价）；⚠️ **手牌本来就超上限时会多丢一张**
+            //    （原版那一张根本不会进手牌）—— 如实标注，判据详见 `EnforceHandLimit` 的注释。
+            EnforceHandLimit(ctx, p);
+            ctx.Log($"伴生（{why}）：{card.Name} 造出「{def.Name}」**放进手牌**"
+                  + $"（`isCompanion`，这条链上还剩 {n} 环 —— 原版 `ProcessCompanion` → "
+                  + "`AddNewCardToHand`；**不是从手牌取一张、也不上场**）");
         }
 
         /// <summary>
@@ -1598,6 +1915,11 @@ namespace RuleEngine
                 //    ⚠️ **只重算刚落地的这一个 `unit`** —— ⛔ 别遍历全场：本回合**已经行动过**的单位
                 //      也是 `Exhausted = true`，一律解掉会把它们放活（一回合动两次，同样是静默错）。
                 unit.Exhausted = !HasDeployExemption(unit);
+                // 🆕 2026-10-18（`W5` · `K3`）：**第二条部署入口**也要落那两个写点 ——
+                //   理由与 `PlayCard` 里那两句**逐字同源**（`CardSetup` 的重挑 + `ActivateMinion` 的 `= 4`），
+                //   判据别在这儿另写一份（铁律 10 第 5 条：一个对象有多个入口时每个入口都要显式设置）。
+                RecomputeCurrentAttackType(ctx, owner, dst);
+                ForceAttackTypeOnDeploy(ctx, owner, dst);
                 slot = dst;
                 ctx.Log($"{ps.Name} 免费部署 {unit.Name}（{unit.Attack}/{unit.Health}）到槽 {dst}");
                 ctx.Emit(EvtKind.Deploy, owner, dst, unit.Name);
@@ -1787,6 +2109,168 @@ namespace RuleEngine
         {
             return CanAttackNow(ctx, p, atkSlot, false) == RuleCodes.OK
                 || CanAttackNow(ctx, p, atkSlot, true) == RuleCodes.OK;
+        }
+
+        /// <summary>
+        /// 🆕 2026-10-18（A938）：**照卡上当前的攻击型打**（原版 `AiScripted.ExecuteAction` 的
+        /// `Attack(30)` / `AttackFreeMode(31)` 那一支）。
+        ///
+        /// 判据（`AiScripted__ExecuteAction.c:1139-1143`）：
+        ///   `uVar18 = *(undefined4 *)(actingCard + 0x120)` ⇒ `AddAttackAction(bm, actingCard, targetCard,
+        ///   uVar18, globalVars + 0xb4, …)` —— **打法不是脚本字段，是卡上的持久状态**
+        ///   ⇒ 也就是「**未显式指定打法**」那一条在引擎里的唯一落点。
+        ///
+        /// 🔴 **为什么不改 `DeclareAttack` 的默认值**：那个形参是 `bool ranged = false`，
+        ///   全工程有 **60+ 处**省略它（本意都是「近战」）⇒ 把默认改成「读当前攻击型」会把它们
+        ///   全部静默改道（`CurrentAttackType` 初值是「近战 < 远程 ? 远程 : 近战」）。
+        ///   ⇒ 另开一个**名字不同**的重载（本方法），只给教程脚本那一档用。
+        /// </summary>
+        public static int DeclareAttackByCurrentType(BattleContext ctx, int p, int atkSlot,
+                                                     int tgtP, int tgtSlot)
+        {
+            return DeclareAttack(ctx, p, atkSlot, tgtP, tgtSlot, CurrentAttackIsRanged(ctx, p, atkSlot));
+        }
+
+        /// <summary>🆕 2026-10-18（A938）：这一格上的单位**当前的攻击型是不是远程**
+        /// （= 原版 `*(actingCard + 0x120) == 2`）。`ctx` 或那一格为空 ⇒ `false`（近战）。</summary>
+        public static bool CurrentAttackIsRanged(BattleContext ctx, int p, int atkSlot)
+        {
+            if (ctx == null || p < 0 || p > 1 || !BoardSpec.IsValid(atkSlot)) return false;
+            var u = ctx.Players[p].Board[atkSlot];
+            return u != null && u.CurrentAttackType == UnitState.AttackTypeRanged;
+        }
+
+        /// <summary>🆕 2026-10-18（A938）：**改这一格的攻击型** —— 原版
+        /// `CardScript.ChangeAttackType(card, attackType, playSound)`（`CardScript__ChangeAttackType.c:15`）。
+        /// 原版那一支的副作用**只有一个音效**（`SoundManager.Play2D`），没有别的状态改
+        /// ⇒ 我们这里就是纯赋值。返回 false = 那一格没有单位（**调用方出声**，别静默）。
+        /// ⚠️ `type` 用 <see cref="UnitState.AttackTypeMelee"/> / <see cref="UnitState.AttackTypeRanged"/>。</summary>
+        public static bool SetCurrentAttackType(BattleContext ctx, int p, int atkSlot, int type)
+        {
+            if (ctx == null || p < 0 || p > 1 || !BoardSpec.IsValid(atkSlot)) return false;
+            var u = ctx.Players[p].Board[atkSlot];
+            if (u == null) return false;
+            u.CurrentAttackType = type;
+            return true;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-18（`W5` · `K3` 账）：`+0x120` **其余写点**那条链
+        //  —— 「数值一变就自动重挑一档」（原版 `UpdateAttackText` / `OnTurnEnd` /
+        //     `ResolveActiveAbilityPlayed` / `ChooseAttackTypeAutomatically`）
+        //  ⛔ 别另起一套状态：全链只写 `UnitState.CurrentAttackType` 那一格。
+        // ==================================================================
+
+        /// <summary>
+        /// 🆕 2026-10-18（`W5` · `K3` · `+0x120` 第 9 个写点）：**用了主动能力之后，带
+        /// `duty`/`ferocity`/`oath` 的单位按当前数值重挑攻击型** —— 原版
+        /// `CardScript.ResolveActiveAbilityPlayed`（`CardScript__ResolveActiveAbilityPlayed.c:29-42`）：
+        /// ```
+        /// *(int *)(card + 0x50) += 1;  *(char *)(card + 0x4c) = 1;      // 本回合次数 / usedActiveAbility
+        /// if (HasCurrentTrait(0x4c4 /*duty 1220*/) || HasCurrentTrait(0x4f1 /*ferocity 1265*/)
+        ///     || HasCurrentTrait(0x4fb /*oath 1275*/)) { … *(card + 0x120) = (melee < ranged) + 1; }
+        /// ```
+        /// ⇒ **只对那三个关键词的单位**（不是全场 —— 别改成 `RecomputeCurrentAttackTypes`）。
+        /// trait id 出处：`d:/2/Warpforge_code/Scripts/Assembly-CSharp/DefinedTrait.cs:121/130/132`。
+        /// 三个调用点 = 我们这边的「主动能力」三条路（`UseAbility` / `UseOathAbility` / `UseAlternative`）。
+        /// </summary>
+        static void RecomputeAttackTypeAfterActiveAbility(UnitState u)
+        {
+            if (u == null) return;
+            if (!u.Has(KeywordTable.Duty) && !u.Has(KeywordTable.Ferocity) && !u.Has(KeywordTable.Oath))
+                return;
+            u.CurrentAttackType = ChooseAttackTypeAutomatically(u);
+        }
+
+        /// <summary>
+        /// **按当前数值挑一档攻击型** —— 原版 `CardScript.ChooseAttackTypeAutomatically`
+        /// （`CardScript__ChooseAttackTypeAutomatically.c:8-12`）：
+        /// `(CurrentMeleeAttack &lt; CurrentRangeAttack) + 1` ⇒ **远程更高才取远程，平手取近战**。
+        ///
+        /// 🔴 **这是全仓【唯一】的这份算式**（同一条算式在原版出现在 5 个方法里：
+        /// `CardSetup:263` · `ChooseAttackTypeAutomatically:10` · `OnTurnEnd:215` ·
+        /// `ResolveActiveAbilityPlayed:37` · `UpdateAttackText:24`）；
+        /// `UnitState` 的构造器也调它（原来是各写一遍）。
+        /// ⚠️ 它与 `SimpleAI.UseRanged`（`Data/`，我们那处唯一的「近战还是远程」AI 判据）
+        /// **逐个局面等价** —— `Core/` 不许引 `Data/`，所以这一份只服务「攻击型」这一格。
+        /// </summary>
+        public static int ChooseAttackTypeAutomatically(UnitState u)
+        {
+            if (u == null) return UnitState.AttackTypeMelee;
+            return u.Attack < u.RangedAttack ? UnitState.AttackTypeRanged : UnitState.AttackTypeMelee;
+        }
+
+        /// <summary>
+        /// **照当前数值重挑这一格单位的攻击型**（= 原版 `ChooseAttackTypeAutomatically` 那次写入）。
+        /// 返回 false = 那一格没有单位（调用方出声，别静默）。
+        /// </summary>
+        public static bool RecomputeCurrentAttackType(BattleContext ctx, int p, int atkSlot)
+        {
+            if (ctx == null || p < 0 || p > 1 || !BoardSpec.IsValid(atkSlot)) return false;
+            var u = ctx.Players[p].Board[atkSlot];
+            if (u == null) return false;
+            u.CurrentAttackType = ChooseAttackTypeAutomatically(u);
+            return true;
+        }
+
+        /// <summary>按**引用**找这一刻在棋盘上的那一格并重挑（`ApplyOneGain` 那种「手上只有
+        /// `UnitState`、没有格号」的场合用）。不在场上 ⇒ 什么都不做（它没有「攻击型」可言）。</summary>
+        public static bool RecomputeCurrentAttackTypeOf(BattleContext ctx, UnitState u)
+        {
+            if (ctx == null || u == null) return false;
+            for (int p = 0; p < 2; p++)
+            {
+                var b = ctx.Players[p].Board;
+                for (int s = 0; s < b.Length; s++)
+                    if (ReferenceEquals(b[s], u)) return RecomputeCurrentAttackType(ctx, p, s);
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// **双方棋盘全量重挑** —— 对应原版 `CardScript.UpdateAttackText` 那条「数值变了就重挑」的链
+        /// （`CardScript__UpdateAttackText.c:21-29`）。我们的「数值变了」发生在两处：
+        /// `Auras.Recompose`（光环加/撤攻值）与 `EffectResolver.ApplyOneGain`（逐条增减益）。
+        /// ⇒ 这两处之后各调一次（见各自的调用点）。
+        /// ⚠️ **原版那一条有 `+0x40 == 0` 守卫**（只对「不是本机玩家那一侧」的卡重挑）——
+        ///   我们**没有复刻**，理由逐条写在 `UnitState.CurrentAttackType` 的注释里（`Core/` 无本机概念）。
+        /// </summary>
+        public static void RecomputeCurrentAttackTypes(BattleContext ctx)
+        {
+            if (ctx == null) return;
+            for (int p = 0; p < 2; p++)
+            {
+                var b = ctx.Players[p].Board;
+                for (int s = 0; s < b.Length; s++)
+                    if (b[s] != null) b[s].CurrentAttackType = ChooseAttackTypeAutomatically(b[s]);
+            }
+        }
+
+        /// <summary>
+        /// 🆕 2026-10-18（`W5` · `K3` 第 7 个写点）：**刚部署、还带着召唤病、又带 `ferocity`/`oath`
+        /// 的单位 ⇒ 攻击型写 `4`（主动技能那一档）** —— 原版 `CardScript.ActivateMinion`
+        /// （`CardScript__ActivateMinion.c:43-47,70-72`）：
+        /// ```
+        /// if (HasCurrentTrait(0x4f1 /*ferocity 1265*/) || HasCurrentTrait(0x4fb /*oath 1275*/))
+        ///     if (displaySummonSickness &amp;&amp; *(int *)(card + 0x120) != 4) *(int *)(card + 0x120) = 4;
+        /// ```
+        /// ⚠️ 原版那个 `displaySummonSickness` 是**展示层那一份**（`+0x228 == 2` 那套条件），
+        ///   我们的对应物是 `UnitState.Exhausted`（部署当回合不可行动 = 召唤病；
+        ///   见构造器里 `Exhausted = !RuleCore.HasDeployExemption(this)`）。
+        ///   ⚠️ `ferocity` 本身是**部署豁免**（`HasDeployExemption` 含它）⇒ 带 `ferocity` 的单位
+        ///   基本不会是召唤病；真正会走到这一支的是 **`oath`** 单位（誓约不是豁免）。
+        ///   如实标着：这一格今天**只影响表现层的「当前打法」提示**，不改伤害
+        ///   （我们的伤害是显式传 `ranged` 算的）。
+        /// </summary>
+        public static bool ForceAttackTypeOnDeploy(BattleContext ctx, int p, int atkSlot)
+        {
+            if (ctx == null || p < 0 || p > 1 || !BoardSpec.IsValid(atkSlot)) return false;
+            var u = ctx.Players[p].Board[atkSlot];
+            if (u == null) return false;
+            if (!u.Exhausted) return false;                       // 原版：`displaySummonSickness` 为真才写
+            if (!u.Has(KeywordTable.Ferocity) && !u.Has(KeywordTable.Oath)) return false;
+            u.CurrentAttackType = UnitState.AttackTypeActive;
+            return true;
         }
 
         /// <summary>
@@ -2880,37 +3364,49 @@ namespace RuleEngine
         static void ApplyHandBuffs(BattleContext ctx, int owner, CardInstance inst, UnitState unit)
         {
             if (inst == null || unit == null) return;
-            if (inst.HandBuffOps.Count == 0) return;
+            if (inst.HandEffects.Count == 0) return;
+
+            // 🔴 **2026-10-18（`A885` ②）：消费者**不在这里**。**「后进手牌的牌吃上既有手牌效果」
+            //    那一跳落在**各自的进手牌入口**（`RuleCore.Draw` / 造牌进手牌那几条，
+            //    见 `SetupCardInHand` 的注释）—— **⛔ 不是「打出前补齐」**：
+            //    那样会把「夹具/别处手工 `Hand.Add` 进来的牌」也补上，掩盖真判别式
+            //    （`RuleEngineTest` 的 `Dynamic Offensive` 那一节就靠「第三份没被指到 ⇒ 身上 0 条」）。
 
             // 先**取下来再跑**：跑的过程中可能又给这一份挂上新的（效果里再抽牌 / 再挂那族），
             // 那些新的不该被这一趟顺手清掉。⛔ 别改成「跑完再清」。
-            var ops = new List<EffectOp>(inst.HandBuffOps);
-            string src = inst.HandBuffSource;
-            var uses = inst.HandBuffUsesRef;               // 共享计数盒（`null` = 不限次）
+            var ops = new List<EffectOp>();
+            var boxes = new List<CardInstance.HandBuffUses>();   // 这一份身上引用的**各个**计数盒（去重）
+            var src = (inst.LastHandEffect != null ? inst.LastHandEffect.Source : null);
+            foreach (var e in inst.HandEffects)
+            {
+                if (e == null) continue;
+                if (e.Op != null) ops.Add(e.Op);
+                // 🔴 `A885` ④：**逐条**收盒子 —— 改之前只有一个 `HandBuffUsesRef`。
+                if (e.Uses != null && !boxes.Contains(e.Uses)) boxes.Add(e.Uses);
+            }
             ClearHandEffect(inst);
 
             ctx.Log($"（手牌加成：{unit.Name} 打出时兑现「{src}」）");
             ResolveOps(ctx, owner, unit, ops, "手牌加成", unit);
 
             // ---- 次数核销（原版 `PlayerHand.CardPlayedWithEffects.c:28-45`）----
-            if (uses != null && uses.Limited)
+            foreach (var uses in boxes)
             {
+                if (!uses.Limited) continue;
                 uses.Left--;
                 if (uses.Left < 1) RemoveHandEffectFromHand(ctx, owner, uses, unit.Name + " 打出");
             }
         }
 
-        /// <summary>把**这一份**身上挂的手牌效果全部清掉（`Ops` / 来源 / 到期 / 次数盒子）。
+        /// <summary>把**这一份**身上挂的手牌效果全部清掉（**所有条**：`Op` / 来源 / 到期 / 次数盒子）。
         /// ⚠️ **次数盒子只是「这一份不再引用它」** —— 同一个盒子的其它份由
-        /// <see cref="RemoveHandEffectFromHand"/> 负责摘。</summary>
+        /// <see cref="RemoveHandEffectFromHand"/> 负责摘。
+        /// ⚠️ 要摘**单条**（不是整份）时，用 `RemoveHandEffectAt` 那一族的粒度 —— 见
+        /// <see cref="RemoveHandEffectFromHand"/> 与 <see cref="ExpireHandBuffs"/>。</summary>
         static void ClearHandEffect(CardInstance inst)
         {
             if (inst == null) return;
-            inst.HandBuffOps.Clear();
-            inst.HandBuffSource = null;
-            inst.HandBuffExpire = CardInstance.HandBuffExpiry.Never;
-            inst.HandBuffExpireTurn = 0;
-            inst.HandBuffUsesRef = null;
+            inst.HandEffects.Clear();
         }
 
         /// <summary>
@@ -2921,19 +3417,32 @@ namespace RuleEngine
         ///
         /// ⚠️ 认的是**同一个计数盒**（`HandBuffUsesRef` 同一个对象）—— 那正是原版「一条 `HandEffect`
         /// 记录发给 N 张牌」的形状；⛔ 别改成「按来源卡名匹配」（两个来源可能同名）。
+        /// 🔴 **2026-10-18（`A885` ④）**：摘的是**条**，不是「整份牌身上的一切」 ——
+        /// 一份牌上还挂着**别的**效果（别的盒子 / 不限次的那条）时，那些**必须留着**
+        /// （原版 `CardScript.RemoveEffect(那条 cardEffect)` 也是逐条摘）。
         /// </summary>
         static int RemoveHandEffectFromHand(BattleContext ctx, int owner, CardInstance.HandBuffUses uses,
                                             string why)
         {
             if (ctx == null || uses == null) return 0;
+            var recs = ctx.Players[owner].HandEffectRecords;
+            // ---- ① 先从**记录表**上把这条记录摘掉（原版 `PlayerHand.RemoveHandEffectAt` 就是摘记录）
+            //        —— 摘了之后「后进手牌的牌」才不会再补上它。
+            var ids = new List<int>();
+            for (int k = recs.Count - 1; k >= 0; k--)
+                if (recs[k] != null && ReferenceEquals(recs[k].Uses, uses))
+                { ids.Add(recs[k].RecordId); recs.RemoveAt(k); }
+            // ---- ② 再从**每一份牌身上**摘掉那几条（按记录号认；`Uses` 引用那条是兜底，
+            //        防「记录先被别处摘了、牌身上还留着」）----
             int n = 0;
             var hand = ctx.Players[owner].Hand;
             for (int i = 0; i < hand.Count; i++)
             {
                 var inst = hand[i];
-                if (inst == null || !ReferenceEquals(inst.HandBuffUsesRef, uses)) continue;
-                ClearHandEffect(inst);
-                n++;
+                if (inst == null) continue;
+                int cut = inst.HandEffects.RemoveAll(
+                    e => e != null && (ReferenceEquals(e.Uses, uses) || ids.Contains(e.RecordId)));
+                if (cut > 0) n++;
             }
             if (n > 0)
                 ctx.Log($"（手牌效果次数用尽：{why} ⇒ 把这条效果从手牌里**还带着它的 {n} 张牌**上摘掉"
@@ -2969,31 +3478,272 @@ namespace RuleEngine
         static int ExpireHandBuffs(BattleContext ctx)
         {
             int n = 0;
+            int dropped = 0;   // 记录表上摘掉了几条（原版 `UpdateCardEffects.c:332` 摘的就是**记录**）
             for (int pl = 0; pl < 2; pl++)
             {
                 var hand = ctx.Players[pl].Hand;
+                var recs = ctx.Players[pl].HandEffectRecords;
+                // 🔴 **2026-10-18（`W4` 整改 · 账 5）**：**记录表也要跟着到期** ——
+                //    原版 `PlayerHand__UpdateCardEffects.c:332` 摘的就是 `activeEffects` 里
+                //    那**一条记录**（`RemoveHandEffectAt`），记录不摘的话「后进手牌的牌」
+                //    会把一条**已经过期**的效果补上去（静默错）。
+                //    ⇒ ① 先在记录表上判、摘；② 再按记录号 + 逐条判，把牌身上那几条摘干净。
+                var deadIds = new List<int>();
+                for (int k = recs.Count - 1; k >= 0; k--)
+                    if (recs[k] != null && HandEffectExpired(ctx, pl, recs[k]))
+                    { deadIds.Add(recs[k].RecordId); recs.RemoveAt(k); dropped++; }
+
+                // ⚠️ 逐条判、逐条摘（改之前读的是**整份牌一个到期位**，一份牌上两条不同到期的
+                //    效果会**一起**被摘 / **一起**活着；原版一条 `CardEffect` 一个到期位）。
                 for (int i = 0; i < hand.Count; i++)
                 {
                     var inst = hand[i];
-                    if (inst == null || inst.HandBuffOps.Count == 0) continue;
-                    bool drop;
-                    switch (inst.HandBuffExpire)
-                    {
-                        case CardInstance.HandBuffExpiry.EndOfTurn:
-                            drop = true;                                   // 原版 `:100`：无条件
-                            break;
-                        case CardInstance.HandBuffExpiry.OwnerTurnStart:
-                            drop = ctx.Active != pl && ctx.Turn >= inst.HandBuffExpireTurn;  // 原版 `:119-137`
-                            break;
-                        default:
-                            drop = false;                                  // 原版四个 `until*` 全为假
-                            break;
-                    }
-                    if (drop) { ClearHandEffect(inst); n++; }
+                    if (inst == null || inst.HandEffects.Count == 0) continue;
+                    n += inst.HandEffects.RemoveAll(
+                        e => e != null && (deadIds.Contains(e.RecordId) || HandEffectExpired(ctx, pl, e)));
                 }
             }
-            if (n > 0) ctx.Log($"（{n} 条手牌效果到期 —— 原版 `PlayerHand.UpdateCardEffects`）");
+            if (n > 0 || dropped > 0)
+                ctx.Log($"（手牌效果到期：记录表上摘掉 **{dropped}** 条（原版 `PlayerHand.UpdateCardEffects` "
+                      + "摘的就是**记录**），牌身上共清掉 **{n}** 条）");
             return n;
+        }
+
+        /// <summary>
+        /// **一条手牌效果到期了没有** —— 逐句对着 `PlayerHand__UpdateCardEffects.c` 的方法体写。
+        ///
+        /// 分两段，**第二段（extrinsic）无条件跑、和 `endOfTurn` 那个参数无关**：
+        ///   · 回合结束那三条（`endOfTurn = 1` 才走）：`+0x32` / `+0x33`~`+0x35` / `+0x34`；
+        ///   · **无条件那三条**（`:332` 之前那一段）：`entry.cardEffect.extrinsic // +0x30` 为真时，
+        ///     看 `cardEffect.enchantingCard`（**施放者**）——`!IsInPlay(施放者)` ⇒ 摘；
+        ///     `HasCurrentTrait(施放者, 0x82)` ⇒ 摘（`0x82` 是哪个词条**本笔没查清** —— 如实标着，
+        ///     我们**没有**实现这一条）。
+        /// 🔴 `+0x30` 的语义与写点（本笔逐条核过）：tooltip `Effect is tied to acting card,
+        ///    not target card`（`dump.cs:119071`）；写点 `AbilityLogic__PlayAbility.c:1197 / :1354`
+        ///    的 `extrinsic = AbilityData.whileInPlay || whileInPlayVariable`
+        ///    （`dump.cs:19557-19566`）⇒ **「这条效果系在【在场上才成立的那个来源】身上」**。
+        /// </summary>
+        static bool HandEffectExpired(BattleContext ctx, int pl, CardInstance.HandEffect e)
+        {
+            switch (e.Expire)
+            {
+                case CardInstance.HandBuffExpiry.EndOfTurn:
+                    return true;                                   // 原版 `:100`：无条件
+                case CardInstance.HandBuffExpiry.OwnerTurnStart:
+                    return ctx.Active != pl && ctx.Turn >= e.ExpireTurn;   // 原版 `:119-137`
+                default:
+                    break;                                         // 原版四个 `until*` 全为假 ⇒ 不过期
+            }
+            // ---- 无条件那一支：extrinsic（原版 `UpdateCardEffects.c` 的 `+0x30` 那几条）----
+            if (e.Extrinsic && !IsUnitInPlay(ctx, e.ActingUnit)) return true;
+            // 🆕 **2026-10-18（`W4` 整改 · 审查问题 6 / 账 5）：第二条无条件支线 ——
+            //    `extrinsic && HasCurrentTrait(施放者, 0x82 /* jam */)` ⇒ 摘**
+            //    （`PlayerHand__UpdateCardEffects.c:235`：`HasCurrentTrait(lVar4,0x82,0)`，
+            //     而 `lVar4 = *(cardEffect + 0x18)` = **`enchantingCard`（施放者）**）。
+            //    · `0x82` = 130 = **`DefinedTrait.jam`**（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/
+            //      DefinedTrait.cs:13`）；我们词表里的名字 = `KeywordTable.Jam`（本批新登记）。
+            //    · 判据挂在**施放者**身上（不是那张手牌）⇒ 用 `UnitState.Has`（那是「卡面印的 +
+            //      运行时加的」的全集，对应原版 `CurrentTraits`）。
+            //    ⚠️ 今天全池 **0 张卡**带 `jam` ⇒ 这一支不会变异任何一局的行为（不是死代码：
+            //      它等的是数据 —— 词表已认得它）。
+            if (e.Extrinsic && e.ActingUnit != null && e.ActingUnit.Has(KeywordTable.Jam)) return true;
+            return false;
+        }
+
+        /// <summary>那个施放者**还在不在场上**（自己的或对手的棋盘上都算 —— 原版
+        /// `CardScript.IsInPlay(施放者)` 不区分谁那边；它只是个「这个对象还在局里」的判据）。
+        /// ⚠️ 按**引用**找，不按卡名 —— 同名两张是两份，摘的时候认的是那一份。</summary>
+        static bool IsUnitInPlay(BattleContext ctx, UnitState u)
+        {
+            if (ctx == null || u == null) return false;
+            for (int p = 0; p < 2; p++)
+            {
+                var b = ctx.Players[p].Board;
+                for (int s = 0; s < b.Length; s++) if (ReferenceEquals(b[s], u)) return true;
+            }
+            return false;
+        }
+
+        // ==================================================================
+        //  🆕 **2026-10-18（`A885` ②）：手牌效果的【消费者】**
+        //     —— 「后进来的牌也会吃上既有手牌效果」那一层
+        // ==================================================================
+
+        /// <summary>
+        /// **一张牌进手牌时，把「手牌登记表」上还挂着的效果补给它** ——
+        /// 原版 `PlayerHand.SetupCardInHand(hand, card)`（`PlayerHand__SetupCardInHand.c:38-74`）：
+        /// 遍历 `hand.activeEffects // +0x48`，对每一条
+        /// `FilterMethods.CheckIfMeetsCriteria(card, handEffect.targetCriteria, 0)`（`:58`）命中、
+        /// 且 `CardScript.AlreadyContainsEffect(card, effect)`（`:65`）为假 ⇒
+        /// `CardScript.AddEffect(card, effect)`（`:71`）。
+        /// 四个调用点 = **进手牌的每一条路**：`_AddActiveTrapToHand`（`:31`）·
+        /// `_AddCardNotDrawnToHand`（`:34`）· `_AddCardNotDrawnToHandAtIndex`（`:35`）·
+        /// `_AddDrawnCardToHand`（`:118`）⇒ 这才是「**后进来的牌也吃上既有手牌效果**」那一层。
+        /// （📌 对照：`PlayerHand.CheckEffectsOnNewCard` **只管变形/换卡** —— 调用点只有
+        ///  `ResolveTransformUnit.c:1931/:1981`；别把这两条混了。）
+        ///
+        /// 🔴 **结构性差异（如实标注）**：原版遍历的是**手牌级登记表**
+        /// （`PlayerHand.activeEffects // +0x48`），我们把效果**挂在每一份牌自己身上**
+        /// （`CardInstance.HandEffects`，= 原版 `CardScript +0x108`）。
+        /// ⇒ 我们**两张表都有、且是同一批对象**：逐张的那份在实例上
+        /// （兑现用），**记录表**在 `PlayerState.HandEffectRecords` 上（= 原版 `activeEffects`，
+        /// 见 <see cref="HandEffectRegistry"/>）。⛔ **别再另造一张对局级的载荷副本表**
+        /// （`A885` 删掉过一张，那个形状是错的）。
+        ///
+        /// ⚠️ **`targetCriteria` 从哪来 —— 2026-10-18（`W5` · 审查 §5 账 9「criteria 根治」）
+        ///   就地订正（铁律 5）**：原来这里写着「判不出来时**退回「单位卡」这一档**」——
+        ///   **那个退路已经删了**（它会把 `all **Beasts** in your hand` 发给每一个部队）。
+        ///   现在三档，按原版 `FilterMethods.CheckIfMeetsCriteria(card, handEffect.targetCriteria)` 逐维落：
+        ///     · `CardCriteria.FromTarget(条目上的 Target)` —— `Kind` / `KeywordFilter` / `NameFilter` 三维；
+        ///     · **`SubtypeFilter`** 单独补一道（`CardCriteria.FromTarget` 不看它）
+        ///       —— `Beast Snagga Nob` 的 `all Beasts in your hand` 靠它；
+        ///     · **代词那一族**（`give them …` / `give it …`，`Target.Kind == "prev"`）走解析层新填的
+        ///       `EffectTargetSpec.PrevAntecedent`（= 上一条 `drawtype` 那个「抽的是哪一类牌」的词，
+        ///       见 `EffectText.LinkPrevAntecedent`）—— 这一格就是原版 `HandEffect.targetCriteria`
+        ///       在我们这边的落点。
+        /// ⛔ **三档都判不出来时【不放行】**（`HandEffectFits` 那一行 `return false`）：
+        ///   那是**我们解析层的缺口**，不是原版的一种状态 —— 宁可少给，也别乱给（工程红线）。
+        /// 🔴 退路**会自己说出来**（`SetupCardInHand` 末尾那句日志，2026-10-18 第三轮 + `W5` 改口）。
+        /// ⚠️ **只影响「后进手牌的牌」**：条目的**首次挂载**（`AttachHandEffect`，几条 `GrantHandBuff*`
+        ///    / `AttachEffectToHandInstances`）**不走这个方法** ⇒ 手里那几张照旧吃得上。
+        ///
+        /// ⚠️ **`SetAutoFit`（时刻）**：原版是**进手牌那一刻**补，我们落在**各自的进手牌入口**
+        /// （`RuleCore.Draw` + 几条「造牌进手牌」的路）。⛔ **不是**「打出前补齐」——
+        /// 那样会把「手工塞进 `Hand` 的牌」也补上（自检里有这种夹具，会掩盖真判别式）。
+        /// </summary>
+        public static int SetupCardInHand(BattleContext ctx, int owner, CardInstance inst)
+        {
+            if (ctx == null || inst == null || inst.Card == null) return 0;
+            if (owner < 0 || owner > 1) return 0;
+            // ⚠️ 建场期（`BuildPlayer` 发起手牌）那一趟 `ctx.Players[owner]` 可能还没建出来。
+            if (ctx.Players == null || ctx.Players[owner] == null) return 0;
+            var reg = HandEffectRegistry(ctx, owner);
+            if (reg.Count == 0) return 0;
+            int n = 0, loose = 0;
+            foreach (var e in reg)
+            {
+                if (e == null || e.Op == null) continue;
+                bool isLoose;
+                if (!HandEffectFits(inst.Card, e, out isLoose)) continue;
+                if (isLoose) loose++;
+                if (AttachHandEffectCopy(ctx, inst, e)) n++;
+            }
+            // 🔴 **2026-10-18（`W4` 整改 · 审查问题 9）：退路档要【自己说出来】**，⛔ 不能只写在注释里。
+            //    （原来只打「吃上了」，不说自己走的是「判不出条件 ⇒ 单位卡都放行」那一档 ——
+            //      那会让「条件真的判中了」和「条件其实判不出来」在日志里长得一样。）
+            // 🔴 **2026-10-18（`W5` · 审查 §5 账 9）就地改口（铁律 5）**：退路档**已经收窄成「不放行」**
+            //    （`HandEffectFits` 那一行 `return false`）⇒ 这句文案跟着改 —— 它原来写的是
+            //    「按『是单位卡就算』**放行**了」（旧行为）。⛔ 两处说法打架比没有更糟。
+            if (loose > 0)
+                ctx.Log($"（进手牌：「{inst.Card.Name}」有 **{loose} 条**效果的筛选条件我们**判不出来**"
+                      + " ⇒ **这一趟一条都没给它**（`HandEffectFits` 的退路档，"
+                      + "原版判据是 `HandEffect.targetCriteria`，`PlayerHand__SetupCardInHand.c:58`）"
+                      + "。⚠️ 这是**我们解析层的缺口**，不是原版的一种状态；"
+                      + "宁可少给，也不按「是单位卡就算」乱给）");
+            return n;
+        }
+
+        /// <summary>
+        /// **「手牌登记表」** —— 🆕 **2026-10-18（`W4` 整改 · 账 5）：改读
+        /// `PlayerState.HandEffectRecords`**（= 原版 `PlayerHand.activeEffects // +0x48` 那张**记录表**）。
+        ///
+        /// 🔴 **原来是从手牌实例上「现场扫」的 —— 那是错的形状**：原版 `SetupCardInHand.c:38`
+        ///    遍历的就是这张**记录表** ⇒ **某条效果的载体全部离开手牌之后，记录还在**，
+        ///    后来进手牌的牌**照样**吃得上。现扫的写法在那一刻就看不见它了。
+        ///    （`Beast Snagga Nob` 给手牌 +1：手里那张唯一的 Beast 打出去之后，新抽到的 Beast
+        ///      在原版**照样**吃 +1，我们原来吃不上。）
+        ///
+        /// ⚠️ 表里是**逐张牌身上那一条条 `HandEffect` 本身**（同一批引用，不是副本）⇒ 不是第二份状态；
+        ///    ⛔ 别退回「扫手牌」，也⛔ 别另造一张对局级的载荷副本表（那正是 2026-10-18 删掉的形状）。
+        ///    🔴 **2026-10-18（`G3` 真差异 ①）：表里现在**允许**有「**没有任何载体的记录**」** ——
+        ///    原版 `PlayerHand.AddHandEffect` 是**先收记录（`:90-110`）、再逐张贴（`:112-139`）**
+        ///    ⇒ 「手上一个符合条件的都没有」时**记录照样在**（所以后来的来客吃得上）。
+        ///    那一条由 `EffectResolver.RegisterHandEffectRecord`（`inst == null`，只登记不贴牌）放进来
+        ///    ⇒ **它不在任何一份牌的 `HandEffects` 上，这是正常的、不是脏数据**。
+        ///    ⛔ 别写「表里每一条都能在牌身上找到」这种断言。
+        /// ⚠️ **按 `RecordId` 去重**（一次挂载发给 N 张牌 = **一条**记录）+ **按号升序**返回
+        ///    （原版遍历的是按插入序排的表；现扫的次序 = 手牌序，不等于挂载序 —— 多条同时兑现时
+        ///      `Ops` 的应用次序会跟着变，今天没有数据能让它显形，但次序错了就是静默错打）。
+        /// </summary>
+        static List<CardInstance.HandEffect> HandEffectRegistry(BattleContext ctx, int owner)
+        {
+            var r = new List<CardInstance.HandEffect>();
+            var recs = ctx.Players[owner].HandEffectRecords;
+            for (int i = 0; i < recs.Count; i++)
+            {
+                var e = recs[i];
+                if (e == null || e.Op == null || e.Op.Verb != "give") continue;
+                bool dup = false;
+                for (int k = 0; k < r.Count; k++)
+                    if (r[k].RecordId == e.RecordId) { dup = true; break; }
+                if (!dup) r.Add(e);
+            }
+            r.Sort((a, b) => a.RecordId.CompareTo(b.RecordId));
+            return r;
+        }
+
+        /// <summary>后进手牌的这张卡吃不吃得上这一条 —— 判据与理由见 <see cref="SetupCardInHand"/>。
+        /// <paramref name="loose"/> = **走的是退路档**（条件判不出来）——
+        /// 🔴 2026-10-18（`W4` 整改 · 审查问题 9）：它**必须带回给调用方**，
+        /// 由 `SetupCardInHand` 打一句日志。⛔ 不许只是注释里写「这是近似」。
+        /// 🔴 **2026-10-18（`W5` · 审查 §5 账 9）就地改口（铁律 5）**：退路档从
+        ///   「只按**单位卡**放行」收窄成「**不放行**」（`return false`）—— 理由逐条写在方法体里。
+        ///   这一格原来写的是「条件判不出来 ⇒ 按单位卡放行」，是**旧行为**。
+        ///
+        /// 🔴 **2026-10-18（`W4` 整改 · 第三轮）补一道兵种筛**：`CardCriteria.FromTarget`
+        ///    读的是 `Kind` / `KeywordFilter` / `NameFilter`，**不看 `SubtypeFilter`** ——
+        ///    而 `Beast Snagga Nob` 的 `all **Beasts** in your hand` 正是靠 `SubtypeFilter` 表达的
+        ///    ⇒ 不补这一道的话，那条记录会**发给每一个后进手牌的部队**（卡面只管野兽）——
+        ///    「打得比卡面宽」的静默错。（判据与写法 = `GrantHandBuffForTargets` 收候选那一段，
+        ///     **同一份纪律**：`Subtype` 为空的卡**不许悄悄排除**。）</summary>
+        static bool HandEffectFits(CardDef card, CardInstance.HandEffect e, out bool loose)
+        {
+            loose = false;
+            if (card == null) return false;
+            // 🔴 **2026-10-18（`W5` · 审查 §2 作者自陈 b + §5 账 9）：原来这里有一道
+            //    `if (card.Type != "unit") return false;` —— 已删。**
+            //    原版 `PlayerHand.SetupCardInHand` **不看卡类型**（`PlayerHand__SetupCardInHand.c:38-74`
+            //    只有 criteria 那一关）；「非单位卡吃不上」应当是 **criteria 判出来的结果**，
+            //    不该是这里另加的一条闸（两处写同一条规则 = 迟早不一致）。
+            //    ⚠️ 删掉它**不会放宽**：今天所有能产出的 criteria 都是 `KindWord = unit/troop`
+            //      （`HandTroopCriteria`）或具体兵种词 —— 而 `CardCriteria.Matches` 走
+            //      `CreatePool.MatchesKind`，对非单位卡一律 false。下面那条「判不出来就不放行」
+            //      也兜住了其余情形。
+            var crit = CardCriteria.FromTarget(e.Target);
+            bool hasSubtype = e.Target != null && !string.IsNullOrEmpty(e.Target.SubtypeFilter);
+            // 🆕 **2026-10-18（`W5`）**：代词（`them` / `it`）那一族 —— `FromTarget` 对 `Kind == "prev"`
+            //   返回 `null`，但**解析层已经把先行词的筛条件填好了**
+            //   （`EffectText.LinkPrevAntecedent` → `EffectTargetSpec.PrevAntecedent`，= 原版
+            //   `HandEffect.targetCriteria`）。先补这一档，再谈「判不出来」。
+            if (crit == null && e.Target != null && e.Target.PrevAntecedent != null)
+                crit = e.Target.PrevAntecedent;
+            // 🔴 **2026-10-18（`W5` · 审查 §5 账 9 的收窄）**：退路档从「判不出来就**放行单位卡**」
+            //    改成「判不出来就**不放行**」。
+            //    · **判据**：原版这一关是 `FilterMethods.CheckIfMeetsCriteria(card, handEffect.targetCriteria)`
+            //      —— 条件**判不出来**时，原版无从谈起「放行」（它拿的是作者在 ability 资产上标好的
+            //      `TargetCriteria`，永远判得出来）⇒ **我们的「判不出来」不是原版的一种状态**，
+            //      而是我们解析层的缺口。缺口的正确处置是**不出声地错打？不，是宁可少给**
+            //      （工程红线「宁可认不出，也别静默错打」：放行 = 把 `all **Beasts** in your hand`
+            //      发给每一个部队）。
+            //    · **为什么现在能改**：先做完了「解析层产出 criteria」那一半
+            //      （`PrevAntecedent` + 既有的 `SubtypeFilter`/`CardCriteria` 两维）⇒ 真卡池上
+            //      剩下的「判不出来」已经收窄到**没有先行词可判**的那几张（如 `GSC75 Rogue Informant`
+            //      的 `If it's a troop, give it Stealth` —— 那句条件我们解析层不产出）
+            //      ⇒ 它们**少给**而不是**乱给**。
+            //    · ⚠️ **只影响「后进手牌的牌」**（`SetupCardInHand` 那条消费者路）——
+            //      条目的**首次挂载**（`AttachHandEffect`）不走这里 ⇒ 手里那几张照旧吃得上
+            //      （`Beast Snagga Nob` 那一族**一点没受影响**，它的 `SubtypeFilter = "Beast"` 可判）。
+            if (crit == null && !hasSubtype) { loose = true; return false; }   // ← 收窄：判不出来就不放行
+            if (crit != null && !crit.Matches(card)) return false;
+            if (hasSubtype)
+            {
+                bool hit = string.IsNullOrEmpty(card.Subtype);   // 查不到兵种的卡不排除（同一条纪律）
+                foreach (var w in e.Target.SubtypeFilter.Split('|'))
+                    if (string.Equals(card.Subtype, w.Trim(), System.StringComparison.OrdinalIgnoreCase))
+                    { hit = true; break; }
+                if (!hit) return false;
+            }
+            return true;
         }
 
         /// <summary>
@@ -3087,6 +3837,9 @@ namespace RuleEngine
 
             var u = ctx.Players[p].Board[slot];
             u.LastAttackType = 4;   // 🆕 表现用：主动技能那一档（原版 `currentAttackType = Active`）
+            // 🆕 2026-10-18（`W5` · `K3` 第 9 个写点）：用了主动能力 ⇒ 带 duty/ferocity/oath 的那个
+            //   重挑攻击型（原版 `ResolveActiveAbilityPlayed.c:29-42`，判据见本方法）。
+            RecomputeAttackTypeAfterActiveAbility(u);
             var spec = u.Ability;
             var chosen = EffectTargets.NeedsPick(spec.Target) ? ctx.Players[1 - p].Board[targetSlot] : null;
 
@@ -3230,6 +3983,9 @@ namespace RuleEngine
 
             var u = ctx.Players[p].Board[slot];
             u.LastAttackType = 4;   // 🆕 表现用：誓约能力也走「技能」那一格（原版同）
+            // 🆕 2026-10-18（`W5` · `K3` 第 9 个写点）：誓约单位重挑攻击型（原版
+            //    `ResolveActiveAbilityPlayed.c:29-42` 的 `duty||ferocity||oath` 那一支）。
+            RecomputeAttackTypeAfterActiveAbility(u);
 
             // ⚠️ `ResolveOathAbility` 定义在 `EffectResolver.cs` 里，但**那个文件里的类也是 `RuleCore`**
             //    （`public static partial class RuleCore`）—— 照文件名写 `EffectResolver.` 编译不过。
@@ -3343,6 +4099,9 @@ namespace RuleEngine
 
             var u = ctx.Players[p].Board[slot];
             u.LastAttackType = 4;   // 🆕 表现用：替代行动也走「技能」那一格（原版同）
+            // 🆕 2026-10-18（`W5` · `K3` 第 9 个写点）：替代行动同样是 `ResolveActiveAbilityPlayed`
+            //    那一支（`ferocity` 就在这三个关键词里），所以同样重挑。
+            RecomputeAttackTypeAfterActiveAbility(u);
             // ⚠️ **`FxOps`**（原生正文 → **挂上去的正文**）：`Give "💀 Backlash: …" to a friendly troop`
             //    那种挂上来的也要能执行替代行动（原来只读 `Card.TriggerOps`，挂的那份看不见）。
             var ops = u.FxOps(keyword);
@@ -3883,6 +4642,7 @@ namespace RuleEngine
                 var talent = ctx.NewInstance(c);   // 天赋生成 = **新造一张**（第 7 行第 2 步）
                 talent.EphemeralMarked = true;     // 临时：回合结束还没打就移出游戏（`SweepEphemeral`）
                 ps.Hand.Add(talent);
+                SetupCardInHand(ctx, side, talent);   // 🆕 `A885` ②（天赋卡是战术 ⇒ 今天恒空过，机制留着）
                 made++;
                 ctx.Log($"{ps.Name} 的「{u.Name}」天赋{(fromPool ? "是池子 ⇒ **抽到**" : "生成了")}「{c.Name}」（临时卡）");
             }
@@ -3965,14 +4725,29 @@ namespace RuleEngine
         // ==================================================================
 
         /// <summary>
-        /// 投降（原版 `BattleResult.Forfeit`）：**立刻**判对方胜，不看督军血量。
+        /// 投降 / 判弃权（原版 `BattleResult.Forfeit` / `Disconnect`）：**立刻**判对方胜，不看督军血量。
+        /// 🆕 **2026-10-18（A913）**：是**哪一档**由第三个形参 `reason` 说清（原版 `DeadHero(_,_,BattleResult)`）。
         ///
         /// ⚠️ 和 `CheckWinner` 的关系：那边是「督军倒下才算」，这边是玩家自己认输 ——
         ///    所以**不复用** `CheckWinner`（它见到两边都没倒会返回 0，等于投降无效）。
         ///    判过了就不再改（和 `CheckWinner` 一样：**胜负只判一次**）。
         /// 单机没有对手可以投降（AI 不投降），所以这条路只有玩家走得到。
         /// </summary>
-        public static int Forfeit(BattleContext ctx, int player)
+        /// <param name="reason">🆕 **2026-10-18（A913）理由码** —— 原版
+        ///   `BattleManager.DeadHero(bool isPlayerDying, BattleResult battleResult)` 的**第二个实参**。
+        ///   <para>默认 = <see cref="BattleResult.Forfeit"/>(2)：本方法**今天就是这个入口** ——
+        ///   名字、玩家那颗「投降」钮、既有调用点说的都是「有人投降」（给默认值是为了不动
+        ///   判不出理由的那几处）。</para>
+        ///   <para>⚠️ **凡是知道理由的调用点都要显式传**：掉线/重连失败那几条传
+        ///   <see cref="BattleResult.Disconnect"/>(3)（原版那两条就是 `DeadHero(_,3)`）；
+        ///   对面点投降传 2（原版 `ReceiveEnemyForfeit.c:37`）。</para>
+        ///   <para>⛔ **判不出就别猜** —— 显式传 <see cref="BattleResult.Undefined"/>，
+        ///   日志里会写明「未指定」，自检也认得出（拿 2 顶替 = 静默说错一句话，红线）。</para>
+        ///   <para>🔴 码**只进 `ctx.Events` 那条日志**（`ctx.Log`，我们自己的诊断通道，不是
+        ///   `ctx.ActionLog` 那本给玩家看的战斗日志），**不进 `ctx` 的任何状态** ——
+        ///   原因见 <see cref="BattleResult"/>（指纹/回放零风险）。</para>
+        /// </param>
+        public static int Forfeit(BattleContext ctx, int player, BattleResult reason = BattleResult.Forfeit)
         {
             if (ctx.Winner != 0) return ctx.Winner;          // 已经结束了，投降不作数
             if (player != 0 && player != 1) return 0;        // 越界就什么都不做（调用方的问题）
@@ -3980,16 +4755,41 @@ namespace RuleEngine
             //   原版出处：`TutorialStage` 字段 `preventPlayerResign`（`dump.cs:42080`，偏移 `+0xB9`）
             //   —— 6 关实测**全是 false**（`tutorial_stages.json`）⇒ 今天一次都不触发，**机制照做**（铁律 11）。
             //   ⚠️ 判据只有这一处：⛔ 别在 UI 那一层再挡一道（两处写同一条规则 = 迟早不一致）。
+            //   原版同一支：`ClickExitBattle.c:59` 那个 `if (*(char *)(stage + 0xb9) == '\0')`
+            //   —— 真 ⇒ 才走 `DeadHero(我, 2)`；假 ⇒ `LogWarning` + **不判负**（正是我们这一支）。
             if (ctx.Tutorial != null && ctx.Tutorial.ResignBlocked)
             {
                 ctx.Log($"{ctx.Players[player].Name} 想投降 —— **这一关不允许投降**"
-                      + "（关卡 `preventPlayerResign`）⇒ 挡下，对局继续");
+                      + $"（关卡 `preventPlayerResign`）⇒ 挡下，对局继续"
+                      + $"（原版理由码 `BattleResult.{reason}` = {(int)reason}，这一支**没有**走到 `DeadHero`）");
                 return ctx.Winner;                           // = 0（什么都没发生）
             }
             ctx.ForfeitedBy = player;
             ctx.Winner = player == 0 ? 2 : 1;
-            ctx.Log($"{ctx.Players[player].Name} 投降 —— {ctx.Players[1 - player].Name} 获胜");
+            // 🔴 **码与文案分开写**（同 `CLAUDE.md`/本批反复强调的那条：不许拿给人看的句子当逻辑）：
+            //   ① **机器可读**那一行 —— 稳定 token，自检认它；换措辞、换语言它都不变。
+            ctx.Log($"[BattleResult] {reason}({(int)reason}) seat={player}");
+            //   ② **给人看**那一行 —— 措辞按码分档（`BattleResultWord`）。
+            //   ⚠️ 理由码 == `Forfeit`(2) 时这句与改动前**逐字相同**（既有断言照旧绿）。
+            ctx.Log($"{ctx.Players[player].Name} {BattleResultWord(reason)} —— {ctx.Players[1 - player].Name} 获胜");
             return ctx.Winner;
+        }
+
+        /// <summary>理由码 → **给人看**的那半句（`BattleResult` 的中文说法）。
+        /// 🔴 **它只用于文案**：逻辑一律直接比 <see cref="BattleResult"/> 本身，⛔ 别拿这个串当判据
+        /// （换措辞/换语言会静默失效 —— 本批已经栽过四次的那个模式）。</summary>
+        public static string BattleResultWord(BattleResult r)
+        {
+            switch (r)
+            {
+                case BattleResult.BattleVictory: return "判负（督军倒下）";
+                case BattleResult.Forfeit:       return "投降";            // ← 与改动前逐字相同
+                case BattleResult.Disconnect:    return "掉线判弃权";
+                case BattleResult.WinButton:     return "跳过（调试判胜）";
+                case BattleResult.Cancelled:     return "取消匹配";
+                case BattleResult.DrawButton:    return "调试判平";
+                default:                         return "弃权（**理由未指定**）";
+            }
         }
 
         /// <summary>0 = 进行中，1/2 = 该方胜，3 = 平局。（rule_core.check_winner）</summary>

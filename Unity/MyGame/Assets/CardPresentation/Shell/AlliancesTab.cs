@@ -276,8 +276,15 @@ namespace CardPresentation
             var head = Node(Root, "Alliance Header Buttons", HeaderBtnR);
             Nine(head, "40k_Separator_Fade_Sides_Horizontal", HeadDivR, new Vector4(63f, 0f, 63f, 0f),
                  "Divisor line", L_Line, new Color(0.875f, 0.552f, 0.286f, 1f));
-            _joinBg = TabToggle(head, JoinBtnR, "Generic Tab UI Button Search", "Join", true, out _joinLabel);
-            _createBg = TabToggle(head, CreateBtnR, "Generic Tab UI Button Create", "Create", false, out _);
+            // 🔴 **2026-10-18（第八轮）**：两颗页签的**文案**走词条（只换「显示文案」那一个实参）——
+            //   `Join` → `SocialMenu/Alliances/Join`（经 `LabelJoin` 那个属性取，见它的 doc：
+            //   这个串运行期还会被 `SetJoinLabel` 重设，所以**必须每次现取**）；
+            //   `Create` → `SocialMenu/Alliances/Create`（1 颗，父链 = 兄弟节点
+            //   `Generic Tab UI Button Create < Tab buttons < Alliance Header Buttons < …` ⇒ 与我们同一条）。
+            //   ⛔ 节点名（`"Generic Tab UI Button Search"` / `"… Create"`）与那串字号/auto*/对齐实参一字未动。
+            _joinBg = TabToggle(head, JoinBtnR, "Generic Tab UI Button Search", LabelJoin, true, out _joinLabel);
+            _createBg = TabToggle(head, CreateBtnR, "Generic Tab UI Button Create",
+                                  Loc.T("SocialMenu/Alliances/Create"), false, out _);
             Hit(head, "JoinHit", JoinBtnR, L_Hit, ShowJoin);
             // ⚠️ 原版这一颗是 `EverguildToggle`，点了**不是去建盟**而是切到建盟那张表 —— 我们照做，
             //    并在切过去的视图里出声（建盟本身要服务器）。
@@ -335,16 +342,37 @@ namespace CardPresentation
 
         // ---------------------------------------------------------- `GeneralDetails`（未入盟支那一棵，act F）
 
-        /// <summary>`AllianceSearchTab` 那两颗键出厂的字面文案（资产里的 `Button Text`，普查 §A·1 `:49-67`）。</summary>
-        const string LabelJoin = "Join";
+        /// <summary>🔴 **2026-10-18（第八轮）：这一颗页签的文案走词条**（原来是一个写死的英文字面量）。
+        /// <para>键 = 原版那颗 `Generic Tab UI Button Search/Button Text` 的 `Localize.mTerm` 原文
+        /// **`SocialMenu/Alliances/Join`**（6 颗同键；本颗父链 = `Button Text < Generic Tab UI Button Search
+        /// < Tab buttons < Alliance Header Buttons < AllianceNotMemberVariant < Alliances Tab` ⇒ 与我们同一条）。
+        /// 英文列 = TMP 原文 `Join`；中文列「加入」**是我们自拟的**（`zh_CN.csv` 里没有 `Join` 这个英文串）。</para>
+        /// <para>🔴 **为什么做成【属性】而不是 `const`**：这一个串**有三个求值点** —— 建窗时
+        /// （`BuildHeader` 的 `TabToggle`）与**运行期换字**（`ShowJoin` / `ShowCreate` 各调一次
+        /// `SetJoinLabel(LabelJoin)`）。若留 `const`，那两处换字会把**中文档已经画好的中文**改回英文
+        /// （静默、只在切页签时现形）⇒ 必须每次现取。⛔ 别改回 `const`。</para></summary>
+        static string LabelJoin { get { return Loc.T(LabelJoinTerm); } }
+        /// <summary>上面那条词条的**键**（原版 `Localize.mTerm` 原文）。</summary>
+        const string LabelJoinTerm = "SocialMenu/Alliances/Join";
         /// <summary>🔴 **详情态里 `Join` 那颗会换一句文案** —— 原版 `HandleDisplayAlliance` 把
         /// `joinButtonText` 设成**另一个词条**（`AllianceSearchTab__HandleDisplayAlliance.c` 里那个
         /// `I2_Loc_LocalizationManager__GetTranslation(DAT_1842bfc18)`，与 `Initialize` /
-        /// `ShowJoinAllianceMenu` 用的 `DAT_1842532b0` **不是同一条**）⇒ 原版那颗在那一态读的字**变了**。
-        /// ⚠️ **词条在远端本地化表，本地一条都取不到**（同 `BattleDriver.cs:2631` 与 `ChoosePanel` 那两处
-        /// 「原版词条取不到 ⇒ 落兜底」）⇒ 下面这个串**是我们挑的兜底**，⛔ 不是原版词条。
-        /// 语义上是「退回列表」，与 `ShowJoin` 那条真退路自洽。</summary>
-        const string LabelBack = "Back";
+        /// `ShowJoinAllianceMenu` 用的 `DAT_1842532b0` **不是同一条**）。
+        /// <para>🔴🔴 **2026-10-18（第九轮）就地订正（铁律 5）**：这一段原来接着写「**词条在远端本地化表，
+        /// 本地一条都取不到** ⇒ 下面这个串是我们挑的兜底」——**前半对、后半不成立**。
+        /// **实际是：那两个 `DAT_` 常量本身就是【词条的键名】，本地能读**。判据（可复跑）：
+        /// `d:/2/tools/il2cpp_out/stringliteral.json`（26,507 条 `{value, address}`，`address` 是 **RVA**）——
+        /// `address 0x42BFC18` → **`MainMenu/MainButtons/ButtonLabel/Back`**（= `0x1842bfc18 − 0x180000000`）·
+        /// `address 0x42532B0` → `SocialMenu/Alliances/Join`（同上一条）。错因 = 当年**没查那张表就断定「远端才有」**。
+        /// ⇒ 现在**照 `LabelJoin` 同款接上词条**（本表 `:379` 早就有这条键：中文「返回」= `zh_CN.csv:5`）。
+        /// 🔑 **可复用的读法**：`_DAT_xxxxxxxx` 常量**别急着判「远端才有」** —— 先拿
+        /// `RVA = 地址 − 0x180000000` 去 `stringliteral.json` 查一次（UI 词条名基本都在里面）。</para>
+        /// <para>🔴 **为什么做成【属性】而不是 `const`**：理由同 <see cref="LabelJoin"/> —— 它也在
+        /// **运行期**被 `SetJoinLabel` 取一次（`HandleDisplayAlliance`），留 `const` 会把中文档已画好的中文改回英文。
+        /// ⛔ 别改回 `const`。</para></summary>
+        static string LabelBack { get { return Loc.T(LabelBackTerm); } }
+        /// <summary>上面那条词条的**键**（原版 `Localize.mTerm` 原文；判据 = `stringliteral.json` 的 `0x42BFC18`）。</summary>
+        const string LabelBackTerm = "MainMenu/MainButtons/ButtonLabel/Back";
 
         void SetJoinLabel(string s) { if (_joinLabel != null) _joinLabel.SetText(s); }
 
@@ -427,7 +455,18 @@ namespace CardPresentation
             //    （文本 `Search`）实读 **`折行=0`**（`字号=50 auto[18~50] 对齐=Left/Midline`，同一条 dump）。
             // 🆕 **2026-10-12（A323）`alignLeft: true` 显式声明**：原版 `Left/Midline`（同一条 dump）——
             //   `SocialWindow.Text` 的 `alignLeft` 缺省**本批已删**（那口变必填）⇒ 逐处现读补齐。
-            var lbSearch = Text(sf, SearchPhR, "Search", new Color(1f, 1f, 1f, 0.58f), "Placeholder", 50f, L_Text, 18f,
+            // 🔴 **2026-10-18（第五轮）：占位符走词条** —— 键 = 原版那颗 `Placeholder` 的
+            //   `Localize.mTerm` 原文 **`MenuDeck/HUD/SearchFilter`**（**与卡组线那几颗同一条 mTerm**！
+            //   本批按 pid 亲读：全库该 mTerm **11 颗**，其中 **6 颗**在 `SocialMenu/` / `Draft Mode` 族 ——
+            //   本颗 = `Alliances Tab > … > List View > Search Field > Text Area > Placeholder`，
+            //   另 5 颗是各扇 `No Alliance > Join Alliances Button/Button Text`）。
+            //   ⚠️ **同一条 mTerm 挂在两个族的节点上** ⇒ 判据文件原来那句「这两颗属 `SocialMenu/` 族、
+            //   **不在** `MenuDeck/HUD/SearchFilter` 那条线上」**是错的**（就地订正，铁律 5）——
+            //   这正是「**只给节点名会撞**」那条坑：键是**资产上的 mTerm**，不是按族分的。
+            //   英文列 = 那颗 TMP 的 `m_text` 原文 `Search`；中文列 = 「搜索」(`zh_CN.csv:10`)。
+            //   ⛔ 节点名 `"Placeholder"` 不动（`Editor/MainMenuScene.cs` 按名找它读折行/字号档）。
+            var lbSearch = Text(sf, SearchPhR, Loc.T("MenuDeck/HUD/SearchFilter"),
+                 new Color(1f, 1f, 1f, 0.58f), "Placeholder", 50f, L_Text, 18f,
                  wrap: false, alignLeft: true, autoMaxPx: 50f, autoBasePx: 26f);   // A414（表 #2）`auto[18~50] 基准=26.0`
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向档 = 原版那一颗的 `m_VerticalAlignment = 4096 (Midline)`
             //   （判据 = 上面那条 dump 的 `对齐=Left/Midline` —— A255/A323 只落了**横向**那一半）。
@@ -462,7 +501,12 @@ namespace CardPresentation
             BuildRows(_invList, InvListR, SocialData.Invitations.Count, BuildInvitationRow, null, InvRowGap);
 
             var open = Node(area, "Open Alliances", new PxRect(360.99f, 277.29f, 1874.90f, 1079.77f));
-            Text(open, OpenTitleR, "Open alliances:", Color.white, "Title", 47.5f, L_Text, 18f,
+            // 🔴 **2026-10-18（第六轮）：字走 `Loc.T`** —— 键 = 原版那颗 `Title` 的 `Localize.mTerm` 原文
+            //   `SocialMenu/Alliances/OpenAlliances`（1 颗；父链 = `Title < Open Alliances < List Area <
+            //   List View < AllianceNotMemberVariant < Alliances Tab` ⇒ **与我们这颗同一条**）。
+            //   英文列 = TMP 原文 `Open alliances:`（**带冒号**，照抄）；中文列「开放联盟：」**是我们自拟的**（CSV 无此英文串）。
+            //   ⛔ 节点名 `"Title"` 与后面那串 wrap/alignLeft/auto* 实参**一个字没动**。
+            Text(open, OpenTitleR, Loc.T("SocialMenu/Alliances/OpenAlliances"), Color.white, "Title", 47.5f, L_Text, 18f,
                  wrap: true, alignLeft: true, autoMaxPx: 72f, autoBasePx: 36f);   // A323：原版 `Left/Middle`；A414（表 #4）`auto[18~72] 基准=36.0`
             // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：这颗 `Viewport` 是**裁切状态的载体**
             //    （原版这上面是 `Image + RectMask2D`）—— 参数取原版实读的全 0
@@ -553,9 +597,19 @@ namespace CardPresentation
             Node(bd, "Badge", new PxRect(r.x1 + 18.80f, r.y1 + 10.00f, r.x1 + 108.80f, r.y1 + 100.00f));
             RowTexts(row, r, m.Name, m.Region, m.Members, m.MemberMax, m.Rating, 4.50f);
             // 两个钮（我方 `+393.8` / 邀请方 `+603.8`，都 200×57）
-            RowButton(row, r, 1046.30f, 24.46f, "Join", "Join", () => Say(
+            // 🔴 **2026-10-18（第八轮）**：这颗钮的**文案**走词条（与上面那颗页签**同一条键**
+            //   `SocialMenu/Alliances/Join` —— 6 颗里就含列表行这两颗，父链 = `Button Text < Join <
+            //   Invitation List Entry < …`）。⛔ 第 3 实参那个**节点名 `"Join"` 不动**。
+            RowButton(row, r, 1046.30f, 24.46f, "Join", Loc.T("SocialMenu/Alliances/Join"), () => Say(
                 "`Join`（接受邀请）：要**服务器**（原版 `AllianceInvitationEntry.HandleJoin`）。"));
-            RowButton(row, r, 1256.30f, 23.70f, "Reject", "Dismiss", () => Say(
+            // 🔴 **2026-10-18（第十轮 · B 类）**：这颗钮的**文案**走词条（只换第 4 实参）——
+            //   键 = 原版那颗 `Reject/Button Text` 的 `Localize.mTerm` 原文 `SocialMenu/Alliances/Dismiss`
+            //   （3 颗同键；父链 = `Button Text < Reject < Invitation List Entry < List < Invitations < List Area
+            //   < List View < AllianceNotMemberVariant < Alliances Tab` ⇒ **节点名 `Reject` 与我们逐字相同**、
+            //   连它「节点名 `Reject` / 文案 `Dismiss`」这个错位都对得上）。
+            //   英文列 = TMP 原文 `Dismiss`；中文列「拒绝」**我们自拟**（`zh_CN.csv` 没有 `Dismiss`）。
+            //   ⛔ 节点名 `"Reject"` 与 x/y 那两个实参没动。⚠️ 建行时求值。
+            RowButton(row, r, 1256.30f, 23.70f, "Reject", Loc.T("SocialMenu/Alliances/Dismiss"), () => Say(
                 "`Dismiss`（拒绝邀请）：要**服务器**（原版 `HandleDismiss`）。"));
             // 🆕 2026-10-04（A55②）：**这一条真的通到「看详情」那一态了**（不再只出声）。
             // 判据链：`AllianceInvitationEntry.HandleInfo` 发 `OnInfoClick`（反编译
@@ -581,7 +635,9 @@ namespace CardPresentation
             Node(bd, "Frame", new PxRect(r.x1 + 18.80f, r.y1 + 10.00f, r.x1 + 108.80f, r.y1 + 100.00f));
             Node(bd, "Badge", new PxRect(r.x1 + 18.80f, r.y1 + 10.00f, r.x1 + 108.80f, r.y1 + 100.00f));
             RowTexts(row, r, m.Name, m.Region, m.Members, m.MemberMax, m.Rating, 4.50f);
-            RowButton(row, r, 1188.00f, 21.18f, "Generic UI Button", "Join", () => Say(
+            // 🔴 **2026-10-18（第八轮）**：同上（与页签那颗 `Join` **同一条键**；父链 = `Button Text < Generic UI Button
+            //   < Entry < List < Viewport < Open Alliances < …`）。⛔ 节点名 `"Generic UI Button"` 不动。
+            RowButton(row, r, 1188.00f, 21.18f, "Generic UI Button", Loc.T("SocialMenu/Alliances/Join"), () => Say(
                 "`Join`（加入这个联盟）：要**服务器**（原版 `AllianceListEntry.TryJoin`）。"));
             // 🆕 2026-10-04（A55②）：**点公开列表里的某个盟 → 看它的详情**那一态（原版
             // `AllianceListEntry.HandleInfo` → `OnInfoClick` → `JoinAllianceMenu.OnDisplayAlliance`
@@ -625,13 +681,26 @@ namespace CardPresentation
             //   ⛔ 别一刀切）⇒ 各自显式传 `alignLeft: false`。
             // 🆕 **A258**：本段三处原版 `折行=1` ⇒ `wrap: true` 显式声明（缺省值**本批没删成**，
             //   阻塞点见上面那条；这三行是提前补全）。
-            Text(row, new PxRect(r.x1 + 639.04f, r.y1 + 12.82f + dy, r.x1 + 816.14f, r.y1 + 49.18f + dy), "Members:",
+            // 🔴 **2026-10-18（第六轮）认过树才接的**（`Text(row, …, "Members:", …, **"Members Header"**, …)`）：
+            //   键 = 原版那颗 `Members Header` 的 `Localize.mTerm` 原文 `SocialMenu/Alliances/Members`（3 颗）。
+            //   **配对判据（三条一起）**：① 我们的**节点名就是 `"Members Header"`**；② 本文件头那张 A414 表
+            //   （`:100`）早就把这一格标成 `…/{Invitation List Entry,Entry}/Members Header` —— 与原版那颗的
+            //   父链 `Members Header < {Entry | Invitation List Entry | Alliance List Entry}` **逐节同名**；
+            //   ③ 原版两列行族（`Invitations` / `Open Alliances`）**共用这一条键**，我们也一样（同一条键覆盖两列）。
+            //   英文列 = TMP 原文 `Members:`（**带冒号**）；中文列 = `zh_CN.csv:273`「成员」+ 全角冒号。
+            //   ⛔ 节点名与那串 alignLeft/wrap/auto* 实参没动。
+            Text(row, new PxRect(r.x1 + 639.04f, r.y1 + 12.82f + dy, r.x1 + 816.14f, r.y1 + 49.18f + dy),
+                 Loc.T("SocialMenu/Alliances/Members"),
                  Color.white, "Members Header", 38.35f, L_Text, 18f, alignLeft: false, wrap: true,
                  autoMaxPx: 72f, autoBasePx: 36f);   // A414（表 #7）原版 `auto[18~72] 基准=36.0`
             Text(row, new PxRect(r.x1 + 639.04f, r.y1 + 55.31f + dy, r.x1 + 816.15f, r.y1 + 107.70f + dy),
                  members + "/" + max, Color.white, "Member Count", 50f, L_Text, 18f, alignLeft: false, wrap: true,
                  autoMaxPx: 50f, autoBasePx: 36f);   // A414（表 #8）原版 `auto[18~50] 基准=36.0`
-            Text(row, new PxRect(r.x1 + 847.45f, r.y1 + 12.82f + dy, r.x1 + 1024.55f, r.y1 + 49.18f + dy), "Ranking:",
+            // 🔴 **2026-10-18（第六轮）**：同上（节点 = `"Ranking Header"`，判据表 = 本文件头 `:102`）——
+            //   键 = `SocialMenu/Alliances/Ranking`（4 颗）。英文列 = TMP 原文 `Ranking:`（带冒号）；
+            //   中文列「排名：」**是我们自拟的**（`zh_CN.csv` 里没有 `Ranking` 这个英文串）。
+            Text(row, new PxRect(r.x1 + 847.45f, r.y1 + 12.82f + dy, r.x1 + 1024.55f, r.y1 + 49.18f + dy),
+                 Loc.T("SocialMenu/Alliances/Ranking"),
                  Color.white, "Ranking Header", 38.35f, L_Text, 18f, alignLeft: false, wrap: true,
                  autoMaxPx: 72f, autoBasePx: 36f);   // A414（表 #9）原版 `auto[18~72] 基准=36.0`
             // `Ranking`：图标（段位）+ 数值。原版是 `HorizontalLayoutGroup` 排的（图标 53.6/55.4 见方）
@@ -680,16 +749,28 @@ namespace CardPresentation
         {
             _createView = Node(Root, "Create Alliance View", CreateViewR);
 
-            Field(_createView, "Name input title", "Alliance Name",
+            // 🔴 **2026-10-18（第八轮）**：建盟页这两行标题的**文案**走词条（只换「显示文案」那一个实参）——
+            //   `Name input title` → `SocialMenu/Alliances/NameInput`、`Desc input title` → `…/DescriptionInput`
+            //   （各 1 颗；父链 = `{Name,Desc} input title < TopAnchor < Create Alliance View <
+            //   AllianceNotMemberVariant < Alliances Tab` ⇒ **节点名与我们逐字相同**）。
+            //   英文列 = 原版 TMP 原文（`Alliance Name` / `Alliance Description`）；中文列**我们自拟**
+            //   （`zh_CN.csv` 里两条英文串都没有）。⛔ 第 2 实参（节点名）与那串字号/auto*/对齐实参没动。
+            Field(_createView, "Name input title", Loc.T("SocialMenu/Alliances/NameInput"),
                   new PxRect(432.47f, 257.65f, 1125.42f, 307.65f),
                   new PxRect(432.47f, 307.95f, 1332.47f, 367.35f), "Name Input");
-            Field(_createView, "Desc input title", "Alliance Description",
+            Field(_createView, "Desc input title", Loc.T("SocialMenu/Alliances/DescriptionInput"),
                   new PxRect(432.48f, 402.99f, 1125.43f, 452.99f),
                   new PxRect(432.48f, 454.55f, 1332.48f, 659.00f), "Desc Input");
 
             // `Create Alliance Text`（标题）+ `Price Display Button`（`Continue` + 1000 水晶）
-            Text(_createView, new PxRect(428.10f, 666.82f, 678.10f, 723.60f), "Create alliance", Color.white,
-                 "Create Alliance Text", 40f, L_Text, 18f, wrap: true, alignLeft: true,
+            // 🔴 **2026-10-18（第六轮）：字走 `Loc.T`** —— 键 = 原版那颗 `Create Alliance Text` 的
+            //   `Localize.mTerm` 原文 `SocialMenu/Alliances/CreateAlliance`（1 颗；父链 =
+            //   `Create Alliance Text < TopAnchor < Create Alliance View < AllianceNotMemberVariant < Alliances Tab`
+            //   ⇒ **节点名与我们这颗逐字相同**）。英文列 = TMP 原文 `Create alliance`；
+            //   中文列「创建联盟」**是我们自拟的**（⚠️ `zh_CN.csv:229` 那条是 `Create Alliance (1000 Gold)`，**另一个串**）。
+            //   ⛔ 节点名 `"Create Alliance Text"` 与那串实参没动。
+            Text(_createView, new PxRect(428.10f, 666.82f, 678.10f, 723.60f), Loc.T("SocialMenu/Alliances/CreateAlliance"),
+                 Color.white, "Create Alliance Text", 40f, L_Text, 18f, wrap: true, alignLeft: true,
                  autoMaxPx: 40f, autoBasePx: 36f);   // A323：原版 `Left/Middle`；A414（表 #12）`auto[18~40] 基准=36.0`
             var price = new PxRect(428.09f, 714.21f, 678.14f, 792.99f);
             var pb = Node(_createView, "Price Display Button", price);
@@ -727,10 +808,19 @@ namespace CardPresentation
             if (pbWb != null) pbWb.BindNine(pbNine, "40K_button");
 
             // 语言 / 隐私两个下拉（只建「合上的那一面」：底图 + 空 Label + 箭头）
-            Dropdown(_createView, "Select Language", "Select language",
+            // 🔴 **2026-10-18（第十轮 · B 类）**：两个标题的**文案**走词条（只换 `title` 那一个实参）——
+            //   键 = 原版那两颗 `Localize.mTerm` 的原文 `SocialMenu/Alliances/SelectLanguage` /
+            //   `…/SelectPrivacy`（各 1 颗；父链 = `{Select Language,Select Privacy} < TopAnchor <
+            //   Create Alliance View < AllianceNotMemberVariant < Alliances Tab` ⇒ **节点名与我们逐字相同**）。
+            //   ⚠️ 与本表 `MainMenu/Settings/ButtonLabel/SelectLanguage` **是两条不同的键**（原版设置窗用那条、
+            //   建盟页用这两条）⇒ ⛔ 别因为中文一样就合并。英文列 = TMP 原文（`Select language` / `Select privacy`，
+            //   **小写 l/p**，照抄）；中文列「选择语言」/「选择隐私」**我们自拟**（`zh_CN.csv` 里两条英文串都没有）。
+            //   ⛔ 节点名（`"Select Language"` / `"Select Privacy"`）与其余实参没动。
+            //   ⚠️ 两处都在 `BuildCreateView()`（**建窗时**求值，不是 static 初始化）⇒ 与其它窗同口径。
+            Dropdown(_createView, "Select Language", Loc.T("SocialMenu/Alliances/SelectLanguage"),
                      new PxRect(1440.43f, 250.87f, 1690.43f, 307.65f),
                      new PxRect(1440.43f, 307.64f, 1690.43f, 367.04f), "LanguagesDropdown");
-            Dropdown(_createView, "Select Privacy", "Select privacy",
+            Dropdown(_createView, "Select Privacy", Loc.T("SocialMenu/Alliances/SelectPrivacy"),
                      new PxRect(1440.43f, 397.50f, 1690.43f, 454.28f),
                      new PxRect(1440.43f, 454.28f, 1690.43f, 513.68f), "Privacy Dropdown");
         }

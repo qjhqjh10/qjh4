@@ -400,7 +400,15 @@ namespace CardPresentation
                 // `UI_Button_Mulligan` **没有 border**（实读 `Sprite/UI_Button_Mulligan.json` 的 `m_Border = None`）
                 // ⇒ 拉伸。走 `Nine` 会吐「border 比图还大，退回单块」（§三 第 15 条 第 57 行；同 `DeckInfoPopup`）。
                 var randomBg = MenuDraw.Rect(root, CardArt.MenuUi("UI_Button_Mulligan"), rr, "Random Bg", QDsRow);
-                MenuDraw.Text(root, rr, "Random", Color.white, "Random Text", 45f, QDsText);
+                // 🔴 **2026-10-18（A891 的续）：字走 `Loc.T`** —— 词条键 = 原版那颗 `Localize.mTerm`
+                //   的原文 `MenuDeck/Button/Random`（本批按 pid 亲读；父链 = `Deck Selection Popup with Tabs >
+                //   Deck Display > Header > Practice buttons > Generic Simplified UI Button > Button Text` ——
+                //   就是本行底下那颗 `EverguildButton`）。
+                //   ⚠️ **中英两列都是我们拟的**：那颗 TMP（`Button Text_7450249239293310335`）的
+                //   `m_text = ''`（本批实读）⇒ **英文原文取不到**（同 `MenuDeck/Tip/SelectDeckAgainst` 那条的先例），
+                //   而 `zh_CN.csv` 里也没有 `Random` ⇒ 中文按英文自拟「随机」。⛔ 别写成「照抄原版」。
+                //   ⛔ 节点名 `"Random Text"` 与 `"Random Bg"` 不动。
+                MenuDraw.Text(root, rr, Loc.T("MenuDeck/Button/Random"), Color.white, "Random Text", 45f, QDsText);
                 // A17：原版 `…>Practice buttons>Generic Simplified UI Button` 是 SpriteSwap（普查 §块 3 第 9 行）；
                 // 底下那颗 `EverguildButton`(trans=1) 不换图 —— 换图的是 `Button` 那颗
                 Hit(root, "RandomHit", rr, PickRandom, QDsHit, randomBg, "UI_Button_Mulligan");

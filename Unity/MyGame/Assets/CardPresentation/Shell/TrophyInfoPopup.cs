@@ -154,11 +154,23 @@ namespace CardPresentation
         static readonly Color OutCol  = new Color(1f, 0.841f, 0f, 1f);
         static readonly Color MarkCol = new Color(0.575f, 0.209f, 0.209f, 1f);
 
-        /// <summary>`Next Tier` 那一行的字面样例串（**资产里的真字符串**，不是我们编的。它身上带 `Localize`
-        /// ⇒ 原版走 I2 词条，而**词条表在远端 CCD** ⇒ 只能照抄 prefab 里那个串本身 —— 同本仓既有的口径）。</summary>
-        public const string NextTierText = "Next Tier:";
-        /// <summary>勾选行那句（同上：prefab 里的字面串 `'Alliance featured trophy'`）。</summary>
-        public const string FeatureLabel = "Alliance featured trophy";
+        /// <summary>🔴 **2026-10-18（第十一轮）：`Next Tier` 那一行走词条**。
+        /// <para>键 = 原版那颗 `Next Tier` 的 `Localize.mTerm` 原文 **`SocialMenu/Alliances/Trophies/NextTier`**
+        /// （本批按 pid 亲读；父链 = `Next Tier < Progress < Controls < RightSide < window < Alliance Trophy Info Popup`）。
+        /// 英文列 = 那颗 TMP 的 `m_text` 原文 **`Next Tier:`（带冒号）**；中文列「下一档：」**我们自拟**（`zh_CN.csv` 无该串）。</para>
+        /// <para>⚠️ **2026-10-18（第十一轮）就地订正（铁律 5）**：下面这段原来写「它身上带 `Localize` ⇒ 原版走 I2 词条，
+        /// 而**词条表在远端 CCD** ⇒ 只能照抄 prefab 里那个串本身」—— **后半不成立**：
+        /// 那颗 `Localize` 的 **`mTerm` 就在 prefab 上**（键名本地读得到），取不到的是**译文**（远端 I2），
+        /// 而我们的**中文那一列本来就是我们自己译的**（本表通用口径）⇒ **完全可以接词条**，不必只照抄英文串。
+        /// 同族那次同类错（`AlliancesTab.LabelBack`）另见 §15。</para>
+        /// <para>⛔ **别改回 `const`** —— 这扇窗可以反复开（`Open()` 每次都会重建那一行），
+        /// 常量会在第一次求值后就冻住（换语言不再变）。消费点只有 `:382` 那一处。</para></summary>
+        public static string NextTierText { get { return Loc.T("SocialMenu/Alliances/Trophies/NextTier"); } }
+        /// <summary>勾选行那句 —— 同上（键 = 原版那颗 `Label` 的 `Localize.mTerm` 原文
+        /// **`SocialMenu/Alliances/Trophies/FeaturedTrophyLabel`**；父链 = `Label < Checkbox < selectButton
+        /// < Controls < RightSide < window`）。英文列 = TMP 原文 `Alliance featured trophy`；
+        /// 中文列「联盟精选奖杯」= **`zh_CN.csv:53` 精确命中**。⛔ 别改回 `const`（理由同上）。</summary>
+        public static string FeatureLabel { get { return Loc.T("SocialMenu/Alliances/Trophies/FeaturedTrophyLabel"); } }
 
         /// <summary>最近一次开出来的那一扇（自检用，同 `SocialWindow.LastOpened` 那条先例）。</summary>
         public static TrophyInfoPopup LastOpened { get; private set; }

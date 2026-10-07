@@ -168,8 +168,69 @@ namespace RuleEngine
         /// （原版 `AttackTypesButtonsController.HighlightSelectedAttackTypeButtons`），
         /// 原来我们错挂在「指针悬停」上。
         /// ⚠️ **只用于表现** —— 我们的伤害是显式按 `ranged` 算的（不走 `currentAttackType` 那条），
-        /// 所以这个字段**别拿去做规则判据**。</summary>
+        /// 所以这个字段**别拿去做规则判据**。
+        /// 🔴 **2026-10-18（A938）更正**：本注释原来把这一格写成「原版 `EntityScript.currentAttackType`」——
+        ///    **那是两个字段**：这一格是「**上一次用了哪一档**」（表现用，原版另有其源），
+        ///    而 `currentAttackType` 是**卡上持久的当前攻击型**，落在下面的
+        ///    <see cref="CurrentAttackType"/>。原版 `Attack` 读的是**后者**
+        ///    （`AiScripted__ExecuteAction.c:1139` 的 `uVar18 = *(undefined4 *)(lVar12 + 0x120)`），
+        ///    ⛔ 不是这一格。**错因**：2026-09-29 加这一格时只看了偏移名、没去读 `Attack` 那一段。</summary>
         public int LastAttackType;
+
+        /// <summary>攻击型：近战（原版 `AttackTypes.Melee = 1`）。</summary>
+        public const int AttackTypeMelee = 1;
+        /// <summary>攻击型：远程（原版 `AttackTypes.Ranged = 2`）。</summary>
+        public const int AttackTypeRanged = 2;
+        /// <summary>攻击型：未定（原版 `EntityScript.__ctor` 的初值虽写 `1`，
+        /// `AttackTypes` 枚举里 `0` 是「没选」—— 我们只在**强制档**上用不到它，留着对齐枚举）。
+        /// 取值照 `AttackTypes`：`0 未定 · 1 近战 · 2 远程 · 4 主动技能`。</summary>
+        public const int AttackTypeNone = 0;
+        /// <summary>攻击型：**主动技能**（原版 `AttackTypes.Active = 4`）。
+        /// 写点 = `CardScript__ActivateMinion.c:71-72`（召唤病 + `ferocity`/`oath` ⇒ 写 `4`）。</summary>
+        public const int AttackTypeActive = 4;
+
+        /// <summary>🆕 2026-10-18（A938）：**这张牌当前选定的攻击型**（原版
+        /// `EntityScript.currentAttackType`，字段偏移 **`+0x120`**，`d:/2/tools/il2cpp_out/dump.cs` 的
+        /// `EntityScript` 段）。取值照原版 `AttackTypes`：`0` 未定 · `1` 近战 · `2` 远程 · `4` 主动技能。
+        ///
+        /// 🔴 **为什么必须进引擎**（这一条是本轮最要紧的判据）：
+        ///   原版 `AiScripted.ExecuteAction` 的 `Attack(30)` / `AttackFreeMode(31)` 那一支把
+        ///   **`attackType = *(actingCard + 0x120)`** 直接喂给 `AddAttackAction`
+        ///   （`AiScripted__ExecuteAction.c:1139-1143`），而 `ChangeToRanged(35)` / `ChangeToMelee(36)`
+        ///   那一支调 `CardScript.ChangeAttackType(card, 2|1, true)`
+        ///   （`AiScripted__ExecuteAction.c:1201,:1249` → `CardScript__ChangeAttackType.c:15` **写这一格**）
+        ///   ⇒ **`ChangeTo*` 是 `Attack` 的前置**，不是可选演出。
+        ///   ⚠️ 我们的伤害是**显式传 `ranged`** 算的（`RuleCore.DeclareAttack`）—— 现在补上这条链：
+        ///   `ChangeTo*` 写这一格、`RuleCore.DeclareAttackByCurrentType` 读它（**唯一**读点）。
+        ///
+        /// 🔴 **`+0x120` 的全部写点（2026-10-18 `W5` 逐条扫 `d:/2/tools/decomp_full/`
+        ///   `grep -n "+ 0x120" CardScript__*.c EntityScript__*.c` 得 10 条写入语句 / 9 个方法）**：
+        ///
+        /// | # | 原版写点 | 写什么 | 我们落在哪 |
+        /// |---|---|---|---|
+        /// | 1 | `EntityScript__.ctor.c:5` | `1` | 本构造器（初值随后被 #2 覆盖） |
+        /// | 2 | `CardScript__CardSetup.c:263-267` | `(近战 &lt; 远程) + 1` | 本构造器 —— `RuleCore.ChooseAttackTypeAutomatically`（**判据只此一份**） |
+        /// | 3 | `CardScript__ChangeAttackType.c:14-15` | 形参 | `RuleCore.SetCurrentAttackType`（教程 `ChangeTo*`） |
+        /// | 4 | `CardScript__ChooseAttackTypeAutomatically.c:11-12` | `(近战 &lt; 远程) + 1` | `RuleCore.RecomputeCurrentAttackType`（同一条算式，公开入口） |
+        /// | 5 | `CardScript__AddEffect.c:479-480` | **`1`**（挂上 `blind`/975 时） | 本类 `AddKeyword`（`blind` 分支） |
+        /// | 6 | `CardScript__AddEffect.c:625-626` | **`2`**（挂上 `pindown`/970 时） | 本类 `AddKeyword`（`pindown` 分支） |
+        /// | 7 | `CardScript__ActivateMinion.c:70-72` | **`4`**（召唤病 **且** 带 `ferocity`/`oath` 时） | `RuleCore.PlayCard` 的部署收尾（`RuleCore.ForceAttackTypeOnDeploy`） |
+        /// | 8 | `CardScript__OnTurnEnd.c:214-218` | `(近战 &lt; 远程) + 1`（带 `oath` 时） | `RuleCore.EndTurn` |
+        /// | 9 | `CardScript__ResolveActiveAbilityPlayed.c:35-42` | `(近战 &lt; 远程) + 1`（带 `duty`/`ferocity`/`oath` 时） | `RuleCore.UseAbility` / `UseOathAbility` / `UseAlternative` |
+        /// | 10 | `CardScript__UpdateAttackText.c:21-29` | `(近战 &lt; 远程) + 1`（**仅当 `+0x40 == 0`**） | **数值一变就重挑**：`RuleCore.RecomputeCurrentAttackTypes`（跟着 `Auras.Recompose` / `ApplyOneGain` 走） |
+        ///
+        /// ⚠️ **#10 的 `+0x40` 守卫我们【不复刻】，如实标着**：那一格是 `CardScript.CardSetup` 的第 3 个实参
+        ///   `isPlayer`（`CardScript.cs:1573` 的签名 `CardSetup(BattleManager mgr, bool isPlayer, …)`）
+        ///   ⇒ 原版**只对「不是本机玩家那一侧」的卡**自动重挑，**本机玩家手选的那一档不被覆盖**
+        ///   （本机玩家靠 `UnitOnBoardAttackTypeSelector.AttackButtonClick` 显式改）。
+        ///   我们的 `Core/` **没有「本机 / 对手」这个概念**（对局两侧是对称的，
+        ///   `RuleCore` 不许引表现层），而且我们**没有**「手选攻击型」那个 UI 入口
+        ///   （`SetCurrentAttackType` 的唯一调用点是教程脚本）⇒ 复刻这个守卫 **既做不到也没有对象**。
+        ///   ⛔ 别写成「我们做了 `+0x40` 守卫」。
+        ///
+        /// **谁读**：`RuleCore.DeclareAttackByCurrentType`（教程 `Attack` 那一档）。
+        /// </summary>
+        public int CurrentAttackType;
 
         /// <summary>🆕 2026-09-16 **「某个机制的触发再发生 N 次」的额度**（按关键词分开记）。
         ///
@@ -268,6 +329,17 @@ namespace RuleEngine
             //       （手牌加成 / 光环）照旧由 `RuleCore.PlayCard` 那一次重算兜住。
             Exhausted = !RuleCore.HasDeployExemption(this);
             HasShield = Has(KeywordTable.Shield);
+
+            // 🆕 2026-10-18（A938）：**卡上当前的攻击型**（原版 `EntityScript.currentAttackType`，`+0x120`）。
+            //   判据 = `EntityScript__.ctor.c:5` 初值写 `1`、`CardScript__CardSetup.c:263-267` 与
+            //   `CardScript__ChooseAttackTypeAutomatically.c:10-12` 都是 `(近战 < 远程) + 1`
+            //   ⇒ **远程更高才取远程，平手取近战**。这与 `SimpleAI.UseRanged`（`Data/`，
+            //   我们那处唯一的「近战还是远程」判据）**逐个局面等价** —— 此处是构造期快照，
+            //   ⛔ **不在这里调它**（`Core/` 不许引 `Data/`，离屏探针只编 `Core/*.cs`，见 `TutorialScript.cs` 类头）。
+            // 🔴 **2026-10-18（`W5` · K3）：算式收进 `RuleCore.ChooseAttackTypeAutomatically` 一处** ——
+            //   本处原来自己写了一遍（那是同一条规则的**第 3 份写法**：`SimpleAI.UseRanged` /
+            //   `BattleDriver.UseRanged` / 这里；`RuleCore` 与 `UnitState` 同程序集，直接调得到）。
+            CurrentAttackType = RuleCore.ChooseAttackTypeAutomatically(this);
         }
 
         /// <summary>
@@ -398,21 +470,43 @@ namespace RuleEngine
 
         /// <summary>关键词授予/叠加（我们上一版复刻 `rule_core._apply_gain:3292`：`kws[name] += val`；⚠️ **旁证**）。
         /// ⚠️ `armour`/`shield`/`stun` 三个还要**同步状态字段** —— 引擎别处是按字段结算的，
-        /// 只加 kws 不改字段 = 给了护甲却不减伤（那份 `.gd` 的 `:3293-3299` 专门补过这个 bug）。</summary>
+        /// 只加 kws 不改字段 = 给了护甲却不减伤（那份 `.gd` 的 `:3293-3299` 专门补过这个 bug）。
+        /// 🔴 **2026-10-18（`W5`）**：那一串同步搬进 <see cref="SyncKeywordState"/> ——
+        /// 它原来与 `AddAuraKeyword` 各写一份（光环那份漏了 `blind` 与攻击型两条）。</summary>
         public void AddKeyword(string keyword, int value)
         {
             if (string.IsNullOrEmpty(keyword)) return;
             _keywords[keyword] = KwValue(keyword) + value;
+            SyncKeywordState(keyword, value);
+        }
 
+        /// <summary>
+        /// **「关键词被挂上」的副作用**（引擎别处按**字段**结算，不按 `_keywords`）——
+        /// 判据只此一份，`AddKeyword` 与 <see cref="AddAuraKeyword"/> 共用。
+        ///   · `armour` / `shield` / `stun` —— 状态字段（`rule_core._apply_gain:3293-3299` 那三条）；
+        ///   · `blind` —— `IsBlind`（`RuleCore.FieldAttack` 直接读它：失明期间远程攻击力视为 0，
+        ///     规则书 `:166`）。**2026-09-14 A6 族 C 补**：原来这一行不在，`give them Blind`
+        ///     会「给了关键词却什么都没发生」（`Has("blind")` 为真、远程照打）= 典型静默失效。
+        ///   · 🆕 **`K3` 的攻击型那两条**（原版 `CardScript.AddEffect` 里那两处）：
+        ///     `blind` ⇒ `+0x120 = 1`（`CardScript__AddEffect.c:479-480`，trait `0x3cf = 975`）·
+        ///     `pindown` ⇒ `+0x120 = 2`（`CardScript__AddEffect.c:625-626`，trait `0x3ca = 970`；
+        ///     `pindown` 只禁近战，见 `RuleCore.CanAttackNow` 的 `ErrPindown`）。
+        ///     ⚠️ 原版**只在写值不同时才写**（`if (… + 0x120) != 1`）—— 那只是省一次 UI 刷新
+        ///     （`BasicCardUI.AttackTypeChanged`），**写进去的值一样** ⇒ 我们直接赋值，等价。
+        ///     ⚠️ **摘掉时不回挑**（原版那两条是**单向**的：`RemoveTraitSilently` 不碰这一格）——
+        ///     之后由 `RuleCore.ChooseAttackTypeAutomatically` 那条链重挑。
+        /// </summary>
+        void SyncKeywordState(string keyword, int value)
+        {
+            if (value > 0)
+            {
+                if (keyword == KeywordTable.Shield) HasShield = true;
+                if (keyword == "stun") IsStunned = true;
+                if (keyword == "blind") IsBlind = true;
+                if (keyword == "blind") CurrentAttackType = AttackTypeMelee;
+                else if (keyword == "pindown") CurrentAttackType = AttackTypeRanged;
+            }
             if (keyword == KeywordTable.Armour) Armor += value;
-            if (keyword == KeywordTable.Shield && value > 0) HasShield = true;
-            if (keyword == "stun" && value > 0) IsStunned = true;
-            // 🆕 2026-09-14 A6 族 C：**`blind` 原来不在这里** —— 而真正生效的是 `IsBlind`
-            //    （`RuleCore.FieldAttack` 直接读它：失明期间远程攻击力视为 0，规则书 `:166`）。
-            //    不补这一行的话，`give them Blind` 会**给了关键词却什么都没发生**
-            //    （`Has("blind")` 为真、远程照打）—— 典型的静默失效。
-            //    ⚠️ 和 `DoBlind`（动词那条路）**同一个字段**，判据只有一份。
-            if (keyword == "blind" && value > 0) IsBlind = true;
         }
 
         /// <summary>移除关键词（`lose X` 用）。**值降到 0 以下就摘掉**</summary>
@@ -518,6 +612,34 @@ namespace RuleEngine
                     break;
                 case "armour": Armor = System.Math.Max(0, Armor + v); break;
             }
+            SyncAttackTypeAfterStatChange();     // 🆕 `W5`：数值变了 ⇒ 重挑攻击型（见该方法的注释）
+        }
+
+        /// <summary>
+        /// 🆕 **2026-10-18（`W5` · `K3` 账 · `+0x120` 第 10 个写点）**：
+        /// **攻/远攻的值一变就按当前数值重挑攻击型** —— 原版 `CardScript.UpdateAttackText`
+        /// （`CardScript__UpdateAttackText.c:21-29`：`(近战 < 远程) + 1`），它被
+        /// `AddEffect` / `ChangeBaseAttack` / `UpdateFigures` / `ReactToUnitJammed` 等**所有改属性的地方**调用。
+        ///
+        /// 🔴 **原版那一条带 `+0x40 == 0` 守卫**（`UpdateAttackText.c:21`），
+        ///   `+0x40` = `CardScript.CardSetup` 的第 3 个实参 = **`isPlayer`**
+        ///   （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/CardScript.cs:1573`
+        ///    `CardSetup(BattleManager mgr, bool isPlayer, CardArmy mainArmy, bool keepStats = false)`；
+        ///    同一格在 `ActivateMinion.c:18/:50` 也是拿 `param_2` 比它）。
+        ///   ⇒ 原版**只对「不是本机玩家那一侧」的卡**自动重挑，本机玩家手选的那一档不被覆盖
+        ///   （本机玩家靠 `UnitOnBoardAttackTypeSelector.AttackButtonClick` → `ChangeAttackType` 显式改）。
+        ///   ⛔ **我们不复刻这个守卫，如实标着**：`RuleEngine/Core/` **没有「本机 / 对手」这个概念**
+        ///   （两侧对称，`Core/` 不许引表现层），而且我们**没有**「手选攻击型」那个 UI 入口 ——
+        ///   `RuleCore.SetCurrentAttackType` 的**唯一**调用点是教程脚本的 `ChangeTo*`。
+        ///   后果（如实说）：教程 `ChangeTo*` 之后若**先**发生一次属性增减（走 `ApplyGrant` /
+        ///   `RevertBuffs` / `RemoveBuffsFromCard` / `ApplyOneGain`），那把「手选」会被重挑覆盖 ——
+        ///   原版不会。今天的教程脚本里那两步之间没有属性变动，所以**不构成现有的行为差异**；
+        ///   真要做那一步的判据（本机侧标记）时，**改这里**、别在四个写点各加一份。
+        ///   ⛔ 更不要改成「全场重挑」—— 那会把**与本属性无关的**单位的手选也冲掉。
+        /// </summary>
+        void SyncAttackTypeAfterStatChange()
+        {
+            CurrentAttackType = RuleCore.ChooseAttackTypeAutomatically(this);
         }
 
         // ---- 光环加成（2026-09-14 A7）--------------------------------------
@@ -561,9 +683,12 @@ namespace RuleEngine
 
             // ⚠️ 和 `AddKeyword` 一样**必须同步状态字段** —— 引擎别处是按字段结算的，
             //    只加 `_keywords` 不改字段 = 「给了护甲却不减伤」（原版 `:3293-3299` 专门补过这个 bug）。
-            if (keyword == KeywordTable.Armour) Armor += value;
-            if (keyword == KeywordTable.Shield) HasShield = true;
-            if (keyword == "stun") IsStunned = true;
+            // 🔴 **2026-10-18（`W5`）**：这一段原来是**同一条规则的第二份写法**（只抄了
+            //    `armour`/`shield`/`stun` 三条，**漏了 `blind` 与 `K3` 的攻击型那两条**）——
+            //    现在收进 `SyncKeywordState`（**判据只此一份**，与 `AddKeyword` 共用）。
+            //    ⚠️ 今天全池**没有任何**光环授予 `blind`/`pindown`（实测正则扫过 `have/has/gains …
+            //    blind|pindown` **0 命中**）⇒ 这两条是**机制对齐**、不是行为变化。
+            SyncKeywordState(keyword, value);
         }
 
         /// <summary>
@@ -666,6 +791,9 @@ namespace RuleEngine
                     }
                 }
                 n++;
+                // 🆕 2026-10-18（`W5`）：限时增益撤掉也会改攻值 ⇒ 重挑攻击型
+                //（原版 `UpdateAttackText.c:21-29` 会被 `ChangeBaseAttack` 那些地方调到）。
+                SyncAttackTypeAfterStatChange();
             }
             return n;
         }
@@ -706,6 +834,7 @@ namespace RuleEngine
                     }
                 }
                 n++;
+                SyncAttackTypeAfterStatChange();   // 🆕 `W5`：同上（这一条是「撤某张卡给的全部增益」）
             }
             return n;
         }

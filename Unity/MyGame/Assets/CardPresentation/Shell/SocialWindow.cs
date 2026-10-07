@@ -75,6 +75,41 @@ namespace CardPresentation
                            "SocialMenu_FriendsButton",   -47.9f),
         };
 
+        /// <summary>🆕 **2026-10-18（第七轮）**：一颗页签标签对应的词条键（= 原版那颗 `TabButtonLabel` 的
+        /// `Localize.mTerm` 原文；父链 `TabButtonLabel < Label < {Alliances,Friends} Tab Button < Tab Buttons
+        /// < Content Area < Social Submenu Variant` ⇒ 与我们这两颗**逐节同名**）。
+        /// **`null` = 名字对不上任何键** ⇒ 保持原样（⛔ 不静默编词条）。</summary>
+        static string LabelTermFor(string label)
+        {
+            switch (label)
+            {
+                case "Alliances": return "SocialMenu/Alliances";   // 1 颗 · TMP 原文 `Alliances`
+                case "Friends":   return "SocialMenu/Friends";     // 1 颗 · TMP 原文 `Friends`
+                default:          return null;
+            }
+        }
+
+        /// <summary>🔴 **2026-10-18（第七轮）**：把静态那份 <see cref="Buttons"/> 的**文案**换成词条
+        /// —— **必须在【建窗时】做**，不能在 `Buttons` 的初始化式里调 `Loc.T`：
+        /// 那是 **`static` 初始化**，只在类首次被加载时求值一次 ⇒ 之后换语言它**不会变**，而且比任何界面都早。
+        /// <para>只替换 `Label` 一个字段；`Art` / `InstId` / 字号 / `BadgeDy` / `AutoBase` **原样带过去**
+        /// （`TabBtnSpec` 是 `struct`，`Shell/MenuWindowBase.cs` 那个构造带缺省参数）。</para>
+        /// <para>⚠️ 渲染时基类会 `ToUpperInvariant()`：英文档印 `ALLIANCES` / `FRIENDS`（照原版），
+        /// 中文（CJK）不受影响。</para></summary>
+        static TabBtnSpec[] LocalizedButtons()
+        {
+            var src = Buttons;
+            var dst = new TabBtnSpec[src.Length];
+            for (int i = 0; i < src.Length; i++)
+            {
+                var s = src[i];
+                var term = LabelTermFor(s.Label);
+                dst[i] = new TabBtnSpec(s.Art, term == null ? s.Label : Loc.T(term),
+                                        s.FontPx, s.AutoMin, s.AutoMax, s.InstId, s.BadgeDy, s.AutoBase);
+            }
+            return dst;
+        }
+
         /// <summary>🔴 原版这条 `Shadow` 是 **0 高**（见文件头 ②）⇒ 不建。基类默认 47.64 是奖励窗的值。</summary>
         protected override float BarShadowW { get { return 0f; } }
 
@@ -129,7 +164,10 @@ namespace CardPresentation
         /// <summary>建整个窗口（**自检与运行时同一条路**）。外壳走基类 `BuildShell`（与奖励窗/商店同一份）。</summary>
         public void Build()
         {
-            var res = BuildShell(transform, Buttons, "SocialTabButton_", "Tabs");
+            // 🔴 **2026-10-18（第七轮）**：传 `LocalizedButtons()`（建窗时把两颗页签的**文案**换成词条），
+            //   ⛔ **不是**静态那份 `Buttons`（静态初始化早于任何语言设置，见 `LocalizedButtons` 的 doc）。
+            //   节点名（`SocialTabButton_{i}`）与图标/字号/角标那些字段**一个字没变**。
+            var res = BuildShell(transform, LocalizedButtons(), "SocialTabButton_", "Tabs");
             tabButtons = res.buttons;
             _btnRoot = res.roots;
             _btnHighlight = res.highlight;

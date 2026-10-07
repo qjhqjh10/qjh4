@@ -447,6 +447,9 @@ namespace CardPresentation.Net
                         _foeFaction = m.faction;
                         // 🆕 主机在这一刻就知道「对面是谁」了（握手包里带着对方的名字）
                         //    ⇒ `SearchingOpponentWindow` 的「找到对手」那一态有东西可填。
+                        // ✅ **本路已经钳过**（2026-10-18 现核）：`s.PeerName` 来自 `MsgProof.name`，
+                        //    而它在 `NetSession.cs` 的收包段（`case NetKind.Proof`）就套过一次
+                        //    `NetSession.ClampPeerText` ⇒ 这里**不用再钳**（⛔ 别写第二份）。
                         FoeName = s.PeerName;
                         Debug.Log($"[Net] 对手交来卡组「{_foeDeck.Name}」（{_foeMode} · {_foeFaction}）"
                                 + (string.IsNullOrEmpty(FoeName) ? "" : $"· 对面是「{FoeName}」"));
@@ -472,7 +475,16 @@ namespace CardPresentation.Net
                         if (!string.IsNullOrEmpty(st.hostDeckJson))
                             _foeDeck = JsonUtility.FromJson<PlayerDeck>(st.hostDeckJson);
                         _foeFaction = st.hostFaction;
-                        FoeName = st.myName;
+                        // 🔴 **A961（2026-10-18，主对话裁定「封口」）：这一行是同一笔账里【玩家看得见】的那个入口。**
+                        //   `st.myName` **是对端可控的**（= 主机那台机器的显示名，`NetProtocol.cs:74`），
+                        //   而 `FoeName` 往下走两条**真在界面上**的路：
+                        //     · `Shell/SearchingOpponentWindow.cs:83`（「找到对手」那扇窗）；
+                        //     · `Battle/BattleDriver.cs:10303` / `:10530`（对局里的敌方名）。
+                        //   ⇒ 与另外五个入口**同一处口径**：进界面前先钳
+                        //     （复用现成的 `NetSession.ClampPeerText`，⛔ 不写第二份）。
+                        //   ⚠️ 这是我们自拟的（原版那一刻的名字来自**服务器**账号 id、长度由服务端管）
+                        //      → 取值与出处见 `NetProtocol.MaxPeerTextChars`。
+                        FoeName = NetSession.ClampPeerText(st.myName);
                         Debug.Log($"[Net] 主机开局：种子 {st.seed} · 模式 {st.mode} · 战场 {st.arena} · "
                                 + $"先手 = {(st.hostFirst == 0 ? "主机" : "客机")}"
                                 + (string.IsNullOrEmpty(FoeName) ? "" : $" · 对面是「{FoeName}」"));

@@ -12,7 +12,9 @@
 //    `HandBuffExpire` / `HandBuffExpireTurn` / `HandBuffUsesRef` 就是那一格。
 //    三个登记点与兑现点见 `RuleCore.AttachHandEffect` / `RuleCore.ApplyHandBuffs`，
 //    到期清扫见 `RuleCore.ExpireHandBuffs`（原版 `PlayerHand.UpdateCardEffects`）。
-//    ⚠️ **仍然没有消费者的**：「在手里就看得见」（卡面 / 查询）—— 我们不做假装有。
+//    ⚠️ **仍然没有消费者的**：「在手里就看得见」的**卡面 / 查询**那一半（把效果画出来）——
+//       我们不做假装有。🆕 **2026-10-18（`A885` ②）补上了另一半**：**后进手牌的牌**
+//       也会吃上既有手牌效果（`RuleCore.SetupCardInHand`，原版 `PlayerHand__SetupCardInHand.c`）。
 //
 // 📌 **历史留痕（2026-09-18 之前的状态，只留结论、正文已删）**：那一步之所以没一次切完 ——
 //    `Deck/Hand/Discard` 换类型会报 **120 个去重错误点**（`EffectResolver` 68 · `RuleCore` 38 · `SimpleAI` 7 ·
@@ -96,10 +98,117 @@ namespace RuleEngine
         /// ⚠️ 载荷在这一刻**不解析**（只留原文），兑现时交给 `give` 那条路
         ///    （词表只有 `GivePayload` 一份判据，见 `EffectResolver.AttachHandEffect`）。
         /// </summary>
-        public readonly List<EffectOp> HandBuffOps = new List<EffectOp>();
+        public readonly List<HandEffect> HandEffects = new List<HandEffect>();
+
+        /// <summary>
+        /// 🔴 **2026-10-18（`A885` ④ · 铁律 5 就地订正）：到期位从「一份牌一格」改成「一条效果一格」。**
+        ///
+        /// 原版一条 `CardEffect` **自己带**那几个到期旗标（`PlayerHand__UpdateCardEffects.c` 逐条读
+        /// `entry.cardEffect` 的 `+0x32/+0x33/+0x34/+0x35`），而**牌身上是一张 `List&lt;CardEffect&gt;`**
+        /// （`CardScript +0x108`；`PlayerHand__RemoveHandEffectAt.c:30-40` 用 `List.Contains` 逐条摘）
+        /// ⇒ **一份牌可挂多条、各带各的到期**。
+        /// 改之前这里是「4 个标量 + 1 条平表（`HandBuffOps`）」：每次挂载都把这一份的到期位**整个覆盖**
+        /// ⇒ 只记得**最后挂上那条** ⇒ 一份牌上两条不同到期的效果会**一起**被摘 / **一起**活着。
+        /// </summary>
+        public sealed class HandEffect
+        {
+            /// <summary>载荷（`give` 那条路解释；登记这一刻**不解析** —— 词表只有 `GivePayload` 一份判据）。</summary>
+            public EffectOp Op;
+
+            /// <summary>
+            /// 🆕 2026-10-18（`W4` 整改 · 审查问题 6）**「同一次挂载」的记录号** ——
+            /// 一次 `AddHandEffect` 发给 N 张牌，N 张身上那 N 条**共用一个 `RecordId`**
+            /// （= 原版那**一个 `HandEffect` 记录 / 一个 `CardEffect` 对象**发给 N 张牌的形状，
+            /// 见 `PlayerHand__AddHandEffect.c:112-139` 与 `CardInstance.HandBuffUses` 的注释）。
+            ///
+            /// 🔴 **为什么要它**：手牌登记表（`RuleCore.HandEffectRegistry`）要按**记录**去重，
+            /// 而不是按「来源 + 载荷」那种字符串键 —— 后者会把 `Beast Snagga Nob`
+            /// **撑三个回合挂的那三条**（三个独立记录）压成一条，后进手牌的牌就**只吃 +1**。
+            /// 号由 `BattleContext.NextHandEffectRecord()` 发（跟着对局走 ⇒ **可复现**，不用 Guid）。
+            /// </summary>
+            public int RecordId;
+
+            /// <summary>来源卡名（日志用）= 原版 `CardEffect.effectName / enchantingCard` 那一格的对应物。</summary>
+            public string Source;
+
+            /// <summary>到期方式 —— 照原版 `PlayerHand.UpdateCardEffects` 的那几条支线。**逐条**。</summary>
+            public HandBuffExpiry Expire = HandBuffExpiry.Never;
+
+            /// <summary>到期回合号（配合 <see cref="Expire"/>；口径 = `BattleContext.Turn`）。</summary>
+            public int ExpireTurn;
+
+            /// <summary>共享计数盒（`null` = 不限次）。见 <see cref="HandBuffUses"/>。</summary>
+            public HandBuffUses Uses;
+
+            /// <summary>
+            /// 原版 `CardEffect.extrinsic // +0x30`。
+            /// 出处（逐条核过）：`dump.cs:119071` 的字段 + 它的 tooltip
+            /// `Effect is tied to acting card, not target card`；写点 =
+            /// `AbilityLogic__PlayAbility.c:1197 / :1354`
+            /// （`cardEffect.extrinsic = abilityData.whileInPlay || abilityData.whileInPlayVariable`，
+            ///  `dump.cs:19557-19566` 那两格就是 `AbilityData` 上的 `+0x40/+0x41`）
+            /// ⇒ **语义 = 「这条是【在场上才成立】的能力给的」**。
+            /// </summary>
+            public bool Extrinsic;
+
+            /// <summary>施放者（原版 `CardEffect.enchantingCard // +0x18`）。
+            /// extrinsic 剪枝要认**它**还在不在场上（`UpdateCardEffects.c` 那两条无条件支线）。</summary>
+            public UnitState ActingUnit;
+
+            /// <summary>
+            /// 原版 `HandEffect.targetCriteria` —— **后进手牌的牌要过这一关**才知道吃不吃得上
+            /// （`PlayerHand__SetupCardInHand.c:58` 的 `FilterMethods.CheckIfMeetsCriteria`）。
+            /// `null` = 这一条没有可判的规格（见 `RuleCore.SetupCardInHand` 的如实说明）。
+            /// </summary>
+            public EffectTargetSpec Target;
+        }
+
+        /// <summary>
+        /// **兼容视图：这一份身上各条 `give` 载荷的扁平表**。
+        /// ⚠️ 它**不是**存放处（存放处 = <see cref="HandEffects"/>）—— 每次读都现拼一份，
+        /// ⛔ 别拿它当稳定的表身份用，也别再往它上面 `Add`。
+        /// </summary>
+        public List<EffectOp> HandBuffOps
+        {
+            get
+            {
+                WarnCompatView("HandBuffOps");
+                var r = new List<EffectOp>(HandEffects.Count);
+                foreach (var e in HandEffects) if (e != null && e.Op != null) r.Add(e.Op);
+                return r;
+            }
+        }
+
+        /// <summary>**兼容视图**：最近挂上那条的来源 / 到期 / 次数盒（= 改之前那 4 个标量的语义）。
+        /// ⛔ **判据别再用它** —— 逐条判要用 <see cref="HandEffects"/> 里每一条自己的格子。</summary>
+        public HandEffect LastHandEffect
+        {
+            get { return HandEffects.Count == 0 ? null : HandEffects[HandEffects.Count - 1]; }
+        }
+
+        /// <summary>
+        /// 🆕 2026-10-18（`W4` 整改 · 审查问题 10 的护栏）**兼容视图的读取告警** ——
+        /// 一份牌身上挂着**多条**效果时，`HandBuff*` 那几个视图**只反映最后挂上那条**，
+        /// 拿它当判据就会**读错**（本轮新写的 ②′ 断言就往同一份实例上挂两条）。
+        /// ⇒ 读到「>1 条」时**当场出声**（每个实例只喊一次，不刷屏）。
+        /// ⛔ 这不是「静默失败」的例外：喊过之后请**改读 `HandEffects`**。
+        /// </summary>
+        bool _compatViewWarned;
+        void WarnCompatView(string who)
+        {
+            if (_compatViewWarned || HandEffects.Count <= 1) return;
+            _compatViewWarned = true;
+            UnityEngine.Debug.LogWarning(
+                $"[RuleEngine] `CardInstance.HandBuff*` 兼容视图（{who}）在这一份「{Card?.Name}」上"
+                + $"读到 {HandEffects.Count} 条效果 —— 它**只反映最后挂上那条**。"
+                + "⛔ 判据请改读 `HandEffects`（逐条自己的格子）。");
+        }
 
         /// <summary>手牌加成的来源卡名（日志用）。多条来源时记**最后**挂上的那一条。</summary>
-        public string HandBuffSource;
+        public string HandBuffSource
+        {
+            get { WarnCompatView("HandBuffSource"); var e = LastHandEffect; return e != null ? e.Source : null; }
+        }
 
         /// <summary>
         /// **这份手牌效果什么时候到期**（`BattleContext.Turn` 的回合号；配合 <see cref="HandBuffExpire"/>）。
@@ -111,10 +220,17 @@ namespace RuleEngine
         /// ⚠️ 剩下两档（`untilEnemyTurnStart // +0x34`）**我们的解析层产不出来** ⇒ 没有写点，
         ///    清扫器里如实标着「没做」；⛔ 别以为它做了。
         /// </summary>
-        public int HandBuffExpireTurn;
+        public int HandBuffExpireTurn
+        {
+            get { WarnCompatView("HandBuffExpireTurn"); var e = LastHandEffect; return e != null ? e.ExpireTurn : 0; }
+        }
 
-        /// <summary>到期方式 —— 照原版 `PlayerHand.UpdateCardEffects` 的那几条支线。</summary>
-        public HandBuffExpiry HandBuffExpire = HandBuffExpiry.Never;
+        /// <summary>**兼容视图**：到期方式 = **最后挂上那条**的（= 改之前那个标量的语义）。
+        /// ⛔ 逐条判用 <see cref="HandEffect.Expire"/>，别用这个。</summary>
+        public HandBuffExpiry HandBuffExpire
+        {
+            get { WarnCompatView("HandBuffExpire"); var e = LastHandEffect; return e != null ? e.Expire : HandBuffExpiry.Never; }
+        }
 
         /// <summary>这份手牌效果怎么到期（原版 `PlayerHand__UpdateCardEffects.c` 的三条支线）。</summary>
         public enum HandBuffExpiry
@@ -162,8 +278,31 @@ namespace RuleEngine
             public int Max;
         }
 
-        /// <summary>这一份共用的「还能打出几次」盒子（`null` = 不限次）。见 <see cref="HandBuffUses"/>。</summary>
-        public HandBuffUses HandBuffUsesRef;
+        /// <summary>**兼容视图**：最后挂上那条共用的「还能打出几次」盒子（`null` = 不限次）。
+        /// 见 <see cref="HandBuffUses"/>。⛔ 逐条判用 <see cref="HandEffect.Uses"/>。</summary>
+        public HandBuffUses HandBuffUsesRef
+        {
+            get { WarnCompatView("HandBuffUsesRef"); var e = LastHandEffect; return e != null ? e.Uses : null; }
+        }
+
+        // ---- 🆕 2026-10-18（`A920` 的续）伴生卡的两个回填位 -------------------
+        //
+        // 原版 `ProcessCompanion.c:88-89` 在**刚造出来的那张新卡**上打两个标记：
+        //   · `*(newCard + 0x64) = 1`                    ⇒ `isCompanion`
+        //     （`dump.cs:21997` `<isCompanion>k__BackingField; // 0x64`）
+        //   · `*(newCard + 0x60) = *(源卡 + 0x60) - 1`   ⇒ `companionCounter` **递减**
+        //     （`dump.cs` `<companionCounter>k__BackingField; // 0x60`）
+        // 它们是**递归链**的载体：那张新卡再被打出时，`ProcessCompanion`
+        // 因为自己**不带 `Companion` 词条**而走 `companionCounter > 0` 那一支
+        // （`ProcessCompanion.c:29`），于是**再造一张自己**、计数再减一。
+        // ⇒ `Companion N: X` 一共带出 **N 张 X**，但不是一次给 N 张 —— 是**打一次给一张**。
+        // -----------------------------------------------------------------------
+
+        /// <summary>原版 `CardScript.isCompanion // +0x64` —— 这一份是**伴生生成出来的**。</summary>
+        public bool IsCompanion;
+
+        /// <summary>原版 `CardScript.companionCounter // +0x60` —— 这条递归链**还剩几环**。</summary>
+        public int CompanionCounter;
 
         /// <summary>
         /// **只作用在这一份上的费用修正**（`CostMod.HandInstanceId` 指向它）。

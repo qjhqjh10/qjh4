@@ -838,7 +838,12 @@ namespace CardPresentation
             // ✅ 2026-09-24 补建（Styles 页同日已建过同一条；这是 §三 第 15 条 第 50 行的下半场）。
             {
                 var ew = Node(page, "Empty Collection Warning", new PxRect(135.22f, 70.94f, 1970.01f, 1080f));
-                var wt = Text(ew, "There are no cards in your collection for the selected filters",
+                // 🔴 **2026-10-18（A891 的续 · 第三轮整改 · 审查 P4）字走 `Loc.T`** —— 键 = 原版那颗
+                //   `Warning` 的 `Localize.mTerm` 原文 `MenuCollection/NoCardsFound`
+                //   （4 颗同键；本窗这一颗 = `… > CardsTab > Collection Display > Scroll View >
+                //   Empty Collection Warning/Warning`）。英文列 = 那颗 TMP 的 `m_text` 原文逐字符；
+                //   中文列 = 「没有符合当前筛选的卡牌」(`zh_CN.csv:177`)。⛔ 节点名 `"Warning"` 不动。
+                var wt = Text(ew, Loc.T("MenuCollection/NoCardsFound"),
                               135.22f, 1970.01f, 70.94f, 1080f, 5, PageInk, "Warning", 36f);
                 if (wt != null) wt.SetRenderQueue(QPageText);
                 _cardsEmpty = ew;
@@ -990,7 +995,11 @@ namespace CardPresentation
             // 标题那条 rect **宽是 0**（实测 `sd=(0,60)`、`m_HorizontalAlignment=4` = **Right**）
             // ⇒ **右对齐到 1821.01** 才是它的真值（A4 表里写「hFlush」**是错的**，已就地更正）。
             // y 真值 = **80.94 .. 140.94**（2026-09-24 订正；原来写的 10..70 是 `Content Area` 局部值）。
-            var title = Text(page, "Your cosmetics collection", 1200f, 1821.01f, 80.94f, 140.94f, 5, PageInk,
+            // 🔴 **2026-10-18（第三轮整改 · 审查 P4）字走 `Loc.T`** —— 键 = 原版那颗 `label` 的
+            //   `Localize.mTerm` 原文 `MenuCollection/Label/Cosmetics`（全库只 1 颗，就是本页这一点：
+            //   `… > Cardback Tab > Header > label`）。英文列 = TMP 原文 `Your cosmetics collection`；
+            //   中文列 = 「你的装饰收藏」(`zh_CN.csv:25`)。⛔ 节点名 `"Header Label"` 不动（自检按名找）。
+            var title = Text(page, Loc.T("MenuCollection/Label/Cosmetics"), 1200f, 1821.01f, 80.94f, 140.94f, 5, PageInk,
                              "Header Label", 38f);
             if (title != null) { title.SetRenderQueue(QPageText); title.AlignRightOn(LayoutSpace.FromPixel(1821.01f, 0f).x); }
 
@@ -1014,7 +1023,11 @@ namespace CardPresentation
             // 🆕 2026-10-03（A11）：抽屉那两行建好了 ⇒ 这条判据现在**真的能触发**（13 阵营各 9~20 张 ⇒ 正常筛不空）。
             {
                 var ew = Node(page, "Empty Collection Warning", new PxRect(170.44f, 70.94f, 1970.00f, 1080f));
-                var wt = Text(ew, "There are no cardbacks in your collection for the selected filters",
+                // 🔴 **2026-10-18（第三轮整改 · 审查 P4）字走 `Loc.T`** —— 键 = 原版那颗 `Warning` 的
+                //   `Localize.mTerm` 原文 `MenuCollection/NoCardbackFound`（全库只 1 颗）
+                //   —— 本窗这一颗就是它（`… > Cardback Tab > Cardback Display > Scroll View > Empty Collection Warning/Warning`）。
+                //   英文列 = TMP 原文逐字符；中文列**是我们自拟的**（`zh_CN.csv` 里没有这条，见 `Core/Loc.cs`）。
+                var wt = Text(ew, Loc.T("MenuCollection/NoCardbackFound"),
                               170.44f, 1970.00f, 70.94f, 1080f, 5, PageInk, "Warning", 36f);
                 if (wt != null) wt.SetRenderQueue(QPageText);
                 _cosmoEmpty = ew;
@@ -1404,7 +1417,9 @@ namespace CardPresentation
             // （`CollectionDisplay.RefreshCollection`：`filteredCollection.Count <= 0 ⇒ SetActive`）
             {
                 var ew = Node(page, "Empty Collection Warning", StyleView);
-                var wt = Text(ew, "There are no cards in your collection for the selected filters",
+                // 🔴 **2026-10-18（第三轮整改 · 审查 P4）字走 `Loc.T`** —— 异画页这一份与 Cards 页**同一条键**
+                //   （`MenuCollection/NoCardsFound`，原版 4 颗里有它）。英文列 = TMP 原文；中文列 = `zh_CN.csv:177`。
+                var wt = Text(ew, Loc.T("MenuCollection/NoCardsFound"),
                               StyleView.x1, StyleView.x2, StyleView.y1, StyleView.y2, 5, PageInk,
                               "Warning", 36f);
                 if (wt != null) wt.SetRenderQueue(QPageText);
@@ -1957,7 +1972,10 @@ namespace CardPresentation
                               QFltRow, FilterPanelModel.InputTint, true, "Input BG");
             }
 
-            // 字：`Text Area` [37.4,182.4,231.3,27]（绝对）→ 面板内 (37.15, 26.5)~(268.45, 53.5)；空时是占位符 "Search"
+            // 字：`Text Area` [37.4,182.4,231.3,27]（绝对）→ 面板内 (37.15, 26.5)~(268.45, 53.5)；
+            //   空时那句是**占位符**：🔴 **2026-10-18 起走词条**（`Core/FilterPanelModel.InputPlaceholder` →
+            //   `Loc.T("MenuDeck/HUD/SearchFilter")`，中文档印「搜索」）—— 本行原写「占位符 "Search"」，
+            //   那是**词条化之前**的字面量（第三轮整改 · 审查 P8 就地更新）。
             //     🔴 **左对齐 + `auto(18–30)`**（原版 `Placeholder/Text` 的两个属性；收藏窗这条一直是对的）
             string cur = FltState.Filter.Name;
             bool editing = PointerLayer.Instance != null && PointerLayer.Instance.TextEditing;
@@ -2066,7 +2084,12 @@ namespace CardPresentation
             //   `Text()` 里的 `MenuDraw.ClipText` 是「逐字夹顶点」的，而 `AlignLeftOn` → `RefreshBounds`
             //   → `ForceMeshUpdate` 会**重排 mesh**（`MenuDraw` 头部那条纪律：「**先建 → 再 Align* → 最后 ClipText**」）
             //   ⇒ 挪完必须**再裁一次**，否则这一行若正压在视口边上，裁的那一刀停在旧位置上。
-            var lb = Text(parent, text, r.x1, r.x2, r.y1, r.y2, 5, PageInk, "Title " + text, fontPx);
+            // 🔴 **2026-10-18（A891 的续 · 续做 A）：只换【显示文案】那一个实参** ——
+            //   `FilterPanelModel.TitleText(text)`（= `Loc.T(键)`，键见那边的 `TitleTerm`）。
+            //   ⛔ **节点名那半句 `"Title " + text` 一个字没动**：`Editor/CollectionScene.cs` 的 `TitleLeftPx`
+            //   （`:392`）与两条 `FindChild(fltPanel, "Title " + ttl)` 都**按名找**（名里还是英文原名）。
+            //   ⚠️ `Energy Cost` 那一行**原版没有 `Localize`** ⇒ `TitleText` 原样返回英文。
+            var lb = Text(parent, FilterPanelModel.TitleText(text), r.x1, r.x2, r.y1, r.y2, 5, PageInk, "Title " + text, fontPx);
             if (lb == null) return;
             lb.SetRenderQueue(QFltText);
             if (!left) return;
@@ -2190,7 +2213,14 @@ namespace CardPresentation
             if (pageNo >= 0 && pageNo < _hdrFltBtn.Length) _hdrFltBtn[pageNo] = btnQ;
             Rect(page, "40k_bt_icon_search", new PxRect(FltBtnX + 10f, FltBtnY + 10f, FltBtnX + 40f, FltBtnY + 40f),
                  "Filters Icon", QPageRow, null, true);
-            var fltLab = Text(page, "Filters", 437.2f, 587.2f, FltBtnY, FltBtnY + FltBtnS, 5, PageInk,
+            // 🔴 **2026-10-18（A891 的续 · 续做 B）：字走 `Loc.T`** —— 键 = 原版那颗 `Label` 的
+            //   `Localize.mTerm` 原文 **`MenuDeck/Filters/Filters`**（与卡组编辑窗页头那颗**同一条键**，
+            //   `Core/Loc.cs:209` 早就有；`Deck/DeckRuntime.cs` 的 `hdr_fltlbl` 一直在用）。
+            //   🔴 本批之前这里是**写死 `"Filters"`** ⇒ 中文档下卡组编辑窗印「过滤器」、**收藏窗四页页头却印英文**
+            //   （同一条键两种表现）。英文列 = 那颗 TMP 的 `m_text` 原文 `Filters`；中文列 = 「过滤器」
+            //   （⚠️ 那一列是**原版实拍**读到的，见 `Core/Loc.cs:209` 那条的注释）。
+            //   ⛔ 节点名 `"Filters Label"`（`Editor/CollectionScene.cs` 按名找）与上面那颗底图/图标的名字都不动。
+            var fltLab = Text(page, Loc.T("MenuDeck/Filters/Filters"), 437.2f, 587.2f, FltBtnY, FltBtnY + FltBtnS, 5, PageInk,
                               "Filters Label", filterPx);
             if (fltLab != null) fltLab.SetRenderQueue(QPageText);
             if (onToggle != null)
@@ -2201,7 +2231,15 @@ namespace CardPresentation
 
             var clrQ2 = Rect(page, "UI_Button_Mulligan", new PxRect(ClearFltX, ClearFltY, ClearFltX + ClearFltW, ClearFltY + ClearFltH),
                  "Clear filters", QPageRow);
-            var clrLab = Text(page, "Clear filters", ClearFltX, ClearFltX + ClearFltW, ClearFltY, ClearFltY + ClearFltH,
+            // 🔴 **2026-10-18（A891 的续）：字走 `Loc.T`** —— 词条键 = 原版 prefab 上那颗
+            //   `Localize.mTerm` 的原文 `MenuDeck/Filters/ClearFilters`（5 颗同键，节点名一律 `Button Text`；
+            //   本窗这一棵 = `Collection Menu Variant > … > {CardsTab 的 Header Filters / Cardback Tab 的
+            //   Header / Alternate Art Tab 的 Header Filters / Select Deck Tab 的 Header}/Clear Filter Button/Button Text`）。
+            //   英文列 = 那颗 TMP 的 `m_text` 原文 `Clear filters`；中文列 = 「清除筛选」(`zh_CN.csv:9`)。
+            //   ⛔ **上一个实参（节点名 `"Clear filters"`）与 `"Clear filters Text"` 都不动**
+            //      （`Editor/CollectionScene.cs:4325` 按名找底图、`:4316` 按名找字）。
+            var clrLab = Text(page, Loc.T("MenuDeck/Filters/ClearFilters"),
+                              ClearFltX, ClearFltX + ClearFltW, ClearFltY, ClearFltY + ClearFltH,
                               5, PageInk, "Clear filters Text", clearPx);
             if (clrLab != null) clrLab.SetRenderQueue(QPageText);
             if (onClear != null)
@@ -2378,7 +2416,13 @@ namespace CardPresentation
                 //   判据 / 「是序列化不是 ARF」的查证过程 → `BackTxtL` 的注释。
                 //   单击命中区**照旧用整颗钮的 `cr`**（原版 `AddHit` 那颗是 150×60，别跟着改）。
                 var bt = new PxRect(BackTxtL, BackTxtT, BackTxtR, BackTxtB);
-                var cl = Text(cq != null ? cq.transform : shared, "Back", bt.x1, bt.x2, bt.y1, bt.y2,
+                // 🔴 **2026-10-18（第三轮整改 · 审查 P4）字走 `Loc.T`** —— 键 = 原版那颗 `Button Text` 的
+                //   `Localize.mTerm` 原文 `MainMenu/MainButtons/ButtonLabel/Back`（同键 8 颗；本窗这一颗 =
+                //   `… > Collection Menu Variant > Content Area > Tabs > Shared > Close Button > Button Text`
+                //   —— 正是本行底下那颗）。英文列 = TMP 原文 `Back`；中文列 = 「返回」(`zh_CN.csv:5`)。
+                //   ⛔ 节点名 `"Button Text"` 不动（`Editor/CollectionScene.cs` 的 A212 那一节按名找它读折行档）。
+                var cl = Text(cq != null ? cq.transform : shared, Loc.T("MainMenu/MainButtons/ButtonLabel/Back"),
+                              bt.x1, bt.x2, bt.y1, bt.y2,
                               5, Color.white, "Button Text", 40f);
                 if (cl != null)
                 {
@@ -2490,10 +2534,20 @@ namespace CardPresentation
             // 🆕 A98：字挂在**按钮自己**底下（原版 = `Create>Button Text` / `Import>Button Text`）。
             //    ⚠️ **名字不照原版那个 `Button Text`**：两颗同名 ⇒ `FindChild`（按名字取**第一个**）会取错那一颗，
             //       故沿用我们自己的「`Create Text` / `Import Text`」。⚠️ 图缺了就把字退回挂在组节点上（不许静默丢字）。
-            var newLab = Text(newQ != null ? newQ.transform : ctrl, "Create Deck", CreateX, CreateX + HdrBtnW,
+            // 🔴 **2026-10-18（A891 的续）：两颗钮的字都走 `Loc.T`** —— 词条键 = 原版 prefab 上那两颗
+            //   `Localize.mTerm` 的**原文**（本批按 pid 亲读；父链 = `Collection Menu Variant > Content Area >
+            //   Tabs > Select Deck Tab > Header > Control Buttons > {Create,Import}/Button Text`）：
+            //     · `Create` 那颗 = **`MenuDeck/MenuButtons/CreateDeck`**，TMP 原文 `Create Deck`（大写 D）；
+            //     · `Import` 那颗 = **`MenuDeck/MenuButtons/ImportDeck`**，TMP 原文 `Import Deck`。
+            //   中文列：`Create Deck` = 「创建卡组」(`zh_CN.csv:7`)；⚠️ `Import Deck` 那份 CSV 里**没有这个键**
+            //   ⇒ 那一条的中文**是我们自拟的**（见 `Core/Loc.cs` 那一条自己的注释）。
+            //   ⛔ 节点名 `"Create Text"` / `"Import Text"` 不动（`Editor/CollectionScene.cs:1087/1088` 按名找）。
+            var newLab = Text(newQ != null ? newQ.transform : ctrl, Loc.T("MenuDeck/MenuButtons/CreateDeck"),
+                              CreateX, CreateX + HdrBtnW,
                               HdrBtnY, HdrBtnY + HdrBtnH, 5, PageInk, "Create Text", 42f);
             if (newLab != null) newLab.SetRenderQueue(QPageText);
-            var impLab = Text(impQ != null ? impQ.transform : ctrl, "Import Deck", ImportX, ImportX + HdrBtnW,
+            var impLab = Text(impQ != null ? impQ.transform : ctrl, Loc.T("MenuDeck/MenuButtons/ImportDeck"),
+                              ImportX, ImportX + HdrBtnW,
                               HdrBtnY, HdrBtnY + HdrBtnH, 5, PageInk, "Import Text", 42f);
             if (impLab != null) impLab.SetRenderQueue(QPageText);
             BuildUnlockPlaceholder(ctrl);           // 组内**最左**那一格（原版画不出东西，只建结构）
@@ -2565,7 +2619,15 @@ namespace CardPresentation
             // ⚠️ 原来那条「Deck 页没有这一件」是**没查到**，不是不存在。
             {
                 var ew = Node(page, "Empty Collection Warning", new PxRect(165.88f, 70.94f, 1970.01f, 1080f));
-                var wt = Text(ew, "There are no decks in your collection", 165.88f, 1970.01f, 70.94f, 1080f, 5, PageInk,
+                // 🔴 **2026-10-18（第三轮整改 · 审查 P4）字走 `Loc.T`** —— 键 = 原版那颗 `Warning` 的
+                //   `Localize.mTerm` 原文 `MenuCollection/NoDecksFound`（全库只 1 颗，就是本窗这一颗：
+                //   `… > Decks Tab > Select Deck Tab > Collection Display > Deck Scroll View >
+                //   Empty Collection Warning/Warning`）。
+                //   🔴 **我们原来那句英文与原文【不同】**（我们写 `There are no decks in your collection`，
+                //   原文是 `There are no deck …` 单数 + `…for the selected filters`）—— 按本表英文列的口径
+                //   照抄原文（含原版自己的语病），⛔ 不再用我们那句（`Shell/ShopWindow.cs:287` 的 `TxtEmpty`
+                //   用的一直是原文那一串，现在两处同一串了）。
+                var wt = Text(ew, Loc.T("MenuCollection/NoDecksFound"), 165.88f, 1970.01f, 70.94f, 1080f, 5, PageInk,
                               "Warning", 36f);
                 if (wt != null) wt.SetRenderQueue(QPageText);
                 _deckEmpty = ew;
@@ -2657,7 +2719,14 @@ namespace CardPresentation
 
             // ---- ② `Army Filter`：Title + 13 格（3 格一行）----
             var army = Node(filters, "Army Filter", new PxRect(DfltL, DArmyT, DfltR, DArmyT + DArmyH));
-            var ttl = Text(army, "Army", DTitleL, DTitleL + DTitleW, DTitleT, DTitleT + DTitleH, 5, PageInk,
+            // 🔴 **2026-10-18（A891 的续）：`Army` 小标题走 `Loc.T`** —— 词条键 = 原版 prefab 上那颗
+            //   `Localize.mTerm` 的原文 `MenuDeck/Filters/Army`（6 颗同键，节点名一律 `Title`；
+            //   本窗这一棵 = `Collection Menu Variant > … > Decks Tab > Select Deck Tab > Deck Filters >
+            //   Army Filter/Title`，**与卡牌页那一棵（`Collection Display > Card Filters > Army Filter/Title`）
+            //   是两个实例、同一条 mTerm**）。英文列 = 那颗 TMP 的 `m_text` 原文 `Army`；
+            //   中文列 = 「军队」(`zh_CN.csv:11`)。
+            //   ⛔ 节点名 `"Title"` 不动。
+            var ttl = Text(army, Loc.T("MenuDeck/Filters/Army"), DTitleL, DTitleL + DTitleW, DTitleT, DTitleT + DTitleH, 5, PageInk,
                            "Title", 32f);
             if (ttl != null) ttl.SetRenderQueue(QFltText);
             var armies = CampaignData.Armies;
@@ -2691,7 +2760,14 @@ namespace CardPresentation
         {
             var pl = PointerLayer.Instance;
             if (pl != null && pl.TextEditing) return pl.TextBuffer + "_";
-            return string.IsNullOrEmpty(_deckNameFilter) ? "Search" : _deckNameFilter;
+            // 🔴 **2026-10-18（A891 的续）：占位符走 `Loc.T`** —— 词条键 = 原版那颗 `Placeholder` 的
+            //   `Localize.mTerm` 原文 `MenuDeck/HUD/SearchFilter`（11 颗同键 = `Placeholder`×6 + `Button Text`×5；
+            //   本窗这一棵 = `… > Decks Tab > Deck Filters > Deck Name Filter/Input Field/Text Area/Placeholder`）。
+            //   英文列 = 那颗 TMP 的 `m_text` 原文 `Search`；中文列 = 「搜索」(`zh_CN.csv:10`)。
+            //   ⚠️ 这与 `Core/FilterPanelModel.InputPlaceholder`（另外三页那一份）**同一条 mTerm**
+            //   —— 但**不是同一个常量**：本函数是 Deck 页那一份自己的源头（CLAUDE.md §三「两处写同一条规则」
+            //   那条讲的就是这一对；两处都走 `Loc.T(同一个键)` ⇒ 文案不会再分叉）。
+            return string.IsNullOrEmpty(_deckNameFilter) ? Loc.T("MenuDeck/HUD/SearchFilter") : _deckNameFilter;
         }
 
         /// <summary>`Filters` 圆钮 / 自检：开合 Deck 页的左抽屉（**原版那颗钮开的就是它**）。</summary>

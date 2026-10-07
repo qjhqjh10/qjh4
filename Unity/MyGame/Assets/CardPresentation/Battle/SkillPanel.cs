@@ -316,6 +316,11 @@ namespace CardPresentation
             ApplyColors();
         }
 
+        /// <summary>🆕 **2026-10-18（第十三轮 · G2b）**：那一行**现在印出来的字**（自检用）。
+        /// 权威 = 原版词条 `Battle/HUD/TargetsAvailable`（`CardText.TargetsAvailable` → `Loc.T` +
+        /// `{0}` 替换；拼法与出处见 `Core/Loc.cs` 那一块）⇒ 切语档后重设一次再读它，两档分得出。</summary>
+        public string TargetsText { get { return _targets != null ? _targets.Text : null; } }
+
         /// <summary>指针喂进来（`down` = 这一帧按着）—— 决定要不要铺蓝色那层</summary>
         public void SetPointer(Vector3 world, bool down)
         {

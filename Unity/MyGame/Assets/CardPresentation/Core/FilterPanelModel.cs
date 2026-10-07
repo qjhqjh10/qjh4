@@ -110,8 +110,21 @@ namespace CardPresentation
         public const string InputSprite = "InputFieldBackground";
         public const float InputBorder = 10f;
         public static readonly UnityEngine.Color InputTint = new UnityEngine.Color(0.0627f, 0f, 0f, 1f);
-        /// <summary>占位符文字（原版 `Placeholder` TMP 原文，**没本地化**）。</summary>
-        public const string InputPlaceholder = "Search";
+        /// <summary>🔴 **2026-10-18（A891 的续）就地换口**：占位符文字**不再写死英文**，改走**词条**。
+        /// <para>键 = 原版那颗 `Placeholder` 上 `Localize.mTerm` 的**原文** `MenuDeck/HUD/SearchFilter`
+        /// （同键 11 颗 = `Placeholder`×6 + `Button Text`×5；本批按 pid 亲读）；英文列 = 那颗 TMP 的
+        /// `m_text` 原文 `Search`（见 <see cref="InputPlaceholderEn"/>）；中文列 = 「搜索」
+        /// （源 `数据/本地化/i18n/zh_CN.csv:10`，⚠️ 是我们译的）。</para>
+        /// <para>⛔ **别改回 `const`** —— 常量没法跟着语言走（这正是它原来「中文档印英文」的原因）。
+        /// 两个消费点都只**读**它（`Deck/DeckRuntime.cs` 的搜索框刷新 与 `Shell/CollectionWindow.cs`
+        /// 的三页搜索框），改成属性对它们是**源码兼容**的。</para></summary>
+        public static string InputPlaceholder { get { return Loc.T(InputPlaceholderTerm); } }
+        /// <summary>上面那条词条的**键**（原版 `Localize.mTerm` 原文；自检/诊断口与
+        /// <see cref="InputPlaceholder"/> 共用这一份，⛔ 别再抄一遍字面量）。</summary>
+        public const string InputPlaceholderTerm = "MenuDeck/HUD/SearchFilter";
+        /// <summary>原版那颗 `Placeholder` 的 TMP `m_text` **原文**（本地唯一那份英文 —— 留档用；
+        /// 渲染**不**读它，渲染一律走 <see cref="InputPlaceholder"/>）。</summary>
+        public const string InputPlaceholderEn = "Search";
         /// <summary>🔴 **收藏窗**那一份搜索框的字号 / 自适应下界（`Collection Menu Variant` 的
         /// `Placeholder`/`Text` = **`auto[18~30]`**，现读见 `menu_dump … "Collection Menu Variant" --depth 18 --md`）。
         /// ⛔ **别改这一对去迁就卡组编辑窗** —— 那是**另一份**（见 <see cref="InputFontPxDeckEdit"/>，铁律 5·c）。</summary>
@@ -627,10 +640,53 @@ namespace CardPresentation
         /// <param name="titlePx">四个小标题的字号。🔴 **缺省 = 共用常量 <see cref="TitleFontPx"/> = 32（卡牌页原版值）**；
         /// **异画页必须显式传 <see cref="TitleFontPxStyles"/> = 36**（A248）。原版两页都**没开自适应**（无 `auto[…]` 段）⇒
         /// 这里只给标称字号、不给下界（与卡牌页同一形状）。</param>
+        /// <summary>🔴 **2026-10-18（A891 的续 · 续做 A）**：一行小标题在 `Loc` 表里的**键**
+        /// （= 原版那颗 `Localize.mTerm` 的**原文**，按 pid 亲读）；
+        /// **`null` = 这一行的名字我们没查过词条**（⛔ 目前**四行一条都不落在这里** —— 见下）。
+        /// <para>判据（逐颗读 `bundle_menus_assets_all/MonoBehaviour/*.json` 的 `mTerm` + 同 GameObject 上 TMP 的 `m_text`）：
+        /// `Army` → `MenuDeck/Filters/Army`（6 颗）· `Rarity` → `MenuDeck/HUD/Rarity`（3 颗）·
+        /// `Type` → `MenuDeck/Filters/Type`（3 颗）—— 父链一律 `… > Card Filters > Filters > {Army,Rarity,Type} FIlter/Title`。</para>
+        /// <para>🔴🔴 **2026-10-18（第三轮整改 · 审查 P1）就地订正（铁律 5）**：本行原来写着
+        /// 「**`Energy Cost` 那一行没有键，而且那是对的**（全库 3 颗 TMP 一颗 `Localize` 都没挂）」——
+        /// **那是错的**。错因 = **「全库」实际只扫了 `bundle_menus_assets_all` 一个包**。
+        /// 复跑（`d:/2/新解包资源/assets_full` 下**全部 80 个 bundle**）：`m_text == "Energy Cost"` 的 TMP
+        /// 共 **17 颗 / 15 个 bundle**（menus 3 + 13 个 `battlearena*` 各 1 + `mainmenuwarpforge` 1），
+        /// **每一颗所在 GO 上都挂着 `Localize`，`mTerm` 一律 = `Battle/Tips/EnergyCost`**
+        /// —— 其中 3 颗**就是**这三行 `Cost Filter/Title` 自己。
+        /// ⇒ 它是**正经词条**（铁律 11 没有例外①），已按上表接上。
+        /// ⚠️ 教训：**报「原版没有」之前先打出「搜过哪几个包」**（`资料/已知的坑.md`）。</para>
+        /// <para>`default: null` 这个口**保留** —— 将来（或原版别的行）名字对不上任何键时，它照旧返回英文，
+        /// 不会静默编一条。</para></summary>
+        public static string TitleTerm(string titleText)
+        {
+            switch (titleText)
+            {
+                case "Army":        return "MenuDeck/Filters/Army";
+                case "Rarity":      return "MenuDeck/HUD/Rarity";
+                case "Type":        return "MenuDeck/Filters/Type";
+                case "Energy Cost": return "Battle/Tips/EnergyCost";   // 🔴 第三轮整改（审查 P1）：原来误判成「原版无词条」
+                default:            return null;                       // 名字对不上任何键 ⇒ 照原样印英文（⛔ 不静默编词条）
+            }
+        }
+
+        /// <summary>一行小标题**该印什么字** = <see cref="TitleTerm"/> 有键就 `Loc.T(键)`、没键就**照原样**（英文）。
+        /// <para>⚠️ **只用来当「显示文案」**，⛔ **别拿它去当节点名** —— 节点名（`flt_title_*` / `Title *`）
+        /// 一律用 <see cref="Title.Text"/> 那份**英文**，`Editor/DeckScene.cs` 与 `Editor/CollectionScene.cs`
+        /// 都按名找（把节点名一起换掉 = 整族断言连带红，见本方法调用点的注释）。</para></summary>
+        public static string TitleText(string titleText)
+        {
+            var term = TitleTerm(titleText);
+            return term == null ? titleText : Loc.T(term);
+        }
+
         public static void BuildTitles(DeckEditorState state, float w, List<Title> titles,
                                        float titlePx = TitleFontPx)
         {
             var L = ComputeLayout(state);
+            // 🔴 **`Title.Text` 是【英文原名】，一行两用**：① 渲染方拿它当**显示文案的输入**
+            //   （要过 `TitleText` 换成词条文案）；② **节点名**就直接由它拼出来
+            //   （`DeckRuntime` 的 `"flt_title_" + Text.Replace(" ","_")`、`CollectionWindow` 的 `"Title " + Text`）
+            //   ⇒ ⛔ **这一列一个字都别改成中文**（改了 = 两个宿主的按名查找全断）。
             titles.Add(new Title { Text = "Army", R = new PxRect(TitleArmyX, L.ArmyTop, w, L.ArmyTop + TitleH), Px = titlePx, Left = true });
             titles.Add(new Title { Text = "Rarity", R = new PxRect(TitleRarityX, L.RarityTop + TitleRarityYIn, w, L.RarityTop + TitleRarityYIn + TitleH), Px = titlePx, Left = true });
             titles.Add(new Title { Text = "Energy Cost", R = new PxRect(TitleCostX, L.CostTop + TitleCostYIn, w, L.CostTop + TitleCostYIn + TitleH), Px = titlePx, Left = true });

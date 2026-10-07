@@ -255,7 +255,10 @@ namespace CardPresentation
                                      new Vector2(0.5f, 0.5f), "ChoiceCardBtnText_" + i);
                 if (t != null)
                 {
-                    t.SetGlyphHeight(U(28f));
+                    // 🔴 **2026-10-18（W6）**：语种定字号 —— 这一格现在走**原版词条**
+                    //    （选牌 = `Battle/Prebattle/SelectButton` / 换牌 = `Battle/Mulligan/Replace`），
+                    //    汉字与拉丁大写差 39%，写死一种就会让另一档错（`Label.SetScriptHeight` 是唯一那份判据）。
+                    t.SetScriptHeight(Lo.CardBtnText, 28f, 108f);
                     t.transform.localPosition += new Vector3(0f, 0f, Z - 0.05f);
                 }
                 _cardTexts.Add(t);
@@ -402,6 +405,14 @@ namespace CardPresentation
             return _cardBtns[i].Texture != null ? _cardBtns[i].Texture.name : "<无>";
         }
         public int CardButtonCount { get { return _cardBtns.Count; } }
+
+        /// <summary>🆕 **2026-10-18（W6）**：第 <paramref name="i"/> 张牌下那颗钮上**写的什么**
+        /// （自检用；没有那一颗时返回 null）。判据 = 原版 `Battle/Prebattle/SelectButton` /
+        /// `Battle/Mulligan/Replace` 的当前语档取值（→ `Core/Loc.cs`）。</summary>
+        public string CardBtnWordAt(int i)
+        {
+            return i >= 0 && i < _cardTexts.Count && _cardTexts[i] != null ? _cardTexts[i].Text : null;
+        }
 
         /// <summary>第 i 张牌的中心 x（世界）—— 自检拿来验「间距照原版那张表」。</summary>
         public float CardWorldX(int i)

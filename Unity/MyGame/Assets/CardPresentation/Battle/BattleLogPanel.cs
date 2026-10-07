@@ -337,6 +337,137 @@ namespace CardPresentation
             return _root != null ? _root.position : Vector3.zero;
         }
 
+        // ============================================================================================
+        //  🆕 2026-10-18（`A940` 尾账 `Z2`/`Z3`）：**「点第 N 行」那个交互**
+        //
+        //  🔴🔴 **2026-10-18（`G9`）判据【就地订正】（铁律 5）—— 这一段的原判据引用的是【死代码】。**
+        //    上一轮（`G4`）把判据写成 `d:/2/tools/decomp_full/CemeteryLogManager__ClickCemeterySlider.c`。
+        //    本轮按「读那个方法体、别猜」去读它之后，顺着它把**整条链**核了一遍，结论是
+        //    **`CemeteryLogManager` 那一族在发行版里【根本没有实例】**，四条独立证据：
+        //      ① 全库（`d:/2/新解包资源/assets_full/`，**24.7 万文件**）扫它独有的字段名
+        //         `cemeteryGroup` / `centralCemetery` —— **0 命中**（父容器 `CemeteryLogPanel` 的六个组件里
+        //         也没有它：`RectTransform_2936` · `CanvasRenderer_2084` · **`MonoBehaviour_4491`** ·
+        //         `Canvas_2579` · `MonoBehaviour_4317`(menuScale) · `MonoBehaviour_4637`(Canvas)）；
+        //      ② `CemeteryLogPanel` 上那颗 **`MonoBehaviour_4491` 是另一个类 `CemeteryManager`**
+        //         （字段 `cemeteryActions[]`/`playerActionBg`/`enemyActionBg`/`initialX`/`finalX`/`shade`/
+        //          `showingCardUI`，与 `dump.cs:37046-37069` 的 TypeDefIndex **720** 逐格吻合），
+        //         而 `ClickCemeterySlider` 是 **`CemeteryLogManager`（TypeDefIndex 766，`dump.cs:38986`）**——
+        //         **两个类**，后者在场景里没有实例（`CemeteryLogPanel` 那六个组件里没有它）；
+        //      ③ 行节点 `CemeterySliderUI` 的序列化 uGUI 事件（`MonoBehaviour_5060.json`）指向
+        //         **`CemeteryLogSlider.OnSliderChanged` / `OnDragEnd`** —— 而 `CemeteryLogSlider`
+        //         在元数据里**只有 `Setup` / `GetIndex` / `.ctor` 三个方法**（`dump.cs:39049-39066`），
+        //         全库（`dump.cs` 26 万行 + `decomp_full`）**搜不到这两个名字**
+        //         ⇒ **序列化事件指向两个【已不存在】的方法**（这条链是残留）；
+        //      ④ 素材侧也没有配套物：`battlearena1_sprite_map.json` 的 96 条里
+        //         日志面板相关的只有 `40k_UI_bt_battlelog` / `40k_battlelog_display_{player,enemy,neutral}`
+        //         / 四条 `40k_battlelog_frame_*` —— **没有任何「选中行高亮」的图**。
+        //
+        //  ✅ **发行版里真正跑的是另一条（`CemeteryManager`，同一个面板上那个组件）**：
+        //    · `CemeteryManager__DisplayCemeteryActions.c` = **整块面板的开/关**（`shade.SwitchShade`
+        //      + `DOLocalMoveX(initialX +0x48 → finalX +0x4C)`），不是「点行弹卡」；
+        //    · **点行弹卡那件事的活判据 = `CemeteryManager__ClickCardLink.c`**（`CheckCardLink` 是它的悬停版）：
+        //      遍历 10 颗 `cemeteryActions[]`（`+0x30`）× 每颗的 TMP（`CemeteryLogSlider.cemeterySliderText`
+        //      `+0x28`）做 **`TMP_TextUtilities.FindIntersectingLink`**（**与本类 `LinkKeyAt` 同一条路**）
+        //      → `GetLinkID()` → `Split(',')` → 用 `split[0]`（`int.Parse`）取 `newCemeteryActionList[index]`
+        //      （`+0x68`）→ 按 `split[0]` 与两个字面量比 → `BattleCardManager.GetCardFromUniqueId(uid)`
+        //      → **`BattleManager__DisplayCard(card, 1)` + `HideCemeteryLogBtn`**；
+        //    · `DisplayCard` 最终落在 **`showingCardUI`（`+0x58`，一颗 `BasicCardUI`）** 上
+        //      —— 也就是场景里那唯一一颗 `CemeteryGroup/CardUI (1)`（`Transform_1340` 的
+        //      `localPos (−53.04, 20.49)` / `localScale 108`）⇒ **一张卡**，正是我们这边那颗。
+        //
+        //  🔴 **我们落地的边界（如实记，⛔ 别当成「原版就这样」）**：
+        //    · **弹的是【一张】卡** —— 这与**发行版的活判据（`ClickCardLink`）一致**；
+        //      上一轮那套「点一行摆三张（`centralCemetery`/`upperCemetery`/`lowerCemetery`）+
+        //      整摞跟着行 y 走 + 选中行高亮」出自**死类 `CemeteryLogManager`**，
+        //      ⛔ **发行版里不会发生**（证据见上四条）⇒ **不做**（判据推翻，不是「嫌麻烦」）。
+        //      ⚠️ 若将来要照那个死类补：层叠偏移**已经实读出来了** ——
+        //      `CemeteryLogGroup__CreateTargetCard.c`（+ `GetCemeteryCardLocalPos.c`）里就是
+        //      `localPosition = { x = index * 4.0 + 6.5, y = 0, z = 0 }`（主卡在 `(0,0,0)`，index = 0/1），
+        //      两个常量在 `GameAssembly.dll` 常量池实读 = **`4.0`**（VA `0x1834b2df0`）与 **`6.5`**（`0x1834b31c0`）；
+        //      但那两个数落在**哪个坐标系**（`CemeteryLogGroup` 的 lossyScale 本地取不到 ⇒ 6.5 是 **px** 还是
+        //      6.5×108 = 702 px）**判据不足**，⛔ 别硬填。
+        //    · **命中区 = 整行底板的真实矩形**（`RowAt`），而**活判据是「行内文字上的那个链接」**
+        //      （`FindIntersectingLink`）—— 这是**我们比原版宽**的一处（如实记）：点行的空白处在我们这边
+        //      也会弹那张卡，原版只认链接。**理由**：批处理里喂不了真鼠标，而「点行」这条入口是
+        //      上一轮建的（`TryClickLogRow`）；要收窄成「只认链接」得改 `TryClickLogRow` 与它那几条断言，
+        //      ⛔ 不在本笔（`G9`）的范围里 ⇒ 记成账。
+        //    · **没有滑动动画**：原版 `DisplayCemeteryActions` 那次开/关面板是 `DOLocalMoveX`；
+        //      我们面板那一段**有滑动**（见 `PanelOpenX` 的注释），「点行」这一条**没有**补间。
+        //    · **没有「点中的那一行高亮」**：证据④（没有那张图）+ 活判据里也没有这件事
+        //      ⇒ `SelectedRow` 只记账、不画，**这是照原版的**（上一轮记成「缺一件」的那半句作废）。
+        // ============================================================================================
+
+        /// <summary>**指针压在哪一行上**（= 哪一颗 `CemeterySliderUI`）。`-1` = 不在任何一行上。
+        /// ⚠️ 命中区就是**行底板那颗 quad 的真实矩形**（`WorldW/WorldH`）—— 与本类画出去的东西同源，
+        ///    不另立一套常量。面板没显示 ⇒ 恒 `-1`。</summary>
+        public int RowAt(Vector3 wp)
+        {
+            if (!_visible || _rowBgs == null) return -1;
+            for (int i = 0; i < _rowBgs.Length; i++)
+            {
+                var q = _rowBgs[i];
+                if (q == null || !q.gameObject.activeSelf) continue;
+                var d = wp - q.transform.position;
+                if (Mathf.Abs(d.x) <= q.WorldW * 0.5f && Mathf.Abs(d.y) <= q.WorldH * 0.5f) return i;
+            }
+            return -1;
+        }
+
+        /// <summary>自检用：第 `i` 行底板的**世界中心**（批处理没有鼠标 ⇒ 拿它当点击/悬停点喂进去）。
+        /// 行不存在 / 没画出来 ⇒ false（**如实返回 false**，不编一个点）。</summary>
+        public bool RowCenterWorld(int i, out Vector3 wp)
+        {
+            wp = Vector3.zero;
+            if (_rowBgs == null || i < 0 || i >= _rowBgs.Length || _rowBgs[i] == null) return false;
+            wp = _rowBgs[i].transform.position;
+            return true;
+        }
+
+        /// <summary>最近一次**真的点中**的那一行（原版死类 `CemeteryLogManager.cemeterySliderActionDisplayed`，`+0x70`）。
+        /// `-1` = 还没点过。⚠️ 只记账，⛔ 不画 —— 🔴 **2026-10-18（`G9`）订正**：原注写「原版靠 `cemeteryGroup`
+        /// 挪位表示，我们没有那一件」，那句把「发行版的做法」说错了：`cemeteryGroup` 只活在**没有实例的死类**里
+        /// （证据 → 本文件上面那段 `Z2`/`Z3` 的大注释），**发行版里点行不产生任何行高亮**
+        /// （素材侧也没有那张图）⇒ 「不画」**是照原版的**，不是缺口。</summary>
+        public int SelectedRow { get; private set; }
+
+        /// <summary>记下「点中了第 `i` 行」（原版死类 `ClickCemeterySlider` 里那句
+        /// `cemeterySliderActionDisplayed = index`）。⚠️ **闸门不在这里** —— `hideCemetery` 那条在
+        /// `BattleDriver`（原版也是先过 `CanShowCemetery` 才走到这一句）。</summary>
+        public void SelectRow(int i) { SelectedRow = i; }
+
+        /// <summary>第 `i` 行那一条动作提到的**卡（英文 id / 卡名）** —— 点行要弹的就是它。
+        /// 空 = 这一行没提卡 / 行是空的（那就**不弹**，⛔ 不弹一张空卡）。</summary>
+        public string RowCardKey(int i)
+        {
+            if (i < 0 || i >= _last.Count) return null;
+            return _last[i].CardId;
+        }
+
+        /// <summary>点中第 `i` 行时，那张卡该摆的**世界坐标**（相对面板根）。
+        ///
+        /// 🔴 **判据（死类那份，如实标）**：`CemeteryLogManager.ClickCemeterySlider` 把 `cemeteryGroup`（`+0x40`）
+        ///    的 **y 挪到点中那一行的 y**（x 不动）；而卡组自己相对面板是 `CardUI (1)`：面板左缘
+        ///    **左 53.04** px、**竖中线** 上 20.49 px（见 <see cref="CardCenterPx"/> 的字段链）
+        ///    ⇒ 换成「跟着行走」就是 **屏幕 x = `PanelOpenX − 53.04` · 自顶 y = 那一行的中心 − 20.49**。
+        /// ⚠️ 🔴 **2026-10-18（`G9`）如实标这一处的性质**：那个 `cemeteryGroup` **只活在死类里**
+        ///    （发行版的 `CemeteryManager` 没有这个字段，全库 0 命中）⇒ 「卡跟着行走」**不是发行版的行为**；
+        ///    发行版 `CemeteryManager.DisplayCard` 只是把固定位的 `showingCardUI`（`CardUI (1)`）`SetActive(true)`
+        ///    —— 那正是 <see cref="HoverCardLocalPos"/> 那一档（y 钉在面板竖中线）。
+        ///    **我们保留「跟行走」**只是沿用上一轮建的入口（改动会牵动它那几条断言）⇒ 记成账；
+        ///    ⛔ 别把这里当成「原版也这样」。
+        /// ⚠️ 与 <see cref="HoverCardLocalPos"/> 的**唯一**差别就是 y 跟不跟行；两条路画的都是同一个
+        ///    `CardUI` ⇒ 共用卡体尺寸，别各写一个。</summary>
+        public Vector3 RowCardLocalPos(int row, float z)
+        {
+            if (_rowBgs == null || row < 0 || row >= _rowBgs.Length || _rowBgs[row] == null)
+                return HoverCardLocalPos(z);                 // 行取不到 ⇒ 退回原口径（出声由调用方负责）
+            float rowCyTop = LayoutSpace.ToPixel(_rowBgs[row].transform.position).y;
+            float cxPx = PanelOpenX - 53.04f;                // 与 `CardCenterPx` 同一个 x
+            var w = LayoutSpace.ToWorld(cxPx / 1920f, 1f - (rowCyTop - 20.49f) / 1080f);
+            return new Vector3(w.x - (_root != null ? _root.position.x : 0f),
+                               w.y - (_root != null ? _root.position.y : 0f), z);
+        }
+
         /// <summary>自检用：在第 `i` 行里**扫出一个压在卡名链接上的点**（世界坐标）。
         /// 批处理没有鼠标，而 `FindIntersectingLink` 要一个**真落在字形上**的点 ⇒ 从文字块左缘起按 4 px 步长扫一遍。
         /// 返回 false = 这一行没有链接 / 扫不到（**如实返回 false**，不编一个点）。</summary>
@@ -472,6 +603,7 @@ namespace CardPresentation
             // 出厂 = **收在屏幕外**（原版 `initialX = −1200`）⇒ 第一次点开是从屏幕外**划进来**的。
             _slideT = 0f;
             ApplySlide();
+            SelectedRow = -1;      // 🆕 Z2：出厂「还没点过任何一行」（别让它默认成 0 = 看着像点过第 1 行）
         }
 
         /// <summary>摆一条边框。坐标 = **屏幕 px**：`cxPx` 自屏幕左缘、`cyPx` 自屏幕顶

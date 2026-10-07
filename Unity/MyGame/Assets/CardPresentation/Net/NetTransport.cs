@@ -124,7 +124,14 @@ namespace CardPresentation.Net
 
         public void Listen(int port)
         {
-            if (_listener != null) return;
+            if (_listener != null)
+            {
+                // 🔴 **2026-10-18（第五轮 · 账 ②）**：重复 `Listen` **照旧被忽略**（行为一字不改 ——
+                //    语义上那是对的：已经在听同一个端口了），但原来**一声不响** ⇒ 现在**说出来**。
+                UnityEngine.Debug.LogWarning($"[Net] 已经在监听（端口 {Port}）⇒ 这一次 `Listen({port})` "
+                                           + "**被忽略**（行为照旧：不重开、不叠加监听）—— 只是说出来，不静默");
+                return;
+            }
             _peerLost = false;                        // 上一次会话留下的「掉过线」不该带到这一局
 
             // 🔴 **2026-09-26 改成双栈**。原来是「只监 IPv4（`IPAddress.Any`）」，理由写的是
@@ -339,13 +346,52 @@ namespace CardPresentation.Net
         public void Send(string kind, string payloadJson)
         {
             var s = _stream;
-            if (s == null || !IsConnected) { _lastError = "还没连上，发不出去"; return; }
+            if (s == null || !IsConnected)
+            {
+                // 🔴 **2026-10-18（账：「`Send()` 静默丢」的同族，第 2 处）**：原来这里**只写 `_lastError`
+                //    就返回** —— 一条包在这里没了，**日志里一个字都没有**（红线：不许静默失败）。现在出声。
+                // ✅ **2026-10-18（第五轮 · 账 ①）**：`_lastError` 也**有消费点了** —— `NetSession.Send`
+                //    在调用前后各读一次，变了就出声 + 返回 `false`（不再有「写了没人看」的字段）。
+                //
+                // 🔴 **口径对齐（第五轮 · 账 ④ 的判据，现读全量反编译）**：原版「发不出去那一刻」
+                //    **零 UI**，只有一条日志 —— `PhotonNetwork.VerifyCanUseNetwork()`
+                //    （`d:/2/tools/decomp_full/PhotonNetwork__VerifyCanUseNetwork.c`）：
+                //      `if (!PhotonNetwork.connected) { UnityEngine.Debug.LogError(DAT_1842c4e58); return 0; }`
+                //    字面量 `DAT_1842c4e58` 按「VA − ImageBase(0x180000000) → 查
+                //    `d:/2/tools/il2cpp_out/stringliteral.json`」解出来 =
+                //    **`"Cannot send messages when not connected. Either connect to Photon OR use offline mode!"`**
+                //    （同一映射用两个**已知答案**验证过：`DAT_18425d4a8` → `CustomErrors/InternetUnreachable`、
+                //      `DAT_1842be718` → `MainMenu/General/OK`）。
+                //    `PhotonNetwork.RPC` 里另外两条同族也全是日志、**没有一处 `WindowsManager`**：
+                //      `:43 LogError`（"RPC can't be sent to target PhotonPlayer being null! …"）、
+                //      `:67 LogWarning`（"RPCs can only be sent in rooms. …"）；`NetworkingPeer.RPC` 同。
+                //    ⇒ **我们这里是 `LogWarning`（级别与原版的 `LogError` 差一档，如实标出）**，
+                //      **不弹窗** —— 因为原版本身就没有那一扇窗（铁律 11 的「原版本身没有」那一类）。
+                //    ⚠️ 别把这一档与「**对手掉线**弹固定词条 `Battle/HUD/WaitOpponentConnectionMsg`」混起来：
+                //      那是**另一件事**（B17 已接，走 `NetRuntime.Notice`），与本档无关。
+                _lastError = "还没连上，发不出去";
+                // ⚠️ 本文件**没有 `using UnityEngine`**（线程规矩见文件头：后台线程不许碰 Unity API）——
+                //    这里跟同文件的 `ResolveHost` 一样**全限定**写。`Send` 只由主线程调
+                //    （唯一入口 = `NetSession.Send`，它跑在 `Pump()` / 各 handler / `Close()` 里）。
+                UnityEngine.Debug.LogWarning("[Net] 这条 `" + kind + "` **没发出去**（传输层：" + _lastError + "）"
+                                           + " —— 这一刻连接位是断的（`IsConnected == false`）");
+                return;
+            }
             byte[] buf = NetProtocol.Frame(kind, payloadJson);
             try
             {
                 lock (_sendLock) { s.Write(buf, 0, buf.Length); s.Flush(); }
             }
-            catch (Exception e) { Fail("发送失败：" + e.Message); }
+            catch (Exception e)
+            {
+                // 🔴 **2026-10-18（第五轮 · 账 ①）**：这一支是「**过了守卫、但底层真写失败**」——
+                //    `Fail` 只把原因写进 `_lastError`。**加上了消费点**：`NetSession.Send` 会在调用前后
+                //    各读一次 `LastError`，一旦**变了**就出声 + 返回 `false`（见那边的注释）。
+                //    ⇒ 这一档**不再被吞**（原来是「生产路径没人读 `_lastError`」—— 那句已经不成立了）。
+                // ⚠️ 为什么走「加消费点」而不是「把 `INetTransport.Send` 改成 `bool`」：见交件报告 §13·①
+                //    （改动面：`RecordingTransport` / `ScriptedTransport` / `TcpTransport` 三个实现 + 全部调用点）。
+                Fail("发送失败：" + e.Message);
+            }
         }
 
         public int Pump(List<NetFrame> into)

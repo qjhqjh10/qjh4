@@ -21,6 +21,36 @@ namespace RuleEngine
         public readonly List<CardInstance> Discard = new List<CardInstance>();
 
         /// <summary>
+        /// 🆕 **2026-10-18（`A885` ② · `W4` 整改 · 审查问题 8 / 账 5）：这一方手牌上「还在生效」的
+        /// 手牌效果【记录表】** —— 原版 `PlayerHand.activeEffects // +0x48`（`List&lt;HandEffect&gt;`）。
+        ///
+        /// **它解决的是哪一件事**：原版 `PlayerHand.SetupCardInHand`（`:38`）遍历的是**这张记录表**，
+        /// 不是手牌本身 ⇒ **某条效果的载体全部离开手牌之后，记录还在**，后来进手牌的牌**照样**吃得上。
+        /// 我们原来是从手牌实例上**现场扫**（`HandEffectRegistry`）⇒ 那一刻登记表上就看不见它了
+        /// （`Beast Snagga Nob` 给手牌 +1、手里那张唯一的 Beast 被打出去之后，新抽到的 Beast 就吃不上）。
+        ///
+        /// 🔴 **它不是「第二份状态」**：表里装的就是**逐张牌身上那一条条 `HandEffect` 本身**
+        /// （**同一批对象引用**，`RuleCore.AttachHandEffect` 建好后 `Add` 进来），
+        /// 不是拷贝、不是另一份载荷。⇒ 不会出现「两处各存一份、迟早不一致」。
+        /// ⚠️ 与此不同：2026-10-18 早先删掉的那张**对局级** `BattleContext.HandBuffs`
+        /// （`class HandBuff { Instance; Ops; Source; }`）是**逐实例的载荷副本**，那才是错的形状
+        /// —— ⛔ **别把它复活**。
+        ///
+        /// **生命周期**：
+        ///   · **加** —— 🔴 **2026-10-18（`G8`）就地补全**：**两个**入口都会登记，**都按 `RecordId` 去重** ——
+        ///     ① `RuleCore.AttachHandEffect`（**找得到载体**那条：建好记录 → 贴到那张牌上 → 登记一次）；
+        ///     ② `RuleCore.RegisterHandEffectRecord`（⚠️ **无载体那条路** —— `G3` 2026-10-18 新加的：
+        ///        **只登记、不贴牌**，因为它内部就是拿 `inst == null` 调 ①）。
+        ///     ⛔ 只写 ① 会让「挂载那一刻手里没有符合条件的牌」那一路（`GOF81 Beast Snagga Nob` 那种）
+        ///     看起来没人登记 —— 而**那正是这一格要修的形状**（记录先于贴牌，见 ② 的注释）；
+        ///   · **移** —— 只有「**这条效果的次数用尽**」时移（`RuleCore.RemoveHandEffectFromHand`，
+        ///     原版 `PlayerHand.RemoveHandEffectAt`）；
+        ///   · ⛔ **「那一份牌把效果兑现掉了（兑现即摘）」不移这张表** —— 原版那条记录也还在。
+        /// </summary>
+        public readonly List<CardInstance.HandEffect> HandEffectRecords =
+            new List<CardInstance.HandEffect>();
+
+        /// <summary>
         /// **「这一回合从牌库抽到的牌」的账记在哪儿**（待办第 7 行 · 第 3 步，2026-09-18 搬完）。
         ///
         /// 🔴 **这里原来有一个 `Dictionary&lt;CardDef,int&gt; DrawnThisTurn` 字段 —— 已删。**

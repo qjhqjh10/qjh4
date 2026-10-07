@@ -286,8 +286,20 @@ namespace CardPresentation
             Nine(head, "40k_Separator_Fade_Sides_Horizontal", HeadDivR, new Vector4(63f, 0f, 63f, 0f),
                  "Divisor line", L_Line, new Color(0.875f, 0.552f, 0.286f, 1f));
             var row = Node(head, "Tab buttons", TabsRowR);
-            _infoBg = Toggle(row, InfoBtnR, "Generic Tab UI Button Info", "General", true);
-            _trophiesBg = Toggle(row, TrophiesBtnR, "Generic Tab UI Button Trophies", "Trophies", false);
+            // 🔴 **2026-10-18（第七轮）：两颗页签的字走词条 —— 认过树才接的**（本文件这两颗的节点名
+            //   `"Generic Tab UI Button Info"` / `"… Trophies"` 就是 `Toggle` 的第 3 实参）。
+            //   配对判据（逐颗按 pid 读原版）：
+            //     · `Generic Tab UI Button Info/Button Text` = TMP `General` + `mTerm` **`Settings/General/Title`**
+            //       —— 🔴 **原版自己复用了【设置窗】那条通用词条**（`Core/Loc.cs:150` 那条，**本批不新增**）；
+            //       它的父链 = `Button Text < Generic Tab UI Button Info < Tab buttons < Alliance Header Buttons (1)
+            //       < AllianceMemberVariant < Alliances Tab < …` ⇒ **与我们这一颗逐节同名**；
+            //     · `Generic Tab UI Button Trophies/Button Text` = TMP `Trophies` + `mTerm` **`SocialMenu/Alliances/Trophies`**
+            //       （父链同上）⇒ 同一条。
+            //   ⚠️ 这与 `Alliances invitations:` 那处的差别：那里**同名文案身上的 term 是别的窗的键**且父链对不上；
+            //     这里是**父链逐节同名 + 节点名逐字相同** ⇒ 配对成立（不是凭名字像）。
+            //   ⛔ 节点名那两个实参（`"Generic Tab UI Button Info"` / `"… Trophies"`）一字未动。
+            _infoBg = Toggle(row, InfoBtnR, "Generic Tab UI Button Info", Loc.T("Settings/General/Title"), true);
+            _trophiesBg = Toggle(row, TrophiesBtnR, "Generic Tab UI Button Trophies", Loc.T("SocialMenu/Alliances/Trophies"), false);
             Hit(row, "InfoHit", InfoBtnR, L_Hit, ShowGeneral);
             Hit(row, "TrophiesHit", TrophiesBtnR, L_Hit, ShowTrophies);
         }

@@ -23,6 +23,19 @@
 //   ① **文案**：原版走本地化 term（`Tips/MeleeAttackTip` 这类），而 **I2 的词条表在远端 CCD**，
 //      本地只有 key、**一个 value 都没有**（全量扫过：`I2Languages` 零命中、`assets_full` 的
 //      `*.csv/*.tsv` 零命中）。⇒ 见 `TipText`，**那是我们照规则书写的**，不是原版文案。
+//      🔴 **2026-10-18（第十二轮 · W6）补判据（结论不变，把「查过哪几处」写全）**：
+//      `Tips/*` 这一族的 key **有两种载体**，两边都扫过：
+//        · **触发器字段里的普通字符串**（`EverguildTooltipItem` 的 `text` 字段，见上面那行）
+//          —— ⛔ **扫 `Localize.mTerm` 对它是无效否定**（`资料/已知的坑.md` #20 的第四种载体）；
+//        · **二进制里的字面量** —— `d:/2/tools/il2cpp_out/stringliteral.json`
+//          （`RVA = 地址 − 0x180000000`）：`Battle/Tips/` 前缀实测 **24 条**
+//          （`AttackBlock` / `AttackBlockFlying` / `AttackBlockStealth` / `AttackGiantKiller` /
+//           `CantAttackCoward` / `CantAttack{Destroyer,Flank,Tainted}` / `CantAttackWithZero{Melee,Ranged}Attack` /
+//           `DamageFatigue` / `DamageFatigueEnemy` / `DragToTarget` /
+//           `GoFirst` / `HandFull` / `InvalidTarget` / `MuteEnemyChat` / `NoTargetAvailable` /
+//           `NotEnoughMana` / `NotEnoughRoom` / `NotYourTurn` / `PendingBerzerk` / `PleaseWait` /
+//           `UnitNotReady`），**一条 value 都没有**（同①）。
+//      ⇒ **`TipText` 仍是我们写的**（判据：那些 key 本地只有名字）。
 //   ② 面板的**圆角/内边距/九宫格拉伸目标尺寸**：prefab 的 RectTransform 是 UI 布局算的，
 //      我们这套是世界空间 quad ⇒ **内边距与最小宽高是我们挑的**。
 using System.Collections.Generic;

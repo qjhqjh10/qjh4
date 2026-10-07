@@ -205,6 +205,22 @@ namespace CardPresentation.Net
         public const int MaxFrame = 4 * 1024 * 1024;
         public const int HeaderBytes = 4;
 
+        /// <summary>🆕 🔴 **A961（2026-10-18）：对端可控的文本进任何一个界面之前，一律钳到这个长度**
+        /// （超出 = 截断 + 一个 `…`）。闸只一处 = `NetSession.ClampPeerText`；三个入口都在 `NetSession` 的收包段：
+        /// `MsgBye.reason`（`:428`）· `MsgProof.name` → `PeerName`（`:336`）· `MsgAck.reason`（`:362`）。
+        ///
+        /// <para>**取 40 的判据** = 提示行自己的那条上限：`Shell/SearchingMatchPopup.cs:408` 的
+        /// `HintLineMaxChars = 40`（B17 已解；超长只 `LogWarning`、**照画**）——「对端塞进来的那一段」
+        /// 不该比**整行提示**的预算还长。那个常量落在 `Shell/`，这里不引它（`Net/` 不该依赖 `Shell/`），
+        /// **数值照抄、出处写在这儿**。</para>
+        ///
+        /// <para>⚠️ **这是我们自拟的口径，不是复刻**（铁律 3 要求如实标出）：原版**没有**对端可控文本
+        /// 进界面的先例 —— 掉线文案全是**固定词条**（`Battle/HUD/WaitOpponentConnectionMsg`，
+        /// 13 个战场场景各一份），玩家名的长度约束落在 **PlayFab 服务端**
+        /// （`ChooseNamePopup__ClickChooseName.c:33` 拿到就直接 `SetPlayfabDisplayName`，客户端一次都不校验）。
+        /// ⇒「截断」与「干脆不带对端理由」**都是我们的选择**；这里选**截断 + 省略号**（保留信息，又不给上限）。</para></summary>
+        public const int MaxPeerTextChars = 40;
+
         // ---- 组帧 / 拆帧：4 字节小端长度 + UTF8(JSON) ----
 
         public static byte[] Frame(string kind, string payloadJson)
