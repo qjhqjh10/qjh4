@@ -668,7 +668,26 @@ namespace CardPresentation
         //     `Owned Toggle/Label`  | `sd(**230**,0)` ⇒ 宽 **230**（25..255）| 锚 `a(0,0)-(0.7,1) sd(-25,0)` ⇒ 25..`0.7w`（= 232.21）
         //   （`Spacing` 15 / `Spacing (1)` 12.81 · `Image` 右缘 = `w−25` · `Label` 左缘 = 25 —— 这些**两窗相同**。）
         // 🔴 **判据（2026-10-17 现读，可复跑）—— 「找唯一的那一颗」：**
-        //   ① `python 工具/menu_dump.py bundle_menus_assets_all "Deck Editing Menu" --depth 20 --md`
+        //   🔴🔴 **①【首选】原始 RT 序列化字段**（`assets_full/bundle_menus_assets_all/RectTransform/*.json`，
+        //      **2026-10-18（A890）现读** · 读 RT 才有 `m_AnchorMin/Max` `m_Pivot`）：
+        //      · 卡组编辑 `…/Cosmetic FIlter/Filters/Owned Toggle/Image` = `RectTransform_-5843448329795342556.json`：
+        //        `m_AnchorMin (1,0)` · **`m_AnchorMax (1,1)`** · `m_Pivot (1,0.5)` · `m_AnchoredPosition (-25,0)` ·
+        //        **`m_SizeDelta (80,0)`** ⇒ **右锚**：右缘恒 = 父级右缘 − 25（**面板一宽它跟着走**），
+        //        **固定的那个量是【宽 80】、不是右缘** —— `308.90` 只是 `w = 333.90` 那一刻的取值
+        //        ⇒ 「固定 308.9 还是 `w−25`」**答 `w − 25`**（= `ToggleRowRects` 的 `ix2 = w − ToggleIconRightIn`）。
+        //      · `…/Owned Toggle/Label` = `RectTransform_-6194547466839724252.json`：`m_AnchorMin (0,0)` ·
+        //        `m_AnchorMax (0,1)` · `m_Pivot (0,0.5)` · `apos (25,0)` · `sd (230,0)`
+        //        ⇒ **左锚 + 固定宽** ⇒ 25..**255**、**不随 `w` 变**（⚠️ 同一行两半规则**不同**，别一刀切）。
+        //      · 收藏窗那棵（`…Cardback Tab/Cardback Display/Cosmetic FIlter/Filters/Owned Toggle (1)`）那颗
+        //        `Image` = `RectTransform_1643317952186213077.json`：`AnchorMin (0.7,0)` · **`AnchorMax (1,1)`** ·
+        //        `Pivot (1,0.5)` · `apos (-25,0)` · `sd (-30,0)` ⇒ **同样右锚**、宽 `0.3w−30`
+        //        ⇒ **两棵树差的只是【宽】，右缘规则相同**。
+        //      · `EverguildToggle__*.c`（`d:/2/tools/decomp_full/`）**19 个方法体里 0 处**写锚/尺寸 ⇒ 这两颗锚**静态**。
+        //      ⚠️ **2026-10-18（A890）订正（铁律 5）**：这一段原来**只写 ①·b 那一行**（`menu_dump` 的 `锚(…)` 三列），
+        //      没落到 `m_AnchorMin/Max`/`m_Pivot` 上 ⇒ 判不出「面板宽可变时那颗 `Image` 的右缘是什么」。
+        //      ⛔ 抄判据时还要记住 `menu_dump` 自己的读数口径②：**被布局组管的节点**那三列是**布局后的模拟值**
+        //      （`Image`/`Label` 不是布局组子件 ⇒ 两条路径本来就该逐字段一致，现读也**确实一致**）。
+        //   ⚠️ **①·b（复核路径）** `python 工具/menu_dump.py bundle_menus_assets_all "Deck Editing Menu" --depth 20 --md`
         //      ⇒ `…/Cosmetic FIlter/Filters/Army Filter/Content` = `**【GridLayoutGroup】** cellSize=100×100
         //      spacing={'x': 7.0, 'y': **20.0**} pad=14,0,0,0`；
         //      `…/Cosmetic FIlter/Filters/Owned Toggle/Image` = `锚(1,0)-(1,1) apos(-25,0) sd(**80**,0)`；

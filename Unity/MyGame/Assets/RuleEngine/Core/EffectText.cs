@@ -1,8 +1,18 @@
 // EffectText.cs — 原版效果文本 → 结构化效果（战术卡 `desc` / 单位能力的解析器）
 //
-// **权威语义来源**：`d:/warpforge/scripts/rule_core.gd` 的 `_resolve_text`（`:2513`，672 行）。
-// 那是逐条对着原版卡面修出来的规格书 —— **handler 顺序、正则、目标词都照它抄**，
-// 不一致就是移植错了，而不是「我的实现更合理」。
+// 语义来源：（⚠️ **2026-10-18 更正：本节原写「权威来源 = rule_core.gd」—— 那是错的**：
+//   gd 是我们自己的复刻、**不是原版**；权威顺序见下。「不一致就是移植错了」这句同样作废。）
+//   · ✅ **权威顺序**：① **原版全量反编译** `d:/2/tools/decomp_full/`（26,282 个方法体，2026-09-18 全量）
+//     → ② **解包资源字段**（`d:/2/新解包资源/assets_full/`）→ ③ **成品卡图卡面文字**
+//     （`d:/2/Warpforge部队卡片/`）。规则语义一律以 ① 为准。
+//   · ⚠️ **《Warpforge Offline Rulebook》是粉丝实体版规则书**（它自己第 5 行写着
+//     `Not official. Fan project.`）⇒ **只能当第二来源 / 旁证**，不是数字版的最终判据。
+//   · ⚠️ `d:/warpforge/scripts/rule_core.gd` = **我们自己的上一版 Godot 复刻**（70 个 `.gd`），
+//     **不是原版语义判据**。它是本文件这批 handler 顺序 / 正则 / 目标词的**移植来源**
+//     （读作「我们上一版当时是怎么做的」），**判据要回去看反编译**。
+//     出处 = `CLAUDE.md` 铁律 2 的 2026-09-18 更正 + 2026-09-25 更正。
+//   🔴 **下面凡引 `rule_core.gd:<行>` 的，一律读作「我们上一版当时怎么写的（旁证、非权威）」**，
+//   别当原版结论。
 //
 // 和 `EffectSpec` 的分工：
 //   · `EffectSpec`  —— **我们自己设计的 26 张卡**用的封闭文法（`Damage 2 EnemyUnit` 那种），
@@ -76,7 +86,7 @@ namespace RuleEngine
         public EffectTargetSpec DeathWatchTarget;
         /// <summary>
         /// `Deal 3 damage to an enemy **and stun it**` —— `and` 后面那半句。
-        /// 原版是递归回 `_resolve_text` 再解一次（`rule_core.gd:2751`）。
+        /// 我们上一版复刻是递归回 `_resolve_text` 再解一次（`rule_core.gd:2751`，**旁证**）。
         /// ⚠️ **绝不能丢**：丢了就是「打伤害但不眩晕」的静默失效。
         /// </summary>
         public string Tail;
@@ -121,7 +131,7 @@ namespace RuleEngine
         /// —— 条件成立时是**用 8 换掉 2**，不是「2 之后再打 8」。
         /// 由 <see cref="EffectResolver"/> 在结算前成对消掉前面那条同动词的无条件 op。
         ///
-        /// ⚠️ 原版在这一点上是**做坏的**：`rule_core.gd:2635` 的条件伤害分支判了条件，
+        /// ⚠️ 我们上一版复刻在这一点上是**做坏的**：`rule_core.gd:2635` 的条件伤害分支判了条件，
         ///    但 `already_cond_kw` 只会被 `already had` 那支赋值，于是「8 伤」那段
         ///    **每次都会执行**（条件白判），而且前面那句 2 伤**照样打**。
         ///    我们按卡面文字实现替换语义 —— 这是**补原版的漏**，不是抄错。
@@ -153,7 +163,7 @@ namespace RuleEngine
         /// 出处：`Birth of a Saga`（SpaceWolves）「`Each player deploys 3 troops from their deck.
         /// Your troops deployed this way gain Flank and Armour 3 this turn`」。
         /// ⚠️ 和「己方部署 N」的唯一区别就是**对手也来一遍**（各从**自己的**牌库）。
-        ///    规格书 `rule_core.gd:2975` 的 `from your deck` 支**只给自己**（那是给
+        ///    我们上一版复刻 `rule_core.gd:2975`（**旁证**）的 `from your deck` 支**只给自己**（那是给
         ///    `Mechanised Infantry` 用的），所以这一支必须单独标出来，**不能靠 `DeployFrom` 表达**。
         /// </summary>
         public bool EachPlayer;
@@ -629,8 +639,11 @@ namespace RuleEngine
         public bool AdjacentFailed;
         /// <summary>「每一个」——`for each friendly unit` 那种计数层（见 <see cref="EffectOp.Verb"/> 的 for-each）</summary>
         public bool Each;
-        /// <summary>原文**没写**目标词，按原版的**定死规则**自动挑（如裸 `Deal N damage` → 敌方最弱单位，
-        /// `rule_core.gd:2692`）。⚠️ 这不是「不知道打谁」—— 是规则明确、只是不在文本里。
+        /// <summary>原文**没写**目标词，按**定死的规则**自动挑（如裸 `Deal N damage` → 敌方最弱单位）。
+        /// 🔴 出处（正本）= 反编译 `AbilityLogic__GetTargets.c:837` ← `dump.cs:20817` 的
+        ///    `TargetsAffected.lowestHealth = 240` → `BattleManager__GetLowestHealthUnit.c:153`（见 `TryDeal`）。
+        ///    ⚠️ 我们上一版复刻 `rule_core.gd:2692` 只是**旁证**，不是判据。
+        /// ⚠️ 这不是「不知道打谁」—— 是规则明确、只是不在文本里。
         /// **不能掷骰**：同一局必须永远可复现（见 `RuleCore.ResolveTarget` 的注释）。</summary>
         public bool Auto;
         /// <summary>
@@ -744,7 +757,8 @@ namespace RuleEngine
         /// 目标限定**受过伤**的（`all damaged enemy troops`）。
         ///
         /// 出处：`Oath of the Throne`（Ultramarines）的 `Oath 4: Also destroy all damaged enemy troops`。
-        /// 判据照规格书 `rule_core.gd:1415` —— **`health &lt; max_health`**（不是「被标了个 damaged 标记」）。
+        /// 判据照我们上一版复刻 `rule_core.gd:1415`（**旁证**）—— **`health &lt; max_health`**
+        /// （不是「被标了个 damaged 标记」）。
         /// ⚠️ 它和 `CountRef` 里那个 `damaged` 是**两件事**：那个是「**数**几个受伤的」，
         ///    这个是「**打/杀**受伤的那些」。写法同形，别合并。
         /// </summary>
@@ -754,7 +768,7 @@ namespace RuleEngine
         /// 目标限定**正在祈祷**的（`Each friendly unit that is Praying heals 3`）。
         ///
         /// 出处：`Devout Serenity`（Sororitas）。判据 = <see cref="UnitState.Prayed"/>
-        /// （规格书 `rule_core.gd:610` 那句 `If any friendly unit is Praying` 读的也是它）。
+        /// （我们上一版复刻 `rule_core.gd:610` 那句 `If any friendly unit is Praying`（**旁证**）读的也是它）。
         /// </summary>
         public bool PrayedOnly;
 
@@ -1523,7 +1537,7 @@ namespace RuleEngine
         /// <summary>
         /// 一条分句 → 效果操作。
         ///
-        /// **handler 顺序照抄 `rule_core._resolve_text`（`:2516` 的函数头写着）**：
+        /// **handler 顺序照抄我们上一版复刻 `rule_core._resolve_text`（`:2516` 的函数头写着；旁证、非原版判据）**：
         ///   deal → stun → destroy → heal → draw → return → refill → deploy → give/lose/gain
         /// ⚠️ **顺序本身是语义的一部分**（先具体后一般），别按字母序重排。
         /// </summary>
@@ -1557,7 +1571,7 @@ namespace RuleEngine
             string low = s.ToLowerInvariant();
 
             // ---- 付费激活前缀 `12 [Energy]: …` / `4 : …` / `8 [Faith]: …` ----
-            // `rule_core.gd:2529` 那族（原版是「付不起就**整段不激活**」）。前缀在这里剥掉、
+            // `rule_core.gd:2529` 那族（我们上一版复刻：付不起就**整段不激活**，旁证）。前缀在这里剥掉、
             // 代价记进 op，正文照常往下走各个 handler。
             int paidCost = 0; string paidKind = null;
             // ⚠️ **先试无冒号那条**（`1 Also give it Shield` / `(1) Draw a card`）——
@@ -2359,7 +2373,7 @@ namespace RuleEngine
         ///   · `an enemy **and** stun it`            → 后面是动词 `stun` → 切，尾句递归
         ///   · `an enemy **and** its adjacent units` → 后面是目标词的延续 → **不切**，整段当目标
         ///
-        /// ⚠️ 这里**故意和 `rule_core.gd:2685` 不一样**：原版无条件在第一个 ` and ` 切，
+        /// ⚠️ 这里**故意和 `rule_core.gd:2685`（我们上一版复刻，旁证）不一样**：它无条件在第一个 ` and ` 切，
         ///    于是 `…and its adjacent units` 的「相邻」会被切掉、当成一句解不出来的尾句丢掉。
         ///    我们按「后面是不是动词」判 —— 是**超集**（原版能解的我们都能解，且不丢相邻）。
         ///
@@ -2998,7 +3012,8 @@ namespace RuleEngine
         /// `for each` 从句 →（计数范围, 计数对象）。**认不出来返回 false** ——
         /// 宁可让整句判半懂，也不能猜一个计数对象（猜错就是「打多/打少」）。
         ///
-        /// 语义出处：原版 `rule_core.gd:1347` 的 `_fe_count`（分支顺序照抄）。
+        /// 语义出处（**旁证**，非原版判据）：我们上一版复刻 `rule_core.gd:1347` 的 `_fe_count`
+        /// （分支顺序照抄；要判原版语义回 `d:/2/tools/decomp_full/` 核）。
         /// </summary>
         static bool ClassifyCount(string countRef, out string scope, out string reference)
         {
@@ -3059,12 +3074,17 @@ namespace RuleEngine
             //    但 `CountRef` 会进日志与断言 —— 写清楚才查得动。
             foreach (string w in new[] { "troop", "vehicle", "infantry", "daemon", "beast", "drone", "unit" })
                 if (c.Contains(w)) { kind = w; break; }
-            // 🔴 **`unit` 不许归成 `troop`**（2026-09-14 用户指正后照三层权威核过）——
+            // 🔴 **`unit` 不许归成 `troop`**（2026-09-14 用户指正后核过；判据链 2026-10-18 订正）——
             //    这两句原来写着「`friendly unit` 语境就是部队，原版 `_fe_count` 也把它当 troop 基数」，
-            //    **是错的**。三层证据：
-            //      · 规则书中文版 `:70-75`：**单位含督军，部队不含**；作用于「单位」的效果**可以**影响督军；
-            //      · 参考实现 `d:/warpforge/scripts/rule_core.gd` 的 `_fe_count` 里写得明明白白：
-            //        `var troop_only := s.contains("troop")` —— **只有 `troop` 这个词才排督军**；
+            //    **是错的**。证据（按权威顺序）：
+            //      · ✅ **① 判据首选 = 成品卡图的卡面英文原文**：卡面写 `units` 时**督军要算**、
+            //        写 `troops` 才不算（`d:/2/Warpforge部队卡片/` 逐张可核）；
+            //      · ✅ 落地那一处 = 反编译的 `EffectResolver.AddSide`：`troopOnly = spec.Kind == "troop"`
+            //        （`EffectResolver.cs:1175` 起，`if (troopOnly && u.IsWarlord) continue;`）；
+            //      · ⚠️ **旁证**：我们上一版复刻 `d:/warpforge/scripts/rule_core.gd` 的 `_fe_count`
+            //        也是这么写的（`var troop_only := s.contains("troop")`）；
+            //      · ⚠️ **旁证（第二来源）**：粉丝实体版规则书中文版 `:70-75`「单位含督军，部队不含」
+            //        —— 它**不是**数字版的最终判据（见文件头），只作旁证。
             //      · 我们自己的消费端也是这么判的（`EffectResolver.CountFor`：`kind == "troop" && u.IsWarlord`）。
             //    ⇒ 解析层把它改成 `troop` 就等于**两处判据不一致**，而这里错的那一处**不会报错**，
             //      只会让「每个己方单位」少数一个督军（静默少数）。
@@ -3165,7 +3185,7 @@ namespace RuleEngine
         /// `For the rest of this battle|the match, at the start|end of your turn, &lt;正文&gt;`
         /// —— **注册一条常驻效果**。
         ///
-        /// **语义出处（权威）**：规则书英文版 `:39-41`「Persistent Effects」（中文版 `:32`）——
+        /// **语义出处（旁证 —— 粉丝实体版规则书，非官方；权威顺序见文件头）**：规则书英文版 `:39-41`「Persistent Effects」（中文版 `:32`）——
         ///   &gt; Some cards have persistent effects indicated by "For the rest of this battle"
         ///   &gt; that remain in effect after the card is discarded. Place these cards in a
         ///   &gt; separate pile next to the discard pile for reference.
@@ -3330,7 +3350,7 @@ namespace RuleEngine
             }
 
             // `Your Warlord gains: "At the start of your turn, …"` —— EmperorsChildren
-            // `Coterie of the Conceit`。原版是**挂到督军身上**（`rule_core.gd:2486-2496` 写
+            // `Coterie of the Conceit`。我们上一版复刻是**挂到督军身上**（`rule_core.gd:2486-2496`，旁证，写
             // `wl["fx"]["turn_start"]`）；我们让督军**所在的那一方**注册同一条常驻效果，
             // 触发时机完全一样（督军的回合就是那一方的回合），少一个存放位置。
             var w = ReWarlordGains.Match(low);
@@ -3410,8 +3430,8 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// 逐分句抽 at-turn 从句。**两种句式、两种视角都认** —— 照原版参考实现
-        /// `d:/warpforge/scripts/rule_core.gd:341 _extract_at_turn` 的 `re_pre` / `re_suf`：
+        /// 逐分句抽 at-turn 从句。**两种句式、两种视角都认** —— 照我们上一版复刻
+        /// `d:/warpforge/scripts/rule_core.gd:341 _extract_at_turn`（**旁证**）的 `re_pre` / `re_suf`：
         ///   · **前缀式** `At the start|end of (your|each|every) turn[,:] &lt;正文&gt;`
         ///   · **后缀式** `&lt;正文&gt; at the start|end of (your|each) turn`
         ///     （`Concealed Explosives` = `Takes 1 damage at the start of your turn`）
@@ -3421,7 +3441,7 @@ namespace RuleEngine
         /// （`Chronomancer` / `Grot Orderly` / `Beast Snagga Nob` / `Aquilon Servo-Sentry` /
         /// `Unleashed TramplaSquig` / `Concealed Explosives` …）原来**没有任何消费点** ——
         /// `ResolveAtTurn` 只扫「当前行动方的手牌」与「已登记的常驻效果」，
-        /// 而参考实现 `_at_turn_effects` 的**触发源②**就是「双方棋盘 at-turn 单位」。
+        /// 而我们上一版复刻 `_at_turn_effects`（旁证）的**触发源②**就是「双方棋盘 at-turn 单位」。
         ///
         /// ⚠️ **前缀式锚在分句开头**（`^`）—— 那边的 `re_pre` 用的是不锚的 `search`，
         ///    照抄的话 `For the rest of this battle, at the start of your turn, …`（`Cadia Stands`）
@@ -3651,7 +3671,7 @@ namespace RuleEngine
         /// Duelist's Hubris / Inscrutable Cunning / Hymn of Battle / The Fang。
         /// 分隔符实测有两种：`;` 分前两项、最后一项前面是 ` or `。
         ///
-        /// ⚠️ **原版在这里是「单机自动选 1」**（`rule_core.gd:1159` 的函数头：
+        /// ⚠️ **我们上一版复刻在这里是「单机自动选 1」**（`rule_core.gd:1159` 的函数头，**旁证**：
         ///    「从句提取 → 候选域 → 3 候选 → **单机自动选 1**（battle.gd 弹窗后接）」）。
         ///    我们照这个行为：**用 `ctx.Rng` 掷一个**，但**解析阶段不掷**（见下）。
         ///
@@ -4005,7 +4025,7 @@ namespace RuleEngine
                 //      **本来就有 ` or `** ⇒ `pieces` 天然 ≥2，这层展开照旧生效，**不受影响**。
                 //   ✅ 没有 ` or ` 时**落回原路**（普通 `give`）—— `GivePayload.ParseInto` 本来就
                 //      按 `, ` + ` and ` 逐段全加（`GivePayload.cs` 头注释点名的例子正是 `Autarch`），
-                //      参考实现 `rule_core.gd:3268-3281` 同样是**全加**。
+                //      我们上一版复刻 `rule_core.gd:3268-3281`（**旁证**）同样是**全加**。
                 if (pieces.Count >= 2)
                 {
                     var expanded = new List<string>();
@@ -4133,7 +4153,7 @@ namespace RuleEngine
         ///    `ctx.HandBuffs` → `RuleCore.ApplyHandBuffs`；理由「按卡 + 份数记账与实例身份语义等价」）；
         ///    ✅ **2026-10-17（B24）就地订正（铁律 5）**：这一行原来写着
         ///    「**面板那一侧仍然没做**（`BattleDriver.ShowAsk` 见到 `ChooseEffectIsHand` 就不问了）」
-        ///    —— **已不成立**：A905（2026-10-17）把那条短路删掉了（痕迹 → `BattleDriver.cs:4446`）
+        ///    —— **已不成立**：A905（2026-10-17）把那条短路删掉了（痕迹 → `BattleDriver.cs:4714-4724`；⚠️ **2026-10-18 订正**：原写 `:4446`，那是 `AddQuota` 里、与 A905 无关 —— 全文件 `grep -n "A905"` 独占命中 `:4716`）
         ///    ⇒ `hand` 那一支现在**面板照常弹**（判据/行为在解析层仍一个字没变）。
         ///    判据全文 = `资料/普查产出_1017/W_B22_选牌ask时机.md` §A905。
         ///    ⇒ 解析层这一支的**行为一个字没变**（照样产出 op、`Payload = "hand"`），别照上面那两行动它。
@@ -4224,7 +4244,8 @@ namespace RuleEngine
 
         /// <summary>
         /// 选牌：`Choose a &lt;筛选&gt; [from/in &lt;来源&gt;] [and &lt;动词&gt;]` ——
-        /// 权威源 `rule_core.gd:1157 _resolve_choose`（+ `:925` 候选匹配 · `:991` 候选收集）。
+        /// 来源（**旁证** —— 我们上一版复刻，不是权威）：`rule_core.gd:1157 _resolve_choose`
+        /// （+ `:925` 候选匹配 · `:991` 候选收集）。
         ///
         /// **本 handler 只做两件事**：① 从句里剥出「来源 / 筛选 / 动作」记进 <see cref="EffectOp"/>
         /// ② 剩下的交给**已有的后续句解析**。
@@ -4442,8 +4463,10 @@ namespace RuleEngine
         static readonly Regex ReTakeDamageBare = new Regex(
             @"^takes?\s+(\d+)\s+damage$", RegexOptions.Compiled);
 
-        /// <summary>`Deal X damage [to Y]` —— `rule_core.gd:2672`。
-        /// 目标词缺省（`Deal 3 damage`）= 原版自动选敌方最弱单位（`:2692`）。</summary>
+        /// <summary>`Deal X damage [to Y]` —— 我们上一版复刻 `rule_core.gd:2672`（**旁证**）。
+        /// 目标词缺省（`Deal 3 damage`）= **定死的规则**：自动选敌方最弱单位
+        /// （🔴 正本 = 反编译，见下面 `TryDeal` 里那条 `AbilityLogic__GetTargets.c:837`；
+        ///  `rule_core.gd:2692` 只是旁证，不是判据）。</summary>
         static EffectOp TryDeal(string low, string src)
         {
             // 🔴 **先切 ` and <动词>` 的尾巴，再匹配**（2026-09-14 A5 批 4）——
@@ -4467,7 +4490,7 @@ namespace RuleEngine
             if (m.Groups[2].Success) op.AmountMax = int.Parse(m.Groups[2].Value);
             string tok = m.Groups[3].Success ? m.Groups[3].Value.Trim() : "";
 
-            // `Deal X to Y and <另一句>` —— 原版在这里递归解尾句（`rule_core.gd:2751`），
+            // `Deal X to Y and <另一句>` —— 我们上一版复刻在这里递归解尾句（`rule_core.gd:2751`，旁证），
             // 但它是**无条件**在第一个 ` and ` 切；我们按「后面是不是动词」判（见 `SplitAndTail`）。
             SplitAndTail(tok, out tok, out op.Tail);
             if (headTail.Length > 0) op.Tail = headTail;
@@ -4745,7 +4768,7 @@ namespace RuleEngine
         static readonly Regex ReBlind = new Regex(@"^blinds?\s", RegexOptions.Compiled);
 
         /// <summary>`Destroy`（含 `destroy it instead` 的条件形式 —— 条件由上层判，这里只认动词）。
-        /// `rule_core.gd:2818`；⚠️ 原版 `Invulnerable` 挡得住（`:2820`），那在结算层。</summary>
+        /// `rule_core.gd:2818`（旁证）；⚠️ `Invulnerable` 挡得住（`rule_core.gd:2820`，同属旁证），那在结算层。</summary>
         static EffectOp TryDestroy(string low, string src)
         {
             if (!ReDestroy.IsMatch(low)) return null;
@@ -5928,7 +5951,7 @@ namespace RuleEngine
         /// <summary>
         /// `This costs N less if you control a unit with &lt;关键词&gt;` —— **静态条件降费**（2026-09-13 A4 批 1）。
         ///
-        /// 出处：`Fate Inescapable`（SaimHann）· 规格书 `rule_core.gd:2112` 的 `re_this_less`
+        /// 出处：`Fate Inescapable`（SaimHann）· 我们上一版复刻 `rule_core.gd:2112`（**旁证**）的 `re_this_less`
         /// （`"this costs (\\d+) less if you control (?:a|an)? ?(?:unit|troop)? with ([a-z]+)"`）。
         ///
         /// 和 `Lower cost by N when &lt;事件&gt;`（`Verb = "costwhen"`）**不是一件事**，别合并：
@@ -5968,7 +5991,7 @@ namespace RuleEngine
         /// <summary>
         /// `Reload the Duty abilities of all your units` —— 2026-09-13 A4。
         /// 规则书 `:181`「职责（Duty）：**一次性能力，可被「装填」再次使用**」。
-        /// 语义照 `rule_core.gd:2912-2931`（一字不差）：把己方带 `duty` 的单位的 `DutyUsed` 复位。
+        /// 语义照我们上一版复刻 `rule_core.gd:2912-2931`（一字不差；**旁证**）：把己方带 `duty` 的单位的 `DutyUsed` 复位。
         /// ⚠️ 两种宾语：`all your units`（全体带 duty 的己方单位）与省略宾语的（指代前一句那个目标，
         /// 由 `DoReloadDuty` 从 `LastTarget` 取）。判据写在 `DoReloadDuty` 里，只此一处。
         /// </summary>
@@ -6187,7 +6210,8 @@ namespace RuleEngine
         /// `Return X to your hand / to the top of their deck / to your deck` —— 把**场上**的卡
         /// 挪回手牌或牌库。
         ///
-        /// **语义出处（权威）**：规则书**英文原版 `:455-457`**「Cards Sent into the Deck」——
+        /// **语义出处（旁证 —— 粉丝实体版规则书，非官方；它自己写着 `Not official. Fan project.`）**：
+        /// 规则书**英文版 `:455-457`**「Cards Sent into the Deck」——
         ///   &gt; Cards returned to the deck from the battlefield or generated and added to the deck
         ///   &gt; should be **shuffled in unless otherwise stated by a card effect.**
         /// ⇒ 写 `to the top of their deck` 属于「另有说明」→ **放牌库顶、不洗**；
@@ -6516,7 +6540,7 @@ namespace RuleEngine
             RegexOptions.Compiled);
 
         /// <summary>② `Give to &lt;目标&gt; &lt;内容&gt;` 的**窄写法** —— 目标短语照抄
-        /// `rule_core.gd:3012` 的 `re_g2`。见 `TryGive` 里那段「先用窄的那条」。</summary>
+        /// 我们上一版复刻 `rule_core.gd:3012` 的 `re_g2`（**旁证**）。见 `TryGive` 里那段「先用窄的那条」。</summary>
         static readonly Regex ReGiveToNarrow = new Regex(
             @"^gives?\s+to\s+(an? (?:friendly|enemy) (?:troop|unit)s?|your units?|your troops?|it|the target)\s+(.+)$",
             RegexOptions.Compiled);
@@ -6622,8 +6646,8 @@ namespace RuleEngine
 
             // 主语是真实在场目标才用主语（`Your Warlord gains X`）；`the next Beast you play` 这类
             // 挂起型主语落回无主语。**无主语 → 有施放者就是施放者自己，没有才落到友方全体** ——
-            // 这是原版自己标为「既有近似」的取舍（`rule_core.gd:3167` 那句注释写的是
-            // 「无主语 → 友方全体 (**既有近似**)」，**不是**原版语义）；
+            // 这是我们上一版复刻自己标为「既有近似」的取舍（`rule_core.gd:3167` 那句注释写的是
+            // 「无主语 → 友方全体 (**既有近似**)」，**不是**原版语义 ⇒ 只能当**旁证**）；
             // ⚠️ **2026-09-13 A3 收窄**：单位卡的**触发式正文**（`Strike: Gain +2 Attack` ·
             //    `When you collect a Spirit Stone, gain Shield`）里，没有主语的那个 `gain`
             //    说的就是**这张卡自己** —— 落成「己方全体」会**给全队各加一份**，
@@ -6675,7 +6699,7 @@ namespace RuleEngine
         /// 目标短语里是不是「**复数**的己方部队」（`your troops` / `your units` /
         /// `friendly Infantry troops` / `their troops` …）—— 命中就是**全体**，不用玩家挑。
         ///
-        /// 🔴 **出处：原版 `rule_core.gd:3966-3980`**（那一支的注释就写着「**复数全体**」）：
+        /// 🔴 **出处（旁证 —— 我们上一版复刻；不是原版判据）`rule_core.gd:3966-3980`**（那一支的注释就写着「**复数全体**」）：
         ///    `if (t.contains("your") or t.contains("friendly")) and (t.contains("units") or
         ///     t.contains("troops") or …)` ⇒ 逐格收集**本方全体**。
         ///
@@ -7019,7 +7043,7 @@ namespace RuleEngine
 
             // ---- 几个 ----
             // 🔴 **复数的己方部队 = 全体**（2026-09-14 T2b 补）：
-            //    出处：原版 `rule_core.gd:3966-3980` 那一支自己的注释就是「**复数全体**」——
+            //    出处（旁证）：我们上一版复刻 `rule_core.gd:3966-3980` 那一支自己的注释就是「**复数全体**」——
             //    条件是 `(your|friendly)` 且含**复数**的 `troops`/`units`，命中即**自动全体**
             //    （`_apply_with_filter` + 逐格收集，**不经过玩家挑**）。
             //    ⚠️ 判据是**名词的单复数**，**不是 `all` 这个词**：`Give +1 to your troops` 里
@@ -7280,8 +7304,8 @@ namespace RuleEngine
     /// 表现是**每回合都无条件触发** —— 比不实现更糟（静默失效）。
     /// 所以：**认不出来返回 null**，由上层报成「解析了但没机制」。
     ///
-    /// 规范名的语义出处：`rule_core.gd:2635`（条件伤害）、`:2652`（`already had X → instead`）、
-    /// `:2737`（`if the target dies, gain N energy`）。
+    /// 规范名的来源（**旁证** —— 我们上一版复刻，不是原版判据）：`rule_core.gd:2635`（条件伤害）、
+    /// `:2652`（`already had X → instead`）、`:2737`（`if the target dies, gain N energy`）。
     /// </summary>
     public static class EffectCondition
     {
@@ -7340,7 +7364,7 @@ namespace RuleEngine
             // `if any friendly unit is Praying` —— 己方场上有没有**正在祈祷**的单位（2026-09-13 A4 批 1）。
             // 出处：`Sororitas Rhino`「`At the end of your turn, if any friendly unit is Praying, …`」·
             //       `Devout Serenity`「`Each friendly unit that is Praying heals 3`」（同一族）。
-            // 规格书 `rule_core.gd:604` 那条 `re_pr` 从句只认「有没有」，我们的 `Each …` 那条走目标筛
+            // 我们上一版复刻 `rule_core.gd:604`（**旁证**）那条 `re_pr` 从句只认「有没有」，我们的 `Each …` 那条走目标筛
             // （`EffectTargetSpec.PrayedOnly`）—— **两处都读同一个 `UnitState.Prayed`**，判据只有一份。
             // ⚠️ 判的是**状态**（回合开始会掉），不是「这回合祈祷过」的事件。
             if (c.Contains("praying")) return "anypraying";

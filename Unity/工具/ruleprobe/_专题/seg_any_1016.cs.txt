@@ -1,0 +1,345 @@
+// seg_any_probe —— 只读探针：量 `GivePayload.ParseInto` 多段那支的 `any` 语义影响面。
+//
+// 做法：把 `Assets/RuleEngine/Core/*.cs`（**不依赖 UnityEngine**）直接编进来，
+//   ① 用**真解析器** `EffectText.Parse(desc)` 取全池每张卡的 give/gain/lose 载荷
+//   ② 用**照抄 `ParseInto` 结构的镜像函数**（叶子判据换成真 `GivePayload.Parse(seg) != null`）
+//      把每条载荷拆成段，找出「有段解得出、有段解不出」的 ⇒ 解不出的段被静默丢
+//   ③ 同一批载荷模拟改成 `all`（任一段解不出 ⇒ 整体 null）会怎样
+// 不改任何工程代码；本文件只读 `cards_engine.json`。
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text;
+using System.Text.Json;
+using System.Text.RegularExpressions;
+using RuleEngine;
+
+static class Program
+{
+    const string CardsPath = @"d:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json";
+
+    static readonly Regex ReEnergy = new Regex(@"^(\d+)\s*energy$", RegexOptions.Compiled);
+    static readonly Regex ReNoise = new Regex(@"^(?:\d+|a|an|the|random|chaos|of|additional)\s+", RegexOptions.Compiled);
+
+    class Row
+    {
+        public string Id, Name, Type, Desc, DescZh, Verb, Payload;
+        public List<string> Failed = new List<string>();
+        public List<string> Oked = new List<string>();
+        public bool HasSeg;        // 走了多段那一支
+        public bool RealAny;       // 真 `GivePayload.Parse(payload) != null`（实测）
+        public bool RealMech;      // 真 `GivePayload.Mechanized(...)`
+        public string MechWhy;
+        public bool MirrorAny;     // 镜像：至少一段解得出
+        public bool MirrorAll;     // 镜像：**每一段**都解得出（= 改成 `all` 之后还活着）
+    }
+
+    /// <summary>忠实照抄 `GivePayload.ParseInto`（GivePayload.cs:193-357）的结构；
+    /// 叶子那三支（关键词 / 属性 / 裸 ±N）合并成一句真 `GivePayload.Parse(w) != null`。</summary>
+    static bool MirrorInto(string payload, List<string> failed, List<string> oked, ref bool hasSeg, int depth)
+    {
+        if (depth > 8) return false;
+        if (string.IsNullOrEmpty(payload)) return false;
+        string w = payload.Replace("[", "").Replace("]", "").Trim();
+        if (w.Length == 0) return false;
+
+        if (ReEnergy.IsMatch(w)) { oked.Add(w); return true; }          // ④ 能量
+
+        for (int g = 0; g < 8; g++)
+        {
+            string s = ReNoise.Replace(w, "");
+            if (s == w || s.Length == 0) break;
+            w = s;
+        }
+        if (w.Length == 0) return false;
+
+        string low = w.ToLowerInvariant();
+
+        if (low == "it as well") { oked.Add(w); return true; }          // ②-c 代词
+
+        if (w.IndexOf(':') > 0)                                          // ①b 嵌入效果
+        {
+            int colon = w.IndexOf(':');
+            string head = Regex.Replace(w.Substring(0, colon), @"[^\x20-\x7E]", "").Trim();
+            head = head.Trim('"', '\'', '\u201c', '\u201d', ' ');
+            var words = head.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            for (int i = 0; i < words.Length; i++)
+            {
+                string cand = string.Join(" ", words, i, words.Length - i);
+                int hl;
+                string hk = KeywordTable.Normalize(cand.ToLowerInvariant(), out hl);
+                if (hk != null && hl == cand.Length) { oked.Add(w); return true; }
+            }
+        }
+
+        if (low.Contains(" and ") || low.Contains(", "))                 // ① 多属性拆分
+        {
+            hasSeg = true;
+            bool any = false;
+            foreach (string s1 in w.Split(new[] { ", " }, StringSplitOptions.None))
+                foreach (string s2 in s1.Split(new[] { " and " }, StringSplitOptions.None))
+                {
+                    string seg = s2.Trim();
+                    if (seg.Length == 0) continue;
+                    if (MirrorInto(seg, failed, oked, ref hasSeg, depth + 1)) any = true;
+                    else failed.Add(seg);
+                }
+            return any;
+        }
+
+        // 叶子（② 关键词 / ③ 属性 / ⑤ 裸 ±N）—— 用真解析器判
+        if (GivePayload.Parse(w) != null) { oked.Add(w); return true; }
+        failed.Add(w);
+        return false;
+    }
+
+    /// <summary>第二趟：**建真的 `CardDef`**，从**每一个运行时出口**收载荷 ——
+    /// 这样单位卡那几条就不是「裸解析产物」，而是引擎真会用的那份。</summary>
+    static void CardDefMode(StringBuilder sb, Dictionary<string, JsonElement> byId)
+    {
+        sb.AppendLine();
+        sb.AppendLine("===== ⑤ 走**真 `CardDef`**：从每个运行时出口收载荷（`TriggerOps` / `WhenTriggers` /");
+        sb.AppendLine("        `Auras` / `SpiritOps` / `OathOps` / `AttackedOps` / 战术卡的 `PlayTactic` 那一路）=====");
+
+        int cards = 0, outlets = 0, mixed = 0;
+        var hits = new List<string>();
+        var nulls = new List<string>();
+        foreach (var c in byId.Values)
+        {
+            cards++;
+            string type = c.TryGetProperty("type", out var t3) ? t3.GetString() : "";
+            var kws = new List<string>();
+            if (c.TryGetProperty("keywords", out var kj) && kj.ValueKind == JsonValueKind.Array)
+                foreach (var k in kj.EnumerateArray()) kws.Add(k.GetString());
+            CardDef cd;
+            try
+            {
+                cd = new CardDef(
+                    c.GetProperty("id").GetString(), c.GetProperty("name").GetString(), type,
+                    c.TryGetProperty("desc", out var dd) ? (dd.GetString() ?? "") : "",
+                    c.TryGetProperty("rarity", out var rr) ? rr.GetString() : "",
+                    c.TryGetProperty("faction", out var ff) ? ff.GetString() : "",
+                    c.TryGetProperty("cost", out var cc2) && cc2.ValueKind == JsonValueKind.Number ? cc2.GetInt32() : 0,
+                    c.TryGetProperty("attack", out var aa2) && aa2.ValueKind == JsonValueKind.Number ? aa2.GetInt32() : 0,
+                    c.TryGetProperty("health", out var hh2) && hh2.ValueKind == JsonValueKind.Number ? hh2.GetInt32() : 0,
+                    c.TryGetProperty("ranged", out var rg) && rg.ValueKind == JsonValueKind.Number ? rg.GetInt32() : 0,
+                    kws,
+                    c.TryGetProperty("nameZh", out var nz) ? nz.GetString() : null,
+                    c.TryGetProperty("descZh", out var dz) ? dz.GetString() : null,
+                    false,
+                    c.TryGetProperty("subtype", out var st) ? st.GetString() : null);
+            }
+            catch (Exception e) { sb.AppendLine("⚠ CardDef 构造失败 " + c.GetProperty("id").GetString() + " :: " + e.Message); continue; }
+
+            var found = new List<string[]>();   // [出口, verb, payload]
+            Action<string, IReadOnlyList<EffectOp>> take = (outlet, ops) =>
+            {
+                if (ops == null) return;
+                foreach (var op in ops)
+                {
+                    if (op == null) continue;
+                    if (op.Verb != "give" && op.Verb != "gain" && op.Verb != "lose") continue;
+                    if (string.IsNullOrEmpty(op.Payload)) continue;
+                    found.Add(new[] { outlet, op.Verb, op.Payload });
+                }
+            };
+
+            // ① 战术 / 防御 / 天赋卡：PlayTactic → `EffectText.Parse(card.Desc)`（同一句）
+            if (type == "tactic" || type == "defense" || type == "talent")
+                take("PlayTactic(desc)", EffectText.Parse(cd.Desc, out _, out _));
+            // ② 事件监听（`When …`）—— 正文单独 Parse
+            foreach (var wt in cd.WhenTriggers) take("WhenTriggers[" + wt.Ev + "]", wt.Ops);
+            // ③ 触发关键词正文（`Rally:` 前缀 + **裸写**正文）
+            foreach (var kw in CardDef.BodyKeywords) take("TriggerOps(" + kw + ")", cd.TriggerOps(kw));
+            foreach (var kw in CardDef.RoutableTriggers) take("TriggerOps(" + kw + ")", cd.TriggerOps(kw));
+            // ④ 光环
+            foreach (var au in cd.AuraSpecs) if (!string.IsNullOrEmpty(au.Payload))
+                found.Add(new[] { "AuraSpecs", "aura", au.Payload });
+            // ⑤ 灵魂石 / 誓约 / 被打到
+            take("SpiritOps", cd.SpiritOps);
+            take("OathOps", cd.OathOps);
+            take("AttackedOps", cd.AttackedOps);
+
+            foreach (var f in found)
+            {
+                outlets++;
+                bool hasSeg = false;
+                var failed = new List<string>(); var oked = new List<string>();
+                bool any = MirrorInto(f[2], failed, oked, ref hasSeg, 0);
+                bool real = GivePayload.Parse(f[2]) != null;
+                if (real && failed.Count > 0)
+                {
+                    mixed++;
+                    hits.Add(string.Format("  · {0}/{1} [{2}] 出口={3}\n      载荷「{4}」\n      保住: {5}\n      ❗丢: {6}",
+                        cd.Id, cd.Name, type, f[0], f[2],
+                        oked.Count == 0 ? "（无）" : string.Join(" + ", oked),
+                        string.Join(" + ", failed)));
+                }
+                else if (!real) nulls.Add("  · " + cd.Id + "/" + cd.Name + " 出口=" + f[0] + " 载荷「" + f[2] + "」（**报得出来，不静默**）");
+            }
+        }
+
+        sb.AppendLine("扫 " + cards + " 张 · 运行时出口载荷 " + outlets + " 条 · **多段丢段 = " + mixed + "** · 整条不认识 = " + nulls.Count);
+        sb.AppendLine("— 多段丢段的（**出口是引擎真会跑的那条**）：");
+        foreach (var h in hits) sb.AppendLine(h);
+        sb.AppendLine("— 整条不认识的（对照：这些会 `DoGive` 报「载荷本版不认识」，不静默）：");
+        foreach (var n in nulls) sb.AppendLine(n);
+    }
+
+    static int Main(string[] args)
+    {
+        var outp = new UTF8Encoding(false);
+        Console.OutputEncoding = outp;
+        var sb = new StringBuilder();
+
+        var byId = new Dictionary<string, JsonElement>();
+        using (var doc = JsonDocument.Parse(File.ReadAllText(CardsPath, Encoding.UTF8)))
+        {
+            var cards = doc.RootElement.GetProperty("cards");
+            foreach (var c in cards.EnumerateArray())
+                byId[c.GetProperty("id").GetString()] = c.Clone();
+        }
+        sb.AppendLine("（卡池已加载 " + byId.Count + " 张）");
+
+        var rows = new List<Row>();
+        int payloadTotal = 0, payloadMixed = 0, payloadNull = 0, payloadSegAllOk = 0;
+        int cardsScanned = 0;
+
+        foreach (var c in byId.Values)
+        {
+            cardsScanned++;
+            string desc = c.TryGetProperty("desc", out var d) ? (d.GetString() ?? "") : "";
+            if (desc.Length == 0) continue;
+            List<string> unparsed, partial;
+            List<EffectOp> ops;
+            try { ops = EffectText.Parse(desc, out unparsed, out partial); }
+            catch (Exception e) { sb.AppendLine("⚠ 解析抛异常 " + c.GetProperty("id").GetString() + " :: " + e.Message); continue; }
+            if (ops == null) continue;
+
+            var seen = new HashSet<string>();
+            foreach (var op in ops)
+            {
+                if (op == null) continue;
+                if (op.Verb != "give" && op.Verb != "gain" && op.Verb != "lose") continue;
+                if (string.IsNullOrEmpty(op.Payload)) continue;
+                if (!seen.Add(op.Payload)) continue;
+                payloadTotal++;
+
+                var r = new Row
+                {
+                    Id = c.GetProperty("id").GetString(),
+                    Name = c.GetProperty("name").GetString(),
+                    Type = c.TryGetProperty("type", out var t2) ? t2.GetString() : "",
+                    Desc = desc,
+                    DescZh = c.TryGetProperty("descZh", out var z) ? (z.GetString() ?? "") : "",
+                    Verb = op.Verb,
+                    Payload = op.Payload,
+                };
+                r.RealAny = GivePayload.Parse(op.Payload) != null;
+                r.RealMech = GivePayload.Mechanized(op.Payload, out r.MechWhy);
+                if (!r.RealAny) payloadNull++;
+                bool hasSeg = false;
+                var failed = new List<string>(); var oked = new List<string>();
+                bool mAny = MirrorInto(op.Payload, failed, oked, ref hasSeg, 0);
+                r.HasSeg = hasSeg; r.Failed = failed; r.Oked = oked;
+                r.MirrorAny = mAny; r.MirrorAll = failed.Count == 0;
+                if (hasSeg && failed.Count == 0 && oked.Count > 1) payloadSegAllOk++;
+                if (r.RealAny && failed.Count > 0) payloadMixed++;
+                rows.Add(r);
+            }
+        }
+
+        sb.AppendLine(string.Format("扫了 {0} 张卡 · give/gain/lose 载荷 **{1}** 条（去重后每卡每条一次）",
+                                    cardsScanned, payloadTotal));
+        sb.AppendLine(string.Format("  实测 `Parse` 返回 null（本来就会报）= {0} · 多段且每段都解得出 = {1} · **多段但有段解不出**（静默丢）= {2}",
+                                    payloadNull, payloadSegAllOk, payloadMixed));
+
+        // ---------- ① 静默丢段的载荷（实测：Parse 非 null 且镜像查出错段）----------
+        sb.AppendLine();
+        sb.AppendLine("===== ① 多段载荷「有段解得出、有段解不出」⇒ 失败段被静默丢（**实测**）=====");
+        sb.AppendLine("（`Parse(payload)` 非 null ⇒ `DoGive` 不报、`Mechanized` 放行 ⇒ 报表与卡面都看不见）");
+        var mixedRows = rows.FindAll(x => x.RealAny && x.Failed.Count > 0);
+        int i2 = 0;
+        foreach (var r in mixedRows)
+        {
+            i2++;
+            sb.AppendLine();
+            sb.AppendLine(string.Format("{0}) {1}/{2}  [{3}]  {4} 载荷「{5}」",
+                i2, r.Id, r.Name, r.Type, r.Verb, r.Payload));
+            sb.AppendLine(string.Format("   实测 Parse = {0} · Mechanized = {1}{2} · 镜像 any={3} all={4}",
+                r.RealAny ? "非 null" : "null", r.RealMech ? "true（报表放行）" : "false",
+                r.RealMech ? "" : "（" + r.MechWhy + "）",
+                r.MirrorAny ? "true" : "false", r.MirrorAll ? "true" : "false"));
+            sb.AppendLine("   解得出的段: " + (r.Oked.Count == 0 ? "（无）" : string.Join(" | ", r.Oked)));
+            sb.AppendLine("   ❗解不出的段: " + string.Join(" | ", r.Failed));
+            sb.AppendLine("   desc  : " + r.Desc);
+            sb.AppendLine("   descZh: " + r.DescZh);
+        }
+
+        // ---------- ② 改成 `all` 的影响面 ----------
+        sb.AppendLine();
+        sb.AppendLine("===== ② 若把 `any` 改成 `all`（任一段解不出 ⇒ 整条 Parse 返回 null）=====");
+        sb.AppendLine("（**推算**：以①那批为集合 —— 改成 all 后它们整条载荷都不认识 ⇒ DoGive 直接 `return false`，");
+        sb.AppendLine("  日志「载荷…本版不认识 —— 这条没生效」+ 写进 unresolved；**已解出的那半也一起没了**）");
+        sb.AppendLine("受影响载荷 " + mixedRows.Count + " 条；受影响卡（按 id 去重）"
+                      + new List<string>(new HashSet<string>(mixedRows.ConvertAll(x => x.Id))).Count + " 张：");
+        foreach (var r in mixedRows)
+            sb.AppendLine(string.Format("  · {0}/{1} [{2}] 保住: {3} ｜ 现在能拿到、改 all 后丢掉: {4}",
+                r.Id, r.Name, r.Type,
+                r.Oked.Count == 0 ? "（无）" : string.Join(" + ", r.Oked),
+                string.Join(" + ", r.Oked)));
+
+        // ---------- ③ 分类：执行路径 ----------
+        sb.AppendLine();
+        sb.AppendLine("===== ③ 按执行路径分类（哪种卡真的会走到这条载荷）=====");
+        foreach (var r in mixedRows)
+        {
+            string path;
+            if (r.Type == "tactic") path = "PlayTactic → EffectText.Parse(desc)（**就是这条载荷**，确认受影响）";
+            else if (r.Desc.StartsWith("When ") || r.Desc.StartsWith("Whenever "))
+                path = "单位卡、desc 以 When 开头 ⇒ 走 CardDef.AddWhenTrigger（正文另 Parse；裸解析可能不成立，**存疑**）";
+            else if (r.Desc.IndexOf(':') > 0) path = "单位卡、有 `关键词:` 前缀 ⇒ 走 CollectBareKeywordBody / 触发层（**存疑**）";
+            else path = "单位卡、裸正文 ⇒ 走关键词正文收集那条路（**存疑**）";
+            sb.AppendLine("  · " + r.Id + "/" + r.Name + " — " + path);
+        }
+
+        // ---------- ④ 伴随量：全池裸解析里含大写 ` AND ` 的载荷（递归风险自检）----------
+        // ⚠️ 真爆栈是 `StackOverflowException`，.NET **接不住**（进程直接死）⇒ 那两条实测单独一趟跑：
+        //    `seg_any_probe upper`。主扫描这趟不碰它。
+        sb.AppendLine();
+        sb.AppendLine("===== ④ 多段支判据的**大小写不一致**（判据吃 low、拆分吃原串）=====");
+        int upper = 0;
+        foreach (var r in rows)
+        {
+            string w = r.Payload.Replace("[", "").Replace("]", "").Trim();
+            if (w.ToLowerInvariant().Contains(" and ") && w.Contains(" AND ")) upper++;
+        }
+        sb.AppendLine("  全池 give/gain/lose 载荷里含全大写 ` AND ` 的 = " + upper + " 条");
+
+        File.WriteAllText(@"d:/4/_tmp_view/seg_any_probe_out.txt", sb.ToString(), outp);
+        Console.WriteLine(sb.ToString());
+
+        if (args.Length > 0 && args[0] == "carddef")
+        {
+            var sb3 = new StringBuilder();
+            CardDefMode(sb3, byId);
+            File.AppendAllText(@"d:/4/_tmp_view/seg_any_probe_out.txt", sb3.ToString(), outp);
+            Console.WriteLine(sb3.ToString());
+        }
+
+        if (args.Length > 0 && args[0] == "upper")
+        {
+            var sb2 = new StringBuilder(sb.ToString());
+            foreach (string probe in new[] { "+1 attack and vanguard", "+1 attack AND vanguard" })
+            {
+                string res;
+                try { res = GivePayload.Parse(probe) == null ? "null" : "非 null"; }
+                catch (Exception e) { res = "抛 " + e.GetType().Name; }
+                sb2.AppendLine("  实测 Parse(\"" + probe + "\") = " + res);
+            }
+            File.WriteAllText(@"d:/4/_tmp_view/seg_any_probe_out.txt", sb2.ToString(), outp);
+            Console.WriteLine("（upper 那一趟写完了）");
+        }
+        return 0;
+    }
+}

@@ -56,3 +56,20 @@ $PY d:/2/Warpforge_tools/scripts/<脚本名>.py
 
 ⚠️ 四个都是**只读**：不启动 Unity、不写 `MyGame/Assets/`。
 📌 这批的**索引与未结线索**看 `资料/普查产出_0917/README.md`。
+
+## 🆕 引擎离线对拍（C# / dotnet，跑在 `d:/4`）—— 2026-10-18 收编（`A907`）
+
+> 上面那节通篇是 **Python**（用 `D:/2/Warpforge_tools/py312/python.exe`）。这一件是**新品类：C# / dotnet**，
+> 不依赖 `d:/2`、也**不跑 Unity**。
+
+| 入口 | 干什么 | 判据 |
+| --- | --- | --- |
+| `ruleprobe.sh` | 把 `RuleEngine/Core/` 编成控制台程序，与基线**全池对拍**，打**一行摘要** | 看摘要行（`解析差异 0 行` = 绿），⛔ 不看 `$?` |
+
+```bash
+bash d:/4/Unity/工具/ruleprobe.sh            # check（默认）：≈2 秒
+bash d:/4/Unity/工具/ruleprobe.sh b19test    # 45 条 B19 断言
+```
+
+🔴 **定位写死：它是【快速内环 / 旁证】—— 正式验收仍然是 `RuleEngineTest.Run`（断言的真宿主）。**
+原理（为什么 `Core/` 能离线编）· 桩的边界 · 三个坑（`unparsed` 列 / GBK / 退出码）→ `资料/引擎离线对拍_探针.md`。

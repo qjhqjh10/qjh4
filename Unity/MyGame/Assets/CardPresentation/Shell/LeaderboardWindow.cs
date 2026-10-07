@@ -59,8 +59,10 @@ namespace CardPresentation
         //    `Editor/MainMenuScene.cs` 那条「顶栏档（`MainMenuRuntime.QBarPanel`）> **全工程最高的
         //    窗口档**」的断言）。
         //    🔴 **2026-10-11（A307 现读订正，铁律 5）**：那条断言**已被同日的 A283 反转掉** ——
-        //    顶栏降到 **`2994–2998`**（用户当天裁定「照原版」⇒ **顶栏在每一扇窗之下**，判据 →
+        //    顶栏降到 **`2986–2998`**（用户当天裁定「照原版」⇒ **顶栏在每一扇窗之下**，判据 →
         //    `Shell/MainMenuRuntime.cs` 的 `QBarPanel` 那段）⇒「比全工程最高的窗档还高」这个方向**整个作废**。
+        //    ⚠️ **2026-10-18 订正**：这一行原来写 `2994–2998` —— 2026-10-17 F5 把下沿从 `2994` 放宽到 `2986`
+        //    （**唯一出处 = `Shell/TopBar.cs` 那张表**）；方向那条结论没变。
         //    **现读（2026-10-11）**：全树 `LeaderboardWindow.<档>` 的**代码**引用只剩 ——
         //    `QPanel` **1 处** · `QHit` **2 处**（都在 `Editor/MainMenuScene.cs`「排行榜弹窗」那一节：
         //    `MenuDraw.CheckShadeRule` 一条 + `CheckAbsorbRule` 一条）；**`QBase` 现在外部 0 处**。

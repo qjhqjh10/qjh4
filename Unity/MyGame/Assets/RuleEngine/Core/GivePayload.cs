@@ -1,12 +1,26 @@
 // GivePayload.cs — `give` / `gain` / `lose` 的**载荷**怎么解释（属性增减益 还是 关键词授予）
 //
-// **权威语义来源**：`d:/warpforge/scripts/rule_core.gd` 的 `_apply_gain`（`:3266`）+ `GIVE_KW`（`:2408`）。
+// 🔴 **语义判据的顺序（照 `CLAUDE.md` 铁律 2 的 2026-09-25 口径）**：
+//   · ✅ **权威 = ① 原版全量反编译方法体** `d:/2/tools/decomp_full/` → **② 解包资源字段**
+//     → **③ 成品卡图卡面文字**（`d:/2/Warpforge部队卡片/`）。
+//   · ⚠️ 《Warpforge Offline Rulebook》（`资料/规则书/…_中文翻译.md`）是**粉丝实体版**
+//     （它自己第 5 行写着 `Not official. Fan project.`）⇒ **只作第二来源/旁证**。
+//   · ⚠️ `d:/warpforge/scripts/rule_core.gd`（`_apply_gain` `:3266` + `GIVE_KW` `:2408`）
+//     = **我们自己的上一版 Godot 复刻**，**只作对照/旁证**，**不是原版语义判据**。
+// ⚠️ **2026-10-18 更正（铁律 5）**：本行原来写「**权威语义来源**：`rule_core.gd` 的
+//   `_apply_gain` / `GIVE_KW`」—— **那是错的**：那份 `.gd` 是我们自己的复刻、不是原版，
+//   没有判据地位（出处 = `CLAUDE.md` 铁律 2 的 2026-09-18 更正）。下面的 `:NNNN` 行号一律指
+//   那份 `.gd`，读作「我们当时是怎么写的」。
+// 🔑 **真正的判据（卡面）**：78 个载荷词全部能逐张在 `d:/2/Warpforge部队卡片/` 的成品卡图上
+//   核（这是「载荷 → 属性/关键词」的最终真相，也是加词前必查的一步）。
 //
 // 为什么单独一个文件：448 张战术卡里 `give X to Y` 有 **164 个分句、X 去重 78 个**，
-// 而原版**不是 78 个独立实现** —— 全都走 `_apply_gain` 一个函数 + 一张 54 条的 `GIVE_KW` 前缀表。
-// 照这个结构办：**一个入口，一张表**，78 个载荷一起通。
+// 而上一版复刻**不是 78 个独立实现** —— 全都走 `_apply_gain` 一个函数 + 一张 54 条的
+// `GIVE_KW` 前缀表。**照这个结构办**：一个入口、一张表，78 个载荷一起通。
+// ⚠️ 上面这句「原版不是 78 个独立实现」是**从那份 `.gd` 推的** —— 它是我们自己的复刻，
+//    ⇒ **原版客户端里是不是也这么收，还没回反编译核过**（如实记着，别当结论）。
 //
-// `_apply_gain` 干四件事（`:3266`）：
+// `_apply_gain`（`.gd` 的写法，**旁证**）干四件事（`:3266`）：
 //   ① **多属性拆分** —— 先按 `, ` 再按 ` and ` 递归（Autarch `"+1 melee, +1 ranged and +1 Health"` → 三段）
 //   ② **关键词授予** —— `GIVE_KW` 前缀匹配；值 = 载荷里第一个数字，没有就是 1
 //      （`armour` / `shield` / `stun` 三个还要**同步状态字段**，见 `RuleCore.ApplyGain`）
@@ -32,9 +46,9 @@ namespace RuleEngine
         public int Value;
         /// <summary>
         /// **变体名**。目前只有 `Dark Pact of X` 这一族用（`blood` / `excess` / `fate` / `resilience`）——
-        /// 规则书 :179 那四种契约的效果**互不相同**，不记下来就只能随机给一种。
-        /// 出处：`rule_core.gd:1655` 的 `DARK_PACT_FX` 表 + `:1696` 那条
-        /// `give (?:a )?(?:random )?dark pact(?:\s+of\s+([a-z]+))?` 正则。
+        /// 规则书 :179 那四种契约的效果**互不相同**（⚠️ 粉丝实体版，只算**旁证**），不记下来就只能随机给一种。
+        /// 出处：我们上一版复刻 `rule_core.gd:1655` 的 `DARK_PACT_FX` 表 + `:1696` 那条
+        /// `give (?:a )?(?:random )?dark pact(?:\s+of\s+([a-z]+))?` 正则（⚠️ **旁证，非原版**）。
         /// </summary>
         public string Variant;
         /// <summary>
@@ -57,7 +71,7 @@ namespace RuleEngine
         /// 🔴 **判据必须窄到「剥完噪声后整段恰好等于 `it as well`」** ——
         ///    全池 11 处 `as well` 里只有这一处是代词，其余都是
         ///    `give it &lt;具体载荷> as well`（那些照走属性/关键词那两条路，别一起收）。
-        /// ⚠️ `rule_core.gd` 全文 `grep "as well"` = **0 命中** ⇒ 这张卡参考实现也没做，
+        /// ⚠️ `rule_core.gd` 全文 `grep "as well"` = **0 命中** ⇒ 我们上一版复刻也没做这张卡，
         ///    这个形状是**我们自己定的**，不是照抄（如实记，别当成原版语义）。
         /// </summary>
         public bool CopyEventPact;
@@ -107,19 +121,20 @@ namespace RuleEngine
     public static class GivePayload
     {
         /// <summary>
-        /// `GIVE_KW` —— 关键词前缀表，**逐条照抄 `rule_core.gd:2408`（54 条）**。
+        /// `GIVE_KW` —— 关键词前缀表，**逐条照我们上一版 Godot 复刻 `rule_core.gd:2408`（54 条）**
+        /// （⚠️ 那份 `.gd` 是**我们自己**的复刻、**旁证**，不是原版语义判据）。
         /// ⚠️ **顺序有意义**（前缀匹配，先命中先用）：多词变体排在单词前面，
         ///    `blood thirst` 排在 `bloodthirst` 前、`long range` 排在 `longrange` 前。
-        /// 🆕 **2026-09-14：本表有 1 条是「照卡面补原版的漏」**（`blind`，见下面那行的说明）——
-        ///    已经不是纯粹的「逐条照抄」了，所以这里改口径：**照抄为主，补漏逐条标出处**。
+        /// 🆕 **2026-09-14：本表有 1 条是「照卡面补的漏」**（`blind`，见下面那行的说明）——
+        ///    已经不是纯粹的「照上一版复刻逐条搬」了，所以这里改口径：**照搬为主，补漏逐条标出处**。
         /// </summary>
         public static readonly string[][] GiveKw =
         {
             new[] { "blood thirst", "bloodthirst" }, new[] { "long range", "longrange" },
             new[] { "hunt mark", "huntmark" }, new[] { "dark pact", "darkpact" },
             new[] { "shuriken", "shuriken" }, new[] { "vulnerable", "vulnerable" },
-            // 🆕 2026-09-14 A6 族 C：**`blind` 原版的 `GIVE_KW` 里没有** —— 参考实现
-            //    （`rule_core.gd:2408` 那张 54 条的表）逐条比对过，确实缺这一个。
+            // 🆕 2026-09-14 A6 族 C：**`blind` 在我们上一版复刻的 `GIVE_KW` 里没有** ——
+            //    （`rule_core.gd:2408` 那张 54 条的表，**旁证**）逐条比对过，确实缺这一个。
             //    代价：`Deal 2 damage to all units and give them Blind until your next turn`
             //    （`Fenrisian Blizzard`）那 6 张的「失明」**静默不发生**（卡面打着、引擎不认）。
             //    `blind` 本身**早就实现了**（`KeywordTable.Implemented` 里有，`DoBlind` / `UnitState.IsBlind`
@@ -153,18 +168,21 @@ namespace RuleEngine
 
         // 🔴 **故意不在表里的词**（下一个会话别再挖一遍）：
         //   · `a kustom job of your choice`（`Mekaniak`，Goff 天赋，全池只 1 处）——
-        //     「Kustom Job」是什么**三层权威全都没有**：规则书没这个词、参考实现
-        //     （`rule_core.gd`）里 0 命中、`d:/2/Warpforge_code/Scripts/Assembly-CSharp/` 与
-        //     反编译 `.c` 里也是 0 命中，卡池里**没有**任何叫 `Kustom Job …` 的卡。
-        //     成品卡图（`Orks/2天赋/Warpforge_25B_Mekaniak.png`，照铁律 7 亲读）也只印着这一句。
+        //     「Kustom Job」是什么**判据链上三处全都没有** —— ① **反编译**
+        //     （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/` 与 `d:/2/tools/decomp_full/` 的 `.c`）0 命中、
+        //     ② **卡池数据**里**没有**任何叫 `Kustom Job …` 的卡、③ **成品卡图**
+        //     （`Orks/2天赋/Warpforge_25B_Mekaniak.png`，照铁律 7 亲读）也只印着这一句。
+        //     **旁证**（粉丝实体规则书、我们上一版复刻 `rule_core.gd`）同样 0 命中。
         //     ⇒ **如实报「载荷词表里没有」**，不猜一种效果顶上去（猜 = 静默错一张）。
+        //     ⚠️ 2026-10-18 更正：这一行原来把「规则书 + `rule_core.gd` + 反编译」并称
+        //     「**三层权威**」—— 口径错了：`.gd` 是我们自己的复刻、规则书是粉丝版，两者都只是旁证。
         //   · `a remnant it gains shield`（`Undying Legions`）**不是词表缺词**，
         //     是那句 `For the rest of this battle, when …` 的**常驻监听**没接上（条件从句被当了主语）。
         //     见 `资料/常驻效果_数据与设计.md`。
 
-        /// <summary>属性增减益那条正则 —— **照抄 `rule_core.gd:3311`**。
-        /// ⚠️ `might` / `fist` / `strength` 是**原版图标语义**（攻击强化 / 拳头图标），
-        ///    都归到 `attack`（原版注释里标了出处：`Perfection` 机制 / `Enhanced Musculature`）。
+        /// <summary>属性增减益那条正则 —— **照我们上一版 Godot 复刻 `rule_core.gd:3311` 写**（⚠️ **旁证**）。
+        /// ⚠️ `might` / `fist` / `strength` 是**图标语义**（攻击强化 / 拳头图标 ——**卡面为准**），
+        ///    都归到 `attack`（那份 `.gd` 的注释里标了出处：`Perfection` 机制 / `Enhanced Musculature`）。
         ///    `ranged attack` 要排在 `ranged` 前面，否则前缀短的那个先命中。
         ///
         /// 🆕 `weapon`（2026-09-14 A7）：**也是图标语义，归 `ranged`**。
@@ -259,7 +277,7 @@ namespace RuleEngine
         static readonly string[] IconNames =
             { "wings", "skull", "icon", "eye icon", "codex icon", "faith icon" };
 
-        /// <summary>`N energy` / `[N] energy` / **`+N energy`**（方括号是付费标记，`rule_core.gd:2519` 会剥掉）。
+        /// <summary>`N energy` / `[N] energy` / **`+N energy`**（方括号是付费标记，我们上一版复刻 `rule_core.gd:2519` 会剥掉）。
         /// 🔴 **2026-09-16 补 `\+?`**：`Chaplain Gabutheron`（`DA82`）卡面写的是 **`gain +1 Energy`**
         /// —— 带正号，原来这条正则**整段失配** ⇒ 那半句从来不给（`Agenda: Heal 4 … and gain +1 Energy`）。
         /// ⚠️ 正号在这里**没有**别的含义（能量只会加），所以放宽是安全的。</summary>
@@ -285,7 +303,8 @@ namespace RuleEngine
         ///   `Give a [Dark Pact] to all friendly troops`     → 方括号是**关键词标记**，剥掉
         ///   `Give a [Chaos] Dark Pact to a friendly troop`  → `Chaos` 是阵营名噪声
         ///   `Give 2 random Dark Pact to a friendly troop`   → `2` 是数量（这一版按一份给）
-        /// 出处：原版 `rule_core.gd:1696` 那条只吃 `a` / `random`，覆盖不到这些；
+        /// 出处：我们上一版复刻 `rule_core.gd:1696` 那条只吃 `a` / `random`（⚠️ **旁证**，
+        /// 它**不是**原版 —— 2026-10-18 更正：这里原来写「**原版** `rule_core.gd:1696`」），覆盖不到这些；
         /// 我们**反复**剥到剥不动为止，多剥一层不多写一条特判。
         /// </summary>
         static readonly Regex ReLeadingNoise = new Regex(
@@ -414,8 +433,9 @@ namespace RuleEngine
             }
             if (w.Length == 0) return false;
 
-            // ✅ **整条载荷一律转小写再解释**。原版收到的 `desc` 早就被 `_lower()` 过一遍了
-            //    （`rule_core.gd` 的 `_resolve_text` 入口），而我们的调用方喂进来的是**原文大小写**
+            // ✅ **整条载荷一律转小写再解释**。我们上一版复刻收到的 `desc` 早就被 `_lower()` 过一遍了
+            //    （`rule_core.gd` 的 `_resolve_text` 入口 —— ⚠️ **旁证**；2026-10-18 更正：
+            //    这里原来写「**原版**」），而我们的调用方喂进来的是**原文大小写**
             //    （`Give +2 Melee Attack and Vanguard`）。2026-09-12 撞到：原先只在关键词那一支
             //    用 `ToLowerInvariant`，属性那支的正则吃着 `Melee` 这种大写**直接失配** ——
             //    表现是黑暗契约的四种增益**一条都没加上**（解析成功了、结算静默为空）。
@@ -474,7 +494,7 @@ namespace RuleEngine
                 }
             }
 
-            // ① 多属性拆分 —— 先按 `, ` 再按 ` and `（`rule_core.gd:3274`，顺序照抄）
+            // ① 多属性拆分 —— 先按 `, ` 再按 ` and `（`rule_core.gd:3274`，顺序照我们上一版复刻）
             if (low.Contains(" and ") || low.Contains(", "))
             {
                 // 🔴 **2026-09-16：先拆成段、确认真拆得开，再递归** —— 这里原来有个
@@ -545,10 +565,12 @@ namespace RuleEngine
             //    证据（照工作准则第 3 条，参数从资源里抄、不猜）：
             //    `D:/2/Warpforge部队卡片/Dark Angels/4计策/Warpforge_57_March-of-Vengeance.png`
             //    卡面原文是 `Give +1 ⟨拳头图标⟩ to a friendly unit. Gain ⟨能量图标⟩ 2`
-            //    —— 那个红圈拳头 = **近战攻击**（原版自己的映射见 `rule_core.gd:3325`：
-            //    `fist/strength=拳头图标→attack`）。文本里只剩 `+1`，所以按近战攻击补。
-            //    ⚠️ **原版 `_apply_gain` 对这种情况是失配的**（那条正则要求数字后面跟属性词）
-            //       → 原版把这 12 张卡静默丢了。我们照卡面补上，并在注释里标明这是**补原版的漏**。
+            //    —— 那个红圈拳头 = **近战攻击**（上一版复刻的映射表见 `rule_core.gd:3325`：
+            //    `fist/strength=拳头图标→attack`；⚠️ **判据仍是卡面那张图**，gd 只是旁证）。
+            //    文本里只剩 `+1`，所以按近战攻击补。
+            //    ⚠️ **上一版复刻的 `_apply_gain` 对这种情况是失配的**（那条正则要求数字后面跟属性词）
+            //       → 它把这 12 张卡静默丢了。我们照卡面补上，并在注释里标明这是**补上一版复刻的漏**
+            //       （⚠️ 2026-10-18 更正：本段原来把这些都写成「**原版**」—— 错把那份 `.gd` 当原版了）。
             var mb = ReBareSigned.Match(w);
             if (mb.Success)
             {
@@ -566,8 +588,8 @@ namespace RuleEngine
 
         /// <summary>
         /// 从载荷里摘出**变体名** —— 目前只有 `dark pact of blood` 这一族有。
-        /// `rule_core.gd:1696`：`give (?:a )?(?:random )?dark pact(?:\s+of\s+([a-z]+))?`。
-        /// 没写 `of X` 就是 `random`（原版 `:1670` 明写）。**别的关键词没有变体，返回 null。**
+        /// `rule_core.gd:1696`（⚠️ **旁证**）：`give (?:a )?(?:random )?dark pact(?:\s+of\s+([a-z]+))?`。
+        /// 没写 `of X` 就是 `random`（那份 `.gd` 的 `:1670` 明写）。**别的关键词没有变体，返回 null。**
         /// </summary>
         static string ExtractVariant(string keyword, string w)
         {

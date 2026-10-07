@@ -1,7 +1,22 @@
 // CardDef.cs — 静态卡牌定义
 //
 // 数据来源：`d:/4/Unity/数据/游戏数据/card_stats.json`（1212 张，OCR + 数值合并的产物）
-// 语义来源：`d:/warpforge/scripts/rule_core.gd` 的 `_parse_keywords` / `KW_MATCH`
+//
+// 🔴 **语义判据的顺序（照 `CLAUDE.md` 铁律 2 的 2026-09-25 口径）**：
+//   · ✅ **权威 = ① 原版全量反编译方法体** `d:/2/tools/decomp_full/`（26,282 个方法体）
+//     → **② 解包资源字段** `d:/2/新解包资源/assets_full/` → **③ 成品卡图卡面文字**
+//     `d:/2/Warpforge部队卡片/`。
+//   · ⚠️ 《Warpforge Offline Rulebook》（`资料/规则书/…_中文翻译.md`）是**粉丝实体版规则书**
+//     （它自己第 5 行写着 `Not official. Fan project.`，第 9 行写着落到实体要 creative
+//     interpretation）⇒ **只能当第二来源/旁证**，**不能当权威**。
+//   · ⚠️ `d:/warpforge/scripts/rule_core.gd` = **我们自己的上一版 Godot 复刻**（70 个 `.gd`），
+//     **只能当对照/旁证**（读作「我们当时是怎么写的」），**不能当原版语义判据**。
+//     本文件下面凡引 `rule_core.gd:<行>` 的，一律按此口径读。
+//
+// ⚠️ **2026-10-18 更正（铁律 5）**：本行原来写「**语义来源**：`rule_core.gd` 的
+//   `_parse_keywords` / `KW_MATCH`」—— **那是错的**：那份 `.gd` 是我们自己的复刻、不是原版，
+//   它的**语义**没有判据地位；`KeywordTable` 的切分/规范化规则只是**那时照着实现过一版**
+//   （出处 = `CLAUDE.md` 铁律 2 的 2026-09-18 更正）。
 //
 // ⚠️ 本文件属于 `Core/` —— **不允许依赖 UnityEngine**（见 资料/规则引擎_设计.md 第二节）。
 using System.Collections.Generic;
@@ -96,7 +111,8 @@ namespace RuleEngine
             }
 
             // 效果文字在 ':' 后面。**关键词和效果分开解析**：
-            //   `KeywordTable` 只管「这行是哪个关键词、值几」（照抄 rule_core 的语义，别动）
+            //   `KeywordTable` 只管「这行是哪个关键词、值几」（切分/规范化的规矩照我们上一版
+            //   Godot 复刻实现过的那一版走 —— ⚠️ 那是**旁证**，不是原版语义判据，见文件头）
             //   `EffectSpec`   只管「':' 后面那句话是什么效果」（本工程自己定的封闭文法）
             if (keywords != null)
             {
@@ -316,10 +332,14 @@ namespace RuleEngine
         void CollectTriggerOps(IEnumerable<string> keywords)
         {
             // ① 卡面 `Desc` —— 权威来源，先收（同一条触发**先到先得**）
-            // 🆕 2026-09-14 A5 批 3：**正文可以跨句** —— 参考实现的分段规则是
+            // 🆕 2026-09-14 A5 批 3：**正文可以跨句** —— 我们上一版 Godot 复刻（`rule_core.gd`，
+            //    **旁证、不是原版语义判据**，见文件头）的分段规则是
             //    「关键词前缀 `:` 后文本**到下一前缀为止**（段落内句号不断段）」
             //    （`d:/warpforge/scripts/rule_core.gd:291`），我们原来按句收 ⇒ **42 张卡**的
             //    正文**尾句被丢掉**（实测：其中 **18 条尾句今天就解析得出**）。见 `TriggerBodyAt`。
+            //    ⚠️ 2026-10-18 更正：本段原来把那句 `.gd` 注释当**判据**（「参考实现的分段规则是……」）；
+            //    gd 是我们自己的复刻、不是原版 ⇒ 这条只算**旁证**（现在的正面判据仍是卡面
+            //    确实跨句印刷，见下面那句 `Rally: Deal 3 damage to an enemy. If it has Flying…`）。
             var segs = EffectText.Split(Desc);
             for (int i = 0; i < segs.Count; i++)
             {
@@ -585,8 +605,9 @@ namespace RuleEngine
         //  实测 5 句，4 句落在这里；第 5 句（`This troop attacks it`，`Hunta Rig`）是**一条 op**，
         //  归 `EffectText.TryForceAttack`。
         //
-        //  ⚠️ 字段全部**从 `desc` 文本里识别**（和参考实现同一做法 —— `rule_core.gd:200-205`
-        //     写着那张卡的 `keywords` 数组是空的，只能从 desc 认）。**两个来源都扫**
+        //  ⚠️ 字段全部**从 `desc` 文本里识别**（我们上一版 Godot 复刻同一做法 —— `rule_core.gd:200-205`
+        //     写着那张卡的 `keywords` 数组是空的，只能从 desc 认；**那是旁证、不是判据**）。
+        //     **两个来源都扫**
         //     （`Desc` + `keywords`），理由同 `CollectWhenTriggers`：有卡把正文写在 `keywords` 里。
         // ==================================================================
 
@@ -599,7 +620,8 @@ namespace RuleEngine
 
         /// <summary>`Any attack against your Warlord targets this troop instead.`（`Vargard Obyron`，Sautekh）。
         /// **读点**：`RuleCore.DeclareAttack` —— 打督军时重定向到**防御方场上第一个**带它的单位。
-        /// ⚠️ 参考实现把它叫 `bodyguard`（`rule_core.gd:202` 从 desc 识别、`:4267` 做重定向），
+        /// ⚠️ 我们上一版 Godot 复刻把它叫 `bodyguard`（`rule_core.gd:202` 从 desc 识别、`:4267` 做重定向；
+        ///    **那是旁证、不是判据**），
         ///    这里照同一条语义，只是名字用了卡面原话的意思（「替身」）。</summary>
         public bool Bodyguard;
 
@@ -1027,14 +1049,15 @@ namespace RuleEngine
         /// <summary>
         /// 第 <paramref name="i"/> 段连同它的**后继分句**拼成的那条触发正文（不是触发前缀开头就原样返回）。
         ///
-        /// 🔑 **为什么要跨句**（2026-09-14 A5 批 3）：参考实现的分段规则写得明明白白
-        /// （`d:/warpforge/scripts/rule_core.gd:291`）：
+        /// 🔑 **为什么要跨句**（2026-09-14 A5 批 3）：我们上一版 Godot 复刻（**旁证**）的
+        /// 分段规则写着（`d:/warpforge/scripts/rule_core.gd:291`，⚠️ 2026-10-18 更正：原来这里写
+        /// 「**参考实现**的分段规则写得明明白白」= 把 gd 当判据，错 —— 它只是我们自己的复刻）：
         ///   &gt; `## 分段规则: 关键词前缀 ":" 后文本到下一前缀为止 (段落内句号不断段)`
-        /// 卡面也确实是这么印的 —— `Rally: Deal 3 damage to an enemy. **If it has Flying, deal 6 damage instead**`
+        /// **真判据是卡面** —— 卡面确实这么印：`Rally: Deal 3 damage to an enemy. **If it has Flying, deal 6 damage instead**`
         /// 是**一条**正文。我们原来按句收 ⇒ **42 张卡**的尾句被整段丢掉
         /// （实测其中 **18 条今天就解析得出**，等于白丢）。
         ///
-        /// ⚠️ **但不能照抄参考实现的「一直到 desc 结尾」** —— 那 42 张里有 **12 张**的尾句
+        /// ⚠️ **但不能照搬上一版复刻的「一直到 desc 结尾」** —— 那 42 张里有 **12 张**的尾句
         /// 根本不是这条正文：`Talent:` / `Companion N:` / `When …` / **回合起止句** / 光环句 /
         /// **付费激活前缀**（`Oath 2:` / `6☀:` / `2 :`）。照抄的后果是**双重触发**
         /// （`Grot Orderly` 的回合起止句会被 Rally 和回合段各放一次）与**乱扣费**
@@ -1299,7 +1322,9 @@ namespace RuleEngine
         /// <summary>
         /// `This costs N less if you control a unit with &lt;关键词&gt;` —— **静态条件降费**（2026-09-13 A4 批 1）。
         ///
-        /// 出处：`Fate Inescapable`（SaimHann）· 规格书 `rule_core.gd:2112`。
+        /// 出处：`Fate Inescapable`（SaimHann）· 上一版复刻 `rule_core.gd:2112`（**旁证，非判据**）。
+        /// ⚠️ 2026-10-18 更正：这里原来把 `rule_core.gd:2112` 称作「**规格书**」—— 那是错的，
+        /// 那份 `.gd` 是我们自己的上一版 Godot 复刻、不是原版规格（出处 = `CLAUDE.md` 铁律 2）。
         /// 和 <see cref="CostWhen"/> **不是一件事**：那个是**事件**触发的一次性降价，
         /// 这个是**常驻条件** —— 场上还站着那样的单位就便宜，人一没价就回去。
         /// ⇒ 它不登记 `ctx.CostMods`（那是「一次性、可过期」的语义），
@@ -1492,7 +1517,8 @@ namespace RuleEngine
 
             // ⚠️ **`Whenever` 就是 `When`**（2026-09-14 A5 批 2）：卡面两种写法都有，
             //    `Neurotyrant` 用的就是 `Whenever you play a non-Ephemeral Stratagem, …`。
-            //    参考实现的 `WHEN_CONDS` 也是同一个正则里 `when(ever)?` 一起收的。
+            //    我们上一版复刻的 `WHEN_CONDS` 也是同一个正则里 `when(ever)?` 一起收的
+            //    （⚠️ **旁证、非原版判据**；2026-10-18 更正：原写「参考实现的」）。
             int off;
             if (s.StartsWith("Whenever ", System.StringComparison.OrdinalIgnoreCase)) off = 9;
             else if (s.StartsWith("When ", System.StringComparison.OrdinalIgnoreCase)) off = 5;
@@ -1761,7 +1787,10 @@ namespace RuleEngine
     ///
     /// 卡面写法很脏（实测 146 种不同串），元素格式是
     /// `"Waystone"` / `"Shuriken 1"` / `"Rally: 效果文字"` / `"Can't Attack"` / `"Armour 2."`。
-    /// 规则（照抄 `rule_core._parse_keywords`，**别改**）：
+    /// 规则（**我们这套实现的来源** = 我们上一版 Godot 复刻的 `rule_core._parse_keywords`；
+    /// ⚠️ 2026-10-18 更正：原来写「**照抄** `rule_core._parse_keywords`，**别改**」—— 只对了后半句。
+    /// 那份 `.gd` 是**我们自己的复刻、不是原版**，所以这是**旁证**、**不是判据**（见文件头）；
+    /// 但**仍然别改** —— 它是卡面关键词解析的入口，改动会静默改变全卡池的解析结果）：
     ///   1. 先按 `:` 切，只取前半段（后半段是效果文本，不是关键词）
     ///   2. 小写后按**前缀**匹配表 → 规范化名（多词变体在表里必须排在前面）
     ///   3. 值 = **整串里第一个数字**；没有数字就是 1（「存在即真」）
@@ -1863,8 +1892,10 @@ namespace RuleEngine
         /// 规则书 `:221`「本单位死亡时：对随机单位造成 1-3 伤害」。
         /// ⚠️ **它没有卡面正文** —— 实测卡面只写裸关键词（`Unstable. Blast 3` / `kw=['Unstable']`），
         ///    所以**效果完全由规则定义**，不进 `RoutableTriggers`（没有 `Unstable:` 那种正文可收）。
-        /// 目标池与伤害范围照 `rule_core.gd:4578 _unstable_blast`：**场上随机单位（含双方）**、`randi_range(1,3)`。
-        /// 结算在 `RuleCore.CleanupDeaths`，**排在 `Backlash` 之前**（`rule_core.gd:4529` 就是这个顺序）。
+        /// 目标池与伤害范围**照我们上一版 Godot 复刻** `rule_core.gd:4578 _unstable_blast`：
+        /// **场上随机单位（含双方）**、`randi_range(1,3)`（⚠️ **旁证、非判据**，见文件头）。
+        /// 结算在 `RuleCore.CleanupDeaths`，**排在 `Backlash` 之前**（上一版复刻 `rule_core.gd:4529`
+        /// 就是这个顺序 —— 同属**旁证**；⚠️ 2026-10-18 更正：这两句原来按**判据**写的）。
         /// </summary>
         public const string Unstable = "unstable";
 
@@ -1882,7 +1913,9 @@ namespace RuleEngine
         ///      （见那个方法里的 `ReTriggerHead`）。
         ///
         /// ⚠️ **触发判据是「首次越线、一辈子一次」**，不是「每次挨打只要 ≤ X 就触发」——
-        ///    出处：参考实现 `rule_core.gd:4438-4449`（它用 `_ecstasy_fired` 置位防重复）。
+        ///    出处：我们上一版 Godot 复刻 `rule_core.gd:4438-4449`（它用 `_ecstasy_fired` 置位防重复）；
+        ///    ⚠️ 2026-10-18 更正：这句原来写「**参考实现**」= 当判据读 —— gd 是我们自己的复刻、
+        ///    **只算旁证**（见文件头）；卡面 `Ecstasy N:` 只印触发条件，防重复这条**还没回反编译核过**。
         ///    我们对应的字段是 <see cref="UnitState.EcstasyFired"/>。
         /// </summary>
         public const string Ecstasy = "ecstasy";
@@ -1890,9 +1923,13 @@ namespace RuleEngine
         /// <summary>
         /// **毁灭者**（索泰克 Necron）—— ✅ **2026-09-14 做掉了**（用户点名要求）。
         ///
-        /// 规则书 `:180`「总是优先攻击可被摧毁的单位」。
+        /// 规则书 `:180`「总是优先攻击可被摧毁的单位」（⚠️ 粉丝实体版，**旁证**）。
         /// 🔴 **判据不在 `WouldKill`**（那句注释原来写「`WouldKill` 已现成」是**错的**）——
-        ///    真正的判据在参考实现 `rule_core.gd:4136-4147`，与 **Vanguard 同构的一条硬约束**：
+        ///    ⚠️ **2026-10-18 更正**：这句原来写「**真正的判据**在参考实现 `rule_core.gd:4136-4147`」——
+        ///    把那份 `.gd` 当判据是错的（它是**我们自己的上一版 Godot 复刻**，见文件头）。
+        ///    **判据应回原版判据链取**（① 反编译 `D:/2/tools/decomp_full/` → ② 解包字段 →
+        ///    ③ 卡面）；下面这条硬约束**目前的旁证**是 `rule_core.gd:4136-4147`
+        ///    —— **还没回反编译核过**（这是本节留下的缺口，如实记着）。它与 **Vanguard 同构**：
         ///    「攻击者带 `destroyer`、且敌方场上存在另一个**可被摧毁**的单位
         ///    （**不是 invulnerable、也不是 remnant**）⇒ 这一下**不能打 invulnerable 的目标**」。
         ///    ⚠️ 「可被摧毁」**不等于**「这一下能打死」—— 那是另一条规则，别混。
@@ -2143,11 +2180,12 @@ namespace RuleEngine
             Unstable, Cruelty,
             // ✅ **狂喜 X（2026-09-14 做掉，用户点名要求）**：`RuleCore.Hurt` 里读它 ——
             //    生命**降至 X 或以下且未死亡**时触发自己的 `Ecstasy:` 正文，**一辈子一次**
-            //    （出处 `rule_core.gd:4438-4449` 的 `_ecstasy_fired`）。阈值取自 `CardDef.EcstasyX`。
+            //    （出处 `rule_core.gd:4438-4449` 的 `_ecstasy_fired` —— ⚠️ **那份 `.gd` 是我们自己的
+            //    上一版复刻、旁证**）。阈值取自 `CardDef.EcstasyX`。
             Ecstasy,
             // ✅ **毁灭者（2026-09-14 做掉，用户点名要求）**：`RuleCore.IsValidTarget` 里读它 ——
             //    带 `destroyer` 的攻击者，在敌方还有**可被摧毁**的单位时**不能打 invulnerable 的目标**。
-            //    出处 `rule_core.gd:4136-4147`（与 Vanguard 同构）。
+            //    出处 `rule_core.gd:4136-4147`（**旁证、非判据**；与 Vanguard 同构）。
             //    ⚠️ **不是** `WouldKill`（旧注释写「判据已现成」是错的）。
             Destroyer,
             // ✅ **破坏（2026-09-14 登记，用户点名要求）**：机制**早就在跑**，只是判据走的是
@@ -2240,35 +2278,43 @@ namespace RuleEngine
             Waystone,
 
             // ---- 2026-09-12 补的四个（都是战术卡高频载荷）----
-            // 出处：规则书 :187/:190 与 :98；结算照 `rule_core.gd` 的 `_damage_unit:4406` / 部署段 `:2248`
+            // 出处：**卡面 + 规则书**（⚠️ 规则书 = 粉丝实体版，只算**旁证**）；下面的**结算细节**
+            // 照我们上一版 Godot 复刻：`rule_core.gd` 的 `_damage_unit:4406` / 部署段 `:2248`
+            // —— ⚠️ **那是旁证、不是原版判据**（那份 `.gd` 是我们自己的复刻，见文件头）。
+            // 🔑 **本段以下凡「裸引」`:NNNN` / `_函数名:NNNN` 的，都指那份 `.gd`** ——
+            // 一律按「**我们当时是怎么写的**」读，**别当原版结论**。
+            // ⚠️ 2026-10-18：那一批「**原版** `:NNNN`」字样已**逐处**改成「上一版复刻 `:NNNN`」
+            //   （只在上述这个「行号 = gd 行号」的语境里改；对局里真·原版的引用不在此列）。
+            // ⚠️ 2026-10-18 更正：本段原来把那些行号标成「**原版** `:2248`」—— 错因同文件头。
             /// <summary>侧翼：**打出当回合可以行动**（规则书 :187「打出当回合可攻击任意敌方部队」；
             /// :98「部署当回合不能行动，除非注明，如迅捷/侧翼/狂暴」）。
             /// 结算在 `UnitState` 构造里（部署时不解疲劳）。</summary>
             "flank",
-            /// <summary>迅捷：同侧翼 —— 部署当回合不疲劳（原版 `:2248` 把两者写在一起）</summary>
+            /// <summary>迅捷：同侧翼 —— 部署当回合不疲劳（上一版复刻 `:2248` 把两者写在一起）</summary>
             "fast",
             /// <summary>无敌：**免疫伤害，也不能被摧毁**（规则书 :190「无法被伤害或摧毁」；
-            /// 原版 `_damage_unit:4414` 返回 0、摧毁分支 `:2833` 直接忽略）。</summary>
+            /// 上一版复刻 `_damage_unit:4414` 返回 0、摧毁分支 `:2833` 直接忽略）。</summary>
             "invulnerable",
-            /// <summary>易伤 X：**受到伤害 +X**（原版 `_damage_unit:4418`：`actual += kw_val("vulnerable")`）。
+            /// <summary>易伤 X：**受到伤害 +X**（上一版复刻 `_damage_unit:4418`：`actual += kw_val("vulnerable")`）。
             /// ⚠️ 名字容易看反 —— 它是**加伤**，不是减伤。</summary>
             "vulnerable",
 
             // ---- 2026-09-12 第二批：攻击时机上的五个（全是战术卡 `give` 的载荷）----
-            // 都在 `RuleCore.DeclareAttack` 里，顺序照原版 `rule_core.gd` 的攻击段
-            /// <summary>星镖 X：**攻击伤害之前**先对目标追加 X 点（规则书 :207；原版 `:4285`）；
+            // 都在 `RuleCore.DeclareAttack` 里，顺序照我们上一版复刻 `rule_core.gd` 的攻击段
+            // （⚠️ **旁证、非原版判据**；⚠️ 2026-10-18 更正：原来写「照**原版** `rule_core.gd`」）
+            /// <summary>星镖 X：**攻击伤害之前**先对目标追加 X 点（规则书 :207；上一版复刻 `:4285`）；
             /// 目标被这 X 点打死就跳过攻击伤害</summary>
             "shuriken",
-            /// <summary>爆裂 X：攻击时对目标**相邻的敌方部队**造成 X 伤害（规则书 :170；原版 `:4348`）。
+            /// <summary>爆裂 X：攻击时对目标**相邻的敌方部队**造成 X 伤害（规则书 :170；上一版复刻 `:4348`）。
             /// 不溅射督军</summary>
             "blast",
-            /// <summary>震荡：被本单位攻击的单位获得**眩晕**（规则书 :177；原版 `:4363`）</summary>
+            /// <summary>震荡：被本单位攻击的单位获得**眩晕**（规则书 :177；上一版复刻 `:4363`）</summary>
             "concussion",
-            /// <summary>嗜血：每回合可攻击**至多 2 次**（规则书 :172；原版 `:4205`）。
+            /// <summary>嗜血：每回合可攻击**至多 2 次**（规则书 :172；上一版复刻 `:4205`）。
             /// 实现在攻击配额那两处 —— **达到上限才疲劳**</summary>
             "bloodthirst",
             /// <summary>标记光 X：受到**远程**攻击伤害 +X，受远程伤害后移除全部标记光
-            /// （规则书 :192；原版 `:4296` 一带）</summary>
+            /// （规则书 :192；上一版复刻 `:4296` 一带）</summary>
             "markerlight",
             /// <summary>伪装：**攻击前**不能被敌方战术/效果选中（规则书 :173）。
             /// 选中拦截在 `EffectResolver.AddSide`；攻击后失去（`DeclareAttack`）</summary>
@@ -2276,30 +2322,30 @@ namespace RuleEngine
 
             // ---- 2026-09-12 第三批：战场事件系（每条都有规则书明文 + 原版实现位置）----
             /// <summary>猎杀标记：**可叠加**。带标记的敌方部队被摧毁时，对敌方督军造成 X 伤害、
-            /// 治疗击杀者督军 X（X = 标记数）。规则书 :189；原版 `rule_core.gd:4562`。</summary>
+            /// 治疗击杀者督军 X（X = 标记数）。规则书 :189；上一版复刻 `rule_core.gd:4562`（**旁证，非原版**）。</summary>
             "huntmark",
-            /// <summary>黑暗契约：四种（鲜血/纵欲/命运/韧性），效果见规则书 :179 与
-            /// `rule_core.gd:1655` 的 `DARK_PACT_FX`。**变体记在 `PayloadOp.Variant`**</summary>
+            /// <summary>黑暗契约：四种（鲜血/纵欲/命运/韧性），效果见规则书 :179（⚠️ 粉丝版，**旁证**）与
+            /// 上一版复刻 `rule_core.gd:1655` 的 `DARK_PACT_FX`（**旁证，非原版**）。**变体记在 `PayloadOp.Variant`**</summary>
             DarkPact,
             /// <summary>兽群：场上每有 1 个友方部队 +1 近战 +1 远程（规则书 :195；
-            /// 原版 `:4172` `field_attack`）。实现在 `RuleCore.FieldAttack`</summary>
+            /// 上一版复刻 `:4172` `field_attack`）。实现在 `RuleCore.FieldAttack`</summary>
             "pack",
             /// <summary>哨戒 X：被攻击时对攻击者先造成 X 伤害，「然后照常结算攻击」
-            /// （规则书 :205；原版 `:4280`）。实现在 `DeclareAttack` 第 0 步</summary>
+            /// （规则书 :205；上一版复刻 `:4280`）。实现在 `DeclareAttack` 第 0 步</summary>
             "sentry",
-            /// <summary>狙击：**远程**攻击会摧毁目标时，不承受反击伤害（规则书 :209；原版 `:4312`）</summary>
+            /// <summary>狙击：**远程**攻击会摧毁目标时，不承受反击伤害（规则书 :209；上一版复刻 `:4312`）</summary>
             "sniper",
-            /// <summary>再生 X：每回合结束时治疗 X（规则书 :201；原版 `:4478`）。
+            /// <summary>再生 X：每回合结束时治疗 X（规则书 :201；上一版复刻 `:4478`）。
             /// 实现在 `RuleCore.EndTurn`</summary>
             "regeneration",
-            /// <summary>失明：期间**远程攻击力设为 0**（规则书 :166；原版 `:4212` 直接拒绝远程攻击）。
+            /// <summary>失明：期间**远程攻击力设为 0**（规则书 :166；上一版复刻 `:4212` 直接拒绝远程攻击）。
             /// 实现在 `RuleCore.FieldAttack`（数值层）+ `EndTurn`（到期清）。</summary>
             "blind",
-            /// <summary>压制：无法执行**近战**攻击（规则书 :194；原版 `:4209` 直接拒绝近战）。
+            /// <summary>压制：无法执行**近战**攻击（规则书 :194；上一版复刻 `:4209` 直接拒绝近战）。
             /// ⚠️ 只禁近战 —— 远程照常</summary>
             "pindown",
             /// <summary>践踏：**溢出伤害**对目标相邻随机一个敌方单位造成（规则书 :213；
-            /// 原版 `:4372` + `_stomp_splash:4489`）。实现在 `RuleCore.DeclareAttack`
+            /// 上一版复刻 `:4372` + `_stomp_splash:4489`）。实现在 `RuleCore.DeclareAttack`
             /// ⚠️ 只在**目标被打死**时才算「溢出」—— 没死就没有溢出</summary>
             "stomp",
 
@@ -2395,7 +2441,8 @@ namespace RuleEngine
 
         /// <summary>
         /// 一条卡面关键词串 → 规范名。**认不出来返回 null**（不是空串 —— 空串会被误当成一个关键词）。
-        /// 规矩照抄 `rule_core._parse_keywords`，见本类文件头，**别改**。
+        /// 规矩**照我们上一版 Godot 复刻实现过的那一版走**（`rule_core._parse_keywords`，
+        /// ⚠️ 那是**旁证**、**不是原版语义判据**，见本类文件头），**仍别改**。
         /// </summary>
         public static string Normalize(string item)
         {
@@ -2449,7 +2496,9 @@ namespace RuleEngine
                 if (name == null) continue;
 
                 // 值 = 整串里第一个数字；没有就是 1
-                // ⚠️ 找的是**原始串**里的第一个数字，不是切完 ':' 之后的 —— rule_core 就是这么做的
+                // ⚠️ 找的是**原始串**里的第一个数字，不是切完 ':' 之后的 —— 我们上一版 Godot 复刻
+                //    就是这么做的（`rule_core`，**旁证、非判据**；⚠️ 2026-10-18 更正：原句直接写
+                //    「rule_core 就是这么做的」，容易被读成「它这么做 = 对」）
                 kws[name] = FirstNumber(item);
             }
             return kws;

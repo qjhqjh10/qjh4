@@ -310,16 +310,16 @@ namespace RuleEngine
             {
                 case DeckError.None: return "";
                 case DeckError.UnknownCard: return "卡组里有卡不在卡池中";
-                case DeckError.NoWarlord: return "还没有选督军";
-                case DeckError.WarlordNotHero: return "督军位放的不是督军";
+                case DeckError.NoWarlord: return "还没有选战将";
+                case DeckError.WarlordNotHero: return "战将位放的不是战将";
                 case DeckError.DefensiveMissing: return "还缺 1 张防御卡";
                 case DeckError.DefensiveNotDefence: return "防御卡位放的不是防御卡";
-                case DeckError.WrongFaction: return "有卡和督军不同阵营";
+                case DeckError.WrongFaction: return "有卡和战将不同阵营";
                 case DeckError.TooManyCards: return "卡组张数超了";
                 case DeckError.TooFewCards: return "卡组张数不够";
                 case DeckError.CopyLimitExceeded: return "有卡超过了同名上限（传说 1 张，其余 2 张）";
-                case DeckError.WarlordInCards: return "督军/防御卡不能放在普通卡位里";
-                case DeckError.WarlordAlreadySet: return "已经选过督军了（换督军要先把原来的撤掉）";
+                case DeckError.WarlordInCards: return "战将/防御卡不能放在普通卡位里";
+                case DeckError.WarlordAlreadySet: return "已经选过战将了（换战将要先把原来的撤掉）";
                 case DeckError.DefensiveAlreadySet: return "已经有防御卡了（不能带两张）";
                 case DeckError.EffectOnlyCard: return "这张是**效果生成的卡**（药剂/破坏/秘仪），不能放进卡组";
                 default: return e.ToString();

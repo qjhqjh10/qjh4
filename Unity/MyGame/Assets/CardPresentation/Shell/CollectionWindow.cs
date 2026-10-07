@@ -206,10 +206,14 @@ namespace CardPresentation
         /// <para>⚠️ **置灰那一支本版【不可达】⇒ 没画**（如实出声）：`owned &lt; 1` 在我们这边恒假
         /// （`CardProgress.Owned ≥ 卡组上限 + 9 ≥ 10`），而且原版那颗是
         /// `UIImageGreyscaleController`（`Image` + 一份灰材质对），我们的 `ImageQuad` 没有对应的判据灰值
-        /// ⇒ **只记不画**（⛔ 别自己编一个灰度）。</para></summary>
+        /// ⇒ **只记不画**（⛔ 别自己编一个灰度）。</para>
+        /// <para>🔴 **2026-10-17（A934）：上限那一档必须带【卡型】** —— 原来只传稀有度，而原版
+        /// `GetMaxCopiesInDeck` 那句 `if (cardType == 10) return 1;` **排在稀有度判断之前** ⇒ 我们池子里
+        /// **28 位非传说督军**（epic 15 / rare 13）被印成了 `x2`。判据 / 出处 = `CardProgress.DeckCap` 的 doc
+        /// （**在 `Shell/CardDetailPopup.cs:74` / `:79`**，⛔ 不是本文件）；⛔ **别退回不带卡型那一档**。</para></summary>
         public static string CardsCounterText(CardDef def)
         {
-            int cap = CardProgress.DeckCap(def.Rarity);
+            int cap = CardProgress.DeckCap(def.Rarity, def.Type);
             return "x" + Mathf.Min(CardProgress.Owned(def.Id, def.Rarity), cap);
         }
 
@@ -2940,8 +2944,13 @@ namespace CardPresentation
         public static void GoEdit(int i)
         {
             CollectionData.PendingEditDeck = i;
+            // 🆕 2026-10-18（A855）：**这条来路的回程意图** —— 「按来路回」（用户 2026-10-18 拍板）：
+            //   全仓仅有两处 `LoadScene("DeckEditor")`，这是**第一处** ⇒ 来源写在这里、
+            //   ⛔ **不由离场方式决定**（`DeckRuntime.BackToMenu` 那三处调用点都只是「关闭这条路上的编辑器」）。
+            //   ⚠️ 写在批处理闸**之前**：批处理不切场景，自检只能靠这个意图观测（同上面那个下标）。
+            CollectionData.SetReturnIntent(DeckExitSource.Collection, WindowTabType.CollectionDecks);
             Debug.Log("[Collection] 进编辑：「" + CollectionData.DeckAt(i).Name + "」"
-                      + "（把下标 " + i + " 交给 `DeckRuntime`；返回时回主菜单场景）");
+                      + "（把下标 " + i + " 交给 `DeckRuntime`；返回时回主菜单场景 → 在那里重开**收藏窗的卡组页**）");
             if (Application.isBatchMode) { Debug.Log("[Collection] （批处理：不切场景，只交接）"); return; }
             UnityEngine.SceneManagement.SceneManager.LoadScene("DeckEditor");
         }

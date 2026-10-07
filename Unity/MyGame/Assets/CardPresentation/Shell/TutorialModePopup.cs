@@ -188,7 +188,7 @@ namespace CardPresentation
         public static readonly Color ItemBannerTint = new Color(0.423f, 0.348f, 0.547f, 1f);
         /// <summary>进度条的色 —— 原版 `BackgroundComplete` 的 `m_Color = (0, 1, 0.078, 1)`。</summary>
         public static readonly Color ItemBarTint = new Color(0f, 1f, 0.078f, 1f);
-        public const string ArtItemBanner = "Tutorial Background";        // 512×144（⚠️ 见下「缺图」）
+        public const string ArtItemBanner = "Tutorial_Background";        // 512×144（下划线：见下方 `Tex` 那一跳的口径）
         public const string ArtItemBack = "UI_Army_Selection_Back";       // 172×172
         public const string ArtItemHL = "UI_Army_Selection_Back_Pressed"; // 172×172（出厂 act **F**，选中才开）
         public const string ArtItemBar = "UI_Army_Selection_Back_Progression"; // 48×18 九宫 (20,0,20,0)
@@ -510,10 +510,15 @@ namespace CardPresentation
             var node = MenuDraw.Node(holder, "Tutorial Army Select Button " + i, cell);
 
             // ① `Background (1)` —— 那条带阵营色的横幅（现读：**只有第 0 关有出厂原文的图**，见下）
-            //    ⚠️ **缺图（如实登记）**：sprite `Tutorial Background` 512×144 **没进 `Resources/`**
-            //       —— 它只在 `Assets/CardPresentation/Art/原版/0_mainmenu/Tutorial_Background.png` 躺着
-            //       （同 `BaseOfferPopup` 的 `40k_OfferBadge` / `RankedRewardEventWindow` 的 `40k_UI_Banner BW`
-            //        那两条老账）。本轮**不改导入器**（不在白名单）⇒ 节点照建、这一层不画、出声。
+            //    ✅ **2026-10-18 补图（`A865`）**：sprite `Tutorial Background` 512×144 已进
+            //       `Resources/Art/ui_menu/Tutorial_Background.png`（由 `工具/import_original_art.py` 的
+            //       `MENU_IMAGES` 导入；md5 与解包源 `Art/原版/0_mainmenu/` 那份逐字节同）。
+            //    🔴 **常量必须填【落盘名】**：`CardArt.MenuUi(name)` **不做「空格→下划线」转换**
+            //       ⇒ 原来写 `"Tutorial Background"`（带空格）会去找盘上不存在的名字、这一层**永远不画**
+            //       （同族先例 = `ShopData` 那批，口径见 `import_original_art.py` 的 A544 注）。
+            //       ⇒ 已改成 `"Tutorial_Background"`（**这一行才是真正让图出现的改动**）。
+            //    ⚠️ 同族另两条老账（未收）：`BaseOfferPopup` 的 `40k_OfferBadge` ·
+            //       `RankedRewardEventWindow` 的 `40k_UI_Banner BW`。
             var banner = Tex(ArtItemBanner);
             if (banner != null)
                 MenuDraw.Rect(node, banner, InCell(cell, ItemBanner), "Background (1)", QArt, ItemBannerTint);

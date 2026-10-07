@@ -744,6 +744,14 @@ MENU_IMAGES = [
     #   `liveopsmenuimages_assets_all` 那份 mean|Δ|=**2.26** ⇒ **别换包**（这里取 boosterpacks）。
     ('40k_OfferBadge',                            'atlasindividual_assets_0_mainmenu'),  # 价签上的角标（md5 与 `Art/原版/0_mainmenu/` 那张同）
     ('40k_shop_popup_info_bg',                    'boosterpacks_assets_all'),            # `Artwork/background` 的底图
+    # ---- 🆕 2026-10-18（A865）：教程窗 `Tutorial Mode Menu` 名单格那条**横幅** ----------------
+    # 同 `40k_OfferBadge` 那条的情形：原先只在 `Art/原版/0_mainmenu/Tutorial_Background.png`、
+    #   **没进 `Resources/`** ⇒ `Shell/TutorialModePopup.cs:513-516` 如实登记着「这一层不画、出声」。
+    # 🔴 **源已逐字节核过**：5 个 bundle 的 `Sprite/Tutorial Background.png` **md5 全同**
+    #   （`8d32486c59b5…` · 57412 字节），与 `Art/原版/0_mainmenu/` 那张也一致 ⇒ 取哪一份都对；
+    #   这里按同族条目（`40k_OfferBadge` / `40k_main_bt_*`）挑 `atlasindividual_assets_0_mainmenu`。
+    # ⚠️ 名字**带空格** ⇒ 落盘名按本表惯例 = `Tutorial_Background.png`（`name.replace(' ', '_')`）。
+    ('Tutorial Background',                       'atlasindividual_assets_0_mainmenu'),  # 教程窗格子横幅（512×144）
 ]
 
 # ---- 🔴 上面那批里**还差 4 张没登记**（A808 未清的那一格，2026-10-14 实读）--------------------

@@ -1,14 +1,27 @@
 // CreatePool.cs — `create` 造牌的**候选池**怎么算（`EffectResolver.DoCreate` 的选卡来源）
 //
-// **权威语义来源**：
-//   · 规则书 **附录 B「生成/复制卡的阵营指南」**（`资料/规则书/…_中文翻译.md` `:254-287`）
-//     —— 每张生成器卡「生成哪个阵营的什么兵种、几种、各几张、上限多少」
-//   · 规则书 **附录 C「骰子查找表」**（同文件 `:289-320`）—— 实体版的候选**名单**，
-//     我们录进来只做**对账**（见 <see cref="DiceTables"/>），不拿它当运行时数据源：
-//     按名字造卡得先有 `CardDef`，而名单里的名字和数字版数据**常常对不上**（差标点/多一个词/换个写法）。
-//     对账结果由 `RuleEngineTest.CheckDiceTables` 每次跑出来（差集两个方向都报）。
+// 🔴 **判据链（`CLAUDE.md` 铁律 2 的 2026-09-25 口径）**：
+//   · ✅ **权威 = ① 原版全量反编译方法体** `D:/2/tools/decomp_full/` → **② 解包资源字段**
+//     → **③ 成品卡图卡面文字**（`d:/2/Warpforge部队卡片/`）。
+//     本文件真正吃的是**判据③**：生成器卡**自己卡面那一行橙字兵种**印着什么 ——
+//     那才是「生成哪个阵营的什么兵种」的最终真相。
+//   · ⚠️ 《Warpforge Offline Rulebook》是**粉丝实体版规则书**（它自己第 5 行写着
+//     `Not official. Fan project.`，第 9 行写着落到实体要 creative interpretation）
+//     ⇒ **只作第二来源 / 旁证**，⛔ **不能当权威**。下面两处都只是**对照材料**：
+//     · 附录 B「生成/复制卡的阵营指南」（`资料/规则书/…_中文翻译.md` `:254-287`）
+//       —— 每张生成器卡「生成哪个阵营的什么兵种、几种、各几张、上限多少」
+//     · 附录 C「骰子查找表」（同文件 `:289-320`）—— 实体版的候选**名单**，
+//       我们录进来只做**对账**（见 <see cref="DiceTables"/>），不拿它当运行时数据源：
+//       按名字造卡得先有 `CardDef`，而名单里的名字和数字版数据**常常对不上**（差标点/多一个词/换个写法）。
+//       对账结果由 `RuleEngineTest.CheckDiceTables` 每次跑出来（差集两个方向都报）。
+//   · ⚠️ `d:/warpforge/scripts/rule_core.gd` = **我们自己的上一版 Godot 复刻**（70 个 `.gd`），
+//     **只作对照/旁证**，**不是原版语义判据**。
 //
-// 为什么池子**动态算**而不是硬编码名单：附录 B 给的是「几种」这个数，
+// ⚠️ **2026-10-18 更正（铁律 5）**：本节原来写「**权威语义来源**：规则书 **附录 B** / 附录 C」——
+//   **口径错了**：那份规则书是**粉丝实体版（非官方）**，不是权威；而且本文件的判据本来是**卡面**，
+//   附录 B 只是**对账用的对照表**。**只改定性措辞，数值/常量一律没动。**
+//
+// 为什么池子**动态算**而不是硬编码名单：附录 B（旁证）给的是「几种」这个数，
 // 实测卡池算出来的数和它逐条对得上 —— Ultramarines 载具 18 种、SaimHann 载具 20 种、
 // Goff 载具 14 种、次元裂隙 2 费 6 张、召唤教派 2 费 5 张。
 // 对不上的少数几处（`Tyranid Prime` 的 subtype）逐条钉在自检里。
@@ -49,7 +62,7 @@ namespace RuleEngine
         /// 出处：`Neurotyrant`（`TL82` · Leviathan）卡面
         ///   `Whenever you play a non-Ephemeral Stratagem, create an **Ephemeral** copy of it in your hand`
         ///   —— `ephemeral` 不是名字的一部分，是**复制品的标记**。
-        /// 参考实现：`rule_core.gd:722` `var ephemeral := b.contains("ephemeral copy")` ·
+        /// 我们上一版复刻：`rule_core.gd:722` `var ephemeral := b.contains("ephemeral copy")`（⚠️ **旁证**）·
         ///   `:825-827` 给复制品 `kws_n.append("Ephemeral")`。
         /// 落地：`EffectResolver.DoCreate` 拿到 `picked` 之后逐张 `ctx.MarkEphemeral(c)`。
         /// </summary>
@@ -245,7 +258,7 @@ namespace RuleEngine
         /// 所以它接一个 `candidates`（牌库 / 手牌 / 对手手牌 / 墓地），不是全池。
         /// 兵种/阵营/关键词的判定**全部复用 <see cref="Resolve"/>**，不另写一份判据。
         ///
-        /// 出处 `rule_core.gd:925 _choose_cand_match`。**四处按我们的数据改过它**：
+        /// 出处 `rule_core.gd:925 _choose_cand_match`（⚠️ 我们上一版复刻，**旁证、非原版**）。**四处按我们的数据改过它**：
         ///   · <c>stratagem</c> / <c>genomic enhancement</c> / <c>rune</c> 它按 `type`/`subtitle`/
         ///     卡名前缀判，我们按 **`subtype`** 判（数据更全，见 `KindWords`）
         ///   · <c>Choose a Genomic Enhancement</c> 它整体**排除**（`:1163`），我们不排除 ——
@@ -890,22 +903,28 @@ namespace RuleEngine
             // 下面 7 行是 2026-09-13 做**选牌 handler**（`Choose a …`）时按实测补的。
             // 判据：卡面写了这些词，而它们**全都是卡池里真实存在的 `subtype`**
             // （`cards_engine.json` 1130 张实测；括号里是张数）。
-            // ⚠️ 这几条原版 `rule_core.gd:925 _choose_cand_match` 判得**比我们的数据差** ——
+            // ⚠️ 这几条我们上一版复刻 `rule_core.gd:925 _choose_cand_match` 判得**比我们的数据差** ——
             //    它按卡名前缀 `enhanced ` 判 genomic enhancement、按 `subtitle`/`name` 判 rune。
             //    **这几条以 subtype 为准。**
             //
             // 🔴 **2026-09-14（A4 批 4）`stratagem` 一条改判** —— 它原来是
             //    `subtype == "Stratagem"`（实测**只有 6 张**），**那是错的**。
-            //    权威实现 `d:/warpforge/scripts/rule_core.gd` **三处一致**：
+            //    我们上一版复刻 `d:/warpforge/scripts/rule_core.gd` **三处一致**（⚠️ **旁证，不是权威** ——
+            //    ⚠️ **2026-10-18 更正**：这里原来写「**权威实现** ……三处一致」—— 把那份 `.gd`
+            //    当权威是错的（它是**我们自己**的复刻，见文件头）；下面三条只是它当时的写法）：
             //      · `:950`  `if w.contains("stratagem") and ty != "tactic" and ty != "defence": return false`
             //      · `:3852` `if w == "stratagem" and (ct == "tactic" or ct == "defence"): return true`
             //      · `:4695` `["stratagem","stratagems",…] → ty == "tactic" or ty == "defence"`
             //    ⇒ **stratagem = 战术大类（`type ∈ {tactic, defence}`）**，与规则书 `:72`（战术=非单位卡）
-            //      和 `:105`（防御卡属战术大类）一致。上面那句「以 subtype 为准」**不适用于这一行**。
+            //      和 `:105`（防御卡属战术大类）一致（⚠️ 规则书 = **粉丝实体版**，同为**旁证**）。
+            //      上面那句「以 subtype 为准」**不适用于这一行**。
+            //    🔴 **还欠一步**：这条改判今天的支撑**只有两条旁证**（gd + 粉丝规则书），
+            //      **原版判据链那三档还没回核**（反编译里 `Stratagem` 落到哪个 CardType）
+            //      —— 如实记着，**别当已证**。
             //    ⚠️ 影响面（实测）：`When you play a Stratagem` 的两条既有监听器
             //      （`Acolyte Leader` / `Cult Sentinel`）原来只被那 6 张触发 —— **打得比卡面窄**；
             //      `Draw a Stratagem`（`Astropath` 等 4 条）原来也只从 6 张里翻。
-            //    ⚠️ **`spell` 那一行没动**：`rule_core.gd:4695` 把 `spell` 和 `stratagem` 并列，
+            //    ⚠️ **`spell` 那一行没动**：`rule_core.gd:4695`（**那份 `.gd`，旁证**）把 `spell` 和 `stratagem` 并列，
             //      但 `Spell` 在我们数据里是 245 张的真实 `subtype`，改它会牵动选牌那一族 ——
             //      留待数据专线核过（已记进交接）。
             new[] { "stratagem",           "type",    "tactic", "defence" },    // 战术大类（非单位卡）

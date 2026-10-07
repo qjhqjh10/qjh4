@@ -238,6 +238,15 @@ def used_cues():
 #    ② **降噪两层**：命中的行必须在**音效上下文**里（`SCAN_CTX_RE`），且**注释行不算**（`_is_comment`）。
 #       实测：不加这两层剩 28 个名字（`Victory`/`Mulligan`/`Asteroid Zone`… 全是重名噪声），
 #       加了剩 8 个，**每个都指得到出处**。
+#       🔴 **2026-10-18（A917）：这两层是【全项目唯一一处】，已收进 `sfx_context_line()`。**
+#          ⛔ **别在别的脚本里再写一遍** —— 全项目有三个「取材口」，各管自己那一摊：
+#            本脚本（`sounds[]` + `exitSounds[]` + `collisionEvent` + `EXTRA_CUES`）·
+#            `import_remnant_sfx.py`（残骸六条）· `rebuild_overtime_start_ogg.py`（`OvertimeStart`，重制 ogg）。
+#          口径各写一遍 ⇒ 既会漂、又要**跑三遍才拼得出「还漏了哪条 cue」**。
+#          ⇒ 另两个脚本**一律 `import` 调这里**（`sfx_context_line()` / `code_only_cue_report()`
+#            的登记表 `CODE_ONLY_KNOWN` / 自检 `check_coverage_registered()`），不自己实现。
+#          ⚠️ **它是启发式、会漏报**（28 → 8 这个数就是这个意思：**宁少报、不误报**）——
+#            只能用来**提醒人去核**，⛔ 不能当「取材面已经完整」的证明。
 #    ③ **只报告、不自动收**：剩下那 8 个里仍有「同名 clip」这类误报（`Add card to deck`），
 #       自动并进表会把表弄脏。已解释过的列在 `CODE_ONLY_KNOWN` 里（**带理由**）⇒ 常态输出安静，
 #       一旦出现**新**名字就 ⚠️ 打出来。
@@ -263,6 +272,75 @@ def _is_comment(line):
     return s.startswith("//") or s.startswith("*") or s.startswith("/*")
 
 
+def sfx_context_line(line):
+    """🔴 **全项目唯一一处**的「音效线索」降噪判据（A917）—— **两层合起来才认**：
+
+      ① 这一行在**音效上下文**里（`SCAN_CTX_RE`：`sound` / `audio` / `cue` / `clip` / `.Play(`，忽略大小写）；
+      ② 它是**代码行**、不是注释（`_is_comment`）。
+
+    ⚠️ **这是启发式，会漏报**：实测不加这两层剩 **28** 个名字（`Victory` / `Mulligan` /
+    `Asteroid Zone` … 全是重名噪声），加了剩 **8** 个（每个都指得到出处）
+    —— 也就是**宁可漏报、不误报**。⇒ 它只用来**提醒人去核**，
+    ⛔ **不能当「取材面已经完整」的证明**。
+
+    ⛔ **别在别的脚本里重写这两层** —— `import_remnant_sfx.py` /
+    `rebuild_overtime_start_ogg.py` 一律 `import` 过来调（A917）。"""
+    return bool(SCAN_CTX_RE.search(line)) and not _is_comment(line)
+
+
+def scan_sfx_hits(names, root=SCAN_ROOT):
+    """把 `names` 在 `root` 下的 `.cs` 里找一遍 —— **只算「音效上下文里的代码行」**
+    （判据 = `sfx_context_line()`，**全项目唯一一处**）。
+
+    → `(hits, n_lines)`：`hits[name] = ["相对路径:行号", …]`（**按文件顺序**）；
+      `n_lines` = 扫过的**总行数**（含被降噪跳过的那些，与原实现同口径）。
+
+    🔴 **2026-10-18（A917）**：这个循环原来内联在 `code_only_cue_report()` 里 —— 抽出来是
+    为了让「反向查漏」的**扫描口径**也只有一处（`check_coverage_registered()` 复用同一个）。"""
+    hits, n_lines = {}, 0
+    if not names or not os.path.isdir(root):
+        return hits, n_lines
+    # 一条正则匹所有候选名（长的排前面，免得 `Aeldari To Waystone` 被 `Aeldari To Waystone Death` 截断）
+    big = re.compile("|".join(re.escape(c) for c in sorted(names, key=len, reverse=True)))
+    for dirpath, _dirs, files in os.walk(root):
+        for f in files:
+            if not f.endswith(".cs"):
+                continue
+            fp = os.path.join(dirpath, f)
+            rel = os.path.relpath(fp, "d:/4/Unity").replace("\\", "/")
+            for i, line in enumerate(io.open(fp, encoding="utf-8", errors="replace"), 1):
+                n_lines += 1
+                if not sfx_context_line(line):      # 🔴 A917：两层降噪只有这一处实现
+                    continue
+                for m in big.finditer(line):
+                    hits.setdefault(m.group(0), []).append(f"{rel}:{i}")
+    return hits, n_lines
+
+
+def check_coverage_registered(cues, owner, root=SCAN_ROOT):
+    """🆕 **2026-10-18（A917）：给【另两个取材口脚本】调的自检。**
+
+    `cues` = `owner` 那个脚本自己覆盖的原版 cue 名。**只在「真的会误报」时才出声** ——
+    也就是某条 cue ①**没登记**在上面的 `CODE_ONLY_KNOWN` 里、**且** ②**真的出现在「音效上下文」
+    的代码行里**（判据同 `scan_sfx_hits()`）。两个条件缺一个就不出声：
+      · 登记过 ⇒ 那边的查漏本来就会跳过它；
+      · 只在注释里出现 ⇒ 那边的查漏**根本扫不到它**（降噪第 ② 层），登记纯属多余。
+    **常态 = 一声不响。**
+
+    ⚠️ 调用方自己负责 `import` 本模块（`sys.path` 引导见 `import_remnant_sfx.py` 的
+    `_shared_sfx_scan()`）；这里**不**替调用方做引导，也**不**在取不到时假装通过。"""
+    miss = [c for c in cues if c not in CODE_ONLY_KNOWN]
+    if not miss:
+        return []
+    hits, _n = scan_sfx_hits(miss, root)
+    bad = [c for c in miss if c in hits]
+    if bad:
+        print(f"⚠️ {owner} 的这 {len(bad)} 条 cue **没在** `工具/import_original_sfx.py` 的 "
+              f"`CODE_ONLY_KNOWN` 里登记、而**代码里真的在提** ⇒ 那边跑「查漏（反向）」会把它们"
+              f"当成新漏网重复报出来：" + "；".join(f"`{c}`（{hits[c][0]}）" for c in bad))
+    return bad
+
+
 def code_only_cue_report(all_cue_names, want):
     """→ 新候选 `[(name, [file:line, …]), …]`；**顺手把结果打印出来**（常态 = 0 个）。
 
@@ -275,21 +353,7 @@ def code_only_cue_report(all_cue_names, want):
     if not todo:
         print("查漏（反向）：原版 cue 名里没有「取材面没收、代码又在提」的新名字 ✅")
         return []
-    # 一条正则匹所有候选名（长的排前面，免得 `Aeldari To Waystone` 被 `Aeldari To Waystone Death` 截断）
-    big = re.compile("|".join(re.escape(c) for c in sorted(todo, key=len, reverse=True)))
-    hits, n_lines = {}, 0
-    for root, _dirs, files in os.walk(SCAN_ROOT):
-        for f in files:
-            if not f.endswith(".cs"):
-                continue
-            p = os.path.join(root, f)
-            rel = os.path.relpath(p, "d:/4/Unity").replace("\\", "/")
-            for i, line in enumerate(io.open(p, encoding="utf-8", errors="replace"), 1):
-                n_lines += 1
-                if not SCAN_CTX_RE.search(line) or _is_comment(line):
-                    continue
-                for m in big.finditer(line):
-                    hits.setdefault(m.group(0), []).append(f"{rel}:{i}")
+    hits, n_lines = scan_sfx_hits(todo)     # 🔴 A917：扫描口径也只有这一处
     out = sorted(hits.items(), key=lambda kv: -len(kv[1]))
     print(f"查漏（反向）：扫 {SCAN_ROOT} 的 .cs 共 {n_lines} 行（只算音效上下文的**代码行**）⇒ "
           f"**{len(out)} 个候选**")

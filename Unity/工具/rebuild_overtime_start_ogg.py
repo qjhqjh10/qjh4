@@ -85,7 +85,41 @@ def build(rate, ch, bs_exp, pkts, n_samples, q=QUALITY):
     pages.append(OB.make_ogg_page(cq, serial, pageno, granulepos=[n_samples], eos=True))
     return b"".join(pages), gp, setup, idp
 
+# 🔴 **2026-10-18（A917）—— 本脚本是三个「取材口」之一**（另两个 = `import_original_sfx.py` ·
+#    `import_remnant_sfx.py`）。**「反向查漏」的降噪口径只有一处** =
+#    `import_original_sfx.sfx_context_line()`（「音效上下文」+「非注释行」两层；
+#    ⚠️ 启发式、会漏报：28 → 8，宁少报不误报）。
+#    ⛔ 本脚本**不重实现**它；`OvertimeStart` 已在 `import_original_sfx.CODE_ONLY_KNOWN` 里登记过
+#    （连「别并进那张表、否则会覆盖本脚本重制的 ogg」这个理由一起）。
+def _check_registered():
+    """`OvertimeStart` 必须登记在 `import_original_sfx.CODE_ONLY_KNOWN` 里 —— 没登记才出声。
+
+    ⚠️ 取不到那个模块**只出声、不中断**（本脚本的正事是重制 ogg）。"""
+    import importlib
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    enc = getattr(sys.stdout, "encoding", None)
+    msg, m = None, None
+    try:
+        m = importlib.import_module("import_original_sfx")
+    except Exception as e:                                   # noqa: BLE001
+        msg = (f"⚠️ 取不到共享查漏口径 `工具/import_original_sfx.py`（{e}）"
+               f" ⇒ 这一次**没有**自检「`{CLIP}` 有没有在那边登记」")
+    finally:
+        # ⚠️ `import_original_sfx` 在**模块层**就把 stdout 打成 utf-8（它自己要打 ✅/🔴）；
+        #    本脚本**原来没设过**编码 ⇒ 这里还回原编码，免得下面那些中文自检行在 GBK 控制台变乱码。
+        if enc:
+            try:
+                sys.stdout.reconfigure(encoding=enc, errors="replace")
+            except Exception:                                # noqa: BLE001
+                pass
+    if msg:
+        print(msg)
+    elif m is not None:
+        m.check_coverage_registered([CLIP], f"本脚本（{CLIP}）")
+
+
 if __name__ == "__main__":
+    _check_registered()
     tt, lay, seek, pkts = load()
     bs_exp = OB.vorbis_id_info(vorbis_headers(lay["freq"], lay["channels"], QUALITY)[0])[2:]
     ogg, gp, setup, idp = build(lay["freq"], lay["channels"], bs_exp, pkts, lay["n_samples"])

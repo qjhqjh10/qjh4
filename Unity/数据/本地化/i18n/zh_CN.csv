@@ -12,7 +12,7 @@ Army,~,军队
 Game mode,~,游戏模式
 Select,~,选择
 Done,~,完成
-Warlord,~,督军
+Warlord,~,战将
 Defensive,~,防御
 Classic,~,经典
 Skirmish,~,冲突
@@ -38,14 +38,14 @@ If no opponent is found in a few seconds, you will be matched with a bot,~,如�
 %d / %d,~,%d / %d
 %d Trophies Achieved!,~,达成 %d 奖杯!
 %d cards,~,%d 张卡
-%d warlords available,~,可用督军 %d
+%d warlords available,~,可用战将 %d
 %dh %dm,~,%d小时 %d分钟
 %s Pack,~,%s 卡包
 %s cemetery (%d),~,%s 墓地 (%d)
 %s — Activate for %d %s?,~,%s — 激活花费 %d %s?
 %s — Choose one:,~,%s — 选择其一:
 -- Defensive --,~,-- 防御卡 --
--- Warlord --,~,-- 督军 --
+-- Warlord --,~,-- 战将 --
 0 available,~,可用 0
 5d 20h 15m,~,5天 20小时 15分
 8+,~,8+
@@ -61,7 +61,7 @@ Battle Settings,~,战斗设置
 Beginner,~,新手
 Booster Pack,~,卡包
 Border: %s,~,边框: %s
-Both warlords fell simultaneously,~,双方督军同时倒下
+Both warlords fell simultaneously,~,双方战将同时倒下
 Buy,~,购买
 Card Sources,~,卡牌来源
 Card text,~,卡牌文字
@@ -88,7 +88,7 @@ Create\nNew Deck,~,创建\n新卡组
 Current Title: %s,~,当前称号: %s
 Current streak:,~,当前连胜:
 Daily Streak,~,每日连胜
-Deck already has a Warlord,~,卡组已设督军
+Deck already has a Warlord,~,卡组已设战将
 Deck imported: %s,~,卡组已导入: %s
 Deck is empty,~,卡组为空
 "Deck needs %d cards (%s), currently %d",~,"卡组需要 %d 张卡 (%s),当前 %d"
@@ -130,7 +130,7 @@ Next style,~,下一个样式
 No PvP leaderboard in offline build,~,离线版无 PvP 排行榜
 No alternate art in offline build,~,离线版无异画
 No voice for this card,~,此卡无语音
-No warlords available,~,无可用督军
+No warlords available,~,无可用战将
 Not enough Wildcards: need 1 %s Wildcard,~,通配符不足: 需要 1 张%s通配符
 Not enough gold: need %d,~,金币不足: 需要 %d
 Open Daily Rewards,~,打开每日奖励
@@ -157,10 +157,10 @@ Save More!,~,积攒更多!
 Select Alliance Badge,~,选择联盟徽章
 Select Language,~,选择语言
 "Select your Faction. Win battles during the Event to collect Skulls and score points for your Faction,\nclaim Crate Rewards at milestones!",~,"选择你的阵营。在活动期间赢得战斗收集骷髅并为阵营得分,\n在里程碑领取宝箱奖励!"
-Set as Warlord,~,设为督军
+Set as Warlord,~,设为战将
 Shift to scroll,~,滚动查看更多
 Skip Tutorial,~,跳过教程
-Skulls %d : %d    Turn %d    Warlord HP %d : %d,~,骷髅 %d : %d    回合 %d    督军 HP %d : %d
+Skulls %d : %d    Turn %d    Warlord HP %d : %d,~,骷髅 %d : %d    回合 %d    战将 HP %d : %d
 Skulls: %d,~,骷髅: %d
 Starts in:,~,开始于:
 Stratagems %d,~,计策 %d
@@ -187,14 +187,14 @@ Upgrade this card to level %d,~,将本卡升级至 %d 级
 Upgrade this card\nto level %d,~,将本卡升级\n至 %d 级
 Victory!,~,胜利!
 Voice file missing,~,语音文件缺失
-Warlord: ,~,督军: 
-Warlord: %s,~,督军: %s
+Warlord: ,~,战将: 
+Warlord: %s,~,战将: %s
 WebShop unavailable in offline build,~,离线版无网络商店
 Welcome to Warpforge!,~,欢迎来到 Warpforge!
 Where to get cards,~,卡牌获取途径
 Will get: +%d,~,获得: +%d
 Will get: +350,~,获得: +350
-You can only have one Warlord,~,只能有一名督军
+You can only have one Warlord,~,只能有一名战将
 You go second,~,你后手
 You have collected all the available Special Items,~,你已收集所有可用特殊物品
 You need a deck with at least %d cards to play this mode,~,需要至少 %d 张卡的卡组才能玩此模式
@@ -220,7 +220,7 @@ Campaign: win battles to advance and claim rewards,~,战役：赢得战斗以推
 Challenge is not available in the offline build,~,离线版不可使用挑战
 Change alliance badge,~,更换联盟徽章
 Chat,~,聊天
-Choose Warlord,~,选择督军
+Choose Warlord,~,选择战将
 Choose your player name,~,选择你的玩家名
 Click to remove: %s,~,点击移除：%s
 Close,~,关闭
@@ -283,7 +283,7 @@ No claim code system in this offline build,~,离线版无兑换码系统
 No decks yet - create one in Collection - Deck,~,还没有卡组 - 请在 收藏 - 卡组 中创建
 No ranked play in single-player,~,单机版无排位玩法
 No trophies yet,~,暂无奖杯
-No voice lines for this warlord,~,此督军暂无语音
+No voice lines for this warlord,~,此战将暂无语音
 Not owned - buy in Shop,~,未拥有 - 可在商店购买
 Nothing to claim in offline build,~,离线版无可领取内容
 Offline build support: see project docs,~,离线版支持：请查看项目文档
@@ -312,9 +312,9 @@ Score %d,~,分数 %d
 Search player,~,搜索玩家
 Searching opponent,~,正在搜索对手
 Season Info,~,赛季信息
-Select a warlord card from the pool (Warlord filter on) - tap to set,~,从卡池选择督军卡（督军筛选已开启）——点击设为督军
+Select a warlord card from the pool (Warlord filter on) - tap to set,~,从卡池选择战将卡（战将筛选已开启）——点击设为战将
 Select your Title,~,选择你的头衔
-"Select your Warlord: drag a warlord card onto the 'Warlord' row, or click a warlord card",~,选择督军：将督军卡拖入“督军”栏，或点击督军卡
+"Select your Warlord: drag a warlord card onto the 'Warlord' row, or click a warlord card",~,选择战将：将战将卡拖入“战将”栏，或点击战将卡
 Select your avatar,~,选择你的头像
 Selected,~,已选择
 Send,~,发送
@@ -325,20 +325,20 @@ Stratagems 0,~,战术 0
 Support,~,支持
 Tap on the cards to discover,~,点击卡牌以查看
 Tap to close,~,点击关闭
-Top Warlord Mastery,~,督军精通排名
+Top Warlord Mastery,~,战将精通排名
 Troops 0,~,部队 0
 Tutorial Campaign (planned),~,教程战役（规划中）
 Unranked,~,非排位
 Victory,~,胜利
 View card,~,查看卡牌
-View warlord card,~,查看督军卡
+View warlord card,~,查看战将卡
 Voice Volume,~,语音音量
-Warlord voice,~,督军语音
+Warlord voice,~,战将语音
 Weekly Challenge,~,每周挑战
 "Welcome to WARHAMMER 40,000: WARPFORGE!",~,"欢迎来到战锤 40,000：WARPFORGE！"
 Window Mode,~,窗口模式
 You can also contact us at support@everguild.com,~,你也可以通过 support@everguild.com 联系我们
-You will receive a full deck and a Warlord from the selected army.,~,你将获得所选军队的完整卡组与一名督军。
+You will receive a full deck and a Warlord from the selected army.,~,你将获得所选军队的完整卡组与一名战将。
 Your friends:,~,你的好友：
 You’ll receive at least one Special Item after 10 crates.,~,每开 10 个宝箱必得至少一个特殊物品。
 single-player build · no login required,~,单机版 · 无需登录
@@ -349,9 +349,9 @@ No battle records yet\nStart a practice battle from the main menu to see it here
 No Alliance\nCreate or join an Alliance to earn Event points,~,没有联盟\n创建或加入联盟以获取活动点数
 No friends yet\nfriends added will show here,~,暂无好友\n添加的好友将显示在这里
 %s  (cost %d),~,%s（费用 %d）
-"Warlord ""%s"" not found",~,"未找到督军 ""%s"""
+"Warlord ""%s"" not found",~,"未找到战将 ""%s"""
 "Card ""%s"" not found",~,"未找到卡牌 ""%s"""
-"Card ""%s"" faction does not match warlord",~,"卡牌 ""%s"" 的阵营与督军不符"
+"Card ""%s"" faction does not match warlord",~,"卡牌 ""%s"" 的阵营与战将不符"
 "Card ""%s"" exceeds max copies (%d) for %s rarity",~,"卡牌 ""%s"" 超过 %s 稀有度的最大数量（%d）"
 Agenda,~,议程
 Ambush,~,伏击
@@ -573,13 +573,13 @@ Armour 1. Vanguard. Uprising: Deal 5 damage to a random enemy,~,护甲 1。先�
 "Armour 1. When a friendly unit uses Ferocity, it stays in play. Ferocity: Deal 2-3 damage to all enemies",~,护甲 1。当 1 个友方单位使用狂暴时，它留在场上。狂暴：对所有敌人造成 2-3 点伤害。
 "Armour 1. When you create or play a Secret, deal 2-4 damage to all enemies.",~,护甲 1。当你生成或打出一张隐秘牌时，对所有敌人造成 2-4 点伤害。
 "Armour 1. When you gain Faith, deal 4 damage to the enemy warlord.
-6 [Faith Icon]: Gain Vanguard",~,"护甲 1。当你获得信仰时，对敌方督军造成 4 点伤害。
+6 [Faith Icon]: Gain Vanguard",~,"护甲 1。当你获得信仰时，对敌方战将造成 4 点伤害。
 6 ☀：获得先锋"
 "Armour 1. When you gain [honour], deal 2 damage to a random enemy",~,护甲 1。当你获得任务点时，对随机一个敌人造成 2 点伤害
 Armour 1. Your Stratagems cost 1 less,~,护甲 1。你的战术费用减少 1
 Armour 2.,~,护甲 2。
 Armour 2. Adjacent units have Armour 1. Duty: Deal 8 damage,~,装甲 2。相邻单位获得装甲 1。职责：造成 8 点伤害。
-Armour 2. Any attack against your Warlord targets this troop instead.,~,装甲 2。任何以你的督军为目标的攻击改为以该部队为目标。
+Armour 2. Any attack against your Warlord targets this troop instead.,~,装甲 2。任何以你的战将为目标的攻击改为以该部队为目标。
 Armour 2. Concussive. Unstable. Rally: Stun a random enemy.,~,护甲 2。震荡。不稳定。集结：使一个随机敌人眩晕。
 Armour 2. Cruelty: Deploy a random Emperor's Children Infantry that costs 3 or less.,~,护甲 2。残忍：部署一个费用 3 或以下的随机帝皇之子步兵。
 Armour 2. Gain Blast 6 and Camouflage. Talent: Wrath of Khaine.,~,护甲 2。获得爆裂 6 和伪装。天赋：凯恩之怒。
@@ -804,7 +804,7 @@ Choose a friendly troop that died this game and put it in your hand,~,选择一�
 Choose a non-Legendary Dark Angels card and add it your hand. Gain 1.,~,选择一张非传说暗黑天使卡加入你的手牌。获得 1 点任务。
 Choose a non-Legendary Genestealer Cults troop and add it to your hand,~,选择一张非传说基因窃取者教派部队并加入你的手牌。
 Choose a non-Legendary Ultramarines card and create two copies in your hand,~,选择 1 张非传说极限战士卡，在手牌中生成 2 张复制。
-Choose a troop from your deck and draw it. Heal 6 to your Warlord,~,从你的牌库选择 1 个部队并抽取。为你的督军治疗 6 点。
+Choose a troop from your deck and draw it. Heal 6 to your Warlord,~,从你的牌库选择 1 个部队并抽取。为你的战将治疗 6 点。
 Choose a troop from your deck and draw it. Lower its cost by 1,~,选择你牌库中的一张部队并抽取，其费用 -1。
 Choose a troop from your deck and draw it. [1] It costs 2 less,~,从你的牌库中选择 1 张部队牌并抽到它。①其费用 -2
 Choose a troop from your deck and put it at the top of your deck,~,从你的卡组选择一张部队牌置于卡组顶部
@@ -823,7 +823,7 @@ Choose one: Draw a troop; Draw a Stratagem or Heal 1 to your units,~,择一：�
 Choose one: Gain 1 [Energy]; Draw a card or Deploy a Crusader,~,选择一项：获得 1 点能量；抽 1 张牌；或部署 1 个十字军战士
 Choose one: Gain 2 Spirit Stones; Deploy a Veteran Guardian or Draw 2 cards,~,选择一项：获得 2 颗灵魂石；部署 1 个老兵守护者；或抽 2 张牌
 Choose one: Gain 2; deploy a Sergeant Taaman; heal 3 to all your units,~,选择一项：获得 2 点任务；部署一个塔曼军士；为你的所有单位治疗 3 点
-Choose one: Give Vulnerable 1 to a random enemy troop or Heal 1 to your Warlord,~,择一：给予一个随机敌方部队脆弱 1，或治疗你的督军 1。
+Choose one: Give Vulnerable 1 to a random enemy troop or Heal 1 to your Warlord,~,择一：给予一个随机敌方部队脆弱 1，或治疗你的战将 1。
 Chosen,~,神选者
 Chosen Champion,~,神选冠军
 Chosen of Slaanesh,~,色孽选民
@@ -837,7 +837,7 @@ Codex Discipline,~,典籍纪律
 Codex: Deal 1 damage to a random enemy troop,~,典籍：对 1 个随机敌方部队造成 1 点伤害。
 Codex: Deal 1 damage to all enemies,~,典籍：对所有敌人造成 1 点伤害。
 Codex: Deal 2 damage to a random enemy,~,典籍：对 1 个随机敌人造成 2 点伤害。
-Codex: Deal 3 damage to the enemy Warlord,~,典籍：对敌方督军造成 3 点伤害。
+Codex: Deal 3 damage to the enemy Warlord,~,典籍：对敌方战将造成 3 点伤害。
 Codex: Deploy a Primaris Intercessor,~,典籍：部署 1 个原铸仲裁者。
 Codex: Each of your units deals 1-2 damage to a random enemy,~,典籍：你的每个单位对 1 个随机敌人各造成 1-2 点伤害。
 Codex: Gain +1 Attack this turn.,~,典籍：本回合获得 +1 攻击。
@@ -972,7 +972,7 @@ Deal 1-3 damage to an enemy,~,对 1 个敌人造成 1-3 点伤害
 (1) Repeat this effect",~,"造成 1-3 点伤害。
 ①重复此效果"
 Deal 10 damage to all enemy troops,~,对所有敌方部队造成 10 点伤害。
-"Deal 10 damage to an enemy troop. For each excess damage, heal 1 to your Warlord",~,对一个敌方部队造成 10 点伤害。每有 1 点溢出伤害，治疗你的督军 1。
+"Deal 10 damage to an enemy troop. For each excess damage, heal 1 to your Warlord",~,对一个敌方部队造成 10 点伤害。每有 1 点溢出伤害，治疗你的战将 1。
 Deal 2 damage,~,造成 2 点伤害
 "Deal 2 damage to a damaged enemy. If the target dies, give +1 Health to all your units",~,对 1 个受伤的敌人造成 2 点伤害。若目标死亡，给予你的所有单位 +1 生命
 Deal 2 damage to a random enemy,~,对一个随机敌人造成 2 点伤害。
@@ -1021,7 +1021,7 @@ Deal 3 damage to three random enemies,~,对三个随机敌人造成 3 点伤害
 "Deal 3 damage. If the target has Armour, deal 8 damage instead",~,造成 3 点伤害。若目标有护甲，改为造成 8 点伤害
 "Deal 3-4 damage to an enemy. If it has Armour, deal 5-7 damage instead",~,对一个敌人造成 3-4 点伤害。如果其拥有护甲，改为造成 5-7 点伤害。
 Deal 3-5 damage to an enemy and its adjacent units,~,对一个敌人及其相邻单位造成 3-5 点伤害。
-Deal 3-5 damage to the enemy Warlord,~,对敌方督军造成 3-5 点伤害
+Deal 3-5 damage to the enemy Warlord,~,对敌方战将造成 3-5 点伤害
 Deal 3-5 damage to two random enemies,~,对 2 个随机敌人各造成 3-5 点伤害。
 Deal 3-6 damage to three random enemies,~,对三个随机敌人造成 3-6 点伤害
 Deal 4 damage to an enemy troop,~,对敌方一个部队造成 4 点伤害
@@ -1161,15 +1161,15 @@ Draw 2 cards. Give +1 Health to any troop drawn,~,抽 2 张牌。给予抽到的
 Draw 3 cards and lower their cost by 3,~,抽 3 张牌并使其费用降低 3
 "Draw 3 cards. For each Troop drawn, gain 1.",~,抽 3 张牌。每抽到 1 张部队牌，获得 1 ☀。
 "Draw 3 cards. For every Infantry drawn, refill 1 Energy",~,抽 3 张卡。每抽到 1 个步兵，回复 1 点能量。
-"Draw 3 cards. If your Warlord has 10 or less Health, lower their cost by 4",~,抽 3 张卡。若你的督军生命值不高于 10，这些卡的费用减少 4 点。
+"Draw 3 cards. If your Warlord has 10 or less Health, lower their cost by 4",~,抽 3 张卡。若你的战将生命值不高于 10，这些卡的费用减少 4 点。
 Draw 3 cards. Lower cost by 1 when an enemy dies,~,抽 3 张牌。每有 1 个敌人死亡，费用 -1
 Draw 5 cards. (5) Reduce their cost by 5,~,抽 5 张牌。⑤使其费用 -5
 Draw a Beast. Lower the cost of all Beasts in your hand by 1,~,抽一张野兽。你手牌中的所有野兽费用 -1。
 Draw a Stratagem,~,抽 1 张战术。
 Draw a Stratagem. Lower the cost of Stratagems in your hand by 4,~,抽一张战术。你手牌中的战术费用减少 4 点。
 Draw a Vehicle and give it Armour 2,~,抽 1 张载具，并给予它护甲 2。
-Draw a card and give Shield to your Warlord,~,抽 1 张卡，并给予你的督军护盾。
-Draw a card. Codex: Your Warlord gains Armour 1 this turn,~,抽 1 张卡。典籍：你的督军本回合获得护甲 1。
+Draw a card and give Shield to your Warlord,~,抽 1 张卡，并给予你的战将护盾。
+Draw a card. Codex: Your Warlord gains Armour 1 this turn,~,抽 1 张卡。典籍：你的战将本回合获得护甲 1。
 Draw a troop and give it +1,~,抽一个部队并给予其 +1 攻击和 +1 生命值。
 Draw a troop. 2 : Draw an additional troop,~,抽 1 张部队牌。2 ☀：再抽 1 张部队牌
 Draw a troop. Lower the cost of Tyrnak and Fenrir by 1,~,抽 1 个部队。使提尔纳克与芬里尔的费用 -1。
@@ -1227,10 +1227,10 @@ Ephemeral. Choose a card in your hand and return it to your deck. Draw a card. G
 Ephemeral. Choose an Astra Militarum Stratagem and add it to your hand.,~,临时。选择一张星界军战术牌并加入你的手牌。
 Ephemeral. Choose an Invocation and put it in your hand,~,临时。选择 1 道战术并放入你的手牌
 Ephemeral. Deal 1 damage to all friendly units and give them +2 this turn.,~,临时。对所有友方单位造成 1 点伤害，并本回合给予它们 +2 攻击和 +2 生命值。
-"Ephemeral. Deal 1 damage to an enemy and heal 1 to your Warlord. If the target dies, create a Lord of the Storm in your hand.",~,临时。对一个敌人造成 1 点伤害，并为你的督军治疗 1 点。若目标死亡，在你的手牌中生成一张风暴领主。
+"Ephemeral. Deal 1 damage to an enemy and heal 1 to your Warlord. If the target dies, create a Lord of the Storm in your hand.",~,临时。对一个敌人造成 1 点伤害，并为你的战将治疗 1 点。若目标死亡，在你的手牌中生成一张风暴领主。
 Ephemeral. Deal 1 damage to an enemy or give +1 Health to a friendly unit,~,临时。对 1 个敌人造成 1 点伤害，或给予 1 个友方单位 +1 生命
 "Ephemeral. Deal 1 damage to an enemy. If it's a troop, give it Hunt Mark.",~,临时。对 1 个敌人造成 1 点伤害。若其为部队，给予它猎杀标记。
-"Ephemeral. Deal 1 damage to an enemy. If target survives, give +1 and Stomp to your Warlord this turn",~,临时。对一个敌人造成 1 点伤害。如果目标存活，本回合给予你的督军 +1 攻击、+1 生命值和践踏。
+"Ephemeral. Deal 1 damage to an enemy. If target survives, give +1 and Stomp to your Warlord this turn",~,临时。对一个敌人造成 1 点伤害。如果目标存活，本回合给予你的战将 +1 攻击、+1 生命值和践踏。
 "Ephemeral. Deal 1 damage. If the target dies, draw a card",~,临时。造成 1 点伤害。若目标死亡，抽一张卡。
 "Ephemeral. Deal 1 damage. If the target survives, gain 1.",~,临时。造成 1 点伤害。若目标存活，获得 1 点任务。
 "Ephemeral. Deal 2 damage. If target dies, give Stealth to a random friendly Infantry.",~,临时。造成 2 点伤害。若目标死亡，给予 1 个随机友方步兵潜行。
@@ -1244,7 +1244,7 @@ Ephemeral. Give +1 to a friendly unit until your next turn. Oath 2: Give it Armo
 "Ephemeral. Give +1 to your troops. If you don't control any, draw a troop",~,临时。给予你的部队 +1。若你未控制任何部队，抽 1 个部队。
 "Ephemeral. Give +2 Attack, +2 Armor and +1 Health to a friendly troop",~,临时。给予 1 个友方部队 +2 攻击、+2 护甲和 +1 生命
 Ephemeral. Give +2 Health to a friendly unit and reload its Duty ability.,~,临时。给予一个友方单位 +2 生命，并重置其职责能力。
-"Ephemeral. Give +2 to a friendly troop, or to your Warlord this turn. Oath 3: Give it an additional +2",~,临时。给予 1 个友方部队 +2，或本回合给予你的督军 +2。誓言 3：额外给予它 +2。
+"Ephemeral. Give +2 to a friendly troop, or to your Warlord this turn. Oath 3: Give it an additional +2",~,临时。给予 1 个友方部队 +2，或本回合给予你的战将 +2。誓言 3：额外给予它 +2。
 Ephemeral. Give -2 Attack to an enemy troop until your next turn.,~,临时。给予 1 个敌方部队 -2 攻击，直到你的下个回合。
 Ephemeral. Give Sentry 1 to a friendly unit until your next turn,~,临时。给予 1 个友方单位哨戒 1，直到你的下个回合。
 Ephemeral. Give Shield to a friendly Battlesuit,~,临时。给予 1 个友方战斗服护盾
@@ -1254,10 +1254,10 @@ Ephemeral. Give Vulnerable 2 to an enemy troop and Backlash: Give a Dark Pact to
 Ephemeral. Give a Dark Pact to a friendly troop,~,临时。给予一个我方部队一个黑暗契约
 Ephemeral. Heal 2 to a friendly unit and give it +1 [Attack] for each enemy unit this turn,~,临时。为一个我方单位治疗 2 点，并且本回合每有一个敌方单位，使其获得 +1 攻击
 Ephemeral. Return a friendly Vehicle to your hand. It costs 4 less,~,临时。将一个我方载具移回手牌。其费用减少 4
-"Ephemeral. Your Warlord gains ""Blast 2 and Slay: Deploy a Black Legionary"" this turn",~,临时。你的督军本回合获得“爆裂 2 与斩杀：部署一个黑色军团战士”
-"Ephemeral. Your Warlord gains Flying and +2 Melee Attack this turn, plus an additional 1 for each friendly troop",~,临时。本回合你的督军获得飞行和 +2 近战攻击，每有 1 个友方部队再额外 +1
-"Ephemeral. Your Warlord gains this turn ""+2 [Attack] and [Slay] Slay: Heals 3""",~,临时。你的督军本回合获得“+2[攻击] 和[斩杀]斩杀：治疗 3 点生命值”。
-"Ephemeral. Your warlord gains this turn Sniper and ""Slay: Create a random Sabotage in the enemy hand""",~,临时。你的督军本回合获得狙击和“斩杀：在对手手牌中生成一张随机破坏卡”。
+"Ephemeral. Your Warlord gains ""Blast 2 and Slay: Deploy a Black Legionary"" this turn",~,临时。你的战将本回合获得“爆裂 2 与斩杀：部署一个黑色军团战士”
+"Ephemeral. Your Warlord gains Flying and +2 Melee Attack this turn, plus an additional 1 for each friendly troop",~,临时。本回合你的战将获得飞行和 +2 近战攻击，每有 1 个友方部队再额外 +1
+"Ephemeral. Your Warlord gains this turn ""+2 [Attack] and [Slay] Slay: Heals 3""",~,临时。你的战将本回合获得“+2[攻击] 和[斩杀]斩杀：治疗 3 点生命值”。
+"Ephemeral. Your warlord gains this turn Sniper and ""Slay: Create a random Sabotage in the enemy hand""",~,临时。你的战将本回合获得狙击和“斩杀：在对手手牌中生成一张随机破坏卡”。
 Ephrael Stern,~,埃弗拉尔·斯特恩
 Epistolary Librarian,~,智典智库
 Erika Luminas,~,埃丽卡·卢米纳斯
@@ -1335,7 +1335,7 @@ Flying. Other friendly Daemons cost 2 less and have +2 [attack]. Cruelty: Draw a
 "Flying. Rally: Give +2 [Attack] to a friendly unit this turn. At the start of your turn, gain 1 [Energy] and return to your hand.",~,飞行。集结：本回合给予 1 个友方单位 +2 近战攻击。在你的回合开始时，获得 1 ☀并返回你的手牌。
 Flying. Sentry 1. Oath 1: Choose a non-Legendary Stratagem you played this game and return it to your hand.,~,飞行。哨戒 1。誓言 1：选择 1 张本场战斗中打出过的非传说战术，将其返回你的手牌。
 Flying. Shuriken 3,~,飞行。星镖 3
-Flying. Slay: Deal 3 damage to the enemy Warlord,~,飞行。斩杀：对敌方督军造成 3 点伤害。
+Flying. Slay: Deal 3 damage to the enemy Warlord,~,飞行。斩杀：对敌方战将造成 3 点伤害。
 Flying. Stealth,~,飞行。潜行
 Flying. Strike: Draw a card,~,飞行。猛击：抽 1 张卡。
 Flying. Talent: Aerial Seeding,~,飞行。天赋：空中播种
@@ -1345,14 +1345,14 @@ Flying. Talent: Skyborne Deployment,~,飞行。天赋：空降部署
 "Flying. When an enemy with Hunt Mark dies, deploy a Grey Hunter",~,飞行。当带猎杀标记的敌人死亡时，部署 1 个灰猎手。
 "Flying. When you collect a Spirit Stone, deal 2-3 damage to a random enemy",~,飞行。当你收集灵魂石时，对 1 个随机敌人造成 2-3 点伤害
 Follower of Gork,~,高克的追随者
-"For each enemy in play, give +1 Melee Attack to your Warlord this turn",~,场上有多少个敌人，你的督军本回合便获得 +1 近战攻击
+"For each enemy in play, give +1 Melee Attack to your Warlord this turn",~,场上有多少个敌人，你的战将本回合便获得 +1 近战攻击
 "For each enemy in play, give +1 [Attack] to a friendly unit this turn",~,场上有多少个敌人，本回合即给予一个我方单位 +1 攻击
 For the Greater Good,~,为至高善意
 "For the rest of the match, give Armour 1 to Vehicles you put in play",~,本场战斗持续生效：给予你放入场上的载具护甲 1。
 "For the rest of this battle, at the start of your turn, deploy a Shock Trooper",~,本场战斗剩余时间内：在你的回合开始时，部署一个震荡突击兵。
 "For the rest of this battle, give Shield to all Drones you deploy",~,直至本场战斗结束，给予你部署的所有无人机护盾
-"For the rest of this battle, when a friendly troop becomes a Remnant it gains Shield. Give Shield to your Warlord",~,本场战斗剩余时间内：每当友方部队变为残骸时，其获得护盾。给予你的督军护盾。
-"For the rest of this battle, when a friendly troop uses Ferocity, deal 2 damage to the enemy Warlord",~,本场战斗持续生效：当 1 个友方部队使用狂暴时，对敌方督军造成 2 点伤害。
+"For the rest of this battle, when a friendly troop becomes a Remnant it gains Shield. Give Shield to your Warlord",~,本场战斗剩余时间内：每当友方部队变为残骸时，其获得护盾。给予你的战将护盾。
+"For the rest of this battle, when a friendly troop uses Ferocity, deal 2 damage to the enemy Warlord",~,本场战斗持续生效：当 1 个友方部队使用狂暴时，对敌方战将造成 2 点伤害。
 "For the rest of this battle, when an enemy dies, gain 1 [Energy].",~,本场战斗持续生效：当敌人死亡时，你获得 1 点能量。
 "For the rest of this battle, when an enemy troop is deployed, it gains Vulnerable 1",~,本场战斗持续生效：当敌方部队被部署时，其获得脆弱 1
 Forewarned,~,预警
@@ -1419,23 +1419,23 @@ Gifts of Chaos,~,混沌恩赐
 Give +1 Attack and +1 Health to a friendly troop. Create a copy of it at the top of your deck.,~,给予一个我方部队 +1 攻击与 +1 生命。在其卡组顶部生成一张复制。
 Give +1 Attack and +1 Health to a random Beast in your hand,~,给予你手牌中的一个随机野兽 +1 攻击和 +1 生命值。
 Give +1 Attack and +1 Health to your units this turn. 4 Energy: Give +2 Attack and +2 Health instead and Heal them 1,~,本回合给予你的单位 +1 攻击和 +1 生命。4 能量：改为给予 +2 攻击和 +2 生命，并治疗 1 点生命
-Give +1 Attack this turn and +1 Health to your Warlord and Infantry troops,~,给予你的督军和步兵部队本回合 +1 攻击和 +1 生命
+Give +1 Attack this turn and +1 Health to your Warlord and Infantry troops,~,给予你的战将和步兵部队本回合 +1 攻击和 +1 生命
 Give +1 Attack to your other troops,~,给予你的其他部队 +1 攻击。
 Give +1 Health and Regeneration 1,~,给予 +1 生命和再生 1。
 Give +1 Health to all friendly units with Pack.,~,给予所有带兽群的友方单位 +1 生命。
-Give +1 Health to your Warlord and adjacent units. Create a copy of Serene Unifier in your hand,~,给予你的督军和相邻单位 +1 生命。在你的手牌创建 1 张宁静统合者的复制
+Give +1 Health to your Warlord and adjacent units. Create a copy of Serene Unifier in your hand,~,给予你的战将和相邻单位 +1 生命。在你的手牌创建 1 张宁静统合者的复制
 Give +1 Melee Attack to your troops. [1] Repeat this effect,~,给予你的部队 +1 近战攻击。①重复此效果
 "Give +1 Melee Attack, +1 Ranged Attack and 1 Health to your troops",~,给予你的部队 +1 近战攻击、+1 远程攻击和 1 生命。
 Give +1 Melee and +1 Ranged Attack to your Infantry troops,~,给予你的步兵部队 +1 近战攻击和 +1 远程攻击。
 Give +1 Ranged Attack and +1 Health to all your troops,~,给予你的所有部队 +1 远程攻击和 +1 生命
 Give +1 Ranged Attack and +2 Health to your Vehicles,~,②给予你的载具 +1 远程攻击和 +2 生命
-"Give +1 [Armor] to your troops, and to your Warlord this turn",~,给予你的部队 +1 [护甲]，本回合同样给予你的督军
+"Give +1 [Armor] to your troops, and to your Warlord this turn",~,给予你的部队 +1 [护甲]，本回合同样给予你的战将
 "Give +1 [Attack] and +1 Health to a friendly troop. If you control no other troops, give it Flank.",~,给予 1 个友方部队 +1 攻击和 +1 生命。若你未控制其他部队，给予它侧翼。
 "Give +1 [Attack] and +1 [Health] to a friendly unit until your next turn. If it is [Destroyer], give it Armour 1 until your next turn",~,直到你的下个回合，给予一个友方单位 +1 [攻击] 和 +1 [生命]。若其为 [毁灭者]，则直到你的下个回合给予其装甲 1。
 Give +1 [Attack] to all friendly troops. Oath 1: Give +1 Health to all friendly troops,~,给予所有友方部队 +1 攻击。誓言 1：给予所有友方部队 +1 生命。
 "Give +1 [Attack] to your units this turn, or +3 [Attack] if they are Destroyer.",~,本回合给予你的单位 +1 [攻击]；若其为毁灭者，则给予 +3 [攻击]。
 Give +1 [Attack] to your units this turn. Repeat for each Secret you played this game,~,本回合给予你的单位 +1 攻击。本局你每打出一张隐秘牌，重复一次。
-"Give +1 [Attack], Blast 1 and Shield to your Warlord until your next turn. 8 [Energy]: Give it permanently",~,直到你的下个回合给予你的督军 +1 [攻击]、爆裂 1 和护盾。8 [能量]：使其永久生效
+"Give +1 [Attack], Blast 1 and Shield to your Warlord until your next turn. 8 [Energy]: Give it permanently",~,直到你的下个回合给予你的战将 +1 [攻击]、爆裂 1 和护盾。8 [能量]：使其永久生效
 Give +1 [Power] and Stealth to your Infantry troops,~,给予你的步兵部队 +1 [Power] 和潜行
 Give +1 [attack] to all friendly Daemons,~,给予所有友方恶魔 +1 攻击。
 Give +1 [attack] to your units this turn and trigger their [Mob] Mob abilities,~,本回合给予你的单位 +1[攻击]，并触发它们的[群体]群体能力。
@@ -1458,7 +1458,7 @@ Give +2 Attack to a friendly unit this turn.,~,本回合给予 1 个友方单位
 Give +2 Health and Camouflage,~,给予 +2 生命和伪装。
 "Give +2 Health to a friendly unit. If it's a Beast, give it +2 Armor as well.",~,给予一个友方单位 +2 生命值。如果它是野兽，同时给予其 +2 护甲。
 "Give +2 Health to a friendly unit. The next time it uses Ferocity this turn, it stays in play",~,给予 1 个友方单位 +2 生命。本回合它下次使用狂暴时，它将留在场上。
-"Give +2 Health to all friendly units. If you control a Beast, heal 4 to your Warlord",~,给予所有友方单位 +2 生命值。如果你控制一只野兽，为你的督军治疗 4 点生命值。
+"Give +2 Health to all friendly units. If you control a Beast, heal 4 to your Warlord",~,给予所有友方单位 +2 生命值。如果你控制一只野兽，为你的战将治疗 4 点生命值。
 Give +2 Health to all friendly units. Oath 4: Give them an additional +3 Health,~,给予所有友方单位 +2 生命。誓言 4：额外给予它们 +3 生命。
 Give +2 Health to your units,~,给予你的单位 +2 生命值。
 "Give +2 Health to your units.
@@ -1486,12 +1486,12 @@ Give +2 [Attack] to all friendly troops,~,给予所有友方部队 +2 攻击。
 Give +2 [Attack] to your units until your next turn,~,直到你的下回合，给予你的单位 +2 攻击。
 Give +2 [Might] to your units until your next turn. 4 [Energy]: Give an additional +1 [Might],~,直到你的下个回合给予你的单位 +2 [力量]。4 [能量]：额外给予 +1 [力量]
 Give +2 [Ranged] to your units until your next turn. Lower cost by 1 when a friendly troop dies,~,直到你的下个回合，给予你的单位 +2 [远程]。每当一个友方部队死亡时，此牌费用减少 1 点。
-Give +2 [attack] and Armour 2 to your Warlord this turn,~,本回合给予你的督军 +2 攻击与护甲 2
+Give +2 [attack] and Armour 2 to your Warlord this turn,~,本回合给予你的战将 +2 攻击与护甲 2
 "Give +2 [attack], +2 [armor] and Concussive to a friendly troop",~,给予一个友方部队 +2 [攻击]、+2 [装甲] 和震荡。
 Give +2 [health icon] and +2 [attack icon] to all your units in play and in hand. Lower cost by 1 when a friendly Troop or Stratagem trigger [Codex icon] Codex,~,给予你场上和手牌中的所有单位 +2 生命和 +2 攻击。当 1 个友方部队或战术触发典籍时，此卡费用 -1。
 Give +2 attack to a friendly troop,~,给予一个友方部队 +2 攻击。
 Give +2 to a friendly troop,~,给予一个友方部队 +2。
-Give +2 to your Warlord and +1 to adjacent troops this turn. Gain 1.,~,本回合给予你的督军 +2 力量，并给予相邻部队 +1 力量。获得 1 ☀。
+Give +2 to your Warlord and +1 to adjacent troops this turn. Gain 1.,~,本回合给予你的战将 +2 力量，并给予相邻部队 +1 力量。获得 1 ☀。
 Give +2 to your units this turn,~,本回合给予你的单位 +2 攻击和 +2 生命值。
 Give +3 Attack and +3 Armor to a friendly unit this turn. 1 Also give it Shield,~,本回合给予 1 个友方单位 +3 攻击和 +3 护甲。①同时给予它护盾
 "Give +3 Attack, +3 Armor and +3 Health to a friendly troop.",~,给予 1 个友方部队 +3 攻击、+3 装甲和 +3 生命。
@@ -1521,10 +1521,10 @@ Give Armour 1 and Camouflage to a friendly Infantry,~,给予 1 个友方步兵�
 Give Armour 1 and Vanguard to a friendly unit until your next turn,~,给予 1 个友方单位护甲 1 和先锋，直到你的下个回合。
 Give Armour 1 and heal 2 to your Vehicles,~,给予你的载具护甲 1，并治疗 2 点。
 Give Armour 1 to a friendly troop,~,给予一个友方部队护甲 1。
-Give Armour 1 to a friendly troop or Heal 4 to your Warlord.,~,给予 1 个友方部队护甲 1，或为你的督军治疗 4 点。
+Give Armour 1 to a friendly troop or Heal 4 to your Warlord.,~,给予 1 个友方部队护甲 1，或为你的战将治疗 4 点。
 "Give Armour 1 to a friendly troop, and an additional Armour 1 for each Dark Pact on it",~,给予一个我方部队护甲 1，其上的每个黑暗契约再额外给予护甲 1
-"Give Armour 1 to all your units. For the rest of this battle, your Warlords' Talent costs 1 less",~,给予你所有单位装甲 1。本场战斗剩余时间内：你的督军天赋费用减少 1 点。
-"Give Armour 1 to your Warlord, plus +1 Health for each damaged enemy",~,给予你的督军护甲 1，并且每有一个受伤的敌人，你的督军额外获得 +1 生命值。
+"Give Armour 1 to all your units. For the rest of this battle, your Warlords' Talent costs 1 less",~,给予你所有单位装甲 1。本场战斗剩余时间内：你的战将天赋费用减少 1 点。
+"Give Armour 1 to your Warlord, plus +1 Health for each damaged enemy",~,给予你的战将护甲 1，并且每有一个受伤的敌人，你的战将额外获得 +1 生命值。
 Give Armour 1 to your troops,~,给予你的部队护甲 1
 Give Armour 2 and +1 Health to a friendly troop,~,给予 1 个友方部队护甲 2 和 +1 生命
 Give Armour 2 to all friendly units until your next turn,~,给予所有我方单位护甲 2，持续到你的下个回合
@@ -1553,7 +1553,7 @@ Give Hunt Mark to an enemy troop. Draw a card,~,给予 1 个敌方部队猎杀�
 Give Invulnerable and +3 Attack to a friendly unit this turn,~,给予 1 个友方单位本回合无敌和 +3 攻击
 "Give Invulnerable to a friendly troop this turn. Oath 8: Give it +8 attack, +8 health and +8 armor.",~,本回合给予 1 个友方部队无敌。誓言 8：给予它 +8 攻击、+8 生命和 +8 装甲。
 Give Invulnerable to a friendly troop until your next turn,~,直到你的下回合，给予一个友方部队无敌。
-Give Invulnerable to your Warlord until your next turn and give Vulnerable 2 to all enemy troops,~,让你的督军获得无敌，持续到你的下个回合，并给予所有敌方部队脆弱 2
+Give Invulnerable to your Warlord until your next turn and give Vulnerable 2 to all enemy troops,~,让你的战将获得无敌，持续到你的下个回合，并给予所有敌方部队脆弱 2
 Give Invulnerable to your troops this turn and trigger their Uprising abilities,~,本回合给予你的部队无敌，并触发它们的起义能力。
 Give Long Range to all your units,~,给予你的所有单位远射
 Give Markerlight 1 to an enemy,~,给予 1 个敌人标记光 1
@@ -1649,11 +1649,11 @@ Gain (1)",~,"为一个我方单位治疗 2 点。
 Heal 2 to all your units and trigger their Regiment abilities,~,为你所有单位治疗 2 点，并触发其团能力。
 Heal 3 to a friendly unit and give it +2 Melee Attack this turn,~,治疗友方单位 3 点，并给予其本回合 +2 近战攻击
 Heal 3 to your units,~,为你的单位治疗 3 点。
-Heal 4 to your Warlord,~,为你的督军治疗 4 点。
+Heal 4 to your Warlord,~,为你的战将治疗 4 点。
 Heal 5 and give Camouflage to a friendly unit,~,为 1 个友方单位治疗 5 点生命并给予其伪装
 "Heal 5 to a friendly unit. For each Dark Pact on it, deal 2 damage to a random enemy",~,为一个我方单位治疗 5 点。其上的每个黑暗契约，对随机一个敌人造成 2 点伤害
-Heal 5 to your Warlord and give it +2 Melee Attack,~,为你的督军治疗 5 点，并给予其 +2 近战攻击。
-Heals 1 to your Warlord and give it +1 [Attack] until your next turn,~,为你的督军治疗 1 点，并给予它 +1 攻击，直到你的下个回合。
+Heal 5 to your Warlord and give it +2 Melee Attack,~,为你的战将治疗 5 点，并给予其 +2 近战攻击。
+Heals 1 to your Warlord and give it +1 [Attack] until your next turn,~,为你的战将治疗 1 点，并给予它 +1 攻击，直到你的下个回合。
 Heavy Intercessor,~,重装仲裁者
 Hektor Thenmann,~,赫克托·滕曼
 Helbrute,~,地狱蛮兽
@@ -1967,7 +1967,7 @@ Patriarch,~,族长
 Peerless Bladesmen,~,绝世剑士
 Penitence: Deal 1 damage to all other units,~,忏悔：对所有其他单位造成 1 点伤害
 Penitence: Deal 2 damage to a random enemy,~,忏悔：对 1 个随机敌人造成 2 点伤害
-Penitence: Deal 2 damage to the enemy Warlord,~,忏悔：对敌方督军造成 2 点伤害
+Penitence: Deal 2 damage to the enemy Warlord,~,忏悔：对敌方战将造成 2 点伤害
 Penitence: Gain Flank and Blast 2,~,忏悔：获得侧翼和爆裂 2
 Penitent Engine,~,忏悔引擎
 Perfect Ambush,~,完美伏击
@@ -2266,7 +2266,7 @@ Slaanesh,~,色孽
 Slaanesh Sorcerer,~,色孽巫师
 Slaanesh's Spawn,~,色孽之卵
 Slay the Heretic,~,斩杀异端
-Slay: Deal 2 damage to the enemy Warlord,~,斩杀：对敌方督军造成 2 点伤害。
+Slay: Deal 2 damage to the enemy Warlord,~,斩杀：对敌方战将造成 2 点伤害。
 Slay: Deal 3 damage to the enemy with highest Attack,~,斩杀：对攻击力最高的敌人造成 3 点伤害
 Slay: Draw a card,~,斩杀：抽 1 张牌
 Slay: Draw the next troop in your deck. Talent: Master of the Deathwing,~,斩杀：抽你卡组中的下一张部队牌。天赋：死翼大师
@@ -2652,7 +2652,7 @@ Rally: Heal 2 to a friendly unit",~,"当带猎杀标记的敌人死亡时，为 
 "When you collect a Spirit Stone, gain +1 melee, +1 ranged and Stealth.",~,当你收集灵魂石时，获得 +1 近战、+1 远程和潜行。
 "When you collect a Spirit Stone, gain 2 additional Spirit Stones",~,当你收集灵魂石时，额外获得 2 颗灵魂石
 "When you collect a Spirit Stone, gain Shield. 1 Choose a card from your deck and draw it",~,当你收集灵魂石时，获得护盾。①从你的牌库中选择 1 张牌并抽到它
-"When you deploy a Beast, give +1 [Attack] to your Warlord this turn.",~,当你部署一只野兽时，本回合给予你的督军 +1[攻击]。
+"When you deploy a Beast, give +1 [Attack] to your Warlord this turn.",~,当你部署一只野兽时，本回合给予你的战将 +1[攻击]。
 "When you deploy a Stormboy, give it Flank.",~,当你部署一个风暴小子时，给予其侧翼。
 "When you deploy a Vehicle, give it Flank
 Talent: Spear of Macragge",~,"当你部署载具时，给予它侧翼。
@@ -2667,12 +2667,12 @@ When you deploy an Eliminator give it Stealth,~,当你部署歼击者时，给�
 "When you draw a card, gain a Dark Pact of Fate.",~,当你抽牌时，获得一个命运黑暗契约。
 "When you draw a card, it costs 1 less this turn",~,当你抽牌时，该牌本回合费用减少 1
 "When you gain [shield], heal 2",~,当你获得护盾时，治疗 2 点
-"When you play a Stratagem, your Warlord takes 1 damage",~,当你打出战术时，你的督军受到 1 点伤害。
+"When you play a Stratagem, your Warlord takes 1 damage",~,当你打出战术时，你的战将受到 1 点伤害。
 "When you play a troop, give it Flank",~,当你打出一个部队时，给予其侧翼。
 "When you reanimate a Remnant, heal 1.",~,每当你复生一个残骸时，治疗 1 点。
 "When you trigger Ferocity, High Rune Priest costs 1 less this turn. Talent: High Rune Priest",~,当你触发狂暴时，本回合高阶符文祭司费用 -1。天赋：高阶符文祭司。
 "When you trigger a Spirit Stone ability, gain +1 Attack.",~,当你触发灵魂石能力时，获得 +1 攻击。
-"When your Warlord receives damage, gain a ❄ Dark Pact of Excess",~,当你的督军受到伤害时，获得一个纵欲黑暗契约
+"When your Warlord receives damage, gain a ❄ Dark Pact of Excess",~,当你的战将受到伤害时，获得一个纵欲黑暗契约
 "When your opponent plays a Stratagem, deal 3 damage to a random enemy",~,当对手打出战术时，对一个随机敌人造成 3 点伤害。
 "When your opponent plays a Stratagem, give +1 and +1 Health to your troops",~,当对手打出战术时，给予你的部队 +1 和 +1 生命。
 "Whenever you play a non-Ephemeral Stratagem, create an Ephemeral copy of it in your hand.",~,每当你打出非临时战术时，在你的手牌创建 1 张其临时复制
@@ -2709,20 +2709,20 @@ Xylocil,~,克西洛西尔
 Your Drones cost 1 less for the rest of this battle. Choose a Drone and add it to your hand,~,直至本场战斗结束，你的无人机费用 -1。选择 1 个无人机并将其加入你的手牌
 Your Drones cost 1 less.,~,你的无人机费用 -1
 Your Infantry troops cost 1 less this turn,~,本回合你的步兵部队费用 -1
-Your Warlord becomes Invulnerable until your next turn,~,你的督军变为无敌，直到你的下个回合。
-"Your Warlord gains ""Mob: Gain +1 [Armor] until your next turn""",~,你的督军获得“群体：直到你的下个回合获得 +1[护甲]”。
-"Your Warlord gains ""Penitence: Deal 1 damage to two random enemy troops""",~,你的督军获得「忏悔：对 2 个随机敌方部队各造成 1 点伤害」
-"Your Warlord gains ""Strike: Lower the cost of a random troop in hand by 1"". Draw a troop.",~,你的督军获得“猛击：将手牌中一张随机部队的费用 -1”。抽一张部队。
-Your Warlord gains +1 [Attack] and Blast 2 this turn,~,你的督军本回合获得 +1 攻击和爆裂 2。
-"Your Warlord gains +1 [Attack], [Shield] Armour 1 and [Wings] Flying this turn",~,你的督军本回合获得 +1[攻击]、[护盾]护甲 1 和[翅膀]飞行。
-Your Warlord gains +1 this turn. Deal damage to all enemies equal to your Warlord's Melee,~,你的督军本回合获得 +1。对所有敌人造成等同于你的督军近战的伤害。
-Your Warlord gains +2 [Health] this turn. (1) [Energy]: Stun a random enemy troop,~,你的督军本回合获得 +2 [生命]。①[能量]：眩晕 1 个随机敌方部队
-Your Warlord gains Blood Thirst this turn,~,你的督军本回合获得嗜血。
-Your Warlord gains Concussive until your next turn and heals 5,~,你的督军获得震荡（直到你的下个回合），并治疗 5 点生命值。
-Your Warlord gains Invulnerable until your next turn,~,你的督军获得无敌，持续到你的下个回合。
-Your Warlord gains this turn +1 [fist] and ' [skull] Slay: Draw a Beast',~,你的督军本回合获得 +1[拳头]，以及“[骷髅头] 斩杀：抽一张野兽”。
-"Your Warlord gains: ""At the start of your turn, create a random Combat Elixir in your hand""",~,你的督军获得：“你的回合开始时，在你的手牌中生成一张随机战斗药剂”。
-Your Warlord heals 1 and chooses an effect,~,你的督军治疗 1 点，并选择 1 个效果。
+Your Warlord becomes Invulnerable until your next turn,~,你的战将变为无敌，直到你的下个回合。
+"Your Warlord gains ""Mob: Gain +1 [Armor] until your next turn""",~,你的战将获得“群体：直到你的下个回合获得 +1[护甲]”。
+"Your Warlord gains ""Penitence: Deal 1 damage to two random enemy troops""",~,你的战将获得「忏悔：对 2 个随机敌方部队各造成 1 点伤害」
+"Your Warlord gains ""Strike: Lower the cost of a random troop in hand by 1"". Draw a troop.",~,你的战将获得“猛击：将手牌中一张随机部队的费用 -1”。抽一张部队。
+Your Warlord gains +1 [Attack] and Blast 2 this turn,~,你的战将本回合获得 +1 攻击和爆裂 2。
+"Your Warlord gains +1 [Attack], [Shield] Armour 1 and [Wings] Flying this turn",~,你的战将本回合获得 +1[攻击]、[护盾]护甲 1 和[翅膀]飞行。
+Your Warlord gains +1 this turn. Deal damage to all enemies equal to your Warlord's Melee,~,你的战将本回合获得 +1。对所有敌人造成等同于你的战将近战的伤害。
+Your Warlord gains +2 [Health] this turn. (1) [Energy]: Stun a random enemy troop,~,你的战将本回合获得 +2 [生命]。①[能量]：眩晕 1 个随机敌方部队
+Your Warlord gains Blood Thirst this turn,~,你的战将本回合获得嗜血。
+Your Warlord gains Concussive until your next turn and heals 5,~,你的战将获得震荡（直到你的下个回合），并治疗 5 点生命值。
+Your Warlord gains Invulnerable until your next turn,~,你的战将获得无敌，持续到你的下个回合。
+Your Warlord gains this turn +1 [fist] and ' [skull] Slay: Draw a Beast',~,你的战将本回合获得 +1[拳头]，以及“[骷髅头] 斩杀：抽一张野兽”。
+"Your Warlord gains: ""At the start of your turn, create a random Combat Elixir in your hand""",~,你的战将获得：“你的回合开始时，在你的手牌中生成一张随机战斗药剂”。
+Your Warlord heals 1 and chooses an effect,~,你的战将治疗 1 点，并选择 1 个效果。
 Your next Infantry costs 2 less,~,你的下 1 个步兵费用 -2
 Your next Stratagem costs 1 less,~,你的下一张战术费用减少 1。
 Your next Vehicle costs 2 less,~,你的下一个载具费用 -2。
@@ -6375,7 +6375,7 @@ Battlesuit,~,战甲
 Psychic Power,~,灵能
 Action,~,行动
 Drone,~,无人机
-Stratagem,~,战术
+Stratagem,~,策略
 Command,~,指挥
 Card,~,卡牌
 Daemon,~,恶魔
@@ -6383,13 +6383,13 @@ Structure,~,建筑
 Elixir,~,药剂
 Overlord Power,~,霸主之力
 Rune,~,符文
-Invocation,~,计策
+Invocation,~,祈唤
 Soldier,~,士兵
 Order,~,命令
 Battle Ability,~,战斗能力
 Mission,~,任务
 Combat Elixir,~,战斗药剂
-Warlord Power,~,督军之力
+Warlord Power,~,战将之力
 Flight,~,飞行
 Submarine,~,潜艇
 Mark of Chaos,~,混沌印记
@@ -6421,4 +6421,4 @@ Subtitle: %s,~,副标题：%s
 Sautekh Dynasty,~,索泰克王朝
 Imotekh the Stormlord,~,伊摩泰克·风暴领主
 stormlord,~,伊摩泰克·风暴领主
-Warlord removed - you can pick any faction warlord,~,督军已放回——可重新选择任意阵营的督军
+Warlord removed - you can pick any faction warlord,~,战将已放回——可重新选择任意阵营的战将

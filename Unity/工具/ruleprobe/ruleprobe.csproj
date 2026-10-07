@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <AssemblyName>wfprobe</AssemblyName>
+    <RootNamespace>wfprobe</RootNamespace>
+    <LangVersion>9.0</LangVersion>
+    <!-- 只编下面显式列出的文件 + RuleEngine/Core/*.cs，不带别的 -->
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <NoWarn>0169,0649,0414,0219,0067,CS8632</NoWarn>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- 本工具的壳（已从 D:/tmp/wf_b14_probe 收编进仓库） -->
+    <Compile Include="Stub.cs" />
+    <Compile Include="FilterAdd.cs" />
+    <Compile Include="BattleProbe.cs" />
+    <Compile Include="Scan.cs" />
+    <Compile Include="Program.cs" />
+    <!-- 被测对象：相对路径（原来写死 D:/4/... 绝对路径 ⇒ 换机器/换盘就编不过）。
+         🔴 从 工具/ruleprobe/ 上去两级才是 Unity/ ⇒ ../../MyGame/... -->
+    <Compile Include="../../MyGame/Assets/RuleEngine/Core/*.cs" />
+  </ItemGroup>
+  <!-- 🔴 不要加 <DefineConstants>UNITY_5_3_OR_NEWER</DefineConstants>。
+       ⚠️ 2026-10-18 更新（`A941` 之后）：Core 里**已经没有任何 Unity 类型**了
+       —— 原来 `TutorialScript.cs` 那圈 `#if` 装载支已整段搬进 `Data/TutorialDatabase.cs`
+       （用「半个 partial 方法」换乘：无实现 ⇒ 编译器把调用点一起抹掉 ⇒ 探针自动落回兜底）。
+       ⇒ 定义它**今天已不再有影响**，但**仍然别定义** —— 探针要的就是「**Core 能单独编**」这条边界；
+       定义符号会让这条边界悄悄失效、下次有人往 Core 里加 Unity 调用时不会被发现。 -->
+</Project>

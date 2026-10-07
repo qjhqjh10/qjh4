@@ -335,23 +335,29 @@ namespace RuleEngine
     }
 
     // ==================================================================
-    //  三、关卡数据的装载
+    //  三、关卡数据的装载（**`Core/` 这一半只拿纯数据**）
     // ==================================================================
 
     /// <summary>
-    /// 6 关脚本的**唯一入口**。
+    /// 6 关脚本的**唯一入口**（数据侧）。
     ///
-    /// 🔴 **为什么 `Resources`/`JsonUtility` 被 `#if` 包着**：本工程有一条规矩 ——
-    ///    **`Core/` 只许碰 `UnityEngine.Debug` / `UnityEngine.Random`**
-    ///    （`Data/CardDatabase.cs` 文件头写着；离屏探针 `D:/tmp/wf_b24_probe/` 就靠这条
-    ///     用一份极简桩把 `Core/**` 在 net8 下编起来跑真解析器）。
-    ///    这个文件**破了半条**（用了 `Resources` + `JsonUtility`）—— 用 `#if UNITY_5_3_OR_NEWER`
-    ///    兜住：**Unity 下走真装载**（Editor 与 `typecheck.sh` 的 rsp 里都定义了它），
-    ///    **探针下走兜底并出声**（探针可以 `Install(...)` 手工装数据，见下）。
-    ///    ⏭️ 正确的归宿是搬进 `Data/TutorialDatabase.cs`（与 `CardDatabase` 同族）——
-    ///    本批白名单只有 `Core/**` ⇒ 没搬，**已记进报告**。
+    /// 🔴 **装载那一跳（`Resources.Load` + `JsonUtility.FromJson`）不在本文件里** ——
+    ///    它搬去了 <c>Data/TutorialDatabase.cs</c>（与 `Data/CardDatabase.cs` 同族）。
+    ///    **为什么必须搬**：本工程有一条成文规矩 —— **`Core/` 只许碰 `UnityEngine.Debug` /
+    ///    `UnityEngine.Random`**（`Data/CardDatabase.cs` 文件头写着；离屏探针 `工具/ruleprobe`
+    ///    就靠这条，用一份极简桩把 `Core/**` 在 net8 下编起来跑真解析器）。
+    ///    2026-10-18 之前本文件**破了半条**：用 `#if UNITY_5_3_OR_NEWER` 把 `Resources`/`JsonUtility`
+    ///    包起来 —— 「编得过」但规矩已经破了（`Editor/RuleEngineTest.cs` 里那条源文扫描断言就是这么抓到的）。
+    ///
+    /// 🔴 **换乘点是下面这个 `partial` 方法** <see cref="LoadFromUnity"/>，两边各自的行为：
+    ///    · **Unity 侧**（`Data/TutorialDatabase.cs` 编在**同一个程序集**里，本工程没有 asmdef）
+    ///      ⇒ 那一半有实现 ⇒ <see cref="Stages"/> 第一次被读时**真去 `Resources` 装载**；
+    ///    · **探针侧**（`工具/ruleprobe` 只编 `Core/*.cs`，`Data/` **不在编译集里**）
+    ///      ⇒ **C# 把「只有声明、没有实现」的 `partial void` 连同它的调用点一起抹掉**
+    ///        ⇒ 这里原样落到「出声 + 空数组」，探针照旧能编、能跑（=== 老 `#else` 支那条路）。
+    ///    ⚠️ 所以**不许**在 `Core/` 里写回 `Resources` / `JsonUtility` / `TextAsset`（哪怕又包一层 `#if`）。
     /// </summary>
-    public static class TutorialData
+    public static partial class TutorialData
     {
         /// <summary>`Assets/RuleEngine/Resources/tutorial_stages.json`</summary>
         public const string StagesResourcePath = "tutorial_stages";
@@ -379,41 +385,34 @@ namespace RuleEngine
             return (index < 0 || index >= all.Length) ? null : all[index];
         }
 
-        /// <summary>手工装数据 —— **探针/自检**用（也是 `#if` 兜底那条路唯一的进货口）。</summary>
+        /// <summary>手工装数据 —— **探针/自检**用（也是 Unity 那半边装载失败时的兜底进货口）。</summary>
         public static void Install(TutorialStageData[] stages) { _stages = stages; }
 
-#if UNITY_5_3_OR_NEWER
-        /// <summary>从 Resources 读。失败 ⇒ **出声**并把 `_stages` 置空数组（不让 `Stages` 反复重试 + 反复报错）。</summary>
+        /// <summary>
+        /// **Unity 那半边**（`Resources.Load` + `JsonUtility.FromJson`）：成功时它自己 <see cref="Install"/>。
+        /// 实现落在 `Data/TutorialDatabase.cs` —— 见类头注那张「谁是哪一半」的表。
+        ///
+        /// 🔴 这里**只有声明、没有实现**：本文件**单独编**（离屏探针只编 `Core/*.cs`）时，
+        ///    C# 会把**这个声明**和**所有对它的调用**一起抹掉（不报错、不执行）
+        ///    ⇒ 正好就是原来那条 `#else` 路。
+        /// ⛔ **别改成 `public` / 别加返回值** —— 那就成了「必须有实现」的扩展 partial 方法，
+        ///    探针立刻编不过（`CS8795`）。
+        /// </summary>
+        static partial void LoadFromUnity();
+
+        /// <summary>装载。Unity 侧交给 <see cref="LoadFromUnity"/>（它成功时已经把数据 `Install` 进去了）；
+        /// 它**没装成**（探针下没有那一半 / 或 Unity 侧那个文件不在编译集里）⇒ **出声**并把
+        /// `_stages` 置空数组（不让 `Stages` 反复重试 + 反复报错）。⛔ 不静默返回空。</summary>
         public static void Load()
         {
-            var asset = UnityEngine.Resources.Load<UnityEngine.TextAsset>(StagesResourcePath);
-            if (asset == null)
-            {
-                UnityEngine.Debug.LogError("[Tutorial] 找不到 `Resources/" + StagesResourcePath + ".json` —— "
-                    + "跑一下 `\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_tutorial_stages.py`");
-                _stages = new TutorialStageData[0];
-                return;
-            }
-            var f = UnityEngine.JsonUtility.FromJson<TutorialStageFile>(asset.text);
-            if (f == null || f.stages == null || f.stages.Length == 0)
-            {
-                UnityEngine.Debug.LogError("[Tutorial] `" + StagesResourcePath + ".json` 解出来是空的"
-                    + "（format=" + (f == null ? -1 : f.format) + "）—— 教程关一关都开不了");
-                _stages = new TutorialStageData[0];
-                return;
-            }
-            _stages = f.stages;
-        }
-#else
-        /// <summary>探针（net8 + 极简 UnityEngine 桩）下没有 `Resources` / `JsonUtility` —— **出声**，
-        /// 让调用方用 <see cref="Install"/> 手工装一份。⛔ 不静默返回空。</summary>
-        public static void Load()
-        {
+            LoadFromUnity();
+            if (_stages != null) return;
             UnityEngine.Debug.LogError("[Tutorial] 这个环境里没有 `Resources`/`JsonUtility`（离屏探针）"
-                + " ⇒ 教程关数据装不上；请用 `TutorialData.Install(stages)` 手工装。");
+                + " ⇒ 教程关数据装不上；请用 `TutorialData.Install(stages)` 手工装。"
+                + "（Unity 侧由 `Data/TutorialDatabase.cs` 那半个 partial 方法装载 ——"
+                + " 它没跑起来就说明那个文件不在编译集里）");
             _stages = new TutorialStageData[0];
         }
-#endif
     }
 
     // ==================================================================

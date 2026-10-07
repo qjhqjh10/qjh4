@@ -831,7 +831,7 @@ namespace CardPresentation
             if (facTex != null)
                 Img(root, root, facTex, DdIconL, DdIconT, DdIconR, DdIconB, "Army Icon", QDIRow, true);
             Txt(root, root, info.Name, DdNameL, DdNameT, DdNameR, DdNameB, 44.5f, Align.Left, "Deck Name", QDIText);
-            Txt(root, root, wl != null ? wl.Name : "未选督军", DdWlL, DdWlT, DdWlR, DdWlB, 40f, Align.Left,
+            Txt(root, root, wl != null ? wl.Name : "未选战将", DdWlL, DdWlT, DdWlR, DdWlB, 40f, Align.Left,
                 "Warlord Name", QDIText);
 
             // 5) `Info Panel` + 两个抽屉（`Deck List` 出厂在前、`Deck Info` 出厂 **INACT** ⇒ 建了关着）

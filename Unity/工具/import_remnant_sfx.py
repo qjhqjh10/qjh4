@@ -51,10 +51,38 @@ CUES = [
 ]
 
 
+# 🔴 **2026-10-18（A917）—— 本脚本是三个「取材口」之一**（另两个 = `import_original_sfx.py` 的
+#    `sounds[]`/`exitSounds[]`/`collisionEvent`/`EXTRA_CUES` · `rebuild_overtime_start_ogg.py`
+#    的 `OvertimeStart`）。
+#    **「反向查漏」的降噪口径只有一处** = `import_original_sfx.sfx_context_line()`
+#    （「音效上下文」正则 + 「非注释行」两层；⚠️ 它是**启发式、会漏报** —— 28 → 8，宁少报不误报）。
+#    ⛔ 本脚本**不重实现**它 ⇒ 那边跑一次查漏，三条取材口就一起查完了，**不必在本脚本再跑一遍**。
+def _shared_sfx_scan():
+    """取 `工具/import_original_sfx.py` 这个模块（只为了调它的共享口径 / 自检）。
+
+    ⚠️ 取不到**只出声、不中断** —— 本脚本的正事是把音频拷进工程，不能被一次口径自检带崩。"""
+    import importlib
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    try:
+        return importlib.import_module("import_original_sfx")
+    except Exception as e:                                   # noqa: BLE001
+        print(f"⚠️ 取不到共享查漏口径 `工具/import_original_sfx.py`（{e}）"
+              f" ⇒ 这一次**没有**自检「本脚本的 cue 有没有在那边登记」")
+        return None
+
+
+def _check_registered():
+    """六条残骸 cue 必须登记在 `import_original_sfx.CODE_ONLY_KNOWN` 里 —— 没登记才出声。"""
+    m = _shared_sfx_scan()
+    if m is not None:
+        m.check_coverage_registered([c for (_a, _w, c) in CUES], "残骸线（本脚本）")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true", help="只报告，不写盘")
     a = ap.parse_args()
+    _check_registered()
 
     if not os.path.exists(BUNDLE):
         print(f"🔴 bundle 不在：{BUNDLE}"); return 1

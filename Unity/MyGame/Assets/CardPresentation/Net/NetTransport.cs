@@ -41,7 +41,13 @@ namespace CardPresentation.Net
         int Port { get; }
         /// <summary>**累计接受过几条连接**（每次 `Setup` +1）。
         /// 🔴 上层用它做**边沿触发**：「有新连接进来」这件事只能看这个数变没变 ——
-        /// 光看 `IsConnected` 是**电平**，会让主机在等重连期间**反复重发握手包**（2026-09-26 实测到过）。</summary>
+        /// 光看 `IsConnected` 是**电平**，会让主机在等重连期间**反复重发握手包**（2026-09-26 实测到过）。
+        /// 🔴 它与 `IsConnected` **由同一次写发布**（A943）—— 见 `TcpTransport` 里 `_state` 那段。
+        /// ✅ **读侧也闭环了**（2026-10-18，同一条账 A943）：接口本身仍是两次读（`NetSession.Pump`
+        ///    先读这个数、再读 `IsConnected`），但**要「两个事实一致」的那处已经补了确认**
+        ///    —— 落点 `NetSession.cs:247`（`_t.IsConnected && (Role != NetRole.Host || _t.AcceptedCount == _lastAccepted)`；
+        ///    那半句只对主机成立 —— 客机的 `_lastAccepted` 没人写）。
+        ///    ⚠️ 新代码要用这两个事实判事，**照那一处抄**，别自己分两次读就下结论。</summary>
         int AcceptedCount { get; }
 
         void Listen(int port);
@@ -63,15 +69,56 @@ namespace CardPresentation.Net
         Thread _acceptThread, _readThread;
         readonly ConcurrentQueue<NetFrame> _inbox = new ConcurrentQueue<NetFrame>();
         readonly object _sendLock = new object();
-        volatile bool _connected, _peerLost;
+        volatile bool _peerLost;
         string _lastError = "";
 
+        // 🔴 **A943（2026-10-18）：连接位与接受计数【同处一个 32 位字、由一次 CAS 一起发布】**。
+        //    原来 `Setup` 里是 `_connected = true;` 紧接着 `AcceptedCount++;` —— **两条独立的写**，
+        //    而写它的是**接受线程**（`AcceptLoop` → `Setup`）、读它的是**主线程**
+        //    （`NetSession.Pump`，每帧 / 自检里显式调）⇒ 存在一个「已连接、但计数还没加」的**中间态**。
+        //    读侧恰好撞上那个中间态时（`Pump:213` 读到旧计数 ⇒ 不刷新静默基线；
+        //    `Pump:232` 读到连接位已立 ⇒ 把一条**刚连上、一条包都还没发**的连接判成
+        //    「10 秒没收到对面的任何消息」并 `ClosePeer`）——**掐掉一条好连接**
+        //    （同一族的日志实证见 `资料/普查产出_1017/D4_联机诊断.md` §②）。
+        //    ⇒ 现在两个事实**同处一个字**：要么都看得见、要么都看不见，**不存在半次发布**。
+        //    ⚠️ 顺序**不能改成「先加计数、后置连接位」**（那会更糟）：上层是**边沿触发**
+        //       （`NetSession.Pump:213-215` 看到计数变了就 `_lastAccepted = …` 并**立刻**发 `Challenge`），
+        //       那一刻 `Send`（本文件 `:300` 一带）会看到「还没连上」⇒**握手包发不出去、边沿却被消费掉了**
+        //       ⇒ **永久握不上**。所以「连接位先可见」这条顺序是**必须保持**的 —— 现在由同一个字保证。
+        //    ✅ **2026-10-18 读侧也闭环了**（原来这一行写的是「还剩半边、那一段在 `NetSession.cs`、
+        //       不在本案白名单里」—— 这一轮补上了）：`NetSession.cs:247` 那道静默超时判据补了
+        //       `(Role != NetRole.Host || _t.AcceptedCount == _lastAccepted)` ⇒「**计数还是我认过的那个**」
+        //       才说明**没有新发布夹在上面那次计数读（`NetSession.cs:213`）与这次连接位读之间**
+        //       ⇒ 不会拿「旧基线 + 新连接位」掐掉一条刚连上的连接。
+        //       🔴 那个 `Role` 项**不能省**：客机的 `_lastAccepted` 没人写（停在 -1）、而它的计数是 1
+        //          （`Setup` 在客机 `Connect()` 里也跑）⇒ `1 == -1` 恒假 ⇒ **客机的静默超时会永久关掉**。
+        //       **本账闭环 = 写侧一个字（本文件）+ 读侧一次确认（`NetSession`）**。
+        //       判别式见 `NetSelfTest` §P（可注入传输把那个纳秒窗口摆出来；P⑫ 钉客机那半边）。
+        //    ⚠️ **别把这个字段声明成 `volatile`** —— 可见性已由 `Volatile.Read` / `Interlocked` 负责，
+        //       声明成 volatile 反而会让 `ref` 传参报 CS0420。
+        int _state;                        // bit0 = 有活连接；bit1..31 = 累计接受过几条连接
+        const int ConnBit = 1;
+        const int CountStep = 2;           // 计数左移一位：加它**永远碰不到**连接位（也不用进位）
+
         public bool IsListening { get { return _listener != null; } }
-        public bool IsConnected { get { return _connected; } }
+        public bool IsConnected { get { return (Volatile.Read(ref _state) & ConnBit) != 0; } }
         public bool PeerLost { get { return _peerLost; } }
         public string LastError { get { return _lastError; } }
         public int Port { get; private set; }
-        public int AcceptedCount { get; private set; }
+        public int AcceptedCount { get { return Volatile.Read(ref _state) >> 1; } }
+
+        /// <summary>A943：**原子地**翻状态字（读-改-写一次完成）。
+        /// `connected` = 置/清连接位；`bumpCount` = 计数 +1。两者**在同一次写里落地**。</summary>
+        void Publish(bool connected, bool bumpCount)
+        {
+            while (true)
+            {
+                int cur = Volatile.Read(ref _state);
+                int next = bumpCount ? cur + CountStep : cur;
+                next = connected ? (next | ConnBit) : (next & ~ConnBit);
+                if (Interlocked.CompareExchange(ref _state, next, cur) == cur) return;
+            }
+        }
 
         // ---- 主机 ----
 
@@ -139,7 +186,7 @@ namespace CardPresentation.Net
                 TcpClient c = null;
                 try { c = lis.AcceptTcpClient(); }
                 catch { return; }                      // 监听被关掉 = 正常退出
-                if (_client != null && _connected)
+                if (_client != null && IsConnected)
                 {
                     // 已经有**活的**对家了 ⇒ 多出来的直接关掉（v1 只支持 1v1，不排队）
                     try { c.Close(); } catch { }
@@ -216,8 +263,9 @@ namespace CardPresentation.Net
                 _client = c;
                 _stream = c.GetStream();
                 _peerLost = false;
-                _connected = true;
-                AcceptedCount++;                     // 🔴 上层靠它「边沿触发」新连接（见接口注释）
+                // 🔴 A943：**一次写**发布两个事实（原来这里是 `_connected = true;` + `AcceptedCount++;` 两句）。
+                //    顺序仍是「连接位先可见」（见字段区那段：反过来会让上层消费掉握手边沿却发不出包）。
+                Publish(connected: true, bumpCount: true);
                 _lastError = "";
                 _readThread = new Thread(ReadLoop) { IsBackground = true, Name = "wf-net-read" };
                 _readThread.Start();
@@ -236,7 +284,7 @@ namespace CardPresentation.Net
             try { if (_stream != null) _stream.Close(); } catch { }
             try { if (_client != null) _client.Close(); } catch { }
             _stream = null; _client = null;
-            _connected = false;
+            Publish(connected: false, bumpCount: false);   // A943：只清连接位，**计数是「累计」、不动**
         }
 
         // ---- 收 ----
@@ -282,7 +330,7 @@ namespace CardPresentation.Net
         void Fail(string why)
         {
             if (_lastError == "") _lastError = why;
-            _connected = false;
+            Publish(connected: false, bumpCount: false);   // A943：同上 —— 掉线只清连接位
             _peerLost = true;                          // 「连过又断了」—— 与「还没连上」区分开
         }
 
@@ -291,7 +339,7 @@ namespace CardPresentation.Net
         public void Send(string kind, string payloadJson)
         {
             var s = _stream;
-            if (s == null || !_connected) { _lastError = "还没连上，发不出去"; return; }
+            if (s == null || !IsConnected) { _lastError = "还没连上，发不出去"; return; }
             byte[] buf = NetProtocol.Frame(kind, payloadJson);
             try
             {

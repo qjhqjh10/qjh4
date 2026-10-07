@@ -3,6 +3,14 @@
 // 随机数用 `System.Random(seed)` 而**不是** `UnityEngine.Random` —— 后者有全局状态、
 // 会被别处悄悄消耗，对局就没法复现了。同一个种子必须永远得到同一局。
 // （特效线吃过这个亏：粒子随机种子没钉死，两遍扫描 60% 的行会变，噪声和要测的改动一样大。）
+//
+// 🔴 **本文件里那些 `rule_core.gd:<行>` 是什么**：`d:/warpforge/scripts/rule_core.gd`
+//    = **我们自己的上一版 Godot 复刻**（70 个 `.gd`），**只作对照/旁证**，**不是原版语义判据**。
+//    判据顺序 = ① 原版全量反编译 `D:/2/tools/decomp_full/` → ② 解包资源字段 → ③ 成品卡图卡面文字；
+//    粉丝实体规则书（《Warpforge Offline Rulebook》，非官方）与那份 `.gd` 都只作**第二来源/旁证**。
+//    ⚠️ **2026-10-18 更正（铁律 5）**：本文件下面原来有 9 处把那些行号写成「**原版**
+//    `rule_core.gd:NNNN`」—— **那是错的**（出处 = `CLAUDE.md` 铁律 2 的 2026-09-18 更正），
+//    已逐处改口径；行号保留（它是可复查的坐标）。
 using System;
 using System.Collections.Generic;
 
@@ -16,7 +24,7 @@ namespace RuleEngine
     /// </summary>
     public class PersistentEffect
     {
-        /// <summary>谁打出的 —— 只有**他自己的回合**才触发（`rule_core.gd:434`）</summary>
+        /// <summary>谁打出的 —— 只有**他自己的回合**才触发（我们上一版复刻 `rule_core.gd:434`，⚠️ **旁证**）</summary>
         public int Owner;
         /// <summary>来源卡（日志与排查用；规则书要求这类卡留档备查）</summary>
         public CardDef Source;
@@ -486,25 +494,24 @@ namespace RuleEngine
         /// 卡面只有一张：`TL53 Infinite Biomorphologies` 的
         /// `Choose an effect and give it to all troops in your hand`
         /// （中文「选择一个效果，给予你手牌中的所有部队」）。
-        /// **登记**在 `EffectResolver.GrantHandBuff`（选效果那一支的 `hand` 作用域），
+        /// **登记**在 `EffectResolver.AttachHandEffect`（三个登记点共用它），
         /// **兑现**在 `RuleCore.PlayCard`（那张牌真打出来的时候，加成随它上场）。
         ///
-        /// 🔴 **2026-09-18 第 7 行第 3 步：改成「一份一条」。**
-        ///    原来按「卡 + 份数」记（`CardDef Card; int Count;`）—— 那是「没有卡实例身份」时代的
-        ///    近似，注释里如实记着代价：「打出一张之后**新抽到的同名卡也会吃到**那份额度」。
-        ///    现在一条挂在**某一个实例**上，兑现的**就是那一份**，代价消失。
-        /// </summary>
-        public class HandBuff
-        {
-            /// <summary>手牌里的**那一份**（不是卡模板 —— 同名两张各挂各的）</summary>
-            public CardInstance Instance;
-            /// <summary>兑现时要跑的效果（打出时以**新上场的那个单位**为目标）</summary>
-            public List<EffectOp> Ops;
-            public string Source;
-        }
-
-        /// <summary>手牌加成清单 —— 消费点只此一处：`RuleCore.ApplyHandBuffs`。</summary>
-        public readonly List<HandBuff> HandBuffs = new List<HandBuff>();
+        /// 🔴 **2026-10-18（`A885`）· 搬走了（铁律 5 的「就地改掉」）**：
+        ///    原来这里放的是 `class HandBuff { Instance; Ops; Source; }` + `List<HandBuff> HandBuffs`
+        ///    —— 一张**对局级**的表，兑现时要 `ReferenceEquals(h.Instance, inst)` 回查。
+        ///    原版不是这个形状：效果**长在牌自己身上**（`CardScript.AddEffect(那张牌, cardEffect)`，
+        ///    `PlayerHand__SetupCardInHand.c:71` · `PlayerHand__AddHandEffect.c:126-135`，
+        ///    存在 `CardScript +0x108` 的 `List<CardEffect>`），打出时**跟着那张牌上场**
+        ///    （`RemoveCardFromHand.c:20` 只把牌从 `currentHand` 里摘掉，不销毁不重建）。
+        ///    ⇒ 存放处搬到 **`CardInstance.HandBuffOps` / `HandBuffSource` / `HandBuffExpire*` /
+        ///      `HandBuffUsesRef`**（每个实例一份），**这里不再有那张表**。
+        ///    ⛔ **别再在对局表上重建一份** —— 两处各存一份 = 迟早不一致（铁律 §三）。
+        ///    ⚠️ 过期与次数上限（原版 `PlayerHand.UpdateCardEffects` / `CardPlayedWithEffects`）
+        ///      也落在实例那几个字段上，清扫点 = `RuleCore.ExpireHandBuffs`（`EndTurn` 里调）。
+        ///
+        /// 📌 历史留痕（2026-09-18 当时的状态，只留结论）：原来按「卡 + 份数」记
+        ///    （`CardDef Card; int Count;`）—— 那是「没有卡实例身份」时代的近似。</summary>
 
         /// <summary>只留最近 N 条，防长对局把内存吃满</summary>
         public int EventCapacity = 2000;
@@ -512,7 +519,7 @@ namespace RuleEngine
         /// <summary>
         /// **本回合阵亡了几个单位**。规则书 :189 / :201 那一族「每有 1 个阵亡就…」按它计数
         /// （`For each one that dies, heal 2 …`）。回合开始时清零。
-        /// 原版 `rule_core.gd` 里没有这个字段，是照着卡面语义补的。
+        /// 我们上一版复刻 `rule_core.gd` 里没有这个字段，是照着**卡面语义**补的（卡面 = 判据③，⚠️ gd 只是旁证）。
         /// </summary>
         public int DiedThisTurn;
 
@@ -694,7 +701,7 @@ namespace RuleEngine
         /// **上一句效果打中的那个单位** —— 供文本里的 `it` / `them` / `the target` 指代。
         ///
         /// 为什么放在 ctx 上：这是**跨分句**的上下文（`Deal 3 damage to an enemy. If it dies, draw a card.`
-        /// 两个分句要串起来），不是某一个单位的属性。原版用 `rule_core` 的 `it_target` / `_last_pick`
+        /// 两个分句要串起来），不是某一个单位的属性。上一版复刻用 `rule_core` 的 `it_target` / `_last_pick`
         /// 两个变量记同一件事（`:2730`），我们合成一个。
         /// ⚠️ 它**可能已经死了/已经不在场上**（`If the target dies` 就是要判这个），所以取用方必须判活。
         /// </summary>
@@ -704,7 +711,7 @@ namespace RuleEngine
         /// **上一条效果影响到的**那一批单位**（`Deal 2 damage to all units and give **them** Blind`）。
         ///
         /// 和 <see cref="LastTarget"/> 的分工：`it` / `the target` 指**一个**，`them` 指**一批**。
-        /// 只记 `LastTarget` 会让 `give them X` 落到「己方全体」那个近似上（原版 `rule_core.gd:3137`
+        /// 只记 `LastTarget` 会让 `give them X` 落到「己方全体」那个近似上（上一版复刻 `rule_core.gd:3137`
         /// 自己标着「近似」）—— `Deploy 3 Grot and give **them** Vanguard` 就会给错人。
         /// 由 <see cref="RuleCore.ResolveOps"/> 那条路（`ResolveTargets` / `DoDeploy`）写。
         /// </summary>
@@ -777,7 +784,7 @@ namespace RuleEngine
 
         /// <summary>
         /// **上一条效果造出来的那些卡** —— 供 `They cost 1 less` / `It costs 2 less` 指代
-        /// （原版用 `ctx.last_created` 记同一件事，见 `rule_core.gd:3002`）。
+        /// （上一版复刻用 `ctx.last_created` 记同一件事，见 `rule_core.gd:3002`；⚠️ **旁证，非原版**）。
         ///
         /// 🔴 **2026-09-18 第 7 行第 3 步：元素类型 `CardDef` → `CardInstance`。**
         ///    「指代」必须落到**具体哪一份**上 —— `Master of Manoeuvre` 的
@@ -798,9 +805,9 @@ namespace RuleEngine
         public int LastSpentSpirit;
 
         /// <summary>
-        /// **上一次选牌挑中的那张卡**（`Choose a …`）—— 原版 `rule_core.gd:1152` 的 `ctx["_chosen_card"]`。
+        /// **上一次选牌挑中的那张卡**（`Choose a …`）—— 我们上一版复刻 `rule_core.gd:1152` 的 `ctx["_chosen_card"]`（⚠️ **旁证，非原版**）。
         ///
-        /// 和 <see cref="LastCreated"/> 的分工：选牌时**两个都写**（原版 `:1151-1152` 就是同时写
+        /// 和 <see cref="LastCreated"/> 的分工：选牌时**两个都写**（那份 `.gd` 的 `:1151-1152` 就是同时写
         /// `last_created` 和 `_chosen_card`），所以 `Lower its cost by N` / `It costs N less`
         /// 那条走 `LastCreated` 的 `(指代上一张)` 路径**不用改**就通了。
         /// 这个字段单独留一份，是给**「复制选中那张」**（`create a copy of it`）用的 ——
@@ -811,8 +818,48 @@ namespace RuleEngine
         public CardInstance LastChosenCard;
 
         /// <summary>
+        /// **手牌那一侧的指代槽（复数）** —— `give **them** X` 里的「它们」指的是**手里的那几份**时的存放位置。
+        ///
+        /// 与 <see cref="LastCreated"/> / <see cref="LastChosenCard"/> 并列，但**指的不是同一件事**：
+        /// 那两个槽装的是「上一张造出来的 / 上一次选牌选中的」牌（在牌库、手牌、场上都可能），
+        /// 本槽只有一个意思 —— 「**这一步落到手牌里的那几份**」。
+        ///
+        /// 🔴 **为什么要有它**（2026-10-18 · 待办 `A888`）：在此之前
+        /// `EffectResolver.HandReferents` **只**认 <see cref="DrawnThisResolve"/> 当兜底 ——
+        /// 那本来是「本次结算抽到了哪几张」的**计数账**（`For each troop drawn …` 用它），
+        /// 拿它当代词槽是**推断**：只有「先抽、后指代」这一种卡面形状兜得住。
+        /// 而 `draw` 之外**没有任何写点**（`give … in hand` 那条路也一样），
+        /// 于是「槽」永远等于「这次抽到的那几张」。
+        /// ⇒ 现在补成**真的槽**：**先读槽、槽空才退回 `DrawnThisResolve`**（兜底保留，
+        ///   `GOF50` / `TAU54` / `GOF_Da_Red_Waaagh` / `UM23` 那四张靠它活着）。
+        ///
+        /// **谁写**：`EffectResolver.DoDraw`（抽上手的那几份）·
+        ///   `EffectResolver.AttachEffectToHandInstances`（刚把效果挂上去的那几份）。
+        /// **谁读**：`EffectResolver.HandReferents`（两个调用点：`DoGive` 的 `prev` 支 ·
+        ///   `ConditionHolds` 的 `targethaskw` 手牌支）。
+        /// **什么时候清**：`RuleCore.ResolveOps` 的入口 —— 与 <see cref="DrawnThisResolve"/>
+        ///   **同一个窗口**（一条能力一个窗口）。
+        /// 🔴 **这条清空必须留着** —— 不清的话上一张卡留下的那几份会**抢班**：
+        ///   `GOF_Da_Red_Waaagh` / `UM23` 那两张**单数 `it`** 走的是同一条路（`give it …`），
+        ///   它们自己**不写槽** ⇒ 全靠兜底；槽里一旦有残值就会被顶掉（静默错打）。
+        /// </summary>
+        public readonly List<CardInstance> LastHandTargets = new List<CardInstance>();
+
+        /// <summary>
+        /// **手牌那一侧的指代槽（单数）** —— `give **it** X` 指的是手里那一份时的存放位置。
+        ///
+        /// 与 <see cref="LastHandTargets"/> 是**一对**（和 <see cref="LastTargets"/> / `LastTarget`
+        /// 那一对同构）：复数读列表、单数读这一个。
+        ///
+        /// ⚠️ **只在「候选恰好一个」时写**：卡池里没有 `Draw two troops and give it …` 这种写法，
+        ///    而单数 `it` 从一堆里**挑一个** = 静默猜（本工程红线）⇒ 写点拿不准时**留 `null`**，
+        ///    由 `HandReferents` 退回兜底，别在这儿替卡面做决定。
+        /// </summary>
+        public CardInstance LastHandTarget;
+
+        /// <summary>
         /// **本局阵亡的部队**（`Choose a friendly troop that died this game / this battle /
-        /// since your last turn` 的候选来源）—— 原版 `rule_core.gd:1004-1024` 的 `dead` 域。
+        /// since your last turn` 的候选来源）—— 上一版复刻 `rule_core.gd:1004-1024` 的 `dead` 域（⚠️ **旁证**）。
         ///
         /// ⚠️ **为什么不复用 `PlayerState.Discard`**：`Discard` 是**单位与战术混装**的
         ///    （打出的战术卡也进那儿，见 `RuleCore.PlayTactic`），拿它当墓地会挑出「已经打掉的战术卡」。
@@ -869,7 +916,7 @@ namespace RuleEngine
         /// 所以这里存的是「谁 + 来源卡 + 触发时机 + 正文」，不是把效果烘成一个数。
         ///
         /// 由 `EffectResolver.DoPersist` 在**打出时**登记，`RuleCore.ResolveAtTurn` 在每个
-        /// 回合的起/止按 `Owner == 当前行动方` 消费（`rule_core.gd:431-435` 同一口径）。
+        /// 回合的起/止按 `Owner == 当前行动方` 消费（我们上一版复刻 `rule_core.gd:431-435` 同一口径，⚠️ **旁证**）。
         /// </summary>
         public readonly List<PersistentEffect> PersistentEffects = new List<PersistentEffect>();
 
@@ -1048,7 +1095,7 @@ namespace RuleEngine
         //    「双方结算伤害 **→** 生命归 0 方触发效果」。
         // ⚠️ 名字叫 `Defer`/`Flush` 而不是 `Begin`/`End`，是因为**批会嵌套**（见 <see cref="FlushDeaths"/>）。
         //
-        // ⚠️ 数值的比较口径**不动**：原版 `rule_core.gd:4310` 有明确修正记录
+        // ⚠️ 数值的比较口径**不动**：我们上一版复刻 `rule_core.gd:4310` 有明确修正记录（⚠️ **旁证，非原版**）
         //    「反击**不**因目标死亡而跳过」⇒ 被攻击方的反击值取**受伤之前**的
         //    （`DeclareAttack` 里已经存了 `counterAtk`）。这条是 2026-08-21 修的，**别退回**。
 

@@ -1,7 +1,7 @@
 {
  "schema": "card_vfx_by_card/v1",
  "generatedBy": "d:/4/Unity/工具/gen_card_vfx_by_card.py",
- "generatedAt": "2026-09-29 22:56:28",
+ "generatedAt": "2026-10-07 15:24:49",
  "_sources": {
   "cardsEngine": "d:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json",
   "animAddressMap": "d:/4/Unity/数据/索引/anim_address_map.json",
@@ -171,7 +171,7 @@
      "src": "CardPrefab.cardDestroyFX",
      "conf": "exact",
      "evidence": "`CardScript.cardDestroyFX`（`UnitDeath` 里 `Instantiate(cardDestroyFX, 卡位置, 3D体旋转)`）",
-     "inLibrary": false
+     "inLibrary": true
     }
    ],
    "heal": [
@@ -246,9 +246,7 @@
     "inLibrary": true
    }
   ],
-  "notInVfxLibrary": [
-   "Card 3D Death Explosion (事件 death ← CardPrefab.cardDestroyFX)"
-  ]
+  "notInVfxLibrary": []
  },
  "byKeywordTrigger": {
   "armour": {
@@ -2775,7 +2773,7 @@
     }
    ]
   },
-  "DA_Sergeant_Naaman": {
+  "DA11": {
    "ability": [
     {
      "prefab": "StealthEffect",
@@ -3063,7 +3061,7 @@
     }
    ]
   },
-  "DA_Ravenwing_Ballistus_Dreadnought": {
+  "DA83": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -4749,7 +4747,7 @@
     }
    ]
   },
-  "GOF_Veteran_Flyboy": {
+  "GOF31": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -5807,7 +5805,7 @@
     }
    ]
   },
-  "TAU_Stormsurge_Battlesuit": {
+  "TAU45": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -5887,7 +5885,7 @@
     }
    ]
   },
-  "TAU_Aunshi_Ethereal": {
+  "TAU34": {
    "ability": [
     {
      "prefab": "ShieldTraitEffect_Idle",
@@ -6165,7 +6163,7 @@
     }
    ]
   },
-  "TAU_Razorshark": {
+  "TAU39": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -6863,7 +6861,7 @@
     }
    ]
   },
-  "UM_Eliminator_Sergeant": {
+  "UM79": {
    "ability": [
     {
      "prefab": "StealthEffect",
@@ -7395,7 +7393,7 @@
     }
    ]
   },
-  "UM_Storm_Speeder_Hailstrike": {
+  "UM72": {
    "ability": [
     {
      "prefab": "FlyingEffect",

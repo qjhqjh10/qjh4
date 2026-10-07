@@ -2541,7 +2541,7 @@ public static class BattleScene
                 // 🔴🔴 **2026-10-11（A304 + A337 · 这是本条自检里唯一一条「静默量错」）**：
                 //    **A304 记的是「靶取错了」**：原来这句比的是 `Vector3.Distance(view.transform.position, slotPos)`，
                 //    两处都错：① `slotPos` 是**拖拽用的那个点**（`DropTargetWorld`），而落位补间飞向的是
-                //    `which.SlotPosition(land)`（`Hand/CardInteraction.cs:442`）⇒ 两者在 3D 下差
+                //    `which.SlotPosition(land)`（`Hand/CardInteraction.cs:465`）⇒ 两者在 3D 下差
                 //    **0.73 世界单位**（≈79 px：日志 `Release：指针世界 (…)` 实测 `DropTargetWorld(0) =
                 //    (−5.84, −0.89)` vs `SlotPosition(0) = (−5.53, −1.56)`）；
                 //    ② **跨了两个空间** —— 3D 下 `DropTargetWorld` 走 `LayoutSpace.ScreenToWorld`，
@@ -2553,7 +2553,7 @@ public static class BattleScene
                 //    （= 哨兵 −1 ÷ 30）。2D 时代（2026-09-16 之前）它打的是 **0.27s** —— 那是真的。
                 //    **A304 当时只把靶对齐到「补间的终点」**（那是 `SlotPosition`）—— 对齐的是**错的那一半**：
                 //    真缺陷在**终点本身**。**A337（同一天晚些）把终点改正了**
-                //    （`CardInteraction.cs:442` = `which.DropTargetWorld(land)`，理由与改坏法见那里）⇒
+                //    （`CardInteraction.cs:465` = `which.DropTargetWorld(land)`，理由与改坏法见那里）⇒
                 //    本检测器跟着**换成同一个口**（铁律 6：判据只此一处，⛔ 别在这里再算一次投影）。
                 //    ✅ 仍然**只比 x/y**（照抄本文件 `:6880` / `:6955` 已有的正确写法：z 是层次 ——
                 //    补间中段那句 `lift = tr.position + (0, 0.35, −0.2)` 会把 z 拉到 −0.8，末段才收回来）。
@@ -2599,7 +2599,7 @@ public static class BattleScene
                 Step(0.2f);
                 // 🔴 **这条断言就是 A304 的那颗牙**（上面那条读数一直打 −0.03s 而没人发现，因为它不报红）：
                 //    🧨 **改坏法（A337 之后【反过来】了 —— 以前「换成 `SlotPosition`」才是改坏法）**：
-                //    把 `arrivePos` 换成 `pBoard.SlotPosition(freeSlot)`（= 与 `CardInteraction.cs:442`
+                //    把 `arrivePos` 换成 `pBoard.SlotPosition(freeSlot)`（= 与 `CardInteraction.cs:465`
                 //    的终点**不一致**）⇒ 靶差 0.73 世界单位 ⇒ 卡一辈子到不了 ⇒ `atSlotStep` 永远停在
                 //    哨兵 −1 ⇒ **这里当场红**；
                 //    把**终点与这里【一起】**改回 `SlotPosition` ⇒ 这条会绿 —— 那是上面那条 `sep3D` 与
@@ -8128,9 +8128,10 @@ public static class BattleScene
                 //   · 框内 `Label` 230×46（内缩 10,7）· `Arrow` **20×20**（框内偏移 225,19，`preserveAspect` 内接）
                 //   · 左边标签 `SelectLanguageText` 335×57.53，TMP `m_text = 'Select Language'` fs42，
                 //     词条 `mTerm = MainMenu/Settings/ButtonLabel/SelectLanguage`
-                // 控件本身 = 原版 `LanguageSelector : MonoBehaviour`（唯一字段 `TMP_Dropdown`）⇒ 语言选择是**下拉框**；
-                //   ⚠️ 本工程只落了「点一下换下一个」（12 项那棵树**没建**，已记账，见 `SettingsPanel.CycleLanguage`）。
-                // 🧨 改坏法：① 框的尺寸写错 / 没建 ⇒ 第 1 条红；② 换语言后不重设字（`RefreshTexts` 没接）⇒ 第 2 条红；
+                // 控件本身 = 原版 `LanguageSelector : MonoBehaviour`（唯一字段 `TMP_Dropdown`）⇒ 语言选择是**下拉框**。
+                // ✅ **2026-10-18（A921）**：12 项那棵树**已建**（`SettingsPanel.BuildLangTemplate` / `ShowLangList`，
+                //   判据 = **战斗内**那棵子树逐字段实读）—— 本节只量**那一行自己的四件**，那 12 行在下一节 **14b5**。
+                // 🧨 改坏法：① 框的尺寸写错 / 没建 ⇒ 第 1 条红；② 点框那一刻顺手把语言换掉（旧的「点一下换下一个」）⇒ 第 3 条两条红；
                 //   ③ 把触发挪到**按下**那一帧（或不收边沿）⇒ 第 3 条（单边沿）红；
                 //   ④ 词条键打错 ⇒ 第 5 条红；⑤ 命中区写成「整个面板」⇒ 第 6 条（抬起跑到框外）红。
                 {
@@ -8161,24 +8162,33 @@ public static class BattleScene
                               $"★ 先落 `Chinese` ⇒ 框里那颗语言名 = 「{sp.LanguageCaptionText}」"
                             + "（词条 = 原版 `ResetLanguagesDropdown` 拼的 `MainMenu/Settings/LanguageName/Chinese`）");
 
-                        // ③ 点击链：**按下 / 抬起**一对边沿才换。判别式 = 只喂按下那一帧不换。
+                        // ③ 点击链：**按下 / 抬起**一对边沿才动。判别式 = 只喂按下那一帧**什么都不发生**。
+                        // 🔴 **2026-10-18（A921）改**：这一下现在**开的是那 12 行的列表**（原版 `TMP_Dropdown`
+                        //   `OnPointerClick → Show()`），⛔ **不再**「点一下换下一个」——语言要**选中某一行**才换
+                        //   （那几条在下一节 **14b5**）。本节的「抬起来 / 边沿」那两条**形状没变**，只是换了观察量。
                         var lfp = sp.LanguageFieldWorldPos;
                         int langBefore = (int)Loc.Current;
-                        Check(sp.PointerFrame(lfp, true) == false && (int)Loc.Current == langBefore,
-                              $"★ 判别式：只喂**按下**那一帧 ⇒ 语言**不换**（还是 `{Loc.Current}`）"
+                        Check(sp.PointerFrame(lfp, true) == false && (int)Loc.Current == langBefore && !sp.LangListOpen,
+                              $"★ 判别式：只喂**按下**那一帧 ⇒ 语言**不换**、列表**也不开**（还是 `{Loc.Current}`）"
                             + " —— 改成「按下就触发」这条就红（原版那颗是 `Selectable`，走 `IPointerClickHandler`，**抬起**才触发）");
                         bool langCaught = sp.PointerFrame(lfp, false);
                         Check(langCaught,
                               "★ 抬起那一帧 ⇒ 这一下被语言那一行**接住**（`PointerFrame` 返回 true）");
-                        Check(Loc.Current == AvailableLanguages.English,
-                              $"★ …并且**真的换了**：Chinese → `{Loc.Current}`"
-                            + "（`Loc.Languages` 的声明序 = 原版 `AvailableLanguages` 的下拉项序，中文的下一项就是 English）");
-                        Check(sp.LanguageCaptionText == "English",
-                              $"★ …框里那颗语言名**跟着变**成「{sp.LanguageCaptionText}」（两态都钉死：`中文` / `English`）");
+                        Check(sp.LangListOpen && (int)Loc.Current == langBefore,
+                              $"★ …而这一下**只是把列表开出来**：`LangListOpen = {sp.LangListOpen}`、语言仍 `{Loc.Current}`"
+                            + " —— 旧的「点一下换下一个」写法在这一条必红（它会顺手换成下一项）");
+                        Check(sp.LanguageCaptionText == "中文",
+                              $"★ …框里那颗语言名**没变**（仍是「{sp.LanguageCaptionText}」；换语言要选中一行，见 14b5）");
+                        sp.HideLangList();       // ⑤ 的前提 = 列表关着（不然那一下按下会被列表的 `Blocker` 吃掉）
 
                         // ④ 左边那颗标签的文案 —— **英文那一态就是原版 TMP 印的那句**
-                        Check(sp.LanguageLabelText == "Select Language",
-                              $"★ 左边那颗标签 = 原版 TMP 的 `m_text` `'Select Language'`（实得「{sp.LanguageLabelText}」）");
+                        //   ⚠️ 2026-10-18 订正：这条原来**写死英文**，而标签自 2026-10-17 起走词条了
+                        //     （`MainMenu/Settings/ButtonLabel/SelectLanguage`）⇒ **中文档会印「选择语言」**、
+                        //     这条就红（**收口自检实测：1921 通过 / 1 失败 = 就是它**）。
+                        //     改法照同批先例（`Editor/CollectionScene.cs:2861` / `:2875`）：**随语档**取期望值，
+                        //     ⛔ 不是把断言删掉 —— 两档都各有一个**字面量**，仍然分得出「标签没画 / 画错了」。
+                        Check(sp.LanguageLabelText == (Loc.Current == AvailableLanguages.English ? "Select Language" : "选择语言"),
+                              $"★ 左边那颗标签 = 原版 TMP 的 `m_text` `'Select Language'` 那一档（当前语档实得「{sp.LanguageLabelText}」）");
                         Check(SettingsPanel.LangLabelTermKey == "MainMenu/Settings/ButtonLabel/SelectLanguage",
                               $"★ …而它的词条键 = 原版那颗 `Localize.mTerm`（实得 `{SettingsPanel.LangLabelTermKey}`）");
 
@@ -8197,6 +8207,151 @@ public static class BattleScene
                               $"…语言放回「{sp.LanguageCaptionText}」");
                     }
                     finally { Loc.PersistOverride = locPersistWas; }
+                }
+
+                // ---- 14b5. 🆕 2026-10-18（A921）：语言下拉的**12 行列表**（原版 `LanguagesDropdown > Template`）----
+                // 判据（**战斗内**那扇自己的字段，2026-10-18 实读 `bundle_scenes_scenes_battlearena1/`）：
+                //   · `Template`(RT 3553) `ap(-2.5,-22) sd(-4.9998, **573.96**) pivot(0.5,1)` ⇒ 宽 = 框宽 250 − 5 = **245**、
+                //     高 **573.96**、**顶 = 框心 − 22**；`Viewport.sd.x = **-17**`（右沿让给滚动条）；
+                //   · `Content.sd.y = 41.7226`（模板位一行）· `Item.sd.y = **40.8707**`（行高）；
+                //   · `Item Checkmark` `ap(10,0) sd(20,20)` ⇒ **中轴 = 行左起 10**（`Simple`，拉伸）；
+                //   · `Item Label` `ap(5,-0.5) sd(-30,-3)` ⇒ 内边距 **左 20 右 10 上 2 下 1** · TMP `fs 30` · 灰 (0.783…)。
+                // 行为判据 = 官方 `TMP_Dropdown`（本 build 用的就是它）：点框开（`Show():778` —— 克隆体改名
+                //   `"Dropdown List"`、`SetParent(m_Template.transform.parent, false)`）· 点行 = `OnSelectItem:1247`
+                //   （选中 + **末尾 `Hide()`**）· 点空白 = 那颗铺满全屏的透明 `Blocker` 的 `onClick → Hide`
+                //   （`CreateBlocker:1073`）· **ESC = `OnCancel:763 → Hide()`（先收列表、窗不关）**。
+                // 🔴 **别抄主菜单那扇的绝对坐标**（`Shell/SettingsWindow` 的 596.556 / 992.222 是**那扇窗**的；
+                //   本扇那颗框只有 250 宽 ⇒ 列表 245）。两处**逐字段同构**、**只有行底图的染色不同**
+                //   （本扇 (0, 0.8314, 0.5255) ⇄ 那扇 (0.2863, 0.9647, 0.6863)）。
+                // 🧨 改坏法：① 行高 / 列表框写错 ⇒ ① 那几条红；② 点行不收起 ⇒ ② 红；③ 点空白不收 ⇒ ③ 红；
+                //   ④ ESC 直接关窗（或不收列表）⇒ ④ 红；⑤ **点框那一刻就换语言**（= 旧的「点一下换下一个」）⇒ 判别式红。
+                {
+                    var locWas5 = Loc.Current;
+                    bool locPersist5 = Loc.PersistOverride;
+                    Loc.PersistOverride = true;      // ⛔ 自检一个字节都不写 `PlayerPrefs["Language"]`
+                    try
+                    {
+                        Check(sp.Visible, "（前提）设置面板开着 —— 列表那几条只在开着时认账");
+                        Loc.SetLanguage(AvailableLanguages.Chinese);     // 起始态固定（= 下拉的最后一项）
+                        sp.RefreshTexts();
+                        sp.HideLangList();
+
+                        // ---- ① 开（原版 `Show()`）----
+                        var f5 = sp.LanguageFieldWorldPos;
+                        int lgBefore = (int)Loc.Current;
+                        sp.PointerFrame(f5, true);                       // 按下：只记「这一下从框上开始」
+                        Check(sp.PointerFrame(f5, false) && sp.LangListOpen,
+                              "★ A921：**点框那一对边沿 ⇒ 列表开**（原版 `TMP_Dropdown.OnPointerClick → Show()`）");
+                        Check((int)Loc.Current == lgBefore,
+                              $"★ A921 判别式：**开列表这一下不许换语言**（仍 `{Loc.Current}`）——"
+                            + " 旧的「点一下换下一个」写法在这一条必红（它会顺手换成下一项）");
+                        Check(sp.LangRowCount == Loc.Languages.Length,
+                              $"★ A921：列表里 **{sp.LangRowCount} 行**（= `Loc.Languages.Length` —— 原版"
+                            + " `LanguageSelector.ResetLanguagesDropdown` 遍历的那个静态数组 = 12 项）");
+                        Check(sp.LangTemplateNode != null && !sp.LangTemplateNode.gameObject.activeSelf,
+                              "★ A921：`Template` 原型在、而且**恒 inactive**（原版出厂 `m_IsActive = 0`；"
+                            + "显示的那份是 `Show()` 的克隆体）");
+                        Check(sp.LangListNode != null && sp.LangListNode.name == "Dropdown List"
+                           && sp.LangListNode.parent == sp.LangFieldNode,
+                              "★ A921：显示的那份叫 **`Dropdown List`**、且挂在**那颗语言框**下面"
+                            + "（原版 `Show():820` 改名 + `SetParent(m_Template.transform.parent, false)`）");
+                        // 行几何（相对框心）：宽 = 245 − 17 = 228 · 高 40.8707 · 第 1 行心 y = 7.7 − 20.435
+                        Check(sp.LangRowRectPx(0, out float q0x, out float q0y, out float q0w, out float q0h)
+                           && Mathf.Abs(q0h - 40.8707f) < 0.05f && Mathf.Abs(q0w - 228f) < 0.05f
+                           && Mathf.Abs(q0y + 12.7354f) < 0.05f && Mathf.Abs(q0x + 8.5f) < 0.05f,
+                              $"★ A921：第 1 行 = 中心 ({q0x:F3}, {q0y:F3})、{q0w:F3}×{q0h:F3} px"
+                            + "（原版 `Item.sd.y = **40.8707**`、宽 = 245 − 17 = **228**、行心 y = 7.7 − 20.435 = **−12.735**）");
+                        Check(sp.LangRowRectPx(sp.LangRowCount - 1, out float qLx, out float qLy, out float qLw, out float qLh)
+                           && Mathf.Abs(qLy - (-12.7354f - 11f * 40.8707f)) < 0.05f,
+                              $"★ A921：第 12 项的行心 y = {qLy:F3}（= 行心 − 11 × 40.8707 ⇒ 12 行**往下排**）");
+                        // 勾 / 字在行里的位置（都是「相对行左沿」的原版字段解出来的）
+                        var qBg0 = sp.LangRowBg(0); var qChk0 = sp.LangRowCheck(0); var qLb0 = sp.LangRowLabel(0);
+                        float rowLeft0 = qBg0 != null ? qBg0.transform.position.x - qBg0.WorldW * 0.5f : 0f;
+                        Check(qBg0 != null && qChk0 != null
+                           && Mathf.Abs((qChk0.transform.position.x - rowLeft0) * 108f - 10f) < 0.05f,
+                              "★ A921：勾的中轴 = **行左起 10**（原版 `Item Checkmark` 的 `ap(10,0)`）");
+                        Check(qBg0 != null && qLb0 != null
+                           && Mathf.Abs((qLb0.transform.position.x - rowLeft0) * 108f - 20f) < 0.05f,
+                              "★ A921：那行字的左沿 = **行左起 20**（原版 `Item Label` 的内边距 左 20）");
+                        int widest = 0;
+                        for (int i = 1; i < sp.LangRowCount; i++)
+                        {
+                            var a5 = sp.LangRowLabel(i); var b5 = sp.LangRowLabel(widest);
+                            if (a5 != null && (b5 == null || a5.WorldW > b5.WorldW)) widest = i;
+                        }
+                        var wlbl = sp.LangRowLabel(widest);
+                        float wpx = wlbl != null ? wlbl.WorldW * 108f : 0f;
+                        Check(wlbl != null && wpx <= 198.05f,
+                              $"★ A921：最长那条语言名实画 **{wpx:F1}px** ≤ 行内宽 **198**（= 228 − 左 20 − 右 10）"
+                            + "（原版那颗 TMP 开了 autosize 18~40，我们按 `fs 30` 定尺、不做 autosize ⇒ 这条盯"
+                            + "「将来换一套更长的语言名会顶出行外」）");
+                        var lastLbl = sp.LangRowLabel(11);
+                        Check(lastLbl != null && lastLbl.Text == Loc.LanguageName(Loc.Languages[11]),
+                              $"★ A921：第 12 行的字 = **那一项自己的语言名**（「{lastLbl?.Text}」= `Loc.Languages[11]`）");
+
+                        // ---- ② 点行 ⇒ 选中 + 收起（原版 `OnSelectItem:1247`）----
+                        var row0 = sp.LangRowWorldPos(0);          // 第 1 行 = `Loc.Languages[0]`（English）
+                        Check(sp.PointerFrame(row0, true),
+                              "★ A921：列表开着时按在行上 ⇒ 这一帧**被吃掉**（原版那颗铺满全屏的 `Blocker`"
+                            + " 盖住整屏 ⇒ 底下的滑块/按钮都不许响应）");
+                        bool rowCaught = sp.PointerFrame(row0, false);
+                        Check(rowCaught && !sp.LangListOpen,
+                              "★ A921：**点某一行 ⇒ 选中并收起**（原版 `OnSelectItem`：`value = i` + 末尾 `Hide()`）");
+                        Check(Loc.Current == Loc.Languages[0],
+                              $"★ A921：…语言 = **那一行的值** `{Loc.Current}`（= `Loc.Languages[0]`）"
+                            + " —— 行号 ↔ 语言的映射 = `Loc.Languages` 的**声明序**（原版那个静态数组的下标）");
+                        Check(sp.LanguageCaptionText == Loc.LanguageName(Loc.Current),
+                              $"★ A921：…框里那颗语言名跟着变成「{sp.LanguageCaptionText}」");
+
+                        // ②-b 判别式：按在行上、**抬到别处** ⇒ 不选（uGUI 的点击要求按下与抬起落在同一件上）；
+                        //     顺手把「重开时**只有选中那一行有勾**」也钉在这里 —— 原版 `Toggle.isOn` 是
+                        //     `Show()`/`AddItem` 的时候写进去的，**关着的时候那几颗勾本来就是旧的**
+                        //     （所以这条不能在「刚选完、列表还关着」那一刻量）。
+                        sp.ShowLangList();
+                        var chk0b = sp.LangRowCheck(0); var chk1b = sp.LangRowCheck(1);
+                        Check(chk0b != null && chk0b.gameObject.activeSelf && chk1b != null && !chk1b.gameObject.activeSelf,
+                              "★ A921：重开列表时**只有选中那一行有勾**（当前语言 = 第 1 行；原版 `Toggle.graphic` 按 `isOn`）"
+                            + " —— 勾画在所有行上 / 一行都不画 ⇒ 这条红");
+                        var row1 = sp.LangRowWorldPos(1);
+                        int lgNow = (int)Loc.Current;
+                        sp.PointerFrame(row1, true);
+                        sp.PointerFrame(f5, false);                      // 抬到框上（不在任何一行）
+                        Check((int)Loc.Current == lgNow && sp.LangListOpen,
+                              $"★ A921：按下在第 2 行、抬起跑到别处 ⇒ **不选**（语言仍 `{Loc.Current}`、列表仍开着）"
+                            + " —— 命中判定写成「按下就选」这条就红");
+
+                        // ---- ③ 点空白 ⇒ 收起（原版那颗全屏透明 `Blocker` 的 `onClick`）----
+                        var blank = EndPanel.Pos(960f, 900f, 0f);        // 面板上的空白处（不在任何一行、也不在框上）
+                        int lg3 = (int)Loc.Current;
+                        sp.PointerFrame(blank, true);
+                        Check(sp.PointerFrame(blank, false) && !sp.LangListOpen && sp.Visible,
+                              "★ A921：**点空白 ⇒ 列表收起**（原版 `CreateBlocker:1009` 那颗铺满全屏的透明 `Blocker`"
+                            + " 的 `onClick → Hide`）—— **窗不关**");
+                        Check((int)Loc.Current == lg3, $"★ A921：…而且不顺手换语言（仍 `{Loc.Current}`）");
+
+                        // ---- ④ ESC ⇒ **先收列表、窗不关**（原版 `TMP_Dropdown.OnCancel:763 → Hide()`）----
+                        sp.ShowLangList();
+                        Check(sp.LangListOpen, "（前提）列表又开出来了");
+                        SettingsPanel.EscapePressedForTest = true;       // 批处理里没有键盘设备 ⇒ 把这一帧钉死
+                        sp.PointerFrame(f5, false);                      // 走**生产那条**每帧入口（驱动层就是这么调的）
+                        SettingsPanel.EscapePressedForTest = null;       // 立刻还原（⛔ 生产恒为 null）
+                        Check(!sp.LangListOpen,
+                              "★ A921：**ESC 先收列表**（原版 `TMP_Dropdown.OnCancel → Hide()`：`Cancel` 事件按"
+                            + " 「当前选中对象 → 父链」派发，列表开着时那颗全屏 `Blocker`（内部类 `DropdownBlocker`）先吃到它）");
+                        Check(sp.Visible,
+                              "★ A921：…**窗不关**（`EscPressed()` 返回 true 就到此为止 —— 这条挡「ESC 顺手把面板关了」的写法）");
+                        Check(!sp.EscPressed() && sp.Visible,
+                              "★ A921 判别式：列表**没开**时 ESC **本件不吃**（返回 false、窗照旧开着）"
+                            + " —— 把 `EscPressed()` 写成「无条件关窗」这条就红");
+
+                        // ⑤ 收尾：语言 / 列表都放回去（后面还有一大堆断言，别让这一节改掉全局状态）
+                        Loc.SetLanguage(locWas5);
+                        sp.RefreshTexts();
+                        sp.HideLangList();
+                        Check(sp.LanguageCaptionText == Loc.LanguageName(locWas5),
+                              $"…语言放回「{sp.LanguageCaptionText}」");
+                    }
+                    finally { Loc.PersistOverride = locPersist5; SettingsPanel.EscapePressedForTest = null; }
                 }
 
                 // ---- 14c. 三根音量滑块（🆕 2026-09-19；原版 `BattleSettingsWindow` 的 music/SoundFX/voiceOver）----
@@ -9618,7 +9773,8 @@ public static class BattleScene
 
                     // ⚠️ **2026-09-13 改：这里原来是写死的 `1.72`**，注释还写着「刚过阵亡那一刻（1.70）」。
                     //    引擎改成「伤害**同时结算** → 死亡触发排在其后」（规则书 :145 + :238）之后，
-                    //    时间线上**多了一条** `Hit` —— 被攻击者的**反击**（原版 `rule_core.gd:4310`
+                    //    时间线上**多了一条** `Hit` —— 被攻击者的**反击**（我们上一版 Godot 复刻 `rule_core.gd:4310`
+                    //    （⚠️ **旁证、非原版**；2026-10-18 更正：这里原来直呼那份自研的 `.gd` 为「**原版**」）
                     //    修正过「近战击杀免反」那条规则偏差，所以目标死了也照样反击，反击是一次真伤害、
                     //    要占 `DurationOf(Hit)` 0.75 s）。⇒ 阵亡时刻从 1.70 推到 **2.45**。
                     //    **不再写死**：按事件表推出的时刻 = 命中那一刻 + 两次 Hit 的时长 + DeathHold。
@@ -9767,6 +9923,148 @@ public static class BattleScene
                         hand.Refresh(list);
                     }
                     hand.animateRelayout = savedAnim2;
+                }
+
+                // ---- ⑥c 手牌**压缩态**：把张数真灌到 ≥8，验「压缩 ⇒ 选中让位」（A950 · 2026-10-17 新起一节）----
+                // 🔴 **为什么单开一节**：⑥b 的第 (2)(3) 条钉的是**纯布局层**（把张数直接喂给
+                //    `IsCompressed` / `SpacingFor`，不经过任何视图），第 (5) 条虽然走真视图、走的是驱动层
+                //    那一个 `HandLayout` 实例，但张数取的是**当局实得**的 —— 开局这局只有个位数张
+                //    ⇒ `IsCompressed` **恒 false** ⇒ 「压缩态 ⇒ 选中让位」这一支
+                //    **在驱动层一次都没跑到**（⑥b 自己的注释写着「两档各断一头」，实际只断到
+                //    「装得下」那一头）。本节把某侧手牌**真灌到 ≥8 张**，让那一条支路真被走到。
+                // 🔴 这不是硬凑的极端情况：手牌上限就是 **10**（`GameplayVariables.ClassicHandLimit`，
+                //    `RuleEngine/Core/GameplayVariables.cs:99`）⇒ ≥8 张在正常对局里真会发生。
+                // 🔴 判据（**原版**，`d:/2/tools/decomp_full/CardsHorizontalLayout__GetPosition.c`）：
+                //      `:206 if (cap < n × 自然间距)` → `:210 spacing = cap / n`（压缩间距、`extra` 留着）；
+                //      否则 `:213 fVar10 = 0.0`（**装得下 ⇒ 连「选中外扩」一起归零**）。
+                //    我方同一处判据 = `Hand/HandLayout.cs:385-389`（`IsCompressed`）+ `:567-568`（门闸），
+                //    本节量的是它在**真视图**上的效果（视图由 `BattleDriver.SyncHand` 建出来）。
+                {
+                    bool savedAnim6c = hand.animateRelayout;
+                    hand.animateRelayout = false;      // 比**当场**的位置，不走补间（与 ⑥b 同一条规矩）
+                    bool savedFeel6c = drv.animateFeel;
+                    drv.animateFeel = false;           // 「发牌入场」会把新牌先摆在牌堆上，本节要的是终位
+
+                    var engHand6c = drv.Ctx.Players[0].Hand;
+                    int baseCount = engHand6c.Count;
+
+                    // 灌水牌：卡池里挑几张**互不重名**的**部队卡**（布局只看张数，挑谁都一样；
+                    // 不重名是为了让 `SyncHand` 的「按名配对」那一步没有歧义，只挑 unit 则避开督军/防御卡那些特殊分支）
+                    var extra = new List<CardDef>();
+                    foreach (var c in drv.Ctx.CardPool)
+                    {
+                        if (c == null || c.Type != "unit") continue;
+                        bool dup = false;
+                        for (int k = 0; k < extra.Count; k++) if (extra[k].Name == c.Name) dup = true;
+                        if (dup) continue;
+                        extra.Add(c);
+                        if (extra.Count >= 6) break;
+                    }
+
+                    // ⚠️ 走的是**本文件既有的夹具写法**：往引擎手牌 `Add` 一份新实例，再 `RefreshAll()`
+                    //    让 `SyncHand` 把它变成真视图（同 `:10489` / `:10549` 那几处）。
+                    //    「玩家动作走 `LocalAct`」那条记账规矩管的是**产品代码**里的动作路径，自检的直调在本文件有先例。
+                    int addCount = 0;
+                    void FillTo(int want)
+                    {
+                        while (engHand6c.Count < want && addCount < extra.Count)
+                        {
+                            engHand6c.Add(drv.Ctx.NewInstance(extra[addCount]));
+                            addCount++;
+                        }
+                        drv.RefreshAll();
+                    }
+
+                    bool ViewsOk(int n)
+                    {
+                        for (int i = 0; i < n; i++) if (drv.HandViewAt(i) == null) return false;
+                        return true;
+                    }
+
+                    // 量一次「选中第 sel 张（共 n 张）⇒ 左端 / 右端 / 被选中那张各移了多少 px」。
+                    // 先在 `hover=-1` 读一次**静止位**、再选中读一次 —— 不依赖上一态（上一态可能正让着位）。
+                    // 返回 (x=左端 px · y=右端 px · z=被选中那张的横向 px)，左让为负、右让为正。
+                    Vector3 ShiftPx(int sel, int n)
+                    {
+                        var l = new List<CardView>();
+                        for (int i = 0; i < n; i++) l.Add(drv.HandViewAt(i));
+                        var lv = drv.HandViewAt(0);
+                        var rv = drv.HandViewAt(n - 1);
+                        var sv = drv.HandViewAt(sel);
+                        hand.Refresh(l, -1, -1);
+                        float lx = lv.transform.position.x, rx = rv.transform.position.x, sx = sv.transform.position.x;
+                        hand.Refresh(l, sel, -1);
+                        return new Vector3((lv.transform.position.x - lx) * 108f,
+                                           (rv.transform.position.x - rx) * 108f,
+                                           (sv.transform.position.x - sx) * 108f);
+                    }
+
+                    // 前提断言（A195 那种口径：条件不成立就是红，**绝不静默跳过**下面的分档）
+                    Check(baseCount <= 7 && extra.Count >= 5,
+                          $"（前提）进这一节时手牌 ≤ 7 张、卡池里挑得出 ≥ 5 张灌水牌"
+                        + $"（实得 {baseCount} 张手牌 / {extra.Count} 张候选卡）");
+                    if (baseCount <= 7 && extra.Count >= 5)
+                    {
+                        // (b) 7 张 = 门闸**下面**那一头：装得下 ⇒ 连「选中外扩」一起归零
+                        FillTo(7);
+                        Check(drv.HandCount == 7 && ViewsOk(7),
+                              $"（前提）手牌灌到 7 张、且这 7 张都有真视图（画面实得 {drv.HandCount}）");
+                        if (drv.HandCount == 7 && ViewsOk(7))
+                        {
+                            var d7 = ShiftPx(3, 7);
+                            Check(!hand.IsCompressed(7),
+                                  "⑥c 7 张：`IsCompressed` 为假（装得下 —— 原版 `if (cap < n × 自然间距)` 不成立，"
+                                + "`GetPosition.c:206`）");
+                            // 🔴 **这条为什么能分辨**：原版在「装得下」那一支里把 `extra` 归零（`:213`），
+                            //    所以 7 张时**一个像素都不该让**。🧨 门闸一旦翻回旧写法 `!IsCompressed`
+                            //    （`HandLayout.cs:568` 那个方向），7 张时它会**反而**各让 29.7 px ⇒ 这里红；
+                            //    `IsCompressed` 被改成恒 true 也一样红。期望值 0 px **不是**从被测实现推的
+                            //    （它就是「原版那一支归零」的直接后果）。
+                            Check(Mathf.Abs(d7.x) < 0.01f && Mathf.Abs(d7.y) < 0.01f,
+                                  $"⑥c ……而 7 张时选中第 3 张，**两侧一点也不让**：左端 {d7.x:F2} / 右端 {d7.y:F2} px"
+                                + " —— 原版 `else { fVar10 = 0.0; }`（`GetPosition.c:213`）");
+                        }
+
+                        // (a) 9 张 = 门闸**上面**那一头：压缩态 ⇒ 两侧真的让位、量级 = 原版那个 2.0 世界单位
+                        FillTo(9);
+                        Check(drv.HandCount == 9 && ViewsOk(9),
+                              $"（前提）手牌灌到 9 张、且这 9 张都有真视图（画面实得 {drv.HandCount}）");
+                        if (drv.HandCount == 9 && ViewsOk(9))
+                        {
+                            var d9 = ShiftPx(4, 9);
+                            // 🔴 **期望值只用原版量算**：`extraSpaceOnSelectedCard` 2.0（原版世界单位）
+                            //    × **14.835 px / 世界单位** = 29.67 px。
+                            //    14.835 的出处 = `Hand/HandLayout.cs:297`（原版 UI 相机 fov40/平面 100）；
+                            //    2.0 的出处 = 原版字段名，⑥b 那条断言（`:9710`）也钉着同一个量。
+                            //    ⛔ **不从被测实现里算** —— 这里**不读** `hand.selectedCardExtra`，
+                            //    否则「实现改、期望值跟着改」= 同义反复（改坏了照样绿）。
+                            const float kExtraPx = 2.0f * 14.835f;
+                            // 🔴 **这条为什么能分辨**：它是**全项目唯一**会真走进「压缩态 ⇒ 让位」那一支的断言
+                            //    （⑥b(5) 跑在当局实得张数上，那时 `IsCompressed` 恒 false，让位合法地是 0）。
+                            //    🧨 ①`IsCompressed` 恒 false ⇒ 这里当场红；②让位量写 0 ⇒ 红；
+                            //    ③门闸翻回 `!IsCompressed` ⇒ 压缩态反而不让 ⇒ 红。
+                            Check(hand.IsCompressed(drv.HandCount),
+                                  $"⑥c 9 张：`IsCompressed({drv.HandCount})` 为真（装不下 ⇒ 压缩间距，"
+                                + "原版 `if (cap < fVar17)` → `spacing = cap / n`，`GetPosition.c:206-210`）");
+                            Check(Mathf.Abs(-d9.x - kExtraPx) < 0.5f && Mathf.Abs(d9.y - kExtraPx) < 0.5f,
+                                  $"⑥c ……而 9 张时选中第 4 张，**两侧真的让位**：左端 {-d9.x:F1} px / 右端 {d9.y:F1} px"
+                                + $"（原版 {kExtraPx:F1} px = `extraSpaceOnSelectedCard` 2.0 世界单位，两个方向都让）");
+                            Check(Mathf.Abs(d9.z) < 0.01f,
+                                  $"⑥c ……而被选中的那张自己不左右移（只抬起/放大，实得 {d9.z:F2} px）");
+                            Debug.Log(P + "   ⑥c " + hand.Describe(9));
+                        }
+                    }
+
+                    // 收尾：**把我灌进去的牌原样撤掉**（后面还有几节在这一局上跑，手牌状态必须还原）
+                    if (addCount > 0)
+                    {
+                        engHand6c.RemoveRange(engHand6c.Count - addCount, addCount);
+                        drv.RefreshAll();
+                    }
+                    Check(drv.HandCount == baseCount && engHand6c.Count == baseCount,
+                          $"⑥c 收尾：手牌还原成 {baseCount} 张（引擎 {engHand6c.Count} / 画面 {drv.HandCount}）");
+                    hand.animateRelayout = savedAnim6c;
+                    drv.animateFeel = savedFeel6c;
                 }
 
                 // ---- ⑦ 挨打震镜头 ----
@@ -12978,8 +13276,8 @@ public static class BattleScene
                     //      重新 `SetLayer(ArenaLayer)`（`RefreshAll` 每次跑都走一遍，幂等）；
                     //      而**关掉 3D 时确实没有任何路径把它改回 `Default`**。
                     //    · **但那半条不可达**：`driver.use3DBoard` 的写点全仓只有三处 ——
-                    //      `BattleScene.cs:14641`（= `BuildScene`，**在建任何卡视图之前**按 `boardCam != null`
-                    //      定死，一次成型）+ 本节的 `:12510` / `:12522`（自检翻转，且**翻回来了**）。
+                    //      `BattleScene.cs:15458`（= `BuildScene`，**在建任何卡视图之前**按 `boardCam != null`
+                    //      定死，一次成型）+ 本节的 `:13068` / `:13109`（自检翻转，且**翻回来了**）。
                     //      运行期没有任何东西会翻它 ⇒ 「留下已经建好的卡在 `ArenaLayer` 上」这一档走不到。
                     //    · ⛔ **也别顺手「补另一半」**（写成 `SetLayer(use3DBoard ? ArenaLayer : 0)`）：
                     //      `CardView.SetLayer` 是**递归**的，`RefreshAll` 每次都会跑 ⇒ 会把模块自己挂在

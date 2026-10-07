@@ -122,7 +122,9 @@ namespace RuleEngine
         /// 用途只有一个：划出 `Choose a friendly troop that died **since your last turn**`
         /// 的窗口 —— 候选 = `DeadUnits` 里 `Owner == 自己 &amp;&amp; DeathTurn >= LastTurnStartMark`。
         /// 这样「自己回合里死的」和「对手回合里死的」都落在窗口内，而**上一个回合之前死的**被排除。
-        /// 原版 `rule_core.gd:1006-1010` 用「`_died_base_prev` 计数 + 切片」记同一件事。
+        /// 我们上一版 Godot 复刻 `rule_core.gd:1006-1010` 用「`_died_base_prev` 计数 + 切片」记同一件事
+        /// （⚠️ 那是**我们自己**的复刻、**旁证**，不是原版；⚠️ 2026-10-18 更正：原来写「**原版**
+        /// `rule_core.gd:1006-1010`」）。
         /// </summary>
         public int LastTurnStartMark;
 

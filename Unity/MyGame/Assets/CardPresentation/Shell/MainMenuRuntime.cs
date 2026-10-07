@@ -307,6 +307,39 @@ namespace CardPresentation
                 Debug.LogWarning("[Menu] ⚠️ 有 " + MissingArt.Count + " 张图取不到（**这些件没画**）："
                                  + string.Join("、", MissingArt.ToArray())
                                  + " —— 导入器：`工具/import_original_art.py` 的 `MENU_IMAGES`");
+
+            // ============================================================ 🆕 2026-10-18（A855）「编辑完卡组离场」的回程
+            //
+            // 🔴 **为什么落在本函数**：`DeckRuntime.BackToMenu()` 只切场景（`LoadScene("MainMenu")`），
+            //    「回来之后开哪扇窗、落哪一页」必须由**到达端**做 —— 那正是本函数。
+            //    ⛔ **放 `Start()` 不行**：本仓规矩「按 Play 的入口和自检**走同一条路**」，而 `AddComponent` 不触发 `Start()`。
+            // 🔴 **按来路回**（用户 2026-10-18 拍板）：来源由**入口**写（全仓**仅有**的两处 `LoadScene("DeckEditor")`：
+            //    `CollectionWindow.GoEdit` / `LiveOpsEventWindow.CreateDeckInMode`），本函数**只消费**：
+            //      · `Collection` ⇒ **开收藏窗 + 落到卡组页**（下面那一段）；
+            //      · `LiveOpsEvent` ⇒ **本次复刻不了**，三条理由（铁律 11 要求「不做」必须写清为什么）：
+            //        ① 原版是**同窗换页**（`SelectDecksTab.CreateDeck` 紧接着打开 `DeckEditingWindow`），
+            //           而我们的来路是**独立场景** ⇒ 想「回来时重新打开那扇事件窗」得先有**事件数据**；
+            //        ② 那数据随 **PlayFab 下发**，本地只有**兜底版本**（`LiveOpsEventListener` + 本地 `Resources`）
+            //           ⇒ 关服状态下无从复刻；
+            //        ③ 这正是铁律 11 允许「不做」的**第 ② 类情形**（**判据是空的 / 本地没有**），
+            //           ⛔ **不是**「影响小、不做」那一类措辞。
+            //        ⇒ 意图照记（将来事件数据能复刻时，只需**在这里补那一跳**），**今天那一跳不写** —— 这笔账还开着。
+            //      · `None` ⇒ **什么都不做**（⛔ 「无条件开收藏窗」= 把「按来路回」做成假的）。
+            var ret = CollectionData.TakePendingReturn();
+            if (ret.Source == DeckExitSource.Collection)
+            {
+                // ⚠️ 落页走**显式**的 `ChangeTab`，⛔ **不靠** `CollectionWindow.Open()` 里那句 `Click(0)`
+                //    那个「第 0 页恰好是卡组页（`visualTypes[0] = CollectionDecks`）」的**巧合** ——
+                //    页序一改，它就会静默落错页（这正是本件要一个显式出处的原因）。
+                var tab = ret.Tab;
+                if (tab == WindowTabType.None)
+                {
+                    tab = WindowTabType.CollectionDecks;      // 兜底，但**出声**（不许静默失败）
+                    Debug.LogWarning("[Menu] 回程意图只写了来源 `Collection`、没写页签 ⇒ 兜回卡组页"
+                                     + "（写意图那一处该补 `WindowTabType.CollectionDecks`）");
+                }
+                OpenCollection().ChangeTab(tab);
+            }
         }
 
         static void DestroySafe(GameObject go)

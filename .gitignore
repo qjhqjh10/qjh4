@@ -184,3 +184,8 @@ desktop.ini
 /Unity/MyGame/Assets/WarpforgeBooster/
 /Unity/MyGame/Assets/CardPresentation/Effects/Boosterpack Open Card Rarity *.prefab
 /Unity/MyGame/Assets/CardPresentation/Effects/Boosterpack Open Card Rarity *.prefab.meta
+
+# 🆕 2026-10-18 · 引擎离线对拍探针（A907 收编）的编译产物 —— 不进库
+# （它是 net8 控制台工具，跑在 d:/4、不依赖 d:/2；源码与基线进库，bin/obj 不进）
+/Unity/工具/ruleprobe/bin/
+/Unity/工具/ruleprobe/obj/

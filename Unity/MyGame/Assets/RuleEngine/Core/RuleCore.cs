@@ -848,6 +848,13 @@ namespace RuleEngine
                 }
             if (reverted > 0) ctx.Log($"（{reverted} 条「本回合」增益到期）");
 
+            // ---- 🆕 2026-10-18（`A886`）**手牌效果的到期清扫** ----
+            // 原版 `PlayerHand.UpdateCardEffects(bool endOfTurn)`：`BattleManager__ResolveEndTurn.c:678`
+            // 与 `:680` 对**两方手牌**各调一次、传 `endOfTurn = 1`（查实过，不是我们挑的）。
+            // 卡面 `this turn` 挂上去的手牌效果（原版 `CardEffect.untilEndOfTurn // +0x32`）就在这一趟到期；
+            // ⚠️ 卡面没写时长的（今天卡池的全部六张）**永远不过期** —— `Beast Snagga Nob` 那族靠它攒份数。
+            ExpireHandBuffs(ctx);
+
             // ---- 🆕 2026-09-16 归还「本回合抢来的单位」（`takecontrol`）----------------
             // 卡面只有 `GSC_Telephatic_Domination`（`Take control of an enemy troop this turn …`）。
             // 「还」= 把它从我的 `Board[]` 挪回原主的 `Board[]`（归属就是数组，见
@@ -1233,7 +1240,10 @@ namespace RuleEngine
             // 🆕 2026-09-16 **手牌加成兑现**（`TL53 Infinite Biomorphologies` 的「给手牌里的部队」）——
             //    必须排在下面 `Auras.Recompose` **之前**：加成可能带关键词（`Armour 1` / `Flank`），
             //    而光环重算只认**当前**的场上状态，先重算再加就会漏算这一份。
-            ApplyHandBuffs(ctx, p, inst, unit);   // 第 7 行第 3 步：额度钉在**打出的那一份**上
+            //    🔴 2026-10-18（`A885`）：效果就挂在**这一份牌自己**身上（`inst.HandBuffOps`）——
+            //    兑现的是**打出的那一份**，同名其它份各挂各的（对局级的那张表已删）。
+            //    `A886` 的次数核销（原版 `CardPlayedWithEffects`）也在这个方法里。
+            ApplyHandBuffs(ctx, p, inst, unit);
             // 🆕 光环重算（A7）：棋盘一变就得重算 —— 新来的这个**自己可能就是光环来源**，
             //    也可能**落进了别人的光环范围**。放在这里（不是函数末尾）是为了让后面那几步
             //    （`give it Flank` 之类自指触发、`Rally` 结算）**看得见光环已经生效**。
@@ -2841,25 +2851,149 @@ namespace RuleEngine
         /// **手牌加成兑现** —— 那张牌真打出来时，把它在手牌上攒着的那份效果加上去
         /// （🆕 2026-09-16，`TL53 Infinite Biomorphologies` 的「给手牌里的部队」）。
         ///
-        /// 语义与数据结构写在 `BattleContext.HandBuff` 的注释里。这里只说两条：
-        ///   · **打出的那一份**吃它自己的额度，兑现完就摘（第 7 行第 3 步：一份一条，不再 `Count--`）；
+        /// 🔴 **2026-10-18（`A885`）**：效果挂在**那一份牌自己**身上了（`inst.HandBuffOps` 那一族，
+        ///    = 原版 `CardScript +0x108` 的对应位），这里**不再**去对局级的表里按
+        ///    `ReferenceEquals(h.Instance, inst)` 回查（那张表已删，见 `BattleContext` 里那段订正）。
+        ///
+        /// 语义与数据结构写在 `CardInstance.HandBuffOps` 的注释里。这里说三条：
         ///   · 效果以**刚上场的那个单位**为目标（`ResolveOps(..., seed: unit)` + 载荷里那条
-        ///     `Subjectless` 目标），所以**带关键词的加成**（`Armour 1`）会正常生效。
+        ///     `Subjectless` 目标），所以**带关键词的加成**（`Armour 1`）会正常生效；
+        ///   · **兑现即摘**：这一份上的 `Ops` 跑一遍、跑完清空；
+        ///   · **次数核销**（🆕 `A886`）= 原版 `PlayerHand.CardPlayedWithEffects`
+        ///     （`:28-45`：`limitedUses` 为真、且打出的这张牌身上有那条效果 ⇒ `numberOfUses--`，
+        ///     `< 1` 就 `RemoveHandEffectAt` —— 那是**从整副手上摘掉**）。
+        ///
+        /// 🔴 **两条口径的关系（哪条优先）—— 写清，别让它们互相咬**：
+        ///   · **「兑现即摘 / 额度钉在这一份上」= 我们自己的口径**（2026-09-16 起）。它管的是
+        ///     「**打出去的那一份**自己的 `Ops` 跑完就清」。⚠️ 原版那条 `CardEffect` 其实**跟着牌上场、
+        ///     不摘**（`PlayerHand__RemoveCardFromHand.c:20` 只是把牌从 `currentHand` 里拿走）；
+        ///     我们没复刻「效果跟到场上」这一层，于是用「跑完即清」达到同一个可见结果
+        ///     （加成已经落到 `UnitState` 上，牌本身不再带着它）。
+        ///   · **`limitedUses` / `numberOfUses` = 原版口径**（🆕 `A886`），管的是
+        ///     「**这条效果总共还能被触发几次**」—— 计数器**共享**（原版长在 `HandEffect` 记录上，
+        ///     不在牌上，见 `CardInstance.HandBuffUses`），减到 0 时把这条效果
+        ///     **从手牌里所有还带着它的牌上**摘掉。
+        ///   ⇒ **两者并存、不互相取代**：前者清的是「**这一份**」，后者清的是「**这条效果**」。
+        ///     `HandBuffUsesRef == null`（= 不限次，**今天卡池的全部情况**）时只有前者起作用 ——
+        ///     与 2026-09-16 起的既有行为**逐字一致**。
         /// </summary>
         static void ApplyHandBuffs(BattleContext ctx, int owner, CardInstance inst, UnitState unit)
         {
-            if (ctx.HandBuffs.Count == 0 || inst == null || unit == null) return;
-            for (int i = ctx.HandBuffs.Count - 1; i >= 0; i--)
+            if (inst == null || unit == null) return;
+            if (inst.HandBuffOps.Count == 0) return;
+
+            // 先**取下来再跑**：跑的过程中可能又给这一份挂上新的（效果里再抽牌 / 再挂那族），
+            // 那些新的不该被这一趟顺手清掉。⛔ 别改成「跑完再清」。
+            var ops = new List<EffectOp>(inst.HandBuffOps);
+            string src = inst.HandBuffSource;
+            var uses = inst.HandBuffUsesRef;               // 共享计数盒（`null` = 不限次）
+            ClearHandEffect(inst);
+
+            ctx.Log($"（手牌加成：{unit.Name} 打出时兑现「{src}」）");
+            ResolveOps(ctx, owner, unit, ops, "手牌加成", unit);
+
+            // ---- 次数核销（原版 `PlayerHand.CardPlayedWithEffects.c:28-45`）----
+            if (uses != null && uses.Limited)
             {
-                var h = ctx.HandBuffs[i];
-                if (!ReferenceEquals(h.Instance, inst)) continue;
-                if (h.Ops != null && h.Ops.Count > 0)
-                {
-                    ctx.Log($"（手牌加成：{unit.Name} 打出时兑现「{h.Source}」）");
-                    ResolveOps(ctx, owner, unit, h.Ops, "手牌加成", unit);
-                }
-                ctx.HandBuffs.RemoveAt(i);      // 兑现即摘 —— 额度钉在**这一份**上，不会漏给别人
+                uses.Left--;
+                if (uses.Left < 1) RemoveHandEffectFromHand(ctx, owner, uses, unit.Name + " 打出");
             }
+        }
+
+        /// <summary>把**这一份**身上挂的手牌效果全部清掉（`Ops` / 来源 / 到期 / 次数盒子）。
+        /// ⚠️ **次数盒子只是「这一份不再引用它」** —— 同一个盒子的其它份由
+        /// <see cref="RemoveHandEffectFromHand"/> 负责摘。</summary>
+        static void ClearHandEffect(CardInstance inst)
+        {
+            if (inst == null) return;
+            inst.HandBuffOps.Clear();
+            inst.HandBuffSource = null;
+            inst.HandBuffExpire = CardInstance.HandBuffExpiry.Never;
+            inst.HandBuffExpireTurn = 0;
+            inst.HandBuffUsesRef = null;
+        }
+
+        /// <summary>
+        /// **一条次数用尽的手牌效果 ⇒ 从整副手上摘掉** —— 原版 `PlayerHand.RemoveHandEffectAt`
+        /// （`PlayerHand__RemoveHandEffectAt.c:30-40`：遍历 `currentHand` 逐张 `CardScript.RemoveEffect`
+        /// ⇒ 摘的是**所有还带着它的牌**，**不是**打出去的那一张 —— 那一张已经上场了）。
+        /// 调用点判据 = `PlayerHand__CardPlayedWithEffects.c:43-45`（`numberOfUses < 1`）。
+        ///
+        /// ⚠️ 认的是**同一个计数盒**（`HandBuffUsesRef` 同一个对象）—— 那正是原版「一条 `HandEffect`
+        /// 记录发给 N 张牌」的形状；⛔ 别改成「按来源卡名匹配」（两个来源可能同名）。
+        /// </summary>
+        static int RemoveHandEffectFromHand(BattleContext ctx, int owner, CardInstance.HandBuffUses uses,
+                                            string why)
+        {
+            if (ctx == null || uses == null) return 0;
+            int n = 0;
+            var hand = ctx.Players[owner].Hand;
+            for (int i = 0; i < hand.Count; i++)
+            {
+                var inst = hand[i];
+                if (inst == null || !ReferenceEquals(inst.HandBuffUsesRef, uses)) continue;
+                ClearHandEffect(inst);
+                n++;
+            }
+            if (n > 0)
+                ctx.Log($"（手牌效果次数用尽：{why} ⇒ 把这条效果从手牌里**还带着它的 {n} 张牌**上摘掉"
+                      + $"，起始 {uses.Max} 次）");
+            return n;
+        }
+
+        /// <summary>
+        /// **手牌效果的到期清扫** —— 原版 `PlayerHand.UpdateCardEffects(bool endOfTurn)`
+        /// （`PlayerHand__UpdateCardEffects.c`）。
+        ///
+        /// 🔴 **调用点不是我们挑的（2026-10-18 查实；原来记的是「没查到」）**：
+        ///   原版**只在回合结束**跑这一趟 —— `BattleManager__ResolveEndTurn.c:678` 与 `:680`
+        ///   对**两方的手牌**各调一次、传 `endOfTurn = 1`；
+        ///   `BattleManager__ResolveAction.c:2576/2578` 那次传 `0`，只处理 `extrinsic`
+        ///   （来源已经不在场 / 已变身的那一族，**我们没复刻**）。
+        ///   ⇒ 所以这里**只挂在 `EndTurn` 上、两边手牌都扫**，**没有** `BeginTurn` 那一趟。
+        ///
+        /// 三条支线（逐句对着方法体写的；`CardEffect` 的偏移都在 `d:/2/tools/il2cpp_out/dump.cs` 核过）：
+        ///   · `untilEndOfTurn // +0x32`（`:100`）—— **无条件摘**（那条判断**不比较谁的回合**）；
+        ///   · `untilPlayerTurnStart // +0x33` / `untilFollowingPlayerTurnStart // +0x35`（`:119-137`）——
+        ///     `IsPlayerTurn() != cardEffect.originalIsPlayer` 时摘（那一刻的下一回合就轮到拥有者了）；
+        ///   · `untilEnemyTurnStart // +0x34`（`:156-190`）—— **我们的解析层产不出这一档**
+        ///     （`EffectText.ExtractDuration` 只认 `this turn` / `until your next turn`）
+        ///     ⇒ 如实标「没做」，⛔ 别当它做了；
+        ///   · 原版四个 `until*` 全为假 ⇒ **不过期**（`Beast Snagga Nob` 那族每回合结束再挂一份、
+        ///     一直攒着 —— `RuleEngineTest.TestBeastbossAndPayloadSegments` ④ 钉着这一条）。
+        ///
+        /// ⚠️ `ctx.Active` 在这一刻**还是正在结束回合的那一方**（`BeginTurn` 才换人）——
+        ///    所以 `IsPlayerTurn()` 直接读成 `pl == ctx.Active`。
+        /// ⚠️ **只扫手牌**：牌库 / 弃牌堆里那一份留着（原版只遍历 `currentHand`，同一条）。
+        /// </summary>
+        static int ExpireHandBuffs(BattleContext ctx)
+        {
+            int n = 0;
+            for (int pl = 0; pl < 2; pl++)
+            {
+                var hand = ctx.Players[pl].Hand;
+                for (int i = 0; i < hand.Count; i++)
+                {
+                    var inst = hand[i];
+                    if (inst == null || inst.HandBuffOps.Count == 0) continue;
+                    bool drop;
+                    switch (inst.HandBuffExpire)
+                    {
+                        case CardInstance.HandBuffExpiry.EndOfTurn:
+                            drop = true;                                   // 原版 `:100`：无条件
+                            break;
+                        case CardInstance.HandBuffExpiry.OwnerTurnStart:
+                            drop = ctx.Active != pl && ctx.Turn >= inst.HandBuffExpireTurn;  // 原版 `:119-137`
+                            break;
+                        default:
+                            drop = false;                                  // 原版四个 `until*` 全为假
+                            break;
+                    }
+                    if (drop) { ClearHandEffect(inst); n++; }
+                }
+            }
+            if (n > 0) ctx.Log($"（{n} 条手牌效果到期 —— 原版 `PlayerHand.UpdateCardEffects`）");
+            return n;
         }
 
         /// <summary>

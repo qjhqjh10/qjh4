@@ -456,6 +456,37 @@ public static class DeckScene
                           "交接**读完就清**（不清的话下次开还会跳过去）");
                     hrt.BackToMenu();
                     CheckTrue(true, "`BackToMenu()` 在批处理下**不切场景**（切了会把后面的断言全带走）");
+                    // 🆕 2026-10-18（A855）：**离场那条路的回程意图** —— 批处理不切场景 ⇒ 这是唯一可观测面
+                    //    （正因如此，意图的写入在 `Application.isBatchMode` 那道闸【之前】，同 `LeaveCount`）。
+                    Check((int)CardPresentation.CollectionData.PendingReturn.Source,
+                          (int)CardPresentation.DeckExitSource.Collection,
+                          "★ A855：离场写下了**回程意图**（来源 = 收藏）—— 回到主菜单据此重开收藏窗的卡组页。"
+                          + "改坏法：把它挪到 `isBatchMode` 闸**之后** / 整句删掉 ⇒ 本文件这条红");
+                    Check((int)CardPresentation.CollectionData.PendingReturn.Tab,
+                          (int)CardPresentation.WindowTabType.CollectionDecks,
+                          "★ A855：…而且**落点是卡组页**（`CollectionDecks` —— 不靠 `Open()` 那句 `Click(0)` 的巧合）");
+                    // 🔴 **判别式（防「两边一起改回去」那种双向改错）**：入口已经写过来源 ⇒ 离场**不许覆盖**它。
+                    //    若 `BackToMenu` 写成「无条件写 Collection」，「按来路回」就退化成「一律回收藏」——
+                    //    那一版**上面两条照样全绿**，只有这一条会红。
+                    CardPresentation.CollectionData.SetReturnIntent(
+                        CardPresentation.DeckExitSource.LiveOpsEvent, CardPresentation.WindowTabType.None);
+                    hrt.BackToMenu();
+                    Check((int)CardPresentation.CollectionData.PendingReturn.Source,
+                          (int)CardPresentation.DeckExitSource.LiveOpsEvent,
+                          "★★ A855 判别式：入口先写了来路（事件窗那条路）⇒ 离场**不覆盖**它"
+                          + "（覆盖了 = 「按来路回」是假的）");
+                    // 读完即清（别污染本节后面的用例 —— 同上面 `PendingEditDeck` 那条「读完就清」的口径）
+                    //   🔴 **2026-10-18 修（`DeckScene` 11 条红里的 R2）**：这条原来断 `ri.Source == None` ——
+                    //     **断错了**。`TakePendingReturn()` 的契约是「**先取后清、返回取到的那份**」
+                    //     （`Shell/CollectionData.cs:317-324`；同族先例 `PrebuiltDecks.cs:261` ·
+                    //      `BattleDriver.cs:2045`；而**生产代码 `MainMenuRuntime.cs:328` 正是靠这个返回值开窗**）
+                    //     ⇒ 取回 `LiveOpsEvent(=2)` **才是对的**。正确的断法是**两条**：取回的是刚写的那份 + **静态口被清空**。
+                    var ri = CardPresentation.CollectionData.TakePendingReturn();
+                    Check((int)ri.Source, (int)CardPresentation.DeckExitSource.LiveOpsEvent,
+                          "★ A855：取回的就是刚才写下的那份（`Take*` = 先取后清、返回取到的那份）");
+                    Check((int)CardPresentation.CollectionData.PendingReturn.Source,
+                          (int)CardPresentation.DeckExitSource.None,
+                          "★ A855：回程意图**读完就清**（清的是静态口 `PendingReturn` —— 不清的话下次进主菜单还会再落一次）");
                     UnityEngine.Object.DestroyImmediate(hgo);
                 }
 
@@ -3005,6 +3036,68 @@ public static class DeckScene
                     }
                 }
 
+                // ================================ 🆕 2026-10-18（A890）：那块 `Image` 的**锚法**到底怎么算
+                //   账 = 「D41 的锚法只落到矩形上」：原版那两颗 `Owned Toggle/{Image,Label}` 的
+                //   `m_AnchorMin/Max`、`m_Pivot` 当时**没搬进模型** ⇒ 判不出「面板宽可变时，卡组编辑那颗
+                //   `Image` 的右缘该是**固定 308.9** 还是 `w−25`」（⚠️ 两棵树在各自真实宽度处**重合**）。
+                //   🆕 **现读 RT 本体（序列化字段，不是 `menu_dump` 的布局模拟值）⇒ 答 `w − 25`**：
+                //     · 卡组编辑 `…/Cosmetic FIlter/Filters/Owned Toggle/Image` =
+                //       `d:/2/新解包资源/assets_full/bundle_menus_assets_all/RectTransform/RectTransform_-5843448329795342556.json`
+                //       `m_AnchorMin (1,0)` · **`m_AnchorMax (1,1)`** · `m_Pivot (1,0.5)` · `m_AnchoredPosition (-25,0)` ·
+                //       **`m_SizeDelta (80,0)`** ⇒ **右锚**：右缘恒 = 父级右缘 − 25（**面板一宽它跟着走**）；
+                //       **固定的量是【宽 80】，不是右缘** —— `308.90` 只是 `w = 333.90` 那一刻的取值。
+                //     · `…/Owned Toggle/Label` = `…/RectTransform_-6194547466839724252.json`：`AnchorMin (0,0)` ·
+                //       `AnchorMax (0,1)` · `Pivot (0,0.5)` · `apos (25,0)` · `sd (230,0)` ⇒ **左锚 + 固定宽** ⇒
+                //       25..**255**、**不随 `w` 变**（⚠️ 同一行里两半**不一样**，别一刀切）。
+                //     · 收藏窗那棵（`…Cardback Tab/Cardback Display/Cosmetic FIlter/Filters/Owned Toggle (1)`）=
+                //       `…/RectTransform_1643317952186213077.json`：`AnchorMin (0.7,0)` · **`AnchorMax (1,1)`** ·
+                //       `Pivot (1,0.5)` · `apos (-25,0)` · `sd (-30,0)` ⇒ **同样右锚**、宽 `0.3w−30`
+                //       ⇒ **两棵树差的只是【宽】，右缘规则相同**（= `ToggleRowRects` 的 `ix2 = w − ToggleIconRightIn`）。
+                //   ★ 判别式（灭自证）：**宽度一改，右缘必须跟着改同样的量、宽必须一动不动** ——
+                //     写成「固定右缘 308.9」⇒ 右缘差命 **0** ⇒ 红；退回锚点式 ⇒ 卡组编辑那档**宽差命 0** ⇒ 红。
+                //   ⛔ 期望值全是**原版字面量**（25 / 80 / 230 / 255）与几何推论（`w−25`、`Δw`），
+                //     **不从 `CosmoIconWDeckEdit` / `CosmoLabWDeckEdit` 读**（那是被测实现用的常量）。
+                {
+                    const float wSm = 331.73f;   // 本窗面板的真实宽（`DeckRuntime.FltW` 那棵树）
+                    const float wBg = 400f;      // 另取一个**原版没有的宽** —— 就是为了把「跟着走 / 固定」分开
+                    var zSm = new List<FilterPanelModel.Cell>();
+                    var zBg = new List<FilterPanelModel.Cell>();
+                    FilterPanelModel.BuildCosmetics(_rt.State.Factions(), _rt.State.Filter, wSm, zSm,
+                                                    iconW: 80f, labW: 230f);
+                    FilterPanelModel.BuildCosmetics(_rt.State.Factions(), _rt.State.Filter, wBg, zBg,
+                                                    iconW: 80f, labW: 230f);
+                    var iSm = zSm.Find(c => c.Key == "$owned");
+                    var iBg = zBg.Find(c => c.Key == "$owned");
+                    CheckTrue(iSm.Key != null && iBg.Key != null,
+                              "（前提）`w = 331.73 / 400` 两档探针里 `$owned` 那一格都出得来");
+                    if (iSm.Key != null && iBg.Key != null)
+                    {
+                        // ① 判据值：右缘 = `w − 25`（**两个宽度各自成立** ⇒ 不是固定的 308.9）
+                        CheckNear(iSm.Bg.x2, wSm - 25f, 0.6f,
+                                  "卡组编辑 `Image` 右缘（`w = 331.73`）= `w − 25` = **306.73**"
+                                + "（原版右锚：`m_AnchorMax.x = 1` + `m_AnchoredPosition.x = -25` + `pivot.x = 1`）");
+                        CheckNear(iBg.Bg.x2, wBg - 25f, 0.6f,
+                                  "★ …换成 `w = 400` 右缘**还是** `w − 25` = **375** ⇒ **不是固定 308.9**");
+                        CheckNear(iSm.Bg.W, 80f, 0.6f,
+                                  "…而宽恒 **80**（原版 `m_SizeDelta = (80,0)` —— **固定的是宽**）");
+                        CheckNear(iBg.Bg.W, 80f, 0.6f,
+                                  "★ …换宽度它**一动不动**（面板宽只改右缘、不改宽）");
+                        // ② `Label` 那一半**相反**：左锚 + 固定宽 ⇒ 两个宽度下都落在 25..255
+                        CheckNear(iSm.Lab.x1, 25f, 0.6f, "`Label` 左缘 = **25**（原版 `apos(25,0)`）");
+                        CheckNear(iBg.Lab.x1, 25f, 0.6f, "★ …换宽度**还是** 25（左锚）");
+                        CheckNear(iSm.Lab.x2, 255f, 0.6f, "…右缘 = 25 + **230** = **255**（原版 `sd(230,0)`）");
+                        CheckNear(iBg.Lab.x2, 255f, 0.6f,
+                                  "★ …`w = 400` 时**仍是 255**（左锚固定宽 ⇒ **不**随 `w`；若按 `0.7w` 算这里会是 **280**）");
+                        // ③ ★ 判别式：Δ右缘 = Δw（不是 0）· Δ宽 = 0（不是 `0.3Δw`）
+                        CheckNear(iBg.Bg.x2 - iSm.Bg.x2, wBg - wSm, 0.6f,
+                                  "★ **右缘差 = Δw = 68.27**（右锚；写成「固定右缘」时这里是 **0**）");
+                        CheckNear(iBg.Bg.W - iSm.Bg.W, 0f, 0.6f,
+                                  "★ **宽差 = 0**（`sd(80,0)` 固定；退回锚点式时这里是 `0.3Δw = 20.48`）");
+                        CheckNear(iBg.Lab.x2 - iSm.Lab.x2, 0f, 0.6f,
+                                  "★ `Label` 右缘差 = 0（左锚固定宽；按 `0.7w` 算这里会是 `0.7Δw = 47.79`）");
+                    }
+                }
+
                 // ---- 真的筛了没有（判据与铺格**同一份** `CardbackTable`）----
                 string fac1 = _rt.State.Factions()[1];
                 int allN = _rt.UiCosmoShownCount;
@@ -3049,6 +3142,103 @@ public static class DeckScene
                 Check(_rt.CosmoFiltersOpen, false, "（抽屉关回去）");
                 CheckNear(_rt.CosmoFilterDrawerSlide, 0f, 0.001f, "…也是**滑出去**的（A67）");
                 CheckTrue(!_rt.CosmoFilterDrawerInteractive, "…关着就不参与命中");
+            }
+
+            // ================================ 🆕 2026-10-18（A889）：卡背那两行**不吃**卡牌抽屉的滚动量
+            //   账原文：`RefreshCosmoFilters` 那三处（quad / 命中区 / `Label`）走 `FltAbs`，而 `FltAbs` 恒减
+            //   **`_fltScroll`（卡牌抽屉的）**，卡背抽屉**自己没有滚动区**（`HandleScroll` 的卡背那一支只把
+            //   滚轮吃掉）⇒ 只要 `_fltScroll ≠ 0`，卡背那两行就被**别人的滚动位**整体推走。
+            //   `_fltScroll` 什么时候非 0：在 Cards 页滚卡牌抽屉（`HandleScroll` / 自检口 `UiScrollFilters`），
+            //   而 **`SetTab` 不重置它** ⇒ 切到 Cosmetics 页时照样带着。
+            //   **修法选 A**（卡背那一族有自己的滚动量 `_cosmoFltScroll`，**今天恒 0**，四处全走 `FltAbsCosmo`）：
+            //   选 B（三个点直接不换算）会把「这一族有没有滚动量」**散在三个调用点**上 —— 将来真要加滚动得改三处、
+            //   还得靠人记得，而且**只读口 `UiCosmoFilterCell` 必然漏一处**（读数与画面对不上）。
+            //   A 的形状照收藏窗那一侧（`Shell/CollectionWindow.cs` 的
+            //   `cosmo ? Abs(c.R) : _fltScroll.Shift(Abs(c.R))` —— 那边**本来就不借**）。
+            //   ⚠️ `SetTab` **没动**：改完 `_fltScroll` 在卡背侧**零消费者**，剩下 7 个消费点（搜索框 3 · 格子 3 ·
+            //   小标题 1）全在**卡牌那一族**；而卡背抽屉的**开合**本来就跨页签保留（A67）⇒「卡牌抽屉的滚动位
+            //   也跨页签保留」是同一条口径（不是新偏离）。
+            //   ★ 判别式（这一笔的关键）：**在 Cards 页把卡牌抽屉滚到底（464.92）再切到 Cosmetics 页**，
+            //   卡背那两行的绝对 y 必须**逐值等于几何值**（751.0 / 838.81），且**不等于**「几何值 − 464.92」。
+            //   ⛔ 期望值全是**几何量**（原版字面量算出来的绝对 y）—— 不是「相对基线不变」那种同义反复，
+            //   更不是「`_fltScroll == 0`」。
+            Section("卡背抽屉两行 × 卡牌抽屉的滚动量（A889）");
+            {
+                const float fltMax = 464.92f;   // 卡牌抽屉内容 1389.02 − 可见 924.1（判据 → `UiScrollFilters` 那段）
+                var a889f = _rt.State.Factions();
+                string a889Last = a889f[a889f.Count - 1];
+
+                // ---- ① 「从没滚过」那一档：卡牌抽屉的滚动位先归 0，量卡背两行的**几何 y**
+                _rt.UiSetTab(0);
+                CheckNear(_rt.UiScrollFilters(-1e6f), 0f, 0.01f, "（夹具）**卡牌**抽屉先滚回顶（`_fltScroll = 0`）");
+                _rt.UiSetTab(2);
+                if (!_rt.CosmoFiltersOpen) _rt.UiToggleFilters();
+                CheckTrue(_rt.CosmoFiltersOpen, "（前提）卡背抽屉开着（这一页）");
+                float bFac, bOwn; bool g1, g2;
+                g1 = _rt.UiCosmoFilterCell("$fac:" + a889Last, out _, out bFac, out _, out _, out _);
+                g2 = _rt.UiCosmoFilterCell("$owned", out _, out bOwn, out _, out _, out _);
+                CheckTrue(g1 && g2, "（前提）卡背那两行（最后一行 Army + `$owned`）都量得到");
+                CheckNear(bFac, 751f, 0.6f,
+                          "「从没滚过」：最后一行 Army 格中心 y = **751.0**（= 156 + 15 + 50 + 4×(100+20) + 50）");
+                CheckNear(bOwn, 838.81f, 0.6f, "「从没滚过」：`$owned` 行中心 y = **838.81**（= 156 + 657.81 + 25）");
+
+                // ---- ② 在 Cards 页把**卡牌**抽屉滚到底
+                _rt.UiSetTab(0);
+                if (!_rt.FiltersOpen) _rt.UiToggleFilters();
+                CheckNear(_rt.UiScrollFilters(1e6f), fltMax, 0.6f,
+                          "（夹具）**卡牌**抽屉滚到底 = 内容 1389.02 − 可见 924.1 = **464.92**");
+
+                // ---- ③ 切到 Cosmetics 页 ⇒ 卡背那两行**逐值等于几何值**（不吃那 464.92）
+                _rt.UiSetTab(2);
+                float still = _rt.UiScrollFilters(0f);        // 只读回读（不改滚动位）
+                CheckTrue(still > 400f,
+                          $"（前提）切页后卡牌那段滚动量**还在**（{still:F2}）—— 本笔的前提就是「它跨页签保留」"
+                        + "（`SetTab` 不重置）；若要改成归零，这条前提与下面那两条判别式**要一起重写**，别只改这里");
+                float aFac, aOwn; bool h1, h2;
+                h1 = _rt.UiCosmoFilterCell("$fac:" + a889Last, out _, out aFac, out _, out _, out _);
+                h2 = _rt.UiCosmoFilterCell("$owned", out _, out aOwn, out _, out _, out _);
+                if (h1 && h2 && g1 && g2)
+                {
+                    CheckNear(aFac, 751f, 0.6f, "★ 卡牌抽屉滚到底之后，最后一行 Army 格中心 y **还是 751.0**（几何值）");
+                    CheckNear(aOwn, 838.81f, 0.6f, "★ ……`$owned` 行中心 y **还是 838.81**（几何值）");
+                    CheckNear(aFac - bFac, 0f, 0.6f, "★ 与「从没滚过」**逐值相同**（Δ = 0）");
+                    CheckNear(aOwn - bOwn, 0f, 0.6f, "★ ……同上（Δ = 0）");
+                    // 判别式：改回吃 `_fltScroll` ⇒ 读数正好是「几何值 − 464.92」⇒ 这两条红
+                    CheckTrue(Mathf.Abs(aFac - (751f - fltMax)) > 1f,
+                              $"★ **判别式**：它**不是**「751.0 − 464.92 = **286.08**」——那正是「还在吃 `_fltScroll`」"
+                            + $"时的读数（实 {aFac:F2}）");
+                    CheckTrue(Mathf.Abs(aOwn - (838.81f - fltMax)) > 1f,
+                              $"★ **判别式**：它**不是**「838.81 − 464.92 = **373.89**」（同上；实 {aOwn:F2}）");
+                }
+                else Check(true, false, "量不到卡背那两行 ⇒ 这一节**没验到**（别当成通过）");
+
+                // ---- ④ 实拍那一腿：**只读口与建库两处都改了**才算修好
+                //   `UiNodeRect("cosmoflt_cell")` = 树里**第一个** `cosmoflt_cell` 节点（= `Factions()[0]` 那格）
+                //   的 quad 包围盒（`ImageQuad.Create(..., name)` 把 GameObject 就叫这个名，一格一个）⇒ 量的是
+                //   **真建出来**的那个中心。只读口改对了、建库那一半没改 ⇒ 这条红（读数说 271.0、画面在 286.08 那一档）。
+                //   几何值 = `FltY` 156 + `CosmoSpacing1` 15 + `Title` 50 + 半格 50 = **271.0**（与上一节第一条实拍同源）。
+                if (_rt.UiNodeRect("cosmoflt_cell", out float qx, out float qy, out float qw, out float qh))
+                    CheckNear(qy, 155.97f + 15f + 50f + 50f, 0.6f,
+                              "★ **实拍**：滚过卡牌抽屉之后，卡背**建出来**那一格的图示中心 y 仍是 **271.0**"
+                            + "（建库那一半没收口 ⇒ 这里是 271.0 − 464.92）");
+                else Check(true, false, "`UiNodeRect(cosmoflt_cell)` 量不到 ⇒ 实拍那一腿没验到");
+
+                // ---- 收尾：滚动位归 0 + 两个抽屉还原成**关**（下一节要 `_tab == 0` + 抽屉关着起）
+                //   🔴 **2026-10-18 修（`DeckScene` 11 条红的根因 R1）**：`DeckRuntime.ToggleFilters()`
+                //     **按 `_tab` 分派**（`_tab==2` ⇒ 关**卡背**抽屉；否则关**卡牌**抽屉 —— 这是 2026-10-01 起、
+                //     有注释的既定契约）。原来这里**在 `_tab==0` 上调它去关卡背抽屉** ⇒ 实际翻的是**卡牌**抽屉
+                //     ⇒ ① 卡背抽屉压根没关（本节的收尾断言红）② `_filtersOpen` 被**反翻成 true** 且此后无人关，
+                //     而 `UiClickPx` 的路由是「`FltStripOn && px.x < FltX+FltW(=333.9)` ⇒ 整条改道 `HandleFilterClick`」
+                //     （`DeckRuntime.cs:4218`，**既有且共用的契约，⛔ 别动它**）⇒ 左侧与页脚那些点**全被筛选抽屉吞掉**
+                //     （`UiTopKeyAt` 直调 `TopKeyAt`、不走这条路由 ⇒ 「**查得到、点不到**」）。
+                //     ⇒ 修法 = **在和抽屉匹配的页签上关它**；这一改同时让 10 条连锁红回绿（⛔ 不单独去改那 10 条 —— 那是给假绿开口子）。
+                _rt.UiSetTab(2);
+                if (_rt.CosmoFiltersOpen) _rt.UiToggleFilters();     // `_tab==2` ⇒ 关的才是卡背抽屉
+                Check(_rt.CosmoFiltersOpen, false, "（收尾）卡背抽屉也关回去");
+                _rt.UiSetTab(0);
+                CheckNear(_rt.UiScrollFilters(-1e6f), 0f, 0.01f, "（收尾）滚动位还给 0 —— 不留给后面的断言");
+                if (_rt.FiltersOpen) _rt.UiToggleFilters();
+                Check(_rt.FiltersOpen, false, "（收尾）卡牌抽屉关着（下一节点 `Filters` 钮要看它从关到开）");
             }
             _rt.UiSetTab(0);
 
@@ -4663,20 +4853,22 @@ public static class DeckScene
                     Check(_rt.UiPoolColsNow, 6, "★ D24（桌面）：列数 = **6**（原版 `floor(1589.8 ÷ 262.5)`）");
                     CheckNear(_rt.UiPoolCellWNow, 262.5f, 0.01f, "★ D24（桌面）：卡位宽 = **262.5**");
                     CheckNear(_rt.UiPoolCellHNow, 384f, 0.01f, "★ D24（桌面）：卡位高 = **384**");
-                    // 6 列 × 3 行 = **18 格**（下标 0..17）⇒ 下标 17（第 3 行第 6 列）在桌面上是活的
+                    // 6 列 × 4 行 = **24 格**（下标 0..23）⇒ 下标 17（第 3 行第 6 列）在桌面上是活的
+                    // 🔴 **2026-10-18（A870）**：行数**不再是写死的 3**（= 4 行，判据见 `DeckRuntime.PoolMinCoverage`）
+                    //   ⇒ 这一段改的只是「一屏多少格」这个数；下面那两条**灭自证**的形状一个字节没变。
                     CheckTrue(_rt.UiPoolCellRect(17, out float p17x, out float p17y, out float p17w, out float p17h),
-                              "（桌面侧）第 18 格（`pool_17`）建出来了（6 列 × 3 行）");
+                              "（桌面侧）第 18 格（`pool_17`）建出来了（6 列 × 4 行 = 24 格）");
                     _rt.UiSetSmallScreenUIForTest(true);
                     Check(_rt.UiPoolColsNow, 4, "★ D24（小屏）：列数 = **4**（`floor(1589.8 ÷ 393.75)`）");
                     CheckNear(_rt.UiPoolCellWNow, 393.75f, 0.01f, "★ D24（小屏）：卡位宽 = 262.5 × 1.5 = **393.75**");
                     CheckNear(_rt.UiPoolCellHNow, 576f, 0.01f, "★ D24（小屏）：卡位高 = 384 × 1.5 = **576**");
-                    // 🔴 **换档之后**：一屏只剩 **4 列 × 3 行 = 12 格**（下标 0..11）
-                    //   ⇒ 下标 12..17 那 6 格必须**收起来**（它们在循环范围之外、自己不关就**留在画面上**）。
-                    CheckTrue(!_rt.UiPoolCellRect(17, out float q17x, out float q17y, out float q17w, out float q17h),
-                              "★ D24：换到小屏之后**多出来的格子收起来了**（`pool_17` 不再画；"
-                            + " 只改列数、不收拾多出来的那 6 格 ⇒ 这条红）");
-                    CheckTrue(_rt.UiPoolCellRect(11, out float p11x, out float p11y, out float p11w, out float p11h),
-                              "★ D24 正向控制：新的一屏**填满 12 格**（`pool_11` = 第 3 行第 4 列，仍在画）");
+                    // 🔴 **换档之后**：列数 6→4 **且**行数 4→5（A870 起行数也是现算的）⇒ 小屏 = **4 列 × 5 行 = 20 格**（下标 0..19）
+                    //   ⇒ 下标 **20..23** 那 4 格必须**收起来**（它们在循环范围之外、自己不关就**留在画面上**）。
+                    CheckTrue(!_rt.UiPoolCellRect(20, out float q20x, out float q20y, out float q20w, out float q20h),
+                              "★ D24：换到小屏之后**多出来的格子收起来了**（`pool_20` 不再画；"
+                            + " 只改列数/行数、不收拾多出来的那 4 格 ⇒ 这条红）");
+                    CheckTrue(_rt.UiPoolCellRect(19, out float p11x, out float p11y, out float p11w, out float p11h),
+                              "★ D24 正向控制：新的一屏**填满 20 格**（`pool_19` = 第 5 行第 4 列，仍在画）");
                     _rt.UiSetSmallScreenUIForTest(false);      // 收尾：换回桌面档
                     Check(_rt.UiPoolColsNow, 6, "（收尾）回到桌面档 6 列");
                 }
@@ -4970,6 +5162,59 @@ public static class DeckScene
                     }
                     finally { Loc.RestoreForTest(langBack2); Loc.PersistOverride = persistWas; }
                 }
+            }
+
+            // ---- 🆕 2026-10-18（A870）：一屏铺**几行** = 运行时算（原来是我们挑的 `const int PoolRows = 3`）----
+            //   判据 = 原版 `PolyAndCode.UI.VerticalRecyclingSystem.CreateCellPool` 那**两条阈值**（逐字读，
+            //   出处见 `DeckRuntime.PoolMinCoverage` 那段 doc）：
+            //     ① 覆盖：`ceil(视口高 × MinPoolCoverage(1.5) ÷ 格高)`（`:193` 的循环条件；
+            //        网格档里总高**每换一行加一次** —— `:256-258` + `:271` 的 `goto`）；
+            //     ② 池格下限：`ceil(MinPoolSize(20) ÷ 列数)`（`:186-192` 那个格下标阈值换成行）。
+            //   ⇒ 桌面 `max(ceil(20÷6), ceil(924.06×1.5÷384))` = **4 行 / 24 格**；
+            //      小屏 `max(ceil(20÷4)=5, ceil(924.06×1.5÷576)=3)` = **5 行 / 20 格**
+            //      （⚠️ **小屏行数比桌面多** —— 格数下限恒定 20、列数变少 ⇒ 行变多）。
+            {
+                _rt.UiSetTab(0);                       // 卡池只在 Cards 页（`RefreshPool` 的显隐判据里有 `_tab`）
+                _rt.UiScrollPool(-100000f);            // 回到池顶（下面几条要在 off = 0 处量）
+                int visN = _rt.State.VisibleCards().Count;
+                CheckTrue(visN >= 24, $"（前提）卡池至少 24 张（实得 {visN}）—— 桌面铺 4 行 = 24 格要靠它");
+
+                // ① **换视口高 ⇒ 行数跟着变**（这条钉「不是常量」）
+                Check(DeckRuntime.UiPoolRowsForViewport(924.1f, 384f, 6), 4,
+                      "★ A870：视口 **924.1** / 格 384 / 6 列 ⇒ **4 行**"
+                    + "（`max(ceil(20÷6), ceil(924.1×1.5÷384))`；1.5 = 原版 `MinPoolCoverage`、20 = `MinPoolSize`）");
+                Check(DeckRuntime.UiPoolRowsForViewport(2000f, 384f, 6), 8,
+                      "★ A870：**把视口高换成 2000** ⇒ **8 行**（`ceil(2000×1.5÷384)`）—— 行数写死那种写法 ⇒ 这条红");
+                Check(DeckRuntime.UiPoolRowsForViewport(3000f, 384f, 6), 12,
+                      "★ A870：再换 3000 ⇒ **12 行** —— 行数**跟着视口高走**（不是常量、也不是「每格加一次」）");
+
+                // ② 现算出来的两档（桌面 4 ⇄ 小屏 5）—— 与列数那半是**同一个属性**（`Pool`）里的两行
+                _rt.UiSetSmallScreenUIForTest(false);
+                Check(_rt.UiPoolRowsNow, 4, "★ A870（桌面）：铺 **4 行**（24 格 = 6 × 4）—— 写回 `const = 3` ⇒ 红");
+                _rt.UiSetSmallScreenUIForTest(true);
+                Check(_rt.UiPoolRowsNow, 5,
+                      "★ A870（小屏）：**5 行**（20 格 = 4 × 5）—— 覆盖那条只要 3 行，**池格下限 `ceil(20÷4) = 5` 占了上风**"
+                    + "（格数下限恒定 20、列数变少 ⇒ **小屏行数比桌面多**，铁律 5·c 的「状态 → 参数」）");
+                CheckTrue(_rt.UiPoolRowsNow != 4,
+                          "★ A870 判别式：两档行数**必须不同**（桌面 4 / 小屏 5）—— 行数写成常量 ⇒ 两档相等 ⇒ 这条与上面两条一起红");
+
+                // ③ **真铺出来了**（把行数算对 ≠ 循环里真按它铺）—— 桌面第 4 行：
+                _rt.UiSetSmallScreenUIForTest(false);
+                CheckTrue(_rt.UiPoolCellRect(23, out float r23x, out float r23y, out float r23w, out float r23h),
+                          "★ A870（桌面）：`pool_23` = **第 4 行第 6 列**也铺出来了（4 × 6 = 24 格）"
+                        + " —— 只把行数算对、循环里仍铺 3 行 ⇒ 这条红");
+                //   🔴 **判别式（盖住视口底的硬要求）**：往下滚 300px（= 0.78 行）之后，池底那一段仍要被第 4 行盖住。
+                //     只铺 3 行时 `pool_18` 这一格**根本不存在** ⇒ 池底露出 72px 空白（原版那个 1.5 倍覆盖正是挡这个）。
+                _rt.UiScrollPool(300f);
+                CheckTrue(_rt.UiPoolCellRect(18, out float r18x, out float r18y, out float r18w, out float r18h),
+                          "★ A870 判别式：滚到半行（300px）之后**第 4 行仍在池里**（`pool_18` 活着、池底不露白）"
+                        + " —— 行数写死 3 ⇒ 这一格不存在 ⇒ 红；改成 `ceil(视口高 ÷ 格高) = 3` ⇒ 同样红");
+                _rt.UiScrollPool(-100000f);
+                //   小屏那一档**也**要真收起来（20 格 vs 桌面 24 格那 4 格）—— 那两条在 ⑧ D24 那一节里
+                //   （`pool_19` 在画 / `pool_20` 不画；A870 起它们的下标从 12 挪到 20），这里不重复。
+                _rt.UiSetSmallScreenUIForTest(false);      // 收尾：换回桌面档
+                _rt.UiScrollPool(-100000f);
+                Check(_rt.UiPoolColsNow, 6, "（收尾）回到桌面档 6 列");
             }
         }
 

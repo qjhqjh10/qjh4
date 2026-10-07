@@ -10,7 +10,7 @@
 //   · 根 **不是全伸展**（`sz=(1919,1079)`）；`Background` 色 **(0,0,0,.396)**、**点背景就关**（`backgroundCloseButton`）
 //   · `Window` **560,234.07 → 1360,685.93** · `Generic Popup Background` = `40k_popup` Sliced（border 169/160）
 //   · `Mask`（四边内缩 ~10.4/9.44）+ 子 `Background fill` = `40k_popup_texture` **Tiled**（128 一格、`ppuMultiplier=2` ⇒ 64）
-//   · `Main Search message` TMP **"Paste your deck"** **fs50**、HA=**2**(Center)
+//   · `Main Search message` TMP **"Paste your deck"** **fs50**、HA=**2**(Center) —— 🆕 **走词条 `TitleTerm`**（A891）
 //   · `Input Field` = `40K_dropdown_bg` Sliced（border 23/20）、色 **(.29,.953,.682,1)**（绿）
 //     → `Text Area`（`RectMask2D`）→ `Placeholder` **"Enter text..." fs32** col(.67,.67,.67,.5) ·
 //       `Text` fs32 col(.858,.858,.858,1) —— 两条都是 **HA=1(Left) / VA=256(Top)**
@@ -31,6 +31,7 @@
 //         断言 → `Editor/ShellScene.cs` 的 **B11/A883** 那一节（HA=2 / VA=512 **逐字面量** +
 //         一条「改回右对齐必红」的**判别式**）。
 //   · `Buttons`（VLG）**只有一个** `Generic UI Button` = `40K_button`（478.343×75）+ 字 **"Confirm" fs45**
+//     —— 🆕 **走词条 `ConfirmTerm`**（A891；`Button Text` 那颗挂着 `Localize = MainMenu/General/Confirm`）
 //   · `Generic Close Button Green` = 圆钮 + **`40k_bt_close`**（56.37×54.50）
 //
 // ---- 与卡组编辑那边的关系（**一条行为、两处入口**）----
@@ -82,6 +83,24 @@ namespace CardPresentation
         /// `Main Search message` 挂的是 `MenuDeck/Share/PasteDeck`（`MonoBehaviour_8528767437303251090.json`）、
         /// `Error msg` 那颗**一个 `Localize` 组件都没有**（那条文案是引擎写进去的）。</para></summary>
         public const string PlaceholderTerm = "MenuDeck/HUD/EnterText";
+
+        /// <summary>**提示行 / 标题**（`Main Search message`）的词条键 —— 原版 prefab 上那颗 `Localize` 的 `mTerm` 原文。
+        /// <para>出处 = 逐字段实读 `bundle_menus_assets_all/MonoBehaviour_8528767437303251090.json`：它挂的 GameObject 是
+        /// `Import Deck Popup/Window/**Main Search message**`，同一颗上的 TMP `m_text = "Paste your deck"`
+        /// 就是该词条的**英文列**（`python 工具/menu_dump.py bundle_menus_assets_all "Import Deck Popup" --depth 8` 实读，
+        /// 与 `Build()` 那行实参 `610,280 → 1310,340` 逐位对上）。</para>
+        /// <para>🔴 **2026-10-17（A891）已接**：原来写死英文 ⇒ 中文档也印英文。词条在 `Core/Loc.cs`（中文列 = 我们译的，
+        /// 源 `数据/本地化/i18n/zh_CN.csv:143`）。断言 → `Editor/CollectionScene.cs` ⑨ 那一段（两语档各断一个字面量 + 判别式）。</para></summary>
+        public const string TitleTerm = "MenuDeck/Share/PasteDeck";
+
+        /// <summary>`Confirm` 钮（原版节点名 `Button Text`）的词条键 = 那颗 `Localize.mTerm` 原文。
+        /// <para>出处 = 同一份实读：`…/Window/Buttons/Generic UI Button/**Button Text**` 上同时有
+        /// TMP `m_text = "Confirm"`（`fs45`，= 该词条的**英文列**）与 `Localize.mTerm`。
+        /// ⚠️ 这个键**不在 `MenuDeck/` 族**里 —— 原版自己复用了主菜单那条通用按钮词条
+        /// （全仓另一处记着它：`Shell/ReferralPopupWindow.cs` 的 `TxtBtn` 注释）。</para>
+        /// <para>🔴 **2026-10-17（A891）已接**：原来写死 `"Confirm"`。词条在 `Core/Loc.cs`（中文列 = 我们译的，
+        /// 源 `数据/本地化/i18n/zh_CN.csv:83`）。断言 → 同上那一节。</para></summary>
+        public const string ConfirmTerm = "MainMenu/General/Confirm";
 
         string _error = "";
         /// <summary>当前输入串（自检用）。</summary>
@@ -168,7 +187,10 @@ namespace CardPresentation
             //   `bundle_menus_assets_all/MonoBehaviour_7476776257758560402.json`：那颗 TMP 的
             //   `m_HorizontalAlignment = 2`(Center) / `m_VerticalAlignment = 512`(Middle)。
             //   断言 → `Editor/ShellScene.cs` 的 B11/A883 那一节。
-            Txt(root, "Paste your deck", MsgL, MsgT, MsgR, MsgB, MsgFontPx, Align.Center, "Main Search message", QImpText);
+            // 🔴 **2026-10-17（A891）**：提示行走**词条**（`TitleTerm`，见那颗常量的 doc）—— 原版那颗挂着 `Localize`
+            //   （`mTerm = "MenuDeck/Share/PasteDeck"`）⇒ 它**跟着语言变**，写死就永远是英文。
+            //   ⚠️ 与占位符同一个坑：**建的时候取一次**，换语言不会回头改这扇已建的窗（见 `RefreshInputText` 的注释）。
+            Txt(root, Loc.T(TitleTerm), MsgL, MsgT, MsgR, MsgB, MsgFontPx, Align.Center, "Main Search message", QImpText);
             Nine(win.transform, win.transform, "40K_dropdown_bg", DropBorder, DropTexW, DropTexH, InL, InT, InR, InB,
                  QImpRow, "Input Field", new Color(0.29f, 0.953f, 0.682f, 1f));
             RefreshInputText();
@@ -190,7 +212,9 @@ namespace CardPresentation
                 b.transform.SetParent(root, false);
                 var confirmBg = Nine(b.transform, b.transform, "40K_button", BtnBorder, BtnTexW, BtnTexH, r.x1, r.y1, r.x2, r.y2,
                      QImpRow, "Confirm Bg");
-                Txt(b.transform, "Confirm", r.x1, r.y1, r.x2, r.y2, 45f, Align.Center, "Confirm Text", QImpText);
+                // 🔴 **2026-10-17（A891）**：钮上的字走**词条**（`ConfirmTerm`，见那颗常量的 doc）——
+                //   原版那颗 `Button Text` 挂着 `Localize`（`mTerm = "MainMenu/General/Confirm"`）⇒ 跟着语言变。
+                Txt(b.transform, Loc.T(ConfirmTerm), r.x1, r.y1, r.x2, r.y2, 45f, Align.Center, "Confirm Text", QImpText);
                 // A17：原版 `Window>Buttons>Generic UI Button` 是 SpriteSwap（普查 §块 3 第 11 行）
                 var okHit = HitOn(b.transform, b.transform, "OkHit", r, () => TryImport());
                 var okWb = okHit != null ? okHit.GetComponent<WindowButton>() : null;

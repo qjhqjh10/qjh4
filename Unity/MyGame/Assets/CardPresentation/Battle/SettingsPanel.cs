@@ -25,6 +25,7 @@
 //      + 白字 fs38。完整规格与出处见 `资料/普查产出_0918/第18行_UI三小条_规格.md` §①。
 // ⚠️ 三根音量滑块：见 §②（原版写 `AudioMixer.SetFloat("Volume"+MixerType 枚举名)`）。
 using System;
+using System.Collections.Generic;      // 🆕 2026-10-18（A921）：语言下拉那 12 行（`List<LangRow>`）
 using UnityEngine;
 using RuleEngine;
 
@@ -70,6 +71,27 @@ namespace CardPresentation
         bool _wasDown;
         /// <summary>这一轮「按住」是**从语言那一行**开始的（抬起时只有它还为真才算点它）。</summary>
         bool _langArmed;
+
+        // ---- 🆕 2026-10-18（A921）：语言下拉那 12 行列表的状态 ----
+        /// <summary>`LanguagesDropdown > Template` 原型（**恒 inactive** —— 原版出厂 `m_IsActive = 0`）。
+        /// 建一份（关着），只为「照原版结构」与自检能定位它，⛔ 它不参与显示。</summary>
+        Transform _langTemplate;
+        /// <summary>真正显示的那份（原版 `TMP_Dropdown.Show()` 的 `Instantiate` 克隆体，运行时名字 = `"Dropdown List"`）。
+        /// **首开时才建**（= 原版 `CreateDropdownList`）；关掉**不销毁**（原版淡出后 `Destroy` —— 我们不做淡出，
+        /// 见 `ShowLangList`；这不影响任何一个可观察值）。</summary>
+        Transform _langList;
+        /// <summary>列表里 12 行那三件 + 行号。</summary>
+        readonly List<LangRow> _langRows = new List<LangRow>();
+        struct LangRow { public ImageQuad Bg, Chk; public Label Lb; public int Idx; }
+        /// <summary>按下那一刻记下「这一下按在哪」：`-1` = 不在行上。抬起来还落在同一行才算点它
+        /// （uGUI `IPointerClickHandler` 的语义，与 `LangPointerFrame` 原有那条同形）。</summary>
+        int _langRowArmed = -1;
+        /// <summary>按下那一刻指针落在**列表的空白处**（列表开着、又不在任何一行上）——
+        /// 原版那颗铺满全屏的透明 `Blocker` 就是干这个的（`CreateBlocker:1009` + `onClick → Hide`）。</summary>
+        bool _langBlankArmed;
+        /// <summary>自检专用：把「ESC 按下了」钉死（`null` = 走真实键盘 —— **生产恒为 null**）。
+        /// 形状照 `BattleDriver.EscapePressedForTest`（批处理里 `Keyboard.current == null`，见 `ESC` 那段）。</summary>
+        public static bool? EscapePressedForTest;
         // ⚠️ A424 曾有一格 `bool _autoZoomHeld`（按下那一帧的边沿 latch）—— **A445 删掉了**：
         //    那一行挪回了「抬起」的点击链（`BattleDriver.SettingsClickAt`），原版那颗 `Toggle` 的
         //    `IPointerClickHandler` 自带「一次抬起点一次」的语义，不需要我们再 latch。
@@ -229,7 +251,104 @@ namespace CardPresentation
         /// `lkSelectLang` **同一个字符串** —— 两处各是各的常量，但值必须一致）。</summary>
         public const string LangLabelTermKey = "MainMenu/Settings/ButtonLabel/SelectLanguage";
 
+        // ---- 🆕 2026-10-18（A921）：语言下拉的【12 行列表】—— 原版 `LanguagesDropdown > Template` 子树 ----
+        // 判据 = **战斗内**这棵树逐字段实读（`d:/2/新解包资源/assets_full/bundle_scenes_scenes_battlearena1/`，
+        // 2026-10-18 亲读；pid 见每条）：
+        //   `LanguagesDropdown`(RT **3546**) → `Template`(RT **3553**) → `Viewport`(RT **2642**) → `Content`(RT **2761**)
+        //   → `Item`(RT **2589**) → { `Item Background`(3092) / `Item Checkmark`(2591) / `Item Label`(2624) }；
+        //   另有 `Template > Scrollbar`(RT 2794) → `Sliding Area`(2925) → `Handle`(3127)。
+        //   · `Template` RT：`aMin(0,0.5) aMax(1,0.5) ap(-2.5,-22) sd(-4.9998, 573.96) pivot(0.5,1)`
+        //     ⇒ 宽 = 框宽 250 − 4.9998 = **245.0002**、高 **573.96**；**顶 = 框心 −22**（`ap.y` 是**向下**）。
+        //   · `Viewport`：`aMin(0,0) aMax(1,1) sd(-17,0) pivot(0,1)` ⇒ **右沿 −17**（让给滚动条）；
+        //     它挂 `Mask`（`m_ShowMaskGraphic = 0`）+ `Image`（内置 `UIMask`）⇒ **不画**、只当裁切框。
+        //   · `Content`：`aMin(0,1) aMax(1,1) sd(0, 41.7226) pivot(0.5,1)`（41.7226 = 模板位一行；运行时按行数重算）。
+        //     ⚠️ 本件的 `Content` 高给 `rows × 40.8707`：我们这棵树的行是自己摆的 ⇒ 这个高度**不驱动任何东西**
+        //     （那 0.85 的差只落在**关着的**原型件上，⛔ 别照它去改行高）。
+        //   · `Item`：`aMin(0,0.5) aMax(1,0.5) sd(0, **40.8707**)` + `Toggle`（`MB 4939`：`m_Transition = 2`(SpriteSwap) ·
+        //     `toggleTransition = 1`(Fade) · `graphic` = `Item Checkmark` · `m_IsOn = 1`）。
+        //   · `Item Checkmark`：`ap(10,0) sd(20,20)` ⇒ **中轴 = 行左起 10**、20×20、`m_Type = 0`(Simple，**拉伸**)。
+        //   · `Item Label`：`ap(5,-0.5) sd(-30,-3)` ⇒ 行内边距 **左 20 · 右 10 · 上 2 · 下 1**；
+        //     TMP（`MB 3842`）：`fs 30`（`m_fontSizeBase 14` · auto **18~40**）· `Left/Middle` ·
+        //     `m_fontColor` **(0.783,0.783,0.783)**（`m_fontColor32` = `0xFFC8C8C8`，两者一致）。
+        //   · `ScrollRect`（`MB 4335`）：`m_MovementType 2`(Clamped) · `m_VerticalScrollbarVisibility **2**`(AutoHide)
+        //     · spacing **−3.0** · `m_ScrollSensitivity 1.0`。⚠️ **12 × 40.8707 = 490.45 < 视口 573.96 ⇒ 装得下、
+        //     滚不动** ⇒ 原版那条 AutoHide 会把整根 `Scrollbar` `SetActive(false)`；本件**照办**（建出来但恒关着）。
+        // 🔴 **与主菜单那扇【同构、不同宽】**：那一扇挂在 400.666 宽的框上 ⇒ 设计 **395.666**；本扇挂在 **250**
+        //    宽的框上 ⇒ **245**。其余每个字段两边**逐值相同**（573.96 / 40.8707 / ap(-2.5,-22) / sd(-4.9998) /
+        //    viewport −17 / Checkmark 20@x10 / Label `ap(5,-0.5) sd(-30,-3)` / fs30 / 灰 0.783）。
+        //    ⛔ **别照抄 `Shell/SettingsWindow.cs` 的 `LstL/LstR`**（596.556/992.222 是**那扇窗**的绝对坐标）。
+        //    ✅ 两处**唯一的数值差异** = 行底图的染色：本扇 `Item Background.m_Color = **(0, 0.8314, 0.5255)**`，
+        //    主菜单那扇是 (0.2863, 0.9647, 0.6863) —— 两处各照各的原版件。
+        const float LstInsetX = 2.4999f;             // `sd.x = -4.9998` 在「左右各贴一条边」的锚上 ⇒ **每边**缩 2.4999
+        const float LstHPx = 573.96f;
+        const float LstTopBelowFieldCyPx = 22f;      // `ap.y = -22`（顶 = **框心**往下 22）
+        const float LstVpInsetR = 17f;               // `Viewport.sd.x = -17`
+        const float LstItemH = 40.8707f;             // 行高（`Item.sd.y`）
+        const float LstSbW = 20f;                    // `Scrollbar.sd.x`（右沿一颗 20 宽的竖条，恒关着）
+        const float LstChkS = 20f, LstChkCx = 10f;   // 勾：20×20、**中轴在行左起 10**
+        /// <summary>`Item Label` 的行内边距（由 `ap(5,-0.5) sd(-30,-3)` 在拉伸锚上解出来：左 20 右 10 上 2 下 1）。</summary>
+        const float LstLblPadL = 20f, LstLblPadR = 10f, LstLblPadT = 2f, LstLblPadB = 1f;
+        const float LstLblFontPx = 30f;              // TMP `m_fontSize`（base 14 · auto 18~40）
+        static readonly Color LstLblColor = new Color(0.783f, 0.783f, 0.783f, 1f);
+        /// <summary>行底图那颗 `Image.m_Color`（**本扇自己的值**，与主菜单那扇不同 —— 见上面那段）。</summary>
+        static readonly Color LstItemTint = new Color(0f, 0.8314f, 0.5255f, 1f);
+        /// <summary>`Template` 那颗 `Image.m_Color`（两扇同值）。</summary>
+        static readonly Color LstPanelTint = new Color(0.2863f, 0.9647f, 0.6863f, 1f);
+        /// <summary>列表底板 = `40k_dropdown_bg`（119×102 · 九宫 (23,20,23,20) · `m_Type = 1`(Sliced) ·
+        /// **`m_PixelsPerUnitMultiplier = 1.09`**）—— 与本扇 Auto Zoom 那颗勾选框底图**同一张**
+        /// （同一个 PathID `-5728790147372056906`）。端帽实画 = `23 ÷ 1.09` / `20 ÷ 1.09`
+        /// （uGUI `Image.GenerateSlicedSprite` 的 `multipliedPixelsPerUnit`）；本面板**父链无缩放**
+        /// ⇒ 不再乘任何根缩放（主菜单那扇要 ×0.9，见它的 `LstPanelBorderOut`）。</summary>
+        const string LstPanelArt = "40k_dropdown_bg";
+        const float LstPanelTexW = 119f, LstPanelTexH = 102f;
+        const float LstPanelPpuMul = 1.09f;
+        static readonly Vector4 LstPanelBorder = new Vector4(23f, 20f, 23f, 20f);
+        static readonly Vector4 LstPanelBorderOut =
+            new Vector4(23f / LstPanelPpuMul, 20f / LstPanelPpuMul, 23f / LstPanelPpuMul, 20f / LstPanelPpuMul);
+        /// <summary>行底图 —— 原版 `Item Background` 那颗 `Image.m_Sprite`：**与主菜单那扇同一个 PathID
+        /// `5175970378912652380`**（= 同一张 `40K_dropdown_item`，只有 `m_Color` 两扇不同）。
+        /// `Toggle.m_SpriteState` 另给三档：`_hover` / `_press` / `_selected`（同一族四个切片）。
+        /// ⚠️ **`40K_dropdown_item_press` 本地 `Resources/` 里没有**（只在 `Art/原版/去重资源/` 当源图）
+        /// ⇒ **按下那一档没落**（如实标注；主菜单那扇的清单里也是同一张缺）；**悬停**那一档用了 `_hover`。</summary>
+        const string LstItemArt = "40K_dropdown_item", LstItemHiArt = "40K_dropdown_item_hover";
+        /// <summary>勾那一层 —— 原版是 Unity **内置** `Checkmark`（同一 PathID `6419449077939965772`，两扇同一颗），
+        /// 本地 `Resources/` 里没有导入 ⇒ 用**本扇自己那颗** `40K_settings_icon_checkmark`（Auto Zoom 那行的勾就是它）
+        /// —— **这是我们的选择**，与 `Shell/SettingsWindow` 同一条口径。</summary>
+        const string LstChkArt = "40K_settings_icon_checkmark";
+        /// <summary>列表这一族的**渲染队列** —— 本工程没有 UGUI `Canvas` 排序层（原版 `Template` 上那颗
+        /// `Canvas.overrideSorting` + `DropdownList.OnEnable` 把 `sortingLayerName` 顶到 `"PopUps"`），
+        /// 等价物 = 渲染队列（`CLAUDE.md` §三：分层要用队列、别靠 z）。
+        /// 序：本面板其余件（队列默认档 **3000**）&lt; 列表底 **3141** &lt; 行底 **3142** &lt; 行里的字/勾 **3143**。
+        /// ⚠️ 主菜单那扇还有一档 `QBlocker 3140`（那颗铺满全屏的透明 `Blocker`）；本扇的「点空白收起」是
+        /// **几何判定**（见 `HitLangBlank`）⇒ **不建那颗透明块**，但**序照留**（列表仍从 3141 起）。</summary>
+        const int QLangList = 3141, QLangItem = 3142, QLangText = 3143;
+
         static float U(float px) { return px / 108f; }
+
+        /// <summary>建一个**纯分组节点**（只有 `RectTransform`、不画东西）。坐标 = **面板内 px（y 向上）相对父件**。</summary>
+        static Transform Node(Transform parent, string name, float cx, float cy, float z)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = new Vector3(U(cx), U(cy), z);
+            return go.transform;
+        }
+
+        /// <summary>建一块图（`ImageQuad`，锚点恒 (0.5,0.5)）：`w`×`h` 是**面板内 px**；`tint` 传 `null` = 不染。
+        /// 🔴 `SetAspect(w/h)` —— 原版那几颗都是 `Simple`（**拉伸**，只有 `Arrow` 是 `preserveAspect`）⇒ 按框给比值。</summary>
+        static ImageQuad Img(Transform parent, string name, Texture tex, float cx, float cy,
+                              float w, float h, float z, int q, Color? tint)
+        {
+            var quad = ImageQuad.Create(parent, tex, new Vector3(U(cx), U(cy), z), U(h),
+                                        new Vector2(0.5f, 0.5f), name);
+            if (quad != null)
+            {
+                quad.SetAspect(w / h);
+                if (tint.HasValue) quad.SetTint(tint.Value);
+                quad.SetRenderQueue(q);
+            }
+            return quad;
+        }
 
         /// <summary>把九宫格根节点下所有块染成同一个色（根节点自己没有 `ImageQuad` 组件）。</summary>
         static void TintAll(GameObject root, Color c)
@@ -472,8 +591,11 @@ namespace CardPresentation
         /// <item>命中区 = **下拉框那一块**（原版 `TMP_Dropdown` 挂在 `LanguagesDropdown` 上；左边那颗标签
         ///   点下去原版什么也不发生 ⇒ 不接）。判定 = `HitLanguage`，**真实输入与自检走同一条**。</item>
         /// </list>
-        /// ⚠️ **原版那颗点开是个 12 行的滚动列表**（`LanguagesDropdown > Template`）—— 本批**没建**，
-        /// 改成「点一下换下一个」（见 `CycleLanguage`，**已知偏离、已记账**）。
+        /// ✅ **2026-10-18（A921）订正（铁律 5）**：这里原来写「原版那颗点开是个 12 行的滚动列表 ——
+        /// **本批没建**，改成『点一下换下一个』」——**现在建了**：`BuildLangTemplate` / `ShowLangList` /
+        /// `ChooseLanguage` / `ESC` 四件（判据 = **战斗内**那棵子树逐字段实读，见上面那组 `Lst*` 常量；
+        /// ⚠️ **原版两扇窗的这颗下拉不是同一尺寸**，本件照**战斗那扇**的 245 宽建，⛔ 别抄主菜单的 395.666）。
+        /// 于是 `CycleLanguage`（点一下换下一个）**0 调用点 ⇒ 已删**（本仓规矩：死代码删）。
         /// ⚠️ 本面板**没建**的原版件还有：`ChatToggle`（'Mute opponent'）· `Skip tutorial` · `Debug Buttons`
         /// （那不在这条活的范围里，别顺手加）。</summary>
         void BuildLanguageRow(float z)
@@ -514,6 +636,13 @@ namespace CardPresentation
                                         new Vector3(U(LangRowX1Px), U(LangSelCyPx), z - 0.02f),
                                         4, Color.white, new Vector2(0f, 0.5f), "settings_lang_label");
             ApplyLangFont(_langSelText, Loc.T(LangLabelTermKey), LangSelFontPx);
+
+            // 🆕 2026-10-18（A921）：`Template` 子树 —— 挂在**那颗框**下面（原版 `Template` 的父就是
+            //   `LanguagesDropdown`：`TMP_Dropdown.Show()` 那句 `SetParent(m_Template.transform.parent, false)`
+            //   给的就是它）⇒ 列表里所有坐标都是**相对框**的 px（y 向上）。
+            // ⚠️ z 比本面板其余件再靠前一档（`Z − 0.03`）：列表内部那一族的排序走**渲染队列**（见 `QLangList`），
+            //   这一档只是让「列表 vs 面板其余件」在 z 上也自洽（⛔ 别靠 z 代替队列）。
+            BuildLangTemplate(_langField != null ? _langField.transform : transform, z - 0.03f);
         }
 
         /// <summary>按**这段文本的语种**定字号：汉字 ≈ **1 em**、拉丁大写 ≈ **0.72 em**
@@ -529,7 +658,8 @@ namespace CardPresentation
         }
 
         /// <summary>把本面板**跟着语言走**的那两行字重设一遍（框里的语言名 + 左边那颗标签）。
-        /// 🔴 调用点 = `CycleLanguage`。⛔ 不走 `Loc` 的静态事件（同 `Shell/SettingsWindow.RefreshTexts`）。</summary>
+        /// 🔴 调用点 = `ChooseLanguage`（选中某一行那一刻）+ `RefreshLangRows` 那条刷新路。⛔ 不走 `Loc` 的静态事件
+        /// （同 `Shell/SettingsWindow.RefreshTexts`）。</summary>
         public void RefreshTexts()
         {
             if (_langSelText != null)
@@ -546,23 +676,300 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>点语言那一行 —— **往下循环一格**（`Loc.Languages` 的声明序 = 原版下拉的选项序，末尾回到第一个）。
-        ///
-        /// <para>🔴 **已知偏离（铁律 11：先记录、之后完全复刻）**：原版那颗是 `TMP_Dropdown` —— 点开一个
-        /// **12 行的滚动列表**（`LanguagesDropdown > Template`：`SCrollRect` + `Viewport(Mask)` + `Scrollbar`，
-        /// 框 `245×573.96`、项图 `40K_dropdown_item*`）。**那一份本批没建**（Unity 的 `DropdownList` 内置模板 +
-        /// 一套滚动视图），改成「点一下换下一个」—— 与主菜单那扇（`Shell/SettingsWindow.CycleLanguage`）
-        /// 是**同一种交互**。⛔ 别把它写成「原版就是这样」。</para></summary>
-        void CycleLanguage()
+        // ==================================================================
+        //  🆕 2026-10-18（A921）：语言下拉那 12 行列表（原版 `LanguagesDropdown > Template`）
+        //  判据逐字段 = 上面那组 `Lst*` 常量（**战斗内**那棵树，2026-10-18 亲读）。
+        //  行为判据 = 官方 `TMP_Dropdown`（本 build 用的就是它，两条旁证见
+        //  `资料/普查产出_1017/R_下拉Template子树.md` §三·3）：
+        //    `Show():778` → `Instantiate(Template)`、改名 `"Dropdown List"`、`SetParent(m_Template.transform.parent)`
+        //    → `CreateBlocker()`；点行 ⇒ `OnSelectItem:1247`（行号 = 兄弟序）= `value = i` + **末尾 `Hide()`**；
+        //    **点空白** ⇒ 那颗铺满全屏的透明 `Blocker` 的 `onClick → Hide`（`CreateBlocker:1073-1074`）；
+        //    **ESC** ⇒ `OnCancel:763 → Hide()`（列表开着时那颗 `Blocker` 先吃到 `Cancel`）。
+        //  —— 与主菜单那扇（`Shell/SettingsWindow` 的 `ShowLangList`/`HideLangList`/`ChooseLanguage`/`ESCPressed`）
+        //     **同一套语义**，只有几何/染色按本扇自己的原版值。⛔ 别在两边各写一套行为。
+        // ==================================================================
+
+        /// <summary>列表此刻开着没有（= 原版 `TMP_Dropdown.IsExpanded`，`m_Dropdown != null`）。</summary>
+        public bool LangListOpen { get { return _langList != null && _langList.gameObject.activeSelf; } }
+
+        /// <summary>建 `Template` 子树（**一份**，`_langTemplate`）。⚠️ 它**恒 inactive**（原版出厂值）——
+        /// 但**子节点照样建**：原版 `Show()` 要 `Instantiate` 它。</summary>
+        void BuildLangTemplate(Transform fld, float z)
         {
-            int i = System.Array.IndexOf(Loc.Languages, Loc.Current);
-            if (i < 0) i = 0;
-            var next = Loc.Languages[(i + 1) % Loc.Languages.Length];
-            bool changed = Loc.SetLanguage(next);
+            _langRowsZ = z;                              // 克隆体那一族与原型同一层（排序靠队列，见 `QLangList`）
+            _langTemplate = BuildLangListSubtree(fld, "Template", z, 1);
+            _langTemplate.gameObject.SetActive(false);
+            Debug.Log("[Settings] 语言下拉的 `Template` 子树建好了（**关着** —— 原版出厂 `m_IsActive = 0`；"
+                    + "运行时显示的那份叫 `Dropdown List`，见 `TMP_Dropdown.Show():820`）");
+        }
+
+        /// <summary>建列表的**一件** —— `Template` 原型与真正显示那份（`Dropdown List`）**共用这一份**
+        /// （两处写同一条规则 = 迟早不一致）。`rows` = 铺几行（原型那件 = **1 行** = 原版 `Content` 的模板位，
+        /// 文字 `'Option A'`；克隆体 = `Loc.Languages.Length`）。
+        /// <para>几何（**相对那颗语言框的中心**，px、y 向上；`h` = 框高的一半 = 29.7）：
+        /// 列表顶 = `h − 22`（原版 `ap.y = −22`）、高 **573.96**、宽 = 框宽 − 4.9998（左右各让 2.4999）；
+        /// `Viewport` 右沿再让 **17**；`Content` 顶 = 列表顶、高 = `rows × 40.8707`；
+        /// 第 `i` 行 = `Content` 顶往下 `i × 40.8707`。⚠️ 本件**不建裁切层** —— 12 行 490.45 < 视口 573.96
+        /// ⇒ 一行都不会被切到（原版那条 `ScrollbarVisibility = 2`(AutoHide) 也正是因为这个才把它关掉）。</para></summary>
+        Transform BuildLangListSubtree(Transform parent, string name, float z, int rows)
+        {
+            // ⚠️ **坐标全是相对父件的**（`Node`/`Rect`/`Label` 的 `cx/cy` 都按「相对它自己的父件」给）——
+            //    下面每一层都把「框中心系」里的值减去父件的中心再传下去。改层级时**必须**重算这几行。
+            var list = Node(parent, name, 0f, 0f, z);                                   // = 框中心
+            float halfW = (LangFieldX2Px - LangFieldX1Px) * 0.5f;                       // 125
+            float halfH = (LangRowTopPx - LangRowBotPx) * 0.5f;                         // 29.7
+            float w = halfW * 2f - LstInsetX * 2f;                                      // 245.0002
+            float top = halfH - LstTopBelowFieldCyPx;                                   // 7.7
+            float bot = top - LstHPx;
+            float l = -w * 0.5f, r = w * 0.5f;
+            float vpR = r - LstVpInsetR;
+            float vpCx = (l + vpR) * 0.5f, vpCy = (top + bot) * 0.5f;                    // Viewport / Content 的框心（x、y）
+
+            // 底板（原版 `Template` 自己那颗 `Image`：`40k_dropdown_bg` **Sliced** + ppuMul 1.09 + 绿染）
+            _langListBg = MenuDraw.Nine(list, CardArt.MenuUi(LstPanelArt),
+                                        new PxRect(0f, 0f, w, LstHPx), LstPanelBorder, LstPanelTexW, LstPanelTexH,
+                                        QLangList, LstPanelTint, true, "list_bg", LstPanelBorderOut);
+            // ⚠️ `MenuDraw.Nine` 按**画布 px** 算落位（`MenuDraw.Local`），本面板的子件一律 `U(px)` 口径
+            //    ⇒ 摆位**显式覆盖**（同 `_resignBtn` 那条注释里的做法；`Nine` 的 z 恒 0 ⇒ 也要补）。
+            if (_langListBg != null)
+                _langListBg.transform.localPosition = new Vector3(0f, U(vpCy), z);
+
+            // `Viewport`（原版 `Mask` + `Image(UIMask, m_ShowMaskGraphic = 0)` ⇒ **不画**、只当裁切框）
+            var vp = Node(list, "Viewport", vpCx, vpCy, z);
+            float ctCy = top - rows * LstItemH * 0.5f;                                   // `Content` 框心（框中心系）
+            var content = Node(vp, "Content", 0f, ctCy - vpCy, z);
+            // `Scrollbar`：**建出来但恒关着**（原版 `m_VerticalScrollbarVisibility = 2`(AutoHide) + 内容 490.45
+            // < 视口 573.96 ⇒ `SetVerticalScrollbarVisibility` 会 `SetActive(false)`）。见上面那段。
+            {
+                float sbL = r - LstSbW;
+                var sb = Node(list, "Scrollbar", (sbL + r) * 0.5f, vpCy, z);
+                Img(sb, "scroll_bg", CardArt.MenuUi("Background"), 0f, 0f, LstSbW, LstHPx, z, QLangText, null);
+                var slide = Node(sb, "Sliding Area", 0f, 0f, z);
+                // `Handle`：`aMin(0,0) aMax(1,0.9273) sd(20,20)` ⇒ 高 = 滑区高 × 0.9273 + 20，贴滑区**底**
+                float slideH = LstHPx - 20f, handleH = slideH * 0.9273074865341187f + 20f;
+                Img(slide, "Handle", CardArt.MenuUi("40k_menu_scroll_bar_fill"), 0f,
+                     (bot + 10f + handleH * 0.5f) - vpCy, LstSbW, handleH, z, QLangText, null);
+                sb.gameObject.SetActive(false);
+            }
+            for (int i = 0; i < rows; i++)
+                BuildLangItem(content, i, rows > 1, top, z, l, vpR, ctCy);
+            return list;
+        }
+
+        /// <summary>列表里的一行（原版 `Content > Item`：`Toggle` + 三个子件）。
+        /// 行顶 = `Content` 顶 + `i × 40.8707`（原版 `Show():840-844` 把第 0 项摆在**最上**）。
+        /// ⚠️ 行里那三件的矩形由原版字段推出来，见 `LstChkCx` / `LstLblPad*` 那两条注释；
+        ///    `ctCy` = `Content` 的框心（框中心系）—— 行节点要按它换算成**相对 `Content`** 的坐标。</summary>
+        void BuildLangItem(Transform content, int i, bool real, float contentTop, float z, float l, float r, float ctCy)
+        {
+            float t = contentTop - i * LstItemH, b = t - LstItemH;
+            float rowCx = (l + r) * 0.5f, rowCy = (t + b) * 0.5f;
+            // ⚠️ 行节点名 = **运行时按语言拼的**（原版 `AddItem:1148`：`"Item " + 序号 + ": " + 文案`）——
+            //    ⛔ 别拿它当稳定标识（换一次语言名字就变）；自检走 `LangRowBg(i)` / `LangRowWorldPos(i)`。
+            var item = Node(content, real ? ("Item " + i + ": " + Loc.LanguageName(Loc.Languages[i])) : "Item",
+                            0f, rowCy - ctCy, z);                 // x 恒 0：行心与 `Content` 框心同列
+            var bg = Img(item, "Item Background", CardArt.MenuUi(LstItemArt), 0f, 0f,
+                          r - l, LstItemH, z, QLangItem, LstItemTint);
+            // 勾（原版 `Item Checkmark`：`ap(10,0)` ⇒ **中轴 = 行左起 10**、20×20、`m_Type = 0`(Simple，**拉伸**)）
+            var chk = Img(item, "Item Checkmark", CardArt.MenuUi(LstChkArt), (l + LstChkCx) - rowCx, 0f,
+                           LstChkS, LstChkS, z, QLangText, Color.white);
+            // 字（原版 `Item Label`：行内边距 左 20 / 右 10 / 上 2 / 下 1 · `Left/Middle` · 灰 0.783）
+            float bl = l + LstLblPadL, bt = t - LstLblPadT, bb = b + LstLblPadB;   // 右内边距 = `r − LstLblPadR`（只影响框宽，字是左中锚）
+            string txt = real ? Loc.LanguageName(Loc.Languages[i]) : "Option A";
+            var lb = Label.Create(item, txt, new Vector3(U(bl - rowCx), U((bt + bb) * 0.5f - rowCy), z),
+                                  4, LstLblColor, new Vector2(0f, 0.5f), "Item Label");
+            // 🔴 **队列必须显式给**：行底图在 `QLangItem`(3142)，而 `Label` 默认留在材质默认档（3000）
+            //   ⇒ 不给的话**行底图会把字盖住**（本面板其余几颗字靠 z 分层、那些件同队列，这一族不同）。
+            if (lb != null) lb.SetRenderQueue(QLangText);
+            // ⚠️ 原版那颗 TMP 开了 autosize（18~40），本工程 `Label` 没有这一档 ⇒ 按 `fs 30` 定字号、
+            //    **按语种选**（汉字 ≈ 1 em / 拉丁大写 ≈ 0.72 em，同 `ApplyLangFont` 那条判据）。
+            //    实测最长那条（`Portuguese` ≈ 165px、`葡萄牙语` ≈ 120px）都放得进 198 宽的框（自检有断言）。
+            ApplyLangFont(lb, txt, LstLblFontPx);
+            if (real) _langRows.Add(new LangRow { Bg = bg, Chk = chk, Lb = lb, Idx = i });
+        }
+
+        /// <summary>**点开 / 收起**（原版 `TMP_Dropdown.OnPointerClick → Show()` / `Blocker.onClick → Hide()`）。
+        /// ⚠️ 原版 `Show()` **不是 toggle**：已经开着再点框会**直接 return**（`m_Dropdown != null`）；
+        /// 而框上方那一块此刻被 `Blocker` 盖住 ⇒ 真实交互里「再点一下框 = 收起」。
+        /// 我们没有 UGUI 那套射线优先级，所以这里显式写成 toggle —— **这一处是对齐行为、不是照抄实现**
+        /// （同 `Shell/SettingsWindow.ToggleLangList` 那条）。</summary>
+        public void ToggleLangList() { if (LangListOpen) HideLangList(); else ShowLangList(); }
+
+        /// <summary>开列表（= 原版 `Show()`）：首开时**建克隆体**（`Instantiate(Template)` + 改名 `"Dropdown List"`
+        /// + 挂到 `Template` 的父下），然后 `SetActive(true)`。
+        /// ⚠️ 原版还会 `AlphaFadeList(0.15, 0→1)` 淡入 + 建那颗全屏 `Blocker`：
+        /// **淡入不做**（本工程的 `ImageQuad`/`Label` 没有 alpha 动画口，批处理下也没有帧循环）；
+        /// **`Blocker` 不建**（原版那颗是 `Color.clear` 的**透明**块，作用只是「吃掉落到别处的点击」
+        /// —— 本件的命中是**几何判定**（`HitLangRow` / `HitLangBlank`），不吃射线 ⇒ 建一块看不见的图没有意义）。</summary>
+        public void ShowLangList()
+        {
+            if (_langField == null) return;
+            if (_langList == null)
+            {
+                // 原版：`m_Dropdown = CreateDropdownList(m_Template.gameObject)` → `name = "Dropdown List"`
+                //   → `dropdownRectTransform.SetParent(m_Template.transform.parent, false)`
+                _langList = BuildLangListSubtree(_langField.transform, "Dropdown List",
+                                                 _langRowsZ, Loc.Languages.Length);
+            }
+            _langList.gameObject.SetActive(true);
+            RefreshLangRows();
+            _langHoverRow = -1;
+            Debug.Log($"[Settings] 语言下拉**点开**（{_langRows.Count} 行 —— 原版 `TMP_Dropdown.Show()`："
+                    + "`Instantiate(Template)` → `\"Dropdown List\"` → `SetActive(true)` → 建全屏 `Blocker`）");
+        }
+
+        /// <summary>收起（= 原版 `Hide()` + `DestroyBlocker`）。⚠️ **不销毁克隆体**（原版会淡出后 `Destroy`）——
+        /// 我们不做淡出 ⇒ 留着复用，不影响任何一个可观察值（它关着、也不在命中里）。</summary>
+        public void HideLangList()
+        {
+            bool was = LangListOpen;
+            if (_langList != null) _langList.gameObject.SetActive(false);
+            _langRowArmed = -1; _langBlankArmed = false; _langHoverRow = -1;
+            if (was) Debug.Log("[Settings] 语言下拉**收起**（原版 `Hide()` → `AlphaFadeList(0.15, 0)` → "
+                             + "`DelayedDestroyDropdownList(0.15)` → `DestroyBlocker`；本件不做淡出）");
+        }
+
+        /// <summary>点某一行 ⇒ 选中（= 原版 `OnSelectItem:1247`：按行号定 `value` → **末尾 `Hide()`**）。
+        /// ⚠️ 原版那条链的「行号 → 语言」映射 = `LanguageSelector.ResetLanguagesDropdown` 遍历的那个静态
+        /// `string[]` 的**下标** —— 我们的等价物 = `Loc.Languages` 的**声明序**（`Core/Loc.cs` 已按枚举取值核过）。</summary>
+        public void ChooseLanguage(int i)
+        {
+            if (i < 0 || i >= Loc.Languages.Length) { Debug.LogWarning($"[Settings] 语言下拉：行号 {i} 越界"); return; }
+            HideLangList();
+            var v = Loc.Languages[i];
+            if (Loc.Current == v) { Debug.Log($"[Settings] 语言已经是「{Loc.LanguageName(v)}」—— 不变"); return; }
+            bool changed = Loc.SetLanguage(v);
             RefreshTexts();
             Debug.Log("[Settings] 语言 → " + Loc.LanguageName(Loc.Current) + $"（{Loc.Current}）"
                     + (Loc.HasOwnText(Loc.Current) ? "" : "　⚠️ 本地没有这一套文案 ⇒ 界面文字**回退英文**（见 `Loc.T`）")
                     + (changed ? "" : "（值没变）"));
+        }
+
+        /// <summary>把 12 行的**勾**那一层按当前语言重挑（= 原版 `Toggle.isOn = (value == i)` →
+        /// `graphic`（那层勾）的 alpha；本件用 `SetActive`，见 `AutoZoom` 那条同族说明）。
+        /// 同时把行底图**复位成常态那张**（原版 `Show()` 每次都重设 `item.toggle.isOn`）。</summary>
+        void RefreshLangRows()
+        {
+            for (int i = 0; i < _langRows.Count; i++)
+            {
+                var row = _langRows[i];
+                if (row.Chk != null) row.Chk.gameObject.SetActive(Loc.Languages[row.Idx] == Loc.Current);
+                if (row.Lb != null)
+                {
+                    string t = Loc.LanguageName(Loc.Languages[row.Idx]);
+                    row.Lb.SetText(t);
+                    ApplyLangFont(row.Lb, t, LstLblFontPx);
+                }
+                if (row.Bg != null) row.Bg.SetTexture(CardArt.MenuUi(LstItemArt), true);
+            }
+            _langHoverRow = -1;
+        }
+
+        /// <summary>指针落在**第几行**上（`-1` = 不在任何一行上）。判据 = 那一行的底图先个 quad 的**渲染矩形**
+        /// （原版那一行整块都可点：`Toggle.targetGraphic` = `Item Background` 铺满整行）。</summary>
+        public bool HitLangRow(Vector3 world, out int idx)
+        {
+            idx = -1;
+            if (!Visible || !LangListOpen) return false;
+            for (int i = 0; i < _langRows.Count; i++)
+                if (_langRows[i].Bg != null && _langRows[i].Bg.Contains(world)) { idx = _langRows[i].Idx; return true; }
+            return false;
+        }
+
+        /// <summary>列表开着时，指针落在**空白处**（不在任何一行上）—— 原版那颗全屏 `Blocker` 覆盖的范围。
+        /// ⚠️ 它**也包括那颗框自己**（`Blocker` 在框之上）⇒ 「再点一下框 = 收起」这条行为就是它给的。</summary>
+        bool HitLangBlank(Vector3 world)
+        {
+            if (!LangListOpen) return false;
+            int i;
+            return !HitLangRow(world, out i);
+        }
+
+        /// <summary>ESC —— **列表开着先收列表**（原版 `TMP_Dropdown.OnCancel:763 → Hide()`：UGUI 把 `Cancel`
+        /// 事件按「当前选中对象 → 父链」派发，列表开着时那颗全屏 `Blocker`（内部类 `DropdownBlocker`）先吃到它）。
+        /// 返回 `true` = 这一下**被用掉了**（⛔ 窗不关、也不做别的事）—— 与主菜单那扇
+        /// （`Shell/SettingsWindow.ESCPressed`：抢在 `base` 之前判一次、返回 true 就不再往下走）**同一条口径**。
+        /// <para>🔴 **接线**：本件每帧都被驱动层调一次 `PointerFrame`（`BattleDriver.HandleSettings` 里那句
+        /// `_settingsPanel.PointerFrame(...)`，面板开着时恒走）⇒ **ESC 就在那个每帧入口读一次**。
+        /// ⛔ 别把这句挪进「按下/抬起」那两支 —— 它是**帧级**边沿、与指针无关。
+        /// ⚠️ 本件不在 `BattleDriver.cs` 的白名单里（那份文件另有写手）⇒ **没有**在驱动层加一行。</para></summary>
+        public bool EscPressed()
+        {
+            if (!Visible) return false;
+            if (LangListOpen)
+            {
+                HideLangList();
+                Debug.Log("[Settings] ESC：**先收语言下拉列表**（原版 `TMP_Dropdown.OnCancel → Hide()`）—— 窗不关");
+                return true;
+            }
+            return false;    // 列表没开 ⇒ 本件不吃（原版那一路归 `GameWindow.ESCPressed`；本件不是 `GameWindow`）
+        }
+
+        static bool EscDown()
+        {
+            if (EscapePressedForTest.HasValue) return EscapePressedForTest.Value;
+            var kb = UnityEngine.InputSystem.Keyboard.current;
+            return kb != null && kb.escapeKey.wasPressedThisFrame;
+        }
+
+        /// <summary>悬停那一档（原版 `Item` 那颗 `Toggle` 的 `m_Transition = 2`(SpriteSwap) 的
+        /// `m_SpriteState.m_HighlightedSprite` = `40K_dropdown_item_hover`）。
+        /// ⚠️ **按下那一档没落**：`40K_dropdown_item_press` 本地 `Resources/` 里没有（见 `LstItemArt` 那条）。
+        /// 只在**换行**时才动贴图（`SetTexture(..., keepAspect: true)` —— 比例由行框定，别让新图的自身比例覆盖它）。</summary>
+        void RefreshLangHover(Vector3 world)
+        {
+            if (!LangListOpen) { _langHoverRow = -1; return; }
+            int i;
+            HitLangRow(world, out i);
+            if (i == _langHoverRow) return;
+            _langHoverRow = i;
+            for (int k = 0; k < _langRows.Count; k++)
+            {
+                var row = _langRows[k];
+                if (row.Bg == null) continue;
+                bool hot = row.Idx == i;
+                row.Bg.SetTexture(CardArt.MenuUi(hot ? LstItemHiArt : LstItemArt), true);
+            }
+        }
+        int _langHoverRow = -1;
+        /// <summary>列表底板的九宫格根节点（自检量「建出来了没有」；⛔ 只读）。</summary>
+        GameObject _langListBg;
+        /// <summary>克隆体那一族的 z（与原型同一层 —— 排序靠**渲染队列**，见 `QLangList`；z 只是跟着面板走）。</summary>
+        float _langRowsZ;
+
+        // ---- 自检口（⛔ 只读，不给生产用）----
+        /// <summary>`Template` 原型节点（**恒 inactive**）。</summary>
+        public Transform LangTemplateNode { get { return _langTemplate; } }
+        /// <summary>真正显示的那份（`"Dropdown List"`）；没开过 = `null`。</summary>
+        public Transform LangListNode { get { return _langList; } }
+        /// <summary>列表的父（= 那颗语言框）—— 自检核「列表挂在哪儿」用。</summary>
+        public Transform LangFieldNode { get { return _langField != null ? _langField.transform : null; } }
+        /// <summary>列表底板的九宫格根（自检量它的实画矩形）。</summary>
+        public GameObject LangListBgNode { get { return _langListBg; } }
+        public int LangRowCount { get { return _langRows.Count; } }
+        public ImageQuad LangRowBg(int i) { return (i >= 0 && i < _langRows.Count) ? _langRows[i].Bg : null; }
+        public Label LangRowLabel(int i) { return (i >= 0 && i < _langRows.Count) ? _langRows[i].Lb : null; }
+        public ImageQuad LangRowCheck(int i) { return (i >= 0 && i < _langRows.Count) ? _langRows[i].Chk : null; }
+        /// <summary>第 `i` 行**底图**的世界中心（自检照着它点 —— 走与真实输入**同一条**判定）。
+        /// 🔴 为什么给这个口：行节点名是**运行时按语言拼的**（换一次语言就变）⇒ `transform.Find(名字)` 不可靠。</summary>
+        public Vector3 LangRowWorldPos(int i)
+        {
+            var bg = LangRowBg(i);
+            return bg != null ? bg.transform.position : Vector3.zero;
+        }
+        /// <summary>第 `i` 行的矩形（**相对那颗语言框的中心**，px、y 向上）—— 自检量版面用。
+        /// ⚠️ 给的是**行**（= 原版 `Item` 那格），不是卡位那一族的东西。
+        /// 🔴 必须走 `InverseTransformPoint`：行是挂在 `Content > Item` 下面的（`localPosition` 那一层
+        /// 只有一个「相对行心」的偏移，读它永远得 0）。</summary>
+        public bool LangRowRectPx(int i, out float cx, out float cy, out float w, out float h)
+        {
+            cx = cy = w = h = 0f;
+            var bg = LangRowBg(i);
+            if (bg == null || _langField == null) return false;
+            var local = _langField.transform.InverseTransformPoint(bg.transform.position);
+            cx = local.x * 108f; cy = local.y * 108f;
+            w = bg.WorldW * 108f; h = bg.WorldH * 108f;
+            return true;
         }
 
         /// <summary>滑块标签：左对齐（锚点 `(0, 0.5)` = **文字块的左缘 + 行盒心**落在给定坐标上）。
@@ -603,12 +1010,29 @@ namespace CardPresentation
         /// ⚠️ 「Auto Zoom」那一行**不在这里**（A445 起它走抬起的点击链），见方法体里的注释。</summary>
         public bool PointerFrame(Vector3 world, bool down)
         {
-            if (!Visible) { _dragSlider = null; _wasDown = false; _langArmed = false; return false; }
+            if (!Visible)
+            {
+                _dragSlider = null; _wasDown = false; _langArmed = false;
+                _langRowArmed = -1; _langBlankArmed = false; _langHoverRow = -1;
+                return false;
+            }
+            // 🆕 2026-10-18（A921）：**ESC —— 先收列表、窗不关**（原版 `TMP_Dropdown.OnCancel → Hide()`，
+            //   见 `EscPressed` 那段）。🔴 为什么在这条路上读键盘：本件**每帧**都被驱动层调一次
+            //   （`BattleDriver.HandleSettings` 里那句 `_settingsPanel.PointerFrame(...)`），而
+            //   `BattleDriver.cs` 不在本件的白名单里 ⇒ 这里是本件唯一「每帧必到」的入口。
+            //   ⛔ 别把这句挪进下面那两支（它是**帧级**边沿、与指针无关）。
+            if (EscDown()) EscPressed();
+            RefreshLangHover(world);
             // 🆕 2026-10-17：语言那一行的**按下 → 抬起**这一对边沿（原版那颗 `TMP_Dropdown` 是 `Selectable`
             //   ⇒ `IPointerClickHandler`，**抬起**那一帧才算点它）。⚠️ 这一段必须在下面那句
             //   `if (!down) … return false;` **之前** —— 抬起那一帧 `down == false`，走不到底下。
             bool langClick = LangPointerFrame(world, down);
             if (!down) { _dragSlider = null; return langClick; }
+
+            // 🆕 2026-10-18（A921）：**列表开着** ⇒ 这一帧的按下归那颗全屏 `Blocker`
+            //   （`LangPointerFrame` 已经返回 true）—— ⛔ 别再往下走：原版那颗 `Blocker` 盖住整根滑块，
+            //   按在列表上不该把底下的滑轨拖走。
+            if (LangListOpen) return true;
 
             // 🔴 **2026-10-12（A445）：「Auto Zoom」那一行不在本方法里判。**
             //    原版那颗开关（`BattleSettingsPanel/Auto Zoom Toggle`，组件 `EverguildToggle`）继承
@@ -755,12 +1179,39 @@ namespace CardPresentation
         {
             bool wasDown = _wasDown;
             _wasDown = down;
-            if (down && !wasDown) { _langArmed = HitLanguage(world); return false; }   // 按下：记下这一下从哪开始
+            if (down && !wasDown)
+            {
+                // 按下：记下这一下「从哪开始」。
+                // 🆕 2026-10-18（A921）：**列表开着时**，原版那颗铺满全屏的透明 `Blocker` 在最上层
+                //   （`CreateBlocker:1009`）⇒ 这一帧一律**吃掉**（滑块/别的按钮都不许起拖、不许响应）：
+                //   按在**行**上 = 待会儿选它；按在**别处**（**含那颗框自己** —— `Blocker` 压在它上面）
+                //   = 待会儿收起。这两条合起来就是原版「再点一下框 = 收起」的来路。
+                if (LangListOpen)
+                {
+                    int row; _langArmed = false;
+                    _langRowArmed = HitLangRow(world, out row) ? row : -1;
+                    _langBlankArmed = _langRowArmed < 0;
+                    return true;
+                }
+                _langArmed = HitLanguage(world);
+                return false;
+            }
             if (!down && wasDown)                                                      // 抬起：原版就是这一帧触发
             {
+                // ① 点行 ⇒ 选中 + 收起（原版 `OnSelectItem:1247` = `value = i` + 末尾 `Hide()`）
+                if (_langRowArmed >= 0)
+                {
+                    int armed = _langRowArmed; _langRowArmed = -1; _langBlankArmed = false;
+                    int hit;
+                    if (HitLangRow(world, out hit) && hit == armed) { ChooseLanguage(armed); return true; }
+                    return true;      // 按在行上、抬到别处 ⇒ **不选**（但这一下仍归 `Blocker` 吃）
+                }
+                // ② 点空白 ⇒ 收起（原版那颗 `Blocker` 的 `onClick → Hide`）
+                if (_langBlankArmed) { _langBlankArmed = false; HideLangList(); return true; }
+                // ③ 点框 ⇒ 开/收（原版 `OnPointerClick → Show()`；开着时这一下会被 ① 吃掉，见上面）
                 bool fire = _langArmed && HitLanguage(world);
                 _langArmed = false;
-                if (fire) { CycleLanguage(); return true; }
+                if (fire) { ToggleLangList(); return true; }
             }
             return false;
         }
@@ -786,7 +1237,14 @@ namespace CardPresentation
             // 🆕 三根音量滑块。⚠️ `WfSlider` **不是** `MonoBehaviour`，没有 `.gameObject` ——
             //    要它自己的 `SetVisible`（第一次写漏了会在这里编译不过）。
             foreach (var s in Sliders) if (s != null) s.SetVisible(on);
-            if (!on) { _dragSlider = null; _wasDown = false; _langArmed = false; }
+            if (!on)
+            {
+                _dragSlider = null; _wasDown = false; _langArmed = false;
+                // 🆕 2026-10-18（A921）：关面板时**把列表也收掉** —— 列表挂在**那颗语言框**下面，框停用会让它
+                //   在层级上跟着不显示，可 `_langList.gameObject.activeSelf` **仍是真** ⇒ `LangListOpen` 会
+                //   谎报「开着」（下次开面板一进来列表就露着）。⛔ 别只靠父件的 `SetActive`。
+                HideLangList();
+            }
         }
 
         /// <summary>指针是不是落在面板上（开着的时候**吃掉**点击，别穿到棋盘）</summary>

@@ -482,7 +482,7 @@ namespace CardPresentation
             // `No Deck Text`（+ `Create deck` 那颗钮）—— **只有在没有督军时才显示**（原版 `NoDeckText` 那一族）
             var none = MenuDraw.Node(col, "No Deck", new PxRect(NoDeckL, NoDeckT, NoDeckR, NoDeckB));
             var ndt = MenuDraw.Text(none, new PxRect(NoDeckL, NoDeckT, NoDeckR, NoDeckB),
-                                    "这套卡组还没有督军 —— 去卡组编辑里选一个再来。", Color.white,
+                                    "这套卡组还没有战将 —— 去卡组编辑里选一个再来。", Color.white,
                                     "No Deck Text", 45f, QText);
             // ⚠️ 我们这句话比原版长（24 字 × fs45 ≈ 1080px）⇒ **会溢出 685.65 的框** ⇒ 自己缩着放进去
             //    （原版那句带 `auto 18-45`，我们照它的区间自缩）——**这一条是我们挑的**
@@ -891,7 +891,7 @@ namespace CardPresentation
             if (string.IsNullOrEmpty(d.WarlordId) && PickedPrebuilt == null)
             {
                 Debug.LogWarning("[Event] 这套卡组**没有督军**，开不了局 —— 如实说，不静默。");
-                if (Manager != null) Manager.ShowPopUp("这套卡组还没有选督军，开不了局。", "知道了", null);
+                if (Manager != null) Manager.ShowPopUp("这套卡组还没有选战将，开不了局。", "知道了", null);
                 return;
             }
             // 🆕 2026-09-26（N3）：**联机已连上 ⇒ 走 P2P**，不跑那 12 秒 bot 链
@@ -1063,6 +1063,12 @@ namespace CardPresentation
                       + (mode == (int)GameMode.Skirmish ? "遭遇 Skirmish（12 张）" : "经典 Classic（30 张）")
                       + "（照原版 `SelectDecksTab.CreateDeck`：**建组这一刻定模式**，之后没有改的路径）"
                       + " ⇒ 进卡组编辑（交接下标 " + idx + "）");
+            // 🆕 2026-10-18（A855）：**这条来路的回程意图**（全仓仅有两处 `LoadScene("DeckEditor")`，
+            //   这是**第二处**）—— 「来源由入口决定、不由离场方式决定」⇒ 写在**进编辑器**这一刻，
+            //   ⛔ 别挪到 `DeckRuntime.BackToMenu` 去；⚠️ 写在批处理闸**之前**（批处理不切场景，
+            //   自检只能靠这个意图观测）。⚠️ 回程**今天开不了这扇窗** —— 本地没有事件数据
+            //   （理由逐条 → `MainMenuRuntime.Build` 里那一段）⇒ 只记来源，那一跳还开着。
+            CollectionData.SetReturnIntent(DeckExitSource.LiveOpsEvent, WindowTabType.None);
             if (Application.isBatchMode) { Debug.Log("[Event] （批处理：不切场景，只交接）"); return; }
             UnityEngine.SceneManagement.SceneManager.LoadScene("DeckEditor");
         }

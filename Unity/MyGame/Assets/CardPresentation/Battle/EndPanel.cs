@@ -255,7 +255,7 @@ namespace CardPresentation
             _sub.SetText(forfeitedBy >= 0
                          ? $"{rounds} 回合   " + (forfeitedBy == myIndex ? "我方投降" : "对方投降")
                          : (minFoeWarlordHealth >= 0
-                            ? $"{rounds} 回合   敌方督军最低生命 {minFoeWarlordHealth}"
+                            ? $"{rounds} 回合   敌方战将最低生命 {minFoeWarlordHealth}"
                             : $"{rounds} 回合"));      // 没传最低生命（-1）就只说回合数，**不编一个数出来**
 
             // 🔴 **未点亮的骷髅 = 【根本不显示】**，而且 **0 个的时候整行（连底板）都藏起来** ——

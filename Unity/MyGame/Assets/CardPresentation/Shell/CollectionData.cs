@@ -16,6 +16,24 @@ using RuleEngine;
 
 namespace CardPresentation
 {
+    /// <summary>🆕 **2026-10-18（A855 · 用户拍板「按来路回」）**：`DeckEditor`（卡组编辑那个**独立场景**）
+    /// 是**从哪条路**进的 —— 决定「编辑完离场」时回程往哪里开。
+    /// ⚠️ 全仓**仅有**两处 `LoadScene("DeckEditor")`，就在这两个入口里各写一次
+    /// （见 `CollectionData.SetReturnIntent` / `CollectionData.PendingReturn`）。</summary>
+    public enum DeckExitSource
+    {
+        /// <summary>没有意图。🔴 **「有没有回程意图」的唯一判据是它** —— ⛔ 别拿「页签是不是 `None`」当判据。</summary>
+        None = 0,
+        /// <summary>收藏窗的卡组页（`Shell/CollectionWindow.GoEdit`）
+        /// ⇒ 回程 = 回主菜单 + 重开**收藏窗的卡组页**（`CollectionDecks`）。</summary>
+        Collection = 1,
+        /// <summary>遭遇 / 排位事件窗的 `Create deck`（`Shell/LiveOpsEventWindow.CreateDeckInMode`）
+        /// ⇒ 回程**本该**回那扇事件窗，但**本地没有事件数据、本次复刻不了**（理由逐条 → `MainMenuRuntime.Build`
+        /// 里那一段注释）⇒ 今天**只把来源记下来、不开窗**。这笔账**还开着**：将来事件数据能复刻时，
+        /// 只需在 `MainMenuRuntime.Build` 里补「按来源开窗」那一跳。</summary>
+        LiveOpsEvent = 2,
+    }
+
     /// <summary>收藏线要用的那几样数据（纯静态、可 Reset，自检之间互不影响）。</summary>
     public static class CollectionData
     {
@@ -268,6 +286,49 @@ namespace CardPresentation
         /// ⚠️ 批处理下收藏窗**只交接、不切场景** ⇒ 自检验的就是这个下标。</summary>
         public static int PendingEditDeck = -1;
 
-        public static void ResetForTest() { _lib = null; _lookup = null; PendingEditDeck = -1; }
+        /// <summary>🆕 **2026-10-18（A855）「编辑完卡组离场」的回程意图** —— 与上面 `PendingEditDeck` **对称**：
+        /// 去程写「进哪一套」· 回程写「**从哪条路来**」。同样**静态字段跨场景存活**（`MainMenu` 也是另一个场景）、
+        /// 同样**批处理下只交接、不切场景** ⇒ 自检验的就是这个意图。
+        ///
+        /// <para>🔴 **用户 2026-10-18 拍板：按来路回**（不是「一律回收藏窗」）⇒ 所以记的是**来源**，
+        /// 不是一个「回收藏窗」的布尔。写作方 = **入口**（见 <see cref="DeckExitSource"/> 那两条路）；
+        /// 读方 = `MainMenuRuntime.Build`（读走即清，再照来源开窗落页）。</para>
+        ///
+        /// <para>⚠️ **`Take*` 是本仓既有的交接口径**（**读走即清**，先例：`PrebuiltDecks.TakePendingBattleDeck` ·
+        /// `BattleDriver.TakePendingPlayMode` · `NetBattle.Take`）—— ⛔ 别另设一套 `Reset*` 入口。</para></summary>
+        public struct ReturnIntent
+        {
+            /// <summary>来路。**「有没有意图」的唯一判据**（`None` ⇒ 没有）。</summary>
+            public DeckExitSource Source;
+            /// <summary>来路那条路指定的**落点页**（收藏那条路 = `CollectionDecks`；事件窗那条路今天不用）。</summary>
+            public WindowTabType Tab;
+        }
+
+        /// <summary>待消费的回程意图。`default` ⇒ `Source = None`（= 没有意图）。</summary>
+        public static ReturnIntent PendingReturn;
+
+        /// <summary>写下回程意图。**入口调**（「来源由入口决定、不由离场方式决定」—— 见 `DeckRuntime.BackToMenu`
+        /// 那段注释：离场那三处调用点都只是「关闭这条路上的编辑器」）。</summary>
+        public static void SetReturnIntent(DeckExitSource src, WindowTabType tab)
+        {
+            PendingReturn = new ReturnIntent { Source = src, Tab = tab };
+        }
+
+        /// <summary>取回程意图并**清掉**（读一次就没了 —— 同上面那三个 `Take*` 先例的口径；
+        /// 不清的话下次进主菜单还会再落一次）。</summary>
+        public static ReturnIntent TakePendingReturn()
+        {
+            var r = PendingReturn;
+            PendingReturn = default(ReturnIntent);
+            return r;
+        }
+
+        public static void ResetForTest()
+        {
+            _lib = null; _lookup = null;
+            PendingEditDeck = -1;
+            // 🆕 2026-10-18（A855）：回程意图与 `PendingEditDeck` **同进同出** —— 自检之间互不影响
+            PendingReturn = default(ReturnIntent);
+        }
     }
 }

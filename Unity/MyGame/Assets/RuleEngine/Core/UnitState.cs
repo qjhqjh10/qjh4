@@ -3,7 +3,14 @@
 // 和 `CardDef`（不可变的卡牌定义）分开：同一张卡多次上场是两个独立的 UnitState，
 // 掉血/疲劳/增益互不影响。
 //
-// 字段语义对齐 `rule_core.gd` 的 `_make_unit`。
+// 字段**对照**我们上一版 Godot 复刻（`d:/warpforge/scripts/rule_core.gd` 的 `_make_unit`）——
+// ⚠️ 那份 `.gd` 是**我们自己**的复刻，**只作旁证**（「我们当时是怎么拍这些字段的」），
+// **不是原版语义判据**。本文件下面凡引 `rule_core.gd:<行>` 的，一律按此口径读。
+// 🔴 **判据顺序**（`CLAUDE.md` 铁律 2 的 2026-09-25 口径）：
+//   ① 原版全量反编译方法体 `D:/2/tools/decomp_full/` → ② 解包资源字段 → ③ 成品卡图卡面文字；
+//   粉丝实体规则书（《Warpforge Offline Rulebook》，非官方）与那份 `.gd` 都只作**第二来源/旁证**。
+// ⚠️ **2026-10-18 更正**：本行原来写「字段语义**对齐** `rule_core.gd` 的 `_make_unit`」——
+//   口径错了（把我们的复刻当成了基准）。见 `CLAUDE.md` 铁律 2 的 2026-09-18 更正。
 using System.Collections.Generic;
 
 namespace RuleEngine
@@ -56,8 +63,10 @@ namespace RuleEngine
         /// <summary>
         /// **正在祈祷**（2026-09-13 A4 批 1）—— 执行过 `Pray` 替代行动的单位，**按回合重置**。
         ///
-        /// 出处：规格书 `rule_core.gd:2371`（`u["prayed"] = true`，在 `Pray` 那一点）·
+        /// 出处：我们上一版复刻 `rule_core.gd:2371`（`u["prayed"] = true`，在 `Pray` 那一点）·
         ///       `:1953`（`u["prayed"] = false`，和 `exhausted` / `attacks_turn` 同一批清）。
+        /// ⚠️ 2026-10-18 更正：这里原来把这行标成「**规格书**」—— 那份 `.gd` 是我们自己的复刻、
+        ///    只是**旁证**，不是规格/判据（见文件头）。
         /// 卡面两处：`Each friendly unit that is Praying heals 3`（`Devout Serenity`）·
         ///           `If any friendly unit is Praying, …`（`Sororitas Rhino`）。
         /// ⚠️ 它和 `When a friendly unit Prays` **不是一回事**：那个是**事件**（发生的那一下），
@@ -119,14 +128,16 @@ namespace RuleEngine
         /// <summary>
         /// 失明（规则书 :166「本单位失明期间**远程攻击设为 0**」）。
         ///
-        /// ⚠️ 和 `stun` 一样，原版是**独立的布尔状态字段**（`rule_core.gd:239` 的 `blind`），
+        /// ⚠️ 和 `stun` 一样，我们上一版复刻里是**独立的布尔状态字段**（`rule_core.gd:239` 的 `blind`），
         ///    不是关键词 —— 它靠 `_damage_unit` 那族置位（`:2814`）、`field_attack` 之外读它。
-        ///    出处：原版 `:4212` `if is_ranged and bool(attacker.get("blind", false)): return ERR_NO_ATTACK`。
+        ///    出处：那份 `.gd` 的 `:4212` `if is_ranged and bool(attacker.get("blind", false)): return ERR_NO_ATTACK`
+        ///    （⚠️ 这些 `:NNNN` 全是**我们自己的复刻**的行号，**旁证、非原版**；
+        ///     2026-10-18 更正：原来写作「原版是……」「出处：原版」）。
         /// </summary>
         public bool IsBlind;
 
         /// <summary>
-        /// **狂喜已经触发过**（2026-09-14）—— 对照参考实现 `rule_core.gd:4447` 的
+        /// **狂喜已经触发过**（2026-09-14）—— 对照我们上一版复刻 `rule_core.gd:4447` 的（⚠️ **旁证**）
         /// `u["_ecstasy_fired"]`（原话：「**首次越线触发一次防重复**」）。
         ///
         /// 🔴 **这一位不能省**：`RuleCore.Hurt` 的判据是「生命 ≤ X 且未死」——
@@ -136,11 +147,12 @@ namespace RuleEngine
         public bool EcstasyFired;
 
         /// <summary>
-        /// 失明的**到期回合**（`blind_turn_end`，原版 `rule_core.gd:2815`）。
+        /// 失明的**到期回合**（`blind_turn_end`，我们上一版复刻 `rule_core.gd:2815`；⚠️ **旁证，非原版**）。
         /// `-1` = 没有失明。语义是「到**施放者自己的下个回合开始**时清」——
         /// 也就是撑过对手的一整个回合（卡面写 `until your next turn`）。
-        /// ⚠️ 原版清除时读的是**另一个字段名**（`:1962` 读 `blind_turn`、`:2815` 写 `blind_turn_end`），
-        ///    所以原版这条清除**从来没生效过**（`blind` 一旦中上就永久）。我们按卡面语义实现，不照抄这个笔误。
+        /// ⚠️ 那份 `.gd` 清除时读的是**另一个字段名**（`:1962` 读 `blind_turn`、`:2815` 写 `blind_turn_end`），
+        ///    所以它这条清除**从来没生效过**（`blind` 一旦中上就永久）。我们按**卡面语义**实现，
+        ///    不照搬这个笔误（⚠️ 2026-10-18 更正：原句把这些写成了「原版」）。
         /// </summary>
         public int BlindTurnEnd = -1;
 
@@ -242,10 +254,10 @@ namespace RuleEngine
 
             // 部署当回合不可行动 —— 除非带**迅捷 / 侧翼 / 狂暴**。
             // 规则书 :98「部署当回合不能行动（除非注明，如迅捷/侧翼/狂暴）」、
-            // :187「侧翼：打出当回合可攻击任意敌方部队」；原版 `rule_core.gd:2248`
-            // 把这两个写在同一句里（`fast` / `flank` → `exhausted = false`）。
+            // :187「侧翼：打出当回合可攻击任意敌方部队」；我们上一版复刻 `rule_core.gd:2248`
+            // 把这两个写在同一句里（`fast` / `flank` → `exhausted = false`）（⚠️ **旁证，非原版**）。
             // ⚠️ **狂暴（`ferocity`）是 2026-09-13 A2 补进来的** —— `:98` 那句话里
-            //    本来就点着它（「如迅捷/侧翼/狂暴」），原版同一处也把它和 fast/flank 并列，
+            //    本来就点着它（「如迅捷/侧翼/狂暴」），那份 `.gd` 的同一处也把它和 fast/flank 并列，
             //    只是我们先前没实现这个关键词。慢的 `pray` **不在**这一行（`:198`）。
             //
             // 🔴 **2026-10-17（F7）：三个词的表**不在这儿** —— 判据收在 `RuleCore.HasDeployExemption` 一处**
@@ -384,9 +396,9 @@ namespace RuleEngine
             return _keywords.TryGetValue(keyword, out v) ? v : 0;
         }
 
-        /// <summary>关键词授予/叠加（`rule_core._apply_gain:3292`：`kws[name] += val`）。
+        /// <summary>关键词授予/叠加（我们上一版复刻 `rule_core._apply_gain:3292`：`kws[name] += val`；⚠️ **旁证**）。
         /// ⚠️ `armour`/`shield`/`stun` 三个还要**同步状态字段** —— 引擎别处是按字段结算的，
-        /// 只加 kws 不改字段 = 给了护甲却不减伤（原版 `:3293-3299` 专门补过这个 bug）。</summary>
+        /// 只加 kws 不改字段 = 给了护甲却不减伤（那份 `.gd` 的 `:3293-3299` 专门补过这个 bug）。</summary>
         public void AddKeyword(string keyword, int value)
         {
             if (string.IsNullOrEmpty(keyword)) return;
@@ -596,7 +608,7 @@ namespace RuleEngine
         /// </summary>
         public bool AuraRemnantStay;
 
-        // ---- 限时增益（原版 `temp_buffs`，`rule_core.gd:3300`）----
+        // ---- 限时增益（我们上一版复刻的 `temp_buffs`，`rule_core.gd:3300`；⚠️ **旁证，非原版**）----
         //
         // 一条 = 一次**带时长**的施加。到期按两条规则撤：
         //   · `this turn`            → **本回合结束时**撤（不管谁的回合）
@@ -663,7 +675,8 @@ namespace RuleEngine
         /// <summary>
         /// 撤掉**某一张卡**施加的全部限时增益（不看有没有到期）。返回撤掉几条。
         ///
-        /// 出处：规格书 `rule_core.gd:1777 _undo_temp_buffs_src(ctx, src)` —— 付费修饰型激活
+        /// 出处：我们上一版复刻 `rule_core.gd:1777 _undo_temp_buffs_src(ctx, src)`（⚠️ **旁证**；
+        /// ⚠️ 2026-10-18 更正：原来标成「**规格书**」—— 它是我们自己的复刻，没有规格地位）—— 付费修饰型激活
         /// （`6 [Energy]: Extend effect until your next turn` / `8 [Energy]: Give it permanently`）
         /// 要先**撤销基础效果**，再用新时长重结算一遍。
         ///
@@ -702,7 +715,7 @@ namespace RuleEngine
         {
             Exhausted = false;
             AttacksThisTurn = 0;
-            // 「正在祈祷」是**按回合**的状态（规格书 `rule_core.gd:1953` 就在这一批里清）。
+            // 「正在祈祷」是**按回合**的状态（我们上一版复刻 `rule_core.gd:1953` 就在这一批里清；⚠️ **旁证**）。
             // 卡面：`Each friendly unit that is Praying heals 3`（`Devout Serenity`）·
             //       `If any friendly unit is Praying, …`（`Sororitas Rhino`）。
             Prayed = false;

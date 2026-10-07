@@ -279,8 +279,11 @@ namespace RuleEngine
         /// **`non-Ephemeral` 限定**（`When you play a non-Ephemeral Stratagem, …`，`Neurotyrant`）。
         /// 2026-09-14 A5 批 2 加。**临时卡（`Ephemeral`）不算数**。
         ///
-        /// ⚠️ 判据照参考实现 `rule_core.gd:2170`：**只读卡面的 `keywords` 里有没有 `ephemeral`**，
-        ///    不读运行时标记（那边写的就是 `_kw_in_arr(card["keywords"], "ephemeral")`）。
+        /// ⚠️ 这条**照我们上一版 Godot 复刻的做法**（`rule_core.gd:2170` —— ⚠️ 那是**旁证、不是判据**，
+        ///    见 `CLAUDE.md` 铁律 2；**真正的判据是卡面那行 `keywords`**，即判据③）：
+        ///    **只读卡面的 `keywords` 里有没有 `ephemeral`**，
+        ///    不读运行时标记（那份 `.gd` 写的就是 `_kw_in_arr(card["keywords"], "ephemeral")`）。
+        ///    ⚠️ 2026-10-18 更正：这里原来写「**判据照参考实现**」—— 把那份 `.gd` 当判据是错的。
         ///    差别只在「被 `MarkEphemeral` 标记过、卡面没印 Ephemeral 的复制品」——
         ///    那一类目前全是**部队**（潮涌复制），不是计策，够不到这条监听器。
         /// </summary>
@@ -1209,8 +1212,9 @@ namespace RuleEngine
             }
 
             // ---- `non-Ephemeral` 限定（`When you play a non-Ephemeral Stratagem, …`）----
-            // 2026-09-14 A5 批 2。判据照参考实现 `rule_core.gd:2170`：读**卡面 keyword**，
-            // 不读运行时标记（那边写的就是 `_kw_in_arr(card["keywords"], "ephemeral")`）。
+            // 2026-09-14 A5 批 2。照我们上一版 Godot 复刻的做法 `rule_core.gd:2170`（⚠️ **旁证、非判据**；
+            // 2026-10-18 更正：原来写「判据照**参考实现**」）：读**卡面 keyword**，
+            // 不读运行时标记（那份 `.gd` 写的就是 `_kw_in_arr(card["keywords"], "ephemeral")`）。
             // ⚠️ 拿不到 `card` 就判**不触发**（同 `SelfOnly` 那条口径：拿不到事实就别乱放，
             //    「收不到」比「乱触发」安全）。
             if (ev.NotEphemeral)
@@ -1229,10 +1233,20 @@ namespace RuleEngine
                 }
                 else if (ev.OwnerIs == WhenEvent.RelFriendly)
                 {
-                    // ⚠️ **故意不判「现在是不是监听方的回合」**。原版广播器分四支
-                    //    （自己 `/` 场上每张牌 `/` 当前回合方手牌 `/` 另一方手牌），
-                    //    我们只做「场上每张牌」这一支，不分回合方 —— 规则书 `:238`
-                    //    「被攻击方优先结算」讲的正是**非**主动方要触发。**这是我们挑的**。
+                    // ⚠️ **故意不判「现在是不是监听方的回合」**：极性只看「这件事发生在**谁**那一方」
+                    //    （`friendly` 相对监听者 ⇒ `who == listener`），**与「轮到谁」无关**。
+                    //    规则书 `:238`「被攻击方优先结算」讲的正是**非**主动方要触发。
+                    //    **这一条仍是我们挑的**（原版那四支广播里没写「按回合筛极性」这件事）。
+                    //
+                    //    🔴 **2026-10-18 订正（`A887`）**：本节原来那句
+                    //    「原版广播器分四支（自己 / 场上每张牌 / 当前回合方手牌 / 另一方手牌），
+                    //     **我们只做「场上每张牌」这一支**」—— **后半截已不成立**：
+                    //     那四跳**现已全部接上**（自己 = `WhenEvent.SelfOnly`；
+                    //     手牌那两跳 = `EffectResolver.BroadcastHandWhen`，见
+                    //     `BattleManagerSupport__BroadcastUnitSummoned.c:21` / `:28-39` / `:43-52` / `:53-70`）。
+                    //     手牌那两跳确实是**按回合分档**的（先 `IsPlayerTurn()` 的手牌、再另一方），
+                    //     但那是**遍历顺序**，不是极性判据 —— 极性判据只在本函数这一处（文件头 ⚠️②）。
+                    //     ⚠️ 同一句在 `资料/事件层_数据与设计.md` §五第 1 行也有一份，**那份已同批订正**。
                     if (who != listener) return false;
                 }
                 else if (who == listener) return false;     // RelEnemy / RelOpponent

@@ -558,7 +558,7 @@ namespace CardPresentation
             var d = CollectionData.DeckAt(DeckIndex);
             var wl = CollectionData.Warlord(DeckIndex);
             _txtDeckName = Txt(_info, d.Name, DnL, DnR, DnT, DnB, 36f, Align.Left, "Deck Name", QPrText);
-            _txtWarlord = Txt(_info, wl != null ? wl.Name : "未选督军", WnL, WnR, WnT, WnB, 35f,
+            _txtWarlord = Txt(_info, wl != null ? wl.Name : "未选战将", WnL, WnR, WnT, WnB, 35f,
                               Align.Left, "Warlord Name", QPrText);
             _armyIcon = Img(_info, DeckRuntime.FactionIcon(d.Faction), ArmImgL, ArmImgT, ArmImgR, ArmImgB,
                             "Army Image", QPrRow, true);
@@ -1433,7 +1433,7 @@ namespace CardPresentation
             var info = CollectionData.DeckAt(i);
             if (_txtDeckName != null) _txtDeckName.SetText(info.Name);
             var wl = CollectionData.Warlord(i);
-            if (_txtWarlord != null) _txtWarlord.SetText(wl != null ? wl.Name : "未选督军");
+            if (_txtWarlord != null) _txtWarlord.SetText(wl != null ? wl.Name : "未选战将");
             if (_txtArmy != null) _txtArmy.SetText(SelectedArmyName());
             if (_armyIcon != null) _armyIcon.SetTexture(CardArt.MenuUi(DeckRuntime.FactionIcon(info.Faction)));
             if (_cardback != null) _cardback.SetTexture(CardArt.DeckCardback(info.CardbackId, info.Faction));
@@ -1456,7 +1456,7 @@ namespace CardPresentation
             if (_txtWarlord != null)
             {
                 var wl = CollectionData.Card(d.heroId);
-                _txtWarlord.SetText(wl != null ? wl.Name : "未选督军");
+                _txtWarlord.SetText(wl != null ? wl.Name : "未选战将");
             }
             if (_armyIcon != null) _armyIcon.SetTexture(CardArt.MenuUi(d.FactionIcon));
             if (_cardback != null) _cardback.SetTexture(d.Cardback);
@@ -1585,7 +1585,7 @@ namespace CardPresentation
             if (string.IsNullOrEmpty(info.WarlordId))
             {
                 Debug.LogWarning("[Practice] 这套卡组**没有督军**，开不了局 —— 如实说，不静默。");
-                if (Manager != null) Manager.ShowPopUp("这套卡组还没有选督军，开不了局。", "知道了", null);
+                if (Manager != null) Manager.ShowPopUp("这套卡组还没有选战将，开不了局。", "知道了", null);
                 return;
             }
             // 🆕 2026-09-26（N3）：**联机已连上 ⇒ 走 P2P，不跑那 12 秒 bot 链**

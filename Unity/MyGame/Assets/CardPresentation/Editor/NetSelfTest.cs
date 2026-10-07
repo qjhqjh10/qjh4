@@ -46,6 +46,8 @@ public static class NetSelfTest
             TestMatchCancel(FreePort());   // 🆕 2026-10-03：取消这一局的匹配（A1）
             TestLobbyPeerGone(FreePort()); // 🆕 2026-10-17：大厅阶段对面掉线 / 离开（A902）
             TestHintLine(FreePort());      // 🆕 2026-10-17（B27）：提示行那行字的消费方（A925）
+            TestStatePublishA943(FreePort()); // 🆕 2026-10-18（A943）：连接位与计数**由同一次写发布**
+            TestSilentTimeoutReadSideA943();  // 🆕 2026-10-18（A943 读侧）：静默超时**不许分两次读下结论**
             TestHostResolve();
             TestAddressAndUpnp();     // 🆕 2026-09-27：地址判据（Teredo/6to4）+ UPnP 纯函数
         }
@@ -871,6 +873,190 @@ public static class NetSelfTest
             NetRuntime.DrainNoticesForTest();
             host.Close(false); cli.Close(false);
         }
+    }
+
+    // ==================================================================
+    //  O. 🆕 2026-10-18（A943）：`TcpTransport` 的两个连接事实**由同一次写发布**
+    // ==================================================================
+    /// <summary>账 `A943`：`Setup` 原来先 `_connected = true;`（`NetTransport.cs:219`）**再**
+    /// `AcceptedCount++`（`:220`）—— 两条**独立的**写。写它的是**接受线程**（`AcceptLoop` → `Setup`），
+    /// 读它的是**主线程**（`NetSession.Pump`，每帧 / 自检里显式调）⇒ 存在一个
+    /// 「**已连接、但计数还没加**」的中间态：读侧若在 `Pump:213` 读到旧计数（⇒ 不刷新静默基线）、
+    /// 又在 `Pump:232` 读到连接位已立（⇒ 拿 `now - _lastRecvMs >= SilentTimeoutMs` 去判）
+    /// ⇒ **把一条刚连上、一条包都还没发的连接掐掉**。
+    ///
+    /// <para>现在两个事实**同处一个 32 位字、由一次 CAS 一起翻**（`TcpTransport._state`：
+    /// bit0 = 连接位、bit1..31 = 接受计数）⇒ **不存在半次发布**。
+    /// 🔴 **顺序不能反**（把 `AcceptedCount++` 挪到前面**更糟**）：上层是**边沿触发**
+    /// （`Pump:213-215` 看到计数变了就 `_lastAccepted = …` 并**立刻**发 `Challenge`），
+    /// 那一刻 `Send` 会看到「还没连上」⇒ **握手包发不出去、边沿却被消费掉了** ⇒ 永久握不上。</para>
+    ///
+    /// <para>🔴 **为什么这条断言是【结构性】的**（反射读那个私有状态字）：那个中间态只有
+    /// 「接受线程正好把两条写插在读侧两次读之间」才可观察，**量级是纳秒 ⇒ 自检里跑一万次也撞不上**；
+    /// 写成行为断言只会是一条**永远绿**的假断言（比没有更糟）。所以这里钉的是**不变量本身** ——
+    /// 连接位与计数是**同一个字**的两个位段。
+    /// ⚠️ 这不是「测实现细节」：「两个事实一致」在本工程里**只可能**由「一次写」实现
+    /// （读侧是两次读，任何两条独立的写都能被夹住）。
+    /// 🧨 改坏法：把两件事拆回两个字段（或让 `IsConnected` 改去读别的东西）⇒ **N④/N⑤ 红**。</para>
+    static void TestStatePublishA943(int port)
+    {
+        var f = typeof(TcpTransport).GetField("_state",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        Ok(f != null && f.FieldType == typeof(int),
+           "N① `TcpTransport` 里有那个状态字 `_state`（int）—— 没有它就谈不上「两个事实同处一字」");
+        if (f == null || f.FieldType != typeof(int)) return;   // 拿不到就到此为止（下面全靠它）
+
+        var t = new TcpTransport();            // 只看那两个属性，**不开台、不连** ⇒ 零副作用
+        Eq(t.AcceptedCount, 0, "N② 全新传输：接受计数 0");
+        Ok(!t.IsConnected, "N③ 全新传输：连接位是 0");
+
+        f.SetValue(t, (3 << 1) | 1);           // 状态字 = (计数 << 1) | 连接位
+        Ok(t.IsConnected, "N④ 字里连接位是 1 ⇒ `IsConnected` 真（它**只**看这个字）");
+        Eq(t.AcceptedCount, 3, "N⑤ 同一个字里的计数字段 = 3");
+
+        f.SetValue(t, (3 << 1));               // 只清连接位
+        Ok(!t.IsConnected, "N⑥ 清掉连接位 ⇒ `IsConnected` 假");
+        Eq(t.AcceptedCount, 3, "N⑦ 而计数**不动**（它是「累计接受过几条」，不是「现在有几条」）");
+
+        f.SetValue(t, (4 << 1) | 1);
+        Eq(t.AcceptedCount, 4, "N⑧ 计数落在 bit1..31 —— 换个数值也跟着走");
+
+        // ---- 再跑真的 socket：两个事实一起动，掉线时**只清连接位** ----
+        var host = NetSession.NewTcp();
+        var cli = NetSession.NewTcp();
+        Ok(host.StartHost(Cfg(port, "")), "N⑨ 主机起来了");
+        Eq(host.Transport.AcceptedCount, 0, "N⑩ 开台那一刻：计数还是 0");
+        cli.CheckConnection(Cfg(port, ""));
+        Ok(PumpUntil(host, cli, () => host.State == NetState.Lobby && cli.State == NetState.Lobby, 5000),
+           $"N⑪ 握手通（主机 {host.State} / 客机 {cli.State}）");
+        Eq(host.Transport.AcceptedCount, 1, "N⑫ 接了一条 ⇒ 计数 1");
+        Ok(host.Transport.IsConnected, "N⑬ 而且连接位立着 —— 同一个字里一起翻的");
+
+        cli.Transport.ClosePeer();
+        Ok(PumpUntil(host, cli, () => !host.Transport.IsConnected, 4000), "N⑭ 对面掐断 ⇒ 连接位清掉");
+        Eq(host.Transport.AcceptedCount, 1, "N⑮ 掉线**不动**计数");
+        cli.Close(false);     // 停掉这一头（它进不了自动重连：没 `EnterBattle` ⇒ `_wasInBattle` 是假）
+
+        var cli2 = NetSession.NewTcp();
+        cli2.CheckConnection(Cfg(port, ""));
+        Ok(PumpUntil(host, cli2, () => host.Transport.AcceptedCount == 2, 5000),
+           $"N⑯ 再连一条 ⇒ 计数 2（实际 {host.Transport.AcceptedCount}）");
+        Ok(host.Transport.IsConnected, "N⑰ 连接位又立起来");
+        host.Close(false); cli2.Close(false);
+    }
+
+    // ==================================================================
+    //  P. 🆕 2026-10-18（A943 读侧）：静默超时判据**不许把连接位与计数分两次读下结论**
+    // ==================================================================
+    /// <summary>账 `A943` 的**读侧闭环**：`NetSession.Pump` 里那个判据是**两次读**
+    /// （`:213` 读计数、`:247` 读连接位）。写侧虽然已经「一个字 + 一次 CAS」（§O），
+    /// 但一次新发布**夹在这两次读之间**时，判据仍会凑出「**旧计数**（⇒ 上面那支没走、`_lastRecvMs`
+    /// 没跟着刷新）**+ 新连接位**（⇒ 真）」⇒ **掐掉一条刚连上、一条包都还没发的好连接**。
+    /// `:247` 补了「`Role != NetRole.Host ||` + `_t.AcceptedCount == _lastAccepted`」之后，这种夹缝
+    /// **必须判不出超时** —— 而**客机**那侧（确认对它不适用）的超时**必须照旧判**。
+    ///
+    /// <para>🔴 **为什么用可注入的传输**：那个窗口在真 socket 上**量级是纳秒**，跑一万次也撞不上
+    /// —— 写成真实 socket 的行为断言只会是**永远绿**的假断言（比没有更糟）。这里用 `NetSession(INetTransport)`
+    /// 那个公开构造口把 `AcceptedCount` 摆成脚本（**读一次给一个值**）⇒ 那个夹缝**每次都必现**。
+    /// 两个**负例**（P⑨ 计数两次读一样 / P⑫ 客机）各挡一头：
+    /// 前者挡「**永远不超时**」也能把 P③ 蒙绿，后者挡「确认把**客机**的超时永久关掉」
+    /// —— 客机的 `_lastAccepted` 停在 `-1`、而它的计数是 **1**（`Setup` 在客机侧也跑）⇒ `1 == -1` 恒假。</para>
+    /// 🧨 改坏法：删 `NetSession.cs:247` 里的 `_t.AcceptedCount == _lastAccepted` ⇒ **P④/P⑦ 红**
+    ///   （⚠️ **2026-10-18 订正**：原写「P③/P④ 红」—— **本夹具下 P③/P⑥ 是假断言**：它们断 `ClosePeerCalls==0`，
+    ///   而 `:247` **第一个合取项** `_t.IsConnected` 一假就短路 ⇒ 把那半句整段删掉它们照样绿。
+    ///   这是「**假断言掩护真断言**」的样本 —— 已随夹具一起修，判据见 `ScriptedTransport.Listen` 那段注释）；
+    /// 删同一行的 `Role != NetRole.Host ||` ⇒ **P⑫ 红**（那半边**确实**被测到了）。
+    static void TestSilentTimeoutReadSideA943()
+    {
+        long clock = 0;
+        NetSession.SetClockForTest(() => clock);       // 不真睡 10 秒（进程级，finally 里还回来）
+        try
+        {
+            // ---- ① 夹缝：开台读一次计数（0）→ 第一 Pump 的第一次读还是 0（⇒ 不认边沿）、
+            //         第二次读变成 1（⇒ 新连接位已立，而基线还是开台那一刻的）----
+            var t1 = new ScriptedTransport { Connected = true, Counts = new[] { 0, 0, 1 } };
+            var s1 = new NetSession(t1);
+            Ok(s1.StartHost(Cfg(0, "x")), "P① 脚本传输：主机开得起来（`StartHost` 在这里读走第一次计数）");
+            // 🔴 **夹具自检（2026-10-18 加）**：正是它缺失，才让 P⑦/P⑨/P⑩ 三条红拖到全套实跑那天才暴露 ——
+            //    `StartHost` 内部 `Close()` 会把桩置成「没连上」，而主机此刻确实**在监听**（= 链路活着）。
+            Ok(t1.IsConnected, "★ 夹具自检：`StartHost` 之后桩**仍是连着的**（不连 ⇒ Send 会静默丢、超时判据会短路）");
+            clock = NetSession.SilentTimeoutMs + 5000;          // 开台设的那条基线这时**已经算超时**
+            s1.Pump();
+            Eq(t1.CountOf(NetKind.Challenge), 0,
+               "P② 这一次 `Pump` 没发 `Challenge` ⇒ `:213` 那支确实没认到边沿（**夹缝成立**）");
+            Eq(t1.ClosePeerCalls, 0, "P③ 计数在两次读之间变了 ⇒ **不许**拿旧基线掐这条连接");
+            Ok(s1.State == NetState.Listening, $"P④ 连接还在、状态没被改成等重连（实际 {s1.State}）");
+
+            // ---- ② 下一帧：边沿那支必须把这次连接补上（是「推迟一帧」，不是「永远不判」）----
+            s1.Pump();
+            Ok(s1.State == NetState.Handshaking, $"P⑤ 下一帧认到新连接 ⇒ 走握手（实际 {s1.State}）");
+            Eq(t1.ClosePeerCalls, 0, "P⑥ 而且仍然没掐（`:213` 那支已把静默基线刷新）");
+            Eq(t1.CountOf(NetKind.Challenge), 1, "P⑦ 而且 `Challenge` 真发出去了（边沿没被白白吃掉）");
+
+            // ---- ③ 负例（灭自证）：计数两次读都一样 ⇒ 超时**照旧要判** ----
+            var t2 = new ScriptedTransport { Connected = true, Counts = new[] { 0, 0, 0 } };
+            var s2 = new NetSession(t2);
+            clock = NetSession.SilentTimeoutMs * 2;             // 这台开台时基线也设在此刻
+            Ok(s2.StartHost(Cfg(0, "x")), "P⑧ 负例：主机开得起来");
+            Ok(t2.IsConnected, "★ 夹具自检（同 P① 那条）：这一台也仍是连着的");
+            clock += NetSession.SilentTimeoutMs + 5000;         // 真的静默超过阈值
+            s2.Pump();
+            Eq(t2.ClosePeerCalls, 1, "P⑨ 真静默（计数两次读一样）⇒ **照旧判超时、照旧掐** —— 这条挡「永远不超时」");
+            Ok(s2.State == NetState.WaitingReconnect, $"P⑩ 而且进了等重连（实际 {s2.State}）");
+
+            // ---- ④ 负例（客机）：那道确认**只对主机成立** ----
+            //   客机侧 `_lastAccepted` **没人写**（停在 -1），而它的计数是 **1**
+            //   （`Setup` 在客机 `Connect()` 里也跑 ⇒ `Publish(bumpCount: true)`）
+            //   ⇒ 少了 `Role != NetRole.Host ||` 这半句，客机的静默超时会被**永久关掉**。
+            var t3 = new ScriptedTransport { Connected = true, Counts = new[] { 1 } };
+            var s3 = new NetSession(t3);
+            clock += NetSession.SilentTimeoutMs * 2;
+            s3.CheckConnection(Cfg(0, "x"));
+            Ok(s3.State == NetState.Handshaking, $"P⑪ 客机连上了（实际 {s3.State}）");
+            clock += NetSession.SilentTimeoutMs + 5000;          // 对面一条包都没来过
+            s3.Pump();
+            Eq(t3.ClosePeerCalls, 1, "P⑫ 客机照样判静默超时（`_lastAccepted` 停在 -1 ⇒ 确认必须对客机放行）");
+            Ok(s3.State == NetState.WaitingReconnect, $"P⑬ 而且进了等重连（实际 {s3.State}）");
+        }
+        finally { NetSession.SetClockForTest(null); }
+    }
+
+    /// <summary>§P 用的**可注入传输**：`AcceptedCount` 按脚本「**读一次给一个值**」（用完一直是最后一个）
+    /// —— 真机上那个夹缝是纳秒级，只有把它摆出来才必现。
+    /// ⚠️ 只给 §P 用：它不接 socket、不收包，`Send` 只记 kind。`Port` 恒 0 ⇒ `UpnpPortMapper.MapAsync`
+    /// 第一句（`port &lt;= 0`）就返回 ⇒ **自检对玩家的路由器零副作用**。</summary>
+    sealed class ScriptedTransport : INetTransport
+    {
+        public int[] Counts = new[] { 0 };
+        public bool Connected;
+        public int ClosePeerCalls;
+        public readonly List<string> Sent = new List<string>();
+        int _i;
+        bool _listening;
+
+        public bool IsListening { get { return _listening; } }
+        public bool IsConnected { get { return Connected; } }
+        public bool PeerLost { get { return false; } }
+        public string LastError { get { return ""; } }
+        public int Port { get { return 0; } }
+        public int AcceptedCount
+        {
+            get { int v = Counts[Math.Min(_i, Counts.Length - 1)]; _i++; return v; }
+        }
+        /// <summary>发出去过几条这个 `kind`（断言「边沿没被白白吃掉」用）。</summary>
+        public int CountOf(string kind) { return Sent.FindAll(k => k == kind).Count; }
+
+        /// <summary>主机侧唯一入口。🔴 **2026-10-18 修（§P 三条红的根因）**：`StartHost` 内部会先调 `Close(false)`
+        /// ⇒ 桩那时被置成 `Connected = false`；而 `Listen` 原来**没把它置回来** ⇒ 夹具进入 `Pump` 时 `IsConnected` 恒假，
+        /// 于是 `NetSession.Send` 的守卫（`NetSession.cs:450`，**静默丢**）吞掉 `Challenge`、`:247` 的第一个合取项
+        /// 短路掉整条超时判据 ⇒ **P⑦/P⑨/P⑩ 三条红**（而客机侧因为 `Connect()` 会置回 true，P⑫/P⑬ 是绿的 ——
+        /// 红绿分界**只由这一位决定**）。桩的语义就是「**这条链路一直活着**」，故在 `Listen` 里恢复它。</summary>
+        public void Listen(int port) { _listening = true; Connected = true; }
+        public bool Connect(string host, int port, int timeoutMs) { Connected = true; return true; }
+        public void Send(string kind, string payloadJson) { Sent.Add(kind); }
+        public int Pump(List<NetFrame> into) { return 0; }
+        public void ClosePeer() { ClosePeerCalls++; Connected = false; }
+        public void Close() { _listening = false; Connected = false; }
     }
 
     /// <summary>🆕 2026-10-17（B27·A925）：`NetMatchmaking.OnHint` 上**此刻挂了几根接线**（0 = 没人订）。

@@ -2808,14 +2808,18 @@ public static class CollectionScene
                 Loc.RestoreForTest(AvailableLanguages.Chinese);      // 自检口：只改内存，⛔ 不写 `PlayerPrefs`
                 var wZh = win.OpenImportPopup();
                 string phZh = wZh != null ? TextOf(FindChild(wZh.transform, "Input Text")) : null;
+                string msgZh = wZh != null ? TextOf(FindChild(wZh.transform, "Main Search message")) : null;
+                string okZh = wZh != null ? TextOf(FindChild(wZh.transform, "Confirm Text")) : null;
                 if (wZh != null) wZh.Close();
                 Loc.RestoreForTest(AvailableLanguages.English);
                 var wEn = win.OpenImportPopup();
                 string phEn = wEn != null ? TextOf(FindChild(wEn.transform, "Input Text")) : null;
+                string msgEn = wEn != null ? TextOf(FindChild(wEn.transform, "Main Search message")) : null;
+                string okEn = wEn != null ? TextOf(FindChild(wEn.transform, "Confirm Text")) : null;
                 if (wEn != null) wEn.Close();
                 Loc.RestoreForTest(langImp);                         // 收尾：语言放回原值
                 CheckTrue(wZh != null && wEn != null, "（前提）两语档各开出了一扇 `Import Deck Popup`"
-                          + "（取不到 ⇒ 下面两条恒红，⛔ 不静默）");
+                          + "（取不到 ⇒ 下面几条恒红，⛔ 不静默）");
                 Check(phZh, "输入文字...", "★ 空输入时显示**占位符**：**中文档** = `Loc.T(\"MenuDeck/HUD/EnterText\")`"
                     + " 的**中文列**（⚠️ 那一列是**我们译的**：原版中文在远端 I2 表里 —— 源 `数据/本地化/i18n/zh_CN.csv:102`）");
                 Check(phEn, "Enter text...", "★ …**英文档** = 同一条词条的**英文列**"
@@ -2823,6 +2827,21 @@ public static class CollectionScene
                 CheckTrue(!string.IsNullOrEmpty(phZh) && phZh != phEn,
                           "★ 判别式：两语档下那句字**必须不一样** —— ⛔ 写死 `\"Enter text...\"`（改前那样）"
                         + "或写死中文，都过不了这一条");
+                // 🆕 **2026-10-17（A891）：提示行 / `Confirm` 钮 也走词条了**（同一扇窗的另两颗，判据同占位符那一条）——
+                //   `Main Search message` 的词条 = `MenuDeck/Share/PasteDeck`、`Confirm Text` 的词条 =
+                //   `MainMenu/General/Confirm`（⛔ 别按行号找那两条老断言，它们在本节后半，已改成**随语档**的期望值）。
+                Check(msgZh, "粘贴你的卡组", "★ **提示行（标题）**：**中文档** = `Loc.T(\"MenuDeck/Share/PasteDeck\")` 的中文列"
+                    + "（⚠️ 是我们译的 —— 源 `数据/本地化/i18n/zh_CN.csv:143`）");
+                Check(msgEn, "Paste your deck", "★ …**英文档** = 同一条词条的英文列"
+                    + "（= 原版 `Main Search message` 那颗 TMP 的 `m_text` 原文）");
+                CheckTrue(!string.IsNullOrEmpty(msgZh) && msgZh != msgEn,
+                          "★ 判别式：**标题**两语档必须不一样 —— ⛔ 写死 `\"Paste your deck\"`（改前那样）过不了");
+                Check(okZh, "确认", "★ **`Confirm` 钮**：**中文档** = `Loc.T(\"MainMenu/General/Confirm\")` 的中文列"
+                    + "（⚠️ 是我们译的 —— 源 `数据/本地化/i18n/zh_CN.csv:83`）");
+                Check(okEn, "Confirm", "★ …**英文档** = 同一条词条的英文列"
+                    + "（= 原版 `Button Text` 那颗 TMP 的 `m_text` 原文；那颗挂着 `Localize`）");
+                CheckTrue(!string.IsNullOrEmpty(okZh) && okZh != okEn,
+                          "★ 判别式：**`Confirm`** 两语档必须不一样 —— ⛔ 写死 `\"Confirm\"`（改前那样）过不了");
 
                 var imp = win.OpenImportPopup();
                 CheckTrue(imp != null, "开得出来");
@@ -2835,7 +2854,12 @@ public static class CollectionScene
                     Check(imp.placement, WindowsPlacement.Popup, "`windowsPlacement` = **15 Popup**");
                     CheckAt(FindChild(iroot, "Generic Popup Background"), 560f, 1360f, 234.07f, 685.93f,
                             "`Window`（560,234.07 → 1360,685.93）");
-                    CheckText(TextOf(FindChild(iroot, "Main Search message")), "Paste your deck", "提示行文案");
+                    // 🔴 **2026-10-17（A891）**：期望值**按当前语档取** —— 原来写死 `"Paste your deck"`，
+                    //   而提示行 B11 那批改走词条、宿主又跑中文档 ⇒ 那条**必红**。⛔ 不是删掉，是换成随语档的字面量；
+                    //   两语档的**固定值**在 ⑨ 那一段各断一条（那一对才是不自证的口径）。
+                    CheckText(TextOf(FindChild(iroot, "Main Search message")),
+                              Loc.Current == AvailableLanguages.English ? "Paste your deck" : "粘贴你的卡组",
+                              "提示行文案（随当前语档）");
                     var ph = FindChild(iroot, "Input Text");
                     // ⚠️ 占位符那条断言**已挪到本块最前面**（两语档各断一个字面量 + 判别式）——
                     //   见上面 ⑨ 那一段：这里原来是 `CheckText(TextOf(ph), "Enter text...", …)`，
@@ -2846,7 +2870,10 @@ public static class CollectionScene
                     CheckTrue(phLb != null && Mathf.Abs(PxYOf(ph.transform.position.y) - 441.03f) <= 1.5f,
                               $"占位符**落在输入框里**（中心 y 实测 {(ph != null ? PxYOf(ph.transform.position.y) : -1f):F1}"
                               + "，原版 `Text Area` 377→505.06 ⇒ 中心 **441.03**）");
-                    CheckText(TextOf(FindChild(iroot, "Confirm Text")), "Confirm", "确认钮文案");
+                    // 同上（A891）：`Confirm` 钮的字也走词条了（原版 `Button Text` 挂着 `Localize`）⇒ 期望值随语档。
+                    CheckText(TextOf(FindChild(iroot, "Confirm Text")),
+                              Loc.Current == AvailableLanguages.English ? "Confirm" : "确认",
+                              "确认钮文案（随当前语档）");
                     Shoot("06_收藏_ImportDeck弹窗.png");   // ⚠️ **趁窗开着拍**（第一版拍在导入成功之后 ⇒ 窗已经关了）
                     // ⚠️ 别拿九宫格的**根**量宽 —— `GetComponentInChildren<ImageQuad>()` 取到的是**角块**
                     //    （第一版量出 190.76 = 一个角）。量**点击区那个单 quad**（= 整个按钮矩形）。
@@ -3009,8 +3036,8 @@ public static class CollectionScene
                     CheckTrue(t0 != null, "…那行字是它的子件 `Text (TMP)`（原版 `/Counter/Text (TMP)`）");
                 }
 
-                // 每一格都按**它自己那张卡**的卡组上限比（传说 1 / 其余 2）——
-                // ⚠️ 期望值**不取 `CardsCounterText`**（那会自证），这里按稀有度**独立写死两档**。
+                // 每一格都按**它自己那张卡**的卡组上限比（**督军 1** / 传说 1 / 其余 2 —— 三档）——
+                // ⚠️ 期望值**不取 `CardsCounterText`**（那会自证），这里按「卡型 + 稀有度」**独立写死三档**。
                 // 🔴 **2026-10-17（F2 · 修 (α)：这条原来把「我们不建视口外那条」当成了违约）** ——
                 //   `built` 是**建出来的格**（18 = 3 行 × 6 列），而视口 `155.9 → 1079.9` 只有 924 高
                 //   ⇒ 第 3 行（i = 12…17）**格底 1307.9** 整行在视口外；那条「张数」的框长在**格底**
@@ -3044,10 +3071,21 @@ public static class CollectionScene
                         if (barInView) missingInView++; else outOfView++;
                         continue;
                     }
-                    string want = d.Rarity == "legendary" ? "x1" : "x2";
+                    // 🔴 **2026-10-17（A934）：期望值也要带【卡型】那一档** —— 原版 `GetMaxCopiesInDeck` 把
+                    //   `if (cardType == 10) return 1;` 排在**稀有度判断之前**
+                    //   （`d:/2/tools/decomp_full/Everguild.LiveOps.GameplayVariablesData__GetMaxCopiesInDeck.c:7-9`）
+                    //   ⇒ **非传说督军也是 `x1`**（我们池子里 28 张：epic 15 / rare 13）。
+                    //   ⚠️ 期望值仍然**不取 `CardsCounterText`**（那会自证）—— 按「督军 / 传说 / 其余」**三档**独立写死。
+                    bool isWl = d.Type == "hero";
+                    string want = (isWl || d.Rarity == "legendary") ? "x1" : "x2";
                     string got = TextOf(FindChild(node, "Text (TMP)"));
-                    if (got != want) { bad++; if (bad <= 3) CheckText(got, want, $"第 {i + 1} 格（{d.Rarity}）那条「张数」"); }
-                    if (d.Rarity == "legendary") lg++; else nm++;
+                    if (got != want)
+                    {
+                        bad++;
+                        if (bad <= 3)
+                            CheckText(got, want, $"第 {i + 1} 格（{d.Rarity}{(isWl ? " · 督军" : "")}）那条「张数」");
+                    }
+                    if (want == "x1") lg++; else nm++;
                 }
                 Check(missingInView, 0, $"「张数」**没建出来**的那些格，**一格都不是**落在视口**里**的"
                               + $"（实测视口内缺 {missingInView} 格 —— ⛔ 那不是裁切，是真缺口）");
@@ -3057,8 +3095,8 @@ public static class CollectionScene
                 CheckTrue(outOfView >= 1, $"…这条**不是空转**：本夹具真有 {outOfView} 格在视口外（第 3 行整行）"
                               + " —— 少了它上面那条等于没验");
                 Check(bad, 0, $"（共 {built} 格，其中 {skipped} 格那条在本滚动量下**不建**）已建的 {lg + nm} 格里"
-                              + $"**每一条**「张数」都 = 它那张卡的卡组上限（传说 `x1` / 其余 `x2`；"
-                              + $"实测 {bad} 条不符）—— 覆盖 传说 {lg} 格 / 其余 {nm} 格");
+                              + $"**每一条**「张数」都 = 它那张卡的卡组上限（**督军/传说 `x1`** / 其余 `x2`；"
+                              + $"实测 {bad} 条不符）—— 覆盖 上限 1 的 {lg} 格 / 上限 2 的 {nm} 格");
                 if (i0 >= 0)
                 {
                     var d0 = win.CardsCellDef(i0);
@@ -3066,6 +3104,70 @@ public static class CollectionScene
                     CheckTrue(TextOf(FindChild(cnt0, "Text (TMP)")) != "x" + own0,
                               "★ **判别式**：印的**不是原始拥有数**（`CardProgress.Owned` 是「给足」口径 = " + own0
                               + " ⇒ 照原版那条式子会印 `x" + own0 + "`；谁把 `Mathf.Min` 删掉「按公式复原」⇒ 本条红）");
+                }
+
+                // ================================================================
+                //  🔴 **2026-10-17（A934）判别式**：**非传说督军**那条「张数」印 `x1`，而**同稀有度的非督军**仍是 `x2`。
+                //  判据 = 原版 `GetMaxCopiesInDeck` 的 `if (cardType == 10) return 1;` **排在稀有度判断之前**
+                //  （`d:/2/tools/decomp_full/Everguild.LiveOps.GameplayVariablesData__GetMaxCopiesInDeck.c:7-9`）
+                //  ⇒ 我们池子里 **28 位督军不是传说**（epic 15 / rare 13），只看稀有度会把他们印成 `x2`（A934 改前正是）。
+                //  ⚠️ **两条必须【同时】成立**才叫改对：只断督军 `x1` ⇒ 「一律印 x1」那种写法也能过；
+                //     只断非督军 `x2` ⇒ 退回按稀有度也能过。两张卡**稀有度相同** ⇒ 这才挡得住「按稀有度一刀切」。
+                //  ⛔ 两处期望值都是**字面量**，不取 `CardsCounterText`（那会自证）。
+                {
+                    // 卡池快照取一次（`CardsCellDef(i)` 每次都会重建整张列表 ⇒ 逐张取会白跑 1000+ 次）
+                    var visAll = CollectionWindow.CardsState.VisibleCards();
+                    // 挑一对**同稀有度**的「非传说督军 / 非督军」，**优先挑同一行同一屏里的那两张**
+                    //   —— 那样滚一行就能两条都落进视口，屏幕口径也能各量一次。
+                    int kHero = -1, kNorm = -1;
+                    for (int i = 0; i < visAll.Count && kHero < 0; i++)
+                    {
+                        var d = visAll[i];
+                        if (d.Type != "hero" || d.Rarity == "legendary") continue;
+                        for (int j = 0; j < visAll.Count; j++)
+                        {
+                            var e = visAll[j];
+                            if (e.Type == "hero" || e.Rarity != d.Rarity) continue;
+                            if (j / CollectionWindow.CardsCols != i / CollectionWindow.CardsCols) continue;   // 同一行
+                            kHero = i; kNorm = j; break;
+                        }
+                    }
+                    string pairRar = kHero >= 0 ? visAll[kHero].Rarity : null;
+                    CheckTrue(kHero >= 0 && kNorm >= 0,
+                              "（前提）卡池里找得到**同一行、同稀有度**的「非传说督军」与「非督军」各一张"
+                            + $"（督军下标 {kHero} · 非督军下标 {kNorm}）—— 少了它，下面四条等于没验");
+                    // ① 函数口径（与滚到哪儿无关）：成对断，两条一起才挡得住「一刀切」
+                    if (kHero >= 0)
+                        CheckText(CollectionWindow.CardsCounterText(visAll[kHero]), "x1",
+                                  $"★ **判别式 · 督军恒 `x1`**：非传说督军 {visAll[kHero].Name}"
+                                + $"（{pairRar} · 第 {kHero + 1} 张）⇒ `x1`"
+                                + "（🧨 改坏法：`CardsCounterText` 退回 `DeckCap(def.Rarity)` ⇒ 本条回 `x2`）");
+                    if (kNorm >= 0)
+                        CheckText(CollectionWindow.CardsCounterText(visAll[kNorm]), "x2",
+                                  $"★ **判别式 · 同稀有度的非督军仍是 `x2`**：{visAll[kNorm].Name}"
+                                + $"（同为 {pairRar} · 第 {kNorm + 1} 张）⇒ `x2`"
+                                + " —— 与上一条**成对**：谁把式子写成「按稀有度一刀切」，这两条必有一条红");
+                    // ② 屏幕上真印出来的字**也**量一次（A934 说的就是「印 x2」）
+                    var csWl = win.CardsScroll;
+                    if (kHero >= 0 && kNorm >= 0 && csWl != null)
+                    {
+                        float offBefore = csWl.Offset;
+                        // 把督军那一格顶到视口上沿 ⇒ 整行落进视口（那条「张数」长在格底 ⇒ 一定建得出来；
+                        // 视口高 924 > 2×384 ⇒ 这一行与下一行都是整行可见的）
+                        csWl.SetOffset(CollectionWindow.CardsCellRect(kHero).y1 - CollectionWindow.CardsViewport.y1);
+                        var nH = FindChild(tabsRoot, "Counter " + kHero);
+                        var nN = FindChild(tabsRoot, "Counter " + kNorm);
+                        CheckTrue(nH != null && nN != null,
+                                  $"…滚到第 {kHero + 1} 格那一行后，**同一行的两条**「张数」都建出来了"
+                                + "（⭐那条与跟它成对的那条各一颗）—— 下两条才有意义");
+                        if (nH != null)
+                            CheckText(TextOf(FindChild(nH, "Text (TMP)")), "x1",
+                                      $"★ 非传说督军那一格**印出来的就是 `x1`**（`Counter {kHero}` 的 `Text (TMP)`）");
+                        if (nN != null)
+                            CheckText(TextOf(FindChild(nN, "Text (TMP)")), "x2",
+                                      $"★ …而**同一行里**同为 {pairRar} 的非督军那一格仍是 `x2`（`Counter {kNorm}`）");
+                        csWl.SetOffset(offBefore);      // 还原（紧跟着那句 `SetOffset(savedOff)` 再兜一次）
+                    }
                 }
                 if (win.CardsScroll != null) win.CardsScroll.SetOffset(savedOff);   // 还原滚动量
             }

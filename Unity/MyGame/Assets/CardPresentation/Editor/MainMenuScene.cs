@@ -9548,6 +9548,75 @@ public static class MainMenuScene
             finally { Object.DestroyImmediate(a781); }
         }
 
+        // ============================================================ ★ A855：编辑完卡组离场 ⇒ **按来路**回
+        //
+        // 判据（**用户 2026-10-18 拍板「按来路回」**）：
+        //   · 来路 = 收藏（`Shell/CollectionWindow.GoEdit` 写 `DeckExitSource.Collection`）
+        //     ⇒ `MainMenuRuntime.Build` 开收藏窗 + **显式** `ChangeTab(CollectionDecks)`；
+        //   · 来路 = 事件窗（`Shell/LiveOpsEventWindow.CreateDeckInMode` 写 `LiveOpsEvent`）
+        //     ⇒ **不开窗**（本地没有事件数据，那一跳本次不写；理由逐条 → `MainMenuRuntime.Build` 里那段）；
+        //   · **没有意图** ⇒ 什么都不做。
+        // 🔴 **后两条是判别式**：只断「收藏那条路对不对」的话，把 `Build` 写成「**无条件**开收藏窗」
+        //    也照样全绿 —— 而那一版正是「按来路回」变成假的那一刻。
+        // ⚠️ **夹具形状照 `§A374` 那一节**（独立 `GameObject` + `AddComponent<MainMenuRuntime>()` + `Build()`：
+        //    `AddComponent` 不触发 `Start()`，所以调 `Build()` 才是与真 Play 同一条路）；收藏窗台照
+        //    `Editor/CollectionScene.cs` 那份（`WindowsManager` 宿主）。
+        Section("★ A855：编辑完卡组离场 ⇒ **按来路**回（收藏 ⇒ 卡组页 · 事件窗 / 无意图 ⇒ 不开窗）");
+        {
+            var wmA = WindowsManager.Instance;      // 本文件 `:1398` 已 `EnsureHost` 过（主菜单原版也挂在壳里）
+            CheckTrue(wmA != null, "（前提）`WindowsManager.Instance` 在 —— 本节靠 `openWindows` 找窗");
+            System.Func<CollectionWindow> openCol = () =>
+            {
+                if (wmA == null) return null;
+                for (int i = 0; i < wmA.openWindows.Count; i++)
+                {
+                    var cw = wmA.openWindows[i] as CollectionWindow;
+                    if (cw != null) return cw;
+                }
+                return null;
+            };
+            CheckTrue(openCol() == null,
+                      "（前提）本节开始时**没有**开着的收藏窗 —— 下面三条全靠「开没开」判，先钉住这个基准");
+
+            // ---- 夹具①：来路 = 收藏 ⇒ 开窗 + 落卡组页 + 意图读走即清 ----
+            CollectionData.SetReturnIntent(DeckExitSource.Collection, WindowTabType.CollectionDecks);
+            var g1 = new GameObject("A855 Probe Collection");
+            var p1 = g1.AddComponent<MainMenuRuntime>();
+            p1.Build();
+            var win1 = openCol();
+            CheckTrue(win1 != null, "★ 来源 = 收藏 ⇒ `Build()` **把收藏窗开出来了**"
+                                    + "（改前：回来只是一片主菜单，玩家得自己再点进收藏）");
+            Check(win1 != null ? win1.CurrentTab : WindowTabType.None, WindowTabType.CollectionDecks,
+                  "★ …而且**落在卡组页**（`CollectionDecks`）—— 这一句是**显式** `ChangeTab`，"
+                  + "**不是** `CollectionWindow.Open()` 里 `Click(0)` 那个「第 0 页恰好是卡组页」的巧合"
+                  + "（改坏法：删掉那句 `ChangeTab` ⇒ 本节这条**今天仍绿**，但页序一改就静默落错页；"
+                  + "把 `Build` 写成无条件开窗 ⇒ 下面两条判别式红）");
+            Check(CollectionData.PendingReturn.Source, DeckExitSource.None,
+                  "★ 意图**读完就清**（不清 ⇒ 下次进主菜单还会再落一次）");
+            if (win1 != null) win1.Close();     // 清场：下面两条判的是「开没开」
+            CheckTrue(openCol() == null, "（清场）夹具①那扇窗关掉了 —— 下面两条才判得准");
+
+            // ---- 夹具②（判别式）：来路 = 事件窗 ⇒ 不开收藏窗，但意图照样被读到并清掉 ----
+            CollectionData.SetReturnIntent(DeckExitSource.LiveOpsEvent, WindowTabType.None);
+            var g2 = new GameObject("A855 Probe Event");
+            var p2 = g2.AddComponent<MainMenuRuntime>();
+            p2.Build();
+            CheckTrue(openCol() == null, "★★ A855 判别式：来源 = **事件窗** ⇒ **不开收藏窗**"
+                                         + "（挡「一律回收藏」那种假的『按来路回』）");
+            Check(CollectionData.PendingReturn.Source, DeckExitSource.None,
+                  "…但意图照样**被读到并清掉**（事件窗那条路的那一跳本次没写 —— 这笔账还开着，"
+                  + "判据 → `MainMenuRuntime.Build` 里那三条理由）");
+
+            // ---- 夹具③（判别式）：没有意图 ⇒ 什么都不做 ----
+            var g3 = new GameObject("A855 Probe None");
+            var p3 = g3.AddComponent<MainMenuRuntime>();
+            p3.Build();
+            CheckTrue(openCol() == null, "★★ A855 判别式：**没有意图 ⇒ `Build()` 不开收藏窗**"
+                                         + "（挡「无条件开」—— 那一版会把正常进主菜单也变成开收藏窗）");
+
+            Object.DestroyImmediate(g1); Object.DestroyImmediate(g2); Object.DestroyImmediate(g3);
+        }
+
         Debug.Log(P + menu.Dump());
         Debug.Log(P + $"=== 合计：{_pass} 通过 / {_fail} 失败 ===");
         // 🔴 **2026-10-12（A443 · 调度台裁定）**：这一串是**失败表的【重列】**（每条失败在 `Check()` 里

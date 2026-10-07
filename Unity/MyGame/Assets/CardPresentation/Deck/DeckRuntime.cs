@@ -268,7 +268,36 @@ namespace CardPresentation
         // ---- 以下全是**桌面那一档**的基准值（= 乘数 1）；小屏那一档**逐项 ×1.5**（见 `Pool`）----
         const float PoolCellW0 = 262.5f, PoolCellH0 = 384f;   // 原版**卡位**（不是 `Collection Card` 那张图的 350×512）
         const float PoolMobileSizeScale = 1.5f;               // 原版本界面 `_mobileSizeScale` 的值（判据同上）
-        const int PoolRows = 3;                               // 一屏 6×2.4 ⇒ 摆 3 行（第 3 行只露头）
+        // 🔴 **2026-10-18（A870）：一屏铺几行【不是常量】。** 原来是 `const int PoolRows = 3`（**我们挑的**），
+        //    现在与列数那半（`Pool.Cols`）**同一种写法**：`Pool.Rows` 按**视口高**现算。
+        //    判据 = 原版 `PolyAndCode.UI.VerticalRecyclingSystem`（逐字读，两处）：
+        //    ① **覆盖倍数 `MinPoolCoverage = 1.5f`** —— `PolyAndCode.UI.VerticalRecyclingSystem__.ctor.c`：
+        //       `*(undefined4 *)(param_1 + 0x34) = 0x3fc00000;`（= **1.5f**）；紧邻的 `+0x38 = 0x14`（= **20** 格）。
+        //       ⚠️ 偏移↔字段名 = 桩 `PolyAndCode/UI/RecyclingSystem.cs` 的字段序（`DataSource/Viewport/Content/
+        //       PrototypeCell/IsGrid/MinPoolCoverage/MinPoolSize/…` ⇒ `0x10/0x18/0x20/0x28/0x30/0x34/0x38`），
+        //       **而且语义自洽**：`+0x34` 全方法只在一处当「视口高的倍数」用、`+0x38` 只在一处与 `GetItemCount()` 取 min。
+        //    ② **它怎么用** —— `..._CreateCellPool.c:175,178-179,193`：
+        //       `fVar1 = MinPoolCoverage(0x34); fVar20 = Viewport(0x18).rect.height(rect+0xc);
+        //        while (iVar17 < iVar18 || (fVar22 < fVar20 * fVar1)) { …建一格… }`
+        //       而总高 `fVar22` 的累加那句在 `:256-258`，**网格档（`IsGrid ≠ 0`）只有 `:271` 的 `goto` 到得了它**
+        //       ——那就是「列计数 `0xac` 回绕」那一支 ⇒ **网格档里每换一行才加一次格高**
+        //       ⇒ 判据落成 **行数 = ceil(视口高 × 1.5 ÷ 格高)**（⛔ 不是「每格加一次」，那样会算出 1/列数 那么小）。
+        //    ③ **池格数下限那一条也照搬**：`iVar18 = max(_poolSize(0x88), min(MinPoolSize = 20, GetItemCount()))`
+        //       （同文件 `:186-192`，当**格下标**阈值用）⇒ 行数还要 ≥ `ceil(20 ÷ 列数)`。
+        //       ⚠️ 本界面 `_poolSize = 0`：`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-1327870198181403947.json` 逐字段实读。
+        //    ⇒ **两档的值**（格高/列数见上面两条）：桌面 `max(ceil(20÷6)=4, ceil(924.06×1.5÷384)=4)` = **4 行 / 24 格**；
+        //       小屏 `max(ceil(20÷4)=5, ceil(924.06×1.5÷576)=3)` = **5 行 / 20 格**。
+        //       ⚠️ **小屏的行数比桌面【多】**（格数下限恒 20、列数变少 ⇒ 行变多）—— 这正是铁律 5·c 要的「状态 → 参数」，
+        //       ⛔ 别按直觉以为「小屏格子大 ⇒ 行数少」。
+        //    ④ **超过卡数的格不用另外截**：原版那条 `:215 if (GetItemCount() <= i) break;` 在我们这儿等价于
+        //       `RefreshPool` 里本来就有的 `idx < all.Count`（不建 = 不画）。
+
+        /// <summary>原版 `PolyAndCode.UI.RecyclingSystem.MinPoolCoverage` —— 池子至少要盖住 **1.5 个视口高**。
+        /// 硬证据 = `PolyAndCode.UI.VerticalRecyclingSystem__.ctor.c`（`*(param_1 + 0x34) = 0x3fc00000`）。</summary>
+        const float PoolMinCoverage = 1.5f;
+        /// <summary>原版 `PolyAndCode.UI.RecyclingSystem.MinPoolSize` —— 池子至少 **20 格**
+        /// （`__.ctor.c`：`*(param_1 + 0x38) = 0x14`；用在 `..._CreateCellPool.c:186-192`）。</summary>
+        const int PoolMinSize = 20;
         const float PoolSpacing = 0f;                         // 原版 `_spacingX/_spacingY` 都是 0
 
         // ---- 🆕 2026-09-28：卡位里**底下那条「张数」**（原版 `Collection Card/Content/Counter`）----
@@ -322,6 +351,7 @@ namespace CardPresentation
         {
             public float CellW, CellH;                 // 卡位
             public int Cols;                           // = floor(视口宽 ÷ 格宽)
+            public int Rows;                           // 🆕 A870：= max(ceil(池格下限 ÷ 列数), ceil(视口高 × 1.5 ÷ 格高))
             public float PadX;                         // 内容整体居中的左边距
             public float CounterH, CardH, CardScale;   // 底下那条 / 卡本身 / 卡的缩放
             public float BarX1, BarX2, CntY1, CntY2;   // 张数条在格内（相对格左上角）的四个数
@@ -337,6 +367,9 @@ namespace CardPresentation
                 m.CellH = PoolCellH0 * k;
                 // 🔴 列数走**原版那条式子**（见上面 doc），⛔ 不是「小屏 ⇒ 4」。
                 m.Cols = Mathf.Max(1, Mathf.FloorToInt(PoolW / (m.CellW + PoolSpacing)));
+                // 🔴 **2026-10-18（A870）**：行数也走**原版那条式子**（同上 doc ①②③ —— 覆盖 1.5 个视口高、
+                //    ⛔ 不是「ceil(视口高 ÷ 格高)」，那会少一行、滚到半行时池底露出空白），并受池格下限约束。
+                m.Rows = PoolRowsFor(PoolH, m.CellH, m.Cols);
                 m.PadX = (PoolW - m.Cols * m.CellW) * 0.5f;
                 m.CounterH = PoolCounterH0 * k;
                 m.CardH = m.CellH - m.CounterH;
@@ -350,9 +383,38 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>自检口：**现在这一档**的卡池列数 / 卡位尺寸（自检断「两档各是各的」用）。
-        /// ⛔ 期望值不许从这里读回来 —— 判据是原版那两个字面量（6/262.5 · 4/393.75）。</summary>
+        /// <summary>🆕 **2026-10-18（A870）**：一屏铺几行 —— 原版 `VerticalRecyclingSystem.CreateCellPool`
+        /// 那**两条阈值**合成的（⛔ 不是常量，见 `PoolMinCoverage` 那段 doc 的逐字出处）。
+        /// <list type="bullet">
+        /// <item>**覆盖**：`ceil(viewportH × MinPoolCoverage ÷ cellH)` —— 原版 `CreateCellPool.c:193` 的循环条件
+        ///   （`fVar22 &lt; fVar20 * fVar1`），网格档里 `fVar22` **每换一行加一次格高**（`:256-258` + `:271` 的 `goto`）。</item>
+        /// <item>**下限**：`ceil(MinPoolSize ÷ cols)` —— 同文件 `:186-192` 那个**格下标**阈值换成行。</item>
+        /// </list>
+        /// <para>⚠️ `cellH` 传的是**格高**：原版累加的是那一格自己的 `rect.height`（`:258`，格被
+        /// `set_sizeDelta(cell, _cellWidth, _cellHeight)` 定成 `_cellHeight`）—— **不含 `_spacingY`**。
+        /// 本界面 `_spacingY = 0` ⇒ 格高与行距同值；`_spacingY` 一旦不是 0，仍要照原版用**格高**。</para></summary>
+        static int PoolRowsFor(float viewportH, float cellH, int cols)
+        {
+            float byCoverage = viewportH * PoolMinCoverage / Mathf.Max(1e-4f, cellH);
+            float byMinCells = PoolMinSize / (float)Mathf.Max(1, cols);
+            return Mathf.Max(1, Mathf.CeilToInt(Mathf.Max(byCoverage, byMinCells)));
+        }
+
+        /// <summary>🆕 **2026-10-18（A870）自检口**：**给定视口高**算出来的行数 —— 与 `Pool.Rows` **同一条式子**
+        /// （`PoolRowsFor` 就是它本体，这里只是把视口高/格高/列数当参数传进来）。
+        /// ⛔ 期望值**不许**从这里读回去，判据是原版那两条阈值（`MinPoolCoverage 1.5` · `MinPoolSize 20`）。</summary>
+        public static int UiPoolRowsForViewport(float viewportH, float cellH, int cols)
+        {
+            return PoolRowsFor(viewportH, cellH, cols);
+        }
+
+        /// <summary>自检口：**现在这一档**的卡池列数 / 行数 / 卡位尺寸（自检断「两档各是各的」用）。
+        /// ⛔ 期望值不许从这里读回来 —— 判据是原版那四个字面量（6/262.5 · 4/393.75）
+        /// 与那两条阈值（`1.5` 倍视口高 · 下限 20 格）。</summary>
         public int UiPoolColsNow { get { return Pool.Cols; } }
+        /// <summary>🆕 A870：现在这一档的**行数**（桌面 4 / 小屏 5 —— 见 `PoolMinCoverage` 那段 doc）。
+        /// ⛔ 别再写成 3。</summary>
+        public int UiPoolRowsNow { get { return Pool.Rows; } }
         public float UiPoolCellWNow { get { return Pool.CellW; } }
         public float UiPoolCellHNow { get { return Pool.CellH; } }
         /// <summary>自检口：把「小屏 UI」开关拨一下并立刻重排卡池（**不落盘**，见 `SmallScreenUI.PersistOverride`）。
@@ -408,7 +470,9 @@ namespace CardPresentation
         //      抓出来的**真重叠**，不是误报。
         const int QSep = 2999;       // 页头分隔线（**最低层**：原版它在 Header 里，被 Sidebar 压住）
         /// <summary>本窗**最低**的一档（= `QSep`）—— 🆕 2026-10-17 公开给自检：
-        /// 顶栏那一条带子（`MainMenuRuntime.QBar*`，2994–2998）必须**严格低于**它，
+        /// 顶栏那一条带子（`MainMenuRuntime.QBar*`，**`2986–2998`**）必须**严格低于**它
+        /// （⚠️ **2026-10-18 订正**：这里原写 `2994–2998` —— 2026-10-17 F5 把下沿从 `2994` 放宽到 `2986`，
+        /// **唯一出处 = `Shell/TopBar.cs` 那张表**；方向没变），
         /// 否则「窗口内容盖住顶栏」这条原版口径就反了（判据 → `MainMenuRuntime` 那一段长注释）。</summary>
         public const int QLowest = QSep;
         /// <summary>🆕 **2026-10-17（D15）**：`Content Area/Background` 那层**双色渐变底**。
@@ -486,6 +550,14 @@ namespace CardPresentation
         int _tab;                       // 0 = Cards · 1 = Deck info · 2 = Cosmetics
         bool _filtersOpen;
         float _poolScroll, _deckScroll, _fltScroll;
+        /// <summary>🆕 **2026-10-18（A889）**：**卡背抽屉自己**那段滚动量 —— 与 <see cref="_fltScroll"/>
+        /// （**卡牌**抽屉的）**是两个量**，⛔ 别再让卡背那一族去借 `_fltScroll`（那是别人的滚动位）。
+        /// <para>**今天恒 0**：抽屉内容 **707.8** &lt; 可见 **924.1**，而且**原版那棵树里也没有 Scroll View**
+        /// （`HandleScroll` 的卡背那一支只把滚轮吃掉）—— 所以**没有写点**（下面那个 `= 0f` 初值就是它唯一被
+        /// 赋值的地方；读点只有 `FltAbsCosmo` 一处）。
+        /// 留着它是**形状**：将来原版/我们真要给卡背抽屉加滚动时，只要在这一处加写点（照 `UiScrollFilters`
+        /// 那一支的夹法），三处摆位**一个字都不用改**。理由与对照见 `FltAbsCosmo` 那段。</para></summary>
+        float _cosmoFltScroll = 0f;
         /// <summary>正在编辑的文本缓冲（`null` = 没在编辑）。<see cref="_editKind"/> 说明它在改什么。</summary>
         string _nameEdit;
         /// <summary>0 = 没在编辑 · 1 = 改**卡组名**（原版 `DeckEditingPanel.ChangeName`）· 2 = 改**卡名筛选**（原版 `CardNameFilter`）。</summary>
@@ -802,7 +874,9 @@ namespace CardPresentation
         ///
         /// <para>🔴 **判据 / 参数**：**全部**在共用件 <see cref="TopBar"/> 里 —— 它现在是顶栏的**唯一实现**
         /// （2026-10-17 B25 收口：`Shell/MainMenuRuntime.cs` 原来那份**已删**，主菜单也改调本件）。
-        /// 队列**复用** `MainMenuRuntime.QBar*`（`public const`，2994–2998）—— 那一条带子的判据是
+        /// 队列**复用** `MainMenuRuntime.QBar*`（`public const`，**`2986–2998`** —— ⚠️ **2026-10-18 订正**：
+        /// 这里原写 `2994–2998`，2026-10-17 F5 把下沿放宽到 `2986`，**唯一出处 = `Shell/TopBar.cs` 那张表**）
+        /// —— 那一条带子的判据是
         /// 「在**所有窗之下**」，本窗底下的件从 `QSep 2999` 起 ⇒ **自动成立**（顶栏在最底、被本窗内容压住）。</para>
         ///
         /// <para>🔴 **2026-10-17（B25）：那 4 颗钮【已接点击】**（原来这里如实标着「只画、点了没反应」= 静默失败）——
@@ -1631,7 +1705,7 @@ namespace CardPresentation
                 _poolBars.Clear(); _poolBarTexts.Clear();
                 _poolCellWUsed = P.CellW;
             }
-            for (int vi = 0; vi < cols * PoolRows; vi++)
+            for (int vi = 0; vi < cols * P.Rows; vi++)
             {
                 int r = vi / cols, c = vi % cols;
                 int idx = (firstRow + r) * cols + c;
@@ -1681,7 +1755,9 @@ namespace CardPresentation
 
             // 🆕 **2026-10-17（D24）**：换档会**换列数**（6 ⇄ 4 ⇒ 一屏 18 ⇄ 12 格）——
             //   多出来的那些卡视图**离开了循环范围**，不关的话它们会**留在画面上**（静默、只在换档时现形）。
-            for (int vi = cols * PoolRows; vi < _poolViews.Count; vi++)
+            // 🔴 **2026-10-18（A870）**：换档现在也会**换行数**（桌面 4 行 24 格 ⇄ 小屏 5 行 20 格，判据见 `PoolMinCoverage`）
+            //   —— 所以这条收尾**必须**按现算的 `P.Rows` 走，⛔ 不能沿用一个常量（沿用了就会在换档后留下 4 格幽灵）。
+            for (int vi = cols * P.Rows; vi < _poolViews.Count; vi++)
                 if (_poolViews[vi] != null) _poolViews[vi].gameObject.SetActive(false);
 
             int rows = Mathf.Max(1, Mathf.CeilToInt(all.Count / (float)cols));
@@ -2390,10 +2466,23 @@ namespace CardPresentation
             if (shade != null) shade.SetTint(new Color(0f, 0f, 0f, 0.396f));
 
             Img("imp_bg", "40k_popup", wx, wy, ww, wh, QModal);
-            _impTitle = Txt("imp_title", "Paste your deck", 610f, 280f, 700f, 60f, 2, Ink, QModalText);
+            // 🔴 **2026-10-17（A891）**：标题那颗 = 原版 `Import Deck Popup/Window/Main Search message`
+            //   （同一颗的 rect = **610,280 700×60**，与本行实参逐位对上）；它挂着 `Localize`
+            //   `mTerm = **MenuDeck/Share/PasteDeck**`
+            //   （`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_8528767437303251090.json` 实读 `mTerm`；
+            //   那颗 TMP 的 `m_text = "Paste your deck"` 就是该词条的**英文列**）
+            //   ⇒ 走词条，⛔ 不再写死英文（原版那颗挂着 `Localize` ⇒ 它**跟着语言变**）。
+            //   ⚠️ 外壳那份 `Shell/ImportDeckPopup.cs` 是同款窗的**另一棵树**（节点名 `Main Search message`），
+            //     它那处不属本批 ⇒ 词条已在 `Core/Loc.cs` 备好，那一批直接取用即可。
+            _impTitle = Txt("imp_title", Loc.T("MenuDeck/Share/PasteDeck"), 610f, 280f, 700f, 60f, 2, Ink, QModalText);
             // 输入框：dump 给的是 [610,370] 700×141
             _impInputBg = Img("imp_input_bg", "40K_dropdown_bg", 610f, 370f, 700f, 141f, QModalRow);
-            _impInputTx = Txt("imp_input", "Enter text...", 630f, 370f, 660f, 141f, 2,
+            // 🔴 **2026-10-17（A891）**：占位符走**词条**（键 = 原版那颗 `Localize` 的 `mTerm` 原文
+            //   `MenuDeck/HUD/EnterText`，与 `Shell/ImportDeckPopup.cs` 的 `PlaceholderTerm` **同一条**）——
+            //   ⛔ 不再写死 `"Enter text..."`（写死就永远是英文，见 `Core/Loc.cs` 那条的注释）。
+            //   ⚠️ **同一颗节点两个入口**：这里是「建」，`RefreshImportText` 里还有一次「刷新」——
+            //     两处都走词条，漏一处 ⇒ 空输入时刷新回英文。
+            _impInputTx = Txt("imp_input", Loc.T("MenuDeck/HUD/EnterText"), 630f, 370f, 660f, 141f, 2,
                               new Color(1f, 1f, 1f, 0.5f), QModalText);
             // ---- 🆕 **D46：输入框那行字的对齐 = `Left/Top`（`align 1/256`）**，我们原来传的是居中 ----
             //   判据（逐份实读 `bundle_menus_assets_all/MonoBehaviour/`，按 `m_text == 'Enter text...'`
@@ -3091,17 +3180,31 @@ namespace CardPresentation
         }
 
         /// <summary>记下拖拽起点。**鼠标与自检走同一个函数**（删牌那条路只有「拖出」一条，必须验到）。</summary>
-        /// <summary>离场：回主菜单场景（原版是回收藏页、还在同一扇窗里 ——
-        /// 我们是两个场景 ⇒ 见 `资料/阶段二_卡组线_原版规格.md` §七 那处偏离）。
+        /// <summary>离场：回主菜单场景 → 在**那里**重开**收藏窗的卡组页**
+        /// （⚠️ **2026-10-18（A855）订正（铁律 5）**：原写「离场：回主菜单场景」—— 那时回来只是一片主菜单、
+        /// 玩家还得自己再点进收藏；现在由 `MainMenuRuntime.Build` 照**来路**把那一扇窗开回去）。
+        /// 原版是回收藏页、**还在同一扇窗里** —— 我们是两个场景 ⇒ 见 `资料/阶段二_卡组线_原版规格.md` §七 那处偏离。
         /// 🔴 **2026-10-12（A399）**：本方法**只离场、不保存**（原来这里写「『返回』= **存盘之后**离场」——
         /// 关闭钮按原版改成 `TryClose` 之后**不再保存**，见 <see cref="TryClose"/>）。
+        /// 🔴 **2026-10-18（A855）「按来路回」**：来路（= 从哪扇窗进的编辑器）由**入口**写进
+        /// `CollectionData.SetReturnIntent` —— 全仓**仅有**的两处 `LoadScene("DeckEditor")` 就是那两个入口
+        /// （`CollectionWindow.GoEdit` 写 `Collection` · `LiveOpsEventWindow.CreateDeckInMode` 写 `LiveOpsEvent`）。
+        /// ⛔ **不由离场方式决定**：下面那三处调用点（① 关闭钮干净那一支 ②「丢弃改动」那颗左钮
+        /// ③ `A364` 那扇不合法窗的左钮）都只是「**关闭这条路上的编辑器**」，它们分不出来路。
+        /// ⇒ 本方法**只在没人写过意图时兜一个默认**（= 直接按 Play 打开 `DeckEditor.unity`、
+        /// 或自检里裸调本方法那条路），兜的是**收藏**那条路；⛔ **有意图时绝不覆盖**
+        /// （覆盖了「按来路回」就退化成「一律回收藏」）。
         /// 调用方：① 关闭钮（干净那一支）②「丢弃改动」那颗左钮 ③ `A364` 那扇不合法窗的左钮。
-        /// ⚠️ **批处理下不切场景**（自检要靠同一个进程跑完；切了会把后面的断言全带走）。
+        /// ⚠️ **批处理下不切场景**（自检要靠同一个进程跑完；切了会把后面的断言全带走）
+        /// —— 🔴 **所以意图的写入必须在 `isBatchMode` 那道闸【之前】**，否则自检根本观测不到（同 `LeaveCount`）。
         /// ⚠️ `MainMenu` 必须在 Build Settings 里（`MainMenuScene.BuildAndSaveScene` 会加）。</summary>
         public void BackToMenu()
         {
             LeaveCount++;        // 🆕 A364：自检口（模态窗那颗「Discard」= `HidePopUp()` + 关窗，关窗的等价物就是这一步）
-            if (Application.isBatchMode) { Debug.Log("[Deck] （批处理：不切场景）返回 = 主菜单场景 `MainMenu`"); return; }
+            // 🆕 2026-10-18（A855）：回程意图兜底（⚠️ 有意图时**不覆盖** —— 判据见上面 doc 里「按来路回」那一段）
+            if (CollectionData.PendingReturn.Source == DeckExitSource.None)
+                CollectionData.SetReturnIntent(DeckExitSource.Collection, WindowTabType.CollectionDecks);
+            if (Application.isBatchMode) { Debug.Log("[Deck] （批处理：不切场景）返回 = 主菜单场景 `MainMenu`（回到那里会重开**收藏窗的卡组页**）"); return; }
             if (Application.CanStreamedLevelBeLoaded("MainMenu"))
                 UnityEngine.SceneManagement.SceneManager.LoadScene("MainMenu");
             else
@@ -3675,7 +3778,11 @@ namespace CardPresentation
         {
             if (_impInputTx == null) return;
             bool empty = _importText.Length == 0;
-            _impInputTx.SetText(empty ? "Enter text..." : _importText);
+            // 🔴 **2026-10-17（A891）**：占位符的**第二个入口**（建的那处在 `BuildImportPopup`）——
+            //   两处都走同一条词条，⛔ 写死 `"Enter text..."` 会让空输入时刷新回英文。
+            //   ⚠️ 逐次重算（本函数每次 `SetText`/重排都会再进来一次），⛔ 别缓存进字段：
+            //   换语言之后**同一个窗**要能取到新的一行（`Loc` 不发事件，调用方自己重画，见 `Loc.SetLanguage`）。
+            _impInputTx.SetText(empty ? Loc.T("MenuDeck/HUD/EnterText") : _importText);
             _impInputTx.SetColor(empty ? new Color(1f, 1f, 1f, 0.5f) : Ink);
             if (_impErr != null) _impErr.SetText(_importError ?? "");
             // 🔴 **2026-10-17（D46）**：输入框那行字**左对齐的【位置】在这里落**（`SetAlignLeft()` 只管
@@ -3744,13 +3851,15 @@ namespace CardPresentation
         public bool CosmoFiltersOpen { get { return _cosmoFltOpen; } }
         /// <summary>抽屉里现在几格（关着 / 不在 Cosmetics 页 = 0）。开着 = **13 个阵营 + 1 个 Owned = 14**。</summary>
         public int UiCosmoFilterCellCount { get { return (_cosmoFltOpen && _tab == 2) ? _cosmoFltCells.Count : 0; } }
-        /// <summary>某个 key 的格子（屏幕绝对 px + 选中态）。key = `$fac:&lt;阵营名>` / `$owned`。</summary>
+        /// <summary>某个 key 的格子（屏幕绝对 px + 选中态）。key = `$fac:&lt;阵营名>` / `$owned`。
+        /// 🔴 **2026-10-18（A889）**：这一口与**建库**同源 —— 走 <see cref="FltAbsCosmo"/>（**卡背自己的**
+        /// 滚动量），⛔ **不是** `FltAbs`（那是卡牌抽屉的）。改一处不改另一处 = 读数与画面对不上。</summary>
         public bool UiCosmoFilterCell(string key, out float x, out float y, out float w, out float h, out bool on)
         {
             foreach (var c in _cosmoFltCells)
                 if (c.Key == key)
                 {
-                    var r = FltAbs(c.R.x1, c.R.y1, c.R.x2, c.R.y2);
+                    var r = FltAbsCosmo(c.R.x1, c.R.y1, c.R.x2, c.R.y2);
                     x = r.CX; y = r.CY; w = r.W; h = r.H; on = c.On;
                     return true;
                 }
@@ -4672,6 +4781,24 @@ namespace CardPresentation
             return new PxRect(FltX + x1, FltY + y1 - _fltScroll, FltX + x2, FltY + y2 - _fltScroll);
         }
 
+        /// <summary>🆕 **2026-10-18（A889）**：**卡背抽屉**那一族的面板内坐标 → 屏幕绝对坐标。
+        /// 与 <see cref="FltAbs"/> **只差减哪个滚动量**（这里是 <see cref="_cosmoFltScroll"/>，今天恒 0）。
+        /// <para>🔴 **为什么单开一个（而不是在三个调用点上直接「不减」）**：账原文 —— 卡背那三处
+        /// （quad / 命中区 / `Label`）原来走 `FltAbs`，而 `FltAbs` 恒减 **`_fltScroll`（卡牌抽屉的）**，
+        /// 卡背抽屉**自己没有滚动区**（`HandleScroll` 的卡背那一支只把滚轮吃掉）⇒ 只要 `_fltScroll ≠ 0`
+        /// （在 Cards 页滚过卡牌抽屉再切到 Cosmetics 页就会 —— `SetTab` 不重置它），
+        /// 卡背那两行就会被**别人的滚动量**整体推走。
+        /// 直接写「不减」= 把「这一族有没有滚动量」这件事**散在三个点上**（将来真加滚动要改三处，
+        /// 还得靠人记得；`UiCosmoFilterCell` 那个只读口也会漏一处）⇒ **两族各一个函数、各一个量**，
+        /// 结构上串不起来。**形状照收藏窗那一侧**（`Shell/CollectionWindow.cs` 的
+        /// `cosmo ? Abs(c.R) : _fltScroll.Shift(Abs(c.R))` —— 那边**本来就不借**）。</para>
+        /// <para>⛔ 别把 `FltAbs` 改成「可传滚动量」的两用版：`FltAbs` 的 7 个调用点（搜索框 3 · 格子 3 ·
+        /// 小标题 1）全是卡牌那一族，多一个可选参数只会多一次传错的机会。</para></summary>
+        PxRect FltAbsCosmo(float x1, float y1, float x2, float y2)
+        {
+            return new PxRect(FltX + x1, FltY + y1 - _cosmoFltScroll, FltX + x2, FltY + y2 - _cosmoFltScroll);
+        }
+
         /// <summary>🆕 **2026-10-10（A224②）：抽屉的裁切边界**（画布 px · 左上原点）= 面板自己那个矩形。
         /// <para>**判据（原版第一层）**：`bundle_menus_assets_all` 的 `Deck Editing Menu`
         /// → `Card Display > Card Filters > Scroll View > Viewport` 身上是 **`Image,Mask`**
@@ -5041,6 +5168,26 @@ namespace CardPresentation
                 //   ⛔ **只在【本调用点】传** —— 缺省那几个 = 收藏窗那份，动它会把收藏窗改歪
                 //      （形状照 A247 那次 `CosmoOwnedFontAutoMinDeckEdit` 的先例）。
                 //   ⚠️ 四个形参**全是 float** ⇒ 调换了编译器不报 ⇒ 一律写**具名实参**。
+                // 🔴🔴 **2026-10-18（A890）：`Image` 那半的「锚法」现在落到【原始序列化字段】上了 —— 判据可复跑。**
+                //   账 = 「D41 的锚法只落到矩形上」：当时只有 `menu_dump` 的**布局模拟行**，于是
+                //   「面板宽可变时，那颗 `Image` 的右缘是**固定 308.9** 还是 `w−25`」判不出来
+                //   （⚠️ 两棵树在各自真实宽度处**重合**）。**现读 RT 本体（不是模拟值）⇒ 答 `w − 25`：**
+                //   · 本窗 `…/Cosmetic FIlter/Filters/Owned Toggle/Image`
+                //     = `d:/2/新解包资源/assets_full/bundle_menus_assets_all/RectTransform/RectTransform_-5843448329795342556.json`
+                //     `m_AnchorMin (1,0)` · **`m_AnchorMax (1,1)`** · `m_Pivot (1,0.5)` ·
+                //     `m_AnchoredPosition (-25,0)` · **`m_SizeDelta (80,0)`**
+                //     ⇒ **右锚**：右缘恒 = 父级右缘 − 25（**面板一宽它就跟着走**）；
+                //     **固定的那个量是【宽 80】，不是右缘** —— `308.90` 只是 `w = 333.90` 那一刻的取值。
+                //   · `…/Owned Toggle/Label` = `…/RectTransform_-6194547466839724252.json`：
+                //     `m_AnchorMin (0,0)` · `m_AnchorMax (0,1)` · `m_Pivot (0,0.5)` · `apos (25,0)` · `sd (230,0)`
+                //     ⇒ **左锚 + 固定宽** ⇒ 25..**255**，**不随 `w` 变**（⚠️ 同一行里两半**不一样**，别一刀切）。
+                //   · 收藏窗那棵（`…Cardback Tab/Cardback Display/Cosmetic FIlter/Filters/Owned Toggle (1)`）
+                //     = `…/RectTransform_1643317952186213077.json`：`AnchorMin (0.7,0)` · **`AnchorMax (1,1)`** ·
+                //     `Pivot (1,0.5)` · `apos (-25,0)` · `sd (-30,0)` ⇒ **同样右锚**、宽 `0.3w−30`
+                //     ⇒ **两棵树差的只是【宽】，右缘规则相同**（= `ToggleRowRects` 的 `ix2 = w − ToggleIconRightIn`）。
+                //   ⇒ 模型里那句「右缘 `w−25` + 固定宽」**就是**原版锚法（不是近似、不是我们挑的）—— A890 可销。
+                //   ★ 断言在 `Editor/DeckScene.cs` 卡背那节：**宽度一改，右缘必须跟着改同样的量、宽必须一动不动**
+                //     （写成「固定右缘」⇒ 右缘差命 0 ⇒ 红；退回锚点式 ⇒ 宽差命 0 ⇒ 红）。
                 FilterPanelModel.BuildCosmetics(State.Factions(), _cosmoFilter, FltW, _cosmoFltCells,
                                                 labelAutoMin: FilterPanelModel.CosmoOwnedFontAutoMinDeckEdit,
                                                 armySpY: FilterPanelModel.CosmoArmySpYDeckEdit,
@@ -5048,13 +5195,15 @@ namespace CardPresentation
                                                 labW: FilterPanelModel.CosmoLabWDeckEdit);
                 foreach (var c in _cosmoFltCells)
                 {
-                    var b = FltAbs(c.Bg.x1, c.Bg.y1, c.Bg.x2, c.Bg.y2);
+                    // 🔴 **2026-10-18（A889）**：卡背这一族**只此一处换算**（`FltAbsCosmo`）——
+                    //   原来走 `FltAbs`，减的是**卡牌抽屉**的 `_fltScroll`（别人的滚动位）。
+                    var b = FltAbsCosmo(c.Bg.x1, c.Bg.y1, c.Bg.x2, c.Bg.y2);
                     // 🔴 2026-10-04（A24）：卡背页那颗 `Owned Toggle` 同样**按状态换图**（判据同卡牌那一套：
                     //   原版 `… > Cosmetic FIlter > Filters > Owned Toggle` 的 `offSprite = 40_main_bt_toggle_off`）。
                     var tex = Ui(c.IconOff != null && !c.On ? c.IconOff : c.Icon);
                     // 同卡牌那套：**图取不到就不登记点击区**（不做「看不见却点得动」的空格）
                     if (tex == null) continue;
-                    var r = FltAbs(c.R.x1, c.R.y1, c.R.x2, c.R.y2);
+                    var r = FltAbsCosmo(c.R.x1, c.R.y1, c.R.x2, c.R.y2);
                     _cosmoFltHit.Add(new Btn { Key = c.Key, X = r.x1, Y = r.y1, W = r.W, H = r.H });
                     float w = b.W, h = Mathf.Max(1f, b.H);
                     if (tex.height > 0 && w > 0f) { float sa = (float)tex.width / tex.height, ra = w / h; if (sa > ra) h = w / sa; else w = h * sa; }
@@ -5072,7 +5221,7 @@ namespace CardPresentation
                         if (!string.IsNullOrEmpty(c.Key)) _cosmoFltQuads[c.Key] = q;
                     }
                     if (string.IsNullOrEmpty(c.Label)) continue;
-                    var lr = FltAbs(c.Lab.x1, c.Lab.y1, c.Lab.x2, c.Lab.y2);
+                    var lr = FltAbsCosmo(c.Lab.x1, c.Lab.y1, c.Lab.x2, c.Lab.y2);
                     var lb = Label.Create(CosmoFltParent, c.Label, Pos(lr.CX, lr.CY), 1, CellTint(c),
                                           new Vector2(0.5f, 0.5f), "cosmoflt_lab");
                     if (lb == null) continue;

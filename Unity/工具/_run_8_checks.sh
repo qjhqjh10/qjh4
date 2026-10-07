@@ -39,4 +39,4 @@ run SettingsScene.Run   settings.log     # 设置窗三页 + 联机页
 #   原来只靠人手单发 ⇒ 常年漏跑。现在并入全套（🔴 仍然**串行**，同工程只能一个 Unity 实例）。
 #   ⚠️ 它的另一半职责是**出截图**（`d:/4/_tmp_view/cardbase/`）—— 涉及版面时断言绿了**也要看一眼图**。
 run CardBaseDemo.Run    cardbase.log     # 四档分辨率渲染 + 交互闭环（51 条断言）
-echo "=== $(date +%H:%M:%S) 全部结束（老八条 + 联机三条 + 卡面基座 = 12 条）==="
+echo "=== $(date +%H:%M:%S) 全部结束（老八条 + 联机三条 + 卡面基座 = 13 条）==="

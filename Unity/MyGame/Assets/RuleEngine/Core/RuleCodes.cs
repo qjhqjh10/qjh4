@@ -1,7 +1,11 @@
 // RuleCodes.cs — 规则引擎的返回码
 //
 // 非法操作是**正常流程**（拖到非法格位本来就该被拒绝），所以用返回码而不是抛异常。
-// 码值和 `d:/warpforge/scripts/rule_core.gd` 的常量**逐一对齐** —— 交叉验证时能直接对照。
+// 码值**沿用我们上一版 Godot 复刻的那一套**（`d:/warpforge/scripts/rule_core.gd` 的常量）——
+// 交叉验证时能直接对照。⚠️ 那份 `.gd` 是**我们自己**的复刻、**只作旁证**，**不是原版语义判据**
+// （判据顺序 = ① 原版全量反编译 `D:/2/tools/decomp_full/` → ② 解包资源字段 → ③ 成品卡图卡面文字）。
+// ⚠️ **2026-10-18 更正（铁律 5）**：本行原来写「码值和 `rule_core.gd` 的常量**逐一对齐**」
+//   而没标它的地位 —— 容易被读成「那份 `.gd` 是基准」。**对齐是真的，基准不是它。**
 using System.Collections.Generic;
 
 namespace RuleEngine
@@ -20,8 +24,10 @@ namespace RuleEngine
         public const int ErrStunned = 9;          // 眩晕中无法行动
         public const int ErrTarget = 10;          // 目标不合法（Vanguard/Stealth/Flying）
         /// <summary>压制：无法执行**近战**攻击（规则书 :194）。
-        /// ⚠️ 这个码值是**原版定的**（`rule_core.gd:38` `ERR_PINDOWN := 11`）——
-        /// 原来 11 被我们的 `ErrUnimplemented` 占着，2026-09-12 把自定义码往后挪到 13 让位。</summary>
+        /// ⚠️ 这个码值**沿用我们上一版复刻的**（`rule_core.gd:38` `ERR_PINDOWN := 11`）——
+        /// 原来 11 被我们的 `ErrUnimplemented` 占着，2026-09-12 把自定义码往后挪到 13 让位。
+        /// ⚠️ **2026-10-18 更正**：这里原来写「这个码值是**原版定的**」—— 但给出的唯一出处是
+        /// 那份 `.gd`（**我们自己写的复刻**）⇒ **原版里到底是不是 11，还没回反编译核过**，如实记着。</summary>
         public const int ErrPindown = 11;
 
         // ← 以下两条是本工程新增的（rule_core.gd 没有对应码）——

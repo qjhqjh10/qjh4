@@ -249,9 +249,40 @@ namespace CardPresentation
             // 消费侧 = `Shell/ImportDeckPopup.cs` 的 `PlaceholderTerm` + `RefreshInputText`；
             //   断言 → `Editor/ShellScene.cs` 的 B11/A884 那一节（两语档各断一个**字面量**）。
             // ⚠️ 兄弟节点 `Main Search message` 挂的是**另一条**词条 `MenuDeck/Share/PasteDeck`
-            //   （`MonoBehaviour_8528767437303251090.json`），而 `Error msg` **一颗 `Localize` 都没有**
-            //   —— 这两条**本批没接**（`Shell/ImportDeckPopup.cs` 那两句仍是写死的英文），见 B11 的报告。
+            //   （`MonoBehaviour_8528767437303251090.json`）—— **那条见下面它自己的条目**；
+            //   同窗那颗 `Error msg` **一颗 `Localize` 都没有**（原版本来就没有词条 ⇒ **永远不接**，
+            //   属于「判据是空的」那一档，⛔ 别替它编一条）。
+            //   🔴 **2026-10-17（A891）三处消费点全接上了**：
+            //   · `PasteDeck` / `EnterText` 在 **`Deck/DeckRuntime.cs`** 的导入窗（`imp_title` + `imp_input` 的
+            //     **建 / 刷新两个入口**）；
+            //   · `PasteDeck` / `EnterText` / `Confirm` 在 **`Shell/ImportDeckPopup.cs`** 的导入窗
+            //     （`TitleTerm` / `PlaceholderTerm` / `ConfirmTerm`，各自那颗常量上写着判据）。
+            //   ⚠️ 唯一**仍然没接**的是那颗 `Error msg`：原版**根本没给它词条**（引擎按根脚本的三个 term 字段
+            //     写进去的）⇒ 我们那行错误走自己的文案（`CollectionData.ImportDeck`），**这不缺东西、别去接**。
             { "MenuDeck/HUD/EnterText",                       new Entry("输入文字...", "Enter text...") },
+
+            // ------------- 🆕 **2026-10-17（A891）：导入窗的【标题】词条** -------------
+            // 节点 = `Import Deck Popup/Window/**Main Search message**`（rect `610,280 700×60` ——
+            //   与 `DeckRuntime.BuildImportPopup` 里 `imp_title` 那行实参逐位对上 ⇒ 同一颗）。
+            // 键名 = 那颗 `Localize.mTerm` 的**原文** `MenuDeck/Share/PasteDeck`
+            //   （`d:/2/新解包资源/assets_full/bundle_menus_assets_all/MonoBehaviour/
+            //     MonoBehaviour_8528767437303251090.json` 实读 `mTerm`；同文件里它的兄弟 `Error msg` 没有 `Localize`）。
+            // 英文那一列 = 同 prefab 里那颗 TMP 的 `m_text` **原文**（`menu_dump` 实读：`Main Search message 'Paste your deck'`）。
+            // 🔴 中文那一列 = **不是实拍**（同 `EnterText` 那条：原版中文在远端 I2 表）⇒ 取我们自己的译表
+            //   `数据/本地化/i18n/zh_CN.csv:143`（该行 = `Paste your deck,~,粘贴你的卡组`）。
+            // 消费侧 = `Deck/DeckRuntime.cs` 的 `imp_title`（那行注释里写着判据）。
+            { "MenuDeck/Share/PasteDeck",                     new Entry("粘贴你的卡组", "Paste your deck") },
+
+            // ------------- 🆕 **2026-10-17（A891）：导入窗那个 `Confirm` 钮的词条** -------------
+            // 节点 = `Import Deck Popup/Window/Buttons/Generic UI Button/**Button Text**`（同一份 prefab）。
+            // 键名 = 那颗 `Localize.mTerm` 的**原文** `MainMenu/General/Confirm`
+            //   （⚠️ **不是 `MenuDeck/` 族** —— 原版自己复用了主菜单那条通用按钮词条；另一处记着它的 =
+            //    `Shell/ReferralPopupWindow.cs` 的 `TxtBtn` 注释）。
+            // 英文那一列 = 同节点那颗 TMP 的 `m_text` **原文**（`menu_dump … "Import Deck Popup" --depth 8` 实读 `Button Text 'Confirm' fs45`）。
+            // 🔴 中文那一列 = **不是实拍**（同这一族其它条）⇒ 取我们自己的译表 `数据/本地化/i18n/zh_CN.csv:83`
+            //   （该行 = `Confirm,~,确认`）。
+            // 消费侧 = `Shell/ImportDeckPopup.cs` 的 `ConfirmTerm`（那一行注释里写着判据）。
+            { "MainMenu/General/Confirm",                     new Entry("确认", "Confirm") },
 
             // ============================================================ 卡面「兵种行」（原版 `RaceText`）
             //
@@ -275,8 +306,12 @@ namespace CardPresentation
             //    **其余 40 个是我们自己的中文表** `数据/本地化/i18n/zh_CN.csv` 的**既有译法**
             //    （⚠️ 那份表**也是我们译的**、不是原版 —— 见 `资料/全量反编译复核_靠推断的清单.md` §2.2；
             //     用它只图「全工程译法一贯」）。逐条出处写在各行的 `zh_CN.csv:<行>` 上。
-            //    ⚠️ **`Card_Race/Warlord` 的实拍值是「战将」**，而 `zh_CN.csv:15` 那个**通用词**是「督军」
-            //    —— 两者**并存**：卡面这一行照**实拍**（战将），效果文字里的「你的督军」是另一条线、不动。
+            //    ⚠️ **`Card_Race/Warlord` 的实拍值是「战将」**，而 `zh_CN.csv:15` 那个**通用词**原来写的是「督军」
+            //    —— ⚠️ **2026-10-18 订正（A877）**：这里原来写「两者**并存**：卡面这一行照**实拍**（战将），
+            //      **效果文字里的「你的督军」是另一条线、不动**」—— 用户 2026-10-18 明确了
+            //      「**游戏里改为战将。其他地方不动**」⇒ **效果文字那条线也要改**（`数据/卡牌翻译/zh_cards.json`
+            //      的 58 处 + 生成物 `cards_engine.json`），`zh_CN.csv:15` 那条通用词也已一并改成「战将」。
+            //      🔴 **唯一仍然照旧的是 `Card_Race/Warlord Ability`**（见下面那一行的注释）。
             //
             // 英文那一列 = **原版 `+600` 那个原始种族串**（也就是我们数据里 `subtype` 的原值）
             //   ——原版的英文 TMP 文案在远端 I2 表里、本地拿不到，所以**照原值**，不自拟。
@@ -288,7 +323,7 @@ namespace CardPresentation
             // ------------- 会印到卡面上的 19 个（★ = 实拍读到的那 3 个）-------------
             { "Card_Race/Infantry",            new Entry("步兵",       "Infantry") },           // ★实拍；zh_CN.csv:6363
             { "Card_Race/Vehicle",             new Entry("载具",       "Vehicle") },            // ★实拍；zh_CN.csv:6365
-            { "Card_Race/Warlord",             new Entry("战将",       "Warlord") },            // ★实拍；⚠️ zh_CN.csv:15 = 督军（通用词）
+            { "Card_Race/Warlord",             new Entry("战将",       "Warlord") },            // ★实拍；⚠️ zh_CN.csv:15 那条通用词 2026-10-18 起也是「战将」（A877，原来写「督军」）
             { "Card_Race/Defence",             new Entry("防御",       "Defence") },            // zh_CN.csv:6367
             { "Card_Race/Monster",             new Entry("怪兽",       "Monster") },            // zh_CN.csv:6369
             { "Card_Race/Beast",               new Entry("野兽",       "Beast") },              // zh_CN.csv:6372

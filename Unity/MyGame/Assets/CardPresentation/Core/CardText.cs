@@ -295,8 +295,8 @@ namespace CardPresentation
         const string WHeal = "治疗";
         const string WDraw = "抽牌";
         const string WSelf = "自身";
-        const string WOwnWarlord = "己方督军";
-        const string WEnemyWarlord = "敌方督军";
+        const string WOwnWarlord = "己方战将";
+        const string WEnemyWarlord = "敌方战将";
         const string WEnemyUnit = "敌方单位";
 
         // ---- 技能卡面板（`ActiveSkillDesc`）那句整话用的词 ----

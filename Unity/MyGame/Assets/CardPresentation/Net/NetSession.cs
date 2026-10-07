@@ -229,7 +229,23 @@ namespace CardPresentation.Net
                     _lastPingMs = now;
                     Send(NetKind.Ping, new MsgPing { t = now });
                 }
-                if (_t.IsConnected && now - _lastRecvMs >= SilentTimeoutMs)
+                // 🔴 **A943 读侧闭环（2026-10-18）**：`_t.AcceptedCount == _lastAccepted` 这半句**不能删**。
+                //   两个连接事实（连接位 / 接受计数）在 `TcpTransport` 里**已经同处一个字、由一次 CAS 发布**
+                //   （`_state`，见那边的注释），但**读侧是两次读**：上面那一支（`:213`）读计数、这里读连接位。
+                //   一次新发布**夹在这两次读之间**时，这里就会拿「旧计数（⇒ 上面那支没走、`_lastRecvMs`
+                //   没跟着刷新）+ 新连接位（⇒ 真）」去判静默 ⇒ **掐掉一条刚连上、一条包都还没发的好连接**
+                //   （同族的日志实证见 `资料/普查产出_1017/D4_联机诊断.md` §②）。
+                //   ⇒ 「计数还是我认过的那个」才说明**没有夹进来的新连接**（计数只增，且上面那支认的就是它）。
+                //   🔴 `Role != NetRole.Host ||` 这半句**也不能删**：这道确认**只对主机成立** ——
+                //      只有主机的计数是**后台的接受线程**加起来的（`TcpTransport.Setup` 那条路）；
+                //      客机的计数由**主线程自己**在 `Connect()` 里加（`Setup` 是两边共用的一支），
+                //      而 `_lastAccepted` 在客机侧**没人写**（停在 `-1`）⇒ 少了这半句，客机的静默超时
+                //      会被**永久关掉**（`1 == -1` 恒假 ⇒ 对面拔网线再也判不出来）。自检 P⑫ 钉这一点。
+                //   ⚠️ 不是死循环、不会饿死：`Pump()` 每帧重来，**下一帧 `:213` 那支就把边沿补上并刷新基线**
+                //      （自检 §P 的 P⑤/P⑥ 钉这一点）；真有连接不停进来的话，基线本来也在被不停刷新。
+                //   ⚠️ 判据仍然只此一处：`_lastAccepted` 只在 `StartHost` 与上面那支里被写。
+                if (_t.IsConnected && (Role != NetRole.Host || _t.AcceptedCount == _lastAccepted)
+                    && now - _lastRecvMs >= SilentTimeoutMs)
                 {
                     // 静默太久 = 对面没了（拔网线这种不会触发 TCP 的 FIN）⇒ 当作掉线
                     // ⚠️ 用 `ClosePeer` 而**不是** `Close` —— 主机要把监听留着，否则等不到重连
