@@ -2430,6 +2430,27 @@ public static class CollectionScene
                         }
 
                         sel.SwitchTab(true);                          // 换到「我的卡组」页才看得见模式筛选
+                        // ---- 🆕 2026-10-18（A867）：切页 = **整窗重建** ⇒ 滚动登记表**一条都不涨** ----
+                        //   先例（逐字同形）→ `Editor/RewardsScene.cs:8126-8141` 的 A510 那一条；
+                        //   现场 / 改坏法 → `资料/普查产出_1018/S1_A840与A867.md` §2.2 / §4.1。
+                        //   🔴 本窗这条路**不靠重开窗就够得着**（`SwitchTab` → `RebuildAll()` → `Build()`，
+                        //   而页签的命中区就绑在 `SwitchTab` 上）⇒ 它是那 4 扇里**最容易复现**的一扇。
+                        //   ⚠️ 先切一次**取基线** —— 那一次会顺手把待清的死条目吸掉（`RegisterScroll` 自带
+                        //   `PruneScrolls`），基线之后那次才只反映「本窗重建涨不涨」。
+                        sel.SwitchTab(false);                         // ← 吸基线
+                        int nScrollDs = PointerLayer.ScrollCountForTest;
+                        CheckTrue(nScrollDs > 0,
+                                  $"（前提）滚动登记表非空（基线 {nScrollDs} 条）—— ⛔ 为 0 ⇒ 下面那条比的是 0 vs 0，"
+                                + "等于没验（`PointerLayer.Instance == null` 时 `ScrollCountForTest` 恒 0）");
+                        sel.SwitchTab(true);                          // ← 真·重建一次（顺带把页签还原成「我的卡组」）
+                        Check(PointerLayer.ScrollCountForTest, nScrollDs,
+                              $"★★ A867：切一次页签（= 整窗重建一次）⇒ 滚动登记表**一条都不涨**"
+                            + $"（{nScrollDs} → {PointerLayer.ScrollCountForTest}）"
+                            + "｜**改坏法**：删掉 `Shell/DeckSelectionPopup.cs:356` 那句 "
+                            + "`PointerLayer.UnregisterOwnedBy(gameObject);` ⇒ 每切一次**净涨 1 条**"
+                            + "（`Build()` 只清**子件**、窗根不死，而 `MenuScroll` 是**普通 C# 类** ⇒ "
+                            + "`PruneScrolls` 那两道判断恒假），而且旧条目**还能被滚轮命中**"
+                            + "（`OnChanged` 指向已销毁的节点）⇒ 本条红");
                         int wantOwn = 0;
                         for (int i = 0; i < CollectionData.DeckCount(); i++)
                             if (CollectionData.DeckAt(i).GameMode == mi.GameMode) wantOwn++;
@@ -6116,6 +6137,44 @@ public static class CollectionScene
                     CheckTrue(nBadBelow == 0, $"带外（y ≤ 805.46）的顶点 {nBelow} 个**一个都没被动**"
                                             + "（软边只改带内；动的那些就是写错了带的位置）");
                 }
+
+                // ---------------- 🆕 2026-10-18（A840）：两页视口**各记过自己的设计矩形** ----------------
+                //   记录点 = `Shell/AvatarTab.cs:167` / `Shell/TitleTab.cs:140` 各补的那一句 `vc.CaptureNow();`。
+                //   口径 → `Shell/ViewportClip.cs` 文件头 §①；现场 → `资料/普查产出_1018/S1_A840与A867.md` §1/§2.1。
+                //   🔴 **为什么非断不可**：`MenuDraw.ApplyPxRect` 往这个节点写矩形**发生在组件存在之前**
+                //   （那一句的穿透只找**已有**的 `ViewportClip`）⇒ ⛔ 少了 `CaptureNow()` 这两颗**逐位回落到
+                //   旧写法**（实时反推 + `LiveDerivations`）：本页整块面板被挪过之后，框与被比矩形就**不在同一帧**
+                //   （A811 那个病灶）。⇒ **逐页各一条**，⛔ 不写成「至少有一页对」那种弱断言。
+                //   期望值 = **原版 prefab 字面量**（两页逐位同矩形 654.16,210.69 → 1680.12,855.46，
+                //   就是上面那几条 `ScanSoftCuts` 用的那一份）；⛔ 不读 `AvatarTab.VpL` / `TitleTab.VpL`
+                //   —— 那是**被测实现传进 `Node(...)` 的实参**（拿它当期望值 = 自证）。
+                void A840Check(string who, Transform tabRoot, string path, PxRect want)
+                {
+                    var vn = tabRoot != null ? tabRoot.Find(path) : null;
+                    var vv = vn != null ? vn.GetComponent<ViewportClip>() : null;
+                    CheckTrue(vv != null,
+                              $"（前提·不静默）{who}：`{path}` 那颗节点上挂着 `ViewportClip`"
+                            + " —— ⛔ 拿不到 ⇒ 下面那两条**没跑**，不是绿");
+                    if (vv == null) return;
+                    CheckTrue(vv.HasBaseRect,
+                              $"★ A840：{who} 这颗视口**记过设计矩形**（`ViewportClip.HasBaseRect`）"
+                            + " —— 记录点 = `AddComponent<ViewportClip>()` 之后那句 `vc.CaptureNow();`"
+                            + "｜**改坏法**：删掉那一句 ⇒ 本条红（该颗逐位回落到实时反推 + `LiveDerivations`）");
+                    var b = vv.BaseRect;
+                    CheckTrue(Mathf.Abs(b.x1 - want.x1) <= 0.05f && Mathf.Abs(b.y1 - want.y1) <= 0.05f
+                              && Mathf.Abs(b.x2 - want.x2) <= 0.05f && Mathf.Abs(b.y2 - want.y2) <= 0.05f,
+                              $"★★ A840：{who} 记下的矩形 = **宿主写进这个节点的那份设计矩形**"
+                            + $"（实测 {b.x1:F3},{b.y1:F3} → {b.x2:F3},{b.y2:F3}；"
+                            + $"期望 = 原版 prefab 的 {want.x1:F2},{want.y1:F2} → {want.x2:F2},{want.y2:F2}）"
+                            + "｜**改坏法**：把 `CaptureNow()` 挪到节点被改过之后再调（= 记成**错帧**）⇒ 红"
+                            + "（`HasBaseRect` 仍 true ⇒ 上面那条抓不住它，只有本条抓得住）");
+                }
+                A840Check("档案窗 `Avatar Tab`（`Shell/AvatarTab.cs:167`）",
+                          FindChild(pp.transform, "Avatar Tab"), "Item Display Panel/Scroll Rect",
+                          new PxRect(654.16f, 210.69f, 1680.12f, 855.46f));
+                A840Check("档案窗 `Title Tab`（`Shell/TitleTab.cs:140`）",
+                          FindChild(pp.transform, "Title Tab"), "Item Display Panel/Scroll Rect",
+                          new PxRect(654.16f, 210.69f, 1680.12f, 855.46f));
 
                 pp.Close();
                 Check(pp.CurrentState, WindowState.Closed, "量完把档案窗关掉（别影响后面的现场）");

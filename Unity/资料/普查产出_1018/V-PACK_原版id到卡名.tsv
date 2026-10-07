@@ -1,0 +1,53 @@
+# V-PACK · 原版卡id → 卡名 对子表（只读采集产物，2026-10-18）
+# ⛔ 这不是正式数据、别直接引用/别回填。仅作「采集面有多大」的读数。
+# 列：原版id 	 卡名(原版资产里给的) 	 我们池(cards_engine.json)里同名的卡 	 我们表(card_ids.json)给这个卡名发的id 	 来源 	 置信度
+# 置信度：高＝两张独立来源互相印证（或原版自己把名字印在资产里）；中＝只有一条来源（见报告 §5）
+# 张数：48
+GOF1	Grot	GOF4	GOF4	DT×教程	高
+GOF11	Banner Nob	GOF16	GOF16	draftpacks:Banner Nob.json	高
+GOF17	Killa Kan	GOF24	GOF24	draftpacks:Killa Kan.json	高
+GOF18	Painboy Sniklaw	GOF26	GOF26	draftpacks:Painboy Sniklaw.json	高
+GOF19	Meganob Ugrak	GOF28	GOF28	draftpacks:Meganob Ugrak.json	高
+GOF22	Deff Dread	GOF33	GOF33	draftpacks:Deff Dread.json	高
+GOF23	'Ardshell Gurk	GOF32	GOF32	draftpacks:'Ardshell Gurk.json	高
+GOF3	Bomb Squig	GOF6	GOF6	draftpacks:Bomb Squig.json	高
+GOF32	Grot Bomb	GOF41	GOF41	DT×教程	高
+GOF34	Prophet of the Waaagh!	GOF45	GOF45	draftpacks:Prophet of the Waaagh!.json	高
+GOF37	Da Green Horde	GOF51	GOF51	draftpacks:Da Green Horde.json	高
+GOF38	Deffkopta	GOF19	GOF19	draftpacks:Deffkopta.json(+消元)	中
+GOF4	Slugga Boy	GOF8	GOF8	DT×教程	高
+GOF47	Will of Gork	GOF58	GOF58	draftpacks:Will of Gork.json	高
+GOF48	Rok Invasion	GOF59	GOF59	draftpacks:Rok Invasion.json	高
+GOF57	Ork Nob	GOF20	GOF20	draftpacks:Ork Nob.json	高
+GOF65	Stikkbomb Boy	GOF_Stikkbomb_Boy	（表里没这个名字）	draftpacks:Stikkbomb Boy.json(+消元)	高
+GOF68	Big Choppa Nob	GOF_Big_Choppa_Nob	（表里没这个名字）	draftpacks:Big Choppa Nob.json	高
+GOF69	Mega Blasta Deffkopta	GOF_Mega_Blasta_Deffkopta	（表里没这个名字）	draftpacks:Mega Blasta Deffkopta.json	中
+GOF70	Krumpaklaw	GOF_Krumpaklaw	（表里没这个名字）	draftpacks:Krumpaklaw.json	高
+GOF71	Krump da Gitz	GOF_Krump_da_Gitz	（表里没这个名字）	draftpacks:Krump da Gitz.json	中
+GOF72	Dead Choppy	GOF_Dead_Choppy	（表里没这个名字）	draftpacks:Dead Choppy.json	高
+GOF73	Stomp 'Em	GOF_Stomp_Em	（表里没这个名字）	draftpacks:Stomp 'Em.json(+消元)	中
+GOF74	Grizzled Skarboy	GOF_Grizzled_Skarboy	（表里没这个名字）	draftpacks:Grizzled Skarboy.json	高
+GOF9	Shoota Boy	GOF13	GOF13	DT×教程	高
+UM1	Scout	UM11	UM11	DT×教程	高
+UM12	Spear of Macragge	UM23	UM23	draftpacks:Spear of Macragge.json	高
+UM13	Primaris Chaplain	UM_Primaris_Chaplain	（表里没这个名字）	DT×教程	高
+UM14	Honour Guard	UM_Honour_Guard	（表里没这个名字）	DT×教程 + draftpacks:Honour Guard.json	高
+UM2	Octavio Infiltrator	UM10	UM10	DT×教程	高
+UM20	Sergeant Telion	UM_Sergeant_Telion	（表里没这个名字）	draftpacks:Sergeant Telion.json	高
+UM23	Bladeguard Lieutenant	UM34	UM34	DT×教程	高
+UM29	Captain Sicarius	UM44	UM44	draftpacks:Captain Sicarius.json	高
+UM32	Tactical Insight	UM47	UM47	draftpacks:Tactical Insight.json	高
+UM33	Pariah Vanguard	UM_Pariah_Vanguard	（表里没这个名字）	DT×教程	高
+UM34	Point-Blank Shot	UM54	UM54	DT×教程 + draftpacks:Point-Blank Shot.json	高
+UM39	Inspired Retribution	UM62	UM62	DT×教程	高
+UM4	Assault Intercessor	UM12	UM12	DT×教程	高
+UM40	Avenging Zeal	UM_Avenging_Zeal	（表里没这个名字）	draftpacks:Avenging Zeal.json	高
+UM5	Primaris Reiver	UM_Primaris_Reiver	（表里没这个名字）	DT×教程	高
+UM56	Intercessor Sergeant	UM18	UM18	DT×教程	高
+UM6	Primaris Intercessor	UM14	UM14	DT×教程	高
+UM60	Humanity's Shield	UM52	UM52	draftpacks:Humanity's Shield.json	高
+UM62	Battlefield Supremacy	UM_Battlefield_Supremacy	（表里没这个名字）	draftpacks:Battlefield Supremacy.json	高
+UM72	Predator Annihilator	UM_Predator_Annihilator	（表里没这个名字）	draftpacks:Predator Annihilator.json	高
+UM73	Oath of Moment	UM_Oath_of_Moment	（表里没这个名字）	draftpacks:Oath of Moment.json	高
+UM8	Eliminator	UM17	UM17	DT×教程	高
+UM83	Valtus	UM_Valtus	（表里没这个名字）	draftpacks:Valtus.json	高

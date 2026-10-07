@@ -14469,14 +14469,14 @@
      "name": "desc",
      "items": [
       {
-       "token": "[Oath]",
-       "sprite": "oath",
-       "why": "卡图 Chaplain Cassius + NCC 0.924"
+       "token": "Talent:",
+       "sprite": "talent",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
-       "token": "[Talent]",
-       "sprite": "talent",
-       "why": "还原表 Chaplain Cassius：`TalentTalent: Catechism of Death`（图标 + 词）"
+       "token": "Oath abilities",
+       "sprite": "oath",
+       "why": "卡图 `Ultramarines/3部队/Warpforge_20_Chaplain-Cassius.png`（本批作者亲看整卡）：`Friendly 〔蓝圆盘+白袍人形〕Oath abilities apply an additional time. 〔纸卷〕Talent: Catechism of Death` —— 徽记在**句中**、紧贴词 `Oath`。2026-10-18 本卡 `desc` 由 `[Oath]`（方括号 ⇒ 整串换掉 ⇒ 词没了）改成**裸写**，所以这一枚要在这儿按卡补上（改动说明见 `cardface_fixes.json` 的 `_2026-10-18_Oath裸写`）。"
       }
      ]
     },
@@ -14487,6 +14487,11 @@
        "token": "天赋：",
        "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "誓言能力",
+       "sprite": "oath",
+       "why": "同上（中文写法；`descZh` = `友方部队的誓言能力额外结算 1 次。`）"
       }
      ]
     }
@@ -14592,6 +14597,11 @@
        "token": "Oath 1:",
        "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Oath abilities",
+       "sprite": "oath",
+       "why": "卡图 `Ultramarines/3部队/Warpforge_25_Ferren-Areios.png`（本批作者亲看整卡）：首句 `〔蓝圆盘+白袍人形〕Oath abilities of friendly troops can be activated up to 3 times each turn.`，末句 `〔同一枚〕Oath 1: Deal 1 damage` —— **同卡两枚徽记**。⚠️ 首句这一枚原来**整枚没画**（`Oath abilities` 没有数字、没有冒号 ⇒ `KEYWORD_SCAN` 扫不到）。"
       }
      ]
     },
@@ -14602,6 +14612,11 @@
        "token": "誓言 1：",
        "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "誓言能力",
+       "sprite": "oath",
+       "why": "同上（中文写法；`descZh` = `友方部队的誓言能力每回合最多可激活 3 次。`）"
       }
      ]
     }
@@ -15152,6 +15167,11 @@
        "token": "Oath 1:",
        "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Oath abilities",
+       "sprite": "oath",
+       "why": "卡图 `Ultramarines/3部队/Warpforge_12_Vico-Therbeus.png`（本批作者亲看整卡）：`〔眼睛〕Stealth. 〔蓝圆盘+白袍人形〕Oath abilities of friendly troops may be activated on later turns. 〔同一枚〕Oath 1: Gain 〔迷彩〕Camouflage` —— **同卡两枚徽记**，首句这枚原来整枚没画（同 `UM89`）。"
       }
      ]
     },
@@ -15162,6 +15182,11 @@
        "token": "誓言 1：",
        "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "誓言能力",
+       "sprite": "oath",
+       "why": "同上（中文写法；`descZh` = `友方部队的誓言能力可在后续回合激活。`）"
       }
      ]
     }

@@ -308,6 +308,20 @@ namespace CardPresentation
         // ============================================================ 建整棵树
         void Build()
         {
+            // 🔴 **2026-10-18（A867 · S1）**：**首句**就把本窗名下的旧滚动区撤掉 —— 下面 `ClearChildren(root)`
+            //   把整棵树清掉，而 `BuildArmySelector` 会登记一颗**新**的 `MenuScroll`（`_scroll.Owner = gameObject`）。
+            //   ⛔ **兜不住**，所以非补不可（`PointerLayer` 的两道自动清理**都判不出这里已死**）：
+            //     · `PruneScrolls` 的 `s == null` —— `MenuScroll` 是**普通 C# 类**（`Shell/MenuScroll.cs:79`）
+            //       ⇒ 节点被销毁**不会**让它变 null ⇒ **恒假**；
+            //     · `s.Owner == null` —— `Owner` 指的是**活下来的窗根**（本方法只删**子件**，`transform` 本身还在，
+            //       而且我们关窗是 `SetActive(false)`、**不销毁**）⇒ 也**恒假**（`Shell/PointerLayer.cs:223-231`）。
+            //   ⇒ 少了这一句 = **每重建一次净涨 1 条**，而且旧条目**还能被滚轮命中**（`OnChanged` 指向已销毁的节点）。
+            //   ⚠️ **本条与 A867 账上那两扇同形、但不是同一扇**：`Build()` 只有 `Open()` 一个调用者
+            //   （`TutorialModePopup.cs:293-298`），所以够得着它的**只有「同一实例被再开一次」**这一条路
+            //   （`TryOpen` 从 `Closed` 支 ⇒ `Open()`，`Shell/WindowsManager.cs:513-519`；生产侧到达它的是
+            //    `ShowPreviousWindow` ⑥ 那句 `prev.TryOpen()`，`:1147`）—— 判据同 `PracticeModePopup`，未经实跑。
+            //   ✅ 形状照抄 `Shell/InboxWindow.cs:405`。
+            PointerLayer.UnregisterOwnedBy(gameObject);
             var root = transform;
             MissingArt.Clear();
             StageCells.Clear();
@@ -360,47 +374,33 @@ namespace CardPresentation
         /// ⚠️ 本窗**没有** `Game Mode Icon` 那一件（遭遇战/排位窗才有）。
         /// 返回钮的链：原版 `WindowHeaderWithBackButton.BackButtonPressed` → 那个 `UnityEvent` 回调
         /// （本窗注册的是 `TutorialModePopup.Close`）⇒ 我们直接 `Close()`。</summary>
+        /// <remarks>🔴 **2026-10-17（A866）：四层建法已收口到 `WindowHeader.WithBackButton`**
+        /// （全工程 4 扇窗各抄一遍 ⇒ 收成一份）。本窗这一档的**差异**（逐格对照见
+        /// `资料/普查产出_1018/S5_A866窗头收口.md` §2）：
+        /// · 根名用缺省 `Header With Back Button`；· 标题**走 `FitAfterSpacing`**（字距 → 自适应 → 左对齐）；
+        /// · **没有 `TitleVAlign` 那一档**；· 返回钮 = `QuadOnHeader` + **无换图**（`BackSwapArt` 空）；
+        /// · 底板 / 尖角 / 返回钮的图都走本窗的 `Tex`（带 `MissingArt` 记账）。</remarks>
         void BuildHeader(Transform root)
         {
-            var hdr = MenuDraw.Node(root, "Header With Back Button", new PxRect(HdrL, HdrT, HdrR, HdrB));
-
-            // `Header Background`：`WF_Campaign_Info_Background` 740×167 · 九宫 (335,0,395,0) · `Sliced`
-            // 🔴 **2026-10-17（F3 · D3 红①，实现缺陷）**：原来这里**没给节点起名** ⇒ `MenuDraw.Nine` 落到
-            //    缺省名 **`"Nine"`**（`Shell/MenuDraw.cs:1408` 末参 `string name = "Nine"`），而原版那颗
-            //    **叫 `Header Background`**（`menu_dump` 实读）⇒ 自检读到「节点不在」。
-            //    改法照**同族三份先例**：`Shell/LiveOpsEventWindow.cs:748` · `Shell/DailyStreakPopup.cs:523` ·
-            //    `Shell/EnergySinglePlayerOnlyEventWindow.cs:488`（都是「先 `Node(具名)`、再把 `Nine` 挂进它」）。
-            // ⚠️ 同时把 `Window Title` 挂进 `bgT` —— 原版它是 `Header Background` 的**子件**（缩进 3 层），
-            //    我们原来挂在 `hdr` 底下（兄弟关系）⇒ 一并纠正。
-            // ⚠️ 两种挂法**位置逐位相同**：`MenuDraw.Nine` / `MenuDraw.Text` 都走 `Local(parent, 矩形)`
-            //    = `矩形中心 − PosInDesignSpace(parent)`，多插一层同矩形的 `Node` 之后
-            //    `bgT.position + (中心 − bgT.position)` 仍等于原来的 `中心`。
-            var bgT = MenuDraw.Node(hdr, "Header Background", new PxRect(HdrL, HdrBgT, HdrBgR, HdrBgB));
-            MenuDraw.Nine(bgT, Tex(LiveOpsEventWindow.ArtHeaderBg), new PxRect(HdrL, HdrBgT, HdrBgR, HdrBgB),
-                          LiveOpsEventWindow.HeaderBorder, LiveOpsEventWindow.HeaderTexW,
-                          LiveOpsEventWindow.HeaderTexH, QArt);
-            // `Window Title` —— 原版 hAlign = **Left**（不是居中）
-            var title = MenuDraw.Text(bgT, new PxRect(TitleL, TitleT, TitleR, TitleB), TitleText, Color.white,
-                                      "Window Title", 67.55f, QText);
-            if (title != null)
+            WindowHeader.WithBackButton(root, new WindowHeader.Spec
             {
-                // 🔴 **次序不能反**（工程血泪，同 `LiveOpsEventWindow.BuildHeader`）：改**渲染宽度**的那两句
-                //    （字距 / 自适应）必须排在 `AlignLeft` **之前** —— `AlignLeftOn` 是量**当时的** `WorldW`
-                //    反推位置 ⇒ 排在它之后改宽，字会整体往左溢出，**且不出声**。
-                title.SetCharSpacing(5f);          // 原版 `m_characterSpacing = 5`
-                title.SetAutoFitBox(LayoutSpace.Px(TitleR - TitleL), LayoutSpace.Px(TitleB - TitleT),
-                                    18f, 67.55f, 36f);   // 原版 auto[18, 67.55] · `m_fontSizeBase 36.0`
-                MenuDraw.AlignLeft(title, new PxRect(TitleL, TitleT, TitleR, TitleB));
-            }
-
-            // `Header Background (1)`（往左延伸的尖角）与返回钮：**兄弟序在后 ⇒ 队列更高**
-            MenuDraw.Nine(hdr, Tex(LiveOpsEventWindow.ArtHeaderBg),
-                          new PxRect(HdrBg1L, HdrBgT, HdrBg1R, HdrBgB),
-                          LiveOpsEventWindow.HeaderBorder, LiveOpsEventWindow.HeaderTexW,
-                          LiveOpsEventWindow.HeaderTexH, QArt1, null, true, "Header Background (1)");
-            MenuDraw.Rect(hdr, Tex(LiveOpsEventWindow.ArtHeaderBack),
-                          new PxRect(HdrBackL, HdrBackT, HdrBackR, HdrBackB), "Header Back Button", QArt2, null, true);
-            MenuDraw.Hit(hdr, "BackHit", new PxRect(HdrBackL, HdrBackT, HdrBackR, HdrBackB), QHit, () => Close());
+                RootRect = new PxRect(HdrL, HdrT, HdrR, HdrB),
+                PlateRect = new PxRect(HdrL, HdrBgT, HdrBgR, HdrBgB),
+                TitleRect = new PxRect(TitleL, TitleT, TitleR, TitleB),
+                TitleText = TitleText,
+                TitleMode = WindowHeader.TitleFit.FitAfterSpacing,
+                // 自适应那两个量**照本窗原来的写法**（`TitleR - TitleL` / `TitleB - TitleT`）——
+                // 别改成 `TitleRect.W/H`：两种写法可能差 1 ulp，而它会静默改自适应结果。
+                TitleFitW = TitleR - TitleL, TitleFitH = TitleB - TitleT,
+                WingRect = new PxRect(HdrBg1L, HdrBgT, HdrBg1R, HdrBgB),
+                BackRect = new PxRect(HdrBackL, HdrBackT, HdrBackR, HdrBackB),
+                BackButtonStyle = WindowHeader.BackStyle.QuadOnHeader,
+                BackKeepAspect = true,
+                PlateTex = Tex(LiveOpsEventWindow.ArtHeaderBg),
+                BackTex = Tex(LiveOpsEventWindow.ArtHeaderBack),
+                QPlate = QArt, QWing = QArt1, QTitle = QText, QBack = QArt2, QHit = QHit,
+                OnBack = () => Close(),
+            });
         }
 
         /// <summary>`Warlod Image` + `Warlord Darkening`。
@@ -486,6 +486,14 @@ namespace CardPresentation
             var vc = vp.gameObject.AddComponent<ViewportClip>();
             vc.padding = Vector4.zero;
             vc.softness = Vector2Int.zero;
+            // 🔴 **2026-10-18（A840 · S1）**：补一句 `CaptureNow()` —— 把**刚写进这个节点的那个矩形**记成基准
+            //   （= 框的中心那一帧，口径 → `ViewportClip` 文件头 §①）。🔴 **本处是 RS 清单漏掉的第 7 处**
+            //   （`Shell/ViewportClip.cs:69-73` 那份文件头只列了 6 处）⇒ 靠 `grep -rn "AddComponent<ViewportClip>"`
+            //   现扫才看得见。⛔ 少了它，这颗视口**逐位回落到旧写法**（实时反推 + `LiveDerivations`）。
+            //   ⚠️ **必须在这里调**（`AddComponent` 之后、`RebuildStageCells` 之前）：`MenuDraw.ApplyPxRect` 写矩形时
+            //   组件还不存在（那一句的穿透写在 `ApplyPxRect` 尾）—— 同 `ViewportClip.Hang` 里那句
+            //   `vc.SetBaseRect(r)` 的位置理由（`:314-317`）。⛔ 别改成 `OnEnable` 里自动抓（文件头 `:72-73` 明令）。
+            vc.CaptureNow();
 
             float contentH = Rows.Length * ItemH + (Rows.Length - 1) * ArmGap;   // 6×200 + 5×7.31 = 1236.55
             _scroll = MenuScroll.TopAligned(new PxRect(ArmL, ArmT, ArmR, ArmB), contentH);

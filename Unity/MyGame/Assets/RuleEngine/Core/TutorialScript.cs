@@ -708,8 +708,53 @@ namespace RuleEngine
         ///   · 当前那条是**脚本自己执行**的（`playerAction == false`）⇒ `ExecuteAction` + **指针 ++**；
         ///   · 当前那条是**玩家自己做**的（`playerAction == true`）⇒ **什么都不做、指针也不动**，返回 false。
         /// 返回值 = 「本回合还有动作吗」（原版两条支都返回 false）。
-        /// ⚠️ 原版执行完要 `SkippableActionWait(GetDelay(...))`（等音效 + `waitBefore/waitAfter`）——
-        ///    **那是演出节拍，不在引擎里**（本工程的引擎不持帧）。
+        /// ⚠️ 原版执行完要 `SkippableActionWait(GetDelay(...))` —— **那是演出节拍，不在引擎里**
+        ///    （本工程的引擎不持帧）；真正落码归 `A940` 那条线（`BattleDriver._postTimer` 一族）。
+        ///
+        /// 🔴🔴 **2026-10-18（`A899`）：这一拍的【时长语义】—— 判据全文，本文件是它的【正本】。**
+        ///    （镜像/摘要见 `CardPresentation/Battle/BattleDriver.cs` 的 `PlayTutorialSound` 注释；
+        ///      ⛔ 别在别处再抄一份 —— 两份迟早不一致。）
+        ///
+        ///   ⚠️ **先解掉那个老困惑：`+0x28` 是【两张不同的表】在同一个偏移上。**
+        ///     · `ScriptedActionCampaignData`（`d:/2/tools/il2cpp_out/dump.cs:89410-89422`）：
+        ///       `stageAction 0x10` / `soundAssetName 0x18` / **`textReference 0x20`** / **`waitTime 0x28`** / `actionType 0x2C`；
+        ///     · `ScriptedAction`（`dump.cs:42111-42122`）：
+        ///       `actionType 0x10` / `sound 0x18` / **`waitBefore 0x20`** / **`waitAfter 0x24`** / **`textReference 0x28`**。
+        ///     ⇒ `GetCurrentWaitTime` 的 `param_3` 是 **`List&lt;ScriptedActionCampaignData&gt;`**（`dump.cs:24668`），
+        ///       所以「`元素 +0x28`」= **`waitTime`**、**根本不是** `textReference`。
+        ///       「`+0x28` 与 `textReference` 对不上」这件事**到此解除**（原来是拿教程那张表去读战役那份）。
+        ///
+        ///   **① 战役脚本那一跳** —— `decomp_full/AiScripted__GetCurrentWaitTime.c:14-43`：
+        ///     下标 = `AiScripted.actionCampaignCounter`（`+0x14`）；`下标 ≥ Count`、或元素为空 ⇒ **返回 `0.0`**；
+        ///     否则 = `ScriptedActionCampaignData.GetSoundAsset(元素, 声音管理器).GetDuration()`
+        ///     （**取不到声音时那一项按 0 加**，`:30`）+ **`元素.waitTime`（`+0x28`）**。
+        ///     消费点：`BattleManager._ExecuteCampaignScriptedTurn_d__598__MoveNext.c:73` → `WaitForSecondsRealtime`。
+        ///
+        ///   **② 教程脚本那一跳**（**本方法**在原来走的就是它）—— `decomp_full/AiScripted__GetDelay.c:14-43`：
+        ///     下标 = `AiScripted.actionCounter`（**`+0x10`** —— 教程口径，⛔ 别写成战役那个 `+0x14`）；
+        ///     `delayBefore == false` ⇒ 下标 −1（`> 0` 才减）并返回 **`ScriptedAction.waitAfter`（`+0x24`）**；
+        ///     `delayBefore == true` ⇒ 返回 **`ScriptedAction.waitBefore`（`+0x20`）**。
+        ///     **两条前置**（任一不成立就落进 `GetDelay.c` 末尾那个
+        ///     `WARNING: Subroutine does not return` 的 `FUN_1803f47a0()` ⇒ 实为**抛异常/不返回**）：
+        ///       · `TurnScriptedData.scriptedActions`（`param_3 + 0x20`）为空 · 下标越界 · 取到的元素为空；
+        ///       · 该动作的 `scriptedActionData`（`元素 + 0x48`）`Count &lt; 1`。
+        ///     消费点：`BattleManager._ExecuteScriptedTurn_d__597__MoveNext.c:245` / `:354`
+        ///     → `:260` / `:365` 调 `SkippableActionWait`。
+        ///
+        ///   **③ `SkippableActionWait(action, time)` 的三条语义** ——
+        ///     `decomp_full/AiScripted._SkippableActionWait_d__15__MoveNext.c`：
+        ///     · **`time == 0` ⇒ 立刻收工、一秒都不等**（`:25` 那句 `return 0`）；
+        ///     · **`CanSkipAction(action)` 为真 ⇒ 可跳过支** —— 逐帧累加 `Time.deltaTime` 到 `time`，
+        ///       期间 `AiScripted.skipNextAction`（**`+0x29`**）一置位就**当场收工**（`:60-70`）；
+        ///     · **否则 ⇒ `WaitForSeconds(time)`**（`:26-30`），**真等满** `time` 秒。
+        ///
+        ///   🔑 **一条互相钉住的对照**（两个口径从此互为锚点）：
+        ///     `CanSkipAction`（`decomp_full/AiScripted__CanSkipAction.c`，亲读）判的是
+        ///     `action.scriptedActionData[0].actionType`（`+0x10`）∈ **{`0x32`,`0x37`,`0x3C`,`0x41`,`0x5A`}**，
+        ///     换成十进制 = **{50, 55, 60, 65, 90}** = `PlayerChat` / `PlayerChatBig` / `AiChat` /
+        ///     `AiChatBig` / `RadioMessage`（本文件的 `ScriptedActionType` 枚举逐值对得上）
+        ///     —— **恰好等于 `BattleDriver.IsTutorialChatKind` 那五档**。
+        ///     ⇒ 以后谁动了其中一边，另一边会立刻显得可疑（这就是钉住的意义）。
         ///
         /// 🔴 **2026-10-18 更正（铁律 5）：** 本注释原来写「原版**无条件** `ExecuteAction` + `*(+0x14) += 1`，
         ///    玩家动作那一支只是在**调用方**（协程）里被停住」。**实际不是** —— 判据 = 反汇编

@@ -158,7 +158,14 @@ namespace RuleEngine
             /// <summary>
             /// 原版 `HandEffect.targetCriteria` —— **后进手牌的牌要过这一关**才知道吃不吃得上
             /// （`PlayerHand__SetupCardInHand.c:58` 的 `FilterMethods.CheckIfMeetsCriteria`）。
-            /// `null` = 这一条没有可判的规格（见 `RuleCore.SetupCardInHand` 的如实说明）。
+            /// `null` = 这一条没有可判的规格 ⇒ **这份记录【不补给】后进手牌的牌**
+            /// （`HandEffectFits` 判不出来就不放行 ⇒ `SetupCardInHand` 只出声、不贴牌；
+            ///  ⚠️ **2026-10-18 订正（铁律 5）**：这一格原来只写「没有可判的规格（见
+            ///  `RuleCore.SetupCardInHand` 的如实说明）」—— **没写后果**，而 `SetupCardInHand` 那儿一度
+            ///  还写着「退回『单位卡』这一档」（**那个退路 `W5` 当天已收窄掉**）。
+            ///  正确口径 = 原版 `FilterMethods__CheckIfMeetsCriteria.c` 头两句：criteria 缺失 ⇒
+            ///  `LogError` + `return 0`（拒）；只有「criteria 存在但为空」才全放行）。
+            /// 📌 真对局里四个生产者都传 spec ⇒ 本值只由自检默认值产生。
             /// </summary>
             public EffectTargetSpec Target;
         }

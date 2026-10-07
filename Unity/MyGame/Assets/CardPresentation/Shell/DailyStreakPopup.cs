@@ -107,14 +107,12 @@ namespace CardPresentation
         public static readonly PxRect H_Title = new PxRect(155f, 38f, 534.30f, 120.66f);
         public static readonly PxRect H_Bg = new PxRect(-462.10f, 21.65f, 87.90f, 137.01f);
         public static readonly PxRect H_Back = new PxRect(-24.40f, 23.67f, 143.48f, 134.99f);
-        /// <summary>🆕 **2026-10-13（A519）**：`WF_Campaign_Info_Background` 的**九宫参数**（原版实测
-        /// **740×167 · border (335,0,395,0)**、`m_PixelsPerUnitMultiplier` 缺省 = 1 ⇒ 画出来的角块就是 335/395px、
-        /// 两轴都没被挤到 `scX/scY` 那一步）。
-        /// 判据 = 本件亲跑 dump 那一行的 `&lt;sprite 名> 740×167 九宫335,0,395,0`（`Sprite/*.json` 实测）；
-        /// ⚠️ 同族先例（**同一个原版节点**在 `Shell/LiveOpsEventWindow.cs` 的 `BuildBackdrop` 里那次 `MenuDraw.Nine(…, HeaderBorder, …)` 就是这么建的、
-        /// 常量在同文件 `:186-188`）⇒ 本窗照建，**别退回 `Simple`**。</summary>
-        public static readonly Vector4 HeaderBorder = new Vector4(335f, 0f, 395f, 0f);
-        public const float HeaderTexW = 740f, HeaderTexH = 167f;
+        // ⚠️ `WF_Campaign_Info_Background` 的**九宫 / 贴图尺寸**（740×167 · border (335,0,395,0) ·
+        //    `m_PixelsPerUnitMultiplier` 缺省 = 1 ⇒ 画出来的角块就是 335 / 395px）**本窗不再留第二份** ——
+        //    2026-10-17（A866）收口到 `WindowHeader.PlateBorder` / `PlateTexW` / `PlateTexH`
+        //    （本窗原来那一组与 `Shell/LiveOpsEventWindow.cs` 的**逐值相同** = 「同一条规则抄两处」）。
+        //    判据（`Sprite/*.json` 实测 + A641 那次全包清点：用这张 sprite 的 20 个 `Image` 实例 `m_Type` 全是 1
+        //    ⇒ **别退回 `Simple`**）写在 `WindowHeader` 那三个常量上，⛔ 不在这里再抄一遍。
 
         // ---------------- 奖格（Entry 局部坐标，见 `menu_rect.py … "Daily Streak Reward Popup Entry"`）
         public const float EntryW = 379.816f, EntryH = 516.301f;
@@ -499,10 +497,16 @@ namespace CardPresentation
             anchor.gameObject.SetActive(HasFailed);
         }
 
+        /// <remarks>🔴 **2026-10-17（A866）：四层建法已收口到 `WindowHeader.WithBackButton`**
+        /// （全工程 4 扇窗各抄一遍 ⇒ 收成一份）。本窗这一档的**差异**（逐格对照 →
+        /// `资料/普查产出_1018/S5_A866窗头收口.md` §2）：
+        /// · 根名缺省；· 标题走 **`SpacingOnly`**（**只有字距、不调自适应** —— 另三扇都调；本笔**照旧保留**，
+        ///   差异登记在 §5 / §7）；· 多一档 `TitleVAlign = Capline`（A712 阶段 2）；
+        /// · 返回钮 = `BoundOnQuad`（图**自己**就是按钮，**没有 `BackHit` 节点**）且 `BackKeepAspect = false`
+        ///   （另三扇是 `true`）；· `onClick` 先 `StreakAutoCollect()` 再 `Close()`。</remarks>
         void BuildHeader(Transform root)
         {
-            var h = MenuDraw.Node(root, "Header With Back Button", HeaderRoot);
-            // 🔴 **2026-10-13（A519）**：原版这一层底下是**两颗底图**，我们**原来只建了一颗**（少了 `Header Background`）。
+            // 🔴 **2026-10-13（A519）**：原版这一层底下是**两颗底图**（我们原来只建了一颗，少了 `Header Background`）。
             //   判据 = 本件亲跑 `python 工具/menu_dump.py bundle_menus_assets_all "Daily Streak Popup" --depth 10`
             //   实读的兄弟序与矩形（**两颗 sprite pid 相同** = `6473405944757030420` = `WF_Campaign_Info_Background`）：
             //     `Header With Back Button` (0,21.65 → 550,131.20)
@@ -511,63 +515,39 @@ namespace CardPresentation
             //       ├ `Header Background (1)`  (−462.10,21.65 → 87.90,137.01) ← 我们原来只有这一颗
             //       └ `Header Back Button`     (−24.40,23.67 → 143.48,134.99)
             //   ⚠️ **「是漏了还是有意省的」判不出【本窗的】意图**（grep `资料/日常_*.md` 里 `Header Background` **零命中**
-            //      ⇒ 本窗这一颗**没被记过**；本文件的建窗注释里也没有任何交代）。**但同族窗口有先例**：
-            //      `资料/阶段二_战斗入口_原版规格.md:191-193` 白纸黑字记着 `Header Background` 底下是
-            //      `Window Title`、同级还有 `Header Background (1)`（往左延伸的装饰）
-            //      ⇒ 与本窗原版**同一份结构** ⇒ 按**铁律 11「与原版不符/有缺漏 ⇒ 先记录、之后完全复刻」**处理：
-            //      **补上**，并把「本窗为什么少一颗判不出来」如实写进本件报告 §五。
-            //   🔴 **它的可见后果不小**：我们原来唯一那颗底图只盖 x∈[−462.1, 87.9]，而 `Window Title` 在
-            //      x∈[155, 534.3] ⇒ 原来**标题那一段后面根本没有底板**（本窗自检此前对顶栏零覆盖）。
-            //   ⚠️ 建的样式照原版：**`Sliced` + 九宫 (335,0,395,0) · 贴图 740×167**（本件亲读；
-            //      同族先例 = `Shell/LiveOpsEventWindow.cs` 的 `BuildBackdrop` 里那次 `MenuDraw.Nine(…, HeaderBorder, …)` 对**同一个原版节点**就是这么建的）。
-            var plate = MenuDraw.Node(h, "Header Background", H_Plate);
-            MenuDraw.Nine(plate, Art(ArtHeaderBg), H_Plate, HeaderBorder, HeaderTexW, HeaderTexH, QPanel);
-            // 🔴 **2026-10-13（A493 #6）**：`Window Title` 补**显式左对齐**。
-            //   判据 = 原版 `Daily Streak Popup/Header With Back Button/**Header Background**/Window Title`
-            //   （⚠️ **原来这里少写了一层 `Header Background`**，铁律 5 就地订正 —— 它挂在**底板**底下、不是顶栏直系）：
-            //   **`对齐=Left/Capline`**、矩形 `155.0 38.0 534.3 120.7`、`字号=67.55`
-            //   （`menu_dump.py … "Daily Streak Popup" --depth 10 --no-sprite` 实读）
-            //   —— 与我们的 `H_Title` / 本行那三个数**逐值相同** ⇒ 只差对齐这一笔。
-            //   ⚠️ 与 A475（`Shell/LiveOpsEventWindow.cs` 的 `Window Title`）**是同一族、不是同一颗**：
-            //   那颗走 `LiveOpsEventWindow.BuildHeader`，本窗自建顶栏、走本方法 ⇒ **改那里管不到这里**。
-            //   🔴 **2026-10-13（A517）字距 5 已补**（原文写「⛔ 原版这一颗还带 `字距=5` …… 另立账，本账只做对齐」，
-            //   那是 A493 那一轮的边界；A517 就是那个「另立的账」）。**次序同上面 `Current Streak`**：
-            //   `SetCharSpacing` 必须排在 `AlignLeft` **之前**（改渲染宽 ⇒ 排在后面就按旧宽定位）。
-            var title = MenuDraw.Text(plate, H_Title, DailyData.StreakWindowTitle(), Color.white, "Window Title", 67.55f, QText);
-            if (title != null) title.SetCharSpacing(5f);
-            MenuDraw.AlignLeft(title, H_Title);
-            MenuDraw.SetVAlign(title, Label.VAlign.Capline, H_Title);   // A712 阶段 2：原版 `Left/Capline` 的纵向那一半
-            // 🔴 **2026-10-13（A641）**：这一颗原来是**裸 `MenuDraw.Rect`**（= `Image` 的 `m_Type = 0 (Simple)`，
-            //   把整张 740×167 拉到 550×115.36）—— **原版是 `Sliced`**。
-            //   判据（现读两处互证，⛔ 不是抄表）：
-            //     ① `python 工具/menu_dump.py bundle_menus_assets_all "Daily Streak Popup" --depth 10`
-            //        ⇒ `Header Background (1)  -462.1 21.7 → 87.9 137.0  550.00×115.36  Image,LayoutElement
-            //            WF_Campaign_Info_Background 740×167 九宫335,0,395,0 | **Sliced** (1,1,1,1)`；
-            //     ② 全量清点：`bundle_menus_assets_all/MonoBehaviour/` 里**用这张 sprite 的 20 个 `Image` 实例
-            //        `m_Type` 全是 1**（`grep -l 6473405944757030420` ⇒ 逐个读 `m_Type`）—— 那颗底图在整个包里
-            //        **没有一处走 `Simple`**。`m_PixelsPerUnitMultiplier` 也是 1.0（⇒ 画出来的角块 = 贴图边宽
-            //        335 / 395，`borderOutPx` 不用单传，同族先例也是这么建的）。
-            //   ⇒ 照**同族先例**建：`Shell/LiveOpsEventWindow.cs` 里那次 `MenuDraw.Nine(…, HeaderBorder, …)` 对**同一个原版节点**走的就是
-            //     `MenuDraw.Nine(…, HeaderBorder, HeaderTexW, HeaderTexH, …)`（常量在同文件 `:185-188`）。
-            //   ⚠️ 如实标：**视觉差很小**（角块按比例压到 `scX ≈ 0.75`，中段本来就被压成 0 ⇒ 今天的画面
-            //     看不出差别），但按铁律 11「与原版不符 ⇒ 完全复刻」仍要改。
-            //   ⚠️ 与同文件 `Header Background`（A519 那颗）**形状略不同、是有意的**：那一颗**外面还有一层
-            //     具名节点**（`MenuDraw.Node(h, "Header Background", H_Plate)` + `Nine` 的缺省名 `"Nine"`）；
-            //     这一颗原来是**节点自己就是 quad**（名字 `Header Background (1)`）⇒ 这里把名字**显式传进 `Nine`**，
-            //     免得按名字找它的断言/工具全部落空（`Nine` 的缺省名是 `"Nine"`）。
-            MenuDraw.Nine(h, Art(ArtHeaderBg), H_Bg, HeaderBorder, HeaderTexW, HeaderTexH, QPanel,
-                          null, true, "Header Background (1)");
-            var back = MenuDraw.Rect(h, Art(ArtBackBtn), H_Back, "Header Back Button", QContent);
-            if (back != null)
+            //      ⇒ 本窗这一颗没被记过）—— 但同族先例 `资料/阶段二_战斗入口_原版规格.md:191-193` 记着**同一份结构**
+            //      ⇒ 按**铁律 11** 补上。三个 rect = `H_Plate` / `H_Title` / `H_Bg` 三条常量，各自的判据写在常量块上。
+            //   🔴 **它的可见后果不小**：原来唯一那颗底图只盖 x∈[−462.1, 87.9]，而 `Window Title` 在 x∈[155, 534.3]
+            //      ⇒ 标题那一段后面根本没有底板（本窗自检此前对顶栏零覆盖）。
+            // 🔴 **A641**：尖角那一颗原来是**裸 `MenuDraw.Rect`**（`m_Type = Simple`，把整张 740×167 拉到
+            //   550×115.36）—— **原版是 `Sliced`**；共件一律走 `MenuDraw.Nine`（= A641 要的那一支）。
+            //   判据（现读两处互证：`menu_dump` 那一行 + 全包 20 个用这张 sprite 的 `Image` 实例 `m_Type`
+            //   全是 1）写在 `WindowHeader.PlateBorder` 的 doc 上，⛔ 不是抄表。
+            WindowHeader.WithBackButton(root, new WindowHeader.Spec
             {
-                var hit = back.gameObject.AddComponent<WindowButton>();
+                RootRect = HeaderRoot,
+                PlateRect = H_Plate,
+                TitleRect = H_Title,
+                TitleText = DailyData.StreakWindowTitle(),
+                // 🔴 A493#6（补显式左对齐）+ A517（补字距 5）：本窗这一颗**只补了这两笔、没补自适应** —— 照旧。
+                TitleMode = WindowHeader.TitleFit.SpacingOnly,
+                // A712 阶段 2：原版 `Left/Capline` 的**纵向那一半**（共件里 `SetVAlign` 排在 `AlignLeft` 之后，
+                // 与本窗原来的次序逐句相同）。
+                TitleVAlign = Label.VAlign.Capline,
+                WingRect = H_Bg,
+                BackRect = H_Back,
+                // 图**自己**就是按钮（`WindowButton` 挂在图上）—— A17：原版 `Header With Back Button>Header Back Button`
+                // 是 SpriteSwap（普查 §块 4 第 10 行）；⚠️ 高亮图是 `UI_Button_Menu_Back_Hover`（**大写 H**，走那张表）。
+                BackButtonStyle = WindowHeader.BackStyle.BoundOnQuad,
+                BackKeepAspect = false,        // 本窗原版那颗 `Image` 是 `Simple`（另三扇是 `preserveAspect = 1`）
+                BackSwapArt = ArtBackBtn,
+                PlateTex = Art(ArtHeaderBg),
+                BackTex = Art(ArtBackBtn),
+                QPlate = QPanel, QWing = QPanel, QTitle = QText, QBack = QContent,
                 // 原版：返回钮与背景遮罩**走同一个 `CloseButtonClicked` → `Close()`**，
                 // 而 `Close()` = `LiveOp.TryCollect(() => base.Close())` ⇒ **关窗会先自动收取**。
-                hit.onClick = () => { DailyData.StreakAutoCollect(); Close(); };
-                // 🆕 A17：原版 `Header With Back Button>Header Back Button` 是 SpriteSwap（普查 §块 4 第 10 行）
-                // —— ⚠️ 这张的高亮图是 `UI_Button_Menu_Back_Hover`（**大写 H**，走 `WindowButton` 里那张表）
-                hit.BindSelf(ArtBackBtn);
-            }
+                OnBack = () => { DailyData.StreakAutoCollect(); Close(); },
+            });
         }
 
         /// <summary>一个奖格：`NormalReward` 那一组（`BG` / `Highlight` / 图标 / 名字 / 角标） + `Collect`。</summary>

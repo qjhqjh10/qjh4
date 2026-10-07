@@ -229,8 +229,12 @@ public static class ShellScene
     /// ⛔ **别在别处再抄一遍这段循环**：`资料/普查产出_1016/W17_换口与量法收口.md` §④·4 收的就是这一族
     /// （W17 收的是**同一个文件里**那 4 份；本批收的是**跨文件**的 `Editor/CollectionScene.TextExtentPx`
     /// 与 `Editor/DeckScene.TextMeshRectPx`）。
-    /// <para>有意**不收**的同族（各自的原因见那几处的注释）：`Editor/RewardsScene.cs` 的
-    /// `TmpVertPx` / `TmpVertsAndAlpha` / `TmpGlyphUvW`（写死 `meshInfo[0]`，要的是**逐点序列**）·
+    /// <para>有意**不收**的同族（各自的原因见那几处的注释）：
+    /// 🔴 **2026-10-18 就地订正（`A851` 收口 · 铁律 5）**：这一栏原来把 `Editor/RewardsScene.cs` 的
+    /// `TmpVertPx` / `TmpVertsAndAlpha` / `TmpGlyphUvW` 的**理由**写成「（写死 `meshInfo[0]`，要的是**逐点序列**）」——
+    /// **前半条已作废**：那三处当天已改成**按 `chr[i].materialReferenceIndex` 取槽**（`A851`，报告 `资料/普查产出_1018/S2_A851槽号.md`）。
+    /// ⇒ **它们仍然「不收」的理由只剩一条：要的是【逐点序列】而不是包围盒**（本函数的产物是 `min/max/verts`）。
+    /// ⚠️ 下个会话别再照旧话把它们判成「写死 0 号槽」那一族。
     /// `Editor/MainMenuScene.cs` 的 `CountSoftFadedTextVerts`（另一种用途：按 y 带数 alpha 剖面）·
     /// `Editor/IconSizeProbe.cs` / `Editor/Round1015Probe.cs` 那两个**离树合成 TMP** 的字体标定探针
     /// （局部单位、不换算到画布 px）。</para></summary>
@@ -4405,6 +4409,39 @@ public static class ShellScene
                          ? $"（现读 ({armVc.padding.x},{armVc.padding.y},{armVc.padding.z},{armVc.padding.w}) / "
                            + $"({armVc.softness.x},{armVc.softness.y})）"
                          : "（⛔ 节点没找到，本条按上一条的红一起看）"));
+
+            // 🆕 **2026-10-18（A840）**：这颗视口**记过自己的设计矩形** —— 记录点 = `BuildArmySelector` 里
+            //   `AddComponent<ViewportClip>()` 之后那句 `vc.CaptureNow();`（`Shell/LiveOpsEventWindow.cs:614`）。
+            //   口径 → `Shell/ViewportClip.cs` 文件头 §①；现场 → `资料/普查产出_1018/S1_A840与A867.md` §1/§2.1。
+            //   🔴 **为什么非断不可**：本窗 `Open()` 每次都**整棵树重建**，而 `CaptureNow()` 抓的是「建树那一刻、
+            //   `MenuDraw.Node` 刚写进这个节点的那个矩形」= 框的中心那一帧。⛔ 少了它 ⇒ 本节点**逐位回落到旧写法**
+            //   （实时反推 + `LiveDerivations`）：节点或它的**祖先**被挪过之后，框与被比矩形就**不在同一帧**
+            //   —— 那正是 A811 根治掉的那个病灶（`Shell/ViewportClip.cs` 文件头「A811 根治」那一节）。
+            CheckTrue(armVc != null && armVc.HasBaseRect,
+                      "★ A840：这颗视口**记过设计矩形**（`ViewportClip.HasBaseRect`）"
+                    + "｜**改坏法**：删掉 `Shell/LiveOpsEventWindow.cs:614` 那句 `vc.CaptureNow();` ⇒ 本条红"
+                    + (armVc != null ? "" : "（⛔ 节点没找到，本条按上面 A745 那条的红一起看）"));
+            // 期望值 = **原版 prefab 字面量**（`Ranked Army Selector/Army Selector/Viewport`：
+            // 1323.16,218.94 → 1870.28,882.03）—— ⛔ 不拿 `LiveOpsEventWindow.ArmView*` 当期望值：
+            // 那是**被测实现传进 `Node(...)` 的实参**（拿它当期望值 = 自证）。
+            var armFrameLit = new PxRect(1323.16f, 218.94f, 1870.28f, 882.03f);
+            CheckTrue(NearPx(armFrame, armFrameLit, 0.05f),
+                      "（前提）上面那个 `armFrame`（= `LiveOpsEventWindow.ArmView*` 四个常量）**逐值 = 原版 prefab 的实读值**"
+                    + $"（{armFrameLit.x1:F2},{armFrameLit.y1:F2} → {armFrameLit.x2:F2},{armFrameLit.y2:F2}）"
+                    + " —— 改坏法：改那四个常量里任一个 ⇒ 本条红；"
+                    + "⛔ 上面 A745 那条拿 `armFrame` 当期望值，本条就是它「是不是原版值」的那条判据");
+            if (armVc != null && armVc.HasBaseRect)
+            {
+                var armBr = armVc.BaseRect;
+                bool armBrOk = Mathf.Abs(armBr.x1 - armFrameLit.x1) <= 0.05f && Mathf.Abs(armBr.y1 - armFrameLit.y1) <= 0.05f
+                            && Mathf.Abs(armBr.x2 - armFrameLit.x2) <= 0.05f && Mathf.Abs(armBr.y2 - armFrameLit.y2) <= 0.05f;
+                CheckTrue(armBrOk,
+                          "★★ A840：记下的矩形 = **宿主写进这个节点的那份设计矩形**"
+                        + $"（实测 {armBr.x1:F3},{armBr.y1:F3} → {armBr.x2:F3},{armBr.y2:F3}；期望 = 原版 prefab 的 "
+                        + $"{armFrameLit.x1:F2},{armFrameLit.y1:F2} → {armFrameLit.x2:F2},{armFrameLit.y2:F2}）"
+                        + "｜**改坏法**：把 `CaptureNow()` 挪到节点被改过之后再调（= 记成**错帧**）⇒ 本条红"
+                        + "（那时 `HasBaseRect` 仍是 true ⇒ **上面那条抓不到它，只有本条抓得住**）");
+            }
             // ⚠️ 软边那半边**另有专门一段**（⑤·h：`CheckSoftCuts` 断 270.94 / 830.03 两条切线位置）——
             //    A745 把「逐件传 `view`」换成节点之后，那一段**照旧带电**（节点 `softness = (0,52)` 与
             //    `VpSoft` 逐字同值）⇒ 本段不重复断它，只断**框那半边**（下面两态）。
@@ -4436,6 +4473,28 @@ public static class ShellScene
                           $"★ …还原节点框 ⇒ **又建出同样多格**（实测 {sk.ArmyCells.Count}，态一 {cellsA}）"
                           + " —— 两态都断 ⇒ 上面那个「0」不可能来自别的原因（例如「这一批阵营表是空的」）");
             }
+
+            // ============================================================ 🆕 A867：同一实例再 `Open()` ⇒ 登记表不涨
+            //   （先例逐字同形的写法 → `Editor/RewardsScene.cs:8126-8141` 的 A510 那一条；
+            //    现场 / 改坏法 → `资料/普查产出_1018/S1_A840与A867.md` §2.2 / §4.1）
+            //   🔴 口径：本窗 `Open()` 每次都 `Build()`，而 `Build()` 是「把 `root` 的子件全清掉再重建」、
+            //     会登记一颗**新**的 `MenuScroll`（`_armyScroll.Owner = gameObject`）—— 「关窗只 `SetActive(false)`、
+            //     **不销毁**」+「`MenuScroll` 是**普通 C# 类**（`== null` 恒假）」⇒ `PointerLayer` 那两道
+            //     自动清理（`PruneScrolls` 的 `s == null` / `s.Owner == null`）**都判不出旧条目已死**。
+            //   ⚠️ 先重建一次**取基线** —— 那一次会顺手把待清的死条目吸掉，基线之后那一次才只反映「本窗重建涨不涨」。
+            sk.Open();                                  // 吸基线（表里若还挂着别人的死条目，这一下清掉）
+            int nScrollSk = PointerLayer.ScrollCountForTest;
+            // 🔴 **前提（灭「假绿」）**：登记表**非空**才说明 `PointerLayer.Instance` 在、而且本窗真登记过 ——
+            //    表一旦是空的，下面比的就是 **0 vs 0**（= 什么都没验，那种断言删掉实现也照样绿）。
+            CheckTrue(nScrollSk > 0,
+                      $"（前提）滚动登记表非空（基线 {nScrollSk} 条）—— ⛔ 为 0 ⇒ 下面那条比的是 0 vs 0，等于没验");
+            sk.Open();                                  // ← 真·重建一次（生产侧这条 = `TryOpen` 从 `Closed` 支 → `Open()`）
+            Check(PointerLayer.ScrollCountForTest, nScrollSk,
+                  $"★★ A867：同一实例再 `Open()` 一次（= `Build()` 再跑一遍）⇒ 滚动登记表**一条都不涨**"
+                + $"（{nScrollSk} → {PointerLayer.ScrollCountForTest}）"
+                + "｜**改坏法**：删掉 `Shell/LiveOpsEventWindow.cs:378` 那句 "
+                + "`PointerLayer.UnregisterOwnedBy(gameObject);` ⇒ 每重建一次**净涨 1 条**（本窗只有阵营条那一颗登记），"
+                + "而且旧条目**还能被滚轮命中**（`OnChanged` 指向已销毁的节点）⇒ 本条红");
             sk.Close();
 
             // ============================================================ 收尾
@@ -4564,6 +4623,61 @@ public static class ShellScene
                            + $"({deckVc.softness.x},{deckVc.softness.y})）"
                          : "（⛔ 节点没找到，本条按上一条的红一起看）")
                       + " —— 改坏法：改任一格 ⇒ 红");
+
+            // 🆕 **2026-10-18（A840）**：这两颗视口**各记过自己的设计矩形** —— 记录点 = `BuildArmySelector` 里
+            //   `armyVc.CaptureNow();` 与 `BuildDeckRows` 里 `deckVc.CaptureNow();`（`Shell/PracticeModePopup.cs:883/:1051`）。
+            //   口径 → `Shell/ViewportClip.cs` 文件头 §①；现场 → `资料/普查产出_1018/S1_A840与A867.md` §1/§2.1。
+            //   🔴 **两处必须逐颗各一条**：取状态那一路（`ViewportClip.Resolve` 第 2 步）是**沿父链找最近的那一颗**
+            //   ⇒ **一处漏补 = 那一处静默回落到旧写法**（实时反推 + `LiveDerivations`），另一处补了也**管不到它**。
+            //   ⛔ 所以 ⛔ **不写成「至少有一颗对」**那种弱断言。
+            CheckTrue(armyVc != null && armyVc.HasBaseRect,
+                      "★ A840：**阵营**视口（`Army Selector/Viewport`）记过设计矩形（`ViewportClip.HasBaseRect`）"
+                    + "｜**改坏法**：删掉 `Shell/PracticeModePopup.cs:883` 那句 `armyVc.CaptureNow();` ⇒ 本条红");
+            CheckTrue(deckVc != null && deckVc.HasBaseRect,
+                      "★ A840：**卡组**视口（`Decks Scroll view/Viewport`）记过设计矩形（同上）"
+                    + "｜**改坏法**：删掉 `Shell/PracticeModePopup.cs:1051` 那句 `deckVc.CaptureNow();` ⇒ 本条红"
+                    + "（⛔ 上面那条绿**管不到它** —— `Resolve` 找的是**最近**的那一颗）");
+            // 期望值 = **原版字面量**（本段顶上那四个 `const float ArmVp*/DkVp*`，它们的出处逐条写在各常量注释里）
+            // —— ⛔ 不读 `PracticeModePopup.ArmVp*` / `DecksVp*`：那是**被测实现传进 `Node(...)` 的实参**（= 自证）。
+            if (armyVc != null && armyVc.HasBaseRect)
+            {
+                var aBr = armyVc.BaseRect;
+                bool aBrOk = Mathf.Abs(aBr.x1 - ArmVpX1) <= 0.05f && Mathf.Abs(aBr.y1 - ArmVpY1) <= 0.05f
+                          && Mathf.Abs(aBr.x2 - ArmVpX2) <= 0.05f && Mathf.Abs(aBr.y2 - ArmVpY2) <= 0.05f;
+                CheckTrue(aBrOk,
+                          "★★ A840：阵营视口记下的矩形 = **宿主写进这个节点的那份设计矩形**"
+                        + $"（实测 {aBr.x1:F3},{aBr.y1:F3} → {aBr.x2:F3},{aBr.y2:F3}；期望 = 原版 "
+                        + $"{ArmVpX1},{ArmVpY1} → {ArmVpX2},{ArmVpY2}）"
+                        + "｜**改坏法**：把 `CaptureNow()` 挪到节点被改过之后再调（= 记成**错帧**）⇒ 红"
+                        + "（`HasBaseRect` 仍 true ⇒ 上面那条抓不到它，只有本条抓得住）");
+            }
+            if (deckVc != null && deckVc.HasBaseRect)
+            {
+                var dBr = deckVc.BaseRect;
+                bool dBrOk = Mathf.Abs(dBr.x1 - DkVpX1) <= 0.05f && Mathf.Abs(dBr.y1 - DkVpY1) <= 0.05f
+                          && Mathf.Abs(dBr.x2 - DkVpX2) <= 0.05f && Mathf.Abs(dBr.y2 - DkVpY2) <= 0.05f;
+                CheckTrue(dBrOk,
+                          "★★ A840：卡组视口记下的矩形 = 同上一颗（口径逐字相同）"
+                        + $"（实测 {dBr.x1:F3},{dBr.y1:F3} → {dBr.x2:F3},{dBr.y2:F3}；期望 = 原版 "
+                        + $"{DkVpX1},{DkVpY1} → {DkVpX2},{DkVpY2}）"
+                        + "｜**改坏法**：同上；⚠️ 两处的**可见面本来就不同**（阵营 177.12×764.21 vs 卡组 373.60×540.79）"
+                        + "⇒ 「两颗记成同一份」也会被本条抓出来");
+            }
+            // 🔴 **第三个观测轴**（S1 §4.2 点名的那一个）：`ViewportClip.LiveDerivations` = 走「实时反推」那一支的计数。
+            //   修后这两颗**一次都不该走那一支**。⚠️ 它是**全局静态、跨窗累计** ⇒ **只能在本段里前后差分**
+            //   （⛔ 别横向比绝对值）；判据用法 `Shell/ViewportClip.cs:433-440` 自己就是这么写的。
+            //   ⚠️ 与上面那两条**不是同一件事**：那两条看**状态**（`HasBaseRect` / 记下来的值），本条看**代码路径**
+            //   （读框时到底进了哪一支）—— 两条都断了才排除「状态对、但取用那一趟仍走旧路」这一档。
+            if (armyVc != null)
+            {
+                int ld0 = ViewportClip.LiveDerivations;
+                var probeClip = armyVc.ClipPx;             // 读一次 ⇒ 记过矩形的那一支不涨、回落那一支 +1
+                CheckTrue(probeClip.HasValue, "（前提）这颗视口给得出框（`ClipPx` 非 null）");
+                Check(ViewportClip.LiveDerivations, ld0,
+                      $"★ A840：读一次 `ClipPx` ⇒ **`LiveDerivations` 一条都不涨**（{ld0} → {ViewportClip.LiveDerivations}）"
+                    + " —— 涨了 = 这颗节点**没有** `BaseRect`、又走回了实时反推那一支（A811 那个病灶）"
+                    + "｜**改坏法**：删掉 `Shell/PracticeModePopup.cs:883` 那句 `armyVc.CaptureNow();` ⇒ 本条红");
+            }
             CheckTrue(armyVc != null && deckVc != null && !ReferenceEquals(armyVc, deckVc),
                       "★ 两处是**两颗不同的节点**（一扇窗里两个视口各自一份状态 —— 这正是 `ViewportClip` 相对"
                       + "「一扇窗一份 `GameWindow.Clip`」的意义；迁移前这一档只能靠「逐件传不同的 `view`」表达）");
@@ -4787,6 +4901,22 @@ public static class ShellScene
                                    + " ⇒ A754-b 那几态**没跑**（⛔ 不静默跳过）");
             }
 
+            // ============================================================ 🆕 A867：同一实例再 `Open()` ⇒ 登记表不涨
+            //   （先例 / 口径逐字同上：`Editor/RewardsScene.cs:8126-8141` 的 A510 那一条 ·
+            //    现场 / 改坏法 → `资料/普查产出_1018/S1_A840与A867.md` §2.2 / §4.1）
+            //   🔴 本窗**一处漏补 = 每次重建净涨 2 条**（它窗内**两处**登记：阵营条 + 卡组条）。
+            //   ⚠️ 先重建一次**取基线**（那一次顺手把待清的死条目吸掉）⇒ 基线之后那次才只反映「本窗重建涨不涨」。
+            pw.Open();
+            int nScrollPw = PointerLayer.ScrollCountForTest;
+            CheckTrue(nScrollPw > 0,
+                      $"（前提）滚动登记表非空（基线 {nScrollPw} 条）—— ⛔ 为 0 ⇒ 下面那条比的是 0 vs 0，等于没验");
+            pw.Open();
+            Check(PointerLayer.ScrollCountForTest, nScrollPw,
+                  $"★★ A867：同一实例再 `Open()` 一次 ⇒ 滚动登记表**一条都不涨**"
+                + $"（{nScrollPw} → {PointerLayer.ScrollCountForTest}）"
+                + "｜**改坏法**：删掉 `Shell/PracticeModePopup.cs:754` 那句 "
+                + "`PointerLayer.UnregisterOwnedBy(gameObject);` ⇒ 每重建一次**净涨 2 条**（本窗两处视口）⇒ 本条红");
+
             // ============================================================ 收尾
             // ⚠️ 同 ⑤·z / 丁段的纪律：`pw` 是 `Create` + `OpenWindow` 过（= 在窗表里）⇒ 只 `Close()`、
             //   ⛔ **不 `DestroyImmediate`**（那会让窗表里留一个 Unity 假 null，而下面 `shell.Dump()` 要遍历它）。
@@ -4796,6 +4926,67 @@ public static class ShellScene
             RuleEngine.DeckStore.OverridePath = keepDeckPath;
             CollectionData.ResetForTest();
             shell.Windows.CloseAllWindows();
+        }
+
+        // ============================================================ ★ A840 / A867：教程模式窗（`Tutorial Mode Menu`）
+        // 现场与判据 → `资料/普查产出_1018/S1_A840与A867.md` §1（**第 7 处** —— `Shell/ViewportClip.cs` 文件头那份
+        //   6 处清单当年漏掉的那一颗，靠 `grep -rn "AddComponent<ViewportClip>"` 现扫才看得见）
+        //   · §2.2 第 4 处（那一句 `UnregisterOwnedBy` 是 S1 自己扫出来、超出简报点名的，**可单独回退**）。
+        // ⚠️ **本窗在 `ShellScene` 里没有别的夹具** —— 生产侧它由主菜单点「教程」卡开出 ⇒ `Editor/MainMenuScene.cs`
+        //   的 §A853 走的是那条**真路**（树 / 参数那些断言也归它）。本段只**直接 `Create` + `Open`**
+        //   把这两笔的回归网挂上，⛔ **不重复断任何树结构**（两个宿主各写一份，迟早不一致）。
+        Section("★ A840 / A867：教程模式窗（`Tutorial Mode Menu`）—— 视口框记录 + 重建不涨登记表");
+        {
+            var tutW = TutorialModePopup.Create(shell.Windows);
+            shell.Windows.OpenWindow(tutW);
+            CheckTrue(tutW != null && tutW.CurrentState == WindowState.Open,
+                      "（前提）教程模式窗开起来了（本段末尾关掉）");
+
+            // ---- A840：`Army Selector/Viewport` 那一颗记过自己的设计矩形（`Shell/TutorialModePopup.cs:510`）----
+            //   矩形 = 原版 `Army Selector` 那一格（60,244.89 → 649.68,902.69）—— 期望值写的是**原版字面量**
+            //   （出处 = `Shell/TutorialModePopup.cs:170` 那行注释里的实读值），⛔ 不读它自己的
+            //   `ArmL/ArmT/ArmR/ArmB`（那是**被测实现传进 `Node(...)` 的实参** = 自证）。
+            var tVpNode = tutW.transform.Find("Army Selector/Viewport");
+            var tVp = tVpNode != null ? tVpNode.GetComponent<ViewportClip>() : null;
+            CheckTrue(tVp != null,
+                      "（前提·不静默）`Army Selector/Viewport` 上挂着 `ViewportClip`"
+                    + "（= 原版 `RectMask2D` 的载体）—— ⛔ 拿不到 ⇒ 下面那两条**没跑**，不是绿");
+            CheckTrue(tVp != null && tVp.HasBaseRect,
+                      "★ A840：这颗视口**记过设计矩形**（`ViewportClip.HasBaseRect`）—— 记录点 = `BuildArmySelector` 里"
+                    + " `AddComponent<ViewportClip>()` 之后那句 `vc.CaptureNow();`"
+                    + "｜**改坏法**：删掉 `Shell/TutorialModePopup.cs:510` 那一句 ⇒ 本条红"
+                    + "（该颗逐位回落到实时反推 + `LiveDerivations`）");
+            if (tVp != null && tVp.HasBaseRect)
+            {
+                var tBr = tVp.BaseRect;
+                bool tBrOk = Mathf.Abs(tBr.x1 - 60f) <= 0.05f && Mathf.Abs(tBr.y1 - 244.89f) <= 0.05f
+                          && Mathf.Abs(tBr.x2 - 649.68f) <= 0.05f && Mathf.Abs(tBr.y2 - 902.69f) <= 0.05f;
+                CheckTrue(tBrOk,
+                          "★★ A840：记下的矩形 = **宿主写进这个节点的那份设计矩形**"
+                        + $"（实测 {tBr.x1:F3},{tBr.y1:F3} → {tBr.x2:F3},{tBr.y2:F3}；"
+                        + "期望 = 原版 `Army Selector` 那一格 60.00,244.89 → 649.68,902.69）"
+                        + "｜**改坏法**：把 `CaptureNow()` 挪到节点被改过之后再调（= 记成**错帧**）⇒ 红"
+                        + "（`HasBaseRect` 仍 true ⇒ 上面那条抓不到它，只有本条抓得住）");
+            }
+
+            // ---- A867：同一实例再 `Open()` ⇒ 滚动登记表不涨（`Shell/TutorialModePopup.cs:324`）----
+            //   口径逐字同上（先例 → `Editor/RewardsScene.cs:8126-8141`）：`Build()` 只清子件、窗根不死，
+            //   而 `MenuScroll` 是普通 C# 类 ⇒ `PointerLayer` 那两道自动清理**都判不出旧条目已死**。
+            tutW.Open();                                // 吸基线（开窗那一次已经建过一遍）
+            int nScrollTut = PointerLayer.ScrollCountForTest;
+            CheckTrue(nScrollTut > 0,
+                      $"（前提）滚动登记表非空（基线 {nScrollTut} 条）—— ⛔ 为 0 ⇒ 下面那条比的是 0 vs 0，等于没验");
+            tutW.Open();
+            Check(PointerLayer.ScrollCountForTest, nScrollTut,
+                  $"★★ A867：同一实例再 `Open()` 一次 ⇒ 滚动登记表**一条都不涨**"
+                + $"（{nScrollTut} → {PointerLayer.ScrollCountForTest}）"
+                + "｜**改坏法**：删掉 `Shell/TutorialModePopup.cs:324` 那句 "
+                + "`PointerLayer.UnregisterOwnedBy(gameObject);` ⇒ 每重建一次**净涨 1 条**（本窗只有关卡条那一颗登记）"
+                + "⇒ 本条红");
+            // ⚠️ 本窗**不 `DestroyImmediate`**（同族纪律：它进过 `WindowsManager` 的窗表 ⇒ 那会留一个 Unity 假 null，
+            //   而下面 `shell.Dump()` 要遍历窗表）。
+            tutW.Close();
+            CheckTrue(tutW.CurrentState == WindowState.Closed, "收尾：教程模式窗关掉（别把整屏压暗层留给后面的段）");
         }
 
         // ============================================================ ★ A465（W-A435己）：`MenuScroll.Intersects` 接上【视口节点】

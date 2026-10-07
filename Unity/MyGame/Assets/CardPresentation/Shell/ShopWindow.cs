@@ -419,6 +419,13 @@ namespace CardPresentation
             _gridVp = vp.gameObject.AddComponent<ViewportClip>();
             _gridVp.padding = Vector4.zero;
             _gridVp.softness = new Vector2Int((int)PacksSoft.x, (int)PacksSoft.y);
+            // 🔴 **2026-10-18（A840 · S1）**：补一句 `CaptureNow()` —— 把**刚写进这个节点的那个矩形**记成基准
+            //   （= 框的中心那一帧，口径 → `ViewportClip` 文件头 §①）。⛔ 少了它，这个视口**逐位回落到旧写法**
+            //   （实时反推 + `LiveDerivations`）：节点或它的**祖先**被挪过之后，框与被比矩形就**不在同一帧**。
+            //   ⚠️ **必须在这里调**（`AddComponent` 之后、`BuildGrid` 之前）：`MenuDraw.ApplyPxRect` 写矩形时
+            //   组件还不存在（那一句的穿透写在 `ApplyPxRect` 尾），所以只能由本行补 —— 同 `ViewportClip.Hang`
+            //   里那句 `vc.SetBaseRect(r)` 的位置理由（`:314-317`）。⛔ 别改成 `OnEnable` 里自动抓（文件头 `:72-73` 明令）。
+            _gridVp.CaptureNow();
             var content = MainMenuSubmenuWindow.Node(vp, "Content", ScrollView);
             BuildGrid(content);
 

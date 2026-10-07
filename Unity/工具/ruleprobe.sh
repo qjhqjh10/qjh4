@@ -18,9 +18,20 @@ DLL="bin/Debug/net8.0/wfprobe.dll"
 if [ ! -f "$DLL" ]; then echo "!! 编译失败：$DLL 不存在"; exit 1; fi
 
 echo "=== $(date +%H:%M:%S) ruleprobe $MODE ==="
+# 🔴 **2026-10-18 修（同族血案第二例）**：原来正文跑完直接 `echo` 收尾 ⇒ **末行那句 `echo` 把探针的退出码吃掉了**
+#    （实测 `bash 工具/ruleprobe.sh; echo $?` 恒 `0`），而本头第 6 行还写着「退出码现在是可信的」
+#    —— **两头打架**。（同族：`typecheck.sh` 的 `$?` 被 `$(date)` 吃掉 ⇒ 编译错误也报 0。）
+#    做法照 `_run_8_checks.sh` 的形状：**先把 `rc` 存下来，再打印，最后 `exit $rc`**。
 if [ "$MODE" = "check" ]; then
-  dotnet bin/Debug/net8.0/wfprobe.dll check "基线/out_baseline.txt"
+  # ⚠️ 第二参数（基线路径）原来被写死 ⇒ 传了也没用；现在接上，缺省仍是那一条。
+  dotnet bin/Debug/net8.0/wfprobe.dll check "${2:-基线/out_baseline.txt}"
 else
-  dotnet bin/Debug/net8.0/wfprobe.dll "$MODE"
+  # 🔴 2026-10-18 修：原来只传 `"$MODE"`（= `$1`）⇒ 后面的参数**全被吞掉**，
+  #    于是 README/本头的用法 `… seg "<文本>"` 必崩（`Program.cs:47` 取 `args[i+1]` ⇒ IndexOutOfRange）。
+  #    转发**全部**参数（`"$@"`），模式仍是 `$1`。
+  dotnet bin/Debug/net8.0/wfprobe.dll "$@"
 fi
-echo "=== $(date +%H:%M:%S) 结束 ==="
+rc=$?                                   # ← 必须在 `echo` **之前**取（见上面那段）
+echo "=== $(date +%H:%M:%S) 结束（rc=$rc）==="
+# ⚠️ 判据仍是【摘要行】（本头第 5 行），退出码只是**辅助** —— 但它不该再恒 0。
+exit $rc

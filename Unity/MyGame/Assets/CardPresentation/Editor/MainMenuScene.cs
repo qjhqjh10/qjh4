@@ -5677,6 +5677,184 @@ public static class MainMenuScene
                 LeaderboardData.ClearForTest();
                 lb.RebuildForTest();
                 Check(lb.BuiltRows, 0, "清空 + 重画 ⇒ 又回到空态（自检不留假数据，滚动偏移也回到 0）");
+
+                // ============================================================ 🆕 2026-10-18（A833 · 越界行「被夹到视口沿」）
+                // **压在视口【下沿】的那一行：它的【视觉】到底有没有被夹住** —— 行底九宫格（`Nine`）与行里两类字的
+                // **TMP 渲染顶点**。
+                // 🔴 为什么这里是缺口（本段上面两条都够不着这一档）：
+                //   · 上面「喂 7 行」那一节断的是 `border/Hit` —— 那是**命中区**（原版 `RectMask2D` 的**射线**那一面）；
+                //   · `BackGroundHighlight` 那一节（`FindChild(row, "BackgroundHighlight")` 那一段）断的是行底九宫格，
+                //     但**只有「行 0 压视口【上】沿 3.22px」**那一档，还专门断着「**一块都没被关掉**」（该走「截」那一档）；
+                //   · ⇒ **下沿 + 大幅越界**（这一档该同时走「整块在框外 ⇒ `SetActive(false)`」与「部分越界 ⇒ 截」两条）
+                //     与 **文字 mesh 被夹**，**一条断言都没有**。而 `Shell/LeaderboardRow.cs` 的 `Nine`（行底）
+                //     与三颗字（`Ranking` / `Guild Name` / `Points`）都吃父链那颗 `ViewportClip`
+                //     ⇒ 谁把这几处的裁切断掉，画面会画到视口外，而自检**全绿**（静默）。
+                // 🔴 量法（⛔ 别换）：**图** = 子块自己的 `ImageQuad.WorldW/H`（`RenderedRect`，⛔ 不是九宫格**根节点** ——
+                //   根按设计一律不动，量到根在视口外是**对的**）；**字** = **TMP 自己那份渲染网格的顶点**
+                //   （`ShellScene.TmpSpanPx`）—— ⛔ `Label.WorldW` 与 `TmpRenderedRect`（`textBounds`）**都不随裁切变**。
+                // 形状照 A822 那一节的「两态成对」（**整块在外 ⇒ 连节点都不建 / 关掉** ⟷ **部分在外 ⇒ 建、被截到框沿**）。
+                {
+                    // 想让**最低那颗建出来的行**压出视口下沿 `A833Over` px：够大 ⇒ 下沿那一条边整块出框（该走「关」那一档）。
+                    // ⚠️ 为什么不能拿现成的「喂 7 行、偏移 0」那档：那档只压出 **25.76px**（= `100 − (649.24 mod 115)`），
+                    //    压边行的可见区是行内 `0..74.24` —— 而 `Ranking`/`Points` 的字墨底都落在行内 `62`～`78` 那一带，
+                    //    最多只压着一两个像素（`Points` 那一颗甚至可能压不到）⇒ 断不出「真被截过」（弱断言）。这里用偏移压深。
+                    const float A833Over = 55f;
+                    const int A833K = 6;            // 0 起 = 让它当压边行（偏移 0 时建的是 0..5 ⇒ 它得滚一档才进来）
+                    var a833Rows = new List<LeaderboardRowData>();
+                    for (int i = 0; i <= A833K + 1; i++)
+                        // ⚠️ **每一行内容一模一样**（只差位置）—— 参照行与压边行的字盒才**逐位可比**
+                        //    （下面「只截了越界那一侧」那条就是靠这个成立的）。
+                        a833Rows.Add(new LeaderboardRowData { Rank = 3, Name = "Edge", Guild = "Guild",
+                                                              Points = "1", IsSelf = false });
+                    LeaderboardData.InjectForTest(LeaderboardKind.Classic, LeaderboardTab.Player, a833Rows);
+                    lb.RebuildForTest();
+
+                    var a833Rs = lb.RowsScroll;
+                    CheckTrue(a833Rs != null, "（前提）A833：榜单那一格的滚动区在（下面靠它把压边行摆到位）");
+                    // 行 i 的顶边 = `VpTop + i*pitch − offset`（= 本段上面那几条断言钉过的式子）
+                    //   ⇒ 想让**第 A833K 行**的底边压出视口下沿 `A833Over`：把 offset 反解出来（⛔ 不写死那个数）。
+                    float a833Off = VpTop + A833K * pitch + OrigLbRowH - VpBot - A833Over;
+                    CheckTrue(a833Rs != null && a833Off >= 0f && a833Off <= a833Rs.MaxOffset + 0.01f,
+                              $"（前提）A833：反解出来的偏移落得进可滚范围（off = {a833Off:F2}，可滚 0.."
+                              + ((a833Rs != null) ? a833Rs.MaxOffset : 0f).ToString("F2") + "）");
+                    if (a833Rs != null) a833Rs.SetOffset(a833Off);
+
+                    var a833Vp = FindChild(FindChild(lb.transform, "Scroll View"), "Viewport");
+                    var a833C = FindChild(a833Vp, "Content");
+                    CheckTrue(a833C != null, "（前提）A833：内层 `Content` 在（下面按名找行）");
+                    Transform a833Edge = null, a833Ref = null;
+                    float a833EdgeCy = float.MinValue, a833RefCy = float.MinValue;
+                    if (a833C != null)
+                        foreach (var rt in a833C.GetComponentsInChildren<Transform>(true))
+                        {
+                            if (rt.name != "PlayerRankingRow") continue;
+                            float cy = LayoutSpace.PxY(rt.position.y);
+                            if (cy - OrigLbRowH * 0.5f >= VpBot) continue;   // 整行在视口之下 ⇒ 不可能是压边行
+                            // 维护「最低的两颗」：edge = 最低那颗（压边行）、ref = 次低那颗（整颗在视口内的参照行）
+                            if (cy > a833EdgeCy) { a833RefCy = a833EdgeCy; a833Ref = a833Edge; a833EdgeCy = cy; a833Edge = rt; }
+                            else if (cy > a833RefCy) { a833RefCy = cy; a833Ref = rt; }
+                        }
+                    CheckTrue(a833Edge != null && a833Ref != null, "（前提）A833：压边行与它上面那一行都找到了");
+                    CheckTrue(a833EdgeCy + OrigLbRowH * 0.5f > VpBot + 10f,
+                              $"（前提）A833：最低那颗行**压在视口下沿上**（行底 "
+                              + $"{a833EdgeCy + OrigLbRowH * 0.5f:F2} > 视口底 {VpBot:F2} + 10）—— 「大幅越界」那一档的前提");
+                    CheckTrue(a833RefCy + OrigLbRowH * 0.5f < VpBot - 1f,
+                              $"（前提）A833：参照行**整颗在视口内**（它底 {a833RefCy + OrigLbRowH * 0.5f:F2} < {VpBot:F2}）"
+                              + " —— 否则它自己也被夹过，下面「没被夹」那几条就不成立");
+
+                    // ---- （A）行底九宫格：**部分块被截 · 部分块被 `SetActive(false)` 关掉**（这一行是后一档的**首个**用例）----
+                    {
+                        var a833Bg = a833Edge != null ? FindChild(a833Edge, "Background") : null;   // 全行 `IsSelf=false` ⇒ 走常态那张
+                        float bgTop = float.MaxValue, bgBot = float.MinValue;
+                        int nOn = 0, nOff = 0;
+                        if (a833Bg != null)
+                            foreach (var bk in a833Bg.GetComponentsInChildren<ImageQuad>(true))
+                            {
+                                if (bk == null) continue;
+                                // ⚠️ **先判 `activeSelf`、再量矩形** —— 整块在框外的那几块是被 `SetActive(false)` **关掉**的
+                                //    （节点还在、`transform` 也没动），连它们一起量会把已经裁掉的那条边算回来（假绿）。
+                                if (!bk.gameObject.activeSelf) { nOff++; continue; }
+                                float kx1, ky1, kx2, ky2;
+                                if (!RenderedRect(bk.transform, out kx1, out ky1, out kx2, out ky2)) continue;
+                                nOn++;
+                                bgTop = Mathf.Min(bgTop, ky1); bgBot = Mathf.Max(bgBot, ky2);
+                            }
+                        CheckTrue(nOn > 0 && nOff > 0,
+                                  $"★ A833：压边行的行底九宫格 —— **部分块被截、部分块被 `SetActive(false)` 关掉**"
+                                  + $"（还在画 {nOn} 块 / 关掉的 {nOff} 块）—— 与上面 `BackgroundHighlight` 那一节"
+                                  + "「**一块都没被关掉**」（行 0 只压上沿 3.22px）正好是这一族的**两态**"
+                                  + "｜改坏法：删掉 `Shell/MenuDraw.cs` 的 `Nine` 里那句 "
+                                  + "`if (partial) ClipNineChildren(go, clip.Value);` ⇒ 关掉/截短都不发生 ⇒ 本条红");
+                        CheckNear(bgBot, VpBot, 0.5f,
+                                  $"★★ A833：`Shell/LeaderboardRow.cs` 的行底九宫格（`Nine`，`:152` 那句）—— **还在画**的"
+                                  + $"那些块，最低边 = 视口下沿 {VpBot:F2}（它们最高边 {bgTop:F2}）"
+                                  + "｜改坏法：把该句末尾的 `clip: c.Clip` 改成 `MenuDraw.NoClip`（= 显式不裁，"
+                                  + "`MenuDraw.IsNoClip` 会把整段求交短路掉）⇒ 块不再被截 ⇒ 本条红");
+                        CheckTrue(bgTop < VpBot - 20f,
+                                  "…而且**只截了下沿那一侧**：最上面那块仍停在设计位（没被推到框沿上、也没被夹没）");
+                        // 参照行：同一份几何、整颗在视口内 ⇒ **一点没被截**（两行一起才说明是「按框裁」，
+                        // 而不是「所有行底一律削到某个高度」这种一刀切）。
+                        float rBgBot = float.MinValue;
+                        var a833BgR = a833Ref != null ? FindChild(a833Ref, "Background") : null;
+                        if (a833BgR != null)
+                            foreach (var bk in a833BgR.GetComponentsInChildren<ImageQuad>(true))
+                            {
+                                if (bk == null || !bk.gameObject.activeSelf) continue;
+                                float kx1, ky1, kx2, ky2;
+                                if (RenderedRect(bk.transform, out kx1, out ky1, out kx2, out ky2))
+                                    rBgBot = Mathf.Max(rBgBot, ky2);
+                            }
+                        CheckTrue(rBgBot > 0f && rBgBot < VpBot - 20f,
+                                  $"…参照行（整颗在视口内）的行底九宫格**一下都没被截**（它最低边 {rBgBot:F2} < "
+                                  + $"{VpBot:F2} − 20，也**没有哪块被关掉**）—— 与上面那条成对");
+                    }
+
+                    // ---- （B）「部分越界 ⇒ 建、被截到框沿」vs 「整块越界 ⇒ 连节点都不建」（A822 那一节的两态）----
+                    // 压边行的可见区只到行内 `100 − 55 = 45`：`Guild Name` 的行内框是 `50..96` ⇒ **整块在框下**。
+                    {
+                        float a833GuildTop = a833EdgeCy - OrigLbRowH * 0.5f + 50f;   // `LeaderboardRow.GuildR` 的行内顶 = 50（原版值）
+                        CheckTrue(a833GuildTop > VpBot + 1f,
+                                  $"（前提）A833：`Guild Name` 的行内框（`50..96`）在压边行里**整块落在视口沿之下**"
+                                  + $"（它的顶 {a833GuildTop:F2} > {VpBot:F2}）");
+                        CheckTrue(a833Edge != null && FindChild(a833Edge, "Guild Name") == null,
+                                  "★ A833：**整块**在视口下的 `Guild Name` **连节点都不建**（`MenuDraw.Text` 开头那句 "
+                                  + "`if (!Visible(r, _st.RenderClip)) return null;`）—— 与上面「部分越界的那两颗照样建、"
+                                  + "只是被夹到框沿」正好是 A822 那一节的两态"
+                                  + "｜改坏法：把 `MenuDraw.Text` 开头那道闸删掉 ⇒ 本条红");
+                        // ⛔ 这一条**不能省**：否则「`Guild Name` 哪去了」既可能是「按矩形挡掉了」，
+                        // 也可能是「这颗字压根建不出来」（后者会让上面那条**假绿**）。
+                        CheckTrue(a833Ref != null && FindChild(a833Ref, "Guild Name") != null,
+                                  "…而**参照行**（整颗在视口内）里那颗 `Guild Name` **建出来了**"
+                                  + " —— 两行一起才说明「不建」是按**每颗自己的矩形**算的");
+                    }
+
+                    // ---- （C）文字 mesh：压在视口下沿的那一行，两颗字的 **TMP 渲染顶点被夹到视口下沿** ----
+                    foreach (var a833Field in new[] { "Ranking", "Points" })
+                    {
+                        var eT = a833Edge != null ? FindChild(a833Edge, a833Field) : null;
+                        var rT = a833Ref != null ? FindChild(a833Ref, a833Field) : null;
+                        var eLb = eT != null ? eT.GetComponentInChildren<Label>() : null;
+                        var rLb = rT != null ? rT.GetComponentInChildren<Label>() : null;
+                        CheckTrue(eLb != null && rLb != null,
+                                  $"（前提）A833：`{a833Field}` 在压边行与参照行里都建出来了（不建 ⇒ 下面几条等于没验）");
+                        float ex1 = 0f, ey1 = 0f, ex2 = 0f, ey2 = 0f, rx1 = 0f, ry1 = 0f, rx2 = 0f, ry2 = 0f;
+                        bool eOk = eLb != null && ShellScene.TmpSpanPx(eLb, out ex1, out ey1, out ex2, out ey2);
+                        bool rOk = rLb != null && ShellScene.TmpSpanPx(rLb, out rx1, out ry1, out rx2, out ry2);
+                        CheckTrue(eOk && rOk,
+                                  $"（前提）A833：`{a833Field}` 两行都取到了 TMP 的渲染顶点（取不到 ⇒ 下面几条会假绿）");
+                        if (!eOk || !rOk) continue;
+                        float a833D = a833EdgeCy - a833RefCy;      // 两行的**实测**高度差（= 整数倍行距）
+                        CheckTrue(ry2 + a833D > VpBot + 5f,
+                                  $"（前提）A833：**不裁**的话 `{a833Field}` 的顶点底边会落在视口下沿**以下**"
+                                  + $"（参照行实测底 {ry2:F2} + 行距差 {a833D:F2} = {ry2 + a833D:F2} > {VpBot:F2} + 5）");
+                        CheckTrue(ry2 < VpBot - 5f,
+                                  $"（前提）A833：参照行那颗 `{a833Field}` **没被夹**（它底 {ry2:F2} < {VpBot:F2}）");
+                        CheckTrue(ex2 <= VpBot + 0.5f,
+                                  $"★ A833：`{a833Field}` 的顶点**没有越过视口下沿**（实得底 {ex2:F2} ≤ {VpBot:F2} + 0.5）");
+                        CheckNear(ex2, VpBot, 0.5f,
+                                  $"★★ A833：`Shell/LeaderboardRow.cs` 压在视口下沿那一行、`{a833Field}` 的 "
+                                  + $"**TMP 渲染顶点被夹到视口下沿 {VpBot:F2}**（判据 = `MenuDraw.Text` 末尾那句 "
+                                  + "`if (_st.RenderClip.HasValue) ClipText(lb, clip, clipSoftness);`，A781/A822）"
+                                  + "｜改坏法：把该文件 `MenuDraw.Text(row, …, \"" + a833Field + "\", …)` 那一句改成"
+                                  + "喂 `MenuDraw.NoClip`（= 显式不裁）⇒ 顶点越过下沿 ⇒ 本条红");
+                        // 🔴 **2026-10-18 就地订正（独立审查 `REV_W`… 实为 `REV_SHELL` F1 · 铁律 5）**：
+                        //    期望值原来写的是 `ry1`（= **参照行**的上沿），而压边行是**另一颗节点**、
+                        //    它的排版位恒在参照行下面**一个行距**（`a833D`，同一条块上一句自己就用 `ry1 + a833D` 算底边）。
+                        //    照旧写法 ⇒ **必红**（且会连带红掉一簇）。⇒ 期望值改成 `ry1 + a833D`。
+                        CheckNear(ex1, ry1 + a833D, 0.5f,
+                                  $"…而且**只截了下沿那一侧**：上沿仍停在**它自己的排版位**"
+                                  + $"（= 参照行上沿 {ry1:F2} + 行距差 {a833D:F2} = {ry1 + a833D:F2} vs 压边行 {ex1:F2}）"
+                                  + "—— 与上面那条一起才说明是「截」而不是「整段挪走了」");
+                        CheckTrue((ex2 - ex1) < (ry2 - ry1) - 5f,
+                                  $"…而且**真被截短过**（参照行字盒高 {ry2 - ry1:F2} vs 压边行 {ex2 - ex1:F2}）"
+                                  + " —— 否则上面那条等于没验（两态分不开）");
+                    }
+
+                    if (a833Rs != null) a833Rs.SetOffset(0f);
+                    LeaderboardData.ClearForTest();
+                    lb.RebuildForTest();
+                    Check(lb.BuiltRows, 0, "A833 那一块收尾：清空 + 重画 ⇒ 回到空态（不留假数据，滚动偏移也回到 0）");
+                }
             }
 
             // ---- 切页签（`Armies` 那一格用 `PlayerRankingRow For Army`）----
@@ -8951,6 +9129,163 @@ public static class MainMenuScene
                     BattleLogData.ResetForTest();
                     blp.RebuildForTest();
                     Check(blp.BuiltRows, 0, "清空 ⇒ 行又没了（自检不留假数据）");
+
+                    // ============================================================ 🆕 2026-10-18（A833 · 越界行「被夹到视口沿」）
+                    // 同排行榜那一族（**A833**）—— `Shell/MatchLogRow.cs` 的行底 `Nine` 与「每一行所有字段共用的那个
+                    // `Text` builder」**都吃父链那颗 `ViewportClip`**（该文件 `:152` 的 `ClipRectAbove` 只管
+                    // 「**整块**在框外 ⇒ 不建」，**部分越界那一刀**由 `MenuDraw.Text` 末尾的 `ClipText` 落 —— 那一段
+                    // `:153-163` 自己写着这条账）⇒「压在视口下沿的那一行，它的**图与字**真被夹住了吗」**一条断言都没有**
+                    // （本扇窗现有的断言只到「几何 / 对齐 / 滚动 / 整行在外不建」）。两扇宿主（本弹窗与档案窗那一页）
+                    // 共用同一份 builder ⇒ 缺口是**两份一起**的。
+                    // 🔴 量法与形状**照抄排行榜那一族，⛔ 不另写一份**：图 = 子块 `ImageQuad` 自己的 `WorldW/H`；
+                    //   字 = `ShellScene.TmpSpanPx`（TMP 自己那份渲染网格的顶点）· 两态成对（整块在外 ⟷ 部分在外）。
+                    {
+                        const float MTop = 130f, MBot = 963f;      // = 上面 `CheckAtWorld(… "Viewport")` 钉过的原版值
+                        const float MPitch = OrigMatchRowH + OrigMatchRowGap;
+                        const int MK = 3;                          // 0 起 = 让它当压边行
+                        // 压出视口下沿多少 px：**取 28** 不是随手挑的 —— 行内最低那颗字是 `Alliance Name`
+                        // （两半边的框都是行内 `153.6..203.6`，字体 **30**、不缩），它的**字墨心**大约在行内 `176`～`179`；
+                        // 把下沿放在 `203.2 − 28 = 175.2`（≈ 字墨心那一带）⇒「上沿还剩多少」与「下沿压掉多少」
+                        // **两边都留得下 ~10px**（放太高 ⇒ 压不到底、断不出「被夹」；放太低 ⇒ 整颗字墨都出框、
+                        // 四角全塌到框沿上 ⇒ `ex1 ≈ ry1` 那条会假红）。
+                        const float MOver = 28f;
+                        for (int i = 0; i <= MK + 2; i++)
+                            // ⚠️ 每条记录**内容一模一样**（只差位置）—— 参照行与压边行的字盒才逐位可比
+                            BattleLogData.Add(new BattleLogData.Match
+                            {
+                                Result = BattleLogData.Outcome.Victory,
+                                OwnHeroName = "Hero", EnemyHeroName = "Hero",
+                                OwnName = "Commander", EnemyName = "Commander",
+                                PlayerClan = "Clan One", EnemyClan = "Clan One",
+                                OwnSkulls = 3, EnemySkulls = 1,
+                                OwnScore = "1", EnemyScore = "2", Mode = "1v1",
+                            });
+                        blp.RebuildForTest();
+                        var mRs = blp.RowsScroll;
+                        CheckTrue(mRs != null, "（前提）A833：对局历史那一格的滚动区在（下面靠它把压边行摆到位）");
+                        // 行 i 的顶边 = `MTop + i*MPitch − offset`（= 上面那几条断言钉过的式子）⇒ 反解 offset
+                        float mOff = MTop + MK * MPitch + OrigMatchRowH - MBot - MOver;
+                        CheckTrue(mRs != null && mOff >= 0f && mOff <= mRs.MaxOffset + 0.01f,
+                                  $"（前提）A833：反解出来的偏移落得进可滚范围（off = {mOff:F2}，可滚 0.."
+                                  + ((mRs != null) ? mRs.MaxOffset : 0f).ToString("F2") + "）");
+                        if (mRs != null) mRs.SetOffset(mOff);
+
+                        var mC = FindChild(FindChild(FindChild(bc, "Matches"), "Viewport"), "Content");
+                        CheckTrue(mC != null, "（前提）A833：内层 `Content` 在（下面按名找行）");
+                        Transform mEd = null, mRf = null;
+                        float mEdCy = float.MinValue, mRfCy = float.MinValue;
+                        if (mC != null)
+                            foreach (var rt in mC.GetComponentsInChildren<Transform>(true))
+                            {
+                                if (rt.name != "Match Log") continue;
+                                float cy = LayoutSpace.PxY(rt.position.y);
+                                if (cy - OrigMatchRowH * 0.5f >= MBot) continue;   // 整行在视口之下 ⇒ 不可能是压边行
+                                // 维护「最低的两颗」：mEd = 最低那颗（压边行）、mRf = 次低那颗（整颗在视口内的参照行）
+                                if (cy > mEdCy) { mRfCy = mEdCy; mRf = mEd; mEdCy = cy; mEd = rt; }
+                                else if (cy > mRfCy) { mRfCy = cy; mRf = rt; }
+                            }
+                        CheckTrue(mEd != null && mRf != null, "（前提）A833：压边行与它上面那一行都找到了");
+                        CheckTrue(mEdCy + OrigMatchRowH * 0.5f > MBot + 10f,
+                                  $"（前提）A833：最低那颗行**压在视口下沿上**（行底 "
+                                  + $"{mEdCy + OrigMatchRowH * 0.5f:F2} > 视口底 {MBot:F2} + 10）");
+                        CheckTrue(mRfCy + OrigMatchRowH * 0.5f < MBot - 1f,
+                                  $"（前提）A833：参照行**整颗在视口内**（它底 {mRfCy + OrigMatchRowH * 0.5f:F2} < {MBot:F2}）"
+                                  + " —— 否则它自己也被夹过，下面「没被夹」那几条就不成立");
+
+                        // ---- （A）行底九宫格：**部分块被截 · 部分块被 `SetActive(false)` 关掉** ----
+                        {
+                            var mBg = mEd != null ? FindChild(mEd, "Background") : null;
+                            float mTop2 = float.MaxValue, mBot2 = float.MinValue;
+                            int mLive = 0, mHide = 0;
+                            if (mBg != null)
+                                foreach (var bk in mBg.GetComponentsInChildren<ImageQuad>(true))
+                                {
+                                    if (bk == null) continue;
+                                    // ⚠️ **先判 `activeSelf`、再量矩形** —— 整块在框外的那几块是被**关掉**的（节点还在、
+                                    //    `transform` 也没动），连它们一起量会把已经裁掉的那条边算回来（假绿）。
+                                    if (!bk.gameObject.activeSelf) { mHide++; continue; }
+                                    float kx1, ky1, kx2, ky2;
+                                    if (!RenderedRect(bk.transform, out kx1, out ky1, out kx2, out ky2)) continue;
+                                    mLive++;
+                                    mTop2 = Mathf.Min(mTop2, ky1); mBot2 = Mathf.Max(mBot2, ky2);
+                                }
+                            CheckTrue(mLive > 0 && mHide > 0,
+                                      $"★ A833：压边行的行底九宫格 —— **部分块被截、部分块被 `SetActive(false)` 关掉**"
+                                      + $"（还在画 {mLive} 块 / 关掉的 {mHide} 块）"
+                                      + "｜改坏法：删掉 `Shell/MenuDraw.cs` 的 `Nine` 里那句 "
+                                      + "`if (partial) ClipNineChildren(go, clip.Value);` ⇒ 关掉/截短都不发生 ⇒ 本条红");
+                            CheckNear(mBot2, MBot, 0.5f,
+                                      $"★★ A833：`Shell/MatchLogRow.cs` 的行底九宫格（该文件 `Nine(...)` 那句传了 "
+                                      + $"`clip: c.Clip`）—— **还在画**的那些块，最低边 = 视口下沿 {MBot:F2}"
+                                      + $"（它们最高边 {mTop2:F2}）｜改坏法：把那句的 `clip: c.Clip` 改成 "
+                                      + "`MenuDraw.NoClip`（= 显式不裁）⇒ 块不再被截 ⇒ 本条红");
+                            CheckTrue(mTop2 < MBot - 20f,
+                                      "…而且**只截了下沿那一侧**：最上面那块仍停在设计位（没被推走）");
+                            float rBgBot = float.MinValue;
+                            var mBgR = mRf != null ? FindChild(mRf, "Background") : null;
+                            if (mBgR != null)
+                                foreach (var bk in mBgR.GetComponentsInChildren<ImageQuad>(true))
+                                {
+                                    if (bk == null || !bk.gameObject.activeSelf) continue;
+                                    float kx1, ky1, kx2, ky2;
+                                    if (RenderedRect(bk.transform, out kx1, out ky1, out kx2, out ky2))
+                                        rBgBot = Mathf.Max(rBgBot, ky2);
+                                }
+                            CheckTrue(rBgBot > 0f && rBgBot < MBot - 20f,
+                                      $"…参照行（整颗在视口内）的行底九宫格**一下都没被截**（它最低边 {rBgBot:F2} < "
+                                      + $"{MBot:F2} − 20）—— 与上面那条成对（否则「按框裁」与「一刀切削到某个高度」分不开）");
+                        }
+
+                        // ---- （B）行里最低的两颗字（两半边各自的 `Alliance Name`）：**TMP 渲染顶点被夹到视口下沿** ----
+                        // 这一行里其它字段（`Hero Name` / `Player Name` / `Score` / `Mode` / `Result`）的框都排在行内
+                        // `16..166` 一带 ⇒ 压出 28px 时它们**整颗还在视口内**，断不出「被夹」（别硬套）；而再往下压
+                        // 又会让 `Alliance Name` 的框整块出框（`ClipRectAbove` 直接不建）⇒ 这一档就是它唯一能验的位置。
+                        foreach (var mSide in new[] { "Player Info", "Enemy Info" })
+                        {
+                            var eT = mEd != null ? FindChild(FindChild(mEd, mSide), "Alliance Name") : null;
+                            var rT = mRf != null ? FindChild(FindChild(mRf, mSide), "Alliance Name") : null;
+                            var eLb = eT != null ? eT.GetComponentInChildren<Label>() : null;
+                            var rLb = rT != null ? rT.GetComponentInChildren<Label>() : null;
+                            CheckTrue(eLb != null && rLb != null,
+                                      $"（前提）A833：`{mSide}/Alliance Name` 在压边行与参照行里都建出来了"
+                                      + "（不建 ⇒ 下面几条等于没验）");
+                            float ex1 = 0f, ey1 = 0f, ex2 = 0f, ey2 = 0f, rx1 = 0f, ry1 = 0f, rx2 = 0f, ry2 = 0f;
+                            bool eOk = eLb != null && ShellScene.TmpSpanPx(eLb, out ex1, out ey1, out ex2, out ey2);
+                            bool rOk = rLb != null && ShellScene.TmpSpanPx(rLb, out rx1, out ry1, out rx2, out ry2);
+                            CheckTrue(eOk && rOk,
+                                      $"（前提）A833：`{mSide}/Alliance Name` 两行都取到了 TMP 的渲染顶点"
+                                      + "（取不到 ⇒ 下面几条会假绿）");
+                            if (!eOk || !rOk) continue;
+                            float mD = mEdCy - mRfCy;        // 两行的**实测**高度差（= 整数倍行距）
+                            CheckTrue(ry2 + mD > MBot + 5f,
+                                      $"（前提）A833：**不裁**的话这颗字的顶点底边会落在视口下沿**以下**"
+                                      + $"（参照行实测底 {ry2:F2} + 行距差 {mD:F2} = {ry2 + mD:F2} > {MBot:F2} + 5）");
+                            CheckTrue(ry2 < MBot - 5f,
+                                      $"（前提）A833：参照行那颗字**没被夹**（它底 {ry2:F2} < {MBot:F2}）");
+                            CheckTrue(ex2 <= MBot + 0.5f,
+                                      $"★ A833：`{mSide}/Alliance Name` 的顶点**没有越过视口下沿**"
+                                      + $"（实得底 {ex2:F2} ≤ {MBot:F2} + 0.5）");
+                            CheckNear(ex2, MBot, 0.5f,
+                                      $"★★ A833：`Shell/MatchLogRow.cs` 压在视口下沿那一行的 `{mSide}/Alliance Name`，"
+                                      + $"它的 mesh **被截到视口下沿 {MBot:F2}**（判据 = `MenuDraw.Text` 末尾那句 "
+                                      + "`ClipText`，A781 —— 该文件 `:157-163` 自己写着这一刀的落点）"
+                                      + "｜改坏法：把该文件 `Text(...)` 那一句换成不沿父链解析的内层"
+                                      + "（或给它喂 `MenuDraw.NoClip`）⇒ 顶点越过下沿 ⇒ 本条红");
+                            // 🔴 **2026-10-18 就地订正（`REV_SHELL` F1 同源 · 铁律 5）**：期望值原写 `ry1`（参照行上沿），
+                            //    而压边行是另一颗节点、排版位恒低一个行距（`mD`）⇒ 改成 `ry1 + mD`（照旧写法必红）。
+                            CheckNear(ex1, ry1 + mD, 0.5f,
+                                      $"…而且**只截了下沿那一侧**：上沿仍停在**它自己的排版位**"
+                                      + $"（= 参照行上沿 {ry1:F2} + 行距差 {mD:F2} = {ry1 + mD:F2} vs 压边行 {ex1:F2}）");
+                            CheckTrue((ex2 - ex1) < (ry2 - ry1) - 5f,
+                                      $"…而且**真被截短过**（参照行字盒高 {ry2 - ry1:F2} vs 压边行 {ex2 - ex1:F2}）"
+                                      + " —— 否则上面那条等于没验（两态分不开）");
+                        }
+
+                        if (mRs != null) mRs.SetOffset(0f);
+                        BattleLogData.ResetForTest();
+                        blp.RebuildForTest();
+                        Check(blp.BuiltRows, 0, "A833 那一块收尾：清空 ⇒ 行又没了（不留假数据，滚动偏移也回到 0）");
+                    }
                 }
                 Check(blp.MissingArt.Count, 0, "弹窗**没有取不到的图**");
                 CheckHoverSwap(blp.transform, "战斗日志弹窗");

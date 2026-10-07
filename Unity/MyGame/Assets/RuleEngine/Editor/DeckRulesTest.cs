@@ -473,6 +473,16 @@ public static partial class RuleEngineTest
             var old = RuleEngine.DeckStore.LoadAll(out string note);
             Check(old.Count, 1, "★ 旧存档（没有 `GameMode` 这个键）照样读得出来");
             Check(old[0].GameMode, 0, "★ 而且**默认成经典** —— 和原版卡组串「null 写 0」同义");
+            // 🔴 2026-10-18（`WE`）**就地订正（铁律 5）—— ⛔ 只加这段痕迹，这一行的逻辑一个字没动**：
+            //    `note.Contains("失败")` 这一半**已经恒假** —— `DeckStore.LoadAll(out string note)`
+            //    现在吐的是**诊断串**（`"no save file"` / `"save file has no decks"` / `"read failed: …"`，
+            //    见 `DeckStore.cs` 那个兼容重载的注释），**再也不含汉字**。
+            //    ⇒ 这条断言今天**实际只靠前半 `note == null` 在撑**（读旧存档 = 成功 ⇒ `detail == null`
+            //      ⇒ 真），后半是**死码**。它判得**对**（绿），但别以为它还在替你挡
+            //      「拿给人看的字当判据」那个老坑 —— 那个坑的正主在 `RuleEngineTest` 的 ② 一节
+            //      （`ClassifyLoad` 那四条，判据已经换成「有没有话 + 文件在不在」两件结构性的事）。
+            //    出处：`资料/普查产出_1018/DA_DeckLibrary分类13红.md` §6.5。
+            //    ⛔ **不许改这一行的逻辑** —— 它断的是「读旧存档不算失败」，改写法等于换语义。
             CheckTrue(note == null || !note.Contains("失败"), $"读旧存档不算失败（note={note}）");
 
             // ⑤ 卡组串：导出写真实模式、导入读回来

@@ -69,7 +69,9 @@ namespace RuleEngine
             None = 0,
             /// <summary>**存档文件不在**（第一次跑）—— ✅ **不是失败**（⛔ 界面上不该弹错）。</summary>
             NoSaveFile = 1,
-            /// <summary>存档在，但解析出来是空的（`dto == null || dto.decks == null`）。</summary>
+            /// <summary>存档在，但**拿不出卡组** —— 2026-10-18 起判据 = `dto == null || dto.decks == null`
+            /// **或原文 JSON 里没有 `decks` 键**（原文里原来只写了前两项 ⇒ 对「缺键」恒假 ⇒ 这一档曾是死代码；
+            /// 订正经过见 `LoadAll` 里那段注释）。</summary>
             Empty = 2,
             /// <summary>存档在，但读的时候抛了（`File.ReadAllText` / `JsonUtility.FromJson`）。</summary>
             ReadFailed = 3,
@@ -132,8 +134,38 @@ namespace RuleEngine
             try
             {
                 var text = File.ReadAllText(path);
+                // 🔴 2026-10-18 订正（铁律 5：原来写 X、为什么恒假、证据在哪）：
+                //    **原来这里只有 `dto == null || dto.decks == null`，那句对「合法 JSON、但缺 `decks` 键」的存档
+                //    【恒假】** —— `JsonUtility` 把**缺键**的集合字段给成**空表、不是 `null`**
+                //    （`Dto.decks` 是裸字段、没有初始化器；机制本身没读到序列化后端的源码级判据，
+                //      但「`dto.decks` 非 null」这件事由下面两条**独立日志观测**坐实，改法不依赖机制）。
+                //    ⇒ 这样的存档一路走到本方法末尾 `return dto.decks`（`note = None`、`detail = null`）
+                //    ⇒ **`Empty` 这一支自首版 `51351fa` 起从没被走到过**（死代码；别处也从未改过这句）。
+                //    **证据**：`_tmp_view/deck.log:17259`（断的是 `LoadAll` 的 **out 码本身**、
+                //      **没经过 `ClassifyLoad`** —— 全批最直接的一条观测，实测 `LoadNote.None`）
+                //      + `_tmp_view/ruleengine.log:58811`（`LastError` 实测 `null`）。
+                //    **代价**：下游「类型 → 错误码 → 诊断串 → 词条键」四级出口全塌，再乘中英两档
+                //      = 13 条红（`RuleEngineTest` 4 条 + `DeckScene` 9 条）。
+                //    **改法**：判「这份存档有没有 `decks` 那一段」只能看**原文的 JSON 键** —— 结构性判据，
+                //      不是给人看的文案（本层一个给人看的字都不产，见 `LoadNote` 的注释）。
+                //    ⚠️ 用**带冒号**的 `"decks":`，**不是** `"decks"` —— 后者会被「卡组名字恰好叫 `decks`」
+                //      的旧档误判（字符串值 `"decks"` 后面跟的是 `,` / `}`，**永远不是 `:`**）。
+                //    ⚠️ 键名照我们的写入器：`SaveAll` 是**唯一**写入器、恒走 `JsonUtility.ToJson` ⇒ 恒写该键
+                //      ⇒ **零迁移风险**（首版 `51351fa` 起 `{version, decks}` 这个形状就没变过）。
+                //    ⛔ **别照兄弟写法加「或空」（把 `dto.decks.Count == 0` 也当失败）** ——
+                //      `DeckLibrary.ClassifyLoad` 明写「**哪怕是 0 套的合法存档** ⇒ `None`」，而
+                //      `DeckLibrary.Delete` 允许把库删到 0 套、`SaveAll` 会写出 `"decks": []`
+                //      ⇒ 加「或空」会让「**删光卡组的玩家**」下次打开时看到「卡组存档读取失败」。
+                //      **「空集合」≠「缺键」**（两个形状一样、语义不同的地方）。
+                //    ⚠️ **本判据依赖一个离线验不了的前提**（如实标着，没查清）：`JsonUtility.ToJson` 对**空表**
+                //      写出的是 `"decks": []`（而**不是省略该键**）—— 若它省略，则「删光卡组」的合法存档会被
+                //      上面这句判成 `Empty`（**假报错**）。预期它写 `[]`（Unity 序列化不省略空数组），
+                //      但 `JsonUtility` 只在 Unity 里跑、本地验不了 ⇒ **配套断言由另一份文件补**
+                //      （「`SaveAll(0 套)` → `LoadAll` ⇒ 码 `None`、`LastLoadIssue = None`」）；
+                //      ⛔ 本文件不碰测试文件。
+                bool hasDecksKey = text.IndexOf("\"decks\":", StringComparison.Ordinal) >= 0;
                 var dto = JsonUtility.FromJson<Dto>(text);
-                if (dto == null || dto.decks == null)
+                if (dto == null || dto.decks == null || !hasDecksKey)
                 {
                     note = LoadNote.Empty;
                     detail = "save file has no decks";

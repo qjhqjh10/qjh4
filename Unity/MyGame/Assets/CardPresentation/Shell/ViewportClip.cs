@@ -66,11 +66,15 @@
 //      ⛔ **也没必要**把 `PosInDesignSpace` 那一趟「世界 → 设计」继续算一遍：记过矩形的节点**绕开了那条
 //      恒等式**（它自带「窗根必须在世界原点」那个已知前提，见 `PosInDesignSpace` 的注释）——
 //      这是本修法的**顺带收益**，⛔ 别把它改回去。
-//    ⚠️ **没记过 `BaseRect` 的节点**（今天 = **只 `AddComponent<ViewportClip>()`、没走 `Hang` / `ApplyPxRect`**
-//      的那几处：`Shell/{ShopWindow,AvatarTab,TitleTab,LiveOpsEventWindow,PracticeModePopup×2}.cs`）
-//      **逐位回落到旧写法**（实时反推 + `LiveDerivations` 计数）—— 那是**还没接上的一批**，
-//      ⛔ **不是**「已经统一了」。（⛔ 也**不许**在 `OnEnable` 里自动抓一份：节点可能是**已经被挪过之后**
-//      才挂的组件，抓到的会是一个**错帧**的基准，而且**静默**。要接就显式调 `CaptureNow`。）
+//    🔴 **2026-10-18（`A840` 收口）就地订正（铁律 5）**：这一栏原来列的是「**没记过 `BaseRect` 的节点**」
+//      （`Shell/{ShopWindow,AvatarTab,TitleTab,LiveOpsEventWindow,PracticeModePopup×2}.cs`）—— **那一列现在是空的**：
+//      当天按 `grep -rn "AddComponent<ViewportClip>"` **现扫**出的生产站点是 **7 处**，**逐处都补了显式 `CaptureNow()`**
+//      （`Shell/ShopWindow.cs` · `AvatarTab.cs` · `TitleTab.cs` · `LiveOpsEventWindow.cs` ·
+//        `PracticeModePopup.cs` **×2** · **`TutorialModePopup.cs`**）。⇒ 今天**没有**「逐位回落到旧写法」的视口节点了。
+//      ⚠️ **原来那份清单漏了第 7 处 `TutorialModePopup.cs`** —— ⛔ **下一轮别再照这份清单收口，按 `grep` 现扫**
+//      （现场与判据 → `资料/普查产出_1018/S1_A840与A867.md` §1）。
+//      ⛔ **仍然不许**在 `OnEnable` 里自动抓一份：节点可能是**已经被挪过之后**才挂的组件，抓到的会是一个**错帧**的基准，
+//      而且**静默**。要接就显式调 `CaptureNow`（新加视口节点时**必须**照上面这 7 处的形状补一句）。
 // ② **符号约定**：`padding` **正值 = 缩小、负值 = 扩大**（同 `MenuDraw.PaddedRect`，判据 = 上面 `Clipping.cs:26-30`）。
 // ③ **两条路读同一份状态**（A188 的硬约束）：解析结果 `ClipState` 给两副面孔各一个视图 ——
 //    **渲染那一份 = `RenderClip`（= `V − pad`）**、**命中那一份 = 裸 `Clip` + `Pad`**（由 `MenuDraw.Hit`
@@ -198,7 +202,9 @@ namespace CardPresentation
         bool _hasBaseRect;
 
         /// <summary>这个节点记过设计矩形没有（= `ClipPx` 现在走哪一支的判据；自检可以拿它断「谁跟着谁」）。
-        /// ⚠️ **`false` 的那一批是【还没接上】的站点**（清单 → 文件头 §① 那条订正），⛔ 别把它当成缺陷计数。</summary>
+        /// 🔴 **2026-10-18（`A840` 收口）就地订正（铁律 5）**：这一行原来写「**`false` 的那一批是【还没接上】的站点**」——
+        /// **那一批现在为空**：当天按 `grep` 现扫出的 **7 处生产站点全部补了显式 `CaptureNow()`**（清单 → 文件头 §① 那条订正）
+        /// ⇒ 今天**再读到 `false`，那就是新加的视口节点（或新写法）漏了那一句**，**是缺陷、不是「还没接上」**。</summary>
         public bool HasBaseRect { get { return _hasBaseRect; } }
 
         /// <summary>记下来的那个设计矩形（**画布 px**，与 `ClipPx` 同一个量纲/原点）。
@@ -212,9 +218,10 @@ namespace CardPresentation
         /// <summary>🆕 **把当前的实时框抓成基准**（= 给那些**没走 `Hang`**、只 `AddComponent&lt;ViewportClip&gt;()`
         /// 的站点用的一次性接口；清单 → 文件头 §①）。实现 = `SetBaseRect(ClipPx_now)`，
         /// 所以**只能在「节点还在它该在的基准位」时调**（建树那一刻）。
-        /// <para>⚠️ **今天的调用点 = 0**（那几处都在**别的文件**、不在 A811 那一件的白名单里 ⇒ 只报不改）——
-        /// 它现在的意义是「接上去只要一行」。⛔ 在节点**已经被挪过之后**调它会冻结一个**错帧**的基准，
-        /// 而且**静默**（这正是本类拒绝在 `OnEnable` 里自动抓的理由）。</para></summary>
+        /// <para>🔴 **2026-10-18（`A840` 收口）就地订正（铁律 5）**：这一行原来写「**今天的调用点 = 0**（那几处都在别的文件、
+        /// 不在 A811 那一件的白名单里 ⇒ 只报不改）」—— **那已经过期**：当天 **7 处生产站点全部接上了**（`:428`/`:167`/`:140`/`:614`/`:883`/`:1051`/`:510` 那一组）。
+        /// **新加视口节点时必须照它们的形状补一句**（⛔ 不是「可选」）。</para>
+        /// <para>⛔ 在节点**已经被挪过之后**调它会冻结一个**错帧**的基准，而且**静默**（这正是本类拒绝在 `OnEnable` 里自动抓的理由）。</para></summary>
         public void CaptureNow() { var b = ClipPx; if (b.HasValue) SetBaseRect(b.Value); }
 
         // ============================================================ 状态 → px 框（换算只此一份）

@@ -310,6 +310,73 @@ public static class IconSetup
         Check(ly == CardPresentation.CardIcons.Rewrite("SAU_Lychguard", "descZh", ly),
               "②h 裸关键词那条也幂等", ref bad);
 
+        // ②i / ②j 🔴 **Oath 徽记 = 「徽记 + 词」**（2026-10-18，`资料/普查产出_1018/V-OATH_Oath徽记与记号.md` 候选 A）。
+        //
+        //   **钉什么**：这三张卡的 `Oath` 在卡面上印的是「**徽记 + 紧跟那个词**」
+        //   （亲读成品卡图：`Ultramarines/3部队/Warpforge_20_Chaplain-Cassius.png` 的徽记在**句中**、
+        //     `…/Warpforge_25_Ferren-Areios.png` 与 `…/Warpforge_12_Vico-Therbeus.png` 各 **2 枚**）。
+        //   我们这边两处会把它弄坏：① `desc` 里写成**方括号** `[Oath]` ⇒ `Rewrite` 走「整串换掉」那支
+        //   ⇒ **词被吃掉**（`UM84` 原来就是这样，`Talent` 同病）；② 徽记那一条**不在计划表里**
+        //   ⇒ **整枚不画**（`UM89` / `UM_Vico_Therbeus` 的首句原来就是，因为 `Oath abilities`
+        //   没有数字没有冒号、句首关键词正则扫不到）。
+        //
+        //   ⚠️ **判别式不能写成「结果里含 `<sprite name="oath">Oath`」那种紧贴写法** ——
+        //      2026-09-21 起 `Rewrite` 给裸关键词那条把**图标与词分别**包了 `<link>`
+        //      （`CardIcons.cs:203-205` 与 `:250-253`，图标后面紧跟的是 `</link>` 而不是那个词）。
+        //      ⇒ 拆成两条判据：**(a) 徽记在**（查 `<sprite name="oath">` 的出现**次数**）
+        //                      **(b) 词也留着**（`StripTags` 把标签剥掉之后还查得到那个词）。
+        //   🧨 **改坏哪里会让它红**：
+        //      · `desc` 改回 `[Oath]` 写法（计划表跟着重跑）⇒ (b) 拿不到那个词 ⇒ 红；
+        //      · 把 `gen_icon_plan.py` 的 `BARE_TOKEN_BY_CARD` 里对应那条删掉 ⇒ 次数少 1 ⇒ 红；
+        //      · 把 token 写成短的 `"Oath"`（`UM89` / `UM_Vico_Therbeus`）⇒ 被同卡更长的
+        //        `"Oath 1:"` 那条按**长度降序 + 幂等守卫**挡掉 ⇒ 次数回到 1 ⇒ 红。
+        {
+            // `want` = 这张卡的卡面上那枚徽记应该出现几次（= 亲读读数）
+            string[,] oathCards = {
+                { "UM84",             "Oath abilities", "誓言能力", "1" },
+                { "UM89",             "Oath abilities", "誓言能力", "2" },
+                { "UM_Vico_Therbeus", "Oath abilities", "誓言能力", "2" },
+            };
+            for (int i = 0; i < oathCards.GetLength(0); i++)
+            {
+                string id = oathCards[i, 0], enWord = oathCards[i, 1], zhWord = oathCards[i, 2];
+                int want = int.Parse(oathCards[i, 3]);
+                RuleEngine.CardDef cd = null;
+                foreach (var c in RuleEngine.CardDatabase.Load())
+                    if (c != null && c.Id == id) { cd = c; break; }
+                Check(cd != null && !string.IsNullOrEmpty(cd.Desc) && !string.IsNullOrEmpty(cd.DescZh),
+                      "②i 卡池里取得到 " + id + " 的 desc / descZh（卡面走的是 `DescZh`）", ref bad);
+                if (cd == null || string.IsNullOrEmpty(cd.Desc) || string.IsNullOrEmpty(cd.DescZh)) continue;
+
+                string d = CardPresentation.CardIcons.Rewrite(id, "desc", cd.Desc);
+                string z = CardPresentation.CardIcons.Rewrite(id, "descZh", cd.DescZh);
+                int nD = CountOf(d, "<sprite name=\"oath\">"), nZ = CountOf(z, "<sprite name=\"oath\">");
+                int iD = d.IndexOf("<sprite name=\"oath\">", System.StringComparison.Ordinal);
+                Check(nD == want && iD >= 0 && d.IndexOf(enWord, System.StringComparison.Ordinal) > iD
+                      && CardPresentation.CardIcons.StripTags(d).Contains(enWord),
+                      "★ ②i " + id + " [desc]：Oath 徽记 **" + nD + "/" + want + "** 枚，"
+                      + "且徽记在词**前面**、词也留着 —— " + d.Replace("\n", "\\n"), ref bad);
+                Check(nZ == want && CardPresentation.CardIcons.StripTags(z).Contains(zhWord),
+                      "★ ②i " + id + " [descZh]：Oath 徽记 **" + nZ + "/" + want + "** 枚，且词也留着 —— " + z, ref bad);
+                Check(d == CardPresentation.CardIcons.Rewrite(id, "desc", d)
+                      && z == CardPresentation.CardIcons.Rewrite(id, "descZh", z),
+                      "★ ②i " + id + "：这两条也**幂等**（卡面同一条文字会被换两遍）", ref bad);
+            }
+
+            // `UM84` 的第二句：`[Talent]: …` 与 `[Oath]` **同根因**（OCR 把「图标 + 词」压成了一个 token
+            // ⇒ 整串换掉、词 `Talent` 没了）。亲读卡图：`〔纸卷〕Talent: Catechism of Death`。
+            {
+                RuleEngine.CardDef cd = null;
+                foreach (var c in RuleEngine.CardDatabase.Load())
+                    if (c != null && c.Id == "UM84") { cd = c; break; }
+                string d = cd == null ? "" : CardPresentation.CardIcons.Rewrite("UM84", "desc", cd.Desc);
+                Check(d.IndexOf("<sprite name=\"talent\">", System.StringComparison.Ordinal) >= 0
+                      && CardPresentation.CardIcons.StripTags(d).Contains("Talent:"),
+                      "★ ②j `UM84` 的 `Talent:` 同样是「**纸卷 + 词**」（改回 `[Talent]` ⇒ 词没了 ⇒ 红）—— "
+                      + d.Replace("\n", "\\n"), ref bad);
+            }
+        }
+
         // ③ 真渲一张：一行字 + 三种图标
         //    ⚠️ 用**世界空间**的 `TextMeshPro`（和 `TmpSetup.Verify` 一样）——
         //       UI 那版要 Canvas 才出网格，批处理下没有 Canvas

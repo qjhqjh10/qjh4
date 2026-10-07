@@ -4858,8 +4858,13 @@ public static class DeckScene
                                   $"★ ①-c ……走 `Empty` 那一支：诊断串没有汉字（实际「{detail}」）");
 
                     // ---- ② 中英两档：**类型与诊断逐字不变**、**显示文案逐字不同** ----
-                    //  盘上放一段**确定性**的坏存档（合法 JSON、缺 `decks` 键 ⇒ `JsonUtility` 给 null
-                    //  ⇒ 必落 `Empty` 那一支，`G3` 的 ②-2 用的就是它）—— 两档各 `Load()` 一次。
+                    //  盘上放一段**确定性**的坏存档（合法 JSON、缺 `decks` 键）—— 两档各 `Load()` 一次。
+                    //  🔴 **2026-10-18 就地订正（铁律 5 · 独立审查 `REV_W_四写手.md` F7 抓的）**：
+                    //    这里原来写「缺 `decks` 键 ⇒ **`JsonUtility` 给 null** ⇒ 必落 `Empty` 那一支」——
+                    //    **那个理由是错的**（`DA_DeckLibrary分类13红.md` §1 证伪）：`JsonUtility` 对缺键的
+                    //    集合字段给的是**空表、不是 `null`** ⇒ 旧判据 `dto.decks == null` **恒假**、
+                    //    这一支**从没被走到过**（死代码）。`WD` 当天改成**按原文有没有 `decks"` 键**判（结构性）
+                    //    ⇒ 这段坏存档才**真的**落 `Empty`。⚠️ **断言没错、错的是这句理由**，故只改注释。
                     System.IO.File.WriteAllText(p, "{ \"version\": 1, \"current\": 0 }");
                     Loc.RestoreForTest(AvailableLanguages.Chinese);
                     var libZh = RuleEngine.DeckLibrary.Load();

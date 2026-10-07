@@ -192,9 +192,8 @@ namespace CardPresentation
         public const string ArtHeaderBack = "UI_Button_Menu_Back";
         public const string ArtShield = "UI_icon_shield";
         public const string ArtHelp = "40K_generic_bt_info";
-        /// <summary>`WF_Campaign_Info_Background`：**740×167 · border (335,0,395,0)**（`Sprite/*.json` 实测）。</summary>
-        public static readonly Vector4 HeaderBorder = new Vector4(335f, 0f, 395f, 0f);
-        public const float HeaderTexW = 740f, HeaderTexH = 167f;
+        // ⚠️ `WF_Campaign_Info_Background` 的**九宫 / 贴图尺寸**本窗**不再留第二份** —— 2026-10-17（A866）
+        //    收口到 `WindowHeader.PlateBorder` / `PlateTexW` / `PlateTexH`（判据写在那三个常量上）。
 
         // ============================================================ 状态
         public readonly List<Transform> ArmyCells = new List<Transform>();
@@ -364,6 +363,18 @@ namespace CardPresentation
         // ============================================================ 建整棵树
         protected void Build()
         {
+            // 🔴 **2026-10-18（A867 · S1）**：**首句**就把本窗名下的旧滚动区撤掉 —— 下一句就把 `root` 的子件
+            //   全清掉，而下面 `BuildArmySelector` 会登记一颗**新**的 `MenuScroll`（`Owner = gameObject`）。
+            //   ⛔ **兜不住**，所以非补不可（`PointerLayer` 的两道自动清理**都判不出这里已死**）：
+            //     · `PruneScrolls` 的 `s == null` —— `MenuScroll` 是**普通 C# 类**（`Shell/MenuScroll.cs:79`）
+            //       ⇒ 节点被销毁**不会**让它变 null ⇒ **恒假**；
+            //     · `s.Owner == null` —— `Owner` 指的是**活下来的窗根**（本方法只删**子件**，`transform` 本身还在，
+            //       而且我们关窗是 `SetActive(false)`、**不销毁**）⇒ 也**恒假**（`Shell/PointerLayer.cs:223-231`）。
+            //   ⇒ 少了这一句 = **每重建一次净涨 1 条**，而且旧条目**还能被滚轮命中**（`OnChanged` 指向已销毁的节点）。
+            //   ✅ 形状照抄 `Shell/InboxWindow.cs:405`。⚠️ 本窗这个 `Build()` 会被**同一实例**再走一遍
+            //   （`Open()` 调的：`TryOpen` 从 `Closed` 支 ⇒ `Open()`，`Shell/WindowsManager.cs:513-519`；
+            //    生产侧到达它的是 `ShowPreviousWindow` ⑥ 那句 `prev.TryOpen()`，`:1147`）。
+            PointerLayer.UnregisterOwnedBy(gameObject);
             var root = transform;
             MissingArt.Clear();
             for (int i = root.childCount - 1; i >= 0; i--) RewardsWindow.DestroySafe(root.GetChild(i).gameObject);
@@ -593,6 +604,13 @@ namespace CardPresentation
             var vc = vp.gameObject.AddComponent<ViewportClip>();
             vc.padding = Vector4.zero;                                     // 三条原版路径的 `m_Padding` 都是全 0
             vc.softness = new Vector2Int((int)VpSoft.x, (int)VpSoft.y);     // (0,52)：只渐变上下，见 `VpSoft`
+            // 🔴 **2026-10-18（A840 · S1）**：补一句 `CaptureNow()` —— 把**刚写进这个节点的那个矩形**记成基准
+            //   （= 框的中心那一帧，口径 → `ViewportClip` 文件头 §①）。⛔ 少了它，这颗视口**逐位回落到旧写法**
+            //   （实时反推 + `LiveDerivations`）：本窗整棵树重建时节点或它的祖先被挪过，框与被比矩形就**不在同一帧**。
+            //   ⚠️ **必须在这里调**（`AddComponent` 之后、`RebuildArmyCells` 之前）：`MenuDraw.ApplyPxRect` 写矩形时
+            //   组件还不存在（那一句的穿透写在 `ApplyPxRect` 尾）—— 同 `ViewportClip.Hang` 里那句
+            //   `vc.SetBaseRect(r)` 的位置理由（`:314-317`）。⛔ 别改成 `OnEnable` 里自动抓（文件头 `:72-73` 明令）。
+            vc.CaptureNow();
             _facs = CollectionWindow.CardsState.Factions();
 
             int cols = Mathf.Max(1, Mathf.FloorToInt((ArmViewR - ArmViewL) / ArmyCell));
@@ -749,88 +767,66 @@ namespace CardPresentation
         /// <summary>`Game Mode Header With Back Button` + `Header Background`(HLG) + `Header Background (1)` + `Header Back Button`。
         /// ⚠️ `Game Mode Icon` 原版 `sprite=0`（由 `LiveopUIDrawer_GameModeIcon` 运行时按模式喂，
         ///    那两张图**本地没有**）⇒ **不画**，出声。</summary>
+        /// <remarks>🔴 **2026-10-17（A866）：四层建法已收口到 `WindowHeader.WithBackButton`**
+        /// （全工程 4 扇窗各抄一遍 ⇒ 收成一份）。本窗这一档的**差异**（逐格对照 →
+        /// `资料/普查产出_1018/S5_A866窗头收口.md` §2）：
+        /// · 根名 = `Game Mode Header With Back Button`（另三扇是缺省那名）；
+        /// · 底板**比父容器宽**（`ContentSizeFitter` 按内容撑开 = 690.86，见下）；
+        /// · 标题走 `FitAfterSpacing`（A492 把两句对调过 —— 判据与「无牙口」那段**已搬进**
+        ///   `WindowHeader.TitleFit` 的 `FitAfterSpacing`，⛔ 别在这儿再写第二份）；
+        /// · **多一颗 `Game Mode Icon`**（本窗在 `parts.Plate` 底下补 —— 兄弟序与原来逐位一致：`Window Title` → 图标）；
+        /// · 返回钮 = `QuadOnHeader` + **有换图**（`BackSwapArt = ArtHeaderBack`，A17）；
+        /// · ⚠️ 尖角那一颗**沿用 `MenuDraw.Nine` 的缺省名 `"Nine"`**（另三扇都显式起名
+        ///   `Header Background (1)`）—— 本笔**照旧保留**（收口不夹带行为改动），差异已登记在 §5 / §7。</remarks>
         void BuildHeader(Transform root)
         {
-            var hdr = MenuDraw.Node(root, "Game Mode Header With Back Button",
-                                    new PxRect(HdrL, HdrT, HdrR, HdrB));
             // `Header Background`：`ContentSizeFitter` 按内容撑开 ⇒ 它自己宽 0；HLG 从 **padLeft 155** 起排
             // 底板宽度 = **内容撑开的宽度**：原版 `Header Background` 挂 `ContentSizeFitterMinMax`
             //   （`widthMin 550 / widthMax 1250`），按内容 = padL 155 + 标题 369.36 + spacing 5.5 + 图标 100 + padR 61
             //   = **690.86**。原来只画到父容器右缘 550，少了 140（找茬子代理按字段算出来的）
             const float plateR = 690.86f;
-            var bgT = MenuDraw.Node(hdr, "Header Background", new PxRect(HdrL, HdrBg1T, plateR, HdrBg1B));
-            MenuDraw.Nine(bgT, Tex(ArtHeaderBg), new PxRect(HdrL, HdrBg1T, plateR, HdrBg1B),
-                          HeaderBorder, HeaderTexW, HeaderTexH, QArt);
             float titleL = HdrL + HdrPadL;
-            var title = MenuDraw.Text(bgT, new PxRect(titleL, HdrT + 16.36f, titleL + 369.36f, HdrT + 99.01f),
-                                      "Game mode", Color.white, "Window Title", 67.55f, QText);
-            // 🔴 **顺序不能反**：`AlignLeftOn` 是按**当时的 `WorldW`** 定位的，而 `SetAutoFitBox` 会**改字号 ⇒ 改宽**
-            //    ⇒ 先对齐再自适应，左边缘会被推走（实测偏 40.75px）。已知的坑「对齐必须在 SetText 之后」的同一条。
-
-            // 🆕 **2026-10-03 补上了**：原来这里写「`Label` 没有字距开关 ⇒ 没复刻」—— 那只是**没加**，
-            //    `Label.SetCharSpacing` 现在有了（透传 TMP 的 `characterSpacing`，原样传不换算）。
-            if (title != null)
+            var parts = WindowHeader.WithBackButton(root, new WindowHeader.Spec
             {
-                // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版 `Window Title` 的 `m_fontSizeBase` **原文**。
-                //    判据（本轮自己扫 `bundle_menus_assets_all`）：`auto[18~67.55]` 那一族 **8 颗全是
-                //    `m_fontSizeBase 36.0`**（例 `MonoBehaviour_3324232435684942507.json`，`'Daily Streak'`）·
-                //    `m_fontSize 67.55` · 框 379.3 × 82.65 ⇒ 与我们的 `369.36 × 82.65` 同族
-                //    （逐站表 §二·3 #27 记的也是 36.0）。
-                // 🔴 **2026-10-14（A492）下面这两句【次序对调】过（铁律 5 留痕）**：原来 `SetAutoFitBox` 在【上】、
-                //    `SetCharSpacing` 在【下】，账上的话是「**自适应不含字距**」。现在 = **先字距、后自适应**，
-                //    与本仓口径一致（「改渲染宽度的两句都排在 `AlignLeft` **之前**」—— 见上面那条
-                //    「🔴 **顺序不能反**」，同族先例 = `Shell/InboxWindow.cs` 那处 A471）。
-                //    ⚠️ **静态上两种次序应收敛到同一结果** —— `SetCharSpacing` 尾句 `ForceMeshUpdate()` 会把
-                //    `m_fontSize` 复位成 `Clamp(m_fontSizeBase, min, max)`、**带着新字距重跑一次自适应**
-                //    （判据 + 逐行注解 → `Battle/Label.cs` 的 `SetCharSpacing` docstring，**静态读 TMP 源码**得出，
-                //     **未实跑验证**）⇒ 本次对调是**口径对齐**，**不是**「改回来一个原本读错的值」。
-                //    🔴 **无牙口（如实登记）**：判据里「原版实际收敛到多少」是**空的** ⇒ 这一处**没有断言
-                //    咬得住**（两种次序下 `SetAutoFitBox` 之后的 `FontPxNow` / `WorldW` 同值，断不出差别）。
-                //    ⛔ 别为了让这条账「有牙口」而自定一个原版值 —— 那是发明判据。
-                title.SetCharSpacing(5f);      // 原版这行 TMP 的 `m_characterSpacing = 5`
-                // 🔴 **2026-10-12（A475）字距那一句原来排在 `AlignLeft` 【之后】，已挪到它【上面】**：
-                //    `SetCharSpacing` 与 `SetAutoFitBox` **同一类** —— 都**改渲染宽度**
-                //    （TMP 重排时**每字多 5 个 font unit**，本行 9 个字 ⇒ 左缘偏 `Δ宽/2`）。
-                //    `AlignLeftOn` 是「量当时的 `WorldW` 再反推整块位置」（`Battle/Label.cs` 的 `AlignLeftOn`）
-                //    ⇒ 排在它**之后**改宽 = 那一行按**旧宽**定位 ⇒ 字整体往左溢出，**且不出声**。
-                //    原版这两行 TMP 的 `m_characterSpacing = 5` 是**静态序列化字段**（不存在「先对齐、后加字距」这种次序）
-                //    ⇒ 照原版就只能是「字距在前、对齐在后」。
-                title.SetAutoFitBox(LayoutSpace.Px(369.36f), LayoutSpace.Px(82.65f), 18f, 67.55f, 36f);
-                // ⛔ 这里**不补** `ForceRelayout()` —— 与 `Shell/InboxWindow.cs` 那处（A471）不同：
-                //    `AlignLeftOn` 自己头一句就是 `RefreshBounds()`（`Battle/Label.cs` 的 `AlignLeftOn`），
-                //    那一次就按**含字距**的 `textBounds` 重量了 `WorldW`（`SetCharSpacing` 已经 `ForceMeshUpdate`
-                //    过它自己的 mesh，见同文件的 `SetCharSpacing`）⇒ 再补一刀只是把同一件事做第二遍。
-                //    ⚠️ 一旦哪一天把对齐挪到别处、而那里**不是** `AlignLeftOn`，这一刀就必须补回来。
-                //    ⚠️ A492 对调之后「含字距」**两种次序下都成立**：`SetAutoFitBox` 尾部那次 `RefreshBounds()`
-                //       也落在字距之后（对调前它落在字距之前，中间态 `WorldW` 少一份字距宽 —— 但 `AlignLeftOn`
-                //       头一句会重量，**终态同值**，所以那条账今天看不出差别，见上面的「无牙口」）。
-                MenuDraw.AlignLeft(title, new PxRect(titleL, HdrT + 16.36f, titleL + 369.36f, HdrT + 99.01f));
-            }
+                RootName = WindowHeader.RootNameGameMode,
+                RootRect = new PxRect(HdrL, HdrT, HdrR, HdrB),
+                PlateRect = new PxRect(HdrL, HdrBg1T, plateR, HdrBg1B),
+                TitleRect = new PxRect(titleL, HdrT + 16.36f, titleL + 369.36f, HdrT + 99.01f),
+                TitleText = "Game mode",       // prefab 出厂 `m_text`；运行时被 `WindowHeaderWithBackButton.Initialize` 换掉
+                TitleMode = WindowHeader.TitleFit.FitAfterSpacing,
+                TitleFitW = 369.36f, TitleFitH = 82.65f,   // 照本窗原来的字面量（⛔ 别改成 `TitleRect.W/H`）
+                WingRect = new PxRect(HdrBg1L, HdrBg1T, HdrBg1R, HdrBg1B),
+                // ⚠️ **本窗今天就是缺省名 `"Nine"`**（另三扇显式起 `Header Background (1)`）——
+                //    照旧保留（A866 只做收口、不夹带行为改动）；**差异已登记**，见本方法 remarks。
+                WingName = "Nine",
+                BackRect = new PxRect(HdrBackL, HdrBackT, HdrBackR, HdrBackB),
+                BackButtonStyle = WindowHeader.BackStyle.QuadOnHeader,
+                BackKeepAspect = true,
+                // A17：原版 `Game Mode Header With Back Button>Header Back Button` 是 SpriteSwap（普查 §块 4 第 17 行）
+                BackSwapArt = ArtHeaderBack,
+                PlateTex = Tex(ArtHeaderBg),
+                BackTex = Tex(ArtHeaderBack),
+                QPlate = QArt, QWing = QArt1, QTitle = QText, QBack = QArt2, QHit = QHit,
+                OnBack = () => Close(),
+            });
+
             // `Game Mode Icon`（HLG 里紧跟标题：155 + 369.36 + spacing 5.5 ⇒ 左沿 **529.86**，竖中在 115.36 的板里）
             // 2026-09-24 订正：原来这里写「那两张图本地没有」—— **是错的**：
             //   `Resources/Art/ui_menu/40k_gamemode_icon_skirmish.png` 与 `…_classic.png` **早在工程里**
             //   （练习窗那个 `Toggle` 用的就是它们）。遭遇战窗接 skirmish 那张；
             //   排位那张**查不到**（本地只有 classic / skirmish）⇒ 子类给 null 时不画并出声。
+            // 🔴 A866 收口后它建在 `parts.Plate`（= `Header Background`）底下 —— 与原版父链、与收口前的父件**同**
+            //   （原来是这个方法里的局部 `bgT`）；树序也同：`Window Title` 先建、图标后建。
             float iconL = titleL + 369.36f + HdrGap;
             float iconT = HdrBg1T + (HdrBg1B - HdrBg1T - 100f) * 0.5f;
             var gmTex = Tex(GameModeIconArt);
             if (gmTex != null)
-                MenuDraw.Rect(bgT, gmTex, new PxRect(iconL, iconT, iconL + 100f, iconT + 100f),
+                MenuDraw.Rect(parts.Plate, gmTex, new PxRect(iconL, iconT, iconL + 100f, iconT + 100f),
                               "Game Mode Icon", QArt1, null, true);
             else
                 Debug.Log("[Event] `Game Mode Icon` **没画** —— 这一窗的模式图标本地没有"
                           + "（原版 `sprite=0`、由 `LiveopUIDrawer_GameModeIcon` 运行时喂；"
                           + "本地只有 `40k_gamemode_icon_classic` / `_skirmish` 两张）");
-
-            // `Header Background (1)`（往左延伸的尖角）与返回钮：**兄弟序在后 ⇒ 队列更高**
-            MenuDraw.Nine(hdr, Tex(ArtHeaderBg),
-                          new PxRect(HdrBg1L, HdrBg1T, HdrBg1R, HdrBg1B),
-                          HeaderBorder, HeaderTexW, HeaderTexH, QArt1);
-            var backBg = MenuDraw.Rect(hdr, Tex(ArtHeaderBack),
-                          new PxRect(HdrBackL, HdrBackT, HdrBackR, HdrBackB), "Header Back Button", QArt2, null, true);
-            // 🆕 A17：原版 `Game Mode Header With Back Button>Header Back Button` 是 SpriteSwap（普查 §块 4 第 17 行）
-            MenuDraw.Hit(hdr, "BackHit", new PxRect(HdrBackL, HdrBackT, HdrBackR, HdrBackB), QHit, () => Close(),
-                         backBg, ArtHeaderBack);
         }
 
         // ------------------------------------------------------------ `Battle!`

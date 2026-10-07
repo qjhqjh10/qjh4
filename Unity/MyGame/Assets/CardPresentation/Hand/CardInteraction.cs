@@ -259,7 +259,30 @@ namespace CardPresentation
             // 只有插槽号变了才重排 —— 每帧重排会把补间反复打断。
             // ⚠️ 只在**手牌这一带**（棋盘线以下）才跟着走：拖到战场上以后还按 x 重排的话，
             //    你在上面选位置、下面的手牌会自己滑来滑去，看着像 bug
-            if (LayoutSpace.ToNormalized(t.position).y < board.lineY)
+            //
+            // 🔴 **2026-10-18（A896 · 调度台裁定一）：这道 y 守卫的量取【指针】，不取被拖那张卡。**
+            //   判据（`d:/2/tools/decomp_full/BattleManager__Update.c`，亲读）：它是**两道量**在比：
+            //     · `:151-157`（switch 之前）先取 `playerHandPosLimitObj`（`BattleManager +0x180`）的
+            //       `transform.position` 存进 `local_5a8` ⇒ 后面各支里的 `local_5a8._4_4_` = **那条线的 y**。
+            //       那条线是场景节点 `HandLimitArea`：`解包整理/07_场景/battlearena1/MonoBehaviour/
+            //       MonoBehaviour_4371.json:184-187` 的 `m_PathID 141` → `GameObject/HandLimitArea_141.json`；
+            //       13 张战场的全树里都是 `HandLimitArea [-0,779 1x1]`。
+            //     · `:126-127` 每帧把 `GetMousePosInWorldSpaceCanvas()` 写进 `+0x434`（**y 在 `+0x438`**）。
+            //     · `:195` / `:249` / `:291`（另外 `:539` / `:800` 是同一条写法）判别式一律是
+            //       **`线.y < mouseCanvasPos.y`**；命中后再拿 `pointerCursorStart`（`+0x324`，读在
+            //       `:196` / `:250` / `:292`）叠一个 `globalVars` 偏移去细化 ——
+            //       **全篇一次都没读过「被拖那张卡」的 transform**。
+            //   ⇒ 我们跟着取**指针**（本方法的形参 `world`），⛔ 不再取 `t.position`。
+            //
+            // ⚠️ **如实标：我们这道守卫【本身】在原版没有对应物。**
+            //   原版那条 y 判据**守的不是「手牌让位」** —— 让位（`DisplayHandWithCardSpace`）在
+            //   `case 2` 尾部（`:341-347`）是**无条件**跑的；原版那条守的是「**要不要试着把手牌打到场上**」。
+            //   我们这道是自己加的，为的是「拖到战场上以后还按 x 重排 ⇒ 手牌会自己滑来滑去」。
+            //   本件只做一件事：**把量取成原版那一处比较取的那个量**（指针）——
+            //   ⛔ 不许删（删了改行为，且没有判据说原版没有这道守卫）· ⛔ 不许原样留着读卡的位置。
+            //   ⚠️ **阈值仍是我们的**：`HandLimitArea` 的 779 与我们 `BoardLayout.lineY`（我方 = 0.3444
+            //      = 708/1080）之间的换算**没验过**（树 dump 的坐标约定与 canvas 缩放都没核）⇒ 别顺手换阈值。
+            if (LayoutSpace.ToNormalized(world).y < board.lineY)
             {
                 var visible = VisibleCards();
                 // 🔴 **2026-10-17（B12）：喂进去的是【指针位置】，不是被拖那张卡的位置。**

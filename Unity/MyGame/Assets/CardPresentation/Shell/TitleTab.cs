@@ -131,6 +131,13 @@ namespace CardPresentation
             var vc = scrollNode.gameObject.AddComponent<ViewportClip>();
             vc.padding = Vector4.zero;
             vc.softness = new Vector2Int((int)VpSoft.x, (int)VpSoft.y);
+            // 🔴 **2026-10-18（A840 · S1）**：补一句 `CaptureNow()` —— 把**刚写进这个节点的那个矩形**记成基准
+            //   （= 框的中心那一帧，口径 → `ViewportClip` 文件头 §①）。⛔ 少了它，这个视口**逐位回落到旧写法**
+            //   （实时反推 + `LiveDerivations`）：本页整块面板被挪过之后，框与被比矩形就**不在同一帧**。
+            //   ⚠️ **必须在这里调**（`AddComponent` 之后、`BuildRows` 之前）：`MenuDraw.ApplyPxRect` 写矩形时
+            //   组件还不存在（那一句的穿透写在 `ApplyPxRect` 尾）—— 同 `ViewportClip.Hang` 里那句
+            //   `vc.SetBaseRect(r)` 的位置理由（`:314-317`）。⛔ 别改成 `OnEnable` 里自动抓（文件头 `:72-73` 明令）。
+            vc.CaptureNow();
             _scroll = NewScroll(vp, GridW, 0f, true);      // 纵向；内容高度建完再算
             // 🔴 **2026-10-13（A465 · W-A435己）**：构建循环那一行（`BuildRows` 里
             //   `if (!_scroll.Intersects(r)) continue;`）从今天起读**同一颗节点**的状态

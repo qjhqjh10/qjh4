@@ -1137,15 +1137,48 @@ namespace RuleEngine
             var inst = MoveDeckTopToHand(ctx, p);
             if (inst == null) return;                   // 牌库空 ⇒ 已经走过疲劳那一支
             var card = inst.Card;
+            // 🆕 `When you draw a card, …`（2026-09-13 第三十三轮）。
+            // ⚠️ 发在**入牌库 → 进手牌之后**：监听方看到的是「抽到了」这个事实。
+            // ⚠️ `card` 传进去 —— 监听器的筛选（`a troop` / `a Stratagem`）要拿它判。
+            //
+            // 🔴 **2026-10-18（`S10` · 待办 `A962` ② 的收口 · 铁律 11）：外面套一层「指代槽」。**
+            //    广播传下去的实参是 **`CardDef card`（卡模板）**，而监听器要「指代抽出来那张」时
+            //    要的是**那一份 `CardInstance`**（`DoLowerCost` 的 `(指代上一张)` 支按份钉
+            //    `HandInstanceId`）⇒ 它只能去 `ctx.DrawnThisResolve` 找，而那个槽**原来没有写点**
+            //    （只有 `DoDraw` / `DoChooseCard` / `DoDrawRef` 三条，全在别的路上）。
+            //    ⇒ 普通抽牌（回合开始那一抽就走这里）的监听器**永远读不到指代对象** ——
+            //      `Company Master`（`DA31`）的降费**一次都不生效**（离线实测 `CostOf` 仍是印价）。
+            //    种子/还原的判据、为什么必须套在广播**外面**、以及窗口放宽的连带，
+            //    全写在 `EffectResolver.DrawReferentScope` 的头注释里（⛔ 别在这儿再抄一份）。
+            using (DrawReferentScope.Seed(ctx, inst))
+                BroadcastWhen(ctx, WhenEventKind.Draw, p, card, null);
             // 🆕 **「这一份是这回合从牌库抽到的」** 记账（2026-09-13 A2，2026-09-18 第 3 步搬到实例上）——
             // 传送（`Teleport`）判的就是它：规则书 `:219`「**当回合从牌库抽到即打出时**触发能力」。
             // 🔴 现在是**一份一个布尔**（`CardInstance.DrawnThisTurn`）：同名两张里
             //    抽到一张、打出另一张，**不会再误触发**（改之前按卡模板记份数，会）。
+            //
+            // 🔴 **2026-10-18（`S7` · `A962` ② · 铁律 11）：这一句【挪到广播之后】—— 原版是「广播早于记账」。**
+            //    判据（现读 `d:/2/tools/decomp_full/BattleManager._ResolveDrawCard_d__432__MoveNext.c`，case 5）：
+            //      ```
+            //      BattleManager__RemoveCardFromDeck(...);                       // :282 出牌库
+            //      if (IsDuringMulligan == 0) {
+            //          BattleManagerSupport__BroadcastCardDrawn(...);            // :285 ← 广播
+            //          … BroadcastTrapResolved / CemeteryManager.AddDrawTrapAction …
+            //          CardScript__SetCardTurnDrawn(card);                       // :295 ← 记账
+            //      }
+            //      ```
+            //    ⇒ 我们这一侧「抽到了」的记账（`DrawnThisTurn` ⇔ 原版 `SetCardTurnDrawn` 写的 `+0x310`）
+            //      排在广播**前面**，与原版相反。挪到后面即可（两件事都在 `Draw` 之内，中间没有别的语句）。
+            //    ⚠️ **今天【观测不到】差异（如实标着）**：全工程读 `DrawnThisTurn` 的只有
+            //      `RuleCore.PlayCard` 的 `Teleport` 那一支（与 `CardPresentation` 的高亮）——
+            //      而**没有任何 `draw` 监听器能在这段广播里把牌打出去**（效果动词表里没有「打出」）
+            //      ⇒ 广播期间没人读它。仍然照原版做（铁律 11）。
+            //      ⛔ 别把这条写成「修掉了一个可见缺陷」。
+            //    📌 连带核过、**不成立**：原版那三件事发生时，牌**早已在手牌里**
+            //      （`AddDrawnCardToHand` 的子协程在 case 0 就启动、case 5 之前已经
+            //       `List.Add` + `PlayerHand.SetupCardInHand` —— 见 `PlayerHand._AddDrawnCardToHand_d__37__MoveNext.c:111-120`）
+            //      ⇒ 「原版是『已出牌库、还没进手牌』」那句**不成立**，我们「进了手牌才广播」与原版同形。
             inst.DrawnThisTurn = true;
-            // 🆕 `When you draw a card, …`（2026-09-13 第三十三轮）。
-            // ⚠️ 发在**入牌库 → 进手牌之后**：监听方看到的是「抽到了」这个事实。
-            // ⚠️ `card` 传进去 —— 监听器的筛选（`a troop` / `a Stratagem`）要拿它判。
-            BroadcastWhen(ctx, WhenEventKind.Draw, p, card, null);
         }
 
         /// <summary>
@@ -3604,6 +3637,10 @@ namespace RuleEngine
         /// ⛔ **三档都判不出来时【不放行】**（`HandEffectFits` 那一行 `return false`）：
         ///   那是**我们解析层的缺口**，不是原版的一种状态 —— 宁可少给，也别乱给（工程红线）。
         /// 🔴 退路**会自己说出来**（`SetupCardInHand` 末尾那句日志，2026-10-18 第三轮 + `W5` 改口）。
+        /// ⚠️ **2026-10-18 订正（铁律 5）**：这句在当天**是假的** —— 那句出声**是死代码**
+        /// （循环里 `continue` 排在 `loose++` 之前 ⇒ `loose` 恒 0，全 4 MB 日志零命中），
+        /// 当天已按 `DB` 只读诊断 §6.1 修好（先取值 / 先计数 / 再判去留，见循环里那段注释）；
+        /// 现在它**真的**会在「criteria 判不出来」的输入上出声。
         /// ⚠️ **只影响「后进手牌的牌」**：条目的**首次挂载**（`AttachHandEffect`，几条 `GrantHandBuff*`
         ///    / `AttachEffectToHandInstances`）**不走这个方法** ⇒ 手里那几张照旧吃得上。
         ///
@@ -3623,9 +3660,17 @@ namespace RuleEngine
             foreach (var e in reg)
             {
                 if (e == null || e.Op == null) continue;
+                // 🔴 **2026-10-18（`WC` · 修 `DB` §6.1 的 (β) 死代码）**：原来这三句是
+                //    `if (!HandEffectFits(..., out isLoose)) continue;` **排在** `if (isLoose) loose++;` **之前**
+                //    ⇒ 只有返回 `true` 才走到计数，而 `HandEffectFits` **只有**在
+                //    `{ loose = true; return false; }` 那一支置位 ⇒ `loose` 恒 0，
+                //    末尾 `if (loose > 0)` 那段「退路档自己说出来」**永远打不出来**（违反工程红线「不许静默失败」）。
+                //    改成**先取值、先计数、再判去留** —— 行为完全不变（`isLoose == true` ⇔ `fit == false`），
+                //    只让那句出声真的可能触发。
                 bool isLoose;
-                if (!HandEffectFits(inst.Card, e, out isLoose)) continue;
+                bool fit = HandEffectFits(inst.Card, e, out isLoose);
                 if (isLoose) loose++;
+                if (!fit) continue;
                 if (AttachHandEffectCopy(ctx, inst, e)) n++;
             }
             // 🔴 **2026-10-18（`W4` 整改 · 审查问题 9）：退路档要【自己说出来】**，⛔ 不能只写在注释里。
@@ -3634,9 +3679,15 @@ namespace RuleEngine
             // 🔴 **2026-10-18（`W5` · 审查 §5 账 9）就地改口（铁律 5）**：退路档**已经收窄成「不放行」**
             //    （`HandEffectFits` 那一行 `return false`）⇒ 这句文案跟着改 —— 它原来写的是
             //    「按『是单位卡就算』**放行**了」（旧行为）。⛔ 两处说法打架比没有更糟。
+            // 🔴 **2026-10-18（`WC` 交件后 · 调度台当场订正 · 铁律 5）：这段文案说过头了** ——
+            //    它原来写「⇒ **这一趟一条都没给它**」，而 `loose` 数的**只是判不出的那几条**：
+            //    同一张牌**完全可能既有吃上的、又有判不出的**（例：命中 `SubtypeFilter` 的那条 `n++`，
+            //    另一条 `Kind=="prev"` 无先行词的进 `loose`）⇒ 那时 `n ≥ 1`，旧文案仍是「一条都没给它」= **说谎**。
+            //    ⚠️ 旧写法恒 `loose == 0`、这句从不打印，所以这个错**从未显形** ——
+            //    是「把死代码修活」（`WC` 这趟）带出来的**新可见错误**。
             if (loose > 0)
                 ctx.Log($"（进手牌：「{inst.Card.Name}」有 **{loose} 条**效果的筛选条件我们**判不出来**"
-                      + " ⇒ **这一趟一条都没给它**（`HandEffectFits` 的退路档，"
+                      + $" ⇒ **那 {loose} 条没给它**（这一趟另外吃上 **{n} 条**）（`HandEffectFits` 的退路档，"
                       + "原版判据是 `HandEffect.targetCriteria`，`PlayerHand__SetupCardInHand.c:58`）"
                       + "。⚠️ 这是**我们解析层的缺口**，不是原版的一种状态；"
                       + "宁可少给，也不按「是单位卡就算」乱给）");

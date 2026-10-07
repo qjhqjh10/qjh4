@@ -239,26 +239,40 @@ public static class RewardsScene
     /// 节点位置（`CheckAt`）和 `Label.WorldW`（`textBounds`）都**不随裁切变**，量不到。
     /// ⚠️ 读的是 `textInfo.meshInfo[i].vertices`（= `UpdateVertexData` 上传的那份数组，同一个引用）。
     /// <para>🔴 **2026-10-16（A844）逐处判过：与 `ShellScene.TmpSpanPx` 是【两条口径】、有意不收** ——
-    /// ① 本族要的是**逐点序列**（位置 / 位置+alpha / uv 宽），而那一份只给**外接框**；
-    /// ② 本族（`TmpVertPx` / `TmpVertsAndAlpha` / `TmpGlyphUvW` 三处）网格槽**写死 `meshInfo[0]`**，
-    ///    那一份按 `ch.materialReferenceIndex` 取槽 —— 这不是写法差异而是**语义差异**
-    ///    （`characterInfo[i].vertexIndex` 是**按材质槽**编的 ⇒ 写死 0 时，落在别的槽里的字会**串到别的字的顶点上**，
-    ///    静默；同一条判据的现成结论见 `Editor/ShellScene.cs` 里那份**同名** `TmpVertsAndAlpha` 的 doc ① ——
-    ///    它当年**故意**没抄本文件这一处，就是为躲开这个坑）。
-    /// ⇒ **要改得另开一笔、并且必须先跑一次**（A490：量法一变，旧断言容易一起变自证 —— 改读数就是改量法）。</para></summary>
+    /// ① 本族要的是**逐点序列**（位置 / 位置+alpha / uv 宽），而那一份只给**外接框**。
+    /// ② ⚠️ **2026-10-18（A851）更正：原来这里写「本族三处网格槽**写死 `meshInfo[0]`**、是语义差异、
+    ///    要改得另开一笔、并且必须先跑一次」—— 当天就改了**（判据 / 改坏法 → `资料/普查产出_1018/S2_A851槽号.md`）：
+    ///    三处一律改成按**字形自己的** `chr[i].materialReferenceIndex` 取槽，取法照 `Editor/ShellScene.cs`
+    ///    的 `SpanOfTmp` / 那份**同名** `TmpVertsAndAlpha`。
+    ///    **改前为什么是缺陷（且静默）**：`characterInfo[i].vertexIndex` 是**按材质槽**编的 ⇒ 写死 0 时，
+    ///    一行里混了拉丁+汉字（两个槽）会把后面的字**串到 0 号槽同下标的字的顶点上** —— 那个索引看着
+    ///    还在数组内、量出来还「像个数」，不报错。它当年**故意**没抄本文件这一处，就是为躲开这个坑。
+    ///    **改前为什么没爆**：那 8 个调用点量的是纯拉丁串（`Warpforge Offline Rulebook`）/ 数量数字
+    ///    / streak 的英文字 ⇒ 都落在单槽 ⇒ 逐位同值；缺陷是**潜伏的**（哪天量一颗中英混排的字就错）。
+    ///    ⚠️ 与 `ShellScene.TmpVertsAndAlpha` 现在只剩**一处**有意差别（逐角跳过 vs 整字跳过，见下面它自己的 doc）。</para>
+    /// 🔴 A490 口径：这一笔**改的是量法**（读数 → 量法）⇒ 落地必须真跑一次 `RewardsScene.Run`。</summary>
     static Vector2[] TmpVertPx(Label lb)
     {
         var tmp = lb != null ? lb.GetComponentInChildren<TMPro.TextMeshPro>() : null;
         if (tmp == null || tmp.textInfo == null || tmp.textInfo.meshInfo == null
             || tmp.textInfo.meshInfo.Length == 0 || tmp.textInfo.characterInfo == null) return null;
-        var mi = tmp.textInfo.meshInfo[0];
+        // 🔴 **2026-10-18（A851）**：网格槽按**字形自己的** `materialReferenceIndex` 取（原来是写死 `[0]`，
+        //    一行里混拉丁+汉字时会把字串到别的字的顶点上）。取法照 `Editor/ShellScene.cs` 的 `SpanOfTmp`。
+        var meshes = tmp.textInfo.meshInfo;
         var chr = tmp.textInfo.characterInfo;
-        if (mi.vertices == null) return null;
+        // 「一个能用的槽都没有 ⇒ 回 null」这条**口径不变**（改前只看 0 号槽 —— 单槽时两种写法逐位同值）
+        bool anyMesh = false;
+        for (int s = 0; s < meshes.Length; s++) if (meshes[s].vertices != null) { anyMesh = true; break; }
+        if (!anyMesh) return null;
         var list = new List<Vector2>();
         int n = Mathf.Min(tmp.textInfo.characterCount, chr.Length);
         for (int i = 0; i < n; i++)
         {
             if (!chr[i].isVisible) continue;
+            int slot = chr[i].materialReferenceIndex;
+            if (slot < 0 || slot >= meshes.Length) continue;   // 槽号越界 ⇒ 这个字不出点（⛔ 不静默落回 0 号槽）
+            var mi = meshes[slot];
+            if (mi.vertices == null) continue;
             int vi = chr[i].vertexIndex;
             for (int k = 0; k < 4; k++)
             {
@@ -277,24 +291,40 @@ public static class RewardsScene
     /// 🔴 **必须与【裁切】用同一个集合**：只认 `isVisible` 的字（`Shell/MenuDraw.cs` 的 `ClipTmpMesh` 里那句 `if (!ch.isVisible) continue;` 那句
     /// `if (!ch.isVisible) continue;`）—— TMP 给不可见的字写四角全 0、却**照占 4 个槽**
     /// （`资料/已知的坑.md` 2026-10-11（F3）那条）⇒ 扫全数组会把「画不出来的点」当成「画到视口外」（假红）。
-    /// 🔴 **2026-10-16（A844）：与 `ShellScene.TmpSpanPx` 是两条口径、有意不收**（逐点序列 vs 外接框 +
-    /// 本处写死 `meshInfo[0]`）—— 理由与「要改得先跑一次」写在上一条 `TmpVertPx` 的 doc 里。</summary>
+    /// 🔴 **2026-10-16（A844）：与 `ShellScene.TmpSpanPx` 是两条口径、有意不收**（逐点序列 vs 外接框）。
+    /// ⚠️ **2026-10-18（A851）更正**：原来这里还写着「本处写死 `meshInfo[0]`」—— **已改**：网格槽按字形自己的
+    /// `chr[i].materialReferenceIndex` 取（理由 / 改坏法见上面 `TmpVertPx` 的 doc）。与 `Editor/ShellScene.cs`
+    /// 那份**同名** `TmpVertsAndAlpha` 现在只剩**一处**有意差别：本处**逐角**跳过越界的角（`k` 那一层 `continue`），
+    /// 那一份**整字**跳过 —— 那一份要保住「每字四角、`i % 4` 就是那个角」这个步长（它的 `RowAlphaRange` 靠它
+    /// 分「上沿那一行 / 下沿那一行」），本处不需要那个步长 ⇒ **这一处差异是有意保留的，别照着改**。</summary>
     /// <param name="px">出参：每个可见字四角的画布像素（BL·TL·TR·BR …）。</param>
     /// <param name="alpha">出参：同一个序的 alpha（0..1）。</param>
-    /// <returns>顶点个数；**取不到网格回 −1**（⛔ 别回 0 —— 那会与「一个字都没有」撞上）。</returns>
+    /// <returns>顶点个数；**取不到网格回 −1**（⛔ 别回 0 —— 那会与「一个字都没有」撞上）。
+    /// A851 起这句判的是**所有材质槽**（不再是只看 0 号槽）。</returns>
     static int TmpVertsAndAlpha(Label lb, List<Vector2> px, List<float> alpha)
     {
         px.Clear(); alpha.Clear();
         var tmp = lb != null ? lb.GetComponentInChildren<TMPro.TextMeshPro>() : null;
         if (tmp == null || tmp.textInfo == null || tmp.textInfo.meshInfo == null
             || tmp.textInfo.meshInfo.Length == 0 || tmp.textInfo.characterInfo == null) return -1;
-        var mi = tmp.textInfo.meshInfo[0];
+        // 🔴 **2026-10-18（A851）**：网格槽按**字形自己的** `materialReferenceIndex` 取（原来是写死 `[0]`）。
+        //    ⚠️ 本节的牙口是「**这个角的位置** ↔ **这个角的 alpha**」⇒ 这两个通道必须来自**同一份** `meshInfo`；
+        //    写死 0 时只要有一个字落在别的槽里，配出来的对就是错的、而且**静默**。
+        var meshes = tmp.textInfo.meshInfo;
         var chr = tmp.textInfo.characterInfo;
-        if (mi.vertices == null || mi.colors32 == null) return -1;
+        // 「一个能用的槽都没有 ⇒ 回 −1」这条口径不变（改前只看 0 号槽；单槽时两种写法逐位同值）
+        bool anyMesh = false;
+        for (int s = 0; s < meshes.Length; s++)
+            if (meshes[s].vertices != null && meshes[s].colors32 != null) { anyMesh = true; break; }
+        if (!anyMesh) return -1;
         int n = Mathf.Min(tmp.textInfo.characterCount, chr.Length);
         for (int i = 0; i < n; i++)
         {
             if (!chr[i].isVisible) continue;
+            int slot = chr[i].materialReferenceIndex;
+            if (slot < 0 || slot >= meshes.Length) continue;   // 槽号越界 ⇒ 这个字不出点（⛔ 不静默落回 0 号槽）
+            var mi = meshes[slot];
+            if (mi.vertices == null || mi.colors32 == null) continue;
             int vi = chr[i].vertexIndex;
             for (int k = 0; k < 4; k++)
             {
@@ -319,21 +349,30 @@ public static class RewardsScene
     /// 🆕 2026-10-04 加：判「文字被切时 uv 有没有跟着截」。
     /// ⚠️ **这个数本身就是 0.02~0.05 的量级**（字形在图集里只占一小块）⇒ 绝不能单独拿它去断
     /// 「&lt; 1」（那是恒真的假断言）；**必须与「同一个字、没被裁切时」的那个数比**。
-    /// 🔴 **2026-10-16（A844）：与 `ShellScene.TmpSpanPx` 是两条口径、有意不收**（要的是 uv 宽、
-    /// 且本处写死 `meshInfo[0]`）—— 理由与「要改得先跑一次」写在上面的 `TmpVertPx` doc 里。</summary>
+    /// 🔴 **2026-10-16（A844）：与 `ShellScene.TmpSpanPx` 是两条口径、有意不收**（要的是 uv 宽）。
+    /// ⚠️ **2026-10-18（A851）更正**：原来这里还写着「本处写死 `meshInfo[0]`」—— **已改**：网格槽按字形自己的
+    /// `chr[i].materialReferenceIndex` 取（理由 / 改坏法见上面 `TmpVertPx` 的 doc）。</summary>
     static float[] TmpGlyphUvW(Label lb)
     {
         var tmp = lb != null ? lb.GetComponentInChildren<TMPro.TextMeshPro>() : null;
         if (tmp == null || tmp.textInfo == null || tmp.textInfo.meshInfo == null
             || tmp.textInfo.meshInfo.Length == 0 || tmp.textInfo.characterInfo == null) return null;
-        var mi = tmp.textInfo.meshInfo[0];
+        // 🔴 **2026-10-18（A851）**：网格槽按**字形自己的** `materialReferenceIndex` 取（原来是写死 `[0]`）。
+        var meshes = tmp.textInfo.meshInfo;
         var chr = tmp.textInfo.characterInfo;
-        if (mi.uvs0 == null) return null;
+        // 「一个能用的槽都没有 ⇒ 回 null」这条口径不变（改前只看 0 号槽；单槽时两种写法逐位同值）
+        bool anyMesh = false;
+        for (int s = 0; s < meshes.Length; s++) if (meshes[s].uvs0 != null) { anyMesh = true; break; }
+        if (!anyMesh) return null;
         var list = new List<float>();
         int n = Mathf.Min(tmp.textInfo.characterCount, chr.Length);
         for (int i = 0; i < n; i++)
         {
             if (!chr[i].isVisible) continue;
+            int slot = chr[i].materialReferenceIndex;
+            if (slot < 0 || slot >= meshes.Length) continue;   // 槽号越界 ⇒ 这个字不出数（⛔ 不静默落回 0 号槽）
+            var mi = meshes[slot];
+            if (mi.uvs0 == null) continue;
             int vi = chr[i].vertexIndex;
             if (vi < 0 || vi + 3 >= mi.uvs0.Length) continue;
             list.Add(Mathf.Abs(mi.uvs0[vi + 2].x - mi.uvs0[vi].x));   // BL 的 u ↔ TR 的 u
@@ -6742,7 +6781,8 @@ public static class RewardsScene
         //    两条量的都是 **TMP 自己的输出**：① mesh 顶点 · ② `textBounds`。
         // 🔴 **2026-10-14 就地订正（铁律 5）**：这一句原来写的是「两条在本工程的口径下**应当逐值相同**」
         //    —— **那是错的**（#53/#54 的根因就是照它取期望值）。两条量的是**两个不同的量**：
-        //    ① 量 **`textInfo.meshInfo[0].vertices`**（= 字形**墨迹**）· ② 量 **TMP 的 `textBounds`**（= **排版框**）。
+        //    ① 量 **`textInfo.meshInfo[<该字的 materialReferenceIndex>].vertices`**（= 字形**墨迹**；A851 起按槽取，
+        //       原来是写死 `[0]`）· ② 量 **TMP 的 `textBounds`**（= **排版框**）。
         //    （旧注释里那句「渲染左缘 = `PxOf(pos.x) − WorldW·108/2`」**只对 ② 成立** —— `Battle/Label.cs` 的 `RefreshBounds`
         //     的 `RefreshBounds` 把 **`b.min.x`（框）**摆到 `−anchor.x·W`；`MenuDraw.Text` 建的标签 anchor = (.5,.5)。）
         //    ① 的墨迹起点还要多一个**首字左边距**
@@ -6753,7 +6793,8 @@ public static class RewardsScene
         //    ② 抓「排版框摆错」—— 但**期望值必须与尺子配对**。
         //
         // ① `TmpEdgePx`：一段文字**真渲出来的**左/右缘（画布 px）—— 走 TMP 的 mesh 顶点
-        //    （`TmpVertPx` = `textInfo.meshInfo[0].vertices` 经 `TransformPoint` + `ToPixel`，本文件现成的，见 `:333`）。
+        //    （`TmpVertPx` = `textInfo.meshInfo[<该字的 materialReferenceIndex>].vertices` 经 `TransformPoint` + `ToPixel`，
+        //     本文件现成的；A851 起按槽取，原来是写死 `[0]`）。
         //    ⚠️ 取不到（`Label` 不在 / 一个顶点都没有）回 `NaN` ⇒ 与任何期望值比都是**红**，正好当「这件没建出来」用。
         System.Func<Transform, bool, float> TmpEdgePx = (t, right) =>
         {

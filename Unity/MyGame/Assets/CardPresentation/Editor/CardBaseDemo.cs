@@ -594,6 +594,17 @@ public static class CardBaseDemo
         var root = new GameObject("title_probe");
         var d = CardData.Placeholder(0);
         d.type = "unit";                      // 走单位卡那一支（卡名/阵营/兵种三层都建）
+        // 🔴 **2026-10-18 收口自检修（铁律 5）**：夹具原来只给了 `type`/`title` ⇒ 下面「② 前提」那条**必然红**。
+        //    **真正的成因只有一件**：`Placeholder` **不填 `subtype`** ⇒ `SubtypeLine`（`CardView.cs:1797-1811`）
+        //    在 `case "unit"` 上返回 `RaceTerm(null)` = 空 ⇒ `Fill` 对空串**直接返回 null、兵种行那一层根本不建**。
+        //    ⚠️ **错在夹具、不在断言**：那条前提正是用来挡「四层一刀切改 Midline」的判别式，
+        //       **不许为了让前提过而把它删掉**。
+        //    🔴 **2026-10-18 当场订正（独立审查 `REV_W_四写手.md` F3/F8 抓的）**：我第一版**顺手加了**
+        //       `d.faction = "Ultramarines";` 并写了理由「`Placeholder` 给的是 `"Ember"`、不在表里」——
+        //       **那个理由是错的**：`"Ember"` **本来就在阵营表里**（`Core/CardText.cs:452` 第一条就是它，
+        //       中文「余烬」），而 `CardText.Faction`（`:505-511`）对**非空 key 永不回退** ⇒ **阵营行本来就建**。
+        //       ⇒ 那行**对这条断言毫无作用**（多余改动 + 一条错论据）**已撤掉**；阵营行沿用 `Placeholder` 给的值。
+        d.subtype = "Infantry";               // ← **唯一**要补的一件：兵种行非空才会建那一层（判据在 `SubtypeLine`）
         d.title = "Probe Title";              // 卡名非空才会建那一层（`Fill` 对空串直接返回 null）
         CardView.Create(root.transform, d, "title_probe_card");
         try

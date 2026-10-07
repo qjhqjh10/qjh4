@@ -741,6 +741,17 @@ namespace CardPresentation
 
         void Build()
         {
+            // 🔴 **2026-10-18（A867 · S1）**：**首句**就把本窗名下的旧滚动区撤掉 —— 这一句下面马上会把
+            //   `root` 的子件全清掉（下一次 `BuildArmySelector` / `BuildDeckRows` 又各登记一颗**新** `MenuScroll`）。
+            //   ⛔ **兜不住**，所以非补不可（`PointerLayer` 的两道自动清理**都判不出这里已死**）：
+            //     · `PruneScrolls` 的 `s == null` —— `MenuScroll` 是**普通 C# 类**（`Shell/MenuScroll.cs:79`）
+            //       ⇒ 节点被销毁**不会**让它变 null ⇒ **恒假**；
+            //     · `s.Owner == null` —— `Owner` 指的是**活下来的窗根**（本方法只删**子件**，`transform` 本身还在，
+            //       而且我们关窗是 `SetActive(false)`、**不销毁**）⇒ 也**恒假**（`Shell/PointerLayer.cs:223-231`）。
+            //   ⇒ 少了这一句 = **每重建一次净涨 1~2 条**，而且旧条目**还能被滚轮命中**（`OnChanged` 指向已销毁的节点）。
+            //   ✅ 形状照抄 `Shell/InboxWindow.cs:405`（那里 `BuildMessageList` 重建前先撤）—— 本方法里那句
+            //   `UnregisterOwnedBy` 必须在 `DestroySafe` **之前**（清完子件再撤也行，但要与登记的顺序成对）。
+            PointerLayer.UnregisterOwnedBy(gameObject);
             var root = transform;
             for (int i = root.childCount - 1; i >= 0; i--) RewardsWindow.DestroySafe(root.GetChild(i).gameObject);
             DeckRows.Clear(); ArmyCells.Clear(); CardRows.Clear();
@@ -863,6 +874,13 @@ namespace CardPresentation
             var armyVc = vp.gameObject.AddComponent<ViewportClip>();
             armyVc.padding = Vector4.zero;                                    // 原版这一处 `m_Padding` 全 0
             armyVc.softness = new Vector2Int((int)ArmyClipSoft.x, (int)ArmyClipSoft.y);   // (0,50)：只渐变上下
+            // 🔴 **2026-10-18（A840 · S1）**：补一句 `CaptureNow()` —— 把**刚写进这个节点的那个矩形**记成基准
+            //   （= 框的中心那一帧，口径 → `ViewportClip` 文件头 §①）。⛔ 少了它，这颗视口**逐位回落到旧写法**
+            //   （实时反推 + `LiveDerivations`）：本窗每开一次整棵树重建，框与被比矩形就可能**不在同一帧**。
+            //   ⚠️ **必须在这里调**（`AddComponent` 之后、`RebuildArmyCells` 之前）：`MenuDraw.ApplyPxRect` 写矩形时
+            //   组件还不存在（那一句的穿透写在 `ApplyPxRect` 尾）—— 同 `ViewportClip.Hang` 里那句
+            //   `vc.SetBaseRect(r)` 的位置理由（`:314-317`）。⛔ 别改成 `OnEnable` 里自动抓（文件头 `:72-73` 明令）。
+            armyVc.CaptureNow();
 
             var filters = New(vp, "Filters", view);               // 原版格容器（`GridLayoutGroup`）
 
@@ -1026,6 +1044,11 @@ namespace CardPresentation
             var deckVc = vp.gameObject.AddComponent<ViewportClip>();
             deckVc.padding = Vector4.zero;                                    // 原版这一处 `m_Padding` 全 0
             deckVc.softness = new Vector2Int((int)DeckClipSoft.x, (int)DeckClipSoft.y);   // (0,23)：只渐变上下
+            // 🔴 **2026-10-18（A840 · S1）**：补一句 `CaptureNow()`（同本窗上面那处阵营视口，理由逐字相同）——
+            //   本窗**两处视口各挂一颗 `ViewportClip`**，而取状态那一路是**沿父链找最近的节点**
+            //   （`ViewportClip.Resolve` 第 2 步）⇒ **一处漏补 = 那一处静默回落旧写法**，另一处补了也**管不到它**。
+            //   ⛔ 别只补一处。
+            deckVc.CaptureNow();
 
             // A332：`Content` 的矩形 = **372.04 × 0**（`DecksVpT` 上下同值 ⇒ 高 0）。
             //   原版靠 `ContentSizeFitter` 长高，**我们这条不会跟着长**（见 `MenuScroll.TopAligned` 的初值）

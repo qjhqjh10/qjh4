@@ -341,6 +341,19 @@ namespace CardPresentation
 
         void Build()
         {
+            // 🔴 **2026-10-18（A867 · S1）**：**首句**就把本窗名下的旧滚动区撤掉 —— 下一句就把 `root` 的子件
+            //   全清掉，而第 6 步会登记一颗**新**的 `MenuScroll`（`Scroll.Owner = gameObject`）。
+            //   ⛔ **兜不住**，所以非补不可（`PointerLayer` 的两道自动清理**都判不出这里已死**）：
+            //     · `PruneScrolls` 的 `s == null` —— `MenuScroll` 是**普通 C# 类**（`Shell/MenuScroll.cs:79`）
+            //       ⇒ 节点被销毁**不会**让它变 null ⇒ **恒假**；
+            //     · `s.Owner == null` —— `Owner` 指的是**活下来的窗根**（本方法只删**子件**，`transform` 本身还在，
+            //       而且我们关窗是 `SetActive(false)`、**不销毁**）⇒ 也**恒假**（`Shell/PointerLayer.cs:223-231`）。
+            //   ⇒ 少了这一句 = **每重建一次净涨 1 条**，而且旧条目**还能被滚轮命中**（`OnChanged` 指向已销毁的节点）。
+            //   🔴 **本窗这条路径【不靠重开窗就够得着】**：切页签 = `SwitchTab` → `RebuildAll()` → 本方法
+            //   （`Shell/DeckSelectionPopup.cs:536-544` / `:573-579`），而且**同一扇窗里可以来回切**
+            //   （`Editor/CollectionScene.cs:2418/:2429/:2432` 就是连切三次的现场）⇒ 这是**单次开窗内**就会涨的漏。
+            //   ✅ 形状照抄 `Shell/InboxWindow.cs:405`。
+            PointerLayer.UnregisterOwnedBy(gameObject);
             var root = transform;
             for (int i = root.childCount - 1; i >= 0; i--) CollectionWindow.DestroySafe(root.GetChild(i).gameObject);
             _emptyNode = null; _emptyLabel = null;      // 旧的那件随子件一起没了 ⇒ 引用也要清（同 `CardDetailPopup.Build`）

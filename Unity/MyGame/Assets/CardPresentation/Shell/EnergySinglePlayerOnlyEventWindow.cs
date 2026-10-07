@@ -189,7 +189,8 @@ namespace CardPresentation
         const string ArtNametag  = "40k_main_bt_nametag";             // 109×41 · Sliced
         const string ArtEnergy   = "40k_topmarquee_currency_energy";  // 90×90 · Simple（⚠️ 本仓 Resources 里**没有**）
         static readonly Vector4 RedBorder  = new Vector4(0f, 26f, 0f, 26f);
-        static readonly Vector4 HdrBorder  = new Vector4(335f, 0f, 395f, 0f);
+        // ⚠️ `HdrBorder`（= 顶栏那张 `WF_Campaign_Info_Background` 的九宫）2026-10-17（A866）已随窗头收口
+        //    一并收进 `WindowHeader.PlateBorder`，本窗不再留第二份。
         static readonly Vector4 MullBorder = new Vector4(333f, 96f, 333f, 96f);
         static readonly Color NoiseTint   = new Color(0.311f, 0.127f, 0f, 0.718f);   // 实读
         static readonly Color VigTint     = new Color(0f, 0f, 0f, 0.58f);            // 实读
@@ -482,32 +483,43 @@ namespace CardPresentation
         }
 
         // ------------------------------------------------------------ 表头
+        /// <remarks>🔴 **2026-10-17（A866）：建法已收口到 `WindowHeader.WithBackButton`**
+        /// （全工程 4 扇窗各抄一遍 ⇒ 收成一份）。本窗这一档的**差异**（逐格对照 →
+        /// `资料/普查产出_1018/S5_A866窗头收口.md` §2）：
+        /// · 标题走 **`FitBeforeSpacing`**（先自适应、后字距 —— 与 `TutorialModePopup` / `LiveOpsEventWindow`
+        ///   那两扇的 `FitAfterSpacing` **相反**；两档静态收敛，照旧保留，⛔ 不替它选边）；
+        /// · 返回钮 = `QuadInOwnNode`（多一层具名节点 `Header Back Button`，图是它的子件 `Bg`）+ **有换图**；
+        /// · 本窗要把建出来的四件存进字段（`_titleLabel` / `_title` / `_back` / `_backBg`）⇒ **接返回值**。</remarks>
         void BuildHeader(Transform root)
         {
-            var hdr = MenuDraw.Node(root, "Header With Back Button", HdrR);
-            var bgT = MenuDraw.Node(hdr, "Header Background", HdrBgR);
-            MenuDraw.Nine(bgT, Art(ArtHdrBg), HdrBgR, HdrBorder, 740f, 167f, QArt);
-            var title = MenuDraw.Text(bgT, TitleR, "Game Mode", Color.white, "Window Title", 67.55f, QText);
-            _titleLabel = title;
-            _title = title != null ? title.transform : null;
-            if (title != null)
+            var p = WindowHeader.WithBackButton(root, new WindowHeader.Spec
             {
-                // 🔴 **顺序不能反**（同族 A475 的教训，判据在 `Shell/LiveOpsEventWindow.cs`）：
+                RootRect = HdrR,
+                PlateRect = HdrBgR,
+                TitleRect = TitleR,
+                // ⚠️ 本窗的字面量是 `Game Mode`（大写 M）—— 与另三扇的 `Game mode` **不同**，照抄原值。
+                TitleText = "Game Mode",
+                // 🔴 **顺序不能反**（同族 A475 的教训，判据已搬进 `WindowHeader.TitleFit`）：
                 //   `SetAutoFitBox` / `SetCharSpacing` **都会改渲染宽度**，而 `AlignLeftOn` 是
-                //   「量当时的 `WorldW` 再反推整块位置」⇒ 自适应与字距必须排在**对齐之前**。
-                //   原版这两行是**静态序列化字段**（不存在「先对齐、后加字距」这种次序）。
-                title.SetAutoFitBox(LayoutSpace.Px(TitleR.W), LayoutSpace.Px(TitleR.H), 18f, 67.55f, 36f);
-                title.SetCharSpacing(5f);      // 原版 `m_characterSpacing = 5`（现读 `字距=5`）
-                MenuDraw.AlignLeft(title, TitleR);
-            }
-            // `Header Background (1)`（往左延伸的尖角）与返回钮：**兄弟序在后 ⇒ 队列更高**
-            MenuDraw.Nine(hdr, Art(ArtHdrBg), HdrBg2R, HdrBorder, 740f, 167f, QArt1, null, true,
-                          "Header Background (1)");
-            _back = MenuDraw.Node(hdr, "Header Back Button", BackR);
-            var bb = MenuDraw.Rect(_back, Art(ArtBack), BackR, "Bg", QArt1, null, true);
-            _backBg = bb != null ? bb.transform : null;
-            // 原版 `Header Back Button` → `CloseButtonClick()` → `Close()`
-            MenuDraw.Hit(_back, "BackHit", BackR, QHit, () => Close(), bb, ArtBack);
+                //   「量当时的 `WorldW` 再反推整块位置」。⚠️ 本窗是**先自适应、后字距** —— 照旧。
+                TitleMode = WindowHeader.TitleFit.FitBeforeSpacing,
+                // 照本窗原来的写法（`TitleR.W` / `TitleR.H`），⛔ 别改成 `TitleR.x2 - TitleR.x1`（可能差 1 ulp）。
+                TitleFitW = TitleR.W, TitleFitH = TitleR.H,
+                WingRect = HdrBg2R,
+                BackRect = BackR,
+                BackButtonStyle = WindowHeader.BackStyle.QuadInOwnNode,
+                BackKeepAspect = true,
+                // 原版 `Header Back Button` → `CloseButtonClick()` → `Close()`
+                BackSwapArt = ArtBack,
+                PlateTex = Art(ArtHdrBg),
+                BackTex = Art(ArtBack),
+                QPlate = QArt, QWing = QArt1, QTitle = QText, QBack = QArt1, QHit = QHit,
+                OnBack = () => Close(),
+            });
+            _titleLabel = p.Title;
+            _title = p.Title != null ? p.Title.transform : null;
+            _back = p.BackNode;
+            _backBg = p.BackQuad != null ? p.BackQuad.transform : null;
         }
 
         // ------------------------------------------------------------ 倒计时

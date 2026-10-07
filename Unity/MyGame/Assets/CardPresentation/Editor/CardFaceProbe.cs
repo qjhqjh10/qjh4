@@ -242,20 +242,59 @@ public static class CardFaceProbe
     /// 两者的中心差得很明显（`Label.OrigInkCenterPx(Midline)` 对这类串恒返回 0、只覆盖
     /// 「全大写/数字串」）。⇒ **只能用网格顶点量**。
     /// ⚠️ 调用前必须已经 `ForceMeshUpdate()`（对象激活之后再调，否则 `textInfo` 是垃圾）。
-    /// ⚠️ 只取 `meshInfo[0]`：一张卡面 TMP 只用一个字体材质；将来若真有 TMP 切多材质，这里要改成遍历全部。</summary>
+    /// 🔴 **2026-10-18（`A965`）更正：这里原来写「⚠️ 只取 `meshInfo[0]`：一张卡面 TMP 只用一个字体材质；
+    ///    将来若真有 TMP 切多材质，这里要改成遍历全部」—— 【当天就改了】**（判据 / 改坏法 =
+    ///    `资料/普查产出_1018/S2_A851槽号.md`；同族 `Editor/RewardsScene.cs` 的 `TmpVertPx` /
+    ///    `TmpVertsAndAlpha` / `TmpGlyphUvW` 是**同一天**按**同一套**改的）：
+    ///    ① **那条自陈的前提本来就不成立** —— 卡面效果文字里**现在就带 `<sprite name=…>`**
+    ///    （`Core/CardText.cs` / `Core/CardIcons.cs`；`Core/TmpFont.cs:163` 给**全工程每颗 TMP** 挂了
+    ///    `CardIcons.SpriteAsset`）⇒ TMP 会**切出第二个材质槽**，**不是「将来」**。
+    ///    ② **改前为什么是缺陷（且静默）**：`characterInfo[i].vertexIndex` 是**按材质槽**编的
+    ///    （`TMP_Text.cs:5524-5541` `FillCharacterVertexBuffers`：`index_X4 = meshInfo[materialReferenceIndex].vertexCount`，
+    ///    各槽**各自从 0 起切**）⇒ 拿别的槽里的字去索引 0 号槽，读到的是 **0 号槽里「同下标」那个字**的四角 ——
+    ///    索引仍在数组内、量出来「像个数」、**不报错**。
+    ///    ③ **改前为什么没爆**（本笔与 `A851` 的**唯一**区别）：本处原来扫的是 `meshInfo[0]` 的**整个已分配数组**
+    ///    （`TMP_MeshInfo.cs:249-261` 按 **2 的幂**扩容 ⇒ 尾巴上有补齐的零槽，`Clear` / `ClearUnusedVertices`
+    ///    把它们清成 `Vector3.zero`），而本工程标签的字墨**跨 `y=0`**（`Middle` / `Midline` 都把字块摆在矩形
+    ///    原点两侧）⇒ 那些零槽**落在字墨范围内、动不了 min/max** ⇒ 单槽时两种写法**逐位同值**。
+    ///    **改坏法**：越界槽若不当场 `continue`（落回 0 号槽）就等于回到老缺陷上。
+    /// ⚠️ 本笔**顺带**把扫描集合收敛成「只认 `isVisible` 的字」（这本来就是本 doc 第一行写的口径，代码原来没收）——
+    ///    不可见的字（空格等）TMP 给的是**四角全 0**（`TextMeshPro.cs:4536-4541`）。
+    /// 📌 **本笔的回归网【半空】**（详据 = `资料/普查产出_1018/S6_A965卡面探针取槽.md` §2/§3）：本文件**全文件零断言** ⇒「红」这条路本来就不存在；
+    ///    `title` / `army` / `race` 三层**逐位同值**（`army`/`race` 网格容量 == 用量、无零槽；`title` 的补齐零槽经实测 `0.0000` 反证**落在字墨之内**）⇒ **改回旧写法也不变**；
+    ///    而 **`keywords`（效果文字那层）今天就带 `<sprite>`**（`Core/CardText.cs:290`；sprite asset 的材质是独立一份 ⇒ **2 个槽**）⇒ 旧写法**漏掉图标**、读数会动 ⇒ **本笔在这层是活的**。
+    ///    要「有牙」得先实跑确认那颗标签的 `textInfo.meshInfo.Length ≥ 2`（**要跑 Unity**）—— 线索交调度台。</summary>
+    /// <returns>字墨中点（TMP 本地单位的 y）；**一个可见字形都量不到时回 `0f`**（哨兵值不变 ——
+    /// ⚠️ 它与「字墨中点恰好是 0」撞车，调用点只打日志、不拿它判存在性）。</returns>
     static float InkCenterY(TMP_Text t)
     {
         var ti = t.textInfo;
-        if (ti == null || ti.meshInfo == null || ti.meshInfo.Length == 0) return 0f;
-        var v = ti.meshInfo[0].vertices;
-        if (v == null || v.Length == 0) return 0f;
+        if (ti == null || ti.meshInfo == null || ti.meshInfo.Length == 0 || ti.characterInfo == null) return 0f;
+        // 🔴 **2026-10-18（`A965`）**：网格槽按**字形自己的** `materialReferenceIndex` 取（原来写死 `[0]`，
+        //    一行里混了 `<sprite name=…>` 就会把这个字串到 0 号槽里**同下标那个字**的顶点上）。
+        //    取法照 `Editor/ShellScene.cs` 的 `SpanOfTmp` / `Editor/RewardsScene.cs` 的 `TmpVertPx`（`A851` 那三处）。
+        var meshes = ti.meshInfo;
+        var chr = ti.characterInfo;
         float lo = float.MaxValue, hi = float.MinValue;
-        for (int i = 0; i < v.Length; i++)
+        int n = Mathf.Min(ti.characterCount, chr.Length);
+        for (int i = 0; i < n; i++)
         {
-            float y = v[i].y;
-            if (y < lo) lo = y;
-            if (y > hi) hi = y;
+            if (!chr[i].isVisible) continue;                     // 不可见的字 TMP 写四角全 0，别当字墨
+            int slot = chr[i].materialReferenceIndex;
+            if (slot < 0 || slot >= meshes.Length) continue;     // 槽号越界 ⇒ 这个字不出点（⛔ 不静默落回 0 号槽）
+            var v = meshes[slot].vertices;
+            if (v == null) continue;
+            int vi = chr[i].vertexIndex;
+            for (int k = 0; k < 4; k++)                          // 每个字恒占 4 槽（`TMP_Text.cs:5535`）
+            {
+                int idx = vi + k;
+                if (idx < 0 || idx >= v.Length) continue;        // 角越界 ⇒ 跳这个角（⛔ 不静默当 0）
+                float y = v[idx].y;
+                if (y < lo) lo = y;
+                if (y > hi) hi = y;
+            }
         }
+        if (lo > hi) return 0f;   // 一个可见字都没有（空串 / 全不可见）—— 与改前「0 号槽取不到网格」同一个哨兵值
         return (lo + hi) * 0.5f;
     }
 

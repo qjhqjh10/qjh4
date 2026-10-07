@@ -4663,6 +4663,31 @@ public static class ShopScene
 
             if (vc435 != null && vp435 != null && pg435 != null)
             {
+                // ---- ⓪ 🆕 2026-10-18（A840）：这颗视口**记过自己的设计矩形** ----
+                //   记录点 = `BuildGrid` 之前那句 `_gridVp.CaptureNow();`（`Shell/ShopWindow.cs:428`）。
+                //   口径 → `Shell/ViewportClip.cs` 文件头 §①；现场 → `资料/普查产出_1018/S1_A840与A867.md` §1/§2.1。
+                //   🔴 **为什么非断不可**：`Setup()` 每次开页都重建整棵树，而 `MenuDraw.ApplyPxRect` 写这个节点的
+                //   矩形时**组件还不存在**（那一句的穿透只找**已有**的 `ViewportClip`）⇒ ⛔ 少了 `CaptureNow()`
+                //   这颗节点**逐位回落到旧写法**（实时反推 + `LiveDerivations`）：节点或它的祖先被挪过之后，
+                //   框与被比矩形就**不在同一帧**（A811 那个病灶）。
+                CheckTrue(vc435.HasBaseRect,
+                          "★ A840：这颗视口**记过设计矩形**（`ViewportClip.HasBaseRect`）"
+                        + "｜**改坏法**：删掉 `Shell/ShopWindow.cs:428` 那句 `_gridVp.CaptureNow();` ⇒ 本条红"
+                        + "（下面 ① 那四条「框 = 原版 329.76…」也会跟着换一条路走 —— 那时框只能靠实时反推）");
+                if (vc435.HasBaseRect)
+                {
+                    var br435 = vc435.BaseRect;
+                    bool brOk435 = Mathf.Abs(br435.x1 - 329.76f) <= 0.05f && Mathf.Abs(br435.y1 - 127.62f) <= 0.05f
+                                && Mathf.Abs(br435.x2 - 1920.00f) <= 0.05f && Mathf.Abs(br435.y2 - 1080.00f) <= 0.05f;
+                    CheckTrue(brOk435,
+                              "★★ A840：记下的矩形 = **宿主写进这个节点的那份设计矩形**"
+                            + $"（实测 {br435.x1:F3},{br435.y1:F3} → {br435.x2:F3},{br435.y2:F3}；"
+                            + "期望 = 原版 `Shop Menu Variant` 的 `Packs Scroll View` 那一格 329.76,127.62 → 1920.00,1080.00"
+                            + "，⛔ 不读 `ShopTabPage.ScrollView` —— 那是被测实现传进去的实参）"
+                            + "｜**改坏法**：把 `CaptureNow()` 挪到节点被改过之后再调（= 记成**错帧**）⇒ 红"
+                            + "（那时 `HasBaseRect` 仍是 true ⇒ **上面那条抓不到它，只有本条抓得住**）");
+                }
+
                 // ---- ① 两个字段 = 原版实读值（逐页出处 → `Shell/ShopWindow.cs` 的 `PacksSoft` 那段注释）----
                 Check(vc435.padding, Vector4.zero,
                       "★ A26：节点 `padding` = (0,0,0,0)（原版三页的 `m_Padding` 实读）");
@@ -4689,16 +4714,27 @@ public static class ShopScene
                 {
                     var inVp435 = new PxRect(500f, 400f, 700f, 500f);       // 原视口里的一小块
                     CheckTrue(sc435.Intersects(inVp435), "（前提）这一小块**落在原视口里** ⇒ 正常态判「可见」");
-                    var keepPos435 = vp435.localPosition;
-                    vp435.localPosition = keepPos435 + new Vector3(0f, 200f, 0f);   // 往上挪 200 世界单位 ≈ 21600px
+                    // 🔴 **2026-10-18（A840）就地订正（铁律 5）**：毒药从「改这个节点的**活** `localPosition`」
+                    //   改成「改**这个节点那个框**」（`MenuDraw.ApplyPxRect`）—— 与本文件下面 ③ 那条、
+                    //   以及 `Editor/ShellScene.cs` 的 A745 / A754 / `Vp4` 三处**同一种下毒法**。
+                    //   **为什么非改不可**（不改就是一条**假红**）：A840 给这颗节点补了 `CaptureNow()`
+                    //   ⇒ `ViewportClip.ClipPx` 的**中心**从「实时 transform 反推」换成「宿主写进节点的
+                    //   那份设计矩形（`BaseRect`）」，**只跟 `BaseRect` 走**（`Shell/ViewportClip.cs:250-291` 的 ① 支）
+                    //   ⇒ 光挪 `localPosition` 时**框纹丝不动** ⇒ 下面那条 `!Intersects` 会红。
+                    //   ⚠️ 命题一个字没变（照样钉「框来自**节点**」），只是毒在了**框真正取用的那个量**上。
+                    //   同一次订正的**先例与逐字说明** → `Editor/CollectionScene.cs:7039-7055`（A811 根治时同一个坑）。
+                    var vpFull435 = new PxRect(329.76f, 127.62f, 1920.00f, 1080.00f);
+                    MenuDraw.ApplyPxRect(vp435, vp435.parent,
+                                         new PxRect(329.76f, 927.62f, 1920.00f, 1880.00f));  // 整框往上挪 800px（避开 inVp435）
                     CheckTrue(!sc435.Intersects(inVp435),
-                              "★ A465：把**节点**搬走 21600px 之后，落在 `MenuScroll.Viewport` 里那一块"
+                              "★ A465：把**节点那个框**搬走 800px（框变 927.62→1880.00，与 `inVp435` 不相交）之后，"
+                            + "落在 `MenuScroll.Viewport` 里那一块"
                             + "**必须判不可见** —— 这条钉的是「`Intersects` 的框来自**节点**」。"
                             + "**改坏法**：把 `MenuScroll.Intersects` 写回 `MenuDraw.Visible(onScreen, Viewport)`"
                             + "（2026-10-13 之前的老写法，也是块 4 建议的那个**空操作**版本）⇒ 立刻红");
-                    vp435.localPosition = keepPos435;
+                    MenuDraw.ApplyPxRect(vp435, vp435.parent, vpFull435);                     // 还原（把框放回去）
                     CheckTrue(sc435.Intersects(inVp435),
-                              "（还原）把节点放回去 ⇒ 又判可见 —— 这一条同时钉住「上一条不是因为别的原因红的」");
+                              "（还原）把框放回去 ⇒ 又判可见 —— 这一条同时钉住「上一条不是因为别的原因红的」");
                 }
 
                 // ---- ③ 节点态真的驱动【裁切】：收小节点 ⇒ 重建 ⇒ **渲出来的真几何**跟着变 ----

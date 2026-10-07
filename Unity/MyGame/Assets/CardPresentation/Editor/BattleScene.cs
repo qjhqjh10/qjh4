@@ -2494,6 +2494,65 @@ public static class BattleScene
                           $"…然后再拖回最右 ⇒ 插槽 {it.InsertIndex}（应 {others}，与本节上一条同一个值）");
                 }
 
+                // 🆕 2026-10-18（A896 · 调度台裁定一）：**上面那道 y 守卫 `if (…y < board.lineY)` 也读【指针】。**
+                //   判据（`d:/2/tools/decomp_full/BattleManager__Update.c` 亲读）：那道判别式是**两道量**在比 ——
+                //   `playerHandPosLimitObj`（`+0x180`，场景节点 `HandLimitArea`）的 `transform.position`
+                //   与 `mouseCanvasPos`（`+0x434`，**y 在 `+0x438`**）：`:192-195` / `:249` / `:291` 三处一律
+                //   `线.y < mouse.y`，**一次都没读「被拖那张卡」的 transform**。
+                //   ⚠️ **如实标**：原版那条 y 判据**守的不是「手牌让位」**（让位在 `case 2` 尾部 `:341-347`
+                //   无条件跑）⇒ **我们这道守卫本身原版没有对应物**，本件只把量换成原版那一处比较取的那个量。
+                //   🔴 **必须喂 `dt = 0`**：卡的 y 带 `Lerp` 平滑、滞后于指针 —— 真帧下它一会儿就追上去，
+                //      「读指针」与「读卡」两条路**会趋同**、差异被掩盖（与上面 B12 同一手法）。
+                {
+                    var handPt = LayoutSpace.ToWorld(0.10f, HandBaselineY);   // 手牌带：y 在棋盘线**以下**
+                    var boardPt = LayoutSpace.ToWorld(0.10f, 0.50f);          // 棋盘带：同一个 x、只把 y 抬到线**以上**
+
+                    Check(others > 0,
+                          $"（前提）手牌里除被拖那张之外还有牌（others = {others}）—— 若为 0，左右两端的插槽号"
+                        + "会重合，下面那条判别式就成了**空断言**（这条与上面 B12 那条 `byPointer != byCard` 互为旁证）");
+
+                    it.SimulateDrag(handPt, 0f);                              // 先摆回「守卫成立」的那一侧
+                    Check(it.InsertIndex == 0,
+                          $"（前提）指针在**手牌带**（y {LayoutSpace.ToNormalized(handPt).y:F3} < 棋盘线 "
+                        + $"{pBoard.lineY:F3}）⇒ 让位照跑、插槽 {it.InsertIndex}（应 0）。"
+                        + " 🧨 改坏法：把守卫删掉、或写成恒 false ⇒ 红（前者下面那条会红、后者这条当场红）");
+
+                    it.SimulateDrag(farRight, 0f);                            // 挪回最右（dt = 0 ⇒ 卡仍然不动）
+                    Check(it.InsertIndex == others,
+                          $"（前提）指针挪到最右 ⇒ 插槽 {it.InsertIndex}（应 {others}）");
+
+                    var cardPos2 = view.transform.position;
+                    float cardY01 = LayoutSpace.ToNormalized(cardPos2).y;
+                    float ptY01 = LayoutSpace.ToNormalized(boardPt).y;
+                    it.SimulateDrag(boardPt, 0f);                             // 同一个 x、只把 **y** 抬到棋盘线以上
+                    Check(Vector3.Distance(view.transform.position, cardPos2) < 1e-6f,
+                          "（前提）`dt = 0` 这一喂**卡一步都没挪**（`Lerp(…, 1 − Exp(0))` = 不动；期望 **0**；实得 "
+                        + $"{Vector3.Distance(view.transform.position, cardPos2):E2}）"
+                        + " —— 🧨 改坏法：把 `CardInteraction.UpdateDrag` 那句 `1f − Mathf.Exp(−20f * dt)`"
+                        + " 改成与 `dt` 无关的常数 ⇒ 红（下面那条判别式也就失效了）");
+                    Check(cardY01 < pBoard.lineY && ptY01 > pBoard.lineY,
+                          $"（前提）两个候选量**真的分处棋盘线两侧**（卡 y {cardY01:F3} < 线 {pBoard.lineY:F3}"
+                        + $" < 指针 y {ptY01:F3}）—— 分不开的话下面那条对「传成卡的位置」无感"
+                        + "（🧨 改坏法：把 `pBoard.lineY` 换成落在手牌带里的值 ⇒ 红）");
+                    Check(it.InsertIndex == others,
+                          $"★ 那道 y 守卫问的是**指针**、不是被拖那张卡（带平滑）的位置：指针抬到棋盘线以上 ⇒"
+                        + $" 让位不该再跑，插槽仍是 {it.InsertIndex}（应 {others}）。"
+                        + " 🧨 改坏法：把 `Hand/CardInteraction.UpdateDrag` 里那句 "
+                        + "`if (LayoutSpace.ToNormalized(world).y < board.lineY)` 换回 `…(t.position)…` ⇒ 红"
+                        + $"（卡此刻还停在手牌带 y {cardY01:F3}、守卫照样成立，而指针 x 在 0.10 ⇒ 插槽会被刷成 0）");
+
+                    it.SimulateDrag(handPt, 0f);                              // ★ 反向：抬上去之后再放回来
+                    Check(it.InsertIndex == 0,
+                          $"★ …指回手牌带（同一个 x，仍 `dt = 0`、卡没动）⇒ 让位**重新**跑起来、插槽 {it.InsertIndex}"
+                        + "（应 0）—— 证明这道守卫是**逐帧按指针重判**、不是抬上去一次就生锈"
+                        + "（🧨 改坏法：把它改成只在某一侧赋值一次的闩 ⇒ 红）");
+
+                    it.SimulateDrag(farRight, 0f);                            // 还原：指针回手牌带的最右
+                    Check(it.InsertIndex == others,
+                          $"…还原（指针回手牌带最右、`dt = 0`）⇒ 插槽 {it.InsertIndex}（应 {others}）；"
+                        + "下一段「拖到棋盘」从同一个状态接着跑");
+                }
+
                 for (int i = 0; i < 24; i++) { it.SimulateDrag(slotPos, 1f / 30f); Step(1f / 30f); }
 
                 // 🆕 2026-10-01（§〇 第 14 条 (b)）：**落点指示只点一格**（原版
@@ -13857,6 +13916,27 @@ public static class BattleScene
                 return null;
             }
 
+            /// <summary>🆕 2026-10-18（`Z6` 收口 · 修「教程脚本推进 21 红」· R1）：**「推一步」= 驱动执行器
+            /// + 替玩家把 `waitForTip` 那条提示点掉**。
+            ///
+            /// 🔴 **为什么必须成对**：本批 `Z6` 让 `DriveTutorialScript` 在提示挂着时
+            /// `if (_tutTipUp) return TutorialStep.Advanced;`（`BattleDriver.cs` 的 `if (_tutTipUp) return TutorialStep.Advanced;`（🔴 **按内容找，别按行号** —— 2026-10-18 实测在 `:8656`，本批加日志后从 8649 漂过来的（独立审查 `REV_W_四写手.md` F1）；**逐字照原版**
+            /// `_ExecuteScriptedTurn_d__597:252-264` 那个 `+0x430` 自旋 ⇒ ⛔ 那一句**不许动**），
+            /// 而批处理**没有帧循环**（`TickTutorialView` 只由 `Update` 喂 dt）**也没有真鼠标**
+            /// ⇒ `_tutTipUp` 一旦为真**再也不会变假** ⇒ 脚本**原地不动**，后面每一条断言都在读
+            /// 一个「指针停在原地」的局面（诊断 → `资料/普查产出_1018/DC_教程推进21红.md` R1，20/21 条）。
+            /// 提示消掉的那一下 = 原版 `TutorialTipScript.Update` 里那一下左键；
+            /// `force = true` 跳过 `minTimeBeforeSkip`（自检不喂真时钟）。
+            ///
+            /// ⚠️ ⛔ **别拿它换掉「就是要看提示挂着」那两条**（⑭⑥ 里读 `ov.TipVisible` / `ov.TipText` 的
+            /// `Check(ov.TipVisible, …)`）—— 那里要留一个**没被点掉**的提示；那一处用裸驱动 + 看完再显式点掉。</summary>
+            BattleDriver.TutorialStep DriveStep()
+            {
+                var s = driver.DriveTutorialScriptForTest();
+                if (driver.TutorialWaitingForTip) driver.DismissTutorialTipForTest(true);
+                return s;
+            }
+
             // ---- 0. 数据装上了吗（装不上 ⇒ 下面每一条都会是假红，先说清）----
             var tutStages = TutorialData.Stages;
             Check(tutStages.Length == 6, $"（前提）教程关卡数据 **6 关**装上了（实得 {tutStages.Length}）"
@@ -14254,12 +14334,16 @@ public static class BattleScene
                     + "｜🧨 把 `Begin` 里那句 `SyncTutorialTurn()` 删掉 ⇒ 本条红（`Turn` 会停在 0）");
 
                 // ① 每驱动一帧 ⇒ 脚本推一条（第 1 回合第 0 条 = `SmallTip`，非玩家动作）
-                var st0 = driver.DriveTutorialScriptForTest();
-                Check(st0 == BattleDriver.TutorialStep.Advanced && tW.ActionCounter == 1,
+                var st0 = DriveStep();
+                Check(st0 == BattleDriver.TutorialStep.Advanced && tW.ActionCounter == 1
+                      && !driver.TutorialWaitingForTip,
                       $"★ **执行器真的被驱动了**：驱动一帧 ⇒ 推掉 1 条（指针 0 → {tW.ActionCounter}）"
-                    + " —— 这正是 A938 原来缺的那一环（生产代码里零调用点）");
+                    + " —— 这正是 A938 原来缺的那一环（生产代码里零调用点）"
+                    + "｜🧨 第三项（`!TutorialWaitingForTip`）是**两态判别式**：被 `_tutTipUp` 挡住时"
+                    + " 驱动同样返回 `Advanced`（`DC_教程推进21红.md` §6·3 那条弱断言）——"
+                    + " 靠 `ActionCounter` 与这一项合起来才分得出「真推了一条」");
                 // ② 下一条是 `AttackFreeMode(playerAction = true)` ⇒ **原地停住、指针不动**
-                var st1 = driver.DriveTutorialScriptForTest();
+                var st1 = DriveStep();
                 Check(st1 == BattleDriver.TutorialStep.WaitingForActor && tW.ActionCounter == 1,
                       "★ **等玩家的那一条不执行**：`AttackFreeMode(playerAction=true)` ⇒ 脚本停住、指针不动"
                     + "（原版 `_ExecuteScriptedTurn_d__597:236-246`：`IsNextActionScriptedPlayerAction` 真 ⇒ 协程结束）"
@@ -14319,9 +14403,9 @@ public static class BattleScene
                     + "｜🧨 把那道守卫删成「无条件 +1」⇒ 本条红");
 
                 // ⑤ 把这一回合剩下的推完：`SmallTip` ×2 → 落在 `EndTurn(playerAction=true)`
-                driver.DriveTutorialScriptForTest();
-                driver.DriveTutorialScriptForTest();
-                var st2 = driver.DriveTutorialScriptForTest();
+                DriveStep();
+                DriveStep();
+                var st2 = DriveStep();
                 Check(tW.ActionCounter == 4 && st2 == BattleDriver.TutorialStep.WaitingForActor,
                       $"★ 第 1 回合推到第 4 条（`EndTurn`，等玩家）—— 指针 {tW.ActionCounter}");
                 Check(!driver.TutorialPermitsForTest(attOk),
@@ -14378,9 +14462,11 @@ public static class BattleScene
                 int recBefore = recW.actions.Count;
 
                 // ⑦ **六档里的 `Attack`**：脚本接管 AI 回合，第一条真的打了一记
-                var st3 = driver.DriveTutorialScriptForTest();
-                Check(st3 == BattleDriver.TutorialStep.Advanced && tW.ActionCounter == 1,
-                      "★ 第 2 回合第 1 条（AI 的 `Attack`）由**脚本**执行");
+                var st3 = DriveStep();
+                Check(st3 == BattleDriver.TutorialStep.Advanced && tW.ActionCounter == 1
+                      && !driver.TutorialWaitingForTip,
+                      "★ 第 2 回合第 1 条（AI 的 `Attack`）由**脚本**执行"
+                    + "｜🧨 末尾那一项是**两态判别式**：被 `_tutTipUp` 挡住时驱动同样返回 `Advanced`");
                 int evtAfter = 0;
                 for (int i = 0; i < cW.ActionLog.Count; i++)
                     if (cW.ActionLog[i] != null && cW.ActionLog[i].Kind == EvtKind.Attack) evtAfter++;
@@ -14396,7 +14482,7 @@ public static class BattleScene
                       $"★ **第三条记账口**（`TutorialScript.Executed`）把脚本那一条记进了录像"
                     + $"（{recBefore} → {recAfter}）"
                     + " —— 不记的话**教程局录像回放会从那里开始演成另一局**");
-                driver.DriveTutorialScriptForTest();      // 第 2 条 = `AiChat`（纯演出）
+                DriveStep();      // 第 2 条 = `AiChat`（纯演出）
                 Check(recW.actions.Count == recAfter,
                       $"★ **判别式**：`AiChat` 是纯演出（不改引擎状态）⇒ **一条都不许记**（仍是 {recW.actions.Count}）"
                     + "｜🧨 把记账口改成「凡动作都记」⇒ 本条红（回放会被空动作污染）");
@@ -14548,12 +14634,15 @@ public static class BattleScene
                     var cA = driver.Ctx;
                     var tA = cA.Tutorial;
                     // 把第 1 回合推到 `EndTurn(P)`（与主流程同一套动作），再收回合 ⇒ 进 AI 的第 2 回合
-                    driver.DriveTutorialScriptForTest();                 // 0 → 1（SmallTip）
+                    DriveStep();                                         // 0 → 1（`SmallTip`；`waitForTip` ⇒ 顺手点掉）
                     driver.ContinueTutorialScriptForTest();              // 玩家做掉 `AttackFreeMode` ⇒ 1 → 2
-                    driver.DriveTutorialScriptForTest();                 // 2 → 3
-                    driver.DriveTutorialScriptForTest();                 // 3 → 4
-                    Check(driver.DriveTutorialScriptForTest() == BattleDriver.TutorialStep.WaitingForActor
-                          && tA.ActionCounter == 4, "（前提）指针落在第 1 回合最后那条 `EndTurn(P)`");
+                    DriveStep();                                         // 2 → 3
+                    DriveStep();                                         // 3 → 4
+                    Check(DriveStep() == BattleDriver.TutorialStep.WaitingForActor
+                          && tA.ActionCounter == 4 && !driver.TutorialWaitingForTip,
+                          "（前提）指针落在第 1 回合最后那条 `EndTurn(P)`"
+                        + "｜🧨 两态判别式：被 `_tutTipUp` 挡住时驱动返回的是 `Advanced`（不是 `WaitingForActor`）"
+                        + " ⇒ 本条当场红 —— 批处理没有帧循环，提示不会自己消（`DC_教程推进21红.md` R1）");
                     driver.SimulateEndTurn();
                     Check(cA.Turn == 2 && tA.ActionCounter == 0, "（前提）进第 2 回合（AI 的脚本回合），指针归零");
 
@@ -14673,8 +14762,16 @@ public static class BattleScene
                     // ---- ⑥ 小提示（`SmallTip 61` 条；判据 = `TutorialTipScript` 那一套参数）----
                     var ov = driver.TutorialView;
                     Check(!ov.TipVisible, "★ 还没走到 `SmallTip` ⇒ 提示**不亮**（判别式的一半）");
-                    Check(driver.DriveTutorialScriptForTest() == BattleDriver.TutorialStep.Advanced,
-                          "（前提）第 1 关第 1 回合第 0 条是 `SmallTip`（脚本自己执行）");
+                    // 🔴 这一处**故意不用 `DriveStep()`**：紧接着那几条断言（`ov.TipVisible` / `ov.TipText` /
+                    //    `ov.TipContinueText`）要读的正是「提示正挂着」这一刻，而助手会**当场把它点掉**。
+                    //    这里 = **裸驱动 + 两态判别式**；提示改由 ⑦ 那一段开头显式点掉。
+                    //    原有写法只断 `== Advanced` —— 那是 `DC_教程推进21红.md` §6·3 点名的**弱断言**：
+                    //    被 `_tutTipUp` 挡住时**也**是 `Advanced`（分不出「真推了一条」与「什么都没干」）。
+                    Check(driver.DriveTutorialScriptForTest() == BattleDriver.TutorialStep.Advanced
+                          && driver.Ctx.Tutorial.ActionCounter == 1 && driver.TutorialWaitingForTip,
+                          "（前提）第 1 关第 1 回合第 0 条是 `SmallTip`（脚本自己执行）"
+                        + "｜🧨 **两态判别式**：真推了一条 ⇒ `ActionCounter` 走到 1 **且**提示挂起来；"
+                        + " 若被 `_tutTipUp` 挡住 ⇒ 驱动同样返回 `Advanced`，但 `ActionCounter` 仍停在 0 ⇒ 本条红");
                     var tipAct = driver.Ctx.Tutorial.CurrentTurn.actions[0];
                     Check(ov.TipVisible, "★ 走到 `SmallTip` ⇒ **提示亮起来**（原版 `BattleManager.ShowTutorialTip`）");
                     Check(ov.TipText == (tipAct.arg ?? ""),
@@ -14688,8 +14785,18 @@ public static class BattleScene
                           "★ 这一条**没有** `shouldHighlightElement` ⇒ 高亮**不亮**（判别式的另一半）");
 
                     // ---- ⑦ 高亮 + `K2`（玩家动作出场）----
-                    Check(driver.DriveTutorialScriptForTest() == BattleDriver.TutorialStep.WaitingForActor,
-                          "（前提）第 1 条是 `AttackFreeMode(playerAction = true)` ⇒ 脚本停住");
+                    // 🔴 上一条提示**看完了** ⇒ 这里替玩家点掉它。⛔ **不点的话脚本推不动** ——
+                    //    `DriveTutorialScript` 开头的 `if (_tutTipUp) return Advanced;`（`BattleDriver.cs` **按内容找**，
+                    //    逐字照原版）会让下面每一句驱动都变成空转（`DC_教程推进21红.md` R1）。
+                    //    那一下 = 原版 `TutorialTipScript.Update` 里的左键抬起；`force=true` 跳过 `minTimeBeforeSkip`。
+                    Check(driver.DismissTutorialTipForTest(true) && !driver.TutorialWaitingForTip,
+                          "（前提）提示**真的被点掉了**（`DismissTutorialTip` 返回真 · 标志位归假）"
+                        + "｜🧨 把 `DismissTutorialTip` 里清 `_tutTipUp` 那一句删掉 ⇒ 本条红，"
+                        + " 而且下面每一条驱动都会空转（这就是 R1 那 20 条红的形状）");
+                    Check(DriveStep() == BattleDriver.TutorialStep.WaitingForActor
+                          && !driver.TutorialWaitingForTip,
+                          "（前提）第 1 条是 `AttackFreeMode(playerAction = true)` ⇒ 脚本停住"
+                        + "｜🧨 两态判别式：被 `_tutTipUp` 挡住时驱动返回的是 `Advanced` ⇒ 本条红");
                     Check(driver.TutorialEventsContain("玩家动作出场"),
                           "★ **K2**：脚本停住那一刻**调了一次 `ShowPlayerActionAnim`**"
                         + "（原版 RVA `0x180944290`，调用点本来在 `PlayScriptedTurn` 那一支里；"
@@ -14698,12 +14805,14 @@ public static class BattleScene
                           "★ **指点光标**亮着（原版 `CheckForTutorialPointer` 只在 `playerAction == 1` 时走）");
                     // 推到第 1 回合第 4 条 `EndTurn`（数据里 `shouldHighlightElement = true`、`positionReference = 90`）
                     driver.ContinueTutorialScriptForTest();
-                    driver.DriveTutorialScriptForTest();
-                    driver.DriveTutorialScriptForTest();
+                    DriveStep();
+                    DriveStep();
                     Check(!ov.HighlightVisible, "（前提）推到第 3 条（`SmallTip`）时高亮仍**不亮**");
-                    Check(driver.DriveTutorialScriptForTest() == BattleDriver.TutorialStep.WaitingForActor
-                          && driver.Ctx.Tutorial.ActionCounter == 4,
-                          "（前提）指针落在第 4 条 `EndTurn`（等玩家）");
+                    Check(DriveStep() == BattleDriver.TutorialStep.WaitingForActor
+                          && driver.Ctx.Tutorial.ActionCounter == 4 && !driver.TutorialWaitingForTip,
+                          "（前提）指针落在第 4 条 `EndTurn`（等玩家）"
+                        + "｜🧨 两态判别式：上面那两条 `SmallTip` 的提示没点掉 ⇒ 这里驱动返回 `Advanced`"
+                        + "（不是 `WaitingForActor`）⇒ 本条红（`DC_教程推进21红.md` R1）");
                     Check(ov.HighlightVisible,
                           "★ **高亮**：`EndTurn` 那一条 `shouldHighlightElement = true`、`positionReference = 90`"
                         + "（= 结束回合那颗钮，`dump.cs` TypeDefIndex 478）⇒ **高亮亮起来**"
@@ -14895,12 +15004,21 @@ public static class BattleScene
                     Check(!driver.CemeteryClickAllowedForTest,
                           "★ **判别式**：同一个面板、只把关卡换成 `hideCemetery = 1` ⇒ 闸门**关上**"
                         + "（一开一关 ⇒ 这一条既不可能是「恒放行」也不可能是「恒拦」）");
+                    // 🔴 摆正基线：日志面板只在 `BuildHud()` 里建**一次**（`BattleDriver.cs:11117`，`Begin()` 不重建），
+                    //    而 `Show()/Hide()/ApplyEntries()` **都不碰** `SelectedRow`
+                    //    （全仓只有构造 `BattleLogPanel.cs:606` 与 `SelectRow` `:436` 会写它）
+                    //    ⇒ 上一个子用例（闸门**开**的那一格）点过第 0 行 ⇒ 此刻它是 **0**、不是 -1
+                    //    （诊断 → `DC_教程推进21红.md` R2）。
+                    driver.BattleLog.SelectRow(-1);
+                    Check(driver.LogSelectedRow == -1, "（前提）闸门这一档开始前「还没点过任何一行」");
+                    int selBefore = driver.LogSelectedRow;
                     bool ateB = driver.ClickLogRowForTest(0);
-                    Check(ateB && driver.LogSelectedRow == -1,
+                    Check(ateB && driver.LogSelectedRow == selBefore,
                           "★ 闸门关着时：这一下**仍然被吃掉**（原版就在这颗按钮的处理函数里 return，"
                         + "点击传不到压暗层）—— 但**没有记下选中的行**"
-                        + "（原版 `:76 return` 在 `:79` 那句赋值**之前**）"
-                        + "｜🧨 把闸门删掉 ⇒ 这两条一起红");
+                        + "（原版 `CemeteryLogManager__ClickCemeterySlider.c:76-77`：`CanShowCemetery` 为假就 `return`，"
+                        + "而那个 `return` 在**行处理整段之前** —— 最近的赋值在 `:83`）"
+                        + "｜🧨 把闸门删掉 ⇒ 这两条一起红（闸门若写错成「放行」⇒ 会调 `SelectRow(0)` ⇒ 值被改掉）");
                     Check(driver.LogHoverCardKey == null, "…而且没有弹任何卡");
                     driver.BattleLog.Hide();
                 }

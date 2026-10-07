@@ -2849,7 +2849,14 @@ namespace RuleEngine
         /// 这条通道**没有生产者**（机制留着，等输入）。⛔ 别再把「此刻有单位」当成它。</param>
         /// <param name="criteria">🆕 2026-10-18（`A885` ②）：原版 `HandEffect.targetCriteria` ——
         /// **后进手牌的牌**要过这一关才知道吃不吃得上（`PlayerHand__SetupCardInHand.c:58`）。
-        /// `null` = 没有可判的规格（那时 `RuleCore.SetupCardInHand` 退回「单位卡」这一档，见那儿）。</param>
+        /// `null` = 没有可判的规格 ⇒ **这条记录【不补给】后进手牌的牌**
+        /// （`RuleCore.HandEffectFits` 判不出来那一支是 `return false`，于是 `SetupCardInHand` 只出声、不贴牌）。
+        /// ⚠️ **2026-10-18 订正（铁律 5，`W5` 收窄后没跟着改）**：原来这里写着
+        /// 「那时 `RuleCore.SetupCardInHand` **退回「单位卡」这一档**，见那儿」—— **那个退路已经不存在了**。
+        /// 判据 = 原版 `FilterMethods__CheckIfMeetsCriteria.c` 头两句：**criteria 缺失 ⇒ `LogError` + `return 0`（拒）**；
+        /// 只有「criteria 存在但为空」才 `return 1`（全放行）—— 我们 `Target == null` 对应的是前者。
+        /// 📌 真对局里四个生产者**全部**传 spec（`GrantHandBuff` / `GrantHandBuffForTargets` /
+        /// `AttachEffectToHandInstances` / `BroadcastHandWhen` 自指那一条）⇒ 本值只由自检默认值产生。</param>
         /// <param name="recordId">🆕 2026-10-18（`W4` 整改 · 审查问题 6）：**同一次挂载的记录号** ——
         /// 一次调用发给 N 张牌时，调用方**先取一次** <see cref="BattleContext.NextHandEffectRecord"/>
         /// 再逐张传进来（N 张共用同一个号 = 原版那**一个** `HandEffect` 记录）。
@@ -3088,7 +3095,12 @@ namespace RuleEngine
         /// </summary>
         /// <param name="limitedUses">还能打出几次；`&gt; 0` = 限次（**这一批牌共享这一个计数**）。</param>
         /// <param name="criteria">🆕 2026-10-18（`A885` ②）：原版 `HandEffect.targetCriteria`
-        /// —— **后进手牌的牌**要过它（`PlayerHand__SetupCardInHand.c:58`）；`null` = 没有可判的规格。</param>
+        /// —— **后进手牌的牌**要过它（`PlayerHand__SetupCardInHand.c:58`）；`null` = 没有可判的规格
+        /// ⇒ **这份记录【不补给】后进手牌的牌**（`RuleCore.HandEffectFits` 判不出来就 `return false`，
+        /// `SetupCardInHand` 只出声、不贴牌；原版判据 = `FilterMethods__CheckIfMeetsCriteria.c`
+        /// 「criteria 缺失 ⇒ `LogError` + `return 0`」）。⚠️ **2026-10-18 订正**：这句原来只写「没有可判的规格」、
+        /// **没写后果**（旧口径还含「退回单位卡放行」那一档，`W5` 当天已收窄掉）。
+        /// 📌 真对局里四个生产者都传 spec ⇒ 本值只由自检默认值产生。</param>
         /// <returns>真挂上去的份数（被去重挡掉 / `null` 的不算）。</returns>
         public static int AttachHandEffectToInstances(BattleContext ctx, string source, string payload,
                                                       string duration, int limitedUses,
@@ -4668,6 +4680,69 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// 🆕 **2026-10-18（`S10` · 待办 `A962` ② 收口）：`draw` 广播期间的「指代槽」** ——
+        /// 把 <see cref="BattleContext.DrawnThisResolve"/> **临时种成「刚抽到的那一份」**，
+        /// 广播跑完（**含抛异常**）后还原成**调用方原来的值**。（形状与 <see cref="EventSlotsScope"/> 同族。）
+        ///
+        /// 🔴 **为什么必须有它（今天是一次都不生效的真缺陷）**：
+        ///   `Company Master`（`DA31`）卡面 `When you draw a card, it costs 1 less this turn`
+        ///   解析成 `lowercost amount=1 payload=(指代上一张)`，走 <see cref="DoLowerCost"/> 的
+        ///   `op.Payload == "(指代上一张)"` 那一支 —— 那一支的指代**只有两个来源**：
+        ///   `ctx.LastCreated` → 兜底 `ctx.DrawnThisResolve`（`EffectResolver.cs` 的 `:6938`）。
+        ///   而 `DrawnThisResolve` 原来的**写点只有三条**（`DoDraw` / `DoChooseCard` / `DoDrawRef`），
+        ///   **`RuleCore.Draw` 一条都没有** ⇒ **普通抽牌**（回合开始那一抽）的监听器读到的永远是空
+        ///   ⇒ 日志白纸黑字「要降费，但前面没有可指代的卡……**这条没生效**」。
+        ///   离线实测（`D:/tmp/wf_s10_probe` · 真卡真卡池）：加这一层之前 `CostOf = 5`（印价）、
+        ///   之后 `CostOf = 4`（5−1）。✅
+        ///
+        /// 🔴 **为什么必须套在【广播外面】、而不是在广播里补写**：
+        ///   监听器的正文要**在广播进行中**读那个槽（`DoLowerCost` 就在监听器那一跳里跑）
+        ///   ⇒ 种的动作必须发生在 `BroadcastWhen` **之前**、还原在其**之后**。
+        ///
+        /// ⚠️ **还原的是「进入前的值」，不是 `Clear()`** —— 与 `EventSlotsScope` 同一条纪律：
+        ///   `DoDraw` / `DoDrawRef` 在**广播之外**往这个槽里累加「本次结算抽到的全部」
+        ///   （`For each troop drawn …` 数它）⇒ 不还原就会把调用方那一批**吃掉**。
+        ///   `DrawReferentScope` 只动 `DrawnThisResolve` **一个**槽
+        ///   （`LastCreated` / `LastHandTarget(s)` 一律不碰）⇒ 与 `EventSlotsScope` 嵌套**不打架**
+        ///   （`BroadcastWhen` 内部自己会开一层 `EventSlotsScope`）。
+        ///
+        /// ⚠️ **窗口只放宽这一处**：广播期间槽里 = **恰好那一份**（不是「调用方原有的 + 这一份」）——
+        ///   卡面 `it` 是**单数**（= 抽出来的那张牌，用户 2026-10-18 澄清的口径）⇒ 一次抽多张时
+        ///   每次广播只指「这一次抽出来的那一份」。
+        /// ⚠️ **连带（今日零命中，如实标着）**：广播期间 `HandReferents` 的**兜底**与
+        ///   `CountRef("draw")` 读的也是这个槽 ⇒ 窗口内它们的读数从「空/陈旧」变成「1 份」。
+        ///   今天**卡池里只有 2 张**监听 `draw`（`DA31 Company Master` · `BL15 Rubric Marine`），
+        ///   两者的效果都**不读** `HandReferents` / `CountRef("draw")` ⇒ 实测无变化；
+        ///   **将来新增 `draw` 监听器时要重新判这一段**。
+        /// </summary>
+        struct DrawReferentScope : System.IDisposable
+        {
+            readonly BattleContext _ctx;
+            readonly List<CardInstance> _saved;
+
+            DrawReferentScope(BattleContext ctx, CardInstance inst)
+            {
+                _ctx = ctx;
+                _saved = new List<CardInstance>(ctx.DrawnThisResolve);
+                ctx.DrawnThisResolve.Clear();
+                if (inst != null) ctx.DrawnThisResolve.Add(inst);
+            }
+
+            /// <summary>种**刚抽到的那一份**（`inst` 为 `null` ⇒ 只清空，不放东西）。</summary>
+            public static DrawReferentScope Seed(BattleContext ctx, CardInstance inst)
+            {
+                return new DrawReferentScope(ctx, inst);
+            }
+
+            /// <summary>还原（`using` 块退出时跑，**异常也会跑**）。</summary>
+            public void Dispose()
+            {
+                _ctx.DrawnThisResolve.Clear();
+                _ctx.DrawnThisResolve.AddRange(_saved);
+            }
+        }
+
+        /// <summary>
         /// **事件广播段** —— 某件事（部署 / 死亡 / 攻击 / 受伤）发生了，回头问「谁在听」。
         ///
         /// 这是第三十二轮做的**事件层的下半截**：上半截（`Core/WhenEvent.cs`）只把
@@ -5076,8 +5151,14 @@ namespace RuleEngine
         ///   （`CardDef.HandTrapWhens`），由 <see cref="BroadcastHandTrapWhen"/> 消费 ——
         ///   两边都扫的话同一张卡会被结算两次。
         ///
-        /// ⚠️ **排序：必须排在 `BroadcastWhen` 里那句「场上没人听就 return」之前**
-        ///   （调用点同 ⓪ / ⓪-b / ⓪-c）—— 手里那张牌和自家场上有没有单位毫无关系。
+        /// 🔴 **2026-10-18（`S7` · `A962` ①）就地订正（铁律 5）**：这一段原来写
+        ///   「**排序：必须排在 `BroadcastWhen` 里那句『场上没人听就 `return`』之前**」——
+        ///   **那句早退 2026-10-18（`W5`）已经不存在了**（棋盘那一跳改成 `if (listeners.Count > 0) { … }`，
+        ///   四条非棋盘跳**无条件**跑）⇒ 本条约束**已经没有对应物**。
+        ///   现在的次序判据 = **原版三跳「自己 → 棋盘 → 手牌」**（⓪ / ⓪-b / ⓪-c / ⓪-d 一律排在
+        ///   **棋盘那一跳之后**，见 `BroadcastWhen` 里「② / ③」两段注释；出处
+        ///   `BattleManagerSupport__BroadcastUnitSummoned.c:21/:25-39/:44-64`）。
+        ///   这一段里**一字未改仍然成立**的只有：**它与「自家场上有没有单位」毫无关系**。
         ///
         /// ⚠️ **照原版扫「双方手牌」**，不是只扫打牌那一方：`GetCardsInHandRef` 两跳合起来
         ///   就是**两边都扫**，极性（`friendly` / `enemy`）由 `listener` 传持有者 `p` 交给

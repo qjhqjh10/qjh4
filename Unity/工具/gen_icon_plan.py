@@ -127,7 +127,11 @@ TOKEN_BY_CARD = {
     ("SW68", "[Shield]"): ("shield", "卡面：图标 + 词"),
     ("GOF_Uge_Choppa", "[Slay]"): ("slay", "卡面：图标 + 词 `Slay:`"),
     ("GOF_Uge_Choppa", "[Shield]"): ("shield", "卡面：图标 + 词"),
-    ("UM84", "[Oath]"): ("oath", "卡图 Chaplain Cassius + NCC 0.924"),
+    # 🔴 2026-10-18：`("UM84", "[Oath]")` / `("UM84", "[Talent]")` 两条**方括号键**已作废 ——
+    #    `UM84` 的 `desc` 改回了**裸写**（`Friendly Oath abilities …` / `Talent: …`，
+    #    `cardface_fixes.json` 的 `desc` 列，改动说明见那张表的 `_2026-10-18_Oath裸写`），
+    #    两个方括号 token 在文本里**已经不存在** ⇒ 留在本表就是**永远不命中的死条目**。
+    #    同两张卡的补法见下面的 `BARE_TOKEN_BY_CARD`。
     ("DA22", "[1]"): ("questPoints1", "暗黑天使任务点：卡面 `gain (①)`。见 `资料/卡表核对_卡图提取/_裁定_图标丢失.md`"),
     ("DA75", "[1]"): ("questPoints1", "同上"),
     # ---- 攻击/远程：还原表逐张写了 Melee / Ranged ----
@@ -230,7 +234,6 @@ TOKEN_BY_CARD = {
     ("SOR18", "[攻击]"): ("Melee",
         "2026-09-16 逐张开图核过（`Sorotitas/3部队/Warpforge_18_Simulacrum-Bearer.png`）："
         "`Pray: Give +1〔粉圈拳〕 to your troops` —— 原文英文 token 写 `[Armor]`，实为拳"),
-    ("UM84", "[Talent]"): ("talent", "还原表 Chaplain Cassius：`TalentTalent: Catechism of Death`（图标 + 词）"),
     # ---- 2026-09-15 收口：原来挂着的那「四处缺口」，用户裁决 + 逐张卡图核过，全部接上 ----
     #      ⚠️ 这四条都是**按卡**的，别升级成 token 规则 —— token 名不可信（见文件头），
     #         而且 `[Destroyer]` 这一枚**图集里根本没有 `destroyer.png`**：原版给它用的就是
@@ -256,6 +259,43 @@ TOKEN_BY_CARD = {
     ("DA15", "[Quest Point]"): ("questPoints",
         "同 `DA8`（卡图 `Dark Angels/3部队/Warpforge_15_Company-Veteran.png`：行首 `〔红盾+红骷髅〕Vanguard.` "
         "那枚才是 `vanguard`，`gain` 后面这枚与 `DA8` **逐像素同款**，都是任务点徽记）"),
+}
+
+# ── 按卡的**裸 token**（卡面上真印着的字，不是方括号占位）──────────────────────────
+#      2026-10-18 加。这一类**不能**塞进 `TOKEN_BY_CARD`：
+#      ① 那张表的键是**方括号 token**，只在 `for m in toks`（`TOK = \[...\]` 的匹配）里被查
+#         —— 裸 token 写进去**永远不会命中**（一条看着在干活、实际什么都不做的条目 = 静默失败）；
+#      ② 它也不该进 `KEYWORD_PREFIX`（那支要求「句首 + 紧跟 `:`/`.`」），
+#         `Oath abilities of friendly …` 后面既不是句首也不是冒号，扫不到 —— 这正是它原来漏画的机制原因。
+#      ⚠️ **token 要写成能唯一指到那枚徽记、而且足够长的字面片段**：
+#         运行时 `CardIcons.Rewrite` 按 token **长度降序**换，短 token 撞上同卡更长 token
+#         已经插好的结果时会被它的**幂等守卫**（`s.IndexOf(tag + token) >= 0`）**整条跳过**。
+#         逐条推演过：`"Oath"` 在 `UM89` / `UM_Vico_Therbeus` 上会被同卡的 `"Oath 1:"` 那一条挡掉
+#         ⇒ 首句那枚**画不出来**（`UM84` 没有 `Oath N:`，用 `"Oath"` 反而能用；为一致，三张都写 `Oath abilities`）。
+BARE_TOKEN_BY_CARD = {
+    # 原版在**每一个 `Oath` 词**前面都印徽记（含句中）：`Friendly 〔徽记〕Oath abilities …`。
+    # 判据 = 成品卡图（`V-OATH` §2.4 把 25 张读完；下面这三张是本批作者**自己开的图**）。
+    ("UM84", "Oath abilities"): ("oath",
+        "卡图 `Ultramarines/3部队/Warpforge_20_Chaplain-Cassius.png`（本批作者亲看整卡）："
+        "`Friendly 〔蓝圆盘+白袍人形〕Oath abilities apply an additional time. "
+        "〔纸卷〕Talent: Catechism of Death` —— 徽记在**句中**、紧贴词 `Oath`。"
+        "2026-10-18 本卡 `desc` 由 `[Oath]`（方括号 ⇒ 整串换掉 ⇒ 词没了）改成**裸写**，"
+        "所以这一枚要在这儿按卡补上（改动说明见 `cardface_fixes.json` 的 `_2026-10-18_Oath裸写`）。"),
+    ("UM89", "Oath abilities"): ("oath",
+        "卡图 `Ultramarines/3部队/Warpforge_25_Ferren-Areios.png`（本批作者亲看整卡）：首句 "
+        "`〔蓝圆盘+白袍人形〕Oath abilities of friendly troops can be activated up to 3 times each turn.`，"
+        "末句 `〔同一枚〕Oath 1: Deal 1 damage` —— **同卡两枚徽记**。"
+        "⚠️ 首句这一枚原来**整枚没画**（`Oath abilities` 没有数字、没有冒号 ⇒ `KEYWORD_SCAN` 扫不到）。"),
+    ("UM_Vico_Therbeus", "Oath abilities"): ("oath",
+        "卡图 `Ultramarines/3部队/Warpforge_12_Vico-Therbeus.png`（本批作者亲看整卡）："
+        "`〔眼睛〕Stealth. 〔蓝圆盘+白袍人形〕Oath abilities of friendly troops may be activated on later turns. "
+        "〔同一枚〕Oath 1: Gain 〔迷彩〕Camouflage` —— **同卡两枚徽记**，首句这枚原来整枚没画（同 `UM89`）。"),
+    # 中文侧：**玩家实际看到的是中文**（`BattleDriver.FaceTextFull`：`DescZh` 有值就用它）
+    # ⇒ 只补英文那半 = 卡面照旧少一枚。中文写的是「誓言能力」
+    # （`誓言 N：` 那半边的 token 由 `KEYWORD_SCAN_ZH` 自己扫得到，本来就画着）。
+    ("UM84", "誓言能力"): ("oath", "同上（中文写法；`descZh` = `友方部队的誓言能力额外结算 1 次。`）"),
+    ("UM89", "誓言能力"): ("oath", "同上（中文写法；`descZh` = `友方部队的誓言能力每回合最多可激活 3 次。`）"),
+    ("UM_Vico_Therbeus", "誓言能力"): ("oath", "同上（中文写法；`descZh` = `友方部队的誓言能力可在后续回合激活。`）"),
 }
 
 # 认得出、但**盘上没有这张图**的记号（真缺口，如实列出来，别静默跳过）
@@ -713,6 +753,14 @@ def main():
                 sprite, why = SYMBOLS[ch]
                 got[ch] = [(sprite, why)]
                 stat["符号"] += 1
+            # 按卡的**裸 token**（见 `BARE_TOKEN_BY_CARD`）—— 卡面真印着的字，图标插在词前面。
+            # ⚠️ `_btok not in text` 让**同一张表同时管 `desc` 与 `descZh`**（英文 token 只在
+            #    `desc` 里命中、中文 token 只在 `descZh` 里命中），别按字段再写一列。
+            for (_bcid, _btok), (_bsp, _bwhy) in BARE_TOKEN_BY_CARD.items():
+                if _bcid != cid or _btok not in text or _btok in got:
+                    continue
+                got[_btok] = [(_bsp, _bwhy)]
+                stat["按卡裸 token"] += 1
             if got:
                 by_field[field] = got
         if by_field:
@@ -748,7 +796,8 @@ def main():
     texts = {}
     for c in cards:
         texts[c["id"]] = (c.get("desc") or "") + "\n" + (c.get("descZh") or "")
-    dead = [(cid, tok) for (cid, tok) in TOKEN_BY_CARD if tok not in texts.get(cid, "")]
+    dead = [(cid, tok) for (cid, tok) in list(TOKEN_BY_CARD) + list(BARE_TOKEN_BY_CARD)
+            if tok not in texts.get(cid, "")]
     print("")
     print(f"=== 逐卡表里的死条目（{len(dead)} 条，token 已不在该卡的 desc/descZh 里）===")
     for cid, tok in dead:

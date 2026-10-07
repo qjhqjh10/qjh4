@@ -7952,10 +7952,25 @@ namespace CardPresentation
         ///     更正痕迹留在 `工具/gen_tutorial_stages.py` 与产物里那一行。
         ///
         /// 🔴 **播放点的出路（如实记）**：`BattleManager__PlaySoundAsset` 在**全量反编译里零调用点**
-        ///   （它只是把 `SoundAsset` 入队 `+0x428`），推它进去的那一处**方法体本地拿不到**；
-        ///   教程那份 `AiScripted.GetCurrentWaitTime` 重载同样缺失（落盘的是战役那份、用 `+0x14`）。
+        ///   （它只是把 `SoundAsset` 入队 `+0x428`），推它进去的那一处**方法体本地拿不到**。
         ///   ⇒ **我们把「这一条动作执行/出场」当作播放点**（一拍一条），这与
         ///   `GetCurrentWaitTime` 会把音的**时长并进这一拍的延迟**是自洽的。
+        ///
+        /// 🔴 **2026-10-18（`A899`）订正（铁律 5）：** 本注释原来在这句后面还写着
+        ///   「**教程那份 `AiScripted.GetCurrentWaitTime` 重载同样缺失**（落盘的是战役那份、用 `+0x14`）」
+        ///   —— **这句不成立**。
+        ///   错因：把「战役侧与教程侧各走一个函数」误当成了「同一个函数有两份重载、教程那份没落盘」。
+        ///   实际：`GetCurrentWaitTime` **全库只有一个签名**（`d:/2/tools/il2cpp_out/dump.cs:24668`，`param_3` 是
+        ///   `List<ScriptedActionCampaignData>`），**落盘的这份就是它、也就是战役侧在用的那个**；
+        ///   教程侧走的是**另一个函数** `AiScripted.GetDelay`（`+0x24 waitAfter` / `+0x20 waitBefore`）。
+        ///   ⇒ **两份判据都在本地**（`decomp_full/AiScripted__GetCurrentWaitTime.c:14-43` ·
+        ///      `decomp_full/AiScripted__GetDelay.c:14-43`）。
+        ///   时长语义那三条、以及 `+0x28` 是**两张不同的表**（`ScriptedActionCampaignData.waitTime @0x28`
+        ///   vs `ScriptedAction.textReference @0x28`）这件事，**判据正本 = `RuleEngine/Core/TutorialScript.cs`
+        ///   的 `PlayScriptedTurn` 注释里 `A899` 那一节** —— ⛔ 这里不抄第二份（铁律 6）。
+        ///   🔑 顺带钉住的一条：`CanSkipAction` 判的那 5 档（`0x32/0x37/0x3C/0x41/0x5A`）**恰好等于**
+        ///   本文件 `IsTutorialChatKind` 的五档（见那个方法的注释，两处互为锚点）。
+        ///   ⚠️ 本件**只动注释**；那一拍的真正落码归 `A940`（`_postTimer` 一族）。
         /// ⚠️ **聊天那三档不走这里** —— 它们的 `sound` 就是那句台词的 VO，由 `UnitChatPanel.Speak` 自己播
         ///   （再走一次 = 同一句放两遍）。
         /// </summary>
@@ -7979,7 +7994,13 @@ namespace CardPresentation
         }
         readonly HashSet<string> _tutSoundWarned = new HashSet<string>();
 
-        /// <summary>是不是「聊天那三档」（原版 `ExecuteAction` 里走 `DisplayChatBox` / `ShowRadioMessage` 的那几支）。</summary>
+        /// <summary>是不是「聊天那几档」（原版 `ExecuteAction` 里走 `DisplayChatBox` / `ShowRadioMessage` 的那几支）。
+        /// 🔑 **2026-10-18（`A899`）：这五档与原版 `AiScripted.CanSkipAction` 的 5 档【恰好是同一组】——两处互为锚点。**
+        ///   判据（`decomp_full/AiScripted__CanSkipAction.c`）：它判 `action.scriptedActionData[0].actionType`（`+0x10`）
+        ///   ∈ {`0x32`,`0x37`,`0x3C`,`0x41`,`0x5A`} = {50, 55, 60, 65, 90} =
+        ///   `PlayerChat` / `PlayerChatBig` / `AiChat` / `AiChatBig` / `RadioMessage`。
+        ///   ⇒ **改动其中一边，另一边会立刻显得可疑**（那正是这条对照的用处）。
+        ///   时长语义那三条的判据正本 = `RuleEngine/Core/TutorialScript.cs` 的 `PlayScriptedTurn` 注释（`A899` 一节）。</summary>
         static bool IsTutorialChatKind(ScriptedActionType k)
         {
             return k == ScriptedActionType.PlayerChat || k == ScriptedActionType.PlayerChatBig
@@ -8311,9 +8332,16 @@ namespace CardPresentation
                     _tutTipUp = true;
                     _tutTipElapsed = 0f;
                     _tutTipLimit = tp.tipDuration > 0f ? tp.tipDuration : TutTipDefaultLimit;
-                    Ctx.Log($"[Tutorial] 提示挂着、脚本**停在这儿等**（原版 `set_WaitingForTutorialTipFlag(1)`；"
-                          + $"`waitForTip=true` · `tipDuration={_tutTipLimit:F1}s` · "
-                          + $"`minTimeBeforeSkip={TutTipMinBeforeDismiss:F1}s`）");
+                    var waitMsg = $"[Tutorial] 提示挂着、脚本**停在这儿等**（原版 `set_WaitingForTutorialTipFlag(1)`；"
+                                + $"`waitForTip=true` · `tipDuration={_tutTipLimit:F1}s` · "
+                                + $"`minTimeBeforeSkip={TutTipMinBeforeDismiss:F1}s`）";
+                    Ctx.Log(waitMsg);
+                    // 🔴 同一句话**也要出声**：`Ctx.Log` 只往内存 `Events` 里加、**从不 `Debug.Log`**
+                    //    （`Core/BattleContext.cs:1248-1252`）⇒ 批处理 / 自检里这句话**一个字都看不到**，
+                    //    而这一句正是「脚本为什么停住」的唯一读数 ⇒ 症状会表现成「指针**无缘无故**停住」
+                    //    （诊断 → `资料/普查产出_1018/DC_教程推进21红.md` §6·1；与「不许静默失败」同族）。
+                    //    ⚠️ **只加日志、不改逻辑** —— 那个 `_tutTipUp` 早退有逐字判据，⛔ 别动。
+                    Debug.Log(waitMsg);
                 }
                 return;                            // 小提示是**独占**的一拍（原版 `waitForTip` 会等它）
             }
@@ -8698,7 +8726,13 @@ namespace CardPresentation
             if (tut == null) return;
             if (!tut.CheckIfWaitingForPlayerAction) return;
             tut.AdvancePlayerAction();
-            Ctx.Log($"[Tutorial] 玩家做完了脚本等着的那一步 ⇒ 指针 +1（第 {tut.Turn} 回合第 {tut.ActionCounter} 条）");
+            // 🔴 **2026-10-18（`REV_W_四写手.md` F2 · 铁律 5）**：这句原来**只有 `Ctx.Log`** ——
+            //    而 `RuleEngine/Core/BattleContext.cs:1248-1252` 的 `Log` **只往内存 `Events` 加、从不 `Debug.Log`**
+            //    ⇒ **批处理里一个字都看不到**（症状表现为「指针无缘无故动了/没动」，只能靠读口反猜）。
+            //    `DC_教程推进21红.md` §6·1 点名的**就是这两句**（另一句 `Z6` 那句 `WB` 已补）⇒ 这里补上，**只加日志、逻辑不动**。
+            var doneMsg = $"[Tutorial] 玩家做完了脚本等着的那一步 ⇒ 指针 +1（第 {tut.Turn} 回合第 {tut.ActionCounter} 条）";
+            Ctx.Log(doneMsg);
+            Debug.Log(doneMsg);
         }
 
         /// <summary>
