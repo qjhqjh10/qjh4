@@ -14,10 +14,19 @@
 //
 // 🔴 **`useFewPlayerMessage = 0`（练习窗与遭遇战窗【都是 0】）⇒「人少」那句【不显示】** ——
 //    两份 prefab 里那句话的文案还不一样（短句 / 长句），但既然开关是 0，**照原版就不画**，别自己点亮它。
+//    ⚠️ **2026-10-17（B27）补一句更硬的话**：本地**5 份** `SearchingMatchWindowDemo` 实例
+//    （四扇战斗入口窗各一份 + 一份变体）**5/5 都是 0**（逐份读过，清单见下面 A925 那一节）
+//    ⇒ 那行字**原版一次也没显示过**。
+//
+// 🆕 **2026-10-17（B27·A925）**：本窗那行 `Main Search message` **同时也是联机层的「提示行」的消费方**
+//    （大厅阶段对面掉线 / 离开 / 回来时，`NetMatchmaking.OnHint` 说的那句话落在这一行上）——
+//    判据、为什么接在**这一行**而不是别的节点、以及**这条链是我们的口径（不是复刻）**，
+//    全部写在下面 `ShowHint` 上面那一节里。
 // 🔴 **两处图集不同**：`40k_popup`（九宫格 169,160,169,160 · 359×336）与 `40k_popup_texture`
 //    （**Tiled** · 128×128 · `m_PixelsPerUnitMultiplier = 2.0` ⇒ **一格 64px**）——
 //    这两个数是**工程里已有的两处先例**（`PromptPopup.FillTilePx` / `Battle/WaitBanner.cs` 的 `FillTilePx`），照抄。
 using UnityEngine;
+using CardPresentation.Net;      // 🆕 2026-10-17（B27·A925）：提示行那个口在 `NetMatchmaking` 里
 
 namespace CardPresentation
 {
@@ -213,8 +222,22 @@ namespace CardPresentation
                           "Cog", QSr2, dim, true, winClip);
 
             // 4) `Main Search message`（原版 hAlign = **Center**）—— 打字机的目标
+            //    🆕 **2026-10-17（B27·A925）**：这一行**同时也是联机提示行**（见 `ShowHint` 上面那一节）
+            //    ⇒ 参数补全成**原版那一颗 TMP 自己的**（`bundle_menus_assets_all/MonoBehaviour/
+            //    MonoBehaviour_-6561808484806384939.json`，就是本窗 `searchingText` 指的那个 PathID）：
+            //      `m_fontSize 50` · `m_enableAutoSizing 1` · `m_fontSizeMin 4` · `m_fontSizeMax 50`
+            //      · `m_fontSizeBase 36` · `m_TextWrappingMode 1`（折行开）· `m_margin (0,0,0,0)`
+            //      · `m_HorizontalAlignment 2`（Center）· `m_VerticalAlignment 512`（Middle）。
+            //    ⇒ 折行宽 = 本框宽 **700**（`MsgR - MsgL` = 1310 − 610；margin 全 0 ⇒ 框宽就是折行宽）、
+            //      自适应 **4~50**、base **36**。
+            //    ⚠️ 原来只传了 `50f` ⇒ **既没折行、也没自适应**（九个字母的 "Searching" 看不出来，
+            //      可一旦往这一行放一句人话就会溢出框外）。
+            //    ⚠️ 对原来那台打字机**行为不变**："Searching" 在 50px 下只有约 225px 宽（< 700）、
+            //      一行高 50（< 148）⇒ 自适应收敛到上限 = **还是 50px**（`SetAutoFitBox` 的搜索起点是
+            //      base、收敛结果是「装得下的最大号」，上限就是原来那个 50）。
             _msg = MenuDraw.Text(win, new PxRect(MsgL, MsgT, MsgR, MsgB), "", Color.white,
-                                 "Main Search message", 50f, QSrText);
+                                 "Main Search message", 50f, QSrText,
+                                 wrapPx: MsgR - MsgL, autoMinPx: 4f, autoMaxPx: 50f, autoBasePx: 36f);
 
             // 5) `Buttons`（VLG）→ `Generic UI Button`（`40K_button` col(.369,.894,.587,1)）+ `Button Text` "Cancel"
             var btn = MenuDraw.Node(win, "Buttons", new PxRect(BtnL, BtnT, BtnR, BtnB));
@@ -237,6 +260,10 @@ namespace CardPresentation
         {
             gameObject.SetActive(true);
             _typed = 0f;
+            // 🆕 2026-10-17（B27·A925）：**新的一次搜索 ⇒ 上一局那句提示作废**（否则台面上会挂着
+            //   上一次掉线那句「对面掉线了…」——说错话）。⚠️ 只清**本窗**这一份；
+            //   `NetMatchmaking` 那一份由它的 `Reset()` 清（`TryStart` 会调）。
+            _hint = null;
             // 🆕 2026-10-03：`Cog` 的播放头也归零（原版 `OnEnable` → `Play()` ⇒ 那条 `Animation` 从头放）
             _cogTime = 0f;
             if (_cog != null) _cog.localRotation = Quaternion.Euler(0f, 0f, CogAngleAt(0f));
@@ -301,13 +328,18 @@ namespace CardPresentation
             _cogTime += dt;
             if (_cog != null) _cog.localRotation = Quaternion.Euler(0f, 0f, CogAngleAt(_cogTime));
 
-            if (_msg != null)
+            if (_msg != null && _hint == null)
             {
                 int before = TypedChars;
                 _typed += dt;                       // ⚠️ 不封顶：原版是**无限循环**，不是打完就停
                 int now = TypedChars;
                 if (now != before) _msg.SetText(SearchingText.Substring(0, now));
             }
+            // 🆕 2026-10-17（B27·A925）：**提示还在那行字上 ⇒ 打字机歇着**
+            //   （不然每 0.5 秒就把玩家正要读的那句话顶回「Sear…」—— 见 `ShowHint` 那一节）。
+            //   ⚠️ 连着 `_typed` 一起停（播放头**冻在**提示出现那一刻），收回提示之后**从原处接着打** ——
+            //   不是「提示期间偷偷往前跑、收回来时跳一格」。
+            //   ⚠️ `Cog` 自转**不受这条闸影响**（它在上面，与打字机/倒计时各走各的 `if`）。
             if (!Searching) return;
             SecondsLeft -= dt;
             if (SecondsLeft > 0f) return;
@@ -321,5 +353,90 @@ namespace CardPresentation
 
         /// <summary>当前打出来的那截字（自检用）。</summary>
         public string TypedText { get { return SearchingText.Substring(0, TypedChars); } }
+
+        // ==================================================================
+        //  🆕 2026-10-17（B27·A925）：**联机「提示行」在这一扇窗上的消费方**
+        //
+        //  账 `A925`：`NetMatchmaking.LastHint` / `OnHint` 是**留好的口**（B23·A902 加的），
+        //  但**一个消费方都没有** ⇒ 大厅阶段那几句人话（对面掉线 / 离开 / 回来）只活在日志与自检里，
+        //  玩家看得到的**只有弹窗**（`NetRuntime.Notice`）+ 设置窗联机页那行 `StatusText`。
+        //
+        //  🔴 **原版判据（2026-10-17 现读，逐条；这就是「那行字」的答案）**：
+        //   · 本窗 = 原版 `SearchingMatchWindowDemo`，全量反编译里它**只有两个** TMP 文本节点
+        //     （字段表 `d:/2/tools/il2cpp_out/dump.cs:108646-108695`：`searchingText`(0x90) /
+        //      `notEnoughPlayersText`(0xA0)）：
+        //       ① **`Main Search message`** = `searchingText`：`m_text = "Searching"`（键
+        //          `Demo/DeckSelectionDemo/Searching`；本地无词条表 ⇒ 用英文原文，同 B13 先例），
+        //          由 `SearchingMatchWindowDemo._TypeWriteEffect_d__14__MoveNext.c` **无限循环**打字
+        //          （起手 `len-3`，每 `timeBetweenSearchingLetters = 0.5s` 进一格，`cur > len` 绕回）
+        //          —— **原版从头到尾不改这行字**。
+        //       ② **`Few players online message`** = `notEnoughPlayersText`：由
+        //          `_ShowPlayersMessage_d__15__MoveNext.c` 等 `timeToShowNoPlayersMessage`（= **15**）秒
+        //          后 `SetActive(true)` + `DOFade` 淡入 —— 但它**被 `useFewPlayerMessage` 挡着**：
+        //          本地 5 份实例（`d:/2/新解包资源/assets_full/bundle_menus_assets_all/MonoBehaviour/`
+        //          的 `MonoBehaviour_-7876346491111824683` /
+        //          `MonoBehaviour_-4104094843614359207` / `MonoBehaviour_2027333971220400048` /
+        //          `MonoBehaviour_3238362926157418300` / `MonoBehaviour_6077665188785245554`）
+        //          **5/5 都是 `useFewPlayerMessage = 0`** ⇒ **原版一次也没显示过那行字**。
+        //   · ⇒ **原版没有「一条会变的搜索状态行」**。它报这类事（匹配出错 / 连接断）用的是**弹窗**：
+        //     `Everguild.MatchMakerManager__MatchMakingError.c` → `WindowsManager.ShowPopUp(文案, …, 按钮)`
+        //     （键走 `I2_Loc_LocalizedString`，本地无词条表），按钮回调
+        //     `MatchMakerManager__OnMatchMakingErrorScreenCloseButtonPress.c` = `HidePopUp` + `ShowLoading`；
+        //     搜索阶段连接断那一条更早查过（B23 报告 §①：`SearchOpponentManager.CancelSearchForDisconnect`
+        //     = 弹窗 + 撤搜索）—— **那一条我们早就有**（`NetRuntime.Notice`）。
+        //
+        //  ⇒ 🔴 **接在 `Main Search message` 上 —— 这是【我们的口径】、不是复刻**（铁律 3，如实标）：
+        //     · **why this line**：搜索一旦被撤（对面掉线/离开），这行还在打「Searching」就是**说假话**
+        //       （红线：不许静默 / 不许说错话）⇒ 这行字正是该改口的那一行；
+        //     · **why not `Few players online message`**：那一个原版 5/5 都关着，点亮它 = 把原版**关着**
+        //       的功能打开（而且它说的是「人少」，语义也对不上「对面掉线了」）。
+        //  ⚠️ 那一行字的**几何 / 字体参数全部照原版 prefab 读**（`Build()` 里那颗 TMP：
+        //     `MonoBehaviour_-6561808484806384939.json`），**没有一个是猜的**。
+        //  ⛔ **排位那条路（全屏 `Shell/SearchingOpponentWindow.cs`）没接** —— 那扇窗只有 `Title`
+        //     （437.76×50 · **无 auto**）、两个 `Player Name` 与一颗 `Cancel Match`，
+        //     **没有任何一行放得下一句状态话**（`阶段二_多人界面_原版规格.md` §6 的逐节点表）
+        //     ⇒ 如实留在报告里，**不硬塞一行假的进去**。
+        // ==================================================================
+
+        /// <summary>此刻那行字显示的是不是「提示」（`null` = 走原版那台打字机）。自检读它。</summary>
+        public string HintText { get { return _hint; } }
+        string _hint;
+
+        /// <summary>那一行字**放得下多少字**（粗算，只用来出声告警）：框 700×148（画布 px，原版 `Main Search message`
+        /// 的 rect）· 自适应 4~50 ⇒ 50px 时一行约 14 字 × 约 3 行 ≈ 41 字。留余量取 **40**（中文按等宽算；
+        /// 拉丁字更窄 ⇒ 实际更多）。超过这个数**会被压到很小**，那是**静默失败** ⇒ `ShowHint` 会出声。</summary>
+        public const int HintLineMaxChars = 40;
+
+        /// <summary>联机层要对玩家说一句（大厅阶段的掉线 / 离开 / 回来）⇒ **在那行字上说**，并**顶掉打字机**
+        /// （理由与判据全文见本节头部那一段）。传空的 = 收回提示。
+        /// 🔴 **只由 `NetMatchmaking.OnHint` 推**（`OnEnable` 订、`OnDisable` 摘）—— ⛔ 别在这儿自己判状态。</summary>
+        public void ShowHint(string text)
+        {
+            if (string.IsNullOrEmpty(text)) { ClearHint(); return; }
+            if (text.Length > HintLineMaxChars)
+                Debug.LogWarning($"[Searching] 提示行那句话 {text.Length} 字，超过这一行放得下的 "
+                               + $"{HintLineMaxChars} 字（框 700×148 · 自适应 4~50px）—— 会被压得很小，"
+                               + "请把这一句写短（详细的那半句留给弹窗，两处本来就是两个口）：「" + text + "」");
+            _hint = text;
+            if (_msg != null) _msg.SetText(text);
+            Debug.Log("[Searching] 提示行改口（顶掉打字机）：「" + text + "」");
+        }
+
+        /// <summary>收回提示 ⇒ **打字机接着打**（从当前进度继续，不从头来）。</summary>
+        public void ClearHint()
+        {
+            if (_hint == null) return;
+            _hint = null;
+            Debug.Log("[Searching] 提示行收回 ⇒ 打字机接着打（原版 `_TypeWriteEffect` 那条无限循环）");
+        }
+
+        // ---- 订/摘 `NetMatchmaking.OnHint`（**只在真的显示着的时候**订）----
+        //  🔴 为什么挂在 `OnEnable`/`OnDisable` 而不是 `Show()`/`Hide()`：`Show()` 可以**重复调**
+        //     （实测 `Editor/MainMenuScene.cs:4713,4733` 就是 `BeginNetWait()` 之后再 `Show()` 一次），
+        //     挂在 `Show()` 上会**订两次**（`OnHint` 是多播委托 ⇒ 同一条提示画两遍、还要摘两次）。
+        //     ⛔ `OnDestroy` 也必须摘（不摘的话，窗销毁之后提示一来就 `MissingReferenceException`）。
+        void OnEnable() { NetMatchmaking.OnHint += ShowHint; }
+        void OnDisable() { NetMatchmaking.OnHint -= ShowHint; }
+        void OnDestroy() { NetMatchmaking.OnHint -= ShowHint; }
     }
 }

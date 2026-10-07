@@ -1,4 +1,5 @@
 # 待修 · `Accursed Helbrute` 与 `Litany of Despair`（2026-09-16）
+> ⚠️ **2026-10-17 旁证标注（W-判据链自证·文档侧）**：本文里出现的 `rule_core.gd` / `rule_core` 一律指 **`d:/warpforge/scripts/rule_core.gd` = 我们自己的上一版 Godot 复刻**，**不是原版产物**（出处 = `CLAUDE.md` 铁律 2 的 2026-09-18 更正）。本文只作**历史记录 / 旁证**（读作「我们当时是怎么写的」），⛔ **别拿它当原版语义判据**。🔴 **原版语义判据 = `d:/2/tools/decomp_full/`（全量反编译方法体，第一权威） → 解包资源 `d:/2/新解包资源/assets_full/` 字段 → 成品卡图 `d:/2/Warpforge部队卡片`**。
 
 > **只读调查，未改任何代码。** `Core/EffectText.cs` 正被主对话编辑 ⇒ **行号会漂，判据一律以函数名给**。
 > 证据四层：① 卡池 `RuleEngine/Resources/cards_engine.json`（1126 张）＋原始转录 `数据/游戏数据/card_stats_raw.json`

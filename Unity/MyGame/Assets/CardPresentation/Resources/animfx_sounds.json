@@ -1,9 +1,9 @@
 {
  "version": 1,
- "note": "AnimFX 的随机化 cue 表（来源三条路径：`sounds[*].sound` · `exitSounds[*].sound` · `collisionEvent` 的 `PlaySound` 订阅）。clips 里随机挑一条；播放音量 = minVolume..maxVolume、音高 = minPitch..maxPitch；文件名在 Resources/Art/audio/sfx/<clip 名>。",
+ "note": "AnimFX 的随机化 cue 表（来源三条路径：`sounds[*].sound` · `exitSounds[*].sound` · `collisionEvent` 的 `PlaySound` 订阅；另加 `EXTRA_CUES` —— 工程按名字播、AnimFX 数据里推不出来的 cue）。clips 里随机挑一条；播放音量 = minVolume..maxVolume、音高 = minPitch..maxPitch；文件名在 Resources/Art/audio/sfx/<clip 名>。",
  "source": {
   "bundle": "soundcollection_assets_all.bundle",
-  "who": "数据/游戏数据/animfx_modules.json 的 sounds[*].sound / exitSounds[*].sound / collisionEvent 的 PlaySound（m_Arguments.m_ObjectArgument）",
+  "who": "数据/游戏数据/animfx_modules.json 的 sounds[*].sound / exitSounds[*].sound / collisionEvent 的 PlaySound（m_Arguments.m_ObjectArgument） + 脚本里的 EXTRA_CUES（按名字播的那几条）",
   "script": "工具/import_original_sfx.py"
  },
  "cues": [
@@ -540,6 +540,17 @@
    "minVolume": 1.0,
    "maxVolume": 1.0,
    "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "CardStartDrag",
+   "clips": [
+    "CardMove"
+   ],
+   "minPitch": 0.8,
+   "maxPitch": 1.1,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
   },
   {
    "name": "Charge_DCannon",

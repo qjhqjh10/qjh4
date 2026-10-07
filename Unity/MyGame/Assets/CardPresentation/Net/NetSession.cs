@@ -62,8 +62,20 @@ namespace CardPresentation.Net
         /// <summary>已经发过握手包的那条连接的序号（边沿触发用，见 `INetTransport.AcceptedCount`）。</summary>
         int _lastAccepted = -1;
 
-        static long NowMs { get { return _sw.ElapsedMilliseconds; } }
+        /// <summary>🔴 **自检可以把它换掉**（不换就得**真睡 10 秒**才验得到静默超时）——
+        /// `SetClockForTest(f)`，传 `null` 恢复成真实秒表。**生产路径一处都不调它**
+        /// （先例 = `NetBattle.SetClockForTest`）。⚠️ 它是**进程级**的：换完记得还回来。</summary>
+        public static void SetClockForTest(Func<long> now) { _nowOverride = now; }
+        static Func<long> _nowOverride;
+        static long NowMs { get { return _nowOverride != null ? _nowOverride() : _sw.ElapsedMilliseconds; } }
         static readonly System.Diagnostics.Stopwatch _sw = System.Diagnostics.Stopwatch.StartNew();
+
+        /// <summary>自检读口：**距上一次「收到对面的包 / 接受一条新连接」过去了多少毫秒**。
+        /// 🔴 主机开台那一刻这条基线**必须已经设好**（`StartHost` 里那句 `_lastRecvMs = NowMs;`）——
+        ///    否则进程起来满 `SilentTimeoutMs` 之后，主机会拿**陈旧基线**（字段默认 0）去比 `now`，
+        ///    在**一条包都没见过**的情况下判自己「10 秒没收到对面的任何消息」
+        ///    （判据链 → `Pump()` 里「主机：有新连接进来就握手」那一段）。</summary>
+        public long SinceLastRecvMsForTest { get { return NowMs - _lastRecvMs; } }
 
         public NetSession(INetTransport transport)
         {
@@ -105,6 +117,11 @@ namespace CardPresentation.Net
                 return false;
             }
             _lastAccepted = _t.AcceptedCount;
+            // 🔴 **2026-10-17（F4·RC1）**：开台这一刻把**静默基线**也设上（与客机 `InternalConnect` 那句对称）。
+            //   原来不设 ⇒ `_lastRecvMs` 停在字段默认值 0，而 `NowMs` 是**进程级**秒表 ⇒
+            //   进程起来满 `SilentTimeoutMs` 之后，主机拿 0 去比 `now`，会把**刚连进来、一条包都还没发的客机**
+            //   判成「10 秒没收到对面的任何消息」（判据链与日志实证 → `资料/普查产出_1017/D4_联机诊断.md` §②）。
+            _lastRecvMs = NowMs;
             SessionToken = NewToken();
             SetState(NetState.Listening, $"主机已就绪，在 {_t.Port} 端口等客机（把本机 IP 告诉对方）");
             // 🆕 2026-09-27（用户拍板做 B 档）：**顺手向路由器要一条入站映射**。
@@ -180,6 +197,30 @@ namespace CardPresentation.Net
 
             if (State == NetState.Closed || State == NetState.Off) return;
 
+            // ---- 主机：有新连接进来就握手（**边沿触发**：看 `AcceptedCount` 变没变，
+            //      别看 `IsConnected` —— 那是电平，会在等重连期间**反复重发握手包**）----
+            // 🔴 **2026-10-17（F4·RC1）：这一支必须跑在下面那道【静默超时】判【之前】**（原来是反的）。
+            //   它干的事里有一句「刷新静默基线」：`_lastRecvMs = now` —— 而下面那道判据正是拿
+            //   `now - _lastRecvMs` 去判「对面是不是没了」。接受线程（`NetTransport.Setup`，它把
+            //   `_connected = true` 与 `AcceptedCount++` 一起置上）与主线程 `Pump()` 是**并发**的：
+            //   只要这一步落在「超时判完 / 这一支还没跑」的窗口里，主机就会拿**旧基线**去判一条
+            //   **刚连上、一条包都还没发**的连接（客机的第一个包要等主机发的 `Challenge`）。
+            //   日志实证（`netbattle.log:5674-5676`）：`Handshaking：连上了…` →
+            //   `WaitingReconnect：连接断了：10 秒没收到对面的任何消息` → **`Handshaking：有客机连进来了`**
+            //   —— 这个**倒退**只可能出自同一个 `Pump()`（掐完又握手，而 `Challenge` 已经发不出去 ⇒ 永远握不上）。
+            //   ⚠️ 挪到这儿**不会**把「真的对面掉线」那条路堵死：真掉了就是**没有包来刷新** `_lastRecvMs`，
+            //      超时照旧成立（自检里那条对照就是钉这一点的）。
+            if (Role == NetRole.Host && _t.AcceptedCount != _lastAccepted)
+            {
+                _lastAccepted = _t.AcceptedCount;
+                _lastRecvMs = now;
+                bool wasReconnect = _wasInBattle;
+                _nonce = NewToken();
+                Send(NetKind.Challenge, new MsgChallenge { nonce = _nonce });
+                SetState(NetState.Handshaking, wasReconnect
+                         ? "有连接进来，正在核对是不是刚才那个人…" : "有客机连进来了，正在核对…");
+            }
+
             // ---- 心跳 ----
             if (State != NetState.WaitingReconnect && State != NetState.Connecting)
             {
@@ -194,24 +235,20 @@ namespace CardPresentation.Net
                     // ⚠️ 用 `ClosePeer` 而**不是** `Close` —— 主机要把监听留着，否则等不到重连
                     _t.ClosePeer();
                     _wasInBattle = State == NetState.InBattle;
-                    SetState(NetState.WaitingReconnect, "对手掉线了，正在等他回来…（对局已暂停）");
                     LastError = $"{SilentTimeoutMs / 1000} 秒没收到对面的任何消息";
+                    // 🆕 2026-10-17（B23·A902）：这行字**要按在不在对局里分开说** —— 原来无条件是
+                    //   「对局已暂停」，而大厅阶段（还没进对局）根本不是那么回事（**说错话** = 另一种静默）。
+                    //   同一个文件上面那条（`PeerLost` 那一支，`:176`）本来就是这么分的 ⇒ 两处对齐。
+                    SetState(NetState.WaitingReconnect,
+                             _wasInBattle ? "对手掉线了，正在等他回来…（对局已暂停）"
+                                          : "连接断了：" + LastError);
                     if (OnPeerLost != null) OnPeerLost();
                 }
             }
 
-            // ---- 主机：有新连接进来就握手（**边沿触发**：看 `AcceptedCount` 变没变，
-            //      别看 `IsConnected` —— 那是电平，会在等重连期间**反复重发握手包**）----
-            if (Role == NetRole.Host && _t.AcceptedCount != _lastAccepted)
-            {
-                _lastAccepted = _t.AcceptedCount;
-                _lastRecvMs = now;
-                bool wasReconnect = _wasInBattle;
-                _nonce = NewToken();
-                Send(NetKind.Challenge, new MsgChallenge { nonce = _nonce });
-                SetState(NetState.Handshaking, wasReconnect
-                         ? "有连接进来，正在核对是不是刚才那个人…" : "有客机连进来了，正在核对…");
-            }
+            // ---- 主机「接受新连接就握手」那一支**已挪到上面**（跑在下面那道静默超时判**之前**）----
+            //   🔴 2026-10-17（F4·RC1）：理由见那一段的注释 —— 它靠**刷新 `_lastRecvMs`** 让
+            //      「刚连上、还没发过包」的连接不被误判成「10 秒没消息」。⛔ 别挪回这儿。
 
             // ---- 客机：重连退避 ----
             if (Role == NetRole.Client && State == NetState.WaitingReconnect && _wasInBattle &&

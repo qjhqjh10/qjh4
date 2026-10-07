@@ -100,9 +100,14 @@ namespace RuleEngine
                     fromOriginalPool: true,     // 这条路上来的都是原版卡（卡面文字取它自己的效果原文）
                     subtype: c.subtype));
             }
+            // ⚠️ 2026-10-17 订正：下面这句原来写「跨阵营那 **4** 组」—— 第 4 组
+            //    （`Bladeguard Veteran` = DarkAngels / Ultramarines）是 09-13 一次错改名的产物，
+            //    10-17 已撤回（`UM34` 现在叫 `Bladeguard Lieutenant`）⇒ 实测 **3** 组
+            //    （`Terminator` / `Terminator Champion` / `Maulerfiend`）。
+            //    判据 `资料/普查产出_1017/W_B16_教程数据缺口.md` §①。
             if (noId > 0)
                 Debug.LogWarning($"[RuleEngine] 卡表里有 {noId} 张卡**没有 id**，已退回卡名当身份 —— "
-                               + "同名卡（跨阵营那 4 组）会串在一起。重跑 gen_cards_engine.py。");
+                               + "同名卡（跨阵营那 3 组）会串在一起。重跑 gen_cards_engine.py。");
             // 卡名索引（2026-09-16）：「按卡名指目标」那条路的判据 —— `ParseTarget` 要问
             // 「卡面写的那个名词是不是一张卡的名字」。**只此一处建**，见 `CreatePool.BuildNameIndex`。
             CreatePool.BuildNameIndex(list);
@@ -135,13 +140,18 @@ namespace RuleEngine
         /// 按卡名在**指定阵营**里找。找不到返回 null。
         ///
         /// 🔴 **为什么需要这个重载**（2026-09-13 第三十二轮）：**原版有跨阵营同名卡**
-        /// （`Terminator` / `Terminator Champion` / `Maulerfiend` / `Bladeguard Veteran` …），
+        /// （`Terminator` / `Terminator Champion` / `Maulerfiend` 这 3 组），
         /// 而 <see cref="Find"/> 只按名字匹配、**取池子里第一个** —— 同名卡谁在前谁赢。
         /// 后果是 2026-09-13 那次改名之后暴露出来的：卡组里明明存的是 Ultramarines 那张
-        /// `Bladeguard Veteran`，`Find` 却先撞上 DarkAngels 那张同名卡 ⇒
+        /// （`UM34`），`Find` 却先撞上 DarkAngels 那张同名卡 ⇒
         /// `DeckRules.Validate` 判 `WrongFaction`、**一副合法卡组被打回自动凑**。
         /// （⚠️ 卡池按 `cards_engine.json` 的顺序遍历，所以「谁在前面」是**数据顺序**决定的，
         /// 换个数据源就可能翻车 —— 这正是不能靠巧合的地方。）
+        /// ⚠️ **2026-10-17 订正**：这一段原来拿 `Bladeguard Veteran`（DarkAngels / Ultramarines）
+        /// 当例子，上面那张 `UM34` 当时也确实**叫** `Bladeguard Veteran` —— 那是 09-13 一次
+        /// **错改名**（照 PnP 卡图文件名改的，印刷品 ≠ 数字版卡名），10-17 已撤回，`UM34` 现在叫
+        /// `Bladeguard Lieutenant` ⇒ **这一组不再同名**，同名组 4 → 3（就是上面那三组）。
+        /// 坑本身是真的、也还在（判据 `资料/普查产出_1017/W_B16_教程数据缺口.md` §①）。
         ///
         /// ⚠️ **`faction` 传 null / 空 = 退回旧行为**（只按名字找），所以既有调用点一处不用改。
         /// </summary>
@@ -193,8 +203,11 @@ namespace RuleEngine
         ///   ① **按稳定 id 找**（`IdIndex`）—— 新卡组存档写的就是 id，**没有歧义、不需要阵营**；
         ///   ② 找不到再**按卡名找**（给了 `faction` 就只在本阵营里找）——
         ///      这条只为**旧存档**留着：2026-09-13 之前卡组里存的是**卡名**，
-        ///      而原版有跨阵营同名卡（`Terminator` / `Bladeguard Veteran` …），
+        ///      而原版有跨阵营同名卡（`Terminator` / `Terminator Champion` / `Maulerfiend` 这 3 组），
         ///      所以走这条必须带 `faction`，否则会撞上另一个阵营那张。
+        ///      ⚠️ 2026-10-17 订正：这里原来举的例子还带一个 `Bladeguard Veteran` —— 那组是
+        ///      09-13 一次错改名的产物、10-17 已撤回（`UM34` 现在叫 `Bladeguard Lieutenant`），
+        ///      现在的同名组就是上面那三组（判据 `资料/普查产出_1017/W_B16_教程数据缺口.md` §①）。
         ///
         /// 两条都找不到返回 null，**由调用方报错**（不静默）。
         /// </summary>

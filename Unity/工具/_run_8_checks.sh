@@ -34,4 +34,9 @@ run CollectionScene.Run collection.log
 run NetSelfTest.Run     net.log          # 传输 / 握手 / 心跳 / 掉线重连
 run NetBattleTest.Run   netbattle.log    # 两个裸 context 真打一局 + 换牌定序 + 掐断重连重放
 run SettingsScene.Run   settings.log     # 设置窗三页 + 联机页
-echo "=== $(date +%H:%M:%S) 全部结束（老八条 + 联机三条）==="
+# ---- 🆕 2026-10-17：卡面基座（⑨ 账上那条「`CardBaseDemo.Run` 不在本脚本里」的收口）----
+#   它是**卡面 / 版面那两族**的必跑项（四档分辨率 + 悬停/让位/拖拽/落位/状态色），
+#   原来只靠人手单发 ⇒ 常年漏跑。现在并入全套（🔴 仍然**串行**，同工程只能一个 Unity 实例）。
+#   ⚠️ 它的另一半职责是**出截图**（`d:/4/_tmp_view/cardbase/`）—— 涉及版面时断言绿了**也要看一眼图**。
+run CardBaseDemo.Run    cardbase.log     # 四档分辨率渲染 + 交互闭环（51 条断言）
+echo "=== $(date +%H:%M:%S) 全部结束（老八条 + 联机三条 + 卡面基座 = 12 条）==="

@@ -168,6 +168,38 @@ public static class MainMenuScene
                   $"{what}（世界坐标差 {d:F4} 世界单位 = {d * 108f:F2}px）");
     }
 
+    /// <summary>🆕 **2026-10-17（F3 · 治 D3 的「机理 B」· 红⑤⑥⑦⑧）**：**走 `MenuDraw.AlignLeft`、
+    /// 而原版档是 `Left`** 的那一族，怎么断「框摆对了」。
+    ///
+    /// <para>🔴 **为什么不能拿 `CheckAt` / `CheckAtWorld` 直接断**：`MenuDraw.AlignLeft` → `Label.AlignLeftOn`
+    /// **会把节点挪走** —— `Battle/Label.cs:1096-1105`：`localPosition.x = 框左沿 − 父x + WorldW×0.5`
+    /// ⇒ **节点中心 = 框左沿 + 字宽/2**；而两条 `CheckAt*` 比的是「框左沿 + 框宽/2」
+    /// ⇒ 恒差 `(框宽 − 字宽)/2`，**永远不为 0**（实测四条：8.78 / 104.92 / 1.60 / 1.57px）。
+    /// ⚠️ 这不是我们的实现错了 —— 原版那几条 TMP 的 `m_HorizontalAlignment = Left`（`menu_dump` 实读），
+    /// 我们是**靠挪节点仿出来的**。⛔ **别改成「不调 `AlignLeft`」**（那会让它们**居中**，与原版相悖）。
+    /// 🟢 工程里早写着这条规矩：`Editor/SettingsScene.cs:214-216` 的 `CheckLeftS` doc（**同一条**）。</para>
+    ///
+    /// <para>**断两件**（⛔ 都不比原口径弱，只是把 x 换成**更对的那个量法**）：
+    /// ① **y**：节点世界 y == 原版矩形中心的 y —— `AlignLeftOn` **只改 x** ⇒ y 这一格仍是原口径那一条；
+    /// ② **x**：**真渲染左缘**（`TmpRenderedRect` = TMP 自己那块 `textBounds`，⛔ 不是字段缓存 `WorldW`）
+    /// ≈ **框左沿** `x1` —— 这正是原版 `Left` 的语义，也是「对齐复刻得对不对」唯一还咬得住的写法
+    /// （同族现成写法 = 本文件 `:4519` 那颗 `Window Title`，容差同为 1.5px；机理 → `TmpRenderedRect` 文件头）。</para>
+    ///
+    /// <para>⚠️ 量不到 TMP ⇒ **显式报红**（同 `:4520` 那条「前提」），⛔ 不静默跳过。</para></summary>
+    static void CheckLeftAlignedAtWorld(Transform t, float x1, float x2, float y1, float y2, string what)
+    {
+        if (t == null) { CheckTrue(false, what + "（节点不在）"); return; }
+        var want = MainMenuRuntime.Center(x1, x2, y1, y2);
+        float dy = Mathf.Abs(t.position.y - want.y) * 108f;          // 世界单位 → 画布 px
+        CheckTrue(dy <= 1.0f,
+                  $"{what} 的**框**在原版矩形的**竖**位上（y 差 {dy:F2}px ≤ 1.0 —— `AlignLeft` 只挪 x，y 照旧按原口径比）");
+        float rx1, ry1, rx2, ry2;
+        CheckTrue(TmpRenderedRect(t, out rx1, out ry1, out rx2, out ry2),
+                  $"{what} 底下量得到 `TextMeshPro`（量不到 ⇒ 下面那条左缘断言等于没查）");
+        CheckTrue(Mathf.Abs(rx1 - x1) <= 1.5f,
+                  $"{what} 的**真渲染左缘** = {rx1:F2}（应为框左沿 **{x1:F2}** ±1.5 —— 原版 `m_HorizontalAlignment = Left`）");
+    }
+
     /// <summary>🆕 2026-10-03：取一段文字的**字距**（没有 `Label` 就给 `NaN`）。
     /// 原版有几处 TMP 带 `m_characterSpacing`（`Window Title` 5 · `DivisionText` −2.6 · 开关两行 −4），
     /// 以前 `Label` 没有接口、这几处一直没复刻；现在有了就必须钉住。</summary>
@@ -610,7 +642,27 @@ public static class MainMenuScene
                 CheckTrue(first != null && first.CurrentState == WindowState.Open,
                           "点齿轮 ⇒ **真的开了设置窗**（`SettingsWindow`）");
                 CheckTrue(first != null && FindChild(first.transform, "Tab Buttons") != null,
-                          "开出来的那扇窗里有 `Tab Buttons`（三个页签：图像 / 音频 / 联机）");
+                          "开出来的那扇窗里有 `Tab Buttons`");
+                // 🔴 **2026-10-17（B2 顺手订正 · 铁律 5）**：这一句原来写「（三个页签：图像 / 音频 / 联机）」——
+                //    **已经过期**：`Shell/SettingsWindow.cs` 的 `BuildTabs` 现在是 **4 页**
+                //    （`SettingsTab` = `General 0 / Graphics 1 / Audio 2 / Online 3`，General 是后补的）
+                //    ⇒ 文案改成与现状一致，并**顺手把页数断上**：原来只断「有 `Tab Buttons` 这个节点」，
+                //    **少一页 / 多一页都不红** —— 那正是这一句能「写着三个、实际四个」还一直绿的原因。
+                //    ⚠️ 期望值 **4 是【我们的】页数**（原版那一栏是 5 页：`General/Media/Account/Graphics/Support`，
+                //    见 `Shell/SettingsWindow.cs` 的 `BuildTabs` 注释）⇒ 本条钉的是「我们这 4 页一个都没漏建」，
+                //    ⛔ 别读成「原版就是 4 页」。
+                {
+                    var tabsBar = first != null ? FindChild(first.transform, "Tab Buttons") : null;
+                    var tabNames = new List<string>();
+                    if (tabsBar != null)
+                        for (int i = 0; i < tabsBar.childCount; i++) tabNames.Add(tabsBar.GetChild(i).name);
+                    CheckTrue(tabNames.Count == 4
+                              && tabNames.Contains("General") && tabNames.Contains("Graphics")
+                              && tabNames.Contains("Audio") && tabNames.Contains("Online"),
+                              "`Tab Buttons` 下是 **4 个页签**：General / Graphics / Audio / Online"
+                            + "（`SettingsTab` 四档 · `BuildTabs` 逐页建一个同名 `page` 节点）—— 实测 "
+                            + tabNames.Count + " 个：" + string.Join("、", tabNames.ToArray()));
+                }
                 // 🔴 **2026-10-05（A104）**：**再点一次**。原版 `WindowsManager.OpenWindow` 第一件事是查
                 //    `automaticallyLoadedWindows` 缓存（VA `0x180875990` 起、`call 0x1815caa30` = `TryGetValue`，
                 //    命中就跳去复用）⇒ **同一扇窗点两次只有一个实例**，第二次只是重跑一遍 `TryOpen`。
@@ -680,6 +732,33 @@ public static class MainMenuScene
                 "`InboxBtn`（HLG 算的值，**不是 JSON 的 397.8**）");
         CheckAt(FindChild(FindChild(bar, "TopBarButtons"), "Challenge button"), 490.1f, 537.6f, 11.8f, 59.2f,
                 "`Challenge button`（HLG 算的值）");
+
+        // 🆕 **2026-10-17（B25①）：顶栏那 4 颗钮的点击接线**（接线本体现在在**共用件** `Shell/TopBar.cs` ——
+        //   本文件 `Build()` 里那句 `TopBar.Build(...)`；卡组编辑那一屏用的是**同一份**）。
+        //   ⚠️ 挂载点：齿轮 = `SettingsBtn/Image` · 信封 = `InboxBtn/Image` · 头像 = `Avatar Item Small/Border`；
+        //   **挑战那颗就在 `Challenge button` 自己身上**（它就是那个 quad）⇒ 取组件一律 `GetComponentInChildren`。
+        //   🔴 四颗里**挑战那颗原版不开窗**（`ChallengeButton`：按挑战数显隐 + 弹「收挑战」确认框后自隐）
+        //   ⇒ 它接的是**出声**那一条（`Debug.Log`）—— 断言只断「接了、且不是静默的空壳」。
+        {
+            System.Func<Transform, WindowButton> hitOf = nd =>
+                nd != null ? nd.GetComponentInChildren<WindowButton>(true) : null;
+            var b25Gear = hitOf(FindChild(FindChild(bar, "SettingsBtn"), "Image"));
+            var b25Inbox = hitOf(FindChild(FindChild(bar, "TopBarButtons"), "InboxBtn"));
+            var b25Avat = hitOf(FindChild(FindChild(FindChild(bar, "Player Profile"), "Avatar Item Small"), "Border"));
+            var b25Chal = hitOf(FindChild(FindChild(bar, "TopBarButtons"), "Challenge button"));
+            CheckTrue(b25Gear != null && b25Gear.onClick != null, "★ B25①：**齿轮**接了点击");
+            CheckTrue(b25Inbox != null && b25Inbox.onClick != null, "★ B25①：**信封**接了点击");
+            CheckTrue(b25Avat != null && b25Avat.onClick != null, "★ B25①：**头像**接了点击");
+            CheckTrue(b25Chal != null && b25Chal.onClick != null,
+                      "★ B25①：**挑战**接了点击（原版 `ChallengeButton` 不开窗 ⇒ 这一颗是**出声**那一条）");
+            // 🔴 **判别式**：四颗**不是同一个回调** —— 一个「全挂同一个 `onClick`」的实现（或把接线整个漏掉）
+            //    过不了这一条（前三颗各自开不同的窗，见 `TopBar` 文件头那三条判据）。
+            if (b25Gear != null && b25Inbox != null && b25Avat != null && b25Chal != null)
+                CheckTrue(b25Gear.onClick != b25Inbox.onClick && b25Inbox.onClick != b25Avat.onClick
+                          && b25Avat.onClick != b25Chal.onClick && b25Gear.onClick != b25Chal.onClick,
+                          "★ B25①（**判别式**）：四颗钮的 `onClick` **互不相同**（不是全挂同一个空壳）");
+        }
+
         CheckTrue(FindChild(bar, "Feedback Button") == null,
                   "`Feedback Button` **没建**（原版出厂 `activeSelf=False`，§二 表 #10）");
         var resBar = FindChild(bar, "Resources Bar");
@@ -713,7 +792,8 @@ public static class MainMenuScene
         //    · 把建表序打乱（例：先 gold）⇒ 夹具①②的次序红
         //    · 把上限判据写成 `!= 0`（而不是 `> 0`）⇒ 夹具③的第二半渲成 `11/-1` ⇒ 红
         //    · 把上限写死成「活动点 → `/2000`」⇒ **夹具③红**（换 gold 拨 500 它不跟）
-        //    · 删掉 `BuildResourcesBar` 的调用 ⇒ 下面每条都红
+        //    · 删掉 `MainMenuRuntime.Build()` 里那句 `TopBar.Build(...)`（建树现在在共用件里）
+        //      ⇒ 下面每条都红
         Section("★ A374 顶栏资源计数器（7 类币种 · 恒显 3 颗 · 拥有>0 才显 · 上限是通用机制）");
         {
             var pgo = new GameObject("A374 ResourcesBar Probe");
@@ -1046,7 +1126,7 @@ public static class MainMenuScene
                       "★ 顶栏立绘的渲染队列**比盾牌框高一档** —— 那张盾的中心是**不透明黑**，反了就是一块黑");
             CheckAt(topArt, -58.09f, 218.79f, -34.59f, 169.83f,
                     "顶栏立绘（**盒子比盾大，这是照原版 prefab 算的**：`Image` 的 `localScale=2` ⇒ 容器×2；"
-                  + "立绘贴图实心部分只占 43%×60% ⇒ 露出来的只有人像。推导 → `BuildTopAvatar` 的注释）");
+                  + "立绘贴图实心部分只占 43%×60% ⇒ 露出来的只有人像。推导 → `TopBar.BuildTopAvatar` 的注释）");
             // 🔴 **为什么立绘那一格要比盾大**（这条断言把那个理由钉住）：立绘贴图的**实心部分**只占
             //    **43%×60%**（`alpha>128` 的包围盒 220×306 / 512），而盾的**孔径**占边框的 **92%×93%**
             //    （近黑不透明区域的包围盒 236×266 / 256×286）⇒ **「实心的高」必须对得上「孔径的高」**，
@@ -1100,10 +1180,16 @@ public static class MainMenuScene
         //      而 2026-09-22 裁决（`资料/阶段二外壳_待裁决清单_0922.md:29` 选项 (b)）要的正是这后半句
         //      「点了如实提示「暂无服务器」」（前半句「那张卡」09-24 就建好了）。
         //   🧨 **改坏法**：把 `BuildModeCard(..., "Draft Game Mode Container 1x2", ..., "draft")` 的末位
-        //      改回 `null` ⇒ 第 1 条红；给 `Tutorial` 也塞一个 kind ⇒ 反面那条红。
+        //      改回 `null` ⇒ 第 1 条红；把 `Tutorial` 那一格的末位改回 `null` ⇒ 它那条红。
+        //   🔴 **2026-10-17（A853 收口）：`Tutorial` 从「反面」翻到「正面」。** 下面这一段原来钉的是
+        //      「`Tutorial` 那张卡**不该**有 `Hit`」（它当时归教程线、还没接动作）—— 用户 2026-10-17
+        //      拍板接 `"tutorial"` ⇒ 那扇窗（`Tutorial Mode Menu`）已建（`Shell/TutorialModePopup.cs`）
+        //      ⇒ **旧反面断言与新实现直接打架**，按铁律 5 就地翻成正面，并把它并进下面这张表。
+        //      ⛔ 别再把 `Tutorial` 挪出这张表 —— 那等于把「没做」伪装成「做了」的反面。
         var modeCardsWithAction = new[]
         {
             "Draft Game Mode Container 1x2",
+            "Base Game Mode Container 1x1 - Tutorial",     // 🆕 2026-10-17（A853）
             "Base Game Mode Container 1x1 - Practice",
             "Base Game Mode Container 1x1 - Skirmish",
             "Base Game Mode Container 1x1 - Ranked",
@@ -1114,15 +1200,6 @@ public static class MainMenuScene
             CheckTrue(c != null, $"（前提）模式卡 `{nm}` 建了（下面那条命中区判据的前提）");
             CheckTrue(c != null && FindChild(c, "Hit") != null,
                       $"模式卡 `{nm}` **接上了动作**（有 `Hit` 命中区 ⇒ 点了才走得到 `OpenMode`）");
-        }
-        // 反面：`Tutorial` 那一件归**教程线**（§三 老表 ⑤「教程全套」），**本批没给它接动作** ⇒ 它**不该**有 `Hit`。
-        //   这条防的是「为了让上面全绿，顺手给每张卡都塞一个 kind」（那会把「没做」伪装成「做了」）。
-        {
-            var tut = menu.Find("Base Game Mode Container 1x1 - Tutorial");
-            CheckTrue(tut != null, "（前提）`Tutorial` 那张卡在（下面那条反面判据的前提）");
-            CheckTrue(tut != null && FindChild(tut, "Hit") == null,
-                      "模式卡 `Tutorial` **没有** `Hit`（它归教程线「§三 老表 ⑤ 教程全套」，本批没接动作"
-                    + " —— ⛔ 别顺手给它塞 kind；教程线接手那天**连同本条一起改**）");
         }
 
         // ============================================================ §A332 `sizeDelta`（2026-10-11 新增）
@@ -1238,8 +1315,17 @@ public static class MainMenuScene
             var ph = FindChild(pc, "Hit");
             var pwb = ph != null ? ph.GetComponent<WindowButton>() : null;
             CheckTrue(pwb != null && pwb.onClick != null, "练习卡有**点击区**（`WindowButton`）");
-            CheckTrue(FindChild(menu.Find("Base Game Mode Container 1x1 - Tutorial"), "Hit") == null,
-                      "Tutorial 卡**没有**点击区（它还不是入口 —— 那一扇窗还没建）");
+            // 🔴 **2026-10-17（A853 收口）· 这一条【翻面】**：它原来断的是 `…"Hit") == null`
+            //    （「Tutorial 卡**没有**点击区（它还不是入口 —— 那一扇窗还没建）」）—— 而那扇窗
+            //    2026-10-17 建了（`Shell/TutorialModePopup.cs` = 原版 `Tutorial Mode Menu`）⇒
+            //    旧反面断言与新实现**直接打架**，按铁律 5 就地翻成正面，别留着误导下个会话。
+            var tutCard = menu.Find("Base Game Mode Container 1x1 - Tutorial");
+            var tutHit = FindChild(tutCard, "Hit");
+            var tutWb = tutHit != null ? tutHit.GetComponent<WindowButton>() : null;
+            CheckTrue(tutWb != null && tutWb.onClick != null,
+                      "Tutorial 卡**有**点击区、且**接了动作**（`WindowButton.onClick` 非空）—— 它已经是一扇窗的入口"
+                    + "（`Tutorial Mode Menu` · `Shell/TutorialModePopup.cs`）；⛔ 把 `BuildModeCard` 那一格的末位"
+                    + " 改回 `null` 这条就红");
 
             // ============================================================ 🆕 2026-10-10（A222）
             // **模式卡三张的悬停色偏也要打在那颗可见的图形上**（`Background Image` = 原版 `m_TargetGraphic`）。
@@ -2352,6 +2438,16 @@ public static class MainMenuScene
                 Check(CollectionData.CurrentIndex(), pw.DeckIndex,
                       "开战前**把选中的那套交给 `DeckLibrary`**（`BattleDriver.PickSavedDeck` 读的就是它）");
                 Shoot("02_练习模式窗.png");
+                // 🔴 **2026-10-17（F3 · D3 红⑪）**：开战那一句往 `BattleDriver.SetPendingPlayMode` 通道里写了**模式号**
+                //    （`Shell/PracticeModePopup.cs:1717`），而**批处理下没有消费点**（只有真开局那条链
+                //    `TakePendingPlayMode` 会读走）⇒ 它会**一路留到 `★ A853` 教程窗那一节**，把那条
+                //    「进本条之前两条通道都是空的」前提判红。**当场排空、不许留给下一节**
+                //    （同 `Editor/BattleScene.cs` 两处「通道排空」的写法）。
+                //    ⛔ **不是删掉那条前提** —— 那条前提正是用来挡「上一节的脏值把下一条断言喂绿」的，
+                //       本窗自己**没有**静默失败的嫌疑（紧接着两条都绿）；只补排空。
+                BattleDriver.TakePendingPlayMode();
+                //    ⚠️ `_pendingTutorialStage` 那一半**不在这里排**：全仓只有 `TutorialModePopup.PlayTutorial`
+                //       会写它，练习/遭遇战/排位三条链都不碰 ⇒ 排它等于空写。
 
                 // ---------------- `Deck info Popup`（2026-09-24 实读订正的那条入口）----------------
                 // 原版：`Show Deck Content Button` = `DeckGeneralInfoDemo.cardInDeckInfoButton`
@@ -2648,9 +2744,27 @@ public static class MainMenuScene
                             CheckTrue(cbc + sbc == tab.Count && sbc > 0,
                                       $"预组页**两种模式都列**（经典 {cbc} + 遭遇 {sbc} = {tab.Count}）—— "
                                     + "遭遇那批是 2026-09-26 引擎支持之后才列出来的");
-                            CheckTrue(ds2.ScopeText.Contains("本页列 " + tab.Count),
-                                      "红底板下沿那行小字**说清了列了多少 / 藏了多少**：" + ds2.ScopeText);
-                            CheckTrue(ds2.EmptyText.Length == 0, "预组页非空 ⇒ **空态那行字不显示**");
+                            // 🔴 **2026-10-17（B2 顺手收口 · D11 的尾巴）**：这里原来断的是
+                            //    `ds2.ScopeText.Contains("本页列 " + tab.Count)` —— 那行字（节点 `Scope Note`，
+                            //    红底板下沿）是**我们自己加的**：原版空态**只有** `Empty Collection Warning`
+                            //    那一件（判据 = `DeckCollectionDisplay.emptyWarning` 指向它，`menu_dump` 实读，
+                            //    全文在 `Shell/DeckSelectionPopup.cs` 的 `Build()` 第 7/7b 步）⇒ D11 已把那个
+                            //    节点从屏上删掉。⚠️ 但 `ScopeText` 那个属性**还留着**（`DeckSelectionPopup.cs`
+                            //    不在那一批的白名单）⇒ **旧断言今天仍然绿、断的却是一个不上屏的字符串** = 假绿
+                            //    （正是本工程最忌讳的那种）。现改成断**原版事实上屏的那两件**。
+                            CheckTrue(FindChild(ds2.transform, "Scope Note") == null,
+                                      "我们自己加的那行范围小字 `Scope Note` **一个节点都没有**（原版空态只有"
+                                    + " `Empty Collection Warning` 一件）—— 这一条就是防它被加回来；"
+                                    + "⚠️ 它不上屏之后，旧那条断 `ScopeText` 的断言已经没有鉴别力了，见上面那段更正注");
+                            // 🔴 空态那一件的判据是 **`activeSelf`**（原版同一件两用：既当「有没有东西」的开关、
+                            //    又放那句文案），**不是那个字符串** —— 字符串空 ≠ 节点关着
+                            //    （`MenuDraw.Text` 给空串照样留一颗 TMP，画出来是一片空白）。
+                            var emptyNode = FindChild(ds2.transform, "Empty Collection Warning");
+                            CheckTrue(emptyNode != null, "（前提）空态那一件 `Empty Collection Warning` 建了");
+                            CheckTrue(emptyNode != null && !emptyNode.gameObject.activeSelf,
+                                      "预组页非空（" + tab.Count + " 副）⇒ 空态那一件 **`activeSelf = false`**"
+                                    + "（原版 `DeckCollectionDisplay` 就是靠它这一件两用）");
+                            CheckTrue(ds2.EmptyText.Length == 0, "…而这件里的字也是空的");
 
                             // ---- ④ **搜索框不建**（2026-09-26 用户拍板「按照原版设计」）----
                             //    原版出厂 `act=N`，且四条证据都指向「没有任何代码打开它」（见 `DeckSelectionPopup.Search` 那段注释）
@@ -2667,7 +2781,14 @@ public static class MainMenuScene
                             {
                                 tabOwnBtn.Click();
                                 Check(ds2.OwnDecks, true, "点它 ⇒ 切到**我的卡组**那一页");
-                                CheckTrue(ds2.ScopeText.Length == 0, "「我的卡组」页**不显示**那行范围小字（只预组页有）");
+                                // 🔴 **2026-10-17（B2 顺手收口 · D11 的尾巴）：这一条【已删】** —— 原来断的是
+                                //    `ds2.ScopeText.Length == 0`（「我的卡组」页不显示那行范围小字）。
+                                //    理由两条：① 那行字（节点 `Scope Note`）是**我们自己加的**、原版没有，
+                                //    D11 已把节点从屏上删掉 ⇒ 这条断的东西**一个像素都不上屏**（假绿）；
+                                //    ② 「有没有这一行」在**两个页签上是同一个事实**（节点压根不在）——
+                                //    上面预组页那一条 `FindChild(ds2.transform, "Scope Note") == null`
+                                //    已经把它钉死了，这里再来一遍是同义反复（本工程明令不许）。
+                                //    ⛔ 别按「我的卡组页不该有它」把它加回来 —— **原版哪一页都没有这一行**。
                                 var c1 = ds2.Cells.Count > 0 ? ds2.Cells[0] : null;
                                 CheckTrue(c1 != null && FindChild(c1, "DificultyLevel") == null,
                                           "「我的卡组」页**不画难度角标**（原版 `DeckCollectionDisplay.displayDifficultyLabel` 在这一页是 0）");
@@ -2825,6 +2946,228 @@ public static class MainMenuScene
                 CheckTrue(pw.TryOpen(), "（A796 现场）把练习窗开回来 —— 下面那条要在**开着**的窗上点");
                 MenuDraw.CheckShadeClickRule(CheckTrue, "练习窗", pw.transform, FindChild(pw.transform, "BackdropHit"),
                                              () => pw.CurrentState);
+            }
+        }
+
+        // ============================================================ 🆕 2026-10-17（A853 收口 · 用户拍板走 A）
+        // 点主菜单那张 `Base Game Mode Container 1x1 - Tutorial` ⇒ 开 **`Tutorial Mode Menu`**
+        //（原版 prefab 名 / 类名 `TutorialModePopup : GameWindow` · 我们 = `Shell/TutorialModePopup.cs`）。
+        // 判据链（**这扇窗不是我们挑的映射**）：原版那张卡的根上挂 `LiveopMenuContainer` + `EverguildButton`，
+        //   `OnClick` → `LiveOpsEvent.OpenWindow()` → 按事件数据里的 `EventComponents[MainWindow]` 开窗 ——
+        //   而**全游戏唯一**消费 `TutorialEvent` 的窗就是 `Tutorial Mode Menu` ⇒ 「Tutorial 卡 → 这扇窗」
+        //   这一条是原版的（其余四张卡的映射才是我们定的，见 `BuildGameModes` 那两段注释）。
+        // 🔴 **下面每一条的期望值 = 原版 prefab 实读的字面量**（2026-10-17 现读，两条命令：
+        //   `python 工具/menu_dump.py bundle_menus_assets_all "Tutorial Mode Menu" --depth 4 --md` +
+        //   同命令换 `"Tutorial Army Select Button"`；窗口参数在 `资料/普查产出_1006/A154_A155_窗口档位与缩放.md:361`），
+        //   ⛔ **不读 `TutorialModePopup` 自己的常量** —— 那是被测实现传进去的实参（自证）。
+        // 🧨 **改坏法**：① `MainMenuRuntime.BuildGameModes` 那一格的末位改回 `null` ⇒ 上面「接上了动作」+ 本节第 1 条红；
+        //   ② 把 `OpenMode` 的 `case "tutorial"` 摘掉 ⇒ 本节第 1 条红（点了不开窗）；
+        //   ③ 把 `Rows` 的一行删掉 / 改一行矩形 ⇒ 对应那条红。
+        Section("★ A853：教程模式窗 `Tutorial Mode Menu`（原版 `TutorialModePopup`）");
+        {
+            var tutCard = menu.Find("Base Game Mode Container 1x1 - Tutorial");
+            var tutHitN = FindChild(tutCard, "Hit");
+            var tutBtn = tutHitN != null ? tutHitN.GetComponent<WindowButton>() : null;
+            CheckTrue(tutBtn != null, "（前提）教程卡有命中区 `Hit`/`WindowButton`");
+            if (tutBtn != null) tutBtn.Click();
+            var tut = TutorialModePopup.LastOpened;
+            CheckTrue(tut != null, "点教程卡 ⇒ **开出了 `Tutorial Mode Menu`**（`TutorialModePopup.LastOpened` 指上了）");
+            if (tut != null)
+            {
+                // ---- 窗口参数（逐字段实读；那一行就是本窗：`Tutorial Mode Menu | TutorialModePopup | 1 | 15 | 1 | 0 | 1 | 1`）
+                Check(tut.type, WindowType.Popup, "`type` = **1 Popup**（原文）");
+                Check(tut.placement, WindowsPlacement.Popup, "`windowsPlacement` = **15 Popup**（原文）");
+                CheckTrue(tut.closeOnEsc, "`closeOnESC` = **1**（原文）");
+                CheckNear(tut.extraScaleSmallScreen, 1f, 1e-4f,
+                          "`extraScaleSmallScreen` = **1.0**（⚠️ 同族练习窗是 **1.07** —— 逐窗实测，⛔ 别互推）");
+                // 压暗层命中区：档 = 压暗层自己那一档，且严格 < 窗内内容命中区档（同族六扇逐句同款）
+                MenuDraw.CheckShadeRule(CheckTrue, "教程窗", FindChild(tut.transform, "BackdropHit"),
+                                        tut.transform.Find("Menu Dark Background"), TutorialModePopup.QHit);
+
+                // ---- 整棵树的位置与矩形（期望值全是原版实读的绝对矩形）
+                CheckAt(FindChild(tut.transform, "Menu Dark Background"), -1327.30f, 3247.30f, -746.18f, 1826.18f,
+                        "`Menu Dark Background`（原版 rect **比屏幕大**：4574.60 × 2572.36 —— 同族各窗逐值相同）");
+                CheckAt(FindChild(tut.transform, "Generic Window Red Background Big"), -601.28f, 2521.28f, 105.84f, 1028.32f,
+                        "`Generic Window Red Background Big`（3122.56 × 922.49 · `UI_Deck_Information_Back` 九宫 42,363,655,81）");
+                CheckAt(FindChild(tut.transform, "Header With Back Button"), 0f, 550f, 40.87f, 150.42f,
+                        "`Header With Back Button`（550 × 109.55 —— 它比下面那颗底板**矮**，原版就这样）");
+                // 🔴 **2026-10-17（F3 · D3 红①②③④）**：下面四颗是**孙件**（`hdr` 的子件 / `Army Selector` 的子件）
+                //    ⇒ ⛔ **不能走 `CheckAt`**：它比的是 `localPosition`、只对**窗口根的直接子件**成立
+                //    （`MenuDraw.Local` 写进去的是 `矩形中心 − PosInDesignSpace(父)`）—— 孙件恒差 `|PosInDesignSpace(父)|`，
+                //    也就是下面那两个实测差值（`|Center(0,550,40.87,150.42)| = 7.5602` ·
+                //    `|Center(60,649.68,244.89,902.69)| = 5.6121`）。**节点本来就在原版矩形上**，红的是尺子。
+                //    🟢 这条规矩**同一节下面就写着**（见那四条字栏上面那句），当时只用在字栏上 ⇒ 这三颗漏了；
+                //    同族遭遇战窗用的是 `CheckAtWorld`（`:4531`）。⚠️ `:2962` 的 `Warlord Darkening` 也是孙件、
+                //    也走 `CheckAt` 却**是绿的** —— 它的父件中心**正好是 (960,540)**（`PosInDesignSpace = (0,0)`）⇒ 巧合。
+                // 红① 那一颗另有一半是**实现缺陷**（原来没给节点起名、落到缺省 `"Nine"`）—— 已在
+                // `Shell/TutorialModePopup.cs` 的 `BuildHeader` 就地补名（照同族三份先例）。
+                CheckAtWorld(FindChild(FindChild(tut.transform, "Header With Back Button"), "Header Background"),
+                        0f, 550f, 40.87f, 156.23f,
+                        "`Header Background`（`WF_Campaign_Info_Background` 九宫 335,0,395,0；宽 **550** = `ContentSizeFitter` 的**下限**"
+                        + " —— 原版同族遭遇战窗是 690.86，因为那行标题更长 ⇒ ⛔ 别互推）");
+                CheckAtWorld(FindChild(FindChild(tut.transform, "Header With Back Button"), "Header Background (1)"),
+                        -462.10f, 87.90f, 40.87f, 156.23f, "`Header Background (1)`（往左延伸的尖角）");
+                CheckAtWorld(FindChild(FindChild(tut.transform, "Header With Back Button"), "Header Back Button"),
+                        -24.40f, 143.48f, 42.88f, 154.21f, "`Header Back Button`（`UI_Button_Menu_Back`）");
+                CheckAt(FindChild(tut.transform, "Warlod Image"), 410.93f, 1509.07f, -9.07f, 1089.07f,
+                        "`Warlod Image`（1098.14² —— ⚠️ 与同族遭遇战窗的 450.93,-95.07→1549.07,1003.07 **不是同一格**）");
+                CheckAt(FindChild(FindChild(tut.transform, "Warlod Image"), "Warlord Darkening"),
+                        489.97f, 1430.03f, 627.87f, 947.80f,
+                        "`Warlord Darkening`（940.05 × 319.93 · `Smooth background square` 九宫 12,2,12,12 · 色 a=0.816）");
+                CheckAt(FindChild(tut.transform, "TutorialInfo"), 1344.25f, 1866.17f, 244.88f, 831.10f, "`TutorialInfo` 那一栏");
+                CheckAt(FindChild(tut.transform, "PlayTutorialButton"), 1387.83f, 1828.17f, 902.70f, 1023.30f,
+                        "`PlayTutorialButton`（440.33 × 120.60 · `UI_Button_Mulligan` 九宫 333,96,333,96）");
+                CheckAt(FindChild(tut.transform, "Army Selector"), 60f, 649.68f, 244.89f, 902.69f, "`Army Selector`（589.68 × 657.80）");
+                // ⚠️ 孙件（`Army Selector` 的子件）⇒ 走 `CheckAtWorld`（同上面那三颗，原委见那一节）。
+                //    实测差 5.6121 = `|Center(60,649.68,244.89,902.69)|` = **父件自己的设计位置**
+                //    ⇒ `Viewport` 的 `local` 是 0（= **与父件同矩形** ✓ 正是原版实读）。
+                CheckAtWorld(FindChild(FindChild(tut.transform, "Army Selector"), "Viewport"), 60f, 649.68f, 244.89f, 902.69f,
+                        "`Army Selector/Viewport`（原版**与父件同矩形**）");
+                CheckAt(FindChild(tut.transform, "Completed Text"), -0.01f, 658.33f, 129.52f, 301.02f, "`Completed Text`");
+                // 四条字栏（`TutorialInfo` 的子件 ⇒ 用世界坐标：`CheckAt` 比的是 `localPosition`，只对直接子件成立）
+                // 🔴 **2026-10-17（F3 · D3 红⑤⑥⑦⑧）**：这四条**走 `MenuDraw.AlignLeft`**（原版档全是 `Left`）
+                //    ⇒ `Label.AlignLeftOn` **把节点挪走**（节点中心 = 框左沿 + **字宽**/2），而 `CheckAtWorld`
+                //    比的是框心（= 框左沿 + **框宽**/2）⇒ 测得的四条差值 8.78 / 104.92 / 1.60 / 1.57px
+                //    **正是 `(框宽 − 字宽)/2`**（例：`TutorialSubTitle` 框 504.10 − 字宽 ≈294.26 ⇒ 104.92 ✓）
+                //    ⇒ 改成 `CheckLeftAlignedAtWorld`（y 照旧按原口径比框心、x 改比**真渲染左缘** —— 见其文件头）。
+                //    ⛔ 这不是弱化：x 那一格从「比错的口」换成了「原版 `Left` 真正管的那条缘」。
+                CheckLeftAlignedAtWorld(FindChild(tut.transform, "TutorialTitle"), 1344.25f, 1847.20f, 265.04f, 370.73f, "`TutorialTitle`");
+                CheckLeftAlignedAtWorld(FindChild(tut.transform, "TutorialSubTitle"), 1343.67f, 1847.77f, 326.52f, 457.85f, "`TutorialSubTitle`");
+                CheckLeftAlignedAtWorld(FindChild(tut.transform, "TutorialWarlordTitle"), 1344.25f, 1847.20f, 475.89f, 552.94f, "`TutorialWarlordTitle`");
+                CheckLeftAlignedAtWorld(FindChild(tut.transform, "TutorialDescription"), 1344.25f, 1866.17f, 576.53f, 831.10f, "`TutorialDescription`");
+                // 名单容器 `Filters`：**6 格 + 5 个 spacing** = 6×200 + 5×7.31 = **1236.55** 高
+                //（原版 `VerticalLayoutGroup m_Spacing = 7.31` · 出厂 0 高 0 子，格是运行时实例化的）
+                CheckAtWorld(FindChild(tut.transform, "Filters"), 60f, 649.68f, 244.89f, 1481.44f,
+                             "`Filters` 的内容高 = **1236.55**（6 × 200 + 5 × 7.31 —— 少算一格就短 207.31）");
+
+                // ---- 文案（**全是 prefab 出厂原文**）
+                CheckText(TextOf(FindChild(tut.transform, "Window Title")), "Game mode",
+                          "★ `Window Title` = prefab 出厂原文 `Game mode`（原版运行时由 `WindowHeaderWithBackButton.Initialize`"
+                        + " 按**教程事件数据**换掉，那份数据本地任何形态都没有 ⇒ 照出厂值印，⛔ 不编一个标题）");
+                CheckText(TextOf(FindChild(FindChild(tut.transform, "PlayTutorialButton"), "Button Text")), "Play Tutorial",
+                          "★ `PlayTutorialButton/Button Text` = `Play Tutorial`（prefab 出厂原文）");
+                // 🔴 **2026-10-17（F3 · D3 红⑨⑩）**：右列那几条字的取件口**必须限定到 `TutorialInfo` 子树** ——
+                //    左列名单格里那三行字**原版就叫** `TutorialTitle` / `TutorialSubTitle` / `TutorialComplete`
+                //    （`menu_dump` 实读；**同名是原版的**，不是我们起的）⇒ `FindChild` 那条**深搜**
+                //    （`GetComponentsInChildren<Transform>(true)` 取第一个）会**撞名**、读到第 1 格里的字。
+                //    ⚠️ 这两条**今天绿是巧合**：`BuildInfo` 建在 `BuildArmySelector` **之前**
+                //    （`Shell/TutorialModePopup.cs` 的 `Build()` 与 prefab 子件序一致）⇒ 刚开门时深搜第一个命中的
+                //    是**右列**那份；`SelectStage` 拆掉 `TutorialInfo` 重建后新节点**追加到窗根末尾** ⇒ 随后翻面。
+                //    ⇒ 同一处一起改（`TutorialInfo` 全窗唯一；`TutorialWarlordTitle` / `TutorialDescription`
+                //      在名单格里**没有**同名件 ⇒ 那两条不用改）。
+                CheckText(TextOf(FindChild(FindChild(tut.transform, "TutorialInfo"), "TutorialTitle")), "TUTORIAL 01",
+                          "★ 关号那行（原版 = `ToUpper(词条) + 关号`，prefab 出厂原文就是 `TUTORIAL 01`）");
+                CheckText(TextOf(FindChild(FindChild(tut.transform, "TutorialInfo"), "TutorialSubTitle")), "The Basics",
+                          "★ 第 1 关副标题 = prefab 出厂原文 `The Basics`");
+                CheckText(TextOf(FindChild(tut.transform, "TutorialWarlordTitle")),
+                          "Warlord: <color=orange>Uriel Ventris</color>",
+                          "★ 督军那行 = prefab 出厂原文（格式串就是 `Warlord: <color=orange>{0}</color>`）");
+                CheckText(TextOf(FindChild(tut.transform, "TutorialDescription")),
+                          "Start here! Spar with your Chapter Master to learn the teachings of the Codex before heading out into battle.",
+                          "★ 第 1 关描述 = prefab 出厂原文");
+                // 🔴 进度：原版 = `Format(词条, 已完成, 总关数)`，而**进度在 PlayFab 云脚本里**
+                //    （`PlayerDataManager.RecordTutorialPassed` / `UploadTutorialV2SaveData`，原版已关服、本地无存档字段）
+                //    ⇒ 按 **0** 印（新号的真实值），格式照原版。⛔ 不编一个假进度。
+                CheckText(TextOf(FindChild(tut.transform, "Completed Text")), "Completed: 0/6",
+                          "★ `Completed Text` = `Completed: n/6`（格式照原版；n 恒 0 —— 进度在服务端，本地无源）");
+
+                // ---- 左列那 6 关：**声明了 6 关**（原版 `decks[6]`；出厂原文那句 `Completed: 1/6` 也是 6）
+                Check(TutorialModePopup.Rows.Length, 6,
+                      "关卡表 **6 关**（原版 `TutorialModePopup.decks[]` 里就是 6 个 `Demo DeckInfo * Tutorial`，"
+                    + "`tutorialIndex` = 0..5；`Completed: 1/6` 那句出厂原文也是 6）");
+                // 🔴 视口里**只实例化看得见的那几格**（原版 `ConfigureArmyFilterButtons` 逐关 `Instantiate`，
+                //    但我们的 `RebuildStageCells` 照 `MenuDraw.VisibleAbove` 把整格在视口外的**不建**）；
+                //    视口高 657.80 / 每格 207.31 ⇒ 第 1..4 格跨到视口（第 4 格只露 35.87px）。
+                Check(tut.StageCells.Count, 4,
+                      "★ 开门时实例化了 **4 格**（视口 657.80 高 / 每格 200+7.31 ⇒ 只有前 4 格跨得到视口；"
+                    + "剩下两关滚下去才建 —— 这条同时钉住「裁切」与「格高」）");
+                CheckTrue(tut.StageCells.Count > 2, "（前提）第 3 格在（下面点它那条的前提）");
+                // ---- 格的「完成」那两件：原版 `TutorialArmySelectionButton.Initialize` 里是**同一句
+                //      `SetActive(uVar3)`** 关掉两颗（`completeHighlight` → `BackgroundComplete` ·
+                //      `complete` → `TutorialComplete`）⇒ **只关一件就是偏离**。
+                //      我们没有教程进度（`Completed: 0/6`）⇒ 6 格的**两件都关着**。
+                //      🧨 改坏法：把 `TutorialComplete` 那句 `SetActive(false)` 删掉 ⇒ 本条红
+                //      （画面上会变成「一关没打却每格都写着 `Complete!`」—— 没做却看着像做了）。
+                {
+                    int doneShown = 0;
+                    for (int i = 0; i < tut.StageCells.Count; i++)
+                    {
+                        var cb = FindChild(tut.StageCells[i], "BackgroundComplete");
+                        if (cb != null && cb.gameObject.activeSelf) doneShown++;
+                        var ct = FindChild(tut.StageCells[i], "TutorialComplete");
+                        if (ct != null && ct.gameObject.activeSelf) doneShown++;
+                    }
+                    Check(doneShown, 0,
+                          "★ 一关都没打 ⇒ `BackgroundComplete` 与 `TutorialComplete` **两件全关**（原版同一句 `SetActive`）");
+                }
+
+                // ---- 换一关 ⇒ 右列整块跟着换（原版 `ChangeSelectedArmy` 只做两件事：逐格 `Highlight.SetActive`
+                //      + 重建右列）—— 这条同时钉住「名单格点得动」+「右列不是一张死图」
+                var c3 = tut.StageCells.Count > 2 ? tut.StageCells[2] : null;
+                var c3hit = FindChild(c3, "Hit");
+                var c3btn = c3hit != null ? c3hit.GetComponent<WindowButton>() : null;
+                CheckTrue(c3btn != null, "（前提）第 3 格有命中区");
+                if (c3btn != null) c3btn.Click();
+                Check(tut.StageIndex, 2, "点第 3 格 ⇒ 选中第 3 关（原版 `TutorialArmySelectionButton.OnArmySelected` → `ChangeSelectedArmy`）");
+                // 🔴 **2026-10-17（F3 · D3 红⑨）**：`SelectStage` 拆建 `TutorialInfo` 之后，新节点**追加到窗根末尾**
+                //    ⇒ 再拿 `FindChild(tut.transform, "TutorialTitle")` 深搜，第一个命中的是**第 1 格**里的同名件
+                //    （实测印出 `TUTORIAL 01`）。**右列本身是对的**（上面 `StageIndex == 2` 绿、督军那行是唯一名也绿、
+                //    `StageTitle(2)` 就是 `TUTORIAL 03`）⇒ 只是取件口要限定到 `TutorialInfo` 子树。
+                CheckText(TextOf(FindChild(FindChild(tut.transform, "TutorialInfo"), "TutorialTitle")), "TUTORIAL 03",
+                          "★ 右列的关号跟着换（取件口限定到 `TutorialInfo` —— 名单格里有同名件，见上面那条注）");
+                // 第 3 关 = Sautekh 的 `Nemesor Zahndrekh` —— 推导链 = 原版资产名
+                // `Sautekh_Deck0_Tutorial3_Zahndrekh` → 卡表里同阵营**唯一**名字含该短名的 hero 卡 `SAU3`。
+                // 🟢 这套推导在第 1 关上有独立交叉验证：推出来是 `Uriel Ventris`，与上面那条 prefab 出厂原文**逐字吻合**。
+                CheckText(TextOf(FindChild(tut.transform, "TutorialWarlordTitle")),
+                          "Warlord: <color=orange>Nemesor Zahndrekh</color>", "★ 督军那行也跟着换");
+                // 🔴 第 2..6 关的**副标题/描述本地查不到**（原版走远端词条表 `Demo/<阵营>DeckTutorial`，
+                //    原版客户端连 TextAsset 目录都没有）⇒ 印占位。这条钉的是「**没编文案**」（铁律 11 第 ① 种）。
+                // 🔴 **2026-10-17（F3 · D3 红⑩）**：与上一条**同一真因** —— 实测印出 `The Basics`
+                //    正是**第 1 格**的 `SubOf(0)`（`Shell/TutorialModePopup.cs`），而实现侧 `SubOf(2)` 确实
+                //    返回占位 `—`（`:648-653`）。⇒ 同样把取件口限定到 `TutorialInfo` 子树。
+                CheckText(TextOf(FindChild(FindChild(tut.transform, "TutorialInfo"), "TutorialSubTitle")), "—",
+                          "★ 第 3 关副标题印的是**占位**（原版的字在远端词条表里、本地没有 ⇒ 查明文案那天要连本条一起改）");
+
+                // ---- `Play` 钮：**真开局**（2026-10-17 B29 起）----
+                //  原版 `TutorialModePopup.BattleButtonOnClick` → `MatchMakerManager.StartMatch(…,
+                //  playMode: 4 /* PlayModes.Tutorial */, playerDeck: **选中那关的预组牌**, enemyDeck: null, …)`。
+                //  我们这条链跨场景 ⇒ 本窗口只负责把**两条通道**填对：
+                //    `BattleDriver.SetPendingTutorialStage(第几关)` + `SetPendingPlayMode(Tutorial 4)`，
+                //  然后 `LoadScene`（批处理下不切场景，只记账 ⇒ 自检才读得回来）。
+                //  🔴 **本条取代了原来那条「点了必须弹一格说明」**（那条钉的是「打不了」那个状态，
+                //     而它现在过期了）—— 旧话留在 `Shell/TutorialModePopup.cs` 文件头里作痕。
+                //  🧨 改坏法：把 `PlayTutorial` 里那句 `SetPendingTutorialStage(StageIndex)` 删掉 ⇒ 第 2 条红；
+                //     把 `SetPendingPlayMode(GameMode.Tutorial)` 删掉 ⇒ 第 3 条红。
+                CloseModalPopups();
+                CheckTrue(!AnyModalPopupLeft(WindowsManager.Instance), "（前提）点 `Play` 之前**没有**模态提示窗挂着");
+                var phit2 = FindChild(tut.transform, "PlayHit");
+                var pbtn2 = phit2 != null ? phit2.GetComponent<WindowButton>() : null;
+                CheckTrue(pbtn2 != null && pbtn2.onClick != null,
+                          "`Play Tutorial` 钮**接了动作**（`WindowButton.onClick` 非空 —— 静默失败是红线）");
+                // 通道**读一次就清**（同 `NetPendingBattle.Take` 的先例）⇒ 自检读它等于把它消费掉，
+                // 不会漏给同一进程里后面的用例。
+                int tutPendingBefore = BattleDriver.TakePendingTutorialStage();   // 清一次底（免得上一次留下东西）
+                var modePendingBefore = BattleDriver.TakePendingPlayMode();
+                CheckTrue(tutPendingBefore < 0 && modePendingBefore == null,
+                      "（前提）进本条之前两条通道都是**空的**（`-1` / `null`）—— 通道是「读一次就清」，先清个底");
+                if (pbtn2 != null) pbtn2.Click();
+                CheckTrue(BattleDriver.TakePendingTutorialStage() == 2,
+                      "★ 点 `Play Tutorial` ⇒ **把「第几关」放进了通道**（上面点过第 3 格 ⇒ 期望 **2** = `tutorialIndex`）"
+                    + " —— 原版 `MatchMakerManager.StartMatch(…, playerDeck: 选中那关的预组牌, …)` 那一格");
+                CheckTrue(BattleDriver.TakePendingPlayMode() == RuleEngine.GameMode.Tutorial,
+                      "★ 同时把**模式号**放进了通道：`Tutorial(4)`（原版 `PlayModes.Tutorial`）"
+                    + " —— 它是 `MatchType.Tutorial(100)` 的判据源头（`MatchTypes.For` 那张 14 项表）");
+                CheckTrue(!AnyModalPopupLeft(WindowsManager.Instance),
+                          "★ 点 `Play Tutorial` **不再弹「还没做」那一格**（它现在真开局了）"
+                        + " —— ⚠️ 批处理下不切场景，所以这里只验「没弹窗 + 通道填对」，"
+                        + " 真正的开局由 `BattleScene.Run` 那一段教程局断言负责");
+                CloseModalPopups();
+
+                // ---- 压暗层点击 = 关窗（原版那颗 `BackgroundCloseButton`）。
+                //      ⚠️ 上一步弹过模态窗 ⇒ 先把窗开回来（同上面 A796 那两处的写法）。
+                CheckTrue(tut.TryOpen(), "（收尾）把教程窗开回来 —— 下面那条要在**开着**的窗上点");
+                MenuDraw.CheckShadeClickRule(CheckTrue, "教程窗", tut.transform,
+                                             FindChild(tut.transform, "BackdropHit"), () => tut.CurrentState);
             }
         }
 
@@ -4450,6 +4793,9 @@ public static class MainMenuScene
                     CheckTrue(!(sp != null && sp.gameObject.activeSelf), "等满 12 秒 ⇒ 匹配窗自己关掉");
                     CheckTrue(sk.StartedBattle, "等满 12 秒 ⇒ **开战成立**（真机上 `LoadScene(\"Battle\")`）");
                 }
+                // 🔴 **2026-10-17（F3 · D3 红⑪）**：遭遇战的 `StartBotBattle` 同样往 `SetPendingPlayMode` 写了一个模式号
+                //    （`Shell/SkirmishEventWindow.cs:236` 的 `Skirmish(13)`）⇒ **当场排空**（原委见上面练习窗那一处）。
+                BattleDriver.TakePendingPlayMode();
                 // 🆕 2026-10-03（§三 第 29 条 **A2**）：**联机等待态** —— 显示窗内那扇弹窗、
                 //    **不跑那 12 秒 bot 倒计时**（等的是真人）。原来 P2P 那条路上三扇模式窗
                 //    `Searching` 是 false 又不开全屏窗 ⇒ **屏幕上什么都没有**。
@@ -4754,6 +5100,9 @@ public static class MainMenuScene
                     rk.TickSearch(12f);
                     CheckTrue(rk.StartedBattle, "排位窗的 `Battle!` 走**同一条**开战链（等满 12 秒 ⇒ 开战）");
                 }
+                // 🔴 **2026-10-17（F3 · D3 红⑪）**：排位开战也往 `SetPendingPlayMode` 写了一个模式号
+                //    （`Shell/RankedEventWindow.cs:270` 的 `Classic(0)`）⇒ **当场排空**（原委见练习窗那一处）。
+                BattleDriver.TakePendingPlayMode();
                 // 🆕 **2026-10-06（A94 相 2）**：本窗面板底图的**吸收层**（点窗内空白处 ⇒ 原版什么都不发生）。
                 //   期望矩形 = **原版 prefab** `RankedEventWindowV2 > General Red Background >
                 //   Reward Background Get Reward` 那颗 `Image` 的 rect（−960,93.57 → 2880,986.43）；
@@ -7914,7 +8263,7 @@ public static class MainMenuScene
 
                 // ---- ③ `closeAll`（原版那颗导航钮 `closeOtherMenus = 1`）⇒ **别的窗被关掉** ----
                 //   ⚠️ 两个入口同参：`OpenSocial` / `OpenRewards`（`MainMenuRuntime` 那两处都传 `true`）。
-                var keepW = menu.OpenInbox();                       // 先开一扇别的（收件箱）
+                var keepW = MainMenuRuntime.OpenInbox();            // 先开一扇别的（收件箱）
                 CheckTrue(keepW != null && keepW.CurrentState == WindowState.Open, "（前提）收件箱开着");
                 swbN.onClick();                                     // ← 这一下带 `closeAll`
                 CheckTrue(keepW != null && keepW.CurrentState == WindowState.Closed,
@@ -7924,8 +8273,11 @@ public static class MainMenuScene
 
             // ---- ④ 收件箱入口（`MainMenuScene.Run` 全程**没盖过它**：原来全文件只有一条 `InboxBtn` 布局断言）----
             //   ⚠️ `InboxWindow` **没有 `LastOpened`** ⇒ 判据 = 方法返回值 + `openWindows` 计数（两条都 public）。
-            //   ⚠️ `InboxBtn` 上那颗 `WindowButton` 的回调就是 `OpenInbox()`（`MainMenuRuntime.BuildUpperBar`）
+            //   ⚠️ `InboxBtn` 上那颗 `WindowButton` 的回调就是 `OpenInbox()`（🔴 **2026-10-17（B25）起
+            //      接线在共用件 `Shell/TopBar.cs`**，不在 `MainMenuRuntime` —— 那边现在只剩入口本体）
             //      ⇒ 「点钮」与「调方法」走的是**同一份缓存**，两个返回值必须相等。
+            //   ⚠️ **B25 起这三个入口是 `static`**（顶栏接线要给「没有主菜单实例」的场景用，见那边的注释）
+            //      ⇒ 自检里的写法从 `menu.OpenInbox()` 改成 `MainMenuRuntime.OpenInbox()`，**语义一个字没变**。
             // 🔴 **2026-10-07（自检红 → 修）**：`InboxBtn` 那颗 `WindowButton` **不在钮节点本身上**，而在它下面那颗
             //    图标节点上 —— `MainMenuRuntime` 的写法是 `inboxImg.gameObject.AddComponent<WindowButton>()`，
             //    而 `inboxImg = Rect(inbox, "40K_notification", …)`（节点名 **`Image`**、贴图 `40K_notification`）
@@ -7939,10 +8291,10 @@ public static class MainMenuScene
             if (ibb != null && ibb.onClick != null)
             {
                 ibb.onClick();
-                var in1 = menu.OpenInbox();
+                var in1 = MainMenuRuntime.OpenInbox();
                 CheckTrue(in1 != null && in1.CurrentState == WindowState.Open, "点 `InboxBtn` ⇒ **真的开了收件箱**");
                 ibb.onClick();
-                CheckTrue(menu.OpenInbox() == in1,
+                CheckTrue(MainMenuRuntime.OpenInbox() == in1,
                           "★ 再点一次 `InboxBtn` ⇒ **还是同一扇**（入口方法的返回值就是缓存里那一扇）");
                 int nIn = 0;
                 if (WindowsManager.Instance != null)
@@ -7950,7 +8302,7 @@ public static class MainMenuScene
                         if (w is InboxWindow) nIn++;
                 CheckTrue(nIn == 1, $"「开着的窗」里收件箱只有 **1** 扇（实测 {nIn}）");
                 in1.Close();
-                var in2 = menu.OpenInbox();
+                var in2 = MainMenuRuntime.OpenInbox();
                 CheckTrue(in2 != null && in2 != in1, "★ 关掉之后再点 ⇒ **新建一扇**（原版关窗删缓存条目）");
                 if (in2 != null) in2.Close();                       // 收尾：不留开着的收件箱
             }
@@ -7967,13 +8319,13 @@ public static class MainMenuScene
             if (gwb != null && gwb.onClick != null)
             {
                 gwb.onClick();
-                var setA = menu.OpenSettings();                     // 与点钮同一份缓存（`Create()` 里赋值 `Instance`）
+                var setA = MainMenuRuntime.OpenSettings();          // 与点钮同一份缓存（`Create()` 里赋值 `Instance`）
                 CheckTrue(setA != null && setA.CurrentState == WindowState.Open, "（前提）点齿轮 ⇒ 开了一扇设置窗");
                 gwb.onClick();
-                CheckTrue(menu.OpenSettings() == setA, "（对照）**还开着**时再点齿轮 ⇒ 同一扇（命中复用那一支）");
+                CheckTrue(MainMenuRuntime.OpenSettings() == setA, "（对照）**还开着**时再点齿轮 ⇒ 同一扇（命中复用那一支）");
                 setA.Close();
                 gwb.onClick();
-                var setB = menu.OpenSettings();
+                var setB = MainMenuRuntime.OpenSettings();
                 CheckTrue(setB != null && setB != setA,
                           "★ 设置窗**关掉之后再点齿轮 ⇒ 新建一扇**（原版关窗删缓存条目；`SettingsWindow.Instance` 是"
                         + "静态的、而 `Close()` 不销毁对象 ⇒ 实现退回「`Instance != null` 就复用」时**只有这条红**）");

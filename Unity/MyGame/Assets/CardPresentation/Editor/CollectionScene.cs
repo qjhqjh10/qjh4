@@ -2258,6 +2258,145 @@ public static class CollectionScene
                     CheckTrue(sel != null && !sel.OwnDecks, "起手落在**预组卡组**页（`DeckSelectionTabController.Start`）—— 对手多半是预组");
                     if (sel != null)
                     {
+                        // ============================================================ 🆕 2026-10-17（D6）
+                        // **本窗标题中文化** —— 判据 = **原版 prefab 上的词条**：
+                        //   `Deck Selection Popup with Tabs` 的 `Instructions 2` 节点上挂着 `Localize`，
+                        //   `mTerm = MenuDeck/Tip/SelectDeckAgainst`
+                        //   （实读 `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_4152179270747796863.json`；
+                        //    它的 GameObject = `bundle_menus_assets_all/GameObject/Instructions 2.json`）。
+                        //   · 中文 = **实拍那四个字「选择卡组」**
+                        //     （`资料/原版参照图/用户实拍_1017/更换卡组的参考.png` 右上角）；
+                        //   · 英文 = 我们原来写死的那句 `Select deck`。
+                        // ⛔ **版面一个字都不改**：照 prefab（那颗节点 1236.12→1770.24、中心 1503.18、居中）
+                        //   —— 实拍那版右端贴分隔线，与 prefab 有漂移，**不照它**。
+                        {
+                            const string TitleTerm = "MenuDeck/Tip/SelectDeckAgainst";
+                            CheckTrue(DeckSelectionPopup.TitleTerm == TitleTerm,
+                                      "标题的词条键 = 原版 `Instructions 2` 上的 `mTerm`"
+                                    + $"（`{TitleTerm}`）—— ⛔ 不是自拟的键");
+
+                            // ---- ① 词条层：两列各钉一次（★实拍的中文 + 我们原来那句英文）----
+                            var langBack = Loc.Current;
+                            Loc.PersistOverride = true;                 // 自检不许动玩家的真设置
+                            try
+                            {
+                                Loc.SetLanguage(AvailableLanguages.Chinese);
+                                CheckText(Loc.T(TitleTerm), "选择卡组",
+                                          "★ 中文列 = 实拍那四个字（`更换卡组的参考.png` 右上角）");
+                                Loc.SetLanguage(AvailableLanguages.English);
+                                CheckText(Loc.T(TitleTerm), "Select deck", "…英文列 = 我们原来写死的那一句");
+                            }
+                            finally { Loc.RestoreForTest(langBack); Loc.PersistOverride = false; }
+
+                            // ---- ② 实况：窗上那颗标题的字 = **词条按语言取出来的那一串** ----
+                            //   ⛔ 不拿我们传进去的字面量当期望值（那是同义反复）——
+                            //   期望值**从 `Loc` 现取**，比的是「窗上那颗跟不跟词条走」。
+                            //   🧨 改坏法：把 `Build()` 里那句改回 `MenuDraw.Text(..., "Select deck", ...)`
+                            //   ⇒ **在中文档下这一条立刻红**（英文档下它会假绿 —— 见报告里如实记的这条限度）。
+                            var ins2 = FindChild(sel.transform, "Instructions 2");
+                            var ins2Lb = ins2 != null ? ins2.GetComponentInChildren<Label>() : null;
+                            CheckTrue(ins2Lb != null,
+                                      "（前提）标题那一格取得到（原版节点名 `Instructions 2`）"
+                                    + " —— 取不到的话下面那条恒真");
+                            if (ins2Lb != null)
+                                CheckText(ins2Lb.Text, Loc.T(TitleTerm),
+                                          "★ 标题 = `Loc.T(\"MenuDeck/Tip/SelectDeckAgainst\")`"
+                                        + "（⛔ 不是写死的英文）");
+                        }
+
+                        // ============================================================ 🆕 2026-10-17（D11 + D12）
+                        // 判据一律**原版 prefab 的字段/字面量**（⛔ 不写我们 `DeckSelectionPopup` 里的常量 ——
+                        // 那些是被测实现传进去的实参，写它们 = 自证）：
+                        //  ① **D11 空态**：原版只有 `Deck Scroll View/Empty Collection Warning` **一件**
+                        //     （`DeckCollectionDisplay.emptyWarning` 指向它），出厂 `act=F`；
+                        //     rect = **194.5,208.6 → 1759.5,986.7**（= 整个视口那一格），
+                        //     子件一颗 TMP 名叫 `Warning`：**fs 36.0 · base 36.0 · 无 auto · 折行=1 · 色(1,1,1,1)**。
+                        //     实读命令：`python 工具/menu_dump.py bundle_menus_assets_all "Deck Selection Popup with Tabs" --depth 6`
+                        //  ② **D12 页签**：原版两颗 `EverguildToggle` 的序列化字段 —— **两颗共用同一对**
+                        //     `onSprite = 40K_tab_button` / `offSprite = 40K_tab_button_overwindow`、
+                        //     `onColor = (1,0.6308285,0,1)` / `offColor = (1,0.5442529,0,1)`；
+                        //     🔴 **两个开关都开着**：`changeSpriteOnValueChange = 1` · `colorTintOnValueChange = 1`
+                        //     （逐个 MB 现读：`MonoBehaviour_907016068568626559`（`m_IsOn=1`）/ `…_-4477857345849663325`（`m_IsOn=0`）；
+                        //      七个同名件的字段逐字相同）⇒ 换图与染色**两条都真的生效**。
+                        //     落地 = `decomp_full/EverguildToggle__RefreshVisuals.c` → `ToggleSprite` / `ToggleTint`
+                        //     （按**自己那颗** `m_IsOn` 取图/取色）；两颗 `Button Text` 的 TMP 都是 `(1,1,1,1)`。
+                        // 🔴 **判别式**：两张底图必须是**按状态换的** —— 起手一套、切页之后**互换**。
+                        //   原来那版把两张图写死在各颗身上 ⇒ 切页后这一组**必红**（本轮改成按 `on` 取）。
+                        // ⚠️ **每次都要现取节点**：`SwitchTab` → `RebuildAll()` 会把整窗子件销毁重建，
+                        //   缓存的 `Transform` 立刻变成「已销毁」（Unity 的 `== null` 认得出）⇒ 用旧引用会**假红**。
+                        {
+                            System.Func<string, Transform> tq = n => FindChild(sel.transform, n);
+                            CheckTrue(!sel.OwnDecks, "（前提）起手在预组页 ⇒ 下面「哪颗是选中的」不是猜的");
+                            var tPre0 = tq("Generic Tab UI Button");      // 原版出厂 `m_IsOn=1` 的那颗（= 预组页签）
+                            var tOwn0 = tq("Generic Tab UI Button 1");    // 出厂 `m_IsOn=0` 的那颗（= 我的卡组页签）
+                            CheckTrue(tPre0 != null && tOwn0 != null,
+                                      "两个页签节点都在（原版两颗的名字：`Generic Tab UI Button` / `…1`）");
+                            // ---- D12 · 起手（预组页）----
+                            CheckArt(tPre0, "40K_tab_button",
+                                     "★ 预组页签（`m_IsOn=1`）底图 = 原版 `onSprite`");
+                            CheckArt(tOwn0, "40K_tab_button_overwindow",
+                                     "★ 我的卡组页签（`m_IsOn=0`）底图 = 原版 `offSprite`");
+                            CheckTint(tPre0, new Color(1f, 0.6308285f, 0f, 1f),
+                                      "★ 选中那颗的染色 = 原版 `EverguildToggle.onColor` (1,0.6308285,0,1)");
+                            CheckTint(tOwn0, new Color(1f, 0.5442529f, 0f, 1f),
+                                      "★ 未选中那颗的染色 = 原版 `offColor` (1,0.5442529,0,1)");
+                            // 文字**两态都白**（原版两颗 `Button Text` 的 TMP 都是 `(1,1,1,1)`，
+                            // 而且标签上没有 `EverguildButtonMaterialModifier` ⇒ `ToggleTint` 染不到它）。
+                            // 🔴 **判别力来自「两颗必须一样」**：改前那版是「选中白 / 未选中 (0.6,0.6,0.6)」
+                            //    ⇒ 只要两颗**不相等**就红（⛔ 不靠「比我传进去的那个字面量」自证）。
+                            var tLbPre = tq("Tab Text Pre") != null ? tq("Tab Text Pre").GetComponentInChildren<Label>() : null;
+                            var tLbOwn = tq("Tab Text Own") != null ? tq("Tab Text Own").GetComponentInChildren<Label>() : null;
+                            CheckTrue(tLbPre != null && tLbOwn != null,
+                                      "（前提）两颗页签的文字都取得到 —— 否则下面那两条会退化成恒真");
+                            if (tLbPre != null && tLbOwn != null)
+                            {
+                                var cPre = tLbPre.color; var cOwn = tLbOwn.color;
+                                CheckTrue(Mathf.Abs(cOwn.r - cPre.r) < 2f / 255f
+                                          && Mathf.Abs(cOwn.g - cPre.g) < 2f / 255f
+                                          && Mathf.Abs(cOwn.b - cPre.b) < 2f / 255f,
+                                          "★ 选中 / 未选中两颗的文字**颜色相同**（原版两颗 `Button Text` 都是 (1,1,1,1)）"
+                                        + $"—— 实测选中 ({cPre.r:F3},{cPre.g:F3},{cPre.b:F3}) / 未选中 ({cOwn.r:F3},{cOwn.g:F3},{cOwn.b:F3})；"
+                                        + "「一白一灰」就是改前那套自创写法");
+                                CheckTrue(Mathf.Abs(cPre.r - 1f) < 2f / 255f && Mathf.Abs(cPre.g - 1f) < 2f / 255f
+                                          && Mathf.Abs(cPre.b - 1f) < 2f / 255f,
+                                          $"…而且那个共同值 = **白**（原版 `(1,1,1,1)`）—— 实测 ({cPre.r:F3},{cPre.g:F3},{cPre.b:F3})");
+                            }
+                            // ---- D11 · 空态那一件（**预组页**非空 ⇒ 它必须**关着**，且**只有它一件**）----
+                            // ⚠️ 这一段排在切页**之前**（还在预组页）：预组页的列表来自 `PrebuiltDecks.Tab`，
+                            //    「非空」是**已知前提**（那条表在仓库里）；「我的卡组」页则可能被模式筛空 ⇒
+                            //    在那儿断「非空」会变成一条没意义的红。
+                            CheckTrue(sel.ShownCount > 0, "（前提）预组页列表非空 ⇒ 下面那条不是空转");
+                            var ewn = tq("Empty Collection Warning");
+                            CheckTrue(ewn != null,
+                                      "空态那一件叫 **`Empty Collection Warning`**（原版 `DeckCollectionDisplay.emptyWarning` 那个节点名）");
+                            CheckTrue(ewn != null && !ewn.gameObject.activeSelf,
+                                      "★ 列表非空 ⇒ 空态那一件**关着**");
+                            CheckAt(ewn, 194.5f, 1759.5f, 208.6f, 986.7f,
+                                    "★ 空态那一件 = 原版 rect **194.5,208.6 → 1759.5,986.7**（整格视口，⛔ 不是我们原来那个 (SvL,SvT+120)-(SvR,SvT+190) 小框）");
+                            var ewt = ewn != null ? FindChild(ewn, "Warning") : null;
+                            CheckTrue(ewt != null, "…它下面那颗 TMP 叫 `Warning`（原版就叫这个）");
+                            var ewl = ewt != null ? ewt.GetComponentInChildren<Label>() : null;
+                            if (ewl != null)
+                                CheckNear(ewl.FontPxNow, 36f, 0.6f,
+                                          "★ 空态那行字 **fs = 36**（原版 `Warning` 的 `m_fontSize` = 36.0，**无 auto**）");
+                            CheckTrue(tq("Scope Note") == null,
+                                      "★ 我们自己加的那行 `Scope Note` **已删**（原版空态只有 `Empty Collection Warning` 一件）"
+                                    + " —— 改坏法：把 `Build()` 第 7b 步那两行 `MenuDraw.Text` 加回来 ⇒ 本条红");
+                            // ---- D12 · 切页 ⇒ 两图**互换**（判别式那一刀）----
+                            sel.SwitchTab(true);
+                            CheckTrue(sel.OwnDecks, "（前提）切到「我的卡组」页了");
+                            CheckArt(tq("Generic Tab UI Button"), "40K_tab_button_overwindow",
+                                     "★ 切页后**预组那颗**变成 `offSprite` …");
+                            CheckArt(tq("Generic Tab UI Button 1"), "40K_tab_button",
+                                     "★ …而**我的卡组那颗**变成 `onSprite` ⇒ 底图**按状态换**"
+                                   + "（改坏法：像原来那样把两张图写死在各自身上 ⇒ 这两条同时红）");
+                            CheckTint(tq("Generic Tab UI Button"), new Color(1f, 0.5442529f, 0f, 1f),
+                                      "★ 预组那颗染色也跟着换成 `offColor`");
+                            CheckTint(tq("Generic Tab UI Button 1"), new Color(1f, 0.6308285f, 0f, 1f),
+                                      "★ 我的卡组那颗染色换成 `onColor`");
+                            sel.SwitchTab(false);              // 还原成预组页（下一句自己会再切过去验模式筛选）
+                        }
+
                         sel.SwitchTab(true);                          // 换到「我的卡组」页才看得见模式筛选
                         int wantOwn = 0;
                         for (int i = 0; i < CollectionData.DeckCount(); i++)
@@ -2651,6 +2790,40 @@ public static class CollectionScene
             // ---------------- `Import Deck Popup`（A1 §4）----------------
             Section("`Import Deck Popup`：版面 + **导入闭环**（A1 §4）");
             {
+                // ============================================================ ⑨ 占位符**走词条**（两语档各断一个字面量）
+                // 🔴 **2026-10-17（F2 · 修 (α)：这条断言原来把期望值写死成英文）** —— 本批 B11/A884 已经把
+                //   占位符改成走词条（`Shell/ImportDeckPopup.cs` 的 `PlaceholderTerm` =
+                //   `MenuDeck/HUD/EnterText`，`Core/Loc.cs` 中文列 = 「输入文字...」），而本宿主跑在
+                //   **出厂语言 = 中文**（`Core/Loc.cs` 的 `Default`）⇒ 写死 `"Enter text..."` 必红。
+                //   正本写法 → `Editor/ShellScene.cs` 的 B11/A884 那一节（那边明写「⛔ 写死 `"Enter text..."`
+                //   或写死中文，都过不了这一条」）。
+                // 🔴 **为什么这一节另开两扇临时窗、而且必须排在本块那扇 `imp` 之前**：
+                //   占位符那行字是 `ImportDeckPopup.Build() → RefreshInputText()` 里
+                //   `Label.Create(holder, empty ? Loc.T(PlaceholderTerm) : _text, …)` **当场建出来的**
+                //   ⇒ **换语言不会让已经建好的那扇重读词条**（`Loc` 不发事件，见那颗常量的 doc）
+                //   ⇒ 要看另一档就得**重开一扇**；而 `WindowsManager.OpenWindow` 的弹窗那一支会把
+                //   **当前窗压到背景**（`currentWindow.ToBackground()`）⇒ 若排在本块那扇之后，
+                //   后面那串「失败**不关窗**」（`Check(imp.CurrentState, WindowState.Open, …)`）就会红在夹具上。
+                var langImp = Loc.Current;
+                Loc.RestoreForTest(AvailableLanguages.Chinese);      // 自检口：只改内存，⛔ 不写 `PlayerPrefs`
+                var wZh = win.OpenImportPopup();
+                string phZh = wZh != null ? TextOf(FindChild(wZh.transform, "Input Text")) : null;
+                if (wZh != null) wZh.Close();
+                Loc.RestoreForTest(AvailableLanguages.English);
+                var wEn = win.OpenImportPopup();
+                string phEn = wEn != null ? TextOf(FindChild(wEn.transform, "Input Text")) : null;
+                if (wEn != null) wEn.Close();
+                Loc.RestoreForTest(langImp);                         // 收尾：语言放回原值
+                CheckTrue(wZh != null && wEn != null, "（前提）两语档各开出了一扇 `Import Deck Popup`"
+                          + "（取不到 ⇒ 下面两条恒红，⛔ 不静默）");
+                Check(phZh, "输入文字...", "★ 空输入时显示**占位符**：**中文档** = `Loc.T(\"MenuDeck/HUD/EnterText\")`"
+                    + " 的**中文列**（⚠️ 那一列是**我们译的**：原版中文在远端 I2 表里 —— 源 `数据/本地化/i18n/zh_CN.csv:102`）");
+                Check(phEn, "Enter text...", "★ …**英文档** = 同一条词条的**英文列**"
+                    + "（= 原版那颗 TMP 的 `m_text` 原文逐字符照抄，含末尾那三个点）");
+                CheckTrue(!string.IsNullOrEmpty(phZh) && phZh != phEn,
+                          "★ 判别式：两语档下那句字**必须不一样** —— ⛔ 写死 `\"Enter text...\"`（改前那样）"
+                        + "或写死中文，都过不了这一条");
+
                 var imp = win.OpenImportPopup();
                 CheckTrue(imp != null, "开得出来");
                 if (imp != null)
@@ -2664,7 +2837,10 @@ public static class CollectionScene
                             "`Window`（560,234.07 → 1360,685.93）");
                     CheckText(TextOf(FindChild(iroot, "Main Search message")), "Paste your deck", "提示行文案");
                     var ph = FindChild(iroot, "Input Text");
-                    CheckText(TextOf(ph), "Enter text...", "空输入时显示**占位符**");
+                    // ⚠️ 占位符那条断言**已挪到本块最前面**（两语档各断一个字面量 + 判别式）——
+                    //   见上面 ⑨ 那一段：这里原来是 `CheckText(TextOf(ph), "Enter text...", …)`，
+                    //   而宿主跑在中文档 ⇒ **期望值过期**（B11/A884 起占位符走词条）。⛔ 别在这里补第二条
+                    //   （同一条规则两处写 = 迟早不一致；`ph` 本身还被下面那条 y 落位断言用着 ⇒ 保留）。
                     // 🔴 实拍抓的：占位符第一版**跑到输入框上面去了**（`basis` 给了 root 而 parent 是 `Window`）
                     var phLb = ph != null ? ph.GetComponent<Label>() : null;
                     CheckTrue(phLb != null && Mathf.Abs(PxYOf(ph.transform.position.y) - 441.03f) <= 1.5f,
@@ -2786,6 +2962,125 @@ public static class CollectionScene
                 CheckTrue(lc != null && PxYOf(lc.position.y) + 192f <= 1080.5f,
                           $"**滚到底 ⇒ 第 {lastIdx + 1} 张（最后一张）完整落进视口**");
                 win.CardsScroll.ScrollBy(-win.CardsScroll.MaxOffset);
+            }
+
+            // ---------------- 🆕 2026-10-17（B10）：卡位**底下那条「张数」**（原版 `Collection Card/Content/Counter`）----------------
+            // 判据逐条现读（原始出处写在 `CollectionWindow` 那组 `CardsCnt*` 常量上）：
+            //   · 框：`m_AnchorMin = (0.2857143, 0.002)` · `m_AnchorMax = (0.7142857, 0.09966714)` · `pivot (0.5,0)` · `sd (0,0)`
+            //     ⇒ 相对 262.5×384 的格 = **x 75…187.5（宽 112.5）· 距格底 0.768…38.272（高 37.504）**
+            //   · 底图 `40K_main_deck_card counter`（工程里那张 PNG 实测 **116×36** · Simple · **`m_PreserveAspect = 1`**）
+            //     ⇒ 内接进那个框后**按宽顶满 ⇒ 实绘 112.5×34.91**（高那一轴留白 2.59）
+            //   · 文案：原版 `"x{0}"` 填**原始拥有数**；**我们印 `min(拥有, 卡组上限)`**（见 `CardsCounterText` 的注释）
+            Section("Cards 页：卡位底下那条「张数」（原版 `Collection Card/Content/Counter`）");
+            {
+                // 量落位之前**先把滚动量归零**（上面两句 `ScrollBy` 之后不保证逐位回到 0；
+                // 紧跟着的 A12 那一段也是先 `SetOffset(0)`）—— 归零会经 `OnChanged` 重建格子。
+                float savedOff = win.CardsScroll != null ? win.CardsScroll.Offset : 0f;
+                if (win.CardsScroll != null) win.CardsScroll.SetOffset(0f);
+                int built = win.CardsCells.Count;      // 起手 = 18（3 行 × 6 列，`RectMask2D` 之外的不建）
+                int i0 = -1;
+                for (int i = 0; i < built; i++) if (win.CardsCellDef(i) != null) { i0 = i; break; }
+                CheckTrue(i0 >= 0, $"（前提）视口里至少建成一格（实测 {built} 格）—— 否则这一段等于没验");
+                var cell0 = CollectionWindow.CardsCellRect(i0 >= 0 ? i0 : 0);
+                var cnt0 = FindChild(tabsRoot, "Counter " + (i0 >= 0 ? i0 : 0));
+                CheckTrue(cnt0 != null, "★ 第 " + ((i0 >= 0 ? i0 : 0) + 1) + " 格底下那条「张数」**建出来了**"
+                                        + "（原来一个 per-card 计数都没有）");
+                if (cnt0 != null)
+                {
+                    CheckArt(cnt0, "40K_main_deck_card_counter",
+                             "…底图 = 原版那条 `40K_main_deck_card counter`（`m_Type=0 Simple`）");
+                    var q = cnt0.GetComponentInChildren<ImageQuad>();
+                    CheckTrue(q != null, "…底图那个 `ImageQuad` 找得到（下面两条才有意义）");
+                    if (q != null)
+                    {
+                        float bw = q.WorldW * 108f, bh = q.WorldH * 108f;
+                        CheckNear(bw, 112.5f, 1.5f,
+                                  "★ 底图**渲出来 112.5 宽** = 格宽 262.5 × (0.7142857 − 0.2857143)");
+                        CheckNear(bh, 34.914f, 1.6f,
+                                  "★ 底图**渲出来 34.91 高**（116×36 的图 + `m_PreserveAspect=1` 内接进 112.5×37.504）"
+                                  + " —— **判别式**：把 `Rect(…, keepAspect: true)` 那个 `true` 抽掉"
+                                  + " ⇒ 拉满 **37.50**（差 2.59 > 容差）⇒ 本条红");
+                    }
+                    // 框心：x = (75+187.5)/2 = 131.25（格左偏）；y = (345.728+383.232)/2 = 364.48（格顶偏下沿）
+                    CheckAtPx(cnt0, cell0.x1 + 131.25f, cell0.y1 + 364.48f, 1.5f,
+                              "★ 那条「张数」落在**格子下沿**（框心 = 格左 +131.25 · 格顶 +364.48；"
+                              + "⛔ 不是格心 130.0/192.0 —— 摆错那两轴差几十 px）");
+                    var t0 = FindChild(cnt0, "Text (TMP)");
+                    CheckTrue(t0 != null, "…那行字是它的子件 `Text (TMP)`（原版 `/Counter/Text (TMP)`）");
+                }
+
+                // 每一格都按**它自己那张卡**的卡组上限比（传说 1 / 其余 2）——
+                // ⚠️ 期望值**不取 `CardsCounterText`**（那会自证），这里按稀有度**独立写死两档**。
+                // 🔴 **2026-10-17（F2 · 修 (α)：这条原来把「我们不建视口外那条」当成了违约）** ——
+                //   `built` 是**建出来的格**（18 = 3 行 × 6 列），而视口 `155.9 → 1079.9` 只有 924 高
+                //   ⇒ 第 3 行（i = 12…17）**格底 1307.9** 整行在视口外；那条「张数」的框长在**格底**
+                //   （`CollectionWindow.CardsCounterRect`：距格底 0.768…38.272 ⇒ **1269.6…1307.1**）
+                //   ⇒ **整条落在视口外** ⇒ `BuildCardsCounter` 里
+                //   `var q = Rect(parent, CardsCounterSprite, bar, "Counter " + i, …); if (q == null) return;`
+                //   —— `MenuDraw.Rect` 里 `if (!ClipRect(…)) return null;` 会**连节点一起不建**，
+                //   而该函数自己的注释写着「② **整条落在视口外** …那是**正常路径**」。
+                //   ⇒ 原来那条把「空的 6 条」当成违约（实测 6 条不符 = 正好第 3 行）。
+                //   **现在的口径**：对**没有计数节点**的格子跳过，另立**真不变式** ——
+                //   「缺的那些【恰好】是矩形落在视口外的那些」（那才是实现真正承诺的东西）。
+                //   ⚠️ 原版是「建了但被 `RectMask2D` 遮住」——**两者语义不同**，⛔ 别用「把 `MenuDraw.Rect`
+                //   的裁切去掉」来凑绿（那是另一条：视口外的不建 = 省下几十个 quad + 点击区也消失）。
+                int bad = 0, lg = 0, nm = 0, skipped = 0, outOfView = 0, missingInView = 0;
+                var vpCnt = CollectionWindow.CardsViewport;
+                for (int i = 0; i < built; i++)
+                {
+                    var d = win.CardsCellDef(i);
+                    if (d == null) continue;
+                    // 这一格那条「张数」**当前**的画布矩形（滚动量 = 0 ⇒ `Shift` 是恒等；判据同
+                    // `RebuildCardsCells` 里 `var r = CardsScroll.Shift(content);` 那一跳）。
+                    var cellR = win.CardsScroll != null
+                        ? win.CardsScroll.Shift(CollectionWindow.CardsCellRect(i))
+                        : CollectionWindow.CardsCellRect(i);
+                    PxRect visCnt;
+                    bool barInView = MenuDraw.ClipRect(CollectionWindow.CardsCounterRect(cellR), vpCnt, out visCnt);
+                    var node = FindChild(tabsRoot, "Counter " + i);
+                    if (node == null)                       // 没建 ⇒ 只可能是「整条在视口外」（下面那条钉它）
+                    {
+                        skipped++;
+                        if (barInView) missingInView++; else outOfView++;
+                        continue;
+                    }
+                    string want = d.Rarity == "legendary" ? "x1" : "x2";
+                    string got = TextOf(FindChild(node, "Text (TMP)"));
+                    if (got != want) { bad++; if (bad <= 3) CheckText(got, want, $"第 {i + 1} 格（{d.Rarity}）那条「张数」"); }
+                    if (d.Rarity == "legendary") lg++; else nm++;
+                }
+                Check(missingInView, 0, $"「张数」**没建出来**的那些格，**一格都不是**落在视口**里**的"
+                              + $"（实测视口内缺 {missingInView} 格 —— ⛔ 那不是裁切，是真缺口）");
+                Check(skipped, outOfView, $"…而且缺的那 {skipped} 条「张数」与「框落在视口外」的那些格"
+                              + $"**一一对应**（实测落在视口外 {outOfView} 格）—— 判据 = `BuildCardsCounter` 里"
+                              + "那句 `if (q == null) return;`（整条在视口外 ⇒ 连节点都不建，那是正常路径）");
+                CheckTrue(outOfView >= 1, $"…这条**不是空转**：本夹具真有 {outOfView} 格在视口外（第 3 行整行）"
+                              + " —— 少了它上面那条等于没验");
+                Check(bad, 0, $"（共 {built} 格，其中 {skipped} 格那条在本滚动量下**不建**）已建的 {lg + nm} 格里"
+                              + $"**每一条**「张数」都 = 它那张卡的卡组上限（传说 `x1` / 其余 `x2`；"
+                              + $"实测 {bad} 条不符）—— 覆盖 传说 {lg} 格 / 其余 {nm} 格");
+                if (i0 >= 0)
+                {
+                    var d0 = win.CardsCellDef(i0);
+                    int own0 = CardProgress.Owned(d0.Id, d0.Rarity);
+                    CheckTrue(TextOf(FindChild(cnt0, "Text (TMP)")) != "x" + own0,
+                              "★ **判别式**：印的**不是原始拥有数**（`CardProgress.Owned` 是「给足」口径 = " + own0
+                              + " ⇒ 照原版那条式子会印 `x" + own0 + "`；谁把 `Mathf.Min` 删掉「按公式复原」⇒ 本条红）");
+                }
+                if (win.CardsScroll != null) win.CardsScroll.SetOffset(savedOff);   // 还原滚动量
+            }
+
+            // 万能卡计数条的 `Army Icon`（原版 `WIldcard Display` 的第三个孩子，A3 §5·3）
+            {
+                var ai = FindChild(win.PageRoot(1), "Army Icon");
+                CheckTrue(ai != null, "★ 计数条左边那颗 `Army Icon` 建出来了（原来**没有**它 —— 那正是「按阵营」那一半）");
+                if (ai != null)
+                {
+                    CheckAt(ai, 1470f, 1550f, 70.94f, 155.94f, "`Army Icon` 落在 **1470,70.94 → 1550,155.94**（80×85）");
+                    CheckArt(ai, "40k_DeckSelection_icon_FactionBlackLegion",
+                             "…喂的是**预置出厂那一张**阵营徽记（原版 `armyIcon` 运行期由 `WildcardDisplay.Initialize(army)` 换）"
+                             + " —— **判别式**：改喂 `DeckRuntime.FactionIcon(null)`（= `40k_collection_bt_decks`）⇒ 本条红");
+                }
             }
 
             // 🆕 2026-10-03（A12 收口）：Cards 页 —— 压在视口下边上的那一格，**命中区 == 露出来的那部分**
@@ -4823,6 +5118,55 @@ public static class CollectionScene
                         CheckTrue(cd.TryOpen(), "（A796 现场）把卡片详情窗开回来 —— 下面那条要在**开着**的窗上点");
                         MenuDraw.CheckShadeClickRule(CheckTrue, "卡片详情窗", cd.transform, cd.ShadeHit,
                                                      () => cd.CurrentState);
+
+                        // ================================================================
+                        //  🆕 2026-10-17（D17 = 账上 A856）：**没有异画 ⇒ 整块 `SetActive(false)`**
+                        //  判据（第一权威 · 本轮现读）= `d:/2/tools/decomp_full/AlternateArtPanel__Initialize.c:22-38`：
+                        //    · `RawCardScript.HasAlternativeArtStyles(card) == false` ⇒ 填两个 0 之后
+                        //      **`UnityEngine.GameObject.SetActive(gameObject, 0)`** —— **整块关**
+                        //      （⛔ 不是「画成 `0 of 0` / `No alternate art`」，那正是我们改前的样子）；
+                        //    · 有异画风格那一支才是 `SetActive(…, 1)`（`:35-38`）。
+                        //  ⚠️ **两向都要断**：只断「没有 ⇒ 关」，一个「恒关」的实现会假绿；
+                        //    只断「有 ⇒ 开」，一个「恒开」的实现会假绿 ⇒ 两条合起来才关得住。
+                        //  ⚠️ 判据是**数据**（这张卡在不在异画表里），⛔ 不是「贴图加载出来没有」——
+                        //    全文与理由 → `CardDetailPopup.HasAltArtStyle` 的注释。
+                        //  ⚠️ 本块会把窗**换两张卡再关掉**：排在**本窗所有断言之后**（下面只剩 `Styles 页` 那一节）。
+                        {
+                            var plainDef = cd.Card;      // 当前这张 —— 上面那条刚断过它的异画标题是 `Alternate art`（= 没有异画）
+                            string altId = null;
+                            bool plainOk = plainDef != null;
+                            foreach (var a in CollectionWindow.AltArtCards)
+                            {
+                                if (CollectionData.Card(a.CardId) == null) continue;   // 本地卡池里没有的跳过
+                                if (plainDef != null && a.CardId == plainDef.Id) plainOk = false;  // 撞上了 ⇒ 这一向换不了对象
+                                if (altId == null) altId = a.CardId;
+                            }
+                            CheckTrue(altId != null,
+                                      "（前提）异画表里至少有一张卡在本地卡池里 —— 否则下面两条都成空转");
+                            CheckTrue(plainOk,
+                                      "（前提）当前这张卡**不在异画表里** ⇒ 下面「没有异画」那一向不是空转");
+                            // ① 有异画 ⇒ **开着**
+                            if (altId != null)
+                            {
+                                cd.ShowCard(CollectionData.Card(altId));
+                                var apOn = FindChild(cd.transform, "Alternate Art Panel");
+                                CheckTrue(apOn != null && apOn.gameObject.activeSelf,
+                                          $"★ 有异画的卡（`{altId}`）⇒ 异画面板**开着**（原版 `SetActive(…, 1)`）");
+                            }
+                            // ② 没有异画 ⇒ **整块关**（节点还在树上，只是 `activeSelf == false`）
+                            if (plainOk)
+                            {
+                                cd.ShowCard(plainDef);
+                                var apOff = FindChild(cd.transform, "Alternate Art Panel");
+                                CheckTrue(apOff != null,
+                                          "「没有异画」时**节点仍在树上**（原版是 `SetActive(false)`，⛔ **不是不建**）");
+                                CheckTrue(apOff != null && !apOff.gameObject.activeSelf,
+                                          "★ 没有异画的卡 ⇒ 异画面板**整块 `SetActive(false)`**"
+                                        + "（原版 `AlternateArtPanel__Initialize.c:27-33`）"
+                                        + " —— 改坏法：把 `BuildAltArt` 末尾那句 `p.gameObject.SetActive(has)` 删掉 ⇒ 本条红");
+                            }
+                            cd.Close();     // 收尾：本块换过两张卡 ⇒ 交还一个**关着**的窗（同本块进来时的状态）
+                        }
                     }
                 }
             }

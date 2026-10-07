@@ -52,6 +52,10 @@ namespace CardPresentation
         {
             if (Session == null) Session = NetSession.NewTcp();
             NetSession.EnsureBackground();
+            // 🆕 2026-10-17（B23·A902）：大厅那半边**必须**盯着这台会话（对面掉线/离开 ⇒ 出声 + 撤匹配）。
+            //    ⛔ 别挪到「第一次用的时候」懒挂：掉线是在 `Update` 的 `Session.Pump()` 里判出来的，
+            //      那一帧 `PumpLobby` 还没跑 ⇒ 懒挂会整帧丢掉第一次掉线。判据 → `NetMatchmaking.WireLobby`。
+            NetMatchmaking.WireLobby(Session);
         }
 
         void OnDestroy() { if (Instance == this) { Instance = null; } }
@@ -108,6 +112,56 @@ namespace CardPresentation
             }
         }
 
+        // ============================================================ 🆕 2026-10-17（B17·A900）
+        //  「对手掉线」那扇窗**开了之后**那两件事：**刷新它** 与 **收掉它**。
+        //  判据（原版，全量反编译）：
+        //   · 刷新 —— `Everguild.BattleErrorUIManager__UpdateReconnectWindow.c`：它把
+        //     `TimeSpan.FromSeconds(sec)` 拼进正文，**窗还开着就改同一个窗里的字**、
+        //     不在（`activeSelf == false`）才 `WindowsManager.ShowPopUp`。调用它的是
+        //     `BattleManager.UpdateReconnectStatus`（`+0x1B0`，`Action<int>`，每秒一拍）。
+        //   · 收掉 —— `Everguild.BattleErrorUIManager__ConnectionStatusChanged.c:32-37,59-63`：
+        //     状态回到 0/3/4/5 那一支 ⇒ **`WindowsManager.CloseAllWindows()`**。
+
+        /// <summary>🆕 A900：**把「等他回来」那扇提示窗的正文换成新的秒数**（原版每秒那一拍
+        /// `UpdateReconnectStatus(secLeft)` 的落点）。
+        /// 🔴 走的是 `WindowsManager.ShowPopUp` 的**复用支**（`ShowMessagePopUp` 认「还开着 ⇒
+        /// 重配**同一扇**」，不是新建）⇒ 与原版「改同一个窗里的字」同形。
+        /// ⛔ **不走 `Notice` 队列** —— 那是「**新弹一条**」的语义，每秒入一次队会把通知队撑爆，
+        ///    也会让「一次掉线 = 一条弹窗」那条判据失去意义（`NetBattleTest` §9① 盯的就是那个数）。
+        /// ⚠️ 没有窗口系统（批处理 / 自检）时**什么都不做** —— 这一路的数字仍写在**提示行**上
+        ///    （`NetBattle.ReportReconnectStatus` 两个口同时写），不会丢。</summary>
+        public static void UpdateReconnectPopup(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+            var wm = WindowsManager.Instance;
+            if (wm == null) return;
+            wm.ShowPopUp(text, "知道了", null);
+        }
+
+        /// <summary>🆕 A900：**把还开着的那扇消息弹窗收掉**（对手回来了 / 倒计时到点判了弃权）。
+        /// 🔴 原版那一跳是 `WindowsManager.CloseAllWindows()`，我们**不调它** —— 它会把玩家这一刻
+        /// **自己开的**别的窗一起关掉（B13 报告 §② 已记这条口径）；改用同族里**只关弹窗**那一颗：
+        /// `WindowsManager.HidePopUp(force:false)`（原版同名方法，语义 = 「当前最上面那扇**就是**弹窗时才关」
+        /// ⇒ 玩家自己开的窗不受影响）。
+        /// ⚠️ 批处理 / 自检里没有窗口系统 ⇒ 只记一笔调用次数，那句日志照打（⛔ 不静默）。</summary>
+        public static void HideNoticePopup()
+        {
+            HidePopupCallsForTest++;
+            var wm = WindowsManager.Instance;
+            if (wm == null)
+            {
+                Debug.Log("[Net] 撤窗：「等他回来」那扇提示窗 —— 本轮**没有窗口系统**（批处理/自检？）"
+                        + "⇒ 不真关（生产路径那一刻关的是它）");
+                return;
+            }
+            wm.HidePopUp();
+        }
+
+        /// <summary>自检读：<see cref="HideNoticePopup"/> 被调过几次。
+        /// 🔴 它记的是「**那一刻真的去撤窗了没有**」，**不是**「窗真关掉了」——
+        /// 后者只有真 Play 验得到（批处理里没有 `WindowsManager`）。</summary>
+        public static int HidePopupCallsForTest { get; private set; }
+
         void Update()
         {
             // 先弹通知：**它不该被 `Session == null` 那道闸挡住**（会话断了才更需要说话）
@@ -124,6 +178,8 @@ namespace CardPresentation
         {
             if (Session != null) Session.Close(true, "主机重开了");
             Session = NetSession.NewTcp();
+            // 🆕 2026-10-17（B23·A902）：换会话 ⇒ 接线跟着换（`WireLobby` 自己会把旧的那台摘掉）
+            NetMatchmaking.WireLobby(Session);
             return Session;
         }
 
@@ -131,7 +187,9 @@ namespace CardPresentation
         /// 为什么需要它：`NetMatchmaking`（匹配/取消那一条链）只认 `NetRuntime.Instance.Session`，
         /// 而自检里那两台会话是**手工建的**（`NetSelfTest` 的 host/cli 对）。
         /// ⚠️ **用完必须换回去**（`AttachForTest(keep)`）—— 否则后面的用例会接着用这台。
-        /// 判据 → `资料/联机P2P_设计与交接.md`（`Cancel` 那一条：大厅阶段可取消、开局后不可）。</summary>
-        public void AttachForTest(NetSession s) { Session = s; }
+        /// 判据 → `资料/联机P2P_设计与交接.md`（`Cancel` 那一条：大厅阶段可取消、开局后不可）。
+        /// 🆕 2026-10-17（B23·A902）：**顺带把大厅掉线那条接线也挪过来** —— 换会话不挪接线的话，
+        /// 自检验的就不是生产那条路了（生产上换会话只有 `Reset`，那条也挂了）。</summary>
+        public void AttachForTest(NetSession s) { Session = s; NetMatchmaking.WireLobby(s); }
     }
 }

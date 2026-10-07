@@ -23,10 +23,14 @@
   · 谁在用   `d:/4/Unity/数据/游戏数据/animfx_modules.json` —— **三条路径**（`used_cues()`）：
       ① `sounds[*].sound`   ② `exitSounds[*].sound`   ③ **`collisionEvent` 的 `PlaySound` 订阅**
       （③ 是 🆕 2026-10-16 加的，见下面 `COLLISION_CALL_RE` 那段注释）
+    这**三条都推不出来**的（工程按名字播、原版那格是组件上的序列化 `AudioCue`）⇒ 人手声明在
+      `EXTRA_CUES` 里（🆕 2026-10-17 收 `CardStartDrag`，A910）；每次跑还会**反向查漏**一遍
+      （`code_only_cue_report`：原版 cue 名 ∩ 工程 `.cs` 的音效代码行 − 已收），**只报告**。
 
 用法：
     PYTHONIOENCODING=utf-8 python 工具/import_original_sfx.py --check   # 只报告，不写盘
     PYTHONIOENCODING=utf-8 python 工具/import_original_sfx.py           # 拷音频 + 写表
+    （两种都会打印「查漏（反向）」那一节；常态应为 0 个候选）
 """
 import argparse
 import glob
@@ -57,7 +61,21 @@ REF_PREFIX = "@asset:MonoBehaviour:"
 #   `Add card to deck`）；判据 → `资料/普查产出_1013/A表现核_块6.md` §A425 第 ④ 步。
 #   ⚠️ **只把这一份并进 `used_cues()` 的结果**，⛔ 别去动 `used_cues()` 的解析口径。
 #   ⚠️ 它在 `bundle_soundcollection_assets_all` 里（同 `soundcollection_assets_all` 包）。
-EXTRA_CUES = ["Reward open item by item"]
+#
+# 🔴 **2026-10-17（B21·A910）—— 这一格的口径说清楚：它不是「窗口级」，是【工程按名字播的 cue】。**
+#   前三口（`sounds[]` / `exitSounds[]` / `collisionEvent`）都从 `animfx_modules.json` **推**得出来；
+#   而**我们自己代码**里按名字播的 cue **推不出来**（原版是组件上的序列化 `AudioCue` 字段，
+#   我们这边落成 C# 常量）⇒ **只能一条条声明在这里**。
+#   判据（本轮亲核）：把 `bundle_*` 里那 **612** 个 cue 包装名 ∩ 工程 `MyGame/Assets/**/*.cs`
+#   （只在**音效上下文的代码行**上算命中）− `used_cues()` ⇒ 剩 8 个名字，逐条都能指到出处。
+#   `CardStartDrag`（**A910**）：原版 `DraggableController.dragSound`（两个实例共用，
+#     PathID `−4308815958917459268`，`bundle_soundcollection_assets_all/MonoBehaviour/CardStartDrag.json`）
+#     → 我们 `Deck/DeckRuntime.cs` 的 `const string DragCue = "CardStartDrag"`。
+#     判据 → `资料/普查产出_1017/W_G3_拖拽件.md` §①/§② + `Core/DraggableController.cs:130`。
+#   ⚠️ 另 7 个名字**另有产出方，别并到这里来**（理由逐条在 `CODE_ONLY_KNOWN` 里）：
+#     残骸六条 = `工具/import_remnant_sfx.py` · `OvertimeStart` = `工具/rebuild_overtime_start_ogg.py`
+#     （⛔ 并进来会把那条**重制过的 ogg 覆盖**掉）· `Add card to deck` 是 clip 名不是 cue 名。
+EXTRA_CUES = ["Reward open item by item", "CardStartDrag"]
 
 # 🔴 **2026-10-16（A828）第三来源 —— `collisionEvent` 上的 `PlaySound`。**
 #   `AnimFXModuleCollisions` 的 `collisionAndParticles[i].particleSystemsDefinition[j].collisionEvent`
@@ -206,6 +224,81 @@ def used_cues():
     return names | set(EXTRA_CUES), n, nex, ncol
 
 
+# ============================================================================================
+#  🔴 **2026-10-17（B21·A828 尾巴③）查漏（反向）—— 「取材面还漏了哪条 cue」**
+# ============================================================================================
+#  为什么要有它：前三口 + `EXTRA_CUES` 都是「**我声明什么就收什么**」，声明漏了**没人知道**
+#  —— `A910`（起拖音 `CardStartDrag` 首次起拖打一条解不出的告警）就是这么来的：
+#  它在 `animfx_modules.json` 里**一次都不出现**（原版那格是组件上的序列化 `AudioCue`），
+#  而我们代码里是个 C# 常量。**没有第二个人会去比这张表**。
+#
+#  口径（三句话）：
+#    ① **起点是权威集合**：拿**原版 cue 包装名**（`load_bundles()` 读到的那些 `m_Name`）去比，
+#       ⛔ 不是拿 `.cs` 里随便一个字面量 —— 所以**不会凭空发明**一条原版没有的 cue。
+#    ② **降噪两层**：命中的行必须在**音效上下文**里（`SCAN_CTX_RE`），且**注释行不算**（`_is_comment`）。
+#       实测：不加这两层剩 28 个名字（`Victory`/`Mulligan`/`Asteroid Zone`… 全是重名噪声），
+#       加了剩 8 个，**每个都指得到出处**。
+#    ③ **只报告、不自动收**：剩下那 8 个里仍有「同名 clip」这类误报（`Add card to deck`），
+#       自动并进表会把表弄脏。已解释过的列在 `CODE_ONLY_KNOWN` 里（**带理由**）⇒ 常态输出安静，
+#       一旦出现**新**名字就 ⚠️ 打出来。
+SCAN_ROOT = "d:/4/Unity/MyGame/Assets"
+SCAN_CTX_RE = re.compile(r"(?i)sound|audio|cue|clip|\.Play\(")
+CODE_ONLY_KNOWN = {
+    "OvertimeStart": "**clip** 名（`BattleDriver` 直取 `WFSoundBank.Clip`）· 产出方 = "
+                     "`工具/rebuild_overtime_start_ogg.py` —— ⛔ **别并进本表**：本表会把原版那条 "
+                     "`.ogg/.wav` 原样拷过去，**覆盖掉那条重制过的**",
+    "Add card to deck": "**clip** 名（cue `Reward open item by item` 的 clip，已在表里）· "
+                        "与某个 cue 包装**同名** ⇒ 是误报",
+    "Aeldari To Waystone": "残骸 cue（预制体上的序列化 `AudioCue` 字段，不在 `animfx_modules.json` 里）"
+                           "· 产出方 = `工具/import_remnant_sfx.py`",
+    "Aeldari Waystone Destruction": "同上（残骸线）",
+    "CardShatter": "同上（残骸线）",
+    "NecronsCardReanimate": "同上（残骸线）",
+    "RemnantsDestroyed": "同上（残骸线）",
+}
+
+
+def _is_comment(line):
+    s = line.lstrip()
+    return s.startswith("//") or s.startswith("*") or s.startswith("/*")
+
+
+def code_only_cue_report(all_cue_names, want):
+    """→ 新候选 `[(name, [file:line, …]), …]`；**顺手把结果打印出来**（常态 = 0 个）。
+
+    ⚠️ 调用点在 `load_bundles()` **之后**（`all_cue_names` 就是它读到的 cue 名，见 `main()`）。"""
+    if not os.path.isdir(SCAN_ROOT):
+        # 不许静默：扫不动就等于**这一次根本没查漏**，而输出看起来和「查过、没漏」一模一样。
+        print(f"⚠️ 查漏（反向）：`{SCAN_ROOT}` 不在 ⇒ 这一趟**没有查漏**（不是「查了没漏」）")
+        return []
+    todo = sorted(set(all_cue_names) - set(want) - set(CODE_ONLY_KNOWN))
+    if not todo:
+        print("查漏（反向）：原版 cue 名里没有「取材面没收、代码又在提」的新名字 ✅")
+        return []
+    # 一条正则匹所有候选名（长的排前面，免得 `Aeldari To Waystone` 被 `Aeldari To Waystone Death` 截断）
+    big = re.compile("|".join(re.escape(c) for c in sorted(todo, key=len, reverse=True)))
+    hits, n_lines = {}, 0
+    for root, _dirs, files in os.walk(SCAN_ROOT):
+        for f in files:
+            if not f.endswith(".cs"):
+                continue
+            p = os.path.join(root, f)
+            rel = os.path.relpath(p, "d:/4/Unity").replace("\\", "/")
+            for i, line in enumerate(io.open(p, encoding="utf-8", errors="replace"), 1):
+                n_lines += 1
+                if not SCAN_CTX_RE.search(line) or _is_comment(line):
+                    continue
+                for m in big.finditer(line):
+                    hits.setdefault(m.group(0), []).append(f"{rel}:{i}")
+    out = sorted(hits.items(), key=lambda kv: -len(kv[1]))
+    print(f"查漏（反向）：扫 {SCAN_ROOT} 的 .cs 共 {n_lines} 行（只算音效上下文的**代码行**）⇒ "
+          f"**{len(out)} 个候选**")
+    for name, where in out:
+        print(f"  ⚠️ `{name}`（{len(where)} 处，例如 {where[0]}）—— 表里没有它 ⇒ "
+              f"要么补进 `EXTRA_CUES`（连判据一起），要么写进 `CODE_ONLY_KNOWN`（连理由一起）")
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true", help="只报告，不写盘")
@@ -220,6 +313,9 @@ def main():
     print(f"cue 分散在 {len(need_bundles)} 个包里，逐个读：")
     cues, files = load_bundles(need_bundles)
     print(f"合起来：cue 包装 {len(cues)} 个 · 能对上的音频文件 {len(files)} 个")
+
+    # ---- 🆕 查漏（反向）：取材面漏没收的 cue（只报告，见 `code_only_cue_report`）----
+    code_only_cue_report(cues.keys(), want)
 
     # ---- ① 解析 cue → clip ----
     table, missing_cue, missing_clip, no_clip = [], [], set(), []
@@ -279,13 +375,15 @@ def main():
     out = {
         "version": 1,
         "note": "AnimFX 的随机化 cue 表（来源三条路径：`sounds[*].sound` · `exitSounds[*].sound` · "
-                "`collisionEvent` 的 `PlaySound` 订阅）。clips 里随机挑一条；"
+                "`collisionEvent` 的 `PlaySound` 订阅；另加 `EXTRA_CUES` —— 工程按名字播、"
+                "AnimFX 数据里推不出来的 cue）。clips 里随机挑一条；"
                 "播放音量 = minVolume..maxVolume、音高 = minPitch..maxPitch；"
                 "文件名在 Resources/Art/audio/sfx/<clip 名>。",
         "source": {
             "bundle": "soundcollection_assets_all.bundle",
             "who": "数据/游戏数据/animfx_modules.json 的 sounds[*].sound / exitSounds[*].sound /"
-                   " collisionEvent 的 PlaySound（m_Arguments.m_ObjectArgument）",
+                   " collisionEvent 的 PlaySound（m_Arguments.m_ObjectArgument）"
+                   " + 脚本里的 EXTRA_CUES（按名字播的那几条）",
             "script": "工具/import_original_sfx.py",
         },
         "cues": table,

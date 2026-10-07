@@ -1,5 +1,12 @@
 // MainMenuRuntime.cs — 主菜单（阶段二第 1 层）的**唯一建界面处**
 //
+// 🔴 **2026-10-17（B25）一处例外**：**顶栏那一条带子**（`Upper bar` + `Player Profile` + `Resources Bar`，
+//    含那 4 颗钮的点击接线 = 齿轮 / 信封 / 头像 / 挑战）**建在共用件 `Shell/TopBar.cs` 里** ——
+//    卡组编辑那一屏（独立场景 `DeckEditor.unity`）要的是**同一条顶栏**，而**两份一定会漂**
+//    （实测漂过：资源计数器次序反了 · 信箱红点恒 alpha 0，判据 → `TopBar.cs` 文件头）⇒ 收口到那边。
+//    本文件里那句 `TopBar.Build(...)` 只是**调用点**；顶栏的**数据**（`CounterSpecs` 一族 + 三个开窗入口）
+//    仍然住在本文件（它们的注释带着逐条 pid / 反编译出处）。
+//
 // ============================ 出处（唯一正本） ============================
 // `资料/主菜单_原版规格.md` —— §一 整屏骨架 · §二 层×参数权威表 · **§五 绝对屏幕坐标（1920×1080，y 向下）**
 // · §三② 出厂 vs 运行时实例化的分界线。下边每个常量后面都写了它出自哪一格。
@@ -15,10 +22,11 @@
 // ⚠️ **已知缺口（本批没做，别当已完成）**：
 //   · **模式卡**（`GameModes/Content` 里那些 535×414 的卡）—— 原版出厂 **0 子**、全靠 liveop 数据灌，
 //     要先读 `bundle_menus_assets_all` 里卡 prefab 的内部结构 ⇒ 下一批。
-//   · ~~**`Resources Container` 里的 5 个资源格**~~ ✅ **2026-10-13（A374）已建**（见下面的
-//     `BuildResourcesBar` 一整套：原版建表序 / 常显 3 颗 / 显隐规则 / 上限机制 / 逐格几何都有出处）。
+//   · ~~**`Resources Container` 里的 5 个资源格**~~ ✅ **2026-10-13（A374）已建** —— 🔴 **2026-10-17（B25）
+//     建树搬进了共用件 `Shell/TopBar.cs` 的 `BuildResourcesBar`**（原版建表序 / 常显 3 颗 / 显隐规则 /
+//     上限机制 / 逐格几何都有出处）；本文件只剩**那几张数据表**（`CounterSpecs` 一族）。
 //     ⚠️ **还差 4 张币种小图标**（本地 `Resources/Art/ui_menu/` 只导了 2 张）—— 那几颗只画药丸 + 数字，
-//     名字会进 `MissingArt`（`Build()` 末尾那条警告点名）。判据与修法 → `资料/普查产出_1013/W374_资源计数器.md` §六。
+//     名字会进 `MissingArt`（**`TopBar.BuildResourcesBar` 末尾**那条警告点名）。判据与修法 → `资料/普查产出_1013/W374_资源计数器.md` §六。
 //   · **字号**：§二/§五 两张表**没有 TMP 的 fontSize** ⇒ 这里的字号是**按矩形高推的档位**，
 //     **标注为「我们挑的」**，等补到原版字号再换（别把它当原版值）。
 //     （⚠️ 顶栏那几颗资源计数器的字号**不在此列** —— 那是从 prefab 的 TMP 字段实读的。）
@@ -219,14 +227,42 @@ namespace CardPresentation
         // ⚠️ **只降顶栏这一条带子**：左侧导航、模式卡、以及别处那些 `QPanel/QContent` 一律不动；
         //    尤其 `QOverlay`（2930）那几处**别一起动** —— 模式卡的边框与它的命中区用的是同一档
         //    （`BuildGameModes` 里 `:1118` / `:1137` 两处），它们要压在**模式卡**之上，与弹窗无关。
-        //    顶栏降到 2994–2998 之后**仍然高于**它们（2930 / 2931）⇒ 菜单内部的相对次序没变。
+        //    顶栏降到 2994–2998 之后**仍然高于**它们（2930 / 2931）⇒ 菜单内部的相对次序没变
+        //    （2026-10-17 F5 把下沿放宽到 2986，高得更多，这条更宽松 —— 见下）。
         // 📌 **保留历史痕迹**（铁律 5 —— 更正痕迹不许抹掉）：2026-09-28 那一轮**是照一张二手实拍**做的
         //    （那张实拍里顶栏看得见、选卡组弹窗那两个页签条 y 35.07~107.25 **看不见**），而**当时就写在本段里的
         //    那条「反证」**——「原版 `Safe area Only Horizontal` 的 `m_Children` 里 `3 - PopUp Holder`（RT1121）
         //    排在 `Upper bar`（RT1092）之后 ⇒ 单看兄弟序，弹窗本该在顶栏之上」（出处 →
         //    `资料/主菜单_原版规格.md:62-64`）—— **一直是对的**。当年是「实况优先于解包字段」（铁律 4）
         //    压过了它，⛔ 而那张实拍**不是实况取证**；2026-10-11 用户裁定「照原版」⇒ **兄弟序 + 排序层这一侧胜出**。
-        public const int QBarPanel = 2994, QBarAvatarFrame = 2995, QBarContent = 2996,
+        // ============================================================ 🆕 2026-10-17（F5）：下沿放宽 + 顶栏内部再分 8 档
+        // 🔴 **触发**：`DeckScene.Run` 那条通用检查（「同一层的 UI 图没有互相压住」，
+        //    `Editor/DeckScene.cs:1141-1164`）实测 **8 处**，而 **8 对全在顶栏内部**。
+        //    **根因**：顶栏有 **6 张两两相交**的图（A 条底 · B 玩家框 · C 名字条 · E 盾框 · F 立绘 · G 等级图标），
+        //    而渲染队列是 `int`、旧带子 `[2994,2998]` **只有 5 个整数档** ⇒ **鸽笼原理，装不下**。
+        //    ⛔ 三条绕法都排除过：把顶栏排除出检查（= 把主菜单/外壳同样那 8 处一起放掉）·
+        //    小数队列（`SetRenderQueue(int)`）· `≤0`（那是 `Editor/MainMenuScene.cs:610` 的**跳过口**）。
+        // 🔴 **改法（一行修好主菜单 + 外壳两处 —— 那 8 处重叠在那边同样存在、只是没人查）**：
+        //    ① **下沿放宽**：`QBarPanel 2994 → 2986` ⇒ 带子 = **`[2986, 2998]`**；
+        //    ② **顶栏内部按原版兄弟序分 8 档**（2986–2993）—— 完整表 + 逐档归类 →
+        //       `Shell/TopBar.cs` 的队列常量上方（⛔ 别在第二个地方再抄一份）。
+        //    ⚠️ **为什么下沿可以放到 2986**：`[2986,2993]` **两边都空着** —— 主菜单自己的内容最高到
+        //    `QOverlay = 2930`（本文件 `:187` 那条梯子）、卡组编辑那屏最低是 `DeckRuntime.QAreaBg = 2980`
+        //    （`Deck/DeckRuntime.cs:418`）。**上沿 `QBarOverlay 2998` 不动** ⇒ 两条不变式照旧：
+        //    `QBarOverlay(2998) < DailyStreakPopup.QShade(3002) < MainMenuSubmenuWindow.QPanel(3005)`、
+        //    以及 `QBarOverlay(2998) < DeckRuntime.QSep/QLowest(2999)`（`Editor/DeckScene.cs:4826` 那条）。
+        //    ✅ 主菜单那条「顶栏件必须落在 `[QBarPanel, QBarOverlay]`」（`Editor/MainMenuScene.cs:612`）
+        //    用的是**这两个常量本身** ⇒ **自动跟着放宽，一个字没改**。
+        // 🔴 **2026-10-17（F5）就地订正 **F2 那张表里的两档次序**（铁律 5）**：表里原写
+        //    「2990 盾框（E）· 2991 名字条（C）」—— 与它**自己引的**原版兄弟序**正好相反**。
+        //    现读（`python 工具/menu_dump.py bundle_scenes_scenes_mainmenuwarpforge "Player Profile" --md --depth 5`）：
+        //    `Player Profile` 子件序 = `Background` → `Background Mask`（**名字条 `Planer Name Background`
+        //    挂在它的下面**）→ `Player Name` → `Profile border`（⚠️ 出厂 **inactive**、`Image` 组件也被禁
+        //    ⇒ 原版画的不是这一颗）→ **`Avatar Item Small`**（活的那面盾 = 它的 `Image Container/Border`）
+        //    → `Player Level` ⇒ **盾在名字条【之后】= 画在它上面**。用户实拍的同一处吻合
+        //    （`资料/原版参照图/用户实拍_1017/卡组编辑界面参考.png`：盾完整，那块暗紫名字板**从盾的右边**
+        //    才露出来、没有横穿盾面）⇒ 现取 **2990 名字条（C）· 2991 盾框（E）**。
+        public const int QBarPanel = 2986, QBarContent = 2987, QBarAvatarFrame = 2991,
                          QBarText = 2997, QBarOverlay = 2998;
 
         // ============================================================ 建
@@ -255,7 +291,15 @@ namespace CardPresentation
 
             BuildBackground(_root);
             BuildNavigationPanel(_root);
-            BuildUpperBar(_root);
+            // 🔴 **2026-10-17（B25）：顶栏改成调共用件 `Shell/TopBar.cs`** —— 本文件原来那份
+            //    `BuildUpperBar / BuildPlayerProfile / BuildResourcesBar / BuildTopAvatar` **已删**。
+            //    为什么：卡组编辑（独立场景 `DeckEditor.unity`）要**同一条顶栏**，D13/D14 那一轮把本文件
+            //    这四个方法**逐参抄**了一份给 `TopBar` ⇒ **两份并存**，而两处写同一条规则 = 迟早不一致
+            //    （实测已经不一致两处：资源计数器**次序反了** + 信箱红点**恒不亮**，判据 → `TopBar.cs` 文件头）。
+            //    ⇒ 现在**几何/结构/接线只有 `TopBar` 一处**；本文件只剩**数据与入口**
+            //    （`CounterSpecs` 那几张表 · `OpenInbox/OpenSettings/OpenProfile` · `QBar*` · 红点色）。
+            //    ⛔ 别把参数再写回本文件（那等于把两份漂移重新种回来）。
+            _topBar = TopBar.Build(_root, NoteMissingArt);
             BuildChatPreview(_root);
             BuildGameModes(_root);
 
@@ -660,7 +704,16 @@ namespace CardPresentation
         /// ⚠️ 单机没有服务器 ⇒ 里面是**空态**（原版没消息时也是这个样子），**不是没做**。
         /// 🔴 **2026-10-06（A123）：已经开着就复用那一扇**（判据 → 上面 `OpenByRef` 那段）—— 原来每次新建。
         /// </summary>
-        public InboxWindow OpenInbox()
+        /// 🔴 **2026-10-17（B25）改成 `static`**：顶栏那四颗钮的接线收进了共用件 `Shell/TopBar.cs`，
+        /// 而卡组编辑（独立场景 `DeckEditor.unity`）**没有 `MainMenuRuntime` 实例** ⇒ 这三个入口
+        /// （`OpenInbox` / `OpenSettings` / `OpenProfile`）必须能被**没有实例**的地方调到。
+        /// 它们本来就不碰实例状态（体内只有一句 `OpenByRef(...)`）⇒ 改 `static` 是**零行为变化**。
+        /// ⚠️ 左竖导航那三条（`OpenSocial` / `OpenRewards` …）**仍是实例方法** —— 它们会顺带
+        /// `SelectNav(idx)` 改导航钮的选中态；顶栏这四颗**不碰导航**。
+        /// ⛔ 别把这句「顶栏钮开哪一扇窗」的映射在 `TopBar` 里再写一遍（那边只**转调**这三个入口）。
+        /// ⚠️ 自检里原来写成 `menu.OpenInbox()`（实例语法）—— 改成 `MainMenuRuntime.OpenInbox()`
+        /// （C# 不允许用实例访问静态成员），语义一个字没变。
+        public static InboxWindow OpenInbox()
         {
             return OpenByRef(RefInbox, wm => InboxWindow.Create(wm));
         }
@@ -699,7 +752,7 @@ namespace CardPresentation
         /// ⚠️ `SettingsWindow.Instance` 那个字段**仍然由 `Create` 维护**（自检拿它认「开的是哪一扇」），
         ///     ⛔ **但别再把它当复用判据** —— 理由就是上面那一行。
         /// </summary>
-        public SettingsWindow OpenSettings()
+        public static SettingsWindow OpenSettings()
         {
             // 判据同上（原版 `automaticallyLoadedWindows` 命中就复用）：**还开着**才复用、关过就新建。
             return OpenByRef(RefSettings, wm => SettingsWindow.Create(wm));
@@ -789,7 +842,7 @@ namespace CardPresentation
         /// 看 A、再开本入口，会是两扇。**那是我们挑的、那边已如实标注**（纯 prefab 引用会让「先点 A、
         /// 再点 B」静默显示 **A** 的资料）—— 判据在那边的注释里，⛔ 别照本条去「统一」它。
         /// </summary>
-        public PlayerProfileWindow OpenProfile()
+        public static PlayerProfileWindow OpenProfile()
         {
             return OpenByRef(RefProfile, wm => PlayerProfileWindow.Create(wm));
         }
@@ -842,156 +895,13 @@ namespace CardPresentation
         /// <summary>红点默认 **alpha 0**（= 原版 `Hide()` 之后的样子）。</summary>
         public static Color BadgeAlpha(bool on) { return new Color(BadgeTint.r, BadgeTint.g, BadgeTint.b, on ? 1f : 0f); }
 
-        // ---- §五 B：顶栏 ----
-        void BuildUpperBar(Transform root)
-        {
-            // A332：原版 `Upper bar` = 1920 × 100（`anchor (0,0)-(1,1)` + `sizeDelta.y −980` ⇒ 高 100）
-            // 🔴 **2026-10-11（FX6）修**：第一实参原来写 `LayoutSpace.DesignWidth`（**世界单位** 17.7778，不是 px 1920）
-            //   ⇒ 宽被除两次 108、`rect.width` 只剩 0.165。高 `100f` 是 px ⇒ 同一行的正对照。
-            var bar = New(root, "Upper bar", 1920f, 100f);
-            Rect(bar, "UI_Main_Upper_bar", -11.7f, 1920f, 0f, 71.3f, "Background", QBarPanel);
-
-            // 齿轮 + 红点
-            // A332：原版 `SettingsBtn` = 87.78 × 61.73（= 齿轮那一格 `UI_Settings_Icon` 的框，与下面那条 `Rect` 同值）
-            var settings = New(bar, "SettingsBtn", 87.78f, 61.73f);
-            // 🔴 **2026-09-27 补 `keepAspect`（PA 普查抓的）**：原版 `Upper bar/SettingsBtn` 那格
-            //   `m_PreserveAspect = 1`（RT1560·GO496·MB2526），贴图 `UI_Settings_Icon` **179×179**
-            //   塞进 87.78×61.73 的框 ⇒ 原版只画 **61.73²**（居中），我们拉伸 ⇒ **宽 1.42×**。
-            var gear = Rect(settings, "UI_Settings_Icon", 1803.1f, 1890.9f, 4.6f, 66.4f, "Image", QBarContent,
-                            null, true);
-            // 🔴 **2026-09-26 接线**：这颗齿轮从建出来那天起**点了没反应**（连提示都没有 = 静默失败）。
-            //    设置窗（原版 `Main Menu Settings Window`）属于「第 4 层」，2026-09-26 随**联机页**一起建
-            //    —— 判据 → `资料/联机P2P_设计与交接.md` §3·5、`Shell/SettingsWindow.cs`。
-            if (gear != null)
-            {
-                var hit = gear.gameObject.AddComponent<WindowButton>();
-                hit.onClick = () => OpenSettings();
-            }
-            // ⚙️ 设置钮的红点：我们**没有通知源** ⇒ alpha 0（原版由 `UiBadgeNotification` 按通知亮）
-            Rect(settings, "40K_notification_number", 1865.9f, 1890.9f, 4.4f, 29.4f, "Badge Highlight", QBarContent,
-                 BadgeAlpha(false));
-
-            // 三个顶栏按钮（位置**按 HLG 算**：spacing 9.75 · MiddleLeft）
-            // A332：原版 `TopBarButtons` = 311.4 × 71.33
-            var btns = New(bar, "TopBarButtons", 311.4f, 71.33f);
-            // A332：原版 `InboxBtn` = 55 × 40（就是这个「框」——注释里那句「塞进 55×40 的框」）
-            var inbox = New(btns, "InboxBtn", 55f, 40f);
-            // 🔴 **2026-09-27 补 `keepAspect`（PA 普查抓的）**：原版 `Upper bar/TopBarButtons/InboxBtn`
-            //   `m_PreserveAspect = 1`（RT1561·GO497·MB2529），贴图 `40K_notification` **135×105**
-            //   塞进 55×40 的框 ⇒ 原版实绘 **51.43×40**，我们 55 宽 ⇒ **宽 6.5%**（轻，但同一条判据）。
-            var inboxImg = Rect(inbox, "40K_notification", 425.3f, 480.3f, 15.5f, 55.5f, "Image", QBarContent,
-                                null, true);
-            // 🔴 **2026-09-23 接线**：原版这个钮上挂 **`OpenWindowButton`**（`windowToOpenPrefab.m_AssetGUID`
-            //    已实证指向 `Inbox Menu` 根 pid `-4892976514573368526`）——**全库没有一处按名字调 `InboxWindow`**，
-            //    原版是 Addressables 加载 + 虚函数 `Open()` 派发。
-            if (inboxImg != null)
-            {
-                var hit = inboxImg.gameObject.AddComponent<WindowButton>();
-                hit.onClick = () => OpenInbox();
-            }
-            // 红点：原版 `Inbox.CheckNotification` = **未读条数**，走 `UiBadgeNotification` 的 **alpha 补间**
-            // （`Show()` 把 alpha 置 1、`Hide()` 置 0 —— **不是 `SetActive`**，见 `资料/日常_调用链_三窗.md` §三·C；⚠️ 更正：原来指 `资料/日常_调用链_Inbox.md`，2026-10-10 已并入）。
-            // 单机没有消息 ⇒ 未读 = 0 ⇒ **默认 alpha 0**。
-            var inboxBadge = Rect(inbox, "40K_notification_number", 454.3f, 489.3f, 2.0f, 37.0f,
-                                  "Badge Highlight", QBarContent, BadgeTint);
-            if (inboxBadge != null)
-                inboxBadge.SetTint(new Color(BadgeTint.r, BadgeTint.g, BadgeTint.b,
-                                             DailyData.InboxHasBadge ? 1f : 0f));
-            Rect(btns, "40K_icon_duel", 490.1f, 537.6f, 11.8f, 59.2f, "Challenge button", QBarContent);
-            // `Feedback Button`（565.4..615.4, 10.5..60.5）出厂 `activeSelf=False` ⇒ **不建**（见文件头纪律 ③）
-
-            BuildPlayerProfile(bar);
-
-            // `Resources Bar`（1131.5..1802.5, −0.1..71.1）：⚠️ **原版这一格没有任何 Image**
-            // （§二 表 #27 的图那一列写的是「无；+Canvas1079(嵌套)」）⇒ **不画底**。
-            // 🔴 2026-09-22 自纠：第一版我在这里凭空加了一层 `40k_topmarquee_currency_display_BW`，
-            //    渲染出来是**右上角一块浅灰药丸**，而原版实拍那里是空的 —— 典型的「我们自加的」（§10·3 找茬点 6）。
-            // A332：原版 `Resources Bar` = 671.05 × 71.165
-            // 🔴 **2026-10-13（A374）**：那 7 类资源格**建全了**（此前这里只有一个空容器 —— 见下 `BuildResourcesBar`）。
-            BuildResourcesBar(bar);
-        }
-
-        /// <summary>`Player Profile`（0..528.7, 0..211.1）—— 左上角那块。
-        /// 🔴 **2026-09-27 更正**：这里原来写着「**不画头像立绘**：原版那一格 `Image` 的
-        /// `m_Sprite = 0`、`m_Enabled = 0`」—— **那条是错的**（读的是**序列化出厂值**，而运行期会点亮它）：
-        /// · `AvatarDisplay.ChangeAvatar` 里 `set_sprite(avatarImage, 玩家头像)` + 按 `sprite != null`
-        ///   `set_enabled`（`decomp_full/AvatarDisplay__ChangeAvatar.c:57,65`）；
-        /// · `AvatarDisplay.Awake` 一进场就按 `sprite != null` **重算**一遍 enabled
-        ///   ⇒ 出厂那个 `0` 只是「出厂时没图」的结果，**不是「永不显示」的设计**；
-        /// · 没选过头像时原版回落到 `get_DefaultAvatarItem()`（**一个真·默认头像**）。
-        /// 判据全文 → `资料/阶段二_多人界面_原版规格.md` · 这是本项目「**一个序列化字段 ≠ 全部情况**」的又一例。
-        /// ⚠️ 顺带说清「关服实拍为什么是空盾」：那一层盾是 **`Player_Profile_Border` 的图**，
-        ///   头像是在它**上面**另画的一层（我们原来没建那一层 ⇒ 永远只有盾）。</summary>
-        void BuildPlayerProfile(Transform parent)
-        {
-            // A332：原版 `Player Profile` = 528.65 × 211.07（与上面那行小字里的 0..528.7 / 0..211.1 同源）
-            var p = New(parent, "Player Profile", 528.65f, 211.07f);
-            Rect(p, "40k_main_player_frame", 23.0f, 411.0f, 11.6f, 135.6f, "Background", QBarPanel);
-            // 名字条底：亮图 × `m_Color (0.396,0.1925,0.3095)` = **暗紫红**（`m_Type` = **1 Sliced**）
-            Rect(p, "40k_topmarquee_currency_display_BW", 25.6f, 472.1f, 14.9f, 60.5f, "Planer Name Background",
-                 QBarContent, new Color(0.39623f, 0.19251f, 0.30954f, 1f));
-            // 字号照 §七 表二：`Player Name` fontSize **32**（带 **autosize 10→32**）、`m_fontColor` **(0.9686,0.9137,0.7137)**
-            // 🔴 **2026-09-28**：文案从写死的 `"Player Name"` 改成**真名字**（`ProfileData.PlayerName`，
-            //    **全工程唯一一份**，档案窗改名窗写的就是它）。默认值见 `ProfileData.DefaultPlayerName`。
-            var pn = Text(p, ProfileData.PlayerName, 136.9f, 401.9f, 13.7f, 61.7f, 8,
-                          new Color(0.9686f, 0.9137f, 0.7137f), "Player Name", 32f, QBarText);
-            // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版 `m_fontSizeBase` **原文** = **36.0**
-            //    （= TMP 序列化默认值 ⇒ 原版这里**没显式设过**）。
-            //    判据（本轮自己扫 `bundle_scenes_scenes_mainmenuwarpforge`）：
-            //    `MonoBehaviour_1717.json` —— GO 名 `Player Name`、`'Player Name'`、
-            //    `m_SizeDelta = (265, 48)`（与我们的框逐值相同）· `m_fontSize 32` · `auto[10~32]` ·
-            //    **`m_fontSizeBase 36.0`**。⚠️ V7 §二·3 #32 记的是**全库**那族的分布
-            //    （30.0×16 / 26.0×4 / …）⇒ 本条以**主菜单这一颗**的实读为准。
-            if (pn != null) pn.SetAutoFitBox(265f / 108f, 48f / 108f, 10f, 32f, 36f);   // 原版 autosize 10→32
-            // 🔴 **2026-10-07（A62 主表 #25）**：原版主菜单 `Player Name` 的 `m_TextWrappingMode = **0**`
-            //   （判据 = `bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/MonoBehaviour_1717.json` 实读：
-            //    `m_TextWrappingMode=0` · `m_fontSizeMax=32`）—— 上面那句 `SetAutoFitBox` 会**无条件开折行** ⇒ 显式关掉。
-            if (pn != null) pn.SetWrapping(false);
-
-            // A332：原版 `Avatar Item Small` = 138.42 × 139.568（`anchor/pivot` 都重合、`sizeDelta` 就是这两个数）
-            var av = New(p, "Avatar Item Small", 138.42f, 139.568f);
-            var avBorder = Rect(av, "Player_Profile_Border", -10.0f, 165.5f, 9.0f, 139.1f, "Border", QBarAvatarFrame,
-                                null, true);   // ⚠️ scl 1.25 已算进 §五 B；🔴 **最后那个 `true` = 保宽高比**（见下）
-            // 🔴 **2026-09-27 修：这一格必须【保宽高比】画**（原来是拉伸的 ⇒ **宽了 1.6 倍**）。
-            //    · 判据一（读字段）：原版 `Image` 的 **`m_PreserveAspect = 1`** —— 13 个战场里用这张图的
-            //      Image 共 **39 个，39/39 全是 PA=1**（直读 `MonoBehaviour_4606.json:40`；同一结论早就写在
-            //      `Battle/BattleDriver.cs` 的头像块注释里，那处当时已按 PA=1 修好，**主菜单这处漏了**）。
-            //    · 判据二（量实拍）：原版实拍 `资料/原版参照图/Unity参照管线_0825/shots_ui/menu_full_0825.png`
-            //      里量盾形框 **x 24..131 ⇒ 宽 ≈107 px**、高宽比 ≈0.94 ≈ 贴图的 `256/286 = 0.895`（**保宽高比**的特征）；
-            //      我们按拉伸画出来是 **175.5 px 宽**（x −10..165.5）⇒ 明显对不上。
-            //    · 保宽高比之后：实绘 = `fit(256×286 → 140.384×104.076) × 1.25 = 116.4×130.1`，**居中于原矩形中心**
-            //      （⇒ 左右各内缩 29.5）—— 与实拍那个 ≈107/≈111 px 对得上 ✅。
-            // 🔴 **2026-09-27 接线**：原版这块头像上挂 **`OpenWindowButton`**（开 `Player Profile Window`，
-            //    `菜单全树.md` 的 `Player Profile Window` 那棵树记的入口）—— 我们以前**点了没反应**（静默失败）。
-            //    命中区 = 头像整块（`-10,9 → 165.5,139.1`，就是 `Player_Profile_Border` 那张图的矩形）。
-            if (avBorder != null)
-            {
-                var hit = avBorder.gameObject.AddComponent<WindowButton>();
-                hit.onClick = () => OpenProfile();
-            }
-            BuildTopAvatar(av);
-            // 🔴 **2026-10-11（A219①）就地订正**：这一格原来叫 **`"Icon/Player Level"`** —— 那是**一个带斜杠的
-            //   【字面】节点名**（Unity 里那不是一个名字、是**路径分隔符** ⇒ `transform.Find` 会当两层路径走、
-            //   永远取不到；逐字比名字的 `FindChild` 又只在整串相等时命中）。
-            //   **原版判据（现读 `bundle_scenes_scenes_mainmenuwarpforge`）**：`GameObject/Player Level.json`
-            //   的 `m_Name` = **`Player Level`**，其 `RectTransform`（pid 1279）的 `m_Father` = 1125 =
-            //   `Player Profile` 那个 GO ⇒ 原版就是 `Player Profile` → `Player Level` **两级**，
-            //   中间**没有** `Icon` 这一层（我们也不缺层，**只是名字写错了**）；整包 `m_Name` 里没有一个带 `/`。
-            //   ⚠️ `资料/主菜单_原版规格.md` 的表里那个 `Icon/Player Level` 是 **dump 工具的显示串**，
-            //      ⛔ 别照它改回来（那个文件自己「换算时踩到的坑」第 3 条：「名字一律不可信」）。
-            //   断言 → `Editor/MainMenuScene.cs` 顶栏那一段（A219①）。
-            // A332：原版 `Player Level` = **53.12²**（正方形）
-            var lvl = New(p, "Player Level", 53.12f, 53.12f);
-            Rect(lvl, "40k_topmarquee_currency_gold", 117.5f, 170.6f, 54.3f, 107.4f, "Icon", QBarContent);
-            // `Player Level Text`：§七 表二 —— fontSize **37.2**，**autosize 18→37.2**
-            var lv = Text(lvl, "-", 124.3f, 163.7f, 61.1f, 100.5f, 7, Color.white, "Player Level Text", 37.2f, QBarText);
-            // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版 `m_fontSizeBase` **原文** = **36.89**。
-            //    判据（本轮自己扫主菜单场景）：`Player Level Text`（`'-'`）两颗
-            //    （`MonoBehaviour_2548.json` / `_505.json`）—— `m_fontSize 37.2` · `auto[18~37.2]` ·
-            //    **`m_fontSizeBase 36.88999938964844`**（逐站表 §二·3 #29 同值）。
-            //    ⚠️ base（36.89）**≠ 标称（37.2）** ⇒ 必须显式传，缺省就退回 37.2 了。
-            if (lv != null) lv.SetAutoFitBox(39.4f / 108f, 39.4f / 108f, 18f, 37.2f, 36.89f);   // 原版 autosize 18→37.2
-        }
+        // ---- §五 B：顶栏 —— 🔴 **2026-10-17（B25）整段已删，实现在 `Shell/TopBar.cs`** ----
+        //
+        // 这里原来是 `BuildUpperBar` / `BuildPlayerProfile`（以及下面 A374 那一带的 `BuildResourcesBar`、
+        // 更下面的 `BuildTopAvatar`）四个 `private` 实例方法。它们与 `TopBar` 里那份**逐字重复** ⇒ 收口到共用件。
+        // ⛔ **别把参数写回来**：顶栏的几何/结构/接线**只有 `TopBar` 一处**（本文件只留数据与入口）。
+        // 判据、为什么收口、以及收口时修掉的**两处真实偏离**（资源计数器次序反了 · 信箱红点恒不亮）
+        // → `Shell/TopBar.cs` 的文件头（那一版是 2026-10-17 B25）。
 
         // ============================================================ ★ A374：顶栏资源计数器
         //
@@ -1045,7 +955,8 @@ namespace CardPresentation
         public const int CurGold = 0, CurCrystals = 10, CurBlackStones = 20, CurRaidMedals = 60,
                          CurGachaTickets = 70, CurCampaignPoints = 71, CurEnergy = 72;
 
-        /// <summary>一颗资源计数器的规格。三个字段各自的判据 → <see cref="BuildResourcesBar"/> 头注释。</summary>
+        /// <summary>一颗资源计数器的规格。三个字段各自的判据 → `Shell/TopBar.cs` 的
+        /// `BuildResourcesBar`（**建树已搬去那边**，2026-10-17 B25；本文件只留这张表）。</summary>
         public sealed class CounterSpec
         {
             public int Currency;      // 原版 `GameCurrency`
@@ -1055,11 +966,14 @@ namespace CardPresentation
         }
 
         /// <summary>**次序 = 原版 `List.Add` 序**（①）—— ⛔ 别按大小/字母重排。
+        /// 🔴 **2026-10-17（B25）改成 `public`**：建表（几何 + 建树）的实现在共用件 `Shell/TopBar.cs`，
+        /// 它读的就是这张表；⛔ **别再在别处抄第二张**（`TopBar` 原来是按 `DefaultCurrencies` 建的，
+        /// 次序整个反了 —— 判据 → `TopBar.cs` 文件头 ①）。
         /// 第 4 列（上限）判据：`campaignPoints` = **实拍读数 `300/2000`**（`资料/普查产出_1011/WA4_A370.md:70` ·
         /// `资料/历史/会话_2026-10-11_批次2.md:132` · `资料/索引与盘点/解包资源列表清单.md:125` 那句
         /// 「顶栏货币1(2000/2000)图标」）—— ⚠️ **不是从资产字段读来的**：`CampaignPoints` 那个 SO 本地导出里没有
         /// （全 `assets_full` 扫 `smallIcon` 只有 3 份 `Currency`，没有 `CampaignPoints`）。</summary>
-        static readonly CounterSpec[] CounterSpecs =
+        public static readonly CounterSpec[] CounterSpecs =
         {
             new CounterSpec { Currency = CurCampaignPoints, Icon = "40K_genearl_icon_Campaign_points",
                               WalletKey = "40K_genearl_icon_Campaign_points_big", MaxAmount = 2000 },
@@ -1087,7 +1001,9 @@ namespace CardPresentation
         /// 与另外 6 颗的显隐/次序**无关**。自检夹具会把它打开一次（见 `Editor/MainMenuScene.cs` 那一段）。</summary>
         public static bool EnergyInResourcesBar = false;
 
-        static readonly CounterSpec EnergySpec = new CounterSpec
+        /// <summary>同上，energy 那一颗的规格（🔴 **2026-10-17（B25）改 `public`**：`TopBar` 那条
+        /// `Insert(0, EnergySpec)` 要用它 —— 建表在那边，规格在这里，⛔ 别两边各写一份）。</summary>
+        public static readonly CounterSpec EnergySpec = new CounterSpec
         { Currency = CurEnergy, Icon = "40k_topmarquee_currency_energy", WalletKey = null, MaxAmount = 0 };
 
         /// <summary>原版 ② `ResourcesBarController..ctor` 的 `defaultCurrencies` —— **恒显**那三颗。</summary>
@@ -1113,7 +1029,7 @@ namespace CardPresentation
         public static void ClearCounterForTest() { _ownedForTest.Clear(); _maxForTest.Clear(); }
 
         /// <summary>原版 ③ 的 `CurrencyExtensions.GetOwnedCount(c)` 在我们这边的等价物。
-        /// ⚠️ 返回值的来源是**我们自己的** `Wallet`（见 `BuildResourcesBar` 头注释那条免责）。</summary>
+        /// ⚠️ 返回值的来源是**我们自己的** `Wallet`（见 `TopBar.BuildResourcesBar` 那条免责）。</summary>
         public static int OwnedOf(int currency)
         {
             int v;
@@ -1156,154 +1072,17 @@ namespace CardPresentation
             return null;
         }
 
-        // ---- 原版 prefab 的几何（`AF/bundle_scenes_scenes_mainmenuwarpforge`，逐字段实读）----
-        //
-        // `Resources Bar`（RT **1187**）：`anchor (1,1)` · `pivot (0.5,0.5)` · `apos (−453.0, −35.5)` ·
-        //   `sizeDelta (671.05, 71.165)` ⇒ 绝对矩形 **1131.475..1802.525 × −0.0825..71.0825**。
-        const float ResBarW = 671.05f, ResBarH = 71.165f;
-        const float ResBarL = 1131.475f, ResBarR = 1802.525f, ResBarT = -0.0825f, ResBarB = 71.0825f;
-        // `Resources Container`（RT **1427**）：`anchor/pivot (1, 0.5)` · `apos ≈ 0` ·
-        //   `sizeDelta (0, 71.165)` + `ContentSizeFitter(HorizontalFit=2 PreferredSize)`（MB **2106**）
-        //   ⇒ 右沿贴 `Resources Bar` 右沿、高 71.165、**宽由内容算**。
-        //   它的 `HorizontalLayoutGroup`（MB **2279**）：`pad (L0,R5,T0,B0)` · `spacing 44` ·
-        //   `m_ChildAlignment 5`（= `MiddleRight` ⇒ 交叉轴取 **Middle**）。
-        const float ResSpacing = 44f, ResPadR = 5f;
-        // `Resource Counter Item`（RT **359**）：`sizeDelta (0, 38.066)`；`HorizontalLayoutGroup`（MB **206**）：
-        //   `pad (L20,R1,T0,B0)` · `spacing 0` · `m_ChildAlignment 0`（= `UpperLeft` ⇒ 交叉轴取 **Upper**
-        //   ⇒ 药丸与图标都**顶对齐**在这一格的顶边上）；`ContentSizeFitter`（MB **529**）HorizontalFit=2。
-        const float ItemH = 38.066f, ItemPadL = 20f, ItemPadR = 1f;
-        // `Resource Bar Background`（RT **372**）：`sizeDelta (141.51, 38)`；`Image`（MB **409**）：
-        //   sprite = **`40k_topmarquee_currency_display BW`** · `m_Type 1`（**Sliced**）·
-        //   `m_Color (0.33019, 0.26010, 0.31567, 1)` · `m_PreserveAspect 0` · 九宫 `m_Border 15,15,15,15`
-        //   （贴图 44×39 ⇒ 与 dump 的「44×39 九宫15,15,15,15」逐值吻合）；`HorizontalLayoutGroup`（MB **207**）：
-        //   `pad (L29,R9,T0,B0)` · `m_ChildAlignment 3`（= `MiddleLeft` ⇒ 文字竖直居中）。
-        const float PillH = 38f, PillPadL = 29f, PillPadR = 9f;
-        static readonly Color PillTint = new Color(0.33019f, 0.26010f, 0.31567f, 1f);
-        // `Icon`（RT **371**，GO 名就是 **`Icon`**）：`sizeDelta (60, 59)`；`Image`（MB **399**）：
-        //   `m_Type 0`（Simple）· **`m_PreserveAspect 1`** · `m_Color (1,1,1,1)`。
-        //   ⚠️ 它出厂那张 sprite 是 `UI_Button_Round_background`，**运行期被
-        //   `GetCounter` 换成该币种的图标**（`ResourcesBarController__GetCounter.c:66-68`
-        //   `Image.set_sprite(counter.icon, currency.GetIcon(Small))`；`counter.icon` = `+0x20`，
-        //   prefab 里指向 MB **399**）⇒ 我们**直接画币种图标**，不画那张出厂占位图。
-        const float IconW = 60f, IconH = 59f;
-        // `Resource QuantityText`（RT **370**）：`sizeDelta (103.51, 38)`；TMP（MB **517**）：
-        //   `m_text '-----'` · **`m_fontSize 42`** · `m_fontSizeBase 36` · `m_enableAutoSizing 1` ·
-        //   `m_fontSizeMin 10` / `m_fontSizeMax 42` · **`m_TextWrappingMode 0`**（不折行）·
-        //   `m_HorizontalAlignment 2`(Center) / `m_VerticalAlignment 4096`(Midline) ·
-        //   **`m_characterSpacing −1`** · `m_fontColor` 白。
-        //   `ContentSizeFitterMinMax`（MB **544**）：`clampWidth 1` · **`widthMin 103.51` · `widthMax 153`**
-        //   ⇒ 药丸宽 = `29 + clamp(文字宽, 103.51, 153) + 9`（出厂占位串 `'-----'` 量出来正是 103.51）。
-        const float QtyFontPx = 42f, QtyFontBase = 36f, QtyFontMin = 10f, QtyCharSpacing = -1f;
-        const float QtyWMin = 103.51f, QtyWMax = 153f;
-        // 九宫用到的贴图尺寸（`m_Border` 是按**贴图像素**量的）—— 我们导进来的那张就是 44×39。
-        const float PillTexW = 44f, PillTexH = 39f;
+        // ---- 原版 prefab 的逐格几何（`Resources Bar / Resources Container / Resource Counter Item /
+        //      Resource Bar Background / Icon / Resource QuantityText` 那一整串实读值）----
+        // 🔴 **2026-10-17（B25）已整段搬进 `Shell/TopBar.cs`**（连同 `BuildResourcesBar` 的实现）。
+        //    本文件**只留数据**：下面那几张表（`CounterSpecs` / `EnergySpec` / `DefaultCurrencies` /
+        //    `OwnedOf` / `MaxOf` / `ShouldShow` / `CounterText` / `CurrencyNames`）与自检拨盘。
+        //    ⛔ 别把几何常量写回本文件（那正是这次收口要消掉的那种「两份」）。
 
-        void BuildResourcesBar(Transform bar)
-        {
-            // ① `Resources Bar` 自己：**没有 Image**（判据见调用点那三行注释）⇒ 只建空节点。
-            var resBar = New(bar, "Resources Bar", ResBarW, ResBarH);
-
-            // ② 按原版那条规则挑出要显示的（**次序照原版 `List.Add` 序**，不是我们排的）。
-            var shown = new List<CounterSpec>();
-            foreach (var s in CounterSpecs) if (ShouldShow(s.Currency)) shown.Add(s);
-            if (EnergyInResourcesBar) shown.Insert(0, EnergySpec);      // 原版 `:205` 的 `Insert(…, 0, 0x48)`
-
-            // ⚠️ 本文件的**不变式是「中间节点停在原点、绝对坐标只写在叶子上」**（见 `New` 的注释）
-            //    ⇒ `Resources Container` / `Resource Counter Item` / `Icon` 这几个中间节点一律不挪，
-            //    **带图的那两个叶子节点**（`Resource Bar Background` 的九宫根、`Icon/Image` 那张 quad）
-            //    才写绝对坐标。
-            var container = New(resBar, "Resources Container", 0f, ResBarH);
-
-            // ③ **先量后建**：原版每一格的宽是 `ContentSizeFitter` 按**文字 preferred 宽**算出来的
-            //    （`Resource Bar Background` 的 CSF，MB 551）⇒ 必须先有 `Label` 才量得到。
-            //    这一趟只建「格节点 + 文字」，量完宽度再在 ④ 里把药丸/图标按**最终矩形**一次建出来
-            //    （⛔ 不先建再挪 —— 九宫那一棵是九块拼的，挪它容易漏掉子块）。
-            var itemT = new List<Transform>();
-            var labelL = new List<Label>();
-            var textWl = new List<float>();
-            var pillWl = new List<float>();
-            var itemW = new List<float>();
-            var noIcon = new List<int>();              // 原版图标**本地没查到**的币种（出声用）
-
-            foreach (var s in shown)
-            {
-                var item = New(container, "Resource Counter Item", 0f, ItemH);   // RT 359：高 38.066
-                // 量宽用的**占位**矩形（真实矩形要等量完；`Text()` 只认绝对坐标）
-                var lb = Text(item, CounterText(OwnedOf(s.Currency), MaxOf(s.Currency)),
-                              0f, 1f, 0f, PillH, 8, Color.white, "Resource QuantityText", QtyFontPx, QBarText);
-                // 🔴 字距要**在量宽之前**设好（原版 `m_characterSpacing = −1` 会改 preferred 宽）
-                if (lb != null) { lb.SetCharSpacing(QtyCharSpacing); lb.ForceRelayout(); }
-                if (string.IsNullOrEmpty(s.Icon)) noIcon.Add(s.Currency);
-
-                float nat = lb != null ? lb.WorldW * 108f : 0f;          // 我们自己的 TMP 度量（world → px）
-                float textW = Mathf.Clamp(nat, QtyWMin, QtyWMax);        // 原版 `ContentSizeFitterMinMax`（MB 544）那两条 clamp
-                float pw = PillPadL + textW + PillPadR;                  // 药丸宽 = 29 + 文字宽 + 9
-                float iw = ItemPadL + pw + IconW + ItemPadR;             // 格宽 = 20 + 药丸 + 0(间距) + 图标 + 1
-
-                itemT.Add(item); labelL.Add(lb); textWl.Add(textW);
-                pillWl.Add(pw); itemW.Add(iw);
-            }
-
-            // 容器的宽 = 原版那条 CSF/HLG 算式（Σ格宽 + spacing×(n−1) + padRight）；
-            // ⚠️ 原版 `Resources Container` 的 `sizeDelta.x` 是 **0**（宽由它自己的 CSF 算），
-            //    我们这边没有布局系统 ⇒ 直接把算出来的宽度写进 `sizeDelta`（= 原版的**运行时 rect**）。
-            float totalW = ResPadR + (shown.Count > 0 ? ResSpacing * (shown.Count - 1) : 0f);
-            for (int i = 0; i < itemW.Count; i++) totalW += itemW[i];
-            MenuDraw.SetPxSize(container, totalW, ResBarH);
-
-            // ④ 按**最终矩形**建（左→右；**右沿贴 `Resources Bar` 右沿** —— 原版那两个锚都在 1）。
-            float x = ResBarR - totalW;
-            for (int i = 0; i < shown.Count; i++)
-            {
-                var s = shown[i];
-                float iT = ResBarT + (ResBarH - ItemH) * 0.5f;           // 格在容器里竖直居中（容器 HLG 的 align = MiddleRight）
-                float pL = x + ItemPadL, pR = pL + pillWl[i];            // 药丸**顶对齐格的顶边**（格的 HLG align = UpperLeft）
-                MenuDraw.SetPxSize(itemT[i], itemW[i], ItemH);           // 格宽 = 它自己 CSF 算出来的（同 `Resources Container` 那条）
-
-                // `Resource Bar Background`（RT 372：`Image` = **Sliced** 九宫 · `m_Color` 暗紫灰）
-                // ⚠️ 走公共件 `MenuDraw.Nine`（`ImageQuad.CreateNineSlice`）—— 原版 `m_Type = 1` 就是 Sliced，
-                //    ⛔ 别按拉伸画（44px 的图拉到 141.51 会把两端圆角糊掉）。
-                var pg = MenuDraw.Nine(itemT[i], Art("40k_topmarquee_currency_display_BW"),
-                                       new PxRect(pL, iT, pR, iT + PillH), new Vector4(15f, 15f, 15f, 15f),
-                                       PillTexW, PillTexH, QBarContent, PillTint, true, "Resource Bar Background");
-
-                // `Resource QuantityText`（RT 370 / TMP MB 517）—— 挂到药丸底下（原版就是 `Resource Bar Background` 的子件）
-                var lb = labelL[i];
-                if (lb != null)
-                {
-                    if (pg != null) lb.transform.SetParent(pg.transform, false);
-                    var host = lb.transform.parent;
-                    // 药丸的内衬：`pad (L29, R9)`，在那 38 里竖直居中（里层 HLG 的 align = MiddleLeft）
-                    lb.transform.localPosition = Center(pL + PillPadL, pR - PillPadR, iT, iT + PillH)
-                                               - (host != null ? host.localPosition : Vector3.zero);
-                    lb.SetAutoFitBox(textWl[i] / 108f, PillH / 108f, QtyFontMin, QtyFontPx, QtyFontBase);
-                    lb.SetWrapping(false);                               // 原版 `m_TextWrappingMode = 0`
-                    // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `Resource QuantityText`
-                    //   = `m_HorizontalAlignment 2`(Center) / `m_VerticalAlignment **4096**`(Midline)
-                    //   （判据 = 上面 :1189-1195 那段逐字段实读，`MB 517`）。
-                    //   ⚠️ 排在 `SetAutoFitBox` **之后**（它末句 `RefreshBounds` 会重摆一次；档位幂等，
-                    //   放最后只为少一次重排）。
-                    MenuDraw.SetVAlign(lb, Label.VAlign.Midline,
-                                       new PxRect(pL + PillPadL, iT, pR - PillPadR, iT + PillH));
-                }
-
-                // `Icon`（RT 371：60 × 59 · `Image` 的 **`m_PreserveAspect = 1`**）—— 紧挨药丸右边（spacing 0）
-                var icon = New(itemT[i], "Icon", IconW, IconH);
-                if (!string.IsNullOrEmpty(s.Icon))
-                    Rect(icon, s.Icon, pR, pR + IconW, iT, iT + IconH, "Image", QBarContent, null, true);
-
-                x += itemW[i] + ResSpacing;
-            }
-
-            // ⑤ 出声：**原版图标本地没查到**的币种（⛔ 不静默 —— 那种格只画药丸 + 数字）。
-            if (noIcon.Count > 0)
-                Debug.LogWarning("[Menu] ⚠️ 顶栏有 " + noIcon.Count + " 颗币种**原版图标本地没查到**"
-                                 + "（" + string.Join("、", CurrencyNames(noIcon)) + "）⇒ 只画药丸 + 数字，**不画圆图标**。"
-                                 + "判据与修法 → `资料/普查产出_1013/W374_资源计数器.md` §六");
-        }
-
-        /// <summary>币种 → 名字（**只给出声/日志用**，⛔ 不是判据）。</summary>
-        static string[] CurrencyNames(List<int> curs)
+        /// <summary>币种 → 名字（**只给出声/日志用**，⛔ 不是判据）。
+        /// 🔴 **2026-10-17（B25）改 `public`**：那一句「原版图标本地没查到」的**出声**跟着建表一起搬进了
+        /// `Shell/TopBar.cs`（`BuildResourcesBar` 末尾），它要拿这份名字去打日志。</summary>
+        public static string[] CurrencyNames(List<int> curs)
         {
             var a = new string[curs.Count];
             for (int i = 0; i < curs.Count; i++)
@@ -1323,74 +1102,37 @@ namespace CardPresentation
             return a;
         }
 
-        // ---- 顶栏那块头像立绘（2026-09-27 建；判据 → 上面 `BuildPlayerProfile` 的更正块）----
+        // ---- 顶栏那块头像立绘（2026-09-27 建）—— 🔴 **2026-10-17（B25）实现搬进 `Shell/TopBar.cs`** ----
+        //
+        // 本文件只剩**两个口**（都是自检 / 运行时在用的 public API，**签名与语义一个字没改**）：
+        //   · `RefreshTopAvatarIfChanged()` —— 每帧比一个 int（原版那条 `PlayerAvatarDataManager.OnAvatarChanged`
+        //     事件的等价物）；批处理下 `Update` 不跑 ⇒ **自检直接调它**。
+        //   · `TopAvatar` —— 自检读那一格（一张头像图都加载不到时是 `null`，**那不是「没建」**）。
+        // 推导（为什么盒子比盾大 · 为什么必须保宽高比 · 队列为什么必须比边框高）**全文搬进了**
+        // `Shell/TopBar.cs` 的 `BuildTopAvatar` / `BuildPlayerProfile`（判据与实现同处，⛔ 别在这儿再抄一份）。
 
-        ImageQuad _topAvatar;
-        int _topAvatarIdx = -1;
+        /// <summary>顶栏那一棵（`TopBar.Build` 建出来的那些件；`AvatarIndex` 的快照在 `Parts` 里）。</summary>
+        TopBar.Parts _topBar;
 
-        /// <summary>顶栏立绘那一格。**由边框那一格推出来**（见 `BuildTopAvatar` 的推导）：
-        /// 中心 = 边框中心 + `(2.6, −6.427)` · 尺寸 = 边框 × `(1.5776, 1.5711)` ⇒ 276.9×204.4。
-        /// ⚠️ 它**比盾牌框大**（会溢出屏幕左上角），但立绘贴图的实心部分只占 43%×60% ⇒ 露出来的只有人像。</summary>
-        const float TopAvatarL = -58.09f, TopAvatarR = 218.79f, TopAvatarT = -34.59f, TopAvatarB = 169.83f;
-
-        /// <summary>把「玩家现在选的头像」画到顶栏那面盾**上面**。
-        /// 🔴 **队列必须比边框高**（`QAvatarFrame` &lt; `QContent`）—— 盾的中心是不透明黑，反了就是一块黑。
-        /// ⚠️ 立绘的盒子**比盾大**，这是**照原版 prefab 算的、不是我们挑的**，推导如下（2026-09-27 查实）：
-        /// · prefab（`bundle_scenes_scenes_mainmenuwarpforge`）：`Image` 是**拉伸**在 `Image Container` 上
-        ///   （`anchor(0,0)-(1,1)` · `sizeDelta(0,0)`），而 `Image` 的 **`m_LocalScale = 2.0`**
-        ///   ⇒ 画出来 = 容器 × 2 = **(138.42×102.2)×2 = 276.84×204.4**；
-        /// · 边框那一格同法算 = `(140.384×104.076)×1.25` = **175.48×130.095** —— 与我们实拍对上的那一格**逐位吻合** ✅
-        ///   ⇒ 同一条推导链是可信的；
-        /// · **两格的相对关系**：`Image` 中心 = 容器中心 + `(0,2.7)`、`Border` 中心 = 容器中心 + `(−2.6,−3.727)`
-        ///   ⇒ 立绘中心 = 边框中心 + `(2.6, 6.427)`（prefab 是 y 向上，落到屏幕是 `−6.427`）。
-        /// 🔴 **为什么不是「和边框同格」**（我 2026-09-27 第一版那么做的，**是错的**）：把两种尺寸合成出来并排看，
-        ///   立绘贴图的**实心部分**（`alpha>128` 的包围盒 = 512 里的 **220×306** = 43%×60%）：
-        ///   · 「同格」 ⇒ 实心只有 **75.5×77.5**，而盾的孔径是 **161.8×121** ⇒ **矮 36%**（截图里人像浮在一圈黑中间）；
-        ///   · 「×2」   ⇒ 实心 **119×121.8** ⇒ **高与孔径差 0.7%**（这不是巧合：贴图那圈 40% 的透明边距就是为这个留的）。
-        ///   ⇒ **×2 才是原版的意图**。
-        /// ⚠️ **同样是【保宽高比】画**（`RectTex` 最后那个 `true`）：原版 `m_PreserveAspect = 1`（39/39，见 `BuildPlayerProfile` 那段）。
-        ///   保宽高比之后实绘 = `fit(512² → 276.84×204.4) = **204.4×204.4**`，居中于上面那个盒子的中心。
-        ///   ⇒ 合成出来并排看过：**人像正好填满盾牌**（兜帽顶到上边框、肩到侧边框、盾尖正好在人像底）——
-        ///   这一版才像原版该有的样子。
-        /// ✅ **几何全部有尺子，已收工**：换成保宽高比之后，盾在**原版实拍里的量测**与我们逐点吻合
-        ///   （原版 左 24 · 右 131 · 顶 13 · **盾尖 y=132(x≈83)** ／ 我们 左 23 · 右 128 · 顶 13 · **盾尖 y=132(x≈83)**），
-        ///   而「运行期没人改这个 RectTransform」也由反编译确认（全库零 `SetNativeSize`；`AvatarDisplay` 17 个方法逐个读过）。
-        /// 📌 用户 2026-09-27 定：**观感那条不用挂待办**（「以后我觉得不舒服再说」）⇒ 这里不留 `真 Play` 指针。</summary>
-        void BuildTopAvatar(Transform av)
+        /// <summary>缺图登记（`TopBar` 那条路的回调 —— 与 `Art()` 用**同一张表**，不另开第二本账；
+        /// ⚠️ 去重口径也照 `Art()`：同一个名字只记一次）。</summary>
+        void NoteMissingArt(string n)
         {
-            var tex = LoadAvatar(ProfileData.AvatarArt);
-            if (tex == null) return;                       // 一张都取不到 ⇒ 与出厂态一致（只剩那面盾）
-            _topAvatar = RectTex(av, tex, TopAvatarL, TopAvatarR, TopAvatarT, TopAvatarB, "Image", QBarContent, true);
-            _topAvatarIdx = ProfileData.AvatarIndex;
-        }
-
-        /// <summary>头像那批图（`Resources/Art/avatars/`，名字**含空格、原样传**）。
-        /// 取不到 ⇒ 记进 `MissingArt`（**出声**，不静默画个白块）。</summary>
-        Texture2D LoadAvatar(string art)
-        {
-            if (string.IsNullOrEmpty(art)) return null;
-            var t = CardArt.Cosmetics(art);
-            if (t == null && !MissingArt.Contains(art)) MissingArt.Add(art);
-            return t;
+            if (!string.IsNullOrEmpty(n) && !MissingArt.Contains(n)) MissingArt.Add(n);
         }
 
         /// <summary>玩家在档案窗改了头像 ⇒ 顶栏这一层跟着换（原版走 `PlayerAvatarDataManager.OnAvatarChanged`
         /// 那条事件；我们只有**一处**状态 `ProfileData.AvatarIndex`，**每帧比一个 int** 就够，
         /// 别为它另造一套事件机制）。没变就什么都不做。
-        /// ⚠️ 批处理下 `Update` 不跑 ⇒ **自检直接调这个方法**（所以它是 public 的）。</summary>
-        public void RefreshTopAvatarIfChanged()
-        {
-            if (_topAvatar == null || _topAvatarIdx == ProfileData.AvatarIndex) return;
-            var tex = LoadAvatar(ProfileData.AvatarArt);
-            if (tex == null) return;
-            _topAvatar.SetTexture(tex);
-            _topAvatarIdx = ProfileData.AvatarIndex;
-        }
+        /// ⚠️ 批处理下 `Update` 不跑 ⇒ **自检直接调这个方法**（所以它是 public 的）。
+        /// 🔴 **2026-10-17（B25）：本体已收进 `TopBar.RefreshTopAvatarIfChanged`** —— 卡组编辑那一屏调的是
+        /// **同一个函数**（`DeckRuntime.UiRefreshTopAvatar`）；这里只转调，签名与语义不变。</summary>
+        public void RefreshTopAvatarIfChanged() { TopBar.RefreshTopAvatarIfChanged(_topBar, NoteMissingArt); }
 
         void Update() { RefreshTopAvatarIfChanged(); }
 
         /// <summary>自检用：顶栏那块立绘（**一张头像图都加载不到时会是 null** —— 那种情况按出厂态处理：只剩盾）。</summary>
-        public ImageQuad TopAvatar { get { return _topAvatar; } }
+        public ImageQuad TopAvatar { get { return _topBar != null ? _topBar.TopAvatar : null; } }
 
         // ---- §五 D：右侧聊天预览 ----
         void BuildChatPreview(Transform root)
@@ -1445,8 +1187,15 @@ namespace CardPresentation
             //   · **Tutorial**（用户拍板「有资源就复刻」）· **Draft**（用户拍板「只做模式卡 + 点了如实提示」）
             // ⚠️ **图是按名字对上的**（`Container Image Tutorial` / `Container Image Draft`）——
             //    原版「哪个模式 → 哪张图」的映射在 **liveop 服务端**，本地查不到（§九 9·3）⇒ 这条是**我们按名取的**。
+            // 🔴 **2026-10-17（A853 收口）**：这一格原来传的是 `null` ⇒ 第六步**不建 `Hit`**⇒ 点不动。
+            //    原版点这张卡 = 开「教程模式窗」（`Tutorial Mode Menu` / `TutorialModePopup : GameWindow`）——
+            //    链路 = `LiveopsMenuContainer.OnClick()` → `LiveOpsEvent.OpenWindow()` → 按**事件数据**里的
+            //    `drawData.EventComponents[MainWindow]` 开窗；**全游戏唯一**消费 `TutorialEvent` 的窗就是它。
+            //    （用户 2026-10-17 拍板走 A：接 `"tutorial"` ⇒ 开那扇窗，⛔ 不是只弹一句「暂无服务器」。）
+            //    ⚠️ 教程事件那份数据**本地任何形态都没有**（随 PlayFab userInfo 下发）⇒ 原版关服时这张卡
+            //    根本不存在；受影响的两处（标题栏文案 / 各关的副标题与描述）在 `TutorialModePopup` 里逐条标了。
             BuildModeCard(content, "Base Game Mode Container 1x1 - Tutorial", CardCol0, CardRow0Top, CardW, CardH,
-                          "Container_Image_Tutorial", "TUTORIAL", null);
+                          "Container_Image_Tutorial", "TUTORIAL", "tutorial");
             BuildModeCard(content, "Draft Game Mode Container 1x2", CardCol0 + CardColStep, CardRow0Top, CardW, 848.8f,
                           "Container_Image_Draft", "DRAFT MODE", "draft");
             // 🔴 **2026-10-17（A789 收口 · 用户拍板「按建议执行」）**：这一格原来传的是 `null` ⇒
@@ -1483,6 +1232,18 @@ namespace CardPresentation
             if (wm == null) { Debug.LogWarning("[Menu] 没有 `WindowsManager`，开不了模式窗：" + kind); return; }
             switch (kind)
             {
+                // 🆕 2026-10-17（A853 收口）：**这是唯一一处【真的按原版开窗】的模式卡** ——
+                //   原版这张卡开哪扇窗由 liveop 事件数据给，但「Tutorial 开的就是 `Tutorial Mode Menu`」
+                //   这一条**全游戏唯一**（唯一消费 `TutorialEvent` 的窗），所以它不是我们编的映射。
+                //   ⚠️ 窗里那颗 `Play` 钮**打不进教程战斗**（战斗侧三件缺口）—— 逐条 → `TutorialModePopup` 文件头。
+                case "tutorial":
+                    {
+                        var win = TutorialModePopup.Create(wm);
+                        wm.OpenWindow(win);
+                        Debug.Log("[Menu] 模式卡 `TUTORIAL` ⇒ 开 `Tutorial Mode Menu`（原版 `TutorialModePopup`；"
+                                + "这条映射是**原版的**，不是我们挑的 —— 唯一消费 `TutorialEvent` 的窗就是它）");
+                    }
+                    return;
                 case "practice":
                     var w = PracticeModePopup.Create(wm);
                     wm.OpenWindow(w);

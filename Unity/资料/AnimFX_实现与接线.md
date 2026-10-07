@@ -340,7 +340,7 @@ PY="D:/2/Warpforge_tools/py312/python.exe"
   抽查 120 个：`clipList` 条数**中位 1 / 最多 3 / 没有空的**；同包 **607 个 `.wav`**。
   余下 4 个（`Helbrute_plasma` / `Buff Black Legion 3` / `Meltagun_Chaos` / `Sororitas Shrine Bombardment Audio`）
   **不在这个包**，没细查 —— 做的时候要么找到它们在哪个包，要么如实标「缺」。
-- ⇒ **这是「照原版做完」，不是「近似顶替」**：导入 **408 条 cue**（wav + 4 组参数）+ 一条运行时广播。
+- ⇒ **这是「照原版做完」，不是「近似顶替」**：导入 ~~**408 条** cue~~ ⇒ 🔴 **2026-10-17 订正（铁律 5）：现读 `Resources/animfx_sounds.json` = **432 条 cue**（wav + 4 组参数）+ 一条运行时广播。**（408 是更早的口径；2026-10-16 A828 把 `collisionEvent` 放宽到 18 层时 409→431，2026-10-17 B21 补 `CardStartDrag` 431→432。）
   🔁 **2026-10-16 订正（W9 · A828 · 铁律 5）**：**现读 = 431 条** —— `工具/import_original_sfx.py` 加了**第三条 cue 来源**
   （`AnimFXModuleCollisions` 的 `collisionEvent` 里 `m_MethodName == "PlaySound"` 的 `m_ObjectArgument`，**+22 条 / 引用 +283**，
   即卡侧 283 条 `PlaySound` 现在 283/283 都取得到 clip）；**别再把条数写死**，要看就现读 `WFSoundBank.CueCount`。

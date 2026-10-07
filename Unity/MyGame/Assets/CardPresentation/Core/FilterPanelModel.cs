@@ -54,10 +54,15 @@ namespace CardPresentation
         /// 两处判据**不可能同时成立** —— 卡组编辑自己那棵树给的是 `Army Filter [2,335 332x0]`（高 **0**，
         /// 说明它是**内容驱动**的，同族的 Rarity/Cost 才是写死 280/230），所以按**内容高**算。
         /// ⚠️ 这是一处**偏离 A3 那两个数**的取值，理由与两处证据都记在这里，别再改回去。</summary>
-        public static float ArmyRowH(int armyCellCount)
+        /// <param name="spY">🔴 **2026-10-17（G2 · D39）：`Content` 的 `m_Spacing.y`** —— 列距 <see cref="ArmySpX"/>
+        /// 的**纵向那一半**。**缺省 0 = 收藏窗**（`Collection Menu Variant > Cardback Tab > … > Army Filter/Content`
+        /// 实读 `spacing={'x':7.0,'y':0.0}`）；**卡组编辑窗的卡背抽屉是 20**（→ <see cref="CosmoArmySpYDeckEdit"/>）。
+        /// ⛔ 别把缺省改成 20（会把收藏窗那几个阵营格往下推）。
+        /// ⚠️ 单行（`rows ≤ 1`）没有「行与行之间的缝」⇒ 那一项不加。</param>
+        public static float ArmyRowH(int armyCellCount, float spY = 0f)
         {
             int rows = armyCellCount <= 0 ? 0 : (armyCellCount + ArmyPerRow - 1) / ArmyPerRow;
-            return ArmyContentTop + rows * ArmyCell;
+            return ArmyContentTop + rows * ArmyCell + (rows > 1 ? (rows - 1) * spY : 0f);
         }
         /// <summary>Army 一行摆几格（原版 `GridLayoutGroup` Flexible：`floor((335.3−14+7)/107)` = 3）。</summary>
         public const int ArmyPerRow = 3;
@@ -428,16 +433,26 @@ namespace CardPresentation
                               input.x2 - SearchIconRightIn, input.y1 + SearchIconTopIn + SearchIconH);
         }
 
-        /// <summary>开关那一行（`Owned` / `Upgradable`）的三个矩形（面板内）。</summary>
-        public static void ToggleRowRects(float w, float rowTop, out PxRect row, out PxRect icon, out PxRect lab)
+        /// <summary>开关那一行（`Owned` / `Upgradable`）的三个矩形（面板内）。
+        /// <param name="iconW">🔴 **2026-10-17（G2 · D41）**：`Image` 的**固定宽**（> 0 时才用）。
+        /// **缺省 0 = 按锚点算**（`0.3·w − 30` = **收藏窗**那份）；**卡组编辑窗的卡背抽屉传
+        /// <see cref="CosmoIconWDeckEdit"/> = 80**（原版那棵树是 `sd(80,0)`，**锚法不同**）。
+        /// 两种算法**右缘都是 `w − 25`**（原版两棵树的实测值，见 Cosmo 那段）。</param>
+        /// <param name="labW">🔴 **同上（D42）**：`Label` 的**固定宽**（> 0 时才用）。
+        /// **缺省 0 = 按锚点算**（右缘 `0.7·w` = **收藏窗**那份）；**卡组编辑窗的卡背抽屉传
+        /// <see cref="CosmoLabWDeckEdit"/> = 230**（⇒ 25..**255**，原版 `sd(230,0)`）。左缘两种算法都是
+        /// <see cref="ToggleLabLeft"/> = 25。</param></summary>
+        public static void ToggleRowRects(float w, float rowTop, out PxRect row, out PxRect icon, out PxRect lab,
+                                          float iconW = 0f, float labW = 0f)
         {
             row = new PxRect(0f, rowTop, w, rowTop + ToggleRowH);
-            float iw = ToggleIconFrac * w - ToggleIconWMinus;      // 0.3·w − 30
             float ix2 = w - ToggleIconRightIn;
+            float iw = iconW > 0f ? iconW : ToggleIconFrac * w - ToggleIconWMinus;   // 0.3·w − 30
             icon = new PxRect(ix2 - iw, rowTop, ix2, rowTop + ToggleRowH);
             // `Label` 与 `Image` 同源：锚 `a(0,0)-(0.7,1)` ⇒ 右缘 = **0.7·w**（不是固定的「w − 100.6」——
             // 那个值只在 w=335.31 时相等，面板一窄就差 1px；出处 A3 §5·1 的 Label 209.7 宽 = 0.7×335.31 − 25.3）
-            lab = new PxRect(ToggleLabLeft, rowTop, w - ToggleIconFrac * w, rowTop + ToggleRowH);
+            float lx2 = labW > 0f ? ToggleLabLeft + labW : w - ToggleIconFrac * w;
+            lab = new PxRect(ToggleLabLeft, rowTop, lx2, rowTop + ToggleRowH);
         }
 
         /// <summary>七行里**后六行**的格子表（① 搜索框是单独一行，见 <see cref="NameRowRects"/>）。
@@ -643,15 +658,55 @@ namespace CardPresentation
         // ============================================================
         public const float CosmoSpacing1 = 15f, CosmoSpacing2 = 12.81f;
 
-        /// <summary>`Army Filter` 那一行的高度 —— 与卡牌那套**同一个 `ArmyRowH`**（格数决定行数）。</summary>
-        public static float CosmoArmyRowH(int armyCount) { return ArmyRowH(armyCount); }
+        // 🔴🔴 **2026-10-17（G2 · D39/D40/D41/D42）：卡背抽屉【两扇窗又是两份值】—— 铁律 5·c。**
+        //   本段原来只照抄了**收藏窗**那一份（`Collection Menu Variant > Cardback Tab > … > Cosmetic FIlter`），
+        //   而**卡组编辑窗**那一棵（`Deck Editing Menu > Content Area > Cosmetic Display > Cosmetic FIlter`）
+        //   有三处序列化值不同：
+        //     处                    | 卡组编辑 `Deck Editing Menu`          | 收藏窗 `Collection Menu Variant`
+        //     Army 行 `m_Spacing.y` | **20**（⇒ 行高 **630**，不是 550）    | 0（⇒ 550）
+        //     `Owned Toggle/Image`  | `sd(**80**,0)` ⇒ 宽 **80**            | 锚 `a(0.7,0)-(1,1) sd(-30,0)` ⇒ `0.3w−30`（= 69.52）
+        //     `Owned Toggle/Label`  | `sd(**230**,0)` ⇒ 宽 **230**（25..255）| 锚 `a(0,0)-(0.7,1) sd(-25,0)` ⇒ 25..`0.7w`（= 232.21）
+        //   （`Spacing` 15 / `Spacing (1)` 12.81 · `Image` 右缘 = `w−25` · `Label` 左缘 = 25 —— 这些**两窗相同**。）
+        // 🔴 **判据（2026-10-17 现读，可复跑）—— 「找唯一的那一颗」：**
+        //   ① `python 工具/menu_dump.py bundle_menus_assets_all "Deck Editing Menu" --depth 20 --md`
+        //      ⇒ `…/Cosmetic FIlter/Filters/Army Filter/Content` = `**【GridLayoutGroup】** cellSize=100×100
+        //      spacing={'x': 7.0, 'y': **20.0**} pad=14,0,0,0`；
+        //      `…/Cosmetic FIlter/Filters/Owned Toggle/Image` = `锚(1,0)-(1,1) apos(-25,0) sd(**80**,0)`；
+        //      `…/Cosmetic FIlter/Filters/Owned Toggle/Label` = `锚(0,0)-(0,1) apos(25,0) sd(**230**,0)`。
+        //      同命令打在 `Collection Menu Variant` 上（`Cardback Tab/…`）= `spacing.y **0**` · 那两颗走**锚点**。
+        //   ② **全包逐实例枚举**（`bundle_menus_assets_all` 的 `MonoBehaviour/` 与 `RectTransform/`，两个目录都数过）：
+        //      · `m_CellSize` 100×100 的 **9** 颗里 `spacing.y = 20` **只有 1 颗**
+        //        = `MonoBehaviour_7231577424604229412`，它的父链 = `Content < Army Filter < Filters <
+        //        Cosmetic FIlter < Cosmetic Display < Content Area < **Deck Editing Menu**`；其余 8 颗 = 7 颗 `(7,0)` + 1 颗 `(5,0)`。
+        //      · `m_SizeDelta = (230,0)` 的 RectTransform **全包只有 1 颗**，父链同上 ⇒ 卡组编辑卡背抽屉那颗 `Label`。
+        //      · `(80,0)` 有 **3** 颗：卡组编辑卡背抽屉那颗 `Image` + 两棵 `Header` 的 `Army Icon`
+        //        ⇒ **这一条不能只按 `sd` 认，要连父链一起看**。
+        //   ③ 修正量自洽：`Owned` 行顶 = 面板顶 156.0 + `CosmoSpacing1` 15 + Army 行 **630** + `CosmoSpacing2` 12.81
+        //      = **813.81**；我们原来是 `15 + 550 + 12.81 + 156 = **733.81**`，差 **80** = 4×20（第 2..5 行各 −20k）。
+        // ⛔ **缺省一个字不许动**（= 收藏窗那份，已对上）—— 卡组编辑走**显式传参**
+        //    （`BuildCosmetics` 的三个可选形参），形状照本文件 A247 的先例。
+        /// <summary>🔴 **卡组编辑窗**卡背抽屉 Army 行 `Content` 的 `m_Spacing.y`。收藏窗**不用**它（缺省 0）。
+        /// 13 个阵营 = 5 行 ⇒ 行高 550 → **630**。判据 → 上面那段那三条。</summary>
+        public const float CosmoArmySpYDeckEdit = 20f;
+        /// <summary>🔴 **卡组编辑窗**卡背抽屉 `Owned Toggle/Image` 的**宽**（原版 `sd(80,0)`；右缘仍是 `w−25`）。
+        /// 收藏窗**不用**它（缺省 0 ⇒ 走锚点式 `0.3w−30`）。判据 → 上面那段那三条。</summary>
+        public const float CosmoIconWDeckEdit = 80f;
+        /// <summary>🔴 **卡组编辑窗**卡背抽屉 `Owned Toggle/Label` 的**宽**（原版 `sd(230,0)` ⇒ 25..255）。
+        /// 收藏窗**不用**它（缺省 0 ⇒ 走锚点式 25..`0.7w`）。判据 → 上面那段那三条。</summary>
+        public const float CosmoLabWDeckEdit = 230f;
+
+        /// <summary>`Army Filter` 那一行的高度 —— 与卡牌那套**同一个 `ArmyRowH`**（格数决定行数）。
+        /// <param name="armySpY">`Content` 的 `m_Spacing.y`：缺省 **0 = 收藏窗**；卡组编辑传
+        /// <see cref="CosmoArmySpYDeckEdit"/>（见上面那段）。</param></summary>
+        public static float CosmoArmyRowH(int armyCount, float armySpY = 0f) { return ArmyRowH(armyCount, armySpY); }
 
         /// <summary>`Owned Toggle` 那一行的行顶（相对抽屉顶）—— Army 行一高，它跟着往下走。</summary>
-        public static float CosmoOwnedTop(int armyCount)
-        { return CosmoSpacing1 + CosmoArmyRowH(armyCount) + CosmoSpacing2; }
+        public static float CosmoOwnedTop(int armyCount, float armySpY = 0f)
+        { return CosmoSpacing1 + CosmoArmyRowH(armyCount, armySpY) + CosmoSpacing2; }
 
         /// <summary>卡背抽屉整块内容的高度（px）—— 判断要不要滚动用它。</summary>
-        public static float CosmoContentH(int armyCount) { return CosmoOwnedTop(armyCount) + ToggleRowH; }
+        public static float CosmoContentH(int armyCount, float armySpY = 0f)
+        { return CosmoOwnedTop(armyCount, armySpY) + ToggleRowH; }
 
         /// <summary>🔴 **2026-10-09（A247）**：卡背抽屉那颗 `'Owned only'` 的**自适应下界**（画布 px）。
         /// **两扇窗不同**（按 A77⑩「按窗分参数」裁定）：
@@ -669,14 +724,23 @@ namespace CardPresentation
         /// <param name="labelAutoMin">`'Owned only'` 那颗 `Label` 的**自适应下界**（原版 `auto(min~max)` 的 min）。
         /// 🔴 **缺省 = 共用常量 <see cref="ToggleFontAutoMin"/> = 18（= 收藏窗的原版值）**；
         /// **卡组编辑窗必须显式传 <see cref="CosmoOwnedFontAutoMinDeckEdit"/> = 26**（A247 的真偏离就在这一格）。</param>
+        /// <param name="armySpY">🔴 **2026-10-17（G2 · D39/D40）**：Army 行 `Content` 的 `m_Spacing.y`。
+        /// **缺省 0 = 收藏窗**；**卡组编辑窗显式传 <see cref="CosmoArmySpYDeckEdit"/> = 20**
+        /// （⇒ Army 行 550 → **630**、`Owned` 行跟着下移 **80**）。</param>
+        /// <param name="iconW">🔴 **同上（D41）**：`Owned Toggle/Image` 的固定宽。**缺省 0 = 锚点式（收藏窗）**；
+        /// **卡组编辑窗传 <see cref="CosmoIconWDeckEdit"/> = 80**。</param>
+        /// <param name="labW">🔴 **同上（D42）**：`Owned Toggle/Label` 的固定宽。**缺省 0 = 锚点式（收藏窗）**；
+        /// **卡组编辑窗传 <see cref="CosmoLabWDeckEdit"/> = 230**（⇒ 右缘 232.21 → **255**）。</param>
         public static void BuildCosmetics(List<string> facs, DeckFilter f, float w, List<Cell> cells,
-                                          float labelAutoMin = ToggleFontAutoMin)
+                                          float labelAutoMin = ToggleFontAutoMin, float armySpY = 0f,
+                                          float iconW = 0f, float labW = 0f)
         {
             float armyTop = CosmoSpacing1;
             for (int i = 0; i < facs.Count; i++)
             {
                 float x = ArmyPadL + (i % ArmyPerRow) * (ArmyCell + ArmySpX);
-                float y = armyTop + ArmyContentTop + (i / ArmyPerRow) * ArmyCell;
+                // 🔴 **G2/D39**：行距 = `cell` + `m_Spacing.y`（缺省 0 ⇒ 与原来逐位相同；卡组编辑 +20）
+                float y = armyTop + ArmyContentTop + (i / ArmyPerRow) * (ArmyCell + armySpY);
                 var rr = new PxRect(x, y, x + ArmyCell, y + ArmyCell);   // 阵营行**背景铺满格**
                 cells.Add(new Cell
                 {
@@ -687,7 +751,7 @@ namespace CardPresentation
             }
 
             PxRect row, icon, lab;
-            ToggleRowRects(w, CosmoOwnedTop(facs.Count), out row, out icon, out lab);
+            ToggleRowRects(w, CosmoOwnedTop(facs.Count, armySpY), out row, out icon, out lab, iconW, labW);
             cells.Add(new Cell
             {
                 R = row, Bg = icon, Icon = ToggleSprite, IconOff = ToggleSpriteOff, Lab = lab,

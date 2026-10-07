@@ -1,27 +1,19 @@
 // CardInstance.cs — **一张具体的牌**（手牌 / 牌库 / 弃牌堆 / 移出游戏 / 死单位表里存的应该是它）
 //
-// 🔴 **2026-09-18 进度：第 1 步已做，第 2/3/4 步还没做。**
-//    · ✅ **第 1 步（本日）**：`UnitState` 带实例（`UnitState.Instance`，`Card` 改成属性转发）·
-//      `BattleContext.NewInstance` 发号（每局从 1 开始）· 五个真构造点都改成发/沿用实例。
-//      **行为零变化**，自检 `TestCardInstanceStep1` 量的是结构（见那条注释）。
-//    · ❌ **第 2 步**：`PlayerState.Deck/Hand/Discard` 仍是 `List<CardDef>` ——
-//      **手牌那一侧还没有实例**，所以「手牌 → 场上」目前是**新发一份**而不是沿用同一份
-//      （`RuleCore.PlayCard` 里那行有注释标着）。换类型时编译器会报 **120 个去重错误点**，
-//      而且**不全是机械替换**（`ps.Hand.Add(pick)` 要先判断「已存在的一份 / 新造的一张」）。
-//    · ❌ **第 3 步**：`PlayerState.DrawnThisTurn` / `BattleContext._markedEphemeral` /
-//      `HandBuff` / `CostMod.Key` 四处仍按**卡模板/份数**记账。
-//    · ❌ **第 4 步**：出口层（`BattleDriver.SyncHand` / `HandIndexOf` / `AiAction.HandIdx`）。
-//    ⇒ 完整计划（A/B/C/D 四类爆炸半径 + 5 步顺序）见 `资料/卡实例身份_爆炸半径.md`
-//      （§六 = 实测补充、§七 = 用户拍板的语义）。
+// ✅ **2026-10-17 订正（铁律 5）：这一节原来写「第 1 步已做，**第 2/3/4 步还没做**」—— 【整段过期】。**
+//    `资料/卡实例身份_爆炸半径.md` §八 记着 **2026-09-18 当天五步全部做完**（`RuleEngineTest` **2928/2928** 全过、
+//    一号验收靶 `Master of Manoeuvre` 绿）；本轮现核也对得上：`PlayerState.Deck/Hand/Discard`
+//    **三处都已经是 `List<CardInstance>`**、`DrawnThisTurn` 已挪进 `CardInstance`
+//    （`PlayerState.cs` 里那几行也留着同样的订正痕迹）。⇒ **⛔ 别照下面那段去改类型。**
+//    🔴 **仍然开着的只有一处**（2026-10-17 新查实）：**`SetupCardInHand`（手牌效果）只做到「打出时兑现」**——
+//    `EffectResolver.AttachEffectToHandInstances` + `ctx.HandBuffs`（兑现点 `RuleCore.ApplyHandBuffs`）；
+//    ⚠️ **「在手里就生效」那半没做**（原版 `CardEffect` 存在那张牌自己的 `List<CardEffect>`（`CardScript +0x108`）、
+//    在手里就能被读）⇒ 账 `A885`。
 //
-// 为什么没一次切完（上一轮试了一版、**已回退**）：
-//      · `Deck/Hand/Discard` 换成它 → 编译器立刻报 **120 个去重错误点**
-//        （`EffectResolver` 68 · `RuleCore` 38 · `SimpleAI` 7 · `BattleDriver` 7）；
-//      · **`UnitState` 只存 `CardDef`** ⇒ 「手牌 → 场上」那一跳会把实例丢掉 ——
-//        **这一条第 1 步已经解决**（`UnitState.Instance`）；
-//      · 而且那 120 处**不全是机械替换**：`ps.Hand.Add(pick)` 这种要先判断 `pick`
-//        是「已经存在的一份」还是「新造的一张」（后者要由 `BattleContext` 发新实例）——
-//        **猜错就是一个静默的语义 bug**，正是本项目最忌讳的那类。
+// 📌 **历史留痕（2026-09-18 之前的状态，只留结论、正文已删）**：那一步之所以没一次切完 ——
+//    `Deck/Hand/Discard` 换类型会报 **120 个去重错误点**（`EffectResolver` 68 · `RuleCore` 38 · `SimpleAI` 7 ·
+//    `BattleDriver` 7），而且**不全是机械替换**（`ps.Hand.Add(pick)` 要先判「已存在的一份 / 新造的一张」，
+//    猜错就是一个静默的语义 bug）。⇒ 完整计划与爆炸半径 → `资料/卡实例身份_爆炸半径.md`。
 //
 // 为什么要有它（= 待办第 7 行「卡实例身份」）：
 //   手牌/牌库/弃牌堆存的是 `CardDef`（**卡模板**）—— 同名两张是**同一个对象**，

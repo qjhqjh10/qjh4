@@ -412,7 +412,7 @@ namespace CardPresentation
         public const string ParticleOnAppear = "RewardAppearParticle";
         /// <summary>原版 `soundOnAppear`（`+0xE0`）那条 AudioCue 的**名字**（只为标出处）。
         /// ✅ **2026-10-16 就地订正（铁律 5）**：原文写「**它不在 `Resources/animfx_sounds.json` 那张表里**
-        /// （408 条里没有它）」—— **已过期**：现读该表 **409 条**、`name: "Reward open item by item"`
+        /// （408 条里没有它）」—— **已过期**：现读该表 **432 条**、`name: "Reward open item by item"`
         /// **在表里**（`clips: ["Add card to deck"]` · pitch 1.0 · volume 0.5 · `timeToPlayAgain` 0.01）。
         /// ⚠️ 仍然成立的：⛔ 别拿**cue 名**去 `WFSoundBank` 查（它按 **clip 名**索引 ⇒ 查不到会白记一笔 `BadCues`）；
         /// 我们走下面的 <see cref="SoundClipOnAppear"/>。

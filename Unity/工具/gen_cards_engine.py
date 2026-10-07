@@ -45,10 +45,11 @@ ZH_SRC = r"d:/4/Unity/数据/卡牌翻译/zh_cards.json"
 #    出处：`资料/PnP卡图_逐张对账_0915.md` §四·F 的改名清单（每条都带三处独立证据）。
 ZH_NAME_ALIAS = {
     # 引擎名（新）          中文表里的键（旧）        我们的译名（⚠️ 不是「官方中文」，见 :38 的更正）
-    "Dogmata":                "Sister Dogmata",        # 教义修女      （zh_CN.csv:2252）
     "Fire Warrior Marksman":  "Fire Warrior Sniper",   # 火氏狙击手    （zh_CN.csv:1307）
-    "Sons of Morkai Eliminator": "Morkai Eliminator",  # 莫凯歼击者    （zh_CN.csv:1885）
-    "Land Raider":            "Land Rider",            # 兰德骑手      （zh_CN.csv:1774；旧的 `Land Rider` 少个 a）
+    # 🔴 2026-10-17（B20）：这里原来还有三条 —— `Dogmata`→`Sister Dogmata` ·
+    #    `Sons of Morkai Eliminator`→`Morkai Eliminator` · `Land Raider`→`Land Rider`。
+    #    **那三条对应的改名已全部撤回**（卡名回到游戏侧的美术资产名）⇒ 引擎名与中文表的键
+    #    重新相等，别名退化成自映射 ⇒ 删掉。判据见 `STAT_FIXES` 里那段 2026-10-17 的撤销说明。
     # 🆕 2026-09-18：这两张的**旧键是美术文件名尾段、不是卡名**（见 `STAT_FIXES` 里那段）——
     "Imotekh the Stormlord":  "stormlord",             # 伊摩泰克·风暴领主
     "Orikan the Diviner":     "Diviner",               # 占卜师
@@ -65,11 +66,10 @@ ZH_NAME_OVERRIDE = {
     #    出处：`Unity/数据/本地化/i18n/zh_CN.csv:830`（`Chosen of the Four,~,四神宠儿`）。
     "Chosen of the Four": "四神宠儿",
 
-    # ⚠️ 这一条是**我们推的，不是官方原文**：官方对 `2nd Company Terminator` 的译文是
-    #    「第二连终结者」（zh_CN.csv:465）；我们的卡按 PnP 卡面改成了 **1st** Company
-    #    （`Ultramarines/3部队/Warpforge_19_1st-Company-Terminator.png`）
-    #    ⇒ 机械换号得「第一连终结者」。**没有官方译文可查。**
-    "1st Company Terminator": "第一连终结者",
+    # 🔴 2026-10-17（B20）：这里原来还有一条 `1st Company Terminator` →「第一连终结者」
+    #    （**推导值**：官方对 `2nd Company Terminator` 的译文是「第二连终结者」（zh_CN.csv:465），
+    #     当年卡名按 PnP 从 2nd 改成 1st ⇒ 机械换号）。**那条改名已撤回** ⇒ 这条推导值一并删掉：
+    #    `zh_cards.json` 里 `2nd Company Terminator` 本来就有官方译文「第二连终结者」，直接命中。
 }
 
 
@@ -94,8 +94,19 @@ RARITY_BY_FACTION = {
 
     # ---- 🆕 2026-09-15 PnP 逐张对账批：卡面宝石**像素取色**实测的三处（引擎原值错）----
     # 判据同下面那批：采样卡图底部菱形宝石取 hue（浅蓝 common / 绿 rare / 紫 epic / 金 legendary）。
-    ("Sororitas", "Dogmata"): "rare",                  # 卡面绿 = rare（引擎原 legendary；SOR 77 张里唯一一处）
+    ("Sororitas", "Sister Dogmata"): "rare",           # 卡面绿 = rare（引擎原 legendary；SOR 77 张里唯一一处）
     ("AstraMilitarum", "Leman Russ"): "rare",          # 卡面绿 = rare（引擎原 legendary；卡面印 `Leman Russ Tank`）
+
+    # ---- 🔴 2026-10-17（B20）四张「卡名撤回后的查表守卫」----
+    # 这 4 张的卡名当天从 PnP 写法**撤回成美术资产名**（见 `STAT_FIXES` 里那段撤销说明），
+    # 而 `资料/卡牌数据表/卡牌宝石稀有度_0824.md` 是**按 PnP 卡面写法建的键**
+    # （`Dogmata` / `Land Raider` / `Sons of Morkai Eliminator` / `1st Company Terminator`）
+    # ⇒ 按新名查会**落空**，必须在这里按 (阵营, 卡名) 特判。
+    # ⚠️ **不写就会掉进 `still_missing`（稀有度空串）** —— 与 `Bladeguard Lieutenant` 那条同一个坑。
+    # 值**不是新判的**，直接取上面那张宝石表里同名行的值（行号标在后面）。
+    ("SpaceWolves", "Land Rider"): "common",            # 宝石表 :781 `Land Raider` 浅蓝 = common
+    ("SpaceWolves", "Morkai Eliminator"): "epic",       # 宝石表 :772 `Sons of Morkai Eliminator` 紫 = epic
+    ("Ultramarines", "2nd Company Terminator"): "rare", # 宝石表 :1018 `1st Company Terminator` 绿 = rare
 
     # ---- 🆕 2026-09-13 第三十二轮：13 处宝石表读错的（**逐张开图采宝石像素**重判）----
     # 来源 `资料/卡表核对_卡图提取/_裁定_稀有度.md`。判定方法：采样卡图底部菱形宝石区
@@ -123,13 +134,16 @@ RARITY_BY_FACTION = {
     ("Sautekh", "Dimensional Breach"): "common",
     ("Goff", "Mega Blasta Deffkopta"): "common",
     ("TauEmpire", "Missile Drone"): "common",
-    # UM 那张 Bladeguard Veteran 旧表叫 `Bladeguard Lieutenant`、`rarity` 是**空串**。
+    # UM 那张（**原名 = 数字版卡名 = `Bladeguard Lieutenant`**，见 `STAT_FIXES` 里那条更正）：
+    # 源表 `rarity` 是**空串**，宝石表那行（批次 U）又是按**卡面印的写法**建的键 ⇒ 只能在这儿特判。
     # 🔴 **2026-09-15 更正**：原来这里写「宝石实读**绿 = rare**（与 DA 那张同名卡一致）」—— **不成立**。
     #    按同一套取样法（底部菱形宝石区 x402-486/y985-1110 取 hue 中位）重测：
     #      · `Ultramarines/3部队/Warpforge_34_Bladeguard-Veteran.png` → **hue 177.7 = 钢蓝 = common**
     #      · `Dark Angels/3部队/Warpforge_26_Bladeguard-Veteran.png`   → hue 120.0 = 绿 = **rare**（这条对）
-    #    两张**同名但不同色**，旧注把 UM 那张当成跟 DA 一样了（UM/AM 那路子代理独立读数也是 common）。
-    ("Ultramarines", "Bladeguard Veteran"): "common",
+    #    两张**不同色**，旧注把 UM 那张当成跟 DA 一样了（UM/AM 那路子代理独立读数也是 common）。
+    # 🔴 **2026-10-17**：键从 `"Bladeguard Veteran"` 改成 `"Bladeguard Lieutenant"` —— 卡名撤回了原版名，
+    #    这条特判**必须跟着改**（查表用的是**改名后**的 `name`），否则这张会掉进 `still_missing`（稀有度空串）。
+    ("Ultramarines", "Bladeguard Lieutenant"): "common",
 }
 
 # 三份 0824 表**没收录**的 9 张（`Dark Angels/6秘密` 5 张 + `Genestealer Cult/6破坏卡` 4 张，
@@ -148,10 +162,13 @@ RARITY_UNLISTED = {
     "Improvised Barricade": "common",
     "Cult Propaganda": "common",
 
-    # 🆕 2026-09-15 PnP 对账：这三张宝石表里没有、引擎 `rarity` 是空串，卡面实测都是 **绿 = rare**
+    # 🆕 2026-09-15 PnP 对账：这两张宝石表里没有、引擎 `rarity` 是空串，卡面实测都是 **绿 = rare**
     "Commissar Elan": "rare",          # Astra Militarum/1督军/Warpforge_01_Commissar-Denkler.png
     "Medic Scion": "rare",             # Astra Militarum/3部队/…（卡面印 `Scion Medic`）
-    "1st Company Terminator": "rare",  # Ultramarines/3部队/Warpforge_19_1st-Company-Terminator.png
+    # 🔴 2026-10-17（B20）：原来这里还有第三张 `1st Company Terminator` —— 已删，两个理由：
+    #    ① 它的卡名撤回成 `2nd Company Terminator` ⇒ 这个键再也不会被查中（死键）；
+    #    ② 这张卡**宝石表里有**（:1018，批次 U，绿 = rare），本来就不该在「表外卡」这张表里
+    #       （`RARITY_UNLISTED` 只在宝石表查不到时才用）。改走上面的 `RARITY_BY_FACTION`。
 
     # 🆕 2026-09-15（第二批）剩下 11 张空 `rarity` —— **宝石像素取色**（不是目视）读出来的。
     # 取色法：卡面底部菱形宝石的实心区，取饱和度最高那 1/3 像素的均值 → hue。
@@ -213,16 +230,27 @@ STAT_FIXES = {
     # 同卡面还写 `Armour 2` / 紫圆 6 / 绿框 12，与表里那三项都对得上。
     "Wraithknight":         {"cost": 10},
 
-    # ---- 🆕 2026-09-15 PnP 逐张对账批（`资料/PnP卡图_逐张对账_0915.md` §四·F）----
-    # **卡名按卡面印的改**。三处独立证据一致：PnP 文件名、源表 `ocrName`、`card_ids.json` 的
-    # 原版 ID 表（`SW45 = Land Raider` · `SW36 = Sons of Morkai Eliminator` ·
-    # `UM83 = 1st Company Terminator` · `SOR32 = Dogmata`）。
-    # ⚠️ 改名会**连带换 id**（id 按新名查原版表）⇒ 立绘也要重导（`import_original_art.py`）。
-    "Land Rider":             {"name": "Land Raider"},
-    "Morkai Eliminator":      {"name": "Sons of Morkai Eliminator"},
-    "Sister Dogmata":         {"name": "Dogmata"},
-    "2nd Company Terminator": {"name": "1st Company Terminator", "ranged": 6},
-    #     ↑ 紫圆 6（`Ultramarines/3部队/Warpforge_19_1st-Company-Terminator.png`）
+    # ---- 🔴 2026-10-17【撤销】2026-09-15 那批「卡名按卡面印的改」（4 条，**已全部撤回**）----
+    # 原判据是**三处一致**：PnP 文件名 / 源表 `ocrName` / `card_ids.json` ——
+    # 🔴 **那三处全是从 PnP 派生的、不独立**（与 2026-09-16 `Veteran Flyboy` 的结案、
+    #    2026-09-24 那批 19 条回滚**同一条教训**：**PnP 是印刷品，不是数字版卡名**，铁律 10 第 3 条）。
+    # B20（`资料/普查产出_1017/W_B20_同族四张卡名.md`）用**游戏侧证据**逐张复核，结论：**4 条全撤**。
+    # 最硬的一条是**全池普查**：源表里 89 张「美术资产名 ≠ PnP 写法」的卡，我们卡池
+    # **79 张采用了美术资产名**、只有 10 张用了 PnP 名 —— 那 10 张里 **6 张就是这一批**
+    # （本批 4 张 + `Bladeguard Veteran` + `Helfire`/`Awakening` 那种拼写订正）。
+    #    · `Sister Dogmata`（SOR32）：卡图资产 `Sororitas_inf_Sister Dogmata` · 头像 SO
+    #      `Avatar_SOR_Forge2_Sister Dogmata` · 头像贴图 `Avatar_SOR_Sister Dogmata` ·
+    #      头像 SO 的 `nameTextReference` 就是 `Sister Dogmata`（**4 条一致**）
+    #    · `2nd Company Terminator`（UM83）：卡图资产 · 语音 · 头像 SO · 头像贴图 **4/4 全指向 2nd**
+    #    · `Morkai Eliminator`（SW36）：卡图资产名 = `SM_SpaceWolves_inf_Morkai Eliminator`
+    #    · `Land Rider`（SW45）：卡图资产名 = `SM_SpaceWolves_veh_Land Rider`
+    #      （⚠️ 与同一美术管线里的 `CSM_EmperorsChildren_veh_Chaos Land Raider` 只差一个字母 ——
+    #       残留不确定性见报告 §⑤，**这条是本批最弱的一张**）
+    # ⚠️ 撤回后 **id 不变**：`card_ids.json` 那 4 行的值已同步回改；不改会掉成自造 id，
+    #    `prebuilt_decks.json` 会跟着变（硬约束：prebuilt 必须逐字节不变）。
+    # ⚠️ 数值修正**与卡名无关、一律保留**：
+    #    紫圆 6（`Ultramarines/3部队/Warpforge_19_1st-Company-Terminator.png` 那张图现在只当数值判据）。
+    "2nd Company Terminator": {"ranged": 6},
     # 9 张督军的「费用」：卡面**费用槽是空的**（子代理逐张开图核过 9/9；对照卡同槽有蓝色六边形）
     # ⇒ 引擎里都该是 0。剩下 6 张（本表上面已有条目的并进去了）。
     "Njal Stormcaller":       {"cost": 0},
@@ -230,18 +258,29 @@ STAT_FIXES = {
     "Terror of Vardenghast":  {"cost": 0},
     "Tervigon":               {"cost": 0},
     "Varro Tigurius":         {"cost": 0},
-    # 一处 `name`：**旧表把卡名抄错了**。核过卡图 + 两边的 desc：
-    #   · Ultramarines/3部队/Warpforge_34_Bladeguard-Veteran.png 卡面印的是 **`Bladeguard Veteran`**
-    #     （`Armour 1. Vanguard / Codex: Heals 3`，6/6/2/1/6，Infantry）
-    #   · 旧表里那张叫 `Bladeguard Lieutenant` 的，**desc 与它逐字一致**、费用同为 6
-    #   · 而同阵营另有一张 `Bladeguard Ancient`（7/7/5/1/7）**是另一张卡，别混**
-    # ⇒ 是**同一个东西被写成了两个名字**（旧表名错），**不是少了一张卡**。
-    #   ⚠️ 顺带修三处（同一行里一起给）：
+    # 🔴 **2026-10-17 更正：这一条原来还带 `"name": "Bladeguard Veteran"` —— 那是错的，已撤掉。**
+    #   （原文写「旧表把卡名抄错了 ⇒ 同一个东西被写成了两个名字」—— 那只核了 PnP 一侧。）
+    #   **原版数字版这张就叫 `Bladeguard Lieutenant`**，五条游戏侧证据（都在解包资源里，铁律 2）：
+    #     · 卡图资产 `bundle_spacemarinesultramarinescardassets_assets_all/Sprite/`
+    #       `SM_UM_inf_Bladeguard Lieutenant.json` —— UM 包里**没有** `…Bladeguard Veteran`；
+    #       而 `Bladeguard Veteran` 是 **DarkAngels** 那张
+    #       （`bundle_spacemarinesdarkangelscardassets_assets_all/Sprite/DarkAngels_inf_Bladeguard Veteran.json`）
+    #     · 语音 `VO_UM_Bladeguard Lieutenant - Draw your blade for the Primarch.ogg`
+    #     · 头像 SO `bundle_cosmeticsso_assets_all/MonoBehaviour/Avatar_UM_Campaign1_Bladeguard Lieutenant.json`
+    #     · 教程 SO `bundle_tutorialso_assets_all/MonoBehaviour/Warpforge_TutorialStage6.json` 里
+    #       `"actionType": "PlayCard (Bladeguard Lieutenant)"`（该串由卡名生成，见 `ScriptedAction__UpdateName.c`）
+    #     · `数据/本地化/i18n/zh_CN.csv:697` `Bladeguard Lieutenant,~,剑卫中尉`；`:699` 另有
+    #       `Bladeguard Veteran,~,剑卫老兵` = **DA 那张**（`zh_cards.json` 两行的 desc 各对各：中尉=典籍、老兵=议程）
+    #     PnP `Ultramarines/3部队/Warpforge_34_Bladeguard-Veteran.png` 印的是 `Bladeguard Veteran` ——
+    #     那是**印刷品上的写法**（铁律 10 第 3 条），不是数字版卡名。
+    #   ⚠️ 那条改名还**凭空造出一组跨阵营同名卡**（UM/DA 都叫 Bladeguard Veteran）⇒
+    #     `RARITY_BY_FACTION` 与 `cardface_fixes.json` 都得为它特判；撤掉一并消掉。
+    #   ⚠️ id 仍取 `UM34`（`card_ids.json` 已同步改好；不改那行会掉成自造 id `UM_Bladeguard_Lieutenant`）。
+    #   ⚠️ 同一行里另外两处修正**保留**：
     #     · `ranged` 0 是漏读 → 2
-    #     · 卡面兵种行印的是 `Infantry`，旧表那一格**是空的** → 补上
-    #     · 稀有度：卡图底部宝石是**绿**（对照 `Dark Angels/3部队/Warpforge_26_Bladeguard-Veteran.png`
-    #       那颗也是绿、我们记 `rare`）⇒ `RARITY_BY_FACTION` 里也补一条
-    "Bladeguard Lieutenant": {"name": "Bladeguard Veteran", "ranged": 2},
+    #     · 兵种 `Infantry`（源表那一格是空的）走 `cardface_fixes.json` 的 `_manual_subtype`
+    #     · 稀有度 `common` 走 `RARITY_BY_FACTION`（判据见那条的注释）
+    "Bladeguard Lieutenant": {"ranged": 2},
     # ---- 🆕 2026-09-18 两张死灵督军的卡名是**美术文件名尾段**、不是卡名 ----
     # 三条独立证据一致，且 PnP 编号对得上（`Warpforge_1_` ↔ `SAU1` · `Warpforge_5_` ↔ `SAU5`）：
     #   · PnP 卡面 `Necron/1督军/Warpforge_1_Imotekh-the-Stormlord.png` 印的是 `Imotekh the Stormlord`
@@ -313,17 +352,24 @@ STAT_FIXES = {
     "Simulacrum Imperialis": {"ranged": 4},
     # ✅ **不改名**（2026-09-16 查清并结案）。原来差点按上面那条「三处证据一致」的规矩改成
     #    `Veteran Stormboy` —— 那三处（PnP 文件名 / `ocrName` / `card_ids.json`）**全是从 PnP 派生的**，
-    #    不是三个独立来源。**独立于 PnP 的游戏侧证据全部指向 `Veteran Flyboy`**：
+    #    不是三个独立来源。**独立于 PnP 的游戏侧证据指向 `Veteran Flyboy`**：
+    #      · 卡图资产名 `bundle_orksgoffcardassets_assets_all/Sprite/Ork_Goff_inf_Veteran Flyboy.json`
+    #        （= 原版美术管线里那张卡的资产名，B20 复核补的最硬一条）
     #      · `数据/本地化/i18n/zh_CN.csv:2565` `Veteran Flyboy,~,飞行老兵`
-    #      · 同表 `:3407` **`Talent: Veteran Flyboy`** · `:4596`/`:5790` **`Companion 1/2: Veteran Flyboy`**
-    #        —— 这两族是**引擎拿卡名拼出来的模板串**，拼出来的就是 Flyboy；表里**没有** `Veteran Stormboy`
-    #      · 同表 `:2656` 把**我们这张卡的效果原文**当本地化串收着：
-    #        `"When you deploy a Stormboy, give it Flank."`（那个 Stormboy 是**另一张卡** `GOF9`）
+    #      · 同表 `:3407` `Talent: Veteran Flyboy` · `:4596`/`:5790` `Companion 1/2: Veteran Flyboy`
     #      · 抽卡包 `bundle_draftpacks_assets_all/MonoBehaviour/Flyboyz.json`（`packId: GOFF_Flyboyz`）
     #  ⇒ PnP 印的 `Veteran Stormboy` 是**当年另一种写法**，不是原版卡名。**别再翻案。**
-    # ⚠️ 推论：上面那条「三处证据一致就改」的规矩**只在有第四个独立来源背书时才安全** ——
-    #    已经按 PnP 改掉的那 4 张（`Land Raider` / `1st Company Terminator` / `Dogmata` /
-    #    `Sons of Morkai Eliminator`）**没查过游戏侧**，真要较真得照这个法子各查一遍。
+    # 🔴 **2026-10-17（B20）更正上面两条论据的分量**（结论不变，理由要改）：
+    #    · `Talent: X` / `Companion N: X` 这两族键**不是独立来源** —— 实测 zh_CN.csv 的
+    #      `Talent:` 键共 1202 条，与 `card_stats.json` 的 `name`（1199 条）**只差 9 条**
+    #      （那 9 条是效果文字碎片）⇒ 这一族的键**是从我们自己的卡表拼出来的**，
+    #      「表里有 `Veteran Flyboy` 没有 `Veteran Stormboy`」只证明**我们**当时是这么写的。
+    #    · 同理 `zh_CN.csv` 的**卡名**键也来自 `card_stats.json` 的 `name`，而那个字段
+    #      就是**卡图资产名**（见 `build_card_index.py`：卡名 = 文件名最后一段）⇒ 它不是第四来源。
+    #    ⇒ 「PnP 写法不是数字版卡名」这条结论**靠卡图资产名一条就够了**（本文件 B20 那批同此）。
+    # ⚠️ 推论：那条「三处证据一致就改」的规矩**只在有独立于 PnP 的游戏侧资产名背书时才安全**。
+    #    ✅ **2026-10-17（B20）已对那 4 张照这个法子各查了一遍，结论是四条全撤** —— 见上面
+    #    「2026-10-17【撤销】」那一段，别再把它们当「已按 PnP 改掉、没查过游戏侧」的例子。
     "Veteran Flyboy":        {"ranged": 4},
 }
 
@@ -383,11 +429,16 @@ def load_cardface_fixes():
     """读卡面修正表 → **两个表**：`(按卡名, 按阵营+卡名)` —— 见下面「同名卡」那段。
 
     🆕 **2026-09-15：支持 `"<阵营>/<卡名>"` 这种键**（例 `"Ultramarines/Terminator"`）。
-    为什么加：修正表原来**只按卡名查**，而卡池里有 **5 组同名跨阵营**的卡
-    （`Terminator` / `Terminator Champion` / `Aggressor` / `Maulerfiend` / `Bladeguard Veteran`），
+    为什么加：修正表原来**只按卡名查**，而卡池里有**同名跨阵营**的卡
+    （`Terminator` / `Terminator Champion` / `Maulerfiend`），
     于是「改一张会连带改另一张」—— 实测 `Ultramarines/Terminator` 的 desc 被
     `EmperorsChildren/Terminator` 的值串掉了（`资料/PnP卡图_逐张对账_0915.md` §四·B）。
     **同名卡要用带阵营的键**；普通卡照旧用裸卡名。带阵营的**优先**。
+    🔴 **2026-10-17 实测更正**：这条原来写「卡池里有 **5 组**（`Terminator` / `Terminator Champion` /
+    `Aggressor` / `Maulerfiend` / `Bladeguard Veteran`）」—— 两处已过时：`Aggressor` 那组
+    2026-09-16 查明是重复行、已从源表删掉；`Bladeguard Veteran` 那组是 2026-09-15 那次改名
+    **自己造出来的**、2026-10-17 已撤回（见 `STAT_FIXES` 那条更正）。
+    **实测当前 = 3 组**：`Terminator` / `Terminator Champion` / `Maulerfiend`。
     文件不在就返回空表（不静默改数）。
 
     ⚠️ `desc` 这一列是 **2026-09-13 第三十三轮**加的：那批卡的**效果文字里被 OCR 丢掉了图标**

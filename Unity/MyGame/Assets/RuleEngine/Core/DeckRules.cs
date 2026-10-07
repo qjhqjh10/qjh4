@@ -1,8 +1,18 @@
 // DeckRules.cs — 卡组构筑规则 + 卡组数据模型（**纯逻辑，不依赖 UnityEngine**）
 //
-// 数字**全部出自原版离线规则书**：
+// 数字的来源：**原版客户端判据优先**（反编译 / 解包资源 / 卡面），客户端取不到的才用
+//   下面这份**粉丝实体版规则书**当旁证：
 //   `d:/4/Unity/资料/规则书/Warpforge_Offline_Rulebook_1_5-3_中文翻译.md`
 //   「游戏模式」那张表（:43-66）。行号写在每个常量后面。
+//
+// 🔴 **2026-10-17 更正（铁律 5）**：本节原来写「数字**全部出自原版离线规则书**」——**两处都错**：
+//   ① 那份规则书**不是官方文档**（它自己第 5 行写着 `Not official. Fan project.`，
+//      第 9 行写着这是「把线上游戏改成实体卡牌」的规则书、很多机制落到实体要 creative interpretation）
+//      ⇒ **只能当第二来源 / 旁证**，不能当权威；
+//   ② 「全部」也不成立 —— 督军 = 1 那条是**原版代码硬编码**的（见下面 `GetMaxCopiesInDeck` 的 `return 1`）。
+//   错因：2026-09-25 之前全仓把「官方规则书」当成一条权威来源，后来查实它是粉丝项目
+//   （判据全文 → `CLAUDE.md` 铁律 2 那张表 + `资料/全量反编译复核_靠推断的清单.md` §2.2）。
+//   下面这些数**照它取**，理由不是「它权威」，而是**客户端那两处取不到运行时值**（见下一段）。
 //
 // ⚠️ **为什么只能照规则书**：客户端代码里也有这些规则，但都拿不到数 ——
 //   · `GameplayVariablesData.GetMaxCopiesInDeck(rarity, type)` 是 LiveOps 服务器下发的
@@ -20,7 +30,9 @@
 //     ⇒ **结论不变**（照规则书 :43-66 的 2 / 1；它和客户端静态默认值**一致**，可互相印证），
 //       变的只是「为什么」：不是「没有」而是「有字面量、但取不到运行时值」。
 //   · 督军 = 1 那条**是原版代码硬编码**（上面 `GetMaxCopiesInDeck` 那句 `return 1`）⇒ 可以放心照抄。
-//   规则书是本地唯一**完整**的权威来源，和它冲突的一切以它为准。
+//   🔴 **2026-10-17 更正（铁律 5）**：本行原写「规则书是本地唯一**完整**的权威来源，
+//      和它冲突的一切以它为准。」—— **口径错了**：它是**粉丝实体版**（非官方），
+//      与它冲突时**以原版客户端判据为准**（反编译方法体 / 解包资源 / 成品卡面），**它只作旁证**。
 //   🔴 2026-09-22 普查：「持有数 / 重复卡 / 升级」这套的完整规格与**查不到的那些数** →
 //      `资料/卡牌重复与升级_原版规格.md`
 using System;
@@ -90,7 +102,7 @@ namespace RuleEngine
 
         /// <summary>
         /// 同名卡在卡组里的上限（规则书:53）：
-        /// **普通 / 稀有 / 史诗 最多 2 张；传说 最多 1 张**。
+        /// **普通 / 稀有 / 史诗 最多 2 张；传说 最多 1 张**；🔴 **督军（不分稀有度）恒定 1 张**。
         ///
         /// 遭遇模式另有一条「传说卡最多 4 张（不含督军）」—— 那条是**整副牌里传说卡的总数**，
         /// 不是单卡同名上限，含义在规则书里没有更细的说明，所以只在
@@ -98,10 +110,45 @@ namespace RuleEngine
         /// </summary>
         public static int CopyLimit(string rarity)
         {
+            // ⚠️ 不带卡型这一档 = **「非督军」档**（等价于 `CopyLimit(rarity, null)`）。
+            //    凡手上**拿得到 `CardDef.Type`**、而且那张卡**可能是督军**的地方，一律走下面那个重载 ——
+            //    只看稀有度会把**非传说督军**算成 2（A894：我们池子里有 28 张这样的）。
+            return CopyLimit(rarity, null);
+        }
+
+        /// <summary>同名卡上限 —— **带卡型那一档**（对应原版
+        /// `GameplayVariablesData.GetMaxCopiesInDeck(rarity, cardType)`）。
+        ///
+        /// <para>🔴 **判据（原版硬编码，逐句实读）**：
+        /// `d:/2/tools/decomp_full/Everguild.LiveOps.GameplayVariablesData__GetMaxCopiesInDeck.c`：
+        /// <code>
+        /// if (param_3 == 10) return 1;        // cardType == Hero ⇒ 恒定 1（在稀有度判断【之前】）
+        /// if (param_2 == 4)  return … +0x18;  // rarity == Legendary ⇒ numberOfCopiesLegendary
+        /// return … +0x14;                     // 其余稀有度          ⇒ numberOfCopiesOtherRarities
+        /// </code>
+        /// `cardType` 的取值表 = `d:/2/tools/il2cpp_out/dump.cs:45710`
+        /// `enum CardTypeOptions { Minion = 0, Hero = 10, Tactic = 20, Whispers = 40 }`
+        /// ⇒ **`10` 就是督军**（我们卡池里那一档 = `CardDef.Type == "hero"`）。
+        /// 🔴 **`return 1` 排在稀有度判断之前** ⇒ **非传说督军也是 1**：我们池子实测
+        /// 56 位督军里 **28 张不是传说**（`epic` 15 / `rare` 13，数据 = `RuleEngine/Resources/cards_engine.json`）
+        /// —— 只看稀有度会把它们算成 2。（这条 2026-09-22 就写在本文件头部的说明里，
+        /// 但代码一直没照它做 —— A894 2026-10-17 才补上。）</para>
+        ///
+        /// <para>⚠️ <paramref name="type"/> 传 `null`/空 = 「不按督军算」，留给拿不到卡型的调用点；
+        /// ⛔ 别在**可能拿到督军**的地方省这个实参。</para></summary>
+        public static int CopyLimit(string rarity, string type)
+        {
+            if (IsWarlordCardType(type)) return 1;      // 原版那句 `if (cardType == 10) return 1;`
             // 🔴 值住在 `GameplayVariables`（唯一出处）。**两个模式这一条相同**（4/1 那对就是 2/1）。
             var v = GameplayVariables.Classic;
             return IsLegendary(rarity) ? v.numberOfCopiesLegendary : v.numberOfCopiesOtherRarities;
         }
+
+        /// <summary>「这张卡的**卡型**算不算督军」—— 原版 `cardType == 10`（`CardTypeOptions.Hero`，判据同上），
+        /// 我们卡池里那一档写成 `CardDef.Type == "hero"`。
+        /// ⚠️ 名字里带 `CardType` 是**故意的**：全仓另有两个同义不同物（`UnitState.IsWarlord` = 「这一个单位是督军」、
+        /// `BoardLayout.IsWarlord(slot)` = 「这一格是督军格」）—— 本函数答的是**卡型**那一问，只服务**同名上限**。</summary>
+        public static bool IsWarlordCardType(string type) { return type == "hero"; }
 
         /// <summary>遭遇模式：整副牌最多几张传说（规则书:64）。经典模式返回 int.MaxValue（**无此限制**）。
         /// 🔴 值住在 <see cref="GameplayVariables"/>（唯一出处）。
@@ -218,7 +265,11 @@ namespace RuleEngine
             foreach (var kv in copies)
             {
                 var c = lookup(kv.Key);
-                if (kv.Value > CopyLimit(c.Rarity)) return DeckError.CopyLimitExceeded;
+                // ⑦ 传 `c.Type`（A894 起 `CopyLimit` 有卡型那一档）—— 本处**两条路同值**：
+                //    ⑥ 已经把 `Type == "hero"` 的卡判成 `WarlordInCards` 提前返回了
+                //    ⇒ 走到这里的 `cards` 里不可能有督军。仍然照传，是为了**只有一处判据**、
+                //    将来谁把 ⑥ 挪了位置也不会静默退回「只看稀有度」。
+                if (kv.Value > CopyLimit(c.Rarity, c.Type)) return DeckError.CopyLimitExceeded;
             }
 
             // ⑧ 遭遇模式的传说卡总数

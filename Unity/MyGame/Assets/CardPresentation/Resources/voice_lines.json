@@ -3265,6 +3265,23 @@
    ]
   },
   {
+   "id": "DA11",
+   "name": "Sergeant Naaman",
+   "faction": "DarkAngels",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_DA_Sergeant Naaman - None shall escape the wrath of Caliban!.ogg",
+     "text": "None shall escape the wrath of Caliban!"
+    },
+    {
+     "ev": "line",
+     "file": "VO_DA_Sergeant Taaman - None shall escape the wrath of Caliban!.ogg",
+     "text": "None shall escape the wrath of Caliban!"
+    }
+   ]
+  },
+  {
    "id": "DA12",
    "name": "Aggressor",
    "faction": "DarkAngels",
@@ -4040,19 +4057,7 @@
    ]
   },
   {
-   "id": "DA9",
-   "name": "Ravenwing Bikes",
-   "faction": "DarkAngels",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_DA_Ravenwing Bikes - The hunt begins No one escapes the Ravenwing!.ogg",
-     "text": "The hunt begins No one escapes the Ravenwing!"
-    }
-   ]
-  },
-  {
-   "id": "DA_Ravenwing_Ballistus_Dreadnought",
+   "id": "DA83",
    "name": "Ravenwing Ballistus Dreadnought",
    "faction": "DarkAngels",
    "lines": [
@@ -4069,19 +4074,14 @@
    ]
   },
   {
-   "id": "DA_Sergeant_Naaman",
-   "name": "Sergeant Naaman",
+   "id": "DA9",
+   "name": "Ravenwing Bikes",
    "faction": "DarkAngels",
    "lines": [
     {
      "ev": "line",
-     "file": "VO_DA_Sergeant Naaman - None shall escape the wrath of Caliban!.ogg",
-     "text": "None shall escape the wrath of Caliban!"
-    },
-    {
-     "ev": "line",
-     "file": "VO_DA_Sergeant Taaman - None shall escape the wrath of Caliban!.ogg",
-     "text": "None shall escape the wrath of Caliban!"
+     "file": "VO_DA_Ravenwing Bikes - The hunt begins No one escapes the Ravenwing!.ogg",
+     "text": "The hunt begins No one escapes the Ravenwing!"
     }
    ]
   },
@@ -6222,6 +6222,148 @@
    ]
   },
   {
+   "id": "GSC1",
+   "name": "Acolyte Iconward",
+   "faction": "Genestealers",
+   "lines": [
+    {
+     "ev": "backup1",
+     "file": "VO_GSC_Acolyte Iconward_Backup1.ogg",
+     "text": ""
+    },
+    {
+     "ev": "backup2",
+     "file": "VO_GSC_Acolyte Iconward_Backup2.ogg",
+     "text": ""
+    },
+    {
+     "ev": "backup3",
+     "file": "VO_GSC_Acolyte Iconward_Backup3.ogg",
+     "text": ""
+    },
+    {
+     "ev": "backup4",
+     "file": "VO_GSC_Acolyte Iconward_Backup4.ogg",
+     "text": ""
+    },
+    {
+     "ev": "backup5",
+     "file": "VO_GSC_Acolyte Iconward_Backup5.ogg",
+     "text": ""
+    },
+    {
+     "ev": "backup6",
+     "file": "VO_GSC_Acolyte Iconward_Backup6.ogg",
+     "text": ""
+    },
+    {
+     "ev": "attack",
+     "file": "VO_GSC_Acolyte Iconward_attack.ogg",
+     "text": ""
+    },
+    {
+     "ev": "cantdo",
+     "file": "VO_GSC_Acolyte Iconward_cantDo.ogg",
+     "text": ""
+    },
+    {
+     "ev": "concede",
+     "file": "VO_GSC_Acolyte Iconward_concede.ogg",
+     "text": ""
+    },
+    {
+     "ev": "death",
+     "file": "VO_GSC_Acolyte Iconward_death.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen1",
+     "file": "VO_GSC_Acolyte Iconward_gen1.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen2",
+     "file": "VO_GSC_Acolyte Iconward_gen2.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen3",
+     "file": "VO_GSC_Acolyte Iconward_gen3.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen4",
+     "file": "VO_GSC_Acolyte Iconward_gen4.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen5",
+     "file": "VO_GSC_Acolyte Iconward_gen5.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen6",
+     "file": "VO_GSC_Acolyte Iconward_gen6.ogg",
+     "text": ""
+    },
+    {
+     "ev": "gen7",
+     "file": "VO_GSC_Acolyte Iconward_gen7.ogg",
+     "text": ""
+    },
+    {
+     "ev": "greet",
+     "file": "VO_GSC_Acolyte Iconward_greet.ogg",
+     "text": ""
+    },
+    {
+     "ev": "hurry",
+     "file": "VO_GSC_Acolyte Iconward_hurry.ogg",
+     "text": ""
+    },
+    {
+     "ev": "intro",
+     "file": "VO_GSC_Acolyte Iconward_intro.ogg",
+     "text": ""
+    },
+    {
+     "ev": "mirror",
+     "file": "VO_GSC_Acolyte Iconward_mirror.ogg",
+     "text": ""
+    },
+    {
+     "ev": "threat",
+     "file": "VO_GSC_Acolyte Iconward_threat.ogg",
+     "text": ""
+    },
+    {
+     "ev": "vsastramilitarum",
+     "file": "VO_GSC_Acolyte Iconward_vsAstraMilitarum.ogg",
+     "text": ""
+    },
+    {
+     "ev": "vsmagus",
+     "file": "VO_GSC_Acolyte Iconward_vsMagus.ogg",
+     "text": ""
+    },
+    {
+     "ev": "vsnecrons",
+     "file": "VO_GSC_Acolyte Iconward_vsNecrons.ogg",
+     "text": ""
+    },
+    {
+     "ev": "vsorks",
+     "file": "VO_GSC_Acolyte Iconward_vsOrks.ogg",
+     "text": ""
+    },
+    {
+     "ev": "wp",
+     "file": "VO_GSC_Acolyte Iconward_wp.ogg",
+     "text": ""
+    }
+   ]
+  },
+  {
    "id": "GSC10",
    "name": "Neophyte Hybrid",
    "faction": "Genestealers",
@@ -6893,148 +7035,6 @@
     {
      "ev": "line",
      "file": "VO_GSC_Concealed Explosives_Ticking sounds.ogg",
-     "text": ""
-    }
-   ]
-  },
-  {
-   "id": "GSC_Acolyte_Iconward",
-   "name": "Acolyte Iconward",
-   "faction": "Genestealers",
-   "lines": [
-    {
-     "ev": "backup1",
-     "file": "VO_GSC_Acolyte Iconward_Backup1.ogg",
-     "text": ""
-    },
-    {
-     "ev": "backup2",
-     "file": "VO_GSC_Acolyte Iconward_Backup2.ogg",
-     "text": ""
-    },
-    {
-     "ev": "backup3",
-     "file": "VO_GSC_Acolyte Iconward_Backup3.ogg",
-     "text": ""
-    },
-    {
-     "ev": "backup4",
-     "file": "VO_GSC_Acolyte Iconward_Backup4.ogg",
-     "text": ""
-    },
-    {
-     "ev": "backup5",
-     "file": "VO_GSC_Acolyte Iconward_Backup5.ogg",
-     "text": ""
-    },
-    {
-     "ev": "backup6",
-     "file": "VO_GSC_Acolyte Iconward_Backup6.ogg",
-     "text": ""
-    },
-    {
-     "ev": "attack",
-     "file": "VO_GSC_Acolyte Iconward_attack.ogg",
-     "text": ""
-    },
-    {
-     "ev": "cantdo",
-     "file": "VO_GSC_Acolyte Iconward_cantDo.ogg",
-     "text": ""
-    },
-    {
-     "ev": "concede",
-     "file": "VO_GSC_Acolyte Iconward_concede.ogg",
-     "text": ""
-    },
-    {
-     "ev": "death",
-     "file": "VO_GSC_Acolyte Iconward_death.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen1",
-     "file": "VO_GSC_Acolyte Iconward_gen1.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen2",
-     "file": "VO_GSC_Acolyte Iconward_gen2.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen3",
-     "file": "VO_GSC_Acolyte Iconward_gen3.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen4",
-     "file": "VO_GSC_Acolyte Iconward_gen4.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen5",
-     "file": "VO_GSC_Acolyte Iconward_gen5.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen6",
-     "file": "VO_GSC_Acolyte Iconward_gen6.ogg",
-     "text": ""
-    },
-    {
-     "ev": "gen7",
-     "file": "VO_GSC_Acolyte Iconward_gen7.ogg",
-     "text": ""
-    },
-    {
-     "ev": "greet",
-     "file": "VO_GSC_Acolyte Iconward_greet.ogg",
-     "text": ""
-    },
-    {
-     "ev": "hurry",
-     "file": "VO_GSC_Acolyte Iconward_hurry.ogg",
-     "text": ""
-    },
-    {
-     "ev": "intro",
-     "file": "VO_GSC_Acolyte Iconward_intro.ogg",
-     "text": ""
-    },
-    {
-     "ev": "mirror",
-     "file": "VO_GSC_Acolyte Iconward_mirror.ogg",
-     "text": ""
-    },
-    {
-     "ev": "threat",
-     "file": "VO_GSC_Acolyte Iconward_threat.ogg",
-     "text": ""
-    },
-    {
-     "ev": "vsastramilitarum",
-     "file": "VO_GSC_Acolyte Iconward_vsAstraMilitarum.ogg",
-     "text": ""
-    },
-    {
-     "ev": "vsmagus",
-     "file": "VO_GSC_Acolyte Iconward_vsMagus.ogg",
-     "text": ""
-    },
-    {
-     "ev": "vsnecrons",
-     "file": "VO_GSC_Acolyte Iconward_vsNecrons.ogg",
-     "text": ""
-    },
-    {
-     "ev": "vsorks",
-     "file": "VO_GSC_Acolyte Iconward_vsOrks.ogg",
-     "text": ""
-    },
-    {
-     "ev": "wp",
-     "file": "VO_GSC_Acolyte Iconward_wp.ogg",
      "text": ""
     }
    ]
@@ -8430,6 +8430,18 @@
    ]
   },
   {
+   "id": "SOR19",
+   "name": "Sisters Repentia",
+   "faction": "Sororitas",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_ADS_Sister Repentia- Only in penance shall my soul be cleansed.ogg",
+     "text": ""
+    }
+   ]
+  },
+  {
    "id": "SOR20",
    "name": "Dialogus",
    "faction": "Sororitas",
@@ -8682,6 +8694,18 @@
    ]
   },
   {
+   "id": "SOR30",
+   "name": "Simulacrum Imperialis",
+   "faction": "Sororitas",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_ADS_Simulacrum Imperialis - Bow before His divine authority.ogg",
+     "text": "Bow before His divine authority"
+    }
+   ]
+  },
+  {
    "id": "SOR31",
    "name": "Celestian Sacresant",
    "faction": "Sororitas",
@@ -8695,7 +8719,7 @@
   },
   {
    "id": "SOR32",
-   "name": "Dogmata",
+   "name": "Sister Dogmata",
    "faction": "Sororitas",
    "lines": [
     {
@@ -9203,30 +9227,6 @@
    ]
   },
   {
-   "id": "SOR_Simulacrum_Imperialis",
-   "name": "Simulacrum Imperialis",
-   "faction": "Sororitas",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_ADS_Simulacrum Imperialis - Bow before His divine authority.ogg",
-     "text": "Bow before His divine authority"
-    }
-   ]
-  },
-  {
-   "id": "SOR_Sisters_Repentia",
-   "name": "Sisters Repentia",
-   "faction": "Sororitas",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_ADS_Sister Repentia- Only in penance shall my soul be cleansed.ogg",
-     "text": ""
-    }
-   ]
-  },
-  {
    "id": "SOR_Triumph_of_Saint_Katherine",
    "name": "Triumph of Saint Katherine",
    "faction": "Sororitas",
@@ -9679,7 +9679,7 @@
   },
   {
    "id": "SW36",
-   "name": "Sons of Morkai Eliminator",
+   "name": "Morkai Eliminator",
    "faction": "SpaceWolves",
    "lines": [
     {
@@ -9919,7 +9919,7 @@
   },
   {
    "id": "SW45",
-   "name": "Land Raider",
+   "name": "Land Rider",
    "faction": "SpaceWolves",
    "lines": [
     {
@@ -10285,6 +10285,18 @@
    ]
   },
   {
+   "id": "TAU19",
+   "name": "Breacher Fire Warrior",
+   "faction": "TauEmpire",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_Tau_Empire_Fire Warrior Breacher - The Greater Good brooks no obstacle.ogg",
+     "text": "The Greater Good brooks no obstacle"
+    }
+   ]
+  },
+  {
    "id": "TAU20",
    "name": "Sniper Drone",
    "faction": "TauEmpire",
@@ -10635,6 +10647,18 @@
    ]
   },
   {
+   "id": "TAU45",
+   "name": "Stormsurge Battlesuit",
+   "faction": "TauEmpire",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_Tau_Empire_Stormsurge - Resistance will be met with unyielding fire.ogg",
+     "text": "Resistance will be met with unyielding fire"
+    }
+   ]
+  },
+  {
    "id": "TAU6",
    "name": "Shadowsun",
    "faction": "TauEmpire",
@@ -10856,18 +10880,6 @@
    ]
   },
   {
-   "id": "TAU_Breacher_Fire_Warrior",
-   "name": "Breacher Fire Warrior",
-   "faction": "TauEmpire",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_Tau_Empire_Fire Warrior Breacher - The Greater Good brooks no obstacle.ogg",
-     "text": "The Greater Good brooks no obstacle"
-    }
-   ]
-  },
-  {
    "id": "TAU_Kroot_Carnivore",
    "name": "Kroot Carnivore",
    "faction": "TauEmpire",
@@ -10888,18 +10900,6 @@
      "ev": "line",
      "file": "VO_Tau_Kroot Hound - Voracious growl.ogg",
      "text": "Voracious growl"
-    }
-   ]
-  },
-  {
-   "id": "TAU_Stormsurge_Battlesuit",
-   "name": "Stormsurge Battlesuit",
-   "faction": "TauEmpire",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_Tau_Empire_Stormsurge - Resistance will be met with unyielding fire.ogg",
-     "text": "Resistance will be met with unyielding fire"
     }
    ]
   },
@@ -12072,6 +12072,18 @@
    ]
   },
   {
+   "id": "UM2",
+   "name": "Master Tactician",
+   "faction": "Ultramarines",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_UM_Tactical Marine - We are all sons of Lord Guilliman We all serve the Emperor.wav",
+     "text": "We are all sons of Lord Guilliman We all serve the Emperor"
+    }
+   ]
+  },
+  {
    "id": "UM28",
    "name": "Sergeant Allectius",
    "faction": "Ultramarines",
@@ -12217,7 +12229,7 @@
   },
   {
    "id": "UM34",
-   "name": "Bladeguard Veteran",
+   "name": "Bladeguard Lieutenant",
    "faction": "Ultramarines",
    "lines": [
     {
@@ -12671,6 +12683,18 @@
    ]
   },
   {
+   "id": "UM72",
+   "name": "Storm Speeder Hailstrike",
+   "faction": "Ultramarines",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_UM_Storm Speeder Hailstrike - Target acquired Leave no trace of them.ogg",
+     "text": "Target acquired Leave no trace of them"
+    }
+   ]
+  },
+  {
    "id": "UM77",
    "name": "Attack Bike",
    "faction": "Ultramarines",
@@ -12720,7 +12744,7 @@
   },
   {
    "id": "UM83",
-   "name": "1st Company Terminator",
+   "name": "2nd Company Terminator",
    "faction": "Ultramarines",
    "lines": [
     {
@@ -13075,18 +13099,6 @@
      "ev": "wp",
      "file": "VO_UM_Titus_wp.ogg",
      "text": ""
-    }
-   ]
-  },
-  {
-   "id": "UM_Master_Tactician",
-   "name": "Master Tactician",
-   "faction": "Ultramarines",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_UM_Tactical Marine - We are all sons of Lord Guilliman We all serve the Emperor.wav",
-     "text": "We are all sons of Lord Guilliman We all serve the Emperor"
     }
    ]
   },
@@ -13480,18 +13492,6 @@
      "ev": "line",
      "file": "VO_UM_Sergeant Tellion - Strike at their weakness to prevail.ogg",
      "text": "Strike at their weakness to prevail"
-    }
-   ]
-  },
-  {
-   "id": "UM_Storm_Speeder_Hailstrike",
-   "name": "Storm Speeder Hailstrike",
-   "faction": "Ultramarines",
-   "lines": [
-    {
-     "ev": "line",
-     "file": "VO_UM_Storm Speeder Hailstrike - Target acquired Leave no trace of them.ogg",
-     "text": "Target acquired Leave no trace of them"
     }
    ]
   },

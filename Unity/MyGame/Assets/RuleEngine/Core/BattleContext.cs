@@ -91,6 +91,45 @@ namespace RuleEngine
     }
 
     /// <summary>
+    /// 一张**本局打出过的牌**（<see cref="BattleContext.PlayedCards"/> 的一项）。
+    ///
+    /// **为什么要单独一张表而不是查 `Discard`**：① `Discard` 是**每个玩家各自的弃牌堆**，
+    /// 而「本局打出过」是一条**按时间排的全对局流水**；② 打出的**单位**根本不进弃牌堆
+    /// （它在场上）；③ 弃牌堆里也分不出「打出的」和「被弃置/磨掉的」。
+    ///
+    /// **原版出处**（判据 = 反编译；细节与出处行号见
+    /// `资料/普查产出_1017/W_B19_本局打出过的牌.md` §一）：
+    ///   · 「本局打出过」在原版**只有一处实现** —— `TargetsAffected.lastPlayedIfMeetsCriteria(190)`
+    ///     （`TargetsAffected.cs`）→ `AbilityLogic.GetTargets` 的 `0xbe` 支
+    ///     （`AbilityLogic__GetTargets.c:173`）→ `CemeteryManager.GetCardsPlayed`（VA `0x18061BC70`）；
+    ///   · 它扫的是**坟墓动作日志**里 `actionType == CemeteryActionType.playCard(10)` 的条目
+    ///     （`CemeteryActionType.cs`），日志**全对局不清**（`Setup` 之外没有写入点）⇒「this game」= 整局；
+    ///   · 日志的唯一写入点 = `BattleManager._ResolvePlayCardFromHand` 里的
+    ///     `CemeteryManager.AddPlayCardAction` —— **打出一张牌 = 一条**，单位与战术卡同路。
+    /// </summary>
+    public class PlayedCard
+    {
+        /// <summary>打出的**那一份**（`UnitState.Card` / 手牌 / 弃牌堆里是**同一个 `CardInstance`**）。
+        /// 原版是拿 `actingCardUniqueGID` 回查 `CardScript` —— 同一件事。</summary>
+        public CardInstance Instance;
+        /// <summary>哪张卡（= `Instance.Card`，属性转发）</summary>
+        public CardDef Card { get { return Instance != null ? Instance.Card : null; } }
+        /// <summary>**谁**打的（`Choose a … **you** played this game` 只在自己这边挑）</summary>
+        public int Owner;
+        /// <summary>打在第几回合（全局 `ctx.Turn`）—— 只用来查询/排查；**别拿它判「谁更近」**</summary>
+        public int Turn;
+        /// <summary>是不是**战术卡**（单位卡为 `false`）。原版日志不分这一维，它是我们按份记下来的</summary>
+        public bool Tactic;
+        /// <summary>全局递增流水号 —— **「最近打出」的唯一判据**（一回合里能打好几张，`Turn` 分不开）</summary>
+        public int Seq;
+
+        public override string ToString()
+        {
+            return (Card != null ? Card.Name : "?") + "@T" + Turn + "#" + Seq + (Tactic ? ":tactic" : ":unit");
+        }
+    }
+
+    /// <summary>
     /// 一张**被「移出游戏」的卡**（<see cref="BattleContext.Removed"/> 的一项）。
     ///
     /// **规则依据**：规则书 `:229` —— 临时卡「回合结束未打出即消失，**从游戏中移除（非弃置）**」。
@@ -572,6 +611,20 @@ namespace RuleEngine
         /// </summary>
         public GameplayVariables Vars = GameplayVariables.Classic.Clone();
 
+        /// <summary>
+        /// 🆕 2026-10-17（B29）：**教程关卡执行器**（原版 `BattleManager.aiScriptedmanager`，字段 **+0x250**）。
+        /// `null` = **不是教程局** —— 单机普通对局 / 遭遇 / 联机 / 回放**一律是 null**，
+        /// 所有读它的地方都必须按「null ⇒ 老行为」写（本工程那条纪律：换上来不许改变任何既有行为）。
+        ///
+        /// 它同时是**两份东西的载体**：
+        ///   · **关卡数据**（`TutorialScript.Stage`：先手 / 起始单位 / 起始手牌 / 初始法力 / `playerAlwaysWins`…）；
+        ///   · **本局的指针状态**（`Turn` / `ActionCounter`）—— **一局一个实例**，不进任何静态缓存。
+        ///
+        /// 🔴 **谁写它**：只有 `RuleCore.NewBattle(…, tutorial:)`（**一处**）。
+        /// ⛔ **别在 `BattleContext` 的构造函数里建**（那是「每个 ctx 都有教程」的意思，反了）。
+        /// </summary>
+        public TutorialScript Tutorial;
+
         // ==================================================================
         //  🆕 2026-10-15（A383）：**这一局真正的模式号**（原版 `MatchData.playMode`）+
         //  由它派生的 `MatchType`（原版 `MatchData.matchType`）
@@ -769,6 +822,45 @@ namespace RuleEngine
         /// 督军**不进这张表**（`RuleCore.KillUnit` 对督军提前 return）—— 督军不能复活。
         /// </summary>
         public readonly List<DeadUnit> DeadUnits = new List<DeadUnit>();
+
+        /// <summary>
+        /// **本局打出过的牌** —— `Choose a … **you played this game**` 的候选域
+        /// （实测 1 处：`Suppressor` 的 `Oath 1:`）。表项的来历见 <see cref="PlayedCard"/>。
+        ///
+        /// **谁写的**：**只有出牌那两个口** —— `RuleCore.PlayCard`（单位卡）与
+        ///   `EffectResolver.PlayTactic`（战术卡），两处都调 <see cref="NotePlayed"/>。
+        ///   ⛔ **别在别处写**（这个工程最怕「写入点漏挂钩子」那一类静默缺陷）：
+        ///   `DeployFree`（免费部署）/ `SpawnTideCopies`（潮涌把复制品放进手牌）/
+        ///   `PlayCompanions`（伴生从手牌直接上场）**都不是「打出」** ⇒ 不进这张表
+        ///   （潮涌的复制品**后来被正常打出**时才进）。经效果从牌库/弃牌堆直接上场或放进手牌的，同理。
+        /// **谁读的**：`EffectResolver.ChooseCardCandidates` 的 `case "played"`
+        ///   （以及认「哪一份」的 `FindZoneInstance` / `RemoveFromSource` 的 `case "played"`）。
+        /// **什么时候清**：**不清** —— 原版那条日志也是全对局不清（见 <see cref="PlayedCard"/>）。
+        ///   表跟着 `BattleContext` 走，一局一个（`RuleCore.NewBattle` 造的）。
+        /// </summary>
+        public readonly List<PlayedCard> PlayedCards = new List<PlayedCard>();
+
+        /// <summary>出牌流水号（只增不减）—— <see cref="PlayedCard.Seq"/> 由它发号。
+        /// ⚠️ **「谁更近」只看它**：`PlayedCard.Turn` 分不开同一回合里打的好几张。</summary>
+        public int PlayedSeq;
+
+        /// <summary>
+        /// 记一笔「**某一方打出了一张牌**」。**只有出牌那两个口调**（见 <see cref="PlayedCards"/>）。
+        /// `inst` 传的是**打出的那一份实例**（不是 `CardDef` 模板）—— 原版按
+        /// `actingCardUniqueGID` 回查 `CardScript`，同一件事。
+        /// </summary>
+        public void NotePlayed(int owner, CardInstance inst, bool tactic)
+        {
+            PlayedSeq++;
+            PlayedCards.Add(new PlayedCard
+            {
+                Instance = inst,
+                Owner = owner,
+                Turn = this.Turn,
+                Tactic = tactic,
+                Seq = PlayedSeq,
+            });
+        }
 
         /// <summary>
         /// **常驻效果**（规则书英文版 `:39-41`「Persistent Effects」，中文版 `:32`）：

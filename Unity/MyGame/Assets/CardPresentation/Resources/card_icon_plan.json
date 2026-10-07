@@ -3928,7 +3928,7 @@
    ]
   },
   {
-   "id": "DA_Sergeant_Naaman",
+   "id": "DA11",
    "fields": [
     {
      "name": "desc",
@@ -4953,7 +4953,7 @@
    ]
   },
   {
-   "id": "DA_Ravenwing_Ballistus_Dreadnought",
+   "id": "DA83",
    "fields": [
     {
      "name": "desc",
@@ -6693,7 +6693,7 @@
    ]
   },
   {
-   "id": "GSC_Acolyte_Iconward",
+   "id": "GSC1",
    "fields": [
     {
      "name": "desc",
@@ -10363,7 +10363,7 @@
    ]
   },
   {
-   "id": "SOR_Simulacrum_Imperialis",
+   "id": "SOR30",
    "fields": [
     {
      "name": "desc",
@@ -10478,7 +10478,7 @@
    ]
   },
   {
-   "id": "SOR_Sisters_Repentia",
+   "id": "SOR19",
    "fields": [
     {
      "name": "desc",
@@ -12333,7 +12333,7 @@
    ]
   },
   {
-   "id": "TAU_Stormsurge_Battlesuit",
+   "id": "TAU45",
    "fields": [
     {
      "name": "desc",
@@ -12448,7 +12448,7 @@
    ]
   },
   {
-   "id": "TAU_Aunshi_Ethereal",
+   "id": "TAU34",
    "fields": [
     {
      "name": "desc",
@@ -15458,7 +15458,7 @@
    ]
   },
   {
-   "id": "UM_Master_Tactician",
+   "id": "UM2",
    "fields": [
     {
      "name": "desc",
@@ -15893,7 +15893,7 @@
    ]
   },
   {
-   "id": "UM_Storm_Speeder_Hailstrike",
+   "id": "UM72",
    "fields": [
     {
      "name": "desc",

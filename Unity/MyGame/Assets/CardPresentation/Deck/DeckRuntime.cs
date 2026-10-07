@@ -37,13 +37,20 @@
 //   ⑤ 稀有度色条的颜色值、筛选栏里各行的高度与字号（原版是 VLG 流式，绝对坐标只是模板位）
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;      // 🆕 2026-10-17：拖拽那一族（`PointerEventData` 要合成给控制器）
 using UnityEngine.InputSystem;
 using RuleEngine;
 
 namespace CardPresentation
 {
-    /// <summary>卡组编辑界面的运行时控制器。挂在 `DeckEditor.unity` 的根对象上。</summary>
-    public class DeckRuntime : MonoBehaviour
+    /// <summary>卡组编辑界面的运行时控制器。挂在 `DeckEditor.unity` 的根对象上。
+    /// <para>🆕 **2026-10-17：本类同时是原版那个 `DeckEditingPanel`** —— 卡组编辑窗里
+    /// 「松手投递」的落点（`Core/DraggableController.cs` 的 `IDropHandler&lt;T&gt;` 那两个）。
+    /// 判据（现读）：`dump.cs:72263` 写着 `public class DeckEditingPanel : MonoBehaviour,
+    /// IDropHandler&lt;RawCardScript&gt;, IDropHandler&lt;CosmeticItem&gt;`；它挂在 `Sidebar/Deck Details`
+    /// 那一件上（MB −2895006486255833308 · GO −1322417011089150172），我们这扇窗里对应的活全在本类
+    /// ⇒ **两个接口由本类实现**（等价物，不是同名类）。</para></summary>
+    public class DeckRuntime : MonoBehaviour, IDropHandler<string>, IDropHandler<CardDef>
     {
         public static DeckRuntime Instance { get; private set; }
 
@@ -64,6 +71,26 @@ namespace CardPresentation
         //    [Filters 圆钮][容器：Clear filters **右对齐**][Wildcard Counter][Army Icon]。
         //    ⇒ 取 `1468.6 − 250 = 1218.6`（右对齐）。照抄 1488.6 会**压在四个稀有度计数上**（自检抓过）。
         const float HdrClearX = 1218.6f, HdrClearY = 83.5f, HdrClearW = 250f, HdrClearH = 60f;
+        // 🔴 **2026-10-17（D22）—— `Clear filters` 的显隐条件：查不到，如实标注（本轮【不改】）。**
+        //   三条已核实的事实（自己重跑过，不是转抄）：
+        //     ① **prefab 里它是 active 的**：`Header/Filters/Generic Simplified UI Button_updated`
+        //        的 `m_IsActive = True`（全包 11 个同名件逐个读过），图 `UI_Button_Mulligan`、`interactable=1`；
+        //     ② 它的**父容器 `Header/Filters`**（`GridLayoutGroup` cellSize **85×70** · spacing (5,0) ·
+        //        pad 0 · `constraint=2(1)` 固定 1 列 · `align=3`(MiddleLeft) · `ContentSizeFitter h:MinSize`）
+        //        **跑完布局之后**那颗钮会被压成 **85×70 @ (592.2, 78.5)** —— 不是我们画的 250×60 @1218.6；
+        //     ③ **实拍那一帧那一块是空的**（`原版参照图/用户实拍_1017/卡组编辑界面参考.png`
+        //        设计坐标 `(555..765, 60..170)` 逐个采样：全是渐变底 + 底部那条分隔线，一个像素的按钮都没有）。
+        //   ⇒ 结论：**运行期一定有人把它关掉**，但**触发时机本地查不到** ——
+        //     `CollectionFilterController<T>` 的 `clearFiltersButton` 字段在**基类桩**里
+        //     （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/CollectionFilterController.cs:19`），
+        //     而 `d:/2/tools/decomp_full/` 里该类**只导出了 ctor + `NotifyFilterChange` 的两个 lambda**
+        //     （那两个 lambda 只做 `CollectionFilterToggle.ForceOff`，**没碰这颗钮**）；
+        //     `CardCollectionFilterController` 也只导出了 ctor + `SetFiltersToDeck`（同样没碰它）。
+        //   ⇒ **本轮不改**（⛔ 不许自己发明「有筛选才显示」这种条件）。**要收这一条需要的是【实况】**：
+        //     进原版卡组编辑窗，看 `Header/Filters/Generic Simplified UI Button_updated` 的 `activeSelf`
+        //     在「没筛 / 筛了 / 清空之后」三种状态下各是什么（SceneJumpShot 能 dump activeSelf）。
+        //   ⚠️ 顺带：我们这颗的**位置**（右对齐 1218.6）是按容器右边界推的、与 ② 的**布局后矩形不符** ——
+        //     两条一起挂在这一笔账上（同一条实况一次能全查清）。
         const float HdrSepY = 151f, HdrSepH = 10f;
         const float WcBgX = 1550f, WcBgY = 91.5f, WcBgW = 320f, WcBgH = 44f;
         // `WIldcard Counter`（注意原版拼写就是 `WIldcard`）：`Counters` 是个 HLG（pad L/R 10 · spacing 5 · UpperLeft）
@@ -175,6 +202,43 @@ namespace CardPresentation
         /// ⚠️ 我们画在**屏幕绝对 px** 上、**不是真挂在那颗 1.48 的节点下** ⇒ 字号这一档得**自己乘**
         ///   （原来给的是 `Txt(..., scale: 1)` = 大写高 7px，比原版**小 3.8 倍**）。</summary>
         const float CurveFontPx = 25f * CurveScale;
+        /// <summary>🆕 **2026-10-17（D48）**：两列数字的**字色** —— 原版**不是同一个颜色**（我们原来两处都传 `Ink`）。
+        /// 判据 = 那两颗 TMP 自己的 `m_fontColor`（`bundle_menus_assets_all/MonoBehaviour/` 逐份实读）：
+        ///   · `Card Cost`（左列）= `MB **7891025530621652772**` ⇒ **绿 `(0.29557, 0.77358, 0.49591)`**
+        ///   · `Cards in deck`（右列）= `MB **871731656867376932**` ⇒ **白 `(1, 1, 1)`**
+        /// ⚠️ 与 `_verdict`（页脚那句合法判词，**我们自加的**）的绿**不是同一个数** —— 别互相顶替。</summary>
+        static readonly Color CurveLbTint = new Color(0.29557f, 0.77358f, 0.49591f, 1f);
+        static readonly Color CurveNumTint = new Color(1f, 1f, 1f, 1f);
+        /// <summary>🆕 **2026-10-17（D33）**：**最后一格（费用 8）是「8 及以上」** —— 两件事一起：
+        ///   ① 那一格的计数 = 费用 **≥ 8** 的张数；
+        ///   ② 那一格的字带后缀 **`"+"`**。
+        ///
+        /// <para>🔴 **判据（反编译，逐句）**：
+        /// · `DeckCostQuantityRowDrawer.cs` 的字段 `/ Tooltip`：`maxCostToDraw` ——
+        ///   **`Will add a + on the text where the cost is this value`**；**9 颗 row 的序列化值全是 8**
+        ///   （全包枚举 `MonoBehaviour/*.json` 的 `maxCostToDraw` = 8，逐颗吻合）。
+        /// · `DeckCostQuantityRowDrawer__Initialize.c:99-109`（逐句）：
+        ///   `+0x28`（= **`cardsInDeck`** 那颗 TMP）吃 `ToString(cardsInDeck)`；
+        ///   `+0x30`（= **`cardCost`** 那颗 TMP）吃 `ToString(cardCost)`，**且**
+        ///   `if (cardCost == *(int*)(this + 0x50 /* maxCostToDraw */)) uVar3 = Concat(uVar3, DAT_…275430)`
+        ///   ⇒ **后缀加在 `Card Cost` 那一列（左列）**。
+        /// · 字段→偏移的对应**不是猜的**：拿 prefab 里那颗 MB（`MB -5134945137831081560`）的
+        ///   `cardsInDeck` / `cardCost` 两个引用解出来 —— 分别指向 `GameObject('Cards in deck')` 与
+        ///   `GameObject('Card Cost')`（`m_text` 都是 `"0"`），与 `DeckCostQuantityRowDrawer.cs` 的
+        ///   声明序（`slider` / `cardsInDeck` / `cardCost` / `fillImage` / …）逐项吻合。
+        /// · **后缀串本身** = `DAT_184275430` ⇒ 按 `RVA = 0x184275430 − ImageBase(0x180000000)` = `0x4275430`
+        ///   查 `d:/2/tools/il2cpp_out/stringliteral.json` = **`"+"`**（单字加号）。
+        /// · 「8 及以上」这半边：`DeckEnergyCostDrawer__Initialize.c:150-158` —— 费用超过行数的那些
+        ///   **被夹进最后一格**（`piVar1 = counts + (cost−1)*4; *piVar1 += 1`）。
+        ///   ⚠️ **我们原来既没夹、也没印 `+`**：`CostCurve()` 给的是 0..20 共 21 桶，而这里只读前 9 个
+        ///     ⇒ 费用 9..20 的卡**一张都没算进曲线**（静默漏计）。两处一起修。</para>
+        ///
+        /// <para>🔴 **订正施工单一处**：`对账_卡组编辑部分_差异与待办.md` D33 那一行把后缀记在
+        ///   **`Cards in deck`** 上 —— **那是错的**，判据（上面 `:99-109` 那段 + 两个字段解引用）
+        ///   指向 **`Card Cost`**。⛔ 别照着施工单改到右列去。</para></summary>
+        const int CurveLastBucket = 8;
+        const string CurvePlusSuffix = "+";
+        static string CurveCostText(int c) { return c == CurveLastBucket ? c + CurvePlusSuffix : c.ToString(); }
         /// <summary>抽屉**底板** = 原版 `Deck Information cost drawer/Background`（兄弟序在 `Content` **之前**）：
         /// `m_Sprite = null`（**纯色**，`m_Type = 0` Simple）· `m_Color = **(0.12264151, 0.12264151, 0.12264151, 1)**`。
         /// 缩放后 = 抽屉那颗的矩形 **x 50.8753..284.9373 × y 410.9700..705.5788**（234.062 × 294.609）。</summary>
@@ -195,13 +259,17 @@ namespace CardPresentation
         //    `decomp_full/PolyAndCode.UI.VerticalRecyclingSystem__CreateCellPool.c` L127-167 ——
         //    `_coloums = floor(viewport.rect.width ÷ (_cellWidth + _spacingX))`，**用 `_cellWidth` 原值、不乘任何系数**。
         // ⚠️ **原版还有另一套**（`GameStaticData.smallScreenUI = true` 时格尺寸 ×`_mobileSizeScale`，
-        //    本界面是 1.5 ⇒ **393.75×576 · 4 列**）—— **我们没实现**：单机没有「小屏 UI」这个开关。
+        //    本界面是 1.5 ⇒ **393.75×576 · 4 列**）。
+        //    🔴 **2026-10-17（D24）：这一套【已实现】** —— 下面 `Pool` 那个属性按开关现算（状态 → 参数）。
         //    硬证据（私有 `Initialize()` 的指令流，RVA `0x89F460`）与两套的对照表都在
-        //    `项目任务.md` §三 第 12 条 第 6 项 ⇒ **将来加那个设置时，两套都要摆出来（状态 → 参数）**。
+        //    `项目任务.md` §三 第 12 条 第 6 项；开关本体 = `Shell/TransformScalerBySmallScreenUI.cs`
+        //    的静态类 `SmallScreenUI`（= 原版 `GameStaticData.smallScreenUI`，⛔ 别在别处再存一份）。
         const float PoolX = 330.2f, PoolY = 156f, PoolW = 1589.8f, PoolH = 924.1f;
-        const float CellW = 262.5f, CellH = 384f;          // 原版**卡位**（不是 `Collection Card` 那张图的 350×512）
-        const int PoolCols = 6, PoolRows = 3;              // 一屏 6×2.4 ⇒ 摆 3 行（第 3 行只露头）
-        const float PoolSpacing = 0f;                      // 原版 `_spacingX/_spacingY` 都是 0
+        // ---- 以下全是**桌面那一档**的基准值（= 乘数 1）；小屏那一档**逐项 ×1.5**（见 `Pool`）----
+        const float PoolCellW0 = 262.5f, PoolCellH0 = 384f;   // 原版**卡位**（不是 `Collection Card` 那张图的 350×512）
+        const float PoolMobileSizeScale = 1.5f;               // 原版本界面 `_mobileSizeScale` 的值（判据同上）
+        const int PoolRows = 3;                               // 一屏 6×2.4 ⇒ 摆 3 行（第 3 行只露头）
+        const float PoolSpacing = 0f;                         // 原版 `_spacingX/_spacingY` 都是 0
 
         // ---- 🆕 2026-09-28：卡位里**底下那条「张数」**（原版 `Collection Card/Content/Counter`）----
         // 出处：`bundle_menus_assets_all/RectTransform/RectTransform_9015809549177451864.json`
@@ -211,32 +279,92 @@ namespace CardPresentation
         // 🔴 **卡池里那张卡的高度 = CellH − 这条 = 345.728，不是 384。**
         //   实拍印证（桌面《卡组编辑界面参考.png》竖剖量亮带）：卡框 **331.5** ≈ 0.9777（= 卡框 814.25 / 卡体 832.825）
         //   × 345.73；而且**卡框下沿在张数条之上**（原来我们按 384 画 ⇒ 卡顶满格子、那一整条会把卡底压住）。
-        const float PoolCounterH = 38.272f;
-        const float PoolCardH = CellH - PoolCounterH;      // 345.728
-        const float PoolBarX1 = 75f, PoolBarX2 = 187.5f;   // 底图框（宽 112.5，格内水平居中）
-        const float PoolCntY1 = 358.29f, PoolCntY2 = 380.98f;   // 字框（高 22.69，居中于底图框）
+        // ⚠️ 这一条的**锚点全是相对量**（0.2857… / 0.002… / 0.0997…）⇒ 小屏那一档它**跟着格子一起 ×1.5**
+        //   （`38.272 × 1.5 = 57.408`，与 `0.0997 × 576` 逐位吻合）。
+        const float PoolCounterH0 = 38.272f;
+        const float PoolBarX10 = 75f, PoolBarX20 = 187.5f;     // 底图框（宽 112.5，格内水平居中）
+        const float PoolCntY10 = 358.29f, PoolCntY20 = 380.98f; // 字框（高 22.69，居中于底图框）
         /// <summary>那条底图 = `40K_main_deck_card counter`（116×36 · **无九宫格** · 原版 `m_PreserveAspect = 1`
         /// ⇒ 内接进 112.5×37.5 后**实绘 112.5×34.91**）。
         /// 🔴 **不是** `40k_CardAmount_bar_bg` / `_fill` —— 那两张是 **Slider 型**（费用曲线那一批），
         ///   遍历 `Collection Card` 全子树证实卡位上没有它们（判据文件原来指错了图，2026-09-28 已订正）。</summary>
         const string PoolCounterSprite = "40K_main_deck_card_counter";
         /// <summary>那行字的字号 —— 原版 `m_fontSize = 31.9` · **autosize 7…32** · `Center/Midline` · 白。
-        /// ⚠️ 字框只有 22.69 高 ⇒ 原版运行时会被 autosize 压小（我们走 `SetAutoFitBox`，同一条路）。</summary>
+        /// ⚠️ 字框只有 22.69 高 ⇒ 原版运行时会被 autosize 压小（我们走 `SetAutoFitBox`，同一条路）。
+        /// ⚠️ **小屏那一档【不乘 1.5】** —— 原版 `_mobileSizeScale` 缩放的是**格尺寸**
+        ///   （`_cellWidth/_cellHeight`），字号是 TMP 自己的 autosize 按框算出来的（我们走 `SetAutoFitBox`，
+        ///   框大了它自己会往上顶）⇒ 传进去的四个数**两档同值**。</summary>
         const float PoolCounterPx = 31.9f;
 
-        /// <summary>**贴左但整体居中**：内容宽 = 6×262.5 = 1575 &lt; 视口 1589.8 ⇒ 两侧各留 7.4。
-        /// 出处（2026-09-23 子代理复核）：`RecyclableScrollRect` 的居中量常量 `0x1834b2bb4 = 0.5f`
-        /// ⇒ 首格左边缘 = 330.2 + 7.4 = **337.6**、整个内容右边缘 1912.6 ✓。
-        /// ⚠️ 别写成「贴左起排」（=330.2）—— 那差 7.4px，而且**看着像对的**。</summary>
-        static readonly float PoolPadX = (PoolW - PoolCols * CellW) * 0.5f;
-        const float PoolPadY = 0f;
-        const float PoolRowPitch = CellH + PoolSpacing;    // 行距 = 格高
-        /// <summary>卡池里那张卡缩到多大 —— 按**卡位高减去底下张数条**（`PoolCardH` = 345.728）反解
-        /// （我们的卡 `CardView.Height 3.3313 × 108 = 359.7 px` 是**卡图**，不是卡位）。
-        /// ⚠️ 原版卡位 262.5×384 的宽高比与我们的卡不是同一个 ⇒ 取「**高度对齐**」：
-        /// 缩到 345.728 后宽度约 **217.2** &lt; 262.5 ✓ 放得下。
-        /// 🔴 原来按 **384** 反解（卡顶满格子）—— 2026-09-28 订正，理由见 `PoolCounterH` 上面那段。</summary>
-        const float PoolCardScale = PoolCardH / (CardView.Height * PxPerUnit);
+        /// <summary>🆕 **2026-10-17（D24）**：**现在生效的那一套卡池版面参数** —— 按「小屏 UI」开关**现算**
+        /// （⛔ 不许再写成编译期常量：那张「状态 → 参数」表是铁律 5·c 要求的那种形状）。
+        ///
+        /// <para>两套（判据 → `项目任务.md` §三 第 12 条 第 6 项；硬证据 = 原版私有 `Initialize()`
+        /// 的指令流 RVA `0x89F460`）：</para>
+        /// <list type="bullet">
+        /// <item>**桌面**（`smallScreenUI = false`）：格 **262.5×384** · **6 列** · 视口 1589.8×924.1</item>
+        /// <item>**小屏**（`= true`）：格 **393.75×576**（= 桌面 × `_mobileSizeScale` **1.5**）· **4 列**</item>
+        /// </list>
+        ///
+        /// <para>🔴 **列数【不是】写死的 4/6** —— 原版是
+        /// `_coloums = floor(viewport.rect.width ÷ (_cellWidth + _spacingX))`
+        /// （`PolyAndCode.UI.VerticalRecyclingSystem__CreateCellPool.c` L127-167，**用 `_cellWidth` 原值、
+        /// 不乘任何系数**）⇒ 两档都由同一条式子算出来：`floor(1589.8 ÷ 262.5) = 6` ·
+        /// `floor(1589.8 ÷ 393.75) = 4`。这里照那条式子写，而不是「if 小屏 then 4」。</para>
+        ///
+        /// <para>🔴 **居中的量（`PadX`）两档恰好都是 7.4** —— 桌面 6×262.5 = 1575、小屏 4×393.75 = 1575，
+        /// 同一个数（`RecyclableScrollRect` 的居中量常量 `0x1834b2bb4 = 0.5f`）。⛔ 别据此把 `PadX` 写死成 7.4：
+        /// 它仍是 `(视口宽 − 列数×格宽) ÷ 2`，两档相等是**算出来的巧合**。</para>
+        ///
+        /// <para>⚠️ **每次访问都现算**（开关是静态、运行期可翻；这几条算式是纯算术，没有分配）。
+        /// 换档之后要 `RefreshPool()`（调用点：`UiSetSmallScreenUIForTest` / 设置窗那颗开关之后的刷新）。</para></summary>
+        struct PoolMetrics
+        {
+            public float CellW, CellH;                 // 卡位
+            public int Cols;                           // = floor(视口宽 ÷ 格宽)
+            public float PadX;                         // 内容整体居中的左边距
+            public float CounterH, CardH, CardScale;   // 底下那条 / 卡本身 / 卡的缩放
+            public float BarX1, BarX2, CntY1, CntY2;   // 张数条在格内（相对格左上角）的四个数
+        }
+
+        static PoolMetrics Pool
+        {
+            get
+            {
+                float k = SmallScreenUI.Enabled ? PoolMobileSizeScale : 1f;
+                var m = new PoolMetrics();
+                m.CellW = PoolCellW0 * k;
+                m.CellH = PoolCellH0 * k;
+                // 🔴 列数走**原版那条式子**（见上面 doc），⛔ 不是「小屏 ⇒ 4」。
+                m.Cols = Mathf.Max(1, Mathf.FloorToInt(PoolW / (m.CellW + PoolSpacing)));
+                m.PadX = (PoolW - m.Cols * m.CellW) * 0.5f;
+                m.CounterH = PoolCounterH0 * k;
+                m.CardH = m.CellH - m.CounterH;
+                // 卡缩到多大 —— 按**卡位高减去底下张数条**反解（我们的卡 `CardView.Height × 108 = 359.7px`
+                //   是**卡图**不是卡位）。⚠️ 原版卡位的宽高比与我们的卡不是同一个 ⇒ 取「**高度对齐**」。
+                //   🔴 原来按 **384** 反解（卡顶满格子）—— 2026-09-28 订正，理由见 `PoolCounterH0` 那段。
+                m.CardScale = m.CardH / (CardView.Height * PxPerUnit);
+                m.BarX1 = PoolBarX10 * k; m.BarX2 = PoolBarX20 * k;
+                m.CntY1 = PoolCntY10 * k; m.CntY2 = PoolCntY20 * k;
+                return m;
+            }
+        }
+
+        /// <summary>自检口：**现在这一档**的卡池列数 / 卡位尺寸（自检断「两档各是各的」用）。
+        /// ⛔ 期望值不许从这里读回来 —— 判据是原版那两个字面量（6/262.5 · 4/393.75）。</summary>
+        public int UiPoolColsNow { get { return Pool.Cols; } }
+        public float UiPoolCellWNow { get { return Pool.CellW; } }
+        public float UiPoolCellHNow { get { return Pool.CellH; } }
+        /// <summary>自检口：把「小屏 UI」开关拨一下并立刻重排卡池（**不落盘**，见 `SmallScreenUI.PersistOverride`）。
+        /// ⛔ 生产路径不碰它。</summary>
+        public void UiSetSmallScreenUIForTest(bool on)
+        {
+            bool keep = SmallScreenUI.PersistOverride;
+            SmallScreenUI.PersistOverride = true;
+            SmallScreenUI.Set(on);
+            SmallScreenUI.PersistOverride = keep;
+            RefreshPool();
+        }
 
         // ---- Card Filters 筛选栏（**在左**，R:174-217）----
         const float FltX = 2.2f, FltY = 156f, FltW = 331.7f, FltH = 924.1f;
@@ -279,6 +407,15 @@ namespace CardPresentation
         //    ⇒ 照原版次序把分隔线放到底下。⚠️ 这正是「同一层不许压住」那条判据（A41 ③ 修好单位后）
         //      抓出来的**真重叠**，不是误报。
         const int QSep = 2999;       // 页头分隔线（**最低层**：原版它在 Header 里，被 Sidebar 压住）
+        /// <summary>本窗**最低**的一档（= `QSep`）—— 🆕 2026-10-17 公开给自检：
+        /// 顶栏那一条带子（`MainMenuRuntime.QBar*`，2994–2998）必须**严格低于**它，
+        /// 否则「窗口内容盖住顶栏」这条原版口径就反了（判据 → `MainMenuRuntime` 那一段长注释）。</summary>
+        public const int QLowest = QSep;
+        /// <summary>🆕 **2026-10-17（D15）**：`Content Area/Background` 那层**双色渐变底**。
+        /// 它是全窗**最底下**的一层（比分隔线还低、比侧栏还低）⇒ 单开一个号，别蹭 `QSep`。
+        /// ⚠️ 它 1752.83×1009.06、与侧栏**真重叠**（侧栏 x ≤ 335.56、它从 167.18 起）——
+        /// 原版靠兄弟序（`Background` 是 `Content Area` 的第一个孩子）⇒ 侧栏压在它上面。</summary>
+        const int QAreaBg = 2980;
         const int QSide = 3000;      // 侧栏底板
         const int QDoneHl = 3001;    // Done 的外发光（原版它纵跨到卡组列表区，单独一层）
         /// <summary>🆕 **2026-10-17（D31）**：费用曲线抽屉的**底板**（原版 `Deck Information cost drawer/Background`）。
@@ -296,7 +433,10 @@ namespace CardPresentation
         const int QGrad = 3003;      // 行的稀有度色条 / 空卡组提示（**压在行底之上**）
         const int QPanel = 3004;     // 输入框底 / 曲线槽 / 计数器底（⚠️ 分隔线 2026-10-04 起搬去 `QSep`，不再用这一档）
         const int QBorder = 3005;    // 行描边 / 小图标
-        const int QPoolInfo = 3006;  // 卡池读数（⚠️ 我们自己加的，原版没有）
+        // 🔴 **2026-10-17（D9 删件）**：`QPoolInfo = 3006`（卡池读数）那一档**已删** —— 用它的那两件
+        //   （卡池左上那块黄色水印）**原版没有**。⛔ **别回收这个号给别的件用**：队列号在本文件是「谁压谁」
+        //   的合同（同一层不许压住），空号留着比复用好（复用会让「位置无关的两件」突然同层）。
+
         const int QRow = 3007;       // 按钮底 / 费用圆
         // 🔴 **2026-10-04（A41 ②）加这一档**：页签那个名牌底板（原版 `Cards/Label`，98.96×40 落在
         //    y 261..301）与**图标**（整格 108.97² 居中 ⇒ 底边 285.5）**在纵向上真重叠 24.5px**，
@@ -359,6 +499,13 @@ namespace CardPresentation
 
         readonly List<CardView> _poolViews = new List<CardView>();
         readonly List<int> _poolIndex = new List<int>();
+        /// <summary>🆕 **2026-10-17（D24）**：上一趟用的**卡位宽**（判「这两档之间换过没有」——
+        /// 换了就要把「张数条」那批拆掉重建，见 `RefreshPool` 里那一段）。
+        /// 出厂 **0** ⇒ 第一趟必走一次（此时列表本来就是空的，无副作用）。</summary>
+        float _poolCellWUsed;
+        /// <summary>🆕 **2026-10-17（D13/D14）**：整条 shell 顶栏那几件。`null` = 还没建
+        /// （⚠️ `TopBar` 取不到头像图时 `TopAvatar` 可以是 `null`，那**不是**「没建」）。</summary>
+        TopBar.Parts _topBar;
 
         // 行底 / 行描边是**九宫格**（`ImageQuad.CreateNineSlice` 建出来的是**一棵小树**）⇒ 存**根节点**
         readonly List<GameObject> _deckRowBg = new List<GameObject>();
@@ -387,15 +534,24 @@ namespace CardPresentation
         struct Btn { public string Key; public float X, Y, W, H; }
         readonly List<Btn> _btns = new List<Btn>();
 
-        Label _title, _notice, _storeErr, _deckNameText, _deckNameHint, _counterTxt, _verdict, _poolInfo;
+        // 🔴 **2026-10-17（D7/D9/D10/D35 删件）**：原来这一行上还挂着 4 个**原版没有的**件
+        //   —— `_title`（左栏顶部标题「卡组编辑」）· `_poolInfo`（卡池左上黄色水印）·
+        //     `_storeErr`（底部报错横幅）· `_verdict`（页脚「合法/不合法」判词）。
+        //   四条各自的判据 → `资料/普查产出_1017/对账_卡组编辑部分_差异与待办.md` D7/D9/D10/D35。
+        //   ⛔ 别「顺手加回来」：它们是自检脚手架长进产品里的那一类。
+        Label _deckNameText, _deckNameHint, _counterTxt;
         readonly Label[] _wcTxt = new Label[4];
         ImageQuad _emptyWarn, _doneHl;
         /// <summary>页头那颗 `Filters` 圆钮 —— 它要**按状态换图**（面板开=`40k_menu_bt_pressed`、关=`40k_menu_bt`），
         /// 见 `RefreshHeader` 里那段判据（原版 `EverguildToggle.changeSpriteOnValueChange=1`）。</summary>
         ImageQuad _hdrFltBtn;
         GameObject _emptyWarnGo;
+        /// <summary>🆕 **2026-10-17（D35 删件）**：最近一次 <see cref="Say"/> 吐出来的那句话。
+        /// 🔴 **原来它还印在屏幕底部（`notice` 那行字）—— 原版侧栏没有那一行**（D35）⇒ 那行**已删**，
+        /// 但**这条消息通道留着**（`Say` 仍然 `Debug.Log`，这份 state 供自检/日志读）：
+        /// 「不许静默失败」要求的是**说得出话**，不是「多画一行字」。
+        /// ⚠️ `_noticeUntil` 那套计时也一起删了（它只服务于那行字的自动消失）。</summary>
         string _noticeText = "";
-        float _noticeUntil;
 
         // 拖拽状态（把卡组条目拖出侧栏 = 删除，照原版）
         GameObject _dragQuad;      // 行底现在是**九宫格根**（整棵树一起跟着鼠标走）
@@ -443,11 +599,18 @@ namespace CardPresentation
             HandleTyping();
             HandleEscape();          // 🆕 2026-10-11（A223）：ESC = 保存（原版 `DeckEditingWindow__ESCPressed`）
             TickTooltip();
-            if (_notice != null && _noticeText.Length > 0 && Time.unscaledTime > _noticeUntil)
-            {
-                _noticeText = "";
-                _notice.SetText("");
-            }
+            // 🆕 **2026-10-17（D13/D14）**：顶栏那块立绘跟着 `ProfileData.AvatarIndex` 走
+            //   （原版走 `PlayerAvatarDataManager.OnAvatarChanged`；我们**每帧比一个 int** 就够 —— 同 `MainMenuRuntime`）。
+            //   ⚠️ 批处理下 `Update` 不跑 ⇒ 自检直接调 `UiRefreshTopAvatar()`。
+            // 🆕 **2026-10-17（B25①）**：记下「这一帧结束时别处有没有窗开着」—— 给下一帧的 ESC 闸用
+            //   （`PointerLayer` 的 `Update` 排在本类**之前**，按 ESC 那一帧它已经把窗关掉了；
+            //    判据与推导 → `OtherWindowUp` 上面那一段）。
+            _winShieldPrev = OtherWindowUp() != null;
+
+            TopBar.RefreshTopAvatarIfChanged(_topBar, NoteMissingArt);
+            // 🔴 **2026-10-17（D35 删件）**：这里原来有一段「`notice` 那行字 2.5 秒后自动消失」
+            //   —— 那行字**原版没有**、已删（判据 → D35）⇒ 计时/清空/`Update` 窗口一并删掉。
+            //   ⛔ 别把 `Say` 也一起删了：它是本窗「不许静默失败」的出口（仍然 `Debug.Log`）。
         }
 
         /// <summary>悬停信息层。原版那套触发器挂在**卡面数值容器**上（`Health/Range Attack/Melee Attack/Cost Container`），
@@ -500,6 +663,9 @@ namespace CardPresentation
             // 🆕 2026-10-05（A32②）：抽屉那两份登记同理（`_fltHoverBtns` / `_cosmoHoverBtns`）
             _hoverBtns.Clear(); _hoverBtn = null; _pressedBtn = null; _hoverRow = -1;
             _fltHoverBtns.Clear(); _cosmoHoverBtns.Clear();
+            // 🆕 2026-10-17：拖拽那两份「已经按下了」的登记也要清（同上一行那两条的理由：
+            //    不清的话重建之后会带着上一趟的起点去命中一张**已经销毁的**内容）
+            _cosmArmName = null; _cardArmDef = null;
 
             // 空库时先替玩家建一套（演示卡组），这样界面一打开就有内容
             if (Library.Count == 0)
@@ -528,17 +694,26 @@ namespace CardPresentation
             //    库里那份只在 `CommitDeck()`（= `Done`/`ESC`）那一拍被整份拷回去。
             State.LoadDeck(Library.Current);
 
+            BuildAreaBackground();
+            BuildTopBar();
             BuildHeader();
             BuildSidebar();
             BuildDeckList();
             BuildCurve();
-            BuildInfoActions();
+            // 🔴 **2026-10-17（D35）**：原来这里还有一句 `BuildInfoActions();` —— **已删**
+            //   （分享 / 导入那两颗圆钮是「我们多画的」，见那一节的注释与 D35）。
             BuildFooter();
             BuildFilters();
             BuildPool();
             BuildCosmeticsPage();
+            // 🆕 2026-10-17：**两条拖拽链**（原版两个 `DraggableController<T>` 实例）——
+            //   卡背那一支挂在 `Cosmetic Display` 那一页上、卡牌那一支跟 `Card Display` 同级
+            //   （原版：`Content Area > Card Drag Controller` 是 `Card Display` 的**兄弟**，不是它的孩子）。
+            BuildCosmeticDrag();
+            BuildCardDrag();
             BuildImportPopup();
-            BuildNotice();
+            // 🔴 **2026-10-17（D7/D10/D35）**：原来这里还有一句 `BuildNotice();` —— **已删**
+            //   （它建的三件原版都没有，见下面那段注释）。
 
             if (_missingArt.Count > 0)
                 Debug.LogWarning("[DeckRuntime] 缺 " + _missingArt.Count + " 张原版 UI 图（会画成纯白占位，"
@@ -584,6 +759,78 @@ namespace CardPresentation
             return s;
         }
 
+        // ------------------------------------------------------------ Content Area 的底板（D15）
+
+        /// <summary>🆕 **2026-10-17（D15）**：`Content Area/Background` —— 卡池那块**双色渐变底**。
+        /// 我们原来是**纯黑**（背后什么都没有）；实拍里那一整片是**暗酒红渐变**。
+        ///
+        /// <para>🔴 **判据（逐字段实读 `bundle_menus_assets_all`，⛔ 不是「自己挑一张图」）**：
+        /// · 节点 = `Deck Editing Menu/Content Area/**Background**`（`Content Area` 的**第一个孩子**，
+        ///   **出厂 active**）· 矩形 = **167.18,70.97 → 1920.00,1080.03**（1752.83×1009.06）。
+        /// · `Image`：**`m_Sprite = null`（没有图！）** · `m_Type = 1`(Sliced) · `m_Color = (1,1,1,1)`。
+        ///   ⇒ 它就是一块**纯色板**，颜色全来自同节点上那颗 `UIGradient`。
+        /// · `UIGradient`（`MB -3308698737451929820` 等，**本包 8 颗全是同一对色同一个角**）：
+        ///   `m_color1 = (0.2235294, 0.0117647, 0.0196078, 1)` ·
+        ///   `m_color2 = (0.0470588, 0, 0.0156863, 1)` · `m_angle = **82**`。
+        ///   🔴 **这一对色与主菜单整屏底图那对【逐位相同】**（`MainMenuRuntime.BuildBackground` 用的就是
+        ///   同一对 + 同一个角）—— 原来那句「原版用哪张底图没查」的答案就是：**没有底图，是渐变**。
+        /// · **角度换算**：原版 `UIGradient` 的方向是 `(sin, cos)`，我们助手是 `(cos, sin)`
+        ///   ⇒ 差 90°；再翻 180°（我们 `c1` 在 `t=0` 端、而原版亮色在**右上**）⇒ **传 188**
+        ///   （同 `MainMenuRuntime.BuildBackground` 那条已订正的结论，⛔ 别把它记成「原版写的就是 188」）。
+        ///   实拍复核（`原版参照图/用户实拍_1017/卡组编辑界面参考.png` 按 1920 折算后采样）：
+        ///   `(960,90) = (33,1,4)` 偏亮 · `(540,125) = (24,1,6)` 更暗 ⇒ **右上亮、左下暗**，与 188° 自洽。</para>
+        ///
+        /// <para>⚠️ **它盖不到的那两块是【原版如此】，不是我们漏了**（实拍同位置也是黑的）：
+        /// 左带 `x 0..167.18 × y 71..156`（实拍 `(160,120) = (0,0,0)`）、以及顶栏那一横条
+        /// （原版由主菜单的顶栏图盖住 —— 我们这边是 D13/D14 那件）。⛔ 别「顺手」把它铺成全屏。</para></summary>
+        void BuildAreaBackground()
+        {
+            var tex = CardArt.Gradient(new Color(0.2235294f, 0.0117647f, 0.0196078f, 1f),
+                                       new Color(0.0470588f, 0f, 0.0156863f, 1f), 188f);
+            Img("area_bg", tex, 167.18f, 70.97f, 1752.83f, 1009.06f, QAreaBg);
+        }
+
+        // ------------------------------------------------------------ 外壳顶栏（D13/D14）
+
+        /// <summary>🆕 **2026-10-17（D13/D14）**：**整条 shell 顶栏** —— 左上（头像 + 玩家名 + 信封 + 人形图标）
+        /// + 右上（三项资源 + 齿轮）。
+        ///
+        /// <para>🔴 **为什么这扇窗里要有它**：原版卡组编辑是**盖在主菜单之上的一扇窗**（`DeckEditingWindow`），
+        /// 顶栏属于**下面那一层**，所以屏幕上一直看得见（实拍 → `原版参照图/用户实拍_1017/卡组编辑界面参考.png`）。
+        /// **我们是独立场景 `DeckEditor.unity`**（`Shell/CollectionWindow.GoEdit` → `LoadScene("DeckEditor")`）
+        /// ⇒ 背后没有主菜单。**实拍那一帧整条顶栏都在**，我们原来**一件都没有**。</para>
+        ///
+        /// <para>🔴 **判据 / 参数**：**全部**在共用件 <see cref="TopBar"/> 里 —— 它现在是顶栏的**唯一实现**
+        /// （2026-10-17 B25 收口：`Shell/MainMenuRuntime.cs` 原来那份**已删**，主菜单也改调本件）。
+        /// 队列**复用** `MainMenuRuntime.QBar*`（`public const`，2994–2998）—— 那一条带子的判据是
+        /// 「在**所有窗之下**」，本窗底下的件从 `QSep 2999` 起 ⇒ **自动成立**（顶栏在最底、被本窗内容压住）。</para>
+        ///
+        /// <para>🔴 **2026-10-17（B25）：那 4 颗钮【已接点击】**（原来这里如实标着「只画、点了没反应」= 静默失败）——
+        /// 接线在 `TopBar.Build` 里（**与主菜单同一份**）：设置 → `Main Menu Settings Window` ·
+        /// 信箱 → `Inbox Menu` · 头像 → `Player Profile Window`；「挑战」那颗原版**不开窗**
+        /// （= `ChallengeButton`：按挑战数显隐 + 弹「收挑战」确认框），本地没有挑战源 ⇒ 那一声是 `Debug.Log`（**出声**）。
+        /// ⚠️ **派发靠 `PointerLayer`**（全壳唯一那条「真鼠标 → 界面」的路）：主菜单场景由壳建
+        /// （`ShellRuntime` → `WindowsManager.EnsureHost`，**壳是 `DontDestroyOnLoad` ⇒ 进本场景时它还在**）；
+        /// `PointerLayer.Instance` 自己也会惰性现建一台。⛔ **本类仍然不建指针层**（理由见 `Build()` 末尾那三条）。</para></summary>
+        void BuildTopBar()
+        {
+            _topBar = TopBar.Build(Root, NoteMissingArt);
+            // 🔴 **2026-10-17（B25①）出声**：顶栏那 4 颗钮的**派发靠 `PointerLayer`**（全壳唯一那条
+            //   「真鼠标 → 界面」的路）。**正常路径上它一定在** —— 玩家是从收藏窗进来的
+            //   （`Shell/CollectionWindow.GoEdit` → `LoadScene("DeckEditor")`），而**壳是 `DontDestroyOnLoad`**、
+            //   `ShellRuntime.Build()` 里那句 `WindowsManager.EnsureHost(transform)` 把指针层建在**壳下面**
+            //   ⇒ **跨场景活着**。⇒ 这里**只出声、不建**：单独 Play `DeckEditor.unity`（没有壳）时那 4 颗点不动，
+            //   而那**不是静默** —— 下面这一句就是那一声（没有壳时打一次，⛔ 不是每帧）：
+            if (WindowsManager.Instance == null)
+                Debug.Log("[Deck] ⚠️ 顶栏那 4 颗钮（设置 / 信箱 / 头像 / 挑战）的**派发靠 `PointerLayer`**，"
+                          + "而本场景此刻**没有壳**（`WindowsManager` 还没建）⇒ 那 4 颗**点不动**。"
+                          + "正常路径不会走到这里（从收藏窗进来时壳是 `DontDestroyOnLoad`、指针层跟着它活着）；"
+                          + "在编辑器里直接 Play `DeckEditor.unity`（或批处理自检）才会看到这一行。");
+        }
+
+        /// <summary>缺图登记（`TopBar` 那条路的回调 —— 与 `Ui()` 用**同一张表**，不另开第二本账）。</summary>
+        void NoteMissingArt(string n) { if (!string.IsNullOrEmpty(n)) _missingArt.Add(n); }
+
         // ------------------------------------------------------------ Header
 
         void BuildHeader()
@@ -621,7 +868,25 @@ namespace CardPresentation
             //      ⇒ 两条路互不覆盖（这正是原版那颗 prefab 的实际行为）。
             HoverTint("hdr_filters", _hdrFltBtn != null ? _hdrFltBtn.gameObject : null);
             Img("hdr_flticon", "40k_bt_icon_search", HdrFltIconX, HdrFltIconY, HdrFltIconS, HdrFltIconS, QBorder);
-            Txt("hdr_fltlbl", "Filters", HdrFltLblX, HdrFltLblY, HdrFltLblW, HdrFltLblH, 2, Ink, QText);
+            // 🔴 **2026-10-17（D20）—— 这颗图标查清了：原版【就是这张图】，保持现状。**
+            //   施工单 D20 存疑两点：① 名字是 `search` 不是 `filter`；② 实拍那一帧那颗金框**看着是空白的**。
+            //   逐字段实读（`python 工具/menu_dump.py bundle_menus_assets_all "Deck Editing Menu" --depth 4`）：
+            //   `Header/Filters/**Icon**` = `Image,EverguildButtonMaterialModifier` ·
+            //   **`40k_bt_icon_search 27×27`** · `Simple (1,1,1,1)` · `preserveAspect` ⇒
+            //   **原版这个位置挂的就是 `40k_bt_icon_search`**（那颗 `Image` 也是启用着的，行上没有任何
+            //   `INACT` / `被禁` 标记）。⇒ 结论 = 「**原版就是这张图**」，我们的图名**本来就对**。
+            //   ⚠️ 实拍里显得空 = 那张图**本身很细**（27×27、笔画细）在缩略图上看不清，不是没画。
+            //   ⛔ 别因为名字里是 `search` 就换成别的「漏斗」图 —— 那是拿印象推翻判据。
+            // 🔴 **2026-10-17（D2）：文案走 `Loc.T`（中文档 = 原版实拍的中文「过滤器」）。**
+            //   词条键 = **原版 prefab 上那颗 `Localize` 的 `mTerm`**，⛔ 不是自拟的：
+            //   `Deck Editing Menu/Content Area/Header/Filters/Label`（那颗 TMP 的 `m_text = "Filters"`·
+            //   fs40）挂的 `Localize.mTerm = **MenuDeck/Filters/Filters**`（实读 `bundle_menus_assets_all`）。
+            //   中文那一列 = **原版实拍**那三个字（`资料/原版参照图/用户实拍_1017/卡组编辑界面参考.png`
+            //   页头那颗金框钮右边）。
+            //   ⛔ 别在代码里再写一份中文常量表 —— 词条只此一份（`Core/Loc.cs`）。
+            //   断言 → `Editor/DeckScene.cs` 的 G1 节 ⑭。
+            Txt("hdr_fltlbl", Loc.T("MenuDeck/Filters/Filters"),
+                HdrFltLblX, HdrFltLblY, HdrFltLblW, HdrFltLblH, 2, Ink, QText);
             Btn_("hdr_filters", HdrFltBtnX, HdrFltBtnY, HdrFltLblX + HdrFltLblW - HdrFltBtnX, HdrFltLblH);
 
             // 🆕 A24：原版 `Header/Filters/Generic Simplified UI Button_updated`（文本 'Clear filters'）
@@ -643,7 +908,11 @@ namespace CardPresentation
                 //   ⚠️ 同一件在收藏窗（`CollectionWindow.cs` 里那处 `keepAspect` 补）与卡片详情窗（`CardDetailPopup.cs` 里那处 `keepAspect` 补）也是同一错，三处一起修。
                 Img("hdr_wc" + i, wcIc[i], WcIconX[i], WcIconY, WcIconW, WcIconH, QRow, true);
                 // `Counter` 在图标**右侧同一水平带**（41×44 · 字号 32.6 · 白 · 居中 · NoWrap）
-                _wcTxt[i] = TxtPx("hdr_wct" + i, "0", WcIconX[i] + WcIconW, WcIconY, WcCntW, WcIconH,
+                // 🔴 **2026-10-17（B10）**：出厂字面量原来写的是 `"0"`，靠 `RefreshHeader()` 里那句
+                //   改成 `99`（用户 2026-09-28 拍板：恒定 `99`）—— 中间有一个瞬间它**真的是 `0`**
+                //   （谁在 `RefreshHeader` 之前读一次/渲一帧都会看到 0）。这里直接建成 `99`，
+                //   与 `RefreshHeader` 那句**同一个值**，⛔ 别再把两边写成两个数。
+                _wcTxt[i] = TxtPx("hdr_wct" + i, "99", WcIconX[i] + WcIconW, WcIconY, WcCntW, WcIconH,
                                   WcCntFontPx, Ink, QText);
                 // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版这 4 颗
                 //   `…/WIldcard Counter/Counters/{Common,Rare,Epic,Legendary}/Counter`
@@ -657,7 +926,37 @@ namespace CardPresentation
                 MenuDraw.SetVAlign(_wcTxt[i], Label.VAlign.Capline,
                                    new PxRect(WcIconX[i] + WcIconW, WcIconY, WcIconX[i] + WcIconW + WcCntW, WcIconY + WcIconH));
             }
-            Img("hdr_army", FactionIcon(null), ArmyIconX, ArmyIconY, ArmyIconW, ArmyIconH, QRow);
+            // 🔴 **2026-10-17（A893）**：这一格喂的是【**阵营徽记**】。
+            //   改之前喂的是 `FactionIcon(null)` ⇒ 拿到的是**卡组图标** `40k_collection_bt_decks`，
+            //   而**收藏窗同一位置**那颗（同属 `Wildcard Display` 第三个孩子 `Army Icon`）是**阵营徽记**
+            //   ⇒ 同一位置两个图标不一致（A893 的开单理由）。
+            //
+            //   判据（三层，逐条可复跑）：
+            //   ① **原版 prefab 出厂值** = `40k_DeckSelection_icon_FactionBlackLegion`
+            //      —— 节点 `/Deck Editing Menu/Content Area/Header/WIldcard Counter/Army Icon`，
+            //      `m_Sprite` pid `5519774263930623761`（实读
+            //      `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-4938031877995384135.json`；
+            //      该 pid 在整份切图缓存 5557 个 `Sprite/*.json` 里**只对应这一个名字**）
+      //        · `m_Type = 0 (Simple)` · **`m_PreserveAspect = 1`** · 框 80×85（`1470,71 → 1550,156`）。
+      //   ② 🔴 **出厂那张只是出厂值 —— 运行期会被换成【这副卡组所属阵营】的徽记**：
+      //      `DeckEditingWindow__FilterToDeck.c:24-28`：`uVar3 = 10`（= `CardArmy.Ultramarines`），
+      //      `if (EditingDeck.deckArmy != 0) uVar3 = deckArmy;` →
+      //      `WildcardDisplay__Initialize(wildcards, uVar3)` → `ArmyUtilities.GetArmyIcon(army)`
+      //      → `Image.set_sprite`。（`EditingDeck` = `DeckEditingWindow` 字段 `+0x118`，
+      //      `deckArmy` = `CardDeck` 字段 `+0x50` = `dump.cs:20478`；`CardArmy.Ultramarines = 10`
+      //      = `dump.cs:45640`。）调用点 = `__TryOpen.c:134`（**开窗**）与 `__RefreshCards.c:7`。
+      //      ⇒ **照做 = 按这副卡组的阵营换**；**没有督军（`deckArmy == 0`）⇒ Ultramarines**
+      //        （原版那个字面量 `10`），⛔ **不是**保留出厂的 BlackLegion —— 出厂值在运行期**永远走不到**
+      //        （`WildcardDisplay.currentArmy` 是**非序列化**私有字段、出厂恒 0，见 `dump.cs:75792`）。
+      //   ③ ⚠️ **本笔没做的两条运行期换图路径**（判据在、属别的件，已写进报告）：
+      //      `DeckEditorCollectionDisplay__CheckFocusedArmy.c`（指针压到卡池某格 ⇒ 换**那张卡**的徽记）
+      //      与 `DeckEditingWindow__OpenCardInformation.c:35`（开卡片详情 ⇒ 换**那张卡**的徽记）。
+      //
+      //   ⚠️ 顺带把 `keepAspect` 打开：原版这颗 `m_PreserveAspect = 1`（上面 ① 实读），
+      //   源图 256×256 正方 ⇒ 原版实绘 **80×80**（框 80×85 里居中），我们原来拉伸成 80×85。
+      //   同一位置那颗**收藏窗**的 `Army Icon` 走的是 `MenuDraw.Rect(…, keepAspect: true)`
+      //   （`CollectionWindow.cs:806`）⇒ 顺手把这两处也拉齐（其余 PA=1 的件见 `资料/普查产出_0927/PA普查_五块汇总.md`）。
+            Img("hdr_army", DeckArmyIcon(State), ArmyIconX, ArmyIconY, ArmyIconW, ArmyIconH, QRow, true);
         }
 
         // ------------------------------------------------------------ Sidebar
@@ -668,7 +967,22 @@ namespace CardPresentation
 
             // Window Options：三个互斥页签（Cards / Deck info / Cosmetics）
             string[] tabIc = { "40k_collection_bt_cards", "40k_collection_bt_decks", "40k_collection_bt_cosmetics" };
-            string[] tabTx = { "Cards", "Deck info", "Cosmetics" };
+            // 🔴 **2026-10-17（D3）：三颗页签的文案走 `Loc.T`**（中文档 = 原版实拍的 **张牌 / 卡组信息 / 美容品**）。
+            //   词条键 = **原版 prefab 上那三颗 `Localize` 的 `mTerm`**（逐颗实读 `bundle_menus_assets_all`，
+            //   节点 = `/Deck Editing Menu/…/Window Options/Buttons/{Cards,Info,Cosmetics}/Label/Text`）：
+            //     · `Cards`     → **`MenuShop/ShopItemType/Cards`**（TMP `m_text = "Cards"`）
+            //     · `Deck info` → **`MenuDeck/HUD/DeckDescription/DeckInfo`**（`m_text = "Deck info"`）
+            //     · `Cosmetics` → **`MenuShop/ShopItemType/Cosmetics`**（`m_text = "Cosmetics"`）
+            //   ⚠️ 第 1、3 条页签的键在 **`MenuShop/ShopItemType/*`**（商城那一族的「物品种类」词条）、
+            //     第 2 条在 **`MenuDeck/HUD/…`** —— **原版就是这么分的**，
+            //     ⛔ 别「看着不齐」把它们改成同一个前缀（键名改了 = 词条查不到 = 界面上印键名）。
+            //   中文那一列 = **原版实拍**（`资料/原版参照图/用户实拍_1017/卡组编辑界面参考.png` 名牌上那三行）。
+            //   ⚠️ 换成中文之后**字号由自适应重算**（原版中文客户端也是这么自适应那颗 `m_enableAutoSizing`）
+            //     —— 版面参数（框 98.96×40 · min/max 10/34）一个字都没动，见下面那两句。
+            //   断言 → `Editor/DeckScene.cs` 的 G1 节 ⑭。
+            string[] tabTx = { Loc.T("MenuShop/ShopItemType/Cards"),
+                               Loc.T("MenuDeck/HUD/DeckDescription/DeckInfo"),
+                               Loc.T("MenuShop/ShopItemType/Cosmetics") };
             // 🔴 **2026-10-11（A305①）**：三颗页签**原版 base 各不同** —— 这是「一句站三颗、三颗各不同」
             // 那一类里最典型的一处（铁律 5·c）。判据（原版实读，
             // `/Deck Editing Menu/…/Buttons/{Cards,Info,Cosmetics}/Label/Text`）：
@@ -780,6 +1094,32 @@ namespace CardPresentation
             _deckNameText = Txt("name_t", "", NameTxX, NameTxY, NameTxW, NameTxH, 2, Ink, QText);
             _deckNameHint = Txt("name_h", "Tap to edit deck name", NameTxX, NameTxY, NameTxW, NameTxH, 2,
                                 new Color(1f, 1f, 1f, 0.42f), QText);
+            // 🔴 **2026-10-17（D34）**：这两个（原版 `EverguildInputField` 的 `Text` 与 `Placeholder`）
+            //   都是 **`m_HorizontalAlignment = 1`(Left) / `m_VerticalAlignment = **8192**`** ——
+            //   我们原来是**居中**（`TmpFont.NewText` 把每颗 TMP 统一建成 `Center`，见 `Label.SetAlignLeft` 的 doc）。
+            //   判据（逐份实读 `bundle_menus_assets_all/MonoBehaviour/`，**自己按 `m_text` 认出来那两颗**）：
+            //     · `Placeholder`（`'Tap to edit deck name'` · GO `Placeholder_-4266719589130047708`）
+            //       = `MB **-4659515947641016540**`：`HA 1` · **`VA 8192`** · `fs 28` · `base 24`
+            //     · 兄弟 `Text`（`'​'` · GO `Text_6772987722004426532`）
+            //       = `MB **-9162762440952910044**`：`HA 1` · **`VA 8192`** · `fs 28` · `base 28` · `auto[10~28]`
+            //   🔴 **`8192` 就是 TMP 的 `Capline`（`0x2000`），不是 `Baseline`** —— 施工单 D34 那行的
+            //     括号里写的是「Left/Baseline」，**那个标签是错的**（`Baseline` 是 `0x800`，本工程
+            //     `Label.VAlign` 里也没有这一档；`Capline` 有，见 `Battle/Label.cs` 那个 enum）。
+            //     ⇒ 两个半边**都落得下来**：`SetAlignLeft()`（= HA 1）+ `SetVAlign(Capline, 框高)`。
+            //   ⚠️ `SetAlignLeft` 必须调在**任何「定版面」之前**（这里刚 `Txt` 完）；`SetVAlign` 排在它
+            //     **之后**（它只换算垂直档位、不动 `alignment`，顺序反了会被 `SetAlignLeft` 那条
+            //     `TextAlignmentOptions.Left` 里的 `V=Middle` 覆盖掉）。
+            var nameBox = new PxRect(NameTxX, NameTxY, NameTxX + NameTxW, NameTxY + NameTxH);
+            if (_deckNameText != null)
+            {
+                _deckNameText.SetAlignLeft();
+                MenuDraw.SetVAlign(_deckNameText, Label.VAlign.Capline, nameBox);
+            }
+            if (_deckNameHint != null)
+            {
+                _deckNameHint.SetAlignLeft();
+                MenuDraw.SetVAlign(_deckNameHint, Label.VAlign.Capline, nameBox);
+            }
             Img("name_clear", "40k_icon_search", NameClrX, NameClrY, NameClrW, NameClrH, QBorder);
             Btn_("name_box", NameX, NameY, NameW, NameH);
             Btn_("name_clear", NameClrX, NameClrY, NameClrW, NameClrH);
@@ -873,10 +1213,10 @@ namespace CardPresentation
                 float y = CurveY + c * CurveStep;
                 // ⚠️ 两列数字一律走 `TxtPx`（**带原版字号**）—— `Txt(..., scale: 1)` 那一档是 7px 大写高，
                 //    在 1.48 后的行里会小一大截（原来就是这么小的，见 `CurveFontPx` 那条注释）。
-                var lb = TxtPx("curve_l" + c, c.ToString(), CurveLbX, y, CurveLbW, CurveRowH, CurveFontPx, Ink, QText);
+                var lb = TxtPx("curve_l" + c, CurveCostText(c), CurveLbX, y, CurveLbW, CurveRowH, CurveFontPx, CurveLbTint, QText);
                 var bar = Img("curve_b" + c, barBg, CurveBarX, y + CurveBarDy, CurveBarW, CurveBarH, QPanel);
                 var fill = Img("curve_f" + c, barFill, CurveBarX, y + CurveFillDy, 1f, CurveFillH, QRow);
-                var num = TxtPx("curve_n" + c, "0", CurveNumX, y, CurveNumW, CurveRowH, CurveFontPx, Ink, QText);
+                var num = TxtPx("curve_n" + c, "0", CurveNumX, y, CurveNumW, CurveRowH, CurveFontPx, CurveNumTint, QText);
                 _curveBar.Add(bar); _curveFill.Add(fill); _curveLabel.Add(lb); _curveLabel.Add(num);
                 _infoOnly.Add(bar != null ? bar.gameObject : null);
                 _infoOnly.Add(fill != null ? fill.gameObject : null);
@@ -894,13 +1234,24 @@ namespace CardPresentation
             Hover("foot_done",
                   Img("foot_done", "UI_Button_Mulligan", DoneX, DoneY, DoneW, DoneH, QRow),
                   "UI_Button_Mulligan");
-            Txt("foot_done_t", "Done", DoneX, DoneY, DoneW, DoneH, 2, Ink, QText);
+            // 🔴 **2026-10-17（D4）：文案走 `Loc.T`**（中文档 = 原版实拍的 **「完成」**）。
+            //   词条键 = **原版 prefab 上那颗 `Localize` 的 `mTerm`**：
+            //   `Deck Editing Menu/…/Sidebar/Footer/Done/Button Text` 上挂**两颗** `Localize`，
+            //   第一颗的 `mTerm = **MenuDeck/MenuButtons/Done**`（第二颗是 `MenuLogin/Login/DoneButton`
+            //   —— 登录页那颗共用的，⛔ 不是本窗这一颗）；那颗 TMP 的 `m_text = "Done"`·fs40。
+            //   中文那一列 = **原版实拍**（`用户实拍_1017/卡组编辑界面参考.png` 左栏底部那颗金框钮）。
+            //   断言 → `Editor/DeckScene.cs` 的 G1 节 ⑭。
+            Txt("foot_done_t", Loc.T("MenuDeck/MenuButtons/Done"),
+                DoneX, DoneY, DoneW, DoneH, 2, Ink, QText);
             // 🔴 2026-09-27（PA 普查）：原版 `Content Area/Sidebar/Footer/Image` 是 PA=1，贴图
             //   `40k_general_icon_card_amount` **64×64** 塞进 50×40 ⇒ 原版实绘 **40×40**（居中），我们 50 宽（**1.25×**）。
             Img("foot_ic", "40k_general_icon_card_amount", FootIcX, FootIcY, FootIcW, FootIcH, QBorder, true);
             _counterTxt = Txt("foot_cnt", "0/30", CntX, CntY, CntW, CntH, 2, Ink, QText);
             Btn_("foot_done", DoneX, DoneY, DoneW, DoneH);
-            _verdict = Txt("foot_verdict", "", CntX - 70f, CntY - 42f, 180f, 34f, 1, Ink, QText);
+            // 🔴 **2026-10-17（D35 删件）**：这里原来还有 `_verdict = Txt("foot_verdict", …)` ——
+            //   页脚那行「合法 / <不合法原因>」判词**原版没有**（判据 → D35）。
+            //   ⚠️ 「合法不合法」这件事**没有失去出口**：① `Done Highlight`（那颗灯，判据与保存闸同一个
+            //     `Validate()`）；② 不合法时 `SaveAndSay()` 会弹原版的模态窗并把原因念出来（A364）。
         }
 
         // ------------------------------------------------------------ 筛选栏（在左）
@@ -935,6 +1286,31 @@ namespace CardPresentation
             _cosmoFltBg = Img("cosmoflt_bg", "40k_main_tab_background", FltX, FltY, FltW, FltH, QFlt,
                               false, CosmoFltParent);
 
+            // 🔴 **2026-10-17（D43）：卡背抽屉那一行 `Army` 小标题** —— 原版**有**、我们原来**没画**
+            //   （`RefreshCosmoFilters` 那条链只调了 `BuildCosmetics`、**没调 `BuildTitles`**）。
+            //   判据（逐份实读 `bundle_menus_assets_all/MonoBehaviour/`，按 `m_text == "Army"` 找出来那一颗）：
+            //     · `…/Cosmetic Display > Cosmetic FIlter > Filters > Army Filter/Title`
+            //       = `HA **1**`(Left) · `VA **512**`(Middle) · `m_fontSize **32**` · **`m_fontSizeBase 32`**
+            //       · 🔴 **`m_enableAutoSizing = 0`** —— 施工单写的「auto[18..72]」是**那两个残留字段**
+            //         （`m_fontSizeMin 18` / `m_fontSizeMax 72` 在自适应关着时是**死值**，同
+            //          `FilterPanelModel` 里那条「`min18/max72` 是不生效的残留值」）⇒ **不开自适应**。
+            //     · 矩形（`menu_rect.py … "Cosmetic FIlter" --depth 5` 那棵树 + 三个同名 `Army` 标题的
+            //       兄弟序）：`2.18,170.97 → 332.34,220.97` ⇒ 面板内 `x 0..331.7` · `y 15..65`
+            //       = `(CosmoSpacing1, CosmoSpacing1 + TitleH)`，与 `Army Filter` 那 15px 间距**同一个数**。
+            //   ⚠️ 挂 `CosmoFltParent`（抽屉容器）—— 整栏滑出去/切页签的显隐**由 `ApplyDrawerSlide` 一处管**
+            //     （⛔ 别再自己 `SetActive`，那正是「建起来了却没跟着开关隐藏」那一族的坑）。
+            //   ⚠️ 它**不进 `_cosmoFltObjs`** —— 那份是「每次刷新重建」的格子，这个是常驻件
+            //     （`ClearCosmoFlt()` 会 Destroy 那一批；标题跟着走就会在每次筛选后被删掉）。
+            var cosmoArmyR = new PxRect(FltX, FltY + FilterPanelModel.CosmoSpacing1,
+                                        FltX + FltW, FltY + FilterPanelModel.CosmoSpacing1 + FilterPanelModel.TitleH);
+            _cosmoArmyTitle = Txt("cosmoflt_title", "Army", cosmoArmyR.x1, cosmoArmyR.y1, cosmoArmyR.W, cosmoArmyR.H,
+                                  1, Ink, QFltText, CosmoFltParent);
+            if (_cosmoArmyTitle != null)
+            {
+                _cosmoArmyTitle.SetGlyphHeight(LayoutSpace.Px(FilterPanelModel.TitleFontPx));
+                MenuDraw.AlignLeft(_cosmoArmyTitle, cosmoArmyR);   // HA=1（判据见上）
+            }
+
             // 出厂两栏都收着 ⇒ 按进度 0 摆一次（位置 / 显隐 / 命中）。
             // 🔴 **收尾这一次必须 `force: true`**：新建的件「默认就是活的」，而这次是**关** ——
             //   不强制走一遍，「建完那一刻命中区该是关的」就不成立（收藏窗那边踩过同一个洞，已进坑表）。
@@ -945,6 +1321,9 @@ namespace CardPresentation
         // ---- 卡背页那套（与卡牌那套**完全分开**）----
         bool _cosmoFltOpen;
         ImageQuad _cosmoFltShadow, _cosmoFltBg;
+        /// <summary>🆕 **2026-10-17（D43）**：卡背抽屉那一行 `Army` 小标题（原版 `Army Filter/Title`）。
+        /// 常驻件（**不在 `_cosmoFltObjs` 里**）—— 显隐交给 `ApplyDrawerSlide`，见 `BuildFilters` 里那一段。</summary>
+        Label _cosmoArmyTitle;
         readonly List<GameObject> _cosmoFltObjs = new List<GameObject>();
         readonly List<FilterPanelModel.Cell> _cosmoFltCells = new List<FilterPanelModel.Cell>();
         /// <summary>卡背抽屉里每一格的图示 quad（`Key` → quad）—— 格子**没进 `_named` 登记表**（见下面自检读数那一段），
@@ -1219,8 +1598,9 @@ namespace CardPresentation
             //    ⇒ 改成「**卡变了就重建视图**」：一屏只有 8 张，重建的代价可以接受，正确性优先。
             _poolViews.Clear();
             _poolViewIds.Clear();
-            Img("pool_info_bg", "40k_topmarquee_currency_display_BW", PoolX + 8f, PoolY - 8f, 220f, 40f, QPoolInfo);
-            _poolInfo = Txt("pool_info", "", PoolX + 8f, PoolY - 8f, 220f, 40f, 1, Ink, QText);
+            // 🔴 **2026-10-17（D9 删件）**：这里原来还建了卡池左上那块**黄色水印**两件
+            //   （`pool_info_bg` 底图 + `pool_info` 字，`"卡池 N / M 张"`）—— **原版没有**、已删
+            //   （判据 → D9；那块地方原版第一件东西就是卡池本身）。
         }
 
         /// <summary>每个格子里现在建的是哪张卡（`null` = 空位）。和 <see cref="_poolViews"/> 一一对应。</summary>
@@ -1229,17 +1609,32 @@ namespace CardPresentation
         void RefreshPool()
         {
             var all = State.VisibleCards();
+            var P = Pool;                      // 🆕 D24：**这一趟**的版面参数（两档由开关决定，见 `Pool` 的 doc）
+            int cols = P.Cols;
 
-            float pitch = PoolRowPitch;
+            float pitch = P.CellH;
             int firstRow = Mathf.FloorToInt(_poolScroll / pitch);
             float off = _poolScroll - firstRow * pitch;
-            float top = PoolY + PoolPadY;
+            float top = PoolY;
 
             _poolIndex.Clear();
-            for (int vi = 0; vi < PoolCols * PoolRows; vi++)
+            // 🆕 **2026-10-17（D24）**：**换档**（桌面 262.5 ⇄ 小屏 393.75）时把「张数条」那批**拆掉重建** ——
+            //   它们的**尺寸**（底图框 + 字框）是**建的时候**烘进去的（`Img`/`TxtPx` 只摆一次），
+            //   只挪位置不够（会画成上一档的大小）。卡本身不用拆：下面每次刷新都 `SetPose(…, P.CardScale)`。
+            //   ⚠️ 判据用**卡位宽**（两档唯一且单调的标识），不比 `Enabled` —— 那个开关在自检里会被临时拨。
+            if (!Mathf.Approximately(_poolCellWUsed, P.CellW))
             {
-                int r = vi / PoolCols, c = vi % PoolCols;
-                int idx = (firstRow + r) * PoolCols + c;
+                for (int i = 0; i < _poolBars.Count; i++)
+                    if (_poolBars[i] != null) { _poolBars[i].gameObject.SetActive(false); DestroySafe(_poolBars[i].gameObject); }
+                for (int i = 0; i < _poolBarTexts.Count; i++)
+                    if (_poolBarTexts[i] != null) { _poolBarTexts[i].gameObject.SetActive(false); DestroySafe(_poolBarTexts[i].gameObject); }
+                _poolBars.Clear(); _poolBarTexts.Clear();
+                _poolCellWUsed = P.CellW;
+            }
+            for (int vi = 0; vi < cols * PoolRows; vi++)
+            {
+                int r = vi / cols, c = vi % cols;
+                int idx = (firstRow + r) * cols + c;
                 // 🔴 **卡池只在 Cards 页签出现**（原版 `DeckEditingPanel.ToggleCards/ToggleCosmetics` 会
                 //    关掉 `Card Display`）—— 2026-09-24 加：原来切到 Deck info / Cosmetics 页时
                 //    **卡池还画在那儿**（只是被那一页自己的底板盖住了，靠叠层遮丑，不是真关）。
@@ -1255,11 +1650,11 @@ namespace CardPresentation
                 }
 
                 var def = all[idx];
-                // 贴左起排：格中心 = 视口左边 + 格宽/2 + 列·（格宽 + 间距）
-                float cx = PoolX + PoolPadX + CellW * 0.5f + c * (CellW + PoolSpacing);
+                // 贴左起排：格中心 = 视口左边 + 整体居中的边距 + 格宽/2 + 列·（格宽 + 间距）
+                float cx = PoolX + P.PadX + P.CellW * 0.5f + c * (P.CellW + PoolSpacing);
                 float cellTop = top + r * pitch - off;                    // 这一格的**上沿**
-                // 🔴 卡**按「张数条上方那一段」居中**（不是整格）—— 底下 38.272 留给张数条，见 `PoolCounterH`
-                float cy = cellTop + PoolCardH * 0.5f;
+                // 🔴 卡**按「张数条上方那一段」居中**（不是整格）—— 底下那一条留给张数条，见 `PoolCounterH0`
+                float cy = cellTop + P.CardH * 0.5f;
 
                 if (_poolViews[vi] == null || _poolViewIds[vi] != def.Id)
                 {
@@ -1274,17 +1669,22 @@ namespace CardPresentation
                 }
                 var v = _poolViews[vi];
                 v.gameObject.SetActive(true);
-                v.SetPose(Pos(cx, cy), 0f, PoolCardScale);
+                v.SetPose(Pos(cx, cy), 0f, P.CardScale);
                 v.SetData(BattleDriver.ToCardData(def, def.Faction));
                 v.SetFace(CardFace.Full);
                 v.SetHighlight(State.CanAdd(def) == DeckError.None
                                ? CardHighlightState.Playable : CardHighlightState.Normal);
                 // 底下那条「张数」（原版 `Collection Card/Content/Counter` + `Text (TMP)`）
                 ShowPoolCounter(vi, true);
-                SetPoolCounter(vi, def, cx - CellW * 0.5f, cellTop);
+                SetPoolCounter(vi, def, cx - P.CellW * 0.5f, cellTop);
             }
 
-            int rows = Mathf.Max(1, Mathf.CeilToInt(all.Count / (float)PoolCols));
+            // 🆕 **2026-10-17（D24）**：换档会**换列数**（6 ⇄ 4 ⇒ 一屏 18 ⇄ 12 格）——
+            //   多出来的那些卡视图**离开了循环范围**，不关的话它们会**留在画面上**（静默、只在换档时现形）。
+            for (int vi = cols * PoolRows; vi < _poolViews.Count; vi++)
+                if (_poolViews[vi] != null) _poolViews[vi].gameObject.SetActive(false);
+
+            int rows = Mathf.Max(1, Mathf.CeilToInt(all.Count / (float)cols));
             // 内容总高 = 行数 × 行距（间距 0）；可滚的 = 超出视口的那些
             float maxScroll = Mathf.Max(0f, rows * pitch - PoolH);
             _poolScroll = Mathf.Clamp(_poolScroll, 0f, maxScroll);
@@ -1304,10 +1704,32 @@ namespace CardPresentation
         ///   · **已经有督军** ⇒ `{已在卡组中}/{min(拥有, 卡组上限)}` —— 原版
         ///     `DeckEditorCollectionDisplay__DrawCell.c` 的格式串**实测就是 `"{0}/{1}"`**
         ///     （`stringliteral.json@0x426DE28`，两个数：一个「组里已有几张」、一个「最多能放几张」）。
-        /// 分母两处相同；⚠️ **详情弹窗**那条 `x{a}/ {b}`（可放入张数 / 多余副本数）是**第三个**格式，别混。</summary>
+        /// 分母两处相同；⚠️ **详情弹窗**那条 `x{a}/ {b}`（可放入张数 / 多余副本数）是**第三个**格式，别混。
+        ///
+        /// <para>🔴 **2026-10-17（D21）—— 分母到底是不是「上限」：判据坐实了，我们的实现【已经对】。**
+        /// 施工单 D21 写「原版印 `1/2`、我们印 `1/1` ⇒ 看着是**上限**」（置信「中 · 未坐实」）。
+        /// **逐句读原版那一段**（`d:/2/tools/decomp_full/DeckEditorCollectionDisplay__DrawCell.c`）：
+        /// ```
+        /// :42  iVar6 = InventoryManager.GetOwnedCount(card)                  // 拥有数
+        /// :51  iVar7 = GameplayVariablesData.GetMaxCopiesInDeck(…, card 的两格)   // 卡组上限
+        /// :54  if (iVar6 < iVar7) iVar7 = iVar6;      // 🔴 **就是 min(拥有, 上限)**
+        /// :72  {0} = Enumerable.Count(当前编辑中卡组里这张卡有几张)
+        /// :76  String.Format("{0}/{1}", …)            // 格式串 = DAT_18426de28（= `{0}/{1}`）
+        /// ```
+        /// ⇒ **原版的分母是 `min(拥有, 上限)`，不是裸上限** —— 我们这一行**逐字同义**，
+        /// 所以 D21 **不改**（⛔ 别「照那条看着像的实拍」去把 `Mathf.Min` 删掉：删了就真偏了）。
+        /// 实拍也自洽：那一屏的卡全都有 1~2 张（`0/2` `0/1`），`min` 夹出来正好等于上限。</para>
+        ///
+        /// <para>⚠️ **唯一一处**与原版不同、且是**用户拍过板**的：**没督军**那一支原版印 `x{拥有数}`
+        /// （`CardCollectionDisplay__SetCell.c:72`），我们印 `x{min(拥有, 上限)}` —— 理由见上（资源给足，
+        /// 照原式会显示出 `x11` 那种没意义的数）。**如实标注，不改。**</para></summary>
         string PoolCounterText(CardDef def)
         {
-            int cap = DeckRules.CopyLimit(def.Rarity);
+            // 🔴 **2026-10-17（A894）**：喂**带卡型那一档** —— 原版 `GetMaxCopiesInDeck` 那句
+            //   `if (cardType == 10) return 1;`（= 督军）**排在稀有度判断之前** ⇒ **非传说督军也是 1**。
+            //   本处是**屏幕上看得见的那一处**：卡池格底下那条分母（`{已在卡组}/{能放的张数}`）——
+            //   没选督军时卡池**只列督军**（`WarlordGatedPool`），那些格印的就是督军的上限。
+            int cap = DeckRules.CopyLimit(def.Rarity, def.Type);
             int den = Mathf.Min(CardProgress.Owned(def.Id, def.Rarity), cap);
             if (string.IsNullOrEmpty(State.Deck.WarlordId)) return "x" + den;   // 还没督军
             return State.Deck.CountOf(def.Id) + "/" + den;                       // 已有督军
@@ -1318,22 +1740,23 @@ namespace CardPresentation
         void SetPoolCounter(int vi, CardDef def, float cellLeft, float cellTop)
         {
             while (_poolBars.Count <= vi) { _poolBars.Add(null); _poolBarTexts.Add(null); }
-            float bw = PoolBarX2 - PoolBarX1, tw = PoolBarX2 - PoolBarX1;
-            float tx = cellLeft + (PoolBarX1 + PoolBarX2) * 0.5f;
+            var P = Pool;                       // 🆕 D24：与 `RefreshPool` 同一档（每次现取 ⇒ 两处不会错开）
+            float bw = P.BarX2 - P.BarX1, tw = P.BarX2 - P.BarX1;
+            float tx = cellLeft + (P.BarX1 + P.BarX2) * 0.5f;
             if (_poolBars[vi] == null)
             {
                 _poolBars[vi] = Img("poolbar_" + vi, PoolCounterSprite,
-                                    cellLeft + PoolBarX1, cellTop + PoolCardH, bw, PoolCounterH,
+                                    cellLeft + P.BarX1, cellTop + P.CardH, bw, P.CounterH,
                                     QPoolBar, true);
-                var lb = TxtPx("poolcnt_" + vi, "", cellLeft + PoolBarX1, cellTop + PoolCntY1,
-                               tw, PoolCntY2 - PoolCntY1, PoolCounterPx, Color.white, QPoolBarText);
+                var lb = TxtPx("poolcnt_" + vi, "", cellLeft + P.BarX1, cellTop + P.CntY1,
+                               tw, P.CntY2 - P.CntY1, PoolCounterPx, Color.white, QPoolBarText);
                 // 原版那行字**开了 autosize（7…32）**，而字框只有 22.69 高 ⇒ 运行时会被压小；
                 // 我们走同一条路（`SetAutoFitBox`）：限宽/限高 = 字框、下限 7px。
                 // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版 `m_fontSizeBase` **原文**。
                 //    判据（原版实读）：`/Deck Editing Menu/…/Deck Selector Hero Card Info button/Content/**Card Name**`
                 //    同族那颗（`x14`）= `m_fontSize 31.9` · `auto[7~32]` · **`base 32.0`**（逐站表 §二·3 #16）
                 //    —— ⚠️ 我们传的上限 `PoolCounterPx 31.9` 是 `m_fontSize`、原版上限是 **32**：那是 A333，本轮不动。
-                if (lb != null) lb.SetAutoFitBox(U(tw), U(PoolCntY2 - PoolCntY1), 7f, PoolCounterPx, 32f);
+                if (lb != null) lb.SetAutoFitBox(U(tw), U(P.CntY2 - P.CntY1), 7f, PoolCounterPx, 32f);
                 // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版那颗（`Card Name` 同族、`x14` 那一格）
                 //   = `Center/**Midline**`（判据 = 本文件 `:177` 那条 summary：「原版 `m_fontSize = 31.9` ·
                 //   **autosize 7…32** · `Center/Midline` · 白」）。
@@ -1341,17 +1764,17 @@ namespace CardPresentation
                 //   但传对才是同一条口径（真要改成 `Top`/`Bottom` 时不用回头改这里）。
                 if (lb != null)
                     MenuDraw.SetVAlign(lb, Label.VAlign.Midline,
-                                       new PxRect(cellLeft + PoolBarX1, cellTop + PoolCntY1,
-                                                  cellLeft + PoolBarX1 + tw, cellTop + PoolCntY2));
+                                       new PxRect(cellLeft + P.BarX1, cellTop + P.CntY1,
+                                                  cellLeft + P.BarX1 + tw, cellTop + P.CntY2));
                 _poolBarTexts[vi] = lb;
             }
             var bar = _poolBars[vi];
             if (bar != null)
-                bar.transform.localPosition = Pos(tx, cellTop + PoolCardH + PoolCounterH * 0.5f);
+                bar.transform.localPosition = Pos(tx, cellTop + P.CardH + P.CounterH * 0.5f);
             var t = _poolBarTexts[vi];
             if (t != null)
             {
-                t.transform.localPosition = Pos(tx, cellTop + (PoolCntY1 + PoolCntY2) * 0.5f);
+                t.transform.localPosition = Pos(tx, cellTop + (P.CntY1 + P.CntY2) * 0.5f);
                 t.SetText(PoolCounterText(def));
             }
         }
@@ -1362,39 +1785,22 @@ namespace CardPresentation
             if (vi < _poolBarTexts.Count && _poolBarTexts[vi] != null) _poolBarTexts[vi].gameObject.SetActive(on);
         }
 
-        // ------------------------------------------------------------ Deck info 的动作钮 + Cosmetics 空态
+        // ------------------------------------------------------------ Deck info 的动作钮（🔴 已删，见下）
 
-        /// <summary>分享 / 导入两个钮。
-        /// 🔴 **入口位置是我们放的** —— 原版这两个动作**不在编辑器窗口里**：
-        /// 分享 = `DeckInfoPopup.ShareDeck()`（卡组选择界面的 Info 弹窗）、
-        /// 导入 = `SelectDecksTab.ImportDeck()` → `ImportDeckPopup`。
-        /// 那两个界面我们还没有（属第 16 行阶段二），所以先摆在 **Deck info 页签**下面，
-        /// 免得玩家找不到入口。**别当原版抄。**</summary>
-        void BuildInfoActions()
-        {
-            // ⚠️ 这两张是 **71×71 的圆钮图标**（`40k_general_bt_yellow_share` / `_edit`，
-            //    和 `DeckInfoPopup` 那 5 个圆钮同一族）—— 按**原尺寸**摆，别拉成横条
-            //    （拉过一次：变成两条斜飘带，截图看出来的）。文字放钮下面。
-            const float bs = 71f, by = 636f, lh = 26f;
-            float bx1 = 60f, bx2 = 200f;
-            // ⚠️ 这两张**只是图标**（四周透明）—— 原版那套圆钮是**两层**：
-            //    底 `UI_Button_Round_background` + 图标。只画图标的话屏幕上什么都没有。
-            Img("info_share_bg", "UI_Button_Round_background", bx1, by, bs, bs, QRow);
-            Img("info_share", "40k_general_bt_yellow_share", bx1, by, bs, bs, QBorder);
-            var shareTx = Txt("info_share_t", "分享", bx1, by + bs, bs, lh, 1, Ink, QText);
-            Img("info_import_bg", "UI_Button_Round_background", bx2, by, bs, bs, QRow);
-            Img("info_import", "40k_general_bt_yellow_edit", bx2, by, bs, bs, QBorder);
-            var importTx = Txt("info_import_t", "导入", bx2, by + bs, bs, lh, 1, Ink, QText);
-            Btn_("info_share", bx1, by, bs, bs);
-            Btn_("info_import", bx2, by, bs, bs);
-            foreach (var k in new[] { "info_share_bg", "info_share", "info_import_bg", "info_import" })
-            { var q = Lookup(k); _infoOnly.Add(q != null ? q.gameObject : null); }
-            // ⚠️ **标签要显式收进来** —— `Lookup()` 只认 `ImageQuad`（`_named` 是 `Img()` 填的），
-            //    `Label` 不在里面 ⇒ 拿 `Lookup("info_share_t")` 永远拿到 null、字就**不跟着页签隐藏**
-            //    （2026-09-20 截图抓到：Cards 页签下还飘着「分享 / 导入」两个字）。
-            foreach (var l in new[] { shareTx, importTx }) if (l != null) _infoOnly.Add(l.gameObject);
-        }
-
+        // 🔴 **2026-10-17（D35 删件）：`BuildInfoActions()` 整个删掉了** —— 分享 / 导入那两颗圆钮
+        //   （`info_share*` / `info_import*`，`60..131` 与 `200..271` × `636..707`）**原版这扇窗里没有**。
+        //   判据（原版侧栏树逐件核过 + 施工单 D35「我们多画 4 件」）→
+        //   `资料/普查产出_1017/对账_卡组编辑部分_差异与待办.md` D35。
+        //   原版这两个动作**各自的正当入口**（我们当时是「先摆这儿免得找不到」）：
+        //     · 分享 = `DeckInfoPopup.ShareDeck()`（`decomp_full/DeckInfoPopup__ShareDeck.c`，卡组线那扇 Info 弹窗）；
+        //     · 导入 = `SelectDecksTab.ImportDeck()` → `ImportDeckPopup`（外壳那扇，`Shell/ImportDeckPopup.cs` 已建）。
+        //   ⇒ **顺手发现（已在报告里点名，归调度台排）**：本窗 `ShareDeckString()` 现在**没有生产入口**了
+        //     （它原来只挂在这颗钮上）；`ImportDeckPopup` 那条链还有外壳那一份（`CollectionWindow.OpenImportPopup`），
+        //     本窗这份只剩自检口 `UiOpenImport()`。⛔ **别把这两颗钮加回来** —— 那是「我们多画的」，
+        //     正确做法是把它们**接在原版的家里**（那两处都在别的文件，不在本批白名单）。
+        //   ⚠️ 一并删掉的登记点：`ClickOrder` 那两项 · `HandleButtons` 那两个 `case` · `KeyLive` 那两个分支 ·
+        //     自检读数 `UiInfoActionsVisible`（它读的就是 `Lookup("info_import")`）。
+        //   ⚠️ `_infoOnly` 这张表**没删**：费用曲线那 9 行 × 4 件仍然只在 Deck info 页签显示。
         // ------------------------------------------------------------ Cosmetics 页（换卡背）2026-09-24
         //
         // 原版 = `Deck Editing Menu > Content Area > Cosmetic Display`（`CardbackCollectionDisplay`）。
@@ -1406,7 +1812,10 @@ namespace CardPresentation
         //     （`_controlSegmentSize=1` ⇒ `ConfigureColumnNumber` 每帧按宽度覆盖它；与收藏窗那条同一机制）
         //   · 一格 = 原型 `CollectionCosmetic` 250×405，**只有一层图**（卡背本身），没有卡名/数值
         //   · `Cosmetic FIlter`（左抽屉）2.18,155.97 → 333.90,1080.03，**出厂 act=F** ⇒ **先不建**（见文件尾「没建」）
-        //   · `Cosmetic Drag Controller`（拖拽预览，100×100 + `scl 0.6` 的 250×405 预览）⇒ **先不建**
+        //   · `Cosmetic Drag Controller`（拖拽预览，100×100 + `scl 0.6` 的 250×405 预览）
+        //     🔴 **2026-10-17 更正（铁律 5）：这里原来写「⇒ 先不建」—— 那是我们自己写的判断、
+        //     不是用户拍板**（出处 `资料/普查产出_1016/可玩性_卡组编辑.md:49`）⇒ 按铁律 11「要么原版没有、
+        //     要么用户明说不做，否则**要做**」，**现在建了**：见下面「拖拽」那一大段（`BuildCosmeticDrag`）。
         //   · `Empty Collection Warning` 135.23,70.97 → 1970.00,1080.03（act=F）
         //   · 🔴 **点格子怎么装备**（`DeckEditingWindow__OnCosmeticClick.c:26-44`）：
         //     **只有右键（`button==1`）才装备** —— `editingDeck.cardbackId = item.GetID()`；
@@ -1451,11 +1860,12 @@ namespace CardPresentation
             //    等 `RefreshCosmeticDrawer` 拿到图再补建（装备之后一定会有图）。
             _cosmDrawerName = Txt("cosm_drawer_name", "", DrawerX, DrawerY + DrawerH - 44f, DrawerW, 44f, 2, Ink, QText);
             _cosmOnly.Add(_cosmDrawerName != null ? _cosmDrawerName.gameObject : null);
-            // 侧栏那行说明（**我们挑的**：原版这一页没有这行字，它靠抽屉里的图说话；
-            //   我们加它是为了让「右键装备」这条**只写在原版代码里的**操作在界面上说得出口）
-            var hint = Txt("cosm_hint", "右键卡背 = 装备到当前卡组（左键不做任何事，与原版一致）",
-                           DrawerX, DrawerY + DrawerH + 6f, DrawerW, 40f, 1, new Color(1f, 1f, 1f, 0.75f), QText);
-            _cosmOnly.Add(hint != null ? hint.gameObject : null);
+            // 🔴 **2026-10-17（D44 删件）**：这里原来还有一行 `cosm_hint`
+            //   （「右键卡背 = 装备到当前卡组（左键不做任何事，与原版一致）」）—— **原版这一页没有这行字**、
+            //   已删（判据 → D44；它当时是作者自己加出来「把只写在原版代码里的操作说出口」的）。
+            //   ⚠️ 右键装备这条交互**没变**（`HandleCosmeticClick` / `EquipCardback`），少的只是那行说明。
+            //   ⚠️ 顺带说清「为什么原版不需要它」：原版靠抽屉里**已装备那张图**说话（`Cosmetic Drawer`），
+            //     换成功了图就变 —— 我们那条链一样在（`RefreshCosmeticDrawer`）。
 
             // ---- `Empty Collection Warning`（原版 act=F；判据 = 过滤后为空）----
             // 出厂 `act=F`、**运行期才按数据开** ⇒ 建出来先关着。判据写在 `RefreshTabVisibility` 一处
@@ -1484,13 +1894,46 @@ namespace CardPresentation
             return go;
         }
 
+        /// <summary>已经为它报过「卡背缺图」的名字 —— **一个名字只出声一次**
+        /// （逐次刷屏会把别的告警淹掉，同 `Label.NoteDotBackendLacks` 那条口径）。</summary>
+        readonly HashSet<string> _cardbackArtWarned = new HashSet<string>();
+
+        /// <summary>🆕 **2026-10-17（D23）**：卡背取图 —— **缺图必须出声**。
+        /// <para>🔴 **为什么要单开这一个口**：卡池那一路缺图有 `Ui()` 记账 + `Build()` 末尾那条汇总告警；
+        /// 而**卡背格这一路原来什么都没有** —— `CardArt.Cosmetic(name)` 返回 null 时
+        /// `RefreshCosmetics` 只是 `continue`（那一格**空着**），屏幕上看得见、日志里一个字都没有
+        /// （2026-10-17 那张截图里就有 2 格空框）。这就是「静默失败」（CLAUDE.md §三 红线）。</para>
+        /// <para>⚠️ **不并进 `_missingArt`**：那一份是「建界面那一趟」的账（`Build()` 里清空 + 末尾一次性报），
+        /// 而卡背格是**每次刷新都可能重建**的 ⇒ 并进去只会漏报（刷新发生在 `Build()` 之后）。
+        /// 本口自己去重、自己出声。</para></summary>
+        Texture2D CosmeticTexOrWarn(string name)
+        {
+            _cosmeticTexCalls++;
+            var t = CardArt.Cosmetic(name);
+            if (t == null && !string.IsNullOrEmpty(name) && _cardbackArtWarned.Add(name))
+                Debug.LogWarning("[Deck] 卡背缺图：`" + name + "` 取不到 ⇒ 那一格**空着**"
+                                 + "（**不是静默** —— 名字来自 `CardbackTable` / `CardArt.CosmeticNames()`；"
+                                 + "导入器：`工具/` 那条卡背链，见 `Core/CardbackTable.cs`）");
+            return t;
+        }
+
+        /// <summary>本类**一共走过几次**卡背取图（自检用它钉「卡背格走的就是这一条路」——
+        /// 只数「报过警」的话，一个「另写一条取值路、把告警挂在没人调的岔路上」的实现照样绿）。</summary>
+        int _cosmeticTexCalls;
+        /// <summary>自检口：卡背取图被调过几次（见 `_cosmeticTexCalls`）。</summary>
+        public int UiCosmeticTexCalls { get { return _cosmeticTexCalls; } }
+        /// <summary>自检口：**报过缺图的名字有几个**（一个名字只出声一次）。</summary>
+        public int UiCardbackArtWarnCount { get { return _cardbackArtWarned.Count; } }
+        /// <summary>自检口：走**与卡背格同一条**取图路（缺图会出声 —— ⛔ 别在自检里另写一条取值路）。</summary>
+        public Texture2D UiCosmeticTex(string name) { return CosmeticTexOrWarn(name); }
+
         void RefreshCosmetics()
         {
             // 🆕 2026-10-01：卡背页那个 `Army Filter`（原版 `Cosmetic FIlter` 里的一行）——
             //   筛的是**卡背归属的阵营**；判据 = 原版 SO 的 `cardArmy`（表 → `Core/CardbackTable.cs`，
             //   生成 → `工具/gen_cardbacks.py`；对账实测 243 个 SO → 233 个图名、**0 缺口**）。
             //   ⚠️ 只决定**这一页铺哪几张**，不碰卡池（与卡牌那套筛选条件分开）。
-            var names = CardbackTable.NamesFor(_cosmoFilter.Faction, CardArt.CosmeticNames());
+            var names = CosmeticList();
             int rows = Mathf.Max(1, Mathf.CeilToInt(names.Length / (float)CosmoCols));
             float maxScroll = Mathf.Max(0f, rows * CosmoCellH - CosmoH);
             _cosmScroll = Mathf.Clamp(_cosmScroll, 0f, maxScroll);
@@ -1512,7 +1955,7 @@ namespace CardPresentation
 
                 float cx = CosmoX + CosmoPadX + c * CosmoCellW + CosmoCellW * 0.5f;
                 float cy = CosmoY + r * CosmoCellH - off + CosmoCellH * 0.5f;
-                var tex = CardArt.Cosmetic(names[idx]);
+                var tex = CosmeticTexOrWarn(names[idx]);
                 if (q == null && tex != null)
                 {
                     q = ImageQuad.Create(Root, tex, Pos(cx, cy), U(CosmoCellH), new Vector2(0.5f, 0.5f), "cosm_cell" + vi);
@@ -1547,6 +1990,12 @@ namespace CardPresentation
         void RefreshCosmeticDrawer()
         {
             var back = CardArt.DeckCardback(State.Deck.CardbackId, FactionOf(State.Deck.WarlordId));
+            // 🆕 **2026-10-17（D23）**：侧栏那张「已装备」同样**缺图要出声**（同 `CosmeticTexOrWarn`
+            //   那条口径；它走的是另一条链 `DeckCardback`（选了/没选各有兜底）⇒ 单独记一个 key）。
+            if (back == null && _cardbackArtWarned.Add("cosm_drawer:" + (State.Deck.CardbackId ?? "")))
+                Debug.LogWarning("[Deck] Cosmetic Drawer 取不到卡背图（`cardbackId = "
+                                 + (State.Deck.CardbackId ?? "<没选>") + "` · 阵营默认也取不到）"
+                                 + " ⇒ 侧栏那张**空着**（**不是静默**）");
             if (_cosmDrawerBack == null && back != null)
             {
                 _cosmDrawerBack = ImageQuad.Create(Root, back, Pos(DrawerX + DrawerW * 0.5f, DrawerY + DrawerH * 0.5f),
@@ -1594,46 +2043,396 @@ namespace CardPresentation
         }
 
         /// <summary>点卡背格：**照原版只有右键装备**（`DeckEditingWindow__OnCosmeticClick.c`）。
-        /// 左键什么都不做 —— 这是原版行为，不是漏了。
+        /// 左键**单独点**仍然什么都不做（那是原版行为、不是漏了）—— 2026-10-17 起它多了一个用途：
+        /// **左键按下 = 拖拽那条路的起点**（只记下起点，起不起拖由 `HandlePointer` 里那道
+        /// 「移动过阈值 + `IsScrollDragThreshold`」判；松手没动过 ⇒ 还是什么都不做）。
         /// 命中用**与摆位同一条式子**反算行列（`ToPx` 是 `Pos` 的严格逆函数），不另存一份矩形。</summary>
         bool HandleCosmeticClick(Vector2 px, bool right)
         {
             if (_tab != 2) return false;
             if (px.x < CosmoX || px.x > CosmoX + CosmoW) return false;
             if (px.y < CosmoY || px.y > CosmoY + CosmoH) return false;
-            var names = CardArt.CosmeticNames();
-            if (names.Length == 0) return false;
+            var name = CosmeticNameAt(px);
+            if (name == null) return false;                      // 最后一行之后的空白 / 落在两侧留白里
+            if (right) EquipCardback(name);
+            // 🆕 **2026-10-17：左键按下不再「什么都不做」——它是【拖拽那条路】的起点**
+            //   （原版左键单独点仍然什么都不做：`OnCosmeticClick` 只认右键；松手没动过 ⇒ 我们这里也不做）
+            //   ⇒ 这里只**记下起点**，起不起拖由 `HandlePointer` 里那道「移动越过阈值 + `IsScrollDragThreshold`」判。
+            else { _cosmArmName = name; _armPx = px; }
+            return true;                                        // 左键也吃掉（原版就是什么都不做）
+        }
+
+        /// <summary>卡背页**现在铺哪几张**（阵营筛选之后）—— **判据只此一份**：
+        /// 铺格（`RefreshCosmetics`）、命中（`CosmeticNameAt`）、计数（`UiCosmoShownCount`）三处都用它。
+        /// 🔴 2026-10-17 之前铺格与命中**各写了一份**、命中那份漏了筛选 ⇒ 那是个真缺陷（见 `CosmeticNameAt`）。</summary>
+        string[] CosmeticList()
+        {
+            return CardbackTable.NamesFor(_cosmoFilter.Faction, CardArt.CosmeticNames());
+        }
+
+        /// <summary>点 `px` 落在哪一张卡背上（**判据只此一份**：铺格、右键装备、拖拽起点都用它）。
+        /// 🔴 **2026-10-17 顺手修掉一处真缺陷**：原来这里是两套 —— `RefreshCosmetics` 铺的是
+        /// **筛过阵营**的 `CardbackTable.NamesFor(_cosmoFilter.Faction, …)`，而本命中走的是**没筛**的
+        /// `CardArt.CosmeticNames()` ⇒ **开着 `Cosmetic FIlter` 的 `Army Filter` 时，右键装备的是另一张**
+        /// （铁律 11：与原版不符 ⇒ 记录并复刻；本类白名单内，就地改）。
+        /// 返回 `null` = 这一点上没有卡背。</summary>
+        string CosmeticNameAt(Vector2 px)
+        {
+            if (px.x < CosmoX || px.x > CosmoX + CosmoW) return null;
+            if (px.y < CosmoY || px.y > CosmoY + CosmoH) return null;
+            var names = CosmeticList();
+            if (names.Length == 0) return null;
             int c = Mathf.FloorToInt((px.x - (CosmoX + CosmoPadX)) / CosmoCellW);
-            if (c < 0 || c >= CosmoCols) return false;          // 落在两侧留白里
+            if (c < 0 || c >= CosmoCols) return null;           // 落在两侧留白里
             int r = Mathf.FloorToInt((px.y - CosmoY + _cosmScroll) / CosmoCellH);
             int idx = r * CosmoCols + c;
-            if (idx < 0 || idx >= names.Length) return false;    // 最后一行之后的空白
-            if (right) EquipCardback(names[idx]);
-            return true;                                        // 左键也吃掉（原版就是什么都不做）
+            if (idx < 0 || idx >= names.Length) return null;     // 最后一行之后的空白
+            return names[idx];
+        }
+
+        // ============================================================ 拖拽：起拖 / 跟指针 / 松手投递  2026-10-17
+        //
+        // 原版这套东西的**判据全部现读**（反编译 + 解包资产 + VA 反汇编），逐条：
+        //  · **通用件** = `Core/DraggableController.cs`（`DraggableController<T>` / `Draggable<T>` /
+        //    `IDropHandler<T>` 三件；四个方法体是 **VA 反汇编**读出来的，见那个文件的文件头）
+        //  · **卡背那一支**：节点 `Content Area > Cosmetic Display > Cosmetic Drag Controller`
+        //    （GO −4418684799642833116 · RT −3820370437395452124 = **100×100** · 绝对矩形
+        //     **[993.59,525.50]–[1093.59,625.50]**）；它挂 `CosmeticDraggingController`
+        //    （MB −4326558023866323164，`m_Script` = MonoScript 5187419560979717525）
+        //  · **预览本体** = 它的子节点 `Collection Cosmetic`（GO −6967555497338671324，
+        //    **出厂 `m_IsActive: false`**）· RT 3595378309407108900 = **250×405 · `m_LocalScale` 0.6** ·
+        //    anchor(0,1) · pos(75,−121.5) ⇒ 绝对矩形 **[943.59,444.50]–[1193.59,849.50]** ·
+        //    **视觉框 = 布局框 × 0.6 = 150×243**（`menu_rect.py` 两处互证）
+        //  · **落点那一栏** = `Sidebar/Deck Details`（GO −1322417011089150172）·
+        //    绝对矩形 **[0.25,360.97]–[335.56,1010.03]**（335.31×649.06）—— **上面挂着原版那个
+        //    `IDropHandler<CosmeticItem>` 的 `DeckEditingPanel`**（MB −2895006486255833308，
+        //    字段集与 `dump.cs:72263-72290` 逐条吻合）。松手落在这里才装备。
+        //    ⚠️ uGUI 的 `hovered` **含祖先链**（`BaseInputModule.cs:291`）⇒ 「落点在那一栏的矩形里」
+        //       与「命中了它的某一颗子孙」是同一件事 —— 见 `CollectHovered`。
+        //  · **起拖音** = 两个实例**共用**一条 `AudioCue`（PathID −4308815958917459268）；
+        //    经 `数据/索引/anim_address_map.json` 的 `guid_to_asset` 反查 ⇒ 名 = **`CardStartDrag`**
+        //  · **「拖 vs 滚动」那一跳** = `SupportMethods.IsScrollDragThreshold`，整条算出来了（见下）
+        //  · **卡牌那一支**：节点 `Content Area > Card Drag Controller` 同矩形
+        //    （**[993.59,525.50] 100×100**，**是 `Card Display` 的兄弟** —— 不在 `Card Display` 里）；
+        //    子件 = 拖影卡行 `Deck Selector Card Info button`（**287.9 × 55.7**，出厂 INACT）
+        const float DragNodeX = 993.59f, DragNodeY = 525.50f, DragNodeW = 100f, DragNodeH = 100f;
+        const float PrevW = 250f, PrevH = 405f, PrevScale = 0.6f;      // 视觉框 = 150×243
+        // 预览起手（= 还没拖过）时那个静态矩形，原版实读 [943.59,444.50]–[1193.59,849.50]
+        const float PrevX1 = 943.59f, PrevY1 = 444.50f, PrevX2 = 1193.59f, PrevY2 = 849.50f;
+        const float DropFieldX = 0.25f, DropFieldY = 360.97f, DropFieldW = 335.31f, DropFieldH = 649.06f;
+        /// <summary>拖影卡行的原版尺寸（`Deck Selector Card Info button`）。</summary>
+        const float CardGhostW = 287.9f, CardGhostH = 55.7f;
+        /// <summary>起拖音 —— 原版两个实例**共用**同一条 `AudioCue`（字段 PathID 都是 −4308815958917459268）。
+        /// 🔴 **这一格解出来了**（不是「没查清」）：经 `数据/索引/anim_address_map.json` 的
+        /// `guid_to_asset` 反查（guid `60fe1fac8e31f4b59ab7cb8e53696707`）⇒ 名 = **`CardStartDrag`**
+        /// （`bundle_soundcollection_assets_all/MonoBehaviour/CardStartDrag.json`）。
+        /// ⚠️ 本工程的声音载体是 cue 名（同 `Battle/AnimFXController.cs:80-86` 那条口径）；
+        ///    取不到时 `DraggableController.PlayDragSound` 会**出声一次**（不是静默）。</summary>
+        const string DragCue = "CardStartDrag";
+
+        /// <summary>⚠️ **我们挑的一档队列**（原版靠 Canvas 层级；本工程的世界空间 quad 必须显式分层）。
+        /// 取在筛选抽屉（`QFlt` 3020 那族）**之上**、模态窗（`QModal` 3100）**之下**。</summary>
+        const int QDragPreview = 3050;
+        /// <summary>「按住之后动了多少才算起拖」—— **与行拖出那条同一个阈值**：`0.15` 世界单位 × 108
+        /// = **16.2 设计像素**（`_draggingMoved` 那一句用的就是 `0.15`；本仓铁律：同一条规则只留一份，
+        /// 这里把数写成常量、并在那条注释里指过来）。uGUI 侧对应的量 = `EventSystem.pixelDragThreshold`。</summary>
+        const float ArmPxSlop = 16.2f;
+
+        CosmeticDraggingController _cosmDrag;      // 卡背那一支（原版 `DeckEditingWindow.cosmeticDrag`）
+        CosmeticPreview _cosmPreview;
+        GameObject _cosmDragNode, _cosmPreviewGo;
+        CardDraggingController _cardDrag;          // 卡牌那一支（原版 `DeckEditingPanel.draggable`）
+        CardPreview _cardPreview;
+        GameObject _cardDragNode, _cardGhostGo;
+        /// <summary>左键已经按在某一格卡背上（= 原版「格子上的 `Draggable` 把 beginDrag 送进 relay」那一刻）。
+        /// 非 `null` 就是卡背那一支在等位移。</summary>
+        string _cosmArmName;
+        /// <summary>左键已经按在卡池某一格上（卡牌那一支在等位移）。</summary>
+        CardDef _cardArmDef;
+        /// <summary>按下的那一点（设计像素）—— 两支**共用**：一次只会有一个在等。</summary>
+        Vector2 _armPx;
+
+        /// <summary>建 `Cosmetic Drag Controller` 那一棵（原版形状：**空节点 + 一个关着的预览子节点**）。
+        /// 出厂：预览 **inactive**（原版 `Collection Cosmetic` 就是 `m_IsActive: false`）。
+        /// ⚠️ **两个容器都摆在场景原点**（`NewGo` 就是这么挂的）—— 本工程 `Txt` / `Img` 那些助手带 `parent`
+        /// 时把 `Pos(...)` 当**局部**位置用（`Label.Create`/`ImageQuad.Create` 里那句
+        /// `go.transform.localPosition = pos`）⇒ 「父件在原点」才是它们的既有前提，`Root` 本身也是这个前提。
+        /// 拖拽时 `OnDrag` 把容器挪到指针上，整棵子树跟着走（子件的局部位置不变）。</summary>
+        void BuildCosmeticDrag()
+        {
+            _cosmDragNode = NewGo("cosm_drag");
+            _cosmDrag = _cosmDragNode.AddComponent<CosmeticDraggingController>();
+
+            float pcx = (PrevX1 + PrevX2) * 0.5f, pcy = (PrevY1 + PrevY2) * 0.5f;
+            _cosmPreviewGo = NewGo("cosm_preview");
+            _cosmPreviewGo.transform.SetParent(_cosmDragNode.transform, false);
+            // 预览本体：**视觉框 = 250×405 × 0.6 = 150×243**（`SetAspect(250/405)` + 高 243 ⇒ 宽 150）
+            var quad = ImageQuad.Create(_cosmPreviewGo.transform, CardArt.Solid(), Pos(pcx, pcy),
+                                        U(PrevH * PrevScale), new Vector2(0.5f, 0.5f), "cosm_preview_img");
+            if (quad != null)
+            {
+                quad.SetAspect(PrevW / PrevH);
+                quad.SetRenderQueue(QDragPreview);
+            }
+            _cosmPreview = _cosmPreviewGo.AddComponent<CosmeticPreview>();
+            _cosmPreview.BindView(quad, CosmeticTexOrWarn);        // 取图走**同一条**会出声的路
+            if (quad == null)
+                Debug.LogWarning("[Drag] 预览那块 `ImageQuad` 没建起来（`CardArt.Solid()` 取不到？）"
+                                 + " ⇒ 起拖时**看不见预览**（**不是静默**）");
+            _cosmDrag.Bind(_cosmPreview, DragCue);
+            _cosmPreviewGo.SetActive(false);                       // 原版：出厂 `m_IsActive: false`
+        }
+
+        /// <summary>建 `Card Drag Controller` 那一棵（同形状：空节点 + 一条关着的拖影卡行 287.9×55.7）。
+        /// 卡行三件照原版三件：`Background`（同卡组行的九宫格底）· `Card Name` · `Cost`。
+        /// <para>⚠️ **卡行摆在节点中心**，不是照 prefab 那个子件矩形 —— 那条 `[414,555 288x56]` 落在节点
+        /// `[993.59,525.50] 100×100` **之外**，是「布局跑之前的模板位」（铁律 10 第 3 条那类；同
+        /// `Clear filters` 那个坑）。原版跑起来在哪儿量不到（回收列表），**这是我们挑的位置**。</para></summary>
+        void BuildCardDrag()
+        {
+            _cardDragNode = NewGo("card_drag");
+            _cardDrag = _cardDragNode.AddComponent<CardDraggingController>();
+
+            float gcx = DragNodeX + DragNodeW * 0.5f, gcy = DragNodeY + DragNodeH * 0.5f;
+            float gx1 = gcx - CardGhostW * 0.5f, gy1 = gcy - CardGhostH * 0.5f;
+            _cardGhostGo = NewGo("card_ghost");
+            _cardGhostGo.transform.SetParent(_cardDragNode.transform, false);
+
+            // 行底走**公共件**（`NineSlice` 那个助手只会挂到 `Root` 下 ⇒ 这里直调 `MenuDraw.Nine`，
+            // 让它在拖影容器里 —— 同一条九宫格参：原版行底 `40k_deck_cardlist_bg` border=(150,0,150,0)）
+            var rowBg = Ui("40k_deck_cardlist_bg");
+            if (rowBg != null)
+                MenuDraw.Nine(_cardGhostGo.transform, rowBg,
+                              new PxRect(gx1, gy1, gx1 + CardGhostW, gy1 + CardGhostH),
+                              new Vector4(150f, 0f, 150f, 0f), rowBg.width, rowBg.height,
+                              QDragPreview, null, true, "card_ghost_bg");
+            // 三件的相对位置照卡组行那一套（`RowCostX 17` / 名字 x 62 · 字号档 1）
+            Img("card_ghost_circle", Ui("Card_Frame_Cost_Icon"),
+                gx1 + 17f, gy1 + (CardGhostH - 38f) * 0.5f, 38f, 38f,
+                QDragPreview + 1, false, _cardGhostGo.transform);
+            var nm = Txt("card_ghost_n", "", gx1 + 62f, gy1, CardGhostW - 70f, CardGhostH,
+                         1, Ink, QDragPreview + 2, _cardGhostGo.transform);
+            var cs = Txt("card_ghost_c", "", gx1 + 17f, gy1 + (CardGhostH - 38f) * 0.5f, 38f, 38f,
+                         1, Ink, QDragPreview + 2, _cardGhostGo.transform);
+            _cardPreview = _cardGhostGo.AddComponent<CardPreview>();
+            _cardPreview.BindView(nm, cs);
+            _cardDrag.Bind(_cardPreview, DragCue);
+            _cardGhostGo.SetActive(false);                         // 原版：出厂 INACT
+        }
+
+        /// <summary>原版 `SupportMethods.IsScrollDragThreshold(Vector2 dragInput)` —— **整条算出来了**
+        /// （常量不是推测：`工具/read_literal.py` 直读 `GameAssembly.dll`）。
+        /// <para>反汇编（`decomp_full/SupportMethods__IsScrollDragThreshold.c`）逐句：
+        /// `v = Vector2.right`（`DAT_1842d9aa8 + 0xb8 → static + 0x28`；`dump.cs:537615` 把 Vector2 的
+        ///  statics 排成 zero(0x0)/one(0x8)/up(0x10)/down(0x18)/left(0x20)/**right(0x28)** ⇒ 就是 right）；
+        /// `if (|dragInput| * |v| &lt; 1e-15) return false;`（实测 1.0000000037e-15 = **`Vector2.kEpsilonNormalSqrt`**，
+        ///  `dump.cs:537620` —— 而它**正是 `Vector2.Angle` 内部那道除零守卫**）；
+        /// `cos = Clamp(dot/(|a||b|), −1, 1)`（两个常量实读 = −1 / 1）；
+        /// `deg = Acos(cos) * 57.2958`（= `Mathf.Rad2Deg`）；
+        /// `return deg &gt; 60 && deg &lt; 120`（`_DAT_1834b30c0` = **60** · `_DAT_1834b3268` = **120**）。
+        /// ⇒ 整条 = **`Vector2.Angle(dragInput, Vector2.right) ∈ (60°, 120°)`**（`Vector2.Angle` 自带那道守卫，
+        /// 逐行等价 ⇒ 直接用公共件，不自己再写一遍 acos）。</para>
+        /// <para>语义：位移与**水平轴**的夹角落在 60°~120°（= 竖向为主）⇒ 判成**滚动**，**不起拖**；
+        /// 只有基本水平的位移才算拖拽。原版**两条链用的是同一个函数**（`CheckCosmeticDrag` 与 `CheckCardDrag`）
+        /// ⇒ 我们也只写这一份。</para></summary>
+        static bool IsScrollDragThreshold(Vector2 dragInput)
+        {
+            float deg = Vector2.Angle(dragInput, Vector2.right);
+            return deg > 60f && deg < 120f;
+        }
+
+        /// <summary>合一件 `PointerEventData` 给控制器用。
+        /// ⚠️ **本仓没有 UGUI `EventSystem`**（`EventSystem.current` 恒 null）—— `BaseEventData` 只把这个引用
+        /// 存下来、从不调用它 ⇒ 传 `null` 安全。
+        /// ⚠️ `pressEventCamera` 是**只读**属性（ugui 只给 `get`）⇒ 这里填不了；`OnDrag` 那一支在它为 null 时
+        /// 退回 `Camera.main` —— 本窗的 UI 相机**就是** `Camera.main`（`Build()` 开头那句 `_cam = Camera.main`）
+        /// ⇒ 与「原版读 `pressEventCamera`」同解。</summary>
+        PointerEventData DragEvent(Vector2 px, Vector2 delta, bool withHovered)
+        {
+            var ed = new PointerEventData(null);
+            ed.position = PxToScreen(px);
+            ed.delta = delta;
+            if (withHovered) CollectHovered(px, ed.hovered);
+            return ed;
+        }
+
+        /// <summary>设计像素 → 屏幕像素（`ToPx` 的严格逆）。给**合成事件**用（批处理没有真鼠标）。
+        /// ⚠️ 正交相机下 `WorldToScreenPoint`/`ScreenToWorldPoint` 是严格互逆的一对
+        /// （`LayoutSpace.ScreenToWorld` 那一支读的也是同一台相机）。</summary>
+        Vector2 PxToScreen(Vector2 px)
+        {
+            if (_cam == null) return px;
+            var wp = Pos(px.x, px.y);
+            var sp = _cam.WorldToScreenPoint(wp);
+            return new Vector2(sp.x, sp.y);
+        }
+
+        /// <summary>`eventData.hovered` 的**等价物** —— 原版那一份是 uGUI `BaseInputModule` 填的：
+        /// 射线命中那一件 **+ 它的整条祖先链**（`HandlePointerExitAndEnter`，`…/InputModules/BaseInputModule.cs:291`，
+        /// `m_SendPointerHoverToParent` 默认 `true`，同文件 `:45`）。
+        /// <para>本仓没有 uGUI 射线 ⇒ 判据 = **落点在不在 `Deck Details` 那一栏的矩形里**
+        /// （原版那个 `IDropHandler<CosmeticItem>` 的 `DeckEditingPanel` 就挂在那一件上；
+        ///  它任一子孙命中都等价于「落点在这一栏里」）⇒ 命中了就把本对象（= 我们那个 panel）放进去。
+        /// 落在别处 ⇒ **空表** ⇒ 松手什么都不发生（原版同：在对面的卡池区上松手不装备）。</summary>
+        void CollectHovered(Vector2 px, List<GameObject> dst)
+        {
+            if (Root == null) return;
+            if (px.x < DropFieldX || px.x > DropFieldX + DropFieldW) return;
+            if (px.y < DropFieldY || px.y > DropFieldY + DropFieldH) return;
+            dst.Add(Root.gameObject);
+        }
+
+        /// <summary>起拖那一跳。= 原版 `CheckCosmeticDrag` 通过之后那两句
+        /// （`cosmeticDrag.SetDraggable(item)` + 控制器 `OnBeginDrag`；⚠️ 那一段里**没有**
+        /// `ExecuteEvents.Execute`、也**没有**写 `eventData.pointerDrag` —— 与 `CheckCardDrag` 不对称，实测如此）。
+        /// <para>闸门顺序照原版：① **`IsScrollDragThreshold`** 分「拖 vs 滚动」→ ② 取内容 →（原版还有
+        /// `InventoryManager.HasItem` 判**拥有**，本工程按用户口径「卡池全解锁」⇒ 恒真，**不写这一跳** ——
+        /// 写一个恒真的假判据比不写更糟）。</para>
+        /// 返回「真的起拖了吗」。</summary>
+        bool BeginCosmeticDragAt(Vector2 px, Vector2 deltaSincePress)
+        {
+            if (_cosmDrag == null || _tab != 2) return false;
+            if (IsScrollDragThreshold(deltaSincePress)) return false;   // 判成滚动 ⇒ 不起拖
+            var name = CosmeticNameAt(px);
+            if (name == null) return false;
+            _cosmDrag.SetDraggable(name);                               // 原版 `SetDraggable`（RVA 0x18153A0）
+            _cosmDrag.OnBeginDrag(DragEvent(px, deltaSincePress, false)); // 原版 `OnBeginDrag`（RVA 0x1814690）：显示预览 + 出声
+            Debug.Log("[Drag] 起拖（卡背 `" + name + "`）· 位移 " + deltaSincePress
+                      + " · 与水平轴夹角 " + Vector2.Angle(deltaSincePress, Vector2.right).ToString("F1") + "°");
+            return true;
+        }
+
+        /// <summary>松手那一跳 = 原版 `OnEndDrag`（RVA 0x1814E90）：关预览 + `hovered` 上逐个 `Drop(CurrentItem)`。
+        /// 返回「真的投出去一次了吗」（`DropCalls` 涨了 = `b__6_2` 跑到了 `Drop` 那一句）。</summary>
+        bool EndCosmeticDragAt(Vector2 px, Vector2 delta)
+        {
+            if (_cosmDrag == null || !_cosmDrag.Dragging) return false;
+            string item = _cosmDrag.DraggedItem;
+            int before = _cosmDrag.DropCalls;
+            _cosmDrag.OnEndDrag(DragEvent(px, delta, true));            // `hovered` 只在松手这一跳用得上
+            bool dropped = _cosmDrag.DropCalls > before;
+            Debug.Log("[Drag] 松手（卡背 `" + item + "` · 落点 " + px + "）⇒ " + (dropped ? "投递了" : "落在落点之外，没投"));
+            return dropped;
+        }
+
+        /// <summary>卡牌那一支的起拖（与卡背**同一个**阈值函数 —— 原版两条链用的就是同一个）。
+        /// <para>⚠️ 顺序照原版 `DeckEditingWindow__CheckCardDrag.c`：① 先算 `IsScrollDragThreshold`
+        /// ② 再算 `CardDeck.CanAddCard` ③ 判成滚动 ⇒ **两样都不做**；不是滚动又不能加 ⇒
+        /// **弹一条错误消息**（`UIMessageController.ShowError`）**且不起拖**；两关都过才 `SetDraggable`。</para></summary>
+        bool BeginCardDragAt(Vector2 px, Vector2 deltaSincePress, CardDef def)
+        {
+            if (_cardDrag == null || def == null) return false;
+            bool scroll = IsScrollDragThreshold(deltaSincePress);
+            var err = State.CanAdd(def);                 // 原版 `CardDeck.CanAddCard(deck, card, out msg)`
+            if (scroll) return false;                    // 滚动的手势：不弹错、也不起拖
+            if (err != DeckError.None)
+            {
+                Say("拖不进去：" + DeckRules.Describe(err));
+                Debug.Log("[Drag] `CanAdd` 没过（" + err + "）⇒ **不起拖**（原版这一支 = `UIMessageController.ShowError`）");
+                return false;
+            }
+            _cardDrag.SetDraggable(def);
+            _cardDrag.OnBeginDrag(DragEvent(px, deltaSincePress, false));
+            Debug.Log("[Drag] 起拖（卡 `" + CardText.Name(def.Name, def.NameZh) + "`）");
+            return true;
+        }
+
+        /// <summary>卡牌那一支的松手（同一条 `OnEndDrag`）。</summary>
+        bool EndCardDragAt(Vector2 px, Vector2 delta)
+        {
+            if (_cardDrag == null || !_cardDrag.Dragging) return false;
+            int before = _cardDrag.DropCalls;
+            _cardDrag.OnEndDrag(DragEvent(px, delta, true));
+            bool dropped = _cardDrag.DropCalls > before;
+            Debug.Log("[Drag] 松手（拖影卡行）⇒ " + (dropped ? "投递了" : "落在落点之外，没投"));
+            return dropped;
+        }
+
+        // ---- 两个 `IDropHandler<T>`（= 原版 `DeckEditingPanel` 上那两个接口的等价物）----
+        /// <summary>原版 `DeckEditingPanel.Drop(CosmeticItem)`（`DeckEditingPanel__Drop.c`）：
+        /// 写 `deck.cardbackId`（`+0x28`）→ 标脏（`+0x60 = 0`）→ `UpdateDrawers()`。
+        /// 我们的等价物 = <see cref="EquipCardback"/>（那三件事它一件不少）。
+        /// ⚠️ **两条路（右键 / 拖拽）在这一跳合流** —— 照原版。</summary>
+        public void Drop(string content)
+        {
+            bool changed = EquipCardback(content);
+            Debug.Log("[Drag] Drop(卡背 `" + content + "`) ⇒ " + (changed ? "已装备" : "没变（同名 / 不认识这个名字）"));
+        }
+
+        /// <summary>原版 `DeckEditingPanel.Drop(RawCardScript)`（`Slot: 4`）—— 加牌那条路的终点。
+        /// 本工程等价物 = <see cref="TryAddCard"/>（右键那条路走的也是它）。</summary>
+        public void Drop(CardDef card)
+        {
+            if (card == null) return;
+            // `TryAddCard` 自己会 `Say`（进了 / 为什么没进），这里只补一行**拖拽那条路**的日志
+            TryAddCard(card);
+            Debug.Log("[Drag] Drop(卡 `" + CardText.Name(card.Name, card.NameZh) + "`)（成没成见上一条）");
         }
 
         // ------------------------------------------------------------ 导入卡组弹窗（原版 `ImportDeckPopup`）
 
         /// <summary>原版 `ImportDeckPopup` 的 rect（`资料/说明书/04_界面UI/卡组界面说明书.md` §五）。
-        /// ⚠️ **Confirm 那两个数是改过的**，理由写在下面。</summary>
+        /// 🔴 **2026-10-17（D45/D46/D47）**：三处按原版 prefab 改过，逐条见下面各自的注释。</summary>
         void BuildImportPopup()
         {
             const float wx = 560f, wy = 234f, ww = 800f, wh = 452f;
+            // ---- 🆕 **D47：整屏压暗层 + 点窗外关窗**（原来只有里面那块窗口底板，外面是"没有东西"）----
+            //   判据 = 原版那棵树的**根下就有一颗整屏 `Background`**
+            //   （`python 工具/menu_rect.py bundle_menus_assets_all "Import Deck Popup" --depth 3`：
+            //    `0.50,0.50 → 1919.50,1079.50`，1919×1079 = **整屏**），它挂的是 `EverguildButton`
+            //   ⇒ **点窗外 = 关窗**（`Shell/ImportDeckPopup.cs` 那一份早就照这个做了，同一条判据）。
+            //   ⚠️ 色值**不另挑**：与外壳那份同一个数（`ImportDeckPopup.ShadeColor = (0,0,0,0.396)`）。
+            //   ⚠️ 队列 = `QModal − 1`（**3099**）：压在一切之上、又必须**低于本窗那几件**（3100 起）
+            //     —— 同族先例 `QCurveBg = QSide + 1` 那条「派生档位」。
+            //   ⚠️ 它进 `_modalOnly`（开窗/关窗那一处开关），并且**要有一颗自己的命中矩形**（下面 `Btn_`）
+            //     否则"点窗外"这条行为落不了地（`KeyLive` 里那颗也一并登记）。
+            var shade = Img("imp_shade", CardArt.Solid(), 0f, 0f, ScreenW, ScreenH, QModal - 1);
+            if (shade != null) shade.SetTint(new Color(0f, 0f, 0f, 0.396f));
+
             Img("imp_bg", "40k_popup", wx, wy, ww, wh, QModal);
             _impTitle = Txt("imp_title", "Paste your deck", 610f, 280f, 700f, 60f, 2, Ink, QModalText);
             // 输入框：dump 给的是 [610,370] 700×141
             _impInputBg = Img("imp_input_bg", "40K_dropdown_bg", 610f, 370f, 700f, 141f, QModalRow);
             _impInputTx = Txt("imp_input", "Enter text...", 630f, 370f, 660f, 141f, 2,
                               new Color(1f, 1f, 1f, 0.5f), QModalText);
+            // ---- 🆕 **D46：输入框那行字的对齐 = `Left/Top`（`align 1/256`）**，我们原来传的是居中 ----
+            //   判据（逐份实读 `bundle_menus_assets_all/MonoBehaviour/`，按 `m_text == 'Enter text...'`
+            //   在 `Import Deck Popup` 那棵里认出来那一颗）：`Placeholder` = `HA **1**` · `VA **256**`
+            //   （`256 = 0x100` = TMP 的 **`Top`**）；兄弟 `Text` 同档。
+            //   ⚠️ **本工程 `Label` 两个半边都表达得了**：`SetAlignLeft()` 给 HA=1，`SetVAlign(Top, 框高)`
+            //     给 VA=0x100（档位表 → `Battle/Label.cs` 的 `VAlign`）。
+            //   ⚠️ **顺序是死的**：`SetAlignLeft` 要在「定版面」之前（这里刚 `Txt` 完），而
+            //     `SetVAlign` 排在它**之后** —— 反过来会被 `TextAlignmentOptions.Left` 自带的 `V=Middle` 覆盖。
+            //   ⚠️ `Shell/ImportDeckPopup.cs:172` 那句「原版 `Text`/`Placeholder` 都是 hAlign=Center」
+            //     **是错的**（那份文件不在本批白名单 ⇒ 只在这里订正判据，改由那一批的写手收口）。
+            var impBox = new PxRect(630f, 370f, 630f + 660f, 370f + 141f);
+            if (_impInputTx != null)
+            {
+                _impInputTx.SetAlignLeft();
+                MenuDraw.SetVAlign(_impInputTx, Label.VAlign.Top, impBox);
+            }
             _impErr = Txt("imp_err", "", 593f, 528f, 734f, 35f, 1, new Color(0.95f, 0.45f, 0.4f), QModalText);
-            // ⚠️ Confirm：dump 说 `[354,615] 478×75` —— **x 落在窗口（560..1360）外面**，
-            //    又是「VLG 布局前的模板位」（同 `Clear filters` 那条）⇒ 取**窗口内水平居中** = 721；
-            //    y 取 615 会让按钮**冒出窗口下沿 4px**，改成**贴窗口底** = 686−75 = 611。
+            // ---- 🆕 **D45：`Confirm` 按 VLG 跑完的位置摆**（原来写死 y=611）----
+            //   🔴 **代码里原来那句「y 取 615 会让按钮**冒出窗口下沿**」的判断本身是错的** ——
+            //     615 是 `Buttons` 容器里那颗按钮的**模板位**（VLG 跑之前），跑完在 **569.86..644.86**
+            //     （窗口底 685.93 ⇒ 还差 **41.07** 余量，根本不会溢出）。
+            //   判据（逐字段实读 `bundle_menus_assets_all`）：
+            //     · `Window/Buttons` RT（`RectTransform_2291685908012369840`）= **733.9 × 90** ·
+            //       绝对矩形 593.05..1326.95 × 562.43..652.43；
+            //     · 它挂着 **VerticalLayoutGroup**（`MB 8786932283964688304`）：`m_Padding` 全 **0** ·
+            //       `m_Spacing 22.24` · **`m_ChildAlignment 4`（= `MiddleCenter`）** · `ctrlW/H = 0`；
+            //     · 唯一那颗子件 `Generic UI Button`（**478.343 × 75**）⇒ 跑完中心 = 容器中心
+            //       ⇒ **x 720.83..1199.17**（= 屏心 960 ± 239.17）· **y ≈ 569.93..644.93**
+            //       （施工单给的实测值是 569.86..644.86，**差 0.07** —— 那是绝对矩形链上的取整，
+            //        两个数在断言容差里是同一个；这里照**串行字段算出来的**那个写，注释留痕）。
+            //   ⚠️ 宽度也照原版 478.343（原来是 478）—— 差 0.34 肉眼看不见，但「屏心 ± 半宽」这条
+            //     等式要成立就得是它（720.83 + 478.343/2 = 960.00）。
             // 🆕 A24：原版 `Import Deck Popup/Window/Buttons/Generic UI Button` 也是 `SpriteSwap`
             //   （`m_TargetGraphic` = 自己那层 Image · HL=`40K_button_hover` · P=`40K_button_pressed`，
             //    `WindowButton` 的两张表推得出）
-            Hover("imp_ok", Img("imp_ok", "40K_button", 721f, 611f, 478f, 75f, QModalRow), "40K_button");
-            _impOkTx = Txt("imp_ok_t", "Confirm", 721f, 611f, 478f, 75f, 2, Ink, QModalText);
+            const float okX = 720.83f, okY = 569.93f, okW = 478.343f, okH = 75f;
+            Hover("imp_ok", Img("imp_ok", "40K_button", okX, okY, okW, okH, QModalRow), "40K_button");
+            _impOkTx = Txt("imp_ok_t", "Confirm", okX, okY, okW, okH, 2, Ink, QModalText);
             Img("imp_close", "UI_Button_Round_background", 1317f, 202f, 75f, 75f, QModalRow);
             // 🆕 A24：这颗的 `m_TargetGraphic` 实测 = **子件 `Icon`**（就是这张 `40k_bt_close`），
             //   **不是**按钮自己那个圆底 —— 普查 §二 块 B 写的「常态图 = `UI_Button_Round_background`」
@@ -1647,10 +2446,16 @@ namespace CardPresentation
             //   `Simple (1,1,1,1)` **无 preserveAspect** ⇒ 原版是**拉**进这个矩形的（我们照拉伸画）。
             Hover("imp_close",
                   Img("imp_close_x", "40k_bt_close", 1326.6f, 212.4f, 56.37f, 54.5f, QModalText - 1), "40k_bt_close");
-            Btn_("imp_ok", 721f, 611f, 478f, 75f);
+            // 🔴 **2026-10-17（D45）**：这颗的矩形跟着上面那组常量走（原来写死 `721,611,478,75`）。
+            Btn_("imp_ok", okX, okY, okW, okH);
             Btn_("imp_close", 1317f, 202f, 75f, 75f);
             Btn_("imp_input", 610f, 370f, 700f, 141f);
+            // 🆕 **D47**：整屏那颗「点窗外关窗」的命中区。**排在 `ClickOrder` 最后**（那三个 `imp_*`
+            //   小矩形先吃），而它自己只在 `_importOpen` 时算数（`KeyLive`）。
+            Btn_("imp_shade", 0f, 0f, ScreenW, ScreenH);
             _modalOnly.Add(Lookup("imp_bg") != null ? Lookup("imp_bg").gameObject : null);
+            // 🆕 D47：压暗层也在这张表里（开窗/关窗**只有这一处开关**，见 `OpenImport`/`CloseImport`）。
+            _modalOnly.Add(shade != null ? shade.gameObject : null);
             foreach (var k in new[] { "imp_input_bg", "imp_ok", "imp_close", "imp_close_x" })
             { var q = Lookup(k); _modalOnly.Add(q != null ? q.gameObject : null); }
             // ⚠️ 标签同样要显式收（`Lookup()` 不认 Label —— 同 `info_*` 那条）
@@ -1662,12 +2467,14 @@ namespace CardPresentation
         Label _impInputTx, _impTitle, _impErr, _impOkTx;
         readonly List<GameObject> _modalOnly = new List<GameObject>();
 
-        void BuildNotice()
-        {
-            _notice = Txt("notice", "", 640f, 1004f, 640f, 44f, 2, new Color(0.95f, 0.85f, 0.5f), QText);
-            _storeErr = Txt("store_err", "", 640f, 966f, 640f, 34f, 1, new Color(0.95f, 0.5f, 0.4f), QText);
-            _title = Txt("side_title", "卡组编辑", 0.3f, 160f, 326.9f, 0f, 2, Ink, QText);
-        }
+        // 🔴 **2026-10-17（D7/D10/D35 删件）：`BuildNotice()` 整个删掉了。**
+        //   它原来建三件，**三件原版都没有**（判据 → `对账_卡组编辑部分_差异与待办.md` D7/D9/D10/D35）：
+        //     · `side_title`「卡组编辑」（左栏顶部标题，D7：原版侧栏顶部第一件东西就是页签图标）；
+        //     · `store_err`（底部报错横幅，D10：那是自检造写盘失败时才会亮的一件）；
+        //     · `notice`（底部提示行，D35：`Say(...)` 那句的屏幕落点）。
+        //   ⇒ ⛔ 别「顺手补回来」；`Say()` 那条**消息通道**仍在（`Debug.Log` + `UiLastSay`）。
+        //   ⚠️ `Library.LastError` 也**没有**丢掉出口：`SaveAndSay()` / `TryImport` 会把它念出来
+        //      （`Say(...)` 那句日志、`DeckScene` 的 A398/A547 两条断言读的就是它）。
 
         // ============================================================ 刷新
 
@@ -1715,7 +2522,13 @@ namespace CardPresentation
                 _deckRowName[i].SetText(CardText.Name(def.Name, def.NameZh));
                 int n = (def.Type == "hero" || def.Type == "defence") ? 1 : State.Deck.CountOf(def.Id);
                 _deckRowCount[i].SetText(n.ToString());
-                _deckRowGrad[i].SetTint(RarityTint(def.Rarity));
+                // 🆕 **2026-10-17（附加条）**：行上那**两件**都按 `CardRarityColorsSO` 上色 ——
+                //   原版 `UICardInfoItem.imagesToChangeColorByRarity` 那两颗数组元素**逐颗解出来就是**
+                //   `Rarity Gradient`（= `_deckRowGrad`）与 `Background Border`（= `_deckRowBorder`）。
+                //   ⇒ 原来只给色条上了色、边框没上，**两件一起才对**（判据 → `RarityTint` 的 doc ③）。
+                var rowRarity = RarityTint(def.Rarity);
+                _deckRowGrad[i].SetTint(rowRarity);
+                TintTree(_deckRowBorder[i], rowRarity);      // 九宫格：**整棵树一起**（只染一块会留 8 块白）
             }
 
             SetOn(_emptyWarn, cards && shown.Count == 0);
@@ -1726,7 +2539,15 @@ namespace CardPresentation
             for (int c = 0; c < _curveFill.Count; c++)
             {
                 int n = c < curve.Length ? curve[c] : 0;
+                // 🆕 **2026-10-17（D33）**：最后一格 = **费用 ≥ 8 全部**（原版把超出的夹进最后一格，
+                //   见 `CurveLastBucket` 那段判据）。⚠️ 这一句**必须与 `CurveCostText` 的 `+` 成对**：
+                //   只印 `8+` 却不并计数 ⇒ 那行数字比实际少（静默）。
+                if (c == CurveLastBucket)
+                    for (int j = c + 1; j < curve.Length; j++) n += curve[j];
                 SetQuadWidth(_curveFill[c], Mathf.Clamp01(n / 10f) * CurveBarW);   // 原版按 10 张归一化
+                // 🔴 左列（`Card Cost`）的字**也在这里写**（原来只在建的时候写过一次）——
+                //   两列从此**同一个出处**（`CurveCostText`），`+` 那半边才测得到。
+                if (_curveLabel[c * 2] != null) _curveLabel[c * 2].SetText(CurveCostText(c));
                 _curveLabel[c * 2 + 1].SetText(n.ToString());
             }
         }
@@ -1916,13 +2737,20 @@ namespace CardPresentation
             // 🔴 **2026-10-12（A365）：`Validate()` 必须先跑** —— 它**有副作用**：卡组合法时会把
             //    空名字补成**督军卡名**（原版 `DeckUtility__ValidateDeck.c:70-76`，逐条见
             //    `DeckEditorState.Validate` 的注释）。名字那两件（文本 + 占位提示）在它**之后**取，
-            //    否则这一帧还印着空名字、下一帧才跳过来。下面 `_verdict` / `foot_hl` 用的是**同一个** err
+            //    否则这一帧还印着空名字、下一帧才跳过来。下面 `foot_hl` 用的就是**同一个** err
             //    （一次调用两处用 —— 与 A330 那条「灯亮 ⟺ 放行是同一判据」一致）。
             var err = State.Validate();
 
             _deckNameText.SetText(State.Deck.Name);
             _deckNameHint.gameObject.SetActive(string.IsNullOrEmpty(State.Deck.Name));
-            _title.gameObject.SetActive(!_filtersOpen);
+            // 🔴 **2026-10-17（D34）**：**左对齐那半边的【位置】在这里落** —— `SetAlignLeft()` 只管
+            //   「真折行时每行在块内怎么排」，**移块**的是 `AlignLeftOn(左沿世界 x)`（同 `Battle/Label.cs`
+            //   那条「两个口管两件事」的口径）。⚠️ 必须在 `SetText` **之后**调（它要量 `WorldW`）。
+            //   ⚠️ 每次刷新都要调：`SetText` 会重排、把 x 写回框中心（同 `RefreshFilterTitles` 那条）。
+            _deckNameText.AlignLeftOn(LayoutSpace.FromPixel(NameTxX, 0f).x);
+            _deckNameHint.AlignLeftOn(LayoutSpace.FromPixel(NameTxX, 0f).x);
+            // 🔴 **2026-10-17（D7 删件）**：这里原来还有一句 `_title.gameObject.SetActive(!_filtersOpen);`
+            //   —— 那颗「卡组编辑」标题**原版没有**、已删（判据 → D7）。
 
             // 🆕 2026-10-04（A24）：`Header/Filters` 是 `EverguildToggle`（**不是**按钮悬停那一套）——
             //   `changeSpriteOnValueChange = 1` · `m_IsOn = 0` · `offSprite = 40k_menu_bt` ·
@@ -2000,13 +2828,16 @@ namespace CardPresentation
             _counterTxt.SetText(State.DeckCount + "/" + State.MaxDeckCount);
             // ⚠️ `err` 在**本函数第一句**就算好了（A365 起：`Validate()` 有「补空名字」那个副作用，
             //    名字文本得排它后面）—— ⛔ 别在这里再调一次 `State.Validate()`。
-            _verdict.SetText(err == DeckError.None ? "合法" : DeckRules.Describe(err));
-            _verdict.SetColor(err == DeckError.None ? new Color(0.5f, 0.9f, 0.5f) : new Color(0.95f, 0.6f, 0.4f));
+            // 🔴 **2026-10-17（D35/D10 删件）**：这里原来还有两行 ——
+            //   `_verdict.SetText(...)` / `_verdict.SetColor(...)`（页脚那行「合法/不合法」判词，D35）
+            //   与 `_storeErr.SetText(Library.LastError ?? "")`（底部报错横幅，D10）。
+            //   两件**原版都没有** ⇒ 已删。⚠️ `err` 这个量**仍然要用**（下面 `foot_hl` 那颗灯），别把上面那句删了。
+            //   ⚠️ `Library.LastError` 的出口没丢：`SaveAndSay()` / `TryImport` 会 `Say(...)` 念出来
+            //      （`DeckScene` 的 A398/A547 读的就是那条）。
             // 🔴 **A330（2026-10-11）**：这一句与 `SaveAndSay()` 那道**保存闸**用的是**同一条判据**
             //   （原版 `__UpdateDoneButton.c:24` 与 `__TrySaveDeck.c:80` 是逐参数相同的同一个
             //   `DeckUtility.ValidateDeck(deck, out err, 1, 0)`）⇒ **灯亮 ⟺ Done/ESC 会真的存下去**。
             SetOn(_doneHl, err == DeckError.None);          // 原版 `Done Highlight` 就是这个开关
-            _storeErr.SetText(Library.LastError ?? "");
 
             // 🔴 **2026-09-28 用户拍板：万能卡数字一律恒定 `99`**。
             // 原来这里写的是「卡池里四个稀有度各有几张」—— **语义是错的**：原版这 4 个数字是
@@ -2019,18 +2850,62 @@ namespace CardPresentation
             //   那 4 个数字仍然写 99，因为缺的是**发放源**（`WildcardDisplay` 的库存），不是悬停事件。
             for (int i = 0; i < 4; i++) _wcTxt[i].SetText("99");
 
-            _poolInfo.SetText("卡池 " + State.VisibleCards().Count + " / " + State.PoolCount + " 张");
+            // 🔴 **2026-10-17（A893）**：页头那颗 `hdr_army` 要**跟着这副卡组的阵营换**（判据与出处
+            //   写在 `BuildHeader` 那一行 + `DeckArmyIcon` 的 doc 上）—— 换督军/清督军都会走到这里
+            //   （`TryAddCard` → `MarkDeckDirty()` → 本函数；`ClearWarlord` 那条链同理走 `RefreshAll`）。
+            //   `SetSprite` **同一张图不再设**，所以这里每次刷新调它不花代价。
+            SetSprite(Lookup("hdr_army"), DeckArmyIcon(State));
+
+            // 🔴 **2026-10-17（D9 删件）**：这里原来还有一句 `_poolInfo.SetText("卡池 N / M 张")`
+            //   —— 卡池左上那块**黄色水印**（图 `pool_info_bg` + 字 `pool_info`）**原版没有**、已删
+            //   （它是自检读数的可视化；读数走 `State.VisibleCards()` / `UiPoolCardAt(...)`，不需要画在屏幕上）。
         }
 
         void Say(string s)
         {
             _noticeText = s ?? "";
-            if (_notice != null) _notice.SetText(_noticeText);
-            _noticeUntil = Time.unscaledTime + 2.5f;
-            // 🆕 2026-09-24：**同时打一条日志** —— 这行字以前只画在屏幕上，日志里看不见，
+            // 🆕 2026-09-24：**打一条日志** —— 这行字以前只画在屏幕上，日志里看不见，
             //    于是「点了一下、屏幕上闪了一句」在 `ClickLog` 的「实际触发了什么」那一栏里是**空的**。
+            // 🔴 **2026-10-17（D35 删件）**：**屏幕上那行字（`notice`）已删**（原版侧栏没有它）——
+            //    本函数现在的产物 = 这份 `_noticeText` 状态 + 下面这条日志（自检读 `UiLastSay`）。
+            //    ⛔ 别顺手把 `Debug.Log` 也删了 —— 那就是**静默失败**。
             Debug.Log("[Deck] " + _noticeText);
         }
+
+        /// <summary>自检口：最近一次 <see cref="Say"/> 说了什么（屏幕上的那行字已按 D35 删掉，
+        /// 「说过话没有」只能从这里读）。空串 = 还没说过。</summary>
+        public string UiLastSay { get { return _noticeText; } }
+
+        /// <summary>自检口：某个具名 quad **现在贴的是哪张图**（`null` = 没建 / 没图）。
+        /// 与 `UiFilterCellTex` 同一形状，只是那一份读的是**格子**（不进 `_named` 的那批）。</summary>
+        public string UiQuadTex(string key)
+        {
+            var q = Lookup(key);
+            return q != null && q.Texture != null ? q.Texture.name : null;
+        }
+
+        /// <summary>🆕 **2026-10-17（附加条）**：自检口 —— 第 `i` 行**那两件**现在染的是什么色
+        /// （色条 `Rarity Gradient` + 边框 `Background Border`；原版 `imagesToChangeColorByRarity` 那两颗）。
+        /// `false` = 这一行没建出来。⛔ 期望值不许从这里读回来 —— 判据是 `CardRarityColorsSO.json` 那六个字面量。</summary>
+        public bool UiRowRarityTint(int i, out Color grad, out Color border)
+        {
+            grad = border = Color.white;
+            if (i < 0) return false;
+            bool ok = false;
+            if (i < _deckRowGrad.Count && _deckRowGrad[i] != null) { grad = _deckRowGrad[i].Tint; ok = true; }
+            if (i < _deckRowBorder.Count && _deckRowBorder[i] != null)
+            {
+                var q = _deckRowBorder[i].GetComponentInChildren<ImageQuad>(true);
+                if (q != null) { border = q.Tint; ok = true; }
+            }
+            return ok;
+        }
+
+        /// <summary>自检口：整条 shell 顶栏那几件（D13/D14）。`null` = 没建出来（**那条断言必红**）。</summary>
+        public TopBar.Parts UiTopBar { get { return _topBar; } }
+        /// <summary>自检口：顶栏立绘跟着 `ProfileData.AvatarIndex` 换一次
+        /// （批处理没有帧循环 ⇒ `Update` 不跑，走**与 `Update` 同一个函数**）。</summary>
+        public void UiRefreshTopAvatar() { TopBar.RefreshTopAvatarIfChanged(_topBar, NoteMissingArt); }
 
         // ============================================================ 交互：鼠标
 
@@ -2076,6 +2951,59 @@ namespace CardPresentation
                 return;
             }
 
+            // ---- 🆕 2026-10-17：**两条拖拽链**（原版 `DraggableController<T>` 的两个实例）----
+            //  ⚠️ 位置在这一段是死的：必须排在**重建界面那些早退之前**、又排在下面那串点击派发**之前**
+            //     （拖拽中不许再让点击链吃事件 —— 同 `_dragging` 那一支的形状）。
+            if (_cosmDrag != null && _cosmDrag.Dragging)
+            {
+                _cosmDrag.OnDrag(DragEvent(px, Vector2.zero, false));          // 原版 `OnDrag`：预览贴指针
+                if (mouse.leftButton.wasReleasedThisFrame || !mouse.leftButton.isPressed)
+                    { EndCosmeticDragAt(px, Vector2.zero); return; }           // 原版 `OnEndDrag`：关预览 + 投递
+                return;
+            }
+            if (_cardDrag != null && _cardDrag.Dragging)
+            {
+                _cardDrag.OnDrag(DragEvent(px, Vector2.zero, false));
+                if (mouse.leftButton.wasReleasedThisFrame || !mouse.leftButton.isPressed)
+                    { EndCardDragAt(px, Vector2.zero); return; }
+                return;
+            }
+
+            // ---- 🆕 已经按下的那两种「等一个位移」（原版 = 格子上 `Draggable` 起拖 → relay → `CheckXxxDrag`）----
+            //  判据两跳：① 位移够大（与行拖出同一条 `0.15` 世界单位 ≈ 16.2 设计像素）
+            //            ② `IsScrollDragThreshold` 说这不是滚动。
+            //  ⛔ 松手时的处置**两支不同**：卡背 —— **什么都不做**（原版左键就是什么都不做）；
+            //     卡牌 —— **弹详情窗**（原版左键 = `OnCardClick`，而 uGUI 的 click 是**抬起**那一帧才发）。
+            if (_cosmArmName != null || _cardArmDef != null)
+            {
+                bool held = mouse.leftButton.isPressed && !mouse.leftButton.wasReleasedThisFrame;
+                if (!held)
+                {
+                    Vector2 d0 = px - _armPx;
+                    if (_cardArmDef != null && Mathf.Abs(d0.x) <= ArmPxSlop && Mathf.Abs(d0.y) <= ArmPxSlop)
+                        OpenCardWindow(_cardArmDef);                             // 没怎么动 = 点击（照原版）
+                    _cosmArmName = null; _cardArmDef = null;
+                    return;
+                }
+                Vector2 d = px - _armPx;
+                if (Mathf.Abs(d.x) > ArmPxSlop || Mathf.Abs(d.y) > ArmPxSlop)
+                {
+                    string armedName = _cosmArmName;
+                    CardDef armedDef = _cardArmDef;
+                    Vector2 from = _armPx;
+                    _cosmArmName = null; _cardArmDef = null;
+                    bool started = armedName != null ? BeginCosmeticDragAt(from, d)
+                                                     : BeginCardDragAt(from, d, armedDef);
+                    if (!started)
+                        Debug.Log("[Drag] 没起拖 —— "
+                                  + (IsScrollDragThreshold(d)
+                                     ? ("位移判成**滚动**（与水平轴夹角 " + Vector2.Angle(d, Vector2.right).ToString("F1")
+                                        + "° 落在 (60°,120°) 里；判据 = 原版 `SupportMethods.IsScrollDragThreshold`）")
+                                     : "这一拖本来就不合法（原版这一支弹错误消息，见上一条 `Say`）"));
+                }
+                return;
+            }
+
             if (!downL && !downR) return;
 
             // 🆕 **2026-10-12（A364）：模态消息窗开着 ⇒ 本窗**不吃点击**（点哪儿都不穿透）。
@@ -2086,6 +3014,11 @@ namespace CardPresentation
             //   ⛔ 别在这儿转发到弹窗那两颗钮上 —— 它们归 `PointerLayer` 派发（两处派发 = 迟早不一致）。
             //   🔴 改坏法：删掉这一句 ⇒ `Editor/DeckScene.cs` 的「A364 ★ 弹窗开着时点下面的钮**没人吃**」红。
             if (ModalPopupOpen) return;
+            // 🆕 **2026-10-17（B25①）**：**别处有窗开着**（顶栏那 4 颗钮开出来的那几扇 / 任何 `WindowsManager`
+            //   的窗）⇒ 本窗让位（判据与「为什么」→ 上面 `OtherWindowUp` 那一段长注释）。
+            //   ⚠️ 位置就在 `ModalPopupOpen` 那条闸**旁边**（同一个形状、同一个位置）—— 它高一层：
+            //     模态消息窗由本类自己管，别的窗**本类一概不碰**（它们自己有 `PointerLayer` 派发）。
+            if (OtherWindowUp() != null) return;
 
             // 导入弹窗是**模态** —— 开着的时候只认它（点别处不穿透）
             if (_importOpen) { if (downL) HandleButtons(px); return; }
@@ -2107,12 +3040,15 @@ namespace CardPresentation
 
             if (HandlePoolClick(wp, px, downR)) return;
             if (HandleDeckRowClick(wp, px, downL)) return;
-            // Cosmetics 页的卡背格：**右键装备 / 左键不做事**（原版 `OnCosmeticClick`，见那个方法）
+            // Cosmetics 页的卡背格：**右键装备 / 左键记下起点**（原版 `OnCosmeticClick` 只认右键；
+            //  左键那一下原版**什么都不做**，我们用它当**拖拽那条路**的起点，见 `HandleCosmeticClick`）
             if (HandleCosmeticClick(px, downR)) return;
             if (downL && HandleButtons(px)) return;
         }
 
-        /// <summary>卡池：**左键放大 / 右键加牌**（照原版 `DeckEditingWindow__OnCardClick.c:16,42`）。</summary>
+        /// <summary>卡池：**左键放大 / 右键加牌**（照原版 `DeckEditingWindow__OnCardClick.c:16,42`）。
+        /// 🆕 2026-10-17：左键改成**按下只记起点、抬起才弹放大窗**（uGUI 的 click 本来就是**抬起**那一帧发；
+        /// 而且按下到抬起之间**拖出去 = 加牌**那条路，原版 `CheckCardDrag`）—— 见下面 `_cardArmDef` 那两句。</summary>
         bool HandlePoolClick(Vector3 wp, Vector2 px, bool right)
         {
             if (px.x < PoolX || px.x > PoolX + PoolW) return false;
@@ -2124,7 +3060,12 @@ namespace CardPresentation
                 var def = State.VisibleAt(_poolIndex[i]);
                 if (def == null) return true;
                 if (right) TryAddCard(def);
-                else OpenCardWindow(def);
+                // 🆕 **2026-10-17（卡牌那一支的起点）**：左键按下**不再立刻弹详情窗** ——
+                //   原版「加牌有两条路」（右键点 / **拖拽**），而 uGUI 的 click 是**抬起**那一帧才发
+                //   （`IPointerClickHandler`；本仓既有口径见 `Battle/BattleDriver.cs:9633-9636`）
+                //   ⇒ 我们这里也改成「先记下，抬起时若没怎么动才弹窗」（与卡组行那条拖拽**同一种形状**）。
+                //   ⚠️ 不变的是：**右键那条路仍然是按下就加牌**（它是原版的主力路，别动）。
+                else { _cardArmDef = def; _armPx = px; }
                 return true;
             }
             return false;
@@ -2225,9 +3166,22 @@ namespace CardPresentation
         ///   「接了悬停换图的 key ⊆ 这张表」，漏写就红。</summary>
         static readonly string[] ClickOrder = {
             "hdr_filters", "hdr_clear", "hdr_back", "foot_done",
-            "name_clear", "name_box", "info_share", "info_import",
+            "name_clear", "name_box",
+            // 🔴 **2026-10-17（D35 删件）**：这里原来还有 `"info_share", "info_import",` 两项 ——
+            //   那两颗钮**原版没有**、连登记一起删（两个 key 在本文件已无任何生产写入点）。
             "imp_input", "imp_ok", "imp_close",
+            // 🆕 **2026-10-17（D47）**：整屏那颗压暗层的命中区**排在最后** —— 它面积最大，
+            //   排前面会把窗口里那三颗全吃掉（`TopKeyAt` 取的是**第一个**命中的）。
             "tab_0", "tab_1", "tab_2",
+            // 🔴 **2026-10-17（F2 · 修 D47 漏登记）**：上面那句注释写着「压暗层排在最后」，而**本表原来
+            //   没有它**（12 项、末项是 `tab_2`）⇒ `TopKeyAt((200,900))` 一个都不命中 ⇒ `HandleButtons`
+            //   走 `default: return false` ⇒ **点窗外那一下既没被吃掉、也不关窗**（`ImportOpen` 仍 true）。
+            //   判据：`Btn_("imp_shade",…)`（`BuildImportPopup` 里那颗整屏压暗层）· `case "imp_shade":
+            //   CloseImport()`（`HandleButtons`）· `KeyLive` 两条分支**都建了** ⇒ 只是**没登记**。
+            //   ⚠️ **必须在最后**：窗口里那三颗（`imp_input` / `imp_ok` / `imp_close`）先吃；
+            //   `KeyLive` 保证弹窗**关着**时它恒不命中 ⇒ 不会影响别的页签（判据 → `Editor/DeckScene.cs`
+            //   的 D47 那一节：`ate && !_rt.ImportOpen`）。
+            "imp_shade",
         };
 
         /// <summary>这一点上**按 `ClickOrder` 第一个吃到它的 key**（没有 = `null`）—— 点击与悬停都走它。</summary>
@@ -2279,11 +3233,18 @@ namespace CardPresentation
                 case "foot_done": SaveAndSay(); return true;
                 case "name_box": BeginNameEdit(); return true;
                 case "name_clear": ClearDeckName(); return true;
-                case "info_share": ShareDeckString(); return true;
-                case "info_import": OpenImport(); return true;
+                // 🔴 **2026-10-17（D35 删件）**：这里原来还有
+                //   `case "info_share": ShareDeckString();` 与 `case "info_import": OpenImport();`
+                //   —— 那两颗圆钮已删（原版这扇窗里没有它们）⇒ **它们的 key 也到不了这里**。
+                //   ⚠️ `ShareDeckString()` 因此暂时**没有生产入口**（归调度台，见它自己的 doc）；
+                //     `OpenImport()` 仍有自检口 `UiOpenImport()`。
                 case "imp_input": _nameEdit = _importText ?? ""; _editKind = 3; RefreshImportText(); return true;
                 case "imp_ok": TryImport(); return true;
                 case "imp_close": CloseImport(); return true;
+                // 🆕 **2026-10-17（D47）**：整屏压暗层 —— 原版那颗根下的 `Background` 挂的是
+                //   `EverguildButton` ⇒ **点窗外 = 关窗**（判据 → `BuildImportPopup` 里那段）。
+                //   ⚠️ 它**排在 `ClickOrder` 最后**：窗口里那三颗先吃（面积大的不许抢）。
+                case "imp_shade": CloseImport(); return true;
                 case "tab_0": SetTab(0); return true;
                 case "tab_1": SetTab(1); return true;
                 case "tab_2": SetTab(2); return true;
@@ -2482,6 +3443,52 @@ namespace CardPresentation
 
         /// <summary>模态消息窗此刻**开着**吗（本类所有指针动作的第一道闸，见 `HandlePointer`）。</summary>
         public bool ModalPopupOpen { get { return _popup != null && _popup.gameObject.activeSelf; } }
+        // ============================================================ 🆕 B25①：顶栏那几扇窗开着时，本窗不吃输入
+        //
+        // 🔴 **为什么需要它**：2026-10-17（B25）把顶栏那 4 颗钮**接上了点击**（接线在共用件 `TopBar.Build`）
+        //    ⇒ 本场景里会**真的开出主菜单那一层的窗**（设置 / 信箱 / 档案）。而本类
+        //    **故意不建指针层**、指针是**自己按区域派发**的（见 `Build()` 末尾那三条）—— 于是那些窗开着时：
+        //      · **点击会穿透**：窗底下正好是卡组行 / 卡池 ⇒ 一次右键能从窗缝里**往卡组加一张牌**；
+        //      · **ESC 会被两家同时吃**：`PointerLayer.KeyCancel` 关掉那扇窗（**这一跳是对的**），
+        //        而本类 `HandleEscape` 同一帧还会 `SaveAndSay()` ⇒ **存盘 + 离场**（原版那一刻 ESC 只打给
+        //        最上面那扇窗，`WindowsManager__Update.c` 那一条链，轮不到 `DeckEditingWindow`）。
+        //    ⇒ 所以本类加一道闸：**别处有窗开着 ⇒ 本窗的指针与 ESC 都让位**。
+        //
+        // 🔴 **闸只加在【生产输入路】上**（`HandlePointer` / `HandleEscape` —— 它们只从 `Update` 进）：
+        //    ⛔ **`UiClickPx` / `EscPressed()` 这两个自检直调口【不加】** —— 同 `UiPressDone` 那条先例
+        //    （「它故意不做模态拦截，那正是用途」）：那两个口是「直接驱动状态」用的，自检要的正是
+        //    「窗挂着的时候这个动作本身是什么样」；加了上去会把既有的一整片断言改成另一个语义。
+        //
+        // ⚠️ **本类那扇模态消息窗【不算】** —— 它有**自己的两道闸**（`ModalPopupOpen` 早退 + `EscPressed()` ③
+        //    那一级转调 `_popup.ESCPressed()`），算进来的话 ③ 那一级就永远走不到了（A502 那一片会红）。
+        //
+        // ⚠️ **判据 `TopWindow`**（= `WindowsManager.currentWindow`，壳那边唯一那份「谁在最上面」的记账）·
+        //    `IsOpen()` = 原版 `GameWindow.IsOpen()`（虚槽 `0x1f8`，`*(int*)(this+0x68) == 1`）。
+        //
+        // ⚠️ **上一帧那一份（`_winShieldPrev`）是给 ESC 用的**：`PointerLayer` 的 `Update` 排在
+        //    本类**之前**（`[DefaultExecutionOrder(-50)]`）⇒ 按 ESC 那一帧它**已经把窗关掉了**，
+        //    只问「此刻还开着吗」会得到 false ⇒ 本类照样存盘离场（正是要防的那件事）。
+        //    ⇒ 记一份「上一帧末有没有窗开着」，两道闸读到它就知道「这一下 ESC 刚被那扇窗吃过」。
+
+        /// <summary>上一帧末「别处有窗开着」的快照（见上面那段：给 ESC 用）。⚠️ 批处理下 `Update` 不跑 ⇒ 恒 false。</summary>
+        bool _winShieldPrev;
+
+        /// <summary>= 「别处（不是本类那扇模态窗）有一扇窗正开着」→ 返回它，否则 `null`。
+        /// 🔴 **唯一出处**：`HandlePointer` 与 `HandleEscape` 两道闸、以及自检口 `UiWindowShield` 都读它。</summary>
+        GameWindow OtherWindowUp()
+        {
+            var wm = WindowsManager.Instance;
+            var w = wm != null ? wm.TopWindow : null;          // Unity 的假 null 也会走这儿 ⇒ 下面那句判得住
+            if (w == null || !w.IsOpen()) return null;
+            if (_popup != null && ReferenceEquals(w, _popup)) return null;   // 本类那扇模态窗归它自己那两道闸
+            return w;
+        }
+
+        /// <summary>自检口：这一刻本窗的指针/ESC**是不是该让位**（= 上面那道闸读的同一个谓词）。
+        /// ⚠️ 批处理里驱动不了 `HandlePointer`（没有鼠标）/ `HandleEscape`（没有键盘）⇒ 自检只能问这个谓词
+        /// + 走一遍「开窗 ⇒ 真 ⇒ 关窗 ⇒ 假」的循环；**「谁在读它」由代码本身保证**（两道闸就那两行）。</summary>
+        public bool UiWindowShield { get { return OtherWindowUp() != null || _winShieldPrev; } }
+
 
         /// <summary>此刻那扇模态窗（自检读它；没开过 / 已关 = null）。</summary>
         public PopUpGameWindow ModalPopup { get { return ModalPopupOpen ? _popup : null; } }
@@ -2570,8 +3577,14 @@ namespace CardPresentation
 
         /// <summary>分享 = **把卡组串写进系统剪贴板**（原版 `DeckInfoPopup__ShareDeck.c:16`
         /// 就一句 `GUIUtility.systemCopyBuffer = MakeDeckString()`）。
-        /// ⚠️ 原版**只有写、没有读**（`get_systemCopyBuffer` 全库 0 命中）⇒ 我们也不做「一键从剪贴板导入」。</summary>
-        void ShareDeckString()
+        /// ⚠️ 原版**只有写、没有读**（`get_systemCopyBuffer` 全库 0 命中）⇒ 我们也不做「一键从剪贴板导入」。
+        /// <para>🔴 **2026-10-17（D35 删件后）：本方法暂时【没有生产入口】**。它原来挂在侧栏那颗
+        /// `info_import` / `info_share` 圆钮上，而那两颗钮**原版这扇窗里没有**、已删 ⇒ 今天只有自检能调。
+        /// **这不是「不做」**（铁律 11）：原版这个动作的家在 **`DeckInfoPopup`**
+        /// （`decomp_full/DeckInfoPopup__ShareDeck.c`，卡组线那扇 Info 弹窗的 `Share` 圆钮）——
+        /// 落点是 `As/CardPresentation/Shell/DeckInfoPopup.cs`，**不在本批白名单** ⇒ 归调度台另开一笔。
+        /// ⛔ 别把侧栏那两颗钮加回来当「权宜入口」。</para></summary>
+        public void ShareDeckString()
         {
             var s = DeckLibrary.ExportString(State.Deck);
             GUIUtility.systemCopyBuffer = s;
@@ -2581,8 +3594,18 @@ namespace CardPresentation
         void OpenImport()
         {
             _importOpen = true; _importText = ""; _importError = "";
-            RefreshImportText();
+            // 🔴 **2026-10-17（F2 · 修 D46 的调用时机）**：**先激活、再刷文本** ——
+            //   `RefreshImportText()` 末句是 `AlignLeftOn(630)`，它按 `WorldW`（TMP 的 `textBounds`）摆位，
+            //   而 **TMP 在对象没激活时量不出尺寸**（`CLAUDE.md` §三 那条坑：未激活时 `textBounds` 是
+            //   天文数字 —— `Battle/Label.cs` 的 `SetWrapWidth` 头把这条判据写全了）。
+            //   原来这两句是**反的**（先 `RefreshImportText()` 再 `SetActive(true)`）⇒ 未激活那一刻量到的
+            //   垃圾宽度被冻在 `_tmpW` 里，之后**同一串字**再 `SetText` 也救不回来（`Label.SetText` 首句
+            //   `if (text == _text) return;` ⇒ 早退、不重建 mesh）—— 实测 `DeckScene` 报 `imp_input`
+            //   宽 **4832.6px**（= 44.75 世界单位，而框只有 660 宽、文案 12 个字符）。
+            //   ⚠️ 与 `RefreshImportText` 里那句 `ForceRelayout` **成对**：那句是兜底（本方法之外还会被
+            //   `TryImport` 失败 / 进编辑态那两处调到），这一句把**开窗那一拍**的顺序摆正。
             foreach (var go in _modalOnly) if (go != null) go.SetActive(true);
+            RefreshImportText();
             Say("把卡组串粘进输入框（Ctrl+V），再点 Confirm");
         }
 
@@ -2655,6 +3678,24 @@ namespace CardPresentation
             _impInputTx.SetText(empty ? "Enter text..." : _importText);
             _impInputTx.SetColor(empty ? new Color(1f, 1f, 1f, 0.5f) : Ink);
             if (_impErr != null) _impErr.SetText(_importError ?? "");
+            // 🔴 **2026-10-17（D46）**：输入框那行字**左对齐的【位置】在这里落**（`SetAlignLeft()` 只管
+            //   逐行、移块靠 `AlignLeftOn`；必须在 `SetText` 之后 —— 它要量 `WorldW`）。
+            //   左沿 = 框左内边 **630**（原版 `Input Field/Text Area` 的内衬；判据见 `AlignLeftOn` 那段）。
+            // 🔴 **2026-10-17（F2）在此补一刀 `ForceRelayout()`**：`AlignLeftOn` 只 `RefreshBounds()`
+            //   （重读 `_tmp.textBounds`、**不重建 mesh**），而 `SetText` 对**同一串字**是早退
+            //   （`Label.SetText` 首句 `if (text == _text) return;`）⇒ **未激活那一刻量到的垃圾宽度会一直冻着**
+            //   （实测 `DeckScene` 报 `imp_input` 宽 = **4832.6px**；`HasMeasuredWidth` 那道哨兵是
+            //   **≤100 世界单位（10800px）**，挡不住 44.75 这种「像真的」的垃圾 —— 于是那行字**真的**会被
+            //   摆到框右边 ~2400px 处）。`ForceRelayout()` = `ForceMeshUpdate()` + `RefreshBounds()`
+            //   ⇒ 把**当前**（已激活时）的版面重量一次。
+            //   ⚠️ **只在已激活时推**：未激活的 TMP 上跑 `ForceMeshUpdate` 会造出「字模有了、渲染网格没有」
+            //   的半成品状态（判据 → `Battle/Label.cs` 的 `SetWrapWidth` 头那 ①② 两条，A266）
+            //   ⇒ 加一道 `activeInHierarchy` 闸（`OpenImport` 已经先激活再调本函数 ⇒ 正常路径恒为真）。
+            if (_impInputTx != null)
+            {
+                if (_impInputTx.gameObject.activeInHierarchy) _impInputTx.ForceRelayout();
+                _impInputTx.AlignLeftOn(LayoutSpace.FromPixel(630f, 0f).x);
+            }
         }
 
         /// <summary>Deck info 页签开着吗 —— **`_infoOnly` 那批件的显隐判据（唯一出处）**。
@@ -2688,9 +3729,10 @@ namespace CardPresentation
         {
             get
             {
-                int rows = Mathf.Max(1, Mathf.CeilToInt(State.VisibleCards().Count / (float)PoolCols));
+                var P = Pool;                      // 🆕 D24：档位由开关决定（与 `RefreshPool` 同一条式子）
+                int rows = Mathf.Max(1, Mathf.CeilToInt(State.VisibleCards().Count / (float)P.Cols));
                 // 与 `RefreshPool` 里那条**同一条式子**（原来两处各写一遍、还差一个 −16 的拍脑袋项）
-                return Mathf.Max(0f, rows * PoolRowPitch - PoolH);
+                return Mathf.Max(0f, rows * P.CellH - PoolH);
             }
         }
         public float MaxDeckScrollPx { get { return Mathf.Max(0f, DeckEntries().Count * RowPitch - ListH); } }
@@ -2719,9 +3761,8 @@ namespace CardPresentation
         public string CosmoFilterArmy { get { return _cosmoFilter.Faction; } }
         /// <summary>卡背页当前的 `Owned only` 开关（原版出厂 = 开，所以这里出厂也是 true）。</summary>
         public bool CosmoFilterOwned { get { return _cosmoFilter.Owned; } }
-        /// <summary>按当前筛选**会铺出来几张卡背**（判据走 `CardbackTable` 那一份，别在自检里另算）。</summary>
-        public int UiCosmoShownCount
-        { get { return CardbackTable.NamesFor(_cosmoFilter.Faction, CardArt.CosmeticNames()).Length; } }
+        /// <summary>按当前筛选**会铺出来几张卡背**（判据走 `CosmeticList()` 那一份，别在自检里另算）。</summary>
+        public int UiCosmoShownCount { get { return CosmeticList().Length; } }
         /// <summary>自检用：走一遍抽屉里的点击（`$fac:X` / `$owned`）。</summary>
         public void UiCosmoFilterRow(string key) { ApplyCosmoFilter(key); }
         public void UiSetTab(int t) { SetTab(t); }
@@ -2813,7 +3854,8 @@ namespace CardPresentation
         }
 
         /// <summary>卡池第 `i` 格的**卡位**矩形（自检比版面用）。
-        /// ⚠️ 给的是**卡位**（262.5×384，原版值），**不是卡本身** —— 卡缩到 `PoolCardScale`，
+        /// ⚠️ 给的是**卡位**（桌面 262.5×384 / 小屏 393.75×576 —— 由开关决定，见 `Pool`），
+        /// **不是卡本身** —— 卡缩到 `P.CardScale`，
         /// 那个由 `CardView` 的 `localScale` 管（自检另有 `CardViewScaleOf` 量它）。</summary>
         public bool UiPoolCellRect(int i, out float cx, out float cy, out float w, out float h)
         {
@@ -2821,7 +3863,8 @@ namespace CardPresentation
             var go = Root != null ? Root.Find("pool_" + i) : null;
             if (go == null || !go.gameObject.activeSelf) return false;
             var p = PxOfWorld(go.localPosition);
-            cx = p.x; cy = p.y; w = CellW; h = CellH;
+            var P = Pool;
+            cx = p.x; cy = p.y; w = P.CellW; h = P.CellH;
             return true;
         }
 
@@ -2896,6 +3939,16 @@ namespace CardPresentation
             foreach (var b in _btns)
                 if (b.Key == key) { x = b.X; y = b.Y; w = b.W; h = b.H; return true; }
             x = y = w = h = 0f; return false;
+        }
+
+        /// <summary>🆕 **2026-10-17（D35 删件）**：自检口 —— 某个 key **还登记在 `_btns` 里吗**。
+        /// 专门给「**它不在了**」那类反向断言用（节点删了、矩形却还留着 = 「看不见却能点」那一族缺陷）。
+        /// ⚠️ 与 `UiBtnRect` 是**两条判据**：`UiBtnRect` 答「矩形是什么」，本条答「有没有这一条」——
+        /// 一条「X=0,Y=0,W=0,H=0 的空矩形」会骗过前者。</summary>
+        public bool UiBtnRegistered(string key)
+        {
+            foreach (var b in _btns) if (b.Key == key) return true;
+            return false;
         }
 
         /// <summary>具名图的 px 中心与尺寸（自检比版面用）。
@@ -3106,7 +4159,7 @@ namespace CardPresentation
         {
             get
             {
-                int rows = Mathf.Max(1, Mathf.CeilToInt(CardArt.CosmeticNames().Length / (float)CosmoCols));
+                int rows = Mathf.Max(1, Mathf.CeilToInt(CosmeticList().Length / (float)CosmoCols));
                 // 与 `RefreshCosmetics` 里那条**同一条式子**
                 return Mathf.Max(0f, rows * CosmoCellH - CosmoH);
             }
@@ -3129,8 +4182,144 @@ namespace CardPresentation
         /// <summary>走**鼠标那条路**点一下卡背格（`right` = 右键）。自检用它验命中矩形，
         /// 而不是直接调 `EquipCardback`（那验不到「点在哪儿」）。</summary>
         public bool UiClickCosmetic(float px, float py, bool right) { return HandleCosmeticClick(new Vector2(px, py), right); }
+
+        // ---- 自检入口：拖拽（2026-10-17）----
+        // ⚠️ 与鼠标那条路**共用同一批函数**（`BeginCosmeticDragAt` / `OnDrag` / `EndCosmeticDragAt`）——
+        //    批处理没有真鼠标（`Mouse.current == null` ⇒ `HandlePointer` 整条不跑），这是唯一能验到的路。
+        /// <summary>原版 `SupportMethods.IsScrollDragThreshold`（自检直接用**原版那个函数**，
+        /// 不在自检里另写一遍判据）。</summary>
+        public bool UiIsScrollDragThreshold(float dx, float dy) { return IsScrollDragThreshold(new Vector2(dx, dy)); }
+
+        /// <summary>第 `idx` 张卡背那一格的**中心**（原版 px）—— 用与铺格同一条式子反算，
+        /// 自检别自己拍坐标。</summary>
+        public bool UiCosmeticCellCenter(int idx, out float cx, out float cy)
+        {
+            cx = cy = 0f;
+            int n = CosmeticList().Length;
+            if (idx < 0 || idx >= n) return false;
+            int r = idx / CosmoCols, c = idx % CosmoCols;
+            float firstRow = Mathf.FloorToInt(_cosmScroll / CosmoCellH);      // 与 `RefreshCosmetics` 同一条
+            if (r < firstRow || r >= firstRow + CosmoRows) return false;      // 不在这一屏里
+            float off = _cosmScroll - firstRow * CosmoCellH;
+            cx = CosmoX + CosmoPadX + c * CosmoCellW + CosmoCellW * 0.5f;
+            cy = CosmoY + (r - firstRow) * CosmoCellH - off + CosmoCellH * 0.5f;
+            return true;
+        }
+
+        /// <summary>🔴 **合成坐标走一遍卡背拖拽那条路**（按下 → 移动 → 松手），三步都进**鼠标那条路同一个函数**。
+        /// 返回「松手时真的投出去一次了吗」。`fromPx` = 按下的那一点（卡背格中心）· `toPx` = 松手那一点。⚠️ 想验中间那两拍（预览显没显、跟没跟手）用下面那三个拆开的入口。</summary>
+        public bool UiDragCosmetic(float fromX, float fromY, float toX, float toY)
+        {
+            if (!UiCosmeticDragBegin(fromX, fromY, toX, toY)) return false;
+            UiCosmeticDragMove(toX, toY);
+            return UiCosmeticDragEnd(toX, toY);
+        }
+
+        /// <summary>拆开的第一拍：按下那一点，并按「这一点 → `toPx`」的位移判起不起拖。
+        /// `false` = 没起拖（位移被判成滚动 / 那一点上没有卡背）。</summary>
+        public bool UiCosmeticDragBegin(float fromX, float fromY, float toX, float toY)
+        {
+            _cosmArmName = null; _cardArmDef = null; _dragging = false;
+            var from = new Vector2(fromX, fromY);
+            _cosmArmName = CosmeticNameAt(from);
+            if (_cosmArmName == null) return false;
+            bool started = BeginCosmeticDragAt(from, new Vector2(toX, toY) - from);
+            if (!started) _cosmArmName = null;          // 没起拖 ⇒ 那份「按下了」的登记要清（同鼠标那条路）
+            return started;
+        }
+
+        /// <summary>第二拍：指针挪到 `toPx`（原版 `DraggableController.OnDrag` —— 预览贴上去）。</summary>
+        public void UiCosmeticDragMove(float toX, float toY)
+        {
+            if (_cosmDrag == null || !_cosmDrag.Dragging) return;
+            _cosmDrag.OnDrag(DragEvent(new Vector2(toX, toY), Vector2.zero, false));
+        }
+
+        /// <summary>第三拍：在 `toPx` 松手（原版 `OnEndDrag` —— 关预览 + 投给指针下的 `IDropHandler&lt;T&gt;`）。</summary>
+        public bool UiCosmeticDragEnd(float toX, float toY)
+        {
+            return EndCosmeticDragAt(new Vector2(toX, toY), Vector2.zero);
+        }
+
+        /// <summary>预览那一棵的根（自检拿它量渲染出来的矩形 —— `DeckScene.UnionQuadsPx`）。</summary>
+        public GameObject UiCosmeticPreviewGo { get { return _cosmPreviewGo; } }
+        /// <summary>拖影卡行那一棵的根（同上）。</summary>
+        public GameObject UiCardGhostGo { get { return _cardGhostGo; } }
+
+        /// <summary>预览件现在显示着没有（原版 `Collection Cosmetic.m_IsActive`；起拖那一拍才 true）。</summary>
+        public bool UiCosmeticPreviewActive { get { return _cosmPreviewGo != null && _cosmPreviewGo.activeSelf; } }
+
+        /// <summary>预览件中心在**设计 px** 的哪里（拿来验「跟着指针走」）。取不到返回 false。</summary>
+        public bool UiCosmeticPreviewCenter(out float cx, out float cy)
+        {
+            cx = cy = 0f;
+            if (_cosmPreview == null) return false;
+            var p = ToPx(_cosmPreview.transform.position);
+            cx = p.x; cy = p.y;
+            return true;
+        }
+
+        /// <summary>预览件画出来的**宽高（设计 px）**—— = 布局框 250×405 × `m_LocalScale 0.6` = **150×243**。
+        /// ⚠️ 量的是 `ImageQuad` 自己那两格（`WorldW` / `WorldH`），不是 `localScale`（本工程没有继承缩放）。</summary>
+        public bool UiCosmeticPreviewSize(out float w, out float h)
+        {
+            w = h = 0f;
+            var q = _cosmPreviewGo != null ? _cosmPreviewGo.GetComponentInChildren<ImageQuad>(true) : null;
+            if (q == null) return false;
+            w = q.WorldW * PxPerUnit; h = q.WorldH * PxPerUnit;
+            return true;
+        }
+
+        /// <summary>原版那两个节点/子件的**原版矩形**（判据写死在 `DeckRuntime` 那一段的注释里）——
+        /// 自检拿它与 prefab 实读的数对账。`[0]` = 节点 100×100 左上、`[1]` = 预览布局框左上。</summary>
+        public Vector4 DragNodeRectPx { get { return new Vector4(DragNodeX, DragNodeY, DragNodeW, DragNodeH); } }
+        public Vector4 PreviewLayoutRectPx { get { return new Vector4(PrevX1, PrevY1, PrevX2 - PrevX1, PrevY2 - PrevY1); } }
+        /// <summary>`Sidebar/Deck Details` 那一栏（= 原版挂着 `IDropHandler<…>` 的 `DeckEditingPanel` 那一件）。</summary>
+        public Vector4 DropFieldRectPx { get { return new Vector4(DropFieldX, DropFieldY, DropFieldW, DropFieldH); } }
+        /// <summary>起拖音 cue 名（原版那一格 `AudioCue` 的名字，反查出来的）。</summary>
+        public string DragCueName { get { return DragCue; } }
+        /// <summary>卡背那一支当前在不在拖（= 原版 `dragging` 那个私有布尔）。</summary>
+        public bool UiCosmeticDragging { get { return _cosmDrag != null && _cosmDrag.Dragging; } }
+        /// <summary>🔴 **合成坐标走一遍卡牌拖拽那条路**（按下 → 移动 → 松手）。返回「松手时投出去一次了吗」。
+        /// `view` = 卡池第几屏位（起点坐标由 `UiPoolCellRect` 反算 —— 与 `HandlePoolClick` 命中同一张卡）。
+        /// ⚠️ 想验中间那两拍（拖影显没显、跟没跟手）用下面那三个拆开的入口。</summary>
+        public bool UiDragCard(int view, float toX, float toY)
+        {
+            float sx, sy, sw, sh;
+            if (!UiPoolCellRect(view, out sx, out sy, out sw, out sh)) return false;
+            if (!UiCardDragBeginAt(view, toX - sx, toY - sy)) return false;
+            UiCardDragMove(toX, toY);
+            return UiCardDragEnd(toX, toY);
+        }
+
+        /// <summary>卡牌那一支的第一拍：按下卡池第 `view` 屏位那一点，`dx,dy` = 这一次拖的位移
+        /// （过不了 `IsScrollDragThreshold` 就不起拖 —— 与卡背那一支同一个函数、同一条闸）。</summary>
+        public bool UiCardDragBeginAt(int view, float dx, float dy)
+        {
+            _cosmArmName = null; _cardArmDef = null; _dragging = false;
+            var def = UiPoolCardAt(view);
+            if (def == null) return false;
+            float sx, sy, sw, sh;
+            if (!UiPoolCellRect(view, out sx, out sy, out sw, out sh)) return false;
+            return BeginCardDragAt(new Vector2(sx, sy), new Vector2(dx, dy), def);
+        }
+        /// <summary>第二拍：指针挪到 `toPx`（原版 `OnDrag` —— 拖影贴上去）。</summary>
+        public void UiCardDragMove(float toX, float toY)
+        {
+            if (_cardDrag == null || !_cardDrag.Dragging) return;
+            _cardDrag.OnDrag(DragEvent(new Vector2(toX, toY), Vector2.zero, false));
+        }
+        /// <summary>第三拍：在 `toPx` 松手（原版 `OnEndDrag`）。</summary>
+        public bool UiCardDragEnd(float toX, float toY)
+        {
+            return EndCardDragAt(new Vector2(toX, toY), Vector2.zero);
+        }
+        /// <summary>拖影卡行现在显示着没有（原版 `Deck Selector Card Info button.m_IsActive`）。</summary>
+        public bool UiCardGhostActive { get { return _cardGhostGo != null && _cardGhostGo.activeSelf; } }
         /// <summary>Deck info 页签那两颗动作钮显示出来了没有。</summary>
-        public bool UiInfoActionsVisible { get { var q = Lookup("info_import"); return q != null && q.gameObject.activeSelf; } }
+        // 🔴 **2026-10-17（D35 删件）**：这里原来还有 `UiInfoActionsVisible`（读 `Lookup("info_import")`）
+        //   —— 那两颗钮删了，这个读数**恒为 false** ⇒ 一起删（留着一个恒假的读数是误导）。
+        //   自检要断「Deck info 的东西在 Cards 页不露」走 `UiInfoOnlyActive`（费用曲线那一批仍在）。
         public bool UiModalVisible { get { var q = Lookup("imp_bg"); return q != null && q.gameObject.activeSelf; } }
 
         /// <summary>🔴 **「该藏的东西藏住了吗」的通用守卫**（图 + 文字都算）。
@@ -3418,6 +4607,10 @@ namespace CardPresentation
         {
             var kb = Keyboard.current;
             if (kb == null || !kb.escapeKey.wasPressedThisFrame) return;
+            // 🆕 **2026-10-17（B25①）**：ESC 归**最上面那扇窗**（`PointerLayer.KeyCancel` 已经先吃过一次 ——
+            //   它的 `Update` 排在本类之前）⇒ 本类**不许**再存盘离场（原版那一刻轮不到 `DeckEditingWindow`）。
+            //   ⚠️ `_winShieldPrev` 就是为这一句记的：这一帧窗**已经被关掉了**，只问「此刻开着吗」会得到 false。
+            if (UiWindowShield) return;
             EscPressed();
         }
 
@@ -3617,7 +4810,19 @@ namespace CardPresentation
             if (!_filtersOpen) return;            // 收起途中：留着现成那批一起滑走，不重建
             ClearFilterCells();
 
-            FilterPanelModel.Build(State, FltW, _fltCells);
+            // 🔴 **2026-10-17（D36–D38）**：三个格距/内缩**按窗显式传** —— 模型里那三个缺省常量
+            //   （`ArmySpX` 7 / `CostSpX` 15 / `TypePadL` 15）**是收藏窗那一套**（已对上），
+            //   卡组编辑这一棵原版**本来就不一样**（铁律 5·c：两棵 prefab 的序列化值不同）：
+            //     · `Rarity Filter/Content` 的 `m_Spacing.x` = **5** ⇒ 步进 **105**（收藏窗 7 ⇒ 107）
+            //     · `Cost Filter/Content`   的 `m_Spacing.x` = **7** ⇒ 步进 **72**（收藏窗 15 ⇒ 80）
+            //     · `Type Filter/Content`   的 HLG `m_Padding.Left` = **40**（收藏窗 15）
+            //   判据三条（全包逐实例枚举：`spacing.x=5` 的 9 颗里只有 1 颗是卡组编辑、`=7` 的 3 颗里同样只有 1 颗、
+            //   `pad.Left=40` 的 3 颗里也只有 1 颗）→ `资料/普查产出_1017/对账_卡组编辑部分_差异与待办.md` D36–D38。
+            //   ⛔ **别去改缺省常量** —— 改了会把收藏窗改歪（模型侧已按「新增专用常量 + 可选形参」落地）。
+            FilterPanelModel.Build(State, FltW, _fltCells,
+                                   raritySpX: FilterPanelModel.RaritySpXDeckEdit,
+                                   costSpX: FilterPanelModel.CostSpXDeckEdit,
+                                   typePadL: FilterPanelModel.TypePadLDeckEdit);
             var band = FltBand;                    // 带口在这一趟里恒定（原版 `Viewport`；见 `FltBand`）
             foreach (var c in _fltCells)
             {
@@ -3795,7 +5000,9 @@ namespace CardPresentation
         // ============================================================ 卡背页那套抽屉（`Cosmetic FIlter`）
 
         /// <summary>画卡背页那个抽屉。内容只有两行（Army 13 格 + Owned 开关），
-        /// 全高 `15 + 550 + 12.81 + 50 ≈ 628` &lt; 抽屉 924.06 ⇒ **不用滚动**（原版那棵树里也没有 Scroll View）。
+        /// 全高 `15 + **630** + 12.81 + 50 ≈ 707.8` &lt; 抽屉 924.06 ⇒ **不用滚动**（原版那棵树里也没有 Scroll View）。
+        /// 🔴 **2026-10-17（G2/D39）**：这里原来写 `550`/`628` —— 那是「Army 行 `m_Spacing.y = 0`」的算法；
+        /// **本窗**（卡组编辑）原版是 **20** ⇒ Army 行 **630**、全高 **707.8**（判据 → `FilterPanelModel` 的 Cosmo 那段）。
         /// 几何全在 `FilterPanelModel`（与卡牌那套同一份尺子）。</summary>
         void RefreshCosmoFilters()
         {
@@ -3826,8 +5033,19 @@ namespace CardPresentation
                 //   （`auto[26~32]`，判据与出处 → `FilterPanelModel.CosmoOwnedFontAutoMinDeckEdit`）；
                 //   **收藏窗**那颗才是 `auto[18~32]`。按 A77⑩「按窗分参数」**只在本调用点传**
                 //   —— ⛔ 别去动共用常量 `ToggleFontAutoMin`（改它会把收藏窗一起改歪）。
+                // 🔴 **2026-10-17（G2 · D39/D40/D41/D42）**：本窗那棵树（`Deck Editing Menu > Content Area >
+                //   Cosmetic Display > Cosmetic FIlter`）与收藏窗那份**又差三处**（铁律 5·c）：
+                //   Army 行 `m_Spacing.y = 20`（⇒ 行高 630、`Owned` 行顶 813.81）·
+                //   `Owned Toggle/Image` `sd(80,0)` · `Owned Toggle/Label` `sd(230,0)`（⇒ 25..255）。
+                //   判据与「唯一的那一颗」三条 → `FilterPanelModel` 的 Cosmo 那段。
+                //   ⛔ **只在【本调用点】传** —— 缺省那几个 = 收藏窗那份，动它会把收藏窗改歪
+                //      （形状照 A247 那次 `CosmoOwnedFontAutoMinDeckEdit` 的先例）。
+                //   ⚠️ 四个形参**全是 float** ⇒ 调换了编译器不报 ⇒ 一律写**具名实参**。
                 FilterPanelModel.BuildCosmetics(State.Factions(), _cosmoFilter, FltW, _cosmoFltCells,
-                                                FilterPanelModel.CosmoOwnedFontAutoMinDeckEdit);
+                                                labelAutoMin: FilterPanelModel.CosmoOwnedFontAutoMinDeckEdit,
+                                                armySpY: FilterPanelModel.CosmoArmySpYDeckEdit,
+                                                iconW: FilterPanelModel.CosmoIconWDeckEdit,
+                                                labW: FilterPanelModel.CosmoLabWDeckEdit);
                 foreach (var c in _cosmoFltCells)
                 {
                     var b = FltAbs(c.Bg.x1, c.Bg.y1, c.Bg.x2, c.Bg.y2);
@@ -4111,6 +5329,14 @@ namespace CardPresentation
             foreach (var q in _tabHiRoot[i].GetComponentsInChildren<ImageQuad>(true)) q.SetTint(c);
         }
 
+        /// <summary>🆕 **2026-10-17**：把**整棵子树**上同一个色（九宫格那种：只染一块会留下另外 8 块）。
+        /// 行边框（`_deckRowBorder`）与页签高亮（`_tabHiRoot`）是同一形状的需求 —— 两处共用这一份。</summary>
+        static void TintTree(GameObject go, Color c)
+        {
+            if (go == null) return;
+            foreach (var q in go.GetComponentsInChildren<ImageQuad>(true)) q.SetTint(c);
+        }
+
         /// <summary>🆕 A41 ⑥：第 `i` 个页签高亮那棵树里**几块**（原版 `Sliced` ⇒ 9；拉满的单块 = 1）。
         /// 判据用它盯「九宫格没被退回单块拉伸」。</summary>
         public int UiTabHighlightBlocks(int i)
@@ -4347,8 +5573,12 @@ namespace CardPresentation
         ///       `HandleCosmeticClick`（`:1159` 要求 `_tab==2`）又只管 x ≥ `CosmoX` 那一片
         ///       （两片空白在 x 60..271）⇒ **谁也拦不住**，直接落到 `HandleButtons`。
         ///   ⇒ 「静默分享 / 静默开弹窗」这一条在 **Cosmetics 页必现**、Cards 页**空槽时可现**。
+        ///   🔴 **2026-10-17（D35 删件）后这一族的第 ① 项已经不存在**：那两颗钮（`info_share` /
+        ///      `info_import`）**整颗删了**（原版没有）⇒ 今天只剩 ②（`imp_*`）那一半。
+        ///      上面那两段的**历史成因留着**（它是「为什么要有 `KeyLive` 这道闸」的判据）；
+        ///      ⛔ 别据此以为那两颗钮还在。
         /// 判据 = **与显隐同一个谓词**（不许两份）：
-        ///   `info_*` ↔ `InfoTab`（`RefreshTabVisibility` 用的就是它）· `imp_*` ↔ `_importOpen`（`OpenImport/CloseImport`）。
+        ///   · `imp_*` ↔ `_importOpen`（`OpenImport`/`CloseImport`；`_modalOnly` 那批也由它开关）。
         /// 表里没有的 key = **恒在**（`hdr_*` / `foot_done` / `name_*` / `tab_*` 都是常显件）。
         /// ⚠️ 加一颗**成组显隐**的按钮，必须把它的名字写进这里 —— 否则又会出现「看不见却能点」。</summary>
         bool KeyLive(string key)
@@ -4365,6 +5595,7 @@ namespace CardPresentation
                     case "imp_input":
                     case "imp_ok":
                     case "imp_close":
+                    case "imp_shade":      // 🆕 2026-10-17（D47）：整屏压暗层（点窗外关窗）
                         return true;
                     default:
                         return false;      // 弹窗开着 ⇒ 背后的一切**不接受命中/悬停**
@@ -4372,13 +5603,15 @@ namespace CardPresentation
             }
             switch (key)
             {
-                case "info_share":      // 只在 Deck info 页签显示（`_infoOnly`）
-                case "info_import":
-                    return InfoTab;
+                // 🔴 **2026-10-17（D35 删件）**：这里原来还有
+                //   `case "info_share": case "info_import": return InfoTab;`
+                //   —— 那两颗钮**原版没有**、连它们的分支一起删。
+                //   ⚠️ 于是本函数剩下的**唯一**一条「成组显隐」就是下面那三颗 `imp_*`。
                 case "imp_input":       // 只在导入弹窗开着时存在（`_modalOnly`）
                 case "imp_ok":
                 case "imp_close":
-                    return false;       // 弹窗关着 ⇒ 这三颗**一律不算**（否则会在看不见的输入框上亮起来）
+                case "imp_shade":       // 🆕 2026-10-17（D47）：压暗层同上
+                    return false;       // 弹窗关着 ⇒ 这四颗**一律不算**（否则会在看不见的输入框上亮起来）
                 default:
                     return true;
             }
@@ -4615,18 +5848,60 @@ namespace CardPresentation
         //   原版那三颗 `Text` 的 `m_fontColor` 恒为白（判据见 `RefreshHeader` 里 `SetColor(Color.white)`
         //   那一段），而它只被页签那一处用过 ⇒ 留着就是一段「与原版不符的死代码」。
 
-        /// <summary>稀有色条的颜色 —— ⚠️ **我们挑的**：原版是 `40k_deck_cardlist_bg_rarityColorGradient`
-        /// 这张图 + 运行时染色，**染色值没查到**（节点树里 `m_Color` 是白的）。</summary>
+        /// <summary>稀有色条 / 行边框的颜色 —— 🆕 **2026-10-17：色值表查到了，改成照原版那张 SO 上色**
+        /// （原来这是一张「**我们挑的**」表：注释写着「染色值没查到」）。
+        ///
+        /// <para>🔴 **判据（三步全部现读，⛔ 没有一处是猜的）**：
+        /// ① **色值表本身就在本地**：`d:/2/新解包资源/assets_full/bundle_menus_assets_all/MonoBehaviour/
+        ///    CardRarityColorsSO.json` —— `m_Name = CardRarityColorsSO`，`colors[]` **六档** `rarity 0..5`
+        ///    （逐条可读，见下面 `RarityColorsBySo`）。
+        /// ② **档号 ↔ 名字**：`d:/2/Warpforge_code/Scripts/Assembly-CSharp/CardRarity.cs` =
+        ///    `None = 0 · Common = 1 · Rare = 2 · Epic = 3 · Legendary = 4 · Special = 5`
+        ///    —— 与 SO 那六档**一一对应**（0..5）。
+        /// ③ 🔑 **消费侧就是【卡组列表那一行】**：`decomp_full/UICardInfoItem__Initialize.c:139-156`（逐句）——
+        ///    `CardRarityColorsSO.GetColor(颜色 SO, PlayerItem.get_Rarity(card))` 然后
+        ///    **`foreach (img in imagesToChangeColorByRarity) img.set_color(color)`**。
+        ///    而全包 `UICardInfoItem` 的实例**逐颗解出来都是** `Deck Selector Card Info button` /
+        ///    `Deck Selector Hero Card Info button` / `Deck Selector Defensive Card Slot`
+        ///    （= **本窗卡组列表的那些行**），`imagesToChangeColorByRarity` 那两颗**逐颗解出来是**
+        ///    **`Rarity Gradient`** 与 **`Background Border`** —— 前者就是我们这条 `_deckRowGrad`、
+        ///    后者是 `_deckRowBorder`。⇒ **两件都要按这张表上色**（原来只给色条上了、而且色是自选的）。</para>
+        ///
+        /// <para>⚠️ **`Common`（档 1）的 `a = 0`** —— 原版表里就是这样 ⇒ 普通卡那两件**是透明的**。
+        ///   这不是漏值，⛔ 别「补」一个 alpha 上去。
+        /// ⚠️ `Legendary`（档 4）的 `r = 1.28216 > 1` —— 原版就是超白（HDR 味道）的颜色，原样搬。</para>
+        /// <para>⚠️ 认不出的档（含空串）⇒ 落 **`None`（档 0）那一格**（白）。
+        ///   原版那条 fallback 是 `DAT_1834b2e50` 那四个字节（**没解出**）——
+        ///   这里**如实按「查不到就落到表里第 0 档」**写，并把这一句记在账上。</para></summary>
+        static readonly Color[] RarityColorsBySo =
+        {
+            /* 0 None      */ new Color(1f, 1f, 1f, 1f),
+            /* 1 Common    */ new Color(0.036712352f, 0.260706663f, 0.311320782f, 0.0f),
+            /* 2 Rare      */ new Color(0.071761042f, 0.566037774f, 0.056069776f, 0.666666687f),
+            /* 3 Epic      */ new Color(0.564705908f, 0.054901958f, 0.525894821f, 0.666666687f),
+            /* 4 Legendary */ new Color(1.282163382f, 0.470490038f, 0.0f, 0.666666687f),
+            /* 5 Special   */ new Color(0.823529422f, 0.160784319f, 0.0f, 0.639215708f),
+        };
+
+        /// <summary>卡面 `rarity` 串 → 原版 `CardRarity` 档号（见 `RarityColorsBySo` 的 ②）。
+        /// ⛔ 别按字母排或开关乱猜 —— 这张表逐条对着 `CardRarity.cs` 抄。</summary>
+        static int RarityTier(string rarity)
+        {
+            switch ((rarity ?? "").ToLowerInvariant())
+            {
+                case "common": return 1;
+                case "rare": return 2;
+                case "epic": return 3;
+                case "legendary": return 4;
+                case "special": return 5;
+                default: return 0;          // `None`（含空串）
+            }
+        }
+
+        /// <summary>行上那两件（色条 + 边框）该上的色 = 原版 `CardRarityColorsSO.GetColor(card.rarity)`。</summary>
         public static Color RarityTint(string rarity)
         {
-            switch (rarity)
-            {
-                case "rare": return new Color(0.35f, 0.55f, 0.95f, 0.9f);
-                case "epic": return new Color(0.75f, 0.85f, 0.95f, 0.9f);
-                case "legendary": return new Color(0.95f, 0.78f, 0.35f, 0.9f);
-                case "special": return new Color(0.85f, 0.45f, 0.85f, 0.9f);
-                default: return new Color(0.65f, 0.68f, 0.72f, 0.9f);
-            }
+            return RarityColorsBySo[RarityTier(rarity)];
         }
 
         /// <summary>当前卡组的阵营（督军决定）。</summary>
@@ -4658,6 +5933,32 @@ namespace CardPresentation
                 default: return "40k_collection_bt_decks";
             }
         }
+
+        /// <summary>页头那颗 `hdr_army` 该贴哪张图 —— **这副卡组所属阵营的徽记**。
+        ///
+        /// <para>🔴 **判据 = 原版运行期那条链**（不是出厂值；理由与出处写在 `BuildHeader` 那一行上）：
+        /// `DeckEditingWindow__FilterToDeck.c:24-28` 把 `EditingDeck.deckArmy` 喂给
+        /// `WildcardDisplay.Initialize(army)` ⇒ 图 = `ArmyUtilities.GetArmyIcon(army)`；
+        /// **`deckArmy == 0`（还没选督军）时原版那个字面量默认值是 `10` = `CardArmy.Ultramarines`**
+        /// （`dump.cs:45640`）⇒ 出厂的 BlackLegion 徽记**在运行期永远走不到**。</para>
+        ///
+        /// <para>⚠️ 本函数**只答“稳定态”**（= 开窗 / 卡组变了）。原版还有两条**跟着指针走**的换图路径
+        /// （卡池某格被指针压住 / 开卡片详情 ⇒ 换成**那张卡**的阵营徽记，
+        /// `DeckEditorCollectionDisplay__CheckFocusedArmy.c` · `DeckEditingWindow__OpenCardInformation.c:35`）
+        /// —— **本笔没做**，已记进 `资料/普查产出_1017/W_B31_徽记与上限.md` §④。</para></summary>
+        public static string DeckArmyIcon(DeckEditorState state)
+        {
+            var wl = (state == null || state.Deck == null || string.IsNullOrEmpty(state.Deck.WarlordId))
+                     ? null : state.Find(state.Deck.WarlordId);
+            // ⚠️ 拿不到督军那张卡（卡池里查不到 id）时**也按原版那个默认档**走，别回退成 `FactionIcon(null)`
+            //   （那是卡组图标，绝不是这一格该有的东西）。
+            return FactionIcon(wl != null && !string.IsNullOrEmpty(wl.Faction) ? wl.Faction : NoArmyFaction);
+        }
+
+        /// <summary>原版 `DeckEditingWindow__FilterToDeck.c:24` 那句 `uVar3 = 10` ——
+        /// `CardArmy.Ultramarines`（`dump.cs:45640`）：**卡组还没有阵营时**页头徽记显示的那一个。
+        /// ⛔ 别改成 `""`/`null`（那会掉进 `FactionIcon` 的兜底 = 卡组图标）。</summary>
+        public const string NoArmyFaction = "Ultramarines";
 
         /// <summary>自检/演示用的一副卡组：能凑合法就凑合法，凑不出就有什么用什么。</summary>
         public static PlayerDeck PlayerDeckForDemo(DeckEditorState state)

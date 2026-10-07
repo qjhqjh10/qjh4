@@ -10,11 +10,26 @@
 //   · 根 **不是全伸展**（`sz=(1919,1079)`）；`Background` 色 **(0,0,0,.396)**、**点背景就关**（`backgroundCloseButton`）
 //   · `Window` **560,234.07 → 1360,685.93** · `Generic Popup Background` = `40k_popup` Sliced（border 169/160）
 //   · `Mask`（四边内缩 ~10.4/9.44）+ 子 `Background fill` = `40k_popup_texture` **Tiled**（128 一格、`ppuMultiplier=2` ⇒ 64）
-//   · `Main Search message` TMP **"Paste your deck"** **fs50**、hAlign=Right
+//   · `Main Search message` TMP **"Paste your deck"** **fs50**、HA=**2**(Center)
 //   · `Input Field` = `40K_dropdown_bg` Sliced（border 23/20）、色 **(.29,.953,.682,1)**（绿）
 //     → `Text Area`（`RectMask2D`）→ `Placeholder` **"Enter text..." fs32** col(.67,.67,.67,.5) ·
-//       `Text` fs32 col(.858,.858,.858,1) —— 两条都是 **hAlign=Center**
-//   · `Error msg` TMP **fs28**、hAlign=Right
+//       `Text` fs32 col(.858,.858,.858,1) —— 两条都是 **HA=1(Left) / VA=256(Top)**
+//   · `Error msg` TMP **fs28**、HA=**2**(Center)
+//
+// 🔴 **2026-10-17 订正（D46 那条顺带查出来的 · 铁律 5）**：上面这三处的对齐原写作
+//   「`Main Search message` hAlign=Right · `Text`/`Placeholder` 两条都是 hAlign=Center ·
+//    `Error msg` hAlign=Right」—— **三条里两条是错的**（那是照 A1 §4 那张表抄的，而 A1 那两行没实读 TMP）。
+//   逐字段实读 `bundle_menus_assets_all` 的 `Import Deck Popup` 全树（本工程自己的尺子，
+//   `工具/menu_rect.Bundle` 遍历 + 逐颗 TMP 的 `m_HorizontalAlignment`/`m_VerticalAlignment`）：
+//     `Main Search message` **HA=2 VA=512** · `Error msg` **HA=2 VA=512** ·
+//     `Placeholder`/`Text` **HA=1 VA=256**（`fs32` · rect 620,377→1300,505.06）。
+//   ⇒ ① 输入框那两颗 = **Left/Top** ⇒ **已改**（`RefreshInputText`，见那里的注释）；
+//      ② 另两处（`Main Search message` / `Error msg`）= **Center/Middle** ⇒
+//         🔴 **2026-10-17（B11）已改**：本文件两处消费点（`Build` 与 `RebuildErrorLine`，
+//         ⛔ 别按行号找，它们会漂）原来的 `Align.Right` 全部换成 `Align.Center`。
+//         改前那两句「hAlign=Right」是**照 A1 §4 那张表抄的、没实读 TMP**（铁律 5 那条错）。
+//         断言 → `Editor/ShellScene.cs` 的 **B11/A883** 那一节（HA=2 / VA=512 **逐字面量** +
+//         一条「改回右对齐必红」的**判别式**）。
 //   · `Buttons`（VLG）**只有一个** `Generic UI Button` = `40K_button`（478.343×75）+ 字 **"Confirm" fs45**
 //   · `Generic Close Button Green` = 圆钮 + **`40k_bt_close`**（56.37×54.50）
 //
@@ -54,6 +69,19 @@ namespace CardPresentation
         const float BtnTexW = 489f, BtnTexH = 107f;
         /// <summary>`40k_popup_texture` 的平铺格 = 128 ÷ `ppuMultiplier 2.0`（同 `PromptPopup.FillTilePx`）。</summary>
         public const float FillTilePx = 64f;
+
+        /// <summary>输入框**占位符**的词条键 —— **原版 prefab 上那颗 `Localize` 的 `mTerm` 原文**
+        /// （⛔ 不许自拟，见 `Core/Loc.cs` 文件头）。
+        /// <para>出处 = 逐字段实读 `bundle_menus_assets_all/MonoBehaviour_6085227748672536722.json`：
+        /// 它挂的 GameObject 是 `Import Deck Popup/Window/Input Field/Text Area/**Placeholder**`
+        /// （兄弟 `Text` 那颗**没有** `Localize` —— 它装的是玩家打进去的字，本来就不该翻）；
+        /// 同一颗上的 TMP `m_text = "Enter text..."` 就是该词条的**英文列**（照抄，不译）。
+        /// 🔴 **全库只此一颗用这个键**（`grep -rl MenuDeck/HUD/EnterText` 扫
+        /// `d:/2/新解包资源/assets_full/` 的 24.7 万文件 ⇒ 命中 **1**）。</para>
+        /// <para>⚠️ 本窗**另两颗** TMP 的词条**不在本批范围**、也**不是**这一条：
+        /// `Main Search message` 挂的是 `MenuDeck/Share/PasteDeck`（`MonoBehaviour_8528767437303251090.json`）、
+        /// `Error msg` 那颗**一个 `Localize` 组件都没有**（那条文案是引擎写进去的）。</para></summary>
+        public const string PlaceholderTerm = "MenuDeck/HUD/EnterText";
 
         string _error = "";
         /// <summary>当前输入串（自检用）。</summary>
@@ -135,11 +163,22 @@ namespace CardPresentation
             }
 
             // 3) 文案 + 输入框（+ 错误行）
-            Txt(root, "Paste your deck", MsgL, MsgT, MsgR, MsgB, MsgFontPx, Align.Right, "Main Search message", QImpText);
+            // 🔴 **2026-10-17（B11 · A883）**：对齐 = `Align.Center`（**原版 `HA=2` / `VA=512`**）——
+            //   原来传的是 `Align.Right`（右对齐），那是**照 A1 §4 那张表抄的错**。判据 = 逐字段实读
+            //   `bundle_menus_assets_all/MonoBehaviour_7476776257758560402.json`：那颗 TMP 的
+            //   `m_HorizontalAlignment = 2`(Center) / `m_VerticalAlignment = 512`(Middle)。
+            //   断言 → `Editor/ShellScene.cs` 的 B11/A883 那一节。
+            Txt(root, "Paste your deck", MsgL, MsgT, MsgR, MsgB, MsgFontPx, Align.Center, "Main Search message", QImpText);
             Nine(win.transform, win.transform, "40K_dropdown_bg", DropBorder, DropTexW, DropTexH, InL, InT, InR, InB,
                  QImpRow, "Input Field", new Color(0.29f, 0.953f, 0.682f, 1f));
             RefreshInputText();
-            Txt(root, _error, ErrL, ErrT, ErrR, ErrB, ErrFontPx, Align.Right, "Error msg", QImpText);
+            // 🔴 **2026-10-17（B11 · A883）**：`Error msg` 的对齐 = `Align.Center` ——
+            //   原版那颗是 **Center/Middle**（逐字段实读 `bundle_menus_assets_all/MonoBehaviour_
+            //   -2174597011030277998.json`：`m_HorizontalAlignment = 2` / `m_VerticalAlignment = 512`），
+            //   我们原来传的是 `Align.Right`（照 A1 §4 那张表抄的错）。
+            //   ⚠️ 这一颗节点**有两个出生入口**（`Build` 与 `RebuildErrorLine`，⛔ 别按行号找）
+            //   —— `CLAUDE.md` §10 第 5 条：多入口的状态要在**每个入口**都设对 ⇒ **两处都传 `Align.Center`**。
+            Txt(root, _error, ErrL, ErrT, ErrR, ErrB, ErrFontPx, Align.Center, "Error msg", QImpText);
             AddHitOn(win.transform, win.transform, "InputHit", new PxRect(InL, InT, InR, InB), () => BeginTyping());
 
             // 4) `Confirm`（VLG 只有一个钮 ⇒ 容器内居中）
@@ -169,20 +208,47 @@ namespace CardPresentation
             if (clWb != null) clWb.Bind(closeIconQ, "40k_bt_close");
         }
 
-        /// <summary>输入框里那行字（空 ⇒ 显示占位符）。**原版 `Text`/`Placeholder` 都是 hAlign=Center**。</summary>
+        /// <summary>输入框里那行字（空 ⇒ 显示占位符）。
+        /// 🔴 **对齐 = `Left/Top`（原版 `align 1/256`）** —— 逐字段实读原版 prefab：
+        ///   `Import Deck Popup/Window/Input Field/Text Area/{Placeholder,Text}` 两颗 TMP 都是
+        ///   `m_HorizontalAlignment = **1**`(Left) · `m_VerticalAlignment = **256**`(Top)
+        ///   （`256 = 0x100` = TMP 的 `Top`）；两颗的 rect 都是 **620,377 → 1300,505.06**。
+        /// ⚠️ **2026-10-17 就地订正（铁律 5）**：本行原来写「原版 `Text`/`Placeholder` 都是
+        ///   hAlign=**Center**」—— **与本 JSON 冲突、那句是错的**（D46）。当时大概是照着
+        ///   「本工程 `TmpFont.NewText` 把所有 TMP 统一建成 Center」那条默认档写的，不是实读。
+        /// 🔴 **同一批还有两条同族的**（同一次实读查出的）：
+        ///   `Main Search message`（"Paste your deck"）与 `Error msg` 在那份 prefab 里两颗都是
+        ///   `m_HorizontalAlignment = **2**`(Center) / `m_VerticalAlignment = 512`(Middle)，
+        ///   而本文件那两处**消费点**（⛔ 别按行号找，它们会漂）原来传的是 `Align.Right`
+        ///   ⇒ **我们右对齐、原版居中**。🔴 **2026-10-17（B11）两处都已改成 `Align.Center`** ——
+        ///   「改没改对」的判据不在本文件，在 `Editor/ShellScene.cs` 的 **B11/A883** 那一节。</summary>
         void RefreshInputText()
         {
             var holder = transform.Find("Window");
             var old = holder != null ? holder.Find("Input Text") : null;
             if (old != null) RewardsWindow.DestroySafe(old.gameObject);
             bool empty = string.IsNullOrEmpty(_text);
+            // 🆕 **2026-10-17（B11 · A884）**：占位符走**词条**（`PlaceholderTerm`，见那颗常量的 doc），
+            //   ⛔ 不再写死 `"Enter text..."` —— 原版那颗 TMP 上挂着 `Localize`
+            //   （`mTerm = "MenuDeck/HUD/EnterText"`）⇒ 它**跟着语言变**，写死就永远是英文。
+            //   ⚠️ 逐次重算（本函数每次 `SetText`/重排都会再进来一次），⛔ 别缓存进字段：
+            //   换语言之后**同一个窗**要能取到新的一行（`Loc` 不发事件，调用方自己重画，见 `Loc.SetLanguage`）。
             // ⚠️ `basis` 必须是**实际父节点**（这里是 `Window`，不是 root）—— 见文件头第 2 条
-            var lb = Label.Create(holder, empty ? "Enter text..." : _text, Local3(holder, TxtL, TxtT, TxtR, TxtB),
+            var lb = Label.Create(holder, empty ? Loc.T(PlaceholderTerm) : _text, Local3(holder, TxtL, TxtT, TxtR, TxtB),
                                   5, empty ? new Color(0.67f, 0.67f, 0.67f, 0.5f) : new Color(0.858f, 0.858f, 0.858f, 1f),
                                   new Vector2(0.5f, 0.5f), "Input Text");
             if (lb == null) return;
             lb.SetRenderQueue(QImpText);
             lb.SetGlyphHeight(LayoutSpace.Px(TxtFontPx));
+            // ---- 🆕 **2026-10-17（D46 第二处）：输入框那行字的对齐 = `Left/Top`** ----
+            //   ⚠️ **顺序是死的**：`SetAlignLeft()` 给 HA=1（`TextAlignmentOptions.Left` **自带 V=Middle**）
+            //     ⇒ `SetVAlign(Top, 框高)` 必须排在它**后面**，反过来会被那次赋值覆盖回 `Middle`。
+            //   ⚠️ 框 = **原版那颗节点的 rect**（620,377 → 1300,505.06，就是上面 `TxtL/TxtT/TxtR/TxtB`）
+            //     —— `Top` 那一档要**框高**才算得出目标位置（拿不到会出声并退回 `Middle`）。
+            //   ✅ 参照物 = **卡组编辑窗那份已经改对的同款**（`Deck/DeckRuntime.cs` 的 `BuildImportPopup`
+            //     里 `_impInputTx` 那三句，同一对调用、同一个理由）。
+            lb.SetAlignLeft();
+            MenuDraw.SetVAlign(lb, Label.VAlign.Top, new PxRect(TxtL, TxtT, TxtR, TxtB));
         }
 
         /// <summary>点输入框 ⇒ 交给 `PointerLayer` 的文本焦点（外壳唯一那条键盘路）。</summary>
@@ -221,7 +287,13 @@ namespace CardPresentation
             var root = transform;
             var old = root.Find("Error msg");
             if (old != null) RewardsWindow.DestroySafe(old.gameObject);
-            Txt(root, _error, ErrL, ErrT, ErrR, ErrB, ErrFontPx, Align.Right, "Error msg", QImpText);
+            // 🔴 **2026-10-17（B11 · A883）**：`Error msg` 的对齐 = `Align.Center` ——
+            //   原版那颗是 **Center/Middle**（逐字段实读 `bundle_menus_assets_all/MonoBehaviour_
+            //   -2174597011030277998.json`：`m_HorizontalAlignment = 2` / `m_VerticalAlignment = 512`），
+            //   我们原来传的是 `Align.Right`（照 A1 §4 那张表抄的错）。
+            //   ⚠️ 这一颗节点**有两个出生入口**（`Build` 与 `RebuildErrorLine`，⛔ 别按行号找）
+            //   —— `CLAUDE.md` §10 第 5 条：多入口的状态要在**每个入口**都设对 ⇒ **两处都传 `Align.Center`**。
+            Txt(root, _error, ErrL, ErrT, ErrR, ErrB, ErrFontPx, Align.Center, "Error msg", QImpText);
         }
 
         // ============================================================ 画图小工具

@@ -84,6 +84,177 @@ namespace CardPresentation.Net
         }
 
         // ==================================================================
+        //  🆕 2026-10-17（B23·A902）：**大厅阶段（还没进对局）对面掉线 / 离开** —— 出声 + 撤这一局的匹配
+        // ==================================================================
+        //  账 `A902`：`NetMatchmaking` 原来**根本不看会话状态** ⇒ 大厅阶段对面掉了，本机**什么反应都没有**
+        //  （只有设置窗那一行 `StatusText` 会变）—— 玩家会一直干等对面点 `Battle!`（**静默**，红线）。
+        //
+        //  原版判据（全量反编译 `d:/2/tools/decomp_full/`，2026-10-17 逐句现读）：
+        //   · **触发点** = `BattleNetworkManager__EventDisconnected.c`：先
+        //     `LogWarning("EventDisconnected, with battleConnectionStatus " + 状态)`（**不静默**），
+        //     再按状态分派 —— **搜索/匹配那一档**（第 20 号 `searchingRandomOponent`，枚举
+        //     `dump.cs:33222-33236`；它与第 80 号同落一处）走：
+        //     `searchManager(0x30) != null ⇒ SearchOpponentManager.CancelSearchForDisconnect()`。
+        //     其余状态各有各的落点（10 → `DisconnectedDuringBattle` · 30/50 → `LeaveBattle` ·
+        //     60 → `TryReconnecting` · 100 → `FinishedLeavingBattle`），认不出的走
+        //     `LogError("Unhandled battleConnectionStatus in EventDisconnected: …")`。
+        //   · **那一跳干什么** = `SearchOpponentManager__CancelSearchForDisconnect.c`：
+        //     ① `WindowsManager.ShowPopUp(text, localizeTexts: true, closeOnEsc: true, submitButtonText, onSubmit: null)`
+        //        —— 文案键 = **`CustomErrors/InternetUnreachable`**、钮上的字 = **`MainMenu/General/OK`**
+        //        （`DAT_18425d4a8` / `DAT_1842be718` 逐地址查 `d:/2/tools/il2cpp_out/stringliteral.json` 得到；
+        //         读法 → `资料/全量反编译_入口与用法.md` 第 ⑤ 条。⚠️ 这两个键在本地**没有词条表**
+        //         （表在远端 CCD）⇒ 我们用自己的措辞 —— 与 B13 那条先例同一处理）。
+        //     ② `Everguild.MatchMakerManager__CancelSearch`（`MatchMakerManager__CancelSearch.c`）＝
+        //        `SearchOpponentManager.CancelBattleSearch()`（→ `BattleNetworkManager.CancelBattleSearch`
+        //         把状态置回 0 + `LeaveCurrentRoom`）＋ 叫一次 `OnSearchCancelled`。
+        //     ⇒ 原版的反应 = **弹窗 + 把这一局撤掉回大厅**，两件事一起做。
+        //   · ⚠️ **「对手自己断开」那一路原版没有专属处理**：`BattleNetworkManager__EventPlayerDisconnected.c`
+        //     对 20/30 这两个状态落 `LogError("Unhandled battleConnectionStatus in EventPlayerDisconnected: …")`
+        //     （只有 10 = 对局中才 `SetOpponentDisconnected`）—— 因为原版是**服务端匹配**：搜索阶段
+        //     根本没有「对手」这个实体挂在你这条连接上。我们是 P2P、对面就是那条连接 ⇒ **这一档
+        //     是本工程自己的口径**（与 `Cancel` 那条同性质），照「弹窗 + 提示行 + 日志 + 撤匹配」落地。
+        //
+        //  🔴 **闸：对局中不抢话**（本件 ③ 那条要求）。判据 = `NetRuntime.LobbyHandled` —— 它**本来就是**
+        //     「这一台会话这一帧归谁读」那个开关（`NetRuntime.Update` 用它决定跑不跑 `PumpLobby`；
+        //     `NetBattle.Attach` 置 false、`BattleDriver.OnDestroy` 置回 true）⇒ 大厅这一半与
+        //     `NetBattle`（对局那一半）**天然互斥**，一台会话上只会有一边说话。
+        //  ⚠️ **「已经开局」（开局包已发/收）那一档不由这里弹**：那一局已经成立，接下来的出口是
+        //     进战场 → `NetBattle` 接上来 —— 它会在接上那一刻补报（见 `NetBattle.WireSession` 末尾那段）。
+        //     两边都弹的话，玩家一局里会被弹两次（那正是 ③ 要挡的）。
+
+        /// <summary>把「大厅阶段对面掉线 / 离开」这条接线挂到会话上（幂等；换会话时自动摘掉旧的那台）。
+        /// 调用点 = `NetRuntime.Init` / `Reset` / `AttachForTest`（**会话每一次出生都经过那三处**）。
+        /// ⛔ 别改成「第一次 `PumpLobby` 时懒挂」：掉线是在 `NetRuntime.Update` 的 `Session.Pump()`
+        /// 里判出来的，那一帧 `PumpLobby` 还没跑 ⇒ 懒挂会**整帧丢掉第一次掉线**（而第一次往往就是唯一一次）。</summary>
+        public static void WireLobby(NetSession s)
+        {
+            if (ReferenceEquals(_wired, s)) return;
+            if (_wired != null) { _wired.OnPeerLost -= HandleLobbyPeerLost; _wired.OnClosed -= HandleLobbyPeerClosed; }
+            _wired = s;
+            if (s != null) { s.OnPeerLost += HandleLobbyPeerLost; s.OnClosed += HandleLobbyPeerClosed; }
+            // 换会话 = 换了一台对端 ⇒ 那个「对面不在」的边沿**作废**。
+            // 🔴 不在这儿清会**静默地错**：`_peerGone` 一直挂着的话，下一台会话一握手到 `Lobby`，
+            //    `PumpLobby` 那条「回来了 ⇒ 撤销」就会**对着一个从来没掉过线的对端**说「回来了」，
+            //    还会顺手 `HideNoticePopup()` 把玩家这一刻自己开着的那扇窗关掉。
+            _peerGone = false; _peerGonePopup = false;
+            Debug.Log(s == null
+                ? "[Net] 大厅掉线接线：已摘掉（会话换掉了）"
+                : "[Net] 大厅掉线接线：已挂在当前会话上（对面掉线/离开 ⇒ 出声 + 撤这一局的匹配）");
+        }
+
+        static NetSession _wired;
+
+        /// <summary>大厅阶段「对面不在了」这个状态的**边沿**：掉线 / 离开那一刻置真，
+        /// 观察到他回到 `Lobby`（`PumpLobby` 里）那一刻清掉。自检读它。</summary>
+        public static bool PeerGone { get { return _peerGone; } }
+        static bool _peerGone;
+        /// <summary>那一次「对面不在了」**真的弹过窗**（撤销时据此决定要不要去撤窗 ——
+        /// 没弹过就不许撤，否则会把玩家这一刻自己开着的那扇窗关掉）。</summary>
+        static bool _peerGonePopup;
+
+        /// <summary>联机层最后一次要对玩家说的那句话（提示行）。自检读它；
+        /// 🆕 **2026-10-17（B27·A925）：界面的消费方已接上** = `Shell/SearchingMatchPopup.ShowHint`
+        /// （四扇战斗入口窗共用的那扇 `Searching Oponent Popup` 的 `Main Search message` 那一行）。</summary>
+        public static string LastHint { get; private set; }
+        /// <summary>大厅那一刻那行提示的钩子（**推**，不是拉）：`Shell/SearchingMatchPopup` 在 `OnEnable` 订、
+        /// `OnDisable` / `OnDestroy` 摘。⛔ 别在这儿弹窗（弹窗是另一件事，走 `NetRuntime.Notice`）。
+        /// ⚠️ 传 `null` = **收回那行字**（`Reset()` 会这么叫一次）—— 订方要当成「把这行清掉」，不是「多说了一句空话」。</summary>
+        public static Action<string> OnHint;
+
+        /// <summary>🔴 **闸**：这一帧这台会话归谁说话（大厅这一半 / 对局那一半）。
+        /// 判据 = `NetRuntime.LobbyHandled`（理由见本节头部）。
+        /// ⚠️ 没有 `NetRuntime`（批处理里那些裸会话夹具）⇒ **不说** —— 生产路径上大厅这一半本来就
+        /// 只在 `NetRuntime` 活着时才挂得上来（`Init`/`Reset`/`AttachForTest` 都是它调的）。</summary>
+        static bool LobbyOwnsSession
+        {
+            get { var rt = NetRuntime.Instance; return rt != null && rt.LobbyHandled; }
+        }
+
+        /// <summary>对面**掉线**了（心跳超时 / 连接断）。判据全文见本节头部。</summary>
+        static void HandleLobbyPeerLost()
+        {
+            if (!LobbyOwnsSession) return;          // 对局那半边接管了 ⇒ 由它说（互斥闸）
+            if (_peerGone)
+            {
+                // 同一段掉线里再来一次（对局那一半有同样的写法：`_peerGone` 是边沿）—— 不重复弹窗。
+                Debug.Log("[Net] 大厅：对面还是没回来（又断了一次）—— 不重复弹窗");
+                return;
+            }
+            _peerGone = true;
+            if (_started) { DeferToBattleLayer("对面掉线了"); return; }
+            string tail = RevokeMatchLocal();
+            SayLobby("联机断开了：对面掉线了 —— " + tail + "（对面回来之后，两边重新各点一次 `Battle!`）",
+                     "对面掉线了 —— 联机断开。\n" + tail + "，回到大厅。\n"
+                   + "（对面回来之后，两边各自重新点一次 `Battle!`。原版那一刻走的是 "
+                   + "`SearchOpponentManager.CancelSearchForDisconnect`：弹窗 + 取消搜索。）");
+            _peerGonePopup = true;
+        }
+
+        /// <summary>对面**主动离开**（收到 `bye`：他关了台 / 重开主机 / 重连被拒）。判据全文见本节头部。</summary>
+        static void HandleLobbyPeerClosed(string why)
+        {
+            if (!LobbyOwnsSession) return;          // 对局那半边接管了 ⇒ 由它说（互斥闸）
+            _peerGone = true;                       // `NetSession` 收到 `bye` 就 `Close()` ⇒ 不会再「回来」（同 `NetBattle` 那条注）
+            string body = string.IsNullOrEmpty(why) ? "对面退出了" : why;
+            if (_started) { DeferToBattleLayer("对面离开了：" + body); return; }
+            string tail = RevokeMatchLocal();
+            SayLobby("联机结束：" + body + " —— " + tail,
+                     "联机结束：" + body + "\n" + tail + "，回到大厅。\n"
+                   + "（要再打一局：两边重新各点一次 `Battle!`。原版那一刻走的是 "
+                   + "`SearchOpponentManager.CancelSearchForDisconnect`：弹窗 + 取消搜索。）");
+            _peerGonePopup = true;
+        }
+
+        /// <summary>「这一局已经开局」（开局包已发/收）那一档 ⇒ **不在这儿弹窗**：
+        /// 接下来的出口是进战场 → `NetBattle` 接上来时补报（见 `NetBattle.WireSession` 末尾那段，
+        /// 判据 = 接上时会话不在 `Lobby`）。这里只记日志 + 那一行提示（⛔ 不静默）。</summary>
+        static void DeferToBattleLayer(string what)
+        {
+            Debug.LogWarning("[Net] 大厅：" + what + " —— 但这一局**已经开局**（开局包已发/收）⇒ "
+                           + "**不在大厅这一半弹窗**，交给对局那一层（`NetBattle` 接上来时会看到会话不在 `Lobby`）");
+            SayHintOnly(what + " —— 这一局已经开局、正在进战场（断线那件事由对局那一层接着说）");
+        }
+
+        /// <summary>大厅阶段对面不在了 ⇒ **把本地这一局的账撤掉**（= 原版 `MatchMakerManager.CancelSearch`
+        /// 那一下，但**不发 `match.cancel`**：对面已经不在那条连接上了，`Cancel()` 那个口会如实报
+        /// 「联机没连上（这一局本来就没走联机）」—— 那句话在**这个**场景里是错的（我们确实在匹配，
+        /// 只是对面没了）。🔴 **不新增协议消息**：这一下纯本地；对面回来之后两边重新点 `Battle!` 就是新的一局。
+        /// ⚠️ `_started` 之后不走这里（调用方已经先把它分派出去了）。返回给玩家看的那半句。</summary>
+        static string RevokeMatchLocal()
+        {
+            bool had = _myDeck != null || _foeDeck != null;
+            ClearMatch();
+            Debug.Log(had
+                ? "[Net] 大厅：对面不在了 ⇒ 本地这一局的账已撤（原版那一刻 `MatchMakerManager.CancelSearch`，"
+                + "那一下里还有一句 `BattleNetworkManager.CancelBattleSearch` —— 我们把状态交回 `NetSession` 自己管）"
+                : "[Net] 大厅：对面不在了 —— 本机本来就没在匹配这一局（只是那条会话断了）");
+            return had ? "这一局的匹配已经撤销" : "（本机本来就没在匹配这一局）";
+        }
+
+        /// <summary>**出声**那一处（提示行 + 日志）。⛔ 不弹窗 —— 弹窗只在真的「对面不在了」那两跳里发。
+        /// ⚠️ `hint` 空 / null = **把那行字收掉**（`Reset()` 走这一支）。</summary>
+        static void SayHintOnly(string hint)
+        {
+            if (string.IsNullOrEmpty(hint)) { SetHint(null); return; }
+            Debug.Log("[Net] " + hint);
+            SetHint(hint);
+        }
+
+        /// <summary>那行提示的**唯一落点**（`LastHint` 与 `OnHint` 一个口写出去 —— 别在别处各写一份）。</summary>
+        static void SetHint(string hint)
+        {
+            LastHint = hint;
+            if (OnHint != null) OnHint(hint);
+        }
+
+        /// <summary>提示行 + 日志 + **弹窗**（三层一起说，与对局那一半的 `NetBattle.SayPeerGone` 同形）。</summary>
+        static void SayLobby(string hint, string popup)
+        {
+            SayHintOnly(hint);
+            NetRuntime.Notice(popup);
+        }
+
+        // ==================================================================
         //  「配到的是谁」—— 给界面用（`SearchingOpponentWindow` 的「找到对手」那一态）
         //  判据 → `资料/阶段二_多人界面_原版规格.md` **§6·4**
         //  🔴 原版那扇窗的「找到对手」这一态**在本 build 里是死代码**（`OpponentFound` 零调用点）
@@ -144,6 +315,15 @@ namespace CardPresentation.Net
         {
             ClearMatch();
             ICancelled = false; FoeCancelled = false;
+            // 🆕 2026-10-17（B23·A902）：那个「对面不在」的边沿也一起清 —— 它的生命周期**只到这一局为止**
+            //   （`BattleDriver.OnDestroy` 收工时也走本方法 ⇒ 打完一局不留着它）。
+            _peerGone = false; _peerGonePopup = false;
+            // 🆕 2026-10-17（B27·A925）：**那行提示也一起收掉**（生命周期与这一局一样长 —— `Reset()` 只在
+            //   「点 `Battle!`」与「新一局收工」两处调）。不收的话：下一局一开局，台面上那行字还挂着
+            //   上一局那句「对面掉线了…」（**说错话 = 另一种静默**）。
+            //   ⚠️ 只在这儿清、**不放进 `ClearMatch()`**：`Cancel()` 也调 `ClearMatch()`，而取消那一刻
+            //      那行字该说什么由 `Cancel` 自己的弹窗管（两处各写一份判据 = 迟早不一致）。
+            SetHint(null);
             // ⚠️ 那句「切场景交给界面」也一起清掉：**清在这儿是安全的** —— `Reset()` 只在这两处调：
             //    `TryStart`（点 `Battle!` 那一刻，界面**还没开**）与 `BattleDriver.OnDestroy`。
             //    留着它而界面又没开 ⇒ 这一局会卡在「切不了场景」（静默失败）。
@@ -214,6 +394,21 @@ namespace CardPresentation.Net
             var rt = NetRuntime.Instance;
             var s = rt != null ? rt.Session : null;
             if (s == null) return;
+
+            // 🆕 2026-10-17（B23·A902）：**对面回来了 ⇒ 撤销**（撤窗 + 提示行改口）。
+            //   判据（原版那一刻）：连接状态回到 `connected(0)` ⇒ `BattleErrorUIManager__ConnectionStatusChanged`
+            //   的 0/3/4/5 那一支 ⇒ `WindowsManager.CloseAllWindows()`（B13 报告 §① 的 D 条）。
+            //   ⚠️ 我们**不调 `CloseAllWindows`** —— 它会把玩家这一刻自己开的窗一起关掉（B13 已记这条口径）
+            //      ⇒ 只收**弹窗**那一颗，而且**只有真的弹过**才去收（`_peerGonePopup`：没弹过就撤，
+            //      撤掉的会是玩家自己开着的那扇窗）。
+            //   🔴 **只认边沿**（`_peerGone` 是掉线/离开那一下置的），否则每一帧都会说一遍。
+            if (_peerGone && s.State == NetState.Lobby)
+            {
+                _peerGone = false;
+                if (_peerGonePopup) { _peerGonePopup = false; NetRuntime.HideNoticePopup(); }
+                SayHintOnly("对面回来了 —— 联机已恢复。要开这一局，两边重新各点一次 `Battle!`");
+            }
+
             for (int i = 0; i < s.Inbox.Count; i++)
             {
                 var f = s.Inbox[i];

@@ -45,6 +45,27 @@
 //    **这一副当中途的「我的卡组」、本窗选出来的那副当【对手】** ⇒ 回调 `DeckInfoPopup.StartPracticeMatch`
 //    （判据与订正 → `Shell/DeckInfoPopup.cs` 文件头那段）。本窗**不用改**：它本来就只负责
 //    「列出来 → 选一个 → 把选中那个交给 `OnPicked`」。
+//   🆕 **2026-10-17（D18）：还差一行「第 5 条入口」—— 记在这里，⛔ 不建那颗钮。**
+//     原版 `Deck info Popup` 的 `Deck Options`（`DeckInfoControls`）上有一颗 **`Select Deck`**
+//     （序列化字段 `selectButton` = 8 颗钮里的第 2 颗，偏移 `+0x28`）。
+//     它**在本 build 里永不出现**：显示规则是 `context.SelectButton != null`，而
+//     `DeckInfoContext` 的 **6 个调用点（`DeckCollectionTab` / `DeckDrawer` / `DeckGeneralInfoDemo` /
+//     `RankedEventWindow` / `RankedDeckSelector` / `ChatMessageUI`）全传 `null`**，
+//     且 `DeckInfoContext.set_SelectButton` **全库无调用者** ⇒ 实拍也没有这颗钮。
+//     逐处实读与偏移表 → `Shell/DeckInfoPopup.cs:66-70` 与 `:109`（**判据只此一份，别抄第二份**）。
+//     ⚠️ **它到底连不连本窗，本轮没查到** —— 全量反编译里**只有 `SelectPracticeOpponentDeck` 一处**
+//     用了 `DeckInfoPopup.deckSelectionPopup`（`param_1[0x1a]`，grep 全 `decomp_full` 只此一命中），
+//     而 `Select Deck` 那颗钮的 onClick 落点**没有反编译产物** ⇒ 如实记「**连线未验**」，
+//     ⛔ 不因为它「像」就写成本窗的第 5 条入口。
+//
+// ============================ 🆕 2026-10-17：本窗这一轮的四处改动（D11 / D12 / D16 / D18）============================
+//   · **D11 空态**：原版只有 `Deck Scroll View/Empty Collection Warning` **一件**（视口那一格 + 子 TMP `Warning`，
+//     fs 36 · 折行 1 · **无 auto**）⇒ 我们那行自己加的 `Scope Note` **删掉**了（见 `Build()` 第 7/7b 步）。
+//   · **D12 页签选中态**：原版 `EverguildToggle` **换底图 + 换染色**（两颗共用 `onSprite=40K_tab_button` /
+//     `offSprite=40K_tab_button_overwindow`、`onColor=(1,0.6308285,0,1)` / `offColor=(1,0.5442529,0,1)`），
+//     **文字两态都是白的** ⇒ 原来那套「用文字色区分」删掉了（判据全文 → `BuildTab` 的注释）。
+//   · **D16 格子的 `Ban Icon` / `Create`**：触发条件**查清了、都不建**（全文 → `RebuildCells` 里那段长注释）。
+//   · **D18 `Select Deck` 那颗钮**：记一行、**不建**（判据只此一份在 `Shell/DeckInfoPopup.cs:66-70`）。
 //
 // ============================ 没建的 / 我们挑的（逐条出声）============================
 //   · ✅ **2026-09-26：「预组卡组」那一页接上了**（此前恒空）。数据 = `Resources/prebuilt_decks.json`，
@@ -58,8 +79,12 @@
 //   · **两个页签的文案是我们定的**：原版两个 `m_text` 都是**空串**、只有 `mTerm`
 //     （`MenuDeck/Button/PresetDeck` / `MenuDeck/Button/OwnDeck`），而**本地没有任何术语表/翻译源**
 //     （2026-09-24 在 `assets_full` / `extract` / 反编译 / `资料/` 四处搜过，0 命中）⇒ 写 `Prebuilt Decks` / `My Decks`。
-//   · `Instructions 2`(act=Y) 的文案**取不到**（它只带 `mTerm`，`m_text` 是空串）；
-//     同窗的 `Instructions`(act=N) 有明文 **"Select deck"** ⇒ **我们用它那句**填在 `Instructions 2` 的框里。
+//   · `Instructions 2`(act=Y)：**本地拿不到译文**（它只带 `mTerm`，`m_text` 是空串）。
+//     ⚠️ **2026-10-17（D6）就地更正**：原来这里接着写「同窗的 `Instructions`(act=N) 有明文
+//     **"Select deck"** ⇒ **我们用它那句**填在 `Instructions 2` 的框里」—— **那句现在不成立了**：
+//     标题改走**词条**（`MenuDeck/Tip/SelectDeckAgainst`，见 `TitleTerm`），中文 = 实拍「**选择卡组**」。
+//     （旁注：本解包里 `GameObject/Instructions.json` 那颗 TMP 的 `m_text` 实际是 `'\n'`；
+//      bundle 里 `"m_text": "Select deck"` 的两处是 fs **64** 的另一族节点，**不是同窗这颗**。）
 //   · ✅ **搜索框不建**（2026-09-26 用户拍板「**按照原版设计**」）：原版出厂 `act=N`，且**四条证据都指向「没有任何代码打开它」**——
 //     ① `DeckSelectionPopup` 的 6 个序列化字段里没有它；② `DeckSelectionTabController` **6 个方法里零 `SetActive`**，
 //     而且它拿的是 `EverguildInputField` **组件**引用、**够不到容器 GameObject**；
@@ -136,6 +161,14 @@ namespace CardPresentation
         const float RedTexW = 1100f, RedTexH = 701f;
         static readonly Vector4 TabBorder = new Vector4(0f, 0f, 0f, 0f);
 
+        /// <summary>🆕 2026-10-17（D6）：标题那一格的**词条键** —— 原版 `Instructions 2` 节点上那颗
+        /// `Localize` 的 `mTerm` 原文（不是自拟）。
+        /// <para>判据：`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_4152179270747796863.json`
+        /// （`mTerm = "MenuDeck/Tip/SelectDeckAgainst"` · `mLocalizeTargetName =
+        /// I2.Loc.LocalizeTarget_TextMeshPro_UGUI`），它的 GameObject 就是
+        /// `bundle_menus_assets_all/GameObject/Instructions 2.json`（组件表里含这一颗 MB）。</para></summary>
+        public const string TitleTerm = "MenuDeck/Tip/SelectDeckAgainst";
+
         // ---- 状态 ----
         /// <summary>`false` = 预组卡组那一页（**原版出厂 `m_IsOn=1` 的就是它**）；`true` = 我的卡组。</summary>
         public bool OwnDecks;
@@ -192,7 +225,16 @@ namespace CardPresentation
         /// <summary>空态那行字现在显示什么（自检用）。</summary>
         public string EmptyText { get { return _empty; } }
         string _empty = "";
-        /// <summary>红底板下沿那行小字现在显示什么（自检用）。**原版没有这一行**，见 `RefreshScopeNote`。</summary>
+        /// <summary>空态那一件（原版 `Empty Collection Warning`）的**节点**与它那颗 `Warning` TMP ——
+        /// 一件两用：**这一页有没有东西**只靠它的 `activeSelf`（原版也一样）。`Build` 重建时置空。</summary>
+        Transform _emptyNode;
+        Label _emptyLabel;
+        /// <summary>「这一页列了多少、藏了多少」那句话的文本（自检用）。
+        /// 🔴 **2026-10-17（D11）：它已经【不再上屏】** —— 原来画在红底板下沿（节点叫 `Scope Note`），
+        /// 而原版空态只有 `Empty Collection Warning` 那一件 ⇒ 节点已按原版删掉，这里只**算字符串 + `Debug.Log` 出声**。
+        /// ⚠️ **这个属性现在只被两处自检读**（`Editor/MainMenuScene.cs:2651` / `:2670`）—— 它们断的是
+        /// **一个不上屏的字符串**了，**必须**在拿到 `MainMenuScene.cs` 时一并改（本批白名单外，已记进报告）。
+        /// ⛔ 别把它读成「功能还在」。</summary>
         public string ScopeText { get { return _scope; } }
         string _scope = "";
 
@@ -301,6 +343,7 @@ namespace CardPresentation
         {
             var root = transform;
             for (int i = root.childCount - 1; i >= 0; i--) CollectionWindow.DestroySafe(root.GetChild(i).gameObject);
+            _emptyNode = null; _emptyLabel = null;      // 旧的那件随子件一起没了 ⇒ 引用也要清（同 `CardDetailPopup.Build`）
 
             // 1) 压暗 + 点背景关窗（原版 `backgroundCloseButton`）
             var shade = MenuDraw.Rect(root, CardArt.Solid(),
@@ -317,8 +360,8 @@ namespace CardPresentation
             // 2) 两个页签（HLG spacing 12.45 ⇒ 第 2 个从 196.30 + 260 + 12.45 起）
             //    容器高 **68.50**、键高 **67.6421** ⇒ 竖直居中（`align=MiddleLeft`）
             float ty1 = TabT + (68.50f - TabH) * 0.5f, ty2 = ty1 + TabH;
-            BuildTab(root, "Prebuilt Decks", "40K_tab_button", TabL, ty1, ty2, false);
-            BuildTab(root, "My Decks", "40K_tab_button_overwindow", TabL + TabW + TabGap, ty1, ty2, true);
+            BuildTab(root, "Prebuilt Decks", TabL, ty1, ty2, false);
+            BuildTab(root, "My Decks", TabL + TabW + TabGap, ty1, ty2, true);
 
             // 3) 红底板
             MenuDraw.Nine(root, CardArt.MenuUi("UI_Deck_Information_Back"), new PxRect(RedL, RedT, RedR, RedB),
@@ -331,8 +374,25 @@ namespace CardPresentation
 
             // 4) `Header` 那一行：分隔线 + 提示语 + 「随机挑一套」
             MenuDraw.Rect(root, CardArt.MenuUi("40k_main_line"), new PxRect(DdL, SepT, DdR, SepB), "Separator Line", QDsRow);
-            // ⚠️ `Instructions 2`(act=Y) 的文案取不到；同窗 `Instructions`(act=N) 有明文 "Select deck" ⇒ 用它那句
-            MenuDraw.Text(root, new PxRect(Ins2L, HdrT, Ins2R, HdrB), "Select deck", Color.white, "Instructions 2",
+            // 🔴 2026-10-17（D6）：这一格的文案**走词条**，键 = 原版 `Instructions 2` 上那颗 `Localize`
+            //   （<see cref="TitleTerm"/> = `MenuDeck/Tip/SelectDeckAgainst`）。
+            //   ⚠️ 这里原来写「`Instructions 2`(act=Y) 的文案取不到 ⇒ 用同窗 `Instructions` 那句
+            //   `Select deck`」—— **「取不到」说的是译文**（那颗 TMP 的 `m_text = ''`），
+            //   **词条名一直在**（`.cs` 那句「`.cs` 说文案取不到**不成立**」指的是这件事）。
+            //   ⇒ 改成按键取词：中文 = **实拍那四个字「选择卡组」**（`资料/原版参照图/用户实拍_1017/
+            //   更换卡组的参考.png` 右上角）、英文 = 我们原来那句 `Select deck`。
+            //   🔴 **2026-10-17（F2）就地补记两件（铁律 5 + 11）**：
+            //   ① **词条表里原来根本没有这条键**（`Core/Loc.cs` 只有注释提到它）⇒ `Loc.T` 走「没有这个键
+            //      ⇒ 返回键名本身 + 出声」⇒ **两语档下界面上真的印着 `MenuDeck/Tip/SelectDeckAgainst`**
+            //      （不是只错在断言上）。**已补**（`Core/Loc.cs` 卡组编辑窗那一族，含两列各自的出处）。
+            //   ② **英文列的原文实读不到**：本键那颗 TMP（`MonoBehaviour_925819347406796159.json`）
+            //      `m_text = ''` ⇒ 「照抄原版 prefab 那颗 TMP」这条路**走不通**；`Select deck` 的旁证 =
+            //      同窗兄弟 `Instructions`（键 `MenuDeck/Tip/SelectDeck`）那颗 TMP 的 `m_text = 'Select deck'`
+            //      （`工具/menu_dump.py bundle_menus_assets_all "Deck Selection Popup with Tabs" --depth 3` 实读）。
+            //      ⛔ 别把这一列写成「原版如此」。
+            //   ⚠️ **版面一个字都没动**：rect 与对齐照 prefab（`Instructions 2` 节点中心 1503.18
+            //   = 本窗那颗的矩形中心；实拍那版右端贴分隔线 = 与 prefab 有漂移，**不照它**）。
+            MenuDraw.Text(root, new PxRect(Ins2L, HdrT, Ins2R, HdrB), Loc.T(TitleTerm), Color.white, "Instructions 2",
                           36f, QDsText);
             {
                 float ry1 = RndBoxT + (RndBoxB - RndBoxT - RndH) * 0.5f;
@@ -365,16 +425,31 @@ namespace CardPresentation
             PointerLayer.RegisterScroll(Scroll);
             RebuildCells(holder);
 
-            // 7) 空态那一行（我们自己加的 —— 原版没有；用来**如实说明**为什么这一页是空的）
+            // 7) 空态那一件 —— **原版就有**：`Deck Scroll View/Empty Collection Warning`
+            //    （`DeckCollectionDisplay.emptyWarning` 这个序列化字段指向的就是它），出厂 `act = F`。
+            //    🔴 **2026-10-17（D11）现读原版 prefab 逐字段核过**（`menu_dump.py bundle_menus_assets_all
+            //       "Deck Selection Popup with Tabs" --depth 6`）：
+            //      · 节点 = `…/Collection Display(DeckCollectionDisplay)/Deck Scroll View/Empty Collection Warning`
+            //        —— 是 `Viewport` 的**兄弟**（挂在 `Deck Scroll View` 下），rect = **194.5,208.6 → 1759.5,986.7**
+            //        （= **整个视口那一格**，与本窗 `SvRect` 同值）；**无 Image 组件**（不挡射线）。
+            //      · 子件 = 一颗 TMP，名叫 **`Warning`**，文案 `'There are no deck in your collection for the selected filters'`，
+            //        **fs 36.0 · base 36.0 · 对齐 Center/Middle · 折行=1 · 色 (1,1,1,1)**，**无 auto**。
+            //    ⚠️ **文案仍是我们自己的三条**（如实说明**为什么**空 —— 红线：不许静默失败）；原版那一句是
+            //       **写死的英文**（还带着原文的语法错误 "no deck"）。版面照原版，文字照实说 —— 这叫**出声**。
             RefreshEmptyText();
-            MenuDraw.Text(root, new PxRect(SvL, SvT + 120f, SvR, SvT + 190f), _empty, new Color(0.66f, 0.66f, 0.66f, 1f),
-                          "Empty Note", 32f, QDsText);
+            _emptyNode = MenuDraw.Node(root, "Empty Collection Warning", SvRect);
+            _emptyLabel = MenuDraw.Text(_emptyNode, SvRect, _empty, Color.white, "Warning", 36f, QDsText, SvRect.W);
+            // 🔴 **必须马上摆一次显隐**：`RebuildCells`（第 6 步）里的那次 `RefreshEmptyNote` 跑在本件**之前**，
+            //    当时 `_emptyNode` 还是 null ⇒ 什么都没做。少了这一句，「列表非空」时这一件会**留在开着**的状态
+            //    （只是文案是空串、看不见 —— 静默错），自检那条 `activeSelf == false` 会红。
+            RefreshEmptyNote();
 
-            // 7b) 我们自己加的一行小字：**如实说明这一页列了多少、藏了多少**（原版没有这一行）。
-            //     放在红底板下沿那条空档（视口底 986.69 → 底板底 1032），不占原版任何件的位置。
+            // 7b) ❌ **原来这里有一行我们自己加的小字 `Scope Note`**（红底板下沿，`(DdL, SvB+6)-(DdR, RedB-6)`）——
+            //     🔴 **2026-10-17（D11）删掉**：原版空态**只有** `Empty Collection Warning` 那**一件**
+            //     （判据同上，`DeckCollectionDisplay.emptyWarning`），我们多出来的这一行是**真偏离** ⇒ **节点不建**。
+            //     ⚠️ 但 `_scope` 那句话**照算**（+ `Debug.Log` 出声）—— 见 `RefreshScopeNote` 的注释：
+            //     `Editor/MainMenuScene.cs:2651/2670` 两条自检还在读 `ScopeText`，**那个文件不在本批白名单**。
             RefreshScopeNote();
-            MenuDraw.Text(root, new PxRect(DdL, SvB + 6f, DdR, RedB - 6f), _scope,
-                          new Color(0.62f, 0.62f, 0.62f, 1f), "Scope Note", 22f, QDsText);
 
             // 8) 关闭圆钮
             // 🔴 **2026-10-03 补一层（A17 顺带查出的真偏离）**：原版 `Generic Close Button Orange` 是
@@ -410,13 +485,42 @@ namespace CardPresentation
         int MissingArtCount() { return _missing.Count; }
         string MissingArtList() { return string.Join("、", _missing.ToArray()); }
 
-        void BuildTab(Transform root, string label, string art, float x1, float y1, float y2, bool own)
+        /// <summary>选中态那一对 —— 原版 `EverguildToggle` 的**换底图 + 换染色**（⚠️ **不是**我们原来那套「只改文字色」）。
+        ///
+        /// <para>判据（第一权威 · 原版 prefab 序列化字段，2026-10-17 现读）= `bundle_menus_assets_all` 的
+        /// `Deck Selection Popup with Tabs/Alliance Header Buttons/Tab buttons/{Generic Tab UI Button,Generic Tab UI Button 1}`
+        /// 两颗 `EverguildToggle`（MB pid `907016068568626559` = `m_IsOn=1` 那颗 / `-4477857345849663325` = `m_IsOn=0` 那颗，
+        /// **七个同名件的字段逐字相同**）：
+        /// `changeSpriteOnValueChange = **1**` · `colorTintOnValueChange = **1**`（**两个开关都开着** ⇒ 两条都生效）·
+        /// `onSprite = 40K_tab_button` · `offSprite = 40K_tab_button_overwindow` ·
+        /// `onColor = (1, **0.6308285**, 0, 1)` · `offColor = (1, **0.5442529**, 0, 1)`（字面量照 JSON 抄，别四舍五入成 0.631/0.544）。</para>
+        ///
+        /// <para>落地代码 = `decomp_full/EverguildToggle__RefreshVisuals.c`：按**自己那颗 toggle 的 `m_IsOn`** 分别调
+        /// `ToggleSprite`（`__ToggleSprite.c`：`isOn` ⇒ `Image.sprite = onSprite`，否则 `offSprite`）与
+        /// `ToggleTint`（`__ToggleTint.c`：`isOn` ⇒ `onColor`，否则 `offColor`，走 `CanvasRenderer.SetColor`）。</para>
+        ///
+        /// <para>🔴 **为什么不能再靠文字色区分**：原版两颗 `Button Text` 的 TMP **都是 `色=(1,1,1,1)`**，
+        /// 而且它的组件表是 `TextMeshProUGUI,EverguildTextController,Localize` —— **没有 `EverguildButtonMaterialModifier`**，
+        /// 而 `ToggleTint` 只染**带那个组件**的 graphic（`__ToggleTint.c` 遍历的是
+        /// `EverguildButtonHelper.GetGraphicsInChildren` 收出来的修饰器那一串）⇒ **染不到字**。
+        /// 原来那句「我们用文字色区分（选中亮、未选中灰）」是我们自己发明的，已删（铁律 5 就地订正）。</para></summary>
+        /// <summary>原版那两颗 toggle 的 `onColor` / `offColor`（**逐字抄 prefab JSON 的浮点**，⛔ 别四舍五入）。</summary>
+        static readonly Color TabOnColor = new Color(1f, 0.6308285f, 0f, 1f);
+        static readonly Color TabOffColor = new Color(1f, 0.5442529f, 0f, 1f);
+        /// <summary>原版那两颗 toggle 的 `onSprite` / `offSprite`（两颗**共用同一对**）。</summary>
+        const string TabOnArt = "40K_tab_button", TabOffArt = "40K_tab_button_overwindow";
+
+        void BuildTab(Transform root, string label, float x1, float y1, float y2, bool own)
         {
             var r = new PxRect(x1, y1, x1 + TabW, y2);
-            MenuDraw.Rect(root, Art(art), r, own ? "Generic Tab UI Button 1" : "Generic Tab UI Button", QDsRow);
-            // 选中态：原版 `EverguildToggle` 的 `m_IsOn` —— 我们用**文字色**区分（选中亮、未选中灰）
-            MenuDraw.Text(root, r, label, OwnDecks == own ? Color.white : new Color(0.6f, 0.6f, 0.6f, 1f),
-                          "Tab Text " + (own ? "Own" : "Pre"), 34f, QDsText);
+            bool on = OwnDecks == own;                  // = 原版那颗 `EverguildToggle.m_IsOn`
+            // 底图与染色**都由 `on` 决定**（⛔ 不是「按是哪一颗页签写死两张图」—— 那会把
+            // `My Decks` 选中时的底图钉死在 `…_overwindow` 上，正是 D12 那条偏离）。
+            MenuDraw.Rect(root, Art(on ? TabOnArt : TabOffArt), r,
+                          own ? "Generic Tab UI Button 1" : "Generic Tab UI Button", QDsRow,
+                          on ? TabOnColor : TabOffColor);
+            // 文字**两态都是白的**（原版两颗 TMP 都是 `(1,1,1,1)`，且染色够不到它 —— 见上面那段）
+            MenuDraw.Text(root, r, label, Color.white, "Tab Text " + (own ? "Own" : "Pre"), 34f, QDsText);
             Hit(root, "TabHit_" + (own ? "Own" : "Pre"), r, () => SwitchTab(own), QDsHit);
         }
 
@@ -494,6 +598,36 @@ namespace CardPresentation
             //   仍然零可见变化（节点框 = `SvRect` 反推、`pad` 全 0 ⇒ 逐字段同值）；
             //   ⚠️ 顺带把下面 `RefreshEmptyNote` 那句 `MenuDraw.Text` 的语义也摆正了 ——
             //   它本来就该**不被裁**（那句话在 `root` 上、不在视口节点下）⇒ 现在靠父链天然成立。
+            //
+            // ================= 🔴 2026-10-17（D16）：格子的 `Ban Icon` / `Create` 两态 —— **查清了，都不建** =========
+            //   施工单 D16 说「触发条件没查」。**本轮查清了**，判据与两个条件都写在这儿（照做 = 保持不画）：
+            //   · 原型格的脚本 = **`CollectionDeck`**（`CollectionItem<CardDeck>`），判据 = `CollectionDeck.cs` 的字段表
+            //     与 `decomp_full/CollectionDeck__Config.c`（**唯一一处**动这两个 GameObject 的代码）。
+            //     字段↔节点（按声明序 + 用法对出来的，`bannedImage`/`createObject` 逐条有下面的证据）：
+            //       `content`=0x68 · `highlight`=0x70 · **`createObject`=0x78** · **`cardObject`=0x80** ·
+            //       `gameModeIcon`=0x88 · **`bannedImage`=0x90** · `greyscaleController`=0x98 ·
+            //       `easyMark`=0xa0 · `normalMark`=0xa8 · `hardMark`=0xb0
+            //       （旁证：`+0x60` 那颗按 `PrebuiltDeck.difficulty` 换 `0xa0/0xa8/0xb0` 三张图 ⇒ 就是 `deckDifficulty`；
+            //        `+0x50` 收 `deck.cardback` ⇒ `deckCardback`；`+0x58` 收 `ArmyIconsSO.GetArmyIcon` ⇒ `deckFaction`）。
+            //   · **`Create`（`createObject`）**：`Config` 里 `SetActive(0x78, item == null)` ——
+            //     **它是「列表里那一格没有卡组」的空位格**（`Config(null)`），文案 `Create\nNew Deck`。
+            //     🔴 **本窗永远不会有这种格子**：`DeckSelectionTabController.ShowOwnDecks/ShowPrebuiltDecks`
+            //     传进来的都是 `InventoryManager.GetInventory<…>().Where(筛选).ToArray()` / 预组数组，
+            //     **没有一处塞 `null`**（`DeckSelectionPopup.Initialize(IEnumerable<CardDeck>)` 的形参也是卡组序列）。
+            //     ⇒ 这一态在原版的**这扇窗**里本来就出不来 ⇒ **不建**（同 §八「New/Ban 都不印」）。
+            //   · **`Ban Icon`（`bannedImage`）**：`Config` 末尾 `SetActive(0x90, cVar4)`，其中
+            //     `cVar4 = Enumerable.Any(deck.GetLibraryInFull(), c => deck.CustomGameModeEvent.IsCardBanned(c))`
+            //     （谓词 = `CollectionDeck.__c__DisplayClass16_0.<Config>b__0` → `PlayEventData.IsCardBanned`）
+            //     ⇒ 触发条件 = **这副卡组里有一张被「该卡组的自定义活动」禁掉的卡**；
+            //     命中时同时 `greyscaleController.ToggleGreyScale(true)`（4 张图转灰）+
+            //     `DeckName` 色改成 `(1, 0.3, 0.3, 1)`（常量 `0x1834b2e50…` vs `0x1834b3210…`，读法见
+            //     `资料/普查产出_0923/A2_Deck页.md` §2·3「被 Ban」那行）。
+            //     🔴 **本 build 判据是空的**：禁卡表来自 LiveOps 活动数据（`PlayEventData` / 远端 CCD），
+            //     **本地没有**（用户 2026-09-17 边界「过期的活动不做」）⇒ **永不触发** ⇒ **不建**（⛔ 不编一个禁用卡表）。
+            //   · 两态的画法 / 触发条件**全表也已在** `资料/普查产出_0923/A2_Deck页.md` §2·2（逐子件 sprite / 字体 / 出厂 act）
+            //     与 §2·3（六种状态 × 多显少显）—— 将来真要建，照那两张表，⛔ 别重新猜。
+            //   ⚠️ 顺带记：格子几何**不归本文件**（走 `MenuDraw.DeckCell`，与收藏窗 Deck 页共用一份）⇒
+            //     这两态真要补，落点在 `Shell/MenuDraw.cs`（**本批白名单外**）。
             for (int k = 0; k < shown.Count; k++)
             {
                 var r = Scroll.Shift(CellRect(k));
@@ -523,11 +657,10 @@ namespace CardPresentation
         void RefreshEmptyNote()
         {
             RefreshEmptyText();
-            var lb = Find(transform, "Empty Note");
-            if (lb == null) return;
-            var l = lb.GetComponent<Label>();
-            if (l != null) l.SetText(_empty);
-            lb.gameObject.SetActive(Shown().Count == 0);
+            // ⚠️ 不按名字去 `Find`（原版那件叫 `Empty Collection Warning`、TMP 子件叫 `Warning`）——
+            //    直接用 `Build` 存下来的两份引用（重建后为空则是「本窗还没建」，不是「找不到」）。
+            if (_emptyLabel != null) _emptyLabel.SetText(_empty);
+            if (_emptyNode != null) _emptyNode.gameObject.SetActive(Shown().Count == 0);
         }
 
         /// <summary>空态那句话。**如实说明原因**，不编数据（红线：不许静默失败）。</summary>
@@ -544,25 +677,38 @@ namespace CardPresentation
         }
 
         /// <summary>
-        /// 红底板下沿那一行小字：**这一页列了什么、藏了什么**。
-        /// 🔴 **这是原版没有的一行**（原版不筛模式、也照原版那样不解释）。加它是因为
-        /// 我们**只列经典**、而且**拼不齐的整副不显示** —— 两件都会让玩家觉得「牌少了」，
+        /// 「这一页列了什么、藏了什么」那句话 —— **只算字符串 + `Debug.Log` 出声，不上屏**。
+        /// 🔴 **2026-10-17（D11）**：原来它画在红底板下沿（节点 `Scope Note`），但**原版没有这一行**
+        /// （空态只有 `Empty Collection Warning` 那一件，判据 → `Build()` 第 7 步那一段）⇒ 节点删掉。
+        /// ⚠️ 为什么**字符串还留着**：`Editor/MainMenuScene.cs:2651` / `:2670` 两条自检在读 `ScopeText`
+        /// （`ds2.ScopeText.Contains("本页列 " + tab.Count)` / `ds2.ScopeText.Length == 0`），
+        /// 而**那个文件不在本批白名单** ⇒ 删属性会让**整个工程编不过**。⇒ 折中：**算**、**出声**、**不画**，
+        /// 并在报告里把「那两条断言现在断的是一个不上屏的字符串」记成**欠账**（拿到那个文件就改）。
+        /// ⚠️ 为什么信息本身仍要有：我们**只列经典**、而且**拼不齐的整副不显示** —— 两件都会让玩家觉得「牌少了」，
         /// 所以如实出声（见文件头与 `资料/预组卡组_原版规格.md` §五之四）。
         /// </summary>
         void RefreshScopeNote()
         {
-            if (OwnDecks) { _scope = ""; return; }
-            if (!PrebuiltDecks.Available) { _scope = "预组数据读不到（重跑 工具/gen_prebuilt_decks.py）"; return; }
+            _scope = ScopeNoteText();
+            // 不上屏了 ⇒ 至少出声（`Build` 一次一条；`RebuildCells` 那种高频路径不调它）
+            if (_scope.Length > 0) Debug.Log("[DeckSel] " + _scope);
+        }
+
+        /// <summary>那句话的**算法**（唯此一处；`RefreshScopeNote` 只负责出声）。</summary>
+        string ScopeNoteText()
+        {
+            if (OwnDecks) return "";
+            if (!PrebuiltDecks.Available) return "预组数据读不到（重跑 工具/gen_prebuilt_decks.py）";
             int classic, skirm; PrebuiltDecks.CountByMode(out classic, out skirm);
             int dropped = PrebuiltDecks.NotListed;
             var sb = new System.Text.StringBuilder();
-            // 🔴 这行字要**如实**：列出来的是两类模式**混在一页**（2026-09-26 起照原版全列），
+            // 🔴 这句话要**如实**：列出来的是两类模式**混在一页**（2026-09-26 起照原版全列），
             //    经典 30 张 / 遭遇 12 张 —— 靠每格右下角的模式图标区分，这里先说清各有多少。
             sb.Append("预组共 ").Append(PrebuiltDecks.All.Count).Append(" 副 · 本页列 ")
               .Append(PrebuiltDecks.Tab.Count).Append(" 副（经典 ").Append(classic)
               .Append(" · 遭遇 ").Append(skirm).Append("，按原版难度序）");
             if (dropped > 0) sb.Append(" · ").Append(dropped).Append(" 副我们卡池拼不齐（不显示）");
-            _scope = sb.ToString();
+            return sb.ToString();
         }
 
         // ============================================================ 小工具

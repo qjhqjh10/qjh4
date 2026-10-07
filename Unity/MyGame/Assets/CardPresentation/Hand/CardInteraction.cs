@@ -223,7 +223,18 @@ namespace CardPresentation
             if (LayoutSpace.ToNormalized(t.position).y < board.lineY)
             {
                 var visible = VisibleCards();
-                int slot = hand.GetClosestInHandSlot(t.position, visible.Count);
+                // 🔴 **2026-10-17（B12）：喂进去的是【指针位置】，不是被拖那张卡的位置。**
+                //   判据（`d:/2/tools/decomp_full/BattleManager__Update.c`）：
+                //     `:123-127` 每帧把 `GetMousePosInWorldSpaceCanvas()`（= `Input.mousePosition`
+                //       经 `Camera.ScreenToWorldPoint(…, canvas.planeDistance)`，就地读 `BattleManager__GetMousePosInWorldSpaceCanvas.c`）
+                //       写进字段 `+0x434`/`+0x43c`；
+                //     `:214` 把**那个字段**读回来 → `:220` 直接喂给 `GetClosestInHandSlot` ——
+                //       全程没有经过任何「卡跟到哪」的量。
+                //   ⚠️ 卡的位置是**带平滑**的（上面那句 `Lerp(…, 1f − Mathf.Exp(−20f·dt))`）⇒ 滞后于指针
+                //      （手会「让位慢半拍」）。坐标系两边是同一个：`world` 走 `PointerWorldSafe()` →
+                //      `LayoutSpace.ScreenToWorld`，而 `GetClosestInHandSlot` 的 `slotX` 也是
+                //      `LayoutSpace.VisibleWidth` 量的**世界 x**（见 `Hand/HandLayout.cs` 那个方法）。
+                int slot = hand.GetClosestInHandSlot(world, visible.Count);
                 if (slot != _insertIndex)
                 {
                     _insertIndex = slot;

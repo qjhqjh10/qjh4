@@ -254,6 +254,24 @@ namespace RuleEngine
         ///    而监听器目前只从**场上单位**收集 ⇒ 收下来也是一条**没人消费**的监听器
         ///    （本工程红线）。它真正的形状是「打出这张牌时顺带做 X」，该在
         ///    `CanPlayTactic` 那条路上补，**不是**事件层的事。见 `资料/事件层_数据与设计.md` §三·③。
+        ///
+        /// 🔴 **2026-10-17：去原版把 `When played` 的形状查清了 —— 结论是「它本来就不需要挂载点」。**
+        ///    原版**确实**有「打出一张牌」这件事的两条广播，但它们对**打出那张牌自己**的意义
+        ///    就是「结算我自己的正文」，**不是**「另有一个监听者被叫醒」：
+        ///      · `BattleManagerSupport__BroadcastCardPlayed.c` —— 由
+        ///        `BattleManager._ResolvePlayCardFromHand`（从手牌打出）调用；听众 = **场上每张牌**
+        ///        （`+0x470`）+ **当前回合方手牌** + **另一方手牌**，逐个调 `CardScript.ResolveCardPlayed`；
+        ///      · `BattleManager__BroadcastTacticPlayed.c` —— 由 `CardScript__NonTargetSpellPlayed.c` /
+        ///        `CardScript__TargetedSpellPlayed.c`（**战术卡结算时**）调用；听众 = 场上每张牌。
+        ///      · 而 `CardScript__ResolveCardPlayed.c` / `__NonTargetSpellPlayed.c` 里对
+        ///        **打出那张牌自己**的那一次调用，传进去的 `cardPlayed` **就是它自己**
+        ///        （虚表槽 `0x308` = `OnCardPlayedWithTarget(manager, thisCard, cardPlayed, targetCard)`）
+        ///        ⇒ 「When played」= **它自己的正文在打出这一刻结算**。
+        ///    ⇒ 我们的做法（`EffectText` 按 `.` 切句、`When played, gain 3 Quest Points` 那半句
+        ///      照常当普通句子结算）**与原版等价**；`CardDef.CanListenForEvents` 那段注释同时挡掉
+        ///      「注册一条没人消费的监听器」。
+        ///      ⛔ **别在这里给 `played` 单开一个解析分支** —— 那会造出一条**永远不响**的监听器，
+        ///      而且卡面不打 `*`、不报错（红线里的静默失效）。
         /// </summary>
         public bool SelfOnly;
 
@@ -1056,13 +1074,20 @@ namespace RuleEngine
         /// 两种形状：
         ///   · **带方向词** —— `enemy dies` / `friendly troop dies` / `opponent plays a Stratagem`。
         ///     剥掉方向词，剩下的当主语（`troop` → 不筛）。
-        ///   · **不带方向词** —— `dies`（`When deployed` / `When played` / `When reanimated` 这种**省主语**的写法）。
-        ///     方向不限（`-1`），**不筛**。
-        ///     ⚠️ 这几条的**正确语义是「就是它自己」**，我们现在按「任何单位」处理 ——
-        ///        **这是我们挑的近似**，会在自检里如实报出来。
-        ///        要做到精确，得给 `WhenEvent` 加一个「自指」标记、并在广播时把触发者自己传进去 ——
-        ///        留到下一轮（见 `资料/卡牌效果管线_计划与交接.md` §一·七）。
+        ///   · **不带方向词** —— `dies`（省主语的写法）。方向不限（`-1`）、**不筛**。
         ///
+        /// 🔴 **2026-10-17 更正（原文整段已过期）**：这里原来写着
+        ///    「这几条的**正确语义是「就是它自己」**，我们现在按「任何单位」处理 —— **这是我们挑的近似**……
+        ///      要做到精确，得给 `WhenEvent` 加一个「自指」标记、并在广播时把触发者自己传进去 ——
+        ///      **留到下一轮**（见 `资料/卡牌效果管线_计划与交接.md` §一·七）」。
+        ///    **那条待办早就做完了**（2026-09-13 第三十四轮）：<see cref="WhenEvent.SelfOnly"/> +
+        ///    <see cref="WhenEvents.Matches"/> 里那句 `ReferenceEquals(listenerUnit, subject)`，
+        ///    广播侧 `EffectResolver.BroadcastWhen` 也早就把 `subject` 传下去了
+        ///    ⇒ `When deployed`（`SW17 Grey Hunter`）· `When Reanimated`（Sautekh 4 张）
+        ///    现在是**精确**触发，**不是近似**（两条各有正反断言钉着）。
+        ///    ⚠️ 但**这一支本身仍然按「任何单位」处理** —— 走到这里的写法**没有**自指标记，
+        ///       所以「省主语 ⇒ 自动自指」是**不成立**的推论：自指只能由各自的分支**显式**设置
+        ///       （见 <see cref="WhenEvent.SelfOnly"/> 那段：`When played` 就不该设）。
         /// ⚠️ 只记方向、**不换算成阵营** —— 见文件头 ⚠️③。
         /// </summary>
         static void SetWho(string subj, WhenEvent ev)
@@ -1109,8 +1134,13 @@ namespace RuleEngine
         ///    而不是只在「**它自己**被部署时」触发 —— 正是本工程红线禁止的「打得比卡面宽」，
         ///    而且**不报错**（卡面照旧打不出 `*`，因为正文是好的）。
         ///    ⇒ 空主语一律判**认不出**，由 <see cref="Parse"/> 作废并记进报告桶。
-        ///    ⚠️ 代价：`When deployed` / `When played` 这几条**暂时收不到**
-        ///    （它们的正确语义是「就是它自己被部署/打出」，要另开一条自指的路）。
+        ///    ⚠️ 代价（**2026-10-17 更新**）：空主语的那几条收不到 —— 它们要**各自另开一条路**才有意义。
+        ///        原来这里写的是「`When deployed` / `When played` 这几条**暂时收不到**
+        ///        （它们的正确语义是「就是它自己被部署/打出」，要另开一条自指的路）」——
+        ///        **前半句已过期**：`When deployed` / `When Reanimated` **早就收了**，
+        ///        走的是各分支**显式设** <see cref="WhenEvent.SelfOnly"/>（它们**不**走 `StripFirst`，
+        ///        见 `ParsePredicate` 里那两处 `s == "deployed"` / `s == "reanimated"` 的直接分支）。
+        ///        仍然收不到、而且**应该**收不到的只剩 `When played`（省主语 + 战术卡，见 `SelfOnly` 那段）。
         ///    与「注册一条会乱触发的效果」相比，**收不到**是更安全的失败方式。
         /// </summary>
         static bool StripFirst(string s, out string subject, params string[] tails)

@@ -44,6 +44,8 @@ public static class NetSelfTest
             TestSeatAndWire();
             TestNotices();
             TestMatchCancel(FreePort());   // 🆕 2026-10-03：取消这一局的匹配（A1）
+            TestLobbyPeerGone(FreePort()); // 🆕 2026-10-17：大厅阶段对面掉线 / 离开（A902）
+            TestHintLine(FreePort());      // 🆕 2026-10-17（B27）：提示行那行字的消费方（A925）
             TestHostResolve();
             TestAddressAndUpnp();     // 🆕 2026-09-27：地址判据（Teredo/6to4）+ UPnP 纯函数
         }
@@ -483,6 +485,125 @@ public static class NetSelfTest
     }
 
     // ==================================================================
+    //  M. 🆕 2026-10-17（B23·A902）：**大厅阶段（还没进对局）对面掉线 / 离开** —— 出声 + 撤这一局的匹配
+    // ==================================================================
+    /// <summary>原来 `NetMatchmaking` **根本不看会话状态** ⇒ 大厅阶段对面掉了，本机**什么反应都没有**
+    /// （只有设置窗那行 `StatusText` 会变）—— 玩家会一直干等对面点 `Battle!`（**静默**，红线）。
+    ///
+    /// <para>判据（原版，全量反编译逐跳；全文 → `Net/NetMatchmaking.cs` 的 A902 那一节头部）：
+    /// `BattleNetworkManager__EventDisconnected.c`（连接状态 **20 = `searchingRandomOponent`**）
+    /// ⇒ `SearchOpponentManager__CancelSearchForDisconnect.c` ⇒ **弹窗**（文案键 `CustomErrors/InternetUnreachable`、
+    /// 钮 `MainMenu/General/OK`）+ `MatchMakerManager.CancelSearch`（把这一局撤掉回大厅）。</para>
+    ///
+    /// <para>🔴 **闸 = `NetRuntime.LobbyHandled`** —— 大厅这一半与 `NetBattle`（对局那一半）**互斥**：
+    /// 一台会话上只有一边说话（M⑬ 就是钉这一条的；对局那一半的断言在 `NetBattleTest` §9）。
+    /// ⚠️ 一个进程里两端各有自己的 `NetMatchmaking` 静态状态（真机上是两个进程）——
+    /// 这里靠 `AttachForTest` 换会话来依次扮演两端（同 `TestMatchCancel` 那一段的做法）。</para></summary>
+    static void TestLobbyPeerGone(int port)
+    {
+        var host = NetSession.NewTcp();
+        var cli = NetSession.NewTcp();
+        var rt = NetRuntime.Ensure();
+        var keep = rt.Session;
+        bool keepLobby = rt.LobbyHandled;
+        try
+        {
+            Ok(host.StartHost(Cfg(port, "")), "M① 主机起来了");
+            cli.CheckConnection(Cfg(port, ""));
+            Ok(PumpUntil(host, cli, () => host.State == NetState.Lobby && cli.State == NetState.Lobby, 5000),
+               "M② 两边握手到 `Lobby`（还没点 `Battle!`）");
+
+            NetMatchmaking.Reset();
+            rt.LobbyHandled = true;            // 这一段的夹具前提 = **大厅阶段**（`NetBattle` 还没接管这台会话）
+            rt.AttachForTest(host);            // 🔴 生产路径同一步：`NetRuntime` 把大厅那条接线挂到这台会话上
+            Ok(!NetMatchmaking.PeerGone, "M③ 起手：「对面不在」那个边沿是清的");
+
+            var d1 = new PlayerDeck { Name = "自检大厅牌", WarlordId = "UM_WARLORD" };
+            d1.CardIds.Add("UM1");
+            Ok(NetMatchmaking.TryStart(d1, "Classic", "Ultramarines", out string _), "M④ 主机点 `Battle!` ⇒ 进匹配");
+            Ok(NetMatchmaking.Waiting, "M⑤ 主机在等对面交卡组（`Waiting`）");
+            NetRuntime.DrainNoticesForTest();
+
+            // ---- ① 对面**掉线**（心跳超时 / 连接断）⇒ 必须出声 ----
+            cli.Transport.ClosePeer();
+            Ok(PumpUntil(host, cli, () => host.State == NetState.WaitingReconnect, 6000),
+               $"（大厅·掉线）主机发现对面没了（实际 {host.State}）");
+            var n1 = NetRuntime.DrainNoticesForTest();
+            Eq(n1.Length, 1,
+               "M⑥ ★ **大厅阶段对面掉线要弹一条**（原来零接线 ⇒ 一条都没有）"
+             + " —— 🧨 改坏法：删掉 `NetRuntime.Init`（或 `Reset` / `AttachForTest`）里那句 "
+             + "`NetMatchmaking.WireLobby(…)` ⇒ 红");
+            Ok(n1.Length >= 1 && n1[0].Contains("断开"),
+               $"M⑦ ★ 那条话点明是**联机断开 / 对面掉线**（实得「{(n1.Length > 0 ? n1[0] : "")}」）");
+            Ok(NetMatchmaking.LastHint != null && NetMatchmaking.LastHint.Contains("掉线"),
+               $"M⑧ ★ **提示行**也说了（实得「{NetMatchmaking.LastHint}」）—— 自检读 `LastHint`；"
+             + "真 Play 里那行字归界面（订 `NetMatchmaking.OnHint`）");
+            Ok(!NetMatchmaking.Waiting,
+               "M⑨ ★ 这一局的匹配**被撤掉了**（= 原版那一刻 `MatchMakerManager.CancelSearch`：回大厅）"
+             + " —— 与 M⑥ **不同源**：M⑥ 验的是「说不说」，这条验的是「局撤没撤」");
+            Ok(NetMatchmaking.PeerGone, "M⑩ 「对面不在」那个边沿已置上");
+
+            // ---- ② 对面**回来** ⇒ 撤销（撤窗 + 提示行改口）----
+            int hide0 = NetRuntime.HidePopupCallsForTest;
+            cli.CheckConnection(Cfg(port, ""));      // 大厅阶段**没有**自动重连退避（`NetSession.Pump` 那条要 `_wasInBattle`）⇒ 手动重连
+            Ok(PumpUntil(host, cli, () => host.State == NetState.Lobby && cli.State == NetState.Lobby, 6000),
+               "M⑪ 对面回来了（两边都回到 `Lobby`）");
+            rt.AttachForTest(host);
+            NetMatchmaking.PumpLobby();              // 真 Play 里由 `NetRuntime.Update` 每帧调
+            Ok(!NetMatchmaking.PeerGone, "M⑫ ★ 那个边沿清掉了（只认边沿 ⇒ 不会每帧说一遍）");
+            Ok(NetRuntime.HidePopupCallsForTest > hide0,
+               "M⑬ ★ 回来 ⇒ **去撤窗了**（原版那一刻是 `CloseAllWindows`；我们只收弹窗那一颗 —— B13 已记）");
+            Ok(NetMatchmaking.LastHint != null && NetMatchmaking.LastHint.Contains("回来"),
+               $"M⑭ ★ 提示行**改口**成「回来了」（实得「{NetMatchmaking.LastHint}」）—— 与 M⑧ 不同源："
+             + "M⑧ 验的是掉线那一下说不说，这条验的是**恢复之后会不会改口**");
+
+            // ---- ③ 🔴 **对局中（大厅这一半已经交权）⇒ 一句都不许说** ----
+            //   这是本件 ③ 那条要求（一台会话不许弹两次）：判据 = `NetRuntime.LobbyHandled`
+            //   —— `NetBattle.Attach` 那一刻把它置 false **正是在干这件事**（对局那半边接管会话）。
+            NetRuntime.DrainNoticesForTest();
+            NetMatchmaking.Reset();
+            rt.LobbyHandled = false;                 // = 进了对局（对局那一侧的断言在 `NetBattleTest` §9/§11）
+            cli.Transport.ClosePeer();
+            Ok(PumpUntil(host, cli, () => host.State == NetState.WaitingReconnect, 6000),
+               $"（对局中·模拟）主机又发现对面没了（实际 {host.State}）");
+            Eq(NetRuntime.DrainNoticesForTest().Length, 0,
+               "M⑮ ★★ **对局中大厅这一半一个字都不说**（`LobbyHandled == false`）"
+             + " —— 🧨 改坏法：把 `NetMatchmaking.LobbyOwnsSession` 那道闸去掉 ⇒ 这一条红，"
+             + "而且**真机上玩家一局会被弹两次**（对局那半边还会再弹一条）");
+            Ok(!NetMatchmaking.PeerGone, "M⑯ …而且也不许把那个边沿置上（没说话就没得撤）");
+
+            // ---- ④ 对面**主动离开**（`bye`）⇒ 也要出声，而且带着他报的理由 ----
+            rt.LobbyHandled = true;
+            cli.CheckConnection(Cfg(port, ""));
+            Ok(PumpUntil(host, cli, () => host.State == NetState.Lobby && cli.State == NetState.Lobby, 6000),
+               "M⑰ 对面又回来了（为了验 `bye` 那一路）");
+            rt.AttachForTest(host);
+            NetMatchmaking.PumpLobby();              // 把「回来了」那条边沿吃掉
+            NetMatchmaking.Reset();
+            Ok(NetMatchmaking.TryStart(d1, "Classic", "Ultramarines", out string _) && NetMatchmaking.Waiting,
+               "M⑱ 主机重新点了 `Battle!`（这一局又在匹配里了）");
+            NetRuntime.DrainNoticesForTest();
+            cli.Close(true, "自检：对面离开了这一局");   // = 对面的 `NetRuntime.Reset` / 关台那条路
+            Ok(PumpUntil(host, cli, () => host.State == NetState.Closed, 6000),
+               $"（大厅·离开）主机收到 `bye` ⇒ 会话关上（实际 {host.State}）");
+            var n2 = NetRuntime.DrainNoticesForTest();
+            Eq(n2.Length, 1, "M⑲ ★ **大厅阶段对面主动离开也要弹一条**（原来同样静默）"
+                           + " —— 与掉线那条是**两个不同的回调**（`OnClosed` vs `OnPeerLost`），别合成一条");
+            Ok(n2.Length >= 1 && n2[0].Contains("自检：对面离开了这一局"),
+               $"M⑳ ★ 那条话里**带着对面报的理由**（实得「{(n2.Length > 0 ? n2[0] : "")}」）");
+            Ok(!NetMatchmaking.Waiting, "M㉑ ★ 这一局的匹配也撤掉了（`bye` 这一路同一条落地）");
+        }
+        finally
+        {
+            rt.AttachForTest(keep);
+            rt.LobbyHandled = keepLobby;
+            NetMatchmaking.Reset();
+            NetRuntime.DrainNoticesForTest();
+            host.Close(false); cli.Close(false);
+        }
+    }
+
+    // ==================================================================
     //  K. 地址判据 + UPnP（2026-09-27 加：用户问「测试网站看得到 IPv6，你这里为什么看不到」那一轮）
     //     ⚠️ **纯函数全在这儿验**；真发 SSDP / 真去改路由器那一半**批处理里不跑**
     //        （`UpnpPortMapper.MapAsync` 里 `Application.isBatchMode` 直接返回 —— 理由见那儿）。
@@ -575,6 +696,206 @@ public static class NetSelfTest
         Ok(soap.Contains("<u:AddPortMapping") && soap.Contains("WANIPConnection:1")
            && soap.Contains("<NewExternalPort>47777</NewExternalPort>"),
            "SOAP 信封里有 action / serviceType / 参数");
+    }
+
+    // ==================================================================
+    //  N. 🆕 2026-10-17（B27·A925）：**「提示行」那行字的消费方**（原来只留了口、没人接）
+    // ==================================================================
+    /// <summary>账 `A925`：`NetMatchmaking.LastHint` / `OnHint` 是 B23 留好的口，但**一个消费方都没有**
+    /// ⇒ 大厅阶段那几句人话（对面掉线 / 离开 / 回来）只活在日志与自检里，玩家看得到的**只有弹窗**。
+    ///
+    /// <para>🔴 **判据（原版，2026-10-17 现读；全文 → `Shell/SearchingMatchPopup.ShowHint` 上头那一节）**：
+    /// 那一族窗口里**唯一一行**放得下状态的是本窗（四扇战斗入口窗共用的 `Searching Oponent Popup`）的
+    /// `Main Search message`；原版**从不改这行字**（它由打字机独占），而「人少」那行 **5/5 份 prefab
+    /// 都关着**（`useFewPlayerMessage = 0`）、出错走的是**弹窗**
+    /// ⇒ 🔴 **把提示接在这一行上是【我们自己的口径】**（铁律 3，如实标）。</para>
+    ///
+    /// <para>⚠️ **本自检的宿主是纯逻辑的**（`NetSelfTest` 一行 UI 都不建）⇒ N⑤–N⑧ 那几条**要真建一扇窗**
+    /// （`SearchingMatchPopup`）。建不出来时**如实说、不当失败**（同 `NetBattleTest.NoteProbeThrow` 那条先例）：
+    /// 那说明这一格该挪到 `ShellScene` / `MainMenuScene` 那种宿主去验（它们本来就建这扇窗）。
+    /// ⚠️ 这里靠 `AttachForTest` 换会话依次扮演两端（同 `TestMatchCancel` / `TestLobbyPeerGone`）。</para></summary>
+    static void TestHintLine(int port)
+    {
+        var host = NetSession.NewTcp();
+        var cli = NetSession.NewTcp();
+        var rt = NetRuntime.Ensure();
+        var keep = rt.Session;
+        bool keepLobby = rt.LobbyHandled;
+        var seen = new List<string>();
+        System.Action<string> probe = s => seen.Add(s);
+        GameObject go = null;
+        try
+        {
+            Ok(host.StartHost(Cfg(port, "")), "N① 主机起来了");
+            cli.CheckConnection(Cfg(port, ""));
+            Ok(PumpUntil(host, cli, () => host.State == NetState.Lobby && cli.State == NetState.Lobby, 5000),
+               "N② 两边握手到 `Lobby`");
+
+            NetMatchmaking.Reset();
+            rt.LobbyHandled = true;              // 夹具前提 = **大厅阶段**（对局那一半还没接管这台会话）
+            rt.AttachForTest(host);
+            var d1 = new PlayerDeck { Name = "自检提示行牌", WarlordId = "UM_WARLORD" };
+            d1.CardIds.Add("UM1");
+            Ok(NetMatchmaking.TryStart(d1, "Classic", "Ultramarines", out string _),
+               "N③ 主机点 `Battle!` ⇒ 进匹配（下面那条提示才有「这一局的匹配已撤销」那半句）");
+
+            // ---- N④：口是活的（订阅了就会响）----
+            NetMatchmaking.OnHint += probe;
+            seen.Clear();
+            cli.Transport.ClosePeer();
+            Ok(PumpUntil(host, cli, () => host.State == NetState.WaitingReconnect, 6000),
+               $"（提示行）主机发现对面没了（实际 {host.State}）");
+            Ok(seen.Count >= 1 && seen[seen.Count - 1] == NetMatchmaking.LastHint
+               && NetMatchmaking.LastHint != null && NetMatchmaking.LastHint.Contains("掉线"),
+               $"★（提示行）N④ **那个口是活的**：`OnHint` 推来的那句与 `LastHint` 逐字相同、且点明是掉线"
+             + $"（实得「{(seen.Count > 0 ? seen[seen.Count - 1] : "<没响>")}」）");
+
+            // ---- N⑤–N⑧：**界面的消费方**（`SearchingMatchPopup` 那一行）----
+            //   建不出来 ⇒ **如实说、不当失败**（见方法头上那一句）。
+            Exception buildErr = null;
+            SearchingMatchPopup pop = null;
+            go = new GameObject("B27_HintLineProbe");
+            try { pop = SearchingMatchPopup.Attach(go.transform, "Searching Oponent Popup"); }
+            catch (Exception e) { buildErr = e; }
+
+            if (pop == null)
+            {
+                _warn++;
+                Debug.LogWarning("[NetSelfTest] ⚠️ N⑤–N⑧ **没验到**：本宿主建不出 UI 窗口（`SearchingMatchPopup`）—— "
+                               + (buildErr != null ? (buildErr.GetType().Name + "：" + buildErr.Message) : "返回了 null")
+                               + "。**这不是「通过」也不是「失败」** ⇒ 这一格要挪到 `ShellScene` / `MainMenuScene` "
+                               + "那种宿主去验（它们本来就建这扇窗）。");
+            }
+            else
+            {
+                int subs0 = HintSubs();
+                pop.Show();
+                // 🔴 **2026-10-17（F4·RC3）：这一格原来是 N⑤「`Show()` ⇒ **消费方挂上了**（订阅者 +1）」。**
+                //   判据链（→ `资料/普查产出_1017/D4_联机诊断.md` §③）：窗的订/摘**只挂在
+                //   `OnEnable`/`OnDisable`**（`Shell/SearchingMatchPopup.cs:438-440` —— 设计上是对的：
+                //   `Show()` 会重复调，挂 `Show()` 会订两次），而本自检跑在**编辑模式**
+                //   ⇒ **编辑器不派生命周期消息** ⇒ `Attach()`（`AddComponent`+`SetActive(false)`）与
+                //   `Show()`（`SetActive(true)`）**两条路都一次都不派** ⇒ 窗从来没订上
+                //   （本轮日志实证：N⑤「订阅者 **1 → 1**」，那 1 就是 N④ 自己挂的探针）。
+                //   ⛔ **不写成绿、也不许删**：本宿主这半分**改断「环境事实」**（订阅者数**原封不动**）+ 出声；
+                //   🔴 **「`OnEnable` 自动订 ⇒ `OnDisable` 自动退」那一跳只有真 Play 跑得到** ⇒
+                //      `资料/真Play待验清单.md` **D43**。可验的那半（提示画得出 / 收得回）在下面 ——
+                //      改成**直接走窗自己的公开口** `ShowHint(...)`。
+                _warn++;
+                Debug.LogWarning("[NetSelfTest] ⚠️ N⑤ **本宿主里验不了「`OnEnable` 自动订」那一跳**："
+                               + "编辑模式（`Application.isPlaying == false`）不派生命周期消息 ⇒ "
+                               + "`Attach()` / `Show()` 两条路都不派 `OnEnable`。这一格改断**环境事实**"
+                               + "（订阅者数原封不动）；真那一跳 = 真 Play ⇒ `资料/真Play待验清单.md` D43。");
+                Ok(HintSubs() == subs0,
+                   $"★（提示行）N⑤【本宿主的环境事实】`Show()` **不会**把消费方挂上（订阅者 {subs0} → {HintSubs()}）"
+                 + " —— 编辑模式不派 `OnEnable`（`SearchingMatchPopup.cs:438`）⇒ 这一跳在本宿主里验不了"
+                 + "（真那一跳 = 真 Play，D43）"
+                 + "；🧨 改坏法：给窗加 `[ExecuteAlways]`（或改由 `Show()` 订）⇒ 订阅者 +1 ⇒ 本条红"
+                 + " —— 那是「环境变了、好消息」，把这一档换成「订阅者 +1」那条断言即可");
+                var line = FindLabel(pop.transform, "Main Search message");
+                Ok(line != null, "（提示行）夹具：那一行字（`Main Search message`）建出来了");
+                if (line != null)
+                {
+                    Ok(line.Text == SearchingMatchPopup.SearchingText.Substring(0, SearchingMatchPopup.SearchingText.Length - 3),
+                       $"（提示行）夹具：起手是原版那句打字机的前缀（实得「{line.Text}」）");
+                    // 提示是**掉线那一刻**推的，而这一扇窗是**之后**才开的 ⇒ 手动把那一句再推一遍
+                    //（真 Play 里顺序正是「窗开着 → 掉线」；这里为了同一条用例里把 N④ 与 N⑤ 都验到，先后换了位置）。
+                    // 🔴 本宿主里**推给谁**：生产路径是「`OnHint` 推 ⇒ 窗在 `OnEnable` 订的那根线收到」，
+                    //    而这条投递在本宿主里不存在（见上）⇒ 这里**直接调窗自己的公开口**（同一个方法体）。
+                    string hint = NetMatchmaking.LastHint;
+                    pop.ShowHint(hint);
+                    Ok(line.Text == hint,
+                       $"★（提示行）N⑥ **提示落到了那一行字上**（实得「{line.Text}」）"
+                     + " —— 🧨 改坏法：删掉 `ShowHint` 里那句 `_msg.SetText(text)` ⇒ 红");
+                    pop.Tick(2f);
+                    Ok(line.Text == hint,
+                       $"★（提示行）N⑦ **打字机不许把提示顶掉**（推 2 秒之后那行字还是提示：「{line.Text}」）"
+                     + " —— 🧨 改坏法：把 `Tick` 里 `_hint == null` 那道闸去掉 ⇒ 红"
+                     + "（那一格正是「玩家正要读的那句话每 0.5 秒被顶回 `Sear…`」）");
+                    // 那一行**收回去** ⇒ 打字机接着打（生产路径那个口是 `NetMatchmaking.Reset()`
+                    // ⇒ 它推 `OnHint(null)`；本宿主里那一投递同上不存在 ⇒ 直接把同一条边沿交给窗）。
+                    NetMatchmaking.Reset();
+                    pop.ShowHint(null);
+                    for (int i = 0; i < 8 && line.Text == hint; i++) pop.Tick(0.5f);
+                    Ok(pop.HintText == null && line.Text != hint && line.Text != null && line.Text.Length > 0,
+                       $"★（提示行）N⑧ `Reset()`（⇒ `OnHint(null)`）⇒ **那行字收回去、打字机接着打**（实得「{line.Text}」）"
+                     + " —— 与 N⑥ **不同源**：N⑥ 验「来了会画」，这条验「走了会收」（不收的话下一局开局时"
+                     + "台面上还挂着上一局那句「对面掉线了…」——说错话 = 另一种静默）");
+                }
+                // ---- N⑨：`Hide()` / 销毁 ⇒ **窗自己把那根线摘掉** ----
+                //   🔴 **2026-10-17（F4·RC3）**：这一格原来是**恒真绿** —— 它先手动 `OnHint -= probe`、
+                //     再断言「订阅者数 = 0」⇒ `0 == 0` **与窗有没有自己摘无关**（「灭自证」那一族）。
+                //   ⇒ 改成**有鉴别力**的写法：① 本宿主不派生命周期 ⇒ 由自检**替它把那次派发补上**
+                //     （手动 `+= pop.ShowHint` == `OnEnable` 里那一句；再用反射调私有的 `OnDisable` /
+                //     `OnDestroy` == 编辑器本该派的那两条消息）；② 断言**订阅者数真的掉回去**。
+                //   ⚠️ **只覆盖「窗自己那句 `-=` 干了活」**；「Unity 会派这两条消息」那一跳仍是真 Play（D43）。
+                //   🧨 判别式：删掉 `SearchingMatchPopup.OnDisable`（或 `OnDestroy`）里那句 `-=` ⇒ 本条红。
+                {
+                    var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+                    var miDisable = typeof(SearchingMatchPopup).GetMethod("OnDisable", flags);
+                    var miDestroy = typeof(SearchingMatchPopup).GetMethod("OnDestroy", flags);
+                    if (miDisable == null || miDestroy == null)
+                    {
+                        _warn++;
+                        Debug.LogWarning("[NetSelfTest] ⚠️ N⑨ **没验到**：拿不到 `SearchingMatchPopup.OnDisable` / "
+                                       + "`OnDestroy`（被改名了？）—— 本格在本宿主里不可验（真那一跳 = 真 Play，D43）。");
+                    }
+                    else
+                    {
+                        int subsN9 = HintSubs();                       // = 只有 N④ 那根探针
+                        NetMatchmaking.OnHint += pop.ShowHint;          // = `OnEnable` 那一句（本宿主不派 ⇒ 替它补）
+                        Eq(HintSubs(), subsN9 + 1, "（提示行）N⑨ 夹具：补上 `OnEnable` 那句 `+=` ⇒ 多一根（窗）");
+                        pop.Hide();
+                        miDisable.Invoke(pop, null);                    // = 编辑器本该派的 `OnDisable`
+                        Eq(HintSubs(), subsN9,
+                           "★（提示行）N⑨a `OnDisable`（`Hide()` 那一刻）里那句 `-=` **真把那根线摘了**"
+                         + " —— 🧨 改坏法：删掉 `SearchingMatchPopup.OnDisable` 里那句 `-=` ⇒ 红"
+                         + "（不摘的话，窗一销毁提示再来就是 `MissingReferenceException`）");
+                        NetMatchmaking.OnHint += pop.ShowHint;          // 再挂一次，验销毁那一条（`OnDestroy` 也得摘）
+                        miDestroy.Invoke(pop, null);                    // = 编辑器本该派的 `OnDestroy`
+                        Eq(HintSubs(), subsN9,
+                           "★（提示行）N⑨b `OnDestroy`（窗被销毁那一刻）里那句 `-=` **也摘了**"
+                         + " —— 与 N⑨a **不同源**：一条管「关窗」、一条管「销毁」，两处都得摘"
+                         + "；🧨 改坏法：删掉 `SearchingMatchPopup.OnDestroy` 里那句 `-=` ⇒ 红");
+                    }
+                }
+            }
+        }
+        finally
+        {
+            NetMatchmaking.OnHint -= probe;
+            if (go != null) UnityEngine.Object.DestroyImmediate(go);
+            rt.AttachForTest(keep);
+            rt.LobbyHandled = keepLobby;
+            NetMatchmaking.Reset();
+            NetRuntime.DrainNoticesForTest();
+            host.Close(false); cli.Close(false);
+        }
+    }
+
+    /// <summary>🆕 2026-10-17（B27·A925）：`NetMatchmaking.OnHint` 上**此刻挂了几根接线**（0 = 没人订）。
+    /// 为什么要数它：`OnHint` 是**多播委托**，而这一段自己也订了一根**探针** ⇒
+    /// 只看 `!= null` 分不清「窗挂上了」还是「只有我那根探针」。</summary>
+    static int HintSubs()
+    {
+        return NetMatchmaking.OnHint == null ? 0 : NetMatchmaking.OnHint.GetInvocationList().Length;
+    }
+
+    /// <summary>按节点名递归找那一颗 `Label`（`Transform.Find` **只找直接子件**，这棵树有两层 ⇒ 自己走）。</summary>
+    static Label FindLabel(Transform root, string name)
+    {
+        if (root == null) return null;
+        if (root.name == name)
+        {
+            var l = root.GetComponent<Label>();
+            if (l != null) return l;
+        }
+        for (int i = 0; i < root.childCount; i++)
+        {
+            var r = FindLabel(root.GetChild(i), name);
+            if (r != null) return r;
+        }
+        return null;
     }
 
     static bool V6(string a) { return NetConfig.V6Routable(a); }

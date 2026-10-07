@@ -3753,6 +3753,114 @@ public static class ShellScene
             CheckTrue(!SmallScreenUI.Enabled, "（收尾）A327：自检跑完把开关放回**出厂值 关**");
         }
 
+        // ---------------- ⑤·y-3 🆕 **2026-10-17（B11 · A883 / A884）**：导入窗两颗 TMP 的对齐 + 占位符的词条
+        //
+        // 判据 = **逐字段实读原版 prefab**（⛔ 不是抄 `资料/普查产出_0923/A1_外壳与弹窗.md` §4 那张表 ——
+        //   那两行当年**没实读 TMP**，A1 上写着 `hAlign=Right`、是错的）：
+        //   `python 工具/menu_dump.py bundle_menus_assets_all "Import Deck Popup" --depth 6`
+        //   + 直接读 `bundle_menus_assets_all/MonoBehaviour/` 那几颗 MB（本轮亲读）：
+        //     `Main Search message` → `MonoBehaviour_7476776257758560402.json`：`m_HorizontalAlignment = 2` / `m_VerticalAlignment = 512`
+        //     `Error msg`           → `MonoBehaviour_-2174597011030277998.json`：`m_HorizontalAlignment = 2` / `m_VerticalAlignment = 512`
+        //     `Placeholder`         → `MonoBehaviour_-1702962149292703598.json`：`m_HorizontalAlignment = 1` / `m_VerticalAlignment = 256`（D46 已改，本块不复核）
+        //   两套枚举**不是同一套**（`TMP_Text.cs` 的 `HorizontalAlignmentOptions` / `VerticalAlignmentOptions`）：
+        //   `Left = 1 · Center = 2 · Right = 4` · `Top = 256 · Middle = 512`。
+        //
+        // 🔴 **本块断三支，各带改坏法**：
+        //   ① **TMP 字段 == 原版那两个字面量**（逐颗 HA / VA 共四条）。
+        //      ⚠️ ⛔ **光这一支挡不住「改回右对齐」** —— `Label.AlignRightOn` 只挪**节点位置**、
+        //      **不写** TMP 的 `m_HorizontalAlignment`（`Battle/Label.cs` 那两个 `Align*On` 的实读：
+        //      体内只有 `transform.localPosition` + `ReclipNow`）⇒ 牙口全在 ②。
+        //   ② **判别式（灭自证）**：量**渲出来那一块**的**水平中心**，必须落在**框心 960**。
+        //      两处框都是关于屏幕中心对称的（`MsgL/MsgR = 610/1310` · `ErrL/ErrR = 593.05/1326.95`
+        //      ⇒ 框心都是 **960**）⇒ 一个数同时管两颗。
+        //      **结构上必然红**（下面的差值都是**算出来的**、不是量出来的）：右对齐档把块心摆到 `x2 − 块宽/2`
+        //      ⇒ 与框心的差 = `(x2 − 960) − 块宽/2`，`Main Search message` 那边 = `350 − 块宽/2`
+        //      ⇒ 只有那句字宽到 **≥ 660px**（框总共才 700 宽）才可能落进 20px 容差；
+        //      `Error msg` 那边 = `366.95 − 块宽/2`（框 733.9 宽）—— 本支喂的那条错误文案是
+        //      「这不是一条合法的卡组串」（12 个汉字 × fs28 ⇒ **估** ~336px，⚠️ 这个宽度**没实量**）
+        //      ⇒ 差 ≈ 199px ⇒ 红。
+        //      ⚠️ 量的是 **TMP 顶点**（`TmpSpanPx`），⛔ 不是节点自己的 rect（那等于拿写进去的值验写进去的值）。
+        //   ③ 占位符走 `Loc`：**两语档下那句字必须不同** —— 写死英文 / 写死中文都过不了那一条。
+        Section("B11 · A883/A884：`ImportDeckPopup` 两颗 TMP 的对齐（原版 HA 2 / VA 512）+ 占位符走 `Loc`");
+        {
+            var lang0 = Loc.Current;                        // 收尾要放回原值（后面的节可能吃它）
+            var ipB = ImportDeckPopup.Create(shell.Windows);
+            CheckTrue(ipB != null, "（前提）`Import Deck Popup` 建出来了");
+            if (ipB != null)
+            {
+                // 判据档 = 出厂语言；**只改内存**（`RestoreForTest` 不碰 `PlayerPrefs`）
+                Loc.RestoreForTest(AvailableLanguages.Chinese);
+                CheckTrue(ipB.TryOpen(null), "（前提）窗开着 —— 下面几条才不是空断");
+
+                // ============================================================ ① TMP 字段 = 原版字面量
+                foreach (var nm in new[] { "Main Search message", "Error msg" })
+                {
+                    var node = FindChildIn(ipB.transform, nm);
+                    var t = node != null ? node.GetComponentInChildren<TMPro.TextMeshPro>(true) : null;
+                    CheckTrue(t != null, $"（前提）`{nm}` 上那颗 TMP 在（拿不到 ⇒ 它下面两条会假绿）");
+                    if (t == null) continue;
+                    Check((int)t.horizontalAlignment, 2,
+                          $"`{nm}` 的 `m_HorizontalAlignment` = 原版字面量 **2**（Center）");
+                    Check((int)t.verticalAlignment, 512,
+                          $"`{nm}` 的 `m_VerticalAlignment` = 原版字面量 **512**（Middle）");
+                }
+
+                // ============================================================ ② 判别式：渲出来那块的**水平中心** = 框心 960
+                {
+                    var n = FindChildIn(ipB.transform, "Main Search message");
+                    var l = n != null ? n.GetComponentInChildren<Label>(true) : null;
+                    CheckTrue(TmpSpanPx(l, out float mnX, out _, out float mxX, out _),
+                              "（前提）`Main Search message` 那句字**渲出来了**"
+                            + "（量不到顶点 ⇒ 它下面那条会红，⛔ 不会假绿）");
+                    CheckNear((mnX + mxX) * 0.5f, 960f, 20f,
+                              "★ `Main Search message` 渲出来那一块的**水平中心** = 框心 **960**（原版 `HA=2` Center）"
+                            + " —— 改坏法：把 `Align.Center` 换回 `Align.Right` ⇒ `AlignRightOn` 把块心推到 `x2 − 块宽/2`"
+                            + "（差 = `350 − 块宽/2`）⇒ 红；⛔ 别只改 TMP 字段想换绿（那一支不受 `AlignRightOn` 影响，见本块头 ①）");
+                }
+
+                // ---- `Error msg` 同一条（它平时是空串、没有顶点 ⇒ 先走生产链喂一条**真的**失败串）----
+                //   ⛔ 别去戳私有字段：那样验的是夹具、不是产物（`TryImport()` 走的就是玩家点 Confirm 那条路）。
+                {
+                    ipB.SetTextForTest("B11-not-a-deck");
+                    CheckTrue(!ipB.TryImport(), "（前提）喂一条非法卡组串 ⇒ 导入**失败**（错误行才会被画出来）");
+                    CheckTrue(!string.IsNullOrEmpty(ipB.ErrorText), "（前提）错误行有字了（`ErrorText` 非空）");
+                    var n = FindChildIn(ipB.transform, "Error msg");
+                    var l = n != null ? n.GetComponentInChildren<Label>(true) : null;
+                    CheckTrue(TmpSpanPx(l, out float mnX, out _, out float mxX, out _),
+                              "（前提）`Error msg` 那句字**渲出来了**（量不到顶点 ⇒ 它下面那条会红）");
+                    CheckNear((mnX + mxX) * 0.5f, 960f, 20f,
+                              "★ `Error msg` 渲出来那一块的**水平中心** = 框心 **960**（同上一支，原版 `HA=2`）"
+                            + " —— 这一颗有**两个出生入口**（`Build` 与 `RebuildErrorLine`，⛔ 别按行号找），"
+                            + " 本支走的正是 `RebuildErrorLine` 那一个");
+                }
+
+                // ============================================================ ③ 占位符走 `Loc`（两语档各断一个字面量）
+                System.Func<string> placeholderNow = () =>
+                {
+                    var n = FindChildIn(ipB.transform, "Input Text");
+                    var l = n != null ? n.GetComponentInChildren<Label>(true) : null;
+                    return l != null ? l.Text : null;               // 缺件 ⇒ null（下面必红，⛔ 不静默）
+                };
+                Loc.RestoreForTest(AvailableLanguages.Chinese);
+                ipB.Close();                                       // 走生产链回 `Closed` ⇒ `TryOpen` 才会重建（A437）
+                CheckTrue(ipB.TryOpen(null), "（前提）换语言之后窗重开了（`Build()` 会重读一次词条）");
+                string phZh = placeholderNow();
+                Loc.RestoreForTest(AvailableLanguages.English);
+                ipB.Close();
+                CheckTrue(ipB.TryOpen(null), "（前提）第二趟同上");
+                string phEn = placeholderNow();
+                Check(phZh, "输入文字...", "★ 中文档的占位符 = `Loc.T(\"MenuDeck/HUD/EnterText\")` 的**中文列**"
+                    + "（⚠️ **我们译的**：原版中文在远端 I2 表里、本地 24.7 万文件扫不到 —— 源 `数据/本地化/i18n/zh_CN.csv:102`）");
+                Check(phEn, "Enter text...", "★ 英文档的占位符 = `Loc.T(\"MenuDeck/HUD/EnterText\")` 的**英文列**"
+                    + "（= 原版那颗 TMP 的 `m_text` 原文逐字符，含末尾那三个点）");
+                CheckTrue(phZh != phEn, "★ 判别式：两语档下那句字**必须不一样**"
+                    + " —— ⛔ 写死 `\"Enter text...\"`（改前那样）或写死中文，都过不了这一条");
+
+                Object.DestroyImmediate(ipB.gameObject);
+            }
+            Loc.RestoreForTest(lang0);                              // 收尾：语言放回原值（⛔ 全程不写 `PlayerPrefs`）
+        }
+
         // ---------------- ⑤·z 🆕 **2026-10-13（A435 阶段 2 · 丙）**：裁切状态长在【视口节点】上（丙块那几处）
         //
         // 判据 = `Shell/ViewportClip.cs` 文件头 + A435 迁移表

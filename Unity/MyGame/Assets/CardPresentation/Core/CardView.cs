@@ -43,8 +43,11 @@ namespace CardPresentation
         /// **卡框按稀有度分四档**（原版就是），空的按 common 处理。见 `CardArt.Frame`。</summary>
         public string rarity;
         /// <summary>兵种（`Infantry` / `Vehicle` / `Drone`…）—— 卡面下方那一行（原版 `RaceText`）。
-        /// ⚠️ **不是所有卡都印这一行**，判据见 `SubtypeLine`。原版数据里是英文，
-        /// **我们还没有中文对照表**，照原样显示。</summary>
+        /// ⚠️ **不是所有卡都印这一行**，判据见 `SubtypeLine`。
+        /// 🔴 2026-10-17（D5）**就地更正**：这里原来写「**我们还没有中文对照表**，照原样显示」—— 表**已建**
+        /// （键 = `Card_Race/&lt;本串&gt;`，见 <see cref="RaceTermPrefix"/> / `Core/Loc.cs`）。
+        /// **本字段仍然是英文原值**，中文只发生在**显示那一步**（`RaceTerm`）
+        /// ⇒ ⛔ 别往这个字段里写中文（`TacticSubtypeShown` / 引擎 / 卡表都按英文原值判）。</summary>
         public string subtype;
         /// <summary>卡类（`unit` / `tactic` / `hero` / `defence`）—— **只有卡面的兵种行用它**
         /// （见 `SubtypeLine` 的判据）。⚠️ 没填的构造点走老路径（按 `isUnit` 判），不会突然少一行。</summary>
@@ -54,7 +57,12 @@ namespace CardPresentation
         /// 🔴 2026-09-15 起立绘**按 id 命名**（原来是卡名）—— 同名跨阵营的卡（`Terminator` /
         /// `Aggressor` / `Maulerfiend` / `Bladeguard Veteran` / `Terminator Champion`）原来会
         /// **互相覆盖**，实测 `art_aggressor.png` 是太空野狼那张、暗黑天使那张挂着别人的画。
-        /// 见 `资料/PnP卡图_逐张对账_0915.md` §五。⚠️ 我们自己设计的那 26 张没有引擎 id，仍用**卡名**。</summary>
+        /// 见 `资料/PnP卡图_逐张对账_0915.md` §五。⚠️ 我们自己设计的那 26 张没有引擎 id，仍用**卡名**。
+        /// ⚠️ **2026-10-17 订正**：上面那串名单是 **2026-09-15 当天**的口径，现在只剩 3 组
+        /// （`Terminator` / `Terminator Champion` / `Maulerfiend`）—— `Aggressor` 那组是 `DA12` 的
+        /// 重复行（09-16 已从数据删掉），`Bladeguard Veteran` 那组的「同名」是 09-13 一次错改名的
+        /// 产物（`UM34` 被照 PnP 卡图文件名改名）、10-17 已撤回成 `Bladeguard Lieutenant`
+        /// （判据 `资料/普查产出_1017/W_B16_教程数据缺口.md` §①）。**按 id 取名这条规矩不受影响**。</summary>
         public string artId;
 
         /// <summary>🆕 **立绘覆盖**（2026-09-24 加，给卡组线 Styles 页的**异画**用）。
@@ -650,6 +658,16 @@ namespace CardPresentation
         /// ⚠️ 取不到字体资产（`TmpFont.Available == false`）时**恒 false**（那条路根本不让挂 TMP）
         /// ⇒ 断它之前先断 `TmpFont.Available`，否则「没验到」会伪装成「验过了」。</summary>
         public bool ArmyShown { get { return _army != null && _army.gameObject.activeSelf; } }
+
+        /// <summary>🆕 2026-10-17（D5）：**兵种行现在印的是什么字**（实况）—— 自检用。
+        /// 与 <see cref="SubtypeLine"/> 的分工：那条是**口径**（该不该印、印哪个词），
+        /// 这条是`_race` 上**真挂着的那个串**（没这一层 / 没字 ⇒ `null`）。
+        /// ⚠️ 取不到字体资产时**恒 `null`** ⇒ 断它之前先断 `TmpFont.Available`（同 <see cref="ArmyShown"/>）。</summary>
+        public string RaceText { get { return _race != null ? _race.text : null; } }
+
+        /// <summary>🆕 2026-10-17（D5）：**兵种行现在是不是真印着的**（层建出来了**且**开着）—— 自检用。
+        /// ⚠️ 同 <see cref="ArmyShown"/>：字体资产不在就恒 `false`（假绿陷阱）。</summary>
+        public bool RaceShown { get { return _race != null && _race.gameObject.activeSelf; } }
 
         /// <summary>**整张卡换 layer**（含所有子节点）。
         /// 🔴 2026-09-20 加：**场上的卡要搬进 3D 那一层**（`ArenaSlots.ArenaLayer`），
@@ -1731,6 +1749,9 @@ namespace CardPresentation
             Show(_army, FaceShowsArmy(_faceMode));
 
             // ④ 兵种行 —— 在卡面下部。**印不印不是「只有单位卡」那么简单**，判据见 `SubtypeLine`
+            //    🆕 2026-10-17（D5）：这一格的字现在是**按当前语言**取的
+            //    （`SubtypeLine` → `RaceTerm` → `Loc.T("Card_Race/<race>")`）。
+            //    ⚠️ **版面一个字都没动** —— 位置 / 字号 / 颜色 / 折行照旧（实拍与 prefab 都已收口）。
             _race = Fill(_race, "race", SubtypeLine(d), UnitRaceAt, nameW, RaceFontSize, InkArmy, false);
 
             // ⑤ 🆕 描边 —— **原版在材质里，不在 TMP 组件上**，见 `TmpFont.ApplyOutline` 的注释。
@@ -1765,16 +1786,42 @@ namespace CardPresentation
         {
             // ⚠️ 没填 `type` 的构造点（自检里的 `CardData.Simple` / `Placeholder` 之类）走**老路径**，
             //    免得它们突然少一行。填了 type 的都走新规则。
-            if (string.IsNullOrEmpty(d.type)) return d.isUnit ? d.subtype : null;
+            // 🔴 每个出口都过一遍 `RaceTerm`（= 按当前语言取显示名）—— **印不印**由这里判，**印哪个词**由它给。
+            if (string.IsNullOrEmpty(d.type)) return d.isUnit ? RaceTerm(d.subtype) : null;
             switch (d.type)
             {
-                case "unit":    return d.subtype;
-                case "hero":    return "Warlord";
-                case "defence": return "Defence";
-                case "tactic":  return TacticSubtypeShown.Contains(d.subtype) ? d.subtype : null;
+                case "unit":    return RaceTerm(d.subtype);
+                case "hero":    return RaceTerm("Warlord");
+                case "defence": return RaceTerm("Defence");
+                case "tactic":  return TacticSubtypeShown.Contains(d.subtype) ? RaceTerm(d.subtype) : null;
                 default:        return null;
             }
         }
+
+        /// <summary>🆕 2026-10-17（D5）：兵种行的**词条键前缀**。
+        /// <para>🔴 **这是原版自己拼的，不是我们自拟的**：`GameStaticData.CardRaceToString` /
+        /// `MinionRaceToString`（`d:/2/tools/decomp_full/` 两个方法体实读）都是
+        /// `GetTranslation(String.Concat(&lt;前缀&gt;, &lt;种族串&gt;))`；两条 `.rdata` 字面量已按 RVA 读出
+        /// （`0x1842cdf40` = **`"Card_Race/"`** · `0x1842ce040` = **`"Card_Race/Warlord"`**，
+        /// 与 `d:/2/tools/all_strings.txt` 的表偏移逐位对上）。⛔ 别改成 `Card/Subtype/…`。</para></summary>
+        public const string RaceTermPrefix = "Card_Race/";
+
+        /// <summary>兵种行的**显示名**（`Card_Race/&lt;race&gt;` → 当前语言）。
+        /// <para>取不到就**照原样返回那个英文串**（= 加 D5 之前的行为）并**出声** —— ⛔ 不静默。
+        /// ⚠️ 同一个值**只出声一次**：卡面每次刷新都会走这条路，逐次出声会把日志刷爆。
+        /// ⚠️ 卡池里 43 个非空 `subtype` **全在表里** ⇒ 这条兜底正常**不会触发**；
+        /// 一旦日志里出现它，就是数据侧冒出了新 `subtype`。</para></summary>
+        static string RaceTerm(string race)
+        {
+            if (string.IsNullOrEmpty(race)) return race;
+            string key = RaceTermPrefix + race;
+            if (Loc.HasEntry(key)) return Loc.T(key);
+            if (UnknownRace.Add(race))
+                Debug.LogWarning($"[CardView] 兵种行 `{race}` 在语言表里查不到词条（键 `{key}`）⇒ **卡面照原样印英文**。"
+                               + "加词条见 `Core/Loc.cs`（键名照原版 `Card_Race/<race>`）。");
+            return race;
+        }
+        static readonly HashSet<string> UnknownRace = new HashSet<string>();
 
         /// <summary>会印在卡面底部那一行的 tactic subtype（**白名单**，实测推出来的）。
         /// ⚠️ 加新卡系时看它卡面上有没有这一行：**有就加进来，没有就别加** ——

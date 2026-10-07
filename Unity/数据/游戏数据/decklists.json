@@ -8686,7 +8686,7 @@
   {
    "deckId": "UMTutorial",
    "name": "UMTutorial",
-   "armyId": 120,
+   "armyId": 10,
    "heroId": "ec0d25faeb266ea4eaec41ae72b8d8ad",
    "cardbackId": "10a1e3f4c77c0491196b655ad4d7d72d",
    "gameMode": 0,
@@ -8725,10 +8725,10 @@
     "UM26",
     "UM26"
    ],
-   "faction": "EmperorsChildren",
-   "factionId": 120,
+   "faction": "Ultramarines",
+   "factionId": 10,
    "cardback": "res://assets/deco/cardbacks/Cardback_UM_Campaign_Free.png",
-   "heroPortrait": "res://assets/deco/portraits/UI_Deck_Warlord_Lucius.png"
+   "heroPortrait": "res://assets/deco/portraits/UI_Deck_Warlord_Titus.png"
   },
   {
    "deckId": "UMTutorial",

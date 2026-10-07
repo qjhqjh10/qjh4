@@ -306,16 +306,65 @@ namespace RuleEngine
             }
         }
 
-        /// <summary>按模式取实例。**15 档里只有 `Skirmish 13` 用遭遇那一套，其余 14 档全走经典** ——
-        /// 这是我们**只有两份实例**的必然结果（原版那 18 个值是**服务器按模式下发**的，
+        /// <summary>
+        /// 🆕 2026-10-17（B29）：**教程局**（`GameMode.Tutorial 4` / `TutorialReplay 9`）。
+        ///
+        /// 🔴 **原版那 18 个值在服务器**（`GameplayVariablesData`，`MatchData +0xA8`）⇒ 教程那一档
+        ///    **抄不到**。唯一有本地产物的是**另一个类** `ScenarioVariables`
+        ///    （`bundle_duplicateassetisolationso_assets_all/MonoBehaviour/TutorialScenario.json` 实读：
+        ///     `startingMana 1 · startingHand 3 · secondExtraCards 0 · maxMana 10 · maxCardsInHand 10 ·
+        ///      clockTimeLimit 1000 · clockCountdownSec 10`）。
+        ///    ⇒ 本实例 = **经典值 + 那份 `TutorialScenario` 覆盖到的三处**，
+        ///      **每一处都在字段注释里标了来源**；**没覆盖到的仍是经典值**（⛔ 不假装知道）。
+        ///
+        /// ✅ **反编译能钉死的两条**（不是推断）：
+        ///   · `showMulligan = false` —— 教程走的是 `BattleManager._TutorialStartSequence`
+        ///     （**不是** `_SetupMulliganPhase`）⇒ **根本没有换牌阶段**
+        ///     （`BattleManager._StartBattleSequence_d__331__MoveNext.c:88-95` 那一处二选一）；
+        ///   · `deckSize` 那一格**对教程不参与校验** —— 关卡牌是 7～30 张（`tutorial_decks.json` 实读），
+        ///     原版也不拿构筑规则去卡它（牌是关卡 SO 直接给的）。
+        ///     这里留着 30 只是为了让 `IsSkirmish`（判据 = `deckSize &lt; 30`）保持 false。
+        /// </summary>
+        public static GameplayVariables Tutorial
+        {
+            get
+            {
+                if (_tutorial != null) return _tutorial;
+                var v = new GameplayVariables();
+                v.startingHand = TutorialStartingHand;         // 【TutorialScenario】startingHand 3
+                v.secondExtraCards = TutorialSecondExtraCards; // 【TutorialScenario】secondExtraCards 0
+                v.handLimit = TutorialMaxCardsInHand;          // 【TutorialScenario】maxCardsInHand 10
+                v.showMulligan = false;                        // 【反编译】教程不跑换牌阶段（见上面那段）
+                // ⚠️ **没动的**（原版值在服务器、本地查不到）：startingMana / startingManaSecond /
+                //    manaPerTurn / overtimeTurn / shouldReshuffle —— 一律沿用经典值。
+                //    判据只到这里为止，⛔ 别按「教程大概应该……」去改。
+                _tutorial = v;
+                return _tutorial;
+            }
+        }
+        static GameplayVariables _tutorial;
+        /// <summary>【TutorialScenario】`startingHand = 3`（原版那个类，不是 `GameplayVariablesData`）。</summary>
+        public const int TutorialStartingHand = 3;
+        /// <summary>【TutorialScenario】`secondExtraCards = 0` —— **经典是 1**，
+        /// 教程这一档「后手不额外多抽」（我们把它当 0 用）。</summary>
+        public const int TutorialSecondExtraCards = 0;
+        /// <summary>【TutorialScenario】`maxCardsInHand = 10`（与经典同值）。</summary>
+        public const int TutorialMaxCardsInHand = 10;
+
+        /// <summary>按模式取实例。**15 档里只有 `Skirmish 13` 用遭遇那一套**，
+        /// 🆕 2026-10-17 起 **`Tutorial 4` 与 `TutorialReplay 9` 用教程那一套**，其余 12 档全走经典 ——
+        /// 这是我们**只有三份实例**的必然结果（原版那 18 个值是**服务器按模式下发**的，
         /// `资料/加时与冲突模式_原版规格.md` §2.5 ⇒ 本地抄不到第三份）。
         /// 判据：15 档里带「12 张 · 4 传说 · 督军 −10 生命 · 无换牌」这套的只有 `Skirmish`
         /// （= `FastMode`，原版 `MatchType.FastMode 200` 那一支）；`OfflinePractice 6` /
         /// `OwnDeckTraining 12` 是**用自己 30 张的牌打练习**，`Classic 0` 是排位 ⇒ 都不是快攻那套。
+        /// 教程那两档的判据见 <see cref="Tutorial"/>。
         /// ⚠️ **这里是「模式号 → 规则参数」的唯一一处**：⛔ 别在别处再写 `mode == Skirmish ? … : …`。</summary>
         public static GameplayVariables For(GameMode mode)
         {
-            return mode == GameMode.Skirmish ? Skirmish : Classic;
+            if (mode == GameMode.Skirmish) return Skirmish;
+            if (mode == GameMode.Tutorial || mode == GameMode.TutorialReplay) return Tutorial;
+            return Classic;
         }
 
         /// <summary>这套参数算不算遭遇模式（判据 = 卡组张数，**不是**「是不是那个实例」——

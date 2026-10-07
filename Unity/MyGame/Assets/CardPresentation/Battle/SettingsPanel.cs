@@ -56,6 +56,20 @@ namespace CardPresentation
         ImageQuad _azCheck;
         /// <summary>那一行的文字（原版 `Label`，TMP `m_text = "Auto zoom"`）。</summary>
         Label _azLabel;
+
+        // ---- 🆕 2026-10-17：「Language Selector」那一行（原版 `LanguageSelector.languagesDropdown`）----
+        /// <summary>下拉框底图（原版 `LanguagesDropdown` 那颗 `Image`，图 `40K_dropdown_field_closed`）。</summary>
+        ImageQuad _langField;
+        /// <summary>框右端那个箭头（原版 `Arrow`）。</summary>
+        ImageQuad _langArrow;
+        /// <summary>框里那行**当前语言名**（原版 `LanguagesDropdown > Label`）。</summary>
+        Label _langCap;
+        /// <summary>左边那颗标签（原版 `SelectLanguageText`，`'Select Language'`）。</summary>
+        Label _langSelText;
+        /// <summary>上一次 `PointerFrame` 收到的是不是「按住」—— 本面板自己判**抬起**那一帧用（见 `LangPointerFrame`）。</summary>
+        bool _wasDown;
+        /// <summary>这一轮「按住」是**从语言那一行**开始的（抬起时只有它还为真才算点它）。</summary>
+        bool _langArmed;
         // ⚠️ A424 曾有一格 `bool _autoZoomHeld`（按下那一帧的边沿 latch）—— **A445 删掉了**：
         //    那一行挪回了「抬起」的点击链（`BattleDriver.SettingsClickAt`），原版那颗 `Toggle` 的
         //    `IPointerClickHandler` 自带「一次抬起点一次」的语义，不需要我们再 latch。
@@ -168,6 +182,52 @@ namespace CardPresentation
         /// 🔴 **客户端没有本地 I2 词条表**（246,807 个文件扫中文串零命中、84 个 bundle 无本地化包，
         /// 词条表在远端 CCD）⇒ 正式译文**拿不到**，只当「键 + 兜底」里的那个键记着（同 `Resign` 那条口径）。</summary>
         public const string AutoZoomTermKey = "Settings/Graphics/AutoZoom";
+
+        // ---- 🆕 2026-10-17：「Language Selector」那一行（原版 `BattleSettingsPanel/Language Selector`，
+        //      组件 `LanguageSelector`，字段 `languagesDropdown`）----
+        // 为什么补它：**原版战斗内这扇设置窗里就有语言选择**（用户 2026-09-28：「请你检查游戏主界面右上角的
+        // 设置按钮和**对战里的设置按钮** ……这些设置按钮里面就有语言选择」；判据 = `资料/说明书/01_战斗_对战/
+        // 2D层_battlearena1全树.md:672-745`）。
+        // 🔴 **下面全是【面板内】坐标**（原点 = 面板中心，**y 向上**，px）—— 与 `Az*` 那一族同一个口径。
+        //    出处 = 2026-10-17 亲读 `bundle_scenes_scenes_battlearena1`
+        //    （`python 工具/menu_dump.py bundle_scenes_scenes_battlearena1 "BattleSettingsPanel" --depth 4 --no-sprite`
+        //     的**绝对矩形**，再用面板中心 `y = 569.3` / `x = 960` 反算回面板内）：
+        //      · 行        `677.6,222.6 → 1257.3,282.0`（579.70×59.40）⇒ x ∈ [−282.4, 297.3] · y ∈ [287.3, 346.7]
+        //      · 下拉框    `1007.3,222.6 → 1257.3,282.0`（250.00×59.40）⇒ x ∈ [47.3, 297.3]（右沿与行右沿齐）
+        //      · 那行标签  `677.6,223.6 → 1012.6,281.1`（335.00×57.53）⇒ x ∈ [−282.4, 52.6]
+        //      · 框内 `Label` / `Arrow` = 树 dump 的相对值（`Label [57,770 230x46]` / `Arrow [272,782 20x20]`，
+        //        父 = 下拉框 `[47,763]`）⇒ 框内偏移 (10, 7) 与 (225, 19)。
+        const float LangRowX1Px = -282.4f;                 // 那一行的左沿（= 标签的左沿）
+        const float LangRowTopPx = 346.7f, LangRowBotPx = 287.3f;
+        const float LangFieldX1Px = 47.3f, LangFieldX2Px = 297.3f;
+        /// <summary>左边那颗标签的框（原版 `SelectLanguageText`：`335×57.53`、顶 `345.7`、底 `288.2`
+        /// ⇒ 框心 y = **316.95**）—— `Label` 的左中锚要的就是框心（同 `SliderLabel` 那条口径）。</summary>
+        const float LangSelCyPx = 316.95f;
+        /// <summary>框内那行**当前语言名**（原版 `LanguagesDropdown > Label`）：框内偏移 (10,7)、230×46、
+        /// TMP `fs 18`（`base 14`、auto 18~40）、`Left/Middle`、色 `(0.67,0.67,0.67,1)`。
+        /// 🔴 **两个设置窗那一颗是同一个值**（主菜单 `General Tab` 那颗也是 fs18 + 同样那个灰）；
+        /// ⚠️ 框宽 230 与「左右各内缩 10」自洽（10 + 230 + 10 = 250 = 框宽 250）⇒ **我们只落内缩 10 这一条**，
+        /// 不另立一个「框宽」（`Label` 收的是「节点位 + 字号」，没有框）。</summary>
+        const float LangCapInsetPx = 10f, LangCapTopPx = 7f, LangCapHPx = 46f;
+        /// <summary>框内右端那个箭头：框内偏移 (225,19)、20×20、**preserveAspect**、色 `(0.0196,0.353,0.192,1)`。
+        /// ⚠️ 图名 `40K_dropdown_arrow_closed` 是**我们的选择**（原版那颗 PathID `-1891211968353393973`
+        /// 本地没解出名字 —— 同 `Shell/SettingsWindow.cs` 的 `ArtLangArrow` 那条）。</summary>
+        const float LangArrowOffXPx = 225f, LangArrowOffYPx = 19f, LangArrowPx = 20f;
+        static readonly Color LangArrowTint = new Color(0.0196f, 0.353f, 0.192f, 1f);
+        /// <summary>下拉框那颗 `Image` 的 `m_Color`（原版实读；⛔ 与主菜单那扇的 `(0.286,0.965,0.686,1)`
+        /// **不是同一个值** —— 两处各抄各的）。</summary>
+        static readonly Color LangFieldTint = new Color(0.122f, 0.973f, 0.537f, 1f);
+        /// <summary>那一行左边的标签（原版 `SelectLanguageText`）：TMP `'Select Language'` · **fs42**
+        /// （base 36、auto 10~42）· `Left/Middle` · 白。词条 = `MainMenu/Settings/ButtonLabel/SelectLanguage`
+        /// （与主菜单那扇**共用同一条** —— bundle 里这条 mTerm 出现 43 次，两族各挂一遍）。</summary>
+        const float LangSelFontPx = 42f, LangCapFontPx = 18f;
+        /// <summary>框里那行语言名的颜色（原版那颗 TMP 的 `m_Color` = `(0.67,0.67,0.67,1)` ——
+        /// 主菜单那扇同一颗也是这个灰，两处各自照抄）。</summary>
+        static readonly Color LangCapColor = new Color(0.67f, 0.67f, 0.67f, 1f);
+        public const string LangFieldArt = "40K_dropdown_field_closed", LangArrowArt = "40K_dropdown_arrow_closed";
+        /// <summary>那一行标签的词条键（= 原版 `Localize.mTerm`；⭐ 与 `Shell/SettingsWindow.cs` 的
+        /// `lkSelectLang` **同一个字符串** —— 两处各是各的常量，但值必须一致）。</summary>
+        public const string LangLabelTermKey = "MainMenu/Settings/ButtonLabel/SelectLanguage";
 
         static float U(float px) { return px / 108f; }
 
@@ -396,6 +456,113 @@ namespace CardPresentation
             _musicLabel = SliderLabel(SliderNames[0], 0, Z);
             _fxLabel = SliderLabel(SliderNames[1], 1, Z);
             _voiceLabel = SliderLabel(SliderNames[2], 2, Z);
+
+            // 🆕 2026-10-17：语言那一行（原版 `BattleSettingsPanel/Language Selector`）
+            BuildLanguageRow(Z);
+        }
+
+        /// <summary>🆕 2026-10-17：原版战斗内这扇窗的 **`Language Selector`** 那一行 ——
+        /// 下拉框（底图 + 当前语言名 + 箭头）+ 左边的 `Select Language` 标签。
+        /// 几何/染色/字号**逐值见本文件那组 `Lang*` 常量**（面板内 px、y 向上）；这一段只讲落地三件：
+        /// <list type="number">
+        /// <item>三张图都是 `ImageQuad`（底图带绿染、箭头 `preserveAspect` 内接）——
+        ///   本面板的 `Z` 一族是**裸局部 z**（同 `_azBox`/`_azCheck`）⇒ 底图 `Z − 0.01`、字/箭头 `Z − 0.02`；</item>
+        /// <item>文字只有两颗：框里的**当前语言名**（fs18，走 `Loc.LanguageName`）与左边那颗标签
+        ///   （fs42，走 `Loc.T(词条)`）—— **字号按语种选**（`ApplyLangFont`）；</item>
+        /// <item>命中区 = **下拉框那一块**（原版 `TMP_Dropdown` 挂在 `LanguagesDropdown` 上；左边那颗标签
+        ///   点下去原版什么也不发生 ⇒ 不接）。判定 = `HitLanguage`，**真实输入与自检走同一条**。</item>
+        /// </list>
+        /// ⚠️ **原版那颗点开是个 12 行的滚动列表**（`LanguagesDropdown > Template`）—— 本批**没建**，
+        /// 改成「点一下换下一个」（见 `CycleLanguage`，**已知偏离、已记账**）。
+        /// ⚠️ 本面板**没建**的原版件还有：`ChatToggle`（'Mute opponent'）· `Skip tutorial` · `Debug Buttons`
+        /// （那不在这条活的范围里，别顺手加）。</summary>
+        void BuildLanguageRow(float z)
+        {
+            float cx = (LangFieldX1Px + LangFieldX2Px) * 0.5f;
+            float cy = (LangRowTopPx + LangRowBotPx) * 0.5f;
+            float w = LangFieldX2Px - LangFieldX1Px, h = LangRowTopPx - LangRowBotPx;
+
+            _langField = ImageQuad.Create(transform, CardArt.MenuUi(LangFieldArt),
+                                          new Vector3(U(cx), U(cy), z - 0.01f), U(h),
+                                          new Vector2(0.5f, 0.5f), "settings_lang_field");
+            if (_langField != null)
+            {
+                _langField.SetAspect(w / h);              // 原版那颗 `Image` 是 `Simple`（拉伸）⇒ 按框给比值
+                _langField.SetTint(LangFieldTint);
+            }
+
+            // 框内那行当前语言名（原版 `LanguagesDropdown > Label`）—— 左中锚，x = 框左 + 10
+            _langCap = Label.Create(transform, Loc.LanguageName(Loc.Current),
+                                    new Vector3(U(LangFieldX1Px + LangCapInsetPx), U(LangRowTopPx - LangCapTopPx - LangCapHPx * 0.5f), z - 0.02f),
+                                    4, LangCapColor, new Vector2(0f, 0.5f), "settings_lang_caption");
+            ApplyLangFont(_langCap, Loc.LanguageName(Loc.Current), LangCapFontPx);
+
+            // 右端那个箭头（原版 `Arrow`：20×20 + `preserveAspect` ⇒ 取短边内接）
+            // 框内偏移 (225, 19) 是**到它自己的左上角** ⇒ 中心 = 框左 + 225 + 10、框顶 − 19 − 10
+            var arrowTex = CardArt.MenuUi(LangArrowArt);
+            float arrowH = arrowTex != null
+                         ? ImageQuad.FitHeight(U(LangArrowPx), U(LangArrowPx), arrowTex.width / (float)arrowTex.height)
+                         : U(LangArrowPx);
+            _langArrow = ImageQuad.Create(transform, arrowTex,
+                                          new Vector3(U(LangFieldX1Px + LangArrowOffXPx + LangArrowPx * 0.5f),
+                                                      U(LangRowTopPx - LangArrowOffYPx - LangArrowPx * 0.5f), z - 0.02f),
+                                          arrowH, new Vector2(0.5f, 0.5f), "settings_lang_arrow");
+            if (_langArrow != null) _langArrow.SetTint(LangArrowTint);
+
+            // 左边那颗标签（原版 `SelectLanguageText`，fs42 / Left/Middle / 白；框 335×57.53 ⇒ 框中 y = 316.95）
+            _langSelText = Label.Create(transform, Loc.T(LangLabelTermKey),
+                                        new Vector3(U(LangRowX1Px), U(LangSelCyPx), z - 0.02f),
+                                        4, Color.white, new Vector2(0f, 0.5f), "settings_lang_label");
+            ApplyLangFont(_langSelText, Loc.T(LangLabelTermKey), LangSelFontPx);
+        }
+
+        /// <summary>按**这段文本的语种**定字号：汉字 ≈ **1 em**、拉丁大写 ≈ **0.72 em**
+        /// （判据 = `Battle/Label.SetCapHeight` / `SetGlyphHeight` 的 doc；`Loc.HasCjk` 是那条判据的**唯一一份**）。
+        /// 🔴 **为什么必须有它**：这一行现在**跟着语言变**（英文 `Select Language` / 中文 `选择语言`）——
+        /// 写死 `SetCapHeight(px × 0.72)` 的话中文会**小 28%**，写死 `SetGlyphHeight(px)` 的话英文会**大 39%**
+        /// （本文件 `SliderLabel` 那条注释里早写着「彻底翻译成中文时这里要跟着换」—— 就是这一处）。</summary>
+        static void ApplyLangFont(Label l, string text, float px)
+        {
+            if (l == null) return;
+            if (Loc.HasCjk(text)) l.SetGlyphHeight(U(px));
+            else l.SetCapHeight(U(px * 0.72f));
+        }
+
+        /// <summary>把本面板**跟着语言走**的那两行字重设一遍（框里的语言名 + 左边那颗标签）。
+        /// 🔴 调用点 = `CycleLanguage`。⛔ 不走 `Loc` 的静态事件（同 `Shell/SettingsWindow.RefreshTexts`）。</summary>
+        public void RefreshTexts()
+        {
+            if (_langSelText != null)
+            {
+                string t = Loc.T(LangLabelTermKey);
+                _langSelText.SetText(t);
+                ApplyLangFont(_langSelText, t, LangSelFontPx);
+            }
+            if (_langCap != null)
+            {
+                string c = Loc.LanguageName(Loc.Current);
+                _langCap.SetText(c);
+                ApplyLangFont(_langCap, c, LangCapFontPx);
+            }
+        }
+
+        /// <summary>点语言那一行 —— **往下循环一格**（`Loc.Languages` 的声明序 = 原版下拉的选项序，末尾回到第一个）。
+        ///
+        /// <para>🔴 **已知偏离（铁律 11：先记录、之后完全复刻）**：原版那颗是 `TMP_Dropdown` —— 点开一个
+        /// **12 行的滚动列表**（`LanguagesDropdown > Template`：`SCrollRect` + `Viewport(Mask)` + `Scrollbar`，
+        /// 框 `245×573.96`、项图 `40K_dropdown_item*`）。**那一份本批没建**（Unity 的 `DropdownList` 内置模板 +
+        /// 一套滚动视图），改成「点一下换下一个」—— 与主菜单那扇（`Shell/SettingsWindow.CycleLanguage`）
+        /// 是**同一种交互**。⛔ 别把它写成「原版就是这样」。</para></summary>
+        void CycleLanguage()
+        {
+            int i = System.Array.IndexOf(Loc.Languages, Loc.Current);
+            if (i < 0) i = 0;
+            var next = Loc.Languages[(i + 1) % Loc.Languages.Length];
+            bool changed = Loc.SetLanguage(next);
+            RefreshTexts();
+            Debug.Log("[Settings] 语言 → " + Loc.LanguageName(Loc.Current) + $"（{Loc.Current}）"
+                    + (Loc.HasOwnText(Loc.Current) ? "" : "　⚠️ 本地没有这一套文案 ⇒ 界面文字**回退英文**（见 `Loc.T`）")
+                    + (changed ? "" : "（值没变）"));
         }
 
         /// <summary>滑块标签：左对齐（锚点 `(0, 0.5)` = **文字块的左缘 + 行盒心**落在给定坐标上）。
@@ -436,8 +603,12 @@ namespace CardPresentation
         /// ⚠️ 「Auto Zoom」那一行**不在这里**（A445 起它走抬起的点击链），见方法体里的注释。</summary>
         public bool PointerFrame(Vector3 world, bool down)
         {
-            if (!Visible) { _dragSlider = null; return false; }
-            if (!down) { _dragSlider = null; return false; }
+            if (!Visible) { _dragSlider = null; _wasDown = false; _langArmed = false; return false; }
+            // 🆕 2026-10-17：语言那一行的**按下 → 抬起**这一对边沿（原版那颗 `TMP_Dropdown` 是 `Selectable`
+            //   ⇒ `IPointerClickHandler`，**抬起**那一帧才算点它）。⚠️ 这一段必须在下面那句
+            //   `if (!down) … return false;` **之前** —— 抬起那一帧 `down == false`，走不到底下。
+            bool langClick = LangPointerFrame(world, down);
+            if (!down) { _dragSlider = null; return langClick; }
 
             // 🔴 **2026-10-12（A445）：「Auto Zoom」那一行不在本方法里判。**
             //    原版那颗开关（`BattleSettingsPanel/Auto Zoom Toggle`，组件 `EverguildToggle`）继承
@@ -553,6 +724,47 @@ namespace CardPresentation
             return false;
         }
 
+        // ==================================================================
+        //  🆕 2026-10-17：语言那一行的命中与边沿
+        // ==================================================================
+
+        /// <summary>这一下点在**语言下拉框**上吗（原版那颗 `TMP_Dropdown` 挂在 `LanguagesDropdown` 上，
+        /// 左边那颗 `SelectLanguageText` 点下去什么也不发生 ⇒ 只认框那一块）。
+        /// ⚠️ 判定与命中区**同一份几何**（`_langField.Contains` = 那颗 quad 的渲染矩形）——
+        /// 与 `HitDifficulty` / `HitResign` 同一套写法（⛔ 别在这儿另写一份手算矩形）。</summary>
+        public bool HitLanguage(Vector3 world)
+        {
+            if (!Visible) return false;
+            return _langField != null && _langField.Contains(world);
+        }
+
+        /// <summary>语言那一行的**按下 / 抬起**边沿 —— 返回「这一帧这一次抬起算不算点到了它」。
+        ///
+        /// <para>🔴 **为什么在这一层收边沿，而不是并进 `BattleDriver.SettingsClickAt`**：
+        /// 本面板其余四颗（Resign / Difficulty / Auto Zoom / Close）的入口**都在驱动层**那条链上
+        /// （`BattleDriver.SettingsClickAt`，A462/A445 把它们统一到「抬起那一帧」）—— 而**本件（双语这条活）
+        /// 的白名单里没有 `BattleDriver.cs`** ⇒ 在本面板内部自己收**同一对边沿**，行为等价：
+        /// 按下那一帧记「这一下是从哪开始的」、抬起那一帧（且两帧都落在框上）才触发 ——
+        /// 这正是 uGUI `IPointerClickHandler` 的语义。
+        /// 📌 **将来收口**：把它并进 `SettingsClickAt`（与兄弟三颗摆在一起）更整齐，判据也是那一处。
+        /// ⛔ **别改成「按下就触发」**：A445 明确把上一颗（Auto Zoom）从按下挪回了抬起。</para>
+        ///
+        /// <para>⚠️ 自检可以直接喂这一对（`PointerFrame(pos, true)` → `PointerFrame(pos, false)`），
+        /// 走的是**与真实输入同一条**判定（批处理里 `Mouse.current` 是 null、`Update` 也不跑）。</para></summary>
+        bool LangPointerFrame(Vector3 world, bool down)
+        {
+            bool wasDown = _wasDown;
+            _wasDown = down;
+            if (down && !wasDown) { _langArmed = HitLanguage(world); return false; }   // 按下：记下这一下从哪开始
+            if (!down && wasDown)                                                      // 抬起：原版就是这一帧触发
+            {
+                bool fire = _langArmed && HitLanguage(world);
+                _langArmed = false;
+                if (fire) { CycleLanguage(); return true; }
+            }
+            return false;
+        }
+
         public void Show() { Visible = true; SetActive(true); }
         public void Hide() { Visible = false; SetActive(false); }
         void SetActive(bool on)
@@ -561,15 +773,20 @@ namespace CardPresentation
                 if (go != null) go.gameObject.SetActive(on);
             if (_resignBtn != null) _resignBtn.SetActive(on);   // 九宫格根节点（不是 ImageQuad）
             foreach (var l in new[] { _title, _resignText, _diffLabel, _diffValue,
-                                      _musicLabel, _fxLabel, _voiceLabel, _azLabel })
+                                      _musicLabel, _fxLabel, _voiceLabel, _azLabel,
+                                      // 🆕 2026-10-17：语言那一行的两颗字（框里的语言名 + 左边的标签）
+                                      _langCap, _langSelText })
                 if (l != null) l.gameObject.SetActive(on);
             if (_azBox != null) _azBox.gameObject.SetActive(on);
+            // 🆕 2026-10-17：语言那一行那两张图
+            if (_langField != null) _langField.gameObject.SetActive(on);
+            if (_langArrow != null) _langArrow.gameObject.SetActive(on);
             // 勾那一层**不跟着面板开关走**：它还要看 `AutoZoom.Enabled`（见 `RefreshAutoZoomCheck`）
             RefreshAutoZoomCheck();
             // 🆕 三根音量滑块。⚠️ `WfSlider` **不是** `MonoBehaviour`，没有 `.gameObject` ——
             //    要它自己的 `SetVisible`（第一次写漏了会在这里编译不过）。
             foreach (var s in Sliders) if (s != null) s.SetVisible(on);
-            if (!on) { _dragSlider = null; }
+            if (!on) { _dragSlider = null; _wasDown = false; _langArmed = false; }
         }
 
         /// <summary>指针是不是落在面板上（开着的时候**吃掉**点击，别穿到棋盘）</summary>
@@ -653,5 +870,27 @@ namespace CardPresentation
         }
         /// <summary>勾选框那个绿（自检钉「染对色了没有」；⛔ 值本身来自原版 `m_Colors.m_NormalColor`）。</summary>
         public Color AutoZoomBoxTint { get { return AzBoxTint; } }
+
+        // ---- 🆕 2026-10-17 语言那一行的自检口（⛔ 只读，不给生产用）----
+
+        /// <summary>那一行的四件（框 / 箭头 / 框里的语言名 / 左边那颗标签）**都建出来了**没有。</summary>
+        public bool LanguageRowBuilt
+        { get { return _langField != null && _langArrow != null && _langCap != null && _langSelText != null; } }
+        /// <summary>框里那行字写的是什么（= 当前语言名）。</summary>
+        public string LanguageCaptionText { get { return _langCap != null ? _langCap.Text : null; } }
+        /// <summary>左边那颗标签上写的是什么（词条 `MainMenu/Settings/ButtonLabel/SelectLanguage`）。</summary>
+        public string LanguageLabelText { get { return _langSelText != null ? _langSelText.Text : null; } }
+        /// <summary>下拉框那颗 quad 的世界坐标（自检照着它点 —— 走与真实输入同一条判定）。</summary>
+        public Vector3 LanguageFieldWorldPos { get { return _langField != null ? _langField.transform.position : Vector3.zero; } }
+        /// <summary>框**实画的**世界宽 × 世界高（原版那颗是 `Simple`（拉伸）⇒ 应逐值等于 250×59.4 px ÷ 108）。</summary>
+        public Vector2 LanguageFieldDrawnSize
+        { get { return _langField != null ? new Vector2(_langField.WorldW, _langField.WorldH) : Vector2.zero; } }
+        /// <summary>箭头**实画的**世界宽 × 世界高（`preserveAspect`：46×19 内接进 20×20 ⇒ 高 20×19/46）。</summary>
+        public Vector2 LanguageArrowDrawnSize
+        { get { return _langArrow != null ? new Vector2(_langArrow.WorldW, _langArrow.WorldH) : Vector2.zero; } }
+        /// <summary>箭头那颗 quad 的世界坐标（自检量它有没有落进框右端那一格）。</summary>
+        public Vector3 LanguageArrowWorldPos { get { return _langArrow != null ? _langArrow.transform.position : Vector3.zero; } }
+        /// <summary>左边那颗标签的世界坐标（= 原版 `SelectLanguageText` 框的**左中**）。</summary>
+        public Vector3 LanguageLabelWorldPos { get { return _langSelText != null ? _langSelText.transform.position : Vector3.zero; } }
     }
 }

@@ -39,6 +39,17 @@
 //   两个桥本来就该差 7.28 倍。父链实读：`HandAnchor→HandArea(×108)→PlayerArea→BottomAnchor→
 //   Safe area BackCanvas→BackCanvas→Canvas(ScreenSpaceCamera, planeDistance 100, fov 40)`。
 //   ⚠️ 仍**属于我们的**（不是原版的做法）：`zOrderStep`（原版 0.001 ≈ 0.015 px，它靠 canvas 排序；我们是世界空间 2D 面）。
+//
+// 🆕 **2026-10-17（B1 批）又收了四处**，逐条判据见 `资料/普查产出_1017/W_B1_手牌布局.md`：
+//     · **小屏档的触发条件**（项 9）—— 原来按「可见宽 < 设计宽」猜，现在读 `SmallScreenUI.Enabled`
+//       （= 原版 `GameStaticData.smallScreenUI` 静态 bool），见 `MaxLayoutWorld()`；
+//     · **`GetClosestInHandSlot`**（项 11）—— 换成原版的「逐卡比 |Δx| 取最近」，分界从中点算，见该方法注释；
+//     · **`useExtraSpaceOnSelectedCard` 的门闸方向**（项 8）—— 🔴 **原来反了**：原版是**装得下时归零**，
+//       即**压缩态（我方 ≥8 张）才让位**；同时补上 `useExtraSpaceOnSelectedCard` 这个字段（敌方 = 0）；
+//     · **`useZOrder`**（项 7）—— 判据补齐：原版靠 **嵌套 Canvas 的 `sortingOrder` + `SetSiblingIndex`**
+//       （= `名单长度 − 序号 − 1`），`z` 只加 0.001；我们没 canvas ⇒ **这一格是「原版没有等价物」**，
+//       保留真 z 步长，出处见 `zOrderStep` 那段。
+//   ➖ **`m_inverted`（项 12）不实现**：全库 13 战场 × 4 份 = 52 份实例**全是 0**，见 `invertRotation` 下面那段注释。
 using System.Collections.Generic;
 using DG.Tweening;
 using UnityEngine;
@@ -93,7 +104,7 @@ namespace CardPresentation
                + "单位是「占可见宽度的比例」。超过它就把间距压下来")]
         public float maxLayoutSize = 0.59f;
 
-        [Tooltip("m_maxLayoutSizeSmallScreen = 0.51：窄屏（可见宽 < 设计宽）时用这个")]
+        [Tooltip("m_maxLayoutSizeSmallScreen = 0.51：Small Screen UI 开关【开着】时用这个（与屏宽无关）")]
         public float maxLayoutSizeSmallScreen = 0.51f;
 
         [Tooltip("maxLayoutSizeAspectRatioModifier：(1.70,0)→(2.33,0.1013)，"
@@ -147,6 +158,17 @@ namespace CardPresentation
         [Tooltip("m_invertRotation = 0：原版靠它把敌方那份翻过来（敌手的卡朝内撇）")]
         public bool invertRotation = false;
 
+        // ➖ **`m_inverted`（原版 +0x7C）我们没实现 —— 2026-10-17 按「全库还有没有不是 0 的实例」查过：
+        //    13 个战场 × 4 份（我方 / 敌方 / 选牌 / 换牌）= **52 份实例，`m_inverted` 全部 = 0**。**
+        //    查法：`d:/2/新解包资源/assets_full/` 里按 `m_betweenElementsSpacing` 定位到那 52 个
+        //    `bundle_scenes_scenes_battlearena*/MonoBehaviour/*.json`（= CardsHorizontalLayout 专有的字段名），
+        //    再逐个读 `"m_inverted"`。⇒ **这个分支在成品数据里触发不了**，实现它只会多一条
+        //    没有判据可对照的死路（铁律 11 允许的两条例外里的第 ① 条：原版数据里就没有）。
+        //    ⚠️ 真要实现时判据是现成的：`GetPosition` 头一句
+        //    `if (m_inverted) cardIndex = (totalCards - cardIndex) - 1;`
+        //    （`d:/2/tools/decomp_full/CardsHorizontalLayout__GetPosition.c:55`）——
+        //    只翻**序号**、不翻任何曲线。
+
         [Tooltip("m_scale = 0.73 × 2DCard 宽 2.0927 = 1.528 世界单位 = 165 px。"
                + "🔴 判据收在 DefaultCardScale 一处，别手写数字")]
         public float cardScale = DefaultCardScale;
@@ -168,8 +190,18 @@ namespace CardPresentation
         public float hoverScale = 1.3f;
 
         [Tooltip("**选中一张牌时，两侧的牌各往外让多少**（世界单位）—— 原版 `VarsDevice.extraSpaceOnSelectedCard`"
-               + " **桌面 = 平线 2.0** · 移动端 = (0,2.0)→(1,5.0) 斜坡。⚠️ **装不下时不让**（牌多时压缩间距那一支会把 extra 归零）")]
+               + " **桌面 = 平线 2.0** · 移动端 = (0,2.0)→(1,5.0) 斜坡。"
+               + "🔴 **只有「装不下」（压缩态，我方 ≥8 张）才让** —— 装得下时原版把 extra 归零")]
         public float selectedCardExtra = SelectedExtraWorld;
+
+        /// <summary>原版 `useExtraSpaceOnSelectedCard`（序列化 @+0x7E）：**我方 = 1、敌方 = 0、选牌/换牌 = 0**。
+        /// 🔴 **这是「选中让位」的第一道门**，第二道门在 `PlayerHand.PositionCardInHand` 里
+        /// （`if (isPlayer) selectedCardIndex = 传入值; else selectedCardIndex = -1;`
+        ///  —— `PlayerHand__PositionCardInHand.c:28-30`，**只有玩家手牌才把 selectedCardIndex 传下去**）。
+        /// 两道门是**两回事**：这一道是「这套布局用不用让位」，那一道是「这局这张牌算不算被选中」。
+        /// ⚠️ 别把它和 `allowSelectCardLayoutOverFlow`（我们恒按 =1 处理）混起来 —— 那个管的是
+        /// 「让位占的宽算不算进 `totalWidth`」，四份实例都 =1 ⇒ 不算。</summary>
+        public bool useExtraSpaceOnSelectedCard = true;
 
         [Tooltip("悬停/拖拽的那张往前提多少 z")]
         public float frontZ = 0.5f;
@@ -181,13 +213,28 @@ namespace CardPresentation
         //    （文字层在自己的卡里最靠前，就跑到邻牌前面去了）。2026-09-12 把效果文字放大到原版字号后
         //    这个毛病变得很明显（截图里能看到「字横穿别人的卡」），所以把步长提到 0.08。
         public float zOrderStep = 0.08f;
-        // 🔴 **2026-09-25 实读原版：`Z_OFFSET_BY_POSITION_INDEX` = 0.001**（`CardsHorizontalLayout..cctor`
-        //    里那句 `= 0x3a83126f`，即 `.rdata` 的 0.001f；世界单位 ⇒ 只等于 0.015 px）。
-        //    ⇒ **原版根本不是靠 z 分层**（0.015 px 排不出前后），它靠 Canvas 的兄弟序/排序层。
-        //    我们这套是**世界空间的 2D 四边面**，没有 canvas 排序 ⇒ **用一个真 z 步长替代**。
-        //    ⚠️ **这是我们挑的，不是原版的做法**（照铁律 3 标注）。
-        //    约束不变：步长**必须大于「一张卡内部各层的 z 跨度」**（`CardView` 里 立绘 +0.03 … 文字 −0.03 = 0.06），
-        //    否则后面那张卡的卡面文字会穿到前面那张上面（2026-09-12 实测）。
+        // 🔴 **2026-10-17 查证：这一条【不适用】，而且现在有确凿判据了 —— 不再只是「大概是」。**
+        //
+        //   ① 原版那个 `useZOrder` 的加量 = **0.001 世界单位 ≈ 0.015 px**
+        //      （`CardsHorizontalLayout..cctor` 的 `Z_OFFSET_BY_POSITION_INDEX = 0x3a83126f`，即 0.001f；
+        //       消费者 `CardsHorizontalLayout__GetPosition.c` 末尾
+        //       `if (useZOrder) local_e0 = cardIndex * Z_OFFSET + basePos.z;`）。
+        //      **它根本不是分层手段** —— 0.015 px 排不出前后，UGUI 也不按 z 排序。
+        //
+        //   ② **原版真正的分层机制 = 嵌套 Canvas 的 `sortingOrder` + 兄弟序**：
+        //      `PlayerHand._MoveCardsInHandToPosition_d__76__MoveNext.c:55` 每张牌调
+        //      `CardScript.SetSortingOrder(**名单长度 − 序号 − 1**)`
+        //      → `CardScript__SetSortingOrder.c:5` → `BattleCardUI__SetSortingOrder.c:8,11`：
+        //        `Canvas.set_sortingOrder(order)` **且** `Transform.SetSiblingIndex(order)`。
+        //      ⇒ 序号越大 sortingOrder 越小 ⇒ **左边的压在上面** ✓ —— 与我们 `z = i * step`
+        //        （z 越小越靠前、i 越大越靠后）**语义完全一致**，只是载体不同。
+        //
+        //   ③ 我们是**世界空间的 2D 四边面**（`ImageQuad`），**没有 canvas 排序** ⇒
+        //      `z` 是**唯一**的排序手段 ⇒ **不能照抄 0.001**（照抄 = 全部牌同一层，
+        //      卡面文字会横穿邻牌）。⚠️ **这一格是「原版没有等价物、我们用另一种手段顶上」**，
+        //      照铁律 3 标注：**不是原版的做法**。
+        //      ⚠️ 真要换成原版那种手段，得让每张卡的**所有图层**共用一段 render queue
+        //      （`ImageQuad.SetRenderQueue`）—— 那要动 `CardView` 的分层，**不在本批白名单里**。
 
         [Tooltip("重排走补间（拖拽让位才不跳）。批处理自检里关掉 —— 位置要当场精确")]
         public bool animateRelayout = false;
@@ -215,6 +262,7 @@ namespace CardPresentation
             numberOfCardsForMaxHeight = 10;              // m_numberOfCardsForMaxHeight
             maxHeight = -0.78f;                          // m_maxHeight（**负的**，见方法注释）
             invertRotation = true;                       // m_invertRotation = 1
+            useExtraSpaceOnSelectedCard = false;         // useExtraSpaceOnSelectedCard = 0（我方是 1）
             // m_verticalOffsetLookTo = +74.5（正值，我方是 −330）—— 用和 `lookToDistance` 同一个桥换算
             lookToDistance = 74.5f * OriginalPxPerUnit / 108f;      // = 10.23
             cardScale = EnemyCardScale;
@@ -247,6 +295,11 @@ namespace CardPresentation
 
         /// <summary>原版 UI 相机：fov40 / 平面 100 → 14.835 px 每世界单位</summary>
         const float OriginalPxPerUnit = 14.835f;
+
+        /// <summary>`GetClosestInHandSlot` 里「最近距离」的**初值** —— 原版 `.rdata 0x1834b3354` 实读 = **1e6**。
+        /// 它远大于手牌的任何跨度 ⇒ 效果就是「0 号槽是默认值、任何真实候选都赢过它」——
+        /// 照抄它是为了让「平局 / 全都很远」这两种边角与原版逐位一致（不是随手取个大数）。</summary>
+        const float ClosestSlotInitialDistance = 1e6f;
 
         /// <summary>我这套：可见高 10 世界单位 = 1080 px</summary>
         const float PxPerNormY = 1f / 1080f;
@@ -325,8 +378,9 @@ namespace CardPresentation
         }
 
         /// <summary>原版「装不下 ⇒ 压缩间距」那一支的判据：`count × 自然间距 > 上限`。
-        /// ⚠️ 它**同时**是「选中一张牌时两侧要不要让位」的开关 —— 原版在压缩那一支里把 `extra` 归零。
-        /// 我方手牌 n ≥ **8** 起为真（`0.6026 × 屏宽 ÷ 156.6 px`），所以「牌多时选牌不让位」。
+        /// ⚠️ 它**同时**是「选中一张牌时两侧要不要让位」的开关 —— 原版在**装得下**那一支里把 `extra` 归零
+        /// （`GetPosition.c`：`else { fVar10 = 0f; }`）⇒ **`IsCompressed == true` 才让位**。
+        /// 我方手牌 n ≥ **8** 起为真（`0.6026 × 屏宽 ÷ 156.6 px`），所以「≥8 张时选牌才让位、≤7 张不让」。
         /// 🔴 判据与 `SpacingFor` **共用这一处**，别各写一份。</summary>
         public bool IsCompressed(int count)
         {
@@ -334,12 +388,26 @@ namespace CardPresentation
             return count * betweenElementsSpacing * LayoutSpace.Scale > MaxLayoutWorld();
         }
 
-        /// <summary>首卡中心↔末卡中心的上限（世界单位）= maxLayoutSize + 宽高比修正</summary>
-        float MaxLayoutWorld()
+        /// <summary>首卡中心↔末卡中心的上限（世界单位）= 原版 `cap`
+        /// = `(baseSize + 宽高比修正) × 该深度处的可见宽度`
+        /// （`GetPosition.c` 的 `fVar10 = (fVar19 + fVar10) * fVar16 * (dVar13 + dVar13) * fVar17`
+        ///   —— `fVar16` = `cam.aspect`、`2·dist·tan(fov/2)` = 那个深度的可见宽度）。
+        ///
+        /// 🔴 **2026-10-17 更正触发条件**：`baseSize` 由 **`SmallScreenUI` 开关**决定，
+        /// **与屏宽 / 窗口宽 / 可见宽【无关】** —— 原版就是一个静态 bool 的三目：
+        /// `if (GameStaticData.smallScreenUI) fVar10 = *(this+0x30);  // m_maxLayoutSizeSmallScreen
+        ///  else fVar10 = *(this+0x2c);                              // m_maxLayoutSize`
+        /// （`d:/2/tools/decomp_full/CardsHorizontalLayout__GetPosition.c:83-88`）。
+        /// 这里原来写的是 `LayoutSpace.VisibleWidth &lt; LayoutSpace.DesignWidth`（**拿屏宽猜**）——
+        /// 那是「一个值 ≠ 全部情况」那一类错（铁律 5·c）：**4:3 但不勾小屏 UI** 时我们走错档，
+        /// **超宽屏勾了小屏 UI** 时我们也走错档。
+        /// 现在读全工程唯一那一份开关：`Shell/TransformScalerBySmallScreenUI.cs` 的
+        /// <see cref="SmallScreenUI.Enabled"/>（原版 `GameStaticData.smallScreenUI` 的等价物，
+        /// 出厂 = false，只有设置→图形页那颗开关会写它）。</summary>
+        public float MaxLayoutWorld()
         {
             float aspect = LayoutSpace.Cam != null ? LayoutSpace.Cam.aspect : LayoutSpace.DesignAspect;
-            bool small = LayoutSpace.VisibleWidth < LayoutSpace.DesignWidth;
-            float baseSize = small ? maxLayoutSizeSmallScreen : maxLayoutSize;
+            float baseSize = SmallScreenUI.Enabled ? maxLayoutSizeSmallScreen : maxLayoutSize;
             return (baseSize + aspectRatioModifier.Evaluate(aspect)) * LayoutSpace.VisibleWidth;
         }
 
@@ -409,14 +477,42 @@ namespace CardPresentation
         /// <summary>
         /// 拖拽中：指针位置对应**第几个空位**（0..cardsInHand 闭区间）。
         /// 原版 `GetClosestInHandSlot` —— 手牌边拖边让位就靠它。
+        ///
+        /// 🔴 **2026-10-17 换成原版算法**（此前是「按阈值累加」的近似）。
+        /// 逐句读 `d:/2/tools/decomp_full/CardsHorizontalLayout__GetClosestInHandSlot.c:14-33`：
+        /// <code>
+        /// iVar5 = 0; fVar7 = DAT_1834b3354;              // 初值 1e6（.rdata 实读），默认 0 号
+        /// for (i = 0; i &lt; total; i++) {
+        ///     p = GetPosition(i, total, selectedCardIndex: -1);   // ← 第三参 -1 = 选中让位不参与
+        ///     d = (float)((uint)(pointer.x - p.x) &amp; DAT_1834b2e60); // ← 掩码实读 = 0x7FFFFFFF ⇒ |Δx|
+        ///     if (fVar7 &lt;= d) { 保留旧的 }                        // ← **严格小于才换 ⇒ 平局取小序号**
+        /// }
+        /// </code>
+        /// ⇒ **逐卡比 |指针.x − 卡.x|，取最近的那个**。
+        ///
+        /// ⚠️ **两张牌之间只有一个分界，而且它在两张卡中心的【中点】上** ——
+        /// 旧写法把分界放在**卡中心**上（指针一过第 s 张的中心就判 s+1），**差半个间距**：
+        /// 指针停在「第 s 张中心往右一点点」时，旧写法判 s+1、原版判 s（见 `CardBaseDemo` 的判别式断言）。
+        ///
+        /// ⚠️ **`cardsInHand` = 「除被拖那张以外、看得见的张数」**（= `CardInteraction.VisibleCards().Count`），
+        /// 候选槽位是 `0..cardsInHand` 共 **`cardsInHand + 1`** 个 —— 与 `Refresh` 里 `slots = n + 1` 同一套。
+        /// 这也是原版的口径：它把**被拖的那张也留在名单里**（`PlayerHand._MoveCardsInHandToPosition_d__76__MoveNext.c:55`
+        /// 的循环里 `PositionCardInHand(手牌, 牌, 新序号, 名单长度, …)`），所以那边 `total = 名单长度 = others + 1`，
+        /// 候选数与返回值域 `0..total-1` 与我们完全对齐。
         /// </summary>
         public int GetClosestInHandSlot(Vector3 worldPos, int cardsInHand)
         {
-            int n = Mathf.Max(1, cardsInHand);
-            int idx = 0;
-            for (int s = 0; s < n; s++)
-                if (worldPos.x > LayoutSpace.ToWorld(NxOfSlot(s, n), baselineY).x) idx = s + 1;
-            return idx;
+            int others = Mathf.Max(0, cardsInHand);
+            int slots = others + 1;
+            int best = 0;
+            float bestDist = ClosestSlotInitialDistance;      // 原版初值 1e6（远大于任何跨度 ⇒ 0 号是默认值）
+            for (int s = 0; s < slots; s++)
+            {
+                float slotX = (NxOfSlot(s, slots) - 0.5f) * LayoutSpace.VisibleWidth;
+                float d = Mathf.Abs(worldPos.x - slotX);
+                if (d < bestDist) { best = s; bestDist = d; }  // 严格小于 ⇒ 平局取小序号（照原版）
+            }
+            return best;
         }
 
         // ==================================================================
@@ -438,6 +534,10 @@ namespace CardPresentation
             bool hole = insertIndex >= 0;
             int slots = hole ? n + 1 : n;
 
+            // 被选中/展示的那一张**在槽位空间里**是第几号 —— 原版比的是同一个索引空间里的两个序号
+            // （`GetPosition(cardIndex, total, selectedCardIndex)`），带着空位时 `slot` 会整体错开 1。
+            int selSlot = (hole && hoveredIndex >= insertIndex) ? hoveredIndex + 1 : hoveredIndex;
+
             for (int i = 0; i < n; i++)
             {
                 var c = cards[i];
@@ -448,14 +548,27 @@ namespace CardPresentation
                 float angle = RotationAt(slot, slots);
                 float scale = cardScale * LayoutSpace.Scale;
 
-                // ---- 原版 `useExtraSpaceOnSelectedCard`（我方 = 1）----
+                // ---- 原版 `useExtraSpaceOnSelectedCard`（我方 = 1，敌方 = 0）----
                 // 选中一张 ⇒ **它左边的所有牌往左让、右边的所有牌往右让**，让位量 = VarsDevice 那条曲线
-                // （桌面恒 2.0 世界单位 = 29.7 px）。⚠️ **装不下时不让**（原版那一支会把 extra 归零）——
-                // 这正是「牌少」与「牌多」的又一处不同：≤7 张会让，≥8 张不让。
-                if (hoveredIndex >= 0 && slot != hoveredIndex && !IsCompressed(slots))
+                // （桌面恒 2.0 世界单位 = 29.7 px）。
+                //
+                // 🔴 **2026-10-17 更正方向**：原版是「**装得下就把 extra 归零**」，不是「装不下就不让」——
+                //   `GetPosition.c` 那一段逐句核过：
+                //     `fVar17 = totalCards * spacing;`
+                //     `if (cap < fVar17) { spacing = cap / totalCards; }   // 压缩间距，extra 留着`
+                //     `else { fVar10 = 0.0; }                              // ← 装得下 ⇒ extra 归零`
+                //   （`d:/2/tools/decomp_full/CardsHorizontalLayout__GetPosition.c` 的 :201-214 那一段；
+                //     ⚠️ `allowSelectCardLayoutOverFlow` 四份实例都 = 1 ⇒ `totalWidth` **不含** `2*halfExtra`，
+                //     所以压缩门闸就是 `N × 自然间距 > cap`。）
+                //   ⇒ **我方 ≥8 张（压缩态）才让位、≤7 张不让**；这跟字段名也自洽：
+                //     牌挨得紧时才需要「额外空间」，本来就排得开就不需要。
+                //   ⚠️ 原来这里写的是 `!IsCompressed`（正好反了），`资料/手牌布局_原版算法与参数.md`
+                //     §二 的注释也跟着反了 —— 那条注释与它自己的伪代码互相矛盾（伪代码的 else 分支才是对的）。
+                if (useExtraSpaceOnSelectedCard && hoveredIndex >= 0 && selSlot < slots
+                    && slot != selSlot && IsCompressed(slots))
                 {
-                    if (slot < hoveredIndex) pos.x -= selectedCardExtra;
-                    else if (hoveredIndex < slot) pos.x += selectedCardExtra;
+                    if (slot < selSlot) pos.x -= selectedCardExtra;
+                    else pos.x += selectedCardExtra;
                 }
 
                 // 悬停（= 原版 `ShowCardInHand` 的「亮出来」态）：抬起 `cardInHandShownYOffset` px + 放大 1.3

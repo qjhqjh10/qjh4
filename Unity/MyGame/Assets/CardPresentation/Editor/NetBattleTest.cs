@@ -26,7 +26,10 @@ using UnityEngine;
 public static class NetBattleTest
 {
     const string P = "[NetBattle] ";
-    static int _pass, _fail;
+    /// <summary>⚠️ `_warn` = **本宿主里验不了、如实出声**的那几格（不算失败，同 `NetSelfTest` 那位先例）。
+    /// 为什么要它：编辑模式**不派生命周期消息**，而本项目有两处要验的正是生命周期那一跳
+    /// （`OnDestroy` 捎 `bye`）—— 那几格改断「环境事实」+ `_warn`，**别写成绿**（铁律 11）。</summary>
+    static int _pass, _fail, _warn;
 
     // ==================================================================
     //  一个「裸 context」的联机宿主（真对局走的是 `BattleDriver`，接口同一套）
@@ -36,12 +39,17 @@ public static class NetBattleTest
         public BattleContext Ctx { get; set; }
         public bool Replayed; public string LastSay;
         public int MySeat;      // 绝对座位：本机是几号
+        /// <summary>🆕 2026-10-17（B27·A912）：**判负入口被调过几次**。
+        /// 🔴 为什么要数它、而不是只看 `Ctx.Winner`：`RuleCore.Forfeit` 自己那条「已经判过就不再判」的早退
+        ///    （`RuleCore.cs:3685`）会把「**已经打完的局又判了一次**」这个错**完全吃掉**
+        ///    ⇒ 只盯 `Winner` 的话，把 `Ctx.IsOver` 那道闸删掉也一样绿（两边一起变）。</summary>
+        public int ResignCalls;
         public int ApplyLoggedAction(MsgAction m)
         {
             return NetApply.Apply(Ctx, m, MySeat, s => Debug.Log(P + "  · " + s));
         }
         public void NetSay(string s) { LastSay = s; }
-        public void NetRemoteResign() { RuleCore.Forfeit(Ctx, 1); }   // 对面（本机视角的 1 号位）投降
+        public void NetRemoteResign() { ResignCalls++; RuleCore.Forfeit(Ctx, 1); }   // 对面（本机视角的 1 号位）投降
         /// <summary>重连重放用：按**本自检当初建局的那份输入**重建（真驱动走的是
         /// `BeginFromPendingCore` —— 两边都是「同输入 ⇒ 同状态」）。</summary>
         public Func<BattleContext> Rebuild;
@@ -62,15 +70,92 @@ public static class NetBattleTest
 
     public static void Run()
     {
-        _pass = 0; _fail = 0;
+        _pass = 0; _fail = 0; _warn = 0;
         string tmp = Path.Combine(Path.GetTempPath(), "wf_netbattletest.json");
         NetConfig.OverridePath = tmp;
         try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
 
         try
         {
+            // 🔴 **自检把 `NetBattle` 倒计时读的那个钟换成假的**（`SetClockForTest`）—— **这一句要先做**。
+            //   不换的话：§5 / §6b / §9 那三段都是**故意**让对面掉线、再等最多 20~25 秒重连，
+            //   而「掉线那一刻」起的是一条**真实 30 秒**的倒计时（A900）⇒ 只要那几段加起来耗过 30 秒，
+            //   它就会**判一场已经接回来的局的负**（后面的指纹对账会跟着红，而且**红得没道理**）。
+            //   换成假钟（初值 0）⇒ **只有 §10 明确推它时才走**，这条自检就不是计时敏感的了。
+            //   ⚠️ `NetSession` 自己那个钟（心跳 / 静默超时 / 重连退避）读的是它自己的 `Stopwatch`，
+            //      **不受影响** —— 这里换的只有 `NetBattle` 倒计时那一个。
+            _clk = 0f;
+            NetBattle.SetClockForTest(FakeClock);
+
             var pool = CardDatabase.Load();
             Ok(pool != null && pool.Count > 100, $"卡池装起来了（{pool?.Count ?? 0} 张）");
+
+            // ---- 0) 🆕 2026-10-17（F4·RC1）：**主机开台过了 10 秒之后才来的客机，也必须收得下** ----
+            //   判据链（逐句可核 → `资料/普查产出_1017/D4_联机诊断.md` §②，日志实证 `netbattle.log:5674-5676`）：
+            //     · `SilentTimeoutMs = 10000`；主机侧 `_lastRecvMs` **从没赋过初值**（字段默认 0），
+            //       而 `NowMs` 是**进程级**秒表 ⇒ 进程起来满 10 秒之后，**任何一条新连接**都会在
+            //       「一条包都没见过」的情况下被判成「10 秒没收到对面的任何消息」；
+            //     · 要害是 `Pump()` 里的**次序**：静默超时判在【接受新连接】那一支**之前** ⇒
+            //       接受那一刻补的 `_lastRecvMs = now` 来不及救这一次判定（客机的第一个包要等主机发 `Challenge`）。
+            //   ⇒ 修法两处（`Net/NetSession.cs`）：① `StartHost` 补初值（与客机 `InternalConnect` 对称）；
+            //     ② **把「接受新连接」那一支挪到心跳/超时块之前**。
+            //   🔴 **为什么用可注入的钟**：不换就得**真睡 10 秒**（同 `NetBattle.SetClockForTest` 的先例）。
+            //      ⚠️ 这一段**只**换 `NetSession` 那个钟（`NetBattle` 倒计时那个 `_clk` 不动）；
+            //      段末在 `finally` 里还回真实秒表（进程级静态状态别留给后面的段）。
+            //   ⚠️ 假钟是**冻住**的 ⇒ 这段里心跳/退避都不走，握手本身是**事件驱动**的，照样走完（确定性）。
+            {
+                long nsClock = 0;                                  // 假钟（毫秒）
+                NetSession.SetClockForTest(() => nsClock);
+                NetSession hs0 = null, cs0 = null;
+                try
+                {
+                    nsClock = 30000;           // 「进程已经起来 30 秒」—— 真机上玩家点「当主机」时就是这样
+                    int port0 = FreePort();
+                    NetConfig.Current.port = port0; NetConfig.Current.ip = "127.0.0.1";
+                    NetConfig.Current.password = "";
+                    hs0 = NetSession.NewTcp(); cs0 = NetSession.NewTcp();
+                    int hostLost0 = 0;
+                    hs0.OnPeerLost = () => hostLost0++;
+
+                    Ok(hs0.StartHost(NetConfig.Current), "（RC1）主机起来监听");
+                    Ok(hs0.SinceLastRecvMsForTest <= 1000,
+                       $"★（RC1）**开台那一刻静默基线就是当刻**（距上一次收包 {hs0.SinceLastRecvMsForTest} ms）"
+                     + " —— 这一格钉的是 `StartHost` 里那句 `_lastRecvMs = NowMs;`"
+                     + "；🧨 判别式：删掉那句 ⇒ 基线变成「进程秒表的全程」（这里就是 30000 ms）⇒ 本条红");
+
+                    // 主机**一个人**在台前等着，让钟推过静默阈值 —— 没人在，不许自己判自己掉线
+                    nsClock += NetSession.SilentTimeoutMs + 5000;
+                    hs0.Pump(); hs0.Pump();
+                    Ok(hs0.State == NetState.Listening && hostLost0 == 0,
+                       $"（RC1）台开着、**还没人连进来** ⇒ 时钟越过 {NetSession.SilentTimeoutMs / 1000} 秒"
+                     + $"也**不许**自己判掉线（实际 {hs0.State} · `OnPeerLost` {hostLost0} 次）");
+
+                    // 客机**这时候才**连进来 —— 真机上「主机早就在等」的那一档
+                    cs0.CheckConnection(NetConfig.Current);
+                    Ok(PumpUntil(hs0, cs0, () => hs0.State == NetState.Lobby && cs0.State == NetState.Lobby, 8000),
+                       $"★（RC1）**主机先开台（钟已越过 {NetSession.SilentTimeoutMs / 1000} 秒）→ 客机才连 ⇒ 照样握上手**"
+                     + $"（主机 {hs0.State} / 客机 {cs0.State}）"
+                     + " —— 🧨 判别式：把「接受新连接」那一支挪回静默超时判**之后** ⇒ 主机当场判自己掉线"
+                     + "（红，且是 `netbattle.log:5674-5676` 那三行的原样重现）");
+                    Ok(hostLost0 == 0,
+                       $"★（RC1）…而且主机**一次都没判过「对面掉线」**（`OnPeerLost` 触发 {hostLost0} 次）"
+                     + " —— 与上一条**不同源**：上一条只看终态，这一条钉住「中途掐过一下再握回来」也算缺陷"
+                     + "（那正是日志里 `WaitingReconnect → Handshaking` 那个**倒退**）");
+
+                    // 对照：**真的安静 10 秒**这条路没被堵死（只推主机，让对面一个包都不回）
+                    nsClock += NetSession.SilentTimeoutMs + 1000;
+                    Ok(PumpOne(hs0, () => hs0.State == NetState.WaitingReconnect, 4000) && hostLost0 >= 1,
+                       $"（RC1·对照）**对面真的安静了 {NetSession.SilentTimeoutMs / 1000} 秒 ⇒ 照样判掉线**"
+                     + $"（实际 {hs0.State} · `OnPeerLost` {hostLost0} 次）"
+                     + " —— 这一条防的是「为了让上面两条过，把静默超时整个关掉/堵死」");
+                }
+                finally
+                {
+                    NetSession.SetClockForTest(null);              // 🔴 还回真实秒表（进程级静态状态）
+                    if (hs0 != null) hs0.Close(false);
+                    if (cs0 != null) cs0.Close(false);
+                }
+            }
 
             // ---- 1) 两张 socket + 握手 ----
             int port = FreePort();
@@ -445,6 +530,605 @@ public static class NetBattleTest
                     UnityEngine.Object.DestroyImmediate(goA530);    // ⚠️ 批处理下 `Destroy` 不生效（本工程记过）
                 }
             }
+
+            // ---- 9) 🆕 2026-10-17（B13·A880 / A881）：**对面走了，玩家得看得见** ----
+            //   原来 `NetSession.OnClosed` / `OnPeerLost` 在**生产侧零接线**（全仓只有定义 + 三处 `Invoke`）
+            //   ⇒ 对面主动离开、或对面掉线，**本机玩家什么都不会发生**（静默 —— 红线）。
+            //   判据（原版那一刻弹的是窗）→ `Net/NetBattle.cs` 里那一整节 + 两个 handler 的注释
+            //   （`BattleManager.ConnectionStatus = WaitingForOtherPlayerToReconnect(2)` →
+            //    `BattleErrorUIManager.ConnectionStatusChanged` → `WindowsManager.ShowPopUp`）。
+            //   🔴 批处理没有帧循环 ⇒ 弹窗走 `NetRuntime` 的通知队（和真 Play 同一条：那边 `Update` 取出来弹），
+            //      这里用 `DrainNoticesForTest()` 取出来验；提示行验 `BareHost.LastSay`。
+            //   🧨 **改坏法（必须红）**：把 `NetBattle.WireSession()` 里那两句
+            //      `s.OnPeerLost += …` / `s.OnClosed += …` 删掉 ⇒ 本节的 ★ 全红（那正是接线之前的实况）。
+            {
+                int savedPort9 = NetConfig.Current.port;
+                int port9 = FreePort();
+                NetConfig.Current.port = port9; NetConfig.Current.ip = "127.0.0.1";
+                var hs9 = NetSession.NewTcp(); var cs9 = NetSession.NewTcp();
+                Ok(hs9.StartHost(NetConfig.Current), "（对面走了·另开一局）主机起来监听");
+                cs9.CheckConnection(NetConfig.Current);
+                Ok(PumpUntil(hs9, cs9, () => hs9.State == NetState.Lobby && cs9.State == NetState.Lobby, 8000),
+                   "（对面走了·另开一局）握手走完");
+
+                var dk9a = Shuffle(DeckBuilder.StarterDeck(pool, "Ultramarines", DeckBuilder.ClassicDeckSize,
+                                                           new System.Random(31), unitsOnly: false), 0x61);
+                var dk9b = Shuffle(DeckBuilder.StarterDeck(pool, "Goff", DeckBuilder.ClassicDeckSize,
+                                                           new System.Random(32), unitsOnly: false), 0x62);
+                var ctx9h = RuleCore.NewBattle(dk9a, dk9b, 20261017, cardPool: pool, openMulligan: true,
+                                               vars: GameplayVariables.Classic, firstSeat: 0);
+                var ctx9c = RuleCore.NewBattle(dk9a, dk9b, 20261017, cardPool: pool, openMulligan: true,
+                                               vars: GameplayVariables.Classic, firstSeat: 0);
+                var hb9 = new BareHost { Ctx = ctx9h, MySeat = 0 };
+                var cb9 = new BareHost { Ctx = ctx9c, MySeat = 1 };
+                var hNB9 = NetBattle.Attach(hb9, hs9, isHost: true);
+                var cNB9 = NetBattle.Attach(cb9, cs9, isHost: false);
+                hs9.EnterBattle(); cs9.EnterBattle();                 // 掉线只有「对局中」才走等重连
+                hNB9.RememberStart(new MsgStart
+                {
+                    seed = 20261017, mode = "Classic", arena = "Battle", hostFirst = 0,
+                    hostFaction = "Ultramarines", clientFaction = "Goff",
+                    hostDeckJson = "", clientDeckJson = "",
+                });
+                cb9.Rebuild = () => RuleCore.NewBattle(dk9a, dk9b, 20261017, cardPool: pool, openMulligan: true,
+                                                       vars: GameplayVariables.Classic, firstSeat: 0);
+
+                NetRuntime.DrainNoticesForTest();      // 先把队清掉（本段只认自己弹的那几条）
+                hb9.LastSay = null;
+                // ⚠️ **只推一台**会话用这个（本文件的 `PumpUntil` 第二个参数**没有空判** —— 给它 null 会 NPE）：
+                //    两边一起推的话**客机自己也会报一次**，通知队里就有两条、数量断言说不清是谁弹的。
+                Func<NetSession, Func<bool>, int, bool> pumpOne = (s, cond, ms) =>
+                {
+                    var sw = System.Diagnostics.Stopwatch.StartNew();
+                    while (sw.ElapsedMilliseconds < ms) { s.Pump(); if (cond()) return true; Thread.Sleep(3); }
+                    s.Pump(); return cond();
+                };
+
+                // ---- ① 对面**掉线**（心跳超时 / 连接断）⇒ 必须出声 ----
+                cs9.Transport.ClosePeer();
+                Ok(pumpOne(hs9, () => hs9.State == NetState.WaitingReconnect, 6000),
+                   $"（对面掉线）主机进「等重连」（实际 {hs9.State}）");
+                var n9a = NetRuntime.DrainNoticesForTest();
+                Ok(n9a.Length == 1,
+                   $"★（对面掉线）**弹了一条给人看的提示**（原来零接线 ⇒ 一条都没有；实得 {n9a.Length} 条）"
+                 + " —— 🧨 改坏法：删掉 `WireSession` 里那句 `s.OnPeerLost += …` ⇒ 红");
+                Ok(n9a.Length >= 1 && n9a[0].Contains("掉线"),
+                   $"★（对面掉线）那条话点明是**对面掉线**（实得「{(n9a.Length > 0 ? n9a[0] : "")}」）");
+                Ok(hb9.LastSay != null && hb9.LastSay.Contains("掉线"),
+                   $"★（对面掉线）**提示行**也说了（实得「{hb9.LastSay}」）");
+
+                // ---- ② 对面**回来了** ⇒ 提示行说一句（原版那一刻是 `CloseAllWindows`）----
+                Ok(PumpUntil2(hs9, cs9, hNB9, cNB9, () => hs9.State == NetState.InBattle, 25000),
+                   $"（对面回来）客机自动重连、两边回到对局（主机 {hs9.State} / 客机 {cs9.State}）");
+                Ok(hb9.LastSay != null && hb9.LastSay.Contains("回来"),
+                   $"★（对面回来）提示行改成「回来了」（实得「{hb9.LastSay}」）—— 与上面那条**不同源**："
+                 + "上面验的是那一下说不说，这条验的是**恢复之后会不会改口**（不说的话玩家一直以为对面还没回来）");
+
+                // ---- ③ 对面**主动离开这一局**（`bye`）⇒ 也必须出声 ----
+                NetRuntime.DrainNoticesForTest();
+                hb9.LastSay = null;
+                cs9.Close(true, "对面离开了这一局");     // = 客机那一侧的 `BattleDriver.LeaveNetRoom()`
+                Ok(pumpOne(hs9, () => hs9.State == NetState.Closed, 4000),
+                   $"（对面离开）主机收到 `bye` ⇒ 会话关上（实际 {hs9.State}）");
+                var n9c = NetRuntime.DrainNoticesForTest();
+                Ok(n9c.Length == 1,
+                   $"★（对面离开）**弹了一条**（原来零接线 ⇒ 一条都没有；实得 {n9c.Length} 条）"
+                 + " —— 🧨 改坏法：删掉 `WireSession` 里那句 `s.OnClosed += …` ⇒ 红");
+                Ok(n9c.Length >= 1 && n9c[0].Contains("离开"),
+                   $"★（对面离开）那条话里**带着对面报的理由**（实得「{(n9c.Length > 0 ? n9c[0] : "")}」）"
+                 + " —— 这条与「掉线」那一条是**两个不同的回调**（`OnClosed` vs `OnPeerLost`），别混成一个");
+                Ok(hb9.LastSay != null && hb9.LastSay.Contains("结束"),
+                   $"★（对面离开）提示行也说了（实得「{hb9.LastSay}」）");
+
+                hs9.Close(false); cs9.Close(false);
+                NetConfig.Current.port = savedPort9;
+
+                // ---- ④ 🆕 A881①：`OnDestroy` 那条路**也要捎一句 `bye`** ----
+                //   原来不捎 ⇒ 对面只能等 **10 秒心跳超时**（`NetSession.SilentTimeoutMs`）才发现我们没了。
+                //   判据：原版在「销毁 / 退出应用」这条路上也是**主动退房间**（`NetworkCustomManager__OnDestroy.c:13-19`
+                //   的 `PhotonNetwork.Disconnect()`；`PlayerDataManager__QuitApplication.c:23-35` 的 `LeaveRoom()`）。
+                {
+                    int port9d = FreePort();
+                    NetConfig.Current.port = port9d; NetConfig.Current.ip = "127.0.0.1";
+                    var hs9d = NetSession.NewTcp(); var cs9d = NetSession.NewTcp();
+                    Ok(hs9d.StartHost(NetConfig.Current), "（OnDestroy·另开一局）主机起来监听");
+                    cs9d.CheckConnection(NetConfig.Current);
+                    Ok(PumpUntil(hs9d, cs9d, () => hs9d.State == NetState.Lobby && cs9d.State == NetState.Lobby, 8000),
+                       "（OnDestroy·另开一局）握手走完");
+                    hs9d.EnterBattle(); cs9d.EnterBattle();
+
+                    var go9d = new GameObject("B13_LeaveOnDestroy");
+                    var probe9d = go9d.AddComponent<BattleDriver>();
+                    NetBattle.Attach(probe9d, hs9d, NetPendingBattle.FromStart(new MsgStart(), true));
+                    Ok(probe9d.Net != null && ReferenceEquals(probe9d.Net.Session, hs9d),
+                       "（OnDestroy）夹具：这台驱动**挂着联机层**（`_net != null` 就是「联机局」那个判据）");
+                    // 🔴 **2026-10-17（F4·RC2）：这一格按 `Application.isPlaying` 分两档。**
+                    //   判据链（→ `资料/普查产出_1017/D4_联机诊断.md` §③）：`BattleDriver` **不带
+                    //   `[ExecuteAlways]`**（`Battle/BattleDriver.cs:22`），而本自检跑在**编辑模式** ⇒
+                    //   **编辑器不派生命周期消息** ⇒ `DestroyImmediate(组件)` **不会**调 `OnDestroy`
+                    //   ⇒ `LeaveNetRoom()` 压根没执行（本轮日志实证：全篇 `离开房间` = 0、`离开战场` = 0，
+                    //   本机会话停在 `InBattle`）。项目已实测记过两次：`Editor/BattleScene.cs:12976-12986`
+                    //   （A388(b)）+ `Shell/WindowsManager.cs:65-70`。
+                    //   ⛔ **不写成绿、也不许删**（铁律 11 + 「弱断言分不出两种状态 = 没断」）：
+                    //      编辑模式这半分**改断「环境事实」**（组件真没了 ∧ 两台会话状态**原封不动**，
+                    //      两件都实读）+ `_warn++` 出声。
+                    //   🔴 **真路径（真卸载 ⇒ 对面收到 `bye`）批处理里验不了** ⇒ 归
+                    //      `资料/真Play待验清单.md` **D39**（离开战场场景 → 再进一次）。
+                    var stBefore9d = hs9d.State;                    // 卸之前那一刻的会话状态（实读）
+                    UnityEngine.Object.DestroyImmediate(go9d);      // ⚠️ 批处理下 `Destroy` 不生效（本工程记过）
+                    if (Application.isPlaying)
+                    {
+                        Ok(pumpOne(cs9d, () => cs9d.State == NetState.Closed, 4000),
+                           "★（OnDestroy）拆掉驱动时**对面收到了 `bye`**（不用干等 10 秒心跳超时）"
+                         + " —— 🧨 改坏法：删掉 `BattleDriver.OnDestroy` 里那句 `LeaveNetRoom();` ⇒ 红");
+                        Ok(hs9d.State == NetState.Off, $"（OnDestroy）本机那一侧也关上了（实际 {hs9d.State}）");
+                    }
+                    else
+                    {
+                        // 给对面一点时间 —— 它本来就**不该**收到任何东西（断言要看得出「真没收到」）
+                        pumpOne(cs9d, () => cs9d.State == NetState.Closed, 300);
+                        _warn++;
+                        Debug.LogWarning($"{P} ⚠️（OnDestroy）**本宿主里这一跳验不了**：编辑模式"
+                                       + "（`Application.isPlaying == false`）不派生命周期消息 ⇒ "
+                                       + "`DestroyImmediate(组件)` 不调 `OnDestroy` ⇒ `LeaveNetRoom()` 没跑过。"
+                                       + $"⇒ 这一档改断**环境事实**：对面仍然 **{cs9d.State}**（没收到 `bye`）、"
+                                       + $"本机会话仍然是 **{hs9d.State}**（== 卸之前那一刻的 {stBefore9d}）。"
+                                       + "真路径 = **离开战场场景 → 再进一次**（联机局那一刻对面该收到 `bye`），"
+                                       + "只有真 Play 跑得到 ⇒ `资料/真Play待验清单.md` **D39**。");
+                        Ok(probe9d == null && cs9d.State != NetState.Closed && hs9d.State == stBefore9d,
+                           $"★（OnDestroy·编辑模式档）拆掉驱动之后：**组件真没了**（`== null`）而"
+                         + $"**两台会话的状态原封不动**（本机 {hs9d.State} / 对面 {cs9d.State}）"
+                         + " —— 这是「本宿主不派 `OnDestroy`」那条**环境事实**，**不是**「实现了捎 `bye`」"
+                         + "（那一跳只有真 Play 能验，D39）"
+                         + "；🧨 改坏法：给 `BattleDriver` 加 `[ExecuteAlways]`（或让这一路真的派上 `OnDestroy`）"
+                         + " ⇒ 会话当场被关上 ⇒ 本条红 —— 那是「环境变了、好消息」，"
+                         + "把上面 Play 那一档提成无条件即可");
+                    }
+                    hs9d.Close(false); cs9d.Close(false);
+                    NetConfig.Current.port = savedPort9;
+                }
+            }
+
+            // ---- 10) 🆕 2026-10-17（B17·A900 / A901）：**掉线之后那两半** ----
+            //   A901 = 对手掉线 ⇒ **对局时钟停走**（原版 `BattleManager__ShowDisconnectionPopup.c:27` 的
+            //          `ClockManager.PauseClock()`；回来那一刻 `SuccessfulReconnection.c:51` 的 `UnpauseClock()`）。
+            //   A900 = 对手掉线 ⇒ 起 `max(15, maxSecToReconnect 30 − 3 × enemyDisconnects)` 秒的倒计时
+            //          （每秒报一拍 `UpdateReconnectStatus(secLeft)`），**到点判对面弃权**。
+            //   判据全文（含那两个字段是怎么从 DLL / 资产里读出来的）→ `Net/NetBattle.cs` 的 A900/A901 那一节。
+            //
+            //   ⚠️ **两半分开验，因为宿主不同**：
+            //     ① **时钟闸只长在真 `BattleDriver` 上**（`NetClockPaused`）⇒ 那两条用真驱动；
+            //     ② **倒计时 / 判负走的是 `INetBattleHost` 那一层** ⇒ 用裸 host（与 §6/§9 **同一份契约**）。
+            //   ⛔ **「用真驱动跑一遍到点判负」这条路故意不走**：`BattleDriver.NetRemoteResign` 末尾的
+            //      `RefreshAll()` 要手牌 / 棋盘 / 相机（本自检没有 ⇒ `Begin` 都跑不完，先例见 §A530）——
+            //      那条路归 `Editor/BattleScene.cs`（有整套场景那一条）。
+            //   🧨 **判别式**（本节的 ★ 里挑一条，删掉对应实现就必红）：
+            //      ① 删掉 `BattleDriver.TickClock` 里那句 `if (NetClockPaused) return;` ⇒ 10②「表停走」红；
+            //      ② 删掉 `NetBattle.HandlePeerLost` 里那句 `ClockPaused = true;` ⇒ 10②「闸按下了」红；
+            //      ③ 删掉 `NetBattle.Tick()` 里那句 `TickReconnectCountdown();` ⇒ 10③ 全红（数字一动不动）；
+            //      ④ 删掉 `ReconnectSecondsFor` 里的 `- ReconnectSecondsStep * n` ⇒ 10③「第二次 = 27」红。
+            {
+                float clk = 0f;
+                NetBattle.SetClockForTest(() => clk);      // 本段自己那个假钟（`_clk` 留给前面那几段）
+                try
+                {
+                    var dkB1 = Shuffle(DeckBuilder.StarterDeck(pool, "Ultramarines", DeckBuilder.ClassicDeckSize,
+                                                               new System.Random(61), unitsOnly: false), 0x81);
+                    var dkB2 = Shuffle(DeckBuilder.StarterDeck(pool, "Goff", DeckBuilder.ClassicDeckSize,
+                                                               new System.Random(62), unitsOnly: false), 0x82);
+
+                    // ============ 10① **单机：没有联机会话时时钟照常走**（任务书 ④ 的那条红线）============
+                    {
+                        var goA = new GameObject("B17_SinglePlayerClock");
+                        var drvA = goA.AddComponent<BattleDriver>();
+                        drvA.SetCtxForTest(RuleCore.NewBattle(Shuffle(dkB1, 0x91), Shuffle(dkB2, 0x92), 20261020,
+                                                              cardPool: pool, openMulligan: false,
+                                                              vars: GameplayVariables.Classic, firstSeat: 0));
+                        Ok(!drvA.NetClockPaused, "（时钟闸·单机）夹具：这台驱动**没有联机层**（`_net == null`）");
+                        Ok(drvA.Ctx.Active == drvA.MyIndex, "（时钟闸·单机）夹具：轮到本机（`TickClock` 头一道闸）");
+                        float sp0 = drvA.ClockLeft;
+                        Ok(sp0 > 40f, $"（时钟闸·单机）夹具：表是满的（{sp0:F0} s，> 催命阈值 35 ⇒ 这一趟碰不到语音那条路）");
+                        drvA.TickClockForTest(1f);
+                        Ok(Mathf.Abs(drvA.ClockLeft - (sp0 - 1f)) < 0.01f,
+                           $"★（时钟闸·单机）**没有联机会话时时钟照常走**：推 1 s ⇒ {sp0:F0} → {drvA.ClockLeft:F1}"
+                         + " —— 🧨 改坏法：把 `NetClockPaused` 写成「没联机也算暂停」"
+                         + "（例如 `_net == null || _net.ClockPaused`），或让 `TickClock` 变成无条件 `return` ⇒ 红");
+                        UnityEngine.Object.DestroyImmediate(goA);   // ⚠️ 批处理下 `Destroy` 不生效（本工程记过）
+                    }
+
+                    // ============ 10② 真驱动：对手掉线 ⇒ **表停**；对手回来 ⇒ **表接着走** ============
+                    {
+                        int savedPortB = NetConfig.Current.port;
+                        int portB = FreePort();
+                        NetConfig.Current.port = portB; NetConfig.Current.ip = "127.0.0.1";
+                        var hsB = NetSession.NewTcp(); var csB = NetSession.NewTcp();
+                        Ok(hsB.StartHost(NetConfig.Current), "（时钟闸）主机起来监听");
+                        csB.CheckConnection(NetConfig.Current);
+                        Ok(PumpUntil(hsB, csB, () => hsB.State == NetState.Lobby && csB.State == NetState.Lobby, 8000),
+                           "（时钟闸）握手走完");
+
+                        var goB = new GameObject("B17_NetClockGate");
+                        var drvB = goB.AddComponent<BattleDriver>();
+                        drvB.SetCtxForTest(RuleCore.NewBattle(Shuffle(dkB1, 0xA1), Shuffle(dkB2, 0xA2), 20261021,
+                                                              cardPool: pool, openMulligan: false,
+                                                              vars: GameplayVariables.Classic, firstSeat: 0));
+                        var nbB = NetBattle.Attach(drvB, hsB, NetPendingBattle.FromStart(new MsgStart(), isHost: true));
+                        nbB.RememberStart(new MsgStart { seed = 20261021, mode = "Classic", arena = "Battle", hostFirst = 0 });
+                        hsB.EnterBattle(); csB.EnterBattle();
+                        Ok(!drvB.NetClockPaused, "（时钟闸）夹具：刚开局**闸没按下**");
+
+                        csB.Transport.ClosePeer();                 // 🔴 模拟对面掉线（§6/§9 同一个手法）
+                        Ok(PumpUntil(hsB, csB, () => hsB.State == NetState.WaitingReconnect, 8000),
+                           $"（时钟闸）主机发现对面掉线、进等待重连（实际 {hsB.State}）");
+                        Ok(drvB.NetClockPaused,
+                           "★ **对手掉线 ⇒ 对局时钟的闸按下了**"
+                         + "（原版 `ShowDisconnectionPopup.c:27` = `ClockManager.PauseClock()`）"
+                         + " —— 🧨 改坏法：删掉 `HandlePeerLost` 里那句 `ClockPaused = true;` ⇒ 红");
+                        Ok(nbB.ClockPaused && nbB.ReconnectCountdownRunning,
+                           $"★ 同一刻**倒计时也起了**（{nbB.ReconnectCountdownLeft} 秒 —— 原版另起一条协程，不是同一件事）");
+                        float cB = drvB.ClockLeft;
+                        drvB.TickClockForTest(2f);
+                        Ok(Mathf.Abs(drvB.ClockLeft - cB) < 0.001f,
+                           $"★ **表停走**：推 2 s 一点没动（还是 {cB:F1} s）"
+                         + " —— 🧨 改坏法：删掉 `BattleDriver.TickClock` 里那句 `if (NetClockPaused) return;` ⇒ 红");
+
+                        // 对手回来（客机自动重连 ⇒ 主机发 `resume` ⇒ 两边回 `InBattle`）
+                        Ok(PumpUntil(hsB, csB, () => hsB.State == NetState.InBattle, 25000),
+                           $"（时钟闸）对手回来、两边回到对局（主机 {hsB.State} / 客机 {csB.State}）");
+                        int hideBefore = NetRuntime.HidePopupCallsForTest;
+                        nbB.Tick();                                // 认「回来了」那一条边沿
+                        Ok(!drvB.NetClockPaused,
+                           "★ **对手回来 ⇒ 闸放开了**（原版 `SuccessfulReconnection.c:51` 的 `ClockManager.UnpauseClock()`）");
+                        Ok(!nbB.ReconnectCountdownRunning && !nbB.ClockPaused,
+                           "★ …而且**倒计时也取消了**（原版同一句里的 `StopCoroutine(ForfeitDisconnectedEnemy)`）");
+                        Ok(NetRuntime.HidePopupCallsForTest > hideBefore,
+                           "★ …并且**去撤那扇窗了**（原版那一刻是 `CloseAllWindows()`；我们只关**弹窗**那一颗 —— "
+                         + "`NetRuntime.HideNoticePopup` → `WindowsManager.HidePopUp(false)`）"
+                         + " ⚠️ 批处理里没有 `WindowsManager`，这一格记的是「**真的去撤了**」，"
+                         + "「窗真关掉了」只有真 Play 验得到");
+                        float cB2 = drvB.ClockLeft;
+                        drvB.TickClockForTest(2f);
+                        Ok(Mathf.Abs(drvB.ClockLeft - (cB2 - 2f)) < 0.01f,
+                           $"★ **表接着走**：推 2 s ⇒ {cB2:F1} → {drvB.ClockLeft:F1}"
+                         + "（这一条与上面「表停走」那条**互斥**，不是同义反复：一条验「停得住」、一条验「停完还能开」）");
+
+                        drvB.AttachNet(null);                      // 摘联机层（免得 `OnDestroy` 走「断开」那条路）
+                        hsB.Close(false); csB.Close(false);
+                        NetConfig.Current.port = savedPortB;
+                        UnityEngine.Object.DestroyImmediate(goB);
+                    }
+
+                    // ============ 10③ 倒计时判弃权（裸 host 那一层 —— 与 §6/§9 同一份 `INetBattleHost` 契约）============
+                    {
+                        int savedPortC = NetConfig.Current.port;
+                        int portC = FreePort();
+                        NetConfig.Current.port = portC; NetConfig.Current.ip = "127.0.0.1";
+                        var hsC = NetSession.NewTcp(); var csC = NetSession.NewTcp();
+                        Ok(hsC.StartHost(NetConfig.Current), "（判弃权）主机起来监听");
+                        csC.CheckConnection(NetConfig.Current);
+                        Ok(PumpUntil(hsC, csC, () => hsC.State == NetState.Lobby && csC.State == NetState.Lobby, 8000),
+                           "（判弃权）握手走完");
+
+                        var hbC = new BareHost
+                        {
+                            MySeat = 0,
+                            Ctx = RuleCore.NewBattle(Shuffle(dkB1, 0xB1), Shuffle(dkB2, 0xB2), 20261022,
+                                                     cardPool: pool, openMulligan: false,
+                                                     vars: GameplayVariables.Classic, firstSeat: 0),
+                        };
+                        var cbC = new BareHost
+                        {
+                            MySeat = 1,
+                            Ctx = RuleCore.NewBattle(Shuffle(dkB1, 0xC1), Shuffle(dkB2, 0xC2), 20261022,
+                                                     cardPool: pool, openMulligan: false,
+                                                     vars: GameplayVariables.Classic, firstSeat: 0),
+                        };
+                        var hNBC = NetBattle.Attach(hbC, hsC, isHost: true);
+                        var cNBC = NetBattle.Attach(cbC, csC, isHost: false);
+                        hsC.EnterBattle(); csC.EnterBattle();
+                        hNBC.RememberStart(new MsgStart
+                        {
+                            seed = 20261022, mode = "Classic", arena = "Battle", hostFirst = 0,
+                            hostFaction = "Ultramarines", clientFaction = "Goff",
+                            hostDeckJson = "", clientDeckJson = "",
+                        });
+                        cbC.Rebuild = () => RuleCore.NewBattle(Shuffle(dkB1, 0xB1), Shuffle(dkB2, 0xB2), 20261022,
+                                                               cardPool: pool, openMulligan: false,
+                                                               vars: GameplayVariables.Classic, firstSeat: 0);
+
+                        NetRuntime.DrainNoticesForTest();          // 先把队清掉（本段只认自己弹的那几条）
+                        hbC.LastSay = null;
+
+                        // ---- ③-1 第一次掉线：**30 秒**（原版 `max(15, 30 − 3×0)`）----
+                        csC.Transport.ClosePeer();
+                        Ok(PumpUntil(hsC, csC, () => hsC.State == NetState.WaitingReconnect, 8000),
+                           $"（判弃权）主机发现对面掉线（实际 {hsC.State}）");
+                        Eq(hNBC.ReconnectCountdownLeft, 30,
+                           "★ 倒计时 = **30 秒**（原版 `max(15, VarsGlobal.maxSecToReconnect 30 − 3 × enemyDisconnects 0)`）"
+                         + " —— 🧨 改坏法：删掉 `Tick()` 里那句 `TickReconnectCountdown();` ⇒ 本节全红");
+                        Ok(hbC.LastSay != null && hbC.LastSay.Contains("30"),
+                           $"★ 起的那一刻就把秒数告诉了玩家（实得「{hbC.LastSay}」）");
+
+                        // ---- ③-2 每秒报一拍（原版 `UpdateReconnectStatus(secLeft)`）----
+                        clk += 1f;
+                        hNBC.Tick();
+                        Eq(hNBC.ReconnectCountdownLeft, 29,
+                           "★ **每秒报一拍**：30 → 29（原版那一拍接的是 `BattleErrorUIManager.UpdateReconnectWindow`，"
+                         + "它把 `TimeSpan.FromSeconds(sec)` 拼进弹窗正文）");
+                        Ok(hbC.LastSay != null && hbC.LastSay.Contains("29"),
+                           $"★ 提示行跟着改口（实得「{hbC.LastSay}」）");
+
+                        // ---- ③-3 对手在倒计时内回来 ⇒ **取消倒计时、不判负** ----
+                        Ok(PumpUntil2(hsC, csC, hNBC, cNBC, () => hsC.State == NetState.InBattle, 25000),
+                           $"（判弃权）对手回来（主机 {hsC.State} / 客机 {csC.State}）");
+                        Ok(!hNBC.ReconnectCountdownRunning,
+                           "★ **对手在倒计时内回来 ⇒ 倒计时取消**（原版 `SuccessfulReconnection.c:27` 的 `StopCoroutine`）");
+                        Ok(hbC.LastSay != null && hbC.LastSay.Contains("回来"),
+                           $"★ 提示行改口说「回来了」（实得「{hbC.LastSay}」）");
+                        Eq(hbC.Ctx.Winner, 0,
+                           "★ …而且**没有判负**（`Winner` 还是 0 —— 用户 2026-09-26 要的「掉线能接着打」）");
+
+                        // ---- ③-4 第二次掉线：**27 秒** = `max(15, 30 − 3×1)` ★ 判别式 ----
+                        //   🔴 这一条盯的是公式里那个 **`− 3 × enemyDisconnects`** 项 ——
+                        //      把秒数写死成 30 的实现会在这里红。
+                        csC.Transport.ClosePeer();
+                        Ok(PumpUntil(hsC, csC, () => hsC.State == NetState.WaitingReconnect, 8000),
+                           $"（判弃权）第二次掉线（实际 {hsC.State}）");
+                        Eq(hNBC.EnemyDisconnects, 2,
+                           "★ 本局对手掉线次数记到 2（原版 `BattleManager.enemyDisconnects`，`+0x45C`）");
+                        Eq(hNBC.ReconnectCountdownLeft, 27,
+                           "★ **第二次 = 27 秒** = `max(15, 30 − 3×1)`"
+                         + " —— 🧨 改坏法：删掉 `ReconnectSecondsFor` 里的 `- ReconnectSecondsStep * n` ⇒ 红");
+
+                        // ---- ③-5 到点 ⇒ **判对面弃权**（原版 `DeadHero(对面, 3)`）----
+                        //   ⚠️ 先把「还没有被接回来」摆明（客机那边**可能正在自动重连**，
+                        //      那会让 `Tick` 走「回来了」那一支而不是「到点」那一支 ⇒ 先钉住前提）。
+                        Ok(hsC.State == NetState.WaitingReconnect,
+                           "（判弃权）夹具：到点这一刻**对面还没接回来**（不然下面验的就不是「到点」那一条）");
+                        int hideBefore2 = NetRuntime.HidePopupCallsForTest;
+                        clk += 27f;
+                        hNBC.Tick();
+                        Eq(hbC.Ctx.Winner, 1, "★ **到点判对面弃权**（本机是座位 0 ⇒ 判座位 1 负、本机胜）");
+                        Eq(hbC.Ctx.ForfeitedBy, 1,
+                           "★ …「谁弃的权」记的是**对面**（走的是现成入口 `INetBattleHost.NetRemoteResign` ="
+                         + " `RuleCore.Forfeit(Ctx, 1−_me)`，原版那一跳是 `DeadHero(对面, 3)`）");
+                        Ok(!hNBC.ReconnectCountdownRunning && !hNBC.ClockPaused,
+                           "★ 判完**倒计时收掉、闸也放开**（不留一个还在跑的状态）");
+                        Ok(NetRuntime.HidePopupCallsForTest > hideBefore2,
+                           "★ 判负那一刻**先把那扇提示窗撤掉**"
+                         + "（原版那一刻状态置 3 = `Disconnected` ⇒ `…ConnectionStatusChanged.c:41-43` 的 `CloseAllWindows()`"
+                         + " —— **是关窗不是开窗**）");
+
+                        hNBC.Detach(); cNBC.Detach();
+                        hsC.Close(false); csC.Close(false);
+                        NetConfig.Current.port = savedPortC;
+                    }
+                }
+                finally
+                {
+                    NetBattle.SetClockForTest(FakeClock);      // 还回上面那条（`_clk`）
+                }
+            }
+
+            // ---- 11) 🆕 2026-10-17（B23·A902 附带那一格）：**接上联机层那一刻对面就已经不在了** ----
+            //   为什么单开一段：`MsgStart` 与「真进战场」之间隔着一次 `LoadScene`（客户端还可能被
+            //   `HoldForPresentation` 多留一口气）—— 对面正好在那一小段里掉线 / 离开的话，
+            //   `OnPeerLost` / `OnClosed` **在 `NetBattle` 挂上之前就烧掉了** ⇒ 这一局会**静默地停在那里**
+            //   （而大厅那一层那一刻已经交权：`NetRuntime.LobbyHandled` 被 `Attach` 置成了 false，
+            //   它按定义不再开口 —— 见 `NetMatchmaking.LobbyOwnsSession`）。
+            //   `NetBattle.WireSession` 末尾那两句就是补这一格：接上时若会话已经不在（`WaitingReconnect` /
+            //   `Closed`）⇒ **补报一次**，走的是与实时掉线**同一对** handler（不是另写一套口径）。
+            //   ⚠️ 只看那两档：`Off` 是**本机自己关的**（`Editor/BattleScene.cs` 那个 `RecordingTransport`
+            //      夹具就是 `Off` 接上来的 ⇒ 在那儿多弹一条会把它的通知计数打乱）。
+            //   🧨 判别式：删掉 `WireSession` 末尾那两句 ⇒ 本段「该补的补了」那条红；
+            //      把补报写成无条件的 ⇒ 反例那条红。
+            {
+                int savedPort11 = NetConfig.Current.port;
+                NetConfig.Current.port = FreePort();
+                NetConfig.Current.ip = "127.0.0.1"; NetConfig.Current.password = "";
+                var hs11 = NetSession.NewTcp(); var cs11 = NetSession.NewTcp();
+                Ok(hs11.StartHost(NetConfig.Current), "（补齐·另一局）主机起来监听");
+                cs11.CheckConnection(NetConfig.Current);
+                Ok(PumpUntil(hs11, cs11, () => hs11.State == NetState.Lobby && cs11.State == NetState.Lobby, 8000),
+                   "（补齐·另一局）握手走完");
+                hs11.EnterBattle(); cs11.EnterBattle();
+
+                // 对面掉线 ⇒ 主机进「等重连」；**此刻主机这台会话上还没有任何 `NetBattle`**
+                //（模拟的正是「大厅已交权、对局还没接上」那个空档）
+                cs11.Transport.ClosePeer();
+                Ok(PumpUntil(hs11, cs11, () => hs11.State == NetState.WaitingReconnect, 8000),
+                   $"（补齐）主机进「等重连」（实际 {hs11.State}）");
+                NetRuntime.DrainNoticesForTest();          // 清一把（本段只认自己那一条）
+
+                var b11 = new BareHost { Ctx = null, MySeat = 0 };
+                var nb11 = NetBattle.Attach(b11, hs11, isHost: true);
+                var n11 = NetRuntime.DrainNoticesForTest();
+                Eq(n11.Length, 1,
+                   "★（补齐）**接上联机层时会话已经在 `WaitingReconnect` ⇒ 补报一条**"
+                 + "（原来这一档一声不响 —— 玩家会在一个对面早就不在的局里干等）"
+                 + " —— 🧨 改坏法：删掉 `NetBattle.WireSession` 末尾那两句 ⇒ 红");
+                Ok(n11.Length >= 1 && n11[0].Contains("掉线"),
+                   $"★（补齐）那条话是对局那一档的口径（实得「{(n11.Length > 0 ? n11[0] : "")}」）");
+                Ok(b11.LastSay != null && b11.LastSay.Contains("掉线"), "★（补齐）提示行也说了");
+                Ok(nb11.ClockPaused, "★（补齐）对局时钟的闸**也按下了**（原版那一刻 `ClockManager.PauseClock()`）");
+                Ok(!nb11.ReconnectCountdownRunning,
+                   "（补齐）这一次的裸 host **没有 `Ctx`** ⇒ 不起倒计时、只出声"
+                 + "（`StartReconnectCountdown` 那条如实记录的分支）");
+                nb11.Detach(); hs11.Close(false); cs11.Close(false);
+
+                // ---- 反例（**不同源**）：会话在 `Lobby`（正常那一帧）接上 ⇒ 一句都不许补 ----
+                {
+                    NetConfig.Current.port = FreePort();
+                    var hs11b = NetSession.NewTcp(); var cs11b = NetSession.NewTcp();
+                    Ok(hs11b.StartHost(NetConfig.Current), "（补齐·反例）主机起来监听");
+                    cs11b.CheckConnection(NetConfig.Current);
+                    Ok(PumpUntil(hs11b, cs11b, () => hs11b.State == NetState.Lobby && cs11b.State == NetState.Lobby, 8000),
+                       "（补齐·反例）握手走完（两边都在 `Lobby`）");
+                    NetRuntime.DrainNoticesForTest();
+                    var b11b = new BareHost { Ctx = null, MySeat = 0 };
+                    var nb11b = NetBattle.Attach(b11b, hs11b, isHost: true);
+                    Eq(NetRuntime.DrainNoticesForTest().Length, 0,
+                       "★（补齐·反例）会话在 `Lobby` 接上 ⇒ **不许补报**"
+                     + " —— 与上面那条**不同源**：上面验「该补的补了」，这条验「不该补的别乱补」"
+                     + "（两边一起改坏 = 把补报写成无条件 ⇒ **只有这条红**）");
+                    Ok(!nb11b.ClockPaused, "★（补齐·反例）时钟闸也没被按下");
+                    nb11b.Detach(); hs11b.Close(false); cs11b.Close(false);
+                }
+
+                NetConfig.Current.port = savedPort11;
+            }
+
+            // ---- 12) 🆕 2026-10-17（B27·A912）：**按「有没有说再见」分档判弃权** ----
+            //   账 `A912`：对局中对手消失有**两路** ——
+            //     **A 路**（点了投降/退出那颗钮）**先发 `Resign`** ⇒ 对面立刻判他负
+            //       （`NetBattle.Dispatch` 的 `case NetKind.Resign` → `NetRemoteResign()`）—— **这一路本来就是对的**；
+            //     **B 路**（没点投降就没了：关应用 / 场景卸载 / 主机重开）只走 `LeaveNetRoom()` →
+            //       `NetSession.Close(say: true, …)` → `Send(NetKind.Bye)` ⇒ 原来对面**只看到「联机对局结束」、
+            //       谁也没赢、一直挂着**。
+            //   本件补的是 **B 路**：**收到 `bye` ⇒ 直接判他弃权**；而**心跳超时（没有 `bye`）保持原样**
+            //   （仍走 A900 那 30 秒 —— 他可能真回来，对局内重连本来就支持）。
+            //   🔴 **口径全文（含「为什么这么分档」、为什么不能接到 `StartReconnectCountdown`、
+            //   以及「这是我们的口径、不是复刻」那一条）→ `Net/NetBattle.cs` 的 `HandlePeerClosed` 头上那一大段。**
+            //
+            //   🧨 **判别式（删掉对应实现就必红）**：
+            //     ① 删掉 `HandlePeerClosed` 里那句 `ForfeitPeerIfLeftMidGame()` ⇒ 12① 红；
+            //     ② 把那一格写成**无条件**（去掉 `_d.Ctx.IsOver` 那道闸）⇒ 12③ 红；
+            //     ③ 把这一档并回 `HandlePeerLost`（= `bye` 也去起倒计时）⇒ 12④ 红。
+            //   ⚠️ **12① 与 12③ 是【不同源】的一对**：① 看 `Ctx.Winner`（该判的判了）；
+            //      ③ 看 `ResignCalls`（**已经打完的局不许再判一次**）—— 只盯 `Winner` 是**测不出**的：
+            //      `RuleCore.Forfeit` 自己会早退（`RuleCore.cs:3685`）⇒ 两边一起改坏也照样绿。
+            {
+                int savedPort12 = NetConfig.Current.port;
+                var rt12 = NetRuntime.Ensure();
+                bool keepLobby12 = rt12.LobbyHandled;
+                var keepSess12 = rt12.Session;
+                try
+                {
+                    // ============ 12①-② 对面**没说再见就没了**（`bye`）⇒ 判他弃权 + 一台会话只弹一次 ============
+                    {
+                        var f = SetupA912(pool, 20261030, "A912·局没打完");
+                        // 🔴 大厅那一半**也挂在这一台会话上**（生产上它在会话出生时就挂了 —— `NetRuntime.Init`
+                        //    / `Reset` / `AttachForTest` 那三处；`NetBattle.Attach` 随后把闸置 false）。
+                        rt12.AttachForTest(f.hs);
+                        NetMatchmaking.Reset();
+                        Ok(!rt12.LobbyHandled,
+                           "（A912①）夹具：接上对局那一半 ⇒ **大厅那一半已经交权**（`NetRuntime.LobbyHandled == false`）");
+                        Ok(!f.hb.Ctx.IsOver && !f.cb.Ctx.IsOver,
+                           "（A912①）夹具：这一局**还没打完**（两端 `Ctx.IsOver == false` = 「他没投降就没了」那档的判据）");
+                        NetRuntime.DrainNoticesForTest();          // 本段只认自己那几条
+                        f.hb.LastSay = null;
+
+                        f.cs.Close(true, "自检：对面关掉了这一局");   // = B 路（`BattleDriver.OnDestroy` → `LeaveNetRoom`）
+                        Ok(PumpOne(f.hs, () => f.hs.State == NetState.Closed, 4000),
+                           $"（A912①）主机收到 `bye` ⇒ 会话关上（实际 {f.hs.State}）");
+                        Ok(f.hb.Ctx.Winner == 1 && f.hb.Ctx.ForfeitedBy == 1,
+                           "★（A912①）**对面 `bye` + 本局还没结束 ⇒ 直接判他弃权**"
+                         + $"（本机座位 0 ⇒ 判座位 1 负、本机胜；`Winner` = {f.hb.Ctx.Winner}、"
+                         + $"`ForfeitedBy` = {f.hb.Ctx.ForfeitedBy}）"
+                         + " —— 🧨 改坏法：删掉 `HandlePeerClosed` 里那句 `ForfeitPeerIfLeftMidGame()` ⇒ 红");
+                        Eq(f.hb.ResignCalls, 1,
+                           "★（A912①）…而且走的是**现成那个判负入口**（`INetBattleHost.NetRemoteResign`，**恰一次**）"
+                         + "—— 口径：判负入口只有这一处，⛔ 别新造口");
+                        var n12 = NetRuntime.DrainNoticesForTest();
+                        Eq(n12.Length, 1,
+                           "★（A912②·一台会话不许弹两次）这一跳**只弹一条**"
+                         + " —— 大厅那一半（`NetMatchmaking`）也挂在同一台会话上，而它一个字都没说："
+                         + "判据 = `NetRuntime.LobbyHandled`（对局那一半接上时置 false）"
+                         + " —— 🧨 改坏法：把 `NetMatchmaking.LobbyOwnsSession` 那道闸去掉 ⇒ 这一条变成 2 条");
+                        Ok(n12.Length >= 1 && n12[0].Contains("弃权"),
+                           $"★（A912②）那条话**说出了结局**（判他弃权 / 这一局你赢了；实得「{(n12.Length > 0 ? n12[0] : "")}」）");
+                        Ok(f.hb.LastSay != null && f.hb.LastSay.Contains("弃权"),
+                           $"★（A912②）**提示行**上也说了（实得「{f.hb.LastSay}」）");
+                        Ok(!NetMatchmaking.PeerGone,
+                           "★（A912②）…而且大厅那一半**连边沿都没置**（`NetMatchmaking.PeerGone == false`）"
+                         + " —— 与上面那条**不同源**：上面数的是「弹了几条」，这条看的是「另一半有没有偷偷记账」");
+                        f.hs.Close(false); f.cs.Close(false);
+                    }
+
+                    // ============ 12③ 这一局**已经打完了** ⇒ 不许再判一次（判负入口一次都不许调）============
+                    {
+                        var f = SetupA912(pool, 20261031, "A912·局已打完");
+                        // 让这一局先结束掉：本机投降（`ForfeitedBy = 0`、`Winner = 2`）—— 与「对面 bye」无关
+                        RuleCore.Forfeit(f.hb.Ctx, 0);
+                        Ok(f.hb.Ctx.IsOver && f.hb.Ctx.ForfeitedBy == 0,
+                           "（A912③）夹具：这一局**已经结束**了（本机先投的降；`ForfeitedBy` = 0）");
+                        NetRuntime.DrainNoticesForTest();
+
+                        f.cs.Close(true, "自检：对面关掉了这一局");
+                        Ok(PumpOne(f.hs, () => f.hs.State == NetState.Closed, 4000),
+                           $"（A912③）主机收到 `bye`（实际 {f.hs.State}）");
+                        Eq(f.hb.ResignCalls, 0,
+                           "★（A912③）**已经打完的局 ⇒ 不许再判一次弃权**（判负入口**一次都没调**）"
+                         + " —— 🧨 改坏法：把 `ForfeitPeerIfLeftMidGame` 里 `_d.Ctx.IsOver` 那道闸去掉 ⇒ 红"
+                         + "（⚠️ 光看 `Winner` 是**测不出来**的：`RuleCore.Forfeit` 自己会早退，两边一起变）");
+                        Eq(f.hb.Ctx.ForfeitedBy, 0,
+                           "★（A912③）…「谁弃的权」还是本机自己那一次（没被对面这条 `bye` 改写）");
+                        var n13 = NetRuntime.DrainNoticesForTest();
+                        Eq(n13.Length, 1,
+                           "（A912③）这一路**仍然要出声**（「不判弃权」≠「不说话」）—— 这一台会话上只有"
+                         + "对局那一半挂着（大厅那一半的接线在 12① 那台已关掉的会话上）⇒ 恰好 1 条");
+                        f.hs.Close(false); f.cs.Close(false);
+                    }
+
+                    // ============ 12④ **只有掉线（没有 `bye`）⇒ 保持原样**：不判弃权，照 A900 起 30 秒 ============
+                    {
+                        var f = SetupA912(pool, 20261032, "A912·只有掉线");
+                        Ok(!f.hb.Ctx.IsOver, "（A912④）夹具：局还没打完");
+                        NetRuntime.DrainNoticesForTest();
+
+                        f.cs.Transport.ClosePeer();                    // 🔴 **拔网线**那一档：对面没来得及说再见
+                        // ⚠️ **只推主机那一台**：拔线是主机自己的 socket 收到 FIN 判出来的（同 §11 那条），
+                        //    推对面反而会让它开始自动重连 —— 那与本节要验的东西无关（多余的动静）。
+                        Ok(PumpOne(f.hs, () => f.hs.State == NetState.WaitingReconnect, 8000),
+                           $"（A912④）主机发现对面掉线、进等待重连（实际 {f.hs.State}）");
+                        Eq(f.hb.ResignCalls, 0,
+                           "★（A912④）**只有掉线（没有 `bye`）⇒ 不许判弃权**（判负入口一次都没调）"
+                         + " —— 🧨 改坏法：把这一档也并进 `HandlePeerClosed`（或反过来把 `bye` 并进 `HandlePeerLost`）⇒ 红");
+                        Ok(f.hNB.ReconnectCountdownRunning && f.hNB.ReconnectCountdownLeft == 30,
+                           $"★（A912④）…而是照 **A900** 起那 30 秒倒计时（实得 {f.hNB.ReconnectCountdownLeft} 秒 ·"
+                         + " 他可能真回来 —— 对局内重连本来就支持）");
+                        Eq(f.hb.Ctx.Winner, 0, "★（A912④）…这一局**还没判**（`Winner` 还是 0）"
+                                             + " —— 与 12① 是同一格判据的两面（「说了再见」vs「没说再见」）");
+                        f.hNB.Detach(); f.cNB.Detach();                 // 收掉倒计时（别留给后面的用例）
+                        f.hs.Close(false); f.cs.Close(false);
+                    }
+
+                    // ============ 12⑤ **对照（灭自证）**：两个半边都打开 ⇒ 大厅那一半**真的会说话** ============
+                    //   🔴 为什么要这一格（`CLAUDE.md` §三「灭自证」那条）：12② 那句「只弹一条」如果
+                    //      **大厅那一半压根没挂上这台会话**，也一样是 1 条 ⇒ 那是一条**恒真**的断言。
+                    //      这一格把闸**故意**放回 `true`（换一个开关、别的都不动）：能同时证明
+                    //      ① 那根接线**真的挂在这一台会话上**；② 12② 那一条是**那道闸在挡**。
+                    //   ⛔ **真机上这个组合不该出现**（`NetBattle.Attach` 会把 `LobbyHandled` 置 false）——
+                    //      这一格是**对照**，不是「期望的行为」。
+                    {
+                        var f = SetupA912(pool, 20261033, "A912·对照双方都开");
+                        rt12.LobbyHandled = true;      // ← **故意**把闸打开（对照，只有这一格这么做）
+                        rt12.AttachForTest(f.hs);
+                        NetMatchmaking.Reset();
+                        NetRuntime.DrainNoticesForTest();
+
+                        f.cs.Close(true, "自检：对照用的一局");
+                        Ok(PumpOne(f.hs, () => f.hs.State == NetState.Closed, 4000),
+                           "（A912⑤·对照）对面 `bye` —— 这一格是**对照**，不是正常路径");
+                        Eq(NetRuntime.DrainNoticesForTest().Length, 2,
+                           "★（A912⑤·对照）两个半边都打开 ⇒ **两条**（大厅一条 + 对局一条）"
+                         + " —— 这一格的作用是**证明大厅那一半真的挂在同一台会话上**"
+                         + "（不然 12② 那条「只弹一条」可能只是「没有订户」= 恒真断言）");
+                        Ok(NetMatchmaking.PeerGone,
+                           "★（A912⑤·对照）大厅那一半**置上了它那个边沿**（`NetMatchmaking.PeerGone == true`）"
+                         + " —— 同一根接线在 12② 里一个字节都没动，差别只有那道闸");
+                        f.hs.Close(false); f.cs.Close(false);
+                    }
+                }
+                finally
+                {
+                    rt12.AttachForTest(keepSess12);
+                    rt12.LobbyHandled = keepLobby12;
+                    NetMatchmaking.Reset();
+                    NetRuntime.DrainNoticesForTest();
+                    NetConfig.Current.port = savedPort12;
+                }
+            }
         }
         catch (Exception e)
         {
@@ -452,11 +1136,17 @@ public static class NetBattleTest
         }
         finally
         {
+            NetBattle.SetClockForTest(null);      // 🔴 把钟还回去（别把静态状态留给下一条自检）
+            NetSession.SetClockForTest(null);     // 🔴 同上：`NetSession` 那个钟也是**进程级**的
             NetConfig.OverridePath = null;
             try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
         }
 
         Debug.Log($"{P} ===== 通过 {_pass} · 失败 {_fail} =====");
+        // ⚠️ 「验不了、如实出声」那几格**单起一行**：上面那行的格式**保持逐字不变**
+        //    （别的地方按 `===== 通过 N · 失败 M =====` 认这一条自检的结果）。
+        if (_warn > 0)
+            Debug.LogWarning($"{P} ===== 跳过/警告 {_warn}（**验不了的格子，不算失败** —— 逐条理由见上面那几条 ⚠️）=====");
         if (Application.isBatchMode) EditorApplication.Exit(_fail == 0 ? 0 : 1);
     }
 
@@ -495,6 +1185,14 @@ public static class NetBattleTest
         l.Start(); int p = ((System.Net.IPEndPoint)l.LocalEndpoint).Port; l.Stop(); return p;
     }
 
+    /// <summary>🆕 2026-10-17（B17）：**假钟**（秒）。`NetBattle` 的掉线倒计时读的就是它
+    /// （`NetBattle.SetClockForTest`）—— **不推它就不走**。
+    /// 为什么要它：原版那条倒计时是**真实 30 秒**（`WaitForSecondsRealtime(1.0f) × N`），
+    /// 自检真等 30 秒既慢、又会让「谁先掉线」这类用例变成计时敏感。
+    /// ⚠️ 只有 §10 明确 `clk += …` 时才推进；其余各段把它当「冻住」用。</summary>
+    static float _clk;
+    static float FakeClock() { return _clk; }
+
     static bool PumpUntil(NetSession a, NetSession b, Func<bool> cond, int timeoutMs)
     {
         var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -531,6 +1229,53 @@ public static class NetBattleTest
             Thread.Sleep(3);
         }
         return cond();
+    }
+
+    /// <summary>🆕 2026-10-17（B27）：**只推一台**会话。
+    /// 🔴 为什么要单独一个：只推一边才不会让**对面也报一次** —— 两边一起推的话通知队里就有两条，
+    /// 而「一次事件弹几条」正是本段要数的东西（§9 里那个同名局部 lambda 是同一个道理）。
+    /// ⚠️ 第二个参数**没有空判**（给它 null 会 NPE）—— 调用方传非 null 的 lambda。</summary>
+    static bool PumpOne(NetSession s, Func<bool> cond, int ms)
+    {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        while (sw.ElapsedMilliseconds < ms) { s.Pump(); if (cond()) return true; Thread.Sleep(3); }
+        s.Pump(); return cond();
+    }
+
+    /// <summary>🆕 2026-10-17（B27·A912）：**搭一局「对局中」的裸 fixture** —— 两台会话 + 两个裸 host
+    /// （各一份同输入的 `BattleContext`，**局还没打完**）+ 两端都接上 `NetBattle`。
+    /// 与 §6 / §9 / §10③ 走的是**同一份 `INetBattleHost` 契约**（不是另写一套简化实现）。</summary>
+    static (NetSession hs, NetSession cs, BareHost hb, BareHost cb, NetBattle hNB, NetBattle cNB)
+        SetupA912(List<CardDef> pool, int seed, string tag)
+    {
+        NetConfig.Current.ip = "127.0.0.1"; NetConfig.Current.password = "";
+        NetConfig.Current.port = FreePort();
+        var hs = NetSession.NewTcp(); var cs = NetSession.NewTcp();
+        Ok(hs.StartHost(NetConfig.Current), $"（{tag}）主机起来监听");
+        cs.CheckConnection(NetConfig.Current);
+        Ok(PumpUntil(hs, cs, () => hs.State == NetState.Lobby && cs.State == NetState.Lobby, 8000),
+           $"（{tag}）握手走完");
+        var da = Shuffle(DeckBuilder.StarterDeck(pool, "Ultramarines", DeckBuilder.ClassicDeckSize,
+                                                 new System.Random(seed), unitsOnly: false), seed ^ 0x71);
+        var db = Shuffle(DeckBuilder.StarterDeck(pool, "Goff", DeckBuilder.ClassicDeckSize,
+                                                 new System.Random(seed + 1), unitsOnly: false), seed ^ 0x72);
+        // 两端**各建一份**（同输入 ⇒ 同状态）—— 本段只动**主机那一份**的胜负，不做指纹对账
+        var hb = new BareHost
+        {
+            Ctx = RuleCore.NewBattle(da, db, seed, cardPool: pool, openMulligan: false,
+                                     vars: GameplayVariables.Classic, firstSeat: 0),
+            MySeat = 0,
+        };
+        var cb = new BareHost
+        {
+            Ctx = RuleCore.NewBattle(da, db, seed, cardPool: pool, openMulligan: false,
+                                     vars: GameplayVariables.Classic, firstSeat: 0),
+            MySeat = 1,
+        };
+        var hNB = NetBattle.Attach(hb, hs, isHost: true);
+        var cNB = NetBattle.Attach(cb, cs, isHost: false);
+        hs.EnterBattle(); cs.EnterBattle();      // 掉线 / 离开这两条只有「对局中」才走得通
+        return (hs, cs, hb, cb, hNB, cNB);
     }
 
     /// <summary>分叉时把两边的**事件尾巴**打出来 —— 「多了一条什么」比两个哈希值有用得多。</summary>

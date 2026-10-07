@@ -6,7 +6,7 @@
   "Poisoned Supplies": "2026-09-14 手工加：卡面橙字兵种行 = `Sabotage`，见 `6破坏卡/IMG_3818.jpg`（费 2）。卡面效果文字与我们的 `desc` 逐字一致（`Jammed Communications` / `Poisoned Supplies` / `Cult Propaganda` / `Improvised Barricade` 四张都核过）。",
   "Cult Propaganda": "2026-09-14 手工加：卡面橙字兵种行 = `Sabotage`，见 `6破坏卡/IMG_3820.jpg`（费 2）。卡面效果文字与我们的 `desc` 逐字一致（`Jammed Communications` / `Poisoned Supplies` / `Cult Propaganda` / `Improvised Barricade` 四张都核过）。",
   "Improvised Barricade": "2026-09-14 手工加：卡面橙字兵种行 = `Sabotage`，见 `6破坏卡/IMG_3819.jpg`（费 3）。卡面效果文字与我们的 `desc` 逐字一致（`Jammed Communications` / `Poisoned Supplies` / `Cult Propaganda` / `Improvised Barricade` 四张都核过）。",
-  "Bladeguard Veteran": "2026-09-13 手工加，2026-09-14 搬进 `_manual_subtype`（A4 批 4）。UM 那张旧表名写成 `Bladeguard Lieutenant`、subtype 是空的；卡面兵种行印 `Infantry`（`Ultramarines/3部队/Warpforge_34_Bladeguard-Veteran.png`）。⚠️ DA 那张同名卡本来就是 Infantry，同名同值。🔴 **搬家的理由**：它原来是直接手加在 `subtype` 列里的，而那一列是**算出来的** —— 2026-09-14 跑一次 `gen_cardface_fixes.py` 就被**静默抹掉**（引擎表里那张卡的 subtype 变回空串）。这正是本条手工列存在的意义。",
+  "Bladeguard Lieutenant": "2026-09-13 手工加，2026-09-14 搬进 `_manual_subtype`（A4 批 4）。🔴 **2026-10-17 键随卡名改**：这条一直说的是 Ultramarines 那张 —— 它的**数字版卡名就是 `Bladeguard Lieutenant`**（2026-09-15 曾按 PnP 卡面误改成 `Bladeguard Veteran`、2026-10-17 已撤回；判据（五条游戏侧证据）见 `工具/gen_cards_engine.py` 的 `STAT_FIXES` 那条更正）。它的 `subtype` 源表里是空串；卡面兵种行印 `Infantry`（`Ultramarines/3部队/Warpforge_34_Bladeguard-Veteran.png`）。🔴 **搬家的理由**：它原来是直接手加在 `subtype` 列里的，而那一列是**算出来的** —— 2026-09-14 跑一次 `gen_cardface_fixes.py` 就被**静默抹掉**（引擎表里那张卡的 subtype 变回空串）。这正是本条手工列存在的意义。",
   "Veteran Flyboy": "2026-09-15 手工加（PnP 对账第二批）。引擎 `GOF_Veteran_Flyboy` 的 `subtype` 是空串 ⇒ 兵种行不画。卡面兵种行印 `Infantry`（`Orks/3部队/Warpforge_31_Veteran-Stormboy.png`，**PnP 卡面印的是 `Veteran Stormboy`**，与引擎名差一个词；配对依据是 cost 6 + `Flying`/`Flank` 全中）。⚠️ 全池只有 2 张「unit 且 subtype 空」，这是其一（见 `资料/PnP卡图_逐张对账_0915.md` §六·五·A·③）。",
   "Simulacrum Imperialis": "2026-09-15 手工加（PnP 对账第二批）。引擎 `SOR_Simulacrum_Imperialis` 的 `subtype` 是空串 ⇒ 兵种行不画。卡面兵种行印 `Infantry`（`Sorotitas/3部队/Warpforge_30_Simulacrum-Celestian.png`，**PnP 卡面印的是 `Simulacrum Celestian`**；配对依据是 cost 5 + `Pray`）。⚠️ 全池只有 2 张「unit 且 subtype 空」，这是其二。",
   "Obscure Ritual": "2026-09-15 手工加（清「认不出的关键词」那轮顺带查出）。引擎 `DA_Obscure_Ritual` 的 `subtype` 是 `Spell`，而卡面底部橙字**兵种行印 `Secret`**（`Dark Angels/6秘密/IMG_3697.jpg`，手机翻拍；同目录另 4 张 Secret 卡的 subtype 本来就是 `Secret`）。证据与分类见 `资料/PnP卡图_逐张对账_0915.md` §六·五·A·⑥。⚠️ 配套：`CardView.TacticSubtypeShown` 的白名单补了 `Secret`（不然 subtype 对了、卡面也不画那一行）。"
@@ -193,18 +193,18 @@
  },
  "_manual_subtype": {
   "_": "手工覆盖 `subtype`（脚本原样保留、最后应用，手工赢过算出来的）。加条目前先读上面那份说明。",
-  "Bladeguard Veteran": "Infantry",
+  "Ultramarines/Bladeguard Lieutenant": "Infantry",
   "Jammed Communications": "Sabotage",
   "Poisoned Supplies": "Sabotage",
   "Cult Propaganda": "Sabotage",
   "Improvised Barricade": "Sabotage",
-  "Ultramarines/1st Company Terminator": "Infantry",
+  "Ultramarines/2nd Company Terminator": "Infantry",
   "Veteran Flyboy": "Infantry",
   "Simulacrum Imperialis": "Infantry",
   "Obscure Ritual": "Secret"
  },
  "_manual_keywords": {
-  "_": "手工覆盖 `keywords`（脚本原样保留、最后应用，手工赢过算出来的）。⚠️ 加条目要**写全**该卡的整份关键词表，不是增量。🆕 2026-09-15 PnP 逐张对账批（见 `资料/PnP卡图_逐张对账_0915.md` §四）：**同名跨阵营的卡用 `\"<阵营>/<卡名>\"` 键**（`gen_cards_engine.py` 的 `load_cardface_fixes` 支持），例如 `\"Ultramarines/Terminator\"` —— 原来只按卡名查，改一张会连带改到另一阵营那张。 🆕 2026-09-15 PnP 对账再加一条：`Ultramarines/1st Company Terminator` —— 引擎里那张原来叫 `2nd Company Terminator`（已按原版 ID 表 `UM83` 改名），它的 `ranged=0`/`rarity` 空/`subtype` 空/关键词掉数字四个洞一起补（卡面 `Armour 1. Blast 3. Oath 2: Deal 3 damage`）。🆕 2026-09-16：`Beast Snagga Nob`（`GOF81`）补 `Stomp` —— 卡面逐张开图核过（`d:/2/Warpforge部队卡片/Orks/3部队/Warpforge_07_Beast-Snagga-Nob.png`）：`[爪]Stomp. At the end of your turn, give +1[拳] to all Beasts in your hand`，而引擎里那张 `keywords` 是**空的**（描述文字与卡面其余部分逐字一致，只少了 `Stomp.`）。",
+  "_": "手工覆盖 `keywords`（脚本原样保留、最后应用，手工赢过算出来的）。⚠️ 加条目要**写全**该卡的整份关键词表，不是增量。🆕 2026-09-15 PnP 逐张对账批（见 `资料/PnP卡图_逐张对账_0915.md` §四）：**同名跨阵营的卡用 `\"<阵营>/<卡名>\"` 键**（`gen_cards_engine.py` 的 `load_cardface_fixes` 支持），例如 `\"Ultramarines/Terminator\"` —— 原来只按卡名查，改一张会连带改到另一阵营那张。 🆕 2026-09-15 PnP 对账加的那条 `Ultramarines/2nd Company Terminator`（`UM83`）：四个洞一起补 —— `ranged=0`/`rarity` 空/`subtype` 空/关键词掉数字（卡面 `Armour 1. Blast 3. Oath 2: Deal 3 damage`）。🔴 **2026-10-17 订正**：当时顺手把它改名叫 `1st Company Terminator`（**只核了 PnP 一侧**）—— B20 复核后**卡名已撤回 `2nd Company Terminator`**（游戏侧四族证据一致：卡图资产名 / 语音 / 头像 / 头像 `nameTextReference`；详见 `资料/普查产出_1017/W_B20_同族四张卡名.md`），本键名跟着回改。🆕 2026-09-16：`Beast Snagga Nob`（`GOF81`）补 `Stomp` —— 卡面逐张开图核过（`d:/2/Warpforge部队卡片/Orks/3部队/Warpforge_07_Beast-Snagga-Nob.png`）：`[爪]Stomp. At the end of your turn, give +1[拳] to all Beasts in your hand`，而引擎里那张 `keywords` 是**空的**（描述文字与卡面其余部分逐字一致，只少了 `Stomp.`）。",
   "_2026-09-18_Stun误抽": "OCR（2026-08-16 视觉模型那趟）把效果句里的内联图标词 `Stun` 记成了本卡关键词。5 张逐张开原图核过：卡面**都没有关键词行**。覆盖值里保留正文真有的 Duty/Talent/Tide 1。根因不在本仓（抽取器在 d:/warpforge/tools/ocr_cards.py），详见 `资料/普查产出_0918/孤儿待办_五条查证.md` §四。",
   "_2026-09-19_Ferocity误抽": "OCR 把效果句里的**内联图标词** `Ferocity` 记成了本卡关键词（与上一条 `Stun` 同一趟、同一根因；由「从句级尺子」进自检后第一次跑出来，见 `资料/普查产出_0919/从句级尺子_进自检.md`）。`Njal Stormcaller`（`SW4` 督军）卡面逐张开图核过（`d:/2/Warpforge部队卡片/Space Wolves/1督军/Warpforge_04_Njal-Stormcaller.png`）：效果文字是 `When you trigger ⟨獠牙⟩Ferocity, High Rune Priest costs 1 less this turn. ⟨白牌⟩Talent: High Rune Priest` —— 这里的 Ferocity 是**句子里的引用**，不是 `Ferocity: <正文>` 那种**关键词授予**（对照：`Blood Claw` 卡面 `⟨獠牙⟩Ferocity: Deal 3 damage to an enemy`、督军 `Junith Eruita` 卡面 `⟨圣徽⟩Pray: Heal 1 to a friendly unit` —— 真有那个能力的卡都带**冒号 + 正文**）。同阵营另两张督军（Logan Grimnar / Ragnar Blackmane）**都没有** Ferocity。⚠️ **同一形状的还没清**：`Raid Tactics`（`SW59` 战术）· `Bjorn's Shrine`（`SW46` 战术）卡面同样只有引用（`…when a friendly troop uses ⟨獠牙⟩Ferocity, …`），keywords 里却挂着 `Ferocity` —— 那是**一族待查项**（可能还包括只在 `When …` 里提到某个关键词的卡），**别当成只此一张**。",
   "_2026-09-19_句中引用误抽_13张": "同一趟 OCR 的**第二个形状**（上一条是 `Ferocity` 单张）：效果句里**带图标的内联词**被记成了本卡关键词。判据用**卡面**：真关键词在卡面是**图标+词+`:`/`.` 独立成段**（例 `Blood Claw` 的 `⟨獠牙⟩Ferocity: Deal 3 damage` · `Big Choppa Nob` 自己的 `⟨爆炸⟩Concussive.`），而这一族的词**只出现在句子中间或引号里**（引号里的是**授予别人**的）。逐张核过卡面或 `资料/卡表核对_卡图提取/`（那份是逐张读原图抄的，带 `【图标:…】` 占位，能看出词在不在段首）：`Commissar`（原图亲读）· `Rusted Vents`（原图亲读）· `Raid Tactics`（原图亲读）为直接开图核对，其余按卡表原文逐条判。覆盖值一律写**整份**关键词表。⚠️ 同形状**可能还有**：本轮只清了「带正文关键词」那一族（`Rally/Strike/Slay/Backlash/Mob/Agenda/Ferocity/Pray/Duty/…` 18 个），**普通关键词（`Flank`/`Sniper`/`Shield` 这类）没做全量普查**；扫描脚本 `_tmp_view/scan_kw.py`。",
@@ -285,7 +285,7 @@
    "Armour 1",
    "Codex"
   ],
-  "Ultramarines/Bladeguard Veteran": [
+  "Ultramarines/Bladeguard Lieutenant": [
    "Armour 1",
    "Vanguard",
    "Codex"
@@ -299,7 +299,7 @@
    "Companion 2: Guardian Drone",
    "Armour 1"
   ],
-  "Ultramarines/1st Company Terminator": [
+  "Ultramarines/2nd Company Terminator": [
    "Armour 1",
    "Blast 3",
    "Oath"
@@ -642,7 +642,7 @@
   "Ravenwing Ancient": "侧翼。斩杀：给予所有我方载具 +1 攻击和 +1 远程。",
   "Armorium Cherub": "飞行。集结：本回合给予 1 个友方单位 +2 远程。在你的回合开始时，获得 1 ☀并返回你的手牌。",
   "Righteous Repugnance": "本回合给予你的单位 +1 攻击和 +1 远程。4 能量：改为给予 +2 攻击和 +2 远程，并治疗 1 点生命",
-  "Ultramarines/Bladeguard Veteran": "护甲 1。先锋。典籍：治疗 3。",
+  "Ultramarines/Bladeguard Lieutenant": "护甲 1。先锋。典籍：治疗 3。",
   "Get'em ladz!": "本回合给予你的单位 +2 攻击。",
   "Tide of Muscle": "抽两个部队并给予它们 +1 攻击。",
   "Da Red Waaagh": "抽一个部队并给予其 +1 攻击。",
@@ -798,11 +798,12 @@
   "Tactical Marine": "Infantry",
   "Devastator Centurion": "Infantry",
   "Bladeguard Veteran": "Infantry",
+  "Ultramarines/Bladeguard Lieutenant": "Infantry",
   "Jammed Communications": "Sabotage",
   "Poisoned Supplies": "Sabotage",
   "Cult Propaganda": "Sabotage",
   "Improvised Barricade": "Sabotage",
-  "Ultramarines/1st Company Terminator": "Infantry",
+  "Ultramarines/2nd Company Terminator": "Infantry",
   "Veteran Flyboy": "Infantry",
   "Simulacrum Imperialis": "Infantry",
   "Obscure Ritual": "Secret"
@@ -1156,7 +1157,7 @@
    "Armour 1",
    "Codex"
   ],
-  "Ultramarines/Bladeguard Veteran": [
+  "Ultramarines/Bladeguard Lieutenant": [
    "Armour 1",
    "Vanguard",
    "Codex"
@@ -1170,7 +1171,7 @@
    "Companion 2: Guardian Drone",
    "Armour 1"
   ],
-  "Ultramarines/1st Company Terminator": [
+  "Ultramarines/2nd Company Terminator": [
    "Armour 1",
    "Blast 3",
    "Oath"

@@ -34,6 +34,19 @@
 //   · `Debug Add cards`（开发用）· `Item Information Panel`(act=F) · `Game Mode Icon` 那类 **不建**。
 //   · `Alternate Art Panel` 的左右钮：**本地只有 7 张督军异画**（2 种风格）⇒ 不是这张卡就**没有异画可切**
 //     （如实说，不给别的督军换 —— 异画**绑死在那张卡上**，见 `CardArt.AltArt` 的注释）。
+//     🔴 **2026-10-17（D17 = 账上 A856）**：原版 `AlternateArtPanel.Initialize` 在**没有异画风格**时
+//     **整块 `GameObject.SetActive(false)`**（判据 = `decomp_full/AlternateArtPanel__Initialize.c:22-38`），
+//     我们原来**不管有没有都画那一块** ⇒ 已改成「没有 ⇒ 整块关」（**节点留着、只关**，同原版；
+//     判据与「为什么判据是数据不是贴图」→ `HasAltArtStyle` / `BuildAltArt` 的注释）。
+//     ✅ **2026-10-17 订正（铁律 5）**：本行原来写「原版 `CardDisplayOptions` 在**同一个** `CardDisplayWindow`
+//     prefab 上、战斗侧 `showOptions` 传 `DisplayCardEffects(...)` ⇒ **原版战斗侧可能出这块、我们是缺口**」
+//     —— 🔴 **记反了**。逐字段现核：**13 个竞技场**的 `CardDisplayWindow.options` **全是 `{0,0}` = null**
+//     （`informationPanel` / `tryShowResources` 同样 13/13 为 0），**只有菜单版有**
+//     （`bundle_scenes_scenes_mainmenuwarpforge`）；而 `CardDisplayWindow__ShowCard.c:159` 那句守卫
+//     （`if (options == null || …) goto …`）⇒ **战斗侧永远不出这一块**。`ShowBattleCard` 传的那个
+//     `showOptions` 在战斗侧是**空转**（它真正切的是 `cardEffectsGroup`）。⇒ **我们那扇不建 = 与原版一致**
+//     （**不是缺口**）；同族的眼睛钮恰好相反（原版战斗版也没有、**是我们多建了一颗** ⇒ 已删）。
+//     判据全文 → `资料/普查产出_1017/W_B4_战斗详情窗.md`（+ 六条断言在 `Editor/BattleScene.cs` 的 §A860）。
 using System.Collections.Generic;
 using DG.Tweening;          // 换位那两条补间（`CardTween.ToPose` 返回 `Tween`，`OnComplete` 是它的扩展方法）
 using UnityEngine;
@@ -52,13 +65,30 @@ namespace CardPresentation
         public static readonly int[] Points = { 0, 0, 100, 250, 500 };
         public const int MaxLevel = 4;
 
-        /// <summary>能放进卡组的张数上限（规则书：经典 **传说 ≤1**、普通/稀有/史诗 ≤2）。</summary>
-        public static int DeckCap(string rarity) { return rarity == "legendary" ? 1 : 2; }
+        /// <summary>能放进卡组的张数上限（规则书：经典 **传说 ≤1**、普通/稀有/史诗 ≤2）。
+        /// ⚠️ **不带卡型这一档 = 「非督军」档**（等价于 <c>DeckCap(rarity, null)</c>）。
+        /// 一旦手上拿得到 <c>CardDef.Type</c>、而且那张卡可能是督军，就**必须**走下面那个重载 ——
+        /// 🔴 判据 = 原版 `GetMaxCopiesInDeck` 那句 `if (cardType == 10) return 1;`（**在稀有度之前**）：
+        /// `d:/2/tools/decomp_full/Everguild.LiveOps.GameplayVariablesData__GetMaxCopiesInDeck.c:7-9`。
+        /// 我们池子里 **28 位督军不是传说**（epic 15 / rare 13）⇒ 只看稀有度会把它们算成 2（A894）。</summary>
+        public static int DeckCap(string rarity) { return DeckCap(rarity, null); }
+
+        /// <summary>能放进卡组的张数上限 —— **带卡型那一档**（判据同 <see cref="DeckRules.CopyLimit(string,string)"/>）。
+        /// 🔴 规则**只有一处实现**：转发给 `DeckRules.CopyLimit`（`RuleEngine/Core/DeckRules.cs`）；
+        /// ⛔ 别在这里再写一份 `rarity == "legendary" ? 1 : 2`（本工程「两处写同一条规则 = 迟早不一致」）。</summary>
+        public static int DeckCap(string rarity, string type) { return DeckRules.CopyLimit(rarity, type); }
 
         static readonly Dictionary<string, int> _owned = new Dictionary<string, int>();
         static readonly Dictionary<string, int> _lvl = new Dictionary<string, int>();
 
-        /// <summary>拥有数。**口径「给足」**（用户 2026-09-22 裁决）：够 `卡组上限 + 升满所需`。</summary>
+        /// <summary>拥有数。**口径「给足」**（用户 2026-09-22 裁决）：够 `卡组上限 + 升满所需`。
+        /// <para>🔴 **2026-10-17（A894）卡型那一档的残留（如实标注，别当成已做）**：本函数**吃不到
+        /// `CardDef.Type`**（缓存 `_owned` 按 id 存、`AddOwned` 那一路也没有卡型），所以这里的「卡组上限」
+        /// 走的是**不带卡型**那一档 ⇒ **对 28 张非传说督军，`Owned` 会比「按督军档」多 1**（11 而不是 10）。
+        /// 要真收口得让 `Owned/AddOwned/Spares/CanUpgrade` 这一族都带上卡型（= 要么改签名、
+        /// 要么按 id 反查 `CardDef`）—— **不在 A894 白名单里，已记进
+        /// `资料/普查产出_1017/W_B31_徽记与上限.md`**。⚠️ 但**印在卡面/卡片详情窗上的那个数
+        /// （`min(拥有, 卡组上限)`）是对的** —— 它的**上限**那一项已经走 `DeckCap(rarity, type)`。</para></summary>
         public static int Owned(string id, string rarity)
         {
             int v;
@@ -673,12 +703,29 @@ namespace CardPresentation
         }
 
         // ---- ③ 异画（Alternate Art）----
+
+        /// <summary>这张卡**有没有异画风格** —— 等价于原版 `RawCardScript.HasAlternativeArtStyles(card)`，
+        /// 也就是 `AlternateArtPanel.Initialize` 拿来决定**整块 `SetActive`** 的那个布尔。
+        ///
+        /// <para>🔴 **判据是【数据】，不是「图加载出来没有」**：原版那句查的是服务端配置
+        /// （`RawCardScript__HasAlternativeArtStyles.c` → `CardsSpecialConfig.CanShowAACard`，
+        /// LiveOps 配置，**本地取不到**）⇒ 用**同一批数据**的本地副本 =
+        /// `CollectionWindow.AltArtCards`（本机 7 张督军异画，出处 = `工具/import_original_art.py` 的 `ALT_ART`）。
+        /// ⛔ **别改成 `CardArt.AltArt(id) != null`** —— 那是「贴图加载成功没有」，
+        /// 一旦 `Resources/Art/` 缺图就会把**所有**卡的这一块都关掉（把「没有原版美术」误当成「没有异画」）。</para></summary>
+        public static bool HasAltArtStyle(string cardId)
+        {
+            if (string.IsNullOrEmpty(cardId)) return false;
+            foreach (var a in CollectionWindow.AltArtCards) if (a.CardId == cardId) return true;
+            return false;
+        }
+
         void BuildAltArt(Transform panel)
         {
             var p = PanelBox(panel, "Alternate Art Panel", AltT, AltB);
             // ⚠️ 原版这一格的 `Title` 印的是**升级文案**（复制粘贴 bug）⇒ **我们不抄那个 bug**，
             //    照这一格自己的意思写（**出声**）。
-            var has = CardArt.AltArt(Card.Id) != null;
+            var has = HasAltArtStyle(Card != null ? Card.Id : null);
             Title(p, "AltArt Title", has ? "Alternate art (owned)" : "Alternate art", 1307.5f, 690f, 1726f, 760f, 31.7f);
             MenuDraw.Text(p, new PxRect(1307.5f, 762f, 1726f, 800f),
                           has ? "1 of 1" : "0 of 0", Color.white, "Current Style", 28f, QCdText);
@@ -692,6 +739,19 @@ namespace CardPresentation
                           Color.white, "Buy Original Card", 32f, QCdText);
             MenuDraw.Rect(p, CardArt.MenuUi("WF_Lock_Icon_Simple"), new PxRect(1310f, 690f, 1360f, 740f),
                           "Lock Icon", QCdRow, null, true);
+
+            // 🔴 **2026-10-17（D17 = 账上 A856）：「没有异画 ⇒ 整块关」** —— 判据 = 第一权威（反编译方法体）
+            //    `d:/2/tools/decomp_full/AlternateArtPanel__Initialize.c` **:22-38**（现读）：
+            //      · 卡拿不到 / `RawCardScript.HasAlternativeArtStyles(card) == false`（`cVar4 == '\0'`）
+            //        ⇒ 填两个 0（`+0x48` / `+0x58`）之后 **`UnityEngine.GameObject.SetActive(gameObject, 0)`** ——
+            //        **整块关**（不是「画成 0 张」）；
+            //      · 有异画风格那一支才 `SetActive(…, 1)`（`:35-38`），再按 `IsAlternateArt` 分「原画 / 异画」两支取值。
+            //    ⚠️ **注意不是「不建那几件」**：原版是**建好、整块关**（`SetActive(false)` 的节点留在树上）——
+            //      我们照这个来（`Build()` 里子件照建，最后关根节点），自检才能两向都断（见 `CollectionScene.Run`）。
+            //    ⚠️ 改前我们**不管有没有异画都画那一块**（画的是 `Alternate art / 0 of 0 / No alternate art`）——
+            //      那三句「没有异画」的文案**现在都是死支**（面板被关掉，谁也看不见），**留着**是因为
+            //      `has` 只有两个取值、不值得为它拆一遍版面。
+            p.gameObject.SetActive(has);
         }
 
         // ---- 计数条（`Card Counter`，原版 §三）----
@@ -708,7 +768,13 @@ namespace CardPresentation
                            : new PxRect(CcSgL, CcSgT, CcSgR, CcSgB);     // `Single Counter`    170×50
             var box = MenuDraw.Node(c, dup ? "Duplicate Counter" : "Single Counter", rBox);
             MenuDraw.Rect(box, CardArt.MenuUi("40K_main_deck_card_counter"), rBox, "Background", QCdRow, null, true);
-            int cap = CardProgress.DeckCap(Card.Rarity);
+            // 🔴 **2026-10-17（A894）**：喂**带卡型那一档** —— 督军（`Type == "hero"`）的原版上限是
+            //   **恒定 1**（`GetMaxCopiesInDeck` 那句在稀有度判断之前的 `return 1`，判据见 `CardProgress.DeckCap`）。
+            //   ⚠️ **残留（如实标注）**：本段下面那个 `owned` 走 `CardProgress.Owned`，而它的「给足」公式
+            //   （= 卡组上限 + 9）吃的是**不带卡型**那一档（`_owned` 缓存按 id 存、`AddOwned` 那一路也没有卡型）
+            //   ⇒ **对 28 张非传说督军，这颗印的「多余副本」会比「按督军档」多 1**（9 变 10）。
+            //   本颗**印进画面**的那个数（`x{inDeck}` = `min(拥有, 上限)`）**是对的**。
+            int cap = CardProgress.DeckCap(Card.Rarity, Card.Type);
             int owned = CardProgress.Owned(Card.Id, Card.Rarity);
             int inDeck = Mathf.Min(owned, cap);
             int spares = owned - inDeck;

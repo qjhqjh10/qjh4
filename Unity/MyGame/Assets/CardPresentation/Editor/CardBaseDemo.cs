@@ -237,6 +237,14 @@ public static class CardBaseDemo
         AssertFrameCutout(cam);
         AssertArmyLine();
 
+        // ---- 4b. 卡面第四件：兵种行中文化（D5，2026-10-17）----
+        Debug.Log(P + "--- 卡面：兵种行（原版 `RaceText`）按语言取词 ---");
+        AssertSubtypeLine();
+
+        // ---- 5. 手牌布局四件（B1 批 2026-10-17）----
+        Debug.Log(P + "--- 手牌布局：小屏档触发 · 最近空位 · 选中让位 · 层序 ---");
+        AssertHandLayout(cam);
+
         Debug.Log(P + $"=== 合计：{_pass} 通过 / {_fail} 失败 ===");
         if (Application.isBatchMode) EditorApplication.Exit(_fail == 0 ? 0 : 1);
     }
@@ -548,6 +556,293 @@ public static class CardBaseDemo
         }
 
         Object.DestroyImmediate(root);
+    }
+
+    /// <summary>
+    /// 🆕 2026-10-17（D5）**兵种行中文化** —— 判据三处，**都不是我们自己的常量**：
+    ///   · **键** = 原版 `GameStaticData.CardRaceToString` / `MinionRaceToString` 两个方法体
+    ///     （`d:/2/tools/decomp_full/`）：`GetTranslation(String.Concat("Card_Race/", &lt;race&gt;))`；
+    ///     前缀那两条字面量**已按 RVA 读出**（`0x1842cdf40` = `"Card_Race/"` ·
+    ///     `0x1842ce040` = `"Card_Race/Warlord"`，与 `d:/2/tools/all_strings.txt` 的表偏移**逐位对上**）；
+    ///   · **中文那几个词** = **实拍**（`资料/原版参照图/用户实拍_1017/卡组编辑界面参考.png`：
+    ///     督军卡那一行的 `战将` · 守护者防御小队 / 风暴守护者 / 战巫 / 游侠的 `步兵` · 武器平台的 `载具`）；
+    ///   · **哪些 subtype 会印** = `CardView.SubtypeLine` + `TacticSubtypeShown`
+    ///     （现算 `RuleEngine/Resources/cards_engine.json`：1126 张里 **19 个 subtype / 722 张**会印）。
+    ///
+    /// 分三层断，**别混成一条**：
+    ///   ① **键齐不齐** —— 会印的 19 个一个都不能缺（缺一个 ⇒ 那张卡在中文档下**整行掉回英文**）；
+    ///   ② **词条两列的值** —— 中文档 = 中文名、英文档 = 英文原值；
+    ///   ③ **实况** —— **同一份 `CardData`**、只换语言 ⇒ **卡上那一格的字跟着换**。
+    ///
+    /// 🧨 **改坏法（③ 才是灭自证的那一条）**：把 `SubtypeLine` 的出口改回 `return d.subtype`
+    /// （硬编码英文）—— **只做这一件事**，①② 仍然全绿、**③ 红**；反过来清空词条表也过不了 ①。
+    /// </summary>
+    static void AssertSubtypeLine()
+    {
+        // ---- ① 键：会印到卡面上的 19 个（= 数据里出现过的 subtype ∩ `SubtypeLine` 会印）----
+        string[] printed =
+        {
+            "Infantry", "Vehicle", "Warlord", "Defence", "Monster", "Beast", "Battlesuit", "Drone",
+            "Psychic Power", "Combat Elixir", "Daemon", "Secret", "Dark Pact", "Sabotage",
+            "Codicil", "Genomic Enhancement", "Invocation", "Overlord Power", "Rune",
+        };
+        int missing = 0;
+        // ⚠️ **期望值写字面量，不写 `CardView.RaceTermPrefix`** —— 后者是**被测实现**的常量，
+        //    两边都用它 = 同义反复（「把前缀连实现一起改掉」照样全绿）。判别式单列一条在下面。
+        const string KeyPrefix = "Card_Race/";                 // 原版 `.rdata` 那条（`0x1842cdf40`）
+        Check(CardView.RaceTermPrefix == KeyPrefix,
+              "实现的键前缀 = **原版那条字面量** `Card_Race/`（⛔ 不是自拟的 `Card/Subtype/…`）"
+            + " —— 🧨 改成自拟前缀这条立刻红");
+        foreach (var s in printed) if (!Loc.HasEntry(KeyPrefix + s)) missing++;
+        Check(missing == 0, $"会印在卡面上的 {printed.Length} 个字种**全都有词条**（缺 {missing} 个）");
+
+        // ---- ② 词条值：中文档 / 英文档各断一次 ----
+        //   ⚠️ 中文那一列里**只有 3 个是实拍**，其余 16 个是我们自己中文表
+        //   （`数据/本地化/i18n/zh_CN.csv`）的既有译法 —— 这里只钉实拍那 3 个（能钉住的才钉）。
+        var langBack = Loc.Current;
+        Loc.PersistOverride = true;                       // 自检不许动玩家的真设置
+        try
+        {
+            Loc.SetLanguage(AvailableLanguages.Chinese);
+            string zhInf = Loc.T("Card_Race/Infantry"), zhVeh = Loc.T("Card_Race/Vehicle");
+            string zhWar = Loc.T("Card_Race/Warlord");
+            Check(zhInf == "步兵" && zhVeh == "载具" && zhWar == "战将",
+                  "★ 实拍读到的那三个（`用户实拍_1017/卡组编辑界面参考.png`）：**步兵 / 载具 / 战将**"
+                + $"—— 实测 \"{zhInf}\" / \"{zhVeh}\" / \"{zhWar}\"");
+            Loc.SetLanguage(AvailableLanguages.English);
+            Check(Loc.T("Card_Race/Infantry") == "Infantry" && Loc.T("Card_Race/Warlord") == "Warlord",
+                  "…英文那一列 = **英文原值本身**（原版的英文文案在远端 I2 表里，本地只拿得到原值）");
+        }
+        finally { Loc.RestoreForTest(langBack); Loc.PersistOverride = false; }
+
+        // ---- ③ 实况：同一份数据、只换语言 ⇒ 卡上那格的字跟着换 ----
+        var root = new GameObject("race_probe");
+        var d = CardData.Placeholder(0);
+        d.subtype = "Infantry";      // ⚠️ `Placeholder` **不带** subtype / type，这里显式给
+        d.type = "unit";             //    走 `unit` 那一支（唯一「印 subtype 原值」的那条）
+        var v = CardView.Create(root.transform, d, "race_probe_card");
+
+        // ★ 前提先断：字体资产不在 ⇒ 那一层根本不挂 ⇒ 下面两条会退化成 `null == null`（**假绿**）
+        Check(TmpFont.Available, "★ 前提：字体资产取得到 —— 取不到的话下面两条在假绿");
+        if (TmpFont.Available)
+        {
+            Loc.PersistOverride = true;
+            try
+            {
+                Loc.SetLanguage(AvailableLanguages.Chinese);
+                v.SetData(d);                       // `Loc` **不发事件** ⇒ 换完语言要自己重画一遍
+                string zh = v.RaceText;
+                Loc.SetLanguage(AvailableLanguages.English);
+                v.SetData(d);
+                string en = v.RaceText;
+                Check(zh == "步兵", $"实况（中文档）：卡上那一格 = **步兵**（实测 \"{zh}\"）");
+                Check(en == "Infantry", $"实况（英文档）：**同一张卡**那一格 = `Infantry`（实测 \"{en}\"）");
+                // 灭自证：`CardData` 一模一样、只有语言不同 ⇒ 两格**必须不同**
+                //（「把两边一起写死」同时满足不了这一条）。
+                Check(zh != en, "……而且两档**确实是两个字**（数据完全相同 ⇒ 只能由语言决定）");
+            }
+            finally { Loc.RestoreForTest(langBack); Loc.PersistOverride = false; }
+        }
+        Object.DestroyImmediate(root);
+    }
+
+    // ==================================================================
+    //  手牌布局四件（B1 批 2026-10-17）：小屏档触发 · 最近空位 · 选中让位 · 层序
+    //
+    //  判据**全部来自原版**，不是我们自己的常量：
+    //    · 小屏档   → `CardsHorizontalLayout__GetPosition.c:83-88`（静态 bool 的三目，**与屏宽无关**）
+    //    · 最近空位 → `CardsHorizontalLayout__GetClosestInHandSlot.c:14-33`
+    //                 （逐卡比 |Δx|；**严格小于才换** ⇒ 平局取小序号；初值 `.rdata 0x1834b3354` = 1e6）
+    //    · 选中让位 → `CardsHorizontalLayout__GetPosition.c` 的 `else { fVar10 = 0f; }`（:212-214）
+    //                 （**装得下 ⇒ extra 归零** ⇒ 只有压缩态才让位）
+    //                 + `VarsDesktop.extraSpaceOnSelectedCard` = 平线 **2.0 世界单位**
+    //    · 悬停抬起 → `VarsDesktop.cardInHandShownYOffset` **30 px** / `cardInHandShownScale` **1.3**
+    //    · 层序     → `PlayerHand._MoveCardsInHandToPosition_d__76__MoveNext.c:55`
+    //                 （`sortingOrder = 名单长度 − 序号 − 1` ⇒ **左边的压在上面**）
+    //  ⚠️ 探针**自建自拆**：这一段跑在 `SaveScene` 之后 ⇒ 不进场景、也不进任何截图。
+    // ==================================================================
+    static void AssertHandLayout(Camera cam)
+    {
+        float aspectBack = cam.aspect;
+        var probe = new GameObject("hand_probe_layout");
+        var layout = probe.AddComponent<HandLayout>();
+
+        // ================= 项 9：小屏档的触发条件 = `SmallScreenUI` 开关 =================
+        //  🔴 判别式**两个方向都堵**：4:3（可见宽 < 设计宽）**不该**触发；超宽 + 开关开**必须**触发。
+        //     —— 旧的「按可见宽猜」在这两格上各错一次（4:3 走成 0.51 / 超宽走成 0.59）。
+        SmallScreenUI.PersistOverride = true;          // 自检不许动玩家的真设置
+        try
+        {
+            cam.aspect = 16f / 9f;
+            SmallScreenUI.ResetForTest();
+            float capNormal = layout.MaxLayoutWorld();
+            SmallScreenUI.Set(true);
+            float capSmall = layout.MaxLayoutWorld();
+            float wantDelta = (layout.maxLayoutSize - layout.maxLayoutSizeSmallScreen) * LayoutSpace.VisibleWidth;
+            Check(Mathf.Abs((capNormal - capSmall) - wantDelta) < 1e-4f,
+                  $"小屏开关开着 ⇒ 上限切到 `m_maxLayoutSizeSmallScreen`：差值 {capNormal - capSmall:F4}"
+                + $"（要 {wantDelta:F4} = ({layout.maxLayoutSize} − {layout.maxLayoutSizeSmallScreen})"
+                + $" × 可见宽 {LayoutSpace.VisibleWidth:F3}）");
+
+            cam.aspect = 4f / 3f;
+            SmallScreenUI.ResetForTest();
+            float got43 = layout.MaxLayoutWorld() / LayoutSpace.VisibleWidth;
+            float want43 = layout.maxLayoutSize + layout.aspectRatioModifier.Evaluate(4f / 3f);
+            Check(Mathf.Abs(got43 - want43) < 1e-4f,
+                  $"**4:3 不是触发条件**：可见宽 {LayoutSpace.VisibleWidth:F2} < 设计宽 {LayoutSpace.DesignWidth:F2}，"
+                + $"但开关关着 ⇒ 仍走 {layout.maxLayoutSize}（实测比值 {got43:F4}，要 {want43:F4}）"
+                + " —— 旧的「按可见宽猜」在这一格会走 0.51 ⇒ 本行变红");
+
+            cam.aspect = 21f / 9f;
+            SmallScreenUI.Set(true);
+            float gotUltra = layout.MaxLayoutWorld() / LayoutSpace.VisibleWidth;
+            float wantUltra = layout.maxLayoutSizeSmallScreen + layout.aspectRatioModifier.Evaluate(21f / 9f);
+            Check(Mathf.Abs(gotUltra - wantUltra) < 1e-4f,
+                  $"**超宽屏 + 开关开着 ⇒ 仍走小屏档**（实测比值 {gotUltra:F4}，要 {wantUltra:F4}）"
+                + " —— 旧的「按可见宽猜」在这一格会走 0.59 ⇒ 本行变红");
+        }
+        finally
+        {
+            SmallScreenUI.ResetForTest();
+            SmallScreenUI.PersistOverride = false;
+            cam.aspect = aspectBack;
+        }
+
+        // ================= 项 11：`GetClosestInHandSlot` = 逐卡比 |Δx| 取最近 =================
+        //  槽位与 `Refresh` 同一套：others 张看得见 ⇒ **slots = others + 1** 个候选槽
+        const int others = 7;
+        int slots = others + 1;
+        float sp = layout.SpacingFor(slots) * LayoutSpace.VisibleWidth;
+        float x0 = layout.SlotPosition(0, slots).x;
+        Debug.Log(P + $"    [最近空位] 探针：候选槽 {slots} 个，间距 {sp:F4} 世界，槽 0 在 x = {x0:F4}");
+
+        Check(layout.GetClosestInHandSlot(new Vector3(x0 - 5f, 0f, 0f), others) == 0,
+              "指针在整把手牌**左边很远处** ⇒ 空位 0");
+        Check(layout.GetClosestInHandSlot(new Vector3(x0 + others * sp + 5f, 0f, 0f), others) == others,
+              $"指针在整把手牌**右边很远处** ⇒ 空位 {others}（不是 {slots} —— 原版只在 {slots} 个候选位置里挑，"
+            + "返回值域就是 0..total−1）");
+
+        // 🔴 判别式：分界在**两张卡中心的【中点】**上，不是在卡中心上 ——
+        //    旧的「指针一过第 s 张中心就判 s+1」在第一种喂法里会**整排错成下一个槽**。
+        int bad = 0;
+        for (int s = 0; s < slots; s++)
+            if (layout.GetClosestInHandSlot(new Vector3(x0 + (s + 0.3f) * sp, 0f, 0f), others) != s) bad++;
+        Check(bad == 0, $"槽中心 + **30% 间距** ⇒ 仍判这一个槽（{slots} 个槽全测，错 {bad} 个；"
+                      + "旧写法在这里会判成下一个槽）");
+
+        int badFar = 0;
+        for (int s = 0; s < slots; s++)
+            if (layout.GetClosestInHandSlot(new Vector3(x0 + (s + 0.7f) * sp, 0f, 0f), others)
+                != Mathf.Min(s + 1, slots - 1)) badFar++;
+        Check(badFar == 0, $"槽中心 + **70% 间距** ⇒ 判下一个槽（错的 {badFar} 个；末端夹在 {slots - 1}）");
+
+        float mid = x0 + 2.5f * sp;                  // 槽 2 与槽 3 的中点
+        Check(layout.GetClosestInHandSlot(new Vector3(mid - 0.01f, 0f, 0f), others) == 2
+              && layout.GetClosestInHandSlot(new Vector3(mid + 0.01f, 0f, 0f), others) == 3,
+              "**分界确实在中点上**：中点左 0.01 ⇒ 槽 2、右 0.01 ⇒ 槽 3（旧写法左边那半就判 3）");
+
+        // ================= 项 8 / 7：8 张（压缩态）那一把 =================
+        var c8 = new List<CardView>();
+        for (int i = 0; i < 8; i++)
+            c8.Add(CardView.Create(probe.transform, CardData.Placeholder(i), $"HP8_{i:00}", CardFace.Hand));
+
+        layout.Refresh(c8, -1, -1);
+        var rest8 = new Vector3[8];
+        for (int i = 0; i < 8; i++) rest8[i] = c8[i].transform.position;
+
+        // ---- 项 7：层序 —— z 随序号单调靠后 ⇒ 左边压上面（= 原版 `sortingOrder = 名单长度 − 序号 − 1`）----
+        int zBad = 0;
+        for (int i = 1; i < 8; i++)
+            if (!(c8[i].transform.position.z - c8[i - 1].transform.position.z > 0f)) zBad++;
+        Check(zBad == 0, $"层序：z 随序号**单调靠后** ⇒ 左边的压在上面（8 张里错 {zBad} 张，"
+                       + $"步长 {layout.zOrderStep:F4}）—— 原版是 `sortingOrder = 名单长度 − 序号 − 1`，符号反了就变「右压左」");
+        // ⚠️ 下面这条只**打诊断、不断言**：原版的 z 步长（0.001 ≈ 0.015 px）在这儿**不适用**
+        //    （它靠嵌套 Canvas 的 `sortingOrder` 排序，我们是世界空间 quad ⇒ 只能靠 z）。
+        //    量的是「一张卡自己各层的 z 跨度」，它必须**小于**步长，否则邻牌的文字会穿透（2026-09-12 实测过）。
+        //    ⛔ 不写成断言的原因：卡内层集合会随卡面档位变，而这一批**不能跑 Unity 去实测那个跨度**
+        //    （没实测过的判据写成断言 = 假绿/假红两头都可能）。
+        float zSpan = LocalZSpan(c8[0].transform);
+        Debug.Log(P + $"    [层序诊断] 卡内层 z 跨度 {zSpan:F4}（卡局部空间）× 卡缩放 "
+                    + $"{layout.cardScale * LayoutSpace.Scale:F3} = {zSpan * layout.cardScale * LayoutSpace.Scale:F4}"
+                    + $"    手牌 z 步长 {layout.zOrderStep:F4}");
+
+        // ---- 项 8：`useExtraSpaceOnSelectedCard` —— 原版**装得下就把 extra 归零** ⇒ 只有压缩态才让位 ----
+        //  让位量按**原版值**算（`VarsDesktop` 平线 2.0 世界单位），不读我们的字段 ——
+        //  否则「两边一起改成 0」也会全绿（自证）。
+        float wantExtra = 2.0f * HandLayout.OurUnitsPerWorldUnit;
+        Check(Mathf.Abs(layout.selectedCardExtra - wantExtra) < 1e-5f,
+              $"让位量 = 原版 `VarsDesktop.extraSpaceOnSelectedCard` 平线 **2.0 世界单位** = 29.7 px"
+            + $"（实测 {layout.selectedCardExtra * 108f:F1} px）");
+
+        const int sel = 4;
+        layout.Refresh(c8, sel, -1);
+        int spreadBad = 0; float worst8 = 0f;
+        for (int i = 0; i < 8; i++)
+        {
+            if (i == sel) continue;
+            float dx = c8[i].transform.position.x - rest8[i].x;
+            float want = i < sel ? -wantExtra : wantExtra;
+            if (Mathf.Abs(dx - want) > 1e-4f) spreadBad++;
+            worst8 = Mathf.Max(worst8, Mathf.Abs(dx));
+        }
+        Check(spreadBad == 0,
+              $"**压缩态（8 张 ≥ 阈值）**选中一张 ⇒ **两侧各自整半边**都让 2.0 世界单位"
+            + $"（错 {spreadBad} 张，实测最大位移 {worst8 * 108f:F1} px）"
+            + " —— 只挪紧邻那一张（被换掉的自造 `neighborShift`）会让本行变红");
+
+        // ---- 项 8 的**反向**判别式：装得下（5 张）⇒ 一点不让 ----
+        var probe5 = new GameObject("hand_probe_layout5");
+        var layout5 = probe5.AddComponent<HandLayout>();
+        var c5 = new List<CardView>();
+        for (int i = 0; i < 5; i++)
+            c5.Add(CardView.Create(probe5.transform, CardData.Placeholder(i), $"HP5_{i:00}", CardFace.Hand));
+        layout5.Refresh(c5, -1, -1);
+        var rest5 = new Vector3[5];
+        for (int i = 0; i < 5; i++) rest5[i] = c5[i].transform.position;
+        layout5.Refresh(c5, 2, -1);
+        float moved5 = 0f;
+        for (int i = 0; i < 5; i++)
+            if (i != 2) moved5 = Mathf.Max(moved5, Mathf.Abs(c5[i].transform.position.x - rest5[i].x));
+        Check(moved5 < 1e-4f,
+              $"**装得下（5 张 < 阈值）⇒ 一点不让**（实测最大位移 {moved5:F5}）——"
+            + " 原版在「装得下」那一支把 `extra` 归零；把门闸改回 `!IsCompressed` 会让本行变红");
+
+        // ---- 悬停抬起 / 放大 = 原版 `VarsDesktop` 那两个值 ----
+        Check(Mathf.Abs(layout.hoverLift * 108f - 30f) < 0.01f,
+              $"悬停抬起 = 原版 `cardInHandShownYOffset` **30 px**（实测 {layout.hoverLift * 108f:F2} px）"
+            + " —— 换回自造的 0.06 世界单位（= 6.5 px）会让本行变红");
+        Check(Mathf.Abs(layout.hoverScale - 1.3f) < 1e-4f,
+              $"悬停放大 = 原版 `cardInHandShownScale` **1.3**（实测 {layout.hoverScale}）");
+
+        // ---- 敌方那一份的第一道门 = 原版 `useExtraSpaceOnSelectedCard = 0`（我方 = 1）----
+        var foe = new GameObject("hand_probe_foe").AddComponent<HandLayout>();
+        foe.ConfigureForEnemy();
+        Check(!foe.useExtraSpaceOnSelectedCard,
+              "敌手那份 `useExtraSpaceOnSelectedCard = 0`（我方 = 1）—— 原版 MB 4053 的序列化值");
+
+        Object.DestroyImmediate(probe5);
+        Object.DestroyImmediate(foe.gameObject);
+        Object.DestroyImmediate(probe);
+    }
+
+    /// <summary>一张卡**自己内部**各层在卡根坐标系里的 z 跨度（递归累加 `localPosition.z`）。
+    /// 用途只有一个：量出「手牌 z 步长必须大于它」那个约束里的右边那一项（见 `HandLayout.zOrderStep` 注释）。</summary>
+    static float LocalZSpan(Transform t)
+    {
+        float lo = 0f, hi = 0f;
+        WalkZ(t, 0f, ref lo, ref hi);
+        return hi - lo;
+    }
+
+    static void WalkZ(Transform t, float z, ref float lo, ref float hi)
+    {
+        if (z < lo) lo = z;
+        if (z > hi) hi = z;
+        for (int i = 0; i < t.childCount; i++)
+        {
+            var c = t.GetChild(i);
+            WalkZ(c, z + c.localPosition.z, ref lo, ref hi);
+        }
     }
 
     static void Shot(Camera cam, int w, int h, string tag)

@@ -191,13 +191,28 @@ namespace CardPresentation
         /// <summary>联机局：**对面换牌不跑 AI** —— 由主机定序后下发（`RuleCore.Mulligan` 会掷 `ctx.Rng`）。</summary>
         bool _noAiMulligan = false;
 
-        public void AttachNet(NetBattle nb) { _net = nb; }
+        public void AttachNet(NetBattle nb)
+        {
+            // 🆕 2026-10-17（B13）：**换/拆的时候先把旧的摘干净** —— 会话（`NetRuntime.Session`）活得比一局久，
+            //    不摘的话上一局那个 `NetBattle` 还挂在同一个会话上，下一局对面一掉线/一离开
+            //    就会**多弹一次窗**（说错话）。摘的是它自己那三个回调（`NetBattle.Detach`）。
+            if (_net != null && !ReferenceEquals(_net, nb)) _net.Detach();
+            _net = nb;
+        }
 
         /// <summary>这一帧该不该由**本机的 AI** 去驱动对面 —— **联机局永远不该**
         /// （对面那一侧是网络的活：`NetTick()` 把对面对作落地）。
         /// 🔴 单独做成一个判据（而不是把 `_net == null` 散在 `Update` 里）：这样自检能**直接问它**，
         ///    盯的是「做判断的那个人」，不是「我另写一份判断」。</summary>
         public bool AiShouldDriveOpponent { get { return _net == null; } }
+
+        /// <summary>🆕 2026-10-17（B17·A901）：**这一帧的对局时钟该不该被「联机闸」按住** ——
+        /// 对手掉线期间为真（原版 `ClockManager+0x85` 那一格，判据全文 → `TickClock` 里那段注）。
+        ///
+        /// 🔴 做成一个**判据**（而不是把 `_net != null &amp;&amp; …` 散在 `TickClock` 里）的理由
+        /// 与 <see cref="AiShouldDriveOpponent"/> 一模一样：**自检能直接问它**，而且它同时是
+        /// 「**单机局这条闸恒不按下**」的公开证人 —— `_net == null` 时**短路**，与加这一句之前**逐字等价**。</summary>
+        public bool NetClockPaused { get { return _net != null && _net.ClockPaused; } }
 
         /// <summary>`NetBattle` 要往提示行写一句人话（`SetHint` 是私有的，别处拿不到）。</summary>
         public void NetSay(string s) { SetHint(s); }
@@ -212,6 +227,11 @@ namespace CardPresentation
             int[] picks = (_rec != null && Ctx.ChoosePicks.Count > 0) ? Ctx.ChoosePicks.ToArray() : null;
             string[] pickIds = (_rec != null && Ctx.ChooseCardIds.Count > 0) ? Ctx.ChooseCardIds.ToArray() : null;
             int code = apply();
+            // 🆕 2026-10-17（A904）：**引擎动作一落地就清账**（报「引擎替你挑了几处」+ 清掉没人取的答案）。
+            //   放这里 = 玩家所有动作（出牌 / 攻击 / 技能 / 收集灵魂石）**同一个口**，不会漏；
+            //   ⚠️ 必须在 `RecAct` 之前（那个用上面那份**执行前快照**，与这里无关）也行，
+            //   但排在 `apply()` 紧后面最清楚：一次引擎调用 = 一次清账。
+            ReportUnaskedChoices();
             if (_net != null && code == RuleCodes.OK) _net.OnLocalAction(act);
             if (code == RuleCodes.OK) RecAct(act, _me, picks, pickIds);      // 录像：落地成功才记
             return code;
@@ -1863,6 +1883,17 @@ namespace CardPresentation
             //   ⇒ 现在整串走一处判据（清单在 `ForEachStaticHook`）。
             DetachStaticHooks();
             if (_net == null) return;
+            // 🆕 2026-10-17（B13·A881①）：**走的时候给对面捎一句话**。
+            //    原来这一条路**不说 `bye`** ⇒ 对面只能靠 **10 秒心跳超时**（`NetSession.SilentTimeoutMs`）
+            //    才发现我们没了，而那 10 秒里对面**什么都看不到**。
+            //    判据（原版在「销毁 / 退出应用」这条路上也是**主动退房间**，不是等对面超时）：
+            //      · `NetworkCustomManager__OnDestroy.c:13-19` —— `PhotonNetwork.connected` 就 `Disconnect()`
+            //        （Photon 那一断会让**对面收到 `PlayerDisconnected`** ⇒ 他那边走「等对手重连」那条链）；
+            //      · `PlayerDataManager__QuitApplication.c:23-35` —— 退出应用时显式 `NetworkCustomManager.LeaveRoom()`。
+            //    ⚠️ `LeaveNetRoom` 自带两道闸（上面那句 `_net == null`；以及 `State == Off` ⇒ 已经离开过）
+            //        ⇒ 正常收工（`LeaveBattle` → `LeaveNetRoom`）之后再销毁**不会重发**。
+            LeaveNetRoom();
+            AttachNet(null);      // 再顺手把会话上那三个回调摘掉（同 `AttachNet` 的注：别让上一局继续说错话）
             if (NetRuntime.Instance != null) NetRuntime.Instance.LobbyHandled = true;
             NetMatchmaking.Reset();
             Debug.Log("[Net] 离开战场：大厅消息处理权已还给 `NetRuntime`，联机匹配状态已清");
@@ -1987,6 +2018,12 @@ namespace CardPresentation
             // 🔴 **单机恒座位 0** —— 上一局可能是联机客机（`_me = 1`），不重置的话视图会一直反着
             //    （自己的牌画在对面、`FirstSeat` 也判反）。
             SetMySeat(0);
+            // 🆕 2026-10-17（B29）：**教程局**（`Tutorial Mode Menu` 那颗 `Play Tutorial` 那条链）——
+            //   通道里有东西就**整条走它**：关卡数据 / 两副牌 / 执行器全在 `BeginTutorial` 里现取。
+            //   ⚠️ 位置在**联网那一支之前**：教程是单机模式，不可能同时是联机局，先判它更直白。
+            //   ⚠️ 通道**读一次就清**（同 `NetPendingBattle.Take` / `TakePendingPlayMode` 的先例）。
+            int tutIndex = TakePendingTutorialStage();
+            if (tutIndex >= 0) { BeginTutorial(tutIndex); return; }
             // 🆕 2026-09-26（N3）：**联机局** —— 主机算好的那份开局参数在等着（`NetBattle` 放进去的）
             //    ⇒ 整条走它：种子/两副牌/谁先手/战场全是主机定的，本地一样都不许自己算。
             //    判据 → `资料/联机P2P_设计与交接.md` §六 N3/N4。
@@ -2058,6 +2095,201 @@ namespace CardPresentation
                   deckNote: note, vars: vars, playMode: playMode);
         }
 
+        // ==================================================================
+        //  🆕 2026-10-17（B29）：**教程局的开局链**（`Play Tutorial` → 真打）
+        // ==================================================================
+        //  原版这一步：`TutorialModePopup.BattleButtonOnClick` → `MatchMakerManager.StartMatch(…,
+        //    playMode: 4 /* PlayModes.Tutorial */, playerDeck: **选中那关的预组牌**, enemyDeck: null, …)`
+        //    （那一串实参 = `TutorialModePopup__BattleButtonOnClick.c`，`(iVar1>>0x1f & 2)+4` 恒 = 4）。
+        //  我们这条链**跨场景**（壳 `LoadScene("Battle")` → 战场 `Start` → `BeginFromDeckLibrary`），
+        //  两段之间只有静态字段过得去 ⇒ 照 `_pendingPlayMode` / `PrebuiltDecks._pending` 的先例，
+        //  加一条**读一次就清**的静态通道。
+
+        /// <summary>教程窗点 `Play Tutorial` 时放进来的是**哪一关**（`tutorialIndex` 0..5；
+        /// 原版 = `DemoDeckInfoSO.TutorialIndex`）。`-1` = 没有在等的教程局。
+        /// ⚠️ 只装「第几关」这一个 int —— 关卡数据、两副牌、执行器全在 <see cref="BeginTutorial"/> 里现取，
+        /// 免得这条通道跨场景带着一堆对象。</summary>
+        static int _pendingTutorialStage = -1;
+        public static void SetPendingTutorialStage(int stageIndex) { _pendingTutorialStage = stageIndex; }
+        /// <summary>读一次就清（`-1` = 这一局不是从教程窗来的）。</summary>
+        public static int TakePendingTutorialStage()
+        {
+            int v = _pendingTutorialStage;
+            _pendingTutorialStage = -1;
+            return v;
+        }
+
+        /// <summary>教程局的**固定种子** —— 教程**不洗牌**（`MatchData.ShouldShuffleDeck(100) == false`），
+        /// 所以这里要的不是「每局不一样」而是「每次都一样」（教程本来就该是确定的一局）。
+        /// ⚠️ 与普通局那条路（`DateTime.Now.Ticks` 派生）**有意不同**，别把它统一过去。</summary>
+        public const int TutorialSeed = 20261017;
+
+        /// <summary>`Resources/tutorial_decks.json` 里一方的牌（`工具/gen_prebuilt_decks.py` 生成，**别手改**）。</summary>
+        [System.Serializable]
+        public class TutorialDeckSideDto
+        {
+            public string deckId;
+            public string name;
+            public string faction;
+            /// <summary>我们的卡 id（督军那一张；空串 = 没解出来 —— 那次开不了局，会出声）。</summary>
+            public string heroId;
+            public string defensiveId;
+            /// <summary>我们的卡 id 列表（**原序**；牌库顺序就是它）。</summary>
+            public string[] cardIds;
+            public string so;
+        }
+        [System.Serializable]
+        public class TutorialDeckStageDto
+        {
+            public int stage;
+            public TutorialDeckSideDto player;
+            public TutorialDeckSideDto ai;
+        }
+        [System.Serializable]
+        public class TutorialDecksFileDto
+        {
+            public int format;
+            public int stageCount;
+            public TutorialDeckStageDto[] stages;
+        }
+
+        /// <summary>
+        /// 🆕 2026-10-17（B29）：**按关卡开一局真教程**。
+        ///
+        /// 这一条把三样东西拼起来（判据逐条见 `资料/普查产出_1017/W_B29_教程执行器.md`）：
+        ///   ① **关卡数据** `tutorial_stages.json` → `TutorialData.ByIndex(index)`（先手 / 起始单位 /
+        ///      起手卡 / 初始法力 / `playerAlwaysWins`…）；
+        ///   ② **两副牌** `tutorial_decks.json` → 我们的 `CardDef`（⛔ **不走 `ResolveDeck` 的构筑校验**，
+        ///      关卡牌是 7～30 张的关卡牌）；
+        ///   ③ **执行器** <see cref="TutorialScript"/>（一局一个实例）⇒ 经 `Begin(…, tutorial:)` 进
+        ///      `RuleCore.NewBattle`，引擎侧的六条开关全在那边落位。
+        ///
+        /// ⚠️ **取不到就停手并出声，⛔ 不退化成「一场没有教程的普通局」**（那会让玩家拿到一局
+        ///    「自称教程、其实只是打 bot」的对局 —— 本项目红线：不许静默失败）。
+        /// </summary>
+        public void BeginTutorial(int stageIndex)
+        {
+            SetMySeat(0);
+            var stage = TutorialData.ByIndex(stageIndex);
+            if (stage == null)
+            {
+                Debug.LogError("[Tutorial] 取不到第 " + (stageIndex + 1) + " 关的关卡数据"
+                    + "（`Resources/" + TutorialData.StagesResourcePath + ".json` 没装载上，或关号越界）"
+                    + " —— **不开局**（⛔ 不拿普通局冒充教程局）");
+                return;
+            }
+
+            var pool = CardDatabase.Load();
+            if (pool == null || pool.Count == 0)
+                Debug.LogWarning("[Tutorial] 卡池是空的（`Resources/cards_engine.json` 没加载上）—— "
+                               + "起始单位/起手卡会一批都认不出来");
+
+            var decks = LoadTutorialDecks();
+            var dd = FindTutorialDeck(decks, stageIndex);
+            if (dd == null)
+            {
+                Debug.LogError("[Tutorial] `" + TutorialDecksAssetPath + ".json` 里没有第 " + (stageIndex + 1)
+                             + " 关的牌 —— **不开局**（⛔ 不拿别的关的牌顶上去）");
+                return;
+            }
+
+            List<CardDef> mine, foe;
+            var deckPlayer = BuildTutorialDeck(dd.player, pool, "玩家", out mine);
+            var deckFoe = BuildTutorialDeck(dd.ai, pool, "对手", out foe);
+            if (mine.Count == 0 || foe.Count == 0)
+            {
+                // 没有督军就开不了局（`BuildPlayer` 会退化成默认督军 —— 那是「一局看着像教程、其实没有督军」）
+                Debug.LogError("[Tutorial] 第 " + (stageIndex + 1) + " 关有一边的牌解不出来"
+                             + "（玩家 " + mine.Count + " 张 / 对手 " + foe.Count + " 张）—— **不开局**。"
+                             + " 两副牌的 SO = " + (dd.player == null ? "?" : dd.player.so) + " / "
+                             + (dd.ai == null ? "?" : dd.ai.so));
+                return;
+            }
+
+            string myFaction = WarlordFaction(deckPlayer, pool);
+            string foeFaction = WarlordFaction(deckFoe, pool);
+            var script = new TutorialScript(stage);
+            Debug.Log("[Tutorial] 开第 " + (stageIndex + 1) + " 关（`" + stage.so + "`）："
+                    + "我方 「" + deckPlayer.Name + "」" + mine.Count + " 张（" + myFaction + "）· "
+                    + "对手 「" + deckFoe.Name + "」" + foe.Count + " 张（" + foeFaction + "）· "
+                    + (stage.playerStarts ? "玩家先手" : "**AI 先手**")
+                    + " · 不洗牌 · 不换牌 · 关卡 " + (stage.turns == null ? 0 : stage.turns.Length) + " 回合"
+                    + "（原版 = `MatchMakerManager.StartMatch(…, PlayModes.Tutorial = 4, …)`）");
+
+            Begin(myFaction: myFaction, foeFaction: foeFaction, seed: TutorialSeed,
+                  myDeck: deckPlayer, foeDeck: deckFoe, deckNote: null,
+                  vars: GameplayVariables.Tutorial, playMode: GameMode.Tutorial,
+                  tutorial: script, exactMine: mine, exactFoe: foe);
+        }
+
+        /// <summary>`Assets/RuleEngine/Resources/tutorial_decks.json`（与 `tutorial_stages.json` 同目录）。</summary>
+        public const string TutorialDecksAssetPath = "tutorial_decks";
+
+        /// <summary>读 `tutorial_decks.json`。取不到 ⇒ **出声**并返回 null（调用方停手）。</summary>
+        static TutorialDecksFileDto LoadTutorialDecks()
+        {
+            var asset = Resources.Load<TextAsset>(TutorialDecksAssetPath);
+            if (asset == null)
+            {
+                Debug.LogError("[Tutorial] 找不到 `Resources/" + TutorialDecksAssetPath + ".json` —— "
+                    + "跑一下 `python d:/4/Unity/工具/gen_prebuilt_decks.py`（那一份里才有教程那 12 副牌）");
+                return null;
+            }
+            var f = JsonUtility.FromJson<TutorialDecksFileDto>(asset.text);
+            if (f == null || f.stages == null || f.stages.Length == 0)
+            {
+                Debug.LogError("[Tutorial] `" + TutorialDecksAssetPath + ".json` 解出来是空的");
+                return null;
+            }
+            return f;
+        }
+
+        static TutorialDeckStageDto FindTutorialDeck(TutorialDecksFileDto f, int stageIndex)
+        {
+            if (f == null || f.stages == null) return null;
+            int want = stageIndex + 1;                 // 产物里的 `stage` 是 1..6，我们这边 `tutorialIndex` 是 0..5
+            for (int i = 0; i < f.stages.Length; i++)
+                if (f.stages[i] != null && f.stages[i].stage == want) return f.stages[i];
+            return null;
+        }
+
+        /// <summary>一方那副关卡牌 → 我们的 `CardDef` 列表（**督军在前**，其余按 `cardIds` 原序 ⇒
+        /// 也就是**牌库顺序**，因为教程**不洗牌**）。
+        /// 🔴 **只按稳定 id 精确查**（`CardDatabase.DeckLookup` 先查 id，查不到才退回按名字 + 阵营）——
+        ///    ⛔ 不按名字模糊找一张「看着像」的顶上去。
+        /// ⚠️ 认不出的条目**逐条出声**并丢掉（`tutorial_decks.json` 的 `missing` 列本来就记着有洞：
+        ///    原版 id 表里没有的卡号本地没有任何 id→名 的表能补，那份产物已如实标过）。</summary>
+        static PlayerDeck BuildTutorialDeck(TutorialDeckSideDto dto, List<CardDef> pool, string who,
+                                            out List<CardDef> cards)
+        {
+            cards = new List<CardDef>();
+            if (dto == null) return null;
+            var lookup = CardDatabase.DeckLookup(pool, dto.faction);
+            var deck = new PlayerDeck(dto.name, dto.heroId, dto.defensiveId,
+                                      new List<string>(dto.cardIds ?? new string[0]), (int)GameMode.Tutorial);
+            var hero = string.IsNullOrEmpty(dto.heroId) ? null : lookup(dto.heroId);
+            if (hero == null || hero.Type != "hero")
+            {
+                Debug.LogWarning("[Tutorial] " + who + "的督军 `" + dto.heroId + "` 在卡池里**找不到**"
+                               + "（或不是 `hero`）—— 这一关开不了（⛔ 不用别的卡顶）。");
+                cards.Clear();
+                return deck;
+            }
+            cards.Add(hero);
+            int missing = 0;
+            for (int i = 0; i < deck.CardIds.Count; i++)
+            {
+                var c = lookup(deck.CardIds[i]);
+                if (c == null) { missing++; continue; }
+                cards.Add(c);
+            }
+            if (missing > 0)
+                Debug.Log("[Tutorial] " + who + "那副「" + dto.name + "」里有 " + missing + "/"
+                        + deck.CardIds.Count + " 张**我们的卡池里没有**（原版 id 表没覆盖到，"
+                        + "`tutorial_decks.json` 的 `missing` 列已记）—— 这一局这些牌不存在。");
+            return deck;
+        }
+
         /// <summary>
         /// 卡组编辑器里**当前选中的那套**（`DeckLibrary.Current`，落在 `DeckStore` 那个本地文件里）。
         /// 返回 null = 没编过，走自动凑；<paramref name="note"/> 非空 = **存档读不出来**，
@@ -2095,10 +2327,25 @@ namespace CardPresentation
         /// **不传**（`null`）= 没入口窗声明 ⇒ 退回「这副牌自己带的模式」（与 `vars` 同一条判据，§2.7）
         /// —— 老调用点（自检、`Restart` 之外的既有入口）因此**行为一字不改**。
         /// ⛔ 它**不是** `vars` 的别名：`vars` = 数值参数（30/12 张那一套），这是模式号。</param>
+        /// <param name="tutorial">🆕 2026-10-17（B29）：**教程关卡的执行器**（`null` = 不是教程局）。
+        /// 给了它同时改三件事：① `Ctx.Tutorial` 落位（引擎侧的六条开关全在 `RuleCore.NewBattle` 里读它）；
+        /// ② 先手照关卡（`stage.playerStarts`，⛔ 不掷硬币）；③ **两边卡组走 `exactMine`/`exactFoe`**
+        /// （教程关卡牌是 7～30 张的关卡牌，**过不了构筑校验** ⇒ 不能走 `ResolveDeck`）。
+        /// 出处与逐条判据 → `资料/普查产出_1017/W_B29_教程执行器.md`。</param>
+        /// <param name="exactMine">**原样拿这两副牌开这一局**（不校验、不洗、不补防御卡）—— 只有教程那条链会传。
+        /// 传了 `exactMine`/`exactFoe` 而 `tutorial` 是 `null` ⇒ 当成没传（出声），免得有人拿它绕开构筑校验。</param>
         public void Begin(string myFaction = null, string foeFaction = null, int seed = 20260911,
                           PlayerDeck myDeck = null, PlayerDeck foeDeck = null, string deckNote = null,
-                          GameplayVariables vars = null, GameMode? playMode = null)
+                          GameplayVariables vars = null, GameMode? playMode = null,
+                          TutorialScript tutorial = null,
+                          List<CardDef> exactMine = null, List<CardDef> exactFoe = null)
         {
+            if (tutorial == null && (exactMine != null || exactFoe != null))
+            {
+                Debug.LogWarning("[Battle] `exactMine/exactFoe` 只有在教程局（`tutorial != null`）下才认 —— "
+                               + "这一局按没传处理（照常走 `ResolveDeck` 的构筑校验）。");
+                exactMine = null; exactFoe = null;
+            }
             // 🔴 **AnimFX 那几个下游钩子在这里挂**（2026-09-19 从 `Start()` 挪过来）：
             //    原来只在 `Start()` 里挂，而**批处理下 `Start()` 不会被调用**（`BattleScene.Run`
             //    自己 `AddComponent` 之后直接调 `Begin`）⇒ 自检里那几个钩子**恒为 null**，
@@ -2126,6 +2373,11 @@ namespace CardPresentation
             _vars = vars ?? GameplayVariables.Classic;
             _myDeckSrc = myDeck;           // 留着给 `Restart()`
             _foeDeckSrc = foeDeck;
+            // 🆕 2026-10-17（B29）：教程局的关卡 + 那两副原样牌，同样留着给 `Restart()`。
+            //   ⚠️ `_tutorialStage` 是「本局关卡」这件事的**唯一记账口**（`Restart` 靠它判要不要新建执行器）。
+            _tutorialStage = tutorial == null ? null : tutorial.Stage;
+            _exactMyCards = tutorial == null ? null : exactMine;
+            _exactFoeCards = tutorial == null ? null : exactFoe;
 
             // 🔴 **2026-10-06（A147/A148）**：骷髅那四格是**本局**的账，每局必须清零。
             //   原来 `_foeWarlordMinHp` / `_myWarlordMinHp` **从来不重置**（只在 `UpdateHud` 里取最小值）⇒
@@ -2172,7 +2424,9 @@ namespace CardPresentation
             //   ✅ 2026-09-26 起**两条路都能带模式**了：预组副（`PrebuiltDecks.ToPlayerDeck` 抄了 `gameMode`）
             //      与玩家自建副（`PlayerDeck.GameMode` + 落盘）—— **判据只有一个：这副牌自己**。
             //      所以这条守卫现在是**真的异常**（不是「那条路还没做」）。
-            if (myDeck != null && myDeck.CardIds != null && myDeck.CardIds.Count != _vars.deckSize)
+            if (myDeck != null && myDeck.CardIds != null && myDeck.CardIds.Count != _vars.deckSize
+                // 🆕 2026-10-17（B29）：**教程局不适用**（关卡牌是 7～30 张的关卡牌，原版也不校验张数）
+                && tutorial == null)
                 Debug.LogWarning($"[Battle] ⚠️ 卡组张数（{myDeck.CardIds.Count}）和本局模式对不上"
                                + $"（{( _vars.IsSkirmish ? "遭遇 12 张" : "经典 30 张")}）"
                                + " —— 牌库会提前抽干。"
@@ -2236,8 +2490,25 @@ namespace CardPresentation
                 _foeFaction = _foeFaction == DefaultFactionB ? DefaultFactionA : DefaultFactionB;
 
             string myNotice;
-            var myCards = ResolveDeck(PoolFor(pool, _myFaction), _myFaction, myDeck, seed + 1, "我", out myNotice);
-            var foeCards = ResolveDeck(PoolFor(pool, _foeFaction), _foeFaction, foeDeck, seed + 2, "对手", out _);
+            List<CardDef> myCards, foeCards;
+            if (exactMine != null && exactFoe != null)
+            {
+                // 🆕 2026-10-17（B29）：**教程局：两边都是关卡指定的那副**。
+                // 🔴 **必须绕开 `ResolveDeck`** —— 它会先 `DeckRules.Validate`（30/12 张 + 阵营 + 传说上限），
+                //    而教程关卡牌是 **7～30 张**的关卡牌（`tutorial_decks.json` 实读：S1 玩家 7 张、AI 0 张…）
+                //    ⇒ 校验必挂 ⇒ **静默退回自动凑的那副**，于是「教程用的不是教程那副牌」。
+                //    原版也不拿构筑规则去卡它（牌是关卡 SO 直接给的）。
+                myCards = new List<CardDef>(exactMine);
+                foeCards = new List<CardDef>(exactFoe);
+                myNotice = "";
+                Debug.Log($"[Battle] 教程局：两边卡组**按关卡原样**上（我 {myCards.Count} 张 / 对手 {foeCards.Count} 张）"
+                        + " —— 不校验、不补防御卡、不洗牌");
+            }
+            else
+            {
+                myCards = ResolveDeck(PoolFor(pool, _myFaction), _myFaction, myDeck, seed + 1, "我", out myNotice);
+                foeCards = ResolveDeck(PoolFor(pool, _foeFaction), _foeFaction, foeDeck, seed + 2, "对手", out _);
+            }
             // ⚠️ 2026-09-12：`StarterDeck` 现在**会混进能打的战术卡**（原来那开关没实现，自动凑的牌
             //    一张战术都没有，实战里永远看不到战术）。要退回「只有单位卡」就把 `ResolveDeck`
             //    里那一处传 `unitsOnly: true`。
@@ -2270,8 +2541,19 @@ namespace CardPresentation
             //      那四处现在全走 `ctx.FirstSeat` / `ctx.SecondSeat`，**别再写死座位号**。
             //   ⏭ **还没做的**：投硬币的**表现**（动画/UI/音效）—— 我们现在只有结果，屏幕上什么都没有（`项目任务.md` §〇）。
             int firstSeat = ForceFirstSeat ?? FirstSeatForSeed(seed);
+            // 🆕 2026-10-17（B29）：**教程局的先手由关卡说了算** —— 原版 `BattleManager.GetPlayerGoesFirst`
+            //   的 `matchType == 100` 那一支就是取 `PlayerDataManager.currentTutorialStage.playerStarts`
+            //   （`GetPlayerGoesFirst.c` 的 `LAB_18096a4b5` → `*(byte*)(stage + 0x28)`）。
+            //   ⇒ ⛔ **这里不掷硬币**（掷了会和关卡打架），也⛔ 不理会 `ForceFirstSeat`（自检要覆盖就改关卡数据）。
+            if (tutorial != null)
+            {
+                firstSeat = TutorialRules.PlayerStarts(tutorial.Stage) ? 0 : 1;
+                Debug.Log($"[Battle] 教程局：先手 = {(firstSeat == 0 ? "玩家" : "AI")}"
+                        + $"（关卡 `playerStarts = {tutorial.Stage.playerStarts}`）—— **不掷硬币**");
+            }
             Ctx = RuleCore.NewBattle(myCards, foeCards, seed, shuffle: _shuffleDecks, cardPool: pool,
-                                     openMulligan: mulliganEnabled, vars: _vars, firstSeat: firstSeat);
+                                     openMulligan: mulliganEnabled, vars: _vars, firstSeat: firstSeat,
+                                     tutorial: tutorial);
             // 🔴 **2026-10-15（A383）**：**本局真正的模式号落位**。
             //   ⚠️ 只能落在这里、**不能**塞进 `RuleCore.NewBattle` 的语义里 —— 那一层收的是
             //   「卡组 / 种子 / 参数」，模式号是**入口窗**的事（见 `_pendingPlayMode` 那段）。
@@ -3890,15 +4172,37 @@ namespace CardPresentation
         /// <summary>自检用：选牌面板</summary>
         public ChoosePanel Choose { get { return _choosePanel; } }
 
-        CardView _pendingView;                                   // 面板问完之后要打出的那张牌
-        int _pendingIdx = -1, _pendingSlot = -1;
+        /// <summary>正在被问的那张手牌的下标（`_pendingInst` 取不到时的兜底 —— 见 `PendingCard`）。</summary>
+        int _pendingIdx = -1;
         /// <summary>
         /// 🆕 第 7 行第 4 步：正在被问的**那一份**（面板可能开着好几帧，手牌中途会变 ——
         /// 只握下标的话，变一次就指到**另一张**上了）。
+        /// 🆕 2026-10-17（A904）：**主动技能那一批 ask 也写它**（写的是场上那个单位的实例）——
+        /// `PendingCard` 靠它取「正在结算的那张卡」，面板标题链认的就是它
+        /// （原版 `ChooseCardMenu__SetUpTitleText` 收的 `actingCardId`）。
         /// </summary>
         CardInstance _pendingInst;
-        List<EffectOp> _pendingAsks = new List<EffectOp>();      // 这张卡里要问玩家的那几处（按结算顺序）
+        List<EffectOp> _pendingAsks = new List<EffectOp>();      // 这一批要问玩家的那几处（按结算顺序）
         int _pendingAsk;
+
+        /// <summary>
+        /// 🆕 2026-10-17（A904）：**这一批 ask 问完之后要做什么** —— 两种来源：
+        ///   · 出牌 —— `BeginPlay` 设成「真的把这张牌打出去」（`DoPlay`）
+        ///   · **主动技能** —— `Resolve` 设成「真的把这一手打出去」（`DoResolve`）
+        /// 为什么要做成回调：原版的 ask 是**结算协程走到那一步才挂起等玩家**
+        /// （`BattleManager._ChooseCardMethod_d__449__MoveNext.c:44-48`），我们引擎是同步的，
+        /// 只能在动作边界上对齐 ⇒ 「问完接着做哪一个动作」必须显式带着走，不能写死成出牌。
+        /// </summary>
+        System.Action _afterAsks;
+
+        /// <summary>
+        /// 🆕 2026-10-17（A904）：上一次「报过账」时的 `ctx.ChooseSites / ChooseAnswered` ——
+        /// 靠它做到「一次动作里被调多次也只说一遍」。
+        /// 🔴 **必须和这两个计数的清零时机对上**（`BeginChoiceBatch`）：出牌那一批清计数 ⇒ 这里也归零；
+        /// 技能那一批不清 ⇒ 这里记**当前值**。对不上就会**静默不报**（水位高过计数）。
+        /// </summary>
+        int _settledSites, _settledAnswered;
+
         readonly List<CardView> _chooseViews = new List<CardView>();
 
         /// <summary>🆕 2026-09-14：这一处 `choosecard` **实际摆给玩家的候选**（可能是抽出来的 3 张，
@@ -3957,6 +4261,59 @@ namespace CardPresentation
             return _chooseViews[i].Data.id;
         }
 
+        /// <summary>
+        /// 自检用（2026-10-17 · F6 #5/#6）：第 <paramref name="i"/> 张候选的**稳定卡号**
+        /// （`CardDef.Id` —— `cards_engine.json` 里那个键）。**引擎真正入队的就是它**
+        /// （<see cref="OnChooseDone"/> → `Ctx.ChooseCardIds`），所以「引擎用的是**面板给的那一张**吗」
+        /// 这一类断言只能拿它去比 `h.Card.Id`。
+        ///
+        /// ⚠️ **别拿 <see cref="ChooseOptionId"/> 的返回值和 `CardDef.Id` 比** —— 那个返回的是
+        ///    `CardData.id`，而本仓约定 `CardData.id` = **卡名**（`ToCardData` 里写的就是 `id = c.Name`；
+        ///    卡面标题、立绘配对都用它）⇒ 拿它比 `CardDef.Id` **恒不相等**（两条红就是这么来的）。
+        /// ⚠️ 只有 `choosecard` 会填 `_askCands`；`chooseone` / `chooseeffect` 的候选是**合成卡**
+        ///    （没有 `CardDef` 可指）⇒ 这里返回 `<无卡号>`（**出声**，不静默给空串）。
+        /// </summary>
+        public string ChooseOptionStableId(int i)
+        {
+            if (_askCands == null) return "<无卡号>";
+            if (i < 0 || i >= _askCands.Count || _askCands[i] == null) return "<无卡号>";
+            return _askCands[i].Id;
+        }
+
+        /// <summary>
+        /// 自检用（A904）：这张卡上的 ask 点**各归哪一档**（判据 = `AskOwners`，与面板实际用的是同一个）——
+        /// 返回形如 `"play=1"` / `"spirit=1"` / `"alt:agenda=1"` / `"play=1,alt:agenda=1"` 的一句话
+        /// （按**首次出现**的顺序，一档一项）。
+        /// 🔴 **断它 = 断「面板什么时候问」这件事本身** —— 比断某一个界面好：这张表才是判据。
+        /// 取不到这张卡 / 它没有 ask 点 ⇒ 返回 `<无此卡>` / `<无 ask 点>`（**不会**静默返回空串）。
+        /// </summary>
+        public string AskScopesForTest(string cardName)
+        {
+            if (Ctx == null) return "<无对局>";
+            var c = CreatePool.FindByName(Ctx.CardPool, cardName);
+            if (c == null) return "<无此卡>";
+            var all = RuleCore.PlayerChooseOps(c);
+            if (all == null || all.Count == 0) return "<无 ask 点>";
+
+            var owners = AskOwners(c, all);
+            var order = new List<string>();
+            var cnt = new Dictionary<string, int>();
+            for (int i = 0; i < owners.Length; i++)
+            {
+                string o = owners[i] ?? "play";
+                int n;
+                if (!cnt.TryGetValue(o, out n)) order.Add(o);
+                cnt[o] = n + 1;
+            }
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < order.Count; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.Append(order[i]).Append('=').Append(cnt[order[i]]);
+            }
+            return sb.ToString();
+        }
+
         /// <summary>面板开着时**吃掉这一帧的输入**（和换牌那条同一个规矩）
         /// 🔴 A462：**抬起**（原版 `ChooseCardMenu` 的 `ContinueButton` / `HideChooseButton` 都是
         /// uGUI `Button`，每张卡的 `SelectCardButtonFrame.selectButton` = `EverguildButton`）。
@@ -3969,17 +4326,274 @@ namespace CardPresentation
             return true;
         }
 
-        /// <summary>玩家要出一张牌 —— **先把该问的问完**，再真的打出去。</summary>
+        // ------------------------------------------------------------------
+        //  🆕 2026-10-17（A904）：**这一处 ask 属于谁** ——
+        //  「哪一次引擎调用会把它出队用掉」。答错就会被**别的** ask 点吃掉（静默错位）。
+        // ------------------------------------------------------------------
+        //
+        // **原版判据**（反编译，逐条）：
+        //   · `BattleManager.ChooseCardMethod(BattleAction, Action<int>)` 是个**迭代器**
+        //     （`il2cpp_out/dump.cs:31768`）——**全工程只有 4 个调用点**，而且**全在「结算到那一步」**：
+        //     `_ResolvePlayCardFromHand_d__447__MoveNext.c:607`（非指向性出牌）· `:827`（小人落地之后，
+        //     且外面套着 `CanUseSpiritStone / HasDefaultTrait(10)` 这道闸）· `:1248`（指向性法术动画之后）·
+        //     `_ResolvePlayActiveAbility_d__479__MoveNext.c:367`（**主动技能**）。
+        //   · 每个调用点后面紧跟着 `StartCoroutine(...)` + `return 1` ⇒ **结算协程在此挂起**
+        //     （例：`_d__447:827-832`）。玩家的答案由单槽字段
+        //     （`ChooseCardMenu.selectedCard` → `BattleManager.cardChosenInSelection`）经
+        //     `Action<int>` 回调写回 `battleAction.actionValueTens`，协程才继续。
+        //   · ⇒ **原版没有「出牌前一次性问完 + 答案排队」这回事**（那一层根本不存在）。
+        //
+        // **我们的做法**：引擎是同步的（`ResolveOps` 一口气跑完），没法在结算中途停下来 ⇒
+        //   只能在**动作边界**上对齐：**一次动作 = 一次引擎调用 = 一批 ask 点**。
+        //   分档表（实测全池 1126 张，见报告）：
+        //
+        //   | 触发者 | 谁会出队用它 | 我们什么时候问 |
+        //   |---|---|---|
+        //   | `play`（卡面正文 / `Rally:` / `Deploy:` …） | `RuleCore.PlayCard` | 出牌前（**同一动作内**，差半拍 —— 如实标着） |
+        //   | `spirit`（`N [Spirit Stone]:`） | `PlayCard` → `ResolveSpiritAbility` | 同上，**且只在这次付得起时问**（原版那道闸就是 `CanUseSpiritStone`） |
+        //   | `oath`（`Oath N:`） | `UseOathAbility` | 玩家点那格技能时（**与触发同拍**） |
+        //   | `alt:<关键词>`（`Duty`/`Pray`/`Ferocity`/`Agenda`） | `UseAlternative` | 同上 |
+        //
+        // 🔴 **为什么必须分档**（这就是那一格账的病）：`BeginPlay` 原来把这张卡**所有** ask 点
+        //    一次问完并排进 `ctx.ChoosePicks`。而 `Master Zacharial` 的 `Agenda:` ·
+        //    `Suppressor` 的 `Oath 1:` · `Azrael` / `Watcher in the Dark` 的议程**要玩家事后主动点
+        //    那格技能**，可能**整局不发动** ⇒ 那格答案一直留在队里，被**下一个** ask 点
+        //    （可能是对手 / AI 的）吃掉（`TakePick` 不认是谁在挑）
+        //    ⇒ **此后每一处选择全部错位、而且不报错**。
+        //    `Farseer` / `Farseer Skyrunner` 是另一头：灵魂石能力在**部署时自动结算**，但
+        //    **付不起就整段不结算**（`EffectResolver.cs:279-284` 那段）⇒ 同样是留一格答案在队里。
+        //
+        // **全池普查**（1126 张 · 离线真解析器探针，见报告）：ask 点**挂在能力正文里**的只有
+        //   **6 张** —— `Farseer` · `Farseer Skyrunner`（灵魂石）· `Suppressor`（誓约）·
+        //   `Azrael` · `Watcher in the Dark` · `Master Zacharial`（议程）。
+        //   ✅ **没有一张「混装」**（同一张牌既有 play 又有 ability 的 ask）· 反方向核 0 漏判。
+        //   ⚠️ 普查文档 `资料/普查产出_1017/W_B14_选牌一族.md` 写的是 **4 张**（漏了 `Azrael`
+        //      与 `Watcher in the Dark`）—— 已在报告里订正。
+
+        /// <summary>`EffectOp` 的文案比较键 —— 去掉开头的「`&lt;前缀&gt;: `」再逐字比。
+        /// 🔴 **为什么要去前缀**：两种来源的 `Source` 一个带前缀一个不带（实测）——
+        ///    `Master Zacharial` 的 ask 是 `"Agenda: Choose a card…"`，而
+        ///    `CardDef.TriggerOps("agenda")[0].Source` 是 `"Choose a card…"`；
+        ///    `Suppressor` 两边都不带前缀。不去前缀就认不出 `Agenda:` 那一族。
+        /// ⚠️ 前缀长度限 32 字：再长就不是关键词前缀、是正文里的冒号了。</summary>
+        static string NormSrc(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return "";
+            s = s.Trim();
+            int c = s.IndexOf(": ", System.StringComparison.Ordinal);
+            if (c > 0 && c < 32) s = s.Substring(c + 2).Trim();
+            return s;
+        }
+
+        static string AskKey(EffectOp op)
+        {
+            return op == null ? null : (op.Verb ?? "") + "\u0001" + NormSrc(op.Source);
+        }
+
+        /// <summary>这一条 op 是不是「本该问玩家」的那三种（与 `RuleCore.PlayerChooseOps` 同一判据）。</summary>
+        static bool IsAskOp(EffectOp op)
+        {
+            return op != null && !op.RandomPick
+                && (op.Verb == "choosecard" || op.Verb == "chooseone" || op.Verb == "chooseeffect");
+        }
+
+        /// <summary>
+        /// 把这张卡的 ask 点分档 —— 返回**与 <paramref name="asks"/> 同序同长**的归属表
+        /// （`"play"` / `"spirit"` / `"oath"` / `"alt:agenda"` …）。
+        ///
+        /// 🔴 **按 `Verb + 归一化文案` 比、不按对象比**：`PlayerChooseOps` 与 `CardDef.Collect*`
+        ///    各调一次 `EffectText.Parse(Desc)`，**是两份不同的对象**（引用比恒不相等）。
+        /// 🔴 **认领有名额**：能力正文里同一条文案出现 N 次，最多只认领 N 条 ask
+        ///    （不会把同名的那一条正文之外的 ask 也一起吃进来）—— 名额用尽后剩下的算 `play`。
+        ///    ⚠️ **已知边界**：若某张牌的同一条文案**既**在 `Rally:` 里**又**在 `Oath:`
+        ///    里，名额会先到先得、可能认错一条。**全池 0 张**（本轮普查「混装 0 张」），
+        ///    真出现了有兜底：`ReportUnaskedChoices` 的剩余检测会把「问了没人取」当场报出来。
+        /// ⚠️ **战术卡一律算 `play`**：它们的整条 `desc` 由 `PlayTactic` 一次结算
+        ///    （`ResolveSpiritAbility` 的注释：「战术卡 / 天赋卡**不走这里**」）⇒ 不分档。
+        /// </summary>
+        static string[] AskOwners(CardDef card, List<EffectOp> asks)
+        {
+            var owners = new string[asks.Count];
+            for (int i = 0; i < asks.Count; i++) owners[i] = "play";
+            if (card == null || !card.IsUnit) return owners;
+
+            // ---- ① 把能力正文里的 ask 点收成「名额表」 ----
+            var quota = new Dictionary<string, int>();
+            var who = new Dictionary<string, string>();
+            AddQuota(quota, who, card.SpiritOps, "spirit");
+            AddQuota(quota, who, card.OathOps, "oath");
+            foreach (string k in RuleCore.AlternativeActions)          // duty / pray / ferocity / agenda
+                AddQuota(quota, who, card.TriggerOps(k), "alt:" + k);
+            if (quota.Count == 0) return owners;
+
+            // ---- ② 按名额认领 ----
+            for (int i = 0; i < asks.Count; i++)
+            {
+                string key = AskKey(asks[i]);
+                int n;
+                if (key == null || !quota.TryGetValue(key, out n) || n <= 0) continue;
+                quota[key] = n - 1;
+                owners[i] = who[key];
+            }
+            return owners;
+        }
+
+        static void AddQuota(Dictionary<string, int> quota, Dictionary<string, string> who,
+                             IReadOnlyList<EffectOp> body, string tag)
+        {
+            if (body == null) return;
+            foreach (var o in body)
+            {
+                if (!IsAskOp(o)) continue;
+                string key = AskKey(o);
+                if (key == null) continue;
+                int n;
+                quota.TryGetValue(key, out n);
+                quota[key] = n + 1;
+                who[key] = tag;
+            }
+        }
+
+        /// <summary>归属标签的人话（出声用）。</summary>
+        static string OwnerLabel(string tag)
+        {
+            if (tag == null) return "?";
+            if (tag == "spirit") return "灵魂石能力（`N [Spirit Stone]:`）";
+            if (tag == "oath") return "誓约能力（`Oath N:`）";
+            if (tag.StartsWith("alt:", System.StringComparison.Ordinal))
+                return "替代行动（`" + tag.Substring(4) + "`）";
+            return tag;
+        }
+
+        /// <summary>
+        /// **出这一次牌**该问的那几处（按结算顺序）。能力那一档不在里面
+        /// （`oath` / `alt:` 随玩家点那格技能的时机问；见上面那张分档表）。
+        /// ⚠️ **被排除掉的每一处都会在这里出声**（灵魂石不够 / 推迟到技能那一刻）——
+        ///    调用方不用另写一句汇总，免得同一件事在战斗日志里说两遍。
+        /// </summary>
+        List<EffectOp> PlayAsks(CardDef card)
+        {
+            var outp = new List<EffectOp>();
+            var all = RuleCore.PlayerChooseOps(card);
+            if (all == null || all.Count == 0) return outp;
+
+            var owners = AskOwners(card, all);
+            string name = card != null ? card.Name : "?";
+            for (int i = 0; i < all.Count; i++)
+            {
+                string o = owners[i];
+                if (o == null || o == "play") { outp.Add(all[i]); continue; }
+
+                // ---- 灵魂石能力：**它属于「这一次出牌」**（`PlayCard` 里 `ResolveSpiritAbility`
+                //      排在 Rally 之前，`:1183`）⇒ 照旧在出牌前问，但**只在这次真的付得起时问**。
+                //      🔴 付费判据与引擎同一句（`EffectResolver.cs:279` `have < op.Cost` ⇒ 整段不结算），
+                //         **原版那道闸是 `CanUseSpiritStone`**（`_d__447__MoveNext.c:723` —— 正是
+                //         「能付才走到 `NeedsToChooseFromPool`」）。
+                //      ⚠️ 这是**明知故犯地重复了一条引擎判据**，理由三句：
+                //        ① 它只有一行、语义就是卡面印的那几个字（`N [Spirit Stone]`）；
+                //        ② 不重复的代价是「每一次带灵魂石能力的牌都白问一遍」——而**开局 0 石头是常态**
+                //           （实测：`Farseer` 每局第一次落地的常态就是付不起）；
+                //        ③ 判错时有**兜底**：`ReportUnaskedChoices` 会把「问了没人取」当场报出来。
+                if (o == "spirit")
+                {
+                    int have = Ctx != null ? Ctx.Players[_me].SpiritStones : 0;
+                    if (have >= all[i].Cost) { outp.Add(all[i]); continue; }
+                    Ctx.Log($"（选牌面板：「{name}」的灵魂石能力要 {all[i].Cost} 点灵魂石、"
+                          + $"现在只有 {have} 点 —— **这次不会发动**，这一处不问）");
+                    continue;
+                }
+
+                // ---- oath / alt：**出牌时不问**（原版是在 `_ResolvePlayActiveAbility` 里才问的）
+                Ctx.Log($"（选牌面板：「{name}」的这一处挂在**{OwnerLabel(o)}**上 —— "
+                      + "出牌时**不问**，等那格技能真的发动时再问）");
+            }
+            return outp;
+        }
+
+        /// <summary>
+        /// **这一次主动技能**该问的那几处（判据见上面那张分档表）。
+        /// `alt` = 替代行动关键词（没有传 null）· `oath` = 这一手走誓约那一条。
+        /// 三个来源（`alt` → `oath` → `Ability:`）在 `Resolve` 里是**互斥**的，所以只挑对应那一档。
+        /// ⚠️ `Ability:`（`EffectSpec`）那一档实测全池 **0 张带 ask 点**（它的正文是封闭文法），
+        ///    所以 `want == "ability"` 时恒为空 —— 保留这支是为了「没有就被如实说出来」，不是死代码。
+        /// </summary>
+        List<EffectOp> AbilityAsks(UnitState u, string alt, bool oath)
+        {
+            var outp = new List<EffectOp>();
+            if (u == null || u.Card == null) return outp;
+            var all = RuleCore.PlayerChooseOps(u.Card);
+            if (all == null || all.Count == 0) return outp;
+
+            string want = alt != null ? "alt:" + alt : (oath ? "oath" : "ability");
+            var owners = AskOwners(u.Card, all);
+            for (int i = 0; i < all.Count; i++)
+                if (owners[i] == want) outp.Add(all[i]);
+            return outp;
+        }
+
+        /// <summary>开一批 ask：清队列 → 摆第一处 → 问完由 `_afterAsks` 接着做那一次动作。
+        /// <paramref name="freshCounters"/> = 要不要连 `ChooseSites/ChooseAnswered` 一起清零
+        /// （出牌那一批 = **是**，与改这一版之前**逐字相同**；技能那一批 = **否**，理由见 `BeginChoiceBatch`）。</summary>
+        void BeginAsk(List<EffectOp> asks, System.Action after, bool freshCounters)
+        {
+            _pendingAsks = asks;
+            _pendingAsk = 0;
+            _afterAsks = after;
+            BeginChoiceBatch(freshCounters);
+            ShowAsk();
+        }
+
+        /// <summary>开一批新的选择：清队列（出牌那一批还要清计数）+ 把「报过账」的水位对上。
+        ///
+        /// 🔴 **技能那一批【不清计数】** —— 两个理由：
+        ///   ① `ctx.ChooseSites / ChooseAnswered` 是**累计**语义：`DeepHash` 把它们算进
+        ///      **录像对账哈希**（`BattleDriver.cs:322`），而重放那条路（`NetApply.Apply`、
+        ///      `ApplyLoggedAction`）**从不**调 `ResetChoices` ⇒ 多一处清零 =
+        ///      多一处「录/放两边这两个数不一样 ⇒ 假报分叉」的风险。
+        ///      （**出牌**那一处本来就在清，保持原样、不扩大这种不对称。）
+        ///   ② 技能那一批**不需要**清队列：`ReportUnaskedChoices` 已经在**每一次动作之后**
+        ///      把没人取的答案清干净了（那才是「清队」的判据所在），这里再清一次只是复述。
+        /// 水位跟着走：清计数的那一批归零；不清的那一批记**当前值**（只报从现在起新增的）。</summary>
+        void BeginChoiceBatch(bool freshCounters)
+        {
+            if (freshCounters)
+            {
+                Ctx.ResetChoices();
+                _settledSites = 0; _settledAnswered = 0;
+                return;
+            }
+            Ctx.ChoosePicks.Clear();
+            Ctx.ChooseCardIds.Clear();
+            _settledSites = Ctx.ChooseSites;
+            _settledAnswered = Ctx.ChooseAnswered;
+        }
+
+        /// <summary>玩家要出一张牌 —— **先把这一次出牌该问的问完**，再真的打出去。</summary>
         void BeginPlay(CardView card, int idx, int slot)
         {
-            var asks = RuleCore.PlayerChooseOps(Ctx.Players[_me].Hand[idx].Card);   // 第 7 行第 2 步：手牌存实例
-            if (asks == null || asks.Count == 0) { DoPlay(card, idx, slot); return; }
+            var hand = Ctx.Players[_me].Hand;
+            var def = (idx >= 0 && idx < hand.Count) ? hand[idx].Card : null;
+            var asks = PlayAsks(def);                        // 第 7 行第 2 步：手牌存实例
+            // ⚠️ 被推迟/被跳过的每一处，`PlayAsks` 里都**出声**过了（不在这儿补一句汇总，
+            //    同一件事在战斗日志里说两遍只会让人以为发生了两次）。
 
-            _pendingView = card; _pendingIdx = idx; _pendingSlot = slot;
-            _pendingInst = idx >= 0 && idx < Ctx.Players[_me].Hand.Count ? Ctx.Players[_me].Hand[idx] : null;
-            _pendingAsks = asks; _pendingAsk = 0;
-            Ctx.ResetChoices();
-            ShowAsk();
+            if (asks == null || asks.Count == 0)
+            {
+                DoPlay(card, idx, slot);
+                return;
+            }
+
+            var v = card; int i0 = idx, s0 = slot;
+            var inst = (idx >= 0 && idx < hand.Count) ? hand[idx] : null;
+            _pendingIdx = idx; _pendingInst = inst;
+            // 🔴 **续跑时要按「那一份」重算下标**（面板开着这段时间里手牌可能变过）——
+            //    判据与原 `NextAsk` 逐字相同，只是搬进闭包、在字段被清掉之前把值捕获下来。
+            BeginAsk(asks, () =>
+            {
+                int i = (inst != null) ? Ctx.Players[_me].Hand.IndexOf(inst) : i0;
+                if (i < 0) i = i0;
+                DoPlay(v, i, s0);
+            }, true);
         }
 
         /// <summary>正在被问的那张手牌（面板要按它的名字查效果池 / 取它的插图）。</summary>
@@ -4099,34 +4713,36 @@ namespace CardPresentation
             }
             else if (op.Verb == "chooseeffect")
             {
-                if (RuleCore.ChooseEffectIsHand(op))
+                // 🔴 **2026-10-17（A905）删掉了 `ChooseEffectIsHand(op)` 那条短路。**
+                //    它原来写的是「`Infinite Biomorphologies` 的『给手牌里的全部部队』这一版没做
+                //    ⇒ 开了面板也没用」—— **那个理由已经过期**：引擎侧 **2026-09-16 就做完了**
+                //    （`DoChooseEffect` 的 `handScope` 分支 → `GrantHandBuff` → `ctx.HandBuffs`
+                //     → `RuleCore.ApplyHandBuffs`），只有面板这一侧还挂着「不问了」
+                //    ⇒ 玩家**永远选不了那三项**、引擎按 `ctx.Rng` 等概率挑（**静默替玩家做决定**）。
+                //    ⚠️ `hand` 与 `self` / `give` 的**唯一**差别在**结算落点**（给手牌 vs 给目标），
+                //       **开面板这件事一模一样** ⇒ 不该在这里分叉。
+                //    ⚠️ 提示语仍走 `DefaultTitle`（原版 `ChooseCardMenu` 只有一个标题对象，
+                //       运行时按 `Battle/ChooseCard/Instructions-<uniqueId>` 换词条 —— 见 `:SetUpTitleText`）。
+                //    判据全文：`资料/普查产出_1017/W_B14_选牌一族.md` §⑥。
+                // 池子按**正在结算的那张卡的名字**查（`ctx.PlayingCard`）—— 要在**打出之前**问，
+                // 所以这里用**手牌里那张**的名字（两者是同一张，同一局内不会变）。
+                var pc = PendingCard;
+                var pool = RuleCore.ChooseEffectOptions(pc != null ? pc.Name : null);
+                if (pool == null || pool.Length == 0)
                 {
-                    // `Infinite Biomorphologies` 的「给手牌里的全部部队」**这一版没做**
-                    // ⇒ 开了面板也没用（引擎那边照样如实报）。见 `DoChooseEffect` ②。
-                    Ctx.Log("（选牌面板：这一处是「**给手牌里的全部部队**」—— 这一版没做，不问了）");
+                    Ctx.Log($"（选牌面板：「{(pc != null ? pc.Name : "?")}」**没登记效果池** —— 这一处不问了）");
                 }
                 else
                 {
-                    // 池子按**正在结算的那张卡的名字**查（`ctx.PlayingCard`）—— 要在**打出之前**问，
-                    // 所以这里用**手牌里那张**的名字（两者是同一张，同一局内不会变）。
-                    var pc = PendingCard;
-                    var pool = RuleCore.ChooseEffectOptions(pc != null ? pc.Name : null);
-                    if (pool == null || pool.Length == 0)
+                    foreach (var e in pool)
                     {
-                        Ctx.Log($"（选牌面板：「{(pc != null ? pc.Name : "?")}」**没登记效果池** —— 这一处不问了）");
+                        var text = !string.IsNullOrEmpty(e.Card) ? e.Card : e.Label;
+                        _chooseViews.Add(MakeChoiceCard(text, pc, "ChooseEffect_"));
                     }
-                    else
-                    {
-                        foreach (var e in pool)
-                        {
-                            var text = !string.IsNullOrEmpty(e.Card) ? e.Card : e.Label;
-                            _chooseViews.Add(MakeChoiceCard(text, pc, "ChooseEffect_"));
-                        }
-                        hasOptions = _chooseViews.Count > 0;
-                    }
-                    // 🔴 **2026-09-18：标题不再分叉**（同上面 `chooseone` 那一处）——
-                    //    原来这里写 `title = ChoosePanel.ChooseEffectTitle`（「选择一个效果」），是我们自造的。
+                    hasOptions = _chooseViews.Count > 0;
                 }
+                // 🔴 **2026-09-18：标题不再分叉**（同上面 `chooseone` 那一处）——
+                //    原来这里写 `title = ChoosePanel.ChooseEffectTitle`（「选择一个效果」），是我们自造的。
             }
             else
             {
@@ -4172,15 +4788,21 @@ namespace CardPresentation
             _pendingAsk++;
             if (_pendingAsk < _pendingAsks.Count) { ShowAsk(); return; }
 
-            var v = _pendingView; int s = _pendingSlot;
-            // 🔴 第 7 行第 4 步：真打出去之前**按那一份重算下标** ——
-            //    面板开着的这段时间里手牌可能变过（抽牌/弃牌/效果改手牌），沿用旧下标会打错牌。
-            int i = (_pendingInst != null) ? Ctx.Players[_me].Hand.IndexOf(_pendingInst) : _pendingIdx;
-            if (i < 0) i = _pendingIdx;
-            _pendingView = null; _pendingIdx = -1; _pendingSlot = -1; _pendingInst = null;
+            // 🆕 2026-10-17（A904）：接着做的那一次动作**由 `BeginAsk` 带来**（出牌 / 主动技能两种）——
+            //    先把值捕获下来再清字段，不然闭包跑的时候拿到的是空的。
+            var go = _afterAsks; _afterAsks = null;
+            _pendingIdx = -1; _pendingInst = null;
             _pendingAsks = new List<EffectOp>(); _pendingAsk = 0;
             ClearChooseViews();
-            DoPlay(v, i, s);
+
+            if (go == null)
+            {
+                // 理论上到不了（每一批都由 `BeginAsk` 开）——**出声**，别静默吞掉这一手
+                Debug.LogError("[Battle] 选牌面板这一批 ask 没有后续动作（`BeginAsk` 没设 `_afterAsks`）"
+                             + " —— 这一手**不会落地**");
+                return;
+            }
+            go();
         }
 
         void ClearChooseViews()
@@ -4739,12 +5361,14 @@ namespace CardPresentation
         /// —— 落点 = **主菜单场景**（<see cref="MainMenuSceneName"/>），**不是**回原来那个模式窗；
         /// 原版打排位也是**回到主菜单之后**才演结果（`RankedMenuContainer__RefreshContentDisplay.c`）。</para>
         ///
-        /// <para>⚠️ **原版这里还有两件事我们没做**（如实记，⛔ 别当成「已经复刻完整了」）：
-        /// ① 教程前两局（`PlayerDataManager.FirstTwoTutorialCompleted() == false`）**不加载主菜单**，
-        ///    改走 `Everguild_MatchMakerManager.StartMatch(..., 4, ...)`（`LeaveBattle.c:49-63`）——
-        ///    我们**没有那两局的教程链**，⇒ 恒走主菜单这一支；
-        /// ② 联机局原版会先 `BattleNetworkManager.LeaveBattleRoom`（同文件 `:20-30`）—— **我们没接**
-        ///    （见 `资料/普查产出_1016/W22_结算出口.md` 的「没查清的」那一节）。</para>
+        /// <para>🔴 **2026-10-17（B8）补上了「离开房间」那一跳**（原来记的是「我们没接」）——
+        /// 原版这一步在**加载场景之前**，判据 = `BattleManager__LeaveBattle.c:38-47`；
+        /// 逐跳落点与证据 → <see cref="LeaveNetRoom"/>。</para>
+        ///
+        /// <para>⚠️ **原版这里还有一件事我们没做**（如实记，⛔ 别当成「已经复刻完整了」）：
+        /// 教程前两局（`PlayerDataManager.FirstTwoTutorialCompleted() == false`）**不加载主菜单**，
+        /// 改走 `Everguild_MatchMakerManager.StartMatch(..., 4, ...)`（`LeaveBattle.c:49-63`）——
+        /// 我们**没有那两局的教程链**，⇒ 恒走主菜单这一支。</para>
         ///
         /// <para>⚠️ **批处理下 `LoadScene` 那一句被跳过**（照本仓先例 `Shell/PracticeModePopup.cs` 的 `StartBotBattle` 里那句批处理闸
         /// 与 `Deck/DeckRuntime.cs` 的 `BackToMenu` 里那句批处理闸）—— 批处理里真换场景会把自检自己的场景掀掉。
@@ -4755,6 +5379,7 @@ namespace CardPresentation
             if (_leaving) return;              // 一局只走一次（原版走完那一句就 `return` 了）
             _leaving = true;
             _leaveCount++;
+            LeaveNetRoom();                    // 原版：**先离开房间**再走（`BattleManager__LeaveBattle.c:38-47`）
             Debug.Log("[Battle] 结算后出口：闸门已开 ⇒ **离开战场**，加载主菜单场景 `" + MainMenuSceneName
                     + "`（原版 `BattleManager.LeaveBattle` 那一句是 "
                     + "`EverguildSceneManager.LoadScene(\"MainMenu Warpforge\")`，`BattleManager__LeaveBattle.c:58`）");
@@ -4765,6 +5390,52 @@ namespace CardPresentation
                 return;
             }
             UnityEngine.SceneManagement.SceneManager.LoadScene(MainMenuSceneName);
+        }
+
+        /// <summary>自检用：**「离开房间」那一跳走过几次**（累计，`Begin()` 里不清 —— 同 `_leaveCount`）。
+        /// 只有真的走通了（发得出那句话、关得了台）才 +1。</summary>
+        public int LeaveRoomCount { get { return _leaveRoomCount; } }
+        int _leaveRoomCount;
+
+        /// <summary>联机局：**离开房间**（= 原版 `BattleNetworkManager.LeaveBattleRoom`）。
+        /// 逐跳判据（全量反编译，2026-10-17 B8 现读，`d:/2/tools/decomp_full/`）：
+        /// <list type="number">
+        /// <item>`BattleManager__LeaveBattle.c:38` `if (BattleNetworkManager.Instance != null)` —— 有联机管理器才走这一跳；</item>
+        /// <item>`:39` `if (state != 100)` —— **已经离开过就不再来一遍**（`:15` 那句 `state = 100` 就在 `LeaveBattleRoom` 的头上）；</item>
+        /// <item>`:40` `CustomDebug.LogWarning` —— **出声**，不是静默；</item>
+        /// <item>`:46` `BattleNetworkManager.LeaveBattleRoom(force: 0)`。</item>
+        /// <item>`BattleNetworkManager__LeaveBattleRoom.c:13-15` 先 `Log`、再 `state = 100`；
+        ///   `:35-44` 判 `BattleManager.IsNetworkedGame()`（**不是联机局就直接 `return`**）
+        ///   ⇒ `NetworkCustomManager.RemoveRoomAfterLeaving()`（只在 `force == 0` 时做）；
+        ///   `:46-49` `NetworkCustomManager.LeaveRoom()`（`PhotonNetwork.LeaveRoom` = 真的退出那个房间）。</item>
+        /// </list>
+        /// <para>我们这一侧的等价落点：**`_net != null` 就是「联机局」这一个判据**（单机局它恒 null，
+        /// 同一个判据见 `AiShouldDriveOpponent`），而 `NetSession.Close(say: true, …)` 正好就是
+        /// 「**捎一句 `bye` 给对面** + 关台」这两下（`Net/NetSession.cs:412-423`，**不新增协议消息**）。</para>
+        /// <para>⛔ **别改成「只发不关」**：`Close` 里那句 `SetState(NetState.Off, …)` 同时担着
+        /// 「已离开」那道闸（= 原版那个 `100`）⇒ 去掉它，重入时就会再发一遍 `bye`。</para>
+        /// <para>🔴 **如实记一条还没接的**（不在本件白名单，归联机线）：对面收到 `bye` 之后
+        /// `NetSession` 会 `SetState(Closed, why)` 再回调 `OnClosed` —— 而 **`OnClosed` 全仓零接线**
+        /// （只有定义与三处 `Invoke`，生产侧没人订阅）⇒ 对面那台**收得到、玩家看不到**。
+        /// 同一族的还有 `OnPeerLost`（掉线那条）也零接线。⛔ 别在这里自己发明 UI —— 原版那半边的
+        /// 判据（Photon 的 `OnLeftRoom` / `OnPlayerLeftRoom`）**没查到**，先记账。</para>
+        /// </summary>
+        void LeaveNetRoom()
+        {
+            if (_net == null) return;          // = 原版 `BattleNetworkManager.Instance != null` 的**另一支**（单机局）
+            var s = _net.Session;
+            if (s == null)
+            {
+                Debug.LogWarning("[Net] 这局挂着联机层但**没有会话**（`NetBattle.Session == null`）—— "
+                               + "「离开房间」这一跳走不了，**对面收不到通知**。不静默，如实说。");
+                return;
+            }
+            if (s.State == NetState.Off) return;   // = 原版 `if (state != 100)`：已经离开过就不再走一遍
+            s.Close(true, "对面离开了这一局");
+            _leaveRoomCount++;
+            Debug.Log("[Net] 离开房间：已给对面捎一句 `bye` 并关台"
+                    + $"（本局累计 {_leaveRoomCount} 次；落点 = `BattleManager__LeaveBattle.c:46` → "
+                    + "`BattleNetworkManager__LeaveBattleRoom.c:46-49` 的 `NetworkCustomManager.LeaveRoom`）");
         }
 
         /// <summary>
@@ -4794,12 +5465,25 @@ namespace CardPresentation
             //    上面那句把「用的是哪副牌」带过去了（`_myDeckSrc`），它却原来没带 ⇒ 存档读不出来那一局，
             //    按 R 重开之后提示行就**不再说**为什么是自动凑的了（账还在、话没了 = 静默）。
             //    ⚠️ 它只在「卡组读不出来」那一支被用上（牌正常时 `ResolveDeck` 自己那句盖过它）。
+            // 🆕 2026-10-17（B29）：**教程局要重开也一样** —— 关卡数据照旧带过去，但
+            //   **执行器必须新建一个**（`TutorialScript` 装着「第几回合第几条」那两条指针；
+            //    复用同一个实例的话，重开一局会从上一局停下的地方接着跑 —— **静默且必错**）。
+            var tutStage = _tutorialStage;
             Begin(_myFaction, _foeFaction, _seed + 1, _myDeckSrc, _foeDeckSrc, deckNote: _deckNote, vars: _vars,
                   // 🆕 2026-10-15（A383）：**模式号也要照原样带过去** —— 与 `_seed` / `_vars`
                   //   同一条纪律：不带的话「按 R 重开」会**悄悄退回经典那一档**
                   //   （结算的骷髅账 + 对局记录 + 录像头三处跟着变，静默）。
-                  playMode: _playMode);
+                  playMode: _playMode,
+                  tutorial: tutStage == null ? null : new TutorialScript(tutStage),
+                  exactMine: tutStage == null ? null : _exactMyCards,
+                  exactFoe: tutStage == null ? null : _exactFoeCards);
         }
+
+        /// <summary>🆕 2026-10-17（B29）：**本局的教程关卡**（`null` = 不是教程局）。
+        /// 由 `Begin` 写入、`Restart` 读它去**新建**一个执行器（⛔ 不是复用 —— 见 `Restart` 里那段注）。</summary>
+        TutorialStageData _tutorialStage;
+        /// <summary>教程局那两副**按关卡原样**上场的牌（`Begin` 存着给 `Restart` 用）。</summary>
+        List<CardDef> _exactMyCards, _exactFoeCards;
 
         /// <summary>🆕 2026-09-26：**本局参数**（经典 / 遭遇…）。逐字段见 <see cref="GameplayVariables"/>。
         /// 由 `Begin` 写入、`Restart` 原样带过去；`Ctx.Vars` 就是它。</summary>
@@ -4900,8 +5584,11 @@ namespace CardPresentation
                 // ⚠️ **解析卡组引用只有一处**（`CardDatabase.DeckLookup`，2026-09-13 第三十三轮）：
                 //    先按**稳定 id**（新存档写的就是 id），再退回**卡名 + 阵营**（旧存档）。
                 //    2026-09-13 那次的坑：卡组里存的是卡名，而**原版有跨阵营同名卡**
-                //（`Terminator` / `Bladeguard Veteran` …），只按名字查会撞上**另一个阵营**那张，
-                //    于是 `Validate` 判 `WrongFaction`、**一副合法卡组被打回自动凑**（静默降级）。
+                //（`Terminator` / `Terminator Champion` / `Maulerfiend` 这 3 组），只按名字查会撞上
+                //    **另一个阵营**那张，于是 `Validate` 判 `WrongFaction`、**一副合法卡组被打回自动凑**（静默降级）。
+                //    ⚠️ 2026-10-17 订正：这句的例子原来还带一个 `Bladeguard Veteran` —— 那组的「同名」
+                //    是 09-13 一次错改名的产物（`UM34` 被照 PnP 卡图文件名改名），10-17 已撤回，现在它叫
+                //    `Bladeguard Lieutenant` ⇒ 同名组 4 → 3（判据 `资料/普查产出_1017/W_B16_教程数据缺口.md` §①）。
                 // 🔴 **2026-09-26 修**：这里原来**没传模式**（第三参默认 `false` = 经典）⇒
                 //    **12 张的遭遇牌一律被按经典的 30 张判 ⇒ `TooFewCards` ⇒ 静默退回自动凑的 30 张**。
                 //    实据（`BattleScene` 自检日志）：`[Battle] 我的卡组「自检·自建遭遇牌」不合法（卡组张数不够）`
@@ -5084,11 +5771,15 @@ namespace CardPresentation
         }
 
         /// <summary>放大窗开着时，**这一下点击归谁**（判据只此一处 —— `Update` 与自检都问它）。
-        /// 返回 true = 这一下被窗吃掉了（别往下走）。四处落点照原版 `CardDisplayWindow`：
-        /// ① **语音钮**（`voiceOverButton`）② **眼睛钮**（`showCardTextButton`）③ **卡格** ⇒ 换位
+        /// 返回 true = 这一下被窗吃掉了（别往下走）。三处落点照原版 `CardDisplayWindow`：
+        /// ① **语音钮**（`voiceOverButton`）② **卡格** ⇒ 换位
         /// （点前台那张 = 原版闸② 「什么都不做」，但**这一下也要吃掉** —— 原版那张卡自己的
-        /// `UI Collider` 会把点击挡住）④ **遮罩空白 ⇒ 关窗**（原版 `BackgroundCloseButton` /
-        /// `OnBackgroundClick`；🆕 **2026-09-29 接上**，原来记的是「我们没接」）。</summary>
+        /// `UI Collider` 会把点击挡住）③ **遮罩空白 ⇒ 关窗**（原版 `BackgroundCloseButton` /
+        /// `OnBackgroundClick`；🆕 **2026-09-29 接上**，原来记的是「我们没接」）。
+        /// <para>🔴 **2026-10-17（B8）删掉了原来的「② 眼睛钮」那一支** —— 战斗版原版**没有**
+        /// `showCardTextButton`（`{m_PathID:0}`，13/13 竞技场逐份实读；`ToggleCardState` 在全量反编译里
+        /// **只有定义、零调用点**）⇒ 那支连同 `CardDisplayWindow.HitEye/ToggleLore/LoreVisible` 三个桩
+        /// 一并删干净。判据全文 → `CardDisplayWindow.cs` 的文件头 + `Editor/BattleScene.cs` 的 A860 那一节。</para></summary>
         public bool HandleDisplayWindowClick(Vector3 wp)
         {
             if (_cardDisplay == null || !_cardDisplay.Visible) return false;
@@ -5098,7 +5789,6 @@ namespace CardPresentation
                     Debug.Log("[Battle] 「放大窗·语音」这张卡没有单位语音 —— **没播**（不静默失败）");
                 return true;
             }
-            if (_cardDisplay.HitEye(wp)) { _cardDisplay.ToggleLore(); return true; }
             int slot = _cardDisplay.HitSlot(wp);
             if (slot >= 0) { _cardDisplay.SwapToFront(slot); return true; }
             // 🆕 2026-09-29：**点遮罩空白 = 关窗**（原来这里是 `return false`「不拦截」）——
@@ -5219,8 +5909,19 @@ namespace CardPresentation
         }
 
         /// <summary>
-        /// 结算完如实报「有几次选择是**引擎替玩家挑的**」（`ChooseSites &gt; ChooseAnswered`）。
-        /// 🔴 **这件事不报错** —— 不说的话玩家会以为那个面板把该问的都问了（本工程的静默失败红线）。
+        /// **一次动作结算完之后清账**（🆕 2026-10-17（A904）扩成两半）。**每次引擎动作之后都要调。**
+        ///
+        /// ① **引擎替玩家挑了几处**（`ChooseSites &gt; ChooseAnswered`）—— 既有那一句，判据不变；
+        ///    现在只报**新**增的（水位见 `_settledSites`），所以在一次动作里被调多次也只会说一遍。
+        /// ② 🔴 **「清队」** —— `ctx.ChoosePicks` / `ChooseCardIds` 里**还剩着**的答案
+        ///    （这一次动作没人来取）。`TakePick` / `TakePickCard` **不认这条答案属于哪个 ask 点**
+        ///    （`EffectResolver.cs:2011` / `:2053`）⇒ 留着它就**一定会被下一个 ask 点吃掉**
+        ///    （而那个 ask 点**可能是对手 / AI 的**）⇒ 此后每一处选择**全部错位、而且不报错**。
+        ///    所以：**当场报出来 + 清掉**（⚔️ 这一条就是 A904 里「归属」那一半的落地）。
+        ///
+        /// ⚠️ **这不是「引擎替玩家挑」那件事**（两件事要分开看）：
+        ///    · ① 是「该问没问」，答案由引擎掷骰子；
+        ///    · ② 是「问了没人取」，答案白问（引擎照样掷骰子）—— 两者都会走到 `ctx.Rng`。
         /// ✅ 2026-09-14：四族（`choosecard` / `chooseone` / `chooseeffect` / `become`）**都有面板了**，
         ///    剩下会漏的还是「**ask 点不在被问的那张卡 desc 里**」的那些
         ///    （事件层的监听正文、`When …` 之类 —— 见 `EffectResolver.PlayerChooseOps` 的注释）。
@@ -5228,10 +5929,23 @@ namespace CardPresentation
         void ReportUnaskedChoices()
         {
             if (Ctx == null) return;
-            int missed = Ctx.ChooseSites - Ctx.ChooseAnswered;
-            if (missed <= 0) return;
-            Ctx.Log($"⚠️ 这次结算里有 **{missed} 处选择是引擎替你挑的**"
-                  + $"（本该问 {Ctx.ChooseSites} 处、面板问了 {Ctx.ChooseAnswered} 处）");
+
+            // ---- ① 引擎替玩家挑了几处（只报新增的）----
+            int sites = Ctx.ChooseSites, answered = Ctx.ChooseAnswered;
+            int missed = sites - answered, reported = _settledSites - _settledAnswered;
+            if (missed > reported)
+                Ctx.Log($"⚠️ 这次结算里有 **{missed - reported} 处选择是引擎替你挑的**"
+                      + $"（本该问 {sites} 处、面板问了 {answered} 处）");
+            _settledSites = sites; _settledAnswered = answered;
+
+            // ---- ② 剩在队里的答案：报出来 + 清掉（不清就一定会被下一个 ask 点吃掉）----
+            int left = Ctx.ChoosePicks.Count + Ctx.ChooseCardIds.Count;
+            if (left == 0) return;
+            Ctx.Log($"⚠️ 选牌面板：有 **{left} 格答案没被用掉**"
+                  + "（这一条动作里对应的那个 ask 点没发生，或者它自己没轮到）——"
+                  + "**已清空**，免得被下一处选择当成自己的答案（那会让此后每一处选择全部错位）");
+            Ctx.ChoosePicks.Clear();
+            Ctx.ChooseCardIds.Clear();
         }
 
         UnitState _ctx_CurrentUnit(int slot)
@@ -5402,6 +6116,15 @@ namespace CardPresentation
         void TickClock(float dt)
         {
             if (Ctx == null || Ctx.IsOver || Ctx.Active != _me) return;
+            // 🆕 2026-10-17（B17·A901）：**对手掉线期间，对局时钟停走**。
+            //   判据 = 原版 `BattleManager__ShowDisconnectionPopup.c:27` 那一刻的 **`ClockManager.PauseClock()`**
+            //   （它把 `ClockManager+0x85` 置 1；`ClockManager__Update.c:36` 与 `ClockManager__ClockRunning.c:5`
+            //   **都拿这一格当闸** ⇒ 表不走、`hurry` 也不喊）；对手回来那一刻
+            //   `BattleManager__SuccessfulReconnection.c:51` 的 `ClockManager.UnpauseClock()` 放回 0。
+            //   ⚠️ **单机局 `_net == null` ⇒ `NetClockPaused` 恒 false ⇒ 这一句是空操作** ——
+            //     单机路径的行为**一个字节都没变**（自检里有一条盯着它，`NetBattleTest` §10①）。
+            //   ⚠️ 闸只此一处：别的路径（AI 那一侧、表现层）**一概不动** —— 原版停的也只有这一个表。
+            if (NetClockPaused) return;
             if (_clockLeft <= 0f) return;
 
             _clockLeft -= dt;
@@ -6038,10 +6761,45 @@ namespace CardPresentation
         /// <summary>自检用：准星现在压着的那个目标（没有 = null）。</summary>
         public CardView ReticleTargetView { get { return _reticleTarget; } }
 
-        /// <summary>打出去（攻击或放技能）。`targetSlot` &lt; 0 = 不需要选目标的技能。返回引擎码。</summary>
+        /// <summary>打出去（攻击或放技能）。`targetSlot` &lt; 0 = 不需要选目标的技能。返回引擎码。
+        ///
+        /// 🆕 2026-10-17（A904）：**主动技能那一格的 ask 点在这里才问**（不再在出牌时预问）——
+        /// 判据 = 原版 `_ResolvePlayActiveAbility_d__479__MoveNext.c:367`
+        /// （`ChooseCardMethod` 的 4 个调用点之一，紧跟着 `StartCoroutine` + `return 1` 挂起）。
+        /// 所以本方法现在可能**只是把这一手收下、把面板开起来**（返回 `OK`），
+        /// 真正的引擎调用由 `BeginAsk` 的续跑在面板关掉之后调 `DoResolve`。</summary>
         int Resolve(AttackKind kind, int targetSlot)
         {
             int slot = _selectedSlot;
+
+            if (kind == AttackKind.Ability && Ctx != null && BoardSpec.IsValid(slot))
+            {
+                // 这一格技能有**三种来源**（替代行动 → 誓约 → `Ability:`，优先级见 `DoResolve`）——
+                // 分档要**与它挑的是同一条**，否则会去问另一条正文里的 ask 点。
+                var u = Ctx.Players[_me].Board[slot];
+                string alt = AltActionOf(u);
+                bool oath = alt == null && HasOath(u)
+                            && RuleCore.CanUseOathAbility(Ctx, _me, slot) == RuleCodes.OK;
+                var asks = AbilityAsks(u, alt, oath);
+                if (asks.Count > 0)
+                {
+                    int sl = slot, ts = targetSlot;
+                    // `PendingCard` 要认得出「正在结算的是哪张卡」（面板取插图 / 查效果池 / 拼标题词条）
+                    _pendingIdx = -1;
+                    _pendingInst = u != null ? u.Instance : null;
+                    // ⚠️ 第 3 个实参 = **不清计数**（理由见 `BeginChoiceBatch`：录像对账哈希认这两个数）
+                    BeginAsk(asks, () => DoResolve(AttackKind.Ability, ts, sl), false);
+                    return RuleCodes.OK;      // 这一手已经收下（引擎调用在面板关掉之后）
+                }
+            }
+
+            return DoResolve(kind, targetSlot, slot);
+        }
+
+        /// <summary>真的把这一手打出去（面板问完之后由 `NextAsk` 调；不用问时 `Resolve` 直接调）。
+        /// `slot` **由调用方带进来**，不读 `_selectedSlot` —— 面板开着的那段时间里选择可能已经被清掉。</summary>
+        int DoResolve(AttackKind kind, int targetSlot, int slot)
+        {
             int code;
             // 🆕 2026-09-26（N4）：联机局要把**这一手是什么**发对面 ⇒ 先攒成一条 `AiAction`，
             //    再走 `LocalAct` 落地（单机下 `LocalAct` 只是直接调那个 lambda，行为一字不差）。
@@ -6142,6 +6900,8 @@ namespace CardPresentation
             _aiTimer = aiStepDelay;
             _aiSteps = 0;                 // 对手的新回合 → 步数清零
             _aiRejected.Clear();          // 同上：排除名单也只在本回合内有效
+            // 🆕 2026-10-17（A904）：回合推进也会结算到 ask 点 ⇒ 清账（同 `EndTurnAndAdvance`）
+            ReportUnaskedChoices();
             RefreshAll();
             if (_net != null) _net.OnLocalAction(endAct);
             RecAct(endAct, _me, endPicks, endPickIds);      // 🆕 录像：玩家这条结束回合
@@ -6301,6 +7061,9 @@ namespace CardPresentation
                     return false;
                 }
                 RefreshAll();       // 特效由引擎事件带出来（`PlaySignals`）
+                // 🆕 2026-10-17（A904）：AI 那条动作也要清账 —— **它正是「下一个 ask 点」里最危险的那个**
+                //   （面包板上的答案会被 AI 的动作吃掉，而那种错位不报错）。
+                ReportUnaskedChoices();
                 return true;
             }
             // 🆕 2026-09-29（Q6 后半段）：**不再一拒就收手** —— 把这条记进排除名单，
@@ -6329,6 +7092,9 @@ namespace CardPresentation
             // ⚠️ **先落地、后记账** —— `trace` 里那一条要是「这条动作做完之后」的状态，回放才逐条对得上。
             RuleCore.EndTurn(Ctx);
             RuleCore.BeginTurn(Ctx);
+            // 🆕 2026-10-17（A904）：回合推进**同样会结算到 ask 点**（回合末/回合初的触发）
+            //   ⇒ 这个口也要清账，否则答案会活到下一个人的动作里去。
+            ReportUnaskedChoices();
             RecAct(new AiAction { Kind = AiActionKind.EndTurn }, seat);
         }
 
@@ -8937,6 +9703,15 @@ namespace CardPresentation
         public bool ClockCountingDown { get { return _clockInCountdown; } }
         /// <summary>自检用：把表按秒推（批处理下没有真实帧循环）</summary>
         public void TickClockForTest(float dt) { TickClock(dt); }
+
+        /// <summary>🆕 2026-10-17（B17·A901）：自检用 —— 给这台驱动**摆一个已经开着的真局面**，
+        /// 并把回合表拨回满（`ResetClock` = 原版 `ClockManager.StartTimer` 的等价物）。
+        /// 为什么需要它：验「对手掉线时表停不走 / 回来之后接着走」要靠 `TickClockForTest` 推表，
+        /// 而 `TickClock` 的头两道闸要 `Ctx != null &amp;&amp; !Ctx.IsOver &amp;&amp; Ctx.Active == _me`
+        /// 且 `_clockLeft &gt; 0` —— 联机自检（`NetBattleTest`）**没有** `interaction` / 棋盘 / 相机，
+        /// 走不了产品入口 `Begin(...)`（那一条会中途炸，先例见该文件 §A530 的 `NoteProbeThrow`）。
+        /// ⚠️ **只给自检用**：生产路径一处都不调它（产品入口是 `Begin` / `BeginFromDeckLibrary` / `NetReplay`）。</summary>
+        public void SetCtxForTest(BattleContext ctx) { Ctx = ctx; ResetClock(); }
 
         /// <summary>`hurry` 语音本回合说过没有（原版 `ClockManager` 的 `latch_0xb8`）——
         /// 自检靠它验「过 35 秒只播一次、跨回合复位」。</summary>

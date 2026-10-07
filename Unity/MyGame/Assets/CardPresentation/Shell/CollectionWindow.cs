@@ -151,6 +151,109 @@ namespace CardPresentation
             return new PxRect(x, y, x + CardsCellW, y + CardsCellH);
         }
 
+        // ------------------------------------------------------------ 🆕 2026-10-17（B10）
+        // 卡位**底下那条「张数」** —— 原版 `Collection Card/Content/Counter`（`bundle_menus_assets_all` 逐件现读）：
+        //   · `/Counter`（RT pid `-5006247910548507304`，GO `m_IsActive = True`）
+        //     `m_AnchorMin = (0.2857142984867096, 0.0020000000949949026)` ·
+        //     `m_AnchorMax = (0.7142857313156128, 0.09966713935136795)` · `sizeDelta = (0,0)` · `pivot = (0.5, 0)`
+        //     ⇒ **全是相对量**（预置根 350×512 上等价 100,460.97→250,511.01）。运行时格子改成 262.5×384 ⇒
+        //        **x 75…187.5 · 距格底 0.768…38.272**（下面 `CardsCounterRect` 按锚点现算，⛔ 别写死那一组数）。
+        //   · `/Counter/Text (TMP)`（RT pid `-4591212569639258792`）
+        //     `m_AnchorMin = (0, 0.06)` · `m_AnchorMax = (1, 0.665)` · `sizeDelta = (0,0)`
+        //     ⇒ 相对 `/Counter` 的框：**宽满 112.5 · 距底 2.25…24.94（高 22.69）**。
+        //   底图 = `40K_main_deck_card counter`（`m_Type = 0 (Simple)` · **`m_PreserveAspect = 1`** · 白 · 无九宫格）；
+        //   组件 = `Image` + `CollectionCardCounter`（字段 `counter`(TMP) + `greyscale`，
+        //   `d:/2/Warpforge_code/Scripts/Assembly-CSharp/CollectionCardCounter.cs`；`greyscale` 长在 `/Counter` 上
+        //   ⇒ 置灰时**整条**（底图 + 字）一起灰）。
+        //   那颗 TMP 的逐字段原版值（MB pid `435197177245070680`，本笔实读）：
+        //   `m_fontSize 31.9` · `m_fontSizeBase 32.0` · `auto[7 … 32]` · `m_HorizontalAlignment = 2 (Center)`
+        //   · `m_VerticalAlignment = 4096 (Midline)` · `m_TextWrappingMode = 1 (Normal)` · 白
+        //   ⚠️ **`CollectionScene` 那本 A3 普查表把这一颗的对齐记成了 `Right`** —— **现读是 `Center(2)`**
+        //     （同表里 `卡组编辑界面_查证_0920.md` 那份没记这一格）⇒ **以字段为准**，本处**不调** `Align*`。
+        public const float CardsCntMinX = 0.2857143f, CardsCntMaxX = 0.7142857f;
+        public const float CardsCntMinY = 0.002f, CardsCntMaxY = 0.09966714f;
+        public const float CardsCntTxtMinY = 0.06f, CardsCntTxtMaxY = 0.665f;
+        /// <summary>那条底图（**无九宫格** ⇒ 走 `Rect` + `keepAspect`）。</summary>
+        public const string CardsCounterSprite = "40K_main_deck_card_counter";
+        /// <summary>那行字的标称字号（原版 `m_fontSize = 31.9`）· auto 上下限 **7 / 32** · base **32**。</summary>
+        public const float CardsCounterFontPx = 31.9f, CardsCounterFontMin = 7f, CardsCounterFontMax = 32f;
+
+        /// <summary>`/Counter` 在**格内**的矩形（相对格左上角；输入 = 这一格**滚动之后**的画布矩形）。
+        /// ⚠️ 锚点全是相对量 ⇒ 小屏那一档（若将来这页也分档）跟着格子一起走，本函数不用改。</summary>
+        public static PxRect CardsCounterRect(PxRect cell)
+        {
+            return new PxRect(cell.x1 + CardsCntMinX * CardsCellW, cell.y2 - CardsCntMaxY * CardsCellH,
+                              cell.x1 + CardsCntMaxX * CardsCellW, cell.y2 - CardsCntMinY * CardsCellH);
+        }
+
+        /// <summary>`/Counter/Text (TMP)` 的矩形（相对**画布**；输入 = 上面那条的矩形）。</summary>
+        public static PxRect CardsCounterTextRect(PxRect bar)
+        {
+            return new PxRect(bar.x1, bar.y2 - CardsCntTxtMaxY * bar.H,
+                              bar.x2, bar.y2 - CardsCntTxtMinY * bar.H);
+        }
+
+        /// <summary>这一格底下那条「张数」印什么。
+        /// <para>🔴 **原版 = `"x{0}"` 填【原始拥有数】** —— 判据 `decomp_full/CardCollectionDisplay__SetCell.c`
+        /// （`InventoryManager.GetOwnedCount(card)` → `String_Format(DAT_18425ce10, …)`，同一段在
+        /// `CardCollectionDisplay__UpdateCardVisuals.c:45-47` 逐字重复）；并把 `拥有数 &lt; 1` 喂给
+        /// `CollectionCardCounter.Set(…, setGreyscale)` ⇒ **没拥有的那张置灰**。</para>
+        /// <para>⚠️ **我们这一格印 `min(拥有, 卡组上限)`，这是我们挑的偏离（不是原版的做法）**：
+        /// 本作资源固定 9999、`CardProgress.Owned` 是**给足**口径（= 卡组上限 + 升满所需 ⇒ 每张 10~11）
+        /// ⇒ 照原式会把**每一格**印成 `x11` 那种没有意义的数。这一档**沿用同一个节点**在
+        /// `DeckRuntime.PoolCounterText`（「还没有督军」那一支）里**用户 2026-09-28 已经拍过板**的写法
+        /// ⇒ 同一棵树、两处印同一个数，不再各定一套口径。</para>
+        /// <para>⚠️ **置灰那一支本版【不可达】⇒ 没画**（如实出声）：`owned &lt; 1` 在我们这边恒假
+        /// （`CardProgress.Owned ≥ 卡组上限 + 9 ≥ 10`），而且原版那颗是
+        /// `UIImageGreyscaleController`（`Image` + 一份灰材质对），我们的 `ImageQuad` 没有对应的判据灰值
+        /// ⇒ **只记不画**（⛔ 别自己编一个灰度）。</para></summary>
+        public static string CardsCounterText(CardDef def)
+        {
+            int cap = CardProgress.DeckCap(def.Rarity);
+            return "x" + Mathf.Min(CardProgress.Owned(def.Id, def.Rarity), cap);
+        }
+
+        /// <summary>一格底下那条「张数」（底图 + 那行字）。**每次重建都重建** —— 滚动时格的矩形一直在变，
+        /// 而「重建整页格子」本来就是这个函数的语义（`RebuildCardsCells` 先把 `Viewport` 的子件全销毁）。
+        /// ⚠️ 挂的是 `parent`（= `holder/Viewport`，那颗 `ViewportClip` 的载体）⇒ `Rect` / `Text` 两个助手
+        /// 会沿父链解析到裁切状态（`MenuWindowBase.Text` 里 `ViewportClip.Resolve(parent, …)`），
+        /// 压在视口边上的那半条**会被切掉**（与卡同一套）。
+        /// ⛔ **本函数不留引用字段**：父件每次被销毁重建，留着的 `Label`/`ImageQuad` 一律变成 Unity 假 null
+        /// （`!= null` 恒假）—— 那正是「读起来有值、其实没有」的那类静默失败。自检按**名字**找
+        /// （`FindChild(root, "Counter " + i)`），和 `CardHit_*` 同一套。</summary>
+        void BuildCardsCounter(Transform parent, int i, PxRect cell, CardDef def)
+        {
+            // 🔴 **两种「没建出来」要分开**（别拿正常的那个刷警告）：
+            //   ① **图不在工程里** = 真缺口 ⇒ 出声（下面这一句）；
+            //   ② **整条落在视口外** ⇒ `MenuDraw.Rect` 里那句 `if (!ClipRect(…)) return null;` 会连节点一起不建
+            //      —— 那是**正常路径**（每次滚动都会有半行格子被裁掉），返回 null 直接走人、**不报**。
+            if (Art(CardsCounterSprite) == null)
+            {
+                Debug.LogWarning("[Collection] `" + CardsCounterSprite + "` 不在 `Resources/Art/` ⇒ "
+                                 + "卡位底下那条「张数」**整条画不出来**（这是缺口，不是「被视口裁掉了」）");
+                return;
+            }
+            var bar = CardsCounterRect(cell);
+            // 渲染队列：**必须压在卡之上**（原版兄弟序里 `Counter` 排在 `CardUI` 之后 ⇒ 画在卡上面）。
+            // 卡走 `CardView` 的默认 3000 ⇒ 这条用页内的 `QPageRow/QPageText`（3032/3033，> 3000；
+            // 又低于筛选栏那一段 3040+，所以抽屉打开时照样压得住它）。
+            var q = Rect(parent, CardsCounterSprite, bar, "Counter " + i, QPageRow, null, true);
+            if (q == null) return;                  // = 整条在视口外（正常，见上 ②）
+            var tr = CardsCounterTextRect(bar);
+            var lb = Text(q.transform, CardsCounterText(def), tr.x1, tr.x2, tr.y1, tr.y2, 5, PageInk,
+                          "Text (TMP)", CardsCounterFontPx);
+            if (lb == null) return;
+            lb.SetRenderQueue(QPageText);
+            // 原版这颗开了 autosize、`m_fontSizeBase = 32`（框只有 22.69 高 ⇒ 运行时会被压小）。
+            // ⚠️ 传的 4 个数是**原版 prefab 的字段值**（见上面那段现读）；`DeckRuntime` 那处传的上限是
+            //    31.9（= `m_fontSize`，原版上限其实是 32），那条挂在 A333 上 ⇒ **别照它抄**。
+            lb.SetAutoFitBox(LayoutSpace.Px(tr.W), LayoutSpace.Px(tr.H),
+                             CardsCounterFontMin, CardsCounterFontMax, CardsCounterFontMax);
+            // 纵向档 = 原版 `m_VerticalAlignment = 4096 (Midline)`；
+            // 水平档 = `2 (Center)` = `TmpFont.NewText` 的出厂档 ⇒ **不调** `Align*`（调了反而偏）。
+            MenuDraw.SetVAlign(lb, Label.VAlign.Midline, tr);
+        }
+
         // ============================================================ Cards 页的筛选栏（A3 §五·1 + 本工程实读）
         //
         // 原版 = `CardsTab` 里的 `Card Filters` 面板（组件 `CollectionFilterController<RawCardScript>`）。
@@ -688,6 +791,20 @@ namespace CardPresentation
                              "Wildcard Count " + i, 32.6f);
                 if (t != null) { t.SetRenderQueue(QPageText); _wcCount[i] = t; }
             }
+            // 🆕 2026-10-17（B10 · 账上「三件 UI ③」的**「按阵营」那一半**）：这一条计数条**缺的是 `Army Icon`** ——
+            //   原版 `WIldcard Display` 三个孩子 = `Background` + `Counters` + **`../Army Icon`**
+            //   （`资料/普查产出_0923/A3_Cards页.md` §5·3：**1470,70.94 → 1550,155.94**（80×85）·
+            //    sprite = `40k_DeckSelection_icon_FactionBlackLegion` · **preserveAspect**）。
+            //   运行期它由 `WildcardDisplay.Initialize(card.army)` 换图 —— 触发者是
+            //   `CardCollectionDisplay__CheckFocusedArmy.c`（拿 `Reference Card Pointer` 的 rect 去
+            //   `OverlapsAny` 卡位，命中那张卡的 `cardArmy`）。
+            //   ⚠️ **我们这一页没有悬停**（`PointerLayer` 只注册了滚动，没有指针层）⇒ 保持**预置出厂那一张**
+            //      = `BlackLegion`（判据 = 预置里的 `m_Sprite`，**不是**我们挑的）。**如实出声**：
+            //      「4 个数 + 这张徽记跟着悬停那张卡的阵营换」这件事，本作**没有实现**（用户 2026-09-28
+            //      已就那 4 个数拍过板：恒定 `99`；徽记同一条口径 ⇒ 恒定出厂那张）。
+            //   ⚠️ 图走 `DeckRuntime.FactionIcon`（**全工程唯一一份**阵营名→徽记映射），⛔ 别在这儿写第二份。
+            Rect(page, DeckRuntime.FactionIcon("BlackLegion"), new PxRect(1470f, 70.94f, 1550f, 155.94f),
+                 "Army Icon", QPageRow, null, true);
 
             var holder = Node(page, "Scroll View", CardsViewport);
             // 🔴 **2026-10-13（A435 阶段 2 · 乙 · A15）**：裁切状态**长在视口节点上**（= 原版 `Viewport` 上
@@ -784,6 +901,9 @@ namespace CardPresentation
                 v.SetFace(CardFace.Full);
                 v.SetHighlight(CardHighlightState.Normal);
                 CardsCells.Add(v.transform);
+                // 🆕 2026-10-17（B10 · 账上「卡重复与升级 · 三件 UI ①」）：格子**底下那条「张数」**
+                //    （原版 `Collection Card/Content/Counter`）—— 判据 / 文案 / 几何全在 `BuildCardsCounter` 那一段。
+                BuildCardsCounter(parent, i, r, list[i]);
                 // ⚠️ 闭包**别捕循环变量 `i`** —— 点击发生在重建之后，那时 `i` 已经是 `list.Count`（越界）
                 var def = list[i];
                 AddHit(parent, "CardHit_" + i, r, QPageRow, () => OpenCardDetail(def));
@@ -792,6 +912,14 @@ namespace CardPresentation
 
         /// <summary>卡池当前可见卡数（自检用；筛选之后会变）。</summary>
         public int CardsVisibleCount { get { return CardsState.VisibleCards().Count; } }
+
+        /// <summary>自检用：卡池里第 `i` 张（下标 = **筛选之后的可见列表**，与 `CollectionCard_i` / `Counter i`
+        /// 那两个节点名**同号** —— `RebuildCardsCells` 的循环变量就是它）。越界 ⇒ `null`。</summary>
+        public CardDef CardsCellDef(int i)
+        {
+            var list = CardsState.VisibleCards();
+            return (i >= 0 && i < list.Count) ? list[i] : null;
+        }
 
         // ============================================================ Cosmetics 页（卡背；A4 §二）
         //

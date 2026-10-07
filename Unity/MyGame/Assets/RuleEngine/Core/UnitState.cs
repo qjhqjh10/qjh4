@@ -247,7 +247,14 @@ namespace RuleEngine
             // ⚠️ **狂暴（`ferocity`）是 2026-09-13 A2 补进来的** —— `:98` 那句话里
             //    本来就点着它（「如迅捷/侧翼/狂暴」），原版同一处也把它和 fast/flank 并列，
             //    只是我们先前没实现这个关键词。慢的 `pray` **不在**这一行（`:198`）。
-            Exhausted = !(Has("fast") || Has("flank") || Has(KeywordTable.Ferocity));
+            //
+            // 🔴 **2026-10-17（F7）：三个词的表**不在这儿** —— 判据收在 `RuleCore.HasDeployExemption` 一处**
+            //    （原来这里是内联的三词表，是**同一条规则的第二份写法**，改一处漏一处）。
+            //    ⚠️ 此处能直接调它：`_keywords` 在上面那个 `foreach` 里**已经填好**，
+            //       而同在 `RuleEngine` 命名空间下有单一程序集（无 asmdef）可直达。
+            //    ⚠️ `Exhausted` 仍然是**构造时的快照** —— 之后才挂上来的关键词
+            //       （手牌加成 / 光环）照旧由 `RuleCore.PlayCard` 那一次重算兜住。
+            Exhausted = !RuleCore.HasDeployExemption(this);
             HasShield = Has(KeywordTable.Shield);
         }
 

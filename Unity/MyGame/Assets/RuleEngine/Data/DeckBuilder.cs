@@ -195,6 +195,15 @@ namespace RuleEngine
         ///    ⚠️ 这和 `DeckRules.Validate` 那个 `WrongFaction` 是**同一个根病**
         ///      （「卡名当 id」，见 `项目任务.md` 悬案），必须**一起**修 ——
         ///      只修一边的话，校验过了、展开仍然是错的。
+        ///
+        /// ⚠️ **2026-10-17 订正两处**（都是上面这段的历史描述，行为一个字没动）：
+        ///   ① 「我们的 `Id` 就是卡名」**只在卡表 v6 之前成立** —— 2026-09-13 第三十三轮起
+        ///      `Id` 是卡表里的**稳定 id**（`CardDatabase.Parse` 只在那一行缺 `id` 时才退回卡名，
+        ///      并且会 `LogWarning` 报 `noId` 张数。见 `CardDatabase.cs` 的 `noId` 那一段）
+        ///      ⇒ 下面那段「同名撞车」分支现在只在**卡表缺 id** 时才可能命中（防御性保留）。
+        ///   ② 例子里的 `Bladeguard Veteran`（Ultramarines 那张）是 `UM34` 2026-09-13 被**改错**的
+        ///      名字（照 PnP 卡图文件名改的），2026-10-17 已撤回 ⇒ 现在叫 `Bladeguard Lieutenant`。
+        ///      判据 `资料/普查产出_1017/W_B16_教程数据缺口.md` §①。
         /// </param>
         /// <param name="rng">**只用于「卡组没带防御卡时随机补一张」那一处**（原版 `AddGoesSecondCardToDeck` 的兜底，
         /// 见下面防御卡那一段）。不传 = `new System.Random(0)`（同一副牌每次补到同一张 ⇒ 对局可复现）。

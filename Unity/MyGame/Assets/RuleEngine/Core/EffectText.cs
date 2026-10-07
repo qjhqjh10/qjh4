@@ -224,8 +224,14 @@ namespace RuleEngine
 
         /// <summary>
         /// 候选来源：`deck`（自己牌库）/ `hand`（自己手牌）/ `enemyhand`（对手手牌）/
-        /// `dead`（本局阵亡的部队）/ `pool`（全卡池，**默认** —— 卡面没写「从哪来」就是生成一张）。
+        /// `dead`（本局阵亡的部队）/ `pool`（全卡池，**默认** —— 卡面没写「从哪来」就是生成一张）/
+        /// 🆕 `played`（**本局你打出过**的牌 —— 卡面写 `… you played this game`，
+        /// 实测 1 处：`Suppressor` 的 `Choose a non-Legendary Stratagem you played this game …`）。
         /// 出处 `rule_core.gd:1185-1207`。
+        /// ⚠️ **`played` 是我们的扩充、不是原版那个函数的取值**：2026-10-17（B14）之前
+        ///    那半句 `you played this game` 被当**噪声**留在筛选词里 ⇒ 筛选词退化成
+        ///    「非传说的战略卡」⇒ 候选 = **全卡池里 349 张战略/防御卡**（实测，见报告），
+        ///    跟「本局打出过」毫无关系，而且**不报错**。
         /// </summary>
         public string ChooseSrc = "pool";
 
@@ -249,8 +255,19 @@ namespace RuleEngine
         ///   · `shuffle`  —— 从对手手牌洗进对手牌库（`shuffle it into their deck`）
         ///   · `enemyhand`—— 进**对手**手牌（`to the enemy hand` / `to your opponent's hand`）
         ///   · `copies`   —— 复制 <see cref="ChooseCopies"/> 张进手牌（`create two copies in your hand`）
+        ///   · `inccost`  —— **给挑中那一张加价**（`increase its cost by N`）——
+        ///     实测 1 处：`Jackal Scout` 的 `Rally: Choose a card in your opponent's hand and
+        ///     increase its cost by 1`（`desc` 原文，卡面亲读一致）。
+        ///     ⚠️ **2026-10-17（B14）加**：加它之前这一条是**空串** ⇒ 挑完什么都不发生
+        ///     （`资料/普查产出_1017/盘点_战斗部分文档.md` 「选牌 · 动作表缺项」）。
         /// </summary>
         public string ChooseAct = "";
+
+        /// <summary>`ChooseAct == "inccost"` 时**加几费**（`increase its cost by N` 的 N）。
+        /// 别的动作恒为 0。🆕 2026-10-17（B14）。
+        /// ⚠️ **单开一栏、不复用 `Amount`**：`Amount` 在别的动词上是「伤害/治疗/数量」，
+        ///    选牌这一族里还有 `for each` 缩放那条路会读它 —— 复用会让加价数被别处改掉。</summary>
+        public int ChooseCostDelta;
 
         /// <summary>`dead` 来源的**范围**：`since_last_turn`（你上个回合之后死的）/
         /// `all`（本局死的 —— 卡面 `this battle` 与 `this game` 是**同一个意思**，
@@ -4077,6 +4094,13 @@ namespace RuleEngine
         static readonly Regex ReChooseCopies = new Regex(
             @"create (\d+|two|three) copies", RegexOptions.Compiled);
 
+        /// <summary>🆕 2026-10-17（B14）`increase its cost by N` —— 组 1 = 加几费。
+        /// 实测全池只 1 处：`Jackal Scout`（`desc` 原文 `… and increase its cost by 1`）。
+        /// ⚠️ **故意锚 `its`**：加价的对象是**刚挑中的那一张**（`it`）。
+        ///    将来若出现 `increase their cost by N`（一批），那是另一条语法，**别顺手放宽**。</summary>
+        static readonly Regex ReChooseIncCost = new Regex(
+            @"increase (?:its|it's) cost by (\d+)", RegexOptions.Compiled);
+
         /// <summary>🆕 `Choose and gain a bonus (A, B or C)` —— 组 1 = 括号里的**选项表**
         /// （`Carnifex`，全池只 1 处）。归一成 `choose one: …` 之后交给 `TryChooseOne`。
         /// 见 `Dispatch` 里 0·0c 那一段的说明。</summary>
@@ -4104,6 +4128,15 @@ namespace RuleEngine
         /// ⚠️ 「给手牌」那一支**这一版没做**（手牌卡没有实例身份，加成无处可存 ——
         /// 见 `资料/选牌_数据与规格.md` §甲·六）⇒ 仍然产出 op，由**结算层如实报**，不静默。
         /// （⚠️ 更正：原来指 `资料/选牌Choose_数据与设计.md`，2026-10-10 已并入）
+        /// 🔴 **2026-10-17（B14）就地订正（铁律 5）：上面那两行【已过期】—— 结算层 2026-09-16 就做完了。**
+        ///    真实状态：**引擎侧做完了**（`DoChooseEffect` 的 `handScope` 分支 → `GrantHandBuff` →
+        ///    `ctx.HandBuffs` → `RuleCore.ApplyHandBuffs`；理由「按卡 + 份数记账与实例身份语义等价」）；
+        ///    ✅ **2026-10-17（B24）就地订正（铁律 5）**：这一行原来写着
+        ///    「**面板那一侧仍然没做**（`BattleDriver.ShowAsk` 见到 `ChooseEffectIsHand` 就不问了）」
+        ///    —— **已不成立**：A905（2026-10-17）把那条短路删掉了（痕迹 → `BattleDriver.cs:4446`）
+        ///    ⇒ `hand` 那一支现在**面板照常弹**（判据/行为在解析层仍一个字没变）。
+        ///    判据全文 = `资料/普查产出_1017/W_B22_选牌ask时机.md` §A905。
+        ///    ⇒ 解析层这一支的**行为一个字没变**（照样产出 op、`Payload = "hand"`），别照上面那两行动它。
         /// </summary>
         static bool TryChooseEffect(string low, string src, SegResult r)
         {
@@ -4247,10 +4280,21 @@ namespace RuleEngine
             // ⚠️ 对手手牌要**先于**自己手牌判：`in your opponent's hand` 里也含 `your`+`hand`
             else if (head.Contains("enemy hand") || head.Contains("opponent's hand")) srcKind = "enemyhand";
             else if (head.Contains("in your hand")) srcKind = "hand";
+            // 🆕 2026-10-17（B14）：`… you played this game` —— **候选域 = 本局你打出过的牌**。
+            //   🔴 加它之前那半句**留在筛选词里当噪声**，筛选词退化成「非传说的战略卡」，
+            //      于是候选 = 全卡池 349 张（实测）—— 而且**一句错都不报**（静默错语义）。
+            //   实测 1 处：`Suppressor`（Ultramarines 单位，`Oath 1:` 触发的主动技能）。
+            //   ⚠️ 顺序放在**最后**：`head` 里同时有 `in your hand` 之类的写法时以那个为准。
+            else if (head.Contains("you played")) srcKind = "played";
 
             // ---- 筛选词：剥掉方位那截、以及 `that …` 后面那半句（那是**条件**不是筛选）----
             foreach (string junk in new[] { " from your deck", " in your deck", " in your hand",
-                                            " in the enemy hand", " in your opponent's hand" })
+                                            " in the enemy hand", " in your opponent's hand",
+                                            // 🆕 B14：`… you played this game` 是**候选域**（已落进
+                                            // `ChooseSrc = "played"`），不是筛选条件 —— 留在筛选词里
+                                            // 会让 `MatchKindWord` 把它当成「看不懂的修饰词」丢掉，
+                                            // 于是筛选词退化成「非传说的战略卡」（全池 349 张，实测）。
+                                            " you played this game", " you played" })
                 what = what.Replace(junk, "");
             int ti = what.IndexOf(" that ");
             if (ti >= 0) what = what.Substring(0, ti);
@@ -4260,12 +4304,38 @@ namespace RuleEngine
             // 顺序照 `rule_core.gd:1208-1236`：先具体后一般，`return it to your deck` 必须
             // 先于 ` to your deck`，否则「洗回牌库」会被判成「从别处拿一张放进牌库」。
             string act = ""; int copies = 0;
+            int costDelta = 0;
             if (low.Contains("return it to your deck")) act = "return";
+            // 🆕 2026-10-17（B24）：`… and return it to your hand` —— 把挑中那张**收回手牌**。
+            //   实测 1 处：`Suppressor`（Ultramarines 单位，`Oath 1:` 的主动技能）。
+            //   **判据 = 成品卡图上的卡面原文**（`d:/2/Warpforge部队卡片/Ultramarines/3部队/
+            //   UPDATED_Warpforge_15_Suppressor.png`，2026-10-17 亲读）：
+            //   「`Oath 1:` Choose a non-Legendary Stratagem you played this game
+            //     **and return it to your hand**」——卡面如此，`desc` 逐字一致。
+            //   ⚠️ 加它之前这一条**判不出动作** ⇒ `ChooseAct` 空串 ⇒ 候选挑对了、挑得也对，
+            //      但**挑完什么都不做**，只留一行「后续句接着结算」的日志 —— 而那半句
+            //      在**这张卡上**是假的（它后面没有别的句子）。这就是红线里的**静默失败**。
+            //   ⚠️ 顺序：上面 `return it to your **deck**` 那条先判（两半句不会互相吃）；
+            //      落到 `DoChooseCard` 的 `case "hand"`（与 `put/add/create it in your hand`
+            //      同一个去处）—— 从**弃牌堆**把**那一份实例**摘回来（B19 落的 `played` 域那一支）。
+            else if (low.Contains("return it to your hand")) act = "hand";
             else if (low.Contains("shuffle it into their deck")) act = "shuffle";
             else if (low.Contains("draw it")) act = "draw";
             else if (low.Contains("at the top of your deck")) act = "decktop";
             else if (low.Contains(" to the enemy hand") || low.Contains(" to your opponent's hand")) act = "enemyhand";
             else if (low.Contains(" to your deck")) act = "todeck";
+            // 🆕 2026-10-17（B14）：`… and increase its cost by N` —— **给挑中那张加价**。
+            //   实测 1 处：`Jackal Scout`（`Rally: Choose a card in your opponent's hand and
+            //   increase its cost by 1`，`desc` 原文；卡面英文亲读一致 —— 见报告）。
+            //   ⚠️ 加它之前这一条判不出动作 ⇒ `ChooseAct` 空串 ⇒ **挑完什么都不发生**，
+            //      而且不报错（卡面写的事没做）。出处 `资料/普查产出_1017/盘点_战斗部分文档.md`
+            //      「选牌 · 动作表缺项」。
+            else if (low.Contains("increase its cost by"))
+            {
+                act = "inccost";
+                var mi = ReChooseIncCost.Match(low);
+                costDelta = mi.Success ? int.Parse(mi.Groups[1].Value) : 1;
+            }
             else
             {
                 var mc = ReChooseCopies.Match(low);
@@ -4287,6 +4357,7 @@ namespace RuleEngine
                 ChooseAct = act,
                 ChooseDeadScope = deadScope,
                 ChooseCopies = copies,
+                ChooseCostDelta = costDelta,
             });
             r.Kind = SegKind.Ok;
             return true;

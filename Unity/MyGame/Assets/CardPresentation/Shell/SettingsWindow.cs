@@ -18,9 +18,26 @@
 //     = `40k_popup_texture` **Tiled**（`m_Type=2`，`ppuMultiplier=2.0` ⇒ 128/2 = **64 px 一格**）。
 //   · `Generic Close Button` [1559.00,91.61] 75×75（`UI_Button_Round_background`）
 //     + `Icon` [1568.31,101.86]–[1624.68,156.35]（`40k_bt_close`）。
-//   · `Tab Buttons` 列 [328.10,123.10]–[506.52,966.19]（178.42 宽）：
-//     VLG **padTop 30** · spacing 0 · align **UpperCenter** · childControlWidth 1 · childControlHeight 0
-//     ⇒ 每个键 **178.42 × 157.68**，从 y = 123.10+30 = **153.10** 起往下排（第 k 个的顶边 = 153.10 + k×157.68）。
+//   · `Tab Buttons` 列 [328.10,123.10]–[506.52,966.19]（**178.42 宽**）。
+//     🔴 **2026-10-17（A863）就地更正（铁律 5）**：这里原来写的是
+//     「VLG **padTop 30** · spacing **0** · align **UpperCenter** · childControlWidth 1 · childControlHeight 0
+//     ⇒ 每个键 **178.42 × 157.68**，从 y = 123.10+30 = **153.10** 起往下排」—— **四项里三项是错的**：
+//     实读原版 `MonoBehaviour_-8185144684232147034`（= `Tab Buttons` 那颗 `VerticalLayoutGroup`，
+//     `m_GameObject = -301262919896891482`）：
+//     `m_Padding = (L 0, R 0, T **13**, B 0)` · `m_Spacing = **8.920000076293945**` · `m_ChildAlignment = **5**(MiddleCenter)`
+//     · `m_ChildControlWidth = **0**` · `m_ChildControlHeight = 0` · `m_ChildForceExpandWidth = 1` ·
+//     `m_ChildForceExpandHeight = 0` · `m_ChildScaleWidth = 0` · `m_ChildScaleHeight = 1`。
+//     **五个键**各自的 `m_SizeDelta = (165.0, **157.68350219726562**)`（RT `-1745314864996450394` 等五份，逐份同值）。
+//     ⇒ 每个键 **165 × 157.6835**，键顶步进 = `157.6835 + 8.92 = 166.6035`。
+//     ⚠️ **别把 `menu_dump` 印的 `141.92` 当成设计值** —— 那一列是**屏幕 px**（= 157.6835 × 0.9，本窗根 `m_LocalScale 0.9`）；
+//     同样地 `148.50`（键宽）与 `127.27×96.14`（图标）都是屏幕 px。
+//     ⚠️ **横轴那半是 uGUI 的一个反直觉处**（不是笔误）：`m_ChildAlignment = 5` 时
+//     `GetAlignmentOnAxis(0) = (5 % 3) × 0.5 = **1.0**（右）` ⇒ `ChildControlWidth = 0` 之下
+//     **键贴栏的右沿、左留 `178.42 − 165 = 13.42`**（`GetStartOffset` 的 `surplus × align`）。
+//     实读印证：键 x = 设计 **341.52…506.52**（屏幕 403.4…551.9）。
+//     ⚠️ 竖轴 `GetAlignmentOnAxis(1) = (5 / 3) × 0.5 = 0.5`（居中）⇒ 5 个键时堆叠几乎占满、
+//     首键顶 = **139.11**（屏幕 179.2，= 栏顶 123.10 + padTop 13 + 余量 3.0）；**我们只有 4 页**
+//     ⇒ 余量 172.60 一半 86.30 ⇒ 首键顶 = **222.40**（**这是页数差异的下游后果，见 `TabAlignY`**）。
 //   · `Separators` [505.07,103.11]–[507.97,986.19]（`40k_Separator_Fade_Sides_Vertical`）。
 //   · 内容区 `Tab Content` [506.52,123.11]–[1538.78,966.19]；页标题 `Tab Title` [596.52,189.24]–[1538.78,259.24]
 //     （**fs 55 · 左对齐**，实测 `m_HorizontalAlignment=1`）。
@@ -45,8 +62,14 @@
 //   ② **页签文案**：解包里那几个 `Tab Toggle Title` 的 `m_text` 是**西班牙语**（`Gráficos`/`Soporte`/`Cuenta`，
 //      第 2 页是 `Multimedia`）、TMP **没挂 I2 词条** ⇒ 英文正式文案本地拿不到。我们写
 //      **Graphics / Audio / Online**（英文，与工程别处「先用英文」的口径一致），**这是我们的选择**。
-//   ③ **只建 5 页里的 3 页**（General / Account / Support 不建 —— 账号页整页走服务器、支持页是外链、
-//      General 页是语言/退出游戏）。切到没建的页要**出声**，不静默。
+//   ③ **建 5 页里的 4 页**（Account / Support 不建 —— 账号页整页走服务器、支持页是外链）。
+//      切到没建的页要**出声**，不静默。
+//      🔴 **2026-10-17 就地更正（铁律 5）**：这里原来写的是
+//      「只建 5 页里的 **3** 页（**General** / Account / Support 不建 —— General 页是语言/退出游戏）」。
+//      **General 页 2026-10-17 已建**（= 用户 2026-09-28 立项的中英双语那一步「**2. 设置窗 General 页 +
+//      语言下拉**」，判据全文 = `资料/待办判据_卡面卡池与双语.md` §23）⇒ 现在有 **4** 页。
+//      🔴 **语言下拉就在这一页**（原版页签序里 General 也是第一个）。
+//      ⛔ **`Account` / `Support` 仍然不建**（那两页整页走服务器/外链）。
 //   ④ **联机页的页面标题、说明行、状态行**都是我们写的文案。
 //   ⑤ 原版勾选图与下拉框底的 **sprite PathID 没解出名字**（`-5728790147372056906` / `4411787853012002210`
 //      / `4198243566598287219`，UnityPy 按 PathID 反查没查到）⇒ 勾选改用原版**别处**在用的
@@ -61,8 +84,10 @@ using CardPresentation.Net;
 
 namespace CardPresentation
 {
-    /// <summary>设置窗的三个页（原版有五个，我们只建这三个 —— 见文件头 ③）。</summary>
-    public enum SettingsTab { Graphics = 0, Audio = 1, Online = 2 }
+    /// <summary>设置窗的四个页（原版有五个，我们只建这四个 —— 见文件头 ③）。
+    /// 🔴 **2026-10-17**：`General` 加进来之后它是 **0**，其余三页各 +1（⛔ 序号必须与
+    /// `Build()` 里 `_pages.Add` 的顺序**逐个对齐** —— `OpenTab` 是按序号切 `activeSelf` 的）。</summary>
+    public enum SettingsTab { General = 0, Graphics = 1, Audio = 2, Online = 3 }
 
     public class SettingsWindow : GameWindow
     {
@@ -81,8 +106,51 @@ namespace CardPresentation
         public const float CloseIconL = 1568.31f, CloseIconT = 101.86f, CloseIconR = 1624.68f, CloseIconB = 156.35f;
 
         public const float BarL = 328.10f, BarT = 123.10f, BarR = 506.52f, BarB = 966.19f;
-        public const float BarPadTop = 30f;             // VLG `m_Padding.m_Top`
-        public const float TabBtnH = 157.68f;           // childControlHeight = 0 ⇒ 用各自的 sizeDelta
+        /// <summary>左栏 `VerticalLayoutGroup` 的 **`m_Padding.m_Top = 13`**（`m_Left = m_Right = m_Bottom = 0`）。
+        /// 🔴 **2026-10-17（A863）就地更正**：原来是 **30** —— **原版是 13**
+        /// （实读 `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-8185144684232147034.json`
+        /// 的 `m_Padding`；那一颗的 `m_GameObject.m_PathID = -301262919896891482` = 本窗的 `Tab Buttons`）。
+        /// ⛔ 别与 `MenuWindowBase.BarPadTop`（奖励窗 / 商店 / 收藏窗那一族，120 / 117.7）混 —— 本窗不走那个基类。</summary>
+        public const float BarPadTop = 13f;
+        /// <summary>同上的 `m_Padding.m_Bottom`（原版 **0**）。**单列出来只为把起排算式写全** ——
+        /// uGUI 的 `GetStartOffset` 把 `padding.vertical` 算进 requiredSpace。</summary>
+        public const float BarPadBottom = 0f;
+        /// <summary>页签那一格的**高** —— 原版五个键各自的 `m_SizeDelta.y = **157.68350219726562**`
+        /// （`RectTransform_-1745314864996450394` 起五份，逐份同值；`m_ChildControlHeight = 0` ⇒ 用各自的 sizeDelta）。
+        /// 🔴 **2026-10-17（A863）就地更正**：旧值 `157.68` 是四舍五入（差 0.0035），改成**序列化原文**。
+        /// ⚠️ `menu_dump` 印的 **141.92** 是**屏幕 px**（× 根上那层 0.9），**不是**设计值 —— 见文件头那条更正。</summary>
+        public const float TabBtnH = 157.68350219726562f;
+        /// <summary>键与键之间的**缝** —— 原版 VLG `m_Spacing = 8.920000076293945`。
+        /// 🔴 **2026-10-17（A863）新加**：原来**没有这一项**（等价于 spacing 0）⇒ 键顶步进少了 8.92。
+        /// ⛔ 步进别在别处再写一个数（`TabStep = TabBtnH + TabGap` 那一条是唯一出处）。</summary>
+        public const float TabGap = 8.920000076293945f;
+        /// <summary>键顶步进 = 高 + 缝（**唯一一处**）。</summary>
+        public const float TabStep = TabBtnH + TabGap;              // 166.6035
+        /// <summary>键那一格的**宽** —— 原版五个键各自的 `m_SizeDelta.x = 165.0`（`m_ChildControlWidth = 0`）。
+        /// 左沿 = `BarR − TabW = 341.52`（原版实测设计值 341.52…506.52）——
+        /// ⚠️ **贴右沿、不是居中**：`m_ChildAlignment = 5` 时 uGUI 的 `GetAlignmentOnAxis(0)` 是
+        /// `(5 % 3) × 0.5 = 1.0`（右），与它 `GetStartOffset` 的 `surplus × align` 合起来就是这个 13.42。</summary>
+        public const float TabW = 165f;
+        /// <summary>键的左沿（**唯一一处**：贴栏的右沿往里 13.42 —— 见 `TabW`）。</summary>
+        public const float TabL = BarR - TabW;                      // 341.52
+        /// <summary>竖轴对齐系数 = 原版 VLG `m_ChildAlignment = 5 (MiddleCenter)` 的
+        /// `GetAlignmentOnAxis(1) = (5 / 3) × 0.5 = **0.5**`（`CalcAlongAxis` 里那个 `align`）。
+        /// <para>🔴 **这一项是本笔里唯一一处「原版没在 4 页下出现过」的读数**（原版 `SettingsMenu` 恒为 5 页 ——
+        /// 全量反编译里 `SettingsMenu*` 一次都没调过 `TabButtons.AddTabButton / RemoveTabButton`，
+        /// 那 5 个键就是 prefab 里序列化的 5 个）⇒ 照 uGUI 语义，**我们 4 页时它会居中**
+        /// （上下各留 86.30 设计 px = 77.7 屏幕 px 的空）。本窗**照原版语义落地**（铁律 11：不因难看而改口径）；
+        /// 若调度台要的是「看起来像原版那 5 页」（首键顶 139.11），把这一项改成 `0f` 即可（只此一处）。</para></summary>
+        public const float TabAlignY = 0.5f;
+        /// <summary>第 `i` 个页签的**顶边**（设计 px，未过 `Screen()`）。**唯一一份**起排算式，
+        /// 逐句照 uGUI `HorizontalOrVerticalLayoutGroup.GetStartOffset`：
+        /// `startOffset = padding.top + (栏高 − (content + padding.vertical)) × align`。
+        /// <para>⚠️ 调用方必须传**实际建了几个键**（`n`）—— 余量按 `n` 分摊，写死 5 会算错（铁律 5·c）。</para></summary>
+        public static float TabTop(int i, int n)
+        {
+            float content = n * TabBtnH + (n - 1) * TabGap;
+            float surplus = (BarB - BarT) - (content + BarPadTop + BarPadBottom);
+            return BarT + BarPadTop + surplus * TabAlignY + i * TabStep;
+        }
         public const float BarSepL = 505.07f, BarSepT = 103.11f, BarSepR = 507.97f, BarSepB = 986.19f;
 
         public const float TabsL = 506.52f, TabsT = 123.11f, TabsR = 1538.78f, TabsB = 966.19f;
@@ -298,6 +366,239 @@ namespace CardPresentation
         public const string ArtFpsBar = "Volume_bar_inactive", ArtFpsFill = "Volume_bar_active",
                             ArtFpsHandle = "Volume_button";
 
+        // ---- General 页（原版 `General Tab`，2026-10-17 建）----
+        //
+        // 🔴 **全部是【未缩放】的设计值**（进 `Screen()` 之前的样子）—— 出处 = `menu_dump.py
+        //    bundle_menus_assets_all "General Tab" --depth 4`（工具印的是**已按根上 0.9 换算过的屏幕 px**，
+        //    下面每个数都是 `960 + (屏幕 x − 960) ÷ 0.9` / `540 + (屏幕 y − 540) ÷ 0.9` 反算回来的；
+        //    逐值算式写在每个常量自己的注释里，⛔ 别拿屏幕 px 直接当设计值）。
+        /// <summary>本页内容列的**左右沿**（原版 `General Tab > Language Selector` / `Checkboxes` /
+        /// `Bottom Buttons` 三条的 x 范围都从这开始）。
+        /// · 左 = **596.52**：与页标题 `Tab Title` 的左沿同值（原版本页那几颗的左沿都是它）；
+        /// · 右 = **1431.33**：屏幕 `1384.2` ⇒ `960 + (1384.2 − 960) ÷ 0.9 = 1431.3333`。
+        /// ⚠️ 它**不是** `TabsR`(1538.78) —— 内容列比 `Tab Content` 窄（底下那两个钮那一行才是到 `TabsR`）。</summary>
+        public const float GenL = 596.52f, GenR = 1431.33f;
+
+        /// <summary>`Language Selector` 那一行（原版 `General Tab > Language Selector`，组件
+        /// `LanguageSelector`）的**顶 / 高**：屏幕 `359.1 → 412.5` ⇒ 顶 `540 + (359.1 − 540) ÷ 0.9 = 339.0`、
+        /// 高 `(412.5 − 359.1) ÷ 0.9 = 59.333`。
+        /// 🔴 与§23 那句「主菜单 `[597,339 401×59]`」**互相印证**（597/339 就是这一行；401×59 是它里面那个下拉框）。</summary>
+        public const float GenSelT = 339.00f, GenSelH = 59.33f;
+        /// <summary>下拉框（原版 `LanguagesDropdown`，`Image + TMP_Dropdown`）的右沿：屏幕 `993.5`
+        /// ⇒ `960 + 33.5 ÷ 0.9 = 997.22`。左沿 = `GenL`（两者同左沿 ⇒ 宽 **400.70**）。
+        /// 底图 = `40K_dropdown_field_closed`（原版 `Image.m_Type = 0`(**Simple**) ⇒ **拉伸**，⛔ 不是九宫格；
+        /// 同页底下两颗钮那两张则是 `Simple + preserveAspect`，见 `GenButton`）。
+        /// 染色 = 原版 `Image.m_Color = (0.286, 0.965, 0.686, 1)`（对战那扇的同一个控件是 `(0.122,0.973,0.537,1)`）。</summary>
+        public const float GenFieldR = 997.22f;
+        /// <summary>下拉框里那行**标题文字**（原版 `LanguagesDropdown > Label`）：框 = 屏幕 `641.9…984.5` × `365.4…407.1`
+        /// ⇒ 设计 `606.56…987.22` × `346.00…392.33` ⇒ **左右各内缩 10**（`GenL + 10` / `GenFieldR − 10`）。
+        /// 字号 **18**（原版 `m_fontSize 18`、auto 18~40、`Left/Middle`）、色 `(0.67,0.67,0.67,1)`（原版灰）。</summary>
+        public const float GenCapInset = 10f;
+        public const float GenCapFontPx = 18f;
+        public static readonly Color GenCapColor = new Color(0.67f, 0.67f, 0.67f, 1f);
+        /// <summary>下拉框右端那个箭头（原版 `LanguagesDropdown > Arrow`）：框 20×20、**`preserveAspect`**、
+        /// 屏幕 `971…989` × `376.8…394.8` ⇒ 设计 `972.22…992.22` × `358.67…378.67`。
+        /// 🔴 **图名是「我们的选择」**：原版那颗 `Image.m_Sprite` 的 PathID(`-1891211968353393973`)
+        /// **本地没解出名字**（`menu_dump` 印 `<未解出 …>`）⇒ 用工程别处同一个下拉件在用的
+        /// `40K_dropdown_arrow_closed`（46×19，工程里 `AlliancesTab` / `AllianceMemberTab` 两处就是这么接的）。</summary>
+        public const float GenArrowL = 972.22f, GenArrowT = 358.67f, GenArrowW = 20f;
+        /// <summary>箭头那颗 `Image` 的 `m_Color`（原版实读）。⚠️ 对战那扇同一个控件是 `(0.0196,0.353,0.192,1)`
+        /// —— **两处各抄各的**，⛔ 别合并成一个常量。</summary>
+        public static readonly Color GenArrowTint = new Color(0.0902f, 0.353f, 0.251f, 1f);
+        /// <summary>`Select Language` 那颗标签（原版 `General Tab > Language Selector > SelectLanguageText`）：
+        /// 屏幕 `1017.5…1384.2` × `359.0…412.5` ⇒ 设计 `1023.89…`(=`960 + 57.5 ÷ 0.9`)`…1431.33` × `338.89…398.33`。
+        /// 文字 `'Select Language'`、字号 **42**、`Left/Middle`、白。词条 = `MainMenu/Settings/ButtonLabel/SelectLanguage`。</summary>
+        public const float GenSelTextL = 1023.89f, GenSelTextT = 338.89f;
+
+        /// <summary>`VersionText`（原版那一颗 TMP）：屏幕 `1200.4…1446.1` × `182.8…219.5`
+        /// ⇒ 设计 `1227.11…1500.11` × `143.11…183.89`。
+        /// 字号 **28**（`m_fontSize 28` / base 26 / auto 1~28）、**`Right/Middle`**（原版就是右对齐）、白。
+        /// 🔴 **文字内容**：原版是 `"v" + PlayerDataManager.gameVersionForShowingToPlayers`
+        /// （`GeneralTab_OnSetup.c` 实读：`String.Concat("v", …)` ⇒ prefab 里那句 `v0.15.5PREPROD-0` 是**运行时填的**）
+        /// ⇒ 我们这边取 `Application.version`（见 `VersionText`）。</summary>
+        public const float GenVerL = 1227.11f, GenVerT = 143.11f, GenVerR = 1500.11f, GenVerB = 183.89f;
+        public const float GenVerFontPx = 28f;
+
+        /// <summary>`Checkboxes` 组第一行的**行顶**：屏幕 `455.5` ⇒ `540 + (455.5 − 540) ÷ 0.9 = 446.11`。
+        /// 🔴 **行高 / 步进直接复用图像页那一对**（`ChkRowH = 75.641` / `ChkRowStep = 80.641`）——
+        /// 两页在原版里是**同一个** `VerticalLayoutGroup`（`m_Spacing 5` + `ctrlH 0` + 那几颗
+        /// `EverguildToggle` 自己的 `m_SizeDelta.y = 75.641`）：实测本页三行行顶
+        /// `446.11 / 526.78 / 607.44`，步进 `80.67 / 80.66` ⇒ 与 80.641 在 dump 的四舍五入内**逐值吻合**。
+        /// ⛔ 别在本页另写一个行高常数（两处写同一条规则 = 迟早不一致）。</summary>
+        public const float GenChkT = 446.11f;
+        /// <summary>勾选框那一格的**宽 / 高**（原版每行里那颗 `Toggle` 的矩形）。
+        /// 🔴 **判据 = 隔壁那颗同族开关**：原版 `battlearena1` 的 `BattleSettingsPanel/Auto Zoom Toggle/Toggle`
+        /// 与本节这三行**是同一个组件族**（`EverguildToggle` + **同一对图** `-5728790147372056906` /
+        /// `4411787853012002210`、同样是 fs42 的 `Label` `Left/Middle`、同样的行高 75.641）
+        /// ⇒ 取它实读的 `74.0616 × 57.6656`（= `Shell/SettingsWindow.cs` 的 `Az*` 那一族同源值，
+        /// 见 `Battle/SettingsPanel.cs` 的 `AzBoxWPx/AzBoxHPx`），**标签左沿 = 行左 + 79.0**
+        /// （`AzLabelLeftPx − AzRowCxPx + AzRowWPx/2 = 79.0`）。
+        /// ⚠️ **本地算不出本页那三行的子件实宽**：它们挂在 `HorizontalLayoutGroup`（`ctrlW=1`）下，
+        /// `menu_dump` 自己标了「⚠️ 主轴尺寸算不准 ⇒ 表里那几个子节点的值**别照抄**」（印出来是 0.00 宽）。
+        /// 两条独立印证这一对值：① 隔壁那个同族开关；② 两者**中间那条 4.94px 的缝**在这两处**逐值相同**
+        /// （79.0 − 74.0616 = 4.9384 = `AzBox` 右沿 `−208.36` → `AzLabel` 左沿 `−203.42`）。</summary>
+        public const float GenBoxW = 74.0616f, GenBoxH = 57.6656f, GenLabelOff = 79f;
+
+        /// <summary>`Bottom Buttons` 行：屏幕 `755.6…836.6` ⇒ 设计 `779.56…869.56`（高 **90**）、
+        /// 左沿 `GenL`、右沿 `TabsR`(1538.78)；两颗钮各 **300×90**、**间距 40**（原版 HLG `m_Spacing 40`）：
+        /// `Redeem Code` 设计 `596.52…896.56` · `Close Game Button` `936.56…1236.56`。
+        /// 两张底图都是 `40K_button`（489×107）`Simple + preserveAspect` + 染色 `(0.369,0.894,0.588,1)`、
+        /// 文字白：`Redeem Code` fs **40**、`Exit Game` fs **38**（原版两颗**不一样大**，照抄）。</summary>
+        public const float GenBtnT = 779.56f, GenBtnH = 90f, GenBtnW = 300f, GenBtnGap = 40f;
+        public const float GenBtn2L = GenL + GenBtnW + GenBtnGap;      // 936.56
+        public const float GenBtnFont1 = 40f, GenBtnFont2 = 38f;
+        public static readonly Color GenBtnTint = new Color(0.369f, 0.894f, 0.588f, 1f);
+        /// <summary>下拉框底图的染色（原版 `LanguagesDropdown` 那颗 `Image.m_Color`）。
+        /// ⚠️ 与底下两颗钮那个绿**不是同一个值**（(0.286,0.965,0.686) vs (0.369,0.894,0.588)）——
+        /// 两处**各抄各的**，⛔ 别合并成一个常量。</summary>
+        public static readonly Color GenFieldTint = new Color(0.286f, 0.965f, 0.686f, 1f);
+        public const string ArtLangField = "40K_dropdown_field_closed";
+        /// <summary>下拉箭头 —— 图名是**我们的选择**（原版那颗 PathID 没解出名字），见 `GenArrowL` 那条。</summary>
+        public const string ArtLangArrow = "40K_dropdown_arrow_closed";
+
+        /// <summary>General 页那三行**勾选框**的两张图（原版那两格的 `Image.m_Sprite` 的 PathID
+        /// `-5728790147372056906` / `4411787853012002210` 本地**没解出名字** ⇒ 图名取**同族那一颗已经接上的**：
+        /// `Battle/SettingsPanel.cs` 的 A424 就把这两个 PathID 落成了这两张，且 `Resources/Art/ui_menu/` 里都有）。
+        /// 🔴 **与图像页那一族（`40K_toggle_on/off`）不是同一套** —— 两页各照各的原版件，别合并。</summary>
+        public const string ArtToggleBox = "40k_dropdown_bg", ArtToggleCheck = "40K_settings_icon_checkmark";
+        /// <summary>勾选框的染色 = 原版那颗 `Toggle` 的 `m_Colors.m_NormalColor`
+        /// （`Selectable` 的 ColorTint 常态档；那颗 `Image` 自己的 `m_Color` 是白）。
+        /// <para>🔴 **判据 = 同族那一颗**（`bundle_scenes_scenes_battlearena1` 的
+        /// `BattleSettingsPanel/Auto Zoom Toggle/Toggle` 的 MB `MonoBehaviour_4356.json` 实读
+        /// `(0.2862745, 0.9647059, 0.6862745, 1)`）—— 与本页这三行**是同一个组件族 + 同一对图 + 同样的行高 75.641**。
+        /// ⚠️ **本页那三颗自己的 `m_Colors` 本地没读到**（`menu_dump` 不印它）⇒ 这一格是**同族推断**，
+        /// 不是本页实读（已记进报告 §没查清）。</para></summary>
+        public static readonly Color GenBoxTint = new Color(0.2862745f, 0.9647059f, 0.6862745f, 1f);
+
+        /// <summary>General 页签的图标（原版 `40K_settings_button_general`，同一族里确有此图）。</summary>
+        public const string ArtTabIconGeneral = "40K_settings_button_general";
+
+        // ============================================================ 语言下拉的【12 行列表】（A862，2026-10-17）
+        //
+        // 判据 = 原版 prefab `Main Menu Settings Window > Menu Area > Mask Tabs buttons > Tab Buttons >
+        //        General Tab > Language Selector > LanguagesDropdown > Template` **逐字段实读**：
+        //   · 结构：`Template`(Image + ScrollRect + Canvas + `DropdownList`) → `Viewport`(Mask, showGraphic=0)
+        //     → `Content` → `Item`(Toggle) → {`Item Background` / `Item Checkmark` / `Item Label`}；
+        //     另有 `Template > Scrollbar` → `Sliding Area` → `Handle`。
+        //   · RT 字段实读（`RectTransform_-8168062444739330138` = 本窗的 `Template`）：
+        //     `aMin(0,0.5) aMax(1,0.5) aPos(-2.5,-22) sizeDelta(-4.9998, **573.9600219726562**) pivot(0.5,1)`
+        //     ⇒ 挂在一个 400.666412 宽的 `LanguagesDropdown` 上 ⇒ 设计 **395.666 × 573.960**，
+        //     左上角 = **596.556, 390.667**（= 下拉框左沿 596.556 · 框心 368.7 往下 22 —— ⚠️ `aPos.y` 是**向下**）。
+        //   · 行为：`TMP_Dropdown.Show()`（本机 ugui 源码 `Runtime/TMP/TMP_Dropdown.cs`，行号那份；
+        //     本 build 用的就是**未改动的官方 TMP_Dropdown** —— 三条旁证见报告 §三.3）：
+        //     `OnPointerClick:742 → Show():778` → **`Instantiate(m_Template.gameObject)` 得到克隆体、改名
+        //     `"Dropdown List"`、`SetParent(m_Template.transform.parent, false)`（⇒ 挂在 `LanguagesDropdown`
+        //     下、与 `Template` 同级）** → 逐项摆位 → 淡入 → **`m_Template.gameObject.SetActive(false)`**
+        //     → `CreateBlocker()`；点行 ⇒ `OnSelectItem:1247`（按兄弟序算行号）= `value = i` + **末尾 `Hide()`**；
+        //     **点空白** ⇒ `CreateBlocker:1009` 那颗铺满全屏的透明 `Blocker` 的 `onClick → Hide`；
+        //     **ESC** ⇒ `OnCancel:763 → Hide():765`。
+        //
+        // 🔴 **`Template` 出厂 `m_IsActive = 0`（恒关）** —— 原型只在 prefab 里，运行时那份是**克隆体**。
+        //    本窗照这个结构落地：`Template` 建**一份**（关着，供自检与将来取裁切）、
+        //    真正显示的那份叫 **`Dropdown List`**、首开时才建（= 原版的 `Instantiate`）。
+        //
+        // ⚠️ **我们挑的 / 查不到的（逐条，铁律 3）**：
+        //   ① `Item Checkmark` 原版用 Unity **内置** `Checkmark`（40×40，`bundle_Warpforge_unitybuiltinassets`），
+        //      **本地 `Resources/` 里没有导入** ⇒ 改用**同窗勾选框那颗** `40K_settings_icon_checkmark`
+        //      （同一扇窗、同一种语义；**这是我们的选择**）。
+        //   ② `Scrollbar` / `Handle` 原版用内置 `Background` / `UISprite`。`Background` 我们 `ui_menu/` 里有
+        //      ⇒ 照用；`UISprite` 没导入 ⇒ 用工程自己那张 `40k_menu_scroll_bar_fill`（**我们的选择**）。
+        //   ③ **淡入不做**：原版 `AlphaFadeList(m_AlphaFadeSpeed = 0.15, 0→1)` 要**帧循环**，本工程的
+        //      `ImageQuad` / `Label` 没有 alpha 动画口（批处理下也没有帧循环）⇒ 如实记，⛔ 不假装有。
+        //   ④ `Template` 上那颗 `Canvas`（`overrideSorting` + `DropdownList.OnEnable` 把 `sortingLayerName`
+        //      设成 **`"PopUps"`**，prefab 里的 `m_SortingOrder = 32767`）—— 本工程没有 UGUI `Canvas`/排序层
+        //      这套东西，等价物 = **渲染队列**（本窗最高那几档，见 `QBlocker`…`QScroll`）。
+
+        /// <summary>`Template` 面板的**设计矩形**（左上 596.556,390.667 · 395.666 × 573.960）——
+        /// 见上面那段 RT 字段实读。⚠️ 屏幕 px 是 `632.9…989.0 × 405.6…922.1`（× 0.9），⛔ 别当设计值用。</summary>
+        public const float LstL = 596.556f, LstT = 390.667f, LstR = 992.222f, LstB = 964.627f;
+        /// <summary>`Viewport`（原版 `aMin(0,0) aMax(1,1) aPos(0,0) sizeDelta(**-17**,0) pivot(0,1)`）：
+        /// 左 = `Template` 左、**右 = `Template` 右 − 17**、上下与 `Template` 同高。
+        /// 它挂 `Mask` + `Image`（`UIMask`，**`m_ShowMaskGraphic = 0`** ⇒ **不画**，只当裁切框）。</summary>
+        public const float LstVpR = LstR - 17f;                 // 975.222
+        /// <summary>`Content`（`aMin(0,1) aMax(1,1) sizeDelta(0, **41.7226**) pivot(0.5,1)`）——
+        /// 41.7226 是**模板位**（一个 `Item` 高）；运行时 `Show()` 会按
+        /// `sizeDelta.y = itemSize.y × 选项数` 重算（12 项 ⇒ 490.45）。</summary>
+        public const float LstContentH1 = 41.7226f;
+        /// <summary>`Item` 的**行高** —— 原版 `Item` 的 `m_SizeDelta.y = **40.8707**`
+        /// （`aMin(0,0.5) aMax(1,0.5)` ⇒ 宽 = `Content` 宽 378.666）。
+        /// ⚠️ `menu_dump` 印的 `36.78` 是**屏幕 px**（× 0.9）。</summary>
+        public const float LstItemH = 40.8707f;
+        /// <summary>`Item Checkmark`（`aMin/aMax x = 0`、`aPos(10,0)`、`size(20,20)`）：
+        /// **中轴在行左起 10**、20×20 ⇒ x `596.556…616.556`。</summary>
+        public const float LstChkCx = 10f, LstChkS = 20f;
+        /// <summary>`Item Label`（`aMin(0,0) aMax(1,1) aPos(5,-0.5) sizeDelta(**-30,-3**)`）：
+        /// ⇒ 行内边距 **左 20 · 右 10 · 上 2 · 下 1**（`x` `596.556+20 … 975.222-10`）。
+        /// 字号 **30**（`m_fontSize`，`m_fontSizeBase 14`、auto 18~40）、`Left/Middle`、折行 1、
+        /// 色 `(0.783,0.783,0.783,1)` = `0xFFC8C8C8`（那两个字段这条**是一致的**）。</summary>
+        public const float LstLblPadL = 20f, LstLblPadR = 10f, LstLblPadT = 2f, LstLblPadB = 1f;
+        public const float LstLblFontPx = 30f;
+        public static readonly Color LstLblColor = new Color(0.783f, 0.783f, 0.783f, 1f);
+        /// <summary>`Template > Scrollbar`（`aMin(1,0) aMax(1,1) sizeDelta(**20**,0) pivot(1,1)`）：
+        /// 宽 **20**、贴 `Template` 右沿 ⇒ x `972.222…992.222`、上下与 `Template` 同。
+        /// `m_Direction = 2`(BottomToTop)、`m_NumberOfSteps = 0`、`m_Transition = 1`(ColorTint)。</summary>
+        public const float LstSbW = 20f;
+        /// <summary>`Handle` 的**序列化**高 = 滑动区高 553.96 × `m_Size 0.9273074865341187` + `sizeDelta.y 20`
+        /// = **533.69**（贴 `Sliding Area` 的底）⇒ y `430.9…964.6`。
+        /// 🔴 **它运行时会被 `ScrollRect.UpdateBounds` 重算**；而本列表 **12 × 40.8707 = 490.45 < 视口 573.96
+        /// ⇒ 根本没有可滚范围**（照原版 `AdjustBounds`，同本窗图像页那一列 A172 的那条结论）⇒
+        /// 原版 `m_VerticalScrollbarVisibility = **2**(AutoHideAndExpandViewport)` 会把整根 Scrollbar
+        /// **SetActive(false)**（内容装得下就不显示）。本窗照办：**Scrollbar 建出来但恒关着**。</summary>
+        public const float LstHandleH = 533.69f;
+        /// <summary>`ScrollRect` 实读：`m_Horizontal 0` · `m_Vertical 1` · **`m_MovementType 2`(Clamped)**
+        /// · `m_Elasticity 0.1` · `m_Inertia 1` · `m_DecelerationRate 0.135` · `m_ScrollSensitivity 1.0`
+        /// · `m_VerticalScrollbar` → 上面那颗 · **`m_VerticalScrollbarVisibility 2`** · spacing **−3.0**。
+        /// ⚠️ 与图像页那一列**不是同一支**（那边是 `1`(Elastic)）—— 两处各照各的原版件。</summary>
+        public const int LstMovementType = 2;
+
+        /// <summary>面板底图 = `40K_dropdown_bg`（119×102 · **九宫 (23,20,23,20)** · `m_Type = 1`(Sliced) ·
+        /// **`m_PixelsPerUnitMultiplier = 1.09`**）。⚠️ 它和 General 页那三颗**勾选框底图是同一张**
+        /// （同一个 PathID `-5728790147372056906`）—— 但**用法不同**：那边 `Simple + preserveAspect`、
+        /// 这边 `Sliced`。⛔ 别把两处的 `m_Type` 合并成一个常量。</summary>
+        public const string ArtLstPanel = "40k_dropdown_bg";
+        public const float LstPanelTexW = 119f, LstPanelTexH = 102f;
+        public static readonly Vector4 LstPanelBorder = new Vector4(23f, 20f, 23f, 20f);
+        /// <summary>面板端帽的**实画**尺寸 —— 🔴 **单位是【画布 px】**（`ImageQuad.CreateNineSlice` 的
+        /// `borderOutPx` 按 `wl = ol / PixelsPerUnit` 用 ⇒ 与矩形同一个坐标系）。
+        /// <para>算式两跳：① uGUI `Image.GenerateSlicedSprite` 把 `m_Border ÷ multipliedPixelsPerUnit`
+        /// 当画出来的端帽 —— `multipliedPixelsPerUnit = pixelsPerUnit(1) × m_PixelsPerUnitMultiplier`，
+        /// 而本窗贴图 ppu 与画布参考 ppu 都是 100 ⇒ `23 / 1.09 = 21.1009`、`20 / 1.09 = 18.3486`
+        /// （**原版 UI 单位**）；② 本窗根上那层 `m_LocalScale = 0.9` 是烘进坐标的
+        /// （我们画布 px = 原版渲染 px）⇒ 再 × `RootScale`。</para>
+        /// ⛔ 少了第 ② 跳端帽会大 11%；⛔ 也别把 `border`（UV 那一个）跟着缩放 ——
+        /// 那个是**贴图 px**、只用来切 uv（见 `CreateNineSlice` 的 `uL = l / texW`）。</summary>
+        public static readonly Vector4 LstPanelBorderOut =
+            new Vector4(23f / 1.09f * RootScale, 20f / 1.09f * RootScale,
+                        23f / 1.09f * RootScale, 20f / 1.09f * RootScale);   // 18.991 / 16.514
+
+        /// <summary>行底图四态（`Item` 那颗 `Toggle` 的 `m_Transition = 2`(SpriteSwap) 的 `m_SpriteState`，
+        /// 四个 PathID **逐条在切片索引里核到名字**）：
+        /// Normal = `Item Background` 自己那颗 `Image.m_Sprite` = **`40K_dropdown_item`**（717×92 · **无九宫**）·
+        /// Highlighted = **`_hover`** · Pressed = **`_press`** · Selected = **`_selected`**。
+        /// ⚠️ `m_SelectedSprite` 那一档是**事件系统「选中」**（不是「当前值」）—— 「当前值」那一行原版只动
+        /// **勾**那一层（`Toggle.isOn` → `graphic` 的 alpha）。本窗照这个分工。</summary>
+        public const string ArtLstItem = "40K_dropdown_item", ArtLstItemHi = "40K_dropdown_item_hover",
+                            ArtLstItemPr = "40K_dropdown_item_press", ArtLstItemSel = "40K_dropdown_item_selected";
+        /// <summary>`Item Background` 那颗 `Image.m_Color`（原版实读）—— 与勾选框底图那一格**同值**
+        /// （(0.2863,0.9647,0.6863,1)），但**各抄各的**（两处是两颗不同的对象）。</summary>
+        public static readonly Color LstItemTint = new Color(0.2863f, 0.9647f, 0.6863f, 1f);
+        /// <summary>勾那一层用的图 —— **我们的选择**（原版是 Unity 内置 `Checkmark`，本地没导入），见上面 ①。</summary>
+        public const string ArtLstCheck = "40K_settings_icon_checkmark";
+        /// <summary>滚动条两根 —— 条底照原版用内置 `Background`（我们 `ui_menu/` 里有）；
+        /// 把手那张原版是内置 `UISprite`（没导入）⇒ **我们的选择**：工程自己那张
+        /// `40k_menu_scroll_bar_fill`（20×50，与 `Background` 同尺寸）。</summary>
+        public const string ArtLstSbBg = "Background", ArtLstSbHandle = "40k_menu_scroll_bar_fill";
+
+        /// <summary>列表这一族用的**渲染队列**（本工程没有 UGUI `Canvas` 排序层 ⇒ 拿队列当它，
+        /// 同 CLAUDE.md §三 那条「分层要用渲染队列、不能用 z」）。
+        /// 序：`BackgroundHit`(3130) < `QOverlay`(3135) < **`QBlocker`(3140)** < `QListBg`(3141)
+        /// < `QListItem`(3142) < `QListText`(3143) < `QScroll`(3144)。
+        /// 🔴 **挡住「点窗外关窗」那条**：`BackgroundHit` 在 3130 ⇒ 列表开着时点窗外只会关**列表**（原版正是
+        /// `Blocker` 盖住整屏、它在 dropdown 那一层 Canvas 的 `sortingOrder - 1`）。</summary>
+        public const int QBlocker = 3140, QListBg = 3141, QListItem = 3142, QListText = 3143, QScroll = 3144;
+        /// <summary>列表根节点的名字 —— **照原版运行时的名字**（`TMP_Dropdown.Show():820` 的 `"Dropdown List"`）。</summary>
+        public const string LangListNodeName = "Dropdown List";
+
         // 联机页（**这一页是我们设计的**，见文件头 ①）
         public const float OnRoleT = 280f, OnRoleB = 340f, OnRoleW = 300f, OnRoleGap = 20f;
         public const float OnLabelT = 370f, OnFieldT = 400f, OnFieldH = 60f, OnFieldW = 500f;
@@ -380,6 +681,18 @@ namespace CardPresentation
         readonly List<WindowButton> _tabWbs = new List<WindowButton>();
         readonly List<Transform> _pages = new List<Transform>();
         readonly List<string> MissingArt = new List<string>();
+
+        /// <summary>🆕 2026-10-17：一条「文案跟语言走」的标签 —— `RefreshTexts()` 按它重设。
+        /// 存**键**而不是存文本：语言一换就只要 `SetText(Loc.T(Key))`（⛔ 别在别处再存一份译文）。</summary>
+        struct Keyed
+        {
+            public Label Lb; public string Key;
+            public Keyed(Label lb, string key) { Lb = lb; Key = key; }
+        }
+        /// <summary>页签上那几行字（目前只有 `General` 那条的词条是通的 —— 见 `BuildTabs` 的注释）。</summary>
+        readonly List<Keyed> _tabLabels = new List<Keyed>();
+        /// <summary>General 页里所有要翻译的标签（含那两个钮上的字）。</summary>
+        readonly List<Keyed> _genLabels = new List<Keyed>();
 
         // 联机页的控件
         MenuInputField _ipField, _pwdField;
@@ -469,8 +782,32 @@ namespace CardPresentation
         /// 就落 `PlayerPrefs` 了（见 `SuperSampling` 类注释 ①），所以这里只剩「应用」那半。</para></summary>
         public override void Close()
         {
+            // 🆕 A862：关窗时先把列表收掉（原版 `SettingsMenu__OnDestroy` 那条会连下拉一起清；
+            //   我们的列表挂在窗根下 ⇒ 根一销毁就没了，但**光收不显式关**会留下一个活着的 `Blocker`
+            //   命中区（队列 3140）挡住下一扇窗 —— 那是静默故障）。⛔ 别删这两句。
+            HideLangList();
             base.Close();
             SuperSampling.ApplyIfDirty();
+        }
+
+        /// <summary>🆕 **A862（2026-10-17）**：`ESC` 先关**语言下拉列表**、再轮到关窗。
+        /// <para>判据 = 原版 `TMP_Dropdown.OnCancel(BaseEventData) → Hide()`（本机 ugui 源码
+        /// `Runtime/TMP/TMP_Dropdown.cs:763-766`，那段 doc 写着「Called by a BaseInputModule when a Cancel
+        /// event occurs」），而它在 UGUI 里**先于**窗自己的 `closeOnESC` 吃到那颗 `Cancel`
+        /// （`ExecuteEvents` 按「当前选中对象 → 父链」派发，下拉是 `ICancelHandler` ⇒ 事件被它消费掉）。</para>
+        /// <para>本工程**没有 UGUI EventSystem** ⇒ 等价物 = 在窗自己的 `ESCPressed()` 里**抢在 `base` 之前**
+        /// 判一次（`PointerLayer.KeyCancel` 的第 ③ 跳调的就是这里）。返回 `true` = 「这一下被用掉了」，
+        /// 于是 `PointerLayer` 不会再往下走关窗那条路（那个 bool 是本工程加的，见 `WindowsManager.ESCPressed`）。</para>
+        /// ⚠️ **列表没开时不改变任何既有行为**（直接转发 `base`）。</summary>
+        public override bool ESCPressed()
+        {
+            if (LangListOpen)
+            {
+                HideLangList();
+                Debug.Log("[Settings] ESC：**先收语言下拉列表**（原版 `TMP_Dropdown.OnCancel → Hide()`）—— 窗不关");
+                return true;
+            }
+            return base.ESCPressed();
         }
 
         // ============================================================ 建
@@ -481,6 +818,13 @@ namespace CardPresentation
             // ⚠️ **根节点保持 scale 1** —— 原版那个 0.9 由 `Screen()` 烘进坐标（见 `Screen` 的注释）
             for (int i = root.childCount - 1; i >= 0; i--) RewardsWindow.DestroySafe(root.GetChild(i).gameObject);
             _tabBgs.Clear(); _tabWbs.Clear(); _pages.Clear(); MissingArt.Clear();
+            // ⚠️ **这三个也要清**：`Build()` 每次开窗都跑（`Open()` 第一句），不清就会攒下**上一棵树里
+            //    已经销毁的** quad / label 引用 ⇒ `RefreshTexts` 去碰它们（假 null 守卫挡住了不会炸，
+            //    但那一批字就**永远不再更新**了 ⇒ 静默）。
+            _tabLabels.Clear(); _genLabels.Clear(); _genChecks.Clear(); _langCap = null;
+            // 🆕 A862：列表这一族也要清（`_langList` / `_langBlocker` 是 `Build()` 里新挂的子树，
+            //   上一棵树的引用会变假 null）；⚠️ `PointerLayer` 那几件不在本窗（列表不注册滚动区，见 `LstHandleH`）。
+            _langRows.Clear(); _langList = null; _langBlocker = null; _langBlockerHit = null; _langTemplate = null;
 
             // 1) 压暗整屏（`Menu Dark Background`：无 sprite 的纯色块）
             Node(root, "Menu Dark Background", 960f - ShadeW * 0.5f, 540f - ShadeH * 0.5f,
@@ -532,8 +876,11 @@ namespace CardPresentation
                 Close();
             }, closeBgQ, ArtCloseBg, "40k_bt_close_hover");
 
-            // 4) 左栏三个页签 + 三页内容
+            // 4) 左栏四个页签 + 四页内容
+            //    🔴 **顺序 = `SettingsTab` 的序号**（`OpenTab` 按序号切 `activeSelf`）——
+            //    原版页签序也是 `General` 第一（`General / Media / Account / Graphics / Support`）。
             BuildTabs(area);
+            _pages.Add(BuildGeneralPage(area));
             _pages.Add(BuildGraphicsPage(area));
             _pages.Add(BuildAudioPage(area));
             _pages.Add(BuildOnlinePage(area));
@@ -542,34 +889,50 @@ namespace CardPresentation
         void BuildTabs(Transform area)
         {
             var bar = Node(area, "Tab Buttons", BarL, BarT, BarR, BarB);
-            // 三个键（原版这一列有 5 个，我们只建 3 个 —— 文件头 ③）
+            // 四个键（原版这一列有 5 个，我们建 4 个 —— 文件头 ③）
+            // 🔴 **`Label` 有两个身份，别混**：① `Node(...)` 的**节点名**（= 自检 `FindChild` / `Click` 用的
+            //    稳定英文标识，⛔ 不随语言变）② 画在键上那行字的**文案**（走 `Key`，语言一换就变）。
+            //    2026-10-17 之前两者是同一个字符串（只有 `Graphics/Audio/Online` 三页、不翻译）；
+            //    General 页是**第一个要翻译的** ⇒ 拆开。`Key` 为 null = 照 `Label` 原样画（那三页还没接）。
             var specs = new[]
             {
-                new { Tab = SettingsTab.Graphics, Label = "Graphics", Icon = "40K_settings_button_graphics" },
-                new { Tab = SettingsTab.Audio,    Label = "Audio",    Icon = "40K_settings_button_quality" },   // 原版 Media 页用的就是 quality 那张
-                new { Tab = SettingsTab.Online,   Label = "Online",   Icon = "40K_settings_button_account" },   // ⚠️ 我们挑的（联机页原版没有）
+                new { Tab = SettingsTab.General,  Label = "General",  Key = "Settings/General/Title",      Icon = ArtTabIconGeneral },              // 原版页签图标有单独一张 general
+                new { Tab = SettingsTab.Graphics, Label = "Graphics", Key = (string)null,                   Icon = "40K_settings_button_graphics" },
+                new { Tab = SettingsTab.Audio,    Label = "Audio",    Key = (string)null,                   Icon = "40K_settings_button_quality" },   // 原版 Media 页用的就是 quality 那张
+                new { Tab = SettingsTab.Online,   Label = "Online",   Key = (string)null,                   Icon = "40K_settings_button_account" },   // ⚠️ 我们挑的（联机页原版没有）
             };
             for (int i = 0; i < specs.Length; i++)
             {
-                float t = BarT + BarPadTop + i * TabBtnH, b = t + TabBtnH;
-                var page = Node(bar, specs[i].Label, BarL, t, BarR, b);
-                var bg = Rect(page, "button_bg", BarL, t, BarR, b, ArtTabBg, QContent);
+                // 🔴 **2026-10-17（A863）**：键的矩形换成**原版那一条算式**（`TabTop` / `TabL` / `TabW`）——
+                //   旧写法 `BarT + BarPadTop + i * TabBtnH`（padTop 30 · spacing 0 · 满栏宽）三项全偏：
+                //   起排位置、键顶步进、键宽各一处（逐条出处见文件头与那几个常量）。
+                //   ⚠️ `TabTop` 要**实际键数**（余量按 n 分摊）⇒ 传 `specs.Length`，⛔ 别写死 5。
+                float t = TabTop(i, specs.Length), b = t + TabBtnH;
+                var page = Node(bar, specs[i].Label, TabL, t, BarR, b);
+                var bg = Rect(page, "button_bg", TabL, t, BarR, b, ArtTabBg, QContent);
                 _tabBgs.Add(bg);
-                // 图标 141×107、文字 155×40 —— 模板位是「布局跑之前」的，横向**按居中**摆（我们的推导，文件头）
+                // 图标 / 文字**居中于【键】那一格**（⛔ 不是居中于整条栏）—— 原版实读：
+                // `Icon` 设计 353.33…494.67 · `Label` 设计 346.56…501.56，两者的中心都是 **424.06**
+                // = 键那一格的中心（`(341.52 + 506.52) / 2`）。旧写法居中的是 `(BarL + BarR) / 2 = 417.31`
+                // ⇒ 比原版**偏左 6.75**（正是键比栏窄的那 13.42 的一半）。
+                // 纵向偏移（相对**键顶**）原版实读：`Icon` **+12.78**、`Label` **+106.0**（底 +145.89）；
+                // 我们沿用 13 / 106 / 146（差 ≤0.22，且在 `TabTop` 换算式之后仍然对得上）。
                 // 🔴 **2026-09-27 补 `keepAspect`（PA 普查抓的）**：原版 `Menu Area > Mask Tabs buttons >
                 //   Tab Buttons > {General/Media/Account/Graphics/Support} > Icon` 全是 **PA=1 + Simple**，
                 //   贴图 `40K_settings_button_*` **122×104** 塞进 141.41×106.82 ⇒ 原版实绘 **125.3×106.82**，
                 //   我们 141 宽 ⇒ **宽 13%**。（⚠️ 那 6 个同尺寸候选的 pid 取不到，分不出哪一份，但尺寸一致。）
-                float cm = (BarL + BarR) * 0.5f;
+                float cm = (TabL + BarR) * 0.5f;
                 Rect(page, "Icon", cm - 141f * 0.5f, t + 13f, cm + 141f * 0.5f, t + 120f, specs[i].Icon, QOverlay,
                      null, true);
-                var lb = Text(page, "Tab Toggle Title", specs[i].Label, cm - 155f * 0.5f, cm + 155f * 0.5f,
+                var lb = Text(page, "Tab Toggle Title", specs[i].Key != null ? Loc.T(specs[i].Key) : specs[i].Label,
+                              cm - 155f * 0.5f, cm + 155f * 0.5f,
                               t + 106f, t + 146f, 35f, Color.white, QText);
+                if (specs[i].Key != null) _tabLabels.Add(new Keyed(lb, specs[i].Key));
                 var tab = specs[i].Tab;
                 // 🆕 A17：原版页签是 `EverguildToggle`（`onSprite = 40K_settings_button_hover` ·
                 // `offSprite = 40K_settings_button`），而 **`m_SpriteState` 的悬停图是 `…_selected`**
                 // —— 正好是 `WindowButton` 那张表里的一行 ⇒ 直接按常态图名绑。
-                var tabHit = Hit(page, "Hit", BarL, t, BarR, b, QOverlay, () => OpenTab(tab), bg, ArtTabBg);
+                var tabHit = Hit(page, "Hit", TabL, t, BarR, b, QOverlay, () => OpenTab(tab), bg, ArtTabBg);
                 var twb = tabHit != null ? tabHit.GetComponent<WindowButton>() : null;
                 if (twb != null && !_tabWbs.Contains(twb)) _tabWbs.Add(twb);
             }
@@ -579,6 +942,9 @@ namespace CardPresentation
         public void OpenTab(SettingsTab t)
         {
             Current = t;
+            // 🆕 A862：切页时先把语言下拉收掉（列表挂在 `General Tab` 的 `LanguagesDropdown` 下、而
+            //   `Blocker` 挂在**窗根**下 ⇒ 切走那一页的话列表跟着藏了、`Blocker` 却还盖着整屏 = 静默卡死）。
+            HideLangList();
             for (int i = 0; i < _pages.Count; i++)
                 if (_pages[i] != null) _pages[i].gameObject.SetActive(i == (int)t);
             for (int i = 0; i < _tabBgs.Count; i++)
@@ -590,11 +956,553 @@ namespace CardPresentation
                 _tabBgs[i].SetTexture(onTex);
                 // 🔴 `SetTexture` 会把 `_aspect` 冲成**贴图自己的**比值 ⇒ 必须把「按原版矩形定的」那个比值拉回来
                 //（同族先例 `BattleLogPanel:532` · `AlliancesTab:189`；漏了的话**屏幕形状不变、逻辑宽度被改掉**）
-                _tabBgs[i].SetAspect((BarR - BarL) / TabBtnH);
+                // 🔴 **2026-10-17（A863）**：分子从 `BarR − BarL`（整条栏 178.42）换成 **`BarR − TabL`（键那格 165）**
+                //   —— 键比栏窄 13.42，用旧值会把底图按错的宽高比铺（`Rect` 建的就是 165 宽那一格）。
+                _tabBgs[i].SetAspect((BarR - TabL) / TabBtnH);
                 if (i < _tabWbs.Count && _tabWbs[i] != null) _tabWbs[i].SetNormalTex(onTex);
             }
             if (t == SettingsTab.Online) RefreshOnline();
+            // 🆕 2026-10-17：切页时**兜一道**文案（别处换过语言的话 —— `Loc` 不发事件，见 `RefreshTexts`）。
+            // ⚠️ 它**不动**只会被 `Build` 建一次的那几件（`_genLabels` 里存的引用是活的 ⇒ 直接重设文本，不重建节点）。
+            RefreshTexts();
             Debug.Log($"[Settings] 切到 `{t}` 页");
+        }
+
+        // ============================================================ 页 0：通用（原版 `General Tab`）
+        //
+        // 判据（逐值出处见上面那组 `Gen*` 常量）：
+        //   · 几何 = `python 工具/menu_dump.py bundle_menus_assets_all "General Tab" --depth 4`（原版 prefab 实读）；
+        //   · 组件与行为 = 原版 `GeneralTab`（字段 `languageSelector / disableBotsToggle /
+        //     disableNotificationsToggle / touchInputToggle / versionText / RedeemCodeButton / ExitButton`）
+        //     + `GeneralTab__OnSetup.c` / `_ToggleDisableBots.c` / `_ToggleDisableNotifications.c` /
+        //     `_TouchInputToggle.c` / `_RedeemCode.c`（`d:/2/tools/decomp_full/`，逐句实读）；
+        //   · 文案 = `Loc.T(...)`，键名照原版 `Localize.mTerm`（见 `Core/Loc.cs` 的表）。
+        // 🔴 **本页没建的一件（如实记）**：
+        //   `Debug Buttons` 那一排 —— **原版 `SettingsMenu__Awake.c` 里对它 `SetActive(false)`**（调试层，
+        //   与图像页那条同一个理由），所以本页也不画。
+        //   ✅ **另一件（下拉的 `Template`）2026-10-17（A862）已建** —— 旧记录写的是
+        //   「原版是 Unity 内置模板，点开才实例化 ⇒ 本批没建，改成『点一下换下一个』」：
+        //   那一句里 **只有「点开才实例化」是对的**；`Template` 是**这颗 prefab 自己的子树**、
+        //   组件是**游戏自己的 `DropdownList`**（不是 Unity 内置），判据与逐字段值见下面那组 `Lst*` 常量。
+
+        const string lkGenTitle     = "Settings/General/Title";
+        const string lkDisableBots  = "Settings/General/DisableBots";
+        const string lkDisableNotif = "Settings/General/DisableNotifications";
+        const string lkTouchInput   = "Settings/General/TouchInput";
+        const string lkRedeemCode   = "Settings/General/RedeemCode";
+        const string lkExitGame     = "MainMenu/Settings/ButtonLabel/Exit_Game";
+        const string lkSelectLang   = "MainMenu/Settings/ButtonLabel/SelectLanguage";
+
+        Transform BuildGeneralPage(Transform area)
+        {
+            var page = Node(area, "General Tab", TabsL, TabsT, TabsR, TabsB);
+
+            // ① 页标题（原版 `General Tab > Tab Title`：TMP `'General'` · fs55 · `Left/Capline`）
+            var title = Text(page, "Tab Title", Loc.T(lkGenTitle), TitleL, TitleR, TitleT, TitleB,
+                             PageTitleFontPx, Color.white, QText);
+            if (title != null)
+            {
+                AlignLeft(title, new PxRect(TitleL, TitleT, TitleR, TitleB));
+                _genLabels.Add(new Keyed(title, lkGenTitle));
+            }
+
+            // ② 版本号（原版 `VersionText`：fs28 · **`Right/Middle`** · 右上角那一格）
+            //    文字 = `"v" + 版本`（见 `VersionText()`），⛔ 不写死原版那句 `v0.15.5PREPROD-0`。
+            var ver = Text(page, "VersionText", VersionText(), GenVerL, GenVerR, GenVerT, GenVerB,
+                           GenVerFontPx, Color.white, QText);
+            if (ver != null) AlignRight(ver, new PxRect(GenVerL, GenVerT, GenVerR, GenVerB));
+
+            // ③ 语言（原版 `General Tab > Language Selector`，组件 `LanguageSelector`）
+            {
+                float selB = GenSelT + GenSelH;
+                var row = Node(page, "Language Selector", GenL, GenSelT, GenR, selB);
+                // 🔴 节点树**照原版套**：`Language Selector` 下面才是 `LanguagesDropdown`（那颗 `Image` 就在它身上），
+                //    框里那行字与箭头**是它的子件**（原版 `LanguagesDropdown > Label / Arrow`）——
+                //    ⛔ 别把字挂到 `Language Selector` 那一层（自检 `FindChild` 与将来取裁切都按这条链走）。
+                var fld = Node(row, "LanguagesDropdown", GenL, GenSelT, GenFieldR, selB);
+                // 下拉框底图：原版那颗 `Image` 是 **`m_Type = 0`(Simple)** ⇒ **拉伸**（⛔ 不是九宫格）+
+                //   `m_Color = (0.286,0.965,0.686,1)`（那抹绿是**这一颗自己的** `m_Color` —— 与底下两颗钮
+                //   那个绿**不是同一个值**，见 `GenFieldTint` 那条：两处各抄各的）。
+                var field = Rect(fld, "bg", GenL, GenSelT, GenFieldR, selB,
+                                 ArtLangField, QContent, GenFieldTint);
+                // 框里那行**当前语言名**（原版 `LanguagesDropdown > Label`，fs18 · `Left/Middle` · 灰 (0.67)）
+                // ⚠️ 字号 18 ⇒ 屏幕上是 16.2px（本窗文字要一起过根上那层 0.9，见 `Text` 的注释）
+                //     —— `Editor/SettingsScene.cs` 那条「全窗字号」扫描的允许表已按原版加上这一档。
+                _langCap = Text(fld, "Label", Loc.LanguageName(Loc.Current),
+                                GenL + GenCapInset, GenFieldR - GenCapInset, GenSelT, selB,
+                                GenCapFontPx, GenCapColor, QText);
+                if (_langCap != null)
+                    AlignLeft(_langCap, new PxRect(GenL + GenCapInset, GenSelT, GenFieldR - GenCapInset, selB));
+                // 右端那个箭头（原版 `Arrow`：20×20 · **preserveAspect** · 图名是我们的选择，见常量注释；
+                //   染色 = 原版那颗 `Image.m_Color` 的 `(0.0902,0.353,0.251,1)` —— 与对战那扇的
+                //   `(0.0196,0.353,0.192,1)` **不是同一个值**，两处各抄各的）
+                Rect(fld, "Arrow", GenArrowL, GenArrowT, GenArrowL + GenArrowW, GenArrowT + GenArrowW,
+                     ArtLangArrow, QOverlay, GenArrowTint, true);
+                // 左边那行标签 `Select Language`（词条与**对战那扇窗共用同一条**）
+                var sel = Text(row, "SelectLanguageText", Loc.T(lkSelectLang), GenSelTextL, GenR,
+                               GenSelTextT, GenSelTextT + GenSelH, FontRowLabel, Color.white, QText);
+                if (sel != null)
+                {
+                    AlignLeft(sel, new PxRect(GenSelTextL, GenSelTextT, GenR, GenSelTextT + GenSelH));
+                    _genLabels.Add(new Keyed(sel, lkSelectLang));
+                }
+                // 命中区 = **只有下拉框那一块**（原版 `TMP_Dropdown` 挂在那颗 `LanguagesDropdown` 上；
+                //   左边那行标签点下去原版什么也不发生 ⇒ 我们也不接）。
+                // ⚠️ 悬停换图：原版那颗 `m_SpriteState` 的悬停图 = `40K_dropdown_field_opened`
+                //   （`WindowButton` 的表里就有这一对 —— 与图像页画质那颗同一个底图）。
+                // 🔴 **2026-10-17（A862）改行为（铁律 5 就地更正）**：这里原来接的是 `CycleLanguage`
+                //   （点一下换下一个 = **已知偏离**，那个方法本笔已删 —— 0 调用点）。现在改接
+                //   `ToggleLangList` —— 点开/收起那 12 行列表，与 `TMP_Dropdown.OnPointerClick → Show()` 一致。
+                Hit(row, "LanguageHit", GenL, GenSelT, GenFieldR, selB, QOverlay, ToggleLangList,
+                    field, ArtLangField);
+                // 🆕 A862：`Template` 子树（**照原版套在 `LanguagesDropdown` 下**、恒 inactive）。
+                // ⚠️ 顺序：先 `bg` / `Label` / `Arrow` 再 `Template` —— 原版的子件序就是
+                //   `Label, Arrow, Template`（`TMP_Dropdown` 认的是 `m_Template` 引用、不认序，
+                //   但自检 `FindChild` 按名字找，序只影响可读性）。
+                _langField = fld;
+                BuildLangTemplate(fld);
+            }
+
+            // ④ 三个勾选行（原版 `General Tab > Checkboxes`：VLG · 行高 75.641 · spacing 5）
+            GenToggleRow(page, "Disable Bots", GenChkT, lkDisableBots,
+                         () => GeneralFlags.DisableBots, () => GeneralFlags.DisableBots = !GeneralFlags.DisableBots,
+                         ToggleDisableBotsLog);
+            GenToggleRow(page, "Disable Notifications", GenChkT + ChkRowStep, lkDisableNotif,
+                         () => GeneralFlags.DisableNotifications,
+                         () => GeneralFlags.DisableNotifications = !GeneralFlags.DisableNotifications,
+                         ToggleDisableNotifLog);
+            GenToggleRow(page, "Touch Input", GenChkT + 2f * ChkRowStep, lkTouchInput,
+                         () => GeneralFlags.TouchInput, () => GeneralFlags.TouchInput = !GeneralFlags.TouchInput,
+                         ToggleTouchInputLog);
+
+            // ⑤ 底下两颗钮（原版 `Bottom Buttons`：HLG spacing 40 · 各 300×90）
+            GenButton(page, "Redeem Code", GenL, lkRedeemCode, GenBtnFont1, RedeemCode);
+            GenButton(page, "Close Game Button", GenBtn2L, lkExitGame, GenBtnFont2, ExitGame);
+
+            return page;
+        }
+
+        /// <summary>`VersionText` 那一行的文字 = 原版 `GeneralTab__OnSetup.c` 里那一句
+        /// `System.String.Concat("v", PlayerDataManager.gameVersionForShowingToPlayers)`
+        /// （`"v"` 是那个方法里唯一一个字面量；prefab 里序列化的 `v0.15.5PREPROD-0` 是**运行时被它覆盖**的）。
+        /// ⇒ 我们取自己的 `Application.version`（`ProjectSettings.bundleVersion`）。
+        /// ⚠️ 取不到时写 `v` + 一条 `Debug.LogWarning`（⛔ 不拿原版那句冒充 —— 那会让人以为我们是 0.15.5）。</summary>
+        static string VersionText()
+        {
+            string v = Application.version;
+            if (string.IsNullOrEmpty(v))
+            {
+                Debug.LogWarning("[Settings] `Application.version` 是空的（`ProjectSettings.bundleVersion` 没设）"
+                               + " ⇒ 版本号那一行只画一个 `v`（不冒充原版那个版本串）。");
+                return "v";
+            }
+            return "v" + v;
+        }
+
+        /// <summary>一条「勾选框 + 文字 + 整行命中区」（原版 `General Tab > Checkboxes` 那三行）。
+        /// <list type="bullet">
+        /// <item>**勾选框**：框 = 行左起 `GenBoxW × GenBoxH`、纵向居中；图 = `40k_dropdown_bg`
+        /// （`Simple + preserveAspect`）+ 勾 `40K_settings_icon_checkmark` —— **判据见 `GenBoxW` 那条**
+        /// （原版 `BattleSettingsPanel/Auto Zoom Toggle` 是同一个组件族 + 同一对图）。
+        /// ⚠️ **与图像页那一族的勾选（`40K_toggle_on/off`）不是同一套图** —— 两页各照各的原版件，
+        /// 别为了「看着统一」把哪一边改掉。</item>
+        /// <item>**命中区 = 两块**（原版那颗 `Toggle` 的 Image 与 `Label` 的 TMP **都是** `m_RaycastTarget = 1`
+        /// ⇒ 点哪块都算）。⚠️ 两块中间那条 **4.94px 的缝**原版点下去什么也不发生（那时射线打到的是背景）
+        /// ⇒ **照原版留着缝、不补**（同 `Battle/SettingsPanel.cs` 的 `AzHitPx` 那条口径）。</item>
+        /// <item>**勾那一层**按 `state()` 显隐（= 原版 `Toggle.graphic` 由 `Toggle.UpdateVisuals` 按 `isOn` 控制），
+        /// 点完由 `RefreshTexts()` 那条链重算 —— 所以这里把三件记进 `_genChecks`。</item>
+        /// </list></summary>
+        void GenToggleRow(Transform page, string name, float t, string key, Func<bool> state, Action flip, Action afterFlip)
+        {
+            float b = t + ChkRowH, cy = (t + b) * 0.5f;
+            var n = Node(page, name, GenL, t, GenR, b);
+            float bx1 = GenL, bx2 = GenL + GenBoxW, by1 = cy - GenBoxH * 0.5f, by2 = cy + GenBoxH * 0.5f;
+            // 底图那格：**不随开关变**（原版 `EverguildToggle.colorTintOnValueChange = 0` / `changeSpriteOnValueChange = 0`
+            // —— 翻转只动**勾**那一层，见 A424 那两条实读）⇒ 这一格建完就不用管它，所以不留引用。
+            Rect(n, "Toggle", bx1, by1, bx2, by2, ArtToggleBox, QContent, GenBoxTint, true);
+            var chk = Rect(n, "CheckMark", bx1, by1, bx2, by2, ArtToggleCheck, QOverlay, null, true);
+            float lx = GenL + GenLabelOff;
+            var lb = Text(n, "Label", Loc.T(key), lx, GenR, t, b, FontRowLabel, Color.white, QText);
+            if (lb != null)
+            {
+                AlignLeft(lb, new PxRect(lx, t, GenR, b));
+                _genLabels.Add(new Keyed(lb, key));
+            }
+            _genChecks.Add(new CheckRow(chk, state));
+            if (chk != null) chk.gameObject.SetActive(state());
+            Action hit = () => { flip(); afterFlip(); RefreshTexts(); };
+            Hit(n, "HitBox", bx1, by1, bx2, by2, QOverlay, hit);
+            Hit(n, "HitLabel", lx, t, GenR, b, QOverlay, hit);
+        }
+
+        /// <summary>`Bottom Buttons` 那两颗（原版 `Redeem Code` / `Close Game Button`）：各 300×90、
+        /// 底图 `40K_button`（**`Simple + preserveAspect`** ⇒ 实画 300×65.66，⛔ 不是九宫格）+
+        /// 染色 `(0.369,0.894,0.588,1)` + 白字（两颗字号**不一样**：40 / 38，照原版）。</summary>
+        void GenButton(Transform page, string name, float x1, string key, float fs, Action onClick)
+        {
+            float x2 = x1 + GenBtnW, y2 = GenBtnT + GenBtnH;
+            var n = Node(page, name, x1, GenBtnT, x2, y2);
+            var aq = Rect(n, "bg", x1, GenBtnT, x2, y2, ArtButton, QContent, GenBtnTint, true);
+            var lb = Text(n, "Button Text", Loc.T(key), x1, x2, GenBtnT, y2, fs, Color.white, QText);
+            if (lb != null) _genLabels.Add(new Keyed(lb, key));
+            // 悬停换图与联机页那几颗同一条路（`40K_button` → `40K_button_hover`，`WindowButton` 的表里有）
+            Hit(n, "Hit", x1, GenBtnT, x2, y2, QOverlay, () => { Debug.Log($"[Settings] 点了 `{Loc.T(key)}`"); onClick(); },
+                aq, ArtButton);
+        }
+
+        /// <summary>把**所有跟着语言走**的字重设一遍：页签上那几行 + General 页那一整页 + 那三颗勾
+        /// + 语言下拉那 12 行（`RefreshLangRows`）。
+        /// 🔴 调用点 = `ChooseLanguage`（选中某一行那一刻）、`OpenTab`（切页时兜一道 —— 别处换过语言能追上）、
+        /// `ShowLangList`（列表刚建出来）。
+        /// <para>🔴 **2026-10-17（A862）**：原来的另一个调用点 `CycleLanguage()`（把语言「往下循环一格」）
+        /// **已删** —— 那是上一批的**已知偏离**（原版那颗是 `TMP_Dropdown`，点开一个 12 行的列表）；
+        /// 本笔把命中区改接 `ToggleLangList()`、列表也照原版建了 ⇒ 它 0 调用点（本仓规矩：死代码删）。
+        /// ⚠️ **对照那半边还在**：`Battle/SettingsPanel.cs` 的语言行**仍是「点一下换下一个」**
+        /// （宿主 = `Editor/BattleScene.cs`，不在本件白名单）—— 那是一笔**独立的**既有偏离，⛔ 别以为本笔顺手修了它。</para>
+        /// ⛔ **不走 `Loc` 的静态事件**：`Build()` 每次开窗都跑，订了不摘就会攒下一堆已销毁的窗
+        /// （见 `Loc.SetLanguage` 那段）。</summary>
+        public void RefreshTexts()
+        {
+            for (int i = 0; i < _tabLabels.Count; i++)
+                if (_tabLabels[i].Lb != null) _tabLabels[i].Lb.SetText(Loc.T(_tabLabels[i].Key));
+            for (int i = 0; i < _genLabels.Count; i++)
+                if (_genLabels[i].Lb != null) _genLabels[i].Lb.SetText(Loc.T(_genLabels[i].Key));
+            if (_langCap != null) _langCap.SetText(Loc.LanguageName(Loc.Current));
+            // 🆕 A862：列表那 12 行也跟着语言走（行内文字 + **哪一行显示勾**）
+            RefreshLangRows();
+            RefreshGenChecks();
+        }
+
+        /// <summary>那三颗勾的显隐重算（`state()` 现读 —— 值可能刚被别人翻过）。</summary>
+        void RefreshGenChecks()
+        {
+            for (int i = 0; i < _genChecks.Count; i++)
+                if (_genChecks[i].Chk != null) _genChecks[i].Chk.gameObject.SetActive(_genChecks[i].State());
+        }
+
+        /// <summary>一条勾选行的两块（勾那一层 + 它读状态的那个口）。</summary>
+        struct CheckRow
+        {
+            public ImageQuad Chk; public Func<bool> State;
+            public CheckRow(ImageQuad chk, Func<bool> state) { Chk = chk; State = state; }
+        }
+        readonly List<CheckRow> _genChecks = new List<CheckRow>();
+        /// <summary>下拉框里那行当前语言名（语言一换要重设 —— 它不在上面那两个 `Keyed` 表里：
+        /// 它显示的**不是**某个固定词条，而是「当前选中的语言名」）。</summary>
+        Label _langCap;
+
+        // ---- 🆕 A862：语言下拉那 12 行列表的状态 ----
+        /// <summary>`LanguagesDropdown > Template`（**原型，恒 inactive** —— 原版出厂 `m_IsActive = 0`）。
+        /// 建在一个固定的位置、只为自检与将来取裁切能定位它，⛔ 它不参与显示。</summary>
+        Transform _langTemplate;
+        /// <summary>真正显示的那份（原版 `Show()` 的 `Instantiate` 克隆体，名字 = `"Dropdown List"`）。
+        /// **首开时才建**（= 原版的 `CreateDropdownList`）；关掉**不销毁**（`SetActive(false)`）——
+        /// ⚠️ 原版 `Hide()` 是淡出后 `Destroy`，我们不做淡出（见常量段 ③）⇒ 留着复用，
+        /// **不影响任何一个可观察值**（它关着、也不在命中里）。</summary>
+        Transform _langList;
+        /// <summary>列表根节点的**父**（= `LanguagesDropdown`，原版 `SetParent(m_Template.transform.parent)`）。</summary>
+        Transform _langField;
+        /// <summary>12 行的底图 + 勾 + 行号（`refresh` 时按当前语言重挑「哪一行显示勾」）。</summary>
+        readonly List<LangRow> _langRows = new List<LangRow>();
+        struct LangRow { public ImageQuad Bg; public ImageQuad Chk; public Label Lb; public Transform Hit; public int Idx; }
+        /// <summary>列表此刻开着没有（= 原版 `TMP_Dropdown.IsExpanded`，`m_Dropdown != null`）。</summary>
+        public bool LangListOpen { get { return _langList != null && _langList.gameObject.activeSelf; } }
+        /// <summary>🆕 A862：自检只读口 —— 原型 / 克隆体 / 行数（⛔ 别为了好看藏起来：自检拿不到只能瞎猜）。</summary>
+        public Transform LangTemplateNode { get { return _langTemplate; } }
+        public Transform LangListNode { get { return _langList; } }
+        /// <summary>那颗铺满全屏的 `Blocker`（原版 `CreateBlocker` 建的那颗；点它 = `Hide`）。</summary>
+        public Transform LangBlockerNode { get { return _langBlocker; } }
+        /// <summary>`Template` 的父（= `LanguagesDropdown`）—— 自检核「列表挂在哪儿」用。</summary>
+        public Transform LangFieldNode { get { return _langField; } }
+        public int LangRowCount { get { return _langRows.Count; } }
+        /// <summary>第 `i` 行那一格的底图（自检量矩形 / 看四态图名）。</summary>
+        public ImageQuad LangRowBg(int i) { return (i >= 0 && i < _langRows.Count) ? _langRows[i].Bg : null; }
+        /// <summary>第 `i` 行那行字（自检量字号 / 看文案）。</summary>
+        public Label LangRowLabel(int i) { return (i >= 0 && i < _langRows.Count) ? _langRows[i].Lb : null; }
+        public ImageQuad LangRowCheck(int i) { return (i >= 0 && i < _langRows.Count) ? _langRows[i].Chk : null; }
+        /// <summary>第 `i` 行的**命中区节点**（挂 `WindowButton`）—— 自检走真实点击链用。
+        /// 🔴 为什么给这个口：行节点名是**运行时按语言拼的**（`"Item 0: English"`，原版 `AddItem:1148`）
+        /// ⇒ 换一次语言名字就变，`FindChild(名字)` **不可靠**（不是稳定标识）。</summary>
+        public Transform LangRowHit(int i) { return (i >= 0 && i < _langRows.Count) ? _langRows[i].Hit : null; }
+
+        /// <summary>建 `Template` 子树（**一份**，`_langTemplate`）。矩形 / 图 / 字号逐条出处见上面那组 `Lst*` 常量。
+        /// <para>⚠️ 它**恒 inactive**（原版出厂值）—— 但**子节点照样建**：原版 `m_Template.gameObject.SetActive(false)`
+        /// 之后子件仍在树里，`Show()` 要 `Instantiate` 它。</para></summary>
+        void BuildLangTemplate(Transform fld)
+        {
+            var tpl = Node(fld, "Template", LstL, LstT, LstR, LstB);
+            _langTemplate = tpl;
+            BuildLangListSubtree(tpl, false);
+            tpl.gameObject.SetActive(false);
+            Debug.Log("[Settings] 语言下拉的 `Template` 子树建好了（**关着** —— 原版出厂 `m_IsActive = 0`；"
+                    + "真正显示的那份叫 `Dropdown List`，见 `TMP_Dropdown.Show():820`）");
+        }
+
+        /// <summary>建列表的**一件**（`Template` 与克隆体共用这一份 —— 两处写同一条规则 = 迟早不一致）。
+        /// `withRows = false` 时 `Content` 下只放原版那个模板行（文字 `'Option A'`，prefab 里的原文）。</summary>
+        void BuildLangListSubtree(Transform listRoot, bool withRows)
+        {
+            // 面板底图：`40K_dropdown_bg` **Sliced**、端帽过 ppuMul 1.09、染色 (0.2863,0.9647,0.6863)
+            NineOut(listRoot, "bg", LstL, LstT, LstR, LstB, ArtLstPanel, LstPanelTexW, LstPanelTexH,
+                    LstPanelBorder, LstPanelBorderOut, QListBg, null);
+            // `Viewport`（原版 `Mask` + `Image(UIMask, showGraphic = 0)` ⇒ **不画**、只当裁切框）
+            // 🔴 裁切状态挂在它身上（= 原版那个 `RectMask2D`）—— 本工程唯一一份（`ViewportClip`）。
+            var s = Screen(LstL, LstT, LstVpR, LstB);
+            var vpR = new PxRect(s.x1, s.y1, s.x2, s.y2);
+            var vp = ViewportClip.Hang(listRoot, "Viewport", vpR, Vector4.zero, Vector2Int.zero).transform;
+            // `Content`（`aMin(0,1) aMax(1,1) pivot(0.5,1)`）—— 高 = 行数 × 行高
+            //（原版模板位是 `sizeDelta.y = 41.7226`（一个 `Item`）；运行时 `Show()` 按 `itemSize.y × 选项数` 重算）
+            int total = withRows ? Loc.Languages.Length : 1;
+            var content = Node(vp, "Content", LstL, LstT, LstVpR, LstT + total * LstItemH);
+            // 滚动条：**建出来但恒关着**（原版 `m_VerticalScrollbarVisibility = 2` + 内容 490.45 < 视口 573.96
+            // ⇒ `SetVerticalScrollbarVisibility` 会把它 `SetActive(false)`）。见 `LstHandleH` 那条。
+            {
+                var sb = Node(listRoot, "Scrollbar", LstR - LstSbW, LstT, LstR, LstB);
+                // ⚠️ 节点名 `scroll_bg`（⛔ **不叫 `bg`**）：原版那颗 `Image` 挂在 `Scrollbar` **自己**身上，
+                //    本工程不能给 `Node` 挂图 ⇒ 只能开一个子件；而面板那颗已经叫 `bg` 了 ——
+                //    两个同名会让 `FindChild(listRoot, "bg")` 的命中**取决于遍历序**（迟早不一致）。
+                Rect(sb, "scroll_bg", LstR - LstSbW, LstT, LstR, LstB, ArtLstSbBg, QScroll);
+                var slide = Node(sb, "Sliding Area", LstR - LstSbW + LstSbW * 0.5f, LstT + 10f,
+                                 LstR - LstSbW + LstSbW * 0.5f, LstB - 10f);
+                Rect(slide, "Handle", LstR - LstSbW, LstB - LstHandleH, LstR, LstB, ArtLstSbHandle, QScroll);
+                sb.gameObject.SetActive(false);
+            }
+            int total2 = withRows ? Loc.Languages.Length : 1;
+            for (int i = 0; i < total2; i++)
+                BuildLangItem(content, i, withRows);
+        }
+
+        /// <summary>列表里的一行（原版 `Content > Item`，`Toggle` + 三个子件）。
+        /// 行顶 = `Content` 顶 + `i × LstItemH`（原版 `Show():840-844` 把第 0 项摆在**最上**、
+        /// `anchoredPosition.y = offsetMin.y + itemSize.y*(n-1-i) + itemSize.y*pivot.y`）。</summary>
+        void BuildLangItem(Transform content, int i, bool real)
+        {
+            float t = LstT + i * LstItemH, b = t + LstItemH;
+            string nm = real ? ("Item " + i + (i < Loc.Languages.Length ? ": " + Loc.LanguageName(Loc.Languages[i]) : ""))
+                             : "Item";
+            var item = Node(content, nm, LstL, t, LstVpR, b);
+            var bg = Rect(item, "Item Background", LstL, t, LstVpR, b, ArtLstItem, QListItem, LstItemTint);
+            // 勾：**中轴在行左起 10**（`aPos(10,0)`、20×20）⇒ 左沿 = 行左
+            var chk = Rect(item, "Item Checkmark", LstL, (t + b) * 0.5f - LstChkS * 0.5f,
+                           LstL + LstChkS, (t + b) * 0.5f + LstChkS * 0.5f, ArtLstCheck, QListText);
+            // 字：行内边距 左20 右10 上2 下1；fs 30（屏幕 27 —— 那条全窗字号扫描的允许表已加 27）
+            var lb = Text(item, "Item Label", real ? Loc.LanguageName(Loc.Languages[i]) : "Option A",
+                          LstL + LstLblPadL, LstVpR - LstLblPadR, t + LstLblPadT, b - LstLblPadB,
+                          LstLblFontPx, LstLblColor, QListText);
+            if (lb != null) AlignLeft(lb, new PxRect(LstL + LstLblPadL, t + LstLblPadT, LstVpR - LstLblPadR, b - LstLblPadB));
+            if (!real) return;   // 原型那一行：静态样子，不接任何行为（原版 `Template` 也关着）
+            int idx = i;
+            // 命中区 = **整行**；悬停 / 按下换图照原版那颗 `Toggle` 的 `SpriteSwap` 三档
+            //（Normal = `40K_dropdown_item` · Highlighted = `_hover` · Pressed = `_press`）
+            var hit = Hit3(item, "Hit", LstL, t, LstVpR, b, QListItem, () => ChooseLanguage(idx),
+                           bg, ArtLstItem, ArtLstItemHi, ArtLstItemPr);
+            _langRows.Add(new LangRow { Bg = bg, Chk = chk, Lb = lb, Hit = hit, Idx = idx });
+        }
+
+        /// <summary>`MenuDraw.Hit` 那一版的本地包装 —— 比本窗那个 `Hit` **多一颗 `pressedArt`**
+        /// （原版下拉的行是 `SpriteSwap` 三档，本窗其余命中区只用两档 ⇒ 那个助手没开这个形参）。
+        /// ⚠️ 位置实参顺序同 `MenuDraw.Hit`：`hoverArt` 与 `pressedArt` **顺序不能反**。</summary>
+        Transform Hit3(Transform p, string n, float x1, float y1, float x2, float y2, int q, Action a,
+                       ImageQuad target, string art, string hoverArt, string pressArt)
+        {
+            var s = Screen(x1, y1, x2, y2);
+            return MenuDraw.Hit(p, n, new PxRect(s.x1, s.y1, s.x2, s.y2), q, a, target, art, hoverArt, pressArt);
+        }
+
+        /// <summary>**点开 / 收起**（原版 `TMP_Dropdown.OnPointerClick → Show()` / `Blocker.onClick → Hide()`）。
+        /// ⚠️ 原版 `Show()` **不是 toggle**：已经开着再点框会**直接 return**（`m_Dropdown != null`）；
+        /// 而在框上方那一块此刻是被 `Blocker` 盖住的 ⇒ 真实交互里「再点一下框 = 收起」。
+        /// 我们**没有** UGUI 那套射线优先级，所以这里显式写成 toggle —— **这一处是我们对齐行为、不是照抄实现**。</summary>
+        public void ToggleLangList() { if (LangListOpen) HideLangList(); else ShowLangList(); }
+
+        /// <summary>开列表（= 原版 `Show()`）：首开时**建克隆体**（`Instantiate(Template)` + 改名为
+        /// `"Dropdown List"` + 挂到 `Template` 的父下），然后 `SetActive(true)` + 建那颗全屏 `Blocker`。</summary>
+        public void ShowLangList()
+        {
+            if (_langField == null) return;
+            if (_langList == null)
+            {
+                // 原版：`m_Dropdown = CreateDropdownList(m_Template.gameObject)` → `name = "Dropdown List"`
+                //   → `dropdownRectTransform.SetParent(m_Template.transform.parent, false)`
+                _langList = Node(_langField, LangListNodeName, LstL, LstT, LstR, LstB);
+                BuildLangListSubtree(_langList, true);
+            }
+            _langList.gameObject.SetActive(true);
+            // 全屏 `Blocker`（原版 `CreateBlocker:1009`：铺满 rootCanvas、透明、`onClick → Hide`）。
+            // 队列 **QBlocker(3140)** —— 高于本窗所有内容（`QOverlay 3135`）、低于列表（`QListBg 3141`）；
+            // 也高于「点窗外关窗」那颗（`QShade 3130`）⇒ 列表开着时点窗外只会关**列表**。
+            // ⚠️ 建**一次**（`_langBlocker == null` 才建）—— 每次开都建的话会一层层叠 quad 与命中区。
+            if (_langBlocker == null)
+            {
+                var bs = Screen(960f - ShadeW * 0.5f, 540f - ShadeH * 0.5f, 960f + ShadeW * 0.5f, 540f + ShadeH * 0.5f);
+                _langBlocker = Node(transform, "Blocker", 960f - ShadeW * 0.5f, 540f - ShadeH * 0.5f,
+                                    960f + ShadeW * 0.5f, 540f + ShadeH * 0.5f);
+                // 透明底（原版 `blockerImage.color = Color.clear`）⇒ 画一层全 0 alpha 的方块当命中体
+                Solid(_langBlocker, "bg", 960f, 540f, ShadeW, ShadeH, new Color(0f, 0f, 0f, 0f), QBlocker);
+                _langBlockerHit = MenuDraw.Hit(_langBlocker, "Hit", bs, QBlocker, HideLangList);
+            }
+            _langBlocker.gameObject.SetActive(true);
+            RefreshLangRows();
+            Debug.Log($"[Settings] 语言下拉**点开**（{_langRows.Count} 行 —— 原版 `TMP_Dropdown.Show()`："
+                    + "`Instantiate(Template)` → `\"Dropdown List\"` → `SetActive(true)` → 建全屏 `Blocker`）");
+        }
+
+        /// <summary>收起（= 原版 `Hide()` + `DestroyBlocker`）。⚠️ **不销毁克隆体**（原版会淡出后销毁）——
+        /// 我们不做淡出（见常量段 ③）⇒ 留着复用；`Blocker` 也一起关掉。</summary>
+        public void HideLangList()
+        {
+            bool was = LangListOpen;
+            if (_langList != null) _langList.gameObject.SetActive(false);
+            if (_langBlocker != null) _langBlocker.gameObject.SetActive(false);
+            if (was) Debug.Log("[Settings] 语言下拉**收起**（原版 `Hide()` → `AlphaFadeList(0.15, 0)` → "
+                             + "`DelayedDestroyDropdownList(0.15)` → `DestroyBlocker`；本窗不做淡出，见 `A862` 常量段 ③）");
+        }
+
+        /// <summary>点某一行 ⇒ 选中（= 原版 `OnSelectItem:1247`：按行号定 `value` → **末尾 `Hide()`**）。
+        /// ⚠️ 原版那条链的「行号 → 语言」映射 = `LanguageSelector.ResetLanguagesDropdown` 遍历的那个静态
+        /// `string[]` 的**下标** —— 我们的等价物 = `Loc.Languages` 的**声明序**（上一批已按枚举取值核过）。</summary>
+        public void ChooseLanguage(int i)
+        {
+            if (i < 0 || i >= Loc.Languages.Length) { Debug.LogWarning($"[Settings] 语言下拉：行号 {i} 越界"); return; }
+            var v = Loc.Languages[i];
+            HideLangList();
+            if (Loc.Current == v) { Debug.Log($"[Settings] 语言已经是「{Loc.LanguageName(v)}」—— 不变"); RefreshLangRows(); return; }
+            bool changed = Loc.SetLanguage(v);
+            RefreshTexts();
+            _flash = "语言 → " + Loc.LanguageName(Loc.Current) + $"（{Loc.Current}）"
+                   + (Loc.HasOwnText(Loc.Current) ? "" : "　⚠️ 本地没有这一套文案 ⇒ 界面文字**回退英文**");
+            Debug.Log("[Settings] " + _flash + (changed ? "" : "（值没变）"));
+        }
+
+        /// <summary>把 12 行的**勾**那一层按当前语言重挑（= 原版 `Toggle.isOn = value == i` → `graphic` 的 alpha）。
+        /// 同时把行底图复位成 Normal（原版 `Show()` 每次都重设 `item.toggle.isOn`）。</summary>
+        void RefreshLangRows()
+        {
+            for (int i = 0; i < _langRows.Count; i++)
+            {
+                var r = _langRows[i];
+                if (r.Chk != null) r.Chk.gameObject.SetActive(Loc.Languages[r.Idx] == Loc.Current);
+                if (r.Lb != null) r.Lb.SetText(Loc.LanguageName(Loc.Languages[r.Idx]));
+            }
+        }
+        Transform _langBlocker, _langBlockerHit;
+
+        /// <summary>点「Redeem Code」。原版 = 弹一个兑换码输入框（`PromptContext`）→ `TryRedeemCode` →
+        /// **发给服务器**。我们**没有任何服务器** ⇒ 照建、点了**如实出声**（用户 2026-09-28 口径：
+        /// 「一些与联网服务器有关的，**点击没有作用就没有作用**」，但**不许静默**）。</summary>
+        void RedeemCode()
+        {
+            const string msg = "兑换码要走原版的服务器（`GeneralTab.RedeemCode` → `TryRedeemCode` → 远端校验），"
+                             + "这个项目没有那台服务器 ⇒ **这里兑不了**。";
+            Debug.LogWarning("[Settings] " + msg);
+            var wm = WindowsManager.Instance;
+            if (wm != null) wm.ShowPopUp(msg, "知道了", null);
+            _flash = msg;
+        }
+
+        /// <summary>点「退出游戏」。= 原版 `SettingsMenu.ExitGamePopup()`（`SettingsMenu__ExitGamePopup.c` 实读）：
+        /// **先弹一个确认框**，确认键才真退。
+        /// ⚠️ **编辑器里 `Application.Quit()` 无效** ⇒ 那一支**出声**说清（⛔ 不假装退了）。</summary>
+        void ExitGame()
+        {
+            var wm = WindowsManager.Instance;
+            if (wm != null)
+                wm.ShowPopUp("确定要退出游戏吗？", "退出", () => { Debug.Log("[Settings] 用户确认退出。"); QuitNow(); },
+                             null, null);
+            else { Debug.LogWarning("[Settings] 没有 `WindowsManager` ⇒ 弹不出确认框，直接走退出那一步。"); QuitNow(); }
+        }
+
+        static void QuitNow()
+        {
+#if UNITY_EDITOR
+            Debug.LogWarning("[Settings] 在编辑器里 ⇒ **不退出**（`Application.Quit()` 在编辑器里是空操作）。");
+#else
+            Debug.Log("[Settings] `Application.Quit()`。");
+            Application.Quit();
+#endif
+        }
+
+        // ---- 三颗开关点完的「如实出声」（值都进 `GeneralFlags`；消费者见各自的日志）----
+        void ToggleDisableBotsLog()
+        {
+            Debug.Log("[Settings] Disable Bots → " + (GeneralFlags.DisableBots ? "开" : "关")
+                    + "（原版 `GeneralTab.ToggleDisableBots` 只写 `GameStaticData` +0xeb 一位；"
+                    + "读它的是**匹配/机器人那条链** —— `Everguild.MatchMakerManager.ChangeToBotBattle` 与 "
+                    + "`SearchOpponentManager.GetTimeToWaitForOpponent`（全量反编译里 +0xeb 的读点只有这两处业务代码）。"
+                    + "⚠️ **我们这边还没有消费者**：我们的联机是 P2P、没有「搜不到人就把你丢进机器人局」那一跳 ⇒ "
+                    + "这一格现在**只把值存下来**（`PlayerPrefs[\"DisableBots\"]`）。**不许让你以为它已经生效。**）");
+        }
+        void ToggleDisableNotifLog()
+        {
+            Debug.Log("[Settings] Disable Notifications → " + (GeneralFlags.DisableNotifications ? "开" : "关")
+                    + "（原版 `GeneralTab.ToggleDisableNotifications` 写 `GameStaticData` +0xe8，开着时还会调 "
+                    + "`PlayerDataManager.SetupFcm()` = **注册推送** ⇒ 整条都在服务器那一侧。"
+                    + "⚠️ 我们**没有推送通道** ⇒ 这一格只把值存下来（`PlayerPrefs[\"DisableNotifications\"]`），"
+                    + "**不发也不收任何通知**。）");
+        }
+        void ToggleTouchInputLog()
+        {
+            Debug.Log("[Settings] Touch input → " + (GeneralFlags.TouchInput ? "开" : "关")
+                    + "（原版 `GeneralTab.TouchInputToggle` 写 `GameStaticData` +0x11d 与 +0x12d（手动改过），"
+                    + "并在 **Steam Deck** 上顺手 `Cursor.visible = !值`。"
+                    + "⚠️ 我们是键鼠版：触屏那条输入路径**没接** ⇒ 只把值存下来（`PlayerPrefs[\"TouchInput\"]`）。）");
+        }
+
+        /// <summary>General 页那三颗开关的值（原版是 `GameStaticData` 的三个字节字段）——
+        /// 与 `AutoZoom` / `SuperSampling` 同族：静态、唯一一份、`PlayerPrefs` 落盘、`PersistOverride` 给自检。
+        /// <para>🔴 **本地没查到的**：那三个字段在 `GameStaticData` 里的**正式字段名**（签名桩不带偏移注释）
+        /// ⇒ 落盘键用**它们各自开关的名字**（`DisableBots` / `DisableNotifications` / `TouchInput`），
+        /// 这是**我们起的键名**（原版不落 `PlayerPrefs`，它存玩家存档）。</para></summary>
+        public static class GeneralFlags
+        {
+            public const string BotsPrefKey = "DisableBots";              // = 原版 `GameStaticData` +0xeb
+            public const string NotifyPrefKey = "DisableNotifications";   // = 原版 `GameStaticData` +0xe8
+            public const string TouchPrefKey = "TouchInput";              // = 原版 `GameStaticData` +0x11d / +0x12d
+
+            /// <summary>🔴 **自检注入点**：true ⇒ 只改内存、**不写 `PlayerPrefs`**（本工程规矩：自检不许动玩家的真设置）。</summary>
+            public static bool PersistOverride;
+
+            static bool _loaded, _bots, _notif, _touch;
+
+            static void Load()
+            {
+                if (_loaded) return;
+                _loaded = true;
+                _bots = PlayerPrefs.GetInt(BotsPrefKey, 0) != 0;
+                _notif = PlayerPrefs.GetInt(NotifyPrefKey, 0) != 0;
+                _touch = PlayerPrefs.GetInt(TouchPrefKey, 0) != 0;
+            }
+
+            public static bool DisableBots
+            {
+                get { Load(); return _bots; }
+                set { Load(); _bots = value; Save(BotsPrefKey, value); }
+            }
+            public static bool DisableNotifications
+            {
+                get { Load(); return _notif; }
+                set { Load(); _notif = value; Save(NotifyPrefKey, value); }
+            }
+            public static bool TouchInput
+            {
+                get { Load(); return _touch; }
+                set { Load(); _touch = value; Save(TouchPrefKey, value); }
+            }
+
+            static void Save(string key, bool on)
+            {
+                if (PersistOverride) return;
+                PlayerPrefs.SetInt(key, on ? 1 : 0);
+                PlayerPrefs.Save();                         // 同 `WarpforgeAudio`：写完立刻落盘
+            }
+
+            /// <summary>自检用：放回**出厂值**（原版 `GameStaticData__cctor` **没有**写这三格 ⇒ 零初始化）。
+            /// ⛔ 不动 `PlayerPrefs`。</summary>
+            public static void ResetForTest() { _loaded = true; _bots = _notif = _touch = false; }
+
+            /// <summary>自检用：**按给定值**放回内存态（`ResetForTest` 放不回玩家的原值）。⛔ 不动 `PlayerPrefs`。</summary>
+            public static void RestoreForTest(bool bots, bool notif, bool touch)
+            { _loaded = true; _bots = bots; _notif = notif; _touch = touch; }
         }
 
         // ============================================================ 页 1：图像（原版 `Graphics Tab`）
@@ -1778,6 +2686,13 @@ namespace CardPresentation
         {
             var s = Screen(r.x1, r.y1, r.x2, r.y2);
             MenuDraw.AlignLeft(lb, new PxRect(s.x1, s.y1, s.x2, s.y2));
+        }
+        /// <summary>右对齐到**原版（未缩放）矩形**的右边缘（General 页那颗 `VersionText` 原版就是 `Right/Middle`）。
+        /// 与 `AlignLeft` 同一条换算（各自的唯一一处）。</summary>
+        static void AlignRight(Label lb, PxRect r)
+        {
+            var s = Screen(r.x1, r.y1, r.x2, r.y2);
+            MenuDraw.AlignRight(lb, new PxRect(s.x1, s.y1, s.x2, s.y2));
         }
         void Solid(Transform p, string n, float cx, float cy, float w, float h, Color c, int q)
         {

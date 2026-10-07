@@ -86,7 +86,7 @@
 | **先手** | 掷骰/抛硬币决定 | **按 Warlord 的 `initiative` 字段**：高者先手，平局掷币；档位 `1 Low / 2 Medium / 3 High / 4 Very High` | **本作玩家恒先手**（`RuleCore.cs:63-65`）—— **我们挑的**，掷骰未做 |
 | **能量** | 起始 1，每回合 +1；不跨回合保留 | 每回合 = `min(energyMax+1, cap)`；展示模式 `cap:10` | `MaxEnergy = TurnCount + 1` 并回合开始回满（`RuleCore.cs:451-452`）—— **照原版** |
 | **护甲减伤** | 减 X，**最低 1 点** | 词条释义同规则书；**运算在服务端** | `Math.Max(1, actual - Armor)`（`RuleCore.cs:1713`）—— **照原版** ✓ |
-| **伤害顺序** | 规则书只给了「攻击 → 双方结算伤害 → 归零触发效果 → 摧毁方触发效果」 | 客户端**不做**结算，只在动画步表里排序 | 四道：**盾挡 → 无敌 → 易伤/护甲 → 扣血**（`RuleCore.cs:1731-1740`，照 `rule_core.gd:4406`） |
+| **伤害顺序** | 规则书只给了「攻击 → 双方结算伤害 → 归零触发效果 → 摧毁方触发效果」 | 客户端**不做**结算，只在动画步表里排序 | 四道：**盾挡 → 无敌 → 易伤/护甲 → 扣血**（`RuleCore.cs:1731-1740`；⚠️ **2026-10-17 更正：这里原来写的是「照 `rule_core.gd:4406`」** —— `rule_core.gd` 是**我们自己的 Godot 复刻、非权威**（铁律 2 的 2026-09-18 更正），只作旁证；🔴 真判据 = `d:/2/tools/decomp_full/EntityScript__DamageKillsTarget.c` · `BattleManager__CheckIfAttackKillsTarget.c`） |
 | **牌库抽空** | **不判负** —— 每次抽牌督军吃疲劳伤害（次数递增） | **无疲劳/抽空逻辑**（全文件无匹配） | 有疲劳（`DeckRules`） |
 | **回合上限** | **没有**（只有 Overtime） | 常规局**查不到**；特殊 events 模式才有 `turns` 上限 | 无硬上限 + Overtime（后手 MaxEnergy≥10 触发） |
 | **胜负** | 敌方督军生命归 0；同时归 0 = 平局 | `winner===null` 才是平局；`reason==="concede"` 或 `"death"` | 同规则书 |

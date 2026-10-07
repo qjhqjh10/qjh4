@@ -7,7 +7,37 @@
 //   · `Card Display`               752×868，屏幕正中（x[584,1336] y[106,974]）
 //   · `Card Display/Cards/CardUI (0..4)` —— **5 个卡槽**（脚本字段 `cardUIs[5]`）
 //   · `Card Display/LowerSection`  y 921.34~1058.34：`FlavourTextBG`(1320×178) → `LoreText`
-//     (1250×93.47 · fs35 · 右对齐) + `Voice Over Button`(88.655² @1654.7→1743.4) + `Show Card Text`(同尺寸 @181.3→270)
+//     (1250×93.47 · fs32 · 居中) + `Voice Over Button`(88.655² @1654.7→1743.4)
+//     —— **就这两件，没有第三件**（`Show Card Text` 那颗钮是**菜单版**才有的，见下面 A860）
+//
+// 🔴 **2026-10-17（A860）：战斗版比菜单版少两样，逐字段核过 —— 别照菜单版补**。
+//   判据（13 个竞技场**逐份实读**，`bundle_scenes_scenes_battlearena{1,2,3,aeldari,astramilitarum,
+//   blacklegion,darkangels,emperorschildren,genestealers,leviathan,sororitas,spacewolves,tauviorla}`）：
+//   · **`options`（`CardDisplayOptions`）= `{m_FileID:0, m_PathID:0}` = null —— 13/13 全都是 0**；
+//     `informationPanel` 同样 13/13 为 0（菜单版那颗是 `2331` / `2206`）。
+//     `ShowCard.c:153-167` 的 `else` 支（`showOptions == true` 才走）**那句守卫就是**
+//     `if (options == null || card.field_0x4c != 0) goto LAB_1807fbe68`（`:159`）⇒ **战斗侧那块面板永远不会出现**
+//     （`ShowBattleCard` 传进来的 `showOptions = DisplayCardEffects(...)` 于战斗侧是**空转**）。
+//     节点树也一致：本窗 `Card Display` 的孩子只有 4 个（`LowerSection` / `Cards` / `TutorialObjs` /
+//     `EffectList`），**没有** `CardDisplayOptions` 的宿主，也没有 `Panel`（三块面板）、
+//     `Wildcard Segment`、`Card Counter` —— 那四件挂在**菜单版**的 `CardDisplayer Menu For Menu` 上。
+//   · **`showCardTextButton`（眼睛钮）= `{m_PathID:0}` = null —— 13/13 全都是 0**。
+//     `ShowCard.c:85-96` / `CardSwapFinished.c:20-45` / `Open.c:72-83` 三处**都拿 `!= null` 把着**，
+//     `Open` 那个 `AddListener(→ ToggleCardState)` 也不接 ⇒ **战斗侧点不到、也画不出这颗钮**。
+//     节点面复核：全 `assets_full` 里 `Show Card Text` 这个 GameObject **只有 1 份**
+//     （`bundle_scenes_scenes_mainmenuwarpforge`）；13 个竞技场 `GameObject/` 目录里
+//     `*Text*` 名字全表**零命中**。`LowerSection` 的 `RectTransform` 也实读到**只有 2 个孩子**
+//     （`FlavourTextBG` 1320×178 + `Voice Over Button` 88.655² @ x 734.33）—— 菜单那份是 **3 个**。
+//     ⚠️ **别拿图标认钮**：眼睛那张图 `-7255197835733746773` 在竞技场里**是有的**，但它挂在
+//     `ChooseCardMenu` 的开关钮上（`MonoBehaviour_4813` → `m_TargetGraphic` = `_4921`，一个 `Image`）
+//     —— 同 `40K_melee_glow` 那次的教训（铁律 3）。
+//   ⇒ 本窗**不建** `Show Card Text`。2026-10-17 那一轮先删了钮、留了三个桩给白名单外的调用点；
+//     **2026-10-17（B8）三个桩（`HitEye` / `ToggleLore` / `LoreVisible`）连同最后一个调用点
+//     （`Battle/BattleDriver.cs` 的 `HandleDisplayWindowClick`）已一并删干净** —— 全仓零残留。
+//     📌 留下的知识（那颗钮**菜单版**才有的真语义）：`CardDisplayWindow.ToggleCardState` 翻的是
+//     `showCardInfo` 并逐格调 `CardTextsController.ChangeState / ChangeToInitialState`，
+//     ⚠️ **不是**「切整块 `FlavourTextBG`」；战斗版这一块「露不露」现在只看**有没有字**（见 `RefreshLore`）。
+//     ⛔ **别把它建回来** —— `Editor/BattleScene.cs` 有断言钉着（节点名 / 那一格不吃点击）。
 //
 // 🔴 **2026-09-28 两条订正**（判据全文 → `资料/阶段二_卡片详情窗_原版规格.md` §十）：
 //   ① **卡体 743 px 是错的** —— 那是**另一棵树**的尺寸：多卡展示窗
@@ -53,7 +83,7 @@ namespace CardPresentation
         const int QChrome = 3000;
 
         Transform _root, _cards, _lower, _bg;
-        ImageQuad _mask, _voiceBtn, _eyeBtn;
+        ImageQuad _mask, _voiceBtn;
         Label _lore, _hint;
         AudioSource _voiceAudio;
 
@@ -129,8 +159,6 @@ namespace CardPresentation
         public string ShownBody { get; private set; }
         /// <summary>语音按钮上一次播的是哪个文件（**没播成是 null**；自检用）</summary>
         public string LastVoiceFile { get; private set; }
-        /// <summary>效果文字条现在露着没有（原版 `Show Card Text` 那颗眼睛钮切它）。</summary>
-        public bool LoreVisible { get; private set; }
 
         /// <summary>只有**前台那张**吃 tooltip（原版 `InitializeCardForDisplay` 的
         /// `Card2DController.ToggleTooltips(index == 0)`）—— 外面问这一条，不要自己数槽位。</summary>
@@ -179,16 +207,13 @@ namespace CardPresentation
             _bg = MenuDraw.Node(_lower, "FlavourTextBG",
                                 new PxRect(CardWinBox.LowerL, CardWinBox.LoreBgT, CardWinBox.LowerR, CardWinBox.LoreBgB));
 
-            // 两颗圆钮：**图在工程里才建**（`Resources/Art/ui/` 被删时退回「没有这颗钮」，
-            // 而不是摆一块白方块 —— 那就是「静默失败」了）。**建不建看卡**在 `RefreshButtons` 里切。
-            float vx = CardWinBox.VoiceCx - CardWinBox.BtnS * 0.5f, ex = CardWinBox.EyeCx - CardWinBox.BtnS * 0.5f;
+            // 一颗圆钮：语音（图在工程里才建）。**只这一颗** —— 眼睛钮（`Show Card Text`）战斗版原版就没有
+            // （`showCardTextButton = {m_PathID:0}`，13/13；节点也零命中），2026-10-17 删掉，见文件头 A860。
+            float vx = CardWinBox.VoiceCx - CardWinBox.BtnS * 0.5f;
             float by = CardWinBox.BtnCy - CardWinBox.BtnS * 0.5f;
             _voiceBtn = MenuDraw.Rect(_lower, CardArt.Ui("40k_UI_bt_voicelines"),
                                       new PxRect(vx, by, vx + CardWinBox.BtnS, by + CardWinBox.BtnS),
                                       "Voice Over Button", QChrome, null, true);
-            _eyeBtn = MenuDraw.Rect(_lower, CardArt.Ui("40k_UI_bt_eye"),
-                                    new PxRect(ex, by, ex + CardWinBox.BtnS, by + CardWinBox.BtnS),
-                                    "Show Card Text", QChrome, null, true);
             if (CardArt.Ui("40k_UI_bt_voicelines") == null)
                 Debug.Log("[展示窗] `40k_UI_bt_voicelines` 不在 `Resources/Art/ui/` ⇒ **语音钮不建**（不摆白方块）");
 
@@ -199,7 +224,6 @@ namespace CardPresentation
             // 🆕 2026-09-19：挂到 `Voices` 通道 ⇒ 受设置面板那根「语音」滑块控制
             _voiceAudio.outputAudioMixerGroup = WarpforgeAudio.VoicesGroup;
 
-            LoreVisible = true;
             SetChrome(false);
             BuildEffectList();
         }
@@ -419,7 +443,6 @@ namespace CardPresentation
             if (_mask != null) _mask.gameObject.SetActive(on);
             if (_hint != null) _hint.gameObject.SetActive(on);
             if (_voiceBtn != null) _voiceBtn.gameObject.SetActive(on);
-            if (_eyeBtn != null) _eyeBtn.gameObject.SetActive(on);
         }
 
         // ============================================================ 命中（战斗侧不走 PointerLayer，按 px 判）
@@ -448,15 +471,17 @@ namespace CardPresentation
         /// 🔴 **如实标注：这是「我们按实情收的口径」，不是原版字面。**
         ///   原版那条是 `CardCollider.OnPointerExit` → `CardScript.OnTouchExit`，
         ///   **唯一守卫是 `displayingCardFlag`**（= 指针离开**那张卡**就关）。
-        ///   照字面做的话，窗里那两个钮（语音 / 眼睛）**永远点不到** —— 它们在卡外的 `LowerSection` 上，
-        ///   指针一离开卡就先关窗了。⇒ 我们把「地界」定成 **5 个卡格 ∪ 两个钮**：指针离开这整块才关。
+        ///   照字面做的话，窗里那颗钮（语音）**永远点不到** —— 它在卡外的 `LowerSection` 上，
+        ///   指针一离开卡就先关窗了。⇒ 我们把「地界」定成 **5 个卡格 ∪ 语音钮**：指针离开这整块才关。
+        ///   ⚠️ **2026-10-17（B8）**：原来这里还有第三个落点（眼睛钮）。那颗钮战斗版原版就没有
+        ///   （`showCardTextButton = {m_PathID:0}`，13/13）⇒ 连同它的桩一起删了，「地界」只剩这两块。
         ///   ⚠️ **待实机核**：原版在**触屏**上是不是「抬手即关」，产物里证实不了
         ///   （`StandaloneInputModule` 没反编译）。判据 → `资料/待办判据_战场与战斗视图.md` §8b。</summary>
         public bool ContainsPointer(Vector3 world)
         {
             if (!Visible) return false;
             if (HitSlot(world) >= 0) return true;
-            return HitVoice(world) || HitEye(world);
+            return HitVoice(world);
         }
 
         /// <summary>语音按钮被点到了没有（px 判定，和别处同一套换算）。</summary>
@@ -464,13 +489,6 @@ namespace CardPresentation
         {
             if (_voiceBtn == null || !_voiceBtn.gameObject.activeSelf) return false;
             return HitBtn(world, CardWinBox.VoiceCx);
-        }
-
-        /// <summary>「显示卡面文字」那颗眼睛钮被点到了没有。</summary>
-        public bool HitEye(Vector3 world)
-        {
-            if (_eyeBtn == null || !_eyeBtn.gameObject.activeSelf) return false;
-            return HitBtn(world, CardWinBox.EyeCx);
         }
 
         static bool HitBtn(Vector3 world, float cx)
@@ -510,15 +528,6 @@ namespace CardPresentation
             return true;
         }
 
-        /// <summary>眼睛钮：切开/切掉效果文字条（原版 `showCardTextButton` → `ToggleCardState`）。
-        /// 切的是**整块 `FlavourTextBG`**（底板 + 那行字一起）—— 原版也是切那一整块。</summary>
-        public void ToggleLore()
-        {
-            LoreVisible = !LoreVisible;
-            if (_bg != null) _bg.gameObject.SetActive(LoreVisible);
-            Debug.Log("[展示窗] 效果文字条 " + (LoreVisible ? "露出" : "收起") + "（原版 `Show Card Text`）");
-        }
-
         // ============================================================ 开 / 关
 
         /// <summary>开/关一次。已开着就关掉（原版那个方法名就是 `Toggle...`）。</summary>
@@ -547,7 +556,9 @@ namespace CardPresentation
             ShownBody = d.keywords;
             _shown = d; _hasShown = true;   // 语音按钮要按它查单位语音
             LastVoiceFile = null;
-            LoreVisible = true;             // 原版每次 `ShowCard` 都把 lore 复位
+            // ⚠️ 这里原来还有一句 `LoreVisible = true;`（原版每次 `ShowCard` 都把 lore 复位）——
+            //    那颗眼睛钮连同这个开关已删（判据见文件头）⇒ 「露不露」现在**只有一处判据**：
+            //    `RefreshLore` 里按**有没有字**开关（原版 `SetCardLore.c:24-27`）。
 
             BuildFan(d, def);
             RefreshLore();
@@ -715,8 +726,13 @@ namespace CardPresentation
                 Debug.LogWarning($"[展示窗] 阵营「{fac}」没有风味底图（`CardArt.FlavorBg` 取不到）⇒ **只画字**（不静默）");
 
             // ② 那行字
+            // 🔴 **没字 ⇒ 整块不亮**（原版 `SetCardLore.c:24-27`：`SetActive(loreObjectBG, !IsNullOrEmpty(flavourText))`）。
+            //    ⚠️ **2026-10-17 就地更正**：这里原来是 `SetActive(LoreVisible)`，而那个开关恒 true
+            //    ⇒ **没字也亮一块空的风味底板**（它当时倒是能被眼睛钮手动切掉，可战斗版原版根本没有那颗钮
+            //    ⇒ 实际就是「永远露着」）⇒ 照原版收口（`Editor/BattleScene.cs` 有一条断言钉着）。
+            //    🆕 **2026-10-17（B8）**：那个开关本身已删 —— 现在这一块的显隐**只有这一处判据**。
             string body = ShownBody ?? "";
-            if (string.IsNullOrEmpty(body)) { _bg.gameObject.SetActive(LoreVisible); return; }
+            if (string.IsNullOrEmpty(body)) { _bg.gameObject.SetActive(false); return; }
             var r = new PxRect(CardWinBox.LoreL, CardWinBox.LoreT, CardWinBox.LoreR, CardWinBox.LoreB);
             // 原版 `LoreText`：**fs35**（auto 10–35）· 限宽换行 · **居中** · 白
             // 🔴 **2026-09-28：不是右对齐** —— `m_HorizontalAlignment = 2`（Center，位标志 Left=1/Center=2/Right=4），
@@ -732,7 +748,7 @@ namespace CardPresentation
             SetZ(_lore != null ? _lore.transform : null, ZContent);
             if (_lore == null)
                 Debug.LogWarning("[展示窗] 效果文字条建不出来（`MenuDraw.Text` 返回 null）—— 不静默");
-            _bg.gameObject.SetActive(LoreVisible);
+            _bg.gameObject.SetActive(true);    // 走到这里 body 必非空 ⇒ 照原版「有字才亮」（见上面 ② 那条判据）
         }
 
         /// <summary>遮罩用的纯色贴图（`ImageQuad` 得有一张图才肯建）。宽高比按传入的来。
@@ -755,7 +771,8 @@ namespace CardPresentation
             return _solid;
         }
 
-        /// <summary>两颗钮**按卡决定建不建**（原版 `CardDisplayWindow.ShowCard` / `CardSwapFinished`）。
+        /// <summary>语音钮**按卡决定建不建**（原版 `CardDisplayWindow.SetCardVoiceOver`。
+        /// ⚠️ **本窗只有这一颗** —— 眼睛钮战斗版原版就没有（见文件头 A860），别再照菜单版补一颗。
         /// 判据只此一份 → `CardButtons`（那里写了原版出处与我们的等价物）。</summary>
         void RefreshButtons()
         {
@@ -764,12 +781,6 @@ namespace CardPresentation
             {
                 _voiceBtn.gameObject.SetActive(voice);
                 if (voice) SetZ(_voiceBtn, ZContent);
-            }
-            bool eye = _hasShown && CardButtons.HasTextButton(_shown);
-            if (_eyeBtn != null)
-            {
-                _eyeBtn.gameObject.SetActive(eye);
-                if (eye) SetZ(_eyeBtn, ZContent);
             }
         }
     }

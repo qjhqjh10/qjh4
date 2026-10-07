@@ -78,6 +78,35 @@ namespace RuleEngine
         /// `RuleCore.QuestPointThreshold` 读写 —— **阈值判据只此一处**。</summary>
         public int QuestMilestone;
 
+        /// <summary>
+        /// 🆕 2026-10-17（B24）：**本局「打出过的隐秘（Secret）」张数** —— 一条**独立计数器**。
+        ///
+        /// 用处只有一个：卡面 `For each Secret you played this game`（实测全池只 1 处：
+        /// `Relic Munitions`（DarkAngels 战术卡）的 `Repeat for each Secret you played this game`）。
+        ///
+        /// 🔴 **判据全在反编译，别拿 `BattleContext.PlayedCards` 顶替**（那是**另一件事** ——
+        ///    它记的是「本局打出过的牌」这张流水表，尺寸/清点/用途都不同）：
+        ///   · **字段** = `PlayerManager.secretsPlayed`
+        ///     （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/PlayerManager.cs:93`，类型 `ObscuredInt`，
+        ///      实例偏移 **+0xEC** —— 读见 `PlayerManager__GetSecretsPlayed.c:16-25`）；
+        ///   · **写点（全库唯一）** = `BattleManager._ResolvePlayCardFromHand__MoveNext.c:1267-1274`：
+        ///     `EntityScript.get_spellType(card) == 0x96`（= **150 = Secret**）时调
+        ///     `PlayerManager.AddSecretPlayed()`（`PlayerManager__AddSecretPlayed.c` 就是
+        ///     `ObscuredInt.op_Increment`）—— 位置与 `AddPlayCardAction` 同一段协程
+        ///     ⇒ **「从手牌打出」才算；「生成」一张不算**（那是 `BroadcastSecretCreated` 那条路）；
+        ///   · **读点（全库唯一）** = `TargetsAffected.secretsPlayed = 245`（`TargetsAffected.cs:40`）
+        ///     → `AbilityLogic__GetTargets.c:523`（那一支拿它当**循环次数**用）；
+        ///   · **算谁的**：取**施放者那一方**的 `PlayerManager`（`GetPlayerManager(…, card+0x40)`）
+        ///     —— 我们这边就是 `CountFor(ctx, owner, …)` 的 `owner`。
+        /// ⚠️ 原版**只有这一个**「本局打出过某类牌」计数器（`TargetsAffected` 枚举里没有破坏卡、
+        ///    也没有通用的那种）⇒ 别的引用词（`sabotage` / `any`）在 `CountFor` 里照旧**如实报
+        ///    「数不出来」**，**不许拿这张数去顶**。
+        ///
+        /// 写点 = `EffectResolver.PlayTactic` · 读点 = `EffectResolver.CountFor` 的
+        /// `CountScope == "played"`（**各一处**）。
+        /// </summary>
+        public int SecretsPlayed;
+
         /// <summary>本方自己的回合计数（能量 = 它 + 1）。**不是全局回合数** —— 见 RuleCore.BeginTurn</summary>
         public int TurnCount;
 

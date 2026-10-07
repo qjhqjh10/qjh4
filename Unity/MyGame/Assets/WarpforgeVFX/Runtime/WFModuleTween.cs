@@ -51,9 +51,27 @@
 //     ⇒ 这里把「该播哪一条」路由到静态钩子 `OnInvoke`（照 `WFModuleScreenShake.OnShake` 的写法）。
 //   · **`waitAnimation` 的判断**：它是 `UnitTweenSO` 的字段（`so+0x18`；24 个里 6 个为 1），我们读不到
 //     ⇒ 由下游在 `OnInvoke` 的**返回值**里回答（只有它见过那份数据）。
-//   · **动画事件通道**：`PlayAnim()` 在原版是给**动画片段事件**调的（零代码调用点，见块1 §附D）——
-//     我们**还没有动画事件层** ⇒ `playOnEnable = 0` 的那 **84/138** 个实例现在**没人会调它**。
-//     要接就接在牌局时序上（`BattleDriver.PlaySignal` 那条链），别另外发明一套。
+//   · 🔴 **2026-10-17 就地订正（B15 · 铁律 5）：这一格原来写的是错的，而且导出了一条错的待办。**
+//     原文：「**动画事件通道**：`PlayAnim()` 在原版是给**动画片段事件**调的（零代码调用点，见块1 §附D）
+//     —— 我们**还没有动画事件层** ⇒ `playOnEnable = 0` 的那 **84/138** 个实例现在**没人会调它**，
+//     要接就接在牌局时序上（`BattleDriver.PlaySignal` 那条链）。」
+//     **两半都不成立**（判据 = 全量普查，报告 → `资料/普查产出_1017/W_B15_动画事件层.md`）：
+//     · **「动画片段事件调 `PlayAnim`」= 零命中**：`d:/2/新解包资源/assets_full/` 全量 **99 条
+//       `AnimationClip`**，其中 **13 条**带 `m_Events`，事件函数名一共 **10 种**
+//       （`CardHandToBoardAnimationFinished` · `AnimationEndEvent` · `AnimationFinished` ·
+//       `OnAnimationEndEvent` · `AnimationResurrectionEnd` · `ChangeFrame` · `StartCardAnimationEvent` ·
+//       `EnableCardBackAnimEvent` · `FinishedOpeningAnimEvent` · `CloseAnimaFinishEvent`）
+//       —— **没有一个叫 `PlayAnim`**。（同族的误判已经有过一次：`WFModuleScreenShake.cs:20` 那段订正。）
+//     · **真通道** = **`AnimFXModuleCollisions.collisionEvent`（一个 UnityEvent）→ `AnimFXModuleTween.PlayAnim`**：
+//       全库 grep 字符串 `PlayAnim` 命中 **83 个 MonoBehaviour / 92 条 PersistentCall**，
+//       **全部**在 `collisionAndParticles[i].particleSystemsDefinition[j].collisionEvent.m_PersistentCalls.m_Calls[k]`
+//       （`m_Mode = 1` Void · `m_CallState = 2` · `m_TargetAssemblyTypeName = "AnimFXModuleTween, Assembly-CSharp"`）。
+//       与 **84/138** 对得上：84 个 `playOnEnable = 0` 的实例里 **83 个**有订阅（**1 个没有**，
+//       pathID `2430676213199723360`，`MonoBehaviour` 在 `bundle_battleprefabs_vfxandmisc_assets_all`）。
+//     · **这一层【已经建好】**（2026-10-16 起）：那 92 条已进 `数据/游戏数据/animfx_modules.json`
+//       与 `WarpforgeEffectLibrary.asset`（各 92 条），运行时装进
+//       `WFModuleCollisions.BindCollisionEvent` → `MakeAction` 的 `case "PlayAnim"`。
+//       ⇒ **「没人会调它」不再成立**；缺的只是**断言**（B15 已补在 `BattleScene.Run`）。
 using System;
 using UnityEngine;
 
@@ -179,7 +197,9 @@ namespace WarpforgeVFX
             if (playOnEnable) StartChain();
         }
 
-        /// <summary>原版 `PlayAnim()` —— **唯一的公开入口**（动画事件 / 代码调）。</summary>
+        /// <summary>原版 `PlayAnim()` —— **唯一的公开入口**。
+        /// 调用者 = **`WFModuleCollisions.collisionEvent`（UnityEvent）**（原版代码里零直接调用点，
+        /// ⛔ 不是动画片段事件 —— 那一条 2026-10-17 已实测推翻，见文件头）。</summary>
         public void PlayAnim() { StartChain(); }
 
         /// <summary>每帧只做一件事：把「等待中」的链子往下推。

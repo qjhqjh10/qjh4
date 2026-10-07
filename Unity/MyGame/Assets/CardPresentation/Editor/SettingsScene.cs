@@ -518,25 +518,75 @@ public static class SettingsScene
             CheckTrue(bgQ != null && bgQ.Texture != null && bgQ.Texture.name == "40k_popup",
                       "弹窗底图 = `40k_popup`");
 
-            // ---------------- 左栏三个页签 ----------------
-            Section("左栏页签（原版这一列是 VLG：padTop 30 · 每键 178.42×157.68 · 从 y=153.10 起）");
+            // ---------------- 左栏四个页签 ----------------
+            // 🔴 **2026-10-17（A863）**：这一列的 VLG 参数**逐条实读原版 prefab** 后的真值 =
+            //    `m_Padding = (L 0, R 0, T **13**, B 0)` · `m_Spacing = **8.920000076293945**`
+            //    · `m_ChildAlignment = **5**(MiddleCenter)` · `m_ChildControlWidth/Height = 0`
+            //    · `m_ChildForceExpandWidth = 1` · 五个键各自的 `m_SizeDelta = (165.0, **157.68350219726562**)`。
+            //    出处 = `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-8185144684232147034.json`
+            //    （`m_GameObject.m_PathID = -301262919896891482` = 本窗 `Tab Buttons`）+ 五份键 RT
+            //    （`RectTransform_-1745314864996450394` 起）逐份实读；布局后的屏幕值 =
+            //    `python 工具/menu_dump.py bundle_menus_assets_all "Main Menu Settings Window" --depth 6`。
+            // ⚠️ 本节旧标题写的是「padTop 30 · 每键 178.42×157.68 · 从 y=153.10 起」—— **三项全是错的**。
+            // ⚠️ 下面**期望值一律是字面量**（⛔ 不拿 `SettingsWindow.*` 当期望 —— 那样常量改坏了也照绿）。
+            Section("左栏页签（原版 VLG：padTop 13 · spacing 8.92 · 每键 165×157.6835 · 贴右沿 · MiddleCenter）");
             // 🔴 **2026-10-10（F4）**：`bar` **不存**（原来这里是 `var bar = FindChild(area, "Tab Buttons");`，
             //   而 A176 那一段的 `Close()` + 两次 `OpenWindow` 会把整棵树重建 ⇒ 存下来的 `bar` 变假 null
             //   ⇒ 音频页 / 联机页**一次都没切过去**、并连带 5 条矩形断言假红）。改走**现取** `Bar(root)`。
             CheckAtS(Bar(root), SettingsWindow.BarL, SettingsWindow.BarT, SettingsWindow.BarR, SettingsWindow.BarB, "`Tab Buttons` 列");
-            var names = new[] { "Graphics", "Audio", "Online" };
-            for (int i = 0; i < 3; i++)
+            // 🔴 **2026-10-17**：`General` 是**第一个**（原版页签序 `General/Media/Account/Graphics/Support` 也是它第一，
+            //    见 `Shell/SettingsWindow.cs` 的 `BuildTabs`）⇒ 这一列现在 **4** 个键。
+            var names = new[] { "General", "Graphics", "Audio", "Online" };
+            // ---- ① A863 参数（**字面量**，逐条带原版出处；这几条同时是「旧值改坏了会红」的判别式）----
+            //   ⚠️ 键高那条尤其要认准：`menu_dump` 印的 **141.92 是屏幕 px**（= 157.6835 × 根上那层 0.9），
+            //      **不是设计值**。照 141.92 改键高会比原版**矮 11%**（正是本工程踩过的那类单位坑）。
+            CheckNear(SettingsWindow.TabBtnH, 157.6835f, 0.01f,
+                      "键高 = 原版五个键的 `m_SizeDelta.y` 原文 **157.6835**（设计 px；⛔ 不是 `menu_dump` 印的 141.92 —— 那是屏幕 px）");
+            CheckNear(SettingsWindow.TabGap, 8.92f, 0.01f,
+                      "键间缝 = 原版 VLG `m_Spacing` **8.92**（旧代码**没有这一项** ⇒ 等价于 0）");
+            CheckNear(SettingsWindow.BarPadTop, 13f, 0.01f,
+                      "栏顶内边距 = 原版 VLG `m_Padding.m_Top` **13**（旧值 30）");
+            CheckNear(SettingsWindow.BarPadBottom, 0f, 0.01f, "…`m_Padding.m_Bottom` = **0**");
+            CheckNear(SettingsWindow.TabW, 165f, 0.01f,
+                      "键宽 = 原版五个键的 `m_SizeDelta.x` **165.0**（旧代码 = 满栏宽 178.42）");
+            CheckNear(SettingsWindow.TabStep, 166.6035f, 0.01f, "键顶步进 = 高 157.6835 + 缝 8.92 = **166.6035**");
+            // ② 键顶**逐行**：期望值是**手算字面量**（⛔ 不过 `SettingsWindow.TabTop` —— 那是被测实现）。
+            //    uGUI `GetStartOffset`：content = 4×157.6835 + 3×8.92 = **657.4940**
+            //    surplus = (966.19 − 123.10) − (657.4940 + 13 + 0) = **172.5960**；`align = 0.5`
+            //    ⇒ start = 123.10 + 13 + 172.5960×0.5 = 222.3980；加 k×166.6035。
+            var tabTops = new[] { 222.398f, 389.0015f, 555.605f, 722.2085f };
+            for (int i = 0; i < 4; i++)
             {
-                float t = SettingsWindow.BarT + SettingsWindow.BarPadTop + i * SettingsWindow.TabBtnH;
                 var n = FindChild(Bar(root), names[i]);
-                CheckTrue(n != null, $"第 {i + 1} 个键 `{names[i]}` 建出来了（我们只建 3 个 —— 原版 5 个，见文件头 ③）");
+                CheckTrue(n != null, $"第 {i + 1} 个键 `{names[i]}` 建出来了（我们建 4 个 —— 原版 5 个，见文件头 ③）");
                 if (n == null) continue;
-                CheckAtS(n, SettingsWindow.BarL, t, SettingsWindow.BarR, t + SettingsWindow.TabBtnH,
+                // 键那一格：左沿 **341.52**（= 栏右沿 506.52 − 键宽 165，**贴右沿**、⛔ 不是满栏宽）
+                CheckAtS(n, 341.52f, tabTops[i], 506.52f, tabTops[i] + 157.6835f,
                          $"`{names[i]}` 键在 VLG 算出来的位置（第 {i + 1} 个）");
-                CheckTrue(TextOf(n) == names[i], $"`{names[i]}` 的页签文字");
+                // ⚠️ 页签上那行字**跟着语言走**：只有 `General` 接了词条（其余三页还没接，见 `BuildTabs` 的注释）
+                // ⇒ 期望值不能写死 "General"，要读词条（这一条同时钉住「接了没有」这件事本身）。
+                string wantTab = names[i] == "General" ? Loc.T("Settings/General/Title") : names[i];
+                Check(TextOf(n), wantTab, $"`{names[i]}` 的页签文字（= `Loc.T(\"Settings/General/Title\")`）");
             }
-            CheckTrue(FindChild(Bar(root), "General") == null && FindChild(Bar(root), "Account") == null,
-                      "原版的 `General`/`Account`/`Support` 三个键**不建**（那几页没做，不摆假键）");
+            // ③ 🔴 **判别式**（结构上不可能与旧实现同时满足）：
+            //    (a) 起排位置 —— 旧式 `BarT + 30 + i×157.68` 会给首键顶 **153.10**；
+            //        改回「上对齐 + padTop 13」会给 **136.10**；只有「padTop 13 + MiddleCenter」才是 **222.398**。
+            CheckNear(SettingsWindow.TabTop(0, 4) - 123.10f - 13f, 86.298f, 0.02f,
+                      "🔴 首键顶 = 栏顶 + padTop 13 + **余量一半 86.298**（`m_ChildAlignment = 5` 那条；上对齐会给 0）");
+            CheckNear(SettingsWindow.TabTop(1, 4) - SettingsWindow.TabTop(0, 4), 166.6035f, 0.02f,
+                      "🔴 相邻键的顶之差 = **166.6035**（只改高不改缝 ⇒ 157.6835 ⇒ 红；旧代码正是这一档）");
+            //    (b) 键上那两层**居中于【键】那一格**：原版实测 `Icon` 中心 = `Label` 中心 = 设计 **424.06**
+            //        （屏幕 `477.65`）。旧代码居中的是整条栏（417.31 ⇒ 屏幕 471.58，差 6.1px ⇒ 红）。
+            {
+                var lbQ = FindChild(Bar(root), names[0]) != null
+                        ? FindChild(Bar(root), names[0]).GetComponentInChildren<Label>() : null;
+                float lbCx = lbQ != null ? lbQ.transform.position.x * 108f + 960f : -1f;
+                CheckNear(lbCx, 960f + (424.06f - 960f) * SettingsWindow.RootScale, 0.5f,
+                          "🔴 键上那行字**居中于【键】**（原版实测中心 = 设计 424.06 ⇒ 屏幕 477.65）"
+                        + " —— 居中于整条栏会给 471.58（旧代码正是这一档）");
+            }
+            CheckTrue(FindChild(Bar(root), "Account") == null && FindChild(Bar(root), "Support") == null,
+                      "原版的 `Account` / `Support` 两个键**不建**（那两页没做，不摆假键）");
 
             // 🆕 A17：本窗的换图（关闭钮的圆底 → `40k_bt_close_hover` · 三个页签 → `…_selected` · 画质下拉 → `…_opened`
             //   · 动作钮 → `40K_button_hover`）逐个悬停验一遍；顺带盯 A21「选中态用 `_hover`」
@@ -551,12 +601,12 @@ public static class SettingsScene
             //   而**只报一句 `点击区 `?``**：分不出「没建」与「旧树」，见 `Click` 的注释）。
             //   ⛔ 别退回 `Click(FindChild(存下来的父, 名字))`。
             Section("切页（只切 activeSelf）");
-            var pages = new[] { "Graphics Tab", "Media Tab", "Online Tab" };
-            for (int i = 0; i < 3; i++)
+            var pages = new[] { "General Tab", "Graphics Tab", "Media Tab", "Online Tab" };
+            for (int i = 0; i < 4; i++)
             {
                 Click(Bar(root), names[i]);
                 Check(win.Current, (SettingsTab)i, $"点 `{names[i]}` ⇒ 切到第 {i + 1} 页");
-                for (int j = 0; j < 3; j++)
+                for (int j = 0; j < 4; j++)
                 {
                     var pg = FindChild(root, pages[j]);
                     CheckTrue(pg != null && pg.gameObject.activeSelf == (i == j),
@@ -568,6 +618,365 @@ public static class SettingsScene
                 CheckTrue(title != null && !string.IsNullOrEmpty(TextOf(title)), $"`{pages[i]}` 有页标题");
                 CheckLeftS(title, SettingsWindow.TitleL, SettingsWindow.TitleR, SettingsWindow.TitleT,
                            SettingsWindow.TitleB, "页标题**左对齐**到原版矩形左边缘（fs55 那条）");
+            }
+
+            // ---------------- 🆕 2026-10-17：中英双语基础设施（`Core/Loc.cs`）----------------
+            // 判据全文 = `资料/待办判据_卡面卡池与双语.md` §23（用户 2026-09-28 立项：「游戏的各个地方都做
+            // 中文和英文两个语言」）；原版侧的四条硬判据（枚举取值 / `TMP_Dropdown` / 词条名 / 12 项）
+            // 逐条写在 `Core/Loc.cs` 的文件头。
+            // ⚠️ **本节要动 `PlayerPrefs`**（「落盘 / 回读」那条链是任务明确要求的第 ③ 条）⇒ 开头把
+            //    盘上与内存都记下来、收尾**逐值放回**（⛔ 不许把玩家的真设置留在自检改过的状态上）。
+            Section("中英双语 ①：语言表 / `T()` / 当前语言（`Core/Loc.cs`）");
+            {
+                // ⛔ 期望值一律**字面量**（不从被测实现里读 `Loc.PrefKey` 当期望 —— 那是自证）
+                const string PrefKeyLiteral = "Language";
+                var origLang = Loc.Current;
+                int origPref = PlayerPrefs.GetInt(PrefKeyLiteral, int.MinValue);   // int.MinValue = 盘上没这个键
+                string en, zh = null, jp = null, miss = null;
+
+                Check(Loc.Languages.Length, 12, "下拉列 **12** 项（= 原版 `AvailableLanguages` 的成员数）");
+                Check((int)Loc.Languages[0], 0, "第 1 项 `English` 的枚举值 = **0**（原版 `AvailableLanguages.cs` 实读）");
+                Check((int)Loc.Languages[11], 110, "第 12 项 `Chinese` 的枚举值 = **110**（⛔ 不是 11 —— 原版是 0/10/…/110）");
+                CheckTrue(Loc.EntryCount > 10, $"语言表非空（{Loc.EntryCount} 条词条）");
+                // 键名照原版 `Localize.mTerm`（抽查三条：本页标题 / 12 项语言名 / 与对战那扇共用的那条）
+                CheckTrue(Loc.HasEntry("Settings/General/Title")
+                          && Loc.HasEntry("MainMenu/Settings/LanguageName/Chinese")
+                          && Loc.HasEntry("MainMenu/Settings/ButtonLabel/SelectLanguage"),
+                          "键名照原版 `Localize.mTerm`（抽查 `Settings/General/Title` · "
+                        + "`MainMenu/Settings/LanguageName/Chinese` · `MainMenu/Settings/ButtonLabel/SelectLanguage`）");
+                // 🔴 与**对战那扇**共用的那条 —— 两处各是各的常量，值必须相等（同一条词条挂两个窗）
+                Check(SettingsPanel.LangLabelTermKey, "MainMenu/Settings/ButtonLabel/SelectLanguage",
+                      "对战那扇（`Battle/SettingsPanel.cs`）的语言标签键 = 与主菜单**同一个字符串**");
+
+                Loc.PersistOverride = true;         // ②③⑤ 都不写盘（盘上那条链留给 ⑥ 单独验）
+                Loc.SetLanguage(AvailableLanguages.English);
+                en = Loc.T("Settings/General/DisableBots");
+                Loc.SetLanguage(AvailableLanguages.Chinese);
+                zh = Loc.T("Settings/General/DisableBots");
+                Check(en, "Disable Bots", "英文那一列 = 原版 TMP 的 `m_text` **原文逐字符**（`Disable Bots`）");
+                CheckTrue(!string.IsNullOrEmpty(zh) && zh != en,
+                          $"中文那一列与英文**不一样**（实得「{zh}」）—— 两条合起来才说明表真分了两列");
+
+                // ④ 选到**本地没有文案**的语言 ⇒ 回退英文 + **出声**（⛔ 不是悄悄回退）
+                int fb0 = Loc.FallbackCount;
+                var fbLogs = CaptureLogs(() =>
+                {
+                    Loc.SetLanguage(AvailableLanguages.Japanese);
+                    jp = Loc.T("Settings/General/DisableBots");
+                });
+                Check(jp, "Disable Bots", "选到 `Japanese`（本地只有中/英两套文案）⇒ 取到的仍是**英文**那一列");
+                CheckTrue(Loc.FallbackCount > fb0, $"…而且**记账了**（`Loc.FallbackCount` {fb0} → {Loc.FallbackCount}）");
+                bool fbLogged = false;
+                foreach (var m in fbLogs) if (m != null && m.Contains("回退英文")) { fbLogged = true; break; }
+                CheckTrue(fbLogged, "…而且**出声了**（日志里有一条写明「回退英文」—— 判据：不许静默）");
+
+                // ⑤ 表里没有的键 ⇒ 返回**键名本身** + 出声（画出来就看得见，⛔ 不是空串）
+                int miss0 = Loc.MissingCount;
+                var missLogs = CaptureLogs(() => { miss = Loc.T("No/Such/Key/___"); });
+                Check(miss, "No/Such/Key/___", "表里没有的键 ⇒ 返回**键名本身**（那一行画出来一眼看得见）");
+                CheckTrue(Loc.MissingCount == miss0 + 1 && Loc.LastMissingKey == "No/Such/Key/___",
+                          "…而且**记账了**（`Loc.MissingCount` +1、`LastMissingKey` 就是它）");
+                bool missLogged = false;
+                foreach (var m in missLogs) if (m != null && m.Contains("没有")) { missLogged = true; break; }
+                CheckTrue(missLogged, "…而且**出声了**");
+
+                // ⑥ 落盘 / 回读（**这一条真要写盘** ⇒ 键名用字面量、收尾放回）
+                Loc.PersistOverride = false;
+                Loc.SetLanguage(AvailableLanguages.English);
+                Check(PlayerPrefs.GetInt(PrefKeyLiteral, int.MinValue), 0,
+                      "落盘：`PlayerPrefs[\"Language\"]` = **0**（= `English`；⛔ 这里用的是**字面量键名**，不是 `Loc.PrefKey`）");
+                Loc.ReloadForTest();                       // = 模拟「重开游戏」（重读盘）
+                Check(Loc.Current, AvailableLanguages.English, "回读：重读 `PlayerPrefs` 之后 `Loc.Current` = `English`");
+                Loc.SetLanguage(AvailableLanguages.Chinese);
+                Check(PlayerPrefs.GetInt(PrefKeyLiteral, int.MinValue), 110,
+                      "再换到 `Chinese` ⇒ 盘上是 **110**（原版枚举取值）—— 与上一条合起来才说明**不是恒等于一个值**");
+                Loc.ReloadForTest();
+                Check(Loc.Current, AvailableLanguages.Chinese, "…回读也是 `Chinese`");
+
+                // 收尾：盘上与内存**逐值放回**自检前那一档
+                if (origPref == int.MinValue) PlayerPrefs.DeleteKey(PrefKeyLiteral);
+                else PlayerPrefs.SetInt(PrefKeyLiteral, origPref);
+                PlayerPrefs.Save();
+                Loc.PersistOverride = false;
+                Loc.RestoreForTest(origLang);
+                CheckTrue(Loc.Current == origLang, $"收尾：语言放回自检前那一档（{origLang}；⛔ 自检不许改玩家的真设置）");
+            }
+
+            // ---------------- 🆕 2026-10-17：General 页（`Shell/SettingsWindow.cs`）----------------
+            // 逐值判据 = `Shell/SettingsWindow.cs` 那组 `Gen*` 常量（每条都有自己的反算算式）。
+            // ⚠️ 原版 `GeneralTab` 那三颗开关点下去在我们这边**只存值**（消费者在服务器/匹配那侧）⇒
+            //    自检只断「值翻了、字没变、不写盘」，**不断它产生了别的效果**（那是没有的事）。
+            Section("中英双语 ②：General 页（原版 `General Tab`：语言下拉 / 三颗开关 / 版本号 / 两颗钮）");
+            Click(Bar(root), "General");
+            var gtab = FindChild(root, "General Tab");
+            CheckTrue(gtab != null, "`General Tab` 那一页建出来了（下面这一片才有对象可量）");
+            if (gtab == null)
+                CheckTrue(false, "General 页**没建出来** ⇒ 这一节其余断言**全跳过了**"
+                               + "（早退，免得 20 条连锁红混在里面 —— 这是判据，⛔ 不是「忽略」）");
+            if (gtab != null)
+            {
+                CheckAtS(gtab, SettingsWindow.TabsL, SettingsWindow.TabsT, SettingsWindow.TabsR, SettingsWindow.TabsB,
+                         "General 页的根矩形 = `Tab Content`");
+
+                // ① 版本号（原版 `VersionText`：右上角那一格 · fs28 · **Right/Middle**）
+                var verNode = FindChild(gtab, "VersionText");
+                CheckTrue(verNode != null, "`VersionText` 建出来了");
+                if (verNode != null)
+                {
+                    Check(TextOf(verNode), "v" + Application.version,
+                          "版本号 = **`\"v\" + Application.version`**（= 原版 `GeneralTab__OnSetup.c` 那句 `String.Concat(\"v\", 版本)` 的等价物）");
+                    var verLb = verNode.GetComponentInChildren<Label>();
+                    var vs = SettingsWindow.Screen(SettingsWindow.GenVerL, SettingsWindow.GenVerT,
+                                                   SettingsWindow.GenVerR, SettingsWindow.GenVerB);
+                    float rightPx = verLb != null ? verLb.transform.position.x * 108f + 960f + verLb.WorldW * 108f * 0.5f : -1f;
+                    CheckTrue(Mathf.Abs(rightPx - vs.x2) <= 2f,
+                              $"…而且**右对齐**到原版那一格的右沿（实得 {rightPx:F1}，应为 {vs.x2:F1}）—— 原版是 `Right/Middle`");
+                }
+
+                // ② 语言那一行（原版 `Language Selector` → `LanguagesDropdown` → `Label` / `Arrow`）
+                float selB = SettingsWindow.GenSelT + SettingsWindow.GenSelH;
+                var row = FindChild(gtab, "Language Selector");
+                CheckAtS(row, SettingsWindow.GenL, SettingsWindow.GenSelT, SettingsWindow.GenR, selB,
+                         "`Language Selector` 那一行");
+                var fldNode = row != null ? FindChild(row, "LanguagesDropdown") : null;
+                CheckRectS(fldNode != null ? FindChild(fldNode, "bg") : null,
+                           SettingsWindow.GenL, SettingsWindow.GenSelT, SettingsWindow.GenFieldR, selB,
+                           "下拉框底图（原版 400.70×59.33 设计 px · 图 `40K_dropdown_field_closed`）");
+                var capNode = fldNode != null ? FindChild(fldNode, "Label") : null;
+                Check(TextOf(capNode), Loc.LanguageName(Loc.Current),
+                      "框里那行字 = **当前语言名**（原版 `TMP_Dropdown` 的 caption 就是这个语义）");
+                CheckTrue(fldNode != null && FindChild(fldNode, "Arrow") != null,
+                          "框右端那个箭头建出来了（原版 `LanguagesDropdown > Arrow`）");
+                var selNode = row != null ? FindChild(row, "SelectLanguageText") : null;
+                Check(TextOf(selNode), Loc.T("MainMenu/Settings/ButtonLabel/SelectLanguage"),
+                      "左边那颗标签 = `Loc.T(\"MainMenu/Settings/ButtonLabel/SelectLanguage\")`");
+
+                // ③ 三颗开关（原版 `Checkboxes`：行高 75.641 · 步进 80.641 —— 与图像页那一族同值）
+                var toggleRows = new[] { "Disable Bots", "Disable Notifications", "Touch Input" };
+                for (int i = 0; i < toggleRows.Length; i++)
+                {
+                    float t = SettingsWindow.GenChkT + i * SettingsWindow.ChkRowStep;
+                    var n = FindChild(gtab, toggleRows[i]);
+                    CheckAtS(n, SettingsWindow.GenL, t, SettingsWindow.GenR, t + SettingsWindow.ChkRowH,
+                             $"勾选行 `{toggleRows[i]}`（原版 `Checkboxes` 第 {i + 1} 行）");
+                    if (n == null) continue;
+                    CheckTrue(n.GetComponentInChildren<Label>() != null && !string.IsNullOrEmpty(TextOf(n)),
+                              $"`{toggleRows[i]}` 那一行**有字**（空标签 = 玩家看到一颗没有说明的开关）");
+                    CheckTrue(FindChild(n, "Toggle") != null && FindChild(n, "CheckMark") != null,
+                              $"`{toggleRows[i]}` 的勾选框与勾两层都建出来了（原版 `Toggle` + `CheckMark`）");
+                }
+                // ③-b 点一下那三颗：**值真的翻**，而且**互不连带**
+                //     （`PersistOverride` 挡住写盘 —— 自检不许动玩家的真设置；这一段只验交互与状态）
+                {
+                    var hits = new[] { FindChild(gtab, toggleRows[0]), FindChild(gtab, toggleRows[1]), FindChild(gtab, toggleRows[2]) };
+                    bool b0 = SettingsWindow.GeneralFlags.DisableBots, n0 = SettingsWindow.GeneralFlags.DisableNotifications, t0 = SettingsWindow.GeneralFlags.TouchInput;
+                    SettingsWindow.GeneralFlags.PersistOverride = true;
+                    SettingsWindow.GeneralFlags.ResetForTest();                 // 三格清零（⛔ 不动盘）
+                    Click(hits[0], "HitBox");
+                    Check(SettingsWindow.GeneralFlags.DisableBots, true, "点 `Disable Bots` 的**勾选框** ⇒ 那一格翻成 true");
+                    Click(hits[0], "HitLabel");
+                    Check(SettingsWindow.GeneralFlags.DisableBots, false, "…点那一行的**文字**也翻（原版那颗 `Label` 的 TMP 也是 `raycastTarget = 1`）");
+                    Click(hits[1], "HitBox");
+                    Check(SettingsWindow.GeneralFlags.DisableNotifications, true, "点 `Disable Notifications` ⇒ **那**一格翻（三颗各归各的）");
+                    Check(SettingsWindow.GeneralFlags.DisableBots, false, "…而且**没有连带**把 `Disable Bots` 一起翻");
+                    Click(hits[2], "HitBox");
+                    Check(SettingsWindow.GeneralFlags.TouchInput, true, "点 `Touch input` ⇒ 那一格翻（三颗都真的接上了）");
+                    SettingsWindow.GeneralFlags.RestoreForTest(b0, n0, t0);      // 内存放回原值
+                    SettingsWindow.GeneralFlags.PersistOverride = false;
+                }
+
+                // ④ 底下两颗钮（原版 `Bottom Buttons`：300×90 · 间距 40）
+                CheckAtS(FindChild(gtab, "Redeem Code"), SettingsWindow.GenL, SettingsWindow.GenBtnT,
+                         SettingsWindow.GenL + SettingsWindow.GenBtnW, SettingsWindow.GenBtnT + SettingsWindow.GenBtnH,
+                         "`Redeem Code` 钮");
+                CheckAtS(FindChild(gtab, "Close Game Button"), SettingsWindow.GenBtn2L, SettingsWindow.GenBtnT,
+                         SettingsWindow.GenBtn2L + SettingsWindow.GenBtnW, SettingsWindow.GenBtnT + SettingsWindow.GenBtnH,
+                         "`Close Game Button` 钮（原版 `Exit Game`）");
+                Check(TextOf(FindChild(gtab, "Redeem Code")), Loc.T("Settings/General/RedeemCode"),
+                      "`Redeem Code` 上那行字 = 词条 `Settings/General/RedeemCode`");
+                Check(TextOf(FindChild(gtab, "Close Game Button")), Loc.T("MainMenu/Settings/ButtonLabel/Exit_Game"),
+                      "`Exit Game` 上那行字 = 词条 `MainMenu/Settings/ButtonLabel/Exit_Game`");
+
+                // ⑤ 🔴 **切一下语言 ⇒ 屏幕上的字真的变了**（第 ② 条验收 = 拿一个已知键验）
+                //    🔴 **2026-10-17（A862）换路**：这里原来是「点一下框 = 换下一个」（`CycleLanguage`，
+                //      一条**已知偏离**）。现在框接的是 `ToggleLangList` ⇒ 必须**点开列表、再点那一行** ——
+                //      这正是原版的链：`OnPointerClick → Show()` → `OnSelectItem:1247 → value = i + Hide()`。
+                //    ⛔ 不是直调 `Loc.SetLanguage`（那样只能证明 `Loc` 有用，证不了「界面接了」）。
+                //    🔴 **两态自己定死、不靠玩家现在的设置**：先把语言落回 `Chinese`，再**点第 0 行**
+                //    （声明序 0 = `English`）—— 这两档隔着中/英那条边界，字**必然**不同；
+                //    若顺着玩家当前的档挑，可能从 `English` 换到 `Spanish`（**两边都回退英文**）⇒
+                //    「字变了没有」那一条会**假红**（`Loc.T` 的回退规则本来就该让它们一样）。
+                //    ⚠️ 这一下**不改盘**（`PersistOverride` 挡住）—— 盘上那条链已在上一节单独验过。
+                {
+                    var langBefore = Loc.Current;
+                    Loc.PersistOverride = true;
+                    Loc.SetLanguage(AvailableLanguages.Chinese);
+                    if (SettingsWindow.Instance != null) SettingsWindow.Instance.RefreshTexts();
+                    string capBefore = TextOf(capNode), rowBefore = TextOf(FindChild(gtab, "Disable Bots"));
+                    CheckTrue(!string.IsNullOrEmpty(rowBefore) && rowBefore != "Disable Bots",
+                              $"前置：落回 `Chinese` 之后那一行是中文那一列（「{rowBefore}」）");
+                    // ⑤-a 点框 ⇒ **开列表**
+                    Click(row, "LanguageHit");
+                    CheckTrue(win.LangListOpen, "点下拉框 ⇒ **那 12 行列表开出来了**（原版 `OnPointerClick → Show()`）");
+                    CheckTrue(win.LangRowCount == 12, $"…列表里 **12** 行（实得 {win.LangRowCount}）");
+                    // ⑤-b 点第 0 行（= `English`）⇒ 选中 + **收起**
+                    Click(win.LangRowHit(0));
+                    Check(Loc.Current, AvailableLanguages.English,
+                          "点第 0 行 ⇒ 语言 = `English`（原版 `OnSelectItem`：行号 = 兄弟序 − 1 ⇒ `value = 0`）");
+                    CheckTrue(!win.LangListOpen, "…而且**当场收起了**（原版 `OnSelectItem` 末尾就是 `Hide()`）");
+                    CheckTrue(TextOf(capNode) != capBefore,
+                              $"…框里那行字**当场变了**（「{capBefore}」→「{TextOf(capNode)}」）");
+                    Check(TextOf(FindChild(gtab, "Disable Bots")), "Disable Bots",
+                          "…那一行的标签 = **英文**那一列（`Loc.T(\"Settings/General/DisableBots\")`）");
+                    CheckTrue(TextOf(FindChild(gtab, "Disable Bots")) != rowBefore,
+                              $"🔴 …而且**与切换前真的不同**（「{rowBefore}」→「{TextOf(FindChild(gtab, "Disable Bots"))}」）"
+                            + " —— 这就是第 ② 条「切换后文案真的变了」");
+                    Check(TextOf(FindChild(gtab, "Redeem Code")), Loc.T("Settings/General/RedeemCode"),
+                          "…底下那颗钮上的字也重设了（整页走同一条 `RefreshTexts`）");
+                    Check(TextOf(FindChild(Bar(root), "General")), Loc.T("Settings/General/Title"),
+                          "…页签上那行字也跟着变（`RefreshTexts` 同时刷页签 —— 它不在这一页的树里）");
+                    Check(TextOf(selNode), Loc.T("MainMenu/Settings/ButtonLabel/SelectLanguage"),
+                          "…那颗 `Select Language` 标签 = 切换后当前语言那一列");
+                    // 收尾：**内存放回自检开始前那一档**（盘上这一下没动过 —— `PersistOverride` 挡着）
+                    Loc.SetLanguage(langBefore);
+                    Loc.PersistOverride = false;
+                    if (SettingsWindow.Instance != null) SettingsWindow.Instance.RefreshTexts();
+                    CheckTrue(Loc.Current == langBefore, $"收尾：语言放回本节开始前那一档（{langBefore}）");
+                }
+            }
+
+            // ---------------- 🆕 2026-10-17（A862）：语言下拉的 12 行列表（原版 `LanguagesDropdown > Template`）----------------
+            // 判据 = 原版 prefab `Main Menu Settings Window > … > LanguagesDropdown > Template` **逐字段实读**：
+            //   RT `RectTransform_-8168062444739330138`：`aMin(0,0.5) aMax(1,0.5) aPos(-2.5,-22)
+            //   sizeDelta(-4.9998, **573.9600219726562**) pivot(0.5,1)`；父 = `LanguagesDropdown`（宽 400.666412）
+            //   ⇒ 设计 **395.666 × 573.960**、左上 **596.556, 390.667**（= 下拉框左沿 · 框心往下 22）。
+            //   子件逐条（全部实读，`menu_dump … "Main Menu Settings Window" --depth 12` 交叉印证）：
+            //   · `Viewport` `aMin(0,0) aMax(1,1) sizeDelta(**-17**,0) pivot(0,1)` ⇒ 右沿 = 面板右 − 17；
+            //     `Mask` + `Image(UIMask, showGraphic=0)` ⇒ **不画**、只当裁切框。
+            //   · `Content` `aMin(0,1) aMax(1,1) sizeDelta(0,41.7226) pivot(0.5,1)`（41.7226 = **模板位**）。
+            //   · `Item` `aMin(0,0.5) aMax(1,0.5) sizeDelta(0, **40.8707**)` ⇒ 行高 40.8707、宽 = `Content` 宽。
+            //   · `Item Background`（= Toggle 的 `m_TargetGraphic`）`aMin(0,0) aMax(1,1) sizeDelta(0,0)`、
+            //     图 **`40K_dropdown_item`**（717×92 · 无九宫 · `m_Type=0`）、色 (0.2863,0.9647,0.6863,1)。
+            //   · `Item Checkmark`（= Toggle 的 `graphic`）`aMin/aMax x = 0`、`aPos(10,0)`、20×20、白。
+            //   · `Item Label`（= Dropdown `m_ItemText`）`aMin(0,0) aMax(1,1) aPos(5,-0.5)
+            //     sizeDelta(**-30,-3**)` ⇒ 行内边距 左20/右10/上2/下1；TMP `m_fontSize **30**`（基准 14、
+            //     auto 18~40）、`Left/Middle`、折行、色 (0.783,0.783,0.783,1)。
+            //   · `Scrollbar` `aMin(1,0) aMax(1,1) sizeDelta(**20**,0) pivot(1,1)` + `Sliding Area` +
+            //     `Handle`（`m_Size 0.9273`）；`ScrollRect.m_MovementType = **2**(Clamped)`、
+            //     `m_VerticalScrollbarVisibility = **2**(AutoHideAndExpandViewport)`、spacing −3。
+            // 行为判据（本机 ugui 源码 `Runtime/TMP/TMP_Dropdown.cs`，逐行核过 —— 见正本 §三.3 的三条旁证）：
+            //   `Show():814` = 克隆 `Template` → 改名 `"Dropdown List"` → 挂到 `Template` 的父下 →
+            //   `m_Template.gameObject.SetActive(false)`；`OnSelectItem:1247` = 定 `value` + **末尾 `Hide()`**；
+            //   `CreateBlocker:1073-1074` 那颗全屏透明 `Blocker` 的 `onClick → Hide`；`OnCancel:763 → Hide()`。
+            Section("A862：语言下拉那 12 行列表（原版 `LanguagesDropdown > Template`）");
+            {
+                var selRow = gtab != null ? FindChild(gtab, "Language Selector") : null;
+                var fldNode = selRow != null ? FindChild(selRow, "LanguagesDropdown") : null;
+                var tpl = win.LangTemplateNode;
+                CheckTrue(tpl != null, "`Template` 子树建出来了（原版那颗**恒 inactive** 的原型）");
+                CheckTrue(tpl != null && tpl.gameObject.activeSelf == false,
+                          "★ `Template` **出厂是关着的**（原版 `m_IsActive = 0`；`Show()` 只在实例化那一瞬把它打开）");
+                if (tpl != null)
+                {
+                    CheckTrue(tpl.parent == fldNode,
+                              "…而且挂在 `LanguagesDropdown` 下面（原版链 `Language Selector > LanguagesDropdown > Template`）");
+                    // 🔴 **2026-10-17（F3 · D3 红⑫）**：原来这里有一条 `CheckRectPx(量 `Template` 下的 `bg`)`
+                    //    —— 它**结构上不可能绿**（三条硬证据）：① 上面三行刚刚断言并通过「`Template` 出厂是**关着的**」
+                    //    （原版 `m_IsActive = 0` ✓）；② 实现照做（`Shell/SettingsWindow.cs:1232-1235` 的
+                    //    `tpl.gameObject.SetActive(false)`，面板底图 `bg` 是它的子件 `:1246`）；
+                    //    ③ 量法 `RectOf` **跳过 `!activeInHierarchy` 的 quad**（本文件 `:168`）⇒ 一个 active 的都没有 ⇒ 直接报红。
+                    //    **即：照原版做 ⇒ 这一条永远红。** ⇒ 已**挪到列表点开之后**、改量那份**活的克隆体**
+                    //    （`win.LangListNode` 下的 `bg` —— 与 `Template` **同格** ⇒ 期望值一个数都不用改）。
+                    //    ⛔ **不许**为了让这条绿去让 `Template` 保持激活 —— 那是**反向**偏离原版。
+                    //    ⚠️ 锚的职责没丢：本节后面那两条 `（A862 锚）第 0 行 / 第 11 行` 同样是**不过 `Screen()`**
+                    //       的手算字面量 ⇒ 本条挪位的净作用只是「**更早报**」变成「**跟着列表一起报**」。
+                    var vp = FindChild(tpl, "Viewport");
+                    CheckAtS(vp, 596.556f, 390.667f, 975.222f, 964.627f,
+                             "`Viewport`（原版 `sizeDelta.x = -17` ⇒ 右沿 = 面板右 − 17）");
+                    CheckTrue(win.LangFieldNode != null && fldNode != null && win.LangFieldNode == fldNode,
+                              "自检拿到的「列表的父」就是那颗 `LanguagesDropdown`");
+                }
+                // ③ 🔴 **开 / 关 / 点行 / 点空白 / ESC** —— 全走**真实点击链**（`WindowButton.onClick`）
+                var lang0 = Loc.Current;
+                Loc.PersistOverride = true;
+                CheckTrue(!win.LangListOpen, "前置：**此刻列表是关着的**（`Build()` 建完就是关的）");
+                Click(selRow, "LanguageHit");
+                CheckTrue(win.LangListOpen, "★ 点框 ⇒ 列表**开**（原版 `OnPointerClick → Show()`）");
+                var list = win.LangListNode;
+                CheckTrue(list != null && list.name == "Dropdown List",
+                          "★ 运行时那份叫 **`Dropdown List`**（原版 `Show():820` 那句改名；⛔ 不是 `Template`）");
+                CheckTrue(list != null && list.parent == fldNode,
+                          "★ …而且和 `Template` **同级**（原版 `SetParent(m_Template.transform.parent, false)`）");
+                CheckTrue(list != null && list.gameObject.activeSelf,
+                          "…它是开着的那一份（`Template` 仍关着 —— 两者互不干扰）");
+                // 🔴 **2026-10-17（F3 · D3 红⑫）**：**本节的映射锚断言** —— 原来量的是 `Template` 子树里那份
+                //    **恒 inactive** 的 `bg` ⇒ 结构上不可能绿（原委见上面 `Template` 那一节里那段注）。
+                //    现在量**活的克隆体**（`Dropdown List` 下那份 `bg`）。期望值**一个字都没改** ——
+                //    ⛔ 它仍是**手算的屏幕 px 字面量**、**不过 `Screen()` / 不过本窗任何常量**
+                //    （= 原版 prefab 的设计矩形 × 根上那层 0.9：596.556→632.90 · 390.667→405.60 ·
+                //     992.222→989.00 · 964.627→922.16）⇒ 那张映射写错时，本窗其余几何断言会一起错、**只有它会红**。
+                //    ⚠️ 克隆体与 `Template` **同格**（`ShowLangList` 用 `LstL/LstT/LstR/LstB` 建它、
+                //       `BuildLangListSubtree` 两处共用同一份 ⇒ 两处写同一条规则才会不一致）。
+                CheckRectPx(FindChild(list, "bg"), 632.90f, 405.60f, 989.00f, 922.16f,
+                            "（A862 锚）面板底图渲出来 = 原版 prefab 手算的 [632.90,405.60]–[989.00,922.16]"
+                          + "（⛔ 这一条的期望值**不过 `Screen()`**：那张映射写错时本窗其余几何断言会一起错、只有它会红）");
+                CheckTrue(win.LangRowCount == 12, $"…装了 **12 行**（实得 {win.LangRowCount}）");
+                // 行矩形 = `Content` 里按 `i × 40.8707` 往下排（原版 `Show():840-844`：第 0 项在**最上**）
+                // ⚠️ `CheckRectPx` 的期望值是**屏幕 px**（× 0.9 之后的），算式写在调用点：
+                //    行 0 顶 = 540 + (390.667−540)×0.9 = **405.60**、行高 40.8707×0.9 = **36.78**；
+                //    行 11 顶 = 540 + (390.667 + 11×40.8707 − 540)×0.9 = **810.22**；右沿 = 960 + (975.222−960)×0.9 = **973.70**。
+                var r0 = win.LangRowBg(0); var r11 = win.LangRowBg(11);
+                CheckRectPx(r0 != null ? r0.transform : null, 632.90f, 405.60f, 973.70f, 442.38f,
+                            "（A862 锚）第 0 行的底图 = 原版 `Item` 那一格（屏幕高 **36.78** = 40.8707 × 0.9）");
+                CheckRectPx(r11 != null ? r11.transform : null, 632.90f, 810.22f, 973.70f, 847.00f,
+                            "（A862 锚）第 11 行 = `Content` 里第 11 格（`390.667 + 11 × 40.8707`）"
+                          + " —— 与第 0 行合起来才说明**真是 12 行往下排**、不是叠在一处");
+                var l0 = win.LangRowLabel(0); var l11 = win.LangRowLabel(11);
+                CheckTrue(l0 != null && l11 != null && l0.Text != l11.Text,
+                          $"…而且两行的字**不一样**（「{(l0 != null ? l0.Text : "?")}」 / "
+                        + $"「{(l11 != null ? l11.Text : "?")}」）");
+                // 行底图 = 原版那张（`Item Background` 的 `m_Sprite`）
+                CheckTrue(r0 != null && r0.Texture != null && r0.Texture.name == "40K_dropdown_item",
+                          "行底图 = `40K_dropdown_item`（原版 `Item Background` 那颗 `Image.m_Sprite`）");
+                // 行字号：一条**判别式** —— 原版 `Item Label` 的 `m_fontSize = 30` ⇒ 屏幕 27px
+                //（⛔ 不是 caption 那颗的 16.2、也不是勾选框的 37.8 —— 三个都在这扇窗里，容易混）
+                CheckNear(l0 != null ? l0.FontPxNow : -1f, 27f, 0.35f,
+                          "★ 行内字号 = 原版 `Item Label` 的 `m_fontSize **30**` × 0.9 = **27px**"
+                        + "（同窗另外两档是 16.2 = caption 的 18、37.8 = 行标签的 42 —— 三档必须分得开）");
+                // ④ 🔴 **点第 3 行 ⇒ 选中 + 收起**（`OnSelectItem:1247` 那条链：行号 = 兄弟序 − 1 ⇒ `value = 3`）
+                //    两态自己定死：先落到 `Chinese`（声明序 11），点第 3 行 ⇒ 必须变成 `Loc.Languages[3]`。
+                Loc.SetLanguage(AvailableLanguages.Chinese);
+                if (SettingsWindow.Instance != null) SettingsWindow.Instance.RefreshTexts();
+                var want3 = Loc.Languages[3];
+                Click(win.LangRowHit(3));
+                CheckTrue(!win.LangListOpen, "★ 点某一行 ⇒ **当场收起**（原版 `OnSelectItem:1310` 的 `Hide()`）");
+                Check(Loc.Current, want3, "★ …而且选中的是**那一行**（第 3 行 ⇒ 声明序第 3 项 —— ⛔ 不是「下一项」）");
+                // ④-b 🔴 **判别式**：同一颗框再点一次，若是老行为（`CycleLanguage`）语言会**再走一格**；
+                //      新行为是**只开列表、语言一个字不动**。这一条与 ④ 合起来才分得开两种实现。
+                var beforeB = Loc.Current;
+                Click(selRow, "LanguageHit");
+                Check(Loc.Current, beforeB, "🔴 再点一次框 ⇒ **只开列表、语言不动**（旧实现 `CycleLanguage` 会给下一项 ⇒ 红）");
+                CheckTrue(win.LangListOpen, "…而列表是开的");
+                // ④-c **点空白收起**（原版那颗全屏 `Blocker` 的 `onClick → Hide`）—— 语言同样不动
+                CheckTrue(win.LangBlockerNode != null && win.LangBlockerNode.gameObject.activeSelf,
+                          "★ 列表开着时有那颗铺满全屏的 `Blocker`（原版 `CreateBlocker:1009`）");
+                Click(win.LangBlockerNode);
+                CheckTrue(!win.LangListOpen, "★ **点空白 ⇒ 收起**（原版 `blockerButton.onClick.AddListener(Hide)`）");
+                Check(Loc.Current, beforeB, "…而且语言一个字没动（点空白不是选中）");
+                CheckTrue(win.LangBlockerNode == null || !win.LangBlockerNode.gameObject.activeSelf,
+                          "…`Blocker` 也一起关掉了（否则它会带着队列 3140 盖住后面所有东西 = 静默卡死）");
+                // ④-d **ESC ⇒ 先收列表、窗不关**（原版 `TMP_Dropdown.OnCancel:763 → Hide()`）
+                Click(selRow, "LanguageHit");
+                CheckTrue(win.LangListOpen, "（前置）列表又开出来了");
+                bool escUsed = win.ESCPressed();
+                CheckTrue(escUsed, "★ ESC：**这一下被列表吃掉了**（`ESCPressed` 返回 true ⇒ 输入层不再往下关窗）");
+                CheckTrue(!win.LangListOpen, "★ …列表收起（原版 `OnCancel → Hide()`）");
+                CheckTrue(win.IsOpen(), "🔴 …而**窗还开着** —— 不许把 ESC 变成「关掉整个设置窗」");
+                // ④-e 收尾：语言放回本节开始那一档（盘上全程没动过 —— `PersistOverride` 挡着）
+                Loc.SetLanguage(lang0);
+                Loc.PersistOverride = false;
+                if (SettingsWindow.Instance != null) SettingsWindow.Instance.RefreshTexts();
+                CheckTrue(Loc.Current == lang0, $"收尾：语言放回本节开始前那一档（{lang0}）");
             }
 
             // ---------------- 图像页 ----------------
@@ -2314,8 +2723,15 @@ public static class SettingsScene
             //    `GlyphHeightWorld`/`CapHeightWorld`（那两个是**回读传入值**的伪测量，见 `已知的坑.md`）。
             Section("A171：本窗文字字号 = 原版 `m_fontSize` × 根上那层 0.9（**全窗一起缩**）");
             {
-                // 原版设计字号 55 / 42 / 40 / 35 / 34 ⇒ × 0.9（原版根的 `m_LocalScale`）= 下面这 5 个值
-                float[] wantPx = { 49.5f, 37.8f, 36f, 31.5f, 30.6f };
+                // 原版设计字号 55 / 42 / 40 / 38 / 35 / 34 / 28 / 18 ⇒ × 0.9（原版根的 `m_LocalScale`）= 下面这 8 个值
+                // 🔴 **2026-10-17 加了三档**（General 页带进来的，每一档都有原版出处 —— 见 `Gen*` 常量）：
+                //    38 → **34.2**（`Bottom Buttons > Close Game Button > Button Text`，原版 TMP `m_fontSize = 38`）
+                //    28 → **25.2**（`VersionText`）· 18 → **16.2**（`LanguagesDropdown > Label`）
+                //    ⛔ 加档 = **放宽**这一扫，只许加「原版真有这个字号」的那些 —— 别拿它当「扫不过就加一个值」。
+                // 🔴 **2026-10-17（A862）再加一档**：30 → **27**（语言下拉那 12 行的 `Item Label`，
+                //    原版 prefab `Template > Viewport > Content > Item > Item Label` 的 TMP `m_fontSize = 30`，
+                //    `m_fontSizeBase 14`、auto 18~40 —— 逐字段实读）。
+                float[] wantPx = { 49.5f, 37.8f, 36f, 34.2f, 31.5f, 30.6f, 27f, 25.2f, 16.2f };
                 const float TolPx = 0.35f;
 
                 // ① 页标题（原版 `Tab Title`，`m_fontSize = 55`）—— 逐条点名的那一条
@@ -2355,7 +2771,7 @@ public static class SettingsScene
                         + "⛔ 别把这个门槛删掉）");
                 CheckTrue(badN == 0,
                           $"★ **全窗 {allLb.Length} 个 `Label` 的字号都 = 原版值 × 0.9**"
-                        + $"（允许的 5 个：{wantPx[0]}／{wantPx[1]}／{wantPx[2]}／{wantPx[3]}／{wantPx[4]}，±{TolPx}px）"
+                        + $"（允许的 {wantPx.Length} 个：49.5／37.8／36／34.2／31.5／30.6／27／25.2／16.2，±{TolPx}px）"
                         + (badN > 0 ? $" —— **有 {badN} 个不在里面**：{badList}" : "")
                         + (zeroN > 0 ? $"；另有 {zeroN} 个 `FontPxNow` ≤ 0（TMP/字体资产没起来 —— 那是另一回事，"
                                      + "`FontPxNow` 在点阵兜底后端恒 0）" : "")

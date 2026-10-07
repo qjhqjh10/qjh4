@@ -147,7 +147,7 @@ else {                                                                        //
    `EffectParseProbe.cs:198` 与 `RuleEngineTest.cs:3884/5452`（打印/断言）。
    `DoDeal`（`:1135`）**从头到尾没读 `Auto`** ⇒ 落到 `:741` 那条支 ⇒ **池序第一个**；
    而 `AddSide` 的顺序是**槽号升序**（`:1118-1128`）。
-3. **原版语义在参考实现里查得到** —— `d:/warpforge/scripts/rule_core.gd:2692-2696` 调
+3. ⚠️ **2026-10-17 更正：这里原来写的是「**原版语义在参考实现里查得到**」** —— `rule_core.gd` 是**我们自己的 Godot 复刻、非权威**（铁律 2 的 2026-09-18 更正），**只作旁证**；🔴 **真判据见本节上面那条 = `BattleManager__GetLowestHealthUnit.c:153`**（`AbilityLogic__GetTargets.c:837` 分派，均在 `d:/2/tools/decomp_full/`）。**旁证里也写着同一条** —— `d:/warpforge/scripts/rule_core.gd:2692-2696` 调
    `_auto_fx_target(ctx, p, TACTIC_ENEMY_PICK)`，而 `:3206-3216` 那个函数**逐个比 `health`、取最小的那个**，
    连「敌方场上空 ⇒ 打督军格」都写了。
 

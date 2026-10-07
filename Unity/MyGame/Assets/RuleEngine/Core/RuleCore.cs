@@ -66,14 +66,30 @@ namespace RuleEngine
         /// （造牌那条会**如实报**「没有卡池」，不会退化成从牌库里抽）。
         /// 调用方通常就是 `CardDatabase.Load()` 那一份。
         /// </param>
+        /// <param name="firstSeat">谁先手（默认 0 = P1，保持老行为）。
+        /// 🆕 **教程局会被关卡覆盖**，见 <paramref name="tutorial"/>。</param>
+        /// <param name="tutorial">🆕 2026-10-17（B29）：**教程局的关卡执行器**（`null` = 不是教程局 ⇒
+        /// 下面每一段教程分支都**一次都不走**，老调用方一个字都不用改）。
+        /// 给了它就同时落这几条**引擎级开关**（原版出处逐条见 <see cref="TutorialRules"/>）：
+        /// ① **不洗牌**（`MatchData.ShouldShuffleDeck(100) == false`）；
+        /// ② **先手照关卡**（`GetPlayerGoesFirst` → `TutorialStage.playerStarts`，S3 是 AI 先手）；
+        /// ③ **没有换牌阶段**（教程走 `_TutorialStartSequence`，不是 `_SetupMulliganPhase`）；
+        /// ④ **起手 = 关卡指定那几张**（`CreatePlayerDeck`：InHand 插牌库顶 + 抽 N 张）；
+        /// ⑤ **起始单位**直接落场（`SetupStartingTroops`）；⑥ **初始法力/伤害**（`SetupInitialMana`）。
+        /// ⚠️ 参数没给时按 <see cref="GameplayVariables.Tutorial"/>（别再自己拼一份）。</param>
         public static BattleContext NewBattle(IList<CardDef> deckA, IList<CardDef> deckB,
                                               int seed = 0, bool shuffle = true,
                                               IList<CardDef> cardPool = null,
                                               bool openMulligan = false,
                                               GameplayVariables vars = null,
-                                              int firstSeat = 0)
+                                              int firstSeat = 0,
+                                              TutorialScript tutorial = null)
         {
             var ctx = new BattleContext(seed);
+            // 🆕 教程局：执行器（关卡数据 + 本局指针）**在这里落位**（唯一写点）。
+            //    ⛔ 别塞进 `BattleContext` 的字段初始化里 —— 那会变成「每个 ctx 都有教程」。
+            ctx.Tutorial = tutorial;
+            if (tutorial != null && vars == null) vars = GameplayVariables.Tutorial;
             ctx.CardPool = cardPool == null ? null : new List<CardDef>(cardPool);
             // 🆕 2026-09-26：**模式参数必须在下面任何一步之前落位** ——
             //   督军生命（`BuildPlayer`）、起手张数、换牌开关三样全从它读。
@@ -86,6 +102,27 @@ namespace RuleEngine
             // 🆕 2026-09-26：**谁先手**（默认 0 = P1，保持老行为）—— 它往下管四件事：
             //   ① 第一张牌谁先出（`Active`）② 起始能量基数 ③ **防御卡发给谁** ④ 加时判哪一边的能量。
             //   ⚠️ 这四处在 2026-09-26 之前**全部写死成「座位 1 = 后手」**。
+            // 🆕 2026-10-17（B29）：**教程局的先手由关卡说了算**（原版 `BattleManager.GetPlayerGoesFirst`
+            //   的 `matchType == 100` 那一支 ⇒ 取 `PlayerDataManager.currentTutorialStage.playerStarts`）。
+            //   判据与另外两条开关一起收在 `TutorialRules` 里，⛔ 别在这里再展开写一遍。
+            if (tutorial != null)
+            {
+                var st = tutorial.Stage;
+                // ① **不洗牌**（原版 `MatchData.ShouldShuffleDeck(100) == false`；它唯一调用点 =
+                //    `BattleManager.CreatePlayerDeck` —— 洗完再插起手卡，所以「不洗」这件事**必须在建牌库之前**）。
+                if (shuffle && !TutorialRules.ShouldShuffleDeck(MatchType.Tutorial))
+                {
+                    shuffle = false;
+                    ctx.Log("教程局：**不洗牌**（原版 `MatchData.ShouldShuffleDeck(Tutorial 100)` = false）"
+                          + " —— 牌库保持关卡给的顺序");
+                }
+                // ② **先手照关卡**（S3 是 AI 先手 —— 关卡数据实测 `playerStarts = false`）。
+                firstSeat = TutorialRules.PlayerStarts(st) ? 0 : 1;
+                // ③ **没有换牌阶段**（教程走 `_TutorialStartSequence` → 直接 `StartBattlePhase`）。
+                openMulligan = false;
+                ctx.Log($"教程局：第 {st.stage} 关（`{st.so}`）· 先手 = {(firstSeat == 0 ? "玩家" : "AI")}"
+                      + $"（关卡 `playerStarts = {st.playerStarts}`）· 不换牌");
+            }
             ctx.FirstSeat = firstSeat == 1 ? 1 : 0;
 
             // 🔴 **防御卡只发给【后手】**（2026-09-26 更正：原来两边都给 —— 那是一条**已记录的偏离**，
@@ -101,10 +138,47 @@ namespace RuleEngine
 
             // 轮流发牌（和 rule_core 一致：i 循环里两边各抽一张）
             int startHand = ctx.Vars.startingHand;      // 经典 3 · 遭遇 4（`GameplayVariables.startingHand`）
-            for (int i = 0; i < startHand; i++)
+            if (tutorial == null)
             {
-                Draw(ctx, 0);
-                Draw(ctx, 1);
+                for (int i = 0; i < startHand; i++)
+                {
+                    Draw(ctx, 0);
+                    Draw(ctx, 1);
+                }
+            }
+            else
+            {
+                // ============================================================
+                // 🆕 2026-10-17（B29）：**教程局的起手不是抽出来的，是关卡指定好的那一批**。
+                //
+                // 判据链（三段，逐段可查）：
+                //   ① 原版普通局的起手牌是在**换牌阶段**发的 —— `BattleManager._SetupMulliganPhase`
+                //      → `PlayerHand.AddCardsToMulligan(hand, isPlayer, count)`，
+                //      它算的 `count = scenarioVariables.startingHand(0x1c) + 督军(+0x118) + 后手补偿(0x20)`，
+                //      **但被第三个实参覆盖**：`if (param_3 != 0) count = param_3`
+                //      （`PlayerHand._AddCardsToMulligan_d__41__MoveNext.c:76`）。
+                //   ② 而 `_SetupMulliganPhase` 传进去的那个 `param_3` 就是
+                //      **`TutorialStage.playerStartingTroopsInHand.Count`**（`:63` 取 `+0x98`、`:71` 取 `+0xa0`）
+                //      —— 也就是说**原版自己就用「关卡那几张」去顶掉起手张数**。
+                //   ③ 教程**根本不跑换牌阶段**（`_StartBattleSequence` 里二选一：
+                //      `IsTutorialMatch` ⇒ `_TutorialStartSequence`）⇒ 教程的起手只能来自
+                //      `CreatePlayerDeck` 那一段（InHand 插牌库顶 → 抽 N 张）。
+                //   ⇒ **教程起手 = `{player,enemy}StartingTroopsInHand` 那一批**，
+                //     不走「各抽 `startingHand` 张」。S1/S2 那两批是空的 ⇒ 起手 0 张（关卡就是这么设计的：
+                //     S1 第一句是「这是你的督军，拖到敌人身上打他」，根本不用手牌）。
+                // ⚠️ 这是**有意与普通局分叉**的一段；`tutorial == null` 时一行都不走。
+                // ============================================================
+                var st = tutorial.Stage;
+                var lookup = TutorialRules.PoolLookup(ctx);
+                int a = TutorialRules.SetupInitialHand(ctx, st, 0, st.playerStartingTroopsInHand, lookup);
+                int b = TutorialRules.SetupInitialHand(ctx, st, 1, st.enemyStartingTroopsInHand, lookup);
+                // 起始单位**直接落场**（原版 `SetupStartingTroops`）——
+                // 时机在 `_StartBattleSequence` 里、`SetupStartingTroops` 那一支（教程/战役才跑）。
+                int placed = TutorialRules.SetupStartingTroops(ctx, st, lookup);
+                // 初始法力 / 初始伤害（原版 `SetupInitialMana`；6 关四个值全 0）。
+                TutorialRules.SetupInitialManaAndDamage(ctx, st);
+                ctx.Log($"开局（教程）：玩家起手 {a} 张 / 对手起手 {b} 张 · 起始单位 {placed} 只"
+                      + "（起手卡走 `CreatePlayerDeck`：插到牌库顶再抽 —— 见 `TutorialRules.SetupInitialHand`）");
             }
             // 🆕 2026-09-29：**后手补偿之一 —— 多抽 `secondExtraCards` 张**（原版默认 1）。
             //   出处：原版 `ScenarioVariables.secondExtraCards` → `PlayerHand.GetSecondExtraCardsCount`；
@@ -112,12 +186,16 @@ namespace RuleEngine
             //   **只给后手**（`SecondSeat`）—— 与「防御卡只发后手」同一个口径。
             //   ⚠️ 排在**轮流发牌之后、`SetupStartWith` 之前**：它是起手的一部分（`startingHand + N`），
             //      不是「某张卡必上手」那种额外指定。
+            //   ⚠️ 教程那一档 `Vars.secondExtraCards = 0`（【TutorialScenario】）⇒ 这段对教程是空转。
             int extraCards = ctx.Vars.secondExtraCards;
             for (int i = 0; i < extraCards; i++) Draw(ctx, ctx.SecondSeat);
-            ctx.Log($"开局：双方各起手 {startHand} 张"
-                  + (extraCards > 0 ? $"（后手 {ctx.Players[ctx.SecondSeat].Name} 另加 {extraCards} 张）" : "")
-                  + $"，{ctx.Players[ctx.FirstSeat].Name} 先手"
-                  + $"（防御卡发给了后手 {ctx.Players[ctx.SecondSeat].Name}）");
+            if (tutorial == null)
+            {
+                ctx.Log($"开局：双方各起手 {startHand} 张"
+                      + (extraCards > 0 ? $"（后手 {ctx.Players[ctx.SecondSeat].Name} 另加 {extraCards} 张）" : "")
+                      + $"，{ctx.Players[ctx.FirstSeat].Name} 先手"
+                      + $"（防御卡发给了后手 {ctx.Players[ctx.SecondSeat].Name}）");
+            }
             // 开局上手（`Start the game with <卡名> in hand.`）—— 见 `CardDef.StartWithInHand`。
             // ⚠️ **排在发完起手牌之后**：它是「**额外**指定某张卡一定在手里」，不是替换起手牌。
             for (int p = 0; p < 2; p++) SetupStartWith(ctx, p);
@@ -329,8 +407,11 @@ namespace RuleEngine
         /// 「画面显示 2 费、点下去说能量不够」这种对不上的毛病。
         ///
         /// ✅ 2026-09-13 第三十三轮起**按卡 id 匹配**（`CostMod.Key` = `CardDef.Id`）——
-        ///    以前是按**卡名**匹配的，后果是**同名卡一起降价**（原版有 5 组跨阵营同名卡，
-        ///    给 DarkAngels 的 `Bladeguard Veteran` 降费会连 Ultramarines 那张一起降）。
+        ///    以前是按**卡名**匹配的，后果是**同名卡一起降价**（原版有跨阵营同名卡，
+        ///    给一张降费会连另一阵营那张一起降；⚠️ 2026-10-17 订正：这里原来举的例子是
+        ///    `Bladeguard Veteran`（DarkAngels / Ultramarines）—— 那组的「同名」是 09-13 一次
+        ///    错改名的产物、10-17 已撤回，UM 那张现在叫 `Bladeguard Lieutenant`，同名组 4 → 3；
+        ///    判据 `资料/普查产出_1017/W_B16_教程数据缺口.md` §①）。
         ///    卡表 v6 起每张卡都有稳定 id，这个身份问题就不存在了 —— **不要再改回按卡名**。
         ///    卡组构筑（`DeckBuilder`）和候选池筛选（`CreatePool`）**用印的费用**，不走这里 ——
         ///    那是「这张牌的数值」，不是「这一局打它要花多少」。
@@ -586,7 +667,14 @@ namespace RuleEngine
             p.Energy = 0;                                  // 先清掉，下面按 MaxEnergy 满上
             p.MaxEnergy = (p == ctx.Players[ctx.SecondSeat] ? ctx.Vars.startingManaSecond : ctx.Vars.startingMana)
                         + p.TurnCount * ctx.Vars.manaPerTurn
-                        + p.ManaCarry;                     // 上一回合**结算**出来的结转（经典恒 0）
+                        + p.ManaCarry                     // 上一回合**结算**出来的结转（经典恒 0）
+                        // 🆕 2026-10-17（B29）：**教程关卡的初始法力增量**（原版 `SetupInitialMana`：
+                        //   `ResetMana(manager, 模式基数 + 关卡 starting*Mana, …)`）。
+                        //   非教程局恒 0（`ctx.Tutorial == null` ⇒ 这一项不加）。
+                        //   ⚠️ 6 关的 `startingPlayerMana`/`startingEnemyMana` **实测全是 0** ⇒ 今天不改变局面，
+                        //      但机制照做（铁律 11）。⚠️ 我们这边能量是**每回合重算**的，所以它落成
+                        //      **每回合都加的增量**，而不是「一次性起始值」。
+                        + (ctx.Tutorial == null ? 0 : TutorialRules.ManaBonus(ctx.Tutorial.Stage, ctx.Active));
             p.ManaCarry = 0;                               // 已兑现 ⇒ 清掉；下一次在 `EndTurn` 里重算
             p.Energy = p.MaxEnergy;
 
@@ -828,7 +916,7 @@ namespace RuleEngine
             if (ctx.IsOver) return ctx.Winner;
 
             // ---- 再生 X：**每回合结束时**治疗 X（规则书 :201「每回合结束时治疗 X」）----
-            //      原版 `rule_core.gd:2025` 明写 `at the end of EACH turn → 双方单位`，
+            //      我们自己的 `rule_core.gd:2025`（旁证、非权威） 明写 `at the end of EACH turn → 双方单位`，
             //      而且是在 `energy = 0` **之前**结算的 —— 顺序照抄。
             for (int pl = 0; pl < 2; pl++)
                 for (int s = 0; s < BoardSpec.Size; s++)
@@ -1045,6 +1133,54 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// **部署豁免**：身上带 `fast`（迅捷）/ `flank`（侧翼）/ `ferocity`（狂暴）之一的单位
+        /// **部署当回合就能行动** —— 规则书 `:98`「部署当回合不能行动（**除非注明，如迅捷/侧翼/狂暴**）」、
+        /// `:187`「侧翼：打出当回合可攻击任意敌方部队」；原版 `rule_core.gd:2248` 也把这三个写在同一句里
+        /// （`fast` / `flank` → `exhausted = false`）。
+        ///
+        /// 🔴 **2026-10-17（F6 #2）：这条判据原来散着写，现在部署那一步要用它重算一次。**
+        ///   起因：`UnitState` 的 `Exhausted` 是**构造时**按**卡模板**的关键词算的一次快照
+        ///   （`Core/UnitState.cs:257`；F6 当时在 `:250`），而**手牌加成**（`ApplyHandBuffs`）与**光环**（`Auras.Recompose`）
+        ///   都是**在那之后**才可能把三个词挂上来的 ⇒ 这两路给的侧翼**谁都判不到**
+        ///   （`Has("flank")` 为真、单位却仍然疲劳 —— 静默错；**修之前** `RuleEngineTest` 的
+        ///   「侧翼 ⇒ 部署当回合不疲劳」那一条实测红）。
+        ///   现由 <see cref="PlayCard"/>、<see cref="DeployFree"/> 与 `EffectResolver.DoReanimate`
+        ///   **三个「新单位落地」入口**在「手牌加成 + 光环重算」**之后**各调本方法重算一次
+        ///   （F6 修了 `PlayCard`、F8 补了 `DeployFree`、F9 补了 `DoReanimate` —— 效果免费部署 / 召唤 / 再造
+        ///   走 `DeployFree`，残骸翻回来走 `DoReanimate`）。
+        ///   ✅ **三处齐了**，而且 F9 已**全树再 grep 一遍确认没有第四个入口**（「有新单位落地」的引擎写点
+        ///   只有这 3 处 + 督军那处**恒不疲劳**；清单 → `资料/普查产出_1017/F9_第三入口.md` §③）。
+        ///   🔴 **2026-10-17 订正（铁律 5）**：本段原来写「第三个同形入口 `EffectResolver.cs:6362`（`DoReanimate`）
+        ///   **还没补** … 已立账」—— **已过期**（F9 当天补上了，落点 `EffectResolver.cs:6378`）。
+        ///
+        /// ⚠️ **重算只能对着「刚部署的那一个单位」做，⛔ 不能遍历全场** —— 本回合**已经行动过**的单位
+        ///   也是 `Exhausted = true`，一律按本方法解掉就会把它**放活**（一回合动两次，同样是静默错）。
+        ///   ⛔ 同理，别把这一段写进 `UnitState.AddKeyword`：那里**分不清**「刚落地」与「已行动」。
+        ///   （判别式已配两条：`RuleEngineTest` 的「`PlayCard` 那条 ④′」与「免费部署」那条。）
+        ///
+        /// ⚠️ **2026-10-17 更正（铁律 5）**：这一段原来写着「**还欠两处没并进这个判据**：
+        ///   `Core/UnitState.cs:250` 与 `Core/EffectResolver.cs:3988`」—— **两句都已不成立**：
+        ///   · `Core/UnitState.cs:250`（现 `:257`）**已并** —— 构造那一行现在就是
+        ///     `Exhausted = !RuleCore.HasDeployExemption(this);`（F7 收口；逐关键词逐位等价已实测）；
+        ///   · `Core/EffectResolver.cs:3988`（现 `:3997-4002`）**不能并**（**F7 判决 + 错版实测**）
+        ///     —— 它**不是同一条判据**：那两句读的是**卡面文本预判「马上要给的豁免」**
+        ///     （`takecontrol` 的尾句 `give it Fast`），而 `ResolveOps` 是**按序**跑 ⇒ 走到那一刻
+        ///     尾句**还没结算**、`t.Has("fast")` 仍是 false ⇒ 照字面并成
+        ///     `if (HasDeployExemption(t)) t.Exhausted = false;` 就**永远不成立** ⇒ 抢过来的单位
+        ///     仍疲劳（`give it Fast` 成了空话）—— 那是**把已发布的卡打坏**，不是收口。
+        ///     判据全文与错版实测（离屏 `D:/tmp/wf_f7_probe_bad` 实测 `Exhausted=True`）→
+        ///     `资料/普查产出_1017/F7_判据收口.md` §②；受影响的那条断言在 `RuleEngineTest` ⑨
+        ///     （「★ `and give it Fast` ⇒ 现在就能动」，2026-10-17 收工时在 `:11575` ——
+        ///     ⚠️ **行号会漂**，按那句断言文案找）。
+        ///   ⇒ **收口结果 = 判据只此一处**（本方法的方法体）。§⑥ 有 grep 证据。
+        /// </summary>
+        public static bool HasDeployExemption(UnitState u)
+        {
+            if (u == null) return false;
+            return u.Has("fast") || u.Has("flank") || u.Has(KeywordTable.Ferocity);
+        }
+
+        /// <summary>
         /// 打出第 handIdx 张手牌到 slot 格。（rule_core.play_card）
         ///
         /// ⚠️ **战术卡走同一个入口、不同的分支**：它不落格位，`slot` 的含义变成「效果打谁」，
@@ -1088,6 +1224,12 @@ namespace RuleEngine
             //    ⚠️ `HasRoomFor` 已经在 `CanPlayCard` 里判过 ⇒ 这里 `Insert` 不会失败。
             slot = BoardSlots.Insert(ps, unit, slot);
             ctx.TroopsPlayed[p]++;   // 🆕 2026-09-23 战果：本局打出的部队卡张数（督军不走这条路）
+            // 🆕 2026-10-17（B19）：**记一笔「本局打出过的牌」**（候选域 `played` 的唯一来源）。
+            //    位置 = 「校验过了、费用付掉了、手牌已经拿走、也落位了」之后 ⇒
+            //    **打不出去的牌一张都不会记上**（前面任一关没过就 return 了）。
+            //    ⚠️ **战术卡不在这里写** —— 它们在函数开头就分流进 `PlayTactic` 了，
+            //    走到这一行的只可能是单位卡（两处各写一笔、不会重记）。
+            ctx.NotePlayed(p, inst, false);
             // 🆕 2026-09-16 **手牌加成兑现**（`TL53 Infinite Biomorphologies` 的「给手牌里的部队」）——
             //    必须排在下面 `Auras.Recompose` **之前**：加成可能带关键词（`Armour 1` / `Flank`），
             //    而光环重算只认**当前**的场上状态，先重算再加就会漏算这一份。
@@ -1096,6 +1238,15 @@ namespace RuleEngine
             //    也可能**落进了别人的光环范围**。放在这里（不是函数末尾）是为了让后面那几步
             //    （`give it Flank` 之类自指触发、`Rally` 结算）**看得见光环已经生效**。
             Auras.Recompose(ctx);
+
+            // 🔴 **2026-10-17（F6 #2）：部署豁免要在这儿重算一次。**
+            //    上面那句 `new UnitState(inst, false)` 里的 `Exhausted` 是**构造时**按**卡模板**的
+            //    关键词算的快照（`Core/UnitState.cs:250`），而 `ApplyHandBuffs`（手牌加成）与
+            //    `Auras.Recompose`（光环）都是**在那之后**才可能把 `fast`/`flank`/`ferocity` 挂上来的
+            //    ⇒ 不重算的话，这两路给的侧翼/迅捷**静默失效**（关键词给了、单位却仍疲劳、动不了）。
+            //    ⚠️ **只重算刚部署的这一个 `unit`** —— ⛔ 别遍历全场：本回合**已经行动过**的单位也是
+            //       `Exhausted = true`，一律解掉会把它们放活（静默错）。判据共用 `HasDeployExemption`。
+            unit.Exhausted = !HasDeployExemption(unit);
 
             // ---- 🆕 伏击（`Ambush`）：**面朝下打出**（规则书 `:166`）----
             // 之后两条出口各有一处判据：`ApplyDamage`（挨到伤害 → 翻开、无效果）与
@@ -1208,7 +1359,7 @@ namespace RuleEngine
             TrySwarmMerge(ctx, p, slot, unit);
 
             // ---- 🆕 典籍（`Codex`）的自动触发点：**打出之后的能量为 0**（2026-09-14 A5）----
-            // 照原版参考实现 `rule_core.gd:2337`（单位部署完）与 `:2244`（虫群合并之后）——
+            // 照我们自己的参考实现 `rule_core.gd:2337`（旁证、非权威）（单位部署完）与 `:2244`（虫群合并之后）——
             // 那两处在这个函数里是**同一个末尾**，所以这里只调一次。
             // ⚠️ **位置在 `CheckWinner` 之前**（那边也是先 `_check_codex` 再回到 `play_card` 的收尾）：
             //    正文可能打死对面的督军，胜负要在它之后判。见 `CheckCodex` 的完整说明。
@@ -1380,7 +1531,7 @@ namespace RuleEngine
         /// ⚠️ **2026-10-05 更正（铁律 5）：这一行原来写「免费把一个单位放进本方第一个空格」** ——
         ///   正文 ① 早在 **2026-10-01** 就订正成「人少的那一侧的最外一格」了，**summary 这半句没跟着改**
         ///   （改前 ① 写的是「从槽 0 起找第一个空格（跳过督军槽）」），下个会话只看 summary 会再读到一次过期口径。
-        /// 逐条照抄原版 `rule_core.gd:3871` 的 `_deploy_unit`（⚠️ `rule_core.gd` 是我们自己的 Godot 复刻，**非权威**；
+        /// 逐条照抄我们自己的 `rule_core.gd:3871` 的 `_deploy_unit`（⚠️ `rule_core.gd` 是我们自己的 Godot 复刻，**非权威**；
         ///   ① 的落点以原版反编译为准，出处见下）：
         ///   ① **人少的那一侧的最外一格**（平手走右）——
         ///      出处 `MinionManager__GetNextSlotWithoutDisplacing.c:14-30` ＋
@@ -1388,7 +1539,8 @@ namespace RuleEngine
         ///      **不是**「从 0 号格起第一个空格」。**满场就什么都不做**（返回 false，不挤掉别人）。
         ///      ⚠️ 名字里的 **without displacing** 是判据：这条路**不挤人** ⇒ 直接写在那一格上、**不走 `Insert`**
         ///      （对比：**出牌**走 `BoardSlots.Insert` = 插入后它后面的单位整体外移一格）。
-        ///   ② `fast` / `flank` 的部署当回合不疲劳 —— 这件事在 `UnitState` 构造里就做掉了；
+        ///   ② `fast` / `flank` 的部署当回合不疲劳 —— `UnitState` 构造里先按**卡模板**关键词算一次，
+        ///      落地后**再按光环给的那一份重算一次**（判据 `HasDeployExemption`，见下面正文里那段 🔴 F8）；
         ///   ③ 发一条部署事件（表现层靠它播登场特效）。
         ///
         /// ⚠️ **不触发 Rally**。这是**故意的**，不是漏了：规则书 `:200` 写的是
@@ -1424,6 +1576,18 @@ namespace RuleEngine
                 unit.DeployedTurn = ctx.Turn;   // 🆕 同上：免费部署也算「本回合上场」
                 ps.Board[dst] = unit;
                 Auras.Recompose(ctx);      // 🆕 A7：棋盘变动 ⇒ 光环重算（理由同 `PlayCard`）
+                // 🔴 **2026-10-17（F8）：部署豁免在【这条入口】上也要重算一次** ——
+                //    与 `PlayCard` 里 `Auras.Recompose` 之后那一句**同一个理由、同一份判据**（别在这边另写一份）：
+                //    上面 `new UnitState(inst, false)` 的 `Exhausted` 是**构造时**按**卡模板**关键词算的
+                //    快照（`Core/UnitState.cs:257`），而光环（`Auras.Recompose` → `Core/Aura.cs:653`
+                //    的 `AddAuraKeyword`）是在**那之后**才可能把 `fast`/`flank`/`ferocity` 挂上来的
+                //    ⇒ 不重算就是「**光环给了侧翼、单位却动不了**」（静默错）。
+                //    卡池里真有这类光环（四张，清单一处：`资料/普查产出_1017/F8_第二入口.md` §①）：
+                //    `AM73 Vitus Gryf` · `DA30 Ravenwing Talonmaster` · `EC8 Alluress` · `TAU31 Devilfish`
+                //    —— 它们都走「效果免费部署 / 召唤 / 再造」这条路（本方法）。
+                //    ⚠️ **只重算刚落地的这一个 `unit`** —— ⛔ 别遍历全场：本回合**已经行动过**的单位
+                //      也是 `Exhausted = true`，一律解掉会把它们放活（一回合动两次，同样是静默错）。
+                unit.Exhausted = !HasDeployExemption(unit);
                 slot = dst;
                 ctx.Log($"{ps.Name} 免费部署 {unit.Name}（{unit.Attack}/{unit.Health}）到槽 {dst}");
                 ctx.Emit(EvtKind.Deploy, owner, dst, unit.Name);
@@ -1461,7 +1625,7 @@ namespace RuleEngine
         /// 场上攻击力。近战和远程是两套数值。**所有攻击力修正都要走这里**，别在调用处直接读字段。
         ///
         ///   · 兽群（Pack）：场上每有 1 个**友方部队** +1 近战 +1 远程
-        ///     （规则书 :195；原版 `rule_core.gd:4172` `field_attack` —— 原版只有这一处修正，
+        ///     （规则书 :195；我们自己的 `rule_core.gd:4172` `field_attack`（旁证、非权威） —— 原版只有这一处修正，
         ///      ⚠️ 它**不数督军**：过滤条件是 `not tu.is_warlord`，但**包含自己**）
         ///   · 失明（Blind）：**远程攻击设为 0**（规则书 :166；原版 `:4212` 是直接 `return ERR_NO_ATTACK`，
         ///     效果等价 —— 攻击力 0 就发不出攻击。走这里而不是在 `DeclareAttack` 里提前 return，
@@ -1585,7 +1749,7 @@ namespace RuleEngine
             if (u.IsStunned) return RuleCodes.ErrStunned;
 
             // **攻击配额**：嗜血（Blood Thirst）每回合最多 2 次，其余 1 次。
-            // 规则书 :172「你的回合可进行至多 2 次攻击」；原版 `rule_core.gd:4205`
+            // 规则书 :172「你的回合可进行至多 2 次攻击」；我们自己的 `rule_core.gd:4205`（旁证、非权威）
             int atkLimit = u.Has("bloodthirst") ? 2 : 1;
             if (u.AttacksThisTurn >= atkLimit) return RuleCodes.ErrExhausted;
 
@@ -1638,7 +1802,7 @@ namespace RuleEngine
             int code = IsValidTarget(ctx, p, atkSlot, tgtP, tgtSlot, ranged);
             if (code != RuleCodes.OK) return code;
 
-            // 攻击者消耗：**达到配额上限才疲劳** —— 原版 `rule_core.gd:4255`：
+            // 攻击者消耗：**达到配额上限才疲劳** —— 我们自己的 `rule_core.gd:4255`（旁证、非权威）：
             // `attacks_turn += 1; if attacks_turn >= atk_limit: exhausted = true`
             // （嗜血单位打完第一次**不**疲劳，所以还能再打一次）
             attacker.AttacksThisTurn++;
@@ -1715,7 +1879,7 @@ namespace RuleEngine
             int dealt = 0;
             int hpBefore = 0;                  // 践踏要算「溢出多少」，所以得记打之前那一下
             // 反击值**现在就取**：规则书 `:145` 那个例子里，被这一下打死的初生者**照样反击** 1 点，
-            // 所以取的是「受伤**之前**」的攻击力。⚠️ 原版 `rule_core.gd:4310` 有一条修正记录
+            // 所以取的是「受伤**之前**」的攻击力。⚠️ 我们自己的 `rule_core.gd:4310`（旁证、非权威） 有一条修正记录
             // 「此前『目标死则不反击』= 近战击杀免反（规则偏差）」——**别退回**。
             int counterAtk = target.Attack;
 
@@ -1743,7 +1907,7 @@ namespace RuleEngine
             using (SimultaneousDamage(ctx))
             {
                 // ---- 哨戒 X：**攻击哨戒单位时攻击者先受 X 伤害**，「然后照常结算攻击」----
-                //      规则书 :205；原版 `rule_core.gd:4280`（在星镖**之前**，是攻击结算的第 0 步）。
+                //      规则书 :205；我们自己的 `rule_core.gd:4280`（旁证、非权威）（在星镖**之前**，是攻击结算的第 0 步）。
                 //      ⚠️ 「照常结算」= 挨了哨戒**不打断攻击**，攻击者就算被打死也照样把这一下打完
                 //      —— 原版就是顺序执行、没有中断。别自作主张加「死了就取消攻击」。
                 if (target.Has("sentry"))
@@ -1819,7 +1983,7 @@ namespace RuleEngine
 
             // ---- 践踏 Stomp：**溢出伤害**对目标**相邻随机一个**敌方单位造成 ----
             //      规则书 :213「攻击时，溢出伤害对目标相邻随机敌方单位造成」；
-            //      原版 `rule_core.gd:4372` 的判据 + `_stomp_splash:4489` 的实现，逐条照抄：
+            //      我们自己的 `rule_core.gd:4372`（旁证、非权威） 的判据 + `_stomp_splash:4489` 的实现，逐条照抄：
             //        ① 目标**被打死**了（没死就谈不上「溢出」）
             //        ② `dealt > 打之前的血量`（护盾全挡 / 无敌时 dealt 是 0，不成立）
             //        ③ 候选 = 目标格**左右紧邻**那两格里的单位（**不排除督军** —— 原版没排除）
@@ -2039,7 +2203,7 @@ namespace RuleEngine
         /// <summary>
         /// 通用伤害结算。（rule_core._damage_unit）
         ///
-        /// **顺序照原版（`rule_core.gd:4406` 的函数头写着）**：
+        /// **顺序照我们自己的 `rule_core.gd:4406`（旁证、非权威）的函数头写着**：
         ///   `Shield → Invulnerable → Vulnerable/护甲修正 → 扣血`
         ///   ① `Shield` 全挡（不受伤害）
         ///   ② `Invulnerable` **免疫伤害**（规则书 :190「无法被伤害或摧毁」）
@@ -2320,7 +2484,7 @@ namespace RuleEngine
                 return;
             }
             // ---- 猎杀标记：**带标记的敌方部队被摧毁时** ----
-            //   「对敌方督军造成伤害并治疗我方督军，数值 = 其标记数」（规则书 :189；原版 `rule_core.gd:4562`）
+            //   「对敌方督军造成伤害并治疗我方督军，数值 = 其标记数」（规则书 :189；我们自己的 `rule_core.gd:4562`（旁证、非权威））
             //   ⚠️ 三个细节照原版：
             //     ① 督军**也算** —— 原版只排除了「被摧毁的这一个是督军」，清理标记的那段没有排除督军；
             //     ② 治疗的是**击杀者的督军**，不是击杀者本人；
@@ -2411,6 +2575,9 @@ namespace RuleEngine
             //    不加那道守卫就会「残骸死了又变残骸」，永远赖在场上。
             // ⚠️ 变成残骸**不影响**下面那几段死亡触发（不稳定 / 反噬）：
             //    那些是「**这张卡**死的时候」的事，现在正发生在这一刻。
+            // 🔴 2026-10-17：「进弃牌堆 / 阵亡登记」两笔账下移到反噬之后 ⇒ 用一个局部标记
+            //    记住「这一支是**真的离场**（要记账）」，还是「翻面成残骸（仍在格位上、不记账）」。
+            bool leftPlay = false;
             if ((u.Has(KeywordTable.Remnant) || u.Has(KeywordTable.Waystone)) && !u.IsRemnant)
             {
                 // 🔴 第 7 行第 1 步：**沿用同一个实例** —— 翻面成残骸**没有换牌**，
@@ -2447,22 +2614,15 @@ namespace RuleEngine
                 //    → `AddReassembleMinionsOrder` → `ReassembleMinions` 把它们摆回各自的下标）。
                 //    ⚠️ **残骸那一支不算阵亡**（上面那个 `if`）：它只是翻了个面、**还在列表里占着那一格**。
                 BoardSlots.RemoveAt(ps, slot);
-                ps.Discard.Add(u.Instance);      // 第 7 行第 2 步：**那一份**回弃牌堆（原来放的是模板）
-                // 虫群合并时**压在下面**的那些牌一起进弃牌堆（2026-09-13 A2）——
-                // 物理上就是「宿主死了，下面压着的一起走」
-                if (u.SwarmUnder.Count > 0)
-                {
-                    foreach (var under in u.SwarmUnder) ps.Discard.Add(under);
-                    ctx.Log($"（{u.Name} 下面压着的 {u.SwarmUnder.Count} 张一起进弃牌堆）");
-                    u.SwarmUnder.Clear();
-                }
-                // 阵亡登记（`Choose a … that died this game / this battle / since your last turn`
-                // 的候选来源）—— 与 `Discard` **同时**写，取走时也**同时**移除
-                // （`BattleContext.TakeFromGraveyard`，一条规则只写一处）。
-                // 督军在上面那条 `if (u.IsWarlord) … return` 里已经返回了，**不会**进这张表。
-                ctx.DeadUnits.Add(new DeadUnit { Card = u.Card, Owner = p, DeathTurn = ctx.Turn });
+                // ⚠️ **这一条【没有】跟着下移**（刻意的，别顺手挪）：`DiedThisTurn` 是
+                //    `For each one that dies this turn …` 用的**回合计数**，不是那两张登记表；
+                //    它和旧行为逐字一致（本批只动 `Discard` / `DeadUnits` 两笔账）。
+                //    还没查清的那一格：原版那个计数的写入点在哪 —— **没查清**（如实标着）。
                 ctx.DiedThisTurn++;      // `For each one that dies …` 按它计数（回合开始清零）
-                ctx.Log($"{ps.Name} 的 {u.Name} 阵亡，进弃牌堆");
+                // 🔴 **2026-10-17 下移**：「进弃牌堆」+「阵亡登记」两笔账**挪到反噬之后**
+                //    （本方法末尾那一大段，逐跳判据写在那边）。**别挪回来** ——
+                //    原版进墓地是 `CardScript.UnitDeath` 协程的**最后一跳**，反噬在前面。
+                leftPlay = true;
             }
             // 先发 Death 再结算反噬：表现层要**趁格位还有意义的时候**播阵亡特效
             ctx.Emit(EvtKind.Death, p, slot, u.Name);
@@ -2490,9 +2650,9 @@ namespace RuleEngine
             //    （那是**明显比原版强**的改动，属静默失真）。判据 → `资料/查证_useWaystone_语义.md` §六。
 
             // Unstable（不稳定）：「**本单位死亡时：对随机单位造成 1-3 伤害**」—— 规则书 `:221`。
-            // ⚠️ **排在 Backlash 之前** —— `rule_core.gd:4529` 就是这个顺序（先自爆、再反噬）。
+            // ⚠️ **排在 Backlash 之前** —— 我们自己的 `rule_core.gd:4529`（旁证、非权威）就是这个顺序（先自爆、再反噬）。
             // ⚠️ 那道 `ctx.EffectChain < MaxEffectChain` 守卫是**连锁保护**
-            //    （自爆打死别人 → 那人也自爆 → …），`rule_core` 用的是 `depth < 6`。**别删**。
+            //    （自爆打死别人 → 那人也自爆 → …），我们自己的 `rule_core` 用的是 `depth < 6`。**别删**。
             if (u.Has(KeywordTable.Unstable) && ctx.EffectChain < BattleContext.MaxEffectChain)
                 UnstableBlast(ctx);
 
@@ -2500,6 +2660,66 @@ namespace RuleEngine
             // ⚠️ 单位**已经不在棋盘上了**，所以得把格位显式传进去 ——
             //    它既决定特效播在哪，也是「这张卡死在哪」的唯一记录
             FireTriggerAt(ctx, u, KeywordTable.Backlash, p, slot);
+
+            // ---- 🔴 2026-10-17：**「进弃牌堆」+「阵亡登记」两笔账下移到反噬之后** ----
+            // **判据 = 原版全量反编译 `d:/2/tools/decomp_full/` 的逐跳方法体**（不是我们自己的
+            // `rule_core.gd`）：
+            //   ① `CardScript__CheckIfDead.c:124` 生命归零 → `state(0x228) = 5`（濒死）；
+            //      `:135`（「变残骸」那一支是 `:141`）当场 `TriggerUnitBacklashActions`
+            //      —— **反噬在这一跳**。⚠️ 「从棋盘移除」不在这条链上：它在**另一条协程**
+            //      `BattleManager._ResolveMinionDeath_d__454__MoveNext.c:55`（`MinionManager.RemoveMinion`
+            //      + `List.Remove`）里 —— 也就是说原版**反噬入队比从棋盘移除还早**
+            //      （`ResolveMinionDeath` 在 dump 里查不到调用点 ⇒ 它和 `ResolveBacklash` 一样
+            //       只能靠协程入口触发，**这一格没查清**；我们这台机器上「先移除、再反噬」保持现状）。
+            //   ② `CardScript__TriggerUnitBacklashActions.c:99` 把反噬包成一条 action
+            //      `BattleManager.AddAutoActionToQueue` **入队** ⇒ 它自己一次都不碰墓地。
+            //   ③ 死亡触发那一族（`CardScript__ResolveDeadCard.c`：`TriggerOnMinionDeath` /
+            //      `RemoveExtrinsicEffectsFrom` / `BroadcastUnitRequiem` / `OnTrigger(0x1ae)`）
+            //      里**一次 `Cemetery` 都没有**。
+            //   ④ **`BattleManager__AddToCemetery.c` 在全量反编译里只有一个调用者** ——
+            //      `CardScript__GoToCemetery.c:17`（全库 grep `AddToCemetery` 只有 2 个文件命中，
+            //      另一个是它自己）。而 `GoToCemetery` 在单位死亡链上**只在
+            //      `CardScript._UnitDeath_d__446__MoveNext.c:152` 被调用** ——
+            //      那是 `UnitDeath` 协程的**最后一跳**（state 2；之前已经 `WaitForSeconds` 两跳：
+            //      `:126` 死亡音效/抖动那一拍、`:383` 死亡演出那一拍）。
+            //   ⑤ 真身 `CemeteryManager__AddCardToCemetery.c:17-47` 才做 `List.Add` + 换父 +
+            //      `SetAsCemetery` + `SetActive(false)` —— **那才是「进弃牌堆」**。
+            // ⇒ **反噬结算时它一定还没进弃牌堆、也还没进阵亡表**。我们原来是「先记账、后反噬」，
+            //    **顺序正好反了**（2026-10-17 改）。⚠️ 与之配套：`DeadUnits` 与 `Discard`
+            //    **仍要同时写**（`BattleContext.TakeFromGraveyard` 一条规则只写一处）。
+            //
+            // ⚠️ **原版在进墓地那一跳之前还会「复核一次」**：`CardScript._UnitDeath_d__446__MoveNext.c:63`
+            //    判 `state(0x228) != 5` 就 `CustomDebug.LogWarning` + `return 0` —— **压根不调
+            //    `GoToCemetery`**。⇒ **中途被别人捞走的单位不进墓地**（同一张卡被挪回手牌时，
+            //    原版那张 `CardScript` 的状态已经变了）。
+            //    我们的等价复核 = 「那一份实例已经不在『等待入墓』的状态」（回到手牌了、
+            //    或已经被别处登记过）⇒ 跳过登记，否则同一张卡会**既在手牌又在弃牌堆**。
+            bool refiled = ps.Hand.Contains(u.Instance)      // 被 `Backlash: Return(s) to your hand`
+                           || ps.Discard.Contains(u.Instance);  // 捞回去了/`EnforceHandLimit` 又弃掉
+            if (leftPlay && !refiled)
+            {
+                ps.Discard.Add(u.Instance);      // 第 7 行第 2 步：**那一份**回弃牌堆（原来放的是模板）
+                // 虫群合并时**压在下面**的那些牌一起进弃牌堆（2026-09-13 A2）——
+                // 物理上就是「宿主死了，下面压着的一起走」
+                if (u.SwarmUnder.Count > 0)
+                {
+                    foreach (var under in u.SwarmUnder) ps.Discard.Add(under);
+                    ctx.Log($"（{u.Name} 下面压着的 {u.SwarmUnder.Count} 张一起进弃牌堆）");
+                    u.SwarmUnder.Clear();
+                }
+                // 阵亡登记（`Choose a … that died this game / this battle / since your last turn`
+                // 的候选来源）—— 与 `Discard` **同时**写，取走时也**同时**移除
+                // （`BattleContext.TakeFromGraveyard`，一条规则只写一处）。
+                // 督军在上面那条 `if (u.IsWarlord) … return` 里已经返回了，**不会**进这张表。
+                ctx.DeadUnits.Add(new DeadUnit { Card = u.Card, Owner = p, DeathTurn = ctx.Turn });
+                ctx.Log($"{ps.Name} 的 {u.Name} 阵亡，进弃牌堆");
+            }
+            else if (leftPlay)
+            {
+                // 不许静默：翻了这一支一定要说出来，否则「弃牌堆里少一张」查不出原因
+                ctx.Log($"{ps.Name} 的 {u.Name} 在入墓前被捞走（反噬把它收回手牌 / 别处已登记）"
+                      + " ⇒ **不进弃牌堆**（原版在进墓地前也复核一次，见上面那条）");
+            }
 
             // 🆕 A7：**光环重算**（放在这里 = 死亡那一整套触发都跑完之后）。
             //    ⚠️ 上面那几段（路标石 / 不稳定 / 反噬）**自己也可能改棋盘**（自爆打死别人、
@@ -2516,7 +2736,7 @@ namespace RuleEngine
         ///
         /// **出队顺序**（这是本函数唯一真正需要判断的地方）：
         ///   规则书 `:238` 只说「**被攻击方优先**」，没说同一方多人同时死怎么排。
-        ///   ⇒ 照 `rule_core.gd` 的确定性口径：**按 (属于哪一方, 格号) 升序**，不随机。
+        ///   ⇒ 照我们自己的 `rule_core.gd`（旁证、非权威）的确定性口径：**按 (属于哪一方, 格号) 升序**，不随机。
         ///   ⚠️ 对局的**可复现性**靠它（工程铁律：只用 `System.Random(seed)`、定死的规则不许改成随机）。
         ///
         /// ⚠️ **批会嵌套**：这个函数只处理「出批的那一层」攒下的死亡。
@@ -2849,6 +3069,25 @@ namespace RuleEngine
         /// ⚠️ **付不起 ⇒ 整条不生效**且**不消耗次数**（付费判据在结算层，见
         ///    `EffectResolver.ResolveOathAbility` 的返回值）—— 否则「点一下没了」会是静默的坑。
         /// ⚠️ **不用 `Exhausted`**：理由见 <see cref="CanUseOathAbility"/>。
+        ///
+        /// 🔴 **2026-10-17 修：`EvtKind.Ability` 原来发在【付费之前】**（`ctx.Emit` 排在
+        ///    `ResolveOathAbility` 上面）⇒ **付不起的那一次也发过一条「能力发动了」的事件**，
+        ///    而监听方全在表现层 —— 战斗日志按它写一行「发动技能」（`BattleDriver.cs:4510`）、
+        ///    VFX 映射（`BattleDriver.cs:6661`）、trait 粒子（`BattleDriver.cs:6825`，
+        ///    `EvtKind.Ability` 那一档对应的正是原版 `UsedActiveAbility` = trait `0x4f1` = ferocity）
+        ///    ⇒ 它们都会以为能力真的发动了。
+        ///    ⇒ 现在**整段（`Emit` + 日志）挪到付费成功之后** —— 语义 = 「**能力真的发动了**」。
+        ///
+        ///    **原版顺序**（三段，逐条有方法体）：闸 → **付费** → 结算。
+        ///      ① `CardScript__CanUseOathAbility.c`（能不能用；次数上限 3 由
+        ///         `CardScript__CanUseOathAbility.c:16-20` 判）；
+        ///      ② **`BattleManager__PayActiveAbilityCostOath.c`** —— 代价读该卡的 trait
+        ///         `0x4fb`（`EntityScript.GetCurrentTraitValue(card, 0x4fb)`）后
+        ///         **`PlayerManager.UseMana(cost)`**，**先付费**；
+        ///      ③ `CardScript__ResolveActiveAbilityPlayed.c` —— 到这一步才 `+0x50`（本回合次数）
+        ///         `+= 1`、`+0x4C`（`usedActiveAbility`）置 1，再调 `ResolveActiveAbility`。
+        ///      ⇒ 原版**没有任何一步**在付费之前宣布「能力发动了」；我们那条 `Emit` 与
+        ///        「③ 已经进去了」是同一件事 ⇒ 必须排在付费**之后**。
         /// </summary>
         public static int UseOathAbility(BattleContext ctx, int p, int slot)
         {
@@ -2857,11 +3096,7 @@ namespace RuleEngine
 
             var u = ctx.Players[p].Board[slot];
             u.LastAttackType = 4;   // 🆕 表现用：誓约能力也走「技能」那一格（原版同）
-            ctx.Emit(EvtKind.Ability, p, slot, u.Name,
-                     keyword: "oath", effect: "Oath " + u.Card.OathCost, amount: u.Card.OathCost);
-            ctx.Log($"{ctx.Players[p].Name} 的 {u.Name} 激活誓约能力（Oath {u.Card.OathCost}）");
 
-            int before = ctx.Players[p].Energy;
             // ⚠️ `ResolveOathAbility` 定义在 `EffectResolver.cs` 里，但**那个文件里的类也是 `RuleCore`**
             //    （`public static partial class RuleCore`）—— 照文件名写 `EffectResolver.` 编译不过。
             bool ok = ResolveOathAbility(ctx, p, u);
@@ -2869,9 +3104,15 @@ namespace RuleEngine
             {
                 // 结算层已经打过「为什么没生效」的日志（付不起 / 条件不成立…）——
                 // 这里**不消耗次数、也不当成激活过**，玩家再点一次仍然可以。
+                // 🔴 **而且一条 `EvtKind.Ability` 都不发**（见上面那段 —— 发在付费之前是本条要修的缺陷）。
                 ctx.Log($"（这次激活没有生效 —— 次数没有消耗）");
                 return RuleCodes.ErrUnimplemented;
             }
+
+            // ---- 到这里 = **付费成功、正文也跑过了** ⇒ 现在才宣布「能力发动了」----
+            ctx.Emit(EvtKind.Ability, p, slot, u.Name,
+                     keyword: "oath", effect: "Oath " + u.Card.OathCost, amount: u.Card.OathCost);
+            ctx.Log($"{ctx.Players[p].Name} 的 {u.Name} 激活誓约能力（Oath {u.Card.OathCost}）");
 
             u.OathUsesThisTurn++;
             // 🆕 2026-09-29 誓约走的是**同一条** `ResolveActiveAbilityPlayed`
@@ -3283,7 +3524,9 @@ namespace RuleEngine
         /// **典籍（Codex）的自动触发点** —— 「**打出任何一张牌之后**，你的能量**恰好为 0**
         /// ⇒ 触发**一个**带 `Codex` 的单位的正文」。
         ///
-        /// **原版出处**：参考实现 `d:/warpforge/scripts/rule_core.gd:2397 _check_codex`。
+        /// **出处**（⚠️ 2026-10-17 订正：原来写「**原版出处**」—— 错，`rule_core.gd` 是
+/// **我们自己的 Godot 复刻**、不是原版）：我们自己的参考实现
+/// `d:/warpforge/scripts/rule_core.gd:2397 _check_codex`（旁证、非权威）。
         /// 两条语义**照抄，没有自己发挥**：
         ///   ① 判据是 `energy == 0`（**恰好**为 0 —— 那边写的就是 `== 0`，不是 `&lt;= 0`）；
         ///   ② 扫 0→8 号格，命中**第一个**就 `break` ⇒ **一次只触发一个单位**，不是全体各来一次。
@@ -3406,7 +3649,7 @@ namespace RuleEngine
 
         /// <summary>
         /// **不稳定**（`Unstable`）：本单位死亡时，对**场上随机一个单位（含双方）**造成 **1-3** 伤害。
-        /// 规则书 `:221`；目标池与伤害范围照 `rule_core.gd:4578 _unstable_blast`。
+        /// 规则书 `:221`；目标池与伤害范围照我们自己的 `rule_core.gd:4578 _unstable_blast`（旁证、非权威）。
         ///
         /// ⚠️ **随机源必须是 `ctx.Rng`** —— 同一局必须可复现（工程铁律，不许用 `UnityEngine.Random`）。
         /// ⚠️ 打死了会**再走一遍 `CleanupDeaths`**（链式自爆），靠 `ctx.EffectChain` 截断 ——
@@ -3599,6 +3842,16 @@ namespace RuleEngine
         {
             if (ctx.Winner != 0) return ctx.Winner;          // 已经结束了，投降不作数
             if (player != 0 && player != 1) return 0;        // 越界就什么都不做（调用方的问题）
+            // 🆕 2026-10-17（B29）：**教程关可以禁止投降**（`TutorialStage.preventPlayerResign`）。
+            //   原版出处：`TutorialStage` 字段 `preventPlayerResign`（`dump.cs:42080`，偏移 `+0xB9`）
+            //   —— 6 关实测**全是 false**（`tutorial_stages.json`）⇒ 今天一次都不触发，**机制照做**（铁律 11）。
+            //   ⚠️ 判据只有这一处：⛔ 别在 UI 那一层再挡一道（两处写同一条规则 = 迟早不一致）。
+            if (ctx.Tutorial != null && ctx.Tutorial.ResignBlocked)
+            {
+                ctx.Log($"{ctx.Players[player].Name} 想投降 —— **这一关不允许投降**"
+                      + "（关卡 `preventPlayerResign`）⇒ 挡下，对局继续");
+                return ctx.Winner;                           // = 0（什么都没发生）
+            }
             ctx.ForfeitedBy = player;
             ctx.Winner = player == 0 ? 2 : 1;
             ctx.Log($"{ctx.Players[player].Name} 投降 —— {ctx.Players[1 - player].Name} 获胜");
@@ -3612,6 +3865,21 @@ namespace RuleEngine
 
             bool d0 = ctx.Players[0].IsDefeated;
             bool d1 = ctx.Players[1].IsDefeated;
+
+            // 🆕 2026-10-17（B29）：**教程关的 `playerAlwaysWins`** —— 「战斗结束时**一律算玩家赢**」。
+            //   原版出处 = `BattleManager.GetWinnerAfterBattleEnd`（`:63-66`）：
+            //     `if (IsCampaignLike(bm)) { var st = GetCurrentTutorialStage(bm); if (st != null && st + 0xB8 != 0)
+            //        { CustomDebug.LogWarning(…); uVar6 = 10; } }`   // 10 = 玩家胜
+            //   位置**很关键**：它在**原来那套「谁死了谁输」算完之后**覆盖结果
+            //   ⇒ ⛔ **不是「一开局就判玩家赢」**（那会把教程局当场结算掉）。
+            //   ⚠️ 6 关实测**全是 false** ⇒ 今天一次都不触发，**机制照做**（铁律 11）。
+            //   🔴 唯一读点 = 这里（`TutorialScript.PlayerAlwaysWins`）—— 别在别处再判一遍。
+            if ((d0 || d1) && ctx.Tutorial != null && ctx.Tutorial.PlayerAlwaysWins)
+            {
+                ctx.Winner = 1;
+                ctx.Log("★ 教程关：本关 `playerAlwaysWins` ⇒ **判玩家胜**（原版 `GetWinnerAfterBattleEnd`）");
+                return ctx.Winner;
+            }
 
             if (d0 && d1)
             {
