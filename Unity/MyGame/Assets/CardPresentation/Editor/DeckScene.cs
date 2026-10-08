@@ -41,8 +41,14 @@ public static class DeckScene
         // 结果第 4 列压到筛选栏上、第 3 行跑到屏幕外（截图看出来的）
         const float GridCx = 975f, GridCy = 520f, GridStepX = 250f, GridStepY = 260f;
 
-        static int _pass, _fail;
-        static readonly List<string> _failures = new List<string>();
+        /// <summary>🆕 2026-10-18（第四会话）：断言计数器 + 输出口径**收口到共用件 `Editor/MenuCheck.cs`**
+        /// （唯一实现处；本文件只剩同名的一行转发 ⇒ 5,534 个调用点一个字没动）。
+        /// 🔴 **逐宿主一份 `CheckSink`**（⛔ 不是全局 static）—— 「拿别处的 `Check` 去断，失败会
+        /// **记进别人的合计**里 ⇒ 静默」，判据见 `Editor/RewardWindowFixture.cs:12-14`。</summary>
+        static readonly CheckSink _sink = new CheckSink(P)
+        {
+            Near = MenuNearStyle.Labeled4,       // 本文件原来是 `（实测 {got:F4} ≈ 期望 {want:F4} ± {tol:F4}）`
+        };
 
         static Transform _root;
 
@@ -72,25 +78,15 @@ public static class DeckScene
             return Label.Create(_root, s, Pos(cx, cy), scale, c, new Vector2(0.5f, 0.5f), name);
         }
 
-        static void Section(string t) { Debug.Log(P + $"--- {t} ---"); }
+        static void Section(string t) => MenuCheck.Section(_sink, t);
 
-        static void Check<T>(T got, T want, string msg)
-        {
-            if (EqualityComparer<T>.Default.Equals(got, want)) { _pass++; Debug.Log(P + $"   ✓ {msg}"); }
-            else
-            {
-                _fail++;
-                var line = $"{msg} —— 期望 [{want}]，实得 [{got}]";
-                _failures.Add(line);
-                Debug.LogError(P + $"   ✗ {line}");
-            }
-        }
+        static void Check<T>(T got, T want, string msg) => MenuCheck.Check(_sink, got, want, msg);
 
-        static void CheckTrue(bool c, string msg) { Check(c, true, msg); }
+        static void CheckTrue(bool c, string msg) => MenuCheck.True(_sink, c, msg);
 
         /// <summary>数值比较（±`tol`）—— 用来比**原版参数**那类量（颜色系数、像素尺寸）。</summary>
         static void CheckNear(float got, float want, float tol, string msg)
-            => CheckTrue(Mathf.Abs(got - want) <= tol, $"{msg}（实测 {got:F4} ≈ 期望 {want:F4} ± {tol:F4}）");
+            => MenuCheck.Near(_sink, got, want, tol, msg);
 
         // ============================================================ 🆕 2026-10-04（A24）悬停 / 状态换图的断言
         //
@@ -100,18 +96,10 @@ public static class DeckScene
 
         /// <summary>把一棵树里**接了悬停换图**的按钮逐个悬停一遍 —— 没换图、或离开没还原，都要红。
         /// ⚠️ 批处理没有帧循环 ⇒ `WindowButton.AuditHoverSwap` 直调 `Enter/Exit`（就是指针层调的那两个）。</summary>
-        static void CheckHoverSwap(Transform root, string what)
-        {
-            int n; string bad = WindowButton.AuditHoverSwap(root, out n);
-            CheckTrue(n > 0, what + "：**确实有**接了悬停换图的按钮（n=" + n + "，否则这条等于没查）");
-            if (bad.Length > 0) CheckTrue(false, what + "：换图要「悬停换得动 + 离开还原得回」—— " + bad);
-        }
+        static void CheckHoverSwap(Transform root, string what) => MenuCheck.HoverSwap(_sink, root, what);
 
         /// <summary>**取不到的悬停图**一张都不许有（红线：不许静默画成没反应）。</summary>
-        static void CheckNoMissingSwapArt(string what)
-            => CheckTrue(WindowButton.MissingSwapArt.Count == 0,
-                         what + "：**悬停图一张都不缺**（缺的会列在这里："
-                         + string.Join("、", WindowButton.MissingSwapArt.ToArray()) + "）");
+        static void CheckNoMissingSwapArt(string what) => MenuCheck.NoMissingSwapArt(_sink, what);
 
         static string TexName(Texture t) { return t != null ? t.name : "<无>"; }
 
@@ -276,13 +264,11 @@ public static class DeckScene
         /// 「开关一开也照样是设计 px」钉住：它给 `_root` 挂一颗 `menuScale = 1.2` 的缩放器再量同一格。</para></summary>
         static bool QuadRectPx(ImageQuad q, out float x1, out float y1, out float x2, out float y2)
         {
-            x1 = y1 = x2 = y2 = 0f;
-            if (q == null) return false;
-            var c = LayoutSpace.ToPixel(MenuDraw.PosInDesignSpace(q.transform));
-            float w = q.WorldW * PxPerUnit, h = q.WorldH * PxPerUnit;
-            x1 = c.x - w * 0.5f; x2 = c.x + w * 0.5f;
-            y1 = c.y - h * 0.5f; y2 = c.y + h * 0.5f;
-            return true;
+            // 🆕 2026-10-18（A1003）：算法收口到 `MenuDraw.QuadRectPx`（保留本名与本形参 ⇒ 调用点 0 改动）。
+            // 🔴 改前这一份**已经是乙式**（`ToPixel(PosInDesignSpace(...))`），只差**收口 + 读口那一行**：
+            //    `MenuDraw` 那份的位置项已改走 `PixelOfDesign`（`A1004`，16:9 下与 `ToPixel` 差 ≤2.5e-4px，
+            //    远小于本文件 `LayTol`）⇒ 这里一并跟上，⛔ 别再在本地写第二份算式。
+            return MenuDraw.QuadRectPx(q, out x1, out y1, out x2, out y2);
         }
 
         /// <summary>🆕 **2026-10-12（A364）**：一个**节点子树里全部活着的 `ImageQuad`** 的渲染矩形**并集**（画布 px）。
@@ -290,23 +276,10 @@ public static class DeckScene
         /// 「弹窗底量成 182×173」的注释记的正是这个坑）。`node` 自己没有 `ImageQuad`（九宫格根就是空节点）也照样能量。</summary>
         static bool UnionQuadsPx(Transform node, out float x1, out float y1, out float x2, out float y2)
         {
-            x1 = y1 = x2 = y2 = 0f;
-            if (node == null) return false;
-            var qs = node.GetComponentsInChildren<ImageQuad>(true);
-            if (qs == null || qs.Length == 0) return false;
-            float a1 = float.MaxValue, b1 = float.MaxValue, a2 = float.MinValue, b2 = float.MinValue;
-            bool any = false;
-            foreach (var q in qs)
-            {
-                if (q == null || !q.gameObject.activeInHierarchy) continue;
-                if (!QuadRectPx(q, out float qx1, out float qy1, out float qx2, out float qy2)) continue;
-                a1 = Mathf.Min(a1, qx1); b1 = Mathf.Min(b1, qy1);
-                a2 = Mathf.Max(a2, qx2); b2 = Mathf.Max(b2, qy2);
-                any = true;
-            }
-            if (!any) return false;
-            x1 = a1; y1 = b1; x2 = a2; y2 = b2;
-            return true;
+            // 🆕 2026-10-18（A1003）：并集算法收口到 `MenuDraw.UnionQuadRectPx`（保留本名与本形参 ⇒ 调用点 0 改动）。
+            // 🔴 两项原样保留：**激活闸 = `InHierarchy`** · **`searchInactive = true`**。
+            return MenuDraw.UnionQuadRectPx(node, MenuDraw.QuadGate.InHierarchy, true,
+                                            out x1, out y1, out x2, out y2);
         }
 
         /// <summary>🆕 **2026-10-12（A364）**：一个节点子树里**活着的第一块 `ImageQuad`**（量它的渲染队列/图名用）。
@@ -423,7 +396,7 @@ public static class DeckScene
 
         public static void Run()
         {
-            _pass = 0; _fail = 0; _failures.Clear();
+            _sink.Pass = 0; _sink.Fail = 0; _sink.Failures.Clear();
             Directory.CreateDirectory(ShotDir);
             Debug.Log(P + "=== 卡组编辑自检 开始 ===");
 
@@ -608,15 +581,15 @@ public static class DeckScene
             Shoot("deck_editor.png");
             SaveScene();
 
-            int total = _pass + _fail;
-            if (_fail == 0) Debug.Log(P + $"=== 结束：{_pass}/{total} 全过 ✅ ===");
+            int total = _sink.Pass + _sink.Fail;
+            if (_sink.Fail == 0) Debug.Log(P + $"=== 结束：{_sink.Pass}/{total} 全过 ✅ ===");
             else
             {
-                var sb = new System.Text.StringBuilder(P + $"=== 结束：{_pass}/{total} 通过，**{_fail} 条失败** ❌ ===");
-                foreach (var f in _failures) sb.Append("\n").Append(P).Append("   ✗ ").Append(f);
+                var sb = new System.Text.StringBuilder(P + $"=== 结束：{_sink.Pass}/{total} 通过，**{_sink.Fail} 条失败** ❌ ===");
+                foreach (var f in _sink.Failures) sb.Append("\n").Append(P).Append("   ✗ ").Append(f);
                 Debug.LogError(sb.ToString());
             }
-            if (Application.isBatchMode) EditorApplication.Exit(_fail == 0 ? 0 : 1);
+            if (Application.isBatchMode) EditorApplication.Exit(_sink.Fail == 0 ? 0 : 1);
         }
 
         static DeckEditorState NewState()
@@ -5898,25 +5871,10 @@ public static class DeckScene
 
         // ============================================================ 截图 / 存场景
 
-        static void Shoot(string file)
-        {
-            var cam = Camera.main;
-            if (cam == null) return;
-            const int W = 1920, H = 1080;
-            var rt = RenderTexture.GetTemporary(W, H, 24, RenderTextureFormat.ARGB32);
-            cam.targetTexture = rt;
-            cam.Render();
-            RenderTexture.active = rt;
-            var tex = new Texture2D(W, H, TextureFormat.RGB24, false);
-            tex.ReadPixels(new Rect(0, 0, W, H), 0, 0);
-            tex.Apply();
-            RenderTexture.active = null;
-            cam.targetTexture = null;
-            File.WriteAllBytes(Path.Combine(ShotDir, file), tex.EncodeToPNG());
-            UnityEngine.Object.DestroyImmediate(tex);
-            RenderTexture.ReleaseTemporary(rt);
-            Debug.Log(P + $"  截图 {Path.Combine(ShotDir, file)}");
-        }
+        /// <summary>截图 —— 本文件那一份**原来就没有空图护栏**（无 `MeanBrightness`、无 `allowBlank`）
+        /// ⇒ `guardBlank: false`（⛔ **不许顺手补上**：那会给本宿主**新增断言**、可能绿变红；
+        /// 那笔账另记，见 `Editor/MenuCheck.cs` 的 `Shoot` 文件头）。</summary>
+        static void Shoot(string file) => MenuCheck.Shoot(_sink, ShotDir, file);
 
         static void SaveScene()
         {

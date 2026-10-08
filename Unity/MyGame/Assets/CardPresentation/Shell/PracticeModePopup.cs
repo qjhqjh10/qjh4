@@ -558,7 +558,11 @@ namespace CardPresentation
             var d = CollectionData.DeckAt(DeckIndex);
             var wl = CollectionData.Warlord(DeckIndex);
             _txtDeckName = Txt(_info, d.Name, DnL, DnR, DnT, DnB, 36f, Align.Left, "Deck Name", QPrText);
-            _txtWarlord = Txt(_info, wl != null ? wl.Name : "未选战将", WnL, WnR, WnT, WnB, 35f,
+            // 「未选战将」在本文件有三处（建窗这一处 + 两个 `SetText` 刷新点）—— **一律**走同一条词条
+            // `MenuDeck/Error/NoWarlord`（出处 `Core/Loc.cs:904`），施工单 §附_Shell #1 判「复用，别新造」。
+            // ⚠️ **如实记**：表里中文列是「还没有选战将」—— 与改前写死的「未选战将」**不同字**，这是有意的
+            //    （键名/两列都由 `Loc` 定，⛔ 别为「保住旧字」另立一条同义键，铁律 6）。
+            _txtWarlord = Txt(_info, wl != null ? wl.Name : Loc.T("MenuDeck/Error/NoWarlord"), WnL, WnR, WnT, WnB, 35f,
                               Align.Left, "Warlord Name", QPrText);
             _armyIcon = Img(_info, DeckRuntime.FactionIcon(d.Faction), ArmImgL, ArmImgT, ArmImgR, ArmImgB,
                             "Army Image", QPrRow, true);
@@ -1288,7 +1292,9 @@ namespace CardPresentation
                 return _facs[ArmyIndex].ToUpperInvariant();
             }
             var d = CollectionData.DeckAt(DeckIndex);
-            return string.IsNullOrEmpty(d.Faction) ? "（未选阵营）" : d.Faction.ToUpperInvariant();
+            // 兜底那句也走词条（键 `MenuDeck/HUD/NoArmySelected`，出处 `Core/Loc.cs:1249`；
+            //   ZH 列与改前写死串**逐字相同** ⇒ 中文档零变化）。⚠️ P3 两个附件源都漏了这条（它会画上屏）。
+            return string.IsNullOrEmpty(d.Faction) ? Loc.T("MenuDeck/HUD/NoArmySelected") : d.Faction.ToUpperInvariant();
         }
 
         /// <summary>开 `Deck Selection Popup with Tabs`（原版 `DeckGeneralInfoDemo.ChangePlayerDeckButton` 那条）。</summary>
@@ -1456,7 +1462,7 @@ namespace CardPresentation
             var info = CollectionData.DeckAt(i);
             if (_txtDeckName != null) _txtDeckName.SetText(info.Name);
             var wl = CollectionData.Warlord(i);
-            if (_txtWarlord != null) _txtWarlord.SetText(wl != null ? wl.Name : "未选战将");
+            if (_txtWarlord != null) _txtWarlord.SetText(wl != null ? wl.Name : Loc.T("MenuDeck/Error/NoWarlord"));
             if (_txtArmy != null) _txtArmy.SetText(SelectedArmyName());
             if (_armyIcon != null) _armyIcon.SetTexture(CardArt.MenuUi(DeckRuntime.FactionIcon(info.Faction)));
             if (_cardback != null) _cardback.SetTexture(CardArt.DeckCardback(info.CardbackId, info.Faction));
@@ -1479,7 +1485,7 @@ namespace CardPresentation
             if (_txtWarlord != null)
             {
                 var wl = CollectionData.Card(d.heroId);
-                _txtWarlord.SetText(wl != null ? wl.Name : "未选战将");
+                _txtWarlord.SetText(wl != null ? wl.Name : Loc.T("MenuDeck/Error/NoWarlord"));
             }
             if (_armyIcon != null) _armyIcon.SetTexture(CardArt.MenuUi(d.FactionIcon));
             if (_cardback != null) _cardback.SetTexture(d.Cardback);
@@ -1608,7 +1614,12 @@ namespace CardPresentation
             if (string.IsNullOrEmpty(info.WarlordId))
             {
                 Debug.LogWarning("[Practice] 这套卡组**没有督军**，开不了局 —— 如实说，不静默。");
-                if (Manager != null) Manager.ShowPopUp("这套卡组还没有选战将，开不了局。", "知道了", null);
+                // 弹窗正文走**整句**词条（键 `MenuDeck/Error/CantStartNoWarlord`，出处 `Core/Loc.cs:1251-1252`）。
+                // 🔴 **2026-10-18（波 1b · `A1034` 裁定）**：上一轮这里复用了**短键** `MenuDeck/Error/NoWarlord`
+                //    （「还没有选战将」）⇒ 正文从「这套卡组还没有选战将，开不了局。」缩成 5 个字 = 玩家可见
+                //    内容缩水 ⇒ **按裁定改回整句**。（短键仍留给本文件那 3 处「未选战将」栏位。）
+                // 钮文案同 `DeckInfoPopup`：`MainMenu/General/OK`（⚠️ `OK` 不是 `Ok`）。
+                if (Manager != null) Manager.ShowPopUp(Loc.T("MenuDeck/Error/CantStartNoWarlord"), Loc.T("MainMenu/General/OK"), null);
                 return;
             }
             // 🆕 2026-09-26（N3）：**联机已连上 ⇒ 走 P2P，不跑那 12 秒 bot 链**
@@ -1668,12 +1679,13 @@ namespace CardPresentation
             if (NetMatchmaking.Cancel("对局发起方点了取消", out string why))
             {
                 NetTookOver = false;
-                NetRuntime.Notice("已经取消这一局的联机匹配 —— 对面会收到通知，**双方都没有开局**。\n"
-                                + "想再打一次：两边各自重新点一次 `Battle!`。");
+                // 整句走词条（键 `Settings/Online/MatchCancelled`，出处 `Core/Loc.cs:1222-1223`）。
+                NetRuntime.Notice(Loc.T("Settings/Online/MatchCancelled"));
             }
             else
             {
-                NetRuntime.Notice("取消不了这一局：" + why);   // **不假装取消成功**
+                // 走词条（键 `Settings/Online/MatchCancelFailed`，出处 `Core/Loc.cs:1224`）。
+                NetRuntime.Notice(Loc.T("Settings/Online/MatchCancelFailed").Replace("{0}", why));   // **不假装取消成功**
             }
         }
 

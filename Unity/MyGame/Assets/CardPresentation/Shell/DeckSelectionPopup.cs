@@ -688,13 +688,18 @@ namespace CardPresentation
         void RefreshEmptyText()
         {
             if (Shown().Count > 0) { _empty = ""; return; }
+            // 🔴 **2026-10-18（波 1b）**：这两句**整句**走词条 —— `MenuDeck/Error/PrebuiltMissing`
+            //   （出处 `Core/Loc.cs:1241-1242`）与 `MenuDeck/Error/NoUsablePrebuilt`（`:1243-1244`）。
+            //   两列 ZH 与改前写死串（含那句拼接）**逐字相同** ⇒ 中文档零变化。
             if (!PrebuiltDecks.Available)
-                _empty = "预组卡组的数据读不到（Resources/prebuilt_decks.json）⇒ 先如实留空；"
-                       + "跑 `python 工具/gen_prebuilt_decks.py` 重新生成";
+                _empty = Loc.T("MenuDeck/Error/PrebuiltMissing");
             else if (!OwnDecks && PrebuiltDecks.Tab.Count == 0)
-                _empty = "这一页一副可用的都没有（**拼不齐的按原版口径整副不显示**）";
+                _empty = Loc.T("MenuDeck/Error/NoUsablePrebuilt");
             else
-                _empty = "没有可选的卡组";   // ⚠️ 原来这里会说「搜索串：…」—— 搜索框已按原版去掉（见 `Search` 那段注释）
+                // 空态那句话走词条（键 `MenuCollection/NoDecksFound`，出处 `Core/Loc.cs:375`；施工单 §附_Shell #31）。
+                // ⚠️ **如实记**：表里中文列是「没有符合当前筛选的卡组」—— 本窗没有筛选器（搜索框已按原版去掉）
+                //    ⇒ 中文档下这句比改前那句**多提了「筛选」**，语义略有出入；施工单判「最近邻 ⇒ 复用」，照做。
+                _empty = Loc.T("MenuCollection/NoDecksFound");   // ⚠️ 原来这里会说「搜索串：…」—— 搜索框已按原版去掉（见 `Search` 那段注释）
         }
 
         /// <summary>

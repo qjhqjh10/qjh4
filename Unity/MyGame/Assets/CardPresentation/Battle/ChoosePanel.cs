@@ -116,7 +116,11 @@ namespace CardPresentation
         /// ⇒ **2026-10-18（第十二轮 · W6）就地订正**：无后缀那条现在**在 `Loc` 表里**（见 `TitleTerm`），
         ///    本地真正取不到的只有**带后缀**那一档（`…-&lt;uniqueId&gt;` 是运行期拼出来的，
         ///    任何 prefab 上都不可能存在 ⇒ 原版那套在远端 I2 表）。
-        ///    现在的链 = **本表（覆盖 / 自检注入）→ `Loc` 表 → 调用方兜底**。
+        ///    🔴 **2026-10-18 更正（铁律 5）**：原来这里写「现在的链 = **本表（覆盖 / 自检注入）→ `Loc` 表 → 调用方兜底**」
+        ///    —— **`ResolveTitle` 里根本没有查 `Loc` 那一跳**（它只查 `Terms` 字典）。
+        ///    **实际链 = `Terms`（先带后缀键 → 再无后缀键）→ 调用方 `fallback`**；
+        ///    `fallback` 为空时才落 `DefaultTitle` —— 而 `DefaultTitle` **自己**是 `Loc.T(TitleTerm)`（见 `:55-58`），
+        ///    那是**最后一档默认值**、不是链上的一跳。**错因**：把「`DefaultTitle` 内部查了 `Loc`」写成了「链上有一跳 `Loc`」。
         /// 键 = 原版词条 key（`Battle/ChooseCard/Instructions` 与 `…-&lt;uniqueId>`）。</summary>
         public static readonly Dictionary<string, string> Terms = new Dictionary<string, string>();
 

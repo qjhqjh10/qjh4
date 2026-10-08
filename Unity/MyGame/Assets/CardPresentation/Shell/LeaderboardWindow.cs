@@ -181,11 +181,22 @@ namespace CardPresentation
         static readonly PxRect ArmyHLR = new PxRect(-68f, -61f, 68f, 61f);
         static readonly PxRect ArmyArrowR = new PxRect(-51.2f, 38.1f, 51.2f, 68.9f);
         static readonly PxRect ArmyIconR = new PxRect(-57.2f, -51.8f, 58.2f, 50.8f);
+        /// <summary>🔴 `Army Item Button/Icon` 那颗 `Image` 的 **`m_RaycastPadding`** —— **负 = 外扩**。
+        /// 判据（2026-10-18 现读）= `python -I d:/tmp/wf_hit/rcunion.py bundle_menus_assets_all "Army Item Button" --depth 3`：
+        /// `Icon  Image[spr=0 RT=1 pad={'x':-11.0,'y':-11.0,'z':-11.0,'w':-11.0}]`（同子树另 4 颗可射线件 pad 全 0）。
+        /// ⛔ 外扩一律走 `MenuDraw.PaddedRect`（全工程唯一那一份「正值缩小、负值扩大」）—— 别另写算式。</summary>
+        static readonly Vector4 ArmyIconPad = new Vector4(-11f, -11f, -11f, -11f);
         static readonly Color ArmyHLTint = new Color(1f, 0.631f, 0.278f, 1f);
         const string ArtArmyHL = "40K_settings_button_selected", ArtArmyArrow = "40K_ArmyTrack_chosen_faction";
 
         static readonly PxRect CloseR = new PxRect(1656.81f, 9.19f, 1731.19f, 84.80f);
         static readonly PxRect CloseInnerR = new PxRect(1664.96f, 17.17f, 1721.82f, 75.30f);
+        /// <summary>🔴 关闭键两个吃射线的子件（`Background` / `Icon`，同一个矩形 56.86 × 58.13）那颗 `Image` 的
+        /// **`m_RaycastPadding`** —— **负 = 外扩**。判据（2026-10-18 现读）=
+        /// `python -I d:/tmp/wf_hit/rcunion.py bundle_menus_assets_all "RankedSkirmishLeaderboardPopup" --depth 3`：
+        /// `Generic Close Button Orange/Background` 与 `/Icon` 各 `RT=1 pad={'x':-20.0,…}`（三扇弹窗逐位同）。
+        /// ⛔ 外扩走 `MenuDraw.PaddedRect`（同 `ArmyIconPad`）。</summary>
+        static readonly Vector4 ClosePad = new Vector4(-20f, -20f, -20f, -20f);
         const string ArtCloseBg = "UI_Button_Round_background", ArtCloseCircle = "40k_general_bt_yellow",
                      ArtCloseIcon = "40k_general_bt_yellow_close";
 
@@ -540,9 +551,28 @@ namespace CardPresentation
                     Rect(hl, ArtArmyArrow, Rel(r, ArmyArrowR), "Arrow", QContent, null, true, null, ArmyClipSoft);
                 }
                 // `Icon`：原版无图，运行期 `ArmyIconsSO.GetArmyIcon(army)` —— 我们走同一份阵营图标表
-                Rect(node, DeckRuntime.FactionIcon(army), Rel(r, ArmyIconR), "Icon", QContent, null, true,
+                var iconR = Rel(r, ArmyIconR);
+                Rect(node, DeckRuntime.FactionIcon(army), iconR, "Icon", QContent, null, true,
                      null, ArmyClipSoft);
-                MenuDraw.Hit(node, "Hit", r, QHit, () => SelectArmy(army));
+                // 🔴 **2026-10-18（波 2a · W1 · 归真值）**：命中区 = **`Icon` 那颗按它自己的
+                //   `m_RaycastPadding = (-11)⁴` 外扩**（`ArmyIconPad`，**负 = 外扩**）⇒ **原版真值 137.36 × 124.59**。
+                //   判据（第一权威 = 原版 prefab 实读）→ `python -I d:/tmp/wf_hit/rcunion.py bundle_menus_assets_all
+                //   "Army Item Button" --depth 3`：
+                //   根 `Army Item Button` **没有任何 Graphic**（组件只有 `RectTransform · CanvasRenderer ·
+                //   EverguildToggle · ArmyItemContainer`）⇒ **根矩形不是可射线区**；子树里 5 颗 `m_RaycastTarget = 1`
+                //   的件 = `HighlightBG`(136.00×122.00) · `Arrow`(102.38×30.71) · **`Icon`(115.36×102.59 · pad `(-11)⁴`)**
+                //   · `Badge Highlight`(35×35) · `OneText`(35×35)；其中 `HighlightBG`/`Arrow` **只在选中时可见**
+                //   （判据见上面 `ArmyHLR` 那段）⇒ 常态可射线区 = **`Icon` 外扩后那颗**。
+                //   🔴 **上一轮（E3）只拿了 `Icon` 的【裸】矩形** ⇒ 每边小 11px（那时量到 115.40 × 102.60）。
+                //      而**它改前那版（根矩形 136.36 × 121.59）每边只小 0.5 / 1.5px** ⇒ E3 那次「从根矩形换成
+                //      `Icon` 裸矩形」其实是把它**改小**了（E3 记的「用根矩形宽出 21.00 / 高 19.00」是拿
+                //      `Icon` 与根之间那道**内缩**当成了射线差 —— 内缩不是射线真值）。
+                //   ⛔ 外扩走 `MenuDraw.PaddedRect`（全工程唯一那一份口径），别另写一份。
+                //   ⚠️ 连带撤销 E3 的一条前提：按真值算相邻两颗**恒叠 15.00px**（步进 122.36 = `ArmyBtnW + ArmyBtnSpacing`）
+                //   —— **原版本来就叠** ⇒ 缺陷只在「可点区算错」，不在「重叠」本身。
+                //   ⛔ `ArmyBtnSpacing = -14f`（本文件 :177）**一个字不改**：相邻两颗**版面**叠 14px 是原版
+                //   （`Army Content` 的 `HorizontalLayoutGroup.spacing = -14.0`）⇒ 画出来的叠法照旧。
+                MenuDraw.Hit(node, "Hit", MenuDraw.PaddedRect(iconR, ArmyIconPad), QHit, () => SelectArmy(army));
                 ArmyButtonCount++;
             }
         }
@@ -640,7 +670,18 @@ namespace CardPresentation
             Rect(close, ArtCloseIcon, CloseInnerR, "Icon", QContent, null, true);
             // 🆕 A17：原版 `…>RankedSkirmishLeaderboardPopup` 那颗 `Generic Close Button Orange` 是 SpriteSwap、
             // 高亮图 = `40k_general_bt_yellow_hover`（直接读 prefab 核过）
-            MenuDraw.Hit(close, "Hit", CloseR, QHit, () => Close(), closeBaseQ, null, "40k_general_bt_yellow_hover");
+            // 🔴 **2026-10-18（波 2a · W1 · 归真值）**：命中区 = **吃射线那两颗子件按它们自己的
+            //   `m_RaycastPadding = (-20)⁴` 外扩**（`ClosePad`，**负 = 外扩**）⇒ **原版真值 96.86 × 98.13**。
+            //   判据（第一权威 = 原版 prefab 实读，三扇弹窗逐位相同）→ `python -I d:/tmp/wf_hit/rcunion.py
+            //   bundle_menus_assets_all "RankedSkirmishLeaderboardPopup" --depth 3`：
+            //   根 `Generic Close Button Orange` 上的 `Image`（`UI_Button_Round_background`）**`m_RaycastTarget = 0`**
+            //   ⇒ **原版那颗圆底盘不接受射线**；吃射线的是两个子件 `Background`（`40k_general_bt_yellow`）与
+            //   `Icon`（`40k_general_bt_yellow_close`）—— **同一个矩形（`CloseInnerR` = 56.86 × 58.13）
+            //   且两颗都带 pad `(-20)⁴`** ⇒ 可射线区 = 那颗外扩 20。
+            //   ⚠️ **上一轮（E3b）漏了 `m_RaycastPadding`**，只拿 `CloseInnerR` 裸矩形 ⇒ 每边小 20px
+            //      （那一版写「原版可射线区 = 56.86 × 58.13」**这句是错的**，铁律 5 就地订正）。
+            //   ⛔ 外扩走 `MenuDraw.PaddedRect`；⛔ 悬停换图那一层（`closeBaseQ`）不动 —— 那是另一类缺陷。
+            MenuDraw.Hit(close, "Hit", MenuDraw.PaddedRect(CloseInnerR, ClosePad), QHit, () => Close(), closeBaseQ, null, "40k_general_bt_yellow_hover");
         }
 
         /// <summary>`Generic Simplified UI Button_updated`（'Last season'）+ `Last Season Text`。
@@ -681,8 +722,12 @@ namespace CardPresentation
             Debug.Log("[Leaderboard] `Last season` 键 —— 原版切到**上一赛季**的榜（服务器数据）。"
                       + "本地没有赛季、也没有上一赛季榜 ⇒ 如实说明。");
             if (Manager != null)
-                Manager.ShowPopUp("上一赛季的榜单在服务器上。\n本地版没有赛季数据，所以这里只能看看界面。",
-                                  "知道了", null);
+                // 🆕 2026-10-18（双语③ P2）：钮文案改走语言表；键 = 原版 mTerm `MainMenu/General/OK`
+                //   （`Core/Loc.cs` 的表，大写 `OK`）。
+                // 🆕 2026-10-18（波 1b · P2b）：正文也改走语言表 —— 键 `MainMenu/RankedWindow/LeaderboardOfflineNote`
+                //   是波 0b 补进表的那 111 条之一（值**逐字 = 原来那两句** ⇒ 中文档零变化）。
+                Manager.ShowPopUp(Loc.T("MainMenu/RankedWindow/LeaderboardOfflineNote"),
+                                  Loc.T("MainMenu/General/OK"), null);
         }
 
         // ---------------------------------------------------------- 列表

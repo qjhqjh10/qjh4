@@ -280,6 +280,47 @@ namespace CardPresentation
             return Mathf.Abs(l.x) <= PanelW * 0.5f && Mathf.Abs(l.y) <= PanelH * 0.5f;
         }
 
+        // ---- 🆕 2026-10-18（A964① ⑥）：面板的**实绘几何**只读口（⛔ 只给自检，不给生产用）----
+        //  补它的理由：上面 `Contains` 用的是 `PanelW/PanelH`（**手算**：屏幕比例 × 30%），
+        //  而**画出来的**是 `_bg`（只占面板 84.4%×68.1%）与 `_light`（93.2%×84.7%）两颗 quad
+        //  ⇒ 没有实绘口就**无从比**「命中区 ⊇ 实绘」。
+        //  🔴 **读法必须是 `WorldW/H × lossyScale`**：`PlaceQuad` 是「先按高定尺寸、再用
+        //     `transform.localScale.x` 横向拉到目标宽」⇒ **`WorldW` 是拉伸【前】的值**
+        //     （`_light` 的 `WorldW` 只有 0.8468×面板高，而它真正画出来是 0.9322×面板宽）。
+        //     只读 `WorldW` 会把实绘宽量小 10% —— 那是「量错」不是「原版如此」。
+        //  ⛔ 本件**不改** `Contains` 的口径（改命中＝改行为，要另开一件、另配断言）；
+        //     它仍然只用于 `SetPointer` 的按下态着色。
+
+        static Vector2 DrawnWorldSize(ImageQuad q)
+        {
+            if (q == null) return Vector2.zero;
+            var s = q.transform.lossyScale;
+            return new Vector2(q.WorldW * s.x, q.WorldH * s.y);
+        }
+
+        /// <summary>底板 `AbilityContainer` 的**实绘**世界宽 × 高。</summary>
+        public Vector2 BgDrawnSize { get { return DrawnWorldSize(_bg); } }
+
+        /// <summary>底板 `AbilityContainer` 的世界中心（**不是**面板中心 —— 它偏左上，见 `BgRect`）。</summary>
+        public Vector3 BgWorldPos
+        {
+            get { return _bg != null ? _bg.transform.position : Vector3.zero; }
+        }
+
+        /// <summary>`Lights` 色片的**实绘**世界宽 × 高 —— 它是**画得最大**的那一层
+        /// （93.2% × 84.7% 的面板，见 `LightRect`），所以 `E2` 拿它当「实绘矩形」的尺子。</summary>
+        public Vector2 LightDrawnSize { get { return DrawnWorldSize(_light); } }
+
+        /// <summary>`Lights` 色片的世界中心。</summary>
+        public Vector3 LightWorldPos
+        {
+            get { return _light != null ? _light.transform.position : Vector3.zero; }
+        }
+
+        /// <summary>命中区（<see cref="Contains"/>）自己的世界宽 × 高 —— 就是那对手算的
+        /// `PanelW/PanelH`。探针要拿它算「多远算面板之外」（`Contains` 是绕面板中心的半边长）。</summary>
+        public Vector2 HitBoxWorldSize { get { return new Vector2(PanelW, PanelH); } }
+
         // ==================================================================
         //  显示
         // ==================================================================

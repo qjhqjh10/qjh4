@@ -693,6 +693,34 @@ namespace CardPresentation
         readonly List<Keyed> _tabLabels = new List<Keyed>();
         /// <summary>General 页里所有要翻译的标签（含那两个钮上的字）。</summary>
         readonly List<Keyed> _genLabels = new List<Keyed>();
+        /// <summary>🆕 **2026-10-18（第四会话 · 双语③ · 换语言刷新链）**：**音频页 / 联机页**那几件
+        /// 「`Build()` 里画一次」的玩家可见文字 —— `RefreshTexts()` 按它重设。
+        /// <para>🔴 **为什么不照 `_genLabels` 存 `Keyed`（一个键）**：这一族里有两种 `Keyed` 表达不了的形状 ——
+        /// ① **文本由两条键拼出来**（联机页那行说明 = `TitleNote` + `\n` + `TitleNoteBody`）；
+        /// ② **不是 `Label`**（两个输入框的**占位提示**，那颗 `Label` 在 `MenuInputField` 内部、外面拿不到）。
+        /// ⇒ 这一族登记的是「**把自己那一格重设一遍**」这个动作（⛔ 仍然**不存译文** —— 动作里现算 `Loc.T`）。
+        /// ⚠️ 形状与 `_genLabels` 的差别**只有这一处**（存 `Action` 而不是存键），链的走法逐字相同：
+        /// 建的那一刻登记、`RefreshTexts()` 里一个 `for` 扫一遍。</para>
+        /// <para>🔴 **进链的判据只此一条**：它在 `Build()` 里画一次、而 `RefreshTexts()` 原本管不到它
+        /// ⇒ 开着窗换语言时会**停在旧语言**。
+        /// ⛔ **点/算的那一刻才取值的不要往这里加** —— `ShowHowToConnect()` / `EchoFlash()` / `RefreshLocalIp()` /
+        /// `RedeemCode()` 本来就是每次现算 `Loc.T`，**天然跟语言走**（加进来是多余、还会掩盖真问题）。
+        /// 🆕 **2026-10-18 补**：这几个方法**各自**现算 `Loc.T` 没错，但它们**交给状态行的那个 `_flash`**
+        /// 原来是「算出来的那句话」⇒ 属**另一条口子**（`SetFlash` / `_flash` 那个属性，见它们的 doc），
+        /// ⛔ **仍然别塞进本链**。
+        /// ⛔ **也别并进 `_genLabels` / `_tabLabels`**：那两条链路的既有行为一个字不许变。</para></summary>
+        readonly List<Action> _onLabels = new List<Action>();
+
+        /// <summary>🆕 2026-10-18（第四会话 · 设置窗未接的标签）：**图像页那几行里「随 `RebuildGfxRows()` 重建」的字**。
+        /// <para>🔴 **为什么它必须是一条【独立】短链、⛔ 不能挂进 `_onLabels`**：`RebuildGfxRows()`
+        /// （`MenuDraw.ClearChildren` + 把 4~5 行整个重建）挂在 `_gfxScroll.OnChanged` 上 ⇒ **每滚一格都跑一遍**；
+        /// 而 `_onLabels` 那条长链**只在 `Build()` 里 `Clear()` 一次** ⇒ 挂进去就会**每滚一次多几条指向
+        /// 已销毁 `Label` 的闭包** —— 守卫 `lb != null` 对已销毁对象为 false ⇒ **静默跳过、不报错、无界增长**。</para>
+        /// <para>本链的形状与 `_onLabels` **逐字同形**（登记的是「把自己那一格重设一遍」这个动作、⛔ 不存译文；
+        /// 登记时机 = 建行的那一刻，扫法 = `RefreshTexts()` 里一个 `for`），只多一条口子：
+        /// **`RebuildGfxRows()` 重建行【之前】先 `Clear()` 它**（清了才有「一格一份」的语义）。
+        /// ⛔ **别去改 `_onLabels` 本身的结构**（它跟 `_genLabels` 共用 `Build()` 里那次 `Clear()`，动了有连带）。</para></summary>
+        readonly List<Action> _gfxRowLabels = new List<Action>();
 
         // 联机页的控件
         MenuInputField _ipField, _pwdField;
@@ -700,7 +728,27 @@ namespace CardPresentation
         Transform _hostBlock, _clientBlock;
         Label _statusLabel;
         NetRole _role = NetRole.Host;
-        string _flash;                                   // 最后一次操作的结果（人话）
+
+        /// <summary>最后一次操作的结果（人话）。🔴 **现在是一个「现算工厂 + 求值结果」的属性**，
+        /// 不再是那个只会记「算出来的那句话」的 `string`。
+        /// <para>🆕 **2026-10-18（第四会话 · 联机页 `_flash` 现算工厂）**：原来的写法是
+        /// **动作那一刻算出来的结果串存下来、之后只重印那句话** ⇒ 换语言后**旧语言那条结果串一直挂在状态行上**
+        /// （联机页那一行 = `RefreshOnline` → `_statusLabel.SetText(_flash + "\n" + 会话状态)`）。
+        /// 现在：联机页那 **9 个赋值点**走 `SetFlash(Func&lt;string&gt;)` 存「**怎么算**」，读的时候现算
+        /// —— `Loc.T` 的词条现取（换语言即跟着变）、运行期值在**点那一刻**就冻住（⛔ 别让重算去重读现场，
+        /// 那会改变非语言行为 —— 见 `SetFlash` 的 doc）。</para>
+        /// <para>🔴 **`set` 里为什么要 `_flashGet = null`**：图形页 / 通用页那几条**仍是**
+        /// `_flash = "字面量"` 的老写法（它们**没有词条键**，是另一笔账）—— 不在这儿把工厂清掉，
+        /// 那几笔就会被**上一条联机结果**盖回去（静默回归）。</para></summary>
+        string _flash
+        {
+            get { return _flashGet != null ? _flashGet() : _flashStore; }
+            set { _flashGet = null; _flashStore = value; }
+        }
+        /// <summary>🆕 联机页那几条的「现算工厂」（`null` ⇒ 退回 `_flashStore`）。生命周期见 `Build()` 里那句 `Clear`。</summary>
+        Func<string> _flashGet;
+        /// <summary>求值结果（= 原来那个 `_flash` 字段）。</summary>
+        string _flashStore;
 
         public static SettingsWindow Create(WindowsManager mgr)
         {
@@ -822,6 +870,18 @@ namespace CardPresentation
             //    已经销毁的** quad / label 引用 ⇒ `RefreshTexts` 去碰它们（假 null 守卫挡住了不会炸，
             //    但那一批字就**永远不再更新**了 ⇒ 静默）。
             _tabLabels.Clear(); _genLabels.Clear(); _genChecks.Clear(); _langCap = null;
+            // 🆕 2026-10-18（换语言刷新链）：`_onLabels` 存的是**闭包**（里面抓着 `Label` / `MenuInputField`）
+            //   ⇒ 同上，不清就会指着上一棵树里已销毁的件（`Label` 那条口里虽有守卫，但整条链会白走一遍）。
+            _onLabels.Clear();
+            // 🆕 2026-10-18（设置窗未接的标签）：图像页那条短链同理（它存的是**闭包**，抓着 `Label`）。
+            // ⚠️ 就算不在这儿清、`RebuildGfxRows()` 开头也会清一次 —— 这一句是**防「这次没跑到那一步」**的那一档
+            //   （同上面那行 `_tabLabels.Clear()` 一族的理由：不清就指着上一棵树里已销毁的件，整条链白走一遍）。
+            _gfxRowLabels.Clear();
+            // 🆕 2026-10-18（联机页 `_flash` 现算工厂）：那条工厂抓的是**这一棵树里的** `MenuInputField`
+            //   （主机 Save 那一条）⇒ 与 `_onLabels` 同一个理由：不清就指着上一棵树里已销毁的件。
+            //   ⚠️ `_flashStore` **不清** —— 原来那个 `string` 字段跨 `Build()` 也不清（开窗后状态行上
+            //   还挂着上一次那条结果），那是**既有行为**，⛔ 别在本笔顺手改。
+            _flashGet = null;
             // 🆕 A862：列表这一族也要清（`_langList` / `_langBlocker` 是 `Build()` 里新挂的子树，
             //   上一棵树的引用会变假 null）；⚠️ `PointerLayer` 那几件不在本窗（列表不注册滚动区，见 `LstHandleH`）。
             _langRows.Clear(); _langList = null; _langBlocker = null; _langBlockerHit = null; _langTemplate = null;
@@ -993,6 +1053,86 @@ namespace CardPresentation
         const string lkExitGame     = "MainMenu/Settings/ButtonLabel/Exit_Game";
         const string lkSelectLang   = "MainMenu/Settings/ButtonLabel/SelectLanguage";
 
+        // ---- 🆕 2026-10-18（第四会话 · 双语③ 波 1 · P2）：**弹窗钮 / 退出确认**那三条 ----
+        // 出处：`Core/Loc.cs` 的表（`MainMenu/General/OK` = 原版 mTerm 原文，大写 `OK`）。
+        // 🔴 **2026-10-18（波 1b · A1026 裁决）退出窗那两条【改指原版键】`Demo/MainMenu/*`** ——
+        //   波 1 当时用的是自拟的 `MainMenu/Settings/ExitGame/{Confirm,Ok}`（因为那三条原版键**当时不在表里**）；
+        //   波 0b 已把 `Demo/MainMenu/{ExitGame,ExitButton,CancelButton}` **建进表** ⇒ 调度台裁定**改用原版键名**。
+        //   判据 = `d:/2/tools/il2cpp_out/stringliteral.json` 里那三条各 1 条（原版 mTerm 原文），
+        //   且与 `Shell/MainMenuRuntime.cs` 那段老注释逐字吻合。
+        //   ⚠️ **两张表都搜过才叫查过** —— 只搜 `assets_full` 会得出「原版没有」的假结论（波 0 当年就是这么漏的）。
+        //   值逐字相同 ⇒ **中文档零变化**（EN 档也逐字相同）。
+        // ⚠️ `lkOk` 保持不变：它是**兑换码弹窗**与**「怎么联机」弹窗**那一颗钮（原版 `MainMenu/General/OK`），
+        //    **不是**退出确认窗的钮 ⇒ 不属 A1026 那三条。
+        const string lkOk           = "MainMenu/General/OK";
+        const string lkExitConfirm  = "Demo/MainMenu/ExitGame";
+        const string lkExitOk       = "Demo/MainMenu/ExitButton";
+
+        // ---- 🆕 2026-10-18（第四会话 · 双语③ 波 1b · P2b）：**波 0b 已把键补进表** ⇒ 这批全部接上 ----
+        // 全部出处 = `Core/Loc.cs` 的「波 0b 补的 111 条」那一节（逐条依据写在 `Loc.cs` 各自那行）。
+        // ⛔ 一律**裸 `Loc.T(k)`**，不留 `HasEntry ? … : 原串` 兜底 —— 键已全在表，兜底就是**静默失败**。
+        const string lkRedeemUnavailable = "Settings/General/RedeemCodeUnavailable";
+        const string lkAudioMixerNote    = "Settings/Media/AudioMixerNote";
+        // 联机页（整页是我们自己加的 ⇒ `Settings/Online/*` 在两张表里 **0 命中**，那一族 EN/ZH 都是**自拟**）。
+        // ⚠️ **页标题**用的是表里早有的 `Settings/Online/Title`（与 `Settings/General/Title` 对称：
+        //    `General` 那条既当**页签名**又当**页标题**；这一条同理。ZH「联机」/ EN「Online」= 现值）。
+        // ⛔ **同页那几颗写死英文钮**（`Host` / `Client` / `IP address` / `Password` / `Save` / `Refresh` /
+        //    `Check Connection` / `Test Public IP`）**表里没有对应键** ⇒ 本波**没有改**（不许自造键），
+        //    已写进交件报告。判据 = `Core/Loc.cs` 全表逐键搜过那 8 个串，0 命中。
+        const string lkOnTitle           = "Settings/Online/Title";
+        const string lkOnTitleNote       = "Settings/Online/TitleNote";
+        const string lkOnTitleNoteBody   = "Settings/Online/TitleNoteBody";
+        const string lkOnProbing         = "Settings/Online/ProbingPublicAddress";
+        const string lkOnPaTitle         = "Settings/Online/PublicAddress/Title";
+        const string lkOnPaV4            = "Settings/Online/PublicAddress/V4";
+        const string lkOnPaV6            = "Settings/Online/PublicAddress/V6";
+        const string lkOnPaLocalV6       = "Settings/Online/PublicAddress/LocalV6";
+        const string lkOnPaNotFound      = "Settings/Online/PublicAddress/NotFound";
+        const string lkOnPaNone          = "Settings/Online/PublicAddress/None";
+        const string lkOnPaMismatch      = "Settings/Online/PublicAddress/Mismatch";
+        const string lkOnPaBothOk        = "Settings/Online/PublicAddress/BothOk";
+        const string lkOnIpPlaceholder   = "Settings/Online/IpPlaceholder";
+        const string lkOnPwdPlaceholder  = "Settings/Online/PasswordPlaceholder";
+        const string lkOnHostReady       = "Settings/Online/HostReady";
+        const string lkOnHostReadyFriend = "Settings/Online/HostReadyToFriend";
+        const string lkOnHostReadyNoPwd  = "Settings/Online/HostReadyNoPassword";
+        const string lkOnHostFailed      = "Settings/Online/HostFailed";
+        const string lkOnNetRuntimeMiss  = "Settings/Online/NetRuntimeMissing";
+        const string lkOnNoNicFound      = "Settings/Online/NoNicFound";
+        const string lkOnLocalAddr       = "Settings/Online/LocalAddr";
+        const string lkOnIsV6            = "Settings/Online/IsV6";
+        const string lkOnClickAgain      = "Settings/Online/ClickAgain";
+        const string lkOnVirtualNic      = "Settings/Online/VirtualNic";
+        const string lkOnStatusNoSession = "Settings/Online/StatusNoSession";
+        const string lkHtcIntro          = "Settings/Online/HowToConnect/Intro";
+        const string lkHtcLan            = "Settings/Online/HowToConnect/Lan";
+        const string lkHtcVirtualLan     = "Settings/Online/HowToConnect/VirtualLan";
+        const string lkHtcPublicDirect   = "Settings/Online/HowToConnect/PublicDirect";
+        const string lkHtcDontUseTest    = "Settings/Online/HowToConnect/DontUseTestSite";
+        const string lkHtcNoHolePunch    = "Settings/Online/HowToConnect/NoHolePunching";
+        const string lkHtcLocalCheck     = "Settings/Online/HowToConnect/LocalCheckTitle";
+        const string lkHtcPublicV6Yes    = "Settings/Online/HowToConnect/PublicV6Yes";
+        const string lkHtcPublicV6No     = "Settings/Online/HowToConnect/PublicV6No";
+        const string lkHtcVirtualNicYes  = "Settings/Online/HowToConnect/VirtualNicYes";
+        const string lkHtcVirtualNicNo   = "Settings/Online/HowToConnect/VirtualNicNo";
+        const string lkHtcUpnpNote       = "Settings/Online/HowToConnect/UpnpNote";
+
+        // ---- 🆕 2026-10-18（第四会话 · **设置窗未接的标签**）：音频页三行标签 + 图像页 `Auto zoom` 那行 ----
+        // 🔴 **四条键【早就在表里】，代码画的却是字面量**（音频页三行一直印英文、图像页那行印我们写死的
+        //    `"Auto zoom"`）⇒ 属「**未接键**」、不是刷新链问题（判据 = `交件_换语言刷新链.md` §④·2/§④·4）。
+        // ⚠️ **接上会改中文档的字**（现值是英文 ⇒ 中文档由 `Music`/`Sound effects`/… 变 音乐/音效/语音/自动缩放）——
+        //    调度台 2026-10-18 **已放行**，理由：① 中文档现在印的本来就是英文、接上键才是对的（不是「改文案」）
+        //    ② **同四条键今天已经在【战斗侧】接上了**（`Battle/SettingsPanel.cs:123-143`（W6：原写死的英文
+        //    `const string[] SliderNames` 换键）· `:610-625`（P4：`Loc.T(AutoZoomTermKey)`））⇒ ⛔ 不接就是
+        //    「**同一条键两扇窗两种表现**」（本仓规矩：一条规则只有一处）。
+        // 🔴 `AutoZoom` 那条的【中文列】来自 `zh_CN.csv:57`（`Auto Zoom` 大写 Z ⇒ **近邻**）、另两条音量键的中文
+        //    是 `Loc.cs` 自己标「自拟」的（真值在远端 I2 表）—— 拿到 I2 之后要先改那两列。
+        // ⛔ 一律**裸 `Loc.T(k)`**（键已全在表，`HasEntry ? … : 原串` 那种兜底就是静默失败）。
+        const string lkSetMusic        = "MainMenu/Settings/SettingLabel/Music";
+        const string lkSetSoundFx      = "MainMenu/Settings/SettingLabel/SoundFx";
+        const string lkSetVoiceOvers   = "Settings/Media/VoiceOvers";
+        const string lkGfxAutoZoom     = "Settings/Graphics/AutoZoom";
+
         Transform BuildGeneralPage(Transform area)
         {
             var page = Node(area, "General Tab", TabsL, TabsT, TabsR, TabsB);
@@ -1151,7 +1291,7 @@ namespace CardPresentation
         }
 
         /// <summary>把**所有跟着语言走**的字重设一遍：页签上那几行 + General 页那一整页 + 那三颗勾
-        /// + 语言下拉那 12 行（`RefreshLangRows`）。
+        /// + 语言下拉那 12 行（`RefreshLangRows`）+ 音频页/联机页那几件「建一次」的（`_onLabels`）。
         /// 🔴 调用点 = `ChooseLanguage`（选中某一行那一刻）、`OpenTab`（切页时兜一道 —— 别处换过语言能追上）、
         /// `ShowLangList`（列表刚建出来）。
         /// <para>🔴 **2026-10-17（A862）**：原来的另一个调用点 `CycleLanguage()`（把语言「往下循环一格」）
@@ -1167,6 +1307,20 @@ namespace CardPresentation
                 if (_tabLabels[i].Lb != null) _tabLabels[i].Lb.SetText(Loc.T(_tabLabels[i].Key));
             for (int i = 0; i < _genLabels.Count; i++)
                 if (_genLabels[i].Lb != null) _genLabels[i].Lb.SetText(Loc.T(_genLabels[i].Key));
+            // 🆕 2026-10-18（换语言刷新链）：音频页 / 联机页那几件「`Build()` 里画一次」的。
+            // ⚠️ 这几件多数落在**当前没显示的那一页**上（换语言只能在 General 页做）—— 照设不误：
+            //   切过去时 `OpenTab` 会先激活再调本函数，`Label` 那两条后端都能在未激活时兑现量测
+            //   （见 `Label.EnsureMeasured` / `OnEnable → TryApplyPendingWrap`）。
+            for (int i = 0; i < _onLabels.Count; i++) _onLabels[i]();
+            // 🆕 2026-10-18（设置窗未接的标签）：图像页那几行（`Auto zoom` —— 见 `_gfxRowLabels`：
+            //   它们随 `RebuildGfxRows()` 重建 ⇒ 单开一条短链，扫法与上面那条逐字同形）。
+            for (int i = 0; i < _gfxRowLabels.Count; i++) _gfxRowLabels[i]();
+            // 🆕 2026-10-18（联机页 `_flash` 现算工厂）：状态行是**两截拼**的 —— 前半 `_flash`
+            //   （上一次操作的结果，可能是旧语言的词条拼的）+ 后半 `sess.StatusText`。
+            //   换语言时整行重印一遍（`_flash` 走工厂现算，见它那个属性）。⚠️ 只在联机页刷
+            //   （`_statusLabel` 本来就是那一页的件，别的页上它没显示）。⚠️ 这一句**不是**「兜住静默」：
+            //   真 Play 下 `Update` 每帧本来就会重印（见 `Update`）；自检里 `Update` 不跑，所以要有这一句。
+            if (Current == SettingsTab.Online) RefreshOnline();
             if (_langCap != null) _langCap.SetText(Loc.LanguageName(Loc.Current));
             // 🆕 A862：列表那 12 行也跟着语言走（行内文字 + **哪一行显示勾**）
             RefreshLangRows();
@@ -1179,6 +1333,69 @@ namespace CardPresentation
             for (int i = 0; i < _genChecks.Count; i++)
                 if (_genChecks[i].Chk != null) _genChecks[i].Chk.gameObject.SetActive(_genChecks[i].State());
         }
+
+        // ---- 🆕 2026-10-18（第四会话 · 双语③ · 换语言刷新链 `_onLabels`）：两条登记口 ----
+        // 形状照 `_genLabels`（建的那一刻登记、`RefreshTexts()` 里一个 `for` 扫一遍），只把「存键」
+        // 换成「存一段现算文本的 `Func`」—— 理由（拼两条键 / 不是 `Label`）见 `_onLabels` 的注释。
+        // ⚠️ 两个口里的 `!= null` 就是 `RefreshTexts()` 那两个 `for` 里守卫的等价物
+        //（`lb == null` = 图缺了/建失败；本次开窗内它不会变成已销毁 —— `Build()` 会 `Clear()` 整条链）。
+
+        /// <summary>登记一条「语言一换就重设」的标签。⛔ `text` 里**现算** `Loc.T`，别在别处存译文。</summary>
+        void OnLangText(Label lb, Func<string> text)
+        {
+            if (lb == null) return;
+            _onLabels.Add(() => { if (lb != null) lb.SetText(text()); });
+        }
+
+        /// <summary>登记一个输入框的**占位提示**（那颗 `Label` 在 `MenuInputField` 内部 ⇒ 只能让它自己重设）。</summary>
+        void OnLangPlaceholder(MenuInputField f, Func<string> placeholder)
+        {
+            if (f == null) return;
+            _onLabels.Add(() => f.SetPlaceholder(placeholder()));
+        }
+
+        /// <summary>🆕 2026-10-18（设置窗未接的标签）：登记一条「**随 `RebuildGfxRows()` 一起重建**」的行文字
+        /// （现在只有图像页 `Auto zoom` 那一行）。⛔ `text` 里**现算** `Loc.T`；形状与 `OnLangText` 逐字同形，
+        /// 只是进的是 `_gfxRowLabels` 那条**短链**（为什么不能进长链 → `_gfxRowLabels` 的 doc）。</summary>
+        void OnGfxRowText(Label lb, Func<string> text)
+        {
+            if (lb == null) return;
+            _gfxRowLabels.Add(() => { if (lb != null) lb.SetText(text()); });
+        }
+
+        // ---- 🆕 2026-10-18（第四会话 · 联机页 `_flash` 现算工厂）：第三条口子 ----
+        // ⛔ **不进上面那两条链**：`_onLabels` 登记的是「把某个 `Label` 重设一遍」（一族标签），
+        // 而这里登记的是**一个值**（同一个 `_statusLabel` 由 `RefreshOnline()` 统一刷成
+        // `_flash + "\n" + 会话状态`）—— 形态不同，硬塞进标签链会让「谁刷状态行」变成两处（迟早打架）。
+
+        /// <summary>登记联机页状态行那句结果串**怎么算**（⛔ **不登记「算出来的那句话」**）。
+        /// 读 `_flash` 时现算 ⇒ 换语言后不会再挂着旧语言的词条。
+        /// <para>🔴 **运行期值必须在调用点【先取出来】再进闭包**（例：`ip.Text` / `sess.LastError` / `sess.StatusText`）：
+        /// 直接写进闭包 ⇒ 每次重算都**重读一遍现场** —— 那会改变**非语言行为**（玩家改了输入框，
+        /// 那条「上一次操作的结果」跟着变；或后台线程换掉 `StatusText` 之后旧结果串自己改写）。
+        /// 闭包里的**只允许**是 `Loc.T(...)` 这一族（要跟着语言走的）＋上面那些**冻住的**局部量。</para>
+        /// <para>⚠️ **生命周期**：`_statusLabel` 与那两个 `MenuInputField` 都随 `Build()` 整棵重建
+        /// ⇒ 本工厂在 `Build()` 里跟 `_onLabels` 一起清（`_flashGet = null`）；`_flashStore` 照旧跨 `Build()` 留着。</para>
+        /// <para>⚠️ **为什么赋值走属性 `_flash` 的 `set` 也安全**：图形页 / 通用页那几条仍是 `_flash = "字面量"`，
+        /// 那个 `set` 会把工厂清掉 ⇒ 不会出现「新结果被上一条联机结果盖回去」。</para></summary>
+        void SetFlash(Func<string> text)
+        {
+            _flashGet = text;
+            _flashStore = text != null ? text() : null;
+        }
+
+        /// <summary>🆕 **自检只读口**：`_onLabels` 这条链上登记了几条（音频页 + 联机页那几件「建一次」的）。
+        /// 🔴 **它只能当旁证** —— 真判据是「换语言之后那几个节点上的字**真的变了**」（只断这个数 = 弱断言：
+        /// 登记了但不生效照样绿）。⛔ 别为了好看藏起来（同 `LangRowCount` 那条：自检拿不到只能瞎猜）。</summary>
+        public int OnLabelCount { get { return _onLabels.Count; } }
+
+        /// <summary>🆕 2026-10-18（设置窗未接的标签）**自检只读口**：图像页那条**短链**上登记了几条
+        /// （现在恒 = 1：`Auto zoom` 那一行）。🔴 **与 `OnLabelCount` 同一条纪律** —— 只能当旁证：
+        /// 真判据是「那一行上印的字 == `Loc.T(键)`」。
+        /// <para>⚠️ 它另有一条**只有它测得出**的用法（短链存在的理由）：先读一次、再连调两次
+        /// `RebuildGfxRows()`，**两次之后这个数必须一模一样**（不能涨）—— 涨了就是「每滚一格往链上
+        /// 多挂几条指向已销毁 `Label` 的闭包」那个静默泄漏（见 `_gfxRowLabels` 的 doc）。</para></summary>
+        public int GfxRowLabelCount { get { return _gfxRowLabels.Count; } }
 
         /// <summary>一条勾选行的两块（勾那一层 + 它读状态的那个口）。</summary>
         struct CheckRow
@@ -1392,11 +1609,12 @@ namespace CardPresentation
         /// 「一些与联网服务器有关的，**点击没有作用就没有作用**」，但**不许静默**）。</summary>
         void RedeemCode()
         {
-            const string msg = "兑换码要走原版的服务器（`GeneralTab.RedeemCode` → `TryRedeemCode` → 远端校验），"
-                             + "这个项目没有那台服务器 ⇒ **这里兑不了**。";
+            // 🆕 2026-10-18（双语③ 波 1b · P2b）：整句改走语言表（键 = `Settings/General/RedeemCodeUnavailable`，
+            //   值**逐字 = 原来那句** ⇒ 中文档零变化）。
+            string msg = Loc.T(lkRedeemUnavailable);
             Debug.LogWarning("[Settings] " + msg);
             var wm = WindowsManager.Instance;
-            if (wm != null) wm.ShowPopUp(msg, "知道了", null);
+            if (wm != null) wm.ShowPopUp(msg, Loc.T(lkOk), null);
             _flash = msg;
         }
 
@@ -1407,7 +1625,8 @@ namespace CardPresentation
         {
             var wm = WindowsManager.Instance;
             if (wm != null)
-                wm.ShowPopUp("确定要退出游戏吗？", "退出", () => { Debug.Log("[Settings] 用户确认退出。"); QuitNow(); },
+                wm.ShowPopUp(Loc.T(lkExitConfirm), Loc.T(lkExitOk),
+                             () => { Debug.Log("[Settings] 用户确认退出。"); QuitNow(); },
                              null, null);
             else { Debug.LogWarning("[Settings] 没有 `WindowsManager` ⇒ 弹不出确认框，直接走退出那一步。"); QuitNow(); }
         }
@@ -1646,12 +1865,24 @@ namespace CardPresentation
                 _gfxScroll.ContentX2 = _gfxScroll.ContentX1 + GfxContentH(withSS) * RootScale;
             }
 
+            // 🆕 2026-10-18（设置窗未接的标签）：**重建行之前先清那条短链** ——
+            //   本方法挂在 `_gfxScroll.OnChanged` 上（**每滚一格都跑**），下面那几行是**整批重建**的
+            //   ⇒ 不清就会每次滚动都往链上加几条指向**刚刚被 `ClearChildren` 销毁**的 `Label` 的闭包
+            //   （守卫静默跳过 ⇒ 不报错、无界增长）。清完由下面各自的 `OnGfxRowText` 重新登记。
+            _gfxRowLabels.Clear();
             MenuDraw.ClearChildren(_gfxContent);
             BuildCheckRow(_gfxContent, "Small Screen UI", SmallScreenRow, () => SmallScreenUI.Enabled, ToggleSmallScreenUI);
             // 🆕 **2026-10-07（A172）**：`Auto Zoom` —— 原版运行时**一直在**的那一行（`GraphicsTab.autoZoom`）。
             // 原版那颗 `Label` 的 `m_text` 印的就是英文 `'Auto zoom'` ⇒ 照抄（不像另两颗是西语）。
+            // 🆕 **2026-10-18（第四会话 · 「设置窗未接的标签」· 调度台已放行）**：文字改走表里的键。
+            //   判据 = 键 `Settings/Graphics/AutoZoom`（`Loc.cs`），EN 列逐字 = 原版那颗 TMP 的 `Auto zoom`、
+            //   ZH「自动缩放」= `zh_CN.csv:57`（**近邻**：`Auto Zoom` 大写 Z）⇒ **英文档零变化、中文档由英文变中文**
+            //   （原来中文档也印英文）。⛔ **节点名仍是上一行的 `"Auto Zoom"`** —— 节点名不进本地化。
+            //   ⚠️ 这一行的字样**随 `RebuildGfxRows()` 整批重建**（每滚一格都跑）⇒ 挂 `_gfxRowLabels` 短链，
+            //   由本行尾那个 `takeLabel` 把它交回来（⛔ 不在 `BuildCheckRow` 内部登记 —— 见那一行的注释）。
+            Func<string> azText = () => Loc.T(lkGfxAutoZoom);
             BuildCheckRow(_gfxContent, "Auto Zoom", AutoZoomRow, () => AutoZoom.Enabled, ToggleAutoZoom,
-                          () => "Auto zoom");
+                          azText, lb => OnGfxRowText(lb, azText));
             // 🆕 **2026-10-10（A176）**：`Use super sampling`（原版 `GraphicsTab.superSampling`）。
             // 🔴 **节点照原版一直建**（原版 prefab 里它一直在，`menu_dump` 那一列排第 4 个；组名 `Use super sampling`
             //   —— 与 dump 的 GO 名逐字一致），**在不在画面上由 `SetActive` 说了算** =
@@ -1677,9 +1908,13 @@ namespace CardPresentation
         /// 🔴 **2026-10-13（A435 阶段 2 · 丙）**：三件原来都带 `_gfxClip`（显式 `clip`）——
         /// **现在都不传了**（`clip` 形参缺省 `null`）⇒ `MenuDraw.*` 沿父链解析到 `Viewport` 那颗
         /// `ViewportClip`。⛔ 别再把 `_gfxClip` 当 `clip` 传回来：形参非空 ⇒ `Resolve` 第 1 支 ⇒
-        /// **节点白挂**（静默，唯一痕迹 = `ViewportClip.NodeShadowedByParam`）。</summary>
+        /// **节点白挂**（静默，唯一痕迹 = `ViewportClip.NodeShadowedByParam`）。
+        /// <para>🆕 **2026-10-18（第四会话 · 设置窗未接的标签）**：末尾多一颗可选 `takeLabel` ——
+        /// **本方法【不】自己登记语言链**（它是 4 行共用的，且这一列的行**每滚一格都被 `RebuildGfxRows()`
+        /// 整批重建** ⇒ 谁登记谁就得替那批闭包管生命周期）⇒ 只把刚建出来的那颗 `Label` **交回给调用点**，
+        /// 登记与否由调用点决定（现在只有 `Auto zoom` 那一行要 —— 它挂 `_gfxRowLabels`）。</para></summary>
         Transform BuildCheckRow(Transform content, string nodeName, int row, Func<bool> state, Action onClick,
-                                Func<string> labelText = null)
+                                Func<string> labelText = null, Action<Label> takeLabel = null)
         {
             float t = ChkT + row * ChkRowStep - GfxScrolledPx, b = t + ChkRowH;
             var n = Node(content, nodeName, ChkL, t, ChkR, b);
@@ -1688,6 +1923,9 @@ namespace CardPresentation
             var lb = Text(n, "Label", labelText != null ? labelText() : nodeName, ChkL + 130f, ChkR, t, b,
                           FontRowLabel, Color.white, QText);
             if (lb != null) AlignLeft(lb, new PxRect(ChkL + 130f, t, ChkR, b));
+            // 🆕 2026-10-18（设置窗未接的标签）：把刚建出来的那颗字**交回调用点**（⛔ 本方法自己不登记语言链
+            //   —— 理由见签名上方那段：这一列的行每次滚动都被整批重建）。
+            if (takeLabel != null) takeLabel(lb);
             Hit(n, "Hit", ChkL, t, ChkR, b, QOverlay, () =>
             {
                 onClick();
@@ -2237,6 +2475,12 @@ namespace CardPresentation
 
             var box = Node(page, "Audio Settings", AuL, AuT, AuR, AuB);
             var names = new[] { "Music", "Sound Effects", "Voice-overs" };
+            // 🆕 **2026-10-18（第四会话 · 「设置窗未接的标签」· 调度台已放行）**：**行标签的文字**改走表里的键。
+            //   键**早就在表里**（`Loc.cs:667/:668/:669`）、代码画的却是上面那排字面量 ⇒ 中文档一直印英文
+            //   （判据 = `交件_换语言刷新链.md` §④·2）。⛔ **`names` 那排仍要留着** —— 它是**节点名**
+            //   （下一行的 `name + " Container"`），节点名不进本地化（施工单 §⑦），换了 = 静默改树。
+            //   ⚠️ 这两条音量键的中文是 `Loc.cs` 自己标「自拟」的（真值在远端 I2 表）。
+            var keys = new[] { lkSetMusic, lkSetSoundFx, lkSetVoiceOvers };
             var get = new Func<float>[] { () => WarpforgeAudio.Music, () => WarpforgeAudio.SoundFx, () => WarpforgeAudio.VoiceOver };
             var set = new Action<float>[] { WarpforgeAudio.SetMusic, WarpforgeAudio.SetSoundFx, WarpforgeAudio.SetVoiceOver };
             _audioSliders = new WfSlider[3];
@@ -2251,8 +2495,16 @@ namespace CardPresentation
                 // 🔴 标签：原版 `Label` 锚在**行中心**（`anchoredPosition.y = +35`、pivot `(0,0.5)`、
                 //    高 62/63/63）⇒ **标签顶 = 行顶 − 13.5**（三行同值，与行高无关）。
                 float lt = t + AuLabelTopOff, lbB = lt + AuLabelHs[i];
-                var lb = Text(rowN, "Label", names[i], AuL, AuR, lt, lbB, FontRowLabel, Color.white, QText);
-                if (lb != null) AlignLeft(lb, new PxRect(AuL, lt, AuR, lbB));
+                var lb = Text(rowN, "Label", Loc.T(keys[i]), AuL, AuR, lt, lbB, FontRowLabel, Color.white, QText);
+                if (lb != null)
+                {
+                    AlignLeft(lb, new PxRect(AuL, lt, AuR, lbB));
+                    // 🆕 2026-10-18（设置窗未接的标签）：这三行**只在 `BuildAudioPage` 里建一次**、
+                    //   本页没有重建链 ⇒ 挂长链 `_onLabels` 就够（图像页那族每滚一格都重建 ⇒ 走短链）。
+                    //   ⚠️ `k` 是**拷出来的** —— 闭包捕 `i` 会让三行全指到最后一行。
+                    int k = i;
+                    OnLangText(lb, () => Loc.T(keys[k]));
+                }
                 // 🔴 滑块本体：`WfSlider`（**工程里唯一一份**滑块实现，交互/音频接线都在那儿）
                 //    ⚠️ 轨道宽与中心都按 **0.9 烘过**的值给（`WfSlider` 也是按世界尺寸画的）
                 //    原版 `… Slider` 锚在**行中心**（`anchoredPosition.y = −11.1`）⇒ 中心 = 行顶 + 行高/2 + 11.1
@@ -2290,9 +2542,12 @@ namespace CardPresentation
                                                    trackW: AuTrackW * RootScale, trackH: AuTrackH * RootScale);
             }
 
-            var note = Text(page, "Note", "音量走 AudioMixer（与对局内设置面板同一套）", AuL, AuR, AuB + 20f, AuB + 60f,
+            var note = Text(page, "Note", Loc.T(lkAudioMixerNote), AuL, AuR, AuB + 20f, AuB + 60f,
                             FontSmall, new Color(1f, 1f, 1f, 0.6f), QText);
             if (note != null) AlignLeft(note, new PxRect(AuL, AuB + 20f, AuR, AuB + 60f));
+            // 🆕 2026-10-18（换语言刷新链）：这一行是 `Build()` 里**只画一次**的 ⇒ 登记进 `_onLabels`
+            //   （换语言只能在 General 页做，那时本页是关着的 ⇒ 不登记就停在旧语言）。
+            OnLangText(note, () => Loc.T(lkAudioMixerNote));
             Debug.Log("[Settings] 音频页：原版这一页还有 `WindowMode Selector`（窗口模式）—— **没建**（不做假开关）");
             return page;
         }
@@ -2304,7 +2559,11 @@ namespace CardPresentation
         Transform BuildOnlinePage(Transform area)
         {
             var page = Node(area, "Online Tab", TabsL, TabsT, TabsR, TabsB);
-            PageTitle(page, "Online");
+            // 🆕 2026-10-18（P2b）：页标题改走语言表 —— 键与 `General` 页那条**对称**
+            //   （`Settings/General/Title` 既当页签名又当页标题；这一条同理）⇒ 中文档印「联机」、英文档印 `Online`。
+            // 🆕 2026-10-18（换语言刷新链）：**页标题也登记** —— 它和下面那两件一样是 `Build()` 里只画一次的
+            //   （`General` 页那条页标题走的是 `_genLabels`，本页原来两条链都不在）。
+            OnLangText(PageTitle(page, Loc.T(lkOnTitle)), () => Loc.T(lkOnTitle));
 
             // ① 角色：主机 / 客机（用户规格：「勾选成为主机或客机」）
             _roleHostBg = RoleButton(page, "Host", 0, NetRole.Host);
@@ -2324,8 +2583,7 @@ namespace CardPresentation
             //    （用户 2026-09-26：「我们可能是网友需要联机」—— 这件事**必须在界面上说清楚**，
             //     光写一句「请做端口映射」等于没说。）
             var note = Text(page, "Note",
-                            "这一页不是原版（原版是联网游戏，没有「当主机」这回事）。\n"
-                            + "IP 直连 —— 公网怎么走 / 路由器要不要放开端口：点这一行看",
+                            Loc.T(lkOnTitleNote) + "\n" + Loc.T(lkOnTitleNoteBody),
                             TitleL, TabsR - 20f, OnStatusT + 70f, OnStatusT + 140f,
                             FontSmall, new Color(1f, 1f, 1f, 0.55f), QText);
             // 🔴 **2026-10-07（A77⑩ · 子表 E5：判据空）**：这一行的折行是**我们挑的**，不是原版口径 ——
@@ -2333,6 +2591,11 @@ namespace CardPresentation
             //   ⇒ 这里**主动**开折行。⛔ 不套 `SetWrapping(false)`（那会把它挤成一行溢出）、
             //   也⛔ 不冒充原版（判据 = `Shell/SettingsWindow.cs` 那两句说明 + 子表 E5）。
             if (note != null) note.SetWrapWidth(LayoutSpace.Px(TabsR - 20f - TitleL));
+            // 🆕 2026-10-18（换语言刷新链）：这一行也是 `Build()` 里只画一次的，而且**由两条键拼出来**
+            //   （`TitleNote` + `\n` + `TitleNoteBody`）⇒ 登记进 `_onLabels`（`Keyed` 一个键存不下它，
+            //   见那条链的注释）。⚠️ 折行宽度**不用重设**：`Label.SetWrapWidth` 写的是 TMP 上的模式+宽度，
+            //   改文本时 `SetText` 尾巴上会自己 `TryApplyPendingWrap` 再生成一次版面。
+            OnLangText(note, () => Loc.T(lkOnTitleNote) + "\n" + Loc.T(lkOnTitleNoteBody));
             // 点这一行 ⇒ 弹「怎么联机」（三条路写清楚）
             var noteHit = Node(page, "Note Hit", TitleL, OnStatusT + 70f, TabsR - 20f, OnStatusT + 140f);
             Hit(noteHit, "Hit", TitleL, OnStatusT + 70f, TabsR - 20f, OnStatusT + 140f, QOverlay, ShowHowToConnect);
@@ -2345,7 +2608,8 @@ namespace CardPresentation
             //    ⚠️ 探测**在后台线程**跑（要联网）⇒ 这里只发车，结果由 `Update` 那边印出来。
             ActionButtonAt(page, "Echo", TitleL + OnBtnW + 40f, OnBtnT, OnEchoW, "Test Public IP", () =>
             {
-                _flash = "正在探测「外网看到的地址」…（几秒，不影响别的操作）";
+                // 🆕 2026-10-18（`_flash` 现算工厂）：**纯文案**（一条键、无运行期值）⇒ 工厂就一句 `Loc.T`。
+                SetFlash(() => Loc.T(lkOnProbing));
                 FlashAndLog();
                 NetConfig.ProbeExternalAsync(r => { _echoResult = r; _echoReady = true; });
             });
@@ -2362,21 +2626,34 @@ namespace CardPresentation
         volatile bool _echoReady;
         bool _echoShown;
 
-        /// <summary>把「外网看到的」与「本机网卡上的」**摆在一起说清**（这是这个功能存在的**全部理由**）。</summary>
-        string EchoText(NetConfig.ExternalAddrs r)
+        /// <summary>把「外网看到的」与「本机网卡上的」**摆在一起说清**（这是这个功能存在的**全部理由**）。
+        /// 🆕 2026-10-18（波 1b · P2b）：整块 8 串改走语言表（键 = `Settings/Online/PublicAddress/*`）。
+        /// ⚠️ 键值是**逐字**照这里原来的拼法建的（含 `（没探到）` / `没有` / 两条结论句的首尾换行）
+        ///   ⇒ 中文档**零变化**。
+        /// <para>🆕 **2026-10-18（`_flash` 现算工厂）：改名（`EchoText` → `EchoFlash`）+ 返回 `Func&lt;string&gt;`。**
+        /// 原来它**当场拼成一句话**交给 `_flash` ⇒ 换语言后那一行停在旧语言。现在：运行期值
+        /// （`r` 的五个字段、`AllLocalIPv6()` 的枚举结果）**在这一刻**取好冻住，8 条 `Loc.T` 留到重算时现取。
+        /// 🔴 **⛔ 别把 `NetConfig.AllLocalIPv6()` 挪进闭包** —— 那是**重读现场**（网卡会变、还要再跑一遍枚举），
+        /// 会改变非语言行为（见 `SetFlash` 的 doc）。</para></summary>
+        Func<string> EchoFlash(NetConfig.ExternalAddrs r)
         {
             var local6 = NetConfig.AllLocalIPv6();
-            string t = "外网看到的地址（刚探的）：\n"
-                     + "· IPv4：" + (string.IsNullOrEmpty(r.v4) ? "（没探到）" : r.v4 + "　← " + r.v4From) + "\n"
-                     + "· IPv6：" + (string.IsNullOrEmpty(r.v6) ? "（没探到）" : r.v6 + "　← " + r.v6From) + "\n"
-                     + "本机网卡上的公网 IPv6：" + (local6.Length > 0 ? local6[0] : "没有");
-            if (!string.IsNullOrEmpty(r.v6) && local6.Length == 0)
-                t += "\n⚠️ **两个不一样** ⇒ 上面那个 IPv6 是【路由器的】（它在做 IPv6 NAT）：\n"
-                   + "　 外面看得到它，但**别人连不到你这台机器** ⇒ IPv6 直连这条路走不了。";
-            else if (!string.IsNullOrEmpty(r.v6) && local6.Length > 0)
-                t += "\n✅ 两边都有公网 IPv6 ⇒ 「IPv6 直连」这条路可行（**要求对面也有**）。";
-            if (!string.IsNullOrEmpty(r.detail)) t += "\n" + r.detail;
-            return t;
+            // 运行期值冻在这儿（`r` 是结构体，形参即副本）
+            string v4 = r.v4, v4From = r.v4From, v6 = r.v6, v6From = r.v6From, detail = r.detail;
+            string local6First = local6.Length > 0 ? local6[0] : null;
+            return () =>
+            {
+                string t = Loc.T(lkOnPaTitle) + "\n"
+                         + Loc.T(lkOnPaV4) + (string.IsNullOrEmpty(v4) ? Loc.T(lkOnPaNotFound) : v4 + "　← " + v4From) + "\n"
+                         + Loc.T(lkOnPaV6) + (string.IsNullOrEmpty(v6) ? Loc.T(lkOnPaNotFound) : v6 + "　← " + v6From) + "\n"
+                         + Loc.T(lkOnPaLocalV6) + (local6First ?? Loc.T(lkOnPaNone));
+                if (!string.IsNullOrEmpty(v6) && local6First == null)
+                    t += "\n" + Loc.T(lkOnPaMismatch);
+                else if (!string.IsNullOrEmpty(v6) && local6First != null)
+                    t += "\n" + Loc.T(lkOnPaBothOk);
+                if (!string.IsNullOrEmpty(detail)) t += "\n" + detail;
+                return t;
+            };
         }
 
         ImageQuad RoleButton(Transform page, string label, int idx, NetRole role)
@@ -2412,10 +2689,14 @@ namespace CardPresentation
             //    与上面两颗标签同一个坐标系）—— 那层 0.9 **由 `MenuInputField.Create` 自己过**
             //    （和它自己过字号是同一处）。⛔ 别在这里再写一遍 `Screen(...)`：换算只留一处。
             var ip = MenuInputField.Create(blk, "IP Field", new PxRect(x1, OnFieldT, x2, OnFieldT + OnFieldH),
-                                           login.ip ?? "", "例如 192.168.1.10", ArtInputBg, QContent, QText);
+                                           login.ip ?? "", Loc.T(lkOnIpPlaceholder), ArtInputBg, QContent, QText);
             var pwd = MenuInputField.Create(blk, "Password Field",
                                             new PxRect(x1, OnPassT, x2, OnPassT + OnFieldH),
-                                            login.password ?? "", "留空 = 不校验", ArtInputBg, QContent, QText);
+                                            login.password ?? "", Loc.T(lkOnPwdPlaceholder), ArtInputBg, QContent, QText);
+            // 🆕 2026-10-18（换语言刷新链）：两个**占位提示**也是 `Build()` 里只画一次的（框里没字时它就显示着
+            //   ⇒ 玩家看得见）。那颗 `Label` 在 `MenuInputField` 内部、外面拿不到 ⇒ 通过它自己的口重设。
+            OnLangPlaceholder(ip, () => Loc.T(lkOnIpPlaceholder));
+            OnLangPlaceholder(pwd, () => Loc.T(lkOnPwdPlaceholder));
             if (host) { _ipField = ip; _pwdField = pwd; }
             else { _ipField2 = ip; _pwdField2 = pwd; }
 
@@ -2434,13 +2715,27 @@ namespace CardPresentation
                     var c = NetConfig.Current;
                     NetConfig.SaveAsHost(ip.Text, pwd.Text, c.port);
                     var sess = NetRuntime.Ensure()?.Reset();
+                    // 🆕 2026-10-18（`_flash` 现算工厂）：这一条**夹运行期值**（要交给朋友的那串 IP / 端口 / 密码
+                    //   + 失败时的 `sess.LastError`）⇒ 运行期值全在**点这一刻**取好冻住，
+                    //   `Loc.T` 那几条留到重算时现取（理由见 `SetFlash` 的 doc）。
                     if (sess != null && sess.StartHost(NetConfig.Current))
+                    {
                         // 🔴 **把要交给朋友的那串东西直接印出来** —— 主机就这一个任务，
                         //    别让玩家自己去拼 IP 和端口（用户 2026-09-26：「主机点按钮自动填 IP，然后写密码」）
-                        _flash = "✅ 主机已就绪，等着对面连进来。\n"
-                               + "把这行给朋友 → " + ip.Text + " : " + NetConfig.Current.port
-                               + (string.IsNullOrEmpty(pwd.Text) ? "（没设密码）" : "");
-                    else _flash = "主机没起来：" + (sess != null ? sess.LastError : "NetRuntime 不在");
+                        string friendIp = ip.Text, friendPwd = pwd.Text;
+                        int friendPort = NetConfig.Current.port;
+                        SetFlash(() => Loc.T(lkOnHostReady) + "\n"
+                                     + Loc.T(lkOnHostReadyFriend) + friendIp + " : " + friendPort
+                                     + (string.IsNullOrEmpty(friendPwd) ? Loc.T(lkOnHostReadyNoPwd) : ""));
+                    }
+                    else
+                    {
+                        // ⚠️ 逐字照旧写法：`sess != null ? sess.LastError : Loc.T(miss)`
+                        //   （`LastError` 为空串时原来就是「只剩前半句」，别在这儿补兜底 —— 那是静默改文案）。
+                        bool haveSess = sess != null;
+                        string why = haveSess ? sess.LastError : null;
+                        SetFlash(() => Loc.T(lkOnHostFailed) + (haveSess ? why : Loc.T(lkOnNetRuntimeMiss)));
+                    }
                     FlashAndLog();
                 });
             }
@@ -2452,10 +2747,14 @@ namespace CardPresentation
                     var c = NetConfig.Current;
                     NetConfig.SaveAsClient(ip.Text, pwd.Text, c.port);
                     var sess = NetRuntime.Ensure()?.Reset();
-                    if (sess == null) { _flash = "NetRuntime 不在（自检里要自己建）"; FlashAndLog(); return; }
-                    sess.OnCheckDone = (ok, why) => { _flash = (ok ? "✅ " : "❌ ") + why; FlashAndLog(); };
+                    if (sess == null) { SetFlash(() => Loc.T(lkOnNetRuntimeMiss)); FlashAndLog(); return; }
+                    // 🆕 2026-10-18（`_flash` 现算工厂）：夹运行期值 —— `ok` / `why` 是回调实参，
+                    //   每次调用各自一份 ⇒ 闭包冻住的正是**这一次**那份（不是重读现场）。
+                    sess.OnCheckDone = (ok, why) => { SetFlash(() => (ok ? "✅ " : "❌ ") + why); FlashAndLog(); };
                     sess.CheckConnection(NetConfig.Current);
-                    _flash = sess.StatusText;
+                    // 🆕 同上：夹运行期值（会话状态字）—— 在**这一刻**取好。
+                    string st = sess.StatusText;
+                    SetFlash(() => st);
                     FlashAndLog();
                 });
             }
@@ -2497,20 +2796,24 @@ namespace CardPresentation
             if (all.Count == 0)
             {
                 if (_ipField != null) _ipField.SetText("127.0.0.1");
-                _flash = "⚠️ 一块可用网卡都没找到 —— 只能手填地址";
+                SetFlash(() => Loc.T(lkOnNoNicFound));
                 FlashAndLog();
                 return;
             }
             _addrIdx = (_addrIdx + 1) % all.Count;
             var a = all[_addrIdx];
             if (_ipField != null) _ipField.SetText(a.addr);
-            _flash = $"本机地址 {_addrIdx + 1}/{all.Count}：{a.Label}"
-                   + (a.isV6 ? "（IPv6）" : "")
-                   + (all.Count > 1 ? "　—— 再点一下换下一个" : "")
-                   + (a.isVirtual
-                        ? "\n⚠️ 这是「虚拟网卡」的地址（VPN / 虚拟局域网工具建的那张）。"
-                        + "\n　 对面也装了同一个工具的话，直接用这个 —— 穿透由那个工具负责。"
-                        : "");
+            // ⚠️ 键值是**逐字**照这里原来的拼法建的（`LocalAddr` = `本机地址 {0}/{1}：{2}`，
+            //    `IsV6` / `ClickAgain` / `VirtualNic` 各自**带自己那段的前导符号**）⇒ 中文档零变化。
+            // 🆕 2026-10-18（`_flash` 现算工厂）：夹运行期值（第几个 / 共几个 / 网卡名 / 三个标志位）
+            //    ⇒ 五个运行期值在**这一刻**取好冻住（`a` 是局部结构体，下次点击换的是另一个）。
+            int at = _addrIdx + 1, total = all.Count;
+            string nic = a.Label;
+            bool isV6 = a.isV6, isVirtual = a.isVirtual;
+            SetFlash(() => string.Format(Loc.T(lkOnLocalAddr), at, total, nic)
+                         + (isV6 ? Loc.T(lkOnIsV6) : "")
+                         + (total > 1 ? Loc.T(lkOnClickAgain) : "")
+                         + (isVirtual ? Loc.T(lkOnVirtualNic) : ""));
             FlashAndLog();
         }
 
@@ -2529,33 +2832,29 @@ namespace CardPresentation
             //    那他就得一眼看出自己这台够不够条件（不用去命令行敲 ping -6）。
             var v6 = NetConfig.AllLocalIPv6();
 
+            // 🆕 2026-10-18（波 1b · P2b）：整块 12 条键（原来 23 个字面量，波 0b 按句拆成 12 条）。
+            // ⚠️ 键值是**逐字**照这里原来的拼法建的 —— 每条键**自带自己那段的前导 `\n` / 空格**
+            //   （例：`VirtualNicYes/No` 与 `UpnpNote` 都以 `\n` 开头；`PublicV6Yes/No` 自带 `· 公网 IPv6：`）
+            //   ⇒ 中文档**零变化**。两条带运行期值的走 `string.Format`（`PublicV6Yes` = `{0}` 地址、
+            //   `VirtualNicYes` = `{0}` 网卡名）。
             string t =
-                "三条路，从最省事开始：\n"
-              + "① 同一个局域网 ⇒ 直接填主机那台机器的地址。\n"
-              + "② 不在一起 ⇒ 两边装同一个虚拟局域网工具\n"
-              + "　（Tailscale / ZeroTier / 蒲公英 之类），填它给的地址。\n"
-              + "③ 公网直连 ⇒ 主机点【保存】时会**自动向路由器要一个端口**（UPnP）；\n"
-              + "　成没成会弹一条告诉你 —— **没成**就是路由器不支持 / 关着 UPnP，\n"
-              + "　那就在路由器管理页手动把那个端口转发到主机这台机器。\n"
-              + "　（主机**自己**有公网 IPv6 的话填 IPv6 更省事，连映射都不用。）\n\n"
-              + "⚠️ **别拿「IPv6 测试网站」当判据**：那里显示的是【**外网看到的**地址】，\n"
-              + "　它有可能是**路由器的**（有些路由器在做 IPv6 NAT）⇒ 外面看得到，\n"
-              + "　**但别人连不到你这台机器**。本机到底能不能被连上，看下面「本机检测」，\n"
-              + "　或者点【Test Public IP】把两者摆在一起对照。\n\n"
-              + "我们不做打洞（那要一台公网上的会合点 + 服务器，本项目没有）。\n\n"
-              + "本机检测：\n"
-              + "· 公网 IPv6：" + (v6.Length > 0
-                    ? "有（" + v6[0] + "）\n  第 ③ 条路能用 —— 只要路由器放行那个 TCP 端口"
-                    : "**没有** ⇒ 本机网卡上没有全局 IPv6\n"
-                    + "  （⚠️ 这与「测试网站看得到 IPv6」**不矛盾** —— 那个多半是路由器的）\n"
-                    + "  ⇒ 第 ③ 条只能靠**端口映射**，或者走 ① ②")
-              + "\n· 虚拟局域网工具：" + (vName != null
-                    ? "装了（网卡「" + vName + "」）\n  点【刷新】能切到它给的地址"
-                    : "没检测到（想走 ② 就两边各装一个，Tailscale / ZeroTier 都免费）")
-              + "\n· 路由器自动开端口（UPnP）：主机点【保存】时自动试 —— **成没成都会弹一条说出来**";
+                Loc.T(lkHtcIntro) + "\n"
+              + Loc.T(lkHtcLan) + "\n"
+              + Loc.T(lkHtcVirtualLan) + "\n"
+              + Loc.T(lkHtcPublicDirect) + "\n\n"
+              + Loc.T(lkHtcDontUseTest) + "\n\n"
+              + Loc.T(lkHtcNoHolePunch) + "\n\n"
+              + Loc.T(lkHtcLocalCheck) + "\n"
+              + (v6.Length > 0
+                    ? string.Format(Loc.T(lkHtcPublicV6Yes), v6[0])
+                    : Loc.T(lkHtcPublicV6No))
+              + (vName != null
+                    ? string.Format(Loc.T(lkHtcVirtualNicYes), vName)
+                    : Loc.T(lkHtcVirtualNicNo))
+              + Loc.T(lkHtcUpnpNote);
 
             var wm = WindowsManager.Instance;
-            if (wm != null) { wm.ShowPopUp(t, "知道了", null); Debug.Log("[Settings] 弹了「怎么联机」"); }
+            if (wm != null) { wm.ShowPopUp(t, Loc.T(lkOk), null); Debug.Log("[Settings] 弹了「怎么联机」"); }
             else Debug.LogWarning("[Settings] 没有 WindowsManager，弹不出「怎么联机」：\n" + t);
         }
 
@@ -2570,7 +2869,7 @@ namespace CardPresentation
         void RefreshOnline()
         {
             var sess = NetRuntime.Instance != null ? NetRuntime.Instance.Session : null;
-            string s = sess != null ? sess.StatusText : "（会话还没建 —— 点一下 Host 的保存，或 Client 的检查连接）";
+            string s = sess != null ? sess.StatusText : Loc.T(lkOnStatusNoSession);
             if (_statusLabel != null) _statusLabel.SetText((_flash != null ? _flash + "\n" : "") + s);
         }
 
@@ -2587,7 +2886,8 @@ namespace CardPresentation
             UpdateFpsDrag();
             if (Current != SettingsTab.Online || _statusLabel == null) return;
             // 【测外网】的结果到了 ⇒ 印一次（**主线程**：回调那边只写字段、不碰 Unity 对象）
-            if (_echoReady && !_echoShown) { _echoShown = true; _flash = EchoText(_echoResult); Debug.Log("[Settings] " + _flash); }
+            // 🆕 2026-10-18（`_flash` 现算工厂）：那一大块是**夹运行期值**的（见 `EchoFlash`）。
+            if (_echoReady && !_echoShown) { _echoShown = true; SetFlash(EchoFlash(_echoResult)); Debug.Log("[Settings] " + _flash); }
             RefreshOnline();
         }
 
@@ -2699,11 +2999,18 @@ namespace CardPresentation
             var s = Screen(cx - w * 0.5f, cy - h * 0.5f, cx + w * 0.5f, cy + h * 0.5f);
             MenuDraw.Rect(p, CardArt.Solid(), new PxRect(s.x1, s.y1, s.x2, s.y2), n, q, c);
         }
-        void PageTitle(Transform page, string title)
+        /// <summary>页标题（原版 `Tab Title`：fs 55 · `Left/Capline`）。
+        /// 🆕 **2026-10-18（第四会话 · 换语言刷新链）**：**返回那颗 `Label`** —— 联机页那条标题是
+        /// `Build()` 里只画一次、而文案跟语言走的（`Settings/Online/Title`）⇒ 调用方要拿它登记进
+        /// `_onLabels`。⚠️ 只多一个返回值：另外两页（`Graphics` / `Audio`）传的是**写死的英文**、
+        /// 那张表里也没有对应键 ⇒ 它们不登记（**保持现状**，⛔ 别顺手改成翻译，那是另一笔账）。</summary>
+        Label PageTitle(Transform page, string title)
         {
             var lb = Text(page, "Tab Title", title, TitleL, TitleR, TitleT, TitleB, PageTitleFontPx, Color.white, QText);
             if (lb != null) AlignLeft(lb, new PxRect(TitleL, TitleT, TitleR, TitleB));
+            return lb;
         }
+
         Texture2D Tex(string name)
         {
             if (string.IsNullOrEmpty(name)) return null;
@@ -3047,5 +3354,13 @@ namespace CardPresentation
 
         /// <summary>程序化改文本（【刷新】按钮、自检都用它 —— 批处理里没有键盘）。</summary>
         public void SetText(string s) { Text = s ?? ""; Refresh(); }
+
+        /// <summary>🆕 **2026-10-18（第四会话 · 换语言刷新链）**：重设**占位提示**（= `Create` 那一次传进来的那串）。
+        /// <para>🔴 **为什么必须有这个口**：占位是 `Build()` 里画一次的，而那颗 `Label` 是本类的**私件**
+        /// ⇒ 外面的 `_onLabels` 拿不到它，只能由本类自己重设（原来只有 `Create` 能设它 ⇒ 开着窗换语言时
+        /// 它**停在旧语言**，而框里没字时**它就是玩家看得见的那一行**）。
+        /// ⚠️ 走 `Refresh()`：它按 `Text` 空不空决定画占位还是画真值，并顺带把灰/白配色摆对
+        /// （只改 `_placeholder` 字段、不 `Refresh()` 的话要等下一次输入才现形 = 静默）。</para></summary>
+        public void SetPlaceholder(string s) { _placeholder = s ?? ""; Refresh(); }
     }
 }

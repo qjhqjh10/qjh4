@@ -24,24 +24,20 @@ public static class CollectionScene
         const string ShotDir = "d:/4/_tmp_view/collection";
         const string TestDeckFile = "d:/4/_tmp_view/collection/_test_decks.json";
 
-        static int _pass, _fail;
-        static readonly List<string> _failures = new List<string>();
-
-        static void Section(string t) { Debug.Log(P + $"--- {t} ---"); }
-
-        static void Check<T>(T got, T want, string msg)
+        /// <summary>🆕 2026-10-18（第四会话）：断言计数器 + 输出口径**收口到共用件 `Editor/MenuCheck.cs`**
+        /// （唯一实现处；本文件只剩同名的一行转发 ⇒ 5,534 个调用点一个字没动）。
+        /// 🔴 **逐宿主一份 `CheckSink`**（⛔ 不是全局 static）—— 「拿别处的 `Check` 去断，失败会
+        /// **记进别人的合计**里 ⇒ 静默」，判据见 `Editor/RewardWindowFixture.cs:12-14`。</summary>
+        static readonly CheckSink _sink = new CheckSink(P)
         {
-            if (EqualityComparer<T>.Default.Equals(got, want)) { _pass++; Debug.Log(P + $"   ✓ {msg}"); }
-            else
-            {
-                _fail++;
-                var line = $"{msg} —— 期望 [{want}]，实得 [{got}]";
-                _failures.Add(line);
-                Debug.LogError(P + $"   ✗ {line}");
-            }
-        }
+            Near = MenuNearStyle.Compact2,
+            BlankNote = MenuBlankNote.Plain,     // 本文件原来那句「（按已知情况放行）」
+            StarNotBlank = true,                 // 本文件原来那句「**不是空图**」带 `**`
+        };
 
-        static void CheckTrue(bool c, string msg) { Check(c, true, msg); }
+        static void Section(string t) => MenuCheck.Section(_sink, t);
+        static void Check<T>(T got, T want, string msg) => MenuCheck.Check(_sink, got, want, msg);
+        static void CheckTrue(bool c, string msg) => MenuCheck.True(_sink, c, msg);
 
         /// <summary>🆕 **2026-10-04（A47 接线批）**：压暗层（「点窗外关窗」）命中区那条不变量。
         /// 🔴 **2026-10-07（A77⑬⑥）本文件里的副本已删** —— 唯一一份在 `MenuDraw.CheckShadeRule`。
@@ -69,18 +65,11 @@ public static class CollectionScene
 
         /// <summary>🆕 A17：把一棵树里**接了悬停换图**的按钮逐个悬停一遍 —— 没换图、或离开没还原，都要红。
         /// ⚠️ 批处理没有帧循环 ⇒ `WindowButton.AuditHoverSwap` 直调 `Enter/Exit`（就是指针层调的那两个）。</summary>
-        static void CheckHoverSwap(Transform root, string what)
-        {
-            int n; string bad = WindowButton.AuditHoverSwap(root, out n);
-            CheckTrue(n > 0, what + "：**确实有**接了悬停换图的按钮（n=" + n + "，否则这条等于没查）");
-            if (bad.Length > 0) CheckTrue(false, what + "：换图要「悬停换得动 + 离开还原得回」—— " + bad);
-        }
+        static void CheckHoverSwap(Transform root, string what) => MenuCheck.HoverSwap(_sink, root, what);
 
-        static void CheckNoMissingSwapArt(string what)
-            => CheckTrue(WindowButton.MissingSwapArt.Count == 0,
-                         what + "：**悬停图一张都不缺**（缺的会列在这里：" + string.Join("、", WindowButton.MissingSwapArt.ToArray()) + "）");
+        static void CheckNoMissingSwapArt(string what) => MenuCheck.NoMissingSwapArt(_sink, what);
         static void CheckNear(float got, float want, float tol, string msg)
-            => CheckTrue(Mathf.Abs(got - want) <= tol, $"{msg}（{got:F2} ≈ {want:F2}±{tol:F2}）");
+            => MenuCheck.Near(_sink, got, want, tol, msg);
         static void CheckText(string got, string want, string msg)
             => CheckTrue(got == want, $"{msg} —— 实测「{got}」，期望「{want}」");
 
@@ -141,13 +130,9 @@ public static class CollectionScene
                           + $"期望 ({want.r:F3},{want.g:F3},{want.b:F3},{want.a:F3})");
         }
 
-        static Transform FindChild(Transform parent, string name)
-        {
-            if (parent == null) return null;
-            foreach (var t in parent.GetComponentsInChildren<Transform>(true))
-                if (t.name == name) return t;
-            return null;
-        }
+        /// <summary>🆕 2026-10-18（第四会话）：收口到 `MenuCheck.FindChild`（5 份逐字相同的那一份）。
+        /// ⚠️ **它不认识 `A/B/C` 这种路径写法** —— 要路径用本文件自己的 `FindPath`。</summary>
+        static Transform FindChild(Transform parent, string name) => MenuCheck.FindChild(parent, name);
 
         /// <summary>一格卡的渲染队列（取卡内所有层里**最小的那个** —— 卡内层序靠 z 偏移、整格一起平移，
         /// 所以最小号就代表这一格；见 `CardFan.SetCardQueue`）。
@@ -447,13 +432,10 @@ public static class CollectionScene
         /// （不比 `RectOf`：那个会先找 `Label`、还会往子树里钻 —— 量切出来的每一块必须逐块量）。</summary>
         static bool QuadRectOf(ImageQuad q, out float x1, out float y1, out float x2, out float y2)
         {
-            x1 = y1 = x2 = y2 = 0f;
-            if (q == null) return false;
-            float cx = PxOf(q.transform.position.x), cy = PxYOf(q.transform.position.y);
-            float w = q.WorldW * 108f, h = q.WorldH * 108f;
-            x1 = cx - w * 0.5f; x2 = cx + w * 0.5f;
-            y1 = cy - h * 0.5f; y2 = cy + h * 0.5f;
-            return true;
+            // 🆕 2026-10-18（A1003 · 账外第 6 份）：算法收口到 `MenuDraw.QuadRectPx`（保留本名与本形参 ⇒ 调用点 0 改动）。
+            // 🔴 改前这一份是**甲式**（裸 `position × 108 ± 原点`）；`MenuDraw` 那份是**乙式**
+            //    （先 `PosInDesignSpace` 除回父级缩放）⇒ 父链 `lossyScale == 1` 时逐位相同。
+            return MenuDraw.QuadRectPx(q, out x1, out y1, out x2, out y2);
         }
 
         /// <summary>扫 `root` 子树，回传里面**所有软边切线**的位置（同 `RewardsScene.ScanSoftCuts`）。
@@ -604,27 +586,7 @@ public static class CollectionScene
         }
 
         static void Shoot(string file, bool allowBlank = false)
-        {
-            var cam = Camera.main;
-            if (cam == null) return;
-            const int W = 1920, H = 1080;
-            var rt = RenderTexture.GetTemporary(W, H, 24, RenderTextureFormat.ARGB32);
-            cam.targetTexture = rt;
-            cam.Render();
-            RenderTexture.active = rt;
-            var tex = new Texture2D(W, H, TextureFormat.RGB24, false);
-            tex.ReadPixels(new Rect(0, 0, W, H), 0, 0);
-            tex.Apply();
-            RenderTexture.active = null;
-            cam.targetTexture = null;
-            File.WriteAllBytes(Path.Combine(ShotDir, file), tex.EncodeToPNG());
-            float lum = MeanBrightness(tex);
-            if (allowBlank) Debug.Log(P + $"  截图 {file} 平均亮度 {lum:F1}（按已知情况放行）");
-            else CheckTrue(lum > 3f, $"{file} **不是空图**（平均亮度 {lum:F1} > 3）");
-            Object.DestroyImmediate(tex);
-            RenderTexture.ReleaseTemporary(rt);
-            Debug.Log(P + $"  截图 {Path.Combine(ShotDir, file)}");
-        }
+            => MenuCheck.Shoot(_sink, ShotDir, file, allowBlank, guardBlank: true, meanBrightness: MeanBrightness);
 
         static float MeanBrightness(Texture2D t)
         {
@@ -708,7 +670,7 @@ public static class CollectionScene
 
         public static void Run()
         {
-            _pass = 0; _fail = 0; _failures.Clear();
+            _sink.Pass = 0; _sink.Fail = 0; _sink.Failures.Clear();
             Directory.CreateDirectory(ShotDir);
 
             // 自检**不碰玩家的真存档**：`DeckStore.OverridePath` 指到临时文件，并**先造 14 套卡组**
@@ -1466,8 +1428,15 @@ public static class CollectionScene
                     var dn = CollectionData.DeckAt(0);
                     CheckText(TextOf(FindChild(pr, "Deck Name")), dn.Name, "`Deck Name` = 被点的那套卡组的名字");
                     var wlc = CollectionData.Warlord(0);
-                    CheckText(TextOf(FindChild(pr, "Warlord Name")), wlc != null ? wlc.Name : "未选督军",
-                              "`Warlord Name` = 该卡组的督军名");
+                    // 🔴 **2026-10-18（波 2a · W2）改「随语档」**：空战将位那一支的实现从波 1b 起走词条
+                    //   （`Shell/DeckInfoPopup.cs:846` 的 `wl != null ? wl.Name : Loc.T("MenuDeck/Error/NoWarlord")`）
+                    //   ⇒ 原来写死的 `"未选督军"` 是**两代前**的字面量（表里 ZH 列已换成「还没有选战将」，
+                    //   见 `Core/Loc.cs:927`）⇒ 一旦走到那一支，**两语档都会红**。期望值换成 `Loc.T(键)`。
+                    //   ⚠️ 如实记：本件夹具里 `Warlord(0)` 非空 ⇒ 那一支**今天走不到**，本条是为将来兜底。
+                    CheckText(TextOf(FindChild(pr, "Warlord Name")),
+                              wlc != null ? wlc.Name : Loc.T("MenuDeck/Error/NoWarlord"),
+                              "`Warlord Name` = 该卡组的督军名"
+                            + "（空战将位那一支随语档 = `Loc.T(\"MenuDeck/Error/NoWarlord\")`）");
                     CheckTrue(pop.Btn("Practice Deck") != null && pop.Btn("Edit Deck") != null
                               && pop.Btn("Select Deck") != null, "`Buttons` 三个钮**都建了**（在不在 ≠ 露不露，见下）");
                     // 🆕 2026-10-05（A65② / A82）：`Edit Deck` 那颗的**变灰**落到哪一层。
@@ -2738,8 +2707,15 @@ public static class CollectionScene
                     var wmFixD = win.Manager != null ? win.Manager : WindowsManager.Instance;
                     GameWindow hp = wmFixD != null ? wmFixD.popUpWindow : null;
                     var hpTxt = hp != null ? TextOf(FindChild(hp.transform, "MessageText")) : null;
-                    CheckTrue(hpTxt != null && hpTxt.Contains("隐藏卡"),
-                              "…并且**弹出提示说清原因**（不许静默）—— 实测文案「" + (hpTxt ?? "<没有提示窗>") + "」");
+                    // 🔴 **2026-10-18（波 2a · W2）改「随语档」**：提示正文从波 1b 起走词条
+                    //   （`Shell/DeckInfoPopup.cs:1284` 的 `Loc.T("MenuDeck/Error/HiddenCards") + hiddenWhy`）
+                    //   ⇒ 原来写死的子串「隐藏卡」**只在中文列里出现**（英文列 = `This deck contains hidden cards…`）
+                    //   ⇒ 宿主一跑英文档这条必红。期望值换成该词条的**整句**（比原来的子串**更强**，且两语档都成立）。
+                    CheckTrue(Loc.HasEntry("MenuDeck/Error/HiddenCards"),
+                              "（前提）词条 `MenuDeck/Error/HiddenCards` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名）");
+                    CheckTrue(hpTxt != null && hpTxt.Contains(Loc.T("MenuDeck/Error/HiddenCards")),
+                              "…并且**弹出提示说清原因**（不许静默；**随语档**，键 `MenuDeck/Error/HiddenCards`）"
+                            + "—— 实测文案「" + (hpTxt ?? "<没有提示窗>") + "」");
                     PracticeModePopup.ForceHiddenCardsDeck = null;
                     if (hp != null) hp.Close();
                     // 🔴 **2026-10-04（A66）**：这一扇（`dp3`）走到这里必须**显式收掉**。
@@ -2971,15 +2947,26 @@ public static class CollectionScene
                               "确认钮宽 = **478.343**（原版；VLG 只有一个钮 ⇒ 在容器里居中）");
                     var okBtn = imp.OkHit != null ? imp.OkHit.GetComponent<WindowButton>() : null;
                     CheckTrue(okBtn != null, "`Confirm` 有点击区");
+                    // 🔴 **2026-10-18（波 2a · W2）改「随语档」**：这两句从波 1b 起走词条
+                    //   （`Shell/CollectionData.ImportDeck` → `Loc.T("MenuDeck/Error/ImportEmpty")` /
+                    //   `Loc.T("MenuDeck/Error/ImportBadString")`，见 `Core/Loc.cs:1128-1129`）。
+                    //   原来写死的那两句中文**只是中文列的副本** ⇒ 宿主一切英文档这两条必红（**单语档断言**）。
+                    //   期望值改成 `Loc.T(键)` ⇒ 两语档都成立（中文档下取到的字与改前**逐字相同**，值不变）。
+                    CheckTrue(Loc.HasEntry("MenuDeck/Error/ImportEmpty")
+                              && Loc.HasEntry("MenuDeck/Error/ImportBadString"),
+                              "（前提）词条 `MenuDeck/Error/Import{Empty,BadString}` 都在表里"
+                            + "（⛔ 不在 ⇒ 下面两条两边一起退化成**键名** = 假绿）");
                     // ① 空串
                     if (okBtn != null) okBtn.Click();
-                    CheckText(imp.ErrorText, "先粘贴卡组串",
-                              "空串 ⇒ 给**人话**（**与卡组编辑那边逐字一致** —— 判据只有 `CollectionData.ImportDeck` 一份）");
+                    CheckText(imp.ErrorText, Loc.T("MenuDeck/Error/ImportEmpty"),
+                              "空串 ⇒ 给**人话**（**与卡组编辑那边逐字一致** —— 判据只有 `CollectionData.ImportDeck` 一份；"
+                            + "期望值随语档 = `Loc.T(\"MenuDeck/Error/ImportEmpty\")`）");
                     Check(imp.CurrentState, WindowState.Open, "失败**不关窗**");
                     // ② 乱串
                     imp.SetTextForTest("这不是一条卡组串");
                     if (okBtn != null) okBtn.Click();
-                    CheckText(imp.ErrorText, "这不是一条合法的卡组串", "乱串 ⇒ 另一句人话");
+                    CheckText(imp.ErrorText, Loc.T("MenuDeck/Error/ImportBadString"),
+                              "乱串 ⇒ 另一句人话（期望值随语档 = `Loc.T(\"MenuDeck/Error/ImportBadString\")`）");
                     // ③ 真串（拿卡组 1 导出的串再导回来）
                     int n0 = CollectionData.DeckCount();
                     var src = DeckLibrary.ExportString(DeckLibrary.Load().Decks[0]);
@@ -4653,7 +4640,19 @@ public static class CollectionScene
                 {
                     CheckNear(PxYOf(co.position.y), 758.71f, 0.6f,
                               "`Owned` 行中心 y = **758.71**（155.9 + 577.81 + 25 —— Army 行 550 一高，它跟着往下走）");
-                    CheckText(TextOf(FindChild(co, "Label")), "Owned only", "`Owned` 的标签文案");
+                    // 🔴 **2026-10-18（波 2a · W2）改「随语档」**：这颗字从波 1b（P1）起走词条
+                    //   （`Core/FilterPanelModel.cs:579` 的 `TermOr(OwnedOnlyTerm, "Owned only")`，
+                    //   键 = `MenuDeck/Filters/ShowOwnedOnly`）⇒ 原来写死的 `"Owned only"` 只是**英文列的副本**，
+                    //   宿主跑中文档时它印的是中文列 ⇒ **本条必红（这就是本轮那条红）**。
+                    //   期望值改成 `Loc.T(键)` ⇒ 两语档都成立。
+                    //   ⚠️ 上面那条 `HasEntry` 不是装饰：`TermOr` 是「表里有键才用词条、没有才用后备字面量」
+                    //      ⇒ 键不在表里时实现印 `"Owned only"`、而 `Loc.T` 回键名 ⇒ 红得看不出原因。
+                    CheckTrue(Loc.HasEntry("MenuDeck/Filters/ShowOwnedOnly"),
+                              "（前提）词条 `MenuDeck/Filters/ShowOwnedOnly` 在表里"
+                            + "（⛔ 不在 ⇒ 下一条红得看不出原因）");
+                    CheckText(TextOf(FindChild(co, "Label")), Loc.T("MenuDeck/Filters/ShowOwnedOnly"),
+                              "`Owned` 的标签文案（**随语档** —— 键 `MenuDeck/Filters/ShowOwnedOnly`，"
+                            + "英文列 = 原版那颗 TMP 的 `m_text` `Owned only`）");
                     // 🆕 **2026-10-09（A270）**：这颗 `'Owned only'` 的**自适应窗口**（TMP 真字段）。
                     //   🔴 **为什么单开一条**：今天**全仓没有一条断言量得到本窗这一颗** ——
                     //     本页走 `FilterPanelModel.BuildCosmetics` 的**缺省形参** `labelAutoMin`
@@ -6803,9 +6802,20 @@ public static class CollectionScene
                 string badImp = CollectionData.ImportDeck(DeckLibrary.ExportString(CollectionData.Raw(0)), out why);
                 CheckTrue(string.IsNullOrEmpty(badImp),
                           "★ A503：写盘失败 ⇒ `ImportDeck` 回**空串**（改坏法：删掉它那个 `Lib.LastError` 支 ⇒ 红）");
-                CheckTrue(!string.IsNullOrEmpty(why) && why != "先粘贴卡组串" && why != "这不是一条合法的卡组串",
+                // 🔴 **2026-10-18（波 2a · W2）改「随语档」**：`why` 那两句从波 1b 起走词条
+                //   （`Shell/CollectionData.ImportDeck` → `Loc.T("MenuDeck/Error/ImportEmpty")` /
+                //   `Loc.T("MenuDeck/Error/ImportBadString")`）⇒ 原来写死的那两句中文**只是中文列的副本**，
+                //   宿主一切英文档这条就**假绿**（第三句与英文的短键本来也不等）。
+                //   期望值换成 `Loc.T(键)` —— 负判据照样成立（两语档下第三句都与那两个短键不同）。
+                CheckTrue(Loc.HasEntry("MenuDeck/Error/ImportEmpty")
+                          && Loc.HasEntry("MenuDeck/Error/ImportBadString"),
+                          "（前提）词条 `MenuDeck/Error/Import{Empty,BadString}` 都在表里（⛔ 不在 ⇒ 下一条恒真）");
+                CheckTrue(!string.IsNullOrEmpty(why)
+                          && why != Loc.T("MenuDeck/Error/ImportEmpty")
+                          && why != Loc.T("MenuDeck/Error/ImportBadString"),
                           "★ A503：……而且 `why` 给的是**第三种人话**（串本身没问题，是**没写进存档**；实测「"
-                        + why + "」）—— 改坏法：把 `why = \"卡组串读出来了…\"` 那一行删掉 ⇒ 这条红");
+                        + why + "」）—— 改坏法：把 `why = \"卡组串读出来了…\"` 那一行删掉 ⇒ 这条红"
+                        + "（两个负判据**随语档**，键 `MenuDeck/Error/Import{Empty,BadString}`）");
 
                 // ---- ③ 「没删」vs「删了没落盘」：**分开报**（A503 验收第 2 条）----
                 int n1 = CollectionData.DeckCount();          // = 3：上面建 1 + 复制 1 + 导入 1
@@ -7463,17 +7473,17 @@ public static class CollectionScene
                 }
             }
 
-            int total = _pass + _fail;
-            if (_fail == 0) Debug.Log(P + $"=== 结束：{_pass}/{total} 全过 ✅ ===");
+            int total = _sink.Pass + _sink.Fail;
+            if (_sink.Fail == 0) Debug.Log(P + $"=== 结束：{_sink.Pass}/{total} 全过 ✅ ===");
             else
             {
-                var sb = new System.Text.StringBuilder(P + $"=== 结束：{_pass}/{total} 通过，**{_fail} 条失败** ❌ ===");
+                var sb = new System.Text.StringBuilder(P + $"=== 结束：{_sink.Pass}/{total} 通过，**{_sink.Fail} 条失败** ❌ ===");
                 // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是失败表的【重列】（`Check` 里已经逐条打过）
                 //   ⇒ 行首标记 = `失败重列：`，⛔ 不再是 `✗`（原来是 `✗` 时日志里 `✗` 行数 = 失败数 ×2）。
-                foreach (var f in _failures) sb.Append("\n").Append(P).Append("   失败重列：").Append(f);
+                foreach (var f in _sink.Failures) sb.Append("\n").Append(P).Append("   失败重列：").Append(f);
                 Debug.LogError(sb.ToString());
             }
-            if (Application.isBatchMode) EditorApplication.Exit(_fail == 0 ? 0 : 1);
+            if (Application.isBatchMode) EditorApplication.Exit(_sink.Fail == 0 ? 0 : 1);
         }
 
         static float DeckCellWpx() { return CollectionWindow.DeckCellW; }

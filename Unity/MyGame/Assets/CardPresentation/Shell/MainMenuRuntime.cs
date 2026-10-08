@@ -710,14 +710,31 @@ namespace CardPresentation
             return true;
         }
 
+        // ---- 🆕 2026-10-18（第四会话 · 双语③ 波 1 · P2）：退出窗那三句**改走语言表** ----
+        // 🔴 **2026-10-18（波 1b · A1026 裁决）：三条全部【改指原版键】`Demo/MainMenu/*`** ——
+        //   键名 = 原版 `I2.Loc.Localize.mTerm` 原文（`d:/2/tools/il2cpp_out/stringliteral.json` 里各 1 条），
+        //   且与本文件下面那段老注释**逐字吻合**。波 1 当时用的是自拟键（`MainMenu/Settings/ExitGame/*` +
+        //   `MainMenu/General/Cancel`），那只是因为原版键**当时不在 `Loc.Table` 里**；
+        //   波 0b 已把这三条建进表 ⇒ 调度台裁定改回原版键名。**值逐字相同 ⇒ 两语档都零变化。**
+        //   ⚠️ **两张表都搜过才叫查过**：只搜 `assets_full` 会得出「原版没有」的假结论（波 0 当年就是这么漏的）。
+        const string lkExitConfirm = "Demo/MainMenu/ExitGame";
+        const string lkExitOk      = "Demo/MainMenu/ExitButton";
+        const string lkExitCancel  = "Demo/MainMenu/CancelButton";
+
         /// <summary>退出窗的正文（原版词条 key = **`Demo/MainMenu/ExitGame`**，`localizeTexts = 1`）。
         /// 🔴 **词条在远端语言表里**，本地只有 key、没有英文原文 ⇒ 下面三句**都是我们写的**（铁律 3；
-        /// 先例 = `Shell/ShopData.cs` 的 `LegendaryWarnText`，那句也是同一种处境）。</summary>
-        public const string ExitGameText = "确定要退出游戏吗？";
+        /// 先例 = `Shell/ShopData.cs` 的 `LegendaryWarnText`，那句也是同一种处境）。
+        /// 🆕 2026-10-18（双语③ P2）：**改成读语言表**（值逐字 = 原来那句，中文档界面不变）。
+        /// 🆕 2026-10-18（波 1b · A1026）：**键名改成原版那颗**（`Demo/MainMenu/ExitGame`）——
+        /// 波 0b 已把这三条原版键连同**我们写的两列文案**一起收进 `Core/Loc.cs` ⇒ 上面那句
+        /// 「本地只有 key、没有原文」**只对【原版发行版自带的那份语言表】成立**，对我们自己的表不成立。
+        /// ⚠️ **是属性、不是 `const`**：`Loc.T` 不是编译期常量；而且属性**每次现读** ⇒
+        /// 换了语言之后**新弹**的窗当场就是新语言（`const`/`static readonly` 会在初始化那一刻冻死）。</summary>
+        public static string ExitGameText { get { return Loc.T(lkExitConfirm); } }
         /// <summary>右钮文案（原版 key = **`Demo/MainMenu/ExitButton`** —— 原版把它当 `secondButton` 传）。**我们写的**。</summary>
-        public const string ExitGameOkText = "退出游戏";
+        public static string ExitGameOkText { get { return Loc.T(lkExitOk); } }
         /// <summary>左钮文案（原版 key = **`Demo/MainMenu/CancelButton`** —— 原版把它当 `primaryButton` 传）。**我们写的**。</summary>
-        public const string ExitGameCancelText = "取消";
+        public static string ExitGameCancelText { get { return Loc.T(lkExitCancel); } }
 
         /// <summary>「退出游戏」按下去做什么。
         /// 🔴 **原版那个委托的目标方法读不到名字**（`SettingsMenu__ExitGamePopup.c` 里是个数据地址

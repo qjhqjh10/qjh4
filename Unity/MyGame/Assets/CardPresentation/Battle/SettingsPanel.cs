@@ -608,11 +608,21 @@ namespace CardPresentation
                                         azChkH, new Vector2(0.5f, 0.5f), "settings_autozoom_check");
 
             // 文字：原版 TMP 印的就是英文 `"Auto zoom"`（**小写 z**，逐字符照抄）；I2 词条 = `Settings/Graphics/AutoZoom`
-            //   （客户端**没有**本地 I2 词条表 ⇒ 正式译文拿不到，同 `Resign` 那条口径：**先用原版英文**）。
-            _azLabel = Label.Create(transform, AutoZoomLabelEn, new Vector3(U(AzLabelLeftPx), U(AzLabelCyPx), Z - 0.02f),
+            //   （客户端**没有**本地 I2 词条表 ⇒ 正式译文拿不到）。
+            // 🔴 **2026-10-18（双语③ 波 1 · P4）就地改（铁律 5）**：原来这里直接印 `AutoZoomLabelEn`
+            //   ——**写死英文**⇒ 英文档对、**中文档也印英文**。现在走上面那条键（`:254` 已经记着它）：
+            //   EN 列逐字照抄原版 TMP ⇒ **英文档零变化**；ZH 列「自动缩放」= `zh_CN.csv:57`（`Auto Zoom`，
+            //   大写 Z ⇒ **近邻**、非精确命中，见 `Core/Loc.cs` 那条注释）。
+            // ⚠️ **字号跟着「这一段文本的语种」走**（`ApplyLangFont` → `Label.SetScriptHeight` →
+            //   `Loc.HasCjk` 那条唯一判据）。原来写死 `SetCapHeight(px × 0.72)`：那是**拉丁大写**那条
+            //   （原版 fs42），中文照它算会**小 28%**（本文件 `SliderLabel` / `ApplyLangFont` 的
+            //   doc 里早把这条判据写全了）。EN 走 `ApplyLangFont` 的取值与原来**逐字相同**
+            //   （`0.72 / 108`），⇒ 英文档连尺寸都不变。
+            // ⛔ 换语言时要跟着刷 ⇒ 同一条也进了 `RefreshTexts()`（本面板**自己**就能换语言）。
+            string azText = Loc.T(AutoZoomTermKey);
+            _azLabel = Label.Create(transform, azText, new Vector3(U(AzLabelLeftPx), U(AzLabelCyPx), Z - 0.02f),
                                     4, Color.white, new Vector2(0f, 0.5f), "settings_autozoom_label");
-            // ⚠️ 英文用「拉丁大写高度」定字号（fs42 是 TMP 的 font size，拉丁大写只占约 0.72 em）—— 同 `SliderLabel`。
-            if (_azLabel != null) _azLabel.SetCapHeight(U(AzFontPx * 0.72f));
+            ApplyLangFont(_azLabel, azText, AzFontPx);
 
             // ---- 三根音量滑块（原版 `BattleSettingsWindow` 的 music / soundFX / voiceOver）----
             // 每一根都按「标签在上、滑块在下」；数值一路走到 `AudioMixer.SetFloat("Volume"+组名, dB)`
@@ -779,6 +789,15 @@ namespace CardPresentation
                 string c = Loc.LanguageName(Loc.Current);
                 _langCap.SetText(c);
                 ApplyLangFont(_langCap, c, LangCapFontPx);
+            }
+            // 🆕 2026-10-18（双语③ 波 1 · P4）：`Auto Zoom` 那一行的字**改成跟语言走了**
+            //   （`Build` 那一次只是**初值**）⇒ 在同一扇窗里换语言时必须当场重设，否则要等下次开窗。
+            //   ⛔ 别做成静态事件广播（同 `Shell/SettingsWindow.RefreshTexts`、`Loc` 不发事件那条）。
+            if (_azLabel != null)
+            {
+                string az = Loc.T(AutoZoomTermKey);
+                _azLabel.SetText(az);
+                ApplyLangFont(_azLabel, az, AzFontPx);
             }
         }
 
@@ -1400,6 +1419,24 @@ namespace CardPresentation
         public string ResignText { get { return _resignText != null ? _resignText.Text : null; } }
         /// <summary>投降按钮的世界坐标（自检照着它点 —— 走的是和真实点击同一条命中判定）</summary>
         public Vector3 ResignWorldPos { get { return _resignBtn != null ? _resignBtn.transform.position : Vector3.zero; } }
+
+        // ---- 🆕 2026-10-18（A964① ③）：关闭钮的只读口（⛔ 只给自检，不给生产用）----
+        //  补它的理由：`HitResign` / `HitDifficulty` / `HitAutoZoom` **各有一颗中心读口**，
+        //  只有「关闭」这颗没有 ⇒ `E2` 探针（命中区 ⊇ 实绘矩形）量不到它，只能整个跳过。
+        //  形状照 `BattleDriver.CameraResetButtonDrawnPx`（中心 + 实绘尺寸一对）。
+
+        /// <summary>关闭钮的世界坐标（自检照着它点 —— 走的是和真实点击同一条 <see cref="HitClose"/>）。
+        /// 取**圆底那颗** `_close`（同族的 `Resign/Difficulty/AutoZoom` 也都是取底图那颗，
+        /// 字/图标是压在它上面的、中心同一个）。</summary>
+        public Vector3 CloseWorldPos { get { return _close != null ? _close.transform.position : Vector3.zero; } }
+
+        /// <summary>关闭钮**实绘**的世界宽 × 高（px 版 = 再 × 108）。
+        /// 判据 = 那颗 `ImageQuad` 的 `WorldW/WorldH`（= 贴图比例 × 建时给的 `U(ClosePx)`），
+        /// ⛔ 不是「按 75×75 那个框反推」—— 两者不一致就是 `E2` 要报的东西。</summary>
+        public Vector2 CloseDrawnSize
+        {
+            get { return _close != null ? new Vector2(_close.WorldW, _close.WorldH) : Vector2.zero; }
+        }
 
         // ---- 🆕 2026-10-18（A991）「跳过教程」钮的自检口（⛔ 只读，不给生产用）----
         /// <summary>那颗钮（九宫格根 + 字）**都建出来了**没有。</summary>

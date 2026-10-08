@@ -3976,7 +3976,11 @@ namespace CardPresentation
             //   （`RuleCore.Mulligan` 掷 `ctx.Rng`，两端顺序必须一致）。本机只提交、等同步。
             if (_net != null)
             {
-                if (_mulligan != null) _mulligan.SetDoneText("等待对手…");
+                // 🔴 **2026-10-18（双语③ 波 1·P4）**：`等待对手…` 原来写死中文 ⇒ **英文档露中文**。
+                //   复用**已在表**的 `Battle/Mulligan/WaitEnemy`（EN `Waiting for enemy` / ZH「等待对手」，
+                //   原版词条，同 `Battle/WaitBanner.cs:280` 那一处）—— 中文档**逐字不变**（末那个 `…`
+                //   是**我们加的**，留在外面；⛔ 别把它并进词条）。
+                if (_mulligan != null) _mulligan.SetDoneText(Loc.T("Battle/Mulligan/WaitEnemy") + "…");
                 _net.OnLocalMulligan(marks != null ? marks.ToArray() : new int[0]);
                 SetHint("换牌已提交，等主机定序…");
                 return;
@@ -6526,6 +6530,63 @@ namespace CardPresentation
         }
 
         /// <summary>
+        /// **「结束回合」那一块被点到了没有**（原版 `Clock/TurnBtn`）。
+        /// 🔴 **判据只此一处** —— `Update` 松手那一路与自检**都问它**（⛔ 别在各调用点再拼一遍）。
+        /// 有原版按钮底图就按它判，没有（美术目录被删）就退回按文字判。
+        /// </summary>
+        public bool HitEndTurn(Vector3 world)
+        {
+            if (_endTurnBg != null) return _endTurnBg.Contains(world);
+            return _endTurnLabel != null && _endTurnLabel.Contains(world);
+        }
+
+        // ---- 🆕 2026-10-18（A964① ⑤ · ⑦）：牌堆 / 结束回合钮的只读口（⛔ 只给自检，不给生产用）----
+        //  形状照 `CameraResetButtonDrawnPx`（中心 + 实绘尺寸一对）。
+        //  ⛔ `HitMyDeckPile` 的口径**没改**（它仍是**静态**判据、按 `DeckPlatePx` 那个正方框判）
+        //     —— 改命中＝改行为，要另开一件、另配断言。
+
+        /// <summary>我方牌堆**底板**（`MyDeckPlate`）的世界中心 —— 与 `HitMyDeckPile` 硬写的
+        /// `MyDeckX01/MyDeckY01` 是同一个点（探针拿它量「命中区 ⊇ 实绘」）。</summary>
+        public Vector3 MyDeckPlateWorldPos
+        {
+            get { return _myDeckPlate != null ? _myDeckPlate.transform.position : Vector3.zero; }
+        }
+
+        /// <summary>我方牌堆底板**实绘**的世界宽 × 高（换成 px 再 × `EndPanel.PxPerUnit`）。
+        /// ⚠️ 同义的 `DeckPlateWorldW/H` 早就有（A20 收口件），这里只补一对 `Vector2` 版，
+        /// 让探针与 `CameraResetButtonDrawnPx` **一个形状**。</summary>
+        public Vector2 MyDeckPlateDrawnSize
+        {
+            get { return _myDeckPlate != null
+                       ? new Vector2(_myDeckPlate.WorldW, _myDeckPlate.WorldH)
+                       : Vector2.zero; }
+        }
+
+        /// <summary>结束回合钮的世界坐标（自检照着它点 —— 走的是和真实点击同一条 <see cref="HitEndTurn"/>）。
+        /// 取**底图那颗** `_endTurnBg`（字 `_endTurnLabel` 压在它正中，中心同一个）。</summary>
+        public Vector3 EndTurnWorldPos
+        {
+            get { return _endTurnBg != null ? _endTurnBg.transform.position : Vector3.zero; }
+        }
+
+        /// <summary>结束回合钮**实绘**的 px 尺寸（判据 = `_endTurnBg` 那颗 quad 的
+        /// `WorldW/WorldH × 108`）。原版那个 rect 是 130.7×80.4（贴图 182×112 的 1.625 比例 × 高 80.4）
+        /// —— 对不上就是 `E2` 要报的东西。</summary>
+        public Vector2 EndTurnDrawnPx
+        {
+            get { return _endTurnBg != null
+                       ? new Vector2(_endTurnBg.WorldW, _endTurnBg.WorldH) * EndPanel.PxPerUnit
+                       : Vector2.zero; }
+        }
+
+        /// <summary>自检用：这一下点到的**棋盘单位**在第几号槽（`side` = `_me` 我方 / `1 - _me` 对手）。
+        /// 走的是真实输入同一条私有 `HitSlot`（⛔ 不另写一份判定）。</summary>
+        public int HitUnitSlotForTest(int side, Vector3 world)
+        {
+            return HitSlot(side == _me ? _myUnits : _foeUnits, world);
+        }
+
+        /// <summary>
         /// 摊开**我方牌库**（第 13 行那个「多张一起看」的窗口）。
         /// ⚠️ **入口是我们挑的**（原版从 `BattleManager.ResolveAction` 打开，见 `MultiCardDisplay.cs` 文件头 ⑤）。
         /// </summary>
@@ -7034,9 +7095,7 @@ namespace CardPresentation
                 if (HitMyDeckPile(world)) { ShowMyDeck(true); return; }
 
                 // ③ 结束回合按钮（有原版按钮底图就按图判，没有就按文字判）
-                bool onEndTurn = _endTurnBg != null ? _endTurnBg.Contains(world)
-                                                    : (_endTurnLabel != null && _endTurnLabel.Contains(world));
-                if (onEndTurn)
+                if (HitEndTurn(world))
                 {
                     EndPlayerTurn();
                     return;

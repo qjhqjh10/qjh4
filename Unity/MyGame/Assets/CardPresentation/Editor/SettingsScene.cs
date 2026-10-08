@@ -31,36 +31,26 @@ public static class SettingsScene
     const string P = "[Settings] ";
     const string ShotDir = "d:/4/_tmp_view/settings";
 
-    static int _pass, _fail;
-    static readonly List<string> _failures = new List<string>();
-
-    static void Section(string t) { Debug.Log(P + $"--- {t} ---"); }
-
-    static void Check<T>(T got, T want, string msg)
+    /// <summary>🆕 2026-10-18（第四会话）：断言计数器 + 输出口径**收口到共用件 `Editor/MenuCheck.cs`**
+    /// （唯一实现处；本文件只剩同名的一行转发 ⇒ 5,534 个调用点一个字没动）。
+    /// 🔴 **逐宿主一份 `CheckSink`**（⛔ 不是全局 static）—— 「拿别处的 `Check` 去断，失败会
+    /// **记进别人的合计**里 ⇒ 静默」，判据见 `Editor/RewardWindowFixture.cs:12-14`。</summary>
+    static readonly CheckSink _sink = new CheckSink(P)
     {
-        if (EqualityComparer<T>.Default.Equals(got, want)) { _pass++; Debug.Log(P + $"   ✓ {msg}"); }
-        else
-        {
-            _fail++;
-            var line = $"{msg} —— 期望 [{want}]，实得 [{got}]";
-            _failures.Add(line);
-            Debug.LogError(P + $"   ✗ {line}");
-        }
-    }
-    static void CheckTrue(bool c, string msg) { Check(c, true, msg); }
+        Near = MenuNearStyle.Compact2,
+        BlankNote = MenuBlankNote.EmphPlain,     // 本文件原来那句「（**按已知情况放行**）」
+    };
+
+    static void Section(string t) => MenuCheck.Section(_sink, t);
+
+    static void Check<T>(T got, T want, string msg) => MenuCheck.Check(_sink, got, want, msg);
+    static void CheckTrue(bool c, string msg) => MenuCheck.True(_sink, c, msg);
 
     /// <summary>🆕 A17：把一棵树里**接了悬停换图**的按钮逐个悬停一遍 —— 没换图、或离开没还原，都要红。
     /// ⚠️ 批处理没有帧循环 ⇒ `WindowButton.AuditHoverSwap` 直调 `Enter/Exit`（就是指针层调的那两个）。</summary>
-    static void CheckHoverSwap(Transform root, string what)
-    {
-        int n; string bad = WindowButton.AuditHoverSwap(root, out n);
-        CheckTrue(n > 0, what + "：**确实有**接了悬停换图的按钮（n=" + n + "，否则这条等于没查）");
-        if (bad.Length > 0) CheckTrue(false, what + "：换图要「悬停换得动 + 离开还原得回」—— " + bad);
-    }
+    static void CheckHoverSwap(Transform root, string what) => MenuCheck.HoverSwap(_sink, root, what);
 
-    static void CheckNoMissingSwapArt(string what)
-        => CheckTrue(WindowButton.MissingSwapArt.Count == 0,
-                     what + "：**悬停图一张都不缺**（缺的会列在这里：" + string.Join("、", WindowButton.MissingSwapArt.ToArray()) + "）");
+    static void CheckNoMissingSwapArt(string what) => MenuCheck.NoMissingSwapArt(_sink, what);
 
     /// <summary>🆕 **2026-10-06（A83② —— A81 的尾巴）**：压暗层（「点窗外关窗」）命中区那条不变量。
     /// 🔴 **2026-10-07（A77⑬⑥）本文件里那份副本已删**（它就是第 5 份）—— 唯一一份在
@@ -86,8 +76,7 @@ public static class SettingsScene
                                  x1, y1, x2, y2, qShade, qContentMin, state);
     }
 
-    static void CheckNear(float got, float want, float tol, string msg)
-        => CheckTrue(Mathf.Abs(got - want) <= tol, $"{msg}（{got:F2} ≈ {want:F2}±{tol:F2}）");
+    static void CheckNear(float got, float want, float tol, string msg) => MenuCheck.Near(_sink, got, want, tol, msg);
 
     /// <summary>🆕 音频页那几条比的是**原版 px**，容差 0.3px 且**打印三位小数**
     /// （`CheckNear` 打到小数点后两位 —— 0.3 的差在那种精度下看不出差多少，等于弱断言）。
@@ -158,21 +147,14 @@ public static class SettingsScene
     /// 一个**单张** quad 的矩形（吸收层底就是一张平图），所以直接取 `GetComponentInChildren&lt;ImageQuad>()`。</summary>
     static bool RectOf(Transform t, out float lx, out float ty, out float rx, out float by)
     {
-        lx = float.MaxValue; ty = float.MaxValue; rx = float.MinValue; by = float.MinValue;
-        var qs = t != null ? t.GetComponentsInChildren<ImageQuad>(true) : null;
-        if (qs == null || qs.Length == 0) return false;
-        bool any = false;
-        for (int i = 0; i < qs.Length; i++)
-        {
-            var q = qs[i];
-            if (q == null || !q.gameObject.activeInHierarchy) continue;
-            any = true;
-            float wpx = q.WorldW * 108f, hpx = q.WorldH * 108f;
-            float wx = q.transform.position.x * 108f + 960f, wy = -q.transform.position.y * 108f + 540f;
-            lx = Mathf.Min(lx, wx - wpx * 0.5f); rx = Mathf.Max(rx, wx + wpx * 0.5f);
-            ty = Mathf.Min(ty, wy - hpx * 0.5f); by = Mathf.Max(by, wy + hpx * 0.5f);
-        }
-        return any;
+        // 🆕 2026-10-18（A1003）：并集算法收口到 `MenuDraw.UnionQuadRectPx`（保留本名与本形参 ⇒ 调用点 0 改动）。
+        // 🔴 两项原样保留：**激活闸 = `InHierarchy`** · **`searchInactive = true`**（`GetComponentsInChildren<>(true)`）。
+        // ⚠️ 原来的 `lx = float.MaxValue …` 初值在「一块都没量到」时**原样返回**（调用方都先判 bool）；
+        //    收口后那两档改成**归零** —— 与别处四个宿主的契约一致，⛔ 没有调用点读「假值」。
+        // ⚠️ 本窗根 `m_LocalScale = 0.9` **是【烘进矩形】的**（`SettingsWindow.RootScale`，根节点保持 scale 1，
+        //    见 `Shell/SettingsWindow.cs` 的 `Screen()`）⇒ `PosInDesignSpace` 那一除是**除 1**，读数逐位不变。
+        return MenuDraw.UnionQuadRectPx(t, MenuDraw.QuadGate.InHierarchy, true,
+                                        out lx, out ty, out rx, out by);
     }
 
     /// <summary>一张图**渲出来**的像素矩形 —— ⚠️ 期望值**过 `Screen()`**（本窗把根那层 0.9 烘进矩形的那个换算）。
@@ -222,13 +204,8 @@ public static class SettingsScene
         CheckTrue(Mathf.Abs(leftPx - s.x1) <= 2f, $"{what} 左边缘 = {leftPx:F1}（应为 {s.x1:F1}）");
     }
 
-    static Transform FindChild(Transform parent, string name)
-    {
-        if (parent == null) return null;
-        foreach (var t in parent.GetComponentsInChildren<Transform>(true))
-            if (t.name == name) return t;
-        return null;
-    }
+    /// <summary>🆕 2026-10-18（第四会话）：收口到 `MenuCheck.FindChild`（5 份逐字相同的那一份）。</summary>
+    static Transform FindChild(Transform parent, string name) => MenuCheck.FindChild(parent, name);
 
     /// <summary>🔴 **2026-10-10（F4）：`Menu Area` / `Tab Buttons` 一律【现取】，⛔ 别存进局部变量。**
     /// <para>**为什么要单开一对助手**：`SettingsWindow.Open()`（= `TryOpen` / `WindowsManager.OpenWindow`
@@ -298,7 +275,7 @@ public static class SettingsScene
 
     public static void Run()
     {
-        _pass = 0; _fail = 0; _failures.Clear();
+        _sink.Pass = 0; _sink.Fail = 0; _sink.Failures.Clear();
         Directory.CreateDirectory(ShotDir);
 
         string tmp = Path.Combine(Path.GetTempPath(), "wf_settings_selftest.json");
@@ -831,8 +808,9 @@ public static class SettingsScene
                     CheckTrue(!win.LangListOpen, "…而且**当场收起了**（原版 `OnSelectItem` 末尾就是 `Hide()`）");
                     CheckTrue(TextOf(capNode) != capBefore,
                               $"…框里那行字**当场变了**（「{capBefore}」→「{TextOf(capNode)}」）");
-                    Check(TextOf(FindChild(gtab, "Disable Bots")), "Disable Bots",
-                          "…那一行的标签 = **英文**那一列（`Loc.T(\"Settings/General/DisableBots\")`）");
+                    Check(TextOf(FindChild(gtab, "Disable Bots")), Loc.T("Settings/General/DisableBots"),
+                          "…那一行的标签 = **当前语档那一列**（此刻刚点完第 0 行 ⇒ `English`；⛔ 期望值走 `Loc.T` —— "
+                        + "原来写死 `\"Disable Bots\"`，与本块 `:816` / `:818` 那两条同族不同形）");
                     CheckTrue(TextOf(FindChild(gtab, "Disable Bots")) != rowBefore,
                               $"🔴 …而且**与切换前真的不同**（「{rowBefore}」→「{TextOf(FindChild(gtab, "Disable Bots"))}」）"
                             + " —— 这就是第 ② 条「切换后文案真的变了」");
@@ -1487,9 +1465,40 @@ public static class SettingsScene
                 CheckTrue(azN != null, "第 1 行那颗开关建出来了（节点名 `Auto Zoom`）");
                 if (azN != null)
                 {
-                    // ① 文字 = 原版卡面原文（这一颗原版印的就是英文）
-                    CheckTrue(TextOf(azN) == "Auto zoom",
-                              $"行文字 = `Auto zoom`（原版 TMP 的 `m_text`；实得「{TextOf(azN)}」）");
+                    // ① 文字 = **当前语档那一列**（键 `Settings/Graphics/AutoZoom`：EN `Auto zoom` / ZH `自动缩放`）
+                    //    🔴 **2026-10-18 就地改掉「写死单语当期望值」**：原来写死 `== "Auto zoom"` —— 而这颗标签
+                    //    **已经接上语言表**（`Shell/SettingsWindow.cs:1883` 的 `azText = () => Loc.T(lkGfxAutoZoom)`，
+                    //    登记进 `_gfxRowLabels` 短链）⇒ 中文档下实得「自动缩放」**必然红**（自检实测就红在这条）。
+                    //    ⇒ 期望值改走 `Loc.T(键)`：⛔ 不写死英文、⛔ 也不写死中文（那样只是把红挪到英文档）。
+                    //    ⚠️ 上面 `:1461` 那句「原版 TMP 的 `m_text` 就是英文」说的是**原版那一列英文**的出处，
+                    //       ⛔ 不是「界面上任何时候都该印英文」—— 接了词条之后中文档印的是中文那一列。
+                    CheckTrue(TextOf(azN) == Loc.T("Settings/Graphics/AutoZoom"),
+                              $"行文字 = `Loc.T(\"Settings/Graphics/AutoZoom\")`（EN `Auto zoom` / ZH `自动缩放`；"
+                            + $"实得「{TextOf(azN)}」）");
+                    // 🔴 **灭自证**（照本文件 `:792-826` 那节的切档夹具）：只断「当前档 == 词条」不够 ——
+                    //    实现若被改回**写死英文**、期望值也一起改回 `"Auto zoom"` ⇒ 两处一起变绿。
+                    //    ⇒ **两语档各断一次**，且要求两档的**字真的不同**（灭自证那条）。
+                    //    ⚠️ `RefreshTexts()` 走 `_gfxRowLabels` 那条短链重算 `Loc.T` ⇒ 改档后行字当场跟着变。
+                    {
+                        var langAz = Loc.Current;
+                        bool perAz = Loc.PersistOverride;
+                        Loc.PersistOverride = true;                 // 切档不写盘（同本文件其余几处）
+                        Loc.SetLanguage(AvailableLanguages.Chinese);
+                        win.RefreshTexts();
+                        string zhWant = Loc.T("Settings/Graphics/AutoZoom"), zhGot = TextOf(azN);
+                        Loc.SetLanguage(AvailableLanguages.English);
+                        win.RefreshTexts();
+                        string enWant = Loc.T("Settings/Graphics/AutoZoom"), enGot = TextOf(azN);
+                        CheckTrue(zhGot == zhWant && enGot == enWant
+                                  && !string.IsNullOrEmpty(zhGot) && !string.IsNullOrEmpty(enGot),
+                                  $"★ 中/英两语档各断一次：中文档「{zhGot}」= 「{zhWant}」· 英文档「{enGot}」= 「{enWant}」");
+                        CheckTrue(zhGot != enGot,
+                                  $"★ …而且两档的字**真的不同**（「{zhGot}」≠「{enGot}」）—— 灭自证：实现改回"
+                                + "写死英文 + 期望值也改回 ⇒ 这一条红（只断单档的写法分不出两种实现）");
+                        Loc.SetLanguage(langAz);
+                        Loc.PersistOverride = perAz;
+                        win.RefreshTexts();
+                    }
                     // ② 出厂 = 关（cctor 没写 +0x125）
                     var azBox = FindChild(azN, "Toggle") != null
                               ? FindChild(azN, "Toggle").GetComponentInChildren<ImageQuad>() : null;
@@ -2920,15 +2929,15 @@ public static class SettingsScene
             try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
         }
 
-        Debug.Log(P + $"===== 通过 {_pass} · 失败 {_fail} =====");
+        Debug.Log(P + $"===== 通过 {_sink.Pass} · 失败 {_sink.Fail} =====");
         // 🔴 **2026-10-12（A443 · 调度台裁定）**：这一串是**失败表的【重列】**（每条失败在 `Check()` 里
         //   **已经现场打过一次**、行首是真 `✗`，见本文件 `:47`）⇒ 重列这里**不能再带 `✗`** ——
         //   原来是 `✗` 时日志里 `✗` 行数 = 失败数 **×2**，连「按行首标记数」都数不准
         //   （`资料/已知的坑.md`「别用 `grep -c ✗` 数失败」）。同族五处已改 →
         //   `ShellScene` / `CollectionScene` / `RewardsScene` / `ShopScene`（A350）· `MainMenuScene`（A443）；
         //   本处是 A443 补上的最后一处。⚠️ **别顺手改 `:47` 那条真 `✗`**（`Check()` 现场那条**不是重列**）。
-        if (_fail > 0) foreach (var f in _failures) Debug.LogError(P + "   失败重列：" + f);
-        if (Application.isBatchMode) EditorApplication.Exit(_fail == 0 ? 0 : 1);
+        if (_sink.Fail > 0) foreach (var f in _sink.Failures) Debug.LogError(P + "   失败重列：" + f);
+        if (Application.isBatchMode) EditorApplication.Exit(_sink.Fail == 0 ? 0 : 1);
     }
 
     // ============================================================ 🆕 A176：那份 URP 资产（超采样真正写进去的地方）
@@ -3033,28 +3042,11 @@ public static class SettingsScene
 
     // ============================================================ 截图
 
+    /// <summary>截图 —— 本文件那一份的空图护栏走共用件（「已放行」那句文案 = 本文件原来那一句，
+    /// 由 `_sink.BlankNote` 保住）。⚠️ `MeanBrightness` **仍留在本文件**：它与另外四份**浮点值不等价**
+    /// （分母相除方式不同），合并会动 `✓` 行文本 —— 判据见 `Editor/MenuCheck.cs` 的 `Shoot` 文件头。</summary>
     static void Shoot(string file, bool allowBlank = false)
-    {
-        var cam = Camera.main;
-        if (cam == null) return;
-        const int W = 1920, H = 1080;
-        var rt = RenderTexture.GetTemporary(W, H, 24, RenderTextureFormat.ARGB32);
-        cam.targetTexture = rt;
-        cam.Render();
-        RenderTexture.active = rt;
-        var tex = new Texture2D(W, H, TextureFormat.RGB24, false);
-        tex.ReadPixels(new Rect(0, 0, W, H), 0, 0);
-        tex.Apply();
-        RenderTexture.active = null;
-        cam.targetTexture = null;
-        File.WriteAllBytes(Path.Combine(ShotDir, file), tex.EncodeToPNG());
-        float lum = MeanBrightness(tex);
-        if (allowBlank) Debug.Log(P + $"  截图 {file} 平均亮度 {lum:F1}（**按已知情况放行**）");
-        else CheckTrue(lum > 3f, $"{file} 不是空图（平均亮度 {lum:F1} > 3）");
-        Object.DestroyImmediate(tex);
-        RenderTexture.ReleaseTemporary(rt);
-        Debug.Log(P + $"  截图 {Path.Combine(ShotDir, file)}");
-    }
+        => MenuCheck.Shoot(_sink, ShotDir, file, allowBlank, guardBlank: true, meanBrightness: MeanBrightness);
 
     static float MeanBrightness(Texture2D t)
     {

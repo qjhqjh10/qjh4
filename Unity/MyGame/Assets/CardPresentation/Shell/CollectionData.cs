@@ -233,15 +233,25 @@ namespace CardPresentation
         public static string ImportDeck(string s, out string why)
         {
             why = "";
-            if (string.IsNullOrWhiteSpace(s)) { why = "先粘贴卡组串"; return ""; }
+            // 🔴 **2026-10-18（波 1b）**：三句全部走词条 —— 键名由调度台在波 0b 一次定死
+            //   （`MenuDeck/Error/Import{Empty,BadString,NotPersisted}`，表在 `Core/Loc.cs:1105-1111`），
+            //   **与 P1 的 `Deck/DeckRuntime.cs:3950/3951/3982` 共用同一批键**（施工单 §③ 要求逐字一致）。
+            //   ⚠️ 前两句 ZH 与改前写死串**逐字相同** ⇒ 中文档零变化。
+            if (string.IsNullOrWhiteSpace(s)) { why = Loc.T("MenuDeck/Error/ImportEmpty"); return ""; }
             var deck = DeckLibrary.ImportString(s, Card);
-            if (deck == null) { why = "这不是一条合法的卡组串"; return ""; }
+            if (deck == null) { why = Loc.T("MenuDeck/Error/ImportBadString"); return ""; }
             Lib.Add(deck);                     // ⛔ 别在后面再加一次 `Lib.Save()`（A398 起它自己 `SaveOrWarn`）
             if (Lib.LastError != null)
             {
                 // 🔴 卡组串**读出来了**，但没落盘 —— 原来这里照样回名字 ⇒ 玩家看到「导入成功」而盘上没变（下次开游戏就没了）。
-                why = "卡组串读出来了，但**没写进存档**：" + SaveFailReason();
-                Debug.LogWarning("[CollectionData] 导入卡组「" + deck.Name + "」：" + why + "（重启就没了）");
+                // 🔴 **第三句有意对齐到 `DeckRuntime` 那一版**（波 0b 判据 = 取 `Deck/DeckRuntime` 的措辞，
+                //   见 `Core/Loc.cs:1107-1109`）：加了「导入失败：」前缀、分隔符 `：`→`——`、尾加「（重启就没了）」
+                //   ⇒ 中文档下这句**比改前长**（这是裁定的目的：两处**逐字一致**，不是保持原样）。
+                // ⚠️ 用 `Replace` 不用 `string.Format`（文案里有 `**`；先例 `Battle/HUD/CreatedBy`，见 `Loc.cs:1107`）。
+                why = Loc.T("MenuDeck/Error/ImportNotPersisted").Replace("{0}", SaveFailReason());
+                // ⚠️ 这句是开发者日志（②，不上屏）：原来它自己在尾巴上拼「（重启就没了）」，
+                //    现在 `why` 里已经有了 ⇒ **去掉重复的尾巴**，免得一条日志念两遍。
+                Debug.LogWarning("[CollectionData] 导入卡组「" + deck.Name + "」：" + why);
                 return "";
             }
             return deck.Name;
@@ -257,7 +267,12 @@ namespace CardPresentation
         /// 原来这里连 `LastError` 都不读，写盘失败时玩家看到的是「建好了」。</para></summary>
         public static string CreateDeck(int gameMode = 0)
         {
-            string name = Lib.UniqueName("新卡组");
+            // 默认卡组名走词条（键 **`MenuDeck/NewDeckName`** —— ⛔ **不是** `MenuDeck/HUD/NewDeckName`，
+            // 调度台 2026-10-18 已统一成前者，见 `Core/Loc.cs:1050-1065`；中文列「新卡组」与改前的
+            // 写死串**逐字相同** ⇒ 中文档零变化）。
+            // ⚠️ **如实记**：这个名字**会写进存档** ⇒ 英文档下新建的卡组字面就叫 `New deck`（数据被翻了）。
+            //    施工单 §⑦ P1 那一行把同一件事标成「需裁决」，但调度台在 `Loc.cs:1057-1062` 已裁决「三处一律用本键」。
+            string name = Lib.UniqueName(Loc.T("MenuDeck/NewDeckName"));
             var d = Lib.Create(name, gameMode);   // ⛔ 别在后面再加一次 `Lib.Save()`（A398 起它自己 `SaveOrWarn`）
             string got = d != null ? d.Name : name;
             if (Lib.LastError != null)

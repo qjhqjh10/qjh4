@@ -193,6 +193,13 @@ namespace CardPresentation
         /// **`SetSkip` 的语义逐字不变**（见那个方法）。</summary>
         bool _skipArmed;
 
+        /// <summary>小提示里那一行 `Continue` 的**词条键**（`_tipContinue` 上的字）。
+        /// = **原版词条**，出处 = `Core/Loc.cs` 那条（原版 `ContinueText` 那颗 TMP 逐字 `Continue`；
+        /// EN 列照它、ZH 列「继续」来自 `数据/本地化/i18n/zh_CN.csv:84`）。
+        /// ⚠️ 6 关 61 条**全是 `tipWithContinue = false`** ⇒ 这一行今天**一条都不显示**（机制照做，
+        /// 见 `Editor/BattleScene.cs` 那条断言）—— 换 key 是为了「真亮起来时两档都对」。</summary>
+        public const string ContinueTerm = "Battle/Tips/Continue";
+
         float _fade;                 // 0..1（当前不透明度）
         bool _wantVisible;           // 这一层「该不该显示」
         bool _skippedByPlayer;       // 玩家点过跳过（`BattleDriver` 读它决定要不要收摊）
@@ -414,7 +421,12 @@ namespace CardPresentation
                 //    （`ForceMeshUpdate` 要在激活之后调，否则 `textBounds` 是垃圾、宽度顶到上限 ⇒ 一个字看不见）。
                 if (!_tipGo.activeSelf) _tipGo.SetActive(true);
                 _tipText.SetText(text ?? "");
-                _tipContinue.SetText(withContinue ? "Continue" : "");
+                // 🔴 **2026-10-18（双语③ 波 1·P4）改**：原来这里写死英文 `"Continue"`。
+                //   键 = **原版词条** `Battle/Tips/Continue`（`Core/Loc.cs` 表里早有：EN 逐字 `Continue` /
+                //   ZH「继续」，出处 = 原版 `ContinueText` 那颗 TMP + `zh_CN.csv:84`）⇒ 英文档**零变化**。
+                //   ⛔ 别复用 `Battle/Mulligan/ButtonDone`（值同为 `继续`/`Continue`）—— 那是**换牌钮**那条键，
+                //      两条是原版各自的词条（同 §④·4「同一个中文词可能是两条不同的键」）。
+                _tipContinue.SetText(withContinue ? Loc.T(ContinueTerm) : "");
                 _tipContinue.gameObject.SetActive(withContinue);
                 // 摆位：逐字照原版那三行（见上面那段更正）
                 var p = center;

@@ -743,7 +743,10 @@ namespace CardPresentation
             if (Library.Count == 0)
             {
                 var fresh = NewState();
-                Library.Create("我的卡组");
+                // 🔴 **2026-10-18（双语线 · 波 1 · P1）**：默认卡组名走词条 `MenuDeck/DefaultDeckName`
+                //   （键名 = 调度台 2026-10-18 裁定自拟；中文列 = 改之前写死的 `我的卡组` ⇒ 中文档零变化）。
+                //   ⚠️ 这一串**会被画上屏**（页头 + 卡组列表），所以它算 ①；玩家自己命名的卡组名**绝不进表**。
+                Library.Create(Loc.T("MenuDeck/DefaultDeckName"));
                 Library.CommitCurrent(PlayerDeckForDemo(fresh));
             }
             // 🔴 **「从收藏进编辑」的交接**（2026-09-23）：收藏窗点「编辑」时把下标写进
@@ -930,7 +933,14 @@ namespace CardPresentation
             Hover("hdr_back",
                   Img("hdr_back", "UI_Button_Mulligan", HdrBackX, HdrBackY, HdrBackW, HdrBackH, QRow),
                   "UI_Button_Mulligan");
-            Txt("hdr_back_t", "返回", HdrBackX, HdrBackY, HdrBackW, HdrBackH, 2, Ink, QText);
+            // 🔴 **2026-10-18（双语线 · 波 1 · P1）**：「返回」那颗钮走**原版现成的键**
+            //   `MainMenu/MainButtons/ButtonLabel/Back`（表里本来就有：`Loc.cs` 的 `(返回, Back)`）。
+            //   判据 = 原版 prefab 节点 `Deck Editing Menu / Content Area / Header / Close / Button Text`
+            //   —— 本批按 pid 亲读 `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_6720903872745959204.json`：
+            //   `Localize.mTerm = "MainMenu/MainButtons/ButtonLabel/Back"` · 同 GO 的 TMP `m_text = "Back"`
+            //   （父链沿 `RectTransform.m_Father` 逐级解到根，节点名与 `HdrBackX/Y/W/H` 那组常数同源）。
+            //   ⛔ 附件里那条「自拟 `MenuDeck/Button/Back`」**不要** —— **原版有键就必须用原版的键**（施工单 §④·1）。
+            Txt("hdr_back_t", Loc.T("MainMenu/MainButtons/ButtonLabel/Back"), HdrBackX, HdrBackY, HdrBackW, HdrBackH, 2, Ink, QText);
             Btn_("hdr_back", HdrBackX, HdrBackY, HdrBackW, HdrBackH);
 
             // Filters 圆钮 + 图标 + 文字（原版这三块是分开的三条 rect）
@@ -1252,7 +1262,15 @@ namespace CardPresentation
             // ⚠️ **虚线底 `40k_deck_cardlist_doted_bg` 是【空槽行】用的**（原版 67×54 灰 0.44 + `-- Warlord --`）
             //    —— 我们暂时仍拿它当「空卡组提示」的底（**这一处与原版不同**，已记在正本「查不到的」里）。
             _emptyWarn = Img("empty_warn", "40k_deck_cardlist_doted_bg", 20.3f, 445f, 295.3f, 186f, QGrad);
-            var warnLabel = Txt("empty_warn_l", "把卡拖到这里", 20.3f, 500f, 295.3f, 60f, 2,
+            // 🔴 **2026-10-18（双语线 · 波 1 · P1）**：空卡组那句提示走**原版 prefab 的键**
+            //   `MenuDeck/HUD/DragCardsTip` —— 判据 = 节点 `Deck Editing Menu / Content Area / Sidebar /
+            //   Deck Details / Deck List drawer / Empty Warning`（本批按 pid 亲读
+            //   `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-1205960227040661724.json`：
+            //   `mTerm = "MenuDeck/HUD/DragCardsTip"`；**同 GO 的 TMP `m_text` 是葡语占位串**
+            //   `Arraste as cartas aqui para criar seu deck` ⇒ 原版英文在远端 I2 表、本地拿不到 ⇒ EN 得自拟）。
+            //   ⚠️ 该键**波 0 未进表** ⇒ 走 `TermOr` 闸门（今天仍印中文那串，补键后自动生效）。
+            var warnLabel = Txt("empty_warn_l", TermOr("MenuDeck/HUD/DragCardsTip", "把卡拖到这里"),
+                                20.3f, 500f, 295.3f, 60f, 2,
                                 new Color(1f, 1f, 1f, 0.65f), QText);
             if (warnLabel != null) _emptyWarnGo = warnLabel.gameObject;
         }
@@ -1947,7 +1965,13 @@ namespace CardPresentation
         readonly List<bool> _cosmCellOn = new List<bool>();         // 这一格有数据吗（显隐见 ApplyCosmCellVisibility）
         readonly List<GameObject> _cosmOnly = new List<GameObject>();
         ImageQuad _cosmDrawerBack;                                  // 侧栏「已装备」那张
-        Label _cosmDrawerName;
+        // 🔴 **2026-10-18（`A1032` 删件）**：这里原来还有一个 `Label _cosmDrawerName;`
+        //   （印卡背 id / 「默认卡背（没选过）」）—— **原版这一格没有字**，已删。判据三条：
+        //   ① `menu_dump.py bundle_menus_assets_all --rt -8862950109591769308`：`Cosmetic Drawer`
+        //      子树只有 **1 个 `Image`**（子件 `Cosmetic`，无图 / preserveAspect），**没有任何 TMP**；
+        //   ② 全窗 `Deck Editing Menu` 的 TMP 清单里没有落在 `Cosmetic Drawer` 下的行；
+        //   ③ 反编译 `DeckCosmeticDrawer__Initialize.c` 只对 `+0x20`（`cosmeticImage`）调
+        //      `Image.set_sprite`，**一个字都不写**。
         GameObject _cosmEmptyWarn;
 
         /// <summary>
@@ -1964,8 +1988,16 @@ namespace CardPresentation
             // ---- 侧栏「已装备的卡背」（原版 `Cosmetic Drawer`）----
             // ⚠️ `ImageQuad.Create` **不收 null 贴图**（返回 null）⇒ 起手没有默认卡背时先不建，
             //    等 `RefreshCosmeticDrawer` 拿到图再补建（装备之后一定会有图）。
-            _cosmDrawerName = Txt("cosm_drawer_name", "", DrawerX, DrawerY + DrawerH - 44f, DrawerW, 44f, 2, Ink, QText);
-            _cosmOnly.Add(_cosmDrawerName != null ? _cosmDrawerName.gameObject : null);
+            // 🔴 **2026-10-18（`A1032` 删件）**：这里原来还建了一颗字
+            //   `Txt("cosm_drawer_name", "", DrawerX, DrawerY + DrawerH - 44f, DrawerW, 44f, …)`
+            //   —— **原版这棵子树里一个 TMP 都没有**、已删（判据见字段声明处那三条）。
+            //   ⚠️ 删的**只是这行字**：抽屉本体（`_cosmDrawerBack` / `FitDrawerBack`）、
+            //      网格、右键装备、以及这颗字**所在的那一格**都没动。
+            //   ⚠️ 原来它还往 `_cosmOnly` 塞过一项（`_cosmDrawerName != null ? ….gameObject : null`，
+            //      可能是 null）—— 一并去掉；`_cosmOnly` 本来的成员（卡背图 / 空态告警）不变。
+            //   ⚠️ 顺带作废：双语线施工单 `…_附_BattleDeck.md` **#43** 那一项
+            //      （`"默认卡背（没选过）"` → `MenuDeck/HUD/DefaultCardback`）—— 键随字一起没了
+            //      （该键**只在那一处用过**，未进任何词条表 ⇒ 无需清理，见删件报告）。
             // 🔴 **2026-10-17（D44 删件）**：这里原来还有一行 `cosm_hint`
             //   （「右键卡背 = 装备到当前卡组（左键不做任何事，与原版一致）」）—— **原版这一页没有这行字**、
             //   已删（判据 → D44；它当时是作者自己加出来「把只写在原版代码里的操作说出口」的）。
@@ -2140,9 +2172,12 @@ namespace CardPresentation
                 _cosmDrawerBack.SetTexture(back);        // ⚠️ 单参重载：会先把 `_aspect` 冲成贴图比例
                 FitDrawerBack(back);                     // 🔴 换图之后**必须再内接一次**（这一跳不能省）
             }
-            if (_cosmDrawerName != null)
-                _cosmDrawerName.SetText(string.IsNullOrEmpty(State.Deck.CardbackId)
-                                        ? "默认卡背（没选过）" : State.Deck.CardbackId);
+            // 🔴 **2026-10-18（`A1032` 删件）**：这里原来按「选过 → 印卡背 id / 没选 → 印
+            //   `TermOr("MenuDeck/HUD/DefaultCardback", "默认卡背（没选过）")`」刷新那颗字 ——
+            //   **那颗字本身是我们自己加的、原版没有**（判据见字段声明处那三条）⇒ 整块删掉。
+            //   ⚠️ **右键装备这条交互没变**（`HandleCosmeticClick` / `EquipCardback`）：
+            //      原版靠抽屉里**已装备那张图**说话（`Cosmetic Drawer` 的 `cosmeticImage`），
+            //      换成功了图就变 —— 我们那条链一样在（上面 `_cosmDrawerBack.SetTexture` 那一段）。
             // ⚠️ `Empty Collection Warning` 的显隐**不在这里** —— 它是 `_cosmOnly` 的一员，
             //    由 `RefreshTabVisibility` 一处判（两处各写一次迟早不一致）。
         }
@@ -3427,7 +3462,10 @@ namespace CardPresentation
         /// ⚠️ 原来这里写的是「**本件只报未改**，修它是另一件」—— 那句**已经过期**，就地订正（铁律 5）。</para></summary>
         void ClearDeckName()
         {
-            State.SetDeckName("新卡组");
+            // 🔴 **2026-10-18（双语线 · 波 1 · P1）**：清名之后那串「新卡组」走词条
+            //   `MenuDeck/NewDeckName`（**与 `Deck/DeckEditorState.NewDeck` 是同一条键** ——
+            //   铁律 6：同一件事只留一条键）。中文列 = 改之前写死的 `新卡组` ⇒ 中文档零变化。
+            State.SetDeckName(Loc.T("MenuDeck/NewDeckName"));
             MarkDeckDirty();                 // 🆕 A363：**只标脏**，落盘等 Done
         }
 
@@ -3837,20 +3875,53 @@ namespace CardPresentation
 
         // ============================================================ 分享 / 导入
 
-        /// <summary>分享 = **把卡组串写进系统剪贴板**（原版 `DeckInfoPopup__ShareDeck.c:16`
-        /// 就一句 `GUIUtility.systemCopyBuffer = MakeDeckString()`）。
-        /// ⚠️ 原版**只有写、没有读**（`get_systemCopyBuffer` 全库 0 命中）⇒ 我们也不做「一键从剪贴板导入」。
+        /// <summary>🔴 **分享的【唯一】实现** —— 造卡组串 → **写系统剪贴板** → 返回那一串。
+        /// <para>**两个调用点都走这里**：卡组编辑那颗 `Share`（<see cref="ShareDeckString"/>）与卡组线
+        /// Info 弹窗那颗 `Share` 圆钮（`Shell/DeckInfoPopup.ShareDeck("Share")`，2026-10-08 `A1040` 接上）
+        /// —— 判据 `CLAUDE.md` §三「**两处写同一条规则 = 迟早不一致**」。</para>
+        /// <para>**返回空串** = `deck == null` ⇒ 这一副导不出卡组串 ⇒ 调用方**必须出声**（本项目红线：
+        /// ⛔ 不许静默失败）。⚠️ 空串**不写剪贴板** —— 原来那份「空串也照样写、还说『已复制（0 字符）』」
+        /// 是**假报**。</para>
+        /// <para>⚠️ 原版第 ③ 句（那条 toast）**不在本函数里**：两个宿主的出声通道不同
+        /// （卡组编辑 = `Say()` / Info 弹窗 = `WindowsManager.ShowPopUp`）⇒ 各出各的，但**文案共用**
+        /// <see cref="ShareCopiedText"/>，⛔ 别各写一份。</para>
+        /// <para>⚠️ **`GUIUtility.systemCopyBuffer` 在 `-batchmode -nographics` 下能不能真写进【系统】剪贴板 ——
+        /// 本件【没查实】**（红线不许跑 Unity）。**这不构成「不做」的理由**：原版调的就是这个 API，照调即可；
+        /// 同进程内写进去再读回来是准的（自检就靠这个读回）。</para></summary>
+        public static string CopyDeckToClipboard(PlayerDeck deck)
+        {
+            string s = deck != null ? DeckLibrary.ExportString(deck) : "";
+            if (string.IsNullOrEmpty(s)) return "";     // 空串 ⇒ 不写剪贴板（⛔ 别把空串塞进用户的剪贴板）
+            GUIUtility.systemCopyBuffer = s;
+            return s;
+        }
+
+        /// <summary>分享成功那一句提示的**唯一文案**（两个宿主共用 —— 原版只弹一条 `ShowMessage`）。</summary>
+        public static string ShareCopiedText(int len)
+        {
+            return "卡组串已复制到剪贴板（" + len + " 字符）";
+        }
+
+        /// <summary>卡组编辑窗那颗 `Share`：**写系统剪贴板**（走 <see cref="CopyDeckToClipboard"/>）+ `Say` 一句。
+        /// <para>🔴 **2026-10-08 订正（铁律 5，`A1040`）**：此处原文写「原版 `DeckInfoPopup__ShareDeck.c:16`
+        /// **就一句** `GUIUtility.systemCopyBuffer = MakeDeckString()`」—— **少了第 3 句**。逐句实读那份 `.c`，
+        /// 原版是**三句**：① `MakeDeckString()` 造串 ② `UnityEngine.GUIUtility.set_systemCopyBuffer(串)`
+        /// **写系统剪贴板** ③ `UIMessageController.ShowMessage(…)` **弹一条消息（toast）** ——
+        /// 没有确认弹窗、没有平台分享、没有「先问再写」。（错因：读到第 ② 句就下了结论，`:22` 那句
+        /// `ShowMessage` 没往下看。）</para>
+        /// <para>⚠️ 原版**只有写、没有读**（`get_systemCopyBuffer` 全库 0 命中）⇒ 我们也不做「一键从剪贴板导入」。</para>
         /// <para>🔴 **2026-10-17（D35 删件后）：本方法暂时【没有生产入口】**。它原来挂在侧栏那颗
         /// `info_import` / `info_share` 圆钮上，而那两颗钮**原版这扇窗里没有**、已删 ⇒ 今天只有自检能调。
         /// **这不是「不做」**（铁律 11）：原版这个动作的家在 **`DeckInfoPopup`**
         /// （`decomp_full/DeckInfoPopup__ShareDeck.c`，卡组线那扇 Info 弹窗的 `Share` 圆钮）——
-        /// 落点是 `As/CardPresentation/Shell/DeckInfoPopup.cs`，**不在本批白名单** ⇒ 归调度台另开一笔。
+        /// ✅ **2026-10-08（`A1040`）那边已接上**：`Shell/DeckInfoPopup.ShareDeck("Share")` 调的是**同一个**
+        /// <see cref="CopyDeckToClipboard"/>（两处收口成一份）。本方法本体**保留**（`public`，可自检调）。
         /// ⛔ 别把侧栏那两颗钮加回来当「权宜入口」。</para></summary>
         public void ShareDeckString()
         {
-            var s = DeckLibrary.ExportString(State.Deck);
-            GUIUtility.systemCopyBuffer = s;
-            Say("卡组串已复制到剪贴板（" + s.Length + " 字符）");
+            string s = CopyDeckToClipboard(State.Deck);
+            // 原版第 ③ 句：出声。⛔ 导不出时不许静默（原来那句「已复制（0 字符）」是**假报**）。
+            Say(string.IsNullOrEmpty(s) ? "分享失败：这一副导不出卡组串" : ShareCopiedText(s.Length));
         }
 
         void OpenImport()
@@ -3901,7 +3972,16 @@ namespace CardPresentation
                 // 🔴 `G8`：结局码与那句话**同一步**写（⛔ 别只改一处 —— 判据与文案分家就会打架）
                 LastImportOutcome = string.IsNullOrWhiteSpace(_importText)
                     ? ImportOutcome.EmptyInput : ImportOutcome.BadString;
-                _importError = string.IsNullOrWhiteSpace(_importText) ? "先粘贴卡组串" : "这不是一条合法的卡组串";
+                // 🔴 **2026-10-18（双语线 · 波 1 · P1）**：这两句人话走词条（**自拟键名**，附件
+                //   `…_附_BattleDeck.md` #44/#45 给的就是这两个）。判据 = 原版那两处**都没有词条**：
+                //   `Import Deck Popup / Window / Error msg` 那颗 TMP `m_text = 'error msg'`
+                //   而 **GO 上一个 `Localize` 都没挂**（本批亲读，见 `Core/Loc.cs` 里 `MenuDeck/HUD/EnterText`
+                //   那段的同一条记录）⇒ 原版这颗就是「引擎按根脚本的三个 term 字段写进去」的那一个
+                //   ⇒ 键名与两列文案都只能自拟（中文列 = 改之前写死的原话 ⇒ **中文档零变化**）。
+                //   ⚠️ 键**波 0 未进表** ⇒ 走 `TermOr` 闸门（补键后自动生效）。
+                _importError = string.IsNullOrWhiteSpace(_importText)
+                    ? TermOr("MenuDeck/Error/ImportEmpty", "先粘贴卡组串")
+                    : TermOr("MenuDeck/Error/ImportBadString", "这不是一条合法的卡组串");
                 RefreshImportText();
                 return false;
             }
@@ -3925,7 +4005,16 @@ namespace CardPresentation
                 //   前两种 ⇒ 调用方按 `ImportError` **分不出**「为什么 false」（`Editor/DeckScene.cs` 的
                 //   A547 那节现在钉了第三种；同族出口 = `Shell/CollectionData.ImportDeck`，A503 修的）。
                 //   ⛔ 文案与 `Say` 那句**同一条**：先算进 `fail` 再两处用 —— 两处各写一份迟早不一致。
-                string fail = "导入失败：卡组串读出来了，但**没写进存档**——" + SaveFailReason() + "（重启就没了）";
+                //   🔴 **2026-10-18（双语线 · 波 1 · P1）**：这一句也走词条 —— 键 = **自拟**
+                //   `MenuDeck/Error/ImportNotPersisted`（附件 #46 让「合成一条带 `{0}`」，`{0}` = 失败原因）。
+                //   判据同上面那两句（原版 `Error msg` 没挂 `Localize` ⇒ 这条文案是我们自己的）。
+                //   ⚠️ 键**波 0 未进表** ⇒ 走闸门；⚠️ `{0}` 用 `Replace` 而不是 `string.Format`
+                //   （文案里还有 `**` 星号，`string.Format` 只认花括号、两者本来就井水不犯河水，
+                //    但本工程既有先例 `Battle/HUD/CreatedBy` 用的就是 `Replace("{0}", …)` ⇒ 照它）。
+                string failReason = SaveFailReason();
+                string fail = Loc.HasEntry("MenuDeck/Error/ImportNotPersisted")
+                    ? Loc.T("MenuDeck/Error/ImportNotPersisted").Replace("{0}", failReason)
+                    : "导入失败：卡组串读出来了，但**没写进存档**——" + failReason + "（重启就没了）";
                 LastImportOutcome = ImportOutcome.NotPersisted;      // 🔴 G8：结局码与那句话同一步
                 _importError = fail;
                 RefreshImportText();
@@ -6047,6 +6136,19 @@ namespace CardPresentation
             return q;
         }
 
+        /// <summary>取词条的**闸门**：键在表里 ⇒ 用词条（随语档）；不在 ⇒ 退回**原来那串**。
+        /// <para>🔴 **为什么需要它（2026-10-18 双语线 · 波 1 · P1）**：本批有 6 条字串的键**还没进表**
+        /// （波 0 的 23 条不含它们）—— 而 `Loc.T` 对**表里没有**的键返回**键名本身**
+        /// （`Core/Loc.cs` 的 `T()` doc）⇒ 直接换会在界面上印 `MenuDeck/HUD/DragCardsTip`。
+        /// 走这道闸门 ⇒ 今天**界面零变化**，键补进表之后**不改代码**就自动生效。</para>
+        /// <para>⚠️ 与 `Shell/AlliancePanelWindow.LocOr` / `BattleDriver.cs:7771` 是同一个形状（本工程既有口径）。
+        /// ⛔ 键**已经在表里**的那些地方（`hdr_back_t` / 三个默认卡组名）**不走它** —— 直接 `Loc.T`，
+        /// 免得留一条永远不会触发的兜底（那会变成「两条权威」）。</para></summary>
+        static string TermOr(string key, string fallback)
+        {
+            return Loc.HasEntry(key) ? Loc.T(key) : fallback;
+        }
+
         Label Txt(string key, string s, float x, float y, float w, float h, int scale, Color c, int queue,
                   Transform parent = null)
         {
@@ -6320,7 +6422,10 @@ namespace CardPresentation
         /// <summary>自检/演示用的一副卡组：能凑合法就凑合法，凑不出就有什么用什么。</summary>
         public static PlayerDeck PlayerDeckForDemo(DeckEditorState state)
         {
-            var deck = new PlayerDeck { Name = "复仇者之刃" };
+            // 🔴 **2026-10-18（双语线 · 波 1 · P1）**：演示卡组名走词条 `MenuDeck/DemoDeckName`
+            //   （键名 = 调度台 2026-10-18 裁定自拟；中文列 = 改之前写死的 `复仇者之刃` ⇒ 中文档零变化）。
+            //   ⚠️ 它与 `MenuDeck/DefaultDeckName`（空库时替玩家建的那套）**是两条键、两个值**，⛔ 别合并。
+            var deck = new PlayerDeck { Name = Loc.T("MenuDeck/DemoDeckName") };
             CardDef warlord = null;
             foreach (var c in state.Pool) if (c.Type == "hero") { warlord = c; break; }
             if (warlord == null) return deck;

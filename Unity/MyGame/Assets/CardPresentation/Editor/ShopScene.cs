@@ -23,8 +23,15 @@ public static class ShopScene
     const string P = "[Shop] ";
     const string ShotDir = "d:/4/_tmp_view/shop";
 
-    static int _pass, _fail;
-    static readonly List<string> _failures = new List<string>();
+    /// <summary>🆕 2026-10-18（第四会话）：断言计数器 + 输出口径**收口到共用件 `Editor/MenuCheck.cs`**
+    /// （唯一实现处；本文件只剩同名的一行转发 ⇒ 5,534 个调用点一个字没动）。
+    /// 🔴 **逐宿主一份 `CheckSink`**（⛔ 不是全局 static）—— 「拿别处的 `Check` 去断，失败会
+    /// **记进别人的合计**里 ⇒ 静默」，判据见 `Editor/RewardWindowFixture.cs:12-14`。</summary>
+    static readonly CheckSink _sink = new CheckSink(P)
+    {
+        Near = MenuNearStyle.Compact2,             // 本文件原来是 `（{got:F2} ≈ {want:F2}±{tol:F2}）`
+        BlankNote = MenuBlankNote.EmphThisOne,     // 本文件原来那句「（**这一张按已知情况放行**）」
+    };
     /// <summary>🆕 A8：19 个商品条目容器建在这棵（摆在屏外）—— 实拍那一段要把它挪进画面再拍一张。
     /// 🔴 **这棵树的孩子序号是既有读者**（下面 §⑥ 分档那一段要取「第一个容器」）
     /// ⇒ ⛔ **别往里塞别的东西** —— 2026-10-04（W1-1）就是这么红的：字号标尺插了 7 条进去，
@@ -559,18 +566,14 @@ public static class ShopScene
     ///    （`Highlight` 那张 `border 52 ÷ ppuMul 2` = **26px**）⇒ 会拿 26 去比 120.5，**假红**。</summary>
     static void CheckRectPxNine(Transform root, float x1, float x2, float y1, float y2, string what)
     {
-        var qs = root != null ? root.GetComponentsInChildren<ImageQuad>() : null;
-        if (qs == null || qs.Length == 0) { CheckTrue(false, what + "（一整棵里没有 `ImageQuad`）"); return; }
-        float ax1 = float.MaxValue, ay1 = float.MaxValue, ax2 = float.MinValue, ay2 = float.MinValue;
-        for (int i = 0; i < qs.Length; i++)
-        {
-            if (qs[i] == null) continue;
-            float cx = PxOf(qs[i].transform.position.x), cy = PxYOf(qs[i].transform.position.y);
-            float w = qs[i].WorldW * 108f, h = qs[i].WorldH * 108f;
-            ax1 = Mathf.Min(ax1, cx - w * 0.5f); ax2 = Mathf.Max(ax2, cx + w * 0.5f);
-            ay1 = Mathf.Min(ay1, cy - h * 0.5f); ay2 = Mathf.Max(ay2, cy + h * 0.5f);
-        }
-        CheckTrue(qs.Length == 9, what + $"（九宫格应该是 **9** 块，实得 {qs.Length}）");
+        // 🆕 2026-10-18（A1003）：并集算法收口到 `MenuDraw.UnionQuadRectPx`（保留本名与本形参 ⇒ 调用点 0 改动）。
+        // 🔴 两项原样保留：**激活闸 = `None`（完全不过滤）** · **`searchInactive = false`**
+        //    （原来用的就是 `GetComponentsInChildren<ImageQuad>()` 缺省那一档）。块数改由 `out quads` 回传。
+        float ax1, ay1, ax2, ay2; int nq;
+        if (!MenuDraw.UnionQuadRectPx(root, MenuDraw.QuadGate.None, false,
+                                      out ax1, out ay1, out ax2, out ay2, out nq))
+        { CheckTrue(false, what + "（一整棵里没有 `ImageQuad`）"); return; }
+        CheckTrue(nq == 9, what + $"（九宫格应该是 **9** 块，实得 {nq}）");
         CheckNear(ax2 - ax1, x2 - x1, 2.0f, what + " 宽(px)");
         CheckNear(ay2 - ay1, y2 - y1, 2.0f, what + " 高(px)");
         CheckNear((ax1 + ax2) * 0.5f, (x1 + x2) * 0.5f, 1.0f, what + " 中心 x");
@@ -644,7 +647,7 @@ public static class ShopScene
         return n;
     }
 
-    static void Section(string t) { Debug.Log(P + $"--- {t} ---"); }
+    static void Section(string t) => MenuCheck.Section(_sink, t);
 
     // ============================================================ 🆕 A327：两态夹具（一条共用 · 四份【函数体】逐字同源）
     //
@@ -747,28 +750,13 @@ public static class ShopScene
         return n > 0 ? new PxRect(x1, y1, x2, y2) : default(PxRect);
     }
 
-    static void Check<T>(T got, T want, string msg)
-    {
-        if (EqualityComparer<T>.Default.Equals(got, want)) { _pass++; Debug.Log(P + $"   ✓ {msg}"); }
-        else
-        {
-            _fail++;
-            var line = $"{msg} —— 期望 [{want}]，实得 [{got}]";
-            _failures.Add(line);
-            Debug.LogError(P + $"   ✗ {line}");
-        }
-    }
+    static void Check<T>(T got, T want, string msg) => MenuCheck.Check(_sink, got, want, msg);
 
-    static void CheckTrue(bool c, string msg) { Check(c, true, msg); }
+    static void CheckTrue(bool c, string msg) => MenuCheck.True(_sink, c, msg);
 
     /// <summary>🆕 A17：把一棵树里**接了悬停换图**的按钮逐个悬停一遍 —— 没换图、或离开没还原，都要红。
     /// ⚠️ 批处理没有帧循环 ⇒ `WindowButton.AuditHoverSwap` 直调 `Enter/Exit`（就是指针层调的那两个）。</summary>
-    static void CheckHoverSwap(Transform root, string what)
-    {
-        int n; string bad = WindowButton.AuditHoverSwap(root, out n);
-        CheckTrue(n > 0, what + "：**确实有**接了悬停换图的按钮（n=" + n + "，否则这条等于没查）");
-        if (bad.Length > 0) CheckTrue(false, what + "：换图要「悬停换得动 + 离开还原得回」—— " + bad);
-    }
+    static void CheckHoverSwap(Transform root, string what) => MenuCheck.HoverSwap(_sink, root, what);
 
     /// <summary>🆕 **2026-10-05（A50②）**：**按下**换图那一路的审计（`CheckHoverSwap` 的镜像）——
     /// 这条**全工程此前一条都没有**（`grep "\.Press()" Editor/` = 0 命中），而原版那一档
@@ -782,9 +770,7 @@ public static class ShopScene
         if (bad.Length > 0) CheckTrue(false, what + "：按下要「换得动 + 松开还原得回」—— " + bad);
     }
 
-    static void CheckNoMissingSwapArt(string what)
-        => CheckTrue(WindowButton.MissingSwapArt.Count == 0,
-                     what + "：**悬停图一张都不缺**（缺的会列在这里：" + string.Join("、", WindowButton.MissingSwapArt.ToArray()) + "）");
+    static void CheckNoMissingSwapArt(string what) => MenuCheck.NoMissingSwapArt(_sink, what);
 
     /// <summary>🆕 **2026-10-15（A810①）**：「**窗自己的 `MissingArt`**」这条判据的**唯一一份** ——
     /// **0 才绿**（这几十件图在原版本来就有、`Resources/Art/` 里也在；缺一张 ⇒ 那一件**根本没画出来**）。
@@ -806,8 +792,7 @@ public static class ShopScene
                      what + "：**一张图都不缺**（缺的会列在这里："
                      + (miss == null ? "`MissingArt` 表本身是 null" : string.Join("、", miss.ToArray())) + "）");
 
-    static void CheckNear(float got, float want, float tol, string msg)
-        => CheckTrue(Mathf.Abs(got - want) <= tol, $"{msg}（{got:F2} ≈ {want:F2}±{tol:F2}）");
+    static void CheckNear(float got, float want, float tol, string msg) => MenuCheck.Near(_sink, got, want, tol, msg);
 
     /// <summary>🆕 **§A251-L3（2026-10-13）**：`marker` 那 4 份 `Outline` 副本的 tint 与给定色比（容差 1e-3）。
     /// 收的是**整组**（4 份必须同色 —— 原版刷的就是同一个 `Outline.effectColor`）。
@@ -912,21 +897,11 @@ public static class ShopScene
     /// ⚠️ 软边那条路上**块与块之间不重叠**（是切分、不是叠图）⇒ 把并集当「渲出来的矩形」是成立的。</summary>
     static bool RectOfUnion(Transform t, out float x1, out float y1, out float x2, out float y2)
     {
-        x1 = y1 = x2 = y2 = 0f;
-        var qs = t != null ? t.GetComponentsInChildren<ImageQuad>() : null;
-        if (qs == null || qs.Length == 0) return false;
-        x1 = float.MaxValue; y1 = float.MaxValue; x2 = float.MinValue; y2 = float.MinValue;
-        int n = 0;
-        for (int i = 0; i < qs.Length; i++)
-        {
-            if (qs[i] == null) continue;
-            float cx = PxOf(qs[i].transform.position.x), cy = PxYOf(qs[i].transform.position.y);
-            float w = qs[i].WorldW * 108f, h = qs[i].WorldH * 108f;
-            x1 = Mathf.Min(x1, cx - w * 0.5f); x2 = Mathf.Max(x2, cx + w * 0.5f);
-            y1 = Mathf.Min(y1, cy - h * 0.5f); y2 = Mathf.Max(y2, cy + h * 0.5f);
-            n++;
-        }
-        return n > 0;
+        // 🆕 2026-10-18（A1003）：并集算法收口到 `MenuDraw.UnionQuadRectPx`（保留本名与本形参 ⇒ 调用点 0 改动）。
+        // 🔴 两项原样保留：**激活闸 = `InHierarchy`** · **`searchInactive = false`**（本函数原来用的就是
+        //    `GetComponentsInChildren<ImageQuad>()` 缺省那一档 —— 只找激活链上的块）。
+        return MenuDraw.UnionQuadRectPx(t, MenuDraw.QuadGate.InHierarchy, false,
+                                        out x1, out y1, out x2, out y2);
     }
 
     /// <summary>并集版的 `CheckRectPx`（见 <see cref="RectOfUnion"/>）。</summary>
@@ -1010,13 +985,9 @@ public static class ShopScene
         return ax1 < bx2 - 0.5f && bx1 < ax2 - 0.5f && ay1 < by2 - 0.5f && by1 < ay2 - 0.5f;
     }
 
-    static Transform FindChild(Transform parent, string name)
-    {
-        if (parent == null) return null;
-        foreach (var t in parent.GetComponentsInChildren<Transform>(true))
-            if (t.name == name) return t;
-        return null;
-    }
+    /// <summary>🆕 2026-10-18（第四会话）：收口到 `MenuCheck.FindChild`（5 份逐字相同的那一份）。
+    /// ⚠️ **它不认识 `A/B/C` 这种路径写法** —— 要路径用本文件自己的 `FindPath`。</summary>
+    static Transform FindChild(Transform parent, string name) => MenuCheck.FindChild(parent, name);
 
     /// <summary>**测试编排**（不是断言）：A7 之后「买一件卡包」会弹出**全屏**的
     /// `Booster Pack Open Window`（`type = 0 Fullscreen` ⇒ `OpenWindowCO` 会把商店关掉），
@@ -1166,29 +1137,11 @@ public static class ShopScene
         h.RegisterNow();
     }
 
+    /// <summary>截图 —— 本文件那一份的空图护栏走共用件（「已放行」那句文案 = 本文件原来那一句，
+    /// 由 `_sink.BlankNote` 保住）。⚠️ `MeanBrightness` **仍留在本文件**：它与另外四份**浮点值不等价**
+    /// （分母相除方式不同），合并会动 `✓` 行文本 —— 判据见 `Editor/MenuCheck.cs` 的 `Shoot` 文件头。</summary>
     static void Shoot(string file, bool allowBlank = false)
-    {
-        var cam = Camera.main;
-        if (cam == null) return;
-        const int W = 1920, H = 1080;
-        var rt = RenderTexture.GetTemporary(W, H, 24, RenderTextureFormat.ARGB32);
-        cam.targetTexture = rt;
-        cam.Render();
-        RenderTexture.active = rt;
-        var tex = new Texture2D(W, H, TextureFormat.RGB24, false);
-        tex.ReadPixels(new Rect(0, 0, W, H), 0, 0);
-        tex.Apply();
-        RenderTexture.active = null;
-        cam.targetTexture = null;
-        File.WriteAllBytes(Path.Combine(ShotDir, file), tex.EncodeToPNG());
-        // 🔴 **空图护栏**（同 `RewardsScene`）：全黑的图不拦就白拍
-        float lum = MeanBrightness(tex);
-        if (allowBlank) Debug.Log(P + $"  截图 {file} 平均亮度 {lum:F1}（**这一张按已知情况放行**）");
-        else CheckTrue(lum > 3f, $"{file} 不是空图（平均亮度 {lum:F1} > 3）");
-        Object.DestroyImmediate(tex);
-        RenderTexture.ReleaseTemporary(rt);
-        Debug.Log(P + $"  截图 {Path.Combine(ShotDir, file)}");
-    }
+        => MenuCheck.Shoot(_sink, ShotDir, file, allowBlank, guardBlank: true, meanBrightness: MeanBrightness);
 
     static float MeanBrightness(Texture2D t)
     {
@@ -1204,7 +1157,7 @@ public static class ShopScene
 
     public static void Run()
     {
-        _pass = 0; _fail = 0; _failures.Clear();
+        _sink.Pass = 0; _sink.Fail = 0; _sink.Failures.Clear();
         Directory.CreateDirectory(ShotDir);
         ShopData.ResetForTest();
         Debug.Log(P + "=== 「商店」自检 开始 ===");
@@ -4805,14 +4758,14 @@ public static class ShopScene
 
         // ---------------- 收尾 ----------------
         ShopData.ResetForTest();
-        Debug.Log(P + $"=== 合计：{_pass} 通过 / {_fail} 失败 ===");
+        Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");
         // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是失败表的【重列】（`Check` 里已经逐条打过）
         //   ⇒ 行首标记统一成 `失败重列：`（原来写的是 `失败 N：` —— 同一件事四个宿主四种标记：
         //   `ShellScene`/`RewardsScene` 用 `✗`、`CollectionScene` 用 `✗`（拼在 StringBuilder 里）、
         //   本处用 `失败 N：`。`✗` 那两种会让日志里 `✗` 行数 = 失败数 ×2，`grep -c ✗` 直接数错）。
-        for (int i = 0; i < _failures.Count; i++)
-            Debug.LogError(P + "   失败重列：" + (i + 1) + "/" + _failures.Count + ". " + _failures[i]);
-        if (Application.isBatchMode) EditorApplication.Exit(_fail == 0 ? 0 : 1);
+        for (int i = 0; i < _sink.Failures.Count; i++)
+            Debug.LogError(P + "   失败重列：" + (i + 1) + "/" + _sink.Failures.Count + ". " + _sink.Failures[i]);
+        if (Application.isBatchMode) EditorApplication.Exit(_sink.Fail == 0 ? 0 : 1);
     }
 
     static void CheckByPrefix(Transform root, string prefix, int want, string msg)

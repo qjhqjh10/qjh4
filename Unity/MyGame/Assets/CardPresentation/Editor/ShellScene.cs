@@ -19,24 +19,21 @@ public static class ShellScene
     const string ScenePath = "Assets/CardPresentation/Scenes/Shell.unity";
     const string ShotDir = "d:/4/_tmp_view/shell";
 
-    static int _pass, _fail;
-    static readonly List<string> _failures = new List<string>();
-
-    static void Section(string t) { Debug.Log(P + $"--- {t} ---"); }
-
-    static void Check<T>(T got, T want, string msg)
+    /// <summary>🆕 2026-10-18（第四会话）：断言计数器 + 输出口径**收口到共用件 `Editor/MenuCheck.cs`**
+    /// （唯一实现处；本文件只剩同名的一行转发 ⇒ 5,534 个调用点一个字没动）。
+    /// 🔴 **逐宿主一份 `CheckSink`**（⛔ 不是全局 static）—— 「拿别处的 `Check` 去断，失败会
+    /// **记进别人的合计**里 ⇒ 静默」，判据见 `Editor/RewardWindowFixture.cs:12-14`。</summary>
+    static readonly CheckSink _sink = new CheckSink(P)
     {
-        if (EqualityComparer<T>.Default.Equals(got, want)) { _pass++; Debug.Log(P + $"   ✓ {msg}"); }
-        else
-        {
-            _fail++;
-            var line = $"{msg} —— 期望 [{want}]，实得 [{got}]";
-            _failures.Add(line);
-            Debug.LogError(P + $"   ✗ {line}");
-        }
-    }
+        Near = MenuNearStyle.Compact3,             // 本文件原来是 `（{got:F3} ≈ {want:F3}±{tol:F3}）`
+        BlankNote = MenuBlankNote.EmphThisOne,     // 本文件原来那句「（**这一张按已知情况放行**）」
+    };
 
-    static void CheckTrue(bool c, string msg) { Check(c, true, msg); }
+    static void Section(string t) => MenuCheck.Section(_sink, t);
+
+    static void Check<T>(T got, T want, string msg) => MenuCheck.Check(_sink, got, want, msg);
+
+    static void CheckTrue(bool c, string msg) => MenuCheck.True(_sink, c, msg);
 
     /// <summary>🆕 **2026-10-12（A416）**：点弹窗上那颗钮（**走生产那条路**：`WindowButton.ClickForTest()`
     /// → `Click()` → `onClick`，= `PointerLayer` 派发时会调的那一个）。
@@ -54,18 +51,10 @@ public static class ShellScene
 
     /// <summary>🆕 A17：把一棵树里**接了悬停换图**的按钮逐个悬停一遍 —— 没换图、或离开没还原，都要红。
     /// ⚠️ 批处理没有帧循环 ⇒ `WindowButton.AuditHoverSwap` 直调 `Enter/Exit`（就是指针层调的那两个）。</summary>
-    static void CheckHoverSwap(Transform root, string what)
-    {
-        int n; string bad = WindowButton.AuditHoverSwap(root, out n);
-        CheckTrue(n > 0, what + "：**确实有**接了悬停换图的按钮（n=" + n + "，否则这条等于没查）");
-        if (bad.Length > 0) CheckTrue(false, what + "：换图要「悬停换得动 + 离开还原得回」—— " + bad);
-    }
+    static void CheckHoverSwap(Transform root, string what) => MenuCheck.HoverSwap(_sink, root, what);
 
-    static void CheckNoMissingSwapArt(string what)
-        => CheckTrue(WindowButton.MissingSwapArt.Count == 0,
-                     what + "：**悬停图一张都不缺**（缺的会列在这里：" + string.Join("、", WindowButton.MissingSwapArt.ToArray()) + "）");
-    static void CheckNear(float got, float want, float tol, string msg)
-        => CheckTrue(Mathf.Abs(got - want) <= tol, $"{msg}（{got:F3} ≈ {want:F3}±{tol:F3}）");
+    static void CheckNoMissingSwapArt(string what) => MenuCheck.NoMissingSwapArt(_sink, what);
+    static void CheckNear(float got, float want, float tol, string msg) => MenuCheck.Near(_sink, got, want, tol, msg);
 
     /// <summary>🆕 **2026-10-13（A497）**：比**一个经「px → 设计世界 → px」往返反推回来的** px 值时用的谓词
     /// —— 逐字段容差 **0.05px**。
@@ -117,38 +106,32 @@ public static class ShellScene
         return n;
     }
 
-    /// <summary>一棵软边树里有几块的矩形**越出**了裁切框（世界 → 画布 px 走 `LayoutSpace.ToPixel`，别再乘 108）。</summary>
+    /// <summary>一棵软边树里有几块的矩形**越出**了裁切框（逐块走 `MenuDraw.QuadRectPx`，别再乘 108）。
+    /// 🆕 **2026-10-18（A1003）**：本函数原来自己写了一遍**甲式**（裸 `ToPixel(q.transform.position)`）
+    /// ⇒ 已收口到 `MenuDraw.QuadRectPx`（**乙式**：先除回父级 `lossyScale`）。
+    /// ⚠️ **`k == 1`（小屏缩放开关出厂关）时两式逐位相同** ⇒ 出厂态读数零变化；带缩放的那一档以收口后为准。</summary>
     static int PiecesOutsideClip(GameObject root, PxRect clip, float tolPx)
     {
-        const float K = LayoutSpace.DesignPxH / LayoutSpace.DesignHeight;
         int n = 0;
         foreach (var q in root.GetComponentsInChildren<ImageQuad>(true))
         {
             if (q == null || !q.gameObject.activeInHierarchy) continue;
-            var c = LayoutSpace.ToPixel(q.transform.position);
-            float hw = q.WorldW * K * 0.5f, hh = q.WorldH * K * 0.5f;
-            if (c.x - hw < clip.x1 - tolPx || c.x + hw > clip.x2 + tolPx
-                || c.y - hh < clip.y1 - tolPx || c.y + hh > clip.y2 + tolPx) n++;
+            if (!MenuDraw.QuadRectPx(q, out float x1, out float y1, out float x2, out float y2)) continue;
+            if (x1 < clip.x1 - tolPx || x2 > clip.x2 + tolPx
+                || y1 < clip.y1 - tolPx || y2 > clip.y2 + tolPx) n++;
         }
         return n;
     }
 
-    /// <summary>🆕 **2026-10-07（A140②）**：一个 `ImageQuad` **渲出来**的像素矩形
-    /// （世界 → 画布 px 走 `LayoutSpace.ToPixel`，⛔ 别再乘 108 —— 同上一条）。
-    /// 形状与 `RewardsScene.QuadRectOf` 一致（那边写的是 `×108 + 960` 的直式，两者同一口径）。
+    /// <summary>🆕 **2026-10-07（A140②）**：一个 `ImageQuad` **渲出来**的像素矩形。
+    /// 🆕 **2026-10-18（A1003）**：**收口到 `MenuDraw.QuadRectPx`**（保留本名与本形参 ⇒ 调用点 0 改动）——
+    /// 本函数原来自己写的是**甲式**（`LayoutSpace.ToPixel(q.transform.position)`），
+    /// 而 `GHitRect` 那一支同年已改**乙式** ⇒ 本文件当时**自己分家**（那条「两者同一口径」的注释只对前两支成立）。
+    /// 现在三支（本函数 · `PiecesOutsideClip` · `GHitRect`）**逐字同一口径**。
     /// ⚠️ 只量**这一颗**（不往子树钻）：软边切出来的子块要逐块量。
     /// ⚠️ 它量的是**建完那一刻**的几何 ⇒ 量软边宿主时必须拿「所有块的并集」（`PiecesOutsideClip` 那种扫法）。</summary>
     static bool QuadPxRect(ImageQuad q, out float x1, out float y1, out float x2, out float y2)
-    {
-        const float K = LayoutSpace.DesignPxH / LayoutSpace.DesignHeight;
-        x1 = y1 = x2 = y2 = 0f;
-        if (q == null) return false;
-        Vector2 c = LayoutSpace.ToPixel(q.transform.position);
-        float hw = q.WorldW * K * 0.5f, hh = q.WorldH * K * 0.5f;
-        x1 = c.x - hw; x2 = c.x + hw;
-        y1 = c.y - hh; y2 = c.y + hh;
-        return true;
-    }
+        => MenuDraw.QuadRectPx(q, out x1, out y1, out x2, out y2);
 
     /// <summary>🆕 A233 探针用：一段文字**渲出来**的宽（画布 px）。
     /// 🔴 量的是 **TMP 自己那份渲染网格的顶点跨度**（`textInfo.meshInfo[].vertices` —— 就是
@@ -601,34 +584,11 @@ public static class ShellScene
     }
     /// <param name="allowBlank">**已知会是全黑的**那几个状态显式放行（不是静音 —— 每一处都在调用点上写了原因）。
     /// 判据仍是「平均亮度 &gt; 3」，只是这几张本来就拍的是「屏幕上什么都没有」。</param>
+    /// <summary>截图 —— 本文件那一份的空图护栏走共用件（「已放行」那句文案 = 本文件原来那一句，
+    /// 由 `_sink.BlankNote` 保住）。⚠️ `MeanBrightness` **仍留在本文件**：它与另外四份**浮点值不等价**
+    /// （分母相除方式不同），合并会动 `✓` 行文本 —— 判据见 `Editor/MenuCheck.cs` 的 `Shoot` 文件头。</summary>
     static void Shoot(string file, bool allowBlank = false)
-    {
-        var cam = Camera.main;
-        if (cam == null) return;
-        const int W = 1920, H = 1080;
-        var rt = RenderTexture.GetTemporary(W, H, 24, RenderTextureFormat.ARGB32);
-        cam.targetTexture = rt;
-        cam.Render();
-        RenderTexture.active = rt;
-        var tex = new Texture2D(W, H, TextureFormat.RGB24, false);
-        tex.ReadPixels(new Rect(0, 0, W, H), 0, 0);
-        tex.Apply();
-        RenderTexture.active = null;
-        cam.targetTexture = null;
-        File.WriteAllBytes(Path.Combine(ShotDir, file), tex.EncodeToPNG());
-        // 🔴 **空图护栏**（2026-09-23 踩到）：`Shoot` 原来是「拍完就写盘」，于是一张**全黑**的图
-        //    也能安静地写出去（原因：上一个窗的 `CloseAllWindows()` 把要拍的那个窗也关了）。
-        //    断言一条都不会报 —— 正是 `资料/已知的坑.md` 那条「自检截图可能是手工合成的」的同类。
-        //    判据：**平均亮度**（0–255）；模板黑底大约 14~40，纯黑 ≈ 0。
-        //    ⚠️ **必须在 `DestroyImmediate(tex)` 之前**（销毁之后 `tex == null`，护栏恒红）。
-        float lum = MeanBrightness(tex);
-        if (allowBlank) Debug.Log(P + $"  截图 {file} 平均亮度 {lum:F1}（**这一张按已知情况放行**）");
-        else CheckTrue(lum > 3f, $"{file} 不是空图（平均亮度 {lum:F1} > 3）");
-
-        Object.DestroyImmediate(tex);
-        RenderTexture.ReleaseTemporary(rt);
-        Debug.Log(P + $"  截图 {Path.Combine(ShotDir, file)}");
-    }
+        => MenuCheck.Shoot(_sink, ShotDir, file, allowBlank, guardBlank: true, meanBrightness: MeanBrightness);
 
     static Transform Find(string name, Transform root)
     {
@@ -794,7 +754,7 @@ public static class ShellScene
 
     public static void Run()
     {
-        _pass = 0; _fail = 0; _failures.Clear();
+        _sink.Pass = 0; _sink.Fail = 0; _sink.Failures.Clear();
         Directory.CreateDirectory(ShotDir);
         Debug.Log(P + "=== 外壳自检 开始 ===");
 
@@ -1202,7 +1162,12 @@ public static class ShellScene
             //      （`ShellScene.cs:620`：`PanelH` = `MessageText` **实测**渲染高与 100 取大 + 110），不是拿本条算式反推。
             // ⚠️ 量的是**九块的并集**（`CreateNineSlice` 建的是「根 + 9 块」，只取第一块会量成某个角块 ——
             //   `Editor/SettingsScene.cs` 里那条「弹窗底量成 182×173」注 那条注释记的「弹窗底量成 182×173」当场踩的就是这个）。
-            // ⚠️ 换算沿用本文件 `PiecesOutsideClip` 的口径（`LayoutSpace.ToPixel` + `WorldW/H × K`，别再乘 108）；
+            // ⚠️ 换算：**本处这一段仍是甲式**（下面那段内联循环走 `LayoutSpace.ToPixel(q.transform.position)`
+            //   + `WorldW/H × K`，不再乘 108 那一层）。
+            //   🔴 **2026-10-18（A1003）就地订正（铁律 5）**：这一行原来写的是「**沿用本文件 `PiecesOutsideClip`
+            //   的口径**」—— `PiecesOutsideClip` 已收口到 `MenuDraw.QuadRectPx`（**乙式**）⇒ **两者不再同口径**。
+            //   ⚠️ 本窗那棵树的缩放恒为 1（下面两条理由）⇒ **今天甲乙两式逐位相同、读数不变**；
+            //   本处这一份**不在 `A1003` 的收口清单里**（判据只列了 6 份宿主函数 + `ShellScene` 那三处）⇒ 如实记一笔。
             //   它假设窗口那棵树**没有缩放** —— `WindowsManager.AttachToAnchor` 把窗口摆成 `localScale = one`
             //   （`Shell/WindowsManager.cs` 的 `AttachToAnchor`，`localScale = Vector3.one` 在 `:958`）。
             //   🔴 **2026-10-12 就地订正（铁律 5 · A430）**：这一段原来还写着「`extraScaleSmallScreen` 在我们这套里
@@ -5315,7 +5280,11 @@ public static class ShellScene
             }
 
             // 一颗节点**自己的** px 矩形（中心走 `LayoutSpace.ToPixel`、尺寸走 `rect × K`）——
-            // 与 `QuadPxRect` 同一份口径（`MenuDraw.SetPxSize` 把锚点写成重合 ⇒ `rect` 只由 `sizeDelta` 决定）。
+            // ⚠️ **2026-10-18（A1003）就地订正（铁律 5）**：这行原来写「与 `QuadPxRect` 同一份口径」——
+            //   而 `QuadPxRect` 已收口成**设计帧读口**（`MenuDraw.QuadRectPx`：中心先除回父级缩放；
+            //   ⛔ **尺寸项**在本函数里是取 `rt.rect`、在那边是取 `quad.WorldW/H`，本来也不是同一样东西）
+            //   ⇒ 本函数**仍是甲式**、只在「父链无缩放」时与它同值。⚠️ 本函数**当前零调用点**（无人用）。
+            //   （`MenuDraw.SetPxSize` 把锚点写成重合 ⇒ `rect` 只由 `sizeDelta` 决定。）
             // 🔴 **2026-10-14 订正**：这行原来写着「命中区那一路不吃软边 ⇒ 直接量节点本身就是真值」——
             //   **后半句是错的**：`MenuDraw.Hit` 把节点摆在**父原点**、真矩形长在它的 quad 上（见 `GHitRect`）
             //   ⇒ 量节点**只有在**「父中心 == 框中心」时才对（态一撞对、态二差 `交集.W/2`）。
@@ -5343,15 +5312,13 @@ public static class ShellScene
             //   （**设计帧**；与 `GFit` / `ClipPx` 同帧 —— 本窗根在批处理里 scale = 0.8，世界帧会差一档）。
             bool GHitRect(Transform hitNode, out float x1, out float y1, out float x2, out float y2)
             {
-                const float K = LayoutSpace.DesignPxH / LayoutSpace.DesignHeight;
                 x1 = y1 = x2 = y2 = 0f;
                 if (hitNode == null) return false;
                 var q = hitNode.GetComponentInChildren<ImageQuad>(true);
                 if (q == null) return false;
-                Vector2 c = LayoutSpace.ToPixel(MenuDraw.PosInDesignSpace(q.transform));
-                float hw = q.WorldW * K * 0.5f, hh = q.WorldH * K * 0.5f;
-                x1 = c.x - hw; x2 = c.x + hw; y1 = c.y - hh; y2 = c.y + hh;
-                return true;
+                // 🆕 2026-10-18（A1003）：收口到 `MenuDraw.QuadRectPx`（保留本名与本形参 ⇒ 调用点 0 改动）。
+                // 本函数**本来就与 `MenuDraw` 那一份同式**（乙式）⇒ 只去掉了本地那一份算式，读数不变。
+                return MenuDraw.QuadRectPx(q, out x1, out y1, out x2, out y2);
             }
 
             // 把某一颗视口节点的**框**改成 `r`（⛔ 它那两个字段一个都不碰），返回原框（收尾还原用）。
@@ -5493,22 +5460,31 @@ public static class ShellScene
             // ---- 条目级（**这一条才是 A768① + A769 的可见后果**）：军种项那颗 `Hit` ----
             // `MenuDraw.Hit(node, "Hit", r, QHit, …)` **没传 `clip`** ⇒ 它只能沿父链解析。
             // 期望值全是**原版字面量**：
-            //   · 按钮 = 136.36 × 121.59、中心 (317.17, 203.115) ⇒ 框 `248.99,142.32→385.35,263.91`
-            //     （出处 = `menu_dump.py "Army Item Button"`，与 `Editor/MainMenuScene.cs` 既有的世界坐标断言逐位同）；
-            //   · 视口框 = `248.99,147.64→1671.01,258.59` ⇒ 相交之后**上下各被裁掉 ~5.3px**（高 121.59 → 110.95）。
+            //   · 按钮 = 136.36 × 121.59、中心 (317.17, 203.115)；🔴 **可射线的那颗是【子件 `Icon`】**（根上没有任何
+            //     Graphic），`Icon` = **115.36 × 102.59**、相对根中心 `(-57.18,-51.80)→(58.18,50.80)`
+            //     —— ⚠️ **不居中**：它的中心比按钮中心**偏右 0.5 / 偏上 0.5**（⛔ 别按「居中」推，那会两边各差 0.5）。
+            //   · 🔴 **还要加 `Icon` 自己的 `m_RaycastPadding = (-11)⁴`（负 = 外扩）** ⇒ 真值 = **137.36 × 124.59**、
+            //     绝对框 = `248.99,140.32→386.35,264.91`。
+            //     ⚠️ **出处 `menu_dump.py "Army Item Button"` 印的是【按钮框】那一版**（x1..x2 只到 1 位小数、
+            //        宽高到 2 位）—— **射线真值必须再加子件的 `m_RaycastPadding`**（那份由
+            //        `rcunion.py bundle_menus_assets_all "Army Item Button" --depth 3` 印出来：`Icon` 的
+            //        `Image[RT=1 pad=(-11,-11,-11,-11)]`），⛔ **别照按钮框算**（上一版就栽在这儿）。
+            //   · 视口框 = `248.99,147.64→1671.01,258.59` ⇒ 相交之后**上裁 7.32 / 下裁 6.32px**（高 124.59 → 110.95）。
             var a0G = armContentG != null ? FindChildIn(armContentG, CampaignData.Armies[0]) : null;
             var h0G = a0G != null ? FindChildIn(a0G, "Hit") : null;
             float ax1, ay1, ax2, ay2;
             bool okHit = GHitRect(h0G, out ax1, out ay1, out ax2, out ay2);   // `GHitRect` 自带 null 挡（⛔ 别写成 `h0G != null && …`：短路会让这四格**没被赋值**）
             CheckTrue(okHit, "（前提·不静默）第 1 颗军种项的 `Hit` 节点拿得到（军种项 GO 名 = 阵营名）"
                              + " —— ⛔ 取不到就不往下断「量到的值」那几条（不静默变绿）");
-            CheckTrue(okHit && NearPx(ax1, 248.99f, 0.5f) && NearPx(ax2, 385.35f, 0.5f)
+            CheckTrue(okHit && NearPx(ax1, 248.99f, 0.5f) && NearPx(ax2, 386.35f, 0.5f)
                              && NearPx(ay1, 147.64f, 0.5f) && NearPx(ay2, 258.59f, 0.5f),
-                      "★★★ A768①（条目级 · 态一）：第 1 颗军种项的**命中区** = 按钮框 ∩ 视口框 = "
+                      "★★★ A768①（条目级 · 态一）：第 1 颗军种项的**命中区** = 子件 `Icon`（外扩 11）∩ 视口框 = "
                       + (okHit ? $"{ax1:F2},{ay1:F2}→{ax2:F2},{ay2:F2}" : "（取不到）")
-                      + "，期望 **248.99,147.64→385.35,258.59**（**高 110.95** —— 按钮自己 121.59，上下各被视口裁掉 ~5.3px）"
+                      + "，期望 **248.99,147.64→386.35,258.59**（**高 110.95** —— 外扩后那颗真值 137.36 × 124.59，"
+                      + "上裁 7.32 / 下裁 6.32px）"
                       + " —— 判据 = 原版 `RectMask2D` 的**射线那一面**（`IsRaycastLocationValid`：框外的点判不中任何东西）。"
-                      + "🔴 **改坏法**：① 把 `ViewportClip.Hang` 改回 `Node(...)`（不挂组件）⇒ 命中区回到整格 121.59 高 ⇒ 红；"
+                      + "🔴 **改坏法**：① 把 `ViewportClip.Hang` 改回 `Node(...)`（不挂组件）⇒ 命中区回到**外扩后那一整颗**"
+                      + "（137.36 × 124.59、上沿 140.32）⇒ 两条 y 边一条都对不上 ⇒ 红；"
                       + "② 把 `Army Content` 挂回 `Army Selector`（兄弟）⇒ `FindAbove` 找不到这颗节点 ⇒ 同样红（**这一条正是 A769**）");
             if (okHit && armVcG != null && armContentG != null && lbG.ArmyScroll != null)
             {
@@ -5524,6 +5500,8 @@ public static class ShellScene
                           "★★★ A768①（条目级 · 态二）：把**节点框**右沿切到第 0 颗的中心（317.17）后重建 ⇒ 命中区 = "
                           + (okCut ? $"{bx1:F2},{by1:F2}→{bx2:F2},{by2:F2}" : "（取不到）")
                           + "，期望 **248.99,147.64→317.17,258.59**（宽 68.18 = 半格，**左沿与两条 y 边一个像素都不动**）"
+                          + " —— 🔴 **这条右沿是【节点框】给的、与命中区本身多大无关**：外扩 11 之后那颗右沿 386.35 仍 > 317.17"
+                          + " ⇒ 截断值**照旧 317.17**（归真值这一件不动态二）"
                           + " —— 与态一成对：**只有真读节点才会动右沿**（⛔ 只断「态一那个数」是弱断言，分不出两种状态）");
                 // 态三：还原节点框 + 重建
                 GRestore(armVcG, keepArm);
@@ -5532,9 +5510,9 @@ public static class ShellScene
                 var h0r = a0r != null ? FindChildIn(a0r, "Hit") : null;
                 float cx1, cy1, cx2, cy2;
                 bool okBack = GHitRect(h0r, out cx1, out cy1, out cx2, out cy2);
-                CheckTrue(okBack && NearPx(cx1, 248.99f, 0.5f) && NearPx(cx2, 385.35f, 0.5f)
+                CheckTrue(okBack && NearPx(cx1, 248.99f, 0.5f) && NearPx(cx2, 386.35f, 0.5f)
                                  && NearPx(cy1, 147.64f, 0.5f) && NearPx(cy2, 258.59f, 0.5f),
-                          "★★ A768①（条目级 · 态三）：节点框**还原 + 重建** ⇒ 命中区又回到整格宽 136.36（"
+                          "★★ A768①（条目级 · 态三）：节点框**还原 + 重建** ⇒ 命中区又回到外扩后那一条（真值宽 137.36，"
                           + (okBack ? $"{cx1:F2},{cy1:F2}→{cx2:F2},{cy2:F2}" : "（取不到）")
                           + "）—— 两态都断 ⇒ 态二那个 317.17 **不可能**来自别的原因（例如「那一页压根没建」）");
             }
@@ -5826,8 +5804,11 @@ public static class ShellScene
                     if (!PointerLayer.HitBoxForTest(b, out var c, out var hh, out _)) continue;   // 与上面同一判据，理论上到不了
                     float hx1 = c.x - hh.x, hy1 = c.y - hh.y, hx2 = c.x + hh.x, hy2 = c.y + hh.y;
                     var r = new float[] { hx1, hy1, hx2, hy2 };
-                    // 实绘矩形：`QuadPxRect` **不乘 `lossyScale`**，而 `HitBoxPx` **乘**（A167）
-                    // ⇒ `SmallScreenUI` 把窗根乘 M 时这两者分家 —— 那正是本探针要盯的一档（`M == 1` 时逐位相同）。
+                    // 实绘矩形：`QuadPxRect` 报的是**设计帧**（🆕 `A1003` 起已收口到 `MenuDraw.QuadRectPx`：
+                    //   中心先 `PosInDesignSpace` 除回父级缩放、**尺寸项不除**），
+                    //   而 `HitBoxPx` 报的是**指针那一帧**（中心走裸世界坐标、尺寸项 × `lossyScale`，A167）
+                    // ⇒ 窗根被乘 M（或本窗根自己带缩放 —— 如高级版窗的 pop 动画在批处理里停在 0.8）时两帧分家
+                    //   —— 那正是本探针要盯的一档（`M == 1` 且父链无缩放时两式逐位相同）。
                     float dx1, dy1, dx2, dy2;
                     bool okD = QuadPxRect(q, out dx1, out dy1, out dx2, out dy2);
                     rows.Add(Row(winName, state, NodePath(b.transform),
@@ -5995,14 +5976,14 @@ public static class ShellScene
         }
 
         Debug.Log(P + shell.Dump());
-        Debug.Log(P + $"=== 合计：{_pass} 通过 / {_fail} 失败 ===");
+        Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");
         // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是**失败表的【重列】**（每条失败在
         //   `Check` 里**已经打过一次**）⇒ 行首标记必须是 `失败重列：`、⛔ **不能再是 `✗`** ——
         //   原来是 `✗` 时日志里 `✗` 行数 = 失败数 **×2**，连「按行首标记数」都数不准
         //   （`✗` 还会出现在断言文案里，见 `资料/已知的坑.md` 那条「别用 `grep -c ✗` 数失败」）。
         //   同族四处一起改：`CollectionScene` / `RewardsScene` / `ShopScene`（同一句形状）。
-        if (_fail > 0) foreach (var f in _failures) Debug.LogError(P + "   失败重列：" + f);
-        EditorApplication.Exit(_fail > 0 ? 1 : 0);
+        if (_sink.Fail > 0) foreach (var f in _sink.Failures) Debug.LogError(P + "   失败重列：" + f);
+        EditorApplication.Exit(_sink.Fail > 0 ? 1 : 0);
     }
 
     // ============================================================ 真 Play（验「壳 → 主菜单」这条链）

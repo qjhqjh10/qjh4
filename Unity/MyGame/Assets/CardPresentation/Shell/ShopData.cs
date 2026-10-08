@@ -290,11 +290,17 @@ namespace CardPresentation
             return o[i].Rarity == 4 && OwnedOf(pageIndex, i) == 1;
         }
 
-        /// <summary>`MenuShop/ExtraLegendaryWarning` 那句的**文案**。
+        /// <summary>`MenuShop/ExtraLegendaryWarning` 那句的**文案**（**每次现查** `Loc` —— `Loc` 不发事件，
+        /// 取词条一律走这里，换语言之后同一次开窗能拿到新的一行）。
         /// 🔴 **词条在远端语言表里** —— 本地只有 key（`stringliteral.json` 里 `0x42D24E0` 就是它），
-        /// **没有英文原文** ⇒ 下面这句是**我们写的**，如实标（铁律 3）。</summary>
-        public const string LegendaryWarnText =
-            "你已经有 1 张传奇品质的这一件了。\n确定还要再买一张吗？";
+        /// **没有英文原文** ⇒ 表里那两列是**我们写的**，如实标（铁律 3）。
+        /// 🆕 **2026-10-18（波 1 · P3）**：原来这里是 `public const string` 写死的中文 ⇒ **英文档也印中文**。
+        /// 改成读词条（键 `MenuShop/ExtraLegendaryWarning`，已在 `Core/Loc.cs:996` 的表里；中文列与改前
+        /// 那句**逐字相同** ⇒ 中文档零变化）；键名有出处 = 原版 `CatalogItemContainer__TryPurchase`
+        /// 的 `0x42D24E0`（地址表实读，见 `Core/Loc.cs:991-996`）。
+        /// ⚠️ **`const` → 属性** ⇒ 不能再当编译期常量用（`case` 标签 / 特性实参 / 别的 `const` 初值）；
+        /// 全仓消费点只有 `Shell/ShopWindow.cs:791` 一个普通实参（现读 `grep`）⇒ 安全。</summary>
+        public static string LegendaryWarnText { get { return Loc.T("MenuShop/ExtraLegendaryWarning"); } }
 
         /// <summary>🆕 **2026-10-12（A439）：这一件买到手要画进【领奖窗】的那几条奖励**
         /// （对位 = 原版 `ShopOfferBase.Items` / `ShopOfferDataV2.offerItems`）。

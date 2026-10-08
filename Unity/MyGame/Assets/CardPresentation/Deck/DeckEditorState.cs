@@ -130,7 +130,12 @@ namespace CardPresentation
         /// `SelectDecksTab.CreateDeck`（`GetEmptyDeck()` 之后立刻打上当前模式）—— **建组时定死**。</param>
         public void NewDeck(string name, int gameMode = 0)
         {
-            Deck = new PlayerDeck(string.IsNullOrEmpty(name) ? "新卡组" : name, null, null, null, gameMode);
+            // 🔴 **2026-10-18（双语线 · 波 1 · P1）**：默认名走词条 `MenuDeck/NewDeckName`
+            //   （键名 = 调度台 2026-10-18 裁定、自拟；中文列 = 改之前这里写死的 `新卡组` ⇒ 中文档零变化）。
+            //   ⚠️ **同一个串的第二处**在 `Deck/DeckRuntime.cs` 的清名那一拍（`SetDeckName`）；
+            //      第三处（`Shell/CollectionData.cs:260` 的 `Lib.UniqueName("新卡组")`）**不在本笔白名单里** ⇒
+            //      已写进交件报告（铁律 6：同一件事只留一条键，三处一律用 `MenuDeck/NewDeckName`）。
+            Deck = new PlayerDeck(string.IsNullOrEmpty(name) ? Loc.T("MenuDeck/NewDeckName") : name, null, null, null, gameMode);
         }
 
         /// <summary>把一副卡组装进编辑器。🔴 **装的是【副本】** —— 这是原版那条链的语义。
@@ -399,18 +404,18 @@ namespace CardPresentation
             //    改成 id 与**显示名**都比（原版比的就是本地化后的阵营名/类型名）。
             if (Hit(c.Faction, needle) || Hit(CardText.Faction(c.Faction), needle)) return true;
             if (Hit(c.Subtype, needle) || Hit(c.Type, needle)) return true;
-            if (Hit(TypeLabelOf(c.Type), needle)) return true;
-            return Hit(c.Cost.ToString(), needle);
-        }
-
-        /// <summary>类型标签（`Warlord/Troops/Stratagem`）—— **表只有一份**（`FilterPanelModel.TypeKeys/TypeLabels`，
-        /// 就是抽屉 Type 那一行印的字）。</summary>
-        static string TypeLabelOf(string type)
-        {
-            if (string.IsNullOrEmpty(type)) return "";
+            // 🔴 **2026-10-18（双语线 · 波 1 · P1）**：类型名那两串**都查** —— ① 抽屉 Type 那一行
+            //   **现在印的那一份**（随语档，`FilterPanelModel.TypeLabelAt`）② 原版的英文串
+            //   （`TypeLabels`，闸门未开时两者相同）。少 ① = **照着屏上印的字搜不到** ——
+            //   那正是本节上面那条真缺陷（拿内部 id 当显示名比）的同一种病。
+            //   ⚠️ 未认识的 `c.Type` 不在这里（`Hit(c.Type, needle)` 上面已经比过）。
             for (int i = 0; i < FilterPanelModel.TypeKeys.Length; i++)
-                if (FilterPanelModel.TypeKeys[i] == type) return FilterPanelModel.TypeLabels[i];
-            return type;
+            {
+                if (FilterPanelModel.TypeKeys[i] != c.Type) continue;
+                if (Hit(FilterPanelModel.TypeLabelAt(i), needle)) return true;
+                if (Hit(FilterPanelModel.TypeLabels[i], needle)) return true;
+            }
+            return Hit(c.Cost.ToString(), needle);
         }
 
         static bool Hit(string hay, string needle)

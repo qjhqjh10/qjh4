@@ -48,12 +48,31 @@ namespace CardPresentation
         const float HeaderW = 1192.37f, HeaderH = 63.204f;
         /// <summary>遮罩不透明度。原版 `Menu Dark Background` 的 `color.a`（和放大窗**同一个值**）</summary>
         public const float MaskAlpha = 0.7725f;
-        /// <summary>标题字号。原版 fs 38（base 31.9，auto 18..38）</summary>
-        const int HeaderFontSize = 38;
+        /// <summary>标题与「继续」两个字的字号（px）。**两颗都是原版 TMP `m_fontSize = 38`**
+        /// （2026-10-18 现读 `bundle_scenes_scenes_battlearena1`）：`…/Header Text` = 38
+        /// （`m_fontSizeBase 31.9`、auto 18..38）；`…/BattleContinueButton/Text`（MB 3886）
+        /// `m_fontSize = 38` · `m_fontSizeMax = 38` · `m_text = "Continue"` · `m_HorizontalAlignment = 4(Right)`。
+        /// ⚠️ **这是 px（em 的像素值），⛔ 不是 `Label.Create` 的第 4 参** —— 那个是整数 scale 档，
+        /// 见 <see cref="ChromeFontScale"/>。</summary>
+        const float ChromeFontPx = 38f;
+        /// <summary>`Label.Create` 第 4 参要的**整数 scale 档**（⛔ 不是字号；同目录 20 处调用全是 1~8）。
+        /// 档位换算：点阵/TMP 每档 = **7 px 大写字高**（`Battle/Label.cs:207` `CapHeightWorldOfScale = 7f/100`），
+        /// 而拉丁大写 ≈ **0.72 em**（`Battle/Label.cs:268`）⇒ 原版 fs 38 要的大写字高 = `38 × 0.72 ≈ 27.4 px`
+        /// ⇒ `27.4 / 7 ≈ 3.9` ⇒ 最近整数档 = **4**（3 档 → 21 px，小 23%；5 档 → 35 px，大 28%）。
+        /// 真正的字号**一律走 `Label.SetScriptHeight(text, px, pxPerUnit)`** —— 那是「按语种二选一」的
+        /// **唯一一份**口径（汉字 `SetGlyphHeight(≈1em)` / 拉丁 `SetCapHeight(≈0.72em)`，`Battle/Label.cs:266`）；
+        /// 兄弟件同一个形状：`Battle/MulliganPanel.cs:238` · `Battle/CardChoicePanel.cs:156`。
+        /// ⚠️ 原来这两处把 **38 当 scale 传**（= 原版的 12.7 倍），实测症状 = 画面右下角两个巨大白字。</summary>
+        const int ChromeFontScale = 4;
         /// <summary>Continue 条：`x[1322.7,1900.2] y[945.2,1009]`</summary>
         const float BarCx = 1611.45f, BarCy = 977.1f, BarW = 577.5f, BarH = 63.84f;
-        /// <summary>圆钮：`x[1723.2,1803.7] y[937.3,1016.9]`（**纵向凸出横条**）</summary>
-        const float CircleCx = 1763.45f, CircleCy = 977.1f, CircleD = 80.47f;
+        /// <summary>圆钮：`x[1723.2,1803.7] y[937.3,1016.9]`（**纵向凸出横条**）。
+        /// `CircleD` = 原版 rect 的**宽**（也是 `HitContinue` 认的那一份，口径未改）；
+        /// `CircleH` = 它的**高** —— 原版那一格**不是正方**（80.47 × 79.64）。
+        /// ⚠️ `ImageQuad.Create` 只吃**高**（宽 = 高 × 显示比例），所以画的时候喂的是 `CircleH`
+        /// + `SetAspect(CircleD / CircleH)` —— 兄弟件 `CardChoicePanel.cs:71` 的 `PlayH = 79.64` 也是这个高
+        /// （它们没补 `SetAspect`，因为 `40k_UI_bt_play` 是 128×128、补不补差 1%）。</summary>
+        const float CircleCx = 1763.45f, CircleCy = 977.1f, CircleD = 80.47f, CircleH = 79.64f;
         /// <summary>Continue 的绿色（原版 Button `colors.normal`）</summary>
         static readonly Color BarColor = new Color(0.369f, 0.894f, 0.587f);
 
@@ -122,27 +141,51 @@ namespace CardPresentation
             }
 
             // 标题：锚在窗口带**顶边**（原版 `anchor(0.5,1) pivot(0.5,1)`）
+            // 第 4 参是**整数 scale 档**（⛔ 不是原版那个 fs 38 —— 那个走 `SetScriptHeight`，见常量处的注释）。
+            // 出厂这一下只是给个尺寸：标题文字是 `Show()` 里才定的（语种跟着标题走）⇒ 字号在那边再设一遍。
             _header = Label.Create(_root, "", Pos(960f, BandTopPx + HeaderH * 0.5f, ZContent),
-                                   HeaderFontSize, Color.white, new Vector2(0.5f, 0.5f), "mcd_header");
+                                   ChromeFontScale, Color.white, new Vector2(0.5f, 0.5f), "mcd_header");
+            if (_header != null) _header.SetScriptHeight("", ChromeFontPx, EndPanel.PxPerUnit);
 
             // Continue：**贴图用原版那两张**（`40k_bt_underbutton` / `40k_UI_bt_play`），
             // 图不在工程里时退回纯色（颜色仍是原版那个绿 —— 不静默、也不假装）
+            //
+            // 🔴 **2026-10-18：这一块原来两处都错，本件修的就是它们**
+            //  ① **量纲**：`ImageQuad.Create` 第 4 参是**世界高度**，原来喂的是 px 原值
+            //     （`BarH` / `CircleD`）⇒ 实绘 = 原版 rect 的 **108 倍**（条 40,285 × 6,894 px，
+            //      整屏被 `40k_bt_underbutton` 铺满 —— 实据 `d:/4/_tmp_view/battle/11b_多张展示窗.png`）。
+            //     改用 `U(...)`（见本文件 `U` 的定义与那三条兄弟件出处）。
+            //  ② **显示比例**：`ImageQuad` 默认按**贴图比例**定宽（`ImageQuad.cs:124` `_aspect = tex.w/tex.h`），
+            //     而原版这两格都是 `m_PreserveAspect = 0` + `m_Type = 0(Simple)` ⇒ **拉满 rect**。
+            //     判据 = **2026-10-18 现读** `bundle_scenes_scenes_battlearena1`：
+            //       `Generic Multi Card Display Combat/BattleContinueButton/Button`（RT 3348）
+            //         `m_SizeDelta = (577.50, **63.84**)` · 它的 Image（MB 4202）`m_PreserveAspect = 0` · `m_Type = 0`；
+            //       `…/CircleButton`（RT 3384）`m_SizeDelta = (**80.47**, **79.64**)` · Image（MB 4285）同样 PA=0 / Type=0。
+            //     贴图实际尺寸：`40k_bt_underbutton` = **485×83**（比例 5.8434，≠ 9.046）
+            //       ⇒ 不补 `SetAspect` 只画出 **372.9 × 63.84**（**窄 204.6 px**）；
+            //       `40k_UI_bt_play` = **128×128**（正方，≠ 1.0104）⇒ 差 1%（0.83 px），照旧补上。
+            //     兄弟件同一条：`Battle/CardChoicePanel.cs:161` · `Battle/MulliganPanel.cs:265`
+            //       （两句都是 `if (… != null) ….SetAspect(BarW / BarH);`）。
             var barTex = CardArt.Ui("40k_bt_underbutton");
             _bar = ImageQuad.Create(_root, barTex != null ? barTex : CardDisplayWindow.SolidTexFor(BarW / BarH),
-                                    Pos(BarCx, BarCy, ZContent), BarH, new Vector2(0.5f, 0.5f), "mcd_bar");
+                                    Pos(BarCx, BarCy, ZContent), U(BarH), new Vector2(0.5f, 0.5f), "mcd_bar");
+            if (_bar != null) _bar.SetAspect(BarW / BarH);
             if (_bar != null && barTex == null) _bar.SetTint(BarColor);
 
             var circleTex = CardArt.Ui("40k_UI_bt_play");
             _circle = ImageQuad.Create(_root, circleTex != null ? circleTex : CardDisplayWindow.SolidTexFor(1f),
-                                       Pos(CircleCx, CircleCy, ZContent), CircleD, new Vector2(0.5f, 0.5f), "mcd_circle");
+                                       Pos(CircleCx, CircleCy, ZContent), U(CircleH), new Vector2(0.5f, 0.5f), "mcd_circle");
+            if (_circle != null) _circle.SetAspect(CircleD / CircleH);
 
             // 文字**右对齐**在条内右侧（原版 `H=4(Right)`）—— 我们这块 `Label` 只有居中
             // ⇒ 用「中心点右移」近似（**我们挑的**，见文件头 ④）
             // 🔴 **2026-10-18（第十二轮 · W6）**：那颗钮上的字走**原版词条** `Battle/Mulligan/ButtonDone`
             //    （原版 `Generic Multi Card Display Combat < BattleContinueButton < Text` 挂的就是它，
             //     TMP 原文 `Continue`）—— 原来写死的是中文 `"继续"`（与换牌面板那条是**同一条**词条）。
-            _barText = Label.Create(_root, Loc.T(MulliganPanel.DoneTerm), Pos(BarCx + BarW * 0.5f - 60f, BarCy, ZContent), 38,
+            string continueText = Loc.T(MulliganPanel.DoneTerm);
+            _barText = Label.Create(_root, continueText, Pos(BarCx + BarW * 0.5f - 60f, BarCy, ZContent), ChromeFontScale,
                                     Color.white, new Vector2(0.5f, 0.5f), "mcd_continue");
+            if (_barText != null) _barText.SetScriptHeight(continueText, ChromeFontPx, EndPanel.PxPerUnit);
 
             // ⚠️ **这行提示是我们自加的**：原版 `Generic Multi Card Display Combat` 下只有
             //    `Header Text`（TMP = `Header Text`、**无 `Localize`**）· `BattleContinueButton` ·
@@ -180,8 +223,11 @@ namespace CardPresentation
             CardCypx = 0f;
             if (cards == null || cards.Count == 0) { HeaderShown = null; return; }
 
+            // 标题的文字与字号**不在这里设** —— 挪到本方法末尾（`SetChrome(true)` 之后）
+            // 🔴 理由：TMP **在对象没激活时量不出尺寸**（`ForceMeshUpdate()` 要在 `SetActive(true)`
+            //    之后调，否则 `textBounds` 是垃圾 —— CLAUDE.md §三那条坑）；而本方法开头刚跑过
+            //    `Hide()` ⇒ 到这里 chrome 整排是关着的。
             HeaderShown = header ?? "";
-            if (_header != null) _header.SetText(HeaderShown);
 
             // 卡宽（px）：和放大窗同源 —— 卡本体按「高 743 px」反算缩放
             float baseScale = CardHeightPx / EndPanel.PxPerUnit / CardView.Height;
@@ -220,6 +266,16 @@ namespace CardPresentation
             SetChrome(true);
             Visible = true;
             gameObject.SetActive(true);
+
+            // 标题的文字 + 字号（见本方法开头那条：必须在 chrome **点亮之后**做）
+            if (_header != null)
+            {
+                _header.SetText(HeaderShown);
+                // 🔴 字号要在**文字定下来之后**设：`SetScriptHeight` 按 `Loc.HasCjk(text)` 二选一
+                //    （汉字 `SetGlyphHeight(≈1em)` / 拉丁 `SetCapHeight(≈0.72em)`）—— 标题是本地化串，
+                //    语种得看这一串本身。与 `MulliganPanel.SetTurnText` 同一个形状。
+                _header.SetScriptHeight(HeaderShown, ChromeFontPx, EndPanel.PxPerUnit);
+            }
         }
 
         public void Hide()
@@ -241,6 +297,40 @@ namespace CardPresentation
                 && py >= BarCy - BarH * 0.5f && py <= BarCy + BarH * 0.5f;
         }
 
+        // ---- 🆕 2026-10-18（A964① ④）：「继续」那一块的**实绘几何**只读口（⛔ 只给自检）----
+        //  补它的理由：上面 `HitContinue` 用的是**硬写的原版 px 矩形**（`BarCx/BarW` 那一串
+        //  + 圆钮探出的那半圈），而**画出来的**是 `_bar` / `_circle` 两颗 quad
+        //  （宽由**贴图比例**定，未必等于那个原版 rect）⇒ 没有实绘口就**无从比**「命中区 ⊇ 实绘」。
+        //  ⛔ 本件**不改** `HitContinue` 的口径（改命中＝改行为，要另开一件、另配断言）。
+
+        /// <summary>「继续」横条的**实绘**世界中心（= 那颗 quad 的中心）。</summary>
+        public Vector3 ContinueBarWorldPos
+        {
+            get { return _bar != null ? _bar.transform.position : Vector3.zero; }
+        }
+
+        /// <summary>「继续」横条**实绘**的 px 尺寸（判据 = `ImageQuad.WorldW/WorldH × 108`）。</summary>
+        public Vector2 ContinueBarDrawnPx
+        {
+            get { return _bar != null
+                       ? new Vector2(_bar.WorldW, _bar.WorldH) * EndPanel.PxPerUnit
+                       : Vector2.zero; }
+        }
+
+        /// <summary>圆钮的**实绘**世界中心。</summary>
+        public Vector3 ContinueCircleWorldPos
+        {
+            get { return _circle != null ? _circle.transform.position : Vector3.zero; }
+        }
+
+        /// <summary>圆钮**实绘**的 px 尺寸。</summary>
+        public Vector2 ContinueCircleDrawnPx
+        {
+            get { return _circle != null
+                       ? new Vector2(_circle.WorldW, _circle.WorldH) * EndPanel.PxPerUnit
+                       : Vector2.zero; }
+        }
+
         /// <summary>点在我方牌堆那一块没有（**入口是我们挑的**，见文件头 ⑤）。</summary>
         public static bool HitDeckPile(Vector3 world)
         {
@@ -248,6 +338,18 @@ namespace CardPresentation
         }
 
         static Vector3 Pos(float px, float py, float z) { return EndPanel.Pos(px, py, z); }
+
+        /// <summary>px → **世界单位**。
+        /// <para>🔴 **2026-10-18：这一句就是本件缺的那一步** —— `ImageQuad.Create` 的第 4 参是
+        /// **世界高度**（`Battle/ImageQuad.cs:110` 的 doc 逐字：「`worldHeight` 是**屏幕上的高度**（世界单位）」），
+        /// 而本现场 **1 px = 1/108 世界单位**（`Battle/EndPanel.cs:40`
+        /// `PxPerUnit = 1080f / LayoutSpace.DesignHeight`，`DesignHeight = 10`；同一份换算也写在
+        /// `Core/LayoutSpace.cs:148`：「1 px = 1/108 世界单位」）。
+        /// ⇒ 把 px 原值直接喂进那个形参 = 画出来 **108 倍**大（曾经把整屏铺满）。</para>
+        /// <para>兄弟件逐字同一条（**照它们写的**）：`Battle/MulliganPanel.cs:194` `U(px) = px / 108` ·
+        /// `Battle/CardChoicePanel.cs:102` `U(px) = px * LayoutSpace.DesignHeight / 1080f`（同一个 108）·
+        /// `Battle/EndPanel.cs:55`（私有）`U(px) = px / PxPerUnit`。</para></summary>
+        static float U(float px) { return px / EndPanel.PxPerUnit; }
 
         static void Kill(GameObject o)
         {

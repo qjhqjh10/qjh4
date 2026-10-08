@@ -21,40 +21,29 @@ public static class RewardsScene
     const string P = "[Rewards] ";
     const string ShotDir = "d:/4/_tmp_view/rewards";
 
-    static int _pass, _fail;
-    static readonly List<string> _failures = new List<string>();
-
-    static void Section(string t) { Debug.Log(P + $"--- {t} ---"); }
-
-    static void Check<T>(T got, T want, string msg)
+    /// <summary>🆕 2026-10-18（第四会话）：断言计数器 + 输出口径**收口到共用件 `Editor/MenuCheck.cs`**
+    /// （唯一实现处；本文件只剩同名的一行转发 ⇒ 5,534 个调用点一个字没动）。
+    /// 🔴 **逐宿主一份 `CheckSink`**（⛔ 不是全局 static）—— 「拿别处的 `Check` 去断，失败会
+    /// **记进别人的合计**里 ⇒ 静默」，判据见 `Editor/RewardWindowFixture.cs:12-14`。</summary>
+    static readonly CheckSink _sink = new CheckSink(P)
     {
-        if (EqualityComparer<T>.Default.Equals(got, want)) { _pass++; Debug.Log(P + $"   ✓ {msg}"); }
-        else
-        {
-            _fail++;
-            var line = $"{msg} —— 期望 [{want}]，实得 [{got}]";
-            _failures.Add(line);
-            Debug.LogError(P + $"   ✗ {line}");
-        }
-    }
+        Near = MenuNearStyle.Compact2,
+        BlankNote = MenuBlankNote.EmphThisOne,   // 本文件原来那句「（**这一张按已知情况放行**）」
+    };
 
-    static void CheckTrue(bool c, string msg) { Check(c, true, msg); }
+    static void Section(string t) => MenuCheck.Section(_sink, t);
+
+    static void Check<T>(T got, T want, string msg) => MenuCheck.Check(_sink, got, want, msg);
+
+    static void CheckTrue(bool c, string msg) => MenuCheck.True(_sink, c, msg);
 
     /// <summary>🆕 A17：把一棵树里**接了悬停换图**的按钮逐个悬停一遍 —— 没换图、或离开没还原，都要红。
     /// ⚠️ 批处理没有帧循环 ⇒ `WindowButton.AuditHoverSwap` 直调 `Enter/Exit`（就是指针层调的那两个）。</summary>
-    static void CheckHoverSwap(Transform root, string what)
-    {
-        int n; string bad = WindowButton.AuditHoverSwap(root, out n);
-        CheckTrue(n > 0, what + "：**确实有**接了悬停换图的按钮（n=" + n + "，否则这条等于没查）");
-        if (bad.Length > 0) CheckTrue(false, what + "：换图要「悬停换得动 + 离开还原得回」—— " + bad);
-    }
+    static void CheckHoverSwap(Transform root, string what) => MenuCheck.HoverSwap(_sink, root, what);
 
-    static void CheckNoMissingSwapArt(string what)
-        => CheckTrue(WindowButton.MissingSwapArt.Count == 0,
-                     what + "：**悬停图一张都不缺**（缺的会列在这里：" + string.Join("、", WindowButton.MissingSwapArt.ToArray()) + "）");
+    static void CheckNoMissingSwapArt(string what) => MenuCheck.NoMissingSwapArt(_sink, what);
 
-    static void CheckNear(float got, float want, float tol, string msg)
-        => CheckTrue(Mathf.Abs(got - want) <= tol, $"{msg}（{got:F2} ≈ {want:F2}±{tol:F2}）");
+    static void CheckNear(float got, float want, float tol, string msg) => MenuCheck.Near(_sink, got, want, tol, msg);
 
     /// <summary>🆕 2026-10-03：一个节点**在世界里的位置 → 画布像素中心**，与期望的原版像素点比（±`tol`px）。
     /// 判据 = `LayoutSpace.ToPixel`（`PointerLayer` 命中用的是同一条换算 —— 所以这里量的就是「真鼠标会落在哪」）。</summary>
@@ -121,13 +110,9 @@ public static class RewardsScene
         return mr != null && mr.sharedMaterial != null ? mr.sharedMaterial.color : new Color(0f, 0f, 0f, 0f);
     }
 
-    static Transform FindChild(Transform parent, string name)
-    {
-        if (parent == null) return null;
-        foreach (var t in parent.GetComponentsInChildren<Transform>(true))
-            if (t.name == name) return t;
-        return null;
-    }
+    /// <summary>🆕 2026-10-18（第四会话）：收口到 `MenuCheck.FindChild`（5 份逐字相同的那一份）。
+    /// ⚠️ **它不认识 `A/B/C` 这种路径写法** —— 要路径用本文件自己的 `FindPath`。</summary>
+    static Transform FindChild(Transform parent, string name) => MenuCheck.FindChild(parent, name);
 
     /// <summary>**按路径**找一个节点（`Content/Scroll View/Viewport/…`）。
     /// 🔴 2026-09-23 踩过：`FindChild` 是**按名字**找的（`GetComponentsInChildren` + `name ==`），
@@ -538,13 +523,11 @@ public static class RewardsScene
     /// **切出来的每一块**必须逐块量，钻进子树就只量到其中一块了。</summary>
     static bool QuadRectOf(ImageQuad q, out float x1, out float y1, out float x2, out float y2)
     {
-        x1 = y1 = x2 = y2 = 0f;
-        if (q == null) return false;
-        float cx = PxOf(q.transform.position.x), cy = PxYOf(q.transform.position.y);
-        float w = q.WorldW * 108f, h = q.WorldH * 108f;
-        x1 = cx - w * 0.5f; x2 = cx + w * 0.5f;
-        y1 = cy - h * 0.5f; y2 = cy + h * 0.5f;
-        return true;
+        // 🆕 2026-10-18（A1003）：算法收口到 `MenuDraw.QuadRectPx`（**保留本名与本形参 ⇒ 调用点 0 改动**）。
+        // 🔴 改前这一份是**甲式**（裸 `q.transform.position × 108 ± 原点`，少除一次父级 `lossyScale`）；
+        //    `MenuDraw` 那一份是**乙式**（先 `PosInDesignSpace` 除回设计缩放，再走设计帧读口）。
+        //    两者只在「父链 `lossyScale == 1`」时逐位相同（本窗恒满足）⇒ 今天读数零变化，收的是**口径**。
+        return MenuDraw.QuadRectPx(q, out x1, out y1, out x2, out y2);
     }
 
     /// <summary>🆕 **2026-10-04（首跑红了，就地补的）**：一个节点**整棵子树**里所有**激活**的 `ImageQuad` 的**并集**矩形；
@@ -556,19 +539,14 @@ public static class RewardsScene
     /// ⚠️ 只算 `activeSelf` 的块（整块出框的会被 `SetActive(false)`，算进去会把并集撑回未裁切大小）。</summary>
     static bool RectOfUnion(Transform t, out float x1, out float y1, out float x2, out float y2)
     {
-        x1 = y1 = x2 = y2 = 0f;
-        if (t == null) return false;
-        var qs = t.GetComponentsInChildren<ImageQuad>(true);
-        bool any = false;
-        for (int i = 0; i < qs.Length; i++)
-        {
-            if (qs[i] == null || !qs[i].gameObject.activeSelf) continue;
-            float a, b, c, d;
-            if (!QuadRectOf(qs[i], out a, out b, out c, out d)) continue;
-            if (!any) { x1 = a; y1 = b; x2 = c; y2 = d; any = true; }
-            else { x1 = Mathf.Min(x1, a); y1 = Mathf.Min(y1, b); x2 = Mathf.Max(x2, c); y2 = Mathf.Max(y2, d); }
-        }
-        return any || RectOf(t, out x1, out y1, out x2, out y2);
+        // 🆕 2026-10-18（A1003）：并集算法收口到 `MenuDraw.UnionQuadRectPx`（保留本名与本形参 ⇒ 调用点 0 改动）。
+        // 🔴 **本窗那一项【有意保留】的差异**：`QuadGate.Self`（只看块自己 `activeSelf`、父链关着也算）
+        //    —— 别的宿主走 `InHierarchy` / `None`，⛔ 别统一（判据见 `MenuDraw.QuadGate` 的注释）。
+        if (MenuDraw.UnionQuadRectPx(t, MenuDraw.QuadGate.Self, true, out x1, out y1, out x2, out y2))
+            return true;
+        // 🔴 另一项：【本窗独有】一个 quad 都没有时退回 `Label` 那条路（`RectOf`）——
+        //    其余宿主回 false。⛔ 别给别人加、也别删它（见上面那条 doc 的「一个 quad 都没有时退回」）。
+        return RectOf(t, out x1, out y1, out x2, out y2);
     }
 
     /// <summary>🆕 **2026-10-04：软边接线探针** —— 扫 `root` 子树，回传里面**所有软边切线**的位置。
@@ -774,34 +752,11 @@ public static class RewardsScene
     }
     /// <param name="allowBlank">**已知会是全黑的**那几个状态显式放行（不是静音 —— 每一处都在调用点上写了原因）。
     /// 判据仍是「平均亮度 &gt; 3」，只是这几张本来就拍的是「屏幕上什么都没有」。</param>
+    /// <summary>截图 —— 本文件那一份的空图护栏走共用件（「已放行」那句文案 = 本文件原来那一句，
+    /// 由 `_sink.BlankNote` 保住）。⚠️ `MeanBrightness` **仍留在本文件**：它与另外四份**浮点值不等价**
+    /// （分母相除方式不同），合并会动 `✓` 行文本 —— 判据见 `Editor/MenuCheck.cs` 的 `Shoot` 文件头。</summary>
     static void Shoot(string file, bool allowBlank = false)
-    {
-        var cam = Camera.main;
-        if (cam == null) return;
-        const int W = 1920, H = 1080;
-        var rt = RenderTexture.GetTemporary(W, H, 24, RenderTextureFormat.ARGB32);
-        cam.targetTexture = rt;
-        cam.Render();
-        RenderTexture.active = rt;
-        var tex = new Texture2D(W, H, TextureFormat.RGB24, false);
-        tex.ReadPixels(new Rect(0, 0, W, H), 0, 0);
-        tex.Apply();
-        RenderTexture.active = null;
-        cam.targetTexture = null;
-        File.WriteAllBytes(Path.Combine(ShotDir, file), tex.EncodeToPNG());
-        // 🔴 **空图护栏**（2026-09-23 踩到）：`Shoot` 原来是「拍完就写盘」，于是一张**全黑**的图
-        //    也能安静地写出去（原因：上一个窗的 `CloseAllWindows()` 把要拍的那个窗也关了）。
-        //    断言一条都不会报 —— 正是 `资料/已知的坑.md` 那条「自检截图可能是手工合成的」的同类。
-        //    判据：**平均亮度**（0–255）；模板黑底大约 14~40，纯黑 ≈ 0。
-        //    ⚠️ **必须在 `DestroyImmediate(tex)` 之前**（销毁之后 `tex == null`，护栏恒红）。
-        float lum = MeanBrightness(tex);
-        if (allowBlank) Debug.Log(P + $"  截图 {file} 平均亮度 {lum:F1}（**这一张按已知情况放行**）");
-        else CheckTrue(lum > 3f, $"{file} 不是空图（平均亮度 {lum:F1} > 3）");
-
-        Object.DestroyImmediate(tex);
-        RenderTexture.ReleaseTemporary(rt);
-        Debug.Log(P + $"  截图 {Path.Combine(ShotDir, file)}");
-    }
+        => MenuCheck.Shoot(_sink, ShotDir, file, allowBlank, guardBlank: true, meanBrightness: MeanBrightness);
 
     /// <summary>拍**主壳窗**（`win`）的截图 —— **先断壳还开着**，再交给 `Shoot`（它那条「平均亮度 > 3」的护栏照旧）。
     /// <para>🔴 **2026-10-11（批次1 · F7）加**：A 组那 4 张**全黑**（平均亮度 0.0、4 张 md5 完全相同）的根因就是
@@ -900,7 +855,7 @@ public static class RewardsScene
 
     public static void Run()
     {
-        _pass = 0; _fail = 0; _failures.Clear();
+        _sink.Pass = 0; _sink.Fail = 0; _sink.Failures.Clear();
         Directory.CreateDirectory(ShotDir);
         ForgeData.ResetForTest();     // 锻造页的数据是静态的 ⇒ 每次自检从初值起（自检之间互不影响）
         Debug.Log(P + "=== 「日常」奖励窗口自检 开始 ===");
@@ -10376,12 +10331,12 @@ public static class RewardsScene
         }
 
         Debug.Log(P + win.Dump());
-        Debug.Log(P + $"=== 合计：{_pass} 通过 / {_fail} 失败 ===");
+        Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");
         // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是失败表的【重列】（`Check` 里已经逐条打过）
         //   ⇒ 行首标记 = `失败重列：`，⛔ 不再是 `✗`（原来是 `✗` 时日志里 `✗` 行数 = 失败数 ×2）。
         //   同族四处一起改：`ShellScene` / `CollectionScene` / `ShopScene`（同一句形状）。
-        if (_fail > 0) foreach (var f in _failures) Debug.LogError(P + "   失败重列：" + f);
-        EditorApplication.Exit(_fail > 0 ? 1 : 0);
+        if (_sink.Fail > 0) foreach (var f in _sink.Failures) Debug.LogError(P + "   失败重列：" + f);
+        EditorApplication.Exit(_sink.Fail > 0 ? 1 : 0);
     }
 
     // `Daily Missions Holder` 的 x 边界（🔴 **2026-10-06（A106）改成布局位·2 张卡那一帧**：**1190.44..1799.94**）。

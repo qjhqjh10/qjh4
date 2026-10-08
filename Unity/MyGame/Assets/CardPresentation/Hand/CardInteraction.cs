@@ -689,5 +689,33 @@ namespace CardPresentation
         public void SimulatePress(Vector3 world) { if (_hovered >= 0 && _dragging == null) PickUp(_cards[_hovered], world); }
         public void SimulateDrag(Vector3 world, float dt) { if (_dragging != null) UpdateDrag(world, dt); }
         public void SimulateRelease(Vector3 world) { if (_dragging != null) Release(world); }
+
+        // ---- 🆕 2026-10-18（A964①）：**手牌命中区 / 实绘矩形**的只读口（⛔ 只给自检，不给生产用）----
+        //  判据（`E2`）：「凡参与点击命中的节点，它的**命中区矩形**必须覆盖它**画出来的矩形**」。
+        //  ⛔ 命中**一律调生产函数**（下面 `HitCardForTest` 就是私有的 `HitTest` 本体）——
+        //    探针不重算一份算式（那是「实现与检测器一起改回去还全绿」的自证）。
+
+        /// <summary>自检用：手牌里有几张（= `_cards` 的长度）。</summary>
+        public int HandCardCountForTest { get { return _cards.Count; } }
+
+        /// <summary>自检用：点在手牌第几张上（-1 = 没点到任何一张）—— **就是真实输入那条** <see cref="HitTest"/>。</summary>
+        public int HitCardForTest(Vector3 world) { return HitTest(world); }
+
+        /// <summary>自检用：第 i 张手牌**实绘卡面**在世界里的某一点。
+        /// `u,v ∈ [−0.5, 0.5]` 是**卡的局部系**里的归一化位置（× `CardView.Width/Height`）：
+        /// `(0,0)` = 中心、`(±0.5, ±0.5)` = 实绘矩形的四角。
+        ///
+        /// 🔴 **只能在卡的局部系里取点** —— 手牌是扇形（每张都带旋转 + 缩放），
+        ///    按世界轴挪 dx/dy 会挪到邻牌上去（`HitTest` 就判给别人了 ⇒ 假红）。
+        /// 🔴 拿它去喂 <see cref="HitCardForTest"/> 正是本行要的那件事：
+        ///    **实绘矩形的内侧必中 / 外侧必不中**（两态都断）。</summary>
+        public bool HandCardPointForTest(int i, float u, float v, out Vector3 world)
+        {
+            world = Vector3.zero;
+            if (i < 0 || i >= _cards.Count || _cards[i] == null) return false;
+            world = _cards[i].transform.TransformPoint(
+                        new Vector3(u * CardView.Width, v * CardView.Height, 0f));
+            return true;
+        }
     }
 }

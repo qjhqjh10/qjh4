@@ -239,8 +239,12 @@ namespace CardPresentation
         {
             get
             {
+                // 🔴 **2026-10-18（波 1b）**：这两句走词条（键 `MenuDeck/GameMode/{Skirmish,Classic}`，
+                //   出处 `Core/Loc.cs:1225-1226`；ZH 列与改前写死串**逐字相同** ⇒ 中文档零变化）。
+                //   ⚠️ 别与 `StartMatch` 里那个 `modeStr`（`"Skirmish"`/`"Classic"`）混为一谈 —— 那两个是
+                //   **网络协议串**（喂 `NetMatchmaking.TryStart`、两边对账用），⛔ 绝不能翻（`A1036`）。
                 return DeckGameMode == (int)GameMode.Skirmish
-                     ? "遭遇战（Skirmish · 12 张）" : "经典（Classic · 30 张）";
+                     ? Loc.T("MenuDeck/GameMode/Skirmish") : Loc.T("MenuDeck/GameMode/Classic");
             }
         }
 
@@ -277,21 +281,32 @@ namespace CardPresentation
             if (pre != null)
             {
                 if (pre.gameMode == DeckGameMode) { why = null; return true; }
-                why = "这副预组是「" + (pre.gameMode == (int)GameMode.Skirmish ? "遭遇 · 12 张" : "经典 · 30 张")
-                    + "」的，不能用在" + DeckGameModeName + "里 —— 换一副。";
+                // 整句走词条（键 `MenuDeck/Error/WrongGameMode`，出处 `Core/Loc.cs:1229-1230`）。
+                // ⚠️ 两个替换值**都来自 `Loc`**（词条正文里不会有花括号）⇒ 次序无所谓；这一处照「高位先填」。
+                why = Loc.T("MenuDeck/Error/WrongGameMode")
+                          .Replace("{1}", DeckGameModeName)
+                          .Replace("{0}", pre.gameMode == (int)GameMode.Skirmish
+                                           ? Loc.T("MenuDeck/GameMode/SkirmishTag")
+                                           : Loc.T("MenuDeck/GameMode/ClassicTag"));
                 return false;
             }
             var raw = CollectionData.Raw(DeckIndex);
             if (raw == null)
             {
-                why = "还没有可用的卡组 —— 先点 `Create deck` 建一副" + DeckGameModeName + "的。";
+                // 整句走词条（键 `MenuDeck/Error/NoDeckForMode`，出处 `Core/Loc.cs:1233-1234`）。
+                why = Loc.T("MenuDeck/Error/NoDeckForMode").Replace("{0}", DeckGameModeName);
                 return false;
             }
             if (DeckFitsMode(raw)) { why = null; return true; }
-            why = "「" + raw.Name + "」是「"
-                + (raw.IsSkirmish ? "遭遇 · 12 张" : "经典 · 30 张")
-                + "」的卡组，不能用在" + DeckGameModeName + "里 —— 换一副，或点 `Create deck` 建一副新的"
-                + "（照原版：**模式在建组那一刻定，之后改不了**）。";
+            // 整句走词条（键 `MenuDeck/Error/WrongGameModeDeck`，出处 `Core/Loc.cs:1231-1232`）。
+            // 🔴 **`{0}` 必须最后填**：`Replace` 会**再扫一遍已填入的内容**，而 `{0}` 是**玩家数据**（卡组名，
+            //    用户随便起）—— 只有「最后填」才能保证名字里万一出现 `{1}`/`{2}` 也不会被当成占位符换掉。
+            //    （`{2}`/`{1}` 的值来自 `Loc`，词条正文不含花括号。）
+            why = Loc.T("MenuDeck/Error/WrongGameModeDeck")
+                      .Replace("{2}", DeckGameModeName)
+                      .Replace("{1}", raw.IsSkirmish ? Loc.T("MenuDeck/GameMode/SkirmishTag")
+                                                     : Loc.T("MenuDeck/GameMode/ClassicTag"))
+                      .Replace("{0}", raw.Name);
             return false;
         }
 
@@ -492,8 +507,11 @@ namespace CardPresentation
 
             // `No Deck Text`（+ `Create deck` 那颗钮）—— **只有在没有督军时才显示**（原版 `NoDeckText` 那一族）
             var none = MenuDraw.Node(col, "No Deck", new PxRect(NoDeckL, NoDeckT, NoDeckR, NoDeckB));
+            // 🔴 **2026-10-18（波 1b）**：这一句走词条（键 `MenuDeck/HUD/NoWarlordText`，出处
+            //   `Core/Loc.cs:1246-1247`；ZH 列与改前写死串**逐字相同** ⇒ 中文档零变化）。
+            //   ⚠️ 它是「整句」—— 别拿 `MenuDeck/Error/NoWarlord`（短键「还没有选战将」）替，那会**丢信息**（`A1034`）。
             var ndt = MenuDraw.Text(none, new PxRect(NoDeckL, NoDeckT, NoDeckR, NoDeckB),
-                                    "这套卡组还没有战将 —— 去卡组编辑里选一个再来。", Color.white,
+                                    Loc.T("MenuDeck/HUD/NoWarlordText"), Color.white,
                                     "No Deck Text", 45f, QText);
             // ⚠️ 我们这句话比原版长（24 字 × fs45 ≈ 1080px）⇒ **会溢出 685.65 的框** ⇒ 自己缩着放进去
             //    （原版那句带 `auto 18-45`，我们照它的区间自缩）——**这一条是我们挑的**
@@ -912,14 +930,18 @@ namespace CardPresentation
             if (!SelectedDeckFitsMode(out string whyMode))
             {
                 Debug.LogWarning("[Event] 开战被挡：模式不对 —— " + whyMode);
-                if (Manager != null) Manager.ShowPopUp(whyMode, "知道了", null);
+                if (Manager != null) Manager.ShowPopUp(whyMode, Loc.T("MainMenu/General/OK"), null);
                 return;
             }
             var d = CollectionData.DeckAt(DeckIndex);
             if (string.IsNullOrEmpty(d.WarlordId) && PickedPrebuilt == null)
             {
                 Debug.LogWarning("[Event] 这套卡组**没有督军**，开不了局 —— 如实说，不静默。");
-                if (Manager != null) Manager.ShowPopUp("这套卡组还没有选战将，开不了局。", "知道了", null);
+                // 弹窗正文走**整句**词条（键 `MenuDeck/Error/CantStartNoWarlord`，出处 `Core/Loc.cs:1251-1252`；
+                //   `A1034` 裁定：这里原来复用了短键 `MenuDeck/Error/NoWarlord`（「还没有选战将」）⇒ 正文从
+                //   「这套卡组还没有选战将，开不了局。」缩成 5 个字 = 玩家可见内容缩水 ⇒ **改回整句**）；
+                // 钮文案 `MainMenu/General/OK`（出处 `Core/Loc.cs:960-977`，⚠️ 是 `OK` 不是 `Ok`）。
+                if (Manager != null) Manager.ShowPopUp(Loc.T("MenuDeck/Error/CantStartNoWarlord"), Loc.T("MainMenu/General/OK"), null);
                 return;
             }
             // 🆕 2026-09-26（N3）：**联机已连上 ⇒ 走 P2P**，不跑那 12 秒 bot 链
@@ -989,13 +1011,14 @@ namespace CardPresentation
             if (NetMatchmaking.Cancel("对局发起方点了取消", out string why))
             {
                 NetTookOver = false;
-                NetRuntime.Notice("已经取消这一局的联机匹配 —— 对面会收到通知，**双方都没有开局**。\n"
-                                + "想再打一次：两边各自重新点一次 `Battle!`。");
+                // 整句走词条（键 `Settings/Online/MatchCancelled`，出处 `Core/Loc.cs:1222-1223`）。
+                NetRuntime.Notice(Loc.T("Settings/Online/MatchCancelled"));
             }
             else
             {
                 // **不假装取消成功**（红线）：说清为什么、以及该怎么办。
-                NetRuntime.Notice("取消不了这一局：" + why);
+                // 走词条（键 `Settings/Online/MatchCancelFailed`，出处 `Core/Loc.cs:1224`）。
+                NetRuntime.Notice(Loc.T("Settings/Online/MatchCancelFailed").Replace("{0}", why));
             }
         }
 

@@ -15970,6 +15970,292 @@ public static class BattleScene
                     }
                 }
 
+                // ================================================================
+                //  四、`E2` **补遗 7 行**（`A964①`）：把「**没有公开实绘口**」那 7 处补齐
+                // ================================================================
+                //  出处（未覆盖表）→ `资料/普查产出_1018第三会话/W_命中区探针_战斗.md:96-104`：
+                //   手牌各张 · 场上单位 · 设置面板「关闭」· 多卡窗「继续」· 我方牌堆 · 技能面板 · 结束回合。
+                //  每行三件套 = ① 一个新的**只读口**（`*ForTest` / `*DrawnPx` / `*WorldPos`，
+                //   `Battle/` 与 `Hand/` 那 5 个文件里，形状照 `CameraResetButtonDrawnPx`）
+                //   + ② 一行 TSV + ③ 一条**两态**断言（实绘内侧必中 / 明显在外必不中）。
+                //  🔴 断的还是 `E2` 那两条：(a) 实绘内侧那点必中（命中区没覆盖实绘 ⇒ 红）
+                //     (b) 明显在实绘之外那点必不中（命中区无界 / 恒 true ⇒ 红）。
+                //  🔴 **口径说明**：这 7 行**只开只读口、不改任何命中函数** ——
+                //     `HitMyDeckPile` / `HitContinue` / `Contains` 都仍是原口径（改命中＝改行为，
+                //     要另开一件、另配断言）。唯一一处「动了生产代码」是把结束回合那条判定
+                //     从 `Update` 里**抽成一个 `HitEndTurn`**（两处共用一份，⛔ 不是改语义）。
+                //  ⛔ **位置**：本段落在 **模型③ 之后** —— ⑥ 那一行走 `SimulateUseAbility` 真弹一次
+                //     技能面板（会动局面、会选目标），摆在模型③前面会把红挪到模型③那一段上。
+                Debug.Log(P + "--- A964（E2 补遗）：7 行只读口 · 两态 ---");
+                {
+                    var drvE964 = drv964;
+
+                    // ---- 补 1：**手牌各张**（口：`CardInteraction.HitCardForTest` / `HandCardPointForTest`）----
+                    {
+                        var hi964 = drvE964.interaction;
+                        int hn964 = hi964 != null ? hi964.HandCardCountForTest : 0;
+                        Check(hi964 != null && hn964 > 0,
+                              "★ A964/E2①：（前提）手牌里有牌（`CardInteraction` 在、`_cards` 非空）"
+                            + $"（实得 {hn964} 张）—— 空手牌时下面两条是空跑");
+                        if (hi964 != null && hn964 > 0)
+                        {
+                            int hCnt964 = 0, hBad964 = 0, hEdge964 = 0, hFar964 = 0;
+                            for (int k964 = 0; k964 < hn964; k964++)
+                            {
+                                Vector3 c964;
+                                if (!hi964.HandCardPointForTest(k964, 0f, 0f, out c964)) continue;
+                                hCnt964++;
+                                if (hi964.HitCardForTest(c964) != k964) hBad964++;
+                                // 实绘矩形内另一点：局部 **+0.45 半高**。⛔ 别改成横向 ——
+                                // 手牌是扇形叠压，横向那点会落进**左边邻牌**（z 更小 ⇒ 判给它），
+                                // 那是叠压的**语义**、不是缺陷（`A964 续 ②` 的「报告式」裁定）；
+                                // 竖直方向邻牌中心隔着 ≥1.339 世界单位 > 卡半宽 1.10 ⇒ 干净。
+                                Vector3 e964;
+                                if (hi964.HandCardPointForTest(k964, 0f, 0.45f, out e964)
+                                    && hi964.HitCardForTest(e964) == k964) hEdge964++;
+                                // 灭自证那一半：挪到手牌上方 10 世界单位（手牌是窄带）⇒ 一张都不许中
+                                if (hi964.HitCardForTest(c964 + new Vector3(0f, 10f, 0f)) != -1) hFar964++;
+                            }
+                            hits964.Add($"E2①\t手牌 ×{hCnt964}\tCardInteraction.HitCardForTest（= 私有 HitTest 本体）"
+                                      + $"\t中心中 {hCnt964 - hBad964}/{hCnt964} · 0.45 半高中 {hEdge964}/{hCnt964}"
+                                      + $"\t中心判错 {hBad964} · 上方 10 单位误中 {hFar964}\t卡是扇形 ⇒ 只在卡的局部系取点");
+                            Check(hCnt964 > 0 && hBad964 == 0 && hEdge964 == hCnt964,
+                                  $"★ A964/E2①：手牌 {hCnt964} 张 —— **每张的视觉中心 + 实绘矩形内的 0.45 半高点都判回它自己**"
+                                + $"（中心中 {hCnt964 - hBad964}/{hCnt964} · 内侧点中 {hEdge964}/{hCnt964}）"
+                                + "｜🧨 改坏法：`HitTest` 里 `c.Contains(world)` 失效、或卡的 z 排序反了 ⇒ 红");
+                            Check(hFar964 == 0,
+                                  $"★ A964/E2①（**灭自证**）：手牌上方 10 世界单位处**一张都判不中**（误中 {hFar964} 张）"
+                                + " —— 与上一条配对：「命中区无界 / 恒 return 0」会让上一条绿、本条红");
+                        }
+                    }
+
+                    // ---- 补 2：**场上单位**（口：`BattleDriver.HitUnitSlotForTest`）----
+                    {
+                        int side964u = drvE964.MySideForTest;
+                        int uSlot964 = drvE964.Ctx != null ? FreeSlot(drvE964.Ctx, side964u) : -1;
+                        Check(uSlot964 >= 0, "★ A964/E2②：（前提）我方棋盘上有一个空格能摆探针单位");
+                        if (uSlot964 >= 0)
+                        {
+                            ClearEffects();
+                            drvE964.Ctx.Players[side964u].Board[uSlot964] =
+                                new UnitState(CardByName(StarterCards.Tide(), "Tide Minion"), false) { Exhausted = false };
+                            drvE964.RefreshAll();
+                            var uv964 = drvE964.MyUnits.ContainsKey(uSlot964) ? drvE964.MyUnits[uSlot964] : null;
+                            Check(uv964 != null, "★ A964/E2②：（前提）那个单位建出了视图");
+                            if (uv964 != null)
+                            {
+                                var uc964 = uv964.transform.position;
+                                var ud964 = new Vector2(uv964.transform.lossyScale.x * CardView.Width,
+                                                        uv964.transform.lossyScale.y * CardView.Height);
+                                // ⛔ 偏移同样在**卡的局部系**里取（棋盘上的单位也带摆放角）
+                                var uin964  = uv964.transform.TransformPoint(new Vector3(0f, 0.45f * CardView.Height, 0f));
+                                var uout964 = uv964.transform.TransformPoint(new Vector3(0f, 3f    * CardView.Height, 0f));
+                                bool inU964  = drvE964.HitUnitSlotForTest(side964u, uc964) == uSlot964
+                                            && drvE964.HitUnitSlotForTest(side964u, uin964) == uSlot964;
+                                bool outU964 = drvE964.HitUnitSlotForTest(side964u, uout964) != uSlot964;
+                                hits964.Add($"E2②\t场上单位（槽 {uSlot964}）\tBattleDriver.HitUnitSlotForTest（= 私有 HitSlot 本体）"
+                                          + $"\t实绘 {ud964.x * PxPerUnit964:F2}×{ud964.y * PxPerUnit964:F2} px"
+                                          + $"\t中心/内侧中={inU964} · 外侧不中={outU964}\t探针单位 = `Tide Minion`（量完即摘）");
+                                Check(inU964,
+                                      $"★ A964/E2②：场上单位的**视觉中心 + 实绘矩形内的 0.45 半高点都判回它自己**（槽 {uSlot964}）"
+                                    + "（命中 = `HitSlot`，量的就是 `CardView.Contains` = 卡自己的局部矩形）"
+                                    + "｜🧨 改坏法：`HitSlot` 的 `v.Contains(world)` 失效、或格的 z 排序反了 ⇒ 红");
+                                Check(outU964,
+                                      "★ A964/E2②（**灭自证**）：卡**外侧 3 倍半高**处**判不中**（命中区有界）"
+                                    + " —— 与上一条配对：「恒命中某个槽」会让上一条绿、本条红");
+                            }
+                            drvE964.Ctx.Players[side964u].Board[uSlot964] = null;
+                            drvE964.RefreshAll();
+                        }
+                    }
+
+                    // ---- 补 3：**设置面板「关闭」**（口：`SettingsPanel.CloseWorldPos` / `CloseDrawnSize`）----
+                    {
+                        var sp964e = drvE964.Settings;
+                        if (sp964e != null) { CloseAll964(); sp964e.Show(); }
+                        Check(sp964e != null && sp964e.Visible, "★ A964/E2③：（前提）设置面板开起来了");
+                        if (sp964e != null && sp964e.Visible)
+                        {
+                            var sc964 = sp964e.CloseWorldPos;
+                            var sd964 = sp964e.CloseDrawnSize * PxPerUnit964;       // px
+                            Check(sd964.x > 0f && sd964.y > 0f,
+                                  "★ A964/E2③：（前提）关闭钮那颗 quad 建出来了（实绘非零）"
+                                + $"（实得 {sd964.x:F2}×{sd964.y:F2} px）—— 为零时下面的取点全落在 `Vector3.zero` 上，是空跑");
+                            bool inC964  = sp964e.HitClose(sc964)
+                                        && sp964e.HitClose(sc964 + new Vector3(0.45f * sd964.x * 0.5f / PxPerUnit964, 0f, 0f))
+                                        && sp964e.HitClose(sc964 + new Vector3(0f, 0.45f * sd964.y * 0.5f / PxPerUnit964, 0f));
+                            bool outC964 = !sp964e.HitClose(sc964 + new Vector3(3f * sd964.x * 0.5f / PxPerUnit964, 0f, 0f))
+                                        && !sp964e.HitClose(sc964 + new Vector3(0f, 3f * sd964.y * 0.5f / PxPerUnit964, 0f));
+                            if (sd964.x > 0f && sd964.y > 0f)
+                            {
+                                hits964.Add($"E2③\t设置面板「关闭」\tSettingsPanel.HitClose\t实绘 {sd964.x:F2}×{sd964.y:F2} px"
+                                          + $"\t内侧中={inC964} · 外侧不中={outC964}\t命中 = 圆底 ∪ 叉图标两颗 quad 的并集");
+                                Check(inC964,
+                                      "★ A964/E2③：设置面板「关闭」钮 —— **视觉中心 + 实绘矩形内的 0.45 半宽/半高点都判得中**"
+                                    + $"（实绘 {sd964.x:F2}×{sd964.y:F2} px）"
+                                    + "｜🧨 改坏法：`HitClose` 只留 `_closeIcon` 那颗小图、或把圆底那颗判据删掉 ⇒ 红");
+                                Check(outC964,
+                                      "★ A964/E2③（**灭自证**）：关闭钮**外侧 3 倍半宽/半高**处**判不中**（命中区有界）"
+                                    + " —— 与上一条配对：「`HitClose` 恒 true」会让上一条绿、本条红");
+                            }
+                            sp964e.Hide();
+                        }
+                    }
+
+                    // ---- 补 4：**多卡窗「继续」**（口：`MultiCardDisplay.ContinueBar*` / `ContinueCircle*`）----
+                    {
+                        var mc964 = drvE964.MultiCards;
+                        Check(mc964 != null, "★ A964/E2④：（前提）多卡展示窗建出来了");
+                        if (mc964 != null)
+                        {
+                            CloseAll964();
+                            drvE964.ShowMyDeck(true);
+                            Check(mc964.Visible, "★ A964/E2④：（前提）摊开牌库 ⇒ 多卡窗开起来了");
+                            if (mc964.Visible)
+                            {
+                                var cb964 = mc964.ContinueBarWorldPos;
+                                var db964 = mc964.ContinueBarDrawnPx;
+                                var cc964 = mc964.ContinueCircleWorldPos;
+                                var cd964 = mc964.ContinueCircleDrawnPx;
+                                Check(db964.x > 0f && db964.y > 0f && cd964.x > 0f && cd964.y > 0f,
+                                      "★ A964/E2④：（前提）「继续」那两颗 quad 建出来了（实绘非零）"
+                                    + $"（条 {db964.x:F2}×{db964.y:F2} px · 圆钮 {cd964.x:F2}×{cd964.y:F2} px）");
+                                bool inM964  = mc964.HitContinue(cb964)
+                                            && mc964.HitContinue(cb964 + new Vector3(0.45f * db964.x * 0.5f / PxPerUnit964, 0f, 0f))
+                                            && mc964.HitContinue(cc964);
+                                bool outM964 = !mc964.HitContinue(cb964 + new Vector3(3f * db964.x * 0.5f / PxPerUnit964, 0f, 0f))
+                                            && !mc964.HitContinue(cb964 + new Vector3(0f, 3f * db964.y * 0.5f / PxPerUnit964, 0f));
+                                hits964.Add($"E2④\t多卡窗「继续」\tMultiCardDisplay.HitContinue\t条实绘 {db964.x:F2}×{db964.y:F2} px"
+                                          + $" · 圆钮 {cd964.x:F2}×{cd964.y:F2} px\t内侧中={inM964} · 外侧不中={outM964}"
+                                          + "\t原版 rect 条 577.5×63.84 / 圆钮 80.47（命中区仍按它，**口径未改**）；"
+                                          + "🔴 实绘若 ≈ 上述值 ×108 ⇒ `Build` 把 px 当世界高度用了"
+                                          + "（`:132 BarH` / `:137 CircleD` 少了 `EndPanel.PxPerUnit`；"
+                                          + "兄弟件 `CardChoicePanel:159-161` / `MulliganPanel:256-265` 是 `U(...)` + `SetAspect`）");
+                                Check(inM964,
+                                      "★ A964/E2④：多卡窗「继续」—— **横条中心 + 实绘矩形内的 0.45 半宽处、以及圆钮中心都判得中**"
+                                    + $"（条实绘 {db964.x:F2}×{db964.y:F2} px、圆钮 {cd964.x:F2}×{cd964.y:F2} px；"
+                                    + "原版 rect 条 577.5×63.84）"
+                                    + "｜🧨 改坏法：`HitContinue` 的 `BarW` 改小到小于实绘条宽 ⇒ 0.45 半宽那点掉到框外 ⇒ 红"
+                                    + "；⚠️ 若红，先看那两颗 quad 的**实绘**是不是原版 rect 的 ~108 倍（那是 `Build` 的"
+                                    + " px/世界单位混用，不是 `HitContinue` 的错 —— 见 TSV 备注 + 交件报告「顺手发现」）");
+                                Check(outM964,
+                                      "★ A964/E2④（**灭自证**）：横条**外侧 3 倍半宽/半高**处**判不中**（命中区有界）"
+                                    + " —— 与上一条配对：「不设界 / 恒 return true」会让上一条绿、本条红");
+                                mc964.Hide();
+                            }
+                        }
+                    }
+
+                    // ---- 补 5：**我方牌堆**（口：`BattleDriver.MyDeckPlateWorldPos` / `MyDeckPlateDrawnSize`）----
+                    {
+                        var dd964 = drvE964.MyDeckPlateDrawnSize * PxPerUnit964;
+                        var dc964 = drvE964.MyDeckPlateWorldPos;
+                        Check(dd964.x > 0f && dd964.y > 0f, "★ A964/E2⑤：（前提）我方牌堆底板建出来了");
+                        if (dd964.x > 0f && dd964.y > 0f)
+                        {
+                            bool inD964  = BattleDriver.HitMyDeckPile(dc964)
+                                        && BattleDriver.HitMyDeckPile(dc964 + new Vector3(0.45f * dd964.x * 0.5f / PxPerUnit964, 0f, 0f))
+                                        && BattleDriver.HitMyDeckPile(dc964 + new Vector3(0f, 0.45f * dd964.y * 0.5f / PxPerUnit964, 0f));
+                            bool outD964 = !BattleDriver.HitMyDeckPile(dc964 + new Vector3(3f * dd964.x * 0.5f / PxPerUnit964, 0f, 0f))
+                                        && !BattleDriver.HitMyDeckPile(dc964 + new Vector3(0f, 3f * dd964.y * 0.5f / PxPerUnit964, 0f));
+                            hits964.Add($"E2⑤\t我方牌堆底板\tBattleDriver.HitMyDeckPile\t实绘 {dd964.x:F2}×{dd964.y:F2} px"
+                                      + $"\t内侧中={inD964} · 外侧不中={outD964}\t命中区 = 硬写正方 230×230（**口径未改**）");
+                            Check(inD964,
+                                  "★ A964/E2⑤：我方牌堆 —— **底板中心 + 实绘矩形内的 0.45 半宽/半高点都判得中**"
+                                + $"（底板实绘 {dd964.x:F2}×{dd964.y:F2} px；命中区 = `DeckPlatePx` 那个 230×230 正方）"
+                                + "｜🧨 改坏法：`HitMyDeckPile` 的 `h = DeckPlatePx*0.5f` 改小到小于实绘半宽/半高 ⇒ 红");
+                            Check(outD964,
+                                  "★ A964/E2⑤（**灭自证**）：牌堆**外侧 3 倍半宽/半高**处**判不中**（命中区有界）"
+                                + " —— 与上一条配对：「`HitMyDeckPile` 恒 true」会让上一条绿、本条红");
+                        }
+                    }
+
+                    // ---- 补 6：**技能面板**（口：`SkillPanel.LightWorldPos` / `LightDrawnSize` / `BgDrawnSize`）----
+                    {
+                        var sk964 = drvE964.skillPanel;
+                        Check(sk964 != null, "★ A964/E2⑥：（前提）技能面板建出来了");
+                        int skSlot964 = -1;
+                        if (sk964 != null && drvE964.Ctx != null)
+                        {
+                            // 走**真实那条路**弹一次：点自己的单位 → 选「主动技能」。
+                            // `Ironclad`（`StarterCards.Ember()`）是自检里现成有 `Ability` 的那张
+                            //（同一条路在「技能与触发」那一段已经在跑；⛔ 不直接调 `Show()`，
+                            //  那样就绕过了判「会不会弹」的那一步）。
+                            skSlot964 = FreeSlot(drvE964.Ctx, drvE964.MySideForTest);
+                            if (skSlot964 >= 0)
+                            {
+                                ClearEffects();
+                                drvE964.Ctx.Players[drvE964.MySideForTest].Board[skSlot964] =
+                                    new UnitState(CardByName(StarterCards.Ember(), "Ironclad"), false) { Exhausted = false };
+                                drvE964.RefreshAll();
+                                drvE964.SimulateUseAbility(skSlot964, -1);
+                            }
+                        }
+                        if (sk964 != null && sk964.LightDrawnSize.x <= 0f) sk964.RefreshLayout();
+                        Check(sk964 != null && sk964.LightDrawnSize.x > 0f && sk964.LightDrawnSize.y > 0f,
+                              "★ A964/E2⑥：（前提）面板那两层**量得到非零实绘尺寸**"
+                            + $"（`Lights` 实测 {sk964?.LightDrawnSize.x:F3}×{sk964?.LightDrawnSize.y:F3} 世界单位）"
+                            + " —— `Contains` 不依赖 `Visible`（它只被 `SetPointer` 用），所以量得到就够"
+                            + "；⚠️ 若上面那条链路没把面板弹出来，这一格会如实报「没弹出来」");
+                        if (sk964 != null && sk964.LightDrawnSize.x > 0f && sk964.LightDrawnSize.y > 0f)
+                        {
+                            var sl964 = sk964.LightWorldPos;
+                            var sd964 = sk964.LightDrawnSize;
+                            bool inS964  = sk964.Contains(sl964)
+                                        && sk964.Contains(sl964 + new Vector3(0.45f * sd964.x * 0.5f, 0f, 0f))
+                                        && sk964.Contains(sl964 + new Vector3(0f, 0.45f * sd964.y * 0.5f, 0f));
+                            bool outS964 = !sk964.Contains(sl964 + new Vector3(3f * sd964.x * 0.5f, 0f, 0f))
+                                        && !sk964.Contains(sl964 + new Vector3(0f, 3f * sd964.y * 0.5f, 0f));
+                            var sbox964 = sk964.HitBoxWorldSize;
+                            var sbg964  = sk964.BgDrawnSize;
+                            bool bgIn964 = sk964.Contains(sk964.BgWorldPos);   // 另一层（底板）中心也必须在框里
+                            hits964.Add($"E2⑥\t技能面板 Lights 色片\tSkillPanel.Contains\t实绘 {sd964.x:F3}×{sd964.y:F3} 世界单位"
+                                      + $"（底板另 {sbg964.x:F3}×{sbg964.y:F3} · 命中框 {sbox964.x:F3}×{sbox964.y:F3}）"
+                                      + $"\t内侧中={inS964} · 外侧不中={outS964} · 底板中心中={bgIn964}"
+                                      + "\t实绘读法 = `WorldW/H × lossyScale`（`PlaceQuad` 是横向拉伸，只读 `WorldW` 会量小）");
+                            Check(inS964,
+                                  "★ A964/E2⑥：技能面板 —— **画得最大那层（`Lights`）的中心 + 实绘矩形内的 0.45 半宽/半高点都在命中框里**"
+                                + $"（色片实绘 {sd964.x:F3}×{sd964.y:F3} 世界单位，命中框 {sbox964.x:F3}×{sbox964.y:F3}）"
+                                + "｜🧨 改坏法：`Contains` 的手算 `PanelW/PanelH` 缩到小于色片实绘 ⇒ 红");
+                            Check(outS964,
+                                  "★ A964/E2⑥（**灭自证**）：色片**外侧 3 倍半宽/半高**处**不在命中框里**（命中框有界）"
+                                + " —— 与上一条配对：「`Contains` 恒 true」会让上一条绿、本条红");
+                        }
+                        if (sk964 != null && skSlot964 >= 0)
+                        {
+                            if (sk964.Visible) sk964.Hide();
+                            drvE964.SimulateDeselect();
+                            drvE964.Ctx.Players[drvE964.MySideForTest].Board[skSlot964] = null;
+                            drvE964.RefreshAll();
+                        }
+                    }
+
+                    // ---- 补 7：**结束回合钮**（口：`BattleDriver.EndTurnWorldPos` / `EndTurnDrawnPx` / `HitEndTurn`）----
+                    {
+                        var ee964 = drvE964.EndTurnWorldPos;
+                        var ed964 = drvE964.EndTurnDrawnPx;
+                        Check(ed964.x > 0f && ed964.y > 0f, "★ A964/E2⑦：（前提）结束回合钮建出来了");
+                        if (ed964.x > 0f && ed964.y > 0f)
+                        {
+                            bool inE964  = drvE964.HitEndTurn(ee964)
+                                        && drvE964.HitEndTurn(ee964 + new Vector3(0.45f * ed964.x * 0.5f / PxPerUnit964, 0f, 0f))
+                                        && drvE964.HitEndTurn(ee964 + new Vector3(0f, 0.45f * ed964.y * 0.5f / PxPerUnit964, 0f));
+                            bool outE964 = !drvE964.HitEndTurn(ee964 + new Vector3(3f * ed964.x * 0.5f / PxPerUnit964, 0f, 0f))
+                                        && !drvE964.HitEndTurn(ee964 + new Vector3(0f, 3f * ed964.y * 0.5f / PxPerUnit964, 0f));
+                            hits964.Add($"E2⑦\t结束回合钮\tBattleDriver.HitEndTurn\t实绘 {ed964.x:F2}×{ed964.y:F2} px"
+                                      + $"\t内侧中={inE964} · 外侧不中={outE964}"
+                                      + "\t原版 rect 130.7×80.4（贴图 182×112 的 1.625 × 高 80.4）；命中 = 底图 quad");
+                            Check(inE964,
+                                  "★ A964/E2⑦：结束回合钮 —— **视觉中心 + 实绘矩形内的 0.45 半宽/半高点都判得中**"
+                                + $"（实绘 {ed964.x:F2}×{ed964.y:F2} px，原版 rect 130.7×80.4）"
+                                + "｜🧨 改坏法：`HitEndTurn` 只按文字那层判（`_endTurnLabel` 比底图窄）⇒ 半宽那点掉出去 ⇒ 红");
+                            Check(outE964,
+                                  "★ A964/E2⑦（**灭自证**）：结束回合钮**外侧 3 倍半宽/半高**处**判不中**（命中区有界）"
+                                + " —— 与上一条配对：「`HitEndTurn` 恒 true」会让上一条绿、本条红");
+                        }
+                    }
+                }
+
                 // ---- 收尾：把本段动过的东西放回去 ----
                 CloseAll964();
                 drv964.SetHudButtonActiveForTest("settings", true);

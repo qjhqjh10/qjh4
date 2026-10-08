@@ -121,8 +121,17 @@ namespace RuleEngine
         //    · **没有**接调用点 —— 那些落点在 `CardPresentation/Battle/BattleDriver.cs`
         //      （`SetHint(RuleCodes.Describe(rc))`，`@ ~:6916` 出牌被拒那条路 + `:7149` 技能面板
         //      那条 `Phrase("NO LEGAL TARGET")`），**不在本代理的文件白名单里** ⇒ 只报告，不动手。
-        //    · 调用点该长成的样子（给下一位）：`SetHint(Loc.T(RuleCodes.TermKey(rc)) ?? RuleCodes.Describe(rc))`
-        //      —— 键**今天没有值**（见下），所以「值走我们的兜底」那句 `?? Describe(rc)` **必须留着**。
+        //    · 调用点该长成的样子（给下一位）：`SetHint(key != null && Loc.HasEntry(key) ? Loc.T(key) : RuleCodes.Describe(rc))`
+        //      （`key = RuleCodes.TermKey(rc)`；落地那一份 = `BattleDriver.HintForCodeWithKey` 的 `:7771`）。
+        //      🔴 **2026-10-18（第四会话 · 双语③ 波 0）就地订正（铁律 5）**：本行**原来写的是**
+        //      `Loc.T(RuleCodes.TermKey(rc)) ?? RuleCodes.Describe(rc)` —— **那是错的**，而且与
+        //      `BattleDriver.cs:7771` 的正确写法**并存**（= 工程红线「两处写同一条规则，迟早不一致」）。错在哪：
+        //      `Loc.T` **从不返回 null**（空键回 `""`、**缺键回【键名本身】**，见 `Core/Loc.cs` 的 `T()` doc）
+        //      ⇒ `??` 那一半**永不触发** —— 无键那些码会拿到 `""`（提示行**全空** = 本工程最忌讳的静默失败）、
+        //      有键但表里没有的码会**把键名印到界面上**。⇒ 必须**先判键、再判表**（`Loc.HasEntry` 是**唯一**
+        //      一个「键在不在表里」的公开查询口）。下面 `TermKey` 的 doc 里同样那一句也一并订正了。
+        //      🆕 同批（波 0）：那四条 `Battle/Tips/*` 键**已经收进 `Core/Loc.cs` 的表** ⇒ 「键**今天没有值**」
+        //      那一句**从本批起不成立**（有键那几条现在走 `Loc.T`；`Describe` 仍是无键码那一档的出路）。
         //
         // 🔴 **原版那五条键的【落点】—— 逐支现读，第一权威**
         //   （`d:/2/tools/decomp_full/BattleManager__CanPlayCard.c`）：
@@ -150,8 +159,12 @@ namespace RuleEngine
         /// **判不出来时返回 `null`**（⛔ 不猜，见下面那张「为什么不映射」的表）。
         ///
         /// 用法（**落点在表现层，本文件只提供映射**）：
-        /// <c>SetHint(Loc.T(RuleCodes.TermKey(rc)) ?? RuleCodes.Describe(rc))</c>
-        /// —— 兜底那一半**必须留**：这些键今天没有值（见上面 ⚠️）。
+        /// <c>SetHint(key != null &amp;&amp; Loc.HasEntry(key) ? Loc.T(key) : RuleCodes.Describe(rc))</c>
+        /// （`key = RuleCodes.TermKey(rc)`；落地那一份 = `BattleDriver.HintForCodeWithKey`）。
+        /// 🔴 **2026-10-18（第四会话）就地订正**：本行原来写 <c>Loc.T(RuleCodes.TermKey(rc)) ?? RuleCodes.Describe(rc)</c>
+        /// —— **错的**：`Loc.T` 缺键返回**键名本身**、**从不返回 null** ⇒ `??` 那一半永不触发（详见上面那一处）。
+        /// ⚠️ 「这些键今天没有值」**已过期**（波 0 起那四条键都在 `Core/Loc.cs` 表里）；
+        /// 兜底那一半仍然**必须留** —— 它是「无键码（如 `ErrSlot`）/ 键不在表里」那一档的唯一出路。
         /// ⚠️ **别拿它替换 `Describe`**：AI / 网络层 / 教程层 / 自检都在用 `Describe`
         ///   （`grep \`RuleCodes.Describe\` 全仓 **20+ 处**），那些地方要的是**人话**、不是键名。
         /// </summary>

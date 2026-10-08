@@ -24,24 +24,20 @@ public static class MainMenuScene
     const string ScenePath = "Assets/CardPresentation/Scenes/MainMenu.unity";
     const string ShotDir = "d:/4/_tmp_view/menu";
 
-    static int _pass, _fail;
-    static readonly List<string> _failures = new List<string>();
-
-    static void Section(string t) { Debug.Log(P + $"--- {t} ---"); }
-
-    static void Check<T>(T got, T want, string msg)
+    /// <summary>🆕 2026-10-18（第四会话）：断言计数器 + 输出口径**收口到共用件 `Editor/MenuCheck.cs`**
+    /// （唯一实现处；本文件只剩同名的一行转发 ⇒ 5,534 个调用点一个字没动）。
+    /// 🔴 **逐宿主一份 `CheckSink`**（⛔ 不是全局 static）—— 「拿别处的 `Check` 去断，失败会
+    /// **记进别人的合计**里 ⇒ 静默」，判据见 `Editor/RewardWindowFixture.cs:12-14`。</summary>
+    static readonly CheckSink _sink = new CheckSink(P)
     {
-        if (EqualityComparer<T>.Default.Equals(got, want)) { _pass++; Debug.Log(P + $"   ✓ {msg}"); }
-        else
-        {
-            _fail++;
-            var line = $"{msg} —— 期望 [{want}]，实得 [{got}]";
-            _failures.Add(line);
-            Debug.LogError(P + $"   ✗ {line}");
-        }
-    }
+        Near = MenuNearStyle.Compact3,       // 本文件原来是 `（{got:F3} ≈ {want:F3}±{tol:F3}）`
+    };
 
-    static void CheckTrue(bool c, string msg) { Check(c, true, msg); }
+    static void Section(string t) => MenuCheck.Section(_sink, t);
+
+    static void Check<T>(T got, T want, string msg) => MenuCheck.Check(_sink, got, want, msg);
+
+    static void CheckTrue(bool c, string msg) => MenuCheck.True(_sink, c, msg);
 
     /// <summary>🆕 **2026-10-04（A47 接线批）**：压暗层（「点窗外关窗」）命中区那条不变量。
     /// 🔴 **2026-10-07（A77⑬⑥）这一份本文件里的副本已删** —— 全工程**唯一一份**在
@@ -84,16 +80,9 @@ public static class MainMenuScene
 
     /// <summary>🆕 A17：把一棵树里**接了悬停换图**的按钮逐个悬停一遍 —— 没换图、或离开没还原，都要红。
     /// ⚠️ 批处理没有帧循环 ⇒ `WindowButton.AuditHoverSwap` 直调 `Enter/Exit`（就是指针层调的那两个）。</summary>
-    static void CheckHoverSwap(Transform root, string what)
-    {
-        int n; string bad = WindowButton.AuditHoverSwap(root, out n);
-        CheckTrue(n > 0, what + "：**确实有**接了悬停换图的按钮（n=" + n + "，否则这条等于没查）");
-        if (bad.Length > 0) CheckTrue(false, what + "：换图要「悬停换得动 + 离开还原得回」—— " + bad);
-    }
+    static void CheckHoverSwap(Transform root, string what) => MenuCheck.HoverSwap(_sink, root, what);
 
-    static void CheckNoMissingSwapArt(string what)
-        => CheckTrue(WindowButton.MissingSwapArt.Count == 0,
-                     what + "：**悬停图一张都不缺**（缺的会列在这里：" + string.Join("、", WindowButton.MissingSwapArt.ToArray()) + "）");
+    static void CheckNoMissingSwapArt(string what) => MenuCheck.NoMissingSwapArt(_sink, what);
 
     /// <summary>🔴 2026-10-12（A507 · H46）：把当前开着的**模态提示窗**全部关掉 —— **按【类型】清**。
     /// <para>⛔ **不许改回拿 `WindowsManager.popUpWindow` 当清场入口**（A416 把**本文件这两处**都改成了那个写法）：
@@ -144,7 +133,7 @@ public static class MainMenuScene
     }
 
     static void CheckNear(float got, float want, float tol, string msg)
-        => CheckTrue(Mathf.Abs(got - want) <= tol, $"{msg}（{got:F3} ≈ {want:F3}±{tol:F3}）");
+        => MenuCheck.Near(_sink, got, want, tol, msg);
 
     /// <summary>世界坐标比对（±0.01 世界单位 ≈ ±1 px）。</summary>
     static void CheckAt(Transform t, float x1, float x2, float y1, float y2, string what)
@@ -442,11 +431,12 @@ public static class MainMenuScene
         x1 = y1 = x2 = y2 = 0f;
         var q = t != null ? t.GetComponentInChildren<ImageQuad>() : null;
         if (q == null) return false;
-        float w = q.WorldW * 108f, h = q.WorldH * 108f;
-        float cx = LayoutSpace.PxX(q.transform.position.x), cy = LayoutSpace.PxY(q.transform.position.y);
-        x1 = cx - w * 0.5f; x2 = cx + w * 0.5f;
-        y1 = cy - h * 0.5f; y2 = cy + h * 0.5f;
-        return true;
+        // 🆕 2026-10-18（A1003）：矩形算法收口到 `MenuDraw.QuadRectPx`（保留本名与本形参 ⇒ 调用点 0 改动）。
+        // 🔴 **取 quad 那一步【有意保留】**：本函数是 `GetComponentInChildren<ImageQuad>()`（**不带 `true`**，
+        //    只看激活链上的）⇒ 收口只换矩形算式，取法一个字不动。
+        // ⚠️ 改前这一份是**甲式**（`LayoutSpace.PxX/PxY`，≡ `ToPixel`）；`MenuDraw` 那份是**乙式**
+        //    （先 `PosInDesignSpace` 除回父级缩放）⇒ 父链 `lossyScale == 1` 时逐位相同。
+        return MenuDraw.QuadRectPx(q, out x1, out y1, out x2, out y2);
     }
 
     // ============================================================ 建场景
@@ -472,25 +462,10 @@ public static class MainMenuScene
         return rt;
     }
 
-    static void Shoot(string file)
-    {
-        var cam = Camera.main;
-        if (cam == null) return;
-        const int W = 1920, H = 1080;
-        var rt = RenderTexture.GetTemporary(W, H, 24, RenderTextureFormat.ARGB32);
-        cam.targetTexture = rt;
-        cam.Render();
-        RenderTexture.active = rt;
-        var tex = new Texture2D(W, H, TextureFormat.RGB24, false);
-        tex.ReadPixels(new Rect(0, 0, W, H), 0, 0);
-        tex.Apply();
-        RenderTexture.active = null;
-        cam.targetTexture = null;
-        File.WriteAllBytes(Path.Combine(ShotDir, file), tex.EncodeToPNG());
-        Object.DestroyImmediate(tex);
-        RenderTexture.ReleaseTemporary(rt);
-        Debug.Log(P + $"  截图 {Path.Combine(ShotDir, file)}");
-    }
+    /// <summary>截图 —— 本文件那一份**原来就没有空图护栏**（无 `MeanBrightness`、无 `allowBlank`）
+    /// ⇒ `guardBlank: false`（⛔ **不许顺手补上**：那会给本宿主**新增断言**、可能绿变红；
+    /// 那笔账另记，见 `Editor/MenuCheck.cs` 的 `Shoot` 文件头）。</summary>
+    static void Shoot(string file) => MenuCheck.Shoot(_sink, ShotDir, file);
 
     // ============================================================ 自检
 
@@ -504,7 +479,7 @@ public static class MainMenuScene
     /// 期望值写原版实读的字面量，并把出处（资产路径 / `文件:行号` / `menu_dump` 命令）写在旁边的注释里。</para></summary>
     public static void Run()
     {
-        _pass = 0; _fail = 0; _failures.Clear();
+        _sink.Pass = 0; _sink.Fail = 0; _sink.Failures.Clear();
         Directory.CreateDirectory(ShotDir);
         Debug.Log(P + "=== 主菜单自检 开始 ===");
 
@@ -10711,7 +10686,7 @@ public static class MainMenuScene
         }
 
         Debug.Log(P + menu.Dump());
-        Debug.Log(P + $"=== 合计：{_pass} 通过 / {_fail} 失败 ===");
+        Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");
         // 🔴 **2026-10-12（A443 · 调度台裁定）**：这一串是**失败表的【重列】**（每条失败在 `Check()` 里
         //   **已经现场打过一次**，行首是真 `✗`，见本文件 `:36`）⇒ 重列这里**不能再带 `✗`** ——
         //   原来是 `✗` 时日志里 `✗` 行数 = 失败数 **×2**，连「按行首标记数」都数不准
@@ -10719,8 +10694,8 @@ public static class MainMenuScene
         //   `RewardsScene` / `ShopScene`（A350 已改）；本处是 A443 补上的第 6 处。
         //   ⚠️ **别顺手改另外两处真 `✗`**：本文件 `:36`（`Check()` 现场那条**不是重列**）
         //   与结尾 `✗ 场景里没挂 MainMenuRuntime`（那是真错误）—— 同族先例见 H9 §5·2。
-        if (_fail > 0) foreach (var f in _failures) Debug.LogError(P + "   失败重列：" + f);
-        EditorApplication.Exit(_fail > 0 ? 1 : 0);
+        if (_sink.Fail > 0) foreach (var f in _sink.Failures) Debug.LogError(P + "   失败重列：" + f);
+        EditorApplication.Exit(_sink.Fail > 0 ? 1 : 0);
     }
 
     // ============================================================ §A103 的四个小助手（2026-10-13）
@@ -10847,13 +10822,9 @@ public static class MainMenuScene
         wb.SetSelected(wasSel);
     }
 
-    static Transform FindChild(Transform parent, string name)
-    {
-        if (parent == null) return null;
-        foreach (var t in parent.GetComponentsInChildren<Transform>(true))
-            if (t.name == name) return t;
-        return null;
-    }
+    /// <summary>🆕 2026-10-18（第四会话）：收口到 `MenuCheck.FindChild`（5 份逐字相同的那一份）。
+    /// ⚠️ **它不认识 `A/B/C` 这种路径写法** —— 要路径用本文件自己的 `FindPath` 那一族。</summary>
+    static Transform FindChild(Transform parent, string name) => MenuCheck.FindChild(parent, name);
 
     /// <summary>
     /// **量**一段文字渲出来到底多大（不猜）。原版给的是 `m_fontSize`（画布像素）——
@@ -11179,19 +11150,10 @@ public static class MainMenuScene
     /// 至少一块 ⇒ 回 true（并集 = 整块，因为九块无缝铺满）。</summary>
     static bool UnionQuadRect(Transform t, out float x1, out float y1, out float x2, out float y2)
     {
-        x1 = y1 = float.MaxValue; x2 = y2 = float.MinValue;
-        if (t == null) return false;
-        bool any = false;
-        foreach (var q in t.GetComponentsInChildren<ImageQuad>(true))
-        {
-            float a1, b1, a2, b2;
-            if (!HitQuadRect(q.transform, out a1, out b1, out a2, out b2)) continue;
-            x1 = Mathf.Min(x1, a1); y1 = Mathf.Min(y1, b1);
-            x2 = Mathf.Max(x2, a2); y2 = Mathf.Max(y2, b2);
-            any = true;
-        }
-        if (!any) { x1 = y1 = x2 = y2 = 0f; return false; }
-        return true;
+        // 🆕 2026-10-18（A1003）：并集算法收口到 `MenuDraw.UnionQuadRectPx`（保留本名与本形参 ⇒ 调用点 0 改动）。
+        // 🔴 **本宿主那一项【有意保留】的差异**：`QuadGate.None` —— 原来 `GetComponentsInChildren<ImageQuad>(true)`
+        //    之后**没有**任何激活闸，那在这是**有意**的（⛔ 别统一成 `Self` / `InHierarchy`）。
+        return MenuDraw.UnionQuadRectPx(t, MenuDraw.QuadGate.None, true, out x1, out y1, out x2, out y2);
     }
 
     /// <summary>一段文字**现在**的字号（画布像素）= `Label.FontPxNow`（开着 auto 就是**收敛结果**）。

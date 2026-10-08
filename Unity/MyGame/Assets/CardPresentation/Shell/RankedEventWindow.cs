@@ -180,8 +180,14 @@ namespace CardPresentation
             Debug.LogWarning("[Event] `ChangeRankedToggle` 点了 —— 本地**没有排位赛**（没有服务器与分段数据），"
                              + "**如实说明、不假装切换**");
             if (Manager != null)
-                Manager.ShowPopUp("排位赛需要服务器连接。\n本地版没有联机（将来做 P2P），所以这里只能看看界面。",
-                                  "知道了", null);
+                // 🆕 2026-10-18（双语③ P2）：钮文案改走语言表；键 = 原版 mTerm `MainMenu/General/OK`
+                //   （`Core/Loc.cs` 的表，大写 `OK`）。
+                // 🆕 2026-10-18（波 1b · P2b）：正文也改走语言表 —— 键 `MainMenu/Ranked/OfflineNote`
+                //   是波 0b 补进表的那 111 条之一。
+                // ⚠️ **该键的两列值里那句「（将来做 P2P）」已过期**（P2P 2026-09-26 就做完了）——
+                //   值在 `Core/Loc.cs`，**不在本波白名单** ⇒ 本波只接线、**没改文案**，已写进交件报告。
+                Manager.ShowPopUp(Loc.T("MainMenu/Ranked/OfflineNote"),
+                                  Loc.T("MainMenu/General/OK"), null);
         }
 
         void ApplyToggleState(Label unranked, Label ranked)

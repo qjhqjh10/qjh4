@@ -738,12 +738,17 @@ namespace CardPresentation
             var r = PageRect;
             float cx = r.CX, cy = r.CY;
 
+            // 🆕 2026-10-18（波 1b · P2b）：这两句改走语言表（波 0b 补进表的那 111 条之一）。
+            // ⚠️ `MainMenu/Social/ProfileTitle` 是**带占位符**的键（`「{0}」的档案` / `{0}'s profile`）
+            //   ⇒ 走 `string.Format`，⛔ 别用 `Replace`（键名里就有花括号，两列都要能换）。
+            // ⚠️ `who` 是**运行期值**（看的是哪个玩家）⇒ 不翻，只做参数（施工单 §③「玩家数据不翻」）。
             var l1 = MenuDraw.Text(Root, new PxRect(cx - 700f, cy - 70f, cx + 700f, cy + 10f),
-                                   "「" + (who ?? "?") + "」的档案", new Color(0.98f, 0.686f, 0.169f, 1f),
+                                   string.Format(Loc.T("MainMenu/Social/ProfileTitle"), who ?? "?"),
+                                   new Color(0.98f, 0.686f, 0.169f, 1f),
                                    "Stranger Name", 45f, Q, 1400f, 23f);
             if (l1 != null) l1.SetRenderQueue(Q);
             var l2 = MenuDraw.Text(Root, new PxRect(cx - 700f, cy + 20f, cx + 700f, cy + 120f),
-                                   "服务器数据 —— 本地版只有你自己那一份（原版这一页由服务器填）",
+                                   Loc.T("MainMenu/Social/ProfileOfflineNote"),
                                    Color.white, "Stranger Note", 32f, Q + 1, 1400f, 18f);
             if (l2 != null) l2.SetRenderQueue(Q + 1);
 

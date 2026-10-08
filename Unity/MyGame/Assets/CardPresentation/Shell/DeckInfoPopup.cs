@@ -28,8 +28,15 @@
 //   · `Deck Info` 抽屉（费用曲线 / 卡背）—— ✅ **建了**（`Switch Deck Info` 真的切两个抽屉；
 //     逐值 → 本文件 `BuildDeckInfoDrawer` 的注释）。⚠️ `Lore Text` **仍不建**：原版出厂 `act=N` +
 //     我们引擎**没有 lore 字段**（同 `CardDetailPopup` 那条老账）
-//   · `Share` / `Share On Chat` —— ✅ **接了**：原版走平台/服务端，我们**给卡组串**（`DeckLibrary.ExportString`）
-//     + 如实说明聊天那条发不出去（`ChatPanel` 自己就写着「没有服务器」）
+//   · `Share` / `Share On Chat` —— ✅ **接了**（`A1040` 2026-10-08 收口）。🔴 **这是两件不同的事**：
+//     · `Share` = **写系统剪贴板 + 弹一条提示**（原版 `DeckInfoPopup__ShareDeck.c` 三句：造串 →
+//       `UnityEngine.GUIUtility.set_systemCopyBuffer(串)` → `UIMessageController.ShowMessage`）；
+//       写剪贴板那份实现**全库只有一处** = `Deck/DeckRuntime.CopyDeckToClipboard`（卡组编辑那颗 `Share` 也走它）
+//     · `Share On Chat` = 原版**开一扇两键面板（群组 / 全局）→ 发一条聊天消息**、**不写剪贴板**；
+//       那扇面板**还没建**（账 `A1045`）⇒ 本路**如实出声**（`NotBuilt`）+ 把卡组串印出来给玩家自己抄
+//     🔴 **订正（铁律 5）**：本条原文写「原版走平台/服务端，我们**给卡组串**」—— **两半都不对**：
+//       原版既不上服务端、也没做平台分享（就是本地 `GUIUtility.systemCopyBuffer`，`DeckInfoPopup__ShareDeck.c:16`），
+//       而「我们给卡组串」现在只剩 `Share On Chat` 那一路（`Share` 已真写剪贴板）。
 //   · `Practice Deck` —— ✅ **接了**（选中/开练习窗）。🔴 **但有一层没复刻**：原版是
 //     `SelectPracticeOpponentDeck` ⇒ 这一副当**【对手】**卡组（`enemyDeck = 刚选中的那副`，判据 →
 //     `资料/预组卡组_原版规格.md` §五之二 第 4 行）；我们的练习窗只认**玩家自己**的卡组
@@ -833,7 +840,10 @@ namespace CardPresentation
             if (facTex != null)
                 Img(root, root, facTex, DdIconL, DdIconT, DdIconR, DdIconB, "Army Icon", QDIRow, true);
             Txt(root, root, info.Name, DdNameL, DdNameT, DdNameR, DdNameB, 44.5f, Align.Left, "Deck Name", QDIText);
-            Txt(root, root, wl != null ? wl.Name : "未选战将", DdWlL, DdWlT, DdWlR, DdWlB, 40f, Align.Left,
+            // 空战将位那行字走词条（键 `MenuDeck/Error/NoWarlord`，出处见 `Core/Loc.cs:904`）。
+            // ⚠️ 中文列是「还没有选战将」—— 与改前写死的「未选战将」**不同字**，这是**有意的**：
+            //    施工单 §附_Shell #1 判「语义一致 ⇒ 复用，别新造」（铁律 6：同义两键迟早不一致）。
+            Txt(root, root, wl != null ? wl.Name : Loc.T("MenuDeck/Error/NoWarlord"), DdWlL, DdWlT, DdWlR, DdWlB, 40f, Align.Left,
                 "Warlord Name", QDIText);
 
             // 5) `Info Panel` + 两个抽屉（`Deck List` 出厂在前、`Deck Info` 出厂 **INACT** ⇒ 建了关着）
@@ -1168,11 +1178,17 @@ namespace CardPresentation
                 if (State == DeckInfoState.Import && !CanImportDeck(CollectionData.Raw(DeckIndex)))
                 {
                     var wl = CollectionData.Warlord(DeckIndex);
-                    string msg = "This deck can't be imported." + (wl != null ? "（" + wl.Name + "）" : "");
+                    // 🔴 **2026-10-18（波 1b）**：原来这里是**写死的英文**（中文档下也印英文）⇒ 改走词条
+                    //   （键 `MenuDeck/CantImportDeck`，出处 `Core/Loc.cs:1250`；EN 列与改前写死串**逐字相同**）。
+                    //   ⚠️ 这条**键名是原版的**（`stringliteral.json` RVA `0x42CEBF0`）—— 正是上面注释里那个
+                    //   `DAT_1842cebf0`（VA − ImageBase `0x180000000`）⇒ 查到就用它，不再自拟。
+                    string msg = Loc.T("MenuDeck/CantImportDeck") + (wl != null ? "（" + wl.Name + "）" : "");
                     Debug.LogWarning("[DeckInfo] state = Import 且 `CanImportDeck == false` ⇒ **不进编辑器**"
                                      + "（原版 `DeckInfoPopup.EditDeck` 那条闸）；⚠️ 提示文案**是我们挑的** —— "
                                      + "原版那一条是 I2 词条键（`DAT_1842cebf0`），本地无语言表");
-                    if (Manager != null) Manager.ShowPopUp(msg, "知道了", null);
+                    // 弹窗唯一那颗钮走词条（键 `MainMenu/General/OK`，出处 = 原版同 GO TMP `m_text` = `OK`；
+                    //   证据与来历写在 `Core/Loc.cs:960-977`）。⚠️ 是 `OK` **不是** `Ok`（施工单 §④ 那条口径）。
+                    if (Manager != null) Manager.ShowPopUp(msg, Loc.T("MainMenu/General/OK"), null);
                     return;
                 }
                 // 「进编辑」**只有一份实现**（`CollectionWindow.GoEdit`）—— 收藏窗那条路也走它
@@ -1261,8 +1277,11 @@ namespace CardPresentation
             {
                 Debug.LogWarning("[DeckInfo] 我这副「" + (mine != null ? mine.Name : "?") + "」里有**隐藏卡** ⇒ "
                                  + "**不开打**（原版 `CheckHiddenCardsInDeck` 那一支）" + hiddenWhy);
+                // 正文走词条（键 `MenuDeck/Error/HiddenCards`，出处 `Core/Loc.cs:1235-1236`；ZH 列与改前逐字相同）。
+                // ⚠️ 拼在后面的 `hiddenWhy` 是**自检注入向的诊断串**（P3 §③·D 判 ②、未进表）⇒ 英文档下这条会是
+                //    「英文正文 + 中文诊断」的混合体。如实记着，**不是静默**。
                 if (Manager != null)
-                    Manager.ShowPopUp("这套卡组里有隐藏卡，开不了练习赛。" + hiddenWhy, "知道了", null);
+                    Manager.ShowPopUp(Loc.T("MenuDeck/Error/HiddenCards") + hiddenWhy, Loc.T("MainMenu/General/OK"), null);
                 return;
             }
             Debug.Log("[DeckInfo] 隐藏卡检查过了 ⇒ 开打（原版 `CheckHiddenCardsInDeck` 返回假那一支）"
@@ -1352,24 +1371,62 @@ namespace CardPresentation
                       + " 那一面（原版 `Switch Deck Info Button` 的语义）；toggle `isOn` → " + DrawerToggleIsOn);
         }
 
-        /// <summary>`Share` / `Share On Chat`：**原版走服务端 / 平台分享**，我们没有那两条。
-        /// 能拿出来的、真正可分享的东西 = **卡组串**（`DeckLibrary.ExportString`，与卡组编辑那颗 `Share` 同一份）
-        /// ⇒ 弹出来给用户看/抄（批处理与桌面都没法替用户按剪贴板），并**如实说明**聊天那条发不出去。</summary>
+        /// <summary>`Share` / `Share On Chat` —— 🔴 **两件不同的事，⛔ 别混成一个动作**（实证见下）。
+        /// <para>· `Share` = **写系统剪贴板 + 弹一条提示**。原版逐句（`decomp_full/DeckInfoPopup__ShareDeck.c`）：
+        /// ① `MakeDeckString()` 造串 ② `UnityEngine.GUIUtility.set_systemCopyBuffer(串)` **写系统剪贴板**
+        /// ③ `UIMessageController.ShowMessage(…)` **弹一条消息** —— 没有确认弹窗、没有平台分享、没有「先问再写」。
+        /// 写剪贴板那份实现**全库只有一处** = `DeckRuntime.CopyDeckToClipboard`（判据 `CLAUDE.md` §三
+        /// 「两处写同一条规则 = 迟早不一致」）⇒ ⛔ 别在这里再抄一份 `ExportString` + 赋值。</para>
+        /// <para>· `Share On Chat` = **另一件事**：原版开一扇 `GenericOptionsPanel`（群组 / 全局 两键，可用性由
+        /// `AlliancesManager.IsInGroup` / `PlayerDataManager.IsBannedFromChat` 决定）→ 选中后发一条聊天消息
+        /// （`ChatGlobalManager.ShareDeck`）⇒ **不写剪贴板**。见 <see cref="ShareOnChat"/>。</para>
+        /// <para>🔴 **2026-10-08（`A1040`）就地订正（铁律 5）**：本处原文写「**原版走服务端 / 平台分享**」
+        /// 与「（**批处理与桌面都没法替用户按剪贴板**）」—— **两句都不成立**：原版既不走上服务端、也没做
+        /// 平台分享（`DeckInfoPopup__ShareDeck.c:16` 调的就是本地 API `GUIUtility.systemCopyBuffer`）；而
+        /// 「没法按剪贴板」被**同一个动作本来的那份实现**直接反证（`Deck/DeckRuntime.cs` 的 `ShareDeckString()`，
+        /// 它早就写着 `GUIUtility.systemCopyBuffer = s`）⇒ 那句理由**本身就是错的**，已删。</para></summary>
         void ShareDeck(string key)
         {
+            if (key == "Share On Chat") { ShareOnChat(); return; }   // ⛔ 那条**不写剪贴板**（原版也不写）
             var deck = CollectionData.Raw(DeckIndex);
-            string s = deck != null ? RuleEngine.DeckLibrary.ExportString(deck) : "";
+            string s = DeckRuntime.CopyDeckToClipboard(deck);        // 全库唯一一份写剪贴板的实现
             if (string.IsNullOrEmpty(s))
             {
-                Debug.LogWarning("[DeckInfo] `" + key + "`：卡组串导不出来（`ExportString` 返回空）⇒ 没东西可分享");
+                Debug.LogWarning("[DeckInfo] `Share`：卡组串导不出来（`ExportString` 返回空）⇒ 剪贴板**没写**、"
+                                 + "什么都没发生（出声，不静默）");
                 return;
             }
-            Debug.Log("[DeckInfo] `" + key + "` ⇒ 卡组串（" + s.Length + " 字符）：" + s);
+            Debug.Log("[DeckInfo] `Share` ⇒ 卡组串（" + s.Length + " 字符）**已写进系统剪贴板**：" + s);
             if (Manager != null)
-                Manager.ShowPopUp(key == "Share On Chat"
-                    ? "聊天窗**发不出消息**（原版走服务端，我们这条线没有网络）。\n\n这是这一副的卡组串，可以自己复制：\n" + s
-                    : "原版是**平台分享**。\n\n这是这一副的卡组串，可以自己复制：\n" + s,
-                    "知道了", null);
+                Manager.ShowPopUp(DeckRuntime.ShareCopiedText(s.Length) + "\n\n" + s,
+                                  Loc.T("MainMenu/General/OK"), null);
+        }
+
+        /// <summary>`Share On Chat`（原版 `DeckInfoPopup__ShareDeckOnChat.c`）—— ⛔ **不写剪贴板**（原版不写）。
+        /// <para>原版 = 开一扇 `GenericOptionsPanel`（两键：发给群组 / 发给全局）→ 选中后
+        /// `CardDeck.Serialize()` → `ChatGlobalManager.ShareDeck(串, 目标)`（= `CreateChatEvent(0x96)` +
+        /// `SendChatMessage`）。**那扇面板我们还没建**（账 `A1045`）⇒ 本路**如实出声**（`NotBuilt` 的
+        /// `LogWarning` + 一句人话弹窗），并把卡组串印出来给玩家自己选中复制。</para>
+        /// <para>🔴 **2026-10-08（`A1040`）就地订正（铁律 5）**：本处原来的正文写「**原版是平台分享**」
+        /// —— **与事实不符**（原版与平台分享无关，见上）；「发不出去」的理由原来写「原版走服务端，
+        /// 我们这条线没有网络」⇒ 现在写**准确的两条**：① 面板没建（`A1045`）② 我们**没有**
+        /// `ChatGlobalManager` 的对等发送口。</para></summary>
+        void ShareOnChat()
+        {
+            // ⛔ 别让它「什么都不发生」：`NotBuilt` = `Debug.LogWarning`（本文件现成那条出声通道）。
+            NotBuilt("Share On Chat 的【目标选择面板】（原版 DeckInfoPopup__ShareDeckOnChat.c → "
+                     + "GenericOptionsPanel 两键：群组 / 全局）—— 账 A1045，等它把面板建出来");
+            var deck = CollectionData.Raw(DeckIndex);
+            string s = deck != null ? RuleEngine.DeckLibrary.ExportString(deck) : "";
+            // ⛔ 这里【故意】调 `ExportString` 而不调 `DeckRuntime.CopyDeckToClipboard`：本条**不能**写剪贴板。
+            if (Manager != null)
+                Manager.ShowPopUp(
+                    "`Share On Chat`：原版是**另一件事** —— 开一扇两键面板（发给群组 / 发给全局）→ 发一条聊天消息；"
+                    + "那扇面板我们**还没建**（A1045），聊天线也没有跟原版 `ChatGlobalManager` 对等的发送口 "
+                    + "⇒ 这条今天**发不出去**。（这条**不会**写剪贴板 —— 原版也不写。）\n\n"
+                    + (string.IsNullOrEmpty(s) ? "（这一副的卡组串导不出来）"
+                                              : "这是这一副的卡组串，可以自己选中复制：\n" + s),
+                    Loc.T("MainMenu/General/OK"), null);
         }
 
         /// <summary>红线：**不许静默失败** —— 没做的必须说出来。</summary>

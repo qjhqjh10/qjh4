@@ -273,8 +273,10 @@ namespace CardPresentation
 
         /// <summary>`SameRect` 的**带容差**版本（`ApplySoftEdges` 的「整块不切」那条路要用）。
         /// 🔴 **为什么不能直接用 `SameRect`**：那里比的两个矩形，一个是调用方给的、一个是
-        /// `QuadRectPx(q)` **从世界坐标反推**回来的（隔着一次 `ToPixel`/`FromPixel` 的浮点往返，
-        /// 误差在 ~1e-4 px 量级）⇒ 逐字段 `==` 会**假阴**，把「本来一致」判成「不一致」。
+        /// `QuadRectPx(q)` **从世界坐标反推**回来的（隔着一次「读口 / 写口 `FromPixel`」的浮点往返，
+        /// 误差在 ~1e-4 px 量级 —— 🆕 **2026-10-18（A1004）读口换成 `PixelOfDesign` 之后它更小了**，
+        /// 但容差**照旧留着**：它同时挡着「世界↔设计」那一路的浮点残差，⛔ 别因为变小了就删）
+        /// ⇒ 逐字段 `==` 会**假阴**，把「本来一致」判成「不一致」。
         /// 0.05px 的容差对画面无意义，但足以把往返误差挡在外面。</summary>
         static bool SameRectNear(PxRect a, PxRect b, float eps = 0.05f)
             => Mathf.Abs(a.x1 - b.x1) <= eps && Mathf.Abs(a.x2 - b.x2) <= eps
@@ -589,10 +591,11 @@ namespace CardPresentation
         /// 🔴 **本式 = `LayoutSpace.FromPixel` 的逆、逐字对偶**：那边 x 的算式一改（例如全局裁定那天把
         /// `FromPixel` 改成与 `Px`/`ToPixel` 同一条常量换算），**这一行必须跟着改** —— 两处不同步就又变回 A990。</para>
         /// <para>🔴 **同一族【还没收口】的读口（A990 只动了 `ClipQuad` 那一个，其余留给调度台裁）**：
-        /// 下一段 `QuadRectPx`（它读的是 `PlaceCell` 用 `FromPixel` 写进去的位置）·
         /// `LayoutSpace.ToPixel` / `PxX` 的 **~90 个调用点**（命中判定 · `ViewportClip.ClipPx` ·
         /// `PointerLayer` · 各 `*Scene.cs` 的标尺 …）—— 它们**全是「只在 16:9 自洽」的那一批**，
-        /// 改动面跨 `Core/` 与十几个宿主，不在本件白名单里。</para></summary>
+        /// 改动面跨 `Core/` 与十几个宿主，不在本件白名单里。
+        /// ⚠️ **2026-10-18 就地订正（铁律 5 · A1004）**：这一段原来还把「下一段 `QuadRectPx`」列在**没收口**里
+        /// —— `QuadRectPx` 的位置项已改走本函数（`A1004`，16:9 下与旧读差 ≤2.5e-4px）⇒ **它已经不在这一族了**。</para></summary>
         static Vector2 PixelOfDesign(Vector3 designPos)
         {
             float vw = LayoutSpace.VisibleWidth;
@@ -602,8 +605,16 @@ namespace CardPresentation
                                LayoutSpace.PxY(designPos.y));
         }
 
-        /// <summary>一个 quad 在**画布 px（设计空间）**里的矩形（世界 → px 只走 `LayoutSpace.ToPixel`，
-        /// 见 `ClipNineChildren`）。
+        /// <summary>一个 quad 在**画布 px（设计空间）**里的矩形（位置项走 <see cref="PixelOfDesign"/> ——
+        /// 🆕 **2026-10-18（A1004）**：改前写的是 `LayoutSpace.ToPixel`，见下面那条订正）。
+        ///
+        /// <para>🆕 **2026-10-18（A1004）：位置项从 `LayoutSpace.ToPixel` 换成 <see cref="PixelOfDesign"/>。**
+        /// 这一段的**写**那一侧是 `PlaceCell` → `LayoutSpace.FromPixel`（用**实测** `VisibleWidth`），
+        /// 而 `ToPixel` 的 x 写死 108 ⇒ **非 16:9 下读/写不互逆**（4:3 偏 0.2778 · 21:9 偏 0.9722 世界单位；
+        /// 见 `资料/普查产出_1018第三会话/W_ClipQuad与量法.md:85` 那份「一行方案」）。
+        /// **16:9 下与旧读差 ≤ 2.5e-4 px**（`DesignPxW / VisibleWidth` 实得 107.99999）⇒ 12 条自检里把
+        /// `cam.aspect` 钉成 `DesignAspect` 的宿主**零回归**；y 那一半 `PixelOfDesign` 直接转调 `LayoutSpace.PxY`，**逐位不变**。
+        /// ⚠️ **`A990①` 那一档（尺寸项 `WorldW × K` 在非 16:9 下不跟位置缩放）【不在本件】** —— 见 `:42`。</para>
         ///
         /// <para>🔴 **2026-10-11（A298）**：**位置项先换算进【设计空间】，再喂 `ToPixel`** ——
         /// 即 `PosInDesignSpace(q.transform)`（除的是**该 quad 的父级那一级** `lossyScale`，
@@ -652,12 +663,81 @@ namespace CardPresentation
         /// 「有断言挡着」，只有拿「态二」（开关开 + 窗根 ×1.2 + `clip` 非空 + **九宫格/平铺的部分越界**）
         /// 才照得出来 —— 要配的两态断言（夹具 / 断言什么 / 为什么这个形状能照出它）
         /// 写在报告 `资料/普查产出_1011/W4_子3.md` §四（本批白名单里没有 `Editor/*Scene.cs` ⇒ 没动手）。</para></summary>
-        static PxRect QuadRectPx(ImageQuad q)
+        public static PxRect QuadRectPx(ImageQuad q)
         {
             const float K = LayoutSpace.DesignPxH / LayoutSpace.DesignHeight;   // 108 px / 世界单位
-            Vector2 cpx = LayoutSpace.ToPixel(PosInDesignSpace(q.transform));   // 🆕 A298：先除回设计缩放
+            Vector2 cpx = PixelOfDesign(PosInDesignSpace(q.transform));         // 🆕 A298 除回设计缩放 · A1004 走设计帧读口
             float hw = q.WorldW * K * 0.5f, hh = q.WorldH * K * 0.5f;
             return new PxRect(cpx.x - hw, cpx.y - hh, cpx.x + hw, cpx.y + hh);
+        }
+
+        /// <summary>🆕 **2026-10-18（A1003，A298 那条之后提的 `public`）**：`out` 形（给各宿主的量法助手转调用，
+        /// 它们**保留自己的函数名与形参**、只把函数体换成一行转调 ⇒ 调用点一个都不用改）。
+        /// 返回 `false` = `q == null`（四个 out 归零 —— 与各宿主原来的契约逐字一致）。</summary>
+        public static bool QuadRectPx(ImageQuad q, out float x1, out float y1, out float x2, out float y2)
+        {
+            x1 = y1 = x2 = y2 = 0f;
+            if (q == null) return false;
+            var r = QuadRectPx(q);
+            x1 = r.x1; y1 = r.y1; x2 = r.x2; y2 = r.y2;
+            return true;
+        }
+
+        /// <summary>🆕 **2026-10-18（A1003）**：并集时对每一块 `ImageQuad` 的**激活闸**。
+        /// 🔴 **三种口径各自都有生产用例 ⇒ 收口时逐条保留、⛔ 不许统一**
+        /// （原判据 → `资料/普查产出_第四会话/查证_并集判据与疑似可销四条.md` §一·4）。</summary>
+        public enum QuadGate
+        {
+            /// <summary>**完全不过滤** —— `Editor/MainMenuScene.cs` 的 `UnionQuadRect` 传 `true` 后**没有闸**，
+            /// 那在那边是**有意**的。</summary>
+            None = 0,
+            /// <summary>只看块自己 `activeSelf`（**父链关着也算进来**）—— `Editor/RewardsScene.cs` 的 `RectOfUnion`。</summary>
+            Self = 1,
+            /// <summary>块自己 + 父链全活（= `GetComponentsInChildren` 缺省那一档）——
+            /// `Editor/DeckScene.cs` · `Editor/SettingsScene.cs` · `Editor/ShopScene.cs` · `Editor/ShellScene.cs`。</summary>
+            InHierarchy = 2,
+        }
+
+        /// <summary>🆕 **2026-10-18（A1003）：全壳唯一一份「九宫格 active 子块并集」量法。**
+        /// 一棵子树里**全部 `ImageQuad` 的渲染矩形并集**（画布 px · 左上原点 · y 向下）——
+        /// 九宫格 / 平铺 / 软边切块**必须**用并集：⛔ 只取第一块会量成某个角块
+        /// （实据 = `Editor/SettingsScene.cs` 那条「弹窗底量成 182×173」）。
+        ///
+        /// <para>`gate` = 激活闸（见 <see cref="QuadGate"/> —— ⚠️ **三种口径都是生产在用的，⛔ 别统一**）；
+        /// `searchInactive` = `GetComponentsInChildren&lt;ImageQuad&gt;(searchInactive)` 那个形参
+        /// （`false` = 只找激活链上的 —— `Editor/ShopScene.cs` 那两处原样就是 `false`）；
+        /// `quads` = **真被算进去的块数**（软边切几块都行；`Editor/ShopScene.cs` 的「九宫格应该 9 块」用它）。
+        /// 返回 `false` = 一块都没量到（四个 out 归零）。</para>
+        ///
+        /// <para>🔴 **两项【有意保留】的宿主差异**（本函数**不**接管，⛔ 别顺手统一）：
+        /// ① `Editor/RewardsScene.cs` 的 `RectOfUnion` 里有「**一个 quad 都没有**时退回 `RectOf`（`Label` 那条路）」
+        /// —— 只有它有，其余宿主回 false；
+        /// ② `Editor/MainMenuScene.cs` 的 `UnionQuadRect` 那一路**完全不过滤**激活态（`QuadGate.None`）。</para></summary>
+        public static bool UnionQuadRectPx(Transform t, QuadGate gate, bool searchInactive,
+                                           out float x1, out float y1, out float x2, out float y2)
+            => UnionQuadRectPx(t, gate, searchInactive, out x1, out y1, out x2, out y2, out _);
+
+        /// <summary>同上，多给一个「真被算进去的块数」。见 <see cref="UnionQuadRectPx(Transform, QuadGate, bool, out float, out float, out float, out float)"/>。</summary>
+        public static bool UnionQuadRectPx(Transform t, QuadGate gate, bool searchInactive,
+                                           out float x1, out float y1, out float x2, out float y2, out int quads)
+        {
+            x1 = y1 = float.MaxValue; x2 = y2 = float.MinValue; quads = 0;
+            if (t == null) { x1 = y1 = x2 = y2 = 0f; return false; }
+            foreach (var q in t.GetComponentsInChildren<ImageQuad>(searchInactive))
+            {
+                if (q == null) continue;
+                if (gate == QuadGate.Self && !q.gameObject.activeSelf) continue;
+                if (gate == QuadGate.InHierarchy && !q.gameObject.activeInHierarchy) continue;
+                float a1, b1, a2, b2;
+                if (!QuadRectPx(q, out a1, out b1, out a2, out b2)) continue;
+                if (a1 < x1) x1 = a1;
+                if (b1 < y1) y1 = b1;
+                if (a2 > x2) x2 = a2;
+                if (b2 > y2) y2 = b2;
+                quads++;
+            }
+            if (quads == 0) { x1 = y1 = x2 = y2 = 0f; return false; }
+            return true;
         }
 
         /// <summary>软边带宽的**内沿**落在 `[a1,a2]` 内部的那两个断点（最多两个，已排序）。
