@@ -2,9 +2,15 @@
 //
 // **它干什么**：把效果文字里的**记号**换成 TMP 的行内 sprite 标签。
 //
-//     "Give +3 [Attack], +3 [Armor] or +3 Health to a friendly troop"
+//     "Give +3 [Attack], +3 Ranged or +3 Health to a friendly troop"   ← `DA44` 的**真** desc
 //       ↓ Rewrite("DA44", "desc", …)
-//     "Give +3 <sprite name=\"Melee\">, +3 <sprite name=\"Ranged\"> or +3 Health to a friendly troop"
+//     "Give +3 <link=melee><sprite name=\"Melee\"></link>, +3 Ranged or +3 Health to a friendly troop"
+//     （方括号那一支是「整串换掉」⇒ 记号不再出现；`<link>` **只包一层**、判据见 `Rewrite` 里那条 2026-10-20 的注释）
+//
+// 🔴 **2026-10-20（A969）**：上面那行里的 `[Armor]` 是**旧数据的写法** —— 卡池里现在写的是**裸词 `Ranged`**，
+//    而 `[Armor]`/`[Armour]` 在 1126 张卡里**一处都没有**了。⇒ 那个位置本该画**第二枚图标（紫圈枪）**
+//    （亲读 `D:/2/Warpforge部队卡片/Dark Angels/4计策/Warpforge_44_Ancient-Reliquary.png`：`+3〔拳〕, +3〔枪〕`、
+//    卡面上**没有** `Ranged` 这个词），现在却印着裸词。**缺口在 `工具/gen_icon_plan.py` 那张表**（不在本文件）。
 //
 // **为什么记号不能按名字查**：`[Attack]` 这类 token **不是原版数据**，是卡图 OCR 猜的 ——
 // 同一个 `[Attack]` 在 `DA44` 上是【拳】、在 `EC8 Alluress` 上是【枪】。所以答案是一张
@@ -146,8 +152,15 @@ namespace CardPresentation
         /// 把这段效果文字里的记号换成图标标签。
         /// `field` 传 `"desc"` 或 `"descZh"`（两张表分开定——中文和英文的记号不一定对得上）。
         ///
-        /// 🔴 **四类记号的处理方式不一样**（计划表 1369 处，实测口径：
-        /// **方括号 195 / 裸关键词 1095 / 符号 79**；另**「数字烘在图里」与前三类重叠、共 100 处**）：
+        /// 🔴 **四类记号的处理方式不一样**（计划表 **2121 处 / 654 张** —— 按当前
+        /// `Resources/card_icon_plan.json` **离线复算**：**「数字烘在图里」111 处（57 张）/
+        /// 裸关键词 1321 处（476 张）/ 方括号 628 处 + 符号 61 处 = 整串换掉 689 处（258 张）**；
+        /// 111+1321+689 = **2121** ＝ 计划表条目总数，闭上的）：
+        /// ⚠️ **这一段的数字被订正过两次（铁律 5 留痕）**：原来写「1606 处 / 576 张 / 106 / 1306/
+        /// 194」—— 那是 2026-10-20 `工具/gen_icon_plan.py` **重新生成计划表之前**的口径
+        /// （数据侧那批把记号从 1625 处补到 2121 处，见 `资料/普查产出_1018第三会话/W_卡面图标2.md`）；
+        /// 再早还写过「1369 处 / 195 / 1095 / 79」。**计划表一变这三个读数就要重算**，
+        /// 别从旧文档里抄。
         /// · **`[Attack]` 这类方括号记号** —— 那是**卡图 OCR 猜出来的占位**，
         ///   不是卡面上印的字。原版卡面上那个位置**只有图标**。⇒ **换掉**（记号不再出现）。
         /// · **`Waystone.` / `路标石。` 这类裸关键词** —— 那是**卡面上真印着的字**。
@@ -197,12 +210,36 @@ namespace CardPresentation
                 //   原版正文里 `[[枚举名]]` 展开成 `<link=…><nobr>图 + 词</nobr></link>`
                 //   （`GameStaticData__TraitNameToString.c:84-109` 拼串、`ModifyLocalization.c:440-456` 替换）；
                 //   我们这条本来就是「把 token 换成图」，所以把 link 加在同一处。
-                //   ⚠️ **幂等靠的是同一个 `tag` 变量**（下面 `s.IndexOf(tag + it.token)`）——
-                //      把 link 并进 `tag` 之后两边仍然一致，第二遍不会重复包一层。
-                string tag = "<sprite name=\"" + it.sprite + "\">";
+                //
+                // 🔴 **2026-10-20（A969）改：这里拆成【两份】串** —— 原来只有**一份** `tag`
+                //   （预先包好 link），裸关键词那一支又拿它去拼「图标 + 词」、外面再包一层
+                //   ⇒ 卡面上是 `<link=X><link=X><sprite name="X"></link>词</link>`
+                //   （同一个 id **套了两层**；1321 处 / 476 张，见下面 `裸关键词` 那支）。
+                //
+                //   **原版只有一层** —— 判据是实读全量反编译（`d:/2/tools/decomp_full/`，
+                //   里面的 `_DAT_` 字面量已按 `资料/战斗规则与数值_出处.md` §三 那条路解出来）：
+                //     · `GameStaticData__TraitNameToString.c:75-76`（`param_2` = 要不要图标那支）
+                //       = `String.Concat("<nobr>" /*0x184237e80*/, _traitTextSprite, 本地化词,
+                //                        "</nobr>" /*0x1842cf8e8*/)`
+                //     · 同文件 `:91-109` 外面**再包一次、且只包这一次**：
+                //       `Concat("<link=" /*0x184237880*/, 枚举名, ">" /*0x18423b778*/,
+                //               上一串, "</link>" /*0x1842cf7e8*/)`
+                //       ⇒ 原版整项 = `<link={DefinedTrait枚举名}><nobr>{图}{词}</nobr></link>`（**一层**）。
+                //     · `ModifyLocalization.c:440-456` 是它的调用点：`[[X]]`
+                //       （`"[["`/*0x1842b06f0*/ 与 `"]]"`/*0x1842b9628*/）→ `TraitNameToString(X, true)`，
+                //       替换进正文的是**那一整串**（所以原版正文里也只有一层）。
+                //   ⇒ 所以：`spriteTag` = **未包 link** 的那一份（给「图标 + 词」拼项用），
+                //            `tag`       = 外面套一层 link 的那一份（方括号 / 符号 / 数字那三支直接用）。
+                //   ✅ **2026-10-20（`A986②`）：原版那一项里的 `<nobr>` 我们【补上了】** ——
+                //      这条注释原来写着「我们这条支里没有 `<nobr>`……这是另一条账，本轮没动」，
+                //      **现在那笔账做完了**：裸关键词那一支的拼项改成 `<nobr>{图}{词}</nobr>`
+                //      （形状与 `CardText.KeywordSegment:290` 一致），细节/折行影响见下面那一支的注释。
+                //      ⚠️ 方括号 / 符号 / 数字那三支**照旧不加** —— 原版那三处没查到对应物（见那条注释）。
+                string spriteTag = "<sprite name=\"" + it.sprite + "\">";
                 string linkId = Badges.KeyOf(it.sprite);
-                if (!string.IsNullOrEmpty(linkId))
-                    tag = "<link=" + linkId + ">" + tag + "</link>";
+                string tag = string.IsNullOrEmpty(linkId)
+                           ? spriteTag
+                           : "<link=" + linkId + ">" + spriteTag + "</link>";
                 bool stone = it.sprite.IndexOf("SpiritStone", System.StringComparison.Ordinal) >= 0;
 
                 // ⚠️ **幂等**（见下面裸关键词那条的注释）：这段文字可能已经换过一遍了。
@@ -246,11 +283,43 @@ namespace CardPresentation
                     //    `CardData` 再喂给卡面一次）。不判的话第二遍会给**已经带图标的词**
                     //    再插一个图标，还会把方括号那条已经换好的结果当成裸词再插一次
                     //    （实测：`[践踏]` 第二遍变成 `<sprite>……<sprite>践踏`）。
-                    if (s.IndexOf(tag + it.token, System.StringComparison.Ordinal) >= 0) continue;
                     // 🆕 2026-09-21：**词也一起包进来**（原版整项就是一个 `<link>`）——
-                    // 悬停**图标或那个词**都能出 tooltip。⚠️ 幂等判据跟着换成整段 `bare`。
-                    string bare = tag + it.token;
-                    if (!string.IsNullOrEmpty(linkId)) bare = "<link=" + linkId + ">" + bare + "</link>";
+                    //    悬停**图标或那个词**都能出 tooltip。
+                    // 🔴 2026-10-20（A969）：拼项用**未包 link 的 `spriteTag`**、外面**只包这一层**
+                    //    ⇒ 形状 = `<link=X><nobr><sprite name="X">词</nobr></link>`
+                    //    （`<nobr>` 那一层见下条 `A986②`；`<link>` 这一层 = 原版那唯一一层）。
+                    //
+                    // 🆕 **2026-10-20（`A986②`）：再补 `<nobr>`（原版整项就是这三层）**
+                    //    · **判据（原版，全量反编译 `d:/2/tools/decomp_full/`）**：
+                    //      `GameStaticData__TraitNameToString.c:75-76` 拼的是
+                    //      `Concat("<nobr>" /*0x184237e80*/, 图, 词, "</nobr>" /*0x1842cf8e8*/)`，
+                    //      同文件 `:91-109` **外面再包一次、且只包这一次** `<link={枚举名}>…</link>`
+                    //      ⇒ **原版整项 = `<link={枚举名}><nobr>{图}{词}</nobr></link>`**；
+                    //      调用点 `ModifyLocalization.c:440-456` 把正文里的 `[[X]]` 换成这一整串
+                    //      ⇒ 正文里也只有这一层。上面那条 `A969` 的注释已把这两段实读过，
+                    //      它当时把「补 `<nobr>`」记成另一条账（那条账现在做完了）。
+                    //    · **作用**：不加的话 TMP 会把**图标与词拆到两行**（图标留在上一行行尾、
+                    //      词掉到下一行）；`CardText.KeywordSegment:288-290` 早就这么写了，
+                    //      两条路（关键词段 / 正文记号）现在**同形**。
+                    //    · 🔴 **这一改会改折行** —— 「不许在图标与词之间断行」是一条**新的排版约束**，
+                    //      正文比原来更难排 ⇒ 卡面可能**多折一行**；而卡面字号是 `FitToBox` 量的
+                    //      （见 `FontScaleFor` 那条注释）⇒ **凡是画卡面的宿主都要复跑版面自检**。
+                    //      本支覆盖 **1321 处 / 476 张**（见本函数头注释那张按分支口径的复算表）。
+                    //    · ⚠️ **方括号 / 符号 / 「数字烘在图里」那三支【不加】** —— 原版那三处
+                    //      **没查到对应物**（那三支是我们这边 OCR 记号的处置，原版没有「记号」这回事），
+                    //      照铁律 2「查不到就别照着猜」，本轮**没动**。
+                    string bare = "<nobr>" + spriteTag + it.token + "</nobr>";
+                    if (!string.IsNullOrEmpty(linkId))
+                        bare = "<link=" + linkId + ">" + bare + "</link>";
+                    // 🔴 **幂等判据 = 结果里已经有【一模一样的那一项】`bare` 就跳过**（`②g` / `②h` 钉它）。
+                    //    两遍都成立，理由是**结构性**的：插入用的就是 `bare` 这个串**本身**
+                    //    （`s.Replace(it.token, bare)` 的输出里必然含 `bare`）⇒ 第二遍一定查得到。
+                    //    ⚠️ 判据**必须**跟着形状一起改 —— 这里历史上换过两次形状（双层 → 单层 → 加 `<nobr>`），
+                    //       每一次都有一条按旧形状写的判据会**判不中**、于是同一个图标**再插一遍**
+                    //       （`A969` 那个双层 bug 就是这么来的，所以 `A969` 当时特意写了这条注释）。
+                    //    ⚠️ 上面那道守卫（`s.IndexOf(it.token) < 0 ⇒ continue`）**单独不够**：
+                    //       本支**把词留着**（`bare` 里就含 `it.token`）⇒ 第二遍那个 token 照样找得到。
+                    if (s.IndexOf(bare, System.StringComparison.Ordinal) >= 0) continue;
                     s = s.Replace(it.token, bare);
                     continue;
                 }

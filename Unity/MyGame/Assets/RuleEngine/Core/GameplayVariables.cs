@@ -142,10 +142,10 @@ namespace RuleEngine
         ///
         /// ============================================================ 2026-10-17
         /// 🔴 **「回合序号」那条判据链已读完整（三段字段定义闭合，别再重复查）**：
-        ///    · 比较行 = `BattleManager._NextTurn_d__395__MoveNext.c:191-207`：`hasValue && overtimeTurn <= iVar10`
-        ///    · `iVar10` 取自 `lVar3 + 0x3F8` ⇒ `dump.cs:30871` = **`private ObscuredInt <turnCounter>k__BackingField; // 0x3F8`**
+        ///    · 比较行 = `BattleManager._NextTurn_d__395__MoveNext.c:191-207`：`hasValue &amp;&amp; overtimeTurn &lt;= iVar10`
+        ///    · `iVar10` 取自 `lVar3 + 0x3F8` ⇒ `dump.cs:30871` = **`private ObscuredInt &lt;turnCounter&gt;k__BackingField; // 0x3F8`**
         ///    · `overtimeTurn` 本身 = `dump.cs:130179` `public int overtimeTurn; // 0x28`（类 `GameplayVariablesData`）
-        ///    · 它的来源 = `dump.cs:78158` `private GameplayVariablesData <GameplayData>k__BackingField; // 0xA8`（类 `MatchData`）
+        ///    · 它的来源 = `dump.cs:78158` `private GameplayVariablesData &lt;GameplayData&gt;k__BackingField; // 0xA8`（类 `MatchData`）
         ///    ⇒ **原版确实拿它比【回合计数器】**（字段名就叫 `turnCounter`；旁边 `0x40C` 才是 `playerTurnCounter`）。
         ///    ⚠️ **影响面（先前低估了）**：经典下两种判据数学等价；**遭遇下不等价** ——
         ///       按能量（`MaxEnergy` 走 `4→7→9→11`）⇒ **第 3 个自己的回合**就进加时；按回合序号（同样 10）⇒ **第 10 个回合**。

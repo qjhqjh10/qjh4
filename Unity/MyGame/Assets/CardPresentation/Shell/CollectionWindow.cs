@@ -399,9 +399,16 @@ namespace CardPresentation
             /// <para>⚠️ **那这一版今天还差什么（= ④ 真正在补的东西）**：**落点**。
             /// `MenuDraw.Local(parent, r)` 算的是 `RectCenter(r) − PosInDesignSpace(parent)`，用的是父件
             /// **当下**位置 ⇒ 面板停在收起位时建的那一版会**跟着面板一起滑回来**，到位那一刻偏 **+385px**
-            /// （`FltHiddenDx`）⇒ 这个标志今天防的是**可见错位**，不再是「整列空白」。
-            /// 更彻底那条（让 `MenuDraw.Local` 的帧也取那份记录矩形）= **A834**，另开一趟；
-            /// 判据 → `资料/普查产出_1016/W11_A811根治.md` §③·C。⛔ **别因为「不再空列」就把 ④ 删掉**。</para>
+            /// （`FltHiddenDx`）⇒ 这个标志今天防的是**可见错位**，不再是「整列空白」。</para>
+            /// <para>🔴 **2026-10-18（A834 · 铁律 5 订正）**：原文（留痕）写的是「更彻底那条（让 `MenuDraw.Local`
+            /// 的帧也取那份记录矩形）= **A834**，另开一趟；判据 → `资料/普查产出_1016/W11_A811根治.md` §③·C。
+            /// ⛔ **别因为「不再空列」就把 ④ 删掉**」。
+            /// ✅ **A834 那天修的是另一条路**（调度台裁定 = **甲**）：`RebuildFilterRowsNow` **建之前**先调
+            /// `DrawerHome(_flt)` 把面板摆回基准位 ⇒ 每一版**本来就是基准帧的坐标**。
+            /// ⇒ 这一格**从这个标志的名字读已经读不出「错」了**：它现在只表示「④ 会在到位那一拍做一次
+            /// **结果相同**的重建」（冗余，不是缺陷）。⛔ **④ 仍然留着**（它是 3 条既有断言的「改坏法」锚点，
+            /// 删它要先复跑 `CollectionScene.Run` 确认那 16 条全绿 —— 见 `ApplyDrawerSlide` ④ 那段）。
+            /// 判据与三个候选的取证 → `资料/普查产出_1018/Q-A834_裁定取证.md` §5–§7。</para>
             /// <para>⚠️ **只有 Cards / Styles 两页走得到 ④** —— 只有它们在**面板内部**挂了
             /// `ViewportClip`（`BuildFilterPanel` 里 `ViewportClip.Hang(panel.Find("Scroll View"), "Viewport", …)`
             /// 那一句）；页面级那几颗（`holder/Viewport`）不跟着面板动，卡背页那一份没有视口节点、
@@ -570,21 +577,32 @@ namespace CardPresentation
             //      （`ViewportClip.BaseRect`，由 `Hang` / `MenuDraw.ApplyPxRect` 写入），**不再跟实时
             //      `localPosition` 走** ⇒ 框与被比的矩形**同一帧** ⇒ 收起期间那次重建**照样建得出来**
             //      （静态推读、**未跑** → `资料/普查产出_1016/W11_A811根治.md` §③·C / §⑤）。
-            //    🔴 **今天真正欠的那点差 = 落点**：`MenuDraw.Local(parent, r)` 算的是
+            //    🔴 **④ 今天（2026-10-18 起）已经是【冗余】的一拍 —— A834 落地了（铁律 5 留痕）**：
+            //      原文（留痕）写的是「**今天真正欠的那点差 = 落点**：`MenuDraw.Local(parent, r)` 算的是
             //      `RectCenter(r) − PosInDesignSpace(parent)`（父件**当下**位置）⇒ 面板停在收起位时建的
             //      那一版会**跟着面板一起滑回来**，到位那一刻偏 **+385px**（`FltHiddenDx`）⇒ ④ 把它
             //      **重排到位**。（0.3 秒滑入期间那批件偏 0→+385px = **A834** 记的那处过渡表现；
-            //      更彻底的修法要让 `MenuDraw.Local` 的帧也取那份记录矩形 ⇒ **另开一趟**，同上那份报告 §④·3。）
+            //      更彻底的修法要让 `MenuDraw.Local` 的帧也取那份记录矩形 ⇒ **另开一趟**）」。
+            //      ✅ **现在**：那处「过渡偏位」已由 `RebuildFilterRowsNow` 里那句 `DrawerHome(_flt)`
+            //      （建之前把面板摆回基准位）**从根上治掉** ⇒ 建出来的每一版**本来就是基准帧的坐标**、
+            //      整列跟着面板**刚性**平移 ⇒ 到位那一拍**不需要**任何重排，④ 这一下算出来与不算是**同一个结果**。
+            //
+            //      🔴 **那 ④ 为什么还留着**：它是 3 条既有断言的「改坏法」锚点（见下面 ✅ 那段），
+            //      而删它要同步改那几条的文案 + **复跑 `CollectionScene.Run` 才能确认那 16 条全绿**
+            //      （`资料/普查产出_1018/Q-A834_裁定取证.md` §8·3 把这一格明确记成「没核」）——
+            //      本批（A834）跑不了 Unity ⇒ **不夹带**。留着的代价只是「展开那一拍多重建一次」
+            //      （与 A834 之前逐字相同的开销，不是新增）。⛔ 谁要删它，**必须先把那 16 条复跑绿**。
             //    ⚠️ 「闸本身」不是缺陷、⛔ 别去动它（A798 已裁定「只裁不建在画面上等价」）——
             //      这里修的**只是重建时机**（按今天的口径，准确说是**重建的落点**）。
             //
             //    ✅ 三个限定都必要，⛔ 一个都别省：
             //      · `prevSlide < 1f` —— 只在**跨过 1** 那一拍触发；`StepDrawer` 每帧都调本函数，
             //        少了它就成了「每帧重建一次」；
-            //      · `RowsBuiltOffBase` —— 只在这**真的欠着一版**时才建：无条件重建会把别人手里的
-            //        节点引用打散（`CollectionScene` 那条「同一格现在又点得到了」正拿着一颗格的引用
-            //        **跨过这一拍**）；它同时保证**起手建的那一版**（还没挪过杆子 ⇒ `HasBasePos == false`）
-            //        不会被误判；
+            //      · `RowsBuiltOffBase` —— ⚠️ **A834 之后它不再表示「那一版是错的」**（建的时候已经摆回
+            //        基准位了），只表示「这一版是在面板没停在展开位时建的」⇒ ④ 会多做一次**结果相同**的重建。
+            //        它原来那条理由仍然成立：无条件重建会把别人手里的节点引用打散（`CollectionScene` 那条
+            //        「同一格现在又点得到了」正拿着一颗格的引用**跨过这一拍**），而且它保证**起手建的那一版**
+            //        （还没挪过杆子 ⇒ `HasBasePos == false`）不会被误判；
             //      · `Scroll != null` —— **只有 Cards / Styles 两页**在面板里挂了 `ViewportClip`
             //        （`BuildFilterPanel` 的 `Scroll View/Viewport`）⇒ 只有它们吃这道闸。
             //        ⛔ **千万别把 `Scroll == null` 的那两份喂进 `RebuildFilterRows`**：
@@ -606,6 +624,27 @@ namespace CardPresentation
             //      `Toggle*` 入口落点 `552.905` · `Title Army` 渲染左沿 `385.25`），**灭自证**那条钉的是**帧路**
             //      （把「点开再重排一次」或补偿塞进 `ToggleFiltersNow` 都碰不到它）⇒ **修法必须落在本函数**。
             //      ⛔ 不再需要主对话裁；判据 → `资料/普查产出_1016/W24_落点断言与量法收口.md`。
+            //
+            //    🆕 **2026-10-18（A994⑥ · 调度台裁定：④【不删】，只补这一段注释）** —— 三件如实记账：
+            //      ① **它今天为什么是冗余的**：`A834` 走的是**候选甲** —— `RebuildFilterRowsNow` 开建之前先调
+            //         `DrawerHome(_flt)` 把面板摆回基准位 ⇒ 建出来的**每一版本来就是基准帧的坐标**、
+            //         整列跟着面板刚性平移 ⇒ 到位这一拍**不需要**任何重排：④ 算与不算**结果逐位相同**
+            //         （即上面那句「多重建一次」）。它从「修法」退化成**空转的那一拍**。
+            //         ⛔ 这不是「影响小所以留着」—— 裁定的是**风险 > 收益**（见 ②③），去留仍开着。
+            //      ② **真要删它，必须同时动 3 条断言的【改坏法】文案**（都在 `Editor/CollectionScene.cs` 的
+            //         「**A843 · 落点**」段；**按文案指认、⛔ 不写行号** —— 行号每次瘦身都会变）：
+            //         · `★★ A843 · 落点：展开到位后 Cell_owned 必须重排回 167.905`（**帧路**那一条）
+            //         · `★★ 同一拍、另一条建法的件也一样：小标题 Army 的渲染左沿回到 0.25`（`TitleLeftPx` 那一条）
+            //         · `★ A843 · 落点（Toggle* 那条入口）：同上，必须回到 167.905`（`Toggle*` 入口那一条）
+            //         —— 这三句今天仍把「**删掉 ④ ⇒ 实得 552.905 / 385.25 ⇒ 红**」当改坏法，
+            //         而那句话**从 A834 落地当天起已不成立**（删 ④ 它们照样绿，见上面那段订正）。
+            //         ⇒ 留 ④ 不删 = 那三句文案一个字都不用动；真要删 ④ = 必须同时把那三句改成
+            //         「删 `DrawerHome(_flt)` ⇒ 实得 …」（`DeleteDrawerHome` 那一路才是今天真会红的改坏法）。
+            //      ③ **判据 = 那 16 条（「A843 · 落点」整段）在【删掉 ④ 之后】仍全绿** ——
+            //         🔴 **这一格今天仍是「未核」**：① 只是**静态推读**，**从没真删过、也没跑过**
+            //         （`资料/普查产出_1018/Q-A834_裁定取证.md` §8·3 把这一格明确记成「没核」）。
+            //         ⛔ 谁要删 ④：**先跑一次 `CollectionScene.Run`** 把那段跑绿，再照 ② 改那三句文案 ——
+            //         顺序反了就是「改了文案却没人验过」（本项目最贵的一类返工）。
             if (p.Slide >= 1f && p.SlideTarget >= 1f && prevSlide < 1f
                 && p.RowsBuiltOffBase && p.Scroll != null)
                 RebuildFilterRows(p);
@@ -945,8 +984,11 @@ namespace CardPresentation
         //     🔴 **列数是【按宽度算】的 = `floor(1751.73 ÷ 250)` = 7**，不是 `_segments=5`
         //     （`_controlSegmentSize=1` ⇒ `ConfigureColumnNumber` 每帧按宽度覆盖 `_segments`；
         //      A4 §2·1 原来写「5 列是定值」**已就地更正** —— 证据同 A3 §3·5）
-        //   · 一格 = `Collection Cosmetic` 250×405，**只有两层图**：`Cardback`(铺满) + `Cardback Shadow SDF`
+        //   · 一格 = `Collection Cosmetic` 250×405，**只有两层图**：`Cardback` + `Cardback Shadow SDF`
         //     （后者 `sprite=0` 运行时喂）—— **没有卡名/费用/文字**
+        //     🔴 **2026-10-18（A994③）就地订正**：这里原来写 `Cardback`「**铺满**」—— **错了**：
+        //       两颗 `Image` 都带 **`m_PreserveAspect = 1`**（A4 §2·1「Simple preserveAspect」）
+        //       ⇒ 各自**按自己的贴图比例内接**进自己的框，**都不拉满**（见 `RebuildCosmoCells` 那两处逐条证据）。
         //   · 左抽屉 `Cosmetic FIlter`（0.05,85→335.55,1080）**出厂 act=F**
         //
         // ---- 没建的（出声）----
@@ -1075,14 +1117,26 @@ namespace CardPresentation
                         //    `RectMask2D`（`m_Softness=(0,0)`·`m_Padding=(0,0,0,0)`，实读见
                         //    `资料/普查产出_1008/波C2_A181_A212收藏窗_A214一.md`），会裁）。
                         //    ⚠️ `MenuDraw.Rect` 把宽高比设成**裁剩那块**的比 ⇒ 下面**不再自己 `SetAspect`**
-                        //    （没被裁到时两者同值 ⇒ 行为逐字不变）。
+                        //    （没被裁到时两者同值 ⇒ 行为逐字不变；🔴 A994③ 起 `keepAspect` 变 `true`，
+                        //     它设的是「**按贴图比例内接**之后再求交」那块 —— 依旧由它一次算对，
+                        //     ⛔ 别在外面补一句 `SetAspect`：矩形与 uv 是一对被拆开就拉伸的量）。
                         //    🔴 **2026-10-13（A435 阶段 2 · 乙 · A16）**：`clip` 形参从 `CosmoView` 改成 **`null`** ——
                         //    `CosmoView` 现在长在上面那颗 `ViewportClip` 节点上，显式传它 = 形参永远非空 ⇒
                         //    `Resolve` 第 1 支（节点**被形参盖住**，且 `NodeShadowedByParam` 会被这个站点**永久污染**）。
                         //    节点框（`ClipPx`）就是 `CosmoView` 反推回来的（差 ~1e-4px）、`padding`/`softness`
                         //    逐字相同 ⇒ **像素级不变**。`clipSoftness` 一并归零（节点态下由节点那份说了算）。
+                        // 🔴 **2026-10-18（A994③）**：`keepAspect` 从 `false` 改成 **`true`** —— 原版那颗
+                        //    `Cardback Shadow SDF` 的 `Image` 带 **`m_PreserveAspect = 1`**（A4 §2·1 那行
+                        //    「Simple **preserveAspect**」）⇒ 要**按贴图自己的比例内接**进 `sr`
+                        //    （337.5×550.8，比例 0.61275），⛔ 不是拉满。
+                        //    实测 `_SDF` 全部 **100×130**（比例 **0.76923**）> 0.61275 ⇒ **宽定**：
+                        //    实绘 **337.5×438.75**（高缩 112.05、上下各内缩 56.025）。
+                        //    ⚠️ **反证**：拉满时 x 缩放 = 337.5/100 = **3.375**，而 y 缩放 = 550.8/130 = **4.237**
+                        //    —— **非等比**，距离场会被竖向拉长；内接之后两轴都是 **3.375**（= 等比）。
+                        //    `keepAspect` 在**求交之前**作用（与 uGUI 的顺序一致：先按 pivot 内缩矩形、
+                        //    再由 `RectMask2D` 裁）⇒ uv 仍跟着裁剩那块走，不引入拉伸。
                         var qs = MenuDraw.Rect(cell, sdfTex, sr, "Cardback Shadow SDF", QPageSdf,
-                                               null, false, null, default(Vector2));
+                                               null, true, null, default(Vector2));
                         if (qs != null)
                         {
                             var mat = new Material(sdfBase);       // ⚠️ 每格一份：共享会让所有格共用最后一张掩码
@@ -1099,7 +1153,13 @@ namespace CardPresentation
 
                     // 🔴 同上：卡背本体也走公共件（**整块在视口外 ⇒ 连节点都不建**，同原版 `RectMask2D` 的命中语义）
                     //    🔴 **A16（2026-10-13）**：`CosmoView` → `null`（理由逐条同上面那一处）。
-                    var q = MenuDraw.Rect(cell, tex, r, "Cardback", QPageRow, null, false, null, default(Vector2));
+                    //    🔴 **2026-10-18（A994③）**：`keepAspect` 从 `false` 改成 **`true`** —— 原版那颗
+                    //    `Cardback` 的 `Image` 也带 **`m_PreserveAspect = 1`**（A4 §2·1）⇒ 按**贴图自己的比例**
+                    //    内接进 250×405（比例 0.61728），⛔ 不是拉满 250×405（我们原来就是这么画的 = 拉伸）。
+                    //    实测那 **233** 张比例 **0.6188~0.7652**、全部 > 0.61728 ⇒ **一律宽定**（宽仍 250、高缩）：
+                    //    例 `Cardback_AM_Shield of Humanity` 707×981 ⇒ **250×346.90**；
+                    //    偏离最大的 `Cardback_All_Premium4` 707×924 ⇒ **250×326.73**（拉满时高多 78.27px）。
+                    var q = MenuDraw.Rect(cell, tex, r, "Cardback", QPageRow, null, true, null, default(Vector2));
                     if (q != null) q.SetRenderQueue(QPageRow);
                 }
                 else
@@ -1746,6 +1806,38 @@ namespace CardPresentation
 
         /// <summary>费用那一档的**上界**（原版 8 档：`1-` / 2…7 / `8+`）。</summary>
 
+        /// <summary>🔴 **2026-10-18（A834 · 候选甲）**：把抽屉摆回**基准位**（位移 0）—— **建格子之前**调一次。
+        ///
+        /// <para>**它治什么**：「世界 → 局部落位」这条链上**两个读口**读的都是**父件【当下】的位置** ——
+        /// `MenuDraw.Local`（=`RectCenter(r) − PosInDesignSpace(parent)`）与
+        /// `Label.AlignLeftOn/AlignRightOn` → `Label.ParentXInDesignSpace()`（`Battle/Label.cs`）——
+        /// 而筛选栏这一批件**两者都用到**（格子的 `Node`/`Rect` 走前者、格子里的字走后者）。
+        /// 面板停在**收起位**（左移 385px）时建的那一版，局部坐标里**多烘了整段行程**：
+        /// 出生那一刻看着是对的（跟着面板一起偏），**面板滑回原位之后整列偏 +385px**，
+        /// 而 0.3 秒的滑入过程中它**一直**与别的件不在同一帧上（= A834 记的「过渡偏位」）。</para>
+        ///
+        /// <para>**为什么这样修而不是「按节点记设计矩形」**：本工程对「父件被挪 + 子件按绝对矩形落位」
+        /// 这一类**已有两种在用的解法**，本条用的是**最省的那种**（同类现成写法 =
+        /// `Deck/DeckRuntime.DrawerHome`（`:1602` 起）与它旁边那句 `PrepareDrawerForBuild`，调用点 `:4993` / `:5280`；
+        /// 另两处「先摆父件、再建子件」= `Shell/FriendsTab.cs` / `Shell/AllianceMemberTab.cs`）。
+        /// 记矩形那条（要动 `Shell/MenuDraw.cs` **与** `Battle/Label.cs`）改动面跨到战斗侧共用件，
+        /// 见 `资料/普查产出_1018/Q-A834_裁定取证.md` §6/§7（本条的取证与三个候选都在那儿）。</para>
+        ///
+        /// <para>⚠️ **它只在建树期间生效、不外泄**：`RebuildFilterRowsNow` 收尾那次
+        /// `ApplyDrawerSlide(_flt, _flt.Slide, true)`（同一帧内、同步）按进度把面板摆回去
+        /// ⇒ Play 下没有任何一帧渲染到「临时在基准位」的样子。</para>
+        ///
+        /// <para>⚠️ **`HasBasePos == false` 那一档不是多余**：起手那次建（`BuildFilterPanel` / `BuildCosmoDrawer`）
+        /// 发生在 `ApplyDrawerSlide(p, 0f)` **之前** —— 那时节点**本来就在基准位**，
+        /// 而 `BasePos` 还没被谁抓过 ⇒ 这里顺手抓一次（值与 `ApplyDrawerSlide` 抓的是同一个，
+        /// 判据同 `RebuildFilterRowsNow` 里 `RowsBuiltOffBase` 那条注释）。</para></summary>
+        void DrawerHome(FilterPanel p)
+        {
+            if (p == null || p.Node == null) return;
+            if (!p.HasBasePos) { p.BasePos = p.Node.localPosition; p.HasBasePos = true; }
+            p.Node.localPosition = p.BasePos;
+        }
+
         /// <summary>按当前筛选条件 + 滚动量，把 7 行摆出来。**每次刷新都重建**（29 格 + 1 个搜索框，量小，省一套脏标记）。
         ///
         /// 🔴 **2026-09-23 修**：进来先把面板**临时激活**，建完再还原。
@@ -1782,6 +1874,18 @@ namespace CardPresentation
             //     ⇒ 少了这一项，那一次会被误判成「按错框建的」，于是**每次展开都白重建一遍**
             //     （不是错，但会把别人手里的节点引用打散 —— 见 `ApplyDrawerSlide` ④ 的第二条限定）。
             _flt.RowsBuiltOffBase = _flt.HasBasePos && _flt.Slide < 1f;
+            // 🔴 **2026-10-18（A834 · 甲 · 铁律 5 订正）**：**建之前先把抽屉摆回基准位** ——
+            //   这一句是从 `Deck/DeckRuntime.DrawerHome` 抄来的同类解法，它**同时**治好两个读口
+            //   （`MenuDraw.Local` 与 `Label.ParentXInDesignSpace`，见 `DrawerHome` 的 doc），
+            //   于是**上面那句标志**（`RowsBuiltOffBase`）**不再表示「这一版是错的」**：
+            //     · 改前：建的时候面板停在哪，落点就按哪一帧算 ⇒ 收起态那一版**局部坐标多烘 385px**
+            //       ⇒ 0.3 秒滑入期间整列偏 0→+385px，只有 ④ 在到位那一拍把它重排回来；
+            //     · 改后：**每一版都按基准帧建** ⇒ 整列跟着面板**刚性**平移、途中每一帧都对，
+            //       `RowsBuiltOffBase` 于是只等于「④ 会在到位那一拍把**同一件事再做一遍**」（冗余，不是错）。
+            //   🔴 **⛔ 别以为它多余**：`HasBasePos == false` 那一档（起手建）它顺手抓一次 `BasePos`，
+            //     与 `ApplyDrawerSlide` 抓的是同一个值；而**去掉这一句**，`RowsBuiltOffBase` 就成了**谎话**
+            //     （标志说「按错帧建的」，实际却建在基准帧上）。
+            DrawerHome(_flt);
             bool wasActive = panel.gameObject.activeSelf;
             if (!wasActive) panel.gameObject.SetActive(true);     // ⇒ 建的时候必须活着（见上）
 
@@ -1921,7 +2025,7 @@ namespace CardPresentation
             if (autoMinPx > 0f) lb.SetAutoFitBox(LayoutSpace.Px(r.W), LayoutSpace.Px(r.H), autoMinPx,
                                                  autoMaxPx > 0f ? autoMaxPx : fontPx, basePx);
             // 🔴 **2026-10-08（A212）**：折行按**原版逐处实读的那一档**显式设 ——
-            //    与 `Deck/DeckRuntime.cs:2982` / `:3110` 那两行**同一条判据**（那扇窗已经收口过），
+            //    与 `Deck/DeckRuntime.cs` 的 `RefreshFilterCells` / `RefreshCosmoFilters` 里那两行**同一条判据**（那扇窗已经收口过），
             //    漏了这一步就是「碰巧对/碰巧错」（`SetAutoFitBox` 刚无条件开过折行）。
             //    ⚠️ `!= 1` 而不是 `== 0`：`1`(= `Normal`) 正是 `SetAutoFitBox` 刚设好的那一档 ⇒ 不必白重排一次。
             if (wrapMode != 1) lb.SetWrappingMode(wrapMode);

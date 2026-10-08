@@ -580,6 +580,13 @@ namespace CardPresentation
         TextMeshPro _keywords;   // 关键词（同上）
         TextMeshPro _army;       // 阵营行（原版 `ArmyTextUnit` / `ArmyTextTactc`）
         TextMeshPro _race;       // 兵种行（原版 `RaceText`；战术卡没有）
+        /// <summary>🆕 2026-10-18（`A985④`）**「由谁造出来的」那行字**（原版 `CreatedByText` 节点）。
+        /// `null` = 没这一层（没有来源 / 没字体资产 / 场上形态）。判据见 <see cref="CreatedByAt01"/> 那一段。</summary>
+        TextMeshPro _createdBy;
+        /// <summary>这张视图现在要显示**哪个创建者**的卡名（`null` = 不显示）。
+        /// 🔴 **必须存一份**：`BuildTextLayers` 会被 `SetData` 反复调（战场每刷新一次都走）
+        ///    —— 不存的话每次刷新这行字都会被 `Fill(空)` 拆掉（`EphemeralShown` 那类状态同理）。</summary>
+        string _createdByName;
         static Material _quadMat;
 
         readonly List<MeshRenderer> _layers = new List<MeshRenderer>();
@@ -744,6 +751,11 @@ namespace CardPresentation
             //   （漏了就是「形态切了、环还停在旧位置」—— 和 3D 卡体那次是同一个坑）。
             if (_rim != null) PlaceRim(_rim.transform);
             Show(_race, !board);         // 兵种行
+            // 🆕 2026-10-18（`A985④`）「由谁造出来的」**跟着形态一起关** ——
+            //    🔴 铁律 10 第 5 条：换形态的入口**只有这一处**，不在这里显式设一次就是
+            //    「手牌打出去的兵在场上还挂着这行字」（原版 `DisplayCreatedByText` 在 inPlay 那几档
+            //    是**先把节点关掉再 return** 的 ⇒ 场上不印）。
+            Show(_createdBy, !board);
             // ⚠️ **`_armourIcon` 不关**：护甲是数值，原版场上也显示（`Board Elements` 里有它）
             // 🔴 但**位置要跟着换**（2026-09-20）：2D 卡面与 3D 卡体是两套坐标，盾牌不跟着走
             //    就会和它上面那个数字**分家**（`SpriteQuad` 把位置烘进 mesh ⇒ 换 mesh，不是换 transform）。
@@ -1165,6 +1177,51 @@ namespace CardPresentation
         /// <summary>现在画着临时角标吗（自检用）</summary>
         public bool EphemeralShown { get { return _ephemeral != null && _ephemeral.enabled; } }
 
+        // ---- 🆕 2026-10-18（`A985④`）「由谁造出来的」（原版 `CreatedByText`）--------------
+
+        /// <summary>
+        /// **这张牌是谁造出来的** —— 传 `null` = 不是被造出来的（初始牌库 / 抽到的牌 / 督军…）。
+        ///
+        /// **判据**（反编译亲读，逐条）：
+        ///   · 消费面 = `BattleCardUI.DisplayCreatedByText(CardStateOptions state)`
+        ///     （`BattleCardUI__DisplayCreatedByText.c`，另一处同判据在 `BattleCardUI__SetObjectVisibility.c:100-133`）：
+        ///     **先把节点关掉**，只有 `card.createdBy != null`（`card = BattleCardUI+0x248`，
+        ///     `createdBy = card+0x268`）**且**状态 ∈ {`inHandShowing=8`, `inHandPlaying=10`} 时才点亮；
+        ///     状态 10 那一支还有个 `card + 0x40`（= `isPlayer`）判据 —— **本地方**就 `return`（不点亮）。
+        ///   · 文案 = `SupportMethods.GetCreatedByText(创建者卡名)`
+        ///     （`SupportMethods__GetCreatedByText.c`：`GetTranslation("Battle/HUD/CreatedBy").Replace("{0}", 名字)`），
+        ///     而「创建者卡名」= `RawCardScript.GetLocalizedCardName(creator.rawCard)`
+        ///     ⇒ **吃的是创建者那张【卡】**，不是玩家名。
+        ///   · 清掉的时机：`_DisplayOffensiveCardInCenter_d__264` 的 state 3 把那个节点
+        ///     `SetActive(false)`（`…MoveNext.c:79-80`）—— 也就是**那一段大图演完就收**。
+        ///
+        /// ⇒ 本方法**只吃「创建者那张卡」**：卡名走 `CardText.Name`（= 原版那个
+        ///   `GetLocalizedCardName`，与卡面别的字同一条按语言取名的路）。
+        ///   ⚠️ 表现层只负责**内容与显隐**；什么时候调由战斗表现层定（`BattleDriver.SyncHand` 每轮推一次）。
+        ///
+        /// ⚠️ **两处如实标注**：
+        ///   ① 原版那两档「状态」判据（8/10 + `isPlayer`）在我们这边**没有对应物** ——
+        ///      我们的卡视图没有 `CardStateOptions` 状态机，所以**只要这张视图有来源就亮**。
+        ///      这是**近似**（近似在一档：原版「自己打出去的那张」在 inHandPlaying 时是不亮的）。
+        ///   ② 文案见 `CreatedByLine`（那个本地化键的值在远端，中文那半是我们写的）。
+        /// </summary>
+        public void SetCreatedBy(RuleEngine.CardDef creator)
+        {
+            string name = creator != null ? CardText.Name(creator.Name, creator.NameZh) : null;
+            if (name == _createdByName) return;           // 同一张卡重复推（每帧都走的那条路）不动手
+            _createdByName = name;
+            // 场上形态没有这一层（原版那里整张 `2DCard` 关掉；`BuildTextLayers` 也走不到）
+            if (_faceMode != CardFace.Board) FillCreatedBy();
+        }
+
+        /// <summary>现在这行字印的是什么（`null` = 没印 / 印着但这一档关着）—— 自检用。
+        /// ⚠️ 判据取**真的 `activeSelf`**（不是「层建出来没有」）：`SetFace(Board)` 会把这一层关掉
+        /// 而对象还在 —— 正是那种「建起来了、该藏的时候没藏」的缺陷要靠这条断言抓。</summary>
+        public string CreatedByShown
+        {
+            get { return _createdBy != null && _createdBy.gameObject.activeSelf ? _createdBy.text : null; }
+        }
+
         // ---- 🆕 棋盘单位卡的 buff/debuff 徽标（原版 `boardTraitIcons`）------------------
 
         /// <summary>角标数字的字号：字形高 ≈ 半个图标（图标 0.456 卡单位 ⇒ 0.16）。</summary>
@@ -1211,7 +1268,7 @@ namespace CardPresentation
                     // 原版带角标的那一支叫 `With counter`，不带的那支叫 `Without counter`
                     // —— 两支是**并排的两套 renderer**，我们按 `b.counter` 决定显不显示。
                     _badgeCounters[i].text = b.counter > 0 ? b.counter.ToString() : "";
-                    if (b.counter > 0) PlaceAt(_badgeCounters[i], BadgeIconAt01(i), BadgeCounterZ);
+                    if (b.counter > 0) PlaceBadgeCounter(i);
                 }
             }
             return Mathf.Min(want, _badgeIcons.Count);
@@ -1316,7 +1373,35 @@ namespace CardPresentation
             //    本地查不到 ⇒ **这一条是我们挑的**」—— **错的**：原版查得到（见 `BadgeCounterInk` 的注释），
             //    是**暖白 + Bold**，已经改回。压在浅色底板上读不出来那件事，原版就是这么印的。
             var t = TmpFont.NewText(transform, "badgeCounter" + i, "", BadgeCounterFontSize, BadgeCounterInk);
+            // 🔴 **2026-10-18（`A848` 的补齐件 · `A994③` 同一轮）**：角标数字那层的纵向对齐 =
+            //   原版 **`TraitCounter`** 的 **`Midline`(4096)** —— 现读
+            //   `d:/2/新解包资源/assets_full/bundle_battleprefabs_vfxandmisc_assets_all/`：
+            //   `GameObject/TraitCounter*.json` 的 `m_Component` 里那颗 TMP，**6 份实例逐份同值**：
+            //   `m_VerticalAlignment = 4096` · `m_HorizontalAlignment = 2` · `m_fontSize = 5.5` ·
+            //   `m_fontStyle = 1`(Bold) · `m_fontColor = (1, 0.9729, 0.9104)`（= 上面 `BadgeCounterInk` 那三格）
+            //   （`MonoBehaviour_159564208624016320` / `_-2512500826360931392` / `_-1953590729870173248` /
+            //    `_-3450971320567358528` / `_5561894497802492864` / `_7597200136860769216`）。
+            //   ⚠️ **档位不在这里设** —— 它在**摆位那一步**设（见 `PlaceBadgeCounter`：次序是判据的一部分）。
             _badgeCounters.Add(t);
+        }
+
+        /// <summary>角标数字摆位 —— **次序本身就是判据**（⛔ 别把这两句合并/调换）。
+        /// <para>① **先按出厂 `Middle` 摆**：`PlaceAt` 摆的是 `textBounds`（= 行盒 AABB，
+        /// `TMP_Text.GetTextBounds` 取 `characterInfo[].ascender/descender`），**它随档位整体平移**。
+        /// ② **再把档位设成原版那一档（`Geometry` = `Midline`）**：整块字平移 `c_G`
+        /// （= 行盒心 ↔ 墨心 的距离）⇒ **墨心落在目标点** —— 这就是原版 `Midline` 的定义。</para>
+        /// <para>🔴 **为什么每次刷新都要复位成 `Middle`**：`SetBadges` 每刷新一次都走这里
+        /// （掉血/中 buff/每回合都会走 `SetData`），而上一次已经把 TMP 留在 `Geometry` 上了；
+        /// 不复位的话第二次 `PlaceAt` 会带着新档位去摆 ⇒ 位置与第一次差一个 `c_G`（静默、≈1.25px）。
+        /// 同一族的次序守卫在卡名那层（`BuildTextLayers` ①）。</para></summary>
+        void PlaceBadgeCounter(int i)
+        {
+            var t = _badgeCounters[i];
+            if (t == null) return;
+            t.verticalAlignment = VerticalAlignmentOptions.Middle;          // ①
+            PlaceAt(t, BadgeIconAt01(i), BadgeCounterZ);
+            t.verticalAlignment = VerticalAlignmentOptions.Geometry;        // ② 原版 `TraitCounter` 的 4096
+            t.ForceMeshUpdate();                                            // 批处理没有帧循环 ⇒ 手动重排一次
         }
 
         /// <summary>
@@ -1668,6 +1753,94 @@ namespace CardPresentation
         }
 
         /// <summary>
+        /// 🆕 2026-10-18（`A985④`）**「由谁造出来的」**（原版卡根下那个 `CreatedByText` 节点）。
+        ///
+        /// **判据全是解包字段（不是截图）** —— 出处逐条：
+        ///   · **它是卡根的【第一个子件】**：`bundle_menus_assets_all/GameObject/CreatedByText.json`
+        ///     + 父 `RectTransform_-4981929636261473480.json` 的 `m_Children` 首项
+        ///     （顺序 = `[CreatedByText, 2DCard, Card Ready for level up, New Card Badge, Ban Icon]`）。
+        ///   · **位姿**（`RectTransform_4803967432083755832.json`）：`m_AnchoredPosition = (0, 1.65)`、
+        ///     `m_SizeDelta = (2.5, 0.38)`、锚点与轴心全 `(0.5, 0.5)`；父（卡根）尺寸 **2.5437×3.3686**。
+        ///     运行期实况 dump 逐位吻合：`runtime_ui_dump_Battle_Arena_1.tsv` 那一行 `0.0,1.6` / `2.5,0.4`。
+        ///     ⇒ 折到**卡单位**：中心 `(0, +1.65)`、框 `2.5×0.38`（**比卡宽 2.0927 还宽** ⇒ 本来就允许溢出卡外）。
+        ///   · **文字**（`MonoBehaviour_4833287377952691000.json`）：`m_fontColor` = **纯白**；
+        ///     `m_fontSize = 2.45` 且 **开着自动缩放** `[0.3, 3.0]`（`m_overflowMode = 0` = Overflow）
+        ///     ⇒ 真字号是**运行时缩出来的**；`m_HorizontalAlignment = 2`(Center) · `512`(Middle) · 不折行。
+        ///     材质 = `Asar-Regular White w outline`（`Material_6389513473928706012.json`：
+        ///     `_OutlineWidth = 0.2` · `_FaceDilate = 0.2` · 黑描边 · **无 underlay**）。
+        ///   · 出厂 `m_IsActive = false` —— 原版只在 `BattleCardUI.DisplayCreatedByText` 里点亮
+        ///     （且只在 `card.createdBy != null` + 手牌那两档状态时），见 `SetCreatedBy` 的注释。
+        ///
+        /// ⚠️ **我们这一处是「挑的」，不是原版**（如实标着，待真 Play 核）：
+        ///   ① **压谁**：`m_Children` 首项 ⇒ 按 uGUI 次序它画在 `2DCard` **底下**；可它是
+        ///      **居中压在卡顶沿上**的（中心 1.65 vs 卡顶 1.6657）—— 画在底下就只看得见露在卡外的那
+        ///      一小条。我们按**可见**放在**卡面之前**（我们这层是 TMP、不受 `2DCard` 的倾摆与
+        ///      渲染顺序约束），并且**不照搬** `m_fontSizeMin = 0.3` 那个下限（照搬的话长卡名会
+        ///      横向溢出到 2 倍卡宽）—— 这两条等真 Play 看到原版那行字多大再定。
+        ///   ② 文案：原版是个**本地化键** `Battle/HUD/CreatedBy`（值在**远端 I2 表**，本地没有），
+        ///      见 `CreatedByLine`。
+        /// </summary>
+        static readonly Vector2 CreatedByAt01 = ToAt01(new Vector2(0f, 1.65f));
+        const float CreatedByBoxW = 2.5f;                    // 卡单位（= 原版 `m_SizeDelta.x`）
+        const float CreatedByBoxH = 0.38f;                   // 卡单位（= 原版 `m_SizeDelta.y`）
+        /// <summary>基准字号 = 原版 `m_fontSize` 2.45 卡单位 ⇒ 折成「em 对卡高比」，再按框回缩
+        /// （我们的 `FitToBox` 与它那条 autosize 同语义：先给上限、量着缩）。</summary>
+        const float CreatedByEmOfCard = 2.45f / CardUnitH;
+        /// <summary>字色 —— **原版是纯白**（组件 `m_fontColor = (1,1,1,1)`、材质 `_FaceColor` 也是纯白）。</summary>
+        static readonly Color32 CreatedByInk = new Color32(255, 255, 255, 255);
+
+        /// <summary>那行字的**文案**。🔴 原版 = `SupportMethods.GetCreatedByText(创建者卡名)` =
+        /// `GetTranslation("Battle/HUD/CreatedBy").Replace("{0}", 名字)`（`SupportMethods__GetCreatedByText.c` 亲读；
+        /// 键字面量在 `d:/2/tools/il2cpp_out/stringliteral.json`）。
+        /// ⚠️ **那个键的值在远端 I2 表里**（84 个本地 bundle 里没有 `localization_assets_all`）⇒
+        /// 英文那半还有旁证（原版预制体里那个 TMP 的占位串是 `Created by someone fancy`
+        /// ⇒ 模板形态 = `Created by {0}`），**中文那半是我们自己写的**。
+        /// 📌 等 `Core/Loc.cs` 收了这条键（那个文件不在本笔白名单）就改走 `Loc.T("Battle/HUD/CreatedBy")`，
+        ///    并把这两句删掉 —— ⛔ 别留两套口径。</summary>
+        static string CreatedByLine(string creatorName)
+        {
+            if (string.IsNullOrEmpty(creatorName)) return null;
+            return Loc.Current == AvailableLanguages.Chinese
+                 ? $"由 {creatorName} 创建"
+                 : $"Created by {creatorName}";
+        }
+
+        /// <summary>那行字自己的描边 —— 原版**在材质里**（`Asar-Regular White w outline`:
+        /// `_OutlineWidth 0.2` / `_FaceDilate 0.2` / 黑 / 无 underlay）。
+        /// ⚠️ `TmpFont.TextOutline` 只有 `Name`(0.15+大阴影) 与 `Body`(0.05) 两档，都不是 0.2/0.2，
+        ///    而那个枚举在 `Core/TmpFont.cs`（**不在本笔白名单**）⇒ 这里按原版数值就地设一次；
+        ///    将来若给它加一档 `CreatedBy`，这一段应当整体搬过去（⛔ 别两处各留一份）。</summary>
+        static void ApplyCreatedByOutline(TextMeshPro t)
+        {
+            if (t == null) return;
+            var mat = t.fontMaterial;                    // ⚠️ 实例材质，别碰共享的
+            if (mat == null) return;
+            mat.EnableKeyword("OUTLINE_ON");
+            mat.SetColor(ShaderUtilities.ID_OutlineColor, Color.black);
+            mat.SetFloat(ShaderUtilities.ID_OutlineWidth, 0.2f);
+            mat.SetFloat(ShaderUtilities.ID_FaceDilate, 0.2f);
+            t.UpdateMeshPadding();                       // 描边会画到 quad 之外 ⇒ 重算留白（同 `TmpFont.ApplyOutline`）
+        }
+
+        /// <summary>刷那一层。**只在非场上形态调**（原版场上整张 `2DCard` 关掉，自然也没有它）。
+        /// 没来源时 `Fill` 收到空串 ⇒ 把对象拆掉、返回 null（= 原版 `SetActive(false)`）。</summary>
+        void FillCreatedBy()
+        {
+            if (!TmpFont.Available) return;
+            float k = Width / CardUnitW;                  // 卡单位 → 世界（当前 = 1）
+            _createdBy = Fill(_createdBy, "createdBy", CreatedByLine(_createdByName),
+                              CreatedByAt01, CreatedByBoxW * k, CreatedByFontSize,
+                              CreatedByInk, false, CreatedByBoxH * k);
+            ApplyCreatedByOutline(_createdBy);
+        }
+
+        /// <summary>那行字的基准字号（em = 2.45 卡单位 ⇒ 折成我们这套字号）</summary>
+        static float CreatedByFontSize
+        {
+            get { return TmpFont.FontSizeForGlyphHeight(Height * CreatedByEmOfCard); }
+        }
+
+        /// <summary>
         /// 卡名 / 关键词挂 TMP。**和原版同构** —— 原版卡预制体上就是 `NameTextUnit` /
         /// `DescTextUnit` 这些 TMP 组件，运行时由 `CardTextsController.SetTexts()` 灌字，
         /// 不是烘在卡面贴图里的。走这条路中文才画得出来。
@@ -1690,19 +1863,41 @@ namespace CardPresentation
             float descH = (unit ? DescBoxH : TacticDescBoxH) * k;
 
             // ① 卡名：字号来自原版实测（见 `TitleFontSize`），太长/太高再回缩进版面
+            // 🔴 **2026-10-18（`A994③` 那一轮补的次序守卫）**：**`Fill` 之前必须把档位复位成出厂
+            //   `Middle`** —— `Fill` 末句是 `PlaceAt`，而 `PlaceAt` 摆的是 `textBounds`
+            //   （= 行盒 AABB，`TMP_Text.GetTextBounds` 取的是 `characterInfo[].ascender/descender`），
+            //   **那个盒子随档位整体平移**。所以：
+            //     · 首次建：`_title == null` ⇒ TMP 出厂是 `Middle` ⇒ 「先摆后设档」；
+            //     · **再看一次**（`SetData` → `BuildTextLayers`，战场每刷新一次都走）：
+            //       若这一句不复位，`Fill` 会**带着上一轮的 `Geometry`** 去 `PlaceAt`
+            //       ⇒ 摆出来的位置与首次建**差整整一个 `c_G`**（= 行盒心 ↔ 墨心 的距离；
+            //       卡名上实测 **0.0116 卡单位 ≈ 1.25 px**）—— 静默、只在刷新后现形。
+            //   ⇒ 复位 → `Fill`（按 `Middle` 摆）⇒ 再设真档位（整块字平移 `c_G`，**墨心落在目标点**）。
+            //   ⚠️ 本句**不是**为了「清掉之前的效果」而写的漂亮话：删掉它上面那条断言就会红。
+            if (_title != null) _title.verticalAlignment = VerticalAlignmentOptions.Middle;
             _title = Fill(_title, "title", d.title, nameAt, nameW, TitleFontSize, InkName, false, nameH);
             // 🔴 **2026-10-18（`A848` 那笔账的落点）**：**卡名那层的纵向对齐 = 原版的 `Midline`(4096)**。
-            //   判据：原版**78 颗卡名实例（6 个互斥变体 × 13 个场景实例）全是 `Midline`+Asar**
-            //   （`资料/普查产出_1018/R4_卡面与手牌现核.md`）；而 `TmpFont.NewText` 出厂是 `Middle`(512)
-            //   ⇒ 我们**一直差这一档**。⚠️ **另三层（`keywords`/`army`/`race`）原版本来就是 `Middle`** ⇒ ⛔ 只有这一层要改。
+            //   判据：原版卡预制体里那 6 个互斥变体（`NameTextUnit` / `…Unit Big` / `…Unit No description` /
+            //   `…Unit No Description Big` / `NameTextTactic` / `NameTextTacticBig`）**全是 `m_VerticalAlignment
+            //   = 4096`**（`资料/普查产出_1018/R4_卡面与手牌现核.md`；**`A994③` 这一轮我又自己逐颗读了一遍**
+            //   `d:/2/新解包资源/assets_full/bundle_staticgeneralassets_assets_all/` —— 同值）；
+            //   而 `TmpFont.NewText` 出厂是 `Middle`(512) ⇒ 我们**一直差这一档**。
+            //   ⚠️ **另三层（`keywords`/`army`/`race`）原版本来就是 `Middle`** ⇒ ⛔ 只有这一层要改。
             //   🔑 **枚举名对不上、数值对得上**：我们这版 TMP 的 `VerticalAlignmentOptions` **没有 `Midline` 这个名字**
             //   （成员是 `Top/Middle/Bottom/Baseline/`**`Geometry=0x1000`**`/Capline` —— 见
             //   `Library/PackageCache/com.unity.ugui@…/Runtime/TMP/TMP_Text.cs:82-85`），
             //   而 `TextAlignmentOptions.Midline = Center | VerticalAlignmentOptions.Geometry`（同文件 `:55`）
             //   ⇒ **`Midline` 的竖半就是 `Geometry` = `0x1000` = 4096**，与原版序列化值**逐位相同**。
             //   **实测读数**（`CardFaceProbe` 的 `vAlign`/`inkCenterY` 两列，2026-10-18）：改之前 `vAlign=512`、
-            //   `inkCenterY=-0.0116`（`Heavy Intercessor`，卡单位）。
-            if (_title != null) _title.verticalAlignment = VerticalAlignmentOptions.Geometry;
+            //   `inkCenterY=-0.0116`（`Heavy Intercessor`，卡单位）；改之后 `vAlign=4096`、`inkCenterY=0.0000`
+            //   ⇒ **墨心正好落在原版那个框心**（这就是 `Midline` 的定义）。
+            if (_title != null)
+            {
+                _title.verticalAlignment = VerticalAlignmentOptions.Geometry;
+                // 批处理没有帧循环 ⇒ 上面那次改档位要**手动重排一次**才落到网格上
+                // （与 `PlaceAt` 里那句 `ForceMeshUpdate` 同一个理由；⛔ 别删）。
+                _title.ForceMeshUpdate();
+            }
 
             // ② 效果文字：名字下面，超宽折行；行数多了按**原版那块版面框**的高度回缩。
             //    ⚠️ **上沿对齐**（不是居中）：我们的块会随行数长高，居中的话行数一多就往上长、
@@ -1773,6 +1968,11 @@ namespace CardPresentation
             TmpFont.ApplyOutline(_keywords, TmpFont.TextOutline.Body);
             TmpFont.ApplyOutline(_army, TmpFont.TextOutline.Body);
             TmpFont.ApplyOutline(_race, TmpFont.TextOutline.Body);
+
+            // ⑥ 🆕 2026-10-18（`A985④`）「由谁造出来的」（原版 `CreatedByText`；判据见上面那组常量）。
+            //    ⚠️ **原地刷、不重建**：`BuildTextLayers` 每次 `SetData` 都走（战场每刷新一次都走）
+            //    ⇒ 内容从 `_createdByName` 现取（那个字段由 `SetCreatedBy` 维护），没来源时这一层被拆掉。
+            FillCreatedBy();
         }
 
         /// <summary>卡面最下面那行橙字要印什么；**不印返回 null**。
@@ -2970,6 +3170,9 @@ namespace CardPresentation
             if (_keywords != null) _keywords.color = (Color)InkDesc * c;
             if (_army != null) _army.color = (Color)InkArmy * c;
             if (_race != null) _race.color = (Color)InkArmy * c;
+            // 🆕 2026-10-18（`A985④`）：「由谁造出来的」也一样跟整卡状态色 × 淡出走
+            // （它不在 `_layers` 里，上面那个 foreach 刷不到它 —— 同 `_title` 那一族）。
+            if (_createdBy != null) _createdBy.color = (Color)CreatedByInk * c;
 
             // 🆕 2026-09-29：整组徽标自己的那个不透明度（原版 `NestedFadeGroup.alpha`）——
             // 上面那个 foreach 已经把徽标各层刷成「状态色 × 整卡 α」了，这里再乘一层**只属于徽标**的。

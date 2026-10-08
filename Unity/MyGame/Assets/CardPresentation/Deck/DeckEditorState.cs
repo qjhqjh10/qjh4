@@ -258,11 +258,19 @@ namespace CardPresentation
             return DeckError.None;
         }
 
-        /// <summary>加一张牌。<paramref name="why"/> 拿不合法原因（合法时为空串）。</summary>
+        /// <summary>加一张牌。<paramref name="why"/> 拿不合法的原因（**给人看的那句话**；合法时为空串）。
+        ///
+        /// <para>🔴 **2026-10-18（A985①）**：`DeckRules.Describe` 已改成**只出词条键**
+        /// （`"MenuDeck/Error/" + 枚举名`，见它的 doc），所以这个 `out` 口必须在**这里**过一遍
+        /// `Loc.T(...)` —— ⛔ 不然调用点拿到的是**键名**（`MenuDeck/Error/CopyLimitExceeded`），
+        /// 而它同时被当诊断串与「人话原因」用（`Editor/DeckScene.cs` 那条
+        /// `CheckTrue(!string.IsNullOrEmpty(why), "被挡时给出了人话原因")`）。
+        /// 判据与唯一先例 = `DeckRuntime.DeckErrorText`（`Loc.T(Describe(e))` 的那一处），⛔ 别在调用点再包第二遍
+        /// （`Loc.T` 拿到一个**不是键**的字符串会返回它自己 + 记一次 `MissingCount` + 出一条 warning）。</para></summary>
         public bool TryAdd(CardDef c, out string why)
         {
             var e = CanAdd(c);
-            why = DeckRules.Describe(e);
+            why = Loc.T(DeckRules.Describe(e));
             if (e != DeckError.None) return false;
 
             if (c.Type == "hero") Deck.WarlordId = c.Id;

@@ -7049,7 +7049,8 @@ public static class RewardsScene
             {
                 (FindChild(succ, "Current Streak"),       43.00f, "`Current Streak`（fs 70）"),
                 (FindChild(succ, "Current Streak Value"), 545.91f, "`Current Streak Value`（fs 80）"),
-                (FindChild(ds.transform, "Window Title"), 155.00f, "`Window Title`（fs 67.55）"),
+                (FindChild(ds.transform, "Window Title"), 155.00f, "`Window Title`（原版 `m_fontSize` 67.55；"
+                                                                    + "⚠️ 那一颗**开自适应** ⇒ 实际渲染字号更小，见下面 A968 那两条）"),
             };
             for (int i = 0; i < csNodes.Length; i++)
             {
@@ -7080,6 +7081,35 @@ public static class RewardsScene
                             + "（钉「字距在前、对齐在后」—— 次序反了会偏 Δ宽/2）"
                             + $"（牙口自报：{nch} 字 @ {(lb != null ? lb.FontPxNow : 0f):F1}px ⇒ 字距加宽预判 ≈ {dW:F1}px）");
             }
+
+            // ★ A968（2026-10-18）：本窗 `Window Title` 的**自适应窗口** —— 原版那一颗是**开自适应**的。
+            //   判据（**亲读解包资源、逐字段**，⛔ 不是抄表）：`bundle_menus_assets_all` 里那颗 `Window Title`
+            //     （父链现读 = `Window Title < Header Background < Header With Back Button < Daily Streak Popup 根`）
+            //     的 TMP = `MonoBehaviour_3324232435684942507.json`（`m_text "Daily Streak"`）：
+            //     **`m_enableAutoSizing = 1`** · **`m_fontSizeMin = 18.0`** · **`m_fontSizeMax = 67.55`** ·
+            //     `m_fontSizeBase = 36.0` · `m_characterSpacing = 5.0`；同包**另 7 颗 `Window Title` 逐颗现读、逐值相同**
+            //     （8/8）⇒ 可钉。
+            //   🔴 量的东西 = `Label.FontSizeMin/Max`（= **TMP 里那两个真字段**，经工程唯一那份 `Label.FontSizeToPx`
+            //     折成画布 px），⛔ **不是**我们传进 `SetAutoFitBox` 的实参（那是拿实现证明实现）。
+            //   ⛔ **不断 `FontPxNow`** —— 开了自适应之后它是 TMP 二分出来的**收敛值**（文案装不下就比上界小），
+            //     拿它比字面量会时红时绿；只有**窗口**是定死的（同 §A143 那条口径）。
+            //   改坏法：把 `Shell/DailyStreakPopup.cs` 的 `Spec.TitleMode` 改回 `SpacingOnly`
+            //     （= 共件那一支**只调 `SetCharSpacing`、不调 `SetAutoFitBox`**）⇒ 这两个字段停在 **TMP 的出厂值**
+            //     ⇒ 红（A968 落地前就是这个状态）。
+            CheckFontWindow(ds.transform, "Window Title", 18f, 67.55f,
+                            "★ A968：`Window Title` 的自适应窗口 = 原版 `m_fontSizeMin/Max` **18 / 67.55**"
+                          + "（`m_enableAutoSizing = 1`；同包 8 颗 `Window Title` 逐值相同）");
+            // 自适应**起点** `m_fontSizeBase` = 36.0。
+            // 🔴 **如实标注：这一条单独【没有鉴别力】** —— `36.0` 正是 TMP 的序列化默认值（`TMP_Text.cs:473`
+            //    `m_fontSizeBase = 36`），**没接自适应时读出来也是 36** ⇒ 它只用来钉「共件把原版那个 base 传对了」，
+            //    真正的判别式是上面那条**窗口**。
+            var a968t = FindChild(ds.transform, "Window Title");
+            var a968lb = a968t != null ? a968t.GetComponentInChildren<Label>() : null;
+            CheckTrue(a968lb == null || a968lb.FontSizeBase > 0f,
+                      "（前提 · A968）走的是 TMP 后端 —— `Label.FontSizeBase` 在**点阵后端**返回 **−1**（如实报、不是 0）");
+            CheckNear(a968lb != null ? Label.FontSizeToPx(a968lb.FontSizeBase) : -1f, 36f, 0.6f,
+                      "★ A968：`Window Title` 的自适应**起点** = 原版 `m_fontSizeBase` **36.0**"
+                    + "（⚠️ 单独没有鉴别力：TMP 的序列化默认值也是 36 —— 见上面那条注释）");
 
             // ★ A518：`Fill Line` 的**视觉框**（原版 `m_LocalScale = 1.2 × 绕 pivot (0,0.5)`）与 `Sliced`。
             //   判据 = prefab `RectTransform_3187973920738910891.json` 亲读（`m_Pivot=(0,0.5)` · `m_AnchorMin=(0,0.5)` ·

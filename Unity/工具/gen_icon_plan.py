@@ -80,7 +80,11 @@ SYMBOLS = {
 TOKEN_BY_CARD = {
     # ---- 名字骗人最狠的四对（卡面看过的）----
     ("EC8", "[Health]"): ("Melee", "卡图 `Emperor_s Children/3部队/Warpforge_08_Alluress.png`：第一个圆徽 = 粉拳"),
-    ("EC8", "[Attack]"): ("Ranged", "卡图 Alluress：第二个圆徽 = 紫枪"),
+    # 🔴 2026-10-18：这条原来是 `("EC8","[Attack]") → Ranged`（第二个圆徽 = 紫枪）。
+    #    那张卡池文本今天写的是 `Rally: Give -2 Attack and -2 Ranged to an enemy troop.` ——
+    #    **第一个位置 = 拳、第二个 = 枪**，所以 `Attack` 那一处是**拳**；
+    #    本批把两个裸词都改成了记号（`-2 [Attack] and -2 [Ranged]`）⇒ 这条的答案跟着改。
+    #    （旧答案不是错，是给**改名之前**那个 token 写的 —— 那个 token 已经不在文本里了。）
     ("SAU_Hardwired_Destruction", "[Health]"): ("Ranged", "卡图 Hardwired Destruction：第二个圆徽 = 紫枪"),
     ("SAU_Hardwired_Destruction", "[Attack]"): ("Melee", "还原表：`Give +1Melee and +1Ranged`"),
     ("GOF87", "[attack]"): ("Melee", "还原表 Nob on Smasha Squig：`+1 Melee and +1 Ranged`"),
@@ -184,7 +188,15 @@ TOKEN_BY_CARD = {
     ("AM50", "[ranged]"): ("Ranged", "同上"),
     ("AM50", "[Ranged]"): ("Ranged", "同上（`descZh` 的 `[远程]` 经 `ZH2EN` 找过来）"),
     ("DA44", "[Attack]"): ("Melee", "卡图 `Dark Angels/4计策/Warpforge_44_Ancient-Reliquary.png`：第一枚 = 粉拳"),
-    ("DA44", "[Armor]"): ("Ranged", "同上：第二枚 = 紫枪"),
+    # 🔴 2026-10-18（A980-c）：键从 `[Armor]` 换成 `[Ranged]` —— 那张卡池文本里**从来没有** `[Armor]`
+    #    （注释里也一直写着「卡面第二枚 = 紫枪」，只是键名沿用了更早那版 OCR 写法）⇒ 旧键是**死条目**。
+    #    本批把 `desc` 里那个**裸词 `Ranged`** 改成了记号（卡面只印枪、不印词），键跟着换。
+    ("DA44", "[Ranged]"): ("Ranged", "同上：第二枚 = 紫枪（键 2026-10-18 由 `[Armor]` 订正过来）"),
+    # `BL19` 的中文侧：卡面 `gain a 〔八芒星〕Dark Pact of Excess`（本批亲读
+    # `Chaos/3部队/Warpforge_19_Noise-Marine.png`）—— 英文那份靠 `❄` 符号走 `SYMBOLS`，
+    # 中文没有那半边 ⇒ 2026-10-18 把中文改成 `[黑暗契约]纵欲黑暗契约`（图标 + 词），这张卡按卡补一条。
+    ("BL19", "[黑暗契约]"): ("markOfChaos",
+        "卡图 Noise Marine：`gain a 〔暗红八芒星〕Dark Pact of Excess`（图标在词前面）"),
     ("DA4", "[Attack]"): ("Melee", "还原表 Supreme Grand Master：`Give +1Melee and +1Ranged`"),
     ("DA4", "[Armor]"): ("Ranged", "同上"),
     ("EC27", "[Attack]"): ("Melee", "还原表 Disharmonist：`-2Melee and -2Ranged`"),
@@ -197,7 +209,7 @@ TOKEN_BY_CARD = {
                                    " —— 和大多数卡相反（这里 armor 在前 = 拳）"),
     ("EC17", "[attack]"): ("Ranged", "同上"),
     ("EC32", "[attack]"): ("Melee", "还原表 Screamer Kakophonist：`-4Melee and -4Ranged`"),
-    ("EC32", "[health]"): ("Ranged", "同上（写着 health、画的是枪）"),
+    ("EC32", "[Ranged]"): ("Ranged", "同上（本批把 token 名换成了它真正的含义 —— 写着 health、画的是枪）"),
     # ⚠️ 2026-09-16：这一张的 desc 已按卡面**把 token 名换成了它真正的含义、顺序也摆正**
     #    （`Give +1 [attack] and +1 [ranged]`，卡面第一枚=粉拳、第二枚=紫枪）。
     #    所以键要从 `[armor]`/`[attack]` 换成 `[ranged]`；`[attack]`→Melee 那条见上面（现在是对的）。
@@ -205,7 +217,21 @@ TOKEN_BY_CARD = {
         "还原表：`Pray: Give +1Melee and +1Ranged` —— token 改名后它就是第二枚（紫枪）"),
     ("DA78", "[Ranged]"): ("Ranged", "还原表：`gain +1Ranged`"),
     ("GSC43", "[Ranged]"): ("Ranged", "还原表 Patriarch：`Give +3 Melee and +3 Ranged`"),
-    ("DA38", "[honour]"): ("questPoints", "还原表 Unforgiven Redemptor：`When you gain Quest Point, deal 2 damage`"),
+    # 🔴 **2026-10-20：`("DA38", "[honour]")` ⛔ 别删、别把它「顺手统一」成 `[Quest Point]`。**
+    #    它是**一个小写的词、不是图标名**（所以看着像 OCR 垃圾，换会话最容易被清掉）：
+    #    卡面那一枚是**暗黑天使的任务点徽记**（锯齿环 + 中央纹章），OCR 读成了 `[honour]`。
+    #    删掉这条 / 改掉 token ⇒ 那枚徽记**整枚不画**（本表是按**字面 token** 查的，
+    #    运行时 `CardIcons.Rewrite` 拿的就是 `cardface_fixes.json`/`card_stats.json` 里的原串）。
+    #    ⚠️ **别拿 `DA8` 那条注释当依据**：它写的「2026-09-15 已把卡表这段文字改成 `[Quest Point]`」
+    #       说的是 **`DA8`/`DA15`**（那两张的 key 是 `Apothecary` / `Company Veteran`，
+    #       在 `cardface_fixes.json` 的 `desc`/`descZh` 里）；**`DA38` 从来不是 `[Quest Point]`**
+    #       —— 它的 `[honour]` 至今留在 `card_stats.json` 的原始行里。
+    #    判据出处 = 还原表 `Unforgiven Redemptor`：`When you gain Quest Point, deal 2 damage`
+    #    （中文侧 `descZh` 也写「任务点」，可反证）。数据侧留痕见
+    #    `cardface_fixes.json` 的 `_2026-10-20_DA38honour_别删`。
+    ("DA38", "[honour]"): ("questPoints", "还原表 Unforgiven Redemptor：`When you gain Quest Point, deal 2 damage`"
+                          "　⛔ **别删：`[honour]` 是个词、不是图标名，靠本逐卡条目才对上**"
+                          "（删条目 / 改 token ⇒ 徽记整枚不画；`DA38` 的 token 本来就**不是** `[Quest Point]`）"),
     ("GOF_Worst_Temper", "[Attack]"): ("Melee", "还原表：`+1Melee, Armour Armour 1 and Flying Flying`"),
     ("GOF_Uge_Choppa", "[Attack]"): ("Melee", "还原表：`+2Melee and Slay Slay:`"),
     ("GOF100", "[Attack]"): ("Melee", "还原表 Da Old Ways：`give it +2 Melee this turn instead`"),
@@ -259,6 +285,120 @@ TOKEN_BY_CARD = {
     ("DA15", "[Quest Point]"): ("questPoints",
         "同 `DA8`（卡图 `Dark Angels/3部队/Warpforge_15_Company-Veteran.png`：行首 `〔红盾+红骷髅〕Vanguard.` "
         "那枚才是 `vanguard`，`gain` 后面这枚与 `DA8` **逐像素同款**，都是任务点徽记）"),
+
+    # ── 🆕 2026-10-18：`[Attack]` 的**逐卡**近战条目（本批新写的记号）──────────────────
+    #  ⚠️ **这一批必须逐卡列，不能升成 `TOKEN_BY_RULE`** —— `[Attack]` 这个**名字**在本工程里
+    #    拳/枪都有：老数据 `EC23` / `AM22` / `AM42` / `AM75` / `DA85` 是**枪**、`DA44` / `DA50` 是**拳**
+    #    （文件头那条「token 名不可信」讲的就是它）。升成规则 = 哪天有人写了个「实为枪」的
+    #    `[Attack]`，会被**静默**画成拳 ⇒ 宁可多 90 行数据。
+    #  ⚠️ 本批**新写的**近战记号**一律**用 `[Attack]`（不是 `[Melee]`）是有原因的，别顺手统一：
+    #    英文 `desc` 是**引擎输入**，`GivePayload.ReAttr` 认的是字面 `attack` ⇒ 写 `[Attack]`
+    #    才能让去括号后的串与改前**逐字节相同**（`EffectText.ParseSegment` 只剥方括号、不剥内容）。
+    #    唯一例外 `EC39` 用 `[Melee]` —— 那句走 `TryDouble` 的**字面** `melee and ranged` 匹配。
+    ("AM_Lord_Commander", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("ASH41", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("ASH75", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("ASH79", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("ASH_Forewarned", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("DA29", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("DA33", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("DA36", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("DA42", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("DA53", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("DA55", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("DA57", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("DA80", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("DA82", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("DA84", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("EC1", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("EC10", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("EC16", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("EC17", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("EC24", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("EC30", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("EC33", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("EC35", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("EC5", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("EC58", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("EC7", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("EC77", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("EC8", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("GOF1", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("GOF103", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("GOF21", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("GOF24", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("GOF5", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("GOF50", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("GOF53", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("GOF78", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("GOF8", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("GOF81", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("GOF84", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("GOF97", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("GOF99", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("GOF_Da_Bigger_Dey_Iz_Mozrog_s_Talent", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("GOF_Da_Red_Waaagh", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("GOF_Follower_of_Gork", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("GOF_Greatest_Warboss", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("GOF_Krumpaklaw", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("GOF_Waaagh_Energy_Weirdboy_Talent", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("GSC13", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("GSC2", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("GSC20", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("GSC21", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("GSC22", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("GSC25", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("GSC7", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("EC22", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("SOR11", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("SOR18", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("SOR19", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("SOR27", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("SOR29", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("SOR30", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("SOR44", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("SOR47", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("SOR6", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("SOR64", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("SOR68", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("SOR9", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("SW13", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("SW16", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("SW19", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("SW26", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("SW34", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("SW52", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("SW7", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("TAU72", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("TAU74", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("TAU75", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("TAU_Grisly_Feast", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("TL4", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("TL80", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("TL86", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("UM73", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("UM78", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("UM85", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("UM96", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("UM_Angel_s_Wrath", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("UM_Assault_Doctrine", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("UM_Avenging_Zeal", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("UM_Forward_Deployment", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    # 🔴 2026-10-18 **第二批**：这两张的**英文 `desc` 已改**（`[Attack]` → `[Ranged]`）——
+    #     卡面 `Ultramarines/3部队/inceptor srg.png` / `inceptor.png` 那一枚都是**紫圈枪**（本批再亲读一次确认），
+    #     而 `[Attack]` 经 `GivePayload.ReAttr` 解出来是 **`attack`（近战）** ⇒ 引擎原来按「近战 +1」结算。
+    #     属 `A2`（「裸 `+N` 实为远程」）那一族的漏网两张，本批**做掉**（不是只记录）。
+    #     ⚠️ token 名跟着换键，否则旧键成**死条目**。
+    ("UM_Inceptor_Sergeant", "[Ranged]"): ("Ranged", "卡图 `Ultramarines/3部队/inceptor srg.png`：那一枚是**紫圈枪**（锚点核对 + 亲读两处一致）"),
+    # 🆕 2026-10-18 第二批：`UM101` 的英文 `desc` 原来**截断在 `equal to its`**（少了那一枚记号），
+    #    本批补上（判据 = 卡面 `Ultramarines/4计策/Warpforge_37_Indomitus-Crusade.png`：
+    #    `Oath 6: Deal damage to all enemy troops equal to its〔**粉拳**〕` —— 本批作者亲读）。
+    ("UM101", "[Attack]"): ("Melee", "卡图 `Ultramarines/4计策/Warpforge_37_Indomitus-Crusade.png`：`equal to its〔粉拳〕`（亲读）"),
+    ("UM_Outrider", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("UM_Paragon_of_Ultramar", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    ("UM_Primarch_of_the_XIII", "[Attack]"): ("Melee", "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"),
+    # 🔴 2026-10-18 **第二批**：同上一张，英文 `desc` 已改（`[Attack]` → `[Ranged]`）。
+    ("UM_Primaris_Inceptor", "[Ranged]"): ("Ranged", "卡图 `Ultramarines/3部队/inceptor.png`：那一枚是**紫圈枪**（锚点核对 + 亲读两处一致）"),
 }
 
 # ── 按卡的**裸 token**（卡面上真印着的字，不是方括号占位）──────────────────────────
@@ -325,6 +465,31 @@ TOKEN_BY_RULE = [
     ("[Energy]", None, "faith",
      "**行首付费前缀**：卡面画的是**这一行的资源图标**。修女会 = 金太阳（信仰）。"
      "逐张核过 Daemonbreaker `8` / Miraculous Feat `6` / Fiery Conviction `4` 三张 + Preacher"),
+    # ---- 🆕 2026-10-18：**属性记号**（`[攻击]/[远程]/[Melee]/[Ranged]`）----------------
+    #  ⚠️ 这四条和上面那三条**性质不同**，必须先说清「凭什么是按规则的」——
+    #     本文件头写着「token 名不可信」，那是针对**卡图 OCR 猜出来的**名字
+    #     （`[Health]` 画的是拳、`[Power]` 画的是枪…）。这四条是**我们自己写的**：
+    #     2026-10-18 那一批把 `+N 近战攻击 / +N 远程攻击 / +N Melee / +N Ranged` 这批
+    #     **卡面上只印图标、不印词**的位置改写成了方括号记号（改动在
+    #     `数据/游戏数据/cardface_fixes.json` 的 `desc`/`descZh`，说明见那张表的
+    #     `_2026-10-18_属性图标方括号`）。
+    #  ✅ **旁证 = 全池既有同形记号，无一例外**（`--write` 前实测扫过）：
+    #     `[攻击]` 18 处 → **全部** Melee · `[远程]` 7 处 → **全部** Ranged ·
+    #     `[Ranged]`/`[ranged]` 8 处 → **全部** Ranged · `[Melee]` 0 处（新记号）。
+    #     ⇒ 加这四条**不改动任何既有卡的答案**（① 逐卡表先命中，那 33 处本来就有答案）。
+    #  🔴 `[Attack]` **故意不在**这张表里：它在老数据里拳/枪都有（`EC23`/`AM22`/`AM42`/
+    #     `AM75`/`DA85` 是枪、`DA44`/`DA50` 是拳）⇒ 名字不可信，**只能逐卡定**
+    #     （本批给它新写的那 94 条在下面 `TOKEN_BY_CARD` 末尾，整块带说明）。
+    #  ⚠️ **英文侧「新写的近战记号」用哪个名字，是有约束的**（别顺手统一成 `[Melee]`）：
+    #     英文 `desc` 是**引擎输入**，`GivePayload.ReAttr` 认的是**字面** `attack` ⇒
+    #     原文写 `Attack` 的地方要写 `[Attack]`（去括号后逐字节相同）；原文写 `Melee` 的地方
+    #     才写 `[Melee]`。例外只有 `EC39`（走 `TryDouble` 的**字面** `melee and ranged`）。
+    ("[攻击]", None, "Melee", "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"),
+    ("[远程]", None, "Ranged", "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"),
+    ("[Melee]", None, "Melee",
+     "英文近战记号 —— **只给原文本来就写 `Melee`/`Melee Attack` 的位置**用"
+     "（那些位置去括号后与改前逐字节相同）。原文写 `Attack` 的用 `[Attack]` + 逐卡条目"),
+    ("[Ranged]", None, "Ranged", "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"),
     ("[\u80fd\u91cf]", None, "faith", "同上（中文写法）"),
 ]
 
@@ -413,8 +578,19 @@ RESOURCE_WHY = ("不带方括号的**资源词**：`Quest Point(s)` 卡面画的
 # 句首：行首 / `. ` / `; ` 之后 → 1~3 个大写词 → 可选数字 → `:` 或 `.`
 KEYWORD_SCAN = re.compile(
     r"(?:^|[.;]\s+)([A-Z][A-Za-z'\-]*(?:\s+(?:of\s+)?[A-Z][A-Za-z'\-]*){0,2})(?:\s+(\d+))?\s*([:.])")
-# 中文版：行首 / `。` / `；` / `，` 之后 → 2~8 个汉字 → 可选数字 → `：` 或 `。`
-KEYWORD_SCAN_ZH = re.compile(r"(?:^|[。；,，]\s*)([一-龥]{2,8})(?:\s*(\d+))?\s*([：。])")
+# 中文版：行首 / `。` / `；` / `，` 之后 → **1~8** 个汉字 → 可选数字 → `：` 或 `。`
+# 🔴 2026-10-08 修：下界原来是 **2**，而 `资料/关键词图标/_规则书关键词表.md` 里
+#    **`团` → `Regiment` 是单字关键词** ⇒ 那一句永远扫不到、卡面**漏画 `regiment` 徽记**。
+#    实测：`AM14/AM9/AM12/AM33/AM30`（`团：…`）、`Armoured Sentinel`、`Rogal Dorn Tank`、
+#    `Tempestor Sergeant` 等 —— 中文卡面那一枚徽记**一枚都没画**（英文侧 `Regiment:` 早就画着，
+#    因为英文那条正则的下界本来就是 1）。
+#    卡图判据：`d:/2/Warpforge部队卡片/Astra Militarum/3部队/Warpforge_14_Kasrkin.png`
+#    —— 卡面是 `〔骷髅头盔圆徽〕Regiment: Deal 1 damage…`（**图标 + 词**），
+#    所以中文侧也必须是 `〔徽记〕团：…`（裸 token 那支：插在词前、词留着）。
+#    ⚠️ **下界改成 1 不会误伤**：`([一-龥]{1,8})` 是**贪婪**的，长的先试（`团结一致：` 仍先试
+#    `团结一致`、词表里没有 ⇒ 不命中）；而 `zh_en.get(raw)` 那道闸只放行词表里的词，
+#    词表里**只有 `团` 一个字是单字**。实测：改完 `--write` 只多出下面那几条，其余一字未动。
+KEYWORD_SCAN_ZH = re.compile(r"(?:^|[。；,，]\s*)([一-龥]{1,8})(?:\s*(\d+))?\s*([：。])")
 
 
 # 🔴 2026-09-21 修 —— **用户从卡面图上抓到的真 bug：连续句首关键词漏画第 2、4…个**
@@ -615,6 +791,13 @@ ZH2EN = {
     "[武器]": ["[weapon]"], "[践踏]": ["[Stomp]"], "[群体]": ["[Mob]"],
     "[毁灭者]": ["[Destroyer]"], "[斩杀]": ["[Slay]"],
     "[翅膀]": ["[Wings]"], "[远程]": ["[Ranged]"],
+    # 🆕 2026-10-18：③ 那一批「图标 + 词」的中文记号（照现有约定写：`[Shield] Shield` /
+    #    `[Shield] 护盾` 两半都要在，见 `TAU49` / `GOF_Worst_Temper`）：
+    #    · `[黑暗契约]` —— BL51 的英文对家是 `[Dark Pact]`、BL69 的是 `[Chaos]`（两张都有逐卡条目）
+    #      ⇒ 两个都列，按顺序试。
+    #    · `[典籍]` —— UM_Avenging_Zeal 的英文对家是 `[Codex icon]`（`Death from Above` 用的是 `[Codex]`）。
+    "[黑暗契约]": ["[Dark Pact]", "[Chaos]"],
+    "[典籍]": ["[Codex icon]", "[Codex]"],
 }
 
 

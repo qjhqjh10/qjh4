@@ -156,18 +156,28 @@ namespace CardPresentation
 
         // ============================================================ 图 / 色 / 字号（逐条 MB 实读）
         public const string ArtWinBg = "UI_Deck_Information_Back";       // 1100×701 · border 42,363,655,81 · Sliced
-        /// <summary>`Bonus points` 的图 —— 🔴 **工程里没有**（源在
-        /// `bundle_atlasindividual_assets_0_mainmenu/Sprite/40k_UI_Banner BW.json`，只 staged 在
-        /// `Assets/CardPresentation/Art/原版/0_mainmenu/40k_UI_Banner_BW.png`、**没进 `Resources/`**）
-        /// ⇒ 节点照建、**这一格不画** + 出声。</summary>
+        /// <summary>`Bonus points` 的图 —— 源 = `bundle_atlasindividual_assets_0_mainmenu/Sprite/40k_UI_Banner BW.json`
+        /// （图集切片名里是**空格**，落盘时按导入器的 `slug()` 换成 `_`）。
+        /// <para>取图口 = <see cref="Tex"/> → `CardArt.MenuUi`（它按 `ui_menu/ → ui_deck/ → ui/` 三目录查）。
+        /// 🔴 **2026-10-18（铁律 5 订正）**：原文写着「🔴 **工程里没有** …… 只 staged 在 `Art/原版/0_mainmenu/`、
+        /// **没进 `Resources/`** ⇒ 节点照建、**这一格不画** + 出声」—— **这一整段已不成立**：
+        /// 导入器 `工具/import_original_art.py` 的 `MENU_IMAGES` 里有
+        /// `('40k_UI_Banner BW', 'atlasindividual_assets_0_mainmenu')`（那一行注释就标着「战役奖励窗 `Bonus points` 横幅（A702）」），
+        /// `--only-menu` 跑完已落到 `Resources/Art/ui_menu/40k_UI_Banner_BW.png` ⇒ **今天画得出来**，
+        /// 走不到「照建不画 + 进 `MissingArt`」那一支。</para></summary>
         public const string ArtBanner = "40k_UI_Banner_BW";
         public const string ArtClock = "WF_icon_clock";                  // 64×64 · Simple · PA
         public const string ArtClose = "UI_Button_Round_background";     // 237² · Simple · PA
         public const string ArtCloseBg = "40k_general_bt_yellow";        // 71² · Simple · PA
         public const string ArtCloseIcon = "40k_general_bt_yellow_close";
-        /// <summary>一张阵营卡的底 —— 🔴 **工程里没有**（源在
-        /// `bundle_boosterpacks_assets_all/Sprite/40K_shop_offer_bg_Sororitas_0.json`；注意**大写 `K`**，
-        /// 本仓 `Resources/` 下**一张都没有**）⇒ 节点照建、不画 + 出声。</summary>
+        /// <summary>一张阵营卡的底 —— 源 = `bundle_boosterpacks_assets_all/Sprite/40K_shop_offer_bg_Sororitas_0.json`
+        /// （注意**大写 `K`**，落盘名原样保留）。
+        /// <para>取图口 = <see cref="Tex"/>（调用点在本文件 `RebuildCards()` 里那颗 `bgTex`）→ `CardArt.MenuUi`。
+        /// 🔴 **2026-10-18（铁律 5 订正）**：原文写着「🔴 **工程里没有** …… 本仓 `Resources/` 下**一张都没有**）
+        /// ⇒ 节点照建、不画 + 出声」—— **这一整段已不成立**：导入器 `工具/import_original_art.py` 的
+        /// `MENU_IMAGES` 里有 `('40K_shop_offer_bg_Sororitas_0', 'boosterpacks_assets_all')`，
+        /// `--only-menu` 跑完已落到 `Resources/Art/ui_menu/40K_shop_offer_bg_Sororitas_0.png`
+        /// ⇒ **今天画得出来**（⚠️ 落盘那一刻它还没 `.meta`，编辑器导入一次即生成 —— 那不是「本地没有这张图」）。</para></summary>
         public const string ArtCardBg = "40K_shop_offer_bg_Sororitas_0";
         public const string ArtCardBadge = "UI_Army_Selection_Featured"; // 172×172 · Simple
         public static readonly Color ShadeTint = new Color(0f, 0f, 0f, 0.772549f);        // 实读
@@ -508,8 +518,10 @@ namespace CardPresentation
         /// <summary>一张 `SimpleArmyImage` 卡（6 个节点）。`card` = 卡的框（会被撑成 300×视口高）。
         /// <para>🔴 子件的框全部走 <see cref="CardChild"/>（**不是死矩形**）—— 卡高随视口变，
         /// 死矩形会错（见 `Cards` 那条注释）。</para>
-        /// <para>⚠️ `Army Icon`（原版运行期 `ArmyIconsSO.GetArmyIcon` 灌）与 `Background`（本仓没有那张图）
-        /// **都只建节点、不画**，并各自出声（红线：不许静默）。</para></summary>
+        /// <para>⚠️ `Army Icon`（原版运行期 `ArmyIconsSO.GetArmyIcon` 灌）**只建节点、不画** + 出声。
+        /// `Background` 那张底图（<see cref="ArtCardBg"/>）**本仓有**（见那条的 doc）⇒ 正常铺满、不再只建节点；
+        /// ⛔ 本文原文写的「与 `Background`（**本仓没有那张图**）**都**只建节点、不画」是**过期的**
+        /// （2026-10-18 订正，同 <see cref="ArtCardBg"/> 那条）。</para></summary>
         Transform BuildCard(Transform parent, PxRect card, string armyName)
         {
             var nRoot = Cards[0]; var nBg = Cards[1]; var nIcon = Cards[2];

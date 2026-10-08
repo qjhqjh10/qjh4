@@ -62,7 +62,8 @@ def main():
     A(f"**{len(cards)} 张卡**的效果文字里有 **{len(rows)} 处**需要画图标的位置，"
       f"其中 **{len(rows) - len(gaps)} 处**已定到具体 sprite，**{len(gaps)} 处是缺口**（下面第五节）。")
     A("原版那份 TMP sprite asset（`Warpforge Trait TextSprites`）已照抄建成我们自己的，"
-      "`IconSetup.Verify` 报 **270/270** 计划表里的 sprite 名都查得到。")
+      f"`IconSetup.Verify` 报 **{len(rows) - len(gaps)}/{len(rows) - len(gaps)}** 计划表里的 sprite 名都查得到"
+      "（🔴 **这个数会随卡池 / 生成器变**，要引用就现跑 `IconSetup.Verify` 或数本文件的「处」数，⛔ 别当常数抄）。")
     A("")
     A("## 二、🔴 为什么**不能**用一张全局表")
     A("")

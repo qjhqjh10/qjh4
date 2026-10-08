@@ -571,8 +571,10 @@ namespace CardPresentation
                 && DeckRules.Validate(deck, CollectionData.Card, skirmish) == DeckError.None;
             if (!PracticeDeckInteractable)
                 Debug.Log("[DeckInfo] `Practice Deck` 置成 **不可点**（原版 `interactable = DeckUtility.ValidateDeck(deck, …)`）："
+                          // 🔴 **2026-10-18（A985①）**：`DeckRules.Describe` 只出**词条键** ⇒ 这里必须过
+                          //   `Loc.T` 才印得出人话（先例 = `DeckRuntime.DeckErrorText`）。⛔ 别学它印键名。
                           + (deck == null ? "这一格没有卡组"
-                                          : DeckRules.Describe(DeckRules.Validate(deck, CollectionData.Card, skirmish)))
+                                          : Loc.T(DeckRules.Describe(DeckRules.Validate(deck, CollectionData.Card, skirmish))))
                           + " ⇒ 点了不生效 + **变灰**（两半都接了：`WindowButton.Interactable`，见下面第 ④ 段的说明）");
 
             // ② `Switch Deck Info`：原版 `:210-211` —— `Toggle.SetIsOnWithoutNotify(true)`。

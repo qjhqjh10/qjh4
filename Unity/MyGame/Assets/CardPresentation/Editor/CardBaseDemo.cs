@@ -242,6 +242,7 @@ public static class CardBaseDemo
         AssertSubtypeLine();
         AssertCardTextLanguageGate();     // 🔴 2026-10-18：`CardText.Zh` 改成语言闸（+ `Name` 补闸）
         AssertTitleMidline();             // 🔴 2026-10-18：`A848` —— 卡名那层 = 原版的 `Midline`
+        AssertCreatedBy();                // 🔴 2026-10-18：`A985④` —— 卡面第五层「由谁造出来的」（原版 `CreatedByText`）
 
         // ---- 5. 手牌布局四件（B1 批 2026-10-17）----
         Debug.Log(P + "--- 手牌布局：小屏档触发 · 最近空位 · 选中让位 · 层序 ---");
@@ -606,39 +607,227 @@ public static class CardBaseDemo
         //       ⇒ 那行**对这条断言毫无作用**（多余改动 + 一条错论据）**已撤掉**；阵营行沿用 `Placeholder` 给的值。
         d.subtype = "Infantry";               // ← **唯一**要补的一件：兵种行非空才会建那一层（判据在 `SubtypeLine`）
         d.title = "Probe Title";              // 卡名非空才会建那一层（`Fill` 对空串直接返回 null）
-        CardView.Create(root.transform, d, "title_probe_card");
+        // 🔴 **2026-10-18（`A994③` 那一轮补）**：**带一枚徽标** —— 卡面**第 5 层文字**
+        //    （角标数字 `badgeCounter0`）只有给了徽标才会建（`BuildBadgeSlot` 还要底板/图标两张图
+        //    都取得到，取不到就整位空着 ⇒ 下面那条前提会红，那是**如实报**，⛔ 不是删断言的理由）。
+        d.badges = new System.Collections.Generic.List<Badge>
+        {
+            new Badge { sprite = "armour", counter = 2, active = true },
+        };
+        var cv = CardView.Create(root.transform, d, "title_probe_card");
         try
         {
             var tmps = root.GetComponentsInChildren<TMPro.TextMeshPro>(true);
-            TMPro.TextMeshPro title = null;
-            bool armySeen = false, raceSeen = false;
+            TMPro.TextMeshPro title = null, counter = null;
+            bool armySeen = false, raceSeen = false, kwSeen = false;
             foreach (var t in tmps)
             {
                 if (t.name == "title") title = t;
                 else if (t.name == "army") armySeen = true;
                 else if (t.name == "race") raceSeen = true;
+                else if (t.name == "keywords") kwSeen = true;
+                else if (t.name == "badgeCounter0") counter = t;
             }
             Check(title != null, "① 卡名那层建出来了（节点名 = `title`）");
             if (title == null) return;
             Check((int)title.verticalAlignment == 4096,
                   $"① ★ 卡名对齐 = **原版那一档 `Midline`(4096)**（实得 {(int)title.verticalAlignment}）"
                 + "｜🧨 删掉 `_title.verticalAlignment = Midline` ⇒ 本条红");
-            // ② 对照：另三层**原版就是 Middle**（一刀切会改错，所以这三条是**反方向**的判别式）
-            Check(armySeen && raceSeen, "② 前提：`army` / `race` 两层也建出来了（否则下面两条会退化成空跑）");
+            // ② 对照：另三层**原版就是 Middle**（一刀切会改错，所以这几条是**反方向**的判别式）
+            //  🔴 **2026-10-18（`A994③` 那一轮顺手补齐）**：原来只查 `army`/`race` 两层 ——
+            //     卡面其实是**四层文字**，`keywords`（效果文字，原版 `DescTextUnit`/`DescTextTactic`）
+            //     那一层**从来没被钉过**。本笔现读原版卡预制体
+            //     （`bundle_staticgeneralassets_assets_all`，逐颗读 `m_VerticalAlignment`）：
+            //     `NameText{Unit,Unit Big,Unit No description,Unit No Description Big,Tactic,TacticBig}` **6 个变体全 `4096`**；
+            //     `DescTextUnit`/`DescTextUnit Big`/`DescTextTactic`/`DescTextTactic Big`/`DescTacticSmall`
+            //     与 `ArmyTextUnit`/`ArmyTextTactc`/`Army No Desciption`/`RaceText`×3/`RaceText Big`/
+            //     `CostText`×3/`Melee Attack Text`/`Range Attack Text`/`HealthText`/`Armour Text`
+            //     —— **全部 `512`**。⇒ 只有卡名那一层该是 `Midline`，⛔ 一刀切会改错四层。
+            Check(armySeen && raceSeen && kwSeen,
+                  "② 前提：`army` / `race` / `keywords` 三层也建出来了（否则下面几条会退化成空跑）");
             foreach (var t in tmps)
-                if (t.name == "army" || t.name == "race")
+                if (t.name == "army" || t.name == "race" || t.name == "keywords")
                     Check((int)t.verticalAlignment == 512,
                           $"② 对照：`{t.name}` 那层**原版就是 `Middle`(512)**（实得 {(int)t.verticalAlignment}）"
                         + "｜🧨 一刀切把四层都改成 Midline ⇒ 本条红");
+            // ②·b 🔴 **2026-10-18（`A848` 的补齐件）**：卡面**第 5 层文字** —— 角标数字
+            //   （原版 `TraitCounter`，现读 `bundle_battleprefabs_vfxandmisc_assets_all` 的
+            //   `GameObject/TraitCounter*.json` 那 6 份：`m_VerticalAlignment = 4096`）——
+            //   也是 `Midline`，原来一直按出厂 `Middle` 画。
+            Check(counter != null,
+                  "②·b 前提：角标那层（节点名 `badgeCounter0`）建出来了 —— 建不出来说明徽标底板/图标缺图");
+            if (counter != null)
+                Check((int)counter.verticalAlignment == 4096,
+                      $"②·b ★ 角标数字那层对齐 = 原版 `TraitCounter` 的 **`Midline`(4096)**（实得 {(int)counter.verticalAlignment}）"
+                    + "｜🧨 删掉 `PlaceBadgeCounter` 里那句 `Geometry` ⇒ 本条红");
+            // ③ 🔴 **次序守卫（灭自证那一族）**：同一份数据**再刷一次**，两层的摆位必须**逐位不变**。
+            //    判据：`PlaceAt` 摆的是 `textBounds`（行盒），它**随档位整体平移** ⇒ 若档位在 `PlaceAt`
+            //    **之前**就已设上（或刷新时不复位），第二次摆出来会与第一次差一个 `c_G`（≈1.25px）。
+            //    ⚠️ 这一条与 ①/②·b **结构上不可能同时满足**：把「先摆后设档」改成「先设档后摆」
+            //       ⇒ ①/②·b 仍绿、**只有本条红**；反过来把档位整段删掉 ⇒ ①/②·b 红、本条绿。
+            if (title != null && cv != null)
+            {
+                float t0 = title.rectTransform.localPosition.y;
+                float c0 = counter != null ? counter.rectTransform.localPosition.y : 0f;
+                cv.SetData(d);                      // 与战场「每刷新一次」走的是同一条（`SetData` → `BuildTextLayers`）
+                float t1 = title.rectTransform.localPosition.y;
+                Check(Mathf.Abs(t1 - t0) < 1e-5f,
+                      $"③ ★ 再刷一次，卡名摆位**逐位不变**（y {t0:F6} → {t1:F6}，差 {Mathf.Abs(t1 - t0):F6}）"
+                    + "｜🧨 删掉 `BuildTextLayers` ① 里那句「`Fill` 之前复位成 `Middle`」"
+                    + "（或把设档位挪到 `Fill` 之前）⇒ 差一个 `c_G`、本条红");
+                if (counter != null)
+                {
+                    float c1 = counter.rectTransform.localPosition.y;
+                    Check(Mathf.Abs(c1 - c0) < 1e-5f,
+                          $"③ ★ 再刷一次，角标摆位**逐位不变**（y {c0:F6} → {c1:F6}，差 {Mathf.Abs(c1 - c0):F6}）"
+                        + "｜🧨 删掉 `PlaceBadgeCounter` 里那句「先复位成 `Middle`」⇒ 本条红");
+                }
+            }
         }
         finally { Object.DestroyImmediate(root); }
+    }
+
+    /// <summary>🆕 2026-10-18（`A985④`）卡面第五层：**「由谁造出来的」**（原版卡根的**第一个子件** `CreatedByText`）。
+    ///
+    /// **原版判据**（完整出处写在我们这边的实现上：`CardView.SetCreatedBy` 与 `CreatedByAt01` 那两段）：
+    ///   · 位姿 `anchoredPosition (0, 1.65)` · `sizeDelta (2.5, 0.38)` · 锚点/轴心全 0.5；纯白字、
+    ///     `m_fontSize 2.45` + autosize、材质带 0.2 黑描边；
+    ///   · 文案 = `GetTranslation("Battle/HUD/CreatedBy").Replace("{0}", 创建者本地化卡名)`
+    ///     （`SupportMethods__GetCreatedByText.c` 亲读）—— 吃的是**创建者那张卡**，不是玩家名；
+    ///   · 消费面 `BattleCardUI.DisplayCreatedByText`：**先把节点关掉**，只有「有来源」且状态落在
+    ///     手牌那两档（`inHandShowing=8` / `inHandPlaying=10`）时才点亮 ⇒ **场上不印**。
+    ///   · **实况旁证**（`资料/原版实拍/arena_0920/runtime_ui_dump_*.tsv`：13 个战场 × 每场 8 个实例
+    ///     = 104 行，`activeSelf` **全是 false** —— 出厂关着、只在运行时点亮）：`CreatedByText`
+    ///     `pos 0.0,1.6` · `size 2.5,0.4`（dump 只印一位小数 ⇒ 真值是 **1.65** / **2.5×0.38**）· 锚点/轴心 0.5/0.5；
+    ///     自己那份 `RectTransform/RectTransform_4803967432083755832.json` 与父件（卡根 `CardUI`，
+    ///     `RectTransform_-4981929636261473480.json`）**锚点/轴心都是 0.5 ⇒ 两个 rect 同心**；
+    ///     父件 rect 真值 = **2.5437×3.3686**（比 `2DCard` 的 2.1×3.3 大；dump 印的是 2.5×3.4）
+    ///     ⇒ y = 1.65 是**从卡心量起**、与我们这套坐标同一个原点。⛔ 别照父件的 3.3686 折一遍 ——
+    ///     那会把这一行整体压低 ~0.019 卡单位（≈2 px）。
+    ///
+    /// 🔴 **两态**（口径 = `CreatedByShown`，它取的是**真 `activeSelf`**，⛔ 不是「层建出来没有」）：
+    ///   有来源 ⇒ 印「由 &lt;创建者卡名&gt; 创建」／没有来源 ⇒ 不印且**层被拆掉**／`SetFace(Board)` ⇒ 关掉。
+    ///
+    /// 🧨 **改坏法（逐条指出哪一条会红）**：
+    ///   · 删掉 `SetFace` 里那句 `Show(_createdBy, !board)` ⇒ **④ 红**（层建着、场上还亮着）；
+    ///   · 把它换成 `Show(_createdBy, true)`（恒亮）⇒ ④ 红；
+    ///   · `FillCreatedBy` 那句 `Fill(...)` 整段注释掉 ⇒ **② 红**（而 ③ 仍绿 —— 所以 ②③ 是一条的两半）；
+    ///   · `CreatedByLine` 改回裸卡名（不套模板）⇒ **② 红**；把 `CardText.Name` 的语言闸拆掉 ⇒ **⑥ 红**。
+    ///
+    /// ⚠️ **两条「我们挑的」不当原版判据断言**（实现在 `CardView` 里也如实标了）：
+    ///   ① **压谁** —— 我们按「可见」把它放在卡面之前，**未跑实况**；
+    ///   ② **没照搬** `m_fontSizeMin 0.3` + Overflow（照搬会长卡名横向溢出 ~2 倍卡宽）
+    ///      ⇒ ⛔ 本方法**不**断「渲染宽度 ≤ 框宽」：那要先知道 0.2 描边给网格留了多少白，
+    ///      而这一步**没跑过 Unity 就量不出来**（铁律 5·c：没查到就写没查到，⛔ 别拿猜测当判据）。
+    /// </summary>
+    static void AssertCreatedBy()
+    {
+        // ---- ① 拿一张**真卡**当创建者（`SetCreatedBy` 吃的就是 `CardDef`）----
+        RuleEngine.CardDef def = null;
+        foreach (var c in RuleEngine.CardDatabase.Load())
+            if (c.Name == "Howling Banshee Exarch") { def = c; break; }   // 工程里当尺子的那张（同破框那一段）
+        Check(def != null, "① 前提：卡池里有 `Howling Banshee Exarch`（拿它当创建者，不是自造的假名字）");
+        if (def == null) return;
+        // ★ 前提：两个卡名任一为空 ⇒ 下面每条 `Contains` **恒真** ⇒ 那几条全是假绿，必须先堵掉
+        Check(!string.IsNullOrEmpty(def.Name) && !string.IsNullOrEmpty(def.NameZh),
+              "① 前提：创建者的**中/英卡名都非空**（空串会让下面的 `Contains` 恒真）");
+        // ★ 前提：字体资产不在 ⇒ 那一层根本不建 ⇒ 下面几条退化成「null == null」（同上，假绿）
+        Check(TmpFont.Available, "★ 前提：字体资产取得到 —— 取不到的话下面几条全在假绿");
+
+        var root = new GameObject("createdby_probe");
+        var langBack = Loc.Current;
+        Loc.PersistOverride = true;                    // 自检不许动玩家的真设置
+        try
+        {
+            var d = CardData.Placeholder(0);           // 两张探针卡吃**同一份** `CardData`
+            var vWith = CardView.Create(root.transform, d, "cb_with", CardFace.Hand);
+            var vNull = CardView.Create(root.transform, d, "cb_null", CardFace.Hand);
+
+            Loc.SetLanguage(AvailableLanguages.Chinese);
+            vWith.SetCreatedBy(def);                   // ← 有来源（「被效果造出来的」那一档）
+            vNull.SetCreatedBy(def);                   // ← 先也给一个，下面再抽掉
+
+            // ---- ② 有来源 ⇒ 印，而且印的是**创建者那张卡的中文名**夹在模板里 ----
+            string zh = vWith.CreatedByShown;
+            Check(!string.IsNullOrEmpty(zh),
+                  $"② 有来源 ⇒ **印出来了**：「{zh}」"
+                + "｜🧨 把 `FillCreatedBy` 那句 `Fill(...)` 注释掉 ⇒ 本条红");
+            Check(zh != null && zh.Contains(def.NameZh) && zh != def.NameZh,
+                  $"② ……内容是**创建者的本地化卡名**「{def.NameZh}」**套在模板里**"
+                + "（⛔ 不是玩家名、也不是裸卡名）｜🧨 `CreatedByLine` 改回裸卡名 ⇒ 本条红");
+            // ★ ②b **真渲出来了**（不是「层在、字不在」—— 那是这工程的常客，见 `CLAUDE.md` 第三节）。
+            //   量法用全仓唯一那一份 `ShellScene.TmpSpanPx`（`A844` 收口）：它扫的是 TMP 自己
+            //   `textInfo` 里 `isVisible` 的那些字形顶点。⛔ 别在这儿自创一套扫网格的循环。
+            var cb = LayerTmp(vWith.transform, "createdBy");
+            float sx1, sy1, sx2, sy2; int sverts = 0;
+            bool spanned = cb != null
+                        && ShellScene.TmpSpanPx(cb.transform, out sx1, out sy1, out sx2, out sy2, out sverts);
+            Check(spanned,
+                  $"②b ★ 那行字**真有可见顶点**（{sverts} 个；节点名 `createdBy`）"
+                + " —— 断「层开着」不够，要断「字真画出来了」");
+
+            // ---- ③ 来源被抽掉 ⇒ **那一层被拆掉**（同一张视图，先有后无）----
+            vNull.SetCreatedBy(null);
+            Check(vNull.CreatedByShown == null,
+                  "③ `SetCreatedBy(null)`（抽掉来源）⇒ **不印** —— 走的是 `Fill` 收到空串就拆层那条路"
+                + "｜🧨 让 `Fill` 收到空串时**不拆层**（改成保留旧对象）⇒ 本条红，而 ② 仍绿");
+            // ★ 灭自证①：两张卡的 `CardData` **逐字相同** ⇒ 只能由「有没有来源」决定。
+            //   「把两边一起写死」满足不了本条。
+            Check(zh != null && vNull.CreatedByShown == null,
+                  "③ ★ 判别式：同一份 `CardData` 的两张卡**确实是两种状态**（一个有串、一个是 null）");
+
+            // ---- ④ 换到场上形态 ⇒ 收起来（**层还在、只是关着**）----
+            //   🔴 铁律 10 第 5 条：`SetFace` 是**唯一**的换场景入口（手牌打出去走的就是它）。
+            vWith.SetFace(CardFace.Board);
+            Check(vWith.CreatedByShown == null,
+                  "④ `SetFace(Board)` 之后**收起来了**（原版 inPlay 那几档先把节点关掉再 return）"
+                + "｜🧨 删掉 `SetFace` 里那句 `Show(_createdBy, !board)` ⇒ 本条红");
+            // ★ 灭自证②（**本节最重要的一条**）：那一层**还在树上**、只是 `activeSelf == false`。
+            //   —— 断「`_createdBy != null`」的话，「亮着」与「关着」**两种状态都绿**（同义反复）；
+            //      只有读真 `activeSelf`（`CreatedByShown` 就是）才分得开。⛔ 别把它换成断非 null。
+            Check(cb != null && !cb.gameObject.activeSelf,
+                  "④ ★ 判别式：这一层**建着、只是关着**（`activeSelf == false`）"
+                + " —— 只删 `Show` 那一句 ⇒ 本条红、而 ②③ 仍绿（正是这条与它们的分别）");
+
+            // ---- ⑤ 回到手牌 ⇒ 又亮出来，内容逐字不变 ----
+            //   ⚠️ 本工程**今天没有** `Board → Hand` 的调用点（`SetFace` 只用于出牌那一步）；
+            //      这条防的是「将来加了回手入口、漏设这一处」—— 就是铁律 10 第 5 条那个形状。
+            vWith.SetFace(CardFace.Hand);
+            Check(!string.IsNullOrEmpty(zh) && vWith.CreatedByShown == zh,
+                  $"⑤ `SetFace(Hand)` 之后**又亮出来**、内容逐字不变（「{vWith.CreatedByShown}」）");
+
+            // ---- ⑥ 语言：同一张卡、只换语言 ⇒ 换的是**创建者卡名**那一截 ----
+            Loc.SetLanguage(AvailableLanguages.English);
+            vWith.SetCreatedBy(def);                   // `Loc` 不发事件 ⇒ 换完语言要重推一次（同 `AssertSubtypeLine`）
+            string en = vWith.CreatedByShown;
+            Check(en != null && en.Contains(def.Name) && en != def.Name,
+                  $"⑥ 英文档 ⇒ 印的是**英文卡名**（「{en}」；中文档是「{zh}」）"
+                + "｜🧨 把 `CardText.Name` 那道语言闸拆掉 ⇒ 本条红");
+            // ★ 灭自证③：数据逐字相同、只有语言不同 ⇒ 两串必须不同
+            Check(zh != en, "⑥ ★ 判别式：两档**确实是两串**（「把两边一起写死」满足不了本条）");
+        }
+        finally
+        {
+            Loc.RestoreForTest(langBack);
+            Loc.PersistOverride = false;
+            Object.DestroyImmediate(root);
+        }
+    }
+
+    /// <summary>在卡的子树里按**节点名**找一层 TMP（`title` / `army` / `createdBy` …）——
+    /// 扫法与 `AssertTitleMidline` 那一段逐句相同（`includeInactive: true`：关着的那层也要找得到）。</summary>
+    static TMPro.TextMeshPro LayerTmp(Transform card, string layerName)
+    {
+        foreach (var t in card.GetComponentsInChildren<TMPro.TextMeshPro>(true))
+            if (t.name == layerName) return t;
+        return null;
     }
 
     /// <summary>🔴 **`CardText.Zh` 是【语言闸】不是【字体闸】**（2026-10-18 改；判据 = 原版有语言选择器 ⇒ 选了英文卡面就该是英文）。
     ///
     /// 改之前：`Zh = TmpFont.Available` —— 中文字体资产一进仓库它**恒真** ⇒ **切成 English 之后，
     /// 卡名/阵营/关键词/效果文字/`Phrases` 兜底那 17 条仍然是中文**（只有走 `Loc.T` 的件会变）。
-    /// 改之后：`Zh = TmpFont.Available && Loc.Current == Chinese`；**并且** `Name(id, nameZh)` 也补上了这道闸
+    /// 改之后：`Zh = TmpFont.Available &amp;&amp; Loc.Current == Chinese`；**并且** `Name(id, nameZh)` 也补上了这道闸
     /// （它原来**无条件**返回 `nameZh` ⇒ 绕过语言闸）。
     ///
     /// 🧨 **改坏法（逐条指出哪一条会红）**：

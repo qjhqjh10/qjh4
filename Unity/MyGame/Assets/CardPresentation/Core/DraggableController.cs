@@ -278,11 +278,53 @@ namespace CardPresentation
         /// 本类**自己不写第二条取值路**（缺图就出声那条口径只留一处）。</summary>
         private System.Func<string, Texture2D> texOf;
 
+        /// <summary>🔴 **原版那颗 `Image` 的「外接框」**（`content > Image_…` 的 `sizeDelta` **220×330**
+        /// × `m_LocalScale` 0.6 = **132×198**）—— 由 <see cref="BindView"/> 在**建完那一刻**记下来。
+        /// ⛔ **不能每次现读** `cardbackImage.WorldW/WorldH`：`Initialize` 每次起拖都会按贴图比例
+        /// **内接**一次，现读到的就是**上一次内接之后**的框 ⇒ 每拖一次缩一点
+        /// （静默，且只在拖第二张时才现形 —— 铁律 10 第 5 条那一族）。</summary>
+        private float boxW, boxH;
+        private bool boxOk;
+
         /// <summary>⚠️ 接线口（偏离 ③，同 `DraggableController.Bind`）。</summary>
         public void BindView(ImageQuad img, System.Func<string, Texture2D> textureOf)
         {
             cardbackImage = img;
             texOf = textureOf;
+            if (img != null && img.WorldW > 0f && img.WorldH > 0f)
+            {
+                boxW = img.WorldW; boxH = img.WorldH; boxOk = true;
+            }
+        }
+
+        /// <summary>🔴 **`Image.m_PreserveAspect = 1` 的等价物**（本仓**唯一**一份口径 ——
+        /// 卡背格那条（`DeckRuntime` 的 `q.SetAspect(CosmoCellW / CosmoCellH)`）要复刻同一件事时
+        /// **调这个口**，⛔ 别抄第二份）。
+        /// <para>把贴图**按它自己的比例内接**进 `boxW×boxH`，返回该填的 `(w, h)`：
+        /// 贴图比框「更宽」⇒ **宽定、高缩**；否则**高定、宽缩**。</para>
+        /// <para><b>判据（两条，都是原版侧）</b>：
+        /// ① 原版那两颗 `Image` 都带 **`m_PreserveAspect = 1`**（现读
+        ///    `python 工具/menu_dump.py bundle_menus_assets_all "Collection Cosmetic" --depth 4`：
+        ///    预览那颗 `content > Image` = **220×330** + `Cardback_UM_Campaign_Premium_Main 707×1020` +
+        ///    `preserveAspect`；卡背格那颗 `Cardback Container > Cardback` = **250×405** 同样带
+        ///    `preserveAspect` —— 两个 prefab 同名不同类：`CosmeticPreview` vs `CollectionCosmetic`）。
+        /// ② 它怎么算：uGUI 源码 `Library/PackageCache/com.unity.ugui@…/Runtime/UGUI/UI/Core/Image.cs`
+        ///    的 `PreserveSpriteAspectRatio(ref rect, spriteSize)`（本机现读）——
+        ///    `spriteRatio > rectRatio` ⇒ `rect.height = rect.width / spriteRatio`（宽定），
+        ///    否则 `rect.width = rect.height * spriteRatio`（高定）；两支都绕 `rectTransform.pivot` 居中
+        ///    （这里是 `.5/.5` ⇒ **绕中心**，与 `ImageQuad` 的居中 quad 同构）。</para>
+        /// <para>⚠️ **比的是「贴图自己的比例」，⛔ 不是「框的比例」** —— 2026-10-18 `A944` 那轮把
+        /// `m_PreserveAspect=1` 读成了「比例就取 220/330」（= **拉伸**）⇒ 预览被竖向拉长
+        /// （`Cardback_AM_Shield of Humanity` 707×981：内接 **132×183.2** vs 拉伸 **132×198**，
+        /// 差 **14.8**px）；`A994③` 就地订正。贴图取不到 / 尺寸为 0 ⇒ 返回 `false`、⛔ **不改几何**。</para></summary>
+        public static bool PreserveAspectSize(Texture2D t, float boxW, float boxH, out float w, out float h)
+        {
+            w = boxW; h = boxH;
+            if (t == null || t.height <= 0 || boxW <= 0f || boxH <= 0f) return false;
+            float s = t.width / (float)t.height;                 // 贴图自己的比例
+            if (s > boxW / boxH) h = boxW / s;                   // 贴图「更宽」⇒ 宽定、高缩
+            else                 w = boxH * s;                   // 否则高定、宽缩
+            return true;
         }
 
         public override void Initialize(string name)
@@ -294,11 +336,28 @@ namespace CardPresentation
             //   `_aspect` 换成新贴图自己的比例**（`ImageQuad.SetTexture` 的 doc：那个重载从写下那天起
             //   就是这个行为，是本仓 A292 专门开 `keepAspect` 那个口的原因；`Battle/ImageQuad.cs` 的文件头
             //   写着「6 个调用点各自紧跟一句 `SetAspect(...)`，**漏一处就是那个 quad 的显示比例被静默改掉**」）
-            //   —— 本处**正是漏的那一处**：`DeckRuntime` 建这一格时给的是 `SetAspect(250 / 405)`
-            //   （= 布局框 250×405，×`m_LocalScale 0.6` 后**画出来 150×243**，原版 `Collection Cosmetic`），
-            //   被换成贴图比例之后画出来就成了 `243 × (707/981) = **175.1284**`（实测逐位吻合：
-            //   拖的是 `Cardback_AM_Shield of Humanity` = 707×981）⇒ `DeckScene` 那条「预览画出来的宽 = 150」红。
+            //   —— 本处**正是漏的那一处**：`DeckRuntime` 建这一格时给的是 `SetAspect(CosmImgW / CosmImgH)`
+            //   （= 图框 `CosmImgW`×`CosmImgH` = **220×330**，×`m_LocalScale 0.6` 后**画出来 132×198**，
+            //   原版 `Collection Cosmetic` 的 `content > Image_…` 那颗 `Image`；⚠️ 那两个量在
+            //   `DeckRuntime` 里是**常量** `CosmImgW` / `CosmImgH` —— ⛔ 按【符号】认，别抄行号），
+            //   被换成贴图比例之后画出来就成了 `198 × (707/981) ≈ **142.7**`（= 上面那两个数算出来的，
+            //   ⛔ 不是实跑读数；同一张图：拖的是 `Cardback_AM_Shield of Humanity` = 707×981）⇒
+            //   `DeckScene` 那条「预览**画出来**的宽 = **132**」红。
             if (t != null) cardbackImage.SetTexture(t, keepAspect: true);
+
+            // 🔴 **2026-10-18（`A994③`）**：原版那颗 `Image` 还带 **`m_PreserveAspect = 1`**
+            //   ⇒ 换完图要**按贴图自己的比例内接**进 `boxW×boxH`（口径与判据全文 → `PreserveAspectSize`）。
+            //   ⚠️ 这一步**不能省**：上一条 `keepAspect: true` 只是「别把框比例冲掉」，
+            //   把贴图**拉满**那个 132×198 的框是**另一件事**（原版从不拉满 —— 那是 preserveAspect 的反面）。
+            if (boxOk)
+            {
+                float w, h;
+                if (PreserveAspectSize(t, boxW, boxH, out w, out h))
+                {
+                    cardbackImage.SetWorldHeight(h);        // ⚠️ 先改高、再把比例拉回 ⇒ `WorldW = WorldH × _aspect`
+                    cardbackImage.SetAspect(w / h);
+                }
+            }
         }
     }
 

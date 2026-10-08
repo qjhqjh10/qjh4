@@ -58,6 +58,9 @@
 //       `d:/2/Warpforge_tools/data/ui_extract/battlearena1_sprite_map.json` 里 = **`40K_button`**
 //       （配 `m_Color` 绿染 + `m_PreserveAspect = 1` 内接进 300×90 —— 细节见 `Build()` 里那段）。
 //       ⛔ **不再是「我们挑的 `40K_display`」**；原来那句「图没读到」已作废（判据链见 `Build()`）。
+//       🔴 **2026-10-18（A991）：这颗钮已经搬进 `Battle/SettingsPanel.cs`** ⇒ 上面这一整条
+//          （图名 / 绿染 / `PreserveAspect` / 300×90）**跟着搬过去**（`SettingsPanel` 文件头那组
+//          `Skip*` 常量 + 它的 `Build`）。本件**不再建那颗钮**，这一段只当**判据留档**。
 //  ③ **左右箭头本轮零可见效果**：6 关 430 条动作里 `showLeftArrow`/`showRightArrow` **全是 `false`**
 //     （R2 §4 实测；我按 61 条 `SmallTip` 复核过 = 0/0）⇒ **机制照做、本轮一次都不会亮**。
 //
@@ -90,16 +93,48 @@ namespace CardPresentation
 
     /// <summary>
     /// **教程那一整棵表现子树**（原版 `Tutorial` 根 + `TutorialTip` + `TutorialArrows` + `Tutorial highlight`
-    /// + `TutorialPointerCombat` + `TutorialObjs` + `SkipTutorial Button`）。
+    /// + `TutorialPointerCombat` + `TutorialObjs`）。
     ///
-    /// 🔑 **为什么合成一个文件/一件**：原版那六层**本来就挂在同一个 `Tutorial` 根下**（见文件头那棵树），
-    ///    它们共享同一套「什么时候亮」的驱动（脚本动作 + `playerAction`），拆成六个文件只会让
-    ///    「谁该跟着谁关」更难查 —— 那正是本工程踩过的坑（「建了却没跟着开关隐藏」）。
+    /// 🔑 **为什么合成一个文件/一件**：它们共享同一套「什么时候亮」的驱动（脚本动作 + `playerAction`），
+    ///    拆成六个文件只会让「谁该跟着谁关」更难查 —— 那正是本工程踩过的坑（「建了却没跟着开关隐藏」）。
+    ///
+    /// 🔴 **2026-10-18 就地订正（铁律 5）**：本段原来写的理由是「原版那六层**本来就挂在同一个 `Tutorial` 根下**」
+    ///    —— **不成立**。逐场现读 `d:/2/新解包资源/assets_full/bundle_scenes_scenes_battlearena1`
+    ///    （`RectTransform/` 按 `m_Father` 逐跳解父链）＋ `资料/说明书/01_战斗_对战/2D层_battlearena1全树.md`，
+    ///    **只有 4 层**在 `Tutorial`（pid 3013）之下：`InitTutorialTip` / `TutorialArrows` / `TutorialTip` /
+    ///    `TutorialPointerCombat`（= 文件头那棵树）。另三层**都不在这棵根下**（arena1 实读的父链）：
+    ///      · `TutorialObjs` ⇒ `Card Display/Card Display Window`（HUD 那一支，全树 `:578`）；
+    ///      · `Tutorial highlight` ⇒ **`Canvas` 的直接子物体**（与 `FrontCanvas` 平级，全树 `:799`）；
+    ///      · `SkipTutorial Button` ⇒ **`BattleSettingsPanel/Bottom buttons`**（那是**设置窗里的钮**，
+    ///        `BattleSettingsPanel` 在场景里是 `(inactive)`，全树 `:673`/`:718-722`）—— **不是**教程根下的 HUD 钮。
+    ///    ⇒ 合并成一件的理由是**共享同一套显隐驱动**，**不是**「同一个根」。⛔ 别再写回「六层同一个根」。
+    ///
+    /// 🔴 **2026-10-18（A991）：`SkipTutorial Button` 这一层已经搬出本文件** —— 它建在
+    ///    `Battle/SettingsPanel.cs` 里（原版那颗的父链就是 `BattleSettingsPanel/Bottom buttons`）。
+    ///    ⛔ 本件**不再建那颗钮**，全库只有 `SettingsPanel` 建。
+    ///    🔴 **2026-10-18（第三会话 · 铁律 5 就地订正）**：本段原来还写着「本件只剩它那几个只读转发口
+    ///    （`SkipPanel` / `SkipVisible` / `SkipWorldPos` / `ClickSkipAt`）」—— **那四个口已删**，
+    ///    本件**不再有那颗钮的转发口**。经过：
+    ///      · **A991 那一轮为什么留**：`Editor/BattleScene.cs` 的断言那时还在读它们，而那个宿主
+    ///        不在当轮白名单里 ⇒ 先留**零像素的转发口**（⛔ 当时也没建钮）。
+    ///      · **现在为什么能删**：那一批已改成直接读真身（`driver.Settings` 的 `HitSkipTutorial` /
+    ///        `SkipTutorialWorldPos` / `SkipTutorialShown`）⇒ 全仓**零代码调用**（grep 证据见
+    ///        `资料/普查产出_1018第三会话/W_收尾小账.md` ④；剩下几处提及全在**注释**里）。
+    ///      · ⚠️ **`minTimeBeforeSkip` 那道闸【没动】** —— `MinTimeBeforeSkip` / `SetSkip` /
+    ///        `SkipAllowed` / `TrySkip` / `SkipClickedByPlayer` 都还在。它是**本工程自己留的闸**
+    ///        （原版那颗钮没有），且 `Editor/BattleScene.cs` 有断言钉着（已如实标为真偏离）。
     ///
     /// ⛔ **一件都不许静默失败**：拿不到的图/查不到的参数一律 `Debug.LogWarning`（且**同一条只吼一次**）。
     /// </summary>
     public class TutorialOverlay : MonoBehaviour
     {
+        // 🔴 **2026-10-18（第三会话）：这里原来有 `public SettingsPanel SkipPanel;`（A991 的转发口宿主）
+        //    —— 【已删】。** 它是「跳过钮搬进 `SettingsPanel`」那一轮留下的**纯兼容转发口**
+        //    （零像素、自己不建任何东西），由 `BattleDriver` 在两处幂等注入（那两处注入上一批已删）。
+        //    删它的依据：全仓**零代码调用**（`BattleScene.cs` 已改读 `driver.Settings` 的真身），
+        //    `grep` 逐条见 `资料/普查产出_1018第三会话/W_收尾小账.md` ④。
+        //    ⛔ **别为了「接口齐整」把它加回来** —— 那颗钮的真身在 `Battle/SettingsPanel.cs`。
+
         // ------------------------------------------------------------------
         //  参数（哪几个是判据、哪几个是我们挑的 —— 逐条标了）
         // ------------------------------------------------------------------
@@ -113,16 +148,10 @@ namespace CardPresentation
         const float InitTipPxW = 700f, InitTipPxH = 100f;
         /// <summary>指点光标 **100×100**（px）—— ✅ 判据：`Pointer [-84,1090 100x100]`。</summary>
         const float PointerPx = 100f;
-        /// <summary>跳过按钮 **300×90**（px）—— ✅ 判据：`SkipTutorial Button [22,1375 300x90]`。</summary>
-        const float SkipPxW = 300f, SkipPxH = 90f;
-        /// <summary>跳过钮底板的**染色** —— ✅ 原版实读：`MonoBehaviour_4721.json`（`SkipTutorial Button`
-        /// 那颗 uGUI `Image`）的 `m_Color` = **(0.36862749, 0.89411765, 0.58743727, 1)**。
-        /// 🔴 **2026-10-18（`G9`）**：底板换成真图 `40K_button` 之后，这一格**必须一起照抄** ——
-        /// 原版那张图本身是**中性灰**，绿色是**染上去的**（与投降钮同一档：
-        /// `SettingsPanel.ResignTint` 是同三个小数）。
-        /// ⚠️ **不做 `.linear` 换算**：走 `ImageQuad.Tint`（= 材质的 color 属性），
-        /// Unity 在**线性色彩空间**下自己会把 sRGB 值转过去；同族的 `SettingsPanel` 也是直填原值。</summary>
-        static readonly Color SkipTint = new Color(0.3686f, 0.8941f, 0.5874f, 1f);
+        // 🔴 **2026-10-18（A991）：跳过钮的三样常量（`SkipPxW/SkipPxH` 300×90 · 底板图 `40K_button` ·
+        //    染色 (0.3686,0.8941,0.5874,1)）跟着那颗钮一起搬进了 `Battle/SettingsPanel.cs`**
+        //    （那边叫 `SkipWPx/SkipHPx` 与 `ResignTint`/`ResignBorder*`）—— 本件不再持有它们。
+        //    ⛔ 别在这儿复活一份（「两处写同一条规则 = 迟早不一致」）。
         /// <summary>淡入时长（秒）—— ✅ 判据：`TutorialTipScript.fadeDuration = 0.2`。</summary>
         public const float FadeDuration = 0.2f;
         /// <summary>`minTimeBeforeSkip = 1.0`（原版 `TutorialTipScript`）—— 提示刚弹出来这 1 秒内**不许跳过**
@@ -140,9 +169,11 @@ namespace CardPresentation
         const float Gap = 0.14f;
         /// <summary>🔴 **我们挑的**：高亮层在锚点矩形外扩的边距（世界单位）。</summary>
         const float HighlightPad = 0.06f;
-        /// <summary>🔴 **我们挑的**：跳过按钮摆在屏幕底部中间偏左（见 `Build` 里的注释 —— 原版那个
-        /// `[22,1375]` 的父链偏移没能标定）。</summary>
-        static readonly Vector2 SkipAt01 = new Vector2(0.5f, 0.075f);
+        // 🔴 **2026-10-18（A991）删掉了 `SkipAt01`**（原来是 `new Vector2(0.5f, 0.075f)`，
+        //   注释写着「原版那个 `[22,1375]` 的父链偏移没能标定 ⇒ 摆位是我们挑的」）。
+        //   **那一句现在有确切答案了**：在**面板坐标系**里它是 `(+171.7, −310.5)`、300×90
+        //   （判据 = `menu_dump.py … "BattleSettingsPanel"` 的绝对矩形 + 面板框心，见
+        //    `SettingsPanel` 文件头那组 `Skip*` 常量）。摆位随那颗钮一起搬走了 ⇒ 这一格**不再需要**。
 
         // ------------------------------------------------------------------
         //  层
@@ -154,12 +185,18 @@ namespace CardPresentation
         ImageQuad _highlight;
         ImageQuad _pointer;
         GameObject _annoGo; Label[] _annoLabels = new Label[4]; ImageQuad[] _annoArrows = new ImageQuad[4];
-        GameObject _skipGo; Label _skipLabel; ImageQuad _skipBg;
+        // 🔴 **2026-10-18（A991）删掉了 `_skipGo` / `_skipLabel` / `_skipBg`** —— 那颗钮**搬进了
+        //    `Battle/SettingsPanel.cs`**（本件**不再建它**，全库只有那一处建）。本件只留两样：
+        //    `MinTimeBeforeSkip` 那一档的计时 + 玩家点过的记账。
+        /// <summary>`MinTimeBeforeSkip` 那一档的计时**起点**已经起过没有（幂等闩）。
+        /// 原来这一格是「那颗钮亮着没有」（`_skipGo.activeSelf`），钮搬走之后换成显式闩 ——
+        /// **`SetSkip` 的语义逐字不变**（见那个方法）。</summary>
+        bool _skipArmed;
 
         float _fade;                 // 0..1（当前不透明度）
         bool _wantVisible;           // 这一层「该不该显示」
         bool _skippedByPlayer;       // 玩家点过跳过（`BattleDriver` 读它决定要不要收摊）
-        float _shownFor;             // 本层已经显示了多久（`MinTimeBeforeSkip` 用）
+        float _shownFor;             // **跳过那一档**已经亮着多久（`MinTimeBeforeSkip` 用）
 
         // ------------------------------------------------------------------
         //  自检读口（全部只读）
@@ -174,13 +211,15 @@ namespace CardPresentation
         public bool PointerVisible { get { return _pointer != null && _pointer.gameObject.activeSelf; } }
         public bool PointerUsesArrowArt { get { return _pointer != null; } }
         public bool AnnotationsVisible { get { return _annoGo != null && _annoGo.activeSelf; } }
-        public bool SkipVisible { get { return _skipGo != null && _skipGo.activeSelf; } }
-        /// <summary>玩家的「跳过」这一下**准不准**（原版 `TutorialTipScript.minTimeBeforeSkip = 1.0`）。</summary>
+        // 🔴 **2026-10-18（第三会话）：`SkipVisible`（转发 `SkipPanel.SkipTutorialShown`）【已删】**
+        //    —— 零调用（原来那处读者 `Editor/BattleScene.cs` 已改读 `driver.Settings.SkipTutorialShown`）。
+        /// <summary>玩家的「跳过」这一下**准不准**（原版 `TutorialTipScript.minTimeBeforeSkip = 1.0`）。
+        /// ⚠️ **这是本工程自己留的闸**（原版那颗钮**没有**它 —— 见 `BattleDriver.SkipTutorialFromSettings`
+        /// 末段）—— 本轮不动它，因为 `Editor/BattleScene.cs:14844` 把它钉住了。</summary>
         public bool SkipAllowed { get { return _shownFor >= MinTimeBeforeSkip; } }
         public bool SkipClickedByPlayer { get { return _skippedByPlayer; } }
-        /// <summary>自检用：跳过按钮的世界坐标（批处理里 `WorldPointer()` 是死点，要显式喂）。</summary>
-        public Vector3 SkipWorldPos { get { return _skipGo != null ? _skipGo.transform.position : Vector3.zero; } }
-        public Vector3 SkipWorldSize { get { return new Vector3(SkipPxW / Px, SkipPxH / Px, 0f); } }
+        // 🔴 **2026-10-18（第三会话）：`SkipWorldPos`（转发 `SkipPanel.SkipTutorialWorldPos`）【已删】**
+        //    —— 零调用。要那颗钮的世界坐标请直接读 `driver.Settings.SkipTutorialWorldPos`（真身）。
 
         // ==================================================================
         //  建
@@ -295,52 +334,25 @@ namespace CardPresentation
                                                       new Vector2(0.5f, 0.5f), names[i] + "Arrow");
             }
 
-            // ---- 跳过按钮（`SkipTutorial Button 300×90`，文案 `'Skip tutorial'`）----
-            // 🔴 父子同 `TutorialTip`：文字与底板都挂 `_skipGo` 下面（否则挪它时文字不动）。
-            // 🔴 **2026-10-18（`G9`）就地订正（铁律 5）：底板换成了真名 `40K_button`。**
-            //   本节点原来写「原版那个节点的图**没读到** ⇒ 仍是 `40K_display`（我们挑的）」——
-            //   **读到了**（`Z4` 那轮解开两条素材悬案用的是**同一条路**：pid→名字要走**索引表**，
-            //   ⛔ 不是去 `assets_full` 的 `Sprite/` 目录按 pid 找名字）。三样判据：
-            //     ① 节点 = `d:/2/新解包资源/assets_full/bundle_scenes_scenes_battlearena1/GameObject/SkipTutorial Button.json`
-            //        （组件 `RectTransform_3271` · `CanvasRenderer_2439` · `MonoBehaviour_4721`(uGUI `Image`) ·
-            //         `MonoBehaviour_4945`(uGUI `Button`) · `MonoBehaviour_4610`(`Canvas`)）；
-            //     ② `MonoBehaviour_4721.json` 的 `m_Sprite` = `{ m_FileID: 8, m_PathID: 5651555388418207694 }`；
-            //     ③ 那个 pid 在**索引表** `d:/2/Warpforge_tools/data/ui_extract/battlearena1_sprite_map.json`
-            //        （pid→名字，96 条）里逐条读出来 = **`40K_button`**
-            //        （图本体在 `CardPresentation/Resources/Art/ui_menu/40K_button.png` 与 `Art/ui/` 两份，
-            //         `489×107`；`CardArt.Ui("40K_button")` 取得到）。
-            //   ⚠️ **同一份 `MonoBehaviour_4721.json` 还给了三个必须照抄的字段**：
-            //     · `m_Color = (0.36862749, 0.89411765, 0.58743727, 1)` —— **绿染**（与投降钮同一档，
-            //       见 `SettingsPanel.ResignTint`）；
-            //     · `m_Type = 0 (Simple)` + `m_PreserveAspect = 1` + `m_PixelsPerUnitMultiplier = 1`
-            //       ⇒ **等比内接进 300×90 那个框**（`ImageQuad.FitHeight` 就是这条 `GetDrawingDimensions` 算法）。
-            //       图 `489×107` 的比例 4.570 > 框的 300/90 = 3.333 ⇒ **按宽定**：实绘 300×65.64 px
-            //       （⛔ 直接拿 `SkipPxH` 当高会画成 411×90，比原版宽 111 px）。
-            //   ⚠️ 命中区**仍是** `SkipPxW × SkipPxH`（= 原版 `RectTransform_3271` 的 `m_SizeDelta` 300×90 本身，
-            //     图内接小于它是版式本来的样子）—— `HitTest` 读的就是这一对，**不跟着图缩**。
-            _skipGo = new GameObject("SkipTutorial Button");
-            _skipGo.transform.SetParent(_root, false);
-            var skipTex = CardArt.Ui("40K_button");
-            if (skipTex == null) skipTex = CardArt.MenuUi("40K_button");   // 兜底：另一条取图路（同一张图两份）
-            if (skipTex != null)
-            {
-                float skipH = ImageQuad.FitHeight(SkipPxW, SkipPxH, skipTex.width / (float)skipTex.height) / Px;
-                _skipBg = ImageQuad.Create(_skipGo.transform, skipTex, Vector3.zero, skipH,
-                                           new Vector2(0.5f, 0.5f), "SkipTutorialBg");
-                if (_skipBg != null) _skipBg.SetTint(SkipTint);
-            }
-            else
-            {
-                _skipBg = null;
-                Debug.LogWarning("[Tutorial] 拿不到跳过钮底板 `40K_button`（`Art/ui/` 与 `Art/ui_menu/` 都没有）"
-                               + " ⇒ **只画字、不画底板**（原版 `Bottom buttons/SkipTutorial Button` 的 "
-                               + "`m_Sprite` 实读就是 `40K_button`；⛔ 不摆白方块、也不退回别张图）。");
-            }
-            _skipLabel = Label.Create(_skipGo.transform, "Skip tutorial", Vector3.zero, 3, new Color(1f, 1f, 1f),
-                                      new Vector2(0.5f, 0.5f), "SkipTutorialLabel");
-
-            // 摆位（跳过按钮那一处是**我们挑的**，见 `SkipAt01` 的注释）
-            _skipGo.transform.localPosition = LayoutSpace.ToWorld(SkipAt01.x, SkipAt01.y);
+            // ---- 🔴 **2026-10-18（A991）：跳过钮【已经搬走】，本件不再建它** ----
+            // 它现在建在 `Battle/SettingsPanel.cs`（`Build` 里 `SkipCxPx` 那一段）——
+            // **判据 = 原版那颗钮的父链**：`SkipTutorial Button → Bottom buttons → **BattleSettingsPanel**`
+            // （13/13 个战场场景同构；`menu_dump.py … "BattleSettingsPanel"` 现读的绝对矩形是
+            //  `981.7,834.8 → 1281.7,924.8`，面板框心 `(960.0,569.3)` ⇒ 面板内 **(+171.7, −310.5)**）。
+            // 本件原来把它建在 `Tutorial` 这棵 HUD 子树上、摆位还标着「我们挑的」（`SkipAt01`）——
+            // **那是落点错**（铁律 11：查出来就照原版改）。
+            // ⛔ **别把这一段建回来**（那就是「两个入口」）；本件只留：`MinTimeBeforeSkip` 那一档的计时
+            //    （`SetSkip` / `SkipAllowed` / `TrySkip`）。
+            //    🔴 **2026-10-18（第三会话）**：这里原来还写着「+ 几个**转发口**（`SkipPanel` 那一格）」——
+            //    那几个口（`SkipPanel` / `SkipVisible` / `SkipWorldPos` / `ClickSkipAt`）**已删**，零调用。
+            //
+            // 📌 **顺着搬走的四样**（原来都在这一段，判据一条不丢）：
+            //   · 底板图 = `40K_button`（pid `5651555388418207694`，索引表 `battlearena1_sprite_map.json` 读出）；
+            //   · 染色 `m_Color = (0.3686, 0.8941, 0.5874, 1)`（**绿**，与投降钮同一档）；
+            //   · `m_Type = 0(Simple)` + **`m_PreserveAspect = 1`** ⇒ 等比内接进 300×90（实绘 300×65.64 px）；
+            //   · 文字 TMP 原文 `Skip tutorial`、`mTerm = Battle/Settings/SkipTutorial`（`MonoBehaviour_4307.json`）、
+            //     fs **38**（base 12 · auto 12~38）、`Center/Midline`、折行 0、白。
+            //   ⇒ 这些判据**一句没丢**，逐条写在 `SettingsPanel` 文件头那组 `Skip*` 常量与 `Build` 那段注释里。
 
             HideAll();
         }
@@ -368,7 +380,12 @@ namespace CardPresentation
             if (_highlight != null) _highlight.gameObject.SetActive(false);
             if (_pointer != null) _pointer.gameObject.SetActive(false);
             if (_annoGo != null) _annoGo.SetActive(false);
-            if (_skipGo != null) _skipGo.SetActive(false);
+            // 🔴 **2026-10-18（A991）**：这里原来还有 `if (_skipGo != null) _skipGo.SetActive(false);`
+            //    —— 钮搬进 `SettingsPanel` 之后本件**没有 `_skipGo` 了**（它的显隐跟着设置面板开关走，
+            //    由 `SettingsPanel.SetActive` 一致处理）。
+            //    但**那半句还有一个副作用要保住**：老实现里「那颗钮被收起来了 ⇒ 下一次 `SetSkip(true)`
+            //    又算『刚亮起来』、把 `_shownFor` 归零」—— 等价物就是下面这一句（⛔ 别删）。
+            _skipArmed = false;
             _fade = 0f; _wantVisible = false;
         }
 
@@ -484,26 +501,24 @@ namespace CardPresentation
             if (_annoGo.activeSelf != on) _annoGo.SetActive(on);
         }
 
-        /// <summary>跳过按钮（`Bottom buttons/SkipTutorial Button`；教程局**常显**）。</summary>
+        /// <summary>🔴 **2026-10-18（A991）**：那颗钮**已经不在本件里**（它建在 `Battle/SettingsPanel.cs`），
+        /// 所以本方法现在**只做一件事**：`MinTimeBeforeSkip` 那一档的**计时起点**。
+        /// <para>语义与搬走前**逐字相同**（⛔ 别改）：`on` 第一次进来 ⇒ `_shownFor = 0`；`on == false` ⇒ 也归零。
+        /// 原来那个「第一次」的前提是「那颗钮亮着没有」（`_skipGo.activeSelf`），钮搬走之后换成
+        /// <see cref="_skipArmed"/> 这个显式闩 —— 两者在**所有既有调用序列**下等价
+        /// （`BattleDriver` 两处都只传 `true`）。</para>
+        /// <para>⚠️ 「刚出现那一下归零」的理由照旧：`minTimeBeforeSkip` 管的是**刚出现**那一刻
+        /// （原版那个字段在 `TutorialTipScript` 上；我们两个入口 `SetTip` / `SetSkip` 都归零，
+        /// ⛔ 别只归一个 —— 那样「提示先出、按钮后出」时闸的时间起点会不一样）。</para></summary>
         public void SetSkip(bool on)
         {
-            if (_skipGo == null) return;
-            // 「刚亮起来」那一帧把计时归零 —— `minTimeBeforeSkip` 管的是**刚出现那一下**
-            //（原版那个字段在 `TutorialTipScript` 上；我们两个入口 `SetTip` / `SetSkip` 都归零，
-            //  ⛔ 别只归一个：那样「提示先出、按钮后出」时闸的时间起点会不一样）
-            if (on && !_skipGo.activeSelf) _shownFor = 0f;
-            if (!on) _shownFor = 0f;
-            if (_skipGo.activeSelf != on) _skipGo.SetActive(on);
+            if (on && !_skipArmed) { _skipArmed = true; _shownFor = 0f; }
+            if (!on) { _skipArmed = false; _shownFor = 0f; }
         }
 
-        /// <summary>自检/产品共用：**这一下是不是点在跳过按钮上**（抬起沿）。
-        /// 返回 true = 玩家要跳过 ⇒ 调用方负责收摊（我们只记账）。</summary>
-        public bool ClickSkipAt(Vector3 world)
-        {
-            if (_skipGo == null || !_skipGo.activeSelf) return false;
-            var d = world - _skipGo.transform.position;
-            return Mathf.Abs(d.x) <= SkipPxW / Px * 0.5f && Mathf.Abs(d.y) <= SkipPxH / Px * 0.5f;
-        }
+        // 🔴 **2026-10-18（第三会话）：`ClickSkipAt(Vector3 world)`（转发 `SkipPanel.HitSkipTutorial`）【已删】**
+        //    —— 零调用。要判「点没点到那颗钮」请直接读真身：
+        //    `driver.Settings.HitSkipTutorial(driver.Settings.SkipTutorialWorldPos)`（与真实输入同一条判定）。
 
         /// <summary>玩家按下了跳过（`BattleDriver` 调）。⚠️ `minTimeBeforeSkip` 之内**不算**
         /// （原版 `TutorialTipScript` 的闸；出声，别静默吞掉这一下）。</summary>

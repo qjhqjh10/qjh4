@@ -500,8 +500,10 @@ namespace CardPresentation
         /// <remarks>🔴 **2026-10-17（A866）：四层建法已收口到 `WindowHeader.WithBackButton`**
         /// （全工程 4 扇窗各抄一遍 ⇒ 收成一份）。本窗这一档的**差异**（逐格对照 →
         /// `资料/普查产出_1018/S5_A866窗头收口.md` §2）：
-        /// · 根名缺省；· 标题走 **`SpacingOnly`**（**只有字距、不调自适应** —— 另三扇都调；本笔**照旧保留**，
-        ///   差异登记在 §5 / §7）；· 多一档 `TitleVAlign = Capline`（A712 阶段 2）；
+        /// · 根名缺省；· 标题走 **`FitAfterSpacing`**（🔴 **2026-10-18（A968）改的**：原来是 `SpacingOnly`
+        ///   —— 那意味着**不调 `SetAutoFitBox`**，而原版那一颗 `m_enableAutoSizing = 1`、区间 `18 … 67.55`
+        ///   （判据见 `BuildHeader` 里那一长段）⇒ 现已接上自适应，并补了 `TitleFitW/H` = 原版矩形 379.30×82.66）；
+        /// · 多一档 `TitleVAlign = Capline`（A712 阶段 2）；
         /// · 返回钮 = `BoundOnQuad`（图**自己**就是按钮，**没有 `BackHit` 节点**）且 `BackKeepAspect = false`
         ///   （另三扇是 `true`）；· `onClick` 先 `StreakAutoCollect()` 再 `Close()`。</remarks>
         void BuildHeader(Transform root)
@@ -529,8 +531,23 @@ namespace CardPresentation
                 PlateRect = H_Plate,
                 TitleRect = H_Title,
                 TitleText = DailyData.StreakWindowTitle(),
-                // 🔴 A493#6（补显式左对齐）+ A517（补字距 5）：本窗这一颗**只补了这两笔、没补自适应** —— 照旧。
-                TitleMode = WindowHeader.TitleFit.SpacingOnly,
+                // 🔴 **2026-10-18（A968）：这里原来是 `SpacingOnly`（= 只补字距、不补自适应）—— 已改成
+                //   `FitAfterSpacing`，并补上自适应那个**框**（`TitleFitW/H`）。**
+                //   判据（本轮亲读原版解包资源，逐字段）= 本窗 `Window Title` 那颗 TMP
+                //   （`bundle_menus_assets_all` 的 `MonoBehaviour_3324232435684942507.json`，`m_text "Daily Streak"`）：
+                //   **`m_enableAutoSizing = 1`** · `m_fontSizeMin = 18.0` · `m_fontSizeMax = 67.55` ·
+                //   `m_fontSizeBase = 36.0` · `m_characterSpacing = 5.0`；同包 **8 颗 `Window Title` 逐颗现读、逐值相同**。
+                //   ⇒ 原版那一颗**是自适应的**，区间与共件常量（`TitleAutoMinPx 18 / Max 67.55 / Base 36`）逐值相同。
+                //   🔴 **次序 = `FitAfterSpacing`**（调度台裁定：另三扇里 2/3 用它；原版序列化字段不表达次序，
+                //     两档静态收敛 —— 共件 `TitleFit` 的 doc 自陈「无牙口」）。
+                //   🔴 **`TitleFitW/H` 不能省**（A968 落地时新发现的连带）：那两个缺省是 **0**，而
+                //     `SetAutoFitBox` 头一句就是 `SetWrapWidth(worldW)` ⇒ 传 0 会把 TMP 的 `sizeDelta.x`
+                //     写成 **0**（`Core/TmpFont.cs` 的 `SetWrapWidthRect`：`sizeDelta = (width, 0)` + 折行开 **Normal**）
+                //     ⇒ `Daily Streak` 会**一个字一行**地竖排。值 = 原版那一颗自己的矩形宽高
+                //     （`H_Title` = 155 … 534.30 × 38 … 120.66 ⇒ **379.30 × 82.66**，两处来源同一条：
+                //      `menu_dump` 实读的 `Window Title` 矩形 + 本窗那条 `H_Title` 常量）。
+                TitleMode = WindowHeader.TitleFit.FitAfterSpacing,
+                TitleFitW = H_Title.W, TitleFitH = H_Title.H,
                 // A712 阶段 2：原版 `Left/Capline` 的**纵向那一半**（共件里 `SetVAlign` 排在 `AlignLeft` 之后，
                 // 与本窗原来的次序逐句相同）。
                 TitleVAlign = Label.VAlign.Capline,

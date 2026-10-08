@@ -86,7 +86,7 @@ namespace RuleEngine
         ///
         /// 🔴 **为什么搬上来**：原版这套效果**长在牌自己身上** ——
         /// `CardScript.AddEffect(那张牌, handEffect.cardEffect)`（`PlayerHand__SetupCardInHand.c:71` ·
-        /// `PlayerHand__AddHandEffect.c:126-135`），存在 `CardScript` 的 `+0x108`（`List<CardEffect>`，
+        /// `PlayerHand__AddHandEffect.c:126-135`），存在 `CardScript` 的 `+0x108`（`List&lt;CardEffect&gt;`，
         /// `d:/2/tools/il2cpp_out/dump.cs` 核过偏移）。挂了之后：
         ///   · **在手里那一段就属于那张牌**（`EntityScript.HasCurrentTrait` 同时读 `+0x128` 与 `+0x108`）；
         ///   · **打出时跟着上场** —— `PlayerHand.RemoveCardFromHand`（`…:20`）**只把这张牌从
@@ -262,12 +262,12 @@ namespace RuleEngine
         /// 开关 `limitedUses // +0x28`）。
         ///
         /// 🔴 **额度是【共享】的，不是一份一份** —— 与原版那两张表的结构一致：
-        ///   · `PlayerHand.activeEffects // +0x48` = `List<HandEffect>`（**记录**，计数器长在这上面）；
-        ///   · `CardScript.activeEffects`/`+0x108` = `List<CardEffect>`（**逐张牌挂的那份**）。
+        ///   · `PlayerHand.activeEffects // +0x48` = `List&lt;HandEffect&gt;`（**记录**，计数器长在这上面）；
+        ///   · `CardScript.activeEffects`/`+0x108` = `List&lt;CardEffect&gt;`（**逐张牌挂的那份**）。
         ///   一条 `HandEffect` 发给 N 张牌（`PlayerHand__AddHandEffect.c:126-135`）⇒
         ///   **N 张共用同一个 `numberOfUses`**。判据：
         ///   · `PlayerHand__CardPlayedWithEffects.c:28`（`limitedUses` 是开关）· `:33-35`（打出的那张牌
-        ///     身上有没有这条效果）· `:39 numberOfUses--` · `:43-45 < 1 ⇒ RemoveHandEffectAt`；
+        ///     身上有没有这条效果）· `:39 numberOfUses--` · `:43-45 &lt; 1 ⇒ RemoveHandEffectAt`；
         ///   · `PlayerHand__RemoveHandEffectAt.c:30-40` 遍历**整只手牌**逐张 `CardScript.RemoveEffect`
         ///     ⇒ 摘的是**所有还带着它的牌**（不是打出的那一张 —— 那张已经上场了）。
         /// ⇒ 所以存的是**一个对象**：同一次挂载发给的每一份**引用同一个盒子**（<see cref="HandBuffUsesRef"/>）。

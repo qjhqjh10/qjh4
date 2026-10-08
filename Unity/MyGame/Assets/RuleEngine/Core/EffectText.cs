@@ -759,7 +759,7 @@ namespace RuleEngine
         ///   `drawtype` / `draw`（它带着「从牌库挑什么」那个词，如 `troops` / `vehicle`）时，
         ///   把那个词变成 `CardCriteria.KindWord` 填进来。
         /// **不作它用**：这一格**只喂手牌那一侧的 criteria**，⛔ **不参与 `ResolveTargets`**
-        ///   （`Kind` 仍是 `"prev"`，`DoGive` 靠 `spec.Side == "prev" && spec.Kind == "prev"`
+        ///   （`Kind` 仍是 `"prev"`，`DoGive` 靠 `spec.Side == "prev" &amp;&amp; spec.Kind == "prev"`
         ///   走「场上拿不到就看手里」那条路 —— 改了 `Kind` 会把那条路**静默断掉**）。
         /// `null` = **没有先行词可判** ⇒ `HandEffectFits` 按「判不出来」处理。
         /// </summary>
@@ -902,7 +902,14 @@ namespace RuleEngine
                 if (t.Side == "prev" || t.Kind == "prev") continue;
                 // 🆕 **督军永远不用玩家选**（2026-09-13 A4 批 2）：一方只有一个督军，
                 //    `Your Warlord gains Concussive … and heals 5`（`Da Irongob`）原来会被判成
-                //    「需要点一个目标」⇒ `CanPlayTactic` 要求给格位 ⇒ **整张卡打不出去**（`ErrSlot`）。
+                //    「需要点一个目标」⇒ `CanPlayTactic` 要求给格位 ⇒ **整张卡打不出去**
+                //    （🔴 **2026-10-18 就地订正（铁律 5）**：这里原来写 `ErrSlot` —— **拆码前**的值，
+                //     拆码后这一支返回 **`ErrNoTargetAvailable`**。**判成「没有合法目标」而不是「满了」**：
+                //     本句点名的是 `CanPlayTactic`，而它那两处「要选目标」的出口
+                //     （`targetSlot < 0 / 越界` 与 `那一格没有合法候选`）在 `EffectResolver.cs:908/910`
+                //     **都**返回 `ErrNoTargetAvailable`；`ErrNotEnoughRoom` 只出自 `RuleCore.CanPlayCard`
+                //     的 `!BoardSlots.HasRoomFor`（**单位卡**那条，`RuleCore.cs:1366`），与战术卡无关。
+                //     ⇒ 只有一种可能，**不是**「两种都可能」）。
                 if (t.Kind == "warlord") continue;
                 // 🆕 `… attacked [by this unit]`（2026-09-14 A5 批 3）：锚在**这一下的被打者**上，
                 //    不是「让玩家点一个」—— 不排掉的话 `any enemy troop … attacked`（`Side="enemy"`）
@@ -1269,9 +1276,25 @@ namespace RuleEngine
             /// <summary>完全解析不了的卡名（卡面该打 `*`）</summary>
             public readonly List<string> NoneCards = new List<string>();
 
+            /// <summary>
+            /// **通用的**文本摘要（一行）—— 被 `unit` / `hero` / `defence` / 战术卡**共用**。
+            /// （`Coverage(cards, type, …)` 的 `type` 只决定**装的是哪一类卡**；`Summary()` 报的是
+            ///   **手里这批卡**的账 ⇒ 它自己**不知道**卡种，卡种由调用方那行前缀给，例如 `## [unit]`。）
+            ///
+            /// 🔴 **2026-10-18（`A179⑤`）：措辞改过一次，⛔ 别再改回带卡种的写法。**
+            ///    这里原来写死「**战术卡**文本解析：完全解析 …」，而
+            ///    `RuleEngineTest.ReportUnitDescCoverage` 把**同一个方法**印在 `[unit]` / `[hero]` /
+            ///    `[defence]` 三张表的表头上（实测日志：`[unit] 战术卡文本解析：…`）——
+            ///    **话说的不是它记的事**（功能没问题，是**文案**不准）。
+            ///    ⇒ 去掉卡种，只留「文本解析」。
+            ///    ⚠️ 这只是一句**诊断文案**，**一行行为都没动**；唯一会跟着变的是两份**自动生成**的
+            ///       报告首行：`d:/4/_tmp_view/tactic_unparsed.txt`（`RuleEngineTest.DumpUnparsed`）
+            ///        与 `d:/4/_tmp_view/unit_desc_unparsed.txt`（`RuleEngineTest.ReportUnitDescCoverage`）
+            ///        —— 两者都由跑一次 `RuleEngineTest.Run` 重写（`_tmp_view/` 在 `.gitignore` 里，不受版本管理）。
+            /// </summary>
             public string Summary()
             {
-                return $"战术卡文本解析：完全解析 {Full}/{Cards}"
+                return $"文本解析：完全解析 {Full}/{Cards}"
                      + $"，其中**载荷有机制** {FullAndMechanized}"
                      + $"，部分 {Partial}，完全不懂 {None}"
                      + $"（分句 {SegTotal}：关键词声明 {SegKeyword} / 认了 {SegOk}"

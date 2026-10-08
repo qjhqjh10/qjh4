@@ -5,7 +5,7 @@ ASH19|Dire Avenger|||
 ASH_Farseer|Farseer||When you collect a Spirit Stone, gain Shield|gain/pool///0/shield;choosecard/deck/card/draw/0/;
 ASH34|Fire Dragon|||
 ASH7|Guardian Defender|||
-ASH79|Howling Banshee Exarch|||give/pool///0/+1;
+ASH79|Howling Banshee Exarch|||give/pool///0/+1 attack;
 ASH20|Howling Banshee|||stun/pool///1/;
 ASH_Orian_Laratharjos|Orian Laratharjos|Talent: Flickerjump||lose/pool///0/stealth, give it shuriken 1;
 ASH9|Ranger|||
@@ -15,16 +15,16 @@ ASH8|Storm Guardian|||
 ASH27|Striking Scorpion Exarch|||
 ASH15|Striking Scorpion|||
 ASH80|Swooping Hawk Exarch|||give/pool///0/vanguard;
-ASH16|Swooping Hawk|||gain/pool///0/+1 ranged attack and flank;
+ASH16|Swooping Hawk|||gain/pool///0/+1 ranged and flank;
 ASH28|Vengeful Wraithblade|||gain/pool///0/armour 2 and flank;
 ASH10|Veteran Guardian|||
-ASH11|Warlock|||give/pool///0/+1 ranged attack and +1 health;
-ASH_Warp_Spider_Exarch|Warp Spider Exarch||When you collect a Spirit Stone, gain +1 melee, +1 ranged and Stealth|gain/pool///0/+1 melee, +1 ranged and stealth;
+ASH11|Warlock|||give/pool///0/+1 ranged and +1 health;
+ASH_Warp_Spider_Exarch|Warp Spider Exarch||When you collect a Spirit Stone, gain +1 [Melee], +1 [Ranged] and Stealth|gain/pool///0/+1 melee, +1 ranged and stealth;
 ASH17|Warp Spider|||return/pool///0/this troop;
-ASH39|Winged Autarch|Your other Flying units have +2 Melee and +2 Ranged Attack||
+ASH39|Winged Autarch|Your other Flying units have +2 [Melee] and +2 [Ranged]||
 ASH23|Witchblade Warlock|Talent: Witchfire||
 ASH18|Wraithblade|||gain/pool///0/armour 2;
-ASH25|Wraithguard|||gain/pool///0/+2 ranged attack and +2 health;
+ASH25|Wraithguard|||gain/pool///0/+2 ranged and +2 health;
 ASH82|Yrlla the Huntress|When an enemy receives Stun, deal 3 damage to it||
 ASH42|Avatar of Khaine|Talent: Wrath of Khaine||gain/pool///0/blast 6 and camouflage;
 ASH56|Aerial Dominion|||deal/pool///3/;repeat/pool///1/;
@@ -36,19 +36,19 @@ ASH52|Cosmic Serpent|||triggerability/pool///0/spiritstone;repeat/pool///1/;
 ASH83|Craftworld Convergence|||chooseone/pool///3/Gain 2 Spirit Stones|Deploy a Veteran Guardian|Draw 2 cards;
 ASH58|Dance of Death|||give/pool///0/shuriken 2;
 ASH48|Deadly Ambush|||chooseone/pool///2/give flank to a friendly troop|stun an enemy troop;
-ASH53|Devoted of Khaine|||give/pool///0/+1 melee attack;repeat/pool///1/;
+ASH53|Devoted of Khaine|||give/pool///0/+1 melee;repeat/pool///1/;
 ASH59|Eldritch Storm|||deal/pool///1/;repeat/pool///1/;
 ASH_Empyric_Ambush|Empyric Ambush|||deal/pool///2/;give/pool///0/stealth;
 ASH60|Evasive Manoeuvre|||heal/pool///5/;give/pool///0/camouflage;
 ASH_Fate_Inescapable|Fate Inescapable|||costifcontrol/pool///1/stealth;give/pool///0/vulnerable 2;
 ASH45|Fire and Fade|||return/pool///0/a friendly troop;lowercost/pool///2/(指代上一张);
 ASH_Flickerjump|Flickerjump|||give/pool///0/shuriken 1 and flying;give/pool///0/flank;
-ASH_Forewarned|Forewarned|||give/pool///0/+3 attack and +3 ranged attack;give/pool///0/shield;
+ASH_Forewarned|Forewarned|||give/pool///0/+3 attack and +3 ranged;give/pool///0/shield;
 ASH84|Graceful Avoidance|||give/pool///0/"💀 backlash: return to your hand";
 ASH62|Hosts of the Dead|||deploy/pool///1/wraithguard;spendspirit/pool///0/;deploy/pool///1/wraithguard;
 ASH61|Infinity Circuit|||gainspirit/pool///5/;
 ASH65|Inspiring Legacy|||give/pool///0/<i>shuriken</i> 2;
-ASH49|Nightshade Interceptors|||give/pool///0/+1 ranged attack and +2 health;
+ASH49|Nightshade Interceptors|||give/pool///0/+1 ranged and +2 health;
 ASH6|Path of Command|||deploy/pool///1/storm guardian;
 ASH2|Path of the Seer|||choosecard/hand/card/return/0/;draw/pool///1/;gainspirit/pool///1/;
 ASH4|Path of the Warrior|||give/pool///0/shuriken 1;
@@ -64,8 +64,8 @@ ASH85|Whirling Death|||deal/pool///5/;deal/pool///2/;
 ASH55|Wild Host|||create/pool///2/random saim-hann vehicles;lowercost/pool///1/(指代上一张);
 ASH47|Will of Asuryan|||give/pool///0/vanguard;draw/pool///1/;
 ASH24|Witchfire|||deal/pool///1/;repeat/pool///1/;
-ASH43|Wrath of Khaine|||give/pool///0/+2 melee and +2 ranged attack;repeat/pool///1/;
-ASH_Bright_Lance_Vyper|Bright Lance Vyper||When you trigger a Spirit Stone ability, gain Sniper and +1 Ranged Attack|gain/pool///0/sniper and +1 ranged attack;
+ASH43|Wrath of Khaine|||give/pool///0/+2 melee and +2 ranged;repeat/pool///1/;
+ASH_Bright_Lance_Vyper|Bright Lance Vyper||When you trigger a Spirit Stone ability, gain Sniper and +1 [Ranged]|gain/pool///0/sniper and +1 ranged;
 ASH31|Crimson Hunter|||deal/pool///3/;deal/pool///6/;
 ASH33|Falcon|||
 ASH_Farseer_Skyrunner|Farseer Skyrunner|||choosecard/enemyhand/card/shuffle/0/;
@@ -82,8 +82,8 @@ ASH29|War Walker|||
 ASH30|Warlock Skyrunner|When you collect a Spirit Stone, deal 2-3 damage to a random enemy||
 ASH37|Wave Serpent|Talent: Skyborne Deployment||
 ASH13|Windrider|||
-ASH44|Wraithknight|||gain/pool///0/invulnerable;
-ASH41|Wraithlord|||gain/pool///0/+4 attack, +4 ranged attack and +2 health;
+ASH44|Wraithknight|||gain/pool///0/invulnerable invulnerable;
+ASH41|Wraithlord|||gain/pool///0/+4 attack, +4 ranged and +2 health;
 ASH1|Anvirr Keltoc|Talent: Path of the Seer||
 ASH3|Eliac Zephyrblade|Talent: Path of the Warrior||
 ASH5|Medreyal Ghaelyn|Talent: Path of Command||
@@ -125,7 +125,7 @@ AM58|Artillery Strike|||deal/pool///3/;
 AM59|At All Costs|||draw/pool///3/;lowercost/pool///4/(指代上一张);
 AM44|Born Soldier|||deal/pool///1/;draw/pool///1/;
 AM56|Cadia Stands|||persist/pool///0/deploy a shock trooper;
-AM17|Cadian Honour|||give/pool///0/+1 ranged attack;reloadduty/pool///0/prev;
+AM17|Cadian Honour|||give/pool///0/+1 ranged;reloadduty/pool///0/prev;
 AM67|Efficiency and Excellence|||deal/pool///1/;draw/pool///1/;
 AM75|Forged Killers|||give/pool///0/+2 ranged;
 AM45|Full Throttle|||lowercost/pool///2/vehicle;
@@ -148,8 +148,8 @@ AM50|Thunderous Charge|||give/pool///0/+2 attack, +2 ranged and concussive;
 AM76|Valkyrie Drop|||deal/pool///3/;deploy/pool///1/tempestus scion;
 AM61|Vengeance for Cadia|||give/pool///0/+2 ranged;costwhen/pool///1/;
 AM68|Aquilon Servo-Sentry|||atturn/pool///0/deal 1 damage to a random enemy;
-AM26|Armoured Sentinel|||gain/pool///0/+1 ranged attack;
-AM12|Autocannon Squad|||gain/pool///0/+1 ranged attack;
+AM26|Armoured Sentinel|||gain/pool///0/+1 ranged;
+AM12|Autocannon Squad|||gain/pool///0/+1 ranged;
 AM43|Baneblade Tank|Adjacent units have Armour 1||deal/pool///8/;
 AM37|Basilisk|||
 AM27|Bombast Field Gun|||deal/pool///3/;
@@ -167,14 +167,14 @@ AM1|Commissar Elan|Talent: Lead by Example||give/pool///0/flank;
 AM_Hektor_Thenmann|Hektor Thenmann|Talent: Efficiency and Excellence||deal/pool///2/;stun/pool///1/;
 AM3|Lord Solar Leontus|Talent: Lord Commander||deal/pool///3/;
 BL1|Abaddon the Despoiler|Chosen of the Four||
-BL25|Aspiring Champion||After receiving a Dark Pact, gain +1 Ranged Attack and +1 Health|gain/pool///0/+1 ranged attack and +1 health;
+BL25|Aspiring Champion||After receiving a Dark Pact, gain +1 [Ranged] and +1 Health|gain/pool///0/+1 ranged and +1 health;
 BL31|Bringer of decay|Enemies have Vulnerable 1||
 BL12|Chaos Legionary|After receiving a Dark Pact, deal 2 damage to a random enemy||
 BL45|Chaos Lord|When you deploy a troop, give it a random Dark Pact||gain/pool///0/a random dark pact;
 BL13|Chaos Sergeant|||gain/pool///0/a dark pact;
 BL9|Chaos Spawn|||
 BL37|Chaos Terminator|||
-BL38|Child of Torment|||gain/pool///0/+1 ranged attack;
+BL38|Child of Torment|||gain/pool///0/+1 ranged;
 BL39|Chosen Champion|||gain/pool///0/a random dark pact;
 BL26|Chosen|||gain/pool///0/a dark pact;
 BL27|Daemon Blade Legionary|||heal/pool///2/;
@@ -205,13 +205,13 @@ BL_Zealot_Legionary|Zealot Legionary|||deal/pool///1/;
 BL49|Abaddons Chosen|||give/pool///0/a dark pact;
 BL_Bitter_Blows|Bitter Blows|||destroy/pool///0/;
 BL68|Black Crusade|||deploy/pool///4/troops;
-BL54|Daemonic Frenzy|||give/pool///2/+2 melee attack;
+BL54|Daemonic Frenzy|||give/pool///2/+2 melee;
 BL60|Daemonic Pact|||give/pool///0/invulnerable;give/pool///0/vulnerable 2;
-BL51|Dark Oratory|||give/pool///0/a dark pact;
+BL51|Dark Oratory|||give/pool///0/a dark pact dark pact;
 BL61|Delightful Agonies|||heal/pool///5/;deal/pool///2/;
-BL6|Diabolic Strength|||give/pool///0/+2 melee attack;heal/pool///1/;
+BL6|Diabolic Strength|||give/pool///0/+2 melee;heal/pool///1/;
 BL55|Disgustingly Resilient|||give/pool///1/armour 1;
-BL64|Drachnyen|||give/pool///0/+4 melee attack;
+BL64|Drachnyen|||give/pool///0/+4 melee;
 BL62|Execution|||destroy/pool///0/;
 BL56|Gifts of Chaos|||give/pool///0/2 random dark pact;
 BL65|Heldrake Strike|||deal/pool///3/;
@@ -220,7 +220,7 @@ BL50|Hideous Mutation|||give/pool///0/armour 1;
 BL57|Hosts of Chaos|||draw/pool///2/;create/pool///1/copy of abaddon's chosen;
 BL76|Idolatrous Despoilers|||persist/pool///0/when an enemy troop is deployed, it gains vulnerable 1;
 BL7|Infernal Gaze|||deal/pool///2/;
-BL52|Legacy of Vengeance|||give/pool///1/+1 melee attack;
+BL52|Legacy of Vengeance|||give/pool///1/+1 melee;
 BL_Litany_of_Despair|Litany of Despair|||give/pool///0/vulnerable 2 and "backlash: give a dark pact to a random enemy troop";
 BL75|Malicious Volleys|||deal/pool///2/;stun/pool///1/;
 BL63|Murderous Desires|||forceattack/pool///0/byitself;
@@ -250,7 +250,7 @@ DA27|Company Champion|||deal/pool///3/;
 DA31|Company Master|||lowercost/pool///1/when you draw a card, it;
 DA15|Company Veteran||When you gain [Quest Point], heal 2|gain/pool///0/quest point, heal 2;
 DA36|Deathwing Champion|||gain/pool///0/+1 attack and fast;
-DA42|Deathwing Knight Master|||deal/pool///3/;give/pool///0/+2;
+DA42|Deathwing Knight Master|||deal/pool///3/;give/pool///0/+2 attack;
 DA28|Deathwing Knight|||gain/pool///0/vanguard;forceattack/pool///0/byitself;
 DA33|Deathwing Strikemaster|||give/pool///0/+1 attack, +1 ranged and +1 health;
 DA20|Deathwing Terminator|||deal/pool///2/;
@@ -261,7 +261,7 @@ DA22|Interrogator Chaplain|||gainenergy/pool///0/1 energy;
 DA16|Librarian|||drawtype/pool///1/stratagem;gainquest/pool///1/;
 DA24|Master Lazarus|||triggerability/pool///0/teleport,slay;gainquest/pool///1/;
 DA10|Reiver|||draw/pool///1/;
-DA11|Sergeant Naaman|||gainenergy/pool///0/1 energy;
+DA11|Sergeant Naaman|||gainquest/pool///1/;
 DA25|Techmarine|||gainquest/pool///1/;heal/pool///3/;
 DA44|Ancient Reliquary|||chooseone/pool///3/give +3 attack to a friendly troop|give +3 ranged to a friendly troop|give +3 health to a friendly troop;
 DA52|Blacksword Missiles|||deal/pool///3/;deal/pool///1/;
@@ -286,7 +286,7 @@ DA_Obscure_Ritual|Obscure Ritual|||refill/pool///0/;drawtype/pool///1/troop;
 DA66|Plasma Generator|||gain/pool///0/1 energy;
 DA47|Reconnaissance Mission|||choosecard/enemyhand/card//0/;gainquest/pool///3/;
 DA_Rites_of_Penance|Rites of Penance|||give/pool///0/+3 melee, +3 ranged and invulnerable;
-DA55|Sacred Standard|||give/pool///0/+1 and blast 1;
+DA55|Sacred Standard|||give/pool///0/+1 attack and blast 1;
 DA49|Secret Agenda|||choosecard/pool/dark angels secret/todeck/0/;draw/pool///1/;
 DA_Smothering_Decree|Smothering Decree|||deal/pool///3/;heal/pool///3/;
 DA58|Steadfast Warriors|||give/pool///0/armour 2;
@@ -318,7 +318,7 @@ DA80|Vengeful Brethren Bladeguard|||gain/pool///0/+2 attack and armour 1;
 DA79|Vengeful Brethren Hellblaster|||gain/pool///0/blast 2;
 DA78|Vengeful Brethren Intercessor|||gain/pool///0/+1 ranged;
 DA77|Watcher in the Dark|||choosecard/pool/non-legendary dark angels card/hand/0/;gainquest/pool///1/;
-DA86|Hunters of Heretics|||give/pool///0/vulnerable 4 and "backlash: your opponent gains 2";
+DA86|Hunters of Heretics|||give/pool///0/vulnerable 4 and "backlash: your opponent gains 2 quest points";
 DA85|Relic Munitions|||give/pool///0/+1 ranged;repeat/pool///1/;
 DA84|Vengeful Brethren|||give/pool///0/+1 attack and +1 health;create/pool///1/copy of it;
 DA83|Ravenwing Ballistus Dreadnought|When you create or play a Secret, deal 2-4 damage to all enemies||
@@ -327,11 +327,11 @@ EC8|Alluress|Friendly Daemonette have Flank||give/pool///0/-2 attack and -2 rang
 EC26|Blissbringer|||give/pool///0/+1 attack;
 EC7|Daemonette|||give/pool///0/-1 attack and -1 ranged;
 EC20|Fiend|||create/pool///1/chosen of slaanesh;
-EC16|Slaanesh's Spawn|||gain/pool///0/+1 and flank;
+EC16|Slaanesh's Spawn|||gain/pool///0/+1 attack and flank;
 EC40|Winged Daemon Prince|Other friendly Daemons cost 2 less and have +2 [attack]||drawtype/pool///1/daemon;
 EC19|Blastmaster Noise Marine|||destroy/pool///0/;
 EC27|Disharmonist|||give/pool///0/-2 attack and -2 ranged;
-EC32|Dual Screamer Kakophonist|||give/pool///0/-4 attack and -4 health;
+EC32|Dual Screamer Kakophonist|||give/pool///0/-4 attack and -4 ranged;
 EC28|Flawless Blade Champion|||give/pool///0/+1 might;forceattack/pool///0/;
 EC13|Flawless Blade|||deal/pool///2/;
 EC9|Glittering Myriad Infractor|||gain/pool///0/+1 attack, +1 ranged;heal/pool///1/;
@@ -339,14 +339,14 @@ EC14|Icon of Excess Infractor|||give/pool///0/a dark pact of excess;
 EC21|Infractor Obsessionist|||choosecard/pool/combat elixir/hand/0/;gain/pool///0/shield;
 EC10|Infractor|||gain/pool///0/+1 attack and +1 ranged;
 EC11|Konstrictus Tormentor|||atturn/pool///0/create a random combat elixir in your hand;
-EC35|Lord Exultant|||give/pool///0/+1 attack and +1 ranged attack;
+EC35|Lord Exultant|||give/pool///0/+1 attack and +1 ranged;
 EC37|Lord Kakophonist|||give/pool///0/-1 🗡 and -1 🔫;
-EC29|Malgarash the Adamant|||heal/pool///2/;gain/pool///0/+1 ranged attack;
+EC29|Malgarash the Adamant|||heal/pool///2/;gain/pool///0/+1 ranged;
 EC15|Plasma Gun Tormentor|||gain/pool///0/blast 1;
-EC36|Rugged Disharmonist|Enemy troops have -2 Ranged||
-EC30|Slaanesh Sorcerer|||give/pool///0/+1 attack and +1 ranged attack;
+EC36|Rugged Disharmonist|Enemy troops have -2 [Ranged]||
+EC30|Slaanesh Sorcerer|||give/pool///0/+1 attack and +1 ranged;
 EC17|Sonic Blaster Noise Marine|||stun/pool///1/;give/pool///0/-1 attack and -1 ranged;
-EC33|Terminator Champion|||deal/pool///1/;gain/pool///0/+1 attack and +1 weapon;
+EC33|Terminator Champion|||deal/pool///1/;gain/pool///0/+1 attack and +1 ranged;
 EC22|Terminator|||gain/pool///0/+2 attack;
 EC18|Threnodic Choir Noise Marine|||gain/pool///0/blood thirst;heal/pool///1/;
 EC23|Tormentor Obsessionist|||give/pool///0/+2 ranged;
@@ -364,12 +364,12 @@ EC73|Heliotrophos|||give/pool///0/blast 1;
 EC74|Quail|||heal/pool///2/;
 EC75|Shivversplint|||give/pool///0/armour 1;
 EC76|Skorflense|||give/pool///0/+2 ranged;
-EC77|Xylocil|||give/pool///0/+2;
+EC77|Xylocil|||give/pool///0/+2 attack;
 EC46|Embrace the Pain|||deal/pool///2/;heal/pool///5/;
 EC47|Eternal Servitude|||choosecard/dead/friendly troop/deploy/0/;sethealth/pool///1/;
 EC2|Euphoric Strike (Lord Exultant's Talent)|||deal/pool///1/;create/pool///1/random combat elixir;
 EC6|Excessive Vigour (Daemon Prince's Talent)|||give/pool///0/a dark pact of excess;give/pool///0/+2 health;
-EC58|Exquisite Swordsmanship|||gain/pool///0/+1;deal/pool///0/;
+EC58|Exquisite Swordsmanship|||gain/pool///0/+1 attack;deal/pool///0/;
 EC50|Internal Rivalry|||deal/pool///1/;give/pool///0/a dark pact of excess;
 EC51|Mechanised Murder|||draw/pool///2/;create/pool///1/random combat elixir;
 EC55|Mercurial Host|||create/pool///3/random combat elixir;
@@ -379,7 +379,7 @@ EC52|Pledge to the Dark Prince|||give/pool///0/"slay: heal 2 and gain a dark pac
 EC48|Quicksilver Grace|||give/pool///0/flank;create/pool///1/random combat elixir;
 EC49|Rapid Evisceration|||deal/pool///2/;deploy/pool///1/"infractor";
 EC60|Rapturous Ruination|||deal/pool///7/;
-EC53|Terrifying Crescendo|||give/pool///0/-3 ranged attack;destroy/pool///0/;
+EC53|Terrifying Crescendo|||give/pool///0/-3 ranged;destroy/pool///0/;
 EC45|Thrill Seekers|||deal/pool///1/;draw/pool///1/;
 EC57|Vengeful Surge|||deploy/pool///1/infractor and a tormentor;give/pool///0/flank;
 EC64|Vial Tanks|||choosecard/pool/combat elixir/hand/0/;
@@ -397,13 +397,13 @@ GSC27|Aberrant|||gain/pool///0/vanguard;
 GSC38|Abominant|||gain/pool///0/armour 1;
 GSC21|Acolyte Heavy|||gain/pool///0/+2 attack;create/pool///1/random sabotage;
 GSC13|Acolyte Hybrid|||gain/pool///0/+2 attack and +2 ranged;
-GSC22|Acolyte Leader|When your opponent plays a Stratagem, give +1 and +1 Health to your troops||
+GSC22|Acolyte Leader|When your opponent plays a Stratagem, give +1 [Attack] and +1 Health to your troops||
 GSC23|Acolyte Specialist|||create/pool///1/random sabotage;
 GSC39|Benefictus|||deal/pool///0/;
 GSC14|Biophagus|Talent: Experimental Bio-Horrors||create/pool///1/poisoned supplies;
 GSC28|Clamavus|Talent: Vox-Hacker||stun/pool///1/;
 GSC9|Concealed Explosives|||atturn/pool///0/takes 1 damage;deal/pool///2/;
-GSC7|Genestealer Familiar|Adjacent units have +1 Attack||give/pool///0/flank;
+GSC7|Genestealer Familiar|Adjacent units have +1 [Attack]||give/pool///0/flank;
 GSC35|Hulking Aberrant|||gain/pool///0/+2 attack;stun/pool///1/;
 GSC24|Hybrid Metamorph|||gain/pool///0/+2 ranged and +1 health;
 GSC42|Kelermorph|||deal/pool///1/;
@@ -414,7 +414,7 @@ GSC18|Neophyte Heavy|||deal/pool///2/;
 GSC10|Neophyte Hybrid|||create/pool///1/random sabotage;
 GSC19|Neophyte Iconbearer|When a friendly unit attacks, create a Neophyte Initiate in your hand||
 GSC8|Neophyte Initiate|||deal/pool///1/;
-GSC20|Neophyte Leader|||give/pool///0/+1 attack and +1 ranged attack;
+GSC20|Neophyte Leader|||give/pool///0/+1 attack and +1 ranged;
 GSC11|Neophyte Specialist|||choosecard/pool/sabotage/enemyhand/0/;
 GSC12|Neophyte Trooper|||gain/pool///0/flank and +1 ranged;
 GSC25|Nexos|||gain/pool///0/+1 attack;
@@ -485,7 +485,7 @@ SAU21|Deathmark|||gain/pool///0/stealth;
 SAU9|Flayed One||When Reanimated, gain Fast|gain/pool///0/fast;
 SAU69|Flayed Ones Pack|||deploy/pool///1/flayed one;
 SAU14|Gauss Blaster Immortal|||
-SAU10|Gauss Reaper Warrior||When Reanimated, gain +2 Ranged Attack and +2 Health|gain/pool///0/+2 ranged attack and +2 health;
+SAU10|Gauss Reaper Warrior||When Reanimated, gain +2 [Ranged] and +2 Health|gain/pool///0/+2 ranged and +2 health;
 SAU32|Hexmark Destroyer|||deal/pool///1/;
 SAU72|Immortals Phalanx|When reanimated, deploy a copy of this troop||
 SAU70|Lokhust Destroyer|When another troop dies, deal 1 damage to a random enemy||
@@ -499,14 +499,14 @@ SAU23|Psychomancer|||stun/pool///1/;
 SAU34|Royal Warden|||deal/pool///3/;
 SAU35|Scarab Swarm|This troop's Melee is always equal to its Health||
 SAU24|Skorpekh Destroyer|||
-SAU41|Skorpekh Lord|||gain/pool///0/+1 melee and +1 ranged attack;
+SAU41|Skorpekh Lord|||gain/pool///0/+1 melee and +1 ranged;
 SAU16|Technomancer|||reanimate/pool///0/;
 SAU12|Tesla Carbine Immortal|||deal/pool///1/;
 SAU18|Triarch Praetorian|||
 SAU42|Vargard Obyron|Any attack against your Warlord targets this troop instead||
 SAU25|Canoptek Reanimator|Talent: Reanimate||reanimate/pool///0/;
 SAU76|Awakened Dynasty|||draw/pool///2/;create/pool///1/reanimation protocol;
-SAU62|Conquering Tyrant|||heal/pool///5/;give/pool///0/+2 melee attack;
+SAU62|Conquering Tyrant|||heal/pool///5/;give/pool///0/+2 melee;
 SAU54|Curse of the Phaeron|||give/pool///0/vulnerable 2;
 SAU56|Dimensional Breach|||deploy/pool///3/sautekh troops;
 SAU75|Dimensional Corridor|||choosecard/deck/troop//0/;drawref/pool///1/;create/pool///1/copy of it;
@@ -544,7 +544,7 @@ SAU36|Ghost Ark|Talent: Reanimate||deploy/pool///1/necron warrior;
 SAU43|Monolith|Talent: Particle Whip||deploy/pool///1/necron warrior;
 SAU22|Night Scythe|||deploy/pool///1/necron warrior;
 SAU17|Tomb Blade|||
-SAU39|Triarch Stalker|Your other units have +2 Ranged Attack||
+SAU39|Triarch Stalker|Your other units have +2 [Ranged]||
 SAU1|Imotekh the Stormlord|Talent: Lord of the Storm||
 SAU3|Nemesor Zahndrekh|Adjacent Remnants do not disappear at the end of your turn,Talent: Relentless March||
 SAU5|Orikan the Diviner|When you reanimate a Remnant, heal 1,Talent: Master Chronomancer||
@@ -565,9 +565,9 @@ GOF88|Squighog Boyz|||gain/pool///0/flank;
 GOF80|Thump Gun Beast Snagga|||gain/pool///0/blast 1;
 GOF89|Wurrboy|||atturn/pool///0/deal 1-2 damage to a random enemy;
 GOF86|Zodgrod Wortsnagga|||deploy/pool///1/grot or a snakebite grot at random;
-GOF99|Cyber‑augmentation|||give/pool///0/+1 and flank;
+GOF99|Cyber‑augmentation|||give/pool///0/+1 attack and flank;
 GOF101|Da Hunt is On|||deal/pool///2/;gain/pool///0/flank;
-GOF100|Da Old Ways|||give/pool///0/stomp;give/pool///0/+2 attack;
+GOF100|Da Old Ways|||give/pool///0/stomp stomp;give/pool///0/+2 attack;
 GOF_Dok_s_Toolz_Painboss_talent|Dok’s Toolz (Painboss' talent)|||give/pool///0/+2 health;heal/pool///4/;
 GOF102|Drag it Down|||deal/pool///1/;give/pool///0/+1 health;
 GOF106|Fasta Than Yooz|||create/pool///3/random ork vehicles;lowercost/pool///1/(指代上一张);
@@ -584,9 +584,9 @@ GOF81|Beast Snagga Nob|||atturn/pool///0/give +1 attack to all beasts in your ha
 GOF84|Snakebite Nob|||give/pool///0/+1 attack and +1 health;
 GOF85|Unleashed TramplaSquig|||atturn/pool///0/attack a random non flying enemy;
 GOF91|Weirdboy|Talent: Waaagh! Energy||
-GOF_Da_Bigger_Dey_Iz_Mozrog_s_Talent|Da Bigger Dey Iz... (Mozrog's Talent)|||deal/pool///1/;give/pool///0/+1 and stomp;
+GOF_Da_Bigger_Dey_Iz_Mozrog_s_Talent|Da Bigger Dey Iz... (Mozrog's Talent)|||deal/pool///1/;give/pool///0/+1 attack and stomp;
 GOF_Special_Dose_Zodgrod_Wortsnagga_Talent|Special Dose (Zodgrod Wortsnagga Talent)|||give/pool///0/+3 attack and +1 health;
-GOF_Waaagh_Energy_Weirdboy_Talent|Waaagh! Energy (Weirdboy Talent)|||deal/pool///1/;give/pool///0/+2;
+GOF_Waaagh_Energy_Weirdboy_Talent|Waaagh! Energy (Weirdboy Talent)|||deal/pool///1/;give/pool///0/+2 attack;
 GOF32|Ardshell Gurk|Talent: Follower of Gork||
 GOF16|Banner Nob|Adjacent units have +1 [attack] and +1 [weapon]||
 GOF_Big_Choppa_Nob|Big Choppa Nob|When a friendly unit triggers Mob, it triggers an additional time||
@@ -598,7 +598,7 @@ GOF17|Burna Boy|||deal/pool///2/;
 GOF18|Deffgun Loota|When another troop dies, deal 1-2 damage to a random enemy||
 GOF4|Grot|||
 GOF34|Kommando|||gain/pool///0/stealth;
-GOF5|Makari the Grot|Adjacent units have +1 Attack||return/pool///0/;costmore/pool///2/(这张卡自己);
+GOF5|Makari the Grot|Adjacent units have +1 [Attack]||return/pool///0/;costmore/pool///2/(这张卡自己);
 GOF28|Meganob Ugrak|||create/pool///1/slugga boy;
 GOF25|Mekboy Gazmek|Talent: Mekaniak||lowercost/pool///1/vehicle in your hand;
 GOF7|Ork Boy|||
@@ -619,11 +619,11 @@ GOF40|Attack Squig|||deal/pool///1/;stun/pool///1/;
 GOF43|Cloud Of Smoke|||blind/pool///1/;repeat/pool///1/;
 GOF51|Da Green Horde|||lowercost/pool///1/troops;
 GOF52|Da Irongob|||gain/pool///0/concussive;heal/pool///5/;
-GOF_Da_Red_Waaagh|Da Red Waaagh|||drawtype/pool///1/troop;give/pool///0/+1;
+GOF_Da_Red_Waaagh|Da Red Waaagh|||drawtype/pool///1/troop;give/pool///0/+1 attack;
 GOF_Dead_Choppy|Dead Choppy|||chooseone/pool///2/give blood thirst to a friendly vehicle|give +2 attack to another friendly troop;
 GOF60|Extractor Rig|||lowercost/pool///2/vehicle;
 GOF_Follower_of_Gork|Follower of Gork|||give/pool///0/+2 attack and +2 health;
-GOF53|Get'em ladz!|||give/pool///0/+2;
+GOF53|Get'em ladz!|||give/pool///0/+2 attack;
 GOF_Greatest_Warboss|Greatest Warboss|||deploy/pool///1/grot;give/pool///0/+1 attack;
 GOF47|Gretchin Mob|||deploy/pool///3/grot;give/pool///0/vanguard;
 GOF61|Gretchin Tower|||deploy/pool///2/grot;
@@ -644,7 +644,7 @@ GOF46|Scrag ’Em|||give/pool///0/flank;give/pool///0/vanguard;
 GOF55|Skorcha Assault|||deal/pool///2/;
 GOF_Stomp_Em|Stomp Em|||give/pool///0/+1 attack;triggerability/pool///0/mob;
 GOF57|Stormboyz Strike|||deploy/pool///1/stormboy;repeat/pool///1/;
-GOF50|Tide of Muscle|||drawtype/pool///2/troops;give/pool///0/+1;
+GOF50|Tide of Muscle|||drawtype/pool///2/troops;give/pool///0/+1 attack;
 GOF62|Toxic Bonfire|||deal/pool///2/;stun/pool///1/;
 GOF_Uge_Choppa|Uge Choppa|||gain/pool///0/"+2 attack and slay slay: heals 3";
 GOF56|Unbridled Carnage|||deal/pool///1/;repeat/pool///1/;
@@ -659,12 +659,12 @@ GOF38|Gorkanaut|||
 GOF11|Grot Tank|||
 GOF36|Gunwagon|||
 GOF24|Killa Kan|||gain/pool///0/+1 attack;
-GOF_Krumpaklaw|Krumpaklaw|||gain/pool///0/+2 and armour 1;
+GOF_Krumpaklaw|Krumpaklaw|||gain/pool///0/+2 attack and armour 1;
 GOF29|Rukkatrukk Squigbuggy|||deploy/pool///1/bomb squig;
 GOF39|Stompa|||stun/pool///1/;
 GOF15|Warbiker|||gain/pool///0/fast;
 GOF2|Boss Zagstruk|Talent: Worst Temper||
-GOF1|Grukk Face-Rippa|Your troops with Tide have +1 Attack,Talent: Da Red Waaagh||
+GOF1|Grukk Face-Rippa|Your troops with Tide have +1 [Attack],Talent: Da Red Waaagh||
 GOF_Warboss_Gordrang|Warboss Gordrang|Talent: 'Uge Choppa||
 GOF_Mega_Blasta_Deffkopta|Mega Blasta Deffkopta|||create/pool///1/grot bomb;
 SOR72|Adelaide the Serene|||gain/pool///0/flank and shield;gain/pool///1/1 energy;
@@ -673,12 +673,12 @@ SOR14|Amalia Novena|||deal/pool///0/;
 SOR8|Arco-Flagellant|||deal/pool///1/;
 SOR67|Armorium Cherub|||give/pool///0/+2 ranged;atturn/pool///0/gain 1 ☀ and return to your hand;
 SOR10|Battle Sister Gunner|||deal/pool///2/;
-SOR9|Battle Sister|||gain/pool///0/+1 attack and +1 ranged attack;heal/pool///1/;
-SOR27|Canoness|||gain/pool///0/armour 1;gain/pool///0/+2 attack and +2 ranged attack;
+SOR9|Battle Sister|||gain/pool///0/+1 attack and +1 ranged;heal/pool///1/;
+SOR27|Canoness|||gain/pool///0/armour 1;gain/pool///0/+2 attack and +2 ranged;
 SOR31|Celestian Sacresant|||heal/pool///3/;
 SOR36|Celestian Superior|||deploy/pool///1/celestian;deploy/pool///1/celestian;
 SOR15|Celestian|||gain/pool///0/shield;
-SOR11|Crusader|||gain/pool///0/+1 and armour 2;
+SOR11|Crusader|||gain/pool///0/+1 attack and armour 2;
 SOR16|Death Cult Assassin|||deal/pool///2/;
 SOR20|Dialogus|||give/pool///0/shield;
 SOR28|Dominion Superior|||deal/pool///1/;deal/pool///1/;
@@ -690,7 +690,7 @@ SOR69|Ministorum Priest|||give/pool///0/+3 attack;
 SOR22|Missionary|Talent: Hymn of Battle||gainfaith/pool///1/;
 SOR12|Preacher|||gain/pool///0/shield;
 SOR23|Retributor|||deal/pool///3/;
-SOR68|Sacred Rose Sister|||gain/pool///0/+1 attack and +1 ranged attack;gain/pool///0/+1 health;gain/pool///0/shield;
+SOR68|Sacred Rose Sister|||gain/pool///0/+1 attack and +1 ranged;gain/pool///0/+1 health;gain/pool///0/shield;
 SOR38|Saint Celestine|||gain/pool///0/invulnerable;
 SOR24|Seraphim|||gain/pool///0/+1 ranged and +1 health;
 SOR18|Simulacrum Bearer|||give/pool///0/+1 attack;give/pool///0/+1 attack;
@@ -702,7 +702,7 @@ SOR19|Sisters Repentia|||gainfaith/pool///1/;gain/pool///0/+2 attack;
 SOR_Triumph_of_Saint_Katherine|Triumph of Saint Katherine|When a friendly unit prays, give it Armour 1||deal/pool///0/;
 SOR71|Zephyrim Superior|||drawtype/pool///1/troop;
 SOR35|Zephyrim|||
-SOR44|Beacon of Faith|||give/pool///0/+2 health;give/pool///0/an additional +1 health;give/pool///0/+1 attack and +1 weapon;
+SOR44|Beacon of Faith|||give/pool///0/+2 health;give/pool///0/an additional +1 health;give/pool///0/+1 attack and +1 ranged;
 SOR50|Blade of Faith|||deal/pool///3/;repeat/pool///1/;
 SOR54|Cleansing Flames|||deal/pool///3/;
 SOR51|Conviction of Faith|||gain/pool///0/armour 2;heal/pool///2/;
@@ -761,7 +761,7 @@ SW12|Hunting Wolf|||forceattack/pool///0/;
 SW25|Long Fang|When this unit attacks an enemy with Hunt Mark, deal 3 damage to adjacent enemies||
 SW36|Morkai Eliminator|||give/pool///0/hunt mark;forceattack/pool///0/;
 SW37|Terminator Rune Priest|||deal/pool///2/;
-SW26|Thunderwolf Cavalry Pack Leader|||gain/pool///0/a hunt mark, give +1 to your units;give/pool///0/hunt mark;
+SW26|Thunderwolf Cavalry Pack Leader|||gain/pool///0/a hunt mark, give +1 attack to your units;give/pool///0/hunt mark;
 SW20|Thunderwolf Cavalry|||give/pool///0/hunt mark;
 SW3|Tyrnak and Fenrir|||heal/pool///3/;
 SW33|Wolf Guard Battle Leader|Adjacent units have Pack||
@@ -781,7 +781,7 @@ SW56|Fenrisian Blizzard|||deal/pool///2/;give/pool///0/blind;
 SW60|Fenrisian Monstrosities|||deal/pool///3/;deal/pool///2/;
 SW66|Fenrisian Runestones|||heal/pool///4/;
 SW65|Fenrisian Wolfpack|||deploy/pool///1/fenrisian wolf;lowercost/pool///1/this card;
-SW68|Halls of Legend|||give/pool///0/shield;draw/pool///1/;
+SW68|Halls of Legend|||give/pool///0/shield shield;draw/pool///1/;
 SW2|High King of Fenris|||drawtype/pool///1/troop;lowercost/pool///1/tyrnak and fenrir;
 SW5|High Rune Priest|||choosecard/pool/rune/hand/0/;
 SW61|Hordeslayer|||give/pool///0/hunt mark;
@@ -815,7 +815,7 @@ TAU30|Broadside Battlesuit|Companion 2: Missile Drone||
 TAU38|Coldstar Battlesuit|When you deploy a troop, give it +2 Health,Companion 2: Marker Drone||
 TAU15|Crisis Battlesuit|||
 TAU22|Crisis Bodyguard|||
-TAU36|Enforcer Battlesuit|Adjacent units have +1 Ranged Attack,Companion 2: Guardian Drone||
+TAU36|Enforcer Battlesuit|Adjacent units have +1 [Ranged],Companion 2: Guardian Drone||
 TAU42|Riptide Battlesuit|Talent: Shield Generator||
 TAU26|Stealth Battlesuit|Talent: Homing Beacon||
 TAU33|Stealth Shas’ui|Companion 2: Stealth Drone||
@@ -829,16 +829,16 @@ TAU14|Stealth Drone|||atturn/pool///0/give stealth to an adjacent troop;
 TAU34|Aunshi Ethereal|Talent: Serene Unifier||lowercost/pool///1/troops;
 TAU19|Breacher Fire Warrior|||
 TAU29|Breacher ShasUi|||
-TAU35|Cadre Fireblade|Your other Infantry and Battlesuit troops have +2 Ranged Attack||
+TAU35|Cadre Fireblade|Your other Infantry and Battlesuit troops have +2 [Ranged]||
 TAU16|Darkstrider|Talent: Structural Analyzer||give/pool///0/stealth;
 TAU23|Fire Warrior Marksman|||give/pool///0/markerlight 2;
 TAU9|Fire Warrior|||
-TAU32|Firesight Marksman|When you deploy a Drone, give it +1 Ranged Attack||give/pool///0/markerlight 3;
+TAU32|Firesight Marksman|When you deploy a Drone, give it +1 [Ranged]||give/pool///0/markerlight 3;
 TAU71|Flesh Shaper|When an enemy dies, give +1 [attack] to your units||
 TAU24|Honoured Ethereal|Adjacent troops have Vanguard,Talent: Serene Unifier||
 TAU_Kroot_Carnivore|Kroot Carnivore|||create/pool///1/kroot carnivore;
 TAU_Kroot_Hound|Kroot Hound|||deploy/pool///1/kroot hound;
-TAU72|Krootox Rampager|||gain/pool///0/+3;
+TAU72|Krootox Rampager|||gain/pool///0/+3 attack;
 TAU70|Krootox Rider|||deal/pool///2/;
 TAU73|Lone-spear|||gain/pool///0/flank;
 TAU13|Pathfinder|Companion 2: Marker Drone||give/pool///0/markerlight 2;
@@ -847,7 +847,7 @@ TAU_Trail_Shaper|Trail Shaper|||return/pool///0/a friendly infantry;lowercost/po
 TAU21|Vespid Stingwings|||
 TAU66|Burgeoning Empire|||draw/pool///3/;costwhen/pool///1/;
 TAU53|Coordinated Engagement|||give/pool///0/markerlight 2;destroy/pool///0/;
-TAU46|Deploy Anchors|||give/pool///0/+5 ranged attack;
+TAU46|Deploy Anchors|||give/pool///0/+5 ranged;
 TAU5|Drone Companion|||create/pool///1/gun drone, guardian drone or marker drone;
 TAU54|Dynamic Offensive|||drawtype/pool///2/troops;give/pool///0/flank;
 TAU55|Emergency Dispensation|||choosecard/deck/troop//0/;drawref/pool///1/;lowercost/pool///3/(指代上一张);
@@ -856,11 +856,11 @@ TAU64|Experimental Drone|||persist/pool///0/give shield to all drones you deploy
 TAU50|For the Greater Good|||give/pool///0/vanguard and armour 3;
 TAU59|Fortified Positions|||give/pool///0/long range;
 TAU_Grisly_Feast|Grisly Feast|||give/pool///0/+1 attack  and +1 health;give/pool///0/+1 attack  and +1 health;
-TAU7|Hero of the Empire|||chooseone/pool///2/give markerlight 1 to an enemy troop|give +1 ranged attack to a friendly unit this turn;
+TAU7|Hero of the Empire|||chooseone/pool///2/give markerlight 1 to an enemy troop|give +1 ranged to a friendly unit this turn;
 TAU74|Hidden Hunters|||give/pool///0/+1 attack and stealth;
 TAU27|Homing Beacon|||deploy/pool///1/crisis battlesuit;give/pool///0/flank;
 TAU76|Hunters Instincts|||deploy/pool///1/kroot hound;give/pool///0/flank;
-TAU56|Inspired to Greatness|||give/pool///0/+2 ranged attack and +2 health;
+TAU56|Inspired to Greatness|||give/pool///0/+2 ranged and +2 health;
 TAU47|Kauyon Tactics|||give/pool///0/markerlight markerlight 2;
 TAU60|Priority Target|||give/pool///0/markerlight 2;
 TAU51|Pulse Onslaught|||deal/pool///3/;
@@ -871,10 +871,10 @@ TAU63|Saviour Protocolst|||lowercost/pool///1/drones;choosecard/pool/drone/hand/
 TAU52|Sense of Stone|||give/pool///0/armour 1;
 TAU3|Serene Unifier|||choosecard/pool/invocation/hand/0/;
 TAU43|Shield Generator|||give/pool///0/shield;
-TAU_Storm_of_Fire|Storm of Fire|||give/pool///0/+2 ranged attack;
+TAU_Storm_of_Fire|Storm of Fire|||give/pool///0/+2 ranged;
 TAU17|Structural Analyzer|||give/pool///0/markerlight 2;
 TAU48|Technological Supremacy|||give/pool///0/+3 health;give/pool///0/long range;
-TAU75|Thundering Rampage|||give/pool///0/+3;give/pool///0/flank;
+TAU75|Thundering Rampage|||give/pool///0/+3 attack;give/pool///0/flank;
 TAU67|Tidewall Droneport|||deploy/pool///1/guardian drone;
 TAU68|Tidewall Gunrig|||deal/pool///3/;
 TAU65|Valued Sacrifice|||deploy/pool///3/drones;give/pool///0/vanguard vanguard;
@@ -910,9 +910,9 @@ TL17|Pyrovore|When another troop dies, heals 2||
 TL20|Ravener|||deal/pool///3/;lose/pool///0/stealth;
 TL7|Ripper Swarm|||
 TL8|Spore Mine|||atturn/pool///0/destroy this unit and deal 3 damage to a random enemy;
-TL79|Termagant Brood|||gain/pool///0/+1 ranged attack;
+TL79|Termagant Brood|||gain/pool///0/+1 ranged;
 TL13|Termagant|||
-TL22|Tyranid Prime|When a friendly unit triggers Swarm, give it +1 Melee Attack and +1 Health||
+TL22|Tyranid Prime|When a friendly unit triggers Swarm, give it +1 [Melee] and +1 Health||
 TL18|Tyranid Warrior|||
 TL28|Tyrant Guard|||
 TL23|Venomthrope|||destroy/pool///0/;
@@ -928,19 +928,19 @@ TL39|Maleceptor|||give/pool///0/shield;
 TL27|Mawloc|||return/pool///0/this card;lowercost/pool///3/(指代上一张);
 TL82|Neurotyrant|Whenever you play a non-Ephemeral Stratagem, create an Ephemeral copy of it in your hand||
 TL83|Norn Emissary|||costwhen/pool///2/;
-TL80|Psychophage|||gain/pool///2/+2 attack, +2 ranged attack and +1 health;
+TL80|Psychophage|||gain/pool///2/+2 attack, +2 ranged and +1 health;
 TL33|Screamer-Killer|||
 TL21|Sporocyst|||deploy/pool///1/spore mine;
 TL34|Tyrannocyte|Talent: Aerial Seeding||
 TL43|Tyrannofex|||deal/pool///1/;
 TL42|Winged Tyrant|||lowercost/pool///0/stratagem;
-TL47|Adrenal Surge|||give/pool///0/+2 melee and +2 ranged attack;
+TL47|Adrenal Surge|||give/pool///0/+2 melee and +2 ranged;
 TL35|Aerial Seeding|||choosecard/pool/2-cost leviathan troop/deploy/0/;
-TL75|Alpha Warrior|||gain/pool///0/flying and +2 melee attack;give/pool///1/+1 melee;
+TL75|Alpha Warrior|||gain/pool///0/flying and +2 melee;give/pool///1/+1 melee;
 TL44|Ambush Predator|||give/pool///0/camouflage;
 TL61|Apex Predator|||give/pool///0/invulnerable and +3 ranged;
-TL54|Augmented Ferocity|||heal/pool///3/;give/pool///0/+2 melee attack;
-TL86|Bestial Rage|||give/pool///0/+4;
+TL54|Augmented Ferocity|||heal/pool///3/;give/pool///0/+2 melee;
+TL86|Bestial Rage|||give/pool///0/+4 attack;
 TL48|Bounding Leap|||give/pool///0/blast 2;
 TL6|Brood Progenitor|||create/pool///1/termagant;lowercost/pool///1/troop;
 TL49|Darkened Skies|||deal/pool///1/;
@@ -960,7 +960,7 @@ TL63|Rapacious Hunger|||deal/pool///3/;heal/pool///2/;
 TL59|Ravenous Hunter|||give/pool///0/blood thirst;
 TL2|Spirit Leech|||chooseone/pool///2/deal 1 damage to an enemy|give +1 health to a friendly unit;
 TL60|Swarming Masses|||create/pool///3/random leviathan troops with swarm;
-TL38|Synaptic Imperative|||give/pool///0/+2 melee attack, +2 ranged attack and +2 health;
+TL38|Synaptic Imperative|||give/pool///0/+2 melee, +2 ranged and +2 health;
 TL84|Toxic Entanglement|||stun/pool///1/;give/pool///0/vulnerable 5;
 TL58|Toxic Miasma|||blind/pool///2/;
 TL66|Toxic Vapours|||deal/pool///1/;
@@ -981,29 +981,29 @@ UM34|Bladeguard Lieutenant|||heal/pool///3/;
 UM_Bladeguard_Sergeant|Bladeguard Sergeant|||gain/pool///0/armour 1;
 UM44|Captain Sicarius|Talent: Greatest Deeds||heal/pool///5/;gain/pool///0/vanguard;
 UM_Chairon|Chairon|||deal/pool///1/;repeat/pool///1/;
-UM84|Chaplain Cassius|Friendly [Oath] abilities apply an additional time,[Talent]: Catechism of Death||
+UM84|Chaplain Cassius|Friendly Oath abilities apply an additional time,Talent: Catechism of Death||
 UM78|Chapter Champion|||gain/pool///0/+2 attack;gain/pool///0/armour 1 and vanguard;
-UM35|Company Ancient|Your other units have +1 Melee and +1 Ranged Attack||
+UM35|Company Ancient|Your other units have +1 [Melee] and +1 [Ranged]||
 UM39|Devastator Centurion|||gain/pool///0/armour 1;
 UM80|Devastator Marine|||deal/pool///5/;
 UM79|Eliminator Sergeant|When you deploy an Eliminator give it Stealth||
 UM17|Eliminator|||
 UM40|Epistolary Librarian|||draw/pool///1/;give/pool///0/shield;
 UM89|Ferren Areios|Oath abilities of friendly troops can be activated up to 3 times each turn||deal/pool///1/;
-UM13|Firstborn|||gain/pool///0/+1 melee attack, +1 ranged attack and +1 health;
-UM_Heavy_Intercessor|Heavy Intercessor|||gain/pool///0/+1 ranged attack;
+UM13|Firstborn|||gain/pool///0/+1 melee, +1 ranged and +1 health;
+UM_Heavy_Intercessor|Heavy Intercessor|||gain/pool///0/+1 ranged;
 UM_Hellblaster|Hellblaster|||
 UM_Honour_Guard|Honour Guard|Adjacent units have Armour 1||
-UM_Inceptor_Sergeant|Inceptor Sergeant|||give/pool///0/+1 attack;
+UM_Inceptor_Sergeant|Inceptor Sergeant|||give/pool///0/+1 ranged;
 UM71|Incursor|||deal/pool///1/;stun/pool///1/;
 UM18|Intercessor Sergeant|||deal/pool///1/;
 UM_Lieutenant_Calsius|Lieutenant Calsius|||deal/pool///3/;
 UM10|Octavio Infiltrator|||give/pool///0/blind;
 UM81|Phobos Librarian|||deal/pool///2/;gain/pool///0/shield;
 UM_Phobos_Lieutenant|Phobos Lieutenant|||gain/pool///0/eye icon stealth;create/pool///1/random ultramarines card;
-UM_Primaris_Chaplain|Primaris Chaplain|||give/pool///0/+1 melee and +1 ranged attack;
+UM_Primaris_Chaplain|Primaris Chaplain|||give/pool///0/+1 melee and +1 ranged;
 UM_Primaris_Eradicator|Primaris Eradicator|||deal/pool///4/;
-UM_Primaris_Inceptor|Primaris Inceptor|||gain/pool///0/+1 attack;
+UM_Primaris_Inceptor|Primaris Inceptor|||gain/pool///0/+1 ranged;
 UM32|Primaris Judiciar|||stun/pool///1/;
 UM_Primaris_Reiver|Primaris Reiver|||
 UM_Primaris_Techmarine|Primaris Techmarine|||give/pool///0/armour 1;heal/pool///2/;
@@ -1020,21 +1020,21 @@ UM82|Terminator|||gain/pool///0/armour 1;
 UM_Tyrannic_War_Veteran|Tyrannic War Veteran|||lose/pool///0/stealth and camouflage;
 UM_Vico_Therbeus|Vico Therbeus|Oath abilities of friendly troops may be activated on later turns||gain/pool///0/camouflage;
 UM92|Adaptive Strategy|||give/pool///0/+1 attack;give/pool///0/+1 health;
-UM_Angel_s_Wrath|Angel's Wrath|||give/pool///0/+1;give/pool///0/armour 2;
-UM_Angels_of_Death|Angels of Death||Codex: Give +1 to your Primaris Intercessor|deploy/pool///3/primaris intercessor;give/pool///0/flank;give/pool///0/+1;
+UM_Angel_s_Wrath|Angel's Wrath|||give/pool///0/+1 attack;give/pool///0/armour 2;
+UM_Angels_of_Death|Angels of Death||Codex: Give +1 [Ranged] to your Primaris Intercessor|deploy/pool///3/primaris intercessor;give/pool///0/flank;give/pool///0/+1 ranged;
 UM7|Might of Heroes|||give/pool///0/shield;
 UM76|Armoured Offensive|||create/pool///3/ultramarines vehicles;lowercost/pool///1/(指代上一张);
 UM59|Armoured Support|||persist/pool///0/give armour 1 to vehicles you put in play;
 UM_Author_of_the_Codex|Author of the Codex|||triggerability/pool///0/codex;choosecard/pool/codicil/hand/0/;
 UM_Avenging_Zeal|Avenging Zeal|||give/pool///0/+2 attack and +2 ranged;costwhen/pool///1/;
 UM_Battlefield_Supremacy|Battlefield Supremacy|||lowercost/pool///1/all vehicles in your hand and deck;drawtype/pool///1/vehicle;
-UM85|Catechism of Death|||chooseone/pool///2/give +2 to a friendly troop|give +2 to your warlord this turn;give/pool///0/an additional +2;
+UM85|Catechism of Death|||chooseone/pool///2/give +2 attack to a friendly troop|give +2 attack to your warlord this turn;give/pool///0/an additional +2 attack;
 UM94|Champions of Humanity|||give/pool///0/+2 health;give/pool///0/an additional +3 health;
 UM63|Chapter Council|||choosecard/deck/troop/draw/0/;heal/pool///6/;
-UM_Codex_Discipline|Codex Discipline|||give/pool///0/+2 ranged attack;triggerability/pool///0/codex;
+UM_Codex_Discipline|Codex Discipline|||give/pool///0/+2 ranged;triggerability/pool///0/codex;
 UM_Death_from_Above|Death from Above|||deal/pool///4/;deal/pool///1/;
 UM95|Duty's End|||give/pool///0/"💀 backlash: trigger the codex ability of all friendly units";
-UM66|Exhortation of Rage|||give/pool///0/+1 ranged attack;drawtype/pool///1/troop;
+UM66|Exhortation of Rage|||give/pool///0/+1 ranged;drawtype/pool///1/troop;
 UM93|Fall Back|||return/pool///0/a friendly troop;lowercost/pool///2/(指代上一张);give/pool///0/flank;
 UM_Firestrike_Turrets|Firestrike Turrets|||deal/pool///2/;
 UM_Forward_Deployment|Forward Deployment|||give/pool///0/flank, +1 attack and +1 ranged;
@@ -1045,7 +1045,7 @@ UM67|Hive Factory|||lowercost/pool///1/card;
 UM52|Humanity's Shield|||gain/pool///0/invulnerable;
 UM101|Indomitus Crusade|||deploy/pool///1/ultramarines troop;deal/pool///0/;
 UM62|Inspired Retribution|||destroy/pool///0/;
-UM58|Knights of Macragge|||give/pool///0/+1 melee attack, +1 ranged attack and 1 health;
+UM58|Knights of Macragge|||give/pool///0/+1 melee, +1 ranged and 1 health;
 UM97|Lead From the Front|||choosecard/pool/non-legendary ultramarines card/copies/0/;
 UM_Light_Cover|Light Cover|||give/pool///0/armour 1 and camouflage;
 UM2|Master Tactician|||draw/pool///1/;gain/pool///0/armour 1;
@@ -1056,13 +1056,13 @@ UM4|Master of the Fleet|||deal/pool///1/;
 UM99|No Mercy|||deal/pool///4/;destroy/pool///0/;
 UM100|No Respite|||give/pool///0/sentry 1;create/pool///1/no respite;
 UM_Oath_of_Moment|Oath of Moment|||give/pool///0/+2 health and "strike: trigger this troop's codex ability";
-UM_Paragon_of_Ultramar|Paragon of Ultramar|||give/pool///0/+1 attack and +1 ranged attack;
-UM_Pariah_Vanguard|Pariah Vanguard|||give/pool///0/+2 melee attack and vanguard;
+UM_Paragon_of_Ultramar|Paragon of Ultramar|||give/pool///0/+1 attack and +1 ranged;
+UM_Pariah_Vanguard|Pariah Vanguard|||give/pool///0/+2 melee and vanguard;
 UM54|Point-Blank Shot|||deal/pool///2/;draw/pool///1/;
-UM_Primarch_of_the_XIII|Primarch of the XIII|||give/pool///0/+1 attack and +1 ranged attack;
+UM_Primarch_of_the_XIII|Primarch of the XIII|||give/pool///0/+1 attack and +1 ranged;
 UM75|Rapid Deployment|||choosecard/hand/troop//0/;lowercost/pool///2/(指代上一张);
 UM_Righteous_Fury|Righteous Fury|||heal/pool///1/;give/pool///0/+1 attack;
-UM48|Sacred Bolter|||give/pool///0/+2 ranged attack;
+UM48|Sacred Bolter|||give/pool///0/+2 ranged;
 UM_Scryer_s_Gaze|Scryer's Gaze|||drawtype/pool///1/stratagem;
 UM96|Shall Know No Fear|||give/pool///0/invulnerable;give/pool///0/+8 attack and +8 ranged;
 UM49|Sheltered Location|||give/pool///0/camouflage;
@@ -1080,9 +1080,9 @@ UM86|Dreadnought|||deal/pool///2/;
 UM74|Firestrike Servo Turret|||gain/pool///0/sentry 2;
 UM_Invictor_Warsuit|Invictor Warsuit|When an enemy attacks, deal 2 damage to it||
 UM_Land_Speeder|Land Speeder|||draw/pool///1/;
-UM_Outrider|Outrider|||gain/pool///0/+1 attack and +1 ranged attack;
+UM_Outrider|Outrider|||gain/pool///0/+1 attack and +1 ranged;
 UM_Primaris_Impulsor|Primaris Impulsor|||deploy/pool///1/primaris intercessor;
-UM_Primaris_Invader|Primaris Invader|||give/pool///0/+1 ranged attack;
+UM_Primaris_Invader|Primaris Invader|||give/pool///0/+1 ranged;
 UM_Redemptor_Dreadnought|Redemptor Dreadnought|||deal/pool///1/;
 UM_Repulsor_Executioner|Repulsor Executioner|||deal/pool///8/;
 UM_Scout_bike|Scout bike|When an enemy is deployed, deal 2 damage to it||
@@ -1096,16 +1096,16 @@ UM_Roboute_Guilliman|Roboute Guilliman|Talent: Author of the Codex||heal/pool///
 UM3|Uriel Ventris|Talent: Master of the Fleet||
 UM70|Valius Paxor|Has Flying during your turn,Talent: Angel's Wrath||
 UM5|Varro Tigurius|Talent: Master of Arcana||
-UM_Assault_Doctrine|Assault Doctrine|||give/pool///0/+3;give/pool///0/armour 1;heal/pool///2/;
+UM_Assault_Doctrine|Assault Doctrine|||give/pool///0/+3 attack;give/pool///0/armour 1;heal/pool///2/;
 UM_Devastator_Doctrine|Devastator Doctrine|||give/pool///0/blast 3;give/pool///0/+2 ranged;
-UM_Tactical_Doctrine|Tactical Doctrine|||give/pool///0/+3 ranged attack;draw/pool///1/;
-AM_Lord_Commander|Lord Commander|||give/pool///0/+1 attack and +1 ranged attack;
+UM_Tactical_Doctrine|Tactical Doctrine|||give/pool///0/+3 ranged;draw/pool///1/;
+AM_Lord_Commander|Lord Commander|||give/pool///0/+1 attack and +1 ranged;
 BL16|Dark Pact of Fate|||give/pool///0/+2 health and camouflage;
-BL18|Dark Pact of Blood|||give/pool///0/+2 melee attack and vanguard;
-BL20|Dark Pact of Excess|||give/pool///0/+2 melee attack and +2 ranged attack;
+BL18|Dark Pact of Blood|||give/pool///0/+2 melee and vanguard;
+BL20|Dark Pact of Excess|||give/pool///0/+2 melee and +2 ranged;
 BL22|Dark Pact of Resilience|||give/pool///0/+1 health and regeneration 1;
 DA2|Master of Repentance|||deal/pool///1/;gainquest/pool///1/;
-EC1|Lord Kaphrael|Talent: Euphoric Strike||give/pool///0/+1;
+EC1|Lord Kaphrael|Talent: Euphoric Strike||give/pool///0/+1 attack;
 EC24|Veldras the Sublime|||gain/pool///0/+1 attack;forceattack/pool///0/;
 EC62|Armoury of Excess|||deal/pool///1/;give/pool///0/a dark pact of excess;draw/pool///1/;
 EC63|Decadent Throne|||choosecard/deck/troop/draw/0/;lowercost/pool///1/(指代上一张);

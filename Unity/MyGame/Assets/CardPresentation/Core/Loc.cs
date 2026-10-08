@@ -673,6 +673,14 @@ namespace CardPresentation
             { "Battle/Settings/SkipTutorial",      new Entry("跳过教程", "Skip tutorial") }, // TMP 原文（小写 t）；中文 = `zh_CN.csv:162`（那条英文串是 `Skip Tutorial`，大小写不同 ⇒ **近邻**）
             //   `Battle/Tips/Continue`：`…menus/MonoBehaviour_-1010790197081052438.json`，TMP 原文 `Continue`
             { "Battle/Tips/Continue",              new Entry("继续",     "Continue") },     // TMP 原文；中文 = `zh_CN.csv:84`（精确命中）
+            // 🆕 2026-10-18（第三会话 · `A985⑦`）：**抽牌被弃的提示**（手牌满 ⇒ 抽到那张直接进弃牌堆）。
+            //   原版那支 = `PlayerHand._AddDrawnCardToHand_d__37:129-141` ⇒ `Hand.Count < MaxCardsInHand`
+            //   才进手牌，否则**进墓地 + `ShowHeadsUpMessage(GetTermTranslation(0x428A218))`**。
+            //   🔴 **这一条的值【不是原版的】** —— `0x428A218` 查出来的那个键的**文案在远端 I2 表**，本地拿不到；
+            //   下面是**我们自己写的兜底**（`BattleDriver.HandFullText()` 的文档里已如实标注）。
+            //   ⚠️ **本工程的规矩是不许静默失败**：宁可出声说一句我们的话，也不让玩家看着牌凭空消失。
+            //   ⛔ 将来若远端值到位，**直接改这一行**即可（代码不用动：`Loc.HasEntry` 有就走它）。
+            { "Battle/Tips/HandFull",              new Entry("手牌已满，抽到的牌直接进弃牌堆", "Hand full - the drawn card goes to the discard pile") },
             //   `Battle/Tips/{MeleeAttack,RangeAttack,HealthPoints}`：13 个 arena 各一颗，父链
             //   `Card Display Window < Card Display < TutorialObjs < UnitObjs < {Melee,Ranged,Health}Text`
             //   ⇒ TMP 原文 **`Melee Attack` / `Ranged Attack` / `Health Points`**。
@@ -755,6 +763,31 @@ namespace CardPresentation
             //   🔴 中文列 = `zh_CN.csv:49`（`0 available,~,可用 0`）—— 同样是**带替换值**的实例
             //     ⇒ 模式 = **`可用 {0}`**（比我们原来那句 `可选目标 3` 更贴原版）。
             { "Battle/HUD/TargetsAvailable",       new Entry("可用 {0}",   "{0} available") },
+            // ── `Battle/HUD/CreatedBy` ───────────────────────────────────────────────────
+            //   🆕 **2026-10-18（第三会话 · `A985④` 收口）**：卡面上「**由谁造出来的**」那行字
+            //   （原版节点 `CreatedByText`；表现层在 `Core/CardView.cs` 的 `SetCreatedBy`）。
+            //   载波 = **②（代码里的字面量）**：字面量 `0x4288580` = `Battle/HUD/CreatedBy`、
+            //   `0x4265D10` = `{0}`（`d:/2/tools/il2cpp_out/stringliteral.json`，本批逐条读出）。
+            //   消费点 = `SupportMethods.GetCreatedByText(创建者卡名)`
+            //   （`d:/2/tools/decomp_full/SupportMethods__GetCreatedByText.c` 亲读）
+            //   = `GetTranslation(该键).Replace("{0}", 名字)` —— 与上一条 `TargetsAvailable` **同一个替换式**。
+            //   ⚠️ 键名里的 `HUD` 是**原版自己的拼法**（那一族 8 条 `Battle/HUD/*` 都挂在卡面/抬头条上，
+            //      ⛔ 别按我们 `Resources/.../HUD` 那种目录去理解它）。
+            //   🔴 **英文列**：值在**远端 I2 表**（84 个本地 bundle 里没有 `localization_assets_all`）⇒
+            //      本地拿得到的最硬的是**原版预制体里那颗 TMP 的占位串** `Created by someone fancy`
+            //      （`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-1229881635839611202.json` 的 `m_text`，
+            //      同类共 3 颗）⇒ **模板形态 = `Created by {0}`**。⛔ 别写成「原版印的就是这一句」——
+            //      那一句是**样例值**，不是词条值。
+            //   🔴 **中文列 = 我们把原来写死的那句原样搬进来的**（`Core/CardView.cs` 的 `CreatedByLine`）——
+            //      **不是原版中文**（原版客户端无中文表；`zh_CN.csv` 按英文源串 `Created by` 精确查过，**0 命中**）。
+            //   🔴 **加本行【不会】自动改掉界面上的字**（2026-10-18 亲读）：`Core/CardView.cs` 的
+            //      `CreatedByLine` 是**自己按 `Loc.Current` 二选一拼的**（`$"由 {creatorName} 创建"` /
+            //      `$"Created by {creatorName}"`），**它没有 `Loc.HasEntry` 这一跳** ⇒ 本行今天是**惰性的**。
+            //      📌 要让它生效，得在 `Core/CardView.cs` 里把 `CreatedByLine` 改成
+            //      `Loc.T("Battle/HUD/CreatedBy")` + `Replace("{0}", 名字)`（同族先例 = `HandFullText` /
+            //      `CardText.TargetsAvailable` 那种 `HasEntry` 兜底写法）—— ⛔ 那一处在**别的笔的白名单**里，本笔不动。
+            //      ⚠️ 本行取值与那两句**逐字相同**（`由 {0} 创建` / `Created by {0}`）⇒ 换过去那一笔**不会改变界面**。
+            { "Battle/HUD/CreatedBy",              new Entry("由 {0} 创建", "Created by {0}") },
 
             // ============================================================ 🆕 **2026-10-18（第十五轮 · `G5`）：`Battle/Tips/` 两条 + `Battle/Effect/` 四条**
             //
@@ -924,7 +957,7 @@ namespace CardPresentation
             return string.IsNullOrEmpty(e.En) ? key : e.En;
         }
 
-        /// <summary>下拉里显示的语言名 = `T("MainMenu/Settings/LanguageName/<枚举名>")`。
+        /// <summary>下拉里显示的语言名 = `T("MainMenu/Settings/LanguageName/&lt;枚举名&gt;")`。
         /// 🔴 **刻意不走回退**：选项名就是要显示「这一项叫什么」——
         /// 英语那一项在中文界面下显示「英语」、在英文界面下显示「English」，两者都对
         /// （原版也是这样：选项名按**当前界面语言**翻）。所以这里直接取表里那条的对应列。</summary>
@@ -933,7 +966,7 @@ namespace CardPresentation
             return T(KeyOf(lang));
         }
 
-        /// <summary>语言 → 它在表里的键（`MainMenu/Settings/LanguageName/<枚举名>`，原版拼法）。</summary>
+        /// <summary>语言 → 它在表里的键（`MainMenu/Settings/LanguageName/&lt;枚举名&gt;`，原版拼法）。</summary>
         public static string KeyOf(AvailableLanguages lang)
         {
             return "MainMenu/Settings/LanguageName/" + lang;

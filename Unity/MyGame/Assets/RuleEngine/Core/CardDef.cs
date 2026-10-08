@@ -2192,7 +2192,7 @@ namespace RuleEngine
         /// （「`jam` = `DefinedTrait.jam = 130`。**不建模**：全池 0 张卡提到它」）。
         ///
         /// **为什么现在要认它**：`RuleCore.HandEffectExpired` 那条**原版判据**
-        /// （`PlayerHand__UpdateCardEffects.c:235`：`extrinsic && HasCurrentTrait(施放者, 0x82)` ⇒ 摘）
+        /// （`PlayerHand__UpdateCardEffects.c:235`：`extrinsic &amp;&amp; HasCurrentTrait(施放者, 0x82)` ⇒ 摘）
         /// 没有这个词就**恒假 = 死代码**（不认 = 不说实话）。⇒ 照 `Ecstasy` / `Talent` 那两族先例，
         /// 先把「认得出」这一层补上（`KeywordTable.Prefixes` 里登记），**机制那一半**在
         /// `HandEffectExpired`。
@@ -2273,6 +2273,12 @@ namespace RuleEngine
             //   CantAttack → IsValidTarget / DeclareAttack 里直接拒绝
             //   LongRange  → 远程攻击免反击
             CantAttack, LongRange,
+            // 🆕 2026-10-20（`A947` 收口）：**非战斗人员（trait 880）**
+            //   —— 与 `CantAttack` **走同一个查询口**（`RuleCore.AttackBannedByTraits`，
+            //   判据 = 原版 `CanAttackNow.c:25/:27` 两道禁令在同一个方法体里）
+            //   ⇒ 机制上等价于 `CantAttack`，所以一并算「已实现」（否则带它的卡会被
+            //   误报成未实现关键词、卡面白打一个 `*`）。全池今天 0 张卡带它。
+            RuleCore.Noncombatant,
             // 触发类 + 主动技能：结算全部走 `RuleCore.FireUnitTrigger` / `UseAbility`。
             // ⚠️ 「关键词已实现」≠「这张卡的效果能跑」—— 效果文字解析不出来的，
             //    由 `CardDef.UnparsedEffects` 单独标出来（卡面照旧打 `*`）。
@@ -2529,6 +2535,15 @@ namespace RuleEngine
             //    判据出处与影响面（前缀不撞车、全池 0 张卡带它）见 <see cref="KeywordTable.Jam"/>。
             new[] { "jam", KeywordTable.Jam },
             new[] { "stimulation", "stimulation" },
+            // 🆕 2026-10-20（`A947` 收口）：**`noncombatant`（非战斗人员，trait 880）**。
+            //    判据 = 原版 `CanAttackNow.c:25/:27`（`cantAttack`(150) 与 `noncombatant`(880)
+            //    **在同一个查询口里读两道禁令**）；常量与共用判定口
+            //    `RuleCore.AttackBannedByTraits` 见 `RuleCore.Noncombatant` 的注释。
+            //    ⚠️ **为什么必须登记在这里**：不登记 ⇒ `Normalize` 返回 null ⇒
+            //    `KeywordTable.Parse` 与构造函数**双双丢弃** ⇒ 卡数据写它会被**静默丢掉**
+            //    （卡面既不报「未实现」、也不打 `*`）—— 正是本工程「不许静默失败」红线。
+            //    ⚠️ 今天全池 **0 张卡**带它（现状无行为缺口），补的是「将来写得出」这一层。
+            new[] { "noncombatant", RuleCore.Noncombatant },
             // 🔴 2026-09-13 补（派子代理做「关键词三列对账」时查出）：这三个词**根本不在表里**，
             //    于是 `Normalize` 返回 null → `Parse`/构造函数**双双丢弃**
             //    ⇒ 它们既不出现在 `UnimplementedKeywords()` 单上，**卡面也不打 `*`**

@@ -399,7 +399,7 @@ namespace CardPresentation
         /// <summary>下拉框右端那个箭头（原版 `LanguagesDropdown > Arrow`）：框 20×20、**`preserveAspect`**、
         /// 屏幕 `971…989` × `376.8…394.8` ⇒ 设计 `972.22…992.22` × `358.67…378.67`。
         /// 🔴 **图名是「我们的选择」**：原版那颗 `Image.m_Sprite` 的 PathID(`-1891211968353393973`)
-        /// **本地没解出名字**（`menu_dump` 印 `<未解出 …>`）⇒ 用工程别处同一个下拉件在用的
+        /// **本地没解出名字**（`menu_dump` 印 `&lt;未解出 …&gt;`）⇒ 用工程别处同一个下拉件在用的
         /// `40K_dropdown_arrow_closed`（46×19，工程里 `AlliancesTab` / `AllianceMemberTab` 两处就是这么接的）。</summary>
         public const float GenArrowL = 972.22f, GenArrowT = 358.67f, GenArrowW = 20f;
         /// <summary>箭头那颗 `Image` 的 `m_Color`（原版实读）。⚠️ 对战那扇同一个控件是 `(0.0196,0.353,0.192,1)`
@@ -540,7 +540,7 @@ namespace CardPresentation
         public const float LstSbW = 20f;
         /// <summary>`Handle` 的**序列化**高 = 滑动区高 553.96 × `m_Size 0.9273074865341187` + `sizeDelta.y 20`
         /// = **533.69**（贴 `Sliding Area` 的底）⇒ y `430.9…964.6`。
-        /// 🔴 **它运行时会被 `ScrollRect.UpdateBounds` 重算**；而本列表 **12 × 40.8707 = 490.45 < 视口 573.96
+        /// 🔴 **它运行时会被 `ScrollRect.UpdateBounds` 重算**；而本列表 **12 × 40.8707 = 490.45 &lt; 视口 573.96
         /// ⇒ 根本没有可滚范围**（照原版 `AdjustBounds`，同本窗图像页那一列 A172 的那条结论）⇒
         /// 原版 `m_VerticalScrollbarVisibility = **2**(AutoHideAndExpandViewport)` 会把整根 Scrollbar
         /// **SetActive(false)**（内容装得下就不显示）。本窗照办：**Scrollbar 建出来但恒关着**。</summary>
@@ -591,8 +591,8 @@ namespace CardPresentation
 
         /// <summary>列表这一族用的**渲染队列**（本工程没有 UGUI `Canvas` 排序层 ⇒ 拿队列当它，
         /// 同 CLAUDE.md §三 那条「分层要用渲染队列、不能用 z」）。
-        /// 序：`BackgroundHit`(3130) < `QOverlay`(3135) < **`QBlocker`(3140)** < `QListBg`(3141)
-        /// < `QListItem`(3142) < `QListText`(3143) < `QScroll`(3144)。
+        /// 序：`BackgroundHit`(3130) &lt; `QOverlay`(3135) &lt; **`QBlocker`(3140)** &lt; `QListBg`(3141)
+        /// &lt; `QListItem`(3142) &lt; `QListText`(3143) &lt; `QScroll`(3144)。
         /// 🔴 **挡住「点窗外关窗」那条**：`BackgroundHit` 在 3130 ⇒ 列表开着时点窗外只会关**列表**（原版正是
         /// `Blocker` 盖住整屏、它在 dropdown 那一层 Canvas 的 `sortingOrder - 1`）。</summary>
         public const int QBlocker = 3140, QListBg = 3141, QListItem = 3142, QListText = 3143, QScroll = 3144;

@@ -775,9 +775,17 @@ namespace CardPresentation
         /// · 标题走 `FitAfterSpacing`（A492 把两句对调过 —— 判据与「无牙口」那段**已搬进**
         ///   `WindowHeader.TitleFit` 的 `FitAfterSpacing`，⛔ 别在这儿再写第二份）；
         /// · **多一颗 `Game Mode Icon`**（本窗在 `parts.Plate` 底下补 —— 兄弟序与原来逐位一致：`Window Title` → 图标）；
-        /// · 返回钮 = `QuadOnHeader` + **有换图**（`BackSwapArt = ArtHeaderBack`，A17）；
-        /// · ⚠️ 尖角那一颗**沿用 `MenuDraw.Nine` 的缺省名 `"Nine"`**（另三扇都显式起名
-        ///   `Header Background (1)`）—— 本笔**照旧保留**（收口不夹带行为改动），差异已登记在 §5 / §7。</remarks>
+        /// · 🔴 **2026-10-18（三扇标题垂直档漏网）**：标题**多一档 `TitleVAlign = Capline`**（原文这里没列这一条 ⇒
+        ///   A866 时本窗走的是 `Label` 出厂的 `Middle`，是**与原版不符**的，见 `BuildHeader` 里那段判据）；
+        /// · 返回钮 = `QuadOnHeader` + **有换图**（`BackSwapArt = ArtHeaderBack`，A17）。
+        /// <para>🔴 **2026-10-18（A967 · 铁律 5 订正）**：原文这里写着「⚠️ 尖角那一颗**沿用** `MenuDraw.Nine`
+        /// 的缺省名 `"Nine"`（另三扇都显式起名 `Header Background (1)`）—— 本笔**照旧保留**（收口不夹带行为改动），
+        /// 差异已登记在 §5 / §7」。**那一笔是错的、已经删了**：原版同一个 prefab 里那颗尖角就叫
+        /// `Header Background (1)`（判据 = `WindowHeader.WingName` 的 doc 那份实读）⇒ A866 当时「保留差异」
+        /// 保留成了一处**与原版不符**。现在 `Spec` 上**不再写 `WingName`** ⇒ 落到缺省 `Header Background (1)`，
+        /// 与另三扇齐平。⛔ 别再把这一行加回来。</para>
+        /// <para>⚠️ 今天**没有断言**盯着本窗这颗尖角的节点名（全仓唯一读 `Header Background (1)` 的是
+        /// `Editor/MainMenuScene.cs` 里读 `TutorialModePopup` 那颗的那一条）—— 断言侧缺口见本批报告。</para></remarks>
         void BuildHeader(Transform root)
         {
             // `Header Background`：`ContentSizeFitter` 按内容撑开 ⇒ 它自己宽 0；HLG 从 **padLeft 155** 起排
@@ -795,10 +803,21 @@ namespace CardPresentation
                 TitleText = "Game mode",       // prefab 出厂 `m_text`；运行时被 `WindowHeaderWithBackButton.Initialize` 换掉
                 TitleMode = WindowHeader.TitleFit.FitAfterSpacing,
                 TitleFitW = 369.36f, TitleFitH = 82.65f,   // 照本窗原来的字面量（⛔ 别改成 `TitleRect.W/H`）
+                // 🔴 **2026-10-18（三扇标题垂直档漏网 · 铁律 11）**：补这一档 —— 原版 `Window Title` 那颗 TMP 是
+                //   **`m_VerticalAlignment = 8192`（`Capline`）**（判据：亲读 `bundle_menus_assets_all` 里
+                //   **8 颗 `Window Title` 逐颗现读、逐值相同**，本窗那颗也在其中）；本窗此前没传 ⇒
+                //   落到 `Label` 出厂的 `Middle`，是**真差异**。写法照 `DailyStreakPopup` 那一处。
+                //   ⚠️ 共件里 `SetVAlign` **排在 `AlignLeft` 之后**（纵向/横向互不干涉），照旧。
+                TitleVAlign = Label.VAlign.Capline,
                 WingRect = new PxRect(HdrBg1L, HdrBg1T, HdrBg1R, HdrBg1B),
-                // ⚠️ **本窗今天就是缺省名 `"Nine"`**（另三扇显式起 `Header Background (1)`）——
-                //    照旧保留（A866 只做收口、不夹带行为改动）；**差异已登记**，见本方法 remarks。
-                WingName = "Nine",
+                // 🔴 **2026-10-18（A967）**：原来这里显式写着 `WingName = "Nine",`（= `MenuDraw.Nine` 的
+                //   **缺省名**，A866 收口时「照旧保留」的那一笔）—— **已删**。
+                //   判据 = 原版同一个 prefab 里那颗尖角就叫 **`Header Background (1)`**
+                //   （`WindowHeader.WingName` 的 doc 里那份 `menu_dump` 实读；另三扇 + `Editor/MainMenuScene.cs`
+                //   读的那个实例也都是这个名字）⇒ 删掉这一行即落到 `Spec.WingName` 的缺省
+                //   （= `WindowHeader.WingName` = `"Header Background (1)"`，`MenuWindowBase.cs` 的 `Spec`）。
+                //   ⚠️ 只动**节点名**：矩形 / 贴图 / 队列 / 兄弟序一个字节都没变（`MenuDraw.Nine` 的落位与
+                //   `name` 无关）。
                 BackRect = new PxRect(HdrBackL, HdrBackT, HdrBackR, HdrBackB),
                 BackButtonStyle = WindowHeader.BackStyle.QuadOnHeader,
                 BackKeepAspect = true,

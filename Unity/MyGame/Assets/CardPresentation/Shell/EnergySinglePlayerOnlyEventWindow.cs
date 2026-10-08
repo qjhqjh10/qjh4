@@ -488,6 +488,8 @@ namespace CardPresentation
         /// `资料/普查产出_1018/S5_A866窗头收口.md` §2）：
         /// · 标题走 **`FitBeforeSpacing`**（先自适应、后字距 —— 与 `TutorialModePopup` / `LiveOpsEventWindow`
         ///   那两扇的 `FitAfterSpacing` **相反**；两档静态收敛，照旧保留，⛔ 不替它选边）；
+        /// · 🔴 **2026-10-18（三扇标题垂直档漏网）**：标题**多一档 `TitleVAlign = Capline`**（原文这里没列这一条 ⇒
+        ///   A866 时本窗走的是 `Label` 出厂的 `Middle`，是**与原版不符**的，见 `BuildHeader` 里那段判据）；
         /// · 返回钮 = `QuadInOwnNode`（多一层具名节点 `Header Back Button`，图是它的子件 `Bg`）+ **有换图**；
         /// · 本窗要把建出来的四件存进字段（`_titleLabel` / `_title` / `_back` / `_backBg`）⇒ **接返回值**。</remarks>
         void BuildHeader(Transform root)
@@ -505,6 +507,12 @@ namespace CardPresentation
                 TitleMode = WindowHeader.TitleFit.FitBeforeSpacing,
                 // 照本窗原来的写法（`TitleR.W` / `TitleR.H`），⛔ 别改成 `TitleR.x2 - TitleR.x1`（可能差 1 ulp）。
                 TitleFitW = TitleR.W, TitleFitH = TitleR.H,
+                // 🔴 **2026-10-18（三扇标题垂直档漏网 · 铁律 11）**：补这一档 —— 原版 `Window Title` 那颗 TMP 是
+                //   **`m_VerticalAlignment = 8192`（`Capline`）**（判据：亲读 `bundle_menus_assets_all` 里
+                //   **8 颗 `Window Title` 逐颗现读、逐值相同**）；本窗此前没传 ⇒ 落到 `Label` 出厂的
+                //   `Middle`，是**真差异**。写法照 `DailyStreakPopup` 那一处。
+                //   ⚠️ 共件里 `SetVAlign` **排在 `AlignLeft` 之后**（纵向/横向互不干涉），照旧。
+                TitleVAlign = Label.VAlign.Capline,
                 WingRect = HdrBg2R,
                 BackRect = BackR,
                 BackButtonStyle = WindowHeader.BackStyle.QuadInOwnNode,

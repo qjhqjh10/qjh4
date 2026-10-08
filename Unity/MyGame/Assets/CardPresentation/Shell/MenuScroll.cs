@@ -26,7 +26,7 @@
 //   · `Forge Tab/Rewards Scroll View` = **横向**（`m_Horizontal 1 / m_Vertical 0`）
 //
 //   · 滚轮一格的手感照**卡组编辑那条已经验过的路**：`DeckRuntime.HandleScroll` 用 `dy * 0.4f`
-//     （`Deck/DeckRuntime.cs:1106-1113`）⇒ 这里取同一个系数，**别两处各写一套**。
+//     （同上，`Deck/DeckRuntime.cs` 的 `HandleScroll` —— ⛔ 按【符号】认，别抄行号）⇒ 这里取同一个系数，**别两处各写一套**。
 //
 // ============================ 🆕 2026-10-03 惯性 / 回弹 / 拖拽（照 UGUI 源码） ============================
 // 🔴 **判据 = Unity 自带的 `ScrollRect` 源码本体** —— 原版游戏的滚动就是它跑的，

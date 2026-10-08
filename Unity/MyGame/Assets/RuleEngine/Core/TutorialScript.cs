@@ -71,7 +71,7 @@ namespace RuleEngine
 
     /// <summary>`ScriptedActionUnit` —— 「谁」。
     /// ⚠️ `30/31/32` 三个都指**玩家侧的部队**（`AiScripted__GetActingCard.c`：
-    /// `2 < iVar1 - 0x1e` 不成立 ⇒ 30/31/32 走同一条 `GetPlayerMinionsAndRemnantInPlay`）；
+    /// `2 &lt; iVar1 - 0x1e` 不成立 ⇒ 30/31/32 走同一条 `GetPlayerMinionsAndRemnantInPlay`）；
     /// 区别只在**落点在督军左边吗**（见 `Matches`）。</summary>
     public enum ScriptedActionUnit
     {

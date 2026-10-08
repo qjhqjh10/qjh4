@@ -1146,6 +1146,24 @@ namespace RuleEngine
             //    要的是**那一份 `CardInstance`**（`DoLowerCost` 的 `(指代上一张)` 支按份钉
             //    `HandInstanceId`）⇒ 它只能去 `ctx.DrawnThisResolve` 找，而那个槽**原来没有写点**
             //    （只有 `DoDraw` / `DoChooseCard` / `DoDrawRef` 三条，全在别的路上）。
+            //    🔴 **2026-10-18（批 3 · `A992` 遗留乙）就地订正（铁律 5）**：上面那三条**不齐** ——
+            //      实测 `DrawnThisResolve` 有**四个**写点：`DoDraw`(`:1688`) · `DoDrawType`(`:491`) ·
+            //      `DoDrawRef`(`:3808`) · `DoChooseCard` 的 `act == "draw"|"hand"` 支(`:2428`)。
+            //      **只有 `DoDraw` 那一条同时写了手牌代词槽**（`ctx.LastHandTargets` / `LastHandTarget`）
+            //      ⇒ 四个「进手牌」的路里**三个只写计数账、不写代词槽**。
+            //      **今天零可观测差异**（不是缺陷已消）：`EffectResolver.HandReferents` 是
+            //      「**先读槽、槽空才退回 `DrawnThisResolve`**」，而槽在**一条能力**开头就被清
+            //      （`ResolveOps` 入口）⇒ 只走过三条里任一条时槽仍是空的、兜底正好顶上。
+            //      **会咬人的形状**：同一条 resolve 里 `draw`（填槽）**之后**再走那三条之一、
+            //      然后 `give it/them …` —— 那时槽里是**上一步**那几张（陈旧值优先于兜底）。
+            //      全卡池扫过：**今天没有这种卡**（最接近的是 `Rogue Informant`
+            //      `Choose a card from your deck and draw it. If it's a troop, give it Stealth`
+            //      —— 单次抽牌，兜底接得住）。
+            //      ⇒ **判「该对称」**（槽的定义就是「这一步落到手牌里的那几份」，
+            //        `BattleContext.cs:840-866`；四个路都该写）。⚠️ **本笔没改**：三个落点
+            //        全在 `Core/EffectResolver.cs`，**不在本代理的文件白名单内**（铁律 13·3），
+            //        已在报告里交给调度台分流。要在那边补的就是和 `DoDraw` 那两句**逐字同形**的
+            //        `ctx.LastHandTargets.Clear(); …Add(…)` + `ctx.LastHandTarget = (Count == 1 ? … : null);`。
             //    ⇒ 普通抽牌（回合开始那一抽就走这里）的监听器**永远读不到指代对象** ——
             //      `Company Master`（`DA31`）的降费**一次都不生效**（离线实测 `CostOf` 仍是印价）。
             //    种子/还原的判据、为什么必须套在广播**外面**、以及窗口放宽的连带，
@@ -1178,6 +1196,19 @@ namespace RuleEngine
             //      （`AddDrawnCardToHand` 的子协程在 case 0 就启动、case 5 之前已经
             //       `List.Add` + `PlayerHand.SetupCardInHand` —— 见 `PlayerHand._AddDrawnCardToHand_d__37__MoveNext.c:111-120`）
             //      ⇒ 「原版是『已出牌库、还没进手牌』」那句**不成立**，我们「进了手牌才广播」与原版同形。
+            // 🆕 **2026-10-18（`A985⑥` · 前置那一半）：`EvtKind.Draw` —— 补上原版那一段的第二件事。**
+            //    `_ResolveDrawCard` 那个 `IsDuringMulligan` 守卫里是**三件事**（`:283-295`）：
+            //    `BroadcastCardDrawn` → `CemeteryManager.AddDrawTrapAction`（战斗日志那一行）→
+            //    `SetCardTurnDrawn`。上面那条广播是第一件、下面 `DrawnThisTurn` 是第三件，
+            //    **本句补的是中间那一件**（词条 `Battle/Cemetery/ActionYouDraw` / `ActionOpponentDraws`）。
+            //    ⚠️ **`IsDuringMulligan` 那一道闸必须一起搬过来**（原版三件事同闸）—— 我们的换牌
+            //      「补抽同样张数」（本文件 `Mulligan`）就是走这里，而它发生在 `ctx.MulliganOpen`
+            //      为真的那段窗口里；不挡的话换牌补抽会被记成「抽了一张牌」。
+            //    ⚠️ **它【不进】任何哈希**（见 `EvtKind.Draw` 的注释）：`Emit` 只往
+            //      `Signals` / `ActionLog` 里塞一条 `BattleEvent`，而 `NetProtocol.Fingerprint`
+            //      读的是 `ctx.Events`（**字符串**日志）。⛔ 所以这里**不许补 `ctx.Log(...)`** ——
+            //      那会改 `ctx.Events.Count` ⇒ 动到 `Fingerprint`。
+            if (!ctx.MulliganOpen) ctx.Emit(EvtKind.Draw, p, -1, card.Name);
             inst.DrawnThisTurn = true;
         }
 
@@ -1335,9 +1366,17 @@ namespace RuleEngine
             //    🔴 **2026-10-01 晚更正**：这里原来写「真正还会被拒的只剩一条：**那一侧满 4 个**」——
             //    **错的**：原版 `AdjustedSlot` 见到「请求的那一侧满了」是**换到对侧最外那一格**
             //    （`:64-72` / `:104-107`），不是拒绝。现在**只剩「两侧都满」**会被拒
-            //    （原版那一步靠调用方事先筛；我们返回 `ErrSlot`，失败形态不同但不可观测）。
+            //    （原版那一步靠调用方事先筛；我们返回 `ErrNotEnoughRoom`，失败形态不同但不可观测）。
+            //    🔴 **2026-10-18 就地订正（铁律 5）**：这句原来写「我们返回 `ErrSlot`」——
+            //    现读代码已经是 `ErrNotEnoughRoom`（`A985⑧` 第二步拆码时分开的那一档）。
             if (!BoardSpec.IsValid(slot)) return RuleCodes.ErrSlot;   // 越界（含 -1）
-            if (!BoardSlots.HasRoomFor(ps, slot)) return RuleCodes.ErrSlot;
+            // 🔴 **2026-10-18（第三会话 · `A985⑧` 第二步「拆码」）：这一格原来也返回 `ErrSlot`** ——
+            //    它与上面那句「越界」**共用一个码** ⇒ 调用方（提示行的文案）**从码上分不出因**。
+            //    原版这一支是**另一档**：`BattleManager__CanPlayCard.c:104-120`，
+            //    `MinionManager.IsAvailableSlot` 为假（**棋盘满**）⇒ `Battle/Tips/NotEnoughRoom`。
+            //    ⚠️ 上面那句「越界」**仍然是 `ErrSlot`** —— 那是**参数非法**（调用方的错），
+            //    这一句是**规则上放不下**（对局状态），两者该说的话不一样。
+            if (!BoardSlots.HasRoomFor(ps, slot)) return RuleCodes.ErrNotEnoughRoom;
 
             return RuleCodes.OK;
         }
@@ -1387,8 +1426,107 @@ namespace RuleEngine
         public static bool HasDeployExemption(UnitState u)
         {
             if (u == null) return false;
-            return u.Has("fast") || u.Has("flank") || u.Has(KeywordTable.Ferocity);
+            // 🆕 **2026-10-18（第三会话 · `A992`①）：`oath` 也并进来。**
+            //    判据 = 原版 `CardScript__ActivateTraitsOnSummonOrEnchantment.c:86-99`
+            //    （现读 `d:/2/tools/decomp_full/`）：
+            //      `else if ((iVar1 == 0x4f1) || (iVar1 == 0x4fb)) { … }`
+            //      —— `0x4f1` = 1265 = **ferocity**（`资料/特殊行动_五件_原版规格.md:39`）、
+            //         `0x4fb` = 1275 = **oath**（同文件 `:35`）；
+            //      两支写的是**同一对字段**：`+0x230` = `canAct`（= `true`）、`+0x23c` = `canAttack`
+            //      （字段序与偏移 `0x230 → 0x23c`（`ObscuredBool` = 12 字节）经
+            //       `CardScript__CanAttackNow.c:57-74` 现读确认：先读 `+0x230`、非假再读 `+0x23c`）。
+            //    第二条写点同判据：`CardScript__ActivateMinion.c:68`（`HasCurrentTrait(0x4f1) || (0x4fb)`）
+            //      把 `canAct` **重新**按「召唤病」算一遍 —— 即这两个 trait 正是「**召唤当回合能不能动**」
+            //      的那一族；`fast`(0x28) / `flank`(0x1cc) 在上面 `:47-51` 走**同一条路**
+            //      ⇒ **四个 trait 同族**，三词表漏了 `oath` 是**收窄**，不是刻意的近似。
+            //
+            //    ✅ **2026-10-18（第三会话 · `A992` 遗留甲）：这一处偏离【已消】** ——
+            //      原来这一段写着「我们只有 `Exhausted` 一位，表达不了『能动但不能攻击』」，
+            //      现在第二位已补上：`UnitState.CannotAttackThisTurn`（= 原版 `canAttack` `+0x23C`），
+            //      由 <see cref="ApplyDeployTurnState"/> 在部署那一刻置位、<see cref="CanAttackNow"/> 读它。
+            //      ⚠️ 上面那句「`ActivateTraitsOnSummonOrEnchantment` 把 `canAct` 置真、**同时**把
+            //      `canAttack` 置假」，**错版记录已就地改成 `canAttack = false`**（原稿有一份写成
+            //      「也 `canAttack = true`」—— 见 `资料/普查产出_1018/R-ENG_引擎族7条现核.md:205`，
+            //      现读 `:96` 是 `op_Implicit(local_30, 0, 0)`）。
+            //      ⇒ 本方法继续只管「**能动**」那一半（`canAct` = `+0x230`），别往这里塞攻击那一半。
+            //
+            //      🔴 顺手发现的错记录（本代理无 `资料/**` 写权限，留给调度台）：`资料/普查产出_1018/
+            //      R-ENG_引擎族7条现核.md:205` 写着 `0x4FB`「也 `canAct = true` **且** `canAttack = true`」
+            //      —— 现读 `CardScript__ActivateTraitsOnSummonOrEnchantment.c:91/:96`：第二个是
+            //      `op_Implicit(local_30, 0, 0)` ⇒ **`canAttack = false`**（`op_Implicit` 的第 2 个实参
+            //      才是值，同函数内 `ObscuredInt__op_Implicit(&local_78, uVar2, 0)` 可交叉印证）。
+            return u.Has("fast") || u.Has("flank") || u.Has(KeywordTable.Ferocity)
+                || u.Has(KeywordTable.Oath);
         }
+
+        /// <summary>
+        /// **攻击那一半的部署豁免**：带 `fast`（迅捷）/ `flank`（侧翼）的单位**部署当回合就能攻击**；
+        /// `ferocity` / `oath` **不算**（它们只豁免「能动」，见 <see cref="HasDeployExemption"/>）。
+        ///
+        /// 🔴 **判据（第一权威，现读 `d:/2/tools/decomp_full/`）** —— 原版两个位是**分别**算的：
+        ///   · `EntityScript__get_displaySummonSickness.c`（整个方法体）：
+        ///     `+0x58 != 0 && !HasCurrentTrait(0x28 /*fast*/) && !HasCurrentTrait(0x1cc /*flank*/)`
+        ///     ⇒ **只有 `fast` / `flank` 能免掉召唤病**；
+        ///   · `CardScript__ActivateMinion.c:39-42` 把 `canAct` 与 `canAttack` **一起**写成
+        ///     `!displaySummonSickness`；同一方法的 `:43-69` 是 `ferocity`/`oath` 的**第二条写点**，
+        ///     它**只重写 `canAct`**（新值 = `!HasCurrentTrait(100 /*stun*/)`），`canAttack` 不动
+        ///     ⇒ 结果 = 这两个 trait 的单位「**能动、不能攻击**」。
+        ///   · 反证（规则书 `:187`「侧翼：打出当回合可攻击任意敌方部队」）与 `fast` 的卡面语义一致：
+        ///     这两个词必须能攻击，所以它们**不能**进上面那张「不能攻击」的表。
+        /// ⚠️ 与 <see cref="HasDeployExemption"/> 是**严格的子集关系**（`fast`/`flank` ⊂ 四个词）
+        ///   ⇒ `CannotAttackThisTurn` 为真**蕴含** `Exhausted` 为真；这一位只在
+        ///   `ferocity` / `oath` 单位上**可观测**（别的地方 `Exhausted` 先挡住了）。
+        /// </summary>
+        public static bool HasAttackDeployExemption(UnitState u)
+        {
+            if (u == null) return false;
+            return u.Has("fast") || u.Has("flank");
+        }
+
+        /// <summary>
+        /// **「刚落地」那一刻把两个位一次写好** —— 部署路径上**唯一**的写点（判据只此一处）。
+        ///
+        /// 它 = 原版两条写点的**和**：
+        ///   · `CardScript__ActivateMinion.c:39-42`（`canAct = canAttack = !displaySummonSickness`）；
+        ///   · `CardScript__ActivateTraitsOnSummonOrEnchantment.c:86-99`（`ferocity`/`oath`
+        ///     把 `canAct` 抬回真、`canAttack` 压成假）。
+        ///
+        /// ⚠️ **只在「新单位落地」的入口调，⛔ 不许遍历全场** —— 本回合**已经行动过**的单位
+        ///   也是 `Exhausted = true`，一律按它解掉就会把它们**放活**（一回合动两次，静默错）。
+        ///   理由与 `HasDeployExemption` 那段注释**同源**，别在这边另写一份。
+        /// ⚠️ **必须在「手牌加成 + 光环重算」之后调**（`fast`/`flank`/`ferocity`/`oath` 都可能是
+        ///   那两路在构造之后才挂上来的 —— F6/F8/F9 那三笔的教训）。
+        /// </summary>
+        public static void ApplyDeployTurnState(UnitState u)
+        {
+            if (u == null) return;
+            u.Exhausted = !HasDeployExemption(u);
+            u.CannotAttackThisTurn = !HasAttackDeployExemption(u);
+        }
+
+        /// <summary>
+        /// 这张牌**打出时是面朝下的吗**（= 伏击 `Ambush`）。判据 = **卡面事实**：
+        /// 有 `ambush` 关键词**且**它后面挂得出正文（`TriggerOps` 非空）。
+        ///
+        /// 🔴 **全工程唯一的判别式** —— 判据共用一份（`CLAUDE.md` §三「两处写同一条规则 = 迟早不一致」）。
+        ///    现在读它的有三处，全在「打出一张牌」这一跳里：
+        ///      · `PlayCard` 里「**面朝下下场**」那一支（本文件，把 `unit.FaceDown` 置真）；
+        ///      · `Play` 事件的**两个发出点**要填的 `BattleEvent.PlayAmbush`
+        ///        （`RuleCore.PlayCard` 的**单位卡**那条 · `EffectResolver.PlayTactic` 的**战术卡**那条）。
+        ///    原版那个位有**自己的编码**（`Play` 记录**字节 `0x1C`**，`local_18._4_1_`）——
+        ///    方法与行号在 `BattleEvent.PlayAmbush` 的 doc 里，别在这儿再抄一份。
+        ///
+        /// 🔴 **2026-10-18（`A985⑥①`）**：这个方法是**从「面朝下下场」那一支就地提出来的** ——
+        ///    原来那句判别式只写在 `PlayCard` 里，`Play` 事件要用就得**再抄一遍**。
+        ///    提出来以后三处共用一份；行为零变化（多一个 `card != null` 的守卫，
+        ///    而调用点传进来的 `card` 本来就不可能为 null）。
+        ///
+        /// ⚠️ 光有 `ambush` 关键词、**卡面没写正文**的卡**不算**（`TriggerOps` 为 null）：
+        ///    那种卡面朝下没有任何效果可触发，不是「伏击」那一维 —— 也别为它填 `PlayAmbush`。
+        /// </summary>
+        static bool PlaysFaceDown(CardDef card)
+            => card != null && card.Has(KeywordTable.Ambush)
+                           && card.TriggerOps(KeywordTable.Ambush) != null;
 
         /// <summary>
         /// 打出第 handIdx 张手牌到 slot 格。（rule_core.play_card）
@@ -1420,7 +1558,25 @@ namespace RuleEngine
             // 「打出了这张牌」——单位卡紧接着还会发一条 `Deploy`，**日志那边会把连着的那条合并掉**
             // （`BattleContext.AppendLog`）。这条也是表现层「出牌那一下」的锚点：
             // 以前只有 `Deploy`，**战术卡压根没有事件**。
-            ctx.Emit(EvtKind.Play, p, slot, card.Name);
+            //
+            // 🆕 2026-10-18（`A985⑥①`）：**这一条要把「伏击」那一维带上**（`BattleEvent.PlayAmbush`，
+            //    判据 = 原版 `Play` 记录**字节 `0x1C`** 那个位，见那个字段的 doc）。
+            //    ⚠️ **判别式与下面「面朝下下场」那一支是同一个函数**（`PlaysFaceDown`）——
+            //       两件事本来就同真同假，但**取值只能各算各的**：这条 `Play` 必须排在
+            //       下面那条 `Deploy` **之前**（`BattleContext.AppendLog` 按「紧挨着的那条 Play」
+            //       合并，⛔ 挪下去就把合并规则破了），而伏击那段排在 `Deploy` 之后。
+            //       `PlaysFaceDown` 是**卡的纯函数**，算两遍不会不一致。
+            //    ⚠️ **不是伏击就保持默认 `false`**（⛔ 不写哨兵值）。
+            //    ⚠️ 这里用 `Emit(BattleEvent)` 那个重载而不是按字段那个 —— 后者**没有**这个形参
+            //       （它的签名在 `BattleContext.cs`，本笔没在改动范围里）。
+            ctx.Emit(new BattleEvent
+            {
+                Kind = EvtKind.Play,
+                Player = p,
+                Slot = slot,
+                CardId = card.Name,
+                PlayAmbush = PlaysFaceDown(card),
+            });
 
             // 部署当回合不可行动 —— UnitState 构造出来就是 Exhausted = true
             // 🔴 第 7 行第 2 步：**手牌那一份原样上场**（`inst`），不再 `NewInstance` ——
@@ -1435,11 +1591,19 @@ namespace RuleEngine
             slot = BoardSlots.Insert(ps, unit, slot);
             ctx.TroopsPlayed[p]++;   // 🆕 2026-09-23 战果：本局打出的部队卡张数（督军不走这条路）
             // 🆕 2026-10-17（B19）：**记一笔「本局打出过的牌」**（候选域 `played` 的唯一来源）。
-            //    位置 = 「校验过了、费用付掉了、手牌已经拿走、也落位了」之后 ⇒
-            //    **打不出去的牌一张都不会记上**（前面任一关没过就 return 了）。
             //    ⚠️ **战术卡不在这里写** —— 它们在函数开头就分流进 `PlayTactic` 了，
-            //    走到这一行的只可能是单位卡（两处各写一笔、不会重记）。
-            ctx.NotePlayed(p, inst, false);
+            //    走到这里的只可能是单位卡（两处各写一笔、不会重记）。
+            //    🔴 **2026-10-18（`A974`）：这一笔**下移到下面 `BroadcastWhen(Play)` 之后**了**
+            //       （落点与判别式 = `RuleEngineTest.TestA974NotePlayedAfterPlayBroadcast`）。
+            //    🔴 2026-10-18（`A974`）**下移**：原版同一条链上
+            //       `BroadcastCardPlayed`（`BattleManager._ResolvePlayCardFromHand_d__447__MoveNext.c:1426`）
+            //       **在** `CemeteryManager.AddPlayCardAction`（同文件 `:1503`）**之前**
+            //       ⇒ 「广播：有人打出了一张牌」要早于「记账：本局打出过的牌」
+            //       （监听方读那张表时，这一张**还不该在里面**）。
+            //       ⚠️ 这条只在**广播期间有人读 `PlayedCards`** 时才看得见差异 ——
+            //       今天全池唯一读点是 `EffectResolver.ChooseCardCandidates` 的 `case "played"`
+            //       （`Suppressor` 的 `Oath 1:`，**回合起触发、不在打牌那一跳里**）⇒ 无行为差、
+            //       纯次序对齐（如实标着：**是为了将来**，不是为了修一个现在看得见的错）。
             // 🆕 2026-09-16 **手牌加成兑现**（`TL53 Infinite Biomorphologies` 的「给手牌里的部队」）——
             //    必须排在下面 `Auras.Recompose` **之前**：加成可能带关键词（`Armour 1` / `Flank`），
             //    而光环重算只认**当前**的场上状态，先重算再加就会漏算这一份。
@@ -1459,7 +1623,12 @@ namespace RuleEngine
             //    ⇒ 不重算的话，这两路给的侧翼/迅捷**静默失效**（关键词给了、单位却仍疲劳、动不了）。
             //    ⚠️ **只重算刚部署的这一个 `unit`** —— ⛔ 别遍历全场：本回合**已经行动过**的单位也是
             //       `Exhausted = true`，一律解掉会把它们放活（静默错）。判据共用 `HasDeployExemption`。
-            unit.Exhausted = !HasDeployExemption(unit);
+            // 🔴 **2026-10-18（`A992` 遗留甲）：改成一次写【两个位】** —— 攻击那一半
+            //    （`UnitState.CannotAttackThisTurn`，= 原版 `canAttack` `+0x23C`）原本**一个写点都没有**
+            //    ⇒ 刚部署的 `ferocity` / `oath` 单位能攻击，与原版相反（原版那支是 `canAct = true`
+            //    且 `canAttack = false`）。两个位在**同一刻**由 `ApplyDeployTurnState` 一起写，
+            //    ⛔ 别在别处再各写一份（那会变成同一条规则的两份写法）。
+            ApplyDeployTurnState(unit);
 
             // ---- 🆕 2026-10-18（`W5` · `K3` 账）：**部署收尾按【当前】数值重挑攻击型** ----
             //   `+0x120` 的写点里，原版有**两个**都落在这一刻：
@@ -1480,7 +1649,9 @@ namespace RuleEngine
             // ---- 🆕 伏击（`Ambush`）：**面朝下打出**（规则书 `:166`）----
             // 之后两条出口各有一处判据：`ApplyDamage`（挨到伤害 → 翻开、无效果）与
             // `RevealAmbush`（撑到自己下个回合开始 → 翻开并触发）。
-            if (card.Has(KeywordTable.Ambush) && card.TriggerOps(KeywordTable.Ambush) != null)
+            // 🔴 **2026-10-18（`A985⑥①`）**：判别式**提成 `PlaysFaceDown`** —— 上面那条 `Play`
+            //    事件要用同一句，⛔ 不许在别处再写一份（判据共用一份）。
+            if (PlaysFaceDown(card))
             {
                 unit.FaceDown = true;
                 ctx.Log($"{unit.Name} **面朝下**落在 {slot} 号格 —— "
@@ -1497,6 +1668,15 @@ namespace RuleEngine
             // ⚠️ 单位**已经放进棋盘**了才广播 —— 监听器的效果要能看见刚打出的这张
             //    （`give it Flank` 那种自指）。
             BroadcastWhen(ctx, WhenEventKind.Play, p, card, unit);
+
+            // 🔴 **2026-10-18（`A974`）：这一笔从上面（`BoardSlots.Insert` 之后）**下移到广播之后**。
+            //    判据 = 原版同链的先后：`BroadcastCardPlayed`（`:1426`）**在**
+            //    `CemeteryManager.AddPlayCardAction`（`:1503`）**之前**
+            //    （`BattleManager._ResolvePlayCardFromHand_d__447__MoveNext.c`，逐行核过）。
+            //    位置仍满足「校验过了、费用付掉了、手牌已经拿走、也落位了」⇒
+            //    **打不出去的牌一张都不会记上**（前面任一关没过就 return 了）。
+            //    ⛔ 别再挪回广播之前 —— 那会让「广播期间读『本局打出过的牌』」多看见一张。
+            ctx.NotePlayed(p, inst, false);
 
             // **事件层广播**（`When you deploy a Vehicle, …`）—— 第三十二轮。
             // ⚠️ 排在 `ResolveDeploy` **之后**：那条是「常驻效果盯着某类牌」，
@@ -1685,7 +1865,7 @@ namespace RuleEngine
         ///    _ResolvePlayCardFromHand_d__447:1337/:1340  ProcessTide / ProcessCompanion(打出的那张牌)
         ///    CardScript__ProcessCompanion.c:26  HasCurrentTrait(0x49c = `Companion`)
         ///                                   :28  带词条 ⇒ 取 `rawCardData.relatedCard1 // +0xE8`
-        ///                                   :29  不带词条 ⇒ `if (companionCounter < 1) return;`
+        ///                                   :29  不带词条 ⇒ `if (companionCounter &lt; 1) return;`
         ///                                   :70  不带词条 ⇒ 源 = **它自己的 `rawCardData`**（= 造一张自己）
         ///                                   :85  AddNewCardToHand(manager, 源【卡定义】, 源卡, isPlayer, …)
         ///    BattleManager__AddNewCardToHand.c:65  BattleCardManager.CreateCard(…) ← **新造一张**
@@ -1947,7 +2127,9 @@ namespace RuleEngine
                 //    —— 它们都走「效果免费部署 / 召唤 / 再造」这条路（本方法）。
                 //    ⚠️ **只重算刚落地的这一个 `unit`** —— ⛔ 别遍历全场：本回合**已经行动过**的单位
                 //      也是 `Exhausted = true`，一律解掉会把它们放活（一回合动两次，同样是静默错）。
-                unit.Exhausted = !HasDeployExemption(unit);
+                //    🔴 **2026-10-18（`A992` 遗留甲）**：与 `PlayCard` 那处**同一次改写** —— 两个位
+                //      一起写（见 `ApplyDeployTurnState`）。这一条入口原来也**只有** `Exhausted`。
+                ApplyDeployTurnState(unit);
                 // 🆕 2026-10-18（`W5` · `K3`）：**第二条部署入口**也要落那两个写点 ——
                 //   理由与 `PlayCard` 里那两句**逐字同源**（`CardSetup` 的重挑 + `ActivateMinion` 的 `= 4`），
                 //   判据别在这儿另写一份（铁律 10 第 5 条：一个对象有多个入口时每个入口都要显式设置）。
@@ -2023,6 +2205,37 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// 🔴 **2026-10-18（`A947`）：「单位能不能攻击」这个【查询口】的两道关键词禁令，判据只有一处。**
+        ///
+        /// **原版判据**（现读 `d:/2/tools/decomp_full/CardScript__CanAttackNow.c`）：
+        ///   · `:25` `HasCurrentTrait(card, 0x96  = 150 = cantattack)` → 不通过就 `goto LAB_1805e792d`
+        ///   · `:27` `HasCurrentTrait(card, 0x370 = 880 = noncombatant)` → 同上
+        ///   —— 两道禁令**在同一个查询口里连着读**，任一条成立即返回「不能打」。
+        ///
+        /// **我们这边原来只读了一道**：`IsValidTarget` 里有 `cantattack`，`CanAttackNow` 里
+        /// **一道都没有** ⇒ 「这一格现在能不能打」这个查询口（视图那圈未行动绿光就是它，
+        /// 见 `CanAttackNow` 的注释）**对两种禁攻单位都说「能打」**。
+        /// ⇒ 现在**两个调用点都调这里** —— ⛔ **不许在别处再写一遍字符串比较**
+        ///   （工程铁律：「两处写同一条规则 = 迟早不一致」）。
+        ///
+        /// ⚠️ **常量为什么声明在本文件**（`Noncombatant`）：`KeywordTable` 在 `Core/CardDef.cs`，
+        ///   本轮不是本写手的文件 ⇒ 先在本文件登记；**归并进 `KeywordTable` 时把这一处删掉**。
+        ///   还有一个**连锁缺口**要一起记着：`KeywordTable.Normalize` 是**前缀表**匹配，
+        ///   `"noncombatant"` **不在** `Prefixes` 里 ⇒ 卡数据里写这个关键词会被
+        ///   `Normalize` 判成认不出而**丢弃**（`CardDef` 构造器那条 `NoteDropped`）。
+        ///   ⇒ 今天**全池 0 张**能用卡 `keywords` 表达它，夹具只能走
+        ///   `UnitState.AddKeyword`（**不做 Normalize**，正是原版「运行时授予 trait」的形状）。
+        /// </summary>
+        public const string Noncombatant = "noncombatant";
+
+        /// <summary>`IsValidTarget` / `CanAttackNow` **共用**的「攻击者被关键词禁攻」判据。
+        /// 判据（原版方法体 + 两个 trait 号）见 <see cref="Noncombatant"/> 的注释。</summary>
+        static bool AttackBannedByTraits(UnitState u)
+        {
+            return u != null && (u.Has(KeywordTable.CantAttack) || u.Has(Noncombatant));
+        }
+
+        /// <summary>
         /// 目标合法性。（rule_core.is_valid_target）
         /// </summary>
         public static int IsValidTarget(BattleContext ctx, int p, int atkSlot, int tgtP, int tgtSlot, bool ranged)
@@ -2032,7 +2245,9 @@ namespace RuleEngine
 
             var attacker = ctx.Players[p].Board[atkSlot];
             if (attacker == null) return RuleCodes.ErrNotUnit;
-            if (attacker.Has(KeywordTable.CantAttack)) return RuleCodes.ErrNoAttack;
+            // 攻击者的两道禁令（`cantattack` / `noncombatant`）走**共用口** —— 判据见
+            // `AttackBannedByTraits`（原来这里只写了 `cantattack` 一道，`A947` 收口）
+            if (AttackBannedByTraits(attacker)) return RuleCodes.ErrNoAttack;
 
             var target = ctx.Players[tgtP].Board[tgtSlot];
             if (target == null) return RuleCodes.ErrNotUnit;
@@ -2110,6 +2325,16 @@ namespace RuleEngine
 
             var u = ctx.Players[p].Board[atkSlot];
             if (u == null) return RuleCodes.ErrNotUnit;
+            // 🔴 **2026-10-18（`A947`）：两道禁攻关键词在这里也要读** —— 原版 `CanAttackNow.c:25/:27`
+            //    把 `cantattack`(150) 与 `noncombatant`(880) 摆在**同一个查询口**里；
+            //    我们这个查询口（视图那圈绿光也问它）原来**一道都没读**。
+            //    判据与「常量为什么在本文件」见 `AttackBannedByTraits` 的注释。
+            //    ⚠️ **位置**：原版把这两道排在「攻击力 < 1」那一步**之后**（`:19-23` 先算
+            //       `CurrentMeleeAttack` / `CurrentRangeAttack`），我们把它们提到最前面 ——
+            //       两条路的返回码**都是 `ErrNoAttack`** ⇒ 顺序不影响任何调用方能看到的返回值
+            //       （只有「同时也不满足别的条件」时返回码会先从 `ErrExhausted` 变成 `ErrNoAttack`；
+            //        这一格是对齐原版的：原版也是先判 trait 再判 UI/exhausted）。
+            if (AttackBannedByTraits(u)) return RuleCodes.ErrNoAttack;
             if (u.Exhausted) return RuleCodes.ErrExhausted;
             if (u.IsStunned) return RuleCodes.ErrStunned;
 
@@ -2124,6 +2349,16 @@ namespace RuleEngine
             if (!ranged && u.Has("pindown")) return RuleCodes.ErrPindown;
 
             if (FieldAttack(ctx, p, u, ranged) <= 0) return RuleCodes.ErrNoAttack;
+            // 🔴 **2026-10-18（`A992` 遗留甲）：原版 `canAttack`（`+0x23C`）那一位也要读。**
+            //    原版 `CardScript__CanAttackNow.c:57-74` 是**两个位连着读**：先读 `+0x230`（`canAct`，
+            //    我们的对应物是上面那句 `u.Exhausted`）、非假**再**读 `+0x23C`（`canAttack`，
+            //    `UnitState.CannotAttackThisTurn`），两个都真才算能攻击。
+            //    ⇒ 位置照原版：**排在最后**（原版也是攻击力 / 两道禁攻 trait / 召唤病 之后才读它）——
+            //      这样「普通单位部署当回合」的返回码**仍然**是前面那句的 `ErrExhausted`（一位都没变），
+            //      只有 `ferocity` / `oath` 那类「能动但不能攻击」的单位才会落到这一条。
+            //    ⚠️ **别把它提前**：提前会把普通单位的返回码从 `ErrExhausted` 改成 `ErrNoAttack`
+            //      （`RuleEngineTest` 有一批断言盯着那个码，见 `CanAttackNow` 上面那段 ⚠️）。
+            if (u.CannotAttackThisTurn) return RuleCodes.ErrNoAttack;
             return RuleCodes.OK;
         }
 
@@ -2155,7 +2390,7 @@ namespace RuleEngine
         ///
         /// 🔴 **为什么不改 `DeclareAttack` 的默认值**：那个形参是 `bool ranged = false`，
         ///   全工程有 **60+ 处**省略它（本意都是「近战」）⇒ 把默认改成「读当前攻击型」会把它们
-        ///   全部静默改道（`CurrentAttackType` 初值是「近战 < 远程 ? 远程 : 近战」）。
+        ///   全部静默改道（`CurrentAttackType` 初值是「近战 &lt; 远程 ? 远程 : 近战」）。
         ///   ⇒ 另开一个**名字不同**的重载（本方法），只给教程脚本那一档用。
         /// </summary>
         public static int DeclareAttackByCurrentType(BattleContext ctx, int p, int atkSlot,
@@ -2201,7 +2436,7 @@ namespace RuleEngine
         /// ```
         /// *(int *)(card + 0x50) += 1;  *(char *)(card + 0x4c) = 1;      // 本回合次数 / usedActiveAbility
         /// if (HasCurrentTrait(0x4c4 /*duty 1220*/) || HasCurrentTrait(0x4f1 /*ferocity 1265*/)
-        ///     || HasCurrentTrait(0x4fb /*oath 1275*/)) { … *(card + 0x120) = (melee < ranged) + 1; }
+        ///     || HasCurrentTrait(0x4fb /*oath 1275*/)) { … *(card + 0x120) = (melee &lt; ranged) + 1; }
         /// ```
         /// ⇒ **只对那三个关键词的单位**（不是全场 —— 别改成 `RecomputeCurrentAttackTypes`）。
         /// trait id 出处：`d:/2/Warpforge_code/Scripts/Assembly-CSharp/DefinedTrait.cs:121/130/132`。
@@ -2288,11 +2523,18 @@ namespace RuleEngine
         ///     if (displaySummonSickness &amp;&amp; *(int *)(card + 0x120) != 4) *(int *)(card + 0x120) = 4;
         /// ```
         /// ⚠️ 原版那个 `displaySummonSickness` 是**展示层那一份**（`+0x228 == 2` 那套条件），
-        ///   我们的对应物是 `UnitState.Exhausted`（部署当回合不可行动 = 召唤病；
-        ///   见构造器里 `Exhausted = !RuleCore.HasDeployExemption(this)`）。
-        ///   ⚠️ `ferocity` 本身是**部署豁免**（`HasDeployExemption` 含它）⇒ 带 `ferocity` 的单位
-        ///   基本不会是召唤病；真正会走到这一支的是 **`oath`** 单位（誓约不是豁免）。
-        ///   如实标着：这一格今天**只影响表现层的「当前打法」提示**，不改伤害
+        ///   我们的对应物是 **<see cref="UnitState.CannotAttackThisTurn"/>**（= 原版的 `displaySummonSickness`；
+        ///   判据 = `EntityScript__get_displaySummonSickness.c` 的 `+0x58 &amp;&amp; !fast &amp;&amp; !flank`，
+        ///   由 `RuleCore.ApplyDeployTurnState` 在部署那一刻写）。
+        ///   🔴 **2026-10-18（`A992` 遗留甲）就地订正（铁律 5）**：这一句原来拿 `Exhausted` 当它的对应物
+        ///   —— **那一版从 `A992①` 把 `oath` 并进 `HasDeployExemption` 那一刻起就错了**：
+        ///   `Exhausted` 是 `canAct`（`+0x230`），而原版这一支读的是 `canAttack`（`+0x23C`）；
+        ///   两个位对 `ferocity` / `oath` **取值相反**（能动、不能攻击）⇒ 拿 `Exhausted` 当闸，
+        ///   这一支在**真正会走到它的那些单位上**恒不成立（静默不生效）。
+        ///   另外这一段原来还写着「`ferocity` 本身是部署豁免 ⇒ 带 `ferocity` 的单位基本不会是召唤病；
+        ///   真正会走到这一支的是 `oath` 单位（誓约不是豁免）」—— **后半句也已过期**（同一天 `oath`
+        ///   并进了 `HasDeployExemption`）⇒ **两个 trait 今天都会走到这一支**，改用新的那一位才对。
+        /// ⚠️ 如实标着：这一格今天**只影响表现层的「当前打法」提示**，不改伤害
         ///   （我们的伤害是显式传 `ranged` 算的）。
         /// </summary>
         public static bool ForceAttackTypeOnDeploy(BattleContext ctx, int p, int atkSlot)
@@ -2300,7 +2542,7 @@ namespace RuleEngine
             if (ctx == null || p < 0 || p > 1 || !BoardSpec.IsValid(atkSlot)) return false;
             var u = ctx.Players[p].Board[atkSlot];
             if (u == null) return false;
-            if (!u.Exhausted) return false;                       // 原版：`displaySummonSickness` 为真才写
+            if (!u.CannotAttackThisTurn) return false;            // 原版：`displaySummonSickness` 为真才写
             if (!u.Has(KeywordTable.Ferocity) && !u.Has(KeywordTable.Oath)) return false;
             u.CurrentAttackType = UnitState.AttackTypeActive;
             return true;
@@ -2775,6 +3017,17 @@ namespace RuleEngine
             {
                 u.FaceDown = false;
                 ctx.Log($"{u.Name} 面朝下时挨了 {actual} 点伤害 → **翻开来，这次伏击效果没有了**");
+                // 🆕 2026-10-18（`A985⑥`）：**撤除伏击**（战斗日志 `Battle/Cemetery/ActionExitAmbush`）。
+                //  判据 = 原版 `CardScript.SetAmbush(card, false)` 的三个调用点**全是伤害路**
+                //  （`CardScript__ResolveUnitAttacked.c:111` / `CardScript__ResolveDamageDealt.c:173` /
+                //   `BattleManager._ResolveAttack_d__438__MoveNext.c:305`），
+                //  而那一句就是 `AddExitAmbushActionToCemetery` 的**唯一**调用点。
+                //  ⚠️ **发在这个位置**（`FaceDown = false` 的同一处）：① 盾挡下 / 无敌 / 减到 0
+                //   **到不了这里** ⇒ 与原版「真掉血才撤伏击」同形；② `EmitUnit` 要 `FindUnit`，
+                //   此刻 `u` 还在棋盘上（下面才扣血、才可能离场）⇒ 拿得到 `Player`/`Slot`。
+                //  ⛔ **别补 `ctx.Log(...)`**（上面那句 `ctx.Log` 是**改动之前就有的**，不动它）——
+                //   新增的 `Log` 会改 `ctx.Events.Count` ⇒ 动到 `Fingerprint`。
+                EmitUnit(ctx, EvtKind.AmbushExit, u, 0, effect: "damage");
             }
 
             u.Health -= actual;
@@ -2879,11 +3132,11 @@ namespace RuleEngine
 
         /// <summary>按「单位 → 它在谁的第几格」发一条事件（不在场上就带 -1 的格位，表现层会跳过）。
         /// **返回它归谁**（`-1` = 不在场上）—— 调用方常要拿它再发一条，别再自己找一遍（判据只有一处）。</summary>
-        static int EmitUnit(BattleContext ctx, EvtKind kind, UnitState u, int amount)
+        static int EmitUnit(BattleContext ctx, EvtKind kind, UnitState u, int amount, string effect = null)
         {
             int owner, slot;
             FindUnit(ctx, u, out owner, out slot);
-            ctx.Emit(kind, owner, slot, u != null ? u.Name : null, amount: amount);
+            ctx.Emit(kind, owner, slot, u != null ? u.Name : null, amount: amount, effect: effect);
             return owner;
         }
 
@@ -2938,6 +3191,14 @@ namespace RuleEngine
                 if (u == null || !u.FaceDown) continue;
                 u.FaceDown = false;
                 ctx.Log($"{u.Name} 面朝下撑了整整一轮 → **翻开，伏击效果触发**");
+                // 🆕 2026-10-18（`A985⑥`）：**这一条出口也发 `EvtKind.AmbushExit`，标签是 `"window"`。**
+                //  ⚠️ **原版没有这一档**（如实标着）：原版那个「伏击窗口到期」走
+                //  `CardScript.TriggerAmbush`（`RawCardScript.OnTrigger(0x29e, …)`），**它不翻面** ——
+                //  `SetAmbush(card, 0)` 的调用点里没有它（`BattleManager__ResolveAction.c:7616` 调它时
+                //  也不伴随 `SetAmbush`）⇒ 「撑一轮才翻开」是**我们模型的形状**（判据 = 粉丝实体版
+                //  规则书 `:166`）。仍然发，是因为本事件的语义 = 「这个单位不再面朝下」这个**状态迁移**，
+                //  两条出口都是它；**消费端要严格照原版，就只印 `effect == "damage"` 那一档**。
+                EmitUnit(ctx, EvtKind.AmbushExit, u, 0, effect: "window");
                 FireTriggerAt(ctx, u, KeywordTable.Ambush, p, s);
             }
         }
@@ -3104,6 +3365,27 @@ namespace RuleEngine
             //    那些是「**这张卡**死的时候」的事，现在正发生在这一刻。
             // 🔴 2026-10-17：「进弃牌堆 / 阵亡登记」两笔账下移到反噬之后 ⇒ 用一个局部标记
             //    记住「这一支是**真的离场**（要记账）」，还是「翻面成残骸（仍在格位上、不记账）」。
+            // ---- 🔴 2026-10-18（`A858`）：「本回合阵亡数」就在这一刻计上，而且【两支都计】 ----
+            // **判据 = 原版反编译逐跳**（`d:/2/tools/decomp_full/`）。原版**没有**「本回合阵亡总数」
+            // 这个计数器，有的是**每张卡一个 `turnDied`**（`CardScript +0x250`）：
+            //   · **全库唯一写点** = `CardScript__TriggerUnitBacklashActions.c:82`
+            //     `*(undefined4 *)(param_1 + 0x250) = <globalVars 的回合号（`+0x3f8..+0x40c`）>;`
+            //     —— 它就在「把反噬包成 action **入队**」那一跳里（同一方法 `:181`
+            //     `BattleManager.AddAutoActionToQueue`）⇒ **写点在反噬【入队】时，不是结算时**。
+            //   · 它被**两个分支都调**：`CardScript__CheckIfDead.c:135`（**死亡支**：
+            //     `state(0x228) = 5` → 隐藏 GameObject → 这一跳）与 `:141`
+            //     （**变残骸支**：它在 `AddTransformIntoRemnant`(`:143`) **之前**那一跳）
+            //     ⇒ **翻面成残骸也算「本回合死了一个」**。
+            //     🔴 2026-10-18 补：在此之前我们只有「真的离场」那一支 `++`，
+            //        **变残骸那一支静默少算**（`Remnant` / `Waystone` 一族，
+            //        `TestDiedThisTurnDuringBacklash` ③ 钉住）。
+            //   · 位置：两支都在**从棋盘移除之前、进墓地之前**，更在**反噬结算之前**
+            //     ⇒ 排在这里（下面 `Backlash` 那一跳之前）。⛔ **别挪到反噬之后** ——
+            //        反噬自己的条件句要能数到「本回合已经死了几个（含自己）」，
+            //        `TestDiedThisTurnDuringBacklash` ② 是那条判别式。
+            // ⚠️ 它和 `Discard` / `DeadUnits` 那**两笔账**是**两件事**：那两笔 2026-10-17
+            //    下移到了反噬**之后**（判据在下面那一大段），这一格**不下移**。
+            ctx.DiedThisTurn++;      // `For each one that dies …` 按它计数（回合开始清零，见 `BeginTurn`）
             bool leftPlay = false;
             if ((u.Has(KeywordTable.Remnant) || u.Has(KeywordTable.Waystone)) && !u.IsRemnant)
             {
@@ -3141,11 +3423,8 @@ namespace RuleEngine
                 //    → `AddReassembleMinionsOrder` → `ReassembleMinions` 把它们摆回各自的下标）。
                 //    ⚠️ **残骸那一支不算阵亡**（上面那个 `if`）：它只是翻了个面、**还在列表里占着那一格**。
                 BoardSlots.RemoveAt(ps, slot);
-                // ⚠️ **这一条【没有】跟着下移**（刻意的，别顺手挪）：`DiedThisTurn` 是
-                //    `For each one that dies this turn …` 用的**回合计数**，不是那两张登记表；
-                //    它和旧行为逐字一致（本批只动 `Discard` / `DeadUnits` 两笔账）。
-                //    还没查清的那一格：原版那个计数的写入点在哪 —— **没查清**（如实标着）。
-                ctx.DiedThisTurn++;      // `For each one that dies …` 按它计数（回合开始清零）
+                // ⚠️ `ctx.DiedThisTurn++` **不在这里** —— 它已经提到上面那个分支之前了
+                //    （判据见那段注释：原版两支都写 `+0x250`，只写一处才不违反「一条规则一处」）。
                 // 🔴 **2026-10-17 下移**：「进弃牌堆」+「阵亡登记」两笔账**挪到反噬之后**
                 //    （本方法末尾那一大段，逐跳判据写在那边）。**别挪回来** ——
                 //    原版进墓地是 `CardScript.UnitDeath` 协程的**最后一跳**，反噬在前面。
@@ -3153,10 +3432,37 @@ namespace RuleEngine
             }
             // 先发 Death 再结算反噬：表现层要**趁格位还有意义的时候**播阵亡特效
             ctx.Emit(EvtKind.Death, p, slot, u.Name);
+            // 🔴 **2026-10-18（`A962` ③ · 调度台裁定）：这一跳是【我们表现层的】，原位不动。**
+            //    ⚠️ **原版没有对应物** —— 原版的「死亡广播」是
+            //    `BattleManagerSupport__BroadcastDeadUnit`（它遍历**场上每一张牌**各调一次
+            //    `ResolveDeadCard`，= 「别的卡监听这次死亡」），落在
+            //    `BattleManager._ResolveBacklash_d__451__MoveNext.c:144` 那一跳。
+            //    我们这条 `Emit` 只是**给表现层播特效用的信号**（`EvtKind.Death` 的消费者全在
+            //    `CardPresentation/`）⇒ 原版那一跳的先后**不能拿来定位它**。
+            //    ⛔ 别把这条当成「原版也先发死亡」的证据（下面那一条才是真判据问题）。
 
             // **事件层广播**（`When a friendly troop dies, …` / `When an enemy dies, …`）—— 第三十二轮。
-            // ⚠️ **排在 `Backlash` 之前**，和「先发 Death 再结算反噬」是同一条理由：
-            //    监听方看到的是「死了」这个事实，而不是「死者的反噬打完了」。
+            // ⚠️ **排在 `Backlash` 之前** —— 口径是「监听方看到的是『死了』这个事实，
+            //    而不是『死者的反噬打完了』」。
+            // 🔴 **2026-10-18（`A962` ③）：这一格的先后【置信度不足，未动】。** 账上记的判据是
+            //    「原版把『别的卡监听』放在反噬之后」，本次逐跳复核**读不确凿**，如实列在这儿：
+            //
+            //    | 环节 | 原版落点（现读 `d:/2/tools/decomp_full/`） | 次序是否可判 |
+            //    |---|---|---|
+            //    | 反噬**入队** | `CardScript__TriggerUnitBacklashActions.c:181`（`AddAutoActionToQueue`）；调用点 = `CardScript__CheckIfDead.c:135`（死亡支）/**`:141`**（变残骸支）与 `BattleManager__ResolveDestroyUnit.c:371/:703` | ✔ 最早（伤害/摧毁那一跳里） |
+            //    | 从棋盘移除 | `BattleManager._ResolveMinionDeath_d__454__MoveNext.c:56`（`MinionManager.RemoveMinion`）→ `:61` `AddReassembleMinionsOrder` → `:119` `StartCoroutine(CardScript.UnitDeath)` | ✔ 在入队之后 |
+            //    | 反噬**结算** | 入队的那条 action 由主循环（`BattleManager__Update` / `FinishResolvingAction`）取出执行 | ✖ **取队点读不到** |
+            //    | 别的卡**监听** | `BattleManagerSupport__BroadcastDeadUnit`（对场上每张牌 `ResolveDeadCard`），只在 `BattleManager._ResolveBacklash_d__451__MoveNext.c:144` | ✖ **起点读不到** |
+            //    | 进墓地 | `CardScript__GoToCemetery.c:17`，只在 `CardScript._UnitDeath_d__446__MoveNext.c:152`（`UnitDeath` 协程末跳） | ✔ 最后 |
+            //
+            //    ✖ 的那两格是**同一个原因**：`_ResolveBacklash_d__451`（含 `BroadcastDeadUnit`）与
+            //    `_ResolveMinionDeath_d__454`（含 `UnitDeath`）**全库都查不到调用者**
+            //    （`grep ResolveBacklash` / `ResolveMinionDeath` 只命中它们自己的文件）
+            //    ⇒ 两者**都是协程入口、启动点的方法体在 dump 里缺失**
+            //    ⇒ 「反噬的 action 被取出执行」到底在 `BroadcastDeadUnit` **之前还是之后**，
+            //    **读不出来**。⇒ 按调度台口径：**一行都不改**，维持现状、如实标着这一格未定。
+            //    📌 要收口这一格，需要的输入 = **实况**（跑原版、在 `BroadcastDeadUnit` 与
+            //    反噬 action 上各加一个探针看先后）—— 归入 `资料/真Play待验清单.md`。
             // ⚠️ `who = p`（**死者的阵营**）—— 极性判据（friendly / enemy）在
             //    `WhenEvents.Matches` 里拿它和监听者的阵营比。给错就等于整档反着触发。
             BroadcastWhen(ctx, WhenEventKind.Die, p, u.Card, u);
@@ -3378,7 +3684,7 @@ namespace RuleEngine
         ///   · **兑现即摘**：这一份上的 `Ops` 跑一遍、跑完清空；
         ///   · **次数核销**（🆕 `A886`）= 原版 `PlayerHand.CardPlayedWithEffects`
         ///     （`:28-45`：`limitedUses` 为真、且打出的这张牌身上有那条效果 ⇒ `numberOfUses--`，
-        ///     `< 1` 就 `RemoveHandEffectAt` —— 那是**从整副手上摘掉**）。
+        ///     `&lt; 1` 就 `RemoveHandEffectAt` —— 那是**从整副手上摘掉**）。
         ///
         /// 🔴 **两条口径的关系（哪条优先）—— 写清，别让它们互相咬**：
         ///   · **「兑现即摘 / 额度钉在这一份上」= 我们自己的口径**（2026-09-16 起）。它管的是
@@ -3446,7 +3752,7 @@ namespace RuleEngine
         /// **一条次数用尽的手牌效果 ⇒ 从整副手上摘掉** —— 原版 `PlayerHand.RemoveHandEffectAt`
         /// （`PlayerHand__RemoveHandEffectAt.c:30-40`：遍历 `currentHand` 逐张 `CardScript.RemoveEffect`
         /// ⇒ 摘的是**所有还带着它的牌**，**不是**打出去的那一张 —— 那一张已经上场了）。
-        /// 调用点判据 = `PlayerHand__CardPlayedWithEffects.c:43-45`（`numberOfUses < 1`）。
+        /// 调用点判据 = `PlayerHand__CardPlayedWithEffects.c:43-45`（`numberOfUses &lt; 1`）。
         ///
         /// ⚠️ 认的是**同一个计数盒**（`HandBuffUsesRef` 同一个对象）—— 那正是原版「一条 `HandEffect`
         /// 记录发给 N 张牌」的形状；⛔ 别改成「按来源卡名匹配」（两个来源可能同名）。
@@ -3547,10 +3853,18 @@ namespace RuleEngine
         ///
         /// 分两段，**第二段（extrinsic）无条件跑、和 `endOfTurn` 那个参数无关**：
         ///   · 回合结束那三条（`endOfTurn = 1` 才走）：`+0x32` / `+0x33`~`+0x35` / `+0x34`；
-        ///   · **无条件那三条**（`:332` 之前那一段）：`entry.cardEffect.extrinsic // +0x30` 为真时，
+        ///   · **无条件那几条**（`:332` 之前那一段）：`entry.cardEffect.extrinsic // +0x30` 为真时，
         ///     看 `cardEffect.enchantingCard`（**施放者**）——`!IsInPlay(施放者)` ⇒ 摘；
-        ///     `HasCurrentTrait(施放者, 0x82)` ⇒ 摘（`0x82` 是哪个词条**本笔没查清** —— 如实标着，
-        ///     我们**没有**实现这一条）。
+        ///     `HasCurrentTrait(施放者, 0x82)` ⇒ 摘。
+        ///     🔴 **2026-10-18（`A974` 顺手订正 · 铁律 5）：这一格原来写「`0x82` 是哪个词条
+        ///     **本笔没查清** —— 我们**没有**实现这一条」，两句都已过期。** `0x82` 已解出 =
+        ///     **130 = `DefinedTrait.jam`**（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/DefinedTrait.cs:13`），
+        ///     我们词表里的名字 = `KeywordTable.Jam`，而且**这一支已经实现**（就在本方法体里，
+        ///     原版落点 `PlayerHand__UpdateCardEffects.c:235`，写点 `:3572-3582`）。
+        ///     ⚠️ 影响面如实标着：全池 **0 张**卡带 `jam` ⇒ 今天变了不了一局的行为。
+        ///   · ⚠️ **原版那一族还有一条我们产不出**：`untilEnemyTurnStart // +0x34`（`:156-190`），
+        ///     因为 `EffectText.ExtractDuration` 只认 `this turn` / `until your next turn`
+        ///     —— 那一档**没有生产者**，不是漏接。
         /// 🔴 `+0x30` 的语义与写点（本笔逐条核过）：tooltip `Effect is tied to acting card,
         ///    not target card`（`dump.cs:119071`）；写点 `AbilityLogic__PlayAbility.c:1197 / :1354`
         ///    的 `extrinsic = AbilityData.whileInPlay || whileInPlayVariable`
@@ -3904,8 +4218,35 @@ namespace RuleEngine
             // ⚠️ 技能**不解除 Stealth**：规则书 :211 说的是「**攻击**前不能被选中」，
             //    放技能不是攻击。v1 里没有既带 Stealth 又带技能的单位，这条先按原文来。
 
+            // 🆕 2026-10-18（`A985⑥①`）：**把「这次技能有没有目标、目标是哪一格」记进事件**
+            //    —— 原版 `ActionAbility` / `ActionTargetedAbility` 二选一的判别式就是它。
+            //
+            //    **判据（逐行读的方法体）**：`d:/2/tools/decomp_full/CemeteryManager__GetActionText.c`
+            //    —— `switch (iVar1)` 的 **case `0xF`**（`:194`）：
+            //      `cVar2 = UnityEngine_Object__op_Equality(uStack_50, 0, 0);`
+            //      而 `uStack_50 = *(undefined8 *)(param_2 + 10)`（`:197-198`）——
+            //      ⚠️ `param_2` 是 **`int*`** ⇒ 下标 10 = **字节 0x28**（别被变量名 `uStack_50` 带偏）。
+            //      `cVar2 != 0`（**引用为 null**）⇒ `DAT_184285560`，否则 ⇒ `DAT_184286030`
+            //      （两个字面量经 `I2_Loc_LocalizationManager.GetTermTranslation` 翻成词条，
+            //       名称见 `资料/普查产出_1018/G5_战斗本地化剩余.md` §3.2 那张表）。
+            //
+            //    **我们这边**：字段**早就有**（`BattleEvent.TargetPlayer` / `TargetSlot` / `TargetCardId`），
+            //    缺的只是**填** —— 而**目标就在手边**：上面那句 `chosen`。
+            //    `chosen != null` **就是**「+0x28 那个引用非 null」。
+            //    ⚠️ **没有目标就一个都不填**（保持 `-1` / `null`）—— 原版的判别式就是「引用为 null」，
+            //       ⛔ 别拿哨兵值顶替（那会让「有目标」在记录上**永远为真**，`ActionTargetedAbility` 恒选中）。
+            //    ⚠️ 只管**跨半场**的目标：`CanUseAbility` 已判过「要选单位的目标只能是对面那一侧」
+            //       （`t.IsWarlord` / `t == null` 都被挡掉）⇒ 命中这里时 `chosen` 一定在 `1 - p` 那一侧。
+            //    🔴 **消费面（本笔改完请一并核）**：`BattleDriver.BuildCardContext` 直读这两个字段算
+            //       `targetIsPlayer = e.TargetPlayer == _me`（→ `WFModuleCollisions` / `WFModuleTransformModifier`）
+            //       ⇒ 填了之后**AI 施放的带目标技能**会把 `targetIsPlayer` 由 `false` 翻成 `true`
+            //       （自己施放的那一侧不变，仍然是 `false`）。详见写手报告
+            //       `资料/普查产出_1018第三会话/W_Targeted填充.md`。
             ctx.Emit(EvtKind.Ability, p, slot, u.Name,
-                     keyword: KeywordTable.Ability, effect: spec.Source, amount: spec.Amount);
+                     keyword: KeywordTable.Ability, effect: spec.Source, amount: spec.Amount,
+                     targetPlayer: chosen != null ? 1 - p : -1,
+                     targetSlot:   chosen != null ? targetSlot : -1,
+                     targetCardId: chosen != null ? chosen.Name : null);
             ctx.Log($"{ctx.Players[p].Name} 的 {u.Name} 发动技能「{spec.Source}」");
 
             // ⚠️ **2026-09-13 A2 更正**：这里原来还发一条 `When a friendly unit prays`（`Prays`）——
@@ -4851,6 +5192,27 @@ namespace RuleEngine
             bool d0 = ctx.Players[0].IsDefeated;
             bool d1 = ctx.Players[1].IsDefeated;
 
+            // 🆕 2026-10-18（**A985⑩**）：**正常打完也带理由码** —— 原版不是只有「投降 / 掉线」才带码，
+            //   「督军倒下、正常打完」那一跳也带：`BattleManager__FinishResolvingAction.c:84`
+            //   那句 `BattleManager__DeadHero(param_1, …, 1)`（第三个实参 = `BattleResult.BattleVictory`）。
+            //   它的两个兄弟是 `ClickExitBattle.c:59` = 2 · `_d__322__MoveNext.c:144` = 3
+            //   （三条都已逐条现读 —— 全表在 `资料/普查产出_1018/G10_A913判负理由码.md` §3）。
+            //
+            //   🔴 **只进日志**（与 `Forfeit` 同一个口、同一种 token 形状）：码**不进 `ctx` 的任何状态**
+            //      （`Winner` / `ForfeitedBy` / 双方棋盘一个字没动）、**不进任何协议、不过网**。
+            //      唯一副作用 = `ctx.Events` 多一行 —— 那是**既有日志通道**的固有行为（`Forfeit` 那两行同理）；
+            //      录像对账走的是 `NetProtocol.StateHash`（`NetProtocol.cs:352`，**不含 `ctx.Events.Count`**）
+            //      与 `BattleDriver.DeepHash`（不含事件）⇒ **旧录像零风险**。
+            //   ⚠️ **只在「恰好一方督军倒下」时发** —— 原版那一跳**每场只发一次码**、座位 = 倒下的那一位
+            //      （和 `Forfeit` 的 `seat=` 同一个含义）。双方同时倒下（我们引擎的平局 = `Winner 3`）
+            //      在原版**没有**对应的 `DeadHero` 调用点 ⇒ ⛔ **不拿 `BattleVictory`(1) 顶替**（下面那支出声）。
+            //   ⚠️ **位置在教程 `playerAlwaysWins` 那一段【之前】**：原版的顺序就是 `DeadHero(_,_,1)`
+            //      （在 `FinishResolvingAction` 里）先发生、`GetWinnerAfterBattleEnd` 的教程覆盖在后面；
+            //      `CheckWinner` 把这两步合在了一处，所以这里是「先记码、再让教程覆盖结果」。
+            if (d0 != d1)
+                ctx.Log($"[BattleResult] {BattleResult.BattleVictory}({(int)BattleResult.BattleVictory})"
+                      + $" seat={(d0 ? 0 : 1)}");
+
             // 🆕 2026-10-17（B29）：**教程关的 `playerAlwaysWins`** —— 「战斗结束时**一律算玩家赢**」。
             //   原版出处 = `BattleManager.GetWinnerAfterBattleEnd`（`:63-66`）：
             //     `if (IsCampaignLike(bm)) { var st = GetCurrentTutorialStage(bm); if (st != null && st + 0xB8 != 0)
@@ -4870,6 +5232,16 @@ namespace RuleEngine
             {
                 ctx.Winner = 3;
                 ctx.Log("双方督军同时倒下 —— 平局");
+                // 🔴 **这一支【不记理由码】**（`A985⑩` 的边界，如实出声、⛔ 不静默）：
+                //   原版那一跳（`DeadHero(_,_,BattleVictory)`）**只有「某一位督军倒下」这一种**
+                //   —— 两位同时倒下的情形在原版**没有**对应的调用点（平局本身原版也只有调试入口
+                //   `DebugDrawBattle.c:14` 的 `DrawButton`(6)，那条我们**没有落点**）。
+                //   ⇒ 既然没有判据，就**不猜**：⛔ 不拿 `BattleVictory`(1) 顶替 ——
+                //      那会把「平局」在日志里说成「一方督军倒下」。
+                //   ⚠️ 这一行**故意不以 `[BattleResult] ` 开头** —— 那个前缀在本工程里的含义是
+                //      「**这一局给出了一条理由码**」（自检按它计数），说明行不能混进那个计数里。
+                ctx.Log("⚠️ 这一局**不记理由码**：双方督军同时倒下，而原版的 `DeadHero(_, _, BattleVictory)`"
+                      + "只对应「**某一位**督军倒下」⇒ ⛔ 不拿 `BattleVictory`(1) 顶替（不猜）");
             }
             else if (d0)
             {

@@ -567,7 +567,7 @@ namespace CardPresentation.Net
             }
         }
 
-        /// <summary>原版 `UpdateReconnectStatus(secLeft)` 那一拍（`BattleManager+0x1B0` `Action<int>`）——
+        /// <summary>原版 `UpdateReconnectStatus(secLeft)` 那一拍（`BattleManager+0x1B0` `Action&lt;int&gt;`）——
         /// 它接的是 `BattleErrorUIManager__UpdateReconnectWindow.c`：**把秒数拼进弹窗正文**。
         /// 我们这边两个口都刷：**提示行**（真 Play 与自检都看得见）+ **弹窗正文**（只有真 Play 验得到）。</summary>
         void ReportReconnectStatus(int sec)

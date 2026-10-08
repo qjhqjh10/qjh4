@@ -344,8 +344,8 @@ namespace CardPresentation
 
         /// <summary>🔴 **2026-10-18（第八轮）：这一颗页签的文案走词条**（原来是一个写死的英文字面量）。
         /// <para>键 = 原版那颗 `Generic Tab UI Button Search/Button Text` 的 `Localize.mTerm` 原文
-        /// **`SocialMenu/Alliances/Join`**（6 颗同键；本颗父链 = `Button Text < Generic Tab UI Button Search
-        /// < Tab buttons < Alliance Header Buttons < AllianceNotMemberVariant < Alliances Tab` ⇒ 与我们同一条）。
+        /// **`SocialMenu/Alliances/Join`**（6 颗同键；本颗父链 = `Button Text &lt; Generic Tab UI Button Search
+        /// &lt; Tab buttons &lt; Alliance Header Buttons &lt; AllianceNotMemberVariant &lt; Alliances Tab` ⇒ 与我们同一条）。
         /// 英文列 = TMP 原文 `Join`；中文列「加入」**是我们自拟的**（`zh_CN.csv` 里没有 `Join` 这个英文串）。</para>
         /// <para>🔴 **为什么做成【属性】而不是 `const`**：这一个串**有三个求值点** —— 建窗时
         /// （`BuildHeader` 的 `TabToggle`）与**运行期换字**（`ShowJoin` / `ShowCreate` 各调一次

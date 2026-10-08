@@ -744,6 +744,12 @@ MENU_IMAGES = [
     #   `liveopsmenuimages_assets_all` 那份 mean|Δ|=**2.26** ⇒ **别换包**（这里取 boosterpacks）。
     ('40k_OfferBadge',                            'atlasindividual_assets_0_mainmenu'),  # 价签上的角标（md5 与 `Art/原版/0_mainmenu/` 那张同）
     ('40k_shop_popup_info_bg',                    'boosterpacks_assets_all'),            # `Artwork/background` 的底图
+    # ---- 🆕 2026-10-18（A985③）：对手档案窗（原版 `FrontCanvas/Alliance Panel`）的 `BG` 内容底 ----
+    #   同一张图还有两处也在取它：`Shell/RankedRewardEventWindow.cs:171` 的 `ArtCardBg`，
+    #   以及 `Shell/ShopData.cs` 的「商品主图」槽（`Editor/ShopScene.cs:4369` 那条「图取不到」告警说的就是它）。
+    #   ⚠️ 源在 `ui_extract` 里**只有这一份**（`find` 全库 1 命中 · md5 `fa2e49341963fe9f1db5704b20195efc`）
+    #      ⇒ 没有「同名不同图」那个坑；也不需要 `name.replace(' ','_')`（名字里没空格）。
+    ('40K_shop_offer_bg_Sororitas_0',             'boosterpacks_assets_all'),            # 面板内容底（`BG` 那层）
     # ---- 🆕 2026-10-18（A865）：教程窗 `Tutorial Mode Menu` 名单格那条**横幅** ----------------
     # 同 `40k_OfferBadge` 那条的情形：原先只在 `Art/原版/0_mainmenu/Tutorial_Background.png`、
     #   **没进 `Resources/`** ⇒ `Shell/TutorialModePopup.cs:513-516` 如实登记着「这一层不画、出声」。

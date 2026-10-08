@@ -12,12 +12,32 @@
        "token": "[Spirit Stone]",
        "sprite": "SpiritStone_1",
        "why": "档位看紧挨着的数字：`N [Spirit Stone]:` → `SpiritStone_N`（**数字烘在图里**，所以卡面文本里那个 `N ` 要一起吃掉）。图集 `Atlas_SpiritStone_1..5` 逐张看过；真卡 Spiritseer(2) / Wraithknight(3) 核过（本卡 n=1）"
+      },
+      {
+       "token": "[Melee]",
+       "sprite": "Melee",
+       "why": "英文近战记号 —— **只给原文本来就写 `Melee`/`Melee Attack` 的位置**用（那些位置去括号后与改前逐字节相同）。原文写 `Attack` 的用 `[Attack]` + 逐卡条目"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
     {
      "name": "descZh",
      "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      },
       {
        "token": "①",
        "sprite": "SpiritStone_1",
@@ -227,6 +247,11 @@
        "token": "Strike:",
        "sprite": "strike",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
       }
      ]
     },
@@ -247,6 +272,11 @@
        "token": "猛击：",
        "sprite": "strike",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -487,12 +517,22 @@
        "token": "[Spirit Stone]",
        "sprite": "SpiritStone_1",
        "why": "档位看紧挨着的数字：`N [Spirit Stone]:` → `SpiritStone_N`（**数字烘在图里**，所以卡面文本里那个 `N ` 要一起吃掉）。图集 `Atlas_SpiritStone_1..5` 逐张看过；真卡 Spiritseer(2) / Wraithknight(3) 核过（本卡 n=1）"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
     {
      "name": "descZh",
      "items": [
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      },
       {
        "token": "①",
        "sprite": "SpiritStone_1",
@@ -562,6 +602,11 @@
        "token": "[Spirit Stone]",
        "sprite": "SpiritStone_1",
        "why": "档位看紧挨着的数字：`N [Spirit Stone]:` → `SpiritStone_N`（**数字烘在图里**，所以卡面文本里那个 `N ` 要一起吃掉）。图集 `Atlas_SpiritStone_1..5` 逐张看过；真卡 Spiritseer(2) / Wraithknight(3) 核过（本卡 n=1）"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -569,9 +614,49 @@
      "name": "descZh",
      "items": [
       {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      },
+      {
        "token": "①",
        "sprite": "SpiritStone_1",
        "why": "① = 灵魂石 1 档 —— **数字烘在图里**（图集 `Atlas_SpiritStone_1..5`，逐张看过：绿圈里就是数字；真卡 Spiritseer/Wraithknight 核过）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "ASH_Warp_Spider_Exarch",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Melee]",
+       "sprite": "Melee",
+       "why": "英文近战记号 —— **只给原文本来就写 `Melee`/`Melee Attack` 的位置**用（那些位置去括号后与改前逐字节相同）。原文写 `Attack` 的用 `[Attack]` + 逐卡条目"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -597,6 +682,41 @@
        "token": "猛击：",
        "sprite": "strike",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "ASH39",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Melee]",
+       "sprite": "Melee",
+       "why": "英文近战记号 —— **只给原文本来就写 `Melee`/`Melee Attack` 的位置**用（那些位置去括号后与改前逐字节相同）。原文写 `Attack` 的用 `[Attack]` + 逐卡条目"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -672,12 +792,22 @@
        "token": "[Spirit Stone]",
        "sprite": "SpiritStone_1",
        "why": "档位看紧挨着的数字：`N [Spirit Stone]:` → `SpiritStone_N`（**数字烘在图里**，所以卡面文本里那个 `N ` 要一起吃掉）。图集 `Atlas_SpiritStone_1..5` 逐张看过；真卡 Spiritseer(2) / Wraithknight(3) 核过（本卡 n=1）"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
     {
      "name": "descZh",
      "items": [
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      },
       {
        "token": "①",
        "sprite": "SpiritStone_1",
@@ -784,6 +914,11 @@
      "name": "desc",
      "items": [
       {
+       "token": "[Melee]",
+       "sprite": "Melee",
+       "why": "英文近战记号 —— **只给原文本来就写 `Melee`/`Melee Attack` 的位置**用（那些位置去括号后与改前逐字节相同）。原文写 `Attack` 的用 `[Attack]` + 逐卡条目"
+      },
+      {
        "token": "[Spirit Stone]",
        "sprite": "SpiritStone_1",
        "why": "档位看紧挨着的数字：`N [Spirit Stone]:` → `SpiritStone_N`（**数字烘在图里**，所以卡面文本里那个 `N ` 要一起吃掉）。图集 `Atlas_SpiritStone_1..5` 逐张看过；真卡 Spiritseer(2) / Wraithknight(3) 核过（本卡 n=1）"
@@ -793,6 +928,11 @@
     {
      "name": "descZh",
      "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
       {
        "token": "①",
        "sprite": "SpiritStone_1",
@@ -884,6 +1024,16 @@
      "name": "desc",
      "items": [
       {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      },
+      {
        "token": "[Spirit Stone]",
        "sprite": "SpiritStone_1",
        "why": "档位看紧挨着的数字：`N [Spirit Stone]:` → `SpiritStone_N`（**数字烘在图里**，所以卡面文本里那个 `N ` 要一起吃掉）。图集 `Atlas_SpiritStone_1..5` 逐张看过；真卡 Spiritseer(2) / Wraithknight(3) 核过（本卡 n=1）"
@@ -893,6 +1043,16 @@
     {
      "name": "descZh",
      "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      },
       {
        "token": "①",
        "sprite": "SpiritStone_1",
@@ -922,6 +1082,31 @@
        "token": "💀",
        "sprite": "backlash",
        "why": "💀 = **反噬**触发前缀（卡面 `💀 Backlash:` 里那个骷髅 = 橄榄黄圆底 + 白骷髅）。⚠️ 别和 `[skull]` 那个 token 混 —— 那一个在 `Slay:` 前面、是**橙色**骷髅（slay.png）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "ASH49",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -1039,6 +1224,11 @@
      "name": "desc",
      "items": [
       {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
        "token": "[Spirit Stone]",
        "sprite": "SpiritStone_1",
        "why": "档位看紧挨着的数字：`N [Spirit Stone]:` → `SpiritStone_N`（**数字烘在图里**，所以卡面文本里那个 `N ` 要一起吃掉）。图集 `Atlas_SpiritStone_1..5` 逐张看过；真卡 Spiritseer(2) / Wraithknight(3) 核过（本卡 n=1）"
@@ -1048,6 +1238,11 @@
     {
      "name": "descZh",
      "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
       {
        "token": "[能量]",
        "sprite": "faith",
@@ -1169,6 +1364,16 @@
      "name": "desc",
      "items": [
       {
+       "token": "[Melee]",
+       "sprite": "Melee",
+       "why": "英文近战记号 —— **只给原文本来就写 `Melee`/`Melee Attack` 的位置**用（那些位置去括号后与改前逐字节相同）。原文写 `Attack` 的用 `[Attack]` + 逐卡条目"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      },
+      {
        "token": "[Spirit Stone]",
        "sprite": "SpiritStone_2",
        "why": "档位看紧挨着的数字：`N [Spirit Stone]:` → `SpiritStone_N`（**数字烘在图里**，所以卡面文本里那个 `N ` 要一起吃掉）。图集 `Atlas_SpiritStone_1..5` 逐张看过；真卡 Spiritseer(2) / Wraithknight(3) 核过（本卡 n=2）"
@@ -1179,9 +1384,44 @@
      "name": "descZh",
      "items": [
       {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      },
+      {
        "token": "②",
        "sprite": "SpiritStone_2",
        "why": "② = 灵魂石 2 档（同上）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "ASH_Bright_Lance_Vyper",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -1602,12 +1842,32 @@
        "token": "[Spirit Stone]",
        "sprite": "SpiritStone_3",
        "why": "档位看紧挨着的数字：`N [Spirit Stone]:` → `SpiritStone_N`（**数字烘在图里**，所以卡面文本里那个 `N ` 要一起吃掉）。图集 `Atlas_SpiritStone_1..5` 逐张看过；真卡 Spiritseer(2) / Wraithknight(3) 核过（本卡 n=3）"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
     {
      "name": "descZh",
      "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      },
       {
        "token": "③",
        "sprite": "SpiritStone_3",
@@ -1867,6 +2127,11 @@
        "token": "Duty:",
        "sprite": "duty",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -1930,6 +2195,16 @@
      "items": [
       {
        "token": "Regiment:",
+       "sprite": "regiment",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "团：",
        "sprite": "regiment",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
@@ -2059,6 +2334,16 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "团：",
+       "sprite": "regiment",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
     }
    ]
   },
@@ -2084,6 +2369,11 @@
      "name": "descZh",
      "items": [
       {
+       "token": "团：",
+       "sprite": "regiment",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "职责：",
        "sprite": "duty",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -2107,6 +2397,11 @@
        "token": "Duty:",
        "sprite": "duty",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -2114,9 +2409,19 @@
      "name": "descZh",
      "items": [
       {
+       "token": "团：",
+       "sprite": "regiment",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "职责：",
        "sprite": "duty",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -2218,6 +2523,31 @@
    ]
   },
   {
+   "id": "AM17",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "AM67",
    "fields": [
     {
@@ -2245,6 +2575,16 @@
   {
    "id": "AM75",
    "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
     {
      "name": "descZh",
      "items": [
@@ -2331,12 +2671,12 @@
       {
        "token": "[攻击]",
        "sprite": "Melee",
-       "why": "还原表：`Give +2 Melee, +2 Ranged and Concussive`"
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       },
       {
        "token": "[远程]",
        "sprite": "Ranged",
-       "why": "同上（`descZh` 的 `[远程]` 经 `ZH2EN` 找过来）"
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -2361,7 +2701,7 @@
       {
        "token": "[远程]",
        "sprite": "Ranged",
-       "why": "还原表：`Give +2 Ranged to your units`"
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -2382,6 +2722,11 @@
        "token": "Regiment:",
        "sprite": "regiment",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -2392,6 +2737,16 @@
        "token": "护甲 1。",
        "sprite": "armour",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "团：",
+       "sprite": "regiment",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -2407,6 +2762,26 @@
        "token": "Regiment:",
        "sprite": "regiment",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "团：",
+       "sprite": "regiment",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -2504,6 +2879,16 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "团：",
+       "sprite": "regiment",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
     }
    ]
   },
@@ -2577,12 +2962,22 @@
        "token": "Regiment:",
        "sprite": "regiment",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
     {
      "name": "descZh",
      "items": [
+      {
+       "token": "团：",
+       "sprite": "regiment",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
       {
        "token": "[远程]",
        "sprite": "Ranged",
@@ -2630,6 +3025,16 @@
      "items": [
       {
        "token": "Regiment:",
+       "sprite": "regiment",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "团：",
        "sprite": "regiment",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
@@ -2758,6 +3163,31 @@
    ]
   },
   {
+   "id": "BL25",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "BL45",
    "fields": [
     {
@@ -2802,6 +3232,31 @@
        "token": "集结：",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "BL38",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -2994,6 +3449,16 @@
        "why": "❄ = 暗黑契约·纵欲（Noise Marine「gain a ❄ Dark Pact of Excess」）。⚠️ 五张 markOf* 切片**逐字节相同**，认不出是哪位邪神，只能按名字选"
       }
      ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[黑暗契约]",
+       "sprite": "markOfChaos",
+       "why": "卡图 Noise Marine：`gain a 〔暗红八芒星〕Dark Pact of Excess`（图标在词前面）"
+      }
+     ]
     }
    ]
   },
@@ -3088,6 +3553,41 @@
    ]
   },
   {
+   "id": "BL54",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Melee]",
+       "sprite": "Melee",
+       "why": "英文近战记号 —— **只给原文本来就写 `Melee`/`Melee Attack` 的位置**用（那些位置去括号后与改前逐字节相同）。原文写 `Attack` 的用 `[Attack]` + 逐卡条目"
+      },
+      {
+       "token": "[Melee]",
+       "sprite": "Melee",
+       "why": "英文近战记号 —— **只给原文本来就写 `Melee`/`Melee Attack` 的位置**用（那些位置去括号后与改前逐字节相同）。原文写 `Attack` 的用 `[Attack]` + 逐卡条目"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "BL51",
    "fields": [
     {
@@ -3097,6 +3597,66 @@
        "token": "[Dark Pact]",
        "sprite": "markOfChaos",
        "why": "卡图 + NCC 0.932（暗红盘 + 白八芒星）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[黑暗契约]",
+       "sprite": "markOfChaos",
+       "why": "卡图 + NCC 0.932（暗红盘 + 白八芒星）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "BL6",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Melee]",
+       "sprite": "Melee",
+       "why": "英文近战记号 —— **只给原文本来就写 `Melee`/`Melee Attack` 的位置**用（那些位置去括号后与改前逐字节相同）。原文写 `Attack` 的用 `[Attack]` + 逐卡条目"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "BL64",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Melee]",
+       "sprite": "Melee",
+       "why": "英文近战记号 —— **只给原文本来就写 `Melee`/`Melee Attack` 的位置**用（那些位置去括号后与改前逐字节相同）。原文写 `Attack` 的用 `[Attack]` + 逐卡条目"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -3122,6 +3682,31 @@
        "token": "临时。",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "BL52",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Melee]",
+       "sprite": "Melee",
+       "why": "英文近战记号 —— **只给原文本来就写 `Melee`/`Melee Attack` 的位置**用（那些位置去括号后与改前逐字节相同）。原文写 `Attack` 的用 `[Attack]` + 逐卡条目"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -3532,6 +4117,11 @@
        "token": "Teleport:",
        "sprite": "teleport",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
       }
      ]
     },
@@ -3547,6 +4137,11 @@
        "token": "传送：",
        "sprite": "teleport",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -3567,6 +4162,11 @@
        "token": "Teleport:",
        "sprite": "teleport",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
       }
      ]
     },
@@ -3582,6 +4182,11 @@
        "token": "传送：",
        "sprite": "teleport",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -3637,6 +4242,16 @@
        "token": "Teleport:",
        "sprite": "teleport",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -3652,6 +4267,16 @@
        "token": "传送：",
        "sprite": "teleport",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -3937,6 +4562,11 @@
        "token": "Slay:",
        "sprite": "slay",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "1 Quest Point",
+       "sprite": "questPoints1",
+       "why": "不带方括号的**资源词**：`Quest Point(s)` 卡面画的是 `questPointsN`（数字烘在图里 —— `Aggressor` 卡面 `Gain 〔银刺环里烘着 1〕` 逐张核过）。⚠️ 同为资源词的 `Spirit Stone` / `Faith` 写在正文里**没有图标**（卡面实测），所以本规则**只做任务点**。"
       }
      ]
     },
@@ -3969,6 +4599,16 @@
        "why": "不带方括号的**资源词**：`Quest Point(s)` 卡面画的是 `questPointsN`（数字烘在图里 —— `Aggressor` 卡面 `Gain 〔银刺环里烘着 1〕` 逐张核过）。⚠️ 同为资源词的 `Spirit Stone` / `Faith` 写在正文里**没有图标**（卡面实测），所以本规则**只做任务点**。"
       }
      ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "1 点任务",
+       "sprite": "questPoints1",
+       "why": "不带方括号的**资源词**：`Quest Point(s)` 卡面画的是 `questPointsN`（数字烘在图里 —— `Aggressor` 卡面 `Gain 〔银刺环里烘着 1〕` 逐张核过）。⚠️ 同为资源词的 `Spirit Stone` / `Faith` 写在正文里**没有图标**（卡面实测），所以本规则**只做任务点**。"
+      }
+     ]
     }
    ]
   },
@@ -3982,6 +4622,61 @@
        "token": "[Attack]",
        "sprite": "Melee",
        "why": "卡图 `Dark Angels/4计策/Warpforge_44_Ancient-Reliquary.png`：第一枚 = 粉拳"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "同上：第二枚 = 紫枪（键 2026-10-18 由 `[Armor]` 订正过来）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "DA53",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -4072,6 +4767,11 @@
        "token": "2 Quest Points",
        "sprite": "questPoints2",
        "why": "不带方括号的**资源词**：`Quest Point(s)` 卡面画的是 `questPointsN`（数字烘在图里 —— `Aggressor` 卡面 `Gain 〔银刺环里烘着 1〕` 逐张核过）。⚠️ 同为资源词的 `Spirit Stone` / `Faith` 写在正文里**没有图标**（卡面实测），所以本规则**只做任务点**。"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
       }
      ]
     },
@@ -4082,6 +4782,11 @@
        "token": "2 点任务",
        "sprite": "questPoints2",
        "why": "不带方括号的**资源词**：`Quest Point(s)` 卡面画的是 `questPointsN`（数字烘在图里 —— `Aggressor` 卡面 `Gain 〔银刺环里烘着 1〕` 逐张核过）。⚠️ 同为资源词的 `Spirit Stone` / `Faith` 写在正文里**没有图标**（卡面实测），所以本规则**只做任务点**。"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -4184,6 +4889,16 @@
        "why": "还原表：`+2 Melee`"
       }
      ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
     }
    ]
   },
@@ -4213,6 +4928,66 @@
    ]
   },
   {
+   "id": "DA_Rites_of_Penance",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Melee]",
+       "sprite": "Melee",
+       "why": "英文近战记号 —— **只给原文本来就写 `Melee`/`Melee Attack` 的位置**用（那些位置去括号后与改前逐字节相同）。原文写 `Attack` 的用 `[Attack]` + 逐卡条目"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "DA55",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "DA50",
    "fields": [
     {
@@ -4222,6 +4997,16 @@
        "token": "[Attack]",
        "sprite": "Melee",
        "why": "还原表：`+1 Melee`"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -4237,6 +5022,16 @@
        "token": "Ephemeral.",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "还原表 Supreme Grand Master：`Give +1Melee and +1Ranged`"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -4247,6 +5042,16 @@
        "token": "临时。",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -4285,6 +5090,16 @@
      "items": [
       {
        "token": "1 Quest Point",
+       "sprite": "questPoints1",
+       "why": "不带方括号的**资源词**：`Quest Point(s)` 卡面画的是 `questPointsN`（数字烘在图里 —— `Aggressor` 卡面 `Gain 〔银刺环里烘着 1〕` 逐张核过）。⚠️ 同为资源词的 `Spirit Stone` / `Faith` 写在正文里**没有图标**（卡面实测），所以本规则**只做任务点**。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "1 点任务",
        "sprite": "questPoints1",
        "why": "不带方括号的**资源词**：`Quest Point(s)` 卡面画的是 `questPointsN`（数字烘在图里 —— `Aggressor` 卡面 `Gain 〔银刺环里烘着 1〕` 逐张核过）。⚠️ 同为资源词的 `Spirit Stone` / `Faith` 写在正文里**没有图标**（卡面实测），所以本规则**只做任务点**。"
       }
@@ -4402,6 +5217,16 @@
        "token": "Slay:",
        "sprite": "slay",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -4417,6 +5242,16 @@
        "token": "斩杀：",
        "sprite": "slay",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -4656,7 +5491,7 @@
       {
        "token": "[honour]",
        "sprite": "questPoints",
-       "why": "还原表 Unforgiven Redemptor：`When you gain Quest Point, deal 2 damage`"
+       "why": "还原表 Unforgiven Redemptor：`When you gain Quest Point, deal 2 damage`　⛔ **别删：`[honour]` 是个词、不是图标名，靠本逐卡条目才对上**（删条目 / 改 token ⇒ 徽记整枚不画；`DA38` 的 token 本来就**不是** `[Quest Point]`）"
       }
      ]
     },
@@ -4802,6 +5637,11 @@
        "token": "临时。",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -4862,6 +5702,11 @@
        "token": "Agenda:",
        "sprite": "agenda",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
       }
      ]
     },
@@ -4882,6 +5727,11 @@
        "token": "议程：",
        "sprite": "agenda",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -4897,6 +5747,11 @@
        "token": "Armour 1.",
        "sprite": "armour",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
       }
      ]
     },
@@ -4907,6 +5762,11 @@
        "token": "护甲 1。",
        "sprite": "armour",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -4922,6 +5782,16 @@
        "token": "[Ranged]",
        "sprite": "Ranged",
        "why": "还原表：`gain +1Ranged`"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -4947,6 +5817,81 @@
        "token": "1 点任务",
        "sprite": "questPoints1",
        "why": "不带方括号的**资源词**：`Quest Point(s)` 卡面画的是 `questPointsN`（数字烘在图里 —— `Aggressor` 卡面 `Gain 〔银刺环里烘着 1〕` 逐张核过）。⚠️ 同为资源词的 `Spirit Stone` / `Faith` 写在正文里**没有图标**（卡面实测），所以本规则**只做任务点**。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "DA86",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "2 Quest Points",
+       "sprite": "questPoints2",
+       "why": "不带方括号的**资源词**：`Quest Point(s)` 卡面画的是 `questPointsN`（数字烘在图里 —— `Aggressor` 卡面 `Gain 〔银刺环里烘着 1〕` 逐张核过）。⚠️ 同为资源词的 `Spirit Stone` / `Faith` 写在正文里**没有图标**（卡面实测），所以本规则**只做任务点**。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "2 点任务",
+       "sprite": "questPoints2",
+       "why": "不带方括号的**资源词**：`Quest Point(s)` 卡面画的是 `questPointsN`（数字烘在图里 —— `Aggressor` 卡面 `Gain 〔银刺环里烘着 1〕` 逐张核过）。⚠️ 同为资源词的 `Spirit Stone` / `Faith` 写在正文里**没有图标**（卡面实测），所以本规则**只做任务点**。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "DA85",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "DA84",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -5032,6 +5977,16 @@
        "token": "Rally:",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -5042,6 +5997,16 @@
        "token": "集结：",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -5059,6 +6024,51 @@
        "why": "还原表：`+1 Melee`"
       }
      ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EC7",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
     }
    ]
   },
@@ -5072,6 +6082,11 @@
        "token": "Cruelty:",
        "sprite": "Cruelty",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
       }
      ]
     },
@@ -5082,6 +6097,11 @@
        "token": "残忍：",
        "sprite": "Cruelty",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -5122,6 +6142,46 @@
        "token": "残忍：",
        "sprite": "Cruelty",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EC27",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "还原表 Disharmonist：`-2Melee and -2Ranged`"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -5144,9 +6204,9 @@
        "why": "还原表 Screamer Kakophonist：`-4Melee and -4Ranged`"
       },
       {
-       "token": "[health]",
+       "token": "[Ranged]",
        "sprite": "Ranged",
-       "why": "同上（写着 health、画的是枪）"
+       "why": "同上（本批把 token 名换成了它真正的含义 —— 写着 health、画的是枪）"
       }
      ]
     },
@@ -5157,6 +6217,16 @@
        "token": "集结：",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -5197,6 +6267,11 @@
        "token": "狂喜 3：",
        "sprite": "Ecstasy",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -5257,6 +6332,16 @@
        "token": "激励：",
        "sprite": "stimulation",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -5332,6 +6417,16 @@
        "token": "Cruelty:",
        "sprite": "Cruelty",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -5342,6 +6437,56 @@
        "token": "残忍：",
        "sprite": "Cruelty",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EC35",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Stimulation:",
+       "sprite": "stimulation",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -5377,6 +6522,16 @@
        "token": "激励：",
        "sprite": "stimulation",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -5402,6 +6557,11 @@
        "token": "Stimulation:",
        "sprite": "stimulation",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -5422,6 +6582,11 @@
        "token": "激励：",
        "sprite": "stimulation",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -5453,6 +6618,101 @@
    ]
   },
   {
+   "id": "EC36",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EC30",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EC17",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "EC33",
    "fields": [
     {
@@ -5467,6 +6727,16 @@
        "token": "Cruelty:",
        "sprite": "Cruelty",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -5482,6 +6752,16 @@
        "token": "残忍：",
        "sprite": "Cruelty",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -5502,6 +6782,11 @@
        "token": "Ecstasy 2:",
        "sprite": "Ecstasy",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
       }
      ]
     },
@@ -5517,6 +6802,11 @@
        "token": "狂喜 2：",
        "sprite": "Ecstasy",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -5557,6 +6847,11 @@
        "token": "Ecstasy 3:",
        "sprite": "Ecstasy",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -5567,6 +6862,11 @@
        "token": "狂喜 3：",
        "sprite": "Ecstasy",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -5607,6 +6907,146 @@
        "token": "爆裂 3。",
        "sprite": "blast",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EC72",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "还原表 Antrak Silk：`+1Melee and +1Ranged`"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EC76",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EC77",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EC58",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EC53",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -5657,6 +7097,16 @@
        "token": "Ecstasy 5:",
        "sprite": "Ecstasy",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Melee]",
+       "sprite": "Melee",
+       "why": "卡图 + NCC 0.599"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "卡图 + NCC 0.578"
       }
      ]
     },
@@ -5667,6 +7117,16 @@
        "token": "狂喜 5：",
        "sprite": "Ecstasy",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -5722,6 +7182,11 @@
        "token": "Talent:",
        "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
       }
      ]
     },
@@ -5737,6 +7202,11 @@
        "token": "天赋：",
        "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -5867,6 +7337,11 @@
        "token": "Strike:",
        "sprite": "strike",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
       }
      ]
     },
@@ -5882,6 +7357,11 @@
        "token": "猛击：",
        "sprite": "strike",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -5897,6 +7377,16 @@
        "token": "Ambush:",
        "sprite": "ambush",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -5907,6 +7397,41 @@
        "token": "伏击：",
        "sprite": "ambush",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GSC22",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -6037,6 +7562,11 @@
        "token": "Rally:",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
       }
      ]
     },
@@ -6047,6 +7577,11 @@
        "token": "集结：",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -6087,6 +7622,11 @@
        "token": "伏击：",
        "sprite": "ambush",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -6107,6 +7647,11 @@
        "token": "Uprising:",
        "sprite": "uprising",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -6122,6 +7667,11 @@
        "token": "起义：",
        "sprite": "uprising",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -6212,6 +7762,46 @@
        "token": "起义：",
        "sprite": "uprising",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GSC20",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -6227,6 +7817,11 @@
        "token": "Uprising:",
        "sprite": "uprising",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -6237,6 +7832,11 @@
        "token": "起义：",
        "sprite": "uprising",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -6252,6 +7852,31 @@
        "token": "Artifice:",
        "sprite": "artifice",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "潜行。",
+       "sprite": "stealth",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "巧技：",
+       "sprite": "artifice",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -6297,6 +7922,16 @@
        "token": "天赋：",
        "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -6329,6 +7964,16 @@
        "why": "卡面就是粉拳"
       }
      ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
     }
    ]
   },
@@ -6342,6 +7987,16 @@
        "token": "[Attack]",
        "sprite": "Melee",
        "why": "还原表：`+2 Melee`"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -6382,6 +8037,16 @@
        "token": "Ephemeral.",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -6392,6 +8057,16 @@
        "token": "临时。",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -6998,6 +8673,31 @@
    ]
   },
   {
+   "id": "SAU10",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "SAU73",
    "fields": [
     {
@@ -7273,6 +8973,41 @@
    ]
   },
   {
+   "id": "SAU41",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Melee]",
+       "sprite": "Melee",
+       "why": "英文近战记号 —— **只给原文本来就写 `Melee`/`Melee Attack` 的位置**用（那些位置去括号后与改前逐字节相同）。原文写 `Attack` 的用 `[Attack]` + 逐卡条目"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "SAU16",
    "fields": [
     {
@@ -7339,6 +9074,16 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "护甲 2。",
+       "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
     }
    ]
   },
@@ -7378,6 +9123,31 @@
    ]
   },
   {
+   "id": "SAU62",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Melee]",
+       "sprite": "Melee",
+       "why": "英文近战记号 —— **只给原文本来就写 `Melee`/`Melee Attack` 的位置**用（那些位置去括号后与改前逐字节相同）。原文写 `Attack` 的用 `[Attack]` + 逐卡条目"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "SAU51",
    "fields": [
     {
@@ -7401,12 +9171,12 @@
       {
        "token": "[攻击]",
        "sprite": "Melee",
-       "why": "还原表：`+1 Melee … +3 Melee`（两处都是拳）"
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       },
       {
        "token": "[攻击]",
        "sprite": "Melee",
-       "why": "还原表：`+1 Melee … +3 Melee`（两处都是拳）"
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -7426,7 +9196,7 @@
       {
        "token": "[Ranged]",
        "sprite": "Ranged",
-       "why": "⚠️ 锚点自动对齐（**没人工核**）：锚点对齐"
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       },
       {
        "token": "[Destroyer]",
@@ -7441,7 +9211,7 @@
       {
        "token": "[攻击]",
        "sprite": "Melee",
-       "why": "还原表：`Give +1Melee and +1Ranged`"
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       },
       {
        "token": "[远程]",
@@ -7713,6 +9483,31 @@
    ]
   },
   {
+   "id": "SAU39",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "SAU1",
    "fields": [
     {
@@ -7826,7 +9621,7 @@
       {
        "token": "[攻击]",
        "sprite": "Melee",
-       "why": "还原表：`+1 Melee`"
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -7877,6 +9672,11 @@
        "token": "Rally:",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
       }
      ]
     },
@@ -7897,6 +9697,11 @@
        "token": "集结：",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -8056,7 +9861,7 @@
       {
        "token": "[攻击]",
        "sprite": "Melee",
-       "why": "还原表 Nob on Smasha Squig：`+1 Melee and +1 Ranged`"
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       },
       {
        "token": "[远程]",
@@ -8198,6 +10003,31 @@
    ]
   },
   {
+   "id": "GOF99",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "GOF100",
    "fields": [
     {
@@ -8236,7 +10066,7 @@
       {
        "token": "[攻击]",
        "sprite": "Melee",
-       "why": "还原表 Da Old Ways：`give it +2 Melee this turn instead`"
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -8278,15 +10108,50 @@
    ]
   },
   {
-   "id": "GOF103",
+   "id": "GOF97",
    "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      }
+     ]
+    },
     {
      "name": "descZh",
      "items": [
       {
        "token": "[攻击]",
        "sprite": "Melee",
-       "why": "⚠️ 锚点自动对齐（**没人工核**）：锚点对齐"
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GOF103",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -8311,7 +10176,7 @@
       {
        "token": "[攻击]",
        "sprite": "Melee",
-       "why": "还原表：`+1 Melee`"
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -8347,6 +10212,56 @@
        "token": "天赋：",
        "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GOF81",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GOF84",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -8407,6 +10322,11 @@
        "token": "Ephemeral.",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
       }
      ]
     },
@@ -8417,6 +10337,11 @@
        "token": "临时。",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -8441,7 +10366,7 @@
       {
        "token": "[攻击]",
        "sprite": "Melee",
-       "why": "还原表：`+3 Melee`"
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -8457,6 +10382,11 @@
        "token": "Ephemeral.",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
       }
      ]
     },
@@ -8467,6 +10397,11 @@
        "token": "临时。",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -8541,7 +10476,7 @@
       {
        "token": "[攻击]",
        "sprite": "Melee",
-       "why": "卡图 Banner Nob：第一个圆徽 = 粉拳"
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       },
       {
        "token": "[武器]",
@@ -8712,6 +10647,11 @@
        "token": "Backlash:",
        "sprite": "backlash",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
       }
      ]
     },
@@ -8722,6 +10662,11 @@
        "token": "反噬：",
        "sprite": "backlash",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -8887,6 +10832,11 @@
        "token": "Mob:",
        "sprite": "mob",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
       }
      ]
     },
@@ -8897,6 +10847,41 @@
        "token": "[攻击]",
        "sprite": "Melee",
        "why": "还原表 Skarboy Nob：`Mob: Gain +1 Melee`"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GOF8",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Tide 1.",
+       "sprite": "tide",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Rally:",
+       "sprite": "rally",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -8983,6 +10968,31 @@
    ]
   },
   {
+   "id": "GOF_Da_Red_Waaagh",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "GOF_Dead_Choppy",
    "fields": [
     {
@@ -9001,7 +11011,107 @@
       {
        "token": "[攻击]",
        "sprite": "Melee",
-       "why": "还原表：`+2 Melee`"
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GOF_Follower_of_Gork",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GOF53",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GOF_Greatest_Warboss",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GOF_More_Dakka",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -9031,12 +11141,37 @@
       {
        "token": "[攻击]",
        "sprite": "Melee",
-       "why": "还原表：`+1 Melee`"
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       },
       {
        "token": "[群体]",
        "sprite": "mob",
        "why": "卡图 + NCC 0.857"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GOF50",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -9076,7 +11211,7 @@
       {
        "token": "[攻击]",
        "sprite": "Melee",
-       "why": "还原表：`+2Melee and Slay Slay:`"
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       },
       {
        "token": "[斩杀]",
@@ -9116,7 +11251,7 @@
       {
        "token": "[攻击]",
        "sprite": "Melee",
-       "why": "还原表：`+1Melee, Armour Armour 1 and Flying Flying`"
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       },
       {
        "token": "[护盾]",
@@ -9151,7 +11286,7 @@
       {
        "token": "[攻击]",
        "sprite": "Melee",
-       "why": "还原表：`+2 Melee`"
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -9362,6 +11497,11 @@
        "token": "Mob:",
        "sprite": "mob",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
       }
      ]
     },
@@ -9372,6 +11512,11 @@
        "token": "群体：",
        "sprite": "mob",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -9387,6 +11532,11 @@
        "token": "Mob:",
        "sprite": "mob",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
       }
      ]
     },
@@ -9397,6 +11547,11 @@
        "token": "群体：",
        "sprite": "mob",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -9562,6 +11717,11 @@
        "token": "Talent:",
        "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
       }
      ]
     },
@@ -9572,6 +11732,11 @@
        "token": "天赋：",
        "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -9677,6 +11842,11 @@
        "token": "集结：",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "☀",
+       "sprite": "faith",
+       "why": "☀ 金太阳 = **信仰**（修女会）。逐张核过 7 张：Sister Novitiate / Blade of Faith / Sacred Rose / Paragon Warsuit / Preacher / Miraculous Feat / Daemonbreaker 同一张图；数字写在图标**外面左侧**"
       }
      ]
     }
@@ -9774,6 +11944,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      },
+      {
        "token": "☀",
        "sprite": "faith",
        "why": "☀ 金太阳 = **信仰**（修女会）。逐张核过 7 张：Sister Novitiate / Blade of Faith / Sacred Rose / Paragon Warsuit / Preacher / Miraculous Feat / Daemonbreaker 同一张图；数字写在图标**外面左侧**"
@@ -9792,6 +11967,11 @@
        "token": "集结：",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       },
       {
        "token": "☀",
@@ -9837,6 +12017,16 @@
        "token": "Pray:",
        "sprite": "pray",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -9847,6 +12037,16 @@
        "token": "祈祷：",
        "sprite": "pray",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -9858,6 +12058,16 @@
     {
      "name": "desc",
      "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      },
       {
        "token": "☀",
        "sprite": "faith",
@@ -9976,8 +12186,23 @@
    "id": "SOR11",
    "fields": [
     {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      }
+     ]
+    },
+    {
      "name": "descZh",
      "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
       {
        "token": "☀",
        "sprite": "faith",
@@ -10137,6 +12362,16 @@
        "token": "Pray:",
        "sprite": "pray",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -10147,6 +12382,16 @@
        "token": "祈祷：",
        "sprite": "pray",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -10177,6 +12422,11 @@
        "token": "祈祷：",
        "sprite": "pray",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -10284,6 +12534,16 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      },
+      {
        "token": "☀",
        "sprite": "faith",
        "why": "☀ 金太阳 = **信仰**（修女会）。逐张核过 7 张：Sister Novitiate / Blade of Faith / Sacred Rose / Paragon Warsuit / Preacher / Miraculous Feat / Daemonbreaker 同一张图；数字写在图标**外面左侧**"
@@ -10297,6 +12557,16 @@
        "token": "祈祷：",
        "sprite": "pray",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       },
       {
        "token": "☀",
@@ -10336,8 +12606,23 @@
    "id": "SOR24",
    "fields": [
     {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
      "name": "descZh",
      "items": [
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      },
       {
        "token": "☀",
        "sprite": "faith",
@@ -10350,6 +12635,16 @@
   {
    "id": "SOR18",
    "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      }
+     ]
+    },
     {
      "name": "descZh",
      "items": [
@@ -10372,6 +12667,16 @@
        "token": "Pray:",
        "sprite": "pray",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -10382,6 +12687,16 @@
        "token": "祈祷：",
        "sprite": "pray",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -10489,6 +12804,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
        "token": "☀",
        "sprite": "faith",
        "why": "☀ 金太阳 = **信仰**（修女会）。逐张核过 7 张：Sister Novitiate / Blade of Faith / Sacred Rose / Paragon Warsuit / Preacher / Miraculous Feat / Daemonbreaker 同一张图；数字写在图标**外面左侧**"
@@ -10502,6 +12822,11 @@
        "token": "忏悔：",
        "sprite": "rage",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       },
       {
        "token": "☀",
@@ -10601,8 +12926,33 @@
    "id": "SOR44",
    "fields": [
     {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
      "name": "descZh",
      "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      },
       {
        "token": "☀",
        "sprite": "faith",
@@ -10661,7 +13011,7 @@
       {
        "token": "[攻击]",
        "sprite": "Melee",
-       "why": "还原表：`+1 Melee`"
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       },
       {
        "token": "[能量]",
@@ -10799,6 +13149,16 @@
      "name": "desc",
      "items": [
       {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
        "token": "☀",
        "sprite": "faith",
        "why": "☀ 金太阳 = **信仰**（修女会）。逐张核过 7 张：Sister Novitiate / Blade of Faith / Sacred Rose / Paragon Warsuit / Preacher / Miraculous Feat / Daemonbreaker 同一张图；数字写在图标**外面左侧**"
@@ -10808,6 +13168,16 @@
     {
      "name": "descZh",
      "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
       {
        "token": "☀",
        "sprite": "faith",
@@ -10822,6 +13192,16 @@
    "fields": [
     {
      "name": "desc",
+     "items": [
+      {
+       "token": "☀",
+       "sprite": "faith",
+       "why": "☀ 金太阳 = **信仰**（修女会）。逐张核过 7 张：Sister Novitiate / Blade of Faith / Sacred Rose / Paragon Warsuit / Preacher / Miraculous Feat / Daemonbreaker 同一张图；数字写在图标**外面左侧**"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
      "items": [
       {
        "token": "☀",
@@ -10952,6 +13332,61 @@
        "token": "☀",
        "sprite": "faith",
        "why": "☀ 金太阳 = **信仰**（修女会）。逐张核过 7 张：Sister Novitiate / Blade of Faith / Sacred Rose / Paragon Warsuit / Preacher / Miraculous Feat / Daemonbreaker 同一张图；数字写在图标**外面左侧**"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "SOR6",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -11257,6 +13692,16 @@
        "token": "天赋：",
        "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -11427,6 +13872,16 @@
        "token": "Ferocity:",
        "sprite": "ferocity",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -11437,6 +13892,16 @@
        "token": "狂暴：",
        "sprite": "ferocity",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -11468,6 +13933,31 @@
    ]
   },
   {
+   "id": "SW16",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "SW32",
    "fields": [
     {
@@ -11487,6 +13977,41 @@
        "token": "兽群。",
        "sprite": "pack",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "SW19",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -11552,6 +14077,11 @@
        "token": "Rally:",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
       }
      ]
     },
@@ -11562,6 +14092,11 @@
        "token": "集结：",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -11632,6 +14167,16 @@
        "token": "Slay:",
        "sprite": "slay",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -11647,6 +14192,16 @@
        "token": "斩杀：",
        "sprite": "slay",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -11714,6 +14269,16 @@
        "why": "卡面：图标 + 词"
       }
      ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[护盾]",
+       "sprite": "shield",
+       "why": "卡面：图标 + 词"
+      }
+     ]
     }
    ]
   },
@@ -11752,6 +14317,26 @@
        "token": "[Attack]",
        "sprite": "Melee",
        "why": "还原表 Legendary Tenacity：`+4Melee, +4Ranged`"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -11769,6 +14354,41 @@
        "why": "同族，还原表 `+1 Melee`"
       }
      ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "SW7",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
     }
    ]
   },
@@ -11784,6 +14404,41 @@
        "why": "还原表：`+1 Melee`"
       }
      ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "SW52",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
     }
    ]
   },
@@ -11797,6 +14452,11 @@
        "token": "Ephemeral.",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -11807,6 +14467,46 @@
        "token": "临时。",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "SW54",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "还原表：`+2 Melee`"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -12042,6 +14742,11 @@
        "token": "集结：",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -12207,6 +14912,11 @@
        "token": "Companion 2:",
        "sprite": "companion",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -12222,6 +14932,11 @@
        "token": "伴生 2：",
        "sprite": "companion",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -12483,6 +15198,31 @@
    ]
   },
   {
+   "id": "TAU35",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "TAU16",
    "fields": [
     {
@@ -12577,6 +15317,11 @@
        "token": "Rally:",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -12592,6 +15337,11 @@
        "token": "集结：",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -12732,6 +15482,11 @@
        "token": "Rally:",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
       }
      ]
     },
@@ -12747,6 +15502,11 @@
        "token": "集结：",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -12923,8 +15683,93 @@
    ]
   },
   {
+   "id": "TAU46",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "TAU_Grisly_Feast",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "TAU7",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "TAU74",
    "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      }
+     ]
+    },
     {
      "name": "descZh",
      "items": [
@@ -12957,6 +15802,31 @@
        "token": "临时。",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "TAU56",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -13032,6 +15902,56 @@
        "token": "临时。",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "TAU_Storm_of_Fire",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "TAU75",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -13596,12 +16516,27 @@
    "id": "TL79",
    "fields": [
     {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
      "name": "descZh",
      "items": [
       {
        "token": "潮涌 3。",
        "sprite": "tide",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -13642,6 +16577,11 @@
        "token": "Synapse.",
        "sprite": "synapse",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Melee]",
+       "sprite": "Melee",
+       "why": "英文近战记号 —— **只给原文本来就写 `Melee`/`Melee Attack` 的位置**用（那些位置去括号后与改前逐字节相同）。原文写 `Attack` 的用 `[Attack]` + 逐卡条目"
       }
      ]
     },
@@ -13652,6 +16592,11 @@
        "token": "突触。",
        "sprite": "synapse",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -13752,6 +16697,16 @@
        "token": "Rally:",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Melee]",
+       "sprite": "Melee",
+       "why": "英文近战记号 —— **只给原文本来就写 `Melee`/`Melee Attack` 的位置**用（那些位置去括号后与改前逐字节相同）。原文写 `Attack` 的用 `[Attack]` + 逐卡条目"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -13762,6 +16717,16 @@
        "token": "集结：",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -13887,6 +16852,16 @@
        "token": "Rally:",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -13902,6 +16877,16 @@
        "token": "集结：",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -14023,6 +17008,41 @@
    ]
   },
   {
+   "id": "TL47",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Melee]",
+       "sprite": "Melee",
+       "why": "英文近战记号 —— **只给原文本来就写 `Melee`/`Melee Attack` 的位置**用（那些位置去括号后与改前逐字节相同）。原文写 `Attack` 的用 `[Attack]` + 逐卡条目"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "TL75",
    "fields": [
     {
@@ -14032,6 +17052,11 @@
        "token": "Ephemeral.",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Melee]",
+       "sprite": "Melee",
+       "why": "英文近战记号 —— **只给原文本来就写 `Melee`/`Melee Attack` 的位置**用（那些位置去括号后与改前逐字节相同）。原文写 `Attack` 的用 `[Attack]` + 逐卡条目"
       }
      ]
     },
@@ -14042,6 +17067,86 @@
        "token": "临时。",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "TL61",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "TL54",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Melee]",
+       "sprite": "Melee",
+       "why": "英文近战记号 —— **只给原文本来就写 `Melee`/`Melee Attack` 的位置**用（那些位置去括号后与改前逐字节相同）。原文写 `Attack` 的用 `[Attack]` + 逐卡条目"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "TL86",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -14057,6 +17162,16 @@
        "token": "Ephemeral.",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -14067,6 +17182,16 @@
        "token": "临时。",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -14092,6 +17217,41 @@
        "token": "临时。",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "TL38",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Melee]",
+       "sprite": "Melee",
+       "why": "英文近战记号 —— **只给原文本来就写 `Melee`/`Melee Attack` 的位置**用（那些位置去括号后与改前逐字节相同）。原文写 `Attack` 的用 `[Attack]` + 逐卡条目"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -14342,6 +17502,11 @@
        "token": "誓言 1：",
        "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -14512,6 +17677,11 @@
        "token": "Oath 2:",
        "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
       }
      ]
     },
@@ -14532,6 +17702,46 @@
        "token": "誓言 2：",
        "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM35",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Melee]",
+       "sprite": "Melee",
+       "why": "英文近战记号 —— **只给原文本来就写 `Melee`/`Melee Attack` 的位置**用（那些位置去括号后与改前逐字节相同）。原文写 `Attack` 的用 `[Attack]` + 逐卡条目"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -14556,6 +17766,21 @@
       {
        "token": "典籍：",
        "sprite": "codex",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM80",
+   "fields": [
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "誓言 4：",
+       "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -14632,6 +17857,16 @@
        "token": "Codex:",
        "sprite": "codex",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Melee]",
+       "sprite": "Melee",
+       "why": "英文近战记号 —— **只给原文本来就写 `Melee`/`Melee Attack` 的位置**用（那些位置去括号后与改前逐字节相同）。原文写 `Attack` 的用 `[Attack]` + 逐卡条目"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -14642,6 +17877,16 @@
        "token": "典籍：",
        "sprite": "codex",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -14662,6 +17907,11 @@
        "token": "Codex:",
        "sprite": "codex",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -14677,6 +17927,36 @@
        "token": "典籍：",
        "sprite": "codex",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM_Inceptor_Sergeant",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "卡图 `Ultramarines/3部队/inceptor srg.png`：那一枚是**紫圈枪**（锚点核对 + 亲读两处一致）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -14793,6 +18073,21 @@
    ]
   },
   {
+   "id": "UM81",
+   "fields": [
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "誓言 3：",
+       "sprite": "oath",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "UM_Phobos_Lieutenant",
    "fields": [
     {
@@ -14846,12 +18141,37 @@
    "id": "UM_Primaris_Chaplain",
    "fields": [
     {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Melee]",
+       "sprite": "Melee",
+       "why": "英文近战记号 —— **只给原文本来就写 `Melee`/`Melee Attack` 的位置**用（那些位置去括号后与改前逐字节相同）。原文写 `Attack` 的用 `[Attack]` + 逐卡条目"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
      "name": "descZh",
      "items": [
       {
        "token": "典籍：",
        "sprite": "codex",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -14902,6 +18222,11 @@
        "token": "Codex:",
        "sprite": "codex",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "卡图 `Ultramarines/3部队/inceptor.png`：那一枚是**紫圈枪**（锚点核对 + 亲读两处一致）"
       }
      ]
     },
@@ -14911,6 +18236,26 @@
       {
        "token": "典籍：",
        "sprite": "codex",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM_Scout_Sniper",
+   "fields": [
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "誓言 1：",
+       "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -15057,6 +18402,16 @@
        "token": "Oath 3:",
        "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -15067,6 +18422,16 @@
        "token": "誓言 3：",
        "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -15217,6 +18582,11 @@
        "token": "誓言 1：",
        "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -15237,6 +18607,11 @@
        "token": "Oath 2:",
        "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
       }
      ]
     },
@@ -15252,6 +18627,11 @@
        "token": "誓言 2：",
        "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -15267,6 +18647,11 @@
        "token": "Codex:",
        "sprite": "codex",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -15277,6 +18662,11 @@
        "token": "典籍：",
        "sprite": "codex",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -15289,7 +18679,37 @@
      "name": "desc",
      "items": [
       {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      },
+      {
        "token": "[Codex icon]",
+       "sprite": "codex",
+       "why": "卡图 + NCC 0.815"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      },
+      {
+       "token": "[典籍]",
        "sprite": "codex",
        "why": "卡图 + NCC 0.815"
       }
@@ -15312,6 +18732,16 @@
        "token": "Oath 3:",
        "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
       }
      ]
     },
@@ -15327,6 +18757,16 @@
        "token": "誓言 3：",
        "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -15352,6 +18792,31 @@
        "token": "誓言 4：",
        "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM_Codex_Discipline",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -15417,6 +18882,11 @@
        "token": "Ephemeral.",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -15427,6 +18897,11 @@
        "token": "临时。",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -15458,6 +18933,41 @@
    ]
   },
   {
+   "id": "UM_Forward_Deployment",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "UM101",
    "fields": [
     {
@@ -15467,6 +18977,11 @@
        "token": "Oath 6:",
        "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "卡图 `Ultramarines/4计策/Warpforge_37_Indomitus-Crusade.png`：`equal to its〔粉拳〕`（亲读）"
       }
      ]
     },
@@ -15477,6 +18992,46 @@
        "token": "誓言 6：",
        "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM58",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Melee]",
+       "sprite": "Melee",
+       "why": "英文近战记号 —— **只给原文本来就写 `Melee`/`Melee Attack` 的位置**用（那些位置去括号后与改前逐字节相同）。原文写 `Attack` 的用 `[Attack]` + 逐卡条目"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -15517,6 +19072,16 @@
        "token": "[Attack]",
        "sprite": "Melee",
        "why": "还原表：`+1 Melee`"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -15598,6 +19163,101 @@
    ]
   },
   {
+   "id": "UM_Paragon_of_Ultramar",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM_Pariah_Vanguard",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Melee]",
+       "sprite": "Melee",
+       "why": "英文近战记号 —— **只给原文本来就写 `Melee`/`Melee Attack` 的位置**用（那些位置去括号后与改前逐字节相同）。原文写 `Attack` 的用 `[Attack]` + 逐卡条目"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM_Primarch_of_the_XIII",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "UM_Righteous_Fury",
    "fields": [
     {
@@ -15607,6 +19267,41 @@
        "token": "[Attack]",
        "sprite": "Melee",
        "why": "还原表：`+1 Melee`"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM48",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -15622,6 +19317,16 @@
        "token": "Oath 8:",
        "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -15632,6 +19337,16 @@
        "token": "誓言 8：",
        "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -15697,6 +19412,11 @@
        "token": "Oath 2:",
        "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -15707,6 +19427,11 @@
        "token": "誓言 2：",
        "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -15812,6 +19537,16 @@
        "token": "Codex:",
        "sprite": "codex",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -15827,6 +19562,16 @@
        "token": "典籍：",
        "sprite": "codex",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -15867,6 +19612,11 @@
        "token": "Codex:",
        "sprite": "codex",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -15877,6 +19627,11 @@
        "token": "典籍：",
        "sprite": "codex",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -16162,6 +19917,11 @@
        "token": "Codex:",
        "sprite": "codex",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
       }
      ]
     },
@@ -16172,6 +19932,11 @@
        "token": "典籍：",
        "sprite": "codex",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -16187,6 +19952,11 @@
        "token": "Codex:",
        "sprite": "codex",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -16197,6 +19967,11 @@
        "token": "典籍：",
        "sprite": "codex",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -16212,6 +19987,11 @@
        "token": "Codex:",
        "sprite": "codex",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -16222,6 +20002,11 @@
        "token": "典籍：",
        "sprite": "codex",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -16237,6 +20022,16 @@
        "token": "Ephemeral.",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
       }
      ]
     },
@@ -16247,6 +20042,76 @@
        "token": "临时。",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "BL18",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Melee]",
+       "sprite": "Melee",
+       "why": "英文近战记号 —— **只给原文本来就写 `Melee`/`Melee Attack` 的位置**用（那些位置去括号后与改前逐字节相同）。原文写 `Attack` 的用 `[Attack]` + 逐卡条目"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "BL20",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Melee]",
+       "sprite": "Melee",
+       "why": "英文近战记号 —— **只给原文本来就写 `Melee`/`Melee Attack` 的位置**用（那些位置去括号后与改前逐字节相同）。原文写 `Attack` 的用 `[Attack]` + 逐卡条目"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
       }
      ]
     }
@@ -16302,6 +20167,11 @@
        "token": "Talent:",
        "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
       }
      ]
     },
@@ -16317,6 +20187,11 @@
        "token": "天赋：",
        "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -16337,6 +20212,11 @@
        "token": "Stimulation:",
        "sprite": "stimulation",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
       }
      ]
     },
@@ -16352,6 +20232,11 @@
        "token": "激励：",
        "sprite": "stimulation",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }
@@ -16361,8 +20246,33 @@
    "id": "SOR47",
    "fields": [
     {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
      "name": "descZh",
      "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      },
       {
        "token": "☀",
        "sprite": "faith",
@@ -16382,6 +20292,41 @@
        "token": "[Chaos]",
        "sprite": "markOfChaos",
        "why": "同上（同一张精灵图）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[黑暗契约]",
+       "sprite": "markOfChaos",
+       "why": "同上（同一张精灵图）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "TL65",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Melee]",
+       "sprite": "Melee",
+       "why": "英文近战记号 —— **只给原文本来就写 `Melee`/`Melee Attack` 的位置**用（那些位置去括号后与改前逐字节相同）。原文写 `Attack` 的用 `[Attack]` + 逐卡条目"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
       }
      ]
     }

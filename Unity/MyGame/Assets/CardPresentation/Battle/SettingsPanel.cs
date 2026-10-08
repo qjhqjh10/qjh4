@@ -49,6 +49,11 @@ namespace CardPresentation
         /// `Image.Type = Sliced`（border 234,46,234,46），要九宫格；单个 quad 拉不出那个形。</summary>
         GameObject _resignBtn;
         Texture _resignTex;
+        /// <summary>🆕 2026-10-18（A991）「跳过教程」钮的根节点。⚠️ 同 `_resignBtn`：**不是 `ImageQuad`**
+        /// （底图 `40K_button` 是九宫格）。</summary>
+        GameObject _skipBtn;
+        /// <summary>那颗钮上的字（原版 `Button Text`，fs38，白，居中）。</summary>
+        Label _skipText;
 
         // ---- 🆕 2026-10-12（A424）：「Auto Zoom」那一行（原版 `Auto Zoom Toggle`）----
         /// <summary>勾选框底图（原版 `Toggle.targetGraphic`，图 `40K_dropdown_bg`）。</summary>
@@ -167,6 +172,35 @@ namespace CardPresentation
         /// <summary>投降钮那颗字的**原版词条键** —— **只此一份**（`Create` 与 `RefreshTexts` 都取它）。
         /// 判据（TMP 原文 `Resign`、挂在哪颗 `Localize` 上）→ `Core/Loc.cs` 那一块，⛔ 别在这儿抄第二份。</summary>
         public const string ResignTerm = "Battle/Settings/ResignButton";
+
+        // ---- 🆕 2026-10-18（A991）：「跳过教程」那颗钮 —— **原版真值，逐值现读** ----
+        // 判据 = `工具/menu_dump.py bundle_scenes_scenes_battlearena1 "BattleSettingsPanel" --depth 3 --no-sprite`
+        //        （绝对矩形，1920×1080 左上原点）⇒ 面板绝对框 `588.4,190.0 → 1331.6,948.6`（743.20×758.63）
+        //        ⇒ **框心 = (960.0, 569.3)**（与本文件 `Lang*` 那一族用的是同一个反算口径）：
+        //   · `Bottom buttons`       `616.6,829.8 → 1303.4,929.8`（686.80×100 · `HorizontalLayoutGroup`）
+        //     ├ `Resign Button`       `638.3,834.8 →  938.3,924.8`（300×90）
+        //     └ `SkipTutorial Button` `981.7,834.8 → 1281.7,924.8`（300×90）
+        //   ⇒ 面板内（原点 = 面板中心、**y 向上**）：Resign **( −171.7, −310.5)** · Skip **(+171.7, −310.5)**
+        //     —— 与 `ResignCxPx/ResignCyPx` **逐值互为镜像**（两颗同尺寸 300×90，一左一右）。
+        //     🔴 这一条**推翻了**原来那句「`1370/1375 > 1080` 疑似模板位 ⇒ 最终屏幕偏移仍未证出」——
+        //        在**面板坐标系**里它位置清清楚楚（同族的 `Resign` 早就这么算出来了）。
+        //   · 底图：`MonoBehaviour_4721.json`（那颗 uGUI `Image`）的 `m_Sprite` = **`40K_button`**
+        //     （与 `Resign` **同一张**）· `m_Type = 0(Simple)` + **`m_PreserveAspect = 1`** ·
+        //     `m_Color = (0.369,0.894,0.587,1)`（**同一个绿**）。
+        //   · 文字：`Button Text` 框 `994.4,852.5 → 1268.4,905.8`（274×53.3）· TMP 原文 **`Skip tutorial`** ·
+        //     `mTerm = Battle/Settings/SkipTutorial`（`MonoBehaviour_4307.json`）· fs **38**（base 12 ·
+        //     auto 12~38）· `Center/Midline` · 折行 0 · 白 —— **与 `Resign` 那颗逐字段同形**。
+        // 🔴 **它建在【本面板】里，不在 HUD 的教程覆盖层上**（2026-10-18 A991 搬过来的）：
+        //    原版那颗钮的父链 = `SkipTutorial Button → Bottom buttons → **BattleSettingsPanel**`
+        //    （13/13 个战场场景同构，每包恰 1 份）；我们原来建在 `TutorialOverlay` 那棵 HUD 子树上、
+        //    摆位还标着「我们挑的」——**那是落点错了**（铁律 11：查出来就照原版改）。
+        // ⚠️ **非教程局它也照样在**（原版那颗是 prefab 里常驻的；`BattleManager.ClickSkip` 在非教程局
+        //    只 `LogError`）⇒ 我们**不加「只在教程局才建/才显示」的闸**，行为差异由 `ApplyTutorialSkip` 出声。
+        const float SkipCxPx = 171.7f, SkipCyPx = -310.5f;
+        const float SkipWPx = 300f, SkipHPx = 90f;
+        /// <summary>那颗字的**原版词条键** —— **只此一份**（`Build` 与 `RefreshTexts` 都取它）。
+        /// 判据（TMP 原文 `Skip tutorial`、`mTerm` 在哪颗 `Localize` 上）→ `Core/Loc.cs` 那一块，⛔ 别抄第二份。</summary>
+        public const string SkipTutorialTerm = "Battle/Settings/SkipTutorial";
 
         // ---- 🆕 「Auto Zoom」那一行：**原版真值**（A424）----
         // 面板内（原点 = 面板中心，y **向上**）px。出处 = `bundle_scenes_scenes_battlearena1` 亲读：
@@ -495,6 +529,31 @@ namespace CardPresentation
                                        4, Color.white, new Vector2(0.5f, 0.5f), "settings_resign_text");
             ApplyLangFont(_resignText, Loc.T(ResignTerm), ResignFontPx);
 
+            // ---- 🆕 2026-10-18（A991）：**「跳过教程」**（原版 `SkipTutorial Button`）----
+            // 与 `Resign` 同一颗 `Bottom buttons` 下的**镜像位**（+171.7, −310.5）· 同尺寸 300×90 ·
+            // **同一张 `40K_button`** · 同一个绿染 · 同一档字号（fs38）—— 逐项照抄上面那一段，
+            // 判据（面板内坐标 / 底图 / 染色 / 文字框 / fs）全在文件头那组 `Skip*` 常量的注释里。
+            // 🔴 **行为**（原版 `BattleSettingsWindow__SkipTutorialButtonOnClick.c`，方法体亲读）：
+            //    `WindowsManager.CloseWindow(<设置窗>)` **然后** `BattleManager.ClickSkip(bm, 0)`
+            //    ⇒ 「**先关设置窗、再跳过**」—— 那一半在驱动层（`BattleDriver.SettingsClickAt`），
+            //    本件只负责**把这颗钮摆出来 + 给命中区**（同 `HitResign` 的分工）。
+            _skipBtn = MenuDraw.Nine(transform, resignTex,
+                                     new PxRect(LayoutSpace.DesignPxW * 0.5f + SkipCxPx - SkipWPx * 0.5f,
+                                                LayoutSpace.DesignPxH * 0.5f - SkipCyPx - SkipHPx * 0.5f,
+                                                LayoutSpace.DesignPxW * 0.5f + SkipCxPx + SkipWPx * 0.5f,
+                                                LayoutSpace.DesignPxH * 0.5f - SkipCyPx + SkipHPx * 0.5f),
+                                     new Vector4(ResignBorderL, ResignBorderB, ResignBorderR, ResignBorderT),
+                                     resignTexW, resignTexH, QPanel, name: "settings_skip_tutorial");
+            // ⚠️ 落位与 z 的口径**与 `_resignBtn` 那两行逐字相同**（本面板子件一律 `U(px)`、裸局部 z）
+            //    —— 理由与「`MenuDraw.Nine` 走画布映射」那条注释都在上面，⛔ 别只改一处。
+            if (_skipBtn != null)
+                _skipBtn.transform.localPosition = new Vector3(U(SkipCxPx), U(SkipCyPx), Z - 0.01f);
+            TintAll(_skipBtn, ResignTint);
+            // 文字：原版 `Button Text` 的 TMP 原文就是 `Skip tutorial`（`mTerm` 见 `SkipTutorialTerm`）。
+            _skipText = Label.Create(transform, Loc.T(SkipTutorialTerm), new Vector3(U(SkipCxPx), U(SkipCyPx), Z - 0.02f),
+                                     4, Color.white, new Vector2(0.5f, 0.5f), "settings_skip_tutorial_text");
+            ApplyLangFont(_skipText, Loc.T(SkipTutorialTerm), ResignFontPx);
+
             // ---- 对手难度（🆕 2026-09-17）----
             // 用的是**现成的两样东西**：投降那颗钮同一张原版按钮图 `40K_button`（同宽 249 px，
             // 免得压扁），以及 `Label`。位置我们挑的 —— 原版**没有这个入口**
@@ -616,7 +675,9 @@ namespace CardPresentation
         /// `ChooseLanguage` / `ESC` 四件（判据 = **战斗内**那棵子树逐字段实读，见上面那组 `Lst*` 常量；
         /// ⚠️ **原版两扇窗的这颗下拉不是同一尺寸**，本件照**战斗那扇**的 245 宽建，⛔ 别抄主菜单的 395.666）。
         /// 于是 `CycleLanguage`（点一下换下一个）**0 调用点 ⇒ 已删**（本仓规矩：死代码删）。
-        /// ⚠️ 本面板**没建**的原版件还有：`ChatToggle`（'Mute opponent'）· `Skip tutorial` · `Debug Buttons`
+        /// ✅ **2026-10-18（A991）**：`Skip tutorial` 那颗钮**已经建了**（`Build` 的 `SkipCxPx` 那一段）
+        /// —— 它原版就在本面板的 `Bottom buttons` 下（见文件头那组 `Skip*` 常量）。下面那行是旧口径。
+        /// ⚠️ 本面板**没建**的原版件还有：`ChatToggle`（'Mute opponent'）· `Debug Buttons`
         /// （那不在这条活的范围里，别顺手加）。</summary>
         void BuildLanguageRow(float z)
         {
@@ -692,6 +753,13 @@ namespace CardPresentation
                 _resignText.SetText(r);
                 ApplyLangFont(_resignText, r, ResignFontPx);
             }
+            // 🆕 2026-10-18（A991）：跳过钮那颗字**也跟语言走**（词条在 `Core/Loc.cs` 那张表里）。
+            if (_skipText != null)
+            {
+                string s = Loc.T(SkipTutorialTerm);
+                _skipText.SetText(s);
+                ApplyLangFont(_skipText, s, ResignFontPx);
+            }
             var sliders = new[] { _musicLabel, _fxLabel, _voiceLabel };
             for (int i = 0; i < sliders.Length; i++)
             {
@@ -747,7 +815,7 @@ namespace CardPresentation
         /// <para>几何（**相对那颗语言框的中心**，px、y 向上；`h` = 框高的一半 = 29.7）：
         /// 列表顶 = `h − 22`（原版 `ap.y = −22`）、高 **573.96**、宽 = 框宽 − 4.9998（左右各让 2.4999）；
         /// `Viewport` 右沿再让 **17**；`Content` 顶 = 列表顶、高 = `rows × 40.8707`；
-        /// 第 `i` 行 = `Content` 顶往下 `i × 40.8707`。⚠️ 本件**不建裁切层** —— 12 行 490.45 < 视口 573.96
+        /// 第 `i` 行 = `Content` 顶往下 `i × 40.8707`。⚠️ 本件**不建裁切层** —— 12 行 490.45 &lt; 视口 573.96
         /// ⇒ 一行都不会被切到（原版那条 `ScrollbarVisibility = 2`(AutoHide) 也正是因为这个才把它关掉）。</para></summary>
         Transform BuildLangListSubtree(Transform parent, string name, float z, int rows)
         {
@@ -1262,7 +1330,8 @@ namespace CardPresentation
             foreach (var go in new[] { _shade, _bg, _close, _closeIcon, _diffBtn })
                 if (go != null) go.gameObject.SetActive(on);
             if (_resignBtn != null) _resignBtn.SetActive(on);   // 九宫格根节点（不是 ImageQuad）
-            foreach (var l in new[] { _title, _resignText, _diffLabel, _diffValue,
+            if (_skipBtn != null) _skipBtn.SetActive(on);       // 🆕 A991：同上（那颗也是九宫格）
+            foreach (var l in new[] { _title, _resignText, _skipText, _diffLabel, _diffValue,
                                       _musicLabel, _fxLabel, _voiceLabel, _azLabel,
                                       // 🆕 2026-10-17：语言那一行的两颗字（框里的语言名 + 左边的标签）
                                       _langCap, _langSelText })
@@ -1299,6 +1368,16 @@ namespace CardPresentation
             return RectContains(_resignBtn.transform, world, U(ResignWPx), U(ResignHPx));
         }
 
+        /// <summary>🆕 **2026-10-18（A991）**：这一下点在**「跳过教程」**上吗。
+        /// 判据与 <see cref="HitResign"/> **逐字同形** —— 同一颗 `Bottom buttons` 下的镜像位、
+        /// 同一套九宫格命中算法（`RectContains`，因为根节点不是 `ImageQuad`）。
+        /// 🔴 **真实输入与自检走的就是这一条**（驱动层 `BattleDriver.SettingsClickAt`）。</summary>
+        public bool HitSkipTutorial(Vector3 world)
+        {
+            if (!Visible || _skipBtn == null) return false;
+            return RectContains(_skipBtn.transform, world, U(SkipWPx), U(SkipHPx));
+        }
+
         /// <summary>这一下点在「关闭」上吗</summary>
         public bool HitClose(Vector3 world)
         {
@@ -1321,6 +1400,17 @@ namespace CardPresentation
         public string ResignText { get { return _resignText != null ? _resignText.Text : null; } }
         /// <summary>投降按钮的世界坐标（自检照着它点 —— 走的是和真实点击同一条命中判定）</summary>
         public Vector3 ResignWorldPos { get { return _resignBtn != null ? _resignBtn.transform.position : Vector3.zero; } }
+
+        // ---- 🆕 2026-10-18（A991）「跳过教程」钮的自检口（⛔ 只读，不给生产用）----
+        /// <summary>那颗钮（九宫格根 + 字）**都建出来了**没有。</summary>
+        public bool SkipTutorialBuilt { get { return _skipBtn != null && _skipText != null; } }
+        /// <summary>那颗钮**现在画不画**（跟着面板开关走 —— 原版那颗在 `BattleSettingsPanel` 里、
+        /// 面板在场景里是 `(inactive)`，运行期由设置按钮打开）。</summary>
+        public bool SkipTutorialShown { get { return _skipBtn != null && _skipBtn.activeSelf; } }
+        /// <summary>那颗钮（九宫格根）的**世界坐标** —— 自检照着它点（走与真实输入同一条判定）。</summary>
+        public Vector3 SkipTutorialWorldPos { get { return _skipBtn != null ? _skipBtn.transform.position : Vector3.zero; } }
+        /// <summary>那颗字上写的是什么（原版 TMP 原文 `Skip tutorial`）。</summary>
+        public string SkipTutorialText { get { return _skipText != null ? _skipText.Text : null; } }
         /// <summary>难度按钮上写着的字（自检用）</summary>
         public string DifficultyText { get { return _diffValue != null ? _diffValue.Text : null; } }
         /// <summary>难度按钮的世界坐标（自检照着它点）</summary>

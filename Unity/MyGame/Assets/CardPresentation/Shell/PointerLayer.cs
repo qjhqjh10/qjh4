@@ -9,7 +9,7 @@
 //         ⇒ 老式 `OnMouseXxx` 系列**根本不派发**。
 //    ⇒ 自检之所以一直全绿，是因为它们走 `ClickForTest()` **直调 action**（那条注释写得很清楚）。
 // ✅ **能点的先例就在工程里**：**卡组编辑**走 `Mouse.current` 轮询 + 自己算命中
-//    （`Deck/DeckRuntime.cs:732 HandlePointer()` / `:1379 Hit()`），用户验过「左键看大图 / 右键加牌 / 滚轮」。
+//    （`Deck/DeckRuntime.cs` 的 `HandlePointer()` / `Hit()` —— ⛔ 按【符号】认，别抄行号），用户验过「左键看大图 / 右键加牌 / 滚轮」。
 //    ⇒ 把那条路**收口成这一份**：`WindowButton` 与滚动区都从它拿输入
 //      （CLAUDE.md §三：两处写同一条规则 = 迟早不一致）。
 //
@@ -907,6 +907,61 @@ namespace CardPresentation
         /// ⚠️ 用数组而不是 `List` 是为了不给每次导航分配（`CollectHits` 的注释同此）。</summary>
         static WindowButton[] AllButtons()
             => Object.FindObjectsByType<WindowButton>(FindObjectsSortMode.None);
+
+        // ============================================================ 🆕 2026-10-18（A964 前置）：给自检开三个【只读】口
+        //
+        // 🔴 **为什么必须有**：A964 要写「命中区覆盖」探针，判据 = **凡参与点击命中的节点，它的命中区矩形
+        //    必须覆盖它画出来的矩形**。而上面那几样（`HitBoxPx` · `HitQuad` · `AllButtons`）
+        //    **全是 `private static`** ⇒ 探针拿不到「某颗钮的命中区矩形」，只能**自己把 `HitBoxPx` 的算式
+        //    抄一遍** ⇒ ① 违反 CLAUDE.md §三「两处写同一条规则 = 迟早不一致」；② 更糟的是
+        //    **改坏实现时探针跟着一起错 = 自证**（探针就再也验不出东西了）。
+        //
+        // 🔴 **为什么必须是 `public`、不能是 `internal`**：本仓 **0 个 `.asmdef`**
+        //    （`find MyGame/Assets -name "*.asmdef"` ⇒ 空）⇒ 运行期在 `Assembly-CSharp.dll`、
+        //    而**自检宿主全在 `Editor/**`** ⇒ `Assembly-CSharp-Editor.dll`。`internal` 是**程序集级**
+        //    ⇒ **编辑器那一侧看不见它**。判据 = `资料/已知的坑.md:2927`「**`internal` 在自检里用不了**……
+        //    要开读口就用 `public`」。⇒ 三个口一律 `public static`，命名沿用本类既有约定
+        //    （`ButtonCountForTest` · `ButtonCountUnder` · `HoveredForTest`）。
+        //
+        // 🔴 **转发不加工 —— 这是这三个口的全部纪律**：函数体只允许 `=> 私有实现(...)` **一跳**。
+        //    ⛔ **不许在这里重算 / 修正 / 夹取 / 补默认值 / 换坐标系**：任何加工都会让探针量到的
+        //    **不是生产逻辑**，而 A964 立项要的正是「探针必须量**生产那一份**」。
+        //    🔴 **改坏法（自检这条口本身有没有走形）**：哪天有人在这三个口里塞了算式，
+        //    生产侧改坏（命中区缩小）时探针**照样全绿** —— 那就等于没验。
+        //    ⚠️ 生产路径**一处都不调**这三个口；它们只把 `private` 的实现转发出来。
+        //
+        // ⚠️ **调用这三个口之前，先【逐扇窗把它开一次】**（`WindowsManager.CloseAllWindows()` → 逐扇 `OpenWindow`
+        //    → 扫 → 关，一次只开一扇）。🔴 **`HitQuad` 恒 `null` 有【三个】原因，分不清就会报一片假红**
+        //    （三条都在 `HitQuad` 那六行里，按【符号】认它、⛔ 别抄行号）：
+        //      ① 那一颗**不 `activeAndEnabled`**（第一句）；
+        //      ② 它的子树里**根本没有 `ImageQuad`**（第二句的 `GetComponentInChildren` 给 null
+        //         —— 「忘了建命中区」，**这才是 A8 那一族真缺陷**）；
+        //      ③ **有 quad、但 quad 不在激活链上**（第二句的 `!activeInHierarchy`
+        //         —— 多半是**那扇窗没开** / 页签切走了）。
+        //    `HitQuadForTest(b) == null` 只说「不可命中」，**不说是哪一条** ⇒ ⛔ 把 ③（窗没开）
+        //    报成 ②（缺 quad）= **把「窗没开」写成了「缺陷」= 一片假红**。
+        //    另：`GameWindow.CurrentState == Background` 的窗里的钮按 `PointerReachable`
+        //    **本来就不参与指针命中** ⇒ 别把它们算进「不可命中」的账里（那是原版行为，不是缺陷）。
+
+        /// <summary>自检用：这一颗钮的**命中区矩形**（画布 px、**y 向下**，与 `HitBoxPx` 同口径）
+        /// **+ 它的命中用 quad**。返回 `false` = 它今天**不可命中**（见本节头那三个原因）。
+        /// <para>严格转发 <see cref="HitBoxPx(WindowButton, Vector2, Vector2, ImageQuad)"/>
+        /// （**唯一实现**）—— ⛔ 探针别再抄一份算式（抄了 = 改坏实现时探针跟着一起错）。</para>
+        /// <para>口径提醒：`center`/`half` 是**世界帧**、且 `half` 已含**父链缩放**（A167，`HitBoxPx` 的注释）。</para></summary>
+        public static bool HitBoxForTest(WindowButton b, out Vector2 center, out Vector2 half, out ImageQuad quad)
+            => HitBoxPx(b, out center, out half, out quad);
+
+        /// <summary>自检用：这一颗钮的**命中用 quad**（`null` = 它今天不可命中/不可导航）。
+        /// 严格转发 <see cref="HitQuad"/>（**唯一实现**）—— ⛔ 在这里复算 `GetComponentInChildren`
+        /// 等于让探针量一份**跟生产无关**的副本。
+        /// 🔴 `null` 有**三个**来源、分不清就会假红（见本节头）⇒ **先开窗再扫**。</summary>
+        public static ImageQuad HitQuadForTest(WindowButton b) => HitQuad(b);
+
+        /// <summary>自检用：场上**所有** `WindowButton`（**含不可命中的**；只要可命中的请自己过 `HitQuadForTest`）。
+        /// 严格转发 <see cref="AllButtons"/>（**唯一实现** —— 与生产命中 / 键盘导航**同一张表**）。
+        /// ⚠️ 它是 `FindObjectsByType` **全场景现扫**：批处理里探针建的夹具**也会被收进来**
+        /// ⇒ 夹具用完必须 `DestroyImmediate`（批处理没有帧循环，`Destroy` 不生效）。</summary>
+        public static WindowButton[] AllButtonsForTest() => AllButtons();
 
         // ============================================================ 可被自检直调的两条入口
         // （批处理里没有输入事件 ⇒ 自检用它们量「这一处到底吃不吃得到这次输入」）

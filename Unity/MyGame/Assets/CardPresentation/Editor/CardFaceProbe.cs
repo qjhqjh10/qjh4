@@ -246,7 +246,7 @@ public static class CardFaceProbe
     ///    将来若真有 TMP 切多材质，这里要改成遍历全部」—— 【当天就改了】**（判据 / 改坏法 =
     ///    `资料/普查产出_1018/S2_A851槽号.md`；同族 `Editor/RewardsScene.cs` 的 `TmpVertPx` /
     ///    `TmpVertsAndAlpha` / `TmpGlyphUvW` 是**同一天**按**同一套**改的）：
-    ///    ① **那条自陈的前提本来就不成立** —— 卡面效果文字里**现在就带 `<sprite name=…>`**
+    ///    ① **那条自陈的前提本来就不成立** —— 卡面效果文字里**现在就带 `&lt;sprite name=…&gt;`**
     ///    （`Core/CardText.cs` / `Core/CardIcons.cs`；`Core/TmpFont.cs:163` 给**全工程每颗 TMP** 挂了
     ///    `CardIcons.SpriteAsset`）⇒ TMP 会**切出第二个材质槽**，**不是「将来」**。
     ///    ② **改前为什么是缺陷（且静默）**：`characterInfo[i].vertexIndex` 是**按材质槽**编的
@@ -262,7 +262,7 @@ public static class CardFaceProbe
     ///    不可见的字（空格等）TMP 给的是**四角全 0**（`TextMeshPro.cs:4536-4541`）。
     /// 📌 **本笔的回归网【半空】**（详据 = `资料/普查产出_1018/S6_A965卡面探针取槽.md` §2/§3）：本文件**全文件零断言** ⇒「红」这条路本来就不存在；
     ///    `title` / `army` / `race` 三层**逐位同值**（`army`/`race` 网格容量 == 用量、无零槽；`title` 的补齐零槽经实测 `0.0000` 反证**落在字墨之内**）⇒ **改回旧写法也不变**；
-    ///    而 **`keywords`（效果文字那层）今天就带 `<sprite>`**（`Core/CardText.cs:290`；sprite asset 的材质是独立一份 ⇒ **2 个槽**）⇒ 旧写法**漏掉图标**、读数会动 ⇒ **本笔在这层是活的**。
+    ///    而 **`keywords`（效果文字那层）今天就带 `&lt;sprite&gt;`**（`Core/CardText.cs:290`；sprite asset 的材质是独立一份 ⇒ **2 个槽**）⇒ 旧写法**漏掉图标**、读数会动 ⇒ **本笔在这层是活的**。
     ///    要「有牙」得先实跑确认那颗标签的 `textInfo.meshInfo.Length ≥ 2`（**要跑 Unity**）—— 线索交调度台。</summary>
     /// <returns>字墨中点（TMP 本地单位的 y）；**一个可见字形都量不到时回 `0f`**（哨兵值不变 ——
     /// ⚠️ 它与「字墨中点恰好是 0」撞车，调用点只打日志、不拿它判存在性）。</returns>

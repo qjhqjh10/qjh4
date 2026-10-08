@@ -258,32 +258,103 @@ public static class IconSetup
         int pc = CardPresentation.CardIcons.PlanCardCount, pi = CardPresentation.CardIcons.PlanItemCount;
         Check(pc > 100 && pi > 200,
               "②b 运行时读计划表：卡 " + pc + " 张 / 记号 " + pi + " 处（`CardIcons`）", ref bad);
-        string da44 = CardPresentation.CardIcons.Rewrite(
-            "DA44", "desc", "Give +3 [Attack], +3 [Armor] or +3 Health to a friendly troop");
-        Check(da44.Contains("<sprite name=\"Melee\">") && da44.Contains("<sprite name=\"Ranged\">")
-              && da44.IndexOf("[Attack]", System.StringComparison.Ordinal) < 0,
-              "②c 换出来了（DA44）：" + da44, ref bad);
+        // ②c 🔴 **2026-10-20（A980）重写：夹具改成【卡池里的真文本】**。
+        //
+        //   **为什么**：原来喂的是一句硬编码的串
+        //   `"Give +3 [Attack], +3 [Armor] or +3 Health to a friendly troop"`，
+        //   而 `[Armor]` / `[Armour]` 这个写法**当前卡池 1126 张里一处都没有**
+        //   （2026-10-20 实扫 `cards_engine.json` 的 `desc` + `descZh`：**0 处**）。
+        //   这条断言要卡面上**同时**出现 Melee 与 Ranged 两枚图标 ⇒ 它测的是一个
+        //   **已经不存在的 token**（`工具/gen_icon_plan.py:187` 那条 `("DA44","[Armor]")`
+        //   因此**匹配不上任何 token**）⇒ **夹具过时**，不是实现缺陷。
+        //   ⚠️ 所以**不能只改期望值**（那只会把一条空转的断言刷绿）—— **夹具要跟着数据走**
+        //      （照 ②i 的写法：拿 `CardDatabase.Load()` 里的真文本，不再另抄一份）。
+        //
+        //   顺带钉住**一条真缺口**（见下面第二条 `Check` 的长注释）。
+        RuleEngine.CardDef da = null;
+        foreach (var c in RuleEngine.CardDatabase.Load())
+            if (c != null && c.Id == "DA44") { da = c; break; }
+        Check(da != null && !string.IsNullOrEmpty(da.Desc),
+              "②c 卡池里取得到 DA44 的 `desc`（夹具不再自己抄一份）", ref bad);
+        string da44 = da == null ? "" : CardPresentation.CardIcons.Rewrite("DA44", "desc", da.Desc);
+        Check(CountOf(da44, "<sprite name=\"Melee\">") == 1
+              && CardPresentation.CardIcons.StripTags(da44).IndexOf("[Attack]", System.StringComparison.Ordinal) < 0,
+              "②c 方括号记号换掉（DA44 **真文本**，`[Attack]` → 拳图标）：" + da44, ref bad);
+        // ★ **已知缺口 · 不是回归**：卡图上是**两枚**图标（拳 + 枪），我们只画了拳。
+        //   亲读 `D:/2/Warpforge部队卡片/Dark Angels/4计策/Warpforge_44_Ancient-Reliquary.png`：
+        //   `Give +3〔粉圈拳〕, +3〔紫圈枪〕 or +3 Health to a friendly troop` ——
+        //   **卡面上没有 `Ranged` 这个词**；而我们的 `desc` 那个位置写的正是**裸词 `Ranged`**、
+        //   计划表里也没有对应项 ⇒ 卡面印出来是 `+3 Ranged`（少一枚枪图标）。
+        //   判据 = 铁律 7（`[Armor]`/`[Armour]` 在 **`+N Attack … +N Armour` 这个固定搭配**里
+        //   就是**枪（远程）**）+ 上面那张成品卡图；**缺口在 `工具/gen_icon_plan.py`，不在本文件**。
+        //   ⚠️ **这一条现在就是红的**（红到那条表项被补上为止）—— 它是**如实上报**，别当新坏的东西。
+        Check(CountOf(da44, "<sprite name=\"Ranged\">") == 1,
+              "★ ②c【已知缺口 A980-c】DA44 卡图上是**两枚**图标（拳 + 枪）、我们只画了一枚："
+              + "`desc` 里那个位置是**裸词 `Ranged`**、计划表无对应项 ⇒ 卡面印成 `+3 Ranged` —— "
+              + "要修的是 `工具/gen_icon_plan.py`。实得：" + da44, ref bad);
         string ash = CardPresentation.CardIcons.Rewrite(
             "ASH_Autarch", "desc", "1 [Spirit Stone]: Give +1 melee, +1 ranged and +1 Health to all your troops");
-        Check(ash.Contains("<sprite name=\"SpiritStone_1\">") && ash.IndexOf("[Spirit Stone]", System.StringComparison.Ordinal) < 0
-              && ash.IndexOf("1 <sprite", System.StringComparison.Ordinal) < 0,
-              "②d 灵魂石：档位数字**连图标一起**换掉（不留多余的 1）：" + ash, ref bad);
+        // 🔴 **2026-10-20 修：这条守卫原来【空转】（改坏了照样绿）。**
+        //    原判据 = `ash.IndexOf("1 <sprite", Ordinal) < 0`，意图是「档位数字已烘在图里
+        //    （`SpiritStone_1`）⇒ 不该再印那个 `1`」。而 `A969` 给图标外面包了一层 `<link=…>`
+        //    之后，**坏结果**产生的是 `1 <link=spiritstone><sprite name="SpiritStone_1">…`
+        //    ⇒ 那个子串**两态都匹配不到**（好结果是 `…</link>: Give …`）—— 守卫没牙。
+        //    实得串（现成日志）：`d:/4/_tmp_view/iconsetup_1020b.log:457`
+        //      = `<link=spiritstone><sprite name="SpiritStone_1"></link>: Give +1 melee, …`。
+        //    🆕 改成 ②i 那一族的写法（**不绑死标签的层数与顺序**，将来补 `<nobr>` 也不会假红）：
+        //      (a) 图标在 —— 数 `<sprite name="SpiritStone_1">` 的**枚数**；
+        //      (b) 记号 `[Spirit Stone]` 没了；
+        //      (c) **冒号前面不许再留数字** —— `StripTags()` 剥掉所有标签后，看 `:` 之前
+        //          那一段里有没有 `0-9`（坏结果剥完是 `1 : Give …` ⇒ 命中 ⇒ 红）。
+        //    🧨 **改坏法**（必须让它红）：把 `Core/CardIcons.cs` 里「数字烘在图里」那一支的第一条
+        //      正则 `@"[0-9]+\s+" + Escape(it.token)` 的 `[0-9]+\s+` 去掉（只换 token、不吃数字）
+        //      ⇒ 实得 `1 <link=spiritstone><sprite name="SpiritStone_1"></link>: Give …`。
+        //      离线复刻两态对照见 `资料/普查产出_1018第三会话/W_卡面残余.md` §③。
+        string ashPlain = CardPresentation.CardIcons.StripTags(ash);
+        int ashColon = ashPlain.IndexOf(':');
+        bool ashNoStrayDigit = ashColon >= 0 && ashPlain.Substring(0, ashColon)
+            .IndexOfAny(new[] { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' }) < 0;
+        Check(CountOf(ash, "<sprite name=\"SpiritStone_1\">") == 1
+              && ash.IndexOf("[Spirit Stone]", System.StringComparison.Ordinal) < 0
+              && ashNoStrayDigit,
+              "②d 灵魂石：档位数字**连图标一起**换掉（剥标签后冒号前不留数字）：" + ash, ref bad);
 
         // ②e **裸关键词**（卡面上真印着的字）：图标是**插在前面**的，词要留着。
         //     一开始按「换掉」处理，卡面只剩一个图标、关键词整串没了（`Lychguard` 实测）。
+        // 🔴 2026-10-20（A980）：**别拿整串全等去比**（那是它过期的原因 —— 现在外面还有一层 `<link>`）。
+        //     照 ②i 的写法：**计图标枚数 + `StripTags()` 之后查词在不在**。
+        //     ⚠️ 再加一条「**link 只包了一层**」：`A969` 那个双层形状
+        //        `<link=remnant><link=remnant><sprite name="remnant"></link>残骸。</link>`
+        //        单看「枚数 1 + 词还在」**判不出来**（两层同 id ⇒ 那两条照样成立）
+        //        ⇒ 必须数 `<link=remnant>` 的出现次数，那才是**两态可分辨**的那一条。
         string ly = CardPresentation.CardIcons.Rewrite("SAU_Lychguard", "descZh", "残骸。装甲 2。");
-        Check(ly.Contains("<sprite name=\"remnant\">残骸。"),
-              "②e 裸关键词：图标插在前、**词留着**：" + ly, ref bad);
+        Check(CountOf(ly, "<sprite name=\"remnant\">") == 1
+              && CountOf(ly, "<link=remnant>") == 1
+              && ly.IndexOf("<sprite name=\"remnant\">", System.StringComparison.Ordinal)
+                 < ly.IndexOf("残骸。", System.StringComparison.Ordinal)
+              && CardPresentation.CardIcons.StripTags(ly).Contains("残骸。"),
+              "②e 裸关键词：图标插在**词前面**、**词留着**、`<link>` **只包一层**：" + ly, ref bad);
 
         // ②f 方括号记号是**换掉**（那是 OCR 占位，卡面上本来就没印那个词）
-        Check(da44.IndexOf("Attack", System.StringComparison.Ordinal) < 0 &&
-              da44.Contains("<sprite name=\"Melee\">,"),
+        // 🔴 2026-10-20（A980）：原来写成 `da44.Contains("<sprite name=\"Melee\">,")` ——
+        //     **过时**：`Rewrite` 给方括号那一支也包了一层 `<link>`，sprite 后面紧跟的是
+        //     `</link>` 而不是逗号（实得 `<sprite name="Melee"></link>,`）。
+        //     改成「计图标枚数 + 剥标签后**查不到那个词**」——
+        //     ⚠️ 词的判据**必须走 `StripTags`**，否则标签自带的名字（`name="Melee"`）自己就把
+        //        `Melee` 命中了；而这里要证的是**卡面上不留 `Attack` 这个字**。
+        Check(CountOf(da44, "<sprite name=\"Melee\">") == 1
+              && CardPresentation.CardIcons.StripTags(da44).IndexOf("Attack", System.StringComparison.Ordinal) < 0,
               "②f 方括号记号：**换掉**、词不留：" + da44, ref bad);
 
         // ②f2 **符号类 token**（`☀` / `①`）—— 那个字符**就是那张图**，要**吃掉**不能留着。
         //     判据：token 首字符不是字母/数字 ⇒ 符号。不判的话卡面变成「图标 + 字符」= 同一个东西两遍。
+        // 🔴 2026-10-20（A980）：原来拿**整串全等**去比 —— 过时（现在外面还有一层 `<link>`，
+        //     实得 `<link=faith><sprite name="faith"></link>：部署一个额外的战斗修女`）。
+        //     照 ②i 的写法改：**图标在 + 那个符号不在了 + 后面的话还在**，三条都要。
         string sun = CardPresentation.CardIcons.Rewrite("SOR67", "desc", "☀：部署一个额外的战斗修女");
-        Check(sun == "<sprite name=\"faith\">：部署一个额外的战斗修女",
+        Check(CountOf(sun, "<sprite name=\"faith\">") == 1
+              && sun.IndexOf('☀') < 0
+              && CardPresentation.CardIcons.StripTags(sun).Contains("：部署一个额外的战斗修女"),
               "②f2 符号 token（`☀`）被**吃掉**、不留在文字里：" + sun, ref bad);
         string circ = CardPresentation.CardIcons.Rewrite("ASH_Farseer", "descZh", "①：给一个友方部队");
         Check(circ.IndexOf("①", System.StringComparison.Ordinal) < 0 &&
@@ -292,9 +363,15 @@ public static class IconSetup
         // ②f3 **数字烘在图里**：`1 Quest Point` 的 `questPoints1` 图上已经印着 1 ⇒ 整串吃掉。
         //     判据是「那个数字就在图名里」（`1` ∈ `questPoints1`），**不是**按 token 名猜
         //     —— 之前只认 `Spirit Stone`，`Quest Point` 会留下「1 Quest Point」纯文本 + 图标。
+        // 🔴 2026-10-20（A980）：原来拿**整串全等**去比 —— 过时（现在外面还有一层 `<link>`，
+        //     实得 `Gain <link=questpoints><sprite name="questPoints1"></link>`）。
+        //     照 ②i 的写法改：**图标在 + 剥标签后 `Quest Point` 与那个 `1` 都没了 + `Gain` 还在**。
         string qp = CardPresentation.CardIcons.Rewrite("DA12", "desc", "Gain 1 Quest Point");
-        Check(qp.IndexOf("Quest Point", System.StringComparison.Ordinal) < 0 &&
-              qp == "Gain <sprite name=\"questPoints1\">",
+        string qpPlain = CardPresentation.CardIcons.StripTags(qp);
+        Check(CountOf(qp, "<sprite name=\"questPoints1\">") == 1
+              && qpPlain.IndexOf("Quest Point", System.StringComparison.Ordinal) < 0
+              && qpPlain.IndexOf("1", System.StringComparison.Ordinal) < 0
+              && qpPlain.Contains("Gain"),
               "②f3 `N Quest Point` 整串被吃掉（数字已在图里）：" + qp, ref bad);
 
         // ②g **幂等** —— 同一份文字会被换两遍（`SetData` 会把同一份 `CardData` 再喂给卡面一次）。
@@ -320,11 +397,18 @@ public static class IconSetup
         //   ⇒ **整枚不画**（`UM89` / `UM_Vico_Therbeus` 的首句原来就是，因为 `Oath abilities`
         //   没有数字没有冒号、句首关键词正则扫不到）。
         //
-        //   ⚠️ **判别式不能写成「结果里含 `<sprite name="oath">Oath`」那种紧贴写法** ——
-        //      2026-09-21 起 `Rewrite` 给裸关键词那条把**图标与词分别**包了 `<link>`
-        //      （`CardIcons.cs:203-205` 与 `:250-253`，图标后面紧跟的是 `</link>` 而不是那个词）。
-        //      ⇒ 拆成两条判据：**(a) 徽记在**（查 `<sprite name="oath">` 的出现**次数**）
-        //                      **(b) 词也留着**（`StripTags` 把标签剥掉之后还查得到那个词）。
+        //   ⚠️ **判别式写成下面 (a) + (b) 这两条**，**别拿整串全等去比**（②e / ②f / ②f2 / ②f3 就是
+        //      因为拿全等比才被 `<link>` 那一层刷红的，2026-10-20 一起改了）：
+        //      **(a) 徽记在**（查 `<sprite name="oath">` 的出现**次数**）
+        //      **(b) 词也留着**（`StripTags` 把标签剥掉之后还查得到那个词）。
+        //      🆕 **2026-10-20（A969）就地更正**：这里原来写着「判别式**不能**写成
+        //         `<sprite name="oath">Oath` 那种紧贴写法，因为 `Rewrite` 把图标与词**分别**包了
+        //         `<link>`、图标后面紧跟的是 `</link>`」—— 🧨 **那句是照【两层 link】的坏形状写的**，
+        //         而两层本身就是 bug（原版只有一层，判据见 `CardIcons.cs` 那条 2026-10-20 注释）。
+        //         修完之后形状 = `<link=oath><sprite name="oath">Oath abilities</link>`，
+        //         与 `CardText.KeywordSegment` / 原版 `TraitNameToString` **同一个形状**（一层）
+        //         ⇒ 「图标紧贴词」**现在成立**（下面 `d.IndexOf(enWord) > iD` 那半句仍然对）。
+        //         但判据**照旧按 (a)+(b) 写** —— 它不绑死标签的层数与顺序，将来补上 `<nobr>` 也不会假红。
         //   🧨 **改坏哪里会让它红**：
         //      · `desc` 改回 `[Oath]` 写法（计划表跟着重跑）⇒ (b) 拿不到那个词 ⇒ 红；
         //      · 把 `gen_icon_plan.py` 的 `BARE_TOKEN_BY_CARD` 里对应那条删掉 ⇒ 次数少 1 ⇒ 红；

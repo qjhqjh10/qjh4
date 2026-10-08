@@ -54,7 +54,11 @@
 //         （如 `EndTurn` 73 条 —— 原版 `ExecuteAction` 里根本没有分支 = no-op）另记 `StageActions`
 //         ⇒ ⛔ **别把这两本账混读成同一件事**（一本是「我们没做」，一本是「原版就没有」）。
 //      🔴 **仍没做的**：教程**表现层**（小提示 / 左右箭头 / 高亮 / 指点光标 / 教学标注 / 跳过钮 /
-//         聊天三档含 `RadioChat` / 音效 / 督军两拍落场 / 五个 `hide*`）与 **`A939` 胜利脚本 13 条**。
+//         聊天**五档**含 `RadioChat` / 音效 / 督军两拍落场 / 五个 `hide*`）与 **`A939` 胜利脚本 13 条**。
+//         🔴 **2026-10-18（A971 第 11 处 · 铁律 5）**：原文写「聊天**三档**」—— **是错的**。
+//         判据 = 原版聊天档共 **五** 个：`50 PlayerChat` · `55 PlayerChatBig` · `60 AiChat` ·
+//         `65 AiChatBig` · `90 RadioMessage`。同族其余 10 处（`Battle/BattleDriver.cs` 9 +
+//         `Battle/UnitChatPanel.cs` 1）已在别的批次改完，本处是全仓最后一处。
 //   ② **教程对局规则** —— ✅ **已进引擎**：不洗牌 / 先手照关卡 / 不起换牌阶段 / 起手卡插牌库顶 /
 //      起始单位落场 / 初始法力（6 关全 0）/ `playerAlwaysWins`（6 关全 false）逐条照做；
 //      参数收在 `GameplayVariables.Tutorial`（`For(GameMode.Tutorial)` 唯一入口）。
@@ -214,7 +218,7 @@ namespace CardPresentation
         /// <para>· `Idx` = 该 SO 的 `tutorialIndex` 字段（实读：UM 0 · Orks 1 · Sautekh 2 · BlackLegion 3 ·
         ///   Aeldari 4 · Leviathan 5）。⚠️ 它**不是**数组下标 —— 本表已按 `tutorialIndex` 升序排好。</para>
         /// <para>· `Deck` = 该 SO 的 `classicDeck` 指过去的那副预组牌（原版资产名，
-        ///   `bundle_prebuiltdecks_assets_all/MonoBehaviour/<Deck>.json`）。</para>
+        ///   `bundle_prebuiltdecks_assets_all/MonoBehaviour/&lt;Deck&gt;.json`）。</para>
         /// <para>· `Hero` = **督军卡 id**。推导链 = 原版资产名里那个督军短名 → 我们卡表里同阵营的**唯一**一个
         ///   名字含该短名的 `hero` 卡。🟢 **独立交叉验证**：第 0 关推出来是 `UM3 Uriel Ventris`，
         ///   而 prefab 出厂原文写的就是 `Warlord: &lt;color=orange&gt;Uriel Ventris&lt;/color&gt;` —— **逐字吻合**。
@@ -222,7 +226,7 @@ namespace CardPresentation
         ///    即「督军卡自己的名字」——本表这一列就是照这条链取的。）</para>
         /// <para>· `Fac` = 阵营（喂 `Warlord Image` 的立绘 + 名单格的徽记）；取的是**督军卡自己的阵营**
         ///   （= `DeckRuntime.FactionIcon` 的键）。</para>
-        /// ⚠️ **原版还有两列本地取不到**（`loreLocalizationKey`：`Demo/UMTutorial` · `Demo/GoffDeckTutorial` ·
+        /// <para>⚠️ **原版还有两列本地取不到**（`loreLocalizationKey`：`Demo/UMTutorial` · `Demo/GoffDeckTutorial` ·
         ///   `Demo/NecronsDeckTutorial` · `Demo/BlackLegionDeckTutorial` · `Demo/AeldariDeckTutorial` ·
         ///   `Demo/LeviathanDeckTutorial`）—— **正文在远端 CCD 的词条表里**（原版客户端连 TextAsset 目录都没有）
         ///   ⇒ 副标题/描述那两行**只有第 0 关有出厂原文**（`Stage1Subtitle`/`Stage1Description`），
@@ -378,7 +382,8 @@ namespace CardPresentation
         /// （全工程 4 扇窗各抄一遍 ⇒ 收成一份）。本窗这一档的**差异**（逐格对照见
         /// `资料/普查产出_1018/S5_A866窗头收口.md` §2）：
         /// · 根名用缺省 `Header With Back Button`；· 标题**走 `FitAfterSpacing`**（字距 → 自适应 → 左对齐）；
-        /// · **没有 `TitleVAlign` 那一档**；· 返回钮 = `QuadOnHeader` + **无换图**（`BackSwapArt` 空）；
+        /// · 🔴 **2026-10-18（三扇标题垂直档漏网）起 `TitleVAlign = Capline`**（原文这里写着「**没有 `TitleVAlign`
+        ///   那一档**」—— 那句**已过期**，铁律 5）；· 返回钮 = `QuadOnHeader` + **无换图**（`BackSwapArt` 空）；
         /// · 底板 / 尖角 / 返回钮的图都走本窗的 `Tex`（带 `MissingArt` 记账）。</remarks>
         void BuildHeader(Transform root)
         {
@@ -392,6 +397,13 @@ namespace CardPresentation
                 // 自适应那两个量**照本窗原来的写法**（`TitleR - TitleL` / `TitleB - TitleT`）——
                 // 别改成 `TitleRect.W/H`：两种写法可能差 1 ulp，而它会静默改自适应结果。
                 TitleFitW = TitleR - TitleL, TitleFitH = TitleB - TitleT,
+                // 🔴 **2026-10-18（三扇标题垂直档漏网）**：补这一档 —— 原版 `Window Title` 那颗 TMP 是
+                //   **`m_VerticalAlignment = 8192`（`Capline`）**（判据：亲读 `bundle_menus_assets_all` 里
+                //   **8 颗 `Window Title` 逐颗现读、逐值相同**）；本窗此前没传 ⇒ 落到 `Label` 出厂的
+                //   `Middle`，是**真差异**（铁律 11：要做）。写法照 `DailyStreakPopup` 那一处。
+                //   ⚠️ `WindowHeader.WithBackButton` 里 `SetVAlign` **排在 `AlignLeft` 之后**（两件事互不
+                //   干涉：一个只动横向、一个只动纵向）—— 与 `DailyStreakPopup` 原来的次序逐句相同。
+                TitleVAlign = Label.VAlign.Capline,
                 WingRect = new PxRect(HdrBg1L, HdrBgT, HdrBg1R, HdrBgB),
                 BackRect = new PxRect(HdrBackL, HdrBackT, HdrBackR, HdrBackB),
                 BackButtonStyle = WindowHeader.BackStyle.QuadOnHeader,
@@ -605,7 +617,7 @@ namespace CardPresentation
         /// <summary>`PlayTutorialButton` + `Button Text`。
         /// 原版链：`TutorialModePopup.BattleButtonOnClick` →
         ///   `MatchMakerManager.StartMatch(…, playMode: 4 /* PlayModes.Tutorial */, PlayerBattleData,
-        ///    playerDeck: 选中那关的预组牌, enemyDeck: 0 (null), …, 5, …)`（`(iVar1>>0x1f & 2)+4`，
+        ///    playerDeck: 选中那关的预组牌, enemyDeck: 0 (null), …, 5, …)`（`(iVar1>>0x1f &amp; 2)+4`，
         ///   实参 `iVar1 ≥ 0` ⇒ **恒为 4**）。
         /// 🔴 **我们打不了**（缺口逐条 → 文件头那一节）⇒ 点了**如实出声**，⛔ 不静默、⛔ 不拿普通局冒充。</summary>
         void BuildPlayButton(Transform root)

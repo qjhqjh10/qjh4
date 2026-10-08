@@ -80,7 +80,7 @@ namespace CardPresentation
         /// 两个后果，都是**看得见的**：① 一旦这几句走 `Loc.T`（中英切换），那些 `==` 比较**全部失效**
         /// （英文档下标题与**开门视频**都会判错）；② 顺带确认 `CardText.Phrase("VICTORY"/"DEFEAT")`
         /// 当年在 `Phrases` 表里**根本没有这两个键** ⇒ 中文档下结算大标题印的是英文 `VICTORY`。
-        /// ⇒ 现在：**状态 = 本枚举**（`Outcome`），**显示文案 = `Loc.T(<原版词条>)`**，两者不再互为依据。</para></summary>
+        /// ⇒ 现在：**状态 = 本枚举**（`Outcome`），**显示文案 = `Loc.T(&lt;原版词条&gt;)`**，两者不再互为依据。</para></summary>
         public enum EndOutcome { None = 0, Victory = 1, Defeat = 2, Draw = 3 }
 
         /// <summary>本局的结局。**没显示时是 <see cref="EndOutcome.None"/>**。

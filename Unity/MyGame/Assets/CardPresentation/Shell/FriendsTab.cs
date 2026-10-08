@@ -74,7 +74,7 @@ namespace CardPresentation
         /// <summary>🔴 **2026-10-18（第七轮）：占位符走词条**（原来是一个写死的英文字面量 `const`）。
         /// <para>键 = 原版那颗 `Placeholder` 的 `Localize.mTerm` 原文 `Demo/FriendsMenu/EnterPlayerName`
         /// （2 颗同键，另一颗在 `Friends Menu Demo`；本窗这一颗的父链 =
-        /// `Placeholder < Text Area < Search Field < Find players panel < Header < Friends Tab` ⇒ **与我们同一条**）。
+        /// `Placeholder &lt; Text Area &lt; Search Field &lt; Find players panel &lt; Header &lt; Friends Tab` ⇒ **与我们同一条**）。
         /// 英文列 = TMP 原文 `Enter player name`；中文列 = 「输入玩家名」(`zh_CN.csv:101` 精确命中)。</para>
         /// <para>⛔ **别改回 `const`** —— 常量跟不了语言（这正是它原来「中文档印英文」的原因）；
         /// 消费点只有 `:158` 那一处 `Text(sf, PlaceholderR, PlaceholderText, …)`。</para></summary>

@@ -49,6 +49,7 @@ public static class NetSelfTest
             TestStatePublishA943(FreePort()); // 🆕 2026-10-18（A943）：连接位与计数**由同一次写发布**
             TestSilentTimeoutReadSideA943();  // 🆕 2026-10-18（A943 读侧）：静默超时**不许分两次读下结论**
             TestPeerTextClampA961(FreePort()); // 🆕 2026-10-18（A961 + 「Send() 静默丢」）：对端可控文本要钳 · 丢包要出声
+            TestOpponentHintA932();            // 🆕 2026-10-18（A932）：排位那扇全屏窗的**提示行**（自建节点）
             TestHostResolve();
             TestAddressAndUpnp();     // 🆕 2026-09-27：地址判据（Teredo/6to4）+ UPnP 纯函数
         }
@@ -877,6 +878,107 @@ public static class NetSelfTest
     }
 
     // ==================================================================
+    //  O2. 🆕 2026-10-18（A932）：排位那条路（全屏 `SearchingOpponentWindow`）的**提示行**
+    // ==================================================================
+    /// <summary>账 `A932`：排位走的是**全屏** `Shell/SearchingOpponentWindow.cs`，而它原来**一行放得下
+    /// 状态话的节点都没有**（只有 `Title` · 两个 `Player Name` · 一颗 `Cancel Match`）⇒ 大厅阶段那几句提示
+    /// （对面掉线 / 离开 / 回来）在那一扇窗上**一个字都看不见**（屏幕上在说假话 = 另一种静默）。
+    ///
+    /// <para>🔴 **判据 = 用户 2026-10-18 拍板「接入」，而原版没有这颗节点** ⇒ 按铁律 3 如实标成
+    /// 「**我们自建的**」：几何（700×148 · `Title` 正下方 · 水平居中）与样式（照同族
+    /// `SearchingMatchPopup` 的 `Main Search message`）**全是我们挑的** —— 全文 → 那扇窗类头那一段。</para>
+    ///
+    /// <para>🔴 **对端文本那一支（A961）**：那句话里可能夹着对端发来的文本（`MsgBye.reason` 那一支，
+    /// `NetMatchmaking.HandleLobbyPeerClosed(why)` 把 `why` 拼进提示），而它**在源头就钳过**
+    /// （`NetSession.ClampPeerText` 是**一处闸**、三个收包入口都在 `NetSession`）⇒ 本节点**不写第二份钳**。
+    /// 下面 **A932⑤** 把「**本节点不做第二道钳**」钉成断言（推一句夹着 60 字「对端文本」的提示，看它原样照收）
+    /// —— ⚠️ 那一条会**顺带触发** `ShowHint` 那条「超过 40 字」的告警，**那是预期的**（它在出声，不是失败：
+    /// 「这行按框放不下」与「钳对端文本」本来就是两件事，见那扇窗类头那一节）。</para>
+    ///
+    /// <para>⚠️ **本宿主是纯逻辑的**（`NetSelfTest` 一行 UI 都不建）⇒ 与 N⑤ 同一条先例：
+    /// **建不出来 ⇒ 如实说、不当失败**（那说明这一格该挪到 `ShellScene` 那种宿主去验）。
+    /// ⚠️ 编辑模式**不派生命周期消息** ⇒ 「`OnEnable` 自动订」那一跳在本宿主验不了（同 N⑤ / 真 Play **D43**）：
+    /// 可验的那半 = **直接走窗自己的公开口** `ShowHint(...)` / `ShowHint(null)`。</para></summary>
+    static void TestOpponentHintA932()
+    {
+        // 🔴 **基线要在建窗【之前】取** —— 取在建窗之后就成了一句同义反复（`HintSubs() == HintSubs()`）。
+        int subsBefore = HintSubs();
+        GameObject go = null;
+        SearchingOpponentWindow win = null;
+        Exception buildErr = null;
+        try
+        {
+            go = new GameObject("A932_OppHintProbe");
+            win = go.AddComponent<SearchingOpponentWindow>();
+            win.Open();                      // = 生产那条路（`WindowsManager.OpenWindow` 会调它）；`Open()` 里就 `Build()`
+        }
+        catch (Exception e) { buildErr = e; win = null; }
+
+        try
+        {
+            if (win == null)
+            {
+                _warn++;
+                Debug.LogWarning("[NetSelfTest] ⚠️ A932 **没验到**：本宿主建不出 `SearchingOpponentWindow` —— "
+                               + (buildErr != null ? (buildErr.GetType().Name + "：" + buildErr.Message) : "返回了 null")
+                               + "。**这不是「通过」也不是「失败」** ⇒ 这一格该挪到 `ShellScene` 那种宿主去验"
+                               + "（它本来就建这扇窗）。");
+                return;
+            }
+
+            var line = FindLabel(win.transform, "Hint Line");
+            Ok(line != null, "A932① 夹具：那颗**提示行**节点（`Hint Line`）建出来了"
+                           + "｜🧨 改坏法：删掉 `Build()` 里那颗 `MenuDraw.Text(… \"Hint Line\" …)` ⇒ 红");
+            if (line == null) return;
+
+            Ok(string.IsNullOrEmpty(line.Text) && string.IsNullOrEmpty(win.HintText),
+               $"A932② 出厂那行是**空的**（还没有任何提示；实得「{line.Text}」）"
+             + "｜🧨 改坏法：给它编一句出厂文案（或让 `Build()` 不清 `HintText`）⇒ 红");
+
+            // ---- ③ / ④：**提示画得出、收得回**（走窗自己的公开口，同 N⑧ 那条口径）----
+            string hint = "对面掉线了，这一局的匹配已经撤销（两边回来各点一次 Battle!）";
+            win.ShowHint(hint);
+            Ok(line.Text == hint && win.HintText == hint,
+               $"★ A932③ **提示落到了那一行上**（实得「{line.Text}」）"
+             + "｜🧨 改坏法：删掉 `SearchingOpponentWindow.ShowHint` 里那句 `_hintLine.SetText(text)` ⇒ 红");
+
+            win.ShowHint(null);
+            Ok(string.IsNullOrEmpty(line.Text) && win.HintText == null,
+               $"★ A932④ `ShowHint(null)`（= `NetMatchmaking.Reset()` 推 `OnHint(null)` 那一支）⇒ **那行收回去**"
+             + $"（实得「{line.Text}」）—— 与 ③ **不同源**：③ 验「来了会画」，这条验「走了会收」"
+             + "（不收 ⇒ 下一局开局时台面上还挂着上一局那句「对面掉线了…」= 说错话）"
+             + "｜🧨 改坏法：删掉 `ClearHint()` 里那句 `SetText(\"\")` ⇒ 红");
+
+            // ---- ⑤：**对端文本那一支**（A961）—— 钳只在 `NetSession` 一处，本节点**不补第二份** ----
+            //   🔴 这一条**不是**在验「钳没钳」（那是 `NetSession` 的账，A961 另有一套自检）；
+            //      它验的是**本节点不做第二道钳** —— 一句 60 字的「对端文本」推上去要**原样**落在那一行上。
+            //      （第一道钳在源头已经做过 ⇒ 真跑到这里时字符串本就 ≤ `MaxPeerTextChars`。）
+            string peerish = new string('长', NetProtocol.MaxPeerTextChars + 20);
+            string withPeer = "联机结束：" + peerish + " —— 这一局的匹配已经撤销";
+            win.ShowHint(withPeer);
+            Ok(line.Text == withPeer,
+               $"★ A932⑤ 提示行**原样照收**（不在本节点做第二道钳）：推 {withPeer.Length} 字 ⇒ 那行拿到 {line.Text.Length} 字"
+             + $"｜🧨 改坏法：在 `ShowHint` 里加一句 `NetSession.ClampPeerText(text)` ⇒ 被截成 "
+             + $"{NetProtocol.MaxPeerTextChars + 1} 字 ⇒ 红（对端文本的钳**只在 `NetSession` 一处**，⛔ 别抄第二份 —— "
+             + "那会把自己写的中文提示也一起截掉）");
+            win.ShowHint(null);
+
+            // ---- ⑥：**环境事实**（同 N⑤）——编辑模式不派 `OnEnable` ⇒ 「开窗自动订」那一跳验不了 ----
+            //   ⚠️ 基线 `subsBefore` 是**建窗之前**取的（见方法开头那道注释）—— 取在之后 = 同义反复。
+            Ok(HintSubs() == subsBefore,
+               $"★ A932⑥【本宿主的环境事实】`Open()` **不会**把本窗挂到 `OnHint` 上（订阅者 {subsBefore} → {HintSubs()}）"
+             + " —— 编辑模式不派 `OnEnable`（`SearchingOpponentWindow.OnEnable`）⇒ 这一跳在本宿主里验不了"
+             + "（真那一跳 = 真 Play，**D43**）"
+             + "；🧨 改坏法：给窗加 `[ExecuteAlways]`（或改由 `Open()` 订）⇒ 订阅者 +1 ⇒ 本条红"
+             + "（那是「环境变了、好消息」，把这档换成「订阅者 +1」那条断言即可）");
+        }
+        finally
+        {
+            if (go != null) UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    // ==================================================================
     //  O. 🆕 2026-10-18（A943）：`TcpTransport` 的两个连接事实**由同一次写发布**
     // ==================================================================
     /// <summary>账 `A943`：`Setup` 原来先 `_connected = true;`（`NetTransport.cs:219`）**再**
@@ -898,7 +1000,7 @@ public static class NetSelfTest
     /// 连接位与计数是**同一个字**的两个位段。
     /// ⚠️ 这不是「测实现细节」：「两个事实一致」在本工程里**只可能**由「一次写」实现
     /// （读侧是两次读，任何两条独立的写都能被夹住）。
-    /// 🧨 改坏法：把两件事拆回两个字段（或让 `IsConnected` 改去读别的东西）⇒ **N④/N⑤ 红**。</para>
+    /// 🧨 改坏法：把两件事拆回两个字段（或让 `IsConnected` 改去读别的东西）⇒ **N④/N⑤ 红**。</para></summary>
     static void TestStatePublishA943(int port)
     {
         var f = typeof(TcpTransport).GetField("_state",
@@ -966,7 +1068,7 @@ public static class NetSelfTest
     ///   （⚠️ **2026-10-18 订正**：原写「P③/P④ 红」—— **本夹具下 P③/P⑥ 是假断言**：它们断 `ClosePeerCalls==0`，
     ///   而 `:247` **第一个合取项** `_t.IsConnected` 一假就短路 ⇒ 把那半句整段删掉它们照样绿。
     ///   这是「**假断言掩护真断言**」的样本 —— 已随夹具一起修，判据见 `ScriptedTransport.Listen` 那段注释）；
-    /// 删同一行的 `Role != NetRole.Host ||` ⇒ **P⑫ 红**（那半边**确实**被测到了）。
+    /// 删同一行的 `Role != NetRole.Host ||` ⇒ **P⑫ 红**（那半边**确实**被测到了）。</summary>
     static void TestSilentTimeoutReadSideA943()
     {
         long clock = 0;

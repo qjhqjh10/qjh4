@@ -85,6 +85,14 @@ check () {                     # $1 = 名字（运行时/编辑器）  $2 = rsp 
     #       混在一起会把真正的格式错淹掉（`head -20` 那 20 行会全是 1591）。
     w="$(echo "$out" | grep -E 'warning CS15[0-9][0-9]' | grep -vc 'warning CS1591')"
     echo "$out" | grep -E 'warning CS15[0-9][0-9]' | grep -v 'warning CS1591' | head -20
+    # 🔴 **2026-10-18（第三会话）：上面那 20 行是【随机 20 条】，⛔ 不能当「全部」用。**
+    #    实测：同一条命令连跑两次，取前 20 条求 md5 = `b06cbbd1…` vs `bb8c6af5…`（**总数两次一样**）
+    #    ⇒ **csc 的告警发射顺序每次跑都不同**，`head -20` 拿到的是**随机样本**。
+    #    代价：本会话就有人拿那 20 行当全集，把 **223 条 / 28 文件读成了 36 条 / 6 文件**。
+    #    ⇒ 下面这条**按文件汇总**（顺序无关）才是全集视图。
+    echo "--- XML doc 告警【按文件汇总 · 全集 · 顺序无关】---"
+    echo "$out" | grep -E 'warning CS15[0-9][0-9]' | grep -v 'warning CS1591' \
+      | sed -E 's/\([0-9]+,[0-9]+\):.*//' | sort | uniq -c | sort -rn
     m="$(echo "$out" | grep -c 'warning CS1591')"
     echo "$1 XML doc 警告数: $w（格式类，不含 CS1591；另有「缺 XML 注释」CS1591 共 $m 条）"
   fi

@@ -498,11 +498,11 @@ namespace RuleEngine
         /// **兑现**在 `RuleCore.PlayCard`（那张牌真打出来的时候，加成随它上场）。
         ///
         /// 🔴 **2026-10-18（`A885`）· 搬走了（铁律 5 的「就地改掉」）**：
-        ///    原来这里放的是 `class HandBuff { Instance; Ops; Source; }` + `List<HandBuff> HandBuffs`
+        ///    原来这里放的是 `class HandBuff { Instance; Ops; Source; }` + `List&lt;HandBuff&gt; HandBuffs`
         ///    —— 一张**对局级**的表，兑现时要 `ReferenceEquals(h.Instance, inst)` 回查。
         ///    原版不是这个形状：效果**长在牌自己身上**（`CardScript.AddEffect(那张牌, cardEffect)`，
         ///    `PlayerHand__SetupCardInHand.c:71` · `PlayerHand__AddHandEffect.c:126-135`，
-        ///    存在 `CardScript +0x108` 的 `List<CardEffect>`），打出时**跟着那张牌上场**
+        ///    存在 `CardScript +0x108` 的 `List&lt;CardEffect&gt;`），打出时**跟着那张牌上场**
         ///    （`RemoveCardFromHand.c:20` 只把牌从 `currentHand` 里摘掉，不销毁不重建）。
         ///    ⇒ 存放处搬到 **`CardInstance.HandEffects`**（每个实例一份；旧名 `HandBuffOps` 等
         ///      四个标量现在是**只读兼容视图**），**这里不再有那张表**。
@@ -583,11 +583,67 @@ namespace RuleEngine
         /// </summary>
         public CardInstance NewInstance(CardDef card)
         {
-            return new CardInstance(card, _nextInstanceId++);
+            var inst = new CardInstance(card, _nextInstanceId++);
+
+            // 🆕 2026-10-18（`A985④`）**「这份牌是谁造出来的」** —— 见下面 `_createdBy` 那一段。
+            //   `ActingUnit` 优先（每次 op 都 save/restore，出了结算必为 `null` ⇒ 它是**结算中**的
+            //   可靠信号；这个「先 `ActingUnit` 再 `PlayingCard`」的次序是照本仓既有口径 ——
+            //   `EffectResolver.cs:4117` / `:7234` 两处就是同一个写法）；
+            //   战术卡那条路 `source` 是 `null`（`EffectResolver.cs:1119` 传的是
+            //   `ResolveOps(ctx, p, null, …)`）⇒ 靠 `PlayingCard`（`ResolveOps` 入口 + **`NotePlayed`
+            //   那一刻**写的那张卡，见 `NotePlayed` 里那段注释）。
+            //   ⚠️ 只在**有来源**时盖章：开局那几处（初始牌库 / 督军 / 起手 / 防御卡）跑在任何
+            //   `ResolveOps`/`NotePlayed` 之前 ⇒ 来源是 `null` ⇒ 不盖章（与原版一致：那几条路从不设 `createdBy`）。
+            var creator = ActingUnit != null ? ActingUnit.Card : PlayingCard;
+            if (creator != null) _createdBy[inst.Id] = creator;
+
+            return inst;
         }
 
         /// <summary>本局已经发出去几份（报表 / 断言用；它等于「发过的最大编号」）。</summary>
         public int InstanceCount { get { return _nextInstanceId - 1; } }
+
+        // ---- 🆕 2026-10-18（`A985④`）「这张牌是谁造出来的」 -----------------------------
+        //
+        //  原版把这件事记在**牌自己身上**：`CardScript.createdBy { get; set; }`
+        //  （`Assembly-CSharp/CardScript.cs:1518`，实例字段 = `+0x268`，类型 = **`CardScript`**）。
+        //  写点**只有三处**，全是「有东西把它造出来」的那一刻：
+        //    · `BattleManager__AddNewCardToHand.c` —— 效果造一张牌**进手牌**（`param_3` = 造它那张卡）
+        //    · `BattleManager__AddNewCardToDeck.c` —— 效果洗一张牌**进牌库**（同上）
+        //    · `BattleManager._ResolveSummonUnit_d__510__MoveNext.c:112` —— **召唤**出来的单位
+        //      （`*(summoned + 0x268) = *(param_1 + 0xf8)`）
+        //  ⇒ **三处的来源都是「正在结算的那张卡」**（`AbilityLogic__PlayAbility.c` 传的是技能属主
+        //    那张卡；`CardScript__ProcessCompanion.c` 传的是它自己）—— 这就是本条取
+        //    `ActingUnit` / `PlayingCard` 当来源的依据。
+        //
+        //  🔴 **消费面只有一处**：`BattleCardUI.DisplayCreatedByText`（卡面那行小字）→
+        //    `SupportMethods.GetCreatedByText(创建者卡名)` =
+        //    `GetTranslation("Battle/HUD/CreatedBy").Replace("{0}", 名字)`
+        //    （`SupportMethods__GetCreatedByText.c`）⇒ 显示层要的只是**创建者的本地化卡名**。
+        //
+        //  🔴 **为什么记在对局表上、而不是 `CardInstance` 上加一位**（形态是这一条的选择，理由写死）：
+        //    本笔的白名单只开到 `BattleContext.cs` / `UnitState.cs`（`Core/CardInstance.cs`
+        //    不在这笔活的范围内，那边 2026-10-18 刚被 `A885`/`A886` 动过）。键 = `CardInstance.Id`
+        //    （**每局从 1 起、同种子同序号、可复现** ⇒ 这张表不引入新的不确定性）。
+        //    ⚠️ 与「别在对局表上重建一份」那条教训**不冲突**：那条说的是**已有住所**的字段
+        //       （手牌效果在 `CardInstance.HandEffects`）不许再抄一份；这一项**本来就没有住所**。
+        //    ⛔ 将来若把这一位搬上 `CardInstance`（更贴原版），**要连同这一段一起搬**，别两处各存一份。
+        readonly Dictionary<int, CardDef> _createdBy = new Dictionary<int, CardDef>();
+
+        /// <summary>这一份牌是**谁造出来的** —— 原版 `CardScript.createdBy` 的对应物。
+        /// `null` = 不是被造出来的（初始牌库 / 抽到的牌 / 督军…）。</summary>
+        public CardDef CreatedByOf(CardInstance inst)
+        {
+            if (inst == null) return null;
+            CardDef src;
+            return _createdBy.TryGetValue(inst.Id, out src) ? src : null;
+        }
+
+        /// <summary>这一份牌是不是**被造出来的**（显示层判据用；原版是 `creator != null`）。</summary>
+        public bool HasCreatedBy(CardInstance inst) { return CreatedByOf(inst) != null; }
+
+        /// <summary>这局一共有几份牌「有来源」（自检 / 排查用；这张表本身不参与指纹与录像）。</summary>
+        public int CreatedByCount { get { return _createdBy.Count; } }
 
         // ---- 🆕 2026-10-18（`W4` 整改 · 审查问题 6）「同一次手牌效果挂载」的记录号 ----
 
@@ -927,6 +983,21 @@ namespace RuleEngine
                 Tactic = tactic,
                 Seq = PlayedSeq,
             });
+
+            // 🆕 2026-10-18（`A985④`）**顺手把 `PlayingCard` 刷成刚打出的这张** ——
+            //  「这张牌是谁造出来的」（<see cref="CreatedByOf"/>）在**出牌那一刻**要它。
+            //  为什么必须在这儿刷（而不是只靠 `ResolveOps` 入口那句）：打出**单位卡**时，
+            //  `RuleCore.PlayCard` 里紧接着就造东西（`SpawnTideCopies` 造潮涌复制品 `:1750`、
+            //  `PlayCompanions` 造伴生卡 `:1929`），而**那一刻还没进任何 `ResolveOps`**
+            //  ⇒ 只靠入口那句的话，`PlayingCard` 还停在**上一张**结算的卡上 = 会把来源记错
+            //  （静默写错一个名字）。
+            //  🔴 **原版就是这么传的**：`BattleManager.AddNewCardToHand(…, param_3 = creator, …)`
+            //  的调用者里，`CardScript__ProcessCompanion.c` 传**它自己**、`AbilityLogic__PlayAbility.c`
+            //  传**技能属主那张卡** ⇒ 「刚打出/正在结算的那张卡」正是同一个东西。
+            //  ⚠️ **不改变任何既有读者**：`PlayingCard` 现在的读点全在 op 里，而 `ResolveOps`
+            //  入口**每次都覆写**它（含写成 `null`）⇒ 这一句在它们之前就被顶掉了
+            //  （`EffectResolver.cs:50` 是唯一另一处写点，语义不变）。
+            PlayingCard = inst != null ? inst.Card : null;
         }
 
         /// <summary>

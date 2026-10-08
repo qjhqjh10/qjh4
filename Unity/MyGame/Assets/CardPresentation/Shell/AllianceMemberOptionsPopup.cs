@@ -160,7 +160,7 @@ namespace CardPresentation
         // ============================================================ 🔴 **2026-10-18（第十一轮）：四颗钮的文案走词条**
 
         /// <summary>一颗钮的节点名 → 它在 `Loc` 表里的**键**（= 原版那颗 `Button Text` 的 `Localize.mTerm` 原文；
-        /// 本批按 pid 亲读，父链 = `Button Text < {Promote,Demote,Kick,Quit} < Buttons < Member Options Panel`
+        /// 本批按 pid 亲读，父链 = `Button Text &lt; {Promote,Demote,Kick,Quit} &lt; Buttons &lt; Member Options Panel`
         /// ⇒ **节点名与我们 `Buttons[i].Node` 逐字相同**）。**`null` = 这个名字没有词条**。</summary>
         /// <para>🔴 **其余四颗（`Challenge` / `Add as a friend` / `Profile` / `Debug Add Skulls`）返回 `null`，这是对的**：
         /// 本批把 `bundle_menus_assets_all` 里 `SocialMenu/Alliances/*` 的 `mTerm` **全表列了一遍（共 21 条）**，

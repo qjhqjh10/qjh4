@@ -903,37 +903,74 @@ public static class DeckScene
                       "阈值：零位移 ⇒ 走 `Vector2.Angle` 里那道 `kEpsilonNormalSqrt`（1e-15）守卫、返 0 ⇒ 不是滚动");
 
             // ---- ④ 链路：起拖 → 预览显形 + 跟指针 → 松手投递 + 关预览 ----
-            //  ⚠️ 起拖点取**第 2 行**的格子（y ≈ 763），这样水平往左拖一路都还在落点栏的 y 区间里。
-            const int Cell = 6;                    // 第 2 行第 1 格
+            //  ⚠️ 起拖点必须落在**第 2 行**（`cy ≈ 763.5`）：第 1 行 `cy ≈ 358.5` 差 2.5px 就进不了落点栏
+            //     （y 360.97..1010.03）、第 3 行 `cy ≈ 1168.5` 已在屏幕外 ⇒ **只有第 2 行那六格**
+            //     既能起拖、松手又落在栏里。
+            //  🔴 **2026-10-18（`A994③`）**：这六格里**挑一张「贴图比例离 220/330 最远」的**当探针 ——
+            //     原版那颗 `Image` 是 `m_PreserveAspect = 1`（**按贴图自己的比例内接**），
+            //     内接尺寸 = `132 × 132/比例`（宽定）或 `198×比例 × 198`（高定）；
+            //     比例越靠近 220/330，「内接」与「拉满」算出来越接近 ⇒ 挑到那种卡背时下面那两条**会空转**
+            //     （本仓 233 张卡背里确有 11 张落在 0.652~0.667 这个窄带）。
+            //     ⛔ 别退回写死一格：写死哪一格就等于赌哪一张卡背的比例，赌输就是「假绿」。
+            int Cell = -1;
+            float expW = 0f, expH = 0f, probeAspect = 0f, probeD = 0f;
+            for (int i = 6; i < 12 && i < names.Length; i++)
+            {
+                var tx = rt.UiCosmeticTex(names[i]);            // 与建格**同一条**会出声的取值路
+                if (tx == null || tx.height <= 0) continue;
+                float s = tx.width / (float)tx.height;
+                float iw = 132f, ih = 198f;                     // 外接框 132×198 里**内接**之后的两维
+                if (s > 220f / 330f) ih = 132f / s; else iw = 198f * s;
+                float dd = Mathf.Max(Mathf.Abs(iw - 132f), Mathf.Abs(ih - 198f));
+                if (dd > probeD) { probeD = dd; Cell = i; expW = iw; expH = ih; probeAspect = s; }
+            }
+            CheckTrue(Cell >= 0 && probeD > 3f,
+                      $"（前提）第 2 行里挑得到一张「内接 ≠ 拉满」的探针 —— 第 {Cell + 1} 格 · 贴图比例 "
+                    + $"{probeAspect:0.####} · 两种算法差 {probeD:0.##}px"
+                    + "（差 ≤ 3px 说明本节那两条会**空转** ⇒ 这一条先红，⛔ 别放它过去）");
+            if (Cell < 0) return;
             float cx6, cy6;
-            CheckTrue(rt.UiCosmeticCellCenter(Cell, out cx6, out cy6), "（前提）第 7 格在这一屏里");
+            CheckTrue(rt.UiCosmeticCellCenter(Cell, out cx6, out cy6), $"（前提）第 {Cell + 1} 格在这一屏里");
+            const float DropX = 240.1f;         // 落点栏（x 0.25..335.56）里的一点 —— ⛔ 别写成 `cx6 − 常量`
             float cx0 = 330.23f + (1589.78f - 6f * 250f) * 0.5f + 250f * 0.5f;   // 第 1 行第 1 格中心
             float cy0 = 155.97f + 405f * 0.5f;
-            // 先把装备状态设到**另一张**，下面那条「换成了第 7 张」才不是碰巧
+            // 先把装备状态设到**另一张**，下面那条「换成了第 N 张」才不是碰巧
             CheckTrue(rt.UiClickCosmetic(cx0, cy0, true), "④ **右键装备那条路仍然好**（原版主力路 `OnCosmeticClick`：右键按下就装备）");
             Check(rt.EquippedCardback, names[0], "……右键点第 1 格 ⇒ 装备的是第 1 张");
             CheckTrue(!rt.UiCosmeticDragging, "（前提）此刻不在拖");
 
-            CheckTrue(rt.UiCosmeticDragBegin(cx6, cy6, cx6 - 260f, cy6),
+            CheckTrue(rt.UiCosmeticDragBegin(cx6, cy6, DropX, cy6),
                       "起拖：**纯水平**位移（180°）⇒ 起拖（竖向才会被判成滚动）");
             CheckTrue(rt.UiCosmeticDragging, "……`dragging` 立起来了（原版 `SetDraggable` 那句 `dragging = true`）");
             CheckTrue(rt.UiCosmeticPreviewActive, "★ 起拖那一拍预览**显形**（原版 `OnBeginDrag` 第一件事 = `gameObject.SetActive(true)`）");
             {
-                // 预览**画出来**的框 = 原版 布局框 250×405 × `m_LocalScale` 0.6 = **150×243**
+                // 预览**画出来**的框 = 原版 `Collection Cosmetic > content > Image_…` 那颗 `Image`
+                //   的 `sizeDelta` **220×330** × `m_LocalScale` 0.6 = **外接框 132×198**；
+                //   🔴 **画出来 ≠ 外接框** —— 那颗 `Image` 带 **`m_PreserveAspect = 1`** ⇒ 真画出来的是
+                //   **按贴图自己的比例内接进 132×198**（uGUI `Image.PreserveSpriteAspectRatio`）。
+                // 🔴 **2026-10-18（`A994③`）就地订正**：`A944` 那轮把 `m_PreserveAspect = 1` 读成
+                //   「比例就取 220/330」（= **拉满**）⇒ 下面两条当时钉的是**旧错值 132×198**。
+                //   口径/判据全文 → `Core/DraggableController.cs` 的 `CosmeticPreview.PreserveAspectSize`。
                 float x1, y1, x2, y2;
                 CheckTrue(UnionQuadsPx(rt.UiCosmeticPreviewGo.transform, out x1, out y1, out x2, out y2),
                           "（前提）预览那一棵能量出渲染矩形");
-                CheckNear(x2 - x1, 150f, 0.5f, "★ 预览**画出来**的宽 = **150**（= 布局框 250 × `m_LocalScale` 0.6）");
-                CheckNear(y2 - y1, 243f, 0.5f, "★ ……高 = **243**（= 405 × 0.6）");
+                CheckNear(x2 - x1, expW, 0.5f,
+                          $"★ 预览**画出来**的宽 = **{expW:0.##}**（探针第 {Cell + 1} 格的贴图比例 "
+                        + $"{probeAspect:0.####} ⇒ 与外接框 132×198 内接之后的那一维）"
+                        + "｜🧨 改坏法：删掉 `CosmeticPreview.Initialize` 里那跳 `PreserveAspectSize`"
+                        + "（= 回到「拉满 132×198」）⇒ 红");
+                CheckNear(y2 - y1, expH, 0.5f,
+                          $"★ ……高 = **{expH:0.##}**（同上；**拉满那一档恒为 198**）"
+                        + "｜🧨 改坏法：同上");
             }
-            rt.UiCosmeticDragMove(cx6 - 260f, cy6);
+            rt.UiCosmeticDragMove(DropX, cy6);
             {
                 float px2, py2;
                 CheckTrue(rt.UiCosmeticPreviewCenter(out px2, out py2), "（前提）能读预览中心");
-                CheckNear(px2, cx6 - 260f, 0.5f, "★ 预览**跟着指针**（x）—— 原版 `OnDrag` 那一跳");
+                CheckNear(px2, DropX, 0.5f, "★ 预览**跟着指针**（x）—— 原版 `OnDrag` 那一跳");
                 CheckNear(py2, cy6, 0.5f, "★ ……（y）");
             }
-            CheckTrue(rt.UiCosmeticDragEnd(cx6 - 260f, cy6),
+            CheckTrue(rt.UiCosmeticDragEnd(DropX, cy6),
                       "落点在那一栏**里** ⇒ **投递了**（原版 `OnEndDrag` 在 `hovered` 上找到 `IDropHandler<CosmeticItem>`）");
             Check(rt.EquippedCardback, names[Cell], $"……装备换成了第 {Cell + 1} 张（{names[Cell]}）");
             CheckTrue(!rt.UiCosmeticPreviewActive, "★ 松手那一拍预览**关回去**（原版 `OnEndDrag` 第一件事 = `SetActive(false)`）");
@@ -2338,7 +2375,7 @@ public static class DeckScene
             // 🔴 **2026-10-04 订正（R-W4 F1/F2）** —— 两句措辞原来都太宽：
             //   ① **「必现页」是 `Cosmetics`，不是 `Cards`**：真实指针链是
             //      `HandlePoolClick → HandleDeckRowClick → HandleCosmeticClick → HandleButtons`
-            //      （`DeckRuntime.cs:1606-1610`，`HandleButtons` 是**最后一站**），而那两片矩形
+            //      （上面那条链就在 `DeckRuntime.cs` 里，`HandleButtons` 是**最后一站** —— ⛔ 按【符号】认，别抄行号），而那两片矩形
             //      **整片落在卡组列表里**（x 0.4..325.4 · y 366..1010.1）⇒
             //        · **Cosmetics 页（必现）**：`_tab==2` ⇒ `HandleDeckRowClick`（`:1634` 要求 `_tab==0`）
             //          早退、`HandleCosmeticClick`（`:1159` 要求 `_tab==2`）只管 x ≥ `CosmoX` 那一片
@@ -2877,6 +2914,68 @@ public static class DeckScene
                 CheckTrue(_rt.CosmoCellShown >= 24, $"一屏至少铺 24 格（实铺 {_rt.CosmoCellShown}）");
                 Check(_rt.CosmoCellTex(0), names[0], "第 1 格 = 字典序第一张卡背");
 
+                // ---- ★ 实绘尺寸：卡背格**画出来多大**（🆕 2026-10-18 · 补 `A994③` 的缺口）----
+                // 🔴 **为什么单开这一组**：上面那六条只钉了**框**（250×405）与视口常量（1589.78…），
+                //    **一条也量不到「真画出来多大」** ⇒ 上一批把 `SetAspect(250/405)`（= **拉伸**）
+                //    换成「**按贴图自己的比例内接**」（原版那一格 `Cardback Container > Cardback` 的
+                //    `Image` 带 `m_PreserveAspect = 1`；实现 = `CosmeticPreview.PreserveAspectSize`）
+                //    之后，**卡背格这一处在断言上无牙** —— 改回拉伸照样全绿。这一组堵这个口。
+                // 🔴 **期望值怎么现算**（⛔ **不调** `PreserveAspectSize`）：**直接调它 = 自证**
+                //    —— 它就是把被测的那条算式，拿去当期望值，它自己算错时期望值跟着一起错 ⇒ 照样绿。
+                //    这里只用两条**独立真值**：① **贴图自己的 `width/height`**（`Resources/Art/cardbacks/`
+                //    那 233 张 PNG 的像素尺寸，实测比例 **0.6188~0.7652**）② 框常量 250×405；
+                //    算式逐句照 uGUI `Image.PreserveSpriteAspectRatio`（`Image.cs`，本机现读）：
+                //    贴图比框「更宽」⇒ **宽定、高缩**，否则**高定、宽缩**。
+                {
+                    _rt.UiScrollCosmetics(-1e6f);      // 回顶（本节下面那几条点击也是按「滚到顶」算坐标的）
+                    Check(_rt.CosmoScrollPx, 0f, "（前提）卡背网格在顶 —— 探针格与后面的点击都按这一屏算");
+                    // 选靶：**不写死格号** —— 贴图比例越大的那张，「内接」与「拉满」差得越远，
+                    //   写死一格 = **赌那张卡背的比例**，赌输（例如落到 0.6188~0.667 那条窄带里）
+                    //   这两条就**空转**、看着绿其实什么都没查。同时**跳过被视口切过的格** ——
+                    //   裁切之后量到的不是「它该画多大」（判据用**内接之后**的矩形，不是外接框）。
+                    int cbProbe = -1;
+                    float cbS = 0f, cbExpW = 0f, cbExpH = 0f, cbDev = 0f;
+                    for (int cbI = 0; cbI < names.Length; cbI++)
+                    {
+                        float cbPcx, cbPcy;
+                        if (!_rt.UiCosmeticCellCenter(cbI, out cbPcx, out cbPcy)) continue;   // 不在这一屏里
+                        var cbTx = _rt.UiCosmeticTex(names[cbI]);   // 与建格**同一条**会出声的取值路
+                        if (cbTx == null || cbTx.height <= 0) continue;
+                        float cbRatio = cbTx.width / (float)cbTx.height;                      // 贴图自己的比例
+                        bool cbWide = cbRatio > 250f / 405f;                                  // 贴图比框「更宽」？
+                        float cbEw = cbWide ? 250f : 405f * cbRatio;                          // 宽定 / 高定
+                        float cbEh = cbWide ? 250f / cbRatio : 405f;
+                        // 视口 = `CosmoView`（上六条刚核过：155.97 / 924.06）—— 内接后的矩形露出去了就跳过
+                        if (cbPcy - cbEh * 0.5f < 155.97f || cbPcy + cbEh * 0.5f > 155.97f + 924.06f) continue;
+                        float cbD = Mathf.Abs(cbEh - 405f);                                   // 「内接」离「拉满」多远
+                        if (cbD > cbDev) { cbDev = cbD; cbProbe = cbI; cbS = cbRatio; cbExpW = cbEw; cbExpH = cbEh; }
+                    }
+                    CheckTrue(cbProbe >= 0 && cbDev > 3f,
+                              $"（前提）挑得到一格「内接 ≠ 拉满」的探针 —— 第 {cbProbe + 1} 格 · 贴图比例 "
+                            + $"{cbS:0.####} · 两种算法差 {cbDev:0.##}px"
+                            + "（差 ≤ 3px 说明下面两条**空转** ⇒ 这一条先红，⛔ 别放它过去）");
+                    if (cbProbe >= 0
+                        && _rt.UiQuadRect("cosm_cell" + cbProbe, out float cbMx, out float cbMy,
+                                          out float cbMw, out float cbMh))
+                    {
+                        // 实测 233 张的比例**全部 > 250/405 = 0.61728** ⇒ 一律走**宽定**那一支
+                        //   （宽仍是 250、高缩成 `250 ÷ 比例`）。
+                        CheckNear(cbMw, cbExpW, 0.5f,
+                                  $"★ 卡背格**画出来**的宽 = **{cbExpW:0.##}**（第 {cbProbe + 1} 格 · 框 250×405 · "
+                                + $"贴图比例 {cbS:0.####} ⇒ **宽定** ⇒ 宽就是框宽）"
+                                + "｜🧨 改坏法：把 `Deck/DeckRuntime.cs` 的 `RefreshCosmetics` 里那跳 "
+                                + "`CosmeticPreview.PreserveAspectSize` 删掉、退回 `SetAspect(250/405)` ⇒ 下一条红");
+                        CheckNear(cbMh, cbExpH, 0.5f,
+                                  $"★ ……高 = **{cbExpH:0.##}** = 250 ÷ 贴图比例（**拉满那一档恒为 405**，与它差 "
+                                + $"{cbDev:0.##}px）｜🧨 改坏法：同上（这一条就是那处改动的**唯一**看门人）");
+                        // 🔴 **灭自证**：这一条与上一条**结构上不可能同时被「拉伸」那种实现满足** ——
+                        //   拉伸时宽**确实**是 250（上面那条照样绿），但高恒等于 405 ⇒ 本条红。
+                        CheckTrue(cbMh < 405f - 1f,
+                                  $"★ 灭自证：实绘高 {cbMh:0.##} **严格小于**框高 405（拉伸那种实现恒等于 405 ⇒ 红）");
+                    }
+                    else CheckTrue(false, $"（前提）第 {cbProbe + 1} 格量得到渲染矩形（`cosm_cell{cbProbe}`）");
+                }
+
                 // ---- 右键装备 / 左键不做事（原版 `DeckEditingWindow__OnCosmeticClick.c:26`）----
                 CheckTrue(string.IsNullOrEmpty(_rt.EquippedCardback),
                           $"起手**没装备过**（原版 `CardDeck.cardbackId` 出厂是空串，实得「{_rt.EquippedCardback}」）");
@@ -2931,6 +3030,53 @@ public static class DeckScene
                 CheckTrue(_rt.UiClickCosmetic(cx0, cy0, true), "右键点第 1 格：命中");
                 Check(_rt.EquippedCardback, names[0], "……而且**装备上了**（原版 `editingDeck.cardbackId = item.GetID()`）");
                 Check(_rt.CosmeticDrawerTex, names[0], "侧栏抽屉那张图跟着换成**装备的那张**");
+
+                // ---- ★ 实绘尺寸：侧栏抽屉那张**画出来多宽**（同上，这两处此前**一条都量不到实绘**）----
+                //   口径与上面那组**逐条相同**（⛔ **不调** `PreserveAspectSize` —— 那是被测实现本身，
+                //   直接调它 = 自证）：真值 = **贴图自己的 `width/height`** · 框 = 侧栏那张
+                //   `Sidebar/Deck Details/Cosmetic Drawer` 的 **335.31×400**（`DeckRuntime` 的
+                //   `DrawerW`/`DrawerH`）。实测 233 张比例 **0.6188~0.7652，全部 < 335.31/400 = 0.83828**
+                //   ⇒ 一律走**高定**那一支：高定住 400、宽缩成 `400 × 比例`。
+                {
+                    // 选靶：挑**比例最小**那张（宽缩得最多 ⇒「内接 ≠ 拉满」差得最远）；⛔ 别写死一张
+                    //   （写死 = 赌它的比例，赌输这两条就空转）。
+                    string drName = null;
+                    float drS = 0f, drExpW = 0f, drDev = 0f;
+                    foreach (var drTxName in names)
+                    {
+                        var drTx = _rt.UiCosmeticTex(drTxName);       // 与建格**同一条**会出声的取值路
+                        if (drTx == null || drTx.height <= 0) continue;
+                        float drRatio = drTx.width / (float)drTx.height;
+                        bool drWide = drRatio > 335.31f / 400f;
+                        float drEw = drWide ? 335.31f : 400f * drRatio;
+                        float drD = Mathf.Abs(drEw - 335.31f);
+                        if (drD > drDev) { drDev = drD; drName = drTxName; drS = drRatio; drExpW = drEw; }
+                    }
+                    CheckTrue(drName != null && drDev > 3f,
+                              $"（前提）挑得到一张「内接 ≠ 拉满」的探针卡背 —— `{drName}` · 比例 {drS:0.####} · "
+                            + $"两种算法差 {drDev:0.##}px（差 ≤ 3px ⇒ 下面两条空转）");
+                    CheckTrue(!string.IsNullOrEmpty(drName) && _rt.EquipCardback(drName),
+                              "（夹具）把抽屉那张换成探针卡背 —— 走**生产那条路** `EquipCardback`"
+                            + "（与右键装备、拖拽投递是同一个口）");
+                    Check(_rt.CosmeticDrawerTex, drName,
+                          $"……抽屉画的确实是它（`FitDrawerBack` 那一跳就是挂在换图之后的）｜实得 {_rt.CosmeticDrawerTex}");
+                    CheckTrue(_rt.UiQuadRect("cosm_drawer", out float drCx, out float drCy,
+                                             out float drW, out float drH),
+                              "（前提）侧栏那张量得到渲染矩形");
+                    CheckNear(drW, drExpW, 0.5f,
+                              $"★ 抽屉**画出来**的宽 = **{drExpW:0.##}** = 400 × 贴图比例（框 335.31×400 · "
+                            + $"贴图比例 {drS:0.####} ⇒ **高定**）"
+                            + "｜🧨 改坏法：把 `DeckRuntime.FitDrawerBack` 里那跳 "
+                            + "`CosmeticPreview.PreserveAspectSize` 删掉、退回 `SetAspect(335.31/400)` ⇒ 红");
+                    CheckNear(drH, 400f, 0.5f,
+                              "★ ……高 = 框高 400（高定那一支；**拉满那一档宽恒为 335.31**）｜🧨 改坏法：同上");
+                    // 🔴 **灭自证**：与上一条**结构上不可能同时被「拉伸」满足** —— 拉伸时宽恒等于
+                    //    335.31，而比例那一维（这里 = 宽）压根没缩 ⇒ 本条红。
+                    CheckTrue(drW < 335.31f - 1f,
+                              $"★ 灭自证：实绘宽 {drW:0.##} **严格小于**框宽 335.31（拉伸那种实现恒等于 335.31 ⇒ 红）");
+                    // ⚠️ 下面「换一格（第 2 行第 3 列 = 第 9 格）」那一拍会**再右键换回 `names[8]`**
+                    //   ⇒ 本节末尾 `Done` 后落盘的仍是 `names[8]`（那条断言靠它），本夹具不改它的结论。
+                }
 
                 // 换一格（第 2 行第 3 列 = 第 9 格）—— 验「行列反算」不是碰巧对
                 float cx8 = 330.23f + (1589.78f - 6f * 250f) * 0.5f + 250f * 2.5f;

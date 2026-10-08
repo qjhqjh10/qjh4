@@ -681,8 +681,16 @@ namespace CardPresentation
             public Label.VAlign? TitleVAlign;
             /// <summary>`Header Background (1)`（往左延伸的尖角）。</summary>
             public PxRect WingRect;
-            /// <summary>尖角那一颗的**节点名**。缺省 <see cref="WindowHeader.WingName"/>；
-            /// ⚠️ `LiveOpsEventWindow` 今天沿用 `MenuDraw.Nine` 的缺省名 **`"Nine"`**（见 §5 的差异清单）。</summary>
+            /// <summary>尖角那一颗的**节点名**。缺省 <see cref="WindowHeader.WingName"/>（= `"Header Background (1)"`）。
+            /// <para>🔴 **2026-10-18（A994① · 铁律 5 订正）**：原文（留痕）写着「⚠️ `LiveOpsEventWindow` 今天沿用
+            /// `MenuDraw.Nine` 的缺省名 **`"Nine"`**（见 §5 的差异清单）」—— **那半句已不成立**：`A967` 把
+            /// `Shell/LiveOpsEventWindow.cs` 的 `Spec` 里那一行 `WingName = "Nine",` **删掉了**
+            /// （原版那颗尖角本名就是 `Header Background (1)`，判据 = 本常量那份 `menu_dump` 实读；
+            /// 当年那一行是照**改前的实现行为**（`MenuDraw.Nine` 不传名）抄的，属于**与原版不符**）。
+            /// ⇒ **四扇都用共件缺省 `Header Background (1)`，今天没有哪一扇用它覆盖**；
+            /// 本字段**留给将来真出现差异的窗**（今天谁写 = 与缺省同值，等于没写）。</para>
+            /// <para>⚠️ 断言侧：`Header Background (1)` 那颗由 `Editor/MainMenuScene.cs` 逐窗钉
+            /// （教程窗 / 遭遇战（`LiveOpsEventWindow` 家族） / 能源活动窗各一条，期望值写**字面量**、⛔ 不读本字段）。</para></summary>
             public string WingName = WindowHeader.WingName;
             public PxRect BackRect;
             public BackStyle BackButtonStyle = BackStyle.QuadOnHeader;

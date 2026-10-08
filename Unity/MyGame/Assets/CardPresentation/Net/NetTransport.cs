@@ -45,7 +45,7 @@ namespace CardPresentation.Net
         /// 🔴 它与 `IsConnected` **由同一次写发布**（A943）—— 见 `TcpTransport` 里 `_state` 那段。
         /// ✅ **读侧也闭环了**（2026-10-18，同一条账 A943）：接口本身仍是两次读（`NetSession.Pump`
         ///    先读这个数、再读 `IsConnected`），但**要「两个事实一致」的那处已经补了确认**
-        ///    —— 落点 `NetSession.cs:247`（`_t.IsConnected && (Role != NetRole.Host || _t.AcceptedCount == _lastAccepted)`；
+        ///    —— 落点 `NetSession.cs:247`（`_t.IsConnected &amp;&amp; (Role != NetRole.Host || _t.AcceptedCount == _lastAccepted)`；
         ///    那半句只对主机成立 —— 客机的 `_lastAccepted` 没人写）。
         ///    ⚠️ 新代码要用这两个事实判事，**照那一处抄**，别自己分两次读就下结论。</summary>
         int AcceptedCount { get; }

@@ -1818,7 +1818,7 @@ namespace CardPresentation
         /// ```
         /// :42  iVar6 = InventoryManager.GetOwnedCount(card)                  // 拥有数
         /// :51  iVar7 = GameplayVariablesData.GetMaxCopiesInDeck(…, card 的两格)   // 卡组上限
-        /// :54  if (iVar6 < iVar7) iVar7 = iVar6;      // 🔴 **就是 min(拥有, 上限)**
+        /// :54  if (iVar6 &lt; iVar7) iVar7 = iVar6;      // 🔴 **就是 min(拥有, 上限)**
         /// :72  {0} = Enumerable.Count(当前编辑中卡组里这张卡有几张)
         /// :76  String.Format("{0}/{1}", …)            // 格式串 = DAT_18426de28（= `{0}/{1}`）
         /// ```
@@ -2075,8 +2075,24 @@ namespace CardPresentation
                 }
                 if (q == null) continue;
                 q.transform.localPosition = Pos(cx, cy);
-                q.SetTexture(tex);
-                q.SetAspect(CosmoCellW / CosmoCellH);       // 与收藏窗那一页**同一条**（那页也这么压）
+                q.SetTexture(tex);                          // ⚠️ 单参重载：这一句**会把 `_aspect` 冲成贴图自己的比例**
+                // 🔴 **2026-10-18（`A994③`）· 就地订正（铁律 5）**：这里原来写死
+                //   `SetAspect(CosmoCellW / CosmoCellH)`（= 250/405 = **0.61728**）—— 那是**拉伸**。
+                //   原版那一格 `Cardback Container > Cardback` 的 `Image` 带 **`m_PreserveAspect = 1`**
+                //   ⇒ 要**按贴图自己的比例内接**进 250×405 的框（口径/判据全文 → `CosmeticPreview.PreserveAspectSize`，
+                //   本仓**唯一**一份；⛔ 别在这里另写一条算式）。
+                //   ⚠️ 实测 `Resources/Art/cardbacks/` 那 **233** 张：宽高比区间 **0.6188~0.7652**、
+                //   **233 张全部 > 0.61728** ⇒ **一律宽定**（宽仍是 250、高缩成 `250 ÷ 比例`）。
+                //   例：`Cardback_AM_Shield of Humanity`（707×981，比例 0.72069）⇒ 高 **346.9**（原来画 405，
+                //   竖向多 58.1px = 拉了 17%）；偏离最大的 `Cardback_All_Premium4`（707×924）⇒ 高 **326.73**。
+                //   ⚠️ **顺序不能反**：`SetTexture`（会冲掉比例）→ 内接算 `(cw, ch)` → `SetWorldHeight` → `SetAspect`
+                //   （`WorldW = WorldH × _aspect` ⇒ 两句都要在内接算完之后）。
+                float ccw, cch;
+                if (CosmeticPreview.PreserveAspectSize(tex, CosmoCellW, CosmoCellH, out ccw, out cch))
+                {
+                    q.SetWorldHeight(U(cch));
+                    q.SetAspect(ccw / cch);
+                }
                 _cosmNames[vi] = names[idx];
             }
             ApplyCosmCellVisibility();
@@ -2113,7 +2129,7 @@ namespace CardPresentation
                                                    U(DrawerH), new Vector2(0.5f, 0.5f), "cosm_drawer");
                 if (_cosmDrawerBack != null)
                 {
-                    _cosmDrawerBack.SetAspect(DrawerW / DrawerH);
+                    FitDrawerBack(back);                 // 🔴 `m_PreserveAspect = 1` ⇒ 内接，⛔ 不是拉伸
                     _cosmDrawerBack.SetRenderQueue(QSide + 1);
                     _cosmOnly.Add(_cosmDrawerBack.gameObject);
                     RefreshTabVisibility();          // 刚建的这件要立刻按页签定显隐
@@ -2121,14 +2137,33 @@ namespace CardPresentation
             }
             if (_cosmDrawerBack != null && back != null)
             {
-                _cosmDrawerBack.SetTexture(back);
-                _cosmDrawerBack.SetAspect(DrawerW / DrawerH);
+                _cosmDrawerBack.SetTexture(back);        // ⚠️ 单参重载：会先把 `_aspect` 冲成贴图比例
+                FitDrawerBack(back);                     // 🔴 换图之后**必须再内接一次**（这一跳不能省）
             }
             if (_cosmDrawerName != null)
                 _cosmDrawerName.SetText(string.IsNullOrEmpty(State.Deck.CardbackId)
                                         ? "默认卡背（没选过）" : State.Deck.CardbackId);
             // ⚠️ `Empty Collection Warning` 的显隐**不在这里** —— 它是 `_cosmOnly` 的一员，
             //    由 `RefreshTabVisibility` 一处判（两处各写一次迟早不一致）。
+        }
+
+        /// <summary>把侧栏「已装备」那张按**贴图自己的比例内接**进 `DrawerW×DrawerH` ——
+        /// 原版那颗 `Image` 带 **`m_PreserveAspect = 1`**（口径/判据全文 → `CosmeticPreview.PreserveAspectSize`）。
+        /// <para>🔴 **2026-10-18（`A994③`）**：这里原来两句都是 `SetAspect(DrawerW / DrawerH)`
+        /// （= 335.31/400 = **0.83828**）—— 那是**拉伸**。实测 `Resources/Art/cardbacks/` 那 233 张
+        /// 比例 **0.6188~0.7652**，**全部 &lt; 0.83828** ⇒ 一律**高定**、宽缩成 `400 × 比例`
+        /// （例 `Cardback_AM_Shield of Humanity` 707×981 ⇒ **288.28**×400，原来画 335.31 宽 ⇒ 横向拉宽 16%）。</para>
+        /// ⚠️ **换图之后必须再调一次**：`ImageQuad.SetTexture` 的**单参**重载会把 `_aspect` 冲成新贴图的比例
+        /// （`WorldW = WorldH × _aspect` ⇒ 不补这一步就是**静默**画错比例）。
+        /// 取不到贴图 / 尺寸为 0 ⇒ 返回 `false`、⛔ **不改几何**（同 `PreserveAspectSize` 的口径）。</summary>
+        bool FitDrawerBack(Texture2D tex)
+        {
+            if (_cosmDrawerBack == null) return false;
+            float w, h;
+            if (!CosmeticPreview.PreserveAspectSize(tex, DrawerW, DrawerH, out w, out h)) return false;
+            _cosmDrawerBack.SetWorldHeight(U(h));        // ⚠️ 先改高、再拉比例 ⇒ `WorldW = WorldH × _aspect`
+            _cosmDrawerBack.SetAspect(w / h);
+            return true;
         }
 
         /// <summary>督军 id → 阵营（取「默认卡背」要它）。查不到返回空串。</summary>
@@ -2213,7 +2248,12 @@ namespace CardPresentation
         //  · **预览本体** = 它的子节点 `Collection Cosmetic`（GO −6967555497338671324，
         //    **出厂 `m_IsActive: false`**）· RT 3595378309407108900 = **250×405 · `m_LocalScale` 0.6** ·
         //    anchor(0,1) · pos(75,−121.5) ⇒ 绝对矩形 **[943.59,444.50]–[1193.59,849.50]** ·
-        //    **视觉框 = 布局框 × 0.6 = 150×243**（`menu_rect.py` 两处互证）
+        //    🔴 **2026-10-18（A944）就地更正**：原来这里写「**视觉框 = 布局框 × 0.6 = 150×243**」——
+        //    **错了**：`Collection Cosmetic` 只是**容器**，它下面还有两层
+        //    `content`（`sizeDelta` **0×0** · anchor 0,0→1,1 撑满）> `Image_−6633270251387818204`
+        //    （`sizeDelta` **220×330** · anchor 居中 · ap (0,0.5) · `m_Type=0` · **`m_PreserveAspect=1`**）
+        //    ⇒ **画出来的那一格 = 220×330 × 0.6 = `132×198`**（外框的 250×405 从来不是那张图）。
+        //    我们原先拿外框当图 ⇒ 画成 150×243（**宽 18 · 高 45**）—— 这条就是 A944。
         //  · **落点那一栏** = `Sidebar/Deck Details`（GO −1322417011089150172）·
         //    绝对矩形 **[0.25,360.97]–[335.56,1010.03]**（335.31×649.06）—— **上面挂着原版那个
         //    `IDropHandler<CosmeticItem>` 的 `DeckEditingPanel`**（MB −2895006486255833308，
@@ -2227,7 +2267,14 @@ namespace CardPresentation
         //    （**[993.59,525.50] 100×100**，**是 `Card Display` 的兄弟** —— 不在 `Card Display` 里）；
         //    子件 = 拖影卡行 `Deck Selector Card Info button`（**287.9 × 55.7**，出厂 INACT）
         const float DragNodeX = 993.59f, DragNodeY = 525.50f, DragNodeW = 100f, DragNodeH = 100f;
-        const float PrevW = 250f, PrevH = 405f, PrevScale = 0.6f;      // 视觉框 = 150×243
+        /// <summary>`Collection Cosmetic` 自己的布局框 + 它烤的 `m_LocalScale`（原版实读 250×405 · 0.6）。
+        /// ⚠️ **它是容器、不是那张图** —— 里面还有 `content` > `Image_…`（见 <see cref="CosmImgW"/>）。</summary>
+        const float PrevW = 250f, PrevH = 405f, PrevScale = 0.6f;
+        /// <summary>🆕 **2026-10-18（A944）**：`Collection Cosmetic > content > Image_−6633270251387818204`
+        /// 里**那颗 `Image` 自己的 `sizeDelta`** = **220×330**（原版实读；`m_Type=0` Simple ·
+        /// **`m_PreserveAspect=1`** ⇒ 它的宽高比就是 **220/330**）。
+        /// 🔴 **它才是「画出来那一格」的尺寸** ⇒ 画出来 = 220×330 × `PrevScale` 0.6 = **132×198**。</summary>
+        const float CosmImgW = 220f, CosmImgH = 330f;
         // 预览起手（= 还没拖过）时那个静态矩形，原版实读 [943.59,444.50]–[1193.59,849.50]
         const float PrevX1 = 943.59f, PrevY1 = 444.50f, PrevX2 = 1193.59f, PrevY2 = 849.50f;
         const float DropFieldX = 0.25f, DropFieldY = 360.97f, DropFieldW = 335.31f, DropFieldH = 649.06f;
@@ -2277,12 +2324,28 @@ namespace CardPresentation
             float pcx = (PrevX1 + PrevX2) * 0.5f, pcy = (PrevY1 + PrevY2) * 0.5f;
             _cosmPreviewGo = NewGo("cosm_preview");
             _cosmPreviewGo.transform.SetParent(_cosmDragNode.transform, false);
-            // 预览本体：**视觉框 = 250×405 × 0.6 = 150×243**（`SetAspect(250/405)` + 高 243 ⇒ 宽 150）
-            var quad = ImageQuad.Create(_cosmPreviewGo.transform, CardArt.Solid(), Pos(pcx, pcy),
-                                        U(PrevH * PrevScale), new Vector2(0.5f, 0.5f), "cosm_preview_img");
+            // 🆕 **2026-10-18（A944）**：原版是**三层**（`Collection Cosmetic` > `content` > `Image_…`）
+            //   ⇒ 补建中间那一层 `content`。它的**原版参数**：`sizeDelta` **0×0** · anchor **0,0→1,1**
+            //   （= **撑满父件**）· 自己**不挂任何图** ⇒ **视觉零影响**（⛔ **别拿它当判据**；
+            //   建它只为「原版有的就照原版结构做」）。
+            //   ⚠️ 它和父件一样摆在这棵树的**原点**：`ImageQuad.Create` 那批助手把一个**局部**位置
+            //   直接写进 `go.transform.localPosition` ⇒ 「父件在原点」是它们的既有前提。
+            var contentGo = NewGo("content");
+            contentGo.transform.SetParent(_cosmPreviewGo.transform, false);
+            // 预览本体：原版那颗 `Image` 的 `sizeDelta` = **220×330** · `m_LocalScale 0.6`
+            //   ⇒ **外接框 = 132×198**。🔴 **2026-10-18（`A994③`）就地订正**：原来这里写「**画出来 = 132×198**」——
+            //   把「外接框」当成了「真画出来的矩形」。那颗 `Image` 还带 **`m_PreserveAspect = 1`**
+            //   ⇒ 真画出来的是**按贴图自己的比例内接进 132×198**（例：`Cardback_AM_Shield of Humanity`
+            //   707×981 ⇒ **132×183.16**，比拉满矮 14.84px）。
+            //   这一跳的实现在 `Core/DraggableController.cs` 的 `CosmeticPreview.Initialize`
+            //   （`PreserveAspectSize`，本仓唯一一份口径）—— 本处只负责建「外接框」，
+            //   `BindView` 之后由它按**真图**改。⚠️ 预览出厂就 `SetActive(false)`（下面那句），
+            //   所以这里摆成外接框**不会被人看见**；⛔ 别把本处这跳当成「比例已经对了」。
+            var quad = ImageQuad.Create(contentGo.transform, CardArt.Solid(), Pos(pcx, pcy),
+                                        U(CosmImgH * PrevScale), new Vector2(0.5f, 0.5f), "cosm_preview_img");
             if (quad != null)
             {
-                quad.SetAspect(PrevW / PrevH);
+                quad.SetAspect(CosmImgW / CosmImgH);     // = 外接框比例（出厂占位；`Initialize` 会按真图内接）
                 quad.SetRenderQueue(QDragPreview);
             }
             _cosmPreview = _cosmPreviewGo.AddComponent<CosmeticPreview>();
@@ -2340,7 +2403,7 @@ namespace CardPresentation
         ///  `dump.cs:537620` —— 而它**正是 `Vector2.Angle` 内部那道除零守卫**）；
         /// `cos = Clamp(dot/(|a||b|), −1, 1)`（两个常量实读 = −1 / 1）；
         /// `deg = Acos(cos) * 57.2958`（= `Mathf.Rad2Deg`）；
-        /// `return deg &gt; 60 && deg &lt; 120`（`_DAT_1834b30c0` = **60** · `_DAT_1834b3268` = **120**）。
+        /// `return deg &gt; 60 &amp;&amp; deg &lt; 120`（`_DAT_1834b30c0` = **60** · `_DAT_1834b3268` = **120**）。
         /// ⇒ 整条 = **`Vector2.Angle(dragInput, Vector2.right) ∈ (60°, 120°)`**（`Vector2.Angle` 自带那道守卫，
         /// 逐行等价 ⇒ 直接用公共件，不自己再写一遍 acos）。</para>
         /// <para>语义：位移与**水平轴**的夹角落在 60°~120°（= 竖向为主）⇒ 判成**滚动**，**不起拖**；
@@ -2382,9 +2445,9 @@ namespace CardPresentation
         /// 射线命中那一件 **+ 它的整条祖先链**（`HandlePointerExitAndEnter`，`…/InputModules/BaseInputModule.cs:291`，
         /// `m_SendPointerHoverToParent` 默认 `true`，同文件 `:45`）。
         /// <para>本仓没有 uGUI 射线 ⇒ 判据 = **落点在不在 `Deck Details` 那一栏的矩形里**
-        /// （原版那个 `IDropHandler<CosmeticItem>` 的 `DeckEditingPanel` 就挂在那一件上；
+        /// （原版那个 `IDropHandler&lt;CosmeticItem&gt;` 的 `DeckEditingPanel` 就挂在那一件上；
         ///  它任一子孙命中都等价于「落点在这一栏里」）⇒ 命中了就把本对象（= 我们那个 panel）放进去。
-        /// 落在别处 ⇒ **空表** ⇒ 松手什么都不发生（原版同：在对面的卡池区上松手不装备）。</summary>
+        /// 落在别处 ⇒ **空表** ⇒ 松手什么都不发生（原版同：在对面的卡池区上松手不装备）。</para></summary>
         void CollectHovered(Vector2 px, List<GameObject> dst)
         {
             if (Root == null) return;
@@ -4495,7 +4558,18 @@ namespace CardPresentation
             return true;
         }
 
-        /// <summary>预览件画出来的**宽高（设计 px）**—— = 布局框 250×405 × `m_LocalScale 0.6` = **150×243**。
+        /// <summary>预览件画出来的**宽高（设计 px）**—— 🔴 **不是 132×198**：
+        /// 132×198 是**外接框**（`Image_…` 的 `sizeDelta` **220×330** × `m_LocalScale 0.6`）；
+        /// 真画出来的是**按贴图自己的比例内接进那个框**之后的两维。
+        /// <para>🔴 **2026-10-18（A944）更正**：原来这里写「布局框 250×405 × 0.6 = **150×243**」—— **错了**：
+        /// 250×405 是**外框 `Collection Cosmetic`**（容器），那颗 `Image` 自己只有 220×330
+        /// （判据全文 → `BuildCosmeticDrag` 上头那一段）。</para>
+        /// <para>🔴 **2026-10-18（`A994③`）再更正**：`A944` 那一轮把上面的 132×198 当成了「画出来的矩形」，
+        /// 其实它只是**外接框** —— 原版那颗 `Image` 还带 **`m_PreserveAspect = 1`**
+        /// ⇒ 实绘 = **按贴图比例内接进 132×198**（半高定/宽定由贴图比例说了算；实现 →
+        /// `Core/DraggableController.cs` 的 `CosmeticPreview.Initialize` / `PreserveAspectSize`）。
+        /// 例：`Cardback_AM_Shield of Humanity` 707×981 ⇒ **132×183.16**。
+        /// ⚠️ 本口量的是**当前这一拍**的实绘值（起拖前预览是关着的，量到的还是出厂占位那一份）。</para>
         /// ⚠️ 量的是 `ImageQuad` 自己那两格（`WorldW` / `WorldH`），不是 `localScale`（本工程没有继承缩放）。</summary>
         public bool UiCosmeticPreviewSize(out float w, out float h)
         {
@@ -4510,7 +4584,7 @@ namespace CardPresentation
         /// 自检拿它与 prefab 实读的数对账。`[0]` = 节点 100×100 左上、`[1]` = 预览布局框左上。</summary>
         public Vector4 DragNodeRectPx { get { return new Vector4(DragNodeX, DragNodeY, DragNodeW, DragNodeH); } }
         public Vector4 PreviewLayoutRectPx { get { return new Vector4(PrevX1, PrevY1, PrevX2 - PrevX1, PrevY2 - PrevY1); } }
-        /// <summary>`Sidebar/Deck Details` 那一栏（= 原版挂着 `IDropHandler<…>` 的 `DeckEditingPanel` 那一件）。</summary>
+        /// <summary>`Sidebar/Deck Details` 那一栏（= 原版挂着 `IDropHandler&lt;…&gt;` 的 `DeckEditingPanel` 那一件）。</summary>
         public Vector4 DropFieldRectPx { get { return new Vector4(DropFieldX, DropFieldY, DropFieldW, DropFieldH); } }
         /// <summary>起拖音 cue 名（原版那一格 `AudioCue` 的名字，反查出来的）。</summary>
         public string DragCueName { get { return DragCue; } }
@@ -5735,7 +5809,11 @@ namespace CardPresentation
         {
             string why;
             if (State.TryAdd(def, out why)) { MarkDeckDirty(); RefreshAll(); Say("已加入：" + CardText.Name(def.Name, def.NameZh)); }
-            else Say(Loc.T(why));
+            // 🔴 **2026-10-18（A985①）**：`State.TryAdd` 的 `out why` **现在已经是人话**了
+            //   （`DeckEditorState.TryAdd` 里头自己过了一遍 `Loc.T(DeckRules.Describe(e))`）——
+            //   ⛔ 这里**不许再包一层** `Loc.T`：那会把一句中文当成键去查表 ⇒ 查不到 ⇒ 原样返回 +
+            //   **记一次 `Loc.MissingCount` + 出一条「语言表里没有这个词条」的假告警**（静默坏账）。
+            else Say(why);
         }
 
         /// <summary>🆕 **2026-10-12（A363）**：**标脏 + 刷界面** —— 突变只走这一条，**不落盘**。

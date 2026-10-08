@@ -89,9 +89,19 @@ public static partial class RuleEngineTest
             var extra2 = Unit("Extra2", 0, 1, 1);
             ctx.Players[0].Hand.Add(ctx.NewInstance(extra2));
             int extra2Idx = ctx.Players[0].Hand.Count - 1;
-            CheckCode(RuleCore.CanPlayCard(ctx, 0, extra2Idx, 3), RuleCodes.ErrSlot,
-                      "★ **两侧都满** ⇒ 打不出去（原版这一步靠调用方事先筛，我们返回 `ErrSlot`）");
-            CheckCode(RuleCore.CanPlayCard(ctx, 0, extra2Idx, 5), RuleCodes.ErrSlot,
+            // 🔴 **2026-10-18（第三会话）就地订正（铁律 5）**：这两条原来钉的是 `RuleCodes.ErrSlot` ——
+            //    **那是「拆码前」的值**，现在**必红**。`A985⑧` 第二步把 `ErrSlot` 拆成三档：
+            //      · `ErrSlot`（=3）**只剩「参数非法 / 越界」**这一层意思；
+            //      · 「棋盘放不下」（= 本块这一支：**两侧都满**）现在返回 `ErrNotEnoughRoom`（=19）
+            //        —— `RuleEngine/Core/RuleCore.cs:1366` 的 `!BoardSlots.HasRoomFor(ps, slot)` 那一格；
+            //      · 「要选目标的卡一个合法目标都没有」返回 `ErrNoTargetAvailable`（=18，与本块无关）。
+            //    判据 = **原版** `BattleManager__CanPlayCard.c:104-120`：`MinionManager.IsAvailableSlot`
+            //    为假（棋盘满）⇒ `Battle/Tips/NotEnoughRoom` —— 即原版本来就**按因分档**，
+            //    「两侧都满」对的就是 `NotEnoughRoom` 这一支，⛔ 不是笼统的 `ErrSlot`。
+            CheckCode(RuleCore.CanPlayCard(ctx, 0, extra2Idx, 3), RuleCodes.ErrNotEnoughRoom,
+                      "★ **两侧都满** ⇒ 打不出去（原版这一步靠调用方事先筛，我们返回 `ErrNotEnoughRoom`"
+                    + " —— 判据 = `CanPlayCard.c:104-120` 那支 `NotEnoughRoom`）");
+            CheckCode(RuleCore.CanPlayCard(ctx, 0, extra2Idx, 5), RuleCodes.ErrNotEnoughRoom,
                       "…请求右侧同理");
         }
 

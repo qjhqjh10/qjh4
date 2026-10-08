@@ -87,7 +87,7 @@ namespace CardPresentation
         }
 
         Bubble _player, _enemy;
-        /// <summary>🆕 2026-10-18（`A940` 尾账 · 聊天三档）：**第三颗气泡 `RadioChat`**
+        /// <summary>🆕 2026-10-18（`A940` 尾账 · 聊天五档）：**第三颗气泡 `RadioChat`**
         /// （原版 `UnitsVoiceLinesPanel/Unit Chat/RadioChat`）。
         /// 🔴 **判据 = 序号 2**：`VoiceLinesController__ShowRadioMessage.c` →
         ///    `UnitsVoiceLinesPanel__ShowChatBox(panel, **2**, data)`；而

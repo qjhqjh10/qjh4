@@ -188,7 +188,14 @@ public static class ShellScene
     /// <para>🆕 **2026-10-16（A844 · 跨文件那一半）**：这一族今天**收口到本文件**——
     /// `Editor/DeckScene.cs` 的 `TextMeshRectPx` 与本函数的**同名同契约**（逐句同算法，只差它一直传
     /// `includeInactive: true`）、`Editor/CollectionScene.cs` 的 `TextExtentPx`（扫子树 + 数顶点）
-    /// 都已退化成**转调**。**有意不收**的同族与各自原因 = <see cref="SpanOfTmp"/> 的 doc（⛔ 别硬并）。</para></summary>
+    /// 都已退化成**转调**。**有意不收**的同族与各自原因 = <see cref="SpanOfTmp"/> 的 doc（⛔ 别硬并）。</para>
+    /// <para>🔴 **2026-10-18（A990）现核：这条量法只在 16:9 自洽。** 内层走的是 `LayoutSpace.ToPixel`，
+    /// 而它的 **x** 在非 16:9 下**不是** `LayoutSpace.FromPixel` 的逆（差 `VisibleWidth / DesignWidth` 倍：
+    /// 4:3 = **0.75** · 21:9 = **1.3125**），本工程**建件**走的却是 `FromPixel` ⇒ 非 16:9 下量出来的 px
+    /// 与「原版设计 px」**不在同一套坐标里**。
+    /// ⚠️ **12 个自检宿主全都把 `cam.aspect` 钉成 `DesignAspect`** ⇒ 既有读数一条都不受影响（= 本尺子在
+    /// 今天的全部用法上都对）；⛔ **别在非 16:9 的断言里拿它当判据**。
+    /// 算式 / 偏量表 /「同一族还有哪些读口没收口」→ `Shell/MenuDraw.cs` 的 `PixelOfDesign` 与本文件 §⑤·d-5（A990）。</para></summary>
     internal static bool TmpSpanPx(Label lb, out float minX, out float minY, out float maxX, out float maxY,
                                    bool includeInactive = false)
     {
@@ -1702,6 +1709,119 @@ public static class ShellScene
                           + "｜⛔ 它不是「比字号」：量的是渲染网格的顶点跨度，不是 `Label.WorldW`");
             }
             Object.DestroyImmediate(tg);
+        }
+
+        // ---------------- ⑤·d-5 🆕 **2026-10-18（A990）**：`ClipQuad` 的 x 往返在【非 16:9】下必须闭合
+        //
+        // 🔴 **判据** = 原版 uGUI 只有【一条】世界↔画布 px 的换算（`RectTransform`）；本工程这一条 =
+        //   `LayoutSpace.FromPixel` —— 建件（`MenuDraw.Local` / `RectCenter`）用的就是它 ⇒
+        //   「把这个角夹到框沿」夹到的**必须是画面里那条框沿**。
+        // 🔴 **病灶**（A990 原文）：写回走 `FromPixel`（x 用**实测** `VisibleWidth`）、读回走 `ToPixel`
+        //   （x **写死 108px/世界单位**）⇒ 两条只 **16:9** 重合，别的宽高比下差 `VisibleWidth / DesignWidth` 倍。
+        //   算式（`px` = 设计 px · `w` = 世界 x）：
+        //     写 `w = (px / 1920 − 0.5) × VisibleWidth` · 读 `px' = 960 + 108 × w`
+        //     ⇒ 往返倍率 = `108 × VisibleWidth / 1920` = `VisibleWidth / DesignWidth` = `aspect ÷ (16/9)`
+        //     ⇒ 16:9 **1.0000（闭合）** · 4:3 **0.75** · 21:9 **1.3125**
+        //   ⇒ 4:3 上「贴着框外左沿的角」会被**放过去**（画到框外）；21:9 上「框内近左沿的角」会被**误夹**。
+        // 🔴 **两态**：**非 16:9（4:3 / 21:9）= 旧实现红** · **16:9 = 旧实现也过（= 零回归的对照档）**。
+        //   ⚠️ **建 UI 的自检宿主一律在「建树之前」把 `cam.aspect` 钉成 `DesignAspect`** ⇒ 这一条**只能自己把
+        //   aspect 摆成非 16:9**，摆完**必须还原**（本场景余下的几何全是按 16:9 建的：位置/尺寸在建的那一刻算一次）。
+        // ⚠️ 探针**绕开 `Label`/TMP**（字形落在哪由字体度量定、控不住）：直接调公共件 `MenuDraw.ClipQuad`
+        //   喂四个**由 `FromPixel` 造出来**的角 —— 那正是「建件那条换算」造出来的形状。
+        // ⚠️ 期望值 = `FromPixel(Clamp(设计 px))`（**建件那一条换算**给的），⛔ **不从被测实现读**（灭自证）。
+        Section("★ A990：`ClipQuad` 的 x 往返在非 16:9（4:3 · 21:9）下闭合（判据 = `FromPixel` 的逆）");
+        {
+            var a990Cam = LayoutSpace.Cam;
+            CheckTrue(a990Cam != null, "（前提）`LayoutSpace.Cam` 在（`VisibleWidth` 由它给；不在 ⇒ 本节等于没验）");
+            if (a990Cam != null)
+            {
+                var a990Back = a990Cam.aspect;
+                var a990Host = new GameObject("A990 ClipQuad Probe");   // 无父件 ⇒ 局部坐标 = 世界坐标（探针直接喂世界点）
+                // 框**故意摆得偏左**（框心 800 < 画布中心 960）：两条换算的偏差正比于「离画布中心有多远」
+                var a990Box = new PxRect(600f, 200f, 1000f, 600f);
+                // 探针的 x（设计 px）：框外左 40 · **贴着框外左沿的 560** · **框内近左沿的 640** · 框内 950 · 框外右 1400
+                //（下面那道 γ 另用 640 / 680）。
+                //   ⚠️ 560 与 640 是**有意挑的鉴别点**（推导写在报告里）：4:3 只有 560 那一条会红、
+                //   21:9 只有 640/680 那一条会红 —— 两个档各有一处牙口，且都不是「按结果凑出来的数」。
+                //   y 一律 260 / 540（**整条落在框的 200..600 里**）⇒ 本节只考 x 那一半（y 本来就闭合）。
+                float[] a990T = { 40f, 560f, 640f, 950f, 1400f };
+                try
+                {
+                    foreach (float asp in new[] { 4f / 3f, 21f / 9f, LayoutSpace.DesignAspect })
+                    {
+                        a990Cam.aspect = asp;
+                        float ratio = LayoutSpace.VisibleWidth / LayoutSpace.DesignWidth;
+                        bool isDesign = Mathf.Abs(asp - LayoutSpace.DesignAspect) < 1e-4f;
+                        if (isDesign)
+                            CheckNear(ratio, 1f, 1e-4f,
+                                      "（对照档 16:9）`VisibleWidth / DesignWidth` = 1 ⇒ 两条换算在这一档**重合**"
+                                      + "（本节余下几条在这一档也必须过 —— 那就是「改动只动非 16:9」的证明）");
+                        else
+                            CheckTrue(Mathf.Abs(ratio - 1f) > 0.1f,
+                                      $"（前提）宽高比 {asp:F4} 下 `VisibleWidth / DesignWidth` = {ratio:F4} —— **偏离 1 超过 10%**"
+                                      + "（≈1 就说明这一档已经是 16:9 ⇒ 两条换算重合 ⇒ 本节没有鉴别力）");
+                        // 探针**本来就跨在框的两侧**（字面量判的，不经过任何换算）⇒ 下面那条不是「全在框内」的空断言
+                        int nOut = 0, nIn = 0;
+                        float worst = 0f, worstOld = 0f;
+                        foreach (float t in a990T)
+                        {
+                            if (t < a990Box.x1 || t > a990Box.x2) nOut++; else nIn++;
+                            // 角序 **BL · TL · TR · BR**（公共件的口径）：左沿 = t、右沿 = t + 40
+                            var p = new Vector3[4];
+                            p[0] = LayoutSpace.FromPixel(t, 540f);
+                            p[1] = LayoutSpace.FromPixel(t, 260f);
+                            p[2] = LayoutSpace.FromPixel(t + 40f, 260f);
+                            p[3] = LayoutSpace.FromPixel(t + 40f, 540f);
+                            var uv = new Vector2[] { new Vector2(0f, 0f), new Vector2(0f, 1f),
+                                                     new Vector2(1f, 1f), new Vector2(1f, 0f) };
+                            MenuDraw.ClipQuad(a990Host.transform, p, uv, a990Box, Vector2.zero, null);
+                            // 期望值：**夹在设计 px 空间里**，再经建件那条换算换回世界（⛔ 不读被测实现）
+                            float wantL = LayoutSpace.FromPixel(Mathf.Clamp(t, a990Box.x1, a990Box.x2), 0f).x;
+                            float wantR = LayoutSpace.FromPixel(Mathf.Clamp(t + 40f, a990Box.x1, a990Box.x2), 0f).x;
+                            float d = Mathf.Max(Mathf.Max(Mathf.Abs(p[0].x - wantL), Mathf.Abs(p[1].x - wantL)),
+                                                Mathf.Max(Mathf.Abs(p[2].x - wantR), Mathf.Abs(p[3].x - wantR)));
+                            if (d > worst) worst = d;
+                            // 只打数、不判（A990 的牙口有多大）：**旧读法**（`LayoutSpace.ToPixel` 的 x）会把同一个角
+                            //   判到哪个世界 x 上。⚠️ 全局把 `ToPixel` 收口成同一条换算的那天这个数会变 0 ——
+                            //   那时本节**照旧有效**（期望值走的是 `FromPixel`）⇒ 所以它不该被断死。
+                            float wReal = LayoutSpace.FromPixel(t, 0f).x;
+                            float oldPx = LayoutSpace.ToPixel(new Vector3(wReal, 0f, 0f)).x;
+                            worstOld = Mathf.Max(worstOld,
+                                Mathf.Abs(LayoutSpace.FromPixel(Mathf.Clamp(oldPx, a990Box.x1, a990Box.x2), 0f).x - wantL));
+                        }
+                        CheckTrue(nOut > 0 && nIn > 0,
+                                  $"（前提）宽高比 {asp:F4}：探针里 nOut = {nOut} 个在框外、nIn = {nIn} 个在框内"
+                                  + "（两头都要有 —— 只断「夹到框沿」会把「一律缩到框沿」那类实现放过去）");
+                        CheckTrue(worst <= 0.002f,
+                                  $"★★ A990：宽高比 {asp:F4} 下**每个角都落在 `FromPixel(Clamp(设计 px))` 上**"
+                                  + $"（最大偏差 {worst:F5} 世界单位 ≤ 0.002 —— 那 0.002 只是 float 往返的余量："
+                                  + "量纲上 0.002 世界单位 ≈ 0.22px）"
+                                  + $"｜旧读法在这一档会把某些角判到别处（最大 {worstOld:F4} 世界单位 = 鉴别力，只打数不判）"
+                                  + "｜改坏法：把 `ClipQuad` 的读回换回 `LayoutSpace.ToPixel`（或把写回那半边改成常量 108）"
+                                  + " ⇒ 非 16:9 两档立刻红、**16:9 那档仍绿**（那正是 A990 的病灶）");
+                        // γ：整块在框内（640..680 全在 600..1000 里）⇒ 协议要求**返回 false**（一个字节都不用动）
+                        var gp = new Vector3[4];
+                        gp[0] = LayoutSpace.FromPixel(640f, 540f);
+                        gp[1] = LayoutSpace.FromPixel(640f, 260f);
+                        gp[2] = LayoutSpace.FromPixel(680f, 260f);
+                        gp[3] = LayoutSpace.FromPixel(680f, 540f);
+                        var guv = new Vector2[] { new Vector2(0f, 0f), new Vector2(0f, 1f),
+                                                  new Vector2(1f, 1f), new Vector2(1f, 0f) };
+                        bool gmoved = MenuDraw.ClipQuad(a990Host.transform, gp, guv, a990Box, Vector2.zero, null);
+                        float gw = LayoutSpace.FromPixel(640f, 0f).x;
+                        CheckTrue(!gmoved && Mathf.Abs(gp[0].x - gw) <= 0.002f,
+                                  $"★ A990：宽高比 {asp:F4} 下**整块在框内的四角一个都不许动**（返回 {gmoved}；"
+                                  + $"左沿实得 {gp[0].x:F5} ≈ 期望 {gw:F5}）—— 21:9 上旧读法会把这两个角误判成越界"
+                                  + "（读回被放大 1.3125 倍、推出框外）⇒ 返回 true ⇒ 红");
+                    }
+                }
+                finally
+                {
+                    // ⚠️ **必须还原**（见本节头那条）：余下每一段的几何都是按 16:9 建出来的
+                    a990Cam.aspect = a990Back;
+                    Object.DestroyImmediate(a990Host);
+                }
+            }
         }
 
         // ---------------- ⑤·d-4 🆕 **2026-10-13（A464 · B2–B5）**：裁切状态长在【视口节点】上之后的行为
@@ -5579,6 +5699,299 @@ public static class ShellScene
 
             // ---- 收尾（同戊段 / 己段那条纪律：只 `Close()`、⛔ 不 `DestroyImmediate` —— 下面 `shell.Dump()` 要遍历窗表）----
             shell.Windows.CloseAllWindows();
+        }
+
+        // ============================================================ ★ A964：命中区覆盖探针（外壳侧）
+        //
+        // 判据（`资料/待办判据_1018.md` §A964 的一句话）：**凡参与点击命中的节点，
+        //   它的【命中区矩形】必须覆盖它【画出来的矩形】。**
+        //   · ⚠️ **量 quad、不量节点** —— 本仓**没有 UGUI `EventSystem`**（`Battle/CombatCameraZoom.cs:85` 实证），
+        //     命中是 `Shell/PointerLayer.cs` 自己算世界坐标/矩形的；节点的 rect 与真正画出来的四边形**可以不一致**。
+        //   · ⚠️ **要命中就必须带 `ImageQuad`**（`HitQuad` 走 `GetComponentInChildren<ImageQuad>`）。
+        //   · ⚠️ **分层别靠 z**（用 `RenderQueue`）—— 与命中无关，但同一次普查里顺带核 E3。
+        //
+        // 🔴 **本段是【报告式】探针**（A964 续 ② 的裁定）：E1 / E3 **只列候选 + 落点/实绘证据、不做普适断言**
+        //   —— 「画出来的矩形」在场景树里**没有唯一答案**：装饰件会**叠在同一矩形**上
+        //   （实据 = `Shell/CampaignTab.cs:459` 的 `Premium Mark` 用 `localScale=(2,2,1)` 画在同一个 `r` 上）
+        //   ⇒ 硬套「覆盖」判据会**假红**。逐条判由调度台做，确认下来的才补结构性断言。
+        //
+        // 🔴 **E2（`vis ≠ hr` 那一族）本段【故意不上】**：`MenuDraw.Hit` 那 46 处调用点里 `vis ≠ hr` 的
+        //   **一处都没逐处核过**（侦察 §7·3）⇒ 上了就是一片假红。E2 只在战斗侧那一份探针里上。
+        //
+        // 🔴 **为什么必须先【逐扇窗开一次】再扫**：`PointerLayer.HitQuad` 恒 `null` 有**三个**原因
+        //   （按符号认那六行，⛔ 别抄行号）：
+        //     ① 钮自己不 `activeAndEnabled`（而且 `AllButtons()` 是 `FindObjectsInactive.Exclude`
+        //        ⇒ **关着的窗里的钮根本不在表里**）；
+        //     ② 它的子树里**没有 `ImageQuad`** —— **这才是 A8 那一族真缺陷**；
+        //     ③ 有 quad、但 quad 不在激活链上（**多半是「那扇窗没开」**）。
+        //   ⇒ 不逐扇开就**把 ③（窗没开）报成 ②（缺 quad）= 一片假红**。
+        //   做法：`CloseAllWindows()` → 逐扇 `OpenWindow` → 扫 → 关，**一次只开一扇**
+        //   （被压到 `Background` 的窗按 `PointerReachable` **本来就不参与指针命中**，不算进「不可命中」的账）。
+        //
+        // ⚠️ **截图截不出这一类缺陷**（「看着在钮上、点不动」在静态截图上完全正常）⇒ 本段**只打日志 + TSV**。
+        //
+        // 📌 输出 → `d:/4/_tmp_view/hitprobe/shell_hits.tsv`；日志打 **`扫了 N 颗 / E1 报 M / E3 报 K`**
+        //    （**N 必打**，否则「0 条」不可信）+ **没覆盖到的窗类逐条**（`GameWindow` 子类 ≥20、构造入口各不相同）。
+        Section("★ A964：命中区覆盖探针（外壳侧 · E1 不可命中 / E3 同队列求交 / 两条结构断言）");
+        {
+            const string HitProbeDir = "d:/4/_tmp_view/hitprobe";
+            Directory.CreateDirectory(HitProbeDir);
+
+            var rows = new List<string>();
+            var e1 = new List<string>();          // E1：报了「参与命中却没有命中区」
+            var e3 = new List<string>();          // E3：同队列的命中区相交（谁压谁）
+            var badAnchor = new List<string>();   // 结构断言①：命中 quad 的 `anchor` 不是 (0.5,0.5)
+            var sliceKid = new List<string>();    // 结构断言②：命中 quad 是九宫格/平铺的子块
+            var covered = new List<string>();     // 开起来、真扫过的窗类
+            var hasInstance = new List<string>(); // **本场景里有实例**的窗类（≠ 扫得到）
+            var failed = new List<string>();      // 本场景有实例、但这一扇**没开起来**
+            var emptyWin = new List<string>();    // 开起来了，但一颗 `WindowButton` 都没有（如实报，⛔ 不冒充「没问题」）
+            int scanned = 0;                      // N：真扫过的钮数（**必打**）
+
+            string Row(params string[] cells) { return string.Join("\t", cells); }
+            const string Dash = "-";
+
+            // 一个节点的**完整路径**（从壳根一路下来）—— 报告里唯一的可复查坐标。
+            string NodePath(Transform t)
+            {
+                var parts = new List<string>();
+                for (var p = t; p != null; p = p.parent) parts.Add(p.name);
+                parts.Reverse();
+                return string.Join("/", parts.ToArray());
+            }
+
+            // 结构断言②的判据：这颗 quad 是不是**九宫格 / 平铺的子块**。
+            // 🔴 命名契约来自那两个工厂本身（`Battle/ImageQuad.cs` 的 `CreateNineSlice` / `CreateTiled`：
+            //  子件一律叫 `{根名}_{i}{j}`、而**根上没有 quad**）⇒ `HitQuad` 的 `GetComponentInChildren`
+            //  会取到**第一块角块** ⇒ 命中区只剩一个角（症状同 A8：看着在钮上、点不动）。
+            // 🧨 **改坏法**：把某颗命中节点的子树换成 `ImageQuad.CreateNineSlice(...)` ⇒ 这条立刻报。
+            bool IsSliceOrTileCell(ImageQuad q)
+            {
+                var pt = q != null ? q.transform.parent : null;
+                if (pt == null) return false;
+                string nm = q.name, pn = pt.name;
+                return nm.Length == pn.Length + 3 && nm.StartsWith(pn, System.StringComparison.Ordinal)
+                       && nm[pn.Length] == '_' && char.IsDigit(nm[pn.Length + 1]) && char.IsDigit(nm[pn.Length + 2]);
+            }
+
+            // 一颗钮「**会不会被 E1 报出来**」—— **全段唯一一份判据**（主扫与两条判别式夹具都走它）。
+            // 三条筛选照生产：`absorbOnly`（= `Navigable` 那一句）· 钮自己要活着 · 命中 quad 取不到。
+            // 🔴 **它量的是【生产那一份】**（`PointerLayer.HitQuadForTest` 严格转发私有的 `HitQuad`）——
+            //  ⛔ 本段**不抄 `HitQuad` 的算式**：抄了就是「改坏实现时探针跟着一起错」= 自证。
+            // 🧨 **改坏法**：把 `Shell/PointerLayer.cs` 的 `HitQuad` 换成「直接 `GetComponentInChildren<ImageQuad>()`」
+            //  （不看激活链）⇒ 判别式②的**态二**不再报 ⇒ 那一对（报/不报）立刻裂开。
+            bool WouldReport(WindowButton b)
+                => b != null && !b.absorbOnly && b.isActiveAndEnabled
+                   && PointerLayer.HitQuadForTest(b) == null;
+
+            // 扫一个**作用域**（`win == null` = 常驻树 / 不属于任何窗的那些钮；否则 = 那一扇窗里的钮）。
+            // 🔴 全程走 `PointerLayer.AllButtonsForTest()`（= **生产那张表**，`FindObjectsByType` 现扫）
+            //  + `HitBoxForTest` / `HitQuadForTest`（= 生产算式）⇒ 判据只有一份。
+            void ScanScope(string winName, string state, GameWindow win)
+            {
+                var all = PointerLayer.AllButtonsForTest();
+                // 这一档里「可命中」的那些（E3 要按队列两两求交，所以先收起来）
+                var live = new List<WindowButton>();
+                var lq = new List<int>();
+                var lr = new List<float[]>();
+                for (int i = 0; i < all.Length; i++)
+                {
+                    var b = all[i];
+                    if (b == null || b.absorbOnly) continue;                          // 吸收层不是按钮（照 `Navigable` 那句）
+                    if (b.GetComponentInParent<GameWindow>(true) != win) continue;    // 只算本作用域的
+                    scanned++;
+
+                    var q = PointerLayer.HitQuadForTest(b);
+                    if (q == null)
+                    {
+                        // ---- E1：**参与命中却没有命中区**。🔴 必须说清是三条原因里的哪一条
+                        //      （否则「窗没开」会冒充「缺 quad」—— 侦察点名的那片假红）
+                        string why;
+                        var anyQuad = b.GetComponentInChildren<ImageQuad>(true);      // 含 inactive ⇒ 专门用来分 ②/③
+                        if (!b.isActiveAndEnabled) why = "① 钮自己不 activeAndEnabled";
+                        else if (anyQuad == null) why = "② 子树里根本没有 ImageQuad（**A8 那一族真缺陷**）";
+                        else why = "③ 有 quad 但不在激活链上（多半是窗没开）";
+                        e1.Add($"[{winName}] {NodePath(b.transform)} —— {why}");
+                        rows.Add(Row(winName, state, NodePath(b.transform),
+                                     Dash, Dash, Dash, Dash, Dash, Dash, Dash, Dash,
+                                     Dash, Dash, Dash, Dash, Dash, "E1 " + why));
+                        continue;
+                    }
+
+                    if (q.anchor != new Vector2(0.5f, 0.5f))
+                        badAnchor.Add($"[{winName}] {NodePath(b.transform)} —— anchor=({q.anchor.x:F3},{q.anchor.y:F3})");
+                    if (IsSliceOrTileCell(q))
+                        sliceKid.Add($"[{winName}] {NodePath(b.transform)} —— quad=`{q.name}` 父=`{q.transform.parent.name}`");
+
+                    if (!PointerLayer.HitBoxForTest(b, out var c, out var hh, out _)) continue;   // 与上面同一判据，理论上到不了
+                    float hx1 = c.x - hh.x, hy1 = c.y - hh.y, hx2 = c.x + hh.x, hy2 = c.y + hh.y;
+                    var r = new float[] { hx1, hy1, hx2, hy2 };
+                    // 实绘矩形：`QuadPxRect` **不乘 `lossyScale`**，而 `HitBoxPx` **乘**（A167）
+                    // ⇒ `SmallScreenUI` 把窗根乘 M 时这两者分家 —— 那正是本探针要盯的一档（`M == 1` 时逐位相同）。
+                    float dx1, dy1, dx2, dy2;
+                    bool okD = QuadPxRect(q, out dx1, out dy1, out dx2, out dy2);
+                    rows.Add(Row(winName, state, NodePath(b.transform),
+                                 $"{hx1:F2}", $"{hy1:F2}", $"{hx2:F2}", $"{hy2:F2}",
+                                 okD ? $"{dx1:F2}" : Dash, okD ? $"{dy1:F2}" : Dash,
+                                 okD ? $"{dx2:F2}" : Dash, okD ? $"{dy2:F2}" : Dash,
+                                 okD ? $"{hx1 - dx1:F2}" : Dash, okD ? $"{hy1 - dy1:F2}" : Dash,
+                                 okD ? $"{dx2 - hx2:F2}" : Dash, okD ? $"{dy2 - hy2:F2}" : Dash,
+                                 $"{q.RenderQueue}", ""));
+                    live.Add(b);
+                    lq.Add(q.RenderQueue);
+                    lr.Add(r);
+                }
+
+                // ---- E3：**同一个渲染队列**的命中区两两求交 ⇒ 谁压谁由 z 决定（队列同号时是**枚举顺序**）
+                //   ⚠️ 只比**命中区之间**（文字层不带命中区 ⇒ 不踩 `MenuDraw.cs` 那条「`Absorb` 与文字档同号是故意的」）
+                for (int i = 0; i < live.Count; i++)
+                    for (int j = i + 1; j < live.Count; j++)
+                    {
+                        if (lq[i] != lq[j]) continue;
+                        float ox = Mathf.Min(lr[i][2], lr[j][2]) - Mathf.Max(lr[i][0], lr[j][0]);
+                        float oy = Mathf.Min(lr[i][3], lr[j][3]) - Mathf.Max(lr[i][1], lr[j][1]);
+                        if (ox <= 0.5f || oy <= 0.5f) continue;      // ≤0.5px 当相切（浮点残差，不是缺陷）
+                        e3.Add($"[{winName}] 队列 {lq[i]}：{NodePath(live[i].transform)} ⇄ "
+                               + $"{NodePath(live[j].transform)} —— 交 {ox:F2}×{oy:F2}px");
+                    }
+            }
+
+            // ---- 第 0 步：**常驻树**（不属于任何窗的那些钮 —— `PointerReachable` 说它们一直可点）
+            shell.Windows.CloseAllWindows();
+            ScanScope("(常驻·不属于任何窗)", "始终可点", null);
+
+            // ---- 第 1..N 步：**逐扇窗开一次再扫**（一次只开一扇）
+            var wins = Object.FindObjectsByType<GameWindow>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (int i = 0; i < wins.Length; i++)
+            {
+                var w = wins[i];
+                if (w == null) continue;
+                string tn = w.GetType().Name;
+                if (!hasInstance.Contains(tn)) hasInstance.Add(tn);
+
+                shell.Windows.CloseAllWindows();          // 隔离：上一扇不许留在场上（一次只开一扇）
+                string why = null;
+                try
+                {
+                    shell.Windows.OpenWindow(w);          // 走**生产那条开窗路**
+                    if (!w.gameObject.activeSelf) why = "`OpenWindow` 之后物体仍不活";
+                    else if (w.CurrentState != WindowState.Open) why = $"`OpenWindow` 之后 `CurrentState={w.CurrentState}`（不是 `Open`）";
+                }
+                catch (System.Exception ex)
+                {
+                    why = $"开窗抛异常 {ex.GetType().Name}: {ex.Message}";
+                }
+                if (why != null)
+                {
+                    failed.Add($"{tn}（{why}）");
+                    Debug.LogWarning(P + $"   A964：`{tn}` **没覆盖到** —— {why}");
+                    try { shell.Windows.CloseAllWindows(); } catch { }
+                    continue;
+                }
+
+                int before = scanned;
+                ScanScope(tn, "窗:Open", w);
+                if (!covered.Contains(tn)) covered.Add(tn);
+                if (scanned == before) emptyWin.Add(tn + "（开出来了，但**一颗 `WindowButton` 都没有**）");
+                try { shell.Windows.CloseAllWindows(); } catch { }
+            }
+            shell.Windows.CloseAllWindows();
+
+            // ---- 判别式（🔴 **探针必须先在这两个【已知阳性】上把「报得出来」证明掉**，否则「扫完 0 条」不可信）
+            //   判据 → `资料/待办判据_1018.md` §A964 的「已知阳性」两条（A8 / E12）。
+            //   ⚠️ **两个旧样本今天都不是活体阳性**（`A8` 修于 2026-10-04 的 `MenuDraw.MakeHitQuad`；
+            //      `E12` 修于 2026-10-18 的 `BattleDriver`）⇒ 按侦察报告 §4·3 的口径**改当判别式用**：
+            //      造一颗**同样形状**的坏件 ⇒ 探针**必须报**；把它**修好** ⇒ **必须不报**。
+            //   ⚠️ 夹具用完**必须 `DestroyImmediate`**（批处理没有帧循环 ⇒ `Destroy` 不生效），
+            //      而且命中表是 `FindObjectsByType` **现扫** ⇒ 夹具留着会污染后面的断言。
+            shell.Windows.CloseAllWindows();              // 让夹具落在「常驻树」那一档（= 一定在扫描范围内）
+            var fx = new GameObject("A964 判别式·裸节点命中区");
+            fx.transform.SetParent(root, false);
+            var fb = fx.AddComponent<WindowButton>();
+            CheckTrue(WouldReport(fb),
+                      "★ A964 判别式①（A8 那一族）· 态一：**只有 `WindowButton`、子树里没有 `ImageQuad`** 的节点 "
+                      + "⇒ 探针**必须报**（这一条红了 = 「扫完 0 条」不可信）—— 🧨 改坏法：让 `HitQuad` 恒返回 `null` "
+                      + "⇒ 判别式①态二与判别式②态一**同时**红（两态配对断，不是单条）");
+            var fq = ImageQuad.Create(fx.transform, CardArt.Solid(), Vector3.zero,
+                                      LayoutSpace.Px(40f), new Vector2(0.5f, 0.5f), "Hit");
+            CheckTrue(fq != null, "（前提）判别式①态二：那颗命中 quad 建出来了（建不出来 ⇒ 下一条等于没查）");
+            if (fq != null) { fq.SetAspect(1f); fq.SetTint(new Color(0f, 0f, 0f, 0f)); fq.SetRenderQueue(3000); }
+            CheckTrue(!WouldReport(fb),
+                      "★ A964 判别式①（A8 那一族）· 态二：照生产那一路补上 `ImageQuad` ⇒ **必须不报**"
+                      + " —— 两态都断 ⇒「报得出来」不可能来自「探针恒报」；🧨 改坏法：让 `HitQuad` 恒返回非 null ⇒ 态一红");
+            Object.DestroyImmediate(fx);
+
+            //  判别式②（`E12` 那一族 = 「藏起来还响不响应」在外壳侧的等价物）：
+            //  🔴 **「藏起来」在本仓是【改在 quad 上】、不是改在钮上** —— `AllButtons()` 是
+            //     `FindObjectsInactive.Exclude`，钮一关就**根本不在表里**、连报都不会报（那是原版行为，不是缺陷）
+            //     ⇒ 判别式必须做成「**钮活着、它的命中 quad 藏起来**」：`HitQuad` 第二句那句
+            //     `!q.gameObject.activeInHierarchy` 正是为它设的。
+            //  🧨 **改坏法：删掉 `Shell/PointerLayer.cs` 里那句 `!q.gameObject.activeInHierarchy`**
+            //     ⇒ 态二不再报 ⇒ 这一对立刻裂开。
+            //     这条同时是**灭自证**那一条：探针的「报」走 `HitQuadForTest`（转发生产），
+            //     而这里**期望值是手写的 `true`/`false` 字面量**（⛔ 不是从被测实现读出来的）
+            //     ⇒ 「两边一起改回旧写法」不可能同时让两态都绿。
+            var fx2 = new GameObject("A964 判别式·命中 quad 不在激活链");
+            fx2.transform.SetParent(root, false);
+            var fb2 = fx2.AddComponent<WindowButton>();
+            var fh2 = new GameObject("Hit");
+            fh2.transform.SetParent(fx2.transform, false);
+            var fq2 = ImageQuad.Create(fh2.transform, CardArt.Solid(), Vector3.zero,
+                                       LayoutSpace.Px(40f), new Vector2(0.5f, 0.5f), "Hit Quad");
+            CheckTrue(fq2 != null, "（前提）判别式②态一：那颗命中 quad 建出来了");
+            if (fq2 != null) { fq2.SetAspect(1f); fq2.SetTint(new Color(0f, 0f, 0f, 0f)); fq2.SetRenderQueue(3000); }
+            CheckTrue(!WouldReport(fb2), "★ A964 判别式②· 态一：quad 活着 ⇒ **不报**");
+            fh2.SetActive(false);
+            CheckTrue(WouldReport(fb2),
+                      "★ A964 判别式②· 态二：**钮活着、命中 quad 被藏起来 ⇒ 必须报** —— 只有它能证明探针真的读了"
+                      + "**激活链**、而不是只看「子树里有没有 `ImageQuad`」（后者会把「quad 藏了」当成没问题）");
+            Object.DestroyImmediate(fx2);
+
+            // ---- 两条结构断言（🔴 这两条**是**断言，不是报告：它们今天成立、且改坏必有症状）
+            CheckTrue(badAnchor.Count == 0,
+                      $"★★ A964 结构断言①：**参与命中的那颗 quad 的 `anchor` 必须是 `(0.5,0.5)`** —— 它是"
+                      + "`PointerLayer.HitBoxPx` 拿 `q.transform.position` 当**矩形中心**的前提（不是 (0.5,0.5) 时"
+                      + "画出来的块是偏的、而命中区仍按中心算 ⇒ 症状正是「看着在钮上、点不动」）。"
+                      + $"共 {badAnchor.Count} 条"
+                      + (badAnchor.Count > 0 ? "：" + string.Join(" ；", badAnchor.ToArray()) : ""));
+            CheckTrue(sliceKid.Count == 0,
+                      $"★★ A964 结构断言②：**参与命中的那颗 quad 不能是九宫格/平铺的子块** —— "
+                      + "`ImageQuad.CreateNineSlice`/`CreateTiled` 的**根上没有 quad** ⇒ `HitQuad` 会取到**第一块角块**"
+                      + "（命中区只剩一个角）。共 " + sliceKid.Count + " 条"
+                      + (sliceKid.Count > 0 ? "：" + string.Join(" ；", sliceKid.ToArray()) : ""));
+
+            // ---- 覆盖率（🔴 **如实打**：子类 ≥20、构造入口各不相同 —— ⛔ 别让「没扫到」看起来像「没问题」）
+            var allTypes = new List<string>();
+            foreach (var t in typeof(GameWindow).Assembly.GetTypes())
+                if (!t.IsAbstract && t.IsSubclassOf(typeof(GameWindow))) allTypes.Add(t.Name);
+            allTypes.Sort();
+            var notHere = new List<string>();
+            foreach (var t in allTypes) if (!hasInstance.Contains(t)) notHere.Add(t);
+
+            rows.Insert(0, Row("窗类", "窗态", "节点路径",
+                               "命中x1", "命中y1", "命中x2", "命中y2",
+                               "实绘x1", "实绘y1", "实绘x2", "实绘y2",
+                               "左差", "上差", "右差", "下差", "队列", "判定"));
+            File.WriteAllLines(HitProbeDir + "/shell_hits.tsv", rows.ToArray());
+
+            Debug.Log(P + $"   A964：**扫了 {scanned} 颗 / E1 报 {e1.Count} / E3 报 {e3.Count}**"
+                      + $"（覆盖 {covered.Count} 个窗类 · 本场景有实例 {hasInstance.Count} 个 · "
+                      + $"全库 `GameWindow` 子类 {allTypes.Count} 个 · 明细 {rows.Count - 1} 行 → {HitProbeDir}/shell_hits.tsv）");
+            foreach (var s in e1) Debug.Log(P + "   A964·E1：" + s);
+            int e3Shown = 0;
+            foreach (var s in e3)
+            {
+                if (e3Shown++ >= 40) { Debug.Log(P + $"   A964·E3：……（还有 {e3.Count - 40} 条，见 TSV）"); break; }
+                Debug.Log(P + "   A964·E3：" + s);
+            }
+            if (e1.Count == 0 && e3.Count == 0)
+                Debug.Log(P + "   A964：E1/E3 **零条** —— ⚠️ 这不等于「没问题」：先看上面那三行覆盖率，"
+                          + "`covered` 之外的那些窗类本段**根本没扫到**（构造入口各不相同）。");
+            // 🔴 没覆盖到的**逐条打**（两类分开：本场景连实例都没有 vs 有实例但没开起来/扫到 0 颗）
+            if (failed.Count > 0) Debug.LogWarning(P + $"   A964：**有实例但没覆盖到**（{failed.Count} 个）：" + string.Join(" ；", failed.ToArray()));
+            if (emptyWin.Count > 0) Debug.LogWarning(P + "   A964：**开出来了却一颗钮都没有**（扫了 0 颗 ⇒ 对覆盖率没贡献）：" + string.Join(" ；", emptyWin.ToArray()));
+            if (notHere.Count > 0) Debug.Log(P + $"   A964：**本场景连实例都没有**（{notHere.Count}/{allTypes.Count} 个窗类，本段扫不到）：" + string.Join("、", notHere.ToArray()));
+            if (covered.Count == 0) Debug.LogWarning(P + "   A964：**一个窗类都没覆盖到** ⇒ 上面的「0 条」没有意义（看 `failed` 那两行）。");
         }
 
         Debug.Log(P + shell.Dump());

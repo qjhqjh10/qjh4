@@ -22,6 +22,10 @@
 // 与那四扇窗的入口同一个原因：LiveOps/匹配管理器在服务端配置里）。⇒ 按 §五 那条口径：
 // **入口由我们定并如实标出来** —— 挂在**排位窗**的 `Battle!` 上（排位本来就是「等真人」那个模式），
 // 其余三扇窗继续用窗口内的 `Searching Oponent Popup`。**这一条映射不是复刻。**
+//
+// 🆕 **2026-10-18（A932）：本窗多了一颗【自建的】「提示行」节点**（`NetMatchmaking.OnHint` 的消费方）——
+//   **原版没有它**（用户当天拍板「接入」）。为什么非接不可 · 哪些参数是我们挑的 · 对端文本那一支（A961）
+//   → 见下面那颗节点的注释块（搜 `A932`）。
 using UnityEngine;
 using CardPresentation.Net;
 
@@ -51,6 +55,75 @@ namespace CardPresentation
         public const float BtnTexW = 489f, BtnTexH = 107f;
         /// <summary>玩家/敌人名那行字 —— **原版 prefab 里写的就是 `Player name`**（运行时才被真名覆盖）。</summary>
         public const string PlaceholderName = "Player name";
+
+        // ==================================================================
+        //  🆕 2026-10-18（A932）：**提示行** —— `NetMatchmaking.OnHint` 在**本窗**上的消费方
+        //
+        //  🔴 **这颗节点是【我们自建的】、原版没有** —— 判据 = **用户 2026-10-18 拍板「接入」**
+        //     （账在 `资料/待办判据_1018.md` §B27 末尾：「要接得先裁」）。
+        //     为什么非接不可：排位那条路走的就是**本窗**（全屏 `SearchingOpponentWindow`），
+        //     而它原来**只有 `Title`（437.76×50 · 无 auto）· 两个 `Player Name` · 一颗 `Cancel Match`**，
+        //     **没有任何一行放得下一句状态话** ⇒ 大厅阶段那几句（对面掉线 / 离开 / 回来）在本窗上
+        //     **一个字都看不见**（「不许静默」那条红线的另一种形态：屏幕上在说假话）。
+        //
+        //  ⛔ **下面这些几何不是「原版就是这样」，是【我们挑的】**（铁律 3：原版没有这颗节点）：
+        //     · **样式照同族那一颗** —— `Shell/SearchingMatchPopup.cs` 的 `Main Search message`
+        //       （autosize **4~50** · base **36** · 折行 **700** · Center/Middle）。⚠️ 那是**另一扇窗**的节点；
+        //     · **位置** = `Title`（y 136..186）**正下方** · **水平居中**（屏宽 1920 ⇒ x 960±350），
+        //       框照同族那颗取 **700×148**。**这两条全是我们的选择。**
+        //
+        //  🔴 **对端文本那一支（A961）**：本行的话来自 `NetMatchmaking.LastHint`，它由
+        //     `NetMatchmaking.HandleLobbyPeerClosed(why)` / `DeferToBattleLayer(what)` 拼出来，而那个 `why`
+        //     **在源头就钳过了** —— `NetSession.ClampPeerText` 是**一处闸**、三个收包入口都在 `NetSession`
+        //     （`MsgProof.name` / `MsgBye.reason` / 握手拒绝那一支）⇒ 走到本窗的字符串**已经 ≤
+        //     `NetProtocol.MaxPeerTextChars`**。⛔ **这里绝不写第二份钳**（会把自己写的中文提示也当成对端文本截掉）
+        //     —— 同 `NetMatchmaking.cs:450-452` 的口径。⚠️ 但这**不等于**「随便多长都行」：本行按框只放得下
+        //     约 40 字，超了会**出声**（见 `ShowHint`）；那 40 是**框尺寸**算的，与「钳对端文本」是两件事。
+        // ==================================================================
+        public const float HintL = 610f, HintT = 200f, HintR = 1310f, HintB = 348f;   // 700×148 —— **我们挑的**
+
+        /// <summary>此刻那行提示（`null` = 没有提示、那一行是空的）。自检读它。</summary>
+        public string HintText { get; private set; }
+
+        /// <summary>那一行字（`Build()` 建；出厂空串）。</summary>
+        Label _hintLine;
+
+        /// <summary>联机层要对玩家说一句（大厅阶段的掉线 / 离开 / 回来）⇒ **写在那一行上**；传空的 = 收回。
+        /// 🔴 **只由 `NetMatchmaking.OnHint` 推**（`OnEnable` 订、`OnDisable` / `OnDestroy` 摘）——
+        /// ⛔ 别在这儿自己判状态。判据与「为什么接在本窗」见上面那一节。</summary>
+        public void ShowHint(string text)
+        {
+            if (string.IsNullOrEmpty(text)) { ClearHint(); return; }
+            if (text.Length > SearchingMatchPopup.HintLineMaxChars)
+                Debug.LogWarning($"[SearchingOpp] 提示行那句话 {text.Length} 字，超过这一行放得下的 "
+                               + $"{SearchingMatchPopup.HintLineMaxChars} 字（框 700×148 · 自适应 4~50px，"
+                               + "与同族 `Main Search message` 同一档）—— 会被压得很小，请把这一句写短"
+                               + "（详细的那半句留给弹窗，两处本来就是两个口）：「" + text + "」");
+            HintText = text;
+            if (_hintLine != null) _hintLine.SetText(text);
+            else Debug.LogWarning("[SearchingOpp] 提示行那颗节点不在（`Build` 没跑过 / 被销毁了？）⇒ "
+                                  + "这句话**没画出来**（**不是静默**）：「" + text + "」");
+            Debug.Log("[SearchingOpp] 提示行改口：「" + text + "」");
+        }
+
+        /// <summary>收回提示 ⇒ 那一行变回空的（= `NetMatchmaking.Reset()` 推 `OnHint(null)` 那一支）。
+        /// ⚠️ 出厂本来就是空的 ⇒ 没提示时调它**什么都不做**（`HintText == null` 那道闸）。</summary>
+        public void ClearHint()
+        {
+            if (HintText == null) return;
+            HintText = null;
+            if (_hintLine != null) _hintLine.SetText("");
+            Debug.Log("[SearchingOpp] 提示行收回");
+        }
+
+        // ---- 订/摘 `NetMatchmaking.OnHint`（**只在真的活着的时候**订）----
+        //  🔴 为什么挂 `OnEnable`/`OnDisable` 而不是 `Open()`/`Close()`：与 `Shell/SearchingMatchPopup.cs`
+        //     同一处口径（`Open()` 可以重复调 ⇒ 挂它会订两次、还要摘两次）；`OnDestroy` 也必须摘
+        //     （不摘的话，窗销毁之后提示一来就 `MissingReferenceException`）。
+        //  ⚠️ `GameWindow` 基类**没有** `OnEnable`/`OnDisable`（只有 `OnDestroy` 在 `WindowsManager` 那边）
+        //     ⇒ 这里声明不会撞名。
+        void OnEnable() { NetMatchmaking.OnHint += ShowHint; }
+        void OnDisable() { NetMatchmaking.OnHint -= ShowHint; }
 
         // ==================================================================
         //  🆕 「找到对手」那一态（联机那一支）—— 判据 → `资料/阶段二_多人界面_原版规格.md` §6·4
@@ -149,7 +222,7 @@ namespace CardPresentation
             base.Close();
         }
 
-        void OnDestroy() { ReleaseHold(); }
+        void OnDestroy() { ReleaseHold(); NetMatchmaking.OnHint -= ShowHint; }
 
         /// <summary>点 `Cancel` 的回调（排位窗用它取消匹配）。</summary>
         public System.Action OnCancel;
@@ -193,12 +266,21 @@ namespace CardPresentation
             for (int i = root.childCount - 1; i >= 0; i--) RewardsWindow.DestroySafe(root.GetChild(i).gameObject);
             // 重建 ⇒ 把上一轮记下的敌方那格三个件作废（它们已经被销毁了）
             _foeFound = null; _foeNotFound = null;
+            // 🆕 A932：提示行那一颗同理（旧的那颗已被销毁；状态也归零 —— 重开一扇窗不许留着上一局那句话）
+            _hintLine = null; HintText = null;
 
             MenuDraw.Rect(root, CardArt.Solid(), new PxRect(BgL, BgT, BgR, BgB),
                           "Background", QSr, new Color(0f, 0f, 0f, 0.71f));
             // 原版 hAlign = **Center** ⇒ 不调 `Align*`（原来右对齐了）
             MenuDraw.Text(root, new PxRect(TitleL, TitleT, TitleR, TitleB), "Searching opponent",
                           Color.white, "Title", 36f, QSrText);
+
+            // 🆕 **2026-10-18（A932）：提示行**（**自建节点、原版没有** —— 判据 / 为什么接在本窗 /
+            //   哪些参数是我们挑的 → 类头那一节）。出厂**空串**：没提示时它不占话。
+            //   样式照同族 `SearchingMatchPopup` 的 `Main Search message`（autosize 4~50 · base 36 · 折行 700）。
+            _hintLine = MenuDraw.Text(root, new PxRect(HintL, HintT, HintR, HintB), "", Color.white,
+                                      "Hint Line", 50f, QSrText,
+                                      wrapPx: HintR - HintL, autoMinPx: 4f, autoMaxPx: 50f, autoBasePx: 36f);
 
             // 玩家那一格：**有数据** ⇒ 走 `Found`（立绘 = 当前选中卡组的督军）
             BuildSide(root, "Searching Opponent Player Info Container",

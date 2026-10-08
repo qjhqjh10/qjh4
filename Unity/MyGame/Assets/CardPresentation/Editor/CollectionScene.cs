@@ -263,6 +263,14 @@ public static class CollectionScene
                     gi = GlyphVertsOf(tmp, vs.Length);
                     if (gi.Count == 0) continue;      // 这一段没有字形 ⇒ 一个点都不量（别把占位槽当几何）
                 }
+                // 🔴 **2026-10-20（`A989②`）：这一处【不受】`materialReferenceIndex != 0` 那条过滤的影响。**
+                //    理由（实读 TMP 源码）：TMP 给非 0 号槽建的子件**是这颗 TMP 的子节点**
+                //    （`TMP_SubMesh.AddSubTextObject`，`TMP_SubMesh.cs:235-260`：`SetParent` +
+                //    localPosition/rotation/scale **全是单位值**），而本函数是
+                //    `t.GetComponentsInChildren<MeshRenderer>(true)` —— 那个子件的 `MeshRenderer`
+                //    **同样会被遍历到**，只是它身上没有 `TextMeshPro` ⇒ 走下面 `gi == null` 那一支
+                //    （整条数组扫，含零填充槽；对「整张卡的外接盒」这种量法无所谓）
+                //    ⇒ **`<sprite>` 那枚图标照样被量进来**。⚠️ 别以为这里漏了图标而改过滤（见 `GlyphVertsOf`）。
                 int cnt = gi != null ? gi.Count : vs.Length;
                 for (int i = 0; i < cnt; i++)
                 {
@@ -307,11 +315,25 @@ public static class CollectionScene
         /// **它们不动**（`ClipTmpMesh` 只认 `isVisible` 的字，`:867` ⇒ **压根不夹这些槽**），
         /// 于是一整条数组扫下来，它们会被当成「字画到视口外」。
         /// **2026-10-11 实红**：`CollectionScene.Run` 的 qOut 期望 [0] 实得 [12] = **3 槽 × 4 点**。</para>
-        /// <para>⚠️ 只收 `materialReferenceIndex == 0` 的字：别的材质那份顶点**不在这一份网格上**
+        /// <para>⚠️ **只收 `materialReferenceIndex == 0` 的字**：别的材质那份顶点**不在这一份网格上**
         /// （`TextMeshPro.UpdateVertexData` 把 `meshInfo[0]` 推给 `m_mesh`、`meshInfo[i>0]` 推给子件
-        /// `m_subTextObjects[i].mesh`，判据 `TextMeshPro.cs:416-424`）⇒ 拿 `vertexIndex` 索引**本网格**会串位。
-        /// 本工程的卡面标签只有一个字体资产（`Resources/Fonts/NotoSerifCJK-Regular SDF.asset`，
-        /// `m_FallbackFontAssetTable: []`）⇒ 实际恒为 0。</para>
+        /// `m_subTextObjects[i].mesh`，判据 `TextMeshPro.cs:408-446`）⇒ 拿 `vertexIndex` 索引**本网格**会串位。
+        /// ⚠️ 这段**过滤本身是对的**（返回的下标必须能索引**调用方手里那一份**网格）—— 别删。</para>
+        /// <para>🔴 **2026-10-20（`A989①`）就地订正（铁律 5）**：原来这里还接着写
+        /// 「本工程的卡面标签**只有一个字体资产**（`Resources/Fonts/NotoSerifCJK-Regular SDF.asset`，
+        /// `m_FallbackFontAssetTable: []`）⇒ **实际恒为 0**」—— **那个前提不成立**：
+        /// `Core/TmpFont.cs` 给**全工程每颗 TMP** 都挂了 `CardIcons.SpriteAsset`，
+        /// 而卡面效果文字里**现在就带** `&lt;sprite name=…&gt;`（`Core/CardText.cs:290` /
+        /// `Core/CardIcons.cs` 的 `Rewrite`）⇒ TMP 会**切出第二个材质槽**（sprite asset 自带一份
+        /// **独立的材质**）—— `A965` 已证（`资料/普查产出_1018/S6_A965卡面探针取槽.md` §2/§3：
+        /// 卡面效果文字那层 `keywords` **就是 2 个槽**）。
+        /// <b>⇒ 后果 = 本函数会【跳过】那些字</b>（`&lt;sprite&gt;` 那枚图标本身**不在**返回的下标里）。
+        /// **两个调用点各是什么后果，见各自的注释**：`RenderExtentPx`（下面）**不受影响**；
+        /// 本文件 `Run` 里那段「★ 卡上没有一个**字的顶点**画到视口外」（A250 块，约 `:3391`）
+        /// **量不到图标**。⚠️ 那是**自检覆盖面**的缺口，**不是**产品缺陷 —— 裁切本身走
+        /// `MenuDraw.ClipTmpMesh`（`Shell/MenuDraw.cs:1144-1190` 按**每个字自己的**
+        /// `materialReferenceIndex` 取槽、写回 `ti.meshInfo[mi]`），`UpdateVertexData` 再把
+        /// **每个槽**都上传（`TextMeshPro.cs:408-446`）⇒ 图标**确实被裁也确实上了屏**。</para>
         /// <returns>字形顶点下标（空表 = 这一段没有可量的字形）。</returns></summary>
         static List<int> GlyphVertsOf(TMPro.TextMeshPro tmp, int meshVertCount)
         {
@@ -340,6 +362,21 @@ public static class CollectionScene
         {
             var q = t != null ? t.GetComponentInChildren<ImageQuad>() : null;
             return q != null ? q.WorldH * 108f : 0f;
+        }
+
+        /// <summary>🆕 **2026-10-18（A994③）**：uGUI `Image.PreserveSpriteAspectRatio` 的
+        /// **独立复述**（判据 = uGUI 源码 `Library/PackageCache/com.unity.ugui@…/Runtime/UGUI/UI/Core/Image.cs`：
+        /// 贴图比例 &gt; 框比例 ⇒ **宽定、高缩**；否则**高定、宽缩**）。返回内接后该填的 `(w, h)`。
+        /// <para>🔴 **为什么自检里要单独写一份**：被测实现那一份是 `CosmeticPreview.PreserveAspectSize`
+        /// （`Core/DraggableController.cs`）—— **拿它算期望值就是自证**（两边一起改错照样全绿）。
+        /// 本函数只吃两样**外部输入**：**贴图资产自己的宽高**（`Texture2D.width/height`）
+        /// 与**原版字面量的框**（250×405 / 337.5×550.8 / 220×330），算法照 uGUI 原文复述。</para></summary>
+        static Vector2 InsetFit(float spriteAspect, float boxW, float boxH)
+        {
+            if (spriteAspect <= 0f || boxW <= 0f || boxH <= 0f) return new Vector2(boxW, boxH);
+            return spriteAspect > boxW / boxH
+                ? new Vector2(boxW, boxW / spriteAspect)          // 宽定（贴图「更宽」）
+                : new Vector2(boxH * spriteAspect, boxH);         // 高定
         }
 
         /// <summary>一个件**渲出来**的像素矩形（画布像素 · 左上原点 · y 向下）。
@@ -3388,6 +3425,18 @@ public static class CollectionScene
                             //     ⚠️ 改法**不是**退回 `textInfo`：读的仍旧是**真上传的那一份**，只是按字取下标。
                             //     ⚠️ 详细判据（含「为什么不能整条扫」「为什么只收 `materialReferenceIndex == 0`」）
                             //     → 本文件 `GlyphVertsOf`。
+                            //  🔴 **2026-10-20（`A989②`）· 已查清的【覆盖面缺口，不是产品缺陷】**：
+                            //     本处只取**这颗 TMP 自己**的 `MeshFilter.sharedMesh`（= 0 号槽那份上传网格）
+                            //     ⇒ `GlyphVertsOf` 会把 `<sprite name=…>` 那些字（**非 0 号槽**）跳过
+                            //     ⇒ 这条断言盯的是「**不含图标**的那部分字**」有没有画到视口外，
+                            //     **图标那枚字形没被它看着**。裁切本身是好的（`MenuDraw.ClipTmpMesh`
+                            //     按每个字自己的 `materialReferenceIndex` 取槽，`TextMeshPro.UpdateVertexData`
+                            //     把**每个槽**都上传到 `m_subTextObjects[i].mesh`）⇒ **画面不会出错**。
+                            //     ⚠️ **不能**照 `Editor/CardFaceProbe.cs:273-296` 那条改成
+                            //     `chr[i].materialReferenceIndex` 取 `textInfo.meshInfo[slot]` —— 那是读**模型**，
+                            //     而本块的立身之本正是「读**真上传的那一份**」（上面三条改坏法里第②条
+                            //     就是「只写 `textInfo`、不上传」）。要补覆盖面只能**另找那份上传网格**
+                            //     （子件 `m_subTextObjects[slot]` 的那个 `MeshRenderer`）。判据不足 ⇒ 本轮只记录。
                             var gv = GlyphVertsOf(tmp, tvs.Length);
                             for (int i = 0; i < gv.Count; i++)
                             {
@@ -4314,8 +4363,27 @@ public static class CollectionScene
                 CheckNear(PxOf(k0.position.x), 502.73f, 0.6f, "第 1 格中心 x = **502.73**（335.44 + pad 42.285 + 250/2）");
                 CheckNear(PxYOf(k0.position.y), 358.44f, 0.6f, "第 1 格中心 y = **358.44**（155.94 + 405/2）");
                 var art = FindChild(k0, "Cardback");
-                CheckNear(Wpx(art), 250f, 2f, "格里的卡背宽 = **250**（原版 `Cardback` 铺满 250×405）");
-                CheckNear(Hpx(art), 405f, 2f, "格里的卡背高 = **405**");
+                var qArt0 = art != null ? art.GetComponentInChildren<ImageQuad>() : null;
+                var tex0 = qArt0 != null ? qArt0.Texture as Texture2D : null;
+                // 🔴 **2026-10-18（A994③）就地订正（铁律 5）**：这两条原来写 **250 / 405**（=「铺满格」）——
+                //    **错了**：原版那颗 `Cardback` 的 `Image` 带 **`m_PreserveAspect = 1`**
+                //    （A4 §2·1 那行「Simple **preserveAspect**」）⇒ 实绘 = **按贴图自己的比例内接进 250×405**，
+                //    ⛔ 不是拉满。期望值**现算**：框 = 原版 `_cellWidth/_cellHeight` 字面量，比例读**贴图资产自己**
+                //    （⛔ 不用被测实现那份 `PreserveAspectSize` —— 那是自证；见 `InsetFit` 的 doc）。
+                CheckTrue(tex0 != null, "（前提）第 1 格的卡背有贴图（`Texture` 取不到 ⇒ 下面两条「内接」无从算起）");
+                if (tex0 != null)
+                {
+                    float a0 = tex0.width / (float)tex0.height;
+                    var fit0 = InsetFit(a0, CollectionWindow.CosmoCellW, CollectionWindow.CosmoCellH);
+                    CheckNear(Wpx(art), fit0.x, 0.6f,
+                              $"格里的卡背宽 = **内接宽 {fit0.x:F2}**（贴图 {tex0.width}×{tex0.height}"
+                            + $" ⇒ 比例 {a0:F4}；原版 `Cardback` 那颗 `Image` 带 `m_PreserveAspect = 1`）");
+                    CheckNear(Hpx(art), fit0.y, 0.6f,
+                              $"格里的卡背高 = **内接高 {fit0.y:F2}**（⛔ 不是 **405** —— 405 是**框**高、"
+                            + "「铺满框」正是 `m_PreserveAspect` 的反面；本仓 233 张比例全都 > 250/405 ⇒ 一律宽定）");
+                    // 🧨 **改坏法**：把 `RebuildCosmoCells` 里卡背那一跳的 `keepAspect` 改回 `false`
+                    //    （或退回直调 `ImageQuad.Create` + `SetAspect(250/405)`）⇒ 上面两条立刻红（高变回 405）。
+                }
                 CheckTrue(art != null && art.GetComponentInChildren<ImageQuad>() != null
                           && art.GetComponentInChildren<ImageQuad>().Texture != null,
                           "卡背**真的有贴图**（不是空图 —— 导没导错就看这一条）");
@@ -4324,7 +4392,10 @@ public static class CollectionScene
                 // 逐值出处：`资料/普查产出_0923/A4_装饰页与驱动链.md:91` ——
                 //   rect **-42.5,-70.87,337.5,550.8**（格式是 `x,y,w,h`，y 向下相对格左上）·
                 //   锚点 (-0.17,-0.185)-(1.18,1.175) + sizeDelta (0,0)（拉伸）· `act=T` ·
-                //   组件 = Image + `UIImageMaterialColorChanger`（换色即悬停高亮）。
+                //   组件 = Image + `UIImageMaterialColorChanger`（换色即悬停高亮）·
+                //   🔴 **`m_PreserveAspect = 1`**（同表那列写着「Simple preserveAspect」—— `A994③` 起照它做）。
+                // 🔴 下面那条框的两维 + 底边（相对格上沿）= 上面那串字面量的直接换算，**独立于被测实现**：
+                const float SdfBoxW = 337.5f, SdfBoxH = 550.8f, SdfBoxBottomRel = 479.925f;
                 var sdf = FindChild(k0, "Cardback Shadow SDF");
                 CheckTrue(sdf != null, "卡背格里有 **`Cardback Shadow SDF`** 那一层（原版两层的底那层）");
                 if (sdf != null)
@@ -4345,11 +4416,22 @@ public static class CollectionScene
                     //      **整块落在视口里**的那一格上量（见下面那组「对照」）。
                     {
                         var sq0 = sdf.GetComponentInChildren<ImageQuad>();
+                        var stx0 = sq0 != null ? sq0.Texture as Texture2D : null;
+                        // 🔴 **2026-10-18（A994③）**：SDF 那层也带 `m_PreserveAspect = 1`
+                        //    ⇒ 先把 337.5×550.8 的**框**按贴图比例内接（实测 `_SDF` 全部 100×130
+                        //    ⇒ 337.5×438.75、上下各内缩 `pad`），**再**与视口求交。见 `RebuildCosmoCells`。
+                        float sSdf = stx0 != null ? stx0.width / (float)stx0.height : 130f / 100f;
+                        var sdfFit0 = InsetFit(sSdf, SdfBoxW, SdfBoxH);
+                        float sdfPad0 = (SdfBoxH - sdfFit0.y) * 0.5f;      // 上下各内缩（= 56.025）
+                        float sdfBottom0 = SdfBoxBottomRel - sdfPad0;      // 相对格上沿的**底边**
                         float sh0 = sq0 != null ? sq0.WorldH * 108f : -1f;
                         float st0 = sq0 != null ? PxYOf(sq0.transform.position.y) - sh0 * 0.5f : -1f;
-                        CheckNear(sh0, 479.925f, 1.5f,
-                                  "★ 第一排那一格的 SDF **上溢被视口截住**：渲染高 = **479.925**"
-                                + "（= `CosmoView.y1` 155.94 → 格上沿 + 479.925；原版布局高 550.8 里那 70.875 在上溢那一段）");
+                        // 第一排那一格的**格上沿 == 视口上沿** ⇒ 内接后整体仍 `-14.85` 上溢（< 0）
+                        // ⇒ 露出来的就是 `sdfBottom0` 那一段（= 423.9；原来是拉满时的 479.925）。
+                        CheckNear(sh0, sdfBottom0, 1.5f,
+                                  $"★ 第一排那一格的 SDF **上溢被视口截住**：渲染高 = **{sdfBottom0:F3}**"
+                                + $"（= 格上沿 + {sdfBottom0:F3}；原版框高 550.8 里「上溢 70.875 + 内接内缩 {sdfPad0:F3}」"
+                                + "那两段都画不出来 —— 前一段是 `RectMask2D`，后一段是 `m_PreserveAspect = 1`）");
                         CheckNear(st0, CollectionWindow.CosmoView.y1, 0.8f,
                                   "…而且它**正好停在视口上沿 155.94**（= 原版 `RectMask2D` 那条边，不是「整层被关掉」）");
                     }
@@ -4370,27 +4452,104 @@ public static class CollectionScene
                               $"SDF 的渲染队列**低于**卡背（{CollectionWindow.QPageSdf} < {CollectionWindow.QPageRow}）"
                             + "—— 同队列排不出稳定次序");
                 }
-                // ---- 对照（🆕 2026-10-08）：**整块落在视口里**的那一格 ⇒「渲染矩形 == 布局矩形 == 原版字面量」----
-                //  上面那一格（`k0`）只能证明「上溢被截住」，量不到布局矩形本身 ⇒ 判据要挪到一格**四边都不越界**的：
+                // ---- 对照（🆕 2026-10-08）：**整块落在视口里**的那一格 ⇒「渲染矩形 == 内接矩形」----
+                //  上面那一格（`k0`）只能证明「上溢被截住」，量不到内接矩形本身 ⇒ 判据要挪到一格**四边都不越界**的：
                 //  第 2 排第 2 列（`CosmoCells[CosmoCols + 1]`，`CosmoCellRect` 是**行优先**、视口外的格不建）：
-                //    · SDF 相对格左上 = `−42.5, −70.875 → +295, +479.925`（= 宽 337.5 / 高 550.8，`rebuild` 里的逐值出处）；
-                //    · 该格上沿 = `CosmoView.y1` 155.94 + 格高 405 = **560.94** ⇒ SDF 上沿 **490.065** > 视口上沿 ✓；
+                //    · SDF **框**相对格左上 = `−42.5, −70.875 → +295, +479.925`（= 宽 337.5 / 高 550.8）；
+                //      🔴 `A994③` 起框内还要**按贴图比例内接**：337.5×438.75、上下各内缩 56.025
+                //      ⇒ 实绘相对格左上 = `−42.5, −14.85 → +295, +423.9`；
+                //    · 该格上沿 = `CosmoView.y1` 155.94 + 格高 405 = **560.94** ⇒ SDF 上沿 **546.09** > 视口上沿 ✓；
                 //      左沿 = 335.44 + `CosmoPadX` 42.285 + 250 = **627.725** ⇒ SDF 左沿 **585.225** > 视口左沿 335.44 ✓；
-                //      下沿 560.94 + 479.925 = **1040.865** < 1080 ✓ · 右沿 627.725 + 295 = **922.725** < 1920.01 ✓。
-                //  **改坏法**：把 `RebuildCosmoCells` 里那句 `sr` 的 337.5 / 550.8 改错（或退回「按卡背等比内接」）⇒ 红。
+                //      下沿 560.94 + 423.9 = **984.84** < 1080 ✓ · 右沿 627.725 + 295 = **922.725** < 1920.01 ✓。
+                //  **改坏法**：把 `RebuildCosmoCells` 里那句 `sr` 的 337.5 / 550.8 改错 ⇒ 红；
+                //   **把 SDF 那一跳的 `keepAspect` 改回 `false`（= 拉满）⇒ 高变回 550.8 ⇒ 红**。
                 {
                     var sdfFull = win.CosmoCells.Count > CollectionWindow.CosmoCols + 1
                         ? FindChild(win.CosmoCells[CollectionWindow.CosmoCols + 1], "Cardback Shadow SDF") : null;
                     CheckTrue(sdfFull != null,
-                              "（对照 · 前提）第 2 排那一格的 `Cardback Shadow SDF` 也在（它整块落在视口里 ⇒ 量得到布局矩形）");
+                              "（对照 · 前提）第 2 排那一格的 `Cardback Shadow SDF` 也在（它整块落在视口里 ⇒ 量得到实绘矩形）");
                     if (sdfFull != null)
                     {
-                        CheckNear(Wpx(sdfFull), 337.5f, 2f,
-                                  "★ 对照（整块不越界的格）：SDF 层宽 = **337.5**（原版 `/…/Cardback Shadow SDF` 的 rect 宽；"
-                                + "比 250 的卡背大一圈 —— 露出来的就是落地感）");
-                        CheckNear(Hpx(sdfFull), 550.8f, 2f,
-                                  "★ 对照（整块不越界的格）：SDF 层高 = **550.8**"
-                                + "（`-42.5,-70.87,337.5,550.8`，格式是 x,y,w,h；比 405 的卡背高一圈）");
+                        var qSf = sdfFull.GetComponentInChildren<ImageQuad>();
+                        var tSf = qSf != null ? qSf.Texture as Texture2D : null;
+                        CheckTrue(tSf != null, "（对照 · 前提）那一格的 SDF 贴图取得到（100×130.5 那批）");
+                        var fitSf = InsetFit(tSf != null ? tSf.width / (float)tSf.height : 130f / 100f,
+                                             SdfBoxW, SdfBoxH);
+                        CheckNear(Wpx(sdfFull), fitSf.x, 1.5f,
+                                  $"★ 对照（整块不越界的格）：SDF 层宽 = **{fitSf.x:F2}**（= 框宽 337.5 —— 贴图比框「宽」"
+                                + "⇒ 宽定、宽**不变**；比 250 的卡背大一圈 —— 露出来的就是落地感）");
+                        CheckNear(Hpx(sdfFull), fitSf.y, 1.5f,
+                                  $"★ 对照（整块不越界的格）：SDF 层高 = **{fitSf.y:F2}**（⛔ **不是 550.8** —— 那是**框**高；"
+                                + "`m_PreserveAspect = 1` ⇒ 高缩成 `337.5 ÷ 比例`。"
+                                + "🔴 **反证**：拉满时 x 缩放 337.5/100 = **3.375** 而 y 缩放 550.8/130 = **4.237**（**非等比**、"
+                                + "距离场被竖向拉长）；内接后两轴**都是 3.375**）");
+                    }
+                }
+                // ---- 🔴 2026-10-18（A994③）：**逐格**验「两层都没被拉伸」（原版两颗 `Image` 都带 `m_PreserveAspect = 1`）----
+                //  判据 = **渲染宽高比 == 贴图自己的宽高比**（uGUI `Image.PreserveSpriteAspectRatio` 的直接后果；
+                //  「图没被拉伸」这件事与「我们怎么摆框」无关 ⇒ 它比「量宽/高」更靠近原版语义）。
+                //  ⛔ **不写死格号**：233 张比例跨 **0.6188~0.7652**，每格偏离量都不同 —— 写死一格就是赌假绿。
+                //  做法 = ① 全量扫（可量的格逐格比比例）② 按**偏离量**挑「内接 ≠ 拉满」差得**最远**的那一张做精确断言。
+                //  被视口切过的格（滚动到边上那几格）渲染矩形本来就是「裁剩那块」的比 ⇒ 跳过（归 A181 那组管）。
+                {
+                    var vpA = CollectionWindow.CosmoView;
+                    int cellsOk = 0, stretched = 0, worstI = -1; float worstDev = -1f;
+                    foreach (var cn in win.CosmoCells)
+                    {
+                        if (cn == null || !cn.name.StartsWith("CollectionCosmetic_")) continue;
+                        int ci;
+                        if (!int.TryParse(cn.name.Substring("CollectionCosmetic_".Length), out ci)) continue;
+                        var ca = FindChild(cn, "Cardback");
+                        var cq2 = ca != null ? ca.GetComponentInChildren<ImageQuad>() : null;
+                        var ct = cq2 != null ? cq2.Texture as Texture2D : null;
+                        if (ct == null || ct.height <= 0) continue;
+                        var lr = win.CosmoScroll != null
+                            ? win.CosmoScroll.Shift(CollectionWindow.CosmoCellRect(ci))
+                            : CollectionWindow.CosmoCellRect(ci);
+                        if (lr.x1 < vpA.x1 - 0.5f || lr.x2 > vpA.x2 + 0.5f
+                            || lr.y1 < vpA.y1 - 0.5f || lr.y2 > vpA.y2 + 0.5f) continue;   // 被视口切过 ⇒ 跳过
+                        cellsOk++;
+                        float sc = ct.width / (float)ct.height;
+                        float rr = (cq2.WorldW * 108f) / Mathf.Max(1e-6f, cq2.WorldH * 108f);
+                        // 🔴 **这一条对旧写法（一律 `SetAspect(250/405)` = 0.61728）必红** ——
+                        //    本仓 233 张的比例**全都 > 0.61728**（最小 0.6188 ≥ 0.61728 + 0.0015），一张都对不上。
+                        if (Mathf.Abs(rr - sc) > 2e-3f) stretched++;
+                        float dv = Mathf.Abs(cq2.WorldH * 108f - CollectionWindow.CosmoCellH);
+                        if (dv > worstDev) { worstDev = dv; worstI = ci; }
+                    }
+                    CheckTrue(cellsOk >= 6,
+                              $"（前提）有 {cellsOk} 格**整块落在视口里**、可以量实绘矩形（⛔ < 6 格则下面两条等于没验）");
+                    Check(stretched, 0,
+                          $"★ **卡背格逐格比「渲染宽高比 vs 贴图自己的宽高比」**（可量 {cellsOk} 格）"
+                        + " —— 一格不等就是**拉伸**（原版 `Cardback` 那颗 `Image` 带 `m_PreserveAspect = 1`）");
+                    if (worstI >= 0)
+                    {
+                        var wcell = FindChild(cpage, "CollectionCosmetic_" + worstI);
+                        var wart = wcell != null ? FindChild(wcell, "Cardback") : null;
+                        var wq = wart != null ? wart.GetComponentInChildren<ImageQuad>() : null;
+                        var wt = wq != null ? wq.Texture as Texture2D : null;
+                        CheckTrue(wt != null, "（前提）按偏离量挑出来的那一格贴图取得到");
+                        if (wt != null)
+                        {
+                            float sw2 = wt.width / (float)wt.height;
+                            var fitW = InsetFit(sw2, CollectionWindow.CosmoCellW, CollectionWindow.CosmoCellH);
+                            float boxAspect = CollectionWindow.CosmoCellW / CollectionWindow.CosmoCellH;
+                            CheckTrue(Mathf.Abs(sw2 - boxAspect) > 0.05f,
+                                      $"（前提）挑出来的这一张（`{wt.name}` {wt.width}×{wt.height}）比例 {sw2:F4} 与框比 "
+                                    + $"{boxAspect:F4} 差 **{Mathf.Abs(sw2 - boxAspect):F4} > 0.05**"
+                                    + " —— ⛔ 否则「内接」与「拉满」就差不出两态，下面那条等于空转");
+                            CheckNear(Hpx(wart), fitW.y, 0.6f,
+                                      $"★ 偏离最大的那一格（`{wt.name}` · 第 {worstI + 1} 张）画出来的高 = **{fitW.y:F2}**"
+                                    + $"（= 250 ÷ {sw2:F4}；**拉满时是 {CollectionWindow.CosmoCellH}**，差 "
+                                    + $"{CollectionWindow.CosmoCellH - fitW.y:F2}px）");
+                            // 🧨 **灭自证**：只要退回「拉满」（`keepAspect: false` / `SetAspect(250/405)`），
+                            //    「画出来的高」就**恒 == `CosmoCellH`** ⇒ 这一条与上一条**不可能同时绿**
+                            //    （挡的是「把实现和期望值一起改回旧写法」：期望值是**从贴图资产现算**的，改不回去）。
+                            CheckTrue(Hpx(wart) < CollectionWindow.CosmoCellH - 10f,
+                                      $"★ 灭自证：「内接后的高」**严格小于框高 {CollectionWindow.CosmoCellH}**"
+                                    + $"（实得 {Hpx(wart):F2}，差 {CollectionWindow.CosmoCellH - Hpx(wart):F2}px）"
+                                    + " —— 拉满时它**恒等于**框高，两条不可能同时绿");
+                        }
                     }
                 }
             }
@@ -4583,7 +4742,8 @@ public static class CollectionScene
             //  判据 = 原版 `Cardback Display/Scroll View/Viewport` 上那颗 `RectMask2D`
             //  （`m_Softness = (0,0)` · `m_Padding = (0,0,0,0)`）。
             //  🔴 这一页最容易露馅：格里的 **`Cardback Shadow SDF` 比格大一圈**
-            //  （左 −42.5 / 上 −70.875 / 下 +74.925，见 `RebuildCosmoCells` 那段逐值出处）⇒ 压边那几格
+            //  （左 −42.5 / 右 +45 / 🔴 `A994③` 起上下按贴图比例内接 ⇒ **上 −14.85 / 下 +18.9**，
+            //   原来是拉满时的 上 −70.875 / 下 +74.925；见 `RebuildCosmoCells` 那段逐值出处）⇒ 压边那几格
             //  光靠「格与视口求交」拦不住它。原来那两行是直调 `ImageQuad.Create` ⇒ **整块画出去**。
             //  **改坏法**：把 `MenuDraw.Rect(…, CosmoView, …)` 的 `CosmoView` 实参去掉 ⇒ 越界 quad 立刻出现 ⇒ 红。
             if (win.CosmoScroll != null)
@@ -4621,15 +4781,23 @@ public static class CollectionScene
                     CheckTrue(quads >= 2, $"那一格**两层都量得到**（实测 {quads} 个 quad = SDF + 卡背本体）");
                     Check(qover, 0, "★ 卡背格的两层都**落在视口内**（越界 quad 0 个 —— SDF 比格大一圈，最容易露）");
                 }
-                // 对照：没被切的那一排（第 2 排）⇒ 仍是**整格**（没被一起压扁）
+                // 对照：没被切的那一排（第 2 排）⇒ 仍是**内接矩形本身**（没被视口一起压扁）
+                //  🔴 **2026-10-18（A994③）**：期望值从「整格高 405」改成**按该格贴图现算的内接高**；
+                //    405 是**框**高（= 拉满），而原版那颗 `Image` 带 `m_PreserveAspect = 1`。
                 var cfull = FindChild(cpage, "CollectionCosmetic_" + CollectionWindow.CosmoCols);
                 if (cfull != null)
                 {
                     var cq = FindChild(cfull, "Cardback");
-                    var cqq = cq != null ? cq.GetComponent<ImageQuad>() : null;
-                    CheckTrue(cqq != null && Mathf.Abs(cqq.WorldH * 108f - CollectionWindow.CosmoCellH) < 2f,
-                              $"对照：没被切的那一排卡背仍是**整格高 405**（实测 "
-                              + $"{(cqq != null ? cqq.WorldH * 108f : -1f):F1}）—— 只在越界时裁，不是一律压扁");
+                    var cqq = cq != null ? cq.GetComponentInChildren<ImageQuad>() : null;
+                    var ctq = cqq != null ? cqq.Texture as Texture2D : null;
+                    var fitF = ctq != null
+                        ? InsetFit(ctq.width / (float)ctq.height,
+                                   CollectionWindow.CosmoCellW, CollectionWindow.CosmoCellH)
+                        : new Vector2(CollectionWindow.CosmoCellW, CollectionWindow.CosmoCellH);
+                    CheckNear(cqq != null ? cqq.WorldH * 108f : -1f, fitF.y, 1.5f,
+                              $"对照：没被切的那一排卡背 = **本格自己的内接高 {fitF.y:F2}**（实测 "
+                            + $"{(cqq != null ? cqq.WorldH * 108f : -1f):F1}）—— 只在越界时裁、不是一律压扁；"
+                            + $"也**不是框高 {CollectionWindow.CosmoCellH}**（内接后高只可能 ≤ 框高）");
                 }
                 csc.SetOffset(savedCO);
             }
@@ -5851,6 +6019,12 @@ public static class CollectionScene
                                           + "**−217.095** = 照**基准位**那帧建（`MenuDraw.Local` 改成取记录矩形"
                                           + "—— A834 那条彻底修法落地后就是这一支）；两个都不是 ⇒ 面板停在半路"
                                           + "（夹具没摆到收起位）");
+                                // 🔴 **2026-10-18（A834 · 铁律 5 订正）**：这条**析取保留原样**（它是**夹具前提**，
+                                //   ⛔ 不是 A834 的验收口 —— 写成析取正是为了「A834 落地那天不假红」，
+                                //   判据 → `资料/普查产出_1016/W24_落点断言与量法收口.md:41`）。
+                                //   ⚠️ **但今天恒落 `−217.095` 那一支**：A834 走的是**候选甲**（`RebuildFilterRowsNow`
+                                //   建之前调 `DrawerHome(_flt)`），不是这一行注释里原来设想的那条「`MenuDraw.Local`
+                                //   改成取记录矩形」。A834 自己的验收口在**下一段**（那三条 + 判别式）。
                                 // ③ 帧路展开：`StartDrawerSlide` + `TickDrawers → ApplyDrawerSlide`
                                 //    （与 Play 跑起来那条**同源**；⛔ 这里**故意不点那颗钮**）
                                 win.StartDrawerSlideForTest(0, true, playLike: true);
@@ -5860,12 +6034,16 @@ public static class CollectionScene
                                 var cAfter = FindChild(cDrawer, "Cell_owned");
                                 CheckNear(cAfter != null ? PxOf(cAfter.position.x) : -9999f, 167.905f, 1f,
                                           "★★ **A843 · 落点**：展开到位后 `Cell_owned` 必须**重排回 167.905**。"
-                                          + "🔴 **改坏法：把 `Shell/CollectionWindow.cs` `ApplyDrawerSlide` 尾那个 ④"
-                                          + "（那个 `if`，或它里面那次 `RebuildFilterRows`）删掉 ⇒ 这一条当场红**"
-                                          + "（欠的那一版跟着面板滑回来 ⇒ 实得 **552.905** = 167.905 + 385）。");
+                                          + "🔴 **改坏法：删掉 `RebuildFilterRowsNow` 里那句 `DrawerHome(_flt)`"
+                                          + "（A834，2026-10-18 落地的修法）⇒ 这一条当场红**"
+                                          + "（欠的那一版跟着面板滑回来 ⇒ 实得 **552.905** = 167.905 + 385）。"
+                                          + "⚠️ **2026-10-18（铁律 5 订正）**：原文写的改坏法是「删掉 `ApplyDrawerSlide` 尾那个 ④」"
+                                          + "—— 那一笔**从 A834 落地当天起不再成立**：`DrawerHome` 已经让这一版建在基准帧上，"
+                                          + "④ 今天只是把同一件事**再做一遍**（冗余），删它这条照样绿。");
                                 CheckNear(TitleLeftPx(cDrawer, "Army"), 0.25f, 1f,
                                           "★★ 同一拍、**另一条建法**的件也一样：小标题 `Army` 的**渲染左沿**回到 "
-                                          + "**0.25**（面板内 0；期望值 = `:3462` 那条）—— 删掉 ④ ⇒ 落在 **385.25**");
+                                          + "**0.25**（面板内 0；期望值 = `:3462` 那条）"
+                                          + "—— 改坏法同上（删 `DrawerHome(_flt)` ⇒ 落在 **385.25**）");
                                 // 🔴 **灭自证（挡「终点和检测器一起改回去」）**：只断「落点对」不够 ——
                                 //   删掉 ④ 之后，**在夹具里补一条补偿路**（例如「点开之后再
                                 //   `ClearCardFilters()` 重排一次」= 原来那个 ③ 夹具，或者把补偿塞进
@@ -5876,8 +6054,10 @@ public static class CollectionScene
                                 //   同族的 `TickDrawers` 也算帧路）；⛔ 往 `ToggleFiltersNow` 里补一次重建、
                                 //   或在夹具里补一句 `ClearCardFilters()` 都**不管用**（它们只能骗过下面 ④ 那条）。
                                 //   ⚠️ 如实说清它**挡不住**什么：`RebuildFilterRowsNow` 自己（或者
-                                //   `MenuDraw.Local`）如果改成「永远按记录矩形算」，这条**照样绿**——
-                                //   那**是对的**（A834 就是那条彻底修法，届时 ④ 退化成空转、本条仍成立）。
+                                //   `MenuDraw.Local`）如果改成「永远按基准帧算」，这条**照样绿**——
+                                //   那**是对的**。🔴 **2026-10-18（A834 · 铁律 5）**：那个状态**今天已经到了**
+                                //   （`RebuildFilterRowsNow` 建之前调 `DrawerHome(_flt)`）⇒ ④ 已退化成空转、
+                                //   本条仍成立（「落点对」这一半照样要它绿）。
                                 //
                                 // ④ 另一条路（批量里 `Toggle*` 直接到位）也过一遍 —— 与 ③ 是**同一个** ④，
                                 //   但入口不同（`ToggleFiltersNow → StartDrawerSlide(playLike: false)`）。
@@ -5897,6 +6077,91 @@ public static class CollectionScene
                                           + "（⚠️ 它**不是**灭自证那一条：这条入口在 `Toggle*` 里，补偿路碰得到它）");
                             }
                         }
+                    }
+
+                    // ============================================================ 🆕 2026-10-18（A834）
+                    // **过渡帧的落点** —— 上面那些（含 A843 那 16 条）**全部在滑动结束之后量**，
+                    // 而 A834 治的正是**过渡帧**：面板停在收起位时建的那一版，局部坐标里多烘了 385px
+                    // ⇒ 0.3 秒滑入期间整列**与别的件不在同一帧上**（偏 0→+385px），只有 ④ 在到位那一拍扳回来。
+                    //
+                    // 🔴 **修法（= `Shell/CollectionWindow.cs` 的 `DrawerHome`，调度台裁定「甲」）**：
+                    //    `RebuildFilterRowsNow` **建之前**先把面板摆回基准位 ⇒ 每一版**本来就是基准帧的坐标**
+                    //    ⇒ 整列跟着面板**刚性**平移、途中每一帧都对。
+                    //    ⚠️ 它**同时**治好两个读口（`MenuDraw.Local` **与** `Label.ParentXInDesignSpace`）
+                    //    —— 这两个口读的是**同一份「父件当下位置」**，只修一个 = 「格子跟抽屉走、字不跟」。
+                    //
+                    // 🔴 **期望值一律写【原版字面量】**（与上面 A843 那一段同一条口径）：
+                    //    · `167.905` = `Cell_owned` 那一行的中心 x（横跨抽屉全宽 0.25…335.56 ⇒ 取中点）；
+                    //    · `0.25`    = `Title Army` 的渲染左沿（面板内 0 + 面板原点 0.25）；
+                    //    · `385`     = 抽屉行程（原版 `hiddenPosition.x −550` 与 `originalAnchorPosition.x`
+                    //                  那一对，`FltHiddenDx`）—— 三个都是**原版读数**，⛔ 不读 `FltL/FltW/FltHiddenDx`。
+                    //    · t=0.5 那一帧 ⇒ 两位移各 **−192.5px** ⇒ 读数 = `167.905−192.5 = **−24.595**` ·
+                    //      `0.25−192.5 = **−192.25**`。
+                    if (cDrawer != null && cFltBtn != null)
+                    {
+                        // 归一状态：把抽屉推到展开位（帧路，0.3 秒走完；与下面 ③ 同一条口）
+                        win.StartDrawerSlideForTest(0, true, playLike: true);
+                        win.TickDrawers(0.3f);
+                        CheckTrue(win.FiltersOpen && win.DrawerSettled(0),
+                                  "（前提 · A834）进这一段时卡牌页抽屉已展开到位");
+                        // ① **基准**那一版（抽屉开着时建）—— 两条读数各取一个零点
+                        win.ClearCardFilters();
+                        var a8Base = FindChild(cDrawer, "Cell_owned");
+                        float a8Cell0 = a8Base != null ? PxOf(a8Base.position.x) : -9999f;
+                        float a8Army0 = TitleLeftPx(cDrawer, "Army");
+                        CheckNear(a8Cell0, 167.905f, 1f,
+                                  "（前提 · A834）基准版 `Cell_owned` 中心 x = **167.905**（开着建的那一版）");
+                        CheckNear(a8Army0, 0.25f, 1f,
+                                  "（前提 · A834）基准版 `Title Army` 渲染左沿 = **0.25**");
+                        // ② 收起 ⇒ **收起态重建**（= 那版要跟着面板滑回来的件）
+                        cFltBtn.Click();
+                        CheckNear(win.DrawerSlide(0), 0f, 0.001f, "…收起：进度 **0**");
+                        win.ClearCardFilters();
+                        var a8Ride = FindChild(cDrawer, "Cell_owned");
+                        CheckTrue(a8Ride != null && a8Ride != a8Base,
+                                  "★ **前提（A834 的欠版已就位）**：收起态这一次重建**真的换了节点**"
+                                  + "（`RebuildFilterRowsNow` 先销毁再重建）—— 不换 = 夹具空转、下面三条等于没验");
+                        CheckNear(a8Ride != null ? PxOf(a8Ride.position.x) : -9999f, 167.905f - 385f, 1f,
+                                  "★★ **A834 · 建的是【基准帧】**：收起态这一版建完（面板被摆回收起位）⇒ 中心 x = "
+                                  + "**−217.095**（= 167.905 − 385）。"
+                                  + "🔴 **改坏法：删掉 `RebuildFilterRowsNow` 里那句 `DrawerHome(_flt)`** ⇒ 局部坐标多烘 "
+                                  + "385px ⇒ 实得 **167.905**（= A834 落地前那一支）");
+                        // ③ 帧路推到**半路**（0.15s / 原版 `animationTime` 0.3 = 进度 0.5）
+                        win.StartDrawerSlideForTest(0, true, playLike: true);
+                        win.TickDrawers(0.15f);
+                        CheckNear(win.DrawerSlide(0), 0.5f, 0.001f,
+                                  "（前提 · A834）`TickDrawers(0.15)` ⇒ 进度 **0.5**（`animationTime` 0.3 的一半）");
+                        var a8Mid = FindChild(cDrawer, "Cell_owned");
+                        float a8Cell1 = a8Mid != null ? PxOf(a8Mid.position.x) : -9999f;
+                        float a8Army1 = TitleLeftPx(cDrawer, "Army");
+                        CheckTrue(a8Mid != null && a8Mid == a8Ride,
+                                  "★ **A834 · 过渡帧里一次都不重建**：滑到一半时还是收起态那一版"
+                                  + "（`RebuildFilterRowsNow` 只在**建的那一刻**摆位、之后整列跟着面板刚性平移）"
+                                  + "—— 途中任何一次重建都会让下面两条变成「验夹具」");
+                        CheckNear(a8Cell1, -24.595f, 1f,
+                                  "★★ **A834 · 过渡帧落点**：0.3 秒滑入到一半（t=0.5）时 `Cell_owned` 中心 x = "
+                                  + "**−24.595**（= 167.905 − 385×0.5，整列跟着面板**刚性**平移）。"
+                                  + "🔴 **改坏法：删掉 `DrawerHome(_flt)`** ⇒ 收起态那一版局部坐标多烘 385px ⇒ "
+                                  + "实得 **360.405** = 167.905 + 385×0.5");
+                        CheckNear(a8Army1, -192.25f, 1f,
+                                  "★★ **同一个病的【另一个读口】**：同一帧里 `Title Army` 的渲染左沿 = **−192.25**"
+                                  + "（= 0.25 − 385×0.5）。这一颗走的是 `Label.AlignLeftOn` → "
+                                  + "`Label.ParentXInDesignSpace()`（`Battle/Label.cs`），与格子的 `MenuDraw.Local` "
+                                  + "**读同一份「父件当下位置」** —— 只修一个 ⇒ 字与格子**撕裂**（差 385px）");
+                        // 🔴 **判别式（挡「只修一半」/「两边一起改回去」）**：
+                        //   上面两条**各按字面量**钉了一个读数；这一条**不读任何常量**，只比**两个实测量各挪了多少**
+                        //   —— 两条读口同帧 ⇒ 位移**必须相等**（都 −192.5）。
+                        //   它挡的是：把 `MenuDraw.Local` 那条路改成「按记录矩形算」、却漏了 `Label` 那条
+                        //   （那时两个差 = −192.5 与 **+192.5** ⇒ 红）；也挡「把期望值改成实测量」这种改法
+                        //   （差值那一条不受期望值影响）。
+                        CheckNear(a8Cell1 - a8Cell0, a8Army1 - a8Army0, 0.5f,
+                                  "★★ **判别式（A834）**：同一帧里**两条读口各挪了多少必须相等**"
+                                  + $"（实得 格子 {(a8Cell1 - a8Cell0):F2}px · 字 {(a8Army1 - a8Army0):F2}px）");
+                        // 收尾：把抽屉推回**展开**（下面那段收尾要靠「点一下」把它关掉）
+                        win.StartDrawerSlideForTest(0, true, playLike: true);
+                        win.TickDrawers(0.3f);
+                        CheckNear(win.DrawerSlide(0), 1f, 0.001f,
+                                  "…收尾：推回展开（0.3 秒走完）—— 紧接着段收尾那句「点一下」要靠它关得掉");
                     }
                     // 🔴 **2026-10-14（#57–#59 · γ · 夹具侧收尾）**：本节自己开自己关 —— 卡牌页抽屉收回去、
                     //   页签切回**异画页**（紧接着那一条还要点异画页那颗钮、把它的抽屉也关掉）。

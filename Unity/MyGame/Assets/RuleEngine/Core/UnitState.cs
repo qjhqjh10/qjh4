@@ -49,6 +49,44 @@ namespace RuleEngine
         public int MaxHealth;
 
         public bool Exhausted;        // 本回合是否已行动（部署当回合 = true）
+
+        /// <summary>
+        /// **本回合不能攻击**（部署当回合 = true，带 `fast` / `flank` 的除外）——
+        /// 原版 `EntityScript.canAttack`（**`+0x23C`**）那一位的对应物。
+        ///
+        /// 🔴 **为什么不能拿 <see cref="Exhausted"/> 顶替**：`Exhausted` 是 `canAct`（`+0x230`）
+        /// 那一位，而 `ferocity` / `oath` 这两个 trait 在原版里是 **`canAct = true` 且
+        /// `canAttack = false`** ⇒ 「**能动，但不能攻击**」。一位模型表达不了这种组合：把「不能攻击」
+        /// 写成 `Exhausted` 会连**主动技能 / 替代行动 / 誓约**一起禁掉，与原版不符。
+        ///
+        /// **判据**（现读 `d:/2/tools/decomp_full/`，第一权威）：
+        ///   · **写点** `CardScript__ActivateTraitsOnSummonOrEnchantment.c:86-99` ——
+        ///     `else if (iVar1 == 0x4f1 || iVar1 == 0x4fb)`（`0x4f1` = 1265 = `ferocity`、
+        ///     `0x4fb` = 1275 = `oath`，见 `Assembly-CSharp/DefinedTrait.cs:130/132`）：
+        ///     `:91` 把 `+0x230` 写**真**、`:96` 的 `op_Implicit(local_30, 0, 0)` 把 `+0x23c`
+        ///     写**假** —— 这两个 trait **逐字节同形**。
+        ///     （同文件 `:47-51` 是 `0x28` fast / `0x1cc` flank 那一支：**只**写 `+0x230` = 真，
+        ///     `+0x23c` 一动不动 ⇒ 那两个词**不影响**这一位。）
+        ///   · **字段序** `Assembly-CSharp/CardScript.cs:1492/1494`（`canAct` → `canAttack`，
+        ///     `ObscuredBool` = 12 字节 ⇒ `0x230` / `0x23c`）；读法见
+        ///     `CardScript__CanAttackNow.c:57-74`（先读 `+0x230`、非假才再读 `+0x23c`，
+        ///     两个都真才算能攻击）。
+        ///   · **平时怎么算** `CardScript__ActivateMinion.c:39-42`：**两个位一起**写成同一个值，
+        ///     那个值 = `!displaySummonSickness`；而 `EntityScript__get_displaySummonSickness.c` 是
+        ///     `+0x58 && !HasCurrentTrait(0x28 fast) && !HasCurrentTrait(0x1cc flank)`
+        ///     ⇒ **`canAttack` = 「本回合上的场，且不带 `fast` / `flank`」**
+        ///     （`ferocity` / `oath` **不豁免攻击**，它们只豁免「能动」那一半）。
+        ///     同一方法的 `:43-69` 是那两个 trait 的**第二条写点**：只把 `canAct` **重算**一遍
+        ///     （新值 = `!HasCurrentTrait(100 /*stun*/)`），`canAttack` **一个字都不动**。
+        ///
+        /// **什么时候置位**：`RuleCore.ApplyDeployTurnState`（每个「新单位落地」入口各调一次）——
+        /// 它是 `ActivateMinion.c:39-42` 与 `ActivateTraitsOnSummonOrEnchantment.c:86-99` 两条写点的和。
+        /// **什么时候清**：<see cref="RefreshForNewTurn"/> 清回 `false`（= 原版 `+0x58` 在回合开始被清、
+        /// `ActivateMinion` 随即把两位都写成真）。
+        /// ⚠️ **它不表达「已行动」** —— 那一半照旧归 <see cref="Exhausted"/>，两处判据互不替代。
+        /// </summary>
+        public bool CannotAttackThisTurn;
+
         public bool IsStunned;
         /// <summary>
         /// **职责已经用过了**（2026-09-13 A2）—— 规则书 `:181`「职责：**一次性能力**；
@@ -618,7 +656,7 @@ namespace RuleEngine
         /// <summary>
         /// 🆕 **2026-10-18（`W5` · `K3` 账 · `+0x120` 第 10 个写点）**：
         /// **攻/远攻的值一变就按当前数值重挑攻击型** —— 原版 `CardScript.UpdateAttackText`
-        /// （`CardScript__UpdateAttackText.c:21-29`：`(近战 < 远程) + 1`），它被
+        /// （`CardScript__UpdateAttackText.c:21-29`：`(近战 &lt; 远程) + 1`），它被
         /// `AddEffect` / `ChangeBaseAttack` / `UpdateFigures` / `ReactToUnitJammed` 等**所有改属性的地方**调用。
         ///
         /// 🔴 **原版那一条带 `+0x40 == 0` 守卫**（`UpdateAttackText.c:21`），
@@ -843,6 +881,13 @@ namespace RuleEngine
         public void RefreshForNewTurn()
         {
             Exhausted = false;
+            // 🆕 2026-10-18（`A992` 遗留甲）：**「本回合不能攻击」那一位也按回合清** —— 原版
+            //   `+0x58`（「这一回合上的场」）在回合开始被清，紧接着 `CardScript.ActivateMinion`
+            //   把 `canAct` / `canAttack` **一起**写成真（`CardScript__ActivateMinion.c:39-42`）
+            //   ⇒ 「部署当回合能动但不能攻击」只持续**到自己的下一个回合开始**。
+            //   ⚠️ 本方法**只刷当前行动方的单位**（`RuleCore.BeginTurn` 里那一圈），
+            //      所以它在对手回合仍然为真 —— 那是对的：对手回合本来就 `ErrNotTurn`。
+            CannotAttackThisTurn = false;
             AttacksThisTurn = 0;
             // 「正在祈祷」是**按回合**的状态（我们上一版复刻 `rule_core.gd:1953` 就在这一批里清；⚠️ **旁证**）。
             // 卡面：`Each friendly unit that is Praying heals 3`（`Devout Serenity`）·

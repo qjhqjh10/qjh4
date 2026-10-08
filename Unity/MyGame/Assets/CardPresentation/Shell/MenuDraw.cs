@@ -569,6 +569,39 @@ namespace CardPresentation
             return Mathf.Min(Mathf.Clamp01((v - c1) / soft), Mathf.Clamp01((c2 - v) / soft));
         }
 
+        /// <summary>🔴 **A990（2026-10-18）：世界（设计空间）→ 画布 px —— 必须是 `LayoutSpace.FromPixel` 的【逆】。**
+        ///
+        /// <para>**为什么必须取「那一份」的逆**：本壳**建件时的 x** 走 `LayoutSpace.FromPixel`
+        /// （`MenuDraw.Local` / `RectCenter` ⇒ `x = (px / 1920 − 0.5) × VisibleWidth`），而「画布 px 那一侧」
+        /// 的矩形（原版 prefab 的 `m_SizeDelta` · `RectMask2D` 那个框 · 各调用点传进来的 `PxRect`）
+        /// **全是同一套设计 px** ⇒ 「这个角对应哪个设计 px」只能由「**建它时用的那条换算**」反过来回答；
+        /// 否则「夹到框沿」夹到的**不是画面里那条框沿**。</para>
+        /// <para>⛔ **`LayoutSpace.ToPixel` 的 x 不是它的逆** —— 那一份写死 **108px/世界单位**
+        /// （= `LayoutSpace.PxX`），与 `FromPixel` **只在 `VisibleWidth == DesignWidth`（16:9）时重合**；
+        /// 别的宽高比下两者差 **`VisibleWidth / DesignWidth` 倍**（4:3 ⇒ **0.75** · 21:9 ⇒ **1.3125**）
+        /// ⇒ x 的往返不闭合（y 那一半两个函数本来就同值：可见高恒 10 世界单位 = 1080px ⇒ 108 是**真的**）。
+        /// 🔴 判据 = 原版 uGUI 只有**一条** `RectTransform` 的世界↔屏幕换算（`LayoutSpace.cs:164` 也把
+        /// `ToPixel` 自己声明成「`FromPixel` 的逆」）—— 「写用实测、读用常量」两套并存就是 A990。</para>
+        /// <para>⚠️ **16:9 下与 `LayoutSpace.ToPixel` 只差 float 舍入**（`DesignPxW / VisibleWidth` 实得
+        /// **107.99999** 而不是 108 ⇒ 整屏范围内偏差 **≤ 2.5e-4 px**）—— 远小于本壳各处断言用的 0.05px 容差，
+        /// 也远小于画面上看得见的量 ⇒ **12 条自检里那些把 `cam.aspect` 钉成 `DesignAspect` 的宿主零回归**。
+        /// ⚠️ y 那一半**直接转调 `LayoutSpace.PxY`**（⛔ 别在这里再写一遍 y 的式子 —— CLAUDE.md §三）。
+        /// 🔴 **本式 = `LayoutSpace.FromPixel` 的逆、逐字对偶**：那边 x 的算式一改（例如全局裁定那天把
+        /// `FromPixel` 改成与 `Px`/`ToPixel` 同一条常量换算），**这一行必须跟着改** —— 两处不同步就又变回 A990。</para>
+        /// <para>🔴 **同一族【还没收口】的读口（A990 只动了 `ClipQuad` 那一个，其余留给调度台裁）**：
+        /// 下一段 `QuadRectPx`（它读的是 `PlaceCell` 用 `FromPixel` 写进去的位置）·
+        /// `LayoutSpace.ToPixel` / `PxX` 的 **~90 个调用点**（命中判定 · `ViewportClip.ClipPx` ·
+        /// `PointerLayer` · 各 `*Scene.cs` 的标尺 …）—— 它们**全是「只在 16:9 自洽」的那一批**，
+        /// 改动面跨 `Core/` 与十几个宿主，不在本件白名单里。</para></summary>
+        static Vector2 PixelOfDesign(Vector3 designPos)
+        {
+            float vw = LayoutSpace.VisibleWidth;
+            // 退化档（没有相机 / 宽度不可用）：退回旧口 —— 与 `DivByScale` 同一条处置，**不静默改行为**
+            if (vw <= 1e-6f) return LayoutSpace.ToPixel(designPos);
+            return new Vector2((designPos.x / vw + 0.5f) * LayoutSpace.DesignPxW,
+                               LayoutSpace.PxY(designPos.y));
+        }
+
         /// <summary>一个 quad 在**画布 px（设计空间）**里的矩形（世界 → px 只走 `LayoutSpace.ToPixel`，
         /// 见 `ClipNineChildren`）。
         ///
@@ -1298,11 +1331,20 @@ namespace CardPresentation
         /// `v = vT + (y−yT)/(yB−yT)·(vB−vT)` —— 注意 uv 的 v **自下而上**、而 px 的 y 向下 ⇒ 要翻）
         /// —— ⛔ 只夹顶点不改 uv 会把纹理拉花。
         /// ⚠️ **顶点序必须先转成 BL · TL · TR · BR**（点阵那条后端就是别的序，见 `ClipQuadMesh` 里那次重排；
-        /// 搞错了「左右」就成了对角平均）。</summary>
+        /// 搞错了「左右」就成了对角平均）。
+        /// <para>🔴 **A990（2026-10-18）：本函数的「读」（世界 → px）与「写」（px → 世界）必须是
+        /// 【同一条换算】的**互逆**两条** —— 写的那一半只能是 `LayoutSpace.FromPixel`（= `MenuDraw.Local`
+        /// 建件时用的那条，**框沿画在哪由它说了算**），所以读的那一半必须取它的逆（`PixelOfDesign`）。
+        /// 原来读的是 `LayoutSpace.ToPixel`（x 写死 108px/单位）⇒ **只在 16:9 成立**；
+        /// 偏量表与「为什么不能改写成那一半」→ `PixelOfDesign` 的 doc（⛔ 别把这两半改回两套）。</para></summary>
         public static bool ClipQuad(Transform tr, Vector3[] p, Vector2[] uv, PxRect clip, Vector2 softPx, float[] alphaOut)
         {
             var q = new Vector2[4];
-            for (int i = 0; i < 4; i++) q[i] = LayoutSpace.ToPixel(tr.TransformPoint(p[i]));
+            // 🔴 **A990（2026-10-18）**：读回走 `PixelOfDesign`（= `FromPixel` 的**逆**），⛔ 不是
+            //    `LayoutSpace.ToPixel` —— 那一份的 x 写死 108px/世界单位，**只在 16:9 与「写回」那条路重合**
+            //    ⇒ 非 16:9 下 x 的往返不闭合（4:3 差 0.75 倍）：框**内**的角会被误夹、框**外**的角会被放过去。
+            //    判据 / 偏量表 / 「同一族还有哪些读口没收口」→ `PixelOfDesign` 的 doc。
+            for (int i = 0; i < 4; i++) q[i] = PixelOfDesign(tr.TransformPoint(p[i]));
             float xL = (q[0].x + q[1].x) * 0.5f, xR = (q[2].x + q[3].x) * 0.5f;
             float yT = (q[1].y + q[2].y) * 0.5f, yB = (q[0].y + q[3].y) * 0.5f;
             float uL = (uv[0].x + uv[1].x) * 0.5f, uR = (uv[2].x + uv[3].x) * 0.5f;

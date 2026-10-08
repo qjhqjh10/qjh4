@@ -63,9 +63,21 @@ namespace CardPresentation
         public int mySeat;
         /// <summary>结果，照 `BattleLogData.Outcome`：0 胜 / 1 负 / 2 平。</summary>
         public int result;
-        /// <summary>🔴 **结算那一刻的引擎指纹**（`NetProtocol.Fingerprint(Ctx)`）——
+        /// <summary>🔴 **结算那一刻的引擎指纹** = `NetProtocol.StateHash(Ctx)` —— **就这一个**。
         /// 放的时候再算一次对比：**不相等就说明有动作没录全**，回放看到的是**另一局**
-        /// （判据与用法 → `BattleDriver.PlayReplay`；这是「不许静默失败」那条红线的落地）。</summary>
+        /// （判据与用法 → `BattleDriver.PlayReplay`；这是「不许静默失败」那条红线的落地）。
+        ///
+        /// <para>⚠️ **2026-10-18（铁律 5 订正）**：本行原文写的是 `NetProtocol.Fingerprint(Ctx)` —— **是错的**，
+        /// 而**本文件头部那句**（「怎么验『三个口都记全了』」那一段）写的是 `StateHash`，**同文件两说打架**。
+        /// 实测**两头本来都是 `StateHash`**，错的自始至终**只有本行这个 `Fingerprint` 字样**。</para>
+        /// <para>🔴 **判据（两个口都在 `Net/NetProtocol.cs`，⛔ 只差一格、别认错）**：
+        /// 写入 = `BattleDriver.RecFinish`（`_rec.finalHash = NetProtocol.StateHash(Ctx)`）；
+        /// 比对 = `BattleDriver.PlayReplay` 末尾那一次 `int got = NetProtocol.StateHash(Ctx);`
+        /// （**按符号找，⛔ 别记行号** —— 行号每轮都变）。</para>
+        /// <para>🔴 **为什么不能用 `Fingerprint`（`StateHash` 自己的 doc 写着）**：`Fingerprint` 把表现层的
+        /// 待办队列也算进哈希，而表现层随时在抽干它 ⇒ **同一个局面在「刚做完动作」与「表现层跑过一轮」
+        /// 两个时刻 `Fingerprint` 不相等** —— 拿它当录像指纹会**假红**（明明同一局却报「不是同一局」）。
+        /// ⛔ **录像一律 `StateHash`**；这一条**不用再怀疑**。</para></summary>
         public int finalHash;
         /// <summary>两个督军名（**列表里显示用**；引擎不看它）。</summary>
         public string myHero = "", foeHero = "";

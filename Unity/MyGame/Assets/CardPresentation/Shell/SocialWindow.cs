@@ -76,8 +76,8 @@ namespace CardPresentation
         };
 
         /// <summary>🆕 **2026-10-18（第七轮）**：一颗页签标签对应的词条键（= 原版那颗 `TabButtonLabel` 的
-        /// `Localize.mTerm` 原文；父链 `TabButtonLabel < Label < {Alliances,Friends} Tab Button < Tab Buttons
-        /// < Content Area < Social Submenu Variant` ⇒ 与我们这两颗**逐节同名**）。
+        /// `Localize.mTerm` 原文；父链 `TabButtonLabel &lt; Label &lt; {Alliances,Friends} Tab Button &lt; Tab Buttons
+        /// &lt; Content Area &lt; Social Submenu Variant` ⇒ 与我们这两颗**逐节同名**）。
         /// **`null` = 名字对不上任何键** ⇒ 保持原样（⛔ 不静默编词条）。</summary>
         static string LabelTermFor(string label)
         {

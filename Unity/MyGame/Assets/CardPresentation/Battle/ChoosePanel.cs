@@ -78,7 +78,7 @@ namespace CardPresentation
         /// 「**中文词条查不到**（I2 表本地没有）⇒ 留英文，如实标着」—— **不成立**。
         /// 键**就在本地**：`Battle/Prebattle/SelectButton`，挂在
         /// `bundle_battlesharedresources_assets_all/MonoBehaviour_-7067688171680277716.json`
-        /// （父链 `CardChooseCardButtonFrame < Generic Simplified UI Button_updated < Button Text`），
+        /// （父链 `CardChooseCardButtonFrame &lt; Generic Simplified UI Button_updated &lt; Button Text`），
         /// TMP 原文逐字 `Select`（全库 4 颗同键）。
         /// **错因**：上一轮只扫了 `bundle_menus_assets_all` **一个包**（正是「D 类：除 `menus` 之外的 bundle」
         /// 那一格）—— 同 `资料/已知的坑.md` #20「在一处找不到 ⇒ 说成『本地没有』」。
