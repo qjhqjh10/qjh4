@@ -398,6 +398,8 @@ public static class DeckScene
         {
             _sink.Pass = 0; _sink.Fail = 0; _sink.Failures.Clear();
             Directory.CreateDirectory(ShotDir);
+            // 🆕 2026-10-18（`A1007`）：空图护栏的**基线**（结尾那条断言用它算增量，见收尾那一段）。
+            int guardBase = MenuCheck.GuardedShots;
             Debug.Log(P + "=== 卡组编辑自检 开始 ===");
 
             Section("状态：卡池与筛选");
@@ -580,6 +582,75 @@ public static class DeckScene
             Debug.Log(P + $"  拆掉模态窗那条链留下的场景对象 **{torn}** 件（A364）");
             Shoot("deck_editor.png");
             SaveScene();
+
+            // ============================================================
+            //  🆕 2026-10-18（`A1007`）：`MenuCheck.Shoot` 的 `Camera.main == null` 那一支
+            //    —— **判别式探针**（自备 `CheckSink`，⛔ 不污染本宿主的合计）。
+            //
+            //  🔴 **为什么必须单开一条**：那一支原来是**裸 `return`**（不报错、也不写图）
+            //     ⇒ 整条截图断言链可以「靠什么都没发生」假装通过。只把 `return` 改成出声**还不够**：
+            //     那条路平时**走不到**（本宿主的相机是好的）⇒ 不造局面就永远验不了它。
+            //     这里把 `MainCamera` 标签临时摘掉 + 关掉相机，**造出无相机上下文**再调 `Shoot`。
+            //
+            //  🧨 **灭自证**：`MenuCheck.Shoot` 那一支改回裸 `return` ⇒ 探针读到 **0 条 ✗** ⇒ 红；
+            //     要让它重新变绿只能**连这条断言一起删/改**（那是看得见的改动）。
+            //     「把实现改回去」与「把断言改回去」在结构上不可能同时满足。
+            // ============================================================
+            {
+                var taggedCams = new List<Camera>();
+                foreach (var c in UnityEngine.Object.FindObjectsByType<Camera>(
+                                     FindObjectsInactive.Include, FindObjectsSortMode.None))
+                    if (c.CompareTag("MainCamera")) { taggedCams.Add(c); c.tag = "Untagged"; c.enabled = false; }
+
+                bool noCam = Camera.main == null;
+                CheckTrue(taggedCams.Count > 0,
+                          $"（前提）本宿主建场时挂了 `MainCamera`（摘到 {taggedCams.Count} 台）"
+                        + " —— 一台都摘不到 ⇒ 下一条验不了");
+                CheckTrue(noCam,
+                          "（前提）摘标签 + 关相机 ⇒ `Camera.main == null`（**下一条的前提**，不是结论）"
+                        + "｜⚠️ 本条若红 = 这台 Unity 的 `Camera.main` 不吃「摘标签/关相机」，"
+                        + "先查这个再怀疑下面那条");
+
+                if (noCam)
+                {
+                    string probeDir = Path.Combine(ShotDir, "A1007_无相机");
+                    Directory.CreateDirectory(probeDir);
+                    const string probeName = "no_camera.png";
+                    string probeFull = Path.Combine(probeDir, probeName);
+                    if (File.Exists(probeFull)) File.Delete(probeFull);
+
+                    // ⚠️ 前缀特意与本宿主不同：本探针**故意**要让 `Shoot` 吼一条 `✗`，
+                    //    那一行的前缀是 `>>> A1007 探针 `（**不是** `DK `）⇒
+                    //    ⛔ 别把它当成「卡组编辑自检失败了一条」；本宿主的合计**不受影响**
+                    //    （`probeSink` 是独立实例，`_sink` 一格没动）。
+                    var probeSink = new CheckSink(">>> A1007 探针 ");
+                    MenuCheck.Shoot(probeSink, probeDir, probeName,
+                                    guardBlank: true, meanBrightness: MeanBrightness);
+                    Check(probeSink.Fail, 1,
+                          $"★ **无相机 ⇒ `MenuCheck.Shoot` 必须【出声】**：自己的 sink 上**恰好 1 条 ✗**"
+                        + $"（实得 {probeSink.Fail}）"
+                        + "｜🧨 把 `Editor/MenuCheck.cs` 里那一支改回裸 `return` ⇒ 这里 0 ⇒ 本条红"
+                        + "（改前就正是裸 `return`：不报错、也不写图）");
+                    Check(probeSink.Pass, 0,
+                          "★ …而**一条 ✓ 都不许记**（没拍成 ≠ 通过 —— 连 `✓ … 不是空图` 那一类也不许有）");
+                    CheckTrue(!File.Exists(probeFull),
+                              "★ …而且**一张图都没落盘**（`cam == null` 时照旧不写图：那半句行为**没改**）");
+                    if (probeSink.Failures.Count > 0)
+                        Debug.Log(P + "  （探针子 sink 那条 ✗ 的原文）" + probeSink.Failures[0]);
+                }
+
+                foreach (var c in taggedCams) { c.tag = "MainCamera"; c.enabled = true; }
+                CheckTrue(Camera.main != null,
+                          "（收尾）相机还回去 ⇒ `Camera.main` 又有了（⛔ 别让本块废掉后面的截图）");
+            }
+
+            // ---- 🆕 `A1007`：本宿主的**空图护栏**（`guardBlank: true`）真的接上了没有 ----
+            //  判据 = `MenuCheck.GuardedShots` 的增量（那是**唯一**一处真的走亮度那一跳的地方）。
+            //  ⛔ 别拿「截图文件在盘上」当判据 —— 护栏关着的时候图**也照写**（那正是改前的形状）。
+            //  🧨 把本文件 `Shoot` 的转发改回缺省（`guardBlank: false`）⇒ 增量 0 ⇒ 红。
+            CheckTrue(MenuCheck.GuardedShots > guardBase,
+                      $"★ `A1007` 本宿主的**空图护栏真的跑过**（开局 {guardBase} → 现 {MenuCheck.GuardedShots}）"
+                    + " —— 改前本文件**没有**护栏（`guardBlank: false`）⇒ 这里恒为 0");
 
             int total = _sink.Pass + _sink.Fail;
             if (_sink.Fail == 0) Debug.Log(P + $"=== 结束：{_sink.Pass}/{total} 全过 ✅ ===");
@@ -4147,7 +4218,34 @@ public static class DeckScene
                       "★ A396：清空图标正中心命中的是 **`name_clear`**（`name_box` 排前面时这里是 `name_box`）");
                 CheckTrue(_rt.UiClickPx(ClrCx, ClrCy),
                           "★ A396：点它 ⇒ **有人吃这一下**（原来被 `name_box` 吃掉 = 「亮得起来但点不到」）");
-                Check(live.Name, "新卡组", "……名字被写成「新卡组」");
+                // 🔴 **2026-10-18（`A1031③`）就地改「期望值随语档」**：这里原来写死字面量 `"新卡组"`
+                //   —— 那**只是中文列的副本**（实现早就走词条了：`Deck/DeckRuntime.cs` 清名那一跳是
+                //   `State.SetDeckName(Loc.T("MenuDeck/NewDeckName"))`）⇒ **换到英文档这条必红**；
+                //   而中文档下期望值又**恰好等于**实现里那个默认串 ⇒ 两边一起看就是**自证**
+                //   （期望值从实现的口里来，实现改坏了它跟着改）。
+                //   ⇒ 期望值改成 `Loc.T(键)`（同形现成写法 = `Editor/CollectionScene.cs` 的
+                //     `HasEntry` + `Loc.T(键)` 那一对）。判据 = `Core/Loc.cs` 那条
+                //     `MenuDeck/NewDeckName`（EN `New deck` / ZH `新卡组`）。
+                CheckTrue(Loc.HasEntry("MenuDeck/NewDeckName"),
+                          "（前提）词条 `MenuDeck/NewDeckName` 在表里"
+                        + "（⛔ 不在 ⇒ `Loc.T` 回的是**键名本身** ⇒ 实现印键名、期望也是键名 = **假绿**）");
+                Check(live.Name, Loc.T("MenuDeck/NewDeckName"),
+                      "……名字被写成**词条** `MenuDeck/NewDeckName`（期望值**随语档**，"
+                    + $"当前语档下 =「{Loc.T("MenuDeck/NewDeckName")}」）");
+                // 🧨 **灭自证**：同一条键在两档下**各是各的** ⇒ 旧断言那个字面量「新卡组」
+                //   **只在中文档成立**（改前正是如此 = 单语档断言）。这里断的也不是「实现里那个字面量」，
+                //   而是这一条**键**的英文列 —— 实现改成写死常量时它不会跟着变。
+                {
+                    var dkLangWas = Loc.Current;
+                    Loc.RestoreForTest(AvailableLanguages.English);
+                    string dkEn = Loc.T("MenuDeck/NewDeckName");
+                    Loc.RestoreForTest(dkLangWas);                       // 收尾：还给本节剩下的语档
+                    CheckTrue(!string.IsNullOrEmpty(dkEn) && dkEn != "新卡组"
+                              && dkEn != "MenuDeck/NewDeckName",
+                              $"★ **灭自证**：同一条键换到英文档是**另一句**（「{dkEn}」）"
+                            + " ⇒ 期望值写成字面量「新卡组」只在中文档成立（改前 = **单语档断言**）；"
+                            + " 而它**不是键名** ⇒ 词条真的在表里（上面那条 `HasEntry` 不是装饰）");
+                }
                 CheckTrue(_rt.DeckDirty, "★ A363：`name_clear` ⇒ **标脏**");
                 Check(DeckLibrary.ExportString(DeckLibrary.Load().Current), disk1,
                       "★ A363：……盘上那份**还是没动**（清名字自己写盘 = 这条红）");
@@ -5871,10 +5969,28 @@ public static class DeckScene
 
         // ============================================================ 截图 / 存场景
 
-        /// <summary>截图 —— 本文件那一份**原来就没有空图护栏**（无 `MeanBrightness`、无 `allowBlank`）
-        /// ⇒ `guardBlank: false`（⛔ **不许顺手补上**：那会给本宿主**新增断言**、可能绿变红；
-        /// 那笔账另记，见 `Editor/MenuCheck.cs` 的 `Shoot` 文件头）。</summary>
-        static void Shoot(string file) => MenuCheck.Shoot(_sink, ShotDir, file);
+        /// <summary>截图。🆕 **2026-10-18（`A1007`）起补上「空图护栏」** —— 本文件原来**没有**它
+        /// （`guardBlank: false`、也没有 `MeanBrightness`）⇒ 一张**全黑**图也能安静地写出去
+        /// （2026-09-23 在别的宿主上踩过：上一个窗的 `CloseAllWindows()` 把要拍的那个窗也关了）。
+        /// 现在照另 5 份接上：`guardBlank: true` + 本文件自己一份 `MeanBrightness`。
+        /// ⚠️ `MeanBrightness` 的口径照 **Collection / Rewards / Shell / Shop** 四份
+        /// （`long` 累加 + 分母 `(px.Length + 6) / 7`）—— ⛔ **别抄 `SettingsScene` 那一份**：
+        /// 它是 `double` + `px.Length / 7.0` 且**没有 null 护栏**，传 `null` 会 NRE。</summary>
+        static void Shoot(string file, bool allowBlank = false)
+            => MenuCheck.Shoot(_sink, ShotDir, file, allowBlank, guardBlank: true, meanBrightness: MeanBrightness);
+
+        /// <summary>平均亮度（0–255）—— **逐宿主一份**（⛔ 没有合并成共享实现，理由见 `MenuCheck.cs` 的
+        /// `Shoot` doc：合并会动 `{lum:F1}` 那一行、而本族的回归判据是 stdout 逐字节相同）。
+        /// 口径与另四份逐字相同：`long` 累加 + **分母 = 采样数**（步长 7 ⇒ `(px.Length + 6) / 7`）。</summary>
+        static float MeanBrightness(Texture2D t)
+        {
+            if (t == null) return 0f;
+            var px = t.GetPixels32();
+            if (px.Length == 0) return 0f;
+            long sum = 0;
+            for (int i = 0; i < px.Length; i += 7) sum += px[i].r + px[i].g + px[i].b;
+            return sum / 3f / ((px.Length + 6) / 7);
+        }
 
         static void SaveScene()
         {

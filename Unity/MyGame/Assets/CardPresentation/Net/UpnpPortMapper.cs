@@ -105,7 +105,7 @@ namespace CardPresentation.Net
             {
                 // 已经有一次在跑 ⇒ 不重复发起（但**也不静默**：如实说这一条）
                 var r0 = new Result { port = port, outcome = Outcome.Error,
-                                      message = "上一次「向路由器要端口」还没跑完 —— 这次先跳过。",
+                                      message = Loc.T("Settings/Online/Upnp/Busy"),
                                       detail = "busy" };
                 Last = r0;
                 if (done != null) done(r0);
@@ -119,7 +119,7 @@ namespace CardPresentation.Net
                 catch (Exception e)
                 {
                     r = new Result { port = port, outcome = Outcome.Error,
-                                     message = "向路由器要端口时出错：" + e.Message, detail = e.ToString() };
+                                     message = string.Format(Loc.T("Settings/Online/Upnp/Error"), e.Message), detail = e.ToString() };
                 }
                 Last = r;
                 try { NetRuntime.Notice(r.message); } catch { }        // 红线：必须让玩家看得见
@@ -161,9 +161,7 @@ namespace CardPresentation.Net
             if (string.IsNullOrEmpty(location))
             {
                 r.outcome = Outcome.NoRouter;
-                r.message = "没能从路由器那里问到端口映射（UPnP 没开、或路由器不支持）。\n"
-                          + "→ 想让网友连进来：① 去路由器管理页把 **UPnP 打开** 再点一次【保存】；"
-                          + "② 或者两边装同一个虚拟局域网工具（Tailscale / ZeroTier 这类，见【怎么联机】）。";
+                r.message = Loc.T("Settings/Online/Upnp/NoResponse");
                 r.detail = "SSDP 0 回应";
                 return r;
             }
@@ -175,8 +173,7 @@ namespace CardPresentation.Net
             if (string.IsNullOrEmpty(ctrl))
             {
                 r.outcome = Outcome.NoIgdService;
-                r.message = "路由器回应了，但它**没有提供端口映射服务**（不是常见的家用路由器固件）。\n"
-                          + "→ 这条只能走虚拟局域网工具那条路（见【怎么联机】）。";
+                r.message = Loc.T("Settings/Online/Upnp/NoService");
                 r.detail = "设备描述里没有 WANIPConnection / WANPPPConnection";
                 r.serviceType = svc;
                 return r;
@@ -213,13 +210,11 @@ namespace CardPresentation.Net
                 r.outcome = Outcome.Failed;
                 r.detail = "AddPortMapping 被拒：错误码 " + code;
                 if (code == 718)
-                    r.message = "路由器说 **" + port + " 这个端口上已经有别的映射了** ⇒ 换一个端口再来"
-                              + "（或者去路由器管理页把那条旧映射删掉）。";
+                    r.message = string.Format(Loc.T("Settings/Online/Upnp/PortTaken"), port);
                 else if (code == 725)
-                    r.message = "路由器不接受「永久」映射（错误码 725）—— 这一台得手动在路由器上做端口映射。";
+                    r.message = Loc.T("Settings/Online/Upnp/NotPermitted");
                 else
-                    r.message = "路由器**拒绝了**端口映射请求（错误码 " + code + "）。\n"
-                              + "→ 有些固件即使开着 UPnP 也不放行入站映射，这条只能走别的路（见【怎么联机】）。";
+                    r.message = string.Format(Loc.T("Settings/Online/Upnp/Rejected"), code);
                 return r;
             }
 
@@ -227,16 +222,27 @@ namespace CardPresentation.Net
             if (!string.IsNullOrEmpty(wan) && !IsPublicIpv4(wan))
             {
                 r.outcome = Outcome.Cgnat;
-                r.message = "✅ 端口映射要到了，**但你这台大概率在「大内网」(CGNAT) 里** ——\n"
-                          + "路由器自己的外网地址是 " + wan + "（**私网段**）⇒ 外面照样连不进来。\n"
-                          + "→ 这种情况打客服电话要「公网 IP」才有用，或走虚拟局域网工具。";
+                r.message = string.Format(Loc.T("Settings/Online/Upnp/Cgnat"), wan);
             }
             else
             {
                 r.outcome = Outcome.Ok;
-                r.message = "✅ 已经在路由器上开好了 " + port + " 端口（TCP）"
-                          + (string.IsNullOrEmpty(wan) ? "" : "，你家的外网地址是 " + wan)
-                          + " —— 把**外网地址 + 端口**给朋友就能连进来。";
+                // ⚠️ **2026-10-19（P6 · 双语）**：`{1}` = 有外网地址时那句「，你家的外网地址是 X」。
+                //    🔴 **那半句在 `Core/Loc.cs` 里【没有】对应的词条**（全表按「外网地址」「你家的」搜过、0 命中），
+                //    而 P6 简报明令「找不到键就停手报回来、⛔ 不许自己造键」 ⇒ **这一小段如实留着中文**，
+                //    已写进交件报告的「没查清 / 停手」一节（英文档下这里会冒中文）。
+                // 🔴 **2026-10-19（P6d · A1079③）就地解掉这条停手项**：这一段是**碎片**（喂父键
+                //    `Settings/Online/Upnp/Ok` 的 `{1}`），本轮按「**碎片建成独立键**」这条路接上了
+                //    `Settings/Online/Upnp/OkWanSuffix`。**为什么选这条路**（而不是改父键形状）：
+                //      · 改父键形状 = 把 `Ok` 拆成「有外网地址 / 没有」两条键 ⇒ 会动**已有断言**
+                //        （`Editor/NetSelfTest.cs` 的键清单里有 `Upnp/Ok`）与 `NetSelfTest` 里那条
+                //        「英文列不许含汉字」的覆盖面 ⇒ 代价落在**别的格**上；
+                //      · 碎片键的代价只落在**这一处**，而且 `{1}` 这个「有就填、没有就空串」的形状**原样保留**。
+                //    ⚠️ **两张原版表都搜过、0 命中**（`assets_full` 的 prefab `mTerm` 488 条 +
+                //      `il2cpp_out/stringliteral.json` 26,507 条）⇒ **键名 + 两列全自拟**，ZH 列 = 调用点原话逐字。
+                r.message = string.Format(Loc.T("Settings/Online/Upnp/Ok"), port,
+                                          string.IsNullOrEmpty(wan) ? ""
+                                              : string.Format(Loc.T("Settings/Online/Upnp/OkWanSuffix"), wan));
             }
             return r;
         }

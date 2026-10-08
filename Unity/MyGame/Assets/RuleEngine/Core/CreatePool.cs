@@ -520,6 +520,59 @@ namespace RuleEngine
         }
 
         // ==================================================================
+        //  汉字（中文卡名）那一套归一化 —— 2026-10-18（`项目任务.md` §三 第 19 条：
+        //  「相关卡」的中文索引）
+        // ==================================================================
+        //
+        // 🔴 **为什么 `Norm` 一条中文都办不了**（**实测**，不是推测）：`Norm` 只留 `a-z0-9`，
+        //    汉字**一个都不留** —— 全池 **1126/1126** 张卡的 `nameZh` **全是纯汉字**
+        //    （实测：混字母数字的 **0** 张、纯 ASCII 的 **0** 张、2 个字的 **64** 张），
+        //    于是 `Norm("幽卫") == ""`、**`Norm(nameZh)` 在 1126 张上无一例外都是空串**。
+        //    ⇒ 拿 `Norm` 去建中文索引 = 建出一张**全空键**的表，而 `BuildNameIndex` 与
+        //      `MentionedCards` 都有 `k.Length == 0 ⇒ 跳过` ⇒ **一条都查不到、还不报错**。
+        //      这正是本条要修的东西，所以中文那边**必须**另起一套归一化。
+        //
+        // ⚠️ 与英文那趟的**根本差别**：英文靠**空白切词**拼 n-gram，天然带**词边界**（规则③）；
+        //    中文没有词边界 ⇒ 只能「逐位置取**最长**的一个中文卡名」。后者天生**松一点**，
+        //    已知且量化过的那一处见 `MentionedCards` 的注释。
+
+        /// <summary>中日韩统一表意文字（`U+4E00`–`U+9FFF`）—— 中文卡名用的就是这一段。
+        /// ⚠️ **不含扩展区 / 兼容区**（`U+3400` / `U+F900` 那些）—— 全池 `nameZh` 实测只用到基本区。</summary>
+        static bool IsCjk(char c) { return c >= '\u4e00' && c <= '\u9fff'; }
+
+        /// <summary>这段文本里**有没有汉字**。用途只有一个：`MentionedCards` 里中文那一趟的
+        /// **短路闸**（那条不变量见 `_nameIndexCjk`）。⛔ **不是「识别语档」** —— 用中文还是英文
+        /// 由**调用方**决定（`RuleEngine` 不认识 `CardText`/`Loc`，也不该认识）。</summary>
+        static bool HasCjk(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return false;
+            foreach (char ch in s) if (IsCjk(ch)) return true;
+            return false;
+        }
+
+        /// <summary>**中文卡名**那一套归一化：小写 + 留字母数字（与 <see cref="Norm"/> 同）—— **外加汉字**。
+        /// <paramref name="srcIndex"/> 非 null 时，顺带把每个**保留下来**的字符在**原串**里的下标填进去
+        /// （中文那一趟要靠它算「出现在第几个字」，好与英文那一趟**按位置合并**）。
+        /// ⚠️ **字母数字照留、不剥** —— 它们在这里兼着**分隔符**用：不剥才挡得住
+        ///   `幽[1]卫` 被拼成 `幽卫` 这种假命中。（`Norm` 那边「全剥」是对的：英文靠空白切词，
+        ///   词边界已经有了；中文没有，只能靠这个。）</summary>
+        static string NormCjk(string s, List<int> srcIndex = null)
+        {
+            if (string.IsNullOrEmpty(s)) return "";
+            var sb = new System.Text.StringBuilder(s.Length);
+            for (int i = 0; i < s.Length; i++)
+            {
+                char c = char.ToLowerInvariant(s[i]);
+                if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || IsCjk(c))
+                {
+                    sb.Append(c);
+                    if (srcIndex != null) srcIndex.Add(i);
+                }
+            }
+            return sb.ToString();
+        }
+
+        // ==================================================================
         //  卡名索引（2026-09-16）—— 「按卡名指目标」那一条路的判据
         // ==================================================================
         //
@@ -537,20 +590,58 @@ namespace RuleEngine
 
         static Dictionary<string, string> _nameIndex;
 
-        /// <summary>建卡名索引。由 `CardDatabase.Parse` 在读完卡表之后调一次。
+        /// <summary>🆕 **中文卡名**索引（2026-10-18，`§三 第 19 条`）：`NormCjk(NameZh)` → **卡的 `Name`（英文原名）**。
+        /// 🔴 **值必须是 `Name`、不是 `NameZh`** —— 回卡池取实体走的是 <see cref="PickNamed"/>，
+        ///   它按 `c.Name` **全等**比（英文那张索引的约定）⇒ 两张表**共用同一个取值口径**；
+        ///   值若改成 `NameZh`，中文这条就得再写一份 `PickNamed`，两处迟早不一致。
+        /// ⚠️ **只收「`NameZh` 里含汉字」的卡**（全池实测 1126/1126 都含）—— 这条**不变量**换来
+        ///   `MentionedCards` 里那句「文本里没汉字 ⇒ 中文这一趟整个跳过」是**严格等价**的短路
+        ///   （键**个个**含汉字 ⇒ 无汉字的文本不可能命中任何一个键）。英文档因此**零额外开销**。</summary>
+        static Dictionary<string, string> _nameIndexCjk;
+
+        /// <summary>中文索引里**最长的键有几个字** —— `MentionedCards` 逐位置扫描的**上界**。
+        /// 实测今天是 **15**（`NormCjk(nameZh)` 长度分布 `2..15`）。</summary>
+        static int _nameIndexCjkMaxLen;
+
+        /// <summary>中文那一趟**最短认几个字**。⚠️ 实测：全池最短的中文卡名就是 **2 个字**（**64** 张，
+        /// 例：`总督` / `先知` / `幽卫` / `猎鹰`）—— 收到 1 个字会让「单字名」把整段文本点成一片
+        /// （那不是判据，是噪声）。
+        /// ⚠️ **别顺手收紧到 3**：实测会掉 **21** 处命中（132 → 111）。</summary>
+        const int MinCjkNameChars = 2;
+
+        /// <summary>建卡名索引（**两张**：英文 + 中文）。由 `CardDatabase.Parse` 在读完卡表之后调一次。
         /// ⚠️ 没建索引时 <see cref="MatchCardName"/> 一律返回 null ⇒ 解析行为与从前**完全一致**（不静默误判）。</summary>
         public static void BuildNameIndex(IReadOnlyList<CardDef> pool)
         {
             var idx = new Dictionary<string, string>();
+            var idxCjk = new Dictionary<string, string>();     // 🆕 中文名那一张（`NormCjk`）
+            int cjkMax = 0;
             if (pool != null)
                 foreach (var c in pool)
                 {
-                    if (c == null || string.IsNullOrEmpty(c.Name)) continue;
-                    string k = Norm(c.Name);
-                    if (k.Length == 0 || idx.ContainsKey(k)) continue;   // 同名跨阵营：**先出现的赢**
-                    idx[k] = c.Name;                                     // （筛的是名字，两个阵营都该命中）
+                    if (c == null) continue;
+                    bool named = !string.IsNullOrEmpty(c.Name);
+                    if (named)
+                    {
+                        string k = Norm(c.Name);
+                        // 同名跨阵营：**先出现的赢**（筛的是名字，两个阵营都该命中）
+                        if (k.Length != 0 && !idx.ContainsKey(k)) idx[k] = c.Name;
+                    }
+                    // ---- 🆕 中文名那一张 —— 判据与「为什么不能用 `Norm`」见上面 `NormCjk` 那段 ----
+                    // ⚠️ 值仍取 `c.Name`（英文原名），理由见 `_nameIndexCjk` 的注释。
+                    if (named && HasCjk(c.NameZh))
+                    {
+                        string kz = NormCjk(c.NameZh);
+                        if (kz.Length != 0 && !idxCjk.ContainsKey(kz))
+                        {
+                            idxCjk[kz] = c.Name;
+                            if (kz.Length > cjkMax) cjkMax = kz.Length;
+                        }
+                    }
                 }
             _nameIndex = idx;
+            _nameIndexCjk = idxCjk;
+            _nameIndexCjkMaxLen = cjkMax;
         }
 
         /// <summary>这个名字**是不是池里某张卡的名字**。是就返回卡表里的原名，否则 null。
@@ -567,6 +658,27 @@ namespace RuleEngine
             return null;
         }
 
+        /// <summary>🆕 **只给自检开门**（2026-10-18 · `WRelated` 遗留断言第 (6) 条）：按**中文卡名**
+        /// 查回英文原名（走中文那一张 `_nameIndexCjk`）；查不到返回 null。
+        ///
+        /// **存在的理由只有一个** —— 钉住「中文索引**不是一张空表**」这条**结构不变量**：
+        /// `Norm` 那版索引在中文上**键全是空的**（实测 1126/1126 张 `Norm(nameZh) == ""`），
+        /// 而建索引与查名两处都有 `k.Length == 0 ⇒ 跳过` ⇒ 那版索引**一条都查不到、还不报错**。
+        /// 有了这条，「谁把 `NormCjk` 改回 `Norm`」会**当场红**，而不是静默退化成空表。
+        ///
+        /// 🔴 **纪律与 `EffectResolver.HurtForTest` / `CountForTest` 同一条**：只为自检开门，
+        /// **不改变任何行为**、引擎里**没有任何业务代码**该走它（业务走 `MentionedCards`）。
+        /// ⚠️ 放 `public`（不是 `internal`）—— `RuleEngineTest` 在 **Editor 程序集**，`internal` 它看不见
+        /// （与 `HurtForTest` 同一个理由，那两处也写着这句）。</summary>
+        public static string MatchZhNameForTest(string nameZh)
+        {
+            if (_nameIndexCjk == null || string.IsNullOrEmpty(nameZh)) return null;
+            string k = NormCjk(nameZh);
+            if (k.Length == 0) return null;
+            string hit;
+            return _nameIndexCjk.TryGetValue(k, out hit) ? hit : null;
+        }
+
         // ==================================================================
         //  「效果文本里点名的卡」（2026-09-27）—— 卡片详情窗「相关卡」那一块的判据
         // ==================================================================
@@ -579,6 +691,8 @@ namespace RuleEngine
         //   ① **长名优先** —— `Eliminator Sergeant` 里含 `Eliminator`，短的先命中就张冠李戴；
         //   ② **先把 `Talent:` 那一段去掉** —— 那一段**天生含一个卡名**（`Talent: Author of the Codex`），
         //      不去掉会把「天赋名」当成「正文点名」；
+        //      🆕 **2026-10-18（`A1078`）第二半：前缀被数据管线剥掉的「裸写」那一段也要去掉** ——
+        //      全池 3 张（`Azrael` / `Aun'Va` / `Abaddon the Despoiler`），见 `StripBareTalentSegment`；
         //   ③ **词边界** —— 不然短名字会命中一整天词内子串；
         //   ④ **跳过它自己**。
         //
@@ -594,7 +708,25 @@ namespace RuleEngine
 
         /// <summary>一段效果文本里**被点名的卡**（按**出现顺序**、已去重、已跳过自己）。
         /// 详见上面那段注释；<paramref name="why"/> 非空 = 这次没查成（**调用方要如实报** ——
-        /// 本文件不认识 `UnityEngine`，`Core/` 的规矩是**只记不外报**）。</summary>
+        /// 本文件不认识 `UnityEngine`，`Core/` 的规矩是**只记不外报**）。
+        ///
+        /// 🆕 **2026-10-18：这里变成「两趟」—— 英文一趟 + 中文一趟**（`项目任务.md` §三 第 19 条：
+        ///   关系卡的中文索引）。要点四条：
+        ///   · **语档由【调用方】决定**，不是本文件猜的：中文档传 `DescZh`、英文档传 `Desc`
+        ///     （口径 → `BattleDriver.FaceTextFull`）。本文件不认识 `CardText`/`Loc`，也不该认识。
+        ///   · 两趟都跑**同一段**文本，命中的按**在文本里的位置**合并 ⇒ 「出现顺序」在两种文字
+        ///     混着写时也成立。⚠️ 实测：`descZh` 纯汉字 1120/1120，而英文那一趟跑在 `descZh` 上
+        ///     命中 **0 张** ⇒ 实际效果就是「哪一趟非空就是它」。
+        ///   · 🔴 **英文那一趟一个字段都没动**（同样的词、同样的顺序、同样的 `PickNamed`），
+        ///     纯英文文本下中文那一趟被短路掉 ⇒ **英文档行为与从前逐字相同**
+        ///     （`RuleEngineTest.TestMentionedCards` 那 10 个期望数仍然对得上）。
+        ///   · ⚠️ **中文这一趟天生比英文松，这是已知的、量化过的**：英文靠**空白切词**自带词边界
+        ///     （规则③），中文没有词边界 ⇒ 只能「逐位置取**最长**的一个中文卡名」。
+        ///     全池实测唯一一处可见差：`复生`（= `Reanimate`，**只有 2 个字**）把中文的
+        ///     `被复生时…` 也算进来了，而英文的 `Reanimated` 被词边界挡在外面
+        ///     ⇒ 全池 **+4** 处命中（128 → 132）。**这是「松」，不是漏，也不是 bug** ——
+        ///     中文里那个关键词与那张卡共用同一个词，判据层面分不开。⛔ 别为此改成 3 个字起
+        ///     （会掉 21 处，见 `MinCjkNameChars`）。</summary>
         public static List<CardDef> MentionedCards(IReadOnlyList<CardDef> pool, CardDef self,
                                                    string text, out string why, int max = 8)
         {
@@ -610,36 +742,99 @@ namespace RuleEngine
                 return outp;
             }
 
-            var words = StripTalentSegments(text).Split(NameWordSeps, StringSplitOptions.RemoveEmptyEntries);
-            for (int i = 0; i < words.Length && outp.Count < max; i++)
+            string s = StripTalentSegments(text, self);
+            // 两趟都往这两条**平行表**里塞 `(位置, 卡)`，最后按位置升序合并成返回的那一份。
+            var pos = new List<int>();
+            var hitDefs = new List<CardDef>();
+
+            // ---- ① 英文那一趟（2026-09-27 的原实现；**匹配逻辑一个字未改**，只是多了「位置」）----
+            var words = s.Split(NameWordSeps, StringSplitOptions.RemoveEmptyEntries);
+            if (words.Length > 0)
             {
-                for (int len = Math.Min(MaxNameWords, words.Length - i); len >= 1; len--)
+                // 每个词在**剥离后原串**里的起点。词是有序出现的 ⇒ 从上一个词的末尾往后找，不会串位。
+                var wpos = new int[words.Length];
+                int scan = 0;
+                for (int w = 0; w < words.Length; w++)
                 {
-                    string k = Norm(string.Join(" ", words, i, len));
-                    if (k.Length == 0) continue;
-                    string hit;
-                    if (!idx.TryGetValue(k, out hit))
+                    int at = s.IndexOf(words[w], scan, StringComparison.Ordinal);
+                    if (at < 0) at = scan;                 // 理论上到不了（这些词就是从 `s` 切出来的）
+                    wpos[w] = at;
+                    scan = at + words[w].Length;
+                }
+                for (int i = 0; i < words.Length && hitDefs.Count < max; i++)
+                {
+                    for (int len = Math.Min(MaxNameWords, words.Length - i); len >= 1; len--)
                     {
-                        string sing = Singular(k);                 // 单复数：`Canoptek Scarabs` ↔ `Canoptek Scarab`
-                        if (sing == k || !idx.TryGetValue(sing, out hit)) continue;
+                        string k = Norm(string.Join(" ", words, i, len));
+                        if (k.Length == 0) continue;
+                        string hit;
+                        if (!idx.TryGetValue(k, out hit))
+                        {
+                            string sing = Singular(k);             // 单复数：`Canoptek Scarabs` ↔ `Canoptek Scarab`
+                            if (sing == k || !idx.TryGetValue(sing, out hit)) continue;
+                        }
+                        var def = PickNamed(pool, hit, self);
+                        if (def == null) continue;
+                        AddMention(pos, hitDefs, wpos[i], def);
+                        i += len - 1;                              // 这一段已经用掉了 ⇒ 别重复匹配
+                        break;
                     }
-                    var def = PickNamed(pool, hit, self);
-                    if (def == null) continue;
-                    bool dup = false;
-                    foreach (var d in outp) if (d.Id == def.Id) { dup = true; break; }
-                    if (!dup) outp.Add(def);
-                    i += len - 1;                                  // 这一段已经用掉了 ⇒ 别重复匹配
-                    break;
                 }
             }
-            return outp;
+
+            // ---- ② 🆕 中文那一趟（走 `NormCjk` 那张索引；为什么另起一套 → 上面 `NormCjk` 那段）----
+            if (hitDefs.Count < max && _nameIndexCjk != null
+                && _nameIndexCjkMaxLen >= MinCjkNameChars && HasCjk(s))
+            {
+                var map = new List<int>(s.Length);   // 归一化后的第 k 个字 ← `s` 里的第 `map[k]` 个
+                string nt = NormCjk(s, map);
+                for (int j = 0; j < nt.Length && hitDefs.Count < max; )
+                {
+                    CardDef def = null;
+                    int take = 0;
+                    // **长名优先**（规则①）—— 逐位置从最长的键往下试：
+                    //   `蛇咬地精` 要在 `地精` 之前命中，否则 `Snakebite Grot` 会被 `Grot` 抢走。
+                    for (int len = Math.Min(_nameIndexCjkMaxLen, nt.Length - j);
+                         len >= MinCjkNameChars; len--)
+                    {
+                        string hit;
+                        if (!_nameIndexCjk.TryGetValue(nt.Substring(j, len), out hit)) continue;
+                        def = PickNamed(pool, hit, self);
+                        if (def == null) continue;   // 取到的就是自己 ⇒ 再试短一点的（同英文那一趟）
+                        take = len;
+                        break;
+                    }
+                    if (def == null) { j++; continue; }
+                    AddMention(pos, hitDefs, map[j], def);
+                    j += take;                       // 这一段已经用掉了 ⇒ 别重复匹配
+                }
+            }
+
+            return hitDefs;
+        }
+
+        /// <summary>把 `(at, c)` 按**位置升序**插进两条平行表（`pos` / `hitDefs`）——
+        /// 位置相同的按**先后**排（先塞的在前）；`Id` 相同的**只收一次**（两趟**之间**也去重）。
+        /// ⚠️ 用**插入**而不是「先攒齐最后 sort」：英文那一趟本来就是升序，插进去**顺序与从前逐字相同**
+        ///   ⇒ `RuleEngineTest` 那些期望数不会因为「换了个合并实现」而变。</summary>
+        static void AddMention(List<int> pos, List<CardDef> hitDefs, int at, CardDef c)
+        {
+            if (c == null) return;
+            for (int i = 0; i < hitDefs.Count; i++) if (hitDefs[i].Id == c.Id) return;
+            int k = hitDefs.Count;
+            while (k > 0 && pos[k - 1] > at) k--;
+            pos.Insert(k, at);
+            hitDefs.Insert(k, c);
         }
 
         /// <summary>把 `Talent: …`（含中文 `天赋：`）那**一段**挖掉（规则②）。
         /// ⚠️ **只挖 `Talent:` 这一段** —— 别的关键词段（`Duty:` / `Mob:` / `Oath:`…）**正文里可能真的点到
         /// 卡名**，一起挖掉反而漏。段尾 = 下一个句号（`.` / `。`），没有句号就挖到结尾
-        /// （`Talent: A random Black Legion Psychic Power` 这种整条都是它）。</summary>
-        static string StripTalentSegments(string text)
+        /// （`Talent: A random Black Legion Psychic Power` 这种整条都是它）。
+        ///
+        /// 🆕 **2026-10-18（`A1078`）：规则② 有第二半 —— 裸写的那一段也要挖**（见
+        /// <see cref="StripBareTalentSegment"/>）。加了它才知道 `self` 是谁。</summary>
+        static string StripTalentSegments(string text, CardDef self)
         {
             if (string.IsNullOrEmpty(text)) return text ?? "";
             string s = text;
@@ -653,6 +848,54 @@ namespace RuleEngine
                 int endZh = s.IndexOf('。', at);
                 if (endZh >= 0 && (end < 0 || endZh < end)) end = endZh;
                 s = end < 0 ? s.Substring(0, at) : s.Remove(at, end - at + 1);
+            }
+            return StripBareTalentSegment(s, self);
+        }
+
+        /// <summary>🆕 **裸写天赋名那一段**也要挖掉 —— 规则② 的第二半（2026-10-18 · `A1078`）。
+        ///
+        /// <para>**为什么需要**：规则② 原来只认 `Talent:` 前缀，而**有 3 张卡的数据里那个前缀被剥掉了**
+        /// （卡面印的是 `[Talent 图标] Talent: &lt;名&gt;`，数据管线把图标和前缀一起去了 —— 照成品卡图核过，
+        /// 铁律 7）。前缀一没，规则② 就**挡不住**，那一段里的天赋名被当成了「正文点名」
+        /// ⇒ 英文那一趟出**假命中**。全池就这 3 张（`CardDef.cs` 的 `ExtractBareTalentName` 注释里
+        /// 与 `:1727` 的实测名单都是同一批）：
+        ///  · `Azrael`（`DA3`）—— `… put it at the top of your deck. **Supreme Grand Master**`（第二段才是名字）
+        ///  · `Aun'Va`（`TAU1`）—— 整条 desc 就是 `**Ethereal Supreme**`
+        ///  · `Abaddon the Despoiler`（`BL1`）—— 整条 desc 就是 `**Chosen of the Four**`（名字是从 `keywords` 里抽的）</para>
+        ///
+        /// <para>**判据不是这里新发明的，是转调两处现成的**（`CardDef.cs:1727` 逐字同款）：
+        /// ① `CardDef.ExtractBareTalentName(seg)` —— 「这一段像不像一个裸写的天赋名」；
+        /// ② 它**恰好等于**本卡已抽出来的 <see cref="CardDef.TalentName"/> —— 第二道闸：
+        ///    「像名字」还不够，得是**本卡的**那个名字。
+        /// ⇒ 两道闸都在，不会把效果正文误判成名字（`RuleCoreTest` 之外，
+        ///    `CardDef.IsKnownSegment` 那条同款判据 2026-09-14 起就在跑）。</para>
+        ///
+        /// ⚠️ **只挖那一段**，段尾照 `EffectText.Split` 的口径（`.` / 换行）外加 `。`（与上面 `天赋：` 那条同款）。
+        /// ⚠️ **`self` 为 null 或本卡没有天赋名 ⇒ 一字不动** —— 全池绝大多数卡走这一支。
+        /// ⚠️ **中文档不受影响**：这一段判据要求段首**大写字母**，中文段一律不过（`Aun'Va` / `Azrael` 的
+        ///    `descZh` 里那两处本来就是 `天赋：` 写法，由上面那一支剥）。
+        /// ⚠️ **别改成「凡像名字就挖」** —— 去掉 `== self.TalentName` 这道闸会把
+        ///    `Deploy a Shock Trooper` 之类的正文段也挖掉（静默少算一整批相关卡）。</summary>
+        static string StripBareTalentSegment(string s, CardDef self)
+        {
+            string tn = self == null ? null : self.TalentName;
+            if (string.IsNullOrEmpty(tn) || string.IsNullOrEmpty(s)) return s;
+            int from = 0;
+            while (from < s.Length)
+            {
+                int end = -1;
+                for (int k = from; k < s.Length; k++)
+                    if (s[k] == '.' || s[k] == '。' || s[k] == '\n' || s[k] == '\r') { end = k; break; }
+                int stop = end < 0 ? s.Length : end;
+                string seg = s.Substring(from, stop - from).Trim();
+                if (seg.Length > 0 && CardDef.ExtractBareTalentName(seg) == tn)
+                {
+                    int cutTo = end < 0 ? s.Length : end + 1;
+                    s = s.Remove(from, cutTo - from);
+                    continue;      // ⚠️ **不推进 `from`**：下一段已经顶到原位，接着从原地看
+                }
+                if (end < 0) break;
+                from = end + 1;
             }
             return s;
         }

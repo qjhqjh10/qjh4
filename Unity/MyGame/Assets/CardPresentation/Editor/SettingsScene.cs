@@ -228,6 +228,22 @@ public static class SettingsScene
         var lb = t != null ? t.GetComponentInChildren<Label>() : null;
         return lb != null ? lb.Text : null;
     }
+
+    /// <summary>🆕 **2026-10-19（波 1b 断言宿主）**：把一条**带 `{0}` 的词条**的**固定前缀**取出来当判据。
+    /// <para>为什么需要它：`_flash` 那一族（「点完有话说」）的完整那句里夹着**运行期值**
+    /// （画质档名 / `FpsText()`）⇒ 拿不到整句当期望；而**前缀那一截是词条自己的、跟着语档走**
+    /// （例 `Settings/Graphics/Flash/Quality` 的 ZH `画质档 → {0}` / EN `Quality → {0}`
+    ///  ⇒ 前缀分别 `画质档 → ` / `Quality → `）。</para>
+    /// <para>🔴 ⛔ **别把中/英任一串写死在调用点** —— 那只是把红从这一档挪到那一档
+    /// （同本文件 `AutoZoom` 那条 `:1478` 的口径）。</para>
+    /// <para>⚠️ 词条里没有 `{0}` 时原样返回（= 整句就是判据）。</para></summary>
+    static string TermHead(string key)
+    {
+        string v = Loc.T(key);
+        if (string.IsNullOrEmpty(v)) return "";
+        int i = v.IndexOf("{0}", System.StringComparison.Ordinal);
+        return i < 0 ? v : v.Substring(0, i);
+    }
     /// <summary>点一个命中区。**行为**：取到 `WindowButton` 就 `onClick()`，取不到就记一条失败。
     /// <para>🔴 **2026-10-10（F4）就地改掉的**：失败文案原来只打一个 `?`（`t == null` 与
     /// 「节点在但没挂 `WindowButton`」混在一起）—— 分不出「**节点没建**」与「**手里是重建前的旧树**」，
@@ -514,6 +530,12 @@ public static class SettingsScene
             // 🔴 **2026-10-17**：`General` 是**第一个**（原版页签序 `General/Media/Account/Graphics/Support` 也是它第一，
             //    见 `Shell/SettingsWindow.cs` 的 `BuildTabs`）⇒ 这一列现在 **4** 个键。
             var names = new[] { "General", "Graphics", "Audio", "Online" };
+            // 🆕 **2026-10-19（波 1b）**：四个页签**各自的词条键**（顺序与 `names` 逐位对齐）。
+            //   ⚠️ 「节点名」（`names`）与「页签上印的字」（键）是**两件事**：节点名一个都没动
+            //   （`FindChild` / `Click` 靠它），键只决定画出来那行字（见 `Shell/SettingsWindow.cs` 的 `BuildTabs`）。
+            //   ⚠️ `Audio` 那一格的键是 `Settings/Media/Title` ⇒ **英文档印 `Media`**（波 0b3 已裁、有意）。
+            var tabTitleKeys = new[] { "Settings/General/Title", "Settings/Graphics/Title",
+                                       "Settings/Media/Title",   "Settings/Online/Title" };
             // ---- ① A863 参数（**字面量**，逐条带原版出处；这几条同时是「旧值改坏了会红」的判别式）----
             //   ⚠️ 键高那条尤其要认准：`menu_dump` 印的 **141.92 是屏幕 px**（= 157.6835 × 根上那层 0.9），
             //      **不是设计值**。照 141.92 改键高会比原版**矮 11%**（正是本工程踩过的那类单位坑）。
@@ -540,10 +562,17 @@ public static class SettingsScene
                 // 键那一格：左沿 **341.52**（= 栏右沿 506.52 − 键宽 165，**贴右沿**、⛔ 不是满栏宽）
                 CheckAtS(n, 341.52f, tabTops[i], 506.52f, tabTops[i] + 157.6835f,
                          $"`{names[i]}` 键在 VLG 算出来的位置（第 {i + 1} 个）");
-                // ⚠️ 页签上那行字**跟着语言走**：只有 `General` 接了词条（其余三页还没接，见 `BuildTabs` 的注释）
-                // ⇒ 期望值不能写死 "General"，要读词条（这一条同时钉住「接了没有」这件事本身）。
-                string wantTab = names[i] == "General" ? Loc.T("Settings/General/Title") : names[i];
-                Check(TextOf(n), wantTab, $"`{names[i]}` 的页签文字（= `Loc.T(\"Settings/General/Title\")`）");
+                // 🔴 **2026-10-19（波 1b）就地改掉「拿节点名当期望值」**：四个页签**全接词条了**
+                //    （`Graphics/Audio/Online` 三条原来 `Key = (string)null`、照 `Label` 原样画）。
+                //    旧写法 `names[i] == "General" ? Loc.T(…) : names[i]` 现在**两档各红几条**：
+                //    · 中文档：`图像`/`媒体`/`联机` ≠ `Graphics`/`Audio`/`Online` ⇒ 红 3 条；
+                //    · 英文档：`Audio` 那条印的是 `Media`（`Settings/Media/Title` 的 EN 列）⇒ 仍红 1 条；
+                //      （`Graphics`/`Online` 两条恰好逐字相等 ⇒ 那两档看不出问题 —— 正是「只断一种情况」的坑。）
+                //    ⇒ 期望值一律走 `Loc.T(键)`：⛔ 不写死节点名、也⛔ 不写死中文（那只是把红挪到英文档）。
+                //    🔴 **节点名照旧不进本地化**（上面 `FindChild` / 下面 `Click` 都靠 `names[i]`）。
+                Check(TextOf(n), Loc.T(tabTitleKeys[i]),
+                      $"`{names[i]}` 的页签文字 = `Loc.T(\"{tabTitleKeys[i]}\")`（实得「{TextOf(n)}」；"
+                    + "⛔ 节点名 `" + names[i] + "` 与这行字是两件事 —— 节点名一个都没动）");
             }
             // ③ 🔴 **判别式**（结构上不可能与旧实现同时满足）：
             //    (a) 起排位置 —— 旧式 `BarT + 30 + i×157.68` 会给首键顶 **153.10**；
@@ -972,7 +1001,16 @@ public static class SettingsScene
             SettingsWindow.QualitySetterOverride = null;
             int qWant = (q0 + 1) % Mathf.Max(1, QualitySettings.names.Length);
             Check(qAsked, qWant, $"点画质行 ⇒ 要求切到**下一档**（{q0} → {qAsked}，共 {QualitySettings.names.Length} 档）");
-            CheckTrue(win.Flash != null && win.Flash.Contains("画质"), $"点完**有话说**（「{win.Flash}」）");
+            // 🔴 **2026-10-19（波 1b）就地改掉「写死中文当需子串」**：这句 `_flash` 现在**跟着语言走**
+            //    （`Shell/SettingsWindow.cs:2070` = `string.Format(Loc.T("Settings/Graphics/Flash/Quality"), QualityName())`）
+            //    ⇒ 旧写法 `Contains("画质")` 只在**中文档**成立，英文档那句是 `Quality → …` ⇒ 红。
+            //    期望值 = 词条的**固定前缀**（`{0}` 之前那一截，跟语档走）；⛔ 不写死中/英、⛔ 也不写死整句
+            //    （`{0}` 是运行期档名）。
+            string qFlashHead = TermHead("Settings/Graphics/Flash/Quality");
+            CheckTrue(win.Flash != null && win.Flash.StartsWith(qFlashHead),
+                      $"点完**有话说**，而且那句是照**当前语档**拼的 `Settings/Graphics/Flash/Quality`"
+                    + $"（前缀「{qFlashHead}」；实得「{win.Flash}」；"
+                    + "改坏法：`_flash` 写死中文字面量 ⇒ 英文档这一条红）");
             CheckTrue(win.QualityLabel != null && !string.IsNullOrEmpty(win.QualityLabel.Text),
                       "画质行上显示了当前档名");
             CheckNear(QualitySettings.GetQualityLevel(), q0, 0.01f,
@@ -1260,24 +1298,44 @@ public static class SettingsScene
                     win.SetFpsIndex(SettingsWindow.FpsIndexOfTarget(f0), false);
                     Application.targetFrameRate = f0;
                     Check(Application.targetFrameRate, f0, "🔴 自检没把进程的 `targetFrameRate` 留在别的值上");
-                    CheckTrue(win.Flash != null && win.Flash.Contains("帧率上限"), $"改档**有话说**（「{win.Flash}」）");
+                    // 🔴 **2026-10-19（波 1b）就地改掉「写死中文当需子串」**：同上（`Shell/SettingsWindow.cs:2396`
+                    //    ⇒ `string.Format(Loc.T("Settings/Graphics/Flash/Fps"), FpsText())`）——
+                    //    旧写法 `Contains("帧率上限")` 只在中文档成立，英文档那句是 `FPS limit → …`。
+                    string fpsFlashHead = TermHead("Settings/Graphics/Flash/Fps");
+                    CheckTrue(win.Flash != null && win.Flash.StartsWith(fpsFlashHead),
+                              $"改档**有话说**，而且那句是照**当前语档**拼的 `Settings/Graphics/Flash/Fps`"
+                            + $"（前缀「{fpsFlashHead}」；实得「{win.Flash}」）");
                     // ⑧ 三个刻度：节点名 / 文字 / 中心 x（期望值 = 原版框中心，行内 x + 114.01，经 0.9）
-                    string[] tickTxt = { "30", "60", "Unlimited" };
+                    // 🔴 **2026-10-19（波 1b）**：第 3 格的**字**改走词条（`Shell/SettingsWindow.cs:2341`
+                    //    `i == 2 ? Loc.T(lkGfxUnlimited) : FpsTickText[i]`）⇒ 期望值第 3 项改读 `Loc.T`。
+                    //    `[0]/[1]` 是纯数字 `30`/`60`、**不换**（表 A 明写「不建键」）。
+                    //    ⚠️ **节点名照旧**（`SettingsWindow.FpsTickName[i]` = `30 FPS`/`60 FPS`/`Unlimited`，
+                    //    下面那条 `FindChild` 靠它 —— ⛔ 别把「节点名」与「这行字」混成一件事）。
+                    string[] tickTxt = { "30", "60", Loc.T("Settings/Graphics/UnlimitedFPS") };
                     float[] tickCx = { 852.48f, 1069.29f, 1281.78f };
                     for (int i = 0; i < 3; i++)
                     {
                         var tk = FindChild(slNode, SettingsWindow.FpsTickName[i]);
                         CheckTrue(tk != null, $"刻度 {i + 1} 节点在（名字照原版的 GO 名 `{SettingsWindow.FpsTickName[i]}`）");
                         if (tk == null) continue;
-                        CheckTrue(TextOf(tk) == tickTxt[i], $"刻度 {i + 1} 的字 = `{tickTxt[i]}`（原版 TMP 的 `m_text`；第 3 个原版是本地化词条）");
+                        CheckTrue(TextOf(tk) == tickTxt[i],
+                                  $"刻度 {i + 1} 的字 = `{tickTxt[i]}`"
+                                + (i == 2 ? "（= `Loc.T(\"Settings/Graphics/UnlimitedFPS\")`：**第 3 格已接词条**，"
+                                          + "中文档印「不限帧」；前两格是纯数字、不换）"
+                                          : "（前两格是纯数字，原版也没接词条）"));
                         var tkl = tk.GetComponentInChildren<Label>();
                         CheckNear(tkl != null ? tkl.transform.position.x * 108f + 960f : -999f, tickCx[i], 1.5f,
                                   $"刻度 {i + 1} 的**中心 x** = 原版框中心（行内 x {SettingsWindow.FpsTickX[i]} + 114.01）经 0.9");
                     }
                     // ⑨ 行标题（原版 `Title`：框左沿在行内 +16）
                     var ttl = fpsRow != null ? FindChild(fpsRow, "Title") : null;
-                    CheckTrue(ttl != null && TextOf(ttl) == "FPS limit",
-                              "行标题 = `FPS limit`（原版 TMP 的 `m_text` 是西语 `'Límite de FPS'`、没挂 I2 词条 ⇒ 照文件头 ② 写英文）");
+                    // 🔴 **2026-10-19（波 1b）**：行标题也接了词条（`Shell/SettingsWindow.cs:2306` 的
+                    //    `Func<string> fpsTitleText = () => Loc.T(lkGfxFrameLimit)`）⇒ 期望值走 `Loc.T`
+                    //    （旧写法写死英文 `"FPS limit"`：英文档恰好绿、**中文档红**）。
+                    //    原版 TMP 的 `m_text` 是西语 `'Límite de FPS'`、没挂 I2 词条 ⇒ EN 列照文件头 ② 自己写。
+                    CheckTrue(ttl != null && TextOf(ttl) == Loc.T("Settings/Graphics/FrameLimit"),
+                              $"行标题 = `Loc.T(\"Settings/Graphics/FrameLimit\")`（实得「{TextOf(ttl)}」；"
+                            + "EN `FPS limit` / ZH `帧率上限`）");
                     var tlb = ttl != null ? ttl.GetComponentInChildren<Label>() : null;
                     CheckNear(tlb != null ? tlb.transform.position.x * 108f + 960f - tlb.WorldW * 108f * 0.5f : -999f,
                               617.57f, 2f,
@@ -1433,7 +1491,9 @@ public static class SettingsScene
                           "★ 点一下 ⇒ 原版 `smallUIChosenManually` 那一半**也置了**（只写一个 = 跟原版不一样；改坏就红）");
                 CheckTrue(ssBox != null && ssBox.Texture != null && ssBox.Texture.name == SettingsWindow.ArtToggleOn,
                           "★ …而且方框**换成了开的图**（" + SettingsWindow.ArtToggleOn + "）");
-                CheckTrue(win.Flash != null && win.Flash.Contains("Small Screen UI"),
+                // 🆕 **2026-10-19（波 1b）**：需子串改走 `TermHead(键)` —— 与上面两条同族（那三条 `_flash`
+                //    也都接了词条）；⛔ 不再写死那串「本来就长得像英文」的中文列字面量（键值一改就假红）。
+                CheckTrue(win.Flash != null && win.Flash.StartsWith(TermHead("Settings/Graphics/Flash/SmallScreenUI")),
                           "★ 点完**有话说**（「" + win.Flash + "」）");
                 Click(ssNode);
                 CheckTrue(!SmallScreenUI.Enabled, "★ 再点一下 ⇒ 又关回来（两态都翻得动）");
@@ -1511,7 +1571,8 @@ public static class SettingsScene
                               "★ 同一下 ⇒ 原版 `autoCombatChosenManually`(+0x12f) 那一半**也置了**（只写一个 = 跟原版不一样 ⇒ 红）");
                     CheckTrue(azBox != null && azBox.Texture != null && azBox.Texture.name == SettingsWindow.ArtToggleOn,
                               "★ …而且方框**换成了开的图**（" + SettingsWindow.ArtToggleOn + "）");
-                    CheckTrue(win.Flash != null && win.Flash.Contains("Auto Zoom"),
+                    // 🆕 **2026-10-19（波 1b）**：需子串改走 `TermHead(键)`（同上面那两条 —— 这句也接了词条）。
+                    CheckTrue(win.Flash != null && win.Flash.StartsWith(TermHead("Settings/Graphics/Flash/AutoZoom")),
                               "★ 点完**有话说**（「" + win.Flash + "」）");
                     Click(azN);
                     CheckTrue(!AutoZoom.Enabled, "★ 再点一下 ⇒ 又关回来");
@@ -1600,9 +1661,13 @@ public static class SettingsScene
                     CheckNearPx(gsc3.MaxOffset, 0f,
                                 "② …**两支都矮于视口** 521.5072 ⇒ 加了这一行照样**滚不动**（原版同）");
                 }
-                CheckTrue(ssOn != null && TextOf(ssOn) == "Use super sampling",
-                          $"② …行文字 = `Use super sampling`（实得「{TextOf(ssOn)}」；"
-                        + "原版 TMP 印的是西语 `Sobremuestreo` ⇒ 英文是**我们挑的**，同文件头 ② 那条口径）");
+                // 🔴 **2026-10-19（波 1b）**：这一行的字也接了词条（`Shell/SettingsWindow.cs:1966` 的
+                //    `Func<string> ssAaText = () => Loc.T(lkGfxSuperSamp)`）⇒ 期望值走 `Loc.T`
+                //    （旧写法写死英文 `"Use super sampling"`：英文档恰好绿、**中文档变「超采样」⇒ 红**）。
+                //    原版 TMP 印的是西语 `Sobremuestreo` ⇒ EN 列是**我们挑的**（同文件头 ② 那条口径）。
+                CheckTrue(ssOn != null && TextOf(ssOn) == Loc.T("Settings/Graphics/EnableSuperSampling"),
+                          $"② …行文字 = `Loc.T(\"Settings/Graphics/EnableSuperSampling\")`（实得「{TextOf(ssOn)}」；"
+                        + "EN `Use super sampling` / ZH `超采样`）");
 
                 // ③ 点它 ⇒ **只写 flag**（原版 `SuperSamplingToggleClick`：写 +0x124 + 置脏），**不当场改分辨率**
                 var ssBox = ssOn != null && FindChild(ssOn, "Toggle") != null
@@ -1613,7 +1678,8 @@ public static class SettingsScene
                 CheckTrue(SuperSampling.Enabled, "③ 点一下 ⇒ 原版 `GameStaticData.superSampling`(+0x124) 那一半**开了**");
                 CheckTrue(ssBox != null && ssBox.Texture != null && ssBox.Texture.name == SettingsWindow.ArtToggleOn,
                           "③ …方框也换成了**开**的图");
-                CheckTrue(win.Flash != null && win.Flash.Contains("super sampling"),
+                // 🆕 **2026-10-19（波 1b）**：需子串改走 `TermHead(键)`（同族第四处 —— 这句也接了词条）。
+                CheckTrue(win.Flash != null && win.Flash.StartsWith(TermHead("Settings/Graphics/Flash/SuperSampling")),
                           $"③ …点完**有话说**（「{win.Flash}」）");
                 // ★★ 时机：**点一下不等于生效**（原版那一句只在关窗 / 换档 / 切场景时才跑）
                 CheckNear(urp != null ? urp.renderScale : -1f, 1f, 1e-4f,
@@ -2712,6 +2778,395 @@ public static class SettingsScene
             //   本片一律现取 `Area(root)` / `Bar(root)`（见那两个助手的注释）⇒ 这一行 `area` 重抓随之删掉。
             //   ⚠️ 知识照旧成立：**重开一次 = 整棵树换新**，`FindChild(旧树, …)` 会静静地拿到 null（那是假红）。
             CheckTrue(win.TryOpen(null), "（A94 收尾）把设置窗开回来 —— 下面那句 `Close()` 才不是空断");
+
+            // ================================================================
+            // 🆕 **2026-10-19（波 1b 断言宿主）**：`Shell/SettingsWindow.cs` 接进语言表的那批字 —— **两语档各断一次**
+            // ================================================================
+            // 判据 = `资料/普查产出_第五会话/交件_波1b_设置窗接线.md` ①（逐行清单）
+            //       + `资料/普查产出_第五会话/查证_23双语键盘点.md` 表 B1（每处该用哪条键）。
+            //
+            // 🔴 **为什么要单开一节、为什么每处都要两语档**（**灭自证**）：本波把「四页签 / 四个页标题 /
+            //   图像页 6 处 / 联机页 9 处」的字从**字面量**换成了 `Loc.T(键)`。只断「当前档 == `Loc.T(键)`」
+            //   **不够** —— 实现若被改回写死、而期望值也一起改回写死 ⇒ **两处一起变绿**（本工程那条系统性毛病）。
+            //   ⇒ 每一处**中/英各断一次**，并用 `Loc.HasCjk` 钉住「两档的字真的不是同一串」
+            //   （形状照本文件 `AutoZoom` 那条 `:1478` 的先例）。
+            // 🔴 **两档各断一次**还有一层用处：上一版那些断言**只在一种语言下看着对**
+            //   （例：写死英文 `"FPS limit"` 在英文档恰好绿、中文档才红）—— 单档的写法分不出这种「恰好相等」。
+            //
+            // ⚠️ **只切内存里的语言**（`Loc.PersistOverride` 挡住写盘），收尾**逐值放回**（同本文件其余几处）。
+            // ⚠️ 节点名**一个都没动**（上游逐条核过 ⇒ `FindChild` / `Click` 照旧靠节点名）；本节断的全是**字**。
+            // ⚠️ 取节点一律走**闭包现取**（`Open()` = `Build()` 会把窗根子件整棵重建 ⇒ 存下来的 `Transform`
+            //     当场变假 null，见 `Area` / `Bar` 那对助手的注释）。
+            Section("波 1b：接进语言表的那批字（四页签 / 四个页标题 / 图像页 6 处 / 联机页 8 处）—— 两语档各断一次");
+            {
+                var langB1 = Loc.Current;
+                bool perB1 = Loc.PersistOverride;
+                int ssB1 = ssQuality;                        // 进来时那一档（收尾逐值放回）
+                Loc.PersistOverride = true;                  // 切档不写盘
+
+                // ---- ① 先把图像页那一列摆成「超采样那一行在」那一态 ----
+                //   那一行的字只有它在树上时才量得到（`SetActive(withSS)`）；`RebuildGfxRows()` 会把整列
+                //   **重建** ⇒ 下面那些取节点的闭包必须**现取**（⛔ 别在外面先抓一批 `Transform`）。
+                ssQuality = SuperSampling.PcQualityIndex;    // = `PC` 档（允许超采样）
+                win.RebuildGfxRows();
+
+                // ---- ② 逐处登记（名字 / 取节点 / 键 / 两档是否**该不同**）----
+                //   `Differ = false` 只有一条：`Settings/Graphics/Vsync` —— 它的中英两列**逐字都是 `VSync`**
+                //   （原版那颗 TMP 本来就是英文，本包唯一一条原版英文文案）⇒ 它断的是「两档字相同、且都 == `Loc.T`」。
+                //   ⚠️ 用**匿名对象数组**（不是一个 `string[]` + 一个 `Func[]` 平行表）：四个字段绑在一起，
+                //      改一行不会把「名字/键/取法」错位到隔壁那一格上（那会**静默**验错对象）。
+                var probes = new[]
+                {
+                    // —— 四页签（`Bar(root)` 下四个键；节点名 = 原版 GO 名）——
+                    new { What = "页签 `General`", Key = "Settings/General/Title", Differ = true,
+                          Find = (System.Func<Transform>)(() => FindChild(Bar(root), "General")) },
+                    new { What = "页签 `Graphics`", Key = "Settings/Graphics/Title", Differ = true,
+                          Find = (System.Func<Transform>)(() => FindChild(Bar(root), "Graphics")) },
+                    new { What = "页签 `Audio`", Key = "Settings/Media/Title", Differ = true,
+                          Find = (System.Func<Transform>)(() => FindChild(Bar(root), "Audio")) },
+                    new { What = "页签 `Online`", Key = "Settings/Online/Title", Differ = true,
+                          Find = (System.Func<Transform>)(() => FindChild(Bar(root), "Online")) },
+                    // —— 四个页标题（每页自己那棵 `Tab Title`；与页签**共用同一条键**，这是设计如此）——
+                    new { What = "`General Tab` 的页标题", Key = "Settings/General/Title", Differ = true,
+                          Find = (System.Func<Transform>)(() => FindChild(FindChild(root, "General Tab"), "Tab Title")) },
+                    new { What = "`Graphics Tab` 的页标题", Key = "Settings/Graphics/Title", Differ = true,
+                          Find = (System.Func<Transform>)(() => FindChild(FindChild(root, "Graphics Tab"), "Tab Title")) },
+                    new { What = "`Media Tab` 的页标题", Key = "Settings/Media/Title", Differ = true,
+                          Find = (System.Func<Transform>)(() => FindChild(FindChild(root, "Media Tab"), "Tab Title")) },
+                    new { What = "`Online Tab` 的页标题", Key = "Settings/Online/Title", Differ = true,
+                          Find = (System.Func<Transform>)(() => FindChild(FindChild(root, "Online Tab"), "Tab Title")) },
+                    // —— 图像页 6 处（**节点名一个都没动**，只有画出来那行字走键）——
+                    new { What = "图像页 `Quality selector text`", Key = "Settings/Graphics/SelectQuality", Differ = true,
+                          Find = (System.Func<Transform>)(() => FindChild(FindChild(FindChild(root, "Graphics Tab"),
+                                          "Quality Selector"), "Quality selector text")) },
+                    new { What = "图像页 `Small Screen UI` 那一行", Key = "Settings/Graphics/IncreaseUISize", Differ = true,
+                          Find = (System.Func<Transform>)(() => FindChild(FindChild(root, "Graphics Tab"), "Small Screen UI")) },
+                    new { What = "图像页 `Use super sampling` 那一行", Key = "Settings/Graphics/EnableSuperSampling", Differ = true,
+                          Find = (System.Func<Transform>)(() => FindChild(FindChild(root, "Graphics Tab"), "Use super sampling")) },
+                    new { What = "图像页 `VSync` 那一行", Key = "Settings/Graphics/Vsync", Differ = false,
+                          Find = (System.Func<Transform>)(() => FindChild(FindChild(root, "Graphics Tab"), "VSync")) },
+                    new { What = "图像页 `FPS Limit/Title`", Key = "Settings/Graphics/FrameLimit", Differ = true,
+                          Find = (System.Func<Transform>)(() => FindChild(FindChild(FindChild(root, "Graphics Tab"),
+                                          "FPS Limit"), "Title")) },
+                    new { What = "图像页 `FPS Slider` 第 3 格刻度", Key = "Settings/Graphics/UnlimitedFPS", Differ = true,
+                          Find = (System.Func<Transform>)(() => FindChild(FindChild(FindChild(FindChild(root, "Graphics Tab"),
+                                          "FPS Limit"), "FPS Slider"), SettingsWindow.FpsTickName[2])) },
+                    // —— 🆕 2026-10-19（`A1059` / `A1048`）：音频页 **4 处** ——
+                    //   🔴 这四处**只在 `BuildAudioPage` 里建一次**、本页没有重建链 ⇒ 挂的是**长链** `_onLabels`
+                    //     （图像页那族每滚一格都被 `RebuildGfxRows()` 整批重建 ⇒ 走短链 `_gfxRowLabels`）
+                    //     ⇒ 它们在两档之间**真的跟着变**，正是 `A1048` 那条刷新链的判据；而三根音量行标签
+                    //     另是 `A1059`「键早在表里、代码画字面量」那四笔里的三笔（第四笔 = 图像页 `Auto zoom`，
+                    //     那条在本文件 `A172` 那一节里已两语档断过）。
+                    //   ⚠️ 节点名一个都没动：行容器仍是 `{"Music","Sound Effects","Voice-overs"} + " Container"`、
+                    //     说明行仍是 `Note`（⛔ 别按显示字找，那是会随语言变的那一层）。
+                    new { What = "音频页 `Music Container` 行标签", Key = "MainMenu/Settings/SettingLabel/Music", Differ = true,
+                          Find = (System.Func<Transform>)(() => FindChild(FindChild(FindChild(FindChild(root, "Media Tab"),
+                                          "Audio Settings"), "Music Container"), "Label")) },
+                    new { What = "音频页 `Sound Effects Container` 行标签", Key = "MainMenu/Settings/SettingLabel/SoundFx", Differ = true,
+                          Find = (System.Func<Transform>)(() => FindChild(FindChild(FindChild(FindChild(root, "Media Tab"),
+                                          "Audio Settings"), "Sound Effects Container"), "Label")) },
+                    new { What = "音频页 `Voice-overs Container` 行标签", Key = "Settings/Media/VoiceOvers", Differ = true,
+                          Find = (System.Func<Transform>)(() => FindChild(FindChild(FindChild(FindChild(root, "Media Tab"),
+                                          "Audio Settings"), "Voice-overs Container"), "Label")) },
+                    new { What = "音频页 `Note` 说明行", Key = "Settings/Media/AudioMixerNote", Differ = true,
+                          Find = (System.Func<Transform>)(() => FindChild(FindChild(root, "Media Tab"), "Note")) },
+                    // —— 联机页 9 处（两颗角色钮 / 测外网 / 两个标签 / 刷新 / 保存 / 检查连接）——
+                    new { What = "联机页 `Role Host` 钮上的字", Key = "Settings/Online/RoleHost", Differ = true,
+                          Find = (System.Func<Transform>)(() => FindChild(FindChild(FindChild(root, "Online Tab"),
+                                          "Role Host"), "Text")) },
+                    new { What = "联机页 `Role Client` 钮上的字", Key = "Settings/Online/RoleClient", Differ = true,
+                          Find = (System.Func<Transform>)(() => FindChild(FindChild(FindChild(root, "Online Tab"),
+                                          "Role Client"), "Text")) },
+                    new { What = "联机页 `Echo Button` 钮上的字", Key = "Settings/Online/TestPublicIp", Differ = true,
+                          Find = (System.Func<Transform>)(() => FindChild(FindChild(FindChild(root, "Online Tab"),
+                                          "Echo Button"), "Text")) },
+                    new { What = "联机页 `IP Label`", Key = "Settings/Online/IpLabel", Differ = true,
+                          Find = (System.Func<Transform>)(() => FindChild(win.HostBlock, "IP Label")) },
+                    new { What = "联机页 `Password Label`", Key = "Settings/Online/PasswordLabel", Differ = true,
+                          Find = (System.Func<Transform>)(() => FindChild(win.HostBlock, "Password Label")) },
+                    new { What = "联机页 `Refresh` 钮上的字", Key = "Settings/Online/Refresh", Differ = true,
+                          Find = (System.Func<Transform>)(() => FindChild(FindChild(win.HostBlock, "Refresh"), "Text")) },
+                    new { What = "联机页 `Save Button` 钮上的字", Key = "Settings/Online/Save", Differ = true,
+                          Find = (System.Func<Transform>)(() => FindChild(FindChild(win.HostBlock, "Save Button"), "Text")) },
+                    new { What = "联机页 `Check Button` 钮上的字", Key = "Settings/Online/CheckConnection", Differ = true,
+                          Find = (System.Func<Transform>)(() => FindChild(FindChild(win.ClientBlock, "Check Button"), "Text")) },
+                };
+
+                // ---- ③ 两语档各断一次（⛔ 每一处都要在这一趟里被断到，别只断一档）----
+                string[] zhG = new string[probes.Length], enG = new string[probes.Length];
+                var b1Langs = new[] { AvailableLanguages.Chinese, AvailableLanguages.English };
+                for (int L = 0; L < b1Langs.Length; L++)
+                {
+                    bool zh = b1Langs[L] == AvailableLanguages.Chinese;
+                    Loc.SetLanguage(b1Langs[L]);
+                    win.RefreshTexts();                      // 换语言只在内存里（`PersistOverride` 挡着写盘）
+                    for (int i = 0; i < probes.Length; i++)
+                    {
+                        // ⚠️ 先核「键**在表里**」：键名写错时 `Loc.T` 会**把键名原样返回**
+                        //    （`Loc.T` 的缺键语义）⇒ 那样「拿键名当期望值」可能**看着对**。这一条把它挡住。
+                        CheckTrue(Loc.HasEntry(probes[i].Key),
+                                  $"（波 1b 前提）键 `{probes[i].Key}` **在表里**（⛔ 缺键时 `Loc.T` 返回键名本身）");
+                        var t = probes[i].Find();
+                        string got = t != null ? TextOf(t) : null;
+                        if (zh) zhG[i] = got; else enG[i] = got;
+                        if (t == null)
+                        {
+                            CheckTrue(false, $"（波 1b 前提）`{probes[i].What}` 的**节点**取得到"
+                                           + " —— 取不到 = 下面那条等于没验（`FindChild` 返 null）");
+                            continue;
+                        }
+                        Check(got, Loc.T(probes[i].Key),
+                              $"★（波 1b · {(zh ? "中文档" : "英文档")}）`{probes[i].What}` 上的字 = "
+                            + $"`Loc.T(\"{probes[i].Key}\")`（实得「{got}」）"
+                            + "；改坏法：调用点写死字面量 ⇒ 另一档红（写死英文则在中文档红）");
+                    }
+                }
+
+                // ---- ④ **灭自证**：两档的字**真的不是同一串**（+ 中文那列含汉字、英文那列不含）----
+                //   只断单档的写法在「实现改回写死 + 期望值也改回写死」时**两边一起变绿** ⇒ 必须有这一条。
+                for (int i = 0; i < probes.Length; i++)
+                {
+                    if (probes[i].Differ)
+                    {
+                        CheckTrue(zhG[i] != null && enG[i] != null && zhG[i] != enG[i],
+                                  $"🔴（波 1b 灭自证）`{probes[i].What}` 两档的字**真的不同**"
+                                + $"（中「{zhG[i]}」/ 英「{enG[i]}」）"
+                                + " —— 把调用点与期望值**一起**改回写死 ⇒ 这一条红（只断单档时那种改法全绿）");
+                        if (zhG[i] == null || enG[i] == null) continue;
+                        // ⚠️ `Loc.HasCjk` 的判定区间**含 `U+3000–U+303F` 与 `U+FF00–FFEF`**（全角标点/全角字母
+                        //   也算）⇒ 英文列里**不许放全角**（波 0b3 为这一条把两处全角空格改成半角）。
+                        CheckTrue(Loc.HasCjk(zhG[i]) && !Loc.HasCjk(enG[i]),
+                                  $"🔴（波 1b 灭自证）`{probes[i].What}`：中文那列**含汉字**、英文那列**不含**"
+                                + $"（`Loc.HasCjk`：中={Loc.HasCjk(zhG[i])} / 英={Loc.HasCjk(enG[i])}）"
+                                + " —— 这一条把「两档只是随手拼了两串」与「真的读了两列」分开");
+                    }
+                    else
+                    {
+                        CheckTrue(zhG[i] != null && enG[i] != null && zhG[i] == enG[i],
+                                  $"（波 1b）`{probes[i].What}` 是本节**唯一一条中英同字**的键"
+                                + $"（两档都是「{zhG[i]}」）—— 它接词条的意义是「换语言时跟着刷新」，⛔ 不是「换字」");
+                    }
+                }
+
+                // ---- ④′ 🔴（🆕 2026-10-19 · `A1048`）联机页那行说明 = **两条键拼出来的** ----
+                //   为什么单开一小段：上面那张 probe 表**一格只装得下一条键**，而这一行是
+                //   `Loc.T(TitleNote) + "\n" + Loc.T(TitleNoteBody)` —— 它正是 `_onLabels` 那条链**存 `Action`
+                //   而不是存 `Keyed`** 的两个理由之一（另一个 = 占位符那颗字不在 `Label` 上）。
+                //   ⇒ 这一条要是没接上（或 `RefreshTexts()` 漏扫那条链），玩家看到的是**旧语言**的说明行，
+                //     而上面那张表**照不到它**。判据 = 切档 + `RefreshTexts()` 之后**整句**跟上。
+                {
+                    var noteOn = FindChild(FindChild(root, "Online Tab"), "Note");
+                    CheckTrue(noteOn != null, "（`A1048` 前提）`Online Tab > Note` 取得到（下面才有对象可量）");
+                    CheckTrue(Loc.HasEntry("Settings/Online/TitleNote") && Loc.HasEntry("Settings/Online/TitleNoteBody"),
+                              "（`A1048` 前提）拼这一行的**两条键**都在表里"
+                            + "（⛔ 缺键时 `Loc.T` 返回键名本身 ⇒ 下面那条会拿键名当期望值、假绿）");
+                    string gotZh = null, gotEn = null;
+                    for (int L = 0; L < b1Langs.Length; L++)
+                    {
+                        bool zh = b1Langs[L] == AvailableLanguages.Chinese;
+                        Loc.SetLanguage(b1Langs[L]);
+                        win.RefreshTexts();
+                        string got = noteOn != null ? TextOf(noteOn) : null;
+                        string want = Loc.T("Settings/Online/TitleNote") + "\n" + Loc.T("Settings/Online/TitleNoteBody");
+                        if (zh) gotZh = got; else gotEn = got;
+                        Check(got, want,
+                              $"★（`A1048` · {(zh ? "中文档" : "英文档")}）联机页那行说明 = `Loc.T(\"Settings/Online/TitleNote\") "
+                            + "+ \"\\n\" + `Loc.T(\"Settings/Online/TitleNoteBody\")`（实得「{got}」）"
+                            + "；改坏法：这一行没登记进 `_onLabels`（或 `RefreshTexts()` 漏扫那条链）"
+                            + " ⇒ 换语言后它**停在旧语言** ⇒ 另一档红");
+                    }
+                    CheckTrue(gotZh != null && gotEn != null && gotZh != gotEn,
+                              $"🔴（`A1048` 灭自证）这行字两档**真的不同**（中「{gotZh}」/ 英「{gotEn}」）"
+                            + " —— 把那条链与期望值**一起**改回「建一次就不管」⇒ 上面那条与这一条绿不了");
+                    CheckTrue(gotZh != null && gotEn != null && Loc.HasCjk(gotZh) && !Loc.HasCjk(gotEn),
+                              "🔴（`A1048` 灭自证）…而且中文那列含汉字、英文那列不含（`Loc.HasCjk`）"
+                            + " —— 这一条把「确实读了两列」与「两档只是随手拼了两串」分开");
+                    // 旁证 —— ⛔ **不能单独当判据**（登记了不生效照样能过这一条；真判据 = 上面那些字真的变了）
+                    CheckTrue(win.OnLabelCount >= 15,
+                              $"（`A1048` 旁证）`_onLabels` 链上挂着 **{win.OnLabelCount}** 条"
+                            + "（四页 `Build()` 里登记的那一批：音频页 4 + 联机页 12 + 图像页 2 上下）");
+                }
+
+                // ---- ④″ 🔴 **反向断**（⛔ 防「顺手把不该接的也接上」）：`FPS Slider` 前两格是**纯数字** ----
+                //   判据 = 这两格**表 A 明写「不建键」**（原版那两颗 TMP 印的就是 `30` / `60`，与语言无关）
+                //   ⇒ 两档下都必须逐字是 `30` / `60`。谁把它们接进词条（或接错键）⇒ 这一条红。
+                {
+                    var fslider = FindChild(FindChild(FindChild(root, "Graphics Tab"), "FPS Limit"), "FPS Slider");
+                    CheckTrue(fslider != null, "（反向断前提）`Graphics Tab > FPS Limit > FPS Slider` 取得到");
+                    var t30 = fslider != null ? FindChild(fslider, SettingsWindow.FpsTickName[0]) : null;
+                    var t60 = fslider != null ? FindChild(fslider, SettingsWindow.FpsTickName[1]) : null;
+                    CheckTrue(t30 != null && t60 != null,
+                              "（反向断前提）`30 FPS` / `60 FPS` 两颗刻度节点都在（⛔ 按时**节点名**找，不是按显示字）");
+                    for (int L = 0; L < b1Langs.Length; L++)
+                    {
+                        bool zh = b1Langs[L] == AvailableLanguages.Chinese;
+                        Loc.SetLanguage(b1Langs[L]);
+                        win.RefreshTexts();
+                        CheckTrue(TextOf(t30) == "30" && TextOf(t60) == "60",
+                                  $"（反向断 · {(zh ? "中文档" : "英文档")}）`FPS Slider` 前两格仍是**纯数字**"
+                                + $"（实得「{TextOf(t30)}」/「{TextOf(t60)}」）—— 这两格不建键（表 A），"
+                                + "谁把它们接进词条/接错键 ⇒ 这一条红");
+                    }
+                }
+
+                // ---- ⑤ 两条「点一下才拼」的 `_flash`：整句**跟着语档**（`{0}` 是运行期值）----
+                //   上游没给这两条配断言（它只把字面量换掉了）⇒ 本波补上：**两语档各断一次整句**。
+                {
+                    // ① VSync 那条：`{0}` = `MainMenu/General/{On,Off}`（本波新接的两条键）。
+                    //    ⚠️ 点**真会**翻 `QualitySettings.vSyncCount` ⇒ 走 `VSyncSetterOverride` 挡住
+                    //    （自检不许改工程设置 —— 同 `:1083` 那条）。⚠️ `next` 只看**当前** `vSyncCount`
+                    //    ⇒ 反复点得到同一个 flash（两档各点一次也不会漂）。
+                    string[] vsFlash = new string[2];
+                    for (int L = 0; L < b1Langs.Length; L++)
+                    {
+                        bool zh = b1Langs[L] == AvailableLanguages.Chinese;
+                        Loc.SetLanguage(b1Langs[L]);        // 🔴 先切档再点 —— `_flash` 是**点那一刻**按当前语档拼的
+                        int vNow = QualitySettings.vSyncCount, vAsked2 = -1;
+                        SettingsWindow.VSyncSetterOverride = cc => vAsked2 = cc;
+                        Click(FindChild(FindChild(root, "Graphics Tab"), "VSync"), "Hit");
+                        SettingsWindow.VSyncSetterOverride = null;
+                        int vNext = vNow > 0 ? 0 : 1;
+                        Check(vAsked2, vNext, $"（波 1b）点 `VSync` 那一行 ⇒ 要求翻成 {vNext}（{vNow} → {vAsked2}）");
+                        string wantVs = string.Format(Loc.T("Settings/Graphics/Flash/Vsync"),
+                                                      vNext > 0 ? Loc.T("MainMenu/General/On")
+                                                                : Loc.T("MainMenu/General/Off"));
+                        Check(win.Flash, wantVs,
+                              $"★（波 1b · {(zh ? "中文档" : "英文档")}）点完那句 `_flash` = "
+                            + "`string.Format(Loc.T(\"Settings/Graphics/Flash/Vsync\"), "
+                            + "Loc.T(\"MainMenu/General/{On,Off}\"))`"
+                            + $"（实得「{win.Flash}」）—— 这是 `MainMenu/General/{{On,Off}}` 两条键唯一的消费点");
+                        CheckNear(QualitySettings.vSyncCount, vNow, 0.01f,
+                                  "（波 1b）…🔴 自检没真去改 `vSyncCount`（注入点挡住了）");
+                        vsFlash[L] = win.Flash;
+                    }
+                    CheckTrue(vsFlash[0] != null && vsFlash[1] != null && vsFlash[0] != vsFlash[1],
+                              $"🔴（波 1b 灭自证）那条 `_flash` 两档真的不同（中「{vsFlash[0]}」/ 英「{vsFlash[1]}」）");
+
+                    // ② FPS 那条：`{0}` = `FpsText()`（键 `Settings/Graphics/FpsText/{Unlimited,Value}`）。
+                    //    档 2 ⇒ `Application.targetFrameRate = −1` ⇒ 走 `Unlimited` 那一支。
+                    //    🔴 **自检要还回去**（同 `:1260-1262` 那两行：不把进程帧率留在别的值上）。
+                    string[] fpsFlash = new string[2];
+                    int fSaveB1 = Application.targetFrameRate;
+                    for (int L = 0; L < b1Langs.Length; L++)
+                    {
+                        bool zh = b1Langs[L] == AvailableLanguages.Chinese;
+                        Loc.SetLanguage(b1Langs[L]);
+                        win.SetFpsIndex(2, true);            // 档 2 = 不限帧（真 fire —— 才会拼 `_flash`）
+                        Check(Application.targetFrameRate, -1, "（波 1b）档 2 ⇒ `targetFrameRate = −1`（不限帧）");
+                        string wantFps = string.Format(Loc.T("Settings/Graphics/Flash/Fps"),
+                                                       Loc.T("Settings/Graphics/FpsText/Unlimited"));
+                        Check(win.Flash, wantFps,
+                              $"★（波 1b · {(zh ? "中文档" : "英文档")}）改档那句 `_flash` = "
+                            + "`string.Format(Loc.T(\"Settings/Graphics/Flash/Fps\"), "
+                            + "Loc.T(\"Settings/Graphics/FpsText/Unlimited\"))`"
+                            + $"（实得「{win.Flash}」）");
+                        fpsFlash[L] = win.Flash;
+                    }
+                    CheckTrue(fpsFlash[0] != null && fpsFlash[1] != null && fpsFlash[0] != fpsFlash[1],
+                              $"🔴（波 1b 灭自证）那条 `_flash` 两档真的不同（中「{fpsFlash[0]}」/ 英「{fpsFlash[1]}」）");
+                    Application.targetFrameRate = fSaveB1;   // 🔴 进程帧率逐值放回
+                    win.SetFpsIndex(SettingsWindow.FpsIndexOfTarget(fSaveB1), false);
+                    Check(Application.targetFrameRate, fSaveB1,
+                          $"（波 1b 收尾）`Application.targetFrameRate` 放回本节进来时那一档（{fSaveB1}）");
+                }
+
+                // ---- ⑥ `_gfxRowLabels` 那条**短链不许漏**（`GfxRowLabelCount` 是唯一测得出它的只读口）----
+                //   本波把它从 1 改成 **6**（`Small Screen UI` / `Auto Zoom` / `Use super sampling` / `VSync`
+                //   四行各 1 + `FPS limit` 那一行 **2** = 行标题 + 第 3 格刻度）。
+                //   泄漏形态 = `RebuildGfxRows()` 挂在 `_gfxScroll.OnChanged` 上（**每滚一格都跑**）却在重建前
+                //   **不清链** ⇒ 每次多几条指向刚被销毁的 `Label` 的闭包（不报错、无界增长 = 静默）。
+                int gfxN0 = win.GfxRowLabelCount;
+                win.RebuildGfxRows();
+                int gfxN1 = win.GfxRowLabelCount;
+                win.RebuildGfxRows();
+                int gfxN2 = win.GfxRowLabelCount;
+                Check(gfxN1, gfxN0, $"★（波 1b）`RebuildGfxRows()` **一次**之后短链长度不变（{gfxN0} → {gfxN1}）"
+                                  + " —— 涨了就是「重建前没清链」那个静默泄漏（挂 `OnChanged` ⇒ 每滚一格都跑）");
+                Check(gfxN2, gfxN1, $"★（波 1b）…**再重建一次**也不涨（{gfxN1} → {gfxN2}）");
+                CheckTrue(gfxN0 == 6, $"★（波 1b）…而且它现在 = **6**（实得 {gfxN0}）—— "
+                                    + "四行标签各 1 + `FPS limit` 那行 2（行标题 + 第 3 格刻度）；"
+                                    + "出处 = `Shell/SettingsWindow.cs` 的 `GfxRowLabelCount` doc");
+
+                // ---- ⑦ 语言那两句 `_flash`（`Settings/General/Flash/Language` + `Settings/General/LangHasNoTable`）----
+                //   上游 ①-D 也改了这两条（`Shell/SettingsWindow.cs:1643-1644`），**但一条断言都没有** ⇒ 本波补。
+                //   🔴 **只有「真的换了一档」才拼这句** —— `ChooseLanguage` 在「点的就是当前那一档」时
+                //   **提前 return**、连 `_flash` 都不碰 ⇒ 要两档各断一次，必须**从另一种语言切过去**
+                //   （⛔ 不能原地断：原地那条会拿上一轮留下来的旧 flash 去比）。
+                //   ⚠️ 三步都是**真的换档**（先把语言摆到另一种，再点目标那一行）⇒ 与玩家当前设置无关。
+                {
+                    int iZh = System.Array.IndexOf(Loc.Languages, AvailableLanguages.Chinese);
+                    int iEn = System.Array.IndexOf(Loc.Languages, AvailableLanguages.English);
+                    int iNoOwn = System.Array.FindIndex(Loc.Languages, l => !Loc.HasOwnText(l));
+                    CheckTrue(iZh >= 0 && iEn >= 0 && iNoOwn >= 0,
+                              $"（波 1b 前提）下拉里找得到 `Chinese`（第 {iZh} 行）/ `English`（第 {iEn} 行）/ "
+                            + $"第一款**本地没文案**的（第 {iNoOwn} 行）—— 下面三条才有对象可点");
+                    var selRowB1 = FindChild(FindChild(root, "General Tab"), "Language Selector");
+                    CheckTrue(selRowB1 != null, "（波 1b 前提）`General Tab > Language Selector` 在（拿它开列表）");
+                    var langFlash = new string[2];
+                    if (iZh >= 0 && iEn >= 0 && iNoOwn >= 0 && selRowB1 != null)
+                    {
+                        // 那句 flash 的**前半截**（两个占位现取当前语档 —— 与实现同一条公式，但两边都是
+                        // 从 `Loc` 的公开面现取，⛔ 不是把中/英任一串抄进断言）。
+                        // ⚠️ 用**局部函数**而不是在外面算一次：`Loc.Current` 每次点完都变了，期望值必须**现算**。
+                        string FlashLangHead()
+                        {
+                            return string.Format(Loc.T("Settings/General/Flash/Language"),
+                                                 Loc.LanguageName(Loc.Current), Loc.Current);
+                        }
+                        // ① 中文档：先摆到 `English`，再点 `Chinese` 那一行 ⇒ 那句 flash 是**中文**的
+                        //    （`_flash` 是 `SetLanguage` **之后**才拼的 ⇒ 印的是**新**语档那一列）
+                        Loc.SetLanguage(AvailableLanguages.English);
+                        win.RefreshTexts();
+                        Click(selRowB1, "LanguageHit");
+                        CheckTrue(win.LangListOpen, "（波 1b 前提）点一下框 ⇒ 那 12 行列表开出来了");
+                        Click(win.LangRowHit(iZh));
+                        Check(Loc.Current, AvailableLanguages.Chinese, "（波 1b）点 `Chinese` 那一行 ⇒ 语言切过去");
+                        langFlash[0] = win.Flash;
+                        Check(win.Flash, FlashLangHead(),
+                              "★（波 1b · 中文档）切到中文那句 `_flash` = `string.Format(Loc.T(\"Settings/General/Flash/Language\"), "
+                            + "语言名, 枚举)`" + $"（实得「{win.Flash}」）");
+                        CheckTrue(Loc.HasOwnText(Loc.Current) && win.Flash == FlashLangHead(),
+                                  "（波 1b）…中/英这两档**本地有文案** ⇒ 那句 flash **不该**带后半句"
+                                + "（键 `Settings/General/LangHasNoTable`）");
+                        // ② 英文档：反向再切一次（此刻是中文 ⇒ 点 `English` 那一行）
+                        Click(selRowB1, "LanguageHit");
+                        Click(win.LangRowHit(iEn));
+                        Check(Loc.Current, AvailableLanguages.English, "（波 1b）再点 `English` 那一行 ⇒ 切回去");
+                        langFlash[1] = win.Flash;
+                        Check(win.Flash, FlashLangHead(),
+                              $"★（波 1b · 英文档）同一条键按当前语档拼（实得「{win.Flash}」）");
+                        CheckTrue(langFlash[0] != null && langFlash[1] != null && langFlash[0] != langFlash[1],
+                                  $"🔴（波 1b 灭自证）那句 `_flash` 两档真的不同"
+                                + $"（中「{langFlash[0]}」/ 英「{langFlash[1]}」）");
+                        // ③ 本地没文案那一档 ⇒ **多出后半句**（键 `Settings/General/LangHasNoTable`）
+                        Click(selRowB1, "LanguageHit");
+                        Click(win.LangRowHit(iNoOwn));
+                        Check(Loc.Current, Loc.Languages[iNoOwn],
+                              $"（波 1b）点第 {iNoOwn} 行 ⇒ 切到 `{Loc.Current}`（本地**没有**这一套文案）");
+                        CheckTrue(!Loc.HasOwnText(Loc.Current),
+                                  "（波 1b）…而且这一刻确实是「本地没文案」那一档（`Loc.HasOwnText` = false）");
+                        string head3 = FlashLangHead();
+                        Check(win.Flash, head3 + Loc.T("Settings/General/LangHasNoTable"),
+                              "★（波 1b）那一档 ⇒ 那句 `_flash` **多出后半句**（键 `Settings/General/LangHasNoTable`，"
+                            + "值里**自带前导全角空格 U+3000** ⇒ 调用点 ⛔ 没再补一个）" + $"（实得「{win.Flash}」）");
+                        // 🔴 判别式：只印前半句也行的话，上一条与「漏了后半句」就分不开了
+                        CheckTrue(win.Flash != null && win.Flash != head3 && win.Flash.Length > head3.Length,
+                                  "🔴（波 1b）…而且它**确实比前半句长**（后半句真的拼上去了；"
+                                + "改坏法：漏掉 `LangHasNoTable` 那一截 ⇒ 这一条红）");
+                    }
+                    // 还原：语言放回本节入口那一档（⛔ 别把界面留在别的语档上）
+                    Loc.SetLanguage(langB1);
+                    win.RefreshTexts();
+                }
+
+                // ---- ⑧ 收尾：图像页那一列摆回进来时的档位 + 语言逐值放回 ----
+                ssQuality = ssB1;
+                win.RebuildGfxRows();
+                Loc.SetLanguage(langB1);
+                Loc.PersistOverride = perB1;
+                win.RefreshTexts();
+                CheckTrue(Loc.Current == langB1, $"收尾：语言放回本节开始前那一档（{langB1}；⛔ 自检不许改玩家的真设置）");
+            }
 
             // ---------------- 🆕 A171：本窗文字字号 = 原版字面量 × 根上那层 0.9 ----------------
             //

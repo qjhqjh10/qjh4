@@ -90,6 +90,11 @@ namespace CardPresentation
         static readonly PxRect SendBtnR = new PxRect(1750.38f, 972.735f, 1790.38f, 1012.735f);
         static readonly PxRect CloseBtnR = new PxRect(1799.29f, 122.80f, 1873.67f, 198.40f);
         static readonly PxRect CloseIconR = new PxRect(1807.44f, 130.78f, 1864.30f, 188.90f);
+        /// <summary>🔴 **2026-10-18（A1053）**：关窗钮那两颗子件（`Background` / `Icon`，同矩形 `CloseIconR`）
+        /// **自己的** `m_RaycastPadding`（原版实读 `(-20)⁴`；分量序 L,B,R,T · **负 = 外扩**）
+        /// ⇒ 命中区 = `CloseIconR` 外扩 20 = **96.86 × 98.13**（⛔ 不是根矩形 `CloseBtnR` 的 74.38×75.60）。
+        /// 算式只走 `MenuDraw.PaddedRect`；口径 → `资料/普查产出_第四会话/普查_全仓命中区与关闭键族.md` §〇-1。</summary>
+        static readonly Vector4 ClosePad = new Vector4(-20f, -20f, -20f, -20f);
         static readonly PxRect OptPanelR = new PxRect(176.58f, 349f, 563.88f, 739f);
         static readonly PxRect OptNameR = new PxRect(186.16f, 349f, 554.30f, 399f);
         /// <summary>`Player Options Panel/Buttons` 的 VLG：每键 357.3×57.6、步进 67.6（spacing 10）、
@@ -279,12 +284,28 @@ namespace CardPresentation
 
             // 右上关闭钮（`ChatPanel.closeButton` 指的就是它）
             var close = Node(chat, "Generic Close Button Orange", CloseBtnR);
-            // 🔴 换图落在**圆底那一层**（原版 `trans=2` 换的是它自己的 Image；三层结构 = 圆底 + 黄面 + 叉）
+            // 🆕 **2026-10-18（A1058 · 第六会话批 2）**：悬停换图那一层 = **子件 `Background`**
+            //   （画的是 `40k_general_bt_yellow`，= 下面那颗 `closeFaceQ`），⛔ **不是圆底盘**。
+            //   判据（原版 prefab 亲读）=
+            //   `python -I d:/tmp/wf_hit/rcunion.py bundle_menus_assets_all "ChatPanel" --depth 8`：
+            //   根 `Chat/Holder/Chat/Generic Close Button Orange` 那颗 `EverguildButton` 的
+            //   **`m_TargetGraphic` = pid-1690241084677247438**；解该 pid ⇒ **所属 GO 名 = `Background`**、
+            //   贴图 pid `5693181797853584851` → `40k_general_bt_yellow`（`d:/4/_tmp_view/sprite_pids_ALL.json`）。
+            //   ⚠️ **2026-10-18 更正（铁律 5）**：原注释写「`trans=2` 换的是它自己的 Image」——
+            //   **那句是错的**（错因 = 只读 `m_Transition`、没读 `m_TargetGraphic`）⇒
+            //   改前悬停把**圆底盘**换成黄圆图、黄圆本身不变。
             var closeBase = Rect(close, "UI_Button_Round_background", CloseBtnR, "Background Round", QBg, null, true);
-            Rect(close, "40k_general_bt_yellow", CloseIconR, "Background", QContent, null, true);
+            var closeFaceQ = Rect(close, "40k_general_bt_yellow", CloseIconR, "Background", QContent, null, true);
             Rect(close, "40k_general_bt_yellow_close", CloseIconR, "Icon", QContent + 1, null, true);
             // 🆕 A17：原版 `Chat>Holder>ChatPanel>Generic Close Button Orange` 是 SpriteSwap（实测 HL 见下）
-            MenuDraw.Hit(close, "Hit", CloseBtnR, QHit, () => Close(), closeBase, null, "40k_general_bt_yellow_hover");
+            // 🆕 **2026-10-18（A1053 · 第六会话批 2）**：**命中区**归真值 —— 原版圆底盘
+            //   `m_RaycastTarget = 0`，吃射线的是同矩形两颗子件（56.86×58.12）按 `(-20)⁴` 外扩
+            //   ⇒ **96.86 × 98.13**；改前传根矩形 `CloseBtnR`（74.38×75.60）⇒ 每边小 11.2。
+            //   判据 = `python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all "ChatPanel" --depth 10
+            //   --substr "Generic Close Button"`（实读 `96.86 x 98.13`）。
+            MenuDraw.Hit(close, "Hit", MenuDraw.PaddedRect(CloseIconR, ClosePad),
+                         QHit, () => Close(), closeFaceQ, "40k_general_bt_yellow",
+                         "40k_general_bt_yellow_hover");
 
             // 玩家选项面板（出厂 act F；点消息行上的头像才亮）
             _options = Node(chat, "Player Options Panel", OptPanelR);

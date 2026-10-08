@@ -545,7 +545,11 @@ namespace CardPresentation
                 //   而原版 `MissionCounterDisplay__Setup.c:24-26,68-79` 在 **`currentValue >= MaxValue`**
                 //   时改显示 `completedMessage`（出厂 `"Missions/Completed"`、`displayCompletedMessage=1`；MB 实读）。
                 //   🔴 **判据只此一处**：`DailyData.DailyCounterText` —— 它同时管着「那个串是原版的 I2 词条【键】、
-                //   本地没有语言表 ⇒ 照抄键本身 + 出声」那条口径；本行只负责画。
+                //   ⇒ 经 `Loc.T` 接**我们那份表**（ZH「已完成」/ EN `Completed`）+ 第一次用到时出声」那条口径；
+                //   本行只负责画。
+                //   ⚠️ **2026-10-18 更正（铁律 5）**：本行原来接着写「**本地没有语言表** ⇒ 照抄键本身」——
+                //   **已过期**：键 `Missions/Completed` **早在表里**（`Core/Loc.cs`），是**我们没接**
+                //   （屏上原来印的是键名）；`A1012` 前半已在 `DailyData.DailyCounterText` 收口。
                 AlignL(Txt1(parent, pt, DailyData.DailyCounterText(index), new Color(1f, 0.77f, 0.33f, 1f), "progress", 35f), pt);
             }
 

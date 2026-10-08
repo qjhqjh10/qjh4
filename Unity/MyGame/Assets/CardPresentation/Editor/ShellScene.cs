@@ -5516,6 +5516,49 @@ public static class ShellScene
                           + (okBack ? $"{cx1:F2},{cy1:F2}→{cx2:F2},{cy2:F2}" : "（取不到）")
                           + "）—— 两态都断 ⇒ 态二那个 317.17 **不可能**来自别的原因（例如「那一页压根没建」）");
             }
+            // ============================================================ ①·b 排行榜关窗钮（A1065③ + A1058）
+            // 判据（原版 prefab 亲读）= `python -I d:/tmp/wf_hit/rcunion.py bundle_menus_assets_all
+            //   "RankedSkirmishLeaderboardPopup" --depth 4`：
+            //   根 `Generic Close Button Orange` 那颗 `Image`(`UI_Button_Round_background` 74.39×75.61)
+            //   **带 `m_RaycastTarget = 0`** ⇒ **不吃射线**；吃射线的是**两个同矩形的子件**
+            //   `Background`(`40k_general_bt_yellow`) 与 `Icon`(`40k_general_bt_yellow_close`)，两颗都带
+            //   **`m_RaycastPadding = (-20)⁴`（负 = 外扩）** ⇒ 可点区 = 子件矩形 56.86×58.13 外扩 20
+            //   = **原版真值 96.86 × 98.13**（口径见 `资料/普查产出_第四会话/普查_全仓命中区与关闭键族.md` §〇-1）。
+            //   换图那一层（`A1058`）= 那颗 `EverguildButton` 的 **`m_TargetGraphic`** 指到的子件 **`Background`**
+            //   （pid `7857352521433070052` → 读 `MonoBehaviour_<pid>.json` ⇒ 所属 GO 名 = `Background`、
+            //    `m_Sprite` pid `5693181797853584851` → `40k_general_bt_yellow`）。
+            //   ⚠️ **两条的改坏法都写在各条 msg 里**（只断「新写法对」不够 —— 见 `CLAUDE.md` §三「灭自证」）。
+            {
+                var clNodeG = FindChildIn(lbG.transform, "Generic Close Button Orange");
+                var clHitG = clNodeG != null ? FindChildIn(clNodeG, "Hit") : null;
+                CheckTrue(clHitG != null,
+                          "（前提·不静默）排行榜关窗钮的 `Hit` 节点拿得到（`Generic Close Button Orange/Hit`）"
+                          + " —— ⛔ 取不到就不往下断「量到的值」那几条（不静默变绿）");
+                float hx1, hy1, hx2, hy2;
+                bool okCl = GHitRect(clHitG, out hx1, out hy1, out hx2, out hy2);
+                CheckTrue(okCl && NearPx(hx2 - hx1, 96.86f, 0.5f) && NearPx(hy2 - hy1, 98.13f, 0.5f),
+                          "★★★ A1065③：排行榜关窗钮**命中区** = 吃射线那两颗子件（同矩形 56.86×58.13）"
+                          + "按它们自己的 `m_RaycastPadding (-20)⁴` 外扩 = 原版真值 **96.86 × 98.13**"
+                          + (okCl ? $"（现读 {hx2 - hx1:F2} × {hy2 - hy1:F2}）" : "（取不到）")
+                          + " —— 🔴 **改坏法**：① 改回 `CloseInnerR` 裸矩形（56.86 × 58.13，= `E3b` 那一版）⇒ 每边小 20 ⇒ 红；"
+                          + "② 改回根矩形 `CloseR`（74.38 × 75.61，= `E3b` 之前那一版）⇒ 每边小 11.2 ⇒ 红。"
+                          + "⛔ 本条与上面 `A768①` 那三条**不同源**（那三条量的是军种条）——两条都在才挡得住「整个 `Build` 没跑」");
+                var clWbG = clHitG != null ? clHitG.GetComponent<WindowButton>() : null;
+                CheckTrue(clWbG != null && clWbG.target != null && clWbG.target.Texture != null
+                          && clWbG.target.Texture.name == "40k_general_bt_yellow"
+                          && clWbG.target.gameObject.name == "Background",
+                          "★★ A1058：关窗钮**换图那一层** = 子件 `Background`（图 `40k_general_bt_yellow`；"
+                          + "= 原版 `m_TargetGraphic` 指到的那一颗）—— 现读「"
+                          + (clWbG == null || clWbG.target == null || clWbG.target.Texture == null
+                             ? "<没绑>" : clWbG.target.gameObject.name + " / " + clWbG.target.Texture.name)
+                          + "」。🔴 **改坏法**：把它传成那颗根圆底盘（`UI_Button_Round_background` / 节点名 `Image`）"
+                          + "⇒ 两个条件同时不成立 ⇒ 红（错因 = 只读 `m_Transition`、没读 `m_TargetGraphic`）");
+                Check(clWbG != null && clWbG.HoverTexForTest != null ? clWbG.HoverTexForTest.name : "<null>",
+                      "40k_general_bt_yellow_hover",
+                      "换图的 `art` 实参 = `40k_general_bt_yellow`（原版 `m_SpriteState.m_HighlightedSprite` 逐字相同；"
+                      + "`Shell/LeaderboardWindow.cs` 里由 `Bind` 的表外后备 `+_hover` 推出，⛔ 没有写死第二个字符串）"
+                      + "—— 把那个 `art` 实参拿掉 ⇒ 这里取到 `<null>` ⇒ 红");
+            }
             lbG.Close();
 
             // ============================================================ ② 购买高级战役（A768② + A770）
@@ -5706,6 +5749,14 @@ public static class ShellScene
         //   做法：`CloseAllWindows()` → 逐扇 `OpenWindow` → 扫 → 关，**一次只开一扇**
         //   （被压到 `Background` 的窗按 `PointerReachable` **本来就不参与指针命中**，不算进「不可命中」的账）。
         //
+        // 🆕 **2026-10-18（A1001）：那一步之前先跑一张【建窗表】。** 逐扇开只覆盖「**早先某段顺手建过**」
+        //   的那些窗 ⇒ 覆盖面是**副作用**（现核 = 真覆盖 **15** 个窗类 / 全库子类 **38** 个；账面那个 16
+        //   还是假数，见下面 `ledger` 那道闸）。建窗表把 22 个「连实例都没有」的窗类**逐个建一遍**
+        //   （6 扇走 `WindowsManager` 的 `Open*`、13 扇走 `Create(mgr)`、3 扇带小夹具），
+        //   建完交给同一条 `FindObjectsByType` 现扫路，扫完 `DestroyImmediate` 拆掉。
+        //   ⚠️ 逐条建成功/失败**都打**；建不出来的那条**留在 `notHere` 里**（覆盖率如实偏小，⛔ 不假装扫过）。
+        //   判据与备选案（反射 / 只标抽样，都已否）→ `资料/普查产出_第四会话/查证_探针覆盖率与字体口径.md` §1。
+        //
         // ⚠️ **截图截不出这一类缺陷**（「看着在钮上、点不动」在静态截图上完全正常）⇒ 本段**只打日志 + TSV**。
         //
         // 📌 输出 → `d:/4/_tmp_view/hitprobe/shell_hits.tsv`；日志打 **`扫了 N 颗 / E1 报 M / E3 报 K`**
@@ -5837,6 +5888,89 @@ public static class ShellScene
                     }
             }
 
+            // ============================================================ 🆕 A1001：**建窗表**（探针前先逐类建一遍）
+            //
+            // 🔴 **为什么要它**：上面这段扫描只覆盖「本场景**当下有实例**」的 `GameWindow`，而实例是
+            //   前面各探针段**顺手建**出来的（18 处、互相不相干）⇒ 覆盖面是**副作用**：任何一段被挪走 /
+            //   删掉，覆盖率就**悄悄**变，而日志只会打个数。现核（`资料/普查产出_第四会话/
+            //   查证_探针覆盖率与字体口径.md` §1·2）：真覆盖 **15** 个窗类 / 全库子类 **38** 个
+            //   （账面那个 16 是**假数**：`hasInstance` 把夹具用的**裸 `GameWindow`** 也入了账，
+            //   见下面那条 `ledger` 闸）。⇒ 把「建哪些窗」**显式写成一张表**，让覆盖面对改动免疫。
+            //    🔴 **调度台已裁 = 方案 A**（另两案为什么不行 → 同那份查证 §1·4）。
+            //
+            // 🔴 **为什么不走反射**（方案 B，已否）：`Create` 的签名不齐（3 个带必填参、`TrophyInfoPopup`
+            //   那个叫 `Open`）⇒ 反射只会**静默跳过**，正是本仓最忌的那种失败形态。
+            // 🔴 **为什么不能只标「抽样」**（方案 C，已否）：22 个窗类永远是「没扫过」⇒ 账清不掉。
+            //
+            // ⚠️ **建法一律照生产那条路**：能走 `WindowsManager` 那 7 个 `Open*` 帮助函数的走它
+            //   （`Shell/WindowsManager.cs:1342-1460`，= 原版菜单那几条开窗路的收编点），其余走各类自己的
+            //   `Create(mgr)`；3 个带必填参的给**小夹具**（逐条判据与出处 → 那份查证 §1·3）。
+            // ⚠️ **用完必须 `DestroyImmediate`**（批处理没有帧循环 ⇒ `Destroy` 不生效），而且只能在
+            //   **本段扫描跑完之后**销毁 —— 它们要靠下面那条 `FindObjectsByType` 现扫进 `wins`。
+            // ⚠️ 建失败的那几条**如实打**（红线：不许静默）⇒ 它会留在 `notHere` 里、覆盖率数字**如实偏小**，
+            //   ⛔ 不是「假装扫过」。
+            var allTypes = new List<string>();          // 全库 `GameWindow` 的**真子类**（非抽象）
+            foreach (var t in typeof(GameWindow).Assembly.GetTypes())
+                if (!t.IsAbstract && t.IsSubclassOf(typeof(GameWindow))) allTypes.Add(t.Name);
+            allTypes.Sort();
+
+            var a1001Built = new List<GameWindow>();
+            var a1001Bad = new List<string>();
+            var a1001Table = new (string Name, System.Func<WindowsManager, GameWindow> Make)[]
+            {
+                // ---- 6 扇：走 `WindowsManager` 的现成帮助函数（参数全用出厂值 / 空数据那一档）----
+                ("BaseOfferPopup",                    m => WindowsManager.OpenBaseOfferPopup()),
+                ("GenericOptionsPanel",               m => WindowsManager.OpenGenericOptionsPanel()),
+                ("AllianceMemberOptionsPopup",        m => WindowsManager.OpenAllianceMemberOptions()),
+                ("RankedRewardEventWindow",           m => WindowsManager.OpenRankedRewardEvent()),
+                ("ReferralPopupWindow",               m => WindowsManager.OpenReferralPopup()),
+                ("EnergySinglePlayerOnlyEventWindow", m => WindowsManager.OpenEnergyEvent()),
+                // ---- 11 扇：`Create(mgr)` 单参 ----
+                ("BoosterInfoPopup",     m => BoosterInfoPopup.Create(m)),
+                ("BoosterPackOpenWindow", m => BoosterPackOpenWindow.Create(m)),
+                ("CampaignRewardWindow", m => CampaignRewardWindow.Create(m)),
+                ("DailyRewardPopup",     m => DailyRewardPopup.Create(m)),
+                ("DailyStreakPopup",     m => DailyStreakPopup.Create(m)),
+                ("ImportDeckPopup",      m => ImportDeckPopup.Create(m)),
+                ("MissionRerollPopup",   m => MissionRerollPopup.Create(m)),
+                ("RewardWindow",         m => RewardWindow.Create(m)),
+                ("CardDetailPopup",      m => CardDetailPopup.Create(m)),
+                ("ShopWindow",           m => ShopWindow.Create(m)),
+                ("CollectionWindow",     m => CollectionWindow.Create(m)),
+                // ---- 2 扇：可选参 → 传出厂值那一档（`onPicked` 不给 = 原版「没有回调」那一支）----
+                ("DeckSelectionPopup",   m => DeckSelectionPopup.Create(m)),
+                ("TrophyInfoPopup",      m => TrophyInfoPopup.Open(m)),
+                // ---- 3 扇要小夹具 ----
+                //  `DeckInfoPopup`：`(mgr, deckIndex, state)` ⇒ 索引给 0、态给 `Edit`（出厂值）
+                //  `SearchingOpponentWindow`：`(mgr, deckIndex)` ⇒ 0（官方样例 → `RankedEventWindow.cs:243`）
+                //  `DuelPopupWindow`：`(mgr, opponent)` ⇒ 对手名给 `"Goff"`（同族样例里的那一串）
+                ("DeckInfoPopup",           m => DeckInfoPopup.Create(m, 0, DeckInfoPopup.DeckInfoState.Edit)),
+                ("SearchingOpponentWindow", m => SearchingOpponentWindow.Create(m, 0)),
+                ("DuelPopupWindow",         m => DuelPopupWindow.Create(m, "Goff")),
+            };
+            shell.Windows.CloseAllWindows();             // 建之前先清场（有几扇 `Create` 会顺手 `Open()`）
+            var a1001Names = new List<string>();         // 逐类列名（给日志那一行；`ConvertAll` 对命名元组不灵）
+            for (int i = 0; i < a1001Table.Length; i++)
+            {
+                var ent = a1001Table[i];
+                a1001Names.Add(ent.Name);
+                try
+                {
+                    var made = ent.Make(shell.Windows);
+                    if (made == null) a1001Bad.Add(ent.Name + "（`Create` 返回 null）");
+                    else a1001Built.Add(made);
+                }
+                catch (System.Exception ex)
+                {
+                    // ⛔ 不静默：建不出来的那条逐条打出来，并且**不假装它扫过了**
+                    a1001Bad.Add(ent.Name + $"（建窗抛 {ex.GetType().Name}: {ex.Message}）");
+                }
+            }
+            Debug.Log(P + $"   A1001：建窗表 **{a1001Built.Count}/{a1001Table.Length} 扇建起来了**"
+                      + "（逐类：" + string.Join("、", a1001Names.ToArray()) + "）"
+                      + (a1001Bad.Count > 0 ? "；⚠️ **建不出来的**：" + string.Join(" ；", a1001Bad.ToArray()) : ""));
+            shell.Windows.CloseAllWindows();             // 建的过程中可能把主窗顶掉 ⇒ 收回来（第 0 步还会再清一次）
+
             // ---- 第 0 步：**常驻树**（不属于任何窗的那些钮 —— `PointerReachable` 说它们一直可点）
             shell.Windows.CloseAllWindows();
             ScanScope("(常驻·不属于任何窗)", "始终可点", null);
@@ -5848,7 +5982,14 @@ public static class ShellScene
                 var w = wins[i];
                 if (w == null) continue;
                 string tn = w.GetType().Name;
-                if (!hasInstance.Contains(tn)) hasInstance.Add(tn);
+                // 🔴 **2026-10-18（A1001）**：只有 `GameWindow` 的**真子类**才**入账** —— 那一批
+                //   **裸 `GameWindow` 夹具**（前面各段 `AddComponent<GameWindow>()` 建的）**不是子类**，
+                //   计进 `covered` 就是那个「覆盖 16 / 全库 38」的**假数**（16 + 23 = 39 > 38 这个
+                //   算术不自洽就是它的症状；订正 → 上面那份查证 §1·2）。
+                //   ⚠️ **只闸「记账」，不闸「扫描」**：那几颗夹具上的钮照旧扫、照旧进 TSV/E1/E3
+                //   （它们本来就在读数里 —— 少扫会**丢证据**），只是不再冒充「一个窗类被覆盖了」。
+                bool ledger = allTypes.Contains(tn);
+                if (ledger && !hasInstance.Contains(tn)) hasInstance.Add(tn);
 
                 shell.Windows.CloseAllWindows();          // 隔离：上一扇不许留在场上（一次只开一扇）
                 string why = null;
@@ -5864,19 +6005,36 @@ public static class ShellScene
                 }
                 if (why != null)
                 {
-                    failed.Add($"{tn}（{why}）");
-                    Debug.LogWarning(P + $"   A964：`{tn}` **没覆盖到** —— {why}");
+                    if (ledger) failed.Add($"{tn}（{why}）");
+                    Debug.LogWarning(P + $"   A964：`{tn}` **没覆盖到** —— {why}"
+                                          + (ledger ? "" : "（⚠️ 它不是 `GameWindow` 的子类 ⇒ 不计入覆盖率账目）"));
                     try { shell.Windows.CloseAllWindows(); } catch { }
                     continue;
                 }
 
                 int before = scanned;
                 ScanScope(tn, "窗:Open", w);
-                if (!covered.Contains(tn)) covered.Add(tn);
-                if (scanned == before) emptyWin.Add(tn + "（开出来了，但**一颗 `WindowButton` 都没有**）");
+                // 🔴 A1001：`covered` / `emptyWin` 都只认**真子类**（裸 `GameWindow` 夹具不入账，见上面那句话）
+                if (ledger && !covered.Contains(tn)) covered.Add(tn);
+                if (ledger && scanned == before) emptyWin.Add(tn + "（开出来了，但**一颗 `WindowButton` 都没有**）");
                 try { shell.Windows.CloseAllWindows(); } catch { }
             }
             shell.Windows.CloseAllWindows();
+
+            // ---- 🆕 A1001：**拆掉建窗表建出来的那些**（⛔ 批处理没有帧循环 ⇒ 只能 `DestroyImmediate`）。
+            //   必须在**上面那条扫描跑完之后**做（那才是它们存在的理由），也必须在这里做 ——
+            //   它们会留在 `FindObjectsByType` 的**现扫**表里，污染下面那两条判别式夹具与后续断言
+            //   （同 `AllButtonsForTest` 的注释：夹具用完必须立刻拆）。
+            int a1001Torn = 0;
+            for (int i = 0; i < a1001Built.Count; i++)
+            {
+                var b = a1001Built[i];
+                if (b == null) continue;
+                Object.DestroyImmediate(b.gameObject);
+                a1001Torn++;
+            }
+            Debug.Log(P + $"   A1001：建窗表用过的 {a1001Torn} 扇**已销毁**（`DestroyImmediate`）"
+                      + $"—— 留着的就是没建起来的 {a1001Bad.Count} 条（上面那行逐条列了）。");
 
             // ---- 判别式（🔴 **探针必须先在这两个【已知阳性】上把「报得出来」证明掉**，否则「扫完 0 条」不可信）
             //   判据 → `资料/待办判据_1018.md` §A964 的「已知阳性」两条（A8 / E12）。
@@ -5942,12 +6100,27 @@ public static class ShellScene
                       + (sliceKid.Count > 0 ? "：" + string.Join(" ；", sliceKid.ToArray()) : ""));
 
             // ---- 覆盖率（🔴 **如实打**：子类 ≥20、构造入口各不相同 —— ⛔ 别让「没扫到」看起来像「没问题」）
-            var allTypes = new List<string>();
-            foreach (var t in typeof(GameWindow).Assembly.GetTypes())
-                if (!t.IsAbstract && t.IsSubclassOf(typeof(GameWindow))) allTypes.Add(t.Name);
-            allTypes.Sort();
+            //   ⚠️ **`allTypes` 的算法已上提到建窗表之前那一处**（A1001：扫描循环里那句
+            //      `if (!allTypes.Contains(tn)) continue;` 要用它）—— ⛔ 别在这里再算第二份。
             var notHere = new List<string>();
             foreach (var t in allTypes) if (!hasInstance.Contains(t)) notHere.Add(t);
+
+            // 🔴 **2026-10-18（A1001）**：**账面自洽** —— `covered + notHere` 不可能超过全库子类数。
+            //   改前它是 **16 + 23 = 39 > 38**（订正 → `资料/普查产出_第四会话/查证_探针覆盖率与字体口径.md`
+            //   §1·2：`hasInstance` 把夹具用的**裸 `GameWindow`** 也入了账，而它**不是** `GameWindow` 的子类）。
+            //   今天那道闸在扫描循环里（`if (!allTypes.Contains(tn)) continue;`）⇒ 本条绿。
+            //   🧨 **改坏法 = 把那句闸删掉** ⇒ 「覆盖 16」那个假数立刻回来（39 > 38）、实得非子类 1 个 ⇒ 本条红。
+            //   📌 本条**只管账面自洽**，不管「哪些窗真扫过」（那是 `notHere` / `failed` / `emptyWin` 三行的事）。
+            int a1001NotSub = 0;
+            foreach (var nm in hasInstance) if (!allTypes.Contains(nm)) a1001NotSub++;
+            foreach (var nm in covered) if (!allTypes.Contains(nm)) a1001NotSub++;
+            CheckTrue(a1001NotSub == 0 && covered.Count + notHere.Count <= allTypes.Count,
+                      $"★ A1001：覆盖面的账**自洽** —— `covered`({covered.Count}) + `notHere`({notHere.Count})"
+                    + $" ≤ 全库 `GameWindow` 子类 {allTypes.Count} 个，且**没有一个非子类的名字**混进来"
+                    + $"（实得 {a1001NotSub} 个）。🔴 改坏法：删掉扫描循环里那句 `if (!allTypes.Contains(tn)) continue;`"
+                    + " ⇒ **裸 `GameWindow` 夹具**（`AddComponent<GameWindow>()` 那种，**不是子类**）又会被计进"
+                    + " `covered` ⇒ 账变成 16 + 23 = 39 > 38、实得非子类 1 个 ⇒ 本条立刻红"
+                    + "（改前那趟日志就是那个数）。");
 
             rows.Insert(0, Row("窗类", "窗态", "节点路径",
                                "命中x1", "命中y1", "命中x2", "命中y2",
@@ -5971,7 +6144,9 @@ public static class ShellScene
             // 🔴 没覆盖到的**逐条打**（两类分开：本场景连实例都没有 vs 有实例但没开起来/扫到 0 颗）
             if (failed.Count > 0) Debug.LogWarning(P + $"   A964：**有实例但没覆盖到**（{failed.Count} 个）：" + string.Join(" ；", failed.ToArray()));
             if (emptyWin.Count > 0) Debug.LogWarning(P + "   A964：**开出来了却一颗钮都没有**（扫了 0 颗 ⇒ 对覆盖率没贡献）：" + string.Join(" ；", emptyWin.ToArray()));
-            if (notHere.Count > 0) Debug.Log(P + $"   A964：**本场景连实例都没有**（{notHere.Count}/{allTypes.Count} 个窗类，本段扫不到）：" + string.Join("、", notHere.ToArray()));
+            if (notHere.Count > 0) Debug.Log(P + $"   A964：**本场景连实例都没有**（{notHere.Count}/{allTypes.Count} 个窗类，本段扫不到）：" + string.Join("、", notHere.ToArray())
+                                              + "　⚠️ 其中 `GameWindowWithTabs` 是**基类**（原版没有它自己的 prefab）⇒"
+                                              + "它**永远**留在这个名单里，那不是缺口（A1001 建窗表建的是它能建出来的 22 个子类）。");
             if (covered.Count == 0) Debug.LogWarning(P + "   A964：**一个窗类都没覆盖到** ⇒ 上面的「0 条」没有意义（看 `failed` 那两行）。");
         }
 

@@ -99,7 +99,7 @@ namespace CardPresentation.Net
             _t = transport;
             Role = NetRole.Off;
             State = NetState.Off;
-            StatusText = "未连接";
+            StatusText = Loc.T("Settings/Online/St/Off");
         }
 
         public static NetSession NewTcp() { return new NetSession(new TcpTransport()); }
@@ -130,7 +130,7 @@ namespace CardPresentation.Net
             if (!_t.IsListening)
             {
                 LastError = _t.LastError;
-                SetState(NetState.Closed, "主机没起来：" + LastError);
+                SetState(NetState.Closed, string.Format(Loc.T("Settings/Online/St/HostFailed"), LastError));
                 return false;
             }
             _lastAccepted = _t.AcceptedCount;
@@ -140,7 +140,7 @@ namespace CardPresentation.Net
             //   判成「10 秒没收到对面的任何消息」（判据链与日志实证 → `资料/普查产出_1017/D4_联机诊断.md` §②）。
             _lastRecvMs = NowMs;
             SessionToken = NewToken();
-            SetState(NetState.Listening, $"主机已就绪，在 {_t.Port} 端口等客机（把本机 IP 告诉对方）");
+            SetState(NetState.Listening, string.Format(Loc.T("Settings/Online/St/Listening"), _t.Port));
             // 🆕 2026-09-27（用户拍板做 B 档）：**顺手向路由器要一条入站映射**。
             //    为什么放在这儿：这是**唯一**一个「本机确定要当主机、端口已经定下来」的时刻。
             //    ⚠️ 它**全在后台线程**跑（SSDP 要等 2.5 秒），**不挡这一句返回**；
@@ -174,11 +174,11 @@ namespace CardPresentation.Net
 
         void InternalConnect(NetConfigData cfg)
         {
-            SetState(NetState.Connecting, $"正在连 {cfg.ip}:{cfg.port} …");
+            SetState(NetState.Connecting, string.Format(Loc.T("Settings/Online/St/Connecting"), cfg.ip, cfg.port));
             if (_t.Connect(cfg.ip, cfg.port, ConnectTimeoutMs))
             {
                 _lastRecvMs = NowMs;
-                SetState(NetState.Handshaking, "连上了，正在核对协议版本与密码…");
+                SetState(NetState.Handshaking, Loc.T("Settings/Online/St/Handshaking"));
             }
             else
             {
@@ -207,7 +207,8 @@ namespace CardPresentation.Net
                 _wasInBattle = State == NetState.InBattle;
                 string why = _t.LastError;
                 SetState(NetState.WaitingReconnect,
-                         (_wasInBattle ? "对手掉线了，正在等他回来…（对局已暂停）" : "连接断了：" + why));
+                         (_wasInBattle ? Loc.T("Settings/Online/St/PeerLostInBattle")
+                                       : string.Format(Loc.T("Settings/Online/St/Disconnected"), why)));
                 LastError = why;
                 if (OnPeerLost != null) OnPeerLost();
             }
@@ -253,7 +254,7 @@ namespace CardPresentation.Net
                                    + "（要等下一次连接进来）。那一刻连接确实已经断了，所以它**不是**「永久停摆」"
                                    + "（`资料/普查产出_1018/R3_联机三档现核.md` §5 逐帧推演过）—— 但**必须说出来**（红线）");
                 SetState(NetState.Handshaking, wasReconnect
-                         ? "有连接进来，正在核对是不是刚才那个人…" : "有客机连进来了，正在核对…");
+                         ? Loc.T("Settings/Online/St/PeerBack") : Loc.T("Settings/Online/St/PeerJoined"));
             }
 
             // ---- 心跳 ----
@@ -286,13 +287,13 @@ namespace CardPresentation.Net
                     // ⚠️ 用 `ClosePeer` 而**不是** `Close` —— 主机要把监听留着，否则等不到重连
                     _t.ClosePeer();
                     _wasInBattle = State == NetState.InBattle;
-                    LastError = $"{SilentTimeoutMs / 1000} 秒没收到对面的任何消息";
+                    LastError = string.Format(Loc.T("Settings/Online/St/SilentTimeout"), SilentTimeoutMs / 1000);
                     // 🆕 2026-10-17（B23·A902）：这行字**要按在不在对局里分开说** —— 原来无条件是
                     //   「对局已暂停」，而大厅阶段（还没进对局）根本不是那么回事（**说错话** = 另一种静默）。
                     //   同一个文件上面那条（`PeerLost` 那一支，`:176`）本来就是这么分的 ⇒ 两处对齐。
                     SetState(NetState.WaitingReconnect,
-                             _wasInBattle ? "对手掉线了，正在等他回来…（对局已暂停）"
-                                          : "连接断了：" + LastError);
+                             _wasInBattle ? Loc.T("Settings/Online/St/PeerLostInBattle")
+                                          : string.Format(Loc.T("Settings/Online/St/Disconnected"), LastError));
                     if (OnPeerLost != null) OnPeerLost();
                 }
             }
@@ -308,15 +309,15 @@ namespace CardPresentation.Net
                 _lastReconnMs = now;
                 var cfg = NetConfig.Current;
                 _t.ClosePeer();
-                SetState(NetState.WaitingReconnect, "正在重连主机…");
+                SetState(NetState.WaitingReconnect, Loc.T("Settings/Online/St/Reconnecting"));
                 if (_t.Connect(cfg.ip, cfg.port, ConnectTimeoutMs))
                 {
                     _lastRecvMs = now;
-                    SetState(NetState.Handshaking, "连上了，正在补上这一局的进度…");
+                    SetState(NetState.Handshaking, Loc.T("Settings/Online/St/CaughtUp"));
                 }
                 else
                 {
-                    StatusText = "重连失败，稍后再试：" + _t.LastError;
+                    StatusText = string.Format(Loc.T("Settings/Online/St/ReconnectFailed"), _t.LastError);
                 }
             }
         }
@@ -351,44 +352,73 @@ namespace CardPresentation.Net
                         proof = Proof(cfg.password, _nonce),
                     });
                     if (State != NetState.WaitingReconnect)
-                        SetState(NetState.Handshaking, "正在核对协议版本与密码…");
+                        // ⚠️ **2026-10-19（P6 · 双语）**：这一句与 `:181` 共用
+                        //    `Settings/Online/St/Handshaking` **一条键**（两处原文只差「连上了，」一个前缀）
+                        //    ⇒ 落键后这一句**也跟着带上了那个前缀**，如实标出这处可见变化。
+                        SetState(NetState.Handshaking, Loc.T("Settings/Online/St/Handshaking"));
                     return;
                 }
                 case NetKind.Proof:                              // 只有主机会收到
                 {
                     var m = NetProtocol.Unpack<MsgProof>(f.payload);
-                    string why = null;
-                    if (m == null) why = "对面发来的握手包解不出来";
+                    // ⚠️ **2026-10-19（P6 · 双语）**：下面这三句 `why` 有**两个**去处 ——
+                    //    ① 本机的 `SetState` / `LastError`（玩家看得见 ⇒ 走词条）；
+                    //    ② `Send(NetKind.Ack, … reason = why)` —— **会穿过 TCP 到对端屏幕上**
+                    //       （那是 `A1038` / P6d 的「走线文案」问题）。P6 简报把 `bye` 那 4 处圈成
+                    //       「本次一个字不许碰」，这三处**不在**那个圈里（施工单 §② 判它 ①）⇒ 落键。
+                    // 🔴 **2026-10-19（P6d · A1081）走线那一半也接完了**：`reason` 现在发的是
+                    //     **`NetWireText.Pack(键, 参数)`**，⛔ 不再发**已渲染好的**那句（那等于把本机的
+                    //     语言灌到对端屏幕上）。**这三条键与「本机显示」共用 `St/*` 一族** —— 判据：
+                    //     两个角色下**要印的那句话逐字相同**（本机印 「密码不对」，对面读到的也该是
+                    //     「密码不对」的**它自己语言**版），而**走线上的是键、键是语言无关的**
+                    //     ⇒ 另开 `Wire/*` 只会多出一份迟早会漂的副本（铁律 6）。
+                    //     ⛔ 与那 7 条 `Wire/*` 的分别：那一族是**本机那句与发给对面的那句措辞不同**
+                    //     （例 `St/RejectBadKey`「重连被拒：钥匙对不上」vs `Wire/BadKey`「这把钥匙对不上这一局」）。
+                    string whyKey = null; object[] whyArgs = null;
+                    if (m == null) whyKey = "Settings/Online/St/BadHello";
                     else if (m.protoVer != NetProtocol.Version)
-                        why = $"两边版本不一样（对面协议 v{m.protoVer}，本机 v{NetProtocol.Version}）—— 要用同一份构建";
+                    {
+                        whyKey = "Settings/Online/St/VersionMismatch";
+                        whyArgs = new object[] { m.protoVer, NetProtocol.Version };
+                    }
                     else
                     {
                         var want = Proof(_hostPassword, _nonce);       // ⚠️ 用**开台那一刻**的密码
-                        if (!string.IsNullOrEmpty(_hostPassword) && m.proof != want) why = "密码不对";
+                        if (!string.IsNullOrEmpty(_hostPassword) && m.proof != want)
+                            whyKey = "Settings/Online/St/WrongPassword";
                         else if (string.IsNullOrEmpty(_hostPassword))
                             Debug.LogWarning("[Net] 本局**没有设密码** —— 局域网自用可以，公网请设一个");
                     }
+                    // 本机那一份（`SetState` 里那句「拒绝了这次连接：{0}」要的是**已渲染**的整句）
+                    string why = whyKey == null ? null
+                               : (whyArgs == null ? Loc.T(whyKey) : string.Format(Loc.T(whyKey), whyArgs));
                     // 🔴 **A961（2026-10-18）**：`MsgProof.name` **是对端可控的**，而它会被拼进 `StatusText`
                     //   （本文件 `:348` · `:352` · `:411`，设置→联机页那一行字）⇒ **进界面前先钳**。
                     //   口径与取值 → `NetProtocol.MaxPeerTextChars`（⚠️ 是**我们自拟的**，原版把玩家名的长度
                     //   校验放在 PlayFab 服务端，客户端一次都不查）。
                     PeerName = ClampPeerText(m != null ? m.name : null);
-                    Send(NetKind.Ack, new MsgAck { ok = why == null, reason = why ?? "", sessionToken = SessionToken });
+                    // 🔴 **P6d：线上发【键 + 参数】，⛔ 不发已渲染的文本**（收侧 `NetWireText.Unpack` 取词）
+                    Send(NetKind.Ack, new MsgAck
+                    {
+                        ok = whyKey == null,
+                        reason = whyKey == null ? "" : NetWireText.Pack(whyKey, whyArgs),
+                        sessionToken = SessionToken,
+                    });
                     if (why != null)
                     {
                         LastError = why;
-                        SetState(NetState.Closed, "拒绝了这次连接：" + why);
+                        SetState(NetState.Closed, string.Format(Loc.T("Settings/Online/St/Refused"), why));
                         _t.Close();
                         if (OnClosed != null) OnClosed(why);
                     }
                     else if (_wasInBattle)
                     {
                         // 对局中掉线又回来了 ⇒ 停在「等他发 reconnect」，别退成 Lobby
-                        SetState(NetState.WaitingReconnect, $"「{PeerName}」连回来了，正在等他报进度…");
+                        SetState(NetState.WaitingReconnect, string.Format(Loc.T("Settings/Online/St/PeerBackWaitReport"), PeerName));
                     }
                     else
                     {
-                        SetState(NetState.Lobby, $"「{PeerName}」进来了 —— 各自选好卡组就能开战");
+                        SetState(NetState.Lobby, string.Format(Loc.T("Settings/Online/St/PeerInLobby"), PeerName));
                         if (OnPeerReady != null) OnPeerReady();
                     }
                     return;
@@ -401,8 +431,11 @@ namespace CardPresentation.Net
                         // 🔴 **A961（2026-10-18）**：`MsgAck.reason`（`NetProtocol.cs:54`）**也是对端可控的** ——
                         //   它往下进 `StatusText`（下面那句 `SetState`）与 `OnClosed`（→ `NetMatchmaking` /
                         //   `NetBattle` 的提示行与弹窗）⇒ 与 `PeerName` / `MsgBye.reason` **同一处口径**：先钳。
+                        // 🔴 **P6d**：钳完再 `NetWireText.Unpack`（**次序硬** —— 先钳对端可控的原串、
+                        //   再取词；反过来的话 40 字钳的是我们自己的文案，理由见 `NetWireText` 类注释）。
                         string why = m != null && !string.IsNullOrEmpty(m.reason)
-                                   ? ClampPeerText(m.reason) : "对面拒绝了连接";
+                                   ? NetWireText.Unpack(ClampPeerText(m.reason))
+                                   : Loc.T("Settings/Online/St/PeerRefused");
                         LastError = why;
                         SetState(NetState.Closed, why);
                         _t.Close();
@@ -411,17 +444,21 @@ namespace CardPresentation.Net
                         return;
                     }
                     SessionToken = m.sessionToken;
-                    if (_checkMode && OnCheckDone != null) OnCheckDone(true, "连接成功 —— 可以直接开战了");
+                    // 🆕 **2026-10-19（P6d · A1079①）**：这一句原来是一段**裸中文字面量**，而它会经
+                    //     `OnCheckDone` 进设置窗（`Shell/SettingsWindow.cs` 的 `SetFlash(() => (ok ? "✅ " : "❌ ") + why)`）
+                    //     ⇒ **是①类玩家可见文案**，落键。键名/两列**两张原版表都搜过、0 命中**（原版联机走 PlayFab、
+                    //     没有「检查连接」这套流程）⇒ **自拟**，出处 = 调用点原话逐字（`Core/Loc.cs` 的 `St/CheckOk`）。
+                    if (_checkMode && OnCheckDone != null) OnCheckDone(true, Loc.T("Settings/Online/St/CheckOk"));
                     _checkMode = false;
                     if (_wasInBattle)
                     {
                         // 🔴 **重连的那一步**：报上钥匙 + 打到第几条，等主机灌权威动作流回来
                         Send(NetKind.Reconnect, new MsgReconnect { sessionToken = SessionToken, lastSeq = _lastSeq });
-                        SetState(NetState.WaitingReconnect, "已经连上主机，正在等他补这一局的进度…");
+                        SetState(NetState.WaitingReconnect, Loc.T("Settings/Online/St/ResumedWaitProgress"));
                     }
                     else
                     {
-                        SetState(NetState.Lobby, "连上主机了 —— 各自选好卡组就能开战");
+                        SetState(NetState.Lobby, Loc.T("Settings/Online/St/ClientLobby"));
                         if (OnPeerReady != null) OnPeerReady();
                     }
                     return;
@@ -431,16 +468,18 @@ namespace CardPresentation.Net
                     var m = NetProtocol.Unpack<MsgReconnect>(f.payload);
                     if (m == null || (SessionToken != null && m.sessionToken != SessionToken))
                     {
-                        Send(NetKind.Bye, new MsgBye { reason = "这把钥匙对不上这一局" });
-                        LastError = "重连被拒：钥匙对不上";
+                        // 🔴 **P6d（A1038）**：线上发**词条键**，⛔ 不发中文整句（那会把本机语言灌到对面屏幕上）。
+                        //   收侧 `NetWireText.Unpack` 按**它自己**的语言取词；旧端收到键名则原样印（≤40 字、不被钳）。
+                        Send(NetKind.Bye, new MsgBye { reason = NetWireText.Pack("Settings/Online/Wire/BadKey") });
+                        LastError = Loc.T("Settings/Online/St/RejectBadKey");
                         SetState(NetState.Closed, LastError);
                         _t.Close();
                         return;
                     }
                     if (ResumeProvider == null)
                     {
-                        Send(NetKind.Bye, new MsgBye { reason = "主机这边没有这一局的记录" });
-                        LastError = "重连被拒：主机没有权威动作流";
+                        Send(NetKind.Bye, new MsgBye { reason = NetWireText.Pack("Settings/Online/Wire/NoRecord") });
+                        LastError = Loc.T("Settings/Online/St/RejectNoLog");
                         SetState(NetState.Closed, LastError);
                         _t.Close();
                         return;
@@ -451,17 +490,23 @@ namespace CardPresentation.Net
                         start = start,
                         actionsJson = NetProtocol.Pack(new MsgActionList { items = actions ?? new List<MsgAction>() }),
                     });
-                    SetState(NetState.InBattle, $"「{PeerName}」回来了 —— 已把这一局的 {actions?.Count ?? 0} 条动作发过去");
+                    SetState(NetState.InBattle, string.Format(Loc.T("Settings/Online/St/ResumeSent"), PeerName, actions?.Count ?? 0));
                     _wasInBattle = false;                      // 追平了：再有人连进来就是新的一桌
                     return;
                 }
                 case NetKind.Resume:                             // 客机收到：全量重放
                 {
                     var m = NetProtocol.Unpack<MsgResume>(f.payload);
-                    if (m == null || m.start == null) { Close(true, "重连包解不出来"); return; }
+                    if (m == null || m.start == null)
+                    {
+                        // 🔴 **P6d（A1038）**：`Close` 的 `reason` 现在是**词条键**（见那个方法的 doc）
+                        //    —— 这一串是**唯一客机→主机**的那一条（上面两条只有主机发得出来）。
+                        Close(true, "Settings/Online/Wire/BadResume");
+                        return;
+                    }
                     var list = NetProtocol.Unpack<MsgActionList>(m.actionsJson);
                     var actions = list != null ? list.items : new List<MsgAction>();
-                    SetState(NetState.InBattle, $"追上了 —— 重放这一局的 {actions.Count} 条动作");
+                    SetState(NetState.InBattle, string.Format(Loc.T("Settings/Online/St/ResumeCaughtUp"), actions.Count));
                     _wasInBattle = false;
                     if (OnResumed != null) OnResumed(m.start, actions);
                     return;
@@ -474,8 +519,11 @@ namespace CardPresentation.Net
                     //   这里是**收口点**（三个入口都在本文件）：钳完再往下走，`StatusText` 与 `OnClosed`
                     //   的每一个消费方（`NetMatchmaking` 的提示行+弹窗、`NetBattle.HandlePeerClosed`）
                     //   **自动都拿到钳过的那一段**。取值与「这是我们的口径、原版没有先例」→ `NetProtocol.MaxPeerTextChars`。
+                    // 🔴 **P6d**：钳完再 `NetWireText.Unpack`（**次序硬** —— 理由同 `case NetKind.Ack`）。
+                    //   对面发来**词条键**时这里取的是**本机语言**那一句；发来的是**旧端的自然语言**
+                    //   （或自检那种自定义串）时 `HasEntry` 为假 ⇒ **原样回显**（白赚的兼容）。
                     string why = m != null && !string.IsNullOrEmpty(m.reason)
-                               ? ClampPeerText(m.reason) : "对面退出了";
+                               ? NetWireText.Unpack(ClampPeerText(m.reason)) : Loc.T("Settings/Online/St/PeerLeft");
                     SetState(NetState.Closed, why);
                     _t.Close();
                     if (OnClosed != null) OnClosed(why);
@@ -547,30 +595,47 @@ namespace CardPresentation.Net
         {
             _lastSeq = lastSeq;
             _wasInBattle = false;                      // 新的一局：掉线前的「他是我对手」标记清掉
-            SetState(NetState.InBattle, "对局中" + (Role == NetRole.Host ? "（本机是主机，动作由本机定序）" : "（客机：操作由主机确认）"));
+            SetState(NetState.InBattle, Loc.T("Settings/Online/St/InBattle")
+                                      + (Role == NetRole.Host ? Loc.T("Settings/Online/St/HostSide")
+                                                              : Loc.T("Settings/Online/St/ClientSide")));
         }
 
         /// <summary>主动收工（用户退出 / 打完）。`say=true` 时给对面捎一句 `bye`。
         /// 🔴 **2026-10-18（独立审查 R5）**：`say=true` 而**这一刻发不出去**时**要出声** ——
         /// 原来那一句写成 `if (say &amp;&amp; _t != null &amp;&amp; _t.IsConnected &amp;&amp; State != Off) Send(…)`，
         /// 条件不成立就**一声不响**（而 `Send` 新加的那声警告**永远走不到**这一步）⇒
-        /// 「丢包一定出声」这条**恰好在「我们最需要对面收到的那句话」上不成立**。现在补上。</summary>
+        /// 「丢包一定出声」这条**恰好在「我们最需要对面收到的那句话」上不成立**。现在补上。
+        ///
+        /// <para>🔴 **2026-10-19（P6d · A1038 裁定 ③）：`reason` 是【词条键】，不是一句现成的文案。**
+        /// 它是**双重载荷** —— 既上 wire（`MsgBye.reason`，**到对端屏幕上**）、又进本机
+        /// `StatusText`（下面那句 `SetState(Off, …)`）⇒ 两半都走**同一个键**，⛔ 不留裸串：
+        ///   · 线上发 <c>reason</c> 本身（键是 ASCII、语言无关，≤ 40 字 ⇒ `ClampPeerText` 不会截）；
+        ///   · 本机印 `NetWireText.Unpack(reason)`（按**本机**语言取词）。
+        /// 传 `null` = **线上**走兜底 `Settings/Online/Wire/PeerDone`（「对面结束了这一局」），
+        /// 而**本机状态字仍是** `St/Off`（「未连接」，与接线前逐字一致 —— 见下面那一句的注释）。
+        /// ⚠️ **传进来的若不是词条键**（自检里那几个「自检：…」串、以及旧调用点遗留的整句）
+        /// ⇒ `Unpack` 原样回显、**不出声**（`HasEntry` 假就走回显那一支，不碰缺键记账）
+        /// ⇒ 行为与接线前**逐字相同**，那几条既有断言照旧绿。</para></summary>
         public void Close(bool say = true, string reason = null)
         {
+            string key = reason ?? "Settings/Online/Wire/PeerDone";
             if (say)
             {
                 if (_t == null || !_t.IsConnected || State == NetState.Off)
-                    Debug.LogWarning("[Net] 本来要给对面捎一句 `bye`（" + (reason ?? "对面结束了这一局") + "）"
+                    Debug.LogWarning("[Net] 本来要给对面捎一句 `bye`（" + NetWireText.Unpack(key) + "）"
                                    + $"—— 但**这一刻没有活的连接**（会话 {State}）⇒ 这句话**没发出去**，"
                                    + "对面**不会收到任何通知**（它那边只能靠心跳超时发现）。如实说出来（红线）");
                 else
-                    Send(NetKind.Bye, new MsgBye { reason = reason ?? "对面结束了这一局" });
+                    Send(NetKind.Bye, new MsgBye { reason = key });
             }
             // 🆕 关台时**把要来的那条映射撤掉**（别在玩家路由器上留一条没人用的转发规则）。
             //    端口要在 `Close()` 之前抓 —— 关完就取不到了。
             if (Role == NetRole.Host && _t != null) UpnpPortMapper.UnmapAsync(_t.Port);
             if (_t != null) _t.Close();
-            SetState(NetState.Off, reason ?? "未连接");
+            // ⚠️ **本机那一句与线上那句【兜底不同】**：`reason == null` 时线上捎 `Wire/PeerDone`，
+            //    而**本机状态字仍是** `St/Off`（「未连接」）—— 与接线前逐字一致。
+            //    ⛔ 别把这两半并成一个 `key`（那会让 `Close(false)` 这条常用路上状态字变成「对面结束了这一局」）。
+            SetState(NetState.Off, reason == null ? Loc.T("Settings/Online/St/Off") : NetWireText.Unpack(reason));
             _checkMode = false;
             _wasInBattle = false;
             // 🔴 **为什么这里【故意不清】`SessionToken`**（2026-10-18 第五轮 · 账 ③，现核过全仓读者）：

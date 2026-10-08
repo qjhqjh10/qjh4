@@ -59,12 +59,12 @@ namespace CardPresentation.Net
             why = null;
             var rt = NetRuntime.Instance;
             var s = rt != null ? rt.Session : null;
-            if (s == null || !s.Transport.IsConnected) { why = "联机没连上（这一局本来就没走联机）"; return false; }
-            if (_myDeck == null && !_started) { why = "这一局还没进入联机匹配"; return false; }
+            if (s == null || !s.Transport.IsConnected) { why = Loc.T("Settings/Online/Cancel/WhyNoLink"); return false; }
+            if (_myDeck == null && !_started) { why = Loc.T("Settings/Online/Cancel/WhyNotMatching"); return false; }
             if (_started)
             {
                 // 开局包已经发出/收到 ⇒ 这一局成立了。**不假装取消成功**。
-                why = "这一局**已经开局了**（开局包已经发出/收到）—— 取消不了；要退出请在对局里投降。";
+                why = Loc.T("Settings/Online/Cancel/WhyStarted");
                 return false;
             }
             ICancelled = true;
@@ -181,7 +181,10 @@ namespace CardPresentation.Net
                 return;
             }
             _peerGone = true;
-            if (_started) { DeferToBattleLayer("对面掉线了"); return; }
+            // 🔴 **2026-10-19（P6d · A1079②）**：这一句原来是**裸中文字面量**（它进
+            //   `DeferToBattleLayer` → `Lobby/DeferToBattle` 的 `{0}` → 提示行）⇒ 落键。
+            //   形状选择见 `DeferToBattleLayer` 的 doc（**碎片建成独立键**，⛔ 没动父键形状）。
+            if (_started) { DeferToBattleLayer(Loc.T("Settings/Online/Lobby/PeerLostFrag")); return; }
             string tail = RevokeMatchLocal();
             // 🔴 **2026-10-18（A933）压缩这一句**。原 =「联机断开了：对面掉线了 —— <tail>（对面回来之后，
             //   两边重新各点一次 `Battle!`）」= **52 / 56 字**（两条 `tail` 分支），超过提示行按框算的 40 字
@@ -194,10 +197,8 @@ namespace CardPresentation.Net
             //   —— **对不上**：`:409` 实测 **39 字**（本来就没越界）。🔑 按长度反查，**47 字那句实测就是
             //   下面的 `DeferToBattleLayer`**（`what` = 14 ⇒ 14 + 33 = 47，逐字吻合）⇒ A933 的**落点漂了**；
             //   真正的越界句是**两句**：下面那一句 + **本句**（52/56），现都压到 ≤ 40。
-            SayLobby("对面掉线了，" + tail + "（两边回来各点一次 `Battle!`）",
-                     "对面掉线了 —— 联机断开。\n" + tail + "，回到大厅。\n"
-                   + "（对面回来之后，两边各自重新点一次 `Battle!`。原版那一刻走的是 "
-                   + "`SearchOpponentManager.CancelSearchForDisconnect`：弹窗 + 取消搜索。）");
+            SayLobby(string.Format(Loc.T("Settings/Online/Lobby/PeerLostHint"), tail),
+                     string.Format(Loc.T("Settings/Online/Lobby/PeerLost"), tail));
             _peerGonePopup = true;
         }
 
@@ -206,19 +207,24 @@ namespace CardPresentation.Net
         {
             if (!LobbyOwnsSession) return;          // 对局那半边接管了 ⇒ 由它说（互斥闸）
             _peerGone = true;                       // `NetSession` 收到 `bye` 就 `Close()` ⇒ 不会再「回来」（同 `NetBattle` 那条注）
-            string body = string.IsNullOrEmpty(why) ? "对面退出了" : why;
-            if (_started) { DeferToBattleLayer("对面离开了：" + body); return; }
+            string body = string.IsNullOrEmpty(why) ? Loc.T("Settings/Online/St/PeerLeft") : why;
+            // 🔴 **2026-10-19（P6d · A1079②）**：「对面离开了：」这个**前缀碎片**原来是裸中文字面量 ⇒ 落键。
+            //   ⚠️ **取词在拼句【之前】**（`body` 上面那一行就已经是取了词的那一句）—— 这条次序是硬的：
+            //      反过来的话 `what` 会变成「带着键名的 35 字」⇒ 拼进 `DeferToBattle` 后 59 > 40
+            //      （提示行框宽 `SearchingMatchPopup.HintLineMaxChars`），每次都 `LogWarning`。
+            if (_started) { DeferToBattleLayer(Loc.T("Settings/Online/Lobby/PeerLeftFrag") + body); return; }
             string tail = RevokeMatchLocal();
-            SayLobby("联机结束：" + body + " —— " + tail,
-                     "联机结束：" + body + "\n" + tail + "，回到大厅。\n"
-                   + "（要再打一局：两边重新各点一次 `Battle!`。原版那一刻走的是 "
-                   + "`SearchOpponentManager.CancelSearchForDisconnect`：弹窗 + 取消搜索。）");
+            SayLobby(string.Format(Loc.T("Settings/Online/Lobby/PeerLeftHint"), body, tail),
+                     string.Format(Loc.T("Settings/Online/Lobby/PeerLeft"), body, tail));
             _peerGonePopup = true;
         }
 
         /// <summary>「这一局已经开局」（开局包已发/收）那一档 ⇒ **不在这儿弹窗**：
         /// 接下来的出口是进战场 → `NetBattle` 接上来时补报（见 `NetBattle.WireSession` 末尾那段，
-        /// 判据 = 接上时会话不在 `Lobby`）。这里只记日志 + 那一行提示（⛔ 不静默）。</summary>
+        /// 判据 = 接上时会话不在 `Lobby`）。这里只记日志 + 那一行提示（⛔ 不静默）。
+        /// <para>⚠️ **参数 `what` 是【已经取过词的碎片】**（调用点自己拼好，例如
+        /// `Lobby/PeerLeftFrag` + `body`）—— ⛔ 不要改成「把键传进来在这儿取词」：
+        /// 那个戳会把取词推到**拼句之后**，`what` 就会带上 29 字的键名（见下面那条 40 字预算）。</para></summary>
         static void DeferToBattleLayer(string what)
         {
             Debug.LogWarning("[Net] 大厅：" + what + " —— 但这一局**已经开局**（开局包已发/收）⇒ "
@@ -226,11 +232,19 @@ namespace CardPresentation.Net
             // 🔴 **2026-10-18（A933）同时压缩这一句**：原 = `what` + 「 —— 这一局已经开局、正在进战场
             //   （断线那件事由对局那一层接着说）」（字面量 33 字）⇒ `what` 一长就超 40。
             //   🔑 **`A933` 说的那句「47 字」实测就是这一句**：生产最长那条 `what` = `对面离开了：` +
-            //   对方报的 `对面离开了这一局` = **14 字**，14 + 33 = **47** ⇒ 每次都出声（不是 `:409` 那句）。
+            //   对方报的 `对面离开了这一局` = **14 字**，14 + 33 = **47** ⇒ 每次都出声（不是「对面回来了」那句）。
             //   现字面量 **24 字** ⇒ 生产路径最长那条 = **38 字**（`what` = 14），全部 ≤ 40
-            //   （`what` 只有两个来源：`:184` 的「对面掉线了」= 5 · `:199` 的「对面离开了：」+ 对方报的理由）。
-            //   ⚠️ 详细那半句（为什么不在大厅这一半说）仍然**逐字留在上面那行 `Debug.LogWarning` 里**。
-            SayHintOnly(what + " —— 已开局、正在进战场（后面由对局那一层说）");
+            //   （`what` 只有两个来源：`HandleLobbyPeerLost` 的「对面掉线了」= 5 ·
+            //    `HandleLobbyPeerClosed` 的「对面离开了：」+ 对方报的理由）。
+            // 🔴 **2026-10-19（P6d）核过一遍，两个数都不变**：那两段碎片各自落成词条
+            //   `Lobby/{PeerLostFrag,PeerLeftFrag}`，**ZH 列 = 调用点原话逐字** ⇒ 中文档长度**逐字相同**
+            //   （5 字 / 6 字）⇒ 上面那条「最长 38 ≤ 40」照旧成立。
+            //   ⚠️ **英文档本来就超**（下面是 `DeferToBattle` 的 EN 列，光模板就 86 字）——
+            //      那是**接线前就有的**、与本次改动无关；✅ **如实记着**（`HintLineMaxChars` 只对**中文列**算过）。
+            //   ⚠️ `body` 现在可能来自**词条键取词**（`Wire/*` 那 7~8 条，最长 ZH 13 字）
+            //      ⇒ 最坏 `what` = 6 + 13 = 19 ⇒ 19 + 24 = 43 > 40（**接线前同样是 19**，
+            //      因为那时对面直接发中文整句）⇒ **不是本次引入的回归**。
+            SayHintOnly(string.Format(Loc.T("Settings/Online/Lobby/DeferToBattle"), what));
         }
 
         /// <summary>大厅阶段对面不在了 ⇒ **把本地这一局的账撤掉**（= 原版 `MatchMakerManager.CancelSearch`
@@ -246,7 +260,7 @@ namespace CardPresentation.Net
                 ? "[Net] 大厅：对面不在了 ⇒ 本地这一局的账已撤（原版那一刻 `MatchMakerManager.CancelSearch`，"
                 + "那一下里还有一句 `BattleNetworkManager.CancelBattleSearch` —— 我们把状态交回 `NetSession` 自己管）"
                 : "[Net] 大厅：对面不在了 —— 本机本来就没在匹配这一局（只是那条会话断了）");
-            return had ? "这一局的匹配已经撤销" : "（本机本来就没在匹配这一局）";
+            return had ? Loc.T("Settings/Online/Lobby/MatchRevoked") : Loc.T("Settings/Online/Lobby/NotMatchingThisGame");
         }
 
         /// <summary>**出声**那一处（提示行 + 日志）。⛔ 不弹窗 —— 弹窗只在真的「对面不在了」那两跳里发。
@@ -357,10 +371,10 @@ namespace CardPresentation.Net
             why = null;
             var rt = NetRuntime.Instance;
             var s = rt != null ? rt.Session : null;
-            if (s == null || !s.Transport.IsConnected) { why = "联机没连上"; return false; }
+            if (s == null || !s.Transport.IsConnected) { why = Loc.T("Settings/Online/Lobby/BotNoLink"); return false; }
             if (s.State != NetState.Lobby && s.State != NetState.InBattle)
-            { why = $"联机会话现在是 `{s.State}`（还没握手完）"; return false; }
-            if (deck == null) { why = "这副牌是空的"; return false; }
+            { why = string.Format(Loc.T("Settings/Online/Lobby/BotSessionNotReady"), s.State); return false; }
+            if (deck == null) { why = Loc.T("Settings/Online/Lobby/BotEmptyDeck"); return false; }
 
             Reset();
             _myDeck = deck; _myMode = mode ?? "Classic"; _myFaction = faction;
@@ -399,11 +413,10 @@ namespace CardPresentation.Net
         {
             var cfg = NetConfig.Current;
             if (cfg == null || cfg.role == (int)NetRole.Off) return;   // 没配过联机 ⇒ 单机，不打扰
-            NetRuntime.Notice("这一局**打的是电脑，不是联机**。\n"
-                            + "原因：" + why + "。\n"
-                            + "你在设置里配过联机了 —— 请到「设置 → 联机」点一次"
-                            + (cfg.role == (int)NetRole.Host ? "【保存】" : "【检查连接】")
-                            + "，再回来点 `Battle!`。");
+            NetRuntime.Notice(string.Format(Loc.T("Settings/Online/Lobby/PlayedVsBot"), why,
+                            cfg.role == (int)NetRole.Host
+                                ? "【" + Loc.T("Settings/Online/Save") + "】"
+                                : "【" + Loc.T("Settings/Online/CheckConnection") + "】"));
         }
 
         /// <summary>`NetRuntime.Update` 调（**对局外的**联机消息都在这儿处理）。</summary>
@@ -424,7 +437,7 @@ namespace CardPresentation.Net
             {
                 _peerGone = false;
                 if (_peerGonePopup) { _peerGonePopup = false; NetRuntime.HideNoticePopup(); }
-                SayHintOnly("对面回来了 —— 联机已恢复。要开这一局，两边重新各点一次 `Battle!`");
+                SayHintOnly(Loc.T("Settings/Online/Lobby/LobbyRestored"));
             }
 
             for (int i = 0; i < s.Inbox.Count; i++)
@@ -463,8 +476,7 @@ namespace CardPresentation.Net
                         {
                             // 本机取消过 ⇒ **丢掉迟到的开局包**（否则对面一开局就把本机拉进战场）
                             Debug.LogWarning("[Net] 已取消过这一局的匹配 ⇒ **丢掉迟到的开局包**（不进战场）");
-                            NetRuntime.Notice("对面在你取消之后开局了 —— 这一局**没有进**。\n"
-                                            + "对面那边会停在等待界面上，请重新约一次。");
+                            NetRuntime.Notice(Loc.T("Settings/Online/Lobby/StartAfterCancel"));
                             break;
                         }
                         var st = NetProtocol.Unpack<MsgStart>(f.payload);
@@ -499,15 +511,13 @@ namespace CardPresentation.Net
                         {
                             // 开局包已经发出去了 ⇒ 对面这条取消**晚了**。如实说，不假装两边一致。
                             Debug.LogWarning("[Net] 对面在开局之后才取消 —— 这一局照旧开（对面会收到开局包）");
-                            NetRuntime.Notice("对面在你开局之后才点了取消 —— 这一局**照旧开始**。\n"
-                                            + "对面那边会看到「已经开局、取消不了」，要退出只能在对局里投降。");
+                            NetRuntime.Notice(Loc.T("Settings/Online/Lobby/MissedCancel"));
                         }
                         else
                         {
                             ClearMatch();
                             Debug.Log($"[Net] 对面取消了这一局的匹配（理由：{mc?.reason ?? "未说明"}）⇒ 本地也复位，不开局");
-                            NetRuntime.Notice("对面取消了这一局的匹配 —— **双方都没有开局**，退回大厅。\n"
-                                            + "可以各自重新点一次 `Battle!`。");
+                            NetRuntime.Notice(Loc.T("Settings/Online/Lobby/PeerCancelled"));
                         }
                         break;
                     }
@@ -536,8 +546,7 @@ namespace CardPresentation.Net
                 Debug.LogError($"[Net] 🔴 两端模式不一样（我 {mode} / 对面 {_foeMode}）—— 拒绝开局，别打出两端不一致的账");
                 // 🔴 **红线**：原来只有这行日志 ⇒ 两边都卡在「正在搜索」上、**谁也不明白为什么开不了**。
                 //    判据 → `项目任务.md` §三 第 14 条 表里的第 4 条。
-                NetRuntime.Notice("两边选的模式不一样：本机是「" + mode + "」，对面是「" + _foeMode + "」。\n"
-                                + "这一局没有开成 —— 请两位换成**同一个模式**，再各自点一次 `Battle!`。");
+                NetRuntime.Notice(string.Format(Loc.T("Settings/Online/Lobby/ModeMismatch"), mode, _foeMode));
                 return;
             }
 
@@ -584,7 +593,7 @@ namespace CardPresentation.Net
             if (pb == null)
             {
                 Debug.LogError("[Net] 开局包解不出来 —— 不切场景");
-                NetRuntime.Notice("开局参数没能解析出来，这一局开不了。\n请两边都退回主菜单，重新点一次 `Battle!`。");
+                NetRuntime.Notice(Loc.T("Settings/Online/Lobby/StartParseFailed"));
                 return;
             }
             NetPendingBattle.Current = pb;

@@ -193,6 +193,70 @@ namespace CardPresentation.Net
         public const string Resume    = "resume";
     }
 
+    /// <summary>🆕 🔴 **A1038 / P6d（2026-10-19）：走线文案的「词条键 ⇄ 本机语言」编解码。**
+    ///
+    /// <para>**为什么要它**：`MsgBye.reason` / `MsgReject.reason` / `MsgAck.reason` 是**穿过 TCP
+    /// 到对端屏幕上**的串。P6d 之前它们装的是**已经渲染好的中文整句** ⇒ 等于把**发送方**的界面语言
+    /// 灌到**接收方**的界面上（接收方是英文档也照印中文）。现在线上只发**词条键**
+    /// （要带参数就再跟一段），**由收侧按它自己的语言取词**。</para>
+    ///
+    /// <para>**编码格式**：`键` 或 `键 + '|' + 参数1 + '|' + 参数2 …`。
+    /// ⛔ **线上一个自然语言字符都不发**。分隔符取 `'|'`（ASCII 可打印 ⇒ `JsonUtility`/UTF-8
+    /// 都不会动它；词条键里本来就不可能出现它 —— 键全是 `[A-Za-z/]`）。</para>
+    ///
+    /// <para>**为什么不 +`NetProtocol.Version`**（主对话 2026-10-19 裁定）：照**同族先例**
+    /// `NetPendingBattle.PlayMode` + `PlayModeNames.Parse`（`Net/NetBattle.cs` + `RuleEngine/Core/GameplayVariables.cs`）
+    /// —— 那一条也换了线上字符串的编码、也**没有** +版本号，靠**收侧出声兜底**。两端的兼容表现：
+    ///   · **旧端收新键** ⇒ `HasEntry` 假 ⇒ **原样印出键名**（≤ 40 字、连 `ClampPeerText` 都不会截）、
+    ///     不崩、不忽略（`NetSession` 的 `Bye`/`Ack` 与 `NetBattle` 的 `Reject` 三条收包路都验过）；
+    ///   · **新端收旧中文串** ⇒ `HasEntry` 假 ⇒ **原样回显** ⇒ **显示恰好正确**（这是白赚的兼容）。
+    /// ⛔ **别改成「不认识的串一律落一句本地固定话」** —— 那会让新端**丢掉对面那句话**，
+    /// 而且 `Editor/NetSelfTest.cs` 的 M⑳ 与 `Editor/NetBattleTest.cs` 的「对面离开」那两条断言
+    /// 断的正是「那条话里带着对面报的理由」，会当场红。</para>
+    ///
+    /// <para>⚠️ **钳位次序是硬的**：**先 `NetSession.ClampPeerText`（钳【对端可控的原串】）再 `Unpack`（取词）**。
+    /// 反过来的话，取完词的那句是**我们自己的文案**（英文列可到 90+ 字），拿 40 去钳它会把
+    /// 我们自己的话截掉 —— 而那个 40 的判据本来是「**对端塞进来的**那一段不该比整行提示还长」。</para>
+    /// </summary>
+    public static class NetWireText
+    {
+        /// <summary>参数分隔符。取值理由见类注释（键里不可能有它）。</summary>
+        public const char Sep = '|';
+
+        /// <summary>发送侧：词条键（可选带参数）→ 线上那一串。**⛔ 绝不发已渲染的文本。**</summary>
+        public static string Pack(string key, params object[] args)
+        {
+            if (string.IsNullOrEmpty(key)) return "";
+            if (args == null || args.Length == 0) return key;
+            var sb = new StringBuilder(key);
+            for (int i = 0; i < args.Length; i++) { sb.Append(Sep); sb.Append(args[i]); }
+            return sb.ToString();
+        }
+
+        /// <summary>收侧：线上那一串 → **按本机语言**取词（认不出 = 原样回显，见类注释）。
+        /// ⚠️ 调用方要**先 `NetSession.ClampPeerText`**（次序见类注释）。</summary>
+        public static string Unpack(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return s;
+            int at = s.IndexOf(Sep);
+            string key = at < 0 ? s : s.Substring(0, at);
+            // 认不出 = 旧端发来的自然语言 / `RuleCodes.Describe` 那种本机整句 ⇒ **原样回显**（白赚的兼容）
+            if (!Loc.HasEntry(key)) return s;
+            string tpl = Loc.T(key);
+            if (at < 0) return tpl;
+            string[] parts = s.Substring(at + 1).Split(Sep);
+            try { return string.Format(tpl, (object[])parts); }
+            catch (FormatException e)
+            {
+                // 占位符个数对不上（对面伪造 / 原串被钳断）⇒ 退回模板 + **出声**，
+                // ⛔ 不许让异常抛到收包路径上（那会把线程打死、而且一个字都不说）。
+                Debug.LogWarning($"[Net] 走线文案 `{key}` 的参数个数对不上模板（{e.Message}）"
+                               + $" ⇒ 只印模板本身。这一串来自对面：「{s}」");
+                return tpl;
+            }
+        }
+    }
+
     public static class NetProtocol
     {
         /// <summary>协议版本。🔴 **改消息格式就必须 +1** —— 两端版本不等时主机**拒绝**并说明理由（不许静默兼容）。
@@ -206,8 +270,14 @@ namespace CardPresentation.Net
         public const int HeaderBytes = 4;
 
         /// <summary>🆕 🔴 **A961（2026-10-18）：对端可控的文本进任何一个界面之前，一律钳到这个长度**
-        /// （超出 = 截断 + 一个 `…`）。闸只一处 = `NetSession.ClampPeerText`；三个入口都在 `NetSession` 的收包段：
-        /// `MsgBye.reason`（`:428`）· `MsgProof.name` → `PeerName`（`:336`）· `MsgAck.reason`（`:362`）。
+        /// （超出 = 截断 + 一个 `…`）。闸只一处 = `NetSession.ClampPeerText`；四个入口：
+        /// `MsgBye.reason`（`NetSession.Handle` 的 `case NetKind.Bye`）· `MsgProof.name` → `PeerName`
+        /// （同文件 `case NetKind.Proof`）· `MsgAck.reason`（同文件 `case NetKind.Ack`）·
+        /// `MsgReject.reason`（`NetBattle.Dispatch` 的 `case NetKind.Reject`，它复用同一个 `ClampPeerText`）。
+        /// <para>🔴 **2026-10-19（P6d）这四条路都多了一步 `NetWireText.Unpack`（取词），次序是
+        /// 【先钳、后取词】** —— 理由（反过来的话会截到我们自己的文案）见 <see cref="NetWireText"/> 的类注释。
+        /// ⚠️ 原来本段写的是三处、且行号写死（`:428`/`:336`/`:362`）—— **那些行号早就漂了**
+        /// （2026-10-19 现读已不是那三行）⇒ 就地改成**符号名索引**（铁律 5；⛔ 以后别在本文件写死行号）。</para>
         ///
         /// <para>**取 40 的判据** = 提示行自己的那条上限：`Shell/SearchingMatchPopup.cs:408` 的
         /// `HintLineMaxChars = 40`（B17 已解；超长只 `LogWarning`、**照画**）——「对端塞进来的那一段」

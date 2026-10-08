@@ -4641,12 +4641,16 @@ public static class CollectionScene
                     CheckNear(PxYOf(co.position.y), 758.71f, 0.6f,
                               "`Owned` 行中心 y = **758.71**（155.9 + 577.81 + 25 —— Army 行 550 一高，它跟着往下走）");
                     // 🔴 **2026-10-18（波 2a · W2）改「随语档」**：这颗字从波 1b（P1）起走词条
-                    //   （`Core/FilterPanelModel.cs:579` 的 `TermOr(OwnedOnlyTerm, "Owned only")`，
-                    //   键 = `MenuDeck/Filters/ShowOwnedOnly`）⇒ 原来写死的 `"Owned only"` 只是**英文列的副本**，
+                    //   （`Core/FilterPanelModel.cs` 的 `BuildCosmetics` 那颗 `Owned` 格，键 = `MenuDeck/Filters/ShowOwnedOnly`）
+                    //   ⇒ 原来写死的 `"Owned only"` 只是**英文列的副本**，
                     //   宿主跑中文档时它印的是中文列 ⇒ **本条必红（这就是本轮那条红）**。
                     //   期望值改成 `Loc.T(键)` ⇒ 两语档都成立。
-                    //   ⚠️ 上面那条 `HasEntry` 不是装饰：`TermOr` 是「表里有键才用词条、没有才用后备字面量」
-                    //      ⇒ 键不在表里时实现印 `"Owned only"`、而 `Loc.T` 回键名 ⇒ 红得看不出原因。
+                    //   ⚠️ **2026-10-18 收口（铁律 5）**：本段原来引的是实现里那两个符号名
+                    //     （`TermOr(OwnedOnlyTerm, "Owned only")`）—— 那道**取词闸门已删除**（键全在表里，
+                    //     闸门是静默兜底）⇒ 实现现在是**裸 `Loc.T(OwnedOnlyTerm)`**，本段改成不引那个已不存在的符号。
+                    //     ⚠️ 断言本身**一个字没动**（`Loc.T(键)` 那句两版都成立 —— 键在表 ⇒ 闸门与裸调用同值）。
+                    //   ⚠️ 上面那条 `HasEntry` **仍然不是装饰**：键若不在表里，`Loc.T` 回的是**键名本身**
+                    //      ⇒ 实现印键名、期望也是键名，这条会**假绿**（看不出「词条丢了」）—— 它挡的是这个。
                     CheckTrue(Loc.HasEntry("MenuDeck/Filters/ShowOwnedOnly"),
                               "（前提）词条 `MenuDeck/Filters/ShowOwnedOnly` 在表里"
                             + "（⛔ 不在 ⇒ 下一条红得看不出原因）");
@@ -5283,7 +5287,14 @@ public static class CollectionScene
 
                                 // ③ **外推的那几格**（槽 5–8）：只钉走向（更靠左 / 更斜 / 更小）——
                                 //    原版没有第 6 格可比，⚠️ 这一段是**我们挑的**（正本 §8·7）。
-                                //    ⚠️ 真实卡池里相关卡通常只有 1–2 张（全池 129 处点名摊在 100 来张卡上）
+                                //    ⚠️ 真实卡池里相关卡通常只有 1–2 张（全池 128 处点名摊在 100 来张卡上）
+                                //    🔴 **2026-10-18 之后·第六会话就地订正（铁律 5）**：本行原写「**129** 处」
+                                //    —— 那是 2026-10-18 之前的口径（`S13` 把 `UM84 Chaplain Cassius` 的
+                                //    `[Talent]:` 改成裸写 `Talent:` 之后，规则②第一次真生效 ⇒ 少 1 处）。
+                                //    真值 = **128**，判据 = `RuleEngine/Editor/RuleEngineTest.cs` 的
+                                //    `Check(mentions, 128, …)`（那里 2026-10-18 已就地订正过，本行没跟着改）。
+                                //    ⚠️ 中文档另有一份**不同**的数（**132** 处 / 同样 67 张）—— 见
+                                //    `资料/普查产出_第六会话/WRelated_相关卡中文索引.md`。
                                 //    ⇒ **换一张相关卡够多的**再走这段：`Master of Arcana` 的天赋是
                                 //    `Choose an Ultramarines Psychic Power…`（**池子 4 张**）⇒ 至少 5 格。
                                 {

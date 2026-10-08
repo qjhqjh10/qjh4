@@ -406,7 +406,12 @@ namespace CardPresentation
             if (Hit(c.Subtype, needle) || Hit(c.Type, needle)) return true;
             // 🔴 **2026-10-18（双语线 · 波 1 · P1）**：类型名那两串**都查** —— ① 抽屉 Type 那一行
             //   **现在印的那一份**（随语档，`FilterPanelModel.TypeLabelAt`）② 原版的英文串
-            //   （`TypeLabels`，闸门未开时两者相同）。少 ① = **照着屏上印的字搜不到** ——
+            //   （`TypeLabels`）。
+            //   ⚠️ **2026-10-18 之后·第六会话订正（铁律 5）**：这里原写「（`TypeLabels`，**闸门未开时两者相同**）」
+            //     —— 那个**取词闸门已删除**（`WCoreDeck` / `A1025` 最终形态：键全在表 ⇒ 一律裸 `Loc.T`，
+            //     闸门是静默兜底）⇒ 措辞不成立。**事实仍成立**：`TypeLabels` 现在**只作「原版英文串」用**
+            //     （不再参与显示，`FilterPanelModel.RarityNames` / `TypeLabels` 的 doc 已写明）。
+            //   少 ① = **照着屏上印的字搜不到** ——
             //   那正是本节上面那条真缺陷（拿内部 id 当显示名比）的同一种病。
             //   ⚠️ 未认识的 `c.Type` 不在这里（`Hit(c.Type, needle)` 上面已经比过）。
             for (int i = 0; i < FilterPanelModel.TypeKeys.Length; i++)

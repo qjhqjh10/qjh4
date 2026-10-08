@@ -324,6 +324,11 @@ namespace CardPresentation
         /// <summary>`Generic Close Button Green`（75×75 圆底）+ `Icon`（`40k_bt_close` 175×174）。</summary>
         const float CbL = 1358.30f, CbT = 362.50f, CbR = 1433.30f, CbB = 437.50f;
         const float CbIcL = 1367.62f, CbIcT = 372.75f, CbIcR = 1423.98f, CbIcB = 427.25f;
+        /// <summary>🔴 **2026-10-18（A1053）**：关窗钮那颗 `Icon` 子件**自己的** `m_RaycastPadding`
+        /// （原版实读 `(-20)⁴`；L,B,R,T · **负 = 外扩**）⇒ 命中区 = 子件矩形（`CbIcL..CbIcB` = 56.36×54.50）
+        /// 外扩 20 = **96.37 × 94.50**（⛔ 不是根矩形 `CbL..CbB` 的 75×75）。
+        /// 算式只走 `MenuDraw.PaddedRect`；口径 → `普查_全仓命中区与关闭键族.md` §〇-1。</summary>
+        static readonly Vector4 ClosePad = new Vector4(-20f, -20f, -20f, -20f);
         const string ArtRoundBtn = "UI_Button_Round_background", ArtCloseIcon = "40k_bt_close";
 
         /// <summary>改名长度上限。**我们挑的 24**（原版在 `TMP_InputField.m_CharacterLimit`，本地没取到，§C）。</summary>
@@ -923,11 +928,28 @@ namespace CardPresentation
 
             // `Generic Close Button Green`（75×75 圆底 + `40k_bt_close`）
             var cb = Node(_nameWin, "Generic Close Button Green", new PxRect(CbL, CbT, CbR, CbB));
-            // 🔴 换图落在**圆底那一层**（原版 `Generic Close Button Green` = `UI_Button_Round_background`(Image)
-            //    + `Icon`(`40k_bt_close`)；`trans=2` 换的是它自己的 Image，HL = `40k_bt_close_hover`。实测见 `ChooseNameWindow`）
+            // 🆕 **2026-10-18（A1058 · 第六会话批 2）**：换图那一层 = **子件 `Icon`**
+            //   （画的是 `ArtCloseIcon` = `40k_bt_close`），⛔ **不是圆底盘 `cbBaseQ`**。
+            //   判据（原版 prefab 亲读；原版那颗的父窗是 `ChooseNameWindow`，**独立于
+            //   `Player Profile Window/…/Generic Close Button Green` 的第二个实例**、两者 `m_TargetGraphic` 同指一颗）=
+            //   `python -I d:/tmp/wf_hit/rcunion.py bundle_menus_assets_all "ChooseNameWindow" --depth 6`：
+            //   根 `Generic Close Button Green` 那颗 `EverguildButton` 的
+            //   **`m_TargetGraphic` = pid-5517809430966076878**；解该 pid ⇒ **所属 GO 名 = `Icon`**、
+            //   贴图 pid `6553861554683527146` → `40k_bt_close`（`d:/4/_tmp_view/sprite_pids_ALL.json`）；
+            //   根自己那颗 `UI_Button_Round_background` 带 **`m_RaycastTarget=0`**。
+            //   ⚠️ **2026-10-18 更正（铁律 5）**：原注释写「`trans=2` 换的是它自己的 Image」——
+            //   **那句是错的**（错因 = 只读 `m_Transition`、没读 `m_TargetGraphic`）。
+            //   ⚠️ 同族的 `Deck Info`（`Shell/DeckInfoPopup.cs:1020`）与 `Battle Log` 早就绑对了「按钮脸」——
+            //   本处是漏网（`A1058`）。
             var cbBaseQ = Rect(cb, ArtRoundBtn, new PxRect(CbL, CbT, CbR, CbB), "Image", L_Frame, null, true);
-            Rect(cb, ArtCloseIcon, new PxRect(CbIcL, CbIcT, CbIcR, CbIcB), "Icon", L_Title);
-            Hit(cb, "Hit", new PxRect(CbL, CbT, CbR, CbB), L_NameHit, CancelNameWindow, cbBaseQ, null, "40k_bt_close_hover");
+            var cbIconQ = Rect(cb, ArtCloseIcon, new PxRect(CbIcL, CbIcT, CbIcR, CbIcB), "Icon", L_Title);
+            // 🆕 **2026-10-18（A1053 · 第六会话批 2）**：**命中区**归真值 —— 原版根那颗
+            //   `UI_Button_Round_background` 带 `m_RaycastTarget = 0`（不吃射线），吃射线的只有子件 `Icon`
+            //   （56.36×54.50）按 `(-20)⁴` 外扩 ⇒ **96.37 × 94.50**；改前传根矩形（75×75）⇒ 每边小 10.7/9.8。
+            //   判据 = `python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all "ChooseNameWindow" --depth 6
+            //   --substr "Close Button Green" --ignore-active`（出厂 inact ⇒ 要加那个开关；实读 `96.37 x 94.50`）。
+            Hit(cb, "Hit", MenuDraw.PaddedRect(new PxRect(CbIcL, CbIcT, CbIcR, CbIcB), ClosePad),
+                L_NameHit, CancelNameWindow, cbIconQ, ArtCloseIcon, "40k_bt_close_hover");
 
             _nameWin.gameObject.SetActive(false);   // 出厂 F（`ProfileTab.Start:19` 显式关它）
         }

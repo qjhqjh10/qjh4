@@ -170,6 +170,11 @@ namespace CardPresentation
         public const string ArtClose = "UI_Button_Round_background";     // 237² · Simple · PA
         public const string ArtCloseBg = "40k_general_bt_yellow";        // 71² · Simple · PA
         public const string ArtCloseIcon = "40k_general_bt_yellow_close";
+        /// <summary>🔴 **2026-10-18（A1053）**：关窗钮那两颗子件（`Background` / `Icon`，同矩形 `CloseBgR`）
+        /// **自己的** `m_RaycastPadding`（原版实读 `(-20)⁴`；L,B,R,T · **负 = 外扩**）⇒ 命中区 =
+        /// 子件矩形外扩 20 = **96.86 × 98.13**（⛔ 不是根矩形 `CloseR` 的 74.39×75.60）。
+        /// 算式只走 `MenuDraw.PaddedRect`；口径 → `普查_全仓命中区与关闭键族.md` §〇-1。</summary>
+        static readonly Vector4 ClosePad = new Vector4(-20f, -20f, -20f, -20f);
         /// <summary>一张阵营卡的底 —— 源 = `bundle_boosterpacks_assets_all/Sprite/40K_shop_offer_bg_Sororitas_0.json`
         /// （注意**大写 `K`**，落盘名原样保留）。
         /// <para>取图口 = <see cref="Tex"/>（调用点在本文件 `RebuildCards()` 里那颗 `bgTex`）→ `CardArt.MenuUi`。
@@ -358,10 +363,25 @@ namespace CardPresentation
             ImageQuad closeBg = null;
             if (closeTex != null) closeBg = MenuDraw.Rect(close, closeTex, CloseR, "Image", QClose, null, true);
             var cbTex = Tex(ArtCloseBg, "关窗钮内底");
-            if (cbTex != null) MenuDraw.Rect(close, cbTex, CloseBgR, "Background", QCloseBg, null, true);
+            var closeFaceQ = cbTex != null
+                ? MenuDraw.Rect(close, cbTex, CloseBgR, "Background", QCloseBg, null, true) : null;
             var ciTex = Tex(ArtCloseIcon, "关窗钮叉");
             if (ciTex != null) MenuDraw.Rect(close, ciTex, CloseBgR, "Icon", QCloseIcon, null, true);
-            var closeHit = MenuDraw.Hit(close, "Hit", CloseR, QHit, () => Close(), closeBg, ArtClose,
+            // 🆕 **2026-10-18（A1058 · 第六会话批 2）**：换图那一层 = **子件 `Background`**（`closeFaceQ`，
+            //   画的是 `ArtCloseBg` = `40k_general_bt_yellow`），⛔ **不是圆底盘 `closeBg`**。
+            //   判据（原版亲读）=
+            //   `python -I d:/tmp/wf_hit/rcunion.py bundle_menus_assets_all "Ranked Boost Reward Event Window" --depth 8`：
+            //   根 `window/Generic Close Button Orange` 那颗 `EverguildButton` 的
+            //   **`m_TargetGraphic` = pid-7553376917821432112**；解该 pid ⇒ **所属 GO 名 = `Background`**、
+            //   贴图 pid `5693181797853584851` → `40k_general_bt_yellow`。
+            // 🆕 **2026-10-18（A1053 · 第六会话批 2）**：**命中区**归真值 —— 原版圆底盘
+            //   `m_RaycastTarget = 0`，吃射线的是同矩形两颗子件（56.86×58.13）按 `(-20)⁴` 外扩
+            //   ⇒ **96.86 × 98.13**；改前传根矩形 `CloseR`（74.39×75.60）⇒ 每边小 11.2。
+            //   判据 = `python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all
+            //   "Ranked Boost Reward Event Window" --depth 8 --substr "Generic Close Button"`
+            //   （实读 `96.86 x 98.13`）。
+            var closeHit = MenuDraw.Hit(close, "Hit", MenuDraw.PaddedRect(CloseBgR, ClosePad),
+                                        QHit, () => Close(), closeFaceQ, ArtCloseBg,
                                         "40k_general_bt_yellow_hover", "40k_general_bt_yellow_pressed");
             if (closeHit == null)
                 Debug.LogWarning("[RankedBoost] 关窗钮的命中区没建出来 ⇒ **点它关不了窗**（还能点窗外或 ESC）。");

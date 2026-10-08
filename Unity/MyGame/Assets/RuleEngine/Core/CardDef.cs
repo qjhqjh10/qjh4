@@ -1088,8 +1088,16 @@ namespace RuleEngine
         /// 实测能过的就这三个：`Ethereal Supreme` · `Supreme Grand Master` · `Chosen of the Four`。
         /// ⚠️ 它只是**候选**，调用方还要过「本卡确实有 `Talent` 关键词」或「与整条 desc 一字不差」
         ///    这两道闸之一（见 `CollectTalent`）。
+        ///
+        /// 🔴 **2026-10-18（`A1078`）：可见性从 `private` 放到 `internal`** —— 同一个程序集里的
+        ///    `CreatePool.StripTalentSegments`（规则② 剥天赋段）要**转调这一份**，别在那边另写一份
+        ///    「像不像天赋名」的判据（两处写同一条规则 = 迟早不一致，工程红线）。
+        ///    ⚠️ **调用方仍然要自己上第二道闸** —— 这个函数只答「像不像名字」，
+        ///    不答「是不是**本卡**的天赋名」（`CreatePool` 那边用的是 `== self.TalentName`）。
+        ///    ⛔ 不放到 `public`：`internal` 足了（`RuleEngine/Core/` 无 asmdef ⇒ 同一程序集），
+        ///    对外少一个会把整句效果正文吃掉的启发式入口。
         /// </summary>
-        static string ExtractBareTalentName(string text)
+        internal static string ExtractBareTalentName(string text)
         {
             if (string.IsNullOrEmpty(text)) return null;
             string t = text.Trim().TrimEnd('.', ' ').Trim();
@@ -1914,6 +1922,34 @@ namespace RuleEngine
         public const string Flying = "flying";
         public const string Armour = "armour";
         public const string Shield = "shield";
+        /// <summary>
+        /// **闪避**（`Dodge`）—— 原版 `DefinedTrait.dodge = 240`
+        /// （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/DefinedTrait.cs:23`；反编译里写作 `0xf0`）。
+        ///
+        /// 🆕 2026-10-08（`A1077`）：**这个词原来在我们引擎里整条都没有** ——
+        ///   ① `Prefixes` 里没有 ⇒ `Normalize` 返回 null ⇒ `Parse`/构造函数**双双丢弃**
+        ///      ⇒ 卡数据写 `Dodge` 会被**静默丢掉**（也正是本工程「不许静默失败」红线）；
+        ///   ② 结算侧（`ApplyDamage` → `DamageAfterReduction`）**没有该分支**。
+        ///
+        /// 🔴 **原版语义（两份反编译逐句读过）**：
+        ///   · **挡住一次伤害、并把这条 trait 消耗掉** —— 与 `Shield` **完全同一条分支**：
+        ///     挡下判据 `CardScript__GetAdjustedDamage.c:36-48`（`0xf0` 与 `0x50` 并列写进同一个
+        ///     `uVar3 = 1`）；消耗判据 `CardScript._ReceiveDamage_d__381__MoveNext.c:320-325`
+        ///     （`RemoveBuffedTrait` + `RemoveTrait`），与紧随其后的 `shield` 那一段（`:326-333`）
+        ///     **同形**。
+        ///   · **致死预览里只跳过第 0 条** ——
+        ///     `CardScript__EnoughPendingDamageToDieWithDamageValues.c:115-119`：
+        ///     `0xf0`(dodge) 与 `0x50`(shield) 那两个条件**都带 `|| iVar11 != 0`**
+        ///     ⇒ 只有第 0 条被跳过；`0x136`(invulnerable) 不在那一组里 ⇒ 任意条目都跳。
+        ///     ✅ 预览侧那一半早已落地（2026-10-08 `W8b3`）：`RuleCore.DamageAfterReductionOne`。
+        ///     ✅ 结算侧那一半在本次补上：`RuleCore.DamageAfterReduction` + `RuleCore.ApplyDamage`。
+        ///
+        /// ⚠️ **全池今天 0 张卡带它**（`cards_engine.json` 1126 张逐张扫 `keywords` + 全文扫
+        ///    `dodge` 词根，**0 命中**；`数据/游戏数据/trait_textsprites.json` 与
+        ///    `数据/本地化/i18n/zh_CN.csv` 也**无词条**）—— 补的是「原版有、我们缺」这一层，
+        ///    不是在修一个今天会犯的错。**⛔ 不许因为「没几张卡用」就记成「不做」**。
+        /// </summary>
+        public const string Dodge = "dodge";
         public const string CantAttack = "cantattack";
         public const string LongRange = "longrange";
         /// <summary>黑暗契约：可带变体（`of blood` / `of excess` / `of fate` / `of resilience`），
@@ -2268,7 +2304,10 @@ namespace RuleEngine
         /// <summary>本版**真正生效**的关键词。其余关键词会被解析出来但并不参与结算 —— 见 <see cref="RuleCore.UnimplementedKeywords"/>。</summary>
         public static readonly HashSet<string> Implemented = new HashSet<string>
         {
-            Vanguard, Stealth, Flying, Armour, Shield,
+            Vanguard, Stealth, Flying, Armour, Shield, Dodge,
+            // 🆕 2026-10-08（`A1077`）：**`Dodge` 也进了这一栏** —— 结算侧真读了它
+            //   （`RuleCore.DamageAfterReduction` + `RuleCore.ApplyDamage`，与 `Shield` 同形）。
+            //   语义、判据、全池张数见 <see cref="KeywordTable.Dodge"/> 的注释，别在这里抄第二份。
             // 这两个也有真实结算，只是不体现在 UnitState 的字段上：
             //   CantAttack → IsValidTarget / DeclareAttack 里直接拒绝
             //   LongRange  → 远程攻击免反击
@@ -2511,7 +2550,8 @@ namespace RuleEngine
             new[] { "vanguard", Vanguard }, new[] { "stealth", Stealth }, new[] { "flying", Flying },
             new[] { "rally", Rally }, new[] { "backlash", Backlash }, new[] { "slay", Slay },
             new[] { "blast", "blast" }, new[] { "armour", Armour }, new[] { "armor", Armour },
-            new[] { "shield", Shield }, new[] { "regeneration", "regeneration" }, new[] { "stun", "stun" },
+            new[] { "shield", Shield }, new[] { "dodge", Dodge },
+            new[] { "regeneration", "regeneration" }, new[] { "stun", "stun" },
             new[] { "fast", "fast" }, new[] { "flank", "flank" },
             new[] { "ambush", "ambush" }, new[] { "artifice", "artifice" }, new[] { "ephemeral", "ephemeral" },
             new[] { "concussive", "concussion" }, new[] { "concussion", "concussion" },

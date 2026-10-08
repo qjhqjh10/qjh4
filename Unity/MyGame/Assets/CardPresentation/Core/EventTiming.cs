@@ -100,8 +100,23 @@ namespace CardPresentation
                 //   出处：`BattleManager._ResolveAnim_d__466`（`:137-149` 等 tween 完成 / `:204-211` 等 AnimInfo 时长）
                 //   + `AnimInfo__GetAnimDuration`。整条 `ResolvePlayActiveAbility` 协程里**没有**「等动画播完」
                 //   的回调，也没有 clip.length 参与。
-                //   ⚠️ **我们还没接**（要逐条 `AnimInfo` ⇒ 属「逐卡 VFX 三张表」那一批，
-                //     见 `项目任务.md` §三 第 26 条 ⑥）⇒ **1.0 仍是临时中值**，不是原版数。
+                //   ⚠️ **我们只接得上「统计中值」，接不上逐卡真值** —— 逐卡绑定断在
+                //     「卡 → 它自己的 animInfo 列表」那一跳：判据是**卡预制体**，而它只在远端 CCD 的
+                //     `allcards_assets_all.bundle` 里。🔴 **第五会话（2026-10-18 之后）三条路全试过、全断**：
+                //     ① 名字推 —— 1099 条 CardAnim 名对 1213 个卡名，**只中 48 条（4.3%）**；
+                //     ② CardAnim 资产自带 owner 字段 —— 实测 `m_GameObject` = `{FileID:0, PathID:0}` = **null**，
+                //        全资产**没有任何卡/owner 字段**；
+                //     ③ 本地 84 个 bundle / `LocalLow` 的 Addressables 缓存 / `assets_full` 24.7 万文件 —— **都没有该包**。
+                //     ⇒ **1.0 = 本地 506 条【有名字】的 `AnimInfo` 时长之和的中位数**
+                //       （表 = `数据/游戏数据/card_anim_map.json`：908 条总条目 = **506 有名 + 402 光 GUID**；
+                //        时长 = `vfxDelayTime + timeAtStartPos + timeMoving + timeAtEndPos`）—— **可复查**，
+                //        ⛔ **但不是逐卡真值**，别写成「原版就是 1.0」。
+                //     📊 同表的**分档中位数**（仅供参照；**我们【没有】按档取值**）：board 1.50(14) ·
+                //        warlord 0.75(59) · self 0.80(44) · target 0.60(47) · ability 0.60(17) · summon 0.40(21) ·
+                //        其余 1.00(246)。⇒ **全局中位恰好就是 1.0**，分档收益小、而改它 = 改手感且无逐卡判据兜底
+                //        ⇒ **保留常数、只如实标注**。
+                //     ⚠️ 另注：原版真值还**要加** `waitAnimation == 1` 时那条 tween 序列的长度（上一条注释），
+                //        本表算不到那一项 ⇒ 两者不叠加就不能叫「原版时长」。
                 //   🔴 原来这句「`Mutation` 0.5 / `Execution_BL` 1.5 / `Vanguard` 1.2 / `Hammer Slam` 1.5 取中」
                 //     **两个口径都错**：`Vanguard Tween` 的 `waitAnimation = 0`（原版**根本不等它**，不该在集合里）；
                 //     `Mutation` 是 **4 条 0.5 的 `After` 串起来 = 2.0**（不是 0.5）。照原版口径区间是 **1.5–2.5**。

@@ -871,6 +871,181 @@ public static class EffectExporter
                           + (miss > 0 ? $"、**没对上 {miss} 个**（见上面的告警）" : ""));
     }
 
+    // ==================================================================
+    //  🆕 2026-10-08（A1089）：把原版的 `StoryProgramming.VATGPUPlayer` **补挂回去**
+    //
+    //  判据 → `资料/普查产出_第六会话/W_VAT驱动.md` §④·1（那一轮落下了替身组件
+    //    `WarpforgeVFX.WarpforgeVatDriver` 并手写进两个 prefab，但**没动本文件** —— 它当时在白名单之外）。
+    //
+    //  🔴 **不补会怎样（静默）**：原版那个组件的 `m_Script` 指向 `StoryProgramming.VATGPUPlayer`
+    //    （pathID `3946243950355606049`）—— 我们工程里没有这个脚本 ⇒ 下一趟 `Export()` 的
+    //    `StripMissingScripts(inst)`（`:1053`）把它**连数据整条删掉**、**不报错**；于是
+    //    `_State` 永远停在手写值、那件 mesh 的顶点永远采贴图第 0 行 ⇒ **一点都不动**。
+    //    与 A210 的 `ParticleSystemPoolable` **同一个根因、同一条改法**（见上面那段头注）。
+    //
+    //  ✅ **为什么把 12 个字段抄成表、而不是从包里读回来**：那份数据活在一个 `MonoBehaviour`
+    //    （`StoryProgramming.VATAnimation`，`m_Script = -974199562677010219`）上，它的 `m_Script`
+    //    在我们工程里**同样解析不了** ⇒ `LoadAsset` 拿不到类型化对象。
+    //    ⇒ 本表就是**重导时的唯一来源**，值**逐字照抄原资产**（2026-10-08 亲读）：
+    //      `d:/2/新解包资源/assets_full/bundle_battleprefabs_vfxandmisc_assets_all/MonoBehaviour/
+    //       Vanguard Frame Animation VAT.json`（另有实例值 `.../MonoBehaviour_-6996853648599967635.json`）
+    //      —— 与 `PoolableSpots` 同一形态（那张表同样是「从原版包里摘出来、写在本文件里」）。
+    //    ⚠️ 全库这类 `VATAnimation` 共 **6 件**（Vanguard 1 + `Card Remnant_Remnant Anim {1,3,5,8,9}`）。
+    //       另外那 5 件**挂在一个我们还没有驱动的物件上**：原版包里的宿主 GameObject `Card Remnant`
+    //       （2026-10-08 实读 `GameObject/Card Remnant.json`）—— 它**其实已经在工程里**，是
+    //       `WarpforgeVFX/Prefabs/RemnantBody3D Necrons.prefab` 里那个**同名子物件**
+    //       （只是那 5 条动画 + 10 张贴图还没进来）⇒ 表里现在**只该有 Vanguard 那两条**；
+    //       Remnant 那条要先把「驱动指向 5 条里的哪一条 / 谁来换」查清才能加（否则就是猜），
+    //       见交件报告 A1090。
+    //
+    //  ⚠️ **顺序**：与 `AttachPoolables` 一样 —— 必须**在 `StripMissingScripts` 之后**
+    //    （否则刚挂上的又会被那一趟当 missing 删掉）、`PrefabUtility.SaveAsPrefabAsset`（`:1283`）之前。
+    //  ⚠️ **两个宿主 prefab 都已在 `ListedPrefabs` 里**（`Vanguard Frame Animated VAT` / `VanguardIdleEffect`）
+    //    ⇒ 不需要为这一支再改名单。
+    //  ⚠️ **两张 VAT 贴图不是被任何材质引用的** ⇒ 导出器**永远不会**自己导它们
+    //    （它们是**手放进** `Textures/` 的，导入设置照原资产手设过：28×41 / 14×41 是 **NPOT** ⇒
+    //     `nPOTScale: 0`、`sRGBTexture: 0`（线性数据贴图）、无 mip、RGBA32 不压缩）。
+    //    ⇒ 这里**只按路径取、取不到就出声**，⛔ **不拿 `ImportTexture` 重导** ——
+    //      `ImportTexture` 不设 `nPOTScale` / `sRGBTexture`，一导就把那套手设的导入设置冲掉
+    //      （NPOT 默认 `ToNearest` 会把 28×41 缩成 32×64 ⇒ **贴图布局全毁**）。
+    //
+    //  ⚠️ **本支【不管】的另一处**（同一趟重导也会抹掉、但**不是本题**）：`VanguardIdleEffect` 那条
+    //    legacy `Animation.m_Animation` / `m_Animations[0]` 的 guid 现在是人手补的（`:59081/59083`），
+    //    重导会**再变回 guid 全 0**。全库同类共 **45 个 `Animation` 组件 / 40 件 prefab**（2026-10-08 实测）
+    //    ⇒ 那是**一件通用 A 项**（形状 = 照 `:1194` 那段 `Animator` 的处理补一支「legacy 片段」），
+    //    在这里给单个 prefab 打补丁 = CLAUDE.md §三「两处写同一条规则」。已记进交件报告。
+    // ==================================================================
+
+    /// <summary>一条 VAT 补挂记录。字段名 / 顺序 = `WarpforgeVFX.WarpforgeVatData`（照原资产序列化序）。</summary>
+    sealed class VatSpot
+    {
+        /// <summary>宿主 prefab 名（= `Export()` 的 `src.name`；与 `PoolableSpots[0]` 同一个键）。</summary>
+        public string Root;
+        /// <summary>驱动要挂到的那个物件路径（从根起分段）—— **原版 `VATGPUPlayer` 就在那个 `MeshRenderer`
+        /// 同一个 GameObject 上**（判据：`GameObject/Vanguard Frame Animated VAT.json` 的 4 个组件）。</summary>
+        public string Path;
+        /// <summary>原版那个 `VATAnimation` 资产名 = 两张贴图的**文件名前缀**
+        /// （`&lt;DataName&gt;_PositionTex.png` / `&lt;DataName&gt;_RotationTex.png`）。</summary>
+        public string DataName;
+        public Vector3 BoundsCenter, BoundsExtents, StartBoundsCenter, StartBoundsExtents;
+        /// <summary>帧数（= 贴图**高**）。Vanguard 41。</summary>
+        public float Frames;
+        /// <summary>时长（秒）。Vanguard 1.35。</summary>
+        public float Duration;
+        /// <summary>部件数（= 旋转贴图宽 = 位置贴图宽的一半）。Vanguard 14。</summary>
+        public int PartsCount;
+        /// <summary>原版 `HighPrecisionPositionMode` —— 本地 6 件**全是 0**。</summary>
+        public bool HighPrecisionPositionMode;
+        /// <summary>原版 `PartsIdsInUV3` —— 本地 6 件**全是 0**（部件号在网格 `COLOR.w`）。</summary>
+        public bool PartsIdsInUV3;
+    }
+
+    /// <summary>VAT 驱动补挂表。**值逐字照抄原资产**，出处见上面那段头注。
+    /// ⚠️ 加新行时先去 `assets_full/&lt;包&gt;/MonoBehaviour/&lt;名&gt;.json` 读一遍，⛔ 别手抄别猜。</summary>
+    static readonly VatSpot[] VatSpots =
+    {
+        // ① 独立件：驱动在**根**上（原版那个 GameObject 就是根，4 个组件里第 4 个 = `VATGPUPlayer`）。
+        new VatSpot
+        {
+            Root = "Vanguard Frame Animated VAT",
+            Path = "Vanguard Frame Animated VAT",
+            DataName = "Vanguard Frame Animation VAT",
+            BoundsCenter      = new Vector3(-0.00015115737915039062f, 1.5765403509140015f, -0.10219991207122803f),
+            BoundsExtents     = new Vector3(1.3951337337493896f, 1.9750405550003052f, 0.9605523347854614f),
+            StartBoundsCenter = new Vector3(0f, 1.6361364126205444f, -0.3536794185638428f),
+            StartBoundsExtents= new Vector3(1.2230337858200073f, 1.6361366510391235f, 0.5935254693031311f),
+            Frames = 41f, PartsCount = 14, Duration = 1.35f,
+            HighPrecisionPositionMode = false, PartsIdsInUV3 = false,
+        },
+        // ② 待机效果：同名**子物件**（**直接**子件 —— 实测父链 `Vanguard Frame Animated VAT` → `VanguardIdleEffect`）。
+        //    🔴 出牌与待机是**两个入口** —— 只补一处 = 另一个入口静默失效（CLAUDE.md §十 第 5 条那种坑）。
+        new VatSpot
+        {
+            Root = "VanguardIdleEffect",
+            Path = "VanguardIdleEffect/Vanguard Frame Animated VAT",
+            DataName = "Vanguard Frame Animation VAT",
+            BoundsCenter      = new Vector3(-0.00015115737915039062f, 1.5765403509140015f, -0.10219991207122803f),
+            BoundsExtents     = new Vector3(1.3951337337493896f, 1.9750405550003052f, 0.9605523347854614f),
+            StartBoundsCenter = new Vector3(0f, 1.6361364126205444f, -0.3536794185638428f),
+            StartBoundsExtents= new Vector3(1.2230337858200073f, 1.6361366510391235f, 0.5935254693031311f),
+            Frames = 41f, PartsCount = 14, Duration = 1.35f,
+            HighPrecisionPositionMode = false, PartsIdsInUV3 = false,
+        },
+    };
+
+    /// <summary>把 VAT 驱动补挂回去。**照 `AttachPoolables` 的同一套写法**：
+    /// 表 → `FindChildByPath` 逐级下沉（归一化名字比较）→ `AddComponent` → 填字段 → **没对上就出声**。
+    /// 与它并列、互不影响（⛔ 不改它一行）。</summary>
+    static void AttachVatDrivers(GameObject inst, string rootName)
+    {
+        if (inst == null) return;
+        int n = 0, miss = 0;
+        foreach (var e in VatSpots)
+        {
+            if (e.Root != rootName) continue;
+            var tr = FindChildByPath(inst.transform, e.Path);
+            if (tr == null)
+            {
+                miss++;
+                Debug.LogWarning(EX1 + $"A1089 VAT 表里的 `{e.Path}` 在 `{rootName}` 里找不到 —— 这一条没挂上（出声，不静默）");
+                continue;
+            }
+            if (AttachOneVat(tr.gameObject, e) == null) { miss++; continue; }
+            n++;
+        }
+        if (n > 0 || miss > 0)
+            Debug.Log(EX1 + $"A1089 `WarpforgeVatDriver`：`{rootName}` 挂上 **{n}** 个"
+                          + (miss > 0 ? $"、**没对上 {miss} 个**（见上面的告警）" : ""));
+    }
+
+    /// <summary>挂一个驱动并把原版那份数据**逐字**填进去（含两张贴图的引用）。
+    /// 幂等：物件上已经有了就不再 `AddComponent`（`WarpforgeVatDriver` 带 `[DisallowMultipleComponent]`，
+    /// 重复 `AddComponent` 在编辑器里会**报错并返回 null**）；数据**每次新建一份** ——
+    /// 表是静态的、两个宿主共用同一行数值，⛔ 不能把同一个实例挂到两处（会互相串）。</summary>
+    static WarpforgeVatDriver AttachOneVat(GameObject go, VatSpot e)
+    {
+        var drv = go.GetComponent<WarpforgeVatDriver>();
+        if (drv == null) drv = go.AddComponent<WarpforgeVatDriver>();
+        if (drv == null) return null;
+
+        drv._vatAnimation = new WarpforgeVatData
+        {
+            BoundsCenter            = e.BoundsCenter,
+            BoundsExtents           = e.BoundsExtents,
+            StartBoundsCenter       = e.StartBoundsCenter,
+            StartBoundsExtents      = e.StartBoundsExtents,
+            Frames                  = e.Frames,
+            PartsCount              = e.PartsCount,
+            Duration                = e.Duration,
+            HighPrecisionPositionMode = e.HighPrecisionPositionMode,
+            PartsIdsInUV3           = e.PartsIdsInUV3,
+            PositionsTex            = LoadVatTex(e.DataName, "_PositionTex"),
+            RotationsTex            = LoadVatTex(e.DataName, "_RotationTex"),
+            // 原资产这两项本来就是空：`PositionsTexB` = `m_PathID: 0`、`HighPrecisionPositionMode` = 0。
+            PositionsTexB           = null,
+        };
+        // 原版实例的序列化值（`MonoBehaviour_-6996853648599967635.json`：`_state: 0.0`、`_animationSpeed: 1.0`）
+        drv._state = 0f;
+        drv._animationSpeed = 1f;
+        // `_stateCurveKeys`（0.07 → 1.0 / 1.7916666 s）与 `_useBuiltInCurveWhenNoClip` 走字段初始化器，
+        // `AddComponent` 时会跑 ⇒ 不用在这里再写一遍（⛔ 写第二份 = 两处规则迟早不一致）。
+        return drv;
+    }
+
+    /// <summary>取一张 VAT 贴图（工程资产）。**取不到就出声**，⛔ 静默返回 null 不许。</summary>
+    static Texture2D LoadVatTex(string dataName, string suffix)
+    {
+        string rel = $"{TexDir}/{dataName}{suffix}.png";
+        var t = AssetDatabase.LoadAssetAtPath<Texture2D>(rel);
+        if (t == null)
+            Debug.LogWarning(EX1 + $"A1089 VAT 贴图 `{rel}` 不在工程里 ⇒ 驱动挂上了、但这一件**画不出来**"
+                           + "（贴图引用是 null）。修复：从源包 `Texture2D/` 把这张 PNG 放回该路径；"
+                           + "导入设置照原资产 —— 28×41 / 14×41 是 **NPOT** ⇒ `nPOTScale: 0`、"
+                           + "`sRGBTexture: 0`（线性数据贴图）、无 mip、RGBA32 不压缩。"
+                           + "⛔ 别走 `ImportTexture`：它不设 `nPOTScale`/`sRGBTexture`，一导就把布局毁了。");
+        return t;
+    }
+
     static void Export(GameObject src)
     {
         var inst = UnityEngine.Object.Instantiate(src);
@@ -878,6 +1053,9 @@ public static class EffectExporter
         StripMissingScripts(inst);
         // 🆕 2026-10-11（A210）：**必须在 `StripMissingScripts` 之后**（见上面那段头注）。
         AttachPoolables(inst, src.name);
+        // 🆕 2026-10-08（A1089）：**同一个根因的第二种组件** —— 原版 `StoryProgramming.VATGPUPlayer`
+        //   也解析不了、也被 `StripMissingScripts` 连数据一起删掉（且不报错）。同样必须在它之后。
+        AttachVatDrivers(inst, src.name);
 
         int approx = 0;
         var usedShaders = new HashSet<string>();
@@ -1021,6 +1199,73 @@ public static class EffectExporter
             var proj = ImportAnimatorController(rc);
             if (proj != null) an.runtimeAnimatorController = proj;
         }
+
+        // ---- 🆕 2026-10-08（A1095）：**legacy `Animation` 的片段那一跳** ----
+        // 上面那支只做了 `Animator` 一半 —— 而它自己的头注（`:1185`）写的就是
+        // 「动画那一跳（`Animator` 的控制器 / `Animation` 的片段）」。**`Animation` 这一半一直是漏的**，
+        // 而且不是漏一处、是**系统性**地漏：
+        //   实测扫 `WarpforgeVFX/Prefabs/*.prefab` **963 件** ⇒ `--- !u!111`（`Animation`）共 **50 个**，
+        //   其中 **45 个**的 `m_Animation` 是 `{fileID: …, guid: 00000000000000000000000000000000, type: 0}`
+        //   （`m_Animations[]` 里那一条**同样是 guid 全 0**），分布在 **40 件** prefab
+        //   （`AcidSpraySweepAttack` / `BolterSweep` / `CardPrefab` / `EC Heldrake Attack` /
+        //    一串 `Environmental Condition *` / `RemnantBody3D *` / `Sau_*` / `Valkyrie_*`…）。
+        //   ⇒ 上一件**手改**好的那一条（`VanguardIdleEffect.prefab:59081/59083`，指到
+        //     `WarpforgeVFX/Animations/Vanguard Frame Animation.anim`）**重导就会被打回 guid 全 0**，
+        //     而其余 44 条**从来就没好过**（那一趟只补了手改的那一件，没补任何厂里的路）。
+        //   判据 → `资料/普查产出_第六会话/W_VAT收口_地雷与另5件.md` §③·1（逐条普查在本文件调用点那份报告里）。
+        // ⚠️ **剩下 4 个 `Animation` 不算**：它们的 `m_Animation` 是 `fileID: 0`、`m_Animations` 是空表或
+        //    `[- {fileID: 0}]` —— 那是**原版本来就没接片段**（逐条核过 `assets_full/…/Animation/Animation_*.json`：
+        //    包里同样有 4 个 `m_Animation = 0`）⇒ 别给它造一个。
+        // ⚠️ **两条入口都要写、缺一不可**：`m_Animation`（默认那条）与 `m_Animations[]`（真正被
+        //    `Animation.Play("名字")` 查的那张表）。实测两者常常是同一个 clip，但 `Pray_Idle`
+        //    （`[Pray Enter, Pray Exit]`）与 `RemnantBody3D Necrons`（`[To Remnant Necrons, From Remnant Necrons]`）
+        //    **明显不止一条** ⇒ 只补 `m_Animation` 会**静默漏掉第二条**。
+        // ⚠️ **不传 `loop`**（这一点和 `Animator` 那支**有意不同**）：那支要按控制器状态的 `m_Loop` 显式设，
+        //    而 legacy clip 自己的 `m_WrapMode` / `m_AnimationClipSettings` 会随 `Instantiate` 一起过来
+        //    （实测落出来的 `Vanguard Frame Animation.anim` 就是 `m_WrapMode: 1` / `m_LoopTime: 0`，与原版一致）
+        //    ⇒ 传 `loop` 反而变成**我们替它做决定**。
+        // ⚠️ **跨包的也取得到**：`ScytheAssault.prefab` 那条 clip **不在特效主包里**，在
+        //    `cardanimsgeneral_assets_all.bundle`（`AnimationClip_-5462575267959983568.json`，`m_Name: ScytheAssault`）。
+        //    本函数加载段（`:681`）是「`BundleDir` 下**全部** `*.bundle` 都载进来」⇒ 跨包引用跟着一起解析，
+        //    而 `ImportClip` 也不关心它来自哪个包。
+        int clipOk = 0, clipMiss = 0;
+        foreach (var an in inst.GetComponentsInChildren<Animation>(true))
+        {
+            // ① `m_Animations[]`。⚠️ `AnimationUtility.GetAnimationClips(Animation)` 那个重载**已 obsolete**
+            //    （Unity 文档原文：「is obsolete and has been replaced with GetAnimationClips(GameObject)」）
+            //    ⇒ 走 `GameObject` 那个（非 obsolete、语义相同：取该物件上 `Animation` 的片段表）。
+            var clips = AnimationUtility.GetAnimationClips(an.gameObject);
+            var def = an.clip;        // ② `m_Animation`：**先取下来**，别指望写回数组之后它还认得原来那条
+            if (clips != null && clips.Length > 0)
+            {
+                var imported = new AnimationClip[clips.Length];
+                for (int i = 0; i < clips.Length; i++)
+                {
+                    if (clips[i] == null) continue;      // 空槽 ⇒ 原样留空（原版就是空槽的那种，不算「丢」）
+                    var a = ImportClip(clips[i]);
+                    if (a == null)
+                    {
+                        clipMiss++;
+                        Debug.LogWarning(EX1 + $"A1095 `{src.name}` / `{an.gameObject.name}` 上 `Animation` 的"
+                            + $"第 {i} 条片段（`{clips[i].name}`）落不成工程 `.anim` ⇒ **这一格留空**"
+                            + "（⛔ 不拿空 clip 顶上 —— 那等于静默造一个假动作）");
+                        continue;
+                    }
+                    imported[i] = a; clipOk++;
+                }
+                AnimationUtility.SetAnimationClips(an, imported);
+            }
+            // ③ `m_Animation` 写在**数组之后**（顺序有讲究）：先让它指的那条已经在 `m_Animations` 里，
+            //    再设默认值 ⇒ 不依赖「`clip` setter 会不会顺手往数组里补一条」这个没查证的细节。
+            if (def != null)
+            {
+                var d = ImportClip(def);
+                if (d != null) an.clip = d;
+            }
+        }
+        if (clipOk > 0 || clipMiss > 0)
+            Debug.Log(EX1 + $"A1095 `{src.name}` legacy `Animation` 片段：接回 **{clipOk}** 条"
+                          + (clipMiss > 0 ? $"、**没接上 {clipMiss} 条**（见上面的告警）" : ""));
 
         // ---- 挂 binder：进游戏时用原版 shader 重建材质 ----
         var binder = inst.GetComponent<WarpforgeEffectBinder>();

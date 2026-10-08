@@ -205,6 +205,29 @@ namespace CardPresentation
         public static readonly Color ItemBarTint = new Color(0f, 1f, 0.078f, 1f);
         public const string ArtItemBanner = "Tutorial_Background";        // 512×144（下划线：见下方 `Tex` 那一跳的口径）
         public const string ArtItemBack = "UI_Army_Selection_Back";       // 172×172
+        /// <summary>🔴 **2026-10-18（A1053）**：这一格里**三颗吃射线的件**（`Background (1)` / `Background` /
+        /// `BackgroundComplete`）**自己的** `m_RaycastPadding` —— 原版逐颗实读都是 `(-15,-10,-15,-10)`
+        /// （分量序 L,B,R,T · **负 = 外扩**）。另三颗（`TutorialTitle` / `TutorialSubTitle` /
+        /// `TutorialComplete`）的 pad 是 `(0,0,0,0)`；`Icon` 与 `Highlight` 不吃射线。
+        /// 算式只走公共件 `MenuDraw.PaddedRect`（⛔ 别在这儿再写一遍）；
+        /// 口径 → `资料/普查产出_第四会话/普查_全仓命中区与关闭键族.md` §〇-1。</summary>
+        static readonly Vector4 ItemPiecePad = new Vector4(-15f, -10f, -15f, -10f);
+
+        /// <summary>`A1053` 用：几颗**已经各自按 `m_RaycastPadding` 修正过**的矩形取并集
+        /// （原版「可点区域」就是这个并集 —— 见 `ItemPiecePad` 的注释）。</summary>
+        static PxRect Union(params PxRect[] rs)
+        {
+            if (rs == null || rs.Length == 0) return default(PxRect);
+            float x1 = rs[0].x1, y1 = rs[0].y1, x2 = rs[0].x2, y2 = rs[0].y2;
+            for (int i = 1; i < rs.Length; i++)
+            {
+                if (rs[i].x1 < x1) x1 = rs[i].x1;
+                if (rs[i].y1 < y1) y1 = rs[i].y1;
+                if (rs[i].x2 > x2) x2 = rs[i].x2;
+                if (rs[i].y2 > y2) y2 = rs[i].y2;
+            }
+            return new PxRect(x1, y1, x2, y2);
+        }
         public const string ArtItemHL = "UI_Army_Selection_Back_Pressed"; // 172×172（出厂 act **F**，选中才开）
         public const string ArtItemBar = "UI_Army_Selection_Back_Progression"; // 48×18 九宫 (20,0,20,0)
         public static readonly Vector4 ItemBarBorder = new Vector4(20f, 0f, 20f, 0f);
@@ -594,8 +617,21 @@ namespace CardPresentation
 
             // 命中区：**不换图**（原版那颗 `EverguildButton` 是 `trans = 1` + `target = 0` ⇒ ColorTint 没有目标，
             // 悬停/按下**不改任何贴图**；选中态是上面那颗 `Highlight` 的 `SetActive`）⇒ `target`/`art` 全不传。
+            // 🆕 **2026-10-18（A1053）**：**命中区 = 可射线件的并集** —— 原来传的是**整格** `cell`（589.75×200），
+            //   而原版那一格吃射线的是 6 颗（三颗带 `(-15,-10,-15,-10)` 外扩的底件 + 三行字，字严格在框内）
+            //   ⇒ 并集 = **624.75 × 216.92**（比整格**左右各宽 17.5 / 上下各高 8.46**，因为
+            //   `Background` 那件（196.93×196.92）在左边凸出框外 20、`Background (1)` 在右边凸出 15）。
+            //   判据 = `python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all "Tutorial Army Select Button" --depth 4`
+            //   （逐颗实读 `pad=(-15,-10,-15,-10)`；**并集(含 pad) = 624.76 × 216.92**）。
+            //   ⚠️ 我们画的那 6 件的**尺寸/相对位置与原版逐位相同**（`ItemBanner` 582.26×173.62 ·
+            //   `ItemBack` 196.93×196.92 · `ItemBar` 187.36×26.21 · 三行字 347.05×46.55 / 347.04×47.63 /
+            //   349.85×56.08 逐个对上）⇒ **直接对这几件取并集**就是原版那个数（⛔ 不写死 624.75 那个字面量）。
+            var hitR = Union(MenuDraw.PaddedRect(ItemBanner, ItemPiecePad),
+                             MenuDraw.PaddedRect(ItemBack, ItemPiecePad),
+                             MenuDraw.PaddedRect(ItemBar, ItemPiecePad),
+                             ItemTi, ItemSu, ItemDone);
             int idx = i;
-            MenuDraw.Hit(node, "Hit", cell, QHit, () => SelectStage(idx));
+            MenuDraw.Hit(node, "Hit", hitR, QHit, () => SelectStage(idx));
             return node;
         }
 

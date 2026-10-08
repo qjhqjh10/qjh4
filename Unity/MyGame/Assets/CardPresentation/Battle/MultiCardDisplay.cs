@@ -66,6 +66,15 @@ namespace CardPresentation
         const int ChromeFontScale = 4;
         /// <summary>Continue 条：`x[1322.7,1900.2] y[945.2,1009]`</summary>
         const float BarCx = 1611.45f, BarCy = 977.1f, BarW = 577.5f, BarH = 63.84f;
+        /// <summary>🔴 **Continue 条那颗 `Image` 自己的 `m_RaycastPadding`**（UGUI 分量序 **L,B,R,T**）——
+        /// **负 = 外扩**。判据（2026-10-18 · 第六会话现读）=
+        /// `python -I d:/tmp/wf_hit/rcunion.py bundle_scenes_scenes_battlearena1 "BattleContinueButton" --depth 3`：
+        /// `/BattleContinueButton/Button` 的 `Image`(`40k_bt_underbutton`) = `RT=1` ·
+        /// `pad={'x':0.0,'y':-40.0,'z':0.0,'w':-40.0}` ⇒ **上下各外扩 40 px、横向一个像素都不动**。
+        /// ⚠️ **不必再乘缩放**：`RectTransform_3348`（那颗钮自己）的 `m_LocalScale = (1,1,1)`，
+        /// 且父链 `BattleContinueButton`(3058) → 根(3175) 的 scale 也都是 1（`Viewport`(3176) 的 0.7 在**卡片那一支**上）。
+        /// ⛔ 外扩一律走 `MenuDraw.PaddedRect`（「正值缩小、负值扩大」的唯一一份算式），别在本地另写一遍。</summary>
+        static readonly Vector4 ContinuePad = new Vector4(0f, -40f, 0f, -40f);
         /// <summary>圆钮：`x[1723.2,1803.7] y[937.3,1016.9]`（**纵向凸出横条**）。
         /// `CircleD` = 原版 rect 的**宽**（也是 `HitContinue` 认的那一份，口径未改）；
         /// `CircleH` = 它的**高** —— 原版那一格**不是正方**（80.47 × 79.64）。
@@ -288,20 +297,46 @@ namespace CardPresentation
             SetChrome(false);
         }
 
-        /// <summary>「继续」那一块（横条 + 圆钮）被点到了没有 —— **判据只此一处**（窗口自己的关闭路径）。</summary>
+        /// <summary>「继续」那一块（横条）被点到了没有 —— **判据只此一处**。
+        /// <para>🔴 **2026-10-18（`A1061`）按订正后的口径重算** —— 判据（第一权威 = 原版 prefab 实读）=
+        /// `python -I d:/tmp/wf_hit/rcunion.py bundle_scenes_scenes_battlearena1 "BattleContinueButton" --depth 3`：
+        /// 子树里**只有一颗**可射线件 = `/BattleContinueButton/Button` 的 `Image`（`40k_bt_underbutton`，
+        /// 577.50 × 63.84，`m_RaycastTarget = 1`），它自己的 `m_RaycastPadding = (0,-40,0,-40)`
+        /// （**负 = 外扩**）⇒ **上下各外扩 40**、横向不变；`Text`（TMP）与 `CircleButton`
+        /// （`40k_UI_bt_play`）的 `m_RaycastTarget` **都是 0** ⇒ **它们一颗都不吃射线**
+        /// （`CircleButton` 上那颗 `EverguildButtonStateFollower` 只跟随状态、**不是** `Button`，
+        /// 它 `m_Transition=2` 换的也是**圆钮自己那张图**，与点击无关）。
+        /// ⇒ 原版可点区 = **条矩形横向原样、纵向 ±40**。
+        /// ⚠️ **2026-10-18 更正（铁律 5）**：本函数原来写
+        /// `px &gt;= BarCx − BarW/2 − CircleD/2`（**向左多出圆钮半径 40.235 px**）且**纵向没有那 ±40 外扩**
+        /// ⇒ **两处都不对**。错因 = 只见「圆钮 `RT=0`、条 `RT=1`」就**推定「圆钮凸出去的那半圈要算进来」**，
+        /// **既没读条自己的 `m_RaycastPadding`、也没核圆钮往哪边凸** —— 原版与我们都把圆钮画在条的
+        /// **内部右端**（圆钮 x[1723.2,1803.7] ⊂ 条 x[1322.7,1900.2]，只有**纵向**凸出 ~8 px，
+        /// 而那 8 px 已被 ±40 的外扩整个盖住）。</para>
+        /// <para>⚠️ **顺手现读（不是本函数的口径问题）**：生产路径 `BattleDriver.TickMultiCards`
+        /// **不调本函数** —— 那一支按「多卡窗开着时**松手即关**」处理（原版对应的是整屏
+        /// `Menu Dark Background` 上的 `BackgroundCloseButton`）⇒ 本函数今天**只有自检在用**
+        /// （`Editor/BattleScene.cs` 的 `A964/E2④`）。留给将来「按条/圆钮判」那天照这里算。</para></summary>
         public bool HitContinue(Vector3 world)
         {
             float px = world.x * EndPanel.PxPerUnit + 960f;
             float py = 540f - world.y * EndPanel.PxPerUnit;
-            return px >= BarCx - BarW * 0.5f - CircleD * 0.5f && px <= BarCx + BarW * 0.5f
-                && py >= BarCy - BarH * 0.5f && py <= BarCy + BarH * 0.5f;
+            // 条那颗 `Image` 的矩形（px，左上原点）→ 按它自己的 `m_RaycastPadding` 外扩（共用那一份算式）
+            var hit = MenuDraw.PaddedRect(
+                new PxRect(BarCx - BarW * 0.5f, BarCy - BarH * 0.5f, BarCx + BarW * 0.5f, BarCy + BarH * 0.5f),
+                ContinuePad);
+            return px >= hit.x1 && px <= hit.x2 && py >= hit.y1 && py <= hit.y2;
         }
 
         // ---- 🆕 2026-10-18（A964① ④）：「继续」那一块的**实绘几何**只读口（⛔ 只给自检）----
         //  补它的理由：上面 `HitContinue` 用的是**硬写的原版 px 矩形**（`BarCx/BarW` 那一串
         //  + 圆钮探出的那半圈），而**画出来的**是 `_bar` / `_circle` 两颗 quad
         //  （宽由**贴图比例**定，未必等于那个原版 rect）⇒ 没有实绘口就**无从比**「命中区 ⊇ 实绘」。
-        //  ⛔ 本件**不改** `HitContinue` 的口径（改命中＝改行为，要另开一件、另配断言）。
+        //  ⚠️ **2026-10-18 更正（铁律 5）**：本行原写「⛔ 本件**不改** `HitContinue` 的口径
+        //  （改命中＝改行为，要另开一件、另配断言）」—— 那一句**已被 `A1061` 兑现**：
+        //  口径**改了**（按订正后的原版判据重算，见 `HitContinue` 的注释），
+        //  配套断言 = `Editor/BattleScene.cs` 的 `A964/E2④` 那两条**口径判别式**（`A1061①②`）
+        //  + 两条原有的（内侧中 / 外侧不中）。
 
         /// <summary>「继续」横条的**实绘**世界中心（= 那颗 quad 的中心）。</summary>
         public Vector3 ContinueBarWorldPos

@@ -391,7 +391,18 @@ namespace CardPresentation
                 // ⚠️ 换图那一跳**不在 `Hit` 里传 `target`** —— 九宫格被切成 9 张小 quad，只换中心那格
                 //    = 边框不跟着亮（`WindowButton.BindNine` 的注释就是为这件事写的）⇒ 命中区先建、
                 //    再自己 `BindNine`。
-                var hit = MenuDraw.Hit(bn, "Hit", br, QHit, () => OnClicked(idx));
+                // 🆕 **2026-10-18（A1053）**：**命中区 = 可射线件的并集** —— 原版这颗钮的子树里
+                //    底 `UI_Button_Mulligan`（357.30×**60**）与 **`Button Text`（330.77×**86.17**，`RT=1`）
+                //    两颗都吃射线**，文字**上下各凸 13.1**（`AspectRatioFitter(1, 3.83864)` 把它撑到
+                //    330.77/3.83864 = 86.17、**竖直居中**在钮上）⇒ 并集 = **357.30 × 86.17**
+                //    （⛔ 不是按钮那 60 高）。判据（原版 prefab 亲读，`Button Text` 那两颗节点的
+                //    `m_SizeDelta` 静态是 0、由 `AspectRatioFitter` 运行期定 ⇒ 高度按那条算式取）=
+                //    `python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all "Member Options Panel" --depth 8`。
+                //    ⚠️ 我们画的文字本来就是按 `BtnTextRect(br)`（330.77×86.17 居中）画的 ⇒ 并集就是
+                //    「按钮的 x 两边 + 文字矩形那两条 y 边」。
+                var txR = BtnTextRect(br);
+                var hit = MenuDraw.Hit(bn, "Hit", new PxRect(br.x1, txR.y1, br.x2, txR.y2),
+                                       QHit, () => OnClicked(idx));
                 if (hit != null && bgo != null)
                 {
                     var wb = hit.GetComponent<WindowButton>();

@@ -150,23 +150,48 @@ public static class MenuCheck
 
     /// <summary>截图 —— 7 份宿主原来各自一份（**6 个变体**）。合并后**逐宿主的行为一个字不变**：
     /// <list type="bullet">
-    /// <item><b>`guardBlank`</b> = 那条「空图护栏（平均亮度 &gt; 3）」开不开。`DeckScene:5901` /
-    ///   `MainMenuScene:475` 那两份**原来就没有**（无 `MeanBrightness`、无 `allowBlank` 形参）
-    ///   ⇒ 传 `false`。🔴 **不许顺手给这两条宿主补上护栏** —— 那会给它们**新增断言**（若它们真拍到过
-    ///   全黑图，绿会变红）；那笔账**另记**，⛔ 不在本件里做。</item>
+    /// <item><b>`guardBlank`</b> = 那条「空图护栏（平均亮度 &gt; 3）」开不开。`DeckScene` /
+    ///   `MainMenuScene` 那两份在 §15 收口时**还没有**它（无 `MeanBrightness`、无 `allowBlank` 形参）
+    ///   ⇒ 当时传 `false`。🔴 **2026-10-18（`A1007`）已给这两条宿主补上**（照另 5 份接
+    ///   `guardBlank: true` + 各新增一份 `MeanBrightness`）—— 原来那句「不许顺手补 / 那笔账另记」
+    ///   随本条销掉（铁律 5·b：账做完了就把记录改成已做）。</item>
     /// <item><b>`meanBrightness`</b> 逐宿主传**方法组**（⛔ **没有**合并成一份共享实现）：5 份里
     ///   `SettingsScene:3059` 那一份是 `double` 累加 + 分母 `px.Length / 7.0`，而 Collection / Rewards /
     ///   Shell / Shop 四份是 `long` 累加 + 分母 `(px.Length + 6) / 7`（= 采样数）⇒ **数学上等价、浮点值
     ///   相对差 ~1.4e-6**（1920×1080 时 `lum≈40` ⇒ 绝对差 ≈ 6e-5）。而本活的回归判据是 **stdout 逐字节
     ///   相同**，且 `lum` 会打进 `✓ … 不是空图（平均亮度 {lum:F1} > 3）` 那一行 ⇒ **合一会动那一行**。
-    ///   零风险优先 ⇒ 保留逐份实现、只把它当参数传进来（`guardBlank:false` 的两份传 `null`、不会被调）。</item>
+    ///   零风险优先 ⇒ 保留逐份实现、只把它当参数传进来。
+    ///   ⚠️ **2026-10-18（`A1007`）之后 7 份全都是 `guardBlank: true`**（`DeckScene` / `MainMenuScene`
+    ///   那两份也补上了）⇒ 那个 `null` 参数今天**一份都不传**；但参数**留着**（它就是「逐份实现」的载体）。</item>
     /// </list></summary>
+    /// <summary>🆕 **2026-10-18（`A1007`）**：**空图护栏真的跑过几次**（= `guardBlank: true`
+    /// 且真的走到了亮度那一跳）。这是**诊断计数**、**不是**断言计数（`Pass`/`Fail` 照旧逐宿主一份，
+    /// 判据见本文件头）—— ⛔ 别拿它去替 `Pass`/`Fail`。
+    /// <para>用途 = 钉「宿主确实把 `guardBlank: true` 接上了」：谁把某个宿主的转发改回缺省
+    /// （`guardBlank: false`），那个宿主里 `✓ … 不是空图` 那一整批行会**整批消失**、这里的增量也变 **0**
+    /// ⇒ 宿主的判别式断言当场红（`Editor/DeckScene.cs` 与 `Editor/MainMenuScene.cs` 各一条）。</para></summary>
+    public static int GuardedShots;
+
     public static void Shoot(CheckSink s, string shotDir, string file,
                              bool allowBlank = false, bool guardBlank = false,
                              System.Func<Texture2D, float> meanBrightness = null)
     {
         var cam = Camera.main;
-        if (cam == null) return;
+        if (cam == null)
+        {
+            // 🔴 **2026-10-18（`A1007`）就地改**：这里原来是**裸 `return`** —— 不报错、也不写图，
+            //   于是整条截图断言链会**靠「什么都没发生」假装通过**（本工程最忌讳的静默失败；
+            //   与「把实现拿掉它还是绿的」同一族）。
+            //   **行为那半句一个字不变**（照旧不写图、照旧不渲），变的是：**必须记一条 ✗ 并出声**。
+            //   ⛔ 别改回裸 `return`：`Editor/DeckScene.cs` 那条**判别式探针**（摘掉 `MainCamera`
+            //   标签造出无相机上下文、判「恰好一条 ✗」）会当场红。
+            s.Fail++;
+            var miss = $"截图 {file}：**没拍成** —— `Camera.main == null`"
+                     + "（改前这一支是**静默 return**：不报错、也不写图 ⇒ 谁都不知道这一张没拍）";
+            s.Failures.Add(miss);
+            Debug.LogError(s.P + $"   ✗ {miss}");
+            return;
+        }
         const int W = 1920, H = 1080;
         var rt = RenderTexture.GetTemporary(W, H, 24, RenderTextureFormat.ARGB32);
         cam.targetTexture = rt;
@@ -184,6 +209,7 @@ public static class MenuCheck
         //    ⚠️ **必须在 `DestroyImmediate(tex)` 之前**（销毁之后 `tex == null`，护栏恒红）。
         if (guardBlank)
         {
+            GuardedShots++;
             float lum = meanBrightness(tex);
             if (allowBlank) Debug.Log(s.P + $"  截图 {file} 平均亮度 {lum:F1}" + BlankNoteText(s.BlankNote));
             else True(s, lum > 3f, s.StarNotBlank

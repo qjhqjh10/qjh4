@@ -109,6 +109,30 @@ namespace CardPresentation
         ///    它不会进 `.json`，也不会在 `FromJson` 时被写（所以不存在「读出来是 0」那一类问题）。</summary>
         public int TutorialStageIndex { get { return tutorialStage >= 1 ? tutorialStage - 1 : -1; } }
 
+        /// <summary>🆕 2026-10-19（`A1087`）：**这一局「哪一个座位是电脑」** —— 直接照
+        /// `RuleCore.NewBattle(botSeat:)` 的编码，但**整体 +2**（把 `0` 空出来当哨兵）：
+        ///   `0` = **没记**（老录像的 JSON 里没有这个键）· `1` = `-1`（**这一局没有电脑** —— 联机的实情）·
+        ///   `2` = `0` · `3` = `1`。**唯一读法** = <see cref="BotSeatForNewBattle"/>。
+        ///
+        /// 🔴 **为什么非记不可**：这一格在引擎里**有后果** —— `RuleCore.GoesSecondCard` 拿
+        ///   `ctx.IsBotSeat(seat)` 决定「后手那张防御卡从哪来」：**是电脑** ⇒ 从后手方阵营防御池
+        ///   **随机**取（`RandomSecondSeatDefence`，**吃 `ctx.Rng`**）；**是真人** ⇒ 用卡组自带那张。
+        ///   而它原来的判据是 `BattleDriver.AiShouldDriveOpponent`（`= _net == null`）——
+        ///   **放录像时 `_net` 恒 null** ⇒ 一份记着「-1（对手是真人）」的录像放出来会被当成
+        ///   「1（座位 1 是电脑）」⇒ 后手那张卡不同 + 随机流错位 ⇒ **回放演成另一局**。
+        ///
+        /// 🔴 **哨兵取 `0` 而不是 `-1`**（与 <see cref="tutorialStage"/> 同一条纪律）：这一格是**新加的**，
+        ///   老录像的 JSON 里**没有这个键**，读出来是什么取决于 `JsonUtility.FromJson` 会不会跑字段
+        ///   初始化器（**本地没有判据**）⇒ 只有把「没记」定成 **`0`（= `int` 的默认值）**，两条路才都给 `0`。
+        ///   ⛔ **别存引擎值本身** —— `-1`/`0`/`1` 三个都合法，`0` 会被哨兵吃掉 ⇒ 所以存**值 + 2**。
+        ///   ⚠️ **`version` 不 +1**：纯新增字段，老录像读出来 `0` = 「没记」= 它本来的行为（同 `tutorialStage`）。</summary>
+        public int botSeatPlus2 = 0;
+
+        /// <summary>读 <see cref="botSeatPlus2"/> 的**唯一**读法 —— 要喂 `RuleCore.NewBattle(botSeat:)` 的那个值。
+        /// `null` = **这份录像没记**（老录像）⇒ 调用方退回老口径，⛔ **别拿 `null` 当「没有电脑」**。
+        /// ⚠️ 它是**属性**（`JsonUtility` 只序列化字段 ⇒ 不进 `.json`、也不会在 `FromJson` 时被写，同 `TutorialStageIndex`）。</summary>
+        public int? BotSeatForNewBattle { get { return botSeatPlus2 == 0 ? (int?)null : botSeatPlus2 - 2; } }
+
         /// <summary>动作流（含换牌那两条：`kind = 100/101`）。</summary>
         public List<MsgAction> actions = new List<MsgAction>();
         /// <summary>🆕 2026-09-27：**逐条动作之后的引擎指纹**（`trace[i]` = 第 i 条动作落地后的状态）。

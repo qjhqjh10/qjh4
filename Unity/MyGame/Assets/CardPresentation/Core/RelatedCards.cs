@@ -15,6 +15,9 @@ namespace CardPresentation
         /// <summary>相关卡（最多 `max` 张）。**三个来源**（判据 → 正本 §八 / §九 / §十·1）：
         ///   ① **效果文本里点名的卡** —— `CreatePool.MentionedCards`（用户原话：「看效果文本的意思结合
         ///      部队卡牌名字这一关键词，**提到就是相关卡**」）；
+        ///      🔴 **喂的是哪份文本按【当前语档】取**（2026-10-18）：中文档喂 `DescZh`、英文档喂 `Desc`
+        ///      —— 见 `TextForLang`。中文卡名与英文卡名是两套串，不分开取就「卡面写着中文、相关卡却按英文找」。
+        ///      ⚠️ **另两支（②池子 ③黑暗契约）不跟着语档走**，理由分别写在各自那一段里；
         ///   ② **天赋是个池子**时，池子里那几张（`Choose a &lt;子类型>` / `A random &lt;阵营> &lt;子类型>`）；
         ///   ③ 🆕 **「黑暗契约」那一族**（2026-09-29 用户拍板）—— 卡面/卡名提到 `Dark Pact`
         ///      就把那四张契约列上（`CreatePool.MentionsDarkPact` / `DarkPactContracts`）。
@@ -39,8 +42,16 @@ namespace CardPresentation
                 return outp;
             }
 
+            // ① **效果文本里点名的卡** —— 🔴 **文本按【当前语档】取**（2026-10-18，`项目任务.md`
+            //    §三 第 19 条）。为什么非换不可：玩家在中文档下**看到的是中文**，而**中文卡名
+            //    （`NameZh`）与英文卡名（`Name`）是两套串** —— 拿英文文本去匹配，玩家眼里
+            //    「卡面明明写着『风暴守护者』」却一张相关卡都跟不出来。实测（全池 1126 张）：
+            //    中文档 **132 处 / 67 张** vs 改前拿英文文本算的 **128 处 / 67 张**。
+            //    ⚠️ 口径**逐字照** `BattleDriver.FaceTextFull`（卡面正文那条唯一的路）——
+            //    `CardText.Zh && DescZh 非空` 才用中文，否则回英文（6 张没有 `descZh` 的卡就走回英文）。
+            string mine = TextForLang(card.Desc, card.DescZh);
             string why;
-            foreach (var r in CreatePool.MentionedCards(pool, card, card.Desc, out why, max))
+            foreach (var r in CreatePool.MentionedCards(pool, card, mine, out why, max))
                 AddUnique(outp, r);
             if (why != null)
                 Debug.LogWarning("[相关卡] 相关卡（点名那一支）没查成：" + why + " —— 不静默");
@@ -52,6 +63,16 @@ namespace CardPresentation
             //      · `TalentName` **本身就是写法**（`Talent: A random Black Legion Psychic Power`）；
             //      · `TalentName` 是**一张天赋卡的名字**（`Talent: Master of Arcana` ⇒ 去解那张卡的 desc）
             //        —— 这正是引擎那条路（`RuleCore.SpawnTalents` 先 `FindByName` 再解）。
+            // 🔴 **这一支【仍然喂英文】，不跟着语档走**（2026-10-18 查实，**与那条「按语档取」的
+            //    直觉相反 —— 别「顺手对齐」**）：`PoolFromPhrase` 是个**英文句法的解析器** ——
+            //    `EffectText.Parse` 只认 `Choose a …` / `a random …` 这些**英文**写法，
+            //    `CreatePool.FilterChoose` 也只会剥 `" cards"` / `"friendly "` / `"non-legendary "`
+            //    这类**英文**词、按**英文** subtype 与阵营名筛。喂 `DescZh` ⇒ 解析不出 `what`
+            //    ⇒ 直接落进「不是池子写法」那一支 ⇒ **中文档下这一支整个消失**（那是**真回归**）。
+            //    ⚠️ 而且**这一支的产出是 `CardDef` 列表、本来就与语言无关** —— 两个语档下列出的
+            //    是**同样那几张卡** ⇒ 喂英文**不丢任何东西**；语档只该管上面①那种**文本匹配**。
+            //    ⚠️ `TalentName` 同理也是英文的：它由 `CardDef` 从**英文 `Desc`** 里抽出
+            //    （`ExtractTalent(Desc)`，见 `CardDef.cs:1012`）⇒ 连它一起"按语档取"是不成立的。
             var phrases = new List<string>();
             if (!string.IsNullOrEmpty(card.Desc)) phrases.Add(card.Desc);
             if (!string.IsNullOrEmpty(card.TalentName))
@@ -93,6 +114,17 @@ namespace CardPresentation
             }
             while (outp.Count > max) outp.RemoveAt(outp.Count - 1);
             return outp;
+        }
+
+        /// <summary>按**当前语档**取一段卡面文本 —— 判据**逐字照** `BattleDriver.FaceTextFull`
+        /// （卡面正文那条唯一的路，⛔ 别在这儿另发明一套）：**① 拿得到中文字体 ② 当前语档是中文**
+        /// （两者合起来就是 `CardText.Zh`），**且**这张卡真有中文，才用中文。
+        /// ⚠️ 反过来写「只要 `DescZh` 非空就用中文」是**错的** —— 那是「这张卡有没有中文」，
+        /// **不是**「当前语档是不是中文」⇒ **切成 English 之后会半中半英**
+        /// （`Core/CardText.cs` 的 `Zh` 注释里记着这个坑，`FaceTextFull` 2026-10-18 刚改过来）。</summary>
+        static string TextForLang(string en, string zh)
+        {
+            return (CardText.Zh && !string.IsNullOrEmpty(zh)) ? zh : en;
         }
 
         static void AddUnique(List<CardDef> list, CardDef c)

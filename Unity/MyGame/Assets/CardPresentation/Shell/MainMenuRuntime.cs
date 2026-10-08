@@ -326,6 +326,17 @@ namespace CardPresentation
             //        ⇒ 意图照记（将来事件数据能复刻时，只需**在这里补那一跳**），**今天那一跳不写** —— 这笔账还开着。
             //      · `None` ⇒ **什么都不做**（⛔ 「无条件开收藏窗」= 把「按来路回」做成假的）。
             var ret = CollectionData.TakePendingReturn();
+            // 🔴 **2026-10-18（A855）本波补上缺的那一环：作废那份进程级库缓存。**
+            //    **没有它，下面开出来的收藏页画的还是【编辑前】那一份** —— 真根因与判据逐条写在
+            //    `CollectionData.InvalidateLibrary` 的注释里（缓存 = `static DeckLibrary _lib`，
+            //    而编辑器写盘走的是 `DeckLibrary.Load()` 另开的实例；
+            //    列表 = `CollectionWindow.cs:3032` → `CollectionData.DeckAt` → `Lib.Decks[i]`）。
+            //    🔴 **两个来源都作废**（`Collection` 与 `LiveOpsEvent`）—— **两条来路都能改卡组、都写盘**：
+            //    事件窗那条今天只是「**不开窗**」（理由见下），但它下次被玩家打开时读的是同一份缓存
+            //    ⇒ 漏掉它 = 从事件窗编辑完、之后进收藏页仍看到旧的那一版（静默）。
+            //    ⛔ **无条件调是不行的**：正常进主菜单（`Source == None`）也会白读一次盘 ——
+            //    判据就是「这一趟有没有回程意图」（`None` = 没有）。
+            if (ret.Source != DeckExitSource.None) CollectionData.InvalidateLibrary();
             if (ret.Source == DeckExitSource.Collection)
             {
                 // ⚠️ 落页走**显式**的 `ChangeTab`，⛔ **不靠** `CollectionWindow.Open()` 里那句 `Click(0)`

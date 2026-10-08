@@ -51,6 +51,44 @@ namespace RuleEngine
         public bool Exhausted;        // 本回合是否已行动（部署当回合 = true）
 
         /// <summary>
+        /// **召唤病**（原版 `EntityScript.summonSickness`，字段偏移 🔴 **`+0x58`**）——
+        /// 「这一张牌是**刚被重新放到场上**的」那一格。**它是 `canAct` 的输入，不是 `canAct` 本身。**
+        ///
+        /// 🔴 **为什么要单独一位**（`A1093`，2026-10-18）：原版 `+0x58` **有独立读点**，
+        ///    而我们的 <see cref="Exhausted"/> 把它和「本回合已经行动过」**挤在一位里**
+        ///    ⇒ 「不能动**因为刚上场**」与「不能动**因为已经动过**」在我们这侧**分不开**。
+        ///    原版分得开（下面两条是现读的 `d:/2/tools/decomp_full/`）：
+        ///      · `AI__ScoreFromGivingCharge.c:9-12`（与 `AI__ScoreFromCriteria.c:296-299` 同形）
+        ///        —— **先** `CardScript.CanActNow`，**为假时**再读裸 `*(char *)(… + 0x58)`
+        ///        ⇒ **两位一起用**（区分「不能动，因为召唤病」与「不能动，因为已经动过」）；
+        ///      · `BattleManager__IsValidAttackTarget.c:200` —— 直接读 `*(char *)(param_2 + 0x58)`，
+        ///        且**只**配 `HasCurrentTrait(param_2, 0x28 /*fast*/)`、**没有**侧翼那一项
+        ///        ⇒ 它与 `displaySummonSickness` **不是同一个谓词**（后者要 `!fast && !flank`）。
+        ///
+        /// **判据（第一权威，现读 `d:/2/tools/decomp_full/`）**：
+        ///   · 它就是这个字节：读 `EntityScript__get_summonSickness.c:5` ·
+        ///     写 `EntityScript__set_summonSickness.c:5`；
+        ///   · **写 1** 的**方法体**只有一处 —— `CardScript.ResetSummonSickness`
+        ///     （`CardScript__ResetSummonSickness.c:8`，`*(undefined1 *)(param_1 + 0x58) = 1;`）；
+        ///     **写 0** = 回合开始（`CardScript__OnTurnStart.c:85`）；
+        ///   · 它怎么进 `canAct`：`CardScript__ActivateMinion.c:39-42` 把 `canAct` / `canAttack`
+        ///     **一起**写成 `!displaySummonSickness`，而
+        ///     `EntityScript__get_displaySummonSickness.c:7-11` = **`+0x58 && !fast(0x28) && !flank(0x1cc)`**
+        ///     ⇒ **只有 `fast` / `flank` 免召唤病**（`ferocity` / `oath` 走**另一条**
+        ///     `ActivateTraitsOnSummonOrEnchantment.c:86-99`，只抬 `canAct`）。
+        ///
+        /// 🔴 **谁写它（我们这侧）**：**唯一一处** = <see cref="RuleCore.ResetSummonSickness"/>，
+        ///    由两个「**转移归属 ⇒ 重新入场**」的点各调一次（抢：`EffectResolver.DoTakeControl` ·
+        ///    回合末归还：`RuleCore.EndTurn`）。**清它** = <see cref="RefreshForNewTurn"/>。
+        ///
+        /// ⚠️ **如实标着（没查实的那一半）**：**普通部署那一路我们没有找到「写 1」的原版读点** ——
+        ///    它**不**在这两个写点里，本类也**不**在构造 / `ApplyDeployTurnState` 时置这一位
+        ///    （⛔ 别把「照原版」贴到一个没查实的推断上）。细节与证据见
+        ///    `资料/普查产出_第六会话/W_补0x58位_与A1071那一行.md` §⑤。
+        /// </summary>
+        public bool SummonSickness;
+
+        /// <summary>
         /// **本回合不能攻击**（部署当回合 = true，带 `fast` / `flank` 的除外）——
         /// 原版 `EntityScript.canAttack`（**`+0x23C`**）那一位的对应物。
         ///
@@ -161,7 +199,34 @@ namespace RuleEngine
         /// </summary>
         public bool FaceDown;
 
-        public bool HasShield;        // 抵挡下一次伤害后失去
+        /// <summary>
+        /// **还带着护盾**（抵挡下一次伤害后失去）。
+        ///
+        /// 🔴 **2026-10-09（`A1106`）：它从【字段】改成【派生只读属性】—— 两个表示收成一处。**
+        ///
+        /// **判据：原版只有一份表示** —— 护盾就是一个 trait `0x50`
+        /// （`DefinedTrait.shield = 80`，`d:/2/Warpforge_code/Scripts/Assembly-CSharp/DefinedTrait.cs:9`），
+        /// 原版**没有任何**「护盾布尔字段」：
+        ///   · **免伤**：`CardScript__GetAdjustedDamage.c:45` `HasCurrentTrait(param_1, 0x50)`；
+        ///   · **消耗**：`CardScript._ReceiveDamage_d__381__MoveNext.c:326-333`
+        ///     —— `HasCurrentTrait(0x50)` → `RemoveBuffedTrait(0x50)` + `RemoveTrait(0x50)`，
+        ///     **摘 trait、不写任何布尔字段**（`CardScript__RemoveTrait.c` 的实现是
+        ///     `List.Find(id == param_2)` → `List.Remove`）；
+        ///   · **对手 AI 也读它**：`AI__ScoreFromDamagingBuffedUnit.c:58-61`
+        ///     `HasCurrentTrait(param,0xf0)/*(0x50)` 命中 ⇒ 走「只给一点点」那条出口。
+        /// ⇒ 我们这边「关键词 `KeywordTable.Shield`」就是**唯一表示**，这一格**从它派生**。
+        ///
+        /// ⚠️ **改前它是个独立字段，与关键词会互相脱节**（本件修的就是这个）：
+        ///   · 盾被用掉时 `RuleCore.ApplyDamage` 只写 `HasShield = false`、**从不摘关键词**
+        ///     （全仓 `RemoveAll("shield")` 0 命中）⇒ `u.Has("shield")` 仍为真，而
+        ///     `SimpleAI.ScoreDamaging`（`Data/SimpleAI.cs:588`）读的正是**关键词**
+        ///     ⇒ **AI 把已经用掉盾的单位继续当带盾、只给一点点分**；
+        ///   · 反向：`RemoveAll("shield")`（`lose Shield` / 光环收回 / `RemoveKeyword` 减到 0）
+        ///     **不清**这个字段 ⇒ 关键词没了、那一刻**还能再挡一下**。
+        ///
+        /// ⛔ **别改回字段**、也别在别处补第二份同步 —— 那又变成「同一条规则两处写」。
+        /// </summary>
+        public bool HasShield { get { return Has(KeywordTable.Shield); } }
 
         /// <summary>
         /// 失明（规则书 :166「本单位失明期间**远程攻击设为 0**」）。
@@ -366,7 +431,10 @@ namespace RuleEngine
             //    ⚠️ `Exhausted` 仍然是**构造时的快照** —— 之后才挂上来的关键词
             //       （手牌加成 / 光环）照旧由 `RuleCore.PlayCard` 那一次重算兜住。
             Exhausted = !RuleCore.HasDeployExemption(this);
-            HasShield = Has(KeywordTable.Shield);
+            // 🔴 **2026-10-09（`A1106`）：这里原来还有一句 `HasShield = Has(KeywordTable.Shield);`** ——
+            //    `HasShield` 改成**派生只读属性**之后（见它的注释），那句就是同一个判据的第二次求值、
+            //    而且**只能写字段不能写属性**（编译不过）。删掉它**不漏任何东西**：
+            //    `_keywords` 就在上面那个 `foreach` 里填好，属性直接读它。⛔ 别再加回来。
 
             // 🆕 2026-10-18（A938）：**卡上当前的攻击型**（原版 `EntityScript.currentAttackType`，`+0x120`）。
             //   判据 = `EntityScript__.ctor.c:5` 初值写 `1`、`CardScript__CardSetup.c:263-267` 与
@@ -507,10 +575,13 @@ namespace RuleEngine
         }
 
         /// <summary>关键词授予/叠加（我们上一版复刻 `rule_core._apply_gain:3292`：`kws[name] += val`；⚠️ **旁证**）。
-        /// ⚠️ `armour`/`shield`/`stun` 三个还要**同步状态字段** —— 引擎别处是按字段结算的，
+        /// ⚠️ `armour`/`stun` **两个**还要**同步状态字段** —— 引擎别处是按字段结算的，
         /// 只加 kws 不改字段 = 给了护甲却不减伤（那份 `.gd` 的 `:3293-3299` 专门补过这个 bug）。
         /// 🔴 **2026-10-18（`W5`）**：那一串同步搬进 <see cref="SyncKeywordState"/> ——
-        /// 它原来与 `AddAuraKeyword` 各写一份（光环那份漏了 `blind` 与攻击型两条）。</summary>
+        /// 它原来与 `AddAuraKeyword` 各写一份（光环那份漏了 `blind` 与攻击型两条）。
+        /// 🔴 **2026-10-09（`A1106`）**：原来这里是**三个**（多一个 `shield`）—— `shield` 已从
+        ///    `SyncKeywordState` 里**删掉**：`HasShield` 改成读关键词的**派生属性**，不需要也不许
+        ///    再有第二处同步（见 <see cref="HasShield"/> 的注释）。</summary>
         public void AddKeyword(string keyword, int value)
         {
             if (string.IsNullOrEmpty(keyword)) return;
@@ -521,7 +592,8 @@ namespace RuleEngine
         /// <summary>
         /// **「关键词被挂上」的副作用**（引擎别处按**字段**结算，不按 `_keywords`）——
         /// 判据只此一份，`AddKeyword` 与 <see cref="AddAuraKeyword"/> 共用。
-        ///   · `armour` / `shield` / `stun` —— 状态字段（`rule_core._apply_gain:3293-3299` 那三条）；
+        ///   · `stun` —— 状态字段（`rule_core._apply_gain:3293-3299` 那三条之一）；
+        ///   · `armour` —— 见方法尾那一句（**加减都要**，所以不在 `value &gt; 0` 里）；
         ///   · `blind` —— `IsBlind`（`RuleCore.FieldAttack` 直接读它：失明期间远程攻击力视为 0，
         ///     规则书 `:166`）。**2026-09-14 A6 族 C 补**：原来这一行不在，`give them Blind`
         ///     会「给了关键词却什么都没发生」（`Has("blind")` 为真、远程照打）= 典型静默失效。
@@ -533,12 +605,16 @@ namespace RuleEngine
         ///     （`BasicCardUI.AttackTypeChanged`），**写进去的值一样** ⇒ 我们直接赋值，等价。
         ///     ⚠️ **摘掉时不回挑**（原版那两条是**单向**的：`RemoveTraitSilently` 不碰这一格）——
         ///     之后由 `RuleCore.ChooseAttackTypeAutomatically` 那条链重挑。
+        ///
+        /// 🔴 **2026-10-09（`A1106`）：`shield` 那一条已经从本方法删掉** —— `HasShield` 现在是
+        ///    `Has(KeywordTable.Shield)` 的**派生只读属性**（见它的注释），而 `_keywords`
+        ///    在调本方法**之前**就已经写好 ⇒ 它自动为真。**别再往这里加 `if (…Shield) …`**：
+        ///    「同一个判据写两处」正是这个字段当初与关键词脱节的成因（原版只有 trait 一份表示）。
         /// </summary>
         void SyncKeywordState(string keyword, int value)
         {
             if (value > 0)
             {
-                if (keyword == KeywordTable.Shield) HasShield = true;
                 if (keyword == "stun") IsStunned = true;
                 if (keyword == "blind") IsBlind = true;
                 if (keyword == "blind") CurrentAttackType = AttackTypeMelee;
@@ -881,6 +957,13 @@ namespace RuleEngine
         public void RefreshForNewTurn()
         {
             Exhausted = false;
+            // 🆕 2026-10-18（`A1093`）：**召唤病也在这里清** —— 判据 = 原版同一处：
+            //   `CardScript__OnTurnStart.c:85` 把 `+0x58` 写 **0**（紧接着 `:98` 的
+            //   `CardScript__ActivateMinion` 按新值把 `canAct` / `canAttack` 一起写成真）。
+            //   ⚠️ 原版那一句带一个回合号守卫（`*(int *)(param_1 + 0x2e0)` 那一比），
+            //      我们**没有**对应字段 ⇒ 这里与上面 `Exhausted` 一样**无条件清**，
+            //      如实标着（这是已知的、刻意的近似，不是「原版也这样」）。
+            SummonSickness = false;
             // 🆕 2026-10-18（`A992` 遗留甲）：**「本回合不能攻击」那一位也按回合清** —— 原版
             //   `+0x58`（「这一回合上的场」）在回合开始被清，紧接着 `CardScript.ActivateMinion`
             //   把 `canAct` / `canAttack` **一起**写成真（`CardScript__ActivateMinion.c:39-42`）

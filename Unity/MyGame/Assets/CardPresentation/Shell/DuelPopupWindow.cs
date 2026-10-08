@@ -73,6 +73,11 @@ namespace CardPresentation
         static readonly PxRect ClassicIcR = new PxRect(994.50f, 554.10f, 1094.50f, 654.10f);
         static readonly PxRect CloseR = new PxRect(1341.80f, 212.10f, 1416.80f, 287.10f);
         static readonly PxRect CloseIcR = new PxRect(1351.12f, 222.35f, 1407.48f, 276.85f);
+        /// <summary>🔴 **2026-10-18（A1053）**：关窗钮那颗 `Icon` 子件（`40k_bt_close`）**自己的**
+        /// `m_RaycastPadding`（原版实读 `(-20)⁴`；L,B,R,T · **负 = 外扩**）⇒ 命中区 = 子件矩形外扩 20
+        /// = **96.37 × 94.50**（⛔ 不是根矩形 `CloseR` 的 75×75）。
+        /// 算式只走 `MenuDraw.PaddedRect`；口径 → `普查_全仓命中区与关闭键族.md` §〇-1。</summary>
+        static readonly Vector4 ClosePad = new Vector4(-20f, -20f, -20f, -20f);
         /// <summary>两个钮的底图染色：**(0.369,0.894,0.587,1)**（绿）。</summary>
         static readonly Color BtnTint = new Color(0.369f, 0.894f, 0.587f, 1f);
         static readonly Vector4 BtnBorder = new Vector4(234f, 46f, 234f, 46f);
@@ -176,8 +181,25 @@ namespace CardPresentation
             // 右上那颗绿圆钮 = **关闭钮**（节点名没写 Close，图标是关闭 ⇒ 普查 §B 判为 closeButton）
             var close = Node(win, "Generic Rounded Button Green", CloseR);
             Rect(close, "UI_Button_Round_background", CloseR, "Image", QBg, null, true);
-            Rect(close, "40k_bt_close", CloseIcR, "Icon", QContent, null, true);
-            MenuDraw.Hit(close, "Hit", CloseR, QHit, () => Close());
+            var closeIconQ = Rect(close, "40k_bt_close", CloseIcR, "Icon", QContent, null, true);
+            // 🆕 **2026-10-18（A1058 · 第六会话批 2）**：**原来这一颗根本没传 `target`**
+            //   ⇒ `WindowButton.Bind` 从不被调用 ⇒ **悬停/按下零反馈**（原版是 `SpriteSwap`）。
+            //   原版那层 = **子件 `Icon`**（`40k_bt_close`），⛔ 不是圆底盘 `Image`。
+            //   判据（原版 prefab 亲读）=
+            //   `python -I d:/tmp/wf_hit/rcunion.py bundle_menus_assets_all "MessagePopupWindowDuel" --depth 6`：
+            //   根 `Generic Rounded Button Green` 那颗 `EverguildButton` 的
+            //   **`m_TargetGraphic` = pid-3860365021630950560**；解该 pid ⇒ **所属 GO 名 = `Icon`**、
+            //   贴图 pid `6553861554683527146` → `40k_bt_close`（`d:/4/_tmp_view/sprite_pids_ALL.json`）；
+            //   根自己那颗 `UI_Button_Round_background` 带 **`m_RaycastTarget=0`**。
+            //   ⚠️ `art` 传**常态图名** ⇒ `Bind` 自己推高亮 `40k_bt_close_hover`（原版 `m_SpriteState.m_HighlightedSprite`）
+            //   与按下 `40k_bt_close_pressed`（`PressedNames` 表）。
+            // 🆕 **2026-10-18（A1053 · 第六会话批 2）**：**命中区**归真值 —— 原版根那颗
+            //   `UI_Button_Round_background` 带 `m_RaycastTarget = 0`（不吃射线），吃射线的只有子件 `Icon`
+            //   （56.37×54.50）按 `(-20)⁴` 外扩 ⇒ **96.37 × 94.50**；改前传根矩形（75×75）⇒ 每边小 10.7/9.8。
+            //   判据 = `python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all "MessagePopupWindowDuel"
+            //   --depth 6 --substr "Rounded Button Green"`（实读 `96.37 x 94.50`）。
+            MenuDraw.Hit(close, "Hit", MenuDraw.PaddedRect(CloseIcR, ClosePad),
+                         QHit, () => Close(), closeIconQ, "40k_bt_close");
 
             if (MissingArt.Count > 0)
                 Debug.LogWarning("[Duel] ⚠️ 有 " + MissingArt.Count + " 张图取不到（**这些件没画**）："
@@ -196,7 +218,14 @@ namespace CardPresentation
             //    `fs=38 auto[18~38] base=36` ×8 **不是本窗**）。上限 = 标称 ⇒ A333 本来就对。
             MenuDraw.TextBox(b, txR, text, Color.white, "Button Text", 38f, 12f, QText, 38f, 12f);
             Rect(b, icon, icR, iconName, QContent, null, true);
-            MenuDraw.Hit(b, "Hit", r, QHit, onClick);
+            // 🆕 **2026-10-18（A1053）**：**命中区 = 可射线件的并集** —— 原版这颗钮的子树里
+            //   底 `40K_button`（350×76）与**溢出的模式图标**（100×100）**两颗都 `RT=1`**：
+            //   图标比按钮上下各凸 13.8 ⇒ 并集 = **350 × 100**（⛔ 不是按钮那 76 高）。
+            //   判据 = `python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all "MessagePopupWindowDuel"
+            //   --depth 8 --substr "Button Skirmish"`（实读 `350.00 x 100.00`）；
+            //   ⚠️ 我们画的那两颗与它**逐位同矩形**（`SkirmishR` 350×76 · `SkirmishIcR` 100×100 且相对偏移 −13.8 相同）
+            //   ⇒ 直接取「按钮的 x 两边 + 图标的 y 两边」就是并集。
+            MenuDraw.Hit(b, "Hit", new PxRect(r.x1, icR.y1, r.x2, icR.y2), QHit, onClick);
         }
 
         /// <summary>原版 `OnSkirmishButtonPressed` / `OnClassicButtonPressed` —— 两个方法**逐行同构**，

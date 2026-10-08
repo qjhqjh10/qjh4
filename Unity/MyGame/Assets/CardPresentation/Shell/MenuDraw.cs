@@ -584,26 +584,13 @@ namespace CardPresentation
         /// ⇒ x 的往返不闭合（y 那一半两个函数本来就同值：可见高恒 10 世界单位 = 1080px ⇒ 108 是**真的**）。
         /// 🔴 判据 = 原版 uGUI 只有**一条** `RectTransform` 的世界↔屏幕换算（`LayoutSpace.cs:164` 也把
         /// `ToPixel` 自己声明成「`FromPixel` 的逆」）—— 「写用实测、读用常量」两套并存就是 A990。</para>
-        /// <para>⚠️ **16:9 下与 `LayoutSpace.ToPixel` 只差 float 舍入**（`DesignPxW / VisibleWidth` 实得
-        /// **107.99999** 而不是 108 ⇒ 整屏范围内偏差 **≤ 2.5e-4 px**）—— 远小于本壳各处断言用的 0.05px 容差，
-        /// 也远小于画面上看得见的量 ⇒ **12 条自检里那些把 `cam.aspect` 钉成 `DesignAspect` 的宿主零回归**。
-        /// ⚠️ y 那一半**直接转调 `LayoutSpace.PxY`**（⛔ 别在这里再写一遍 y 的式子 —— CLAUDE.md §三）。
-        /// 🔴 **本式 = `LayoutSpace.FromPixel` 的逆、逐字对偶**：那边 x 的算式一改（例如全局裁定那天把
-        /// `FromPixel` 改成与 `Px`/`ToPixel` 同一条常量换算），**这一行必须跟着改** —— 两处不同步就又变回 A990。</para>
-        /// <para>🔴 **同一族【还没收口】的读口（A990 只动了 `ClipQuad` 那一个，其余留给调度台裁）**：
-        /// `LayoutSpace.ToPixel` / `PxX` 的 **~90 个调用点**（命中判定 · `ViewportClip.ClipPx` ·
-        /// `PointerLayer` · 各 `*Scene.cs` 的标尺 …）—— 它们**全是「只在 16:9 自洽」的那一批**，
-        /// 改动面跨 `Core/` 与十几个宿主，不在本件白名单里。
-        /// ⚠️ **2026-10-18 就地订正（铁律 5 · A1004）**：这一段原来还把「下一段 `QuadRectPx`」列在**没收口**里
-        /// —— `QuadRectPx` 的位置项已改走本函数（`A1004`，16:9 下与旧读差 ≤2.5e-4px）⇒ **它已经不在这一族了**。</para></summary>
-        static Vector2 PixelOfDesign(Vector3 designPos)
-        {
-            float vw = LayoutSpace.VisibleWidth;
-            // 退化档（没有相机 / 宽度不可用）：退回旧口 —— 与 `DivByScale` 同一条处置，**不静默改行为**
-            if (vw <= 1e-6f) return LayoutSpace.ToPixel(designPos);
-            return new Vector2((designPos.x / vw + 0.5f) * LayoutSpace.DesignPxW,
-                               LayoutSpace.PxY(designPos.y));
-        }
+        /// ⚠️ **2026-10-18（A990②）就地订正（铁律 5）：本式已收口到 `LayoutSpace.ToDesignPixel`**
+        /// —— 这里是**一行转调**（原来那两行算式逐字搬进了 `LayoutSpace`，值不变：16:9 下差 ≤2.5e-4 px）。
+        /// 收口的理由 = 外壳侧还有**三处命中判定 / 裁剪换算**要用同一条读口
+        /// （`Shell/PointerLayer` · `Shell/ViewportClip.ClipPx` · `Shell/SettingsWindow.SetFpsFromPointer`），
+        /// 而它们是 `public`/别类的成员 ⇒ 换算必须放在**大家都能拿到的那一份**里（CLAUDE.md §三：
+        /// 「两处写同一条规则 = 迟早不一致」）。⇒ **本函数现在也是 `public`**，叫法沿用本文件的旧名。</para></summary>
+        public static Vector2 PixelOfDesign(Vector3 designPos) => LayoutSpace.ToDesignPixel(designPos);
 
         /// <summary>一个 quad 在**画布 px（设计空间）**里的矩形（位置项走 <see cref="PixelOfDesign"/> ——
         /// 🆕 **2026-10-18（A1004）**：改前写的是 `LayoutSpace.ToPixel`，见下面那条订正）。

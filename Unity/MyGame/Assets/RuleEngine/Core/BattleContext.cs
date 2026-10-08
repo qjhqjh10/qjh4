@@ -732,8 +732,55 @@ namespace RuleEngine
         public GameMode PlayMode = GameMode.Classic;
 
         /// <summary>本局的 <see cref="MatchType"/> —— **由 <see cref="PlayMode"/> 派生**（只读，别自己赋）。
-        /// 与 <see cref="PlayMode"/> 是**两个字段、两张表**（原版也是两个字段），⛔ 别拿它当模式号用。</summary>
+        /// 与 <see cref="PlayMode"/> 是**两个字段、两张表**（原版也是两个字段），⛔ 别拿它当模式号用。
+        /// ⚠️ **这一格是「没翻转」那个值**（原版 `MatchData.matchType` 在 `SetBotOpponent` 里被就地改过）
+        ///    —— 判「是不是 bot」那几档要读 <see cref="RuleEngine.MatchTypes.Effective"/>。</summary>
         public MatchType MatchType { get { return RuleEngine.MatchTypes.For(PlayMode); } }
+
+        /// <summary>🔴 🆕 **2026-10-19（`A1070`）：本局哪一个座位是电脑**（`-1` = 这局没有电脑 ⇒
+        /// **老行为**：双方都按真人算）。
+        ///
+        /// **为什么要有这个字段**：原版给「后手那一方」发防御卡时（`BattleManager.AddGoesSecondCardToDeck`）
+        ///   **电脑侧恒不从电脑卡组取**（预组牌的 `DeckAndWarlordData.defensiveCard` 恒 null，两条反汇编硬证），
+        ///   改从「后手方阵营防御池随机」（`matchType ∈ {50,80,110,120}`）或「督军自己的
+        ///   `goSecondCardInHand`」拿 —— **分成哪一路全看 `matchType`**，而 `matchType` 又取决于
+        ///   「这局有没有电脑」（`MatchData.SetBotOpponent` 会把它翻转一次）。
+        ///   而引擎里此前**根本没有「这方是电脑」这个概念**（`NewBattle` 只是 `BuildPlayer(…, "P1"/"P2")`）。
+        ///
+        /// **谁写它**：入口窗 —— 经 `RuleCore.NewBattle(…, botSeat:)`（**开局就给**），或之后直接赋本字段
+        ///   （⚠️ 那样只对**换牌阶段开着**的对局有效：防御卡要等 `EndMulligan` 才发）。
+        ///   单机时座位 1 由 `SimpleAI` 驱动、联机时座位 1 是真人 —— **引擎自己判不出来**，只能由调用方给。
+        ///
+        /// 🔴 **「这一方是不是电脑」的唯一判据是 <see cref="IsBotSeat"/>** —— ⛔ 别在别处再写一遍比较
+        ///   （两处写同一条规则 = 迟早不一致）。</summary>
+        public int BotSeat
+        {
+            get { return _botSeat; }
+            set
+            {
+                // 🔴 **后设的护栏**（不许静默失败）：换牌阶段**已经关了** ⇒ 后手那张防御卡按原版时机
+                //    （`StartBattlePhase` → `AddGoesSecondCardToDeck`）**早就发过了**，此刻才改这一格
+                //    **改不动它** ⇒ 电脑侧会**静默留着旧口径**（用卡组里那张）。出声，别让它悄悄发生。
+                //    判据条件：这局换牌已关 + 该座位手里已经有一张 `defence` ⇒ 那一张多半就是这么来的。
+                if (value >= 0 && _botSeat < 0 && !MulliganOpen && value < Players.Length
+                    && Players[value] != null)
+                    for (int i = 0; i < Players[value].Hand.Count; i++)
+                        if (Players[value].Hand[i] != null && Players[value].Hand[i].Card != null
+                            && Players[value].Hand[i].Card.Type == "defence")
+                        {
+                            UnityEngine.Debug.LogWarning("[Rule] **现在才**设 `ctx.BotSeat` —— 这一局"
+                                + "换牌阶段已经关了，后手那张防御卡**已经按旧口径发过**"
+                                + "（从卡组取的那张）⇒ 改不动它了。要让它生效，得在建对局时就给"
+                                + "（`RuleCore.NewBattle(…, botSeat:)`）。⛔ 别以为设一下就好了");
+                            break;
+                        }
+                _botSeat = value;
+            }
+        }
+        int _botSeat = -1;
+
+        /// <summary>这个座位是不是电脑（判据只此一处，见 <see cref="BotSeat"/> 的注释）。</summary>
+        public bool IsBotSeat(int seat) { return BotSeat >= 0 && seat == BotSeat; }
 
         /// <summary>
         /// **开局换牌阶段**（原版 `MulliganManager` + `PlayerHand.AddCardsToMulligan`；
@@ -1413,9 +1460,14 @@ namespace RuleEngine
     /// <para>🔴 **它不是模式号**（`PlayModes` 是另一张表、另一组数字）—— 两者别混。
     /// 本局取哪一档**只由** <see cref="MatchTypes.For"/>（= `playMode` 那张 14 项派发表）决定，
     /// 而 `playMode` 就是 <see cref="BattleContext.PlayMode"/>。</para>
-    /// <para>⚠️ 表里**到不了**的几档（`RankedBot 20` / `ClosedDeckBot 120` / `FastModeBot 210` /
-    /// `FastModeRanked 211`）不是漏了：原版那 14 项跳表就没给它们出口（Bot 那几档应该是
-    /// `MatchOnlineStatus` 那条链另外改的，本地判不出）。</para></summary>
+    /// <para>⚠️ `RankedBot 20` / `ClosedDeckBot 120` / `UnrankedBot 180` / `FastModeBot 210` 这四档
+    /// **不要拿 <see cref="MatchTypes.For"/> 去取** —— 原版那张 14 项跳表确实没给它们出口，
+    /// 它们是**对手是电脑时**由 `MatchData.SetBotOpponent` **就地翻转**出来的
+    /// （判据 = `MatchData__SetBotOpponent.c:27-41`，逐句：`10 → 20` · `110 → 120` · `170 → 180` ·
+    /// `200 → 210`，**其余档原样**）⇒ 那一次翻转收在 <see cref="MatchTypes.Effective"/>（**只此一处**）。</para>
+    /// <para>🔴 **2026-10-19（`A1070`）就地订正（铁律 5）**：这一段原来写着「Bot 那几档应该是
+    /// `MatchOnlineStatus` 那条链另外改的，**本地判不出**」—— **判据已经查到，是 `SetBotOpponent`**。
+    /// 仍然查不到的只有 `FastModeRanked 211`（全仓没有它的写入点）。</para></summary>
     public enum MatchType
     {
         Undefined = 0,
@@ -1476,6 +1528,58 @@ namespace RuleEngine
                                                  + " ⇒ `MatchType.Undefined`。要用它先把表补上。");
                     return MatchType.Undefined;
             }
+        }
+
+        /// <summary>🔴 🆕 **2026-10-19（`A1070`）：本局**真正生效**的 `matchType`** —— 对手是电脑时，
+        /// 原版会把它**就地翻转**一次（`MatchData.SetBotOpponent`）。
+        ///
+        /// **判据**（逐句可查）= `d:/2/tools/decomp_full/MatchData__SetBotOpponent.c:27-41`：
+        /// <code>
+        ///   iVar3 = *(int*)(matchData + 0x1C);        // = MatchData.matchType
+        ///   if (iVar3 == 10)  *(…+0x1C) = 0x14;       // Ranked     10 → RankedBot     20
+        ///   if (iVar3 == 110) *(…+0x1C) = 0x78;       // ClosedDeck 110 → ClosedDeckBot 120
+        ///   if (iVar3 == 170) *(…+0x1C) = 0xB4;       // Unranked   170 → UnrankedBot   180
+        ///   if (iVar3 == 200) *(…+0x1C) = 0xD2;       // FastMode   200 → FastModeBot   210
+        ///   // 其余档**一个都不改**（50 PracticeOffline / 80 EventAI / 100 Tutorial … 本来就是 AI 档）
+        /// </code>
+        /// 时机 = **开局组 `MatchData` 时**（`MatchData__SetBotOpponent.c:50-80` 建对手那副牌），
+        /// 比战斗期读它的 `BattleManager.AddGoesSecondCardToDeck` **早** ⇒ 那一处看到的已是翻转后的号
+        /// （这就是「经典 / 遭遇这两条主路都落不到 `{50,80,110,120}` 那四档」的原因）。
+        ///
+        /// ⚠️ **翻转表只此一处** —— 与 <see cref="For"/> 同一条纪律：⛔ 别在别处再写一遍这张表。
+        /// ⚠️ `ctx == null` 或 `ctx.BotSeat &lt; 0`（这局没有电脑）⇒ **原样返回**（= 老行为）。
+        /// </summary>
+        public static MatchType Effective(BattleContext ctx)
+        {
+            MatchType t = For(ctx == null ? GameMode.Classic : ctx.PlayMode);
+            if (ctx == null || ctx.BotSeat < 0) return t;
+            switch (t)
+            {
+                case MatchType.Ranked:     return MatchType.RankedBot;      //  10 →  20
+                case MatchType.ClosedDeck: return MatchType.ClosedDeckBot;  // 110 → 120
+                case MatchType.Unranked:   return MatchType.UnrankedBot;    // 170 → 180
+                case MatchType.FastMode:   return MatchType.FastModeBot;    // 200 → 210
+                default:                   return t;
+            }
+        }
+
+        /// <summary>🔴 🆕 **2026-10-19（`A1070`）：原版「后手那张防御卡」的**随机池那一支**的模式闸**
+        /// —— `matchType ∈ {50 PracticeOffline · 80 EventAI · 110 ClosedDeck · 120 ClosedDeckBot}`。
+        ///
+        /// **判据** = `d:/2/tools/decomp_full/BattleManager__AddGoesSecondCardToDeck.c:98-153`
+        /// （`iVar2 = MatchData.matchType`；落在这一支时 `uVar9 = list[GetRandomInt(0,count)]`，
+        /// 而这一支**排在那两条兜底之后** ⇒ **它会覆盖**前面算出来的那张 —— 那一处只有
+        /// `playerGoesFirst == 0` 的「覆盖回玩家卡组那张」守卫能盖回来）。
+        /// 注意这四个号要拿 <see cref="Effective"/>（**翻转后**的）去比 —— 原版比的也是翻转后的。
+        ///
+        /// ⚠️ **只此一处**：`RuleCore` 只通过它分档，⛔ 别在别处再列一遍这四个数。
+        /// </summary>
+        public static bool UsesDefencePool(MatchType t)
+        {
+            return t == MatchType.PracticeOffline      //  50（`GameMode.OfflinePractice` / `OwnDeckTraining`）
+                || t == MatchType.EventAI              //  80（`GameMode.Dungeon`）
+                || t == MatchType.ClosedDeck           // 110
+                || t == MatchType.ClosedDeckBot;       // 120
         }
     }
 }

@@ -3114,9 +3114,25 @@ namespace CardPresentation
             return w;
         }
 
-        /// <summary>进编辑。⚠️ **这是相对原版的一处偏离**：原版在同一扇窗里换页；我们的编辑器早已建成**独立场景**
-        ///    （200 条自检 + 自带的坐标层），嵌进窗里要重写它的 `Pos/ToPx` ⇒ 先用「切场景」把闭环打通。
-        ///    ⚠️ **批处理下不切场景**（自检要靠同一个进程跑完）⇒ 自检验的就是「交接下标对不对」。</summary>
+        /// <summary>进编辑。⚠️ **这是相对原版的一处偏离**：原版是**在收藏窗【之上】再开一扇窗**、离场 = **关窗**
+        ///    （入口 = `d:/2/tools/decomp_full/SelectDecksTab__CreateDeck.c:28` 的 `WindowsManager__OpenWindow&lt;…&gt;`；
+        ///     离场 = `DeckEditingWindow__Close.c:19-20` 的 `NavigationPanelController__Toggle` + `GameWindow__Close`
+        ///     ⇒ **页签从未被切过**，关窗露出的就是下面那扇一直开着的 `CollectionScreen`），
+        ///    而我们的编辑器早已建成**独立场景**（200 条自检 + 自带的坐标层），嵌进窗里要重写它的 `Pos/ToPx`
+        ///    ⇒ 先用「切场景」把闭环打通。
+        ///    ⚠️ **批处理下不切场景**（自检要靠同一个进程跑完）⇒ 自检验的就是「交接下标对不对」。
+        ///    🔴 **2026-10-18（A855）就地订正（铁律 5）**：上面那句原来写「原版**在同一扇窗里换页**」——
+        ///      **不准确**，原版是「**叠窗 + 关窗**」（判据 = 上面那两处 `decomp_full` 出处）。方向不变
+        ///      （我们仍是独立场景、仍要切场景），改的只是**对原版形状的描述**。
+        ///    🔴 **2026-10-18（A855）补记：闭环已经合上了** —— 回程 = `DeckRuntime.BackToMenu` **只切场景**，
+        ///      由到达端 `Shell/MainMenuRuntime.cs` 的 `Build` 按 `CollectionData.PendingReturn` **重开本窗的卡组页**，
+        ///      并在开窗**之前**作废 `CollectionData` 的库缓存（否则列表画的还是编辑前那一份；
+        ///      判据与真根因 → `CollectionData.InvalidateLibrary`）。
+        ///      ⚠️ **还开着的那一半 = 载入模式**（要**做**，⛔ 不是「影响小、不做」那一类）：把它做成
+        ///      **additive**（编辑器叠在窗上、主菜单相机让位）—— 判据已经齐了（「叠窗 + 关窗」，见上面两处出处），
+        ///      做法 = `LoadScene(…, LoadSceneMode.Additive)` + `SetActiveScene` + 显式关掉一台 `MainCamera`
+        ///      （现成写法 → `Shell/ShellRuntime.cs` 切场景前那句 `Camera.main.enabled = false`）。
+        ///      ⚠️ **本波范围外**（简报明写「本波只做『作废缓存』那一环」）⇒ 账记在这里，别当成已经做完。</summary>
         public void EditDeck(int i) { GoEdit(i); }
 
         /// <summary>「进编辑」的**唯一实现** —— 收藏窗那条路与 `Deck info Popup` 的 `Edit Deck` 钮**都走它**

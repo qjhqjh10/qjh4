@@ -73,12 +73,20 @@ namespace CardPresentation
         //       框照同族那颗取 **700×148**。**这两条全是我们的选择。**
         //
         //  🔴 **对端文本那一支（A961）**：本行的话来自 `NetMatchmaking.LastHint`，它由
-        //     `NetMatchmaking.HandleLobbyPeerClosed(why)` / `DeferToBattleLayer(what)` 拼出来，而那个 `why`
-        //     **在源头就钳过了** —— `NetSession.ClampPeerText` 是**一处闸**、三个收包入口都在 `NetSession`
-        //     （`MsgProof.name` / `MsgBye.reason` / 握手拒绝那一支）⇒ 走到本窗的字符串**已经 ≤
-        //     `NetProtocol.MaxPeerTextChars`**。⛔ **这里绝不写第二份钳**（会把自己写的中文提示也当成对端文本截掉）
-        //     —— 同 `NetMatchmaking.cs:450-452` 的口径。⚠️ 但这**不等于**「随便多长都行」：本行按框只放得下
-        //     约 40 字，超了会**出声**（见 `ShowHint`）；那 40 是**框尺寸**算的，与「钳对端文本」是两件事。
+        //     `NetMatchmaking.HandleLobbyPeerClosed(why)` / `HandleLobbyPeerLost()` / `DeferToBattleLayer(what)` 拼出来，
+        //     而那句里夹着的对端文本**在源头就钳过了** —— `NetSession.ClampPeerText` 是**一处闸**、四个收包入口
+        //     （`MsgBye.reason` / `MsgProof.name` / `MsgAck.reason` / `MsgReject.reason`，清单见
+        //     `NetProtocol.MaxPeerTextChars` 的注释）⇒ **对端可塞进来的那一段原串**到本窗时 ≤ 40 字。
+        //     ⛔ **这里绝不写第二份钳**（会把自己写的中文提示也当成对端文本截掉）—— 同 `NetMatchmaking` 里
+        //     `case NetKind.Deck` / `case NetKind.Start` 那两处「不写第二份钳」的口径。
+        //     🔴 **2026-10-19（`A1083`）就地订正（铁律 5）**：这里原来写「走到本窗的字符串**已经 ≤
+        //     `NetProtocol.MaxPeerTextChars`**」—— **第六会话 `P6d` 之后这半句不成立**：收侧现在是
+        //     「**先钳、再取词**」，取完词那一句是**我们自己的文案**（`Core/Loc.cs` 的 EN 列，最长的一条 **140 字**）
+        //     ⇒ 到这一行时**可以远超 40**。那条 ≤ 40 的上界管的是**对端可控的原串**，
+        //     **不是取词之后的整句** —— 两件事，别混（错因：写这句时还是「发侧渲染好的整句」那套）。
+        //     ⚠️ 本行按框放得下多少，判据 = `SearchingMatchPopup.HintLineMaxWidth`（**按字形宽度**算：
+        //     80 个半宽字位 = 中文 40 字 ≈ 英文 80 字；推导与实测见那颗常量的注释块）—— 超了会**出声**
+        //     （见 `ShowHint`），⛔ **不截断**（截了就是把该玩家看的话吃掉）。
         // ==================================================================
         public const float HintL = 610f, HintT = 200f, HintR = 1310f, HintB = 348f;   // 700×148 —— **我们挑的**
 
@@ -94,10 +102,16 @@ namespace CardPresentation
         public void ShowHint(string text)
         {
             if (string.IsNullOrEmpty(text)) { ClearHint(); return; }
-            if (text.Length > SearchingMatchPopup.HintLineMaxChars)
-                Debug.LogWarning($"[SearchingOpp] 提示行那句话 {text.Length} 字，超过这一行放得下的 "
-                               + $"{SearchingMatchPopup.HintLineMaxChars} 字（框 700×148 · 自适应 4~50px，"
-                               + "与同族 `Main Search message` 同一档）—— 会被压得很小，请把这一句写短"
+            // 🔴 **2026-10-19（`A1083`）**：判据从「`text.Length > 40`」（只对中文档成立）换成
+            //    **按字形宽度算**（与同族 `SearchingMatchPopup.ShowHint` 同一个口、同一把尺子 ——
+            //    ⛔ 别在这两扇窗上各写一份算式）。**照旧只出声**：⛔ 不截断、⛔ 不静默、照旧照画。
+            int width = SearchingMatchPopup.HintLineWidth(text);
+            if (width > SearchingMatchPopup.HintLineMaxWidth)
+                Debug.LogWarning($"[SearchingOpp] 提示行那句话占 {width} 个半宽字位（{text.Length} 个字符），"
+                               + $"超过这一行放得下的 {SearchingMatchPopup.HintLineMaxWidth} 位"
+                               + $"（= 中文 {SearchingMatchPopup.HintLineMaxChars} 字 / 英文约 80 字；"
+                               + "框 700×148 · 自适应 4~50px，与同族 `Main Search message` 同一档）"
+                               + "—— 会被压到比 50px 更小的字号，请把这一句写短"
                                + "（详细的那半句留给弹窗，两处本来就是两个口）：「" + text + "」");
             HintText = text;
             if (_hintLine != null) _hintLine.SetText(text);

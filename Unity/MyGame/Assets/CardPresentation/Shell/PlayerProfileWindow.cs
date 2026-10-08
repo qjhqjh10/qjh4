@@ -134,6 +134,11 @@ namespace CardPresentation
         /// <summary>关闭钮的两个子件（**同一个矩形**，`Icon` 压在 `Background` 上）。</summary>
         public const float CloseInL = 1769.0f, CloseInT = 126.9f, CloseInR = 1825.8f, CloseInB = 185.0f;
         public const string ArtCloseBg = "40k_general_bt_yellow", ArtCloseIcon = "40k_general_bt_yellow_close";
+        /// <summary>🔴 **2026-10-18（A1053）**：关窗钮那两颗子件（`Background` / `Icon`，同矩形
+        /// `CloseInL..CloseInB`）**自己的** `m_RaycastPadding`（原版实读 `(-20)⁴`；L,B,R,T · **负 = 外扩**）
+        /// ⇒ 命中区 = 子件矩形外扩 20 = **96.86 × 98.13**（⛔ 不是根矩形 `CloseL..CloseB` 的 74.39×75.60）。
+        /// 算式只走 `MenuDraw.PaddedRect`；口径 → `普查_全仓命中区与关闭键族.md` §〇-1。</summary>
+        static readonly Vector4 ClosePad = new Vector4(-20f, -20f, -20f, -20f);
 
         /// <summary>`Tab Content`：`a=(.05,0)-(.95,1) p=(0,.5) pos=(0,−0.459) sz=(0,−0.916)`
         /// ⇒ **351.03,118.92 .. 1746.97,962**（= `TabbedWindowComponents.tabHolder`）。</summary>
@@ -359,17 +364,29 @@ namespace CardPresentation
         {
             var c = MenuDraw.Node(tabArea, "Generic Close Button Orange",
                                   new PxRect(CloseL, CloseT, CloseR, CloseB));
-            // 🔴 换图落在**圆底那一层**（原版 `trans=2` 换的是它自己的 Image = `UI_Button_Round_background`，
-            //    下面还有 `Background`(黄面) 与 `Icon`(叉) 两个子件 —— 2026-10-03 直接读 prefab 核过）
+            // 🆕 **2026-10-18（A1058 · 第六会话批 2）**：换图那一层 = **子件 `Background`**（`closeFaceQ`，
+            //   画的是 `ArtCloseBg` = `40k_general_bt_yellow`），⛔ **不是圆底盘 `closeBaseQ`**。
+            //   判据（原版 prefab 亲读）=
+            //   `python -I d:/tmp/wf_hit/rcunion.py bundle_menus_assets_all "Player Profile Window" --depth 8`：
+            //   根 `Menu Area/Tab  Area/Generic Close Button Orange` 那颗 `EverguildButton` 的
+            //   **`m_TargetGraphic` = pid-981292653871465934**；解该 pid ⇒ **所属 GO 名 = `Background`**、
+            //   贴图 pid `5693181797853584851` → `40k_general_bt_yellow`（`d:/4/_tmp_view/sprite_pids_ALL.json`）。
+            //   ⚠️ **2026-10-18 更正（铁律 5）**：原注释写「`trans=2` 换的是它自己的 Image = `UI_Button_Round_background`」
+            //   —— **那句是错的**（错因 = 只读 `m_Transition`、没读 `m_TargetGraphic`）。
             var closeBaseQ = MenuDraw.Rect(c, ArtInternal(ArtClose), new PxRect(CloseL, CloseT, CloseR, CloseB), "Image", QChrome, null, true);
-            MenuDraw.Rect(c, ArtInternal(ArtCloseBg), new PxRect(CloseInL, CloseInT, CloseInR, CloseInB),
-                          "Background", QChrome + 1, null, true);
+            var closeFaceQ = MenuDraw.Rect(c, ArtInternal(ArtCloseBg), new PxRect(CloseInL, CloseInT, CloseInR, CloseInB),
+                                           "Background", QChrome + 1, null, true);
             MenuDraw.Rect(c, ArtInternal(ArtCloseIcon), new PxRect(CloseInL, CloseInT, CloseInR, CloseInB),
                           "Icon", QChrome + 2, null, true);
             // 🆕 A17：原版 `… > Player Profile Window` 的 `Generic Close Button Orange` 是 SpriteSwap
             //（HL = `40k_general_bt_yellow_hover`）
-            MenuDraw.Hit(c, "Hit", new PxRect(CloseL, CloseT, CloseR, CloseB), QHit, () => Close(),
-                         closeBaseQ, null, "40k_general_bt_yellow_hover");
+            // 🆕 **2026-10-18（A1053 · 第六会话批 2）**：**命中区**归真值 —— 子件（56.86×58.13）按
+            //   自己的 `m_RaycastPadding (-20)⁴` 外扩 = **96.86 × 98.13**；改前传根矩形
+            //   `CloseL..CloseB`（74.39×75.60）⇒ 每边小 11.2。
+            //   判据 = `python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all "Player Profile Window"
+            //   --depth 8 --substr "Tab  Area/Generic Close Button"`（实读 `96.86 x 98.13`）。
+            MenuDraw.Hit(c, "Hit", MenuDraw.PaddedRect(new PxRect(CloseInL, CloseInT, CloseInR, CloseInB), ClosePad),
+                         QHit, () => Close(), closeFaceQ, ArtCloseBg, "40k_general_bt_yellow_hover");
         }
 
         /// <summary>六个页根。**出厂 active 状态照原版**：只有 `Title Tab` 是 true，其余五个 false

@@ -290,6 +290,17 @@ namespace CardPresentation
 
             RefreshAll(); UpdateHud(); ReportUnaskedChoices();
             if (NetApply.EndsTurn(m) || NetApply.IsMulliganDone(m)) NetAfterTurnStart();
+            // 🔴 **2026-10-19（`A1099`）**：**权威流也要进录像** —— 这一句补上的是联机局里
+            //   **对面那一半**（对手的动作 + 换牌定序那三条伪动作），它们**只从这条口落地**
+            //   （`NetBattle.cs` 那三个调用点），原来一个账都没有 ⇒ 联机录像只有本机那一半。
+            // 🔴 **位置=本方法【末尾】**（`return` 之前）：`PlayReplay` 那次逐条对轨迹的 `DeepHash`
+            //   就发生在**本方法返回之后** ⇒ 放末尾与它取**同一个程序点**；放中间会因为
+            //   `RefreshAll / UpdateHud / NetAfterTurnStart` 的调用次序而**理论上**产生偏差
+            //   （今天单机路径证明这几处不改哈希，但没必要冒这个险）。
+            // ⚠️ **代价（如实说）**：它排在 `code != RuleCodes.OK` 那道早退**之后** ⇒
+            //   被引擎拒的动作**不记**（那也对：录像记的是「**真的落了地的**什么」，
+            //   回放时才不会在同一个地方再被拒一次、把分叉点往后推）。
+            RecMsg(m);
             return code;
         }
 
@@ -463,9 +474,13 @@ namespace CardPresentation
         /// <summary>`List` 的安全取值（老录像里没有这个字段 ⇒ 长度对不上时别抛）。</summary>
         static string At(List<string> l, int i) { return (l != null && i >= 0 && i < l.Count) ? l[i] : "<这条没录>"; }
 
-        /// <summary>开局：把「重建这一局要的全部东西」记下来（种子 / 模式 / 双方卡组 / 战场 / 名字 / 先手）。
-        /// ⚠️ 收的 `d0`/`d1` 是**座位 0 / 座位 1** 的卡组（`Begin` 那两个参数就是这个口径）。</summary>
-        void RecBegin(PlayerDeck d0, PlayerDeck d1, string f0, string f1, int seed, string mode, string arena)
+        /// <summary>开局：把「重建这一局要的全部东西」记下来（种子 / 模式 / 双方卡组 / 战场 / 名字 / 先手 /
+        /// 🆕 哪一个座位是电脑）。
+        /// ⚠️ 收的 `d0`/`d1` 是**座位 0 / 座位 1** 的卡组（`Begin` 那两个参数就是这个口径）。
+        /// 🆕 **2026-10-19（`A1087`）**：`botSeat` = **本局实际喂给 `RuleCore.NewBattle` 的那一个值**
+        ///   （与 `Begin` 里那句**共用同一个局部量**，⛔ 别在这儿重算一遍 —— 两处各算 = 迟早不一致）。</summary>
+        void RecBegin(PlayerDeck d0, PlayerDeck d1, string f0, string f1, int seed, string mode, string arena,
+                      int botSeat)
         {
             if (!RecordReplays) { _rec = null; return; }
             LastReplayFile = null;
@@ -478,6 +493,8 @@ namespace CardPresentation
                 //   ⚠️ 哨兵是 **`0` = 不是教程局**（不是 `-1`）—— 老录像的 JSON 里没这个键，
                 //      读出什么取决于 `JsonUtility` 跑不跑初始化器（**本地无判据**）⇒ 取 `0` 才两条路都安全。
                 tutorialStage = _tutorialStage != null ? _tutorialStage.stage : 0,
+                // 🆕 2026-10-19（A1087）：开局这一格也要记（存**值 + 2** —— 哨兵纪律见 `ReplayStore.botSeatPlus2`）。
+                botSeatPlus2 = botSeat + 2,
                 start = new MsgStart
                 {
                     seed = seed,
@@ -527,6 +544,48 @@ namespace CardPresentation
             // 🔴 **黑匣子**（那两个字符串）**只在 `ReplayStore.VerboseTrace` 开着时记** ——
             //    它们才是「读得出哪里不一样」的那份（见 `StateBrief`），但每局要多十几 KB。
             //    ⇒ 平时关（一局约 9 KB）、**自检与查问题时开**（`ReplayStore.VerboseTrace = true`）。
+            if (ReplayStore.VerboseTrace)
+            {
+                _rec.traceLogTail.Add(EvtTail(Ctx));
+                _rec.traceState.Add(StateBrief(Ctx));
+            }
+        }
+
+        /// <summary>🆕 **2026-10-19（`A1099`）**：把**从权威动作流落下来的一条 `MsgAction`** 原样记进录像。
+        ///
+        /// <para>🔴 **为什么非有它不可**：`ApplyLoggedAction` 是**联机局里对面那一侧唯一的落地口**
+        /// （`NetBattle.cs` 三处：主机收客机动作 / 客机收主机广播 / `AppendLogAndApply` 的换牌定序
+        /// 那几条伪动作），而它原来**一个记账口都没有** ⇒ 联机录像只录到**本机那一半**
+        /// （对手的动作、双方换牌一条都不进）⇒ 灌到第一条就「不是你的回合」、**放不出来**
+        /// （`RecKind*` 那几条只在线上走，不走 `LocalAct`）。</para>
+        ///
+        /// <para>🔴 **只拷内容、`seq` 用录像自己的计数器**（同 <see cref="RecAct"/> / <see cref="RecRaw"/>）：
+        /// 线上的 `seq` 是**主机定序**的（客机那份 `Log` 还会补 `null` 占位）⇒ 照抄会把录像的序号打乱。
+        /// `preApplied` **不拷** —— 它在录像里恒 `false` = 「回放时这一条要真落地」
+        /// （`PlayReplay` 不看它，但带上 `true` 会把这个结构的意思说反）。
+        /// ⚠️ **必须新建对象**：`m` 落地之后还会被 `NetBattle` 改字段（`m.seq` / `m.actor` / `m.preApplied`，
+        /// 见 `NetBattle.cs` 主机收动作那一支）—— 直接把 `m` 塞进 `_rec.actions` 会被**事后改掉**。
+        /// ⚠️ 三个数组字段（`picks` / `pickIds` / `marks`）是**按引用**拷的（与 `RecRaw` 收 `marks` 同一个手法）；
+        /// 现有各调用点**没有任何一处就地改这些数组**（只整只替换），所以引用共享是安全的。</para>
+        ///
+        /// <para>⚠️ **与 `RecAct` / `RecRaw` 的分工**：那两条服务**本机自己**走的路
+        /// （`LocalAct` / `SimpleAI.Executed` / 教程执行器 / 投降）；这一条服务**权威流**
+        /// （对手那一半 + 换牌定序）。`NetKind.Applied` 对**本机自己**的动作带 `preApplied = true`
+        /// ⇒ `NetBattle` 收到后**不落地**、也就走不到这里 ⇒ **不会与本机的 `LocalAct` 双记**。</para></summary>
+        void RecMsg(MsgAction m)
+        {
+            if (_rec == null || m == null) return;
+            _rec.actions.Add(new MsgAction
+            {
+                seq = _rec.actions.Count,
+                kind = m.kind, actor = m.actor, handId = m.handId, handIdx = m.handIdx, slot = m.slot,
+                targetP = m.targetP, targetSlot = m.targetSlot, ranged = m.ranged, altKeyword = m.altKeyword,
+                picks = m.picks, pickIds = m.pickIds, marks = m.marks,
+                envSlot = m.envSlot, envSO = m.envSO, defId = m.defId,
+            });
+            // 逐动作轨迹：与 `RecAct` / `RecRaw` **同一条纪律**（`trace` 与 `actions` 一一对应，
+            // `PlayReplay` 拿它定位分叉点）—— 少记一次 = 后面每一条都对不上号。
+            _rec.trace.Add(DeepHash(Ctx));
             if (ReplayStore.VerboseTrace)
             {
                 _rec.traceLogTail.Add(EvtTail(Ctx));
@@ -597,8 +656,14 @@ namespace CardPresentation
                 //   ⇒ 走关卡那条现成的入口 `BeginTutorial(关号)`（录像头里记着关号，见 `ReplayRecord`）。
                 //   ⚠️ 之后 `_replaySession = true` 那道闸还会**把执行器自驱停掉** ——
                 //     脚本动作已经在动作流里了，再自驱一遍 = 演两遍（`DriveTutorialScript` 里有那一句）。
-                if (rec.TutorialStageIndex >= 0) BeginTutorial(rec.TutorialStageIndex);
-                else BeginFromPendingCore(pb, attachNet: false, deckNote: null);
+                // 🆕 **2026-10-19（`A1087`）**：**开局那两格状态都照录像头** —— 先手照 `pb.FirstSeat`（既有）、
+                //   「哪一个座位是电脑」照 `rec.BotSeatForNewBattle`（新加的那一格）。
+                //   ⛔ **别在这里现算 `AiShouldDriveOpponent`**：**放录像时 `_net` 恒 null** ⇒ 一份记着
+                //   「-1（对手是真人）」的录像会被当成「1（座位 1 是电脑）」⇒ `RuleCore.GoesSecondCard`
+                //   给后手发**另一张**防御卡、还多掷一次随机 ⇒ 整条动作流错位。
+                //   （老录像那一格读出 `null` ⇒ 退回老口径，行为逐字不变。）
+                if (rec.TutorialStageIndex >= 0) BeginTutorial(rec.TutorialStageIndex, rec.BotSeatForNewBattle);
+                else BeginFromPendingCore(pb, attachNet: false, deckNote: null, botSeatOverride: rec.BotSeatForNewBattle);
                 // 🔴 **2026-10-12（A381）：放录像的时候也别【结账】**。
                 // ⚠️ **置真必须在 `BeginFromPendingCore` 之后** —— 它里面走 `Begin(...)`，
                 //    而 `Begin` 会把 `_replaySession` 清零（新开一局 = 不是回放）。
@@ -696,7 +761,25 @@ namespace CardPresentation
         public void NetReplayFromNet(MsgStart start, List<MsgAction> actions) { NetReplay(start, actions); }
 
         /// <summary>重连：**从种子重建 + 全量重放**（正本 §5·6 —— 不许增量补）。
-        /// 重放的是**权威动作流里的每一条**（对面那条翻座位、本机那条不翻）。</summary>
+        /// 重放的是**权威动作流里的每一条**（对面那条翻座位、本机那条不翻）。
+        ///
+        /// <para>🔴 **2026-10-19（`A1099`）：这一趟【也会开一份新录像】，而且是有意为之。**
+        /// 语义说清楚（⛔ 不许含糊）：<see cref="RecBegin"/> 的语义**从「开局」扩成「开局 / 重连重建」**
+        /// —— 这一趟走 `BeginFromPendingCore` → `Begin` → `RecBegin`，只要 `RecordReplays` 还是真，
+        /// 就会**新开一份 `_rec`**（头 = 重建出来的这一局：种子 / 两副牌 / 先手都照开局包）。
+        /// 而下面那个循环紧接着把**权威流的每一条**通过 `ApplyLoggedAction` 灌进来，
+        /// 那些条目现在**都会进这份新录像**（`A1099` 补的那个记账口）⇒ **这份录像是【从头到尾完整的】**，
+        /// 不是从中间开始的残档（结算时 `RecFinish` 照样落盘）。</para>
+        ///
+        /// <para>⚠️ **为什么这不是副作用、而是正确结果**：录像的契约是「**起始条件 + 动作流**」，
+        /// 而重连这一趟的起始条件 = **重建出来的这一局**（= 原局的开局条件）、动作流 = **全量重放**
+        /// ⇒ 它与「现场录的那一份」应当**逐条相同**（同一条重建路、同一个引擎）。
+        /// 相形之下**今天**（`A1099` 之前）那一份 `_rec` 只收得到**重连之后、本机自己**的动作
+        /// ⇒ 一份**从中间开始的残档**，放出来必然报「不是同一局」—— 那才是缺陷。</para>
+        ///
+        /// <para>🔴 **与「放录像」那一趟的分别是刻意的**：`PlayReplay` 显式把 `RecordReplays` 关掉
+        /// （`finally` 再还原）⇒ 它那一趟 `RecBegin` 直接 `_rec = null`、一条都不记；
+        /// 本方法**不关**（重连是**真的在打这一局**，该记）。这两句判断**别对调**。</para></summary>
         public void NetReplay(MsgStart start, List<MsgAction> actions)
         {
             bool host = _net != null && _net.IsHost;
@@ -707,6 +790,14 @@ namespace CardPresentation
             //   `BeginFromPendingCore` 里写死的 `"联机局"`；现在理由按实情说：卡组随开局包下发。
             BeginFromPendingCore(pb, attachNet: false,
                                  deckNote: "联机局·下发里没有卡组");      // 重建（`Net` 保持挂着）
+            // 🔴 **2026-10-19（`A1099`）：出声** —— 上面那句说明里讲的「这一趟会新开一份录像」不许静默。
+            //   `RecordReplays == false` 时（只有自检/回放那两档会那样）如实说「这一趟不记」。
+            if (_rec != null)
+                Debug.Log($"[Replay] 重连重建：这一局的录像**从头重录**（权威流全量 {actions.Count} 条"
+                        + " —— 重建出来的这一局 + 全量重放，与现场那份应当逐条相同）");
+            else
+                Debug.Log($"[Replay] 重连重建：这一趟**不记录像**（`RecordReplays=false`）"
+                        + " —— 权威流那 {actions.Count} 条一条都不会进录像");
             for (int i = 0; i < actions.Count; i++)
             {
                 var m = actions[i];
@@ -921,6 +1012,51 @@ namespace CardPresentation
         float _overtimeAnimT = -1f;
         /// <summary>「已经播过一次」——原版 `IsOvertime` 置 true 后不再判，我们也不重播</summary>
         bool _overtimeFired;
+
+        // ==================================================================
+        //  🆕 2026-10-18（§8b 批 B · 2a / 2b）：**Canvas 级那三件**（原版都在 `BattleHud/Canvas` 下）
+        //    · `Aspect Ratio Filler{Top,Bottom}` —— 两枚纯黑 quad（13/13 战场都有，原版也在屏外）
+        //    · `UI Error Message Controller (MUST BE ENABLED)` —— 错误/疲劳横幅（5 条一池）
+        //    · `ScreenAspectRatioController` —— 比例超出 [4:3, 22:9] 时给**两台**相机写 `Camera.rect`
+        //  三件的判据全在各自文件头（`ScreenAspectRatioController.cs` / `ErrorMessageBanner.cs`）
+        //  ＋ 交接报告 §2a/§2b；**本文件只管「建出来 + 接上触发」**。
+        // ==================================================================
+
+        /// <summary>原版 `Aspect Ratio Filler` 的两枚黑边 quad（判据 → <see cref="BuildAspectRatioFillers"/>）</summary>
+        ImageQuad _aspectFillerTop, _aspectFillerBottom;
+        /// <summary>错误横幅（原版 `UI Error Message Controller`，判据 → `ErrorMessageBanner.cs` 文件头）</summary>
+        ErrorMessageBanner _errorBanner;
+        /// <summary>比例控制器（原版 `ScreenAspectRatioController`，判据 → 那一件的文件头）</summary>
+        ScreenAspectRatioController _aspectRatio;
+
+        /// <summary>自检口：错误横幅（⛔ 生产路径别拿它弹东西 —— 走 `ShowError` 那条链）。</summary>
+        public ErrorMessageBanner ErrorBanner { get { return _errorBanner; } }
+        /// <summary>自检口：比例控制器。</summary>
+        public ScreenAspectRatioController AspectRatioController { get { return _aspectRatio; } }
+
+        // ---- 原版 `Aspect Ratio Filler{Top,Bottom}` 的四个数（`RectTransform_{3021,2916}.json` 实读，**未取整**）----
+        /// <summary>`sizeDelta`（两枚同值）。</summary>
+        public const float AspectFillerW = 3252.123046875f, AspectFillerH = 1842.02001953125f;
+        /// <summary>Top 的 `anchoredPosition.x`（**0.00067** 那一档 —— 不是 0，⛔ 别取整）。</summary>
+        public const float AspectFillerTopX = 0.0006713899783790112f;
+        /// <summary>Bottom 的 `anchoredPosition.x`。</summary>
+        public const float AspectFillerBottomX = -3.051800013054162e-05f;
+        /// <summary>两枚的 `anchoredPosition.y`（±1641.10，未取整）。</summary>
+        public const float AspectFillerTopY = 1641.0999755859375f;
+        /// <inheritdoc cref="AspectFillerTopY"/>
+        public const float AspectFillerBottomY = -1641.0999755859375f;
+
+        /// <summary>疲劳横幅的两条**原版词条键**（`BattleManager._ResolveFatigue_d__587` 实读：
+        /// `Battle/Tips/DamageFatigue` = 自己牌库空、`…Enemy` = 对手牌库空）。
+        /// ⚠️ 本地 84 个 bundle 里**没有 I2 语言表** ⇒ 这两条键**一个 value 都没有**，
+        /// 今天实际走的是 <see cref="DamageFatigueText"/> 的兜底句（同 `HandFullText` 那两态）。</summary>
+        public const string DamageFatigueTerm = "Battle/Tips/DamageFatigue";
+        /// <inheritdoc cref="DamageFatigueTerm"/>
+        public const string DamageFatigueEnemyTerm = "Battle/Tips/DamageFatigueEnemy";
+
+        /// <summary>「这一方的疲劳值我们已经弹过到几了」——**我们的记账位**（疲劳判据里那道闸，见
+        /// <see cref="NoteFatigueBanners"/>）。索引 = 0/1。</summary>
+        readonly int[] _fatigueShown = new int[2];
         /// <summary>敌方能量数字（原版 `EnemyMana/ManaText`）</summary>
         Label _foeEnergyLabel;
         EndPanel _endPanel;
@@ -1930,12 +2066,22 @@ namespace CardPresentation
         ///   联机 = `"联机局·下发里没有卡组"`、回放 = `null`（那一档没有「读不出来」这回事）。
         ///   ⚠️ **这一句人话是我们加的**（原版没有这条提示行，见 `SetHint` 的文件头）——
         ///   原版能给到的判据只到「回放是独立的一档」，**没有**「回放该显示哪句话」的判据。</param>
-        public void BeginFromPendingCore(NetPendingBattle pb, bool attachNet, string deckNote)
+        /// <param name="botSeatOverride">🆕 **2026-10-19（`A1087`）**：本局「哪一个座位是电脑」——
+        /// 放录像时由 `PlayReplay` 从**录像头**（`ReplayRecord.BotSeatForNewBattle`）取来。
+        /// `null` = 调用方没说 ⇒ `Begin` 退回老口径 `AiShouldDriveOpponent`（**联机开局 / 重连重建
+        /// 都该是它**：那两档里 `_net` 挂着，判据本来就对）。⛔ **不许在这里写死 `1` 或 `-1`**
+        /// —— 两处写同一条规则 = 迟早不一致。</param>
+        public void BeginFromPendingCore(NetPendingBattle pb, bool attachNet, string deckNote,
+                                         int? botSeatOverride = null)
         {
             if (pb == null) { Debug.LogError("[Net] `BeginFromPendingCore(null)` —— 不开局"); return; }
             SetMySeat(pb.MySeat);
             _shuffleDecks = !pb.NoShuffle;
-            ForceFirstSeat = pb.FirstSeat;
+            // 🔴 **2026-10-19（A1100）订正**：这里原来是 `ForceFirstSeat = pb.FirstSeat;` ——
+            //   而 `ForceFirstSeat` 是**自检的钉子**（那个字段的注释自己写着「钉住的是自检，不是产品」）
+            //   ⇒ 产品往它里面写 = **跨局泄漏**：打完一局**联机** / 放完一局**录像**之后，**下一局单机**
+            //   会沿用上一局的**绝对座位**、先手**不掷硬币**（`Restart()` 也一样）。铁律：对局必须可复现。
+            //   ⇒ 先手改由**显式形参**交给 `Begin`（见下面那一句调用）。
             _noAiMulligan = true;                    // 联机：对面换牌不跑 AI（由主机定序，见 `OnMulliganDone`）
             // 🆕 **2026-10-15（A383）**：模式号**从开局包来** —— 联机是主机下发、回放是录像头里那一格
             //   （原版 `MatchData.playMode` 也是随开局参数一起下来的）。
@@ -1962,7 +2108,8 @@ namespace CardPresentation
                     + $"先手座位 {pb.FirstSeat}（{(pb.FirstSeat == pb.MySeat ? "我" : "对面")}）· 战场 {pb.Arena}");
             Begin(myFaction: pb.Seat0Faction, foeFaction: pb.Seat1Faction, seed: pb.Seed,
                   myDeck: pb.Seat0Deck, foeDeck: pb.Seat1Deck, deckNote: deckNote, vars: vars,
-                  playMode: pb.PlayMode);
+                  playMode: pb.PlayMode, botSeatOverride: botSeatOverride,
+                  firstSeatOverride: pb.FirstSeat);      // 🆕 A1100（⛔ 不再写 `ForceFirstSeat`）
             // ⚠️ `Begin` 收的 `myFaction/foeFaction` 是**座位 0/1** 的阵营，而 `_myFaction/_foeFaction`
             //    这后面全是**视图侧**用（`owner == _me ? _my : _foe`）⇒ 客机（`_me == 1`）要换回来。
             if (_me == 1) { var t = _myFaction; _myFaction = _foeFaction; _foeFaction = t; }
@@ -2281,8 +2428,10 @@ namespace CardPresentation
         ///
         /// ⚠️ **取不到就停手并出声，⛔ 不退化成「一场没有教程的普通局」**（那会让玩家拿到一局
         ///    「自称教程、其实只是打 bot」的对局 —— 本项目红线：不许静默失败）。
-        /// </summary>
-        public void BeginTutorial(int stageIndex)
+        ///
+        /// 🆕 **2026-10-19（`A1087`）**：`botSeatOverride` 透传给 `Begin`（放录像时按**录像头**那一格，
+        ///    见 `PlayReplay`）；不传 = 老口径 `AiShouldDriveOpponent`（教程局只可能是单机 ⇒ 恒 `1`）。</summary>
+        public void BeginTutorial(int stageIndex, int? botSeatOverride = null)
         {
             SetMySeat(0);
             var stage = TutorialData.ByIndex(stageIndex);
@@ -2334,7 +2483,7 @@ namespace CardPresentation
             Begin(myFaction: myFaction, foeFaction: foeFaction, seed: TutorialSeed,
                   myDeck: deckPlayer, foeDeck: deckFoe, deckNote: null,
                   vars: GameplayVariables.Tutorial, playMode: GameMode.Tutorial,
-                  tutorial: script, exactMine: mine, exactFoe: foe);
+                  tutorial: script, exactMine: mine, exactFoe: foe, botSeatOverride: botSeatOverride);
 
             // ============================================================
             //  🆕 2026-10-18（A940）：**教程表现层**在这一刻挂上（原版 = `_TutorialStartSequence` 那一支）
@@ -2485,7 +2634,19 @@ namespace CardPresentation
                           PlayerDeck myDeck = null, PlayerDeck foeDeck = null, string deckNote = null,
                           GameplayVariables vars = null, GameMode? playMode = null,
                           TutorialScript tutorial = null,
-                          List<CardDef> exactMine = null, List<CardDef> exactFoe = null)
+                          List<CardDef> exactMine = null, List<CardDef> exactFoe = null,
+                          // 🆕 2026-10-19（A1087）：**本局「哪一个座位是电脑」由调用方指定**（放录像时 =
+                          //   录像头那一格，见 `PlayReplay()`）。不传（`null`）= 退回老口径
+                          //   `AiShouldDriveOpponent`，与加这个参数之前**逐字等价**。
+                          int? botSeatOverride = null,
+                          // 🆕 2026-10-19（A1100）：**本局先手也由调用方指定**（联机开局 / 重连重建 /
+                          //   放录像时 = 开局包那一格 `pb.FirstSeat`，调用点 = `BeginFromPendingCore`）。
+                          //   不传（`null`）= `ForceFirstSeat ?? FirstSeatForSeed(seed)` = 老口径，**逐字等价**。
+                          //   🔴 **为什么要开这个形参**：`ForceFirstSeat` 是**自检的钉子**（见那个字段的注释），
+                          //     而 `BeginFromPendingCore` 原来**往它里面写**（`= pb.FirstSeat`）⇒ 打一局联机 /
+                          //     放一局录像之后，**下一局单机**沿用上一局的绝对座位、**先手不掷硬币**
+                          //     （跨局泄漏；对局可复现受损）⇒ 产品改走**显式形参**，那个字段退回「只许自检写」。
+                          int? firstSeatOverride = null)
         {
             if (tutorial == null && (exactMine != null || exactFoe != null))
             {
@@ -2707,7 +2868,10 @@ namespace CardPresentation
             //   ⚠️ 换先手会连带改四件事（起始能量 / 防御卡给谁 / 加时判哪一边 / 谁先出牌）——
             //      那四处现在全走 `ctx.FirstSeat` / `ctx.SecondSeat`，**别再写死座位号**。
             //   ⏭ **还没做的**：投硬币的**表现**（动画/UI/音效）—— 我们现在只有结果，屏幕上什么都没有（`项目任务.md` §〇）。
-            int firstSeat = ForceFirstSeat ?? FirstSeatForSeed(seed);
+            // 🆕 2026-10-19（A1100）：**三级优先** —— ① 调用方显式指定（联机 / 重连重建 / 放录像）
+            //   ＞ ② 自检的钉子 `ForceFirstSeat` ＞ ③ **掷硬币**（`FirstSeatForSeed`，真 Play 那条路）。
+            //   ⛔ **产品一条都不许写 ②** —— 那正是本笔要修的跨局泄漏（`BeginFromPendingCore` 原来写它）。
+            int firstSeat = firstSeatOverride ?? ForceFirstSeat ?? FirstSeatForSeed(seed);
             // 🆕 2026-10-17（B29）：**教程局的先手由关卡说了算** —— 原版 `BattleManager.GetPlayerGoesFirst`
             //   的 `matchType == 100` 那一支就是取 `PlayerDataManager.currentTutorialStage.playerStarts`
             //   （`GetPlayerGoesFirst.c` 的 `LAB_18096a4b5` → `*(byte*)(stage + 0x28)`）。
@@ -2718,9 +2882,17 @@ namespace CardPresentation
                 Debug.Log($"[Battle] 教程局：先手 = {(firstSeat == 0 ? "玩家" : "AI")}"
                         + $"（关卡 `playerStarts = {tutorial.Stage.playerStarts}`）—— **不掷硬币**");
             }
+            // 🔴 **2026-10-19（A1087）：本局「哪一个座位是电脑」的判据只算这一次** ——
+            //   下面两处（**喂引擎** + **记进录像头**）共用这一个局部量。
+            //   · `botSeatOverride` 非空 ⇒ **照它**（放录像时它来自录像头那一格，见 `PlayReplay`）；
+            //   · 空 ⇒ 老口径 `AiShouldDriveOpponent`（`= _net == null`）= A1070 原样、**逐字等价**。
+            //   ⛔ **别在这句里现算 `AiShouldDriveOpponent`**：**放录像时 `_net` 恒 null** ⇒ 一份记着
+            //   「对手是真人（-1）」的录像会被当成「座位 1 是电脑（1）」⇒ 后手那张防御卡与随机流
+            //   全错位（`RuleCore.GoesSecondCard`）⇒ 回放演成另一局。
+            int botSeatThisGame = botSeatOverride ?? (AiShouldDriveOpponent ? 1 : -1);
             Ctx = RuleCore.NewBattle(myCards, foeCards, seed, shuffle: _shuffleDecks, cardPool: pool,
                                      openMulligan: mulliganEnabled, vars: _vars, firstSeat: firstSeat,
-                                     tutorial: tutorial);
+                                     tutorial: tutorial, botSeat: botSeatThisGame);   // A1070：单机（无联机层）⇒ 座位 1 是电脑
             // 🔴 **2026-10-15（A383）**：**本局真正的模式号落位**。
             //   ⚠️ 只能落在这里、**不能**塞进 `RuleCore.NewBattle` 的语义里 —— 那一层收的是
             //   「卡组 / 种子 / 参数」，模式号是**入口窗**的事（见 `_pendingPlayMode` 那段）。
@@ -2743,7 +2915,9 @@ namespace CardPresentation
                      //   所以「重放的是哪一档」与「当时打的是哪一档」**同一格字段**（原版
                      //   `MatchData.playMode` 也是随局存下去的那个数）。老录像里那两个字照样读得回。
                      PlayModeNames.Name(Ctx.PlayMode),
-                     UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
+                     UnityEngine.SceneManagement.SceneManager.GetActiveScene().name,
+                     // 🆕 2026-10-19（A1087）：开局那一格「谁是电脑」也进录像头（与上面 `NewBattle` 共用同一个值）。
+                     botSeatThisGame);
             // 🆕 2026-09-27（录像）：**AI 那半挂到引擎边界上**（`SimpleAI.Executed`）——
             //   AI 的动作有两个入口（产品的 `NextAction`+`ExecuteAction`、自检/兼容层的 `PlayTurn`），
             //   挂在调用点会漏掉一半。⚠️ 只记「对面那一侧」的动作（`ctx.Active != _me`），
@@ -6110,7 +6284,13 @@ namespace CardPresentation
                 return;
             }
             if (s.State == NetState.Off) return;   // = 原版 `if (state != 100)`：已经离开过就不再走一遍
-            s.Close(true, "对面离开了这一局");
+            // 🔴 **2026-10-19（P6d · A1038）**：传的是**词条键**（`NetSession.Close` 的 `reason` 已改成
+            //    「词条键」语义）—— 线上只发键、收侧 `NetWireText.Unpack` 按**它自己**的语言取词；
+            //    本机状态字（`SetState(Off, …)`）也走同一个键 ⇒ ⛔ 两半都不留裸串。
+            //    ⚠️ 键名 `Wire/PeerLeftMatch` 是**本族第 8 条**（原计划 7 条不含这一处）——
+            //      ZH 列 = 这一行的原话逐字 ⇒ **可见文案零变化**（⛔ 没并进 `Wire/PeerDone`：
+            //      那一条是「对面结束了这一局」，并过去等于**悄悄改掉这一跳的措辞**）。
+            s.Close(true, "Settings/Online/Wire/PeerLeftMatch");
             _leaveRoomCount++;
             Debug.Log("[Net] 离开房间：已给对面捎一句 `bye` 并关台"
                     + $"（本局累计 {_leaveRoomCount} 次；落点 = `BattleManager__LeaveBattle.c:46` → "
@@ -6232,7 +6412,19 @@ namespace CardPresentation
         /// 掷了硬币之后它们会**随机红**。给它们一个**显式钉住**的入口，比把十几条断言都改成按角色分支稳。
         /// 🔴 **钉住的是自检，不是产品**：真 Play（`ForceFirstSeat == null`）照旧掷硬币；
         ///    而**掷硬币那半边另有断言覆盖**（`BattleScene` 9b/9c 把它清成 `null` 之后按角色断）。
-        /// ⚠️ 语义：`ForceFirstSeat = 0` ⇒ **我方（座位 0）先手**。</summary>
+        /// ⚠️ 语义：`ForceFirstSeat = 0` ⇒ **我方（座位 0）先手**。
+        ///
+        /// <para>🔴 **2026-10-19（A1100）—— 这个字段只许自检写**（它被产品写过一次，是本工程踩过的坑）：
+        ///   `BeginFromPendingCore` 原来在这里写 `= pb.FirstSeat`，而它**没有清除口** ⇒
+        ///   打完一局**联机** / 放完一局**录像**之后，**下一局单机**（`Restart()` 或任何 `Begin`）
+        ///   会**沿用上一局的绝对座位** —— 先手**不掷硬币**（对局可复现受损）。
+        ///   ⇒ 产品现在走 `Begin(firstSeatOverride:)` 那条**显式形参**（联机开局 / 重连重建 / 放录像
+        ///   三档都走它，调用点只此一处）⇒ **这个字段一条产品写入都不许再有**
+        ///   （判据：全仓 `grep ForceFirstSeat` —— 写点只该剩 `BattleScene.cs` 那几处自检）。</para>
+        /// <para>⚠️ 所以它**不属于**「每局开头清一次」那一族（`Begin` 里 `_settled` / `_vars` / `_leaving`
+        ///   那一串）：自检把它当**钉子的载体** —— `BattleScene.BuildScene` 建 driver 时钉一次（`= 0`），
+        ///   之后那一整轮里几十次 `Begin` 都靠它。**每局清一次 = 把那几十条「回合流程」断言变成随硬币红绿。**
+        ///   要清就清**调用方**那一侧（9b / 9c 就是这么拔钉子的）。</para></summary>
         public int? ForceFirstSeat;
 
         /// <summary>
@@ -7305,14 +7497,10 @@ namespace CardPresentation
         /// <summary>
         /// 这个单位的**替代行动**关键词（`Duty` / `Pray` / `Ferocity` / `Agenda`；没有 = null）。
         /// 实测全卡池**没有一张卡同时带两个**（见 `RuleCore.AvailableAlternative` 的注释）⇒ 取第一个就够。
+        /// 🔴 **判据不在这里** —— 转发到 `RuleCore.AlternativeActionKeyword`（原来两边各写一遍；
+        ///    技能路的致死预览也要用它挑「这一手到底走哪条来源」，再写第二份迟早不一致）。
         /// </summary>
-        string AltActionOf(UnitState u)
-        {
-            if (u == null || u.Card == null) return null;
-            foreach (string k in RuleCore.AlternativeActions)
-                if (u.Has(k) && u.Card.TriggerOps(k) != null) return k;
-            return null;
-        }
+        string AltActionOf(UnitState u) { return RuleCore.AlternativeActionKeyword(u); }
 
         /// <summary>🆕 2026-09-16 这个单位**有没有誓约能力**（卡面 `Oath N: …`）。
         /// 有就是「主动技能」那一格可以走誓约那条路（判据仍在引擎：`RuleCore.CanUseOathAbility`）。
@@ -7615,18 +7803,28 @@ namespace CardPresentation
         /// **外加**「这一下会打死它」那个图标（原版 `CardHighlight.minionWillDieObject`）。
         ///
         /// 🔴 **两条判据都不在这里重写**：能不能打 = `LegalTargetCode`（`UpdateReticle` 进来之前已判过）；
-        ///   打不打得死 = `RuleCore.WouldKill` + **`RuleCore.FieldAttack`** —— 后者正是真打出去时
-        ///   `DeclareAttack` 用的那一份攻击力（`RuleCore.cs` 的 `FieldAttack`）⇒ **预览与实际不可能分叉**。
-        /// ⚠️ **主动技能那一路我们还没接** —— 🔴 **2026-09-29 已查实原版是算的**（不是「不显示」）：
-        ///   原版 `CardHighlight.ToggleCombatPreviewHighlight` 的**伤害是一个 List&lt;int>**（外加一张并行的
-        ///   `List&lt;DamageType>`），技能走 `formUnityAbility` 那支 → `EntityScript.GetActiveAbilityDamage()`
-        ///   （遍历 ability 里 trigger 10/15/12、effectId 0x1e 的 `+0x14` 累加），**和我们这条 `FieldAttack` 是两回事**。
-        ///   ⚠️ 而且它**逐条扣护甲**（`Max(1, dmg − armour)` **每条各扣一次**），还会追加
-        ///   `CurrentShuriken` / `CurrentMarkerlight` 两条独立条目 ⇒ 多条小伤害的边界上与我们**必然不同**。
-        ///   ⇒ **我们这条用的是引擎自己的预测**（`RuleCore.WouldKill` ↔ `ApplyDamage` 共用
-        ///   `DamageAfterReduction` 那一份公式）—— 好处是**预览与实际不可能分叉**，
-        ///   代价是与原版在「多条目」那几种情形下不一致。**技能那一路记成待办**（判据全文 →
-        ///   `资料/待办判据_战场与战斗视图.md` §8b 的 Q1 那节），不是不做。</summary>
+        ///   打不打得死 = `RuleCore.WouldKillByEntries` —— 伤害条目由引擎那两份聚合口给
+        ///   （攻击路 `RuleCore.AttackDamageEntries` · 技能路 `RuleCore.ActiveAbilityDamageEntries`）。
+        /// 🆕 **2026-10-08（`W8b3`）：主动技能那一路【接上了】，而且判死改成原版的【逐条】口径。**
+        ///   改之前两条与原版不符的，都已改掉：
+        ///   ① 🔴 **技能路整条被排除**（旧判据 `_command != AttackKind.Ability`）⇒ 技能路那层
+        ///      **永远不亮**。原版是**算的**：`CardHighlight__ToggleCombatPreviewHighlight.c:86-92`
+        ///      的技能支走 `EntityScript.GetActiveAbilityDamage`，结果同样喂给判死那个函数。
+        ///   ② 🔴 **判死把「已求和的那一个数」当成一条打**（旧判据 `RuleCore.WouldKill` →
+        ///      `DamageAfterReduction`）。原版判死是**逐条**跑的
+        ///      （`CardScript__EnoughPendingDamageToDieWithDamageValues.c:115-156`）：
+        ///      `dodge`/`shield` 只跳过**第 0 条**、`invulnerable` 跳过任意条、
+        ///      **护甲每条各扣一次**；而伤害本来就是一个 `List<int>`
+        ///      （主伤害 → 星镖 → 标记光三条各自一条，`ToggleCombatPreviewHighlight.c:53-81`）。
+        ///      ⇒ 逐条口径的全文与出处 → `RuleCore.DamageAfterReductionOne` 上面那一段。
+        ///
+        /// ⚠️ **预览与实际由此分成两份口径**（合计版仍是 `ApplyDamage` 读的那一份，**没动**）——
+        ///     这不是分叉，是照原版：原版**判死**逐条、**结算**是另一条路。
+        ///     ⚠️ 仍**跟着我们自己的实现走**的两处（不是照抄原版那一支，如实标着）：
+        ///     · 标记光只在**远程**才追加一条（原版那支没判远程，我们的实际伤害判了）；
+        ///     · 星镖 / 标记光两条在原版里**追加在末尾**，与我们实际结算的**先后**不同
+        ///       （我们实际是「哨戒 → 星镖 → 主伤害」）—— 只影响**哪一条被盾/闪避挡下**，
+        ///       不影响总伤害。两处都写在 `RuleCore` 的注释里。</summary>
         void SetReticleTarget(int side, int slot, CardView view)
         {
             if (_reticleTarget != null && _reticleTarget != view)
@@ -7638,14 +7836,24 @@ namespace CardPresentation
             view.SetHighlight(CardHighlightState.SelectedTargetInBoard);
 
             bool willDie = false;
-            if (Ctx != null && _selectedSlot >= 0 && _command != AttackKind.Ability)
+            if (Ctx != null && _selectedSlot >= 0 && _command != AttackKind.None)
             {
                 var u = Ctx.Players[side].Board[slot];
                 var atk = Ctx.Players[_me].Board[_selectedSlot];
-                if (u != null && atk != null)
-                    willDie = RuleCore.WouldKill(u, RuleCore.FieldAttack(Ctx, _me, atk, _command == AttackKind.Ranged));
+                if (u != null && atk != null) willDie = RuleCore.WouldKillByEntries(u, DamageEntriesFor(side, slot));
             }
             view.SetWillDie(willDie);
+        }
+
+        /// <summary>这一手打在 `(side, slot)` 那个单位上的**全部伤害条目**（原版那张 `List&lt;int&gt;`）。
+        /// 技能路与攻击路各一个聚合口，两份判据的全文在 `RuleCore` 那两个函数上面
+        /// （`ActiveAbilityDamageEntries` / `AttackDamageEntries`）。</summary>
+        List<int> DamageEntriesFor(int side, int slot)
+        {
+            if (_command == AttackKind.Ability)
+                return RuleCore.ActiveAbilityDamageEntries(Ctx, _me, _selectedSlot, side, slot);
+            return RuleCore.AttackDamageEntries(Ctx, _me, _selectedSlot, side, slot,
+                                                _command == AttackKind.Ranged);
         }
 
         /// <summary>指针离开目标：两样一起收（退回 `ValidTarget` · 关掉图标）。</summary>
@@ -9789,6 +9997,11 @@ namespace CardPresentation
             LastSignals.Clear();
             LastSignals.AddRange(_signalBuf);
 
+            // 🆕 2026-10-18（§8b · 2b）：**疲劳 → 错误横幅**。判据（为什么要自己挑、六道闸是什么）
+            //   全在 `NoteFatigueBanners` 的 doc 里。⚠️ 放在**排时间线之前**：原版那条提示也在
+            //   「扣血之前」（`_ResolveFatigue` 里 `ShowError` → `WaitForSeconds(0.5)` → 才 `DealMultiDamage`）。
+            NoteFatigueBanners(_signalBuf);
+
             // **不立刻全播** —— 按 `EventTiming` 排一条时间线，让动作一段段来。
             // 以前是同一帧把整串一起点着，看着就是「一坨特效」，读不出「谁先谁后」。
             BattleEvent prev = null;
@@ -9877,6 +10090,11 @@ namespace CardPresentation
             //       挂在 `Update` 里就成了「真包能跑、自检永远推不动」的实现。
             if (_chatPopup != null) _chatPopup.Advance(dt);
             if (_chatCooldown > 0f) _chatCooldown = Mathf.Max(0f, _chatCooldown - dt);
+
+            // 🆕 2026-10-18（§8b · 2b）：**错误横幅**（原版 `UI Error Message Controller` 那三条 tween）
+            //   也走这个泵 —— 同 `TickOvertime` 的理由：批处理没有帧循环，挂在 `Update` 里就
+            //   「真包能跑、自检永远推不动」。三段时长（0.15 / 2.0 / 0.25）在 `ErrorMessageBanner` 里。
+            if (_errorBanner != null) _errorBanner.Advance(dt);
 
             // ⚠️ 取**「到点的事件里最早的那条」**，而不是只看队头：
             //    队头要是排在未来（上一局的残留、或者新一批事件的起始时刻比待播的那条还早），
@@ -11666,6 +11884,15 @@ namespace CardPresentation
 
             // 🆕 选牌 / 选效果面板（原版 `ChooseCardMenu`）。平时关着，玩家出的卡要「问」时才开
             _choosePanel = ChoosePanel.Create(root);
+
+            // ---- 🆕 2026-10-18（§8b 批 B · 2a / 2b）：**原版 Canvas 直子那三件** ----
+            // 原版层级：`BattleHud/Canvas/{Aspect Ratio Filler Top, Aspect Ratio Filler Bottom,
+            //            BackCanvas, FrontCanvas, BattleDoors, Tutorial highlight, Anim Anchors,
+            //            UI Error Message Controller (MUST BE ENABLED)}` —— `RT_2759.m_Children` 实读。
+            // 我们的 `HudRoot` = 原版 `BattleHud` 那一级（没有 uGUI Canvas 节点）⇒ 三件都挂它下。
+            BuildAspectRatioFillers(root);
+            BuildErrorBanner(root);
+            BuildScreenAspectRatioController();
         }
 
         // ==================================================================
@@ -12208,6 +12435,201 @@ namespace CardPresentation
                 if (_overtime != null) _overtime.gameObject.SetActive(false);
             }
             SetOvertimeAlpha(a);
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-18（§8b · 2a）`Aspect Ratio Filler{Top,Bottom}` —— 两枚纯黑 quad
+        // ==================================================================
+
+        /// <summary>建原版 **`Aspect Ratio Filler Top` / `Aspect Ratio Filler Bottom`**（**13/13 战场都有**）。
+        ///
+        /// <para>🔴 **原版判据（逐位，全是实读）**：
+        /// `assets_full/bundle_scenes_scenes_battlearena1/GameObject/Aspect Ratio Filler {Top,Bottom}.json`
+        /// ＋ `RectTransform/RectTransform_{3021,2916}.json` ＋ `MonoBehaviour/MonoBehaviour_{5038,5206}.json`：
+        /// · `RectTransform`：`anchor = pivot = (0.5,0.5)` · `sizeDelta` **3252.123046875 × 1842.02001953125** ·
+        ///   Top `anchoredPosition (0.0006713899783790112, 1641.0999755859375)`、
+        ///   Bottom `(−3.051800013054162e-05, −1641.0999755859375)` · 父 = Canvas 自己的 RT（`RectTransform_2759`）；
+        /// · `Image`：`m_Sprite` = **null**（`m_PathID 0`）· `m_Color` = **(0,0,0,1)** ·
+        ///   `m_RaycastTarget` = **0** · `m_Type = 0`(Simple) · `m_Material` = null。
+        /// ⇒ 我们这边 = `Texture2D.whiteTexture`（配 `SetTint` 画纯色，同 `_overtimeSplashBg` 那套）
+        /// ＋ **不接命中**（本工程没有 uGUI raycastTarget 这一层 —— 这两枚也从没进过任何命中判定）。</para>
+        ///
+        /// <para>⚠️ **它们在屏外 —— 这与原版一致，不是漏画**：中心距画布中心 ±1641.10、高 1842.02
+        /// ⇒ 内缘在 `1641.0999755859375 − 1842.02/2 = 720.089…`，而 16:9 画布半高只有 540
+        /// ⇒ **下缘落在屏幕上缘之外 180.09 px**。原版也要窄到 `< 4:3`（`CanvasScaler` 是
+        /// `ScaleWithScreenSize` + `match-width`，画布会变高）才可能露出来；**我们这套坐标的可见高恒
+        /// 10 世界单位**（`LayoutSpace`）⇒ 照值摆它们**恒在屏外**。⇒ 本件建它们的意义 =
+        /// **存在性与参数逐值一致**（原版 13/13 都有这两颗，`m_IsActive` 都是 true）；
+        /// 真正的黑边由 <see cref="BuildScreenAspectRatioController"/> 写相机 rect + `GL.Clear` 产生。</para>
+        ///
+        /// <para>⚠️ **分层（等价物，如实标）**：原版这两颗是 Canvas 的**头两个子件**（`RT 2759.m_Children[0..1]`，
+        /// 排在 `BackCanvas`/`FrontCanvas`/`BattleDoors` 之前）⇒ **画在所有 UI 之下**。
+        /// 我们没有 uGUI 的兄弟序 ⇒ 等价物 = **渲染队列**（`CLAUDE.md` §三）+ 一个**很靠后**的 z：
+        /// 队列 `2999`（HUD 全族是默认 3000 起）、z = `+5`（相机看 +Z ⇒ z 越大越远）。</para>
+        /// ✍️ 该藏的时候：**永远不用藏** —— 原版这两颗 `m_IsActive` 13/13 都是 `true`、也没有任何代码开关它们
+        /// （全库按名 grep 0 命中，见报告 §五）。它们「看不见」是**几何**造成的，不是显隐。</summary>
+        void BuildAspectRatioFillers(Transform root)
+        {
+            const int QFiller = 2999;         // 比 HUD 全族的 3000 小 ⇒ 垫在最底下
+            const float ZFiller = 5f;         // 相机看 +Z ⇒ z 越大越远（HUD 文字 0 / 图 0.3 / 装饰 0.6）
+
+            // 自上而下的 px：Top = 540 − 1641.0999755859375、Bottom = 540 + 1641.0999755859375
+            float topY = LayoutSpace.DesignPxH * 0.5f - AspectFillerTopY;
+            float botY = LayoutSpace.DesignPxH * 0.5f - AspectFillerBottomY;
+            float topCx = LayoutSpace.DesignPxW * 0.5f + AspectFillerTopX;
+            float botCx = LayoutSpace.DesignPxW * 0.5f + AspectFillerBottomX;
+
+            _aspectFillerTop = BuildOneAspectFiller(root, "Aspect Ratio Filler Top", topCx, topY, QFiller, ZFiller);
+            _aspectFillerBottom = BuildOneAspectFiller(root, "Aspect Ratio Filler Bottom", botCx, botY, QFiller, ZFiller);
+        }
+
+        ImageQuad BuildOneAspectFiller(Transform root, string name, float cxPx, float cyPx, int queue, float z)
+        {
+            var q = ImageQuad.Create(root, Texture2D.whiteTexture, LayoutSpace.FromPixel(cxPx, cyPx),
+                                     Px(AspectFillerH), new Vector2(0.5f, 0.5f), name);
+            if (q == null)
+            {
+                Debug.LogWarning("[Battle] 🔴 `" + name + "` 建不出来（`ImageQuad.Create` 回了 null）"
+                               + " —— 原版 13/13 战场都有这一颗，别静默");
+                return null;
+            }
+            q.SetAspect(AspectFillerW / AspectFillerH);          // 原版是 `m_Type = 0`(Simple) + 没有图 ⇒ 按矩形拉伸
+            q.SetTint(new Color(0f, 0f, 0f, 1f));                // `m_Color = (0,0,0,1)`
+            q.SetRenderQueue(queue);
+            q.transform.localPosition += new Vector3(0f, 0f, z);
+            return q;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-18（§8b · 2a 的机制那半 + 2b）两件挂 `BattlePrefab` / `Canvas` 上的件
+        // ==================================================================
+
+        /// <summary>建原版 **`ScreenAspectRatioController`**（挂 GO `BattlePrefab` 上）。
+        /// 我们挂在**驱动自己那个 GO**（= 场景根 `Battle`，就是原版 `BattlePrefab` 的对应物）。
+        /// <para>⚠️ **批处理下 `Start` 跑不跑没有定论**（本赛季的既有口径）⇒ 建完**显式调一次
+        /// `Attach()`**（它自己幂等，见那件的文件头 A）。</para>
+        /// <para>✍️ 该藏的时候：这件**没有显隐**（原版也没有）—— 它只写 `Camera.rect`；
+        /// 比例回到 [min,max] 之内时它把 rect 写回**整幅 (0,0,1,1)**（就是「藏」）。</para></summary>
+        void BuildScreenAspectRatioController()
+        {
+            if (cam == null && boardCam == null)
+            {
+                Debug.LogWarning("[Battle] 两台相机都是 null ⇒ **不建 `ScreenAspectRatioController`** —— "
+                               + "比例超出 [4:3, 22:9] 时的黑边这一档没有落点（原版那件挂在 `BattlePrefab` 上）。");
+                return;
+            }
+            _aspectRatio = gameObject.AddComponent<ScreenAspectRatioController>();
+            // 原版 `targetCameras = [Camera_1461(3D BoardCamera), Camera_1462(UI 相机)]` —— **顺序照原版**
+            _aspectRatio.SetTargetCameras(boardCam, cam);
+            _aspectRatio.Attach();
+        }
+
+        /// <summary>建原版 **`UI Error Message Controller (MUST BE ENABLED)`**（判据 → `ErrorMessageBanner.cs`）。
+        /// <para>✍️ 该藏的时候：**5 条各自演完自己关**（`0.15 + 2.0 + 0.25 = 2.25 s` ⇒ `SetActive(false)`，
+        /// 同原版 `OnComplete`）；建出来时**全关着**（原版 `Awake` 也是：模板先关、再从它克隆 5 份）。
+        /// 原版**没有**任何「换局清横幅」的代码 ⇒ 我们也不加（自检口 <see cref="ErrorMessageBanner.HideAll"/>
+        /// 留着但**生产路径不调**）。</para></summary>
+        void BuildErrorBanner(Transform root)
+        {
+            _errorBanner = ErrorMessageBanner.Create(root);
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-18（§8b · 2b）疲劳 → 错误横幅
+        // ==================================================================
+
+        /// <summary>`Battle/Tips/DamageFatigue{,Enemy}` 的**文案**（原版是 `String.Format(词条, 疲劳数)`）。
+        /// <para>🔴 **`Core/Loc.cs` 那张表是权威** —— 本件只做**转发**（同 <see cref="HandFullText"/> 的口径）：
+        /// 表里有这条键就走它、并按 `{0}` 填疲劳数；没有才用下面那两句兜底。
+        /// 📌 那张表补上这两条之后，兜底**自动失效、这里一个字都不用改**。</para>
+        /// <para>⚠️ **兜底两句是我们写的、⛔ 不是「原版就是这样」**：原版显示串在**远端 I2 表**
+        /// （本地 84 个 bundle 里没有 `localization_assets_all.bundle`）⇒ 正式文案拿不到（铁律 11 例外①）。</para>
+        /// <para>⚠️ 不是简单的 `return`：`string.Format` 遇到没有 `{0}` 的串**照旧返回原串**是错觉 ——
+        /// 串里若有别的花括号占位符（`{1}` …）它会**抛 `FormatException`** ⇒ 先判 `{0}` 在不在。</para></summary>
+        /// <param name="mine">true = 我方牌库抽空、false = 对手那侧（原版两条键就是这么分的）。</param>
+        /// <param name="fatigue">疲劳值（= 本次受到的伤害）。</param>
+        public static string DamageFatigueText(bool mine, int fatigue)
+        {
+            return DamageFatigueTextWithKey(mine ? DamageFatigueTerm : DamageFatigueEnemyTerm, mine, fatigue);
+        }
+
+        /// <summary>🆕 **两态判据本身**，键由调用方给（同 `HintForCodeWithKey` 那条先例）。
+        /// <para>🔴 **为什么要开这个口**：`Battle/Tips/*` 那族键**今天一条都不在 `Loc` 表里**
+        /// ⇒ **走单参那条路，「有键且表里有值」这一态今天根本构造不出来**，而 `Loc` 那张表**没有任何
+        /// 「按测试插一条」的口**（公开口只有 `HasEntry` / `EnOf`）⇒ 自检要钉「键在表里 ⇒ 走词条、
+        /// ⛔ 不是走兜底句」就必须能直接喂一个**确实在表里**的键。</para>
+        /// <para>⛔ **产品代码一律走单参那条**。</para></summary>
+        public static string DamageFatigueTextWithKey(string key, bool mine, int fatigue)
+        {
+            string s = (key != null && Loc.HasEntry(key))
+                     ? CardText.Term(key)
+                     : (mine ? (CardText.Zh ? "牌库已空 —— 督军受到 {0} 点疲劳伤害"
+                                            : "Deck is empty - the warlord takes {0} fatigue damage")
+                             : (CardText.Zh ? "对手牌库已空 —— 其督军受到 {0} 点疲劳伤害"
+                                            : "Enemy deck is empty - their warlord takes {0} fatigue damage"));
+            return s != null && s.Contains("{0}") ? string.Format(s, fatigue) : s;
+        }
+
+        /// <summary>把**本次 drain 到的事件**里那几条疲劳挑出来弹横幅（`PlaySignals` 每批调一次）。
+        /// <para>🔴 **为什么要自己挑**：我们引擎把疲劳**并进了 `EvtKind.Hit`**
+        /// （判据 = `RuleEngine/Core/BattleEvent.cs` 里 `EvtKind.Hit` 的 doc：「**含护盾挡下（Amount = 0）和疲劳**」；
+        /// 发出点 = `RuleCore.cs:1235`：`ctx.Emit(EvtKind.Hit, p, BoardSpec.WarlordSlot, ps.Warlord.Name, amount: ps.Fatigue)`）
+        /// —— **没有专用事件种类**，而 `RuleEngine/` **不在本件的白名单里**（⛔ 不许为它加一种）。
+        /// 原版那条链是 `BattleManager._ResolveFatigue` 直接调 `UIMessageController.ShowError`。</para>
+        /// <para>判据（六道闸，全在下面那段 if 里逐条写了理由）：
+        /// <c>Kind == Hit</c> ＋ <c>Slot == 4</c>(督军) ＋ <c>Amount ≥ 1</c> ＋
+        /// <c>Amount == 引擎里那一方的 Fatigue</c> ＋ <c>那一方牌库为空</c> ＋
+        /// <c>同批里没有一条 Attack 打的就是这一方的督军</c> ＋ <c>这个疲劳值还没弹过</c>。</para>
+        /// <para>⚠️ **这是我们的近似判据**（原版不需要猜 —— 它在那条协程里）⇒ 如实标两条已知偏差：
+        /// ① 它可能把「牌库刚好空的同一刻、一次伤害量正好等于疲劳值的攻击」误判成疲劳；
+        /// ② 一次抽多张而牌库空两次时，两条事件**在 drain 时读到的 `Fatigue` 都是最后一个值**
+        /// ⇒ 只有最后那一条过得了 `e.Amount == ps.Fatigue` 那道闸，**只会弹一条横幅**（值是对的）。
+        /// 真值只能等引擎侧单开一种事件（要动 `RuleEngine/`，不在本件白名单）。</para></summary>
+        void NoteFatigueBanners(List<BattleEvent> batch)
+        {
+            if (Ctx == null || batch == null) return;
+            for (int i = 0; i < batch.Count; i++)
+            {
+                var e = batch[i];
+                if (e == null || e.Kind != EvtKind.Hit) continue;
+                if (e.Player < 0 || e.Player > 1) continue;
+                if (e.Slot != BoardSpec.WarlordSlot) continue;      // 只有**督军**挨的那一条（槽位恒 4）
+                if (e.Amount < 1) continue;                          // 0 = 被挡下，不是疲劳
+
+                var ps = Ctx.Players[e.Player];
+                if (ps == null) continue;
+                if (ps.Fatigue < _fatigueShown[e.Player]) _fatigueShown[e.Player] = 0;   // 新一局（疲劳回 0）⇒ 记账跟着清
+                if (e.Amount != ps.Fatigue) continue;                // 疲劳伤害的数值**恒等于**那个计数
+                if (ps.Deck == null || ps.Deck.Count != 0) continue; // 只有牌库空才谈疲劳
+                if (e.Amount <= _fatigueShown[e.Player]) continue;   // 这个值已经弹过（防同一值弹两次）
+
+                bool looksLikeAttack = false;
+                for (int k = 0; k < batch.Count; k++)
+                {
+                    var a = batch[k];
+                    if (a != null && a.Kind == EvtKind.Attack
+                        && a.TargetPlayer == e.Player && a.TargetSlot == BoardSpec.WarlordSlot)
+                    { looksLikeAttack = true; break; }
+                }
+                if (looksLikeAttack) continue;                       // 那一刀打的也是这个督军 ⇒ 不算疲劳
+
+                _fatigueShown[e.Player] = e.Amount;
+                if (_errorBanner != null)
+                    _errorBanner.ShowError(DamageFatigueText(e.Player == _me, e.Amount));
+                else
+                    Debug.LogWarning("[Battle] 疲劳 " + e.Amount + " 点发生了，但**错误横幅没建出来**"
+                                   + " ⇒ 原版这一刻会弹 `Battle/Tips/DamageFatigue`（不许静默）");
+            }
+        }
+
+        /// <summary>自检口：直接喂一个合成事件走一遍疲劳判据（批处理里构造真疲劳要打完一整副牌库）。
+        /// ⛔ **产品代码不调它**；它调的是**同一个** <see cref="NoteFatigueBanners"/>。</summary>
+        public void NoteFatigueBannersForTest(List<BattleEvent> batch) { NoteFatigueBanners(batch); }
+
+        /// <summary>自检口：那一方的疲劳记账值（「弹到几了」）。</summary>
+        public int FatigueShownForTest(int player)
+        {
+            return (player >= 0 && player < _fatigueShown.Length) ? _fatigueShown[player] : -1;
         }
 
         /// <summary>

@@ -177,6 +177,12 @@ namespace CardPresentation
         public const string ArtCloseIcon = "40k_general_bt_yellow_close"; // 71² · Simple · PA（同框，画在上面）
         public const string ArtCloseHover = "40k_general_bt_yellow_hover";
         public const string ArtClosePressed = "40k_general_bt_yellow_pressed";
+        /// <summary>🔴 **2026-10-18（A1053）**：关窗钮那两颗子件（`Background` / `Icon`，同矩形 `CloseArtR`）
+        /// **自己的** `m_RaycastPadding`（原版实读 `(-20)⁴`；L,B,R,T · **负 = 外扩**）⇒ 命中区 =
+        /// 子件矩形外扩 20 = **96.86 × 98.13**（⛔ 不是根矩形 `CloseR` 的 74.386×75.605）。
+        /// 算式只走 `MenuDraw.PaddedRect`；口径 → `普查_全仓命中区与关闭键族.md` §〇-1。
+        /// ⚠️ 本扇**不在 `menus` 包**，判据要用 `bundle_generalgamewindows_assets_all`。</summary>
+        static readonly Vector4 ClosePad = new Vector4(-20f, -20f, -20f, -20f);
         /// <summary>`input` 的底：`40K_dropdown_bg`（119×102 · 九宫 23,20,23,20 · Sliced ·
         /// 🔴 `ppuMul = 1.6399999856948853` ⇒ 画出来的角块 = `border ÷ 1.64`，走 `Nine` 的 `borderOutPx`）。</summary>
         public const string ArtInputBg = "40K_dropdown_bg";
@@ -379,11 +385,24 @@ namespace CardPresentation
             // ---- ③ 关窗钮：**一颗节点带 Image + 两个孩子**（原版就是三层；`Background` 与 `Icon` 同框）----
             var closeQ = Rect(_window, ArtCloseBase, CloseR, "Generic Close Button Orange", QClose, null, true);
             var close = closeQ != null ? closeQ.transform : MenuDraw.Node(_window, "Generic Close Button Orange", CloseR);
-            Rect(close, ArtCloseBg, CloseArtR, "Background", QClose, null, true);
+            var closeFaceQ = Rect(close, ArtCloseBg, CloseArtR, "Background", QClose, null, true);
             Rect(close, ArtCloseIcon, CloseArtR, "Icon", QClose, null, true);
-            // 换图落在**圆底那一层**（原版 `m_TargetGraphic` = 它自己那颗 `Image`；HL/P 逐颗实读）。
-            MenuDraw.Hit(close, "Hit", CloseR, QHit, () => Close(), closeQ,
-                         ArtCloseBase, ArtCloseHover, ArtClosePressed);
+            // 🆕 **2026-10-18（A1058 · 第六会话批 2）**：换图那一层 = **子件 `Background`**（`closeFaceQ`，
+            //   画的是 `ArtCloseBg` = `40k_general_bt_yellow`），⛔ **不是圆底盘 `closeQ`**。
+            //   判据（原版 prefab 亲读；⚠️ 本扇**不在 `menus` 包**，在 `bundle_generalgamewindows_assets_all`）=
+            //   `python -I d:/tmp/wf_hit/rcunion.py bundle_generalgamewindows_assets_all "Referral Popup" --depth 8`：
+            //   根 `window/Generic Close Button Orange` 那颗 `EverguildButton` 的
+            //   **`m_TargetGraphic` = pid3742414456971352868**；解该 pid ⇒ **所属 GO 名 = `Background`**、
+            //   贴图 pid `5693181797853584851` → `40k_general_bt_yellow`（`d:/4/_tmp_view/sprite_pids_ALL.json`）。
+            //   ⚠️ **2026-10-18 更正（铁律 5）**：原注释写「`m_TargetGraphic` = 它自己那颗 `Image`」——
+            //   **那句是错的**（错因 = 只读了 `m_Transition`）。
+            // 🆕 **2026-10-18（A1053 · 第六会话批 2）**：**命中区**归真值 —— 原版圆底盘
+            //   `m_RaycastTarget = 0`，吃射线的是同矩形两颗子件（56.86×58.13）按 `(-20)⁴` 外扩
+            //   ⇒ **96.86 × 98.13**；改前传根矩形 `CloseR`（74.386×75.605）⇒ 每边小 11.2。
+            //   判据 = `python -I d:/tmp/wf_hit/rcpad.py bundle_generalgamewindows_assets_all "Referral Popup"
+            //   --depth 8 --substr "Generic Close Button"`（实读 `96.86 x 98.13`）。
+            MenuDraw.Hit(close, "Hit", MenuDraw.PaddedRect(CloseArtR, ClosePad), QHit, () => Close(), closeFaceQ,
+                         ArtCloseBg, ArtCloseHover, ArtClosePressed);
 
             // ---- ④ `content` 那一列（**兄弟序照 `m_Children`**）----
             _content = MenuDraw.Node(_window, "content", ContentR);

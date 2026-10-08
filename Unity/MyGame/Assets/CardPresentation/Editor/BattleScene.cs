@@ -4640,6 +4640,29 @@ public static class BattleScene
                 var ac = driver.reticle.CrossColor;
                 Check(ac.r > 0.8f && ac.g > 0.6f && ac.b < 0.4f,
                       $"技能 → 准星金（{ac.r:F2},{ac.g:F2},{ac.b:F2}，原版 attackType=3/4）");
+
+                // ---- 🆕 2026-10-08（`W8b3`）：**「会打死它」那层在【技能路】上也要亮** ----
+                //  判据 = 原版 `CardHighlight__ToggleCombatPreviewHighlight.c:86-92`：技能支
+                //    （`param_5 != '\0'`）走 `EntityScript.GetActiveAbilityDamage`，算出来的数
+                //    **同样喂给** `CardScript.EnoughPendingDamageToDieWithDamageValues` 判死。
+                //  ⛔ 改之前我们在 `SetReticleTarget` 里把 `AttackKind.Ability` **整条排除**了
+                //    （旧判据 `_command != AttackKind.Ability`）⇒ 技能路那层**永远不亮**。
+                //  Ironclad 的技能 = `Ability: Damage 2 EnemyUnit`（`StarterCards.cs:64-65`）
+                //    ⇒ 2 点：打 1 血 = 会死；打 99 血 = 不会死。
+                var abFoe = ctx.Players[1].Board[foeSlot];
+                var abView = driver.BoardViewAt(foeSlot, false);
+                int abSaved = abFoe.Health;
+                abFoe.Health = 1;
+                driver.SimulatePointerAt(driver.FoeUnits[foeSlot].transform.position);
+                Check(abView != null && abView.WillDieVisible,
+                      "★ 技能路：技能伤害（2）够打死 1 血的目标 → 「这一下会打死它」那层**亮起来**"
+                    + "（原版技能支也算；改之前这层在技能路**永远不亮**）");
+                abFoe.Health = 99;
+                driver.SimulatePointerAt(driver.FoeUnits[foeSlot].transform.position);
+                Check(abView != null && !abView.WillDieVisible,
+                      "★ 技能路：2 伤打不掉 99 血 → 那层**不亮**（不是恒亮）");
+                abFoe.Health = abSaved;
+                driver.RefreshAll();
             }
             else Debug.Log(P + "   （Ironclad 这轮放不出技能，跳过金色那条）");
 
@@ -8649,10 +8672,22 @@ public static class BattleScene
                     var azComp = drv.AutoZoom;
                     bool azWasOn424 = AutoZoom.Enabled, azWasChosen424 = AutoZoom.ChosenManually;
 
-                    Check(sp.AutoZoomRowBuilt && sp.AutoZoomLabelText == SettingsPanel.AutoZoomLabelEn
-                       && sp.AutoZoomLabelText == "Auto zoom",
-                          $"★ A424：`Auto Zoom` 那一行建出来了、文字就是原版 TMP 印的那句"
-                        + $"（「{sp.AutoZoomLabelText}」，**小写 z**；判据 = `MonoBehaviour_3977.json` 的 `m_text`）");
+                    // 🔴 **2026-10-18 之后 · 第五会话【自检逮到并订正】（铁律 5）**：本条原来比
+                    //   `sp.AutoZoomLabelText == "Auto zoom"`（**写死的 EN 常量**）⇒ 那是
+                    //   `SettingsPanel.cs:612` **还没接词条**时的样子（2026-10-18 的 P4 已就地改）。
+                    //   接上之后标签跟**当前语档**走 ⇒ 中文档下印「自动缩放」⇒ **本行必红**
+                    //   （这一条 `资料/待办判据_第四会话.md` §A1031① **早预言过**，是本会话漏派）。
+                    //   ⇒ 改成：**当前语档**断 `Loc.T(键)`，另**单独钉 EN 列 = 原版 TMP 那句**。
+                    //   🧨 改坏法：① 把 `SettingsPanel.cs:622` 写回 `AutoZoomLabelEn` ⇒ **中文档**下第 1 条红；
+                    //              ② 把表里 EN 列改成「Auto Zoom」（大写 Z）⇒ 第 2 条红。
+                    Check(sp.AutoZoomRowBuilt
+                       && Loc.HasEntry(SettingsPanel.AutoZoomTermKey)
+                       && sp.AutoZoomLabelText == Loc.T(SettingsPanel.AutoZoomTermKey),
+                          $"★ A424：`Auto Zoom` 那一行建出来了、文字 = `Loc.T({SettingsPanel.AutoZoomTermKey})`"
+                        + $"「{Loc.T(SettingsPanel.AutoZoomTermKey)}」（= **当前语档**下那条词条；实得「{sp.AutoZoomLabelText}」）");
+                    Check(Loc.EnOf(SettingsPanel.AutoZoomTermKey) == SettingsPanel.AutoZoomLabelEn,
+                          $"★ A424：……而它的 **EN 列**就是原版 TMP 印的那句「{SettingsPanel.AutoZoomLabelEn}」"
+                        + $"（**小写 z**；判据 = `MonoBehaviour_3977.json` 的 `m_text`；实得「{Loc.EnOf(SettingsPanel.AutoZoomTermKey)}」）");
 
                     // ② 几何：面板内 px 原值（`RectTransform_3094…` 见 `SettingsPanel` 那组 `Az*` 常量）。
                     //    ⚠️ 只比**面板局部**的 x/y（z 是本工程自己的层序口径，没有原版判据）。
@@ -10269,9 +10304,32 @@ public static class BattleScene
             Check(Mathf.Abs(CardFeel.ChargeTime - 0.35f) < 1e-4f && Mathf.Abs(CardFeel.ChargeAngleDeg + 10f) < 1e-4f
                   && Mathf.Abs(CardFeel.ChargeBackModifier - 0.5f) < 1e-4f,
                   "蓄力 0.35s / 后仰 10° / 后撤系数 0.5（卡预制体 `timeToChargeAttack` 等三个字段）");
-            Check(Mathf.Abs(CardFeel.HitRotLightDeg - 3f) < 1e-4f
-                  && Mathf.Abs(CardFeel.HitRotDuration - 0.5f) < 1e-4f && CardFeel.HitRotVibrato == 7,
-                  "挨打的旋转 punch = 3° / 0.5s / vibrato 7（`Impact Light Tween`）");
+            // 🔴 **2026-10-18 之后 · 第五会话（§26 ⑨ · 用户裁定「甲」）**：期望值**从原版那条 punch 算**，
+            //   ⛔ **不读我们自己的常量**（否则就是自证）。判据 = 原版 `Impact Light Tween` 的 `PunchTween`
+            //   打的是 3D 的 `punch(-3,-3,0)`（`bundle_tweenandshakes_assets_all/MonoBehaviour/Impact Light Tween.json`），
+            //   我们 2D 只有一个 z 轴 ⇒ 口径 = **取模长** `|(-3,-3,0)| = √18 = 4.24264…`。
+            //   ⚠️ 旧期望 `3f` = 「最大分量」那个读法（注释却写着「模长」）⇒ 值与断言同波改成模长。
+            //   🧨 改坏法：把 `CardFeel.HitRotLightDeg` 写回 `3f` ⇒ 与 `Mathf.Sqrt(18)` 差 1.24 ⇒ 本条红。
+            {
+                var lightPunch = new Vector3(-3f, -3f, 0f);   // 原版 `punch(-3,-3,0)` 的字面量
+                Check(Mathf.Abs(CardFeel.HitRotLightDeg - lightPunch.magnitude) < 1e-3f
+                      && Mathf.Abs(CardFeel.HitRotDuration - 0.5f) < 1e-4f && CardFeel.HitRotVibrato == 7,
+                      $"★ 挨打的旋转 punch = |(-3,-3,0)|（**取模长**）= {lightPunch.magnitude:F4}° / 0.5s / vibrato 7"
+                    + $"（`Impact Light Tween`；实得 {CardFeel.HitRotLightDeg:F4}° —— 写回「最大分量」的 3f 就红）");
+            }
+            // 🆕 **2026-10-18 之后 · 第五会话**：**重击那一条原来一条断言都没有**（W9 查出，如实登记）。
+            //   判据 / 出处与上一条同（`Impact Heavy Tween` 的 `punch(-15,4,0)`），口径同 = **取模长**。
+            //   ⚠️ **精度档不同（如实记）**：轻击写 4 位小数（`4.2426`）、重击写 **一位小数**（`15.5` ≈ `15.5242`，差 0.024）。
+            //      这个不一致是**我们自己的取舍**（原版是 3D 向量、根本没这个标量数）⇒ 已登记，⛔ 别无声改掉。
+            //   🧨 改坏法：把 `HitRotHeavyDeg` 写成别的数（或退回「最大分量」的 `15`）⇒ 本条红。
+            {
+                var heavyPunch = new Vector3(-15f, 4f, 0f);   // 原版 `punch(-15,4,0)` 的字面量
+                Check(Mathf.Abs(CardFeel.HitRotHeavyDeg - heavyPunch.magnitude) < 0.05f,
+                      $"★ 重击的旋转 punch = |(-15,4,0)|（**取模长**）= {heavyPunch.magnitude:F4}°"
+                    + $"（`Impact Heavy Tween`；我们写一位小数 {CardFeel.HitRotHeavyDeg:F1}°、差 "
+                    + $"{Mathf.Abs(CardFeel.HitRotHeavyDeg - heavyPunch.magnitude):F3} —— "
+                    + "退回「最大分量」的 15 就红）");
+            }
             Check(Mathf.Abs(CardFeel.DeathDissolveMinion - 0.2f) < 1e-4f
                   && Mathf.Abs(CardFeel.DeathDissolveWarlord - 0.5f) < 1e-4f
                   && Mathf.Abs(CardFeel.DeathDissolve(false) - 0.2f) < 1e-4f
@@ -10951,9 +11009,26 @@ public static class BattleScene
                   "★ 标题行**带图标**（原版 `EverguildTraitTooltipItem` 比基础版多的就是图标 + 标题）");
             // 反例：规则书 61 条里没有的词 —— **只出名字 + 如实说明「没有解释」**，**不编一句解释**
             string ab = TipText.Trait("ability");
-            Check(ab != null && ab.Contains("技能") && ab.Contains("规则书里没有这个词的条目"),
-                  "★ 反例：自造词 `ability` 不在规则书 61 条里 ⇒ 只出名字 + **如实说「规则书里没有这个词的条目」**"
+            // 🔴 **2026-10-08（第六会话 · `Core双语-第一步`）就地改（铁律 5）**：期望值**从表里取**、
+            //   ⛔ 不再写死那句中文。原因：本批把那句括注接进了 `Core/Loc.cs`
+            //   （键 `Tips/Trait/NoRulebookEntry`）⇒ 它现在**跟语档走**，而语档是玩家设置
+            //   （本文件别处也按 `Loc.Current` 分支，见 `:3156`）⇒ 写死中文的话，
+            //   语档一旦不是中文这条会**假红**（不是缺陷）。
+            //   ⚠️ `ab.Contains("技能")` 那半**不动**：标题走 `CardText.KeywordZh`，它**没有语言闸**（恒中文）。
+            //   ⚠️ 键被删时会红（`Loc.T` 回键名本身）⇒ 这条**不静默**。
+            string noEntryNote = Loc.T("Tips/Trait/NoRulebookEntry");
+            Check(ab != null && ab.Contains("技能") && ab.Contains(noEntryNote),
+                  "★ 反例：自造词 `ability` 不在规则书 61 条里 ⇒ 只出名字 + **如实说「没有这个词的条目」**"
                   + "（不编解释）—— 实得「" + ab + "」");
+            // …而**中文列本身**仍是原来那句逐字（上面那条跟语档走 ⇒ 这一条单独把中文钉住）
+            {
+                var noEntryLangWas = Loc.Current;
+                Loc.RestoreForTest(AvailableLanguages.Chinese);      // ⛔ 只改内存（`RestoreForTest` 不写盘）
+                string noEntryZh = Loc.T("Tips/Trait/NoRulebookEntry");
+                Loc.RestoreForTest(noEntryLangWas);
+                Check(noEntryZh.Contains("规则书里没有这个词的条目"),
+                      $"★ 中文档下那句括注仍是原来那句（实得「{noEntryZh}」）—— 本笔只把它搬进语言表、**没改文案**");
+            }
             Check(TipText.Trait(null) == null && TipText.Trait("") == null,
                   "空键返回 null ⇒ 调用方**不弹面板**（连名字都凑不出来就什么都不显示）");
 
@@ -11277,6 +11352,390 @@ public static class BattleScene
                       "★ 播完**两个都收起来**（原版 `AppendCallback` 那条路 —— 它是「闪一下」，不是常亮）");
 
                 Shot(cam, "23_HUD补摆件");
+
+                // ==================================================================
+                //  🆕 2026-10-18（§8b 批 B · 2a / 2b 的**断言**）：原版 Canvas 直子那三件
+                //
+                //  生产代码 = `BattleDriver.BuildAspectRatioFillers` / `BuildErrorBanner` /
+                //  `BuildScreenAspectRatioController`（⛔ 这一节一个字都不改它）；判据全文写在
+                //  `Battle/ScreenAspectRatioController.cs` 与 `Battle/ErrorMessageBanner.cs` 的文件头。
+                //  ⛔ 期望值一律写**原版字面量**（连出处一起写），不读那两件里的常量 —— 读常量 = 自证。
+                // ==================================================================
+
+                // ---- 2a-① 两枚黑边 quad（原版 `Aspect Ratio Filler{Top,Bottom}`，13/13 战场都有）----
+                Debug.Log(P + "   --- §8b 2a：两枚黑边 quad ---");
+                {
+                    ImageQuad HudQuad(string n)
+                    {
+                        var t = drv.hudRoot != null ? drv.hudRoot.Find(n) : null;
+                        return t != null ? t.GetComponent<ImageQuad>() : null;
+                    }
+                    var topQ = HudQuad("Aspect Ratio Filler Top");
+                    var botQ = HudQuad("Aspect Ratio Filler Bottom");
+                    Check(topQ != null && botQ != null,
+                          "★ 两枚黑边 quad 都建出来了（原版 `Aspect Ratio Filler Top` / `… Bottom`，**名字逐字相同**）");
+                    if (topQ != null && botQ != null)
+                    {
+                        // 尺寸 = 原版 `RectTransform_{3021,2916}.json` 的 `sizeDelta`（**未取整**）
+                        Check(Mathf.Abs(topQ.WorldW * 108f - 3252.123046875f) < 0.02f
+                           && Mathf.Abs(topQ.WorldH * 108f - 1842.02001953125f) < 0.02f
+                           && Mathf.Abs(botQ.WorldW * 108f - 3252.123046875f) < 0.02f
+                           && Mathf.Abs(botQ.WorldH * 108f - 1842.02001953125f) < 0.02f,
+                              "★ 两枚都是原版那个矩形 **3252.123046875 × 1842.02001953125 px**（`sizeDelta` 逐位）——"
+                            + $" 实得 上 {topQ.WorldW * 108f:F3}×{topQ.WorldH * 108f:F3}"
+                            + $" / 下 {botQ.WorldW * 108f:F3}×{botQ.WorldH * 108f:F3}");
+
+                        // 中心 = 原版 `anchoredPosition`（上 `0.0006713899783790112 / 1641.0999755859375`、下同值取负）
+                        // 画布 1920×1080、y **从上** ⇒ 中心 = (960 + ap.x, 540 − ap.y)
+                        SettleShake();          // ⛔ 量世界坐标前必须先把震镜头收尾（见 `SettleShake` 的 doc）
+                        var pcTop = LayoutSpace.ToPixel(topQ.transform.position);
+                        var pcBot = LayoutSpace.ToPixel(botQ.transform.position);
+                        Check(Mathf.Abs(pcTop.x - 960.0006713899784f) < 0.05f
+                           && Mathf.Abs(pcTop.y + 1101.0999755859375f) < 0.05f
+                           && Mathf.Abs(pcBot.x - 960f) < 0.05f
+                           && Mathf.Abs(pcBot.y - 2181.0999755859375f) < 0.05f,
+                              "★ 两枚的中心落在**原版那个点**上（y 从上：上 (960.0007, −1101.1) / 下 (960.0, 2181.1)）——"
+                            + $" 实得 上 ({pcTop.x:F4},{pcTop.y:F4}) / 下 ({pcBot.x:F4},{pcBot.y:F4})");
+
+                        // 色 = `m_Color (0,0,0,1)`；队列 2999（HUD 全族从 3000 起 ⇒ 垫在最底下）+ z +5
+                        var cTop = topQ.Tint;
+                        Check(Mathf.Abs(cTop.r) < 1e-4f && Mathf.Abs(cTop.g) < 1e-4f && Mathf.Abs(cTop.b) < 1e-4f
+                              && Mathf.Abs(cTop.a - 1f) < 1e-4f,
+                              $"★ 纯黑不透明（原版 `m_Color (0,0,0,1)`）—— 实得 {cTop}");
+                        Check(topQ.RenderQueue == 2999 && botQ.RenderQueue == 2999
+                              && Mathf.Abs(topQ.transform.localPosition.z - 5f) < 1e-4f
+                              && Mathf.Abs(botQ.transform.localPosition.z - 5f) < 1e-4f,
+                              $"★ 垫在**最底层**：队列 {topQ.RenderQueue}（HUD 全族从 3000 起）+ z +5"
+                            + "（相机看 +Z ⇒ 更大 = 更远）—— 原版这两颗是 Canvas 的**头两个子件**");
+
+                        // 「看不见」是**几何**造成的，不是显隐 ⇒ **永远不该藏**（原版 `m_IsActive` 13/13 都是 true）。
+                        // 内缘 = 中心 ± 半高：上那枚下缘 −180.09（**在屏幕上缘之上 180 px**）、下那枚上缘 1260.09（> 1080）
+                        float halfTop = topQ.WorldH * 54f, halfBot = botQ.WorldH * 54f;   // WorldH/2 × 108
+                        float edgeTop = pcTop.y + halfTop, edgeBot = pcBot.y - halfBot;
+                        Check(topQ.gameObject.activeSelf && botQ.gameObject.activeSelf,
+                              "★ 两枚都**没有被关掉**（原版 `m_IsActive` 13/13 全是 true、全库没有任何代码开关它们）——"
+                            + " 看不见是**几何**造成的，⛔ 不是加了一个「藏起来」的开关");
+                        Check(edgeTop < 0f && Mathf.Abs(edgeTop + 180.0899658203125f) < 0.5f,
+                              "★ 上面那枚**整块在屏幕之上**（内缘落在 −180.09 px，= 540 − 720.09）——"
+                            + $" 实得内缘 {edgeTop:F3} px（负 = 在屏幕上缘之外）");
+                        Check(edgeBot > 1080f && Mathf.Abs(edgeBot - 1260.0899658203125f) < 0.5f,
+                              "★ 下面那枚**整块在屏幕之下**（内缘 1260.09 px > 1080）——"
+                            + $" 实得内缘 {edgeBot:F3} px");
+                        // 不接命中 = 原版 `m_RaycastTarget = 0`。本工程没有 uGUI 的射线系统：
+                        // 指针判定走**各颗钮自己的** `ImageQuad.Contains(...)`，而这两枚没接到任何一条上
+                        // ⇒ 可验的那一半 = 「它们身上没有 Collider」（另一半是结构性的，⛔ 别假装验到了）
+                        Check(topQ.GetComponent<Collider>() == null && botQ.GetComponent<Collider>() == null,
+                              "★ 两枚**都不接命中**（原版 `m_RaycastTarget = 0`）：身上没有任何 `Collider`");
+                    }
+                }
+
+                // ---- 2a-② `ScreenAspectRatioController`（原版挂 `BattlePrefab`）----
+                Debug.Log(P + "   --- §8b 2a：`ScreenAspectRatioController` ---");
+                {
+                    var aspCtl = drv.AspectRatioController;
+                    Check(aspCtl != null, "★ 比例控制器建出来了（原版这一件挂在 `BattlePrefab` 上）");
+                    if (aspCtl != null)
+                    {
+                        // 🔴 **两档要有区分**：原版 ctor 出厂值 (1.3333334 / 2.4444447) ≠ **场景那一档**
+                        //    (`MonoBehaviour_5148.json` 的 1.3333330154418945 / 2.444443941116333) ——
+                        //    我们取**场景那一档**（同 `BattleCameraSreenSize.sensorSizeXBigScreen` 那一族）
+                        const float MINASP = 1.3333330154418945f, MAXASP = 2.444443941116333f;
+                        Check(Mathf.Abs(aspCtl.MinAspectRatioTest - MINASP) < 1e-7f
+                           && Mathf.Abs(aspCtl.MaxAspectRatioTest - MAXASP) < 1e-7f
+                           && Mathf.Abs(aspCtl.MinAspectRatioTest - 1.3333334f) > 1e-7f
+                           && Mathf.Abs(aspCtl.MaxAspectRatioTest - 2.4444447f) > 1e-7f,
+                              $"★ 取的是**场景那一档** min {aspCtl.MinAspectRatioTest:F9} / max {aspCtl.MaxAspectRatioTest:F9}"
+                            + "（`MonoBehaviour_5148.json`）—— ⛔ **不是** ctor 那一档 1.3333334 / 2.4444447");
+
+                        // 两台相机都写、**顺序照原版** `[Camera_1461(3D), Camera_1462(UI)]`
+                        var tcs = aspCtl.TargetCameras;
+                        string cam0Name = (tcs != null && tcs.Length > 0 && tcs[0] != null) ? tcs[0].name : "null";
+                        string cam1Name = (tcs != null && tcs.Length > 1 && tcs[1] != null) ? tcs[1].name : "null";
+                        Check(aspCtl.TargetCameraCount == 2 && tcs != null && tcs.Length == 2
+                              && tcs[0] == drv.boardCam && tcs[1] == cam,
+                              $"★ 两台相机都写、顺序照原版：`[{cam0Name}, {cam1Name}]`"
+                            + "（原版 = `[Camera_1461(3D BoardCamera), Camera_1462(UI 相机)]`）");
+                        // 两条订阅（分辨率信号 + `beginCameraRendering`）—— 批处理里 `GL.Clear` 那条路验不了，
+                        // 能钉的只有「钩子接没接」（原版 `Start` 里那三句）
+                        Check(aspCtl.IsAttachedForTest && aspCtl.IsRenderingHookedForTest,
+                              "★ 两条订阅都挂上了（= 原版 `Start` 的②③：分辨率变了要重算 + 每台相机开渲之前清一次色）");
+
+                        // 纯函数四档：16:9 / 21:9 / **4:3** ⇒ 整幅；22.5:9 ⇒ 左右黑边；5:4 ⇒ 上下黑边
+                        var v169 = ScreenAspectRatioController.ComputeViewport(16f / 9f, MINASP, MAXASP);
+                        var v219 = ScreenAspectRatioController.ComputeViewport(21f / 9f, MINASP, MAXASP);
+                        var v43 = ScreenAspectRatioController.ComputeViewport(4f / 3f, MINASP, MAXASP);
+                        bool IsFull(Rect r)
+                        {
+                            return Mathf.Abs(r.x) < 1e-6f && Mathf.Abs(r.y) < 1e-6f
+                                && Mathf.Abs(r.width - 1f) < 1e-6f && Mathf.Abs(r.height - 1f) < 1e-6f;
+                        }
+                        // ⚠️ 4:3 = `1.333333373`，而场景 min = `1.333333015` ⇒ **4:3 比 min 大 3.6e-7**
+                        //    （余量极小 —— 这就是「别假设窄屏那一支一定恒等」的由来：真窄过 4:3 就该出黑边）
+                        Check(IsFull(v169) && IsFull(v219) && IsFull(v43),
+                              "★ 16:9 / 21:9 / 4:3 三档都落在 [min,max] **之内** ⇒ 视口写**整幅**（黑边不出现）——"
+                            + $" 实得 {v169} / {v219} / {v43}（⚠️ 4:3 = {4f / 3f:F9} 只比 min {MINASP:F9} 大 3.6e-7）");
+
+                        var vPill = ScreenAspectRatioController.ComputeViewport(2.5f, MINASP, MAXASP);      // 22.5:9
+                        Check(vPill.x > 0f && Mathf.Abs(vPill.y) < 1e-6f && Mathf.Abs(vPill.height - 1f) < 1e-6f
+                              && Mathf.Abs(vPill.x - 0.011111199855804443f) < 1e-6f
+                              && Mathf.Abs(vPill.width - 0.9777776002883911f) < 1e-6f,
+                              "★ 宽过 max（22.5:9）⇒ **左右**黑边：f = (1 − max/aspect)/2 = 0.0111112、宽 0.9777776 ——"
+                            + $" 实得 {vPill}（⚠️ 分子是 `1 − max/aspect`；⛔ 取另一支会整条反过来）");
+                        var vLetter = ScreenAspectRatioController.ComputeViewport(1.25f, MINASP, MAXASP);    // 5:4
+                        Check(vLetter.y > 0f && Mathf.Abs(vLetter.x) < 1e-6f && Mathf.Abs(vLetter.width - 1f) < 1e-6f
+                              && Mathf.Abs(vLetter.y - 0.0333331823348999f) < 1e-6f
+                              && Mathf.Abs(vLetter.height - 0.9333336353302002f) < 1e-6f,
+                              "★ 窄过 min（5:4）⇒ **上下**黑边：f = (min/aspect − 1)/2 = 0.0333332、高 0.9333336 ——"
+                            + $" 实得 {vLetter}（⚠️ 这一支的分子是 `min/aspect − 1`，与上面那一支**不是**同一个式子）");
+
+                        // 实况那条路：算一次 + 写一台/两台 + 把「清一次色」的标志置起来
+                        // ⚠️ 批处理没有帧循环 ⇒ `beginCameraRendering` 只在**显式渲图**时才抬（`Shot` 会）⇒
+                        //    ⛔ 别断「标志恒 true」，而是**当场调一次**再读它。
+                        int nAdj = aspCtl.AdjustedCount, nSet = aspCtl.SetCamerasRectCount;
+                        aspCtl.AdjustCameraViewport();
+                        Check(aspCtl.AdjustedCount == nAdj + 1 && aspCtl.SetCamerasRectCount == nSet + 1
+                              && aspCtl.ClearPendingForTest,
+                              "★ 调一次 `AdjustCameraViewport` ⇒ 算一次 + 写一次 rect + 把标志置起来"
+                            + "（原版 `__SetCamerasRect.c` 第一句就是**无条件**置 1，整幅那一档也置）");
+
+                        float liveAspect = Screen.width / Mathf.Max(1f, (float)Screen.height);
+                        var liveVp = aspCtl.CurrentViewport;
+                        var wantVp = ScreenAspectRatioController.ComputeViewport(liveAspect, MINASP, MAXASP);
+                        Check(Mathf.Abs(liveVp.x - wantVp.x) < 1e-6f && Mathf.Abs(liveVp.y - wantVp.y) < 1e-6f
+                              && Mathf.Abs(liveVp.width - wantVp.width) < 1e-6f
+                              && Mathf.Abs(liveVp.height - wantVp.height) < 1e-6f,
+                              "★ 实况那条路与纯函数**同一个结果**（= 全工程只有一处公式）——"
+                            + $" 写下去的是 {liveVp}、纯函数算的是 {wantVp}");
+                        // ★ 前提 + 它的「藏」：批处理这一档的比例 ≥ min ⇒ 写回整幅（= 与原版 16:9 下的观感一致）
+                        Check(liveAspect >= MINASP,
+                              $"★ 前提：批处理这一档的实况比例 {liveAspect:F9} ≥ min {MINASP:F9}（余量只有 4e-7 ——"
+                            + " 哪天批处理分辨率窄过 4:3，下面那条「整幅」的期望值就要跟着改，那时黑边是**该出现**的）");
+                        Check(Mathf.Abs(liveVp.x) < 1e-6f && Mathf.Abs(liveVp.y) < 1e-6f
+                              && Mathf.Abs(liveVp.width - 1f) < 1e-6f && Mathf.Abs(liveVp.height - 1f) < 1e-6f,
+                              $"★ 比例在 [min,max] 之内 ⇒ 视口写回**整幅**（这就是它的「藏」；原版这一档也写 `(0,0,1,1)`）"
+                            + $" —— 实得 {liveVp}");
+                        if (tcs != null && tcs.Length == 2 && tcs[0] != null && tcs[1] != null)
+                            Check(Mathf.Abs(tcs[0].rect.x) < 1e-6f && Mathf.Abs(tcs[0].rect.width - 1f) < 1e-6f
+                               && Mathf.Abs(tcs[1].rect.x) < 1e-6f && Mathf.Abs(tcs[1].rect.width - 1f) < 1e-6f,
+                                  "★ ……而且**真的写到了两台相机的 `Camera.rect` 上**（读回真值，⛔ 不读那个记账位）——"
+                                + $" 3D {tcs[0].rect} / UI {tcs[1].rect}");
+                    }
+                }
+
+                // ---- 2b 错误/疲劳横幅（原版 `UI Error Message Controller (MUST BE ENABLED)`）----
+                Debug.Log(P + "   --- §8b 2b：错误横幅 ---");
+                {
+                    var errBan = drv.ErrorBanner;
+                    Check(errBan != null, "★ 错误横幅建出来了（原版 `UI Error Message Controller (MUST BE ENABLED)`）");
+                    if (errBan != null)
+                    {
+                        // ① 建件 = 原版 `Awake`：模板留在容器里 + 克隆 5 条
+                        //    ⚠️ 「建出来时**全关**」这一刻验不了 —— 前面几节（打完一整局那几节）可能已经弹过
+                        //       **真疲劳**横幅 ⇒ 池非空。⇒ 改成「先收干净、再看**节点**」：`HideAll` 就是
+                        //       原版 `OnKill` 那一支的等价物（「关」要关在 `activeSelf` 上，⛔ 不是只改记账位）。
+                        int nShownIn = errBan.ShowCount;      // 前面几节弹过几条 ⇒ 下面一律按**增量**断
+                        errBan.HideAll();
+                        var containT = errBan.transform.Find("Container");
+                        int nItemNodes = 0, nActiveNodes = 0;
+                        if (containT != null)
+                            for (int ci = 1; ci < containT.childCount; ci++)   // [0] = 模板
+                            {
+                                nItemNodes++;
+                                if (containT.GetChild(ci).gameObject.activeSelf) nActiveNodes++;
+                            }
+                        Check(errBan.ItemCount == 5 && errBan.TemplateBuilt && errBan.gameObject.activeInHierarchy
+                              && nItemNodes == 5,
+                              "★ 池 = **5 条**（原版 `NUMBER_OF_MESSAGES`）+ 建在 HUD 根下 ——"
+                            + $" 实得池 {errBan.ItemCount} / 容器下 {nItemNodes} 个 item 节点");
+                        Check(errBan.VisibleCount == 0 && nActiveNodes == 0,
+                              "★ `HideAll` 把每一条**真的关在节点上**了（记账位归零不算数 —— 要看 `activeSelf`）——"
+                            + $" 实得记账 {errBan.VisibleCount} / 节点还亮着 {nActiveNodes}");
+                        var tmplRef = errBan.transform.Find("Container/Error Mensage_Ref");
+                        Check(tmplRef != null && !tmplRef.gameObject.activeSelf,
+                              "★ 模板 `Error Mensage_Ref` **留在容器里但关着**（原版 `Awake` 第一句 `SetActive(false)`）");
+
+                        // ② 原版参数：参考串 `ERROR MESSAGE CONTENT` 量出来的那一组底条 870.97998046875 × 60.849998474121094
+                        //    🔴 它**不是固定尺寸**（真规则是 Hug，见 ⑤）—— 拿它当固定值会让长文案溢出底条
+                        var tbs = errBan.TemplateBarSizePx;
+                        Check(Mathf.Abs(tbs.x - 870.97998046875f) < 0.5f
+                           && Mathf.Abs(tbs.y - 60.849998474121094f) < 0.5f,
+                              "★ 模板那条底条 = 原版参考串那一组 **870.98 × 60.85**（`RectTransform_{2989,2942}.json`）——"
+                            + $" 实得 {tbs.x:F2}×{tbs.y:F2}");
+
+                        // ③ 分层（等价物 = **渲染队列**，见 `CLAUDE.md` §三）：整条 4001 / 文字 4002
+                        //    ⇒ 高过日志面板（4000）也高过 tooltip（3607），等价于原版那个 `SortingOrder = 1` 的独立 overlay Canvas
+                        if (tmplRef != null)
+                        {
+                            var qParts = tmplRef.GetComponentsInChildren<ImageQuad>(true);
+                            int qMin = int.MaxValue, qMax = int.MinValue;
+                            for (int qi = 0; qi < qParts.Length; qi++)
+                            {
+                                if (qParts[qi] == null) continue;
+                                qMin = Mathf.Min(qMin, qParts[qi].RenderQueue);
+                                qMax = Mathf.Max(qMax, qParts[qi].RenderQueue);
+                            }
+                            var labRef = tmplRef.GetComponentInChildren<Label>(true);
+                            Check(qParts.Length > 0 && qMin == 4001 && qMax == 4001
+                                  && labRef != null && labRef.RenderQueue == 4002,
+                                  $"★ 分层（**队列**，不是 z）：底条 {qMin} / 文字 {(labRef == null ? -1 : labRef.RenderQueue)}"
+                                + "（期望 4001 / 4002 —— 都要高过日志面板的 4000 与 tooltip 的 3607）");
+                        }
+
+                        // ④ 弹一条（走**生产口** `ShowError`）。⚠️ **用哪一条**由 `currentMessageIndex` 说了算
+                        //    ⇒ 下面一律拿**它当场给的那个下标** `idxA` 去读，⛔ 别假设是 0（前面几节可能弹过真横幅）
+                        int idxA = errBan.CurrentIndex;
+                        string fat5 = BattleDriver.DamageFatigueText(true, 5);
+                        errBan.ShowError(fat5);
+                        Check(errBan.ShowCount == nShownIn + 1 && errBan.CurrentIndex == (idxA + 1) % 5
+                              && errBan.ActiveOf(idxA) && errBan.VisibleCount == 1,
+                              $"★ 弹一条：亮着 1 条 / 池游标 {idxA} → {errBan.CurrentIndex}"
+                            + "（= 原版 `currentMessageIndex = ++i; if (4 < i) i = 0` 那一步）");
+                        Check(Mathf.Abs(errBan.ScaleOf(idxA) - 0.3f) < 1e-3f,
+                              "★ 入场从 **0.3×** 起步（原版 `appearScaleFromMultiplier` = 0.3）——"
+                            + $" 实得 {errBan.ScaleOf(idxA):F4}（读的是节点上真值 `localScale.x`）");
+                        var tc0 = errBan.TextColorOf(idxA);
+                        Check(Mathf.Abs(tc0.r - 0.8f) < 1e-3f && tc0.g < 1e-3f && tc0.b < 1e-3f
+                              && Mathf.Abs(tc0.a - 1f) < 1e-3f,
+                              $"★ 文字 = 原版 `errorColor` **(0.8,0,0,1)** 且 α=1（实得 {tc0}）"
+                            + " —— ⛔ 不是 TMP 自己序列化的那个 0.8019（那个数会被 `Show` 盖掉）");
+                        Check(errBan.TextOf(idxA) == fat5 && !fat5.Contains("{0}") && !fat5.Contains("Battle/")
+                              && fat5.Contains("5"),
+                              $"★ 文字 = 疲劳文案**且 `{{0}}` 已填数**：「{errBan.TextOf(idxA)}」");
+                        Shot(cam, "34_错误横幅");
+
+                        // ⑤ 底条是 **Hug**（原版 `ContentSizeFitter` PreferredSize + 内层 layout padding）
+                        //    ⇒ 断**两条关系**，⛔ **不断 870.98 × 60.85**（那是参考串那一组；写死它中文/长文案会溢出）
+                        var itemNodeA = (containT != null && containT.childCount > idxA + 1)
+                                        ? containT.GetChild(idxA + 1) : null;   // 子件序：[0] = 模板 ⇒ 第 i 条 = [i+1]
+                        var lab0 = itemNodeA != null ? itemNodeA.GetComponentInChildren<Label>(true) : null;
+                        var barSz0 = errBan.BarSizeOf(idxA);
+                        if (lab0 == null)
+                            Check(false, "找不到那一条的 `ErrorMesage Text` 节点 ⇒ 下面两条 Hug 关系验不了");
+                        else
+                        {
+                            float txtW0 = lab0.WorldW * 108f, txtH0 = lab0.WorldH * 108f;
+                            Check(Mathf.Abs(barSz0.x - (txtW0 + 240f)) < 1.0f,
+                                  "★ **Hug**：底条宽 = 文字宽 + 240（原版内层 `padding L120 + R120`）——"
+                                + $" 实得 底条 {barSz0.x:F2} − 文字 {txtW0:F2} = {barSz0.x - txtW0:F2} px"
+                                + "（把底条写死成 870.98 就红）");
+                            Check(barSz0.y > txtH0
+                               && Mathf.Abs(barSz0.y - (Mathf.Max(56.849998474121094f, txtH0) + 4f)) < 1.0f,
+                                  "★ **Hug**：底条高 = max(56.85, 文字高) + 4（原版 `padding T4/B0`；56.85 = 原版字体的单行高）——"
+                                + $" 实得 文字高 {txtH0:F2} ⇒ 底条 {barSz0.y:F2}（⛔ 不许矮过文字：那会被切）");
+                        }
+
+                        // ⑥ 布局 = 原版那套 `VerticalLayoutGroup`（LowerCenter）**算出来的**位置，不是存档值
+                        SettleShake();
+                        var cItem0 = errBan.ItemCenterPxOf(idxA);
+                        Check(Mathf.Abs(cItem0.x - 960f) < 0.25f && Mathf.Abs(cItem0.y - 510.23974609375f) < 0.25f,
+                              "★ 单条亮着时中心 = **(960, 510.23974609375)** px（y 从上）—— 布局组算出来的那个值，"
+                            + "⛔ 不是 `RectTransform_2823.json` 里的存档 `ap (960.35, −241.29)`"
+                            + $"（按存档值算是 525.24，**差 15 px**）—— 实得 ({cItem0.x:F3},{cItem0.y:F3})");
+                        // 再弹一条 ⇒ **子件序里靠后**的那条恒在 510.24、靠前的那条**高 80 px**（= 项高 80.00）
+                        int idxB = errBan.CurrentIndex;
+                        errBan.ShowError(BattleDriver.DamageFatigueText(false, 2));
+                        SettleShake();
+                        int idxLo = Mathf.Min(idxA, idxB), idxHi = Mathf.Max(idxA, idxB);
+                        var cEarlier = errBan.ItemCenterPxOf(idxLo);      // 子件序里靠前 ⇒ 更靠上（y 更小）
+                        var cLater = errBan.ItemCenterPxOf(idxHi);
+                        Check(Mathf.Abs(cEarlier.y - 430.23974609375f) < 0.25f
+                              && Mathf.Abs(cLater.y - 510.23974609375f) < 0.25f
+                              && Mathf.Abs(cEarlier.x - 960f) < 0.25f && Mathf.Abs(cLater.x - 960f) < 0.25f
+                              && errBan.VisibleCount == 2 && errBan.CurrentIndex == (idxB + 1) % 5,
+                              "★ 堆叠（LowerCenter ⇒ 从容器底往上堆）：子件序**靠后**的那条还在 510.23974609375、"
+                            + "靠前的那条**上移 80 px**（= 项高 80.00）——"
+                            + $" 实得 [{cEarlier.y:F3}, {cLater.y:F3}]（期望 [430.24, 510.24]）");
+
+                        // ⑦ 轮转：再弹 3 次 ⇒ 一共 5 次 = **整整一圈**（原版 `currentMessageIndex = ++i; if (4 < i) i = 0`）
+                        for (int k = 0; k < 3; k++) errBan.ShowError("轮转用例 " + (k + 3));
+                        Check(errBan.ShowCount == nShownIn + 5 && errBan.CurrentIndex == idxA
+                              && errBan.VisibleCount == 5,
+                              $"★ 连弹 5 次 = 一整圈 ⇒ 游标**回到起点 {idxA}**、5 条**全亮**"
+                            + $"（一共弹了 {errBan.ShowCount} 条 / 亮着 {errBan.VisibleCount} / 游标 {errBan.CurrentIndex}）");
+
+                        // ⑧ 时间轴（等价物 C：原版靠 DOTween 帧循环，我们手推）
+                        //    入场 0.15 → **停到 2.0** → 淡出 **0.25** → 关自身；⚠️ 中间 ⛔ 不许 `Step`（那个泵也会推它）
+                        float aBefore = errBan.TextColorOf(idxA).a;
+                        errBan.Advance(2.05f);
+                        float aFade = errBan.TextColorOf(idxA).a;
+                        Check(aBefore > 0.99f && aFade > 0.05f && aFade < 0.95f && errBan.ActiveOf(idxA),
+                              "★ 过 **2.0 s 才开始淡出**（原版 `timeToStartFading` = 2.0）——"
+                            + $" α {aBefore:F3} → {aFade:F3}（2.05 s 那一刻应当 ≈0.64；永不淡出就恒 1.000 ⇒ 红）");
+                        Check(Mathf.Abs(errBan.ScaleOf(idxA) - 1f) < 1e-3f,
+                              $"★ ……而缩放入场（0.15 s）早已结束 ⇒ 现在是 1×（实得 {errBan.ScaleOf(idxA):F3}）");
+                        errBan.Advance(0.1f);
+                        float aFade2 = errBan.TextColorOf(idxA).a;
+                        Check(aFade2 < aFade - 0.02f && aFade2 > 0f,
+                              $"★ 淡出是**单调往下**的（原版 `timeToFade` = 0.25 s）—— α {aFade:F3} → {aFade2:F3}");
+                        errBan.Advance(0.2f);          // 累计 2.35 s ≥ 2.25 s = 生命终点
+                        int nStillOn = 0;
+                        if (containT != null)
+                            for (int ci = 1; ci < containT.childCount; ci++)
+                                if (containT.GetChild(ci).gameObject.activeSelf) nStillOn++;
+                        Check(!errBan.ActiveOf(idxA) && errBan.VisibleCount == 0 && nStillOn == 0,
+                              "★ 演完（0.15 + 2.0 + 0.25 = **2.25 s**）整池都收起来（原版 `OnComplete` ⇒ `SetActive(false)`）——"
+                            + $" 实得 亮着 {errBan.VisibleCount} / **节点**还亮着 {nStillOn} /"
+                            + $" 第 {idxA} 条记账 {errBan.ActiveOf(idxA)}");
+
+                        // ⑨ **疲劳触发**（2b 的入口）：`EvtKind.Hit` + 督军槽(4) + `Amount == 疲劳值` + 那一方**牌库空**
+                        //    ⇒ 弹一条；`Amount` 换成别的值 ⇒ 不弹（两态）。
+                        //    ⚠️ 本机那一方是**绝对座位**（`MyIndex`），原版两条键就是按这个分的。
+                        var psMe = drv.Ctx != null ? drv.Ctx.Players[drv.MyIndex] : null;
+                        if (psMe == null) Check(false, "拿不到本机那一方 ⇒ 疲劳触发那两条验不了");
+                        else
+                        {
+                            var savedDeck = new List<CardInstance>(psMe.Deck);
+                            int savedFatigue = psMe.Fatigue;
+                            psMe.Deck.Clear();                       // 「牌库空」是那道闸之一
+                            // 先把记账位复位（语义：那一方的疲劳回 0 = 新一局 ⇒ 记账跟着清）。这条合成事件
+                            // 的数值**刻意**对不上 ⇒ 它被数值那道闸挡下，只走到复位那一句。
+                            psMe.Fatigue = 0;
+                            drv.NoteFatigueBannersForTest(new List<BattleEvent> {
+                                new BattleEvent { Kind = EvtKind.Hit, Player = drv.MyIndex,
+                                                  Slot = BoardSpec.WarlordSlot, Amount = 1 } });
+                            Check(drv.FatigueShownForTest(drv.MyIndex) == 0,
+                                  "★ 那一方的疲劳回 0 ⇒ **记账位跟着清**（「新一局」那条语义）");
+                            psMe.Fatigue = 4;
+                            int nShown0 = errBan.ShowCount;
+                            drv.NoteFatigueBannersForTest(new List<BattleEvent> {
+                                new BattleEvent { Kind = EvtKind.Hit, Player = drv.MyIndex,
+                                                  Slot = BoardSpec.WarlordSlot, Amount = 4 } });
+                            Check(errBan.ShowCount == nShown0 + 1 && drv.FatigueShownForTest(drv.MyIndex) == 4,
+                                  $"★ 疲劳那一条弹出来了（弹了 {errBan.ShowCount - nShown0} 条 / 记账 "
+                                + $"{drv.FatigueShownForTest(drv.MyIndex)}）—— 判据 = `Hit` + **督军槽 4** + "
+                                + "`Amount == 疲劳值` + **牌库空**（我们引擎把疲劳并进了 `Hit`，那七道闸在 `NoteFatigueBanners`）");
+                            int nShown1 = errBan.ShowCount;
+                            drv.NoteFatigueBannersForTest(new List<BattleEvent> {
+                                new BattleEvent { Kind = EvtKind.Hit, Player = drv.MyIndex,
+                                                  Slot = BoardSpec.WarlordSlot, Amount = 9 } });
+                            Check(errBan.ShowCount == nShown1,
+                                  "★ 反例：`Amount` ≠ 那一方的疲劳值 ⇒ **不弹**（把数值那道闸写松就红）");
+                            psMe.Deck.Clear();
+                            psMe.Deck.AddRange(savedDeck);           // 还原（后面几节还要用这一局）
+                            psMe.Fatigue = 0;
+                            drv.NoteFatigueBannersForTest(new List<BattleEvent> {
+                                new BattleEvent { Kind = EvtKind.Hit, Player = drv.MyIndex,
+                                                  Slot = BoardSpec.WarlordSlot, Amount = 1 } });
+                            psMe.Fatigue = savedFatigue;             // 收尾：把记账位也收回去（⛔ 别留脏账）
+                            errBan.Advance(2.3f);                    // 收尾：把它演完，别留在后面几节的截图里
+                        }
+
+                        // ⑩ 文案的两态（`Battle/Tips/*` 那族键本地**一个 value 都没有** ⇒ 今天走兜底句）
+                        const string keyInTable = "Battle/HUD/TargetsAvailable";   // 表里确实有这条（`Loc.cs` 实读）
+                        Check(Loc.HasEntry(keyInTable), $"★ 前提：词条 `{keyInTable}` 在语言表里");
+                        string viaTerm = BattleDriver.DamageFatigueTextWithKey(keyInTable, true, 7);
+                        Check(viaTerm != fat5 && viaTerm.Contains("7") && !viaTerm.Contains("{0}")
+                              && !viaTerm.Contains("Battle/"),
+                              $"★ 键**在表里** ⇒ 走**词条**（`{keyInTable}` → 「{viaTerm}」）：`{{0}}` 已填数、⛔ 不印键名");
+                        string viaFallback = BattleDriver.DamageFatigueTextWithKey(
+                                                 "Battle/Tips/__SelftestNotInTable__", true, 7);
+                        Check(!Loc.HasEntry("Battle/Tips/__SelftestNotInTable__") && viaFallback != viaTerm
+                              && viaFallback.Contains("7") && !viaFallback.Contains("{0}")
+                              && !viaFallback.Contains("Battle/"),
+                              $"★ 键**不在表里** ⇒ 走**兜底句**（「{viaFallback}」）：⛔ 既不印键名、也不留 `{{0}}`"
+                            + "（`Battle/Tips/*` 本地无 value ⇒ 今天实际走的就是这一档）");
+                    }
+                }
             }
         }
 
@@ -12521,6 +12980,274 @@ public static class BattleScene
                       "★ A381：回放局标记**整场都在**（`ReplaySession`；清掉的唯一入口是 `Begin()` = 新开一局）");
                 Check(playRec.trace != null && playRec.trace.Count == playRec.actions.Count,
                       $"逐条轨迹与动作**一一对应**（{playRec.trace.Count} 条）—— 少一条就少对一个分叉点");
+            }
+
+            // ------------------------------------------------------------
+            //  🆕 2026-10-19（`A1087`）：**录像头那一格「哪一个座位是电脑」必须被回放采纳**。
+            //    背景：那一格在引擎里**有后果** —— `RuleCore.GoesSecondCard` 拿它判「后手那张防御卡
+            //    从哪来」（**电脑** ⇒ 后手方阵营防御池**随机**取、**吃 `ctx.Rng`**；**真人** ⇒ 用卡组自带那张）。
+            //    而它原来的判据是 `BattleDriver.AiShouldDriveOpponent`（`= _net == null`）——
+            //    🔴 **放录像时 `_net` 恒 null** ⇒ 一份记着「-1（对手是真人）」的录像放出来会被当成
+            //    「1（座位 1 是电脑）」⇒ 后手那张卡不同 + 随机流错位 ⇒ 轨迹分叉。
+            //    🔴 本节的判据**不是**「回放时不许算 `_net == null`」这种实现细节，而是**可观测的行为**：
+            //      **同一份录像、只拨头部那一格 ⇒ 重建出来的 `ctx.BotSeat` 必须跟着变**（一正一反）。
+            //    🧨 **改坏法**：把 `Begin` 里 `botSeat: botSeatOverride ?? (AiShouldDriveOpponent ? 1 : -1)`
+            //      退回写死的 `AiShouldDriveOpponent ? 1 : -1` ⇒ 下面第 2 条红（两趟都会是 `1`）。
+            // ------------------------------------------------------------
+            if (playRec != null)
+            {
+                // ① 老录像（JSON 里**没有这个键**）⇒ 不许被当成任何一档，必须落到「没记」上
+                //    （哨兵取 `0` = `int` 默认值 ⇒ 初始化器跑不跑都安全；同 `tutorialStage` 那条纪律）
+                var noKeyRec = JsonUtility.FromJson<CardPresentation.ReplayRecord>("{\"version\":2}");
+                var noKeyVal = noKeyRec == null ? "?"
+                             : (noKeyRec.BotSeatForNewBattle.HasValue
+                                ? noKeyRec.BotSeatForNewBattle.Value.ToString() : "`null`");
+                Check(noKeyRec != null && noKeyRec.BotSeatForNewBattle == null,
+                      $"★ A1087：老录像（缺这一格）⇒ `BotSeatForNewBattle` = {noKeyVal}（期望 `null` = 「没记」）"
+                    + " —— 哨兵是 `0`（= `int` 默认值），所以「初始化器跑不跑」都给 `0`"
+                    + "｜🧨 把哨兵换成 `-1`/任何非 0 值 ⇒ 每一份老录像都被当成某一档电脑局（静默错）");
+
+                int savedCode = playRec.botSeatPlus2;
+                var savedActions = playRec.actions;
+                try
+                {
+                    // 只拨头、不灌动作 —— 这一趟问的就是**开局那一格**（灌动作只会在分叉处刷屏，
+                    // 而「分叉」在这个**人为**的头下是预期的，不是被测行为）
+                    playRec.actions = new List<MsgAction>();
+                    playRec.botSeatPlus2 = 1;                     // = `-1`：**这一局没有电脑**（联机局录下来就是这个值）
+                    driver.PlayReplay(playRec);
+                    Check(driver.Ctx != null && driver.Ctx.BotSeat == -1,
+                          "★ A1087：录像头写「这一局没有电脑」（联机局的实情）⇒ 重建出来的对局**照它**建"
+                        + $"（`ctx.BotSeat` 实得 {(driver.Ctx == null ? "?" : driver.Ctx.BotSeat.ToString())}，期望 **-1**）"
+                        + "｜🧨 回放时现算 `AiShouldDriveOpponent`（恒真）⇒ 这里实得 `1` ⇒ 本条红");
+                    playRec.botSeatPlus2 = 3;                     // = `1`：**座位 1 是电脑**（单机局录下来就是这个值）
+                    driver.PlayReplay(playRec);
+                    Check(driver.Ctx != null && driver.Ctx.BotSeat == 1,
+                          "★ A1087 **判别式（灭自证）**：同一份录像，把头部那一格换成「座位 1 是电脑」⇒ "
+                        + $"`ctx.BotSeat` = {(driver.Ctx == null ? "?" : driver.Ctx.BotSeat.ToString())}（期望 **1**）"
+                        + " —— 一正一反 ⇒ 这一格既不可能是「恒 -1」也不可能是「头部根本不生效」");
+                }
+                finally { playRec.botSeatPlus2 = savedCode; playRec.actions = savedActions; }
+            }
+
+            // ------------------------------------------------------------
+            //  🆕 2026-10-19（`A1100`）：**先手那一格【产品不许写字段】**（跨局泄漏的修复）。
+            //    病（`资料/普查产出_第六会话/W_联机录像补记_A1099_A1100.md`）：`ForceFirstSeat` 只在
+            //    `BeginFromPendingCore` 被写、**无处清** ⇒ 打一局**联机** / 放一局**录像**之后，
+            //    **下一局单机**（`Restart()` 或任何 `Begin`）沿用上一局的**绝对座位** ⇒ **先手不掷硬币**。
+            //    ✅ 修法：产品改走 `Begin(firstSeatOverride:)`（联机开局 / 重连重建 / 放录像三档都走它），
+            //       `ForceFirstSeat` 退回**自检专用**（那个字段的注释自己写着「钉住的是自检，不是产品」）。
+            //    判据全是**可观测的行为**（`ctx.FirstSeat`），⛔ 不是「看哪个字段被写过」：
+            //      ① 正：联机那条路（`BeginFromPendingCore`，`pb.FirstSeat = 1`）⇒ `ctx.FirstSeat == 1`；
+            //      ② 反（灭自证）：紧接着开一局**普通单机**（种子钉成「硬币 = 0」）⇒ `ctx.FirstSeat`
+            //         必须是**掷硬币的结果** —— 若那句 `ForceFirstSeat = pb.FirstSeat` 被写回来、
+            //         或 `Begin` 又去读那个字段 ⇒ 这里实得 `1`（沿用上一局的绝对座位）⇒ 红；
+            //      ③ 钉子那一格仍然有后果：`ForceFirstSeat = 1` ⇒ `ctx.FirstSeat == 1`
+            //         （不然 ② 可能是「这一格根本没人看」的恒真）。
+            //    ⚠️ 全程**还原**：跑完把钉子装回原值（与 9c / A383 两节的收尾同一个手法）。
+            //    ⚠️ 如实标注：这一节**只验「产品不再写那个字段 + 形参生效」**，不验「先手该是谁」那条规则
+            //       （那条的覆盖在 9b / 9c 与教程那一节）。
+            // ------------------------------------------------------------
+            {
+                int? savedFsPin = driver.ForceFirstSeat;
+                int fsSeed = SeedForFirstSeat(0);   // 找一颗「掷硬币 = 座位 0」的种子（判据 = `FirstSeatForSeed`）
+                int fsCoin = BattleDriver.FirstSeatForSeed(fsSeed);
+                try
+                {
+                    Check(fsCoin == 0, $"（A1100 夹具）种子 {fsSeed} 掷出来是座位 {fsCoin}（这一节要 **0** 才能分辨泄漏）");
+
+                    driver.ForceFirstSeat = null;   // 拔掉自检的钉子（产品侧本来就不该有钉子）
+                    var pbFs = NetPendingBattle.FromStart(new MsgStart
+                    {
+                        seed = 20260920, mode = "Classic", arena = "Battle",
+                        hostFirst = 1,               // 🔴 被测那一格（开局包说：绝对座位 1 先手）
+                        hostFaction = "Ultramarines", clientFaction = "Goff",
+                        hostDeckJson = "", clientDeckJson = "",
+                    }, isHost: true);
+                    Check(pbFs != null, "（A1100 夹具）开局包造出来了（`FromStart` 非 null）");
+                    driver.BeginFromPendingCore(pbFs, attachNet: false, deckNote: null);
+                    int fsGot1 = driver.Ctx == null ? -1 : driver.Ctx.FirstSeat;
+                    Check(driver.Ctx != null && fsGot1 == 1,
+                          $"★ A1100：先手走**显式形参** —— 联机 / 重连 / 放录像那条路（`BeginFromPendingCore`）"
+                        + $"照着开局包建（实得 {fsGot1}，期望 **1**）"
+                        + "｜🧨 把 `firstSeatOverride: pb.FirstSeat` 那一位删掉（退回写 `ForceFirstSeat = pb.FirstSeat`）⇒ 本条红");
+
+                    driver.ForceFirstSeat = null;   // 产品那条路**不许**给这一格留下任何东西
+                    driver.Begin(BattleDriver.DefaultFactionA, BattleDriver.DefaultFactionB, fsSeed);
+                    int fsGot2 = driver.Ctx == null ? -1 : driver.Ctx.FirstSeat;
+                    Check(driver.Ctx != null && fsGot2 == fsCoin,
+                          $"★ A1100 判别式（灭自证）：紧接着开一局**普通单机** ⇒ 先手**掷硬币**"
+                        + $"（实得 {fsGot2}，期望 {fsCoin}）—— 若上一局那个「绝对座位 1」留在产品状态里 ⇒ "
+                        + "这里实得 1 ⇒ 红（那正是本笔要修的跨局泄漏：打完联机 / 放完录像，下一局不掷硬币）");
+
+                    driver.ForceFirstSeat = 1;      // ③ 自检的钉子仍然照旧生效（否则上面那条分不出「没人看这一格」）
+                    driver.Begin(BattleDriver.DefaultFactionA, BattleDriver.DefaultFactionB, fsSeed);
+                    int fsGot3 = driver.Ctx == null ? -1 : driver.Ctx.FirstSeat;
+                    Check(driver.Ctx != null && fsGot3 == 1,
+                          $"★ A1100：自检的钉子（`ForceFirstSeat = 1`）**照旧生效**（实得 {fsGot3}，期望 **1**）");
+                }
+                finally { driver.ForceFirstSeat = savedFsPin; }
+            }
+
+            // ------------------------------------------------------------
+            //  🆕 2026-10-19（`A1099`）：**联机局的【对手那一半】也必须进录像**。
+            //    病（`资料/普查产出_第六会话/W_联机录像补记_A1099_A1100.md` §五·1）：`ApplyLoggedAction`
+            //    是**联机局里对面那一侧唯一的落地口**（`NetBattle.cs` 三处：主机收客机动作 /
+            //    客机收主机广播 / `AppendLogAndApply` 的换牌定序那三条伪动作），而它原来
+            //    **一个记账口都没有** ⇒ 联机录像 = **本机自己那一半**（对手的动作、双方换牌一条都不进）
+            //    ⇒ 灌到第一条就「不是你的回合」⇒ **今天本来就放不出来**。
+            //    修法 = 在它的**末尾**（`return code;` 之前）补一次 `RecMsg(m)`。
+            //
+            //    🔴 本节的期望值**全部来自下面写死的那几条字面动作**（`kind` / `actor` / `seq` / 条数），
+            //      ⛔ 没有一处从被测代码里算出来 —— 否则就是自证（`CLAUDE.md` §三「灭自证」那一条）。
+            //      唯一的例外是第 ③ 格那次**自洽**比对（终局局面哈希），下面那一格自己如实标着。
+            //
+            //    四格判据（编号 = 下面代码里的编号）：
+            //      ① 正：重连那一趟（`NetReplay` = 产品上真实的那条路）灌进去的**每一条**都要在录像里，
+            //         字段逐条对得上 —— 其中 `actor == 0` 那两条，对 `_me == 1` 的本机来说
+            //         **就是「对手那一半」**（`NetReplay` 里 `_net == null` ⇒ `host = false` ⇒ `MySeat = 1`）；
+            //      ② 🧨 **灭自证**：再拿一条**从没经过 `NetReplay`** 的对手动作，走
+            //         `NetBattle` 收对手动作时那个调用形状（**直接调 `driver.ApplyLoggedAction(...)`**）
+            //         —— 它也必须进**同一份**录像。⇒ 结构上不可能靠「`NetReplay` 顺手记一下自己的入参」
+            //         蒙混过去：那条路在这一格上**根本用不上**（这正是本笔要修的那个洞的形状）。
+            //      ③ 自洽：这份录像**放得回来、而且演的是同一局** —— 那才是 `A1099` 要的那个结果
+            //         （「对手那一半进了录像」的直接后果）。⚠️ 这一格的期望值来自被测代码自己的
+            //         `NetProtocol.StateHash`（与既有 ⑨ 节 `recW.finalHash` 那一处**同一个手法**）
+            //         ⇒ 它**不满足**「期望值不许从被测代码算」那条纪律，**那条由 ①② 两格满足**。
+            //      ④ 位置 · 反面控制：被引擎**拒**的那一条**不进**录像 ——
+            //         `RecMsg` 排在 `code != RuleCodes.OK` 那道早退**之后**；记账口若被挪到方法开头，
+            //         录像里就会出现「回放时必然被拒」的条目（回放侧会把它报成分叉）。
+            //
+            //    ⚠️ 本节**只验记账口的位置与覆盖面**，⛔ 不验「重连重建出来的那一局对不对」
+            //      （那条的覆盖在 `NetSelfTest` / `NetBattleTest`）；也**不验**「对面那个人在界面上是谁」。
+            //    🔴 **座位必须还原**：`NetReplay` 那条路上 `_net == null` ⇒ `host = false`
+            //      ⇒ `pb.MySeat = 1` ⇒ 它会把本机座位**改成 1**（这条路上本机就是客机）。
+            //      本节末尾还原（与 `:12798` 那句 `SetMySeat(0)` 同一条纪律 —— 后面每一节都按座位 0 写）。
+            //    ⚠️ 收尾：最后一次 `Begin` 会**清掉 `_replaySession`**（与 A1087 / A1100 两节同一个收尾手法），
+            //      后面 A382 那一节量的是「一局只记一笔结算」⇒ 这里必须把局面交回「一局普通的单机」。
+            // ------------------------------------------------------------
+            {
+                int rpSeatSaved = driver.MyIndex;      // 进本节之前的座位（收尾还原用）
+                var rpStart = new MsgStart
+                {
+                    seed = 20260921, mode = "Classic", arena = "Battle",
+                    hostFirst = 0,                      // 绝对座位 0 先手（本节不关心先手，只要一个确定值）
+                    hostFaction = "Ultramarines", clientFaction = "Goff",
+                    hostDeckJson = "", clientDeckJson = "",   // 两副牌都空 ⇒ `ResolveDeck` 按种子自动凑（可复现）
+                };
+                // 🔴 三条**字面**动作 —— 形状照 `NetBattle.HostResolveMulligan` 发的那三条伪动作
+                //   （换牌定序：座位 0 换、座位 1 换、换牌阶段结束）。它们**都不走 `LocalAct`**
+                //   ⇒ 补记账口之前，这一趟一条都进不了录像。
+                var rpActs = new List<MsgAction>();
+                rpActs.Add(new MsgAction { kind = NetActionKind.Mulligan, actor = 0, marks = new int[0] });
+                rpActs.Add(new MsgAction { kind = NetActionKind.Mulligan, actor = 1, marks = new int[0] });
+                rpActs.Add(new MsgAction { kind = NetActionKind.MulliganDone, actor = 0 });
+
+                driver.NetReplay(rpStart, rpActs);
+                var rpRec = driver.Recording;
+                Check(rpRec != null,
+                      "★ A1099（前提）：重连重建那一趟**开了**一份新录像 —— `RecBegin` 的语义"
+                    + "**从「开局」扩成「开局 / 重连重建」**（这一句在 `NetReplay` 的说明里显式写着）"
+                    + "｜🧨 若这里为 `null`：`RecordReplays` 在重连那趟被关掉了（那是回放那趟的做法）"
+                    + " —— 那正是候选 B，也是本件**没**走的那条");
+                if (rpRec != null)
+                {
+                    int rpN = rpRec.actions.Count;
+                    bool rpSame = rpN == rpActs.Count;
+                    if (rpSame)
+                        for (int i = 0; i < rpN; i++)
+                        {
+                            var gotA = rpRec.actions[i]; var wantA = rpActs[i];
+                            if (gotA == null || gotA.kind != wantA.kind || gotA.actor != wantA.actor || gotA.seq != i)
+                            { rpSame = false; break; }
+                        }
+                    var rpDigest = new System.Text.StringBuilder();
+                    for (int i = 0; i < rpN; i++)
+                    {
+                        var a = rpRec.actions[i];
+                        rpDigest.Append(i).Append(a == null ? ":null " : $":k{a.kind}/a{a.actor}/s{a.seq} ");
+                    }
+                    Check(rpSame,
+                          $"★ A1099：重连那一趟灌进去的**每一条**都进了录像，`kind`/`actor`/`seq` 逐条对得上"
+                        + $"（实得 {rpN} 条：{rpDigest}｜期望 3 条：k100/a0/s0 · k100/a1/s1 · k101/a0/s2）"
+                        + "｜🧨 把 `ApplyLoggedAction` 末尾那句 `RecMsg(m)` 删掉 ⇒ 这里实得 **0 条** ⇒ 红"
+                        + "（`_rec` 照旧被 `RecBegin` 建出来、只是**一条都没进去**）；"
+                        + "其中 `a0` 那两条（本机 `_me == 1`）**就是「对手那一半」**");
+                    Check(rpRec.trace != null && rpRec.trace.Count == rpN,
+                          $"★ ……`trace` 与 `actions` **一一对应**（{rpRec.trace.Count} / {rpN}）"
+                        + " —— 少记一次 ⇒ `PlayReplay` 之后每一条都比错位置（分叉点定位跟着错）");
+
+                    // ② 🧨 灭自证：一条**从没经过 `NetReplay`** 的对手动作，直接走
+                    //    `NetBattle` 收对手动作时那个调用形状（`_d.ApplyLoggedAction(m)`）。
+                    int rpBefore = rpRec.actions.Count;
+                    var rpDirect = new MsgAction
+                    { kind = NetActionKind.Mulligan, actor = 0, marks = new int[0] };
+                    int rpDirectCode = driver.ApplyLoggedAction(rpDirect);
+                    int rpAfter = rpRec.actions.Count;
+                    var rpDirectGot = (rpAfter > rpBefore && rpAfter - 1 < rpRec.actions.Count)
+                                    ? rpRec.actions[rpAfter - 1] : null;
+                    bool rpDirectOk = rpDirectCode == RuleCodes.OK && rpAfter == rpBefore + 1
+                                   && rpDirectGot != null
+                                   && rpDirectGot.kind == NetActionKind.Mulligan
+                                   && rpDirectGot.actor == 0
+                                   && rpDirectGot.seq == rpAfter - 1;
+                    Check(rpDirectOk,
+                          "★ A1099 **判别式（灭自证）**：一条**没经过 `NetReplay`** 的对手动作，"
+                        + "直接走 `ApplyLoggedAction`（= `NetBattle.cs` 收对手动作的那个调用形状）"
+                        + $"⇒ 也进**同一份**录像（{rpBefore} → {rpAfter} 条，"
+                        + $"实得 kind={(rpDirectGot == null ? "?" : rpDirectGot.kind.ToString())}"
+                        + $"/actor={(rpDirectGot == null ? "?" : rpDirectGot.actor.ToString())}"
+                        + $"/seq={(rpDirectGot == null ? "?" : rpDirectGot.seq.ToString())}，期望 100/0/{rpAfter - 1}）"
+                        + "｜🧨 记账口若只挂在 `NetReplay` 的重放循环里（而不是挂在**共用**的 "
+                        + "`ApplyLoggedAction` 上）⇒ 这一格实得条数不变 ⇒ 红 —— 那条路在这一格上"
+                        + "**根本用不上**（`NetBattle` 那三个调用点没有一个经过 `NetReplay`）");
+
+                    // ③ 自洽：这份录像**放得回来、而且演的是同一局**。
+                    //    `finalHash` 照生产那个口算（`RecFinish` 用的就是它）—— ⚠️ 这一格的期望值
+                    //    来自被测代码自己（如实标着，见本节头部那条 §附注）。
+                    rpRec.finalHash = NetProtocol.StateHash(driver.Ctx);
+                    bool rpRoundTrip = driver.PlayReplay(rpRec);
+                    Check(rpRoundTrip && driver.ReplayDivergenceForTest < 0,
+                          "★ A1099：这份**含对手那一半**的录像**放得回来、而且是同一局**"
+                        + $"（`PlayReplay` 返回 {rpRoundTrip}，逐条轨迹首处分叉 = "
+                        + $"{driver.ReplayDivergenceForTest}，期望 -1 = 没分叉）"
+                        + " —— 这就是「补上记账口之后，重连过的那一局得到一份从头到尾完整的录像」那件事"
+                        + "｜🧨 对手那一半没进录像（或只进了一半）⇒ 分叉点会落在第一条"
+                        + "（换牌那三条伪动作没人记账 ⇒ 重建出来还是换牌阶段）⇒ 本条红");
+
+                    // 🔴 座位还原（`NetReplay` / `PlayReplay` 两条路都把本机座位改成了 1）——
+                    //    必须在最后一次 `Begin` **之前**做：`Begin` 之后的 `_myFaction/_foeFaction`
+                    //    是**视图侧**的（`owner == _me ? _my : _foe`），带着座位 1 开局会让
+                    //    「我方 / 敌方」的名字与颜色**对调**，而这一节之后的每一节都按座位 0 写。
+                    driver.SetMySeat(rpSeatSaved);
+                    driver.RefreshAll();
+                    Check(driver.MyIndex == rpSeatSaved,
+                          $"（本节收尾）座位还原成 {rpSeatSaved}（实得 {driver.MyIndex}）"
+                        + " —— 后面每一节都按座位 0 写");
+
+                    // ④ 位置 · 反面控制：先把一盘普通的单机局开起来（既清掉 `_replaySession`，
+                    //    又让 `_rec` 重新挂上），再喂一条**必然被拒**的动作。
+                    driver.Begin(BattleDriver.DefaultFactionA, BattleDriver.DefaultFactionB, 20260922);
+                    var rpRejRec = driver.Recording;
+                    Check(rpRejRec != null,
+                          "★ A1099（夹具）：新开一局之后录像**又挂上了**（`RecordReplays` 默认开）"
+                        + " —— 不然下面那条「没记」是**恒真**的（没在录当然没记）");
+                    if (rpRejRec != null)
+                    {
+                        int rpRejBefore = rpRejRec.actions.Count;
+                        // `kind = 999` 不在 `AiActionKind` 里 ⇒ `NetApply.Apply` 走 `default:`
+                        // 直接 `return ErrUnimplemented`（与局面无关 ⇒ 恒被拒，不靠运气）。
+                        var rpBad = new MsgAction { kind = 999, actor = 0 };
+                        int rpBadCode = driver.ApplyLoggedAction(rpBad);
+                        Check(rpBadCode != RuleCodes.OK,
+                              $"★ A1099（夹具）：那条坏动作**真的被拒了**（`{RuleCodes.Describe(rpBadCode)}`）");
+                        Check(rpRejRec.actions.Count == rpRejBefore,
+                              $"★ A1099（位置 · 反面控制）：**被引擎拒的那一条不进录像**"
+                            + $"（{rpRejBefore} → {rpRejRec.actions.Count} 条）"
+                            + "｜🧨 把 `RecMsg(m)` 挪到 `code != RuleCodes.OK` 那道早退**之前**（方法开头）"
+                            + "⇒ 这里实得条数 +1 ⇒ 红（录像里多出一条回放时必然被拒的条目）");
+                    }
+                }
             }
 
             // ---- 🆕 2026-10-12（A382）：结算那一块的**闩**是 `_settled`（一局一张账），⛔ 不是面板可见性 ----
@@ -15084,6 +15811,76 @@ public static class BattleScene
                     Check(ov.TipContinueText == "",
                           "★ `tipWithContinue = false`（6 关 61 条**全是 false**）⇒ Continue 那一行**不显示**"
                         + "（机制照做）");
+                    // ---- ⑥′ 🔴 **2026-10-18（`A1031⑤`）补强：上面那条只覆盖了【`false` 这一态】** ----
+                    //   出厂 6 关 **61 条 `SmallTip` 全是 `tipWithContinue = false`** ⇒ 真数据
+                    //   **永远走不到** `true` 那一支；而**词条那半句**（`TutorialOverlay.ContinueTerm`
+                    //   → `Loc.T(…)`）**恰恰只在 `true` 那一支才印得出来**。
+                    //   ⇒ 只断「`TipContinueText == ""`」时：把 `SetTip` 里那半句写死成常量、
+                    //     或让它印**空串**/**键名**，今天**照样全绿** —— 这是**弱断言**（分不出两态）。
+                    //   ⇒ 这里显式驱动一次 `withContinue = true`，**两语档各断一次**，
+                    //     然后**原样还原**成 `false` 那一态（⑦ 起还要它挂着，⛔ 别把提示弄掉）。
+                    {
+                        var ovLangWas = Loc.Current;
+                        string ovTextWas = ov.TipText;
+                        var ovPosWas = ov.TipWorldPos;
+                        // `_tipContinue` 那个 `Label` 的 GO（`TutorialOverlay.Build` 里叫
+                        // `ContinueText`，挂 `TutorialTip` 下）—— 只读它的开关态，⛔ 不改任何东西。
+                        var ovCont = ov.transform.Find("TutorialTip/ContinueText");
+
+                        // （前提）词条在表里 —— ⛔ 不在 ⇒ `Loc.T` 回的是**键名本身**，
+                        //   实现印键名、期望也是键名 ⇒ **假绿**（看不出「词条丢了」）。
+                        Check(Loc.HasEntry(TutorialOverlay.ContinueTerm),
+                              $"（前提）词条 `{TutorialOverlay.ContinueTerm}` 在表里"
+                            + "（⛔ 不在 ⇒ 下面两条两边一起退化成键名 = 假绿）");
+                        // 期望值的**独立出处**（⛔ 不从被测实现、也不从 `Loc.T` 现算）：
+                        // 原版那颗 `ContinueText` TMP 的 `m_text` 原文就是 `Continue`。
+                        Check(Loc.EnOf(TutorialOverlay.ContinueTerm) == "Continue",
+                              "★ 那一行的**原版印刷值** = `Continue`（出处：原版 `ContinueText` 那颗 TMP 的 "
+                            + "`m_text`；`Core/Loc.cs` 那条的英文列照它逐字）");
+
+                        Loc.RestoreForTest(AvailableLanguages.Chinese);
+                        string ovZhWant = Loc.T(TutorialOverlay.ContinueTerm);
+                        ov.SetTip(true, ovTextWas, true, ovPosWas, 0f, TutRelation.Above);
+                        string ovZhGot = ov.TipContinueText;
+                        bool ovZhShown = ovCont != null && ovCont.gameObject.activeSelf;
+
+                        Loc.RestoreForTest(AvailableLanguages.English);
+                        string ovEnWant = Loc.T(TutorialOverlay.ContinueTerm);
+                        ov.SetTip(true, ovTextWas, true, ovPosWas, 0f, TutRelation.Above);
+                        string ovEnGot = ov.TipContinueText;
+                        bool ovEnShown = ovCont != null && ovCont.gameObject.activeSelf;
+
+                        Loc.RestoreForTest(ovLangWas);                       // 收尾：还给本节的语档
+                        // 🔴 **还原**：后面 ⑦ 起读的是「`tipWithContinue = false`」那一态
+                        //   （`DismissTutorialTip` 要提示还挂着）。`Above` + `dx = 0` ⇒ 位置不动。
+                        ov.SetTip(true, ovTextWas, false, ovPosWas, 0f, TutRelation.Above);
+
+                        Check(ovZhGot == ovZhWant,
+                              "★ **中文档 · `withContinue = true`** ⇒ 那一行 = "
+                            + $"`Loc.T(\"{TutorialOverlay.ContinueTerm}\")`（实得「{ovZhGot}」）"
+                            + "｜🧨 改前只断 `false` 那一态 ⇒ 把这一行写死成 `\"Continue\"`/空串/键名"
+                            + "都照样绿（`false` 那一支印的本来就是空串）");
+                        Check(ovEnGot == ovEnWant,
+                              $"★ **英文档 · 同一态** ⇒ 那一行 = 同一条词条的**英文列**"
+                            + $"（期望「{ovEnWant}」／实得「{ovEnGot}」）"
+                            + "｜🧨 只断一条语档的话，「写死中文那一版」在另一档下会照样绿");
+                        // 🔴 **灭自证（结构）**：两档读数**必须不一样**、**都不许是键名**、**都不许空**
+                        //   —— 三条一起挡「期望值也从实现那个口来」：实现被改坏成写死常量/空串/键名时，
+                        //   这三条里至少一条红。而「把实现改回去」与「把这三条也一起改回去」
+                        //   在结构上不可能同时满足（改回来就变成看不出两态的那一版）。
+                        Check(ovZhGot != ovEnGot
+                              && !string.IsNullOrEmpty(ovZhGot) && !string.IsNullOrEmpty(ovEnGot)
+                              && ovZhGot != TutorialOverlay.ContinueTerm
+                              && ovEnGot != TutorialOverlay.ContinueTerm,
+                                  $"★ **灭自证**：两档读数**各是各的**（中「{ovZhGot}」／英「{ovEnGot}」）、"
+                                + "**都不是键名**、**都不空**"
+                                + "｜🧨 `SetTip` 那半句改回写死 `\"Continue\"` ⇒ 中文档那条红；"
+                                + " 改成空串 ⇒ 上面两条都红；改成键名 ⇒ 本条红");
+                        Check(ovZhShown && ovEnShown,
+                              "★ …而且那一行**真的亮着**（`ContinueText` 那个 GameObject 被 "
+                            + "`SetActive(true)`）—— 只改字不亮层 = 玩家什么都看不见，"
+                            + "而只读 `TipContinueText` **看不出来**（它读的是 Label 存的串，不看开关）");
+                    }
                     Check(!driver.TutorialView.HighlightVisible,
                           "★ 这一条**没有** `shouldHighlightElement` ⇒ 高亮**不亮**（判别式的另一半）");
 
@@ -15984,6 +16781,12 @@ public static class BattleScene
                 //     `HitMyDeckPile` / `HitContinue` / `Contains` 都仍是原口径（改命中＝改行为，
                 //     要另开一件、另配断言）。唯一一处「动了生产代码」是把结束回合那条判定
                 //     从 `Update` 里**抽成一个 `HitEndTurn`**（两处共用一份，⛔ 不是改语义）。
+                //  ⚠️ **2026-10-18 更正（铁律 5）**：上句对 `HitContinue` **已不再成立** ——
+                //     `A1061` 就照这里说的「另开一件、另配断言」办了：`MultiCardDisplay.HitContinue`
+                //     按订正后的原版判据重算（条那颗 `Image` 的 `m_RaycastPadding = (0,−40,0,−40)`
+                //     ⇒ 横向不变、上下各 +40；圆钮 `RT=0` ⇒ 那颗**不吃射线**），
+                //     配套断言 = 本段 `E2④` 新增的两条**口径判别式**（`A1061①②`）。
+                //     `HitMyDeckPile` / `Contains` 两条**仍未动**。
                 //  ⛔ **位置**：本段落在 **模型③ 之后** —— ⑥ 那一行走 `SimulateUseAbility` 真弹一次
                 //     技能面板（会动局面、会选目标），摆在模型③前面会把红挪到模型③那一段上。
                 Debug.Log(P + "--- A964（E2 补遗）：7 行只读口 · 两态 ---");
@@ -16125,9 +16928,24 @@ public static class BattleScene
                                             && mc964.HitContinue(cc964);
                                 bool outM964 = !mc964.HitContinue(cb964 + new Vector3(3f * db964.x * 0.5f / PxPerUnit964, 0f, 0f))
                                             && !mc964.HitContinue(cb964 + new Vector3(0f, 3f * db964.y * 0.5f / PxPerUnit964, 0f));
+                                // 🔴🔴 **`A1061`（2026-10-18 · 第六会话）：两条【口径判别式】**
+                                //   上面那两条（内侧中 / 外侧不中）**分不出两套口径** —— 旧口径
+                                //   （`px ≥ BarCx − BarW/2 − CircleD/2`、纵向**不外扩**）与订正后的原版真值
+                                //   （条那颗 `Image` 的 `m_RaycastPadding = (0,−40,0,−40)` ⇒ **横向不变、上下各 +40**）
+                                //   在条中心那一圈**给出同样的答案**。下面两点故意取在**两套口径答案相反**的位置：
+                                //   · `offL`：条**左沿外 20 px** —— 旧口径**中**（它向左多留了圆钮半径 40.235）、
+                                //     原版真值**不中**（条横向一个像素都不外扩）；
+                                //   · `offT`：条**上沿外 20 px** —— 旧口径**不中**、原版真值**中**（上下各 +40）。
+                                bool offL964 = !mc964.HitContinue(
+                                        cb964 + new Vector3(-(db964.x * 0.5f + 20f) / PxPerUnit964, 0f, 0f));
+                                bool offT964 = mc964.HitContinue(
+                                        cb964 + new Vector3(0f, (db964.y * 0.5f + 20f) / PxPerUnit964, 0f));
                                 hits964.Add($"E2④\t多卡窗「继续」\tMultiCardDisplay.HitContinue\t条实绘 {db964.x:F2}×{db964.y:F2} px"
                                           + $" · 圆钮 {cd964.x:F2}×{cd964.y:F2} px\t内侧中={inM964} · 外侧不中={outM964}"
-                                          + "\t原版 rect 条 577.5×63.84 / 圆钮 80.47（命中区仍按它，**口径未改**）；"
+                                          + $" · 左沿外 20 不中={offL964} · 上沿外 20 中={offT964}"
+                                          + "\t原版 rect 条 577.5×63.84 / 圆钮 80.47（🔴 **2026-10-18 `A1061` 订正**："
+                                          + "命中区 = 条那颗 `Image` 的矩形**按它自己的 `m_RaycastPadding = (0,−40,0,−40)`"
+                                          + " 外扩** ⇒ 横向不变、上下各 +40 = 577.50×143.84；⛔ 旧注写「口径未改」= 过期）；"
                                           + "🔴 实绘若 ≈ 上述值 ×108 ⇒ `Build` 把 px 当世界高度用了"
                                           + "（`:132 BarH` / `:137 CircleD` 少了 `EndPanel.PxPerUnit`；"
                                           + "兄弟件 `CardChoicePanel:159-161` / `MulliganPanel:256-265` 是 `U(...)` + `SetAspect`）");
@@ -16141,6 +16959,20 @@ public static class BattleScene
                                 Check(outM964,
                                       "★ A964/E2④（**灭自证**）：横条**外侧 3 倍半宽/半高**处**判不中**（命中区有界）"
                                     + " —— 与上一条配对：「不设界 / 恒 return true」会让上一条绿、本条红");
+                                Check(offL964,
+                                      "★★ A1061①（**口径判别式 · 灭自证**）：条**左沿外 20 px** 那一点**判不中**"
+                                    + " —— 原版可射线件只有条那一颗（圆钮 `m_RaycastTarget = 0`，且圆钮画在条**内部**右端）"
+                                    + " ⇒ 横向**不该**外扩。"
+                                    + "🧨 **改坏法**：把 `HitContinue` 改回旧式 `px ≥ BarCx − BarW/2 − CircleD/2`"
+                                    + "（向左多留圆钮半径 40.235）⇒ 这一点落进框内 ⇒ **本条立刻红**"
+                                    + "（上面那两条「内侧/外侧」**不会**红 —— 判别式就是为这个缺口补的）。"
+                                    + $"判据 = 原版 prefab 实读（现得 {(offL964 ? "不中 ✓" : "**中** ✗")}）" );
+                                Check(offT964,
+                                      "★★ A1061②（**口径判别式**）：条**上沿外 20 px** 那一点**判得中**"
+                                    + " —— 判据 = 条那颗 `Image` 自己的 `m_RaycastPadding = (0,−40,0,−40)`"
+                                    + "（**负 = 外扩**，分量序 L,B,R,T）⇒ 上下各 +40。"
+                                    + "🧨 **改坏法**：把外扩那一句删掉（回到旧式「纵向**不**外扩」）⇒ 这一点落回框外 ⇒ **本条红**"
+                                    + $"（现得 {(offT964 ? "中 ✓" : "**不中** ✗")}）");
                                 mc964.Hide();
                             }
                         }

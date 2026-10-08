@@ -62,6 +62,38 @@ namespace CardPresentation
             get { if (_lookup == null) _lookup = new DeckEditorState(CardDatabase.Load()); return _lookup; }
         }
 
+        /// <summary>🆕 **2026-10-18（A855）作废进程级那份卡组库缓存**（下次读 <c>Lib</c> 会**重读存档**）。
+        ///
+        /// <para>🔴 **为什么必须有这个口**：本类的 `Lib` 是 **`static DeckLibrary _lib`** —— 一份**进程级缓存**；
+        /// 而**卡组编辑窗写盘走的是另一个实例**（`RuleEngine/Data/DeckLibrary.cs:117-119` 的
+        /// `DeckLibrary.Load()` **每次 `new`**；编辑器那条路 → `Deck/DeckRuntime.cs:726`）。
+        /// 那份缓存此前**没有任何生产侧作废口**（`_lib = null` 只在 <see cref="ResetForTest"/> 里，
+        /// 而它只被 `Editor/*` 调）⇒ **玩家在编辑窗存完、回壳，收藏页画的还是编辑前那一份**：
+        /// 列表 = `Shell/CollectionWindow.cs:3032` 的 `MenuDraw.DeckCell(…, CollectionData.DeckAt(i), …)`
+        /// → <see cref="Raw"/> → `Lib.Decks[i]`。</para>
+        ///
+        /// <para>**原版对位**（这条链**一处场景切换都没有**）：开编辑 = 在收藏窗之上**开一扇窗**
+        /// （`DeckEditingWindow__UploadDeck` 那一族全族 grep `LoadScene` = 0 命中）、离场 = **关窗**；
+        /// 而**保存 = 把那份 `CardDeck` 就地覆写回收藏页正在显示的那一个对象** ——
+        /// `d:/2/tools/decomp_full/DeckEditingWindow__UploadDeck.c:63`
+        /// `CardDeck__CopyDeck(库那一份, 编辑中那一份, 0)`，而 `CardDeck__CopyDeck.c:25-36` 是**就地覆写**
+        /// （清空 dest `+0x58` 那个 `List` 再 `AddRange`）⇒ **原版收藏页根本不需要刷新**。
+        /// 我们这份缓存是**另一份拷贝**，所以要在**消费端**补上这一跳
+        /// （⚠️ **不是**把编辑器改成持有本类的实例 —— 那与 A397/A363 定过的口径相反，
+        /// 见 `Deck/DeckRuntime.cs:5941-5952` 那段「维持现状、不加守卫」的裁定）。</para>
+        ///
+        /// <para>🔴 **调用时机 = 「刚离开卡组编辑」那一跳**，唯一调用点 = `Shell/MainMenuRuntime.cs` 的 `Build`
+        /// 里消费 `TakePendingReturn` 那里（**两个来源都调**：`Collection` 与 `LiveOpsEvent` 都能改卡组、都写盘）。
+        /// ⛔ **别在 `Build` 里无条件调** —— 正常进主菜单也会白读一次盘。
+        /// ⛔ **也别在编辑窗那条路上调**（`DeckRuntime.CommitDeck` / `BackToMenu`）—— 见下一段。</para>
+        ///
+        /// <para>⚠️ **为什么不放在「保存」那一刻**（那样时序上更像原版的 `UploadDeck`）：`CommitDeck` 之后
+        /// 编辑窗还在用自己那份 `Library`，**本类此时并没有人在读**；把作废点挪进 `Deck` 层等于让
+        /// 「卡组编辑」去改「收藏线」的内部状态（跨层），而回程那一跳**本来就**要把玩家送回收藏页
+        /// ⇒ 作废与开窗挨着写，一处看得全。⚠️ 如实记：**这是机制上的偏离**（原版是就地覆写、无缓存一说），
+        /// 可观测结果对齐（回收藏页看到的就是刚存的那一版）。</para></summary>
+        public static void InvalidateLibrary() { _lib = null; }
+
         public static int DeckCount() { return Lib.Decks.Count; }
         public static int CurrentIndex() { return Lib.CurrentIndex; }
         public static PlayerDeck Raw(int i)
@@ -268,10 +300,33 @@ namespace CardPresentation
         public static string CreateDeck(int gameMode = 0)
         {
             // 默认卡组名走词条（键 **`MenuDeck/NewDeckName`** —— ⛔ **不是** `MenuDeck/HUD/NewDeckName`，
-            // 调度台 2026-10-18 已统一成前者，见 `Core/Loc.cs:1050-1065`；中文列「新卡组」与改前的
-            // 写死串**逐字相同** ⇒ 中文档零变化）。
+            // 调度台 2026-10-18 已统一成前者，见 `Core/Loc.cs` 的 ⑪「默认 / 演示卡组名」那一节；
+            // 中文列「新卡组」与改前的写死串**逐字相同** ⇒ 中文档零变化）。
+            // ⚠️ **本期行号订正（铁律 5）**：上面原来写的是 `Core/Loc.cs:1050-1065` / `:1057-1062` ——
+            //    那两处现读落在 **③「通用弹窗的三颗钮」**（`MainMenu/General/OK`）那一段，**与默认卡组名无关**
+            //    （写这条注释之后 `Loc.cs` 又插了几节 ⇒ 行号漂了，而指针指的是别的小节）⇒
+            //    **一律按小节名认**（⑪ 那一节），⛔ 别再按行号找。
             // ⚠️ **如实记**：这个名字**会写进存档** ⇒ 英文档下新建的卡组字面就叫 `New deck`（数据被翻了）。
-            //    施工单 §⑦ P1 那一行把同一件事标成「需裁决」，但调度台在 `Loc.cs:1057-1062` 已裁决「三处一律用本键」。
+            //    施工单 §⑦ P1 那一行把同一件事标成「需裁决」，但调度台在 `Loc.cs` ⑪ 那一节已裁决「三处一律用本键」。
+            //
+            // 🔴 **2026-10-18（`A1037`）裁定：保留现状，⛔ 别再翻案。** 口径 —— **它【不是】「显示时才翻」**，
+            //    而是「**创建那一刻按当前语档生成一个名字、当场物化进存档**」：
+            //      · 英文档下新建 ⇒ 盘上就是 `New deck`；中文档下新建 ⇒ 盘上就是 `新卡组`（**预期行为、不是缺陷**）；
+            //      · **已有卡组不会因为玩家改语言而改名**（那串字已经是**玩家数据**，不是文案了）——
+            //        这正是它与「显示时翻」的分水岭：后者会在切语言时把玩家的卡组名当场改掉，那才是真缺陷。
+            //    📌 **同一口径还管着** `Shell/ProfileData.cs` 的 `DefaultPlayerName`（`A1047`，同类裁定「翻」）——
+            //       两者是**同一类问题**（铁律 6：同一条规则只留一份），别只改一处。
+            //    ⚠️ 反面才是错的：**玩家自己命名的卡组名【绝不进 `Loc` 表】**（`Loc.cs` ⑪ 那一节自己的原话）。
+            //
+            // 🔴 **`MenuDeck/NewDeckName` 不是原版键 —— 三路都搜过（2026-10-18 现核）**：
+            //    ① `d:/2/新解包资源/assets_full/` 的 `mTerm`：`MenuDeck*` 共 **42** 条，**无 `NewDeckName`**
+            //       （同族近邻 = `MenuDeck/HUD/New` · `MenuDeck/HUD/EditDeckName` · `MenuDeck/MenuButtons/CreateDeck`）；
+            //    ② prefab 组件字段的 `text`：全 `assets_full` 搜 `New deck` = **0 个文件**、`My deck` = **0 个文件**
+            //       （正对照：已知原版串 `Auto zoom` = **14** 个文件 · `bundle_menus_assets_all/` 里带 `"m_text"` 的文件 = **4894**
+            //        ⇒ **扫描本身有效**，这 0 不是「没搜到」）；
+            //    ③ `d:/2/tools/il2cpp_out/stringliteral.json`：`NewDeckName` = **0 命中**
+            //       （该文件里 `MenuDeck*` 只有 **33** 条，`DeckName` 一族只有一条前缀串 `MenuDeck/DeckName/`）。
+            //    ⇒ 键名与两列**均自拟**（与 `Core/Loc.cs` ⑪ 那一节的记录一致）。
             string name = Lib.UniqueName(Loc.T("MenuDeck/NewDeckName"));
             var d = Lib.Create(name, gameMode);   // ⛔ 别在后面再加一次 `Lib.Save()`（A398 起它自己 `SaveOrWarn`）
             string got = d != null ? d.Name : name;
@@ -350,6 +405,13 @@ namespace CardPresentation
             PendingEditDeck = -1;
             // 🆕 2026-10-18（A855）：回程意图与 `PendingEditDeck` **同进同出** —— 自检之间互不影响
             PendingReturn = default(ReturnIntent);
+            // 🆕 2026-10-18 之后 · 第五会话（`A1068`，W2 顺手查出）：**三个 sticky 错误串也必须清**。
+            //   它们是「上一次失败的文案」：各自的操作开头会清（`Select`/`Delete`/`Duplicate` 那句 `= ""`）、
+            //   失败时赋新值 —— 但**跨夹具**时，前一个夹具失败留下的串会漏进后一个夹具：
+            //     · `Editor/CollectionScene.cs:6780` / `:6891` 断「成功 ⇒ `Length == 0`」⇒ **假红**
+            //     · `:6965` 那类断「有话说」⇒ **假绿**
+            //   ⇒ 一处清三格，自检之间才**真隔离**。（`A1068`）
+            LastSelectError = ""; LastDeleteError = ""; LastDuplicateError = "";
         }
     }
 }

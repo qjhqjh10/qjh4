@@ -125,6 +125,11 @@ namespace CardPresentation
         static readonly PxRect BadgeR    = new PxRect(435.87f, 267.52f, 944.13f, 744.48f);      // `BadgeDrawer`（= `Frame`/`Badge` 同矩形）
         static readonly PxRect CloseR    = new PxRect(1487.08f, 159.85f, 1561.47f, 235.45f);    // `Generic Close Button Orange`
         static readonly PxRect CloseBgR  = new PxRect(1495.24f, 167.83f, 1552.10f, 225.96f);    // └ `Background` / `Icon`（同矩形）
+        /// <summary>🔴 **2026-10-18（A1053）**：关窗钮那两颗子件（`Background` / `Icon`，同矩形 `CloseBgR`）
+        /// **自己的** `m_RaycastPadding`（原版实读 `(-20)⁴`；L,B,R,T · **负 = 外扩**）⇒ 命中区 =
+        /// 子件矩形外扩 20 = **96.86 × 98.13**（⛔ 不是根矩形 `CloseR` 的 74.39×75.60）。
+        /// 算式只走 `MenuDraw.PaddedRect`；口径 → `普查_全仓命中区与关闭键族.md` §〇-1。</summary>
+        static readonly Vector4 ClosePad = new Vector4(-20f, -20f, -20f, -20f);
         static readonly PxRect RightR    = new PxRect(960.00f, 204.35f, 1508.28f, 835.65f);     // `RightSide`
         static readonly PxRect TitleR    = new PxRect(976.12f, 307.85f, 1492.84f, 359.85f);     // `Title`
         static readonly PxRect DescR     = new PxRect(976.00f, 352.85f, 1477.24f, 532.89f);     // `Descripton`（原版拼写）
@@ -301,12 +306,25 @@ namespace CardPresentation
             var closeNode = MenuDraw.Node(win, "Generic Close Button Orange", CloseR);
             var closeBg = MenuDraw.Rect(closeNode, Tex("UI_Button_Round_background"), CloseR,
                                         "Image", QClose, null, true);
-            MenuDraw.Rect(closeNode, Tex("40k_general_bt_yellow"), CloseBgR,
-                          "Background", QClose, null, true);
+            var closeFaceQ = MenuDraw.Rect(closeNode, Tex("40k_general_bt_yellow"), CloseBgR,
+                                           "Background", QClose, null, true);
             MenuDraw.Rect(closeNode, Tex("40k_general_bt_yellow_close"), CloseBgR,
                           "Icon", QCloseIcon, null, true);
-            var closeHit = MenuDraw.Hit(closeNode, "CloseHit", CloseR, QHit, () => Close(),
-                                        closeBg, "UI_Button_Round_background",
+            // 🆕 **2026-10-18（A1058 · 第六会话批 2）**：换图那一层 = **子件 `Background`**（`closeFaceQ`，
+            //   画的是 `40k_general_bt_yellow`），⛔ **不是圆底盘 `closeBg`**。
+            //   判据（原版亲读）=
+            //   `python -I d:/tmp/wf_hit/rcunion.py bundle_menus_assets_all "Alliance Trophy Info Popup" --depth 8`：
+            //   根 `window/Generic Close Button Orange` 那颗 `EverguildButton` 的
+            //   **`m_TargetGraphic` = pid2054430300439403645**；解该 pid ⇒ **所属 GO 名 = `Background`**、
+            //   贴图 pid `5693181797853584851` → `40k_general_bt_yellow`。
+            // 🆕 **2026-10-18（A1053 · 第六会话批 2）**：**命中区**归真值 —— 原版圆底盘
+            //   `m_RaycastTarget = 0`，吃射线的是同矩形两颗子件（56.86×58.13）按 `(-20)⁴` 外扩
+            //   ⇒ **96.86 × 98.13**；改前传根矩形 `CloseR`（74.39×75.60）⇒ 每边小 11.2。
+            //   判据 = `python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all "Alliance Trophy Info Popup"
+            //   --depth 8 --substr "Generic Close Button"`（实读 `96.86 x 98.13`）。
+            var closeHit = MenuDraw.Hit(closeNode, "CloseHit", MenuDraw.PaddedRect(CloseBgR, ClosePad),
+                                        QHit, () => Close(),
+                                        closeFaceQ, "40k_general_bt_yellow",
                                         "40k_general_bt_yellow_hover", "40k_general_bt_yellow_pressed");
             if (closeHit == null)
                 Debug.LogWarning("[TrophyPopup] 关窗钮的命中区没建出来（`MenuDraw.Hit` 返回 null）"

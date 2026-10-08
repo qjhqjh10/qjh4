@@ -1789,17 +1789,43 @@ namespace CardPresentation
         /// <summary>字色 —— **原版是纯白**（组件 `m_fontColor = (1,1,1,1)`、材质 `_FaceColor` 也是纯白）。</summary>
         static readonly Color32 CreatedByInk = new Color32(255, 255, 255, 255);
 
+        /// <summary>那行字在 `Core/Loc.cs` 里的键 —— 原版 `SupportMethods.GetCreatedByText`
+        /// 用的就是它（`d:/2/tools/decomp_full/SupportMethods__GetCreatedByText.c` 亲读）。
+        /// 📌 自检要核「表里有这条键」时用它：`Loc.HasEntry(CardView.CreatedByTerm)`。
+        /// ⛔ 别在别处再写一遍这个字面量（同族先例 = `BattleDriver.HandCountTerm` 那种 `…Term` 常量）。</summary>
+        public const string CreatedByTerm = "Battle/HUD/CreatedBy";
+
+        /// <summary>「表里没有这条键」那句 `Debug.LogWarning` **只出声一次** —— `CreatedByLine` 由
+        /// `FillCreatedBy` **每张卡每次刷新**调（手牌 / 场上 / 展示窗都走它），逐次出声会把日志刷爆
+        /// （同 `Core/Loc.cs` 的 `_warnedMissing` 那条理由）。</summary>
+        static bool _warnedCreatedByKey;
+
         /// <summary>那行字的**文案**。🔴 原版 = `SupportMethods.GetCreatedByText(创建者卡名)` =
         /// `GetTranslation("Battle/HUD/CreatedBy").Replace("{0}", 名字)`（`SupportMethods__GetCreatedByText.c` 亲读；
         /// 键字面量在 `d:/2/tools/il2cpp_out/stringliteral.json`）。
         /// ⚠️ **那个键的值在远端 I2 表里**（84 个本地 bundle 里没有 `localization_assets_all`）⇒
         /// 英文那半还有旁证（原版预制体里那个 TMP 的占位串是 `Created by someone fancy`
         /// ⇒ 模板形态 = `Created by {0}`），**中文那半是我们自己写的**。
-        /// 📌 等 `Core/Loc.cs` 收了这条键（那个文件不在本笔白名单）就改走 `Loc.T("Battle/HUD/CreatedBy")`，
-        ///    并把这两句删掉 —— ⛔ 别留两套口径。</summary>
+        /// ✅ **2026-10-08（第六会话 · `Core双语-第一步`）已接上** —— 键 `Battle/HUD/CreatedBy` 就在
+        ///    `Core/Loc.cs:813`（值 = `由 {0} 创建` / `Created by {0}`，与原来那两句**逐字相同**
+        ///    ⇒ 这次接线**不改变界面上的字**，只把「按 `Loc.Current` 二选一拼」换成走语言表）。
+        ///    ⛔ 别留两套口径（原来那句「等它收了这条键就改走 `Loc.T`」已兑现，就地删掉）。</summary>
         static string CreatedByLine(string creatorName)
         {
             if (string.IsNullOrEmpty(creatorName)) return null;
+            // 🔴 **先判 `Loc.HasEntry`、再取词条** —— 这一跳是 `A985④` 点名要的：
+            //    少了它，`Loc.cs` 那条一旦被删/改名，`Loc.T` 会把**键名本身**（`Battle/HUD/CreatedBy`）
+            //    印到卡面上，而**卡面看不出这是缺陷**（它就是一行白字）⇒ 正是本工程点名的静默失败。
+            if (Loc.HasEntry(CreatedByTerm))
+                return Loc.T(CreatedByTerm).Replace("{0}", creatorName);   // `{0}` = 创建者的卡名
+            // 键不在表里 ⇒ **退回改之前那两句硬拼**（中文档 / 英文档都保持原样）+ **出声**（⛔ 不静默）
+            if (!_warnedCreatedByKey)
+            {
+                _warnedCreatedByKey = true;
+                Debug.LogWarning($"[CardView] `Loc` 表里**没有** `{CreatedByTerm}` ⇒ 卡面那行「谁造成的」"
+                               + "退回**写死的中文/英文**（⛔ 绝不让它去印键名）。补词条 → `Core/Loc.cs`；"
+                               + "同一条**只出声这一次**（这张卡每次刷新都会走这里）。");
+            }
             return Loc.Current == AvailableLanguages.Chinese
                  ? $"由 {creatorName} 创建"
                  : $"Created by {creatorName}";

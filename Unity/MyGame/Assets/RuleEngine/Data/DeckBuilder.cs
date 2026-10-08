@@ -153,6 +153,11 @@ namespace RuleEngine
             //     挂到**最后** —— `RuleCore.BuildPlayer` 认「第一个 `hero` 当督军」，位置不影响它。
             //   ⚠️ 原版第三来源（读督军自己的 `goSecondCardInHand`）我们**走不了**：那份数据本地零命中
             //      （`预组卡组_原版规格.md` §五之六 + `项目任务.md` §〇 B）。
+            //   🔴 🆕 **2026-10-19（`A1070`）：这一张**只有玩家侧会读**。** 电脑（AI）那一方原版
+            //      **从不从卡组取**（预组牌的 `DeckAndWarlordData.defensiveCard` 恒 null，两条反汇编硬证：
+            //      `DeckBasicSetup` 第 5 实参 `R9=0`）⇒ 引擎侧 `RuleCore.GoesSecondCard` 会把电脑侧
+            //      分流出来的这张**丢掉**，改走「后手方阵营防御池随机」或「督军自带 `goSecondCardInHand`」。
+            //      ⇒ **别把这张当成「电脑也有防御卡」**（那正是 `A1070` 修掉的那份「看起来能用」）。
             var dfc = PickRandomDefence(defences, faction, rng);
             if (dfc != null)
             {
@@ -268,6 +273,11 @@ namespace RuleEngine
                 //   ⚠️ 原版那个防御卡池**是不是按阵营筛的，没查实**（`EnviromentalEffectCardsSO.defensiveCards`
                 //      的逐项结构没读）；我们**按本阵营筛** —— 理由是我们引擎里跨阵营的牌上不了场（
                 //      `DeckRules.Validate` ⑤ 与手牌归属都要求同阵营），拿一张外阵营的等于白给。**这条是我们的选择。**
+                //   🔴 🆕 **2026-10-19（`A1070`）：这张**只有玩家侧会读**。** 电脑那一方原版**从不从卡组取**
+                //      （预组牌的 `DeckAndWarlordData.defensiveCard` 恒 null：`CardDeck.DeckBasicSetup`
+                //      第 5 实参 `R9=0` 写进 `CardDeck+0x48`）⇒ `RuleCore.GoesSecondCard` 会把电脑侧这张
+                //      **丢掉**，改走「后手方阵营防御池随机」或「督军 `goSecondCardInHand`」。
+                //      ⛔ 别把这里补的这张当成「电脑也有防御卡」。
                 var pick = PickRandomDefence(defencePool, faction, rng);
                 if (pick != null)
                 {
@@ -315,6 +325,12 @@ namespace RuleEngine
         ///    而卡池顺序哪天变了（`CardDatabase` 解析顺序 / 卡表重排），同一副牌就会补到**另一张** ——
         ///    那会让「同一份存档两局不一样」。按 Id 排序把这件事**钉死**（对局可复现是项目红线）。
         /// ⚠️ 原版那个池子**是不是按阵营筛的没查实**；我们按本阵营筛（理由写在调用点那段注释里）。
+        /// 🔴 🆕 **2026-10-19（`A1070`）：这里补出来的那张**只有玩家侧会读**。**
+        ///    电脑（AI）那一方原版**从不从卡组取**（预组牌 `DeckAndWarlordData.defensiveCard` 恒 null，
+        ///    硬证 = `CardDeck.DeckBasicSetup` 第 5 实参 `R9=0`）⇒ 引擎侧 `RuleCore.GoesSecondCard`
+        ///    会把电脑侧那张**丢掉**、按 `matchType` 改走 ②（后手方阵营防御池随机）/ ③（督军自带）。
+        ///    ⛔ 别拿它当「电脑也有防御卡」的依据 —— 那正是 `A1070` 修掉的那份「看起来能用」。
+        ///    （删掉它也不行：**玩家**也可能用一副预组/凑出来的牌，那时这张就是他那一侧的那张。）
         /// </summary>
         static CardDef PickRandomDefence(List<CardDef> defencePool, string faction, System.Random rng)
         {

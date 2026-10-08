@@ -1644,9 +1644,21 @@ public static class RewardsScene
                 var progFull63 = FindChild(rowFull63, "progress");
                 CheckTrue(progFull63 != null,
                           "到顶那一行的 `progress` **还在**（`displayRule = 1` ⇒ 未领取才显示；到顶不算「已完成」）");
-                Check(TextOf(progFull63), "Missions/Completed",
-                      "到顶 ⇒ 显示 `completedMessage` —— **原版 prefab 里那个串本身**"
-                      + "（它是原版的 **I2 词条【键】**、不是文案：本地没有语言表 ⇒ 照本仓先例照抄键本身）");
+                CheckTrue(Loc.HasEntry("Missions/Completed"),
+                          "（前提）词条 `Missions/Completed` 在表里（⛔ 不在 ⇒ 下一条红得看不出原因）");
+                Check(TextOf(progFull63), Loc.T("Missions/Completed"),
+                      "到顶 ⇒ 显示 `completedMessage` 那一行的**词条文案**"
+                      // 🔴 **2026-10-18 之后·第六会话就地改（铁律 5）**：本条原来断的是**字面量**
+                      //   `"Missions/Completed"`（= 把**键名**当期望值）—— 那在「显示点没接表」的年代
+                      //   **恰好蒙对**（屏幕上印的真是键名，`Core/Loc.cs:945` 自己把这条列在「已经上屏的真缺陷」里）。
+                      //   `WCoreDeck` 把 `Shell/DailyData.cs` 的 `return CompletedMessage;` 改成
+                      //   `Loc.T(CompletedMessage)` 之后，屏幕印的是**中文列「已完成」/ 英文列「Completed」**
+                      //   ⇒ 按字面量断**必红**。期望值改成 `Loc.T(键)` ⇒ 两语档都成立
+                      //   （同形现成写法 = `Editor/CollectionScene.cs:4650-4655` 那一对）。
+                      //   ⚠️ 上面那条 `HasEntry` **不是装饰**：键若不在表，`Loc.T` 回的是**键名本身**
+                      //     ⇒ 实现印键名、期望也是键名 ⇒ 这条会**假绿**，看不出「词条丢了」。
+                      + "（原版存的是 I2 词条【键】、原版在它外面套 `GetTranslation`；"
+                      + "本仓 EN / ZH 两列是**自拟的**——原版中文在远端、本地拿不到，见 `Core/Loc.cs:1028-1035`）");
                 CheckTrue(TextOf(progFull63) != "500/500",
                           "…而且**不是** `500/500`（A63 之前我们恒显示计数 ⇒ 拿掉那一支，这条会红）");
 

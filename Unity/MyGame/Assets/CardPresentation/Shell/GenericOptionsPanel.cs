@@ -439,13 +439,24 @@ namespace CardPresentation
                     bgo = MenuDraw.Nine(bn, art, br, new Vector4(333f, 96f, 333f, 96f), 410f, 124f, QBtnBg, col,
                                         true, "Image",
                                         new Vector4(333f / 3f, 96f / 3f, 333f / 3f, 96f / 3f));
-                var tx = MenuDraw.TextBox(bn, BtnTextRect(br), arr[i].Text ?? "", Color.white, "Button Text",
+                var txR = BtnTextRect(br);
+                var tx = MenuDraw.TextBox(bn, txR, arr[i].Text ?? "", Color.white, "Button Text",
                                           BtnTextFont, BtnTextFontMin, QBtnText, BtnTextFontMax, BtnTextFontBase);
                 if (tx != null && (tx.Text == null || tx.Text.Length == 0))
                     Debug.LogWarning("[OptionsPanel] 第 " + i + " 颗按钮的文本是空的 ⇒ 底图上没有字。");
                 var item = arr[i];
                 // 换图那一跳走 `BindNine`（九宫格切成 9 张 ⇒ 只换中心那格 = 边框不跟着亮；见 `WindowButton.BindNine`）。
-                var hit = MenuDraw.Hit(bn, "Hit", br, QHit, () => OnButton(item, i));
+                // 🆕 **2026-10-18（A1053）**：**命中区 = 可射线件的并集** —— 原版这颗钮的子树里
+                //    底 `UI_Button_Mulligan`（357.30×**60**）与 **`Button Text`（330.77×**86.17**，`RT=1`）
+                //    两颗都吃射线**，文字**上下各凸 13.1**（`AspectRatioFitter(1, 3.83864)` 撑到
+                //    330.77/3.83864 = 86.17、**竖直居中**在钮上）⇒ 并集 = **357.30 × 86.17**
+                //    （⛔ 不是按钮那 60 高）。判据（原版 prefab 亲读；`Button Text` 静态 `m_SizeDelta` 是 0、
+                //    高度由那条 `AspectRatioFitter` 算式定）=
+                //    `python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all "Generic Options Panel" --depth 8`。
+                //    ⚠️ 我们画的文字本来就按 `BtnTextRect(br)`（330.77×86.17 居中）画 ⇒ 并集 = 「按钮的
+                //    x 两边 + 文字矩形那两条 y 边」。
+                var hit = MenuDraw.Hit(bn, "Hit", new PxRect(br.x1, txR.y1, br.x2, txR.y2),
+                                       QHit, () => OnButton(item, i));
                 if (hit != null && bgo != null)
                 {
                     var wb = hit.GetComponent<WindowButton>();

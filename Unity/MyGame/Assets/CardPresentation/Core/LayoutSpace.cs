@@ -164,7 +164,16 @@ namespace CardPresentation
         /// <summary>世界坐标 → 原版像素点（**`FromPixel` 的逆**）。命中判定要用它。
         /// 🔴 2026-09-23 收口：`RewardsScene.PxOf/PxYOf` 与 `PointerLayer` 都转发到这里 ——
         ///    以前那条换算（`x*108+960` / `540−y*108`）在自检里另外写了一份，正是
-        ///    「两处写同一条规则 = 迟早不一致」那一类。**别在别处再乘 108**。</summary>
+        ///    「两处写同一条规则 = 迟早不一致」那一类。**别在别处再乘 108**。
+        /// <para>⚠️ **2026-10-18 就地订正（铁律 5 · A990②）：上面那句「`FromPixel` 的逆」只对
+        /// **x = 写死 108** 这一半、而且**只在 16:9 成立**。**真正的逆是 <see cref="ToDesignPixel"/>**
+        /// （x 走实测 `VisibleWidth`）；本函数与它差 `VisibleWidth / DesignWidth` 倍
+        /// （4:3 ⇒ 0.75 · 21:9 ⇒ 1.3125）。**y 那一半两者逐位相同**（可见高恒 10 单位 = 1080px ⇒ 108 是真的）。
+        /// ⇒ 🔴 **凡「读回来的 px 要去比一个【字面设计 px】**」（命中判定 / 裁剪换算 / 量标尺）**一律用
+        /// <see cref="ToDesignPixel"/>**；`ToPixel` 保留给「世界 px ↔ 世界 px」内部自洽的场合
+        /// （例：`PointerLayer` 里两个都从世界坐标算出来的量互比，倍率会自己约掉）。</para>
+        /// <para>🔴 为什么值得单开一句：这一族（`ToPixel`/`PxX` 的 ~90 个调用点）**整整一轮**都被当成
+        /// 「命中判定要用它」，而它只在 16:9 是那个意思 —— 账在 `项目任务.md` §29·b 的 `A990②`。</para></summary>
         public static Vector2 ToPixel(Vector3 world)
         {
             float k = DesignPxH / DesignHeight;
@@ -177,5 +186,58 @@ namespace CardPresentation
         /// <summary>世界 y → 画布像素 y（**y 是反的**）。
         /// 🔴 2026-09-23 踩过：拿 `PxX` 的式子去量 y，得出了「节点整体偏下 163px」的**假警报**。</summary>
         public static float PxY(float worldY) { return DesignPxH * 0.5f - worldY * (DesignPxH / DesignHeight); }
+
+        // ============================================================ 🆕 2026-10-18（A990②）：`FromPixel` 的【逆】只此一份
+        //
+        // 🔴 **为什么单开一节**：本工程**建件时的 x** 一律走 `FromPixel`
+        //   （`x = (px / 1920 − 0.5) × VisibleWidth`，用**实测** `VisibleWidth`），
+        //   而「把世界坐标读回成设计 px」以前只有 `ToPixel`/`PxX`（**x 写死 108 px/世界单位**）
+        //   ⇒ **两者只在 `VisibleWidth == DesignWidth`（16:9）时重合**，别的宽高比下差
+        //   `r = VisibleWidth / DesignWidth` 倍（4:3 ⇒ 0.75 · 21:9 ⇒ 1.3125）。
+        //   凡「拿读回来的 px 去比一个**字面设计 px**（prefab 的 `m_SizeDelta` / `RectMask2D` 框 /
+        //   调用点传进来的 `PxRect`）」的地方，非 16:9 下比的都**不是同一个东西**。
+        //   ⇒ 那一族一律改用下面这一对（**唯一一份**），⛔ 别再在调用点手写式子（CLAUDE.md §三）。
+        //
+        // ⚠️ **y 那一半两个函数本来就同值**（可见高恒 10 世界单位 = 1080px ⇒ 108 px/单位是**真的**）
+        //   ⇒ 这一族只涉及 x。见 `PxY`。
+        // 📌 2026-10-18 的落地范围（A990①=裁切读回 · A1004=软边读回 · A990②=命中判定 / 裁剪换算）：
+        //   `MenuDraw.PixelOfDesign`（= 转调本函数）· `Shell/PointerLayer`（指针帧与命中区）·
+        //   `Shell/ViewportClip.ClipPx`（实时反推那一支）· `Shell/SettingsWindow.SetFpsFromPointer`。
+
+        /// <summary>世界单位 → 画布 px 的 **x 斜率**（= `FromPixel` 的逆式的斜率，**用实测** `VisibleWidth`）。
+        /// <para>= `DesignPxW ÷ VisibleWidth`；16:9 下 = **107.99999**（≈ 108，见 <see cref="ToDesignPixel"/> 那条）。
+        /// ⛔ **不是** `DesignPxH ÷ DesignHeight`（那个 108 是**y** 的斜率，只在 x 上碰巧等于它）。
+        /// 🔴 **为什么要单开一个口**：命中区那一半要的是一条**长度**的换算（尺寸项），
+        /// 而 <see cref="ToDesignPixel"/> 只管一个**点**（中心项）—— 两者必须是**同一条斜率**，
+        /// 否则「命中区 = 画出来的那一块」这条不变量在非 16:9 下又不成立（`Shell/PointerLayer.cs`
+        /// 的 `HitBoxPx` 就是靠它）。</para>
+        /// <para>退化档（没有相机 / 宽度不可用）退回 <see cref="Px"/> 那条常量斜率 —— 与
+        /// <see cref="ToDesignPixel"/> 同一处置、**不静默改行为**。⚠️ 实测到不了：`VisibleWidth`
+        /// 的下限是 `DesignHeight × 0.1`（见它那一句），且拿不到相机时回落到 `DesignAspect`。</para></summary>
+        public static float PxPerWorldX
+        {
+            get
+            {
+                float vw = VisibleWidth;
+                return vw <= 1e-6f ? DesignPxH / DesignHeight : DesignPxW / vw;
+            }
+        }
+
+        /// <summary>🔴 **2026-10-18（A990②）：世界坐标 → 画布 px（左上原点、y 向下）—— `FromPixel` 的【逆】。**
+        /// <para>式子：x = `world.x × PxPerWorldX + 960`（960 = `DesignPxW × 0.5`）· y = <see cref="PxY"/>。
+        /// 与 `FromPixel`/`RectCenter`（建件那条路）**互逆**；`ToPixel`/`PxX` 的 x **不是**它的逆
+        /// （那一份写死 108）—— 两者只在 **16:9** 重合。</para>
+        /// <para>⚠️ **16:9 下与 `ToPixel` 只差 float 舍入**：`DesignPxW ÷ VisibleWidth` 实得 **107.99999** ≠ 108
+        /// ⇒ 整屏范围内的偏差 **≤ 2.5e-4 px**（远小于本壳断言一律在用的 0.01–0.05px 容差）。
+        /// ⚠️ **y 那一半逐位不变**（转调 <see cref="PxY"/>）。</para>
+        /// <para>🔴 **入参是「世界坐标」、不是「设计坐标」的除过缩放版**：本函数是**纯线性**的，
+        /// 喂「已经带父链缩放的裸世界坐标」得到的就是「指针那一帧」（父链缩放留着，与画出来的那块一致）——
+        /// `Shell/PointerLayer` 正要用这一档；喂 `MenuDraw.PosInDesignSpace(...)` 那个除掉缩放的版本
+        /// 得到的就是「设计帧」（`MenuDraw.QuadRectPx` / `ViewportClip.ClipPx` 用那一档）。
+        /// 两档各自内部自洽，⛔ 别混用。</para></summary>
+        public static Vector2 ToDesignPixel(Vector3 world)
+        {
+            return new Vector2(world.x * PxPerWorldX + DesignPxW * 0.5f, PxY(world.y));
+        }
     }
 }

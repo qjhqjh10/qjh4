@@ -5,6 +5,43 @@
 // （战斗界面 TMP : legacy = 666 : 6），中文字体 `NotoSerifCJK-Regular.ttf` 就在本机解包资源里，
 // 于是这条路通了（TMP 的资产由 `TmpSetup.ImportEssentials` 从命令行导，不用手点菜单）。
 //
+// 🔴 **2026-10-18（`A1024`）补记 —— 这不是「我们换了字体」，是「全仓只有一个字体」**：
+//   原账一度把「多处渲染值与原版不同（如左栏页签字号 `D19`）」写成「**根因 = 我们换了字体**」。
+//   **那句话是错的**，现核（只读查证 → `资料/普查产出_第四会话/查证_探针覆盖率与字体口径.md` §3）：
+//     · **我们【没有换过】字体** —— 是从「自写点阵（只支持 ASCII）」**新增**了 TMP 这条路（见上段）。
+//       `NotoSerifCJK` 是**当时就有**的那一个，从来没有「原来用 A、后来换成 B」这回事
+//       ⇒ ⛔ **别再把它写成「换字体」**（下个会话会以为是我们随手挑的，与事实不符）。
+//     · 真正的根因 = **全仓只有一个字体** —— 现读给 TMP 赋字体的**只有 4 处**
+//       （本文件的 `Font` 属性 · `MeasureGlyph` 里那句 `t.font = Font` ·
+//        `Editor/{IconSetup,IconSizeProbe,Round1015Probe}` 三个探针），**全部 = `NotoSerifCJK`**
+//       ⇒ **拉丁文本（页签、按钮、卡面英文）也用它渲染**；而原版拉丁走的是另外三种
+//       （名字出处见 `ApplyOutline` 上方那段从 `bundle_fonts_assets_all/Material/` 读出的清单）：
+//       `Asar-Regular`（正文/UI）· `Pragati-Regular`（卡面效果 / 兵种）· `RobotoCondensed-Regular`。
+//
+//   📌 **判据是可取的 —— 原版那三份 font asset 与烘好的图集都在本地**：
+//      `d:/2/新解包资源/assets_full/bundle_fonts_assets_all/` 的
+//      `MonoBehaviour/{Asar-Regular SDF, Pragati-Regular SDF, RobotoCondensed-Regular SDF}.json`
+//      + `Texture2D/* Atlas.png`（1024² · 1024×2048 · 512²）；三份都是 `m_AtlasPopulationMode = 0`
+//      （**Static、字形已烘死**）、`m_SourceFontFile = null`
+//      ⇒ **源 TTF 全库找不到，但不必找：JSON + 图集就够重建**（这正是原版的做法）。
+//      ⚠️ 只有 `NotoSerifCJK-Regular SDF` 那份是 Dynamic（`= 1`）、图集是 **1×1 占位** ——
+//         所以汉字只能自己从 TTF 生成（见 `TmpSetup` 头那段「像原版 = 同样的参数 + 同样的 Dynamic 模式」）。
+//
+//   🚧 **`A1024` 的三步里只做完第 ① 步，②③ 都【没做】（⛔ 别以为字体已经换过了）**：
+//      ① ✅ **判据路径已记**（`资料/待办判据_第四会话.md` §A1024；上面这两段就是它的代码侧副本）；
+//      ② ⛔ **没做** —— 从「原版 JSON + 原版图集 PNG」重建三份 Static 资产（**要跑 Unity**；
+//         且 `Asar Regular White` 等 58 个 Material 要不要一并复刻、重建后 `ApplyOutline` 那套
+//         `_OutlineWidth/_Underlay*` 会不会被覆盖 —— **这两条还没查清**）；
+//      ③ ⛔ **没做** —— 接 fallback 链（`Asar/Pragati` 主 → `NotoSerifCJK` 兜底 CJK；
+//         TMP 原生支持：`TMP_FontAsset.fallbackFontAssetTable` + `SearchFallbacksForCharacter`，
+//         我们现在「表内 fallback」与「`TMP Settings` 全局 fallback」**两条都是空的**），
+//         并把 `NewText` 里 `t.font = Font` 那一跳改成「**按用途选字体**」的入口。
+//      ⇒ 今天全仓仍然是「**一个 Noto 打天下**」。
+//      ⚠️ **换的时候必须一起重量**：下面「字形高度 ÷ fontSize」那套换算
+//         （`WorldGlyphPerFontSize` / `WorldCapPerFontSize`，是**按字体标定**的）⇒ 换字体会**牵动全仓版面**
+//         （页签、按钮、卡面都会位移）⇒ 已裁：**逐件换、逐件验收**，别一次全开。
+//         ⚠️ 中文那一侧**判据本来就空**（原版客户端没有中文表）⇒ **只有拉丁这一侧可逐字对**。
+//
 // 走的是 TMP 的**世界空间**组件 `TextMeshPro`，不是 UGUI 那版 `TextMeshProUGUI` ——
 // 它本身就摆在 3D 世界里（`TextMeshPro.cs:17` 要 `MeshRenderer`），不需要 Canvas，
 // 正好替掉「把字画进 Texture2D 再贴 quad」那套。

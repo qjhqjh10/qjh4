@@ -24,6 +24,19 @@ public static class NetSelfTest
 {
     static int _pass, _fail, _warn;
 
+    /// <summary>🆕 2026-10-19（P6 · 双语）：取词条**从开头到第一个 `{0}` 之前**那一段 —— 本文件断言的锚。
+    /// 形状与 `Editor/SettingsScene.cs:240` 的 `TermHead` 逐字相同。
+    /// <para>🔴 为什么要有它：P6 把 `Net/` 那 6 份里**玩家可见**的中文直传换成了 `Loc.T(键)` ⇒
+    /// 旧那些**写死中文子串**的断言在**英文档**下必红（本工程那条系统性毛病：只在一种语言下看着对）。</para>
+    /// <para>⛔ 别拿它当第二条取值路 —— 它只服务断言；`{0}` 起的运行期参数不参与比较。</para></summary>
+    static string TermHead(string key)
+    {
+        string v = Loc.T(key);
+        if (string.IsNullOrEmpty(v)) return "";
+        int i = v.IndexOf("{0}", System.StringComparison.Ordinal);
+        return i < 0 ? v : v.Substring(0, i);
+    }
+
     public static void Run()
     {
         _pass = _fail = _warn = 0;
@@ -50,6 +63,7 @@ public static class NetSelfTest
             TestSilentTimeoutReadSideA943();  // 🆕 2026-10-18（A943 读侧）：静默超时**不许分两次读下结论**
             TestPeerTextClampA961(FreePort()); // 🆕 2026-10-18（A961 + 「Send() 静默丢」）：对端可控文本要钳 · 丢包要出声
             TestOpponentHintA932();            // 🆕 2026-10-18（A932）：排位那扇全屏窗的**提示行**（自建节点）
+            TestNetTermBilingual();            // 🆕 2026-10-19（P6 · 双语）：`Net/` 那批词条的两语档 + 灭自证
             TestHostResolve();
             TestAddressAndUpnp();     // 🆕 2026-09-27：地址判据（Teredo/6to4）+ UPnP 纯函数
         }
@@ -66,6 +80,186 @@ public static class NetSelfTest
 
         Debug.Log($"[NetSelfTest] ===== 通过 {_pass} · 失败 {_fail} · 跳过/警告 {_warn} =====");
         if (Application.isBatchMode) EditorApplication.Exit(_fail == 0 ? 0 : 1);
+    }
+
+    // ==================================================================
+    //  🆕 2026-10-19（P6 · 双语）：`Net/` 整片接进语言表之后的**【两语档 + 灭自证】**
+    // ==================================================================
+    /// <summary>判据 = `资料/普查产出_第四会话/施工单_双语_Net整片_P6.md` §⑤
+    /// + `施工单_双语③逐处换key.md` §⑧（**三条必备 + 灭自证 C1/C2**）。
+    ///
+    /// <para>🔴 **为什么要单开一节**：本轮把 `Net/` 那 6 份里**玩家可见**的中文直传换成了 `Loc.T(键)` ——
+    /// 只断「当前档 == `Loc.T(键)`」**不够**：实现若被改回写死、期望值也一起改回写死 ⇒ **两处一起变绿**
+    /// （本工程那条系统性毛病）。所以这里断三件：① 本批每条键**都在表里**（坑表 #18）且**值不是键名**（C2）
+    /// ② 英文列**一个汉字都没有**（C1）③ 两语档的取值**真的不同且都非空**（灭自证主判据）。</para>
+    ///
+    /// <para>⚠️ 只切**内存里**的语言（`Loc.PersistOverride` 挡住写盘 —— 本工程规矩：自检不许动玩家的真设置），
+    /// 收尾**逐值放回**（写法同 `Editor/SettingsScene.cs:1544` 那一族）。</para>
+    ///
+    /// <para>⚠️ 这是**静态**判据（表本身 + 两档取值）；「界面上那行字真跟着换」那一半由
+    /// `ShellScene.Run` / `MainMenuScene.Run` / `SettingsScene.Run` 那几个宿主覆盖（不在本文件）。</para></summary>
+    static void TestNetTermBilingual()
+    {
+        // 本批（P6a/b/c）用到的**全部**词条 —— 逐条列在这儿；少一条就等于少一格的判据。
+        string[] keys =
+        {
+            // P6a `NetSession.cs` + `NetRuntime.cs`
+            "Settings/Online/St/Off", "Settings/Online/St/HostFailed", "Settings/Online/St/Listening",
+            "Settings/Online/St/Connecting", "Settings/Online/St/Handshaking", "Settings/Online/St/PeerLostInBattle",
+            "Settings/Online/St/Disconnected", "Settings/Online/St/PeerBack", "Settings/Online/St/PeerJoined",
+            "Settings/Online/St/SilentTimeout", "Settings/Online/St/Reconnecting", "Settings/Online/St/CaughtUp",
+            "Settings/Online/St/ReconnectFailed", "Settings/Online/St/BadHello", "Settings/Online/St/VersionMismatch",
+            "Settings/Online/St/WrongPassword", "Settings/Online/St/Refused", "Settings/Online/St/PeerBackWaitReport",
+            "Settings/Online/St/PeerInLobby", "Settings/Online/St/PeerRefused", "Settings/Online/St/PeerLeft",
+            "Settings/Online/St/ResumedWaitProgress", "Settings/Online/St/ClientLobby", "Settings/Online/St/ResumeSent",
+            "Settings/Online/St/ResumeCaughtUp", "Settings/Online/St/RejectBadKey", "Settings/Online/St/RejectNoLog",
+            "Settings/Online/St/InBattle", "Settings/Online/St/HostSide", "Settings/Online/St/ClientSide",
+            "MainMenu/General/OK",
+            // P6c `NetTransport.cs` / `NetConfig.cs` / `UpnpPortMapper.cs`
+            "Settings/Online/St/PortBusy", "Settings/Online/St/ConnRefused", "Settings/Online/St/HostNotFound",
+            "Settings/Online/St/SocketError", "Settings/Online/St/NoIp", "Settings/Online/St/ConnectTimeout",
+            "Settings/Online/St/NoStream", "Settings/Online/St/ReadAbort", "Settings/Online/St/PeerClosed",
+            "Settings/Online/St/BadFrame", "Settings/Online/St/BadEnvelope", "Settings/Online/St/NotConnected",
+            "Settings/Online/St/SendFailed", "Settings/Online/St/StackDual", "Settings/Online/St/StackV4Only",
+            "Settings/Online/Echo/NoEcho", "Settings/Online/Echo/ProbeError",
+            "Settings/Online/Upnp/Busy", "Settings/Online/Upnp/Error", "Settings/Online/Upnp/NoResponse",
+            "Settings/Online/Upnp/NoService", "Settings/Online/Upnp/PortTaken", "Settings/Online/Upnp/NotPermitted",
+            "Settings/Online/Upnp/Rejected", "Settings/Online/Upnp/Cgnat", "Settings/Online/Upnp/Ok",
+            // 🆕 **2026-10-19（P6d · A1079 + A1038 + A1081）**：本件新接/新键的那几条。
+            //   ⚠️ `St/{BadHello,VersionMismatch,WrongPassword}` **已经在上面**（P6a 那批建的）——
+            //      本轮只是把它们的**走线那一半**也接上（键没换、所以不重复列）。
+            "Settings/Online/St/CheckOk",
+            "Settings/Online/Upnp/OkWanSuffix",
+            "Settings/Online/Wire/HostRestarted", "Settings/Online/Wire/BadKey",
+            "Settings/Online/Wire/NoRecord", "Settings/Online/Wire/BadResume",
+            "Settings/Online/Wire/PeerDone", "Settings/Online/Wire/PeerLeftMatch",
+            "Settings/Online/Wire/NotYourTurn", "Settings/Online/Wire/RoomGone",
+            // P6b `NetMatchmaking.cs`（+ `Settings/Online/{Save,CheckConnection}` 是 `PlayedVsBot` 的 `{1}`）
+            "Settings/Online/Lobby/PeerLostHint", "Settings/Online/Lobby/PeerLost",
+            "Settings/Online/Lobby/PeerLeftHint", "Settings/Online/Lobby/PeerLeft",
+            //  🆕 **2026-10-19（P6d · A1079②）**：`DeferToBattleLayer` 那两个 **`what` 碎片**
+            //    （喂 `Lobby/DeferToBattle` 的 `{0}`；⛔ 与上面 `PeerLostHint`/`PeerLeftHint` 的 `{0}` 是别的东西）
+            "Settings/Online/Lobby/PeerLostFrag", "Settings/Online/Lobby/PeerLeftFrag",
+            "Settings/Online/Lobby/MatchRevoked", "Settings/Online/Lobby/NotMatchingThisGame",
+            "Settings/Online/Lobby/DeferToBattle", "Settings/Online/Lobby/BotNoLink",
+            "Settings/Online/Lobby/BotSessionNotReady", "Settings/Online/Lobby/BotEmptyDeck",
+            "Settings/Online/Lobby/PlayedVsBot", "Settings/Online/Lobby/LobbyRestored",
+            "Settings/Online/Lobby/StartAfterCancel", "Settings/Online/Lobby/MissedCancel",
+            "Settings/Online/Lobby/PeerCancelled", "Settings/Online/Lobby/ModeMismatch",
+            "Settings/Online/Lobby/StartParseFailed",
+            "Settings/Online/Cancel/WhyNoLink", "Settings/Online/Cancel/WhyNotMatching",
+            "Settings/Online/Cancel/WhyStarted",
+            "Settings/Online/Save", "Settings/Online/CheckConnection",
+        };
+
+        // ---- ① 三条必备之一：本批每条键**都在表里**（坑表 #18：原版有词条 ≠ 我们表里有键）----
+        var miss = new List<string>();
+        for (int i = 0; i < keys.Length; i++) if (!Loc.HasEntry(keys[i])) miss.Add(keys[i]);
+        Eq(miss.Count, 0, $"（P6·双语）本批 **{keys.Length}** 条键**都在语言表里**"
+                        + (miss.Count > 0 ? "（缺：" + string.Join(" · ", miss) + "）" : ""));
+
+        // ---- ② 灭自证 C2（反档）+ C1（英文列不许有汉字）----
+        var c2 = new List<string>(); var c1 = new List<string>();
+        for (int i = 0; i < keys.Length; i++)
+        {
+            if (Loc.HasEntry(keys[i]) && Loc.T(keys[i]) == keys[i]) c2.Add(keys[i]);
+            string en = Loc.EnOf(keys[i]);
+            if (string.IsNullOrEmpty(en) || Loc.HasCjk(en)) c1.Add(keys[i]);
+        }
+        Eq(c2.Count, 0, "（P6·灭自证 C2）本批没有「键在表里、值却是键名本身」的空键"
+                      + (c2.Count > 0 ? "（命中：" + string.Join(" · ", c2) + "）" : ""));
+        Eq(c1.Count, 0, "（P6·灭自证 C1）本批**英文列一个汉字都没有**（`!Loc.HasCjk(Loc.EnOf(键))`）—— "
+                      + "把「实现 + 期望值一起改回写死中文」那条路堵死"
+                      + (c1.Count > 0 ? "（命中：" + string.Join(" · ", c1) + "）" : ""));
+
+        // ---- ③ 两语档：同一条键在两档下**取值不同且都非空**（灭自证主判据）----
+        //    ⚠️ 先存后放：`Loc.Current` 是**跨进程持久**的 ⇒ 不许依赖「现在是哪一档」。
+        var lang0 = Loc.Current; bool per0 = Loc.PersistOverride;
+        string zhLost = null, enLost = null, zhHint = null, enHint = null;
+        int zhHintLen = -1, zhLeftLen = -1;
+        try
+        {
+            Loc.PersistOverride = true;
+            Loc.SetLanguage(AvailableLanguages.Chinese);
+            zhLost = Loc.T("Settings/Online/Lobby/PeerLost");
+            zhHint = Loc.T("Settings/Online/Lobby/PeerLostHint");
+            // P6 §⑤ 那条**额外要求**：两条提示行词条要能塞进 `SearchingMatchPopup` 那个 40 字框
+            // （超了它每次都 `LogWarning`；中文按字符数算 ⇒ 只量**中文列**，写法同 `A933` 的注释）
+            zhHintLen = Loc.T("Settings/Online/Lobby/PeerLostHint").Length;
+            zhLeftLen = Loc.T("Settings/Online/Lobby/PeerLeftHint").Length;
+            Loc.SetLanguage(AvailableLanguages.English);
+            enLost = Loc.T("Settings/Online/Lobby/PeerLost");
+            enHint = Loc.T("Settings/Online/Lobby/PeerLostHint");
+        }
+        finally
+        {
+            Loc.SetLanguage(lang0);              // 逐值放回（自检不许把玩家的语言改掉）
+            Loc.PersistOverride = per0;
+        }
+        Ok(zhLost != null && enLost != null && zhHint != null && enHint != null
+           && zhLost != enLost && zhLost.Length > 0 && enLost.Length > 0
+           && zhHint != enHint && zhHint.Length > 0 && enHint.Length > 0,
+           "（P6·灭自证）两条提示行词条**两档逐字不同且都非空**"
+         + "（只断一种语档 = 半边绿；实现与期望值一起改回去 ⇒ 这一条当场红）");
+        Ok(Loc.Current == lang0, $"（P6 收尾）语言**放回**本节进来时那一档（{lang0}）—— 盘上全程没动过");
+        Ok(zhHintLen >= 0 && zhHintLen <= SearchingMatchPopup.HintLineMaxChars,
+           $"（P6）`Lobby/PeerLostHint` 中文列 **{zhHintLen}** 字 ≤ 框宽 {SearchingMatchPopup.HintLineMaxChars}"
+         + "（超了 `SearchingMatchPopup.ShowHint` 每次都 `LogWarning`）");
+        Ok(zhLeftLen >= 0 && zhLeftLen <= SearchingMatchPopup.HintLineMaxChars,
+           $"（P6）`Lobby/PeerLeftHint` 中文列 **{zhLeftLen}** 字 ≤ 框宽 {SearchingMatchPopup.HintLineMaxChars}");
+        TestWireTextCodec();
+    }
+
+    // ==================================================================
+    /// <summary>🆕 🔴 **2026-10-19（P6d · A1038）：走线文案的「收侧取词」必须真取到词。**
+    ///
+    /// <para>**为什么单开这一条**：P6d 之前，`MsgBye.reason` / `MsgReject.reason` / `MsgAck.reason`
+    /// 装的是**发送方渲染好的中文整句** ⇒ 对端（英文档）照印中文。接完之后线上发的是**词条键**，
+    /// 收侧 `NetWireText.Unpack` 取词 ⇒ **必须断「收侧印出来的是词条值、不是键名」** ——
+    /// 本工程对「把键名当正文印出来」的容忍度是零（`Loc.T` 缺键回键名那条就是被自检钉住的）。</para>
+    ///
+    /// <para>⚠️ **`Wire/*` 这一族在今天之前【零条断言】查过**（`grep "Online/Wire" Editor/*.cs` = 0）——
+    /// 上面那张键清单只管「键在不在表里」，**管不了「收侧有没有取词」**。这一条补上那一格。</para>
+    ///
+    /// <para>🧨 **改坏法**（两条不同源，各自只红一条）：
+    ///   ① 把 `NetWireText.Unpack` 里的 `Loc.T(key)` 改成 `return s`（= 收侧不取词）⇒ **①③ 红**；
+    ///   ② 把 `Unpack` 的兜底从「原样回显」改成「落一句本地固定话」⇒ **④ 红**
+    ///      （那正是主对话明令⛔不许走的那条路）。</para></summary>
+    static void TestWireTextCodec()
+    {
+        // ---- ① 单键：收侧印的是【本机语言】的词条值，**不是键名** ----
+        const string kRoomGone = "Settings/Online/Wire/RoomGone";
+        string got = NetWireText.Unpack(NetWireText.Pack(kRoomGone));
+        Ok(got == Loc.T(kRoomGone) && got != kRoomGone,
+           $"（P6d①）`Wire/*` 走线串在收侧被**取成了词条值**（键 `{kRoomGone}` → 「{got}」）"
+         + " —— 断「≠ 键名」这一半是硬的：`Loc.T` 缺键时返回的就是键名本身，"
+         + "只断 `== Loc.T(键)` 会在「键根本没进表」时也绿");
+
+        // ---- ② 带参数那条：`键|参数1|参数2` 要按**收侧**的模板填回去 ----
+        //   （`MsgAck.reason` 的 `St/VersionMismatch` 那一条：`{0}` = 对面的协议版本、`{1}` = 本机那份）
+        const string kVer = "Settings/Online/St/VersionMismatch";
+        string wire = NetWireText.Pack(kVer, 7, 2);
+        string back = NetWireText.Unpack(wire);
+        string want = string.Format(Loc.T(kVer), 7, 2);
+        Ok(back == want && back.Contains("7") && back.Contains("2") && !back.Contains(kVer),
+           $"（P6d②）**带参数**的走线串也取对了词（线上「{wire}」→ 收侧「{back}」）"
+         + " —— ⛔ 若改成「线上发已渲染好的整句」，这一条与①会**同时**红（那正是本件要修的病）");
+
+        // ---- ③ 参数个数对不上（对面伪造 / 原串被 `ClampPeerText` 钳断）⇒ **不许抛异常** ----
+        bool threw = false; string safe = null;
+        try { safe = NetWireText.Unpack(kVer); }        // 只有键、一个参数都没有
+        catch (Exception e) { threw = true; safe = e.GetType().Name; }
+        Ok(!threw && safe == Loc.T(kVer),
+           $"（P6d③）参数个数对不上时**不抛异常**、退回模板本身（实得「{safe}」）"
+         + " —— 🧨 这一格原来是 `string.Format` 裸调 ⇒ 会 `FormatException` **打死收包路径**（而且一个字都不说）");
+
+        // ---- ④ 认不出的串（旧端的自然语言 / `RuleCodes.Describe` 那种本机整句）⇒ **原样回显** ----
+        //   这条同时钉住主对话那条裁定：「⛔ 不许改成『不认识的串一律落固定本地句』」——
+        //   那会让新端**丢掉对面那句话**，而且 M⑳ / NetBattleTest 的「对面离开」那两条会一起红。
+        const string oldPeer = "对面结束了这一局";
+        Ok(NetWireText.Unpack(oldPeer) == oldPeer,
+           $"（P6d④）旧端发来的**自然语言**原样回显（「{oldPeer}」）—— 这是白赚的跨版本兼容；"
+         + "🧨 改成「落一句本地固定话」⇒ 红（而且会丢掉对面报的理由）");
     }
 
     // ==================================================================
@@ -103,8 +297,15 @@ public static class NetSelfTest
         Ok(a.StartHost(Cfg(p, "x")), "B① 第一台主机起得来");
         bool second = b.StartHost(Cfg(p, "x"));
         Ok(!second, "B② 同一端口起第二台主机**起不来**");
-        Ok(b.LastError != null && b.LastError.Contains("占用"),
-           $"B③ 起不来时给的是**人话**（「{b.LastError}」）");
+        // 🔴 **2026-10-19（P6 · 双语）**：这一句不再按中文子串断 —— 它**跟着语档**
+        //    （`NetTransport.Describe` 改走 `Settings/Online/St/PortBusy`，前缀是 `St/Stack{Dual,V4Only}`）
+        //    ⇒ 写死「占用」在英文档必红。
+        string wantPortBusy = string.Format(Loc.T("Settings/Online/St/PortBusy"), p);
+        Ok(b.LastError != null && b.LastError.Contains(wantPortBusy)
+           && (b.LastError.Contains(Loc.T("Settings/Online/St/StackDual"))
+            || b.LastError.Contains(Loc.T("Settings/Online/St/StackV4Only"))),
+           $"B③ 起不来时给的是**人话**（键 `Settings/Online/St/PortBusy` + 双栈/仅 IPv4 前缀；"
+         + $"实得「{b.LastError}」）");
         a.Close(false); b.Close(false);
     }
 
@@ -147,8 +348,10 @@ public static class NetSelfTest
         cli.CheckConnection(Cfg(port, "错的密码"));
         bool done = PumpUntil(host, cli, () => cli.State == NetState.Closed, 5000);
         Ok(done, "D② 密码不对时客机会被断开（不会停在 Lobby 假装连上了）");
-        Ok(checkWhy != null && checkWhy.Contains("密码"),
-           $"D③ 拒绝理由里有「密码」二字（「{checkWhy}」）");
+        // 🔴 **2026-10-19（P6 · 双语）**：理由走 `Settings/Online/St/WrongPassword` ⇒ 随语档。
+        //    ⚠️ 这条**经 `MsgAck.reason` 过线**（对端把本机的 `why` 原样回灌）⇒ 同一台进程里两档都对。
+        Ok(checkWhy != null && checkWhy.Contains(Loc.T("Settings/Online/St/WrongPassword")),
+           $"D③ 拒绝理由里有 `Settings/Online/St/WrongPassword` 那条词条（「{checkWhy}」）");
         Ok(checkOk == false, "D④ 【检查连接】如实回报「没连上」");
         host.Close(false); cli.Close(false);
     }
@@ -170,8 +373,12 @@ public static class NetSelfTest
 
         bool rejected = PumpUntil(host, null, () => host.State == NetState.Closed, 4000);
         Ok(rejected, "E③ 版本不符 ⇒ 主机把连接**关掉**");
-        Ok(host.LastError != null && host.LastError.Contains("版本"),
-           $"E④ 理由里点明是版本问题（「{host.LastError}」）");
+        // 🔴 **2026-10-19（P6 · 双语）**：改走 `Settings/Online/St/VersionMismatch`（随语档）。
+        //    `{0}` = 对端报来的协议版本（这一格是 `Version + 1`）、`{1}` = 本机那份。
+        string wantVer = string.Format(Loc.T("Settings/Online/St/VersionMismatch"),
+                                       NetProtocol.Version + 1, NetProtocol.Version);
+        Ok(host.LastError != null && host.LastError.Contains(wantVer),
+           $"E④ 理由里点明是版本问题（键 `Settings/Online/St/VersionMismatch`；「{host.LastError}」）");
         raw.Close(); host.Close(false);
     }
 
@@ -332,16 +539,21 @@ public static class NetSelfTest
             var got = NetRuntime.DrainNoticesForTest();
             Eq(got.Length, 1,
                "J② ★ **配过联机**时，「联机没接管」**弹一条**（红线：不许静默）");
-            Ok(got.Length == 1 && got[0].Contains("打的是电脑"),
-               "J③ ★ 那条话要说清「**打的是电脑**」+ 告诉玩家怎么办（不是只报个错）");
+            // 🔴 **2026-10-19（P6 · 双语）**：整条走 `Settings/Online/Lobby/PlayedVsBot`（两处 `{0}/{1}`）
+            //    + `Settings/Online/{Save,CheckConnection}`（`{1}` = 那颗钮的字）⇒ 断「随语档」而不是中文子串。
+            Ok(got.Length == 1 && got[0].Contains(TermHead("Settings/Online/Lobby/PlayedVsBot"))
+               && got[0].Contains(Loc.T("Settings/Online/Save")),
+               "J③ ★ 那条话要说清「**打的是电脑**」+ 告诉玩家怎么办（不是只报个错）—— 断的是"
+             + "`Settings/Online/Lobby/PlayedVsBot` 到 `{0}` 为止那半句 + `Settings/Online/Save`（随语档）");
 
             // ③ 客机那一支也要会说（`role` 决定提示他去点【检查连接】还是【保存】）
             cfg.role = (int)NetRole.Client;
             NetRuntime.DrainNoticesForTest();
             NetMatchmaking.ExplainNotTakingOver("还没握手完");
             var got2 = NetRuntime.DrainNoticesForTest();
-            Ok(got2.Length == 1 && got2[0].Contains("检查连接"),
-               "J④ ★ 客机拿到的提示是让他去点【**检查连接**】（主机才是【保存】）");
+            Ok(got2.Length == 1 && got2[0].Contains(Loc.T("Settings/Online/CheckConnection")),
+               "J④ ★ 客机拿到的提示是让他去点【**检查连接**】（主机才是【保存】）—— 断的是"
+             + "`Settings/Online/CheckConnection` 那条词条（随语档）");
 
             // ④ 只取一次：排进去的话**取走即清空**（免得同一条反复弹）
             Eq(NetRuntime.DrainNoticesForTest().Length, 0, "J⑤ 取走即清空（同一条不会反复弹）");
@@ -397,8 +609,9 @@ public static class NetSelfTest
             NetMatchmaking.PumpLobby();
             Ok(NetMatchmaking.FoeCancelled, "L⑧ ★ **对面收到了「取消」**（`match.cancel` 到得了）");
             var n1 = NetRuntime.DrainNoticesForTest();
-            Ok(n1.Length == 1 && n1[0].Contains("对面取消了"),
-               "L⑨ ★ 对面那边**弹出人话**（红线：不许静默）——「对面取消了这一局的匹配…」");
+            Ok(n1.Length == 1 && n1[0] == Loc.T("Settings/Online/Lobby/PeerCancelled"),
+               "L⑨ ★ 对面那边**弹出人话**（红线：不许静默）—— 逐字 = `Settings/Online/Lobby/PeerCancelled`"
+             + $"（随语档；实得「{(n1.Length > 0 ? n1[0] : "")}」）");
 
             // ---- ② **两边重新各点一次** ⇒ 开局；**开局之后取消不了** ----
             NetMatchmaking.Reset();
@@ -414,8 +627,8 @@ public static class NetSelfTest
 
             Ok(!NetMatchmaking.Cancel("自检：开局之后", out string w2),
                "L⑬ ★ **开局之后取消不了**（**不假装取消成功** —— 原来那句「取消的只是这扇窗」就是这么来的）");
-            Ok(!string.IsNullOrEmpty(w2) && w2.Contains("已经开局"),
-               $"L⑭ 而且要说清**为什么**、以及该怎么办（「{w2}」）");
+            Ok(!string.IsNullOrEmpty(w2) && w2.Contains(Loc.T("Settings/Online/Cancel/WhyStarted")),
+               $"L⑭ 而且要说清**为什么**、以及该怎么办（`Settings/Online/Cancel/WhyStarted`，随语档；「{w2}」）");
 
             // ---- ③ 没人连 / 没进匹配 ⇒ 取消不了，且理由是人话 ----
             NetMatchmaking.Reset();
@@ -537,11 +750,16 @@ public static class NetSelfTest
                "M⑥ ★ **大厅阶段对面掉线要弹一条**（原来零接线 ⇒ 一条都没有）"
              + " —— 🧨 改坏法：删掉 `NetRuntime.Init`（或 `Reset` / `AttachForTest`）里那句 "
              + "`NetMatchmaking.WireLobby(…)` ⇒ 红");
-            Ok(n1.Length >= 1 && n1[0].Contains("断开"),
-               $"M⑦ ★ 那条话点明是**联机断开 / 对面掉线**（实得「{(n1.Length > 0 ? n1[0] : "")}」）");
-            Ok(NetMatchmaking.LastHint != null && NetMatchmaking.LastHint.Contains("掉线"),
-               $"M⑧ ★ **提示行**也说了（实得「{NetMatchmaking.LastHint}」）—— 自检读 `LastHint`；"
-             + "真 Play 里那行字归界面（订 `NetMatchmaking.OnHint`）");
+            Ok(n1.Length >= 1 && n1[0].Contains(TermHead("Settings/Online/Lobby/PeerLost"))
+               && n1[0].Contains(Loc.T("Settings/Online/Lobby/MatchRevoked")),
+               "M⑦ ★ 那条话点明是**联机断开 / 对面掉线**，并把「这一局撤没撤」说清"
+             + "（断 `Settings/Online/Lobby/PeerLost` 到 `{0}` 为止那半句 + `…/MatchRevoked`；"
+             + $"实得「{(n1.Length > 0 ? n1[0] : "")}」）");
+            Ok(NetMatchmaking.LastHint != null
+               && NetMatchmaking.LastHint.Contains(TermHead("Settings/Online/Lobby/PeerLostHint")),
+               $"M⑧ ★ **提示行**也说了（实得「{NetMatchmaking.LastHint}」）—— 断的是"
+             + "`Settings/Online/Lobby/PeerLostHint` 到 `{0}` 为止那半句（随语档）；"
+             + "自检读 `LastHint`；真 Play 里那行字归界面（订 `NetMatchmaking.OnHint`）");
             Ok(!NetMatchmaking.Waiting,
                "M⑨ ★ 这一局的匹配**被撤掉了**（= 原版那一刻 `MatchMakerManager.CancelSearch`：回大厅）"
              + " —— 与 M⑥ **不同源**：M⑥ 验的是「说不说」，这条验的是「局撤没撤」");
@@ -557,8 +775,10 @@ public static class NetSelfTest
             Ok(!NetMatchmaking.PeerGone, "M⑫ ★ 那个边沿清掉了（只认边沿 ⇒ 不会每帧说一遍）");
             Ok(NetRuntime.HidePopupCallsForTest > hide0,
                "M⑬ ★ 回来 ⇒ **去撤窗了**（原版那一刻是 `CloseAllWindows`；我们只收弹窗那一颗 —— B13 已记）");
-            Ok(NetMatchmaking.LastHint != null && NetMatchmaking.LastHint.Contains("回来"),
-               $"M⑭ ★ 提示行**改口**成「回来了」（实得「{NetMatchmaking.LastHint}」）—— 与 M⑧ 不同源："
+            Ok(NetMatchmaking.LastHint != null
+               && NetMatchmaking.LastHint.Contains(TermHead("Settings/Online/Lobby/LobbyRestored")),
+               $"M⑭ ★ 提示行**改口**成「回来了」（`Settings/Online/Lobby/LobbyRestored`，随语档；"
+             + $"实得「{NetMatchmaking.LastHint}」）—— 与 M⑧ 不同源："
              + "M⑧ 验的是掉线那一下说不说，这条验的是**恢复之后会不会改口**");
 
             // ---- ③ 🔴 **对局中（大厅这一半已经交权）⇒ 一句都不许说** ----
@@ -750,8 +970,10 @@ public static class NetSelfTest
             Ok(PumpUntil(host, cli, () => host.State == NetState.WaitingReconnect, 6000),
                $"（提示行）主机发现对面没了（实际 {host.State}）");
             Ok(seen.Count >= 1 && seen[seen.Count - 1] == NetMatchmaking.LastHint
-               && NetMatchmaking.LastHint != null && NetMatchmaking.LastHint.Contains("掉线"),
-               $"★（提示行）N④ **那个口是活的**：`OnHint` 推来的那句与 `LastHint` 逐字相同、且点明是掉线"
+               && NetMatchmaking.LastHint != null
+               && NetMatchmaking.LastHint.Contains(TermHead("Settings/Online/Lobby/PeerLostHint")),
+               $"★（提示行）N④ **那个口是活的**：`OnHint` 推来的那句与 `LastHint` 逐字相同、"
+             + "且点明是掉线（断 `Settings/Online/Lobby/PeerLostHint` 到 `{0}` 为止那半句，随语档）"
              + $"（实得「{(seen.Count > 0 ? seen[seen.Count - 1] : "<没响>")}」）");
 
             // ---- N⑤–N⑧：**界面的消费方**（`SearchingMatchPopup` 那一行）----

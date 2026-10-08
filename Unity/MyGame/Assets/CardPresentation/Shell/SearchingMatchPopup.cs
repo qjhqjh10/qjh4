@@ -248,7 +248,14 @@ namespace CardPresentation
             MenuDraw.Text(gub, new PxRect(BtnTxL, BtnTxT, BtnTxR, BtnTxB), "Cancel", Color.white,
                           "Button Text", 45f, QSrText);
             // 🆕 A17：原版 `Searching Oponent Popup>Window>Buttons>Generic UI Button` 是 SpriteSwap（普查 §块 5 第 26 行）
-            MenuDraw.Hit(gub, "CancelHit", new PxRect(BtnL, BtnT, BtnR, BtnB), QSrHit, () => Cancel(),
+            // 🆕 **2026-10-18（A1053）**：**命中区 = 可射线件的并集** —— 这颗钮的子树里底 `40K_button`（478.34×75）
+            //   与 **`Button Text`（452.34×91.20，`RT=1`）两颗都吃射线**，文字**上下各凸 8.1**、左右内缩
+            //   ⇒ 并集 = **478.34 × 91.20**（⛔ 不是按钮那 75 高）。
+            //   判据 = `python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all "Searching Oponent Popup"
+            //   --depth 8 --substr "Generic UI Button"`（实读 `478.34 x 91.20`）；
+            //   ⚠️ 我们画的那两颗（`BtnL..BtnB` / `BtnTxL..BtnTxB`）与它**逐位同矩形同偏移**
+            //   ⇒ 并集 = 「按钮的 x 两边 + 文字的 y 两边」（文字比按钮窄 ⇒ 左右两边由按钮定）。
+            MenuDraw.Hit(gub, "CancelHit", new PxRect(BtnL, BtnTxT, BtnR, BtnTxB), QSrHit, () => Cancel(),
                          bgQ, ArtButton);
 
             // 6) `Few players online message` —— **原版 `useFewPlayerMessage = 0` ⇒ 不画**（见文件头）
@@ -402,21 +409,118 @@ namespace CardPresentation
         public string HintText { get { return _hint; } }
         string _hint;
 
-        /// <summary>那一行字**放得下多少字**（粗算，只用来出声告警）：框 700×148（画布 px，原版 `Main Search message`
-        /// 的 rect）· 自适应 4~50 ⇒ 50px 时一行约 14 字 × 约 3 行 ≈ 41 字。留余量取 **40**（中文按等宽算；
-        /// 拉丁字更窄 ⇒ 实际更多）。超过这个数**会被压到很小**，那是**静默失败** ⇒ `ShowHint` 会出声。</summary>
+        // ==================================================================
+        //  🔴 **2026-10-19（`A1083`）：这一行的字数预算重算 —— 按【字形宽度】算，不再按【字符数】一刀切**
+        //
+        //  **改前**：`text.Length > 40`。那 40 是这么算出来的（原注释）：「框 700×148（原版
+        //    `Main Search message` 的 rect）· 自适应 4~50 ⇒ **50px 时一行约 14 字 × 约 3 行 ≈ 41 字**，
+        //    留余量取 40」。⚠️ 那个「14 字」= 700 ÷ 50 ⇒ 它量的是**中文（全宽）**的进位数
+        //    ⇒ **这条账只对中文档成立**（原注释末尾那句「拉丁字更窄 ⇒ 实际更多」当时没落成数）。
+        //
+        //  🔴 **为什么今天必须把它算准**：第六会话 `P6d` 把走线文案改成「**收侧先钳、再取词**」之后，
+        //    走到这一行的整句**变成了我们自己的文案**（`Core/Loc.cs` 的 EN 列），而 EN 列比 ZH 列长得多
+        //    ⇒ 英文档下**每一条**都 `LogWarning`。一个「只会喊、且喊得不准」的告警 = 谁都开始忽略它
+        //    （与「静默」是同一个病的两面）。
+        //
+        //  **重算 = 与那 40 用【同一套算法】，只把「中文字宽」换成「拉丁字宽」**（⛔ 没有另立一套）：
+        //    · 中文字宽 = **1 em**（全宽）⇒ 50px 时 700 ÷ 50 = **14 字/行** × 3 行 = 42 ⇒ 取 **40**（留约 5%）；
+        //    · 拉丁字宽 ≈ **0.5 em**（`Label` 用的是 `NotoSerifCJK-Regular SDF`；⚠️ `m_fontSize` **就是 em**，
+        //      ⛔ 别按 0.72 折 —— 那是本工程踩过的坑）⇒ 50px 时 700 ÷ 25 = **28 字/行** × 3 行 = **84**
+        //      ⇒ 按同一比例（42 → 40，约 5%）留余量 ⇒ **80**。
+        //    ⇒ 预算统一成「**半宽字位**」：中文/日文/全角标点一个字 = **2 位**，拉丁/数字/半角标点 = **1 位**，
+        //      上限 **80 位**。**中文档的上界与改前等价**（40 个全宽字 = 80 位）；含半角字符的串
+        //      （空格 / `Battle!` / 反引号 / `—`）会**略微宽松** —— 但方向是单向的：
+        //      `位 ≤ 2 × 字符数` ⇒ **「新判据会喊」必然推出「旧判据也会喊」** ⇒ **中文档一条新告警都不会多**，
+        //      只有 41~42 字那种**擦边**的串可能从「喊」变成「不喊」（= 少喊一句，是**选定的方向**）。
+        //      ⇒ `Editor/NetSelfTest.cs` 那条按 `HintLineMaxChars`（= 40）断中文档的检查**一字不用改**。
+        //    ⛔ **为什么不「按当前语档」分支**（`Loc.Current == Chinese ? 40 : 80`）：词条表**只有中、英两列**
+        //      （其余 10 档一律**回退英文**，见 `Loc` 文件头）⇒ 「是不是中文档」分不出字形宽度；
+        //      而且一句话里可以**中英混排**（`{0}` 里塞的就是对端转述的那一段）⇒ **只有看字本身才准**。
+        //      顺带也是躲开「别按语档写死」那条纪律。
+        //    ⛔ **为什么选「改预算」而不是「改截断」**：这一行的整句本来就是「告诉玩家刚才发生了什么」，
+        //      截了 = **把该玩家看的话吃掉**；而「超限」只是个**诊断阈值** ⇒ 正确的修法是**把阈值算准 + 照旧出声**。
+        //
+        //  🔴 **英文档下最长那条：实测 140 字**（2026-10-19 逐条算过；`SetHint` 是私有的 ⇒ 全仓
+        //    **唯一**写口就是 `NetMatchmaking` 那三处，下面这张表就是全部能走到本行的句子）：
+        //      | 路径（`NetMatchmaking`）                          | EN 字符数 | 中文档字符数 |
+        //      | `_started` 时掉线 `DeferToBattle{PeerLostFrag}`    |   106     |    29       |
+        //      | `_started` 时离开 `DeferToBattle{PeerLeftFrag+body}`| **140 ← 最长** | 42 ~ 70 |
+        //      | 未开局掉线 `PeerLostHint{tail}`                    | 110 ~ 124 | 36 ~ **40** |
+        //      | 未开局离开 `PeerLeftHint{body, tail}`              |   105     | 35 ~ 63     |
+        //      | `Reset` 后对面回来 `LobbyRestored`                 |    91     |    39       |
+        //      （`body` = 对端转述那一段，收侧先 `NetSession.ClampPeerText` **钳到 40** 再取词 ⇒ 上界 40；
+        //        `tail` = `Lobby/MatchRevoked`(35/10) 或 `Lobby/NotMatchingThisGame`(49/14)。）
+        //  ⇒ ✅ **改完「英文档那几条」仍然超**（140 > 80，英文档**一条都不止 80 位**）—— **这是如实结论、
+        //    不是没改完**：阈值算准之后这条告警的含义才明确 =「**这一行在满字号（50px）下装不下它**」，
+        //    而不是原来那个「拿中文算法去量英文文本」的假告警。**照旧出声 + 照旧照画**（⛔ 不截断、⛔ 不静默）。
+        //    ⚠️ **没查清的一条**（不许跑 Unity ⇒ 量不到，如实记着）：140 个英文字符在这个 700×148 里
+        //    究竟被压到多少 px、那个字号还看不看得清 —— **没有渲染就没有读数**。
+        // ==================================================================
+
+        /// <summary>那一行字**放得下多少【半宽字位】**：中文 / 日文 / 全角标点一个字 = **2 位**，
+        /// 拉丁 / 数字 / 半角标点 = **1 位**。**80 位** ≈ 中文 **40 字** ≈ 英文 **80 字**。
+        /// 推导（与改前那 40 同一套算法、只换字宽）与「英文档最长实际 140 字」见上面那一节。</summary>
+        public const int HintLineMaxWidth = HintLineMaxChars * 2;
+
+        /// <summary>那一行字**放得下多少【汉字】**（= `HintLineMaxWidth ÷ 2`，**中文档**的上限）。
+        /// 🔴 **名字与取值都保留**（`Editor/NetSelfTest.cs` 拿它当中文档的上限读；`SearchingOpponentWindow`
+        /// 原来也读它）—— ⛔ 别改成别的语义。**判断「这一行会不会被压小」请用
+        /// `HintLineWidth(text) > HintLineMaxWidth`**，⛔ 别再用 `text.Length > 40`（那只对中文档成立）。</summary>
         public const int HintLineMaxChars = 40;
+
+        /// <summary>这句话在那一行上占**多少个半宽字位**（判据 / 推导见上面那一节）。
+        /// **纯函数**（⛔ 不读 `Loc.Current` —— 看字本身，中英混排才算得对）。
+        /// ⚠️ 「歧义宽度」的标点（`—` `–` `…` `·`、弯引号…）**按半宽（1 位）算** —— 这是**故意的**：
+        ///    它们在中文字体里其实按全宽画，算 1 位会让阈值**略微宽松**（宁可少喊一句，
+        ///    也不把中文档那条「40 字」的账推翻）。
+        /// 🔴 代理对（`surrogate pair`，emoji 之类）**按一个全宽字算**，⛔ 别把低位当半宽再数一遍。</summary>
+        public static int HintLineWidth(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return 0;
+            int w = 0;
+            for (int i = 0; i < text.Length; i++)
+            {
+                char c = text[i];
+                if (char.IsHighSurrogate(c) && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1]))
+                {
+                    w += 2; i++;
+                }
+                else w += WideGlyph(c) ? 2 : 1;
+            }
+            return w;
+        }
+
+        /// <summary>这个字符是不是**全宽**字形（东亚宽 / 全角区）—— `HintLineWidth` 用。
+        /// 范围照 `Unicode East Asian Width = W/F` 那几段抄（含谚文、假名、汉字、全角 ASCII）。</summary>
+        static bool WideGlyph(char c)
+        {
+            return (c >= 'ᄀ' && c <= 'ᅟ')     // 谚文字母
+                || (c >= '⺀' && c <= '〾')     // 部首扩展 ~ 中日韩符号（含全角逗号句号）
+                || (c >= 'ぁ' && c <= '㏿')     // 假名 ~ 中日韩兼容（含全角方括号式符号）
+                || (c >= '㐀' && c <= '䶿')     // 扩展 A
+                || (c >= '一' && c <= '鿿')     // 基本汉字
+                || (c >= 'ꀀ' && c <= '꓏')     // 彝文
+                || (c >= '가' && c <= '힣')     // 谚文音节
+                || (c >= '豈' && c <= '﫿')     // 兼容汉字
+                || (c >= '︰' && c <= '﹏')     // 中日韩兼容形式
+                || (c >= '＀' && c <= '｠')     // 全角 ASCII
+                || (c >= '￠' && c <= '￦');    // 全角符号
+        }
 
         /// <summary>联机层要对玩家说一句（大厅阶段的掉线 / 离开 / 回来）⇒ **在那行字上说**，并**顶掉打字机**
         /// （理由与判据全文见本节头部那一段）。传空的 = 收回提示。
-        /// 🔴 **只由 `NetMatchmaking.OnHint` 推**（`OnEnable` 订、`OnDisable` 摘）—— ⛔ 别在这儿自己判状态。</summary>
+        /// 🔴 **只由 `NetMatchmaking.OnHint` 推**（`OnEnable` 订、`OnDisable` 摘）—— ⛔ 别在这儿自己判状态。
+        /// 🔴 **超限只出声、⛔ 不截断**（`A1083`）：截了就是把该玩家看的话吃掉，而超限只是个诊断阈值。</summary>
         public void ShowHint(string text)
         {
             if (string.IsNullOrEmpty(text)) { ClearHint(); return; }
-            if (text.Length > HintLineMaxChars)
-                Debug.LogWarning($"[Searching] 提示行那句话 {text.Length} 字，超过这一行放得下的 "
-                               + $"{HintLineMaxChars} 字（框 700×148 · 自适应 4~50px）—— 会被压得很小，"
-                               + "请把这一句写短（详细的那半句留给弹窗，两处本来就是两个口）：「" + text + "」");
+            int width = HintLineWidth(text);
+            if (width > HintLineMaxWidth)
+                Debug.LogWarning($"[Searching] 提示行那句话占 {width} 个半宽字位（{text.Length} 个字符），"
+                               + $"超过这一行放得下的 {HintLineMaxWidth} 位（= 中文 {HintLineMaxChars} 字 / "
+                               + "英文约 80 字；框 700×148 · 自适应 4~50px，与同族那颗 `Main Search message` 同一档）"
+                               + "—— 会被压到比 50px 更小的字号，请把这一句写短"
+                               + "（详细的那半句留给弹窗，两处本来就是两个口）：「" + text + "」");
             _hint = text;
             if (_msg != null) _msg.SetText(text);
             Debug.Log("[Searching] 提示行改口（顶掉打字机）：「" + text + "」");

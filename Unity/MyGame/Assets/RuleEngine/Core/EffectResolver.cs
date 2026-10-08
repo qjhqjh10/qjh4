@@ -4667,13 +4667,26 @@ namespace RuleEngine
         /// （归属在我们这儿就是「待在谁的数组里」；原版是一个可翻转的 bool `+0x40`，
         /// 见 `BattleContext.TempControl`）。归还由 `RuleCore.EndTurn` 那一段做。
         ///
-        /// 三处要说明的地方：
+        /// 四处要说明的地方：
         ///   · **落点**照原版 `GetNextSlotWithoutDisplacing`（本仓 = `BoardSlots.NextWithoutDisplacing`）——
         ///     **人少的那一侧的最外一格（平手走右）**；**满场返回 −1 ⇒ 抢不过来**，
         ///     如实打日志 + 记 `unresolved`。
         ///     ⚠️ **2026-10-05 订正**：这里原来写「**落点**是我们挑的 …… 落到**己方第一个空格**」——
         ///     正文 **2026-10-01 就已改成原版那一条**（见下面 `int to = …` 上面那三行注释），
         ///     只有本 summary 忘了跟。
+        ///   · **入场那一刻【无条件】置召唤病**（= `RuleCore.ResetSummonSickness(t)`；
+        ///     2026-10-18 `A1093` 之前写的是 `t.Exhausted = true`）。判据 = 原版
+        ///     `BattleManager._ResolveStealMinion_d__551__MoveNext.c:119`
+        ///     `CardScript__ResetSummonSickness(card)` —— 它**紧跟** `:81-82 MoveMinionIntoSlot`
+        ///     （= 移动**成功**那一刻）、**不看任何关键词**（函数体 `:8` 把 `card+0x58` 写成 **1**，
+        ///     而 `+0x58` 就是 `summonSickness`，见 `CardScript__ResetSummonSickness.c`；
+        ///     同一方法 `:21` 再调 `ActivateMinion` 按新值重算能不能动）
+        ///     ⇒ 卡面 `and give it Fast` 之所以要写出来，正是「**抢来必有召唤病**」。
+        ///     ⚠️ 这就是「转移归属 ⇒ 重新入场 ⇒ 召唤病」那条语义的一半（另一半 = 回合末
+        ///     **归还**时也写**同一位**，见 `RuleCore.EndTurn` 的归还段 —— 两处**共用同一个调用**）。
+        ///     ⚠️ 「无条件」只管**成功入场**这一支：`IsAvailableSlot` 为假那支
+        ///     （`:35` → `:41 LogWarning` → `:107 FinishResolvingAction`）**连移动都不走**、
+        ///     自然也不置病。
         ///   · **`Fast` 要显式清 `Exhausted`**：`AddKeyword("fast")` 只写关键词，
         ///     而 `Exhausted` **只在构造时**按关键词算过一次（见 `UnitState.AddKeyword`）
         ///     ⇒ 不显式清的话「给予它迅捷」会**给个关键词却动不了**（静默）。
@@ -4719,7 +4732,39 @@ namespace RuleEngine
                 });
                 Auras.Recompose(ctx);      // 两侧棋盘都变了 ⇒ 光环重算
 
-                // 卡面 `and give it Fast` ⇒ **现在就能动**（见上面第三条说明）
+                // ============ 入场两步：① 无条件置召唤病 → ② 尾句 `give it Fast` 再清掉 ============
+                //
+                // ① 🔴 **2026-10-08（`D28` 施工单 B）：入场那一刻【无条件】置召唤病。**
+                //    判据 = 原版 `BattleManager._ResolveStealMinion_d__551__MoveNext.c:119`
+                //    `CardScript__ResetSummonSickness(card)` —— 它**紧跟** `:81-82 MoveMinionIntoSlot`
+                //    （= 移动成功那一刻），**没有任何条件**：那个函数体把 `card+0x58` 写成 **1**
+                //    （`CardScript__ResetSummonSickness.c`），而 `+0x58` 就是 `summonSickness`
+                //    （`EntityScript.get/set_summonSickness`），`CardScript__OnTurnStart.c:85`
+                //    在回合开始把同一格写 0（= 解疲劳）⇒ **1 = 有召唤病 = 不能动**。
+                //    ⚠️ **位置不能提前**：`IsAvailableSlot` 为假那支（`:35` → `:41 LogWarning`
+                //    → `:107 FinishResolvingAction`）**连 `ChangeOwner`/移动都不走** ⇒ 也就没有
+                //    召唤病。本行必须落在上面 `to < 0` 那个 `continue` **之后**。
+                //    ⚠️ **改前**是「只在尾句含 `fast` 时清、否则**保持原状**」⇒ 偷一个**本来没疲劳**
+                //    的单位（对面回合结束时刷过的那一批）就能**当场再动一次**（静默错）。
+                //    ⚠️ 今天全池**只有** `GSC_Telephatic_Domination` 一张 `takecontrol`、而它自带
+                //    `and give it Fast` ⇒ 这条差异在真卡上**观测不到**（先置病、下一段又被清掉）。
+                //    但判据是「原版无条件置」⇒ **照做**（铁律 11：不因不可观测就不做）。
+                //
+                // ①′ 🔴 **2026-10-18（`A1093` + `A1071`）：这一行从 `t.Exhausted = true;` 改成
+                //    调 `RuleCore.ResetSummonSickness(t)`。** 两笔是**同一条语义的两半**，别各写一套：
+                //      · `A1093`：我们原来**少一位** —— `UnitState` 只有 `canAct`(`+0x230`) /
+                //        `canAttack`(`+0x23C`)，而原版 `+0x58`（`summonSickness`）**本身是一个字段**
+                //        （有独立读点：`BattleManager__IsValidAttackTarget.c:200` ·
+                //        `AI__ScoreFromGivingCharge.c:9-12` · `AI__ScoreFromCriteria.c:296-299`）。
+                //        现在补上了（`UnitState.SummonSickness`），这一行**写它**；
+                //      · `A1071`：写的是「**只写 `Exhausted`**」那一版的口径 —— 但 `Exhausted` 的语义
+                //        是 `canAct`，而原版 `ResetSummonSickness` 是「写 `+0x58 = 1` **再**按新值
+                //        重算 `canAct`」（同方法 `:21` 转调 `ActivateMinion`）⇒ 这里正是那个「再算」。
+                //    ⇒ **净效果**：不带 `fast`/`flank`/`ferocity`/`oath` 的抢来仍是 `Exhausted = true`
+                //      （和改前一样）；**带的抢来就是 `false`**（改前一元化置真 —— 那一半才是差异）。
+                RuleCore.ResetSummonSickness(t);
+
+                // ② 卡面 `and give it Fast` ⇒ **现在就能动**（见上面 `Fast` 那一条说明）
                 //
                 // 🔴 **2026-10-17（F7）实测：这一句【不能】并进 `RuleCore.HasDeployExemption`。**
                 //    那条判据读的是**此刻**的关键词（`u.Has("fast"/"flank"/"ferocity")`），而这里的

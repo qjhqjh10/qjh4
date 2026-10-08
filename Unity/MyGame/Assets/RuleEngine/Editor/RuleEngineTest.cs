@@ -280,6 +280,9 @@ public static partial class RuleEngineTest
         Step(TestPenitence);
         Step(TestAbility);
         Step(TestAbilityTargetRules);
+        Step(TestWillDiePreviewEntries);
+        Step(TestDodgeKeyword);
+        Step(TestShieldOneRepresentation);
         Step(TestHealAndDraw);
         Step(TestEffectChainGuard);
         Step(TestStarterCardEffects);
@@ -2657,6 +2660,40 @@ public static partial class RuleEngineTest
                       + "（这正是规则书「控制者回合可收集」能成立的前提）");
         }
 
+        // ---- ④c 🔴 **2026-10-08（`D28` 施工单 F）：残骸的回合末摧毁在【回合结束触发段】之后** ----
+        //  判据 = 原版**同一个逐卡方法体**里的次序（`CardScript__OnTurnEnd.c`）：
+        //   `:72 OnTrigger(0x28 = 40 TurnEnd)` **在前**、`:117 SupportMethods.ShouldRemnantDestroyOnTurnEnd`
+        //   + `:120 BattleManager.DestroyUnit(…,1,…)` **在后**。
+        //  ⇒ 语义上：**回合末触发还能把这具残骸翻回来**（`reanimate` 那类）；翻回来之后它不再是残骸，
+        //    下面那一趟自然扫不到它。改之前我们反过来（先摧毁、再跑触发段）⇒ 那句 `reanimate`
+        //    在**这一趟**里再也找不到目标。
+        {
+            var sauF = Unit("SauRemF", 1, 1, 1, "Remnant");          // 死灵部队：死了留残骸
+            var killF = Tactic("T_KillF", 0, "Deal 5 damage to an enemy");
+            var reviver = new CardDef("FixtureReviver", "FixtureReviver", "unit",
+                                      "At the end of your turn, reanimate a friendly Remnant",
+                                      "common", "Test", 1, 1, 9, 0, null);
+            // 前提先钉住「这句话真被认成一条 at-turn 子句」—— 免得夹具本身没生效时，
+            // 下面那条断言红了却分不清「次序错」还是「夹具没解析出来」。
+            var revClauses = EffectText.AtTurnClauses(reviver.Desc);
+            Check(revClauses.Count, 1, "（前提）夹具那句被认成 **1 条** at-turn 子句");
+            CheckTrue(revClauses.Count == 1 && revClauses[0].Phase == "turn_end"
+                      && revClauses[0].View == "you",
+                      "（前提）……阶段 = `turn_end` 且只在自己回合触发（`view = you`）");
+            var cF = Battle(new[] { killF }, new[] { sauF });
+            ToP1Turn(cF, 1);
+            Place(cF, 1, 3, sauF);
+            RuleCore.PlayTactic(cF, 0, HandIdx(cF, 0, "T_KillF"), 3);
+            CheckTrue(Board(cF, 1, 3) != null && Board(cF, 1, 3).IsRemnant, "先造一具残骸（P2 的）");
+            Place(cF, 1, 5, reviver);        // 同一个控制者的「回合结束把它翻回来」
+            ToP1Turn(cF, 2);                 // 这一步里会走过 P2 的 `EndTurn`（残骸的摧毁也在那儿）
+            var survF = Board(cF, 1, 3);
+            CheckTrue(survF != null && !survF.IsRemnant,
+                      "★ **回合结束触发段先跑**（`OnTurnEnd.c:72` 的 TurnEnd 在 `:117` 残骸摧毁之前）"
+                    + "⇒ 那句 `reanimate` 真的把它翻回来了；翻回来之后它不再是残骸 ⇒ 摧毁那一趟扫不到它"
+                    + "（改之前这一格会是 **null**）" + LogTail(cF));
+        }
+
         // ---- ⑤ `… equal to your Faith`（数值取自资源）----
         {
             var refill = Tactic("T_RefillFaith", 0, "Refill Energy equal to your Faith");
@@ -3360,20 +3397,58 @@ public static partial class RuleEngineTest
         CheckTrue(!dctx.Players[dctx.FirstSeat].Hand.Exists(x => x != null && x.Card.Type == "defence"),
                   "★ 先手那一侧**手牌里也没有**它（分离出去了，不是「放进牌库」）");
 
-        // ---- ④ 换牌不许把它换掉（原版是「抽完 → 换牌 → 再置入」，我们放在换牌前，所以必须挡一道）----
+        // ---- ④ 🔴 **2026-10-08（`D28` 施工单 A）：防御卡【换牌走完】才进手牌** ----
+        //  原版次序（逐句）：`_FinishMulliganFinalPhase_d__351__MoveNext.c:107/118/128/165`（换牌四步）
+        //   → `:233 StartBattlePhase` → `_StartBattlePhase_d__334__MoveNext.c:172 AddGoesSecondCardToDeck`
+        //   → `BattleManager__AddGoesSecondCardToDeck.c:184 AddNewCardToHand(...)`。
+        //  ⇒ **换牌阶段里手里不该有它**，`EndMulligan`（= 我们的 `CompleteMulliganPhase` + `StartBattlePhase`）
+        //    之后才出现。改之前我们放在**换牌之前**（并在 `Mulligan` 里加「防御卡不许换掉」兜着）
+        //   —— 两条一起撤掉了。
         var mctx = RuleCore.NewBattle(new[] { Unit("Hero2", 0, 1, 30), Unit("B", 1, 1, 1) },
-                                      new[] { def, Unit("X", 1, 1, 5) },
+                                      new[] { def, Unit("X", 1, 1, 5), Unit("Y", 1, 1, 5),
+                                              Unit("Z", 1, 1, 5), Unit("W", 1, 1, 5) },
                                       seed: 78, shuffle: false, openMulligan: true);
-        int dIdx = -1;
-        for (int i = 0; i < mctx.Players[mctx.SecondSeat].Hand.Count; i++)
-            if (mctx.Players[mctx.SecondSeat].Hand[i].Card.Type == "defence") { dIdx = i; break; }
-        CheckTrue(dIdx >= 0, "换牌阶段开始时防御卡在**后手**手里");
-        if (dIdx >= 0)
+        int secM = mctx.SecondSeat;
+        CheckTrue(!mctx.Players[secM].Hand.Exists(x => x != null && x.Card.Type == "defence"),
+                  "★ 换牌阶段开始时**后手手里【没有】防御卡**（原版：它要 `StartBattlePhase` 才进手牌）");
+        CheckTrue(!mctx.Players[secM].Deck.Exists(x => x != null && x.Card.Type == "defence"),
+                  "……也不在牌库里（它等的不是「抽一张上来」那条路）");
         {
-            int n = RuleCore.Mulligan(mctx, mctx.SecondSeat, new List<int> { dIdx });
-            Check(n, 0, "**换牌换不掉防御卡**（返回 0 = 一张都没换成）");
-            CheckTrue(mctx.Players[mctx.SecondSeat].Hand.Exists(x => x != null && x.Card.Type == "defence"),
-                      "……它还在手里");
+            // 换牌：**把所有手牌全换掉**也不会「换出一张防御卡」—— 它本来就不在手里。
+            //（改之前这里验的是相反的：那张卡在手里、而且被守卫挡住换不掉。）
+            var allIdx = new List<int>();
+            for (int i = 0; i < mctx.Players[secM].Hand.Count; i++) allIdx.Add(i);
+            int nAll = RuleCore.Mulligan(mctx, secM, allIdx);
+            Check(nAll, allIdx.Count, "`Mulligan` 照常换（那道「防御卡不许换掉」的守卫已删 —— 没有要挡的东西）");
+            CheckTrue(!mctx.Players[secM].Hand.Exists(x => x != null && x.Card.Type == "defence"),
+                      "……全换完，手里仍然**没有**防御卡");
+            // `EndMulligan` = 原版 `PlayerHand.CompleteMulliganPhase` + `StartBattlePhase`
+            RuleCore.EndMulligan(mctx);
+            int nDef = 0; CardDef gotDef = null;
+            foreach (var h in mctx.Players[secM].Hand)
+                if (h != null && h.Card != null && h.Card.Type == "defence") { nDef++; gotDef = h.Card; }
+            CheckTrue(nDef == 1 && gotDef == def,
+                      $"★ `EndMulligan` **才**把后手那张防御卡放进手牌（实得 {nDef} 张「{gotDef?.Name}」）");
+            CheckTrue(!mctx.Players[mctx.FirstSeat].Hand.Exists(x => x != null && x.Card.Type == "defence"),
+                      "★ 先手那一侧始终没有它");
+            // 幂等：再调一次不会变成两张（`EndMulligan` 关掉阶段就早退）
+            RuleCore.EndMulligan(mctx);
+            int nDef2 = 0;
+            foreach (var h in mctx.Players[secM].Hand)
+                if (h != null && h.Card != null && h.Card.Type == "defence") nDef2++;
+            Check(nDef2, 1, "再调一次 `EndMulligan` 不会变成两张（幂等）");
+        }
+
+        // ---- ④b 🔴 **换牌阶段【不开】时：当场就发**（原版 `StartBattlePhase` 紧接着空换牌发生）----
+        //  判据同上，只是「空换牌」那一段没有交互 ⇒ `NewBattle` 返回时它就该在手里
+        //  （老调用方与自测那一大堆都走这条：`openMulligan` 默认 false）。
+        {
+            var nctx = RuleCore.NewBattle(new[] { Unit("H", 0, 1, 30) }, new[] { def, Unit("X", 1, 1, 5) },
+                                          seed: 79, shuffle: false);
+            CheckTrue(nctx.Players[nctx.SecondSeat].Hand.Exists(x => x != null && x.Card.Type == "defence"),
+                      "★ 不开换牌 ⇒ `NewBattle` 返回时防御卡**已经在后手手里**（老路径逐字不变）");
+            CheckTrue(!nctx.Players[nctx.FirstSeat].Hand.Exists(x => x != null && x.Card.Type == "defence"),
+                      "……先手还是没有");
         }
 
         // ---- ⑤ 🆕 2026-09-26：**先手可以换人**（`NewBattle(firstSeat:)`）—— 派生出来的三件事都要跟着换 ----
@@ -3400,6 +3475,138 @@ public static partial class RuleEngineTest
         Check(skctx.Players[0].MaxEnergy, 2 + 2,
               "★ 遭遇 + P1 当**后手** ⇒ 第 1 回合 = `startingManaSecond(2) + 1×2` = 4"
             + "（原版文案那句 `P1 3 Energy P2 4 Energy` 就是这个基数的差）");
+
+        // ==================================================================
+        //  ⑥ 🔴🆕 2026-10-19（`A1070`）：**电脑（AI）那一方的防御卡 —— 原版是【随机抽】、不从卡组取**
+        //
+        //  判据 = `BattleManager__AddGoesSecondCardToDeck`（逐段控制流 → `资料/普查产出_第五会话/
+        //  查证_防御卡电脑随机.md` §二·§五）。原版三条来路：
+        //    ① 后手方**卡组自带**那张（`DeckAndWarlordData.defensiveCard +0x20`）—— **只有玩家侧**：
+        //       电脑侧恒 null（硬证 = `CardDeck.DeckBasicSetup`（VA 0x1809251B0）第 5 实参 `R9=0`
+        //       写进 `CardDeck+0x48`，调用点 VA 0x1809273D0）；
+        //    ② `matchType ∈ {50,80,110,120}` ⇒ **后手方阵营**防御池随机一张（会**覆盖** ③）；
+        //    ③ 其余 AI 模式 ⇒ 该督军自己的 `goSecondCardInHand(+0x150)`。
+        //  🔴 改之前我们**两边都从卡组列表取第一张 `Type=="defence"`** ⇒ 玩家侧对、**电脑侧是真偏离**。
+        //  ⚠️ `matchType` 走 `MatchTypes.Effective`（有电脑时先做 `SetBotOpponent` 那次翻转）。
+        // ==================================================================
+        {
+            var realPool2 = CardDatabase.Load();
+            var umDef = new List<CardDef>();
+            var goffDef = new List<CardDef>();
+            foreach (var c in realPool2)
+            {
+                if (c == null || c.Type != "defence") continue;
+                if (c.Faction == "Ultramarines") umDef.Add(c);
+                if (c.Faction == "Goff") goffDef.Add(c);
+            }
+            Check(umDef.Count, 3, "⑥ 尺子：Ultramarines 的防御卡池 3 张（原版每阵营 3 张 = 我们 13×3）");
+            Check(goffDef.Count, 3, "⑥ 尺子：Goff 的防御卡池 3 张");
+            if (umDef.Count != 3 || goffDef.Count != 3) return;      // 尺子不对就别往下走（别去索引空表）
+
+            // ⑥b/⑥c/⑥d 的电脑那副牌：督军是 Ultramarines，卡组里**故意带一张【外阵营】的防御卡** ——
+            //   「电脑改回从卡组取」时 ⑥b 那两条必红（外阵营那张按**本阵营**筛不可能在池子里）。
+            var botDeck = new List<CardDef> { HeroOf("BotWarlord", "Ultramarines", 2, 30) };
+            for (int i = 0; i < 10; i++) botDeck.Add(Unit("botFiller" + i, 1, 0, 1));
+            botDeck.Add(goffDef[0]);
+
+            // ---- ⑥a 玩家后手（`BotSeat` 默认 = -1）⇒ 拿到的**就是卡组里那张**（改前逐字等价）----
+            {
+                var mine = Deck(new[] { umDef[0] });
+                var actx = RuleCore.NewBattle(mine, botDeck, seed: 63, shuffle: false, firstSeat: 1,
+                                              cardPool: realPool2);
+                Check(actx.SecondSeat, 0, "⑥a 玩家（P1）是后手");
+                CheckTrue(!actx.IsBotSeat(0) && !actx.IsBotSeat(1),
+                          "⑥a `BotSeat` 默认 = -1 ⇒ **两边都不是电脑**（老行为）");
+                Check(MatchTypes.Effective(actx), MatchType.Ranked,
+                      "⑥a 没有电脑 ⇒ `matchType` **不翻转**（`SetBotOpponent` 那次只在有 bot 时跑）");
+                CardDef gotA = null; int nA = 0;
+                foreach (var h in actx.Players[0].Hand)
+                    if (h != null && h.Card != null && h.Card.Type == "defence") { nA++; gotA = h.Card; }
+                Check(nA, 1, "⑥a 玩家手里 1 张防御卡");
+                CheckTrue(gotA == umDef[0], $"★ ⑥a 玩家后手拿到的**就是卡组里那张**「{umDef[0].Name}」"
+                                          + $"（实得「{gotA?.Name}」）");
+            }
+
+            // ---- ⑥b 电脑后手 + `matchType = 50`（练习卷）⇒ **从后手方阵营的防御池随机抽一张** ----
+            {
+                var bctx = RuleCore.NewBattle(Deck(new[] { Unit("A", 1, 1, 1) }), botDeck,
+                                              seed: 61, shuffle: false, cardPool: realPool2,
+                                              openMulligan: true, botSeat: 1);
+                Check(bctx.SecondSeat, 1, "⑥b 电脑（P2）是后手");
+                CheckTrue(bctx.IsBotSeat(1) && !bctx.IsBotSeat(0),
+                          "⑥b 「这方是不是电脑」判据只认座位 1（`IsBotSeat`，**只此一处**）");
+                // 🔴 模式号是**入口窗在 `NewBattle` 之后**落的（`BattleDriver.cs:2774`）⇒ 这里照那个次序来。
+                bctx.PlayMode = GameMode.OfflinePractice;
+                Check(MatchTypes.Effective(bctx), MatchType.PracticeOffline, "⑥b 翻转表：50 不在表里 ⇒ 原样");
+                CheckTrue(!MatchTypes.UsesDefencePool(MatchType.RankedBot)
+                          && !MatchTypes.UsesDefencePool(MatchType.FastModeBot)
+                          && MatchTypes.UsesDefencePool(MatchType.PracticeOffline)
+                          && MatchTypes.UsesDefencePool(MatchType.EventAI)
+                          && MatchTypes.UsesDefencePool(MatchType.ClosedDeck)
+                          && MatchTypes.UsesDefencePool(MatchType.ClosedDeckBot),
+                          "⑥b 模式闸 = **正好那 4 档** `{50,80,110,120}`"
+                        + "（判据 `AddGoesSecondCardToDeck.c:98-144`；`20 RankedBot` / `210 FastModeBot` 不在）");
+                CheckTrue(!bctx.Players[1].Hand.Exists(x => x != null && x.Card != null && x.Card.Type == "defence"),
+                          "⑥b 换牌阶段里手里**还没有**那张（原版要 `StartBattlePhase` 才发）");
+                RuleCore.EndMulligan(bctx);         // = `CompleteMulliganPhase` + `StartBattlePhase`
+                CardDef gotB = null; int nB = 0;
+                foreach (var h in bctx.Players[1].Hand)
+                    if (h != null && h.Card != null && h.Card.Type == "defence") { nB++; gotB = h.Card; }
+                Check(nB, 1, "⑥b 电脑手里正好 1 张防御卡（发出来了）");
+                CheckTrue(gotB != null && umDef.Exists(x => x.Id == gotB.Id),
+                          "★ ⑥b 电脑那张**属于【后手方阵营】的防御池**（Ultramarines 3 张之一）"
+                        + $"—— 实得「{gotB?.Name}」({gotB?.Id})");
+                CheckTrue(gotB != null && gotB.Id != goffDef[0].Id,
+                          "★ ⑥b **灭自证**：卡组里带的是 Goff 那张，而池子按**本阵营**筛 ⇒ "
+                        + "「把电脑改回从卡组取」时这一条（连同上面那条）必红");
+            }
+
+            // ---- ⑥c 电脑后手 + 其它模式（经典 ⇒ 翻转 `RankedBot 20`，**不在那四档**）⇒ ③ 督军自带 ----
+            //   🔴 我们**没有** `goSecondCardInHand` 这份数据（全仓零命中）⇒ **必须出声**、且**不给卡**。
+            {
+                int warns = 0; string firstWarn = null;
+                Application.LogCallback onWarn = (text, stack, type) =>
+                {
+                    if (type == LogType.Warning && text != null && text.Contains("goSecondCardInHand"))
+                    { warns++; if (firstWarn == null) firstWarn = text; }
+                };
+                BattleContext cctx = null;
+                Application.logMessageReceived += onWarn;
+                try
+                {
+                    cctx = RuleCore.NewBattle(Deck(new[] { Unit("A", 1, 1, 1) }), botDeck,
+                                              seed: 62, shuffle: false, cardPool: realPool2, botSeat: 1);
+                }
+                finally { Application.logMessageReceived -= onWarn; }
+                Check(cctx.SecondSeat, 1, "⑥c 电脑是后手");
+                Check(MatchTypes.Effective(cctx), MatchType.RankedBot,
+                      "⑥c 翻转表：经典 10 → `RankedBot 20`（`MatchData__SetBotOpponent.c:29-31`）");
+                CheckTrue(!cctx.Players[1].Hand.Exists(x => x != null && x.Card != null && x.Card.Type == "defence"),
+                          "★ ⑥c 这一档电脑**拿不到防御卡**（我们没 `goSecondCardInHand` ⇒ 不许拿卡组那张顶）");
+                CheckTrue(!cctx.Players[1].Deck.Exists(x => x != null && x.Card != null && x.Card.Type == "defence"),
+                          "⑥c 卡组里那张（Goff 的）也**不进牌库**（分流照旧 —— 只是不发）");
+                CheckTrue(warns >= 1,
+                          "★ ⑥c **出了一声**（`Debug.LogWarning` 指名缺的是 `goSecondCardInHand`）"
+                        + $"—— 实得 {warns} 条");
+                CheckTrue(firstWarn != null && firstWarn.Contains("goSecondCardInHand"),
+                          "★ ⑥c 那一句里**写清了缺什么**（不是一句含糊的警告）");
+            }
+
+            // ---- ⑥d 遭遇（`FastMode 200` → 翻转 `FastModeBot 210`）也在那四档**之外** ⇒ 同样落 ③ ----
+            //   这正是 `A1070` 那句推论：我们主打的**经典 / 遭遇**两条模式**都**落在 ③（= 缺数据那条）。
+            {
+                var sctx = RuleCore.NewBattle(Deck(new[] { Unit("A", 1, 1, 1) }), botDeck, seed: 64,
+                                              shuffle: false, cardPool: realPool2,
+                                              vars: GameplayVariables.Skirmish, botSeat: 1);
+                sctx.PlayMode = GameMode.Skirmish;
+                Check(MatchTypes.Effective(sctx), MatchType.FastModeBot,
+                      "⑥d 翻转表：遭遇 200 → `FastModeBot 210`（`MatchData__SetBotOpponent.c:39-41`）");
+                CheckTrue(!MatchTypes.UsesDefencePool(MatchTypes.Effective(sctx)),
+                          "⑥d `210` 不在那四档里 ⇒ **遭遇模式（我们主打的那条）落 ③** = 缺数据那条");
+                CheckTrue(!sctx.Players[1].Hand.Exists(x => x != null && x.Card != null && x.Card.Type == "defence"),
+                          "⑥d ……于是电脑这一档也拿不到卡（出声 + 不给，不许静默换一张）");
+            }
+        }
     }
 
     static void TestTacticPlay()
@@ -10428,6 +10635,34 @@ public static partial class RuleEngineTest
                           "★ 有 `Armour` 的那个**被摧毁了**（同一个判据的另一边）" + LogTail(ctx));
             }
 
+            // ---- ⑤ 🔴 **2026-10-08（`D28` 施工单 D）：这一族里的次序 = `UnitAttack(50)` → `Strike(580)`** ----
+            //  判据（原版**同一个函数**逐句读下来的先后）：`CardScript__ResolveUnitAttacked.c`
+            //   `:28-30 OnTrigger(0x32 = 50 UnitAttack)` → `:99-101 OnTrigger(0x244 = 580 Strike)`
+            //   → `:131-146`（`:131 if(param_4==1)` Mob、else Regiment）。
+            //  改之前我们把 50 那一块排在 `Strike` **之后**（注释还自认「位置是我们挑的」）⇒ 反了。
+            //  ⚠️ 这条只钉**块内**次序；「与伤害的先后」是另一件事（未定案，见 `RuleCore` 里那段注释）。
+            {
+                var both = new CardDef("FixtureAttackedThenStrike", "FixtureAttackedThenStrike", "unit",
+                                       "Strike: Deal 1 damage to an enemy troop. "
+                                     + "Destroy any troop attacked by this unit",
+                                       "common", "Test", 1, 2, 9, 0, null);
+                var ctx = Battle(new[] { Unit("AF5", 1, 1, 1) }, new[] { Unit("XF5", 1, 1, 1) });
+                ToP1Turn(ctx, 1);
+                Place(ctx, 0, 3, both);
+                Place(ctx, 1, 3, Unit("Big5", 1, 0, 30));       // 30 血：只可能被正文摧毁
+                CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3), RuleCodes.OK, "夹具发起攻击");
+                CheckTrue(Board(ctx, 1, 3) == null,
+                          "两条正文都生效：被打的那个**被摧毁**了（`attacked` 那一族）" + LogTail(ctx));
+                string j5 = Joined(ctx);
+                int atkAt = j5.IndexOf("触发「被这套打过的单位」", System.StringComparison.Ordinal);
+                int strAt = j5.IndexOf("触发 STRIKE", System.StringComparison.Ordinal);
+                CheckTrue(atkAt >= 0 && strAt >= 0,
+                          $"两条触发的日志都在（前提：50 @{atkAt} / 580 @{strAt}）" + LogTail(ctx));
+                CheckTrue(atkAt >= 0 && strAt >= 0 && atkAt < strAt,
+                          "★ **`UnitAttack(50)` 排在 `Strike(580)` 之前**（原版同函数里的次序；"
+                        + $"改之前是反过来）—— 实得 50 @{atkAt} / 580 @{strAt}" + LogTail(ctx));
+            }
+
             // ---- ④ `Stun … attacked and give them …` —— **尾巴不许被目标短语吞掉** ----
             {
                 var ps = EffectText.Parse(
@@ -12906,9 +13141,208 @@ public static partial class RuleEngineTest
                 CheckTrue(SlotOf(ctx, 1, "EVictim2") >= 0,
                           "★ `EndTurn` 把它**归还**给原主（卡面 `this turn`）");
                 CheckTrue(SlotOf(ctx, 0, "EVictim2") < 0, "……你这边也没留下");
-                CheckTrue(foe.Exhausted,
-                          "……还回去之后置「已行动」状态（我们挑的，见 `RuleCore.EndTurn` 那段注释）");
+                // 🔴 **2026-10-18（`A1093`）就地订正（铁律 5）**：本条原来钉的是
+                //    `CheckTrue(foe.Exhausted, …)`（=「还回去之后**无条件**置疲劳」）——**那一版不成立**：
+                //    原版 `ResetSummonSickness`（`CardScript__ResetSummonSickness.c`，方法体两条）是
+                //    `:8` 写 `+0x58 = 1` **再** `:21` 转调 `ActivateMinion` 按**新值**重算，
+                //    而 `ActivateMinion.c:39-42` 算的是 `canAct = !displaySummonSickness`、
+                //    `displaySummonSickness` 要 **`+0x58 && !fast && !flank`**
+                //    ⇒ 这个单位身上带着 `fast`（上面那句 `and give it Fast`；我们实测它解成**第二条 op**
+                //    `give(payload="fast")`，而 `give` 加关键词是**常驻**的、不随回合收回）
+                //    ⇒ **召唤病在它身上不成立 ⇒ 还回去之后仍能动**。
+                //    ⇒ 拆成三条：**那一位写了** + **带 `fast`** ⇒ **免掉病**（改前实得 `True`）。
+                CheckTrue(foe.Has("fast"),
+                          "（前提）它还带着 `fast`（卡面尾句 `and give it Fast` 给的关键词）");
+                CheckTrue(foe.SummonSickness,
+                          "★ 还回去那一刻**写了 `+0x58` 那一位**（原版 `ResetSummonSickness.c:8` 无条件写 1）"
+                        + "｜🧨 把 `RuleCore.ResetSummonSickness(u)` 换回 `u.Exhausted = true;` ⇒ 本行红");
+                CheckTrue(!foe.Exhausted,
+                          "★ 而它带 `fast` ⇒ **召唤病不成立 ⇒ 还回去之后仍能动**"
+                        + "（原版 `displaySummonSickness` 要 `+0x58 && !fast(40) && !flank(460)` ——"
+                        + " 正好对上卡面 `and give it Fast`）"
+                        + "｜🧨 把 `RuleCore.ResetSummonSickness` 里那句 `u.Exhausted = !HasDeployExemption(u)`"
+                        + " 改回 `= true` ⇒ 本行红");
             }
+        }
+
+        // ---------- ⑨b 🔴 **2026-10-08（`D28` 施工单 C）：抢的人棋盘满了 ⇒ 整个「抢」不作数** ----------
+        //  判据 = 原版 `_ResolveStealMinion_d__551__MoveNext.c:35 MinionManager.IsAvailableSlot(mm, 1)`
+        //  （`mm` = **接手那一方**的棋盘管理器，`:34 GetMinionManager(bm, 原主取反)`）→ 假则 `:41`
+        //  `CustomDebug.LogWarning` + `:107 FinishResolvingAction`（**连 `ChangeOwner` 都不走**）。
+        //  ⚠️ 界面上这条判据落在「入场那一步」（我们这边 = `EffectResolver.DoTakeControl`：落点 −1 ⇒
+        //     抢不过来 + 记 `unresolved`），**不是**归还处 —— 这一条就是钉它的。
+        //  ⚠️ 归还那一半（原主满了还不还）**判据仍未追到**（见 `BattleContext.TempControl`），本波不动。
+        {
+            var td2 = CreatePool.FindByName(pool, "Telephatic Domination");
+            CheckTrue(td2 != null, "（前提）卡池里还有 `Telephatic Domination`");
+            if (td2 != null)
+            {
+                var ctx = BattlePool(new[] { td2 }, new[] { Unit("EFoe3", 1, 3, 5) }, pool,
+                                     warlordFaction: "Genestealers");
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 12;
+                Place(ctx, 1, 5, Unit("EVictim3", 1, 3, 5), exhausted: true);
+                // 把**抢的人**（P1）的部署位全部填满（督军那一格不算）
+                for (int s = 0; s < BoardSpec.Size; s++)
+                    if (BoardSpec.IsDeployable(s)) Place(ctx, 0, s, Unit("Fill" + s, 1, 1, 1));
+                CheckTrue(!ctx.Players[0].HasFreeSlot(), "（前提）抢的人**一个空位都没有了**");
+
+                RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Telephatic Domination"), 5);
+                CheckTrue(SlotOf(ctx, 1, "EVictim3") >= 0 && SlotOf(ctx, 0, "EVictim3") < 0,
+                          "★ **它没被抢过去**（原版 `IsAvailableSlot` 假 ⇒ 整个转移不作数）" + LogTail(ctx));
+                CheckTrue(Joined(ctx).IndexOf("抢不过来", System.StringComparison.Ordinal) >= 0,
+                          "……而且**如实出声**（不许静默失败）");
+            }
+        }
+
+        // ---------- ⑨c 🔴 **2026-10-08（`D28` 施工单 B）：入场那一刻【无条件】置召唤病** ----------
+        //  判据 = 原版 `BattleManager._ResolveStealMinion_d__551__MoveNext.c:119`
+        //  `CardScript__ResetSummonSickness(card)` —— 它**紧跟** `:81-82 MoveMinionIntoSlot`
+        //  （= 移动成功那一刻）、**不看任何关键词**：那个函数体把 `card+0x58`
+        //  （= `summonSickness`）写成 **1**（`CardScript__ResetSummonSickness.c`）
+        //  ⇒ **1 = 有召唤病 = 不能动**（`CardScript__OnTurnStart.c:85` 在回合开始写 0，解疲劳）。
+        //  ⚠️ 真卡**只有一张**（`GSC_Telephatic_Domination`）且自带 `and give it Fast`
+        //     ⇒ 差异在真卡上**演示不出来**，只能靠夹具直接调。两态：
+        //      · **尾句里没有 `fast`** ⇒ 抢完**仍是疲劳**（改前：偷一个本来没疲劳的单位，它能当场再动）；
+        //      · **尾句有 `and give it Fast`** ⇒ 同一刻又被清掉（真卡那条路，夹具也走一遍）。
+        {
+            var tBare = Tactic("TBareSteal", 1, "Take control of an enemy troop this turn");
+            var tFast = Tactic("TFastSteal", 1, "Take control of an enemy troop this turn and give it Fast");
+            // （前提）夹具那两句真被认成 1 条 `takecontrol`、尾句如我所写 —— 免得红了分不清是夹具还是引擎
+            var opsBare = EffectText.Parse(tBare.Desc, out _, out _);
+            CheckTrue(opsBare.Count == 1 && opsBare[0].Verb == "takecontrol"
+                      && string.IsNullOrEmpty(opsBare[0].Tail) && EffectText.IsFullyParsed(tBare.Desc),
+                      "（前提）`…this turn`（无尾句）⇒ 1 条 `takecontrol`、`Tail` 空、整句可解析");
+            var opsFast = EffectText.Parse(tFast.Desc, out _, out _);
+            // 🔴 **2026-10-18 之后 · 第五会话【自检逮到并订正】（铁律 5）**：本条原来写 `opsFast.Count == 1`
+            //   ⇒ **首跑就红**（`RuleEngineTest` 4074/4075 里那唯一一条）。**错在夹具、不在引擎**：
+            //   `and give it Fast` 会由 `Finish` 解成**第二条 op**（`EffectText.cs:2208-2210` 明写），
+            //   2026-10-17 的 F7 实测解析 = `[takecontrol(tail="give it fast"), give(payload="fast")]`
+            //   （`EffectResolver.cs:4754-4758`）⇒ **`Count` 是 2 不是 1**，而 `Tail` **是**非空的。
+            //   ⚠️ 保留这条前提的价值正在于此：它把「夹具写错」与「引擎错」分开报了出来
+            //      （两条**行为**腿当时都过了）。
+            CheckTrue(opsFast.Count > 0 && opsFast[0].Verb == "takecontrol"
+                      && !string.IsNullOrEmpty(opsFast[0].Tail) && EffectText.IsFullyParsed(tFast.Desc),
+                      "（前提）`…and give it Fast` ⇒ **首条**是 `takecontrol`、`Tail` 非空、整句可解析"
+                    + "（⚠️ **不是「1 条」** —— 尾句另解成**第二条 op**，见 `EffectText.cs:2208-2210`）");
+
+            // 腿 1：**无 `fast` 尾句** ⇒ 抢来必疲劳（**这一态就是这次改动分得出来的那一态**）
+            {
+                var ctx = BattlePool(new[] { tBare }, new[] { Unit("EFoeB", 1, 3, 5) }, pool,
+                                     warlordFaction: "Genestealers");
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 12;
+                // ⚠️ **故意摆成「本来没疲劳」**（= 对面场上刷过之后的常态）：
+                //    改前它被抢过来能**当场再动一次** ⇒ 本断言改前**红**。
+                var foe = Place(ctx, 1, 5, Unit("EVictimBare", 1, 3, 5), exhausted: false);
+                CheckTrue(!foe.Exhausted, "（前提）被抢的这个**本来没疲劳**（= 对面场上的常态）");
+
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "TBareSteal"), 5),
+                          RuleCodes.OK, "打出夹具（抢对面 5 号格那个）");
+                CheckTrue(SlotOf(ctx, 0, "EVictimBare") >= 0, "（前提）它真被抢过来了");
+                CheckTrue(foe.Exhausted,
+                          "★ **无 `fast` 尾句 ⇒ 抢来必带召唤病**（原版 `_ResolveStealMinion…:119`"
+                        + " **无条件** `ResetSummonSickness`）—— 改前这里是 `false`：它能当场再动");
+            }
+
+            // 腿 2：**尾句有 `and give it Fast`** ⇒ 同一刻又被清掉（真卡 `Telephatic Domination` 那条路）
+            {
+                var ctx = BattlePool(new[] { tFast }, new[] { Unit("EFoeF", 1, 3, 5) }, pool,
+                                     warlordFaction: "Genestealers");
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 12;
+                var foe = Place(ctx, 1, 5, Unit("EVictimFast", 1, 3, 5), exhausted: false);
+
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "TFastSteal"), 5),
+                          RuleCodes.OK, "打出夹具（带 `and give it Fast` 的那一版）");
+                CheckTrue(SlotOf(ctx, 0, "EVictimFast") >= 0, "（前提）它真被抢过来了");
+                CheckTrue(!foe.Exhausted,
+                          "★ **尾句 `and give it Fast` ⇒ 当场解掉召唤病**"
+                        + "（「无条件置」不许把这一条覆盖掉 —— 那是把已发布的卡打坏）");
+            }
+        }
+
+        // ---------- ⑨d 🔴 **2026-10-18（`A1093`）：`+0x58`（`summonSickness`）那一位真的建出来了 ----------
+        //  判据 = 原版 `CardScript.ResetSummonSickness` 的**两条语句**（现读
+        //  `d:/2/tools/decomp_full/CardScript__ResetSummonSickness.c`，**方法体完整**）：
+        //    · `:8` `*(undefined1 *)(param_1 + 0x58) = 1;` —— **无条件**写召唤病；
+        //    · `:19-22` **紧接着**转调 `CardScript__ActivateMinion(...)` ⇒ 按**新值**把能不能动重算一遍
+        //      （`ActivateMinion.c:39-42`：`canAct = canAttack = !displaySummonSickness`；
+        //       `EntityScript__get_displaySummonSickness.c:7-11` = `+0x58 && !fast(0x28) && !flank(0x1cc)`）。
+        //  ⇒ 「转移归属 ⇒ 重新入场 ⇒ 召唤病」= **写那一位 + 按它重算**，两步。
+        //  🔴 **灭自证的做法**：把两态摆进**同一个上下文、同一刻**，两个被抢的单位**只差「带不带 `fast`」
+        //     这一个词**（其余逐一相同）⇒ 「一律置真」与「一律置假」两种写法**都不可能**同时满足下面
+        //     那对断言；而「只写 `Exhausted`、不写那一位」也过不了 `SummonSickness` 那两条。
+        //  ⚠️ 真卡只有一张（`GSC_Telephatic_Domination`）且自带 `and give it Fast` ⇒ 只能靠夹具分两态。
+        {
+            var t1 = Tactic("TStealA", 1, "Take control of an enemy troop this turn");
+            var t2 = Tactic("TStealB", 1, "Take control of an enemy troop this turn");
+            // （前提）两句夹具都真被认成 `takecontrol` 且整句可解析 —— 免得红了分不清是夹具还是引擎
+            CheckTrue(EffectText.IsFullyParsed(t1.Desc) && EffectText.IsFullyParsed(t2.Desc),
+                      "（前提）两条 `takecontrol` 夹具整句可解析");
+            {
+                var probe = EffectText.Parse(t1.Desc, out _, out _);
+                CheckTrue(probe.Count == 1 && probe[0].Verb == "takecontrol"
+                          && string.IsNullOrEmpty(probe[0].Tail),
+                          "（前提）`…this turn`（无尾句）⇒ 1 条 `takecontrol`、`Tail` 空");
+            }
+
+            var ctx = BattlePool(new[] { t1, t2 }, new[] { Unit("EFoeD", 1, 3, 5) }, pool,
+                                 warlordFaction: "Genestealers");
+            ToP1Turn(ctx, 1);
+            ctx.Players[0].Energy = 20;
+            // 两个被抢的对像**只有「带不带 `fast`」这一个差别**（3 号格 = 左侧贴督军那格、5 号格 = 右侧）
+            var bare = Place(ctx, 1, 3, Unit("EVictimB2", 1, 3, 5), exhausted: false);
+            var fast = Place(ctx, 1, 5, Unit("EVictimF2", 1, 3, 5, "fast"), exhausted: false);
+            CheckTrue(!bare.Has("fast") && fast.Has("fast"),
+                      "（前提）两个夹具的差别**只有** `fast` 这一个词");
+            // ⚠️ **前提：它们本来都没有召唤病**（= 场上待过一轮的常态 —— 原版 `+0x58` 在那张牌自己的
+            //    回合开始被 `CardScript__OnTurnStart.c:85` 写 0）。夹具走 `Place`（**绕过**部署入口），
+            //    这里显式摆平 —— 免得将来有人给 `UnitState` 的构造函数加一个初值，前提就悄悄变了。
+            bare.SummonSickness = false; fast.SummonSickness = false;
+            CheckTrue(!bare.SummonSickness && !fast.SummonSickness,
+                      "（前提）抢之前两位都是「没有召唤病」");
+
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "TStealA"), 5), RuleCodes.OK,
+                      "打出夹具之一（抢带 `fast` 的那个，5 号格）");
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "TStealB"), 3), RuleCodes.OK,
+                      "打出夹具之二（抢不带 `fast` 的那个，3 号格）");
+            CheckTrue(SlotOf(ctx, 0, "EVictimF2") >= 0 && SlotOf(ctx, 0, "EVictimB2") >= 0,
+                      "（前提）两个都被抢到你这边了" + LogTail(ctx));
+
+            // ★ 抢的那一刻：**那一位两个都写了**，而「能不能动」**只由那一个词分开**
+            CheckTrue(fast.SummonSickness && bare.SummonSickness,
+                      "★ **抢的那一刻两个都写了 `+0x58`**（原版 `ResetSummonSickness.c:8` **无条件**写 1 ——"
+                    + " 卡面那句 `and give it Fast` 之所以要写出来，正是「抢来必有召唤病」）"
+                    + "｜🧨 把 `RuleCore.ResetSummonSickness(t)` 换回 `t.Exhausted = true;`（不写那一位）"
+                    + " ⇒ 本行红");
+            CheckTrue(!fast.Exhausted,
+                      "★ 带 `fast` ⇒ **同一位、但它免掉召唤病 ⇒ 能动**（原版"
+                    + " `displaySummonSickness` = `+0x58 && !fast(0x28) && !flank(0x1cc)`）"
+                    + "｜🧨 把那一行改回无条件 `t.Exhausted = true;` ⇒ 本行红");
+            CheckTrue(bare.Exhausted,
+                      "★ 不带 `fast`/`flank` ⇒ 召唤病成立 ⇒ **不能动**（同一刻、同一个棋盘上只有它俩 ——"
+                    + " 所以本行与上一行**不可能被同一个常量同时满足**）"
+                    + "｜🧨 把那一行改成无条件 `t.Exhausted = false;` ⇒ 本行红");
+
+            // 归还那一处（`RuleCore.EndTurn`）**走的是同一个调用**，两条腿各再读一次
+            RuleCore.EndTurn(ctx);
+            CheckTrue(SlotOf(ctx, 1, "EVictimF2") >= 0 && SlotOf(ctx, 1, "EVictimB2") >= 0,
+                      "（前提）两个都归还给原主了" + LogTail(ctx));
+            CheckTrue(fast.SummonSickness && bare.SummonSickness,
+                      "★ 归还那一刻**两个也都写了 `+0x58`**（原版：凡是转移归属都当场 `ResetSummonSickness`）"
+                    + " —— 我们两处**共用同一个调用** `RuleCore.ResetSummonSickness`"
+                    + "｜🧨 把 `RuleCore.EndTurn` 那句 `ResetSummonSickness(u)` 换回 `u.Exhausted = true;`"
+                    + " ⇒ 本行红");
+            CheckTrue(!fast.Exhausted,
+                      "★ 带 `fast` ⇒ 还回去之后**仍能动**"
+                    + "（⚠️ 原文写「还回去之后置已行动」，那是「无条件置」那一版的错记录 ——"
+                    + " **改前这里实得 `True`**）"
+                    + "｜🧨 把 `ResetSummonSickness` 里那句 `u.Exhausted = !HasDeployExemption(u)`"
+                    + " 改回 `= true` ⇒ 本行红");
+            CheckTrue(bare.Exhausted,
+                      "★ 不带 `fast` ⇒ 还回去之后**不能动**（同上，本行与上一行不可能同时被一个常量满足）"
+                    + "｜🧨 同上把那句改成 `= false` ⇒ 本行红");
         }
 
         // ---------- ⑩ `Kustom Job`：**终态** —— 查不到就是查不到，但**不许静默** ----------
@@ -15833,6 +16267,118 @@ public static partial class RuleEngineTest
                       + "⚠️ 反过来，同一个督军正文里点的名**照收**（下面那条钉的就是它）");
         }
 
+        // ②·b 🆕 **规则② 的第二半：`Talent:` 前缀被数据管线剥掉的「裸写」那一段也要去掉**
+        //      （2026-10-18 · `A1078`）
+        //
+        // **为什么单独钉**：有 **3 张**卡的 `desc` 里**没有 `Talent:` 前缀**（卡面印的是
+        //   `[Talent 图标] Talent: <名>`，数据管线把图标和前缀一起去了 —— 照成品卡图核过，铁律 7）
+        //   ⇒ 只认前缀的规则② **挡不住**，那一段里的天赋名被当成了「正文点名」= **假命中**。
+        // 判据（**转调两处现成的、不是这里新发明的**）：`CardDef.ExtractBareTalentName(seg)`
+        //   **恰好等于**本卡的 `CardDef.TalentName` —— 与 `CardDef.cs:1727` 逐字同款，
+        //   那一条（`IsKnownSegment` 认天赋段）2026-09-14 起就在跑。
+        //
+        // 🔴 **量：英文档全池 `128 / 67` → `125 / 64`**（下面 ⑤ 那两条期望数已跟着改）——
+        //   **只掉这 3 处、其余一行都没动**。怎么数的：拿**真编译出来的引擎代码**
+        //   （`工具/typecheck.sh` 的 `WFCheck.dll`）跑 before/after 两份**逐张 dump**（1126 张 × 两趟），
+        //   `diff` 出来的差异**恰好 3 行**（`BL1→BL2` · `DA3→DA4` · `TAU1→TAU2`）。
+        //   ⚠️ 这三个数**不依赖被测代码**：它们就是数据里那 3 张卡的 `desc` 字面
+        //   （`CardDef.ExtractBareTalentName` 的注释与 `CardDef.cs:1727` 的实测名单都是同一批 3 张），
+        //   而且这 3 个天赋名各**只有这一处**被提到（`grep` 现扫 `cards_engine.json`）⇒ `128−3` / `67−3`。
+        {
+            // (1) `Aun'Va`（`TAU1`）：**整条 desc 就是**那个裸写天赋名
+            CardDef av = null;
+            foreach (var c in pool) if (c.Name == "Aun'Va") { av = c; break; }
+            CheckTrue(av != null, "（前提）卡池里有 `Aun'Va`");
+            if (av != null)
+            {
+                CheckTrue(av.Desc == "Ethereal Supreme",
+                          "（前提·数据侧事实）`Aun'Va` 的 desc **整条就是** `Ethereal Supreme`（与实现无关）");
+                string why;
+                var rel = CreatePool.MentionedCards(pool, av, av.Desc, out why, 8);
+                CheckTrue(rel.Count == 0 && why == null,
+                          $"★ 裸写天赋名**不算点名** —— `Aun'Va` 的相关卡该是**空的**"
+                          + $"（实得 {rel.Count} 张；why={why}）");
+            }
+
+            // (2) `Azrael`（`DA3`）：名字在**第二段**，第一段是正经效果正文
+            CardDef az = null;
+            foreach (var c in pool) if (c.Name == "Azrael") { az = c; break; }
+            CheckTrue(az != null, "（前提）卡池里有 `Azrael`");
+            if (az != null)
+            {
+                CheckTrue(az.Desc.IndexOf("Supreme Grand Master", System.StringComparison.Ordinal) >= 0,
+                          "（前提·数据侧事实）`Azrael` 的 desc 里裸写着 `Supreme Grand Master`（与实现无关）");
+                string why;
+                var rel = CreatePool.MentionedCards(pool, az, az.Desc, out why, 8);
+                bool hitD4 = false;
+                foreach (var r in rel) if (r.Name == "Supreme Grand Master") hitD4 = true;
+                CheckTrue(!hitD4,
+                          "★ 那一段**不算点名** —— 相关卡里不许有 `Supreme Grand Master`"
+                          + "（⚠️ 只挖那一段，上面的效果正文一个词都不动）");
+            }
+
+            // (3) `Abaddon the Despoiler`（`BL1`）：名字是从 `keywords` 里抽的（desc 与那一项一字不差）
+            CardDef ab = null;
+            foreach (var c in pool) if (c.Name == "Abaddon the Despoiler") { ab = c; break; }
+            CheckTrue(ab != null, "（前提）卡池里有 `Abaddon the Despoiler`");
+            if (ab != null)
+            {
+                CheckTrue(ab.TalentName == "Chosen of the Four",
+                          $"（前提）`Abaddon the Despoiler` 的天赋名抽出来了：`{ab.TalentName}`；"
+                          + "⚠️ 它是从 `keywords` 那项抽的，**不是**从 desc");
+                string why;
+                var rel = CreatePool.MentionedCards(pool, ab, ab.Desc, out why, 8);
+                CheckTrue(rel.Count == 0 && why == null,
+                          $"★ 同上 —— 相关卡该是**空的**（实得 {rel.Count} 张；why={why}）");
+            }
+
+            // (4) 🔴 **夹具：两头都钉**（这一对是**灭自证**用的，期望值**从文本字面得来**）
+            //      · 有天赋名的那张：正文段点的名**照收**、天赋名那一段**不许收**
+            //      · 没有天赋名的那张（对照）：**同样一句话**必须照收
+            //        ⇒ 挡「把 `== self.TalentName` 那道闸拆掉、凡像名字就挖」那种过头写法。
+            {
+                var tgt = new CardDef("FxTNameBody", "Fixture Body Target", "unit", "x",
+                                      "common", "Test", 1, 1, 1, 0, null, subtype: "Infantry");
+                var tnCard = new CardDef("FxTNameTalent", "Fixture Bare Talent", "unit", "x",
+                                         "common", "Test", 1, 1, 1, 0, null, subtype: "Infantry");
+                var srcWith = new CardDef("FxTNameSrc", "FxTNameSrc", "unit",
+                                          "Deploy a Fixture Body Target. Fixture Bare Talent",
+                                          "common", "Test", 1, 1, 1, 0, new[] { "Talent" },
+                                          subtype: "Infantry");
+                var srcWithout = new CardDef("FxTNameCtrl", "FxTNameCtrl", "unit",
+                                             "Fixture Body Target",
+                                             "common", "Test", 1, 1, 1, 0, null, subtype: "Infantry");
+
+                CheckTrue(srcWith.TalentName == "Fixture Bare Talent",
+                          $"（前提）夹具卡的天赋名抽出来了：`{srcWith.TalentName}`");
+                CheckTrue(string.IsNullOrEmpty(srcWithout.TalentName),
+                          $"（前提）对照夹具卡**没有**天赋名：`{srcWithout.TalentName ?? "(null)"}`");
+
+                // ⚠️ 与上面 (2)(3) 同一个理由、同一条纪律：**夹具的名字不在真池索引里** ⇒ 先换成夹具索引，
+                //    用完**必须还原**（`pool` 那一张索引是 `CardDatabase.Load()` 建的，后头还要用）。
+                CreatePool.BuildNameIndex(new List<CardDef> { tgt, tnCard, srcWith, srcWithout });
+
+                string why;
+                var pool4 = new List<CardDef> { tgt, tnCard, srcWith };
+                var rel4 = CreatePool.MentionedCards(pool4, srcWith, srcWith.Desc, out why, 8);
+                // 期望值**从文本字面**：desc 写着 `Deploy a Fixture Body Target. Fixture Bare Talent`
+                // —— 前半句是**正文点名**（必须收）、后半句是**天赋名**（必须不收）。
+                CheckTrue(rel4.Count == 1 && rel4[0].Name == "Fixture Body Target",
+                          $"★ 正文段照收、天赋名那一段不收（该 1 张 = `Fixture Body Target`；"
+                          + $"实得 {rel4.Count} 张：{(rel4.Count > 0 ? rel4[0].Name : "(空)")}；why={why}）"
+                          + " —— ⛔ 把实现改回「只认 `Talent:` 前缀」或改成「凡像名字就挖」都会在这里红");
+
+                string why2;
+                var rel5 = CreatePool.MentionedCards(new List<CardDef> { tgt, srcWithout },
+                                                     srcWithout, srcWithout.Desc, out why2, 8);
+                CheckTrue(rel5.Count == 1 && rel5[0].Name == "Fixture Body Target",
+                          $"★ （对照）**没有天赋名**的卡 ⇒ 同一句话照收"
+                          + $"（实得 {rel5.Count} 张；why={why2}）");
+
+                CreatePool.BuildNameIndex(pool);      // 🔴 **还原真池索引**
+            }
+        }
+
         // ③ 规则④：**跳过它自己**（自己的名字出现在自己的文本里）
         {
             var me = new CardDef("FxSelf", "Storm Guardian", "unit", "Deploy a Storm Guardian",
@@ -15896,7 +16442,7 @@ public static partial class RuleEngineTest
             //    ⚠️ `1 + 3 + 1 = 5` **正好**等于正本那个数 ⇒ 这条差**不是漏，是口径**。
             {
                 var want = new[] { new[] { "Chosen", "0" }, new[] { "Abaddons Chosen", "3" },
-                                   new[] { "Chosen of the Four", "1" }, new[] { "Chosen of Slaanesh", "1" } };
+                                   new[] { "Chosen of the Four", "0" }, new[] { "Chosen of Slaanesh", "1" } };
                 foreach (var t in want)
                 {
                     CardDef def = null;
@@ -15929,11 +16475,181 @@ public static partial class RuleEngineTest
             //    —— 带方括号时**匹配不到**、于是 `Catechism of Death` 被算了进来；去掉方括号后**规则②第一次真正生效**
             //    ⇒ 少 1 处 mention、少 1 张被点名的卡。**实据**：全池提到 `Catechism of Death` 的**只有 `UM84` 这一处**
             //    （`grep` 现扫：`cards` 里含该名的 1 条，就是它自己那张的 `Talent:` 段）⇒ **−1 / −1 精确对上**。
-            Check(distinct.Count, 67, "★ 被点到的**卡**数（= 正本 §9·3 的实测数；⚠️ 2026-10-18 起 68→67，成因见上）");
-            // ④ 总处数：我们实测 **129**，正本记的是 **126** —— 差 3 处。两者**不是同一把尺子**
-            //    （正本那次是临时脚本扫的，方法没留下）；被点到的「卡」数 68/68 完全一致、
-            //    逐张 4/6 吻合且另 2 个的差拆得开 ⇒ 钉**我们实测**的这个数。
-            Check(mentions, 128, "★ 全池「被点名的卡」**总处数**（我们实测；⚠️ 2026-10-18 起 129→128，成因见上；正本 §9·3 记的是 126）");
+            //
+            // 🔴🔴 **2026-10-18 第二次就地订正（`A1078`，同一句话现在写两遍了 —— 别只改一处）：**
+            //    `67 → 64` · `128 → 125`，**各 −3**。成因：给**规则②补上了「裸写天赋名」那半段**
+            //    （见上面 ②·b）。全池正好 **3 张**卡是这么写的，各贡献 1 处假命中：
+            //      `Azrael`→`Supreme Grand Master` · `Aun'Va`→`Ethereal Supreme` ·
+            //      `Abaddon the Despoiler`→`Chosen of the Four`
+            //    （这三个天赋名在**全池各只被提到这一处** —— `grep` 现扫 `cards_engine.json` 得 1 条/个，
+            //     而且被点到的那 3 张卡**只被这 1 处**点到 ⇒ mention 与 distinct **同时**各 −3，
+            //     算式与数据字面都成立、**不依赖被测代码**）。
+            //    **实据**：真编译的引擎代码 before/after 两份逐张 dump 的 `diff` **恰好 3 行**（见 ②·b 的注释）。
+            //    ⚠️ `Chosen of the Four` 那一张**在中文档下仍然命中**（`Abaddon` 的 `descZh` 写的是
+            //      `四神宠儿`、**没有** `天赋：` 前缀）⇒ 中文档那个数**没动**（下端 ⑤·b 钉着）。
+            Check(distinct.Count, 64, "★ 被点到的**卡**数（我们实测；⚠️ 2026-10-18 起 68→67→64，"
+                                    + "后一次 −3 的成因 = `A1078` 补上规则②的「裸写天赋名」半段，见上）");
+            // ④ 总处数：我们实测 **129**（→128→**125**），正本记的是 **126** —— 差得**不是同一把尺子**
+            //    （正本那次是临时脚本扫的，方法没留下）；被点到的「卡」数完全一致、
+            //    逐张吻合且对不上的那几个的差**都拆得开** ⇒ 钉**我们实测**的这个数。
+            Check(mentions, 125, "★ 全池「被点名的卡」**总处数**（我们实测；⚠️ 2026-10-18 起 129→128→125，"
+                               + "最后一次 −3 见上；正本 §9·3 记的是 126）");
+        }
+
+        // ⑤·b 🆕 **中文档那一趟** —— `WRelated` 第六会话遗留的 6 条断言（2026-10-18 补齐）
+        //
+        // 背景：`CreatePool` 在 2026-10-18 加了**中文卡名索引**（`NormCjk`）+「中文那一趟」，
+        //   两趟**按在文本里的位置合并**；英文那一趟的匹配逻辑**一个字没动**。
+        //   那批改动**当时没补断言**（`RuleEngineTest.cs` 被别的写手占着）⇒ 这里按
+        //   `资料/普查产出_第六会话/WRelated_相关卡中文索引.md` **§⑦** 的建议逐条落地。
+        //
+        // 🔴 **三个中文数的口径**（⛔ **都不是从被测代码现算的**，与上面 ⑤ 那两个**同一性质** ——
+        //   钉的是**本轮实测数**）：
+        //   · 中文档 **132 / 67**（喂 `DescZh`）：用**真编译出来的引擎代码**整体跑出来的，而且
+        //     **另有一条独立复核** —— 先写一份 python 复刻，**10 个既有期望数逐字对上**才信它。
+        //   · 中文档 `Reanimate` **12**（英文是 8；差的 4 处是「中文里关键词与卡名同词」，
+        //     中文没有词边界 ⇒ 只能逐位置取最长名，那 4 处是**已知的松**，不是漏）。
+        //   ⚠️ **英文档那两个数（125 / 64）不许因为这段改动而变** —— 上面 ⑤ 已钉住。
+        {
+            // ---- (1) 用户举的那个例子 · **中文档版** ----
+            // 期望值来源：**两条都能拿 `cards_engine.json` 手工核** ——
+            //   `Path of Command`（`ASH6`）的 `descZh` 逐字是「临时。部署 1 个风暴守护者」，
+            //   而 `Storm Guardian`（`ASH8`）的 `nameZh` 逐字是「风暴守护者」。**不是**从 `MentionedCards` 算的。
+            CardDef poc2 = null;
+            foreach (var c in pool) if (c.Name == "Path of Command") { poc2 = c; break; }
+            if (poc2 != null)
+            {
+                string whyZh;
+                var relZh = CreatePool.MentionedCards(pool, poc2, poc2.DescZh, out whyZh, 8);
+                bool hasSgZh = false;
+                foreach (var r in relZh) if (r.Name == "Storm Guardian") hasSgZh = true;
+                CheckTrue(hasSgZh && whyZh == null,
+                          "★ **中文档下 `Path of Command` 的相关卡里也有 `Storm Guardian`**"
+                          + "（判据是两条**数据字面**：它的 `descZh` 写「风暴守护者」、那张卡的 `nameZh` 就是它）");
+            }
+
+            // ---- (2) **顺序合并**（合成夹具；🔴 灭自证用）----
+            // 期望值来源 = **文本字面**：「贝塔」在文本里**先出现** ⇒ 它必须排第一。
+            // ⛔ 把中文那趟的结果**直接追加**到英文结果后面（= 两趟简单拼接）会变成 `Alpha` 在前 ⇒ 这里红。
+            //
+            // ⚠️ **夹具必须先把索引换成夹具自己的** —— `CardDatabase.Load()` 建的那张索引只认**真卡**的名字，
+            //    这几个夹具名**不在里面** ⇒ 不换索引的话两趟都查不到、这两条会**假红**。
+            //    跑完 **(3) 之后必须还原**（下面 (5)/(6) 用的是真池：`MatchZhNameForTest` 走同一张索引）。
+            //    ⚠️ 索引是**全局可变状态**，所以「换 — 用 — 还」三步要**连着写在一处**，别跨段。
+            {
+                var zhB = new CardDef("FxZhB", "Beta", "unit", "x", "common", "Test", 1, 1, 1, 0, null,
+                                      nameZh: "贝塔", subtype: "Infantry");
+                var zhA = new CardDef("FxZhA", "Alpha", "unit", "x", "common", "Test", 1, 1, 1, 0, null,
+                                      nameZh: "阿尔法", subtype: "Infantry");
+                var zhSrc = new CardDef("FxZhSrc", "FxZhSrc", "unit", "贝塔 then Alpha", "common", "Test",
+                                        1, 1, 1, 0, null, nameZh: "源", subtype: "Infantry");
+                var grot = new CardDef("FxGrot", "Grot", "unit", "x", "common", "Test", 1, 1, 1, 0, null,
+                                       nameZh: "地精", subtype: "Infantry");
+                var sbGrot = new CardDef("FxSbGrot", "Snakebite Grot", "unit", "x", "common", "Test",
+                                         1, 1, 1, 0, null, nameZh: "蛇咬地精", subtype: "Infantry");
+                var zhSrc2 = new CardDef("FxZhSrc2", "FxZhSrc2", "unit", "部署一个蛇咬地精", "common",
+                                         "Test", 1, 1, 1, 0, null, nameZh: "源2", subtype: "Infantry");
+                CreatePool.BuildNameIndex(new List<CardDef> { zhA, zhB, zhSrc, grot, sbGrot, zhSrc2 });
+                {
+                    string why;
+                    var rel = CreatePool.MentionedCards(new List<CardDef> { zhA, zhB, zhSrc },
+                                                        zhSrc, zhSrc.Desc, out why, 8);
+                    CheckTrue(rel.Count == 2 && rel[0].Name == "Beta" && rel[1].Name == "Alpha",
+                              "★ 两趟**按【出现顺序】合并**：文本里「贝塔」在前 ⇒ `Beta` 必须排第一"
+                              + $"（实得 {rel.Count} 张："
+                              + $"{(rel.Count > 0 ? rel[0].Name : "(空)")},{(rel.Count > 1 ? rel[1].Name : "-")}"
+                              + $"；why={why}）—— ⛔ 「两趟简单拼接」会变成 `Alpha` 在前");
+                }
+
+                // ---- (3) **长名优先**的中文版（合成夹具）----
+                // 期望值来源 = **文本字面**：卡面写的是「蛇咬地精」⇒ 命中 `Snakebite Grot`，
+                // **不许**被更短的「地精」（`Grot`）抢走（规则①）。
+                {
+                    string why;
+                    var rel2 = CreatePool.MentionedCards(new List<CardDef> { grot, sbGrot, zhSrc2 },
+                                                         zhSrc2, zhSrc2.Desc, out why, 8);
+                    CheckTrue(rel2.Count == 1 && rel2[0].Name == "Snakebite Grot",
+                              "★ 中文也守规则①：写的是「蛇咬地精」⇒ 命中 `Snakebite Grot`，"
+                              + "**不许**被更短的「地精」抢走"
+                              + $"（实得 {rel2.Count} 张："
+                              + $"{(rel2.Count > 0 ? rel2[0].Name : "(空)")}；why={why}）");
+                }
+                CreatePool.BuildNameIndex(pool);      // 🔴 **还原真池索引**（换 — 用 — 还，三步一处）
+            }
+
+            // ---- (4) 钉住「为什么中文**不能**用 `Norm`」这条事实 ----
+            // 期望值来源 = `Norm` 的**纯函数定义**（只留 `a-z0-9`）⇒ 可手工推、独立。
+            // ⛔ 谁把中文索引改回 `Norm` 版，这一条先红 —— 那版在 1126 张上**键全是空串**
+            //    （实测 `Norm(nameZh) == ""` 1126/1126），索引**一条都查不到、还不报错**。
+            CheckTrue(CreatePool.Norm("幽卫") == "",
+                      "★ `Norm` 把汉字**全剥掉**（只留 `a-z0-9`）⇒ 中文索引必须另用 `NormCjk`；"
+                      + "拿 `Norm` 建中文索引 = **一张全空键的表**（静默查不到）");
+
+            // ---- (5) 中文档三个数（钉**本轮实测**，见本段开头那三行口径）----
+            {
+                int mentionsZh = 0;
+                var distinctZh = new List<string>();
+                CardDef reanimate = null;
+                foreach (var c in pool) if (c.Name == "Reanimate") { reanimate = c; break; }
+                int reanimateViaZh = 0;
+                foreach (var c in pool)
+                {
+                    string why;
+                    var relZh = CreatePool.MentionedCards(pool, c, c.DescZh, out why, 999);
+                    mentionsZh += relZh.Count;
+                    foreach (var r in relZh)
+                    {
+                        if (!distinctZh.Contains(r.Id)) distinctZh.Add(r.Id);
+                        if (reanimate != null && r.Id == reanimate.Id) reanimateViaZh++;
+                    }
+                }
+                CheckTrue(pool.Count == 1126,
+                          $"（前提）卡池张数（判据只写在 `资料/阵营推进_清单与交接.md` §一，这里只做前提检查）：{pool.Count}");
+                Check(mentionsZh, 132, "★ **中文档**（喂 `DescZh`）全池总处数 —— 2026-10-18 用真编译的引擎代码实测");
+                Check(distinctZh.Count, 67, "★ 中文档被点到的**卡**数 —— 同上实测");
+                Check(reanimateViaZh, 12, "★ 中文档 `Reanimate` 被点名 12 次（英文是 8 —— 差在「中文里关键词与卡名同词」4 处）");
+            }
+
+            // ---- (6) 结构不变量：中文索引**不是一张空表** ----
+            //
+            // 🔴 **建议稿（`WRelated` §⑦ 第 (6) 条）原来写的是「每张有中文名的卡都能查回**它自己**」，
+            //    把这一条**照抄会红**：全池 `nameZh` **有重名**（实测 **6 组 / 12 张**），而索引是
+            //    「**先出现的赢**」（`BuildNameIndex` 里那句 `!idxCjk.ContainsKey(kz)`）⇒
+            //    英文名不同的那几组里，后出现的那张**必然查不回自己**（这正是「用户口径优先」而不是 bug）。
+            //    所以这里拆成**两条**：① 不变量（都查得回**某一张**，== 索引不是空表）；
+            //    ② 重名的**实测数**（数据侧事实，见下）。
+            //    ⚠️ `WRelated` 报告里那句「1120 个 `nameZh` **互不相同（0 组重名）**」是**错的** ——
+            //      拿 `cards_engine.json` 数一遍就是 6 组（本断言旁边那行注释写着逐条名单）。
+            // 期望值来源：① `0` = 一条**不变量**（不是实测数）；② `3` = **数据侧**数出来的（见下），
+            //   与 `Norm` 那两条一样可手工复核，**不是**从 `MentionedCards` 现算的。
+            {
+                int noKey = 0;          // 有中文名却**连一张都查不回来** ⇒ 索引是空表 / 漏建
+                int notSelf = 0;        // 查回来了、但**不是它自己** ⇒ 中文名重名（先出现的赢）
+                string firstNotSelf = null;
+                foreach (var c in pool)
+                {
+                    if (string.IsNullOrEmpty(c.NameZh)) continue;
+                    string back = CreatePool.MatchZhNameForTest(c.NameZh);
+                    if (back == null) { noKey++; continue; }
+                    if (back != c.Name)
+                    {
+                        notSelf++;
+                        if (firstNotSelf == null) firstNotSelf = $"{c.Id} {c.Name}（中文名与 {back} 相同）";
+                    }
+                }
+                // ① 不变量：**不是空表**。⛔ 谁把 `NormCjk` 改回 `Norm`，这里当场红（那版键全是空串 ⇒ 1126 张全 null）。
+                CheckTrue(noKey == 0,
+                          $"★ 每张有中文名的卡，用**它的中文名**都**查得回某一张卡**（键非空 ⇒ 中文索引不是空表）；"
+                          + $"查不回来的 {noKey} 张；⛔ 把 `NormCjk` 改回 `Norm` 会让这里变成 1126");
+                // ② 重名那几张：**数据侧**事实（`nameZh` 重名 6 组 / 12 张，其中 3 组两张卡的**英文名也不同**）：
+                //     `复仇者` = `Dire Avenger`(ASH19) / `Vindicator`(SW41) · `剑卫老兵` = `Bladeguard Veteran`(DA26)
+                //     / `Bladeguard Ancient`(UM87) · `连队老兵` = `Company Veteran`(DA15) / `Company Ancient`(UM35)
+                //     （另 3 组两组卡片的**英文名也相同**：`终结者冠军` · `蹂躏魔` · `终结者` ⇒ 那 3 组不算「查不回自己」）。
+                Check(notSelf, 3,
+                      "★ 中文名重名、查回来的不是它自己的有 **3** 张（数据侧实测：6 组重名 / 12 张，"
+                      + "其中 3 组两张卡的英文名也不同 ⇒ 先出现的赢，后一张必然查不回自己）"
+                      + (firstNotSelf == null ? "" : $"；例：{firstNotSelf}"));
+            }
         }
     }
 
@@ -18239,6 +18955,438 @@ public static partial class RuleEngineTest
         CheckCode(RuleCore.CanStartAbility(ctx, 0, 3), RuleCodes.OK, "CanStartAbility 不判目标");
         CheckCode(RuleCore.CanUseAbility(ctx, 0, 3), RuleCodes.ErrTarget,
                   "CanUseAbility 不带目标 → 「还没选目标」");
+    }
+
+    /// <summary>
+    /// **「这一下会打死它」那条预览的【逐条】口径**（2026-10-08 `W8b3`）。
+    ///
+    /// 判据 = 原版两份反编译（全文与行号 → `RuleCore.DamageAfterReductionOne` 上面那一段）：
+    ///   · `CardHighlight__ToggleCombatPreviewHighlight.c:37-93` —— 预览的伤害是一个 `List&lt;int&gt;`：
+    ///     **技能支**（`:86`）`EntityScript.GetActiveAbilityDamage` **只填 1 条**；
+    ///     **普通攻击**（`:62`）主伤害，再（`:66-81`）追加 `CurrentShuriken` / `CurrentMarkerlight`
+    ///     **两条独立条目**。
+    ///   · `CardScript__EnoughPendingDamageToDieWithDamageValues.c:115-119` ——
+    ///     `dodge`(240) / `shield`(80) **只在第 0 条**跳过；`invulnerable`(310) **任意条目**都跳过。
+    ///   · 同文件 `:138-156` —— `armour > 0 &amp;&amp; dmg > 0 ⇒ dmg = Math.Max(1, dmg − armour)`，**每一条各扣一次**。
+    ///
+    /// 🔴 **期望值一律写死原版算出来的那个数**（不拿被测函数反推）—— 每组里都写着「原版 = …」。
+    /// 🔴 **每组还配一条【灭自证】反证**：把逐条口径与合计口径（`DamageAfterReduction`，实际结算那一份）
+    ///    放在一起比，两者**必须给出不同的数** —— 「把两条口径又合并回一条」在这里必红。
+    /// </summary>
+    static void TestWillDiePreviewEntries()
+    {
+        // ---- (a) 主动技能那一路：伤害条目要**真算得出来**（不是恒 0 / 恒 false）----
+        //  原版 `EntityScript__GetActiveAbilityDamage.c`：遍历 ability 逻辑，
+        //  `chosenAbility ∈ {doDamage 10, doDamageMultiRandom 12, doDamageAndDestroySelf 15}`
+        //  **且** `targetsAffected == 30 (TargetsAffected.target)` ⇒ 累加 `minDamage`。
+        {
+            UnitState a, b;
+            var caster = Unit("Caster2", 3, 2, 5, "Ability: Damage 3 EnemyUnit");
+            var ctx = Duel(caster, Unit("Prey2", 1, 0, 3), out a, out b);
+
+            var entries = RuleCore.ActiveAbilityDamageEntries(ctx, 0, 3, 1, 3);
+            Check(entries.Count, 1,
+                  "主动技能路 = **1 条**（原版 `ToggleCombatPreviewHighlight.c:88` 只往表里 Add 一次）");
+            Check(entries[0], 3, "★ 那一条 = 技能伤害 **3**（原版 = `minDamage`）");
+            Check(RuleCore.ActiveAbilityDamage(ctx, 0, 3, 1, 3), 3,
+                  "`ActiveAbilityDamage`（原版那个 int 返回形态）= **3**");
+            CheckTrue(RuleCore.WouldKillByEntries(Board(ctx, 1, 3), entries),
+                      "★ 3 血的目标挨 3 点 ⇒ **会死**"
+                    + "（改之前 `SetReticleTarget` 把技能路整条排除 ⇒ 恒 false）");
+            Board(ctx, 1, 3).Health = 4;
+            CheckTrue(!RuleCore.WouldKillByEntries(Board(ctx, 1, 3), entries),
+                      "★ 反例：4 血 ⇒ 不会死（不是恒 true）");
+        }
+        //  反例：**不是「所有技能都算成会死」** —— 三个都不是「打到玩家点的那个敌人」的来源。
+        {
+            UnitState a, b;
+            var medic = Unit("Medic2", 2, 1, 4, "Ability: Heal 3 OwnWarlord");
+            var ctx = Duel(medic, Unit("Dummy2", 1, 0, 9), out a, out b);
+            Check(RuleCore.ActiveAbilityDamageEntries(ctx, 0, 3, 1, 3).Count, 0,
+                  "反例：治疗技能 0 条（原版 `chosenAbility` 不是那三个伤害值）");
+
+            var warlordHitter = Unit("Wh2", 2, 1, 4, "Ability: Damage 3 EnemyWarlord");
+            var ctx2 = Duel(warlordHitter, Unit("Dummy3", 1, 0, 9), out a, out b);
+            Check(RuleCore.ActiveAbilityDamageEntries(ctx2, 0, 3, 1, 3).Count, 0,
+                  "反例：`Damage 3 EnemyWarlord` 0 条（原版那是 `TargetsAffected.enemyWarlord` 那一档，不是 `target`）");
+
+            //  裸 `Deal 3 damage`（**没写目标**）= 原版 `TargetsAffected.lowestHealth`(=240)
+            //  —— `EntityScript.GetActiveAbilityDamage` 只认 `target`(=30) ⇒ **不计入**。
+            //  这一条同时钉住誓约那条来源的守卫（`CanUseOathAbility` 通过、但 op 被判掉）。
+            var autoHitter = new CardDef("AutoOath", "AutoOath", "unit",
+                                         "Oath 1: Deal 3 damage", "common", "Test", 2, 1, 4, 0, null);
+            var ctx3 = Duel(autoHitter, Unit("Dummy4", 1, 0, 9), out a, out b);
+            Check(ctx3.Players[0].Board[3].Card.OathOps.Count, 1, "（前提）誓约正文收进 `OathOps` 了");
+            Check(RuleCore.CanUseOathAbility(ctx3, 0, 3), RuleCodes.OK, "（前提）这一手誓约能用");
+            Check(RuleCore.ActiveAbilityDamageEntries(ctx3, 0, 3, 1, 3).Count, 0,
+                  "反例：裸 `Deal 3 damage` 0 条 —— 原版那是 `lowestHealth`(=240)，只认 `target`(=30)");
+        }
+
+        // ---- (b-1) **护甲 × 多条目**：原版每条各扣一次（`:138-156`）----
+        //  条目 [2, 3]、护甲 2 ⇒ 原版 = Max(1,2−2) + Max(1,3−2) = 1 + 1 = **2**
+        {
+            UnitState a, b;
+            var atk = Unit("ArmorProbe", 1, 2, 9, "Shuriken 3");
+            var ctx = Duel(atk, Unit("Armored", 1, 0, 9, "Armour 2"), out a, out b);
+            var t = Board(ctx, 1, 3);
+            Check(t.Armor, 2, "（前提）目标护甲 2");
+
+            var entries = RuleCore.AttackDamageEntries(ctx, 0, 3, 1, 3, false);
+            Check(entries.Count, 2, "攻击路 2 条（主伤害 + 星镖；原版 `:62` 与 `:67-71`）");
+            Check(entries[0], 2, "…[0] 主伤害 **2**");
+            Check(entries[1], 3, "…[1] 星镖 **3**");
+            Check(RuleCore.DamageAfterReductionList(t, entries), 2,
+                  "★ 原版逐条：Max(1,2−2) + Max(1,3−2) = 1+1 = **2**");
+            Check(RuleCore.DamageAfterReduction(t, 5), 3,
+                  "★【灭自证】合计版（实际结算那一份，没动）给 **3**（= 5−2）——"
+                + " 与逐条版的 2 **不同**；把两条口径合并回一条在这里必红");
+        }
+        //  条目 [3, 3]、护甲 2 ⇒ 原版 = 1 + 1 = **2**（合计版 = 6−2 = 4）
+        {
+            UnitState a, b;
+            var atk = Unit("ArmorProbe2", 1, 3, 9, "Shuriken 3");
+            var ctx = Duel(atk, Unit("Armored2", 1, 0, 9, "Armour 2"), out a, out b);
+            var t = Board(ctx, 1, 3);
+            var entries = RuleCore.AttackDamageEntries(ctx, 0, 3, 1, 3, false);
+            Check(entries[0], 3, "（前提）主伤害 3");
+            Check(RuleCore.DamageAfterReductionList(t, entries), 2,
+                  "★ 原版逐条：条目 [3,3] ⇒ 1+1 = **2**");
+            Check(RuleCore.DamageAfterReduction(t, 6), 4,
+                  "★【灭自证】合计版给 **4**（= 6−2）—— 与逐条版的 2 不同");
+        }
+
+        // ---- (b-2) **盾 / 闪避 + 星镖**：原版只跳过**第 0 条**（`:115-119`）----
+        //  条目 [主伤害 2, 星镖 3]、目标带 Shield、3 血 ⇒ 原版 = 0 + 3 = **3** ⇒ **会死**
+        //  （我们改前对**整包**判 `HasShield → 0` ⇒ 报「不会死」，**方向相反**）
+        {
+            UnitState a, b;
+            var atk = Unit("ShieldProbe", 1, 2, 9, "Shuriken 3");
+            var ctx = Duel(atk, Unit("Shielded", 1, 0, 3, "Shield"), out a, out b);
+            var t = Board(ctx, 1, 3);
+            CheckTrue(t.HasShield, "（前提）目标带 Shield");
+            var entries = RuleCore.AttackDamageEntries(ctx, 0, 3, 1, 3, false);
+            Check(entries.Count, 2, "（前提）条目 = [主伤害 2, 星镖 3]");
+            Check(RuleCore.DamageAfterReductionOne(t, entries[0], 0), 0,
+                  "★ 第 0 条被 Shield 挡下 = **0**（原版 `:117` 那个 `shield` 条件）");
+            Check(RuleCore.DamageAfterReductionOne(t, entries[1], 1), 3,
+                  "★ 第 1 条（星镖）**照算** = **3**（原版那两个条件都带 `|| iVar11 != 0`）");
+            Check(RuleCore.DamageAfterReductionList(t, entries), 3, "★ 逐条合计 = 0 + 3 = **3**");
+            CheckTrue(RuleCore.WouldKillByEntries(t, entries),
+                      "★ 3 点打 3 血 ⇒ **会死**（改前整包判盾 ⇒ 「不会死」——方向相反）");
+            Check(RuleCore.DamageAfterReduction(t, 5), 0,
+                  "★【灭自证】合计版把整包判成 **0** —— 与逐条版的 3 方向相反，合并回去必红");
+        }
+        //  `dodge` 与 `shield` **同一条规则**（原版 `:115-118` 那两个条件是并列的）。
+        //  🔴 **就地订正（2026-10-08，当天晚些的 `A1077`）**：这一段原来写着
+        //     「`dodge` 在我们引擎里本来**完全没有**……这一份是它的第一处落地，且**只在预览这一层**」——
+        //     **前半句当时是对的、后半句已经不对了**：`A1077` 当天就把**结算侧**也补上了
+        //     （`DamageAfterReduction` + `ApplyDamage`，关键词也进了 `KeywordTable`）。
+        //     ⇒ 现在 `dodge` 是**预览 / 结算两条路各一支**，**本方法只管预览那一支**；
+        //       结算那一支的断言全在 `TestDodgeKeyword` 里，别在这里抄第二份。
+        {
+            UnitState a, b;
+            var atk = Unit("DodgeProbe", 1, 2, 9, "Shuriken 3");
+            var ctx = Duel(atk, Unit("Dodger", 1, 0, 3), out a, out b);
+            var t = Board(ctx, 1, 3);
+            t.AddKeyword("dodge", 1);
+            CheckTrue(t.Has("dodge"), "（前提）目标带 dodge");
+            var entries = RuleCore.AttackDamageEntries(ctx, 0, 3, 1, 3, false);
+            Check(RuleCore.DamageAfterReductionOne(t, entries[0], 0), 0, "dodge：第 0 条被跳过 = 0");
+            Check(RuleCore.DamageAfterReductionList(t, entries), 3,
+                  "★ dodge 与 shield 同规则：只跳第 0 条 ⇒ 星镖 3 照算");
+        }
+        //  `invulnerable` **任意条目**都跳过（原版 `:119` 它不在 `iVar11 != 0` 那一组里）
+        {
+            UnitState a, b;
+            var atk = Unit("InvulnProbe", 1, 2, 9, "Shuriken 3");
+            var ctx = Duel(atk, Unit("Invuln", 1, 0, 1, "Invulnerable"), out a, out b);
+            var t = Board(ctx, 1, 3);
+            var entries = RuleCore.AttackDamageEntries(ctx, 0, 3, 1, 3, false);
+            Check(entries.Count, 2, "（前提）两条");
+            Check(RuleCore.DamageAfterReductionList(t, entries), 0,
+                  "★ invulnerable：**两条都跳过**（不像盾/闪避只跳第 0 条）");
+        }
+
+        // ---- (b-3) **markerlight 是独立条目**（原版 `:74-80` 追加 `CurrentMarkerlight`）----
+        //  我们改前把它**并进主伤害**（`dmg += ml`），所以合计数不同：
+        //  条目 [远程 3, 标记光 2]、护甲 1 ⇒ 原版 = Max(1,3−1) + Max(1,2−1) = 2 + 1 = **3**
+        //  （合计版 = (3+2)−1 = **4**）
+        {
+            UnitState a, b;
+            var atk = Ranged("MlProbe", 1, 1, 9, 3);
+            var ctx = Duel(atk, Unit("Marked", 1, 0, 4, "Markerlight 2", "Armour 1"), out a, out b);
+            var t = Board(ctx, 1, 3);
+            Check(t.KwValue("markerlight"), 2, "（前提）目标带 Markerlight 2");
+
+            var entries = RuleCore.AttackDamageEntries(ctx, 0, 3, 1, 3, true);
+            Check(entries.Count, 2, "★ 标记光是**独立的第 1 条**（原版 `:74-80`），不是并进主伤害");
+            Check(entries[0], 3, "…[0] 主伤害（远程）**3**");
+            Check(entries[1], 2, "…[1] 标记光 **2**");
+            Check(RuleCore.DamageAfterReductionList(t, entries), 3,
+                  "★ 原版逐条（护甲 1）：Max(1,3−1) + Max(1,2−1) = 2 + 1 = **3**");
+            Check(RuleCore.DamageAfterReduction(t, 5), 4,
+                  "★【灭自证】合计版（= 并进主伤害那条老口径）给 **4**（5−1）—— 与逐条的 3 不同");
+            Check(RuleCore.AttackDamageEntries(ctx, 0, 3, 1, 3, false).Count, 1,
+                  "…近战时**不**追加标记光那条（我们的实际伤害也只在远程吃它，见 `RuleCore.AttackDamageEntries`）");
+        }
+
+        // ---- 回归：**实际结算用的那一份没动**（合计版与 `WouldKill` 还是老口径）----
+        {
+            UnitState a, b;
+            var ctx = Duel(Unit("RegA", 1, 2, 9), Unit("RegB", 1, 0, 2, "Shield"), out a, out b);
+            var t = Board(ctx, 1, 3);
+            Check(RuleCore.DamageAfterReduction(t, 2), 0, "回归：合计版对带盾目标 = 0（没动）");
+            CheckTrue(!RuleCore.WouldKill(t, 2), "回归：`WouldKill`（`EffectResolver.PreferKillable` 读它）= 不会死");
+        }
+        //  单条目、无盾/闪避/护甲时，两条口径必须**一致**（否则就是「逐条版另写了一支」）
+        {
+            UnitState a, b;
+            var ctx = Duel(Unit("EqA", 1, 4, 9), Unit("EqB", 1, 0, 3, "Armour 1"), out a, out b);
+            var t = Board(ctx, 1, 3);
+            Check(RuleCore.DamageAfterReductionOne(t, 4, 0), 3, "（一致性）单条目版第 0 条 = 4−1 = **3**");
+            Check(RuleCore.DamageAfterReduction(t, 4), 3, "…与合计版在单条目时一致");
+        }
+    }
+
+    /// <summary>
+    /// **`Dodge`（闪避）—— 关键词登记 + 结算侧那一支**（2026-10-08 `A1077`）。
+    ///
+    /// 背景：`W8b3` 只做了**预览**那一半（`DamageAfterReductionOne` / `…List`）。那时 `dodge`
+    /// 在引擎里**整条都没有**：① `KeywordTable.Prefixes` 里没有它 ⇒ 卡数据写 `Dodge` 会被
+    /// `Normalize` 判 null 后**静默丢弃**；② 结算侧（`ApplyDamage` → `DamageAfterReduction`）
+    /// 没有该分支。⇒ 本方法钉的就是这两条。
+    ///
+    /// 判据（原版两份反编译，逐句读过；全文与行号 → `RuleCore.ApplyDamage` 那一支的注释）：
+    ///   · **挡下** `CardScript__GetAdjustedDamage.c:36-48` —— `0xf0`(dodge) 与 `0x50`(shield)
+    ///     **并列**写进同一个 `uVar3 = 1`；
+    ///   · **消耗** `CardScript._ReceiveDamage_d__381__MoveNext.c:320-333` —— dodge 与 shield
+    ///     **各占一段独立的 `if`**（不是 `else if`）⇒ 同挡、同消耗；两者同时在身时**一起被消耗**；
+    ///   · **预览只跳第 0 条** `CardScript__EnoughPendingDamageToDieWithDamageValues.c:115-119`。
+    ///
+    /// 🔴 **期望值一律写死原版算出来的那个数**，不拿被测函数反推。
+    /// 🔴 **灭自证**有三处：①「带 dodge ⇒ 0」与「不带 ⇒ 3」是同一形状的**两个方向**；
+    ///    ②被挡之后必须**真的被消耗**（否则下一刀还是 0）；③预览逐条口径与结算合计口径
+    ///    **必须给出不同的数** —— 把两条口径合并成一条、或把 `dodge` 从结算侧删掉，这里都必红。
+    /// </summary>
+    static void TestDodgeKeyword()
+    {
+        // ---- (1) **登记**：`Dodge` 现在认得出、进得去关键词表（原来会被静默丢掉）----
+        {
+            Check(KeywordTable.Normalize("Dodge"), KeywordTable.Dodge,
+                  "★ `Dodge` 认得出（改前 `Normalize` 返回 null ⇒ 卡数据写它会被**静默丢弃**）");
+            Check(KeywordTable.Normalize("Dodge."), KeywordTable.Dodge,
+                  "…卡面那种带句号的 `Dodge.` 也认得出");
+            CheckTrue(KeywordTable.Implemented.Contains(KeywordTable.Dodge),
+                      "★ 而且进了 `Implemented` —— 否则卡面会白打 `*`、`UnimplementedKeywords` 会多报一条");
+            var parsed = KeywordTable.Parse(new[] { "Dodge" });
+            Check(parsed.ContainsKey(KeywordTable.Dodge), true,
+                  "★ 卡数据 `keywords:[\"Dodge\"]` 真的进了关键词表（不再静默丢弃）");
+        }
+
+        // ---- (2) **结算侧**：第 0 条（这一下）被挡下 + 消耗；**后续条目照算** ----
+        //  原版 `GetAdjustedDamage.c:41`（dodge 命中 ⇒ 挡下）+
+        //  `…MoveNext.c:320-325`（挡下之后 `RemoveTrait(0xf0)` ⇒ 只挡这一次）。
+        {
+            UnitState a, b;
+            var ctx = Duel(Unit("DodgeAtk", 1, 2, 9), Unit("DodgeDef", 1, 0, 6), out a, out b);
+            var t = Board(ctx, 1, 3);
+            t.AddKeyword(KeywordTable.Dodge, 1);
+            CheckTrue(t.Has(KeywordTable.Dodge), "（前提）目标带 dodge");
+
+            int hp0 = t.Health;                                   // 6
+            int first = RuleCore.ApplyDamage(ctx, t, 3, "自检");
+            Check(first, 0, "★ 结算侧：第 0 条（这一下 3 点）被 Dodge **整个挡下** = **0**");
+            Check(t.Health, hp0, "…血量一点没动（不是「减到最低 1」）");
+            CheckTrue(!t.Has(KeywordTable.Dodge),
+                      "★ 而且 Dodge 被**消耗**掉了（原版那一段 `RemoveTrait(0xf0)`）");
+
+            int second = RuleCore.ApplyDamage(ctx, t, 3, "自检");
+            Check(second, 3, "★ 后续条目（第二次伤害）**照算** = **3** —— 消耗掉之后不再挡");
+            Check(t.Health, hp0 - 3, "…这一次真掉血 6 → 3");
+        }
+
+        // ---- (3) 【灭自证·方向】**不带 dodge ⇒ 一点不跳**（与 (2) 同形状，只差那个关键词）----
+        {
+            UnitState a, b;
+            var ctx = Duel(Unit("NoDodgeAtk", 1, 2, 9), Unit("NoDodgeDef", 1, 0, 6), out a, out b);
+            var t = Board(ctx, 1, 3);
+            CheckTrue(!t.Has(KeywordTable.Dodge), "（前提）目标**没有** dodge");
+            Check(RuleCore.ApplyDamage(ctx, t, 3, "自检"), 3,
+                  "★ 没有 dodge ⇒ 照常吃满 **3**（与 (2) 的 0 相反 —— 把 dodge 从结算侧删掉 (2) 必红）");
+            Check(t.Health, 3, "…血量 6 → 3");
+        }
+
+        // ---- (4) **攻击路**：第 0 条落地的那个伤害段被跳、后面的照算 ----
+        //  ⚠️ **次序按我们引擎 / 原版 `RecordAttackPendingDamage` 的登记次序**：星镖**先于**主伤害
+        //     （原版 `BattleManager__RecordAttackPendingDamage.c:69-73` 先记 `CurrentShuriken`，
+        //      `:80-84` 才记主伤害；我们 `DeclareAttack` 同序）。
+        //     ⛔ 与预览那条路（`ToggleCombatPreviewHighlight.c:62-71` 把**主伤害**放第 0 条）
+        //        **次序不同** —— 那是原版自己的两处写法，如实记着，别去「统一」它们。
+        {
+            UnitState a, b;
+            var atk = Unit("DodgeAtk2", 1, 2, 9, "Shuriken 3");
+            var ctx = Duel(atk, Unit("DodgeDef2", 1, 0, 7), out a, out b);
+            var t = Board(ctx, 1, 3);
+            t.AddKeyword(KeywordTable.Dodge, 1);
+            Check(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3), RuleCodes.OK, "（前提）攻击声明成功");
+            Check(t.Health, 5, "★ 星镖 3（先落的第 0 条）被 Dodge 挡下、主伤害 2 照算 ⇒ 7 − 2 = **5**");
+            CheckTrue(!t.Has(KeywordTable.Dodge), "…Dodge 被消耗掉了");
+        }
+
+        // ---- (5) **盾 + 闪避同时在身 ⇒ 一下把两条都消耗掉** ----
+        //  原版那两段是**并列的 `if`**、不是 `else if`（`…MoveNext.c:320-325` 与 `:326-333`）。
+        {
+            UnitState a, b;
+            var ctx = Duel(Unit("BothAtk", 1, 2, 9), Unit("BothDef", 1, 0, 6, "Shield"), out a, out b);
+            var t = Board(ctx, 1, 3);
+            t.AddKeyword(KeywordTable.Dodge, 1);
+            CheckTrue(t.HasShield && t.Has(KeywordTable.Dodge), "（前提）同时带 Shield 与 Dodge");
+            Check(RuleCore.ApplyDamage(ctx, t, 3, "自检"), 0, "挡下 = 0");
+            CheckTrue(!t.HasShield, "★ Shield **被消耗**");
+            CheckTrue(!t.Has(KeywordTable.Dodge), "★ Dodge **也被消耗** —— 两段是并列的 `if`");
+            Check(t.Health, 6, "…血量没动");
+        }
+
+        // ---- (6) **回归：盾单独在身时行为没变**（本件动过 `ApplyDamage` 那一支的结构）----
+        {
+            UnitState a, b;
+            var ctx = Duel(Unit("RegAtk2", 1, 2, 9), Unit("RegDef2", 1, 0, 4, "Shield"), out a, out b);
+            var t = Board(ctx, 1, 3);
+            Check(RuleCore.ApplyDamage(ctx, t, 3, "自检"), 0, "回归：盾挡下 = 0");
+            CheckTrue(!t.HasShield, "…盾被消耗");
+            Check(t.Health, 4, "…血量没动");
+            Check(RuleCore.ApplyDamage(ctx, t, 3, "自检"), 3, "…第二下照吃 **3**");
+        }
+
+        // ---- (7) 【灭自证·两条路】**预览逐条口径与结算合计口径必须给出不同的数** ----
+        {
+            UnitState a, b;
+            var atk = Unit("DodgeAtk3", 1, 2, 9, "Shuriken 3");
+            var ctx = Duel(atk, Unit("DodgeDef3", 1, 0, 9), out a, out b);
+            var t = Board(ctx, 1, 3);
+            t.AddKeyword(KeywordTable.Dodge, 1);
+            var entries = RuleCore.AttackDamageEntries(ctx, 0, 3, 1, 3, false);
+            Check(entries.Count, 2, "（前提）预览条目 = [主伤害 2, 星镖 3]");
+            int preview = RuleCore.DamageAfterReductionList(t, entries);   // 只跳第 0 条 ⇒ 0 + 3
+            int settle = RuleCore.DamageAfterReduction(t, 5);              // 一次一个数 ⇒ 整下被挡
+            Check(preview, 3, "★ 预览逐条：只跳第 0 条 ⇒ 0 + 3 = **3**");
+            Check(settle, 0, "★ 结算合计：整下被挡 = **0**");
+            Check(preview != settle, true,
+                  "★【灭自证】两条口径必须**不同**（预览 " + preview + " vs 结算 " + settle
+                + "）—— 合并成一条、或把 dodge 从结算侧删掉，这里必红");
+        }
+    }
+
+    /// <summary>
+    /// **`Shield` 的两个表示收成一处**（2026-10-09 `A1106`，真缺陷）。
+    ///
+    /// **改前的病灶**：`Shield` 在引擎里曾有**两份表示** —— ① `UnitState.HasShield` 字段；
+    /// ② 关键词 `_keywords["shield"]`。两个写点各只动一份 ⇒ **双向脱节**：
+    ///   · 消耗时 `RuleCore.ApplyDamage` 只写 `u.HasShield = false`、**从不摘关键词**
+    ///     （改前全仓 `RemoveAll("shield")` **0 命中**）⇒ `u.Has("shield")` 永远为真；
+    ///     而 `SimpleAI.ScoreDamaging`（`Data/SimpleAI.cs:588`）读的**正是关键词**
+    ///     ⇒ **AI 把已经用掉盾的单位继续当带盾、只给 `dmg/3+1` 那点分**（表现层读字段、没事）；
+    ///   · 反向：`RemoveAll("shield")`（`lose Shield` / 光环收回 / `RemoveKeyword` 减到 0）
+    ///     **不清**那个字段 ⇒ 关键词没了、那一刻**还能再挡一下**（白送一次免伤）。
+    ///
+    /// **改法 = 照原版收成一处**（原版护盾**只有一个表示** = trait `0x50`：
+    /// `DefinedTrait.shield = 80`，`d:/2/Warpforge_code/Scripts/Assembly-CSharp/DefinedTrait.cs:9`）：
+    ///   · **免伤** `CardScript__GetAdjustedDamage.c:45` `HasCurrentTrait(param_1, 0x50)`；
+    ///   · **消耗** `CardScript._ReceiveDamage_d__381__MoveNext.c:326-333` —— `HasCurrentTrait(0x50)`
+    ///     → `RemoveBuffedTrait(0x50)` + `RemoveTrait(0x50)`（**摘 trait、不写任何布尔字段**；
+    ///     `CardScript__RemoveTrait.c` 的实现是 `List.Find(id == param_2)` → `List.Remove`）；
+    ///   · **对手 AI 也读 trait** `AI__ScoreFromDamagingBuffedUnit.c:58-61`（`0xf0`/`0x50` 命中即走那条出口）。
+    ///   ⇒ 我们这边**关键词是唯一表示**，`UnitState.HasShield` 是它的**派生只读属性**。
+    ///
+    /// 🔴 **灭自证（改回旧写法必红）**：
+    ///   ① 消耗之后再问 AI 要分 —— 旧写法下关键词没摘、永远停在 `3`（`dmg/3+1`），
+    ///      所以「用掉后 == 正常路的 **9**」与「!= 3」两条**只有真摘了关键词才可能同时成立**；
+    ///   ② 反向那一组（`RemoveAll` ⇒ `!HasShield`、随后**照常吃 3**）在字段版下必红。
+    /// </summary>
+    static void TestShieldOneRepresentation()
+    {
+        // ---- (1) **消耗（正方向）**：盾挡下 ⇒ 字段与关键词**同时**变假 ----
+        {
+            UnitState a, b;
+            var ctx = Duel(Unit("ShAtk", 1, 2, 9), Unit("ShDef", 1, 0, 4, "Shield"), out a, out b);
+            var t = Board(ctx, 1, 3);
+            CheckTrue(t.HasShield && t.Has(KeywordTable.Shield),
+                      "（前提）构造期两个表示就一致（`Shield` 关键词 ⇒ `HasShield`）");
+
+            Check(RuleCore.ApplyDamage(ctx, t, 6, "自检"), 0, "盾把这一下全挡了（= 0）");
+            Check(t.Health, 4, "…血量没动（不是「减到最低 1」）");
+            CheckTrue(!t.Has(KeywordTable.Shield),
+                      "★ 关键词被**摘掉**了（= 原版 `RemoveTrait(0x50)`；改前这里仍为真）");
+            CheckTrue(!t.HasShield,
+                      "★ 而且字段也是假 —— **两个表示不可能再脱节**（改前只写字段、关键词留着）");
+        }
+
+        // ---- (2) **AI 那一侧**：盾用掉之后，AI 不再把它当带盾 ----
+        //  期望值写死：带盾出口 = `dmg/3 + 1` = 6/3 + 1 = **3**；
+        //  正常路 = 「这一下判死」⇒ 卡价值 `4×2+1 = 9`（`ValueInPlay` 满分血、无别的关键词）⇒ **9**。
+        {
+            UnitState a, b;
+            // ⚠️ 这张卡**自己不带** `Shield`（靠运行时 `AddKeyword` 给）—— 这样「用掉之后」的
+            //    对照组就是「同一张卡、没给过盾」的干净版本，不会掺进 `KeywordValue(卡)` 那 2 分。
+            var ctx = Duel(Unit("ShAtk2", 1, 2, 9), Unit("ShDef2", 4, 0, 4), out a, out b);
+            var t = Board(ctx, 1, 3);
+            t.AddKeyword(KeywordTable.Shield, 1);
+            CheckTrue(t.HasShield && t.Has(KeywordTable.Shield), "（前提）运行时给了盾，两个表示都真");
+
+            Check(SimpleAI.ScoreDamaging(t, 6), 3f,
+                  "（前提）**还没用掉**时走原版那条「只给一点点」的出口 = 6/3 + 1 = **3**");
+
+            Check(RuleCore.ApplyDamage(ctx, t, 6, "自检"), 0, "（前提）这一下被盾挡了、盾被用掉");
+            CheckTrue(!t.HasShield && !t.Has(KeywordTable.Shield), "（前提）两个表示都变假");
+            Check(t.Health, 4, "（前提）血没动（挡下了）");
+
+            float after = SimpleAI.ScoreDamaging(t, 6);
+            // 对照组：**同一张卡、从来没给过盾**的单位 ⇒ 必然走正常那条路
+            var plain = new UnitState(Unit("ShDef2Plain", 4, 0, 4), false);
+            Check(after, SimpleAI.ScoreDamaging(plain, 6),
+                  "★ 用掉盾之后，AI 给的分与「从来没带盾的同形单位」**完全一样** —— 它已经走正常路了");
+            Check(after, 9f,
+                  "★ 那个分就是正常路算出来的 **9**（4 费卡价值 4×2+1 = 9；这一下 6 ≥ 4 血 ⇒ 判死那支）");
+            Check(after != 3f, true,
+                  "★【灭自证】旧写法会让它**停在 3**（关键词没摘 ⇒ 永远走带盾出口）—— 改回去这里必红");
+        }
+
+        // ---- (3) **反向**：关键词被摘掉 ⇒ 字段同时变假（`lose Shield` / 光环收回 / 减层到 0）----
+        {
+            UnitState a, b;
+            var ctx = Duel(Unit("ShAtk3", 1, 2, 9), Unit("ShDef3", 1, 0, 5, "Shield"), out a, out b);
+            var t = Board(ctx, 1, 3);
+            CheckTrue(t.HasShield, "（前提）带盾");
+            t.RemoveAll(KeywordTable.Shield);
+            CheckTrue(!t.Has(KeywordTable.Shield) && !t.HasShield,
+                      "★ `RemoveAll(\"shield\")` 之后**两个都**变假（改前：关键词没了、字段还是真）");
+            Check(RuleCore.ApplyDamage(ctx, t, 3, "自检"), 3,
+                  "★ …所以这一下**照常吃 3**（改前会被那个残留字段白送一次免伤）");
+            Check(t.Health, 2, "…5 → 2");
+        }
+        {
+            // 减层版（`lose Shield` 走的那条）：减到 0 ⇒ 走 `RemoveAll` ⇒ 属性跟着假
+            var u = new UnitState(Unit("ShLose", 1, 0, 5, "Shield"), false);
+            CheckTrue(u.HasShield, "（前提）带盾");
+            u.RemoveKeyword(KeywordTable.Shield, 1);
+            CheckTrue(!u.Has(KeywordTable.Shield) && !u.HasShield,
+                      "★ `RemoveKeyword` 减到 0 之后属性也变假（`lose Shield` 那条路）");
+        }
+
+        // ---- (4) **没盾时不受影响**（本件动过 `ApplyDamage` 那一支的写法）----
+        {
+            UnitState a, b;
+            var ctx = Duel(Unit("NoShAtk", 1, 2, 9), Unit("NoShDef", 4, 0, 4), out a, out b);
+            var t = Board(ctx, 1, 3);
+            CheckTrue(!t.HasShield && !t.Has(KeywordTable.Shield), "（前提）本来就没盾");
+            Check(RuleCore.ApplyDamage(ctx, t, 3, "自检"), 3,
+                  "★ 没盾 ⇒ 照常吃满 **3**（与 (1) 的 0 相反 —— 把「摘关键词」写成「无条件免伤」这里必红）");
+            Check(t.Health, 1, "…4 → 1");
+            // AI 那一侧同样不受影响
+            var plain = new UnitState(Unit("NoShCtl", 4, 0, 4), false);
+            Check(SimpleAI.ScoreDamaging(plain, 6), 9f,
+                  "★ 没盾的单位在 AI 眼里照常走正常路 = **9**（不是带盾出口的 3）");
+        }
     }
 
     static void TestHealAndDraw()

@@ -187,6 +187,12 @@ namespace CardPresentation
         public const string ArtDeckChange = "40k_UI_bt_deck_change";
         public const string ArtEye = "40k_bt_eye";
         public const string ArtBackArrow = "40k_UI_bt_back";
+        /// <summary>🔴 **2026-10-18（A1053）**：四颗卡组钮里**唯一吃射线的**那颗 `Icon` 子件**自己的**
+        /// `m_RaycastPadding`（原版实读 `(-20)⁴`；L,B,R,T · **负 = 外扩**）——
+        /// ⚠️ 四颗钮**根上那颗 `Image`(`UI_Button_Round_background`) 实测 `m_RaycastTarget = 0`**
+        /// ⇒ 可点区 = `Icon`（120.49×93.01）外扩 20 = **160.49 × 133.01**（⛔ 不是整颗钮 160.87×128）。
+        /// 算式只走 `MenuDraw.PaddedRect`；口径 → `普查_全仓命中区与关闭键族.md` §〇-1。</summary>
+        static readonly Vector4 IconPad = new Vector4(-20f, -20f, -20f, -20f);
         public const string ArtDeckCount = "40k_UI_icon_deck";
         public const string ArtHeaderBg = "WF_Campaign_Info_Background";
         public const string ArtHeaderBack = "UI_Button_Menu_Back";
@@ -479,16 +485,34 @@ namespace CardPresentation
                 // ⚠️ **图标框不是整颗钮**：原版 `Icon` 子件是 **120.49×93.01**、在 160.87×128 的钮里居中
                 //    （`preserveAspect` ⇒ 实画 94.08×93.01）。用整颗钮当框会把图标放大 **1.376 倍**
                 //    —— 2026-09-24 找茬子代理按锚点比例算出来的（`menu_rect --depth 5` 那一行）。
-                var q = MenuDraw.Rect(b, icon, IconBox(x1, y1, x2, y2), "Icon", QArt1, null, true);
+                var iconQ = MenuDraw.Rect(b, icon, IconBox(x1, y1, x2, y2), "Icon", QArt1, null, true);
                 // 🔴 原版 `Next Deck Button` 的图标挂 `UIFlippable`（水平翻转成「→」）。
                 // 🆕 **2026-10-03 补上了**：原来这里写着「`ImageQuad` 没有翻转开关 ⇒ 出声」—— **那句是错的**：
                 //    **`SetUvRect` 传一个负宽就是镜像**，工程里早有先例（`Shell/CollectionWindow.cs` 的 `BuildStyleArrow` 里那句 `SetUvRect(new Rect(1f, 0f, -1f, 1f))`
                 //    的 `new Rect(1f, 0f, -1f, 1f)`、`Shell/MatchLogRow.cs` 里那句 `SetUvRect(new Rect(1f, 0f, -1f, 1f))` 同款翻左/右箭头）。
-                if (i == 3 && q != null) q.SetUvRect(new Rect(1f, 0f, -1f, 1f));   // UIFlippable ⇒ 水平镜像
+                if (i == 3 && iconQ != null) iconQ.SetUvRect(new Rect(1f, 0f, -1f, 1f));   // UIFlippable ⇒ 水平镜像
                 // 🆕 A17：原版这四颗是 SpriteSwap，**高亮图逐颗不同**
                 //（`40k_UI_bt_back_hover` / `40k_UI_bt_deck_change_hover` / `40k_bt_eye_hover` / 末颗又是 `40k_UI_bt_back_hover`）
-                // ⇒ 按**图标那张图的名字**推（命名规律 `<常态图>_hover`），换图落在 `Bg` 那一层（普查 §块 4 第 15 行）。
-                MenuDraw.Hit(b, "Hit", new PxRect(x1, y1, x2, y2), QHit, acts[i], dbBg, icons[i]);
+                // ⇒ 按**图标那张图的名字**推（命名规律 `<常态图>_hover`）。
+                // 🔴 **2026-10-18 更正（A1058 · 第六会话批 2 · 铁律 5）**：换图那一层 = **子件 `Icon`**
+                //    （画的是 `icons[i]`，= 下面那颗 `iconQ`），⛔ **不是圆底盘 `dbBg`**。
+                //    判据（原版 prefab 亲读）=
+                //    `python -I d:/tmp/wf_hit/rcunion.py bundle_menus_assets_all "SkirmishModeEventWindow" --depth 8 --sub "Deck Buttons/Previous"`：
+                //    根 `Previous Deck Button` 那颗 `EverguildButton` 的 **`m_TargetGraphic` = pid5832333277041741170`**；
+                //    解该 pid（`python -I d:/tmp/wf_hit/tgt.py bundle_menus_assets_all 5832333277041741170`）⇒
+                //    **所属 GO 名 = `Icon`**、贴图 = `40k_UI_bt_back`。
+                //    ⚠️ **2026-10-18 就地订正**：本行上面的注释（与它引的「普查 §块 4 第 15 行」）
+                //    说「换图落在 `Bg` 那一层」—— **那句是错的**（错因 = 只读 `m_Transition`、没读 `m_TargetGraphic`）。
+                //    改前的症状：悬停把**整块圆底盘**换成**箭头的高亮图**（`UI_Button_Round_background` → `40k_UI_bt_back_hover`）。
+                //    ⚠️ `art` 实参本来就是图标那张常态图的名字 ⇒ 不用动（上面那三行「按图标名字推」是对的）。
+                // 🆕 **2026-10-18（A1053）**：**命中区 = 可射线件的并集** —— 本钮根上那颗 `Image` 实测
+                //    `m_RaycastTarget = 0`（不吃射线），子树里**只有 `Icon` 一颗吃射线**
+                //    ⇒ 可点区 = `Icon`（120.49×93.01）按自己的 `m_RaycastPadding (-20)⁴` 外扩
+                //    = **160.49 × 133.01**（⛔ 不是整颗钮 160.87×128）。
+                //    判据 = `python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all "SkirmishModeEventWindow"
+                //    --depth 8 --substr "Deck Buttons/Previous"`（实读 `160.49 x 133.01`）。
+                MenuDraw.Hit(b, "Hit", MenuDraw.PaddedRect(IconBox(x1, y1, x2, y2), IconPad),
+                             QHit, acts[i], iconQ, icons[i]);
             }
         }
 

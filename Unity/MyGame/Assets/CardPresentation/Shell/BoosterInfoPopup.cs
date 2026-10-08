@@ -120,6 +120,11 @@ namespace CardPresentation
         static readonly PxRect CloseR = new PxRect(1487.06f, 159.83f, 1561.45f, 235.44f);
         /// <summary>`Generic Close Button Orange` 的**两个子件**（底图/图标）同矩形、都 `preserveAspect`。</summary>
         static readonly PxRect CloseArtR = new PxRect(1495.20f, 167.80f, 1552.06f, 225.94f);
+        /// <summary>🔴 **2026-10-18（A1053）**：那两颗子件**自己的** `m_RaycastPadding`（原版实读 `(-20)⁴`；
+        /// 分量序 L,B,R,T · **负 = 外扩**）⇒ 关窗钮**命中区** = `CloseArtR` 外扩 20 = **96.86 × 98.13**
+        /// （⛔ 不是根矩形 `CloseR` 的 74.39×75.61）。算式只走 `MenuDraw.PaddedRect`。
+        /// 口径/判据 → `资料/普查产出_第四会话/普查_全仓命中区与关闭键族.md` §〇-1。</summary>
+        static readonly Vector4 ClosePad = new Vector4(-20f, -20f, -20f, -20f);
 
         /// <summary>`Artwork`（左半边整块）。`background` 比它内缩 10px、`foreground` 只在上边内缩 10px。</summary>
         static readonly PxRect ArtBgR = new PxRect(405.72f, 198.35f, 950.00f, 841.65f);
@@ -323,16 +328,30 @@ namespace CardPresentation
             // ③ 关闭钮：原版这一件的**底图本身 `m_Enabled=1`**（与 `Battle Log Popup` 那条不同！），
             //    它自己是 `UI_Button_Round_background`，下面再叠两个子件。
             var close = Node(window, "Generic Close Button Orange", CloseR);
-            // 🔴 **换图落在【圆底那一层】** —— 实测原版该件三层的结构是
-            //    `Image`(=`UI_Button_Round_background`, 237²) + `Background`(=`40k_general_bt_yellow`) + `Icon`(=`…_close`)，
-            //    而 `trans=2` 换的是**它自己那个 Image** ⇒ 悬停把圆底换成 `40k_general_bt_yellow_hover`
-            //（2026-10-03 直接读 prefab 核过：`menu_dump.py bundle_menus_assets_all "Booster Info Popup" --depth 5`）。
+            // 🆕 **2026-10-18（A1058 · 第六会话批 2）**：悬停换图那一层 = **子件 `Background`**
+            //    （画的是 `40k_general_bt_yellow`，= 下面那颗 `faceQ`），⛔ **不是圆底盘**。
+            //    判据（原版 prefab 亲读）=
+            //    `python -I d:/tmp/wf_hit/rcunion.py bundle_menus_assets_all "Booster Info Popup" --depth 8`：
+            //    根 `Generic Close Button Orange` 那颗 `EverguildButton` 的 **`m_TargetGraphic` = pid-248804322290556241**；
+            //    把该 pid 解出来（MonoBehaviour 目录里读该组件）⇒ **所属 GO 名 = `Background`**、
+            //    贴图 pid `5693181797853584851` → `40k_general_bt_yellow`（按 pid 反查
+            //    `d:/4/_tmp_view/sprite_pids_ALL.json`）。
+            //    ⚠️ **2026-10-18 更正（铁律 5）**：原来这一段的注释写「`trans=2` 换的是**它自己那个 Image**」
+            //    ⇒ 代码把 `baseQ`（圆底盘）传成了换图目标 ⇒ 悬停**把圆底盘换成黄圆图、黄圆本身不变**
+            //    （看着像「换了个底座」）。**错因 = 只读了 `m_Transition`、没读 `m_TargetGraphic`**。
             var baseQ = Rect(close, "UI_Button_Round_background", CloseArtR, "Base", QClose, null, true);
             var cb = Node(close, "Background", CloseArtR);
-            Rect(cb, "40k_general_bt_yellow", CloseArtR, "Background", QClose, null, true);
+            var faceQ = Rect(cb, "40k_general_bt_yellow", CloseArtR, "Background", QClose, null, true);
             var ci = Node(close, "Icon", CloseArtR);
             Rect(ci, "40k_general_bt_yellow_close", CloseArtR, "Icon", QClose, null, true);
-            MenuDraw.Hit(close, "Hit", CloseR, QHit, () => Close(), baseQ, null, "40k_general_bt_yellow_hover");
+            // 🆕 **2026-10-18（A1053 · 第六会话批 2）**：**命中区**归真值 —— 原版圆底盘
+            //   `m_RaycastTarget = 0`（不吃射线），吃射线的是两个同矩形子件（56.86×58.13）按各自的
+            //   `m_RaycastPadding (-20)⁴` 外扩 ⇒ **96.86 × 98.13**；改前传根矩形 `CloseR`（74.39×75.61）
+            //   ⇒ 每边小 11.2。判据 = `python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all
+            //   "Booster Info Popup" --depth 8`（实读 `96.86 x 98.13`）。
+            MenuDraw.Hit(close, "Hit", MenuDraw.PaddedRect(CloseArtR, ClosePad),
+                         QHit, () => Close(), faceQ, "40k_general_bt_yellow",
+                         "40k_general_bt_yellow_hover");
 
             // ④ `Artwork` —— 主图放 `background`（原版两处都空、运行期赋图；见文件头）
             var artwork = Node(window, "Artwork", new PxRect(395.72f, 188.35f, 960.00f, 851.65f));

@@ -1268,8 +1268,11 @@ namespace CardPresentation
             //   `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-1205960227040661724.json`：
             //   `mTerm = "MenuDeck/HUD/DragCardsTip"`；**同 GO 的 TMP `m_text` 是葡语占位串**
             //   `Arraste as cartas aqui para criar seu deck` ⇒ 原版英文在远端 I2 表、本地拿不到 ⇒ EN 得自拟）。
-            //   ⚠️ 该键**波 0 未进表** ⇒ 走 `TermOr` 闸门（今天仍印中文那串，补键后自动生效）。
-            var warnLabel = Txt("empty_warn_l", TermOr("MenuDeck/HUD/DragCardsTip", "把卡拖到这里"),
+            //   ✅ **2026-10-18 收口（铁律 5）**：这一行原来写「⚠️ 该键**波 0 未进表** ⇒ 走 `TermOr` 闸门
+            //      （今天仍印中文那串，补键后自动生效）」—— **已过期**：键 `MenuDeck/HUD/DragCardsTip`
+            //      **已在表**（`Core/Loc.cs` 实读：`("把卡拖到这里", "Drag cards here")`），闸门**已删除**
+            //      （静默兜底，与「不许静默失败」冲突）⇒ 现在是**裸 `Loc.T`**。
+            var warnLabel = Txt("empty_warn_l", Loc.T("MenuDeck/HUD/DragCardsTip"),
                                 20.3f, 500f, 295.3f, 60f, 2,
                                 new Color(1f, 1f, 1f, 0.65f), QText);
             if (warnLabel != null) _emptyWarnGo = warnLabel.gameObject;
@@ -2173,8 +2176,12 @@ namespace CardPresentation
                 FitDrawerBack(back);                     // 🔴 换图之后**必须再内接一次**（这一跳不能省）
             }
             // 🔴 **2026-10-18（`A1032` 删件）**：这里原来按「选过 → 印卡背 id / 没选 → 印
-            //   `TermOr("MenuDeck/HUD/DefaultCardback", "默认卡背（没选过）")`」刷新那颗字 ——
+            //   `MenuDeck/HUD/DefaultCardback` 那条词条（当时经一道 `Loc.HasEntry` 闸门、键不在表就退回
+            //   字面量 `默认卡背（没选过）`）」刷新那颗字 ——
             //   **那颗字本身是我们自己加的、原版没有**（判据见字段声明处那三条）⇒ 整块删掉。
+            //   ⚠️ **2026-10-18 收口（铁律 5）**：本段原来拿 `TermOr("MenuDeck/HUD/DefaultCardback", …)`
+            //      **当函数名引用** —— 那个函数随后也被删了（本文件 `TermOr` 已归零）⇒ 这里改成描述**当年那句**
+            //      的写法，不再引用一个不存在的符号。
             //   ⚠️ **右键装备这条交互没变**（`HandleCosmeticClick` / `EquipCardback`）：
             //      原版靠抽屉里**已装备那张图**说话（`Cosmetic Drawer` 的 `cosmeticImage`），
             //      换成功了图就变 —— 我们那条链一样在（上面 `_cosmDrawerBack.SetTexture` 那一段）。
@@ -3978,10 +3985,14 @@ namespace CardPresentation
                 //   而 **GO 上一个 `Localize` 都没挂**（本批亲读，见 `Core/Loc.cs` 里 `MenuDeck/HUD/EnterText`
                 //   那段的同一条记录）⇒ 原版这颗就是「引擎按根脚本的三个 term 字段写进去」的那一个
                 //   ⇒ 键名与两列文案都只能自拟（中文列 = 改之前写死的原话 ⇒ **中文档零变化**）。
-                //   ⚠️ 键**波 0 未进表** ⇒ 走 `TermOr` 闸门（补键后自动生效）。
+                //   ✅ **2026-10-18 收口（铁律 5）**：这一行原来写「⚠️ 键**波 0 未进表** ⇒ 走 `TermOr` 闸门
+                //      （补键后自动生效）」—— **已过期**：两条键**都在表**（`Core/Loc.cs` 实读：
+                //      `{ "MenuDeck/Error/ImportEmpty", ("先粘贴卡组串", "Paste a deck string first") }` ·
+                //      `{ "MenuDeck/Error/ImportBadString", ("这不是一条合法的卡组串", "This is not a valid deck string") }`）
+                //      ⇒ 现在是**裸 `Loc.T`**（闸门已删）。
                 _importError = string.IsNullOrWhiteSpace(_importText)
-                    ? TermOr("MenuDeck/Error/ImportEmpty", "先粘贴卡组串")
-                    : TermOr("MenuDeck/Error/ImportBadString", "这不是一条合法的卡组串");
+                    ? Loc.T("MenuDeck/Error/ImportEmpty")
+                    : Loc.T("MenuDeck/Error/ImportBadString");
                 RefreshImportText();
                 return false;
             }
@@ -4008,13 +4019,15 @@ namespace CardPresentation
                 //   🔴 **2026-10-18（双语线 · 波 1 · P1）**：这一句也走词条 —— 键 = **自拟**
                 //   `MenuDeck/Error/ImportNotPersisted`（附件 #46 让「合成一条带 `{0}`」，`{0}` = 失败原因）。
                 //   判据同上面那两句（原版 `Error msg` 没挂 `Localize` ⇒ 这条文案是我们自己的）。
-                //   ⚠️ 键**波 0 未进表** ⇒ 走闸门；⚠️ `{0}` 用 `Replace` 而不是 `string.Format`
-                //   （文案里还有 `**` 星号，`string.Format` 只认花括号、两者本来就井水不犯河水，
-                //    但本工程既有先例 `Battle/HUD/CreatedBy` 用的就是 `Replace("{0}", …)` ⇒ 照它）。
+                //   ✅ **2026-10-18 收口（铁律 5）**：这两行原来写「⚠️ 键**波 0 未进表** ⇒ 走闸门；
+                //      ⚠️ `{0}` 用 `Replace` 而不是 `string.Format`」—— **前半已过期**（这条键**已在表**：
+                //      `Core/Loc.cs` 的 `MenuDeck/Error/ImportNotPersisted`，ZH/EN 两列都是带 `{0}` 的那句
+                //      ⇒ 原来的 `Loc.HasEntry(...) ? ... : ...` 三元**收成裸 `Loc.T`**）。
+                //   ⚠️ `{0}` 用 `Replace` 而不是 `string.Format`（文案里还有 `**` 星号，`string.Format` 只认花括号、
+                //    两者本来就井水不犯河水，但本工程既有先例 `Battle/HUD/CreatedBy` 用的就是 `Replace("{0}", …)`
+                //    ⇒ 照它）—— 这一半**仍然成立**。
                 string failReason = SaveFailReason();
-                string fail = Loc.HasEntry("MenuDeck/Error/ImportNotPersisted")
-                    ? Loc.T("MenuDeck/Error/ImportNotPersisted").Replace("{0}", failReason)
-                    : "导入失败：卡组串读出来了，但**没写进存档**——" + failReason + "（重启就没了）";
+                string fail = Loc.T("MenuDeck/Error/ImportNotPersisted").Replace("{0}", failReason);
                 LastImportOutcome = ImportOutcome.NotPersisted;      // 🔴 G8：结局码与那句话同一步
                 _importError = fail;
                 RefreshImportText();
@@ -6136,18 +6149,15 @@ namespace CardPresentation
             return q;
         }
 
-        /// <summary>取词条的**闸门**：键在表里 ⇒ 用词条（随语档）；不在 ⇒ 退回**原来那串**。
-        /// <para>🔴 **为什么需要它（2026-10-18 双语线 · 波 1 · P1）**：本批有 6 条字串的键**还没进表**
-        /// （波 0 的 23 条不含它们）—— 而 `Loc.T` 对**表里没有**的键返回**键名本身**
-        /// （`Core/Loc.cs` 的 `T()` doc）⇒ 直接换会在界面上印 `MenuDeck/HUD/DragCardsTip`。
-        /// 走这道闸门 ⇒ 今天**界面零变化**，键补进表之后**不改代码**就自动生效。</para>
-        /// <para>⚠️ 与 `Shell/AlliancePanelWindow.LocOr` / `BattleDriver.cs:7771` 是同一个形状（本工程既有口径）。
-        /// ⛔ 键**已经在表里**的那些地方（`hdr_back_t` / 三个默认卡组名）**不走它** —— 直接 `Loc.T`，
-        /// 免得留一条永远不会触发的兜底（那会变成「两条权威」）。</para></summary>
-        static string TermOr(string key, string fallback)
-        {
-            return Loc.HasEntry(key) ? Loc.T(key) : fallback;
-        }
+        // 🔴 **2026-10-18 收口（铁律 5）**：这里原来有一个 `static string TermOr(string key, string fallback)`
+        //   （= `Loc.HasEntry(key) ? Loc.T(key) : fallback` 的**取词闸门**，本文件 3 处调用它：
+        //   `DragCardsTip` 那句 · `ImportEmpty`/`ImportBadString` 那两句）——
+        //   **已删除** —— 理由：① 那 3 条键**早已全部进表**（`Core/Loc.cs` 实读：`MenuDeck/HUD/DragCardsTip` ·
+        //   `MenuDeck/Error/{ImportEmpty,ImportBadString}`；连同第三句走的是 `Loc.HasEntry` 三元的
+        //   `MenuDeck/Error/ImportNotPersisted`）⇒ 闸门**永远不会走到兜底那一支**；
+        //   ② 闸门本质是**静默兜底**，与本工程「**不许静默失败**」冲突 —— 缺键时应当让屏上**明明白白印出键名**
+        //   （`Loc.T` 对缺键就回**键名本身**），而不是悄悄退回一串写死的英文/中文。
+        //   ⇒ 3 处调用点一并收成**裸 `Loc.T(键)`**（各处都留了「⚠️ 日期 更正」痕迹）。
 
         Label Txt(string key, string s, float x, float y, float w, float h, int scale, Color c, int queue,
                   Transform parent = null)

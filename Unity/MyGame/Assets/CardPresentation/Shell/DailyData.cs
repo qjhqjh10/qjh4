@@ -157,11 +157,23 @@ namespace CardPresentation
         /// 出厂字段值：`progressTextFormat = "{0}/{1}"` · **`displayCompletedMessage = 1`** ·
         /// **`completedMessage = "Missions/Completed"`**（`displayRule = 1`，即**未领取才可见**）。
         /// 🔴 **`completedMessage` 存的是 I2 词条【键】，不是文案** —— 原版在这一句外面套了
-        /// `I2_Loc_LocalizationManager.GetTranslation`（`.c:74`），而**本地没有语言表**
-        /// （远端 CCD；全仓多次实测）⇒ **「照抄原版英文」这条路在这一条上办不到**。
-        /// 照本仓先例（`MissionRerollPopup` 的出厂原文 `Discard this mission…`、登录卡的 `Ruta Gratuita`）
-        /// **照抄 prefab 里那个串本身**，并在**第一次**用到时 `Debug.Log` **出声**
-        /// —— 不自己编一句英文冒充原版（铁律 3）。
+        /// `I2_Loc_LocalizationManager.GetTranslation`（`.c:74`）。
+        /// ⚠️ **2026-10-18 更正（铁律 5）**：这一段原来写「**本地没有语言表**（远端 CCD；全仓多次实测）
+        /// ⇒ 照本仓先例**照抄 prefab 里那个串本身**，并在第一次用到时 `Debug.Log` 出声」
+        /// —— **已过期，而且那不是「办不到」、是我们的缺陷**：
+        ///   · 原版**原生**的英文列确实拿不到（远端 CCD）—— 这一半**仍然成立**；
+        ///   · 但**键 `Missions/Completed` 早就在我们自己那份表里**（`Core/Loc.cs` 的
+        ///     `("已完成", "Completed")`，ZH/EN 两列都自拟、写在 `⑦ 任务页「进度到顶」那一行` 那一节）
+        ///     ⇒ 一行 `Loc.T` 就能把屏上那串从**键名**翻成**人话**。
+        ///   · **错因 = 显示点没接表**：本方法当时**直接把键名当文案 `return`**，而屏上那条路
+        ///     （`MissionsTab` → `MenuWindowBase.Text`）**从头到尾一次表都没查**（那三处 `grep 'Loc\.'` 零命中）
+        ///     ⇒ 中文档印的是 `Missions/Completed`（**不是**「已完成」）、英文档也是键名。
+        ///   ⇒ 现在**返回 `Loc.T(键)`**（见下面那一行）。⚠️ 键缺了也不静默：`Loc.T` 回**键名本身**，
+        ///     屏上会明明白白印出 `Missions/Completed`（而不是悄悄换别的串）。
+        /// ⚠️ 本仓那条**先例本身没被推翻**（`MissionRerollPopup` 的出厂原文 `Discard this mission…`、
+        ///   登录卡的 `Ruta Gratuita` ⇒ **照抄 prefab 里那个串本身**、**不自己编一句英文冒充原版**，铁律 3）——
+        ///   错的只是**把它套在一条「我们自己有文案的 I2 键」上**。判据：**先查 `Loc.HasEntry`，
+        ///   是键就接表；不是键（prefab 里写死的文案）才照抄**。
         /// ⚠️ **判据只此一处**：全工程只有这一个方法决定「到顶换不换文案」，`MissionsTab` 只负责画。
         /// ⚠️ 到顶 = **纯数值比较 `Progress >= Target`**（照原版的 `cur >= max`），**不是** `St == Collectable`：
         /// 原版那一句从不碰领取域；两者在我们的数据模型里通常同真，但**判据照原版**。
@@ -172,7 +184,10 @@ namespace CardPresentation
             var t = At(i);
             if (t.Progress < t.Target) return t.Progress + "/" + t.Target;
             SayCompletedKeyOnce();
-            return CompletedMessage;
+            // 🔴 **2026-10-18（`A1012` 前半 · 铁律 5）**：这一行原来是 `return CompletedMessage;`
+            //   —— 把**词条键**当文案印在屏上（中文档印 `Missions/Completed`、不是「已完成」）。
+            //   键在表里（`Core/Loc.cs` 的 `Missions/Completed`）⇒ 接上表就是**一行的事**。
+            return Loc.T(CompletedMessage);
         }
 
         /// <summary>原版 `MissionCounterDisplay.completedMessage` 的**出厂原文**
@@ -180,17 +195,21 @@ namespace CardPresentation
         /// 🔴 **它是原版的 I2 词条【键】，不是给人看的文案** —— 别把它当成原版的英文。</summary>
         public const string CompletedMessage = "Missions/Completed";
 
-        /// <summary>「我们正在显示一个词条键」这件事**只说一次**（每次重建都吼会淹掉日志，
-        /// 而这条信息只需要传递一次：**这一处的文案是原版词条键、不是我们编的**）。</summary>
+        /// <summary>「到顶那一行显示的是原版那条 `completedMessage` 词条」这件事**只说一次**
+        /// （每次重建都吼会淹掉日志，而这条信息只需要传递一次）。
+        /// ⚠️ **2026-10-18 更正（铁律 5）**：原来这里写「**我们正在显示一个词条键**……
+        /// 这一处的文案是原版词条键、不是我们编的」—— **已过期**：接上表之后屏上印的是**词条的文案**
+        /// （中文档「已完成」/ 英文档 `Completed`），不再印键名。</summary>
         static bool _saidCompletedKey;
         static void SayCompletedKeyOnce()
         {
             if (_saidCompletedKey) return;
             _saidCompletedKey = true;
-            Debug.Log("[Daily] `progress` **到顶**（`Progress >= Target`）⇒ 照原版显示 `completedMessage`，"
-                      + "而它存的是 **I2 词条【键】** `" + CompletedMessage + "` —— 🔴 原版在这一句外面套了 "
-                      + "`I2_Loc_LocalizationManager.GetTranslation`，**本地没有语言表** ⇒ 我们**照抄这个键本身**"
-                      + "（不自己编英文冒充原版文案）。判据：MB `3476392019656054992` `displayCompletedMessage=1`"
+            Debug.Log("[Daily] `progress` **到顶**（`Progress >= Target`）⇒ 照原版显示 `completedMessage` 那条词条；"
+                      + "它存的是 **I2 词条【键】** `" + CompletedMessage + "`，原版在这一句外面套 "
+                      + "`I2_Loc_LocalizationManager.GetTranslation` —— 我们走 `Loc.T` 接**自己那份表**"
+                      + "（ZH「已完成」/ EN `Completed`；两列都是**我们自拟**，原版那两列在远端 CCD、本地拿不到）。"
+                      + "判据：MB `3476392019656054992` `displayCompletedMessage=1`"
                       + " + `MissionCounterDisplay__Setup.c:24-26,68-79`。");
         }
 

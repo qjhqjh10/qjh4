@@ -118,8 +118,18 @@ namespace CardPresentation
         public const float HitPunchUnitsLight = 0.1f;
         public const float HitPunchUnitsHeavy = 0.3f;
 
-        public const float HitRotLightDeg = 3f;      // (-3,-3,0) 的模长
-        public const float HitRotHeavyDeg = 15.5f;   // (-15,4,0) 的模长
+        /// <summary>命中旋转 punch 的度数 —— **两处一律取 punch 向量的「模长」**（原版那两条 punch
+        /// 是 3D 的 x/y 两个轴，我们的 2D 只有一个 z 轴 ⇒ 取模长当度数）。
+        /// 🔴 **2026-10-18 之后 · 第五会话（§26 ⑨）：用户拍板 = 甲「统一到模长」** ——
+        ///   `HitRotLightDeg` 的旧值 `3f` 是**「最大分量」**那个读法，而旧注释却写着「模长」
+        ///   ⇒ 两处口径互相矛盾；已改 `4.2426f`（`|(-3,-3,0)| = √18 = 4.24264…`）。
+        ///   ⛔ 这不是「手感回调」：改的是**我们自己的 3D→2D 口径**，两条注释从此只说一种话。
+        /// 判据 = `d:/2/新解包资源/assets_full/bundle_tweenandshakes_assets_all/MonoBehaviour/`
+        ///   的 `Impact Light Tween.json`（`punchType 2` · `punch(-3,-3,0)`）与
+        ///   `Impact Heavy Tween.json`（`punch(-15,4,0)`），其余字段两条相同
+        ///   （`duration 0.5` · `vibratto 7` · `elasticity 1.0`）。</summary>
+        public const float HitRotLightDeg = 4.2426f;  // |(-3,-3,0)| = √18 = 4.24264…
+        public const float HitRotHeavyDeg = 15.5f;    // |(-15,4,0)| = 15.5242…（这条本来就按模长，取一位小数）
         public const float HitRotDuration = 0.5f;
         public const int HitRotVibrato = 7;
         public const float HitRotElasticity = 1f;

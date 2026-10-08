@@ -611,31 +611,40 @@ namespace CardPresentation.Net
         //       硬套会把「对局已暂停、对面回来就能接着打」这类信息丢掉。
         //    ⇒ 已登记成待办（拿到远端 I2 表 / 或决定自拟两列时再做），⛔ 别当成「原版没有」。
         //
-        //  🆕 **2026-10-18（第十三轮 · G2b）逐处点清：本文件「面向玩家」的中文硬串【全部】在这里**，
-        //    一条都不接 `Loc.T`（理由就是上面那两条，⛔ 已由主对话裁定接受）。
+        //  🆕 **2026-10-18（第十三轮 · G2b）逐处点清：本文件「面向玩家」的中文硬串在这里**
+        //    （下面那批**仍然不接** `Loc.T`，理由就是上面那两条，⛔ 已由主对话裁定接受）。
         //    ⚠️ 与上面那 8 处的「计数」口径无关：下面是**按落点**数出来的（同一处可能横跨两行），
-        //       而且**只列面向玩家的**（`Debug.Log*` 那些中文诊断串不在内，它们不上屏）：
-        //      · `:223`            `_d.NetSay("联机对局中止：" + why)` —— **HUD 提示行**，`why` 是运行期串
-        //      · `:227-229`        `NetRuntime.Notice("联机对局中止：" + why + "\n…")` —— **弹窗正文**（整段）
-        //      · `:372`            `"对面离开了这一局"` —— 只是 `:376` 那句的**主语片段**（`body` 的兜底值）
-        //      · `:376` / `:377-380` `SayPeerGone(...)` 的**提示行那句 + 弹窗那句**（各带 `body`/`forfeited`）
-        //      · `:603`            `ReconnectHint(sec)` —— 提示行，**带秒数**
-        //      · `:607-608`        `ReconnectPopup(sec)` —— 弹窗正文，**带秒数**
-        //      · `:717`            `NetSay($"重连没成功（超过 {sec} 秒）—— 这一局判你负")` —— 提示行，**带秒数**
-        //      · `:729`            `NetSay($"对手掉线超过 {sec} 秒还没回来 —— 判他弃权，这一局你赢了")` —— 同上
-        //      · `:906-907`        `"对手回来了 —— 联机已恢复（…）" / "…接着打"` —— 提示行（两档措辞）
-        //      · `:749`            `_s.Close(true, "这一局的联机房间已经散了")` —— **离房原因串**（走后端）
-        //      · `:952`            `MsgReject.reason = "不是你的回合"` —— 🔴 **走线**的拒绝理由，见下
-        //    🔴 **`:952` 是唯一一处「形状像短句」的**（`"不是你的回合"`，与 `Battle/Tips/NotYourTurn`
-        //      / `RuleCodes` 那条同义）—— **仍然不接**，两条判据：
-        //      ① 它是 **wire 载荷**：`MsgReject.reason` 发给**对面**、由对面 `:1007`
-        //         （`"主机拒绝了我的动作：" + reason`，那一句带前缀和冒号）念出来
-        //         ⇒ 接 `Loc.T` 会把这个**发送方**的界面语言**灌到接收方**的屏幕上
-        //         （原版怎么处理没查到；本地拿不到那一侧的证据）。
-        //      ② 形状也对不上：原版 `Battle/Tips/NotYourTurn` 是**本机 HUD 的提示行**（`BattleManager.CanPlayCard`
-        //         那一支），**不是**网络上回给对面的拒绝码。
-        //      ⇒ 归「判据是空的 + 形状不同」那一档；**要做的话得先定「wire 上的文案算谁的」这条口径**，
-        //        那是跨面的决定 ⇒ 交主对话，⛔ 本批不自作主张。
+        //       而且**只列面向玩家的**（`Debug.Log*` 那些中文诊断串不在内，它们不上屏）。
+        //    🔴 **2026-10-19（P6d）就地订正（铁律 5）**：原来这一节的标题句写的是
+        //       「本文件『面向玩家』的中文硬串**【全部】**在这里，**一条都不接** `Loc.T`」——
+        //       **`Wire` 那两条已经不成立**（见下面末两行的订正）；本文件其余各处照旧不接。
+        //    ⚠️ 下面的行号是 **2026-10-18 的读数**，**已经漂了**（本轮现读就对不上）⇒
+        //       把它们当**定位线索**用，判据一律按**符号名**去认（⛔ 别再往下写死新行号）：
+        //      · `HandlePeerLost` 一带   `_d.NetSay("联机对局中止：" + why)` —— **HUD 提示行**，`why` 是运行期串
+        //      · `HandlePeerLost` 一带   `NetRuntime.Notice("联机对局中止：" + why + "\n…")` —— **弹窗正文**（整段）
+        //      · `HandlePeerClosed`      `"对面离开了这一局"` —— 只是下一行那句的**主语片段**（`body` 的兜底值）
+        //      · `HandlePeerClosed`      `SayPeerGone(...)` 的**提示行那句 + 弹窗那句**（各带 `body`/`forfeited`）
+        //      · `ReconnectHint(sec)` —— 提示行，**带秒数**
+        //      · `ReconnectPopup(sec)` —— 弹窗正文，**带秒数**
+        //      · `ReconnectCountdownExpired` 里那两句 `NetSay($"重连没成功（超过 {sec} 秒）—— 这一局判你负")` /
+        //        `NetSay($"对手掉线超过 {sec} 秒还没回来 —— 判他弃权，这一局你赢了")` —— 提示行，**带秒数**
+        //      · 「对手回来了 —— 联机已恢复（…）」/「…接着打」 —— 提示行（两档措辞）
+        //    🆕 **2026-10-19（P6d · A1038）改口的两条**（它们是**走线串**，不在上面那批里）：
+        //      · `ReconnectCountdownExpired` 的主机那一支：`_s.Close(true, …)`
+        //        —— 原来传的是中文整句「这一局的联机房间已经散了」，现在传**词条键**
+        //        `Settings/Online/Wire/RoomGone`（`Close` 的 `reason` 已改成「词条键」语义，见那个方法的 doc）。
+        //      · `Dispatch` 的 `case NetKind.Action`：`MsgReject.reason`
+        //        —— 原来发的是「不是你的回合」，现在发 `NetWireText.Pack("Settings/Online/Wire/NotYourTurn")`。
+        //      🔴 **`:952` 那两条「仍然不接」的判据已经由主对话裁掉了**（2026-10-19，`A1038`/P6d）：
+        //        判据 ①（「wire 载荷 ⇒ 接 `Loc.T` 会把发送方语言灌到接收方」）**正是本件要解决的问题**，
+        //        解法**不是**「不接」，而是**线上只发语言无关的词条键、收侧按自己的语言取词**
+        //        （`NetProtocol.NetWireText`）⇒ 这一条**不再是不接的理由**，反而变成了必须接的理由。
+        //        判据 ②（「原版 `Battle/Tips/NotYourTurn` 是 HUD 提示行、不是回给对面的拒绝码」）**照旧成立**
+        //        ⇒ 用的是 `Wire/*` 那一族的**自拟**键（原版两张表都搜过、0 命中），**⛔ 没有复用**
+        //        `Battle/Tips/NotYourTurn`（⛔ 两条键 ZH 同值但语义不同 —— `Core/Loc.cs` 已声明两族并存）。
+        //      ⚠️ **同一支里还有一条 `MsgReject.reason`**（引擎拒动作那条，值是 `RuleCodes.Describe(code)`）：
+        //        那是**中文整句、不是键**，本轮**不动**（`RuleCodes.cs` 逐字写着「改成键」是 `A985⑧` 第 ③ 步）；
+        //        收侧 `NetWireText.Unpack` 对它 `HasEntry` 为假 ⇒ **原样回显**，行为与接线前逐字相同。
         // ================================================================================
 
         static string ReconnectHint(int sec)
@@ -786,7 +795,10 @@ namespace CardPresentation.Net
                     //    ⇒ 写成「对手掉线判负」在对面读起来是**反的**（那句在描述它自己那个座位）。
                     //    ⛔ 不许写成对面视角的「你掉线了」、也不许写成我们视角的「对手掉线」——
                     //      写成**对双方都成立的陈述**。
-                    _s.Close(true, "这一局的联机房间已经散了");
+                    // 🔴 **2026-10-19（P6d · A1038）**：传的是**词条键**（不是那句中文本体）——
+                    //    线上只发键、收侧按**它自己**的语言取词（`NetWireText.Unpack`）；
+                    //    本机那半（`SetState(Off, …)` 的状态字）也走同一个键 ⇒ ⛔ 两半都不留裸串。
+                    _s.Close(true, "Settings/Online/Wire/RoomGone");
                 }
             }
         }
@@ -989,7 +1001,13 @@ namespace CardPresentation.Net
                     if (!NetApply.IsEnvPick(m) && _d.Ctx.Active != RemoteSeat)
                     {
                         Abort($"对面在**不是他回合**的时候发了一条动作（现在行动方是本机）—— 拒绝并中止");
-                        Send(NetKind.Reject, new MsgReject { seq = m.seq, reason = "不是你的回合" });
+                        // 🔴 **2026-10-19（P6d · A1038）**：线上发**词条键**（收侧 `NetWireText.Unpack` 取词）
+                        //    —— 原来发的是中文整句「不是你的回合」，等于把**本机**的界面语言灌到对面屏幕上。
+                        Send(NetKind.Reject, new MsgReject
+                        {
+                            seq = m.seq,
+                            reason = NetWireText.Pack("Settings/Online/Wire/NotYourTurn"),
+                        });
                         return;
                     }
                     int code = _d.ApplyLoggedAction(m);
@@ -1044,7 +1062,13 @@ namespace CardPresentation.Net
                     //   ⇒ 与另外三个入口（`MsgBye.reason` / `MsgProof.name` / `MsgAck.reason`）**同一处口径**：
                     //   **进界面前先钳**（复用现成的 `NetSession.ClampPeerText`，⛔ 不写第二份）。
                     //   ⚠️ 这是我们自拟的（原版没有对端文本进界面的先例）→ `NetProtocol.MaxPeerTextChars`。
-                    Abort($"主机拒绝了我的动作：{(m != null ? NetSession.ClampPeerText(m.reason) : "?")}");
+                    // 🔴 **2026-10-19（P6d）**：钳完再 `NetWireText.Unpack`（**次序硬** —— 先钳**对端可控的原串**、
+                    //   再取词；反过来的话 40 字钳的是我们自己的文案）。
+                    //   ⚠️ 这里还有**第二类发送方**：主机引擎拒动作时发的是 `RuleCodes.Describe(code)`
+                    //   （上面 `case NetKind.Action` 里那条 `Send(NetKind.Reject, …)`）—— 那是**中文整句、不是键**
+                    //   ⇒ `Unpack` 的 `HasEntry` 为假 ⇒ **原样回显**，行为与接线前逐字相同
+                    //   （`RuleCodes.cs` 逐字写着「改成键」是 `A985⑧` 第 ③ 步、本轮不做）。
+                    Abort($"主机拒绝了我的动作：{(m != null ? NetWireText.Unpack(NetSession.ClampPeerText(m.reason)) : "?")}");
                     return;
                 }
                 case NetKind.Mulligan:                                  // 主机收

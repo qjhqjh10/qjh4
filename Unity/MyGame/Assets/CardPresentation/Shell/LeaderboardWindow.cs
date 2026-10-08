@@ -664,9 +664,26 @@ namespace CardPresentation
             var close = Node(transform, "Generic Close Button Orange", CloseR);
             // 三件**都是 `preserveAspect`**（正本 §A·4·7）；`Image` 自己的底图 **m_Enabled 是开的**
             //（与 `BattleLogPopup` 那颗不同 —— 那边底图 m_Enabled=0、只画两个子件）。
-            // 🔴 换图落在**圆底那一层**（原版 `trans=2` 换的是它自己的 Image；三层 = 圆底 + 黄面 + 叉）
-            var closeBaseQ = Rect(close, ArtCloseBg, CloseR, "Image", QBg, null, true);
-            Rect(close, ArtCloseCircle, CloseInnerR, "Background", QContent, null, true);
+            // 🔴 **换图落在「按钮脸」那一层**（= 子件 `Background`，画的是 `ArtCloseCircle` = `40k_general_bt_yellow`），
+            //   ⛔ **不是**圆底盘（根 `Image`）—— 判据（2026-10-18 · 第六会话现读）=
+            //   `python -I d:/tmp/wf_hit/rcunion.py bundle_menus_assets_all "RankedSkirmishLeaderboardPopup" --depth 4`：
+            //   根那颗 `EverguildButton` 是 **`m_Transition=2`(SpriteSwap)** · **`m_TargetGraphic` = pid7857352521433070052**
+            //   = 子件 **`Background` 的 `Image`**（根自己那颗 `UI_Button_Round_background` 还带 `m_RaycastTarget=0`）；
+            //   同一颗的 `m_SpriteState` = **`m_HighlightedSprite` = `40k_general_bt_yellow_hover`** ·
+            //   **`m_PressedSprite` = `40k_general_bt_yellow_pressed`** —— 两张图名按 pid 反查
+            //   `d:/4/_tmp_view/sprite_pids_ALL.json`（`556997698038149155` / `-5560139829673007091`）
+            //   ⇒ 换的就是**黄面那一层**（三层 = 圆底盘 + 黄面 + 叉，只有黄面在换）。
+            //   ⚠️ **2026-10-18 更正（铁律 5）**：原来这里传的是 `closeBaseQ`（**圆底盘**）＋ 写死
+            //      `"40k_general_bt_yellow_hover"`，注释写「原版 `trans=2` 换的是它自己的 Image」——
+            //      **那句是错的**。症状 = 悬停时**圆底盘**被换成黄圆图、**黄圆本身不变**（看着像「换了个底座」）。
+            //      错因 = 只读了 `m_Transition`、**没读 `m_TargetGraphic`** ⇒ 见 `A1058`。
+            //   ⛔ 本仓同族先例（写法照它）：`Editor/CollectionScene.cs:2054-2077` —— 换图那一层必须是
+            //      「按钮脸」那张，断言 `wb.target.Texture.name == "40k_general_bt_yellow"`。
+            //   ⛔ **`art` 实参传的是【常态图名】**（= 换图那一层的图）：`Bind` 由它推高亮/按下图
+            //      （表外后备 `+_hover`、`PressedNames` 里 `40k_general_bt_yellow → …_pressed`）
+            //      ⇒ 两个图名与上面读到的原版 `m_SpriteState` **逐字相同**，不必再写死字符串。
+            var closeBaseQ = Rect(close, ArtCloseBg, CloseR, "Image", QBg, null, true);   // ⛔ 只画，**不做换图目标**
+            var closeFaceQ = Rect(close, ArtCloseCircle, CloseInnerR, "Background", QContent, null, true);
             Rect(close, ArtCloseIcon, CloseInnerR, "Icon", QContent, null, true);
             // 🆕 A17：原版 `…>RankedSkirmishLeaderboardPopup` 那颗 `Generic Close Button Orange` 是 SpriteSwap、
             // 高亮图 = `40k_general_bt_yellow_hover`（直接读 prefab 核过）
@@ -680,8 +697,10 @@ namespace CardPresentation
             //   且两颗都带 pad `(-20)⁴`** ⇒ 可射线区 = 那颗外扩 20。
             //   ⚠️ **上一轮（E3b）漏了 `m_RaycastPadding`**，只拿 `CloseInnerR` 裸矩形 ⇒ 每边小 20px
             //      （那一版写「原版可射线区 = 56.86 × 58.13」**这句是错的**，铁律 5 就地订正）。
-            //   ⛔ 外扩走 `MenuDraw.PaddedRect`；⛔ 悬停换图那一层（`closeBaseQ`）不动 —— 那是另一类缺陷。
-            MenuDraw.Hit(close, "Hit", MenuDraw.PaddedRect(CloseInnerR, ClosePad), QHit, () => Close(), closeBaseQ, null, "40k_general_bt_yellow_hover");
+            //   ⛔ 外扩走 `MenuDraw.PaddedRect`。
+            //   ✅ 悬停换图那一层（`A1058`）**已在同一轮改到「按钮脸」那颗**（`closeFaceQ`，见上）。
+            MenuDraw.Hit(close, "Hit", MenuDraw.PaddedRect(CloseInnerR, ClosePad), QHit, () => Close(),
+                         closeFaceQ, ArtCloseCircle);
         }
 
         /// <summary>`Generic Simplified UI Button_updated`（'Last season'）+ `Last Season Text`。

@@ -675,8 +675,36 @@ class MatInfo:
         self.raw_props = raw_props or []
 
     def is_transparent(self):
-        return '_SURFACE_TYPE_TRANSPARENT' in self.keywords or \
-            '_ALPHABLEND_ON' in self.keywords or self.blend > 0
+        if '_SURFACE_TYPE_TRANSPARENT' in self.keywords or \
+                '_ALPHABLEND_ON' in self.keywords or self.blend > 0:
+            return True
+        # 🔴 **2026-10-13（A1074）补上 `Blend DstColor Zero`（源 = `DstColor`(2)、目标 = `Zero`(0)）这一档。**
+        #    原来这里**只认关键字 + `_Blend`**（`_Blend` 是 URP 的 0/1/2/3，Warpforge 的自定义 shader
+        #    多半不写它 ⇒ 恒 0），而 `Transparent Shadow Receiver` 的 `m_ValidKeywords` 是**空的**
+        #    ⇒ 两条路都落空 ⇒ **这份「乘暗」材质被判成不透明**（实测：`mi.is_transparent()` 回 False）。
+        #
+        #    **真值在哪**：这份材质的 `m_Floats` 里**没有** `_SrcBlend`/`_DstBlend`（属性表 0 条），
+        #    真值在 pass 的硬编码 `rtBlend0`（`Shader_34`）= **src 2 / dst 0** + `ZWrite Off` +
+        #    `ZTest 4` + `cull 2` ⇒ 与 `gen_unity_arena_manifest.unity_mat_fields` 里那道
+        #    「残留值闸门」（`not has_src_blend` 时取 `pass_src`/`pass_dst`）**同一判据**。
+        #    实据：`m_CustomRenderQueue = 3000`（透明队列）、shader 名就叫
+        #    `Everguild/Misc/URP Transparent Shadow Receiver`。Unity `BlendMode` 枚举 `DstColor = 2`。
+        #
+        #    ⚠️ **这一处只【加】不【减】**：它只可能让 `2/0` 的材质**多**判成透明，
+        #    不会把任何现在透明的材质翻成不透明（同一个类的 `emit_mat` 早就按 `(src 2, dst 0)`
+        #     写 `BaseMaterial3D.BLEND_MODE_MUL` 了，只差 `TRANSPARENCY_ALPHA` 这一步跟不上）。
+        #    ⛔ **没顺手把整道「残留值闸门」搬过来**：实测那样会**连带翻掉 15 份别的材质**
+        #    （13 份 `LUTBlender` 由透明被翻成不透明 —— 它材质上写 `_Blend > 0`、pass 却是 `1/0`；
+        #      另有 `battlearena3 default_001_add` · `emperorschildren bubble_light` 两份 `5/1` 预乘 Alpha
+        #      由不透明被翻成透明）。那是**另一笔账**（`5/1` 预乘 Alpha 这一档 `is_transparent()`
+        #    也还不认），须单独裁 —— 见交件报告 `WArena_A1072到1075.md` 的「顺手发现」一节。
+        sb, db = self.src_blend, self.dst_blend
+        si = self.shader_info
+        if si and not si.get('has_src_blend') and si.get('pass_src') is not None \
+                and si.get('pass_dst') is not None:
+            sb, db = float(si['pass_src']), float(si['pass_dst'])
+        return sb is not None and db is not None \
+            and abs(float(sb) - 2.0) < 0.01 and abs(float(db) - 0.0) < 0.01
 
     def emission_energy(self):
         c = self.emission_color or {}

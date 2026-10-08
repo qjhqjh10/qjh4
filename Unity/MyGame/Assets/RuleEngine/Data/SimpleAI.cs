@@ -1352,8 +1352,17 @@ namespace RuleEngine
         /// ⚠️ **我们这边的两处对应/差别**（如实标着）：
         ///   ① `whispersOfChaos` 这一支**我们卡池里没有对应物**（那是原版的卡种类，
         ///      我们的 `type` 只有 unit / tactic / hero / defence）⇒ 这条分支不适用，不是被我们砍了；
-        ///   ② **防御卡排除在外** —— 那是**引擎自己的规矩**（`RuleCore.Mulligan` 里写着「防御卡不许换掉」，
-        ///      理由见那段注释）。原版 AI 那边没有这一条，因为原版的防御卡不是这么发的。
+        ///   ② **防御卡排除在外** —— 🔴 **2026-10-08（`D28` 施工单 A）：这一条的理由原来写的是错的，
+        ///      已就地订正（铁律 5）。** 原文写「那是**引擎自己的规矩**（`RuleCore.Mulligan` 里写着
+        ///      「防御卡不许换掉」）」—— **那条守卫【已被删】**（现读 `RuleCore.Mulligan`：它只做
+        ///      「去重 → 弃回牌库 → 重洗 → 补抽同样张数」，**没有任何按 `Type` 挡的判据**；
+        ///      删它的理由写在那个 `idx.Add(k);` 上方的注释里）。
+        ///      现状（现读，不是跑出来的）：防御卡照原版改成「**换牌阶段结束之后**才进手牌」
+        ///      （`RuleCore.NewBattle` 的 `mulliganOpenNow` 分支 / `EndMulligan` → `GrantDefenceCard`）
+        ///      ⇒ `ctx.MulliganOpen` 为真的**整个期间**手里都不可能有 `defence` 卡
+        ///      （本方法开头又先判了 `if (!ctx.MulliganOpen) return idx;`）⇒ **下面那句是空转的**。
+        ///      **行为一行不动**（照旧留着它是**防御性**的），但它**不再是**「引擎规矩」。
+        ///      原版 AI 那边没有这一条，因为原版的防御卡不是这么发的。
         /// </summary>
         public static List<int> AiMulliganIndices(BattleContext ctx, int p)
         {
@@ -1364,7 +1373,10 @@ namespace RuleEngine
             {
                 var c = hand[i].Card;              // 第 7 行第 2 步：换牌判据只看卡面
                 if (c == null) continue;
-                if (c.Type == "defence") continue;          // 引擎规矩：防御卡不许换
+                // 防御卡跳过 —— 🔴 **2026-10-08（`D28` 施工单 A）订正：这里原来写「引擎规矩：防御卡不许换」，
+                //   那条守卫**已被删**（见上面 summary ②）。留着这句是**防御性**的，**行为不变**；
+                //   ⛔ 但别再由它反推「换牌阶段手牌里会有防御卡」—— 那正是这条过期注释误导的方向。
+                if (c.Type == "defence") continue;
                 if (c.Cost > 4) idx.Add(i);
             }
             return idx;

@@ -56,7 +56,9 @@
 //   **只有中心换了来源**（见 `ClipPx`）。
 // ============================ 我们这边的三处口径（⛔ 别在别处再写第二份）============================
 // ① **框从哪来**：原版 `RectMask2D` 用的是**它自己那个 `rectTransform`** ⇒ 这里也取**节点自己的 rect**
-//    （`ClipPx`）。世界 → 设计 px 走 `MenuDraw.PosInDesignSpace` + `LayoutSpace.ToPixel`，
+//    （`ClipPx`）。世界 → 设计 px 走 `MenuDraw.PosInDesignSpace` + `MenuDraw.PixelOfDesign`
+//    （🆕 **2026-10-18（A990②）**：原来写的是 `LayoutSpace.ToPixel` —— 它 x 写死 108px/单位、
+//     **只在 16:9 是设计 px**；见 `LayoutSpace.ToDesignPixel` 那一节），
 //    尺寸那一项 `× (DesignPxH ÷ DesignHeight)` —— **与 `MenuDraw.QuadRectPx` 同一份口径**
 //    （⚠️ 连它那一档已知边界也一起继承：节点**自带 `localScale`** 时那条恒等式不成立，见 `QuadRectPx` 的注释）。
 //    🔴 **2026-10-16（A811 根治）就地订正（铁律 5）**：上面这一句「取节点自己的 rect」**只在下面两档成立** ——
@@ -242,7 +244,9 @@ namespace CardPresentation
         /// ① 记过 <see cref="BaseRect"/>（`Hang` / `MenuDraw.ApplyPxRect` 写进去的那份）⇒ **就用它** ——
         ///    `PxRect` 本来就是画布 px / 左上原点，**直接取 `CX`/`CY`，连一次换算都不做**；
         /// ② 没记过 ⇒ 照旧从**实时 transform** 反推：`MenuDraw.PosInDesignSpace` +
-        ///    `LayoutSpace.ToPixel`（那一档连 `PosInDesignSpace` 「窗根必须在世界原点」的已知前提一起继承）。
+        ///    `MenuDraw.PixelOfDesign`（🆕 **2026-10-18（A990②）** 由 `LayoutSpace.ToPixel` 换过来 ——
+        ///    那一份的 x 写死 108px/单位，**只在 16:9 是设计 px**）（那一档连 `PosInDesignSpace`
+        ///    「窗根必须在世界原点」的已知前提一起继承）。
         /// **尺寸**（两支共用）= 节点自己的 `rect ÷ 2 × (DesignPxH ÷ DesignHeight)`，**与 `MenuDraw.QuadRectPx`
         /// 同一份口径** —— 尺寸与「祖先挪没挪」无关，取实时值反而永远不过期（⛔ 别改成读 `BaseRect`）。</para>
         ///
@@ -286,7 +290,16 @@ namespace CardPresentation
                 //    强制成重合 ⇒ `rect` 只由 `sizeDelta` 决定）；乘 K 才是画布 px。**父链缩放不该在这里除**
                 //    （父链缩放只影响「画出来多大」，坐标那半边已经由 `PosInDesignSpace` 除过了）。
                 const float K = LayoutSpace.DesignPxH / LayoutSpace.DesignHeight;   // 108 px / 单位（同 `MenuDraw.QuadRectPx`）
-                Vector2 c = LayoutSpace.ToPixel(MenuDraw.PosInDesignSpace(transform));
+                // 🔴 **2026-10-18（A990②）**：中心那一项改走 `MenuDraw.PixelOfDesign`
+                //    （= `LayoutSpace.FromPixel` 的**逆**，x 用**实测** `VisibleWidth`）——
+                //    改前是 `LayoutSpace.ToPixel`（x 写死 108）⇒ 本框与**被比的矩形**
+                //    （各宿主给的 `Abs(...)` / `MenuScroll.Shift(...)`，一律字面设计 px）在**非 16:9** 下
+                //    不同帧（4:3 差 0.75 倍 · 21:9 差 1.3125 倍）⇒ 交集判断偏掉。
+                //    ⚠️ **只有中心换**：尺寸那一项（下面 `K`）**不动** —— 与 `MenuDraw.QuadRectPx` 同一份
+                //    口径（那一句是它们之间唯一的契约，见文件头「①框从哪来」）。
+                //    📌 仍是**旧路那一支**专属（记过 `BaseRect` 的节点走上面 ①，连一次换算都不做）——
+                //    但两支必须同帧，否则同一棵树里两个视口框的口径会分家。
+                Vector2 c = MenuDraw.PixelOfDesign(MenuDraw.PosInDesignSpace(transform));
                 float hw = rt.rect.width * K * 0.5f;
                 float hh = rt.rect.height * K * 0.5f;
                 return new PxRect(c.x - hw, c.y - hh, c.x + hw, c.y + hh);

@@ -991,10 +991,17 @@ public static class NetBattleTest
                          + $"（`Close` ⇒ `SetState(Off)`；实际 {hsC.State}）"
                          + " —— 判据 = 原版 `…_d__322:142 LeaveBattleRoom(false)` 里的 `LeaveRoom()`；"
                          + "🧨 删掉 `ReconnectCountdownExpired` 末尾主机那一支的 `Close(...)` ⇒ 只红这一条");
-                        Ok(hsC.StatusText != null && hsC.StatusText.Contains("这一局的联机房间已经散了"),
-                           $"★（A914）…而且是**这一跳**把它请出去的（状态字里带那句理由；实得「{hsC.StatusText}」）"
+                        // 🔴 **2026-10-19（P6d）**：这一条原来断的是**写死的中文子串**「这一局的联机房间已经散了」
+                        //   —— 那是 `ReconnectCountdownExpired` 传给 `Close` 的**那串字面量**。P6d 把
+                        //   `Close` 的 `reason` 改成**词条键**（线上发键、收侧取词），本机状态字 = `Loc.T(键)`
+                        //   ⇒ 断死中文在**英文档必红** ⇒ 改成断 `Loc.T(键)`（表跟着语档走）。
+                        string wantRoomGone = Loc.T("Settings/Online/Wire/RoomGone");
+                        Ok(hsC.StatusText != null && hsC.StatusText.Contains(wantRoomGone),
+                           $"★（A914）…而且是**这一跳**把它请出去的（状态字里带着 `Settings/Online/Wire/RoomGone` "
+                         + $"那条词条；实得「{hsC.StatusText}」）"
                          + " —— 与上一条**不同源**：上一条只看「走没走」，这一条看「走的是不是这条路」"
-                         + "；⚠️ 那句措辞是**中性**的（它会经 `MsgBye.reason` 显示在**对面**界面上 —— 见 R7）");
+                         + "；⚠️ 那句措辞是**中性**的（它会经 `MsgBye.reason` 显示在**对面**界面上 —— 见 R7）"
+                         + "；🧨 改坏法：把 `ReconnectCountdownExpired` 那一支的 `Close(true, 键)` 换回别的键 ⇒ 红");
 
                         // ---- ③-7 🆕 **本机是断线那一端**（客机自己的倒计时到点）⇒ 只停重连、**不离开房间** ----
                         //   `clk` 一次推到 60（**不依赖客机那一端 L0 究竟是 27 还是 30** —— 它取决于

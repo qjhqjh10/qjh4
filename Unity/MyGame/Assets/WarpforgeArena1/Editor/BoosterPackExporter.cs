@@ -42,6 +42,30 @@
 //
 // ⚠️ 导出器**不碰** `Resources/`：那两张静态图（`Card Ready For Level Up` /
 //    `40k_Cross_icon_cross_big Banned card`）走的是**另一条路** —— `工具/import_original_art.py` 的 `MENU_IMAGES`。
+//
+// ============================ 🆕 2026-10-09（A1101）动画那一跳 ============================
+//   `Export()` 原来漏了 legacy `Animation` 的片段引用：`Booster Pack Open Window.prefab` 的
+//   **7 个** `--- !u!111` 的 `m_Animation` **全是 guid 全 0**（`m_Animations[]` 里那几条同样全 0）
+//   —— 与 A1095 在特效包里补的**是同一个形状的漏**。现已在本文件 `Export()` 末尾（binder 之前）
+//   照 `EffectExporter.cs:1203-1268` **逐行补了同一支**，把那 7 处接回第 ① 步刚落的那 7 份 `.anim`。
+//   判据（逐处清单 / 配对怎么核出来的）→ `资料/普查产出_第六会话/W_Booster动画地雷_A1101.md`。
+//   ⚠️ 与 A1095 的差别：**这 7 处的目标 `.anim` 工程里是有的**（就是第 ① 步那 8 条里的 7 条）
+//     ⇒ `ImportClip` 走**原地覆盖**（guid 不变），**没有造任何空 clip**。
+//   ⚠️ 收敛判据（重导后怎么核「7 → 0」）：见同一份报告 §⑧。
+//
+// ============================ 🆕 2026-10-09（A1109）uGUI 与 TMP 那两跳 ============================
+//   同一个 `Export()` 里**还缺两跳**，而且这两跳才是**窗口 prefab 的大头**：
+//   `Booster Pack Open Window.prefab` 的 guid 全 0 共 **350** 条 = 动画 **30**（上一条已修）
+//   + `Image.m_Sprite` **45** + `Image.m_Material` **21** + TMP `m_fontAsset` **127**
+//   + TMP `m_sharedMaterial` **127**。根因：本 `Export()` 抄的是 `EffectExporter` 那套
+//   「**粒子 / 网格 / `SpriteRenderer`**」——**里面根本没有 uGUI 与 TMP 两族**（现读全库核实），
+//   而窗口 prefab 恰恰**全是**这两族。
+//   ⚠️ **与上一条不同：简报说「照 `EffectExporter` 里对应的那两支抄」，现读不成立** ——
+//     那两支**不存在**（`grep` 全库 `GetComponentsInChildren<Image>` / `TextMeshProUGUI` /
+//     `fontSharedMaterial` **命中 0**）。⇒ 本件按**本函数里已有的那一支**（`SpriteRenderer` /
+//     `SpriteMask` 的精灵跳）**同形**写，并在报告里逐行说明「母版不存在」这件事。
+//   判据（320 条逐族清单 / 原版是哪份资产 / 工程里有没有）→
+//     `资料/普查产出_第六会话/W_Booster两跳_A1109.md`。
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -390,12 +414,221 @@ public static class BoosterPackExporter
             }
         }
 
+        // ---- 🆕 2026-10-09（A1101）：**legacy `Animation` 的片段那一跳** ----
+        // 本 `Export()` 从 `EffectExporter.Export` 抄形状时**漏了这一跳**：上面「精灵」那一跳
+        //（`:385-401`）做了，「动画」那一跳没做。母版 = `EffectExporter.cs:1203-1268`（A1095 给特效包
+        // 45 处补的那一支）—— **本支就是照它逐行抄的**，四处「有意的不一样」也一一对应。
+        //   实测（现读 `WarpforgeBooster/Prefabs/Booster Pack Open Window.prefab`，962823 B / 纯 LF）：
+        //     `--- !u!111`（`Animation`）共 **7 个**，**7/7** 的 `m_Animation` 都是
+        //     `{fileID: …, guid: 00000000000000000000000000000000, type: 0}`（`m_Animations[]` 里那几条同样全 0）；
+        //     另一扇 `Booster Info Popup.prefab` 是 **0 个** `Animation`（**那件本来就没有，不是漏做**）。
+        //   根因：本文件第 ① 步（`:238-262`）**只把 8 条 clip 落成 `.anim`**，第 ③ 步导窗口 prefab 时
+        //     **没有任何一步把引用接回去**（`grep Animation` 在本文件里只有「clip 导入」那一支）⇒ 落成 guid 全 0。
+        //   判据 → `资料/普查产出_第六会话/W_legacy动画地雷.md` §⑦·1（把这里记成「同型地雷 7 处」）。
+        // ✅ **与 A1095 那 45 处不同：这 7 处要的 `.anim` 工程里【是有的】** ——
+        //    7 处的 `fileID` **就是原版包里的 pathID**，逐个反查到 `assets_full/bundle_menus_assets_all/
+        //    AnimationClip/AnimationClip_<pid>.json` 的 `m_Name`，**7/7 逐字命中第 ① 步 `ClipNames` 里那 8 条中的 7 条**
+        //    （8 条里唯一没被这 7 处用到的是 `OpenCardbacks`）：
+        //      `-7993935874865337289` = `Booster Opening - Card Idle`            → `CardInBoosterPack UI 1..5`（默认那条）
+        //      `8301228418192668656`  = `Booster Opening - Card Open Normal`     ↑ 同上（`m_Animations[1]`）
+        //      `-9033435933554767437` = `Booster Opening - Card Open Rare`       ↑ 同上（`m_Animations[2]`）
+        //      `-1691631367813043119` = `Booster Opening - Card Open Legendary`  ↑ 同上（`m_Animations[3]`）
+        //      `-177604310092043705`  = `Booster Window - Background Shake On Open` → `Booster pack Background`
+        //      `5911697182262325120`  = `Booster Window Open`                    → `Booster Pack Open Window`（默认那条）
+        //      `-8254079481253810722` = `Booster Window Close`                   ↑ 同上（`m_Animations[1]`）
+        //    ⇒ `ImportClip` 走的都是**原地覆盖**那一支（`EffectExporter.cs:2374-2381`，**guid 不变**），
+        //      所以接回去之后引用的正是第 ① 步刚落的那 7 份 `.anim`（`WarpforgeVFX/Animations/`，guid 见报告）。
+        // ⚠️ **两条入口都要写、缺一不可**：`m_Animation`（默认那条）与 `m_Animations[]`
+        //    （真正被 `Animation.Play("名字")` 查的那张表）。本件里已有活证据：
+        //    **5 个 `CardInBoosterPack UI *` 的 `m_Animations` 各有 4 条**（Idle / Open Normal / Rare / Legendary），
+        //    `Booster Pack Open Window` 有 2 条（Open / Close）⇒ **只补 `m_Animation` 会静默漏掉其余几条**。
+        // ⚠️ **不传 `loop`**（与 `EffectExporter` 那一支**同样有意不传**）：clip 自己的 `m_WrapMode` /
+        //    `AnimationClipSettings` 会随 `Instantiate` 一起过来，传 `loop` 反而是**我们替原版做决定**。
+        //    （本件反证：实测原版这 **7 条片段**的 `m_WrapMode` = `2/0/0/0/0/0/0` —— **彼此不同**
+        //      （`Booster Opening - Card Idle` 那条是 `2` = Loop，其余 6 条是 `0`）⇒ 更不该统一设一个值。）
+        // ⚠️ **零幻觉兜底**：接不上就**留空 + 出声**，⛔ **绝不 `CreateAsset` 一个空 clip 顶上**（那是静默造一个假动作）。
+        int clipOk = 0, clipMiss = 0;
+        foreach (var an in inst.GetComponentsInChildren<Animation>(true))
+        {
+            // ① `m_Animations[]`。⚠️ `AnimationUtility.GetAnimationClips(Animation)` 那个重载**已 obsolete**
+            //    （Unity 文档原文：「is obsolete and has been replaced with GetAnimationClips(GameObject)」）
+            //    ⇒ 走 `GameObject` 那个（非 obsolete、语义相同：取该物件上 `Animation` 的片段表）。
+            var clips = AnimationUtility.GetAnimationClips(an.gameObject);
+            var def = an.clip;        // ② `m_Animation`：**先取下来**，别指望写回数组之后它还认得原来那条
+            if (clips != null && clips.Length > 0)
+            {
+                var imported = new AnimationClip[clips.Length];
+                for (int i = 0; i < clips.Length; i++)
+                {
+                    if (clips[i] == null) continue;      // 空槽 ⇒ 原样留空（原版就是空槽的那种，不算「丢」）
+                    var a = EffectExporter.ImportClip(clips[i]);
+                    if (a == null)
+                    {
+                        clipMiss++;
+                        Debug.LogWarning(P + $"A1101 `{src.name}` / `{an.gameObject.name}` 上 `Animation` 的"
+                            + $"第 {i} 条片段（`{clips[i].name}`）落不成工程 `.anim` ⇒ **这一格留空**"
+                            + "（⛔ 不拿空 clip 顶上 —— 那等于静默造一个假动作）");
+                        continue;
+                    }
+                    imported[i] = a; clipOk++;
+                }
+                AnimationUtility.SetAnimationClips(an, imported);
+            }
+            // ③ `m_Animation` 写在**数组之后**（顺序有讲究，与 `EffectExporter` 那一支同）：先让它指的那条
+            //    已经在 `m_Animations` 里，再设默认值 ⇒ 不依赖「`clip` setter 会不会顺手往数组里补一条」
+            //    这个**没查证的细节**。
+            if (def != null)
+            {
+                var d = EffectExporter.ImportClip(def);
+                if (d != null) an.clip = d;
+            }
+        }
+        if (clipOk > 0 || clipMiss > 0)
+            Debug.Log(P + $"A1101 `{src.name}` legacy `Animation` 片段：接回 **{clipOk}** 条"
+                        + (clipMiss > 0 ? $"、**没接上 {clipMiss} 条**（见上面的告警）" : ""));
+
+        // ---- 🆕 2026-10-09（A1109）：**uGUI 与 TMP 那两跳** ----
+        // 本 `Export()` 从 `EffectExporter.Export` 抄形状时，**uGUI 与 TMP 这两族整个没接**：
+        //   上面只做了「渲染器材质 / 网格 / `SpriteRenderer`·`SpriteMask` / 粒子 TSA」四跳 ——
+        //   那四跳服务的是**粒子 prefab**；而**窗口 prefab 里几乎没有粒子，全是 uGUI 与 TMP**。
+        // 🔴 **实测（现读两份 prefab，均纯 LF）**：
+        //   · `Booster Pack Open Window.prefab`：guid 全 0 共 **350** 条 =
+        //     动画 **30**（A1101 已修）+ `Image.m_Sprite` **45** + `Image.m_Material` **21**
+        //     + TMP `m_fontAsset` **127** + TMP `m_sharedMaterial` **127**
+        //     ⇒ **本件要接的就是后四族、合计 320 条**（简报写「299 条」—— 现读 320，见报告 §②）。
+        //   · `Booster Info Popup.prefab`：同四族另有 **29** 条
+        //     （`m_Sprite` 13 · `m_Material` 2 · `m_fontAsset` 7 · `m_sharedMaterial` 7）。
+        //   · 那 4 个粒子 prefab 现读 `guid 0 = 0` ⇒ 下面两支对它们**是空转**（0 次迭代），正确。
+        // ⚠️ **简报说「照 `EffectExporter` 里对应的那两支抄」—— 现读不成立**：`EffectExporter` 里
+        //   **根本没有** uGUI `Image` 与 TMP 这两支（全库 `grep` `GetComponentsInChildren<Image>` /
+        //   `TextMeshProUGUI` / `fontSharedMaterial` **命中 0**；它的 `Import*` 只有
+        //   Sprite / Material / Texture / Mesh / Clip 五个）。⇒ 本件按**本函数里已有的那一支**
+        //   （上面 `SpriteRenderer` / `SpriteMask` 的精灵跳）**同形**写，逐行对应见报告 §④。
+        // 逐处清单（哪一族 / 原版是哪份资产 / 工程里有没有）→
+        //   `资料/普查产出_第六会话/W_Booster两跳_A1109.md` §②。
+        // ⚠️ **零幻觉兜底（与 A1101 同一条纪律）**：接不上就**留空 + 点名出声**，
+        //   ⛔ **绝不**拿别的图/别的字体/空材质顶上 —— 那等于静默换了一个假件。
+
+        // (1) uGUI `Image.m_Sprite` —— 与上面 `SpriteRenderer` / `SpriteMask` 那一跳**逐行同形**
+        //     （同一句 `EffectExporter.ImportSprite`、同一条「导不出来就留空 + 出声」的兜底）。
+        //     ⚠️ 只覆盖 `UnityEngine.UI.Image`：本件普查里持有 `m_Sprite` 的**全是它**
+        //        （`RawImage.m_Texture` 的 guid-0 实测 **0 处** ⇒ 不为它写一支没判据的分支）。
+        int uiSpriteOk = 0, uiSpriteMiss = 0;
+        foreach (var img in inst.GetComponentsInChildren<UnityEngine.UI.Image>(true))
+        {
+            if (img.sprite == null) continue;      // 原版本来就空的那种（Open Window 的 71 个 Image 里 26 个）
+            var imported = EffectExporter.ImportSprite(img.sprite);
+            if (imported == null)
+            {
+                uiSpriteMiss++;
+                Debug.LogWarning(P + $"A1109 `{src.name}` / `{img.gameObject.name}` 上的 `Image.m_Sprite`"
+                    + $"（`{img.sprite.name}`）落不成工程 sprite ⇒ **这一格留空**"
+                    + "（⛔ 不拿别的图顶上 —— 那等于静默画错一张）");
+                continue;
+            }
+            img.sprite = imported; uiSpriteOk++;
+        }
+
+        // (2) uGUI `Image.m_Material`。
+        //     🔴 **不能直接读 `Image.material`** —— 那是个**带回落**的 getter：
+        //        `m_Material == null` 时它返回**内建默认材质**（带 alpha 分离贴图的精灵还会返回
+        //        `defaultETC1GraphicMaterial`）⇒ 照它取值会把**本来没有材质**的那 50 个 Image 也算成
+        //        「有材质」，然后给它们各写一份工程副本 —— **原始数据被静默改掉**（`m_Material` 由空变非空）。
+        //     ⇒ 一律按**序列化字段名**读（`SerializedFieldRef`），与普查时数的就是同一个字段名。
+        //     ⚠️ 这 5 份材质的原 shader 都是 **Everguild 私有 shader**（`Everguild/Card ImageUI` ·
+        //        `Everguild/FX/Card Highlight And Shadow` · `Everguild/UI/Card Ready for level up` ·
+        //        `Shader Graphs/Nebula`）—— `ShaderMap` 里**都没有** ⇒ 会落到 `URP/Unlit*` 的**近似替代**
+        //        （`ImportMaterial` 自己会出声）。这与上面渲染器材质那一跳**是同一条既有口径**：
+        //        近似就近似、但要**说出来**，不是留空。
+        int uiMatOk = 0, uiMatMiss = 0;
+        foreach (var img in inst.GetComponentsInChildren<UnityEngine.UI.Image>(true))
+        {
+            var om = SerializedFieldRef(img, "m_Material") as Material;
+            if (om == null) continue;
+            var nm = EffectExporter.ImportMaterial(om, out bool uiApprox, out string uiShader);
+            if (nm == null)
+            {
+                uiMatMiss++;
+                Debug.LogWarning(P + $"A1109 `{src.name}` / `{img.gameObject.name}` 上的 `Image.m_Material`"
+                    + $"（`{om.name}` / 原 shader `{uiShader}`）导不成工程材质 ⇒ **这一格留空**"
+                    + "（⛔ 不拿空材质顶上）");
+                continue;
+            }
+            img.material = nm; uiMatOk++;
+            if (uiApprox)
+                Debug.LogWarning(P + $"A1109 `{src.name}` / `{img.gameObject.name}` 的 `{om.name}`"
+                    + $"（原 shader `{uiShader}`）**是按近似 shader 替代的** —— 版面对、观感不是原版");
+        }
+
+        // (3) TMP 的 `m_fontAsset` + `m_sharedMaterial`（两份都数 **127** 条）。
+        //     🔴 **这一族在工程里【没有目标】** —— 实测全工程只有两份 `TMP_FontAsset`
+        //        （`NotoSerifCJK-Regular SDF` = 我们自己生成的 CJK 字体 · `LiberationSans SDF` = TMP 自带），
+        //        而原版这两份（`Pragati-Regular SDF` ×92 · `Asar-Regular SDF` ×35）**从没被导入过**：
+        //        卡面数字走 `Core/PragatiDigits` 的**位图表**（`工具/gen_pragati_digits.py`），
+        //        菜单/HUD 走我们那份 CJK 字体。⇒ 今天**接不上**，**点名出声 + 留空**。
+        //     ✅ 但这一支**写成「接得回来就接」**：按**资产名**到工程里找同名 `TMP_FontAsset` /
+        //        同名 `Material` ⇒ 将来谁把原版那两份导进来，**这里不用改代码**就会接上。
+        //        ⛔ 找不到就返回 null（留空），**绝不新建**（⛔ 更不 `CreateFontAsset` 现造一份 ——
+        //        那是**我们自己画的字体**，不是原版）。
+        //     ⚠️ **材质那一跳写在字体之后、且只在字体接上时才写**：`m_sharedMaterial` 就是字体图集的
+        //        那份材质，两者**成对**；只挂材质不挂字体，TMP 会在 `GetPaddingForMaterial` 里对着
+        //        null 字体算 ⇒ 坏得更明显。
+        int tmpFontOk = 0, tmpFontMiss = 0, tmpMatOk = 0, tmpMatMiss = 0;
+        var missingFonts = new Dictionary<string, int>();
+        foreach (var t in inst.GetComponentsInChildren<TMPro.TMP_Text>(true))
+        {
+            var srcFont = SerializedFieldRef(t, "m_fontAsset") as TMPro.TMP_FontAsset;
+            var srcMat = SerializedFieldRef(t, "m_sharedMaterial") as Material;
+            if (srcFont == null && srcMat == null) continue;
+
+            TMPro.TMP_FontAsset f = null;
+            if (srcFont != null)
+            {
+                f = FindProjectAsset<TMPro.TMP_FontAsset>(srcFont.name);
+                if (f != null) { t.font = f; tmpFontOk++; }
+                else
+                {
+                    tmpFontMiss++;
+                    missingFonts[srcFont.name] =
+                        (missingFonts.TryGetValue(srcFont.name, out int c0) ? c0 : 0) + 1;
+                }
+            }
+            if (srcMat == null) continue;
+            var pm = f != null ? FindProjectAsset<Material>(srcMat.name) : null;
+            if (pm != null) { t.fontSharedMaterial = pm; tmpMatOk++; } else tmpMatMiss++;
+        }
+
+        if (uiSpriteOk > 0 || uiSpriteMiss > 0)
+            Debug.Log(P + $"A1109 `{src.name}` uGUI `Image.m_Sprite`：接回 **{uiSpriteOk}** 条"
+                        + (uiSpriteMiss > 0 ? $"、**没接上 {uiSpriteMiss} 条**（见上面的告警）" : ""));
+        if (uiMatOk > 0 || uiMatMiss > 0)
+            Debug.Log(P + $"A1109 `{src.name}` uGUI `Image.m_Material`：接回 **{uiMatOk}** 条"
+                        + (uiMatMiss > 0 ? $"、**没接上 {uiMatMiss} 条**（见上面的告警）" : ""));
+        if (tmpFontOk > 0 || tmpFontMiss > 0 || tmpMatOk > 0 || tmpMatMiss > 0)
+        {
+            var mv = new List<string>();
+            foreach (var kv in missingFonts.OrderByDescending(k => k.Value))
+                mv.Add($"`{kv.Key}`×{kv.Value}");
+            Debug.Log(P + $"A1109 `{src.name}` TMP：字体 接回 **{tmpFontOk}** / 留空 **{tmpFontMiss}**"
+                        + $" · 材质 接回 **{tmpMatOk}** / 留空 **{tmpMatMiss}**"
+                        + (mv.Count > 0 ? $"（工程里没有这些 TMP_FontAsset：{string.Join(" · ", mv)}）" : ""));
+        }
+
         var binder = inst.GetComponent<WarpforgeEffectBinder>();
         if (binder == null) binder = inst.AddComponent<WarpforgeEffectBinder>();
         binder.materials = defs.ToArray();
         binder.rendererSlots = slots.ToArray();
         binder.trailSlots = trailSlots.ToArray();
         binder.emissionOn = EffectExporter.EmissionFlagFor(src.name);
+        // ⚠️ **硬写死 `""`，而本 `Export()` 里【没有 `Animator` 那一支】** —— 与 `EffectExporter.Export`
+        //    的另一处形状差（那边是 `:1194-1201` 接控制器 + `:1280` 记 `origController` 给 binder）。
+        //    **本件现读实测「今天无影响」**：两扇窗 + 那 4 个粒子 prefab 的 `--- !u!95`（`Animator`）**全 = 0**
+        //    ⇒ 这一行现在没有消费方。🔴 **但将来把带 `Animator` 的根加进 `WindowRoots` / `CardFxRoots`**，
+        //    那条控制器会**静默落成 guid 全 0**（且 binder 也拿不到名字）—— 记成待办，见报告 §⑦。
+        //    **没顺手补的原因**：`EffectExporter.ImportAnimatorController` 是 **`static` 私有**
+        //    （`EffectExporter.cs:2414`），复用就得动别人的已交件；自己再写一份则违 `CLAUDE.md` §三
+        //    「两处写同一条规则 = 迟早不一致」。⇒ 等到真有带 `Animator` 的根时，**先把那个助手放开**
+        //    再照 `EffectExporter` 同形补这一支（顺便把 `animatorController` 那一格改成记账值）。
         binder.animatorController = "";
 
         // 粒子那 4 件要进效果库 ⇒ 挂 `WFEffectInfo` 并给一个**原版 clip 时长**当寿命
@@ -422,7 +655,76 @@ public static class BoosterPackExporter
 
         return $"材质定义{defs.Count}个 · 渲染器槽{slots.Count}个 · 原 shader: {string.Join(", ", usedShaders.OrderBy(x => x))}"
              + (approx > 0 ? $" · 近似替代 {approx} 处" : "")
-             + (life > 0f ? $" · 效果寿命 {life:F3}s" : "");
+             + (life > 0f ? $" · 效果寿命 {life:F3}s" : "")
+             // 🆕 A1109：uGUI 与 TMP 那两跳的记账（`截` = 没接上、留空）
+             + $" · uGUI 图{uiSpriteOk}/截{uiSpriteMiss} · uGUI 材{uiMatOk}/截{uiMatMiss}"
+             + $" · TMP 字{tmpFontOk}/截{tmpFontMiss} · TMP 材{tmpMatOk}/截{tmpMatMiss}";
+    }
+
+    /// <summary>精确读一个**序列化字段**里的对象引用（返回 `null` = 该字段本来就没接）。
+    ///
+    /// 为什么要一个助手、而不直接用组件的公开属性：**uGUI 那几个 getter 带回落** ——
+    ///   · `Image.material` 在 `m_Material == null` 时返回**内建默认材质**（`Graphic.defaultMaterial`），
+    ///     带 alpha 分离贴图的精灵还会返回 `defaultETC1GraphicMaterial`；
+    ///   · `Image.sprite` 倒是精确的（本件那一支就直接用了它）。
+    /// 照那些带回落的 getter 取值 ⇒ 会把「**本来就没有材质**」的组件也算成「有」，然后给它写一份
+    /// 工程副本 —— `m_Material` 由空变非空 = **静默改了原始数据**。
+    ///
+    /// TMP 的 `font` / `fontSharedMaterial` 本身是非回落的公开属性，本可以直用；这里也走字段名，
+    /// 是为了**与普查用的是同一批字段名**（`m_fontAsset` / `m_sharedMaterial`）—— 一处口径，别两套。</summary>
+    static UnityEngine.Object SerializedFieldRef(UnityEngine.Object comp, string field)
+    {
+        try
+        {
+            using (var so = new SerializedObject(comp))
+            {
+                var p = so.FindProperty(field);
+                if (p == null) return null;
+                if (p.propertyType != SerializedPropertyType.ObjectReference) return null;
+                return p.objectReferenceValue;
+            }
+        }
+        catch (Exception e)
+        {
+            // ⛔ 不许静默：读不出来要出声（这一格按「没有」处理，即留空 —— 与「接不上就留空」同一口径）
+            Debug.LogWarning(P + $"A1109 读 `{comp.GetType().Name}.{field}` 失败（这一格按「没有」处理）："
+                           + $"{e.GetType().Name}: {e.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>按**资产名**到工程里找一份资产（`AssetDatabase.FindAssets` 的结果逐条比文件名）。
+    ///
+    /// 用在哪：TMP 的 `m_fontAsset` / `m_sharedMaterial` —— 那两格在包里是 **guid 全 0** 的引用，
+    /// 运行时拿到的对象**不是**工程资产，接不回来；唯一能接回来的路是「工程里已经有一份同名的」
+    /// ⇒ 那就是它。⛔ 找不到就返回 `null`（调用方**留空 + 出声**），**绝不新建**。
+    /// 结果按 `(类型, 名字)` 缓存：一份 prefab 里同一份字体要被问上百次。</summary>
+    static readonly Dictionary<string, UnityEngine.Object> ProjAssetCache
+        = new Dictionary<string, UnityEngine.Object>();
+
+    static T FindProjectAsset<T>(string name) where T : UnityEngine.Object
+    {
+        if (string.IsNullOrEmpty(name)) return null;
+        string key = typeof(T).Name + "|" + name;
+        if (ProjAssetCache.TryGetValue(key, out var hit)) return hit as T;
+        T found = null;
+        try
+        {
+            foreach (var g in AssetDatabase.FindAssets("t:" + typeof(T).Name))
+            {
+                var p = AssetDatabase.GUIDToAssetPath(g);
+                if (Path.GetFileNameWithoutExtension(p) != name) continue;
+                found = AssetDatabase.LoadAssetAtPath<T>(p);
+                if (found != null) break;
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning(P + $"找工程资产 `{name}`（{typeof(T).Name}）失败（按「没有」处理）："
+                           + $"{e.GetType().Name}: {e.Message}");
+        }
+        ProjAssetCache[key] = found;
+        return found;
     }
 
     /// <summary>粒子 prefab 的寿命 = **同名开卡包 clip 的时长**。

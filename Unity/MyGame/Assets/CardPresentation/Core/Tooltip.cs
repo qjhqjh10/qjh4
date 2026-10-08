@@ -365,23 +365,39 @@ namespace CardPresentation
     ///    `I2Languages` 零命中、`*.csv/*.tsv` 零命中、`LanguageSourceData` 的序列化字段零命中）。
     /// ⇒ 这里的每一句都**照规则书**写（行号见各条注释），**不是**照原版 tooltip 抄的。
     /// **拿到原版词条表之后，把这张表整个换掉即可**（接口不变）。
+    ///
+    /// 🆕 **2026-10-08（第六会话 · `Core双语-第一步`）：键已收进 `Core/Loc.cs`** ——
+    ///   下面那 12 条**一律走 `Loc.T(键)`**（键名、原版出处、逐条计数 → `Loc.cs` 那一块的头）。
+    ///   **值仍然是我们写的**（同上一段：显示串在远端 I2 表）⇒ 两列都是自拟；
+    ///   **ZH 列 = 改前这几句逐字** ⇒ **中文档零变化**，英文档从「悬停出来还是中文」变成印英文。
+    ///   ⛔ **别在这里再留一份写死的文案**（两处写同一条规则 = 迟早不一致）。
     /// </summary>
     public static class TipText
     {
         /// <summary>卡面四个数值 + 费用。原版挂点 = `Health/Range Attack/Melee Attack/Cost Container`
-        /// （`assets_full/bundle_staticgeneralassets_assets_all/GameObject/` 那几个）。</summary>
-        public static string Melee  { get { return "近战攻击力（规则书 :78）"; } }
-        public static string Ranged { get { return "远程攻击力（规则书 :78）"; } }
-        public static string Armour { get { return "受任何来源的伤害都减这么多，最低减到 1（:167）"; } }
-        public static string Health { get { return "扣完护甲后扣生命，归零进弃牌堆（:147）"; } }
-        public static string Cost   { get { return "打出去要花的能量（规则书 :78）"; } }
+        /// （`assets_full/bundle_staticgeneralassets_assets_all/GameObject/` 那几个）。
+        /// 🔴 **键名 = 原版那颗 `EverguildTooltipTrigger` 的 `text` 字段**（逐条计数与「两个字段逐字吻合」
+        /// 那条硬证据 → `Core/Loc.cs` 里那一块的头）。</summary>
+        public static string Melee  { get { return Loc.T("Tips/MeleeAttackTip"); } }
+        public static string Ranged { get { return Loc.T("Tips/RangedAttackTip"); } }
+        /// <summary>⚠️ **原版没有护甲 tooltip**（`Armour Container` 无触发器）+ 我们这边**零消费点**
+        /// ⇒ 这条的键 `Tips/ArmourTip` 是**自拟**的（留着只为同一族形状一致、不静默）。
+        /// 判据 → `Core/Loc.cs` 那一块。</summary>
+        public static string Armour { get { return Loc.T("Tips/ArmourTip"); } }
+        public static string Health { get { return Loc.T("Tips/HealthTip"); } }
+        public static string Cost   { get { return Loc.T("Tips/CostTip"); } }
 
-        /// <summary>HUD 计数。</summary>
-        public static string Energy      { get { return "每回合恢复，用来打出手牌"; } }
-        public static string Skulls      { get { return "本局拿到的战功骷髅数"; } }
-        public static string QuestPoints { get { return "暗黑天使的任务点进度（0/3）"; } }
-        public static string Faith       { get { return "战斗修女的阵营资源"; } }
-        public static string SpiritStone { get { return "灵族的阵营资源；在场也算单位（1 血），点击收集"; } }
+        /// <summary>HUD 计数。键 = 原版 HUD 那几个计数节点上的 `EverguildTooltipTrigger.text`
+        /// （13 个 arena 各一颗；逐条计数 → `Core/Loc.cs` 那一块）。
+        /// ⚠️ **原版敌我各一条键**（`Tips/Hud/{Player,Opponent}…Count`），而我们的消费点
+        /// （`Battle/BattleDriver.cs:13287-13290`）把**同一个串同时用在双方图标上**
+        /// ⇒ 本批取 `Player*Count` 那一条、两列文案写**对双方都成立的中性说法**；
+        /// 要拆成两条得改 `BattleDriver`（不在本笔白名单，已记进交件报告）。</summary>
+        public static string Energy      { get { return Loc.T("Tips/Hud/PlayerEnergyCount"); } }
+        public static string Skulls      { get { return Loc.T("Tips/Hud/Skulls"); } }
+        public static string QuestPoints { get { return Loc.T("Tips/Hud/PlayerQPCount"); } }
+        public static string Faith       { get { return Loc.T("Tips/Hud/PlayerFaithCount"); } }
+        public static string SpiritStone { get { return Loc.T("Tips/Hud/PlayerSpiritStoneCount"); } }
 
         // ==================================================================
         //  🆕 2026-09-21：关键词（trait）的 tooltip —— 悬停卡面关键词段里那一枚图标时弹的
@@ -486,14 +502,20 @@ namespace CardPresentation
 
             if (t == null)
             {
+                // 🔴 下面那句是**我们自己加的**：原版查不到描述时**只有「图标 + 标题」、没有正文**
+                //    （`EverguildTraitTooltipItem`，见 `资料/tooltip_原版规格与实现.md` §五）
+                //    ⇒ 键 `Tips/Trait/NoRulebookEntry` **自拟**（两列都是我们写的）。
                 // ⚠️ **不静默**：日志里说一次「规则书里没这条」，免得以后有人以为文案表漏生成
                 if (_warnedNoEntry.Add(key))
                     Debug.Log("[TipText] `" + key + "` 在规则书关键词表里没有条目 —— "
                               + "tooltip 只出名字、不出解释（不是 bug，规则书那 61 条里就没有它）。");
-                return "<b>" + icon + title + "</b>\n（规则书里没有这个词的条目）";
+                return "<b>" + icon + title + "</b>\n"
+                              + Loc.T("Tips/Trait/NoRulebookEntry");
             }
 
-            string line = string.IsNullOrEmpty(t.line) ? "" : "（规则书 :" + t.line + "）";
+            // 🔴 这一句同样**是我们自己加的**（原版没有「规则书行号」这种东西 —— 那是**我们的**判据行）
+            //    ⇒ 键 `Tips/Trait/RulebookLine` **自拟**；`{0}` = `t.line`（规则书上的行号）。
+            string line = string.IsNullOrEmpty(t.line) ? "" : Loc.T("Tips/Trait/RulebookLine").Replace("{0}", t.line);
             return "<b>" + icon + title + "</b>\n" + t.body + line;
         }
     }

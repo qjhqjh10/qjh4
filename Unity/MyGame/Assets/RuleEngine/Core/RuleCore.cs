@@ -120,13 +120,19 @@ namespace RuleEngine
         /// ④ **起手 = 关卡指定那几张**（`CreatePlayerDeck`：InHand 插牌库顶 + 抽 N 张）；
         /// ⑤ **起始单位**直接落场（`SetupStartingTroops`）；⑥ **初始法力/伤害**（`SetupInitialMana`）。
         /// ⚠️ 参数没给时按 <see cref="GameplayVariables.Tutorial"/>（别再自己拼一份）。</param>
+        /// <param name="botSeat">🔴 🆕 **2026-10-19（`A1070`）：本局哪一个座位是电脑**
+        /// （`-1` = 这局没有电脑 —— 双方都按真人算，**老调用方一个字都不用改**）。
+        /// 它只喂 <see cref="BattleContext.BotSeat"/> 这一格，而那一格**唯一**的用处是
+        /// 「后手那张防御卡」——原版给电脑时**不从电脑卡组取**（判据见 <see cref="GoesSecondCard"/>）。
+        /// 单机时座位 1 由 `SimpleAI` 驱动、联机时座位 1 是真人 ⇒ **引擎自己判不出来，必须由入口窗给**。</param>
         public static BattleContext NewBattle(IList<CardDef> deckA, IList<CardDef> deckB,
                                               int seed = 0, bool shuffle = true,
                                               IList<CardDef> cardPool = null,
                                               bool openMulligan = false,
                                               GameplayVariables vars = null,
                                               int firstSeat = 0,
-                                              TutorialScript tutorial = null)
+                                              TutorialScript tutorial = null,
+                                              int botSeat = -1)
         {
             var ctx = new BattleContext(seed);
             // 🆕 教程局：执行器（关卡数据 + 本局指针）**在这里落位**（唯一写点）。
@@ -168,14 +174,49 @@ namespace RuleEngine
             }
             ctx.FirstSeat = firstSeat == 1 ? 1 : 0;
 
+            // 🔴 🆕 **2026-10-19（`A1070`）：本局哪个座位是电脑 —— 必须在建人之前落位**
+            //   （防御卡就是在这下面发的：换牌不开 ⇒ 当场发；换牌开着 ⇒ `EndMulligan` 发）。
+            //   落位判据只此一处（`-1` = 没有电脑 = 老行为）。
+            ctx.BotSeat = (botSeat == 0 || botSeat == 1) ? botSeat : -1;
+
+            // 🔴 **2026-10-08（`D28` 施工单 A）：换牌阶段开不开，在**建人之前**就要定下来。**
+            //   判据 = 下面 `ctx.MulliganOpen` 的那一条（`openMulligan && Vars.showMulligan`，只此一处算式）——
+            //   原来它在函数**末尾**才赋值，而「防御卡什么时候进手牌」在中间就要用（见下面那一段）。
+            //   ⚠️ 这一段（`firstSeat` → 建人之间）**没有任何一处改这两个输入**：`openMulligan` 只在
+            //      上面教程那一支被压掉（`:165`，在建人之前），`ctx.Vars` 在 `:144` 就落位了。
+            bool mulliganOpenNow = openMulligan && ctx.Vars.showMulligan;
+
             // 🔴 **防御卡只发给【后手】**（2026-09-26 更正：原来两边都给 —— 那是一条**已记录的偏离**，
             //   理由是「玩家恒先手 ⇒ 只给后手的话玩家永远看不到自己编的那张」）。
             //   原版语义（规则书 `:105`/`:121` + 反编译 `AddGoesSecondCardToDeck.c:154-166`）：
             //   **后手（防守方）持有**防御卡，用来弥补先手优势；**先手没有**。
             //   ⇒ 要「玩家也能看到它」，正确做法是**让先手真的会换人**（见下面的 `firstSeat`），
             //     而不是两边都发。用户 2026-09-26 指出这一点。
-            ctx.Players[0] = BuildPlayer(ctx, deckA, "P1", shuffle, getsDefenceCard: ctx.FirstSeat == 1);
-            ctx.Players[1] = BuildPlayer(ctx, deckB, "P2", shuffle, getsDefenceCard: ctx.FirstSeat == 0);
+            CardDef defP0, defP1;
+            ctx.Players[0] = BuildPlayer(ctx, deckA, "P1", shuffle, getsDefenceCard: ctx.FirstSeat == 1,
+                                         out defP0);
+            ctx.Players[1] = BuildPlayer(ctx, deckB, "P2", shuffle, getsDefenceCard: ctx.FirstSeat == 0,
+                                         out defP1);
+            // 🔴 **2026-10-08（`D28` 施工单 A）：防御卡**不再**在建人的那一刻进手牌** —— 原版是
+            //   「换牌全部走完 → `StartBattlePhase` → 才 `AddNewCardToHand`」（判据见 `BuildPlayer` 里
+            //   那一大段与 <see cref="PendingDefence"/>）。两条路：
+            //     · **换牌阶段不开** ⇒ 原版那一步紧接着「空换牌」发生 ⇒ **现在就发**（位置与旧版逐字相同：
+            //       在 `SetupCardInHand` 那一趟与发牌之前 ⇒ 手牌下标不变，老用例零影响）；
+            //     · **换牌阶段开着** ⇒ 先寄在 <see cref="PendingDefence"/> 里，`EndMulligan` 才发。
+            if (!mulliganOpenNow)
+            {
+                GrantDefenceCard(ctx, 0, defP0);
+                GrantDefenceCard(ctx, 1, defP1);
+            }
+            else
+            {
+                var pending = new[] { defP0, defP1 };
+                if (defP0 != null || defP1 != null)
+                {
+                    PendingDefence.Remove(ctx);          // `Add` 对同键会抛 ⇒ 先删（正常路径上本来就没有）
+                    PendingDefence.Add(ctx, pending);
+                }
+            }
             // 🆕 **2026-10-18（`W5` · 审查 §2 作者自陈 b 那一笔的收尾）**：
             //   原版 `PlayerHand.SetupCardInHand` 的**四个调用点**都在「进手牌」那一刻、**不看卡类型**
             //   （`PlayerHand__SetupCardInHand.c:31/34/35/118`）⇒ 「每一个进手牌入口都要调它」。
@@ -260,7 +301,10 @@ namespace RuleEngine
                 ctx.Log($"开局：双方各起手 {startHand} 张"
                       + (extraCards > 0 ? $"（后手 {ctx.Players[ctx.SecondSeat].Name} 另加 {extraCards} 张）" : "")
                       + $"，{ctx.Players[ctx.FirstSeat].Name} 先手"
-                      + $"（防御卡发给了后手 {ctx.Players[ctx.SecondSeat].Name}）");
+                      + (mulliganOpenNow
+                         ? $"（后手 {ctx.Players[ctx.SecondSeat].Name} 的防御卡**换牌结束后**才进手牌 ——"
+                           + "原版 `StartBattlePhase` → `AddGoesSecondCardToDeck`）"
+                         : $"（防御卡发给了后手 {ctx.Players[ctx.SecondSeat].Name}）"));
             }
             // 开局上手（`Start the game with <卡名> in hand.`）—— 见 `CardDef.StartWithInHand`。
             // ⚠️ **排在发完起手牌之后**：它是「**额外**指定某张卡一定在手里」，不是替换起手牌。
@@ -272,7 +316,10 @@ namespace RuleEngine
             // 🆕 2026-09-26：**模式说不行就是不行**（遭遇模式文案 `No mulligan`，
             //    `GameplayVariables.showMulligan = false` ⇒ 这里直接压掉，
             //    表现层那边另有它的守卫 —— **两处都要**，因为自检不经过表现层）。
-            ctx.MulliganOpen = openMulligan && ctx.Vars.showMulligan;
+            // 🔴 **2026-10-08（`D28` 施工单 A）：算式搬到函数开头去了**（`mulliganOpenNow`）——
+            //    「防御卡什么时候进手牌」比这一行**早**就要用（见建人那一段）⇒ 判据只留那一处，
+            //    ⛔ 别在这儿再写一遍 `openMulligan && ctx.Vars.showMulligan`（两处写同一条规则迟早不一致）。
+            ctx.MulliganOpen = mulliganOpenNow;
 
             CheckWinner(ctx);
             return ctx;
@@ -308,12 +355,12 @@ namespace RuleEngine
             {
                 int k = handIndices[i];
                 if (k < 0 || k >= ps.Hand.Count || idx.Contains(k)) continue;
-                // ⚠️ **防御卡不参与换牌**（2026-09-13 第三十三轮）——
-                //    原版是「抽完起手牌 → 换牌 → **再**置入防御卡」（规则书 `:121`），
-                //    我们图省事把防御卡放在了**换牌之前**，所以这里必须挡一道，
-                //    否则它会**被换掉**，而那是原版流程里不可能出现的事。
-                //    ⏭️ 等把「置入」挪到换牌之后，这条就该删掉。
-                if (ps.Hand[k].Card.Type == "defence") continue;
+                // 🔴 **2026-10-08（`D28` 施工单 A）：这里原来有一条「防御卡不许换掉」的守卫 —— 已删。**
+                //    它存在的唯一理由是「我们图省事把防御卡放在了**换牌之前**」（原版是「抽完起手牌 →
+                //    换牌 → **再**置入防御卡」，规则书 `:121`）。现在置入时机已经照原版挪到换牌之后
+                //    （见 `NewBattle` 的 `mulliganOpenNow` 那一段与 `EndMulligan`）⇒ **换牌阶段里手牌
+                //    根本没有防御卡**，没有什么要挡的。⛔ 别再把它加回来：那会变成「一条原版没有的规则」，
+                //    而且会让「防御卡还在手里」这件事**看起来是正常的**（它现在是流程错的信号）。
                 idx.Add(k);
             }
             if (idx.Count == 0) return 0;
@@ -336,12 +383,30 @@ namespace RuleEngine
             return idx.Count;
         }
 
-        /// <summary>换牌阶段结束（双方都决定了）。关掉标志，之后 `Mulligan` 不再有效。</summary>
+        /// <summary>换牌阶段结束（双方都决定了）。关掉标志，之后 `Mulligan` 不再有效。
+        ///
+        /// 🔴 **2026-10-08（`D28` 施工单 A）：后手那张防御卡在**这里**进手牌。**
+        ///   原版次序（逐句可查）：`_FinishMulliganFinalPhase_d__351__MoveNext.c:107/118/128/165`
+        ///   （换牌四步全走完）→ `:233 StartBattlePhase` → `_StartBattlePhase_d__334__MoveNext.c:172`
+        ///   `AddGoesSecondCardToDeck` → `BattleManager__AddGoesSecondCardToDeck.c:184 AddNewCardToHand(...)`。
+        ///   ⇒ **换牌阶段一关，紧接着就是发牌那一步**（`EndMulligan` 在这个工程里就是
+        ///   `PlayerHand.CompleteMulliganPhase` + `StartBattlePhase` 那一下，见 `BattleDriver.OnMulliganDone`）。
+        ///  ⚠️ 换牌阶段本来就**不开**的对局，那张卡早在 `NewBattle` 里发了（见 <see cref="PendingDefence"/>）
+        ///     ⇒ 这里取到的会是 null，什么都不做。
+        /// </summary>
         public static void EndMulligan(BattleContext ctx)
         {
             if (ctx == null || !ctx.MulliganOpen) return;
             ctx.MulliganOpen = false;
             ctx.Log("换牌阶段结束");
+            // 防御卡那一步（原版 `AddGoesSecondCardToDeck`）：**发完才真正开打** ——
+            // 就在这一行之后，调用方接着走 `BeginTurn`（`BattleDriver.BeginBattleAfterSetup`）。
+            if (PendingDefence.TryGetValue(ctx, out var pending) && pending != null)
+            {
+                PendingDefence.Remove(ctx);
+                GrantDefenceCard(ctx, 0, pending[0]);
+                GrantDefenceCard(ctx, 1, pending[1]);
+            }
         }
 
         /// <summary>🆕 2026-09-29（§25）：**记下进攻卡的选择**（原版 `BattleManager.ClickChosenCardDone`
@@ -377,12 +442,14 @@ namespace RuleEngine
         /// <summary>🆕 2026-10-01：把后手方手里那张防御卡**换成玩家/ AI 选的那张**
         /// （原版 `ClickChosenCardDone` 之后那条链：防御卡那一路的落点是「**后手方手牌**」）。
         ///
-        /// 为什么需要它：我们开战时已经由 `DeckBuilder` 随机补了一张（= 原版 `AddGoesSecondCardToDeck`
-        /// 那条路，只在特定 matchType 上跑）⇒ 面板上再挑一张时**必须先把原来那张摘掉**，
-        /// 否则手里会有两张防御卡。
+        /// 为什么需要它：我方开战时已经由 `DeckBuilder`/`NewBattle` 补了一张（= 原版
+        /// `AddGoesSecondCardToDeck` 那条路，只在特定 matchType 上跑）⇒ 面板上再挑一张时**必须先把
+        /// 原来那张摘掉**，否则手里会有两张防御卡。
         /// ⚠️ 摘的是**任意一张 `Type == "defence"`**（原版那两条路不会同时给两张 ⇒ 我们这边最多一张）。
-        /// ⚠️ 时机：这条链跑在**换牌之后**（原版 `FinishMulliganFirstPhase` → `SetupEnviromentalEffectPhase`）
-        /// ⇒ 不会打乱起手牌/换牌那一套。</summary>
+        /// 🔴 **2026-10-08（`D28` 施工单 A）**：开场那张现在也**按原版时机**发（`NewBattle` /
+        ///   `EndMulligan`，见 <see cref="GrantDefenceCard"/>），本条链照旧跑在**换牌之后**
+        ///   （原版 `FinishMulliganFirstPhase` → `SetupEnviromentalEffectPhase`）⇒ 两条路的先后与
+        ///   原版一致（先自动那张、再被选中的那张替换掉）⇒ 不会打乱起手牌/换牌那一套。</summary>
         public static void SetDefensiveCard(BattleContext ctx, int seat, CardDef card)
         {
             if (ctx == null || seat < 0 || seat > 1 || card == null) return;
@@ -401,8 +468,11 @@ namespace RuleEngine
             //    ② 这一步跑在**换牌之后、开战之前** ⇒ 手牌登记表本来就是空的。
             //    ⚠️ 之所以还是插上：**理由不能是「插了也空过」**（那是拿结果当借口），
             //      而是「原版每一个进手牌入口都调」——
-            //      `BuildPlayer` 里那一处（后手起手发防御卡）**拿不到座位号**（`BuildPlayer` 没有
-            //      玩家下标参数）⇒ 那一处如实留在报告里，不硬塞。
+            //      🔴 **2026-10-08 订正**：这里原来写着「`BuildPlayer` 里那一处拿不到座位号 ⇒ 不硬塞」。
+            //      那条路的形状**已经变了**：`BuildPlayer` 现在**不往手牌里加东西**（只分流，见
+            //      `defenceCardOut`），发牌归 `GrantDefenceCard(ctx, seat, card)` —— 它有座位号，
+            //      所以**那一个入口也调到了** `SetupCardInHand`（`PendingDefence` 那张表就是为了
+            //      把这张卡交到那个函数手上）。
             SetupCardInHand(ctx, seat, ps.Hand[ps.Hand.Count - 1]);
             ctx.Log($"后手（P{seat + 1}）的防御卡换成「{card.Name}」"
                   + $"（原版 `ClickChosenCardDone` → 进后手方手牌；先摘掉了原来那张 {removed} 张）");
@@ -410,13 +480,20 @@ namespace RuleEngine
 
         /// <param name="getsDefenceCard">**这一方是不是后手**（只有后手才发防御卡，判据见下面那段注释）。
         /// 🆕 2026-09-26 加：原来两边都发，那是一条已记录的偏离。</param>
+        /// <param name="defenceCardOut">🔴 🆕 **2026-10-08（`D28` 施工单 A）：这一方该拿的那张防御卡
+        /// （没拿到 = null）。进手牌**不在这里做** —— 时机照原版归 `NewBattle` / `EndMulligan`，
+        /// 见 <see cref="PendingDefence"/>。这里只负责从牌表里**分流**出来（判据只此一处）。
+        /// 🔴 🆕 **2026-10-19（`A1070`）**：这里分流出来的只是「**卡组里那张**」——
+        /// 玩家侧发的就是它；**电脑侧不用它**（原版电脑侧恒空），真正发哪张由
+        /// <see cref="GoesSecondCard"/> 现取。⚠️ 但分流本身对两边都仍有效：
+        /// 那张牌照旧**不进牌库**（不进牌库 = 不被抽到第二次）。</param>
         static PlayerState BuildPlayer(BattleContext ctx, IList<CardDef> deck, string name, bool shuffle,
-                                       bool getsDefenceCard)
+                                       bool getsDefenceCard, out CardDef defenceCardOut)
         {
             Random rng = ctx.Rng;
             var p = new PlayerState { Name = name };
             CardDef warlordCard = null;
-            CardDef defenceCard = null;      // 防御卡 —— 进**手牌**，不进牌库（见下）
+            CardDef defenceCard = null;      // 防御卡 —— 进**手牌**（由调用方发），不进牌库（见下）
 
             if (deck != null)
             {
@@ -450,7 +527,7 @@ namespace RuleEngine
             }
             p.Board[BoardSpec.WarlordSlot] = p.Warlord;
 
-            // ---- 防御卡：**开局就在手里**（2026-09-13 第三十三轮；2026-09-26 改成只给后手）----
+            // ---- 防御卡：**后手的那一张**（2026-09-13 第三十三轮；2026-09-26 改成只给后手）----
             // 规则书 `:105`「后手（防守方）可打出的特殊战术」· `:121`「**后手**取得防御卡
             // （**抽牌后置入起手牌**）」 —— 它不是抽来的，所以**不参与洗牌、也不进牌库**。
             // 🔴 **2026-09-26 更正**：原来这里写着「两处我们挑的」，其中**①**已经改掉 ——
@@ -461,17 +538,192 @@ namespace RuleEngine
             //   用户 2026-09-26 原话：「防御卡的意义就是当玩家后手的时候的补偿……**先手没有防御卡的**」。
             //   判据：规则书 `:105`/`:121` + 反编译 `BattleManager__AddGoesSecondCardToDeck.c:154-166`
             //   （只有 `playerGoesFirst == false` 那一方拿）。
-            // ② **放在换牌之前**（这条**仍然是我们挑的**）：规则书说「抽牌后置入」，我们是在换牌阶段
-            //   **之前**就给了。为此 `Mulligan` 里加了一条「防御卡不许换掉」——否则会被换走，
-            //   而换牌发生在「置入」之前是原版没有的状态。
-            if (getsDefenceCard && defenceCard != null) p.Hand.Add(ctx.NewInstance(defenceCard));
+            // 🔴 **2026-10-08（`D28` 施工单 A）：② 也不成立了 —— 「放在换牌之前」已按原版改掉。**
+            //   原版这一步在 `BattleManager.StartBattlePhase` 里（`_StartBattlePhase_d__334__MoveNext.c:172`
+            //   → `BattleManager__AddGoesSecondCardToDeck.c:184` → `PlayerHand.AddNewCardToHand`），
+            //   而 `StartBattlePhase` 由 `_FinishMulliganFinalPhase_d__351__MoveNext.c:233` 在**换牌四步
+            //   全做完之后**才发起 ⇒ **换牌阶段里这张卡还没进手牌**。
+            //   为那条错误时机加的 `Mulligan`「防御卡不许换掉」守卫**一并删掉**了（它没有要挡的东西了）。
+            //   ⇒ 本函数**只分流**（`defenceCardOut`），**发牌由调用方按时机做**：
+            //     换牌阶段不开 ⇒ `NewBattle` 当场发；开着 ⇒ `EndMulligan` 发（见 `PendingDefence`）。
+            // 🔴 🆕 **2026-10-19（`A1070`）**：电脑侧**不改这一段** —— 分流照旧（那张牌不进牌库），
+            //   只是发牌时 `GoesSecondCard` 会**丢掉它**、改用「阵营防御池随机」或「督军自带」
+            //   （原版电脑侧恒拿不到卡组那张）。⛔ 别在这里按 bot 分支去改 `defenceCard`：
+            //   这里读到的 `PlayMode` 还是默认档（入口窗在 `NewBattle` **之后**才落，`BattleDriver.cs:2774`）。
+            defenceCardOut = getsDefenceCard ? defenceCard : null;
             // 🔴 **2026-09-29 补的（原来这里是【静默】丢掉的）**：先手那一方拿到的防御卡**直接没了**，
             //   一句日志都没有 —— 而「不许静默失败」是本项目的红线。现在如实打出来。
             //   ⚠️ 走 `Debug.Log` 而不是 `ctx.Log`：后者会进**对局内的战斗日志面板**，玩家看这个没意义。
-            else if (defenceCard != null)
+            if (defenceCard != null && !getsDefenceCard)
                 UnityEngine.Debug.Log($"[RuleEngine] {p.Name} 是**先手** ⇒ 不发防御卡（原版：防御卡是后手补偿）"
                                     + $"—— 卡组里那张「{defenceCard.Name}」这一局用不上（**这是原版行为**，不是丢了）");
             return p;
+        }
+
+        /// <summary>
+        /// 🔴 🆕 **2026-10-08（`D28` 施工单 A）：`BuildPlayer` 挑出来的那张防御卡，在换牌阶段
+        /// 走完之前先寄在这儿。**
+        ///
+        /// **为什么需要这张表**：原版把它交给后手的时机是 `StartBattlePhase` 里的
+        /// `AddGoesSecondCardToDeck`（`_StartBattlePhase_d__334__MoveNext.c:172` →
+        /// `BattleManager__AddGoesSecondCardToDeck.c:184`），而这一步排在**换牌全部做完之后**
+        /// （`_FinishMulliganFinalPhase_d__351__MoveNext.c:107/118/128/165` → `:233`）。
+        /// 换牌阶段开着时，`NewBattle` 与 `EndMulligan` 之间隔着**玩家的一次交互** ⇒ 那张卡得**存一下**。
+        /// 换牌阶段不开 ⇒ 当场就发，**不进这张表**（老调用方与自检的行为逐字不变）。
+        ///
+        /// ⚠️ **判据只此一处**：`PendingDefence` 只在 `NewBattle` 写、只在 `EndMulligan` 读并删。
+        /// ⚠️ **键是 `ctx` 引用、只按 `ctx` 查**（不遍历 ⇒ 字典顺序不影响任何结果，对局仍可复现）。
+        ///    用 `ConditionalWeakTable` 是为了**不把 `ctx` 钉住**：普通 `Dictionary` 会漏 ——
+        ///    「开了换牌阶段却没调 `EndMulligan`」的对局（自检里那种用例不少）会永远留在表里。
+        /// ⚠️ 值 = `CardDef[2]`（下标即座位号；只**后手**那一格非 null —— `getsDefenceCard` 两边互斥）。
+        /// 🔴 🆕 **2026-10-19（`A1070`）**：这里存的是**卡组列表里分流出来的**那张。
+        ///    玩家侧发的就是它；**电脑侧发牌时会丢掉它**、改由 <see cref="GoesSecondCard"/> 现取
+        ///    （原版电脑侧恒拿不到「卡组自带」那条）⇒ 电脑那一格在这里只是**占位**。
+        /// </summary>
+        static readonly System.Runtime.CompilerServices.ConditionalWeakTable<BattleContext, CardDef[]>
+            PendingDefence = new System.Runtime.CompilerServices.ConditionalWeakTable<BattleContext, CardDef[]>();
+
+        /// <summary>
+        /// 🔴 🆕 **2026-10-08（`D28` 施工单 A）：把后手那张防御卡放进手牌**（原版
+        /// `BattleManager__AddGoesSecondCardToDeck.c:184 PlayerHand.AddNewCardToHand(...)`）。
+        ///
+        /// **调用点只有两个**（各对应原版那一步的两条来路）：
+        ///   · `NewBattle` —— 换牌阶段**不开**时（原版的 `StartBattlePhase` 紧接着空换牌发生）；
+        ///   · `EndMulligan` —— 换牌阶段开着时（换牌做完 ⇒ `StartBattlePhase`）。
+        ///
+        /// ⚠️ **幂等**：手里已经有 `defence` 卡就不再补 —— 面板那条路（`SetDefensiveCard`）可能**先**跑
+        ///    （联机乱序时），原版那两条来路也**不会同时给两张**。⚠️ 跳过时**出声**（不许静默失败）。
+        /// ⚠️ **进手牌就调 `SetupCardInHand`**（`A885` ② 的口径：原版每一个进手牌入口都调它）。
+        /// 🔴 🆕 **2026-10-19（`A1070`）：这张卡「从哪来」不在这里判、也不在 `BuildPlayer` 里判 ——
+        ///    走 <see cref="GoesSecondCard"/>（判据只那一处）。** 原因是原版要按 `matchType` 分档，
+        ///    而 `ctx.PlayMode` 是**入口窗在 `NewBattle` 之后**才落的（`BattleDriver.cs:2774`）
+        ///    ⇒ 在 `NewBattle` 里算会一律拿到默认那档。所以本函数收的是
+        ///    「**卡组里分流出来的**那张」（`deckCard`），真正发出去的那张在下面现取。
+        /// </summary>
+        /// <param name="ctx">对局。</param>
+        /// <param name="seat">哪个座位（`0`/`1`）。</param>
+        /// <param name="deckCard">后手方卡组列表里分流出来的那张（`BuildPlayer` 的 `defenceCardOut`，
+        /// 没有 = null）。⚠️ **电脑侧不读它**（原版恒空，见 <see cref="GoesSecondCard"/>），
+        /// 但它的分流仍然有效 —— 那张牌照旧**不进牌库**。</param>
+        static void GrantDefenceCard(BattleContext ctx, int seat, CardDef deckCard)
+        {
+            if (ctx == null || seat < 0 || seat > 1) return;
+            var ps = ctx.Players[seat];
+            if (ps == null) return;
+            for (int i = 0; i < ps.Hand.Count; i++)
+                if (ps.Hand[i] != null && ps.Hand[i].Card != null && ps.Hand[i].Card.Type == "defence")
+                {
+                    ctx.Log($"{ps.Name} 手里已经有一张防御卡「{ps.Hand[i].Card.Name}」"
+                          + $"（面板上选的那张）⇒ **不再补发**"
+                          + $"（卡组里分流出来的那张「{deckCard?.Name}」）");
+                    return;
+                }
+            // ⚠️ 摆在幂等守卫**之后**：否则「面板已经选过」的对局会白抽一次 `ctx.Rng`
+            //    （会挪动之后所有随机数的位置 —— 对局可复现的旁支，没必要动）。
+            var card = GoesSecondCard(ctx, seat, deckCard);
+            if (card == null) return;      // 来源那条路已经**出过声**（不许静默失败）
+            var inst = ctx.NewInstance(card);
+            ps.Hand.Add(inst);
+            SetupCardInHand(ctx, seat, inst);
+            ctx.Log($"后手（P{seat + 1}）取得防御卡「{card.Name}」—— 进手牌、不进牌库"
+                  + "（原版 `StartBattlePhase` → `AddGoesSecondCardToDeck` → `AddNewCardToHand`）");
+        }
+
+        /// <summary>🔴 🆕 **2026-10-19（`A1070`）：后手那一方这一局该拿哪张防御卡 —— 判据只此一处**
+        /// （原版 `BattleManager.AddGoesSecondCardToDeck`；逐段控制流见
+        /// `资料/普查产出_第五会话/查证_防御卡电脑随机.md` §二）。
+        ///
+        /// 原版**三条来路**（求值顺序 = ① → ③，然后 ② **覆盖**前面算出来的那张）：
+        ///   · **①** 后手方**卡组自带**那张（`DeckAndWarlordData.defensiveCard +0x20`，
+        ///     `…AddGoesSecondCardToDeck.c:28-48`）—— **玩家侧就是它**（= 玩家在卡组编辑器里挑的那张）；
+        ///   · **③** 电脑后手、卡组那张为空 ⇒ 该督军自己的 `goSecondCardInHand(+0x150)`（`:49-96`，
+        ///     还挂着两闸：`IsAgainstAI()` **且**玩家收藏里有同玩家阵营的 `spellType=210` 卡）；
+        ///   · **②** `matchType ∈ {50,80,110,120}` ⇒ **后手方阵营**的防御池随机一张（`:98-153`），
+        ///     **它会覆盖 ③**（唯一能盖回来的是 `:154-167` 那个「覆盖回玩家那张」的守卫，
+        ///     而它**只对玩家后手成立**）。
+        ///
+        /// 🔴 **电脑侧恒拿不到 ①**（两条独立反汇编硬证）：`DeckAndWarlordData..ctor`（VA `0x1807280A0`）
+        ///   全程不写 `+0x20`；`CardDeck..ctor(PrebuiltDeck,List)`（VA `0x1809273D0`）→
+        ///   `DeckBasicSetup`（VA `0x1809251B0`）第 5 实参 `R9=0` 写进 `CardDeck+0x48`
+        ///   ⇒ **预组牌的 `defensiveCard` 就是 null**。⇒ **电脑只有 ②③**，`deckCard` 一律丢
+        ///   （改之前我们**两边都从卡组列表取第一张 `Type=="defence"`** ⇒ 电脑侧是一条真偏离）。
+        ///
+        /// ⚠️ **这一处是「后手那张卡从哪来」的唯一判据** —— `GrantDefenceCard` 只调它，
+        ///    ⛔ 别在别处再分一次档，也⛔ 别把它挪回 `BuildPlayer`（那里读不到入口窗落的 `PlayMode`）。
+        /// </summary>
+        /// <param name="ctx">对局。</param>
+        /// <param name="seat">哪个座位（`0`/`1`；不是后手 ⇒ 直接 null）。</param>
+        /// <param name="deckCard">后手方卡组列表里分流出来的那张（没有 = null）。
+        /// ⚠️ 电脑侧**不读它**，但它的分流仍然有效（那张牌照旧不进牌库）。</param>
+        static CardDef GoesSecondCard(BattleContext ctx, int seat, CardDef deckCard)
+        {
+            if (ctx == null || seat < 0 || seat > 1 || seat != ctx.SecondSeat) return null;
+
+            // ---- ① 玩家侧：卡组自带那张（与改前**逐字等价** —— 改前两侧都走这一支，玩家侧本来就对）----
+            if (!ctx.IsBotSeat(seat)) return deckCard;
+
+            // ---- 电脑侧：① 恒空 ⇒ 只剩 ②③ ----
+            MatchType t = MatchTypes.Effective(ctx);      // 拿**翻转后**的号比（`SetBotOpponent` 那一次）
+            if (deckCard != null)
+                UnityEngine.Debug.Log($"[RuleEngine] 电脑（P{seat + 1}）**不读卡组里那张防御卡**"
+                                    + $"「{deckCard.Name}」—— 原版电脑侧恒拿不到「卡组自带」那条"
+                                    + "（预组牌的 `DeckAndWarlordData.defensiveCard` 恒 null："
+                                    + "`DeckBasicSetup` 第 5 实参 `R9=0` 写进 `CardDeck+0x48`）");
+            if (MatchTypes.UsesDefencePool(t))
+                return RandomSecondSeatDefence(ctx, seat, t);
+
+            // ---- ③ 其余 AI 模式：督军自己的 `goSecondCardInHand`(+0x150) ----
+            //  🔴 **我们没这份数据** —— 本地全仓零命中（搜过：`goSecondCardInHand` / `startingCardInHand`
+            //     → `Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json` 无此字段 ·
+            //       `Unity/数据/游戏数据/**` 无命中 · `d:/2/新解包资源/assets_full/**` 只有反编译与
+            //       文档命中），见 `资料/普查产出_第五会话/查证_防御卡电脑随机.md` §六·2。
+            //  ⇒ **如实出声、不给卡**；⛔ **不许静默换一张别的**（那就是拿猜想着规则 —— 红线）。
+            UnityEngine.Debug.LogWarning($"[RuleEngine] 电脑（P{seat + 1}）后手那张防御卡**发不出来**："
+                + $"原版这一档 `matchType = {(int)t}`（{t}）不在 `{{50,80,110,120}}` 里 ⇒ 该读"
+                + "**督军自己的 `goSecondCardInHand`(+0x150)**，而**我们本地没有这份数据**（全仓零命中）"
+                + " ⇒ 这一局电脑**没有防御卡**。⛔ 不静默换一张别的"
+                + "（判据 → `资料/普查产出_第五会话/查证_防御卡电脑随机.md` §五/§六）");
+            return null;
+        }
+
+        /// <summary>🔴 🆕 **2026-10-19（`A1070`）：原版 ② 那一支** —— 从**后手那一方阵营**的防御池里
+        /// 随机抽一张（原版 `EnviromentalEffectCardsSO.DefensiveCards`，**每阵营 3 张**；
+        /// `BattleManager__AddGoesSecondCardToDeck.c:145-153`：`uVar9 = list[GetRandomInt(0,count)]`）。
+        ///
+        /// 池子从 `ctx.CardPool`（入口窗建对局时给的全卡池）里按「`Type == "defence"` + **本阵营**」筛 ——
+        /// 与 `DeckBuilder.PickRandomDefence` 同一个筛法（那里也是本阵营）。⚠️ 原版池子挂在 Forge 事件上
+        /// （`LiveOpsManager.GetHandler&lt;ForgeHandler&gt;` 找不到本阵营那一档就返回空表、一张都不给）——
+        /// 我们**没有这条**（查不到就不编）⇒ 池空时**出声、不给卡**。
+        ///
+        /// ⚠️ 随机源 = **`ctx.Rng`**（工程红线：引擎里只用 `System.Random`，⛔ 不用 `UnityEngine.Random`）。
+        /// ⚠️ 先按 `Id` 排序再抽 —— 与 `DeckBuilder.PickRandomDefence` 同一条「可复现」纪律
+        ///    （卡池顺序哪天变了，同一副牌也不会抽到另一张）。
+        /// </summary>
+        static CardDef RandomSecondSeatDefence(BattleContext ctx, int seat, MatchType t)
+        {
+            var st = ctx.Players[seat];
+            var w = st == null ? null : st.Warlord;
+            string faction = (w == null || w.Card == null) ? null : w.Card.Faction;
+            var pool = new List<CardDef>();
+            if (ctx.CardPool != null)
+                foreach (var c in ctx.CardPool)
+                    if (c != null && c.Type == "defence" && DeckRules.SameFaction(c.Faction, faction))
+                        pool.Add(c);
+            if (pool.Count == 0)
+            {
+                UnityEngine.Debug.LogWarning($"[RuleEngine] 电脑（P{seat + 1}）后手那张防御卡**发不出来**："
+                    + $"`matchType = {(int)t}`（{t}）这一档要走「后手方阵营（`{faction}`）防御池随机一张」，"
+                    + "而**池子是空的**（`ctx.CardPool` 里没有这个阵营的 `defence` 卡）"
+                    + " ⇒ 这一局电脑没有防御卡。⛔ 不静默换一张别的");
+                return null;
+            }
+            pool.Sort((a, b) => string.CompareOrdinal(a.Id, b.Id));
+            var pick = pool[ctx.Rng.Next(pool.Count)];
+            UnityEngine.Debug.Log($"[RuleEngine] 电脑（P{seat + 1}）的防御卡：**不从卡组取** ⇒ 照原版从"
+                                + $"「{faction}」阵营防御池（{pool.Count} 张）随机抽到「{pick.Name}」"
+                                + $"（`matchType = {(int)t}` ∈ {{50,80,110,120}}；"
+                                + "原版 `AddGoesSecondCardToDeck.c:145-153`）");
+            return pick;
         }
 
         /// <summary>
@@ -936,10 +1188,33 @@ namespace RuleEngine
             // 「还」= 把它从我的 `Board[]` 挪回原主的 `Board[]`（归属就是数组，见
             // `BattleContext.TempControl`）。**位置**：原版那条 `GetNextSlotWithoutDisplacing`
             // （人少的一侧的最外一格、平手走右）—— 见下面 2026-10-01 那条注释。
-            // ⚠️ 三条都是**我们挑的**（原版那个协程没导出，见 `TempControl` 的注释）：
-            //    ① 排在「限时增益到期」**之后**；② 还回去之后**置 `Exhausted`**（它这回合替对面动过）；
-            //    ③ 原主那边**没空格**时**不还**（留在抢它的人那儿）并如实打日志 ——
-            //      悄悄把它销毁/塞进弃牌堆都更糟。
+            // ⚠️ 三条里**只有 ① 仍是我们挑的**（2026-10-08 `D28` 施工单 B/C 逐条定案后订正，见各条）：
+            //    ① 排在「限时增益到期」**之后** —— 原版的**归还**那一段没追到（见 `TempControl` 的注释）
+            //       ⇒ 次序无判据，保持不动；
+            //    ② 还回去之后**置召唤病** —— 🔴 **这条现在是【照原版】不是我们挑的**：
+            //       原版凡是**转移归属**都当场 `ResetSummonSickness`（抢：`_ResolveStealMinion_d__551__MoveNext.c:119`，
+            //       紧跟 `:81-82 MoveMinionIntoSlot`；换：`_ResolveExchangeMinion_d__552:319/:323`）
+            //       —— 而那个函数的**名字会骗人**：它把 `card+0x58` 写成 **1**（`CardScript__ResetSummonSickness.c:8`），
+            //       而同一个位置就是 `EntityScript.get/set_summonSickness`（`+0x58`），
+            //       `CardScript__OnTurnStart.c:85` 写 **0**（= 回合开始解疲劳）⇒ **1 = 有召唤病 = 不能动**。
+            //       （`displaySummonSickness` = `+0x58 && !fast(0x28=40) && !flank(0x1cc=460)`
+            //         ⇒ 带 Fast/Flank 的不算病 —— 正好对上卡面那句 `and give it Fast`。）
+            //       ⇒ **转回来 = 重新入场 = 召唤病**，正是这一行做的事。⛔ 别再按「我们挑的」删掉它。
+            //    🔴 **2026-10-18 订正（`A1093`，铁律 5）**：原来这一行写的是 `u.Exhausted = true;`
+            //       （**无条件**）—— 那是「只做了重算那一半、没有 `+0x58` 那个字段」的写法。
+            //       现在按原版那两条语句走（写 `+0x58` → 再按新值重算能不能动），落点收在
+            //       <see cref="ResetSummonSickness"/> **一处**（与抢的那一处**同一个调用**）。
+            //       ⚠️ **它改了一个可观测值**：带 `fast` / `flank` 的单位还回去之后
+            //       **仍能动**（原来被这句无条件置成疲劳）。判据 = `displaySummonSickness`
+            //       要 `!fast && !flank` ⇒ 有 `fast` 时那位**是假**、`canAct` 为真。
+            //       ⚠️ 实践中那一格马上会被 `BeginTurn` 的 `RefreshForNewTurn` 清掉
+            //       （还回去的下一拍就是原主的回合开始）—— 但自检是**当场量的**，所以它看得见。
+            //    ③ 原主那边**没空格**时**不还**（留在抢它的人那儿）并如实打日志 —— 原版**在「抢」的入口**
+            //       就判过同一条（接收方的棋盘要有位：`_ResolveStealMinion_d__551:35 MinionManager.IsAvailableSlot(mm,1)`
+            //       → 假则 `:41 LogWarning` + `:107 FinishResolvingAction`，**整个转移不作数**）——
+            //       我们**抢**的那一侧已有等价判据（`EffectResolver.DoTakeControl`：落点 −1 ⇒ 抢不过来 +
+            //       记 `unresolved`）；**归还**这一侧是不是同一条，原版那条链仍未追到（同上，判据不足）
+            //       ⇒ 行为保持不动、如实出声。
             if (ctx.TempControls.Count > 0)
             {
                 int back = 0;
@@ -961,15 +1236,20 @@ namespace RuleEngine
                     to = BoardSlots.NextWithoutDisplacing(ctx.Players[tc.Owner]);
                     if (to < 0)
                     {
-                        ctx.Log($"⚠️ {ctx.Players[tc.Owner].Name} 的部署位也满了 —— **{u.Name} 还不回去**，"
-                              + "暂时留在抢它的人那儿（本版没做「放不下怎么办」）");
+                        // ⚠️ **措辞照原版那一条**（2026-10-08 `D28` 施工单 C）：原版判「接不走」时是
+                        //    `CustomDebug.LogWarning(...)` + **整个转移不作数**（`_ResolveStealMinion_d__551:41/:107`），
+                        //    不是「先把人挪过去、回头再说」。我们这一侧（归还）的行为保持原样、
+                        //    **只是把它说清楚**：这一格没接住 ⇒ 人留在抢它的人那儿。
+                        ctx.Log($"⚠️ {ctx.Players[tc.Owner].Name} 的部署位也满了 —— **{u.Name} 还不回去**"
+                              + "（转移要接收方有空位，原版 `MinionManager.IsAvailableSlot` 那一判）"
+                              + "，暂时留在抢它的人那儿（本版没做「放不下怎么办」）");
                         continue;
                     }
 
                     // 从「抢它的人」那边摘掉 = 原版 `RemoveMinion` ⇒ **要补位**
                     BoardSlots.RemoveAt(ctx.Players[nowP], nowSlot);
                     ctx.Players[tc.Owner].Board[to] = u;    // `to` 就是 `NextWithoutDisplacing` 给的最外一格
-                    u.Exhausted = true;                             // 见上面 ②
+                    ResetSummonSickness(u);                 // 见上面 ②（原版：转移归属 ⇒ 重新入场 ⇒ 召唤病）
                     ctx.Log($"{u.Name} 归还给 {ctx.Players[tc.Owner].Name}（{to} 号格）——「本回合控制」到期");
                     back++;
                 }
@@ -987,15 +1267,26 @@ namespace RuleEngine
             //    ③ 在 `ctx.Active` 换边**之前** —— 扫的是**这一方自己的**手牌（见 `SweepEphemeral`）。
             SweepEphemeral(ctx, ctx.Active);
 
-            // 👆 和「本回合限时增益到期」一样，两边场上都要扫 —— 但**摧毁只发生在自己回合结束时**，
-            //    所以下面那一趟只扫**当前行动方**（规则书 `:203`「控制者回合结束时被摧毁」）。
-            DestroyRemnants(ctx, ctx.Active);
-
             // ---- 回合**结束**触发段（规则书回合结构**第 14 步**"End of turn abilities"）----
             // 放在「本回合限时增益到期」**之后**、**能量清零与再生之前** ——
             // 和 `rule_core.gd:2010-2024`（`_expire_temp_buffs(true)` → `_at_turn_effects("end")`
             // → `energy = 0` → Regeneration）的相对次序一致。
             ResolveAtTurn(ctx, "turn_end");
+
+            // ---- 残骸的回合末摧毁（规则书 `:203`）---------------------------------
+            // 👆 和「本回合限时增益到期」一样，两边场上都要扫 —— 但**摧毁只发生在自己回合结束时**，
+            //    所以下面那一趟只扫**当前行动方**（规则书 `:203`「控制者回合结束时被摧毁」）。
+            // 🔴 **2026-10-08（`D28` 施工单 F）：位置挪到 `ResolveAtTurn("turn_end")` 【之后】**
+            //    （改之前它在**前面**）。判据 = 原版**同一个逐卡方法体**里的次序：
+            //    `CardScript__OnTurnEnd.c:72 OnTrigger(0x28=40 TurnEnd)`（还有 `:64`/`:80` 那两条
+            //    43/45 的触发）**在前**，`:117 SupportMethods__ShouldRemnantDestroyOnTurnEnd` +
+            //    `BattleManager__DestroyUnit` **在后** ⇒ 残骸的摧毁判定发生在回合末触发**之后**。
+            //    行为上的意义：**回合末触发还能把它翻回来**（`reanimate` 那类）——
+            //    翻回来之后它就不是残骸了，下面这一趟自然扫不到它。
+            //    本工程自检钉住了这件事：`RuleEngineTest.TestRemnant` 的 ④c。
+            // ⚠️ 放在 `ctx.IsOver` 那个早退**之前**：与改动前「它在触发段之前跑」的覆盖面保持一致
+            //    （对局已结束时也照扫，谁的账都不欠）。
+            DestroyRemnants(ctx, ctx.Active);
             if (ctx.IsOver) return ctx.Winner;
 
             // ---- 再生 X：**每回合结束时**治疗 X（规则书 :201「每回合结束时治疗 X」）----
@@ -1502,6 +1793,51 @@ namespace RuleEngine
             if (u == null) return;
             u.Exhausted = !HasDeployExemption(u);
             u.CannotAttackThisTurn = !HasAttackDeployExemption(u);
+        }
+
+        /// <summary>
+        /// 🆕 **2026-10-18（`A1093`）：「转移归属 ⇒ 重新入场 ⇒ 召唤病」** ——
+        /// **写 `+0x58` 那一位**（<see cref="UnitState.SummonSickness"/>），**再按新值把
+        /// 「能不能动」重算一遍**。判据 = 原版 `CardScript.ResetSummonSickness` 的**两条语句**
+        /// （现读 `d:/2/tools/decomp_full/CardScript__ResetSummonSickness.c`，**方法体完整**）：
+        ///   · `:8` `*(undefined1 *)(param_1 + 0x58) = 1;` —— **无条件**写召唤病；
+        ///   · `:19-22` 若 `+0x258`（`BattleManager`）非空，则
+        ///     `CardScript__ActivateMinion(param_1, IsPlayerTurn(mgr) == *(char *)(param_1 + 0x40))`
+        ///     —— **紧接着**按新值重算：`ActivateMinion.c:39-42` 是
+        ///     `canAct = canAttack = !displaySummonSickness`，而
+        ///     `EntityScript__get_displaySummonSickness.c:7-11` = `+0x58 && !fast(0x28) && !flank(0x1cc)`。
+        ///
+        /// ⇒ 本方法 = 那两条语句**在 `canAct` 那一半上的和**。
+        ///
+        /// 🔴 **`canAct` 的算式仍然只有一处**：`!` <see cref="HasDeployExemption"/> ——
+        ///    与 <see cref="ApplyDeployTurnState"/> 和 `UnitState` 的构造函数**同一个谓词**。
+        ///    ⛔ 别在这儿另抄一份关键词表（`CLAUDE.md` §三「两处写同一条规则 = 迟早不一致」）。
+        ///
+        /// 🔴 **⛔ 这里【不】写 `CannotAttackThisTurn`（= 原版 `canAttack` `+0x23C`）**，
+        ///    尽管原版那一次 `ActivateMinion` 是**两个位一起写**的。两条理由，都实测过：
+        ///      · `EffectResolver.DoTakeControl` 那一处，卡面尾句 `and give it Fast` 是**本 op
+        ///        之后的第二条 op**（F7 实测解析 = `[takecontrol(tail="give it fast"),
+        ///        give(payload="fast")]`，`ResolveOps` **按序**跑）⇒ 走到那一刻 `Has("fast")`
+        ///        仍是 **false**；写下去会得到「**能动、但不能攻击**」⇒ **把
+        ///        `GSC_Telephatic_Domination` 这张已发布的卡打坏**（F7 当天实测红）。
+        ///      · 我们的 `Core/` **没有「本机 / 对手」这个概念**，原版那个
+        ///        `(card+0x40 == param_2) && (card+0x228 == 2)` 守卫**没有对象**可复刻
+        ///        （同 <see cref="ApplyDeployTurnState"/> 上面 `<see cref="HasAttackDeployExemption"/>`
+        ///        那一段与 `UnitState.SyncAttackTypeAfterStatChange` 的说法）。
+        ///    ⇒ **如实标着：这是一处已知的、刻意的偏离**，不是「原版也这样」。
+        ///
+        /// ⚠️ **只在「转移归属」的两个点调**（抢 / 回合末归还）—— 原版那个函数名下的调用点
+        ///    正好三处（抢 `_ResolveStealMinion_d__551__MoveNext.c:119` · 换
+        ///    `_ResolveExchangeMinion_d__552:319/:323` · 残骸翻回来
+        ///    `__c__DisplayClass555_0___ResolveTransformFromRemnant_b__0.c:14`；
+        ///    换那一族我们没做）。⛔ **别拿它当「部署入口」用** —— 普通部署走
+        ///    <see cref="ApplyDeployTurnState"/>。
+        /// </summary>
+        public static void ResetSummonSickness(UnitState u)
+        {
+            if (u == null) return;
+            u.SummonSickness = true;              // 原版 `ResetSummonSickness.c:8`
+            u.Exhausted = !HasDeployExemption(u); // 原版同方法 `:21` 转调 `ActivateMinion` 的那一半
         }
 
         /// <summary>
@@ -2841,11 +3177,6 @@ namespace RuleEngine
                     BroadcastWhen(ctx, WhenEventKind.Kills, tgtP, target.Card, target, actor: attacker);
                 }
 
-                // Strike（猛击）：「攻击后触发能力」—— 打没打死都算。放在斩杀之后：
-                // 先结算「干掉了」这件更具体的事，再结算「攻击过了」这件泛化的事
-                if (attacker.IsAlive && ctx.Players[p].Board[atkSlot] == attacker)
-                    FireTriggerAt(ctx, attacker, KeywordTable.Strike, p, atkSlot);
-
                 // ---- 🆕 **「被这一下打到的那个」**（2026-09-14 A5 批 3）----
                 //   卡面：`Destroy any troop attacked by this unit`（`Venomthrope`）·
                 //   `Destroy any enemy troop with Armour attacked by this unit`（`Blastmaster Noise Marine`）·
@@ -2853,18 +3184,19 @@ namespace RuleEngine
                 //   `Stun enemies attacked`（`Stikkbomb Boy`）· `Stun troops attacked.`（`Snakebite Grot`）·
                 //   `Destroys any enemy troop with Hunt Mark attacked.`（`Arjac Rockfist`）—— **全池 6 张**。
                 //
-                //   **原版出处**：`AbilityTrigger.UnitAttack = 50`（`decomp_out/CardScript__ResolveUnitAttacked.c:30`
+                //   **原版出处**：`AbilityTrigger.UnitAttack = 50`（`CardScript__ResolveUnitAttacked.c:28-30`
                 //   传 `0x32`）—— 和 Slay / Strike / Mob / Regiment **在同一个函数里**（这也是
-                //   「引擎既有的 Mob/Regiment 切分」被独立印证的地方）。所以触发点就排在这一族旁边。
-                //   ⚠️ **位置（紧接 Strike 之后、Mob / Regiment 之前）是「我们挑的」**：那一支里
-                //      这几条的先后在反编译里看不到（和上面 Mob 那条注释同一个理由）。
-                //   ⚠️ **「伤害之前还是之后」有分歧，如实标着**：两路子代理独立取证给出了相反的顺序 ——
-                //      EC 那路读 `CardScript__ResolveUnitAttacked` 判「伤害之后」；Leviathan 那路读
-                //      `decomp_out2/BattleManager._ResolveAttack_d__438__MoveNext.c:991` 广播、
-                //      `:1002` 才 `ReceiveDamage`，判「**伤害之前**」。**没有实况可判**（跑原版
-                //      打不出这一族）。这里**沿用本块既有的近似**（Slay/Strike/Mob/Regiment 全都排在
-                //      伤害之后），理由：改动面最小、且与本块其余五条**同一时点**，
-                //      不会出现「同一支函数里两条排序不同」的新歧义。
+                //   「引擎既有的 Mob/Regiment 切分」被独立印证的地方）。
+                //   🔴 **2026-10-08（`D28` 施工单 D）：位置改成照原版 —— 它排在 `Strike` / `Mob` /
+                //      `Regiment` **之前**（`Slay` 仍在它前面 —— 120 不在这支函数里，先后无判据）。
+                //     判据（`CardScript__ResolveUnitAttacked.c` 同一函数逐句读下来的次序）：
+                //       `:28-30 OnTrigger(0x32=50 UnitAttack)` → `:99-101 OnTrigger(0x244=580 Strike)`
+                //       → `:131-146 if(param_4==1){Mob} else if(param_4==2){Regiment}`。
+                //     ⛔ **别再把这一块排到 `Strike` 后面**（改之前的形状），那是一条**与原版相反**的次序。
+                //   ⚠️ **「伤害之前还是之后」仍未定案（不在本波）**：原版的一条入口里
+                //      `BattleManager._ResolveAttack_d__438__MoveNext.c:988 BroadcastUnitAttacked` 早于
+                //      `:999 ReceiveDamage`（= 伤害之前），但那支协程**没逐行走完**（另一条入口未定）
+                //      ⇒ 本块与伤害的先后**沿用既有近似**（仍在伤害之后），只改了**块内**次序。
                 //   ⚠️ **`seed: target` = 这一下的被打者** —— 正文里的「那个被打的」全靠它
                 //      （代词走 `LastTargets`，`AttackedBySelf` 也走那儿，见 `ResolveTargets`）。
                 if (attacker.IsAlive && ctx.Players[p].Board[atkSlot] == attacker)
@@ -2890,12 +3222,23 @@ namespace RuleEngine
                     }
                 }
 
+                // Strike（猛击）：「攻击后触发能力」—— 打没打死都算。放在斩杀之后：
+                // 先结算「干掉了」这件更具体的事，再结算「攻击过了」这件泛化的事
+                // 🔴 **2026-10-08（`D28` 施工单 D）**：它现在排在 `UnitAttack(50)` **之后**（见上面那一段）——
+                //   原版同一函数里的次序是 `50 → 580`（`ResolveUnitAttacked.c:28-30` vs `:99-101`）。
+                if (attacker.IsAlive && ctx.Players[p].Board[atkSlot] == attacker)
+                    FireTriggerAt(ctx, attacker, KeywordTable.Strike, p, atkSlot);
+
                 // 群体（Mob）：「**近战**攻击后触发」（规则书 :193）—— **远程不算**，
                 // 这是它和 Strike 唯一的差别（原版 `CardScript__ResolveUnitAttacked` 判
                 // `param_4 == AttackTypes.Melee`）。Goff 一族 15 张卡用它。
-                // ⚠️ **排在 Slay / Strike 之后是「我们挑的」**：原版这三个都长在同一个
-                //    `ResolveUnitAttacked` 里，**先后顺序反编译里看不到**。取「更具体的先」——
-                //    和 Slay 先于 Strike 是同一条理由。
+                // 🔴 **2026-10-08（`D28` 施工单 D）就地订正**：这里原来写着「排在 Slay / Strike 之后是
+                //    **我们挑的**：这三个都长在同一个 `ResolveUnitAttacked` 里，先后顺序反编译里看不到」——
+                //    **后半句不成立**：次序**看得到**，就是 `OnTrigger(50)`（`:28-30`）→ `OnTrigger(580)`
+                //    （`:99-101`）→ `param_4==1 → OnTrigger(300 Mob)`（`:131-146`，`:131` 那个 `if/else`
+                //    还与 `Regiment` **互斥同点**）⇒ **Mob/Regiment 排在 Strike 之后是照原版**，
+                //    不是我们挑的。`Slay(120)` 确实不在这支里（它走 `BattleManager.AddTriggerSlay`
+                //    ← `AbilityLogic.PlayAbility`）⇒ 它与这三条的先后仍无判据，位置保持不动。
                 // ⚠️ **原版那一支 `BroadcastUnitMob`（通知除攻击者外的所有卡，触发 645）我们没有照抄**：
                 //    实测听众只有一张，而它要的「再触发一次」原版**没有通用原语**。见 `CardDef.Mob` 的注释。
                 //    ✅ 2026-09-16 起那张听众的行为**做掉了**（下面的 `TakeExtraTrigger` 那一段）。
@@ -2936,8 +3279,11 @@ namespace RuleEngine
         ///    **预测**与**实际结算**不可能分叉（本工程红线：两处写同一条规则 = 迟早不一致）。
         ///    谁要用这个公式（目前：`EffectResolver.PreferKillable`），**读这里，别抄第二份**。
         ///
-        /// 四道（顺序照原版，逐条出处见 <see cref="ApplyDamage"/> 的注释）：
-        ///   护盾挡下 → 0 · 无敌 → 0 · **易伤** +X · **护甲** `max(1, …)`。
+        /// 五道（顺序照原版，逐条出处见 <see cref="ApplyDamage"/> 的注释）：
+        ///   护盾挡下 → 0 · **闪避**挡下 → 0 · 无敌 → 0 · **易伤** +X · **护甲** `max(1, …)`。
+        ///   ⚠️ 盾 / 闪避 / 无敌三条的**挡下判据在原版是并列的**
+        ///      （`CardScript__GetAdjustedDamage.c:36-48`：`0xf0`/`0x50`/`0x136` 都写进同一个
+        ///      `uVar3 = 1`）⇒ **先判谁后判谁结果一样**，这里只照 `ApplyDamage` 的书写顺序排。
         ///
         /// ⚠️ **不含**星镖 / 哨戒 / 爆裂 / 践踏 —— 那些是同一个攻击里的**其它**伤害段。
         ///    判「能不能打死」时**故意取保守口径**：只算主伤害 ⇒
@@ -2947,6 +3293,10 @@ namespace RuleEngine
         {
             if (u == null) return 0;
             if (u.HasShield) return 0;                  // 盾挡下（并会碎）—— 所以「带盾的」判不出「打得死」
+                                                        // 🔴 `A1106`：`HasShield` 现在是 `Has("shield")` 的派生属性
+                                                        //    ⇒ 与 `SimpleAI.ScoreDamaging`（读关键词）**同一个判据**，
+                                                        //    不会出现「引擎说没盾、AI 说有盾」（见 `UnitState.HasShield`）
+            if (u.Has(KeywordTable.Dodge)) return 0;    // 闪避挡下（并会消耗）—— 与盾**同一条分支**
             if (u.Has("invulnerable")) return 0;        // 无敌完全免疫
             int actual = dmg;
             // **易伤 X**：受到伤害 **+X**（原版 `:4418`）。⚠️ 是加伤，别看成减伤
@@ -2969,12 +3319,243 @@ namespace RuleEngine
             return u != null && u.IsAlive && u.Health - DamageAfterReduction(u, dmg) <= 0;
         }
 
+        // ==================================================================
+        //  🔴 **「这一下会不会打死它」—— 预览用的【逐条】口径**（2026-10-08 `W8b3`）
+        //
+        //  判据（两份原版反编译，逐句读过）：
+        //   · `decomp_full/CardHighlight__ToggleCombatPreviewHighlight.c:37-93` ——
+        //     预览的伤害**不是一个数，是一个 `List<int>`**（外加一条并行的 `List<DamageType>`）。
+        //     填法三条路：
+        //       · **主动技能**（`:42` `param_5 != '\0'`）→ `:86` `EntityScript.GetActiveAbilityDamage`
+        //         → `:88/:91-92` 往表里 **`Add` 一次**（类型 3）⇒ **技能路只有 1 条**；
+        //       · **打出的卡**（`:44-50` 卡型 `+0x94 == 0x14` 且双方 `isPlayer(+0x40)` 不同）
+        //         → `EntityScript.GetThisCardPlayedDamage`（类型 3）；
+        //       · **普通攻击**（`:53` `EntityScript.EnemyReturnsAttack` → `:62` `GetCombatDamageWithType`）
+        //         → 主伤害（类型 4），然后 `:66-81`（高亮方是**防守方**那支）**再追加两条独立条目**：
+        //         `param_2.CurrentShuriken`（**攻击方**的星镖）与 `me.CurrentMarkerlight`
+        //         （**被打方身上**的标记光）—— 各是一条、各有自己的下标。
+        //   · `decomp_full/CardScript__EnoughPendingDamageToDieWithDamageValues.c` —— **逐条**判死：
+        //       `:115-119` `dodge`(240) / `shield`(80) **只在第 0 条**跳过
+        //         （那两个条件都带 `|| iVar11 != 0`）；`invulnerable`(310) **任意条目**都跳过
+        //         （它不在那一组里）。
+        //       `:138-156` `armour(+0xb8) > 0 && dmg > 0 ⇒ dmg = Math.Max(1, dmg − armour)`，
+        //         **每一条各扣一次**。
+        //
+        //  🔴 **和 <see cref="DamageAfterReduction"/>（合计版）的分工，别混、别合并**：
+        //    · 合计版 = **实际结算**那一份（`ApplyDamage` 读它）：把**已经求和的那一个数**
+        //      当成一条来判盾 / 闪避 / 无敌 / 易伤 / 护甲。
+        //    · 下面这几个 = **预览**那一份：照原版**逐条**跑。
+        //    两者在「多条目 + 护盾/闪避 + 护甲」的边界上**会给出不同答案** ——
+        //    那是**照原版来的**（原版判死就是逐条跑的），不是分叉。
+        //    ⛔ **别把 `ApplyDamage` 改成读逐条版**：那会改掉真实伤害的语义
+        //    （结算侧 = 一次 `ReceiveDamage` 一个数；预览侧 = 一张条目表，两者形状本来就不同）。
+        // ==================================================================
+
+        /// <summary>
+        /// **单条目**的伤害 —— 原版 `CardScript__EnoughPendingDamageToDieWithDamageValues.c:115-156`。
+        /// <paramref name="index"/> = 这一条在伤害表里的**下标**（0 起）。
+        ///
+        /// 三条（顺序与出处见上面那段）：
+        ///   ① `invulnerable` —— **任意条目**都跳过（返回 0）；
+        ///   ② `dodge` / `Shield` —— **只在第 0 条**跳过；
+        ///   ③ **护甲** `Max(1, 这一条 − Armour)`，**每一条各扣一次**，
+        ///      且只在这一条**真的有伤害**时才扣（原版 `:138` 那个 `0 < iVar7` 守卫）。
+        ///
+        /// ⚠️ **`dodge` 的沿革（2026-10-08 就地订正，别退回旧说法）**：本方法（`W8b3`）落地时
+        ///    `dodge` 在引擎里**整条都没有**，那时这一份是它的**唯一**落地、且**只在预览这一层**。
+        ///    ✅ **同一天 `A1077` 把结算侧也补上了** —— `DamageAfterReduction` +
+        ///    `ApplyDamage`（与 `Shield` 逐行同形），关键词也登记进了 `KeywordTable`
+        ///    （`Prefixes` + `Implemented`）。⇒ 现在**预览侧与结算侧各有一支**，仍然**是两条路**。
+        ///    ⚠️ **易伤 `vulnerable`** 沿用合计版的口径（`+X`），逐条时= **每一条各加一次**。
+        ///    原版 `:183-205` 那段读 `CurrentVulnerable` 的写法**还没查清**（它是在循环里
+        ///    每次迭代各加一次 `Max(1, vuln − armour)`，与我们的「并进每一条」不是同一形状）
+        ///    ⇒ 如实标着，别当已核实。
+        /// </summary>
+        public static int DamageAfterReductionOne(UnitState u, int dmg, int index)
+        {
+            if (u == null) return 0;
+            // ① 无敌：**任意条目**都跳过（原版 :119 第三个 `HasCurrentTrait(0x136)` 不在 `iVar11 != 0` 那一组里）
+            if (u.Has("invulnerable")) return 0;
+            // ② 闪避 / 护盾：**只在第 0 条**跳过（原版 :115-118 那两个条件都带 `|| iVar11 != 0`）
+            if (index == 0 && (u.Has("dodge") || u.HasShield)) return 0;
+            int actual = dmg;
+            if (u.Has("vulnerable")) actual += u.KwValue("vulnerable");
+            // ③ 护甲：**每一条各扣一次**，且只在这一条真的有伤害时扣（原版 :138 的 `0 < iVar7`）
+            if (u.Armor > 0 && actual > 0) actual = Math.Max(1, actual - u.Armor);
+            return actual;
+        }
+
+        /// <summary>把逐条伤害加起来（原版 `EnoughPendingDamageToDieWithDamageValues` 里那个 `iVar5`）。</summary>
+        public static int DamageAfterReductionList(UnitState u, IReadOnlyList<int> entries)
+        {
+            if (u == null || entries == null) return 0;
+            int sum = 0;
+            for (int i = 0; i < entries.Count; i++) sum += DamageAfterReductionOne(u, entries[i], i);
+            return sum;
+        }
+
+        /// <summary>**逐条判死** —— 原版 `CardScript.EnoughPendingDamageToDieWithDamageValues` 的等价物。
+        /// 消费者：战斗视图的「这一下会打死它」那层（`BattleDriver.SetReticleTarget`）。
+        /// ⚠️ 原版那里还比了 `CurrentDropPodHealth` / `CurrentBastion` / `CurrentSurvivor` 三个字段，
+        ///    我们引擎里没有那三个（属**伤害模型**的缺口，不在本件范围）。</summary>
+        public static bool WouldKillByEntries(UnitState u, IReadOnlyList<int> entries)
+        {
+            return u != null && u.IsAlive && u.Health - DamageAfterReductionList(u, entries) <= 0;
+        }
+
+        /// <summary>
+        /// **普通攻击**这一下打在 <paramref name="tgtP"/>/<paramref name="tgtSlot"/> 那个单位上的
+        /// **全部伤害条目** —— 次序照原版 `CardHighlight__ToggleCombatPreviewHighlight.c:53-81`：
+        /// **[0] 主伤害 → [1] 攻方的星镖 → [2] 被打方身上的标记光**。
+        ///
+        /// 🔴 **次序是有意义的**：第 0 条正是 `dodge` / `Shield` 能挡下的那一条
+        ///    （见 <see cref="DamageAfterReductionOne"/>）—— 原版 `<c>:62</c>` 先 `Add` 主伤害，
+        ///    星镖 / 标记光才追加在后面。
+        ///
+        /// ⚠️ **两处「跟着我们自己的实际伤害走」**（不是照抄原版那一支，如实标着）：
+        ///   · **标记光只在远程**追加 —— 原版 `<c>:74</c>` 那一支**没判远程**，但我们的实际伤害判了
+        ///     （本文件 `DeclareAttack` 里 `if (ranged &amp;&amp; target.Has("markerlight"))`）⇒
+        ///     预览跟着**实际**走，否则会多报一条**不会发生**的伤害。
+        ///   · **星镖不判远程**（我们的实际伤害也不判）。
+        /// </summary>
+        public static List<int> AttackDamageEntries(BattleContext ctx, int p, int slot,
+                                                    int tgtP, int tgtSlot, bool ranged)
+        {
+            var list = new List<int>();
+            if (ctx == null) return list;
+            var atk = ctx.Players[p].Board[slot];
+            var t = ctx.Players[tgtP].Board[tgtSlot];
+            if (atk == null || t == null) return list;
+
+            list.Add(FieldAttack(ctx, p, atk, ranged));                              // [0] 主伤害
+            if (atk.Has("shuriken")) list.Add(atk.KwValue("shuriken"));              // [1] 攻方的星镖
+            if (ranged && t.Has("markerlight")) list.Add(t.KwValue("markerlight"));  // [2] 被打方的标记光
+            return list;
+        }
+
+        /// <summary>
+        /// **主动技能打到这个目标上的伤害条目** —— 原版 `EntityScript__GetActiveAbilityDamage.c`。
+        ///
+        /// 原版算法（逐句）：扫 `RawCardScript.cardAbilities(+0x290)` 里每个 `CardAbility` 的
+        /// `abilityLogic(+0x50)`；或（`hasActiveAbility(+0x2A9)` 为真时）改扫
+        /// `activeAbility(+0x260).activeAbilityLogic(+0x48)`。对每条 `AbilityLogic`：
+        /// `chosenAbility(+0x10) ∈ {doDamage 10, doDamageMultiRandom 12, doDamageAndDestroySelf 15}`
+        /// **且** `targetCriteria(+0x28).targetsAffected(+0x10) == 30 (TargetsAffected.target)`
+        /// ⇒ 累加 `damageCriteria(+0x40).minDamage(+0x14)`。
+        /// （字段 ← `il2cpp_out/dump.cs`：`AbilityEffect:20645` · `TargetsAffected:20784` ·
+        ///  `AbilityLogic:19453` · `RawCardScript:23244`；见
+        ///  `资料/普查产出_第五会话/查证_8b战斗视图四条.md` 乙表第 1 条。）
+        ///
+        /// 🔴 **原版这一支产出的是【一个数】** —— `CardHighlight__ToggleCombatPreviewHighlight.c:86-92`
+        ///    只往伤害表里 `Add` **一次**。所以技能路上「盾 / 闪避」会挡掉**全部**技能伤害
+        ///    （第 0 条被跳过）—— 这是**原版行为**，别当缺陷「修」。
+        ///
+        /// **三条来源的优先级**照 `BattleDriver.DoResolve` 现读：**替代行动 → 誓约 → `Ability:`**，
+        /// 三者**互斥**（原版只有一个主动技能按钮，我们也是同一格）。
+        ///
+        /// ⚠️ **目标的判据是我们这边的结构等价物**：原版读 `targetsAffected == target`，
+        ///    而我们的解析层**没有** `TargetsAffected` 这个字段，改用
+        ///    「**打一个 · 敌方 · 由玩家点 · 不是自动/随机/相邻/每个/无主语那几档**」——
+        ///    把 `lowestHealth`(240) / `allEnemies` / `randomEnemies` 那几档**分开**
+        ///    （见 <see cref="DealsToPickedTarget"/>）。⇒ 裸 `Deal N damage`（自动选血最低）、
+        ///    `Deal N damage to all enemies`、`to a random enemy`、`to an enemy and adjacent units`
+        ///    都**不计入**（与原版 `!= 30` 同向）。
+        ///    🔴 **未逐字段对上 `TargetsAffected` 的枚举值**（我们没有那个字段，映射是推的）——
+        ///    如实标注，别当已核实。
+        /// </summary>
+        public static List<int> ActiveAbilityDamageEntries(BattleContext ctx, int p, int slot,
+                                                           int tgtP, int tgtSlot)
+        {
+            var list = new List<int>();
+            if (ctx == null) return list;
+            var u = ctx.Players[p].Board[slot];
+            if (u == null || u.Card == null) return list;
+
+            // ① 替代行动（与 `BattleDriver.AltActionOf` / `RuleCore.UseAlternative` 同源）
+            string alt = AlternativeActionKeyword(u);
+            if (alt != null)
+            {
+                AddDealEntries(u.FxOps(alt), list);
+                return list;
+            }
+            // ② 誓约（守卫与 `BattleDriver.DoResolve` 里那一句一字不差）
+            if (u.Card.OathOps.Count > 0 && CanUseOathAbility(ctx, p, slot) == RuleCodes.OK)
+            {
+                AddDealEntries(u.Card.OathOps, list);
+                return list;
+            }
+            // ③ `Ability:`（我们自定的封闭文法，见 `EffectSpec`）。
+            //    ⚠️ 只认 `EnemyUnit` —— 其余三档（Self / OwnWarlord / EnemyWarlord）都不是
+            //    「玩家点的那个目标」，对应原版另外几个 `TargetsAffected` 值。
+            var spec = u.Ability;
+            if (spec != null && spec.Verb == "damage" && spec.Target == EffectTargets.EnemyUnit)
+                list.Add(spec.Amount);
+            return list;
+        }
+
+        /// <summary>`GetActiveAbilityDamage` 原样的**返回形态**：把所有条目求和成一个数。
+        /// ⚠️ 预览**不用**它（预览要逐条，见 <see cref="ActiveAbilityDamageEntries"/>）——
+        ///    留着是因为原版那个方法返回的就是一个 `int`，对账时按同一个形状比。</summary>
+        public static int ActiveAbilityDamage(BattleContext ctx, int p, int slot, int tgtP, int tgtSlot)
+        {
+            var list = ActiveAbilityDamageEntries(ctx, p, slot, tgtP, tgtSlot);
+            int sum = 0;
+            for (int i = 0; i < list.Count; i++) sum += list[i];
+            return sum;
+        }
+
+        /// <summary>把 op 表里「打到玩家点的那个敌人身上」的 `deal` 逐条收进 <paramref name="into"/>。</summary>
+        static void AddDealEntries(IReadOnlyList<EffectOp> ops, List<int> into)
+        {
+            if (ops == null) return;
+            for (int i = 0; i < ops.Count; i++)
+                if (DealsToPickedTarget(ops[i])) into.Add(ops[i].Amount);
+        }
+
+        /// <summary>
+        /// 这条 `deal` 的伤害**是不是就打在玩家点的那个敌人身上** —— 原版
+        /// `AbilityLogic.targetCriteria.targetsAffected == TargetsAffected.target`(=30) 的等价物。
+        /// 逐档为什么排除，见 <see cref="ActiveAbilityDamageEntries"/> 的注释。
+        /// </summary>
+        static bool DealsToPickedTarget(EffectOp op)
+        {
+            if (op == null || op.Verb != "deal") return false;    // 只有 `deal` 是伤害（`EffectText` 的三处）
+            var t = op.Target;
+            if (t == null) return false;
+            if (t.Subjectless || t.Auto) return false;            // 自己 / 自动挑（= 原版 lowestHealth 那一档）
+            if (t.Random) return false;                           // `to a random enemy`
+            if (t.Each) return false;                             // `for each …`
+            if (t.Deployed) return false;                         // `… you deploy`
+            if (t.Adjacent || t.AdjacentAll || t.AdjacentFailed) return false;   // 打一片
+            if (t.Side != "enemy") return false;                  // 点的是敌人 ⇒ 只认敌方那一侧
+            if (t.Kind == "warlord") return false;                // `to an enemy warlord` 是另一档
+            if (t.Count != 1) return false;                       // 0 = 全部（`allEnemies` 那一档）
+            return true;
+        }
+
+        /// <summary>
+        /// 这个单位的**替代行动**关键词（`Duty` / `Pray` / `Ferocity` / `Agenda`；没有 = null）。
+        /// 实测全卡池**没有一张卡同时带两个**（见 <see cref="AvailableAlternative"/>）⇒ 取第一个就够。
+        /// 🔴 **全仓只此一处判据** —— `BattleDriver.AltActionOf` 转发到它（原来两边各写一遍）。
+        /// </summary>
+        public static string AlternativeActionKeyword(UnitState u)
+        {
+            if (u == null || u.Card == null) return null;
+            foreach (string k in AlternativeActions)
+                if (u.Has(k) && u.Card.TriggerOps(k) != null) return k;
+            return null;
+        }
+
         /// <summary>
         /// 通用伤害结算。（rule_core._damage_unit）
         ///
         /// **顺序照我们自己的 `rule_core.gd:4406`（旁证、非权威）的函数头写着**：
         ///   `Shield → Invulnerable → Vulnerable/护甲修正 → 扣血`
         ///   ① `Shield` 全挡（不受伤害）
+        ///   ①·b `Dodge` **全挡**（不受伤害）—— 🆕 2026-10-08（`A1077`）。原版与 `Shield`
+        ///        **完全同一条分支、同样一次性消耗**（出处逐条写在下面那一支的注释里）；
+        ///        `rule_core.gd` 那张表里**没有它**（那份 `.gd` 的 54 条 `GIVE_KW` 也没有
+        ///        `dodge`），⇒ 这一条**不是照 `.gd` 排的**，是**照原版反编译放进去的**，如实标着。
         ///   ② `Invulnerable` **免疫伤害**（规则书 :190「无法被伤害或摧毁」）
         ///   ③ `Vulnerable X` **多加 X 点**（⚠️ 名字容易看反 —— 它是**加伤**，原版 `:4418`）
         ///   ④ `Armour X` 减免，**最低 1**（不是 0）—— 且原版注明这是**任何来源**的伤害都减（`:4420`）
@@ -2986,15 +3567,52 @@ namespace RuleEngine
         public static int ApplyDamage(BattleContext ctx, UnitState u, int dmg, string source)
         {
             // ⚠️ 数值**一律走 `DamageAfterReduction`**（全仓唯一一份公式）——
-            //    这一支只负责**副作用**：日志 / 事件 / 消费盾 / 翻伏击 / 扣血。
+            //    这一支只负责**副作用**：日志 / 事件 / 消费盾与闪避 / 翻伏击 / 扣血。
             //    2026-09-14：公式原来内联在这里，抽出去是为了让 `WouldKill` 的**预测**与实际**不可能分叉**。
             int actual = DamageAfterReduction(u, dmg);
 
-            if (u.HasShield)
+            // ---- ① 盾 / 闪避（**一次性**：挡下这一下 + 把这条摘掉）----
+            // 🔴 2026-10-08（`A1077`）**`Dodge` 补进来了**，判据（两份反编译逐句读过）：
+            //   · **挡下**：`CardScript__GetAdjustedDamage.c:36-48` —— `0xe6`(dropPod) / `0xf0`(dodge) /
+            //     `0x136`(invulnerable) / `0x50`(shield) **四个并列**，任一命中就写 `uVar3 = 1`；
+            //   · **消耗**：`CardScript._ReceiveDamage_d__381__MoveNext.c:320-333` ——
+            //     dodge 与 shield **各占一段独立的 `if (HasCurrentTrait(…))`**，
+            //     每一段都是 `RemoveBuffedTrait` + `RemoveTrait`（**不是 `else if`**）。
+            //     ⇒ ①两者**同挡、同消耗、任何地方分不出差异**；
+            //       ②**同一单位同时带两者时，一下把两条都消耗掉** —— 下面照抄这个「并列」结构。
+            //   ⚠️ `invulnerable` **不消耗**（原版那一带**没有** `0x136` 的 `RemoveTrait`）⇒ 它单独判、在下面。
+            //   ⚠️ **全池今天 0 张卡带 `dodge`**（见 `KeywordTable.Dodge` 的注释）——
+            //      这一支是「原版有、我们缺」的补课，**⛔ 不是可选项**。
+            bool hadShield = u.HasShield;
+            bool hadDodge = u.Has(KeywordTable.Dodge);
+            if (hadShield || hadDodge)
             {
-                u.HasShield = false;
-                ctx.Log($"{u.Name} 的 Shield 挡下了 {source} 的伤害");
-                // 挡下也发事件（Amount = 0）：画面上「盾碎了」也要有反馈，
+                if (hadShield)
+                {
+                    // 🔴 **2026-10-09（`A1106`）：这里原来写的是 `u.HasShield = false;`** ——
+                    //    只清那个布尔字段、**关键词留着** ⇒ 盾用光之后 `u.Has("shield")` 仍为真。
+                    //    而 `SimpleAI.ScoreDamaging`（`Data/SimpleAI.cs:588`）读的正是**关键词**
+                    //    ⇒ **AI 把已经用掉盾的单位继续当带盾、只给它一点点分**（真缺陷）。
+                    //    **原版只有一份表示**：护盾 = trait `0x50`，消耗 = 把它**摘掉**
+                    //    （`CardScript._ReceiveDamage_d__381__MoveNext.c:326-333`：
+                    //     `HasCurrentTrait(0x50)` → `RemoveBuffedTrait(0x50)` + `RemoveTrait(0x50)`；
+                    //     `CardScript__RemoveTrait.c` 的实现是 `List.Find(id == param_2)` → `List.Remove`
+                    //     —— **摘 trait、不写任何布尔字段**）。
+                    //    ⇒ 照它做：**摘关键词**。`UnitState.HasShield` 现在是它的**派生只读属性**
+                    //    （判据只此一处），所以这一句同时把那个字段也变假 —— 两个表示不可能再脱节。
+                    //    （`hadShield` 这个局部量仍从 `u.HasShield` 取，是同一份判据的读法。）
+                    u.RemoveAll(KeywordTable.Shield);
+                    ctx.Log($"{u.Name} 的 Shield 挡下了 {source} 的伤害");
+                }
+                if (hadDodge)
+                {
+                    // 用 `RemoveAll`（= 原版 `RemoveTrait`：把这条 trait **整个**摘掉），
+                    // 不是 `RemoveKeyword`（那只减一层）。`shield` 那边**同一条口径**
+                    // （`A1106` 已经把它从「写字段」改成「摘关键词」，见上面那一支）。
+                    u.RemoveAll(KeywordTable.Dodge);
+                    ctx.Log($"{u.Name} 的 Dodge 闪开了 {source} 的伤害");
+                }
+                // 挡下也发事件（Amount = 0）：画面上「盾碎了 / 闪掉了」也要有反馈，
                 // 而「掉血了」是另一回事 —— 旧表现层靠对比血量，这两件事根本分不开
                 EmitHit(ctx, u, 0);
                 return 0;
@@ -3011,7 +3629,7 @@ namespace RuleEngine
 
             // ---- 🆕 伏击（`Ambush`）：**被伤害就翻开、而且那次的伏击效果作废**（规则书 `:166`）----
             // 「面朝下打出；**下次回合前若被伤害：翻开无效果**；若未被伤害：翻开并触发效果」
-            // ⚠️ 位置在**所有减免之后**（盾挡下 / 无敌 / 护甲减到 0 都到不了这里）——
+            // ⚠️ 位置在**所有减免之后**（盾 / 闪避挡下 · 无敌 / 护甲减到 0 都到不了这里）——
             //    「被伤害」按字面是**真掉血**，不是「被打了一下」。
             if (u.FaceDown)
             {
@@ -3216,9 +3834,14 @@ namespace RuleEngine
         ///    全卡池里 `Remnant.` **只出现在 Sautekh（36 张）**、`Waystone.` **只出现在 SaimHann（24 张）**
         ///    （2026-09-25 实测）⇒ 两者等价，而写关键词比写阵营更抗「以后加卡」。
         ///
-        /// ⚠️ **位置是我们挑的**：排在「本回合限时增益到期」与临时卡清扫之后、
-        ///    `ResolveAtTurn("turn_end")` **之前** —— 规则书**没写**它和「回合结束触发效果」谁先，
-        ///    如实标着。放前面意味着：**回合结束时才翻回来的残骸**，下个回合结束还会再被摧毁。
+        /// 🔴 **2026-10-08（`D28` 施工单 F）：位置改成照原版 —— 排在「回合结束触发段」之后。**
+        ///   （改之前是「排在 `ResolveAtTurn("turn_end")` **之前**」，注释还自认「位置是我们挑的」。）
+        ///   判据 = `CardScript__OnTurnEnd.c` **同一个逐卡方法体**里的次序：
+        ///     `:64 OnTrigger(0x2b=43)` · `:72 OnTrigger(0x28=40 **TurnEnd**)` · `:80 OnTrigger(0x2d=45)`
+        ///     （都被 `:75/:111/:118` 的阵营判据管着）→ … → `:117 SupportMethods.ShouldRemnantDestroyOnTurnEnd`
+        ///     + `:120 BattleManager.DestroyUnit(…, 1, …)`（摧毁）。
+        ///   ⇒ **回合末触发先跑完、残骸才判死** —— 于是「回合结束时把残骸翻回来」那类效果是**成立**的
+        ///     （翻回来之后它不再是残骸，这里自然扫不到它）。⛔ 别再把它挪到触发段之前。
         /// </summary>
         static void DestroyRemnants(BattleContext ctx, int p)
         {
@@ -4782,10 +5405,19 @@ namespace RuleEngine
             //   任何一个触发关键词**天然**就带上了这条广播，不用在每个时机点各补一行。
             //   ⇒ 以后新加触发关键词，`When … triggers <它>` 自动可用。
             //
-            // ⚠️ **排在效果结算之后**（本工程原版反编译里看不到先后，这是**我们挑的**）：
-            //    取「**这件事真的发生了、再通知听众**」—— 和 `Slay` 先于 `Strike` 是同一条理由
-            //    （更具体的那件事先落定）。反过来放的话，听众会在触发者效果还没落地时就被叫醒，
-            //    而听众的效果可能把触发者打死，后面的正文就会打在一个已经不在场上的单位上。
+            // 🔴 **2026-10-08（`D28` 逐条定案 · 施工单 G 的判据）就地订正**：这里原来写着
+            //    「**排在效果结算之后**（本工程原版反编译里看不到先后，这是**我们挑的**）」——
+            //    **前半句是原版，后半句错**：先后**看得到**，而且就是「先自己那条效果、再广播给听众」。
+            //    出处 = `CardScript__ResolveUnitAttacked.c` 的 Mob / Regiment 两支（同一个函数、同一次攻击）：
+            //      · `:131-140` 先 `RawCardScript.OnTrigger(300 = Mob, …)`（**自己那条关键字效果**），
+            //        接着判 `HasCurrentTrait(0x398 = mob 920) || HasEnchantment(300)`，
+            //        不成立就 **return —— 连广播都不发**；
+            //      · `:142 BattleManagerSupport.BroadcastUnitMob(bm, 自己)` ← **广播在效果之后**；
+            //      · `Regiment` 那一支同形：`:155 OnTrigger(0x12d = 301)` → `:159` 判
+            //        `HasDefaultTrait(0x4c9 = regiment 1225)` → `:164 BroadcastUnitRegiment`。
+            //    ⇒ 本行位置（效果结算 → 再 `BroadcastWhen(Triggers(kw))`）**照原版**，⛔ 别把它挪到结算之前。
+            //    （`BroadcastUnitSummoned` 那一族同形：`BattleManagerSupport__BroadcastUnitSummoned.c:23`
+            //      先给被召唤者自己 `ResolveUnitSummoned(self,self)`、`:25-44` 才轮到场上监听者。）
             //
             // ⚠️ **`owner` 显式传，不用 `BroadcastKeywordEvent`** —— 那一个靠 `OwnerOf(ctx,u)`
             //    反查，而这里 `u` 刚被自己的效果打死是**常有的事**（反噬 / 不稳定那一类），

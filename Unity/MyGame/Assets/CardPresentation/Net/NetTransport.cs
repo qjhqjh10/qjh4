@@ -173,13 +173,13 @@ namespace CardPresentation.Net
             catch (SocketException se)
             {
                 portBusy = se.SocketErrorCode == SocketError.AddressAlreadyInUse;
-                _lastError = (dualStack ? "（双栈）" : "（仅 IPv4）") + Describe(se, port);
+                _lastError = (dualStack ? Loc.T("Settings/Online/St/StackDual") : Loc.T("Settings/Online/St/StackV4Only")) + Describe(se, port);
                 try { if (lis != null) lis.Stop(); } catch { }
                 return false;
             }
             catch (Exception e)
             {
-                _lastError = (dualStack ? "（双栈）" : "（仅 IPv4）") + Describe(e, port);
+                _lastError = (dualStack ? Loc.T("Settings/Online/St/StackDual") : Loc.T("Settings/Online/St/StackV4Only")) + Describe(e, port);
                 try { if (lis != null) lis.Stop(); } catch { }
                 return false;
             }
@@ -207,7 +207,7 @@ namespace CardPresentation.Net
 
         public bool Connect(string host, int port, int timeoutMs)
         {
-            if (string.IsNullOrEmpty(host)) { _lastError = "没有填 IP 地址"; return false; }
+            if (string.IsNullOrEmpty(host)) { _lastError = Loc.T("Settings/Online/St/NoIp"); return false; }
             try
             {
                 // 🔴 **2026-09-26：必须按地址族建 socket。**
@@ -223,7 +223,7 @@ namespace CardPresentation.Net
                 if (!ar.AsyncWaitHandle.WaitOne(timeoutMs))
                 {
                     try { c.Close(); } catch { }
-                    _lastError = $"连接 {host}:{port} 超时（{timeoutMs} 毫秒）—— 对面没开主机，或防火墙挡住了";
+                    _lastError = string.Format(Loc.T("Settings/Online/St/ConnectTimeout"), host, port, timeoutMs);
                     return false;
                 }
                 c.EndConnect(ar);                     // 失败会在这里抛
@@ -279,7 +279,7 @@ namespace CardPresentation.Net
             }
             catch (Exception e)
             {
-                _lastError = "连上了但拿不到流：" + e.Message;
+                _lastError = string.Format(Loc.T("Settings/Online/St/NoStream"), e.Message);
                 try { c.Close(); } catch { }
             }
         }
@@ -304,19 +304,19 @@ namespace CardPresentation.Net
             {
                 int n;
                 try { n = ReadFull(s, head, 0, NetProtocol.HeaderBytes); }
-                catch (Exception e) { Fail("读取中断：" + e.Message); return; }
-                if (n <= 0) { Fail("对面关掉了连接"); return; }
+                catch (Exception e) { Fail(string.Format(Loc.T("Settings/Online/St/ReadAbort"), e.Message)); return; }
+                if (n <= 0) { Fail(Loc.T("Settings/Online/St/PeerClosed")); return; }
 
                 int len = NetProtocol.FrameLength(head, 0);
-                if (len < 0 || len > NetProtocol.MaxFrame) { Fail($"帧长度不合理（{len} 字节）—— 对面发的不是本协议的帧"); return; }
+                if (len < 0 || len > NetProtocol.MaxFrame) { Fail(string.Format(Loc.T("Settings/Online/St/BadFrame"), len)); return; }
 
                 var body = new byte[len];
                 try { n = ReadFull(s, body, 0, len); }
-                catch (Exception e) { Fail("读取中断：" + e.Message); return; }
-                if (n <= 0) { Fail("对面关掉了连接"); return; }
+                catch (Exception e) { Fail(string.Format(Loc.T("Settings/Online/St/ReadAbort"), e.Message)); return; }
+                if (n <= 0) { Fail(Loc.T("Settings/Online/St/PeerClosed")); return; }
 
                 var env = NetProtocol.Parse(body, len);
-                if (env == null) { Fail("收到的帧解不出信封"); return; }
+                if (env == null) { Fail(Loc.T("Settings/Online/St/BadEnvelope")); return; }
                 _inbox.Enqueue(new NetFrame { kind = env.kind, payload = env.payload });
             }
         }
@@ -369,7 +369,7 @@ namespace CardPresentation.Net
                 //      **不弹窗** —— 因为原版本身就没有那一扇窗（铁律 11 的「原版本身没有」那一类）。
                 //    ⚠️ 别把这一档与「**对手掉线**弹固定词条 `Battle/HUD/WaitOpponentConnectionMsg`」混起来：
                 //      那是**另一件事**（B17 已接，走 `NetRuntime.Notice`），与本档无关。
-                _lastError = "还没连上，发不出去";
+                _lastError = Loc.T("Settings/Online/St/NotConnected");
                 // ⚠️ 本文件**没有 `using UnityEngine`**（线程规矩见文件头：后台线程不许碰 Unity API）——
                 //    这里跟同文件的 `ResolveHost` 一样**全限定**写。`Send` 只由主线程调
                 //    （唯一入口 = `NetSession.Send`，它跑在 `Pump()` / 各 handler / `Close()` 里）。
@@ -390,7 +390,7 @@ namespace CardPresentation.Net
                 //    ⇒ 这一档**不再被吞**（原来是「生产路径没人读 `_lastError`」—— 那句已经不成立了）。
                 // ⚠️ 为什么走「加消费点」而不是「把 `INetTransport.Send` 改成 `bool`」：见交件报告 §13·①
                 //    （改动面：`RecordingTransport` / `ScriptedTransport` / `TcpTransport` 三个实现 + 全部调用点）。
-                Fail("发送失败：" + e.Message);
+                Fail(string.Format(Loc.T("Settings/Online/St/SendFailed"), e.Message));
             }
         }
 
@@ -417,12 +417,12 @@ namespace CardPresentation.Net
             if (se != null)
             {
                 if (se.SocketErrorCode == SocketError.AddressAlreadyInUse)
-                    return $"端口 {port} 已被占用 —— 换一个端口，或先关掉已经在跑的那个实例";
+                    return string.Format(Loc.T("Settings/Online/St/PortBusy"), port);
                 if (se.SocketErrorCode == SocketError.ConnectionRefused)
-                    return $"对面拒绝了连接（{port} 端口没人在听）—— 主机那边要先点「保存」并保持游戏开着";
+                    return string.Format(Loc.T("Settings/Online/St/ConnRefused"), port);
                 if (se.SocketErrorCode == SocketError.HostNotFound || se.SocketErrorCode == SocketError.NoData)
-                    return "这个 IP 地址找不到——检查一下有没有抄错";
-                return "网络错误：" + se.SocketErrorCode;
+                    return Loc.T("Settings/Online/St/HostNotFound");
+                return string.Format(Loc.T("Settings/Online/St/SocketError"), se.SocketErrorCode);
             }
             return e.Message;
         }

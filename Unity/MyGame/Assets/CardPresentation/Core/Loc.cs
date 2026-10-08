@@ -716,6 +716,73 @@ namespace CardPresentation
             //   `0x428A128` = `Battle/Tips/GoFirst`。消费侧判据 = `MulliganManager.ActivateMulligan` 的先手/后手二选一
             //   （`MulliganPanel` 的 `TurnFirst`）——⚠️ **它的英文原文本地取不到**（远端 I2 表）⇒ EN/ZH 都**自拟**。
             { "Battle/Tips/GoFirst",               new Entry("你先手",   "You go first") }, // 🔴 EN/ZH **都自拟**（键名本地读得到，文案在远端）
+
+            // ============================================================ 🆕 **2026-10-08（第六会话 · `Core双语-第一步`）：`Tips/` 那一族**
+            //
+            // 🔴 **为什么单开一族**：`Core/Tooltip.cs` 的 `TipText` 那 10 条**全是我们写死的中文**
+            //   （`A1013` 普查点名的 ①类 13 处里占 10 处）⇒ **英文档下悬停出来的还是中文**。
+            //   本批把它们接上本表；另有 2 条 `Tips/Trait/*` 是**我们自己加的括注**（见那两条的注释）。
+            //
+            // 🔴 **键名的唯一判据 = 原版那颗 `EverguildTooltipTrigger` 的 `text` 字段**。
+            //   ⚠️ **载体要说全**（坑表 #20）—— 这个族在**另两条载体上都是 0 命中**，
+            //   只搜 `mTerm` / 只搜代码字面量都会得出「原版没有」的**无效否定**：
+            //     · 表①（prefab `Localize.mTerm`）0 命中 —— 触发器**不是 `Localize`**；
+            //     · 表②（`d:/2/tools/il2cpp_out/stringliteral.json`）0 命中 —— 这些串**不在代码里**。
+            //   本批亲扫命令（`d:/2/新解包资源/assets_full`，4.4 GB / 24.7 万文件）：
+            //     `grep -rho '"text": "Tips/[^"]*"' --include=*.json . | sort | uniq -c`
+            //   ⇒ 全库**只有这 14 个 key**（逐条计数 = 挂了几颗触发器）：
+            //     `Tips/CostTip` **305** · `Tips/RangedAttackTip` **152** · `Tips/MeleeAttackTip` **152**
+            //     · `Tips/HealthTip` **152** · `Tips/OvertimeTip` 13 · `Tips/Hud/Skulls` **13**
+            //     · `Tips/Hud/{Player,Opponent}{Energy,Faith,SpiritStone,QP}Count` 各 **13**
+            //     （13 = 13 个战场场景各一颗；那 152/305 = 13 场 + 卡面展示窗 + 卡组编辑那几份）。
+            //   🔴 **两个字段逐字吻合 = 键与挂点是同一处的硬证据**（本批亲读
+            //     `bundle_staticgeneralassets_assets_all/MonoBehaviour/MonoBehaviour_-4253307515847882232.json`）：
+            //     `text = Tips/HealthTip` + `tooltipAnchor = 10` + `offset.x = 73.05`，
+            //     而我们那一条 `Battle/BattleDriver.cs:13339` 写的正是
+            //     `Tooltip.Show(TipText.Health, at, 10, new Vector3(73.05f / TipPx, 0f, 0f))`
+            //     —— **anchor 与 offset 一致**；`Cost`(10 / 52.6) · `Melee`(15 / −49.33) ·
+            //     `Ranged`(15 / −53.54) 同样逐字对上（四个数在 `资料/tooltip_原版规格与实现.md` §一 的挂点表里也有）。
+            //   ⚠️ **`Armour` 不在那 14 个 key 里** —— 原版**根本没有护甲 tooltip**
+            //     （`子代理读报_2dcard_0827.md:95`：「`Armour Container` **此容器无任何脚本/无 tooltip**」）
+            //     ⇒ 那一条的键名是本表**自拟**的（照原版这一族的命名形状 `Tips/<东西>Tip` 起）。
+            //
+            // 🔴 **两列文案【都自拟】—— 含键名照抄原版的那几条**（照 `A1013` 的判定，本批**复核过**）：
+            //   原版**显示串在远端 I2 语言表**（84 个本地 bundle 里没有 `localization_assets_all`；
+            //   `assets_full` 全库 `mTerm` 488 条里一条 `Tips/` 都没有）⇒ **只证到键名、没证到值**。
+            //   · **ZH 列 = 改之前 `Core/Tooltip.cs` 里写死的那句逐字** ⇒ **中文档零变化**
+            //     （这几条的值全是我们照规则书写的，行号就在句子里；⛔ 别当成「原版这么说」）。
+            //   · **EN 列 = 我们照 ZH 列译的**（⛔ 不含汉字、不含全角括号 —— `Loc.HasCjk` 那片区间含
+            //     `U+3000-303F` / `U+FF00-FFEF`）。
+            //   🔴 **`Tips/Hud/*Count` 原版敌我【各一条键】**（`Player…` / `Opponent…`），而我们的消费点
+            //     （`Battle/BattleDriver.cs:13287-13290`）把**同一个串同时用在双方图标上** ⇒ 本批取 `Player*Count`
+            //     那一条、两列文案写**对敌我双方都成立的中性说法**；要拆成两条得改 `BattleDriver`
+            //     （**不在本笔白名单**）⇒ 已记进交件报告（`W_Core双语第一步_Tooltip与CreatedBy.md` §⑤/§⑥）。
+            // ------------------------------------------------------------------------------------------
+            // 卡面四个数值 + 费用那条（`TipText.{Melee,Ranged,Armour,Health,Cost}`）
+            { "Tips/MeleeAttackTip",               new Entry("近战攻击力（规则书 :78）", "Melee Attack (rulebook :78)") },   // 键名 = 原版（152 颗触发器）· 值两列自拟
+            { "Tips/RangedAttackTip",              new Entry("远程攻击力（规则书 :78）", "Ranged Attack (rulebook :78)") }, // 键名 = 原版（152 颗）· 值两列自拟
+            { "Tips/HealthTip",                    new Entry("扣完护甲后扣生命，归零进弃牌堆（:147）", "Health is lost after armour; at zero the card goes to the discard pile (:147)") }, // 键名 = 原版（152 颗）· 值两列自拟
+            { "Tips/CostTip",                      new Entry("打出去要花的能量（规则书 :78）", "Energy you must spend to play this card (rulebook :78)") }, // 键名 = 原版（305 颗）· 值两列自拟
+            // 🔴 这一条**键名自拟**（原版无护甲 tooltip，见本节开头那条）+ **我们这边零消费点**
+            //   （`BattleDriver.TickTooltipAt` 明确不挂它、`Editor/BattleScene.cs` 还有一条
+            //   「**护甲上没有 tooltip**（原版那个容器就没有触发器）」的断言）—— 保留它只为
+            //   「同一族五条形状一致」+ 谁哪天要挂的时候不会印出键名。⛔ **别拿它当「原版有」的证据**。
+            { "Tips/ArmourTip",                    new Entry("受任何来源的伤害都减这么多，最低减到 1（:167）", "Reduces damage from any source by this much, to a minimum of 1 (:167)") }, // 键名 + 值**全自拟**（原版无）
+            // HUD 计数那条（`TipText.{Energy,Skulls,QuestPoints,Faith,SpiritStone}`）
+            { "Tips/Hud/Skulls",                   new Entry("本局拿到的战功骷髅数", "Skulls earned in this match") }, // 键名 = 原版（13 颗 · `Milestones`）· 值两列自拟
+            { "Tips/Hud/PlayerEnergyCount",        new Entry("每回合恢复，用来打出手牌", "Refills every turn; spend it to play cards from your hand") }, // 键名 = 原版（13 颗）· 值两列自拟
+            { "Tips/Hud/PlayerQPCount",            new Entry("暗黑天使的任务点进度（0/3）", "Dark Angels quest point progress (0/3)") }, // 键名 = 原版（13 颗）· 值两列自拟
+            { "Tips/Hud/PlayerFaithCount",         new Entry("战斗修女的阵营资源", "The Battle Sisters faction resource") }, // 键名 = 原版（13 颗）· 值两列自拟
+            { "Tips/Hud/PlayerSpiritStoneCount",   new Entry("灵族的阵营资源；在场也算单位（1 血），点击收集", "The Aeldari faction resource; it also counts as a unit (1 health) on the board - click it to collect") }, // 键名 = 原版（13 颗）· 值两列自拟
+            // ---- `Tips/Trait/*`：🔴 **两条都是【我们自己加的】、原版没有**（`Core/Tooltip.cs` 的 `TipText.Trait`）----
+            //   原版查不到描述时**就只有「图标 + 标题」、没有正文**（`EverguildTraitTooltipItem`，
+            //   见 `资料/tooltip_原版规格与实现.md` §五）；这两句是我们替它补的**如实说明**：
+            //     · `NoRulebookEntry`：规则书 61 条（`:161-225`）里没有这个词 ⇒ 明写「没有条目」、**不编解释**；
+            //     · `RulebookLine`：`{0}` = 规则书行号（**那是我们自己的判据行，原版没有**）。
+            //   🔴 两列**全自拟**（原版没有这两句）。🚨 它们**会上屏**：`Editor/BattleScene.cs` 的两条断言
+            //     断的就是这两句（`:11007` 的 `arm.Contains(":167")` 与「没有这个词的条目」那条）。
+            { "Tips/Trait/NoRulebookEntry",        new Entry("（规则书里没有这个词的条目）", "(no entry for this term in the rulebook)") }, // ⚠️ 我们加的，不许当成原版
+            { "Tips/Trait/RulebookLine",           new Entry("（规则书 :{0}）", "(rulebook :{0})") }, // ⚠️ 我们加的；`{0}` = 规则书行号（我们自己的判据行）
             //   `Battle/BattleEnd/{Victory,Defeat,Draw}`：**载波①** —— `bundle_menus_assets_all` 的
             //   `BattleLogItem`（`MonoBehaviour_-7028880557435028942.json` / `…_8607776031950241599.json`）
             //   那两个 `LocalizedString` 字段 `victoryKey` / `defeatKey` / `drawKey`（脚本类 = `BattleLogItem`，
@@ -994,7 +1061,29 @@ namespace CardPresentation
             //     ⇒ EN **自拟**（取词条名末段，同 `MenuDeck/Button/Random` 的先例）；ZH 也自拟。
             //   ⚠️ **本表里 `OK` 与 `Confirm` 是两条不同的原版键**（`0x42BE718` / `0x42BE318`），
             //     各有各的挂点（`Confirm` 已由 A891 收进表）—— ⛔ **别合并**（键名照原版 `mTerm`）。
-            { "MainMenu/General/OK",           new Entry("确定",     "OK") },      // EN = 原版同 GO TMP `m_text` 逐字符；ZH **自拟**
+            //
+            //   🔴 **2026-10-18 留痕（`A1019`）—— 这一格的 ZH 有【玩家可见】的副作用，别把它当成随手改的**：
+            //     ⚠️ **原来写 X**：那 **13 处**弹窗钮在源码里**逐处写死中文字面量「知道了」**
+            //        （`Shell/{SettingsWindow,DeckInfoPopup,LeaderboardWindow,LiveOpsEventWindow,
+            //          PracticeModePopup,RankedEventWindow}.cs` + `Net/NetRuntime.cs` 那两颗）。
+            //     ⚠️ **实际是 Y**：按铁律 11「查到原版键 ⇒ 照它」把它们**全部**改走本条
+            //        ⇒ **中文档下玩家看到的钮字由「知道了」变成「确定」**（英文档不变，一直是 `OK`）。
+            //     ⚠️ **错因 Z**：那 13 个「知道了」是**我们自写的死串、不是照任何键抄的**；
+            //        而原版这颗钮的键是 `MainMenu/General/OK`（见上 ①②③，原版**没有** `…/Ok` 小写 k 那个拼法）
+            //        ⇒ 一旦按原版键收口，措辞必然跟着这条键走 —— 中文列是我们自拟的「确定」，
+            //        所以**副作用就在这里**（不是接线那一步造成的）。
+            //     ⇒ **结论：保留，不改**（`资料/待办判据_第四会话.md` §A1019：判据 = 照原版键；
+            //        只要求**留痕**，⛔ 不要求另立键、也不要求改回去）。
+            //     📌 **现核（2026-10-18）**：本条消费者 = **14 处**（`Loc.T("MainMenu/General/OK")` **12 处**
+            //        + `Loc.T(lkOk)` **2 处**，`Shell/SettingsWindow.cs` 那两颗经常量）；其中 **13 处**原本写「知道了」，
+            //        第 14 处 = `Shell/ShopWindow.cs` 的「传奇重复购买」确认框 —— 它本来就带
+            //        `MainMenu/General/Cancel`（原版同一处两钮，`CatalogItemContainer__TryPurchase.c:37,41,43`），
+            //        **原写就不是「知道了」**（`git log -S'"知道了"' -- Shell/ShopWindow.cs` 零命中）
+            //        ⇒ 14 − 1 = **13**，与 §A1019 的「13 处」逐数吻合。
+            //     📌 全仓现读**只剩 1 处**写死 `"知道了"`：`Editor/ShellScene.cs` 的 `PromptPopup` **自检样例正文**
+            //        （不是消费者、不上屏）—— 别把它当成「还有一处没接」。
+            //     ⚠️ 下一条 `MainMenu/General/Confirm`（ZH「确认」）**原封未动**。
+            { "MainMenu/General/OK",           new Entry("确定",     "OK") },      // EN = 原版同 GO TMP `m_text` 逐字符；ZH **自拟**（⚠️ 有可见副作用，见上「留痕」块）
             { "MainMenu/General/Cancel",       new Entry("取消",     "Cancel") },  // EN = 原版同 GO TMP `m_text` 逐字符；ZH = `zh_CN.csv:21`（`Cancel,~,取消`，**精确命中**）
             { "MainMenu/General/Discard",      new Entry("丢弃",     "Discard") }, // 🔴 EN **自拟**（本地无 TMP 原文）；ZH **自拟**
             // ---- ④ ~~退出游戏那两句~~ → 🔴 **2026-10-08（波 0b3）已删**（两条自拟键成了死键）----
@@ -1030,8 +1119,13 @@ namespace CardPresentation
             //   `3476392019656054992` 实读：`displayCompletedMessage=1` · `progressTextFormat="{0}/{1}"`）。
             //   🔴 **它是一个 I2 词条【键】**（原版在它外面套 `GetTranslation`，`MissionCounterDisplay__Setup.c:74`）
             //   ⇒ 本地**没有**它的文案（全库 20 处引用全是同一个字符串字段，没有一颗 TMP 印它）⇒ EN / ZH **都自拟**。
-            //   消费点 = `Shell/DailyData.DailyCounterText:175` → `Shell/MissionsTab.cs:549` 那一行
-            //   （今天那一行**印的就是键名** —— 本行加进去就恢复正常）。
+            //   消费点 = `Shell/DailyData.DailyCounterText` → `Shell/MissionsTab.cs` 那一行
+            //   （🔴 **2026-10-18 之后·第六会话就地订正（铁律 5）**：本行原写「消费点 = `DailyData.DailyCounterText:175`
+            //     → `MissionsTab.cs:549`（**今天那一行印的就是键名** —— 本行加进去就恢复正常）」—— **两句都已过期**：
+            //     两个行号现读是 `DailyData.cs:191` / `MissionsTab.cs:553`（都漂了 4 行）；而「印键名」也不成立了
+            //     —— 「键进了表就恢复」那个判断**是错的**（显示点当时根本没查表）⇒ 真缺陷由 **`WCoreDeck`** 修掉：
+            //     `DailyData.cs:191` 现为 `return Loc.T(CompletedMessage);`。**错因**：这句写的时候假定
+            //     「`Loc.T` 缺键返回键名」那一端是唯一的病，没看显示点走的是 `MenuWindowBase.Text` 的**原样吃串**。）
             { "Missions/Completed",             new Entry("已完成",   "Completed") },
             // ---- ⑧ 高级战役说明那段（1 条）----
             //   键名 = 那颗 `Localize.mTerm`（`bundle_menus_assets_all/MonoBehaviour/
@@ -1189,7 +1283,7 @@ namespace CardPresentation
             { "Settings/Online/ClickAgain",            new Entry("　—— 再点一下换下一个", " —— tap again for the next one") },
             { "Settings/Online/VirtualNic",            new Entry("\n⚠️ 这是「虚拟网卡」的地址（VPN / 虚拟局域网工具建的那张）。\n　 对面也装了同一个工具的话，直接用这个 —— 穿透由那个工具负责。",
                                                                   "\n⚠️ This is a \"virtual adapter\" address (the one a VPN / virtual-LAN tool created).\n  If the other side runs the same tool, just use this — that tool handles getting through.") },
-            { "Settings/Online/StatusNoSession",       new Entry("（会话还没建 —— 点一下 Host 的保存，或 Client 的检查连接）",
+            { "Settings/Online/StatusNoSession",       new Entry("（会话还没建 —— 点一下主机的保存，或客机的检查连接）",
                                                                   "(no session yet — press Save under Host, or Check Connection under Client)") },
             { "Settings/Online/HowToConnect/Intro",    new Entry("三条路，从最省事开始：", "Three routes, easiest first:") },
             { "Settings/Online/HowToConnect/Lan",      new Entry("① 同一个局域网 ⇒ 直接填主机那台机器的地址。",
@@ -1198,7 +1292,7 @@ namespace CardPresentation
                                                                   "② Not in the same place ⇒ install the same virtual-LAN tool on both sides\n  (Tailscale / ZeroTier / Pgyvpn and the like), then fill in the address it gives you.") },
             { "Settings/Online/HowToConnect/PublicDirect", new Entry("③ 公网直连 ⇒ 主机点【保存】时会**自动向路由器要一个端口**（UPnP）；\n　成没成会弹一条告诉你 —— **没成**就是路由器不支持 / 关着 UPnP，\n　那就在路由器管理页手动把那个端口转发到主机这台机器。\n　（主机**自己**有公网 IPv6 的话填 IPv6 更省事，连映射都不用。）",
                                                                   "③ Direct internet ⇒ when the host presses [Save] it **asks the router for a port automatically** (UPnP);\n  you get a pop-up either way — **no port** means the router does not support UPnP or has it off,\n  so forward that port to the host machine by hand in the router's admin page.\n  (If the host **itself** has a public IPv6, filling in the IPv6 is easier — no forwarding needed.)") },
-            { "Settings/Online/HowToConnect/DontUseTestSite", new Entry("⚠️ **别拿「IPv6 测试网站」当判据**：那里显示的是【**外网看到的**地址】，\n　它有可能是**路由器的**（有些路由器在做 IPv6 NAT）⇒ 外面看得到，\n　**但别人连不到你这台机器**。本机到底能不能被连上，看下面「本机检测」，\n　或者点【Test Public IP】把两者摆在一起对照。",
+            { "Settings/Online/HowToConnect/DontUseTestSite", new Entry("⚠️ **别拿「IPv6 测试网站」当判据**：那里显示的是【**外网看到的**地址】，\n　它有可能是**路由器的**（有些路由器在做 IPv6 NAT）⇒ 外面看得到，\n　**但别人连不到你这台机器**。本机到底能不能被连上，看下面「本机检测」，\n　或者点【测外网】把两者摆在一起对照。",
                                                                   "⚠️ **Do not use an \"IPv6 test site\" as the criterion**: it shows the address the [**outside world sees**],\n  which may be the **router's** (some routers do IPv6 NAT) ⇒ visible from outside,\n  **yet nobody can reach this machine**. Whether this machine is reachable is what \"On this machine\" below is for,\n  or press [Test Public IP] to put the two side by side.") },
             { "Settings/Online/HowToConnect/NoHolePunching", new Entry("我们不做打洞（那要一台公网上的会合点 + 服务器，本项目没有）。",
                                                                   "We do not do hole punching (that needs a rendezvous point on the public internet plus a server, which this project does not have).") },
@@ -1230,9 +1324,12 @@ namespace CardPresentation
             //     `主机` = `…/HostReady`「✅ 主机已就绪…」 · `客机` = `…/St/ClientLobby`「连上主机了 —— …」
             //     · `保存` = `…/St/ConnRefused`「…主机那边要先点「保存」…」 · `刷新` = `…/HowToConnect/VirtualNicYes`
             //     「点【刷新】能切到它给的地址」 · `检查连接` = `…/StatusNoSession`「…或 Client 的检查连接」。
-            //   ⚠️ 那两条**引用这 8 颗钮的正文**（`…/StatusNoSession` 的 ZH「点一下 Host 的保存，或 Client 的
-            //     检查连接」· `…/HowToConnect/DontUseTestSite` 的 ZH「点【Test Public IP】」）**本件没改** ——
-            //     那要**等接线那一波**（按钮改成中文之后引用才该跟着改），否则今天就会先失配（见本件报告 §⑦）。
+            //   ✅ **2026-10-18 之后 · 第五会话（波 1b 接线之后 · `A1063`）：那两条【已改】** ——
+            //     `…/StatusNoSession` 的 ZH「点一下 Host 的保存，或 Client 的检查连接」
+            //       → 「点一下**主机**的保存，或**客机**的检查连接」；
+            //     `…/HowToConnect/DontUseTestSite` 的 ZH「点【Test Public IP】」→「点【**测外网**】」。
+            //     ⚠️ **EN 列【不动】**：`Host` / `Client` / `[Test Public IP]` 与英文档那 8 颗钮的字**逐字相同**
+            //     ⇒ 英文档零变化。⚠️ 改这两条的**前置条件**就是「8 颗钮已经接线」（否则引用会先失配）。
             { "Settings/Online/RoleHost",              new Entry("主机", "Host") },                   // `SettingsWindow.cs:2430`
             { "Settings/Online/RoleClient",            new Entry("客机", "Client") },                 // `:2431`
             { "Settings/Online/TestPublicIp",          new Entry("测外网", "Test Public IP") },       // `:2470`
@@ -1435,6 +1532,12 @@ namespace CardPresentation
                                                             "Connected to the host — waiting for this match's progress…") },
             { "Settings/Online/St/ClientLobby",             new Entry("连上主机了 —— 各自选好卡组就能开战",
                                                             "Connected to the host — pick your decks and you can fight") },
+            //  🆕 **2026-10-19（P6d · A1079①）**：`NetSession` 收 `Ack`（ok）后给【检查连接】回的那一句，
+            //    经 `OnCheckDone` → `Shell/SettingsWindow` 的 `SetFlash(() => (ok ? "✅ " : "❌ ") + why)` 上屏。
+            //    两张原版表都搜过、**0 命中**（原版联机走 PlayFab、没有「检查连接」这套流程）⇒ **键名 + 两列全自拟**，
+            //    ZH 列 = 调用点原话逐字（⇒ 中文档零变化）。
+            { "Settings/Online/St/CheckOk",                 new Entry("连接成功 —— 可以直接开战了",
+                                                            "Connected — you can start the battle now") },
             { "Settings/Online/St/ResumeSent",              new Entry("「{0}」回来了 —— 已把这一局的 {1} 条动作发过去",
                                                             "`{0}` is back — sent {1} actions from this match") },
             { "Settings/Online/St/ResumeCaughtUp",          new Entry("追上了 —— 重放这一局的 {0} 条动作",
@@ -1484,6 +1587,16 @@ namespace CardPresentation
             { "Settings/Online/Lobby/PeerLeftHint",         new Entry("联机结束：{0} —— {1}", "Match ended: {0} — {1}") },
             { "Settings/Online/Lobby/PeerLeft",             new Entry("联机结束：{0}\n{1}，回到大厅。\n（要再打一局：两边重新各点一次 `Battle!`。原版那一刻走的是 `SearchOpponentManager.CancelSearchForDisconnect`：弹窗 + 取消搜索。）",
                                                             "Match ended: {0}\n{1}, back to the lobby.\n(To play again: both of you press Battle! once more. At that moment the original ran SearchOpponentManager.CancelSearchForDisconnect: popup + cancel search.)") },
+            //  🆕 **2026-10-19（P6d · A1079②）**：`NetMatchmaking.DeferToBattleLayer(what)` 的两个 **`what` 碎片**
+            //    —— 它们喂 `Lobby/DeferToBattle` 的 `{0}`，原来是**裸中文字面量**（英文档下会冒中文）。
+            //    🔴 **为什么不改父键形状**（把 `DeferToBattle` 拆成两条整句键）：父键在
+            //    `Editor/NetSelfTest.cs` 的键清单里、也在这条 40 字预算的账里（`NetMatchmaking` 的注释逐字引它）
+            //    ⇒ 拆了要动**别的格**；**碎片键的代价只落在这一处**。⇒ 选「碎片建成独立键」。
+            //    ⚠️ **两张原版表都搜过、0 命中** ⇒ 键名 + 两列全自拟；ZH 列 = 调用点原话逐字（中文档零变化）。
+            //    ⚠️ 这两个碎片**只**用在 `DeferToBattle` 的 `{0}` 上；`Lobby/PeerLostHint`/`PeerLeftHint`
+            //      那两条的 `{0}` 走的是**别的东西**（`tail` / `body`）⇒ ⛔ 别把它们对调过去。
+            { "Settings/Online/Lobby/PeerLostFrag",         new Entry("对面掉线了",     "Opponent disconnected") },
+            { "Settings/Online/Lobby/PeerLeftFrag",         new Entry("对面离开了：",   "Opponent left: ") },
             { "Settings/Online/Lobby/MatchRevoked",         new Entry("这一局的匹配已经撤销", "This match's setup has been revoked") },
             { "Settings/Online/Lobby/NotMatchingThisGame",  new Entry("（本机本来就没在匹配这一局）",
                                                             "(this machine was not matching this match anyway)") },
@@ -1519,6 +1632,10 @@ namespace CardPresentation
 
             //  ---------------------------------------------------------- ⑬·D `Settings/Online/Echo/*` · 2 条
             //  出处：`NetConfig.cs:303`（`NoEcho`）· `:307`（`ProbeError`）；两处进 `SettingsWindow.EchoText()` 末尾。
+            //  ⚠️ **2026-10-18 之后·第六会话就地订正（铁律 5，`A1064` 末条）**：那句函数名**已过期** ——
+            //     `EchoText` 在 `A1064` 那一轮已改名 **`EchoFlash`**、且**返回值从 `string` 改成 `Func<string>`**
+            //     （理由见 `SettingsWindow.SetFlash` 的 doc：`_flash` 改成「现算工厂」）。落点 =
+            //     `Shell/SettingsWindow.cs` 的 `Func<string> EchoFlash(NetConfig.ExternalAddrs r)`。
             { "Settings/Online/Echo/NoEcho",                new Entry("两个方向都没探到 —— **可能是回显站被网络挡了**（不是「你没有公网地址」）。",
                                                             "Neither direction got a response — **the echo sites may be blocked by your network** (this does **not** mean \"you have no public address\").") },
             { "Settings/Online/Echo/ProbeError",            new Entry("探测出错：{0}", "Probe error: {0}") },
@@ -1549,7 +1666,137 @@ namespace CardPresentation
                                                             "✅ The port mapping was granted, **but this machine is very likely behind a carrier-grade NAT (CGNAT)** —\nthe router's own WAN address is {0} (**a private range**) ⇒ outside connections still will not get in.\n→ Call your ISP and ask for a \"public IP\", or use a virtual-LAN tool.") },
             { "Settings/Online/Upnp/Ok",                    new Entry("✅ 已经在路由器上开好了 {0} 端口（TCP）{1} —— 把**外网地址 + 端口**给朋友就能连进来。",
                                                             "✅ Port {0} (TCP) is now open on the router{1} — give the **public address + port** to a friend and they can connect.") },
+            //  🆕 **2026-10-19（P6d · A1079③）**：上面那条 `{1}` 的**碎片**（有外网地址时才填）。
+            //    ⚠️ 原来是 `UpnpPortMapper.Map` 里的**裸中文字面量**「，你家的外网地址是 」+ wan
+            //    ⇒ 英文档下会冒中文（上一轮已如实停手记下，本件解掉）。**碎片建成独立键**（⛔ 没改父键形状）。
+            //    ⚠️ **两张原版表都搜过、0 命中** ⇒ 键名 + 两列全自拟；ZH 列 = 调用点原话逐字。
+            //    ⚠️ EN 列的行首是 `, `（逗号 + 空格）—— 接在 `router` 后面读得通；⛔ 别把逗号挪到父键末尾
+            //      （那会让「没有外网地址」那一档也多出一个逗号）。
+            { "Settings/Online/Upnp/OkWanSuffix",           new Entry("，你家的外网地址是 {0}",
+                                                            ", your public address is {0}") },
+
+            // ============================================================ ⑭ 双语④ 波 0b4 · 设置窗图形/通用页 + `Wire/*`（新增）
+            //
+            //  🔴 **这一节是谁、为什么**：波 1b 要把 `Shell/SettingsWindow.cs` 图形页/通用页那几行
+            //     与 `Net/*` 那 7 处**走线**的理由串接上表 —— 而 `Loc.T` 对**没建的键**是
+            //     「返回键名本身 + 出声」⇒ **必须先建键、后接线**（施工单 §⑦ 冲突 1）。本节**只加键**，
+            //     ⛔ **一个调用点都没改**（那是波 1b 的事）⇒ 今天界面**一个字都不变**。
+            //     逐条依据 = `资料/普查产出_第五会话/查证_23双语键盘点.md` 表 A（A1 / A2 / A4 三组）。
+            //
+            //  **查证口径（两张表都搜过 —— 只搜一张 = 无效否定）**：
+            //    · 表① `d:/2/新解包资源/assets_full/**/MonoBehaviour/*.json` 的 `mTerm`
+            //      （`Settings/` 前缀 **47 条**）—— ⑭·A 那 6 条**在这里查到了原版键名**（逐条出处见下）。
+            //    · 表② `d:/2/tools/il2cpp_out/stringliteral.json`（26,507 条；`Settings/` 前缀 **10 条**）
+            //      —— `SmallScreen|IncreaseUI|SuperSampl|VSync|FrameLimit|Unlimited|HiFPS|ExtendedCompat|SelectQuality`
+            //      **逐词 0 命中** ⇒ ⑭·A 那 6 条**只活在表①里**。
+            //    · ⑭·B / ⑭·C 两族：**两张表都搜过、都没有** ⇒ 键名 + 两列文案**全自拟**（逐条注明）。
+            //
+            //  ⚠️ **⑭·A / ⑭·B 的 EN 列拿不到原版英文**：本地 prefab **整包被本地化成西班牙语**
+            //     （`Seleccionar Calidad` / `Aumentar tamaño de UI` / `Sobremuestreo` / `Límite de FPS` / `Ilimitado`），
+            //     英文原文在**远端 I2 表** ⇒ EN 取**我们界面今天写死印的那串**（`Shell/SettingsWindow.cs` 调用点原文）
+            //     —— 这条**是我们挑的**、⛔ **不是原版原文**（与 `Settings/{Graphics,Media}/Title` 同一口径）。
+            //     🔴 **唯一一条例外 = `Settings/Graphics/Vsync`**：原版那颗 TMP 的 `m_text` 就是英文 `VSync`
+            //     （本包唯一一条非西语）⇒ 它的 EN 列**是原版原文**。
+            //  ⚠️ **⑭·B 的 ZH 列 = `Shell/SettingsWindow.cs` 调用点的原话逐字**（⇒ 接上之后**中文档零变化**）；
+            //     其中 `Flash/{SmallScreenUI,AutoZoom,SuperSampling}` 与 `FpsText/*` 那几条**调用点本来就写英文**
+            //     ⇒ 它们的 ZH 列**照抄英文原文**（**不是漏译** —— 与表 A 的 ZH 列逐字一致，⛔ 别顺手改成中文）。
+            //  ⚠️ `{0}`/`{1}`/`{2}` = 调用点的运行期值（消费方用 `Replace` 或 `string.Format`）；`\n` = 真换行。
+            //  ⚠️ ZH 列里的 `**` 是**调用点字面量里就有的强调符**，**照抄保留**（同 `⑬` 那条）。
+            //  ⚠️ 🔴 **EN 列不许含汉字**：`Loc.HasCjk` 的区间**含 `U+3000-303F` 与 `U+FF00-FFEF`**
+            //     ⇒ 全角括号 `（）`、全角空格 `　`、`【】` **都不能进 EN 列** ⇒ EN 里一律用 **ASCII 括号**。
+
+            //  ---------------------------------------------------------- ⑭·A `Settings/Graphics/*` 图形页那 6 行的**标签** · A1 · 6 条
+            //  🔴 **键名 = 原版 `Localize.mTerm` 原文**（表 A 逐条标「原版【有】键」，⛔ **没自拟**）——
+            //     出处 = `bundle_menus_assets_all` 的 `Main Menu Settings Window/…/Graphics Tab/Content/…` 子树里
+            //     那颗 `Localize` 的 `mTerm`（表①实读；同 GO 的 TMP `m_text` 是**西班牙语**，见本节开头那条）。
+            //  ⚠️ 消费点（归波 1b 接，本件**不动**）：`Shell/SettingsWindow.cs`
+            //     `:1743`（画质）· `:1874`（小屏 UI）· `:1894`（超采样）· `:1897`（VSync）· `:2215`（帧率上限标题）
+            //     · `:2243`（滑块刻度 `FpsTickText[2]`）；⚠️ 那几处的**节点名照原版不动**、只有显示字走表。
+            //  📌 表 A 记：`FpsTickText[0]/[1]` = `30`/`60` 是**纯数字** ⇒ **不建键**。
+            { "Settings/Graphics/SelectQuality",       new Entry("画质",     "Quality") },            // 节点 `…/Quality  Selector/Quality selector text`（TMP = `Seleccionar Calidad`，西语）· EN 自拟
+            { "Settings/Graphics/IncreaseUISize",      new Entry("小屏 UI",  "Small Screen UI") },    // 节点 `…/Content/Small Screen Size Toggle/Label`（TMP = `Aumentar tamaño de UI`）· EN 自拟
+            { "Settings/Graphics/EnableSuperSampling", new Entry("超采样",   "Use super sampling") }, // 节点 `…/Content/Use super sampling/Label`（TMP = `Sobremuestreo`）· EN 自拟
+            { "Settings/Graphics/Vsync",               new Entry("VSync",    "VSync") },              // 节点 `…/Content/Vsync/Label`；🔴 EN **逐字 = 原版 TMP**（本包唯一一条非西语）
+            { "Settings/Graphics/FrameLimit",          new Entry("帧率上限", "FPS limit") },          // 节点 `…/Content/FPS Limit/Title`（TMP = `Límite de FPS`）· EN 自拟
+            { "Settings/Graphics/UnlimitedFPS",        new Entry("不限帧",   "Unlimited") },          // 节点 `…/Content/FPS Limit/FPS Slider/Unlimited`（TMP = `Ilimitado`）· EN 自拟
+
+            //  ---------------------------------------------------------- ⑭·B 图形/通用页那几条 `_flash` 状态行 · A2 · 12 条（全自拟）
+            //  🔴 **为什么算「要建」**：`Shell/SettingsWindow.cs:2873` `RefreshOnline()` =
+            //     `_statusLabel.SetText((_flash ?? "") + "\n" + 状态)` ⇒ 图形/通用页那几条 `_flash`
+            //     **会印到联机页的状态行上**（`A1020` 的订正已推翻「图形页 `_flash` 不上屏」）⇒ 它们**是①类**（会上屏）。
+            //  ⚠️ **原版无对等**（两张表都搜过）⇒ **键名与两列文案全自拟**；ZH 列 = 调用点原话逐字（见本节开头）。
+            //  📌 **键名族的形状**：`Settings/General/Flash/*` 与 `Settings/Graphics/Flash/*`（照 `Settings/Online/St/*`
+            //     那一族的「父键/子键」写法）。⚠️ 表 A 留了一条**待裁口径**：「`_flash` 前缀要不要复用 ⑭·A 的标签键」
+            //     （例 `Loc.T("Settings/Graphics/Vsync") + " → " + On`）—— 本件按表 A 给的**最小改动版**（各起一条 `Flash/*`），
+            //     ⛔ **两种只能选一种**（铁律 6）；若调度台改口径，删掉 `Flash/*` 那一族即可（一条消费点都还没有）。
+            { "Settings/General/Flash/Language",       new Entry("语言 → {0}（{1}）", "Language → {0} ({1})") },  // `:1589`；`{0}` = 语言名、`{1}` = 枚举值（`Loc.Current`）
+            { "Settings/General/LangHasNoTable",       new Entry("　⚠️ 本地没有这一套文案 ⇒ 界面文字**回退英文**",
+                                                                     "⚠️ No text for this language locally ⇒ the UI text **falls back to English**") }, // `:1590`；⚠️ ZH 那个**行首全角空格 U+3000 是调用点原文**
+            { "Settings/Graphics/Flash/Quality",       new Entry("画质档 → {0}", "Quality → {0}") },               // `:1987`（`CycleQuality`）
+            { "Settings/Graphics/Flash/Vsync",         new Entry("VSync → {0}", "VSync → {0}") },                 // `:1995`（`ToggleVsync`）
+            { "Settings/Graphics/Flash/SmallScreenUI", new Entry("Small Screen UI → {0}", "Small Screen UI → {0}") }, // `:2006`；ZH 列照抄调用点（那串**本来就叫英文**，⛔ 别改成中文）
+            { "Settings/Graphics/Flash/AutoZoom",      new Entry("Auto Zoom → {0}", "Auto Zoom → {0}") },         // `:2029`；同上（调用点写 `Auto Zoom`，大写 Z）
+            { "Settings/Graphics/Flash/SuperSampling", new Entry("Use super sampling → {0}", "Use super sampling → {0}") }, // `:2051`；同上
+            { "Settings/Graphics/Flash/Fps",           new Entry("帧率上限 → {0}", "FPS limit → {0}") },           // `:2396`；`{0}` = `FpsText()`（见下面两条）
+            //  👇 这两条 = `FpsText()`（`:1970`）那半句；🔴 **ZH 列就是调用点那两个字符串原文**（`"unlimited"` / `f + " fps"`）
+            //     —— 与表 A 的 ZH 列逐字一致（⇒ 中文档今天印 `帧率上限 → unlimited`，接上之后**仍是**它）。
+            //     ⚠️ 表 A 只写了「待建（1 条带 `{0}`）」、**键名留空**（标 `—`）⇒ 键名 = 本件照 `Flash/*` 族的形状自拟。
+            { "Settings/Graphics/FpsText/Unlimited",   new Entry("unlimited", "unlimited") },                     // `:1970`：`Application.targetFrameRate <= 0`
+            { "Settings/Graphics/FpsText/Value",       new Entry("{0} fps",   "{0} fps") },                       // `:1970`：`{0}` = `Application.targetFrameRate`（>0 那一支）
+            //  👇 「开 / 关」两颗 **共用**（`:1995/:2006/:2029/:2051` 四处的 `{0}` 都由它们填）。
+            //     🔴 **两张表都搜过、没有这一对**：`MainMenu/General/*` 只有
+            //     `{OK,Cancel,Confirm,Select,Claim,Retry,Update,Rarity,melee,ranged,DontHaveDeckForGameMode}`；
+            //     唯一带 On/Off 的是 `MainMenu/Settings/ButtonLabel/MuteChat_{On,Off}` —— **语义不同、⛔ 不复用**。
+            { "MainMenu/General/On",                   new Entry("开", "On") },
+            { "MainMenu/General/Off",                  new Entry("关", "Off") },
+
+            //  ---------------------------------------------------------- ⑭·C `Settings/Online/Wire/*` · 8 条（全自拟）
+            //  出处 = 调用点原话逐字；这 8 处**都是「走线的理由串」**（`MsgBye.reason` / `MsgReject.reason`）：
+            //    · `Net/NetRuntime.cs`  `Reset()` 里 `Session.Close(true, …)`
+            //    · `Net/NetSession.cs`  收 `Reconnect` 那两个拒绝支（坏钥匙 / 没有记录）
+            //    · `Net/NetSession.cs`  收 `Resume` 解不出来那支（`Close(true, …)`）
+            //    · `Net/NetSession.cs`  `Close(say, reason)` 的**兜底**（`reason == null` 那一档）
+            //    · `Net/NetBattle.cs`   `Dispatch` 的 `case NetKind.Action`（`MsgReject.reason`）
+            //    · `Net/NetBattle.cs`   `ReconnectCountdownExpired` 主机那一支（`Close(true, …)`）
+            //    · `Battle/BattleDriver.cs` `LeaveNetRoom()`（`Close(true, …)`）← 🆕 第 8 条
+            //  🔴 **两张表都搜过 = 0 命中**（同 `⑬` 那条：原版联机走 PlayFab，没有这套流程）⇒ **键名 + 英文列全自拟**；
+            //     ⛔ **不是** `Settings/Online/St/*` 那一族（那族是**本机显示**的状态串，键与值都已建好，见 `⑬·A`）
+            //     —— 这两族**语义不同、并存**（例：`St/RejectBadKey`「重连被拒：钥匙对不上」是本机显示，
+            //     而 `Wire/BadKey`「这把钥匙对不上这一局」是**发给对面**的那一句）。
+            //
+            //  ✅ **2026-10-19（P6d）就地订正（铁律 5）**：这一节原来写着「本件**只建键、不接线**」、
+            //     并交代「接线时两端要同批更新（否则对面收到的是**发送方语言**的那一串）」。
+            //     **P6d 已经把线接完了** —— 做法**不是**发那串已渲染的中文，而是**线上发词条键**、
+            //     收侧 `NetProtocol.NetWireText.Unpack` 按**它自己的语言**取词
+            //     （编码、兼容面与「为什么不 + 协议版本号」→ `NetWireText` 的类注释）。
+            //     ⇒ 「两端要同批更新」这句话**不再成立**：**不 +版本号**、旧端收键名照印（≤40 字、不被钳）。
+            //
+            //  🔴 **2026-10-19（P6d）另一处就地订正（铁律 5）：上面那句「`St/*` 与 `Wire/*` 是两族」【部分作废】。**
+            //     分族的真正判据不是「本机显示 vs 发给对面」，而是「**两个角色下要印的那句话措辞是否相同**」：
+            //       · **措辞【不同】** ⇒ 两条键（本族 `Wire/*` 存在的理由）；
+            //       · **措辞【相同】** ⇒ **一条键两用**，⛔ 别另开 —— 另开只会多出一份迟早会漂的副本（铁律 6）。
+            //     落在第二类的有三条：`St/BadHello` · `St/VersionMismatch` · `St/WrongPassword`
+            //     （`NetSession` 收 `Proof` 那一段的握手失败理由，**同时**是本机 `StatusText` 与
+            //      `MsgAck.reason` 的走线载荷）⇒ 它们**留在 `St/*`**，走线时发的是**它们自己的键**
+            //     （键是 ASCII、语言无关 ⇒ 对面按对面语言取词，正是要的效果）。
+            //     ⚠️ 所以「凡走线者必在 `Wire/*`」是**错的**；判据只有上面那一条。
+            { "Settings/Online/Wire/HostRestarted",    new Entry("对面重开了联机",           "The opponent restarted the session") },
+            { "Settings/Online/Wire/BadKey",           new Entry("这把钥匙对不上这一局",     "This key does not match this match") },
+            { "Settings/Online/Wire/NoRecord",         new Entry("主机这边没有这一局的记录", "The host has no record of this match") },
+            { "Settings/Online/Wire/BadResume",        new Entry("重连包解不出来",           "The reconnect packet could not be parsed") },
+            { "Settings/Online/Wire/PeerDone",         new Entry("对面结束了这一局",         "The opponent ended this match") },
+            { "Settings/Online/Wire/PeerLeftMatch",    new Entry("对面离开了这一局",         "The opponent left this match") },
+            { "Settings/Online/Wire/NotYourTurn",      new Entry("不是你的回合",             "Not your turn") },
+            { "Settings/Online/Wire/RoomGone",         new Entry("这一局的联机房间已经散了", "This match's online room is gone") },
         };
+        //  ⚠️ **`Wire/HostRestarted` 的 ZH/EN 是本轮【故意改过的】**（`A1038` 顺手项，同 `NetBattle` 那条
+        //     R7 中性化纪律）：原来 ZH = 调用点原话「主机重开了」，而那个调用点（`NetRuntime.Reset()`）
+        //     **两端都会走**（主机点【保存】/ 客机点【检查连接】）⇒ 客机捎给主机的是一句**语义颠倒**的话。
+        //     现措辞对**收方**恒成立（它看到的确实是「对面」重开了这一条）。⇒ 这里**不是**「中文档零变化」，
+        //     如实标出（这是本族唯一一条 ZH 列 ≠ 调用点原文的）。
+        //  ⚠️ `Wire/NotYourTurn` 与 `Battle/Tips/NotYourTurn`（本文件 `Battle/` 那一节）**ZH 同值、语义不同**
+        //     —— 后者是**本机 HUD 的提示行**、前者是**回给对面的拒绝码**（判据 → `NetBattle.Dispatch`
+        //     那段注释的判据 ②）⇒ **两族并存，⛔ 别合并**。
 
         // ============================================================ 取值
 

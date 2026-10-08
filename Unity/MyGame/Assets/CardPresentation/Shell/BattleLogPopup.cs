@@ -70,6 +70,12 @@ namespace CardPresentation
         static readonly Vector4 ContentBorder = new Vector4(42f, 363f, 655f, 81f);
         static readonly PxRect CloseR = new PxRect(1685f, 25f, 1815f, 155f);
         static readonly PxRect CloseCircleR = new PxRect(1699.49f, 39.06f, 1798.59f, 138.74f);
+        /// <summary>🔴 **2026-10-18（A1053）**：关窗钮那两颗子件（`Background` / `Icon`，同矩形 `CloseCircleR`）
+        /// **自己的** `m_RaycastPadding`（原版实读 `(-20)⁴`；L,B,R,T · **负 = 外扩**）⇒ 命中区 =
+        /// 子件矩形外扩 20 = **139.10 × 139.68**（⛔ 不是根矩形 `CloseR` 的 130×130；⚠️ 本扇这一族
+        /// 子件是 **99.10×99.68**，与同名的橙色族 56.86×58.13 **不是同一个值族**）。
+        /// 算式只走 `MenuDraw.PaddedRect`；口径 → `普查_全仓命中区与关闭键族.md` §〇-1。</summary>
+        static readonly Vector4 ClosePad = new Vector4(-20f, -20f, -20f, -20f);
         static readonly PxRect MatchesR = new PxRect(235f, 130f, 1710f, 980f);
         static readonly PxRect ViewportR = new PxRect(235f, 130f, 1710f, 963f);
 
@@ -152,7 +158,13 @@ namespace CardPresentation
             var closeQ = Rect(close, "40k_general_bt_yellow", CloseCircleR, "Background", QBg, null, true);
             Rect(close, "40k_general_bt_yellow_close", CloseCircleR, "Icon", QContent, null, true);
             // 🆕 A17：原版 `Battle Log Popup>Content>Close Button` 是 SpriteSwap（普查 §块 5 第 20 行）
-            MenuDraw.Hit(close, "Hit", CloseR, QHit, () => Close(), closeQ, "40k_general_bt_yellow");
+            // 🆕 **2026-10-18（A1053 · 第六会话批 2）**：**命中区**归真值 —— 它自己的底图
+            //   `m_Enabled=0`（不画、也不吃射线），吃射线的是两个同矩形子件（99.10×99.68）按
+            //   `(-20)⁴` 外扩 ⇒ **139.10 × 139.68**；改前传根矩形 `CloseR`（130×130）⇒ 每边小 ~4.6/4.8。
+            //   判据 = `python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all "Battle Log Popup" --depth 6
+            //   --substr "Close Button"`（实读 `139.10 x 139.68`）。
+            MenuDraw.Hit(close, "Hit", MenuDraw.PaddedRect(CloseCircleR, ClosePad),
+                         QHit, () => Close(), closeQ, "40k_general_bt_yellow");
 
             // `Matches`（`ScrollRect` **Clamped** · 灵敏度 1.0 —— 判据 ④）
             // ⚠️ 它自己的底是 UGUI 内置 `Background`、`m_Color=(1,1,1,0)` ⇒ **看不见 ⇒ 不画**

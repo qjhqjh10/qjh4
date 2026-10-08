@@ -218,6 +218,45 @@ public static class ArenaBuilder
         /// 它只有两个用户 `Background`(z=**168.3**) / `Skyline`(z=95.9) —— 逐值吻合。
         /// ⚠️ 旧清单没有这个字段 ⇒ false ⇒ 老行为（其余 12 场就是这么走的，逐场不变）。</summary>
         public bool worldBaked;
+        /// <summary>🔴 **2026-10-08 新增：Unity 内置网格的名字**（`Library/unity default resources`
+        /// 里那一颗，例：`Quad`）。非空 ⇒ 这一条**不走 `objFile`**，网格取
+        /// `Resources.GetBuiltinResource&lt;Mesh&gt;(名字 + ".fbx")`（**逐位就是原件那一颗**）。
+        ///
+        /// **为什么非有它不可**：原版**13 个战场每一个**都有一件 `Shadow Receiver`
+        /// （`BattlePrefab/BattleBoardElements/Colliders/Shadow Receiver`），它的
+        /// `MeshFilter.m_Mesh = {m_FileID: N, m_PathID: 10210}` 指向的就是内置 `Quad`
+        /// —— 而生成器原来在 `mesh_of()` 那边**解不出来**（不是「原版没有」：是**跨文件的内置引用**，
+        /// `BundleResolver` 那两条路都取不到）⇒ 整个对象被静默丢掉、`meshes[]` 里从来没有过它。
+        /// 判据：原版自己那份 `Warpforge_Data/Resources/unity default resources` 里
+        /// `pid 10210` = `Mesh "Quad"`（4 顶点 / bounds ±0.5）；`m_FileID N` 按**引用者所在那份 CAB
+        /// 的 externals** 解出来正是字面量 `Library/unity default resources`（逐场实读）。
+        /// ⚠️ **不许拿 `PrimitiveType.Quad`/`Plane` 顶上**（`WF_SHADOWPROBE` 探针那个 `Plane`
+        /// 是探针自己的做法）—— 名字取不到就**出声跳过**，不猜。
+        /// ⚠️ 旧清单没有这个字段 ⇒ null ⇒ 老行为。
+        /// ⚠️ **这一路收的不止 `Shadow Receiver`**（2026-10-08 实测 13 场）：13/13 各 1 件
+        /// `Shadow Receiver`，另有 `battlearenaemperorschildren` 的 **2 件 `Tank distortion 1` /
+        /// `Tank distortion 1 (1)`**（同为内置 `Quad`、**原版开着**、有贴图与材质 ⇒
+        /// **原版真的有、我们从来没建**）。生成器的闸口只放「原版真的会画它」的，
+        /// 详见 `gen_unity_arena_manifest.py` 的 `builtin_mesh_map`。</summary>
+        public string builtinMesh;
+        /// <summary>🔴 **2026-10-08 新增：原版这个 GameObject 的 `activeInHierarchy`**（逐层 `m_IsActive`
+        /// 与起来，生成器 `active_in_hierarchy`）。false ⇒ 建出来之后 `SetActive(false)`
+        /// —— **对象在场、与原版逐位一致**（原版有它，只是关着）。
+        ///
+        /// 第一个带 false 的是 `Shadow Receiver`：13/13 原版自身就是 `m_IsActive=false`，
+        /// 而**它自己的祖先全是开的** ⇒ 就是它自己关的，`SetActive(false)` 与原件等价。
+        ///
+        /// 🔴 **2026-10-13（A1073）：生成器已把这个键铺到【全部】网格条目**（原来只有「内置网格」
+        /// 那一支写 ⇒ 那些**非内置网格**的原版关闭件全被我们建成了开着的 ⇒ 比原版多画东西）。
+        /// 逐件实读（`probe_inactive_meshes.py`，13 场扫「带 `MeshFilter` 的 Transform」）⇒ 原版
+        /// `activeInHierarchy=False` 的带网格节点共 **46 个**，其中**会改画面的 20 个**：
+        ///   · `battlearenaaeldari`：`Dynamic Lights 5 / 8 / 9 / 10 / 11`（5 个）；
+        ///   · `battlearenaspacewolves`：`Full Moon 1..13` + `Full Moon` + `Background Sky First Light`（15 个）；
+        /// 另 26 个与本键无关或早就关着：`Shadow Receiver` ×13（内置那一支）·
+        /// `Cache Stealth` ×13（`objFile=null` ⇒ 本来就不建）。
+        /// ⚠️ 这 20 个**逐件实读祖先链**：父级全是开着的 ⇒ **是它们自己关的**、不是父链传下来的。
+        /// ⚠️ **缺省 true** ⇒ 旧清单 / 其余条目**零影响**。</summary>
+        public bool active = true;
     }
     [System.Serializable] public class BurstEntry
     {
@@ -863,6 +902,30 @@ public static class ArenaBuilder
         // 🆕 2026-09-28 诊断：**阴影链探针** `WF_SHADOWPROBE=1` —— 在相机前放一对
         //   「投射体（`PrimitiveType.Cube`，castShadows On）+ 受影板（`PrimitiveType.Plane`，`URP/Lit`）」，
         //   用来看**这台工程的 URP 实时阴影链到底活不活**。
+        //
+        //   🔴 **2026-10-13（A1075）订正 —— 上面那句里的 `PrimitiveType.Plane` 是【探针自己的做法】，
+        //   不是原版的网格，⛔ 别把它当成「原版的接影板就是 Plane」的依据**（原来那句话读起来像）。
+        //   **实读（不是推测）**：原版 `Shadow Receiver` 的 `MeshFilter.m_Mesh` 指向的是
+        //   **Unity 内置 `Quad`（pid `10210`）**，**不是 `Plane`** ——
+        //     · 原版自带那份 `Warpforge_Data/Resources/unity default resources` 里逐 pid 读：
+        //       `10209` = **`Plane`**（121 顶点 · `m_LocalAABB` extent ±5 ⇒ 10×10）·
+        //       **`10210` = `Quad`**（4 顶点 · extent (0.5, 0.5, ≈0)）· `10211` = `Icosphere`
+        //       （旁证：`d:/2/unity_run_ref/Warpforge_Data/Resources/unity default resources` 逐 pid 同值）；
+        //     · 引用怎么解出来的：`m_FileID` 是「**相对引用者所在那份 CAB 的 externals 表**」的序号，
+        //       逐场摊开都是字面量 **`Library/unity default resources`** ⇒ 内置资源、不是「本地没有的跨包资产」；
+        //       ⚠️ **`m_FileID` 逐场不同 —— 不许写死 5**：13 场实读 **=5 的 6 场**
+        //       （arena1/2/3 · blacklegion · emperorschildren · tauviorla）· **=6 的 6 场**
+        //       （aeldari · astramilitarum · darkangels · genestealers · leviathan · spacewolves）·
+        //       **=7 的 1 场**（sororitas）。
+        //   物件形状（13/13 逐场同值）：local scale `(81.161, 35.127, 41.908)` × 绕 X 90°
+        //   ⇒ 一块 81.161 × 35.127 的**贴地水平面片**（quad 法线 (0,0,−1) 绕 X +90° = (0,+1,0)、面朝上），
+        //   世界位置 = 战场根原点 `(100, 0, 0)`；材质 `Transparent Shadow Receiver`
+        //   （shader `Everguild/Misc/URP Transparent Shadow Receiver` · `_ShadowColor` (0.35,0.40,0.45,1) ·
+        //   queue 3000 · pass `Blend DstColor Zero` + `ZWrite Off`）。
+        //   ⚠️ 它与本探针**无关**：原版 13/13 那件是 `m_IsActive=false`（祖先全开 ⇒ 自己关的）。
+        //   判据/复现：`资料/普查产出_第五会话/交件_8b_2c_ShadowReceiver.md` §一·1、§三；
+        //               生成器 `gen_unity_arena_manifest.py` 的 `builtin_mesh_map` / `default_resource_mesh_name`。
+        //
         //   背景（别删）：`battlearenablacklegion` 前景比原版亮 +29~+37，而那批网格用的是
         //   `Everguild/Misc/Unlit shadows receiver`（材质带 `_ShadowColor = (0.451,0.349,0.394)`）——
         //   **原版是真的在投/收实时阴影**（该场 67 个 `MeshRenderer` 里 52 个 `m_CastShadows=1 / m_ReceiveShadows=1`，
@@ -1791,6 +1854,7 @@ public static class ArenaBuilder
         int nMesh = 0, nMeshSkip = 0, nPs = 0, nPsNoTex = 0, nPsNoTexMeshOk = 0, nPsInactive = 0, nPsNone = 0, nSol = 0, nColLife = 0,
             nMeshQuality = 0, nPsQuality = 0;
         int nMeshKw = 0;      // 🆕 2026-09-30：挂上「原版关键字」组件的网格数（旁挂 `_meshkeywords.json`）
+        int nMeshBuiltin = 0; // 🆕 2026-10-08：走 Unity 内置网格（`Library/unity default resources`）的网格数
         // 🆕 2026-09-21 下半场：VFX 那几个模块建了多少个（自检要按它比）
         int nVel = 0, nClamp = 0, nNoise = 0, nRot = 0, nSubLinked = 0;
         _emissionDropped = 0;
@@ -1844,12 +1908,65 @@ public static class ArenaBuilder
                 if (inactiveByQuality.Contains(goName)) { nMeshQuality++; continue; }
                 var holder = new GameObject(goName);
                 holder.transform.SetParent(root.transform, false);
+                // 🔴 2026-10-08：**原版关着的就照原版关着**（`MeshEntry.active`，缺省 true = 老行为）。
+                //    带 false 的（**2026-10-13 A1073 起已铺到全部网格条目**）：`Shadow Receiver` ×13
+                //    （13/13 原版自身 `m_IsActive=false`）+ `battlearenaaeldari` 的
+                //    `Dynamic Lights 5/8/9/10/11` + `battlearenaspacewolves` 的 `Full Moon 1..13` /
+                //    `Full Moon` / `Background Sky First Light`（**这 20 件逐件实读祖先链：父级全开着
+                //    ⇒ 是它们自己关的**）。「与原版逐位一致」= **把对象建出来 + `SetActive(false)`**：
+                //    不是不建（铁律 11 第①种管的是「原版本身没有」，这里原版**有**物件/有场景实例/
+                //    有材质有组件），也不是开着。
+                //    ⚠️ 关着的对象 `Awake()` 不会被调 ⇒ 它上面那个 `ArenaOriginalMaterial` 运行时
+                //    **不会重建**（原版那份也是关的，行为一致；`[Arena/OS]` 那行汇总里
+                //    「场景里有 N 个组件」会数到它、而成功/失败计数不会）。
+                if (!e.active) holder.SetActive(false);
                 // 🔴 `worldBaked`（静态合批那 31 个）：**网格顶点已烘在世界坐标里 ⇒ holder 保持 identity**，
                 //    绝不能再 `ApplyTransform` —— 再乘一遍等于平移 + 放大两次，全批飞出画面。
                 //    见 `MeshEntry.worldBaked` 的注释（判据 + 实测后果都在那儿）。
                 if (!e.worldBaked) ApplyTransform(holder.transform, e.pos, e.rot, e.scale);
 
-                if (!string.IsNullOrEmpty(e.objFile))
+                // 🔴 2026-10-08：**Unity 内置网格那一路**（见 `MeshEntry.builtinMesh`）。
+                //    ⚠️ **必须排在 `objFile` 那条路之前**：内置网格**没有 OBJ**（清单里 `objFile` 是 null），
+                //    落进下面那个 `else` 只会被判成「清单里没有 objFile（跳过网格）」而丢掉。
+                if (!string.IsNullOrEmpty(e.builtinMesh))
+                {
+                    var builtinMesh = Resources.GetBuiltinResource<Mesh>(e.builtinMesh + ".fbx");
+                    if (builtinMesh == null)
+                    {
+                        // ⛔ **不拿别的网格顶上** —— 名字取不到就出声跳过（铁律 3：参数/资产照解包资源来，不猜）
+                        nMeshSkip++;
+                        Debug.LogWarning($"[Arena] {goName}: 取不到 Unity 内置网格 `{e.builtinMesh}.fbx`"
+                                       + "（`Resources.GetBuiltinResource<Mesh>` 回了 null）⇒ **跳过**，"
+                                       + "不拿别的网格顶替");
+                    }
+                    else
+                    {
+                        var bGo = new GameObject("mesh");
+                        bGo.transform.SetParent(holder.transform, false);
+                        bGo.AddComponent<MeshFilter>().sharedMesh = builtinMesh;
+                        var bMr = bGo.AddComponent<MeshRenderer>();
+                        // 投/收阴影：内置网格这一支的清单**自带真值**（`hasShadow` / `shadowCast` /
+                        // `shadowReceive`，生成器直读原版 MeshRenderer）—— 旁挂 `_shadowflags.json`
+                        // 里不会有它（旁挂是从**已建出的清单**反向生成的，先有鸡还是蛋）。
+                        if (e.hasShadow) ApplyShadowFlags(bMr, e.shadowCast > 0, e.shadowReceive > 0);
+                        else             ApplyShadowFlags(bMr);
+                        bMr.sharedMaterial = GetOrCreateMaterial(mf.scene, matCache, e);
+                        if (meshKw.TryGetValue(goName, out var mkwB) && mkwB.Length > 0)
+                        {
+                            var kwcB = bMr.gameObject.AddComponent<WarpforgeVFX.ArenaParticleKeywords>();
+                            kwcB.keywords = mkwB;
+                            kwcB.additive = true;      // 网格必须并集（与另一条分支同判据）
+                            nMeshKw++;
+                        }
+                        AttachOriginalMaterial(bMr, mf.scene, e.shader, e.props, e.cull, e.srcBlend, e.dstBlend,
+                                               e.transparent, e.alphaClip, e.blendAuthoritative,
+                                               (e.subMats != null && e.subMats.Length > 0) ? e.subMats[0].queue : -1,
+                                               texSlots.TryGetValue(e.go, out var eSlotsB) ? eSlotsB : null);
+                        nMesh++;
+                        nMeshBuiltin++;
+                    }
+                }
+                else if (!string.IsNullOrEmpty(e.objFile))
                 {
                     var modelPath = $"{ModelDir(mf.scene)}/{e.objFile}";
                     // 🔴 多子网格（原版一个网格多个材质）走**拆文件**那条路：
@@ -2434,6 +2551,35 @@ public static class ArenaBuilder
         if (vcStat.skipNoRead > 0 || vcStat.missVert > 0)
             Debug.LogWarning($"[Arena] 🔴 {mf.scene}：顶点色没贴全（{vcStat}）—— "
                            + "判据与旁挂在 `工具/gen_arena_vertexcolors.py` / `arenas/{场}/{场}_vcol.json`");
+
+        // 🔴 2026-10-08：**内置网格**（`Library/unity default resources`）建了几个 —— **不许静默**
+        //    （这一批原来在清单里**一个都没有**，是我们 2026-10-08 那一轮才补上的。）
+        if (nMeshBuiltin > 0)
+            Debug.Log($"[Arena] {mf.scene}：Unity 内置网格（`Library/unity default resources`）"
+                    + $"建出 {nMeshBuiltin} 个");
+
+        // 🔴 **2026-10-13（A1073）：原版关着、我们照原版 `SetActive(false)` 建出来的网格** ——
+        //    必须**逐个列名**（不静默）：这些件在画面上**看不见**（原版也看不见），不报出来就会被
+        //    当成「怎么少画了 / 是不是漏建」；报出来才是「与原版逐位一致」的凭据。
+        //    ⚠️ 判据 = 清单里 `active == false` 的**全部**网格条目（**不限于内置网格那一支**）
+        //    —— 原来这里只数内置那一支（`Shadow Receiver`），A1073 之后 aeldari 的
+        //    `Dynamic Lights 5/8/9/10/11` 与 spacewolves 的 `Full Moon` 那一族也要看得见。
+        //    ⚠️ 按画质档不建的（`inactiveByQuality`）**不算**在这里 —— 它们根本没建出来（`continue` 过）。
+        if (mf.meshes != null)
+        {
+            var offNames = new List<string>();
+            foreach (var e in mf.meshes)
+            {
+                if (e.active) continue;
+                var nmOff = string.IsNullOrEmpty(e.go) ? "(unnamed)" : e.go;
+                if (inactiveByQuality.Contains(nmOff)) continue;
+                offNames.Add(e.go);
+            }
+            if (offNames.Count > 0)
+                Debug.Log($"[Arena] {mf.scene}：**原版关着 ⇒ 我们照原版 `SetActive(false)` 建出来**的网格 "
+                        + $"{offNames.Count} 个（原版画面上同样看不见它们）："
+                        + string.Join(" / ", offNames.ToArray()));
+        }
 
         Debug.Log($"[Arena] 内容：网格 {nMesh} 个（跳过 {nMeshSkip} · 按画质档不建 {nMeshQuality} · "
                 + $"挂原版关键字 {nMeshKw} 个）、粒子 {nPs} 个"

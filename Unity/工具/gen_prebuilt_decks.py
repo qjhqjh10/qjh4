@@ -306,7 +306,16 @@ def pick_defensive(pool):
        `DeckBasicSetup(this, name, hero, R9=0, [rsp+0x20]=0, …)` ⇒ `pDeckId` 与 `defensiveCard` 都是 0）。
        用户 2026-09-26 拍板：「人机对战应该有防御卡，这些预组卡组我们可以加入防御卡，由你选择加入」。
     **规则（可复现、可复算）：本阵营 `type == "defence"` 里 `cost` 最低 → `id` 最小。**
-    ⚠️ 判据全在 `资料/预组卡组_原版规格.md` §五之七。"""
+    ⚠️ 判据全在 `资料/预组卡组_原版规格.md` §五之七。
+
+    🔴🔴 **2026-10-19（`A1070`）补一句口径：这个 `defensiveId` **只有玩家侧会读**。**
+      电脑（AI）那一方原版**从不从卡组取**这张 —— 电脑后手时原版走
+      `BattleManager.AddGoesSecondCardToDeck` 的另两条（② `matchType ∈ {50,80,110,120}` ⇒ 后手方阵营
+      防御池随机；③ 其余 AI 模式 ⇒ 督军自己的 `goSecondCardInHand`），引擎侧对应
+      `RuleCore.GoesSecondCard`（**它会丢掉电脑侧分流出来的这张**）。
+      ⇒ **别删这个字段**（玩家也可能用一副预组牌，那时它就是玩家那一侧的那张），但
+      ⛔ **别把它当成「电脑也有防御卡」的依据** —— 那正是 `A1070` 修掉的那份「看起来能用」。
+    """
     by = defaultdict(list)
     for c in pool:
         if c["type"] == "defence":
@@ -373,6 +382,8 @@ def make_entry(d, ctx, kind):
     🔴 **防御卡**：原版 `CardDeck(PrebuiltDeck,…)` 那条 ctor 的 `defensiveCard` 恒 0
        （`资料/预组卡组_原版规格.md:350`「原版预组牌都不带防御卡」）⇒
        池那一路那三格是**我们加的**（用户 2026-09-26 拍板）；**教程那一路不加**、三格留空串。
+       🔴🆕 **2026-10-19（`A1070`）**：这三格**只有玩家侧会读**（电脑侧原版从不从卡组取）——
+       口径只写在 `pick_defensive()` 的 docstring 里，⛔ 别在这儿再抄一份。
     """
     fac = d["faction"]
     our_ids, missing = resolve_cards(d, ctx)

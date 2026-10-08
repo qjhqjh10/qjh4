@@ -183,6 +183,11 @@ namespace CardPresentation
         public const string ArtClose = "UI_Button_Round_background";     // 237² · Simple · PA
         public const string ArtCloseBg = "40k_general_bt_yellow";        // 71² · Simple · PA
         public const string ArtCloseIcon = "40k_general_bt_yellow_close";// 同上
+        /// <summary>🔴 **2026-10-18（A1053）**：关窗钮那两颗子件（`Background` / `Icon`，同矩形 `CloseBgR`）
+        /// **自己的** `m_RaycastPadding`（原版实读 `(-20)⁴`；L,B,R,T · **负 = 外扩**）⇒ 命中区 =
+        /// 子件矩形外扩 20 = **96.86 × 98.13**（⛔ 不是根矩形 `CloseR` 的 74.39×75.60）。
+        /// 算式只走 `MenuDraw.PaddedRect`；口径 → `普查_全仓命中区与关闭键族.md` §〇-1。</summary>
+        static readonly Vector4 ClosePad = new Vector4(-20f, -20f, -20f, -20f);
         /// <summary>`60×60` 的那颗价签图标 —— 原版 `m_Sprite = &lt;无图&gt;`（运行期 `PriceDisplayButton.Setup` 灌）
         /// ⇒ 只建节点、不画。</summary>
         public static readonly Color TitleTint = new Color(0.915f, 0.541f, 0f, 1f);        // `Title` 实读
@@ -561,11 +566,24 @@ namespace CardPresentation
             ImageQuad closeBg = null;
             if (closeTex != null) closeBg = MenuDraw.Rect(close, closeTex, Abs(CloseR), "Image", QClose, null, true);
             var cbTex = Tex(ArtCloseBg, "关窗钮内底");
-            if (cbTex != null) MenuDraw.Rect(close, cbTex, Abs(CloseBgR), "Background", QClose, null, true);
+            var closeFaceQ = cbTex != null
+                ? MenuDraw.Rect(close, cbTex, Abs(CloseBgR), "Background", QClose, null, true) : null;
             var ciTex = Tex(ArtCloseIcon, "关窗钮叉");
             if (ciTex != null) MenuDraw.Rect(close, ciTex, Abs(CloseBgR), "Icon", QCloseIcon, null, true);
             // `m_SpriteState` = dump 那一列实读的 `HL=40k_general_bt_yellow_hover P=40k_general_bt_yellow_pressed`
-            var closeHit = MenuDraw.Hit(close, "Hit", Abs(CloseR), QHit, () => Close(), closeBg, ArtClose,
+            // 🆕 **2026-10-18（A1058 · 第六会话批 2）**：换图那一层 = **子件 `Background`**（`closeFaceQ`，
+            //   画的是 `ArtCloseBg` = `40k_general_bt_yellow`），⛔ **不是圆底盘 `closeBg`**。
+            //   判据（原版亲读）=
+            //   `python -I d:/tmp/wf_hit/rcunion.py bundle_menus_assets_all "Purchase Premium Window" --depth 8`：
+            //   根那颗 `EverguildButton` 的 **`m_TargetGraphic` = pid-4732504928029059015**；解该 pid ⇒
+            //   **所属 GO 名 = `Background`**、贴图 pid `5693181797853584851` → `40k_general_bt_yellow`。
+            // 🆕 **2026-10-18（A1053 · 第六会话批 2）**：**命中区**归真值 —— 原版圆底盘
+            //   `m_RaycastTarget = 0`，吃射线的是同矩形两颗子件（56.86×58.13）按 `(-20)⁴` 外扩
+            //   ⇒ **96.86 × 98.13**；改前传根矩形 `Abs(CloseR)`（74.39×75.60）⇒ 每边小 11.2。
+            //   判据 = `python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all "Purchase Premium Window"
+            //   --depth 8 --substr "Generic Close Button"`（实读 `96.86 x 98.13`）。
+            var closeHit = MenuDraw.Hit(close, "Hit", MenuDraw.PaddedRect(Abs(CloseBgR), ClosePad),
+                                        QHit, () => Close(), closeFaceQ, ArtCloseBg,
                                         "40k_general_bt_yellow_hover", "40k_general_bt_yellow_pressed");
             if (closeHit == null)
                 Debug.LogWarning("[Premium] 关窗钮的命中区没建出来 ⇒ **点它关不了窗**（还能点窗外或 ESC）。");

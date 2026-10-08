@@ -248,7 +248,21 @@ namespace CardPresentation
             if (mouse == null) return;
 
             Vector3 wp = LayoutSpace.ScreenToWorld(mouse.position.ReadValue(), LayoutSpace.Cam);
-            Vector2 px = LayoutSpace.ToPixel(wp);
+            // 🔴 **2026-10-18（A990②）**：这一帧 = 「**设计 px × 父链缩放**」——
+            //    `MenuDraw.PixelOfDesign` 是 `LayoutSpace.FromPixel` 的逆（x 用**实测** `VisibleWidth`）。
+            //    改前是 `LayoutSpace.ToPixel`（x 写死 108px/世界单位）⇒ **只在 16:9 与设计帧重合**
+            //    （4:3 差 0.75 倍 · 21:9 差 1.3125 倍）。
+            //    🔴 **谁受影响（这一帧的下游都受影响）**：`HitScroll` / `AxisOf` 比的是
+            //    **字面设计 px**（`MenuScroll.Viewport` / `ContentX1/2` / `Offset` 一律设计 px，
+            //    判据 → `MenuScroll` 那边那一节的注释）⇒ 非 16:9 下**滚动区的命中范围会围着画布中心
+            //    胀/缩 `1/r` 倍**（4:3 胀 33%：旁边那一列上滚轮也会滚这一区）。
+            //    ⚠️ **按钮命中那一半（`HitButton`/`CollectHits`）本来就不偏** —— 它的中心与半宽都从
+            //    **同一个世界坐标**算出来，倍率会自己约掉；本行换帧之后 `HitBoxPx` **必须跟着换**
+            //    （否则两边不再同一帧 —— 那才是真会点不中），见那里的注释。
+            //    ⚠️ 副作用（如实记）：`_lastPx` 的「指针动了多少」与 `DragThreshold`（10px）也跟着换了量纲
+            //    —— 16:9 下**逐位不变**；非 16:9 下「10 设计 px」比「10×108 帧 px」在横向小 `r` 倍
+            //    （两条都不是屏幕 px，原版那个 `m_DragThreshold` 我们本来就没有等价物）。
+            Vector2 px = MenuDraw.PixelOfDesign(wp);
 
             // ① 悬停：指针动过、或这一帧有滚动区被推动过（内容会跑到指针底下）就重算一次
             bool scrollMoved = false;
@@ -322,9 +336,13 @@ namespace CardPresentation
 
         /// <summary>滚动轴上的指针坐标（横向给 x、纵向给 y）—— `MenuScroll` 只认一个分量。
         /// <para>🔴 **2026-10-11（A167）**：`MenuScroll` 内部**一律是设计 px**（`Viewport` / `ContentX1/2` /
-        /// `Offset` 全是宿主按原版矩形给的**设计**值），而这里的 `px` 是**世界 px**
-        /// （`ToPixel(ScreenToWorld(mouse))` —— 相机不随窗根缩放）⇒ 喂给 `BeginDrag` / `DragTo` 之前
+        /// `Offset` 全是宿主按原版矩形给的**设计**值），而这里的 `px` 是**指针那一帧**
+        /// （`PixelOfDesign(ScreenToWorld(mouse))` —— 相机不随窗根缩放）⇒ 喂给 `BeginDrag` / `DragTo` 之前
         /// **要除回设计 px**（M == 1 时逐位不变）。
+        /// <para>🔴 **2026-10-18（A990②）就地订正（铁律 5）**：本行原来把 `px` 叫「**世界 px**」
+        /// （`ToPixel(ScreenToWorld(mouse))`）—— 那个名字在非 16:9 下**不是**设计 px 的同倍率兄弟
+        /// （`ToPixel` 的 x 写死 108）⇒ 这一除**除不掉宽高比那个因子**（4:3 下还剩 0.75 倍）。
+        /// 换帧之后（见 `Update` 里那一行）本函数**一个字都没改**，而它对**任何宽高比**都恰好还原成设计 px ✔。</para>
         /// <para>📌 **判据 = 原版**：`ScrollRect.OnBeginDrag/OnDrag` 用的都是
         /// `RectTransformUtility.ScreenPointToLocalPointInRectangle(m_Viewport, …)` ⇒ 指针坐标在
         /// **视口的局部单位**里（= 我们这份设计 px），**不是**屏幕像素 —— 所以拖拽的「走了多远」本来就该
@@ -349,10 +367,14 @@ namespace CardPresentation
             return new Vector2(ScaleAbs(k.x), ScaleAbs(k.y));
         }
 
-        /// <summary>设计 px → 指针那一帧（**世界 px**）：逐分量 `c + (v − c)·M`（`c` = 画布中心）。
-        /// 窗根被乘 M 时，设计点 d **渲出来**在 `M·d` ⇒ 它的画布 px = `c + (ToPixel(d) − c)·M`
+        /// <summary>设计 px → 指针那一帧（**设计 px × 父链缩放**）：逐分量 `c + (v − c)·M`（`c` = 画布中心）。
+        /// 窗根被乘 M 时，设计点 d **渲出来**在 `M·d` ⇒ 它的画布 px = `c + (设计 px − c)·M`
         /// （与 `Shell/SettingsWindow.cs` 的 `Screen()` 那条把固定 0.9 烘进矩形的仿射**同一个形状**）。
-        /// ⚠️ 前提 = **窗根在世界原点**（与 `MenuDraw.PosInDesignSpace` 同一条，见它的注释）。</summary>
+        /// ⚠️ 前提 = **窗根在世界原点**（与 `MenuDraw.PosInDesignSpace` 同一条，见它的注释）。
+        /// <para>🔴 **2026-10-18（A990②）就地订正（铁律 5）**：本行原来写「→ 指针那一帧（**世界 px**）」
+        /// 并引 `ToPixel(d)` —— **那半句只对 16:9 成立**（`ToPixel` 的 x 写死 108）。改后指针那一帧
+        /// **就是设计 px 那一帧**（`MenuDraw.PixelOfDesign` = `FromPixel` 的逆）⇒ 本函数**一个字都不用改**
+        /// （它本来就是「设计 px × M」），而它两侧的**输入**换了帧。</para></summary>
         static PxRect DesignToPtrPx(PxRect r, Vector2 m)
         {
             return new PxRect(ScaleAbout(LayoutSpace.DesignPxW * 0.5f, r.x1, m.x),
@@ -874,14 +896,30 @@ namespace CardPresentation
             if (q == null) return false;
             var p = q.transform.position;
             float k = LayoutSpace.DesignPxH / LayoutSpace.DesignHeight;
-            center = new Vector2(LayoutSpace.PxX(p.x), LayoutSpace.PxY(p.y));
+            // 🔴 **2026-10-18（A990②）**：中心那一项**必须与 `Update` 里那枚指针同一帧**
+            //    （那边已改走 `MenuDraw.PixelOfDesign`）⇒ 这里也走它。
+            //    ⚠️ **传的是裸世界坐标**（⛔ 不是 `PosInDesignSpace`）：这一路的语义是
+            //    「指针那一帧」—— 窗根被 `TransformScalerBySmallScreenUI` 乘 M 时，中心与**画出来那块**
+            //    一起放大（A167 要的就是这个），喂除过缩放的那个版本反而会把它除回去。
+            //    改前是 `LayoutSpace.PxX(p.x)`（x 写死 108）—— 与指针那一帧在**非 16:9** 下差
+            //    `r = VisibleWidth / DesignWidth` 倍（4:3 ⇒ 0.75）⇒ 中心与指针不同帧。
+            center = LayoutSpace.ToDesignPixel(p);
             // 🔴 A167：尺寸项乘**父链缩放**（`lossyScale` 一路含自己那一级 ⇒ 连「靠 `localScale` 定宽」
             //    那种件也对：`Battle/SkillPanel.cs:248` 写的 `localScale = 目标宽 / WorldW` 照样还原成
             //    「世界宽 × K」）。`M == 1` 时逐位不变（开关出厂关 ⇒ 零回归）。
             //    **改坏法**：去掉这两个因子 ⇒ 在「开关开 + 窗根 ×1.2」下命中区比画出来的小一圈
             //    ⇒ `Editor/SettingsScene.cs` 的 A167 那两条（远边上的点：修好后点得中、改坏后点不中）立刻红。
+            // 🔴 **2026-10-18（A990②）**：**x 的斜率换成 `PxPerWorldX`**（y 仍然是 `k`）——
+            //    中心项既然活在设计帧，半宽就也必须换成「**画出来那块在设计帧里有多宽**」
+            //    = `WorldW × |ls.x| × PxPerWorldX ÷ 2`（4:3 下 = 108 那条的 **1/0.75 = 1.333 倍**）。
+            //    ⛔ **两半必须同时换**：只换中心不换半宽 ⇒ 非 16:9 下命中区被**缩小 `r` 倍**
+            //    （4:3 只剩 75% —— 正是「看着在钮上、点不动」那个症状），而**16:9 下照样全绿**（差 8.7e-8）。
+            //    ⚠️ 为什么 y 不换：可见高度恒 10 世界单位 = 1080px ⇒ y 的斜率**恒 = k**（`PxY` 那一句）。
+            //    等价说法：这一换把命中判据写回「**世界空间里 |Δ| ≤ WorldW/2**」——
+            //    那正是「命中区 = 画出来那一块」，对任何宽高比都成立。
             var ls = q.transform.lossyScale;
-            half = new Vector2(q.WorldW * ScaleAbs(ls.x) * k * 0.5f, q.WorldH * ScaleAbs(ls.y) * k * 0.5f);
+            half = new Vector2(q.WorldW * ScaleAbs(ls.x) * LayoutSpace.PxPerWorldX * 0.5f,
+                               q.WorldH * ScaleAbs(ls.y) * k * 0.5f);
             return true;
         }
 
@@ -1189,9 +1227,13 @@ namespace CardPresentation
         /// **已经切走 / 关掉的页里的区跳过**（页签切换是 `SetActive`，那些区还留在表里）；
         /// 🆕 **宿主已经销毁的条目直接删掉**（原来只判 `!= null` ⇒ Unity 的假 null 让它**判不出**，
         /// 死条目照样能被滚轮命中）。判据 → `项目任务.md` §〇 A ②。
-        /// 🆕 **2026-10-11（A167）**：`Viewport` 是**设计 px**、`px/py` 是**世界 px** ⇒ 比之前先把视口
+        /// 🆕 **2026-10-11（A167）**：`Viewport` 是**设计 px**、`px/py` 是**指针那一帧** ⇒ 比之前先把视口
         /// 换算到指针那一帧（`DesignToPtrPx`，判据见它）。**改坏法**：不换算 ⇒ 开关开着的窗里视口的
-        /// 命中范围比画出来的小 `1/M`（1.2 倍窗 ⇒ 边缘 17% 只是「滚不动」，**静默**）。</summary>
+        /// 命中范围比画出来的小 `1/M`（1.2 倍窗 ⇒ 边缘 17% 只是「滚不动」，**静默**）。
+        /// <para>🔴 **2026-10-18（A990②）就地订正（铁律 5）**：本行原来写「`px/py` 是**世界 px**」——
+        /// 换帧之后**两侧同一帧**，本函数**一个字都没改**；非 16:9 下原来**两层**错（除 `M` 只治了缩放那一层，
+        /// 宽高比那一层还在：4:3 下滚动区的命中范围围着画布中心**胀 1/0.75 = 1.33 倍** ⇒ 相邻那一列上滚轮
+        /// 也会滚这一区），今天两层都闭合 ✔。</para></summary>
         MenuScroll HitScroll(float px, float py)
         {
             for (int i = _scrolls.Count - 1; i >= 0; i--)

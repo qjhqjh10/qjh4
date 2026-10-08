@@ -367,12 +367,21 @@ namespace CardPresentation
         //          `useLocalization = 0` ⇒ **原版就不走词条**（印 `alternativeText` = `1-`/`2`…/`8+`）
         //          ⇒ `CostBuckets[].Label` **不进表**（施工单 §③「原版不是 mTerm ⇒ 不进」）。
         //   ⇒ 两列英文取哪一份、ZH 自拟与否，逐条写在 `Loc.cs` 那几条键的注释里（本文件不另存一份）。
-        //   ⚠️ **表里的键还没补齐**（波 0 未含本族）⇒ 取词一律经 <see cref="TermOr"/> 闸门：
-        //      键在表里就用词条，**不在就退回原来那串**（今天界面零变化；波 0b 补键后自动生效）。
+        //   🔴 **2026-10-18 更正（铁律 5）**：这一行原来写「**表里的键还没补齐**（波 0 未含本族）
+        //      ⇒ 取词一律经 `TermOr` 闸门：键在表里就用词条、**不在就退回原来那串**」——
+        //      **已过期**：本族那 **10** 条键**早已全部进表**（`Core/Loc.cs` 实读：`Card_Rarity/*` 5 条 ·
+        //      `MenuDeck/HUD/DeckDescription/{Minions,Spells}` · `Card_Race/Warlord` ·
+        //      `MenuDeck/Filters/{ShowOwnedOnly,ShowUpgradableOnly}`）⇒ 闸门**已删除**（它是**静默兜底**，
+        //      与铁律「不许静默失败」冲突）⇒ 取词一律是**裸 `Loc.T(键)`**（`Loc.T` 对缺键回**键名本身**，
+        //      这就够了：缺键时屏上会明明白白印出 `Card_Rarity/Common`，而不是悄悄退回一串英文）。
         /// <summary>Rarity 五档（`CardRarityFilter.options`，顺序照抄）。</summary>
         public static readonly string[] RarityKeys = { "common", "rare", "epic", "legendary", "special" };
         /// <summary>**卡面上印的那几个词**（= 原版 `alternativeText` 原文）。
-        /// 🔴 它现在只是 <see cref="RarityTermKeys"/> 的**兜底**（键没进表时印它）—— 显示走词条。</summary>
+        /// ⚠️ **2026-10-18 更正（铁律 5）**：原来这里写「它现在只是 <see cref="RarityTermKeys"/> 的**兜底**
+        /// （键没进表时印它）—— 显示走词条」—— **两半都已过期**：闸门已删（键全在表里），
+        /// 显示**只**走 `Loc.T(RarityTermKeys[i])`（见 `Build` 里那一格）。本常量**现在只剩一个用处**：
+        /// 它是**原版 prefab 的 `alternativeText` 原文**这份事实的落点（原版那 8 档 Cost 走的就是它，
+        /// 见 `CostBuckets`）—— 本族这份**不再参与显示**，留着当判据。</summary>
         public static readonly string[] RarityNames = { "Common", "Rare", "Epic", "Legendary", "Special" };
         /// <summary>🔴 **Rarity 五档的原版词条键**（`CardRarityFilter.options[].locKey.mTerm` 原文，
         /// `useLocalization = 1`；出处见本段开头那两条判据）。顺序与 <see cref="RarityKeys"/> 逐格对齐。</summary>
@@ -404,11 +413,16 @@ namespace CardPresentation
         /// <summary>Type 三档（`CardTypeOptions`：Hero=10 / Minion=0 / Tactic=20）。
         /// 🔴 **原版没有「防御卡」那一档** —— 防御卡在这个筛选里**筛不到**（不是我们漏做）。</summary>
         public static readonly string[] TypeKeys = { "hero", "unit", "tactic" };
-        /// <summary>类型三格的**兜底字**（键没进表时印它）。🔴 它**不是** `alternativeText` ——
-        /// 原版那三档的 `alternativeText` **全是空串**（`CardTypeFilter` pid `-3311978293714882780` 实读），
-        /// 显示字一律来自 `locKey` 那条词条 ⇒ 这里存的是「词条值的中英近似」，只当闸门未开时的兜底。
+        /// <summary>类型三格的**英文串**（= 原版那三条词条的英文列，也是键没进表时**原来**印的那串）。
+        /// 🔴 它**不是** `alternativeText` —— 原版那三档的 `alternativeText` **全是空串**
+        /// （`CardTypeFilter` pid `-3311978293714882780` 实读），显示字一律来自 `locKey` 那条词条。
+        /// ⚠️ **2026-10-18 更正（铁律 5）**：原来这里写「键没进表时印它的兜底」—— 闸门已删、键全在表，
+        /// ⇒ **显示不再吃它**（显示只走 `Loc.T`，见 `TypeLabelAt`）。
+        /// 它**现在只剩一个用处**：`Deck/DeckEditorState.cs` 按类型名搜卡时**额外**比一次这串**原版英文**
+        /// （那条路本来就要「英文档也能搜到」，见 `NameSearchMatch`）。
         /// ⚠️ 第 3 档原版词条 `MenuDeck/HUD/DeckDescription/Spells` 的本地 TMP 原文是 **`Stratagems`（复数）**
-        /// （卡组计数抽屉那颗，见本段开头的判据 ②）⇒ 键补进表之后英文档会从 `Stratagem` 变成 `Stratagems`。</summary>
+        /// （卡组计数抽屉那颗，见本段开头的判据 ②）—— 而这里存的是 `Stratagem`（**单数**，我们旧的近似），
+        /// ⇒ 两者**本来就不相等**（英文档显示 `Stratagems`、搜索那一串是 `Stratagem`）。</summary>
         public static readonly string[] TypeLabels = { "Warlord", "Troops", "Stratagem" };
         /// <summary>🔴 **Type 三档的原版词条键**（`CardTypeFilter.options[].locKey.mTerm` 原文，
         /// `useLocalization = 1`）。⚠️ 这三条**不是同一族**：第 1 档复用卡面兵种行那条 `Card_Race/Warlord`，
@@ -422,21 +436,14 @@ namespace CardPresentation
         /// `… /Cosmetic FIlter/Filters/Owned Toggle/Label` —— **两份共用同一条键**（本批按 pid 亲读）。</summary>
         public const string OwnedOnlyTerm = "MenuDeck/Filters/ShowOwnedOnly";
         public const string UpgradableOnlyTerm = "MenuDeck/Filters/ShowUpgradableOnly";
-        /// <summary>选项表取词**唯一**的闸门：键在表里 ⇒ 用词条（随语档），不在 ⇒ 退回原来的那串。
-        /// 🔴 为什么要闸门（而不是直接 `Loc.T`）：`Loc.T` 对**表里没有**的键返回**键名本身**
-        /// （`Core/Loc.cs` 的 `T()` doc）⇒ 直接换会在界面上印 `Card_Rarity/Common`。
-        /// 本族那 9 条键**波 0 未补**（`Loc.EntryCount` 191 里没有它们）⇒ 今天退回原串、**界面零变化**；
-        /// 补键那一批做完之后**不改代码**就自动生效。⛔ 别把闸门去掉改成裸 `Loc.T`（除非键已在表里）。
-        /// ⚠️ 与 `Shell/AlliancePanelWindow.LocOr` / `BattleDriver.cs:7771` 是同一个形状。</summary>
-        public static string TermOr(string key, string fallback)
-        {
-            return Loc.HasEntry(key) ? Loc.T(key) : fallback;
-        }
         /// <summary>第 <paramref name="i"/> 档**类型**格印在屏上那串字（**随语档**）—— 显示点与
-        /// 「按类型名搜索」共用这一个口（表只此一份；⛔ 别在别处再拼一次）。</summary>
+        /// 「按类型名搜索」共用这一个口（表只此一份；⛔ 别在别处再拼一次）。
+        /// 🔴 **2026-10-18（双语线 · P1 收口 · 铁律 5）**：本方法**原来经 `TermOr` 闸门**；闸门已删
+        /// ⇒ 现在是**裸 `Loc.T(键)`**（键 `Card_Race/Warlord` / `MenuDeck/HUD/DeckDescription/{Minions,Spells}`
+        /// 三条**都已在表**，`Core/Loc.cs` 实读）。缺键时 `Loc.T` 回**键名本身**（不会静默退成英文）。</summary>
         public static string TypeLabelAt(int i)
         {
-            return (i >= 0 && i < TypeTermKeys.Length) ? TermOr(TypeTermKeys[i], TypeLabels[i]) : null;
+            return (i >= 0 && i < TypeTermKeys.Length) ? Loc.T(TypeTermKeys[i]) : null;
         }
         public static readonly string[] TypeArt =
         {
@@ -578,8 +585,9 @@ namespace CardPresentation
                     R = row, Bg = icon, Icon = ToggleSprite, IconOff = ToggleSpriteOff, Lab = lab,
                     // 🔴 **2026-10-18（双语线 · P1）**：显示字走原版词条（`MenuDeck/Filters/ShowOwnedOnly` /
                     //   `ShowUpgradableOnly`，键名 = prefab 那颗 `Localize.mTerm` 原文，见上面那两条判据）。
-                    Label = TermOr(k == 0 ? OwnedOnlyTerm : UpgradableOnlyTerm,
-                                   k == 0 ? "Owned only" : "Upgradable only"),
+                    //   ⚠️ **同日收口（铁律 5）**：这里原来是 `TermOr(…, "Owned only")` 闸门 ⇒ 已收成**裸 `Loc.T`**
+                    //   （两条键都在表里；闸门是**静默兜底**，与「不许静默失败」冲突）。
+                    Label = Loc.T(k == 0 ? OwnedOnlyTerm : UpgradableOnlyTerm),
                     // 🔴 **2026-10-05（A32④）：`LabelCenter` 从 `true` 改成 `false` —— 原版是【左对齐】。**
                     //   判据（自己重跑，不是转抄）：`bundle_menus_assets_all` 里**全部 8 个**
                     //   `Owned only` / `Upgradable only` 的 TMP 都是 `m_HorizontalAlignment = 1`（= Left）
@@ -626,7 +634,9 @@ namespace CardPresentation
                     Lab = new PxRect(x, y + RarityLabTopIn, x + RarityCell, y + RarityCell),
                     // 🔴 **2026-10-18（双语线 · P1）**：显示字走原版词条 `Card_Rarity/*`（键名 = prefab 里
                     //   那 5 条 `options[].locKey.mTerm` 原文，见本区段开头判据 ②）；`RarityNames[i]` 是兜底。
-                    Label = TermOr(RarityTermKeys[i], RarityNames[i]),
+                    //   ⚠️ **同日收口（铁律 5）**：那个「兜底」已随闸门一起删掉 —— 现在是**裸 `Loc.T`**
+                    //   （5 条键都在表里）。
+                    Label = Loc.T(RarityTermKeys[i]),
                     LabelPx = RarityFontPx, LabelAutoMin = RarityFontAutoMin, LabelRight = true,
                     // 🔴 **A333 的实测错处**：原版上限是 **27**，旧写法拿 `fontPx(23.2)` 当上限 ⇒ 矮 3.8px。
                     //    base = **36**（原版显式设过，≠ 标称 23.2、也 ≠ TMP 出厂默认 36 —— 这里**恰好**是 36，但那是读出来的，不是推的）。
@@ -671,6 +681,8 @@ namespace CardPresentation
                     Lab = new PxRect(x, y + TypeLabTopIn, x + TypeCellW, y + TypeCellH),
                     // 🔴 **2026-10-18（双语线 · P1）**：显示字走原版词条 `TypeTermKeys[i]`（那三条
                     //   `CardTypeFilter.options[].locKey.mTerm` 原文，见本区段开头判据 ②）；`TypeLabels[i]` 是兜底。
+                    //   ⚠️ **同日收口（铁律 5）**：「兜底」已随闸门一起删掉（现在是 `TypeLabelAt` 里的**裸 `Loc.T`**）
+                    //   —— `TypeLabels` 现在只给「按类型名搜卡」那条路当**原版英文串**（见它的字段注释）。
                     //   ⚠️ 取词只此一处（`TypeLabelAt`）—— 按类型名搜卡那条路也吃它（表别拼第二份）。
                     Label = TypeLabelAt(i),
                     LabelPx = RarityFontPx, LabelAutoMin = RarityFontAutoMin, LabelRight = true,
@@ -913,7 +925,8 @@ namespace CardPresentation
                 R = row, Bg = icon, Icon = ToggleSprite, IconOff = ToggleSpriteOff, Lab = lab,
                 // 🔴 **2026-10-18（双语线 · P1）**：与卡牌页那颗**共用同一条键**
                 //   （`Deck Editing Menu/…/Cosmetic FIlter/Filters/Owned Toggle/Label` 实读 = `MenuDeck/Filters/ShowOwnedOnly`）。
-                Label = TermOr(OwnedOnlyTerm, "Owned only"), LabelPx = ToggleFontPx, LabelAutoMin = labelAutoMin,
+                //   ⚠️ **同日收口（铁律 5）**：原来是 `TermOr(OwnedOnlyTerm, "Owned only")` 闸门 ⇒ 已收成裸 `Loc.T`。
+                Label = Loc.T(OwnedOnlyTerm), LabelPx = ToggleFontPx, LabelAutoMin = labelAutoMin,
                 // 🆕 A333/A336④：上限 **32**（= 标称，卡背页那颗原版就是 `auto[18~32]`）· base **32**
                 LabelAutoMax = ToggleFontAutoMax, LabelBase = ToggleFontBase,
                 // 🔴 **2026-10-05（A32④）：`false`（左对齐）** —— 判据同卡牌那两行（这一颗的 TMP 也是

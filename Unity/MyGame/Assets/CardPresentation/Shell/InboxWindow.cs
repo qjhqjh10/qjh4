@@ -66,6 +66,12 @@ namespace CardPresentation
         public const string ArtCloseBg = "UI_Button_Round_background";
         public const string ArtCloseIcon = "40k_general_bt_yellow";
         public const string ArtCloseX = "40k_general_bt_yellow_close";
+        /// <summary>🔴 **2026-10-18（A1053）**：关窗钮那两颗子件（`Background` 黄面 / `Icon` 叉，同矩形
+        /// `CloseBg`）**自己的** `m_RaycastPadding`（原版实读 `(-20)⁴`；L,B,R,T · **负 = 外扩**）
+        /// ⇒ 命中区 = 子件矩形外扩 20 = **96.86 × 98.13**（⛔ 不是子件裸矩形 56.86×58.13、
+        /// 也不是根矩形 `CloseBtn` 的 74.38×75.60）。算式只走 `MenuDraw.PaddedRect`；
+        /// 口径 → `资料/普查产出_第四会话/普查_全仓命中区与关闭键族.md` §〇-1。</summary>
+        static readonly Vector4 ClosePad = new Vector4(-20f, -20f, -20f, -20f);
 
         // ============================================================ 🔴 消息列表的视口 / 裁切 / 滚动
         // **2026-10-08（A182）建的**。判据（都是直读原版）：
@@ -326,15 +332,14 @@ namespace CardPresentation
 
             // 关闭钮
             var close = MenuDraw.Node(c, "Generic Close Button Orange", CloseBtn);
-            // 🔴 换图落在**圆底那一层**（原版三层 = 圆底 `UI_Button_Round_background` + 黄面 + 叉；
-            //    `trans=2` 换的是它自己的 Image。2026-10-03 直接读 prefab 核过）
-            var baseQ = MenuDraw.Rect(close, Art(ArtCloseBg), CloseBg, "Background", QContent);
-            MenuDraw.Rect(close, Art(ArtCloseIcon), CloseBg, "Icon", QOverlay);
-            var x = MenuDraw.Rect(close, Art(ArtCloseX), CloseBg, "Icon (X)", QOverlay);
-            if (x != null)
+            // 🔴 **换图落在「按钮脸」那一层，⛔ 不是圆底盘**；⚠️ **本窗的节点名是错位的**
+            //   —— 叫 `Background` 的那颗画的是**圆底盘**、叫 `Icon` 的那颗才画**黄面**
+            //   （三个常量 `ArtCloseBg`/`ArtCloseIcon`/`ArtCloseX` 与节点名 `Background`/`Icon`/`Icon (X)` 交叉）
+            //   ⇒ **按贴图认层**（判据见下面 `Bind` 那一句）。
+            var closeBaseQ = MenuDraw.Rect(close, Art(ArtCloseBg), CloseBg, "Background", QContent);
+            var closeFaceQ = MenuDraw.Rect(close, Art(ArtCloseIcon), CloseBg, "Icon", QOverlay);
+            MenuDraw.Rect(close, Art(ArtCloseX), CloseBg, "Icon (X)", QOverlay);
             {
-                var hit = x.gameObject.AddComponent<WindowButton>();
-                hit.onClick = () => Close();
                 // 🆕 A17：原版 `Content>Generic Close Button Orange` 是 SpriteSwap，HL = `40k_general_bt_yellow_hover`
                 // 🔴 **2026-10-14（A810③）：第一格原来传的是 `null`** —— `PromptPopup.Bind` 里
                 //   `PressedNameFor(null) = null` ⇒ 往 `MissingPressedArt` 记下一条**认不出是谁**的
@@ -343,13 +348,44 @@ namespace CardPresentation
                 //   `Generic Close Button Orange … UI_Button_Round_background 237×237 … | trans=2
                 //    target=5609434692533257010 interactable=1 | HL=40k_general_bt_yellow_hover
                 //    P=40k_general_bt_yellow_pressed` ⇒ 被换的是这颗**圆底**、它的常态图就是 `UI_Button_Round_background`。
+                //    ⛔⛔ **这一句已被下面 2026-10-18 那条更正推翻**（`target=` 那个 pid 解出来是**黄面**）——
+                //    保留原文只为留订正痕，⛔ 别再照它推。
                 //   ⚠️ 本地没有它对应的按下图（`PressedNames` 表里也没这一条）⇒ 表里**仍会留一条有名字的**记录
                 //   （`UI_Button_Round_background → UI_Button_Round_background_pressed`）—— 那是「如实出声」
                 //   那一档、不是缺陷（口径见 `WindowButton.MissingPressedArt` 的注释）。
                 //   ⚠️ **如实记一处偏离**：原版那一格 `P=40k_general_bt_yellow_pressed`（**本地有这张图**），
                 //   我们**没接** —— 与同族 5 颗关闭钮一致，都走 `Press()` 的「取不到按下图 ⇒ 退回高亮图」；
                 //   ⛔ 不在 A810③ 的口径内，本件不动（要接 = 另立一笔账）。
-                hit.Bind(baseQ, ArtCloseBg, "40k_general_bt_yellow_hover");
+                //   🔴 **2026-10-18 更正（A1058 · 第六会话批 2 · 铁律 5）**：上面那条 A810③ 把
+                //   `target=5609434692533257010` 读成了「**圆底**」—— **那句是错的**。把那个 pid 解出来
+                //   （`python -I d:/tmp/wf_hit/tgt.py bundle_menus_assets_all 5609434692533257010`）⇒
+                //   **所属 GO 名 = `Background`、贴图 = `40k_general_bt_yellow`**（= **黄面**那一层，⛔ 不是圆底）。
+                //   旁证：`rcunion.py bundle_menus_assets_all "Inbox Menu" --depth 8` 那三行 ——
+                //   根 `Image[UI_Button_Round_background RT=0]`（圆底盘**不吃射线**）、
+                //   子件 `Background[40k_general_bt_yellow RT=1 pad(-20)⁴]`、子件 `Icon[40k_general_bt_yellow_close RT=1 pad(-20)⁴]`。
+                //   ⇒ 换图目标改成**画着 `40k_general_bt_yellow` 的那颗 quad**（本窗里它的节点名叫 `Icon`），
+                //   `art` = 它的**常态图名** `ArtCloseIcon` ⇒ 按下图也顺带推出来了
+                //   （`PressedNames`: `40k_general_bt_yellow → 40k_general_bt_yellow_pressed`，与 `P` 那一格逐字相同）
+                //   ⇒ `MissingPressedArt` 里那条 `UI_Button_Round_background → …_pressed` **不再产生**。
+                //
+                // 🔴 **2026-10-18（A1053 · 第六会话批 2）：这一处**原来**没有独立命中区** ——
+                //   `WindowButton` 是**直接挂在【画出来的叉】那颗 quad 上**的（`AddComponent`），
+                //   于是命中区 = 子件矩形 56.86×58.13、**每边比原版小 20**。
+                //   原版吃射线的是**同矩形的两颗子件**按各自的 `m_RaycastPadding (-20)⁴` 外扩
+                //   ⇒ **96.86 × 98.13**（根那颗 `UI_Button_Round_background` 带 `m_RaycastTarget=0`
+                //   ⇒ 它**不吃射线**）。⇒ 改走公共件 `MenuDraw.Hit` 另建一颗**透明命中区**
+                //   （同族的 16 颗关窗钮全是这个写法：`LeaderboardWindow` / `TrophyInfoPopup` /
+                //    `BaseOfferPopup` / `PlayerProfileWindow` …），⛔ 那颗**画出来的叉不再兼命中区**。
+                //   判据 = `python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all "Inbox Menu" --depth 8
+                //   --substr "Generic Close Button"`（实读 `96.86 x 98.13`）。
+                //   ⚠️ 队列仍用本窗内容命中区那一档 `QOverlay`(3014)（⛔ 保持不变：压暗层那条
+                //   「`QShade`(3002) 严格低于内容命中区档」的不变量由 `RewardsScene` 那条断言钉着）。
+                var closeHit = MenuDraw.Hit(close, "Hit", MenuDraw.PaddedRect(CloseBg, ClosePad),
+                                            QOverlay, () => Close(), closeFaceQ, ArtCloseIcon,
+                                            "40k_general_bt_yellow_hover");
+                if (closeHit == null)
+                    Debug.LogWarning("[Inbox] 关窗钮的命中区没建出来（`MenuDraw.Hit` 返回 null）"
+                                   + " ⇒ **点它关不了窗**（只能点窗外或 ESC）。");
             }
 
             // ⚠️ `Reset Button` **不建**（原版是死的，见文件头）

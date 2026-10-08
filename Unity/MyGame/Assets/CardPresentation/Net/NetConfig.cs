@@ -300,11 +300,11 @@ namespace CardPresentation.Net
                     r.v6 = EchoOnce(EchoV6, AddressFamily.InterNetworkV6, out r.v6From);
                     r.ok = !string.IsNullOrEmpty(r.v4) || !string.IsNullOrEmpty(r.v6);
                     if (!r.ok)
-                        r.detail = "两个方向都没探到 —— **可能是回显站被网络挡了**（不是「你没有公网地址」）。";
+                        r.detail = Loc.T("Settings/Online/Echo/NoEcho");
                 }
                 catch (Exception e)
                 {
-                    r.detail = "探测出错：" + e.Message;
+                    r.detail = string.Format(Loc.T("Settings/Online/Echo/ProbeError"), e.Message);
                 }
                 Debug.Log("[Net] 外网看到的地址：v4=" + (string.IsNullOrEmpty(r.v4) ? "（没探到）" : r.v4 + " ← " + r.v4From)
                         + " · v6=" + (string.IsNullOrEmpty(r.v6) ? "（没探到）" : r.v6 + " ← " + r.v6From)

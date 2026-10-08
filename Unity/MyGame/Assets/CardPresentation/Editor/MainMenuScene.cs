@@ -462,10 +462,27 @@ public static class MainMenuScene
         return rt;
     }
 
-    /// <summary>截图 —— 本文件那一份**原来就没有空图护栏**（无 `MeanBrightness`、无 `allowBlank`）
-    /// ⇒ `guardBlank: false`（⛔ **不许顺手补上**：那会给本宿主**新增断言**、可能绿变红；
-    /// 那笔账另记，见 `Editor/MenuCheck.cs` 的 `Shoot` 文件头）。</summary>
-    static void Shoot(string file) => MenuCheck.Shoot(_sink, ShotDir, file);
+    /// <summary>截图。🆕 **2026-10-18（`A1007`）起补上「空图护栏」** —— 本文件原来**没有**它
+    /// （`guardBlank: false`、也没有 `MeanBrightness`）⇒ 一张**全黑**图也能安静地写出去。
+    /// 现在照另 5 份接上：`guardBlank: true` + 本文件自己一份 `MeanBrightness`。
+    /// ⚠️ `MeanBrightness` 的口径照 **Collection / Rewards / Shell / Shop** 四份
+    /// （`long` 累加 + 分母 `(px.Length + 6) / 7`）—— ⛔ **别抄 `SettingsScene` 那一份**：
+    /// 它是 `double` + `px.Length / 7.0` 且**没有 null 护栏**，传 `null` 会 NRE。</summary>
+    static void Shoot(string file, bool allowBlank = false)
+        => MenuCheck.Shoot(_sink, ShotDir, file, allowBlank, guardBlank: true, meanBrightness: MeanBrightness);
+
+    /// <summary>平均亮度（0–255）—— **逐宿主一份**（⛔ 没有合并成共享实现，理由见 `MenuCheck.cs` 的
+    /// `Shoot` doc：合并会动 `{lum:F1}` 那一行，而本族的回归判据是 stdout 逐字节相同）。
+    /// 口径与另四份逐字相同：`long` 累加 + **分母 = 采样数**（步长 7 ⇒ `(px.Length + 6) / 7`）。</summary>
+    static float MeanBrightness(Texture2D t)
+    {
+        if (t == null) return 0f;
+        var px = t.GetPixels32();
+        if (px.Length == 0) return 0f;
+        long sum = 0;
+        for (int i = 0; i < px.Length; i += 7) sum += px[i].r + px[i].g + px[i].b;
+        return sum / 3f / ((px.Length + 6) / 7);
+    }
 
     // ============================================================ 自检
 
@@ -481,6 +498,8 @@ public static class MainMenuScene
     {
         _sink.Pass = 0; _sink.Fail = 0; _sink.Failures.Clear();
         Directory.CreateDirectory(ShotDir);
+        // 🆕 2026-10-18（`A1007`）：空图护栏的**基线**（结尾那条断言用它算增量，见收尾那一段）。
+        int guardBase = MenuCheck.GuardedShots;
         Debug.Log(P + "=== 主菜单自检 开始 ===");
 
         var menu = Build(out var root);
@@ -10683,6 +10702,50 @@ public static class MainMenuScene
                                          + "（挡「无条件开」—— 那一版会把正常进主菜单也变成开收藏窗）");
 
             Object.DestroyImmediate(g1); Object.DestroyImmediate(g2); Object.DestroyImmediate(g3);
+        }
+
+        // ============================================================
+        //  🆕 2026-10-18（`A1007`）：本宿主的**空图护栏**（`guardBlank: true`）真的接上了没有
+        //    + 它的判据函数 `MeanBrightness`（本文件**新增**的那一份）对不对。
+        //
+        //  ⚠️ `MenuCheck.Shoot` 的 `Camera.main == null` 那一支（原来**静默** return）在本文件里
+        //     **不重复造第二份同形探针** —— 它是**共用件里唯一一份实现**，判别式探针在
+        //     `Editor/DeckScene.cs` 收尾那一段（摘 `MainCamera` 标签造出无相机上下文、判「恰好一条 ✗」）。
+        //     本文件钉的是**另一半**：护栏的接线 + 护栏判据的**量纲/分母**。
+        // ============================================================
+        {
+            CheckTrue(MenuCheck.GuardedShots > guardBase,
+                      $"★ `A1007` 本宿主的**空图护栏真的跑过**（开局 {guardBase} → 现 {MenuCheck.GuardedShots}）"
+                    + " —— 改前本文件**没有**护栏（`guardBlank: false`）⇒ 这里恒为 0"
+                    + "｜🧨 把本文件 `Shoot` 的转发改回缺省（`guardBlank: false`）⇒ 增量 0 ⇒ 红");
+
+            // 🔴 **为什么判据函数本身也要断**：整条护栏的**分母**就藏在这三行里（采样步长 7 ⇒
+            //    分母 = **采样数** `(px.Length + 6) / 7`）。写错了**不会红**（`lum` 只被打进文案），
+            //    可阈值 `> 3` 会跟着偏 ⇒ 护栏要么**永远绿**要么**永远红**（那才是真缺陷）。
+            //    判据 = 定义本身（0–255 的平均值），用**合成纯色图**钉三个点 —— 不需要渲任何东西。
+            //    🧨 把分母换成 `SettingsScene` 那一份的 `px.Length / 7.0`：16 px 时 16/7.0 = 2.2857
+            //       ⇒ 纯白那张读成 ≈334.7 ⇒ 下面那条红。
+            {
+                var black4 = new Texture2D(4, 4, TextureFormat.RGB24, false);
+                var pxB = new Color32[16];
+                for (int i = 0; i < pxB.Length; i++) pxB[i] = new Color32(0, 0, 0, 255);
+                black4.SetPixels32(pxB); black4.Apply();
+                var white4 = new Texture2D(4, 4, TextureFormat.RGB24, false);
+                var pxW = new Color32[16];
+                for (int i = 0; i < pxW.Length; i++) pxW[i] = new Color32(255, 255, 255, 255);
+                white4.SetPixels32(pxW); white4.Apply();
+
+                CheckNear(MeanBrightness(null), 0f, 1e-6f,
+                          "`A1007` `MeanBrightness(null)` = **0**（⛔ 不是 NRE —— `SettingsScene` 那一份"
+                        + "没有这道护栏，传 `null` 会当场崩；本文件这一份照 Collection 那四份的写法）");
+                CheckNear(MeanBrightness(black4), 0f, 1e-3f,
+                          "`A1007` 纯黑合成图(16px) ⇒ **0**（护栏的 `lum > 3f` 挡的就是这一档）");
+                CheckNear(MeanBrightness(white4), 255f, 1e-3f,
+                          "`A1007` 纯白合成图(16px) ⇒ **255**（= 量纲/分母都对：`long` 累加 + 分母 `(16+6)/7`）"
+                        + "｜🧨 分母写成 `px.Length / 7.0` ⇒ 读成 ≈334.7 ⇒ 红");
+
+                Object.DestroyImmediate(black4); Object.DestroyImmediate(white4);
+            }
         }
 
         Debug.Log(P + menu.Dump());

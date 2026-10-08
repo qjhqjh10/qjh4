@@ -617,6 +617,200 @@ def psr_of(a, gopid):
     return None
 
 
+def mr_of(a, gopid):
+    """取该 GameObject 上的 MeshRenderer（没有就 None）。"""
+    for c in a.go_comps.get(gopid, []):
+        r = a.MR.get(c)
+        if r:
+            return r
+    return None
+
+
+# ------------------------------------------------------------------ Unity 内置网格
+# 🔴 **2026-10-08 新增：`Library/unity default resources` 这一路。**
+#
+# **为什么必须有它**：原版**13 个战场每一个**都有一件 `Shadow Receiver`
+# （`BattlePrefab/BattleBoardElements/Colliders/Shadow Receiver`，**原版自己就是 `m_IsActive=false`**），
+# 它的 `MeshFilter.m_Mesh = {m_FileID: N, m_PathID: 10210}` —— `m_FileID` **逐场不同**
+# （arena1=5 · aeldari=6 · sororitas=7 …），因为那是「**相对引用者所在那份 CAB 的 externals**」的序号。
+# 而 `BundleResolver.read_obj` 只在「场景包本地那四类资产」与「共享包按 pid 扫」两路上找 ⇒ **两路都取不到**
+# ⇒ `mesh_of()` 回 `(None, None)` ⇒ 这个对象被 `meshes` 循环里那句 `if not mesh_name: continue`
+# **整个静默丢掉**（13 场全丢，`<场>_manifest.json` 里从来没有过它）。
+#
+# **它到底指什么（实读，不是推测）**：把那份 CAB 的 externals 摊开 —— 主 CAB 的 `m_FileID 5`
+# 就是字面量 `Library/unity default resources`，`m_PathID 10210` 是 **Unity 内置网格**。
+# 原版自己那份 `Warpforge_Data/Resources/unity default resources` 里 `pid 10210` =
+# `Mesh "Quad"`（**4 顶点** · `m_LocalAABB` bounds center (0,0,0) / extent (0.5,0.5,≈0)）。
+# ⚠️ **不能拿 `PrimitiveType.Quad` / `Plane` 随便顶** —— `ArenaBuilder.cs` 里 `WF_SHADOWPROBE`
+# 探针那句 `PrimitiveType.Plane` 是**探针自己的做法**，与原件不是同一颗（铁律 3）。
+DEFAULT_RES_DIRS = [
+    'd:/2/Warhammer 40k Warpforge/Warpforge_Data/Resources/unity default resources',
+    'd:/2/unity_run_ref/Warpforge_Data/Resources/unity default resources',
+]
+_DEFAULT_RES_PID_NAME = None
+# 🔴 2026-10-09（A1113）：**「解析失败」≠「成功但一个网格名都没解出」**。
+#    原来两者都落成空 dict，而缓存判据是 `is None` ⇒ 一次失败后**同一进程里后面 12 场连重试都不重试**
+#    （「解出 0 个」只打一次，剩下几十条全是逐件的静默「解不出」）。
+#    现在：**失败不落缓存**（下次调用重试）**并且出声**；成功（哪怕解出 0 个）照旧缓存。
+_DEFAULT_RES_LOAD_FAILED = False
+
+
+def default_resource_mesh_name(pid):
+    """`Library/unity default resources` 里 `pid` → 网格名（`10210` = `Quad`）；取不到回 None。
+
+    读的是**原版游戏自带的那一份**（`Warpforge_Data/Resources/unity default resources`），
+    不是编辑器那份。⚠️ 取不到时**出声**（不许把「没找到」写成猜测，铁律 2）。
+
+    🔴 **2026-10-09（A1113）**：这份资源里的 `Mesh` 在 UnityPy 1.24.2（仓里的 py312 环境）下
+    `read_typetree()` **会短读 28 字节** ⇒ 抛 `ValueError`。原来那句 `except: continue`
+    **把异常静默吞掉** ⇒ 13 个 Mesh 一个名字都解不出来 ⇒ 内置网格这一支整支为 null。
+    """
+    global _DEFAULT_RES_PID_NAME, _DEFAULT_RES_LOAD_FAILED
+    if _DEFAULT_RES_PID_NAME is None or _DEFAULT_RES_LOAD_FAILED:
+        _DEFAULT_RES_PID_NAME = None
+        _DEFAULT_RES_LOAD_FAILED = False
+        names = {}
+        try:
+            import UnityPy
+            _upy_ver = getattr(UnityPy, '__version__', '?')
+        except Exception as e:
+            _DEFAULT_RES_LOAD_FAILED = True          # ⇒ 下次调用**重试**，别把失败钉进缓存
+            print('[内置资源] UnityPy 不可用，内置网格名解不出来: %s' % e)
+            return None
+        src = next((p for p in DEFAULT_RES_DIRS if os.path.isfile(p)), None)
+        if src is None:
+            _DEFAULT_RES_LOAD_FAILED = True          # ⇒ 下次调用**重试**
+            print('[内置资源] 找不到 `unity default resources`（找过：%s）' % ' / '.join(DEFAULT_RES_DIRS))
+            return None
+        n_mesh_fail = 0
+        try:
+            env = UnityPy.load(src)
+            for o in env.objects:
+                if o.type.name != 'Mesh':
+                    continue
+                try:
+                    d = o.read_typetree()
+                except Exception:
+                    try:
+                        # UnityPy 1.24.2（仓里的 py312 环境）：这份 `unity default resources`
+                        # 的 Mesh typetree 会**短读 28 字节**（实测 13/13 全是「Expected to read N bytes,
+                        # but only read N-28 bytes」），末尾 size 校验必炸；名字在 typetree **开头**，
+                        # 关掉该校验即可（13/13 实测与 UnityPy 1.25.3 逐名相同：
+                        # 10202 Cube · 10207 Sphere · 10208 Capsule · 10209 Plane · 10210 Quad · 10211 Icosphere）。
+                        d = o.read_typetree(check_read=False)
+                    except Exception:
+                        n_mesh_fail += 1               # ⛔ 不许再静默：计数在下面出声
+                        continue
+                names[int(o.path_id)] = d.get('m_Name') or ''
+            if n_mesh_fail:
+                print('[内置资源] %s：解出 %d 个内置网格名（%d 个 Mesh 的 typetree 读失败 · UnityPy %s）'
+                      % (src, len(names), n_mesh_fail, _upy_ver))
+            else:
+                print('[内置资源] %s：解出 %d 个内置网格名' % (src, len(names)))
+            if not names and n_mesh_fail:
+                # 一个名字都没解出来、而且确有读失败 ⇒ 这一路**没通**（≠「这份资源里本来就没有网格」）。
+                # 与「整份读失败」同等处理：**不落缓存**、下次调用重试（⛔ 失败不许被静默钉死）。
+                _DEFAULT_RES_LOAD_FAILED = True
+                return None
+        except Exception as e:
+            _DEFAULT_RES_LOAD_FAILED = True          # ⇒ 下次调用**重试**，别把失败钉进缓存
+            print('[内置资源] 读 %s 失败: %s' % (src, e))
+            return None
+        _DEFAULT_RES_PID_NAME = names                # 🔴 只有**成功**才落缓存（失败留 None）
+    return _DEFAULT_RES_PID_NAME.get(int(pid)) or None
+
+
+def builtin_mesh_map(a, warn):
+    """`{GameObject pid: 内置网格名}` —— 只收**网格引用指向 `Library/unity default resources`**
+    **且原版真的会画它**的那些。
+
+    做法：直接翻本场包里的 `MeshFilter`，按**引用者自己那一份 CAB 的 externals** 解 `m_FileID`
+    （也就是本仓已有的那个正确形态：`obj.assets_file.externals`）。
+    ⚠️ 这里**不能**用 `a.b._ext_of(...)` —— 那张表是按 `CAB-<hex>` 正则建的，
+    `Library/unity default resources` 这类内置资源**根本不进表**（拿它查恒为 None）。
+
+    🔴 **必须过「原版真的会画它」这道闸**（这是本函数最容易漏的一步）。
+    实测 `battlearena1` 有 **10 个**对象的网格指向内置资源，**其中 9 个原版根本不画**：
+      · `Collision` / `Collision (1)` / `Cube` ×4 / `Cube (1..3)` 等 **8 个**：
+        GO 上**连 `MeshRenderer` 都没有**（只有 `MeshFilter` + 碰撞体）—— 原版是碰撞定位件，
+        `资料/战场还原度_arena1物料与相机灯光.md` §二·4 已记「**不是物料的定位件（别当物料摆）**」；
+      · `CardLowBoardLimit`：有 `MeshRenderer` 但 **`m_Enabled=False`**、且 `m_Materials = [{0,0}]`（空引用）。
+    ⇒ 闸口三条**全过才收**：**有 `MeshRenderer` · `m_Enabled` 非 0 · 至少一个非空材质引用**。
+    ⛔ **不加这道闸的后果（已复现）**：`ArenaBuilder` 会给它们各建一个**白方块**
+      （`GetOrCreateMaterial` 拿不到贴图 ⇒ `URP/Unlit` 白材质、`props` 空）⇒
+      **arena1 平白多出 8~9 个白块**，而原版画面上一个都没有。
+
+    🔴 **这一路收的不止 `Shadow Receiver`**（2026-10-08 实测 13 场）：**13/13 各收 1 件
+    `Shadow Receiver`**；此外 `battlearenaemperorschildren` 还收 **2 件 `Tank distortion 1` /
+    `Tank distortion 1 (1)`**（`Scenario/Particles/Distort` 下、**原版开着**、有贴图
+    `Emperos Children Fake Distort 1/2`、材质 `Everguild/UnlitAmbient` + `_USEDISTORT`）——
+    它们**也是内置 `Quad`**，所以原来同样被丢掉（清单里从来没有过）。
+    ⚠️ **这 2 件是「原版真的有、我们从来没建」**（铁律 11 ⇒ 该建），不是我们多建的；
+    但它们**会进 emperorschildren 的画面** —— 已如实登记在交件报告里，交由调度台裁。
+"""
+    out = {}
+    try:
+        env = a.b.env
+    except Exception as e:
+        warn['builtin_mesh'].append({'go': '?', 'why': '拿不到本场包: %s' % e})
+        return out
+
+    def _go_name(gopid):
+        return (a.GO.get(gopid) or {}).get('m_Name') or ('GO%d' % gopid)
+
+    for o in env.objects:
+        if o.type.name != 'MeshFilter':
+            continue
+        try:
+            d = o.read_typetree()
+        except Exception:
+            continue
+        ref = d.get('m_Mesh') or {}
+        fid = int(ref.get('m_FileID', 0) or 0)
+        pid = int(ref.get('m_PathID', 0) or 0)
+        if fid <= 0 or pid <= 0:
+            continue                     # fid 0 = 本文件内对象 ⇒ 走老路
+        exts = getattr(o.assets_file, 'externals', None) or []
+        if not (1 <= fid <= len(exts)):
+            continue
+        path = str(getattr(exts[fid - 1], 'path', '') or '')
+        if 'unity default resources' not in path:
+            continue
+        gopid = (d.get('m_GameObject') or {}).get('m_PathID')
+        if not gopid:
+            continue
+        gopid = int(gopid)
+        nm = default_resource_mesh_name(pid)
+        if nm is None:
+            warn['builtin_mesh'].append({'go': _go_name(gopid),
+                                         'why': 'pid %d 在内置资源里解不出网格名' % pid})
+            continue
+
+        # ---- 「原版真的会画它」那道闸（三条全过才收）----
+        mr = None
+        for c in a.go_comps.get(gopid, []):
+            if c in a.MR:
+                mr = a.MR[c]
+                break
+        if mr is None:
+            warn['builtin_mesh'].append({'go': _go_name(gopid), 'mesh': nm, 'pid': pid,
+                                         'skip': 'GO 上没有 MeshRenderer（原版不画）'})
+            continue
+        if not int(mr.get('m_Enabled', 1)):
+            warn['builtin_mesh'].append({'go': _go_name(gopid), 'mesh': nm, 'pid': pid,
+                                         'skip': 'MeshRenderer `m_Enabled=0`（原版不画）'})
+            continue
+        if not [r for r in (mr.get('m_Materials') or []) if int(r.get('m_PathID', 0) or 0)]:
+            warn['builtin_mesh'].append({'go': _go_name(gopid), 'mesh': nm, 'pid': pid,
+                                         'skip': 'MeshRenderer 一个真材质都没有（原版不画）'})
+            continue
+
+        out[gopid] = nm
+        warn['builtin_mesh'].append({'go': _go_name(gopid), 'goPid': gopid,
+                                     'pid': pid, 'mesh': nm, 'from': path})
+    return out
+
+
 def burst_list(em, warn, gname):
     """EmissionModule → bursts 数组 [{time, count, cycles, interval, probability}]"""
     out = []
@@ -827,6 +1021,27 @@ def unity_mat_fields(mi, tex_path):
             transparent = True          # 预乘 Alpha
         elif abs(sb - 1.0) < 0.01 and abs(db - 0.0) < 0.01:
             transparent = False         # 真不透明
+        elif abs(sb - 2.0) < 0.01 and abs(db - 0.0) < 0.01:
+            # 🔴 **2026-10-13（A1074）新加的这一档：`Blend DstColor Zero`（源 = `DstColor`(2)、
+            #    目标 = `Zero`(0)）** —— 上面那三档（`5/10` · `5/1` · `1/0`）**认不出它**，
+            #    于是它掉进「三档全不命中 ⇒ `transparent` 保持初值 `False`」= **被判成不透明**。
+            #
+            #    它到底是什么：Unity `BlendMode` 枚举 `Zero=0 · One=1 · **DstColor=2** · SrcColor=3 ·
+            #    OneMinusDstColor=4 · SrcAlpha=5 …` ⇒ 这一对就是着色器里那句
+            #    **`Blend DstColor Zero`**，结果是 **`源色 × 帧缓冲已有颜色`**（**乘暗**那一族），
+            #    **真的在混合**、绝不是不透明。
+            #
+            #    实据（`Transparent Shadow Receiver`，13/13 战场同一份材质）：
+            #      · 材质 `m_Floats` **没有** `_SrcBlend`/`_DstBlend`（属性表 0 条）⇒ 真值走
+            #        pass 的硬编码 `rtBlend0`（`Shader_34`）= **src 2 / dst 0** + `ZWrite Off` +
+            #        `ZTest 4` + `cull 2` → 上面那个 `si.get('has_src_blend')` 闸门已经把它取回来；
+            #      · `m_CustomRenderQueue = 3000`（**透明队列**）、`m_ValidKeywords` 是**空的**
+            #        ⇒ 「关键字」那条兜底也救不了它 ⇒ 三档表是它唯一的判据。
+            #    ⛔ 判成不透明的后果：`blendAuthoritative=true` 时 `MakeTransparent` 不会被调、
+            #       `ZWrite` 保持写 —— 一块该「乘暗」的接影板会变成一块**写深度、盖住身后一切**的不透明片。
+            #    ⚠️ 今天它在画面上**看不见**（挂它的 `Shadow Receiver` 13/13 原版就是关着的），
+            #       但**判据本身是错的**，凡是 `src=2` 的材质都会走错那一档。
+            transparent = True          # Blend DstColor Zero（乘暗）
     if '_SURFACE_TYPE_TRANSPARENT' in kw or '_ALPHABLEND_ON' in kw:
         transparent = True
 
@@ -1022,7 +1237,12 @@ def build_manifest(a, include_all_particles=False):
     warn = {'obj_missing': [], 'tex_missing': [], 'tex_fallback': [], 'ps_defaults': {},
             'burst_count_missing': [], 'default_env': [],
             # 🔴 2026-10-12（A433）：**材质解出来了、但这一格的贴图名是空的** —— 见 `note_tex_ref_missing`。
-            'tex_ref_missing': []}
+            'tex_ref_missing': [],
+            # 🔴 2026-10-08：**内置网格**（`Library/unity default resources`，见 `builtin_mesh_map`）
+            #    + **原版关着、我们照原版关着建出来的网格**（`inactive_mesh`，见 `meshes` 循环里
+            #    `entry['active']` 那一段）—— 两条都必须在控制台出声，
+            #    别让「清单里少了/多了什么」只活在文档里（铁律 5·b）。
+            'builtin_mesh': [], 'inactive_mesh': []}
 
     def note_default(field):
         warn['ps_defaults'][field] = warn['ps_defaults'].get(field, 0) + 1
@@ -1161,18 +1381,25 @@ def build_manifest(a, include_all_particles=False):
     postfx = read_postfx(os.path.join(SCENE_ROOT, SCENE))
 
     # ---------------- 网格 ----------------
+    # 🔴 2026-10-08：内置网格（`Library/unity default resources`）—— 见 `builtin_mesh_map` 的说明。
+    #    这一批**在 `mesh_of()` 那边拿不到名字**，不加这张表就会被静默丢掉。
+    builtin_map = builtin_mesh_map(a, warn)
     meshes = []
     for t in sorted(a.TF):
         gopid = a.TF[t].get('m_GameObject', {}).get('m_PathID')
         mesh_name, _mesh_obj = a.mesh_of(gopid)
+        builtin = None
         if not mesh_name:
-            continue
+            builtin = builtin_map.get(gopid)
+            if not builtin:
+                continue
+            mesh_name = builtin          # 审计用（`obj` 字段写它的名字）
         gname = go_name_of(a, t)
         p, q, s = world_trs(a, t)
 
-        hit = obj_index.get((win_safe(mesh_name) + '.obj').lower())
+        hit = obj_index.get((win_safe(mesh_name) + '.obj').lower()) if not builtin else None
         obj_file = hit[0] if hit else None
-        if not obj_file:
+        if not obj_file and not builtin:
             warn['obj_missing'].append({'go': gname, 'obj': mesh_name})
 
         mats = a.mats_of(gopid)
@@ -1278,7 +1505,7 @@ def build_manifest(a, include_all_particles=False):
                     warn.setdefault('static_batch_bad', []).append(
                         {'go': gname, 'obj': obj_file, 'firstSubMesh': sub_mesh, 'groups': len(parts)})
 
-        meshes.append({
+        entry = {
             'go': gname,
             'subMesh': sub_mesh,          # ← static batching 时要的第几段（None = 画整份）
             # 🔴 2026-09-25：**`worldBaked` = 这份网格的顶点已经烘死在「世界坐标」里**
@@ -1290,6 +1517,11 @@ def build_manifest(a, include_all_particles=False):
             'worldBaked': sub_mesh is not None,
             'obj': mesh_name,
             'objFile': obj_file,
+            # 🔴 2026-10-08：**Unity 内置网格**（`Library/unity default resources` 里那一颗的**名字**，
+            #    如 `Quad`）—— 见 `builtin_mesh_map`。非空 ⇒ 构建侧取
+            #    `Resources.GetBuiltinResource<Mesh>(名字 + ".fbx")`，**不走 `objFile`**。
+            #    空 = 老路（OBJ 资产）。
+            'builtinMesh': builtin,
             'subFiles': sub_files,        # ← 多子网格时按组拆出来的若干 OBJ（见 split_obj_by_group）
             'pos': p, 'rot': q, 'scale': s,
             'tex': tex_name,
@@ -1311,7 +1543,45 @@ def build_manifest(a, include_all_particles=False):
             'props': matf['props'],       # 🆕 2026-09-21：整张属性表（运行时重建材质用）
             'texOpaquePct': matf['texOpaquePct'],
             'texClearPct': matf['texClearPct'],
-        })
+        }
+
+        # 🔴 2026-10-08 起、**2026-10-13（A1073）扩到【全部】网格条目**：
+        #    **原版关着的就照原版关着**（`active = 原版这个 GameObject 的 activeInHierarchy`，
+        #    逐层 `m_IsActive` 与起来 —— 见 `active_in_hierarchy`）。
+        #
+        # **为什么非铺开不可**：原来**只有「内置网格」那一支**写这个键（见下面的 `if builtin:`）⇒
+        # 13 场里那些**非内置网格**的原版关闭件**全被我们建成了开着的** ⇒ 画面上比原版多画东西。
+        # 铁律 11：这是「与原版不符」，**要做**（不是「影响小不做」，只有先后）。
+        #
+        # **2026-10-08 逐件实读**（`d:/tmp/wf8b/probe_inactive_meshes.py`：13 场逐场扫
+        # 「带 `MeshFilter` 的 Transform」）⇒ 原版 `activeInHierarchy=False` 的带网格节点共 **46 个**：
+        #   · `Shadow Receiver` × **13** —— 内置 `Quad`，本来就走内置那一支（**早就在关**）；
+        #   · `Cache Stealth` × **13** —— 它的 `Card 3D WH40k` 这个 OBJ 找不到 ⇒ 清单里
+        #     `objFile=null` ⇒ 构建侧本来就不建它（`active` 只作审计用）；
+        #   · `battlearenaaeldari`：`Dynamic Lights 5 / 8 / 9 / 10 / 11`（**5 个**）；
+        #   · `battlearenaspacewolves`：`Full Moon 1..13` + `Full Moon` + `Background Sky First Light`
+        #     （**15 个**，一份天幕片族）。
+        # ⇒ **真正会改画面的 = aeldari 5 + spacewolves 15 = 那 20 个**。
+        # ⚠️ **这 20 个逐件实读祖先链**：父级**全是开着的**（`m_IsActive=true` 逐层）⇒
+        #    **是它们自己关的**、不是父链传下来的 ⇒ 对它们 `SetActive(false)` 与原件等价。
+        entry['active'] = bool(active_in_hierarchy(a, t))
+        if not entry['active']:
+            # 出声（**不静默**）：这就是「原版有、原版关着、我们照原版建出来并关着」的完整名单。
+            warn['inactive_mesh'].append({'go': gname, 'obj': mesh_name})
+
+        # 🔴 2026-10-08：**内置网格这一支额外带三样**（只对内置网格那一支写）。
+        if builtin:
+            # 投/收阴影 —— 原版 `MeshRenderer_*` 的 `m_CastShadows=1` / `m_ReceiveShadows=1`。
+            #    ⚠️ 走清单而不是旁挂 `<场>_shadowflags.json`，是因为**旁挂是从已建出的清单反向生成的**
+            #    （`gen_arena_shadowflags.py` 只报「清单里有的对象」）⇒ 这一支**先有鸡还是蛋**，
+            #    第一轮必然没有它。两处值同源（都读同一个 `MeshRenderer`），不冲突：
+            #    `ArenaBuilder.ApplyShadowSidecar` 命中时是**赋值**、不是取反，值一样。
+            _mr = mr_of(a, gopid) or {}
+            entry['hasShadow'] = True
+            entry['shadowCast'] = int(_f(_mr.get('m_CastShadows'), 1))
+            entry['shadowReceive'] = int(_f(_mr.get('m_ReceiveShadows'), 1))
+
+        meshes.append(entry)
 
     # ---------------- 粒子 ----------------
     # 🔴 2026-09-25：**`renderMode = 4 (Mesh)` 的粒子要带上网格**（原来只丢一句「降级成 Billboard」）。
@@ -1769,6 +2039,33 @@ def run_one(arena, args):
         li.append('  [贴图完全找不到] %d 条:' % len(warn['tex_missing']))
         for m in warn['tex_missing']:
             li.append('      %s -> %s.png' % (m['go'], m['tex']))
+    if warn['builtin_mesh']:
+        # 🔴 2026-10-08：**内置网格**（`Library/unity default resources`）—— `Shadow Receiver` 就在这一批。
+        #    分两堆打：**收了的**逐件列出（这一批原来在清单里一个都没有，必须看得见）；
+        #    **没收的**只汇总（原版根本不画，逐件列会刷屏 —— 理由在 `builtin_mesh_map` 的注释里）。
+        _took = [m for m in warn['builtin_mesh'] if m.get('goPid')]
+        _skip = [m for m in warn['builtin_mesh'] if m.get('skip')]
+        _bad = [m for m in warn['builtin_mesh'] if not m.get('goPid') and not m.get('skip')]
+        if _took:
+            li.append('  [内置网格 %d 件] 原版引用的是 Unity 内置资源（`Library/unity default resources`）:'
+                      % len(_took))
+            for m in _took:
+                li.append('      %s -> pid %s = 内置网格 %r' % (m['go'], m['pid'], m['mesh']))
+        if _skip:
+            li.append('  · [内置网格但**原版不画**、已如实跳过 %d 件] %s'
+                      % (len(_skip), json.dumps(
+                          {m['go']: m['skip'] for m in _skip}, ensure_ascii=False)))
+        for m in _bad:
+            li.append('  🔴 [内置网格解不出] %s -> %s' % (m.get('go'), m.get('why')))
+    if warn['inactive_mesh']:
+        # ✅ **2026-10-13（A1073）：这批【已经照原版关着了】**（`meshes` 循环里那句
+        #    `entry['active'] = active_in_hierarchy(...)` ⇒ 构建侧 `SetActive(false)`）。
+        #    这行**不是告警、是审计**：它把「场上为什么少看见这些件」的完整名单摆出来 ——
+        #    原来那版写的是「原版关着、我们仍建出来是开的」，那句话已经**不成立**了。
+        li.append('  · [原版关着 ⇒ 我们照原版 `SetActive(false)` 建出来的网格 %d 件]:'
+                  % len(warn['inactive_mesh']))
+        for m in warn['inactive_mesh']:
+            li.append('      %s（obj %s）' % (m['go'], m['obj']))
     if warn['tex_ref_missing']:
         # 🔴 2026-10-12（A433）：原来**这一格没有任何输出**（见 `note_tex_ref_missing` 的说明）。
         #    分两堆打 —— 🔴 那一堆是**我们的解析器丢了**（A418 那一类）、`·` 那一堆是**原版本来就没有**。

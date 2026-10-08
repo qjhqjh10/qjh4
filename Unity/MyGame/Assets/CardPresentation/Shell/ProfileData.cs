@@ -138,8 +138,16 @@ namespace CardPresentation
         /// 原来这里是**机器名**（2026-09-26 联机那次定的，理由是「我们没有玩家名那套数据源」）——
         /// 现在改成这个固定占位名（界面上一眼看得出是占位，不会把 `DESKTOP-XXXX` 当成昵称）。
         /// ⚠️ **联机时两边若都没改过名就会同名** —— 玩家档案窗的改名窗可以改（`ProfileData.PlayerName` setter）。
-        /// ⚠️ 原版这个名字来自服务器，本地没有 ⇒ **这是我们的选择**。</summary>
-        public const string DefaultPlayerName = "玩家123";
+        /// ⚠️ 原版这个名字来自服务器，本地没有 ⇒ **这是我们的选择**。
+        /// <para>🆕 **2026-10-18（波 1b · `A1047` 裁定「翻」· 表 B2）**：字面量改走语言表
+        /// （键 `MainMenu/Profile/DefaultPlayerName` —— ZH 逐字 = 原来那句 `玩家123`、EN `Player123`）。
+        /// 🔴 **`const` 必须改成【属性】**：`Loc.T` **不是编译期常量**（`const` 编不过）；
+        /// ⚠️ **也不能用 `static readonly`** —— 那在**类型初始化那一刻**就定死（换语言后**新弹的窗会停旧值**）；
+        /// 属性每次都现取 ⇒ 跟着 `Loc.Current` 走。全仓消费点只有 `PlayerName` 那个 getter 一处。</para></summary>
+        public static string DefaultPlayerName
+        {
+            get { return Loc.T("MainMenu/Profile/DefaultPlayerName"); }
+        }
 
         /// <summary>469 张可选头像（已按 阵营 → 名字 排好序）。</summary>
         public static List<Item> Avatars { get { EnsureLoad(); return _avatars; } }

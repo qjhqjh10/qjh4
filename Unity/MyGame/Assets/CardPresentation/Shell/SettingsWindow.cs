@@ -360,7 +360,10 @@ namespace CardPresentation
         public static readonly float[] FpsTickTop = { 27.1f, 27.1f, 22.2f };
         public static readonly string[] FpsTickName = { "30 FPS", "60 FPS", "Unlimited" };
         /// <summary>刻度上印的字（原版 TMP 的 `m_text` 是 `'30'` / `'60'` / `'Ilimitado'`（**本地化词条**）；
-        /// 英文正式文案本地拿不到 —— 照文件头 ② 的口径用英文 `Unlimited`，同页签文案的处理）。</summary>
+        /// 英文正式文案本地拿不到 —— 照文件头 ② 的口径用英文 `Unlimited`，同页签文案的处理）。
+        /// <para>🆕 **2026-10-18（波 1b · A1062）**：`[2]` 这一格**已经不用来画字了** —— 那一格的显示字
+        /// 现在走键 `Settings/Graphics/UnlimitedFPS`（见 `BuildFpsRow` 那个刻度循环）。
+        /// 本数组照旧留着（`[0]/[1]` 仍是那两格的字、`[2]` 是**原版那串英文原文**、当出处读）。</para></summary>
         public static readonly string[] FpsTickText = { "30", "60", "Unlimited" };
         public static readonly Color FpsTickColor = new Color(0.745f, 0.745f, 0.745f, 1f);
         public const string ArtFpsBar = "Volume_bar_inactive", ArtFpsFill = "Volume_bar_active",
@@ -626,6 +629,13 @@ namespace CardPresentation
         public const string ArtFill = "40k_popup_texture";
         public const string ArtCloseBg = "UI_Button_Round_background";
         public const string ArtCloseIcon = "40k_bt_close";
+        /// <summary>🔴 **2026-10-18（A1053）**：关窗钮那颗 `Icon` 子件**自己的** `m_RaycastPadding`
+        /// （原版实读 `(-20)⁴`；L,B,R,T · **负 = 外扩**）⇒ 命中区 = 子件矩形（`CloseIconL..CloseIconB`）
+        /// 外扩 20 = **96.37 × 94.50**（⛔ 不是根矩形 `CloseL..CloseB` 的 75×75）。
+        /// 算式只走 `MenuDraw.PaddedRect`；口径 → `普查_全仓命中区与关闭键族.md` §〇-1。
+        /// ⚠️ 本窗是全仓唯一有 `RootScale 0.9` 的窗：子件**局部**矩形 56.37×54.50 × 0.9 = 屏幕上那 50.73×49.05
+        /// —— 我们这套常量本来就是**局部那一档**（设计帧），所以这里直接用局部值 + 局部 pad，⛔ 不用再折 0.9。</summary>
+        static readonly Vector4 ClosePad = new Vector4(-20f, -20f, -20f, -20f);
         public const string ArtSep = "40k_Separator_Fade_Sides_Vertical";
         public const string ArtTabBg = "40K_settings_button";
         /// <summary>页签**选中态**的底图。🔴 **2026-10-03 就地更正（A21）**：原来写的是 `…_selected` ——
@@ -737,9 +747,12 @@ namespace CardPresentation
         /// 现在：联机页那 **9 个赋值点**走 `SetFlash(Func&lt;string&gt;)` 存「**怎么算**」，读的时候现算
         /// —— `Loc.T` 的词条现取（换语言即跟着变）、运行期值在**点那一刻**就冻住（⛔ 别让重算去重读现场，
         /// 那会改变非语言行为 —— 见 `SetFlash` 的 doc）。</para>
-        /// <para>🔴 **`set` 里为什么要 `_flashGet = null`**：图形页 / 通用页那几条**仍是**
-        /// `_flash = "字面量"` 的老写法（它们**没有词条键**，是另一笔账）—— 不在这儿把工厂清掉，
-        /// 那几笔就会被**上一条联机结果**盖回去（静默回归）。</para></summary>
+        /// <para>🔴 **`set` 里为什么要 `_flashGet = null`**：图形页 / 通用页那几条走的是**属性 `set`**
+        /// （波 1b 之前它们是 `_flash = "字面量"`，现在赋值右边也走语言表了，**但形状没变** ——
+        /// 仍是「那一刻算好、存下来」那一档，不是 `SetFlash` 的现算工厂）—— 不在这儿把工厂清掉，
+        /// 那几笔就会被**上一条联机结果**盖回去（静默回归）。
+        /// ⚠️ 顺带记：那几条的字**每次现算 `Loc.T` 没错**（`CycleQuality` / `ToggleVsync` … 都是点一下才拼），
+        /// 所以它们**天然跟语言走**、不需要登记语言链（`_onLabels` 那条 doc 的判据）。</para></summary>
         string _flash
         {
             get { return _flashGet != null ? _flashGet() : _flashStore; }
@@ -925,16 +938,35 @@ namespace CardPresentation
 
             // 3) 关闭钮（圆底 + 图标；**图标是钮的子节点** —— 原版就是这么套的）
             var closeN = Node(area, "Generic Close Button", CloseL, CloseT, CloseR, CloseB);
-            var closeBgQ = Rect(closeN, "bg", CloseL, CloseT, CloseR, CloseB, ArtCloseBg, QContent);
-            Rect(closeN, "Icon", CloseIconL, CloseIconT, CloseIconR, CloseIconB, ArtCloseIcon, QOverlay);
-            // 🆕 A17：原版这一颗 `trans=2`、`m_TargetGraphic` **就是它自己**，
-            // 悬停把 `UI_Button_Round_background` 换成 **`40k_bt_close_hover`**（普查 §块 4 第 11 行；
-            // 实测 `Main Menu Settings Window>Menu Area>Generic Close Button`：75×75 · HL=40k_bt_close_hover）
-            Hit(closeN, "Hit", CloseL, CloseT, CloseR, CloseB, QOverlay, () =>
+            var closeBgQ = Rect(closeN, "bg", CloseL, CloseT, CloseR, CloseB, ArtCloseBg, QContent);   // ⛔ 只画，**不做换图目标**
+            var closeIconQ = Rect(closeN, "Icon", CloseIconL, CloseIconT, CloseIconR, CloseIconB, ArtCloseIcon, QOverlay);
+            // 🆕 **2026-10-18（A1058 · 第六会话批 2）**：换图那一层 = **子件 `Icon`**
+            //   （`closeIconQ`，画的是 `ArtCloseIcon` = `40k_bt_close`），⛔ **不是圆底盘 `closeBgQ`**。
+            //   判据（原版 prefab 亲读）=
+            //   `python -I d:/tmp/wf_hit/rcunion.py bundle_menus_assets_all "Main Menu Settings Window" --depth 8`：
+            //   根 `Menu Area/Generic Close Button` 那颗 `EverguildButton` 的
+            //   **`m_TargetGraphic` = pid8542793629372546982**；解该 pid
+            //   （`python -I d:/tmp/wf_hit/tgt.py bundle_menus_assets_all 8542793629372546982`，读 `MonoBehaviour_8542793629372546982.json`）
+            //   ⇒ **所属 GO 名 = `Icon`**、贴图 pid `6553861554683527146` → `40k_bt_close`；
+            //   同一颗 `EverguildButton`（`MonoBehaviour_-6660940743103250522.json`）的
+            //   `m_SpriteState` = `m_HighlightedSprite 40k_bt_close_hover` · `m_PressedSprite 40k_bt_close_pressed`；
+            //   根自己那颗 `UI_Button_Round_background` 带 **`m_RaycastTarget=0`**。
+            //   ⚠️ **2026-10-18 更正（铁律 5）**：原注释写「原版这一颗 `trans=2`、`m_TargetGraphic` **就是它自己**，
+            //   悬停把 `UI_Button_Round_background` 换成 `40k_bt_close_hover`」—— **那句是错的**
+            //   （错因 = 只读 `m_Transition`、没读 `m_TargetGraphic`；换图与被换的是**两个不同层**）。
+            //   ⚠️ `art` 传**常态图名** ⇒ 按下图由 `PressedNames` 推出 = `40k_bt_close_pressed`（与上面那格逐字相同）。
+            // 🆕 **2026-10-18（A1053 · 第六会话批 2）**：**命中区**归真值 —— 原版根那颗
+            //   `UI_Button_Round_background` 带 **`m_RaycastTarget = 0`**（不吃射线），吃射线的只有
+            //   子件 `Icon`（`40k_bt_close`，局部 56.37×54.50）按自己的 `m_RaycastPadding (-20)⁴` 外扩
+            //   = **96.37 × 94.50**；改前传根矩形（75×75）⇒ 每边小 10.7 / 9.8。
+            //   判据 = `python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all "Main Menu Settings Window"
+            //   --depth 8 --substr "Generic Close Button"`（实读 `96.37 x 94.50`）。
+            var closeHitR = MenuDraw.PaddedRect(new PxRect(CloseIconL, CloseIconT, CloseIconR, CloseIconB), ClosePad);
+            Hit(closeN, "Hit", closeHitR.x1, closeHitR.y1, closeHitR.x2, closeHitR.y2, QOverlay, () =>
             {
                 Debug.Log("[Settings] 关闭钮");
                 Close();
-            }, closeBgQ, ArtCloseBg, "40k_bt_close_hover");
+            }, closeIconQ, ArtCloseIcon, "40k_bt_close_hover");
 
             // 4) 左栏四个页签 + 四页内容
             //    🔴 **顺序 = `SettingsTab` 的序号**（`OpenTab` 按序号切 `activeSelf`）——
@@ -953,13 +985,17 @@ namespace CardPresentation
             // 🔴 **`Label` 有两个身份，别混**：① `Node(...)` 的**节点名**（= 自检 `FindChild` / `Click` 用的
             //    稳定英文标识，⛔ 不随语言变）② 画在键上那行字的**文案**（走 `Key`，语言一换就变）。
             //    2026-10-17 之前两者是同一个字符串（只有 `Graphics/Audio/Online` 三页、不翻译）；
-            //    General 页是**第一个要翻译的** ⇒ 拆开。`Key` 为 null = 照 `Label` 原样画（那三页还没接）。
+            //    General 页是**第一个要翻译的** ⇒ 拆开。
+            // 🆕 **2026-10-18（波 1b · `A1046(d)`/`A1062`）**：`Graphics/Audio/Online` 三页的 `Key` 也接上了
+            //    （原来三条都是 `(string)null`）⇒ **四个页签现在全走词条、没有一页照 `Label` 原样画**。
+            //    ⚠️ `Audio` 那条的键是 `Settings/Media/Title` ⇒ **英文档由 `Audio` 变 `Media`**（波 0b3 已裁、**有意**）。
+            //    ⚠️ `Label`（节点名）**一个字没动**：`Graphics` / `Audio` / `Online` 照旧（自检 `FindChild` 靠它）。
             var specs = new[]
             {
-                new { Tab = SettingsTab.General,  Label = "General",  Key = "Settings/General/Title",      Icon = ArtTabIconGeneral },              // 原版页签图标有单独一张 general
-                new { Tab = SettingsTab.Graphics, Label = "Graphics", Key = (string)null,                   Icon = "40K_settings_button_graphics" },
-                new { Tab = SettingsTab.Audio,    Label = "Audio",    Key = (string)null,                   Icon = "40K_settings_button_quality" },   // 原版 Media 页用的就是 quality 那张
-                new { Tab = SettingsTab.Online,   Label = "Online",   Key = (string)null,                   Icon = "40K_settings_button_account" },   // ⚠️ 我们挑的（联机页原版没有）
+                new { Tab = SettingsTab.General,  Label = "General",  Key = lkGenTitle,   Icon = ArtTabIconGeneral },              // 原版页签图标有单独一张 general
+                new { Tab = SettingsTab.Graphics, Label = "Graphics", Key = lkGfxTitle,   Icon = "40K_settings_button_graphics" },
+                new { Tab = SettingsTab.Audio,    Label = "Audio",    Key = lkMediaTitle, Icon = "40K_settings_button_quality" },   // 原版 Media 页用的就是 quality 那张
+                new { Tab = SettingsTab.Online,   Label = "Online",   Key = lkOnTitle,    Icon = "40K_settings_button_account" },   // ⚠️ 我们挑的（联机页原版没有）
             };
             for (int i = 0; i < specs.Length; i++)
             {
@@ -1132,6 +1168,43 @@ namespace CardPresentation
         const string lkSetSoundFx      = "MainMenu/Settings/SettingLabel/SoundFx";
         const string lkSetVoiceOvers   = "Settings/Media/VoiceOvers";
         const string lkGfxAutoZoom     = "Settings/Graphics/AutoZoom";
+
+        // ---- 🆕 2026-10-18（波 1b · P2b 尾巴 + `A1046`/`A1062`）：本文件**剩下那批还没接的标签** ----
+        // 🔴 **键全部早就在表里**（波 0b / 0b2 / 0b3 / 0b4 建好）⇒ 本笔只把调用点的**字面量**换成 `Loc.T(键)`，
+        //    ⛔ **不新建、不改任何键**（判据 = `查证_23双语键盘点.md` 表 B1/B2）。
+        // ⛔ **一律【裸】`Loc.T(k)`**（`A1025` 最终裁定）：**不留闸门 / 不留兜底** ——
+        //    `HasEntry ? Loc.T(k) : 原串` 那种闸门本质就是**静默兜底**，与「不许静默失败」冲突。
+        // ⚠️ `Loc.T` **缺键返回键名本身** ⇒ 键名必须逐字对（接错了会**把键名印到屏幕上**）。
+        // ⚠️ **节点名一个都不许动** —— `Node(...)` / `FindChild(...)` 用的那串是**稳定英文标识**，
+        //    与「画出来那行字」是两回事（见 `BuildTabs` 那条注释）。
+        const string lkGfxTitle      = "Settings/Graphics/Title";      // 页签 + 页标题**共用**（原版同 mTerm 两处）
+        const string lkMediaTitle    = "Settings/Media/Title";         // ⚠️ 页签 `Audio` 的**英文档由 `Audio` 变 `Media`**（波 0b3 已裁，**有意**）
+        const string lkGfxQuality    = "Settings/Graphics/SelectQuality";
+        const string lkGfxSmallUI    = "Settings/Graphics/IncreaseUISize";
+        const string lkGfxSuperSamp  = "Settings/Graphics/EnableSuperSampling";
+        const string lkGfxVsync      = "Settings/Graphics/Vsync";
+        const string lkGfxFrameLimit = "Settings/Graphics/FrameLimit";
+        const string lkGfxUnlimited  = "Settings/Graphics/UnlimitedFPS";
+        const string lkFpsUnlimited  = "Settings/Graphics/FpsText/Unlimited";   // `FpsText()` 里那一句 `unlimited`
+        const string lkFpsValue      = "Settings/Graphics/FpsText/Value";       // `FpsText()` 里那一句 `{0} fps`
+        const string lkFlashLanguage = "Settings/General/Flash/Language";       // `{0}` = 语言名、`{1}` = 枚举值
+        const string lkLangNoTable   = "Settings/General/LangHasNoTable";       // 值里**自带**前导全角空格
+        const string lkFlashQuality  = "Settings/Graphics/Flash/Quality";       // `{0}` = 画质档名
+        const string lkFlashVsync    = "Settings/Graphics/Flash/Vsync";         // `{0}` = `MainMenu/General/{On,Off}`
+        const string lkFlashSmallUI  = "Settings/Graphics/Flash/SmallScreenUI"; // 同上
+        const string lkFlashAutoZoom = "Settings/Graphics/Flash/AutoZoom";      // 同上
+        const string lkFlashSS       = "Settings/Graphics/Flash/SuperSampling"; // 同上
+        const string lkFlashFps      = "Settings/Graphics/Flash/Fps";           // `{0}` = `FpsText()`
+        const string lkOn            = "MainMenu/General/On";                   // 🔴 与 13 处弹窗钮共用的 `MainMenu/General/OK` 同族、但**是另一条键**
+        const string lkOff           = "MainMenu/General/Off";
+        const string lkRoleHost      = "Settings/Online/RoleHost";
+        const string lkRoleClient    = "Settings/Online/RoleClient";
+        const string lkTestPublicIp  = "Settings/Online/TestPublicIp";
+        const string lkIpLabel       = "Settings/Online/IpLabel";
+        const string lkPwdLabel      = "Settings/Online/PasswordLabel";
+        const string lkRefresh       = "Settings/Online/Refresh";
+        const string lkSaveOnline    = "Settings/Online/Save";
+        const string lkCheckConn     = "Settings/Online/CheckConnection";
 
         Transform BuildGeneralPage(Transform area)
         {
@@ -1355,7 +1428,8 @@ namespace CardPresentation
         }
 
         /// <summary>🆕 2026-10-18（设置窗未接的标签）：登记一条「**随 `RebuildGfxRows()` 一起重建**」的行文字
-        /// （现在只有图像页 `Auto zoom` 那一行）。⛔ `text` 里**现算** `Loc.T`；形状与 `OnLangText` 逐字同形，
+        /// （波 1b 起 = 图像页那 **6** 格：四行标签各一 + `FPS limit` 那一行两条 —— 行标题与第 3 格刻度）。
+        /// ⛔ `text` 里**现算** `Loc.T`；形状与 `OnLangText` 逐字同形，
         /// 只是进的是 `_gfxRowLabels` 那条**短链**（为什么不能进长链 → `_gfxRowLabels` 的 doc）。</summary>
         void OnGfxRowText(Label lb, Func<string> text)
         {
@@ -1376,7 +1450,8 @@ namespace CardPresentation
         /// 闭包里的**只允许**是 `Loc.T(...)` 这一族（要跟着语言走的）＋上面那些**冻住的**局部量。</para>
         /// <para>⚠️ **生命周期**：`_statusLabel` 与那两个 `MenuInputField` 都随 `Build()` 整棵重建
         /// ⇒ 本工厂在 `Build()` 里跟 `_onLabels` 一起清（`_flashGet = null`）；`_flashStore` 照旧跨 `Build()` 留着。</para>
-        /// <para>⚠️ **为什么赋值走属性 `_flash` 的 `set` 也安全**：图形页 / 通用页那几条仍是 `_flash = "字面量"`，
+        /// <para>⚠️ **为什么赋值走属性 `_flash` 的 `set` 也安全**：图形页 / 通用页那几条走的是**属性 `set`**
+        /// （波 1b 起赋值右边也走语言表了，形状没变 —— 仍是「当场算好、存下来」那一档），
         /// 那个 `set` 会把工厂清掉 ⇒ 不会出现「新结果被上一条联机结果盖回去」。</para></summary>
         void SetFlash(Func<string> text)
         {
@@ -1389,8 +1464,10 @@ namespace CardPresentation
         /// 登记了但不生效照样绿）。⛔ 别为了好看藏起来（同 `LangRowCount` 那条：自检拿不到只能瞎猜）。</summary>
         public int OnLabelCount { get { return _onLabels.Count; } }
 
-        /// <summary>🆕 2026-10-18（设置窗未接的标签）**自检只读口**：图像页那条**短链**上登记了几条
-        /// （现在恒 = 1：`Auto zoom` 那一行）。🔴 **与 `OnLabelCount` 同一条纪律** —— 只能当旁证：
+        /// <summary>🆕 2026-10-18（设置窗未接的标签）**自检只读口**：图像页那条**短链**上登记了几条。
+        /// （🔴 **不是固定数**：波 1b 之前 = 1（`Auto zoom`），波 1b 起 = **6** —— `Small Screen UI` ·
+        /// `Auto Zoom` · `Use super sampling` · `VSync` 四行各 1、`FPS limit` 那一行 **2**（行标题 + 第 3 格刻度）。）
+        /// 🔴 **与 `OnLabelCount` 同一条纪律** —— 只能当旁证：
         /// 真判据是「那一行上印的字 == `Loc.T(键)`」。
         /// <para>⚠️ 它另有一条**只有它测得出**的用法（短链存在的理由）：先读一次、再连调两次
         /// `RebuildGfxRows()`，**两次之后这个数必须一模一样**（不能涨）—— 涨了就是「每滚一格往链上
@@ -1586,8 +1663,11 @@ namespace CardPresentation
             if (Loc.Current == v) { Debug.Log($"[Settings] 语言已经是「{Loc.LanguageName(v)}」—— 不变"); RefreshLangRows(); return; }
             bool changed = Loc.SetLanguage(v);
             RefreshTexts();
-            _flash = "语言 → " + Loc.LanguageName(Loc.Current) + $"（{Loc.Current}）"
-                   + (Loc.HasOwnText(Loc.Current) ? "" : "　⚠️ 本地没有这一套文案 ⇒ 界面文字**回退英文**");
+            // 🆕 2026-10-18（波 1b · A1046）：两句都改走语言表 ——
+            //   键 `Settings/General/Flash/Language`（`语言 → {0}（{1}）`；`{0}` = 语言名、`{1}` = 枚举值）
+            //   + `Settings/General/LangHasNoTable`（那半句的**值里自带前导全角空格** ⇒ 这里 ⛔ 别再补一个）。
+            _flash = string.Format(Loc.T(lkFlashLanguage), Loc.LanguageName(Loc.Current), Loc.Current)
+                   + (Loc.HasOwnText(Loc.Current) ? "" : Loc.T(lkLangNoTable));
             Debug.Log("[Settings] " + _flash + (changed ? "" : "（值没变）"));
         }
 
@@ -1729,7 +1809,11 @@ namespace CardPresentation
         Transform BuildGraphicsPage(Transform area)
         {
             var page = Node(area, "Graphics Tab", TabsL, TabsT, TabsR, TabsB);
-            PageTitle(page, "Graphics");
+            // 🆕 2026-10-18（波 1b · A1062）：页标题改走语言表 —— 键与页签**同一条**
+            //   （先例 = 联机页那条 `OnLangText(PageTitle(page, Loc.T(…)), …)`）。
+            //   🔴 **也要挂刷新链**：本页标题是 `Build()` 里只画一次的（换语言只能在 General 页做 ⇒
+            //   不登记就**停在旧语言**，见 `_onLabels` 那条「进链的判据只此一条」）。
+            OnLangText(PageTitle(page, Loc.T(lkGfxTitle)), () => Loc.T(lkGfxTitle));
 
             // ① `Quality Selector`：下拉框（左） + 说明字（右）
             var row = Node(page, "Quality Selector", QualL, QualT, QualR, QualB);
@@ -1740,9 +1824,14 @@ namespace CardPresentation
             var qualQ = Rect(row, "Quality DropDown", QualL, QualT, QualBoxR, QualB, "40K_dropdown_field_closed", QContent);
             _qualityLabel = Text(row, "Quality Value", QualityName(), QualL + 20f, QualBoxR - 40f, QualT, QualB,
                                  FontLabel, Color.white, QText);
-            var lb = Text(row, "Quality selector text", "Quality", QualTextL, QualR, QualT, QualB,
+            // 🆕 2026-10-18（波 1b · A1062）：这一行的字改走语言表（键 `Settings/Graphics/SelectQuality`）。
+            //   ⚠️ **节点名 `Quality selector text` 不动**（自检 `FindChild` 靠它）。
+            //   🔴 **挂 `_onLabels`**：本页是 `Build()` 里只画一次的（判据 = `_onLabels` 那条
+            //   「进链的判据只此一条」）⇒ 不登记的话开着窗换语言会**停在旧语言**。
+            var lb = Text(row, "Quality selector text", Loc.T(lkGfxQuality), QualTextL, QualR, QualT, QualB,
                           FontRowLabel, Color.white, QText);
             if (lb != null) AlignLeft(lb, new PxRect(QualTextL, QualT, QualR, QualB));
+            OnLangText(lb, () => Loc.T(lkGfxQuality));
             Hit(row, "QualityHit", QualL, QualT, QualBoxR, QualB, QOverlay, CycleQuality,
                 qualQ, "40K_dropdown_field_closed");
             Debug.Log("[Settings] 图像页：这一列照原版运行时那**两种**排法 —— "
@@ -1871,7 +1960,13 @@ namespace CardPresentation
             //   （守卫静默跳过 ⇒ 不报错、无界增长）。清完由下面各自的 `OnGfxRowText` 重新登记。
             _gfxRowLabels.Clear();
             MenuDraw.ClearChildren(_gfxContent);
-            BuildCheckRow(_gfxContent, "Small Screen UI", SmallScreenRow, () => SmallScreenUI.Enabled, ToggleSmallScreenUI);
+            // 🆕 2026-10-18（波 1b · A1062）：这一行的字改走语言表（键 `Settings/Graphics/IncreaseUISize`）。
+            //   🔴 `nodeName` 那个形参**同时当节点名与显示字** ⇒ 用 `labelText` + `takeLabel` 把两个身份**拆开**
+            //   （形状照上一行 `Auto Zoom` 的先例）：节点名仍是 `"Small Screen UI"`（⛔ 不动），
+            //   画出来那行字走键；登记走 `_gfxRowLabels` 那条**短链**（本列的行每滚一格都被整批重建）。
+            Func<string> ssuText = () => Loc.T(lkGfxSmallUI);
+            BuildCheckRow(_gfxContent, "Small Screen UI", SmallScreenRow, () => SmallScreenUI.Enabled, ToggleSmallScreenUI,
+                          ssuText, l => OnGfxRowText(l, ssuText));
             // 🆕 **2026-10-07（A172）**：`Auto Zoom` —— 原版运行时**一直在**的那一行（`GraphicsTab.autoZoom`）。
             // 原版那颗 `Label` 的 `m_text` 印的就是英文 `'Auto zoom'` ⇒ 照抄（不像另两颗是西语）。
             // 🆕 **2026-10-18（第四会话 · 「设置窗未接的标签」· 调度台已放行）**：文字改走表里的键。
@@ -1891,11 +1986,21 @@ namespace CardPresentation
             //   ⇒ 我们等价 = `SuperSampling.RowVisible`（调度台 2026-10-10 裁的案 (a)：`PC` 档 ≡ 原版「非移动」那档）。
             // ⚠️ 文案：原版那颗 `Label` 的 `m_text` 是**西班牙语** `'Sobremuestreo'`（TMP 挂的是 `Localize` 那一套，
             //   本地没有英文正式文案）⇒ 照文件头 ② 的口径写英文 `Use super sampling`（**我们的选择**）。
+            // 🆕 2026-10-18（波 1b · A1062）：同上 —— 节点名仍是 `"Use super sampling"`（⛔ 不动），
+            //   画出来那行字走键 `Settings/Graphics/EnableSuperSampling`（ZH `超采样` / EN `Use super sampling`
+            //   ⇒ **英文档零变化**，同 `Auto Zoom` 那条的处理）。
+            Func<string> ssAaText = () => Loc.T(lkGfxSuperSamp);
             var ssRow = BuildCheckRow(_gfxContent, "Use super sampling", SuperSamplingRow,
-                                      () => SuperSampling.Enabled, ToggleSuperSampling);
+                                      () => SuperSampling.Enabled, ToggleSuperSampling,
+                                      ssAaText, l => OnGfxRowText(l, ssAaText));
             if (ssRow != null) ssRow.gameObject.SetActive(withSS);
+            // 🆕 2026-10-18（波 1b · A1062）：同上 —— 节点名仍是 `"VSync"`（⛔ 不动）；
+            //   键 `Settings/Graphics/Vsync` 两边**逐字都是 `VSync`**（本包唯一一条原版 TMP 就是英文的）
+            //   ⇒ 这一行**中英文档都不变字**，接键的意义是「**换语言时它跟着刷新**」。
+            Func<string> vsText = () => Loc.T(lkGfxVsync);
             BuildCheckRow(_gfxContent, "VSync", withSS ? VsyncRowSS : VsyncRowNoSS,
-                          () => QualitySettings.vSyncCount > 0, ToggleVsync);
+                          () => QualitySettings.vSyncCount > 0, ToggleVsync,
+                          vsText, l => OnGfxRowText(l, vsText));
             BuildFpsRow(_gfxContent, withSS ? FpsRowSS : FpsRowNoSS);
         }
 
@@ -1912,7 +2017,7 @@ namespace CardPresentation
         /// <para>🆕 **2026-10-18（第四会话 · 设置窗未接的标签）**：末尾多一颗可选 `takeLabel` ——
         /// **本方法【不】自己登记语言链**（它是 4 行共用的，且这一列的行**每滚一格都被 `RebuildGfxRows()`
         /// 整批重建** ⇒ 谁登记谁就得替那批闭包管生命周期）⇒ 只把刚建出来的那颗 `Label` **交回给调用点**，
-        /// 登记与否由调用点决定（现在只有 `Auto zoom` 那一行要 —— 它挂 `_gfxRowLabels`）。</para></summary>
+        /// 登记与否由调用点决定（波 1b 起 = 4 行 `BuildCheckRow` **全都**要 —— 各把 `labelText` 交回来）。</para></summary>
         Transform BuildCheckRow(Transform content, string nodeName, int row, Func<bool> state, Action onClick,
                                 Func<string> labelText = null, Action<Label> takeLabel = null)
         {
@@ -1970,7 +2075,10 @@ namespace CardPresentation
         static string FpsText()
         {
             int f = Application.targetFrameRate;
-            return f <= 0 ? "unlimited" : (f + " fps");
+            // 🆕 2026-10-18（波 1b · A1062）：这两句改走语言表（键 `Settings/Graphics/FpsText/{Unlimited,Value}`）。
+            //   键值**逐字 = 原来那两句**（`unlimited` / `{0} fps`）⇒ **英文档零变化**、中文档由英文变中文。
+            //   ⚠️ 它是 `static` ⇒ 只能读 `Loc`（静态类）—— 别在这儿碰实例成员。
+            return f <= 0 ? Loc.T(lkFpsUnlimited) : string.Format(Loc.T(lkFpsValue), f);
         }
 
         void CycleQuality()
@@ -1984,7 +2092,8 @@ namespace CardPresentation
             // `ConfigureSuperSamplingVisibility()` —— 换档之后**当场**重算「超采样那一行在不在」
             // （原版换档也是**只重算这一行的显隐**：真正写 `renderScale` 要等关窗 / 切场景，见 `ApplyQuality`）。
             RebuildGfxRows();
-            _flash = "画质档 → " + QualityName();
+            // 🆕 2026-10-18（波 1b · A1046/A1062）：状态行这句改走语言表（`{0}` = 画质档名）。
+            _flash = string.Format(Loc.T(lkFlashQuality), QualityName());
             Debug.Log("[Settings] " + _flash + "（超采样那一行：" + (SuperSampling.RowVisible ? "在" : "不在") + "）");
         }
 
@@ -1992,7 +2101,8 @@ namespace CardPresentation
         {
             int next = QualitySettings.vSyncCount > 0 ? 0 : 1;
             ApplyVSync(next);
-            _flash = "VSync → " + (next > 0 ? "开" : "关");
+            // 🆕 2026-10-18（波 1b · A1046/A1062）：`{0}` = 开/关（键 `MainMenu/General/{On,Off}`）。
+            _flash = string.Format(Loc.T(lkFlashVsync), next > 0 ? Loc.T(lkOn) : Loc.T(lkOff));
             Debug.Log("[Settings] " + _flash);
         }
 
@@ -2003,7 +2113,8 @@ namespace CardPresentation
         void ToggleSmallScreenUI()
         {
             SmallScreenUI.Set(!SmallScreenUI.Enabled);
-            _flash = "Small Screen UI → " + (SmallScreenUI.Enabled ? "开" : "关");
+            // 🆕 2026-10-18（波 1b · A1046/A1062）：同上（键 `Settings/Graphics/Flash/SmallScreenUI`）。
+            _flash = string.Format(Loc.T(lkFlashSmallUI), SmallScreenUI.Enabled ? Loc.T(lkOn) : Loc.T(lkOff));
             Debug.Log("[Settings] " + _flash + "（原版 `GraphicsTab.SmallScreenToggleClick`：同时置 "
                     + "`GameStaticData.smallScreenUI` 与 `smallUIChosenManually`）—— ⚠️ 只对**之后打开**的窗口生效："
                     + "原版那一段写在 `GameWindow.Open()` 里（→ `Shell/TransformScalerBySmallScreenUI.cs`）。");
@@ -2026,7 +2137,8 @@ namespace CardPresentation
         void ToggleAutoZoom()
         {
             AutoZoom.Set(!AutoZoom.Enabled);
-            _flash = "Auto Zoom → " + (AutoZoom.Enabled ? "开" : "关");
+            // 🆕 2026-10-18（波 1b · A1046/A1062）：同上（键 `Settings/Graphics/Flash/AutoZoom`）。
+            _flash = string.Format(Loc.T(lkFlashAutoZoom), AutoZoom.Enabled ? Loc.T(lkOn) : Loc.T(lkOff));
             // 🔴 原版 `BattleSettingsWindow__OnAutoZoomChanged.c` 那一跳（同一个取法：`FindObjectOfType<CombatAutoZoom>()`）。
             //    场上没有那个组件（不在战斗里）⇒ 什么都不用做 —— **值已经写下了**，下一局开局就读得到。
             var zoom = UnityEngine.Object.FindFirstObjectByType<CombatAutoZoom>();
@@ -2048,7 +2160,8 @@ namespace CardPresentation
         void ToggleSuperSampling()
         {
             SuperSampling.Set(!SuperSampling.Enabled);
-            _flash = "Use super sampling → " + (SuperSampling.Enabled ? "开" : "关");
+            // 🆕 2026-10-18（波 1b · A1046/A1062）：同上（键 `Settings/Graphics/Flash/SuperSampling`）。
+            _flash = string.Format(Loc.T(lkFlashSS), SuperSampling.Enabled ? Loc.T(lkOn) : Loc.T(lkOff));
             Debug.Log("[Settings] " + _flash + "（原版 `GraphicsTab__SuperSamplingToggleClick.c`：只写 `+0x124` 与脏位；"
                     + "真正写 URP `renderScale` 的是 `ChangeResolution()` —— 关窗 / 换档 / 启动那一刻，"
                     + "见 `SuperSampling` 那个类）。真实现 = `renderScale` 1.0 ↔ 2.0，**不是 MSAA**。");
@@ -2212,9 +2325,15 @@ namespace CardPresentation
             //    ⚠️ 原版 TMP 的 `m_text` 是西班牙语 `'Límite de FPS'` 且**没挂 I2 词条** ⇒ 英文正式文案
             //    本地拿不到，照文件头 ② 的口径写英文（与页签 / Small Screen UI 那两处同一处理）。
             float tl = ChkL + FpsTitleL, tt = top + FpsTitleTop;
-            var lb = Text(_fpsRow, "Title", "FPS limit", tl, tl + FpsTitleW, tt, tt + FpsTitleH,
+            // 🆕 2026-10-18（波 1b · A1062）：行标题改走语言表（键 `Settings/Graphics/FrameLimit`，
+            //   ZH `帧率上限` / EN `FPS limit` ⇒ 英文档零变化）。⚠️ **节点名 `Title` 不动**。
+            //   🔴 **挂 `_gfxRowLabels` 那条短链** —— `BuildFpsRow` 是 `RebuildGfxRows()` 调的，
+            //   而后者挂在 `_gfxScroll.OnChanged` 上（**每滚一格整批重建**）⇒ 与 `Auto Zoom` 同一档。
+            Func<string> fpsTitleText = () => Loc.T(lkGfxFrameLimit);
+            var lb = Text(_fpsRow, "Title", fpsTitleText(), tl, tl + FpsTitleW, tt, tt + FpsTitleH,
                           FpsFont, Color.white, QText);
             if (lb != null) AlignLeft(lb, new PxRect(tl, tt, tl + FpsTitleW, tt + FpsTitleH));
+            OnGfxRowText(lb, fpsTitleText);
 
             // ② 滑块本体（原版 `FPS Slider`：行内 [266,84.2]–[757.2,97.2]）
             _fpsL = ChkL + FpsSliderL; _fpsR = _fpsL + FpsSliderW;
@@ -2240,8 +2359,15 @@ namespace CardPresentation
             for (int i = 0; i < 3; i++)
             {
                 float x = ChkL + FpsTickX[i], y = top + FpsTickTop[i];
-                Text(_fpsSliderRoot, FpsTickName[i], FpsTickText[i], x, x + FpsTickW, y, y + FpsTickH,
-                     FpsFont, FpsTickColor, QText);
+                // 🆕 2026-10-18（波 1b · A1062）：**第 3 格**那行字改走语言表（键 `Settings/Graphics/UnlimitedFPS`，
+                //   ZH `不限帧` / EN `Unlimited` ⇒ **英文档零变化**）。
+                //   ⚠️ **前两格 `30` / `60` 是纯数字、不换**（表 A 明写「不建键」）。
+                //   ⚠️ **节点名 `FpsTickName[i]`（`30 FPS` / `60 FPS` / `Unlimited`）一格都不动**。
+                //   🔴 与前两行同一条短链（本行随 `RebuildGfxRows()` 逐格重建）。
+                string tick = i == 2 ? Loc.T(lkGfxUnlimited) : FpsTickText[i];
+                var tk = Text(_fpsSliderRoot, FpsTickName[i], tick, x, x + FpsTickW, y, y + FpsTickH,
+                              FpsFont, FpsTickColor, QText);
+                if (i == 2) OnGfxRowText(tk, () => Loc.T(lkGfxUnlimited));
             }
 
             // ②-d 手柄 `Handle`：`Volume_button`（110×110 **方图**）+ `preserveAspect` ⇒ 实画 35.406 见方
@@ -2361,8 +2487,24 @@ namespace CardPresentation
             return true;
         }
 
-        /// <summary>按**世界坐标**取值（拖动 / 点击 / 自检共用的入口）。返回值变了没有。</summary>
-        public bool SetFpsFromPointer(Vector3 world) => SetFpsFromCanvasX(LayoutSpace.ToPixel(world).x);
+        /// <summary>按**世界坐标**取值（拖动 / 点击 / 自检共用的入口）。返回值变了没有。
+        /// <para>🔴 **2026-10-18（A990②）**：换算从 `LayoutSpace.ToPixel(world)` 换成
+        /// `MenuDraw.PixelOfDesign(world)`（= `LayoutSpace.FromPixel` 的逆，x 用**实测** `VisibleWidth`）。
+        /// **为什么非得是它**：本窗的矩形全部先过 <see cref="Screen"/>（把固定的 `RootScale` 0.9
+        /// **烘进设计 px**、绕画布中心 (960,540) 缩放）⇒ 画在屏上的轨道/手柄对应的设计 px 是
+        /// `Screen(p)`；而 `PixelOfDesign(world) = 960 + (p′ − 960)`（`p′` = 建件时喂进去的那个设计 px）
+        /// **逐字就是 `Screen` 那一式的形状** ⇒ 两边同一帧、**对任何宽高比都闭合**。
+        /// 改前那一份的 x 写死 108px/世界单位 ⇒ **只在 16:9** 与 `Screen()` 同帧，
+        /// 4:3 下指针读数被压到 **0.9 × 0.75**、而命中带/滑区还是 `0.9` ⇒ 点手柄取到的档位**系统性偏小**
+        /// （越靠边差越多：轨道右端 1284.63 → 偏 **0.75 倍行程** ≈ 判成档 1 而不是档 2）。</para>
+        /// <para>⚠️ **同一帧的三处**（本窗指针路上全部要吃同一条换算）：本行 ·
+        /// `FpsClickAtPointer`（转调本行 ✔）· `UpdateFpsDrag` 里那两个 `LayoutSpace.PxX/PxY`
+        /// —— 后两处**不在本件白名单**（派单只许改本行），已记在报告 §没查清 里：
+        /// **改前改后都是同一档偏差**（本轮不动它们 = 不引入新错），但那一半仍是 16:9-only。</para>
+        /// <para>⚠️ 批处理里 `Mouse.current` 是 null ⇒ 自检不经过本行（`FpsClickAtPointer` 早退；
+        /// 自检直调 `FpsPressAtCanvas` / `SetFpsFromCanvasX` 那两个**吃画布 px**的口）
+        /// ⇒ **12 条自检一条都不受影响**。</para></summary>
+        public bool SetFpsFromPointer(Vector3 world) => SetFpsFromCanvasX(MenuDraw.PixelOfDesign(world).x);
 
         /// <summary>按**画布 px 的 x** 取值 —— 逐句照 uGUI `Slider.UpdateDrag`：
         /// `normalized = clamp01((x − 滑区左) / 滑区宽)` ⇒ `值 = round(normalized × (max−min) + min)`（`m_WholeNumbers`）
@@ -2393,7 +2535,8 @@ namespace CardPresentation
             if (!fire) return;
             int target = FpsOfIndex(idx);                     // = 原版 `ApplySettingsOptions` 的映射
             Application.targetFrameRate = target;             // = 原版 `PlayerDataManager.SetTargetFramerate`
-            _flash = "帧率上限 → " + FpsText();
+            // 🆕 2026-10-18（波 1b · A1046/A1062）：同上（键 `Settings/Graphics/Flash/Fps`，`{0}` = `FpsText()`）。
+            _flash = string.Format(Loc.T(lkFlashFps), FpsText());
             Debug.Log($"[Settings] {_flash}（原版 `GraphicsTab.FPSLimitValueChanged` 只写 "
                     + $"`GameStaticData.FPSLimit = {idx}`；`PlayerDataManager.ApplySettingsOptions` 再映射成 "
                     + $"{target} → `Application.targetFrameRate`）" + (changed ? "" : "（值没变）"));
@@ -2471,7 +2614,9 @@ namespace CardPresentation
         Transform BuildAudioPage(Transform area)
         {
             var page = Node(area, "Media Tab", TabsL, TabsT, TabsR, TabsB);
-            PageTitle(page, "Audio");
+            // 🆕 2026-10-18（波 1b · A1062）：页标题改走语言表 —— 键与页签**同一条**（= `Settings/Media/Title`；
+            //   ⚠️ 英文档由 `Audio` 变 `Media`、**有意**，同 `BuildTabs` 那条注释）· 同上挂刷新链。
+            OnLangText(PageTitle(page, Loc.T(lkMediaTitle)), () => Loc.T(lkMediaTitle));
 
             var box = Node(page, "Audio Settings", AuL, AuT, AuR, AuB);
             var names = new[] { "Music", "Sound Effects", "Voice-overs" };
@@ -2566,8 +2711,12 @@ namespace CardPresentation
             OnLangText(PageTitle(page, Loc.T(lkOnTitle)), () => Loc.T(lkOnTitle));
 
             // ① 角色：主机 / 客机（用户规格：「勾选成为主机或客机」）
-            _roleHostBg = RoleButton(page, "Host", 0, NetRole.Host);
-            _roleClientBg = RoleButton(page, "Client", 1, NetRole.Client);
+            // 🆕 2026-10-18（波 1b · P2b 尾巴）：两颗角色钮的字改走语言表（键 `Settings/Online/Role{Host,Client}`）。
+            //   🔴 **`RoleButton` 原来只有一个 `label` 形参、同时当【节点名】与【显示字】** ⇒ 先把它**拆成两个**
+            //   （`nodeName` / `key`，照音频页 `names`/`keys` 的先例）—— 节点名 `"Host"`/`"Client"`
+            //   （`Node(page, "Role " + …)`，自检 `Click(…, "Role Client")` 靠它）**一个字不动**。
+            _roleHostBg = RoleButton(page, "Host", lkRoleHost, 0, NetRole.Host);
+            _roleClientBg = RoleButton(page, "Client", lkRoleClient, 1, NetRole.Client);
             _role = (NetRole)Mathf.Clamp(NetConfig.Current.role, 1, 2);
 
             // ② 主机块 / 客机块（各自一对 IP+密码 + 自己的那个钮 —— 用户规格逐条）
@@ -2606,13 +2755,17 @@ namespace CardPresentation
             //       而玩家只看得见前者 ⇒ 不给对照，他就会以为我们那个「没有公网 IPv6」是错的。
             //    实测判据 → `资料/联机P2P_设计与交接.md` §11·4。
             //    ⚠️ 探测**在后台线程**跑（要联网）⇒ 这里只发车，结果由 `Update` 那边印出来。
-            ActionButtonAt(page, "Echo", TitleL + OnBtnW + 40f, OnBtnT, OnEchoW, "Test Public IP", () =>
+            // 🆕 2026-10-18（波 1b · P2b 尾巴）：钮上的字改走语言表（键 `Settings/Online/TestPublicIp`）。
+            //   ⚠️ **节点名仍是 `"Echo"`**（⇒ `Node(page, "Echo Button")`，自检靠它）—— 只换了显示字。
+            //   返回那颗 `Label` ⇒ 顺手挂 `_onLabels`（本钮只在 `BuildOnlinePage` 里建一次）。
+            var echoLb = ActionButtonAt(page, "Echo", TitleL + OnBtnW + 40f, OnBtnT, OnEchoW, Loc.T(lkTestPublicIp), () =>
             {
                 // 🆕 2026-10-18（`_flash` 现算工厂）：**纯文案**（一条键、无运行期值）⇒ 工厂就一句 `Loc.T`。
                 SetFlash(() => Loc.T(lkOnProbing));
                 FlashAndLog();
                 NetConfig.ProbeExternalAsync(r => { _echoResult = r; _echoReady = true; });
             });
+            OnLangText(echoLb, () => Loc.T(lkTestPublicIp));
 
             ApplyRoleVisibility();
             return page;
@@ -2656,12 +2809,17 @@ namespace CardPresentation
             };
         }
 
-        ImageQuad RoleButton(Transform page, string label, int idx, NetRole role)
+        /// <summary>角色钮（主机 / 客机）。
+        /// 🆕 **2026-10-18（波 1b · P2b 尾巴）**：原来那个 `label` 形参**同时是节点名与显示字** ⇒ 拆成
+        /// `nodeName`（= `Node(...)` 的节点名、⛔ 不进本地化）与 `key`（= 画在钮上的那行字，走 `Loc.T`）。
+        /// 键**在钮自己身上现取**（本方法只建一次 ⇒ 顺手挂 `_onLabels`，换语言时跟着刷）。</summary>
+        ImageQuad RoleButton(Transform page, string nodeName, string key, int idx, NetRole role)
         {
             float x1 = TitleL + idx * (OnRoleW + OnRoleGap), x2 = x1 + OnRoleW;
-            var n = Node(page, "Role " + label, x1, OnRoleT, x2, OnRoleB);
+            var n = Node(page, "Role " + nodeName, x1, OnRoleT, x2, OnRoleB);
             var bg = Rect(n, "bg", x1, OnRoleT, x2, OnRoleB, ArtButton, QContent, BtnGreen);
-            var lb = Text(n, "Text", label, x1, x2, OnRoleT, OnRoleB, FontButton, Color.black, QText);
+            var lb = Text(n, "Text", Loc.T(key), x1, x2, OnRoleT, OnRoleB, FontButton, Color.black, QText);
+            OnLangText(lb, () => Loc.T(key));
             Hit(n, "Hit", x1, OnRoleT, x2, OnRoleB, QOverlay, () =>
             {
                 _role = role;
@@ -2679,10 +2837,15 @@ namespace CardPresentation
             float x1 = TitleL, x2 = TitleL + OnFieldW;
             var blk = Node(page, host ? "Host Block" : "Client Block", TitleL, OnLabelT, TabsR, OnBtnT + OnBtnH);
 
-            var ipLb = Text(blk, "IP Label", "IP address", x1, x2, OnLabelT, OnLabelT + 40f, FontLabel, Color.white, QText);
+            // 🆕 2026-10-18（波 1b · P2b 尾巴）：这两颗标签的字改走语言表
+            //   （键 `Settings/Online/{IpLabel,PasswordLabel}`）。⚠️ **节点名 `IP Label` / `Password Label` 不动**。
+            //   本块每个角色各建一次（主机 + 客机）⇒ 四处各挂一次 `_onLabels`。
+            var ipLb = Text(blk, "IP Label", Loc.T(lkIpLabel), x1, x2, OnLabelT, OnLabelT + 40f, FontLabel, Color.white, QText);
             if (ipLb != null) AlignLeft(ipLb, new PxRect(x1, OnLabelT, x2, OnLabelT + 40f));
-            var pwdLb = Text(blk, "Password Label", "Password", x1, x2, OnPassLabelT, OnPassLabelT + 40f, FontLabel, Color.white, QText);
+            OnLangText(ipLb, () => Loc.T(lkIpLabel));
+            var pwdLb = Text(blk, "Password Label", Loc.T(lkPwdLabel), x1, x2, OnPassLabelT, OnPassLabelT + 40f, FontLabel, Color.white, QText);
             if (pwdLb != null) AlignLeft(pwdLb, new PxRect(x1, OnPassLabelT, x2, OnPassLabelT + 40f));
+            OnLangText(pwdLb, () => Loc.T(lkPwdLabel));
 
             var login = NetConfig.Current;
             // 🔴 **A208（2026-10-10）**：这两处的矩形给的是**设计 px**（`OnFieldT` / `OnFieldW` / `OnFieldH`，
@@ -2706,11 +2869,16 @@ namespace CardPresentation
                 float fx1 = x2 + 20f, fx2 = fx1 + OnFillW;
                 var rn = Node(blk, "Refresh", fx1, OnFieldT, fx2, OnFieldT + OnFieldH);
                 Rect(rn, "bg", fx1, OnFieldT, fx2, OnFieldT + OnFieldH, ArtButton, QContent, BtnGrey);
-                Text(rn, "Text", "Refresh", fx1, fx2, OnFieldT, OnFieldT + OnFieldH, FontSmall, Color.black, QText);
+                // 🆕 2026-10-18（波 1b · P2b 尾巴）：钮上的字改走语言表（键 `Settings/Online/Refresh`）。
+                //   ⚠️ **节点名仍是 `"Text"` / 父节点 `"Refresh"` 不动**（自检 `Click(win.HostBlock, "Refresh")` 靠父节点名）。
+                var rfLb = Text(rn, "Text", Loc.T(lkRefresh), fx1, fx2, OnFieldT, OnFieldT + OnFieldH, FontSmall, Color.black, QText);
+                OnLangText(rfLb, () => Loc.T(lkRefresh));
                 Hit(rn, "Hit", fx1, OnFieldT, fx2, OnFieldT + OnFieldH, QOverlay, RefreshLocalIp);
 
                 // 【保存】：记住角色/端口/密码并**开始监听**
-                ActionButton(blk, "Save", OnBtnT, "Save", () =>
+                // 🆕 2026-10-18（波 1b · P2b 尾巴）：钮上的字改走语言表（键 `Settings/Online/Save`）。
+                //   ⚠️ **节点名仍是 `"Save"`**（⇒ `Node(blk, "Save Button")`）—— 只换了显示字。
+                var saveLb = ActionButton(blk, "Save", OnBtnT, Loc.T(lkSaveOnline), () =>
                 {
                     var c = NetConfig.Current;
                     NetConfig.SaveAsHost(ip.Text, pwd.Text, c.port);
@@ -2738,11 +2906,14 @@ namespace CardPresentation
                     }
                     FlashAndLog();
                 });
+                OnLangText(saveLb, () => Loc.T(lkSaveOnline));
             }
             else
             {
                 // 【检查连接】：点了**自动保存** IP+密码、试连、反馈成败（用户规格逐条）
-                ActionButton(blk, "Check", OnBtnT, "Check Connection", () =>
+                // 🆕 2026-10-18（波 1b · P2b 尾巴）：钮上的字改走语言表（键 `Settings/Online/CheckConnection`）。
+                //   ⚠️ **节点名仍是 `"Check"`**（⇒ `Node(blk, "Check Button")`）—— 只换了显示字。
+                var checkLb = ActionButton(blk, "Check", OnBtnT, Loc.T(lkCheckConn), () =>
                 {
                     var c = NetConfig.Current;
                     NetConfig.SaveAsClient(ip.Text, pwd.Text, c.port);
@@ -2757,27 +2928,33 @@ namespace CardPresentation
                     SetFlash(() => st);
                     FlashAndLog();
                 });
+                OnLangText(checkLb, () => Loc.T(lkCheckConn));
             }
             return blk;
         }
 
         MenuInputField _ipField2, _pwdField2;
 
-        void ActionButton(Transform page, string name, float t, string label, Action onClick)
+        /// <summary>动作钮。🆕 **2026-10-18（波 1b · P2b 尾巴）**：返回**钮上那颗 `Label`**
+        /// （原来返回 `void`）—— 本方法**不自己登记语言链**（同 `BuildCheckRow` 的理由：它是共用的，
+        /// 登记与否由调用点决定），要登记就把返回值交给 `OnLangText`。⛔ `name`（节点名）不进本地化。</summary>
+        Label ActionButton(Transform page, string name, float t, string label, Action onClick)
         {
-            ActionButtonAt(page, name, TitleL, t, OnBtnW, label, onClick);
+            return ActionButtonAt(page, name, TitleL, t, OnBtnW, label, onClick);
         }
 
-        /// <summary>同上，但**能指定左边距与宽度**（联机页那颗【测外网】要放在动作钮**右边**那片空位上）。</summary>
-        void ActionButtonAt(Transform page, string name, float x1, float t, float w, string label, Action onClick)
+        /// <summary>同上，但**能指定左边距与宽度**（联机页那颗【测外网】要放在动作钮**右边**那片空位上）。
+        /// 返回值 = 钮上那颗 `Label`（见 `ActionButton` 的注释）。</summary>
+        Label ActionButtonAt(Transform page, string name, float x1, float t, float w, string label, Action onClick)
         {
             float x2 = x1 + w, y2 = t + OnBtnH;
             var n = Node(page, name + " Button", x1, t, x2, y2);
             var aq = Rect(n, "bg", x1, t, x2, y2, ArtButton, QContent, BtnGreen);
-            Text(n, "Text", label, x1, x2, t, y2, FontButton, Color.black, QText);
+            var lb = Text(n, "Text", label, x1, x2, t, y2, FontButton, Color.black, QText);
             // A17：原版 `Account Tab>Buttons/*` 那几颗同族底图（`40K_button`）都是 SpriteSwap（普查 §块 4 第 16 行，⚠️ 非同名节点）
             Hit(n, "Hit", x1, t, x2, y2, QOverlay, () => { Debug.Log($"[Settings] 点了 `{label}`"); onClick(); },
                 aq, ArtButton);
+            return lb;
         }
 
         int _addrIdx = -1;   // 【刷新】在多网卡之间循环：每点一次换下一个候选
@@ -3002,8 +3179,11 @@ namespace CardPresentation
         /// <summary>页标题（原版 `Tab Title`：fs 55 · `Left/Capline`）。
         /// 🆕 **2026-10-18（第四会话 · 换语言刷新链）**：**返回那颗 `Label`** —— 联机页那条标题是
         /// `Build()` 里只画一次、而文案跟语言走的（`Settings/Online/Title`）⇒ 调用方要拿它登记进
-        /// `_onLabels`。⚠️ 只多一个返回值：另外两页（`Graphics` / `Audio`）传的是**写死的英文**、
-        /// 那张表里也没有对应键 ⇒ 它们不登记（**保持现状**，⛔ 别顺手改成翻译，那是另一笔账）。</summary>
+        /// `_onLabels`。
+        /// <para>🆕 **2026-10-18（波 1b · A1062）就地订正**：这里原来写着「另外两页（`Graphics` / `Audio`）
+        /// 传的是**写死的英文**、那张表里也没有对应键 ⇒ 它们不登记（保持现状）」—— **该说法已过期**：
+        /// `Settings/Graphics/Title` 与 `Settings/Media/Title` **本来就在表里**（页签与页标题**同一条键**，
+        /// 见 `Loc.cs` 那两条的注释）⇒ 那两页现在也走词条、也登记。**三页标题一律登记。**</para></summary>
         Label PageTitle(Transform page, string title)
         {
             var lb = Text(page, "Tab Title", title, TitleL, TitleR, TitleT, TitleB, PageTitleFontPx, Color.white, QText);

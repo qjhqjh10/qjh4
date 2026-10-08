@@ -106,7 +106,10 @@ namespace CardPresentation
                     t = _notices.Dequeue();
                 }
                 var wm = WindowsManager.Instance;
-                if (wm != null) wm.ShowPopUp(t, "知道了", null);
+                // 🔴 **2026-10-19（P6 · 双语）**：钮上的字走词条 `MainMenu/General/OK`（原版那颗钮的键，
+                //    `Core/Loc.cs:997`）。⚠️ **中文档从「知道了」变成「确定」** —— 那是词条 ZH 列的措辞
+                //    （原版键的英文列 = `OK`），如实标出这处**玩家可见的变化**。
+                if (wm != null) wm.ShowPopUp(t, Loc.T("MainMenu/General/OK"), null);
                 else Debug.LogWarning("[Net] 有件事要告诉玩家，但这一帧**没有 `WindowsManager`**"
                                     + "（自检/批处理？）⇒ 弹不出来，只能落在这里：" + t);
             }
@@ -135,7 +138,7 @@ namespace CardPresentation
             if (string.IsNullOrEmpty(text)) return;
             var wm = WindowsManager.Instance;
             if (wm == null) return;
-            wm.ShowPopUp(text, "知道了", null);
+            wm.ShowPopUp(text, Loc.T("MainMenu/General/OK"), null);
         }
 
         /// <summary>🆕 A900：**把还开着的那扇消息弹窗收掉**（对手回来了 / 倒计时到点判了弃权）。
@@ -176,7 +179,14 @@ namespace CardPresentation
         /// <summary>会话重建（换角色/换端口时用）。旧的那条**先收工**（会捎一句 `bye` 给对面）。</summary>
         public NetSession Reset()
         {
-            if (Session != null) Session.Close(true, "主机重开了");
+            // 🔴 **2026-10-19（P6d · A1038）**：传的是**词条键**（`Close` 的 `reason` 已改成「词条键」语义，
+            //   见那个方法的 doc）—— 线上只发键、收侧按**它自己**的语言取词；本机状态字也走同一个键。
+            // 🔴 **同一轮把措辞改成【中性】（`A1038` 顺手项，同 `NetBattle` 那条 R7 纪律）**：
+            //   这一句**两端都会发** —— `Reset()` 被 `Shell/SettingsWindow` 的【保存】（主机那条）与
+            //   【检查连接】（**客机**那条）都调过，而原来那一串写的是「主机重开了」
+            //   ⇒ **客机这一路捎给主机的是一句语义颠倒的话**（它自己没有「主机」这个概念）。
+            //   ⇒ 词条 ZH 列改成「对面重开了联机」（对**收方**恒成立：它看到的确实是「对面」重开了这一条）。
+            if (Session != null) Session.Close(true, "Settings/Online/Wire/HostRestarted");
             Session = NetSession.NewTcp();
             // 🆕 2026-10-17（B23·A902）：换会话 ⇒ 接线跟着换（`WireLobby` 自己会把旧的那台摘掉）
             NetMatchmaking.WireLobby(Session);

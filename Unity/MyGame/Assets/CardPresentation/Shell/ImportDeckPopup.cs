@@ -59,6 +59,11 @@ namespace CardPresentation
         public const float BtnsL = 593.05f, BtnsT = 562.43f, BtnsR = 1326.95f, BtnsB = 652.43f;
         public const float OkW = 478.343f, OkH = 75f;
         public const float CloseL = 1317.30f, CloseT = 202.10f, CloseR = 1392.30f, CloseB = 277.10f;
+        /// <summary>🔴 **2026-10-18（A1053）**：关窗钮那颗 `Icon` 子件**自己的** `m_RaycastPadding`
+        /// （原版实读 `(-20)⁴`；L,B,R,T · **负 = 外扩**）⇒ 命中区 = 子件矩形（56.37×54.50）外扩 20
+        /// = **96.37 × 94.50**（⛔ 不是根矩形 `CloseL..CloseB` 的 75×75）。
+        /// 算式只走 `MenuDraw.PaddedRect`；口径 → `普查_全仓命中区与关闭键族.md` §〇-1。</summary>
+        static readonly Vector4 ClosePad = new Vector4(-20f, -20f, -20f, -20f);
         /// <summary>`Mask` 相对 `Window` 四边各内缩一半（`sd=(−20.268,−19.245)`）。</summary>
         public const float MaskInX = 20.268f, MaskInY = 19.245f;
 
@@ -236,9 +241,22 @@ namespace CardPresentation
             float iy1 = CloseT + (CloseB - CloseT - 54.50f) * 0.5f;
             var closeIconQ = Img(root, "40k_bt_close", ix1, iy1, ix1 + 56.37f, iy1 + 54.50f, "Close Icon", QImpRow, true);
             // A17：原版 `Window>Generic Close Button Green` 是 SpriteSwap，`40k_bt_close` → `40k_bt_close_hover`（普查 §块 3 第 12 行）
-            var clHit = Hit(root, "CloseHit", new PxRect(CloseL, CloseT, CloseR, CloseB), () => Close());
+            var clHit = Hit(root, "CloseHit",
+                            MenuDraw.PaddedRect(new PxRect(ix1, iy1, ix1 + 56.37f, iy1 + 54.50f), ClosePad),
+                            () => Close());
             var clWb = clHit != null ? clHit.GetComponent<WindowButton>() : null;
-            if (clWb != null) clWb.Bind(closeIconQ, "40k_bt_close");
+            // 🆕 **2026-10-18（A1058 · 第六会话批 2）**：把高亮图**显式写出来**。
+            //   ⚠️ **本处本来就是对的**（层 = 子件 `Icon` 画 `40k_bt_close`、`art` 也传的是常态图名 ——
+            //   `Bind` 的表外后备 `+_hover` 与 `PressedNames` 已经推出 `40k_bt_close_hover` /
+            //   `40k_bt_close_pressed`）⇒ 这一行是**写明白、不改行为**（普查 §② 把本处记成「没传 `hoverArt` ⇒ 要改」，
+            //   现读订正：**推得出来，不是缺口**）。
+            //   原版判据（亲读）=
+            //   `python -I d:/tmp/wf_hit/rcunion.py bundle_menus_assets_all "Import Deck Popup" --depth 6`：
+            //   `Window/Generic Close Button Green` 那颗 `EverguildButton` 的
+            //   **`m_TargetGraphic` = pid1558372262366281874** ⇒ **所属 GO 名 = `Icon`** · 贴图 = `40k_bt_close` ·
+            //   `m_HighlightedSprite` = `40k_bt_close_hover`、`m_PressedSprite` = `40k_bt_close_pressed`；
+            //   根自己那颗 `UI_Button_Round_background` 带 `m_RaycastTarget=0`。
+            if (clWb != null) clWb.Bind(closeIconQ, "40k_bt_close", "40k_bt_close_hover");
         }
 
         /// <summary>输入框里那行字（空 ⇒ 显示占位符）。

@@ -137,6 +137,11 @@ namespace CardPresentation
         /// <summary>关闭圆钮 `Generic Close Button Orange`（74.39×75.60）+ 图标 56.86×58.13。</summary>
         public const float CloseL = 1783.11f, CloseT = 62.90f, CloseR = 1857.49f, CloseB = 138.50f;
         public const float CloseIw = 56.86f, CloseIh = 58.13f;
+        /// <summary>🔴 **2026-10-18（A1053）**：关窗钮那两颗子件（黄面 + 叉，同矩形 `CloseIw×CloseIh`）
+        /// **自己的** `m_RaycastPadding`（原版实读 `(-20)⁴`；L,B,R,T · **负 = 外扩**）⇒ 命中区 =
+        /// 子件矩形外扩 20 = **96.86 × 98.13**（⛔ 不是根矩形 `CloseL..CloseB` 的 74.38×75.60）。
+        /// 算式只走 `MenuDraw.PaddedRect`；口径 → `普查_全仓命中区与关闭键族.md` §〇-1。</summary>
+        static readonly Vector4 ClosePad = new Vector4(-20f, -20f, -20f, -20f);
 
         /// <summary>格 **225×364.5**、横向步进 **245**（= 225 + spacing 20）。</summary>
         public const float CellW = 225f, CellH = 364.5f, CellGapX = 20f, CellStep = CellW + CellGapX;
@@ -486,11 +491,23 @@ namespace CardPresentation
                           new PxRect(ix, iy, ix + CloseIw, iy + CloseIh), "Close Face", QDsRow + 1, null, true);
             MenuDraw.Rect(root, CardArt.MenuUi("40k_general_bt_yellow_close"),
                           new PxRect(ix, iy, ix + CloseIw, iy + CloseIh), "Close Icon", QDsRow + 2, null, true);
-            // 🔴 换图落在**圆底那一层**（原版 `Deck Selection Popup with Tabs>Generic Close Button Orange` 三层 =
-            //    圆底 `UI_Button_Round_background` + `Background` 黄面 + `Icon`；`trans=2` 换的是它自己的 Image，
-            //    HL = `40k_general_bt_yellow_hover`。2026-10-03 直接读 prefab 核过）
-            Hit(root, "CloseHit", new PxRect(CloseL, CloseT, CloseR, CloseB), () => Close(), QDsHit,
-                closeBase, null, "40k_general_bt_yellow_hover");
+            // 🆕 **2026-10-18（A1058 · 第六会话批 2）**：换图那一层 = **黄面 `closeFace`**
+            //   （`40k_general_bt_yellow`），⛔ **不是圆底盘 `closeBase`**（它留着**只画**，不做换图目标）。
+            //   判据（原版 prefab 亲读）=
+            //   `python -I d:/tmp/wf_hit/rcunion.py bundle_menus_assets_all "Deck Selection Popup with Tabs" --depth 8`：
+            //   根 `Generic Close Button Orange` 那颗 `EverguildButton` 的
+            //   **`m_TargetGraphic` = pid4362550681893451135**；解该 pid ⇒ **所属 GO 名 = `Background`**、
+            //   贴图 pid `5693181797853584851` → `40k_general_bt_yellow`（`d:/4/_tmp_view/sprite_pids_ALL.json`）。
+            //   ⚠️ **2026-10-18 更正（铁律 5）**：原注释写「`trans=2` 换的是它自己的 Image」——
+            //   **那句是错的**（错因 = 只读 `m_Transition`、没读 `m_TargetGraphic`）。
+            // 🆕 **2026-10-18（A1053 · 第六会话批 2）**：**命中区**归真值 —— 原版根那颗
+            //   `UI_Button_Round_background` 带 `m_RaycastTarget = 0`（不吃射线），吃射线的是两颗同矩形子件
+            //   （56.86×58.13）按 `(-20)⁴` 外扩 ⇒ **96.86 × 98.13**；改前传根矩形（74.38×75.60）⇒ 每边小 11.2。
+            //   判据 = `python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all "Deck Selection Popup with Tabs"
+            //   --depth 8 --substr "Generic Close Button"`（实读 `96.86 x 98.13`）。
+            Hit(root, "CloseHit",
+                MenuDraw.PaddedRect(new PxRect(ix, iy, ix + CloseIw, iy + CloseIh), ClosePad),
+                () => Close(), QDsHit, closeFace, "40k_general_bt_yellow", "40k_general_bt_yellow_hover");
 
             if (MissingArtCount() > 0)
                 Debug.LogWarning("[DeckSel] ⚠️ 有 " + MissingArtCount() + " 张图取不到（**这几件没画**）：" + MissingArtList());

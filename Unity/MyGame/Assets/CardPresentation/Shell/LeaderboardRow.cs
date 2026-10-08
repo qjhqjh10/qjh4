@@ -196,7 +196,16 @@ namespace CardPresentation
                 // 🆕 2026-10-03：命中区也吃 `c.Clip` —— 判据 = 原版 `RectMask2D` 的**射线那一面**
                 //    （`IsRaycastLocationValid` = `RectTransformUtility.RectangleContainsScreenPoint`）
                 //    ⇒ 滚出视口的行**点不到**、压在视口边上的那行命中区**截到视口内**（`MenuDraw.Hit` 转调 `ClipRect`）。
-                MenuDraw.Hit(border, "Hit", borderAbs, c.Q + L_Hit, () => OnRowClicked(d), clip: c.Clip);
+                // 🆕 **2026-10-18（A1053）**：**命中区 = 可射线件的并集** —— 那颗 `Button` 的子树里
+                //    `border`（120×106.44）与 **`border/Icon`（204.64×167.11）两颗都 `RT=1`**，
+                //    而立绘**在四边都溢出边框**（上 41.33 / 下 19.33 / 左 53.82 / 右 30.82）
+                //    ⇒ 并集 = **`Icon` 那个矩形**（⛔ 不是 `borderAbs` 的 120×106.44）。
+                //    判据 = `python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all "PlayerRankingRow" --depth 6`
+                //    （实读 `/PlayerRankingRow/border` = 120.00×106.44 · `/PlayerRankingRow/border/Icon` = **204.64×167.11**，
+                //     且 `Icon` 的矩形**完整包含** `border` 的矩形 ⇒ 并集就是它）。
+                //    ⚠️ **我们画的 `IconR`（`81.18,-40.36 → 285.82,126.75`）与它逐位同尺寸、同相对偏移**
+                //    ⇒ 直接拿 `iconAbs` 当命中区（⛔ 不是另算一个数）。
+                MenuDraw.Hit(border, "Hit", iconAbs, c.Q + L_Hit, () => OnRowClicked(d), clip: c.Clip);
             }
             else
             {

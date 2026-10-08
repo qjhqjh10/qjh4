@@ -47,7 +47,8 @@ public static class EndPanelProbe
             new { MinHp = 0,  Want = 3, Name = "03_三个.png" },
         };
 
-        int bad = 0;
+        int bad = 0;          // 数量 / 显隐**对不上**的处数
+        int shotFail = 0;     // 截图**没拍成**的张数（`Shot` 出声并返回 `false` —— 见它上面那段注释）
         foreach (var c in cases)
         {
             // 实参语义（逐个）：`2` = 赢家座位号+1（⇒ 我方 index 0 胜）· `0` = 我是 0 号 ·
@@ -70,7 +71,7 @@ public static class EndPanelProbe
             if (rowOn != (c.Want > 0))
             { bad++; Debug.LogError(P + $"  ✗ 骷髅整行显隐不对（{c.Want} 个时应 {(c.Want > 0 ? "显示" : "整行藏")}）"); }
 
-            Shot(c.Name);
+            if (!Shot(c.Name)) shotFail++;
         }
 
         // 再看一眼「投降」那种（不会有人掉血）—— 应该是 0 个
@@ -79,16 +80,37 @@ public static class EndPanelProbe
         //   （开局就结束、没人掉过血，那行字反正是投降版，用不到它）。
         panel.Show(2, 0, 0, 1, 0, -1);
         Debug.Log(P + $" 投降那一局 ⇒ {panel.ShownSkulls} 个骷髅");
-        Shot("04_投降.png");
+        if (!Shot("04_投降.png")) shotFail++;
 
-        Debug.Log($"{P} ===== 探针跑完（数量对不上的：{bad}）=====");
-        if (Application.isBatchMode) EditorApplication.Exit(bad == 0 ? 0 : 1);
+        // 🔴 **2026-10-19（`A1082`）**：那一行原来是「（数量对不上的：N）」—— 现在**多记一项**「截图没拍成的」：
+        //    拍不成的图必须**进本探针自己的失败账**（不然 `Shot` 里那声 `LogError` 之后，探针照样退出码 0）。
+        Debug.Log($"{P} ===== 探针跑完（数量/显隐对不上的：{bad} · 截图没拍成的：{shotFail}）=====");
+        if (Application.isBatchMode) EditorApplication.Exit(bad == 0 && shotFail == 0 ? 0 : 1);
     }
 
-    static void Shot(string file)
+    /// <summary>拍一张图。**拍成了返回 `true`**；拿不到相机（`Camera.main == null`）时返回 `false`
+    /// （并**出声** + 记进调用方的失败账）。
+    /// <para>🔴 **2026-10-19（`A1082`）就地改**：`cam == null` 那一支原来是**裸 `return`** —— 不报错、也不写图
+    /// ⇒ 五张截图（四档骷髅 + 投降档）**一张都拍不出来**、日志里却只剩「探针跑完」那一行（本工程最忌讳的**静默失败**；
+    /// 与 `Editor/MenuCheck.cs` 里那处**逐字同形**，它是「§15 收口后剩下的第 8 份独立副本」，
+    /// 那一份已由 `A1007` 改成出声 —— 本处是**最后一处**）。</para>
+    /// <para>**行为那半句一个字不变**（照旧**不写图、不渲**），变的是：**必须记一条 ✗ 并出声**，
+    /// 而且**要落进本探针自己的失败账**（`Run` 末尾那句 `EditorApplication.Exit(bad == 0 && shotFail == 0 ? 0 : 1)`
+    /// 与最后那行合计都读它）—— 与 `A1007` 在 `MenuCheck.Shoot` 里做的「`s.Fail++` + 出声」是同一个形状。</para>
+    /// <para>⚠️ **为什么用 `shotFail` + `Debug.LogError`，而不是 `CheckSink`**：本探针是**独立探针** ——
+    /// 它**不接 `MenuCheck` 那一套**（本文件全文没有 `CheckSink` / `s.Fail`，它是自己建场景、自己开相机、
+    /// 自己数 `bad` 的）。⇒ **照它自己已有的输出方式出声**（`Debug.LogError(P + "  ✗ …")`，与本文件上面
+    /// 三处数量/显隐断言逐字同形）。⛔ **不为这一处去引一套新的断言框架** —— 那会把 `Editor/MenuCheck.cs`
+    /// 也拖进这一笔改动（而它正被别的写手改）。</para></summary>
+    static bool Shot(string file)
     {
         var cam = Camera.main;
-        if (cam == null) return;
+        if (cam == null)
+        {
+            Debug.LogError(P + "  ✗ 截图 " + file + "：**没拍成** —— `Camera.main == null`"
+                           + "（改前这一支是**静默 return**：不报错、也不写图 ⇒ 谁都不知道这一张没拍）");
+            return false;
+        }
         const int W = 1920, H = 1080;
         var rt = RenderTexture.GetTemporary(W, H, 24, RenderTextureFormat.ARGB32);
         cam.targetTexture = rt;
@@ -103,5 +125,6 @@ public static class EndPanelProbe
         Object.DestroyImmediate(tex);
         RenderTexture.ReleaseTemporary(rt);
         Debug.Log(P + "  截图 " + Path.Combine(ShotDir, file));
+        return true;
     }
 }
