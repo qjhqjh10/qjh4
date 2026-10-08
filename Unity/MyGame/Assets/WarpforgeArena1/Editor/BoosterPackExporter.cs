@@ -560,31 +560,36 @@ public static class BoosterPackExporter
                     + $"（原 shader `{uiShader}`）**是按近似 shader 替代的** —— 版面对、观感不是原版");
         }
 
-        // (3) TMP 的 `m_fontAsset` + `m_sharedMaterial`（两份都数 **127** 条）。
-        //     🔴 **这一族在工程里【没有目标】** —— 实测全工程只有两份 `TMP_FontAsset`
+        // (3) TMP 的 `m_fontAsset` + `m_sharedMaterial`（两份都各数 **127** 条）。
+        //     🔴 **字体那一跳在工程里【没有目标】** —— 实测全工程只有两份 `TMP_FontAsset`
         //        （`NotoSerifCJK-Regular SDF` = 我们自己生成的 CJK 字体 · `LiberationSans SDF` = TMP 自带），
         //        而原版这两份（`Pragati-Regular SDF` ×92 · `Asar-Regular SDF` ×35）**从没被导入过**：
         //        卡面数字走 `Core/PragatiDigits` 的**位图表**（`工具/gen_pragati_digits.py`），
         //        菜单/HUD 走我们那份 CJK 字体。⇒ 今天**接不上**，**点名出声 + 留空**。
-        //     ✅ 但这一支**写成「接得回来就接」**：按**资产名**到工程里找同名 `TMP_FontAsset` /
-        //        同名 `Material` ⇒ 将来谁把原版那两份导进来，**这里不用改代码**就会接上。
+        //     ✅ 但这一支**写成「接得回来就接」**：按**资产名**到工程里找同名 `TMP_FontAsset`
+        //        ⇒ 将来谁把原版那两份导进来，**这里不用改代码**就会接上。
         //        ⛔ 找不到就返回 null（留空），**绝不新建**（⛔ 更不 `CreateFontAsset` 现造一份 ——
         //        那是**我们自己画的字体**，不是原版）。
-        //     ⚠️ **材质那一跳写在字体之后、且只在字体接上时才写**：`m_sharedMaterial` 就是字体图集的
-        //        那份材质，两者**成对**；只挂材质不挂字体，TMP 会在 `GetPaddingForMaterial` 里对着
-        //        null 字体算 ⇒ 坏得更明显。
+        //     ✅ **材质那一跳今天就是通的**（判据不是猜，是本函数自己的历史产物）：这 7 份的 shader 全是
+        //        `TextMeshPro/Distance Field`，而 `EffectExporter.ImportMaterial` 里 `Shader.Find`
+        //        **找得到它**（TMP 随 `com.unity.ugui` 进工程）⇒ 不落近似、`approx = false`。
+        //        旁证：本 prefab **上一次导出**的 `导出报告.tsv` 里 `window:Booster Pack Open Window` 那行
+        //        的 `原 shader` 列**已经写着 `TextMeshPro/Distance Field`**，池子里也已经有
+        //        `Asar-Regular White w outline.mat` / `Pragati-Regular Atlas Material.mat` 等 6 份 ——
+        //        那是上面「渲染器材质」那一跳为 5 个 **3D** `TextMeshPro`（带 `MeshRenderer`）落下的。
+        //        ⇒ 这里对 UGUI 的 `m_sharedMaterial` 走**同一个** `ImportMaterial`，与上面两支同形。
+        //     ⚠️ **字体与材质各自独立地接**（原想「字体接不上就不接材质」，现行不通：`ImportMaterial`
+        //        在这一族上本来就接得上）。安全性已经查过源码：`TMP_Text.fontSharedMaterial` 的 setter →
+        //        `SetSharedMaterial` 只写 `m_sharedMaterial` + `GetPaddingForMaterial()`，而后者对
+        //        `m_fontAsset == null` **没有依赖**（`TMP_Text.cs:1823` / `TextMeshProUGUI.cs:1529`）。
         int tmpFontOk = 0, tmpFontMiss = 0, tmpMatOk = 0, tmpMatMiss = 0;
         var missingFonts = new Dictionary<string, int>();
         foreach (var t in inst.GetComponentsInChildren<TMPro.TMP_Text>(true))
         {
             var srcFont = SerializedFieldRef(t, "m_fontAsset") as TMPro.TMP_FontAsset;
-            var srcMat = SerializedFieldRef(t, "m_sharedMaterial") as Material;
-            if (srcFont == null && srcMat == null) continue;
-
-            TMPro.TMP_FontAsset f = null;
             if (srcFont != null)
             {
-                f = FindProjectAsset<TMPro.TMP_FontAsset>(srcFont.name);
+                var f = FindProjectAsset<TMPro.TMP_FontAsset>(srcFont.name);
                 if (f != null) { t.font = f; tmpFontOk++; }
                 else
                 {
@@ -593,9 +598,21 @@ public static class BoosterPackExporter
                         (missingFonts.TryGetValue(srcFont.name, out int c0) ? c0 : 0) + 1;
                 }
             }
+            var srcMat = SerializedFieldRef(t, "m_sharedMaterial") as Material;
             if (srcMat == null) continue;
-            var pm = f != null ? FindProjectAsset<Material>(srcMat.name) : null;
-            if (pm != null) { t.fontSharedMaterial = pm; tmpMatOk++; } else tmpMatMiss++;
+            var pm = EffectExporter.ImportMaterial(srcMat, out bool tmpApprox, out string tmpShader);
+            if (pm == null)
+            {
+                tmpMatMiss++;
+                Debug.LogWarning(P + $"A1109 `{src.name}` / `{t.gameObject.name}` 上 TMP 的 `m_sharedMaterial`"
+                    + $"（`{srcMat.name}` / 原 shader `{tmpShader}`）导不成工程材质 ⇒ **这一格留空**"
+                    + "（⛔ 不拿空材质顶上）");
+                continue;
+            }
+            t.fontSharedMaterial = pm; tmpMatOk++;
+            if (tmpApprox)
+                Debug.LogWarning(P + $"A1109 `{src.name}` / `{t.gameObject.name}` 的 `{srcMat.name}`"
+                    + $"（原 shader `{tmpShader}`）**是按近似 shader 替代的** —— 版面对、观感不是原版");
         }
 
         if (uiSpriteOk > 0 || uiSpriteMiss > 0)
@@ -613,6 +630,23 @@ public static class BoosterPackExporter
                         + $" · 材质 接回 **{tmpMatOk}** / 留空 **{tmpMatMiss}**"
                         + (mv.Count > 0 ? $"（工程里没有这些 TMP_FontAsset：{string.Join(" · ", mv)}）" : ""));
         }
+
+        // ---- 🆕 2026-10-09（A1109）：「脚本没解析」的守卫（**把静默漏变成出声**）----
+        // 上面那几支（以及 A1101 那支）**一律按 C# 类型遍历**（`GetComponentsInChildren<Image>` /
+        // `<TMP_Text>` / `<Animation>` …）。**如果某个组件的 `m_Script` 本身就指不到工程脚本**
+        // （包里的 `MonoScript` 对象，不是工程资产），它在内存里就是个**普通 `MonoBehaviour`**
+        // ⇒ 那几支**一条都找不到、而且一声不吭**（计数器是 0，日志也不打）。
+        // 🔴 **这不是假想**：现读 `Booster Info Popup.prefab` 就有 **24 个** `m_Script` 是
+        // `{fileID: …, guid: 00000000000000000000000000000000}`（17 × `350208831926335389`
+        //  = `UnityEngine.UI.Image` · 7 × `7477354737935883349` = TMP；两个 pathID 的出处见报告 §⑦）。
+        // ⇒ 这一遍专门把它们**数出来 + 点名**。⛔ **只报不改**（怎么把包里的 `MonoScript` 映射回工程脚本
+        //    是另一件事，见报告 §⑦ 的待办）。
+        var unresolved = new List<string>();
+        int nUnresolved = CountUnresolvedScripts(inst, unresolved);
+        if (nUnresolved > 0)
+            Debug.LogWarning(P + $"A1109 `{src.name}` 有 **{nUnresolved}** 个组件的 `m_Script` 指不到工程脚本"
+                + "（保存后会是 Missing Script）⇒ 上面那几支按类型遍历的接引用**对它们是空转**："
+                + string.Join(" / ", unresolved));
 
         var binder = inst.GetComponent<WarpforgeEffectBinder>();
         if (binder == null) binder = inst.AddComponent<WarpforgeEffectBinder>();
@@ -658,7 +692,33 @@ public static class BoosterPackExporter
              + (life > 0f ? $" · 效果寿命 {life:F3}s" : "")
              // 🆕 A1109：uGUI 与 TMP 那两跳的记账（`截` = 没接上、留空）
              + $" · uGUI 图{uiSpriteOk}/截{uiSpriteMiss} · uGUI 材{uiMatOk}/截{uiMatMiss}"
-             + $" · TMP 字{tmpFontOk}/截{tmpFontMiss} · TMP 材{tmpMatOk}/截{tmpMatMiss}";
+             + $" · TMP 字{tmpFontOk}/截{tmpFontMiss} · TMP 材{tmpMatOk}/截{tmpMatMiss}"
+             + $" · 脚本未解析{nUnresolved}";
+    }
+
+    /// <summary>数一遍「保存成 prefab 之后会变成 `Missing (Mono Script)`」的组件，并把前几个点名。
+    ///
+    /// `m_Script` 那一格指的是**包里的** `MonoScript` 对象（不是工程脚本）⇒ `SaveAsPrefabAsset`
+    /// 只能把它落成 `{fileID: …, guid: 00000000000000000000000000000000}`，重开 prefab 那组件就没了。
+    ///
+    /// **为什么要写在导出器里**：本 `Export()` 那几支是按 **C# 类型**遍历的
+    /// （`GetComponentsInChildren<Image>` / `<TMP_Text>` / `<Animation>` / …）。某个组件的脚本
+    /// **没解析成真类型**时，它在内存里只是个普通 `MonoBehaviour` ⇒ 那几支**一条都找不到、
+    /// 而且一声不吭**。这一遍把这种组件**数出来 + 点名**，把静默漏变成出声。
+    /// ⛔ **只报不改** —— 怎么把包里的 `MonoScript` 映射回工程脚本是另一件事。</summary>
+    static int CountUnresolvedScripts(GameObject go, List<string> detail)
+    {
+        int n = 0;
+        foreach (var c in go.GetComponentsInChildren<Component>(true))
+        {
+            if (c is Transform) continue;
+            var ms = SerializedFieldRef(c, "m_Script") as MonoScript;
+            if (ms == null) continue;                 // 非 MonoBehaviour，或本来就没脚本
+            if (AssetDatabase.Contains(ms)) continue; // 工程脚本 ⇒ 落得下来
+            n++;
+            if (detail.Count < 8) detail.Add($"{c.gameObject.name}({c.GetType().Name})");
+        }
+        return n;
     }
 
     /// <summary>精确读一个**序列化字段**里的对象引用（返回 `null` = 该字段本来就没接）。
@@ -695,9 +755,11 @@ public static class BoosterPackExporter
 
     /// <summary>按**资产名**到工程里找一份资产（`AssetDatabase.FindAssets` 的结果逐条比文件名）。
     ///
-    /// 用在哪：TMP 的 `m_fontAsset` / `m_sharedMaterial` —— 那两格在包里是 **guid 全 0** 的引用，
-    /// 运行时拿到的对象**不是**工程资产，接不回来；唯一能接回来的路是「工程里已经有一份同名的」
-    /// ⇒ 那就是它。⛔ 找不到就返回 `null`（调用方**留空 + 出声**），**绝不新建**。
+    /// 用在哪：TMP 的 `m_fontAsset` —— 那一格在包里是 **guid 全 0** 的引用，运行时拿到的对象
+    /// **不是**工程资产，接不回来；唯一能接回来的路是「工程里已经有一份同名的」⇒ 那就是它。
+    /// ⛔ 找不到就返回 `null`（调用方**留空 + 出声**），**绝不新建**。
+    /// （TMP 的 `m_sharedMaterial` **不走这里**：那份是普通材质，走 `EffectExporter.ImportMaterial`
+    ///   直接导得出来 —— 见 `Export()` 里那一支的注释。）
     /// 结果按 `(类型, 名字)` 缓存：一份 prefab 里同一份字体要被问上百次。</summary>
     static readonly Dictionary<string, UnityEngine.Object> ProjAssetCache
         = new Dictionary<string, UnityEngine.Object>();
