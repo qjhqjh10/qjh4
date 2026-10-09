@@ -266,7 +266,7 @@ namespace CardPresentation
         {
             why = "";
             // 🔴 **2026-10-18（波 1b）**：三句全部走词条 —— 键名由调度台在波 0b 一次定死
-            //   （`MenuDeck/Error/Import{Empty,BadString,NotPersisted}`，表在 `Core/Loc.cs:1105-1111`），
+            //   （`MenuDeck/Error/Import{Empty,BadString,NotPersisted}`，表里有），
             //   **与 P1 的 `Deck/DeckRuntime.cs:3950/3951/3982` 共用同一批键**（施工单 §③ 要求逐字一致）。
             //   ⚠️ 前两句 ZH 与改前写死串**逐字相同** ⇒ 中文档零变化。
             if (string.IsNullOrWhiteSpace(s)) { why = Loc.T("MenuDeck/Error/ImportEmpty"); return ""; }
@@ -277,9 +277,9 @@ namespace CardPresentation
             {
                 // 🔴 卡组串**读出来了**，但没落盘 —— 原来这里照样回名字 ⇒ 玩家看到「导入成功」而盘上没变（下次开游戏就没了）。
                 // 🔴 **第三句有意对齐到 `DeckRuntime` 那一版**（波 0b 判据 = 取 `Deck/DeckRuntime` 的措辞，
-                //   见 `Core/Loc.cs:1107-1109`）：加了「导入失败：」前缀、分隔符 `：`→`——`、尾加「（重启就没了）」
+                //   见那三条键）：加了「导入失败：」前缀、分隔符 `：`→`——`、尾加「（重启就没了）」
                 //   ⇒ 中文档下这句**比改前长**（这是裁定的目的：两处**逐字一致**，不是保持原样）。
-                // ⚠️ 用 `Replace` 不用 `string.Format`（文案里有 `**`；先例 `Battle/HUD/CreatedBy`，见 `Loc.cs:1107`）。
+                // ⚠️ 用 `Replace` 不用 `string.Format`（文案里有 `**`；先例 `Battle/HUD/CreatedBy`）。
                 why = Loc.T("MenuDeck/Error/ImportNotPersisted").Replace("{0}", SaveFailReason());
                 // ⚠️ 这句是开发者日志（②，不上屏）：原来它自己在尾巴上拼「（重启就没了）」，
                 //    现在 `why` 里已经有了 ⇒ **去掉重复的尾巴**，免得一条日志念两遍。

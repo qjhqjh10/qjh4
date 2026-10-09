@@ -124,14 +124,14 @@ namespace CardPresentation
         /// ⚠️ dump 印的 `字号=34 / 31.5 / 28.15` 是**自适应的结果** —— 三颗的 `m_fontSizeBase` **各不同**
         /// （**Cards 26 · Deck info 24 · Cosmetics 24**，逐颗实读 prefab；原来这里写成「只有 26」，
         /// 2026-10-04 R-W4 订正）——
-        /// TMP 会往框塞得下的最大号涨（`TextMeshPro.cs:4139` 那段「increase font size to fill text container」），
+        /// TMP 会往框塞得下的最大号涨（`TextMeshPro` 里那段「increase font size to fill text container」），
         /// 所以三个页签的**输入**其实是同一对 `[10,34]`、差别是**文案长度**算出来的（铁律 5·c）。
         /// ⇒ 我们照**机制**做：`SetGlyphHeight(34px)` + `SetAutoFitBox(…, 10, 34)`。
         /// 🔴 **2026-10-05 就地订正**：这里原来写「（`SetAutoFitBox` 取 max 就是从它来）」—— **那是旧语义**。
         ///    现在 `SetAutoFitBox` 内部自己把原版的 `m_fontSizeMax` 折成 TMP 的 `fontSize` 单位：
         ///    `fontSizeMax = cur × maxPx / NominalPx()`（`Battle/Label.cs` 的 `SetAutoFitBox`）⇒ **上限 ≠ 传进去的字号**，
         ///    两者只在 `maxPx == 调用方那个 px` 时相等（本件正是这一档）。
-        /// ⚠️ **换字体会改结果**：我们全工程用的是 `Fonts/NotoSerifCJK-Regular SDF`（`Core/TmpFont.cs:26`），
+        /// ⚠️ **换字体会改结果**：我们全工程用的是 `Fonts/NotoSerifCJK-Regular SDF`（`TmpFont.cs` 文件头），
         ///    它的拉丁字母比原版那套窄体宽 ⇒ 同一句 `Deck info` / `Cosmetics` 自适应出来会**比原版那几个
         ///    冻结值（31.5 / 28.15）小**。这是**字体替换**的后果，不是版式错 —— 真要逐像素对上得连字体一起换
         ///    （全工程的事，不在本轮）。断言盯的是**机制**（要么停在 `34`、要么被压到框的边界上 ——
@@ -1050,7 +1050,7 @@ namespace CardPresentation
       //   ⚠️ 顺带把 `keepAspect` 打开：原版这颗 `m_PreserveAspect = 1`（上面 ① 实读），
       //   源图 256×256 正方 ⇒ 原版实绘 **80×80**（框 80×85 里居中），我们原来拉伸成 80×85。
       //   同一位置那颗**收藏窗**的 `Army Icon` 走的是 `MenuDraw.Rect(…, keepAspect: true)`
-      //   （`CollectionWindow.cs:806`）⇒ 顺手把这两处也拉齐（其余 PA=1 的件见 `资料/普查产出_0927/PA普查_五块汇总.md`）。
+      //   （`Shell/CollectionWindow` 里那处）⇒ 顺手把这两处也拉齐（其余 PA=1 的件见 `资料/普查产出_0927/PA普查_五块汇总.md`）。
             Img("hdr_army", DeckArmyIcon(State), ArmyIconX, ArmyIconY, ArmyIconW, ArmyIconH, QRow, true);
         }
 
@@ -1114,7 +1114,7 @@ namespace CardPresentation
                     cellX + TabNameDx, TabNameY, TabNameW, TabNameH, QTabName);
                 // 名牌上那行字（A41 ②）：原版子件 `Text` —— **与底板同一矩形**、居中、auto 10~34。
                 //   ⚠️ 顺序仍然不能反，但**理由变了** —— 🔴 **2026-10-05 就地订正**：原来写
-                //     「`SetAutoFitBox` 的 `max` 取的是**那一刻 `SetGlyphHeight` 设的字号**（`Label.cs:315-319`）」
+                //     「`SetAutoFitBox` 的 `max` 取的是**那一刻 `SetGlyphHeight` 设的字号**（`Label.cs` 里设 `_pendWrapW` 那一段）」
                 //     —— **行号与新语义都不成立**。现在是：`SetAutoFitBox` 拿 `cur`（= `SetGlyphHeight`
                 //     那一刻定下的字号，`Battle/Label.cs` 的 `SetGlyphHeight`）当**换算基准** `NominalPx()`，
                 //     `fontSizeMax = cur × maxPx / NominalPx()`（`Battle/Label.cs` 的 `SetAutoFitBox`）⇒
@@ -1420,7 +1420,7 @@ namespace CardPresentation
             //   本窗这一棵 = `Deck Editing Menu > Content Area > Cosmetic Display > Cosmetic FIlter >
             //   Filters > Army Filter/Title`）。英文列 = 那颗 TMP 的 `m_text` 原文 `Army`；
             //   中文列 = 「军队」（源 `数据/本地化/i18n/zh_CN.csv:11`，⚠️ 是我们译的）。
-            //   ⛔ 节点名 `cosmoflt_title` 不动（`Editor/DeckScene.cs:4901` 按名找）。
+            //   ⛔ 节点名 `cosmoflt_title` 不动（`Editor/DeckScene` 里按名找 `cosmoflt_title` 那一处）。
             _cosmoArmyTitle = Txt("cosmoflt_title", Loc.T("MenuDeck/Filters/Army"), cosmoArmyR.x1, cosmoArmyR.y1, cosmoArmyR.W, cosmoArmyR.H,
                                   1, Ink, QFltText, CosmoFltParent);
             if (_cosmoArmyTitle != null)
@@ -2122,11 +2122,16 @@ namespace CardPresentation
                 //   竖向多 58.1px = 拉了 17%）；偏离最大的 `Cardback_All_Premium4`（707×924）⇒ 高 **326.73**。
                 //   ⚠️ **顺序不能反**：`SetTexture`（会冲掉比例）→ 内接算 `(cw, ch)` → `SetWorldHeight` → `SetAspect`
                 //   （`WorldW = WorldH × _aspect` ⇒ 两句都要在内接算完之后）。
-                float ccw, cch;
-                if (CosmeticPreview.PreserveAspectSize(tex, CosmoCellW, CosmoCellH, out ccw, out cch))
+                float ccw, cch, cdox, cdoy;
+                if (CosmeticPreview.PreserveAspectSize(tex, CosmoCellW, CosmoCellH, out ccw, out cch, out cdox, out cdoy))
                 {
                     q.SetWorldHeight(U(cch));
                     q.SetAspect(ccw / cch);
+                    // 🆕 **2026-10-19（B2）**：画心**不居中** —— 原版按 sprite 的 `padding` 偏
+                    //   （算式/判据 → `Core/CardbackFace.cs`）。上面那句 `localPosition = Pos(cx, cy)`
+                    //   是**基准**、这里是「基准 + 偏移」；`Pos` 的 y 向上 ⇒ `cdoy`（向上为正）要**减**。
+                    //   ⚠️ 反算命中的 `CosmeticNameAt` 走的是**格矩形**、与这层无关 ⇒ 不影响点击（先例同 `Hit`）。
+                    q.transform.localPosition = Pos(cx + cdox, cy - cdoy);
                 }
                 _cosmNames[vi] = names[idx];
             }
@@ -2201,10 +2206,16 @@ namespace CardPresentation
         bool FitDrawerBack(Texture2D tex)
         {
             if (_cosmDrawerBack == null) return false;
-            float w, h;
-            if (!CosmeticPreview.PreserveAspectSize(tex, DrawerW, DrawerH, out w, out h)) return false;
+            float w, h, dox, doyUp;
+            if (!CosmeticPreview.PreserveAspectSize(tex, DrawerW, DrawerH, out w, out h, out dox, out doyUp)) return false;
             _cosmDrawerBack.SetWorldHeight(U(h));        // ⚠️ 先改高、再拉比例 ⇒ `WorldW = WorldH × _aspect`
             _cosmDrawerBack.SetAspect(w / h);
+            // 🆕 **2026-10-19（B2）**：画心**不居中** —— 原版按 sprite 的 `padding` 偏
+            //   （算式/判据 → `Core/CardbackFace.cs`）。这一件的**基准** = 抽屉中心（`RefreshCosmeticDrawer`
+            //   建它时那句 `Pos(DrawerX + DrawerW*0.5f, DrawerY + DrawerH*0.5f)`），**每次换图重算**
+            //   （⛔ 不在现位置上累加 —— 换两次图就偏两次，静默）。`Pos` 的 y 向上 ⇒ `doyUp` 要**减**。
+            _cosmDrawerBack.transform.localPosition =
+                Pos(DrawerX + DrawerW * 0.5f + dox, DrawerY + DrawerH * 0.5f - doyUp);
             return true;
         }
 
@@ -2300,7 +2311,7 @@ namespace CardPresentation
         //    绝对矩形 **[0.25,360.97]–[335.56,1010.03]**（335.31×649.06）—— **上面挂着原版那个
         //    `IDropHandler<CosmeticItem>` 的 `DeckEditingPanel`**（MB −2895006486255833308，
         //    字段集与 `dump.cs:72263-72290` 逐条吻合）。松手落在这里才装备。
-        //    ⚠️ uGUI 的 `hovered` **含祖先链**（`BaseInputModule.cs:291`）⇒ 「落点在那一栏的矩形里」
+        //    ⚠️ uGUI 的 `hovered` **含祖先链**（`BaseInputModule.HandlePointerExitAndEnter`）⇒ 「落点在那一栏的矩形里」
         //       与「命中了它的某一颗子孙」是同一件事 —— 见 `CollectHovered`。
         //  · **起拖音** = 两个实例**共用**一条 `AudioCue`（PathID −4308815958917459268）；
         //    经 `数据/索引/anim_address_map.json` 的 `guid_to_asset` 反查 ⇒ 名 = **`CardStartDrag`**
@@ -2326,7 +2337,7 @@ namespace CardPresentation
         /// 🔴 **这一格解出来了**（不是「没查清」）：经 `数据/索引/anim_address_map.json` 的
         /// `guid_to_asset` 反查（guid `60fe1fac8e31f4b59ab7cb8e53696707`）⇒ 名 = **`CardStartDrag`**
         /// （`bundle_soundcollection_assets_all/MonoBehaviour/CardStartDrag.json`）。
-        /// ⚠️ 本工程的声音载体是 cue 名（同 `Battle/AnimFXController.cs:80-86` 那条口径）；
+        /// ⚠️ 本工程的声音载体是 cue 名（同 `Battle/AnimFXController` 里那条 cue 名口径）；
         ///    取不到时 `DraggableController.PlayDragSound` 会**出声一次**（不是静默）。</summary>
         const string DragCue = "CardStartDrag";
 
@@ -2484,7 +2495,7 @@ namespace CardPresentation
         }
 
         /// <summary>`eventData.hovered` 的**等价物** —— 原版那一份是 uGUI `BaseInputModule` 填的：
-        /// 射线命中那一件 **+ 它的整条祖先链**（`HandlePointerExitAndEnter`，`…/InputModules/BaseInputModule.cs:291`，
+        /// 射线命中那一件 **+ 它的整条祖先链**（`HandlePointerExitAndEnter`，本机 uGUI `…/InputModules/BaseInputModule.cs`，
         /// `m_SendPointerHoverToParent` 默认 `true`，同文件 `:45`）。
         /// <para>本仓没有 uGUI 射线 ⇒ 判据 = **落点在不在 `Deck Details` 那一栏的矩形里**
         /// （原版那个 `IDropHandler&lt;CosmeticItem&gt;` 的 `DeckEditingPanel` 就挂在那一件上；
@@ -2632,7 +2643,7 @@ namespace CardPresentation
             //     给 VA=0x100（档位表 → `Battle/Label.cs` 的 `VAlign`）。
             //   ⚠️ **顺序是死的**：`SetAlignLeft` 要在「定版面」之前（这里刚 `Txt` 完），而
             //     `SetVAlign` 排在它**之后** —— 反过来会被 `TextAlignmentOptions.Left` 自带的 `V=Middle` 覆盖。
-            //   ⚠️ `Shell/ImportDeckPopup.cs:172` 那句「原版 `Text`/`Placeholder` 都是 hAlign=Center」
+            //   ⚠️ `Shell/ImportDeckPopup` 里那句「原版 `Text`/`Placeholder` 都是 hAlign=Center」
             //     **是错的**（那份文件不在本批白名单 ⇒ 只在这里订正判据，改由那一批的写手收口）。
             var impBox = new PxRect(630f, 370f, 630f + 660f, 370f + 141f);
             if (_impInputTx != null)
@@ -2665,7 +2676,7 @@ namespace CardPresentation
             //   `Localize.mTerm` 原文 **`MainMenu/General/Confirm`**（⚠️ 不是 `MenuDeck/` 族 —— 原版自己
             //   复用了主菜单那条**通用按钮词条**；同 `Shell/ImportDeckPopup.cs` 的 `ConfirmTerm`）。
             //   🔴 **本批之前这里是写死 `"Confirm"`** —— 而同一扇窗（`Import Deck Popup`）的**另一份实现**
-            //   （`Shell/ImportDeckPopup.cs:217`）早就走词条了 ⇒ 正是 CLAUDE.md §三
+            //   （`Shell/ImportDeckPopup` 里那处）早就走词条了 ⇒ 正是 CLAUDE.md §三
             //   「**两处写同一条规则 = 迟早不一致**」的现成例子（中文档下两扇窗那颗钮一个字中文一个字英文）。
             //   英文列 = 那颗 TMP 的 `m_text` 原文 `Confirm`；中文列 = 「确认」（`zh_CN.csv:83`）。
             //   ⛔ 节点名 `imp_ok_t` 不动（自检按名读，见 `Editor/DeckScene.cs` 导入弹窗那一节）。
@@ -3049,8 +3060,8 @@ namespace CardPresentation
             //      （同一行左边写着 `40k_main_bt_selected BW`：**这张图是灰度的，红全来自 tint**）。
             //   ② 通道语义：UGUI `Toggle.PlayEffect` → `graphic.CrossFadeAlpha(m_IsOn?1:0)` →
             //      `CrossFadeColor(…, useAlpha:true, useRGB:**false**)`
-            //      （`PackageCache/com.unity.ugui@27635d171b1a/Runtime/UGUI/UI/Core/Graphic.cs:1045-1048,1009`）
-            //      ⇒ **只动 alpha，RGB 两个态都保持红**（`Toggle.cs:297-308`）。
+            //      （`PackageCache/com.unity.ugui@27635d171b1a/Runtime/UGUI/UI/Core/Graphic.cs` 里那一族）
+            //      ⇒ **只动 alpha，RGB 两个态都保持红**（本机 uGUI `…/UI/Core/Toggle.cs` 的 `Toggle.DoStateTransition`）。
             //   同工程早就做对过一次：`Shell/MenuWindowBase.cs` 里那处 `Highlight` + `(1,0,0,1)` 用同一张图 + `(1,0,0,1)`。
             //   ⚠️ 我们原来打 `Color.white` ⇒ 屏幕上是一块**浅灰**（红线：与原版不符 ⇒ 完全复刻）。
             //   ⚠️ 未选中的那颗**也要带红**（RGB 恒为红、只有 alpha 在 0/1 之间）—— 见上面 ②。
@@ -3312,7 +3323,7 @@ namespace CardPresentation
                 if (right) TryAddCard(def);
                 // 🆕 **2026-10-17（卡牌那一支的起点）**：左键按下**不再立刻弹详情窗** ——
                 //   原版「加牌有两条路」（右键点 / **拖拽**），而 uGUI 的 click 是**抬起**那一帧才发
-                //   （`IPointerClickHandler`；本仓既有口径见 `Battle/BattleDriver.cs:9633-9636`）
+                //   （`IPointerClickHandler`；本仓既有口径见 `BattleDriver` 里 `IPointerClickHandler` 那条）
                 //   ⇒ 我们这里也改成「先记下，抬起时若没怎么动才弹窗」（与卡组行那条拖拽**同一种形状**）。
                 //   ⚠️ 不变的是：**右键那条路仍然是按下就加牌**（它是原版的主力路，别动）。
                 else { _cardArmDef = def; _armPx = px; }
@@ -3646,8 +3657,11 @@ namespace CardPresentation
         //     （保存只归 `Done` / `ESC` —— `__TrySaveDeck`；⛔ 别把这两条链混起来。）
 
         /// <summary>原版 `ConfirmDiscard` 那扇窗的**正文术语键**（`DAT_1842d00e8` 的地址表实读）。
-        /// 与 `PopUpGameWindow.Terms` 同一个道理：I2 语言表在**远端**、本地没有 ⇒ 今天画面上显示的就是
-        /// **这个键**（⛔ 不自己编一句人话；将来拿到真表只往 `Terms` 里填，不改调用点）。</summary>
+        /// ⛔ 不自己编一句人话：这句键由 `PopUpGameWindow.Term()` 解析。
+        /// 🔴 **2026-10-19（`A1012`）就地订正（铁律 5）**：这里原来写「I2 语言表在**远端**、本地没有
+        /// ⇒ 今天画面上显示的就是**这个键**」—— **那句已经不成立**：`Term()` 现在转全工程的
+        /// `Core/Loc.cs`，而 `MenuDeck/HUD/DiscardChanges` **就在那张表里**
+        /// （键 `MenuDeck/HUD/DiscardChanges`：「丢弃未保存的改动？」/`Discard unsaved changes?`）⇒ 屏上印的是**这条词条**。</summary>
         public const string DiscardChangesKey = "MenuDeck/HUD/DiscardChanges";
 
         /// <summary>= 原版 `DeckEditingWindow.TryClose()`：**关闭钮**（`hdr_back`）那一下。
@@ -3802,8 +3816,12 @@ namespace CardPresentation
 
         /// <summary>= 原版 `ShowPopUp(ToRawLocalizationString(err), …)` 那一句。
         /// <para>🔴 **文案是 I2 术语【键】**（`MenuDeck/Error/&lt;1..5>`；查不到词条时原版兜底**仍是另一个键**
-        /// `MenuDeck/Error/InvalidDeck`）—— 本地没有那张语言表（I2 在远端 CCD）⇒ 画面今天显示的就是**键**，
-        /// 如实标注在 `Shell/PopUpGameWindow.cs` 文件头 ③，⛔ **不自己编一句人话**。</para>
+        /// `MenuDeck/Error/InvalidDeck`）—— ⛔ **不自己编一句人话**，键由 `PopUpGameWindow.Term()` 解析。
+        /// 🔴 **2026-10-19（`A1012`）就地订正（铁律 5）**：这里原来写「本地没有那张语言表（I2 在远端 CCD）
+        /// ⇒ 画面今天显示的就是**键**，如实标注在 `Shell/PopUpGameWindow.cs` 文件头 ③」—— **两处都不对了**：
+        /// ① `Term()` 现在转 `Core/Loc.cs`、`MenuDeck/Error/InvalidDeck` **就在那张表里**
+        /// （键 `MenuDeck/Error/InvalidDeck`：「卡组不合法」/`Invalid deck`）⇒ 正文印的是**这条词条**；
+        /// ② 那句「如实标注」的文件头编号是 **①**（本文件里也有一处写成 ③，同批改掉）。</para>
         /// <para>⚠️ **本类不是 `GameWindow`**（独立场景、不走 `WindowsManager` 那一套开窗链）⇒ 开窗要现拿宿主：
         /// `WindowsManager.EnsureHost()` 是**幂等**的（没有就建一台 `WindowsManager` + 三颗锚点 + 指针层；
         /// 同族先例 = `Editor/RewardsScene.cs` 里那条 `EnsureHost` 最小改法注 那条「领奖窗落到第二台管理器」的修法）。
@@ -3872,12 +3890,23 @@ namespace CardPresentation
         /// <summary>= 原版 `DeckUtility.ToRawLocalizationString(err)`（`DeckUtility__ToRawLocalizationString.c`）：
         /// `err==0` ⇒ 空串；否则 `string.Format("MenuDeck/Error/{0}", err)`；
         /// **该键在词条表里查不到 ⇒ 返回兜底【键】** `MenuDeck/Error/InvalidDeck`（地址表实读，见 `A330` §2.4）。
-        /// 🔴 我们这边「查得到吗」= `PopUpGameWindow.Terms` 里有没有（那张表**本地是空的** ⇒ 今天恒走兜底键）。</summary>
+        /// 🔴 我们这边「查得到吗」= **`Loc.HasEntry(key)`**（= 全工程唯一那张语言表 `Core/Loc.cs`）。
+        ///
+        /// <para>🔴 **2026-10-19（`A1012`）就地改掉判据（铁律 5）**：原来查的是
+        /// `PopUpGameWindow.Terms.ContainsKey(key)`，而**那张表是恒空的**（它自己文件头写着「故意留空」）
+        /// ⇒ **今天恒判「查不到」、永远退成兜底键** `MenuDeck/Error/InvalidDeck`，
+        /// **永远说不出真正的不合法原因**（看着有判据、判据却指向一张空表 —— 一处**静默失败**）。
+        /// 换成 `Loc.HasEntry` 之后：`Loc` 表**里有的**键（如哪天补上 `MenuDeck/Error/5`）就真的用它；
+        /// ⚠️ **今天 `MenuDeck/Error/{2,4,5}` 这三条数字键仍不在 `Loc` 表里** ⇒ 兜底键**照旧**是今天的
+        /// 可见结果（**不是缺陷、是还没词条**）—— 补词条是**另一笔账**，⛔ 别在这里编文案。</para>
+        /// <para>⚠️ **与 `PopUpGameWindow.Term` 的分工**：本函数只管「**用哪个键**」，
+        /// 「键 → 屏上那句字」由 `Term()` 负责（`Shell/PopUpGameWindow.cs`）。
+        /// ⇒ 两处都改成看 `Loc` 之后，**同一条表**说话，不会再出现「判据说没有、印的却有」。</para></summary>
         public static string MenuDeckErrorKey(DeckError e)
         {
             if (e == DeckError.None) return "";
             string key = string.Format(MenuDeckErrorKeyFmt, MenuDeckErrorNumber(e));
-            return PopUpGameWindow.Terms.ContainsKey(key) ? key : MenuDeckErrorKeyFallback;
+            return Loc.HasEntry(key) ? key : MenuDeckErrorKeyFallback;
         }
 
         // ============================================================ 分享 / 导入
@@ -4969,7 +4998,7 @@ namespace CardPresentation
         ///     而 `WindowsManager__OpenWindowCO.c:50` 的 `set_CurrentWindow` 写在 if/else **之外**
         ///     ⇒ **弹窗一开，`currentWindow` 就是它**（旁证：`HidePopUp` 第一句比的就是这两个字段）
         ///     ⇒ 那一刻 `DeckEditingWindow.ESCPressed`（= 保存）**根本轮不到**；
-        ///   · 那扇窗的 `closeOnESC` 实读 **0**（`Shell/PopUpGameWindow.cs:238`，两扇 prefab 同一个值）
+        ///   · 那扇窗的 `closeOnESC` 实读 **0**（`Shell/PopUpGameWindow` 里那个 `closeOnESC`，两扇 prefab 同一个值）
         ///     ⇒ `GameWindow__ESCPressed.c` 第二道门槛不过 ⇒ **什么都不做**（我们这一跳就把它的
         ///     `ESCPressed()` 原样转出去，门槛与「出声」都在那一处，⛔ 不在这里再写一份）。
         ///   ⚠️ **别一刀切成「只要有弹窗就什么都不做」**：② 那一级（`ImportDeckPopup`，`closeOnESC = 1`）
@@ -5124,7 +5153,7 @@ namespace CardPresentation
         /// 截 uv 是必须的（只截几何不截 uv 会把图**压扁** —— 同 `ImageQuad.SetUvRect` 的注释）；
         /// ⚠️ 纵轴要翻一次（uv 的 y **自下而上**、`PxRect` **自上而下**）。
         /// 🔴 **射线那一半不在这个函数里**：原版那颗 `Mask` 自己也是 `ICanvasRaycastFilter`
-        /// （`Mask.IsRaycastLocationValid`，本地 uGUI `…/UI/Core/Mask.cs:137-143`）⇒ **带口外的点判不中任何格**
+        /// （`Mask.IsRaycastLocationValid`，本地 uGUI `…/UI/Core/Mask.cs`）⇒ **带口外的点判不中任何格**
         /// ⇒ 点击区在登记时单独裁（见 `RefreshFilterCells` 里 `_fltHit.Add` 那一段）。</para></summary>
         static void ClipCellToBand(ImageQuad q, PxRect band)
         {
@@ -5278,7 +5307,7 @@ namespace CardPresentation
                 var r = FltAbs(c.R.x1, c.R.y1, c.R.x2, c.R.y2);
                 // 🔴 **2026-10-10（A224②）：点击区 = 格 ∩ 带口**（原来直接登记整格）。
                 //   原版那颗 `Mask` **自己就是 `ICanvasRaycastFilter`**（`Mask.IsRaycastLocationValid`
-                //   → `RectTransformUtility.RectangleContainsScreenPoint`，本地 uGUI `…/UI/Core/Mask.cs:137-143`），
+                //   → `RectTransformUtility.RectangleContainsScreenPoint`，本地 uGUI `…/UI/Core/Mask.cs` 的 `Mask.IsRaycastLocationValid`），
                 //   而 `Graphic.Raycast` 会**沿父链**逐个过 `ICanvasRaycastFilter` ⇒ **带口外的点判不中任何格**。
                 //   整块在带外 ⇒ `ClipRect` 答 false ⇒ 不登记（= 与「被裁掉的那些点不到」一致，
                 //   也就是删除早退**之前**那些格的既有行为）。
@@ -6128,15 +6157,23 @@ namespace CardPresentation
                       bool keepAspect = false, Transform parent = null)
         {
             if (tex == null) return null;      // 缺图由 `Ui()` 记账（别在这里按 key 再记一次）
-            // `keepAspect` = 原版 `Image.m_PreserveAspect`：**按图自身宽高比放进框、居中**（不拉伸）。
+            // `keepAspect` = 原版 `Image.m_PreserveAspect`：**按 sprite 自己的比例放进框**（不拉伸）。
             // 🔴 **2026-09-27 加（PA 普查）**：本文件原来**恒 `SetAspect(w/h)`（拉伸）**（全文件无一处等比）
-            //   ⇒ 原版 PA=1 的件被我们画成拉伸。算法与 `MenuDraw.Rect:68-73` **同一条**
-            //   （内接：图比框宽就压高，否则压宽；**中心不动**）。
+            //   ⇒ 原版 PA=1 的件被我们画成拉伸。
+            // 🔴 **2026-10-19（B2）就地订正（铁律 5）**：上面那句原来写「按图自身宽高比放进框、**居中**」，
+            //   并说「算法与 `MenuDraw.Rect` **同一条**（内接…中心不动）」—— 两句现在都不准：
+            //   uGUI 是**两段**（定框比 `m_Rect`、贴图再按 `padding` 内缩 ⇒ **画心不居中**），
+            //   算式/判据全文 → **`Core/CardbackFace.cs`（本仓唯一一份）**，本处与 `MenuDraw.Rect` 都转调它。
             float cx = x + w * 0.5f, cy = y + h * 0.5f;
-            if (keepAspect && tex.height > 0 && w > 0f && h > 0f)
+            if (keepAspect && w > 0f && h > 0f)
             {
-                float sprAspect = (float)tex.width / tex.height, rectAspect = w / h;
-                if (sprAspect > rectAspect) h = w / sprAspect; else w = h * sprAspect;
+                // 🔴 **2026-10-19（B2）就地收口（铁律 5）**：这一段原来内联「按**贴图自己**的比例内接、
+                //   居中」—— 那只是 uGUI 的**第一段**。算式/判据全文 → `Core/CardbackFace.cs`（唯一一份）。
+                //   ⚠️ **没登记的贴图**（本文件绝大多数调用点都不是卡背）在里面**逐字退化成原来那套**
+                //   ⇒ 本函数的既有调用点零变化；`cx/cy` 的偏移也只有登记过的卡背才非 0。
+                float fw2, fh2, fox, foy;
+                if (CardbackFace.Fit(tex, w, h, out fw2, out fh2, out fox, out foy))
+                { w = fw2; h = fh2; cx += fox; cy -= foy; }        // `Pos` 的 y 向上 ⇒ `foy`（向上为正）减
             }
             var q = ImageQuad.Create(parent != null ? parent : Root, tex, Pos(cx, cy),
                                      h > 0f ? U(h) : 0.01f, new Vector2(0.5f, 0.5f), key);

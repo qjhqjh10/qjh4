@@ -4,6 +4,14 @@
 > 代码正本 = `Assets/CardPresentation/Net/`（9 份 `.cs`，**逐份现读**）。行号 = **现读 `HEAD` 行号**。
 > 🔴 「在不在表」= **我这一刻**读的 `Core/Loc.cs`（`EntryCount` **191**，波 0b 正在加键 ⇒ 会涨）。
 > 判定四分：**① 玩家可见（要翻）** · **② 日志/诊断（⛔ 不翻）** · **③ 协议串/资源名/玩家数据（⛔ 不翻）** · **Ⓦ 走线文案（跨端上屏，⛔ 待裁决，见 ⑥·1）**。
+>
+> 🔴 **2026-10-09 现核订正（铁律 5 · `A1029` ③）**：
+>
+> - **P6a（`NetSession.cs` + `NetRuntime.cs`）已落地** ⇒ 本单**所有 `NetSession.cs` 行号都是执行【前】的读数**，
+>   ⛔ **别再照抄** —— 一律按**符号名 / 原字面量**现读（⛔ 也别顺手把它们改成新行号：行号会再漂，制造新的死数字）。
+> - **本表唯一就地改过的一行 = `St/Handshaking` 那一行**（原写 `:181` `:354`）⇒ 见 ② 表里那一行。
+> - **现读两个落点**（按符号找，不按行号）：`Net/NetSession.cs` 的 `InternalConnect`（连上之后那一句）与
+>   `Proof` 那一支（按 `NetKind.Proof` 找）—— 两处**已共用同一条键** `Loc.T("Settings/Online/St/Handshaking")`。
 
 ## ① 文件清单（无 `.asmdef` ⇒ 全部 `public`）
 
@@ -38,7 +46,7 @@
 | `NetSession.cs:133` | `主机没起来：{0}` | ① | `St/HostFailed` | ❌ |
 | `NetSession.cs:143` | `主机已就绪，在 {0} 端口等客机（把本机 IP 告诉对方）` | ① | `St/Listening` | ❌ |
 | `NetSession.cs:177` | `正在连 {0}:{1} …` | ① | `St/Connecting` | ❌ |
-| `NetSession.cs:181` `:354` | `连上了，正在核对协议版本与密码…` / `正在核对协议版本与密码…` | ① | `St/Handshaking`（**一条键两处**） | ❌ |
+| `NetSession.cs` `:181` `:354` | `连上了，正在核对协议版本与密码…` / `正在核对协议版本与密码…` | ① | `St/Handshaking`（**一条键两处**） | ❌ ⚠️ **2026-10-09 现核订正**：后一处现读 **`:358`**（按 `NetKind.Proof` 那一支找，别按行号）；两处**已共用同一条键**（`Loc.T("Settings/Online/St/Handshaking")`）⇒ 落键后**两句都带上了「连上了，」那个前缀**，属**已落到实处的可见变化**（代码里已如实标注） |
 | `NetSession.cs:210` `:294` | `对手掉线了，正在等他回来…（对局已暂停）` | ① | `St/PeerLostInBattle` | ❌ |
 | `NetSession.cs:211` `:295` | `连接断了：{0}` | ① | `St/Disconnected` | ❌ |
 | `NetSession.cs:256` | `有连接进来，正在核对是不是刚才那个人…` / `有客机连进来了，正在核对…` | ① | `St/PeerBack` · `St/PeerJoined` | ❌ |

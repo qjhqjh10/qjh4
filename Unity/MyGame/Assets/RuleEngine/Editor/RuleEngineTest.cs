@@ -1997,7 +1997,7 @@ public static partial class RuleEngineTest
         CheckTrue(legend <= 230, $"传说卡 {legend} 张（应 ≤ 230 —— OCR 误判那版是 341）");
 
         // ⑥ 数值修正 —— OCR 把**紫圆（远程）**读错/漏读的那几张（`gen_cards_engine.py` 的 `STAT_FIXES`）。
-        //    卡面四个圆的出处（原版 prefab 节点名 + 坐标，见 `Core/CardView.cs:121`）：
+        //    卡面四个圆的出处（原版 prefab 节点名 + 坐标，见 `CardView.TargetGem` 那颗枚举的 doc）：
         //      **费用 = 右上蓝圆 · 近战 = 左下红圆 · 远程 = 左下偏右的紫圆 · 生命 = 右下绿**
         //      **护甲 = 右侧那枚盾牌**（不在任何一个圆里）
         //    ⚠️ 这几张是**抽 43 张开图**时抓到的，不是全量核对 —— 同类错还有多少没人量过。
@@ -2254,7 +2254,7 @@ public static partial class RuleEngineTest
         //        `subtype == "Stratagem"`，我们自造的 `Tactic(...)` 没有 subtype ⇒ 永远匹配不上。
         //     ⚠️ **2026-10-18（`W5` · 审查 §9 消息订正）**：下面这两句原来把中文写成「计策」——
         //        `A879` 已把词条统一成 **`策略`**（判据 `Unity/数据/本地化/i18n/zh_CN.csv:6378`
-        //        = `Stratagem,~,策略`；`Core/Loc.cs:357` 同）。
+        //        = `Stratagem,~,策略`；`Core/Loc.cs` 同）。
         //        ⚠️ **只改字眼**：这一条比的仍是**英文** `subtype`（`c.Subtype == "Stratagem"`）
         //        ⇒ **逻辑一字未动、判别力不受影响**（改回「计策」也不会红）。
         {
@@ -3535,7 +3535,7 @@ public static partial class RuleEngineTest
                 Check(bctx.SecondSeat, 1, "⑥b 电脑（P2）是后手");
                 CheckTrue(bctx.IsBotSeat(1) && !bctx.IsBotSeat(0),
                           "⑥b 「这方是不是电脑」判据只认座位 1（`IsBotSeat`，**只此一处**）");
-                // 🔴 模式号是**入口窗在 `NewBattle` 之后**落的（`BattleDriver.cs:2774`）⇒ 这里照那个次序来。
+                // 🔴 模式号是**入口窗在 `NewBattle` 之后**落的（`BattleDriver.Begin` 里那句 `Ctx.PlayMode = …`）⇒ 这里照那个次序来。
                 bctx.PlayMode = GameMode.OfflinePractice;
                 Check(MatchTypes.Effective(bctx), MatchType.PracticeOffline, "⑥b 翻转表：50 不在表里 ⇒ 原样");
                 CheckTrue(!MatchTypes.UsesDefencePool(MatchType.RankedBot)
@@ -4187,7 +4187,7 @@ public static partial class RuleEngineTest
             //    ⚠️ **改之前这两处走的是公开入口的默认 `criteria = null`** ⇒ 「后进手牌那一跳」被拒
             //      ⇒ 本块实得 0（那 6 条红的根因）。
             //    写法照**真生产者** `GrantHandBuff` 的 `HandTroopCriteria`
-            //      （`Core/EffectResolver.cs:2764-2767`）与本文件 ⑦ 那条夹具。
+            //      （`EffectResolver` 里 `chooseeffect` 那段的 doc）与本文件 ⑦ 那条夹具。
             //    ⚠️ **零玩法影响**：真对局里四个生产者**全部**传 spec（`DB` 报告 §5.2 逐条核过），
             //      `Target == null` 只可能由自检直接调公开入口的默认值产生。
             var unitCrit = new EffectTargetSpec
@@ -4221,7 +4221,7 @@ public static partial class RuleEngineTest
             //    🧨 **判别力（两侧各一处，缺一不可）**：
             //      · 上一句「后进手牌那份**补到 2 条**」刚实测 `== 2` ⇒ 消费者确实工作过；
             //      · 把 `AttachHandEffectCopy` 按 `RecordId` 去重的那两句删掉
-            //        （`Core/EffectResolver.cs:3048-3049`）⇒ **这里实得 2** ⇒ 红。
+            //        （`EffectResolver.AttachHandEffect` 的签名 —— `dedupSamePayload`）⇒ **这里实得 2** ⇒ 红。
             //    ⛔ 别只留这一句 —— 单看它，`SetupCardInHand` 恒 `return 0` 时它照样绿。
             Check(RuleCore.SetupCardInHand(ctx, 0, same[1]), 0,
                   "★ 再补一次是**幂等**的（原版 `AlreadyContainsEffect` 按记录认）；"
@@ -8888,6 +8888,74 @@ public static partial class RuleEngineTest
             Check(Board(ctx, 1, 3).Health, 2, "★ 生命并列 ⇒ 取**槽号在前**的 C（原版严格小于 ⇒ 留列表序先者）");
             Check(Board(ctx, 1, 5).Health, 3, "……槽号在后的 D 没挨打");
         }
+
+        // ---- ⑧ 🆕 2026-10-19（`A992`）**`[X] X`「记号 + 同一个词」压成一份** ----
+        //    判据与裁定 → `RuleEngine/Core/GivePayload.cs` 的 `ReDupMarker` 那一段注释
+        //    （走**载荷串层**归一化：⛔ 不动卡面数据、⛔ 不在 ops 层二次去重）。
+        //    🔴 **喂进去的是【卡面原文片段】**（外部输入），⛔ 不拿 `Parse` 的输出反推期望值。
+        //
+        //    🔴 **为什么断 `Source` 而不是断 `ops` 里同一 `Keyword` 出现几次**
+        //       （本格 2026-10-19 离线实测过 —— 用 `d:/2/.../WFCheck.dll` 跑探针，别改回去）：
+        //       `GiveKw` 是**前缀匹配**（`GivePayload.cs` 那段 `low.StartsWith(pair[0])`）⇒
+        //       `Parse("Shield Shield")` 与 `Parse("Shield")` **都只出 1 项、值都是 1**
+        //       ⇒ 「ops 里同一 Keyword 出现几次」**区分不出**加没加这一条归一化。
+        //       唯一会变的就是 `PayloadOp.Source` ⇒ 它才是这条归一化的判别式。
+        {
+            // `SW68 Halls of Legend` 的卡面原文片段（逐字取自 `cards_engine.json` 的 `desc`：
+            // `Give [Shield] Shield to a friendly unit. Draw a card`）
+            var sw = GivePayload.Parse("[Shield] Shield");
+            CheckTrue(sw != null && sw.Count == 1
+                      && sw[0].Keyword == "shield" && sw[0].Value == 1 && !sw[0].Unresolved,
+                      "★ `SW68` 的 `[Shield] Shield` ⇒ **一项 `shield`、值 1**（语义没变）。实得 "
+                      + (sw == null ? "null" : sw.Count + " 项 " + sw[0].Keyword + "=" + sw[0].Value));
+            Check(sw[0].Source, "Shield",
+                  "★ **记号被压掉、原文里不叠词**。🧨 改坏法：把 `ParseInto` 里 "
+                  + "`w = ReDupMarker.Replace(w, \"$1\");` 那一句去掉 ⇒ 这里实得 `Shield Shield`（红）");
+
+            // `GOF100 Da Old Ways` 的卡面原文片段（`If it already has [Stomp] Stomp, give it …`）
+            var gof = GivePayload.Parse("[Stomp] Stomp");
+            CheckTrue(gof != null && gof.Count == 1 && gof[0].Keyword == "stomp" && gof[0].Value == 1,
+                      "★ `GOF100` 的 `[Stomp] Stomp` ⇒ **一项 `stomp`、值 1**。实得 "
+                      + (gof == null ? "null" : gof.Count + " 项 " + gof[0].Keyword + "=" + gof[0].Value));
+            Check(gof[0].Source, "Stomp", "★ 同上：不叠词");
+
+            // 反例一：**值**不许被压掉（`TAU47` 的 `Give [Markerlight] Markerlight 2 to …`）
+            var ml = GivePayload.Parse("[Markerlight] Markerlight 2");
+            CheckTrue(ml != null && ml.Count == 1 && ml[0].Keyword == "markerlight" && ml[0].Value == 2,
+                      "★ 反例：`[Markerlight] Markerlight 2` ⇒ 仍是 `markerlight`、**值还是 2**"
+                      + "（归一化只该压记号，⛔ 不许把数值一起吃掉）。实得 "
+                      + (ml == null ? "null" : ml.Count + " 项 " + ml[0].Keyword + "=" + ml[0].Value));
+
+            // 反例二：**后面没跟同一个词**的记号一个都不许被碰（否则就是放宽误伤）
+            var ml2 = GivePayload.Parse("Markerlight 2");
+            CheckTrue(ml2 != null && ml2.Count == 1 && ml2[0].Value == 2,
+                      "★ 反例：`Markerlight 2`（**没有**记号前缀）照旧解得出（归一化只认「记号 + 同一个词」）");
+
+            // 🔴 **顺带钉住【生产路径上载荷长什么样】** —— 这是本条归一化今天**碰不到真实卡池**的原因：
+            //    `EffectText` 在把载荷交给 `GivePayload.Parse` **之前**已经脱掉方括号并转小写
+            //    ⇒ `op.Payload` 是 `"shield shield"`、**不含 `[` `]`** ⇒ `ReDupMarker` 在真卡上一次都不命中。
+            //    （证据：2026-10-19 全池 1120 张带 `desc` 的卡跑 `EffectText.Parse` ⇒ **1258 个 op、
+            //      `Payload`/`AltPayload` 里含方括号的 = 0**。详见交付报告。）
+            //    这一格断的是**「载荷层不再有方括号」这条不变量本身**（比钉死某一个字符串稳）。
+            var swCard = FindCard(pool, "Halls of Legend");
+            CheckTrue(swCard != null, "卡池里找得到 `Halls of Legend`（`SW68`）");
+            if (swCard != null)
+            {
+                var swOps = EffectText.Parse(swCard.Desc, out _, out _);
+                bool bracketed = false;
+                string seen = "";
+                foreach (var o in swOps)
+                {
+                    if (o.Payload == null) continue;
+                    seen += "「" + o.Payload + "」";
+                    if (o.Payload.IndexOf('[') >= 0 || o.Payload.IndexOf(']') >= 0) bracketed = true;
+                }
+                CheckTrue(!bracketed,
+                          "★ `SW68` 走生产路径出来的载荷**一律不含方括号**（实得 " + seen + "）"
+                          + " —— 这就是 `ReDupMarker`（要 `[…]`）在真卡上碰不到的原因；"
+                          + "上面的 `Source` 那两格是拿**卡面原文**直接喂的，才会命中");
+            }
+        }
     }
 
     /// <summary>归一：只留字母/数字/汉字、转小写 —— **只用来判「两段文字是不是同一段」**，不参与语义。</summary>
@@ -9331,7 +9399,7 @@ public static partial class RuleEngineTest
 
             // ---- ③′ 🔴 F8：**免费部署这条入口也要重算「部署豁免」** ----
             //   缺陷形状（与 `PlayCard` 那条**同一个**）：`new UnitState` 的 `Exhausted` 是**构造时**
-            //   按**卡模板**算的一次快照（`Core/UnitState.cs:257`），而光环（`Auras.Recompose`
+            //   按**卡模板**算的一次快照（= `UnitState` 构造里那句 `Exhausted = !RuleCore.HasDeployExemption(this)`），而光环（`Auras.Recompose`
             //   → `Core/Aura.cs` 的 `AddAuraKeyword`）是**在那之后**才把 `flank` 挂上来的
             //   ⇒ 不重算就是「**给了侧翼却动不了**」（`Has("flank")` 为真、单位仍疲劳 —— 静默错）。
             //   夹具用**真卡**：`TAU31 Devilfish`（`Friendly Infantry and Drones have Flank.`）
@@ -9454,7 +9522,7 @@ public static partial class RuleEngineTest
 
         // ---- ⑩ 🆕 2026-09-14 T2：**裸 `+N` 判错 10 处**（卡面是「远程」、我们当「近战」）----
         //  根因：载荷里数字后面跟的是**图标**（紫枪 = 远程攻击），OCR 把图标丢了 ⇒
-        //  `GivePayload.cs:261-271` 那条裸 `+N` 兜底**一律判近战**（它唯一的依据是
+        //  `GivePayload.NormAttr` 那条属性词表（裸 `+N` 兜底）**一律判近战**（它唯一的依据是
         //  `March of Vengeance` 一张卡，那张的图标确实是红拳）。
         //  ⇒ 修的是**卡表数据**（`cardface_fixes.json` 的 `desc` 列），**不是**那条兜底 ——
         //    正则拿不到「卡面第几个图标是什么」这个信息。
@@ -10944,7 +11012,7 @@ public static partial class RuleEngineTest
     ///    机制一直在跑** —— `EffectText` 认不出的是**那句壳**，不是效果。
     ///    实据：`when_unparsed.md` 认不出的事件短语 **0 种**、带 `When` 的卡 78 张点亮 73 张、
     ///    自检 `TestWhenEvents` 有**结算级**断言（友方 troop 死 → 监听器真的改攻）；
-    ///    而且卡面的 `*` **只打在战术卡上**（`BattleDriver.cs:2222` 明写 `c.Type == "tactic"`），
+    ///    而且卡面的 `*` **只打在战术卡上**（`BattleDriver` 里那句 `c.Type == "tactic" || c.Type == "defence"`），
     ///    所以那三族**不会**骗玩家。
     /// </summary>
     static void TestA5Batch1()
@@ -11387,7 +11455,7 @@ public static partial class RuleEngineTest
             // ⚠️ 两种上下文**都要量**，因为**引擎自己就是这么走的**：
             //    · 战术卡 → `EffectText.Parse(card.Desc)`（整条）
             //    · 单位卡的触发正文（`Strike: …` / `Rally: …`）→ `CardDef.AddTriggerOp` 把冒号后那段
-            //      **单独**送进 `Parse(body)`（`CardDef.cs:251`）
+            //      **单独**送进 `Parse(body)`（`CardDef.ReTriggerHead`）
             //    · 手牌陷阱 / 回合起止 → `ResolveAtTurn` 也是**单独**送正文（`EffectText.SplitAtTurn`）
             //    而「相邻」的锚点判据要看**上一句点过谁** —— 逐句拆开会把那个上下文丢掉，
             //    量出来的锚点是错的（本轮先按句量，量错过一次）。所以两种都量、都报。
@@ -11842,7 +11910,7 @@ public static partial class RuleEngineTest
                   + "`NewInstance` 只在**有人造它**的那一刻盖章，抽牌只是换了个位置");
 
         // ---- ③ 前提：先把「上一张」坐实 ----
-        //   战术卡走 `EffectResolver.PlayTactic` → `ResolveOps(..., sourceCard: card)`（`EffectResolver.cs:48`）
+        //   战术卡走 `EffectResolver.PlayTactic` → `ResolveOps(..., sourceCard: card)`（`EffectResolver` 里 `ResolveOps(…, sourceCard: card)` 那一处）
         //   ⇒ 结算完之后 `ctx.PlayingCard` 就停在**这张战术**上。
         //   🔴 这一条读的是**内部字段**，只为坐实夹具（判别力全在下面 ③-a/③-b）——
         //      它不成立的话，夹具就退化成「上一张 == null」，那两条的判别力会静默消失。
@@ -12276,7 +12344,7 @@ public static partial class RuleEngineTest
 
         // ---- ④′ 🔴 F9：**第三个入口（残骸翻回来）也要重算「部署豁免」** ----
         //   缺陷形状与 `PlayCard` / `DeployFree` 那两条**同一个**：`new UnitState` 的 `Exhausted`
-        //   是**构造时**按**卡模板**算的一次快照（`Core/UnitState.cs:257`），而光环（`Auras.Recompose`
+        //   是**构造时**按**卡模板**算的一次快照（= `UnitState` 构造里那句 `Exhausted = !RuleCore.HasDeployExemption(this)`），而光环（`Auras.Recompose`
         //   → `Core/Aura.cs` 的 `AddAuraKeyword`）是**在那之后**才把 `flank` 挂上来的
         //   ⇒ 不重算就是「**给了侧翼却动不了**」（`Has("flank")` 为真、单位仍疲劳 —— 静默错）。
         //   夹具用**真卡**：`TAU31 Devilfish`（`Friendly Infantry and Drones have Flank.`）——
@@ -13216,15 +13284,15 @@ public static partial class RuleEngineTest
             var opsFast = EffectText.Parse(tFast.Desc, out _, out _);
             // 🔴 **2026-10-18 之后 · 第五会话【自检逮到并订正】（铁律 5）**：本条原来写 `opsFast.Count == 1`
             //   ⇒ **首跑就红**（`RuleEngineTest` 4074/4075 里那唯一一条）。**错在夹具、不在引擎**：
-            //   `and give it Fast` 会由 `Finish` 解成**第二条 op**（`EffectText.cs:2208-2210` 明写），
+            //   `and give it Fast` 会由 `Finish` 解成**第二条 op**（`EffectText` 里 7h) 那条 `Take control … and give it Fast` 的注释），
             //   2026-10-17 的 F7 实测解析 = `[takecontrol(tail="give it fast"), give(payload="fast")]`
-            //   （`EffectResolver.cs:4754-4758`）⇒ **`Count` 是 2 不是 1**，而 `Tail` **是**非空的。
+            //   （`EffectResolver` 里 `ctx.TempControls.Add` 那一处）⇒ **`Count` 是 2 不是 1**，而 `Tail` **是**非空的。
             //   ⚠️ 保留这条前提的价值正在于此：它把「夹具写错」与「引擎错」分开报了出来
             //      （两条**行为**腿当时都过了）。
             CheckTrue(opsFast.Count > 0 && opsFast[0].Verb == "takecontrol"
                       && !string.IsNullOrEmpty(opsFast[0].Tail) && EffectText.IsFullyParsed(tFast.Desc),
                       "（前提）`…and give it Fast` ⇒ **首条**是 `takecontrol`、`Tail` 非空、整句可解析"
-                    + "（⚠️ **不是「1 条」** —— 尾句另解成**第二条 op**，见 `EffectText.cs:2208-2210`）");
+                    + "（⚠️ **不是「1 条」** —— 尾句另解成**第二条 op**，见 `EffectText` 里 7h) 那条 `Take control … and give it Fast` 的注释）");
 
             // 腿 1：**无 `fast` 尾句** ⇒ 抢来必疲劳（**这一态就是这次改动分得出来的那一态**）
             {
@@ -13443,7 +13511,7 @@ public static partial class RuleEngineTest
             Check(u.Armor, 1, "★ **真的生效**（护甲 0 → 1）");
             Check(OathAbilitySignals(ctx), 1,
                   "★ 成功那次发**恰一条** `Ability` 事件（`keyword=oath`）—— 表现层按它播「发动技能」那一格"
-                  + "（`BattleDriver.cs:4510`）；两条说明结算跑了两遍、0 条说明事件根本没接");
+                  + "（`BattleDriver` 里 `case EvtKind.Ability` 那条日志）；两条说明结算跑了两遍、0 条说明事件根本没接");
             CheckTrue(u.Exhausted, "……而且**没有**把它翻成「未行动」（誓约不吃那次行动）");
             Check(u.OathUsesThisTurn, 1, "……激活次数记了 1");
 
@@ -13489,7 +13557,19 @@ public static partial class RuleEngineTest
             ctx.Players[0].Energy = 9;
             var u = Place(ctx, 0, 2, oath1, exhausted: true);
             Place(ctx, 0, 3, cTriple, exhausted: true);
-            Check(RuleCore.OathActivationCap(ctx, 0), 3, "同方有 `oathTripleActivation` ⇒ 上限 3");
+            // 🔴 **2026-10-19（`D28` 施工单 H）**：上限现在读的是**被激活那张牌自己身上**被授予的
+            //    trait（原版 `CardScript__CanUseOathAbility.c:16` 的 `HasCurrentTrait(param_1, 0x4fe)`）
+            //    ⇒ 夹具摆完牌**必须自己跑一趟 `Auras.Recompose`**（`Place` 绕过真入口、不跑光环钩子，
+            //    见 `Place` 的注释）；否则下面那格会实得 1（= 授权层根本没接线）。
+            Auras.Recompose(ctx);
+            CheckTrue(u.OathTripleGranted,
+                      "★ 授予层：被激活那张牌**自己身上**带上了 `oathTripleActivation`"
+                      + "（判据 = `Auras.Recompose` 的誓约授予层）");
+            CheckTrue(!ctx.Players[0].Warlord.OathTripleGranted,
+                      "★ 反例：**督军不授予** —— 卡面写的是 `friendly troops`（督军不是部队，铁律 7）");
+            Check(RuleCore.OathActivationCap(ctx, 0, 2), 3, "同方有 `oathTripleActivation` ⇒ 上限 3");
+            Check(RuleCore.OathActivationCap(ctx, 0, 1), 1,
+                  "★ 反例：**同一方**的另一格（格 1 没牌）⇒ 上限仍是 1（不是「同方一律 3」）");
 
             CheckCode(RuleCore.UseOathAbility(ctx, 0, 2), RuleCodes.OK, "第 1 次激活");
             CheckCode(RuleCore.UseOathAbility(ctx, 0, 2), RuleCodes.OK, "第 2 次激活");
@@ -13515,6 +13595,9 @@ public static partial class RuleEngineTest
             ctxB.Players[0].Energy = 9;
             var ub = Place(ctxB, 0, 2, oath1, exhausted: true);
             Place(ctxB, 0, 3, cAllTurns, exhausted: true);
+            Auras.Recompose(ctxB);        // 见 ⑦ 那一段：授予层要自己跑一趟（`Place` 不走光环钩子）
+            CheckTrue(ub.OathAllTurnsGranted,
+                      "★ 授予层：`oathInAllTurns` 也落在**被激活那张牌自己身上**");
             ToP1Turn(ctxB, 2);
             CheckCode(RuleCore.UseOathAbility(ctxB, 0, 2), RuleCodes.OK,
                       "★ 有 `oathInAllTurns` ⇒ **后续回合照样能激活**");
@@ -15310,7 +15393,13 @@ public static partial class RuleEngineTest
                       "★ **`loses stealth` 广播出来了** —— 摘掉潜行的那一处原来没广播");
             }
 
-            // ② 被眩晕 —— 发生点：`DoStun` 的 `IsStunned = true`
+            // ② 被眩晕 —— 发生点：`RuleCore.DoStun`（`Core/EffectResolver.cs`）里的
+            //    `t.AddKeyword(KeywordTable.Stun, 1)`（**挂 `stun` trait**）+ `GetsStun` 广播。
+            //    ✅ **2026-10-09（`A1116`）就地订正**：本行原写「发生点：`DoStun` 的 `IsStunned = true`」——
+            //    **已过期**：`IsStunned` 那天起是 `UnitState.Has(KeywordTable.Stun)` 的**派生只读属性**
+            //    （`Core/UnitState.cs`），**没有可写的状态位**；`DoStun` 走的是挂关键词那条路
+            //    （判据 = 原版 `CardScript__Stun.c:48` 的 `AddTraitSilently(param_1, 100, …)`，
+            //    全反编译里施加眩晕**只此一条路**）。
             {
                 var watch = new CardDef("FixtureStunWatch", "FixtureStunWatch", "unit",
                                         "When an enemy receives a Stun, gain +1 Attack",
@@ -16274,7 +16363,7 @@ public static partial class RuleEngineTest
         //   `[Talent 图标] Talent: <名>`，数据管线把图标和前缀一起去了 —— 照成品卡图核过，铁律 7）
         //   ⇒ 只认前缀的规则② **挡不住**，那一段里的天赋名被当成了「正文点名」= **假命中**。
         // 判据（**转调两处现成的、不是这里新发明的**）：`CardDef.ExtractBareTalentName(seg)`
-        //   **恰好等于**本卡的 `CardDef.TalentName` —— 与 `CardDef.cs:1727` 逐字同款，
+        //   **恰好等于**本卡的 `CardDef.TalentName` —— 与 `CardDef.HandledByOtherLayer` 里那条逐字同款，
         //   那一条（`IsKnownSegment` 认天赋段）2026-09-14 起就在跑。
         //
         // 🔴 **量：英文档全池 `128 / 67` → `125 / 64`**（下面 ⑤ 那两条期望数已跟着改）——
@@ -16282,7 +16371,7 @@ public static partial class RuleEngineTest
         //   （`工具/typecheck.sh` 的 `WFCheck.dll`）跑 before/after 两份**逐张 dump**（1126 张 × 两趟），
         //   `diff` 出来的差异**恰好 3 行**（`BL1→BL2` · `DA3→DA4` · `TAU1→TAU2`）。
         //   ⚠️ 这三个数**不依赖被测代码**：它们就是数据里那 3 张卡的 `desc` 字面
-        //   （`CardDef.ExtractBareTalentName` 的注释与 `CardDef.cs:1727` 的实测名单都是同一批 3 张），
+        //   （`CardDef.ExtractBareTalentName` 的注释与 `CardDef.HandledByOtherLayer` 里那条实测名单都是同一批 3 张），
         //   而且这 3 个天赋名各**只有这一处**被提到（`grep` 现扫 `cards_engine.json`）⇒ `128−3` / `67−3`。
         {
             // (1) `Aun'Va`（`TAU1`）：**整条 desc 就是**那个裸写天赋名
@@ -16841,7 +16930,7 @@ public static partial class RuleEngineTest
 
             // ---- 反例：池子**解不出来** ⇒ 仍然什么都不生成（不许乱抽）----
             // ⚠️ 探测词要选**真的解不出来**的那种：`FilterChoose` 对「认不出的**阵营词**」是
-            //    **当没写、不筛**（`CreatePool.cs:323-324` 明写「不猜」）⇒ 拿 `NoSuchFaction Psychic Power`
+            //    **当没写、不筛**（`CreatePool` 里那段「逐候选直接判」的注释明写「不猜」）⇒ 拿 `NoSuchFaction Psychic Power`
             //    当反例**是错的**（它会解出「所有 Psychic Power」）。
             //    真正解不出来的是「筛选词对不上任何兵种/阵营/卡名」⇒ 用一个不存在的子类型（`Flumph`）。
             var badPool = new CardDef("FixtureTalPool2", "FixtureTalPool2", "unit",
@@ -17086,7 +17175,7 @@ public static partial class RuleEngineTest
         {
             var mf = new CardDef("FixtureMauler", "FixtureMauler", "unit",
                                  "Ecstasy 5: Double this troop's [Melee] and [Ranged]",
-                                 "common", "Test", 8, 3, 4, 2, null, subtype: "Vehicle");
+                                 "common", "Test", 8, 3, 6, 2, null, subtype: "Vehicle"); // 生命 6 —— **必须 > 狂喜 5**，否则「跨越」永远不成立（2026-10-19 原为 4，把错口径钉死了）
             var hit = Tactic("T_HitSelf", 0, "Deal 1 damage to a friendly unit");
             var ctx = ProbeBattle(new[] { hit }, new[] { Unit("MFFoe", 1, 0, 30) });
             ToP1Turn(ctx, 3);
@@ -17095,12 +17184,12 @@ public static partial class RuleEngineTest
             Check(u.RangedAttack, 2, "前提：远程 2");
 
             CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_HitSelf"), 3), RuleCodes.OK,
-                      "打自己 1 点（生命 4 → 3，越过狂喜 5，触发正文）");
+                      "打自己 1 点（生命 6 → 5，越过狂喜 5，触发正文）");
             Check(u.Attack, 6, "★ **近战翻倍**（3 → 6）");
             Check(u.RangedAttack, 4, "★ **远程也翻倍**（2 → 4）");
-            CheckTrue(u.Health == 3 && u.MaxHealth == 4,
-                      $"★ **生命没被翻倍**（应为 3/4，实得 {u.Health}/{u.MaxHealth}）—— "
-                      + "照「近战+生命」套的话会变成 6/8，那正是当年把它整句挡掉的原因");
+            CheckTrue(u.Health == 5 && u.MaxHealth == 6,
+                      $"★ **生命没被翻倍**（应为 5/6，实得 {u.Health}/{u.MaxHealth}）—— "
+                      + "照「近战+生命」套的话会变成 10/12，那正是当年把它整句挡掉的原因");
         }
 
         // ---- ② `Runtherd`：`create` 那条路要把**费用区间**抽出来并传给池子 ----
@@ -17173,7 +17262,10 @@ public static partial class RuleEngineTest
         //   两条**都解了**，所以**换成正向的机制断言**：
         //     · 卡点 ①（`Ecstasy 2:` 的正文收不下来）→ 现在收得到（`AddTriggerOp` 认数值后缀）
         //     · 卡点 ②（阈值 X 没来源）→ 现在从**卡面正文**取（`CardDef.EcstasyX`）
-        //   触发语义照我们上一版复刻 `rule_core.gd:4438-4449`（旁证，非原版判据）：**首次越线、一辈子一次**。
+        //   触发语义 **2026-10-19（`D26`）改回照原版**：判据 = `decomp_full/CardScript__ShouldTriggerEcastasy.c`
+        //   （`traitValue(0x4e2) < healthBefore ∧ healthAfter <= traitValue(0x4e2)`，**跨越**，
+        //    **没有**一次性置位）—— 原来那句「照我们上一版复刻 `rule_core.gd:4438-4449`、
+        //    **首次越线、一辈子一次**」是**我们自己的 Godot 复刻**的做法（旁证、非判据），已改正。
         {
             var ecs = new CardDef("FixtureEcstasy", "FixtureEcstasy", "unit",
                                   "Ecstasy 2: Gain +1 Attack",
@@ -17189,7 +17281,9 @@ public static partial class RuleEngineTest
 
             // 真打一局：打 1 点 → 生命 3→2，**越过阈值 2** ⇒ 触发一次（1 → 2 攻）
             var hit = Tactic("T_EcsHit", 0, "Deal 1 damage to an enemy");
-            var ctx = ProbeBattle(new[] { hit, hit }, new[] { Unit("EcsFoe", 1, 0, 9) });
+            // ⚠️ 手牌放 **4 张**（下面一共要打 4 次：反例一 2 次 + 跨越判别式 2 次）——
+            //    张数不够时第 3 次会 `HandIdx == -1` ⇒ 那两条断言静默走不到（弱断言）。
+            var ctx = ProbeBattle(new[] { hit, hit, hit, hit }, new[] { Unit("EcsFoe", 1, 0, 9) });
             ToP1Turn(ctx, 2);
             var u = Place(ctx, 1, 3, ecs, exhausted: true);
             Check(u.Attack, 1, "动手之前 1 攻");
@@ -17200,12 +17294,31 @@ public static partial class RuleEngineTest
             Check(u.Health, 2, "★ 生命降到 **2**（= 阈值 X）");
             Check(u.Attack, 2, "★ **生命降至 X 未死亡 ⇒ 触发 `Ecstasy 2:` 的正文**（1 → 2 攻）");
 
-            // 反例：**再挨一下不再触发** —— 参考实现用 `_ecstasy_fired` 置位，是「一辈子一次」
+            // 反例一：**仍在阈值下再挨一下 → 不再触发**（`hpBefore` 已经不 > X ⇒ 不是新的一次跨越）
             CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_EcsHit"), 3), RuleCodes.OK,
                       "再打第 2 点伤害");
             Check(u.Health, 1, "生命降到 1（仍 ≤ 阈值 2）");
             Check(u.Attack, 2,
-                  "★ **第二次挨打不再触发**（还是 2 攻）—— 不置 `EcstasyFired` 的话这条会实得 3");
+                  "★ **阈值下再挨打不再触发**（还是 2 攻）—— 判据是「跨越」，2 → 1 没有跨越");
+
+            // 🔴 反例二（**判别式**）：**治回 X 以上、再被打下去 ⇒ 必须【再触发】一次**。
+            //    这一格才是「跨越」与「一次性置位」两种口径的**分水岭**（原版是跨越，见上）。
+            //    ⚠️ 直接改 `u.Health` 是为了**只量 Hurt 那一格**：真治愈要造一张 `Heal` 卡、
+            //      而且狂喜单位在敌方那侧（`Heal … to a friendly unit` 治不到它）——
+            //      这里要验的是 Hurt 的判据，不是治愈通道，所以把生命直接摆回去。
+            u.Health = 4;
+            Check(u.Attack, 2, "（前提）抬起生命**不改**攻击力");
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_EcsHit"), 3), RuleCodes.OK,
+                      "治回阈值以上之后再打一次");
+            Check(u.Health, 3, "生命 4 → 3（**还没**越过阈值 2）");
+            Check(u.Attack, 2, "★ ……没跨越 ⇒ **不触发**（还是 2 攻）");
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_EcsHit"), 3), RuleCodes.OK,
+                      "再打第 2 点（3 → 2）");
+            Check(u.Health, 2, "生命 3 → 2（= 阈值 X）");
+            Check(u.Attack, 3,
+                  "★ **再一次跨越 ⇒ 再触发一次**（2 → 3 攻）—— 🧨 改坏法：把 `RuleCore.Hurt` 那句"
+                  + " `hpBefore > ex &&` 去掉，或把 `UnitState.EcstasyFired` 那种「一辈子一次」加回来，"
+                  + "这里会实得 2（红）");
         }
 
         // ---- ③ 残忍：己方回合、**敌方**挨打未死 → **己方**带该词的牌触发 ----
@@ -17880,8 +17993,8 @@ public static partial class RuleEngineTest
                   $"其中**非传说督军 {nonLegendary} 张**（≥20 —— 这就是旧写法的实际影响面，不是「理论上可能」）");
 
         // ⚠️ 「`DeckBuilder.DeckLimit` 是转发、不另写一套」那一条**已经在 `DeckRulesTest` 里**
-        //    （`DeckRulesTest.cs:62-65`）—— 本函数**不再抄第二份**（本工程：两处写同一条规则 = 迟早不一致）。
-        //    另注：`DeckBuilder` 那两个调用点（`DeckBuilder.cs:88/99/112`）只喂 `unit` / `tactic`
+        //    （`DeckRulesTest` 里那条「`DeckBuilder.DeckLimit` 必须转发到 `DeckRules.CopyLimit`」的注）—— 本函数**不再抄第二份**（本工程：两处写同一条规则 = 迟早不一致）。
+        //    另注：`DeckBuilder` 那两个调用点（`DeckBuilder` 里那两处 `DeckLimit(c.Rarity)` 调用点）只喂 `unit` / `tactic`
         //    （`StarterDeck` 里 `units` / `tactics` 两张表按 `Type` 分好的）⇒ **督军走不到那里**，
         //    所以它那两个点**不需要**改成带卡型那一档（2026-10-17 逐行核过）。
     }
@@ -19330,7 +19443,7 @@ public static partial class RuleEngineTest
     /// ② 关键词 `_keywords["shield"]`。两个写点各只动一份 ⇒ **双向脱节**：
     ///   · 消耗时 `RuleCore.ApplyDamage` 只写 `u.HasShield = false`、**从不摘关键词**
     ///     （改前全仓 `RemoveAll("shield")` **0 命中**）⇒ `u.Has("shield")` 永远为真；
-    ///     而 `SimpleAI.ScoreDamaging`（`Data/SimpleAI.cs:588`）读的**正是关键词**
+    ///     而 `SimpleAI.ScoreDamaging` 读的**正是关键词**
     ///     ⇒ **AI 把已经用掉盾的单位继续当带盾、只给 `dmg/3+1` 那点分**（表现层读字段、没事）；
     ///   · 反向：`RemoveAll("shield")`（`lose Shield` / 光环收回 / `RemoveKeyword` 减到 0）
     ///     **不清**那个字段 ⇒ 关键词没了、那一刻**还能再挡一下**（白送一次免伤）。
@@ -21648,7 +21761,7 @@ public static partial class RuleEngineTest
     /// | # | 件 | 判据（现读 `d:/2/tools/decomp_full/`） |
     /// |---|---|---|
     /// | ① | 手牌效果：**先登记记录、再贴牌** | `PlayerHand__AddHandEffect.c:90-110`（先收进 `activeEffects`）/ `:112-139`（**之后**才遍历 `currentHand` 逐张 `CardScript.AddEffect`） |
-    /// | ② | `DeckLibrary` 判错误类型**不看汉字** | `DeckStore.LoadAll` 那三条 `note` 是**给人看的句子**（`DeckStore.cs:55/64/90`）；类型判据 = 「存档文件在不在」+「有没有话要说」 |
+    /// | ② | `DeckLibrary` 判错误类型**不看汉字** | `DeckStore.LoadAll` 那三条 `note` 是**给人看的句子**（`DeckStore` 里那三条诊断串（`"no save file"` / `"save file has no decks"` / `"read failed: …"`））；类型判据 = 「存档文件在不在」+「有没有话要说」 |
     /// | ③ | `BroadcastWhen` 的 `ctx.EventTarget` **要还原** | `BattleContext.EventTarget` 的注释「由 `BroadcastWhen` 广播时设、**广播完恢复**」；另两跳（`:4750` 区域的 `BroadcastPersistentWhen` / `:5025` 区域的 `BroadcastHandWhen`）本来就有还原 |
     /// </summary>
     static void TestG3EngineRealDiffs()
@@ -21785,11 +21898,11 @@ public static partial class RuleEngineTest
         //  ② `DeckLibrary`：**错误类型**由结构性判据判，**不是**拿中文字串 `Contains("失败")`
         // ============================================================
         //  改之前：`LastError = note.Contains("失败") ? note : null` —— 判据绑在那几句**给人看的
-        //  中文文案**上（`DeckStore.cs:55/64/90`）⇒ 一旦它们走本地化 / 改一次措辞，
+        //  中文文案**上（`DeckStore` 里那三条诊断串（`"no save file"` / `"save file has no decks"` / `"read failed: …"`））⇒ 一旦它们走本地化 / 改一次措辞，
         //  `LastError` **恒 null** ⇒ 「这份存档读不出来」这件事**一声不响**。
         //  🔴 **2026-10-18（`G9`）就地订正（铁律 5）**：本行原来把落点写成
         //  「卡组编辑窗底部那条报错横幅（`DeckRuntime._storeErr`）」—— **那件 2026-10-17 已按 `D10` 删件删掉**
-        //  （原版侧栏没有它；`DeckRuntime.cs:2978` 那一段与 `DeckLibrary.cs:52` 都记着这件事）
+        //  （原版侧栏没有它；`DeckRuntime` 里那段与 `DeckLibrary` 里那条 `G8` 的注都记着这件事）
         //  ⇒ 今天的落点是**两条**、都不是那件横幅：
         //    ① `DeckLibrary.LastLoadIssue`（类型，**结构性**判据，`ClassifyLoad` 判——本节的 ②-1/②-2 就是它）；
         //    ② `DeckLibrary.LastLoadIssueTerm` → `CardPresentation.Loc.T(...)` 那条**词条**
@@ -21837,8 +21950,8 @@ public static partial class RuleEngineTest
                 //         是去看**原文里有没有 `"decks":` 这个键**。若 `JsonUtility.ToJson` 对**空表**
                 //         **省略**该键（而不是写 `[]`），那「玩家把卡组删光」的合法存档就会被判成
                 //         `Empty` ⇒ **假报错**（明明什么都没错，界面却弹「卡组存档读取失败」）。
-                //     (b) **照兄弟写法加「或空」**：`Shell/PrebuiltDecks.cs:118` ·
-                //         `RuleEngine/Data/TutorialDatabase.cs:42` · `Core/OffensiveCards.cs:96`
+                //     (b) **照兄弟写法加「或空」**：`PrebuiltDecks` 里那三条件（`_doc == null || _doc.decks == null || _doc.decks.Length == 0`） ·
+                //         `TutorialDatabase` / `OffensiveCards` 里那两条同形的「空档就报」
                 //         都是 `x == null || x.Length == 0` 那个形状，**`DeckStore` 不能照抄** ——
                 //         `DeckLibrary.Delete` 允许把库删到 0 套、`SaveAll` 会写出空表；
                 //         照抄「或空」⇒ 把卡组删光的玩家下次开局看到的是「读取失败」。
@@ -21846,7 +21959,7 @@ public static partial class RuleEngineTest
                 //   ⚠️ 前提两句是**必要条件**：`SaveAll` 真写成功 + 文件真在 —— 少了它们，下面测的
                 //      会变成「没有存档」那一档（`NoSaveFile` 也是「不是失败」⇒ 假绿）。
                 //   ⚠️ 码这一句断的是 **`LoadAll` 的 out 码本身**（不经 `ClassifyLoad`），
-                //      与 `DeckScene.cs:4839` 那条是**同一条口径**（两处口径分开钉住）。
+                //      与 `DeckScene` 里那条是**同一条口径**（两处口径分开钉住）。
                 {
                     var zero = new List<RuleEngine.PlayerDeck>();
                     bool wrote = RuleEngine.DeckStore.SaveAll(zero, 0, out string wErr);
@@ -21870,7 +21983,7 @@ public static partial class RuleEngineTest
                 }
 
                 // ⚠️ 写一段**合法 JSON 但缺 `decks` 键**的存档 —— 这是 `DeckStore.LoadAll` 里
-                //    「`dto == null || dto.decks == null`」那一支（`DeckStore.cs:64`），**必然**判 Failure；
+                //    「`dto == null || dto.decks == null`」那一支（`DeckStore.LoadAll` 里 `dto == null || dto.decks == null` 那一支），**必然**判 Failure；
                 //    ⛔ 别写一段**语法坏掉的**文本：那要看 Unity 的 `JsonUtility` 是抛异常还是回 null
                 //    （两条路都落 `Failed`，但写死一条**确定**的更稳，离线探针验不了 Unity 那一半）。
                 System.IO.File.WriteAllText(path, "{ \"version\": 1, \"current\": 0 }");
@@ -21965,7 +22078,7 @@ public static partial class RuleEngineTest
 
             // ---- ④-b `Oath N:`（**付费激活**）那条 ----
             //   夹具 = 既有的誓约夹具（`RuleEngineTest:12508` 那一份）**外加 `oath` 关键词** ——
-            //   关键词是必须的：重挑那道闸读 `u.Has(KeywordTable.Oath)`（`RuleCore.cs:2137`），
+            //   关键词是必须的：重挑那道闸读 `u.Has(KeywordTable.Oath)`（`RuleCore` 里重挑攻击型那道闸），
             //   而 `Oath N:` 那段正文**不会**自动登记这个关键词（全仓只有三处**读**它、没有写点）。
             var oathGuy = new CardDef("G3Oath", "G3Oath", "unit", "Oath 1: Gain Armour 1",
                                       "common", "Test", 1, 1, 9, 0, new[] { "oath" }, subtype: "Infantry");

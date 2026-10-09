@@ -194,7 +194,7 @@ namespace CardPresentation
         public const int DeckAlign = 1;
         /// <summary>列数 —— 照 uGUI `GridLayoutGroup.SetCellsAlongAxis(1)` 的 `Flexible` 那一支现算：
         /// `max(1, floor((可用宽 − pad.horizontal + spacing.x + 0.001) ÷ (格宽 + spacing.x)))`
-        /// = `floor((372.04 − 4 + 0 + 0.001) ÷ 180)` = **2**（判据 = `GridLayoutGroup.cs:261-263`）。
+        /// = `floor((372.04 − 4 + 0 + 0.001) ÷ 180)` = **2**（判据 = uGUI `GridLayoutGroup` 里算行/列数那一段）。
         /// ⚠️ 用 `DeckCellW` 等常量算**不是**「从被测实现读期望值」—— 它们全是**原版序列化字段**的抄录，
         /// 出处逐条写在上面；自检里另有一条把**列数**按原版字面量（372.04 / 4 / 180）钉死。</summary>
         public static int DeckCols
@@ -210,7 +210,7 @@ namespace CardPresentation
         /// `pad.left + alignX × (可用宽 − (需要的宽 + pad.horizontal))`
         /// = `4 + 0.5 × (372.04 − (360 + 4))` = `4 + 4.02` = **8.02**（相对 `Content` 左沿 262.06）
         /// ⇒ 第 1 列 = **270.08..450.08**、第 2 列 = **450.08..630.08**。
-        /// 判据 = `LayoutGroup.cs:193` + `GridLayoutGroup.cs:284/326`。</summary>
+        /// 判据 = uGUI `LayoutGroup` + `GridLayoutGroup` 那几处。</summary>
         public static float DeckCellX0 { get { return DecksCL + DeckPadL + DeckStartSurplus; } }
         static float DeckStartSurplus
         {
@@ -320,8 +320,8 @@ namespace CardPresentation
         /// <summary>阵营格的**左沿** —— 照 uGUI 现算（`GetStartOffset(0, 需要的宽)`）：
         /// `pad.left + alignX × (可用宽 − (需要的宽 + pad.horizontal))` = `0 + 0.5 × (177.12 − 82)` = **47.56**
         /// ⇒ 格 = **116.98..198.98**（横向居中）。
-        /// 判据 = uGUI 源码 `Library/PackageCache/com.unity.ugui@27635d171b1a/Runtime/UGUI/UI/Core/Layout/LayoutGroup.cs:193`
-        /// （`GetStartOffset`）+ `…/GridLayoutGroup.cs:326`（`startOffset` 那两句 / `:284` `requiredSpace`）。
+        /// 判据 = uGUI 源码 `Library/PackageCache/com.unity.ugui@27635d171b1a/Runtime/UGUI/UI/Core/Layout/LayoutGroup.cs`
+        /// （`GridLayoutGroup.GetStartOffset`）+ `…/GridLayoutGroup.cs` 里 `startOffset` 那两句 / `requiredSpace`。
         /// 🔴 原来我们**靠左**（69.42..151.42）—— 与居中差 **47.56px**。</summary>
         public static float ArmyCellL
         {
@@ -559,7 +559,7 @@ namespace CardPresentation
             var wl = CollectionData.Warlord(DeckIndex);
             _txtDeckName = Txt(_info, d.Name, DnL, DnR, DnT, DnB, 36f, Align.Left, "Deck Name", QPrText);
             // 「未选战将」在本文件有三处（建窗这一处 + 两个 `SetText` 刷新点）—— **一律**走同一条词条
-            // `MenuDeck/Error/NoWarlord`（出处 `Core/Loc.cs:904`），施工单 §附_Shell #1 判「复用，别新造」。
+            // `MenuDeck/Error/NoWarlord`，施工单 §附_Shell #1 判「复用，别新造」。
             // ⚠️ **如实记**：表里中文列是「还没有选战将」—— 与改前写死的「未选战将」**不同字**，这是有意的
             //    （键名/两列都由 `Loc` 定，⛔ 别为「保住旧字」另立一条同义键，铁律 6）。
             _txtWarlord = Txt(_info, wl != null ? wl.Name : Loc.T("MenuDeck/Error/NoWarlord"), WnL, WnR, WnT, WnB, 35f,
@@ -572,7 +572,7 @@ namespace CardPresentation
         /// **没建的**（出声，见文件头）：`Deck Information cost drawer` + `Deck Information Cost/balance text`。
         /// 🔴 **2026-10-03 就地更正（A20）**：这里原来写着「我们没有『卡组装备了哪张卡背』这份数据 ⇒
         /// 退回 `CardArt.CardBack(阵营)`……**这条是我们挑的，不是复刻**」—— **那句话现在作废**：
-        /// `CollectionData.DeckInfo` **有 `CardbackId`**（`Shell/CollectionData.cs:30`，卡组编辑器那页能装备），
+        /// `CollectionData.DeckInfo` **有 `CardbackId`**（`Shell/CollectionData` 里 `DeckInfo` 那条，卡组编辑器那页能装备），
         /// 而原版这条链要的就是它（`DeckGeneralInfoDemo.ShowPayerDeckInfo → CardDeck.GetDeckCardback()`）
         /// ⇒ 改成走**判据那一处** `CardArt.DeckCardback(卡背 id, 阵营)`（选了用选的、没选用阵营默认背）。</summary>
         void BuildGeneralContainer()
@@ -748,12 +748,12 @@ namespace CardPresentation
             // 🔴 **2026-10-18（A867 · S1）**：**首句**就把本窗名下的旧滚动区撤掉 —— 这一句下面马上会把
             //   `root` 的子件全清掉（下一次 `BuildArmySelector` / `BuildDeckRows` 又各登记一颗**新** `MenuScroll`）。
             //   ⛔ **兜不住**，所以非补不可（`PointerLayer` 的两道自动清理**都判不出这里已死**）：
-            //     · `PruneScrolls` 的 `s == null` —— `MenuScroll` 是**普通 C# 类**（`Shell/MenuScroll.cs:79`）
+            //     · `PruneScrolls` 的 `s == null` —— `MenuScroll` 是**普通 C# 类**（`Shell/MenuScroll.cs` 的 `MenuScroll`）
             //       ⇒ 节点被销毁**不会**让它变 null ⇒ **恒假**；
             //     · `s.Owner == null` —— `Owner` 指的是**活下来的窗根**（本方法只删**子件**，`transform` 本身还在，
-            //       而且我们关窗是 `SetActive(false)`、**不销毁**）⇒ 也**恒假**（`Shell/PointerLayer.cs:223-231`）。
+            //       而且我们关窗是 `SetActive(false)`、**不销毁**）⇒ 也**恒假**（`Shell/PointerLayer.PruneScrolls`）。
             //   ⇒ 少了这一句 = **每重建一次净涨 1~2 条**，而且旧条目**还能被滚轮命中**（`OnChanged` 指向已销毁的节点）。
-            //   ✅ 形状照抄 `Shell/InboxWindow.cs:405`（那里 `BuildMessageList` 重建前先撤）—— 本方法里那句
+            //   ✅ 形状照抄 `Shell/InboxWindow.BuildMessageList`（重建前先撤）—— 本方法里那句
             //   `UnregisterOwnedBy` 必须在 `DestroySafe` **之前**（清完子件再撤也行，但要与登记的顺序成对）。
             PointerLayer.UnregisterOwnedBy(gameObject);
             var root = transform;
@@ -1292,7 +1292,7 @@ namespace CardPresentation
                 return _facs[ArmyIndex].ToUpperInvariant();
             }
             var d = CollectionData.DeckAt(DeckIndex);
-            // 兜底那句也走词条（键 `MenuDeck/HUD/NoArmySelected`，出处 `Core/Loc.cs:1249`；
+            // 兜底那句也走词条（键 `MenuDeck/HUD/NoArmySelected`；
             //   ZH 列与改前写死串**逐字相同** ⇒ 中文档零变化）。⚠️ P3 两个附件源都漏了这条（它会画上屏）。
             return string.IsNullOrEmpty(d.Faction) ? Loc.T("MenuDeck/HUD/NoArmySelected") : d.Faction.ToUpperInvariant();
         }
@@ -1408,8 +1408,8 @@ namespace CardPresentation
                 //        折行那半也**没显式关**（`SetAutoFitBox` 内部会无条件开折行，见 `Label.SetWrapping` 的头）。
                 //      ⚠️ 两个口径都写清：`minPx/maxPx` 传的是**原版那两个字段的原文**（2 / 38），
                 //        而**设计字号仍是 `Txt` 那个 20**（框 = 我们的格 231×27.88）—— `maxPx(38) > 调用方 20`
-                //        时 TMP 会**往上长到装不下为止**（`TextMeshPro.cs:2151` 起点 = `Clamp(base,min,max)`；
-                //        天花板 = `fontSizeMax`；「长高/长宽到溢出就回退」那两支在 `TextMeshPro.cs:3386/3575`）
+                //        时 TMP 会**往上长到装不下为止**（`TextMeshPro.cs:2151` 起点 = `Clamp(base,min,max)`（`TextMeshPro` 的自适应那一句）；
+                //        天花板 = `fontSizeMax`；「长高/长宽到溢出就回退」那两支在 `TextMeshPro` 里）
                 //        —— 这正是原版那一档（它的 `m_fontSize` 也是 38）。
                 //      🔴 **没查清 / 仍是偏离的一处（如实标）**：原版这颗 `Card Name` 的**框**是它父件
                 //        `Text fill`（锚 `(0.13,0.07)→(0.99,0.93)` · sizeDelta `(−5,0)`）⇒ 高 **23.98**；
@@ -1614,7 +1614,7 @@ namespace CardPresentation
             if (string.IsNullOrEmpty(info.WarlordId))
             {
                 Debug.LogWarning("[Practice] 这套卡组**没有督军**，开不了局 —— 如实说，不静默。");
-                // 弹窗正文走**整句**词条（键 `MenuDeck/Error/CantStartNoWarlord`，出处 `Core/Loc.cs:1251-1252`）。
+                // 弹窗正文走**整句**词条（键 `MenuDeck/Error/CantStartNoWarlord`）。
                 // 🔴 **2026-10-18（波 1b · `A1034` 裁定）**：上一轮这里复用了**短键** `MenuDeck/Error/NoWarlord`
                 //    （「还没有选战将」）⇒ 正文从「这套卡组还没有选战将，开不了局。」缩成 5 个字 = 玩家可见
                 //    内容缩水 ⇒ **按裁定改回整句**。（短键仍留给本文件那 3 处「未选战将」栏位。）
@@ -1679,12 +1679,12 @@ namespace CardPresentation
             if (NetMatchmaking.Cancel("对局发起方点了取消", out string why))
             {
                 NetTookOver = false;
-                // 整句走词条（键 `Settings/Online/MatchCancelled`，出处 `Core/Loc.cs:1222-1223`）。
+                // 整句走词条（键 `Settings/Online/MatchCancelled`）。
                 NetRuntime.Notice(Loc.T("Settings/Online/MatchCancelled"));
             }
             else
             {
-                // 走词条（键 `Settings/Online/MatchCancelFailed`，出处 `Core/Loc.cs:1224`）。
+                // 走词条（键 `Settings/Online/MatchCancelFailed`）。
                 NetRuntime.Notice(Loc.T("Settings/Online/MatchCancelFailed").Replace("{0}", why));   // **不假装取消成功**
             }
         }
@@ -1839,7 +1839,7 @@ namespace CardPresentation
             // 🔴 **2026-10-09（A233）就地订正（铁律 5）**：这里原来写的是
             //    `if (clip.HasValue && (clipSoftness.x > 0f || clipSoftness.y > 0f))` —— 那道闸把
             //    「渐隐带」和「裁切」当成了同一件事（**有 softness 才裁**），而原版是**先硬裁、再按
-            //    `m_Softness` 渐隐**两件事（判据 = uGUI `Culling/Clipping.cs:17` `FindCullAndClipWorldRect`
+            //    `m_Softness` 渐隐**两件事（判据 = uGUI `Culling/Clipping.FindCullAndClipWorldRect`
             //    **四边都求交**；`m_Softness = (0,0)` 只表示**没有渐隐带**，不是「不裁」）。
             //    ⚠️ `clipSoftness = (0,0)` 那一档现在由 `MenuDraw.ApplySoftEdges` 扛：它入口先走
             //    `ClipVisToClip` 硬裁（A225-①），两分量都 0 时只跳过「切开 + 上斜坡」（A277）。
@@ -1908,7 +1908,7 @@ namespace CardPresentation
             // 🔴 **2026-10-09（A233）就地订正（铁律 5）**：原来这道闸写的是
             //    `clip.HasValue && (clipSoftness.x > 0f || clipSoftness.y > 0f)` ⇒ **`clipSoftness = (0,0)`
             //    时这段字既不硬裁也不建软边**（整段画到视口外）。判据 = 原版 `RectMask2D`：
-            //    **先硬裁、再按 `m_Softness` 渐隐**（`Culling/Clipping.cs:17` 四边都求交；softness 只管
+            //    **先硬裁、再按 `m_Softness` 渐隐**（`Culling/Clipping.FindCullAndClipWorldRect` 四边都求交；softness 只管
             //    渐隐带落在哪）⇒ **文字也必须硬裁**，且与 softness 是不是 0 无关。
             //    修法 = 判据本身：`MenuDraw.ClipText(…, Vector2.zero)` **就是纯硬裁**
             //    （`ClipQuad` 把框外的顶点夹到框沿 + 按同一仿射关系改 uv；`SoftAlpha` 在 soft ≤ 0 时恒 1
@@ -1937,7 +1937,7 @@ namespace CardPresentation
 
         /// <summary>🆕 **2026-10-07（A12①）**：多了 `clip` —— **命中区也要截到视口内**。
         /// 判据 = 原版 `RectMask2D` 的**射线那一面**（`IsRaycastLocationValid`：框外的点判不中任何东西；
-        /// UGUI 源码 `RectMask2D.cs:178-185`）—— 与 `MenuDraw.Hit` / `MenuDraw.ClipRect` 同一份判据。
+        /// UGUI 源码 `RectMask2D` 里那一处）—— 与 `MenuDraw.Hit` / `MenuDraw.ClipRect` 同一份判据。
         /// 🔴 **为什么这两个格子必须一起改**：本窗基类 `GameWindow` **没有** `Clip`（那是 `MenuWindowBase` 的），
         ///   ⚠️ **2026-10-11 就地订正（铁律 5）**：这一句**已过期** —— `Clip` / `ClipSoftness` / `ClipPad` 三份状态
         ///   2026-10-07（A78②）起**上移到 `GameWindow`**（`Shell/WindowsManager.cs` 的「裁切状态」那一节：

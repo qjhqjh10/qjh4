@@ -134,6 +134,52 @@ public static class CollectionScene
         /// ⚠️ **它不认识 `A/B/C` 这种路径写法** —— 要路径用本文件自己的 `FindPath`。</summary>
         static Transform FindChild(Transform parent, string name) => MenuCheck.FindChild(parent, name);
 
+        /// <summary>🆕 **2026-10-09（`A1125`）**：一颗**关窗钮**的「命中区 + 换图层」四连断。
+        /// <para>四个闸落在**四个不同对象**上（前提 / 命中区尺寸 / 命中区位置 / 换图层绑定）⇒ 改坏任一处只红其中一条：
+        /// ① 按钮 / 命中 / 可见面三件都取得到（取不到就不许往下断 = 不静默变绿）；
+        /// ② 命中区**尺寸** = 原版可射线件**并集**（⛔ 不是根矩形）；③ 命中区**中心** == 可见面渲染中心
+        /// （可见面矩形与命中区**不同源** ⇒ 位置那一半的独立锚）；④ 换图层 = 原版 `m_TargetGraphic`
+        /// 指到的那一颗（节点名 + 贴图名**两个条件**；`targetNodeName == null` ⇒ 只断**贴图名**）。</para>
+        /// <para>`btnName == null` ⇒ 直接在**窗根**下找 `hitName` / `faceName`（命中节点挂窗根那两扇）。
+        /// ⛔ 期望值全是**原版 prefab 的读数**，不从被测实现里读。判据 → 同族五份 `A1125Close`。</para></summary>
+        static void A1125Close(string win, Transform winRoot, string btnName, string hitName,
+                               string faceName, string faceTex, string targetNodeName, float wPx, float hPx)
+        {
+            var btn = winRoot == null ? null : (btnName == null ? winRoot : FindChild(winRoot, btnName));
+            CheckTrue(btn != null, $"（前提·不静默）A1125 {win}：关窗钮节点 `{btnName ?? "<窗根>"}` 拿得到"
+                                 + " —— ⛔ 取不到就不往下断（不静默变绿）");
+            var hitG = btn != null ? FindChild(btn, hitName) : null;
+            CheckTrue(hitG != null, $"（前提·不静默）A1125 {win}：命中节点 `{hitName}` 拿得到");
+            var faceG = btn != null ? FindChild(btn, faceName) : null;
+            CheckTrue(faceG != null, $"（前提·不静默）A1125 {win}：可见面子件 `{faceName}` 拿得到");
+            var hq = hitG != null ? hitG.GetComponentInChildren<ImageQuad>(true) : null;
+            float hx1 = 0f, hy1 = 0f, hx2 = 0f, hy2 = 0f;      // ⛔ 先归零：`&&` 短路时编译器要求 out 已赋值
+            bool okH = hq != null && MenuDraw.QuadRectPx(hq, out hx1, out hy1, out hx2, out hy2);
+            CheckTrue(okH && Mathf.Abs((hx2 - hx1) - wPx) <= 0.5f && Mathf.Abs((hy2 - hy1) - hPx) <= 0.5f,
+                      $"★★ A1125 {win}：关窗钮**命中区** = 原版可射线件并集 **{wPx}×{hPx}**（设计 px）"
+                    + (okH ? $"（现读 {hx2 - hx1:F2}×{hy2 - hy1:F2}）" : "（命中 quad 取不到）")
+                    + "｜🧨 ① 改回根矩形 ⇒ 每边小 ~11（绿族 ~10.7/9.8）⇒ 红；② 改回子件裸矩形 ⇒ 每边小 20 ⇒ 红");
+            var fq = faceG != null ? faceG.GetComponentInChildren<ImageQuad>(true) : null;
+            float fx1 = 0f, fy1 = 0f, fx2 = 0f, fy2 = 0f;
+            bool okF = fq != null && MenuDraw.QuadRectPx(fq, out fx1, out fy1, out fx2, out fy2);
+            CheckTrue(okH && okF
+                      && Mathf.Abs((hx1 + hx2) * 0.5f - (fx1 + fx2) * 0.5f) <= 0.6f
+                      && Mathf.Abs((hy1 + hy2) * 0.5f - (fy1 + fy2) * 0.5f) <= 0.6f,
+                      $"★★ A1125 {win}：命中区**中心** == 可见面 `{faceName}` 的渲染中心（独立锚）"
+                    + (okH && okF ? $"（{((hx1 + hx2) * 0.5f):F2},{((hy1 + hy2) * 0.5f):F2} vs "
+                                    + $"{((fx1 + fx2) * 0.5f):F2},{((fy1 + fy2) * 0.5f):F2}）" : "（取不到）")
+                    + "｜🧨 把命中节点整体搬走（`localPosition += (20,0,0)`）⇒ 只错位置不错尺寸 ⇒ 只这条红（与 ② 不同源）");
+            var wb = hitG != null ? hitG.GetComponent<WindowButton>() : null;
+            string got = wb == null || wb.target == null || wb.target.Texture == null
+                       ? "<没绑>" : wb.target.gameObject.name + " / " + wb.target.Texture.name;
+            CheckTrue(wb != null && wb.target != null && wb.target.Texture != null
+                      && wb.target.Texture.name == faceTex
+                      && (targetNodeName == null || wb.target.gameObject.name == targetNodeName),
+                      $"★★ A1125 {win}：**换图层** = 子件 `{targetNodeName ?? faceName}`（图 `{faceTex}`；"
+                    + "= 原版 `m_TargetGraphic` 指到的那一颗）—— 现读「" + got + "」"
+                    + "｜🧨 把它传成根圆底盘（`UI_Button_Round_background`）⇒ 红（错因 = 只读 `m_Transition`、没读 `m_TargetGraphic`）");
+        }
+
         /// <summary>一格卡的渲染队列（取卡内所有层里**最小的那个** —— 卡内层序靠 z 偏移、整格一起平移，
         /// 所以最小号就代表这一格；见 `CardFan.SetCardQueue`）。
         /// ⚠️ 读 `sharedMaterial`：`SetCardQueue` 走 `.material`（会把实例写回 `sharedMaterial`），
@@ -355,13 +401,70 @@ public static class CollectionScene
         /// <para>🔴 **为什么自检里要单独写一份**：被测实现那一份是 `CosmeticPreview.PreserveAspectSize`
         /// （`Core/DraggableController.cs`）—— **拿它算期望值就是自证**（两边一起改错照样全绿）。
         /// 本函数只吃两样**外部输入**：**贴图资产自己的宽高**（`Texture2D.width/height`）
-        /// 与**原版字面量的框**（250×405 / 337.5×550.8 / 220×330），算法照 uGUI 原文复述。</para></summary>
+        /// 与**原版字面量的框**（250×405 / 337.5×550.8 / 220×330），算法照 uGUI 原文复述。
+        /// <para>🔴 **2026-10-19（B2）就地收窄用途**：**卡背本体**不再走本式（它走
+        /// <see cref="CardbackDrawnPx"/> 的**两段式**）—— 本式现在**只服务 `_SDF` 那两层**，
+        /// 而 `_SDF` 是**故意不进** `CardbackFace` 那张表的（它的 `padding` 恒 0、两段式差 &lt;0.4%，
+        /// 理由 → `Core/CardbackFace.cs` 文件头）⇒ 本式对 SDF 仍然是**正确**的期望值。</para></summary>
         static Vector2 InsetFit(float spriteAspect, float boxW, float boxH)
         {
             if (spriteAspect <= 0f || boxW <= 0f || boxH <= 0f) return new Vector2(boxW, boxH);
             return spriteAspect > boxW / boxH
                 ? new Vector2(boxW, boxW / spriteAspect)          // 宽定（贴图「更宽」）
                 : new Vector2(boxH * spriteAspect, boxH);         // 高定
+        }
+
+        /// <summary>🆕 **2026-10-19（B2）**：一张**卡背**在 `boxW×boxH` 的框里**画出来**该多大
+        /// —— 原版 uGUI `Image` 的**两段式**（判据与算式全文 → `Core/CardbackFace.cs`）。
+        ///
+        /// <para>🔴 **为什么自检里要单独写一份**：被测那一份是 `CardbackFace.Fit`（`CosmeticPreview.PreserveAspectSize`
+        /// 转调它）—— **直接调它就是自证**（两边一起改错照样全绿）。本函数只吃三样**外部真值**：
+        /// ① **贴图资产自己的 `width/height`**（`Resources/Art/cardbacks/` 那 233 张 = 原版 `textureRect` 的裁片）；
+        /// ② 原版字面量的框（250×405 / 335.31×400 / 220×330）；
+        /// ③ 原版那张 sprite 的 **`m_Rect` = `707×1020`**（233/233 恒定，出处 → `Core/CardbackFace.cs` 文件头）。
+        /// 算式照 uGUI 原文复述：**先按 `m_Rect` 的比例定框**（`PreserveSpriteAspectRatio`），
+        /// **再按 `textureRect/m_Rect` 缩**（`GetDrawingDimensions` 里那四个 `v`）。</para>
+        ///
+        /// <para>⚠️ 这里拿 `tex.width/height` 顶 `textureRect` 的宽高（差 ≤0.5px 的取整 ⇒ 尺寸上 ≤0.18px，
+        /// 容差 0.6px 挡得住）；**位置**那一半（按 `padding` 偏）拿不到 ⇒ 由
+        /// <see cref="CardbackOffsetPx"/> 另走一路。</para></summary>
+        static Vector2 CardbackDrawnPx(Texture2D tex, float boxW, float boxH)
+        {
+            const float RectW = 707f, RectH = 1020f;              // 原版 sprite 的 `m_Rect`（233/233 恒定）
+            if (tex == null || tex.height <= 0 || boxW <= 0f || boxH <= 0f) return new Vector2(boxW, boxH);
+            // ① 定框：比的是 **`m_Rect` 的比例**，⛔ 不是贴图自己的（这就是 B2 之前漏掉的那一段）
+            float spriteRatio = RectW / RectH, boxRatio = boxW / Mathf.Max(1e-6f, boxH);
+            float fw, fh;
+            if (spriteRatio > boxRatio) { fw = boxW; fh = boxW / spriteRatio; }   // 宽定
+            else { fh = boxH; fw = boxH * spriteRatio; }                          // 高定
+            // ② 画心 = 框 × (textureRect / m_Rect)（两轴系数相等 ⇒ 等比）
+            return new Vector2(fw * tex.width / RectW, fh * tex.height / RectH);
+        }
+
+        /// <summary>🆕 **2026-10-19（B2）**：画心相对**框中心**的偏移（画布像素 · **y 向下** · 左上原点）。
+        ///
+        /// <para>数据 = 原版那张 sprite 的 **`padding`**（`Resources/Cardbacks.json` 的 `padL/padR/padB/padT`
+        /// 四列，由 `工具/gen_cardbacks.py` 从原版 `Sprite/&lt;名&gt;_Main.json` 的 `m_Rect − textureRect` 直读）。
+        /// ⚠️ **这是「数据」、不是「被测算法」** —— 拿被测实现算期望值才是自证；读同一份**原版数据**
+        /// 不算（口径先例：本文件 `InsetFit` 吃 `tex.width/height` 也是数据）。
+        /// 残余风险（**明账**）：表里某一行的 `padX` 若被生成器抄错，这一条抓不到（它只验「实现有没有按这四列挪」）。
+        /// 独立复核那四列要走 `d:/2/…/Sprite/*.json`，本文件**没读**（不引外部目录依赖）。</para>
+        ///
+        /// <para>算式的方向照 uGUI 原文**独立复述**：`offset = ((padL−padR)/2, (padB−padT)/2) × (框宽 / `m_Rect.w`)`，
+        /// 而 uGUI 的 y **向上** ⇒ 本仓画布像素（y 向下）要**反号**（**这是最容易抄反的一处**）。</para>
+        /// 查不到该贴图（不是卡背 / 表是旧版）⇒ 返回 `false`（调用方按「前提不成立」红出来，⛔ 不静默跳过）。</summary>
+        static bool CardbackOffsetPx(Texture2D tex, float boxW, float boxH, out float dx, out float dyDown)
+        {
+            dx = dyDown = 0f;
+            if (tex == null) return false;
+            float rw, rh, pl, pr, pb, pt;
+            if (!CardbackTable.TrySpriteRect(tex.name, out rw, out rh, out pl, out pr, out pb, out pt)) return false;
+            float spriteRatio = rw / rh, boxRatio = boxW / Mathf.Max(1e-6f, boxH);
+            float fw = spriteRatio > boxRatio ? boxW : boxH * spriteRatio;
+            float k = fw / rw;                                    // == fh / rh
+            dx = (pl - pr) * 0.5f * k;
+            dyDown = -(pb - pt) * 0.5f * k;                       // uGUI 向上为正 ⇒ 本仓向下为正 = 反号
+            return true;
         }
 
         /// <summary>一个件**渲出来**的像素矩形（画布像素 · 左上原点 · y 向下）。
@@ -1932,10 +2035,27 @@ public static class CollectionScene
                                       "点它 ⇒ 开督军的**卡片详情窗**（「" + (wlc != null ? wlc.Name : "?") + "」）");
                             if (wd != null) wd.Close();
                         }
-                        // ⑦ `Share` / `Share On Chat`：给卡组串（原版走平台/服务端）
+                        // ⑦ `Share` / `Share On Chat` —— 🔴 **两件不同的事**（⛔ 不是「两个入口一个动作」）。
+                        //   · `Share` = **写系统剪贴板 + 弹一条提示**。原版 `DeckInfoPopup__ShareDeck.c` 三句：
+                        //     ① `MakeDeckString()` 造串 ② `UnityEngine.GUIUtility.set_systemCopyBuffer(串)`
+                        //     **写系统剪贴板** ③ `UIMessageController.ShowMessage(…)` 弹一条消息。
+                        //     写剪贴板那份实现收在**全库唯一一处** = `Deck/DeckRuntime.CopyDeckToClipboard`
+                        //     （`CLAUDE.md` §三：两处写同一条规则 = 迟早不一致）。
+                        //   · `Share On Chat` = 原版**开一扇两键面板（群组 / 全局）→ 发一条聊天消息**、
+                        //     **不写剪贴板**（`DeckInfoPopup__ShareDeckOnChat.c`）；那扇面板还没建（账 `A1045`）
+                        //     ⇒ 本路**如实出声**（`NotBuilt` 的 `LogWarning` + 一句人话弹窗）。
+                        //   🔴 **2026-10-18（`A1051`）就地订正（铁律 5）**：本行**原文**写
+                        //     「给卡组串（**原版走平台/服务端**）」—— **那句是过期结论**：原版既不走上服务端、
+                        //     也没做平台分享，调的就是**本地** API `GUIUtility.systemCopyBuffer`
+                        //     （判据 = `d:/2/tools/decomp_full/DeckInfoPopup__ShareDeck.c` 第 ② 句；
+                        //      `Shell/DeckInfoPopup.cs` 的 `ShareDeck` 头注与 `Deck/DeckRuntime.cs` 的
+                        //      `CopyDeckToClipboard` 头注两处都已在 2026-10-08（`A1040`）订正过 —— 只剩这一处没跟上）。
+                        //   ⛔ **别把这里读成「给卡组串方便玩家自己复制」**：那是 `Share On Chat` 今天的**兜底**，
+                        //     不是 `Share` 的语义（`Share` 走剪贴板、成功与否有断言钉着，见下面 A1051 那一节）。
                         var shHit = pop.Opt("Share");
                         CheckTrue(shHit != null && shHit.GetComponent<WindowButton>() != null, "`Share` 有点击区");
-                        Debug.Log(P + "   卡组串自检：Share 的实现在 `DeckInfoPopup.ShareDeck`");
+                        Debug.Log(P + "   卡组串自检：Share 调 `Deck/DeckRuntime.CopyDeckToClipboard`"
+                                    + "（写剪贴板那份实现**全库只此一处**）");
                     }
                     Shoot("05_收藏_DeckInfo弹窗.png");
                     var popCloseHit = FindChild(pr, "CloseHit");
@@ -2080,6 +2200,378 @@ public static class CollectionScene
                               "关闭钮的 `onClick` 挂着（「有点击区」≠「点了有反应」；下面那条真点一次再断窗的状态）");
                     if (popCloseWb != null) popCloseWb.Click();
                     Check(pop.CurrentState, WindowState.Closed, "点关闭钮 ⇒ 窗进 `Closed` 态");
+                }
+            }
+
+            // ============================================================ 🆕 2026-10-18（账 `A1051`）
+            //  `Share` / `Share On Chat` —— **四条断言**（分享收口之后这一块**一条自动化尺子都没有**）。
+            //
+            //  原版判据（逐句实读 `d:/2/tools/decomp_full/DeckInfoPopup__ShareDeck.c`）：
+            //   ① `MakeDeckString()` 造串 ② `UnityEngine.GUIUtility.set_systemCopyBuffer(串)`
+            //   **写系统剪贴板** ③ `UIMessageController.ShowMessage(…)` 弹一条消息（原版是 toast，
+            //   我们退成模态弹窗 ⇒ 账 `A1050`）。⇒「点一下 ⇒ 系统剪贴板里出现这一副的卡组串」是**原版行为**。
+            //
+            //  ⚠️ **本段自开一扇窗、末尾关掉并清场**（照本文件 `PracticeModePopup.LastOpened = null` 那一段的
+            //    做法：自开的窗自己收，不留状态给后段）。**不借上面那一节的 `pop`** —— 这两下各会开一扇模态
+            //    提示窗（`WindowsManager.ShowPopUp`），借它会把后段的截图与断言挡掉。
+            Section("A1051：`Share` 真写剪贴板 / `Share On Chat` 不写（四条）");
+            {
+                var sPop = win.OpenDeckInfo(0);
+                CheckTrue(sPop != null, "（前提）自开一扇 `Deck info Popup`");
+                if (sPop != null)
+                {
+                    var rawShare = CollectionData.Raw(0);
+                    CheckTrue(rawShare != null, "（前提）被点 `Share` 的那一副（下标 0）取得到");
+
+                    var sharHitA = sPop.Opt("Share");
+                    var sharWbA = sharHitA != null ? sharHitA.GetComponent<WindowButton>() : null;
+                    CheckTrue(sharWbA != null, "（前提）`Share` 那颗钮取得到（(1)(2) 都靠它）");
+
+                    // 期望值 = **这一副**照原版格式导出来的那一串。
+                    string wantShare = rawShare != null ? DeckLibrary.ExportString(rawShare) : "";
+                    CheckTrue(!string.IsNullOrEmpty(wantShare),
+                              "（前提）这一副**导得出**卡组串（空串 ⇒ (1)(2) 等于空转）");
+
+                    // ⚠️ **哨兵必须先置**：不置的话「实现根本没写」与「剪贴板里正好还留着上一次的内容」
+                    //    分不开（本工程那条系统性毛病「弱断言分不出两种状态」）。哨兵**不是**合法卡组串。
+                    const string ShareSentinel = "A1051-SENTINEL-NOT-A-DECK";
+
+                    // 🔴 **批处理下 `GUIUtility.systemCopyBuffer` 能不能用【没查实】**（`Deck/DeckRuntime.cs`
+                    //    的 `CopyDeckToClipboard` 末段就如实记着这一条 —— 红线不许跑 Unity 去核）⇒ 下面几条
+                    //    一律走这三个小口，**每个都包一层**：异常**当场红**，⛔ 不让一个未捕获的异常把整个
+                    //    `Run()` 掐掉（那会让本节之后**几百条断言一条都不跑**，症状还看着像「本批全崩」）。
+                    //    ⚠️ 这三个口**只给自检用**，⛔ 不许替产品代码挡异常（真人点 `Share` 走生产那一句）。
+                    bool ClipSet(string s)
+                    {
+                        try { GUIUtility.systemCopyBuffer = s; return true; }
+                        catch (System.Exception e)
+                        { Debug.LogError(P + "`systemCopyBuffer` 写入抛异常：" + e.Message); return false; }
+                    }
+                    string ClipGet()
+                    {
+                        try { return GUIUtility.systemCopyBuffer; }
+                        catch (System.Exception e)
+                        { Debug.LogError(P + "`systemCopyBuffer` 读取抛异常：" + e.Message); return "<读剪贴板抛异常>"; }
+                    }
+                    void ClipClick(WindowButton wb)
+                    {
+                        try { wb.ClickForTest(); }
+                        catch (System.Exception e) { Debug.LogError(P + "点那颗钮抛异常：" + e.Message); }
+                    }
+
+                    // ⚠️ **前置**：这个 API 在批处理下**写得进、读得回**吗？不能 ⇒ 当场红
+                    //    （那时下面几条对剪贴板的断言既可能假绿、也可能假红 —— 验不了就**说出来**，
+                    //     红线「不许静默失败」；⛔ 也不许把这一条放宽成「跳过」）。
+                    bool clipOk = ClipSet(ShareSentinel) && ClipGet() == ShareSentinel;
+                    CheckTrue(clipOk, "（前提）批处理下 `GUIUtility.systemCopyBuffer` **写得进、读得回**"
+                                    + "（置哨兵 → 读回 = 哨兵）—— ⛔ 不能的话下面几条剪贴板断言**等于没验**，所以这里先红");
+
+                    // ---------------------------------------------------------------- (1) 真写剪贴板
+                    if (sharWbA != null && !string.IsNullOrEmpty(wantShare) && clipOk)
+                    {
+                        ClipSet(ShareSentinel);
+                        ClipClick(sharWbA);
+                        string gotShare = ClipGet();
+                        CheckTrue(gotShare != ShareSentinel,
+                                  "★ A1051(1)：点 `Share` ⇒ 系统剪贴板**被写过**（哨兵已被顶掉）"
+                                + " —— 🧨 **改坏法**：把 `Deck/DeckRuntime.CopyDeckToClipboard` 改成"
+                                + "「算完 `return s` 但**不赋值**」⇒ 这一条红（哨兵原样留着）");
+                        CheckText(gotShare, wantShare,
+                                  "★ A1051(1)：……而且写进去的就是**这一副的卡组串**"
+                                + "（原版 `DeckInfoPopup__ShareDeck.c:16` 就这一句 `set_systemCopyBuffer`）");
+                    }
+
+                    // ---------------------------------------------------------------- (2) 灭自证
+                    // ⛔ **只断 (1) 不够**：(1) 的期望值 `wantShare` 是**被测实现自己调的**那个
+                    //    `DeckLibrary.ExportString` ⇒ 谁把 `ExportString` 改坏（例：漏写督军 / 丢掉模式），
+                    //    **期望值与实测值一起动、照样全绿**（= 本项目那条「断言自证 / 同义反复」）。
+                    // ⇒ 这里把期望值**按原版格式从卡组数据现场重算**（`CardDeck__Serialize.c` 的形状：
+                    //    `名字(: 转义) [':' 防御卡] [':' 督军] (':' 每张卡)* ';' 模式`，再 Base64），
+                    //    **一个字节都不来自 `ExportString`** ⇒ 结构上不可能「实现与检测器一起改回去还绿」
+                    //    （两边没有共用任何函数）。这一点就是本条与 (1) 合起来才算「灭自证」的原因。
+                    if (sharWbA != null && !string.IsNullOrEmpty(wantShare) && clipOk)
+                    {
+                        string plainShare = null;
+                        try
+                        {
+                            plainShare = System.Text.Encoding.UTF8.GetString(
+                                             System.Convert.FromBase64String(ClipGet()));
+                        }
+                        catch { plainShare = null; }        // 不是合法 Base64 ⇒ 下面那条如实红
+                        var sbShare = new System.Text.StringBuilder();
+                        sbShare.Append((rawShare.Name ?? "").Replace(":", DeckLibrary.ColonEscape));
+                        if (!string.IsNullOrEmpty(rawShare.DefensiveId))
+                            sbShare.Append(':').Append(rawShare.DefensiveId);
+                        if (!string.IsNullOrEmpty(rawShare.WarlordId))
+                            sbShare.Append(':').Append(rawShare.WarlordId);
+                        foreach (var cidA in rawShare.CardIds ?? new List<string>())
+                            if (!string.IsNullOrEmpty(cidA)) sbShare.Append(':').Append(cidA);
+                        sbShare.Append(';').Append(rawShare.GameMode);
+                        CheckTrue(plainShare != null && plainShare == sbShare.ToString(),
+                                  "★ A1051(2) 灭自证：剪贴板那串按**原版格式**解出来 = 名字 / 防御卡 / 督军 / 全部卡 / 模式"
+                                + "（期望值由**卡组数据 + 原版格式**现场重算，⛔ 不调 `ExportString`）"
+                                + " —— 🧨 改坏法：把 `ExportString` 里那句 `WarlordId` 摘掉 ⇒ (1) 两边一起动仍绿、"
+                                + "**这一条必红**"
+                                + (plainShare == null ? "（实得：**不是合法 Base64**）" : ""));
+                    }
+
+                    // ---------------------------------------------------------------- (3) `Share On Chat` 不写剪贴板
+                    // 判据 = 原版 `DeckInfoPopup__ShareDeckOnChat.c`：开一扇两键面板 → **发一条聊天消息**、
+                    // **不碰剪贴板**。那扇面板我们还没建（账 `A1045`）⇒ 本路**如实出声**（`NotBuilt`）。
+                    // ⚠️ **两半都断**：「剪贴板没动」（行为）+「抓到那条告警」（出声）——
+                    //    只断前者的话，把实现整条删掉它也绿（「靠『什么都没发生』的假断言」）。
+                    var socHitA = sPop.Opt("Share On Chat");
+                    var socWbA = socHitA != null ? socHitA.GetComponent<WindowButton>() : null;
+                    CheckTrue(socWbA != null, "（前提）`Share On Chat` 那颗钮取得到");
+                    if (socWbA != null)
+                    {
+                        var socWarns = new List<string>();
+                        Application.LogCallback hSoc = (c, st, ty) =>
+                        { if (c != null && ty == LogType.Warning) socWarns.Add(c); };
+                        if (clipOk) ClipSet(ShareSentinel);
+                        // ⚠️ **点这一下不要 gate 在 `clipOk` 上** —— 下面「如实出声」那半与剪贴板无关，
+                        //    剪贴板 API 不可用时它照样该被验（那正是本窗今天唯一的可观测行为）。
+                        Application.logMessageReceived += hSoc;
+                        ClipClick(socWbA);
+                        Application.logMessageReceived -= hSoc;
+                        if (clipOk)
+                            CheckText(ClipGet(), ShareSentinel,
+                                      "★ A1051(3)：点 `Share On Chat` ⇒ 剪贴板**一个字节都没动**"
+                                    + "（原版那条发的是聊天消息、⛔ 不写剪贴板）"
+                                    + " —— 🧨 改坏法：把 `Shell/DeckInfoPopup.ShareDeck` 里那句"
+                                    + " `if (key == \"Share On Chat\") { ShareOnChat(); return; }` 删掉 ⇒ 这一条红");
+                        int nSocWarn = 0;
+                        foreach (var lw in socWarns)
+                            if (lw.Contains("[DeckInfo]") && lw.Contains("还没实现")) nSocWarn++;
+                        CheckTrue(nSocWarn > 0,
+                                  "★ A1051(3)：……而且**如实出声**（抓到 `[DeckInfo] … 还没实现` 的 `LogWarning`）"
+                                + " —— 账 `A1045`（那扇两键面板还没建），本项目红线：⛔ 不许静默失败"
+                                + (nSocWarn == 0 ? "（实得 0 条；这一下产生的警告共 " + socWarns.Count + " 条）" : ""));
+                    }
+
+                    // ---------------------------------------------------------------- (4) 结构式：只有一处实现
+                    // 判据 = `CLAUDE.md` §三「两处写同一条规则 = 迟早不一致」。
+                    //   (1) 证「点一下就真写了」、(4) 证「这一扇窗自己**没有**第二个写点」
+                    //   ⇒ 两句合起来才能说「写的那一下必然走了 `DeckRuntime.CopyDeckToClipboard`」。
+                    // ⛔ **不写死行号**（行号会漂，本项目明令）—— 读源码文本、按【行首标记】判：
+                    //    先跳过 `//` 开头的行（该文件里 5 处 `systemCopyBuffer` **全在注释里** ——
+                    //    讲的就是「原版那一句」+「A1040 的订正留档」），再找**孤立的 `=`**
+                    //    （⛔ 不把 `==` / `!=` / `<=` / `>=` / `+=` 算成赋值）。
+                    // 🧨 **改坏法**：在 `Shell/DeckInfoPopup.ShareDeck` 里就地抄一份
+                    //    `GUIUtility.systemCopyBuffer = DeckLibrary.ExportString(deck)` ⇒ 这一条红。
+                    // 🧨 **另一头的改坏法**（这条为什么必须配上 (1)）：把 (1) 那两下删掉、只留本条 ⇒
+                    //    源码里照样没有赋值、本条照样绿 ⇒ **弱断言**。两条是一对，⛔ 别只留一条。
+                    {
+                        string srcDipA = System.IO.Path.Combine(Application.dataPath,
+                                                                "CardPresentation/Shell/DeckInfoPopup.cs");
+                        if (!System.IO.File.Exists(srcDipA))
+                        {
+                            CheckTrue(false, $"★ A1051(4)：读得到 `Shell/DeckInfoPopup.cs`（路径 {srcDipA}）"
+                                           + " —— 读不到时这一条**等于没验**，所以当场红（⛔ 不静默放过）");
+                        }
+                        else
+                        {
+                            var hitsA4 = new List<string>();
+                            var linesA4 = System.IO.File.ReadAllLines(srcDipA);
+                            for (int ia = 0; ia < linesA4.Length; ia++)
+                            {
+                                string ta = linesA4[ia].TrimStart();
+                                if (ta.StartsWith("//")) continue;                    // 注释不算（含 `///`）
+                                int pa = ta.IndexOf("systemCopyBuffer", System.StringComparison.Ordinal);
+                                if (pa < 0) continue;
+                                string tailA = ta.Substring(pa + "systemCopyBuffer".Length);
+                                bool assignA = false;
+                                for (int ka = 0; ka < tailA.Length; ka++)
+                                {
+                                    if (tailA[ka] != '=') continue;
+                                    char pv = ka > 0 ? tailA[ka - 1] : ' ';
+                                    char nx = ka + 1 < tailA.Length ? tailA[ka + 1] : ' ';
+                                    if (pv == '=' || pv == '!' || pv == '<' || pv == '>' || pv == '+') continue;
+                                    if (nx == '=') continue;
+                                    assignA = true; break;
+                                }
+                                if (assignA)
+                                    hitsA4.Add("行" + (ia + 1) + ":" + ta.Substring(0, Mathf.Min(60, ta.Length)));
+                            }
+                            CheckTrue(hitsA4.Count == 0,
+                                      "★ A1051(4)：`Shell/DeckInfoPopup.cs` 源码里**没有** `systemCopyBuffer` 的赋值"
+                                    + " —— 写剪贴板那份实现**全库唯一** = `Deck/DeckRuntime.CopyDeckToClipboard`"
+                                    + "（两处写同一条规则 = 迟早不一致）；⛔ 断言里不写行号（读文本扫）"
+                                    + (hitsA4.Count > 0 ? "（命中：" + string.Join(" | ", hitsA4.ToArray()) + "）" : ""));
+                        }
+                    }
+
+                    // ⚠️ **收尾顺序不能反**：先清模态提示窗（它会让 `ShowPreviousWindow` 把 `sPop` 提回前台），
+                    //    再 `Close()` —— 反过来的话 `sPop` 会被那一跳**重新打开**，留一扇没人管的窗给后段。
+                    MainMenuScene.CloseModalPopups();
+                    sPop.Close();
+                }
+            }
+
+            // ============================================================ 🆕 2026-10-18（账 `A1035`）
+            //  文案**改长了**之后的溢出闸 —— 三处空态 / 占位句：
+            //   · `Shell/DeckSelectionPopup.cs` 的 `Empty Collection Warning/Warning`
+            //     键 `MenuCollection/NoDecksFound`（中文列「没有可选的卡组」**7 字 → 11 字**
+            //     「没有符合当前筛选的卡组」）
+            //   · `Shell/DeckInfoPopup.cs` 的 `Warlord Name` 与 `Shell/PracticeModePopup.cs` 的 `Warlord Name`
+            //     键 `MenuDeck/Error/NoWarlord`（中文列「未选战将」**4 字 → 6 字**「还没有选战将」）
+            //
+            //  🔴 **断的是「渲染宽度 ≤ 框宽」，⛔ 不是「字号对不对」** —— 本项目 2026-09-22 那条教训：
+            //    字号对而溢出，自检照样全绿（`AutoFitBox` 那一族）。
+            //  ⚠️ 三处**都没接 autosize**（现读核过）：`Shell/DeckSelectionPopup.cs` 那颗是
+            //    `MenuDraw.Text(_emptyNode, SvRect, …, 36f, QDsText, SvRect.W)` —— 传了 `wrapPx`、**没传**
+            //    `autoMinPx`（缺省 0 ⇒ `MenuDraw.TextCore` 那道 `if (autoMinPx > 0f && fontPx > autoMinPx)`
+            //    为假 ⇒ **不调 `SetAutoFitBox`**）；另两处走各自文件的 `Txt(...)` 私有 helper，那两个 helper
+            //    **直接 `Label.Create`**、连 `autoMinPx` 这个形参都不存在 ⇒ 更不可能自适应。
+            //    ⇒ 这三段字**只能靠框本身放得下**，超了就画到框外（原版那几颗正是固定框 / `NoWrap`）。
+            //  ⚠️ **量法 = `LabelRenderedPx`**（TMP 自己那块 `textBounds` 的**活值**，本文件 A750/A796′ 那份），
+            //    ⛔ 不是 `Label.WorldW`（那是 `RefreshBounds()` 写的**字段缓存** —— 与被测实现同一个口，自证）。
+            //  ⚠️ **期望值（框宽）在断言处按原版矩形的字面量现场写出来**，⛔ 不引实现里的常量名
+            //    （同式自证：改实现它跟着绿）。
+            Section("A1035：三处空态/占位句 —— 渲染宽度 ≤ 框宽（文案改长之后的溢出闸）");
+            {
+                // 取**中文列**那一份 —— A1035 改长的**就是它**；而 `Loc.T` 按当前语档取，
+                // 自检可能跑在任一语档下（`Loc.Default = Chinese`，但玩家改过就未必）⇒ 这里显式取中文列。
+                // ⚠️ 临时切、finally 切回；`PersistOverride = true` 挡住写盘（⛔ 自检不许动玩家的真设置）。
+                // ⛔ 别用 `??` 兜底：`Loc.T` 缺键**返回的是键名本身**（不是 null），要判缺键请先 `Loc.HasEntry`。
+                string ZhCol(string key)
+                {
+                    var back = Loc.Current; bool po = Loc.PersistOverride;
+                    Loc.PersistOverride = true;
+                    string v;
+                    try { Loc.SetLanguage(AvailableLanguages.Chinese); v = Loc.T(key); }
+                    finally { Loc.SetLanguage(back); Loc.PersistOverride = po; }
+                    return v;
+                }
+                // 把**两列都量一遍**、取宽的那一个（只量当前语档 = 半边绿；中文列正是改长的那一列）。
+                // ⚠️ 量法 = `LabelRenderedPx`（TMP 自己那块 `textBounds` 的**活值**）。
+                // ⚠️ 返回 0 = 两列都取不到字 ⇒ 调用方**必须显式红**（⛔ 不许 `0 ≤ 框宽` 假绿）。
+                float WidestOf(Label lb, string key, out string widestText)
+                {
+                    float w = 0f; widestText = null;
+                    string zh = ZhCol(key), cur = Loc.T(key);
+                    for (int iv = 0; iv < 2; iv++)
+                    {
+                        string s = iv == 0 ? zh : cur;
+                        if (string.IsNullOrEmpty(s)) continue;
+                        lb.SetText(s);
+                        float px = LabelRenderedPx(lb).x;
+                        if (px > w) { w = px; widestText = s; }
+                    }
+                    return w;
+                }
+
+                // ---------------------------------------------------------------- ① 选卡组窗的空态
+                // 框 = 原版那颗 `Empty Collection Warning` 的矩形 `194.50,208.63 → 1759.50,986.69`
+                // （出处 = 本文件 `DeckSelectionPopup` 那一节的 `CheckAt(ewn, 194.5f, 1759.5f, 208.6f, 986.7f, …)`）。
+                const float EmptyWarnBoxW = 1565f;          // = 1759.50 − 194.50
+                {
+                    CheckTrue(Loc.HasEntry("MenuCollection/NoDecksFound"),
+                              "（前提）`MenuCollection/NoDecksFound` 在语言表里"
+                            + "（缺键时 `Loc.T` 返回的是**键名本身** —— 那时下面量的是键名，等于没验）");
+                    // 造「筛选之后一副都不剩」那一态：拿一个**没有任何卡组在用**的模式号去筛。
+                    const int NoDeckMode = 9999;
+                    for (int iq = 0; iq < CollectionData.DeckCount(); iq++)
+                        CheckTrue(CollectionData.DeckAt(iq).GameMode != NoDeckMode,
+                                  "（前提）没有哪一副卡组用模式 " + NoDeckMode + "（下面那个筛子才筛得空）");
+                    var esel = DeckSelectionPopup.Create(win.Manager, null, NoDeckMode);
+                    CheckTrue(esel != null, "（前提）自开一扇 `Deck Selection Popup`（模式筛到空）");
+                    if (esel != null)
+                    {
+                        esel.TryOpen(null);
+                        esel.SwitchTab(true);                  // 「我的卡组」页才吃模式筛（预组页不筛）
+                        Check(esel.ShownCount, 0, "（前提）这一页被筛空了 ⇒ 空态那句话才真上屏（非空时它是空串）");
+                        var ewnA = FindChild(esel.transform, "Empty Collection Warning");
+                        var ewtA = ewnA != null ? FindChild(ewnA, "Warning") : null;   // ⛔ 不写 "…/Warning"：`FindChild` 不认斜杠路径
+                        var elbA = ewtA != null ? ewtA.GetComponentInChildren<Label>(true) : null;
+                        CheckTrue(elbA != null, "（前提）空态那行字的 `Label` 取得到（原版节点名 `Warning`）");
+                        if (elbA != null)
+                        {
+                            CheckTrue(!string.IsNullOrEmpty(elbA.Text),
+                                      "（前提）空态那件**真写着字**（⛔ 不是空串 —— 空串时 TMP 的 `textBounds` 是哨兵 4.29e9）");
+                            string widestA;
+                            float ewPx = WidestOf(elbA, "MenuCollection/NoDecksFound", out widestA);
+                            CheckTrue(ewPx > 0.1f && ewPx <= EmptyWarnBoxW + 1f,
+                                      $"★ A1035①：`MenuCollection/NoDecksFound` **渲出来 {ewPx:F1}px ≤ 框宽 {EmptyWarnBoxW:F1}px**"
+                                    + "（框 = 原版 `Empty Collection Warning` 的矩形 194.50→1759.50；"
+                                    + "最宽那一档 = 「" + (widestA ?? "<取不到>") + "」）"
+                                    + " —— 🧨 改坏法：把词条中文列再改长到放不下 ⇒ 这条红"
+                                    + "（⚠️ 这一颗接了 `wrapPx`，所以它只抓「一整段连不成行」那一档；另两处连折行都没有，更硬）");
+                        }
+                        PointerLayer.UnregisterOwnedBy(esel.gameObject);   // 自开的窗自己把滚动登记撤掉（A867 那条不变量）
+                        esel.Close();
+                        Object.DestroyImmediate(esel.gameObject);
+                    }
+                }
+
+                // ---------------------------------------------------------------- ② 卡组信息窗的空战将位
+                // 框 = 原版 `Warlord Name` 的**跑后**矩形 `872.9,166.7 → 1359.9,216.7`
+                // （出处 = 本文件那一节的 `CheckNear(… , 872.9f, 2f, "`Warlord Name` 左缘 = 872.9")`
+                //   —— 原版 hAlign=Left ⇒ 它是从 872.9 起、右沿 1359.9）。
+                const float DiWlBoxW = 487f;                // = 1359.9 − 872.9
+                {
+                    CheckTrue(Loc.HasEntry("MenuDeck/Error/NoWarlord"),
+                              "（前提）`MenuDeck/Error/NoWarlord` 在语言表里");
+                    var dwPop = DeckInfoPopup.Create(win.Manager, 0, DeckInfoPopup.DeckInfoState.View);
+                    CheckTrue(dwPop != null, "（前提）自建一扇 `Deck Info Popup`");
+                    if (dwPop != null)
+                    {
+                        dwPop.TryOpen(null);
+                        var dwnT = FindChild(dwPop.transform, "Warlord Name");
+                        var dwnL = dwnT != null ? dwnT.GetComponentInChildren<Label>(true) : null;
+                        CheckTrue(dwnL != null, "（前提）`Warlord Name` 那颗 `Label` 取得到");
+                        if (dwnL != null)
+                        {
+                            // ⚠️ 本夹具里 `Warlord(0)` 非空 ⇒ 走不到「空战将位」那一支 ⇒ **自己把它造出来**
+                            //    （`Label.SetText` 是 public 的，且这一扇窗是本段自建的、改完就销毁）。
+                            string widestD;
+                            float dwPx = WidestOf(dwnL, "MenuDeck/Error/NoWarlord", out widestD);
+                            CheckTrue(dwPx > 0.1f && dwPx <= DiWlBoxW + 1f,
+                                      $"★ A1035②：`MenuDeck/Error/NoWarlord` **渲出来 {dwPx:F1}px ≤ 框宽 {DiWlBoxW:F1}px**"
+                                    + "（框 = 原版 `Warlord Name` 跑后矩形 872.9→1359.9；那一行**不折行、不自适应**；"
+                                    + "最宽那一档 = 「" + (widestD ?? "<取不到>") + "」）"
+                                    + " —— 🧨 改坏法：把词条中文列再改长到放不下 ⇒ 这条红");
+                        }
+                        dwPop.Close();
+                        Object.DestroyImmediate(dwPop.gameObject);
+                    }
+                }
+
+                // ---------------------------------------------------------------- ③ 练习窗的空战将位
+                // 框 = `Shell/PracticeModePopup.cs` 给 `Warlord Name` 的那个**固定框**
+                // `1373.78,269.62 → 1726.64,303.62`（= 该文件的 `WnL/WnT/WnR/WnB` 四个字面量，
+                // 下面按 1726.64 − 1373.78 现算 ⇒ ⛔ 不引实现里的常量名）。
+                // ⚠️ **如实记**：原版那颗**宽 0 + `ContentSizeFitter` 撑开**、「右沿取 `Deck Name` 的 `DnR`」
+                //    **是我们挑的**（见 `Shell/PracticeModePopup.cs` `BuildDeckInfoHead` 的头注）
+                //    ⇒ 这一条的「框宽」**不是原版数字**，是**我们自己的版面约束**；
+                //    它证明的是「这段字放得进我们给它的那一格」，⛔ 不是「与原版一致」。
+                const float PrWlBoxW = 352.86f;             // = 1726.64 − 1373.78
+                {
+                    CheckTrue(Loc.HasEntry("MenuDeck/Error/NoWarlord"),
+                              "（前提）`MenuDeck/Error/NoWarlord` 在语言表里（与 ② 同一条键）");
+                    var pwPop = PracticeModePopup.Create(win.Manager);
+                    CheckTrue(pwPop != null, "（前提）自建一扇 `Practice Mode Menu`");
+                    if (pwPop != null)
+                    {
+                        pwPop.TryOpen(null);
+                        var pwnT = FindChild(pwPop.transform, "Warlord Name");
+                        var pwnL = pwnT != null ? pwnT.GetComponentInChildren<Label>(true) : null;
+                        CheckTrue(pwnL != null, "（前提）`Warlord Name` 那颗 `Label` 取得到");
+                        if (pwnL != null)
+                        {
+                            // 同上：自己造出「空战将位」那一支（本夹具的卡组有督军）。
+                            string widestP;
+                            float pwPx = WidestOf(pwnL, "MenuDeck/Error/NoWarlord", out widestP);
+                            CheckTrue(pwPx > 0.1f && pwPx <= PrWlBoxW + 1f,
+                                      $"★ A1035③：`MenuDeck/Error/NoWarlord` **渲出来 {pwPx:F1}px ≤ 框宽 {PrWlBoxW:F1}px**"
+                                    + "（框 = 本窗给 `Warlord Name` 的固定框 1373.78→1726.64；那一行**不折行、不自适应**；"
+                                    + "最宽那一档 = 「" + (widestP ?? "<取不到>") + "」）"
+                                    + " —— 🧨 改坏法：把词条中文列再改长到放不下 ⇒ 这条红");
+                        }
+                        PointerLayer.UnregisterOwnedBy(pwPop.gameObject);
+                        pwPop.Close();
+                        Object.DestroyImmediate(pwPop.gameObject);
+                    }
                 }
             }
 
@@ -3011,9 +3503,18 @@ public static class CollectionScene
                     CheckTrue(imp3 != null && imp3.CurrentState == WindowState.Open,
                               "（A94 现场）又开出一扇 `Import Deck Popup`");
                     if (imp3 != null)
+                    {
                         CheckAbsorbRule("导入卡组窗", imp3.transform, "AbsorbHit",
                                         560f, 234.07f, 1360f, 685.93f,
                                         ImportDeckPopup.QImp, ImportDeckPopup.QImpHit, () => imp3.CurrentState);
+                        // 🆕 2026-10-09（`A1125`）：关窗钮的**命中区 + 换图层**四连断 ——
+                        //   ⚠️ 本扇的命中节点 `CloseHit` / 脸 `Close Icon` 都挂**窗根**（⛔ 不套按钮节点；
+                        //   `Shell/ImportDeckPopup.cs:244` 的 `Hit(root, "CloseHit", …)`）；本扇是**绿族**
+                        //   （脸 `Close Icon` / 图 `40k_bt_close`）。
+                        //   ⚠️ 上面那扇 `imp2` 已被点关过两次 ⇒ 本条的**另一扇** `imp3` 正开着（⛔ 不用 `imp2`）。
+                        A1125Close("ImportDeckPopup", imp3.transform, null, "CloseHit",
+                                   "Close Icon", "40k_bt_close", "Close Icon", 96.37f, 94.50f);
+                    }
                 }
             }
 
@@ -4354,22 +4855,43 @@ public static class CollectionScene
                 var tex0 = qArt0 != null ? qArt0.Texture as Texture2D : null;
                 // 🔴 **2026-10-18（A994③）就地订正（铁律 5）**：这两条原来写 **250 / 405**（=「铺满格」）——
                 //    **错了**：原版那颗 `Cardback` 的 `Image` 带 **`m_PreserveAspect = 1`**
-                //    （A4 §2·1 那行「Simple **preserveAspect**」）⇒ 实绘 = **按贴图自己的比例内接进 250×405**，
-                //    ⛔ 不是拉满。期望值**现算**：框 = 原版 `_cellWidth/_cellHeight` 字面量，比例读**贴图资产自己**
-                //    （⛔ 不用被测实现那份 `PreserveAspectSize` —— 那是自证；见 `InsetFit` 的 doc）。
-                CheckTrue(tex0 != null, "（前提）第 1 格的卡背有贴图（`Texture` 取不到 ⇒ 下面两条「内接」无从算起）");
+                //    （A4 §2·1 那行「Simple **preserveAspect**」）⇒ 实绘 **≠ 拉满**。
+                // 🔴 **2026-10-19（B2）就地订正（铁律 5）**：期望值原来用 `InsetFit`（= 按**贴图自己**的比例内接）
+                //    —— 那只是 uGUI 的**半套**。原版是**两段**：① 按 sprite 的 **`m_Rect`（707×1020）定框**；
+                //    ② 贴图再按 **`textureRect/m_Rect` 缩** ⇒ **宽也会缩**（⛔ 不是「宽恒 250」）。
+                //    算法/判据全文 → `Core/CardbackFace.cs`；期望值现算走 `CardbackDrawnPx`
+                //    （⛔ 不调被测实现 `CardbackFace.Fit` / `PreserveAspectSize` —— 那是自证）。
+                CheckTrue(tex0 != null, "（前提）第 1 格的卡背有贴图（`Texture` 取不到 ⇒ 下面两条无从算起）");
                 if (tex0 != null)
                 {
-                    float a0 = tex0.width / (float)tex0.height;
-                    var fit0 = InsetFit(a0, CollectionWindow.CosmoCellW, CollectionWindow.CosmoCellH);
+                    var fit0 = CardbackDrawnPx(tex0, CollectionWindow.CosmoCellW, CollectionWindow.CosmoCellH);
                     CheckNear(Wpx(art), fit0.x, 0.6f,
-                              $"格里的卡背宽 = **内接宽 {fit0.x:F2}**（贴图 {tex0.width}×{tex0.height}"
-                            + $" ⇒ 比例 {a0:F4}；原版 `Cardback` 那颗 `Image` 带 `m_PreserveAspect = 1`）");
+                              $"格里的卡背宽 = **{fit0.x:F2}**（= 框宽 250 × `textureRect`/`m_Rect` 的**宽那一半**；"
+                            + $"贴图 {tex0.width}×{tex0.height} ⇒ 贴图宽/707 = {tex0.width / 707f:F4}。"
+                            + $"⛔ 「宽恒 250」是 B2 之前那一版（只做了第一段））");
                     CheckNear(Hpx(art), fit0.y, 0.6f,
-                              $"格里的卡背高 = **内接高 {fit0.y:F2}**（⛔ 不是 **405** —— 405 是**框**高、"
-                            + "「铺满框」正是 `m_PreserveAspect` 的反面；本仓 233 张比例全都 > 250/405 ⇒ 一律宽定）");
+                              $"格里的卡背高 = **{fit0.y:F2}**（= (250×1020/707) × 贴图高/1020；"
+                            + "⛔ 不是 **405** —— 405 是**框**高、也不是「仅按贴图比例内接」那一档）");
                     // 🧨 **改坏法**：把 `RebuildCosmoCells` 里卡背那一跳的 `keepAspect` 改回 `false`
                     //    （或退回直调 `ImageQuad.Create` + `SetAspect(250/405)`）⇒ 上面两条立刻红（高变回 405）。
+                    // 🆕 **2026-10-19（B2）**：画心**不居中** —— 原版按 sprite 的 `padding` 偏（uGUI 第二段的另一半）。
+                    //   偏移 = `((padL−padR)/2, (padB−padT)/2) × (框宽/707)`；uGUI 的 y **向上** ⇒ 本仓画布
+                    //   （y 向下）要**反号**。期望值走 `CardbackOffsetPx`（吃原版 `padding` 数据、独立复述算式）。
+                    float odx, ody;
+                    CheckTrue(CardbackOffsetPx(tex0, CollectionWindow.CosmoCellW, CollectionWindow.CosmoCellH,
+                                               out odx, out ody),
+                              $"（前提）`{tex0.name}` 在 `Resources/Cardbacks.json` 里有 `padL/padR/padB/padT` 四列"
+                            + "（表是旧版就没有 ⇒ 下面两条**空转**；跑 `python d:/4/Unity/工具/gen_cardbacks.py` 重生成）");
+                    if (CardbackOffsetPx(tex0, CollectionWindow.CosmoCellW, CollectionWindow.CosmoCellH, out odx, out ody))
+                    {
+                        // 第 1 格**整块在视口里**（上面 Wpx/Hpx 两条已经依赖这一点）⇒ 渲染中心 == 框中心 + 偏移
+                        CheckNear(PxOf(qArt0.transform.position.x) - PxOf(k0.position.x), odx, 0.6f,
+                                  $"★ 卡背格里的画心**不居中**：横偏移 = **{odx:F2}**px"
+                                + "（= (padL−padR)/2 × 250/707 ⇒ 没做这一半时恒为 **0**）");
+                        CheckNear(PxYOf(qArt0.transform.position.y) - PxYOf(k0.position.y), ody, 0.6f,
+                                  $"★ ……纵偏移 = **{ody:F2}**px（= −(padB−padT)/2 × 250/707 —— **反号那一处**："
+                                + "uGUI 的 y 向上、本仓画布 y 向下；没做这一半时恒为 **0**）");
+                    }
                 }
                 CheckTrue(art != null && art.GetComponentInChildren<ImageQuad>() != null
                           && art.GetComponentInChildren<ImageQuad>().Texture != null,
@@ -4473,10 +4995,13 @@ public static class CollectionScene
                     }
                 }
                 // ---- 🔴 2026-10-18（A994③）：**逐格**验「两层都没被拉伸」（原版两颗 `Image` 都带 `m_PreserveAspect = 1`）----
-                //  判据 = **渲染宽高比 == 贴图自己的宽高比**（uGUI `Image.PreserveSpriteAspectRatio` 的直接后果；
+                //  判据 = **渲染宽高比 == 贴图自己的宽高比**（uGUI `Image` 的直接后果；
                 //  「图没被拉伸」这件事与「我们怎么摆框」无关 ⇒ 它比「量宽/高」更靠近原版语义）。
+                //  ⚠️ **2026-10-19（B2）复核**：两段式之后渲染比例 = **`textureRect` 的比例**，而 `textureRect`
+                //     与「我们那张裁片 PNG」的比例实测最大只差 **1.42e-4**（233 张全量现读）⇒ 这条的 **2e-3 容差照旧成立**，
+                //     **一个字不用改**（它是「没被拉伸」的看门人，与「该多大」是两件事）。
                 //  ⛔ **不写死格号**：233 张比例跨 **0.6188~0.7652**，每格偏离量都不同 —— 写死一格就是赌假绿。
-                //  做法 = ① 全量扫（可量的格逐格比比例）② 按**偏离量**挑「内接 ≠ 拉满」差得**最远**的那一张做精确断言。
+                //  做法 = ① 全量扫（可量的格逐格比比例）② 按**偏离量**挑「两段式 ≠ 老口径」差得**最远**的那一张做精确断言。
                 //  被视口切过的格（滚动到边上那几格）渲染矩形本来就是「裁剩那块」的比 ⇒ 跳过（归 A181 那组管）。
                 {
                     var vpA = CollectionWindow.CosmoView;
@@ -4501,7 +5026,13 @@ public static class CollectionScene
                         // 🔴 **这一条对旧写法（一律 `SetAspect(250/405)` = 0.61728）必红** ——
                         //    本仓 233 张的比例**全都 > 0.61728**（最小 0.6188 ≥ 0.61728 + 0.0015），一张都对不上。
                         if (Mathf.Abs(rr - sc) > 2e-3f) stretched++;
-                        float dv = Mathf.Abs(cq2.WorldH * 108f - CollectionWindow.CosmoCellH);
+                        // 🔴 **2026-10-19（B2）改挑法**：原来按「实绘高离框高 405 多远」挑 —— 那是**老口径**
+                        //    （`250 ÷ 贴图比例`）的度量。两段式之后「高」的极值不再贴着 405
+                        //    （最大 = `250 × 最大 texRectH / 707` = **360.68**），挑出来那一格**未必**是
+                        //    「新老两态差得最远」的 ⇒ 下面的精确断言会**看着绿其实空转**。
+                        //    改成按**宽**挑：两段式的画心宽 = `250 × texRectW/707`，而老口径/拉伸**恒 250**
+                        //    ⇒ **贴图越窄、两态差得越远**（`texRectW` 用资产自己的 `ct.width` 顶，差 ≤0.5px）。
+                        float dv = 250f - 250f * ct.width / 707f;
                         if (dv > worstDev) { worstDev = dv; worstI = ci; }
                     }
                     CheckTrue(cellsOk >= 6,
@@ -4509,6 +5040,9 @@ public static class CollectionScene
                     Check(stretched, 0,
                           $"★ **卡背格逐格比「渲染宽高比 vs 贴图自己的宽高比」**（可量 {cellsOk} 格）"
                         + " —— 一格不等就是**拉伸**（原版 `Cardback` 那颗 `Image` 带 `m_PreserveAspect = 1`）");
+                    CheckTrue(worstI >= 0 && worstDev > 5f,
+                              $"（前提）挑得到一格「两段式 ≠ 老口径（宽恒 250）」差 > 5px 的探针 —— 实得 {worstDev:F2}px"
+                            + "（可量那几格里最小的贴图宽 < 692 ⇒ 否则下面两条**空转**，⛔ 别放它过去）");
                     if (worstI >= 0)
                     {
                         var wcell = FindChild(cpage, "CollectionCosmetic_" + worstI);
@@ -4518,22 +5052,26 @@ public static class CollectionScene
                         CheckTrue(wt != null, "（前提）按偏离量挑出来的那一格贴图取得到");
                         if (wt != null)
                         {
-                            float sw2 = wt.width / (float)wt.height;
-                            var fitW = InsetFit(sw2, CollectionWindow.CosmoCellW, CollectionWindow.CosmoCellH);
-                            float boxAspect = CollectionWindow.CosmoCellW / CollectionWindow.CosmoCellH;
-                            CheckTrue(Mathf.Abs(sw2 - boxAspect) > 0.05f,
-                                      $"（前提）挑出来的这一张（`{wt.name}` {wt.width}×{wt.height}）比例 {sw2:F4} 与框比 "
-                                    + $"{boxAspect:F4} 差 **{Mathf.Abs(sw2 - boxAspect):F4} > 0.05**"
-                                    + " —— ⛔ 否则「内接」与「拉满」就差不出两态，下面那条等于空转");
+                            var fitW = CardbackDrawnPx(wt, CollectionWindow.CosmoCellW, CollectionWindow.CosmoCellH);
+                            CheckNear(Wpx(wart), fitW.x, 0.6f,
+                                      $"★ 两态差得最远的那一格（`{wt.name}` · 第 {worstI + 1} 张 · 贴图 {wt.width}×{wt.height}）"
+                                    + $"画出来的**宽** = **{fitW.x:F2}**（= 250 × {wt.width}/707；"
+                                    + $"**老口径 / 拉满时恒是 250**，差 {250f - fitW.x:F2}px）");
                             CheckNear(Hpx(wart), fitW.y, 0.6f,
-                                      $"★ 偏离最大的那一格（`{wt.name}` · 第 {worstI + 1} 张）画出来的高 = **{fitW.y:F2}**"
-                                    + $"（= 250 ÷ {sw2:F4}；**拉满时是 {CollectionWindow.CosmoCellH}**，差 "
+                                      $"★ ……**高** = **{fitW.y:F2}**（= (250×1020/707) × {wt.height}/1020；"
+                                    + $"**拉满时是 {CollectionWindow.CosmoCellH}**，差 "
                                     + $"{CollectionWindow.CosmoCellH - fitW.y:F2}px）");
+                            // 🔴 **2026-10-19（B2）补第二条灭自证**：老口径（只做第一段 / 拉伸）时
+                            //    **宽恒 == 250**⇒ 这一条与上面那条宽断言**结构上不可能同时绿**。
+                            CheckTrue(Wpx(wart) < CollectionWindow.CosmoCellW - 5f,
+                                      $"★ 灭自证：画心宽 {Wpx(wart):F2} **严格小于**框宽 {CollectionWindow.CosmoCellW}"
+                                    + $"（实得 {Wpx(wart):F2}，差 {CollectionWindow.CosmoCellW - Wpx(wart):F2}px）"
+                                    + " —— 老口径/拉满时它**恒等于**框宽，两条不可能同时绿");
                             // 🧨 **灭自证**：只要退回「拉满」（`keepAspect: false` / `SetAspect(250/405)`），
                             //    「画出来的高」就**恒 == `CosmoCellH`** ⇒ 这一条与上一条**不可能同时绿**
                             //    （挡的是「把实现和期望值一起改回旧写法」：期望值是**从贴图资产现算**的，改不回去）。
                             CheckTrue(Hpx(wart) < CollectionWindow.CosmoCellH - 10f,
-                                      $"★ 灭自证：「内接后的高」**严格小于框高 {CollectionWindow.CosmoCellH}**"
+                                      $"★ 灭自证：「两段式后的高」**严格小于框高 {CollectionWindow.CosmoCellH}**"
                                     + $"（实得 {Hpx(wart):F2}，差 {CollectionWindow.CosmoCellH - Hpx(wart):F2}px）"
                                     + " —— 拉满时它**恒等于**框高，两条不可能同时绿");
                         }
@@ -4787,6 +5325,8 @@ public static class CollectionScene
                 // 对照：没被切的那一排（第 2 排）⇒ 仍是**内接矩形本身**（没被视口一起压扁）
                 //  🔴 **2026-10-18（A994③）**：期望值从「整格高 405」改成**按该格贴图现算的内接高**；
                 //    405 是**框**高（= 拉满），而原版那颗 `Image` 带 `m_PreserveAspect = 1`。
+                //  🔴 **2026-10-19（B2）**：现算那一步从 `InsetFit`（只做第一段）换成 **`CardbackDrawnPx`**
+                //    （两段式：先按 `m_Rect` 定框、再按 `textureRect/m_Rect` 缩）—— 口径/判据 → `Core/CardbackFace.cs`。
                 var cfull = FindChild(cpage, "CollectionCosmetic_" + CollectionWindow.CosmoCols);
                 if (cfull != null)
                 {
@@ -4794,13 +5334,12 @@ public static class CollectionScene
                     var cqq = cq != null ? cq.GetComponentInChildren<ImageQuad>() : null;
                     var ctq = cqq != null ? cqq.Texture as Texture2D : null;
                     var fitF = ctq != null
-                        ? InsetFit(ctq.width / (float)ctq.height,
-                                   CollectionWindow.CosmoCellW, CollectionWindow.CosmoCellH)
+                        ? CardbackDrawnPx(ctq, CollectionWindow.CosmoCellW, CollectionWindow.CosmoCellH)
                         : new Vector2(CollectionWindow.CosmoCellW, CollectionWindow.CosmoCellH);
                     CheckNear(cqq != null ? cqq.WorldH * 108f : -1f, fitF.y, 1.5f,
-                              $"对照：没被切的那一排卡背 = **本格自己的内接高 {fitF.y:F2}**（实测 "
+                              $"对照：没被切的那一排卡背 = **本格自己两段式后的高 {fitF.y:F2}**（实测 "
                             + $"{(cqq != null ? cqq.WorldH * 108f : -1f):F1}）—— 只在越界时裁、不是一律压扁；"
-                            + $"也**不是框高 {CollectionWindow.CosmoCellH}**（内接后高只可能 ≤ 框高）");
+                            + $"也**不是框高 {CollectionWindow.CosmoCellH}**（两段式之后高只可能 ≤ 360.68）");
                 }
                 csc.SetOffset(savedCO);
             }
@@ -7482,6 +8021,74 @@ public static class CollectionScene
                         }
                     }
                 }
+            }
+
+            // ============================================================ 🆕 2026-10-09（`A1025`）本批键全 `Loc.HasEntry` + 两语档取真文案
+            // 判据（坑表 #18）：**「原版有词条」≠「我们表里有键」** —— 键不在 ⇒ `Loc.T` 返回**键名本身**、界面上就印键名。
+            // 🔴 **与 `A1057(f)`（`Editor/NetSelfTest.cs` 那张**表级**扫描）不是同一条、方向相反**：那条是 **表 → 表**
+            //   （表自身健康），本条是 **代码 → 表**（**本批代码引的键**有没有落进表）—— 表级扫描永远看不见后者。
+            // 🔴 **Net/ 那批已有等价物**（`Editor/NetSelfTest.cs` 的 `TestNetTermBilingual`）⇒ 本笔不重复覆盖它。
+            // 数组 = 本批生产文件里出现的**活键字面量** ∩ `Core/Loc.cs` 的表键（超集无害、且更严）。
+            // 本宿主的数组 = 上面 `DeckScene` 那批 ∪ `Shell/{DeckInfoPopup,DeckSelectionPopup,ImportDeckPopup,CollectionData,PracticeModePopup}.cs`。
+            // 🔴 **`MenuDeck/Share/ExportSuccesful` 【不在】本数组**：它在代码里被引（`Shell/DeckInfoPopup.cs:1438`）、表里没有 ——
+            //   但走的是 `ErrorMessageBanner.ShowMessage` 的 `fallback` 支（**界面不印键名、不是缺陷**），正主是 `A1050`。
+            // 🧨 改坏法：① `Loc.cs` 删掉本批任一条键 ⇒ ①红；② 某条**英文列**填中文/全角空格 ⇒ ③红；
+            //   ③ **中文列**清空 ⇒ ②红；④ 值改成键名本身 ⇒ ②红；⑤ 表删掉一半 ⇒ ④红（`EntryCount` 掉到基线之下）；
+            //   ⑥「把实现与期望一起改回写死中文 **并** 把表里那条删掉」⇒ ①红（数组里那条键仍在、`HasEntry` 假）—— 这正是本数组存在的唯一理由。
+            {
+                string[] a1025Keys =
+                {
+                    "Battle/Tips/EnergyCost", "Card_Race/Warlord", "Card_Rarity/Common",
+                    "Card_Rarity/Epic", "Card_Rarity/Legendary", "Card_Rarity/Rare",
+                    "Card_Rarity/Special", "MainMenu/General/Confirm", "MainMenu/General/OK",
+                    "MainMenu/MainButtons/ButtonLabel/Back", "MenuCollection/NoCardsFound", "MenuCollection/NoDecksFound",
+                    "MenuDeck/Button/Random", "MenuDeck/CantImportDeck", "MenuDeck/DefaultDeckName",
+                    "MenuDeck/DemoDeckName", "MenuDeck/Error/CantStartNoWarlord", "MenuDeck/Error/HiddenCards",
+                    "MenuDeck/Error/ImportBadString", "MenuDeck/Error/ImportEmpty", "MenuDeck/Error/ImportNotPersisted",
+                    "MenuDeck/Error/InvalidDeck", "MenuDeck/Error/NoUsablePrebuilt", "MenuDeck/Error/NoWarlord",
+                    "MenuDeck/Error/PrebuiltMissing", "MenuDeck/Error/SaveFailed", "MenuDeck/Filters/Army",
+                    "MenuDeck/Filters/ClearFilters", "MenuDeck/Filters/Filters", "MenuDeck/Filters/ShowOwnedOnly",
+                    "MenuDeck/Filters/ShowUpgradableOnly", "MenuDeck/Filters/Type", "MenuDeck/HUD/DeckDescription/DeckInfo",
+                    "MenuDeck/HUD/DeckDescription/Minions", "MenuDeck/HUD/DeckDescription/Spells", "MenuDeck/HUD/DiscardChanges",
+                    "MenuDeck/HUD/DragCardsTip", "MenuDeck/HUD/EditDeckName", "MenuDeck/HUD/EnterText",
+                    "MenuDeck/HUD/NoArmySelected", "MenuDeck/HUD/Rarity", "MenuDeck/HUD/SearchFilter",
+                    "MenuDeck/MenuButtons/Done", "MenuDeck/NewDeckName", "MenuDeck/Share/PasteDeck",
+                    "MenuDeck/Tip/SelectDeckAgainst", "MenuShop/ShopItemType/Cards", "MenuShop/ShopItemType/Cosmetics",
+                    "Settings/Online/MatchCancelFailed", "Settings/Online/MatchCancelled",
+                };
+                foreach (var k in a1025Keys)
+                    CheckTrue(Loc.HasEntry(k), $"★（A1025）本批键都在表里：`{k}`");
+                // ② 两语档各取一次、都非空且 ≠ 键名（只断中文档 = 半边绿）
+                var a1025LangWas = Loc.Current;
+                foreach (var lang in new[] { AvailableLanguages.Chinese, AvailableLanguages.English })
+                {
+                    Loc.RestoreForTest(lang);
+                    int bad = 0; string firstBad = null;
+                    foreach (var k in a1025Keys)
+                    {
+                        string v = Loc.T(k);
+                        if (string.IsNullOrEmpty(v) || v == k) { bad++; if (firstBad == null) firstBad = k; }
+                    }
+                    CheckTrue(bad == 0, $"★（A1025）`{lang}` 档下 {a1025Keys.Length} 条**全部取到真文案**（缺 {bad} 条"
+                              + (firstBad == null ? "" : $"，第一条 `{firstBad}`") + "）"
+                              + " —— 取不到时会印**键名本身**，那就是静默失败");
+                }
+                Loc.RestoreForTest(a1025LangWas);      // ⛔ 只改内存、不写 `PlayerPrefs`（不是 `SetLanguage`）
+                // ③ 灭自证 C1：英文列不许含汉字（`Loc.HasCjk` 的区间含 `0x3000-0x303F` 与 `0xFF00-0xFFEF`）
+                {
+                    int cjk = 0; string firstCjk = null;
+                    foreach (var k in a1025Keys)
+                    {
+                        string en = Loc.EnOf(k);
+                        if (!string.IsNullOrEmpty(en) && Loc.HasCjk(en)) { cjk++; if (firstCjk == null) firstCjk = k; }
+                    }
+                    CheckTrue(cjk == 0, $"★（A1025）本批 {a1025Keys.Length} 条的**英文列无 CJK**（坏 {cjk} 条"
+                                      + (firstCjk == null ? "" : $"，第一条 `{firstCjk}`") + "）");
+                }
+                // ④ 灭自证 D（表基线）：开工前实测 `EntryCount == 429`
+                CheckTrue(Loc.EntryCount >= 429,
+                          $"★（A1025）表基线：`Loc.EntryCount` = {Loc.EntryCount} ≥ **429**（开工前实测）"
+                        + "｜🧨 把键删掉、断言也一起删 ⇒ 这条红");
             }
 
             int total = _sink.Pass + _sink.Fail;

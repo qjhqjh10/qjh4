@@ -566,8 +566,20 @@ namespace CardPresentation
 
             // 🆕 **一段连线整段在视口外就不建**（原版 `RectMask2D` 会把它整个裁掉；
             //    接滚动之前这里没有这道判断 —— 右边几十个节点的连线一直画到屏外）
-            Vector2 midPx = LayoutSpace.ToPixel(a + ab * 0.5f);
-            float halfLen = ab.magnitude * 108f * 0.5f;
+            // 🔴 **2026-10-18（A1092）就地订正（铁律 5）**：这两行原来写的是 `LayoutSpace.ToPixel`
+            //    （= `PxX`，**x 斜率写死 108 = `DesignPxW ÷ DesignWidth`**）+ 裸 `108f` —— **只在 16:9 是设计 px**。
+            //    而 `_vpR` 是 `UguiRect.Child` 算出来的 `PxRect`，**恒为设计 px**（`Core/UguiRect.cs`：
+            //    「单位 = 设计像素 1920×1080」）⇒ 非 16:9 下比的**不是同一件东西**：
+            //    旧值相对画布中心 960 的偏移 = 真值 × `r`（`r = VisibleWidth / DesignWidth`；
+            //    4:3 ⇒ 0.75 · 21:9 ⇒ 1.3125）—— 半宽那项同倍。
+            //    ⇒ 4:3 下「整段在视口外」判不中（**多建**一批其实被 `RectMask2D` 裁掉的连线）；
+            //      21:9 下反过来，**真的在视口里的连线会被当成屏外剔掉**（少画）。
+            // 🔴 **中心与半宽必须【成对】换、同一条斜率**：只换中心不换半宽 ⇒ 判据框被缩小 `r` 倍
+            //    （`Shell/PointerLayer.HitBoxPx` 那一族就是栽在这条上 —— 4:3 下命中区只剩 75%，
+            //    症状「看着在钮上、点不动」，而 **16:9 照样全绿**）。
+            // 判据 → `资料/普查产出_第六会话/W_外壳量法线_四笔.md` §3·2（`A990②`）；账 = `A1092`。
+            Vector2 midPx = LayoutSpace.ToDesignPixel(a + ab * 0.5f);
+            float halfLen = ab.magnitude * LayoutSpace.PxPerWorldX * 0.5f;
             if (_trackScroll != null
                 && (midPx.x + halfLen < _vpR.x1 - 2f || midPx.x - halfLen > _vpR.x2 + 2f)) return;
 
@@ -579,8 +591,15 @@ namespace CardPresentation
             // `MenuDraw.Local` / `MainMenuSubmenuWindow.Local` 是**同一个病**：`a + ab*0.5f` 是**设计**世界坐标
             // （`LayoutSpace.FromPixel` 出来的），而 `parent.position` 是**已缩放**的视觉世界坐标 ——
             // 小屏缩放开关一开（窗根 ×M）两者差一层 `lossyScale`。
-            // ⚠️ **上面那句视口剔除（`midPx` 比 `_vpR`）不用改**：两边本来就是设计 px/设计世界坐标
-            //（`ToPixel(a + ab*0.5f)` ↔ `_vpR` 的设计 px），与这里要修的量纲不是同一处。
+            // ⚠️ **2026-10-18（A1092）就地订正（铁律 5）**：这里原来写的是「**上面那句视口剔除
+            //（`midPx` 比 `_vpR`）不用改**：两边本来就是设计 px/设计世界坐标（`ToPixel(a + ab*0.5f)`
+            //  ↔ `_vpR` 的设计 px）」—— **那句是错的**，已按判据改掉（上面两行现在走
+            //  `LayoutSpace.ToDesignPixel` + `LayoutSpace.PxPerWorldX`，中心与半宽同一条斜率）。
+            //  **错因**：`ToPixel`/`PxX` 的 x 斜率写死 108，**只在 16:9 等于设计 px**；
+            //  非 16:9 下它相对 960 的偏移是设计 px 的 `r = VisibleWidth / DesignWidth` 倍
+            //（4:3 ⇒ 0.75）⇒ 「世界 px ↔ 世界 px 内部自洽」那一档才轮得到 `ToPixel`
+            //  （见 `Core/LayoutSpace.cs` 的 `ToPixel` doc 与 `ToDesignPixel` 那一节）。
+            //  真正和**这一处**不同量纲的是**父链缩放那一层**（`k`），两句原来被写混成一句了。
             // 📌 **`k == 1`（缩放开关出厂关）时与改前【逐位相同】**。
             // 🔴 **改坏法**：换回裸 `parent.position` ⇒ **今天一条现有断言都不会红**（`k == 1` 两式逐位相同
             // ⇒ 这是**潜伏缺陷**）⇒ 要补的两态断言写在 `资料/普查产出_1011/W4_子3.md` §四，由调度台安排。

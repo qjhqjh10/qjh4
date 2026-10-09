@@ -36,7 +36,7 @@
 //      🔴 **2026-10-07（A169）**：那个 22.406 **不再写死在本件里** —— 原版逐实例不同
 //      （FPS 那一行是 35.406）⇒ 由调用方按自己那根的框高给（`Create(handlePx:)`）。
 //      🔴🔴 **2026-10-07（波 8）复核：22.406 是【序列化的】`m_SizeDelta.y`，不是运行时的框高** ——
-//      `Slider.UpdateVisuals` 运行时把手柄的锚写成 `y 0 → 1`（`Slider.cs:616-623`）⇒
+//      `Slider.UpdateVisuals` 运行时把手柄的锚写成 `y 0 → 1` ⇒
 //      **框高 = 滑区高 + 22.406**（战斗 12 + 22.406 = **34.406**、设置窗 13 + 22.406 = **35.406**），
 //      再经 `preserveAspect` 取短边 ⇒ 实画边长应分别是 34.406 / 35.406（设置窗再 × 0.9 = 31.87）。
 //      🔑 **A168 那根 FPS 滑块已经按 35.406 画**（同一个 `m_SizeDelta`、同一个 13 高的滑区）⇒
@@ -114,7 +114,7 @@ namespace CardPresentation
         /// <summary>⚠️ **这是【序列化】的框短边（= `HandleFrameH`），⛔ 不是实画边长** —— 名字是 A169 之前
         /// 留下的（那时以为九根都画 22.406）。**实画边长 = `滑区高 + HandleFrameH`**：
         /// uGUI `Slider.UpdateVisuals` 把手柄的 `anchorMin.y/anchorMax.y` 写成 **0 / 1**
-        /// （本机 `…/com.unity.ugui/Runtime/UGUI/UI/Core/Slider.cs:616-623`，只改**轴**那一维的锚值）
+        /// （本机 `…/com.unity.ugui/Runtime/UGUI/UI/Core/Slider.cs` 的 `Slider.UpdateVisuals`，只改**轴**那一维的锚值）
         /// ⇒ 运行时框高 = 容器（`Handle Slide Area`，与滑块根同高）× 1 + `m_SizeDelta.y`。
         /// 🔴 **2026-10-07（波 8 · A197）前，两个调用点都拿它当实画边长用**（战斗画 22.406、应为 34.406；
         /// 设置窗画 20.17、应为 31.87）⇒ 小 35~37%，而**同一扇窗**里 A168 那根 FPS 滑块已经画对了
@@ -133,8 +133,7 @@ namespace CardPresentation
         /// <summary>两张图的 `m_PixelsPerUnitMultiplier` = **2.0**（Image 字段实读，两处宿主逐颗核过：
         /// 设置窗音频页 `MonoBehaviour_-3335051800813797466`(bg) / `-3703242373742624858`(fill)、
         /// 战斗 `…_4032`/`…_4228` 等三对 —— 九根**全是 2.0**）。
-        /// ⇒ 端帽 = `m_Border ÷ 2`（uGUI `Image.GenerateSlicedSprite` → `GetAdjustedBorders(border / multipliedPixelsPerUnit)`，
-        /// `Image.cs:1157`）。
+        /// ⇒ 端帽 = `m_Border ÷ 2`（uGUI `Image.GenerateSlicedSprite` → `GetAdjustedBorders(border / multipliedPixelsPerUnit)` —— 就是 `Image.multipliedPixelsPerUnit`）。
         /// 🔴 **2026-10-07（A169）修的就是这一条**：本件原来把 184 / 30 **直接当画出来的端帽**（= 贴图 px 原样）
         /// ⇒ 端帽**宽 2.2 倍、中段短一半**（A168 那根已按 92 / 15 画，本件照它）。</summary>
         public const float PpuMul = 2f;
@@ -143,7 +142,7 @@ namespace CardPresentation
         /// 设置窗那条路上少了 1 画布 px（原版 674.195 × 0.9 = 606.7755，我们 605.7755）。
         /// **左端让位 = 0**（滑区左沿与轨道左沿重合 —— 判据见文件头那条「+17 是算错的」更正）
         /// ⇒ 滑区 = [轨道左, 轨道右 − 10 设计 px]，与 uGUI `Slider.UpdateDrag` 拿 `m_HandleContainerRect`
-        /// 当归一化矩形这件事逐句对应（`Slider.cs:630-642`）。
+        /// 当归一化矩形这件事逐句对应（见 `Slider.UpdateDrag`）。
         /// ⚠️ 本件**逐实例**用它：`_slideInsetU = 本常量 × capScale ÷ 108`
         /// （战斗 `capScale = 1` ⇒ 屏幕上让 10；设置窗 `0.9` ⇒ 让 9 —— 见 `Create` 的 `capScale`）。
         /// 出处（两条 RT 都实读得到 −10）：`bundle_scenes_scenes_battlearena1/RectTransform/RectTransform_2978.json` ·
@@ -407,7 +406,7 @@ namespace CardPresentation
         }
 
         /// <summary>按指针的世界坐标取值。返回**值变了没有**。
-        /// 🔴 **逐句照原版 `Slider.UpdateDrag`**（本机 `…/com.unity.ugui/Runtime/UGUI/UI/Core/Slider.cs:630-642`）：
+        /// 🔴 **逐句照原版 `Slider.UpdateDrag`**（本机 `…/com.unity.ugui/Runtime/UGUI/UI/Core/Slider.cs` 的 `Slider.UpdateDrag`）：
         /// `clickRect = m_HandleContainerRect`（= **`Handle Slide Area`**，⛔ 不是轨道）、
         /// `localCursor -= clickRect.rect.position;`、`val = Clamp01(localCursor[axis] / clickRect.rect.size[axis])`
         /// ⇒ **值的 0 在滑区左沿**（= 轨道左端 —— 左端不让位）、**1 在滑区右沿**（= 轨道右端 − 10 设计 px）、

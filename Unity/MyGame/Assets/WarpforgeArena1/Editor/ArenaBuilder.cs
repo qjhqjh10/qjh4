@@ -2688,6 +2688,10 @@ public static class ArenaBuilder
     //     ⇒ 挂到任何非 identity 的父节点下都会被**变换第二次**。今天不触发（tau / darkangels 实测
     //     `worldBaked` 各 0 个），留着是防下一次静默出错。
     //  🔴 **不许静默**：node 的父找不到 / 要改挂的对象找不到，都**逐条出声**并计数（`LastGroupNodeMissed`）。
+    //     ⚠️ **唯一一处例外（2026-10-19 · A345-T-b）**：旁挂里那一条「**相机**」（= `manifest.camera`）——
+    //     它**按设计不在内容树里**（`BuildContent` 从不建相机）⇒ **显式跳过 + 单独计数**
+    //     （`IsCameraTarget` / `LastGroupNodeCameraSkipped`），**不算 miss、不出声**。
+    //     判据与取舍见 `IsCameraTarget` 的头注；⛔ 这不是「把一条红涂绿」，是把**生成侧的假目标**摘掉。
     // ==================================================================
 
     /// <summary>上一次 `ApplyGroupNodes` 的结果。
@@ -2696,15 +2700,33 @@ public static class ArenaBuilder
     /// **没有任何断言在读它们**（自检**不会**因「没对上」变红、也**不会**替我们盯住它；
     /// 见 `资料/战场场景线_交接.md` §五 末的 A591 落痕）。留着是给**人**看（每场一行日志）+ 给将来的断言当接口。
     /// · `Created` = 新建了几个节点 · `Moved` = 改挂成功几个 · `AnimAdded` = 补了几个 `Animation` ·
-    /// · `Missed` = 有几条没对上（**出声**点名在 `MissedWhat` 里）。</summary>
+    /// · `Missed` = 有几条没对上（**出声**点名在 `MissedWhat` 里）。
+    /// 🆕 **2026-10-19（A345-T-b）**：上面 A591 那句「**没有任何断言在读它们**」**今天已不成立** ——
+    ///   `Editor/BattleScene.cs` 里那条「**13 场逐场未解析 0 条**」现在**真的在读** `Missed` /
+    ///   `CameraSkipped` / `MissedWhat`（它逐场把本函数跑在一份**一次性实例**上再读这三个口）。
+    ///   留着上一段只为留痕（铁律 5：改掉旧说法、但别抹掉「这条被核过」的痕迹）；
+    ///   `Created` / `Moved` 仍然只给**人**看（日志 + 断言的细节文案），没有断言压在它们身上。</summary>
     public static int LastGroupNodeCreated, LastGroupNodeMoved, LastGroupNodeAnimAdded, LastGroupNodeMissed;
     public static readonly System.Collections.Generic.List<string> LastGroupNodeMissedWhat
         = new System.Collections.Generic.List<string>();
+    /// <summary>🔴 **2026-10-19（A345-T-b）**：本场被**显式跳过**的「相机」条数（今天恒 **1**、13 场共 13）。
+    /// 判据（为什么该跳过）见下面 `IsCameraTarget` 的头注。
+    ///
+    /// <para>**为什么要单开一个计数、而不是把相机从 `Missed` 里静默扣掉** —— 光看 `Missed == 0` 的话，
+    /// 「**认出相机、按设计跳过**」与「**旁挂里那条相机被人拿掉了**」**两种状态都是绿的** ⇒
+    /// 那就是本仓明令禁的「靠『什么都没发生』的假断言」。所以断言（`Editor/BattleScene.cs`）把三个口钉在一起：
+    ///   · `CameraSkipped == 1` = **认出来了**（⛔ 变 0 ⇒ 旁挂被改过 ⇒ 红）；
+    ///   · `Missed == 0`       = 除了它，再没有别的对不上；
+    ///   · **该场 prefab 里 `Camera` 组件数 `== 0`** = ⛔ 没把相机**建进** prefab
+    ///     （那条路也会让 `Missed` 归零，但与 §27 冲突：会多一台 `depth = −1` 的相机）。
+    ///   三者**结构上不可能同时被一条错改法满足** ⇒ 这就是本条的灭自证。</summary>
+    public static int LastGroupNodeCameraSkipped;
 
     public static int ApplyGroupNodes(Manifest mf, GameObject root)
     {
         LastGroupNodeCreated = 0; LastGroupNodeMoved = 0; LastGroupNodeAnimAdded = 0;
         LastGroupNodeMissed = 0; LastGroupNodeMissedWhat.Clear();
+        LastGroupNodeCameraSkipped = 0;
         if (mf == null || root == null) return 0;
         var sc = LoadGroups(mf.scene);
         if (sc == null || sc.nodes == null || sc.nodes.Length == 0) return 0;   // 这一场本来就没有要补的
@@ -2741,6 +2763,13 @@ public static class ArenaBuilder
         foreach (var t in sc.targets ?? new GroupTarget[0])
         {
             if (t == null || string.IsNullOrEmpty(t.name)) continue;
+            // 🔴 2026-10-19（A345-T-b）**「相机」这一格显式跳过、且单独计数**（判据全文见 `IsCameraTarget`）。
+            //   一句话：旁挂把 `manifest.camera` 当成了「我们会建的对象」，而 `BuildContent` **从不建相机**
+            //   ⇒ `FindBuilt` 对它**必然回 null**、逐场（13/13）恒 +1 条「没对上」。那是**假目标**：
+            //   既不是缺陷、也不是「预期的红」，是生成侧对「`ArenaBuilder` 会建什么」的模型错了一格。
+            //   ⛔ 别把相机**建进** prefab（§27 冲突、会多一台 `depth = −1` 的相机）、
+            //   ⛔ 也别去动 13 场 prefab 的**内容**（那条线的资产，动内容要重验 + 重冻基线）。
+            if (IsCameraTarget(mf, t)) { LastGroupNodeCameraSkipped++; continue; }
             var tr = FindBuilt(root.transform, t.name, t.pos);
             if (tr == null)
             {
@@ -2771,6 +2800,9 @@ public static class ArenaBuilder
         foreach (var t in sc.adds ?? new GroupTarget[0])
         {
             if (t == null || string.IsNullOrEmpty(t.name)) continue;
+            // 相机这一格与 `targets[]` **同一份判据**（今天 `adds[]` 13 场都是空的，留着是防生成侧哪天
+            // 把它挪到这里 —— 两处各写一份 = 迟早不一致，`CLAUDE.md` §三）。
+            if (IsCameraTarget(mf, t)) { LastGroupNodeCameraSkipped++; continue; }
             var tr = FindBuilt(root.transform, t.name, t.pos);
             if (tr == null)
             {
@@ -2789,34 +2821,78 @@ public static class ArenaBuilder
         return LastGroupNodeMoved;
     }
 
+    /// <summary>旁挂里那一条是不是「**相机**」—— 身份 = `mf.camera` 的**名字 + pos**（`<场>_manifest.json` 那一份）。
+    ///
+    /// <para>🔴 **2026-10-19（A345-T-b · 假目标）为什么需要它**：
+    ///   `工具/gen_arena_groups.py` 把 `manifest.camera`（连同 `manifest.light`）**无条件**当成了
+    ///   「`ArenaBuilder` 会建的对象」塞进 `built_paths`（那段 `cv = manifest.get('camera')… add('camera', …)`）。
+    ///   **`light` 那一格的假设是对的、相机这一格是错的** ——
+    ///   `BuildContent` 末尾有 `ApplyLightAndAmbient(root.transform, mf)`（灯**建在 `root` 里**），
+    ///   却**从不建相机**：相机光学只是**数据**（`ArenaPrefabData.state` 的 `cam*` 那几项），
+    ///   真正那台相机是**战斗场景自己的**（`BattleScene.BuildBoardCamera`，名字还叫
+    ///   `BoardCamera 透视（原版值）`）或**独立战场场景**根上的（本文件 `BuildSceneTail`）。
+    ///   ⇒ `FindBuilt` 对这条**必然回 null** ⇒ 逐场（13/13）恒 +1 条「没对上」。
+    ///   逐场现读（13 份 `<场>_groups.json`）：`BoardCamera` · pos **(100.000,2.222,-13.572)** ·
+    ///   parent `BattlePrefab/BattleBoardElements`，**13 场逐字相同**、每场恰好 1 条。
+    ///   处置 = **这里显式承认它不在内容树里**（不动 13 场 prefab 的内容、也不把相机建进 prefab）。
+    ///   诊断全文 = `资料/普查产出_第八会话/S1_诊断A345Tb根因.md` §③。</para>
+    ///
+    /// <para>⚠️ **判据只用 `mf.camera` 的名字 + pos** —— 两者都在 `<场>_manifest.json` 里，
+    ///   与旁挂 `<场>_groups.json` 是**两份文件**（所以这个名字/pos **不是**从被检的那条旁挂里读回来的）。
+    ///   父路径 `BattlePrefab/BattleBoardElements` **manifest 里没有**
+    ///   （`CameraData` 只带 `name/pos/rot/fov/near/far/lensShiftY/sensorSize*`），
+    ///   所以那一格由**断言侧**拿旁挂现值单独钉住，⛔ 别在这里编一个路径出来充数。
+    ///   pos 是**第二重身份**（同源、13/13 逐字相同）⇒ 加上它之后「同名但不是相机」的条目
+    ///   **不会被静默吞掉**（那正是 `CLAUDE.md` §三那条「不许静默失败」要防的）。</para>
+    ///
+    /// <para>⚠️ 今天 `mf.camera.pos` 与旁挂那条 `pos` 是**同一个浮点数组**（逐字相同），
+    ///   这里取 `1e-3` 容差只是防生成侧哪天换精度，**不是**在放宽匹配。
+    ///   ⚠️ 任一侧缺 pos ⇒ **不认**（照旧算 miss）：宁可红一条假的、也不吞掉一条真的。</para></summary>
+    public static bool IsCameraTarget(Manifest mf, GroupTarget t)
+    {
+        if (mf == null || mf.camera == null || t == null) return false;
+        if (string.IsNullOrEmpty(mf.camera.name) || string.IsNullOrEmpty(t.name)) return false;
+        if (CardPresentation.EnvironmentApplier.Norm(t.name)
+            != CardPresentation.EnvironmentApplier.Norm(mf.camera.name)) return false;
+        var a = mf.camera.pos; var b = t.pos;
+        if (a == null || a.Length < 3 || b == null || b.Length < 3) return false;
+        return Mathf.Abs(a[0] - b[0]) <= 1e-3f
+            && Mathf.Abs(a[1] - b[1]) <= 1e-3f
+            && Mathf.Abs(a[2] - b[2]) <= 1e-3f;
+    }
+
     /// <summary>「没对上」那条出声的**尾巴** —— `targets[]` 与 `adds[]` 两支**共用这一份**措辞
     ///   （两处各写一份 = 迟早不一致；见 `CLAUDE.md` §三「两处写同一条规则 = 迟早不一致」）。
     ///
-    /// <para>🔴 **2026-10-15（A591）就地收口**：原来这里（两处）写的是「**很可能是上游闸门没建** ……」——
-    ///   那句会误导：**13/13 场**的重建日志里**逐场都是同一条**（`target BoardCamera` ·
-    ///   旁挂 pos `(100.000,2.222,-13.572)`），照原文读起来像 **13 个新缺陷**。
-    ///   **实况是【既有的、预期的】**：
-    ///   · 判据 = **A345-T-b 的「没对上 0 条 ×13」**（`资料/普查产出_1013/WA345Ta_战场全树生成侧.md` §八）
-    ///     —— 🔴 **该判据【尚未达成】：今天每场 1 条** ⇒ 本线**一律按【预期红】处置**
-    ///     （**不是「已绿」、也不是「新缺陷」**）。
-    ///   · 落痕（两份日志原件名 + 四个场 `_groups.json`/`_manifest.json` 抽读）= `资料/战场场景线_交接.md` §五 末。
-    ///   · 今天**没有任何断言读它**：`LastGroupNodeMissed` 只在本文件内自记自印，
-    ///     `Editor/BattleScene.cs` 那几条印「没对上 …（0）」的断言读的是**另一个**计数器
-    ///     （`ScenarioBlendableFactory.SceneAnimFxMissed`）⇒ **自检不会因它变红、也不会替我们盯住它**。
-    ///   ⇒ 所以这一句是**给人看的**：先拿「名字 + pos」判是不是那一条，再决定要不要查。</para>
+    /// <para>🔴 **2026-10-19（A345-T-b）就地收口（取代 A591 那一版）**：A591 当时写的是
+    ///   「13/13 场逐场都是同一条 `target BoardCamera` ⇒ 【既有的、预期的】、**按预期红处置**」——
+    ///   **那一格今天已经修掉了**：`ApplyGroupNodes` 现在对相机**显式跳过**（见 `IsCameraTarget` /
+    ///   `LastGroupNodeCameraSkipped`）⇒ 正常情况下**这条尾巴一次都不该被打印**
+    ///   （13 场的 `Missed` 恒 0，判据 = **A345-T-b 的「没对上 0 条 ×13」**，
+    ///   现由 `Editor/BattleScene.cs` 那条断言逐场压着、并现读这三个口）。
+    ///   · 所以这一段现在的语义**反过来了**：**真看到它 = 有一件不在判据里的东西对不上** ——
+    ///     ⚠️ **先拿「名字 + pos」比 `BoardCamera` / `(100.000,2.222,-13.572)`**：对不上 ⇒
+    ///     **那是新缺陷**，按缺陷查，⛔ 别按「既有的、预期的」放过（A591 那次就是这么误导的）。
+    ///   · 落痕（两份日志原件名 + 四个场 `_groups.json`/`_manifest.json` 抽读）= `资料/战场场景线_交接.md` §五 末；
+    ///     假目标那一格的诊断全文 = `资料/普查产出_第八会话/S1_诊断A345Tb根因.md`。</para>
     ///
     /// <para>⚠️ 「上游闸门没建」那个猜测**没有被推翻、也没有被证实**（即 A345 那条已知盲区：
     ///   `FindBuilt` 比的是**真世界位置**、而旁挂 `pos` 是**无缩放世界链**；风险面已被放大 ——
     ///   清单里「两条条目 → 同一个原版对象」**11 处**、同名对象 **121 → 1164**，
     ///   见 `资料/普查产出_1013/WA345Ta_战场全树生成侧.md` §七·4/§七·5）——
-    ///   但它**今天不是新事** ⇒ 不再放在出声的第一句，改挂在末尾当【还要查什么】。</para></summary>
+    ///   但它**今天不是新事** ⇒ 不再放在出声的第一句，改挂在末尾当【还要查什么】。
+    /// 🔴 **2026-10-19 补（A345-T-b）**：「上游闸门没建」这个猜测，对**相机那一格**现在可以写成
+    ///   **已推翻** —— 相机**根本不走** `meshes[]`/`particles[]`，`BuildContent` 那四道闸门
+    ///   作用不到它（判据 = `资料/普查产出_第八会话/S1_诊断A345Tb根因.md` §③·2/③·3）；
+    ///   对**别的对象**（那条「`FindBuilt` 比真世界位置、而旁挂 `pos` 是无缩放世界链」的盲区）
+    ///   仍然**未证实**，原话照旧适用。</para></summary>
     static string GroupNodeMissHelp()
     {
-        return "（🔴 **既有的、预期的 —— 不是新缺陷**：13/13 场逐场都是同一条 `target BoardCamera` · "
-             + "旁挂 pos **(100.000,2.222,-13.572)**；判据 = **A345-T-b 的「没对上 0 条 ×13」**"
-             + "（`资料/普查产出_1013/WA345Ta_战场全树生成侧.md` §八）—— 🔴 **尚未达成：今天每场 1 条** "
-             + "⇒ 按【预期红】处置；落痕 = `资料/战场场景线_交接.md` §五 末。"
-             + "⚠️ **本条的名字或 pos 若不等于上面这条 ⇒ 那是新的**，按缺陷查。"
+        return "（🔴 **先比这一条**：相机那一条（`target BoardCamera` · 旁挂 pos **(100.000,2.222,-13.572)** · "
+             + "parent `BattlePrefab/BattleBoardElements`）**已经被显式跳过、不该出现在这里**"
+             + "（`IsCameraTarget` / `LastGroupNodeCameraSkipped`；判据 = A345-T-b 的「没对上 0 条 ×13」）。"
+             + "⚠️ **本条的名字或 pos 若不等于上面那条 ⇒ 那是新缺陷**，按缺陷查，"
+             + "⛔ 别按「既有的、预期的」放过（A591 那次就是这么误导的）。"
              + "· 还要查什么（上游闸门那个猜测，未证实）：同一场日志里「内容：…另跳过无贴图 N · "
              + "原版关着 M · renderMode=None K 个」那行；闸门 = 本文件 `BuildContent` 的四道）";
     }

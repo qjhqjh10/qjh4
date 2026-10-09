@@ -202,7 +202,11 @@ namespace CardPresentation
         //   ⇒ 这一族只涉及 x。见 `PxY`。
         // 📌 2026-10-18 的落地范围（A990①=裁切读回 · A1004=软边读回 · A990②=命中判定 / 裁剪换算）：
         //   `MenuDraw.PixelOfDesign`（= 转调本函数）· `Shell/PointerLayer`（指针帧与命中区）·
-        //   `Shell/ViewportClip.ClipPx`（实时反推那一支）· `Shell/SettingsWindow.SetFpsFromPointer`。
+        //   `Shell/ViewportClip.ClipPx`（实时反推那一支）· `Shell/SettingsWindow.SetFpsFromPointer` ·
+        //   🆕 `Shell/CampaignTab.BuildLine`（中心项 + 半宽**成对**换，A1092）·
+        //   🆕 `Shell/SettingsWindow.UpdateFpsDrag`（A1092 收口；原来漏登）。
+        //   ⚠️ 本清单的**兄弟副本**在 `Shell/MenuDraw.cs` 的 `PixelOfDesign` doc 里
+        //   —— **两份要一起改，⛔ 别只改一处**（E18 2026-10-18 补登时两处同步改的）。
 
         /// <summary>世界单位 → 画布 px 的 **x 斜率**（= `FromPixel` 的逆式的斜率，**用实测** `VisibleWidth`）。
         /// <para>= `DesignPxW ÷ VisibleWidth`；16:9 下 = **107.99999**（≈ 108，见 <see cref="ToDesignPixel"/> 那条）。

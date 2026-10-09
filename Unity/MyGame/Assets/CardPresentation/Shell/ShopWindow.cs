@@ -790,7 +790,7 @@ namespace CardPresentation
                     int captured = idx;
                     // 两颗钮走词条（键 `MainMenu/General/OK` / `MainMenu/General/Cancel`）——
                     // 出处 = 原版 `CatalogItemContainer__TryPurchase.c:37,41,43` 传的两个地址
-                    // （`0x42BE718` / `0x42BE120`）的地址表实读，见 `Core/Loc.cs:960-977`。
+                    // （`0x42BE718` / `0x42BE120`）的地址表实读，见 `Core/Loc.cs` 里 `MainMenu/General/OK` / `Cancel` 那一条的留痕。
                     // ⚠️ 是 `OK` **不是** `Ok`（施工单 §④ 那条口径）；中文列「确定」与改前的写死串**同字**。
                     _win.Manager.ShowPopUp(ShopData.LegendaryWarnText, Loc.T("MainMenu/General/OK"), () => DoBuy(captured), Loc.T("MainMenu/General/Cancel"));
                     return "";

@@ -635,7 +635,10 @@ namespace CardPresentation.Net
         //        `Settings/Online/Wire/RoomGone`（`Close` 的 `reason` 已改成「词条键」语义，见那个方法的 doc）。
         //      · `Dispatch` 的 `case NetKind.Action`：`MsgReject.reason`
         //        —— 原来发的是「不是你的回合」，现在发 `NetWireText.Pack("Settings/Online/Wire/NotYourTurn")`。
-        //      🔴 **`:952` 那两条「仍然不接」的判据已经由主对话裁掉了**（2026-10-19，`A1038`/P6d）：
+        //      🔴 **上面那两条走线串「仍然不接」的判据已经由主对话裁掉了**（2026-10-19，`A1038`/P6d）：
+        //        🔴 **2026-10-19（`A1039`）就地订正**：本行原来写的是**本文件的旧行号 `:952`**，
+        //        现读早已落空 ⇒ 按**上面两颗符号**认（`ReconnectCountdownExpired` / `Dispatch` 的 `case NetKind.Action`），
+        //        ⛔ 别再往这一段写死新行号（本段其余处已全部改指符号名）。
         //        判据 ①（「wire 载荷 ⇒ 接 `Loc.T` 会把发送方语言灌到接收方」）**正是本件要解决的问题**，
         //        解法**不是**「不接」，而是**线上只发语言无关的词条键、收侧按自己的语言取词**
         //        （`NetProtocol.NetWireText`）⇒ 这一条**不再是不接的理由**，反而变成了必须接的理由。
@@ -1057,7 +1060,7 @@ namespace CardPresentation.Net
                 case NetKind.Reject:
                 {
                     var m = NetProtocol.Unpack<MsgReject>(f.payload);
-                    // 🔴 **A961（2026-10-18，主对话裁定「接着做完」）**：`MsgReject.reason`（`NetProtocol.cs:148`）
+                    // 🔴 **A961（2026-10-18，主对话裁定「接着做完」）**：`MsgReject.reason`（`NetProtocol.MsgReject.reason`）
                     //   **是对端可控的**，而它经 `Abort` 进**提示行**（`NetSay`）+ **弹窗**（`NetRuntime.Notice`）
                     //   ⇒ 与另外三个入口（`MsgBye.reason` / `MsgProof.name` / `MsgAck.reason`）**同一处口径**：
                     //   **进界面前先钳**（复用现成的 `NetSession.ClampPeerText`，⛔ 不写第二份）。

@@ -172,6 +172,65 @@ public static class NetSelfTest
                       + "把「实现 + 期望值一起改回写死中文」那条路堵死"
                       + (c1.Count > 0 ? "（命中：" + string.Join(" · ", c1) + "）" : ""));
 
+        // ---- ④ 🆕 2026-10-18（账 `A1057(f)`）：**全表**扫描 —— 英文列逐条都不许含 CJK（含 `U+3000`）----
+        //   ⚠️ 上面 ② 的 C1 **只覆盖它自己那个白名单数组**（本批 P6 的键，见本方法开头），**不是全表**
+        //      —— 一条本批没列到的键，英文列里塞了汉字，C1 照样绿。本条补的就是这个覆盖口径：
+        //      **`Core/Loc.cs` 的整张 `Table`，一条不落**。
+        //      📌 同一条断言 `A1025` 也在要（那是**另一笔**）；我这一条是 **`NetSelfTest` 版的表级扫描**，
+        //         两者可以并存（各扫各的宿主），⛔ 不要拿它顶替那一笔。
+        //
+        //   🔴 **为什么走反射**：`Loc` 只开了 `EntryCount`（个数）与 `EnOf(键)`（**按键**取），
+        //      **没有**「遍历所有键」的公开口；而 `static readonly Dictionary<string, Entry> Table`
+        //      与 `struct Entry` 都是 `private`（`Core/Loc.cs`，那一段在**别的写手**手上、本批不许改）
+        //      ⇒ 只能从**测试侧**反射读。本工程早有先例：本文件自己（读 `TcpTransport._state`）
+        //      与 `Editor/BattleScene.cs`（读 `TMP_Text.m_fontSizeBase`）。
+        //      `Entry` 是私有 struct，但**字段是 `public string Zh, En;`** ⇒ 反射读得到。
+        //      判据函数仍用 **`Loc.HasCjk`** —— 本项目**唯一一份**汉字判据（区间含 `0x3000-0x303F`
+        //      与 `0xFF00-0xFFEF`，所以全角空格 / 全角括号也会被抓到）。
+        //
+        //   🧨 **改坏法**：往表里**任意一条**的 EN 列塞一个汉字（或一个全角空格 `U+3000`）⇒ 本条红。
+        //   ⛔ **红了不许放宽**：真扫出命中就是**真的漏译**（英文档下那一处会印汉字），如实报、如实修。
+        //   ⚠️ **前置必须显式红**：反射拿不到 `Table`（改名 / 改可见性）时**当场红** ——
+        //      否则「0 条命中 ≤ 0」会**假绿**（同族教训：量不到的四个 out 全 0 = 弱断言）。
+        {
+            var tf = typeof(Loc).GetField("Table",
+                System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+            var tbl = tf != null ? tf.GetValue(null) as System.Collections.IDictionary : null;
+            Ok(tbl != null && tbl.Count > 0,
+               "（P6·A1057(f) 前提）反射拿得到 `Loc` 的**整张** `Table`"
+             + (tbl == null
+                ? " —— **拿不到**（`Table` 改名 / 改可见性了？）⇒ 下面那条**等于没验**，所以这里当场红"
+                : $"（{tbl.Count} 条）"));
+            if (tbl != null)
+            {
+                var cjkEn = new List<string>();
+                var blankEn = new List<string>();
+                int nScan = 0;
+                foreach (System.Collections.DictionaryEntry de in tbl)
+                {
+                    nScan++;
+                    object ent = de.Value;
+                    if (ent == null) { blankEn.Add((string)de.Key + "（条目是 null）"); continue; }
+                    var ef = ent.GetType().GetField("En");
+                    string en = ef != null ? ef.GetValue(ent) as string : null;
+                    if (string.IsNullOrEmpty(en)) { blankEn.Add((string)de.Key); continue; }
+                    if (Loc.HasCjk(en)) cjkEn.Add((string)de.Key + " = 「" + en + "」");
+                }
+                // 扫到的条数必须与**公开口** `EntryCount` 相等（两处不同源）⇒ 抓「反射只扫到一部分」
+                Eq(nScan, Loc.EntryCount,
+                   "（P6·A1057(f)）反射扫到的条数 = `Loc.EntryCount`"
+                 + " —— ⛔ 不等就说明这一扫没盖全表（那时下面那两条的绿是假绿）");
+                Eq(cjkEn.Count, 0,
+                   "★（P6·A1057(f)）**全表**英文列**一个 CJK 字符都没有**"
+                 + "（`Loc.HasCjk` 的区间含 `U+3000-303F` / `U+FF00-FFEF`）"
+                 + " —— ② 的 C1 只覆盖本批白名单，这一条才覆盖整张表"
+                 + (cjkEn.Count > 0 ? "（命中 " + cjkEn.Count + " 条：" + string.Join(" · ", cjkEn.ToArray()) + "）" : ""));
+                Eq(blankEn.Count, 0,
+                   "★（P6·A1057(f)）全表每条**都有英文列**（英文档下空串 = 那一处没字可显示）"
+                 + (blankEn.Count > 0 ? "（命中：" + string.Join(" · ", blankEn.ToArray()) + "）" : ""));
+            }
+        }
+
         // ---- ③ 两语档：同一条键在两档下**取值不同且都非空**（灭自证主判据）----
         //    ⚠️ 先存后放：`Loc.Current` 是**跨进程持久**的 ⇒ 不许依赖「现在是哪一档」。
         var lang0 = Loc.Current; bool per0 = Loc.PersistOverride;

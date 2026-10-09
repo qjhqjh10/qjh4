@@ -42,6 +42,12 @@ namespace CardPresentation
             public string army;      // 枚举名（= `CardDef.Faction` 那套；`Neutral` = 不属于任何阵营）
             public int rarity;
             public string uniqueId;
+            // 🆕 2026-10-19（B2）：**原版那张 sprite 的 `m_Rect` 与 `padding`**（都按**贴图像素**）——
+            //   卡背「两段式」画法要的就是这六个（算式/判据全文 → `Core/CardbackFace.cs`）。
+            //   `m_Rect` 233/233 恒 `707×1020`（`rectW/rectH`）；`padX = m_Rect − textureRect`，**逐张不同**。
+            //   ⚠️ 表是**旧版**（没有这六列）时它们全是 `0` ⇒ `TrySpriteRect` 会按「未登记」返回 false
+            //   （调用方退回老写法），**不是**静默当成「707×1020、padding 0」。
+            public float rectW, rectH, padL, padR, padB, padT;
         }
 
         [Serializable]
@@ -125,6 +131,25 @@ namespace CardPresentation
             EnsureLoaded();
             Item it;
             return (cardbackName != null && _byName.TryGetValue(cardbackName, out it)) ? it : null;
+        }
+
+        /// <summary>🆕 2026-10-19（B2）：图名 → 原版那张 sprite 的 **`m_Rect` 与 `padding`**（都按**贴图像素**）。
+        /// 这就是 uGUI 画一张卡背 sprite 用的**全部数据**（算式与判据全文 → `Core/CardbackFace.cs`）。
+        ///
+        /// <para>返回 **false**（调用方退回「按贴图自身比例内接」）有三种情形，**别把它们混成一种**：
+        /// ① **名不在表里**（不是卡背，或 `&lt;名>_sdf` ——那批**故意不登记**，见 `CardbackFace` 文件头）；
+        /// ② 表是**旧版**（没有那六列 ⇒ 反序列化出来是 `0`）；
+        /// ③ `Resources/Cardbacks.json` 整个取不到。
+        /// ⛔ **不许把 `0` 当成「`m_Rect.x == 0` 的合法值」往下算** —— 那会除零/画出零面积。</para></summary>
+        public static bool TrySpriteRect(string cardbackName, out float rectW, out float rectH,
+                                         out float padL, out float padR, out float padB, out float padT)
+        {
+            rectW = rectH = padL = padR = padB = padT = 0f;
+            var it = Find(cardbackName);
+            if (it == null || it.rectW <= 0f || it.rectH <= 0f) return false;
+            rectW = it.rectW; rectH = it.rectH;
+            padL = it.padL; padR = it.padR; padB = it.padB; padT = it.padT;
+            return true;
         }
 
         /// <summary>按阵营筛图名（`army` 传 null/空 = 不筛）。判据只有这一处 ——

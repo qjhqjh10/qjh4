@@ -394,7 +394,7 @@ namespace CardPresentation
         /// `TextClipUploadSkipped` 两个诊断计数**数两遍** —— 而 `MenuDraw.TextCore` 那个内层正是为了躲这个
         /// 才拆出来的」。**「数两遍」那半已过期**：A821（2026-10-15）已把口径从「次数」改成「**唯一标签**数」，
         /// 同一颗标签**只记一次**（`Battle/Label.cs` 的 `Label.TakeClipFailMark`；两处调用点 =
-        /// `Shell/MenuDraw.cs:1060` / `:1236`）⇒ **计数不再虚高**
+        /// `MenuDraw` 里那两处 `TakeClipFailMark` 调用点）⇒ **计数不再虚高**
         /// （口径原文 → `资料/已知的坑.md` 的 2026-10-15 §1）。⚠️ `TextCore` 那个内层**照旧拆着** ——
         /// 它免掉的是那一刀**本身**（白做一次 + 被重排冲掉），**不只是计数**
         /// （同口径 → `Shell/MenuDraw.cs` 的 `TextCore` 头 `:1674-1676`）。

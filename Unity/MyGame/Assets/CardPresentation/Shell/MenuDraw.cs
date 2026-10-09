@@ -550,7 +550,7 @@ namespace CardPresentation
         //    quad 的子物体** —— 原 quad 之后若被 `SetTint` / 改几何 / `SetActive` / `Destroy`：
         //      · `SetActive` ✅ 子物体跟着（正合语义）；`Destroy` ✅ 跟着；
         //      · `SetTint` ✅ **现在跟随** —— `ImageQuad.SetTint` 会照着 `SoftEdgeRegister` 登记过的
-        //        子块刷一遍（`Battle/ImageQuad.cs:163-171` + `MenuDraw.cs:268` 的登记；
+        //        子块刷一遍（`Battle/ImageQuad` 里 `SetTexture` 那一族 + 本文件里那处登记；
         //        不刷的话症状是「边带那一条颜色不对」，**静默**）；
         //      · 改几何（`SetAspect` / `SetWorldHeight`）✅ **现在会重切** —— 宿主被挂上 `SoftEdgeRebuild`
         //        回调（`ArmSoftRebuild` → `ReapplySoftEdges`），切出来的块按新框重摆一遍。
@@ -582,14 +582,26 @@ namespace CardPresentation
         /// （= `LayoutSpace.PxX`），与 `FromPixel` **只在 `VisibleWidth == DesignWidth`（16:9）时重合**；
         /// 别的宽高比下两者差 **`VisibleWidth / DesignWidth` 倍**（4:3 ⇒ **0.75** · 21:9 ⇒ **1.3125**）
         /// ⇒ x 的往返不闭合（y 那一半两个函数本来就同值：可见高恒 10 世界单位 = 1080px ⇒ 108 是**真的**）。
-        /// 🔴 判据 = 原版 uGUI 只有**一条** `RectTransform` 的世界↔屏幕换算（`LayoutSpace.cs:164` 也把
-        /// `ToPixel` 自己声明成「`FromPixel` 的逆」）—— 「写用实测、读用常量」两套并存就是 A990。</para>
+        /// 🔴 判据 = 原版 uGUI 只有**一条** `RectTransform` 的世界↔屏幕换算
+        /// —— 「写用实测、读用常量」两套并存就是 A990。
+        /// ⚠️ **2026-10-18（A990② · `A1092`）就地订正（铁律 5）**：本句原来还并排引了
+        /// `LayoutSpace.cs:164` 当第二判据 —— 「`LayoutSpace.cs:164` 也把 `ToPixel` 自己声明成
+        /// 『`FromPixel` 的逆』」。🔴 **那句自述本身就是错的**（`ToPixel`/`PxX` 的 x 斜率写死 108，
+        /// **只在 16:9 成立**），已在 `ToPixel` 的 doc 里就地订正（那一段现在明写「真正的逆是
+        /// `LayoutSpace.ToDesignPixel`」）⇒ **引一句已被推翻的声明来支撑本函数站不住**，
+        /// 判据只留上面那一条原版事实。（`FromPixel` 的逆只此一份 = `LayoutSpace.ToDesignPixel`，
+        /// 本函数是它的一行转调。）</para>
         /// ⚠️ **2026-10-18（A990②）就地订正（铁律 5）：本式已收口到 `LayoutSpace.ToDesignPixel`**
         /// —— 这里是**一行转调**（原来那两行算式逐字搬进了 `LayoutSpace`，值不变：16:9 下差 ≤2.5e-4 px）。
-        /// 收口的理由 = 外壳侧还有**三处命中判定 / 裁剪换算**要用同一条读口
-        /// （`Shell/PointerLayer` · `Shell/ViewportClip.ClipPx` · `Shell/SettingsWindow.SetFpsFromPointer`），
+        /// 收口的理由 = 外壳侧还有**五处命中判定 / 裁剪换算**要用同一条读口
+        /// （`Shell/PointerLayer` · `Shell/ViewportClip.ClipPx` · `Shell/SettingsWindow.SetFpsFromPointer` ·
+        /// 🆕 `Shell/CampaignTab.BuildLine` · 🆕 `Shell/SettingsWindow.UpdateFpsDrag`），
         /// 而它们是 `public`/别类的成员 ⇒ 换算必须放在**大家都能拿到的那一份**里（CLAUDE.md §三：
-        /// 「两处写同一条规则 = 迟早不一致」）。⇒ **本函数现在也是 `public`**，叫法沿用本文件的旧名。</para></summary>
+        /// 「两处写同一条规则 = 迟早不一致」）。⇒ **本函数现在也是 `public`**，叫法沿用本文件的旧名。
+        /// 🔴 **2026-10-18（`A1092` · E18 补登）**：上面那份清单原来只列了**三处**、
+        /// **漏了 `Shell/CampaignTab.BuildLine` 与 `Shell/SettingsWindow.UpdateFpsDrag`**（两处都是
+        /// `A1092` 那一轮收口的）⇒ 现已补上。清单的**兄弟副本**在 `Core/LayoutSpace.cs`
+        /// （「📌 2026-10-18 的落地范围」那一节）—— **两份要一起改，⛔ 别只改一处**。</para></summary>
         public static Vector2 PixelOfDesign(Vector3 designPos) => LayoutSpace.ToDesignPixel(designPos);
 
         /// <summary>一个 quad 在**画布 px（设计空间）**里的矩形（位置项走 <see cref="PixelOfDesign"/> ——
@@ -635,6 +647,31 @@ namespace CardPresentation
         /// <para>⚠️ **尺寸项（`q.WorldW/WorldH × K`）本来就在设计量纲上、一个字不动**：
         /// `ImageQuad.Create` / `SetWorldHeight` 收的是 `LayoutSpace.Px(设计高)` = **设计长度**
         /// （渲染时由父链那同一份缩放放大）⇒ 除以 `K` 就是设计 px。⛔ 别顺手给它也除一次缩放。</para>
+        ///
+        /// <para>🔴 **2026-10-18（E22 现核裁定）：x 的长度项【也不许】换成 `LayoutSpace.PxPerWorldX`** ——
+        /// 这一行的 `K` **是对的**。判据 = **读口必须是【建件那条换算】的逆**，而建件那两条本来就不同斜率：
+        /// · **中心项** ↔ 建件的**位置**（`Local` → `LayoutSpace.RectCenter` → `FromPixel`，x 用**实测**
+        ///   `VisibleWidth`）⇒ 它的逆 = `PixelOfDesign`（A1004 已换，⛔ 别换回 `ToPixel`）；
+        /// · **尺寸项** ↔ 建件的**尺寸**（`Rect` / `PlaceCell` = `SetWorldHeight(LayoutSpace.Px(h))`
+        ///   + 紧跟一句 `SetAspect(w/h)` ⇒ `WorldW = w ÷ K`）⇒ 它的逆 = **`K`**。
+        /// ⇒ 两条路只在 **16:9** 重合（`PxPerWorldX` 实得 107.99999，见 `LayoutSpace` 那条）；非 16:9
+        /// （4:3 ⇒ `PxPerWorldX = 144`、21:9 ⇒ 82.29）下**逐条对着它要逆的那条**才是自洽，
+        /// 把 x 换成 `PxPerWorldX` 只会让**读口 ≠ 建件口**。
+        /// ⚠️ **`Shell/PointerLayer.HitBoxPx` 的 `half`（x 用 `PxPerWorldX`）不是反例** —— 那一对量的是**相对指针**
+        /// （「命中区 = 画出来那一块」，判据见 `LayoutSpace.PxPerWorldX` 的 doc），**不是**「建件时给的那个设计矩形」。
+        /// 两族各自的 `中心/半宽` 必须**同族内**同斜率 —— 本函数的中心走设计帧、尺寸也走设计帧（= 建件帧）✓。</para>
+        ///
+        /// <para>🔴 **换掉会坏的三处**（⛔ 别再试探）：① `ApplySoftEdges` 里那条
+        /// `if (!SameRectNear(QuadRectPx(q), vis)) PlaceCell(…)` —— 非 16:9 下**恒不等** ⇒ 每次重切都 `PlaceCell`；
+        /// ② `ClipNineChildren` / `ClipTiledChildren` 是「**读回 → 求交 → 再 `PlaceCell`**」的闭环
+        /// （两条都是先 `var qr = QuadRectPx(q)`、后 `SetWorldHeight(LayoutSpace.Px(cr.H))`），
+        /// **两边同斜率才幂等** ⇒ 只换读口，同一块每跑一趟再被切一次（**越切越窄**）；
+        /// ③ `Shell/ViewportClip.cs` 的**两支**都是 `K`（`_hasBaseRect` 那支的 `KB` · 实时反推那支的 `K`，
+        /// 两处都写着注释「**与 `MenuDraw.QuadRectPx` 同一份口径**」）= 本函数的**契约副本**
+        /// （`ViewportClip.ClipPx` 的框要与各宿主给的设计矩形求交）⇒ 只改这里就是两套口径。
+        /// 🔴 **非 16:9 下真正错的是【建件侧】**：位置跟着 `VisibleWidth` 压、尺寸不压
+        /// ⇒ 4:3 上元素互相叠 = 已登记的 **`A990①`**（`LayoutSpace` 那条「全局只有一条换算」还没落）。
+        /// 要修就得**成对**修（建件那五处 + 全部读口一起换斜率），**⛔ 不是在这里单改一行**。</para>
         ///
         /// <para>⚠️ **软边子块的父级 = 宿主 quad 自己**（`ApplySoftEdges` 里 `ImageQuad.Create(q.transform, …)`）
         /// ⇒ `PosInDesignSpace(sub)` 除的是**宿主那一级** `lossyScale`。宿主自己不带 `localScale` 时
@@ -1436,7 +1473,13 @@ namespace CardPresentation
         }
 
         /// <summary>按**原版像素矩形**摆一张图。`tex == null` = 纯色块（原版那种「没 sprite、只有 `m_Color`」的件）。</summary>
-        /// <param name="keepAspect">原版 `Image.m_PreserveAspect`：按图自身宽高比放进框、**居中**（不拉伸）。</param>
+        /// <param name="keepAspect">原版 `Image.m_PreserveAspect`：**按 sprite 自己的比例放进框**（不拉伸）。
+        /// 🔴 **2026-10-19（B2）就地订正（铁律 5）**：原来这里写「按**图自身**宽高比放进框、**居中**」——
+        /// 两句都不全对。原版 uGUI 是**两段**（判据/算式全文 → `Core/CardbackFace.cs`）：
+        /// ① 定框比的是 **sprite 的 `rect`（= `m_Rect`）**，**⛔ 不是贴图（`textureRect`）自己的宽高**；
+        /// ② 贴图再按 **`padding`** 内缩 ⇒ **画心不居中**（按 `padding` 偏，卡背最大 ~8px @250 宽）。
+        /// 对本仓那批**已裁成 `textureRect` 的卡背 PNG**，这一改的净效果 = **比例不变、尺寸缩小、位置偏一点**；
+        /// **没登记的贴图**（非卡背 / `&lt;名&gt;_sdf`）退化成上面那句老写法（= 旧行为零变化）。</param>
         /// <param name="clip">🔴 **裁切边界**（画布像素 · 左上原点）。非空时越界部分**不画**、且 **uv 跟着截**
         /// —— 这是原版 `RectMask2D` 的等效物（滚动区画内容前给一次）。
         /// ⚠️ **不截 uv 只截矩形的话，那一格图会被压扁**（同 `ImageQuad.SetUvRect` 的注释：
@@ -1462,11 +1505,24 @@ namespace CardPresentation
             clip = _st.RenderClip;
             clipSoftness = _st.Softness;
             float x1 = r.x1, x2 = r.x2, y1 = r.y1, y2 = r.y2;
-            if (keepAspect && tex.height > 0)
+            if (keepAspect)
             {
-                float sprAspect = (float)tex.width / tex.height, rectAspect = (x2 - x1) / Mathf.Max(1e-6f, y2 - y1);
-                if (sprAspect > rectAspect) { float nh = (x2 - x1) / sprAspect, d = ((y2 - y1) - nh) * 0.5f; y1 += d; y2 -= d; }
-                else { float nw = (y2 - y1) * sprAspect, d = ((x2 - x1) - nw) * 0.5f; x1 += d; x2 -= d; }
+                // 🔴 **2026-10-19（B2）就地收口（铁律 5）**：这一段原来内联的是「按**贴图自己**的比例内接」——
+                //   那只是**半套**。原版 uGUI 是**两段**（判据与算式全文 → `Core/CardbackFace.cs`，
+                //   本仓唯一一份）：① 按 sprite 的 **`m_Rect`**（卡背那批恒 `707×1020`）**定框**；
+                //   ② 贴画再按 **`padding`** 内缩（⇒ 画出来 = 框 × `textureRect/m_Rect`）**并挪位**。
+                //   ⇒ 对我们那批**已裁成 `textureRect`** 的 PNG：**比例不变、尺寸缩小**（最坏 `All_Early Backer`
+                //   只画到框宽的 `608.85/707`）、且**不居中**（按 padding 偏，最大 ~8px）。
+                //   ⚠️ **没登记的贴图**（非卡背 / `<名>_sdf`）在里面**逐字退化成上面那套老写法**
+                //   ⇒ 其余调用点**一个像素都不变**（`Fit` 的兜底就是把「贴图自己」当成 `m_Rect`）。
+                float dw, dh, dox, doy;
+                if (CardbackFace.Fit(tex, x2 - x1, y2 - y1, out dw, out dh, out dox, out doy))
+                {
+                    // `doy` 是 uGUI 方向的「向上为正」，而这里的 `PxRect` **y 向下** ⇒ 减
+                    float ccx = (x1 + x2) * 0.5f + dox, ccy = (y1 + y2) * 0.5f - doy;
+                    x1 = ccx - dw * 0.5f; x2 = ccx + dw * 0.5f;
+                    y1 = ccy - dh * 0.5f; y2 = ccy + dh * 0.5f;
+                }
             }
             Rect uv = new Rect(0f, 0f, 1f, 1f);
             if (clip.HasValue)
@@ -2554,12 +2610,24 @@ namespace CardPresentation
             }
             else
             {
-                float w = q.WorldW * 108f, h = q.WorldH * 108f;
-                float cx = LayoutSpace.PxX(q.transform.position.x), cy = LayoutSpace.PxY(q.transform.position.y);
-                near(cx - w * 0.5f, x1, 1.5f, $"{what}：吸收层渲染矩形**左沿** = 原版面板底图");
-                near(cy - h * 0.5f, y1, 1.5f, $"{what}：…**上沿**");
-                near(cx + w * 0.5f, x2, 1.5f, $"{what}：…**右沿**");
-                near(cy + h * 0.5f, y2, 1.5f, $"{what}：…**下沿**");
+                // 🔴 **2026-10-18（E22 就地收口）：这四条 near 的矩形【转调】本文件唯一一份正确的口。**
+                //    改前这里自己写了一遍「中心 + 半宽」，**同族双料**：
+                //      · **帧错**：中心走 `PxX/PxY`（**108 帧**）、半宽也 `× 108f`，而比的是**字面设计 px**
+                //        ⇒ 非 16:9 下四条 `near` 全错，偏 `r = VisibleWidth / DesignWidth` 倍
+                //        （4:3 ⇒ 0.75 · 21:9 ⇒ 1.3125）；
+                //      · **父链错**：`q.transform.position` 是**已缩放**的视觉世界坐标、**没过 `PosInDesignSpace`**
+                //        ⇒ 窗根被 `TransformScalerBySmallScreenUI` 乘 M（或窗内自带缩放的节点）时**多一层 M**。
+                //    ⇒ 转调 `QuadRectPx`（A298 除回设计缩放 · A1004 走设计帧读口；`A1003` 那一轮已把
+                //    **7 个宿主 / 17 个函数位**收到它，**唯独本函数自己这一份没收**）。
+                //    ⚠️ **尺寸项仍是 `K = 108`，⛔ 别换成 `PxPerWorldX`** —— 那是**有意**的，
+                //    判据（为什么它是建件那条换算的逆）写在 `QuadRectPx` 的 doc 里。
+                //    📌 **出厂态（16:9 + M == 1）读数一字不变**：与改前只差 float 舍入
+                //    （`PxPerWorldX` 实得 107.99999 ⇒ 全屏 ≤ 3e-4 px，远小于这里的 1.5px 容差）。
+                var qr = QuadRectPx(q);
+                near(qr.x1, x1, 1.5f, $"{what}：吸收层渲染矩形**左沿** = 原版面板底图");
+                near(qr.y1, y1, 1.5f, $"{what}：…**上沿**");
+                near(qr.x2, x2, 1.5f, $"{what}：…**右沿**");
+                near(qr.y2, y2, 1.5f, $"{what}：…**下沿**");
                 // ④ 档 = 内容命中区档 − 1，且**严格夹在**压暗层与内容命中区之间
                 int wantQ = qContentMin - 1;
                 // ⚠️ 比 `RenderQueue` 时**把实得值写进文案**（而不是另开一个泛型断言口）：

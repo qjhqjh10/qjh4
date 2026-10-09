@@ -549,7 +549,7 @@ namespace RuleEngine
             // 🔴 🆕 **2026-10-19（`A1070`）**：电脑侧**不改这一段** —— 分流照旧（那张牌不进牌库），
             //   只是发牌时 `GoesSecondCard` 会**丢掉它**、改用「阵营防御池随机」或「督军自带」
             //   （原版电脑侧恒拿不到卡组那张）。⛔ 别在这里按 bot 分支去改 `defenceCard`：
-            //   这里读到的 `PlayMode` 还是默认档（入口窗在 `NewBattle` **之后**才落，`BattleDriver.cs:2774`）。
+            //   这里读到的 `PlayMode` 还是默认档（入口窗在 `NewBattle` **之后**才落 —— 就是 `BattleDriver.Begin` 里那句 `Ctx.PlayMode = …`）。
             defenceCardOut = getsDefenceCard ? defenceCard : null;
             // 🔴 **2026-09-29 补的（原来这里是【静默】丢掉的）**：先手那一方拿到的防御卡**直接没了**，
             //   一句日志都没有 —— 而「不许静默失败」是本项目的红线。现在如实打出来。
@@ -596,7 +596,7 @@ namespace RuleEngine
         /// ⚠️ **进手牌就调 `SetupCardInHand`**（`A885` ② 的口径：原版每一个进手牌入口都调它）。
         /// 🔴 🆕 **2026-10-19（`A1070`）：这张卡「从哪来」不在这里判、也不在 `BuildPlayer` 里判 ——
         ///    走 <see cref="GoesSecondCard"/>（判据只那一处）。** 原因是原版要按 `matchType` 分档，
-        ///    而 `ctx.PlayMode` 是**入口窗在 `NewBattle` 之后**才落的（`BattleDriver.cs:2774`）
+        ///    而 `ctx.PlayMode` 是**入口窗在 `NewBattle` 之后**才落的（`BattleDriver.Begin` 里那句 `Ctx.PlayMode = …`）
         ///    ⇒ 在 `NewBattle` 里算会一律拿到默认那档。所以本函数收的是
         ///    「**卡组里分流出来的**那张」（`deckCard`），真正发出去的那张在下面现取。
         /// </summary>
@@ -1064,10 +1064,16 @@ namespace RuleEngine
                     if (u.BlindOwner != ctx.Active) continue;        // 只按**施放者**的回合算
                     if (u.BlindTurnEnd >= 0 && ctx.Turn >= u.BlindTurnEnd)
                     {
-                        u.IsBlind = false;
+                        // 🔴 **2026-10-09（`A1116`）**：这里原来还有一句 `u.IsBlind = false;`
+                        //    （`BlindTurnEnd` 那条路的「两个表示同步」）—— **删掉**：`IsBlind` 现在
+                        //    派生自关键词，下面那句 `RemoveAll` 摘掉键，它自己就为假了。
+                        //    ⚠️ 这条**不是**「失明什么时候结束」的唯一判据 —— 原版那套是
+                        //    `CardScript__OnTurnEnd.c:130-134` 的闸门（见 `UnitState.BlindedAtStartOfTurn`
+                        //    与 `EndTurn` 里那一段），本机制是我们按卡面 `until your next turn` 补的，
+                        //    两者在正常局面下等价（见 `UnitState.BlindTurnEnd` 的注释）。
                         u.BlindTurnEnd = -1;
                         u.BlindOwner = -1;
-                        u.RemoveAll("blind");
+                        u.RemoveAll(KeywordTable.Blind);
                         ctx.Log($"{u.Name} 的失明恢复（远程攻击力回到 {u.RangedAttack}）");
                     }
                 }
@@ -1145,7 +1151,26 @@ namespace RuleEngine
             for (int s = 0; s < BoardSpec.Size; s++)
             {
                 var u = p.Board[s];
-                if (u != null) u.RefreshForNewTurn();
+                if (u == null) continue;
+                u.RefreshForNewTurn();
+                // 🆕 2026-10-09（`A1121`）：「**回合开始时就在这个状态**」的两个闸门 —— 置 1。
+                //   **判据（含次序，照抄第一权威 `d:/2/tools/decomp_full/`）**：
+                //   `CardScript__OnTurnStart.c:119-126` —— `ActivateMinion`（= 我们上面那句解疲劳）
+                //   **之后**：`HasCurrentTrait(100 /*stun*/)` **且**「这一回合属于这张卡的拥有者」
+                //   （`param_2 == *(char *)(card + 0x40)`）⇒ `*(char *)(card + 0x55) = 1`（`:121`）；
+                //   `blind`（`0x3cf = 975`）同形 ⇒ `+0x56 = 1`（`:125`）。
+                //   ⚠️ **不需要另加侧别守卫**：这一圈只跑 `p.Board`（当前行动方自己的单位）
+                //      ⇒ 天然就是原版那条 `param_2 == +0x40`。
+                //   ⚠️ **已知近似（如实标着，⛔ 别当成「原版也这样」）**：原版是**逐卡**跑 `OnTurnStart`，
+                //      闸门判断排在**本卡自己的**「回合开始触发」之前；我们上面那句
+                //      `ResolveAtTurn(ctx, "turn_start")` 是**整段**跑完才置闸门 ⇒
+                //      「某个 `turn_start` 触发在**自己回合开始时**把**自己这一侧**的单位晕掉/弄瞎」
+                //      这一格，原版可能置 1、我们置 0。今天卡池里没有这种写法（`turn_start` 那族
+                //      都是打对面），如实标着。
+                //   ⇒ **效果**：这一整个自己的回合它动不了，**到这个回合末**才摘（见 `EndTurn` 里
+                //      那一段）—— 也就是「眩晕/失明**只废一个回合**」。
+                if (u.IsStunned) u.StunnedAtStartOfTurn = true;
+                if (u.IsBlind) u.BlindedAtStartOfTurn = true;
             }
 
             // ---- 天赋（Talent）：**回合开始时**往手牌塞一张同名战术卡（规则书 `:218`）----
@@ -1287,6 +1312,58 @@ namespace RuleEngine
             // ⚠️ 放在 `ctx.IsOver` 那个早退**之前**：与改动前「它在触发段之前跑」的覆盖面保持一致
             //    （对局已结束时也照扫，谁的账都不欠）。
             DestroyRemnants(ctx, ctx.Active);
+
+            // ---- 🆕 2026-10-09（`A1121`）「回合开始时就在这个状态」⇒ **回合末摘掉** ----
+            //   **判据（第一权威 `d:/2/tools/decomp_full/`）** = `CardScript__OnTurnEnd.c:124-134`：
+            //   ```
+            //   if (*(char *)(card + 0x55) && HasCurrentTrait(card, 100 /*stun*/)) {
+            //       RemoveTrait(card, 100); RemoveActiveEffect(card, 100); *(card + 0x55) = 0; }
+            //   if (*(char *)(card + 0x56) && HasCurrentTrait(card, 0x3cf /*blind*/)) {
+            //       RemoveActiveEffect(card, 0x3cf); RemoveTrait(card, 0x3cf); }
+            //   ```
+            //   ⇒ **闸门置了才摘**（闸门 = 「本单位**自己的**回合开始时就在这个状态」，
+            //     见 `UnitState.StunnedAtStartOfTurn` 的注释）—— 这就是「眩晕/失明**只废一个回合**」：
+            //     在别人回合里挨的那一下 ⇒ 撑到自己下个回合开始时置闸门 ⇒ 那一整个回合动不了
+            //     ⇒ 自己回合末摘掉。**改前我们没有任何一处摘它 ⇒ 被晕的单位整局再也动不了**。
+            //
+            //   ⚠️ **次序照原版**：这一趟排在「回合末触发」（上面 `ResolveAtTurn(ctx, "turn_end")`）
+            //      与残骸摧毁**之后**、再生 / `oath` 重挑攻击型**之前**（原版同一方法体里的次序）。
+            //   ⚠️ **扫描面 = 双方棋盘**（不是只扫当前行动方）：原版
+            //      `BattleManagerSupport__BroadcastTurnEnd.c:41-52` 对**场上每一张卡**逐个调 `OnTurnEnd`，
+            //      而摘除只看 `+0x55`、**没有侧别守卫**。「只扫当前行动方」在正常情况下等价，
+            //      但闸门可能**残留为真**（自己回合内被 `lose Stun` 之类摘掉、闸门没清）
+            //      ⇒ 那时原版的表现是「下一次任意回合末就摘」，两处都扫才对得上。
+            //      （与上面「限时增益到期」「失明到期」两段的两处都扫同一个口径。）
+            //   ⚠️ **原版这处的一处遗漏如实照做**：清 `+0x55` 有，清 `+0x56` 那行**没有**。
+            //      我们这边摘除一律走 `UnitState.RemoveAll`，而它按 `CardScript__AddEffect.c:692`
+            //      那条判据**会清 `+0x56`** ⇒ 那处遗漏在这里**不成立**（行为上等于清了）。别改回来。
+            {
+                int stunEnded = 0, blindEnded = 0;
+                for (int pl = 0; pl < 2; pl++)
+                    for (int s = 0; s < BoardSpec.Size; s++)
+                    {
+                        var u = ctx.Players[pl].Board[s];
+                        if (u == null) continue;
+                        if (u.StunnedAtStartOfTurn && u.Has(KeywordTable.Stun))
+                        {
+                            u.RemoveAll(KeywordTable.Stun);
+                            u.StunnedAtStartOfTurn = false;      // 原版 `OnTurnEnd.c:128` 那一句
+                            stunEnded++;
+                        }
+                        if (u.BlindedAtStartOfTurn && u.Has(KeywordTable.Blind))
+                        {
+                            // 摘除本身会清 `BlindedAtStartOfTurn`（见 `UnitState.RemoveAll`）——
+                            // 原版这一段没有那一句，如实见上面的说明。
+                            u.RemoveAll(KeywordTable.Blind);
+                            blindEnded++;
+                        }
+                    }
+                if (stunEnded > 0)
+                    ctx.Log($"（{stunEnded} 个单位的眩晕到期 —— 只废一个回合；原版 `OnTurnEnd` 摘掉 `stun` trait）");
+                if (blindEnded > 0)
+                    ctx.Log($"（{blindEnded} 个单位的失明到期；原版 `OnTurnEnd` 摘掉 `blind` trait）");
+            }
+
             if (ctx.IsOver) return ctx.Winner;
 
             // ---- 再生 X：**每回合结束时**治疗 X（规则书 :201「每回合结束时治疗 X」）----
@@ -1451,7 +1528,7 @@ namespace RuleEngine
             //      `Choose a card from your deck and draw it. If it's a troop, give it Stealth`
             //      —— 单次抽牌，兜底接得住）。
             //      ⇒ **判「该对称」**（槽的定义就是「这一步落到手牌里的那几份」，
-            //        `BattleContext.cs:840-866`；四个路都该写）。⚠️ **本笔没改**：三个落点
+            //        `BattleContext` 上那几个代词槽（`LastTarget` / `LastTargets` / `LastHandTargets`）；四个路都该写）。⚠️ **本笔没改**：三个落点
             //        全在 `Core/EffectResolver.cs`，**不在本代理的文件白名单内**（铁律 13·3），
             //        已在报告里交给调度台分流。要在那边补的就是和 `DoDraw` 那两句**逐字同形**的
             //        `ctx.LastHandTargets.Clear(); …Add(…)` + `ctx.LastHandTarget = (Count == 1 ? … : null);`。
@@ -1528,8 +1605,25 @@ namespace RuleEngine
                 return null;
             }
 
-            // 从牌库**末尾**抽（和 rule_core 的 pop_back 一致）——
-            // 这样 `_deck([a,b,c])` 这种「构造好顺序的牌库」测试才和原实现对得上
+            // 从牌库**末尾**抽（= 我们这一侧的「牌库顶」）。
+            // 🔴 **判据 = 原版反编译**（`D29①`，2026-10-19 把原来那句「和 `rule_core` 的
+            //    `pop_back` 一致」改掉 —— 那份 `.gd` 是**我们自己的上一版 Godot 复刻**、
+            //    拿它当判据 = 自证，见 `CLAUDE.md` 铁律 2 的 2026-09-18 更正）：
+            //    · `decomp_full/BattleManager__DrawCardFromDeck.c` —— 取牌是
+            //      `List__get_Item(deck, 0)` ⇒ **原版从【列表下标 0】抽**；同一函数里
+            //      `List__IndexOf(deck, card) < 1` 那条守卫也把 **0 当成「就是顶上那张」**。
+            //    · `decomp_full/BattleManager__AddInitialCardToDeck.c` —— 入列是
+            //      `List__Insert(deck, 0, card)` ⇒ **新牌插在最前**。
+            //    · `decomp_full/BattleManager__AddCardToDeck.c` —— 入列后
+            //      `GameObject__SetActive(go, index == 0)`、`ShuffleDeck` 同款
+            //      （`decomp_full/BattleManager__ShuffleDeck.c`：只有 `List[0]` 是 active
+            //      + `CardScript__SetupInDeck`）⇒ **下标 0 = 牌堆里看得见的那张 = 牌库顶**。
+            //    ⇒ 原版：**下标 0 = 顶**。我们的 `Deck` 是同一份列表但**把末尾当顶**
+            //      （等价的镜像约定，只影响「构造牌库时怎么写」，不影响抽牌语义），
+            //      所以这里取 `Count-1`。
+            //    ⚠️ `rule_core.gd` 的 `pop_back` 只是**旁证**（同一条结论的另一份实现），
+            //      ⛔ 不是判据。
+            // 这样 `_deck([a,b,c])` 那种「构造好顺序的牌库」测试才对得上上面这条约定。
             int last = ps.Deck.Count - 1;
             var inst = ps.Deck[last];          // 第 7 行第 2 步：牌库里是**实例**
             ps.Deck.RemoveAt(last);
@@ -1680,7 +1774,8 @@ namespace RuleEngine
         ///
         /// 🔴 **2026-10-17（F6 #2）：这条判据原来散着写，现在部署那一步要用它重算一次。**
         ///   起因：`UnitState` 的 `Exhausted` 是**构造时**按**卡模板**的关键词算的一次快照
-        ///   （`Core/UnitState.cs:257`；F6 当时在 `:250`），而**手牌加成**（`ApplyHandBuffs`）与**光环**（`Auras.Recompose`）
+        ///   （= `UnitState` 构造里那句 `Exhausted = !RuleCore.HasDeployExemption(this)`；F6 当时记的旧行号已落空），
+        ///   而**手牌加成**（`ApplyHandBuffs`）与**光环**（`Auras.Recompose`）
         ///   都是**在那之后**才可能把三个词挂上来的 ⇒ 这两路给的侧翼**谁都判不到**
         ///   （`Has("flank")` 为真、单位却仍然疲劳 —— 静默错；**修之前** `RuleEngineTest` 的
         ///   「侧翼 ⇒ 部署当回合不疲劳」那一条实测红）。
@@ -1691,7 +1786,8 @@ namespace RuleEngine
         ///   ✅ **三处齐了**，而且 F9 已**全树再 grep 一遍确认没有第四个入口**（「有新单位落地」的引擎写点
         ///   只有这 3 处 + 督军那处**恒不疲劳**；清单 → `资料/普查产出_1017/F9_第三入口.md` §③）。
         ///   🔴 **2026-10-17 订正（铁律 5）**：本段原来写「第三个同形入口 `EffectResolver.cs:6362`（`DoReanimate`）
-        ///   **还没补** … 已立账」—— **已过期**（F9 当天补上了，落点 `EffectResolver.cs:6378`）。
+        ///   **还没补** … 已立账」—— **已过期**（F9 当天补上了，落点 = `DoReanimate` 里那句
+        ///   `RuleCore.ApplyDeployTurnState(back)`）。
         ///
         /// ⚠️ **重算只能对着「刚部署的那一个单位」做，⛔ 不能遍历全场** —— 本回合**已经行动过**的单位
         ///   也是 `Exhausted = true`，一律按本方法解掉就会把它**放活**（一回合动两次，同样是静默错）。
@@ -1699,10 +1795,11 @@ namespace RuleEngine
         ///   （判别式已配两条：`RuleEngineTest` 的「`PlayCard` 那条 ④′」与「免费部署」那条。）
         ///
         /// ⚠️ **2026-10-17 更正（铁律 5）**：这一段原来写着「**还欠两处没并进这个判据**：
-        ///   `Core/UnitState.cs:250` 与 `Core/EffectResolver.cs:3988`」—— **两句都已不成立**：
-        ///   · `Core/UnitState.cs:250`（现 `:257`）**已并** —— 构造那一行现在就是
+        ///   `Core/UnitState.cs:250` 与 `Core/EffectResolver.cs:3988`」（⚠️ 两处行号**早已落空** ——
+        ///   2026-10-20 `A1123` 起改按符号名认，⛔ 不再写行号）—— **两句都已不成立**：
+        ///   · `UnitState` 构造里那句 `Exhausted = !RuleCore.HasDeployExemption(this)` **已并** —— 现读就是
         ///     `Exhausted = !RuleCore.HasDeployExemption(this);`（F7 收口；逐关键词逐位等价已实测）；
-        ///   · `Core/EffectResolver.cs:3988`（现 `:3997-4002`）**不能并**（**F7 判决 + 错版实测**）
+        ///   · `EffectResolver.DoTakeControl` 里**按卡面尾句 `give it Fast` 预判豁免**那一处 **不能并**（**F7 判决 + 错版实测**）
         ///     —— 它**不是同一条判据**：那两句读的是**卡面文本预判「马上要给的豁免」**
         ///     （`takecontrol` 的尾句 `give it Fast`），而 `ResolveOps` 是**按序**跑 ⇒ 走到那一刻
         ///     尾句**还没结算**、`t.Has("fast")` 仍是 false ⇒ 照字面并成
@@ -1954,7 +2051,8 @@ namespace RuleEngine
 
             // 🔴 **2026-10-17（F6 #2）：部署豁免要在这儿重算一次。**
             //    上面那句 `new UnitState(inst, false)` 里的 `Exhausted` 是**构造时**按**卡模板**的
-            //    关键词算的快照（`Core/UnitState.cs:250`），而 `ApplyHandBuffs`（手牌加成）与
+            //    关键词算的快照（= `new UnitState(inst, false)` 里那句
+            //    `Exhausted = !RuleCore.HasDeployExemption(this)`），而 `ApplyHandBuffs`（手牌加成）与
             //    `Auras.Recompose`（光环）都是**在那之后**才可能把 `fast`/`flank`/`ferocity` 挂上来的
             //    ⇒ 不重算的话，这两路给的侧翼/迅捷**静默失效**（关键词给了、单位却仍疲劳、动不了）。
             //    ⚠️ **只重算刚部署的这一个 `unit`** —— ⛔ 别遍历全场：本回合**已经行动过**的单位也是
@@ -2455,7 +2553,8 @@ namespace RuleEngine
                 // 🔴 **2026-10-17（F8）：部署豁免在【这条入口】上也要重算一次** ——
                 //    与 `PlayCard` 里 `Auras.Recompose` 之后那一句**同一个理由、同一份判据**（别在这边另写一份）：
                 //    上面 `new UnitState(inst, false)` 的 `Exhausted` 是**构造时**按**卡模板**关键词算的
-                //    快照（`Core/UnitState.cs:257`），而光环（`Auras.Recompose` → `Core/Aura.cs:653`
+                //    快照（= `UnitState` 构造里那句 `Exhausted = !RuleCore.HasDeployExemption(this)`），
+                //    而光环（`Auras.Recompose` → `Aura`
                 //    的 `AddAuraKeyword`）是在**那之后**才可能把 `fast`/`flank`/`ferocity` 挂上来的
                 //    ⇒ 不重算就是「**光环给了侧翼、单位却动不了**」（静默错）。
                 //    卡池里真有这类光环（四张，清单一处：`资料/普查产出_1017/F8_第二入口.md` §①）：
@@ -2610,7 +2709,21 @@ namespace RuleEngine
                 return RuleCodes.ErrTarget;
 
             // 毁灭者（Destroyer）：规则书 `:180`「总是优先攻击可被摧毁的单位」。
-            // ✅ 2026-09-14 做掉。**判据照抄参考实现 `rule_core.gd:4136-4147`** ——
+            // ✅ 2026-09-14 做掉。
+            // 🔴 **判据降级（`D26`，2026-10-19）**：原来这里写「**判据照抄参考实现**
+            //    `rule_core.gd:4136-4147`」—— 那份 `.gd` 是**我们自己的上一版 Godot 复刻**、
+            //    拿它当判据 = **自证**（`CLAUDE.md` 铁律 2 的 2026-09-18 更正）。
+            //    🔴 **回反编译找过、这一条【判据查不到】**，如实记（铁律 2：查不到就说查不到）：
+            //      · 攻击目标合法性的**唯一那个函数**是
+            //        `decomp_full/BattleManager__IsValidAttackTarget.c`（343 行，Vanguard / Flying /
+            //        Stealth / Tainted / GiantKiller 那几族都在它里面 —— 见下面 Flying 那一段）；
+            //        **它里面没有 `destroyer` 这一支**。
+            //      · `grep -rn -i "destroyer" d:/2/tools/decomp_full/` ⇒ **0 命中**；
+            //        `grep -i destroy d:/2/tools/il2cpp_out/dump.cs | grep "const DefinedTrait"` ⇒ **0 命中**
+            //        （`Destroyer` 在原版**不是一个 `DefinedTrait`**，卡表里它是**关键词**、只有卡面文字）。
+            //    ⇒ 这一支目前只有 **`rule_core.gd:4136-4147`（旁证、非权威）+ 规则书 :180（粉丝实体版）**
+            //      两条依据 ⇒ **标着「判据不足」，⛔ 别当原版结论**；要定案得**逐卡解出 Sautekh 那几张的
+            //      ability 数据**（`assets_full/…/MonoBehaviour/*`，今天没解）。
             //    它和 Vanguard **同构**：一条**硬约束**，不是「AI 打分偏好」。
             //      攻击者带 destroyer，且敌方场上存在**另一个「可被摧毁」的单位**
             //      （**不是 invulnerable、也不是 remnant**）
@@ -2633,7 +2746,16 @@ namespace RuleEngine
             }
 
             // Flying：**检查的是目标**（飞行单位不能被近战打到），远程正常，同为飞行可以。
-            // ⚠️ rule_core.gd 修正过方向：「此前禁止飞行单位近战打地面、却允许地面近战打飞行」—— 正好反了
+            // 🔴 **判据 = 原版反编译**（`D26`，2026-10-19 改指真权威）：
+            //    `decomp_full/BattleManager__IsValidAttackTarget.c:177-181` ——
+            //      `HasCurrentTrait(目标, 0x186 /*= 390 = `dump.cs:45758` DefinedTrait.flying */)`
+            //      ∨ `HasCurrentTrait(目标, 0x3d4 /*= 980 = vanguard */)`
+            //      ∨ `param_5 != 1`（≠ 近战）∨ `HasCurrentTrait(攻方, 0x186)`
+            //      ⇒ **只有「目标会飞 ∧ 这一下是近战 ∧ 攻方不会飞」才不合法** —— 与我们这一行**逐字等价**。
+            //    ⚠️ 同一支函数也是 **Vanguard** 的判据（`EntityScript__HasVanguardTrait(目标, 攻方, …)`，
+            //       `:188-189` / `CardScript__IsDefender.c`）—— 我们 `IgnoresVanguard` 那条也归它。
+            //    ⚠️ `rule_core.gd` 记的那条修正（「此前禁止飞行单位近战打地面、却允许地面近战打飞行」）
+            //       是**我们上一版复刻**自己纠的（旁证）；上面的反编译判据**独立印证**了同一个方向。
             if (!ranged && target.Has(KeywordTable.Flying) && !attacker.Has(KeywordTable.Flying))
                 return RuleCodes.ErrTarget;
 
@@ -2939,9 +3061,21 @@ namespace RuleEngine
 
             // ---- **替身**（`Any attack against your Warlord targets this troop instead.`）----
             //  出处：`Vargard Obyron`（Sautekh），2026-09-14 A5 批 4。
-            //  ⚠️ **位置照参考实现**（`rule_core.gd:4267`）：**合法性已经按督军验过之后**才改目标 ——
-            //     改在验证之前会和「督军格特殊」那套判据打架。
-            //  ⚠️ 只找**防御方场上第一个**带标记的**非督军**单位（参考实现同口径）；
+            // 🔴 **判据改指真权威（`D26`，2026-10-19）**：原来写「**位置照参考实现**
+            //    `rule_core.gd:4267`」—— 那是**我们自己的上一版 Godot 复刻**（旁证、非权威）。
+            //    回反编译查到的**真正机制**是：
+            //      · `decomp_full/BattleManager__AddRedirectedAttack.c` —— **重定向那一下**就是它干的
+            //        （`ClearPendingDamage(攻方/守方)` → `SetupAttack(攻方)` →
+            //         `RecordAttackPendingDamage(bm, 攻方, **新目标**, …)` → 造
+            //         `BattleAction(type = 0x4a)` 重新排队），而**它的唯一调用点**是
+            //        `AbilityLogic__PlayAbility.c:2730`。
+            //      ⇒ **原版把「替身」做成【一条 ability】**（重定向发生在能力结算里），**不是**
+            //        「攻击声明时在防御方场上找一个带标记的单位」。
+            //    ⚠️ **如实标着：我们这一支的「位置 + 选法」（槽号最小的那个非督军）仍是照 gd 旁证的**，
+            //       与原版那条 ability 的**触发时机/筛选**是否等价**未核**（判据不足）。
+            //       ⛔ 别把这一句当「照抄原版」读 —— 它现在的地位是**旁证一致**，不是查实。
+            //  ⚠️ 位置：**合法性已经按督军验过之后**才改目标（改在验证之前会和「督军格特殊」那套判据打架）。
+            //  ⚠️ 只找**防御方场上第一个**带标记的**非督军**单位（与旁证同口径）；
             //     一个都没有时照常打督军（不是「打不了」）。
             if (target != null && target.IsWarlord)
             {
@@ -3035,6 +3169,130 @@ namespace RuleEngine
                     //    死亡处理延后到批末，此刻它还站在棋盘上（见 `DeferDeaths`）。
                     if (!target.IsAlive) targetDied = true;
                 }
+
+                // ══════════════════════════════════════════════════════════════════
+                //  🔴 **`ResolveUnitAttacked` 那一族排在【主伤害之前】**
+                //  （2026-10-19 · `D28` 施工单 E —— 把施工单备注里那句「协程前半段另一条入口
+                //    未逐行走完」**当场核销**）
+                //
+                //  **判据 = `BattleManager._ResolveAttack_d__438__MoveNext.c` 逐行读完**：
+                //    · `:988 BattleManagerSupport__BroadcastUnitAttacked(bm, 攻方, 守方, 打法)` ——
+                //      🔴 **全库唯一调用点**：`grep -rn "BroadcastUnitAttacked" D:/2/tools/decomp_full/`
+                //      ⇒ 只命中本文件 `:988` 与它的定义文件
+                //      `BattleManagerSupport__BroadcastUnitAttacked.c`。**协程里没有第二条入口**
+                //      （施工单当时担心的那件事不存在）。
+                //      这一行是 state `0x15` / `0x16`（近战 / 远程攻击动画那两态）跑完之后
+                //      由 `:1622 goto LAB_1809aed47` 落到的地方（`LAB_1809aed47` 就在 `:987`）。
+                //    · `:999 CardScript__ReceiveDamage(守方, 0xf, 伤害表)` = **主伤害真正落血**
+                //      ⇒ `:988` 在前 ⇒ **触发族在主伤害之前**。
+                //    · 同在 `:988` 之前的两段：星镖 `:686` · 哨戒 `:715`
+                //      ⇒ **族与伤害的完整次序** = 星镖 → 哨戒 →【触发族】→ 主伤害 `:999`
+                //        → 爆裂 `:1030` → 践踏 `:1089` → 反击 `:1142` → 标记光 `:1290`。
+                //  ⚠️ 与 `CardScript__ResolveUnitAttacked.c` **不是同一件事**：那份文件定的是
+                //    **族内次序**（50 → 580 → 300|301，施工单 D 已做），这条协程定的是
+                //    **族与伤害的先后**。⛔ 别再把它挠回批外。
+                // ══════════════════════════════════════════════════════════════════
+                //  原版 `Strike(580)` 的闸门**不是**「打完之后还活着」，而是
+                //  `!CardScript.EnoughPendingDamageToDie(attacker)`（`CardScript__ResolveUnitAttacked.c:99-101`）
+                //  —— 那读的是**已登记的待结算伤害**：原版在 `:831 RecordAttackPendingDamage`
+                //  就把这一下攻击的全部伤害（**含反击**）登记好了、`:856 ResolveAttackDamage` 再广播一次
+                //  ⇒ 走到 `:988` 时「反击会不会打死我」**已经在表里**。
+                //  我们逐段结算、没有那张表 ⇒ 用同一条公式（`DamageAfterReduction`，纯函数、
+                //  与 `Hurt` 共用同一份）**预测**反击那一下。
+                //  ⚠️ `DamageAfterReduction` 判「会打死」是保守的（见它的注释）⇒ 最多少触发一次
+                //  Strike；⛔ 不会多触发 —— 这一条正好保住移块之前的行为（那时用「打完还活着」当闸门）。
+                bool noCounterEarly = ranged && attacker.Has(KeywordTable.LongRange);
+                bool sniperKillEarly = ranged && attacker.Has("sniper")
+                                       && (targetDied || DamageAfterReduction(target, atk) >= target.Health);
+                bool attackerDiesFromPending = !noCounterEarly && !sniperKillEarly && counterAtk > 0
+                                               && DamageAfterReduction(attacker, counterAtk) >= attacker.Health;
+
+                // ---- **「被这一下打到的那个」**（2026-09-14 A5 批 3）----
+                //   卡面：`Destroy any troop attacked by this unit`（`Venomthrope`）·
+                //   `Destroy any enemy troop with Armour attacked by this unit`（`Blastmaster Noise Marine`）·
+                //   `Stun enemy troops attacked and give them -1 [armor] and -1 [attack]`（`Sonic Blaster`）·
+                //   `Stun enemies attacked`（`Stikkbomb Boy`）· `Stun troops attacked.`（`Snakebite Grot`）·
+                //   `Destroys any enemy troop with Hunt Mark attacked.`（`Arjac Rockfist`）—— **全池 6 张**。
+                //
+                //   **原版出处**：`AbilityTrigger.UnitAttack = 50`（`CardScript__ResolveUnitAttacked.c:28-30`
+                //   传 `0x32`）—— 和 Strike / Mob / Regiment **在同一个函数里**（这也是
+                //   「引擎既有的 Mob/Regiment 切分」被独立印证的地方）。
+                //   🔴 **2026-10-08（`D28` 施工单 D）：位置改成照原版 —— 它排在 `Strike` / `Mob` /
+                //      `Regiment` **之前**（`Slay` 不在这一支里 —— 120 走另一条路，见批外那段）。
+                //     判据（`CardScript__ResolveUnitAttacked.c` 同一函数逐句读下来的次序）：
+                //       `:28-30 OnTrigger(0x32=50 UnitAttack)` → `:99-101 OnTrigger(0x244=580 Strike)`
+                //       → `:131-146 if(param_4==1){Mob} else if(param_4==2){Regiment}`。
+                //     ⛔ **别再把这一块排到 `Strike` 后面**（改之前的形状），那是一条**与原版相反**的次序。
+                //   ⚠️ **`seed: target` = 这一下的被打者** —— 正文里的「那个被打的」全靠它
+                //      （代词走 `LastTargets`，`AttackedBySelf` 也走那儿，见 `ResolveTargets`）。
+                if (attacker.IsAlive && ctx.Players[p].Board[atkSlot] == attacker)
+                {
+                    var atkOps = attacker.Card != null ? attacker.Card.AttackedOps : null;
+                    if (atkOps != null)
+                    {
+                        if (ctx.EffectChain >= BattleContext.MaxEffectChain)
+                        {
+                            ctx.Log($"效果链已达 {BattleContext.MaxEffectChain} 层，"
+                                  + $"{attacker.Name} 的「被这套打过的单位」不再连锁");
+                        }
+                        else
+                        {
+                            ctx.Emit(EvtKind.Trigger, p, atkSlot, attacker.Name,
+                                     keyword: "attacked", effect: attacker.Card.AttackedText, amount: 0);
+                            ctx.Log($"{attacker.Name} 触发「被这套打过的单位」："
+                                  + $"「{attacker.Card.AttackedText}」");
+                            ctx.EffectChain++;
+                            ResolveOps(ctx, p, attacker, atkOps, "被这套打过的", seed: target);
+                            ctx.EffectChain--;
+                        }
+                    }
+                }
+
+                // Strike（猛击）：「攻击后触发能力」—— 打没打死都算。
+                // 🔴 **2026-10-08（`D28` 施工单 D）**：它现在排在 `UnitAttack(50)` **之后**（见上面那一段）——
+                //   原版同一函数里的次序是 `50 → 580`（`ResolveUnitAttacked.c:28-30` vs `:99-101`）。
+                // 🔴 **2026-10-19（`D28` 施工单 E）**：闸门改成照原版 —— `!attackerDiesFromPending`
+                //   （= 原版那个 `!EnoughPendingDamageToDie(attacker)`，见上面那段）。
+                if (!attackerDiesFromPending && attacker.IsAlive && ctx.Players[p].Board[atkSlot] == attacker)
+                    FireTriggerAt(ctx, attacker, KeywordTable.Strike, p, atkSlot);
+
+                // 群体（Mob）：「**近战**攻击后触发」（规则书 :193）—— **远程不算**，
+                // 这是它和 Strike 唯一的差别（原版 `CardScript__ResolveUnitAttacked` 判
+                // `param_4 == AttackTypes.Melee`）。Goff 一族 15 张卡用它。
+                // 🔴 **2026-10-08（`D28` 施工单 D）就地订正**：这里原来写着「排在 Slay / Strike 之后是
+                //    **我们挑的**：这三个都长在同一个 `ResolveUnitAttacked` 里，先后顺序反编译里看不到」——
+                //    **后半句不成立**：次序**看得到**，就是 `OnTrigger(50)`（`:28-30`）→ `OnTrigger(580)`
+                //    （`:99-101`）→ `param_4==1 → OnTrigger(300 Mob)`（`:131-146`，`:131` 那个 `if/else`
+                //    还与 `Regiment` **互斥同点**）⇒ **Mob/Regiment 排在 Strike 之后是照原版**，
+                //    不是我们挑的。`Slay(120)` 确实不在这支里（它走 `BattleManager.AddTriggerSlay`
+                //    ← `AbilityLogic.PlayAbility`）⇒ 它与这三条的先后仍无判据，位置保持不动。
+                // ⚠️ **原版那一支 `BroadcastUnitMob`（通知除攻击者外的所有卡，触发 645）我们没有照拄**：
+                //    实测听众只有一张，而它要的「再触发一次」原版**没有通用原语**。见 `CardDef.Mob` 的注释。
+                //    ✅ 2026-09-16 起那张听众的行为**做掉了**（下面的 `TakeExtraTrigger` 那一段）。
+                if (!ranged && attacker.IsAlive && ctx.Players[p].Board[atkSlot] == attacker)
+                {
+                    FireTriggerAt(ctx, attacker, KeywordTable.Mob, p, atkSlot);
+                    // 🆕 2026-09-16 **「再来一次」**（`GOF_Big_Choppa_Nob` 的
+                    //   `When a friendly unit triggers Mob, it triggers an additional time`）——
+                    //   额度是上面那次触发**广播时**由监听者挂到 `attacker` 身上的
+                    //   （`EffectResolver.DoExtraTrigger`）⇒ 就地消费。
+                    //   ⚠️ 守卫（`FireExtraTriggers` 里的 `ExtraTriggerDepth`）：那一次额外触发
+                    //      会再广播一遍 `triggers:mob`，不挡的话额度会一直被重新挂上。
+                    int mobExtra = TakeExtraTrigger(ctx, attacker, KeywordTable.Mob);
+                    if (mobExtra > 0)
+                        FireExtraTriggers(ctx, mobExtra, i =>
+                        {
+                            if (!attacker.IsAlive || ctx.Players[p].Board[atkSlot] != attacker) return;
+                            ctx.Log($"（群体 Mob **再触发一次** —— 第 {i + 1} 次额外）");
+                            FireTriggerAt(ctx, attacker, KeywordTable.Mob, p, atkSlot);
+                        });
+                }
+
+                // 团（Regiment）：和 Mob **成对**，差别只在**远程**（规则书 `:202` vs `:193`）。
+                // ⚠️ 规则书一条写「后」一条写「时」，我们没有能分辨的依据 ⇒ **两条同位置**（我们挑的）。
+                // AstraMilitarum 一族 14 张用它。
+                if (ranged && attacker.IsAlive && ctx.Players[p].Board[atkSlot] == attacker)
+                    FireTriggerAt(ctx, attacker, KeywordTable.Regiment, p, atkSlot);
 
                 hpBefore = target.Health;      // 践踏要算「溢出多少」，所以得记打之前那一下
                 if (!targetDied)
@@ -3188,7 +3446,16 @@ namespace RuleEngine
                 //       但广播不能重复（卡面写的是「收到**一次**眩晕」）。
                 if (!target.IsStunned)
                 {
-                    target.IsStunned = true;
+                    // 🔴 **2026-10-09（`A1116`）**：原来是 `target.IsStunned = true;`（只写字段）
+                    //    ⇒ 改成**挂 `stun` trait** —— 全反编译里施加眩晕**只有这一条路**
+                    //    （`CardScript__Stun.c:48` 的 `AddTraitSilently(param_1, 100, …)`；
+                    //     `grep -n "AddTraitSilently(param_1,100" *.c` 只此一条），
+                    //    而 `IsStunned` 现在是它的派生属性。
+                    target.AddKeyword(KeywordTable.Stun, 1);
+                    // 🆕 2026-10-09（`A1121`）：**施加时清「回合开始时就在这个状态」的闸门** ——
+                    //    判据 = `CardScript__Stun.c:98`（`*(char *)(card + 0x55) = 0`）。
+                    //    ⇒ 这一下眩晕在**本回合末不会被摘**，要到它自己的下个回合末才摘。
+                    target.StunnedAtStartOfTurn = false;
                     BroadcastKeywordEvent(ctx, WhenEventKind.GetsStun, target);
                 }
                 ctx.Log($"{target.Name} 被 {attacker.Name} 打晕了（Concussion）");
@@ -3196,6 +3463,12 @@ namespace RuleEngine
 
             // ---- 攻击之后的触发：规则书 :208 / :214，都写着「（本单位存活时）」----
             // 存活判据要连**还在不在场上**一起看 —— 督军血 ≤ 0 时仍占着槽 4，但它已经不算活着了
+            // 🔴 **2026-10-19（`D28` 施工单 E）**：这个 `if` 里**只剩 `Slay`** ——
+            //    `ResolveUnitAttacked` 那一族（50 / 580 / Mob / Regiment）**已搬到主伤害之前**
+            //    （在原版那条协程的 `:988` 上，见批内那段长注释）。
+            //    `Slay(120)` **不在**那一支里（它走 `BattleManager.AddTriggerSlay`
+            //    ← `AbilityLogic.PlayAbility.c:1903`），而且**必须在伤害之后**（要判「目标被摧毁了没有」）
+            //    ⇒ 位置不动。
             if (attacker.IsAlive && ctx.Players[p].Board[atkSlot] == attacker)
             {
                 // Slay（斩杀）：「攻击并**摧毁单位**后触发能力」。督军不是「被摧毁」，所以不算
@@ -3218,95 +3491,6 @@ namespace RuleEngine
                     BroadcastWhen(ctx, WhenEventKind.Kills, tgtP, target.Card, target, actor: attacker);
                 }
 
-                // ---- 🆕 **「被这一下打到的那个」**（2026-09-14 A5 批 3）----
-                //   卡面：`Destroy any troop attacked by this unit`（`Venomthrope`）·
-                //   `Destroy any enemy troop with Armour attacked by this unit`（`Blastmaster Noise Marine`）·
-                //   `Stun enemy troops attacked and give them -1 [armor] and -1 [attack]`（`Sonic Blaster`）·
-                //   `Stun enemies attacked`（`Stikkbomb Boy`）· `Stun troops attacked.`（`Snakebite Grot`）·
-                //   `Destroys any enemy troop with Hunt Mark attacked.`（`Arjac Rockfist`）—— **全池 6 张**。
-                //
-                //   **原版出处**：`AbilityTrigger.UnitAttack = 50`（`CardScript__ResolveUnitAttacked.c:28-30`
-                //   传 `0x32`）—— 和 Slay / Strike / Mob / Regiment **在同一个函数里**（这也是
-                //   「引擎既有的 Mob/Regiment 切分」被独立印证的地方）。
-                //   🔴 **2026-10-08（`D28` 施工单 D）：位置改成照原版 —— 它排在 `Strike` / `Mob` /
-                //      `Regiment` **之前**（`Slay` 仍在它前面 —— 120 不在这支函数里，先后无判据）。
-                //     判据（`CardScript__ResolveUnitAttacked.c` 同一函数逐句读下来的次序）：
-                //       `:28-30 OnTrigger(0x32=50 UnitAttack)` → `:99-101 OnTrigger(0x244=580 Strike)`
-                //       → `:131-146 if(param_4==1){Mob} else if(param_4==2){Regiment}`。
-                //     ⛔ **别再把这一块排到 `Strike` 后面**（改之前的形状），那是一条**与原版相反**的次序。
-                //   ⚠️ **「伤害之前还是之后」仍未定案（不在本波）**：原版的一条入口里
-                //      `BattleManager._ResolveAttack_d__438__MoveNext.c:988 BroadcastUnitAttacked` 早于
-                //      `:999 ReceiveDamage`（= 伤害之前），但那支协程**没逐行走完**（另一条入口未定）
-                //      ⇒ 本块与伤害的先后**沿用既有近似**（仍在伤害之后），只改了**块内**次序。
-                //   ⚠️ **`seed: target` = 这一下的被打者** —— 正文里的「那个被打的」全靠它
-                //      （代词走 `LastTargets`，`AttackedBySelf` 也走那儿，见 `ResolveTargets`）。
-                if (attacker.IsAlive && ctx.Players[p].Board[atkSlot] == attacker)
-                {
-                    var atkOps = attacker.Card != null ? attacker.Card.AttackedOps : null;
-                    if (atkOps != null)
-                    {
-                        if (ctx.EffectChain >= BattleContext.MaxEffectChain)
-                        {
-                            ctx.Log($"效果链已达 {BattleContext.MaxEffectChain} 层，"
-                                  + $"{attacker.Name} 的「被这套打过的单位」不再连锁");
-                        }
-                        else
-                        {
-                            ctx.Emit(EvtKind.Trigger, p, atkSlot, attacker.Name,
-                                     keyword: "attacked", effect: attacker.Card.AttackedText, amount: 0);
-                            ctx.Log($"{attacker.Name} 触发「被这套打过的单位」："
-                                  + $"「{attacker.Card.AttackedText}」");
-                            ctx.EffectChain++;
-                            ResolveOps(ctx, p, attacker, atkOps, "被这套打过的", seed: target);
-                            ctx.EffectChain--;
-                        }
-                    }
-                }
-
-                // Strike（猛击）：「攻击后触发能力」—— 打没打死都算。放在斩杀之后：
-                // 先结算「干掉了」这件更具体的事，再结算「攻击过了」这件泛化的事
-                // 🔴 **2026-10-08（`D28` 施工单 D）**：它现在排在 `UnitAttack(50)` **之后**（见上面那一段）——
-                //   原版同一函数里的次序是 `50 → 580`（`ResolveUnitAttacked.c:28-30` vs `:99-101`）。
-                if (attacker.IsAlive && ctx.Players[p].Board[atkSlot] == attacker)
-                    FireTriggerAt(ctx, attacker, KeywordTable.Strike, p, atkSlot);
-
-                // 群体（Mob）：「**近战**攻击后触发」（规则书 :193）—— **远程不算**，
-                // 这是它和 Strike 唯一的差别（原版 `CardScript__ResolveUnitAttacked` 判
-                // `param_4 == AttackTypes.Melee`）。Goff 一族 15 张卡用它。
-                // 🔴 **2026-10-08（`D28` 施工单 D）就地订正**：这里原来写着「排在 Slay / Strike 之后是
-                //    **我们挑的**：这三个都长在同一个 `ResolveUnitAttacked` 里，先后顺序反编译里看不到」——
-                //    **后半句不成立**：次序**看得到**，就是 `OnTrigger(50)`（`:28-30`）→ `OnTrigger(580)`
-                //    （`:99-101`）→ `param_4==1 → OnTrigger(300 Mob)`（`:131-146`，`:131` 那个 `if/else`
-                //    还与 `Regiment` **互斥同点**）⇒ **Mob/Regiment 排在 Strike 之后是照原版**，
-                //    不是我们挑的。`Slay(120)` 确实不在这支里（它走 `BattleManager.AddTriggerSlay`
-                //    ← `AbilityLogic.PlayAbility`）⇒ 它与这三条的先后仍无判据，位置保持不动。
-                // ⚠️ **原版那一支 `BroadcastUnitMob`（通知除攻击者外的所有卡，触发 645）我们没有照抄**：
-                //    实测听众只有一张，而它要的「再触发一次」原版**没有通用原语**。见 `CardDef.Mob` 的注释。
-                //    ✅ 2026-09-16 起那张听众的行为**做掉了**（下面的 `TakeExtraTrigger` 那一段）。
-                if (!ranged && attacker.IsAlive && ctx.Players[p].Board[atkSlot] == attacker)
-                {
-                    FireTriggerAt(ctx, attacker, KeywordTable.Mob, p, atkSlot);
-                    // 🆕 2026-09-16 **「再来一次」**（`GOF_Big_Choppa_Nob` 的
-                    //   `When a friendly unit triggers Mob, it triggers an additional time`）——
-                    //   额度是上面那次触发**广播时**由监听者挂到 `attacker` 身上的
-                    //   （`EffectResolver.DoExtraTrigger`）⇒ 就地消费。
-                    //   ⚠️ 守卫（`FireExtraTriggers` 里的 `ExtraTriggerDepth`）：那一次额外触发
-                    //      会再广播一遍 `triggers:mob`，不挡的话额度会一直被重新挂上。
-                    int mobExtra = TakeExtraTrigger(ctx, attacker, KeywordTable.Mob);
-                    if (mobExtra > 0)
-                        FireExtraTriggers(ctx, mobExtra, i =>
-                        {
-                            if (!attacker.IsAlive || ctx.Players[p].Board[atkSlot] != attacker) return;
-                            ctx.Log($"（群体 Mob **再触发一次** —— 第 {i + 1} 次额外）");
-                            FireTriggerAt(ctx, attacker, KeywordTable.Mob, p, atkSlot);
-                        });
-                }
-
-                // 团（Regiment）：和 Mob **成对**，差别只在**远程**（规则书 `:202` vs `:193`）。
-                // ⚠️ 规则书一条写「后」一条写「时」，我们没有能分辨的依据 ⇒ **两条同位置**（我们挑的）。
-                // AstraMilitarum 一族 14 张用它。
-                if (ranged && attacker.IsAlive && ctx.Players[p].Board[atkSlot] == attacker)
-                    FireTriggerAt(ctx, attacker, KeywordTable.Regiment, p, atkSlot);
             }
 
             CheckWinner(ctx);
@@ -3661,7 +3845,7 @@ namespace RuleEngine
                 {
                     // 🔴 **2026-10-09（`A1106`）：这里原来写的是 `u.HasShield = false;`** ——
                     //    只清那个布尔字段、**关键词留着** ⇒ 盾用光之后 `u.Has("shield")` 仍为真。
-                    //    而 `SimpleAI.ScoreDamaging`（`Data/SimpleAI.cs:588`）读的正是**关键词**
+                    //    而 `SimpleAI.ScoreDamaging`读的正是**关键词**
                     //    ⇒ **AI 把已经用掉盾的单位继续当带盾、只给它一点点分**（真缺陷）。
                     //    **原版只有一份表示**：护盾 = trait `0x50`，消耗 = 把它**摘掉**
                     //    （`CardScript._ReceiveDamage_d__381__MoveNext.c:326-333`：
@@ -3752,22 +3936,30 @@ namespace RuleEngine
 
             // ---- 狂喜 X（Ecstasy X）—— ✅ **2026-09-14 做掉**（用户点名要求）----
             // 规则书 `:182`「本单位生命降至 X 或以下未死亡时触发效果」。
-            // 判据**照抄参考实现** `rule_core.gd:4438-4449`：
-            //     `health > 0 and kw_has("ecstasy") and health <= kw_val("ecstasy")
-            //      and not _ecstasy_fired` ⇒ 置位 + 触发。
-            // 🔴 **是「首次越线、一辈子一次」**（那个 `_ecstasy_fired` 就是防重复的）——
-            //    **不是**「只要 ≤ X 就每次挨打都触发」。上面那个 `hpBefore` 因此**用不上**
-            //    （原注释猜的是「判跨越」，参考实现用的是**置位**，更简单也更不容易错）。
-            //    我们对应的字段 = `UnitState.EcstasyFired`。
+            // 🔴 **判据 = 原版反编译**（`D26`，2026-10-19 换掉原来那句「**判据照抄参考实现**
+            //    `rule_core.gd:4438-4449`」—— 那份 `.gd` 是**我们自己的上一版 Godot 复刻**、
+            //    拿它当判据 = **自证**，见 `CLAUDE.md` 铁律 2 的 2026-09-18 更正）：
+            //    · `decomp_full/CardScript__ShouldTriggerEcastasy.c` —— 守卫四条：
+            //      `RawCardScript.HasDefaultTrait(raw, 0x4e2 /* = 1250 = `dump.cs:45849` DefinedTrait.ecstasy */)`
+            //      ∧ `!CardScript.EnoughPendingDamageToDie(card)`
+            //      ∧ **`traitValue(0x4e2) &lt; healthBefore`** ∧ **`healthAfter &lt;= traitValue(0x4e2)`**
+            //      ⇒ 判的是「**从 &gt; X 掉到 ≤ X**」，**不是**「只要 ≤ X」。
+            //      ⚠️ 那一支里**没有**任何「一次性」置位 —— 治回 X 以上再被打下去会**再触发**。
+            //    · 触发点 = `decomp_full/CardScript__ResolveDamageDealt.c:151`
+            //      （`RawCardScript__OnTrigger(raw, 0x2cb /* = 715 = `dump.cs:20331` AbilityTrigger.Ecstasy */, …)`）
+            //      ＋ `BattleManager._ResolveAttack_d__438__MoveNext.c:1418`（哨戒那一条的预判）。
+            //    ⇒ 我们的实现就是下面这一行：`hpBefore > ex &amp;&amp; u.Health &lt;= ex`。
+            // 🔴 **2026-10-19 行为改动（`D26` 顺带查出来的）**：原来这儿是
+            //    `!UnitState.EcstasyFired` 置位（「首次越线、**一辈子一次**」）—— 那一版抄自
+            //    gd 旁证，**与原版不符**（治好再打下去原版会再触发）⇒ **字段已删**，改判跨越。
             // 🔴 阈值 X 的来源**只此一处**：`CardDef.EcstasyX`（正文正则 → 触发前缀 → 卡表兜底）。
             //    —— 原来这里标着「没做」，理由是「X 拿不到」；那条理由 2026-09-14 解掉了。
-            if (u.IsAlive && u.Has(KeywordTable.Ecstasy) && !u.EcstasyFired)
+            if (u.IsAlive && u.Has(KeywordTable.Ecstasy))
             {
                 int ex = u.Card != null ? u.Card.EcstasyX : 1;
-                if (u.Health <= ex)
+                if (hpBefore > ex && u.Health <= ex)
                 {
-                    u.EcstasyFired = true;
-                    ctx.Log($"{u.Name} 的**狂喜 {ex}** 越过阈值（{hpBefore} → {u.Health}，阈值 {ex}）—— 触发");
+                    ctx.Log($"{u.Name} 的**狂喜 {ex}**越过阈值（{hpBefore} → {u.Health}，阈值 {ex}）—— 触发");
                     FireTriggerOnBoard(ctx, u, KeywordTable.Ecstasy);
                 }
             }
@@ -4982,32 +5174,38 @@ namespace RuleEngine
             return n;
         }
 
-        /// <summary>每回合能激活几次誓约：默认 **1**；同方场上有 `OathTripleActivation` ⇒ **3**
-        /// （原版 `CardScript__CanUseOathAbility.c:16-20`）。
-        /// ⚠️ 原版那两个 trait 同时在时上限退化成 **1**（那里是 `&amp;&amp;`）—— **全池没有同时带两张的卡**，
-        ///    这条怪癖我们**不复现**（复现了也没有一张卡能走到），如实记在这儿。</summary>
-        public static int OathActivationCap(BattleContext ctx, int p)
+        /// <summary>每回合能激活几次誓约：默认 **1**；**这张牌自己身上**带着 `oathTripleActivation`
+        /// ⇒ **3**（原版 `CardScript__CanUseOathAbility.c:16-20`：
+        /// `EntityScript__HasCurrentTrait(param_1, 0x4fe)`，`param_1` = **被激活的那张牌**）。
+        ///
+        /// 🔴 **2026-10-19（`D28` 施工单 H）就地改的**：原来这里是**遍历同方场上、找到一张带
+        ///    `OathTripleActivation` 的源牌**就返回 3 —— 那是「**我们挑的**」，与原版**读点不同**：
+        ///    源牌（`Ferren Areios`）是把那个 trait **当持续效果授予友方部队**的
+        ///    （`CardScript__AddEffect.c:499` `AddTraitSilently`），读点在**收件人自己身上**。
+        ///    「扫同方」会把不在 `friendly troops` 里的单位（督军）也放宽进来。
+        ///    ⇒ 授予层落在 <see cref="Auras.Recompose"/>（写 <see cref="UnitState.OathTripleGranted"/>），
+        ///      这里只读收件人自己那一格。
+        ///
+        /// ⚠️ 原版那两个 trait 同时在时上限退化成 **1**（那里是 `&amp;&amp;` 套出来的怪癖）——
+        ///    实测**全池没有同时带两张的卡**，这一条我们**不复现**（复现了也没有一张卡能走到），
+        ///    如实记在这儿。
+        /// ⚠️ `slot` 无效 / 那格空 ⇒ 回落到 1（调用方 `CanUseOathAbility` 已经先判过，这里只为防越界）。</summary>
+        public static int OathActivationCap(BattleContext ctx, int p, int slot)
         {
-            var board = ctx.Players[p].Board;
-            for (int i = 0; i < BoardSpec.Size; i++)
-            {
-                var u = board[i];
-                if (u != null && u.Card != null && u.Card.OathTripleActivation) return 3;
-            }
-            return 1;
+            if (ctx == null || p < 0 || p > 1 || !BoardSpec.IsValid(slot)) return 1;
+            var u = ctx.Players[p].Board[slot];
+            return (u != null && u.OathTripleGranted) ? 3 : 1;
         }
 
-        /// <summary>同方场上有没有 `OathInAllTurns` —— 有就豁免「必须本回合部署」
-        /// （原版 `CardScript__CanUseOathAbility.c:8`）。</summary>
-        public static bool OathAllTurns(BattleContext ctx, int p)
+        /// <summary>**这张牌自己身上**有没有 `oathInAllTurns` —— 有就豁免「必须本回合部署」
+        /// （原版 `CardScript__CanUseOathAbility.c:8`：`HasCurrentTrait(param_1, 0x4fc)`）。
+        /// 🔴 **2026-10-19（`D28` 施工单 H）**：与 <see cref="OathActivationCap"/> 同一处改动
+        /// （原来是扫同方；授予层在 <see cref="Auras.Recompose"/>）。</summary>
+        public static bool OathAllTurns(BattleContext ctx, int p, int slot)
         {
-            var board = ctx.Players[p].Board;
-            for (int i = 0; i < BoardSpec.Size; i++)
-            {
-                var u = board[i];
-                if (u != null && u.Card != null && u.Card.OathInAllTurns) return true;
-            }
-            return false;
+            if (ctx == null || p < 0 || p > 1 || !BoardSpec.IsValid(slot)) return false;
+            var u = ctx.Players[p].Board[slot];
+            return u != null && u.OathAllTurnsGranted;
         }
 
         /// <summary>这张牌现在能不能激活誓约能力。
@@ -5030,8 +5228,8 @@ namespace RuleEngine
             if (u == null) return RuleCodes.ErrNotUnit;
             if (u.Card == null || u.Card.OathOps.Count == 0) return RuleCodes.ErrNoAbility;
             if (u.IsStunned) return RuleCodes.ErrStunned;
-            if (u.OathUsesThisTurn >= OathActivationCap(ctx, p)) return RuleCodes.ErrExhausted;
-            if (!OathAllTurns(ctx, p) && u.DeployedTurn != ctx.Turn) return RuleCodes.ErrExhausted;
+            if (u.OathUsesThisTurn >= OathActivationCap(ctx, p, slot)) return RuleCodes.ErrExhausted;
+            if (!OathAllTurns(ctx, p, slot) && u.DeployedTurn != ctx.Turn) return RuleCodes.ErrExhausted;
             return RuleCodes.OK;
         }
 
@@ -5044,8 +5242,10 @@ namespace RuleEngine
         ///
         /// 🔴 **2026-10-17 修：`EvtKind.Ability` 原来发在【付费之前】**（`ctx.Emit` 排在
         ///    `ResolveOathAbility` 上面）⇒ **付不起的那一次也发过一条「能力发动了」的事件**，
-        ///    而监听方全在表现层 —— 战斗日志按它写一行「发动技能」（`BattleDriver.cs:4510`）、
-        ///    VFX 映射（`BattleDriver.cs:6661`）、trait 粒子（`BattleDriver.cs:6825`，
+        ///    而监听方全在表现层 —— 战斗日志按它写一行「发动技能」（`BattleDriver` 里
+        ///    `case EvtKind.Ability:` 那条拼 `"…发动技能"` 的日志）、VFX 映射（同文件
+        ///    `case EvtKind.Ability: evt = VfxMap.Ability;`）、trait 粒子（同文件
+        ///    `case EvtKind.Ability: want = new[] { KeywordTable.Ferocity };`，
         ///    `EvtKind.Ability` 那一档对应的正是原版 `UsedActiveAbility` = trait `0x4f1` = ferocity）
         ///    ⇒ 它们都会以为能力真的发动了。
         ///    ⇒ 现在**整段（`Emit` + 日志）挪到付费成功之后** —— 语义 = 「**能力真的发动了**」。
@@ -5215,7 +5415,13 @@ namespace RuleEngine
             // 「激活一个主动能力」这条路 ⇒ 原版那一处置的是同一个 `+0x4C`。
             u.UsedActiveAbilityThisTurn = true;
             // 「正在祈祷」= **状态**，一直挂到本单位控制者的下个回合开始
-            // （`UnitState.Prayed` 的注释里有出处：`rule_core.gd:2371` 置位 / `:1953` 复位）。
+            // 🔴 **判据 = 原版反编译**（`D26`，2026-10-19 改指真权威）：`pray` 在原版是一个
+            //    **`DefinedTrait`**（`dump.cs:45839` `pray = 1185`），祈祷那条路是
+            //    `AbilityLogic__PlayAbility.c:1847 AddTriggerPray` → `BattleManager__ResolveTriggerPray.c`
+            //    → `BattleManagerSupport__BroadcastUnitPray.c`（= `EntityScript.HasCurrentTrait(…, pray)`）。
+            //    ⚠️ `rule_core.gd:2371` 置位 / `:1953` 复位是**我们上一版复刻**怎么写这个状态机的
+            //      （**旁证、非权威**）；「一直挂到控制者的下个回合开始」这个**时长**是否与
+            //      `ResolveTriggerPray` 逐句一致，**尚未核**（判据不足，⛔ 别当已查实）。
             // ⚠️ 和下面那条 `BroadcastWhen(Prays)` 是**两件事** ——
             //    那个是「祈祷发生了」的**事件**（监听者当场响应），这个是**状态**（`Devout Serenity` 那种
             //    「每个正在祈祷的单位」要读的）。两者都要，缺一个就有一类卡不响。
@@ -5511,14 +5717,24 @@ namespace RuleEngine
         /// **典籍（Codex）的自动触发点** —— 「**打出任何一张牌之后**，你的能量**恰好为 0**
         /// ⇒ 触发**一个**带 `Codex` 的单位的正文」。
         ///
-        /// **出处**（⚠️ 2026-10-17 订正：原来写「**原版出处**」—— 错，`rule_core.gd` 是
-/// **我们自己的 Godot 复刻**、不是原版）：我们自己的参考实现
-/// `d:/warpforge/scripts/rule_core.gd:2397 _check_codex`（旁证、非权威）。
-        /// 两条语义**照抄，没有自己发挥**：
-        ///   ① 判据是 `energy == 0`（**恰好**为 0 —— 那边写的就是 `== 0`，不是 `&lt;= 0`）；
-        ///   ② 扫 0→8 号格，命中**第一个**就 `break` ⇒ **一次只触发一个单位**，不是全体各来一次。
+        /// 🔴 **判据 = 原版反编译**（`D26`，2026-10-19 改指真权威；原来这一句只引
+        /// **我们自己的 Godot 复刻** `rule_core.gd:2397 _check_codex`，那是**旁证、非判据**）：
+        ///   · **入口条件** = `decomp_full/CardScript__CanPlayWithCodexNow.c` 的**最后一行**：
+        ///     `BoardAnalysis.GetManaLeft(本机方) == card.CurrentCost`
+        ///     —— 即「**这一张打出去之后剩余能量恰好为 0**」。
+        ///     ✅ **与我们这一支的 `energy == 0` 逐字等价**（`GetManaLeft` 读的是**打出之前**的剩余，
+        ///        `== CurrentCost` ⇔ 付完正好归零）—— 这一条**核过了、口径对**。
+        ///     ⚠️ 同一支里还有两道前置（`IsPlayerTurn` / `HasCurrentTrait(0x82)` /
+        ///        `RawCardScript.HasDefaultTrait(raw, 1000 /* = `dump.cs:45820` codex */)`）——
+        ///        我们**只做了「能量恰好归零」这一条**，其余在 `PlayCard`/代码路径上天然成立。
+        ///   · **投递** = `BattleManager__CheckIfCodexTriggered.c`（造 `BattleAction(0x46)` 入队）
+        ///     → `BattleManager__ResolveTriggerCodex.c` → `BattleManager__BroadcastUnitCodex.c`
+        ///     （另有 `AddTriggerCodex` / `AddTriggerPlayerCodex` / `CardScript__TriggerCodex` /
+        ///      `CardScript__TriggerOtherCardCodex`）。
+        ///   ⚠️ **仍未核的一条**：原来那句「扫 0→8 号格、命中**第一个**就 `break` ⇒ 一次只触发一个单位」
+        ///      只来自 gd 旁证 ⇒ **标着判据不足**（要定案得逐句读 `ResolveTriggerCodex` 那条广播循环）。
         /// 调用点也照那边三个来（`rule_core.gd:2183` 战术打完 · `:2244` 虫群合并之后 ·
-        /// `:2337` 单位部署完）：我们把三条路各自汇到 <see cref="PlayCard"/> 与
+        /// `:2337` 单位部署完，**旁证**）：我们把三条路各自汇到 <see cref="PlayCard"/> 与
         /// `PlayTactic` 的**末尾**各调一次（虫群合并与普通部署本来就都在 `PlayCard` 里）。
         ///
         /// ⚠️ **为什么非有它不可**（2026-09-14 A5 补）：`Codex:` 的正文原来**只有**
@@ -5903,7 +6119,7 @@ namespace RuleEngine
             //   🔴 **只进日志**（与 `Forfeit` 同一个口、同一种 token 形状）：码**不进 `ctx` 的任何状态**
             //      （`Winner` / `ForfeitedBy` / 双方棋盘一个字没动）、**不进任何协议、不过网**。
             //      唯一副作用 = `ctx.Events` 多一行 —— 那是**既有日志通道**的固有行为（`Forfeit` 那两行同理）；
-            //      录像对账走的是 `NetProtocol.StateHash`（`NetProtocol.cs:352`，**不含 `ctx.Events.Count`**）
+            //      录像对账走的是 `NetProtocol.StateHash`（**不含 `ctx.Events.Count`**）
             //      与 `BattleDriver.DeepHash`（不含事件）⇒ **旧录像零风险**。
             //   ⚠️ **只在「恰好一方督军倒下」时发** —— 原版那一跳**每场只发一次码**、座位 = 倒下的那一位
             //      （和 `Forfeit` 的 `seat=` 同一个含义）。双方同时倒下（我们引擎的平局 = `Winner 3`）

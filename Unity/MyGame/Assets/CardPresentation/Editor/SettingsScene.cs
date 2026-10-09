@@ -144,7 +144,13 @@ public static class SettingsScene
     /// 返回 **false = 一个 active 的 `ImageQuad` 都没有** ⇒ 调用方**必须报红**（否则那两条等于没验）。
     /// 🔴 两条矩形断言（`CheckRectS` / `CheckRectPx`）**共用这一份**量法 —— 别各写一遍
     /// （「两处写同一条规则 = 迟早不一致」）。⚠️ `CheckAbsorbRule` 那一条**不走这里**：它只要
-    /// 一个**单张** quad 的矩形（吸收层底就是一张平图），所以直接取 `GetComponentInChildren&lt;ImageQuad>()`。</summary>
+    /// 一个**单张** quad 的矩形（吸收层底就是一张平图），所以直接取 `GetComponentInChildren&lt;ImageQuad>()`。
+    /// <para>🔴 **2026-10-09（A1120）：子树上那颗【命中层】的 quad 也会被算进来** —— `MenuDraw.Hit` /
+    /// `MakeHitQuad` 建的那颗透明 quad（tint `(0,0,0,0)`、名字恒 `"Hit"`）**是 `ImageQuad`**，
+    /// 而自 `d6c4111`（`A1053`「命中区归真值」）起它**比可见面大**（关闭钮：命中 86.73×85.05 vs 脸 67.5×67.5）。
+    /// ⇒ **要量「这一件长什么样」，目标就得指到【可见面那颗子件】上**（例：`…/Generic Close Button/bg`），
+    /// ⛔ **别把一件的节点整个交进来**（那量到的是「脸 ∪ 命中层」）。本窗目前只有关闭钮一处踩到
+    /// （两条红 → `A1120`）；**新加「量某件矩形」的断言时先问：这棵子树里有没有 `Hit`**。</para></summary>
     static bool RectOf(Transform t, out float lx, out float ty, out float rx, out float by)
     {
         // 🆕 2026-10-18（A1003）：并集算法收口到 `MenuDraw.UnionQuadRectPx`（保留本名与本形参 ⇒ 调用点 0 改动）。
@@ -463,11 +469,59 @@ public static class SettingsScene
                        SettingsWindow.FillR, SettingsWindow.FillB, "`Background fill`（`40k_popup_texture` 平铺）");
             CheckRectS(FindChild(Area(root), "Separators"), SettingsWindow.BarSepL, SettingsWindow.BarSepT,
                        SettingsWindow.BarSepR, SettingsWindow.BarSepB, "`Separators`");
-            CheckRectS(FindChild(Area(root), "Generic Close Button"), SettingsWindow.CloseL, SettingsWindow.CloseT,
-                       SettingsWindow.CloseR, SettingsWindow.CloseB, "`Generic Close Button`（75×75）");
+            // 🔴 **2026-10-09（A1120）**：这一条量的是钮的**可见面子件 `bg`**（75×75 那张圆底），
+            //   **不是「Generic Close Button」那棵子树** —— `d6c4111`（`A1053`「命中区归真值」）起，
+            //   子树里多了一颗**命中层**（`Hit` 节点，矩形 = 原版射线区，**比可见面大**）⇒
+            //   `RectOf` 的「子树并集」会量到那颗、不再等于钮的脸（这正是那两条红：量出 86.7×85.0、
+            //   期望 67.5×67.5）。**期望值一个字没改**（仍是原版 `1559.00,91.61→1634.00,166.61` 过 `Screen()`）。
+            //   ⚠️ 不是「把锚改成实测值」：改的是**量的对象口径**（脸 vs 脸∪命中层），
+            //      而且 `bg` 就是原版那颗 `UI_Button_Round_background` 的落点（见 `Shell/SettingsWindow.cs:941`）。
+            CheckRectS(FindChild(FindChild(Area(root), "Generic Close Button"), "bg"),
+                       SettingsWindow.CloseL, SettingsWindow.CloseT,
+                       SettingsWindow.CloseR, SettingsWindow.CloseB, "`Generic Close Button` 的可见面 `bg`（75×75）");
             CheckRectS(FindChild(FindChild(Area(root), "Generic Close Button"), "Icon"),
                        SettingsWindow.CloseIconL, SettingsWindow.CloseIconT,
                        SettingsWindow.CloseIconR, SettingsWindow.CloseIconB, "关闭钮的 `Icon`");
+            // 🆕 **2026-10-09（A1120）**：**关闭钮的命中区**（`Hit` 节点；它的唯一那颗 quad 是全透明的，
+            //   `MenuDraw.MakeHitQuad` 给 tint `(0,0,0,0)`）—— 期望 = **原版可射线区 86.73×85.05（画布 px）**。
+            //   判据（原版 prefab 亲读）= `python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all
+            //   "Main Menu Settings Window" --depth 8 --substr "Generic Close Button"` ⇒
+            //   全子树**只有 1 颗**可射线件：`…/Generic Close Button/Icon`（`40k_bt_close`，裸矩形
+            //   **50.73×49.05**、**父链缩放 0.9**）按自己的 `m_RaycastPadding (-20)⁴` 外扩 = **86.73×85.05**
+            //   （根那颗 `UI_Button_Round_background` 是 `m_RaycastTarget = 0`、不吃射线）。
+            //   期望值取**设计 px**（= 原版字段手算、`Screen()` 之前的那一帧；`CheckRectS` 内部会过 `Screen()`，
+            //   所以下面四个字面量是 `Icon` 矩形外扩 20 之后的样子，⛔ 别写成屏上的 1489.48/127.67 那一套）：
+            //   `1568.31,101.86→1624.68,156.35` 四边各外扩 20 ⇒ `1548.31,81.86→1644.68,176.35`（96.37×94.49）。
+            //   🔴 **这一条就是 `A1120`(b) 的裁断书**：我们传进 `Hit` 的那个 `96.37×94.50` 是**设计 px**
+            //   （`Hit()` 入口自己过 `Screen()` ⇒ 屏上 ×0.9 = **86.73×85.04**，与原版射线区逐位吻合）
+            //   ⇒ **实现是对的**，红的是「拿全子树并集当钮的脸」那个**量法**。把 96.37 当屏上值写进来 = 漏了 0.9。
+            CheckRectS(FindChild(FindChild(Area(root), "Generic Close Button"), "Hit"),
+                       1548.31f, 81.86f, 1644.68f, 176.35f,
+                       "关闭钮的命中区（= 原版可射线区：`Icon` 外扩 `(-20)⁴`、父链 0.9 ⇒ 86.73×85.05）");
+            // 🆕 **2026-10-09（`A1125`）**：**换图层那一半** —— `A1120` 只断了**命中区**，
+            //   「悬停换哪一层」本窗**一条断言都没有**（`A1058` 的另一半）。
+            //   判据（原版 prefab 亲读）= `Main Menu Settings Window > Menu Area/Generic Close Button` 那颗
+            //   `EverguildButton` 的 **`m_TargetGraphic` = pid8542793629372546982** ⇒ **所属 GO 名 = `Icon`**、
+            //   贴图 = **`40k_bt_close`**（⛔ 不是圆底盘 `bg` = `UI_Button_Round_background`；
+            //   出处 = `Shell/SettingsWindow.cs` 那一段亲读注释，本文件只引用、不重推）。
+            // 🧨 改坏法：把 `Hit(...)` 的 `target` 实参换成圆底盘（`bg`）⇒ **两个条件同时不成立** ⇒ 红
+            //   （错因 = 只读 `m_Transition`、没读 `m_TargetGraphic`）。
+            {
+                var a1125HitN = FindChild(FindChild(Area(root), "Generic Close Button"), "Hit");
+                CheckTrue(a1125HitN != null,
+                          "（前提·不静默）A1125：SettingsWindow 关窗钮的 `Hit` 节点拿得到"
+                        + " —— ⛔ 取不到就不往下断「换图层」（不静默变绿）");
+                var a1125Wb = a1125HitN != null ? a1125HitN.GetComponent<WindowButton>() : null;
+                CheckTrue(a1125Wb != null && a1125Wb.target != null && a1125Wb.target.Texture != null
+                          && a1125Wb.target.gameObject.name == "Icon"
+                          && a1125Wb.target.Texture.name == "40k_bt_close",
+                          "★★ A1125：SettingsWindow 关窗钮的**换图层** = 子件 `Icon`（图 `40k_bt_close`；"
+                        + "= 原版 `m_TargetGraphic` 指到的那一颗）—— 现读「"
+                        + (a1125Wb == null || a1125Wb.target == null || a1125Wb.target.Texture == null
+                           ? "<没绑>" : a1125Wb.target.gameObject.name + " / " + a1125Wb.target.Texture.name)
+                        + "」"
+                        + " —— 改坏法：把它传成圆底盘 `bg`（`UI_Button_Round_background`）⇒ 红");
+            }
 
             // ---------------- 🔴 ②（A131）：**映射锚断言** ----------------
             // 上面那一片（`CheckAtS` / `CheckRectS`）的期望值**整条过 `Screen()`**，而**建窗用的也是它**
@@ -503,10 +557,16 @@ public static class SettingsScene
             //     `RootScale` 0.9→0.8 ⇒ 实测变 [1439.20…1499.20]（x1 差 59.90px）；
             //     `Screen()` 的缩放中心从画布中心改成 (0,0) ⇒ 变 [1403.10…1470.60]；
             //     整条映射漏掉那 0.9 ⇒ 变 [1559.00…1634.00]（= 未缩放的矩形）。三种都会红。
+            //  ⑤ 🔴 **2026-10-09（A1120）**：量的是那颗**可见面**子件 `bg`（矩形与「关闭钮」节点逐值相同：
+            //     仍是 [1559.00,91.61]–[1634.00,166.61]），**⛔ 不是「Generic Close Button」那棵子树** ——
+            //     自 `d6c4111`（`A1053`）起子树里多了一颗**命中层**（`Hit` = 原版射线区 86.73×85.05，
+            //     **比可见面大**）⇒ 量子树会量到它、这条锚当场红（[1489.48,127.67]–[1576.21,212.72]）。
+            //     锚的价值**一分没少**（同一个矩形、仍离画布中心最远；③④ 那两段手算与改坏法逐条照旧）。
             Section("🔴 ②（A131）映射锚断言：期望值是原版字段手算的字面量（⛔ 不过 `Screen()` / `OrigPxY`）");
-            CheckRectPx(FindChild(Area(root), "Generic Close Button"),
+            CheckRectPx(FindChild(FindChild(Area(root), "Generic Close Button"), "bg"),
                         1499.10f, 136.44f, 1566.60f, 203.94f,
-                        "（②锚）关闭钮渲染矩形 = 原版 [1559.00,91.61]–[1634.00,166.61] 经「0.9 + 画布中心」缩放");
+                        "（②锚）关闭钮可见面 `bg` 的渲染矩形 = 原版 [1559.00,91.61]–[1634.00,166.61]"
+                        + " 经「0.9 + 画布中心」缩放");
             var bgQ = FindChild(Area(root), "Generic Popup Background").GetComponentInChildren<ImageQuad>();
             CheckTrue(bgQ != null && bgQ.Texture != null && bgQ.Texture.name == "40k_popup",
                       "弹窗底图 = `40k_popup`");
@@ -1461,6 +1521,234 @@ public static class SettingsScene
                         win.SetFpsIndex(i0c, false);                   // 还原档位（不 fire）
                         Check(Application.targetFrameRate, f0c,
                               "（A202① 收尾）探针只碰「开始拖」那件事 —— 进程帧率一个字节没动（四条探针都不改档位）");
+                    }
+                }
+            }
+
+            // ---------------- ★ A1092 站点②：`SettingsWindow.UpdateFpsDragAt` 的 x 换算（**必须两态**）----------------
+            // 🔴 **缺陷**：`UpdateFpsDrag` 的指针路原来把世界坐标读成 **108 帧**的画布 px（`LayoutSpace.PxX/PxY`），
+            //   而它喂进去的 `FpsPressAtCanvas` / `SetFpsFromCanvasX` 吃的是**设计帧**画布 px
+            //   （= 先过 `SettingsWindow.Screen()` 把固定的 0.9 烘进设计 px）⇒ 两帧只在 **16:9 重合**
+            //   （非 16:9 下读出来的 x 围着画布中心 960 缩放：4:3 ⇒ ×0.75、21:9 ⇒ ×1.3125）。
+            //   **2026-10-18（A1092）已改成同一条读口**（`MenuDraw.PixelOfDesign`）。
+            // 🔴 **为什么这一节必须两态**：本节每一点在 **16:9 下新旧两种写法逐值相同**
+            //   （偏差 ≤ 2.44e-4 px，`资料/普查产出_第六会话/W_外壳量法线_四笔.md:161` 按 float32 逐点算过）
+            //   ⇒ **只断 16:9 = 没断**（旧实现照样全绿）。4:3 与 21:9 各挑了一处**旧实现必然给错档**的判点。
+            // 🔴 **怎么打进去**：直调 `win.UpdateFpsDragAt(world, pressedThisFrame, held)`——
+            //   批处理里 `Mouse.current` **恒 null**，`UpdateFpsDrag` 头两行就早退 ⇒
+            //   **那一层换算在 (B) 重构之前没有任何口能被自检驱动**（这正是它从 `A990②` 潜伏到 `A1092` 的原因）。
+            // ⚠️ 夹具形状照 `Editor/ShellScene.cs:1699-1786` 那处已跑过的两态：改 `LayoutSpace.Cam.aspect`
+            //   → **重建** → 读完 `finally` 还原；并断一条**前提**「`|VisibleWidth/DesignWidth − 1| > 0.1`」
+            //   （前提不成立 = 这一档其实是 16:9 ⇒ 本节没有鉴别力 ⇒ **当场红**，⛔ 不许静默）。
+            // ⚠️ 与 `A202①` 那节**不重复**：那一节打的是 `FpsPressAtCanvas` 自己的**按下分支**（画布 px 直调），
+            //   本节补的是**它上面那一层**（世界坐标 → 画布 px）—— 也就是「拖动那一支」。
+            Section("★ A1092 站点②：`UpdateFpsDragAt` 的 x 换算 = 设计帧（两态：16:9 对照 + 4:3 / 21:9）");
+            {
+                var a1092Cam = LayoutSpace.Cam;
+                CheckTrue(a1092Cam != null,
+                          "（前提）`LayoutSpace.Cam` 在（`VisibleWidth` 由它给；不在 ⇒ 本节等于没验）");
+                if (a1092Cam != null)
+                {
+                    var a1092Back = a1092Cam.aspect;
+                    int a1092F0 = Application.targetFrameRate, a1092I0 = win.FpsIndex;
+                    // 三档手柄中心的**画布 px**（**原版字面量**手算：轨道左 842.57 + (12 + 值/2 × 481.18) × 0.9）
+                    var wantHcx = new[] { 853.37f, 1069.90f, 1286.43f };
+                    // 判别点（**画布 px**，与宽高比无关）与期望档 —— 期望值 = uGUI `Slider.UpdateDrag` 那一式
+                    //   在画布 px 上手算：`Clamp(round(Clamp01((x − 842.57) ÷ (481.18 × 0.9)) × 2), 0, 2)`：
+                    //     850 → 0.034 ⇒ 档 0 · 920 → 0.358 ⇒ 档 0 · 990 → 0.681 ⇒ 档 1 · 1060 → 1.004 ⇒ 档 1
+                    //     1130 → 1.327 ⇒ 档 1 · **1200 → 1.651 ⇒ 档 2** · 1270 → 1.974 ⇒ 档 2
+                    //   🔴 **两处判别点**（旧式在这两格上给错档、16:9 下却全对）：
+                    //     · **1200**：旧式（108 帧）在 **4:3** 下读成 `842.57 + (1200 − 960) × 0.75 = 1140.00`
+                    //       ⇒ `(1140.00 − 842.57) ÷ 433.06 × 2 = 1.374` ⇒ **档 1**（正确 = 档 2）。
+                    //     · **1130**：旧式在 **21:9** 下读成 `842.57 + (1130 − 960) × 1.3125 = 1183.13`
+                    //       ⇒ `(1183.13 − 842.57) ÷ 433.06 × 2 = 1.573` ⇒ **档 2**（正确 = 档 1）。
+                    //   ⛔ 两点离最近的取整边界都约 **7 画布 px**（不是浮点边界）；也都不落在任何手柄的抓手格里。
+                    var probeX = new[] { 850f, 920f, 990f, 1060f, 1130f, 1200f, 1270f };
+                    var probeIdx = new[] { 0, 0, 1, 1, 1, 2, 2 };
+                    try
+                    {
+                        foreach (float asp in new[] { 4f / 3f, 21f / 9f, LayoutSpace.DesignAspect })
+                        {
+                            a1092Cam.aspect = asp;
+                            // ⚠️ **必须重建**：本窗每一个矩形都是 `Screen()` 之后过 `LayoutSpace.FromPixel` 摆的
+                            //    ⇒ 世界位置**在建的那一刻算一次**（`Open()` = `Build()` 把窗根子件整棵重建）。
+                            win.Open();
+                            float ratio = LayoutSpace.VisibleWidth / LayoutSpace.DesignWidth;
+                            bool isDesign = Mathf.Abs(asp - LayoutSpace.DesignAspect) < 1e-4f;
+                            if (isDesign)
+                                CheckNear(ratio, 1f, 1e-4f,
+                                          "（对照档 16:9）`VisibleWidth / DesignWidth` = 1 ⇒ 新旧两种写法在这一档**重合**"
+                                        + "（本节余下几条在这一档也必须过 —— 那就是「改动只动非 16:9」的证明）");
+                            else
+                                CheckTrue(Mathf.Abs(ratio - 1f) > 0.1f,
+                                          $"（前提）宽高比 {asp:F4} 下 `VisibleWidth / DesignWidth` = {ratio:F4}"
+                                        + " —— **偏离 1 超过 10%**（≈1 就说明这一档已经是 16:9 ⇒ 本节没有鉴别力）");
+
+                            var aRow = FindChild(FindChild(root, "Graphics Tab"), "FPS Limit");
+                            var aSl = aRow != null ? FindChild(aRow, "FPS Slider") : null;
+                            var aHd = aSl != null ? FindChild(aSl, "Handle") : null;
+                            CheckTrue(aHd != null,
+                                      $"（前提）宽高比 {asp:F4}：手柄节点 `FPS Limit/FPS Slider/Handle` 拿得到"
+                                    + "（拿不到 ⇒ 本档这几条等于没验）");
+                            if (aHd == null) continue;
+
+                            // ---- 尺子：三档手柄中心的**画布 px**（读的是**建在树上的事实** ——
+                            //      `MenuDraw.PixelOfDesign` 正是建件那条换算 `LayoutSpace.FromPixel` 的逆）
+                            var hcx = new float[3];
+                            float hcxWorst = 0f;
+                            for (int k = 0; k < 3; k++)
+                            {
+                                win.SetFpsIndex(k, false);                  // ⚠️ 不 fire：自检不改进程帧率
+                                hcx[k] = MenuDraw.PixelOfDesign(aHd.position).x;
+                                hcxWorst = Mathf.Max(hcxWorst, Mathf.Abs(hcx[k] - wantHcx[k]));
+                            }
+                            CheckTrue(hcxWorst <= 0.05f,
+                                      $"（尺子）宽高比 {asp:F4}：三档手柄中心的**画布 px** = 原版字面量手算的 "
+                                    + $"853.37 / 1069.90 / 1286.43（实得 {hcx[0]:F2} / {hcx[1]:F2} / {hcx[2]:F2}，"
+                                    + $"最大偏差 {hcxWorst:F4} ≤ 0.05）—— 这一条不过 ⇒ 下面几条量的是别的东西");
+                            float cy = MenuDraw.PixelOfDesign(aHd.position).y;   // 手柄与轨道**同中心线**（三档同一个 y）
+                            // 画布 px → 世界坐标（= 建件那条换算；`UpdateFpsDragAt` 吃的正是世界坐标）
+                            System.Func<float, Vector3> W = c => LayoutSpace.FromPixel(c, cy);
+                            // 把拖动状态摆回基线：**命中带之外**按一下 ⇒ `_fpsDragging = false`（不碰档位）
+                            System.Action disarm = () => win.FpsPressAtCanvas(700f, cy);
+                            // 中性按下：带内、**不在任何手柄的抓手格里**（hx 最左 853.37，差 438px ≫ 半宽 15.93）
+                            //   ⇒ `_fpsGrabPx == 0`、`_fpsDragging == true`（起点档 = 2 ⇒ 带右端 1302.36 才含 847.57）
+                            System.Action armDrag = () =>
+                            { win.SetFpsIndex(2, false); win.FpsPressAtCanvas(847.568f, cy); };
+
+                            // ---- ②-1：三档手柄中心喂进拖动口 ⇒ 取到的档 == idx（**按下支**）
+                            //   ⚠️ 2 档那一次**只能**在 `_fpsIndex == 2` 时打：命中带 = **轨道 ∪ 手柄**，
+                            //      而 2 档手柄中心 1286.43 探出轨道右端 1284.63 ⇒ 只有带取到 `_fpsIndex = 2`
+                            //      那一档（右端 1302.36）才包含它 ⇒ 那一次**档位断言是空转的**，
+                            //      所以那一次只断 `FpsDragging`（它在 21:9 下正是牙口，见下面的改坏法）。
+                            for (int k = 0; k < 3; k++)
+                            {
+                                disarm();
+                                win.SetFpsIndex(2, false);
+                                win.UpdateFpsDragAt(W(hcx[k]), true, true);
+                                string broken = "；改坏法：把 `UpdateFpsDragAt` 那两处换回 `LayoutSpace.PxX/PxY` "
+                                              + "⇒ 非 16:9 下读出来的 x 围着 960 缩放 ⇒ **21:9 的 0 档**（读成 820.05，"
+                                              + "被命中带左端 842.57 弹掉）与 **21:9 的 2 档**（读成 1388.44，被右端 1302.36 弹掉）"
+                                              + "这两下**根本进不了拖动** ⇒ 红（16:9 两帧重合 ⇒ 仍绿）";
+                                if (k < 2)
+                                    CheckTrue(win.FpsDragging && win.FpsIndex == k,
+                                              $"★（A1092）宽高比 {asp:F4}：**手柄中心**（画布 x = {hcx[k]:F2}）按下 ⇒ "
+                                            + $"开始拖**并且**取到**档 {k}**（起点档是 2 ⇒ 不是「保持原值」）" + broken);
+                                else
+                                    CheckTrue(win.FpsDragging,
+                                              $"★（A1092）宽高比 {asp:F4}：2 档手柄中心（画布 x = {hcx[2]:F2}）按下 ⇒ "
+                                            + "开始拖（⚠️ 档位那一半由「起点必须是 2 档」这条前提**逼成了空转**，"
+                                            + "所以只断状态）" + broken);
+                            }
+
+                            // ---- ②-1（续）：同一批世界坐标走**拖动支**（`pressedThisFrame = false && held = true`）
+                            for (int k = 0; k < 3; k++)
+                            {
+                                disarm();
+                                armDrag();                                  // ⇒ `_fpsDragging = true`、`_fpsGrabPx = 0`
+                                win.SetFpsIndex((k + 1) % 3, false);        // 起点档 ≠ k
+                                win.UpdateFpsDragAt(W(hcx[k]), false, true);
+                                CheckTrue(win.FpsIndex == k,
+                                          $"★（A1092）宽高比 {asp:F4}：**拖动支**喂手柄中心（画布 x = {hcx[k]:F2}）⇒ "
+                                        + $"**档 {k}**（起点档另设、与 k 不同 ⇒ 这一条不是同义反复）");
+                            }
+
+                            // ---- ②-1b：判别点扫描（**4:3 与 21:9 各有一处旧实现必然给错档**，见 `probeX` 的注释）
+                            for (int i = 0; i < probeX.Length; i++)
+                            {
+                                disarm();
+                                armDrag();
+                                win.SetFpsIndex((probeIdx[i] + 1) % 3, false);
+                                win.UpdateFpsDragAt(W(probeX[i]), false, true);
+                                CheckTrue(win.FpsIndex == probeIdx[i],
+                                          $"★★（A1092）宽高比 {asp:F4}：拖动支喂**画布 x = {probeX[i]:F0}** ⇒ "
+                                        + $"**档 {probeIdx[i]}**（期望值 = uGUI 那一式在画布 px 上手算，"
+                                        + "⛔ 不从被测实现读；起点档另设 ⇒ 不是同义反复）"
+                                        + "；改坏法：换回 `LayoutSpace.PxX` ⇒ **4:3 的 x=1200** 给档 1、"
+                                        + "**21:9 的 x=1130** 给档 2 ⇒ 非 16:9 两档各红一条（16:9 全绿 —— 这就是它潜伏的原因）");
+                            }
+
+                            // ---- ②-2（**灭自证**）：同一个世界坐标下，「点选」那一半（`SetFpsFromPointer`）与
+                            //      拖动那一半（`UpdateFpsDragAt` 的取值那一路）必须**逐值相等**（容差 0 ——
+                            //      同一像素不必再 round 一次）。
+                            //   🔴 牙口边界（如实记）：**两边都调同一个 `MenuDraw.PixelOfDesign` ⇒
+                            //      只要没人把拖动口改回 `PxX/PxY` 它就恒等** ⇒ 这条只防「其中一半被改回旧式」；
+                            //      **「换算本身对不对」由 ②-1b 那张绝对档位表负责** —— 两条缺一不可。
+                            for (int i = 0; i < probeX.Length; i++)
+                            {
+                                var w2 = W(probeX[i]);
+                                disarm();
+                                armDrag();
+                                win.SetFpsIndex(2, false);
+                                win.UpdateFpsDragAt(w2, false, true);
+                                int byDrag = win.FpsIndex;
+                                win.SetFpsIndex(2, false);
+                                win.SetFpsFromPointer(w2);
+                                int byPointer = win.FpsIndex;
+                                CheckTrue(byPointer == byDrag,
+                                          $"★（A1092）宽高比 {asp:F4} 画布 x = {probeX[i]:F0}：**点选**那一半给档 "
+                                        + $"{byPointer} · **拖动**那一半给档 {byDrag} —— 必须**逐值相等**（容差 0）"
+                                        + "；改坏法：只把拖动那半改回 `LayoutSpace.PxX` ⇒ 两半分家 ⇒ 红");
+                            }
+
+                            // ---- ②-3：抓手偏移（`_fpsGrabPx`）也必须跟 `px` 同帧 —— 同族第二处
+                            //   （`FpsPressAtCanvas` 里 `hx = …position.x * 108f + 960f`，2026-10-18 已一并改成
+                            //    `MenuDraw.PixelOfDesign(…)`）。原来的病：4:3 下 `|px − hx| = 0.25 × |px − 960|`
+                            //   （手柄离画布中心 480px 时差 **120px**，远大于 `half` = 35.406 × 0.9 ÷ 2 = **15.93**）
+                            //   ⇒「按在手柄上」那条判据**恒假** ⇒ `_fpsGrabPx` 恒 0 ⇒ 抓手偏移丢失。
+                            //   **怎么让自检看见它**（抓手偏移只改「值跟着谁走」，不改别的）：
+                            //     · 偏移在 ⇒ 值跟 **手柄中心 + 位移** 走：1069.90 + (1175 − 1084.90) = **1160.00**
+                            //       ⇒ `(1160.00 − 842.57) ÷ 433.06 × 2 = 1.466` ⇒ **档 1**
+                            //     · 偏移丢了 ⇒ 值按**指针自己**算 = `(1175.00 − 842.57) ÷ 433.06 × 2 = 1.535` ⇒ **档 2**
+                            //   ⛔ **「行为上看得见」那一半**（拖到 1175）**必须**落在取整边界附近
+                            //      （偏移最大只到 `half` = 15.93 画布 px ⇒ 最多把读数搬 0.0736 档）
+                            //      —— 探针取 1175，离边界 1.5 约 **7.4/7.6 画布 px**。
+                            //   🔴 **两条一起才有牙**（调度台 2026-10-18 裁定）：下面那条「拖到 1175」断的是
+                            //      「这个差**在行为上真的生效**」（值确实跟着「手柄中心 + 位移」走），
+                            //      紧随的 `FpsGrabPxForTest` 那条断的是「这个差**算对了**（== +15.0）」——
+                            //      少任何一条，另一半都能被改坏而不红（例：把偏移恒置 15 就能骗过前者）。
+                            {
+                                disarm();
+                                win.SetFpsIndex(1, false);
+                                win.UpdateFpsDragAt(W(hcx[1] + 15f), true, true);   // 按在**手柄上**（15 ≤ 半宽 15.93）
+                                // 🔴 **直断**（调度台 2026-10-18 裁定加 `FpsGrabPxForTest` 这个只读口）：
+                                //    按下点离手柄中心 15 画布 px ⇒ 抓手偏移**必须就是 +15.0**。
+                                //    期望值是**外部字面量**（⛔ 不是拿 `px − hx` 现算 —— 那与实现同式 = 自证）；
+                                //    容差 0.01 只留 float 往返那点余量（实测量级 ~1e-4 px）。
+                                //    🔴 这一条比下面那条「拖到 1175」**硬**：那条要把 0.0736 档的差推到取整边界上才看得见
+                                //    （探针离边界只剩 7.4px），这一条**直接读那个量本身**、与档位取整无关。
+                                CheckNear(win.FpsGrabPxForTest, 15f, 0.01f,
+                                          $"★★（A1092）宽高比 {asp:F4}：按在手柄中心**右 15px** ⇒ **抓手偏移 = +15.00 画布 px**"
+                                        + $"（实得 {win.FpsGrabPxForTest:F4}）"
+                                        + "；改坏法：把 `FpsPressAtCanvas` 里的 `hx` 换回内联的 `… × 108f + 960f` "
+                                        + "⇒ 非 16:9 下 `|px − hx|` 远大于手柄半宽 **15.93**（4:3 差 `0.25 × |px − 960|`、"
+                                        + "21:9 差 `0.3125 × |px − 960|`）⇒ 这一下被判成「按在轨道空处」⇒ **偏移 = 0** ⇒ 红"
+                                        + "（16:9 两帧重合 ⇒ 仍绿）");
+                                CheckTrue(win.FpsDragging && win.FpsIndex == 1,
+                                          $"（前提）宽高比 {asp:F4}：按在手柄中心**右 15px** ⇒ 开始拖、且**档不变**（1）"
+                                        + " —— 抓手偏移只记差、不当场取值");
+                                win.UpdateFpsDragAt(W(1175f), false, true);
+                                CheckTrue(win.FpsIndex == 1,
+                                          $"★★（A1092）宽高比 {asp:F4}：抓住手柄后再拖到**画布 1175** ⇒ **档 1**"
+                                        + "（值跟「手柄中心 + 位移」= 1160.00 走）"
+                                        + "；改坏法：把 `FpsPressAtCanvas` 里的 `hx` 换回内联的 `… × 108f + 960f` "
+                                        + "⇒ 非 16:9 下抓手偏移恒 0 ⇒ 值按指针自己算 = 1175.00 ⇒ **档 2** ⇒ 红"
+                                        + "（16:9 两帧重合 ⇒ 仍绿）");
+                                win.UpdateFpsDragAt(W(1270f), false, true);        // 反向哨兵：拖动这一路**真会改档**
+                                CheckTrue(win.FpsIndex == 2,
+                                          $"（哨兵）宽高比 {asp:F4}：再拖到**画布 1270** ⇒ **档 2**"
+                                        + "（证明上一行不是「拖动一直是空操作」的假断言）");
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        // ⚠️ **必须还原**（本节余下每一段几何都是按 16:9 建出来的），并重建回 16:9 那棵树
+                        a1092Cam.aspect = a1092Back;
+                        win.Open();
+                        win.FpsPressAtCanvas(700f, 0f);         // 把「正在拖」摆回基线（带外 ⇒ 只清状态）
+                        win.SetFpsIndex(a1092I0, false);
+                        Application.targetFrameRate = a1092F0;
                     }
                 }
             }
@@ -3382,6 +3670,82 @@ public static class SettingsScene
             SuperSampling.ResetForTest();
             RestoreRenderScale();
             try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
+        }
+
+        // ============================================================ 🆕 2026-10-09（`A1025`）本批键全 `Loc.HasEntry` + 两语档取真文案
+        // 判据（坑表 #18）：**「原版有词条」≠「我们表里有键」** —— 键不在 ⇒ `Loc.T` 返回**键名本身**、界面上就印键名。
+        // 🔴 **与 `A1057(f)`（`Editor/NetSelfTest.cs` 那张**表级**扫描）不是同一条、方向相反**：那条是 **表 → 表**
+        //   （表自身健康），本条是 **代码 → 表**（**本批代码引的键**有没有落进表）—— 表级扫描永远看不见后者。
+        // 🔴 **Net/ 那批已有等价物**（`Editor/NetSelfTest.cs` 的 `TestNetTermBilingual`）⇒ 本笔不重复覆盖它。
+        // 数组 = 本批生产文件里出现的**活键字面量** ∩ `Core/Loc.cs` 的表键（超集无害、且更严）。
+        // 本宿主覆盖的生产文件 = `Shell/SettingsWindow.cs`（81 条）。
+        // 🧨 改坏法：① `Loc.cs` 删掉本批任一条键 ⇒ ①红；② 某条**英文列**填中文/全角空格 ⇒ ③红；
+        //   ③ **中文列**清空 ⇒ ②红；④ 值改成键名本身 ⇒ ②红；⑤ 表删掉一半 ⇒ ④红（`EntryCount` 掉到基线之下）；
+        //   ⑥「把实现与期望一起改回写死中文 **并** 把表里那条删掉」⇒ ①红（数组里那条键仍在、`HasEntry` 假）—— 这正是本数组存在的唯一理由。
+        {
+            string[] a1025Keys =
+            {
+                "Demo/MainMenu/ExitButton", "Demo/MainMenu/ExitGame", "MainMenu/General/OK",
+                "MainMenu/General/Off", "MainMenu/General/On", "MainMenu/Settings/ButtonLabel/Exit_Game",
+                "MainMenu/Settings/ButtonLabel/SelectLanguage", "MainMenu/Settings/SettingLabel/Music", "MainMenu/Settings/SettingLabel/SoundFx",
+                "Settings/General/DisableBots", "Settings/General/DisableNotifications", "Settings/General/Flash/Language",
+                "Settings/General/LangHasNoTable", "Settings/General/RedeemCode", "Settings/General/RedeemCodeUnavailable",
+                "Settings/General/Title", "Settings/General/TouchInput", "Settings/Graphics/AutoZoom",
+                "Settings/Graphics/EnableSuperSampling", "Settings/Graphics/Flash/AutoZoom", "Settings/Graphics/Flash/Fps",
+                "Settings/Graphics/Flash/Quality", "Settings/Graphics/Flash/SmallScreenUI", "Settings/Graphics/Flash/SuperSampling",
+                "Settings/Graphics/Flash/Vsync", "Settings/Graphics/FpsText/Unlimited", "Settings/Graphics/FpsText/Value",
+                "Settings/Graphics/FrameLimit", "Settings/Graphics/IncreaseUISize", "Settings/Graphics/SelectQuality",
+                "Settings/Graphics/Title", "Settings/Graphics/UnlimitedFPS", "Settings/Graphics/Vsync",
+                "Settings/Media/AudioMixerNote", "Settings/Media/Title", "Settings/Media/VoiceOvers",
+                "Settings/Online/CheckConnection", "Settings/Online/ClickAgain", "Settings/Online/HostFailed",
+                "Settings/Online/HostReady", "Settings/Online/HostReadyNoPassword", "Settings/Online/HostReadyToFriend",
+                "Settings/Online/HowToConnect/DontUseTestSite", "Settings/Online/HowToConnect/Intro", "Settings/Online/HowToConnect/Lan",
+                "Settings/Online/HowToConnect/LocalCheckTitle", "Settings/Online/HowToConnect/NoHolePunching", "Settings/Online/HowToConnect/PublicDirect",
+                "Settings/Online/HowToConnect/PublicV6No", "Settings/Online/HowToConnect/PublicV6Yes", "Settings/Online/HowToConnect/UpnpNote",
+                "Settings/Online/HowToConnect/VirtualLan", "Settings/Online/HowToConnect/VirtualNicNo", "Settings/Online/HowToConnect/VirtualNicYes",
+                "Settings/Online/IpLabel", "Settings/Online/IpPlaceholder", "Settings/Online/IsV6",
+                "Settings/Online/LocalAddr", "Settings/Online/NetRuntimeMissing", "Settings/Online/NoNicFound",
+                "Settings/Online/PasswordLabel", "Settings/Online/PasswordPlaceholder", "Settings/Online/ProbingPublicAddress",
+                "Settings/Online/PublicAddress/BothOk", "Settings/Online/PublicAddress/LocalV6", "Settings/Online/PublicAddress/Mismatch",
+                "Settings/Online/PublicAddress/None", "Settings/Online/PublicAddress/NotFound", "Settings/Online/PublicAddress/Title",
+                "Settings/Online/PublicAddress/V4", "Settings/Online/PublicAddress/V6", "Settings/Online/Refresh",
+                "Settings/Online/RoleClient", "Settings/Online/RoleHost", "Settings/Online/Save",
+                "Settings/Online/StatusNoSession", "Settings/Online/TestPublicIp", "Settings/Online/Title",
+                "Settings/Online/TitleNote", "Settings/Online/TitleNoteBody", "Settings/Online/VirtualNic",
+            };
+            foreach (var k in a1025Keys)
+                CheckTrue(Loc.HasEntry(k), $"★（A1025）本批键都在表里：`{k}`");
+            // ② 两语档各取一次、都非空且 ≠ 键名（只断中文档 = 半边绿）
+            var a1025LangWas = Loc.Current;
+            foreach (var lang in new[] { AvailableLanguages.Chinese, AvailableLanguages.English })
+            {
+                Loc.RestoreForTest(lang);
+                int bad = 0; string firstBad = null;
+                foreach (var k in a1025Keys)
+                {
+                    string v = Loc.T(k);
+                    if (string.IsNullOrEmpty(v) || v == k) { bad++; if (firstBad == null) firstBad = k; }
+                }
+                CheckTrue(bad == 0, $"★（A1025）`{lang}` 档下 {a1025Keys.Length} 条**全部取到真文案**（缺 {bad} 条"
+                          + (firstBad == null ? "" : $"，第一条 `{firstBad}`") + "）"
+                          + " —— 取不到时会印**键名本身**，那就是静默失败");
+            }
+            Loc.RestoreForTest(a1025LangWas);      // ⛔ 只改内存、不写 `PlayerPrefs`（不是 `SetLanguage`）
+            // ③ 灭自证 C1：英文列不许含汉字（`Loc.HasCjk` 的区间含 `0x3000-0x303F` 与 `0xFF00-0xFFEF`）
+            {
+                int cjk = 0; string firstCjk = null;
+                foreach (var k in a1025Keys)
+                {
+                    string en = Loc.EnOf(k);
+                    if (!string.IsNullOrEmpty(en) && Loc.HasCjk(en)) { cjk++; if (firstCjk == null) firstCjk = k; }
+                }
+                CheckTrue(cjk == 0, $"★（A1025）本批 {a1025Keys.Length} 条的**英文列无 CJK**（坏 {cjk} 条"
+                                  + (firstCjk == null ? "" : $"，第一条 `{firstCjk}`") + "）");
+            }
+            // ④ 灭自证 D（表基线）：开工前实测 `EntryCount == 429`
+            CheckTrue(Loc.EntryCount >= 429,
+                      $"★（A1025）表基线：`Loc.EntryCount` = {Loc.EntryCount} ≥ **429**（开工前实测）"
+                    + "｜🧨 把键删掉、断言也一起删 ⇒ 这条红");
         }
 
         Debug.Log(P + $"===== 通过 {_sink.Pass} · 失败 {_sink.Fail} =====");

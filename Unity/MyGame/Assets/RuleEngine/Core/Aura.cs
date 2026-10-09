@@ -550,6 +550,51 @@ namespace RuleEngine
                     }
                 }
 
+            // ---- ②·b **誓约授予层**（🆕 2026-10-19 · `D28` 施工单 H）----
+            //
+            //  **是什么**：把「改誓约规则」的两句话从源牌**授予友方部队**，落到收件人自己的
+            //  <see cref="UnitState.OathTripleGranted"/> / <see cref="UnitState.OathAllTurnsGranted"/> 上。
+            //
+            //  🔴 **为什么要走这一层，而不是读的时候扫同方**：原版那两个 trait 的**唯一读点**是
+            //  `CardScript__CanUseOathAbility.c:8` / `:16`，读的是
+            //  `EntityScript__HasCurrentTrait(**被激活的那张牌**, 0x4fc | 0x4fe)` —— **收件人自己身上**。
+            //  源牌是把它当**持续效果**发出去的（`CardScript__AddEffect.c:499` 的
+            //  `AddTraitSilently(card, effect.trait)`，全反编译唯一的授予口）
+            //  ⇒ 「扫同方」会静默放宽成「连不该收的单位也收」：卡面写的是 `friendly **troops**`，
+            //     **督军不是部队**（判据 = `CLAUDE.md` 铁律 7 那条「写 `troops` 才不含督军」）。
+            //
+            //  形状与上面的光环**完全同构**：来源在场就有效、来源离场由 ① 那趟 `ClearAuraGrants` 收回。
+            //  ⚠️ 它**不吃 `Filter` / `Adjacent` / `Duration`** —— 那两句的卡面是「**所有**友方部队」，
+            //     没有相邻、没有 `during your turn`（原版那条也只是一条常驻卡效果）。
+            //  ⚠️ **`oathDouble`（第三句）不在这儿**：原版
+            //     `BattleManager__IsThereDoubleOathEffect.c:33` **本来就是**遍历同方场上数张数的
+            //     ⇒ 我们那一份照抄它，保持不动（见 `RuleCore.OathExtraReplays`）。
+            //  ⚠️ 这一步**不参与下面 ③ 的迭代** —— 它没有「光环之间互相引用」那种依赖。
+            for (int p = 0; p < 2; p++)
+            {
+                var gboard = ctx.Players[p].Board;
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var gsrc = gboard[s];
+                    if (gsrc == null || gsrc.Card == null) continue;
+                    bool triple = gsrc.Card.OathTripleActivation;
+                    bool allTurns = gsrc.Card.OathInAllTurns;
+                    if (!triple && !allTurns) continue;
+                    int ghits = 0;
+                    for (int t = 0; t < BoardSpec.Size; t++)
+                    {
+                        var tgt = gboard[t];
+                        if (tgt == null) continue;
+                        if (tgt.IsWarlord) continue;      // 卡面 `friendly **troops**` ⇒ 督军不收
+                        if (triple) tgt.OathTripleGranted = true;
+                        if (allTurns) tgt.OathAllTurnsGranted = true;
+                        ghits++;
+                    }
+                    ctx.Log($"光环（誓约）：{gsrc.Name} 的「{(triple ? "誓约每回合上限 3 次" : "誓约可跨回合")}」"
+                          + $"→ 授予 {ghits} 个友方部队");
+                }
+            }
+
             // ---- ③ 按当前棋盘重加（**迭代到不再新增**）----
             //
             // 🔴 **为什么要迭代**（2026-09-14 实测抓出来的）：**光环之间会互相引用** ——

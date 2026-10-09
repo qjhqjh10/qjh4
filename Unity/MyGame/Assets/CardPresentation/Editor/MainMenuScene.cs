@@ -439,6 +439,53 @@ public static class MainMenuScene
         return MenuDraw.QuadRectPx(q, out x1, out y1, out x2, out y2);
     }
 
+    /// <summary>🆕 **2026-10-09（`A1125`）**：一颗**关窗钮**的「命中区 + 换图层」四连断。
+    /// <para>四个闸落在**四个不同对象**上（前提 / 命中区尺寸 / 命中区位置 / 换图层绑定）⇒ 改坏任一处只红其中一条：
+    /// ① 按钮 / 命中 / 可见面三件都取得到（取不到就不许往下断 = 不静默变绿）；
+    /// ② 命中区**尺寸** = 原版可射线件**并集**（⛔ 不是根矩形）；③ 命中区**中心** == 可见面渲染中心
+    /// （可见面矩形与命中区**不同源** ⇒ 位置那一半的独立锚）；④ 换图层 = 原版 `m_TargetGraphic`
+    /// 指到的那一颗（节点名 + 贴图名**两个条件**）。</para>
+    /// <para>`btnName == null` ⇒ 直接在**窗根**下找 `hitName` / `faceName`（命中节点挂窗根那两扇）。
+    /// `targetNodeName == null` ⇒ ④ 只断**贴图名**。</para>
+    /// <para>⛔ 期望值全是**原版 prefab 的读数**，不从被测实现里读。判据 → `A1125Close` 同族五份。</para></summary>
+    static void A1125Close(string win, Transform winRoot, string btnName, string hitName,
+                           string faceName, string faceTex, string targetNodeName, float wPx, float hPx)
+    {
+        var btn = winRoot == null ? null : (btnName == null ? winRoot : FindChild(winRoot, btnName));
+        CheckTrue(btn != null, $"（前提·不静默）A1125 {win}：关窗钮节点 `{btnName ?? "<窗根>"}` 拿得到"
+                             + " —— ⛔ 取不到就不往下断（不静默变绿）");
+        var hitG = btn != null ? FindChild(btn, hitName) : null;
+        CheckTrue(hitG != null, $"（前提·不静默）A1125 {win}：命中节点 `{hitName}` 拿得到");
+        var faceG = btn != null ? FindChild(btn, faceName) : null;
+        CheckTrue(faceG != null, $"（前提·不静默）A1125 {win}：可见面子件 `{faceName}` 拿得到");
+        var hq = hitG != null ? hitG.GetComponentInChildren<ImageQuad>(true) : null;
+        float hx1 = 0f, hy1 = 0f, hx2 = 0f, hy2 = 0f;      // ⛔ 先归零：`&&` 短路时编译器要求 out 已赋值
+        bool okH = hq != null && MenuDraw.QuadRectPx(hq, out hx1, out hy1, out hx2, out hy2);
+        CheckTrue(okH && Mathf.Abs((hx2 - hx1) - wPx) <= 0.5f && Mathf.Abs((hy2 - hy1) - hPx) <= 0.5f,
+                  $"★★ A1125 {win}：关窗钮**命中区** = 原版可射线件并集 **{wPx}×{hPx}**（设计 px）"
+                + (okH ? $"（现读 {hx2 - hx1:F2}×{hy2 - hy1:F2}）" : "（命中 quad 取不到）")
+                + "｜🧨 ① 改回根矩形 ⇒ 每边小 ~11（绿族 ~10.7/9.8）⇒ 红；② 改回子件裸矩形 ⇒ 每边小 20 ⇒ 红");
+        var fq = faceG != null ? faceG.GetComponentInChildren<ImageQuad>(true) : null;
+        float fx1 = 0f, fy1 = 0f, fx2 = 0f, fy2 = 0f;
+        bool okF = fq != null && MenuDraw.QuadRectPx(fq, out fx1, out fy1, out fx2, out fy2);
+        CheckTrue(okH && okF
+                  && Mathf.Abs((hx1 + hx2) * 0.5f - (fx1 + fx2) * 0.5f) <= 0.6f
+                  && Mathf.Abs((hy1 + hy2) * 0.5f - (fy1 + fy2) * 0.5f) <= 0.6f,
+                  $"★★ A1125 {win}：命中区**中心** == 可见面 `{faceName}` 的渲染中心（独立锚）"
+                + (okH && okF ? $"（{((hx1 + hx2) * 0.5f):F2},{((hy1 + hy2) * 0.5f):F2} vs "
+                                + $"{((fx1 + fx2) * 0.5f):F2},{((fy1 + fy2) * 0.5f):F2}）" : "（取不到）")
+                + "｜🧨 把命中节点整体搬走（`localPosition += (20,0,0)`）⇒ 只错位置不错尺寸 ⇒ 只这条红（与 ② 不同源）");
+        var wb = hitG != null ? hitG.GetComponent<WindowButton>() : null;
+        string got = wb == null || wb.target == null || wb.target.Texture == null
+                   ? "<没绑>" : wb.target.gameObject.name + " / " + wb.target.Texture.name;
+        CheckTrue(wb != null && wb.target != null && wb.target.Texture != null
+                  && wb.target.Texture.name == faceTex
+                  && (targetNodeName == null || wb.target.gameObject.name == targetNodeName),
+                  $"★★ A1125 {win}：**换图层** = 子件 `{targetNodeName ?? faceName}`（图 `{faceTex}`；"
+                + "= 原版 `m_TargetGraphic` 指到的那一颗）—— 现读「" + got + "」"
+                + "｜🧨 把它传成根圆底盘（`UI_Button_Round_background`）⇒ 红（错因 = 只读 `m_Transition`、没读 `m_TargetGraphic`）");
+    }
+
     // ============================================================ 建场景
 
     static MainMenuRuntime Build(out Transform root)
@@ -2905,6 +2952,11 @@ public static class MainMenuScene
                                                         ds3.transform.Find("Menu Dark Background"),
                                                         DeckSelectionPopup.QDsHit);
                                 CheckTrue(ds3.SearchHit == null, "（复查）**搜索框确实不建**（照原版 `act=N`，且无代码打开它）");
+                                // 🆕 2026-10-09（`A1125`）：关窗钮的**命中区 + 换图层**四连断 ——
+                                //   🔴 **必须排在下面那句 `clsBtn.Click()` 之前**（点完窗就关了、几何量不到）。
+                                //   ⚠️ 本扇的命中节点 `CloseHit` / 黄面 `Close Face` 都挂**窗根**（⛔ 不套按钮节点）。
+                                A1125Close("DeckSelectionPopup", ds3.transform, null, "CloseHit",
+                                           "Close Face", "40k_general_bt_yellow", "Close Face", 96.86f, 98.13f);
                                 var cls = ds3.CloseHit;
                                 var clsBtn = cls != null ? cls.GetComponent<WindowButton>() : null;
                                 if (clsBtn != null) clsBtn.Click();
@@ -3134,6 +3186,54 @@ public static class MainMenuScene
                 var c3hit = FindChild(c3, "Hit");
                 var c3btn = c3hit != null ? c3hit.GetComponent<WindowButton>() : null;
                 CheckTrue(c3btn != null, "（前提）第 3 格有命中区");
+                // 🆕 **2026-10-09（A1112）**：`A1053` 把这一格的命中区从**整格 589.75×200**
+                //   改成 **6 颗可射线件的并集**（三颗底件各带自己的 `m_RaycastPadding (-15,-10,-15,-10)`
+                //   + 三行字 pad 0）⇒ **624.75 × 216.92**，**当时一条断言都没有**
+                //   （宿主 `Editor/*.cs` 全在那个写者的白名单外；而它同时还是一处**真缺陷**的现场 ——
+                //    那串矩形漏了 `InCell(cell, …)` 时六关**全部点不动**，只有自检能看见）。
+                //   期望值（**原版字面量，逐项独立算**）：
+                //     · 原版实读（`python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all
+                //       "Tutorial Army Select Button" --depth 4`）= **624.76 × 216.92**；
+                //     · 本仓那 6 件的格内矩形见 `Shell/TutorialModePopup.cs` 的 `Item*` 常量，
+                //       逐项加 pad 之后 = **x −20.00…604.75 · y −4.91…212.01**（≈ 原版的 −20.00…604.76 / −4.91…212.01，
+                //       差 0.01 是原版字段的舍入 ⇒ 容差 0.6 装得下）。
+                //     · 格 = 原版 589.75×200，**第 3 格**（`StageCells[2]`）顶边 = `Army Selector` 顶 244.89
+                //       + 2×(200 + 7.31) = **659.51**（滚动偏移 0 —— 上面「只实例化 4 格」那条已经钉住这一档）。
+                //   ⇒ 未夹的并集 = 654.60 … 871.52（高 **216.92**）。
+                // 🔴 **横轴会被视口夹掉**：并集每格左右各溢出 20 / 15，而视口 x 恰是 60..649.68
+                //   （`Army Selector/Viewport`，上面 `CheckAtWorld` 已钉）⇒ 量到的左右沿 = **视口沿**。
+                //   那不是缺陷：原版 `RectMask2D` 的**射线那一面**同样夹（`IsRaycastLocationValid`）。
+                //   ⛔ 不写 `TutorialModePopup.ArmL/ArmT/ItemW/ItemH/ArmGap/Item*`（那是被测实参）。
+                //   🧨 改坏法：把那句 `MenuDraw.Hit(node, "Hit", hitR, …)` 改回 `cell` ⇒ 高 200、上下沿回 659.51/859.51 ⇒ 红。
+                if (c3hit != null)
+                {
+                    float th1, ty1, th2, ty2;
+                    CheckTrue(HitQuadRect(c3hit, out th1, out ty1, out th2, out ty2),
+                              "第 3 格命中区的**渲染矩形**量得到（下面六条全靠它）");
+                    // （前提）下面那两条**竖位**的期望值是按「第 3 格顶边 = 659.51、滚动偏移 0」算的 ——
+                    //   先把那个前提单独钉住（节点位置一挪，下面两条就变成「断的是别处」）。
+                    CheckNear(c3 != null ? LayoutSpace.PxY(c3.position.y) : float.NaN, 759.51f, 0.6f,
+                              "（前提）第 3 格（`StageCells[2]`）的中心 y = 格顶 659.51 + 半格 100 = **759.51**"
+                              + "（= `Army Selector` 顶 244.89 + 2×(200 + 7.31)，滚动偏移 0）");
+                    CheckNear(ty1, 654.60f, 0.6f, "★ 第 3 格命中区上沿 = 原版并集的上沿 **654.60**"
+                              + "（= 格顶 659.51 − 4.91；改回整格的 659.51 会差 4.91 ⇒ 红）");
+                    CheckNear(ty2, 871.52f, 0.6f, "★ …下沿 = **871.52**（= 格底 859.51 + 12.01；"
+                              + "改回整格的 859.51 会差 12.01 ⇒ 红）");
+                    CheckNear(ty2 - ty1, 216.92f, 0.6f, "★ …高 = 原版并集 **216.92**（⛔ 不是整格的 200）");
+                    CheckNear(th1, 60f, 0.6f, "…左沿被 `Army Selector/Viewport` 夹到 **60**"
+                              + "（并集本来在 40 —— 原版 `RectMask2D` 的射线那一面同样夹）");
+                    CheckNear(th2, 649.68f, 0.6f, "…右沿被夹到 **649.68**（并集本来在 664.75）");
+                    // ⊇ 实绘：三颗底件里最外那颗（`Background` 那件四边都溢出整格 ⇒ 它是判「并集真被用上」的关键）；
+                    //   读它的**渲染矩形**（不是源码常量）。
+                    float gh1, gy1, gh2, gy2;
+                    CheckTrue(HitQuadRect(FindChild(c3, "Background"), out gh1, out gy1, out gh2, out gy2)
+                              && th1 <= gh1 + 0.05f && ty1 <= gy1 + 0.05f
+                              && th2 >= gh2 - 0.05f && ty2 >= gy2 - 0.05f,
+                              "★ 命中区**整块盖住**溢出的 `Background`（实测 "
+                              + $"x {gh1:F2}..{gh2:F2} · y {gy1:F2}..{gy2:F2} ⊂ x {th1:F2}..{th2:F2} · "
+                              + $"y {ty1:F2}..{ty2:F2}）—— 「命中区 ⊇ 实绘矩形」"
+                              + "（它在格内 y 到 202.01、比整格 200 还低 ⇒ 整格当命中区这条立刻红）");
+                }
                 if (c3btn != null) c3btn.Click();
                 Check(tut.StageIndex, 2, "点第 3 格 ⇒ 选中第 3 关（原版 `TutorialArmySelectionButton.OnArmySelected` → `ChangeSelectedArmy`）");
                 // 🔴 **2026-10-17（F3 · D3 红⑨）**：`SelectStage` 拆建 `TutorialInfo` 之后，新节点**追加到窗根末尾**
@@ -3239,6 +3339,9 @@ public static class MainMenuScene
                     CheckAtWorld(FindChild(tabArea, "Generic Close Button Orange"),
                                  1760.80f, 1835.19f, 118.92f, 194.52f,
                                  "右上橙色关闭钮（⚠️ 原版**右溢出窗框 ~10.7px** —— 别「对齐」掉）");
+                    // 🆕 2026-10-09（`A1125`）：关窗钮的**命中区 + 换图层**四连断（`FindChild` 递归找得到 `Menu Area/Tab  Area/…`）
+                    A1125Close("PlayerProfileWindow", pp.transform, "Generic Close Button Orange", "Hit",
+                               "Background", "40k_general_bt_yellow", "Background", 96.86f, 98.13f);
                     CheckAtWorld(FindChild(tabArea, "Tab Content"), 351.03f, 1746.97f, 118.92f, 962f, "`Tab Content`");
 
                     // 左栏：`Tab Buttons` + 六个键（**位置是 VerticalLayoutGroup 算出来的**，正本 §2·1）
@@ -4664,6 +4767,53 @@ public static class MainMenuScene
                     CheckNear(leftPx, 631.26f, 0.6f,
                               "第 1 颗钮的左边界 = **631.26** = 栏中心 953.00 − 4×160.87/2（照原版 HLG 算）");
                 }
+                // 🆕 **2026-10-09（A1112）**：`A1053` 把这四颗钮的命中区从**整颗钮 160.87×128**
+                //   改成 **可射线件的并集**（根那颗 `UI_Button_Round_background` 实测 `m_RaycastTarget = 0`
+                //   不吃射线，子树里**只有子件 `Icon`（120.49×93.01）**吃射线，按自己的
+                //   `m_RaycastPadding (-20)⁴` 外扩 ⇒ **160.49 × 133.01**），**当时一条断言都没有**
+                //   （宿主 `Editor/*.cs` 全在那个写者的白名单外）。
+                //   期望值 = **原版 prefab 实读**（`python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all
+                //   "SkirmishModeEventWindow" --depth 8 --substr "Deck Buttons/Previous"` ⇒
+                //   唯一一颗可射线件含 pad 后 = **160.49 × 133.01**；裸矩形 120.49×93.01）
+                //   + 上面刚钉过的钮绝对矩形（第 i 颗 = `631.26 + 160.87·i` 起、160.87 宽；栏 y 861.00..989.00）。
+                //   逐项算式：`Icon` 在钮内居中 ⇒ 左 = 钮左 + (160.87−120.49)/2 = 钮左 + 20.19，
+                //   外扩 20 ⇒ **命中区左 = 钮左 + 0.19**、**右 = 钮右 − 0.19**；
+                //   高 93.01 外扩 20 ⇒ 上下各凸 **2.505**（`861.00 − 2.505 = 858.495` / `989.00 + 2.505 = 991.505`）。
+                //   ⛔ 不写 `SkirmishEventWindow.DbBtnW/DbBtnH/IconBox`（那是被测实参）——
+                //   下面那串 `160.87` / `20.19` / `2.505` 全是**原版 prefab 的数**，照实读独立算的。
+                //   🧨 改坏法：`Shell/LiveOpsEventWindow.cs` 那句 `MenuDraw.Hit(b, "Hit", MenuDraw.PaddedRect(
+                //   IconBox(…), IconPad), …)` 改回 `new PxRect(x1, y1, x2, y2)`（整颗钮）⇒ 宽 160.87 / 高 128 ⇒ 红。
+                {
+                    string[] hitBtnNames = { "Previous Deck Button", "Change Deck Button", "View Deck Button", "Next Deck Button" };
+                    for (int i = 0; i < hitBtnNames.Length; i++)
+                    {
+                        const float BtnW = 160.87f;                 // 原版 `Deck Buttons` HLG 里每颗的宽
+                        float wx1 = 631.45f + BtnW * i, wx2 = 791.94f + BtnW * i;
+                        var hn = FindChild(FindChild(sk.transform, hitBtnNames[i]), "Hit");
+                        float h1, h2, h3, h4;
+                        CheckTrue(HitQuadRect(hn, out h1, out h2, out h3, out h4),
+                                  $"（前提）`{hitBtnNames[i]}/Hit` 的**渲染矩形**量得到（下面四条全靠它）");
+                        CheckNear(h1, wx1, 0.6f, $"`{hitBtnNames[i]}` 命中区左沿 = 原版并集的左沿（{wx1:F2}）");
+                        CheckNear(h3, wx2, 0.6f, $"`{hitBtnNames[i]}` 命中区右沿 = 原版并集的右沿（{wx2:F2}）");
+                        CheckNear(h2, 858.495f, 0.6f, $"★ `{hitBtnNames[i]}` 上沿 = 原版并集的上沿 **858.495**"
+                                  + "（= 钮顶 861.00 − 2.505；改回整颗钮的 861.00 会差 2.505 ⇒ 红）");
+                        CheckNear(h4, 991.505f, 0.6f, $"★ `{hitBtnNames[i]}` 下沿 = 原版并集的下沿 **991.505**"
+                                  + "（= 钮底 989.00 + 2.505；改回整颗钮会差 2.505 ⇒ 红）");
+                        CheckNear((h3 - h1), 160.49f, 0.6f, $"★ `{hitBtnNames[i]}` 命中区**宽** = 原版并集 **160.49**"
+                                  + "（⛔ 不是整颗钮的 160.87 —— 那正是 `A1053` 改掉的那个值）");
+                        CheckNear((h4 - h2), 133.01f, 0.6f, $"★ `{hitBtnNames[i]}` 命中区**高** = 原版并集 **133.01**"
+                                  + "（⛔ 不是整颗钮的 128）");
+                        // ⊇ 实绘：那颗 `Icon`（读它的**渲染矩形**、不是源码常量）
+                        float jx1, jy1, jx2, jy2;
+                        CheckTrue(HitQuadRect(FindChild(FindChild(sk.transform, hitBtnNames[i]), "Icon"),
+                                              out jx1, out jy1, out jx2, out jy2)
+                                  && h1 <= jx1 + 0.05f && h2 <= jy1 + 0.05f
+                                  && h3 >= jx2 - 0.05f && h4 >= jy2 - 0.05f,
+                                  $"★ `{hitBtnNames[i]}` 命中区**整块盖住**那颗图标（实测 "
+                                  + $"x {jx1:F2}..{jx2:F2} · y {jy1:F2}..{jy2:F2} 在 x {h1:F2}..{h3:F2} · "
+                                  + $"y {h2:F2}..{h4:F2} 之内）—— 「命中区 ⊇ 实绘矩形」");
+                    }
+                }
                 // 🆕 2026-10-03：`Next Deck Button` 的箭头**水平翻转**（原版挂 `UIFlippable`）。
                 //   判据 = **uv 宽为负**（`SetUvRect(1,0,-1,1)`）—— 工程里 `CollectionWindow` / `MatchLogRow` 同一招。
                 {
@@ -5057,17 +5207,47 @@ public static class MainMenuScene
                         //   那两处」是**按「滚动区 Viewport」**定义的 ⇒ 没覆盖它，这一笔此前**没人记过账**）。
                         //   它内缩的是 **`Window` 那个框**（UGUI `Culling/Clipping.cs:26-30`），**不是钮自己的矩形**；
                         //   而 `Cancel` 那颗命中区**整块都在内缩后的框里** ⇒ 加不加 padding，**命中面一模一样**
-                        //   （真去补 `hitPad` 会把 75 高的钮削成 **55.62** = 75 − 9.69×2 ⇒ 那是**引入**差异，不是复刻）。
-                        //   期望值全是**原版字面量**：`Window` 的 rect（`560.00,234.07→1360.00,685.93`）与钮的 rect
-                        //   （`720.83,569.93→1199.17,644.93`）都出自 `资料/阶段二_战斗入口_原版规格.md:134,138`；
-                        //   pad 出自上面那张实读表。⛔ 不写 `SearchingMatchPopup.BtnT/BtnB/WinT/WinB`（那是被测实参）。
+                        //   （真去补 `hitPad` 会把这颗命中区上下**各削 9.69** ⇒ 那是**引入**差异，不是复刻）。
+                        //   ⚠️ 这一句原写「把 **75 高**的钮削成 **55.62**」—— 那是 `A1053` 之前
+                        //   （命中区还是钮自己那颗 rect 时）的算例；并集口径下 91.20 → 71.82，结论不变（见下条断言）。
+                        //   🔴 **2026-10-09（A1120）就地订正（铁律 5）：上/下沿的期望值不再是【钮自己那颗 rect】。**
+                        //   `d6c4111`（`A1053`「命中区归真值」）起，`CancelHit` = **原版可射线件的并集** ——
+                        //   钮 `40K_button`（`478.34×75`）**∪** 它的 `Button Text`（TMP，`m_RaycastTarget = 1`，
+                        //   `452.34×91.20`）⇒ 上下两条边由**文字**定（文字比钮上下各凸 8.7 / 7.5）。
+                        //   改前那两条期望 `569.93 / 644.93` 是**钮的**上下沿 ⇒ 口径已旧（是断言错、不是实现错，
+                        //   实读判据 = `python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all "Searching Oponent Popup"
+                        //   --depth 8 --substr "Generic UI Button" --ignore-active` ⇒ 2 颗可射线件、
+                        //   并集 `478.34×91.20`、y **560.73…651.93**）。
+                        //   期望值全是**原版字面量**：`Window` 的 rect（`560.00,234.07→1360.00,685.93`）
+                        //   出自 `资料/阶段二_战斗入口_原版规格.md:134,138`；并集上/下沿 = 上面那次实读的
+                        //   `560.73 / 651.93` **+ 本仓那 0.5 取帧原点**（该 popup 全节点都差这 0.5 —— 同一次实读里
+                        //   `Window` 给的是 `559.50,233.57`、钮给的是 `720.33,569.43`，而本仓那批常量的对应值是
+                        //   `560.00,234.07` / `720.83,569.93`）；pad 出自上面那张实读表。
+                        //   ⛔ 不写 `SearchingMatchPopup.BtnT/BtnB/BtnTxT/BtnTxB/WinT/WinB`（那是被测实参）——
+                        //   下面两个小数是**照原版实读独立算的**，不是从常量抄的（常量哪天被改错，这一条照样红）。
                         {
                             const float PadT = 9.69f, PadB = 9.69f, OT = 234.07f, OB = 685.93f;   // 原版 pad / Window rect
                             float bx1, by1, bx2, by2;
                             CheckTrue(HitQuadRect(FindChild(pop.transform, "CancelHit"), out bx1, out by1, out bx2, out by2),
                                       "`CancelHit` 的**渲染矩形**量得到（下面三条全靠它）");
-                            CheckNear(by1, 569.93f, 1.5f, "`CancelHit` 上沿 = **原版那颗钮的** rect（没被 pad 削过）");
-                            CheckNear(by2, 644.93f, 1.5f, "`CancelHit` 下沿 = 同上（补了 `hitPad` 会少 9.69）");
+                            CheckNear(by1, 561.23f, 1.5f, "`CancelHit` 上沿 = **原版可射线区并集**的上沿"
+                                      + "（= `Button Text` 的上沿；改回钮自己的 569.93 会差 8.7 ⇒ 红）");
+                            CheckNear(by2, 652.43f, 1.5f, "`CancelHit` 下沿 = **同一个并集**的下沿"
+                                      + "（= `Button Text` 的下沿；改回钮自己的 644.93 会差 7.5 ⇒ 红）");
+                            // 🆕 **2026-10-09（A1112）**：上面那两条兜的是**并集的 y**；本处是 `A1053` 那 7 处
+                            //   「多件并集」里同一颗的**另一半 —— 并集的 x**（那一批**一条断言都没有**，
+                            //   宿主 `Editor/*.cs` 全在那个写手的白名单外 ⇒ 改了没人看着）。
+                            //   并集的**左右两边由钮定**（`Button Text` 452.34 窄于钮 478.34 ⇒ x 没有外扩）
+                            //   ⇒ 左右沿 = 钮那两颗可射线件里**宽的那个**的沿。
+                            //   期望值（原版字面量）= 上面那次实读的 `720.33 / 1198.67` **+ 本仓那 0.5 取帧原点**
+                            //   （同上面两条的算法，出处同一条命令）⇒ `720.83 / 1199.17`，宽 = **478.34**。
+                            //   🧨 改坏法：把并集**只留 `Button Text`**（左右沿变 `733.52 / 1185.87`）⇒ 三条全红；
+                            //      把命中区改回**钮自己的矩形**⇒ 前两条照旧绿（那两条边本来就由钮定），
+                            //      **只有「宽」这条**分得出来 —— 这就是下面那条必须与它们成对的原因。
+                            CheckNear(bx1, 720.83f, 1.5f, "`CancelHit` 左沿 = 原版并集的左沿（= 钮自己的左沿）");
+                            CheckNear(bx2, 1199.17f, 1.5f, "`CancelHit` 右沿 = 原版并集的右沿（= 钮自己的右沿）");
+                            CheckNear(bx2 - bx1, 478.34f, 1.5f, "★ `CancelHit` **宽** = 原版并集 **478.34**"
+                                      + "（纵轴由 `Button Text` 定、横轴由钮定 —— 上面两条 + 本条合起来才是「并集」）");
                             CheckTrue(by1 > OT + PadT && by2 < OB - PadB,
                                       $"★ 命中区整块在**内缩 9.69 之后**的 `Window` 框里（{OT + PadT} < {by1:F2} … {by2:F2}"
                                       + $" < {OB - PadB}）⇒ 那个 `RectMask2D` 的 padding 对这一颗**没有任何差异**"
@@ -5728,6 +5908,38 @@ public static class MainMenuScene
                 // ⚠️ 这一条同时是**命中区那道 `clip` 守卫的回归守**：行 0 完全在视口内 ⇒ 它的 `Hit` **必须还在**
                 //    （`clip` 传反了 ⇒ 整颗不建 ⇒ 这条立刻红）。**压边的那一半**在下面「喂 7 行」那一段。
                 CheckTrue(wbRow != null, "行有点击区（原版挂的是 `profileButton`）");
+                // 🆕 **2026-10-09（A1112）**：`A1053` 把这一颗的命中区从 **`border` 的 120×106.44**
+                //   改成 **可射线件的并集 = `border` ∪ `border/Icon`**（立绘在四边都溢出边框、且**完整包含**边框
+                //   ⇒ 并集 = `Icon` 那个矩形），而**当时一条断言都没有**（宿主 `Editor/*.cs` 全在那个写者的白名单外）。
+                //   期望值 = **原版 prefab 实读**（`python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all
+                //   "PlayerRankingRow" --depth 6` ⇒ `/PlayerRankingRow/border` 120.00×106.44 ·
+                //   `/PlayerRankingRow/border/Icon` **204.64×167.11**）+ 本仓那一行的绝对矩形
+                //   （`CheckAtWorld(row, 360f, 1560f, …)` 已钉过 ⇒ 行左上 = **360, 288.59**）。
+                //   ⛔ 不写 `LeaderboardRow.IconR`（那是被测实现传进去的实参）—— 下面四个数是照原版实读
+                //   **独立算的**（360 + 81.18 = 441.18 · 360 + 285.82 = 645.82）。
+                //   🧨 改坏法：把 `Shell/LeaderboardRow.cs` 的 `MenuDraw.Hit(border, "Hit", iconAbs, …)`
+                //   改回 `borderAbs` ⇒ 宽变 **120** ⇒ 第三条红；只改 x、不动 y ⇒ 前两条红。
+                //   ⚠️ 这一行**被视口上沿夹着**（行顶 288.59 = 视口顶）：`Hit` 的上沿要过 `ViewportClip`，
+                //   所以本段**只断 x**（y 那一半在下面「喂 7 行」那段的压边/高度里，另有一条）。
+                if (hRow != null)
+                {
+                    float hx1, hy1, hx2, hy2;
+                    CheckTrue(HitQuadRect(hRow, out hx1, out hy1, out hx2, out hy2),
+                              "行命中区的**渲染矩形**量得到（下面三条全靠它）");
+                    CheckNear(hx1, 441.18f, 0.6f, "行命中区左沿 = 原版并集的左沿（= `border/Icon` 的左沿；"
+                              + "立绘左凸 53.82 出边框 ⇒ 改回 `border` 会差 53.82 ⇒ 红）");
+                    CheckNear(hx2, 645.82f, 0.6f, "行命中区右沿 = 原版并集的右沿（同上，立绘右凸 30.82）");
+                    CheckNear(hx2 - hx1, 204.64f, 0.6f, "★ 行命中区**宽** = 原版并集 **204.64**"
+                              + "（⛔ 不是 `border` 的 120 —— 那正是 `A1053` 改掉的那个值）");
+                    // ⊇ 实绘：立绘那一件（`border/Icon`，读它的**渲染矩形**、不是源码常量）
+                    float ix1, iy1, ix2, iy2;
+                    CheckTrue(HitQuadRect(FindChild(FindChild(row, "border"), "Icon"), out ix1, out iy1, out ix2, out iy2)
+                              && hx1 <= ix1 + 0.05f && hy1 <= iy1 + 0.05f
+                              && hx2 >= ix2 - 0.05f && hy2 >= iy2 - 0.05f,
+                              "★ 命中区**整块盖住立绘**（`border/Icon` 实测 "
+                              + $"x {ix1:F2}..{ix2:F2} · y {iy1:F2}..{iy2:F2} ⊂ 命中区 "
+                              + $"x {hx1:F2}..{hx2:F2} · y {hy1:F2}..{hy2:F2}）—— 「命中区 ⊇ 实绘矩形」");
+                }
                 if (wbRow != null)
                 {
                     wbRow.ClickForTest();
@@ -5898,6 +6110,35 @@ public static class MainMenuScene
                     CheckTrue((ey2 - ey1) < (ty2 - ty1) - 0.5f,
                               $"…而且**真被截短过**（整行那颗高 {ty2 - ty1:F2} vs 压边这颗 {ey2 - ey1:F2}）"
                               + "—— 否则这一条等于没验");
+                    // 🆕 **2026-10-09（A1112）**：上面那两条比的是「两颗**相对**谁短」——
+                    //   并集的**竖向真值**（= 原版 `border/Icon` 的 167.11）此前**没有任何一条钉住**。
+                    //   而这一批行里**只有一部分**被视口夹过（行 0 顶上被夹、压边那颗底下被夹、
+                    //   中间那几颗整颗在视口内）⇒ 取**建出来的所有行里最高的那颗**，它必然是**没被夹的**那一档。
+                    //   期望值 = **原版 prefab 实读**（`rcpad.py … "PlayerRankingRow" --depth 6` ⇒
+                    //   `/PlayerRankingRow/border/Icon` = **204.64×167.11**；`A1053` 的并集就是它）。
+                    //   ⛔ 不写 `LeaderboardRow.IconR`（被测实参）。🧨 改坏法：命中区改回 `borderAbs`
+                    //   ⇒ 最高那颗变 **106.44** ⇒ 本条红（**宽**那条在行 0 那一段，两条各管一轴）。
+                    {
+                        float bestH = 0f, bestW = 0f; int nMeasured = 0;
+                        if (c7 != null)
+                            foreach (var rt in c7.GetComponentsInChildren<Transform>(true))
+                            {
+                                if (rt.name != "PlayerRankingRow") continue;
+                                var hq = FindChild(FindChild(rt, "border"), "Hit");
+                                float qx1, qy1, qx2, qy2;
+                                if (!HitQuadRect(hq, out qx1, out qy1, out qx2, out qy2)) continue;
+                                nMeasured++;
+                                bestH = Mathf.Max(bestH, qy2 - qy1);
+                                bestW = Mathf.Max(bestW, qx2 - qx1);
+                            }
+                        CheckTrue(nMeasured == lb.BuiltRows,
+                                  $"（前提）每一颗建出来的行都量到了 `border/Hit`（{nMeasured}/{lb.BuiltRows}）");
+                        CheckNear(bestH, 167.11f, 0.6f,
+                                  "★ 最高那颗行命中区的高 = **原版并集 167.11**（= `border/Icon` 的高；"
+                                  + "总有一颗整颗在视口内 ⇒ 它量到的是**没被夹**的那一档）");
+                        CheckNear(bestW, 204.64f, 0.6f,
+                                  "★ …宽 = **原版并集 204.64**（横轴从不被视口夹 ⇒ 每一颗都该是这个值）");
+                    }
                 }
 
                 LeaderboardData.ClearForTest();
@@ -8348,6 +8589,11 @@ public static class MainMenuScene
                                                       && CardArt.MenuUi("40k_general_bt_yellow_pressed") != null,
                                                       "关窗钮那两张换图**都在**（`40k_general_bt_yellow_hover` / "
                                                       + "`40k_general_bt_yellow_pressed` —— dump 的 `HL=` / `P=` 那两列实读）");
+                                            // 🆕 2026-10-09（`A1125`）：关窗钮的**命中区 + 换图层**四连断 ——
+                                            //   本扇的命中节点叫 **`CloseHit`**（不是 `Hit`；17 颗里唯一一颗）。
+                                            //   ⛔ 本条**不调 `CheckHoverSwap`**（它查的是**全局静态表**，会给别的段的缺失算账）。
+                                            A1125Close("TrophyInfoPopup", pRoot, "Generic Close Button Orange", "CloseHit",
+                                                       "Background", "40k_general_bt_yellow", "Background", 96.86f, 98.13f);
                                             // ⚠️ **本窗自己的缺图表**（不是全局那一个）：`MenuDraw.Rect/Nine` 对
                                             //    `tex == null` 是**静默返回 null**（那一件连节点都不会建）⇒ 本窗
                                             //    改成「谁取谁报」并把清单开出来给自检（同 `sw.MissingArt` 那条口径）。
@@ -9342,6 +9588,11 @@ public static class MainMenuScene
                     CheckTrue(po != null && !po.gameObject.activeSelf, "`Player Options Panel` 出厂 **act F**");
                     var cb3 = FindChild(FindChild(chol, "Generic Close Button Orange"), "Hit");
                     CheckTrue(cb3 != null && cb3.GetComponent<WindowButton>() != null, "右上那颗圆钮**接了关闭**");
+                    // 🆕 2026-10-09（`A1125`）：关窗钮的**命中区 + 换图层**四连断 ——
+                    //   ⚠️ 本窗还有一颗**同名 `CloseHit`**（`Shell/ChatPanel.cs:194` 的**压暗层**）
+                    //   ⇒ 本条一律**从 `Generic Close Button Orange` 节点往下找**，⛔ 别按 `"CloseHit"` 从窗根找。
+                    A1125Close("ChatPanel", chol, "Generic Close Button Orange", "Hit",
+                               "Background", "40k_general_bt_yellow", "Background", 96.86f, 98.13f);
 
                     // ★ 挑战弹窗：从选项面板的 `Challenge` 钮开（原版 `ChallengeManager.OpenStartChallengeWindow`）
                     po.gameObject.SetActive(true);
@@ -9375,8 +9626,53 @@ public static class MainMenuScene
                                      "`Button Skirmish`（HLG 排出来的位：x 591.15..941.15 —— 组左沿 572.30 + `offsetInCell` 18.85）");
                         CheckAtWorld(FindChild(dbtns, "Button Classic"), 978.85f, 1328.85f, 567f, 643f,
                                      "`Button Classic`（x 978.85..1328.85 —— 组右沿 1347.70 − 18.85；⚠️ **不是**「以窗心 960 对称」）");
+                        // 🆕 **2026-10-09（A1112）**：`A1053` 把这两颗模式钮的命中区从**钮自己的 350×76**
+                        //   改成 **可射线件的并集**（底 `40K_button` ∪ **溢出的模式图标** 100×100，
+                        //   图标比钮上下各凸 13.8 ⇒ 并集 = **350 × 100**），**当时一条断言都没有**
+                        //   （宿主 `Editor/*.cs` 全在那个写者的白名单外）。
+                        //   期望值 = **原版 prefab 实读**（`python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all
+                        //   "MessagePopupWindowDuel" --depth 8 --substr "Button Skirmish"` ⇒
+                        //   并集(含 pad) = **350.00 × 100.00**）+ 上面那两条 `CheckAtWorld` 已经钉过的
+                        //   钮绝对矩形（591.15..941.15 / 978.85..1328.85，y 567..643）⇒ 上下各外扩 13.8 / 11.1。
+                        //   ⛔ 不写 `DuelPopupWindow.SkirmishR/SkirmishIcR`（那是被测实参）。
+                        //   🧨 改坏法：`DuelPopupWindow.DuelButton` 里那句 `MenuDraw.Hit` 的第 3 个实参
+                        //   改回 `r`（= 钮自己的矩形）⇒ 上下沿各差 13.8 / 11.1 ⇒ 红。
+                        {
+                            float sx1, sy1, sx2, sy2;
+                            CheckTrue(HitQuadRect(duel.SkirmishHit, out sx1, out sy1, out sx2, out sy2),
+                                      "`Button Skirmish/Hit` 的**渲染矩形**量得到（下面四条全靠它）");
+                            CheckNear(sx1, 591.15f, 0.6f, "`Button Skirmish/Hit` 左沿 = 原版并集的左沿（x 由钮定）");
+                            CheckNear(sx2, 941.15f, 0.6f, "`Button Skirmish/Hit` 右沿 = 原版并集的右沿（同上）");
+                            CheckNear(sy1, 553.20f, 0.6f, "★ 上沿 = 原版并集的**上沿**（= 模式图标的上沿 553.20；"
+                                      + "改回钮自己的 567 会差 13.8 ⇒ 红）");
+                            CheckNear(sy2, 653.20f, 0.6f, "★ 下沿 = 原版并集的**下沿**（= 模式图标的下沿 653.20；"
+                                      + "改回钮自己的 643 会差 10.2 ⇒ 红）");
+                            // ⊇ 实绘：溢出的模式图标那一件（读它的**渲染矩形**、不是源码常量）
+                            float kx1, ky1, kx2, ky2;
+                            CheckTrue(HitQuadRect(FindChild(FindChild(dbtns, "Button Skirmish"), "Skirmish image"),
+                                                  out kx1, out ky1, out kx2, out ky2)
+                                      && sx1 <= kx1 + 0.05f && sy1 <= ky1 + 0.05f
+                                      && sx2 >= kx2 - 0.05f && sy2 >= ky2 - 0.05f,
+                                      "★ 命中区**整块盖住**溢出的模式图标（`Skirmish image` 实测 "
+                                      + $"x {kx1:F2}..{kx2:F2} · y {ky1:F2}..{ky2:F2}）—— 「命中区 ⊇ 实绘矩形」");
+                        }
+                        // 另一颗：同一个并集（x 由它自己的钮定 ⇒ 978.85..1328.85）
+                        {
+                            float cx1, cy1, cx2, cy2;
+                            CheckTrue(HitQuadRect(duel.ClassicHit, out cx1, out cy1, out cx2, out cy2)
+                                      && Mathf.Abs(cx1 - 978.85f) < 0.6f && Mathf.Abs(cx2 - 1328.85f) < 0.6f
+                                      && Mathf.Abs(cy1 - 554.10f) < 0.6f && Mathf.Abs(cy2 - 654.10f) < 0.6f,
+                                      "★ `Button Classic/Hit` = **同一套并集**（350 × 100；实测 "
+                                      + $"x {cx1:F2}..{cx2:F2} · y {cy1:F2}..{cy2:F2}）");
+                        }
                         CheckText(TextOf(FindChild(dbtns, "Button Classic")), "Continue",
                                   "⚠️ `Button Classic` 的文案是 **`Continue`**（节点名叫 `Classic` —— 原档如此）");
+                        // 🆕 2026-10-09（`A1125`）：关窗钮的**命中区 + 换图层**四连断 ——
+                        //   本扇是**绿族**（`Generic Rounded Button Green` → 脸 `Icon` / 图 `40k_bt_close`）。
+                        //   ⚠️ 关窗钮的命中节点叫 `Hit`（`:201`）；压暗层那颗才叫 `CloseHit`（`MenuDraw.ShadeHit`）——
+                        //   🔴 **两颗不同节点**（上面 `CheckShadeRule` 拿的是 `CloseHit`），⛔ 别混。
+                        A1125Close("DuelPopupWindow", duel.transform, "Generic Rounded Button Green", "Hit",
+                                   "Icon", "40k_bt_close", "Icon", 96.37f, 94.50f);
                         CheckAtWorld(FindChild(dwin, "Generic Rounded Button Green"), 1341.80f, 1416.80f,
                                      212.10f, 287.10f, "右上那颗 75×75 绿圆钮（**判为关闭钮**）");
                         // 🆕 **2026-10-06（A94 相 2）**：本窗面板底图的**吸收层**（点窗内空白处 ⇒ 原版什么都不发生）。
@@ -9484,6 +9780,11 @@ public static class MainMenuScene
                 CheckAtWorld(FindChild(cb4, "Background"), 1699.49f, 1798.59f, 39.06f, 138.74f,
                              "可见圆 `Background`（⚠️ **略偏左上**：左缝 14.49 / 右缝 16.41 —— 原版如此）");
                 CheckTrue(FindChild(cb4, "Icon") != null, "`Icon`（`40k_general_bt_yellow_close`）");
+                // 🆕 2026-10-09（`A1125`）：关窗钮的**命中区 + 换图层**四连断 ——
+                //   本扇是**橙族的另一值**：子件裸矩形 **99.10×99.68**（比常规橙族 56.86×58.13 大）按 `(-20)⁴`
+                //   外扩 ⇒ **139.10 × 139.68**（出处在 `Shell/BattleLogPopup.cs:166` 那一段亲读注释）。
+                A1125Close("BattleLogPopup", blp.transform, "Close Button", "Hit",
+                           "Background", "40k_general_bt_yellow", "Background", 139.10f, 139.68f);
                 CheckAtWorld(FindChild(bc, "Matches"), 235f, 1710f, 130f, 980f, "`Matches`（`ScrollRect`）");
                 CheckAtWorld(FindChild(FindChild(bc, "Matches"), "Viewport"), 235f, 1710f, 130f, 963f,
                              "`Viewport`（`UIMask` + `showGraphic=0`）");
@@ -10749,6 +11050,63 @@ public static class MainMenuScene
         }
 
         Debug.Log(P + menu.Dump());
+        // ============================================================ 🆕 2026-10-09（`A1025`）本批键全 `Loc.HasEntry` + 两语档取真文案
+        // 判据（坑表 #18）：**「原版有词条」≠「我们表里有键」** —— 键不在 ⇒ `Loc.T` 返回**键名本身**、界面上就印键名。
+        // 🔴 **与 `A1057(f)`（`Editor/NetSelfTest.cs` 那张**表级**扫描）不是同一条、方向相反**：那条是 **表 → 表**
+        //   （表自身健康），本条是 **代码 → 表**（**本批代码引的键**有没有落进表）—— 表级扫描永远看不见后者。
+        // 🔴 **Net/ 那批已有等价物**（`Editor/NetSelfTest.cs` 的 `TestNetTermBilingual`）⇒ 本笔不重复覆盖它。
+        // 数组 = 本批生产文件里出现的**活键字面量** ∩ `Core/Loc.cs` 的表键（超集无害、且更严）。
+        // 本宿主覆盖的生产文件 = `Shell/{ProfileData,LeaderboardWindow,RankedEventWindow,PlayerProfileWindow,MainMenuRuntime,ChatPanel,BattleLogPopup,TrophyInfoPopup,DuelPopupWindow,LiveOpsEventWindow,ProfileTab}.cs`。
+        // 🧨 改坏法：① `Loc.cs` 删掉本批任一条键 ⇒ ①红；② 某条**英文列**填中文/全角空格 ⇒ ③红；
+        //   ③ **中文列**清空 ⇒ ②红；④ 值改成键名本身 ⇒ ②红；⑤ 表删掉一半 ⇒ ④红（`EntryCount` 掉到基线之下）；
+        //   ⑥「把实现与期望一起改回写死中文 **并** 把表里那条删掉」⇒ ①红（数组里那条键仍在、`HasEntry` 假）—— 这正是本数组存在的唯一理由。
+        {
+            string[] a1025Keys =
+            {
+                "Demo/MainMenu/CancelButton", "Demo/MainMenu/ExitButton", "Demo/MainMenu/ExitGame",
+                "MainMenu/Chat/TypeMessage", "MainMenu/General/OK", "MainMenu/Profile/DefaultPlayerName",
+                "MainMenu/Ranked/GoToCreateDeck", "MainMenu/Ranked/OfflineNote", "MainMenu/RankedWindow/LeaderboardOfflineNote",
+                "MainMenu/Social/ProfileOfflineNote", "MainMenu/Social/ProfileTitle", "MenuDeck/Error/CantStartNoWarlord",
+                "MenuDeck/Error/NoDeckForMode", "MenuDeck/Error/WrongGameMode", "MenuDeck/Error/WrongGameModeDeck",
+                "MenuDeck/GameMode/Classic", "MenuDeck/GameMode/ClassicTag", "MenuDeck/GameMode/Skirmish",
+                "MenuDeck/GameMode/SkirmishTag", "MenuDeck/HUD/NoWarlordText", "Settings/Online/MatchCancelFailed",
+                "Settings/Online/MatchCancelled", "SocialMenu/Alliances/Trophies/FeaturedTrophyLabel", "SocialMenu/Alliances/Trophies/NextTier",
+            };
+            foreach (var k in a1025Keys)
+                CheckTrue(Loc.HasEntry(k), $"★（A1025）本批键都在表里：`{k}`");
+            // ② 两语档各取一次、都非空且 ≠ 键名（只断中文档 = 半边绿）
+            var a1025LangWas = Loc.Current;
+            foreach (var lang in new[] { AvailableLanguages.Chinese, AvailableLanguages.English })
+            {
+                Loc.RestoreForTest(lang);
+                int bad = 0; string firstBad = null;
+                foreach (var k in a1025Keys)
+                {
+                    string v = Loc.T(k);
+                    if (string.IsNullOrEmpty(v) || v == k) { bad++; if (firstBad == null) firstBad = k; }
+                }
+                CheckTrue(bad == 0, $"★（A1025）`{lang}` 档下 {a1025Keys.Length} 条**全部取到真文案**（缺 {bad} 条"
+                          + (firstBad == null ? "" : $"，第一条 `{firstBad}`") + "）"
+                          + " —— 取不到时会印**键名本身**，那就是静默失败");
+            }
+            Loc.RestoreForTest(a1025LangWas);      // ⛔ 只改内存、不写 `PlayerPrefs`（不是 `SetLanguage`）
+            // ③ 灭自证 C1：英文列不许含汉字（`Loc.HasCjk` 的区间含 `0x3000-0x303F` 与 `0xFF00-0xFFEF`）
+            {
+                int cjk = 0; string firstCjk = null;
+                foreach (var k in a1025Keys)
+                {
+                    string en = Loc.EnOf(k);
+                    if (!string.IsNullOrEmpty(en) && Loc.HasCjk(en)) { cjk++; if (firstCjk == null) firstCjk = k; }
+                }
+                CheckTrue(cjk == 0, $"★（A1025）本批 {a1025Keys.Length} 条的**英文列无 CJK**（坏 {cjk} 条"
+                                  + (firstCjk == null ? "" : $"，第一条 `{firstCjk}`") + "）");
+            }
+            // ④ 灭自证 D（表基线）：开工前实测 `EntryCount == 429`
+            CheckTrue(Loc.EntryCount >= 429,
+                      $"★（A1025）表基线：`Loc.EntryCount` = {Loc.EntryCount} ≥ **429**（开工前实测）"
+                    + "｜🧨 把键删掉、断言也一起删 ⇒ 这条红");
+        }
+
         Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");
         // 🔴 **2026-10-12（A443 · 调度台裁定）**：这一串是**失败表的【重列】**（每条失败在 `Check()` 里
         //   **已经现场打过一次**，行首是真 `✗`，见本文件 `:36`）⇒ 重列这里**不能再带 `✗`** ——

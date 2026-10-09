@@ -49,10 +49,13 @@
 //    `资料/普查产出_1011/WB1_A330.md` §2.4 的四行表）。
 //
 // ---- 🔴 四处如实标注（本地拿不到 / 我们挑的，⛔ 别当成原版）----
-//   ① **词条表本地没有**（I2 语言表在**远端 CCD**；`assets_full` 全库 `mTerms` 0 命中）⇒ 正文与两颗钮
-//      现在**显示的是键本身**（`Term()` 的兜底 = 键）。**照 `Battle/ChoosePanel.cs` 那条先例**：
-//      表挂在本类的 `Terms` 里、**故意留空**，将来拿到表只往表里填、**不改任何调用点**。
-//      🔴 **⛔ 不自己编词条**（红线：不许把「查不到」写成猜测）。
+//   ① **远端 I2 语言表本地没有**（`assets_full` 全库 `mTerms` 0 命中）⇒ 本类那张 `Terms` **故意留空**，
+//      将来拿到远端表只往表里填、**不改任何调用点**（**照 `Battle/ChoosePanel.cs` 那条先例**）。
+//      🔴 **2026-10-19（A1012）就地订正（铁律 5）**：这里原来接着写「正文与两颗钮**现在显示的是键本身**
+//      （`Term()` 的兜底 = 键）」—— **那句已经不成立**：`Term()` 现在**先查 `Terms`、再转全工程那张
+//      `Core/Loc.cs` 语言表** ⇒ 表里**有的**键印**词条**（`MenuDeck/HUD/DiscardChanges` /
+//      `MainMenu/General/{Discard,Cancel}` 三条都在 `Loc` 里）、**两处都没有**的才印键名。
+//      ⛔ 仍然**不自己编词条**（红线：不许把「查不到」写成猜测）。
 //   ② **开/关音效没做**：prefab 的 `openSound` / `closeSound` 都是空 + `useDefaultCloseSoundIfNull = 1`
 //      （默认关窗音在**远端音频表**里）⇒ 与全仓其它窗同一条既有缺口（`Shell/RewardWindow.cs:10` 等 6 处已记）。
 //   ③ **没有布局系统**：原版 `Buttons` 那两处是 `VerticalLayoutGroup` / `HorizontalLayoutGroup` 在**运行时**
@@ -157,21 +160,37 @@ namespace CardPresentation
 
         // ============================================================ 术语（I2 语言表 —— **本地没有**）
 
-        /// <summary>🔴 **故意留空**的原版词条表（键 → 文字）。I2 的语言表在**远端 CCD**，本地一张都没有
-        /// （判据 → 本文件头 ③ 与 `资料/普查产出_1011/WB1_A330.md` §2.4）⇒ 今天**必然查不到**。
-        /// 将来拿到表就往这里填，**不用改任何调用点**（同 `Battle/ChoosePanel.cs` 的 `Terms` 先例）。
+        /// <summary>原版词条表在本类的落点（键 → 文字），**照 `Battle/ChoosePanel.cs` 的 `Terms` 先例**建。
+        /// 🔴 **本表今天仍是空的**（远端 I2 语言表本地没有；判据 → 本文件头 ① 与
+        /// `资料/普查产出_1011/WB1_A330.md` §2.4），将来拿到表就往这里填、**不用改任何调用点**。
+        /// ⚠️ **2026-10-19（A1012）订正（铁律 5）**：原来这里写「⇒ 今天**必然查不到**」——
+        /// 那句**只对本表成立**；`Term()` 已改成「本表没有就转 `Core/Loc.cs`」⇒「查不到」的判据
+        /// **不再是本表**，而是「`Terms` 与 `Loc` 两处都没有」（那时才印键名）。
+        /// 填进本表的条目**优先于** `Loc`（见 `Term`）。
         /// 键 = 原版那两类：正文 `MenuDeck/Error/&lt;1..5>`（+ 兜底键 `MenuDeck/Error/InvalidDeck`）·
         /// 按钮 `MainMenu/General/{Discard,Cancel}`。</summary>
         public static readonly Dictionary<string, string> Terms = new Dictionary<string, string>();
 
-        /// <summary>取词条：**表里没有就给键本身**（= 原版 `LocalizationManager.GetTranslation` 查不到时的行为），
-        /// ⛔ **绝不自己编一句中文/英文**（红线：不许把「查不到」写成猜测；⚠️ 这也意味着**玩家现在会看到键**，
-        /// 那是如实标注的现状，不是 bug）。</summary>
+        /// <summary>取词条：**先查本类的 `Terms`、再转全工程的 `Core/Loc.cs` 语言表**；
+        /// **两处都没有才给键本身**（= 原版 `LocalizationManager.GetTranslation` 查不到时的行为）。
+        /// ⛔ **绝不自己编一句中文/英文**（红线：不许把「查不到」写成猜测）。
+        ///
+        /// <para>🔴 **2026-10-19（`A1012`）就地改掉末句（铁律 5）**：原来这里是 `return key ?? "";`
+        /// —— 只查那张**恒空**的 `Terms`、**从不查 `Loc`** ⇒ 明明有词条可印、印出来的却是**键名**
+        /// （`Deck/DeckRuntime.cs` 那几处传的就是**键**）。现在转 `Loc.T(key)`。
+        /// ⇒ **这是照原版**（原版 `PopUpGameWindow.SetText` 也是拿**键**过
+        /// `I2.Loc.LocalizationManager.GetTranslation`，见本文件头 ②），⛔ 不是把调用点改成传明文。</para>
+        ///
+        /// <para>⚠️ **对传明文的站点行为零变化**：壳侧 20+ 个 `ShowMessagePopUp` 调用点传的都是**明文**
+        /// （见 `Shell/WindowsManager.cs:1517`），而 `Loc.T` 对**表里没有的键**同样是
+        /// **返回键名本身 + 出声**（`Loc.T` 的 doc）⇒ 明文原样返回，只是会多记一次
+        /// `Loc.MissingCount` / 多出一条 `[Loc] 语言表里**没有**这个词条` 的告警（去重后一条键一次）。</para></summary>
         public static string Term(string key)
         {
             string t;
             if (!string.IsNullOrEmpty(key) && Terms.TryGetValue(key, out t) && !string.IsNullOrEmpty(t)) return t;
-            return key ?? "";
+            // ⚠️ `Loc.T(null)` / `Loc.T("")` 都返回空串 ⇒ 原来那个 `key ?? ""` 的语义由它兜住。
+            return Loc.T(key);
         }
 
         /// <summary>`DeckEditingWindow.TrySaveDeck` 那一支的两颗钮（原版字面量，见文件头 ②：
@@ -211,7 +230,8 @@ namespace CardPresentation
         public string MessageKey { get { return _msgKey; } }
         public string PrimaryKey { get { return _primaryKey; } }
         public string SecondaryKey { get { return _secondaryKey; } }
-        /// <summary>**画出来的**正文（= `Term(MessageKey)`；表空 ⇒ 就是键）。自检量它，⛔ 别拿 `MessageKey` 当渲染结果。</summary>
+        /// <summary>**画出来的**正文（= `Term(MessageKey)`；2026-10-19 `A1012` 起 = `Terms` 有就印它、
+        /// 否则 `Loc.T(键)`、**两处都没有才是键名**）。自检量它，⛔ 别拿 `MessageKey` 当渲染结果。</summary>
         public string MessageShown { get { return _msgLb != null ? _msgLb.Text : null; } }
         public string PrimaryShown { get { return _primaryLb != null ? _primaryLb.Text : null; } }
         public string SecondaryShown { get { return _secondaryLb != null ? _secondaryLb.Text : null; } }
@@ -222,7 +242,11 @@ namespace CardPresentation
 
         /// <summary>`WindowsManager.ShowMessagePopUp` 唯一走的建法（**照原版那条链**：
         /// `ShowPopUp` → `LoadPopUpAndShow` → `ConfigurePopUp` → `OpenWindow`）。
-        /// <para>`messageKey` / `primaryKey` / `secondaryKey` 都是**原版的 I2 术语键**（⛔ 不是明文 —— 见文件头 ③）。</para>
+        /// <para>三个入参**照原版都是 I2 术语键**（见文件头 ①）。⚠️ **2026-10-19（`A1012`）就地订正**：
+        /// 这里原来写「⛔ 不是明文」—— **实际两套约定并存**：壳侧 20+ 个调用点传的**是明文**
+        /// （`Shell/WindowsManager.cs:1517` 自己写着「调用点传的都是【明文】」），只有
+        /// `Deck/DeckRuntime.cs` 那几处传的是**键**。两种都能用：`Term()` 先查 `Terms`、再转 `Loc.T`，
+        /// 明文不是键 ⇒ 原样返回（见 `Term` 的 doc）。</para>
         /// <para>⚠️ `mgr == null` 时**也把它建出来**、只出声不挂锚点（同 `TrophyInfoPopup.Open` 那条兜底：
         /// 红线「不许静默失败」）。</para></summary>
         public static PopUpGameWindow Create(WindowsManager mgr, string messageKey,
@@ -325,7 +349,8 @@ namespace CardPresentation
             Debug.Log("[PopUp] 开了 `" + name + "`（" + (TwoButtons ? "2" : "1") + " 按钮版）· 正文键 `"
                     + _msgKey + "` · 左钮 `" + _primaryKey + "`"
                     + (TwoButtons ? " · 右钮 `" + _secondaryKey + "`" : "")
-                    + " —— ⚠️ I2 语言表在**远端**、本地没有 ⇒ 画面上显示的是**键本身**（不是我们编的文案）；"
+                    + " —— 文案走 `Term()`（本类 `Terms` → `Core/Loc.cs`；2026-10-19 `A1012` 起转 `Loc`）"
+                    + "⇒ **表里有就印词条、两处都没有才是键名**；"
                     + "⚠️ 开/关音效没做（`useDefaultCloseSoundIfNull = 1`，默认音在远端音频表）。");
         }
 

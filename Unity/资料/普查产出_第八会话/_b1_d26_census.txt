@@ -1,0 +1,128 @@
+TOTAL 305
+FILES 18
+weak/strong 分布: {(False, False): 96, (True, True): 89, (True, False): 115, (False, True): 5}
+
+== 逐文件 ==
+  75  RuleEngine/Core/EffectText.cs
+  53  RuleEngine/Core/RuleCore.cs
+  46  RuleEngine/Editor/RuleEngineTest.cs
+  41  RuleEngine/Core/EffectResolver.cs
+  26  RuleEngine/Core/CardDef.cs
+  16  RuleEngine/Core/GivePayload.cs
+  12  RuleEngine/Core/UnitState.cs
+  11  RuleEngine/Core/BattleContext.cs
+   6  RuleEngine/Core/CreatePool.cs
+   5  RuleEngine/Core/RuleCodes.cs
+   2  RuleEngine/Core/BoardSpec.cs
+   2  RuleEngine/Core/DeckRules.cs
+   2  RuleEngine/Core/EffectSpec.cs
+   2  RuleEngine/Core/PlayerState.cs
+   2  RuleEngine/Core/WhenEvent.cs
+   2  CardPresentation/Board/BoardLayout.cs
+   1  RuleEngine/Core/TutorialScript.cs
+   1  CardPresentation/Editor/BattleScene.cs
+
+== 仍然【没降级 + 用强词】的行（优先要改的） ==
+RuleEngine/Core/EffectResolver.cs:9 | //   「**权威语义来源**：`d:/warpforge/scripts/rule_core.gd`」—— **那是错的**：
+RuleEngine/Core/EffectResolver.cs:2323 |         //  ⚠️ 原来写「**权威源** `rule_core.gd:1157 _resolve_choose` + `:1041 _chosen_apply`」——
+RuleEngine/Core/EffectResolver.cs:5343 |         ///      `rule_core.gd` 这四张卡**一张都没实现** ⇒ **没有权威依据**。
+RuleEngine/Core/RuleCore.cs:1609 |             // 🔴 **判据 = 原版反编译**（`D29①`，2026-10-19 把原来那句「和 `rule_core` 的
+RuleEngine/Core/RuleCore.cs:3342 |                 //     **那句是错的**：`is_warlord` 那条的出处在 `d:/warpforge/scripts/rule_core.gd:4355`，
+
+== 仍然【没降级】但没用强词的行 ==
+RuleEngine/Core/BattleContext.cs:7 | // 🔴 **本文件里那些 `rule_core.gd:<行>` 是什么**：`d:/warpforge/scripts/rule_core.gd`
+RuleEngine/Core/BoardSpec.cs:9 | //   · ⚠️ `rule_core.gd:44` —— `BOARD_SIZE := 9` / `WARLORD_SLOT := 4`
+RuleEngine/Core/CardDef.cs:14 | //     本文件下面凡引 `rule_core.gd:<行>` 的，一律按此口径读。
+RuleEngine/Core/CardDef.cs:338 |             //    （`d:/warpforge/scripts/rule_core.gd:291`），我们原来按句收 ⇒ **42 张卡**的
+RuleEngine/Core/CardDef.cs:2746 |                 //    「rule_core 就是这么做的」，容易被读成「它这么做 = 对」）
+RuleEngine/Core/DeckRules.cs:181 |         /// 和 `rule_core.play_card` 的「先费用后格位」是同一个思路：
+RuleEngine/Core/EffectResolver.cs:466 |         /// ⚠️ ② **规则书 L461-466**（**粉丝实体版、第二来源**；`rule_core.gd:4650` 的
+RuleEngine/Core/EffectResolver.cs:597 |         /// 目标短语 → 单位列表。**规则来自 `rule_core.gd:_collect_tactic_targets`（`:2439`）**。
+RuleEngine/Core/EffectResolver.cs:883 |             //    规则书 `:105`：防御卡就是「后手可打出的**特殊战术**」（战术大类，见 `rule_core.gd:4696`
+RuleEngine/Core/EffectResolver.cs:1039 |         /// **打出战术卡**：扣费 → 结算效果 → 进弃牌堆。（`rule_core.gd:play_card` 的战术分支）
+RuleEngine/Core/EffectResolver.cs:2030 |                     //    （`D29①` 改掉原来那句「和 `rule_core` 的 `pop_back` 一致」= 自证。）
+RuleEngine/Core/EffectResolver.cs:2334 |         /// 但不是同一个随机数消耗序列，所以别拿它和 rule_core 逐帧对随机。
+RuleEngine/Core/EffectResolver.cs:2354 |             // ---- 候选域（`rule_core.gd:991 _choose_candidates` 的五个来源）----
+RuleEngine/Core/EffectResolver.cs:3728 |         /// `this battle` 与 `this game` 是**同一个意思**（`rule_core.gd:1199-1204` 合并成 `all`）。
+RuleEngine/Core/EffectResolver.cs:4269 |         /// 有意义的动作 —— 也就是「解掉这个陷阱」。`rule_core.gd` 走的是同一条：
+RuleEngine/Core/EffectResolver.cs:4410 |         /// 段内顺序规则书**没规定**，照 `rule_core.gd:397-442 _at_turn_effects` 定的确定性口径。
+RuleEngine/Core/EffectResolver.cs:4484 |             // ③ 已登记的常驻效果 —— **只有它自己那一方的回合才触发**（`rule_core.gd:432-437`）
+RuleEngine/Core/EffectResolver.cs:4501 |             // **顺序 = 手牌 → 棋盘 → 常驻**（`rule_core.gd:402` 那句确定性口径）。
+RuleEngine/Core/EffectResolver.cs:5264 |         ///   · 事件名 —— `rule_core.gd:3493` `["ally_ferocity","you", r"a friendly (?:unit|troop)
+RuleEngine/Core/EffectResolver.cs:5887 |         /// 载荷解释交给 <see cref="GivePayload"/>，施加照 `rule_core._apply_gain:3266`。
+RuleEngine/Core/EffectResolver.cs:6079 |         /// 把**一项**载荷落到一个单位上（`rule_core._apply_gain:3266`）。
+RuleEngine/Core/EffectResolver.cs:7026 |         ///     （`rule_core.gd:3317`「生命增减**连上限一起动**」，见 `ApplyOneGain` 里那条）——
+RuleEngine/Core/EffectSpec.cs:5 | //   `rule_core._resolve_text` 出自 `d:/warpforge/scripts/rule_core.gd:2513`（实测 672 行），
+RuleEngine/Core/EffectText.cs:114 |         /// **付费激活**的代价（`rule_core.gd:2529` 那族「`N Choose` / `N [Energy]:`」）：
+RuleEngine/Core/EffectText.cs:245 |         //  选牌（`Choose a … and <动词>` 一族）—— `rule_core.gd:1157 _resolve_choose`
+RuleEngine/Core/EffectText.cs:281 |         /// 挑出来之后**对它做什么**（`rule_core.gd:1208-1236` 的动作表）：
+RuleEngine/Core/EffectText.cs:308 |         /// 照 `rule_core.gd:1199-1204` 合并）。别的来源为空串。</summary>
+RuleEngine/Core/EffectText.cs:646 |         ///    `rule_core.gd:3167` 那句「无主语 → 友方全体」自己标着「**既有近似**」，
+RuleEngine/Core/EffectText.cs:1408 |             //    （`ResolveOne` 开头早就实现了付费分支，付不起整条不生效，照 `rule_core.gd:2529`）。
+RuleEngine/Core/EffectText.cs:1738 |             //       `rule_core.gd:869` 那条 `oath (\d+):?\s*repeat this effect` 就是同一件事的特例。
+RuleEngine/Core/EffectText.cs:1807 |             //    （付费是**可选**的：不付就保持基础效果 —— `rule_core.gd:1799` 明写「false → 放弃（基础已结算）」）。
+RuleEngine/Core/EffectText.cs:1980 |             //     在**持有者**的回合结束触发（`rule_core.gd:409-421` ①）
+RuleEngine/Core/EffectText.cs:1988 |             //       `rule_core.gd:2397 _check_codex` 判的就是 `energy == 0`。
+RuleEngine/Core/EffectText.cs:3517 |         /// （`rule_core.gd:409-421` ①「当前玩家手牌中 sabotage 卡……持有者回合生效」）。
+RuleEngine/Core/EffectText.cs:3613 |         /// <summary>`your` → `you` · `each|every` → `each`（`rule_core.gd:362` 同口径）。</summary>
+RuleEngine/Core/EffectText.cs:4236 |         /// 与 `rule_core.gd:1167` 逐字相同（连字符类里的 `[` `]` `.` `,` `;` 都一样）。
+RuleEngine/Core/EffectText.cs:4339 |             //      **不是一张卡**；`rule_core.gd` 与反编译里也 0 命中 ⇒ 没有文本直证可用。
+RuleEngine/Core/EffectText.cs:4428 |             // 卡面 `this battle` 与 `this game` 是**同一个意思** —— 照 `rule_core.gd:1199-1204` 合并
+RuleEngine/Core/EffectText.cs:4456 |             // 顺序照 `rule_core.gd:1208-1236`：先具体后一般，`return it to your deck` 必须
+RuleEngine/Core/EffectText.cs:4834 |         /// <summary>`Stun [a|an|the|it] [enemy] [unit|troop]` —— `rule_core.gd:2755`。
+RuleEngine/Core/EffectText.cs:4876 |         /// `Blind a random enemy` / `Blind two random enemies` —— `rule_core.gd:2786` 那一族。
+RuleEngine/Core/EffectText.cs:4937 |         /// <summary>`Heal N [them|&lt;目标>]` —— `rule_core.gd:2839`：**没写目标 = 治己方督军**（`:2842`）。</summary>
+RuleEngine/Core/EffectText.cs:5010 |             // `Heal them N` 里的 **`them` 是特例**：`rule_core.gd:2842` 明确把它定成
+RuleEngine/Core/EffectText.cs:5387 |         /// ⚠️ 递归语义**三层零依据**（规则书 / `rule_core.gd` / 反编译全无）⇒ 我们定：
+RuleEngine/Core/EffectText.cs:5519 |         /// `Draw N [cards]`（`rule_core.gd:2863`）与 **5a 定向翻找** `Draw a &lt;类型> [from your deck]`（`:2867`）。
+RuleEngine/Core/EffectText.cs:5533 |         /// ⚠️ **这是「我们抄窄了」，不是 `rule_core` 的缺口** —— 派出去查证的子代理把这句
+RuleEngine/Core/EffectText.cs:5536 |         ///    ⇒ 按「补我们的缺口」处理，别去改 `rule_core` 的语义。
+RuleEngine/Core/EffectText.cs:5649 |         /// 降费 —— `rule_core.gd:2920`（`Lower the cost of (all )?&lt;X&gt; in your hand( and deck)? by N`）
+RuleEngine/Core/EffectText.cs:5913 |         /// `Repeat this effect`（`rule_core.gd:2542` → `_resolve_repeat`）：把**本句之前的效果**再来一遍。
+RuleEngine/Core/EffectText.cs:5936 |         /// **付费激活前缀**（`rule_core.gd:1549` 那族：「付不起就**整段不激活**」）。
+RuleEngine/Core/EffectText.cs:5945 |         ///    这个正则原来把**方括号写成必选**（`\[\s*energy\s*\]`），而 `rule_core.gd:1549` 里
+RuleEngine/Core/EffectText.cs:5947 |         ///    `rule_core` 那边**早就写对了**，是我们抄窄了。
+RuleEngine/Core/EffectText.cs:5954 |         ///    `rule_core.gd:1549` 确实有 `\((\d+)\)` 分支，但那只认**紧跟着货币词**的括号式
+RuleEngine/Core/EffectText.cs:6054 |         /// <summary>`Refill N Energy` / `Refill Energy` —— `rule_core.gd:2952`、`:2956`。</summary>
+RuleEngine/Core/EffectText.cs:6150 |         /// `Deploy …` —— **免费把单位放进场上**（不花能量、不占手牌）。`rule_core.gd:2970` 那一支。
+RuleEngine/Core/EffectText.cs:6475 |         /// `Give X to Y` —— `rule_core.gd:3010`，**三种语序**：
+RuleEngine/Core/EffectText.cs:6687 |         /// <summary>`All enemies lose Stealth` / `Lose X` —— `rule_core.gd:3082`。</summary>
+RuleEngine/Core/EffectText.cs:6723 |         /// <summary>`Gain X` —— `rule_core.gd:3101`。三种：属性增减益 / 关键词 / **裸数字 = 1 能量**（`:3114`）。</summary>
+RuleEngine/Core/EffectText.cs:6765 |             // `Gain 1` 裸数字（没有属性词）= **1 点能量** —— `rule_core.gd:3114`。
+RuleEngine/Core/GivePayload.cs:8 | //   · ⚠️ `d:/warpforge/scripts/rule_core.gd`（`_apply_gain` `:3266` + `GIVE_KW` `:2408`）
+RuleEngine/Core/PlayerState.cs:157 |         /// `rule_core.gd:1006-1010`」）。
+RuleEngine/Core/RuleCodes.cs:33 |         // ← 以下两条是本工程新增的（rule_core.gd 没有对应码）——
+RuleEngine/Core/RuleCodes.cs:38 |         /// **装填**再次使用」。本工程新增的码（`rule_core.gd` 里没有对应码）。</summary>
+RuleEngine/Core/RuleCore.cs:76 |         // ---- 规则常量（对齐 rule_core.gd:44-49）----
+RuleEngine/Core/RuleCore.cs:105 |         /// （`rule_core.new_battle` 也有这个开关，语义一致。）
+RuleEngine/Core/RuleCore.cs:236 |             // 轮流发牌（和 rule_core 一致：i 循环里两边各抽一张）
+RuleEngine/Core/RuleCore.cs:954 |         /// 回合开始：能量 → 解疲劳 → 抽牌。（rule_core.begin_turn）
+RuleEngine/Core/RuleCore.cs:957 |         ///    rule_core.gd 记着这条修正：「此前按全局回合数 → 后手首回合 2 能 /
+RuleEngine/Core/RuleCore.cs:1043 |             // 「直到你的下个回合」的限时增益，在**施放者自己的回合开始时**撤            // （`rule_core.gd:3019`）。两边场上都要扫 —— buff 可能在对方单位身上（`give -1 attack to an enemy`）。
+RuleEngine/Core/RuleCore.cs:1101 |             //    ⚠️ **2026-10-17 就地订正（铁律 5）**：这一段原来放在**抽牌之前**，依据是 `rule_core.gd` ——
+RuleEngine/Core/RuleCore.cs:1193 |             // 「本回合」的限时增益在**这一回合结束时**撤（`rule_core.gd:3018`）——
+RuleEngine/Core/RuleCore.cs:1287 |             //    ① 在「本回合限时增益到期」**之后** —— `rule_core.gd:2010` 那一串的开头对得上；
+RuleEngine/Core/RuleCore.cs:1297 |             // 和 `rule_core.gd:2010-2024`（`_expire_temp_buffs(true)` → `_at_turn_effects("end")`
+RuleEngine/Core/RuleCore.cs:1500 |         /// 抽 1 张。牌库空 → 疲劳 +1 并让督军挨这么多伤害。（rule_core._draw）
+RuleEngine/Core/RuleCore.cs:1740 |             // ⚠️ 校验顺序和 rule_core.play_card 一致：**先费用、后格位**
+RuleEngine/Core/RuleCore.cs:1772 |         /// `:187`「侧翼：打出当回合可攻击任意敌方部队」；原版 `rule_core.gd:2248` 也把这三个写在同一句里
+RuleEngine/Core/RuleCore.cs:1965 |         /// 打出第 handIdx 张手牌到 slot 格。（rule_core.play_card）
+RuleEngine/Core/RuleCore.cs:2522 |         ///   （`rule_core.gd:2314`），`_deploy_unit` 里没有（它的注释明说 play_card 路径自己广播）。
+RuleEngine/Core/RuleCore.cs:2674 |         /// 目标合法性。（rule_core.is_valid_target）
+RuleEngine/Core/RuleCore.cs:2757 |             //    ⚠️ `rule_core.gd` 记的那条修正（「此前禁止飞行单位近战打地面、却允许地面近战打飞行」）
+RuleEngine/Core/RuleCore.cs:3010 |         /// 攻击结算。（rule_core.declare_attack）
+RuleEngine/Core/RuleCore.cs:3013 |         ///    直觉上会写成「远程不受反击」，那是错的 —— rule_core.gd 有明确修正记录：
+RuleEngine/Core/RuleCore.cs:3385 |                 // ⚠️ 原版 `rule_core.gd:4310` 有一条修正记录：「此前『目标死则不反击』= 近战击杀免反（规则偏差）
+RuleEngine/Core/RuleCore.cs:3804 |         /// 通用伤害结算。（rule_core._damage_unit）
+RuleEngine/Core/RuleCore.cs:4384 |             // `rule_core.gd`）：
+RuleEngine/Core/RuleCore.cs:5005 |         ///     递归语义**三层零依据**（规则书 / `rule_core.gd` / 反编译都查不到）⇒ **这是我们定的**，
+RuleEngine/Core/RuleCore.cs:5736 |         /// 调用点也照那边三个来（`rule_core.gd:2183` 战术打完 · `:2244` 虫群合并之后 ·
+RuleEngine/Core/RuleCore.cs:5997 |                     // ⚠️ `Draw(ctx, p)` 一次只抽 1 张（和 rule_core 一致），数量靠自己循环
+RuleEngine/Core/RuleCore.cs:6105 |         /// <summary>0 = 进行中，1/2 = 该方胜，3 = 平局。（rule_core.check_winner）</summary>
+RuleEngine/Editor/RuleEngineTest.cs:1382 |             // 反例二：状态**按回合掉**（`rule_core.gd:1953`）—— 转一圈回到自己回合就不该再算了。
+RuleEngine/Editor/RuleEngineTest.cs:1391 |         //  不付钱则保持原样（`rule_core.gd:1799`「放弃（基础已结算）」）。
+RuleEngine/Editor/RuleEngineTest.cs:1567 |     /// 抽牌是 `pop_back`，所以要把 hand **反转**放 —— 和 rule_core 的 `_deck()` 一个道理。
+RuleEngine/Editor/RuleEngineTest.cs:1786 |         Check(RuleEngine.BoardSpec.Size, 9, "棋盘 9 格（规则书 :30 / rule_core.gd:44 / MinionArea）");
+RuleEngine/Editor/RuleEngineTest.cs:2092 |         // 按频次报出来，决定下一步补哪个关键词（`rule_core.gd:52` 的 `KW_IMPLEMENTED` 有 59 个，我们只有 13 个）。
+RuleEngine/Editor/RuleEngineTest.cs:6151 |     /// `rule_core.gd:1157 _resolve_choose` + `:925` 候选匹配 + `:1041 _chosen_apply`。
+CardPresentation/Board/BoardLayout.cs:11 | //    · ⚠️ `rule_core.gd:44` —— BOARD_SIZE 9 / WARLORD_SLOT 4

@@ -427,7 +427,7 @@ namespace CardPresentation
 
         /// <summary>🔴 **2026-10-07（A77①）**：当前换行模式**按原版 `m_TextWrappingMode` 的原文**报出来
         /// —— `0` `NoWrap` · `1` `Normal` · `2` `PreserveWhitespace` · `3` `PreserveWhitespaceNoWrap`
-        /// （枚举值出处 = `TMP_Text.cs:100`：`{ NoWrap = 0, Normal = 1, PreserveWhitespace = 2, PreserveWhitespaceNoWrap = 3 }`）。
+        /// （枚举值出处 = `TMP_Text.TextWrappingModes`：`{ NoWrap = 0, Normal = 1, PreserveWhitespace = 2, PreserveWhitespaceNoWrap = 3 }`）。
         /// **点阵后端返 `-1`**（那后端没有「折行」这回事，如实报、别猜 0）。
         ///
         /// <para>🔴 **为什么要开这个口（原版真有第三档）**：实测 2 处原版件是 `折行=3` ——
@@ -437,14 +437,14 @@ namespace CardPresentation
         /// ⇒ 拿 `false` 顶替 = 把 `3` **静默降级成 `0`**。</para>
         ///
         /// <para>🔴 **`3` 与 `0` 的关系（有判据的那一半 / 没有判据的那一半）**：
-        /// · **有判据**：在「**折不折行**」这一件事上它们**同档** —— `TMP_Text.cs:4485`
+        /// · **有判据**：在「**折不折行**」这一件事上它们**同档** —— `TMP_Text` 里那句 `if (textWrapMode != TextWrappingModes.NoWrap && …)` 的断行判定
         ///   （`if (textWrapMode != NoWrap &amp;&amp; textWrapMode != PreserveWhitespaceNoWrap &amp;&amp; …)` 才断行）与
-        ///   `:4731`（保存换行状态那处）都把这两个值并列。
-        /// · **没有判据**：**空白保留**那一半**不同**（`:4461` 把 `PreserveWhitespace`/`PreserveWhitespaceNoWrap`
+        ///   与 `TMP_Text` 里保存换行状态那一处都把这两个值并列。
+        /// · **没有判据**：**空白保留**那一半**不同**（`TMP_Text` 里把 `PreserveWhitespace`/`PreserveWhitespaceNoWrap`
         ///   单列一支，`0` 不在其中）⇒ 「`3` 与 `0` 在我们这套排版下等不等价」**至今没有人给过判据**
         ///   （普查报告原文如实留白）⇒ ⛔ **不许当等价用**，要 `3` 就写 `3`。
         /// · 📌 顺带一条旁证（为什么输入框会是 `3`）：**这是 TMP 自己给单行输入框写的档** ——
-        ///   `TMP_InputField.SetTextComponentWrapMode()`（`TMP_InputField.cs:4618-4627`）：
+        ///   `TMP_InputField.SetTextComponentWrapMode()`：
         ///   `multiLine ? Normal : PreserveWhitespaceNoWrap`。原版那两处都是 `TMP_InputField` 的 `Text`。</para></summary>
         public int WrappingMode
         {
@@ -509,13 +509,13 @@ namespace CardPresentation
         /// <summary>🆕 **2026-10-07（A205）**：把一次「改完折行模式 / 改完字号相关参数之后」的版面**真正推下去**。
         ///
         /// <para>🔴 **为什么必须有它**：`textWrappingMode` 的 setter 里只有 `SetVerticesDirty()` + `SetLayoutDirty()`
-        /// （`TMP_Text.cs:747`）—— **批处理没有帧循环**（`CLAUDE.md` §三 那条）⇒ 那张 mesh 还停在**上一版**：
+        /// （`TMP_Text.textWrappingMode` 的 setter）—— **批处理没有帧循环**（`CLAUDE.md` §三 那条）⇒ 那张 mesh 还停在**上一版**：
         /// **字段说「不折行」、画面却还是折行的**（静默不一致）。A62 那次「补一行 `SetWrapping(false)`」的修法
         /// 全落在这一口上（判据 → `Battle/Label.cs` 的 `SetWrapping` 头 + `资料/普查产出_1007/波8_Label折行族.md`）。</para>
         ///
         /// <para>实现 = **`SetFontSize(传当前值)`** + `RefreshBounds()`：
         /// · 传的是**当前值本身** ⇒ TMP 的 `fontSize` setter 逐位相等 ⇒ **早退**
-        ///   （`TMP_Text.cs:465`：`if (m_fontSize == value) return;`）⇒ `m_fontSizeBase` 一个字节不动，
+        ///   （`TMP_Text.fontSize` 的 setter：`if (m_fontSize == value) return;`）⇒ `m_fontSizeBase` 一个字节不动，
         ///   只有紧跟的那次 `ForceMeshUpdate()` 生效：按**当前**的折行模式 + 当前的 `[fontSizeMin,fontSizeMax]`
         ///   重新收敛一次（收敛结果与上一次相同 ⇒ **幂等**）。
         ///   ⛔ **别传 `px/108`** —— 那会大 2.7 倍（见 `SetFontSize` 头那条）。
@@ -554,7 +554,7 @@ namespace CardPresentation
         /// 兑现过一次的次数（**只增不减**）。**只记账、不改任何行为**。
         /// <para>**为什么要它**：判「A266 那一跳（未激活时欠下的「生成版面」被补做）到底做了没有」**不能读
         /// `LineCount`** —— 那读的是 `TextMeshPro.textInfo.lineCount`，而 `TextMeshPro.Awake()`（**第一次激活时**跑）
-        /// 里那句 `m_textInfo = new TMP_TextInfo(this)` 会把它**清零**（`TextMeshPro.cs:582-593`，只在 `m_mesh == null` 时）
+        /// 里那句 `m_textInfo = new TMP_TextInfo(this)` 会把它**清零**（`TextMeshPro` 的 `Awake()` 里那一句，只在 `m_mesh == null` 时）
         /// ⇒ **只要版面是在激活前生成的，`lineCount` 就必然被抹掉** ⇒ 两种世界读数一模一样（都是 0）。
         /// 本计数器数的是**我们这条待办路自己**兑现了几次，与 `m_textInfo` 无关。</para>
         /// <para>⚠️ **只在这个函数里自增** —— `EnsureMeasured`（`WorldW/WorldH` 那条兜底兑现）**不算**：
@@ -644,7 +644,7 @@ namespace CardPresentation
         /// ⚠️ **正常路径一字未动**（`characterSpacing = v` + 那一句 `ForceMeshUpdate`）—— 那一下**必要**：
         /// `characterSpacing` 的 setter 只置脏，而 `ForceMeshUpdate` 会把 `m_fontSize` 复位成
         /// `Clamp(m_fontSizeBase, min, max)`、**带着新字距重跑一次自适应**
-        /// （`TextMeshProUGUI.cs:556-566` + `TextMeshPro.cs:2148-2149`，静态判据）⇒ ⛔ 别删它。</para></summary>
+        /// （`TextMeshProUGUI` 的 `characterSpacing` setter + `TextMeshPro` 的自适应那一句，静态判据）⇒ ⛔ 别删它。</para></summary>
         public void SetCharSpacing(float v)
         {
             if (_tmp == null)
@@ -684,11 +684,11 @@ namespace CardPresentation
 
         /// <summary>🔴 **2026-10-11（A305 ①）**：TMP 真正的 `m_fontSizeBase`（**fontSize 单位**，不是 px、
         /// 也不是世界单位；换算见 <see cref="FontSizeToPx"/>）。自检要能把它读回来**断死** ——
-        /// 它是「自适应二分的起点」，**没有公开访问器**（`TMP_Text.cs:473` 是 `protected`），
-        /// 而 `fontSize` getter 读到的是**收敛结果**（`TMP_Text.cs:466`）⇒ **只能反射读**。
+        /// 它是「自适应二分的起点」，**没有公开访问器**（`TMP_Text.m_fontSizeBase` 是 `protected`），
+        /// 而 `fontSize` getter 读到的是**收敛结果**（`TMP_Text.fontSize` 的 getter）⇒ **只能反射读**。
         /// ⚠️ 与 `FontSizeMin/Max` 同族：`_tmp == null`（点阵后端）⇒ 恒 **−1**（那后端没有自适应，
         /// 如实报、别猜 0 —— 0 是个合法的 base）。
-        /// <para>📌 反射读非公开字段在本工程有先例：`Editor/BattleScene.cs:2287`（A80①）、
+        /// <para>📌 反射读非公开字段在本工程有先例：`Editor/BattleScene` 里 A80① 那条（反射读非公开字段）、
         /// `RuleEngineTest.cs` 的 `TestChooseEffect`。</para>
         /// <para>🔴 **2026-10-13（A536）**：句柄的取法收进 <see cref="BaseFld"/>（**读写共用那一份**）——
         /// 本件要**写**这个字段（见 `EnsureFontSizeBase`），⛔ 别在别处再 `GetField` 一次。</para></summary>
@@ -738,7 +738,7 @@ namespace CardPresentation
         /// 而本函数**只在 setter 确实早退时**才被调到（调用点那句 `if (fontBefore == baseCur)` ——
         /// 早退 = 那一下什么都没改）⇒ 补写字段不改任何别的状态，
         /// 紧接着的 `ForceMeshUpdate`（`SetAutoFitBox` 尾部那一句）就会拿新 base 当二分起点
-        /// （`TextMeshPro.cs:2148-2149`：`if (m_enableAutoSizing) m_fontSize = Mathf.Clamp(m_fontSizeBase, min, max);`）。
+        /// （`TextMeshPro` 的自适应那一句：`if (m_enableAutoSizing) m_fontSize = Mathf.Clamp(m_fontSizeBase, min, max);`）。
         /// ⛔ **别把它改成无条件调用** —— 那会在 setter 已经写好时再写一遍同一个值（同值，但多一层
         /// 「两处写同一个字段」的债：读回 `/` 断言都分不清是谁写的）。</para>
         ///
@@ -753,7 +753,7 @@ namespace CardPresentation
                 {
                     _baseWriteWarned = true;
                     Debug.LogWarning("[Label] ⚠️ 找不到 TMP 的 `m_fontSizeBase` 字段 ⇒ `SetAutoFitBox(…, basePx: …)` "
-                        + "**写不进自适应二分的起点**（这一格停在旧值上）。改法：核 TMP 版本 / 字段名（`TMP_Text.cs:473`）。"
+                        + "**写不进自适应二分的起点**（这一格停在旧值上）。改法：核 TMP 版本 / 字段名（`TMP_Text.m_fontSizeBase`）。"
                         + "（出声，不静默；只报一次）节点 = " + name);
                 }
                 return;
@@ -775,9 +775,9 @@ namespace CardPresentation
         /// （倍率见 <see cref="FontSizeToPx"/>：1 个 fontSize ≈ 10.24 画布 px）。</para>
         ///
         /// <para>🔴 **上限是「绝对天花板」，不是「调用方那个字号」**（2026-10-04 · A50① 修）：
-        /// TMP 的自适应是**在 `[fontSizeMin, fontSizeMax]` 里二分**（`TextMeshPro.cs:4139-4149`
+        /// TMP 的自适应是**在 `[fontSizeMin, fontSizeMax]` 里二分**（`TextMeshPro.GenerateTextMesh()` 里「Check Auto-Sizing (Upper Font Size Bounds)」那一支
         /// 「increase font size to fill text container」那一支，只涨到 `m_fontSizeMax` 为止；
-        /// 起点 = `Mathf.Clamp(m_fontSizeBase, m_fontSizeMin, m_fontSizeMax)`，见 `TextMeshPro.cs:2149`）
+        /// 起点 = `Mathf.Clamp(m_fontSizeBase, m_fontSizeMin, m_fontSizeMax)`，见 `TextMeshPro` 的自适应那一句）
         /// ⇒ 文案短的时候**会一直涨到 `fontSizeMax`**。
         /// 而原版这两个数**可以不等**：`Timer Text`（商店 19 变体里 `TypeFs=34` 的那 9 份）是
         /// `m_fontSize = **30.6**` 而 `m_fontSizeMax = **32**`。旧写法把 `fontSizeMax` 设成「调用方字号」
@@ -789,16 +789,16 @@ namespace CardPresentation
         ///
         /// <para>🔴 **2026-10-11（A305 ①）：`basePx` = 原版那一颗 TMP 的 `m_fontSizeBase` 原文**（画布 px，
         /// 与 `minPx`/`maxPx` **同一个量纲**；`&lt;= 0` = **不指定**，维持 A57③ 的旧行为「base = 调用方那一档」）。
-        /// 它**只影响自适应二分的起点**（`TextMeshPro.cs:2148-2149`
+        /// 它**只影响自适应二分的起点**（`TextMeshPro` 的自适应那一句
         /// `m_fontSize = Mathf.Clamp(m_fontSizeBase, m_fontSizeMin, m_fontSizeMax)`），
-        /// 终点两侧都收敛到「装得下的最大号」⇒ **渲染无差**（差 ≤ 0.05 fontSize 单位 —— `TMP_Text.cs:4814` 涨 /
-        /// `:4537` 缩，两个方向都按 **1/20** 取整且被 min/max 夹住）。</para>
+        /// 终点两侧都收敛到「装得下的最大号」⇒ **渲染无差**（差 ≤ 0.05 fontSize 单位 —— `TMP_Text.CalculatePreferredValues` 里「涨」那一支 /
+        /// 与「缩」那一支，两个方向都按 **1/20** 取整且被 min/max 夹住）。</para>
         ///
         /// <para>🔴 **为什么必须逐站现读、不套通则**（铁律 5·c「一个值 ≠ 全部情况」的正例）：
         /// 全库 8,680 个「开了自适应」的原版 TMP 里 `m_fontSizeBase` 有 **200+ 种取值** ——
-        /// `36.0` 出现 **3,045** 次（= **TMP 的序列化默认值**，`TMP_Text.cs:473`
+        /// `36.0` 出现 **3,045** 次（= **TMP 的序列化默认值**
         /// `protected float m_fontSizeBase = 36;` ⇒ 原版**大多数站根本没显式设过** ——
-        /// 作者开着 `m_enableAutoSizing` 时 setter **不回写 base**，见 `TMP_Text.cs:467`）·
+        /// 作者开着 `m_enableAutoSizing` 时 setter **不回写 base**，见 `TMP_Text.fontSize` 的 setter）·
         /// `12.0` 只有 **559** 次 · 其余散在 `45.2`（卡包详情 `Title`）· `39` / `26` / `24` / `23` / `35` /
         /// `17.95` / `27.69` / `36.89` / `30` / `32` …
         /// 🔴 **2026-10-11 就地订正（铁律 5）**：旧转述「原版那一档是 12px」**只对【一个站】成立**
@@ -869,7 +869,7 @@ namespace CardPresentation
             float nomPx = NominalPx();                  // 「cur 折算成画布 px」= 本工程唯一那条 px 口径（见它的注释）
             if (nomPx <= 0f)
             {   // 🔴 **2026-10-13（A597）**：折算不出画布 px ⇒ 原来也**静默 return**。今天同样够不到
-                //    （`TmpFont.MeasureGlyph` 永不返回 ≤ 0，`Core/TmpFont.cs:272-300`）—— 出声是为将来兜底。
+                //    （`TmpFont.MeasureGlyph` 永不返回 ≤ 0，`TmpFont.MeasureGlyph`）—— 出声是为将来兜底。
                 NoteArgInvalid("自适应框折算",
                                "`nomPx` = " + nomPx + "（`WorldGlyphPerFontSize` = " + TmpFont.WorldGlyphPerFontSize + "）",
                                "一个 " + worldW + "×" + worldH + " 的框 + 自适应 " + minPx + "~" + maxPx + "px",
@@ -878,7 +878,7 @@ namespace CardPresentation
             }
             // 🔴 **2026-10-04（A57③）：先关自适应、再写 `fontSize`** —— TMP 只在 `!m_enableAutoSizing` 时
             //    才回写 `m_fontSizeBase`（`TMP_Text.cs:467`），而**起点就是 base**
-            //    （`TextMeshPro.cs:2149`：`m_fontSize = Mathf.Clamp(m_fontSizeBase, m_fontSizeMin, m_fontSizeMax)`）。
+            //    （`TextMeshPro` 的自适应那一句：`m_fontSize = Mathf.Clamp(m_fontSizeBase, m_fontSizeMin, m_fontSizeMax)`）。
             //    旧写法没有这一行：同一个 label 被**第二次**调时自适应还开着 ⇒ base 停在**第一次**那个值
             //    （起点是旧值；二分最后仍收敛到「装得下的最大号」，所以**影响小**，但字段是错的）。
             //    ⚠️ **第一次调用逐位不变**：那一次 `m_enableAutoSizing` 本来就是 `false`（TMP 出厂值），
@@ -894,10 +894,10 @@ namespace CardPresentation
             // 🔴 **2026-10-11（A305 ①）**：写进 `m_fontSizeBase` 的那个值 = **原版那一站显式设过的 base**
             //    （`basePx > 0` 时按 `maxPx`/`minPx` 同一套比例折成 fontSize 单位）；**没指定就照旧 = `cur`**。
             //    ⚠️ 写法只能是「先关自适应、再把 `fontSize` 拨到 base」—— TMP **没有公开的 base 口**
-            //    （`m_fontSizeBase` 是 `protected`，`TMP_Text.cs:473`），只能借 setter 回写（`TMP_Text.cs:467`），
+            //    （`m_fontSizeBase` 是 `protected`），只能借 `TMP_Text.fontSize` 的 setter 回写，
             //    早退那一格再由上面那句反射补写（A536）。
             //    ⚠️ 这一下**顺带把 `m_fontSize` 也挪到了 base**，但紧接着的 `ForceMeshUpdate` 会把它
-            //    重新 `Clamp(base, min, max)`（`TextMeshPro.cs:2148-2149`）⇒ 只是**二分起点**变了。
+            //    重新 `Clamp(base, min, max)`（`TextMeshPro` 的自适应那一句）⇒ 只是**二分起点**变了。
             //    （`FontPxNow`/`WorldW` 那些读数读的是**收敛结果**，不受影响 —— 见方法头。）
             float baseCur = basePx > 0f ? cur * (basePx / nomPx) : cur;
             _tmp.enableAutoSizing = false;
@@ -929,8 +929,8 @@ namespace CardPresentation
         /// 逐处追到它那个 label 的建法；本轮 §4.6 那条新断言自己再加 1 处）：
         /// **没有任何一处**同时用 `SetCapHeight` + `SetAutoFitBox` —— `grep -rn "SetCapHeight"` 全工程只有
         /// **9 个真实调用点**、分布在 **6 个文件**里（`Battle/BattleDriver.cs` 里那处 `SetCapHeight` ·
-        /// `Battle/MulliganPanel.cs` 里那三处 `SetCapHeight` · `Battle/SettingsPanel.cs` 里那三处 `SetCapHeight` · `Core/CardFeel.cs:1025` ·
-        /// `Core/Tooltip.cs` 里 `SetCapHeight(BodyCapWorld)` 那一句 · `Shell/ShellRuntime.cs:268`），
+        /// `Battle/MulliganPanel.cs` 里那三处 `SetCapHeight` · `Battle/SettingsPanel.cs` 里那三处 `SetCapHeight` · `Core/CardFeel` 里那一处 `SetCapHeight` ·
+        /// `Core/Tooltip.cs` 里 `SetCapHeight(BodyCapWorld)` 那一句 · `Shell/ShellRuntime.TextBand`），
         /// **那 6 个文件一个都不调 `SetAutoFitBox`**（逐文件数过），且那几个 label 不逃逸到别处；
         /// 而那 41 处**全部走 `SetGlyphHeight` 那一路**（各自经由 `MenuDraw.Text/TextBox` 或本窗同形的
         /// `Text` 助手，逐个追过）⇒ **本次改动对现有画面是恒等的**，它修的是**潜伏**那一档
@@ -1136,7 +1136,7 @@ namespace CardPresentation
         /// （`CLAUDE.md` §三：不许静默失败）—— 与同族的 <see cref="SetCharSpacing"/> 同一个口径。
         ///
         /// <para>**为什么要有它**：两个 `Align*On` 原来在 `_tmp == null` 时**直接 return、一个字都不留**
-        /// ⇒ 一旦字体资产缺失（`TmpFont.Available == false`，`Core/TmpFont.cs:52`），**整批左/右对齐静默退回居中**
+        /// ⇒ 一旦字体资产缺失（`TmpFont.Available == false`），**整批左/右对齐静默退回居中**
         /// —— 画面错（`RefreshBounds` 把整块摆在框心，`Battle/Label.cs` 的 `RefreshBounds`）、日志里什么都没有。
         /// 同一族的 `SetCharSpacing` 早就出声（🔴 **A596 之后它走同一只口**，见 `NoteDotBackendLacks` 那段 doc）
         /// ⇒ 当年「两个口口径不一致」本身就是缺陷，A476/A596 已各自收口。</para>
@@ -1144,14 +1144,14 @@ namespace CardPresentation
         /// <para>🔴 **为什么不是「每次调用打一行」**：两个口全仓约 **20 个生产调用点**，且**每个窗每重建一次就跑一遍**
         /// （主入口是 `Shell/MenuDraw.cs` 的 `AlignLeft`/`AlignRight`；`Deck/DeckRuntime.cs` 里那处 `AlignLeftOn`/`AlignRightOn` /
         /// `Shell/CollectionWindow.cs` 里那处 `AlignRightOn`/`AlignLeftOn` 还会**逐格**调它）—— 逐次刷屏会把别的告警淹掉，而信息量为零。
-        /// 本仓先例 = 「同一件事故只出声一次」（`Shell/ItemDrawer.cs:727-737` 的 `Note` ·
-        /// `Core/CardIcons.cs:91` 的 `_warned` · `Core/Tooltip.cs:392` 的 `_warnedNoEntry`）
+        /// 本仓先例 = 「同一件事故只出声一次」（`Shell/ItemDrawer` 里那个 `Note` ·
+        /// `Core/CardIcons` 里那个 `_warned` · `Core/Tooltip` 里那个 `_warnedNoEntry`）
         /// ⇒ 这里 key 取 **「方法 + 节点全路径」**，**每处一次**（路径能认出是哪一窗哪一颗，"Window Title" 这种重名不会互相吞）。</para>
         ///
         /// <para>⛔ **`HasMeasuredWidth()` 那条早退【不】出声**（下一行那句）：那是**有意的守卫**
         /// —— 空串 / 量不出宽时不动位置，理由见 `HasMeasuredWidth` 的文件头（否则会把节点扔到 2.1e9 之外）；
         /// 而且**空文案是正常状态**（零值态面板、等数据的格子），调用方灌进文案后会**再对齐一次**
-        /// （例 `Shell/TrophyInfoPopup.cs:461`）。与「这个后端根本没有对齐功能」是两件事，别混。</para>
+        /// （例 `Shell/TrophyInfoPopup` 里 `MenuDraw.Rect` 对 `tex == null` 静默返回 null 那一处）。与「这个后端根本没有对齐功能」是两件事，别混。</para>
         ///
         /// <para>⚠️ **进程内静态**：一次 Unity 批处理里就是「每处一次」；批处理之间会重置（同 `Note` 那条）。</para></summary>
         void NoteDotBackendLacks(string which, float worldX)
@@ -1207,12 +1207,12 @@ namespace CardPresentation
         /// ⛔ **别再往下加第三只**：要加就加一句「但……」 clause。</para>
         /// <para>📌 **今天够不到（2026-10-13 现核）**：`cur = TmpFontSize()` 恒 > 0（`CapWorld` 有常数兜底
         /// `7f/100 × max(1, scale)`）；`nomPx = FontSizeToPx(cur)` 也恒 > 0（`TmpFont.MeasureGlyph` 永不返回 ≤ 0：
-        /// 无字体资产 → `1f`、量不出 → `0.01f`，`Core/TmpFont.cs:272-300`）；`minPx/maxPx` 那边
+        /// 无字体资产 → `1f`、量不出 → `0.01f`，`TmpFont.MeasureGlyph`）；`minPx/maxPx` 那边
         /// **全仓 `SetAutoFitBox(` 的调用点逐个现核过**（生产 39 + 自检探针 10）：每一处要么传正字面量，
         /// 要么上游就有 `autoMinPx > 0f` / `fontPx > autoMinPx` / `AutoMax > AutoMin` 这样的闸
-        /// （`Shell/MenuDraw.cs:1602,1635` · `Shell/OfferContainer.cs:1347` · `Shell/CollectionWindow.cs:1704` ·
-        /// `Shell/MatchLogRow.cs:163` · `Shell/PlayerProfileWindow.cs:329,637` · `Shell/MissionsTab.cs:350`）；
-        /// 表驱动的两处（`Shell/MenuWindowBase.cs:489` 的 `TabBtnSpec` · `Shell/PlayerProfileWindow.cs:330` 的
+        /// （`Shell/MenuDraw.cs` · `Shell/OfferContainer.cs` · `Shell/CollectionWindow.cs` ·
+        /// `Shell/MatchLogRow.cs` · `Shell/PlayerProfileWindow.cs` · `Shell/MissionsTab.cs`）；
+        /// 表驱动的两处（`Shell/MenuWindowBase` 的 `TabBtnSpec` · `Shell/PlayerProfileWindow` 的
         /// `PpTabSpec`）**逐行核过**，各表 min 全是 5~18。
         /// **⇒ 它是「将来某一天有人传 0」的兜底，不是今天的病灶** —— 但按铁律 11（复刻有缺漏就要补），
         /// 静默那一格必须堵上。</para>
@@ -1305,7 +1305,7 @@ namespace CardPresentation
         // ==================================================================
 
         /// <summary>垂直档 = 原版 TMP 的 `m_VerticalAlignment`（枚举值**逐值照抄那一格**，便于与原版存档互查）。
-        /// 判据 = 本机 TMP `TMP_Text.cs:24-85`：`Top = 0x100` · `Middle = 0x200` · `Bottom = 0x400` ·
+        /// 判据 = 本机 TMP 的 `TMP_Text.TextAlignmentOptions`：`Top = 0x100` · `Middle = 0x200` · `Bottom = 0x400` ·
         /// `Geometry`（别名 `Midline`）= `0x1000` · `Capline = 0x2000`。
         /// 原版逐档占比（主菜单 214 / 战斗 333 颗 TMP）→ `资料/普查产出_1013/WA712_垂直对齐普查.md` §二：
         /// `Middle` 64.0/67.3% · `Midline` 23.4/25.8% · `Capline` 9.3/3.0% · `Bottom` 2.8/2.4% · `Top` 0.5/1.5%。</summary>
@@ -1326,7 +1326,7 @@ namespace CardPresentation
         /// `m_FaceInfo`：`m_PointSize` 95 · `m_AscentLine` 70 · `m_CapLine` 60 · `m_DescentLine` −20<br/>
         /// 同目录 `Asar-Regular SDF.json` —— 94 / 80 / 61 / −35<br/>
         /// （两个 pid：`3485036404935369831` / `-8244042478085975641`，`WA712` §2·4 现读）。
-        /// 本工程另有一条**独立实测**只覆盖了中间的比值：`Editor/Round1015Probe.cs:181-186`（`CmpOriginal`）。</para>
+        /// 本工程另有一条**独立实测**只覆盖了中间的比值：`Editor/Round1015Probe.CmpOriginal`。</para>
         /// <para>⚠️ **参数名对齐 TMP 的 `FaceInfo`**：`p` = pointSize · `a` = ascentLine · `c` = capLine ·
         /// `d` = descentLine（`descentLine` 原版是**负**的，别丢掉那个负号）。</para></summary>
         struct OrigMetrics { public float p, a, c, d; }
@@ -1363,7 +1363,7 @@ namespace CardPresentation
         /// <summary>原版那一档下「**大写墨盒中心**」相对**框心**的位置（画布 px，向上为正）——
         /// 这就是「档 → 墨心相对框心」那张表（逐格算式与出处 → `资料/普查产出_1015/W11_A712字墨校正.md` §3）。
         ///
-        /// <para>**算式来自 TMP 自己的那一支 `switch`**（`TextMeshPro.cs:4193-4232` 的 `anchorOffset` = **基线**的位置）：
+        /// <para>**算式来自 TMP 自己的那一支 `switch`**（`TextMeshPro` 里那个 `anchorOffset` 的 `switch` = **基线**的位置）：
         /// `Top = 上角 − ascent` · `Middle = 心中 − (ascent+descent)/2` · `Bottom = 下角 − descent` ·
         /// `Capline = 心中 − capLine/2` · `Geometry/Midline = 心中 − (墨水顶+墨水底)/2`；
         /// 再把基线折成**大写墨盒中心**（= 基线 + capLine/2，大写墨盒 = 基线到 capLine 那一格）。</para>
@@ -1396,7 +1396,7 @@ namespace CardPresentation
 
         /// <summary>「**一行**行盒」的高度（世界单位）—— 取 TMP **自己算出来的那一份**：
         /// `textInfo.characterInfo[i].ascender − descender`（`textBounds` 就是逐字取这两个值的并集，
-        /// `TMP_Text.cs:4875-4879`）⇒ **多行也拿得到「一行」的高度**。
+        /// `TMP_Text` 里 `textBounds` 逐字取那两个值那一处）⇒ **多行也拿得到「一行」的高度**。
         /// ⚠️ 为什么不直接用 `_tmpH`（`textBounds` 的高）：多行时它是**整块**的高 ⇒ 当作一行用会大 N 倍。
         /// ⚠️ 一个字都量不到（空串 / 版面没生成）时退回 `_tmpH` —— 单行时两者同值；而空串那种退化状态下
         /// 它是**哨兵天文数字**（4.29e9，见 <see cref="HasMeasuredWidth"/>）⇒ 由 <see cref="OurInkCenterWorld"/>
@@ -1477,7 +1477,7 @@ namespace CardPresentation
         /// · `n` 行等高（= `blockH/n`）时它化整成 **`(n−1−2k)/(2n) × blockH`**（下式的形状）。</para>
         ///
         /// <para>**哪一档折哪一行**（原版 TMP 那一支 `switch` 只有**一个** `anchorOffset`、
-        /// 它作用于**行盒的心** —— 判据 `TextMeshPro.cs:4193-4232`；`W11` §2·1 那张表是它的推论）：
+        /// 它作用于**行盒的心** —— 判据 = `TextMeshPro` 里那个 `anchorOffset` 的 `switch`；`W11` §2·1 那张表是它的推论）：
         /// · `Top` = 基线 `框上角 − a/p·F` ⇒ 作用在**第一行** ⇒ `k = 0`；
         /// · `Bottom` = 基线 `框下角 − d/p·F` ⇒ 作用在**最后一行** ⇒ `k = n−1`；
         /// · `Middle` / `Capline` / `Midline` ⇒ **本函数一律返回 0**（`Middle` **逐位不变**那条纪律）
@@ -1610,11 +1610,11 @@ namespace CardPresentation
         /// <para>⚠️ **前提**：本模型假设「**节点位 = 原版那一颗的框心**」（`RefreshBounds` 按
         /// `anchor` 摆，全仓 61 个 `Label.Create` 调用点的**纵向 anchor 100% 是 0.5** ⇒
         /// 行盒心就落在节点上）。🔴 **2026-10-16 就地订正（W23 · 铁律 5）**：本行原文写「`anchor.y != 0.5` 的**只有两处**：
-        /// `Battle/SettingsPanel.cs:392` 的音量滑条标签 · `Battle/BattleDriver.cs:7958` 的 `HandLabel`」——
+        /// `Battle/SettingsPanel` 的音量滑条标签 · `Battle/BattleDriver` 里那颗 `HandLabel`」——
         /// **`SettingsPanel` 那一处已不在其列**（W23 把那三颗的锚点从 `(0,0)` 改成 `(0,0.5)`、并挪到**原版框心**，
         /// 因为 `Bottom` 那一档**必须先有框心**、否则偏 4.3px）⇒ **今天只剩 `Battle/BattleDriver.cs` 的 `HandLabel` 一处**。
         /// **原记（留作历史）**：`anchor.y != 0.5` 的**只有两处**（2026-10-15 现读：
-        /// `Battle/SettingsPanel.cs:392` 的音量滑条标签 · `Battle/BattleDriver.cs:7958` 的 `HandLabel`
+        /// `Battle/SettingsPanel` 的音量滑条标签 · `Battle/BattleDriver` 里那颗 `HandLabel`
         /// —— 都是 `(0,0)` = 「文字块**左下角**落在节点上」）**不在这个前提里**；它们照样吃 `Middle` 的
         /// 全局校正（本阶段口径 = 全工程统一），但「框心」对它们**没有定义** ⇒ 要按档精确摆得先给定框心，
         /// **如实登记、没猜**（见报告 §5）。</para>

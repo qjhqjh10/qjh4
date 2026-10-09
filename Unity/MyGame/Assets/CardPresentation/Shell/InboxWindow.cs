@@ -331,14 +331,62 @@ namespace CardPresentation
             ApplyEmptyState();        // 🆕 A182：这条分支原来写在 `Build()` 里，现在收成一份（`Initialize` 也要用）
 
             // 关闭钮
-            var close = MenuDraw.Node(c, "Generic Close Button Orange", CloseBtn);
-            // 🔴 **换图落在「按钮脸」那一层，⛔ 不是圆底盘**；⚠️ **本窗的节点名是错位的**
-            //   —— 叫 `Background` 的那颗画的是**圆底盘**、叫 `Icon` 的那颗才画**黄面**
-            //   （三个常量 `ArtCloseBg`/`ArtCloseIcon`/`ArtCloseX` 与节点名 `Background`/`Icon`/`Icon (X)` 交叉）
-            //   ⇒ **按贴图认层**（判据见下面 `Bind` 那一句）。
-            var closeBaseQ = MenuDraw.Rect(close, Art(ArtCloseBg), CloseBg, "Background", QContent);
-            var closeFaceQ = MenuDraw.Rect(close, Art(ArtCloseIcon), CloseBg, "Icon", QOverlay);
-            MenuDraw.Rect(close, Art(ArtCloseX), CloseBg, "Icon (X)", QOverlay);
+            // 🔴🔴 **2026-10-18（B3）节点名与内容【归位】—— 改前三个名字整体错开一格、是一处真偏离。**
+            //   **改前**：叫 `Background` 的那颗画**圆底盘**、叫 `Icon` 的才画**黄面**、叫 `Icon (X)` 的才画叉。
+            //   **原版实读**（读数逐字抄自 `rcunion` 输出 ——
+            //     `python -I d:/tmp/wf_hit/rcunion.py bundle_menus_assets_all "Inbox Menu" --depth 8`）：
+            //     根 `Generic Close Button Orange` 那颗 `Image` = `UI_Button_Round_background`
+            //       （**圆底盘 · `RT=0` ⇒ 不吃射线**）；
+            //     子件 **`Background` = `40k_general_bt_yellow`**（黄面 · `RT=1` pad `(-20)⁴`）；
+            //     子件 **`Icon` = `40k_general_bt_yellow_close`**（叉 · `RT=1` pad `(-20)⁴`）。
+            //   ⇒ **按原版的名字给**：`Background` 画黄面 · `Icon` 画叉。
+            //   ⛔ **别把圆底盘那颗也叫 `Background`**：那会和黄面那颗**同名兄弟**（`MenuCheck.FindChild`
+            //     不认识路径、按名字取 ⇒ **静默取错一颗**）。本件把它画到根节点上，这一条自然消掉了。
+            //   · ⚠️ 本窗**没有** `Icon (X)` 这个节点名 —— 那是改前的**自造名**，全仓只此一处
+            //     （`grep '"Icon (X)"'` = 0 命中，`Editor/` 里也没有任何断言碰过它）⇒ 改名不红任何既有件。
+            //   🔴 **换图那一层 = 画黄面的那颗**（下面 `Bind` 的 `target` 实参）—— 它的名字现在**正好就是**
+            //   原版的 `Background`，与 `m_TargetGraphic` 逐字一致（判据 → 下面 A1058 那一段）。
+            // ═══════════════════════════════════════════════════════════════════════════════════════
+            // 🔴🔴 **2026-10-18（B4）圆底盘【归真】：矩形 + 缩放 + 挂点三样一起改。**
+            //   **改前**：圆底盘拿**子件矩形 `CloseBg`（56.86×58.13）**、**没传 `keepAspect`**，
+            //     画在一颗**自造子件** `Base` 上 ⇒ 拉成 56.86×58.13（比原版**小约 24%**）。
+            //   **原版实读**（B4 亲跑 **逐字段**，⛔ 不是推的 ——
+            //     `python -I d:/tmp/wf_b4probe/pa.py bundle_menus_assets_all "Inbox Menu" 6`）：
+            //     · 根 `MonoBehaviour_3213954248950252338.json`：
+            //       `m_Sprite=2381704724431365035`(`UI_Button_Round_background`) · `m_Type=0`(Simple) ·
+            //       **`m_PreserveAspect=1`** · `m_PixelsPerUnitMultiplier=1.0` · `m_RaycastTarget=0`
+            //       · 矩形 = **74.39×75.60**（= 本窗 `CloseBtn`）；
+            //     · 子件 `Background`(`MonoBehaviour_5609434692533257010.json`) 与
+            //       子件 `Icon`(`MonoBehaviour_-3135620231419100366.json`)：**同样 `m_PreserveAspect=1`** ·
+            //       `m_Type=0` · `m_PixelsPerUnitMultiplier=1.0` · 矩形 56.86×58.13（= 本窗 `CloseBg`）。
+            //     ⚠️ `m_PixelsPerUnitMultiplier` 只对 `Sliced`/`Tiled` 有意义（本仓口径：角块 = `m_Border ÷ ppuMul`）
+            //       —— 这三颗都是 **`m_Type=0` Simple**、且 sprite 的 `m_Border=(0,0,0,0)` ⇒ **在这三颗上是死值**。
+            //     ⚠️ 原版这三张 sprite 的 `m_Rect`（`d:/2/新解包资源/assets_full/*/Sprite/*.json`，两份拷贝同值）：
+            //       `UI_Button_Round_background` = **237×237** · `40k_general_bt_yellow` = **71×71** ·
+            //       `40k_general_bt_yellow_close` = **71×71**，三者 `m_Border` 与 `m_Offset` **全 0**
+            //       ⇒ `PA=1` 实绘 = **正方形内接**：圆底盘 **74.39×74.39**、黄面/叉 **56.86×56.86**
+            //       （改前我们画 56.86×58.13 ⇒ 高多 ≈2.2%）。
+            //   · **挂点归真**：原版这颗圆底盘长在**根节点 `Generic Close Button Orange` 自己**身上（**无独立子件名**）
+            //     ⇒ 照**兄弟窗先例** `Shell/BaseOfferPopup.cs:742-743` 与 `Shell/ReferralPopupWindow.cs:386-387`
+            //     **抄形状**：`Rect(parent, …)` **直接画在根节点上**、图取不到时才退回 `MenuDraw.Node`
+            //     （两处**都是** `Rect` 在前、`Node` 作兜底）。⇒ 自造名 `Base` **随之取消**。
+            //     ⛔ **别照 `Shell/BoosterInfoPopup.cs:342` 那颗子件 `Base`** —— B4 现读：`Booster Info Popup`
+            //     与 `Base Offer Popup` 的**原版结构逐字相同**（圆底盘都在根节点上）⇒ 那颗 `Base` 是**它自己**
+            //     偏离原版，不是可抄的先例（它不在本件白名单内、本件没动它）。
+            //   🔴 三颗**都传 `keepAspect: true`**（= 原版三颗一致的 `m_PreserveAspect=1`）。
+            //     算式只有一份 → `MenuDraw.Rect` → `Core/CardbackFace.Fit`（「按 sprite 的 `m_Rect` 定框」+
+            //     「按 `padding` 内缩」两段）。这三张贴图**没登记**在 `Resources/Cardbacks.json`（233 条，无命中）
+            //     ⇒ 兜底 = 拿**贴图自己的宽高**当 `m_Rect`、`padding=0`；而本工程导入的贴图尺寸
+            //     （`CardArt.MenuUi` → `Resources/Art/{ui_menu,ui_deck,ui}`，实读）**恰好等于**原版 `m_Rect`
+            //     （237×237 / 71×71 / 71×71）⇒ **实绘与原版逐像素同值**（圆底盘 74.39×74.39、黄面/叉 56.86×56.86）。
+            //   ⚠️ 队列**不变**：圆底盘仍 `QContent`(3010)、黄面/叉仍 `QOverlay`(3014)
+            //     ⇒ 压暗层那条「`QShade`(3002) 严格低于内容命中区档 `QOverlay`」的不变量不受影响。
+            //   ⚠️ 命中区**不受本改动影响**：它由 `MenuDraw.Hit` 按 `PaddedRect(CloseBg, ClosePad)` 独立建
+            //     （96.86×98.13），与这三颗的矩形成像无关（中心也没动 ⇒ 中心那条断言同样不受影响）。
+            var closeQ = MenuDraw.Rect(c, Art(ArtCloseBg), CloseBtn, "Generic Close Button Orange", QContent, null, true);
+            var close = closeQ != null ? closeQ.transform : MenuDraw.Node(c, "Generic Close Button Orange", CloseBtn);
+            var closeFaceQ = MenuDraw.Rect(close, Art(ArtCloseIcon), CloseBg, "Background", QOverlay, null, true);
+            MenuDraw.Rect(close, Art(ArtCloseX), CloseBg, "Icon", QOverlay, null, true);
             {
                 // 🆕 A17：原版 `Content>Generic Close Button Orange` 是 SpriteSwap，HL = `40k_general_bt_yellow_hover`
                 // 🔴 **2026-10-14（A810③）：第一格原来传的是 `null`** —— `PromptPopup.Bind` 里
@@ -363,7 +411,8 @@ namespace CardPresentation
                 //   旁证：`rcunion.py bundle_menus_assets_all "Inbox Menu" --depth 8` 那三行 ——
                 //   根 `Image[UI_Button_Round_background RT=0]`（圆底盘**不吃射线**）、
                 //   子件 `Background[40k_general_bt_yellow RT=1 pad(-20)⁴]`、子件 `Icon[40k_general_bt_yellow_close RT=1 pad(-20)⁴]`。
-                //   ⇒ 换图目标改成**画着 `40k_general_bt_yellow` 的那颗 quad**（本窗里它的节点名叫 `Icon`），
+                //   ⇒ 换图目标改成**画着 `40k_general_bt_yellow` 的那颗 quad**（🔴 **2026-10-18（B3）起它的
+                //   节点名就是原版的 `Background`** —— 改前那个错位的名字是 `Icon`，见上面 `Build()` 里那段），
                 //   `art` = 它的**常态图名** `ArtCloseIcon` ⇒ 按下图也顺带推出来了
                 //   （`PressedNames`: `40k_general_bt_yellow → 40k_general_bt_yellow_pressed`，与 `P` 那一格逐字相同）
                 //   ⇒ `MissingPressedArt` 里那条 `UI_Button_Round_background → …_pressed` **不再产生**。

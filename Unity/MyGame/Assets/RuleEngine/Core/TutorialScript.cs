@@ -548,8 +548,8 @@ namespace RuleEngine
         // ------------------------------------------------------------------
 
         /// <summary>
-        /// **脚本执行器在引擎边界上发的那一条事件**（形状照 `SimpleAI.Executed`，见
-        /// `RuleData/SimpleAI.cs:1152`）。**每执行完一条脚本动作**发一次，带上
+        /// **脚本执行器在引擎边界上发的那一条事件**（形状照 `SimpleAI.Executed` —— 就是 `RuleEngine/Data/SimpleAI.cs` 里那条
+        /// `public static System.Action<BattleContext, AiAction, bool> Executed` 字段）。**每执行完一条脚本动作**发一次，带上
         /// <see cref="ScriptedActionDone"/>（引擎上真的做了什么）+ `ok`（有没有改动局面）。
         ///
         /// 🔴 **为什么要有它（工程红线）**：本地录像录的是「**起始条件 + 动作流**」
@@ -1304,7 +1304,13 @@ namespace RuleEngine
         ///   ② 再**抽 N 张**（N = 那一批的张数，`AddDrawCard` 逐次）⇒ 它们进手牌。
         ///
         /// 🔴 **次序换算**：原版「牌库顶 = 下标 0」（它还拿 `get_Item(deck, 0)` 去关掉牌堆顶那张的显示），
-        ///    而我们的 `RuleCore.Draw` 是**从末尾抽**（`rule_core.pop_back` 的口径，见那只函数）。
+        ///    而我们的 `RuleCore.Draw` 是**从末尾抽** —— 🔴 **判据 = 原版反编译**（`D26`/`D29①`，
+        ///    2026-10-19 改指）：`decomp_full/BattleManager__DrawCardFromDeck.c` 取的是 `List[0]`、
+        ///    `decomp_full/BattleManager__AddInitialCardToDeck.c` 是 `List.Insert(deck, 0, card)`、
+        ///    `decomp_full/BattleManager__AddCardToDeck.c` 用 `SetActive(go, index == 0)` 定「牌堆顶那张」
+        ///    ⇒ **原版下标 0 = 牌库顶**；我们把列表**末尾**当顶（镜像约定）。
+        ///    （⚠️ `rule_core.gd` 的 `pop_back` 只是**我们上一版复刻**的旁证，⛔ 不是判据 ——
+        ///     原来这一行引的就是它，见 `CLAUDE.md` 铁律 2 的 2026-09-18 更正。）
     ///    ⇒ 要得到**同样的抽牌顺序**，我们把这几张**按原序追加到末尾**：末尾 = 我们的牌库顶。
         ///    验算（列表 [a,b,c]）：原版插完 = [c,b,a,…] ⇒ 抽出来是 c,b,a；我们追加完 = […,a,b,c] ⇒
         ///    也是 c,b,a ✓。
@@ -1417,7 +1423,7 @@ namespace RuleEngine
         ///
         /// 🔴 **「玩家侧 = 座位 0」**：原版那条链上 `playerManager` 是 `BattleManager +0xC0`
         /// （我们 `ctx.Players[0]`），而教程局**必定**是玩家持 0 号位 ——
-        /// `BattleDriver.BeginTutorial` 第一句就是 `SetMySeat(0)`（`BattleDriver.cs:2172`）。
+        /// `BattleDriver.BeginTutorial` 第一句就是 `SetMySeat(0)`（`BattleDriver.BeginTutorial` 里那句 `SetMySeat(0)`）。
         /// 返回 **-1 = 这一档认不出**（原版在这里 `CustomDebug.LogWarning` 之后给 null）。</summary>
         public static int SideOfUnitType(int unitType)
         {

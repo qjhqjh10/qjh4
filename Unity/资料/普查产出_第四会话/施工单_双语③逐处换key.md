@@ -88,7 +88,13 @@
 **扫描口径**：`Assets/`（跳 `Plugins`/`TextMesh Pro`/`Settings`/`Scenes`/`Resources`/`Warcraft*` 等第三方与美术目录）全部 `.cs`，
 收 `Loc.T(`/`Loc.HasEntry(`/`Loc.EnOf(`/`CardText.Term(`/`TermKey(`/`const string *Term*/*Key* = "…"`/字典字面量里的 term 形状串，再与 `Loc.Table` 求差。
 
-**真缺口 = 11 条**（另有 3 条是自检故意造的假键 `No/Such/Key/*`、2 条是前缀 `Card_Race/`·`MenuDeck/Error/`，**不算缺**）：
+**真缺口 = 16 条**（另有 3 条是自检故意造的假键 `No/Such/Key/*`、2 条是前缀 `Card_Race/`·`MenuDeck/Error/`，**不算缺**）：
+> 🔴 **2026-10-09 现核订正（铁律 5）**：原来写 **11 条** ⇒ **16 条**（`A1017` ③）。
+> **错因** = 正文这个数没跟着**下面那张表**走：表里**逐键数**就是 16 ——
+> `Battle/Tips/*` **4** · `Settings/Graphics/AutoZoom` **1** · 丢改动那扇 **3**（`MenuDeck/HUD/DiscardChanges` + `MainMenu/General/{Cancel,Discard}`）·
+> `Missions/Completed` **1** · `MainMenu/PurchasePremium/Description` **1** · `SocialMenu/Alliances/TransferLeadership` **1** ·
+> `Battle/AlliancePanel/*` **4** · `MenuDeck/Error/InvalidDeck` **1**。⇒ 波 0 按**表**补齐，⛔ 别按正文那个数。
+> ⚠️ 同族两处「11」也一并改掉（本文件 ⑥ 与 波 0 那两行）—— 两份数字打架比没有更糟（铁律 6）。
 
 | 键 | 引用点 | **今天走什么兜底** |
 |---|---|---|
@@ -108,20 +114,34 @@
 **A. 表里有键、显示点却没走它（零成本，直接换）**
 - `Battle/TutorialOverlay.cs:417` `"Continue"` → **`Battle/Tips/Continue`**（表里有）。
 - `Battle/SettingsPanel.cs:612` `AutoZoomLabelEn("Auto zoom")` → **`Settings/Graphics/AutoZoom`**（键在本文件 `:254` 记着，**只差把它加进表**）。
-- `Battle/CardView.cs` 的 `CreatedByLine`（**`:1798` 注释自己写着「等 `Loc.cs` 收了这条键就改走 `Loc.T`」**）—— 键 `Battle/HUD/CreatedBy` **2026-10-18 已经收进表了**（`Loc.cs:790`），**但那一行还是惰性的**（它仍自己按 `Loc.Current` 二选一拼串）。📌 改成 `Loc.T("Battle/HUD/CreatedBy").Replace("{0}", 名字)` —— **两列取值逐字相同 ⇒ 不会改变界面**。⚠️ `Core/CardView.cs` 在**另一批**的白名单里，见 ⑦。
+- ✅ **已接线（`A1029` ② · 2026-10-09 现核）**：`Core/CardView.cs` 的 `CreatedByLine` 已走词条 —— 现在是
+  **`Loc.HasEntry(CreatedByTerm) ? Loc.T(CreatedByTerm).Replace("{0}", 创建者) : 旧的硬拼 + 出声`**
+  （键 `Battle/HUD/CreatedBy` 的**现行**条目在 `Core/Loc.cs` 的 `Battle/HUD/CreatedBy` 那一行，⛔ 别按行号找）。
+  - ⚠️ **原记录两处要订正**：① 路径原来写 `Battle/CardView.cs`，**实际在 `Core/CardView.cs`**；
+    ② 原写「**那一行还是惰性的**」**已过期** —— 惰性那半是**旧的**，今天已兑现（`A985④`）。
+  - ⚠️ **接线的形状不是裸 `Loc.T`**：它**先判 `Loc.HasEntry`**（`A985④` 点名要的那一跳）——
+    少了它，键一旦被删/改名，`Loc.T` 会把**键名本身**印到卡面上（`Loc.T` 缺键返回键名、从不返回 null）。
 - `Battle/ChatPopupPanel.cs:76` 那 6 颗钮（`Greet`/`Threat`/`Well Played`/`Taunt`/`Sorry`/`Oops`）→ 原版标签来自远端 I18N，**本地没有** ⇒ 建 6 条自拟键。
 - `Shell/` 里 `未选战将` 4 处 → 直接复用**已在表**的 `MenuDeck/Error/NoWarlord`；`没有可选的卡组` → 复用 `MenuCollection/NoDecksFound`。
 - `Shell/ShopData.cs:297` 的键名 **有出处**（`ShopWindow.cs:785` 的注释自己写着 `MenuShop/ExtraLegendaryWarning`）⇒ 键名可照抄、只差收进表 + 值。
 
 **B. 「底座键」建议先补（跨窗复用，补完才能批量替换）**
-`MainMenu/General/Ok`（`知道了`，散在 9 文件 11 处）· `MainMenu/General/Cancel`（`取消`）· `MainMenu/Settings/ExitGame/{Confirm,Ok}`（退出确认那两句）。
+`MainMenu/General/OK`（**原版只有大写 `OK`**；中文列 = `确定`）· `MainMenu/General/Cancel`（`取消`）· `Demo/MainMenu/{ExitGame,ExitButton,CancelButton}`（退出确认那三句）。
+> 🔴 **2026-10-09 现核订正（铁律 5 · `A1017` ①）**：这一行原来写的两个键名**都已不成立** ——
+> ① 原来写 `MainMenu/General/Ok`（**小写 k**）⇒ **原版不存在这个拼法**，只有大写 **`MainMenu/General/OK`**（三条独立判据，见 `A1017` ①）；
+> ② 原来写 `MainMenu/Settings/ExitGame/{Confirm,Ok}` ⇒ 那是**波 1 当时的自拟键**，已被 `A1026` 裁定换成**原版真键**
+> `Demo/MainMenu/{ExitGame,ExitButton,CancelButton}`（`stringliteral.json` 各 1 条）。**两张表都搜过才叫查过**
+> （只搜 `assets_full` 会得出「原版没有」的假结论 —— 波 0 当年就是这么漏的）。
+> 出处 = `Core/Loc.cs` 里 `MainMenu/General/OK` 与 `Demo/MainMenu/*` 那两组条目（⛔ **按条目名找，别按行号**）。
 ⚠️ `确定` 要落 `MainMenu/General/Confirm`（表里中文列是「**确认**」）还是另立 —— **需裁决**。
+⚠️ 顺带记一条**已裁定的可见副作用**：`MainMenu/General/OK` 的 ZH 列取「确定」，而**改前那批站点写的是 `知道了`**
+⇒ 中文档会由「知道了」变成「确定」。**判据照原版键**（铁律 11），但**必须留痕**，别让它看起来像我们随手改的（详见 `A1019`）。
 ## ⑦ 批次切块（**文件所有权零交集** · 顺序照 §23：卡组编辑 → 主菜单/外壳 → 战斗 HUD → 各窗口）
 
 🔴 **三条硬约束**（否则撞车/白跑）：① **`Core/Loc.cs` 一个时刻只能一个写手** ② **`Editor/*` 自检宿主一个时刻只能一个写手**（`ShellScene`/`MainMenuScene`/`ShopScene`/`RewardsScene`/`BattleScene`/`CollectionScene`/`DeckScene` 被多批共用）③ **秒级类型检查**要么主对话统一跑，要么每代理一个独立 `TMPDIR`（`TMPDIR=/tmp/wf_a1 bash d:/4/Unity/工具/typecheck.sh`）—— ⚠️ 独立 `TMPDIR` **只解决输出覆盖，解决不了「看见别人写到一半的 `.cs`」**，报错全在**不是你负责的文件**上就无视、隔一会儿重跑。
 
-**波 0（串行，必须先做完）· 补 11 条缺键 —— 白名单 = `Core/Loc.cs`（1 个写手）**
-产出：⑤ 那张表 11 条 + ⑥·B 的 3 条底座键 + `MenuShop/ExtraLegendaryWarning`。**每条都要带出处注释**（原版键 or 明写自拟）。
+**波 0（串行，必须先做完）· 补 16 条缺键 —— 白名单 = `Core/Loc.cs`（1 个写手）**
+产出：⑤ 那张表 **16** 条（⚠️ **2026-10-09 现核：原写「11」是错的**，见 ⑤ 顶部那条订正）+ ⑥·B 的 3 条底座键 + `MenuShop/ExtraLegendaryWarning`。**每条都要带出处注释**（原版键 or 明写自拟）。
 断言宿主：**本波不改**（改表不算改宿主），由波 2 统一加。
 > ⚠️ **本波做完才能开波 1** —— 波 1–4 全都要引用这些键。
 
@@ -132,7 +152,15 @@
 | **P1 卡组编辑** | `Deck/DeckRuntime.cs` · `Deck/DeckEditorState.cs` · `Core/FilterPanelModel.cs` | 10 + **F1 未扫** | `"返回"` `"把卡拖到这里"` `"默认卡背"` 导入错误那 3 条 · 默认卡组名 4 处（⚠️ 是**写进存档的数据**：口径存疑 —— 「会显示 ⇒ ①」还是「数据不翻、显示时再翻」**需裁决**，见附件 B §五） |
 | **P2 主菜单/外壳 A（设置 + 联机）** | `Shell/SettingsWindow.cs` · `Shell/MainMenuRuntime.cs` · `Shell/ProfileData.cs` · `Shell/LeaderboardWindow.cs` · `Shell/RankedEventWindow.cs` · `Shell/PlayerProfileWindow.cs` | **22** | **最重的一块**：`SettingsWindow.cs:2369-2377`（8 条）与 `:2533-2555`（**23 条**）整段弹窗文案 |
 | **P3 主菜单/外壳 B（社交 + 弹窗 + 战术页）** | `Shell/LiveOpsEventWindow.cs` · `PracticeModePopup.cs` · `DeckInfoPopup.cs` · `DeckSelectionPopup.cs` · `ShopWindow.cs` · `ShopData.cs` · `CollectionData.cs` | **28** | 联机匹配取消那一族（4 条）· 模式名 2 条（`遭遇战/经典`）· 卡组串校验整句 |
-| **P4 战斗 HUD / 各窗口** | `Battle/BattleDriver.cs` · `Battle/EndPanel.cs` · `Battle/ChatPopupPanel.cs` · `Battle/SettingsPanel.cs` · `Battle/CardDisplayWindow.cs` · `Battle/MultiCardDisplay.cs` · `Battle/TutorialOverlay.cs` · `Shell/CampaignTab.cs` · `Shell/ReferralPopupWindow.cs` · `Shell/RankedRewardEventWindow.cs` | **38** | **战斗日志 11 句整簇**（`BattleDriver.cs:5646-5678`）· 结算副标题 5 条 · 6 颗聊天钮 · `TutorialOverlay:417`（零成本） |
+| **P4 战斗 HUD / 各窗口** | `Battle/BattleDriver.cs` · `Battle/EndPanel.cs` · `Battle/ChatPopupPanel.cs` · `Battle/SettingsPanel.cs` · `Battle/CardDisplayWindow.cs` · `Battle/MultiCardDisplay.cs` · `Battle/TutorialOverlay.cs` · `Shell/CampaignTab.cs` · `Shell/ReferralPopupWindow.cs` · `Shell/RankedRewardEventWindow.cs` | **45** | **战斗日志 11 句整簇**（`BattleDriver.cs:5646-5678`）· 结算副标题 5 条 · 6 颗聊天钮 · `TutorialOverlay:417`（零成本） |
+
+> 🔴 **2026-10-09 现核订正（铁律 5 · `A1029` ①）**：**P4 那一行原来写「预计 ① 处数 = 38」⇒ 真值 45**
+> （按该批白名单**逐站点现读**数的结果）。⚠️ **错因没查清** —— 只记两个读数，⛔ 别拿一个猜测的成因填空。
+> ⚠️ **同表两处已过期，写手别再照抄**：
+> ① **P1 那一行**的「默认卡组名 4 处…… **需裁决**」⇒ **已裁**（`A1037`／`A1047`，口径 = **翻**：
+> 「**创建那一刻按当前语档生成、当场物化进存档**」，⛔ 不是「显示时才翻」）；
+> ② 表里 `SettingsWindow.cs:2369-2377` / `:2533-2555` 一类**行号是 2026-10-18 的读数**，而 `P2b` 已落地
+> ⇒ **一律按符号名 / 条目名现读**（⛔ 别把漂掉的行号再抄一遍、也别制造新的死行号）。
 
 **波 2（2–3 条并行）· 断言宿主（一个宿主一个写手）**
 `Editor/{DeckScene, CollectionScene}`（P1）· `Editor/{SettingsScene, MainMenuScene}`（P2）· `Editor/{ShellScene, RewardsScene, ShopScene}`（P3）· `Editor/BattleScene`（P4）。

@@ -841,7 +841,7 @@ namespace CardPresentation
             //   `Selectable.OnPointerClick` 头一句直接返回）；我们这套的最小等价物 = `WindowButton.Interactable`
             //   （`Shell/PromptPopup.cs` 的 `WindowButton.Interactable`：setter 走 `RefreshGray()`、`Click()` 头一句
             //   `if (!_interactable) { 出声; return; }`）。⇒ 「该灰的时候不灰」那条症状（A 表原话）修在这一句上。
-            //   ⛔ **必须排在 `Bind` 【之后】**：`GrayTargets()` = `target` + 子树（`Shell/PromptPopup.cs:968`），
+            //   ⛔ **必须排在 `Bind` 【之后】**：`GrayTargets()` = `target` + 子树（`Shell/PromptPopup.GrayTargets()`），
             //     而 `target` 是 `Bind` 才设成那颗**可见的**底图 `bgQ` 的 —— 排在 `Bind` 之前的话，头一次
             //     `RefreshGray()` 只灰到那颗**透明的** `HitBox`，而 `GrayedForTest` 随即为真 ⇒ 后面再设也只会早退
             //     ⇒ **画面上一像素都不变**（`RefreshGray` 自己的注释就把「先灰过、`Bind` 之后又灰」列为踩过的坑）。

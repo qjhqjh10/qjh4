@@ -330,6 +330,53 @@ public static class ShellScene
         return null;
     }
 
+    /// <summary>🆕 **2026-10-09（`A1125`）**：一颗**关窗钮**的「命中区 + 换图层」四连断。
+    /// <para>四个闸落在**四个不同对象**上（前提 / 命中区尺寸 / 命中区位置 / 换图层绑定）⇒ 改坏任一处只红其中一条：
+    /// ① 按钮 / 命中 / 可见面三件都取得到（取不到就不许往下断 = 不静默变绿）；
+    /// ② 命中区**尺寸** = 原版可射线件**并集**（⛔ 不是根矩形）；③ 命中区**中心** == 可见面渲染中心
+    /// （可见面矩形与命中区**不同源** ⇒ 位置那一半的独立锚）；④ 换图层 = 原版 `m_TargetGraphic`
+    /// 指到的那一颗（节点名 + 贴图名**两个条件**；`targetNodeName == null` ⇒ 只断**贴图名**）。</para>
+    /// <para>`btnName == null` ⇒ 直接在**窗根**下找 `hitName` / `faceName`。用 `FindChildIn`（**含 inactive** ——
+    /// `ProfileTab` 那颗在出厂 `SetActive(false)` 的 `ChooseNameWindow` 里）。
+    /// ⛔ 期望值全是**原版 prefab 的读数**，不从被测实现里读。判据 → 同族五份 `A1125Close`。</para></summary>
+    static void A1125Close(string win, Transform winRoot, string btnName, string hitName,
+                           string faceName, string faceTex, string targetNodeName, float wPx, float hPx)
+    {
+        var btn = winRoot == null ? null : (btnName == null ? winRoot : FindChildIn(winRoot, btnName));
+        CheckTrue(btn != null, $"（前提·不静默）A1125 {win}：关窗钮节点 `{btnName ?? "<窗根>"}` 拿得到"
+                             + " —— ⛔ 取不到就不往下断（不静默变绿）");
+        var hitG = btn != null ? FindChildIn(btn, hitName) : null;
+        CheckTrue(hitG != null, $"（前提·不静默）A1125 {win}：命中节点 `{hitName}` 拿得到");
+        var faceG = btn != null ? FindChildIn(btn, faceName) : null;
+        CheckTrue(faceG != null, $"（前提·不静默）A1125 {win}：可见面子件 `{faceName}` 拿得到");
+        var hq = hitG != null ? hitG.GetComponentInChildren<ImageQuad>(true) : null;
+        float hx1 = 0f, hy1 = 0f, hx2 = 0f, hy2 = 0f;      // ⛔ 先归零：`&&` 短路时编译器要求 out 已赋值
+        bool okH = hq != null && MenuDraw.QuadRectPx(hq, out hx1, out hy1, out hx2, out hy2);
+        CheckTrue(okH && Mathf.Abs((hx2 - hx1) - wPx) <= 0.5f && Mathf.Abs((hy2 - hy1) - hPx) <= 0.5f,
+                  $"★★ A1125 {win}：关窗钮**命中区** = 原版可射线件并集 **{wPx}×{hPx}**（设计 px）"
+                + (okH ? $"（现读 {hx2 - hx1:F2}×{hy2 - hy1:F2}）" : "（命中 quad 取不到）")
+                + "｜🧨 ① 改回根矩形 ⇒ 每边小 ~11（绿族 ~10.7/9.8）⇒ 红；② 改回子件裸矩形 ⇒ 每边小 20 ⇒ 红");
+        var fq = faceG != null ? faceG.GetComponentInChildren<ImageQuad>(true) : null;
+        float fx1 = 0f, fy1 = 0f, fx2 = 0f, fy2 = 0f;
+        bool okF = fq != null && MenuDraw.QuadRectPx(fq, out fx1, out fy1, out fx2, out fy2);
+        CheckTrue(okH && okF
+                  && Mathf.Abs((hx1 + hx2) * 0.5f - (fx1 + fx2) * 0.5f) <= 0.6f
+                  && Mathf.Abs((hy1 + hy2) * 0.5f - (fy1 + fy2) * 0.5f) <= 0.6f,
+                  $"★★ A1125 {win}：命中区**中心** == 可见面 `{faceName}` 的渲染中心（独立锚）"
+                + (okH && okF ? $"（{((hx1 + hx2) * 0.5f):F2},{((hy1 + hy2) * 0.5f):F2} vs "
+                                + $"{((fx1 + fx2) * 0.5f):F2},{((fy1 + fy2) * 0.5f):F2}）" : "（取不到）")
+                + "｜🧨 把命中节点整体搬走（`localPosition += (20,0,0)`）⇒ 只错位置不错尺寸 ⇒ 只这条红（与 ② 不同源）");
+        var wb = hitG != null ? hitG.GetComponent<WindowButton>() : null;
+        string got = wb == null || wb.target == null || wb.target.Texture == null
+                   ? "<没绑>" : wb.target.gameObject.name + " / " + wb.target.Texture.name;
+        CheckTrue(wb != null && wb.target != null && wb.target.Texture != null
+                  && wb.target.Texture.name == faceTex
+                  && (targetNodeName == null || wb.target.gameObject.name == targetNodeName),
+                  $"★★ A1125 {win}：**换图层** = 子件 `{targetNodeName ?? faceName}`（图 `{faceTex}`；"
+                + "= 原版 `m_TargetGraphic` 指到的那一颗）—— 现读「" + got + "」"
+                + "｜🧨 把它传成根圆底盘（`UI_Button_Round_background`）⇒ 红（错因 = 只读 `m_Transition`、没读 `m_TargetGraphic`）");
+    }
+
     /// <summary>🆕 2026-10-07（A77⑮/⑧a）：一颗命中区节点的**渲染队列档**（`ImageQuad.RenderQueue`）。
     /// 自检拿它核「哪一层压哪一层」——分层用的是**渲染队列、不是 z**（`CLAUDE.md` §三）。
     /// 取不到 ⇒ 返回 `int.MinValue`（那样任何「＞某档」的断言都会红，⛔ 不会静默当成通过）。</summary>
@@ -3451,6 +3498,14 @@ public static class ShellScene
                           "★ 对照的另一半：面板**里**那颗钮(9) 仍然压得住压暗层(8) ⇒ **改名点得动**"
                           + "（这正是「不许收口」的实质：收口之后压暗层掉到 7 以下，面板里那些钮还在 9，"
                           + "看着没坏；坏的是上面那条）");
+                // 🆕 2026-10-09（`A1125`）：**改名窗那颗关窗钮**的「命中区 + 换图层」四连断 ——
+                //   🔴 关窗钮在 `ChooseNameWindow`（**本页的直接子节点**、出厂 `SetActive(false)`）里
+                //   ⇒ 这一刻刚 `OpenNameWindow()` 过（上面那条前提），量完由下面那句 `plL.ClickAt` 关回去。
+                //   判据（原版亲读）= `ChooseNameWindow > Generic Close Button Green` 那颗 `EverguildButton`
+                //   的 `m_TargetGraphic` ⇒ GO = `Icon`、贴图 = `40k_bt_close`；吃射线的只有 `Icon`（56.37×54.50）
+                //   按 `(-20)⁴` 外扩 ⇒ **96.37 × 94.50**。
+                A1125Close("ProfileTab/ChooseNameWindow", ptab.transform, "Generic Close Button Green", "Hit",
+                           "Icon", "40k_bt_close", "Icon", 96.37f, 94.50f);
                 plL.ClickAt(pPage.x, pPage.y);
                 CheckTrue(!ptab.NameWindowOpen, "…（顺带：点压暗层真的把改名窗关上了 = `CancelNameWindow` 接在它身上）");
             }
@@ -6150,7 +6205,155 @@ public static class ShellScene
             if (covered.Count == 0) Debug.LogWarning(P + "   A964：**一个窗类都没覆盖到** ⇒ 上面的「0 条」没有意义（看 `failed` 那两行）。");
         }
 
+        // ============================================================ 🆕 2026-10-09（`A1139`）新 toast 通道的**外壳档**（0 覆盖）
+        // 判据 = `Shell/MessageToast.cs` 的**代码链**（⛔ 不是「哪扇窗在旁边」）：
+        //   `Ensure()` 的父节点优先级 = ① 传进来的 `parent` → ② `ShellRuntime.Instance.transform`（只在 `Awake` 里赋、
+        //   **批处理下恒 null**）→ ③ `WindowsManager.Instance.transform.parent`（= **壳根**，
+        //   `ShellRuntime.Build → WindowsManager.EnsureHost(root)` 里 `SetParent(root, false)`）；
+        //   定下 `host` 之后 **`host.Find("Safe area Only Horizontal")`**（`Transform.Find`：**只找直接子件**），
+        //   而 `ShellRuntime` 把 `safeH` 挂成**壳根的直接子件** ⇒ 这一支**只有 `ShellScene` 这个宿主**落得到。
+        //   🔴 **反例**：`Editor/MainMenuScene.cs` 的 `EnsureHost(menu.transform)` 根 = **菜单根**（它下面**没有**那个节点）
+        //   ⇒ 会退回把横幅挂在**菜单根**上 —— ① 那条断言就是为这个反例准备的。
+        // 🔴 期望值 = 原版主菜单那一颗的**档**（`ErrorMessageBanner.MenuPreset`；四个数的出处 → `Shell/MessageToast.cs` 文件头 ④）。
+        // ⚠️ 落点在 `Run()` 的**最后一段**是有意的：本节新加一颗 GO + 若干 `ImageQuad`，
+        //   而上面那些**全场景现扫**（`:…FindObjectsByType` / `PointerLayer.AllButtonsForTest()` / A1001 拆窗表 / 夹具拆）
+        //   **全部在本节之前** ⇒ 零影响。
+        Section("🆕 A1139：toast（`MessageToast`）—— 挂点 / 菜单档 / 弹一条 / 战斗档逐位不变");
+        {
+            // P1 干净起点（`Instance` 是**静态**的、跨节存活 ⇒ 不干净就会量到上一节留的那颗）
+            if (MessageToast.Instance != null) MessageToast.DisposeForTest();
+            CheckTrue(MessageToast.Instance == null, "（前提）A1139：起点干净（`MessageToast.Instance == null`）");
+            // P3 前提·有壳（= 上面那条父节点链的**唯一**活支）
+            CheckTrue(WindowsManager.Instance != null,
+                      "（前提·不静默）A1139：`WindowsManager.Instance` 在（`Ensure()` 父节点链的唯一活支；不在 ⇒ 本节等于没验）");
+            var a1139 = MessageToast.Ensure();
+            // P2 建得出来
+            CheckTrue(a1139 != null && a1139.Built,
+                      "（前提）A1139：`Ensure()` 建出来了（`Built` = `Banner != null && ItemCount > 0`）");
+            if (a1139 != null)
+            {
+                // ① 挂在哪（原版那条判据：父节点名 + 节点名）
+                CheckTrue(a1139.transform.parent != null
+                          && a1139.transform.parent.name == MessageToast.ParentNodeName
+                          && a1139.name == MessageToast.NodeName,
+                          "★★ A1139①：toast 挂在**原版那个父节点** `" + MessageToast.ParentNodeName + "` 下、节点名 = `"
+                        + MessageToast.NodeName + "`（现读父 = `"
+                        + (a1139.transform.parent == null ? "<无父>" : a1139.transform.parent.name) + "`）"
+                        + "｜🧨 把 `Ensure()` 里 `host.Find(ParentNodeName)` 那段删掉（直接挂场景根）⇒ 红");
+                // ② 弹一条
+                bool a1139Ok2 = MessageToast.Show("w6.selftest", false, "x");
+                CheckTrue(a1139Ok2 && a1139.ShowCount == 1,
+                          "★ A1139②：`Show(..., localize:false)` 返 true 且 `ShowCount == 1`（现读 " + a1139.ShowCount + "）");
+                // ③ 条心 = 菜单档（⛔ 不把算式在断言里再抄一遍：一个是**布局产物**（世界坐标回读）、一个是**档常量的算式**，不同源）
+                float a1139Y = a1139.Banner != null ? a1139.Banner.ItemCenterPxOf(0).y : float.NaN;
+                CheckTrue(!float.IsNaN(a1139Y) && Mathf.Abs(a1139Y - a1139.SingleItemCenterYpx) < 0.25f,
+                          "★★ A1139③：单条**条心** == 档的算式（`RootTopPx + RootH − ItemHPx/2`）—— 现读 "
+                        + a1139Y.ToString("F4") + " vs " + a1139.SingleItemCenterYpx.ToString("F4")
+                        + "｜🧨 把 `ErrorMessageBanner.SingleItemCenterYpx` 的 `− ItemHPx/2` 丢掉（改成 `RootTopPx + RootH`）⇒ 红");
+                // ④ 灭自证（本条的牙）：只断 ③ 的话，把 `MenuPreset` **整个换成** `BattlePreset` ⇒ **两边一起变** ⇒ 照样绿
+                CheckTrue(Mathf.Abs(a1139.Preset.ItemHPx - 50f) < 1e-4f
+                          && Mathf.Abs(a1139.Preset.RootTopPx - 0f) < 1e-4f
+                          && Mathf.Abs(a1139.Preset.FontPx - 36f) < 1e-4f,
+                          "★★★ A1139④（灭自证）：壳里这颗取的是**菜单档**（`ItemHPx 50` / `RootTopPx 0` / `FontPx 36`）—— 现读 "
+                        + $"ItemHPx={a1139.Preset.ItemHPx:F4} RootTopPx={a1139.Preset.RootTopPx:F4} FontPx={a1139.Preset.FontPx:F4}"
+                        + "｜🧨 把 `Shell/MessageToast.cs` 里那个 `MenuPreset` 换回 `BattlePreset` ⇒ ④红（而 ③ 仍绿 —— 这正是 ④ 的牙）");
+                // ⑤ 两档不同档（把「菜单档」与「战斗档」钉成两个不同的值）
+                CheckTrue(a1139.Preset.ItemHPx != ErrorMessageBanner.BattlePreset.ItemHPx
+                          && Mathf.Abs(ErrorMessageBanner.BattlePreset.RootTopPx - 213.5997314453125f) < 1e-4f,
+                          "★★ A1139⑤：**菜单档 ≠ 战斗档**（项高 50 vs 80）且战斗档根上缘仍是 `213.5997314453125`"
+                        + "｜🧨 把 `BattlePreset.ItemHPx` 也改成 50 ⇒ ⑤红（+ ⑥红）");
+                // ⑥ 战斗档条心逐位不变（回归闸）—— 与 `Editor/BattleScene.cs` 那条既有断言**同一个数**
+                CheckTrue(Mathf.Abs(ErrorMessageBanner.BattlePreset.RootTopPx + 336.6400146484375f
+                                    - ErrorMessageBanner.BattlePreset.ItemHPx * 0.5f - 510.23974609375f) < 1e-4f,
+                          "★ A1139⑥（回归闸）：战斗档条心仍是 **510.23974609375**（`Editor/BattleScene.cs` 那条既有断言同一个数；"
+                        + "⛔ 别去改那一条，这里只做**异地互证**）");
+            }
+            // ⑦ 收尾（`Instance` 静态、跨节存活 —— 本节必须自己收）
+            MessageToast.DisposeForTest();
+            CheckTrue(MessageToast.Instance == null,
+                      "（收尾）A1139：`DisposeForTest()` 之后 `Instance` 归 null（下一节不会被这一颗污染）");
+        }
+
         Debug.Log(P + shell.Dump());
+        // ============================================================ 🆕 2026-10-09（`A1025`）本批键全 `Loc.HasEntry` + 两语档取真文案
+        // 判据（坑表 #18）：**「原版有词条」≠「我们表里有键」** —— 键不在 ⇒ `Loc.T` 返回**键名本身**、界面上就印键名。
+        // 🔴 **与 `A1057(f)`（`Editor/NetSelfTest.cs` 那张**表级**扫描）不是同一条、方向相反**：那条是 **表 → 表**
+        //   （表自身健康），本条是 **代码 → 表**（**本批代码引的键**有没有落进表）—— 表级扫描永远看不见后者。
+        // 🔴 **Net/ 那批已有等价物**（`Editor/NetSelfTest.cs` 的 `TestNetTermBilingual`）⇒ 本笔不重复覆盖它。
+        // 数组 = 本批生产文件里出现的**活键字面量** ∩ `Core/Loc.cs` 的表键（超集无害、且更严）。
+        // 本宿主覆盖的生产文件 = `Shell/{InboxWindow,DeckSelectionPopup,ImportDeckPopup,SettingsWindow,ProfileTab,LeaderboardWindow,BattleLogPopup,CampaignTab}.cs`。
+        // 🧨 改坏法：① `Loc.cs` 删掉本批任一条键 ⇒ ①红；② 某条**英文列**填中文/全角空格 ⇒ ③红；
+        //   ③ **中文列**清空 ⇒ ②红；④ 值改成键名本身 ⇒ ②红；⑤ 表删掉一半 ⇒ ④红（`EntryCount` 掉到基线之下）；
+        //   ⑥「把实现与期望一起改回写死中文 **并** 把表里那条删掉」⇒ ①红（数组里那条键仍在、`HasEntry` 假）—— 这正是本数组存在的唯一理由。
+        {
+            string[] a1025Keys =
+            {
+                "Demo/MainMenu/ExitButton", "Demo/MainMenu/ExitGame", "MainMenu/General/Confirm",
+                "MainMenu/General/OK", "MainMenu/General/Off", "MainMenu/General/On",
+                "MainMenu/RankedWindow/LeaderboardOfflineNote", "MainMenu/Settings/ButtonLabel/Exit_Game", "MainMenu/Settings/ButtonLabel/SelectLanguage",
+                "MainMenu/Settings/SettingLabel/Music", "MainMenu/Settings/SettingLabel/SoundFx", "MenuCollection/NoDecksFound",
+                "MenuDeck/Button/Random", "MenuDeck/Error/NoUsablePrebuilt", "MenuDeck/Error/PrebuiltMissing",
+                "MenuDeck/HUD/EnterText", "MenuDeck/Share/PasteDeck", "MenuDeck/Tip/SelectDeckAgainst",
+                "Settings/General/DisableBots", "Settings/General/DisableNotifications", "Settings/General/Flash/Language",
+                "Settings/General/LangHasNoTable", "Settings/General/RedeemCode", "Settings/General/RedeemCodeUnavailable",
+                "Settings/General/Title", "Settings/General/TouchInput", "Settings/Graphics/AutoZoom",
+                "Settings/Graphics/EnableSuperSampling", "Settings/Graphics/Flash/AutoZoom", "Settings/Graphics/Flash/Fps",
+                "Settings/Graphics/Flash/Quality", "Settings/Graphics/Flash/SmallScreenUI", "Settings/Graphics/Flash/SuperSampling",
+                "Settings/Graphics/Flash/Vsync", "Settings/Graphics/FpsText/Unlimited", "Settings/Graphics/FpsText/Value",
+                "Settings/Graphics/FrameLimit", "Settings/Graphics/IncreaseUISize", "Settings/Graphics/SelectQuality",
+                "Settings/Graphics/Title", "Settings/Graphics/UnlimitedFPS", "Settings/Graphics/Vsync",
+                "Settings/Media/AudioMixerNote", "Settings/Media/Title", "Settings/Media/VoiceOvers",
+                "Settings/Online/CheckConnection", "Settings/Online/ClickAgain", "Settings/Online/HostFailed",
+                "Settings/Online/HostReady", "Settings/Online/HostReadyNoPassword", "Settings/Online/HostReadyToFriend",
+                "Settings/Online/HowToConnect/DontUseTestSite", "Settings/Online/HowToConnect/Intro", "Settings/Online/HowToConnect/Lan",
+                "Settings/Online/HowToConnect/LocalCheckTitle", "Settings/Online/HowToConnect/NoHolePunching", "Settings/Online/HowToConnect/PublicDirect",
+                "Settings/Online/HowToConnect/PublicV6No", "Settings/Online/HowToConnect/PublicV6Yes", "Settings/Online/HowToConnect/UpnpNote",
+                "Settings/Online/HowToConnect/VirtualLan", "Settings/Online/HowToConnect/VirtualNicNo", "Settings/Online/HowToConnect/VirtualNicYes",
+                "Settings/Online/IpLabel", "Settings/Online/IpPlaceholder", "Settings/Online/IsV6",
+                "Settings/Online/LocalAddr", "Settings/Online/NetRuntimeMissing", "Settings/Online/NoNicFound",
+                "Settings/Online/PasswordLabel", "Settings/Online/PasswordPlaceholder", "Settings/Online/ProbingPublicAddress",
+                "Settings/Online/PublicAddress/BothOk", "Settings/Online/PublicAddress/LocalV6", "Settings/Online/PublicAddress/Mismatch",
+                "Settings/Online/PublicAddress/None", "Settings/Online/PublicAddress/NotFound", "Settings/Online/PublicAddress/Title",
+                "Settings/Online/PublicAddress/V4", "Settings/Online/PublicAddress/V6", "Settings/Online/Refresh",
+                "Settings/Online/RoleClient", "Settings/Online/RoleHost", "Settings/Online/Save",
+                "Settings/Online/StatusNoSession", "Settings/Online/TestPublicIp", "Settings/Online/Title",
+                "Settings/Online/TitleNote", "Settings/Online/TitleNoteBody", "Settings/Online/VirtualNic",
+            };
+            foreach (var k in a1025Keys)
+                CheckTrue(Loc.HasEntry(k), $"★（A1025）本批键都在表里：`{k}`");
+            // ② 两语档各取一次、都非空且 ≠ 键名（只断中文档 = 半边绿）
+            var a1025LangWas = Loc.Current;
+            foreach (var lang in new[] { AvailableLanguages.Chinese, AvailableLanguages.English })
+            {
+                Loc.RestoreForTest(lang);
+                int bad = 0; string firstBad = null;
+                foreach (var k in a1025Keys)
+                {
+                    string v = Loc.T(k);
+                    if (string.IsNullOrEmpty(v) || v == k) { bad++; if (firstBad == null) firstBad = k; }
+                }
+                CheckTrue(bad == 0, $"★（A1025）`{lang}` 档下 {a1025Keys.Length} 条**全部取到真文案**（缺 {bad} 条"
+                          + (firstBad == null ? "" : $"，第一条 `{firstBad}`") + "）"
+                          + " —— 取不到时会印**键名本身**，那就是静默失败");
+            }
+            Loc.RestoreForTest(a1025LangWas);      // ⛔ 只改内存、不写 `PlayerPrefs`（不是 `SetLanguage`）
+            // ③ 灭自证 C1：英文列不许含汉字（`Loc.HasCjk` 的区间含 `0x3000-0x303F` 与 `0xFF00-0xFFEF`）
+            {
+                int cjk = 0; string firstCjk = null;
+                foreach (var k in a1025Keys)
+                {
+                    string en = Loc.EnOf(k);
+                    if (!string.IsNullOrEmpty(en) && Loc.HasCjk(en)) { cjk++; if (firstCjk == null) firstCjk = k; }
+                }
+                CheckTrue(cjk == 0, $"★（A1025）本批 {a1025Keys.Length} 条的**英文列无 CJK**（坏 {cjk} 条"
+                                  + (firstCjk == null ? "" : $"，第一条 `{firstCjk}`") + "）");
+            }
+            // ④ 灭自证 D（表基线）：开工前实测 `EntryCount == 429`
+            CheckTrue(Loc.EntryCount >= 429,
+                      $"★（A1025）表基线：`Loc.EntryCount` = {Loc.EntryCount} ≥ **429**（开工前实测）"
+                    + "｜🧨 把键删掉、断言也一起删 ⇒ 这条红");
+        }
+
         Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");
         // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是**失败表的【重列】**（每条失败在
         //   `Check` 里**已经打过一次**）⇒ 行首标记必须是 `失败重列：`、⛔ **不能再是 `✗`** ——

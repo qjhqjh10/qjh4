@@ -87,7 +87,7 @@ namespace RuleEngine
         ///
         /// ⚠️ **显示层必须走 `Loc.T(它)`** —— 键名照原版（出处与载体写在
         /// `DeckStore.ErrorLoadDeckTerm` / `DeckStore.TermKeyOf` 上）。
-        /// 消费侧今天在 `CardPresentation/Battle/BattleDriver.cs:2380`（`PickSavedDeck` 的 `note`，
+        /// 消费侧今天在 `BattleDriver.PickSavedDeck`（它那个 `note`，
         /// 出在开局提示行上）—— 那一处在 `Battle/**`（**不在 `G8` 的白名单**）⇒ 只留指针，见交件报告。</summary>
         public string LastLoadIssueTerm { get { return DeckStore.TermKeyOf(LastLoadCode); } }
 
@@ -173,7 +173,7 @@ namespace RuleEngine
         /// ⚠️ **2026-10-12（A365）注**：这条**不是编辑窗那条路** —— 编辑窗改的是
         /// `DeckEditorState.SetDeckName`（照原版 `DeckEditingPanel__ChangeName`，**空名照收**，
         /// 合法时再由 `Validate()` 用督军卡名补上）。本方法全仓**只剩 `RuleEngineTest` 在用**
-        /// （`RuleEngine/Editor/DeckRulesTest.cs:283-286` 那条「空名字不接受」的断言钉着它）⇒
+        /// （`RuleEngine/Editor/DeckRulesTest.cs` 里 `lib.Rename(0, "")` 那条「空名字不接受」的断言钉着它）⇒
         /// **别顺手把它也改成收空名**：编辑窗那侧已经对齐原版，这条改了只会把那条既存断言打红。</summary>
         public bool Rename(int index, string newName)
         {
@@ -263,15 +263,15 @@ namespace RuleEngine
         /// 🔴 **2026-10-13（A647）就地更正（铁律 5）**：本句原来还缀着一个括号
         /// 「（它们现在是「调完再自己 `Lib.Save()` 一次」的写法）」—— **那半句已经过期**：
         /// A503/A611 之后 `Shell/CollectionData.cs` 那三处**都不再自己 `Lib.Save()`** 了
-        /// （`Shell/CollectionData.cs:194` / `:221` / `:243` 各挂着一句「⛔ 别在后面再加一次 `Lib.Save()`」）。</para>
+        /// （`Shell/CollectionData.cs` 里那三处各挂着一句「⛔ 别在后面再加一次 `Lib.Save()`」—— grep 那句话即可）。</para>
         ///
         /// <para>🔴 **2026-10-13（A647）就地更正（铁律 5）** —— 这一段原文是
         /// 「⚠️ **如实标注（本笔没做的那一半）**：`Shell/CollectionData.cs` 的 `CreateDeck` / `DuplicateDeck` /
         /// `ImportDeck` **既不读返回值、也不读 `LastError`** ⇒ 写盘失败时玩家看到的是「操作成功」，而盘上没变。
         /// **那是另一笔账**（越了本件的白名单），本笔只在数据层把话说出来。」
-        /// <br/>**实际情况（A503 / A611 起，那三处全读了）**：`CreateDeck`（`CollectionData.cs:240`，返回卡组名、
-        /// 落盘失败回空串）· `DuplicateDeck`（`:190`，同上，另有出口 `LastDuplicateError`）·
-        /// `ImportDeck`（`:215`，返回名 + `out string why`）—— 三处都读 `Lib.LastError` 并 `Debug.LogWarning`；
+        /// <br/>**实际情况（A503 / A611 起，那三处全读了）**：`CreateDeck`（`CollectionData.CreateDeck`，返回卡组名、
+        /// 落盘失败回空串）· `DuplicateDeck`（`CollectionData.DuplicateDeck`，同上，另有出口 `LastDuplicateError`）·
+        /// `ImportDeck`（`CollectionData.ImportDeck`，返回名 + `out string why`）—— 三处都读 `Lib.LastError` 并 `Debug.LogWarning`；
         /// 调用点也读返回值（例：`Shell/CollectionWindow.cs` 里那句 `string name = CollectionData.CreateDeck();`）。
         /// <br/>**错因**：写这条注释时（A398）那几处**确实还没读**，A503/A611 补上之后**没有回头改这里**
         /// ⇒ 留下的是一条「其实已经做完的欠账」。⛔ **别照这段旧话去「补做」那三处**。</para></summary>

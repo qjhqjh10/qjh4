@@ -428,7 +428,7 @@ namespace CardPresentation.Net
                     var m = NetProtocol.Unpack<MsgAck>(f.payload);
                     if (m == null || !m.ok)
                     {
-                        // 🔴 **A961（2026-10-18）**：`MsgAck.reason`（`NetProtocol.cs:54`）**也是对端可控的** ——
+                        // 🔴 **A961（2026-10-18）**：`MsgAck.reason`（`NetProtocol.MsgAck.reason`）**也是对端可控的** ——
                         //   它往下进 `StatusText`（下面那句 `SetState`）与 `OnClosed`（→ `NetMatchmaking` /
                         //   `NetBattle` 的提示行与弹窗）⇒ 与 `PeerName` / `MsgBye.reason` **同一处口径**：先钳。
                         // 🔴 **P6d**：钳完再 `NetWireText.Unpack`（**次序硬** —— 先钳对端可控的原串、

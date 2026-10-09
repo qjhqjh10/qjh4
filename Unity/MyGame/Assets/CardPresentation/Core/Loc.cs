@@ -194,8 +194,8 @@ namespace CardPresentation
             //       · `Media/` · `/Title`（表②逐词 0 命中除上面三条；表①按 `"mTerm": "Settings/` 全树扫）。
             //   ⚠️ **EN 列拿不到原版英文（如实记，不是猜）**：那四颗 TMP 的 `m_text` 就是**西班牙语**
             //     （`Gráficos` / `Multimedia` —— 本包 prefab 被本地化成西语了；英文在**远端 I2 表**）
-            //     ⇒ EN 取**我们界面今天写死印的那串**（`Shell/SettingsWindow.cs:1626` 的
-            //     `PageTitle(page, "Graphics")` / `:2349` 的 `PageTitle(page, "Audio")`）——
+            //     ⇒ EN 取**我们界面今天写死印的那串**（`Shell/SettingsWindow` 里
+            //     `PageTitle(page, "Graphics")` / `PageTitle(page, "Audio")` 那两处字面量）——
             //     这条**是我们挑的**、⛔ 不是原版原文。ZH 同样**自拟**（`资料/待办判据_卡面卡池与双语.md` §23）。
             //   📌 若调度台要照原版那一族的英文：`Settings/Media/Title` 应写成 `Media`
             //     （依据 = 键名后缀 + GO 名 `Media Tab` + 西语译文 `Multimedia`）—— 那会**改英文档的可见字样**
@@ -312,6 +312,27 @@ namespace CardPresentation
             // 消费侧 = `Deck/DeckRuntime.cs` 的 `imp_title`（那行注释里写着判据）。
             { "MenuDeck/Share/PasteDeck",                     new Entry("粘贴你的卡组", "Paste your deck") },
 
+            // ------------- 🆕 **2026-10-19（`A1050`）：分享成功那条 toast 的词条** -------------
+            // 键名 = **原版字符串常量表实读**（**不是自拟**）：`d:/2/tools/il2cpp_out/stringliteral.json:98759`
+            //   的 `"MenuDeck/Share/ExportSuccesful"`（`address` `0x42D07E0`）；同族三条
+            //   `MenuDeck/Share/{ShareOnAlliance,ShareOnGlobal,Title}` **紧邻**（`0x42D08E0/0x42D09E0/0x42D0AE0`），
+            //   这一条就是它们四个里的第一个。
+            //   🔴 **原版把 `Successful` 拼成 `Succesful`（一个 `s`）—— 一个字都别改**：
+            //      改了就等于换了一条键，永远查不到（那一族的地址是连号的、拼写照抄才自洽）。
+            // ⚠️ **这一条的「值」在远端 I2 语言表里，本地【没有】**（84 个本地 bundle 无本地化包、
+            //   24.6 万文件扫中文串零命中 —— 同本文件头那段）⇒ **两列文案都是我们自拟的**，
+            //   如实标注（先例 = `MenuDeck/Button/Random` / `MenuDeck/MenuButtons/ImportDeck` 那一族）。
+            //   措辞取**现有兜底句去掉字符数那一截**（`DeckRuntime.ShareCopiedText`），
+            //   让接上之后界面文案的**变化面最小**。
+            // 🔴 **接线前后【有行为变化】，如实记在这儿**：消费侧
+            //   `Shell/DeckInfoPopup.cs` 的 `MessageToast.Show(ShareSuccessTerm, true, 兜底句)`
+            //   走的是 `ErrorMessageBanner.ShowMessage` 的**两态支**（`Loc.HasEntry(键)` 真 ⇒ 用表里
+            //   这条；假 ⇒ 才用兜底句）⇒ **本键一落表，那条 `（N 字符）` 就不再显示了**。
+            //   要保住字符数得**改调用点**（把 N 拼进文案，或走带参数的口）——
+            //   调用点在 `Shell/`（**不在本批白名单**）⇒ 这一笔**只报不改**，留给调度台派活。
+            // 消费侧 = `Shell/DeckInfoPopup.cs:1429`（`ShareSuccessTerm` 那个常量上写着键的判据）。
+            { "MenuDeck/Share/ExportSuccesful",               new Entry("卡组串已复制到剪贴板", "Deck code copied to your clipboard") },
+
             // ------------- 🆕 **2026-10-17（A891）：导入窗那个 `Confirm` 钮的词条** -------------
             // 节点 = `Import Deck Popup/Window/Buttons/Generic UI Button/**Button Text**`（同一份 prefab）。
             // 键名 = 那颗 `Localize.mTerm` 的**原文** `MainMenu/General/Confirm`
@@ -367,7 +388,7 @@ namespace CardPresentation
             //   TMP 原文 = **`Create deck`（小写 d）** —— 与 `Create Deck` 是两个串，⛔ 别合并成一条。
             //   它的父节点 `No Deck Text` 才是那句**西语占位串**（`Tienes …{0} {1} Comandante(s)…`，
             //   见 `Shell/LiveOpsEventWindow.cs` 那段注释）—— 两件事别混。
-            //   消费侧 = `Shell/LiveOpsEventWindow.cs:507`；中文列 = `zh_CN.csv:230`（`Create deck,~,创建卡组`）。
+            //   消费侧 = `Shell/LiveOpsEventWindow` 里那处；中文列 = `zh_CN.csv:230`（`Create deck,~,创建卡组`）。
             { "MainMenu/Ranked/GoToCreateDeck",               new Entry("创建卡组", "Create deck") },
 
             // ============================================================ 🆕 **2026-10-18（A891 的续 · 第三轮整改）：审查 P1 + P4 那 9 条**
@@ -392,7 +413,7 @@ namespace CardPresentation
             { "MenuCollection/NoCardbackFound",               new Entry("没有符合当前筛选的卡背", "There are no cardbacks in your collection for the selected filters") }, // TMP 原文逐字符；中文自拟
             //   🔴 **英文列是原版 TMP 的原文，含原版自己的语病**（`There are no **deck** …` 单数）——
             //   照抄（本表英文列的口径 = 那颗 TMP 的 `m_text` 原文逐字符；⛔ 别「顺手修正」成 `decks`，
-            //   那会与 `Shell/ShopWindow.cs:287` 的 `TxtEmpty`（同一句原文）分叉）。
+            //   那会与 `Shell/ShopWindow` 的 `TxtEmpty`（同一句原文）分叉）。
             //   ⚠️ 中文取自 `zh_CN.csv:178`，但那条的英文串是 `…for the selected **filter**`（单数 filter），
             //   与我们这一串（复数 filters）**差一个字母** ⇒ 属「最近邻」，**不是精确命中**（如实记）。
             { "MenuCollection/NoDecksFound",                  new Entry("没有符合当前筛选的卡组", "There are no deck in your collection for the selected filters") }, // TMP 原文（含原版语病）；zh_CN.csv:178 近邻
@@ -409,7 +430,7 @@ namespace CardPresentation
             // 节点 = `{Card Shop Tab | Daily Shop Tab | Item Shop Tab}/daily shop header/TimeCounter/RefreshText`。
             // ⚠️ **两颗 TMP 的 `m_text` 不一样**（原版自己的开发痕迹，照抄英文那一颗）：
             //   · `Card Shop Tab` → **`Refreshes in:`**（英文，本条取它）；
-            //   · `Daily Shop Tab` → `Atualiza em:`（**葡语占位串** —— 同 `Shell/ShopData.cs:104` 那条注释说的）。
+            //   · `Daily Shop Tab` → `Atualiza em:`（**葡语占位串** —— 同 `Shell/ShopData` 那条注释说的）。
             //   ⇒ 原版两页**共用这一条 mTerm**（运行期走 I2 表），所以我们两页也用同一条键（形状照原版）。
             // 中文列 = 「刷新于：」(`zh_CN.csv:303`，按英文源串精确命中)。
             // 消费侧 = `Shell/ShopWindow.cs` 的 `BuildTimeCounter`（原来读 `ShopData.RefreshText` 那个写死的英文常量）。
@@ -738,7 +759,7 @@ namespace CardPresentation
             //   🔴 **两个字段逐字吻合 = 键与挂点是同一处的硬证据**（本批亲读
             //     `bundle_staticgeneralassets_assets_all/MonoBehaviour/MonoBehaviour_-4253307515847882232.json`）：
             //     `text = Tips/HealthTip` + `tooltipAnchor = 10` + `offset.x = 73.05`，
-            //     而我们那一条 `Battle/BattleDriver.cs:13339` 写的正是
+            //     而我们那一条 `Battle/BattleDriver` 里出疲劳横幅那条链写的正是
             //     `Tooltip.Show(TipText.Health, at, 10, new Vector3(73.05f / TipPx, 0f, 0f))`
             //     —— **anchor 与 offset 一致**；`Cost`(10 / 52.6) · `Melee`(15 / −49.33) ·
             //     `Ranged`(15 / −53.54) 同样逐字对上（四个数在 `资料/tooltip_原版规格与实现.md` §一 的挂点表里也有）。
@@ -753,10 +774,18 @@ namespace CardPresentation
             //     （这几条的值全是我们照规则书写的，行号就在句子里；⛔ 别当成「原版这么说」）。
             //   · **EN 列 = 我们照 ZH 列译的**（⛔ 不含汉字、不含全角括号 —— `Loc.HasCjk` 那片区间含
             //     `U+3000-303F` / `U+FF00-FFEF`）。
-            //   🔴 **`Tips/Hud/*Count` 原版敌我【各一条键】**（`Player…` / `Opponent…`），而我们的消费点
-            //     （`Battle/BattleDriver.cs:13287-13290`）把**同一个串同时用在双方图标上** ⇒ 本批取 `Player*Count`
-            //     那一条、两列文案写**对敌我双方都成立的中性说法**；要拆成两条得改 `BattleDriver`
-            //     （**不在本笔白名单**）⇒ 已记进交件报告（`W_Core双语第一步_Tooltip与CreatedBy.md` §⑤/§⑥）。
+            //   ✅ **`Tips/Hud/*Count` 原版敌我【各一条键】已照原版拆开**（2026-10-09 · `A1086②`）：
+            //     下面 `Player*` 那四条 + 紧随其后补的四条 `Opponent*`。消费点 = `BattleDriver.TickTooltipAt`
+            //     （我方图标取 `TipText.{Energy,QuestPoints,Faith,SpiritStone}`、
+            //      对面图标取 `TipText.{FoeEnergy,FoeQuestPoints,FoeFaith,FoeSpiritStone}`）。
+            //     📌 键名的唯一判据仍是那颗 `EverguildTooltipTrigger.text`，全库逐条计数（亲扫命令见本节上面）：
+            //     `Tips/Hud/Player{Energy,Faith,SpiritStone,QP}Count` 与 `Tips/Hud/Opponent{…}Count`
+            //     **各 13 颗**（本批实读 `bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_4394.json`
+            //      = `text = Tips/Hud/OpponentEnergyCount` + `tooltipAnchor = 15` + `offset = (−42.38, −21.40)`，
+            //      与同场我方那颗 `MonoBehaviour_4086.json` 的 **anchor 与 offset 逐字相同** ⇒
+            //      原版**只靠键**区分敌我，值都从远端 I2 表取，见下面那两句）。
+            //     🔴 **`Tips/Hud/Skulls` 全库只有一条**（**没有** `OpponentSkulls`）—— 双方共用同一颗
+            //     里程碑计数 ⇒ ⛔ 别硬造一条对面键。
             // ------------------------------------------------------------------------------------------
             // 卡面四个数值 + 费用那条（`TipText.{Melee,Ranged,Armour,Health,Cost}`）
             { "Tips/MeleeAttackTip",               new Entry("近战攻击力（规则书 :78）", "Melee Attack (rulebook :78)") },   // 键名 = 原版（152 颗触发器）· 值两列自拟
@@ -774,6 +803,14 @@ namespace CardPresentation
             { "Tips/Hud/PlayerQPCount",            new Entry("暗黑天使的任务点进度（0/3）", "Dark Angels quest point progress (0/3)") }, // 键名 = 原版（13 颗）· 值两列自拟
             { "Tips/Hud/PlayerFaithCount",         new Entry("战斗修女的阵营资源", "The Battle Sisters faction resource") }, // 键名 = 原版（13 颗）· 值两列自拟
             { "Tips/Hud/PlayerSpiritStoneCount",   new Entry("灵族的阵营资源；在场也算单位（1 血），点击收集", "The Aeldari faction resource; it also counts as a unit (1 health) on the board - click it to collect") }, // 键名 = 原版（13 颗）· 值两列自拟
+            // ---- 🔴 **对面那四条**（`A1086②`，2026-10-09 补；原版键名各 **13** 颗，判据同上）----
+            //   ⚠️ **两列值【全自拟】** —— 同上一段：原版那两个触发器 `localize = 1`，显示串在**远端 I2 表**
+            //      （本地两张表都 0 命中，本节开头那两句已交代）⇒ 下面写的是**照 `Player*` 那一族的对面措辞**，
+            //      ⛔ **别当成「原版这么说」**。`Tips/Hud/Skulls` 没有对面那一条（双方共用，理由见上）。
+            { "Tips/Hud/OpponentEnergyCount",      new Entry("对面每回合恢复，用来打出手牌", "Your opponent's; refills every turn and is spent on cards") }, // 键名 = 原版（13 颗）· 值两列自拟
+            { "Tips/Hud/OpponentQPCount",          new Entry("对面暗黑天使的任务点进度（0/3）", "Your opponent's Dark Angels quest point progress (0/3)") }, // 键名 = 原版（13 颗）· 值两列自拟
+            { "Tips/Hud/OpponentFaithCount",       new Entry("对面战斗修女的阵营资源", "Your opponent's Battle Sisters faction resource") }, // 键名 = 原版（13 颗）· 值两列自拟
+            { "Tips/Hud/OpponentSpiritStoneCount", new Entry("对面灵族的阵营资源；在场也算单位（1 血）", "Your opponent's Aeldari faction resource; it also counts as a unit (1 health) on the board") }, // 键名 = 原版（13 颗）· 值两列自拟
             // ---- `Tips/Trait/*`：🔴 **两条都是【我们自己加的】、原版没有**（`Core/Tooltip.cs` 的 `TipText.Trait`）----
             //   原版查不到描述时**就只有「图标 + 标题」、没有正文**（`EverguildTraitTooltipItem`，
             //   见 `资料/tooltip_原版规格与实现.md` §五）；这两句是我们替它补的**如实说明**：
@@ -1002,8 +1039,8 @@ namespace CardPresentation
             { "MenuDeck/Error/WarlordInCards",          new Entry("战将/防御卡不能放在普通卡位里", "Warlord / defence cards cannot go in the normal card slots") },
             { "MenuDeck/Error/WarlordAlreadySet",       new Entry("已经选过战将了（换战将要先把原来的撤掉）", "A warlord is already selected (remove the old one to swap)") },
             { "MenuDeck/Error/DefensiveAlreadySet",     new Entry("已经有防御卡了（不能带两张）", "A defence card is already assigned (only one is allowed)") },
-            { "MenuDeck/Error/EffectOnlyCard",          new Entry("这张是**效果生成的卡**（药剂/破坏/秘仪），不能放进卡组",
-                                                                "This is an **effect-generated card** (Elixir / Sabotage / Ritual) and cannot go into a deck") },
+            { "MenuDeck/Error/EffectOnlyCard",          new Entry("这张是效果生成的卡（药剂/破坏/秘仪），不能放进卡组",
+                                                                "This is an effect-generated card (Elixir / Sabotage / Ritual) and cannot go into a deck") },
 
             // ============================================================ 🆕 **2026-10-18（第四会话 · 双语③ 波 0）：现读扫出的缺键**
             //
@@ -1019,13 +1056,14 @@ namespace CardPresentation
             // ---- ① 引擎拒绝码 → 原版提示词条（4 条 · `A985⑧` 的落地）----
             //   载波 = **②（代码里的字面量）**：`RuleCodes.TermKey` 那四条映射的地址表实读见
             //   `RuleEngine/Core/RuleCodes.cs` 的 `Terms`；消费点 = `BattleDriver.HintForCode`
-            //   （`BattleDriver.cs:7771`：`Loc.HasEntry(键) ? Loc.T(键) : RuleCodes.Describe(rc)`）。
+            //   （`BattleDriver.HintForCodeWithKey`：`Loc.HasEntry(键) ? Loc.T(键) : RuleCodes.Describe(rc)`）。
             //   🔴 **EN 列是我们自拟的**（原版值在**远端 I2 表**；本地 84 个 bundle 一个 value 都没有）——
             //      措辞取词条名末段，同 `Battle/Mulligan/Undo` / `MenuDeck/Button/Random` 的先例。
             //   🔴 **中文列 = 改之前 `RuleCodes.Describe` 印出来的那句原话**（`RuleCodes.Names`）⇒ **中文档零变化**。
-            //   ⚠️ 本文件 `RuleCodes.cs` 头注与 `BattleDriver.cs:7722` 那句「这四条键一条都不在 `Loc` 表里」
-            //      **从本批起不成立** —— 那两处的订正不在本笔白名单里，已写进交件报告。
-            //   ⚠️ 自检两态是**自适应**的（`Editor/BattleScene.cs:3027` 按 `Loc.HasEntry` 自动选期望值，
+            //   ✅ **`RuleCodes.cs` 头注与 `BattleDriver.HintForCode` / `HintForCodeWithKey` 那两处**
+            //      原来写的「这四条键一条都不在 `Loc` 表里」**已过期、本批已就地订正**（`A1018①`，2026-10-09）。
+            //      ⛔ 本表不再写任何 `文件:行号` 引用（行号会漂，一律按符号名认）。
+            //   ⚠️ 自检两态是**自适应**的（`Editor/BattleScene` 里那条按 `Loc.HasEntry` 自动选期望值的断言，
             //      §3b ③ 那条只断「不许含 `Battle/Tips/` 前缀、不许为空」）⇒ 本批加键**不会让它们变红**。
             { "Battle/Tips/NotEnoughMana",     new Entry("能量不足",                     "Not enough mana") },   // EN 自拟；ZH = `Describe(ErrCost)` 原话
             { "Battle/Tips/NotYourTurn",       new Entry("不是你的回合",                 "It is not your turn") }, // EN 自拟；ZH = `Describe(ErrNotTurn)` 原话
@@ -1097,11 +1135,11 @@ namespace CardPresentation
             // ---- ⑤ 卡组编辑 / 商店那两条（**今天真上屏的缺陷** · 2 条）----
             //   · `MenuDeck/HUD/DiscardChanges` = 原版 `DeckEditingWindow.ConfirmDiscard` 那扇窗的**正文键**
             //     （`DeckRuntime__ConfirmDiscard.c:54` 的 `DAT_1842d00e8` → 地址表实读 = 本条；
-            //      消费点 `Deck/DeckRuntime.cs:3606` 与 `Shell/PopUpGameWindow.Terms`）。
+            //      消费点 = `Deck/DeckRuntime` 里那个消费点与 `Shell/PopUpGameWindow.Terms`）。
             //     🔴 **本地既没有 prefab 也没有 TMP 原文**（全库扫 `MenuDeck/HUD/DiscardChanges` **0 命中**）
             //     ⇒ EN / ZH **都自拟**；ZH 照我们那句动作说明（`DeckRuntime` 里 `Say("已丢弃未保存的改动")`）。
             //   · `MenuShop/ExtraLegendaryWarning` = 原版 `CatalogItemContainer.TryPurchase` 那扇确认框的正文键
-            //     （`0x42D24E0` → 地址表实读 = 本条；消费点 `Shell/ShopWindow.cs:791` + `Shell/ShopData.cs:296`）。
+            //     （`0x42D24E0` → 地址表实读 = 本条；消费点 `Shell/ShopWindow` + `Shell/ShopData` 里那条）。
             //     🔴 EN / ZH **都自拟**（同上 **0 命中**）；ZH 一列 = 改之前在
             //     `Shell/ShopData.LegendaryWarnText` 里写死的那句原话 ⇒ **中文档零变化**。
             { "MenuDeck/HUD/DiscardChanges",    new Entry("丢弃未保存的改动？", "Discard unsaved changes?") },
@@ -1109,7 +1147,7 @@ namespace CardPresentation
                                                           "You already own 1 legendary copy of this item.\nAre you sure you want to buy another one?") },
             // ---- ⑥ 卡组不合法那条兜底键（1 条）----
             //   键名出处 = 原版 `DeckUtility.ToRawLocalizationString` 查不到词条时的兜底（地址表实读，
-            //   见 `资料/普查产出_1011/WB1_A330.md` §2.4；消费点 `Deck/DeckRuntime.cs:3797`）。
+            //   见 `资料/普查产出_1011/WB1_A330.md` §2.4；消费点 `Deck/DeckRuntime` 里那个消费点）。
             //   🔴 本地**没有**任何 prefab 用这条 mTerm（全库唯一那条形近的是
             //   `MenuDeck/Error/InvalidDeckBannedCards`，**另一条键**，⛔ 别混）⇒ EN / ZH **都自拟**；
             //   形状照 `MenuDeck/Error/*` 那一族（本表上面那 13 条）。
@@ -1121,10 +1159,10 @@ namespace CardPresentation
             //   ⇒ 本地**没有**它的文案（全库 20 处引用全是同一个字符串字段，没有一颗 TMP 印它）⇒ EN / ZH **都自拟**。
             //   消费点 = `Shell/DailyData.DailyCounterText` → `Shell/MissionsTab.cs` 那一行
             //   （🔴 **2026-10-18 之后·第六会话就地订正（铁律 5）**：本行原写「消费点 = `DailyData.DailyCounterText:175`
-            //     → `MissionsTab.cs:549`（**今天那一行印的就是键名** —— 本行加进去就恢复正常）」—— **两句都已过期**：
-            //     两个行号现读是 `DailyData.cs:191` / `MissionsTab.cs:553`（都漂了 4 行）；而「印键名」也不成立了
+            //     → `MissionsTab` 里那处（**今天那一行印的就是键名** —— 本行加进去就恢复正常）」—— **两句都已过期**：
+            //     两处现读都在 `DailyData.DailyCounterText` / `MissionsTab` 那一行（行号会漂 ⇒ ⛔ 别再写）；而「印键名」也不成立了
             //     —— 「键进了表就恢复」那个判断**是错的**（显示点当时根本没查表）⇒ 真缺陷由 **`WCoreDeck`** 修掉：
-            //     `DailyData.cs:191` 现为 `return Loc.T(CompletedMessage);`。**错因**：这句写的时候假定
+            //     `DailyData.DailyCounterText` 现为 `return Loc.T(CompletedMessage);`。**错因**：这句写的时候假定
             //     「`Loc.T` 缺键返回键名」那一端是唯一的病，没看显示点走的是 `MenuWindowBase.Text` 的**原样吃串**。）
             { "Missions/Completed",             new Entry("已完成",   "Completed") },
             // ---- ⑧ 高级战役说明那段（1 条）----
@@ -1135,17 +1173,17 @@ namespace CardPresentation
             //     与 `Shell/PurchasePremiumWindow.TxtInfoBody` **逐字相同**（那边也是照它抄的）
             //     ⇒ 它既是 prefab 原文、也是我们该印的那句（`{0}` = 每日登录给的战役点数）。
             //   🔴 ZH 列 = **我们自译**（原版中文在远端 I2 表；`zh_CN.csv` 里没有这条英文串）。
-            //   消费点 = `Shell/PurchasePremiumWindow.cs:209` 的 `string.Format(TermInfoBody, points)`
+            //   消费点 = `Shell/PurchasePremiumWindow` 里那句 `string.Format(TermInfoBody, points)`
             //   （今天那段**印的是键名 + `{0}`** —— 本行加进去就恢复正常）。
             { "MainMenu/PurchasePremium/Description", new Entry(
                 "• 解锁本阵营战役里的高级奖励，第一个节点就含一张传奇万能卡。\n" +
-                "• 每天登录时，为本阵营提供 {0} 点战役点数；若你有多个高级战役，这份奖励会**全部**给你！\n" +
+                "• 每天登录时，为本阵营提供 {0} 点战役点数；若你有多个高级战役，这份奖励会全部给你！\n" +
                 "• 这是一次性购买，永久为本阵营提供收益 —— 因为最后一个战役节点可以反复领取！",
                 "• Unlock the Premium rewards in this faction's Campaign, including a Legendary Wildcard in the first node.\n" +
                 "• {0} Campaign Points for this faction in the Daily Login Bonus, every day, just for logging in. If you have several Premium Campaigns, you get this bonus for ALL of them!\n" +
                 "• This one-time purchase will provide benefits for this faction forever, as the last campaign node can be claimed repeatedly!") },
             // ---- ⑨ 联盟成员操作弹窗那颗会换字的钮（1 条）----
-            //   键名 = **代码字面量**实读（`0x184253cb0`，见 `Shell/AllianceMemberOptionsPopup.cs:39`）：
+            //   键名 = **代码字面量**实读（`0x184253cb0`，见 `Shell/AllianceMemberOptionsPopup` 的头注）：
             //   原版按 `role == Admin` 在 `SocialMenu/Alliances/{TransferLeadership,Promote}` 之间二选一。
             //   🔴 本地全库 **0 命中**（无 prefab、无 TMP 原文）⇒ EN / ZH **都自拟**。
             //   ⚠️ 施工单 §⑤ 自己写着「**只用作出声与断言，不换字**」⇒ **本键今天是惰性的**（不改变界面）；
@@ -1156,7 +1194,7 @@ namespace CardPresentation
             //   `bundle_scenes_scenes_battlearena1/MonoBehaviour/{5137,4243,4495}.json`）。
             //   🔴 **EN 列 = 同一颗 GO 上 TMP 的 `m_text` 原文逐字符**（`MonoBehaviour_{4073,4646,4098,4475}.json`）
             //     = `Name:` / `Title:` / `Alliance:` / `This player is is still not part of an Alliance`
-            //     —— 最后那条的 **`is is` 双 is 是原版笔误，照抄勿改**（同 `Shell/AlliancePanelWindow.cs:134`）。
+            //     —— 最后那条的 **`is is` 双 is 是原版笔误，照抄勿改**（同 `Shell/AlliancePanelWindow` 里那处）。
             //   ZH 列 = **我们自译**（远端 I2 表）。
             //   消费点 = `Shell/AlliancePanelWindow.LocOr`（`:152-159`：`Loc.HasEntry ? Loc.T : prefab 英文`）
             //   ⇒ 本批加键之后，**中文档不再印英文**。
@@ -1170,13 +1208,13 @@ namespace CardPresentation
             //     ⛔ **玩家自己命名的卡组名【绝不进表】**（那是玩家数据，不是文案）。
             //   🔴 原版**没有**这三个名（全库扫 `mTerm` 无 `*DeckName` 一族、也无 `New deck`/`My deck`
             //     这类 TMP 文本；唯一同族的真键是 `MenuDeck/HUD/EditDeckName`）⇒ 键名与两列**都自拟**。
-            //   ZH 三列 = 改之前写死在 `Deck/DeckRuntime.cs:746/3430/6323` 与 `Shell/CollectionData.cs:260`
+            //   ZH 三列 = 改之前写死在 `Deck/DeckRuntime` 与 `Shell/CollectionData`
             //   的那三个原话 ⇒ **中文档零变化**。
-            //   ⚠️ **同一件事只留一条键**：`DeckRuntime.cs:3430` 与 `DeckEditorState.cs:133`（在附件
-            //     `…_附_BattleDeck.md` #48/#50）与 `CollectionData.cs:260`（附件 `…_附_Shell.md` #32 建议
+            //   ⚠️ **同一件事只留一条键**：`DeckRuntime` 里那处与 `DeckEditorState` 里那处（在附件
+            //     `…_附_BattleDeck.md` #48/#50）与 `CollectionData` 里那处（附件 `…_附_Shell.md` #32 建议
             //     写成 `MenuDeck/HUD/NewDeckName`）**是同一个串** ⇒ 三处**一律**用本表的 `MenuDeck/NewDeckName`
             //     （铁律 6：同义两键 = 迟早不一致）。⚠️ 这一处两份附件打架，已记进交件报告。
-            //   ⚠️ `Editor/DeckScene.cs:4165` 有一条断言按**字面量**断「名字被写成「新卡组」」——
+            //   ⚠️ `Editor/DeckScene` 有一条断言按**字面量**断「名字被写成「新卡组」」——
             //     波 1/2 把那行换成 `Loc.T` 之后，它只在**中文档**成立（如实记）。
             { "MenuDeck/DefaultDeckName",       new Entry("我的卡组",   "My deck") },
             { "MenuDeck/NewDeckName",           new Entry("新卡组",     "New deck") },
@@ -1222,10 +1260,10 @@ namespace CardPresentation
             { "MenuDeck/Error/ImportEmpty",            new Entry("先粘贴卡组串", "Paste a deck string first") },
             { "MenuDeck/Error/ImportBadString",        new Entry("这不是一条合法的卡组串", "This is not a valid deck string") },
             // ⚠️ `{0}` = 落盘失败的原因；消费点用 `Replace("{0}", …)`（不是 `string.Format` —— 文案里有 `**`，先例 `Battle/HUD/CreatedBy`）。
-            // 🔴 这一条**必须与 `Shell/CollectionData.cs:243` 那句共用**（施工单 §③ 要求逐字一致）—— 两处措辞原来不同，
+            // 🔴 这一条**必须与 `Shell/CollectionData` 里那句共用**（施工单 §③ 要求逐字一致）—— 两处措辞原来不同，
             // 本表取 `Deck/DeckRuntime.cs` 那一版（带「导入失败：」前缀 + 「（重启就没了）」尾）；波 1b 把 CollectionData 那处对齐过来。
-            { "MenuDeck/Error/ImportNotPersisted",     new Entry("导入失败：卡组串读出来了，但**没写进存档**——{0}（重启就没了）",
-                                                                  "Import failed: the deck string was read, but **was not written to the save** — {0} (it is gone after a restart)") },
+            { "MenuDeck/Error/ImportNotPersisted",     new Entry("导入失败：卡组串读出来了，但没写进存档——{0}（重启就没了）",
+                                                                  "Import failed: the deck string was read, but was not written to the save — {0} (it is gone after a restart)") },
             { "Card_Rarity/Common",                    new Entry("普通", "Common") },
             { "Card_Rarity/Rare",                      new Entry("稀有", "Rare") },
             { "Card_Rarity/Epic",                      new Entry("史诗", "Epic") },
@@ -1245,12 +1283,12 @@ namespace CardPresentation
             //      运行期值（IPv6 地址 / 网卡名）留成 `{0}`，拼法由波 1b 改（**本表不改调用点**）。
             //   ⚠️ `Demo/MainMenu/{ExitGame,ExitButton,CancelButton}` = **原版真键**（`stringliteral.json` 三条，
             //      `0x4277558 / 0x4277460 / 0x4277360`）—— 波 0 只搜了解包资源、**漏了 binary 表**才写成「原版无此键」。
-            //      三条的**角色**有 in-code 判据（`Shell/MainMenuRuntime.cs:722-732` 的老注释逐条写着：
+            //      三条的**角色**有 in-code 判据（`Shell/MainMenuRuntime` 里那段老注释逐条写着：
             //      `ExitGame` = 正文 · `ExitButton` = 右钮(`secondButton`) · `CancelButton` = 左钮(`primaryButton`)）
             //      ⇒ **值沿用**表里那三条（逐字相同），波 1b 把 `MainMenuRuntime` 那 5 行改指过来即可。
             //      ⛔ `Demo/MainMenu/OK` **没建**：没有消费点，且与已在表的 `MainMenu/General/OK` 同值（建了就是空键）。
-            { "Settings/General/RedeemCodeUnavailable", new Entry("兑换码要走原版的服务器（`GeneralTab.RedeemCode` → `TryRedeemCode` → 远端校验），这个项目没有那台服务器 ⇒ **这里兑不了**。",
-                                                                  "Redeem codes go through the original server (`GeneralTab.RedeemCode` → `TryRedeemCode` → remote check); this project has no such server ⇒ **redeeming does not work here**.") },
+            { "Settings/General/RedeemCodeUnavailable", new Entry("兑换码要走原版的服务器（`GeneralTab.RedeemCode` → `TryRedeemCode` → 远端校验），这个项目没有那台服务器 ⇒ 这里兑不了。",
+                                                                  "Redeem codes go through the original server (`GeneralTab.RedeemCode` → `TryRedeemCode` → remote check); this project has no such server ⇒ redeeming does not work here.") },
             { "Settings/Media/AudioMixerNote",         new Entry("音量走 AudioMixer（与对局内设置面板同一套）",
                                                                   "Volume is handled by the AudioMixer (the same one the in-battle settings panel uses)") },
             { "Settings/Online/TitleNote",             new Entry("这一页不是原版（原版是联网游戏，没有「当主机」这回事）。",
@@ -1265,10 +1303,10 @@ namespace CardPresentation
             { "Settings/Online/PublicAddress/LocalV6", new Entry("本机网卡上的公网 IPv6：", "Public IPv6 on this machine's adapter:") },
             { "Settings/Online/PublicAddress/NotFound", new Entry("（没探到）", "(not found)") },
             { "Settings/Online/PublicAddress/None",    new Entry("没有", "none") },
-            { "Settings/Online/PublicAddress/Mismatch", new Entry("⚠️ **两个不一样** ⇒ 上面那个 IPv6 是【路由器的】（它在做 IPv6 NAT）：\n　 外面看得到它，但**别人连不到你这台机器** ⇒ IPv6 直连这条路走不了。",
-                                                                  "⚠️ **The two differ** ⇒ that IPv6 above is the **[router's]** (it is doing IPv6 NAT):\n  the outside world can see it, but **nobody can reach this machine** ⇒ direct IPv6 is not an option.") },
-            { "Settings/Online/PublicAddress/BothOk",  new Entry("✅ 两边都有公网 IPv6 ⇒ 「IPv6 直连」这条路可行（**要求对面也有**）。",
-                                                                  "✅ Both sides have a public IPv6 ⇒ direct IPv6 is viable (**the other side needs one too**).") },
+            { "Settings/Online/PublicAddress/Mismatch", new Entry("⚠️ 两个不一样 ⇒ 上面那个 IPv6 是【路由器的】（它在做 IPv6 NAT）：\n　 外面看得到它，但别人连不到你这台机器 ⇒ IPv6 直连这条路走不了。",
+                                                                  "⚠️ The two differ ⇒ that IPv6 above is the [router's] (it is doing IPv6 NAT):\n  the outside world can see it, but nobody can reach this machine ⇒ direct IPv6 is not an option.") },
+            { "Settings/Online/PublicAddress/BothOk",  new Entry("✅ 两边都有公网 IPv6 ⇒ 「IPv6 直连」这条路可行（要求对面也有）。",
+                                                                  "✅ Both sides have a public IPv6 ⇒ direct IPv6 is viable (the other side needs one too).") },
             { "Settings/Online/IpPlaceholder",         new Entry("例如 192.168.1.10", "e.g. 192.168.1.10") },
             { "Settings/Online/PasswordPlaceholder",   new Entry("留空 = 不校验", "empty = no password check") },
             { "Settings/Online/HostReady",             new Entry("✅ 主机已就绪，等着对面连进来。", "✅ Host is ready, waiting for the other side to connect.") },
@@ -1290,23 +1328,23 @@ namespace CardPresentation
                                                                   "① Same LAN ⇒ just fill in the host machine's address.") },
             { "Settings/Online/HowToConnect/VirtualLan", new Entry("② 不在一起 ⇒ 两边装同一个虚拟局域网工具\n　（Tailscale / ZeroTier / 蒲公英 之类），填它给的地址。",
                                                                   "② Not in the same place ⇒ install the same virtual-LAN tool on both sides\n  (Tailscale / ZeroTier / Pgyvpn and the like), then fill in the address it gives you.") },
-            { "Settings/Online/HowToConnect/PublicDirect", new Entry("③ 公网直连 ⇒ 主机点【保存】时会**自动向路由器要一个端口**（UPnP）；\n　成没成会弹一条告诉你 —— **没成**就是路由器不支持 / 关着 UPnP，\n　那就在路由器管理页手动把那个端口转发到主机这台机器。\n　（主机**自己**有公网 IPv6 的话填 IPv6 更省事，连映射都不用。）",
-                                                                  "③ Direct internet ⇒ when the host presses [Save] it **asks the router for a port automatically** (UPnP);\n  you get a pop-up either way — **no port** means the router does not support UPnP or has it off,\n  so forward that port to the host machine by hand in the router's admin page.\n  (If the host **itself** has a public IPv6, filling in the IPv6 is easier — no forwarding needed.)") },
-            { "Settings/Online/HowToConnect/DontUseTestSite", new Entry("⚠️ **别拿「IPv6 测试网站」当判据**：那里显示的是【**外网看到的**地址】，\n　它有可能是**路由器的**（有些路由器在做 IPv6 NAT）⇒ 外面看得到，\n　**但别人连不到你这台机器**。本机到底能不能被连上，看下面「本机检测」，\n　或者点【测外网】把两者摆在一起对照。",
-                                                                  "⚠️ **Do not use an \"IPv6 test site\" as the criterion**: it shows the address the [**outside world sees**],\n  which may be the **router's** (some routers do IPv6 NAT) ⇒ visible from outside,\n  **yet nobody can reach this machine**. Whether this machine is reachable is what \"On this machine\" below is for,\n  or press [Test Public IP] to put the two side by side.") },
+            { "Settings/Online/HowToConnect/PublicDirect", new Entry("③ 公网直连 ⇒ 主机点【保存】时会自动向路由器要一个端口（UPnP）；\n　成没成会弹一条告诉你 —— 没成就是路由器不支持 / 关着 UPnP，\n　那就在路由器管理页手动把那个端口转发到主机这台机器。\n　（主机自己有公网 IPv6 的话填 IPv6 更省事，连映射都不用。）",
+                                                                  "③ Direct internet ⇒ when the host presses [Save] it asks the router for a port automatically (UPnP);\n  you get a pop-up either way — no port means the router does not support UPnP or has it off,\n  so forward that port to the host machine by hand in the router's admin page.\n  (If the host itself has a public IPv6, filling in the IPv6 is easier — no forwarding needed.)") },
+            { "Settings/Online/HowToConnect/DontUseTestSite", new Entry("⚠️ 别拿「IPv6 测试网站」当判据：那里显示的是【外网看到的地址】，\n　它有可能是路由器的（有些路由器在做 IPv6 NAT）⇒ 外面看得到，\n　但别人连不到你这台机器。本机到底能不能被连上，看下面「本机检测」，\n　或者点【测外网】把两者摆在一起对照。",
+                                                                  "⚠️ Do not use an \"IPv6 test site\" as the criterion: it shows the address the [outside world sees],\n  which may be the router's (some routers do IPv6 NAT) ⇒ visible from outside,\n  yet nobody can reach this machine. Whether this machine is reachable is what \"On this machine\" below is for,\n  or press [Test Public IP] to put the two side by side.") },
             { "Settings/Online/HowToConnect/NoHolePunching", new Entry("我们不做打洞（那要一台公网上的会合点 + 服务器，本项目没有）。",
                                                                   "We do not do hole punching (that needs a rendezvous point on the public internet plus a server, which this project does not have).") },
             { "Settings/Online/HowToConnect/LocalCheckTitle", new Entry("本机检测：", "On this machine:") },
             { "Settings/Online/HowToConnect/PublicV6Yes", new Entry("· 公网 IPv6：有（{0}）\n  第 ③ 条路能用 —— 只要路由器放行那个 TCP 端口",
                                                                   "· Public IPv6: yes ({0})\n  route ③ works — as long as the router lets that TCP port through") },
-            { "Settings/Online/HowToConnect/PublicV6No", new Entry("· 公网 IPv6：**没有** ⇒ 本机网卡上没有全局 IPv6\n  （⚠️ 这与「测试网站看得到 IPv6」**不矛盾** —— 那个多半是路由器的）\n  ⇒ 第 ③ 条只能靠**端口映射**，或者走 ① ②",
-                                                                  "· Public IPv6: **none** ⇒ this machine has no global IPv6 on its adapters\n  (⚠️ this does **not contradict** \"a test site shows an IPv6\" — that one is most likely the router's)\n  ⇒ route ③ only via **port forwarding**, or take ① ②") },
+            { "Settings/Online/HowToConnect/PublicV6No", new Entry("· 公网 IPv6：没有 ⇒ 本机网卡上没有全局 IPv6\n  （⚠️ 这与「测试网站看得到 IPv6」不矛盾 —— 那个多半是路由器的）\n  ⇒ 第 ③ 条只能靠端口映射，或者走 ① ②",
+                                                                  "· Public IPv6: none ⇒ this machine has no global IPv6 on its adapters\n  (⚠️ this does not contradict \"a test site shows an IPv6\" — that one is most likely the router's)\n  ⇒ route ③ only via port forwarding, or take ① ②") },
             { "Settings/Online/HowToConnect/VirtualNicYes", new Entry("\n· 虚拟局域网工具：装了（网卡「{0}」）\n  点【刷新】能切到它给的地址",
                                                                   "\n· Virtual-LAN tool: installed (adapter \"{0}\")\n  press [Refresh] to switch to the address it gives") },
             { "Settings/Online/HowToConnect/VirtualNicNo", new Entry("\n· 虚拟局域网工具：没检测到（想走 ② 就两边各装一个，Tailscale / ZeroTier 都免费）",
                                                                   "\n· Virtual-LAN tool: not detected (for route ② install one on each side; Tailscale / ZeroTier are both free)") },
-            { "Settings/Online/HowToConnect/UpnpNote", new Entry("\n· 路由器自动开端口（UPnP）：主机点【保存】时自动试 —— **成没成都会弹一条说出来**",
-                                                                  "\n· Router opens the port automatically (UPnP): tried when the host presses [Save] — **a pop-up tells you either way**") },
+            { "Settings/Online/HowToConnect/UpnpNote", new Entry("\n· 路由器自动开端口（UPnP）：主机点【保存】时自动试 —— 成没成都会弹一条说出来",
+                                                                  "\n· Router opens the port automatically (UPnP): tried when the host presses [Save] — a pop-up tells you either way") },
             // ---------------------------------------------------------- ⑫·B⁺ P2c（联机页那 8 颗**写死英文**的钮）· 8 条
             //   🔴 判据 = `资料/普查产出_第四会话/交件_波1b_P2b_设置与联机.md` §④（8 颗逐颗列了文件:行号）
             //     + **本件现读** `Shell/SettingsWindow.cs`（`:2430/:2431/:2470/:2531/:2533/:2558/:2562/:2580`）。
@@ -1330,8 +1368,8 @@ namespace CardPresentation
             //     `…/HowToConnect/DontUseTestSite` 的 ZH「点【Test Public IP】」→「点【**测外网**】」。
             //     ⚠️ **EN 列【不动】**：`Host` / `Client` / `[Test Public IP]` 与英文档那 8 颗钮的字**逐字相同**
             //     ⇒ 英文档零变化。⚠️ 改这两条的**前置条件**就是「8 颗钮已经接线」（否则引用会先失配）。
-            { "Settings/Online/RoleHost",              new Entry("主机", "Host") },                   // `SettingsWindow.cs:2430`
-            { "Settings/Online/RoleClient",            new Entry("客机", "Client") },                 // `:2431`
+            { "Settings/Online/RoleHost",              new Entry("主机", "Host") },                   // `SettingsWindow`
+            { "Settings/Online/RoleClient",            new Entry("客机", "Client") },                 // `SettingsWindow`
             { "Settings/Online/TestPublicIp",          new Entry("测外网", "Test Public IP") },       // `:2470`
             { "Settings/Online/IpLabel",               new Entry("IP 地址", "IP address") },          // `:2531`
             { "Settings/Online/PasswordLabel",         new Entry("密码", "Password") },               // `:2533`
@@ -1350,7 +1388,7 @@ namespace CardPresentation
             { "MainMenu/Social/ProfileTitle",          new Entry("「{0}」的档案", "{0}'s profile") },
             { "MainMenu/Social/ProfileOfflineNote",    new Entry("服务器数据 —— 本地版只有你自己那一份（原版这一页由服务器填）",
                                                                   "Server data — the local build only has your own (the original fills this page from the server)") },
-            // ⚠️ 这条是**默认玩家名**（`Shell/ProfileData.cs:142` 的 `DefaultPlayerName`）—— P2 §④ 自己标了「也可判 ③ 玩家数据不翻、需裁决」。
+            // ⚠️ 这条是**默认玩家名**（`Shell/ProfileData.DefaultPlayerName`）—— P2 §④ 自己标了「也可判 ③ 玩家数据不翻、需裁决」。
             //   本表**按「默认值也是文案」建**（英文档下不该给玩家一个中文名）；若裁决「数据不翻」⇒ 删这一条即可（零连带）。
             { "MainMenu/Profile/DefaultPlayerName",    new Entry("玩家123", "Player123") },
             { "Demo/MainMenu/ExitGame",                new Entry("确定要退出游戏吗？", "Are you sure you want to exit the game?") },
@@ -1362,15 +1400,15 @@ namespace CardPresentation
             //   · 卡组串那三句**与 ⑫·A 的 `MenuDeck/Error/Import*` 同一族**（施工单 §③：两处逐字一致）⇒ **不在这里重复建**。
             //   · `MenuDeck/Error/CantStartNoWarlord` = **整句**（调度台当场拍板，交件 §④）：
             //     `MenuDeck/Error/NoWarlord`（中文「还没有选战将」）那条**短键留着**给 4 处「未选战将」用；
-            //     弹窗正文原来那句「这套卡组还没有选战将，开不了局。」**不许缩水** ⇒ 另立本条（两处：`LiveOpsEventWindow.cs:924` / `PracticeModePopup.cs:1619`）。
-            //   · `MenuDeck/Error/WrongGameMode` / `…Deck` = **两句不同的整句**（P3 只报了一个键名，但代码里 :280 与 :291 是两句话）
+            //     弹窗正文原来那句「这套卡组还没有选战将，开不了局。」**不许缩水** ⇒ 另立本条（两处：`LiveOpsEventWindow` / `PracticeModePopup`）。
+            //   · `MenuDeck/Error/WrongGameMode` / `…Deck` = **两句不同的整句**（P3 只报了一个键名，但代码里那两处是两句话）
             //     ⇒ 拆成两条，键名照 P3 那条 + `Deck` 后缀。
             //   · `MenuDeck/GameMode/{Skirmish,Classic}` 与 `{Skirmish,Classic}Tag` = 同样是**两种形状**
             //     （`:243` 的「遭遇战（Skirmish · 12 张）」vs `:280/:292` 内嵌的「遭遇 · 12 张」）⇒ 各两条。
             //   · `MenuDeck/CantImportDeck` 的**键名是原版**：`stringliteral.json` `0x42CEBF0` ——
             //     正是 P3 §⑥·4 写的那个 `DAT_1842cebf0`（VA − ImageBase 0x180000000 = RVA 0x42CEBF0）⇒ **查到就用它**。
-            { "Settings/Online/MatchCancelled",        new Entry("已经取消这一局的联机匹配 —— 对面会收到通知，**双方都没有开局**。\n想再打一次：两边各自重新点一次 `Battle!`。",
-                                                                  "The online match for this battle was cancelled — the other side gets a notice and **neither side has started**.\nTo try again: both sides press `Battle!` once more.") },
+            { "Settings/Online/MatchCancelled",        new Entry("已经取消这一局的联机匹配 —— 对面会收到通知，双方都没有开局。\n想再打一次：两边各自重新点一次 `Battle!`。",
+                                                                  "The online match for this battle was cancelled — the other side gets a notice and neither side has started.\nTo try again: both sides press `Battle!` once more.") },
             { "Settings/Online/MatchCancelFailed",     new Entry("取消不了这一局：{0}", "Could not cancel this battle: {0}") },
             { "MenuDeck/GameMode/Skirmish",            new Entry("遭遇战（Skirmish · 12 张）", "Skirmish (12 cards)") },
             { "MenuDeck/GameMode/Classic",             new Entry("经典（Classic · 30 张）", "Classic (30 cards)") },
@@ -1378,8 +1416,8 @@ namespace CardPresentation
             { "MenuDeck/GameMode/ClassicTag",          new Entry("经典 · 30 张", "Classic · 30 cards") },
             { "MenuDeck/Error/WrongGameMode",          new Entry("这副预组是「{0}」的，不能用在{1}里 —— 换一副。",
                                                                   "This prebuilt deck is \"{0}\", so it cannot be used in {1} — pick another one.") },
-            { "MenuDeck/Error/WrongGameModeDeck",      new Entry("「{0}」是「{1}」的卡组，不能用在{2}里 —— 换一副，或点 `Create deck` 建一副新的（照原版：**模式在建组那一刻定，之后改不了**）。",
-                                                                  "\"{0}\" is a \"{1}\" deck, so it cannot be used in {2} — pick another one, or press `Create deck` to build a new one (as in the original: **the mode is fixed the moment the deck is built, it cannot be changed later**).") },
+            { "MenuDeck/Error/WrongGameModeDeck",      new Entry("「{0}」是「{1}」的卡组，不能用在{2}里 —— 换一副，或点 `Create deck` 建一副新的（照原版：模式在建组那一刻定，之后改不了）。",
+                                                                  "\"{0}\" is a \"{1}\" deck, so it cannot be used in {2} — pick another one, or press `Create deck` to build a new one (as in the original: the mode is fixed the moment the deck is built, it cannot be changed later).") },
             { "MenuDeck/Error/NoDeckForMode",          new Entry("还没有可用的卡组 —— 先点 `Create deck` 建一副{0}的。",
                                                                   "No usable deck yet — press `Create deck` to build a {0} one first.") },
             { "MenuDeck/Error/HiddenCards",            new Entry("这套卡组里有隐藏卡，开不了练习赛。",
@@ -1397,12 +1435,12 @@ namespace CardPresentation
             //   ZH 列**不动**（它本来就该是中文）。
             { "MenuDeck/Error/PrebuiltMissing",        new Entry("预组卡组的数据读不到（Resources/prebuilt_decks.json）⇒ 先如实留空；跑 `python 工具/gen_prebuilt_decks.py` 重新生成",
                                                                   "Prebuilt-deck data cannot be read (Resources/prebuilt_decks.json) ⇒ left honestly empty for now; run the prebuilt-deck generator (`python gen_prebuilt_decks.py`, in the project's tools folder) to regenerate it") },
-            { "MenuDeck/Error/NoUsablePrebuilt",       new Entry("这一页一副可用的都没有（**拼不齐的按原版口径整副不显示**）",
-                                                                  "Not a single usable deck on this page (**as in the original, decks that cannot be completed are not shown at all**)") },
-            // 调度台当场拍板补的一条（P3 §③·B 标「需裁决」未自拟）：`LiveOpsEventWindow.cs:496` 那顆 `No Deck Text`。
+            { "MenuDeck/Error/NoUsablePrebuilt",       new Entry("这一页一副可用的都没有（拼不齐的按原版口径整副不显示）",
+                                                                  "Not a single usable deck on this page (as in the original, decks that cannot be completed are not shown at all)") },
+            // 调度台当场拍板补的一条（P3 §③·B 标「需裁决」未自拟）：`LiveOpsEventWindow` 里那顆 `No Deck Text`。
             { "MenuDeck/HUD/NoWarlordText",            new Entry("这套卡组还没有战将 —— 去卡组编辑里选一个再来。",
                                                                   "This deck has no Warlord yet — go pick one in the deck editor and come back.") },
-            // 调度台当场拍板补的一条（P3 §⑤·D 首条：两个附件源都漏了）—— `PracticeModePopup.cs:1295` 的 `SelectedArmyName()` 兜底，**会画上屏**。
+            // 调度台当场拍板补的一条（P3 §⑤·D 首条：两个附件源都漏了）—— `PracticeModePopup` 的 `SelectedArmyName()` 兜底，**会画上屏**。
             { "MenuDeck/HUD/NoArmySelected",           new Entry("（未选阵营）", "(no faction selected)") },
             { "MenuDeck/CantImportDeck",               new Entry("这副卡组导不进来。", "This deck can't be imported.") },
             { "MenuDeck/Error/CantStartNoWarlord",     new Entry("这套卡组还没有选战将，开不了局。",
@@ -1411,17 +1449,17 @@ namespace CardPresentation
             // ---------------------------------------------------------- ⑫·D P4（战斗 HUD / 各窗口）· 33 条
             //   🔴 判据 = `…/交件_波1_P4_战斗HUD与窗口.md` §⑤（那张 ready-to-paste 的键表）。
             //   ⛔ **两族【故意没建】**（不是漏，逐条写清理由）：
-            //     · **战斗日志那 11 句模板**（`BattleDriver.cs:5652-5676`）—— 同文件 `:5575-5639`（`G5`）的 in-code 判据写着
+            //     · **战斗日志那 11 句模板**（`BattleDriver` 里那一族）—— 同文件那段（`G5`）的 in-code 判据写着
             //       「它们没有原版 `mTerm`，接的时候要和这次重构一起决定键名，**⛔ 别先自造一批键**」；P4 也「建议【先不加】」
             //       ⇒ 等重构那一轮（**要做，只是先后** —— 铁律 11）。
             //     · **`Battle/CardWindow/TapToClose`** —— in-code 判据写着「原版子树没这个节点、`Battle/` 93 条字面量里也没有键
-            //       ⇒ 铁律 11 例外① ⇒ 保留中文不改」（`Battle/CardDisplayWindow.cs:195-201`；附件把它列成 ① 是错的）。
+            //       ⇒ 铁律 11 例外① ⇒ 保留中文不改」（`Battle/CardDisplayWindow` 里那处；附件把它列成 ① 是错的）。
             //   ⚠️ `Battle/{Hint,Log,Chat,MultiCard,ChooseCard,CardWindow}/` 整族在 `stringliteral.json` 里**不存在**
             //     （P4 逐前缀核过：`Battle/` 93 条 · `MainMenu/` 86 · `Settings/` 10 · `Tips/` 8 · `MenuShop/` 13）⇒ **这一族全自拟**。
             //   ⚠️ `Battle/Chat/*` 那 6 条：原版标签来自**远端 I2**、序列化兜底 6 个**全是 `Greetings`** ⇒ 本地没有任何一处能印真标签
-            //     （`Battle/ChatPopupPanel.cs:23-32`）；本表的 EN = 调用点现用的那 6 个英文标签，ZH 是**自拟**。
-            //   ⚠️ `Battle/BattleEnd/Rounds` 带**三个尾空格**（照 `EndPanel.cs:343` 那句 `$"{rounds} 回合   "` 的拼法）；
-            //     `RoundsOnly` / `RoundsMinFoeHealth` 是另外两种整句（`:345` / `:346`）—— ⛔ 三条别合并（值不同）。
+            //     （`Battle/ChatPopupPanel` 里那 6 个钮那段头注）；本表的 EN = 调用点现用的那 6 个英文标签，ZH 是**自拟**。
+            //   ⚠️ `Battle/BattleEnd/Rounds` 带**三个尾空格**（照 `EndPanel` 里那句 `$"{rounds} 回合   "` 的拼法）；
+            //     `RoundsOnly` / `RoundsMinFoeHealth` 是另外两种整句（同文件那三行）—— ⛔ 三条别合并（值不同）。
             { "Battle/Hint/MulliganDone",              new Entry("换牌完成，开打", "Mulligan done — battle on") },
             { "Battle/Hint/Reconnected",               new Entry("已重连并追平", "Reconnected and caught up") },
             { "Battle/Hint/DeckLoadFailed",            new Entry("卡组存档读不出来（{0}）—— 本局自动凑了一副",
@@ -1449,7 +1487,7 @@ namespace CardPresentation
             //   见 `Loc.cs` 本文件 `HasCjk`）判成「含汉字」 ⇒ 换成**半角**（1:1，与 `Settings/Online/*` 那 6 条同法）。
             //   ⚠️ **行为影响 = 零**（本件现读判据）：全仓 `*.cs` grep `Battle/Log/TurnPrefix` ⇒ **0 个调用点**
             //   （只有本行的定义）⇒ 今天没有任何地方取它。ZH 列那个全角空格**不动**（中文档本来就该有）。
-            //   ⚠️ `Battle/Log/*` 另外 12 句按 `Battle/BattleDriver.cs:5575-5639` 的 in-code 判据**仍未建**
+            //   ⚠️ `Battle/Log/*` 另外 12 句按 `Battle/BattleDriver` 里那段 in-code 判据**仍未建**
             //   （等日志重构那一轮）——那一条与本行无关，本行只是把已存在的键修干净。
             { "Battle/Log/TurnPrefix",                 new Entry("回合 {0}　{1}", "Round {0} {1}") },
             { "Battle/Log/EffectFallback",             new Entry("效果", "effect") },
@@ -1474,7 +1512,7 @@ namespace CardPresentation
             //  范围 = `Net/` 那 9 份 `.cs` 里**玩家看得见**的字（弹窗 / 提示行 / 设置窗「联机」页那一行）；
             //    ⛔ 走线文案（`Wire/*` 7 条 · 穿 TCP 到**对端屏幕**，`bye`/`ack`/`reject` 的 `reason`）**本轮不建** ——
             //       接 `Loc.T` 等于把发送方的语言灌到接收方界面上 ⇒ 单开 `P6d`（发键标识、接收侧取词）；
-            //    ⛔ `Battle/Log/*` 12 句**也不建**（`Battle/BattleDriver.cs:5575-5639` 的 in-code 判据：
+            //    ⛔ `Battle/Log/*` 12 句**也不建**（`Battle/BattleDriver` 里那段 in-code 判据：
             //       「原版记动作、我们记后果，接的时候和日志重构一起定键名 —— ⛔ 别先自造一批键」；要做、只是先后）。
             //
             //  🔴 查证口径（**两张表都搜过** —— 出处 = P6 §⑥·3）：
@@ -1492,8 +1530,8 @@ namespace CardPresentation
             //  出处：`NetSession.cs` `:102/:573` `:133` `:143` `:177` `:181/:354` `:210/:294` `:211/:295` `:256`
             //    `:289` `:311/:315/:319` `:361/:363/:367/:380` `:387/:391` `:405/:478/:420/:424/:454/:464` `:435/:443` `:550`
             //    · `NetTransport.cs` `:420/:422/:424/:425` `:210/:226/:282` `:307/:308/:311/:315/:316/:319/:372/:393` `:176/:182`
-            //  ⚠️ `St/Handshaking` **一条键两处**（`NetSession.cs:181` 与 `:354`）：两处的原文不同（`:354` 少了「连上了，」）
-            //     ⇒ 本表取 `:181` 那一版（与 P6 §③ 的英文列同形）；**`:354` 那句会跟着变**（P6a 落键时留意）。
+            //  ⚠️ `St/Handshaking` **一条键两处**（`NetSession` 里那两处）：两处的原文不同（后一处少了「连上了，」）
+            //     ⇒ 本表取前一版（与 P6 §③ 的英文列同形）；**后一处那句会跟着变**（P6a 落键时留意）。
             //  ⚠️ `St/PeerClosed`/`St/BadFrame`/`St/BadEnvelope`/`St/NotConnected`/`St/SendFailed`/`St/ReadAbort`
             //     是**间接**上屏的（经 `NetTransport._lastError` → `NetSession.LastError` → 设置窗 `_flash`），照样是 ①类。
             //  ⚠️ 与 P2 已在表的 `Settings/Online/HostFailed`（「主机没起来：」）**形状不同**（那条不带 `{0}`）⇒ 两条并存，不合并。
@@ -1606,38 +1644,38 @@ namespace CardPresentation
             { "Settings/Online/Lobby/BotSessionNotReady",   new Entry("联机会话现在是 `{0}`（还没握手完）",
                                                             "The session is now `{0}` (handshake not finished)") },
             { "Settings/Online/Lobby/BotEmptyDeck",         new Entry("这副牌是空的", "This deck is empty") },
-            { "Settings/Online/Lobby/PlayedVsBot",          new Entry("这一局**打的是电脑，不是联机**。\n原因：{0}。\n你在设置里配过联机了 —— 请到「设置 → 联机」点一次{1}，再回来点 `Battle!`。",
-                                                            "**This match is against the AI, not online.**\nReason: {0}.\nYou have configured online play — go to Settings → Online and press {1} once, then press `Battle!` again.") },
+            { "Settings/Online/Lobby/PlayedVsBot",          new Entry("这一局打的是电脑，不是联机。\n原因：{0}。\n你在设置里配过联机了 —— 请到「设置 → 联机」点一次{1}，再回来点 `Battle!`。",
+                                                            "This match is against the AI, not online.\nReason: {0}.\nYou have configured online play — go to Settings → Online and press {1} once, then press `Battle!` again.") },
             { "Settings/Online/Lobby/LobbyRestored",        new Entry("对面回来了 —— 联机已恢复。要开这一局，两边重新各点一次 `Battle!`",
                                                             "The opponent is back — online play restored. Both sides press `Battle!` once more to start.") },
-            { "Settings/Online/Lobby/StartAfterCancel",     new Entry("对面在你取消之后开局了 —— 这一局**没有进**。\n对面那边会停在等待界面上，请重新约一次。",
-                                                            "The opponent started the match after you cancelled — **this one did not go through**.\nThe other side will stay on the waiting screen; please arrange it again.") },
-            { "Settings/Online/Lobby/MissedCancel",         new Entry("对面在你开局之后才点了取消 —— 这一局**照旧开始**。\n对面那边会看到「已经开局、取消不了」，要退出只能在对局里投降。",
-                                                            "The opponent cancelled after you started — **this match starts anyway**.\nThey will see \"already started, cannot cancel\"; the only way out is to resign during the battle.") },
-            { "Settings/Online/Lobby/PeerCancelled",        new Entry("对面取消了这一局的匹配 —— **双方都没有开局**，退回大厅。\n可以各自重新点一次 `Battle!`。",
-                                                            "The opponent cancelled this match — **neither side started**, back to the lobby.\nYou can each press `Battle!` again.") },
-            { "Settings/Online/Lobby/ModeMismatch",         new Entry("两边选的模式不一样：本机是「{0}」，对面是「{1}」。\n这一局没有开成 —— 请两位换成**同一个模式**，再各自点一次 `Battle!`。",
-                                                            "You picked different modes: this machine chose \"{0}\", the opponent chose \"{1}\".\nThe match did not start — please pick **the same mode** and each press `Battle!` again.") },
+            { "Settings/Online/Lobby/StartAfterCancel",     new Entry("对面在你取消之后开局了 —— 这一局没有进。\n对面那边会停在等待界面上，请重新约一次。",
+                                                            "The opponent started the match after you cancelled — this one did not go through.\nThe other side will stay on the waiting screen; please arrange it again.") },
+            { "Settings/Online/Lobby/MissedCancel",         new Entry("对面在你开局之后才点了取消 —— 这一局照旧开始。\n对面那边会看到「已经开局、取消不了」，要退出只能在对局里投降。",
+                                                            "The opponent cancelled after you started — this match starts anyway.\nThey will see \"already started, cannot cancel\"; the only way out is to resign during the battle.") },
+            { "Settings/Online/Lobby/PeerCancelled",        new Entry("对面取消了这一局的匹配 —— 双方都没有开局，退回大厅。\n可以各自重新点一次 `Battle!`。",
+                                                            "The opponent cancelled this match — neither side started, back to the lobby.\nYou can each press `Battle!` again.") },
+            { "Settings/Online/Lobby/ModeMismatch",         new Entry("两边选的模式不一样：本机是「{0}」，对面是「{1}」。\n这一局没有开成 —— 请两位换成同一个模式，再各自点一次 `Battle!`。",
+                                                            "You picked different modes: this machine chose \"{0}\", the opponent chose \"{1}\".\nThe match did not start — please pick the same mode and each press `Battle!` again.") },
             { "Settings/Online/Lobby/StartParseFailed",     new Entry("开局参数没能解析出来，这一局开不了。\n请两边都退回主菜单，重新点一次 `Battle!`。",
                                                             "The match parameters could not be parsed, so this match cannot start.\nBoth of you go back to the main menu and press `Battle!` again.") },
 
             //  ---------------------------------------------------------- ⑬·C `Settings/Online/Cancel/*` · 3 条
-            //  出处：`NetMatchmaking.cs:62`（`WhyNoLink`）· `:63`（`WhyNotMatching`）· `:67`（`WhyStarted`）。
+            //  出处：`NetMatchmaking` 里那三处 `why = Loc.T("Settings/Online/Cancel/…")`（`WhyNoLink` / `WhyNotMatching` / `WhyStarted`）。
             { "Settings/Online/Cancel/WhyNoLink",           new Entry("联机没连上（这一局本来就没走联机）",
                                                             "Not connected online (this match was never an online one)") },
             { "Settings/Online/Cancel/WhyNotMatching",      new Entry("这一局还没进入联机匹配",
                                                             "This match has not entered online matchmaking yet") },
-            { "Settings/Online/Cancel/WhyStarted",          new Entry("这一局**已经开局了**（开局包已经发出/收到）—— 取消不了；要退出请在对局里投降。",
-                                                            "**This match has already started** (the start packet was sent/received) — it cannot be cancelled; to leave, resign during the battle.") },
+            { "Settings/Online/Cancel/WhyStarted",          new Entry("这一局已经开局了（开局包已经发出/收到）—— 取消不了；要退出请在对局里投降。",
+                                                            "This match has already started (the start packet was sent/received) — it cannot be cancelled; to leave, resign during the battle.") },
 
             //  ---------------------------------------------------------- ⑬·D `Settings/Online/Echo/*` · 2 条
-            //  出处：`NetConfig.cs:303`（`NoEcho`）· `:307`（`ProbeError`）；两处进 `SettingsWindow.EchoText()` 末尾。
+            //  出处：`NetConfig` 里那两处（`NoEcho` / `ProbeError`）；两处进 `SettingsWindow.EchoText()` 末尾。
             //  ⚠️ **2026-10-18 之后·第六会话就地订正（铁律 5，`A1064` 末条）**：那句函数名**已过期** ——
             //     `EchoText` 在 `A1064` 那一轮已改名 **`EchoFlash`**、且**返回值从 `string` 改成 `Func<string>`**
             //     （理由见 `SettingsWindow.SetFlash` 的 doc：`_flash` 改成「现算工厂」）。落点 =
             //     `Shell/SettingsWindow.cs` 的 `Func<string> EchoFlash(NetConfig.ExternalAddrs r)`。
-            { "Settings/Online/Echo/NoEcho",                new Entry("两个方向都没探到 —— **可能是回显站被网络挡了**（不是「你没有公网地址」）。",
-                                                            "Neither direction got a response — **the echo sites may be blocked by your network** (this does **not** mean \"you have no public address\").") },
+            { "Settings/Online/Echo/NoEcho",                new Entry("两个方向都没探到 —— 可能是回显站被网络挡了（不是「你没有公网地址」）。",
+                                                            "Neither direction got a response — the echo sites may be blocked by your network (this does not mean \"you have no public address\").") },
             { "Settings/Online/Echo/ProbeError",            new Entry("探测出错：{0}", "Probe error: {0}") },
 
             //  ---------------------------------------------------------- ⑬·E `Settings/Online/Upnp/*` · 9 条
@@ -1652,20 +1690,20 @@ namespace CardPresentation
                                                             "The previous \"ask the router for a port\" has not finished — skipping this time.") },
             { "Settings/Online/Upnp/Error",                 new Entry("向路由器要端口时出错：{0}",
                                                             "Error while asking the router for a port: {0}") },
-            { "Settings/Online/Upnp/NoResponse",            new Entry("没能从路由器那里问到端口映射（UPnP 没开、或路由器不支持）。\n→ 想让网友连进来：① 去路由器管理页把 **UPnP 打开** 再点一次【保存】；② 或者两边装同一个虚拟局域网工具（Tailscale / ZeroTier 这类，见【怎么联机】）。",
-                                                            "Could not get a port mapping from the router (UPnP is off, or the router does not support it).\n→ To let a friend connect: ① turn **UPnP on** in the router admin page and press Save again; ② or both install the same virtual-LAN tool (Tailscale / ZeroTier, see [How to connect]).") },
-            { "Settings/Online/Upnp/NoService",             new Entry("路由器回应了，但它**没有提供端口映射服务**（不是常见的家用路由器固件）。\n→ 这条只能走虚拟局域网工具那条路（见【怎么联机】）。",
-                                                            "The router answered, but it **does not offer a port-mapping service** (not a typical home router firmware).\n→ This one can only go through a virtual-LAN tool (see [How to connect]).") },
-            { "Settings/Online/Upnp/PortTaken",             new Entry("路由器说 **{0} 这个端口上已经有别的映射了** ⇒ 换一个端口再来（或者去路由器管理页把那条旧映射删掉）。",
-                                                            "The router says **port {0} already has another mapping** ⇒ try a different port (or delete that old mapping in the router admin page).") },
+            { "Settings/Online/Upnp/NoResponse",            new Entry("没能从路由器那里问到端口映射（UPnP 没开、或路由器不支持）。\n→ 想让网友连进来：① 去路由器管理页把 UPnP 打开 再点一次【保存】；② 或者两边装同一个虚拟局域网工具（Tailscale / ZeroTier 这类，见【怎么联机】）。",
+                                                            "Could not get a port mapping from the router (UPnP is off, or the router does not support it).\n→ To let a friend connect: ① turn UPnP on in the router admin page and press Save again; ② or both install the same virtual-LAN tool (Tailscale / ZeroTier, see [How to connect]).") },
+            { "Settings/Online/Upnp/NoService",             new Entry("路由器回应了，但它没有提供端口映射服务（不是常见的家用路由器固件）。\n→ 这条只能走虚拟局域网工具那条路（见【怎么联机】）。",
+                                                            "The router answered, but it does not offer a port-mapping service (not a typical home router firmware).\n→ This one can only go through a virtual-LAN tool (see [How to connect]).") },
+            { "Settings/Online/Upnp/PortTaken",             new Entry("路由器说 {0} 这个端口上已经有别的映射了 ⇒ 换一个端口再来（或者去路由器管理页把那条旧映射删掉）。",
+                                                            "The router says port {0} already has another mapping ⇒ try a different port (or delete that old mapping in the router admin page).") },
             { "Settings/Online/Upnp/NotPermitted",          new Entry("路由器不接受「永久」映射（错误码 725）—— 这一台得手动在路由器上做端口映射。",
                                                             "The router does not accept \"permanent\" mappings (error 725) — this one has to be mapped manually on the router.") },
-            { "Settings/Online/Upnp/Rejected",              new Entry("路由器**拒绝了**端口映射请求（错误码 {0}）。\n→ 有些固件即使开着 UPnP 也不放行入站映射，这条只能走别的路（见【怎么联机】）。",
-                                                            "The router **refused** the port-mapping request (error {0}).\n→ Some firmwares block inbound mappings even with UPnP on; this one has to take another route (see [How to connect]).") },
-            { "Settings/Online/Upnp/Cgnat",                 new Entry("✅ 端口映射要到了，**但你这台大概率在「大内网」(CGNAT) 里** ——\n路由器自己的外网地址是 {0}（**私网段**）⇒ 外面照样连不进来。\n→ 这种情况打客服电话要「公网 IP」才有用，或走虚拟局域网工具。",
-                                                            "✅ The port mapping was granted, **but this machine is very likely behind a carrier-grade NAT (CGNAT)** —\nthe router's own WAN address is {0} (**a private range**) ⇒ outside connections still will not get in.\n→ Call your ISP and ask for a \"public IP\", or use a virtual-LAN tool.") },
-            { "Settings/Online/Upnp/Ok",                    new Entry("✅ 已经在路由器上开好了 {0} 端口（TCP）{1} —— 把**外网地址 + 端口**给朋友就能连进来。",
-                                                            "✅ Port {0} (TCP) is now open on the router{1} — give the **public address + port** to a friend and they can connect.") },
+            { "Settings/Online/Upnp/Rejected",              new Entry("路由器拒绝了端口映射请求（错误码 {0}）。\n→ 有些固件即使开着 UPnP 也不放行入站映射，这条只能走别的路（见【怎么联机】）。",
+                                                            "The router refused the port-mapping request (error {0}).\n→ Some firmwares block inbound mappings even with UPnP on; this one has to take another route (see [How to connect]).") },
+            { "Settings/Online/Upnp/Cgnat",                 new Entry("✅ 端口映射要到了，但你这台大概率在「大内网」(CGNAT) 里 ——\n路由器自己的外网地址是 {0}（私网段）⇒ 外面照样连不进来。\n→ 这种情况打客服电话要「公网 IP」才有用，或走虚拟局域网工具。",
+                                                            "✅ The port mapping was granted, but this machine is very likely behind a carrier-grade NAT (CGNAT) —\nthe router's own WAN address is {0} (a private range) ⇒ outside connections still will not get in.\n→ Call your ISP and ask for a \"public IP\", or use a virtual-LAN tool.") },
+            { "Settings/Online/Upnp/Ok",                    new Entry("✅ 已经在路由器上开好了 {0} 端口（TCP）{1} —— 把外网地址 + 端口给朋友就能连进来。",
+                                                            "✅ Port {0} (TCP) is now open on the router{1} — give the public address + port to a friend and they can connect.") },
             //  🆕 **2026-10-19（P6d · A1079③）**：上面那条 `{1}` 的**碎片**（有外网地址时才填）。
             //    ⚠️ 原来是 `UpnpPortMapper.Map` 里的**裸中文字面量**「，你家的外网地址是 」+ wan
             //    ⇒ 英文档下会冒中文（上一轮已如实停手记下，本件解掉）。**碎片建成独立键**（⛔ 没改父键形状）。
@@ -1721,7 +1759,7 @@ namespace CardPresentation
             { "Settings/Graphics/UnlimitedFPS",        new Entry("不限帧",   "Unlimited") },          // 节点 `…/Content/FPS Limit/FPS Slider/Unlimited`（TMP = `Ilimitado`）· EN 自拟
 
             //  ---------------------------------------------------------- ⑭·B 图形/通用页那几条 `_flash` 状态行 · A2 · 12 条（全自拟）
-            //  🔴 **为什么算「要建」**：`Shell/SettingsWindow.cs:2873` `RefreshOnline()` =
+            //  🔴 **为什么算「要建」**：`Shell/SettingsWindow.RefreshOnline()` =
             //     `_statusLabel.SetText((_flash ?? "") + "\n" + 状态)` ⇒ 图形/通用页那几条 `_flash`
             //     **会印到联机页的状态行上**（`A1020` 的订正已推翻「图形页 `_flash` 不上屏」）⇒ 它们**是①类**（会上屏）。
             //  ⚠️ **原版无对等**（两张表都搜过）⇒ **键名与两列文案全自拟**；ZH 列 = 调用点原话逐字（见本节开头）。
@@ -1730,8 +1768,8 @@ namespace CardPresentation
             //     （例 `Loc.T("Settings/Graphics/Vsync") + " → " + On`）—— 本件按表 A 给的**最小改动版**（各起一条 `Flash/*`），
             //     ⛔ **两种只能选一种**（铁律 6）；若调度台改口径，删掉 `Flash/*` 那一族即可（一条消费点都还没有）。
             { "Settings/General/Flash/Language",       new Entry("语言 → {0}（{1}）", "Language → {0} ({1})") },  // `:1589`；`{0}` = 语言名、`{1}` = 枚举值（`Loc.Current`）
-            { "Settings/General/LangHasNoTable",       new Entry("　⚠️ 本地没有这一套文案 ⇒ 界面文字**回退英文**",
-                                                                     "⚠️ No text for this language locally ⇒ the UI text **falls back to English**") }, // `:1590`；⚠️ ZH 那个**行首全角空格 U+3000 是调用点原文**
+            { "Settings/General/LangHasNoTable",       new Entry("　⚠️ 本地没有这一套文案 ⇒ 界面文字回退英文",
+                                                                     "⚠️ No text for this language locally ⇒ the UI text falls back to English") }, // `:1590`；⚠️ ZH 那个**行首全角空格 U+3000 是调用点原文**
             { "Settings/Graphics/Flash/Quality",       new Entry("画质档 → {0}", "Quality → {0}") },               // `:1987`（`CycleQuality`）
             { "Settings/Graphics/Flash/Vsync",         new Entry("VSync → {0}", "VSync → {0}") },                 // `:1995`（`ToggleVsync`）
             { "Settings/Graphics/Flash/SmallScreenUI", new Entry("Small Screen UI → {0}", "Small Screen UI → {0}") }, // `:2006`；ZH 列照抄调用点（那串**本来就叫英文**，⛔ 别改成中文）
@@ -1900,7 +1938,7 @@ namespace CardPresentation
         /// 本表**所有中文列**（建中文字体资产时统计「要烘哪些字」的语料 —— 见
         /// `CardText.AllChinese()` 与 `Editor/TmpSetup.Corpus()`）。
         ///
-        /// <para>🔴 **2026-10-18（第十五轮 · `G5`）为什么要开这个口**：`Editor/TmpSetup.cs:500` 的语料
+        /// <para>🔴 **2026-10-18（第十五轮 · `G5`）为什么要开这个口**：`Editor/TmpSetup.Corpus()` 的语料
         /// 原来只收 `CardText.AllChinese()`，而那一份收的是 `CardText` **自己那几张表**
         /// （`Names` / `KeywordNames` / `Phrases` / `FactionNames` + 技能卡面板那几个构件）
         /// —— **⛔ 不含本表**。后果：`W6` / `G2b` / `G8` / `G9` 新加的那一大批战斗侧中文

@@ -86,10 +86,28 @@ namespace RuleEngine
             { ErrNotWaystone, "这一格不是可收集的路标石残骸" },
             // 🔴 **2026-10-18（第三会话 · 拆码的配套）**：18/19 两档**必须有中文名** ——
             //    漏了就走下面 `Describe` 的 fallback，吐「**未知错误码 19**」。
-            //    触发面是**全仓 20+ 处诊断/日志**（`grep \`RuleCodes.Describe\``：`BattleDriver.cs:635`（回放被拒）
-            //    `:717`（联机重放被拒）· `Net/NetApply.cs:103` · `Net/NetBattle.cs:998-999/1036` ·
-            //    `EffectResolver.cs:1441-1442`（强制攻击失败）· `TutorialScript.cs:917/945` ·
-            //    `Editor/RuleEngineTest.cs` 多处 `diag` · `Editor/BattleScene.cs:2998`）—— 那些地方要的是**人话**。
+            //    触发面是**全仓 20+ 处诊断/日志** —— 🔑 **认法 = `grep "RuleCodes.Describe"`**（⛔ 别按行号找）：
+            //    `BattleDriver.cs` 的 `[Replay] … 被拒` / `[Net] 重放 … 被拒` 两条 `Debug.LogError` ·
+            //    `Net/NetApply.cs` 的「这条动作被引擎拒了：…」· `Net/NetBattle.cs` 的 `Send(NetKind.Reject, …)`
+            //    与两处 `Abort(…)` · `EffectResolver.cs` 强制攻击失败那两行（`ctx.Log` + `unresolved.Add`）·
+            //    `TutorialScript.cs` 的 `Fail(ctx, …, "引擎拒绝了这次出牌/攻击：…")` 两处 ·
+            //    `Editor/RuleEngineTest.cs` 多处 `diag` · `Editor/BattleScene.cs` 的「…被拒绝（…）」那条
+            //    —— 那些地方要的是**人话**。
+            //    🔴 **2026-10-19（`A1014`）就地订正（铁律 5）**：本行原来**逐处写死行号**
+            //    （`BattleDriver.cs:635` / `:717` · `NetApply.cs:103` · `NetBattle.cs:998-999/1036` ·
+            //    `EffectResolver.cs:1441-1442` · `TutorialScript.cs:917/945` · `BattleScene.cs:2998`）。
+            //    ⚠️ **2026-10-19 记下的那几个「现读」（`:700` / `:808` / `:1019-1020` / `:1057` /
+            //    `:1481-1482`）到 2026-10-20（`A1123`）现读也【全落空】了** ——
+            //    这就是「连就地订正都会漂」的第三个实例（另两个见 `资料/普查产出_第八会话/` 的 `D1` 表）。
+            //    ⇒ **本段从此一个行号都不写**，一律按【**日志原句 + 符号名**】认（口径同 `A1039` / `A1123`）：
+            //      · `BattleDriver` 里 `[Replay] 第 {i} 条…被拒` 那条 `Debug.LogError`（放录像那条路）；
+            //      · `BattleDriver` 里 `[Net] 重放第 {i} 条…被拒` 那条 `Debug.LogError`（联机重放那条路）；
+            //      · `Net/NetBattle` 里 `Abort(…)` 与 `Send(NetKind.Reject, …)` 那几处；
+            //      · `EffectResolver` 里强制攻击失败那两行（`ctx.Log` + `unresolved.Add`）；
+            //      · `Net/NetApply.cs` 的「这条动作被引擎拒了：…」·
+            //        `TutorialScript.cs` 的 `Fail(ctx, …, "引擎拒绝了这次出牌/攻击：…")` 两处 ·
+            //        `Editor/BattleScene.cs` 的「…被拒绝（…）」那条。
+            //    ⚠️ 定位**一律以 `grep` 为准**（⛔ 别按行号找）—— 这正是 `A1123` 要的形状。
             //    ⚠️ **玩家可见的那一行不走这里**：它走 `BattleDriver.HintForCode(rc)`，18/19 **有原版键**
             //    ⇒ 落 `Loc.T(键)` 那一档（见下面 `Terms`）—— 所以这两行修的是**诊断面**。
             //    ⛔ 下面是**给人看的中文整句**，**不是** I2 词条键 ——「`Describe` 改出键」是 `A985⑧` 第 ③ 步，本轮不做。
@@ -119,13 +137,23 @@ namespace RuleEngine
         // ⛔ **本笔只做了 ① 里【本文件能做的那一半】：把映射建出来。**
         //    · **没有**改 `Describe`（那是第 ③ 步 —— 上面 `Names` 与 `Describe` 一个字没动）；
         //    · **没有**接调用点 —— 那些落点在 `CardPresentation/Battle/BattleDriver.cs`
-        //      （`SetHint(RuleCodes.Describe(rc))`，`@ ~:6916` 出牌被拒那条路 + `:7149` 技能面板
-        //      那条 `Phrase("NO LEGAL TARGET")`），**不在本代理的文件白名单里** ⇒ 只报告，不动手。
+        //      （① 玩家动作被引擎拒那条路 = `SetHint(HintForCode(rc))`；② 技能面板那一处 =
+        //      `CardText.Phrase("NO LEGAL TARGET")`），**不在本代理的文件白名单里** ⇒ 只报告，不动手。
+        //      🔴 **2026-10-19（`A1014`）就地订正（铁律 5）**：本行**原来写的是**
+        //      「`SetHint(RuleCodes.Describe(rc))`，`@ ~:6916` 出牌被拒那条路 + `:7149` ……」——
+        //      **那三个行号现读全落空**（`:6916` 是「选择答案已清空」、`:7149` 是催促提示，
+        //      两处都与之无关），而且 `SetHint(RuleCodes.Describe(rc))` **这个写法全仓已不存在**
+        //      ⇒ **改成按符号名认**（判据按 `HintForCode` / `NO LEGAL TARGET` 去 grep）；
+        //      ⛔ **别再往这里写死新行号**（同 `A1039` 的口径）。
         //    · 调用点该长成的样子（给下一位）：`SetHint(key != null && Loc.HasEntry(key) ? Loc.T(key) : RuleCodes.Describe(rc))`
-        //      （`key = RuleCodes.TermKey(rc)`；落地那一份 = `BattleDriver.HintForCodeWithKey` 的 `:7771`）。
+        //      （`key = RuleCodes.TermKey(rc)`；落地那一份 = `BattleDriver.HintForCodeWithKey`）。
         //      🔴 **2026-10-18（第四会话 · 双语③ 波 0）就地订正（铁律 5）**：本行**原来写的是**
         //      `Loc.T(RuleCodes.TermKey(rc)) ?? RuleCodes.Describe(rc)` —— **那是错的**，而且与
-        //      `BattleDriver.cs:7771` 的正确写法**并存**（= 工程红线「两处写同一条规则，迟早不一致」）。错在哪：
+        //      `BattleDriver.HintForCodeWithKey` 的正确写法**并存**（= 工程红线「两处写同一条规则，迟早不一致」）。
+        //      ⚠️ **2026-10-19（`A1014`）**：这里原来把它写成 `BattleDriver.cs:7771` —— **那个行号落空**。
+        //      🔴 **2026-10-20（`A1123`）再订正（铁律 5）**：上一句记的「`HintForCodeWithKey` 现读在 `:8043`」
+        //      **今天也落空了** ⇒ **这两处从此只按符号名认**：`BattleDriver.HintForCodeWithKey`（有键那一档）/
+        //      `BattleDriver.HintForCode`（无键那一档）。⛔ 别再往这里写任何行号。错在哪：
         //      `Loc.T` **从不返回 null**（空键回 `""`、**缺键回【键名本身】**，见 `Core/Loc.cs` 的 `T()` doc）
         //      ⇒ `??` 那一半**永不触发** —— 无键那些码会拿到 `""`（提示行**全空** = 本工程最忌讳的静默失败）、
         //      有键但表里没有的码会**把键名印到界面上**。⇒ 必须**先判键、再判表**（`Loc.HasEntry` 是**唯一**

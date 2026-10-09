@@ -434,10 +434,10 @@ namespace CardPresentation
             float uL = l / texW, uR = 1f - r / texW, vB = b / texH, vT = 1f - t / texH;
             // 🔴 **2026-10-04 修（真 bug：误报 + 中段被吃掉）**。
             //   旧写法 `if (uR <= uL || vT <= vB)` 把「**端帽正好铺满整张图**」这种**合法**形状也当成了越界：
-            //   判据 = 原版 uGUI `Image.GetAdjustedBorders`（`Runtime/UGUI/UI/Core/Image.cs:1479-1506`（关键那一条在 `:1501`：`adjustedRect.size[axis] < combinedBorders`））——
+            //   判据 = 原版 uGUI `Image.GetAdjustedBorders`（`com.unity.ugui/Runtime/UGUI/UI/Core/Image.cs` 的 `Image.GetAdjustedBorders` —— 关键那一句就是 `adjustedRect.size[axis] < combinedBorders`）——
             //   它只在 **`border.x + border.z > rect.width`**（两边边宽之和 **>** 矩形宽）时才按比例缩，
             //   **`uR == uL`（= 边宽之和 == 贴图宽）是合法形状**，中段宽就是 0（`GenerateSlicedSprite`
-            //   对「宽 ≤ 0 的那一格」是 `continue` 跳过，`Image.cs:1194-1195`）。
+            //   对「宽 ≤ 0 的那一格」是 `continue` 跳过，见 `Image.GenerateSlicedSprite`）。
             //   实测受害例：`WF_Special offer_Value` 324×87 · `m_Border = (162,0,162,0)`（L+R **正好** = 324）
             //   ⇒ `uL == uR == 0.5` ⇒ 旧代码每次都打一条「border 比图还大，退回单块」的**假警告**
             //   （`BoosterPackOpenWindow` 每个卡位一枚 `New Card Badge`、`OfferContainer` 19 个变体各一枚 —— 任务书记的实测是 **21 次**），而它根本没有退回单块。

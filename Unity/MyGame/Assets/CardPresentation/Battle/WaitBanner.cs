@@ -106,7 +106,7 @@ namespace CardPresentation
         /// <summary>`40k_popup_texture` 的**平铺格宽**（**画布 px**）= **64**。
         /// 🔴 判据 = 原版那条 `Background fill` 的 `m_PixelsPerUnitMultiplier = **2.0**`：
         ///    uGUI 的格宽 = `(m_Rect.width − 左右 border) ÷ multipliedPixelsPerUnit`
-        ///    （`Image.cs:756`：`multipliedPixelsPerUnit = pixelsPerUnit × m_PixelsPerUnitMultiplier`；
+        ///    （`Image.multipliedPixelsPerUnit` = `pixelsPerUnit × m_PixelsPerUnitMultiplier`；
         ///      `:1232`：`tileWidth = (spriteSize.x − border.x − border.z) ÷ multipliedPixelsPerUnit`），
         ///    参考分辨率 1920×1080 + Canvas `m_ReferencePixelsPerUnit = 100` + sprite `m_PixelsToUnits = 100`
         ///    ⇒ `pixelsPerUnit = 1` ⇒ **128 ÷ 2 = 64**。
@@ -224,7 +224,7 @@ namespace CardPresentation
                 //    ⇒ 同一句变成一条真正的 NRE：「美术目录被删 / 图取不到」那一档从
                 //    「打警告 + 退化」变成**抛 `NullReferenceException`**。
                 //    ⛔ 别再把建填充那几行挪回 `if` 外面（同批另外三处都判空/早退：
-                //      `Battle/SettingsPanel.cs:197` · `Battle/WfSlider.cs:103-115` · `Core/Tooltip.cs:296/309`）。
+                //      `Battle/SettingsPanel.cs` · `Battle/WfSlider.cs` · `Core/Tooltip.cs`）。
                 Debug.LogWarning("[WaitBanner] 提示条底板没建起来（`40k_popup` 没取到？）—— "
                                  + "填充层一并跳过（它挂在框下面）；整条提示不显示（`Visible` 恒假）。"
                                  + "取图请跑 `工具/import_original_art.py`");

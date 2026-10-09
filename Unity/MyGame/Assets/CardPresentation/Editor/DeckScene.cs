@@ -292,6 +292,70 @@ public static class DeckScene
             return null;
         }
 
+        /// <summary>🆕 **2026-10-19（B6）**：一张**卡背**在 `boxW×boxH` 的框里**画出来**该多大 ——
+        /// 原版 uGUI `Image` 的**两段式**（判据与算式全文 → `Core/CardbackFace.cs`）。
+        ///
+        /// <para>🔴 **为什么自检里要单独写一份**：被测那一份是 `CardbackFace.Fit`
+        /// （`CosmeticPreview.PreserveAspectSize` 转调它，`DeckRuntime` 的三处都走那条路）
+        /// —— **直接调它就是自证**（两边一起改错照样全绿）。本函数只吃三样**外部真值**：
+        /// ① **贴图资产自己的 `width/height`**（`Resources/Art/cardbacks/` 那 233 张 PNG
+        /// = 原版 `textureRect` 的裁片，实测比例 **0.6188~0.7652**）；
+        /// ② 原版字面量的框（**132×198** = `cosm_preview_img` 的 220×330 × `m_LocalScale` 0.6 ·
+        /// **250×405** = 卡背格 · **335.31×400** = 侧栏抽屉那张）；
+        /// ③ 原版那张 sprite 的 **`m_Rect` = `707×1020`**（233/233 恒定，出处 → `Core/CardbackFace.cs` 文件头）。
+        /// 算式照 uGUI 原文复述：**先按 `m_Rect` 的比例定框**（`Image.PreserveSpriteAspectRatio`），
+        /// **再按 `textureRect/m_Rect` 缩**（`Image.GetDrawingDimensions` 里那四个 `v`）。</para>
+        ///
+        /// <para>⚠️ 拿 `tex.width/height` 顶 `textureRect` 的宽高（差 ≤0.5px 的图集取整 ⇒ 尺寸上 ≤0.18px，
+        /// 容差 0.5px 挡得住）；**位置**那一半（按 `padding` 偏）由 <see cref="CardbackOffsetPx"/> 另走一路。</para>
+        ///
+        /// <para>⛔ **别只做第一段**（「按**贴图自己**的比例内接、居中」= 2026-10-18 `A994③` 那一版，
+        /// 2026-10-19 `B2` 已订正 —— 判据全文 `资料/普查产出_第八会话/B2_卡背比例两段式.md`）。</para>
+        ///
+        /// <para>ℹ️ 本函数是 `Editor/CollectionScene.cs` **同名函数的副本**（⛔ 不是转调它）——
+        /// 四个自检宿主各自一套辅助函数是本仓的**既有明账**（`CollectionScene.RectOf` 那段记着），
+        /// 而且跨宿主引别家的辅助会变成**隐式耦合**（那边实参一改、这边静默跟着变）。</para></summary>
+        static Vector2 CardbackDrawnPx(Texture2D tex, float boxW, float boxH)
+        {
+            const float RectW = 707f, RectH = 1020f;              // 原版 sprite 的 `m_Rect`（233/233 恒定）
+            if (tex == null || tex.height <= 0 || boxW <= 0f || boxH <= 0f) return new Vector2(boxW, boxH);
+            // ① 定框：比的是 **`m_Rect` 的比例**，⛔ 不是贴图自己的（这就是 B2 之前漏掉的那一段）
+            float spriteRatio = RectW / RectH, boxRatio = boxW / Mathf.Max(1e-6f, boxH);
+            float fw, fh;
+            if (spriteRatio > boxRatio) { fw = boxW; fh = boxW / spriteRatio; }   // 宽定
+            else { fh = boxH; fw = boxH * spriteRatio; }                          // 高定
+            // ② 画心 = 框 × (textureRect / m_Rect)（两轴系数相等 ⇒ 等比）
+            return new Vector2(fw * tex.width / RectW, fh * tex.height / RectH);
+        }
+
+        /// <summary>🆕 **2026-10-19（B6）**：画心相对**框中心**的偏移，**入参那个框的单位**（本文件三处都用
+        /// **画布 px**）、**y 向下**（左上原点）—— 原版 uGUI **第二段的另一半**。
+        ///
+        /// <para>数据 = 原版那张 sprite 的 **`padding`**（`Resources/Cardbacks.json` 的 `padL/padR/padB/padT`
+        /// 四列，由 `工具/gen_cardbacks.py` 从原版 `Sprite/&lt;名&gt;_Main.json` 的 `m_Rect − textureRect` 直读）。
+        /// ⚠️ **这是「原版数据」、不是「被测算法」** —— 拿被测实现算期望值才是自证；读同一份**原版数据**不算
+        /// （口径先例：`CardbackDrawnPx` 吃 `tex.width/height` 也是数据）。残余风险（**明账**）：表里某一行的
+        /// `padX` 若被生成器抄错，这一条抓不到（它只验「实现有没有按这四列挪」）；独立复核那四列要走
+        /// `d:/2/…/Sprite/*.json`，本文件**没读**（不引外部目录依赖）。</para>
+        ///
+        /// <para>算式照 uGUI 原文**独立复述**：`offset = ((padL−padR)/2, (padB−padT)/2) × (框宽 / m_Rect.w)`，
+        /// 而 uGUI 的 y **向上** ⇒ 本仓画布 px（y 向下）要**反号**（**这是最容易抄反的一处** ——
+        /// `DeckRuntime` 三处写的是 `Pos(cx + dox, cy − doy)`；预览那处走世界单位、`dy` 直接加）。</para>
+        /// 查不到该贴图（不是卡背 / 表是旧版）⇒ 返回 `false`（调用点按「前提不成立」红出来，⛔ 不静默跳过）。</summary>
+        static bool CardbackOffsetPx(Texture2D tex, float boxW, float boxH, out float dx, out float dyDown)
+        {
+            dx = dyDown = 0f;
+            if (tex == null) return false;
+            float rw, rh, pl, pr, pb, pt;
+            if (!CardbackTable.TrySpriteRect(tex.name, out rw, out rh, out pl, out pr, out pb, out pt)) return false;
+            float spriteRatio = rw / rh, boxRatio = boxW / Mathf.Max(1e-6f, boxH);
+            float fw = spriteRatio > boxRatio ? boxW : boxH * spriteRatio;
+            float k = fw / rw;                                    // == fh / rh
+            dx = (pl - pr) * 0.5f * k;
+            dyDown = -(pb - pt) * 0.5f * k;                       // uGUI 向上为正 ⇒ 本仓向下为正 = 反号
+            return true;
+        }
+
         /// <summary>🆕 **2026-10-17（B25①）**：某棵子树里第一颗 `WindowButton`（= 「这颗钮接了点击没有」）。
         /// ⚠️ **必须 `GetComponentInChildren`**：顶栏那几颗的挂载点在**子节点**上
         /// （`SettingsBtn/Image` · `InboxBtn/Image` · `Avatar Item Small/Border`），
@@ -652,6 +716,82 @@ public static class DeckScene
                       $"★ `A1007` 本宿主的**空图护栏真的跑过**（开局 {guardBase} → 现 {MenuCheck.GuardedShots}）"
                     + " —— 改前本文件**没有**护栏（`guardBlank: false`）⇒ 这里恒为 0");
 
+            // ============================================================ 🆕 2026-10-09（`A1025`）本批键全 `Loc.HasEntry` + 两语档取真文案
+            // 判据（坑表 #18）：**「原版有词条」≠「我们表里有键」** —— 键不在 ⇒ `Loc.T` 返回**键名本身**、
+            //   界面上就印 `MenuDeck/…` 这种键名（比印英文更难看、也更不容易被当成缺陷）。
+            // 🔴 **与 `A1057(f)`（`Editor/NetSelfTest.cs` 那张**表级**扫描）不是同一条、方向相反**：
+            //   那条是 **表 → 表**（表自身健康：条数 / EN 列无 CJK / 非空），本条是 **代码 → 表**
+            //   （**本批代码引的键**有没有落进表）—— 表级扫描**永远看不见**「某文件引了键 X 而 X 不在表里」。
+            // 数组 = 本批生产文件（`Deck/DeckRuntime.cs` · `Deck/DeckEditorState.cs` · `Core/FilterPanelModel.cs`）
+            //   里出现的**活键字面量** ∩ `Core/Loc.cs` 的表键（超集无害、且更严）。
+            // ⛔ 排除项（写了必红/空转）：① 前缀常量 `MenuDeck/Error/` 与格式串 `MenuDeck/Error/{0}`（不是词条键）；
+            //   ② `MenuDeck/HUD/DefaultCardback`（**只在注释里**、`A1042③` 已裁定**不建**）。
+            // 🔴 **`MenuDeck/Share/ExportSuccesful` 也【不在】本数组**：它是一条「代码引了、表里没有」的**真现象**
+            //   （`Shell/DeckInfoPopup.cs:1438` 的 `ShareSuccessTerm`），走的是 `ErrorMessageBanner.ShowMessage`
+            //   的 `fallback` 支 ⇒ **界面上不印键名**（**不是缺陷**）；它的正主是 **`A1050`**「把 `ExportSuccesful`
+            //   建进表」—— ⛔ 别把它塞进本数组然后「顺手放宽」。
+            // 🧨 改坏法：① `Loc.cs` 删掉本批任一条键 ⇒ ①红（且 ② 也会红：`Loc.T(k) == k`）；
+            //   ② 某条**英文列**填成中文/全角空格 ⇒ ③红；③ **中文列**清空 ⇒ ②红；④ 值改成键名本身 ⇒ ②红；
+            //   ⑤ 表删掉一半 ⇒ ④红（`EntryCount` 掉到基线之下）；⑥「把实现与期望一起改回写死中文 **并** 把表里那条删掉」
+            //   ⇒ ①红（数组里那条键仍在、`HasEntry` 假）—— **这正是本数组存在的唯一理由**。
+            {
+                string[] a1025Keys =
+                {
+                    "Battle/Tips/EnergyCost", "Card_Race/Warlord",
+                    "Card_Rarity/Common", "Card_Rarity/Epic", "Card_Rarity/Legendary",
+                    "Card_Rarity/Rare", "Card_Rarity/Special",
+                    "MainMenu/General/Confirm", "MainMenu/MainButtons/ButtonLabel/Back",
+                    "MenuCollection/NoCardsFound",
+                    "MenuDeck/DefaultDeckName", "MenuDeck/DemoDeckName",
+                    "MenuDeck/Error/ImportBadString", "MenuDeck/Error/ImportEmpty",
+                    "MenuDeck/Error/ImportNotPersisted", "MenuDeck/Error/InvalidDeck",
+                    "MenuDeck/Error/SaveFailed",
+                    "MenuDeck/Filters/Army", "MenuDeck/Filters/ClearFilters", "MenuDeck/Filters/Filters",
+                    "MenuDeck/Filters/ShowOwnedOnly", "MenuDeck/Filters/ShowUpgradableOnly",
+                    "MenuDeck/Filters/Type",
+                    "MenuDeck/HUD/DeckDescription/DeckInfo", "MenuDeck/HUD/DeckDescription/Minions",
+                    "MenuDeck/HUD/DeckDescription/Spells", "MenuDeck/HUD/DiscardChanges",
+                    "MenuDeck/HUD/DragCardsTip", "MenuDeck/HUD/EditDeckName", "MenuDeck/HUD/EnterText",
+                    "MenuDeck/HUD/Rarity", "MenuDeck/HUD/SearchFilter",
+                    "MenuDeck/MenuButtons/Done", "MenuDeck/NewDeckName", "MenuDeck/Share/PasteDeck",
+                    "MenuShop/ShopItemType/Cards", "MenuShop/ShopItemType/Cosmetics",
+                };
+                foreach (var k in a1025Keys)
+                    CheckTrue(Loc.HasEntry(k), $"★（A1025）本批键都在表里：`{k}`");
+                // ② 两语档各取一次、都非空且 ≠ 键名（只断中文档 = 半边绿）
+                var a1025LangWas = Loc.Current;
+                foreach (var lang in new[] { AvailableLanguages.Chinese, AvailableLanguages.English })
+                {
+                    Loc.RestoreForTest(lang);
+                    int bad = 0; string firstBad = null;
+                    foreach (var k in a1025Keys)
+                    {
+                        string v = Loc.T(k);
+                        if (string.IsNullOrEmpty(v) || v == k) { bad++; if (firstBad == null) firstBad = k; }
+                    }
+                    CheckTrue(bad == 0,
+                              $"★（A1025）`{lang}` 档下 {a1025Keys.Length} 条**全部取到真文案**（缺 {bad} 条"
+                            + (firstBad == null ? "" : $"，第一条 `{firstBad}`") + "）"
+                            + " —— 取不到时会印**键名本身**，那就是静默失败");
+                }
+                Loc.RestoreForTest(a1025LangWas);      // ⛔ `RestoreForTest`（只改内存、不写 `PlayerPrefs`），不是 `SetLanguage`
+                // ③ 灭自证 C1：英文列不许含汉字（`Loc.HasCjk` 的区间含 `0x3000-0x303F` 与 `0xFF00-0xFFEF`）
+                {
+                    int cjk = 0; string firstCjk = null;
+                    foreach (var k in a1025Keys)
+                    {
+                        string en = Loc.EnOf(k);
+                        if (!string.IsNullOrEmpty(en) && Loc.HasCjk(en)) { cjk++; if (firstCjk == null) firstCjk = k; }
+                    }
+                    CheckTrue(cjk == 0, $"★（A1025）本批 {a1025Keys.Length} 条的**英文列无 CJK**（坏 {cjk} 条"
+                                        + (firstCjk == null ? "" : $"，第一条 `{firstCjk}`") + "）");
+                }
+                // ④ 灭自证 D（表基线）：开工前实测 `EntryCount == 429`
+                CheckTrue(Loc.EntryCount >= 429,
+                          $"★（A1025）表基线：`Loc.EntryCount` = {Loc.EntryCount} ≥ **429**（开工前实测）"
+                        + "｜🧨 把键删掉、断言也一起删 ⇒ 这条红");
+            }
+
             int total = _sink.Pass + _sink.Fail;
             if (_sink.Fail == 0) Debug.Log(P + $"=== 结束：{_sink.Pass}/{total} 全过 ✅ ===");
             else
@@ -900,6 +1040,27 @@ public static class DeckScene
         //   · 「拖 vs 滚动」= `SupportMethods.IsScrollDragThreshold`，常量 `read_literal.py` 直读
         //     （`Vector2.right` · 60 · 120 · `Vector2.kEpsilonNormalSqrt`）
         // ⚠️ 批处理没有真鼠标 ⇒ 全程喂**合成坐标**（`UiCosmeticDragBegin/Move/End`，与鼠标那条路同一批函数）。
+
+        /// <summary>🆕 **2026-10-19（B6）**：把第 `idx` 格卡背**起拖**并停到 `(toX,toY)`，量出**预览画心**
+        /// 的渲染中心（画布 px）。⚠️ **不松手** —— 收尾由调用方自己 `UiCosmeticDragEnd(栏外的点, …)`
+        /// （那样既量得到拖动中的几何，又不会顺手把装备换掉）。
+        /// 取不到（那一格不在这屏 / 起不了拖 / 量不到渲染矩形）⇒ `false`（调用方按前提红出来，⛔ 不静默）。</summary>
+        static bool PreviewDrawnCenterAt(int idx, float toX, float toY, out float cx, out float cy)
+        {
+            cx = cy = 0f;
+            var rt = _rt;
+            if (rt == null) return false;
+            float px, py;
+            if (!rt.UiCosmeticCellCenter(idx, out px, out py)) return false;
+            if (!rt.UiCosmeticDragBegin(px, py, toX, toY)) return false;    // 起拖点 = 那一格中心（纯水平位移）
+            rt.UiCosmeticDragMove(toX, toY);                                // 原版 `OnDrag`：预览贴到指针
+            float x1, y1, x2, y2;
+            if (!UnionQuadsPx(rt.UiCosmeticPreviewGo.transform, out x1, out y1, out x2, out y2)) return false;
+            cx = (x1 + x2) * 0.5f;
+            cy = (y1 + y2) * 0.5f;
+            return true;
+        }
+
         static void TestCosmeticDrag()
         {
             var rt = _rt;
@@ -950,12 +1111,15 @@ public static class DeckScene
             //  ⚠️ 起拖点必须落在**第 2 行**（`cy ≈ 763.5`）：第 1 行 `cy ≈ 358.5` 差 2.5px 就进不了落点栏
             //     （y 360.97..1010.03）、第 3 行 `cy ≈ 1168.5` 已在屏幕外 ⇒ **只有第 2 行那六格**
             //     既能起拖、松手又落在栏里。
-            //  🔴 **2026-10-18（`A994③`）**：这六格里**挑一张「贴图比例离 220/330 最远」的**当探针 ——
-            //     原版那颗 `Image` 是 `m_PreserveAspect = 1`（**按贴图自己的比例内接**），
-            //     内接尺寸 = `132 × 132/比例`（宽定）或 `198×比例 × 198`（高定）；
-            //     比例越靠近 220/330，「内接」与「拉满」算出来越接近 ⇒ 挑到那种卡背时下面那两条**会空转**
-            //     （本仓 233 张卡背里确有 11 张落在 0.652~0.667 这个窄带）。
-            //     ⛔ 别退回写死一格：写死哪一格就等于赌哪一张卡背的比例，赌输就是「假绿」。
+            //  🔴 **2026-10-19（B6）就地订正（铁律 5）**：探针的判据换成「**旧口径与新口径差最远**」——
+            //     旧口径 = 「按**贴图自己**的比例内接、居中」（2026-10-18 `A994③` 那一版）；
+            //     新口径 = **两段式**（① 按 sprite 的 **`m_Rect`（707×1020）定框**；② 贴图再按
+            //     **`textureRect/m_Rect` 缩**、并按 `padding` 挪位 —— 判据全文 → `Core/CardbackFace.cs`）。
+            //     ⇒ 「内接 vs 拉满」这个旧判据在两段式下已经**指不准**：**宽**现在也会缩
+            //     （最坏缩到 86%），差得最远的那一格未必还是旧的判据挑出来的那一格。
+            //     挑错探针 ⇒ 下面那两条**会空转**（看着绿，其实两种口径算出来一样）。
+            //     ⛔ 别退回写死一格：写死哪一格 = 赌那张卡背的 `m_Rect`/`textureRect` 关系，赌输就是「假绿」。
+            const float PrevBoxW = 132f, PrevBoxH = 198f;   // 外接框 = 原版 `Image` 的 220×330 × scale 0.6
             int Cell = -1;
             float expW = 0f, expH = 0f, probeAspect = 0f, probeD = 0f;
             for (int i = 6; i < 12 && i < names.Length; i++)
@@ -963,15 +1127,17 @@ public static class DeckScene
                 var tx = rt.UiCosmeticTex(names[i]);            // 与建格**同一条**会出声的取值路
                 if (tx == null || tx.height <= 0) continue;
                 float s = tx.width / (float)tx.height;
-                float iw = 132f, ih = 198f;                     // 外接框 132×198 里**内接**之后的两维
-                if (s > 220f / 330f) ih = 132f / s; else iw = 198f * s;
-                float dd = Mathf.Max(Mathf.Abs(iw - 132f), Mathf.Abs(ih - 198f));
-                if (dd > probeD) { probeD = dd; Cell = i; expW = iw; expH = ih; probeAspect = s; }
+                // ⛔ 下面这两个期望值**都不许**调被测实现（`CardbackFace.Fit` / `PreserveAspectSize` = 自证）
+                var neu = CardbackDrawnPx(tx, PrevBoxW, PrevBoxH);                  // 两段式（现在的口径）
+                var old = s > PrevBoxW / PrevBoxH                                   // 「只做第一段」那一版
+                        ? new Vector2(PrevBoxW, PrevBoxW / s) : new Vector2(PrevBoxH * s, PrevBoxH);
+                float dd = Mathf.Max(Mathf.Abs(neu.x - old.x), Mathf.Abs(neu.y - old.y));
+                if (dd > probeD) { probeD = dd; Cell = i; expW = neu.x; expH = neu.y; probeAspect = s; }
             }
             CheckTrue(Cell >= 0 && probeD > 3f,
-                      $"（前提）第 2 行里挑得到一张「内接 ≠ 拉满」的探针 —— 第 {Cell + 1} 格 · 贴图比例 "
-                    + $"{probeAspect:0.####} · 两种算法差 {probeD:0.##}px"
-                    + "（差 ≤ 3px 说明本节那两条会**空转** ⇒ 这一条先红，⛔ 别放它过去）");
+                      $"（前提）第 2 行里挑得到一张「两段式 ≠ 只做第一段」的探针 —— 第 {Cell + 1} 格 · 贴图比例 "
+                    + $"{probeAspect:0.####} · 两种口径差 {probeD:0.##}px"
+                    + "（差 ≤ 3px 说明下面那两条会**空转** ⇒ 这一条先红，⛔ 别放它过去）");
             if (Cell < 0) return;
             float cx6, cy6;
             CheckTrue(rt.UiCosmeticCellCenter(Cell, out cx6, out cy6), $"（前提）第 {Cell + 1} 格在这一屏里");
@@ -990,22 +1156,35 @@ public static class DeckScene
             {
                 // 预览**画出来**的框 = 原版 `Collection Cosmetic > content > Image_…` 那颗 `Image`
                 //   的 `sizeDelta` **220×330** × `m_LocalScale` 0.6 = **外接框 132×198**；
-                //   🔴 **画出来 ≠ 外接框** —— 那颗 `Image` 带 **`m_PreserveAspect = 1`** ⇒ 真画出来的是
-                //   **按贴图自己的比例内接进 132×198**（uGUI `Image.PreserveSpriteAspectRatio`）。
+                //   🔴 **画出来 ≠ 外接框** —— 那颗 `Image` 带 **`m_PreserveAspect = 1`**。
                 // 🔴 **2026-10-18（`A994③`）就地订正**：`A944` 那轮把 `m_PreserveAspect = 1` 读成
-                //   「比例就取 220/330」（= **拉满**）⇒ 下面两条当时钉的是**旧错值 132×198**。
-                //   口径/判据全文 → `Core/DraggableController.cs` 的 `CosmeticPreview.PreserveAspectSize`。
+                //   「比例就取 220/330」（= **拉满**）⇒ 那两条当时钉的是**旧错值 132×198**。
+                // 🔴 **2026-10-19（B6）再订正（铁律 5）**：`A994③` 那一版只做了 uGUI 的**第一段**
+                //   （「按**贴图自己**的比例内接」）—— 原版是**两段**：① 按 sprite 的 `m_Rect` 定框；
+                //   ② 贴图再按 **`textureRect/m_Rect`** 缩（⇒ **宽也会缩**，最坏 86%）并按 `padding` 挪位。
+                //   口径/判据全文 → `Core/CardbackFace.cs`（本仓**唯一**一份）。
+                //   期望值现算走 `CardbackDrawnPx` / `CardbackOffsetPx`（⛔ **不调** `CardbackFace.Fit` /
+                //   `CosmeticPreview.PreserveAspectSize` —— 那是被测实现本身，调它算期望值 = 自证）。
                 float x1, y1, x2, y2;
                 CheckTrue(UnionQuadsPx(rt.UiCosmeticPreviewGo.transform, out x1, out y1, out x2, out y2),
                           "（前提）预览那一棵能量出渲染矩形");
                 CheckNear(x2 - x1, expW, 0.5f,
                           $"★ 预览**画出来**的宽 = **{expW:0.##}**（探针第 {Cell + 1} 格的贴图比例 "
-                        + $"{probeAspect:0.####} ⇒ 与外接框 132×198 内接之后的那一维）"
-                        + "｜🧨 改坏法：删掉 `CosmeticPreview.Initialize` 里那跳 `PreserveAspectSize`"
-                        + "（= 回到「拉满 132×198」）⇒ 红");
+                        + $"{probeAspect:0.####} ⇒ 两段式：**框宽 132 × `textureRect`/`m_Rect` 的宽那一半**；"
+                        + $"贴图宽/707 = {expW / 132f:0.####}。"
+                        + "⛔ 「宽恒 132」是 `A994③` 那一版（只做了第一段））"
+                        + "｜🧨 改坏法：把 `Core/CardbackFace.cs` 的 `Fit` 里 `w = fw*sw` 改成 `w = fw`"
+                        + "（= 只定框、不按 `textureRect` 缩）⇒ **这一条**红（高那条不红）");
                 CheckNear(y2 - y1, expH, 0.5f,
-                          $"★ ……高 = **{expH:0.##}**（同上；**拉满那一档恒为 198**）"
-                        + "｜🧨 改坏法：同上");
+                          $"★ ……高 = **{expH:0.##}**（= (132×1020/707) × `textureRect`高/1020；"
+                        + "⛔ 「拉满那一档恒为 198」、「只做第一段」那一档都不等于它）"
+                        + "｜🧨 改坏法：同上（这一条就是那处改动的**唯一**看门人）");
+                // 🔴 **灭自证**：这一条与上面两条**结构上不可能同时被「拉伸」那种实现满足** ——
+                //   拉伸时高恒等于外接框高 198 ⇒ 本条红。
+                CheckTrue(y2 - y1 < 198f - 1f,
+                          $"★ 灭自证：实绘高 {y2 - y1:0.##} **严格小于**外接框高 198（拉伸那种实现恒等于 198 ⇒ 红）");
+                // 🧨 **偏移那一半**的改坏法（改坏的是 `padding` 那一截，**上面三条一条都不会红**：
+                //   它们只量宽高、量不到位置）⇒ 抓它的在下面 ⑦ 那两条差分断言。
             }
             rt.UiCosmeticDragMove(DropX, cy6);
             {
@@ -1032,6 +1211,70 @@ public static class DeckScene
                       "★ **竖向位移（90°）⇒ 不起拖**（原版 `IsScrollDragThreshold`：那是滚动的手势）");
             CheckTrue(!rt.UiCosmeticDragging && !rt.UiCosmeticPreviewActive, "……既没起拖、预览也没显形");
             Check(rt.EquippedCardback, names[Cell], "……装备当然也没变");
+
+            // ---- ⑦ 🆕 2026-10-19（B6）：卡背「两段式」的**偏移那一半**（预览件）----
+            //  判据 = 原版那张 sprite 的 `padding`（`Resources/Cardbacks.json` 的四列）⇒ **换一张
+            //  padding 不同的卡背，画心会挪**（`offset = ((padL−padR)/2, (padB−padT)/2) × 框宽/707`）。
+            //  🔴 **为什么用差分、不写绝对期望值**：预览那颗 quad 的 `localPosition` 记的是**布局框中心
+            //     的世界坐标**（`DeckRuntime.BuildCosmeticDrag` 那句 `Pos(pcx, pcy)`），而拖拽把**根**
+            //     挪到指针上 ⇒ 画心的绝对位置 = 根 + 布局框中心 + 偏移。把那两个常量抄进期望值 = 把
+            //     **实现细节**钉进断言（⛔ 另一族毛病）。**差分把「根 + 框中心」一起消掉**，
+            //     左边只剩「原版 `padding` 算出来的那一截」——两根都停在同一落点上，那一项**逐位相消**。
+            //  🧨 改坏法（三条，抓的都是**上面那三条尺寸断言抓不到**的那一半）：
+            //     (a) 把 `Core/CardbackFace.cs` 的 `Fit` 里 `dx = …` / `dyUp = …` 两行删掉（偏移恒 0）
+            //         ⇒ **两条都红**（差变 0）；(b) 把 `CosmeticPreview.Initialize` 里
+            //         `+ new Vector3(dox, doyUp, 0f)` 删掉 ⇒ 同样两条都红；
+            //     (c) 把那一句的 `doyUp` **反号** ⇒ **纵向那条红**（uGUI 的 y 向上、本处世界单位是 y 向上
+            //         ⇒ ⛔ 这里**不许**反号 —— 反号那一处是 `DeckRuntime` 的画布 px 那两处）。
+            {
+                int offA = -1, offB = -1;
+                float offD = 0f, oax = 0f, oay = 0f, obx = 0f, oby = 0f;
+                for (int ia = 6; ia < 12 && ia < names.Length; ia++)
+                {
+                    var ta = rt.UiCosmeticTex(names[ia]);
+                    float ax, ay;
+                    if (ta == null || !CardbackOffsetPx(ta, PrevBoxW, PrevBoxH, out ax, out ay)) continue;
+                    for (int ib = ia + 1; ib < 12 && ib < names.Length; ib++)
+                    {
+                        var tb = rt.UiCosmeticTex(names[ib]);
+                        float bx, by;
+                        if (tb == null || !CardbackOffsetPx(tb, PrevBoxW, PrevBoxH, out bx, out by)) continue;
+                        float dd = Mathf.Max(Mathf.Abs(bx - ax), Mathf.Abs(by - ay));
+                        if (dd > offD) { offD = dd; offA = ia; offB = ib; oax = ax; oay = ay; obx = bx; oby = by; }
+                    }
+                }
+                string offPair = offA >= 0
+                               ? $"第 {offA + 1} 格（{names[offA]}）与第 {offB + 1} 格（{names[offB]}）" : "（没挑到）";
+                CheckTrue(offA >= 0 && offD > 1.5f,
+                          $"（前提）第 2 行里挑得到一对「`padding` 偏移差 > 1.5px」的卡背 —— "
+                        + offPair
+                        + $" · 两对的偏移差 ({obx - oax:0.##}, {oby - oay:0.##})px · 最大 {offD:0.##}px"
+                        + "（差 ≤ 1.5px ⇒ 下面两条量不出牙 ⇒ 这一条先红）"
+                        + "；⚠️ 表是旧版（没有四列 `padding`）⇒ 本函数恒 false ⇒ 这里也会红（跑 "
+                        + "`python d:/4/Unity/工具/gen_cardbacks.py` 重生成）");
+                if (offA >= 0 && offD > 1.5f)
+                {
+                    float acx, acy, bcx, bcy;
+                    bool okA = PreviewDrawnCenterAt(offA, DropX, cy6, out acx, out acy);
+                    CheckTrue(okA, $"（前提）第 {offA + 1} 格起拖得起来、且量得到预览画心的渲染中心");
+                    CheckTrue(!rt.UiCosmeticDragEnd(1200f, cy6),
+                              "……落点选在栏**外** ⇒ 不投递（⛔ 别在这一节里顺手把装备换了）");
+                    bool okB = PreviewDrawnCenterAt(offB, DropX, cy6, out bcx, out bcy);
+                    CheckTrue(okB, $"（前提）第 {offB + 1} 格同样量得到");
+                    CheckTrue(!rt.UiCosmeticDragEnd(1200f, cy6), "……同样不投递");
+                    // 前提不成立 ⇒ 只留上面那两条红（⛔ 不级联出两条「量了 0」的假红）
+                    if (okA && okB)
+                    {
+                        CheckNear(bcx - acx, obx - oax, 0.5f,
+                                  $"★ 预览画心**横向**跟着 `padding` 挪：换一张卡背 ⇒ 横移 **{obx - oax:0.##}px**"
+                                + "（= ((padL−padR)/2 × 132/707) 的差 —— 没做偏移那一半时**恒为 0**）");
+                        CheckNear(bcy - acy, oby - oay, 0.5f,
+                                  $"★ ……纵向 = **{oby - oay:0.##}px**（同上；⛔ 预览这一处是世界单位、"
+                                + "`dy` 向上为正 ⇒ **不反号** —— 反了这条红）"
+                                + "｜🧨 改坏法见本节开头那 (a)(b)(c) 三条");
+                    }
+                }
+            }
 
             // ---- ⑥ 卡牌那一支（原版 `CardDraggingController` · 拖影卡行 287.9×55.7）----
             //  ⚠️ 挑一张**现在真加得进去**的卡：`CanAdd` 过不了的卡原版**就不起拖**（弹错误消息），
@@ -2962,23 +3205,28 @@ public static class DeckScene
                 // 🔴 **为什么单开这一组**：上面那六条只钉了**框**（250×405）与视口常量（1589.78…），
                 //    **一条也量不到「真画出来多大」** ⇒ 上一批把 `SetAspect(250/405)`（= **拉伸**）
                 //    换成「**按贴图自己的比例内接**」（原版那一格 `Cardback Container > Cardback` 的
-                //    `Image` 带 `m_PreserveAspect = 1`；实现 = `CosmeticPreview.PreserveAspectSize`）
-                //    之后，**卡背格这一处在断言上无牙** —— 改回拉伸照样全绿。这一组堵这个口。
-                // 🔴 **期望值怎么现算**（⛔ **不调** `PreserveAspectSize`）：**直接调它 = 自证**
-                //    —— 它就是把被测的那条算式，拿去当期望值，它自己算错时期望值跟着一起错 ⇒ 照样绿。
-                //    这里只用两条**独立真值**：① **贴图自己的 `width/height`**（`Resources/Art/cardbacks/`
-                //    那 233 张 PNG 的像素尺寸，实测比例 **0.6188~0.7652**）② 框常量 250×405；
-                //    算式逐句照 uGUI `Image.PreserveSpriteAspectRatio`（`Image.cs`，本机现读）：
-                //    贴图比框「更宽」⇒ **宽定、高缩**，否则**高定、宽缩**。
+                //    `Image` 带 `m_PreserveAspect = 1`）之后，**卡背格这一处在断言上无牙** ——
+                //    改回拉伸照样全绿。这一组堵这个口。
+                // 🔴 **2026-10-19（B6）就地订正（铁律 5）**：期望值原来是「**只做第一段**」那一版
+                //    （= 按**贴图自己**的比例内接）—— 原版是**两段**：① 按 sprite 的 **`m_Rect`（707×1020）
+                //    定框**；② 贴图再按 **`textureRect/m_Rect`** 缩、并按 **`padding`** 挪位。
+                //    ⇒ 对已裁成 `textureRect` 的卡背：**宽也会缩**（⛔ 不是「宽恒 250」）+ **画心不居中**。
+                //    口径/判据全文 → `Core/CardbackFace.cs`（本仓**唯一**一份）。
+                // 🔴 **期望值怎么现算**（⛔ **不调** `CardbackFace.Fit` / `PreserveAspectSize`）：**直接调它就是自证**
+                //    —— 它把被测的那条算式拿去当期望值，它自己算错时期望值跟着一起错 ⇒ 照样绿。
+                //    这里只用三样**独立真值**：① **贴图自己的 `width/height`**（`Resources/Art/cardbacks/`
+                //    那 233 张 PNG 的像素尺寸）② 框常量 250×405；③ 原版那张 sprite 的 **`m_Rect` = `707×1020`**
+                //    （233/233 恒定，出处 → `Core/CardbackFace.cs` 文件头）—— 算式逐句照 uGUI 原文复述。
                 {
                     _rt.UiScrollCosmetics(-1e6f);      // 回顶（本节下面那几条点击也是按「滚到顶」算坐标的）
                     Check(_rt.CosmoScrollPx, 0f, "（前提）卡背网格在顶 —— 探针格与后面的点击都按这一屏算");
-                    // 选靶：**不写死格号** —— 贴图比例越大的那张，「内接」与「拉满」差得越远，
-                    //   写死一格 = **赌那张卡背的比例**，赌输（例如落到 0.6188~0.667 那条窄带里）
-                    //   这两条就**空转**、看着绿其实什么都没查。同时**跳过被视口切过的格** ——
-                    //   裁切之后量到的不是「它该画多大」（判据用**内接之后**的矩形，不是外接框）。
-                    int cbProbe = -1;
+                    // 选靶：**不写死格号**。🆕 **2026-10-19（B6）**：旧判据是「内接离**拉满**多远」——
+                    //   两段式之后**宽也会缩**，旧判据挑出来的那一格未必是差得最远的 ⇒ 换成「**旧口径与
+                    //   新口径逐维差的最大值**」（差 ≤3px 时下面那两条**空转**、看着绿其实什么都没查）。
+                    //   同时**跳过被视口切过的格** —— 裁切之后量到的不是「它该画多大」。
+                    int cbProbe = -1, cbOffProbe = -1;
                     float cbS = 0f, cbExpW = 0f, cbExpH = 0f, cbDev = 0f;
+                    float cbOffX = 0f, cbOffY = 0f, cbOffSum = 0f;
                     for (int cbI = 0; cbI < names.Length; cbI++)
                     {
                         float cbPcx, cbPcy;
@@ -2986,38 +3234,85 @@ public static class DeckScene
                         var cbTx = _rt.UiCosmeticTex(names[cbI]);   // 与建格**同一条**会出声的取值路
                         if (cbTx == null || cbTx.height <= 0) continue;
                         float cbRatio = cbTx.width / (float)cbTx.height;                      // 贴图自己的比例
-                        bool cbWide = cbRatio > 250f / 405f;                                  // 贴图比框「更宽」？
-                        float cbEw = cbWide ? 250f : 405f * cbRatio;                          // 宽定 / 高定
-                        float cbEh = cbWide ? 250f / cbRatio : 405f;
-                        // 视口 = `CosmoView`（上六条刚核过：155.97 / 924.06）—— 内接后的矩形露出去了就跳过
-                        if (cbPcy - cbEh * 0.5f < 155.97f || cbPcy + cbEh * 0.5f > 155.97f + 924.06f) continue;
-                        float cbD = Mathf.Abs(cbEh - 405f);                                   // 「内接」离「拉满」多远
-                        if (cbD > cbDev) { cbDev = cbD; cbProbe = cbI; cbS = cbRatio; cbExpW = cbEw; cbExpH = cbEh; }
+                        // ⛔ 下面这两个期望值**都不许**调被测实现（`CardbackFace.Fit` / `PreserveAspectSize` = 自证）
+                        var cbNeu = CardbackDrawnPx(cbTx, 250f, 405f);                        // 两段式（现在的口径）
+                        var cbOld = cbRatio > 250f / 405f                                     // 「只做第一段」那一版
+                                  ? new Vector2(250f, 250f / cbRatio) : new Vector2(405f * cbRatio, 405f);
+                        // 视口 = `CosmoView`（上六条刚核过：155.97 / 924.06）—— **画出来**的矩形露出去了就跳过
+                        if (cbPcy - cbNeu.y * 0.5f < 155.97f || cbPcy + cbNeu.y * 0.5f > 155.97f + 924.06f) continue;
+                        float cbD = Mathf.Max(Mathf.Abs(cbNeu.x - cbOld.x), Mathf.Abs(cbNeu.y - cbOld.y));
+                        if (cbD > cbDev) { cbDev = cbD; cbProbe = cbI; cbS = cbRatio; cbExpW = cbNeu.x; cbExpH = cbNeu.y; }
+                        // 🆕 位置那一半的靶：**两轴都要够大** —— 任一轴 ≈0 时那条断言与「恒居中」那种
+                        //   实现**分不开**（弱断言）。⚠️ 本仓一屏（= 完全落在视口里的行 0~1 那 12 格）
+                        //   满足「两轴都 > 1.5px」的**只有 2 格** ⇒ 挑不到就是数据变了，那要红出来。
+                        float cbdX, cbdY;
+                        if (CardbackOffsetPx(cbTx, 250f, 405f, out cbdX, out cbdY)
+                            && Mathf.Abs(cbdX) > 1.5f && Mathf.Abs(cbdY) > 1.5f)
+                        {
+                            float cbSum = Mathf.Abs(cbdX) + Mathf.Abs(cbdY);
+                            if (cbSum > cbOffSum) { cbOffSum = cbSum; cbOffProbe = cbI; cbOffX = cbdX; cbOffY = cbdY; }
+                        }
                     }
                     CheckTrue(cbProbe >= 0 && cbDev > 3f,
-                              $"（前提）挑得到一格「内接 ≠ 拉满」的探针 —— 第 {cbProbe + 1} 格 · 贴图比例 "
-                            + $"{cbS:0.####} · 两种算法差 {cbDev:0.##}px"
+                              $"（前提）挑得到一格「两段式 ≠ 只做第一段」的探针 —— 第 {cbProbe + 1} 格 · 贴图比例 "
+                            + $"{cbS:0.####} · 两种口径差 {cbDev:0.##}px"
                             + "（差 ≤ 3px 说明下面两条**空转** ⇒ 这一条先红，⛔ 别放它过去）");
                     if (cbProbe >= 0
                         && _rt.UiQuadRect("cosm_cell" + cbProbe, out float cbMx, out float cbMy,
                                           out float cbMw, out float cbMh))
                     {
-                        // 实测 233 张的比例**全部 > 250/405 = 0.61728** ⇒ 一律走**宽定**那一支
-                        //   （宽仍是 250、高缩成 `250 ÷ 比例`）。
+                        // 实测 233 张的 `m_Rect` 比例一律 707/1020 = 0.69314 > 框比例 250/405 = 0.61728
+                        //   ⇒ **一律宽定**：框宽 250、框高 = 250 ÷ 0.69314 = **360.68**；
+                        //   画心 = 框 × (`textureRect`/`m_Rect`) ⇒ 宽 = 250 × 贴图宽/707（⛔ 不是恒 250）。
                         CheckNear(cbMw, cbExpW, 0.5f,
                                   $"★ 卡背格**画出来**的宽 = **{cbExpW:0.##}**（第 {cbProbe + 1} 格 · 框 250×405 · "
-                                + $"贴图比例 {cbS:0.####} ⇒ **宽定** ⇒ 宽就是框宽）"
-                                + "｜🧨 改坏法：把 `Deck/DeckRuntime.cs` 的 `RefreshCosmetics` 里那跳 "
-                                + "`CosmeticPreview.PreserveAspectSize` 删掉、退回 `SetAspect(250/405)` ⇒ 下一条红");
+                                + $"贴图比例 {cbS:0.####} ⇒ 两段式：**框宽 250 × `textureRect`/`m_Rect` 的宽那一半**；"
+                                + $"贴图宽/707 = {cbExpW / 250f:0.####}。⛔ 「宽恒 250」是只做第一段那一版）"
+                                + "｜🧨 改坏法：把 `Core/CardbackFace.cs` 的 `Fit` 里 `w = fw*sw` 改成 `w = fw`"
+                                + "（= 只定框、不按 `textureRect` 缩）⇒ **这一条**红（高那条不红）");
                         CheckNear(cbMh, cbExpH, 0.5f,
-                                  $"★ ……高 = **{cbExpH:0.##}** = 250 ÷ 贴图比例（**拉满那一档恒为 405**，与它差 "
-                                + $"{cbDev:0.##}px）｜🧨 改坏法：同上（这一条就是那处改动的**唯一**看门人）");
+                                  $"★ ……高 = **{cbExpH:0.##}** = (250×1020/707) × `textureRect`高/1020"
+                                + $"（**拉满那一档恒为 405**、只做第一段那一档是 250 ÷ 贴图比例，与它差 "
+                                + $"{cbDev:0.##}px）"
+                                + "｜🧨 改坏法：把同一条 `Fit` 里 `h = fh*sh` 改成 `h = fh` ⇒ **这一条**红"
+                                + "（宽那条不红；这一条就是那处改动的**唯一**看门人）");
                         // 🔴 **灭自证**：这一条与上一条**结构上不可能同时被「拉伸」那种实现满足** ——
-                        //   拉伸时宽**确实**是 250（上面那条照样绿），但高恒等于 405 ⇒ 本条红。
+                        //   拉伸时宽**确实**是 250（宽那条照样绿），但高恒等于 405 ⇒ 本条红。
                         CheckTrue(cbMh < 405f - 1f,
                                   $"★ 灭自证：实绘高 {cbMh:0.##} **严格小于**框高 405（拉伸那种实现恒等于 405 ⇒ 红）");
                     }
                     else CheckTrue(false, $"（前提）第 {cbProbe + 1} 格量得到渲染矩形（`cosm_cell{cbProbe}`）");
+
+                    // ---- 🆕 2026-10-19（B6）★ 画心**不居中**（原版按 sprite 的 `padding` 偏）----
+                    //  这一组是**新行为**：B2 之前「内接 + 居中」是全部，`padding` 那一半**一条断言都没有**。
+                    //  期望值 = `((padL−padR)/2, −(padB−padT)/2) × 250/707`（`CardbackOffsetPx` 吃原版数据、独立复述）。
+                    CheckTrue(cbOffProbe >= 0,
+                              $"（前提）挑得到一格「`padding` 的**两轴**偏移都 > 1.5px」的卡背 —— 第 {cbOffProbe + 1} 格 · "
+                            + $"该挪 ({cbOffX:0.##}, {cbOffY:0.##})px（⛔ 两轴都要够大：任一轴 ≈0 时那条断言"
+                            + "与「恒居中」那种实现**分不开** = 弱断言）");
+                    if (cbOffProbe >= 0)
+                    {
+                        // ⚠️ 先给初值：下面那两条读数用 `&&` 连起来（短路）⇒ 编译器没法证明第 2 个 `out` 一定跑过
+                        float cboCx = 0f, cboCy = 0f, cboMx = 0f, cboMy = 0f, cboW = 0f, cboH = 0f;
+                        bool cboOk = _rt.UiCosmeticCellCenter(cbOffProbe, out cboCx, out cboCy)
+                                  && _rt.UiQuadRect("cosm_cell" + cbOffProbe, out cboMx, out cboMy, out cboW, out cboH);
+                        CheckTrue(cboOk, $"（前提）第 {cbOffProbe + 1} 格量得到格中心与渲染矩形");
+                        // 前提不成立 ⇒ 只留上面那条红（⛔ 不级联出两条「量了 0」的假红）
+                        if (cboOk)
+                        {
+                            CheckNear(cboMx - cboCx, cbOffX, 0.5f,
+                                      $"★ 卡背格里的画心**不居中**：渲染中心 − **格中心** 的横偏移 = **{cbOffX:0.##}**px"
+                                    + "（= (padL−padR)/2 × 250/707 ⇒ 没做这一半时恒为 **0**）"
+                                    + "｜🧨 改坏法：把 `Core/CardbackFace.cs` 的 `Fit` 里 `dx = …` 删掉，或把 "
+                                    + "`Deck/DeckRuntime.cs` 的 `RefreshCosmetics` 里那句 `Pos(cx + cdox, cy − cdoy)`"
+                                    + " 改回 `Pos(cx, cy)` ⇒ **这一条**红（下面那条不红）");
+                            CheckNear(cboMy - cboCy, cbOffY, 0.5f,
+                                      $"★ ……纵偏移 = **{cbOffY:0.##}**px（= −(padB−padT)/2 × 250/707 —— **反号那一处**："
+                                    + "uGUI 的 y 向上、本仓画布 px y 向下 ⇒ 那句 `cy − cdoy` 的减号；"
+                                    + "没做这一半时恒为 **0**）"
+                                    + "｜🧨 改坏法：把上面那句的减号写成加号 ⇒ **这一条**红（横那条不红）");
+                        }
+                    }
                 }
 
                 // ---- 右键装备 / 左键不做事（原版 `DeckEditingWindow__OnCosmeticClick.c:26`）----
@@ -3080,46 +3375,110 @@ public static class DeckScene
                 //   直接调它 = 自证）：真值 = **贴图自己的 `width/height`** · 框 = 侧栏那张
                 //   `Sidebar/Deck Details/Cosmetic Drawer` 的 **335.31×400**（`DeckRuntime` 的
                 //   `DrawerW`/`DrawerH`）。实测 233 张比例 **0.6188~0.7652，全部 < 335.31/400 = 0.83828**
-                //   ⇒ 一律走**高定**那一支：高定住 400、宽缩成 `400 × 比例`。
+                //   ⇒ 一律走**高定**那一支（框高 400、框宽 = 400 × 707/1020 = **277.25**）。
+                // 🔴 **2026-10-19（B6）就地订正（铁律 5）**：期望值原来是「**只做第一段**」那一版
+                //   （按**贴图自己**的比例内接）—— 原版是**两段**（① 按 sprite 的 `m_Rect`（707×1020）
+                //   定框；② 贴图再按 **`textureRect/m_Rect`** 缩、并按 **`padding`** 挪位）。
+                //   口径/判据全文 → `Core/CardbackFace.cs`；期望值现算走 `CardbackDrawnPx` / `CardbackOffsetPx`。
                 {
-                    // 选靶：挑**比例最小**那张（宽缩得最多 ⇒「内接 ≠ 拉满」差得最远）；⛔ 别写死一张
-                    //   （写死 = 赌它的比例，赌输这两条就空转）。
-                    string drName = null;
-                    float drS = 0f, drExpW = 0f, drDev = 0f;
+                    // 选靶：🆕 **2026-10-19（B6）**换成「**旧口径与新口径逐维差的最大值**」
+                    //   （旧判据「内接离**拉满**多远」在两段式下指不准：**宽**现在也会缩 ⇒ 挑出来的
+                    //   未必是差得最远的那一张）。⛔ 别写死一张 —— 写死 = 赌它的比例，赌输这两条就空转。
+                    string drName = null, drOffName = null;
+                    float drS = 0f, drExpW = 0f, drExpH = 0f, drDev = 0f;
+                    float drOffX = 0f, drOffY = 0f, drOffSum = 0f;
                     foreach (var drTxName in names)
                     {
                         var drTx = _rt.UiCosmeticTex(drTxName);       // 与建格**同一条**会出声的取值路
                         if (drTx == null || drTx.height <= 0) continue;
                         float drRatio = drTx.width / (float)drTx.height;
-                        bool drWide = drRatio > 335.31f / 400f;
-                        float drEw = drWide ? 335.31f : 400f * drRatio;
-                        float drD = Mathf.Abs(drEw - 335.31f);
-                        if (drD > drDev) { drDev = drD; drName = drTxName; drS = drRatio; drExpW = drEw; }
+                        var drNeu = CardbackDrawnPx(drTx, 335.31f, 400f);                     // 两段式（现在的口径）
+                        var drOld = drRatio > 335.31f / 400f                                  // 「只做第一段」那一版
+                                  ? new Vector2(335.31f, 335.31f / drRatio) : new Vector2(400f * drRatio, 400f);
+                        float drD = Mathf.Max(Mathf.Abs(drNeu.x - drOld.x), Mathf.Abs(drNeu.y - drOld.y));
+                        if (drD > drDev) { drDev = drD; drName = drTxName; drS = drRatio; drExpW = drNeu.x; drExpH = drNeu.y; }
+                        // 🆕 位置那一半的靶：**两轴都要够大**（任一轴 ≈0 ⇒ 那条断言与「恒居中」分不开 = 弱断言）
+                        float drdx, drdy;
+                        if (CardbackOffsetPx(drTx, 335.31f, 400f, out drdx, out drdy)
+                            && Mathf.Abs(drdx) > 1.5f && Mathf.Abs(drdy) > 1.5f)
+                        {
+                            float drSum = Mathf.Abs(drdx) + Mathf.Abs(drdy);
+                            if (drSum > drOffSum) { drOffSum = drSum; drOffName = drTxName; drOffX = drdx; drOffY = drdy; }
+                        }
                     }
                     CheckTrue(drName != null && drDev > 3f,
-                              $"（前提）挑得到一张「内接 ≠ 拉满」的探针卡背 —— `{drName}` · 比例 {drS:0.####} · "
-                            + $"两种算法差 {drDev:0.##}px（差 ≤ 3px ⇒ 下面两条空转）");
-                    CheckTrue(!string.IsNullOrEmpty(drName) && _rt.EquipCardback(drName),
-                              "（夹具）把抽屉那张换成探针卡背 —— 走**生产那条路** `EquipCardback`"
-                            + "（与右键装备、拖拽投递是同一个口）");
+                              $"（前提）挑得到一张「两段式 ≠ 只做第一段」的探针卡背 —— `{drName}` · 比例 {drS:0.####} · "
+                            + $"两种口径差 {drDev:0.##}px（差 ≤ 3px ⇒ 下面两条空转）");
+                    // ⚠️ `EquipCardback` 对「**已经是这一张**」返回 false（那是它的正常语义，不是缺陷）⇒
+                    //    这里先看抽屉现在画的**是不是**它，是就不重复写（⛔ 免得数据一变就假红在这条夹具上）
+                    bool drEquipOk = _rt.CosmeticDrawerTex == drName || _rt.EquipCardback(drName);
+                    CheckTrue(drEquipOk,
+                              "（夹具）抽屉那张现在是探针卡背 —— 走**生产那条路** `EquipCardback`"
+                            + "（与右键装备、拖拽投递是同一个口；它本来就是那一张时不必重复写）");
                     Check(_rt.CosmeticDrawerTex, drName,
                           $"……抽屉画的确实是它（`FitDrawerBack` 那一跳就是挂在换图之后的）｜实得 {_rt.CosmeticDrawerTex}");
-                    CheckTrue(_rt.UiQuadRect("cosm_drawer", out float drCx, out float drCy,
-                                             out float drW, out float drH),
-                              "（前提）侧栏那张量得到渲染矩形");
-                    CheckNear(drW, drExpW, 0.5f,
-                              $"★ 抽屉**画出来**的宽 = **{drExpW:0.##}** = 400 × 贴图比例（框 335.31×400 · "
-                            + $"贴图比例 {drS:0.####} ⇒ **高定**）"
-                            + "｜🧨 改坏法：把 `DeckRuntime.FitDrawerBack` 里那跳 "
-                            + "`CosmeticPreview.PreserveAspectSize` 删掉、退回 `SetAspect(335.31/400)` ⇒ 红");
-                    CheckNear(drH, 400f, 0.5f,
-                              "★ ……高 = 框高 400（高定那一支；**拉满那一档宽恒为 335.31**）｜🧨 改坏法：同上");
-                    // 🔴 **灭自证**：与上一条**结构上不可能同时被「拉伸」满足** —— 拉伸时宽恒等于
-                    //    335.31，而比例那一维（这里 = 宽）压根没缩 ⇒ 本条红。
-                    CheckTrue(drW < 335.31f - 1f,
+                    // ⚠️ `drEquipOk` 不成立时上面那条已经红了 ⇒ 这里**不级联**（不然会再红两条「量了旧图」的假红）
+                    if (drEquipOk && _rt.UiQuadRect("cosm_drawer", out float drCx, out float drCy,
+                                                    out float drW, out float drH))
+                    {
+                        CheckNear(drW, drExpW, 0.5f,
+                              $"★ 抽屉**画出来**的宽 = **{drExpW:0.##}**（框 335.31×400 · 贴图比例 {drS:0.####} "
+                            + $"⇒ **高定** ⇒ 框宽 = 400 × 707/1020 = **277.25**；画心宽 = 框宽 × `textureRect`宽/707，"
+                            + $"贴图宽/707 = {drExpW / 277.25f:0.####}。⛔ 「宽 = 400 × 贴图比例」是只做第一段那一版）"
+                            + "｜🧨 改坏法：把 `Core/CardbackFace.cs` 的 `Fit` 里 `w = fw*sw` 改成 `w = fw`"
+                            + "（= 只定框、不按 `textureRect` 缩）⇒ **这一条**红（高那条不红）");
+                        CheckNear(drH, drExpH, 0.5f,
+                              $"★ ……高 = **{drExpH:0.##}** = 400 × `textureRect`高/1020（高定 ⇒ 框高就是 400，"
+                            + "⛔ 但**画心高 ≠ 400**：只有 `textureRect` 高 = 1020 那几张才等于 400）"
+                            + "｜🧨 改坏法：把同一条 `Fit` 里 `h = fh*sh` 改成 `h = fh` ⇒ **这一条**红"
+                            + "（宽那条不红；这一条就是那处改动的**唯一**看门人）");
+                        // 🔴 **灭自证**：与上一条**结构上不可能同时被「拉伸」满足** —— 拉伸时宽恒等于
+                        //    335.31，而比例那一维（这里 = 宽）压根没缩 ⇒ 本条红。
+                        CheckTrue(drW < 335.31f - 1f,
                               $"★ 灭自证：实绘宽 {drW:0.##} **严格小于**框宽 335.31（拉伸那种实现恒等于 335.31 ⇒ 红）");
+                    }
+                    else CheckTrue(false, "（前提）侧栏那张量得到渲染矩形（且上面那条夹具过了）");
+
+                    // ---- 🆕 2026-10-19（B6）★ 画心**不居中**（原版按 sprite 的 `padding` 偏）----
+                    //  这一组是**新行为**：B2 之前「内接 + 居中」是全部，`padding` 那一半**一条断言都没有**。
+                    //  框中心（画布 px）= `DrawerX + DrawerW/2`, `DrawerY + DrawerH/2`
+                    //    = (0.25 + 335.31/2, 485.5 + 400/2) = **(167.905, 685.5)** —— 四个常量出自
+                    //    `Deck/DeckRuntime.cs`（原版 `Sidebar/Deck Details/Cosmetic Drawer`；
+                    //    本文件上面 `CheckNear(d.z, 335.31f, …)` 那条钉的是同一个数）。
+                    //  期望值 = 框中心 + `CardbackOffsetPx`（吃原版 `padding` 数据、独立复述算式）。
+                    const float DrBoxCx = 167.905f, DrBoxCy = 685.5f;
+                    CheckTrue(drOffName != null,
+                              $"（前提）挑得到一张「`padding` 的**两轴**偏移都 > 1.5px」的卡背（实得 `{drOffName}` · "
+                            + $"({drOffX:0.##}, {drOffY:0.##})px）—— ⛔ 两轴都要够大：任一轴 ≈0 时那条断言"
+                            + "与「恒居中」那种实现**分不开** = 弱断言");
+                    bool drOffEquipOk = _rt.CosmeticDrawerTex == drOffName
+                                     || (!string.IsNullOrEmpty(drOffName) && _rt.EquipCardback(drOffName));
+                    CheckTrue(drOffName != null && drOffEquipOk,
+                              $"（夹具）把抽屉那张换成**偏移靶** `{drOffName}` —— 同样走生产那条路"
+                            + $"（它本来就是那一张时不必重复写）｜实得 {_rt.CosmeticDrawerTex}");
+                    bool drOffDrawn = _rt.CosmeticDrawerTex == drOffName;
+                    CheckTrue(drOffDrawn, $"……抽屉画的确实是它（实得 {_rt.CosmeticDrawerTex}）");
+                    if (drOffDrawn && _rt.UiQuadRect("cosm_drawer", out float droCx, out float droCy,
+                                                     out float droW, out float droH))
+                    {
+                        CheckNear(droCx, DrBoxCx + drOffX, 0.5f,
+                                  $"★ 抽屉里的画心**不居中**：渲染中心 x = **{DrBoxCx + drOffX:0.##}**"
+                                + $"（= 框中心 {DrBoxCx} + (padL−padR)/2 × 277.25/707 = {drOffX:0.##}；"
+                                + "没做这一半时**恒等于框中心 167.9**）"
+                                + "｜🧨 改坏法：把 `Core/CardbackFace.cs` 的 `Fit` 里 `dx = …` 删掉，或把 "
+                                + "`Deck/DeckRuntime.cs` 的 `FitDrawerBack` 里那句 "
+                                + "`Pos(DrawerX + DrawerW*0.5f + dox, …)` 改回不带 `+ dox` ⇒ **这一条**红（纵那条不红）");
+                        CheckNear(droCy, DrBoxCy + drOffY, 0.5f,
+                                  $"★ ……渲染中心 y = **{DrBoxCy + drOffY:0.##}**（= 框中心 {DrBoxCy} "
+                                + $"− (padB−padT)/2 × 277.25/707 = {drOffY:0.##} —— **反号那一处**：uGUI 的 y 向上、"
+                                + "本仓画布 px y 向下 ⇒ 那句 `DrawerY + DrawerH*0.5f − doyUp` 的减号；"
+                                + "没做这一半时**恒等于框中心 685.5**）"
+                                + "｜🧨 改坏法：把上面那句的减号写成加号 ⇒ **这一条**红（横那条不红）");
+                    }
+                    else CheckTrue(false, "（前提）换上偏移靶之后抽屉那张仍量得到渲染矩形");
                     // ⚠️ 下面「换一格（第 2 行第 3 列 = 第 9 格）」那一拍会**再右键换回 `names[8]`**
-                    //   ⇒ 本节末尾 `Done` 后落盘的仍是 `names[8]`（那条断言靠它），本夹具不改它的结论。
+                    //   ⇒ 本节末尾 `Done` 后落盘的仍是 `names[8]`（那条断言靠它），本夹具（连同上面
+                    //   那两次 `EquipCardback`）不改它的结论。
                 }
 
                 // 换一格（第 2 行第 3 列 = 第 9 格）—— 验「行列反算」不是碰巧对
@@ -3772,7 +4131,10 @@ public static class DeckScene
             {
                 Section("A364：不合法 ⇒ 模态消息窗（原版 `PopUpGameWindow`）");
 
-                // ---- ① 文案：原版号 → 术语键 → **显示的是键**（纯函数先钉住，不依赖窗口）----
+                // ---- ① 文案：原版号 → 术语键 → **显示的是词条**（纯函数先钉住，不依赖窗口）----
+                //   🔴 **2026-10-19（A1012）就地订正（铁律 5）**：原来写的是「**显示的是键**」——
+                //     `Shell/PopUpGameWindow.cs` 的 `Term()` 已改成「先查 `Terms`、再转 `Core/Loc.cs`」
+                //     ⇒ 表里**有**的键印的是**词条**，**两处都没有**才印键名（旧句已不成立）。
                 // 原版枚举（`global-metadata.dat` 实读）：`None=0 · CardsNotOwned=1 · MissingHero=2 ·
                 // InvalidDeckBannedCards=3 · InvalidDeck=4 · IncompleteDeck=5`
                 Check(DeckRuntime.MenuDeckErrorNumber(DeckError.NoWarlord), 2,
@@ -3785,18 +4147,49 @@ public static class DeckScene
                       "★ ……`WrongFaction` ⇒ **4**(`InvalidDeck` —— 原版的 catch-all)");
                 Check(DeckRuntime.MenuDeckErrorNumber(DeckError.CopyLimitExceeded), 4, "★ ……`CopyLimitExceeded` ⇒ **4**");
                 Check(DeckRuntime.MenuDeckErrorNumber(DeckError.WarlordNotHero), 4, "★ ……`WarlordNotHero` ⇒ **4**");
+                // 🔴 **2026-10-19（A1012）就地重写（铁律 5）**：这一段原来拿本类自己的 `Terms`
+                //   （一张**恒空的**表）去证明 `MenuDeckErrorKey`（我们自己的函数）—— **自证结构**，
+                //   而且 `A1012` 之后**必红**（判据已从 `Terms.ContainsKey` 换成 `Loc.HasEntry`）。
+                //   现在拆成三条**各自独立**的东西：
+                //     ① **兜底键在 `Loc` 表里** —— 它不在 ⇒ 那扇窗连兜底都印键名（`Term` 末跳就是 `Loc.T`）；
+                //     ② **数字键今天不在 `Loc` 表里** —— 这是下面「落兜底键」那条期望值的**真前提**
+                //        （原来那条 `Terms.Count == 0` 钉的是**我们的实现细节**，⛔ 不是原版判据）；
+                //     ③ **两个口各看各的表**：选键那一侧看 `Loc`、取字那一侧**先**看 `Terms`
+                //        ⇒ 往 `Terms` 塞一条 `MenuDeck/Error/5`，**选出来的键不动、字却取到了**
+                //        —— **同一个实现不可能同时**「选键看 `Terms`」又「选键不看 `Terms`」
+                //        （原来那两条是「两边一起改回去就全绿」的自证）。
+                //   ⚠️ 「数字键在表里 ⇒ 就用它」那一档**今天构造不出来**（`Loc` 无写入口、那三条数字键不在表里）
+                //     ⇒ 由 ② 那条前提把**切换时机**钉住：哪天补上词条 ② 自动红、提醒把 ③-a 的期望值一起改。
+                CheckTrue(Loc.HasEntry(DeckRuntime.MenuDeckErrorKeyFallback),
+                          $"★ 兜底键 `{DeckRuntime.MenuDeckErrorKeyFallback}` **在 `Loc` 表里**"
+                        + "（`Term` 真能把它取成词条）｜🧨 它不在 ⇒ 那扇窗印的是键名本身");
+                string numKey5 = string.Format(DeckRuntime.MenuDeckErrorKeyFmt,
+                                               DeckRuntime.MenuDeckErrorNumber(DeckError.TooFewCards));
+                CheckTrue(!Loc.HasEntry(numKey5),
+                          $"★ **真前提**（今天的实情）：数字键 `{numKey5}` **不在** `Loc` 表里 ——"
+                        + " 下面那条期望值（落**兜底键**）就是照这个实情写的｜🧨 哪天补上这条词条"
+                        + " ⇒ **这一条自动红**，那时把下面 ③-a 的期望值一起改成 `" + numKey5 + "`"
+                        + "（两态跟着切，⛔ 别把它当缺陷去改实现）");
                 CheckTrue(PopUpGameWindow.Terms.Count == 0,
-                          "（前提）I2 词条表**本地是空的**（表在远端 CCD）—— 下面「显示的是键」才有意义");
-                Check(DeckRuntime.MenuDeckErrorKey(DeckError.TooFewCards), "MenuDeck/Error/InvalidDeck",
-                      "★ ……表空 ⇒ 原版 `ToRawLocalizationString` 落到**兜底键**（**兜的也是键、不是明文**）");
+                          "（前提）本类的 `Terms` 落点**仍是空的** —— 它与 `Loc` 是**两处**表"
+                        + "（`Term()` 先查前者、再转后者；见 `Shell/PopUpGameWindow.cs` 的 `Term`）");
+                // ---- ③-a 选键那一侧：看 `Loc` ----
+                Check(DeckRuntime.MenuDeckErrorKey(DeckError.TooFewCards), DeckRuntime.MenuDeckErrorKeyFallback,
+                      "★ 选键：数字键不在表里 ⇒ 原版 `ToRawLocalizationString` 落到**兜底键**"
+                    + "（**兜的也是键、不是明文**）｜🧨 判据改回 `Terms.ContainsKey`（那张**恒空**的表）⇒ ③-c 红");
                 Check(DeckRuntime.MenuDeckErrorKey(DeckError.None), "", "★ ……`None` ⇒ 空串（原版 `:16` 那一支）");
+                // ---- ③-b 取字那一侧：**先**看 `Terms`、再转 `Loc` ----
                 Check(PopUpGameWindow.Term("MenuDeck/Error/5"), "MenuDeck/Error/5",
-                      "★ ……`Term` 查不到就**返回键本身**（⛔ 不自己编文案）");
-                // 🔴 **把「将来填表」那条路也钉住**：不然「表空 ⇒ 印键」会被一个**根本没用表**的实现蒙对。
+                      "★ 取字：`Terms` 与 `Loc` **两处都没有**这条键 ⇒ 返回**键本身**（⛔ 不自己编文案）");
+                // ---- ③-c **灭自证（结构）**：同一时刻，选出来的键不动、字却取到了塞进去的那条 ----
                 PopUpGameWindow.Terms["MenuDeck/Error/5"] = "（自检塞的假词条）";
-                Check(DeckRuntime.MenuDeckErrorKey(DeckError.TooFewCards), "MenuDeck/Error/5",
-                      "★ ……表里真有 `MenuDeck/Error/5` ⇒ 键就用它（拿到真表只往 `Terms` 里填、⛔ 不改调用点）");
-                Check(PopUpGameWindow.Term("MenuDeck/Error/5"), "（自检塞的假词条）", "★ ……而且 `Term` 取到了那条文字");
+                Check(DeckRuntime.MenuDeckErrorKey(DeckError.TooFewCards), DeckRuntime.MenuDeckErrorKeyFallback,
+                      "★ 灭自证之一：往 `Terms` 塞了 `MenuDeck/Error/5`，**选出来的键还是兜底键** ——"
+                    + " 选键那一侧看的是 `Loc.HasEntry`，`Terms` **不参与选键**｜🧨 判据改回 `Terms.ContainsKey` ⇒ 红");
+                Check(PopUpGameWindow.Term("MenuDeck/Error/5"), "（自检塞的假词条）",
+                      "★ 灭自证之二：**同一时刻** `Term` 取到的却是塞进去的那条（`Terms` 仍**优先于** `Loc`）"
+                    + " —— 与上一条并排 ⇒ 「两处表、两个口各看各的」被钉死"
+                    + "｜🧨 删掉 `Term` 里 `Terms` 那一跳 ⇒ 红（这两条**不可能**被同一个实现同时满足）");
                 PopUpGameWindow.Terms.Remove("MenuDeck/Error/5");
                 Check(PopUpGameWindow.Terms.Count, 0, "（收尾）词条表还回空的（假词条不许漏进后面的断言）");
 
@@ -3832,12 +4225,39 @@ public static class DeckScene
                     CheckNear(pop.extraScaleSmallScreen, 1f, 1e-6f, "★ `extraScaleSmallScreen = 1.0`（原版 MB 实读）");
                     Check(pop.transform.parent != null ? pop.transform.parent.name : "(空)",
                           "3 - PopUp Holder", "★ 挂在 **Popup(15)** 那档锚点下（原版同一个 Holder）");
-                    Check(pop.MessageKey, "MenuDeck/Error/InvalidDeck", "★ 正文键 = 兜底键（表空）");
-                    Check(pop.MessageShown, "MenuDeck/Error/InvalidDeck",
-                          "★ ……而且**画出来的就是那个键**（⛔ 不是我们编的一句人话）");
-                    Check(pop.PrimaryShown, "MainMenu/General/Discard",
-                          "★ **左**钮 = `MainMenu/General/Discard`（原版 `LiveButtons[0]` = `ButtonLeft`）");
-                    Check(pop.SecondaryShown, "MainMenu/General/Cancel", "★ **右**钮 = `MainMenu/General/Cancel`");
+                    Check(pop.MessageKey, "MenuDeck/Error/InvalidDeck",
+                          "★ 正文键 = 兜底键（判据 = 数字键 `MenuDeck/Error/5` **不在** `Loc` 表里，见 ① ③-a）");
+                    // 🔴 **2026-10-19（A1012）就地改口径（铁律 5）**：下面这几条原来断的是
+                    //   「**画出来的就是那个键**」—— `Term()` 转 `Loc` 之后**已经不对了**（印的是**词条**）。
+                    //   现在按本文件既有写法（先例 = A891 那一节的 `Loc.HasEntry(键)` + `Loc.T(键)` 一对）拆成：
+                    //     ① **画出来的是那条键的词条**（期望值从 `Loc` 表取，⛔ 不是从实现反推）；
+                    //     ② **拿的是哪个键**（那半句原来挂在 `*Shown` 上，归 `*Key` —— 与 `:4571` 那组同形）；
+                    //     ③ **灭自证**：印的**不是键名本身** —— 这正是本缺陷要防的那一半
+                    //        （把 `Term()` 末句改回 `return key ?? ""` ⇒ ③ 红）。
+                    //   ⚠️ 只有 ① 会「两边一起退化成键名」而假绿（键不在表里时）⇒ ①③ 缺一不可。
+                    string wantMsg = Loc.T("MenuDeck/Error/InvalidDeck");
+                    Check(pop.MessageShown, wantMsg,
+                          $"★ ……而且**画出来的是那条键的词条**（`A1012` 起 `Term()` 先查 `Terms`、再转 `Loc`；"
+                        + $"当前语档下 =「{wantMsg}」）");
+                    CheckTrue(!string.IsNullOrEmpty(pop.MessageShown) && pop.MessageShown != pop.MessageKey,
+                          "★ 灭自证：正文印的**不是键名本身**（键名 = " + pop.MessageKey + "）"
+                        + "｜🧨 把 `Term()` 末句改回 `return key ?? \"\"` ⇒ 这条红");
+                    // 左钮：**拿哪个键**（原版 `LiveButtons[0]` = `ButtonLeft`）+ **画出来的是词条**
+                    string wantLeft = Loc.T("MainMenu/General/Discard");
+                    Check(pop.PrimaryKey, "MainMenu/General/Discard",
+                          "★ **左**钮**拿的键** = `MainMenu/General/Discard`（原版 `LiveButtons[0]` = `ButtonLeft`）");
+                    Check(pop.PrimaryShown, wantLeft,
+                          $"★ ……画出来的是**那条键的词条**（当前语档下 =「{wantLeft}」）");
+                    CheckTrue(!string.IsNullOrEmpty(pop.PrimaryShown) && pop.PrimaryShown != pop.PrimaryKey,
+                          "★ 灭自证：左钮印的**不是键名本身**｜🧨 改回 `return key ?? \"\"` ⇒ 红");
+                    // 右钮（对称）
+                    string wantRight = Loc.T("MainMenu/General/Cancel");
+                    Check(pop.SecondaryKey, "MainMenu/General/Cancel",
+                          "★ **右**钮**拿的键** = `MainMenu/General/Cancel`");
+                    Check(pop.SecondaryShown, wantRight,
+                          $"★ ……画出来的是**那条键的词条**（当前语档下 =「{wantRight}」）");
+                    CheckTrue(!string.IsNullOrEmpty(pop.SecondaryShown) && pop.SecondaryShown != pop.SecondaryKey,
+                          "★ 灭自证：右钮印的**不是键名本身**｜🧨 改回 `return key ?? \"\"` ⇒ 红");
 
                     // ---- ③ 版面：量**渲染矩形**，期望值全是原版字面量（`menu_dump` 实读）----
                     //   ⛔ 不比我们自己的常量（那是自证）；下面是原版 prefab 的绝对矩形。
@@ -4115,7 +4535,15 @@ public static class DeckScene
                     {
                         Check(one.name, "MessagePopupWindow",
                               "★ 只给一颗钮 ⇒ 建的是**1 按钮版** `MessagePopupWindow`（原版 `popUpWindowOneButton`）");
-                        Check(one.PrimaryShown, "MainMenu/General/Cancel", "★ 那一颗的字 = 给的那个键");
+                        // 🔴 **2026-10-19（A1012）就地改口径（铁律 5）**：原来断「那一颗的字 = 给的那个键」
+                        //   —— `Term()` 转 `Loc` 之后印的是**词条**。拆成「拿的键」+「画出来的词条」+「灭自证」。
+                        string wantOne = Loc.T("MainMenu/General/Cancel");
+                        Check(one.PrimaryKey, "MainMenu/General/Cancel",
+                              "★ 那一颗**拿的键** = 调用点给的那个（原版那颗钮也是拿键去查表）");
+                        Check(one.PrimaryShown, wantOne,
+                              $"★ 那一颗**画出来的字** = 那条键的词条（当前语档下 =「{wantOne}」）");
+                        CheckTrue(!string.IsNullOrEmpty(one.PrimaryShown) && one.PrimaryShown != one.PrimaryKey,
+                              "★ 灭自证：印的**不是键名本身**｜🧨 把 `Term()` 末句改回 `return key ?? \"\"` ⇒ 红");
                         CheckTrue(one.SecondaryShown == null || one.SecondaryShown == "",
                                   "★ ……而且**没有**第二颗（1 按钮版只有 `Generic UI Button` 一个）");
                         var b1 = FindDeep(one.transform, "Generic UI Button");

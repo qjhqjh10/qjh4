@@ -39,6 +39,46 @@ import glob
 SO_DIR = "d:/2/新解包资源/assets_full/bundle_cosmeticsso_assets_all/MonoBehaviour"
 TEX_DIR = "d:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/cardbacks"
 DST = "d:/4/Unity/MyGame/Assets/CardPresentation/Resources/Cardbacks.json"
+# 🆕 2026-10-19（B2）：**原版那张 sprite** —— 卡背「两段式」画法要的那两个矩形就在这儿
+SPRITE_DIR = "d:/2/新解包资源/assets_full/bundle_cosmeticscardbacksimages_assets_all/Sprite"
+
+
+def sprite_metrics(sprite_json_name):
+    """读 `Sprite/<名>.json` 的 `m_Rect` 与 `m_RD.textureRect` ⇒ `(rectW, rectH, padL, padR, padB, padT)`。
+
+    这是**原版 uGUI 画一张 sprite 用的全部数据**（判据全文与算式 → `Core/CardbackFace.cs`）：
+      · `m_Rect`（= C# 侧 `Sprite.rect`）= **707×1020**（本批 233 张**恒等**，逐张现读核过）——
+        uGUI 拿它**定框**（`Image.PreserveSpriteAspectRatio` 比的就是 `sprite.rect` 的比例）。
+      · `m_RD.textureRect` = **画心**（逐张不同）—— uGUI 拿它算 `padding`，再把贴图**贴到框里内缩后的那一块**。
+      · 四个 `padX` 按 `rect − textureRect` 算（Unity 的 `textureRect`/`m_Rect` 同在源图坐标系；
+        `.y` **从底边量**，与 PIL 相反 —— 与 `import_original_art.write_cardback` 那条一致）。
+    ⚠️ **逐张不同**（`padL`/`padR` 0~49.08、`padB` 0~49.08、`padT` 0~52.03，且**可不对称**）
+       ⇒ 别按某一张的值常量算（铁律 5·c）。
+    查不到那份 json ⇒ 返回 **None**（**不猜** —— 调用方报出来并拒绝写表）。
+    """
+    p = os.path.join(SPRITE_DIR, sprite_json_name + ".json")
+    if not os.path.exists(p):
+        return None
+    d = json.load(io.open(p, encoding="utf-8"))
+    r = d["m_Rect"]
+    t = d["m_RD"]["textureRect"]
+    rw, rh = r["width"], r["height"]
+    pl = t["x"] - r["x"]
+    pr = (r["x"] + r["width"]) - (t["x"] + t["width"])
+    pb = t["y"] - r["y"]
+    pt = (r["y"] + r["height"]) - (t["y"] + t["height"])
+    return (rw, rh, pl, pr, pb, pt)
+
+
+def metrics_row(m):
+    """六个列（`round` 到 1e-4 像素 —— 卡背最大 707px，这个精度比 1/10000 px 还细）。
+
+    ⚠️ `+ 0.0` 是为了把 `-0.0` 洗成 `0.0`：图集取整会让 `padR`/`padT` 落到 `-1.5e-05` 这种量级，
+       `round(·, 4)` 出来是 **`-0.0`**。那是合法 JSON，但没必要让解析方去处理这个负零（值本来就一样）。
+    """
+    return {"rectW": round(m[0], 4) + 0.0, "rectH": round(m[1], 4) + 0.0,
+            "padL": round(m[2], 4) + 0.0, "padR": round(m[3], 4) + 0.0,
+            "padB": round(m[4], 4) + 0.0, "padT": round(m[5], 4) + 0.0}
 
 # `CardArmy` 枚举（dump.cs:45637-45650）—— 逐条抄，不推
 ARMY = {
@@ -57,6 +97,7 @@ def main():
 
     rows = []
     unmatched_so = []
+    no_metrics = []
     for p in sorted(glob.glob(os.path.join(SO_DIR, "*.json"))):
         d = json.load(io.open(p, encoding="utf-8"))
         if isinstance(d, list):
@@ -71,6 +112,9 @@ def main():
             unmatched_so.append((so_name, sub))
             continue
         army_id = d.get("cardArmy", 0)
+        met = sprite_metrics(sub + "_Main")
+        if met is None:
+            no_metrics.append(sub)
         rows.append({
             "name": sub,                               # **我们的图名**（= 对账的键）
             "so": so_name,                             # 原版 SO 名（留个可复查的坐标）
@@ -79,6 +123,8 @@ def main():
             "rarity": d.get("cardRarity", 0),
             "uniqueId": d.get("uniqueId") or "",
         })
+        if met is not None:
+            rows[-1].update(metrics_row(met))
 
     # 同一张图被多个 SO 引用时**留 army 最小的那个**（保守：Neutral 优先），并报出来
     by_name = {}
@@ -118,7 +164,12 @@ def main():
         "note": "原版 cosmetic SO 的卡背子集（`cardArmy` = CardArmy 枚举名，与 CardDef.Faction 同名）。"
                 "生成：工具/gen_cardbacks.py；判据：dump.cs:45637-45650 + SO 的 imageReference。"
                 "`defaults` = **每个阵营的默认卡背**（原版 `DefaultCarbackByArmySO`，"
-                "读法见 工具/read_default_cardbacks.py；数组不是字典 —— C# 的 JsonUtility 不吃 Dictionary）。",
+                "读法见 工具/read_default_cardbacks.py；数组不是字典 —— C# 的 JsonUtility 不吃 Dictionary）。"
+                "🆕 `items` 每条的 `rectW/rectH/padL/padR/padB/padT` = **原版那张 sprite 的 `m_Rect` 与 `padding`**"
+                "（读 `bundle_cosmeticscardbacksimages_assets_all/Sprite/<名>_Main.json`；"
+                "`m_Rect` 233/233 恒 707×1020、padding 逐张不同）—— 卡背「两段式」画法要用，"
+                "算式与判据全文 → `Core/CardbackFace.cs`。⚠️ `_SDF` 那张**不**进表（它的 padding 恒 0、"
+                "两边差 <0.4%，见 `CardbackFace` 文件头）。",
         "items": items,
         "defaults": defaults,
     }
@@ -130,9 +181,10 @@ def main():
     print("本地 PNG:", len(local), "· 表里:", len(items), "· 本地缺表项:", len(missing), missing[:5])
     print("共用同一张图的 SO:", len(dup), dup[:5])
     print("army 查不出的:", len(unknown_army), unknown_army[:5])
+    print("[B2] 读不到原版 sprite `m_Rect`/`textureRect` 的:", len(no_metrics), no_metrics[:5])
     import collections
     print("阵营分布:", dict(collections.Counter(r["army"] or "(空)" for r in items)))
-    if missing or unmatched_so or unknown_army or bad_default or len(defaults) != 13:
+    if missing or unmatched_so or unknown_army or bad_default or no_metrics or len(defaults) != 13:
         print("🔴 有对不上的 —— **先把上面几行查清再决定要不要写**")
         return
     io.open(DST, "w", encoding="utf-8", newline="\n").write(text)

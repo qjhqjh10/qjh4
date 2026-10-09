@@ -126,8 +126,11 @@ namespace CardPresentation
         ///   ⛔ 这不是「手感回调」：改的是**我们自己的 3D→2D 口径**，两条注释从此只说一种话。
         /// 判据 = `d:/2/新解包资源/assets_full/bundle_tweenandshakes_assets_all/MonoBehaviour/`
         ///   的 `Impact Light Tween.json`（`punchType 2` · `punch(-3,-3,0)`）与
-        ///   `Impact Heavy Tween.json`（`punch(-15,4,0)`），其余字段两条相同
-        ///   （`duration 0.5` · `vibratto 7` · `elasticity 1.0`）。</summary>
+        ///   `Impact Heavy Tween.json`（`punch(-15,4,0)`），**我们采的那几个字段**两条相同
+        ///   （`duration 0.5` · `vibratto 7` · `elasticity 1.0`）。
+        /// ⚠️ **2026-10-09 顺手订正**：原来这里写「**其余字段**两条相同」—— **不成立**：
+        ///   `targetUnit` 两条**不同**（Light = **30** · Heavy = **10**，实读）；`ease` 两条都是 `5`。
+        ///   `punchType 2` 下 `targetUnit` 的语义**未查** ⇒ 只如实标，⛔ **别当成缺陷去改**。</summary>
         public const float HitRotLightDeg = 4.2426f;  // |(-3,-3,0)| = √18 = 4.24264…
         public const float HitRotHeavyDeg = 15.5f;    // |(-15,4,0)| = 15.5242…（这条本来就按模长，取一位小数）
         public const float HitRotDuration = 0.5f;

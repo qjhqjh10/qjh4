@@ -459,7 +459,13 @@ namespace RuleEngine
         /// 抽一张**指定兵种/类别**的牌（`Draw a troop` / `Draw a Vehicle from your deck`）——
         /// 「定向翻找」。
         ///
-        /// **语义出处：规则书 L461-466**（`rule_core.gd:4650` 的 `_draw_specific_type` 逐条照抄它）：
+        /// **判据入口**（🔴 `D26`，2026-10-19 改指真权威；⚠️ 下面这几份**只当索引用、未逐句核**）：
+        /// `decomp_full/BattleManager__AddDrawSpecificCard.c`（定向翻找的入口）·
+        /// `decomp_full/SupportMethods__ShuffleCardList.c`（`BattleManager__ShuffleDeck.c` 转调它
+        /// ⇒ ③「找到才洗牌」那半条的真权威）· `decomp_full/CardScript__SetupInDeck.c`。
+        /// ⚠️ ② **规则书 L461-466**（**粉丝实体版、第二来源**；`rule_core.gd:4650` 的
+        /// `_draw_specific_type` 逐条照抄它 —— 而那份 `.gd` 是**我们自己的上一版 Godot 复刻**，
+        /// **旁证、非判据**，见文件头）：
         ///   > Draw cards from your deck until you draw a matching card, put that card into your hand
         ///   > or deploy it as indicated, **then shuffle your deck**.
         /// 照抄的三个细节：
@@ -1006,7 +1012,12 @@ namespace RuleEngine
             }
 
             // ---- `all **damaged** …` —— 只挑失去过生命的 ----
-            // 判据照规格书 `rule_core.gd:1415`：**`health < max_health`**。
+            // 判据**查不到**（🔴 `D26`，2026-10-19）：这是**原版 `targetCriteria` 的一个筛选位**、
+            // 不是一段可指的方法 —— 两张表都搜过（`grep -rln "IsDamaged\|get_isDamaged\|lostHealth\|LostHealth" d:/2/tools/decomp_full/` ⇒ **0 命中**）。
+            // ⚠️ 原来这里写「判据照**规格书** `rule_core.gd:1415`」—— 那份 `.gd` 是**我们自己的上一版复刻**、
+            // **不是规格书**（`CLAUDE.md` 铁律 2 的 2026-09-18 更正）⇒ **降级成旁证**。
+            // 可核的那一半 = **卡面原文**（`all damaged …` 这一族卡面上就是这个词）；
+            // ⛔ 别把下面那一行当「照抄原版」读。
             if (spec.DamagedOnly)
             {
                 int before = pool.Count;
@@ -1071,7 +1082,7 @@ namespace RuleEngine
             //   ⚠️ **战术卡这一条写点覆盖 100%**：我们那 5 张隐秘卡全是 `type: "tactic"`
             //      （实测 `cards_engine.json`：`DA_Convoke_the_Circle` / `DA_None_Must_Know` /
             //      `DA_Obscure_Ritual` / `DA_Rites_of_Penance` / `DA_Smothering_Decree`），
-            //      而 `RuleCore.PlayCard` 对**非单位卡开头就分流到这儿**（`RuleCore.cs:1056-1058`）
+            //      而 `RuleCore.PlayCard` 对**非单位卡开头就分流到这儿**（那句 `&& !ctx.Players[p].Hand[handIdx].Card.IsUnit) return PlayTactic(…)`）
             //      ⇒ 不会漏、也不会重记。
             if (card.Subtype == "Secret") ps.SecretsPlayed++;
             ctx.Log($"{ps.Name} 打出战术卡「{card.Name}」（{paid} 能）");
@@ -1334,7 +1345,13 @@ namespace RuleEngine
         /// **付费修饰型激活** —— `6 [Energy]: Extend effect until your next turn`（`Miraculous Feat`）·
         /// `8 [Energy]: Give it permanently`（`Daemonbreaker`）。（2026-09-13 A4 批 1）
         ///
-        /// 语义出处：`rule_core.gd:1588 _energy_act_prep` —— 两栏 `undo` / `replay`：
+        /// 🔴 **判据查不到（`D26`，2026-10-19）**：原版把这类「付费改前一句时长」做成
+        /// **两条独立的 ability 效果**（`CardScript.AddEffect` 那一路），**没有** `undo`/`replay`
+        /// 这种文本层回填的做法 ⇒ 本版反编译里**没有对应的方法可指**。
+        /// ⚠️ 下面这三条 `undo` / `replay` / `:1799` 的语义是**我们上一版 Godot 复刻**
+        /// `rule_core.gd:1588 _energy_act_prep` 的写法（**旁证、非判据**）。
+        /// 可核的那一半 = **卡面原文**：`Sorotitas/4计策/Warpforge_52_Miraculous-Feat.png` ·
+        /// `Sorotitas/2天赋/Warpforge_02_Daemonbreaker.png`。
         ///   · `extend`    ：撤销基础效果 → 把 `this turn` 换成 `until your next turn` 重结算
         ///   · `permanent` ：撤销基础效果 → **去掉时长**重结算（永久版）
         /// 付费是**可选**的：不付就保持基础效果（`:1799`「false → 放弃（**基础已结算**）」）——
@@ -1591,7 +1608,10 @@ namespace RuleEngine
         /// 手牌里每一张**战略卡**换成候选卡之一。
         ///
         /// 🔴 **`or` 到底怎么解，三层权威全都没有** —— 规则书里没有 `become` 这个词、
-        ///    参考实现（`d:/warpforge/scripts/rule_core.gd`）没有这个 handler、
+        ///    反编译里查不到对应的 handler（`grep -rn -i "become" d:/2/tools/decomp_full/` 只命中
+        ///    与控制流无关的同名串；**没有**「把手牌里的牌换成另一张」这个方法 —— 理由与搜过的
+        ///    路径/词同 `EffectText.cs` 文件头那段）、**我们自己的**上一版复刻
+        ///    （`d:/warpforge/scripts/rule_core.gd`，⚠️ **旁证、非判据**）也没有这个 handler、
         ///    成品卡图（`Space Wolves/3部队/Warpforge_23_Hrolf-the-Ironhowl.png`，照铁律 7 核过）
         ///    也只印着一个 `or`。
         ///    ⇒ **两层都是我们挑的**，如实标着（原版若不一样，差别肉眼可见）：
@@ -2002,7 +2022,12 @@ namespace RuleEngine
             switch (op.Dest)
             {
                 case "decktop":
-                    // 牌库**顶** = 列表末尾（`Draw` 从末尾 pop，和 `rule_core` 的 `pop_back` 一致）
+                    // 牌库**顶** = 列表末尾（`Draw` 从末尾 pop）。
+                    // 🔴 判据 = 原版**下标 0 = 牌库顶**（`decomp_full/BattleManager__DrawCardFromDeck.c`
+                    //    取 `List[0]` · `BattleManager__AddInitialCardToDeck.c` 的 `Insert(0, card)` ·
+                    //    `BattleManager__AddCardToDeck.c` 的 `SetActive(go, index == 0)`），
+                    //    我们把列表**末尾**当顶（镜像约定）⇒ 放牌库顶 = `AddRange` 追加。
+                    //    （`D29①` 改掉原来那句「和 `rule_core` 的 `pop_back` 一致」= 自证。）
                     ctx.Players[owner].Deck.AddRange(made);
                     ctx.Log($"{by}：「{op.Source}」造了 {n} 张放到自己牌库顶：{names}"
                           + (pool.Detail != null ? $"（{pool.Detail}）" : ""));
@@ -2015,8 +2040,8 @@ namespace RuleEngine
                     ctx.Players[who].Hand.AddRange(made);
                     // 🆕 **2026-10-18（`W4` 整改 · 漏点）**：这一支**也是「进手牌」** ——
                     //   原版这条路 = `_ResolveCreateHandCard_d__512:135` → `PlayerHand.AddCardNotDrawnToHand`
-                    //   → `:34` 内部调 `SetupCardInHand`。上一轮漏插这里（`RuleCore.cs:1419` 潮涌
-                    //   与 `:1538` 伴生都插了）⇒ 补上。⚠️ 落点用 **`who`**（牌落到谁手里就是谁的手牌）。
+                    //   → `:34` 内部调 `SetupCardInHand`。上一轮漏插这里（`RuleCore.SpawnTideCopies` 潮涌
+                    //   与 `RuleCore.PlayCompanions` 伴生那两处都插了）⇒ 补上。⚠️ 落点用 **`who`**（牌落到谁手里就是谁的手牌）。
                     foreach (var m in made) SetupCardInHand(ctx, who, m);
                     ctx.LastCreated.AddRange(made);        // `They cost 1 less` 指着**那几份**（第 7 行第 3 步）
                     EnforceHandLimit(ctx, who);
@@ -2088,10 +2113,25 @@ namespace RuleEngine
             foreach (var t in targets)
                 if (t != null && t.IsAlive && !t.IsStunned)
                 {
-                    t.IsStunned = true;
+                    // 🔴 **2026-10-09（`A1116`）**：原来是 `t.IsStunned = true;`（**只写字段、不挂关键词**）
+                    //     ⇒ 改成**挂 `stun` trait**。判据 = 原版 `CardScript__Stun.c:48`
+                    //     `AddTraitSilently(param_1, 100, …)` —— 全反编译里施加眩晕**只此一条路**
+                    //     （`grep -n "AddTraitSilently(param_1,100" *.c` 只命中它）；
+                    //     读点全是 `HasCurrentTrait(100)`（`CheckStun` / `CanAttackCard` /
+                    //     `IsValidAttackTarget` / `AllowResolveAttack` / `get_mightAct` / `ActivateMinion` …）
+                    //     ⇒ **原版只有一份表示**，`IsStunned` 现在的定义就是它。
+                    t.AddKeyword(KeywordTable.Stun, 1);
+                    // 🆕 2026-10-09（`A1121`）：**施加时清「回合开始时就在这个状态」那个闸门** ——
+                    //    判据 = `CardScript__Stun.c:98`（`*(undefined1 *)(card + 0x55) = 0;`）。
+                    //    ⇒ 这一下眩晕**不会**在**本回合末**被 `RuleCore.EndTurn` 摘掉
+                    //    （它是「回合中途挂上的」，不是「回合开始时就在的」）——
+                    //    要撑到它自己的下个回合末才摘 ⇒ 「只废一个回合」。
+                    //    ⚠️ 原版那一句还带一个 `+0x108 != 0`（「activeEffects 列表非空」）的守卫，
+                    //       那是表现层的容器、对我们没有对应物 ⇒ 无条件执行，如实标着。
+                    t.StunnedAtStartOfTurn = false;
                     // 🆕 `When an enemy receives a Stun, …`（2026-09-13 第三十四轮）。
-                    // ⚠️ `!t.IsStunned` 那道守卫是**行为保持**的 —— 原来重复眩晕也只是把 `true`
-                    //    再赋一次（没副作用），但**广播不能重复**：卡面写的是「**收到**一次眩晕」。
+                    // ⚠️ `!t.IsStunned` 那道守卫是**行为保持**的 —— 重复眩晕也只是把关键词叠一层
+                    //    （`Has` 一样为真），但**广播不能重复**：卡面写的是「**收到**一次眩晕」。
                     BroadcastKeywordEvent(ctx, WhenEventKind.GetsStun, t);
                 }
             ctx.Log($"{by}：「{op.Source}」眩晕了 {targets.Count} 个单位");
@@ -2121,13 +2161,21 @@ namespace RuleEngine
             foreach (var t in targets)
             {
                 if (t == null || !t.IsAlive) continue;
-                t.IsBlind = true;
+                // 🔴 **2026-10-09（`A1116`）**：这里原来是一句 `t.IsBlind = true;`
+                //     ⇒ **删掉** —— `IsBlind` 现在是关键词的**派生只读属性**（原版只有 trait
+                //     `0x3cf = 975` 一份表示，`CardScript__AddEffect.c:475-487` 施加、
+                //     `EntityScript__get_CurrentRangeAttack.c:25-27` 读），下面那句 `AddKeyword` 就是它。
                 // 卡面写 `until your next turn` → 撑过**对手的一整个回合**，
                 // 到施放者自己的下个回合开始才清（`RuleCore.BeginTurn` 按 `BlindOwner` + `BlindTurnEnd` 判）。
                 // 到期点 = 当前回合 + 2（+1 是「对手的回合」，再 +1 才是「我的下个回合」）。
+                // ⚠️ **原版另有一条到期路**（`CardScript__OnTurnEnd.c:130-134` 的闸门，
+                //    见 `UnitState.BlindedAtStartOfTurn`）—— 那一跳只废一个回合，与本机制等价，两条并存。
                 t.BlindTurnEnd = ctx.Turn + 2;
                 t.BlindOwner = owner;
-                t.AddKeyword("blind", 1);        // 只为 `Has`/日志可见 —— 真正生效的是 `IsBlind`
+                // 🆕 2026-10-09（`A1121`）：**施加时清闸门** —— 判据 = `CardScript__AddEffect.c:487`
+                //    （挂上 `0x3cf` 那一段里的 `*(undefined1 *)(card + 0x56) = 0;`）。
+                t.BlindedAtStartOfTurn = false;
+                t.AddKeyword(KeywordTable.Blind, 1);   // ← **这就是唯一表示**（不再是「只为 Has 可见」）
                 n++;
                 ctx.Log($"{t.Name} 失明了（远程攻击力视为 0，到回合 {t.BlindTurnEnd + 1} 结束）");
             }
@@ -2268,7 +2316,12 @@ namespace RuleEngine
 
         // ==================================================================
         //  选牌 `Choose a <筛选> [from/in <来源>] [and <动词>]`
-        //  权威源 `rule_core.gd:1157 _resolve_choose` + `:1041 _chosen_apply`
+        //  🔴 **判据入口 = 原版反编译**（`D26`，2026-10-19 改指；⚠️ **只当索引、未逐句核**）：
+        //    `decomp_full/BattleManager__ChoiceOfCardPlayer.c` · `BattleManager__ChoiceOfCardEnemy.c`
+        //    （选牌的两侧入口）· `BattleManager__ChooseCardMethod.c`（含协程 `_ChooseCardMethod_d__449`）
+        //    · `BattleManager__GetChoiceFullPool.c`（候选全集 —— 「候选域」那半条的真权威）。
+        //  ⚠️ 原来写「**权威源** `rule_core.gd:1157 _resolve_choose` + `:1041 _chosen_apply`」——
+        //    那份 `.gd` 是**我们自己的上一版 Godot 复刻**、**旁证、非权威**（文件头那条）。
         // ==================================================================
 
         /// <summary>
@@ -2688,7 +2741,7 @@ namespace RuleEngine
         /// 「**那一版没做**（见 `DoChooseEffect` ②），表现层**别为它开面板**（开了也没用）」
         /// —— **已过期**：引擎侧 **2026-09-16 就做完了**（`DoChooseEffect` ② → `GrantHandBuff`
         /// → `CardInstance.HandEffects`（🔴 **2026-10-18（`G9`）就地订正，铁律 5**：这里原来写的是
-        /// `CardInstance.HandBuffOps` —— **那是【兼容视图】、不是存放处**（`CardInstance.cs:168` 明写
+        /// `CardInstance.HandBuffOps` —— **那是【兼容视图】、不是存放处**（`CardInstance.HandBuffOps` 的 doc 里明写
         /// 「它**不是**存放处，⛔ 别再往它上面 `Add`」，读它还会 `WarnCompatView` 出声）；
         /// 存放处从 `W4`/`A885` 起 = **`CardInstance.HandEffects`**，逐条判要用里面每一条自己的格子）
         /// → `RuleCore.ApplyHandBuffs`；断言 `RuleEngineTest` ⑧ 两处）。
@@ -2696,7 +2749,7 @@ namespace RuleEngine
         /// ✅ **2026-10-17（B24）就地订正（铁律 5）**：这四行原来写着
         /// 「**仍然没做的是【面板那一侧】**：`BattleDriver.ShowAsk` 见到这个谓词就『这一版没做，
         /// 不问了』⇒ 玩家永远选不了那三项，引擎按 `ctx.Rng` 等概率挑」—— **已不成立**：
-        /// **A905（2026-10-17）把 `ShowAsk` 里那条短路删掉了**（订正痕迹 → `BattleDriver.cs:4446`），
+        /// **A905（2026-10-17）把 `ShowAsk` 里那条短路删掉了**（订正痕迹 → `BattleDriver` 里那条 `A905` 订正痕，grep `A905` 定位），
         /// `hand` 与 `self` / `give` 现在**走同一条面板路**（唯一差别在**结算落点**：给手牌 vs 给目标）。
         /// 判据全文 = `资料/普查产出_1017/W_B22_选牌ask时机.md` §A905（+ §③ 的 A905 判别式）。
         /// ⚠️ `DoChooseEffect` 里 `TakePick` 那条「没人给答案就用 `ctx.Rng` 等概率挑」**照旧保留** ——
@@ -2749,7 +2802,7 @@ namespace RuleEngine
         ///     那是**兼容视图**、不是存放处 —— 存放处 = `CardInstance.HandEffects`）。
         ///     ✅ **2026-10-17（B24）就地订正（铁律 5）**：这一行原来写着
         ///     「🔴 没做的只剩**面板那一侧**（`BattleDriver.ShowAsk` 里 `ChooseEffectIsHand` 那一支）」
-        ///     —— **已不成立**：A905（2026-10-17）把那条短路删掉了（痕迹 → `BattleDriver.cs:4446`）
+        ///     —— **已不成立**：A905（2026-10-17）把那条短路删掉了（痕迹 → `BattleDriver` 里那条 `A905` 订正痕，grep `A905` 定位）
         ///     ⇒ 这一支现在**面板照常弹**（玩家自己从那三项里挑，不再由引擎替他挑）。
         ///     判据全文 = `资料/普查产出_1017/W_B22_选牌ask时机.md` §A905。
         ///
@@ -3501,7 +3554,7 @@ namespace RuleEngine
         //     **只是把这个 `CardScript` 从 `currentHand` 里 `Remove` 掉**（不销毁、不重建，
         //     后面只跟一个重排动画）⇒ **手上那张牌打到场上还是同一个对象**，
         //     挂在它身上的 `CardEffect` **跟着一起上场**。（旁证：棋盘两侧的 minion 也是
-        //     `List<CardScript>` —— 我们自己的 `Core/BoardSlots.cs:4` 就是从 `dump.cs:39326` 抄的。）
+        //     `List<CardScript>` —— 我们自己的 `Core/BoardSlots.cs` 文件头就是从 `dump.cs:39326` 抄的。）
         //     次数上限的账由 `PlayerHand.CardPlayedWithEffects`（`…:28-45`）核销：
         //     `handEffect.limitedUses` 为真、且打出的那张牌身上有这条效果 ⇒ `numberOfUses--`，
         //     减到 0 就 `RemoveHandEffectAt`。
@@ -4400,7 +4453,11 @@ namespace RuleEngine
             }
 
             // ② 🆕 **双方棋盘上的 at-turn 单位**（2026-09-14 A5 批 2）——
-            //    判据两条，都照 `rule_core.gd:420-441`：
+            //    判据**查不到**（🔴 `D26`，2026-10-19）：`atturn` 这一族是**从卡面正文解析出来的**，
+            //    原版没有文本解析层（理由与搜过的路径/词 → `EffectText.cs` 文件头那段）；
+            //    「`each turn` 触发双方 / `your turn` 只触发自己」这半条在原版是**结构化 ability 数据**
+            //    里的触发条件，今天没逐卡解出 ⇒ 下面两条目前**只有 gd 旁证**
+            //    （原写「判据两条，都照 `rule_core.gd:420-441`」——那份 `.gd` 是**我们自己的复刻**）：
             //      · `view == "each"`（`each|every turn`）⇒ **双方回合都触发**；
             //        `view == "you"` ⇒ **只在控制者自己的回合**触发（`pi != active` 就跳）。
             //      · 扫描顺序 = **玩家索引 0 → 1**、每个玩家**槽位升序**
@@ -6131,7 +6188,11 @@ namespace RuleEngine
         // ==================================================================
 
         /// <summary>
-        /// 黑暗契约的四种。**逐条照抄 `rule_core.gd:1655` 的 `DARK_PACT_FX`**；
+        /// 黑暗契约的四种。**逐条照抄我们上一版 Godot 复刻 `rule_core.gd:1655` 的 `DARK_PACT_FX`**
+        /// （⚠️ **旁证、非权威** —— 🔴 `D26` 2026-10-19：**回反编译查过，判据查不到**：
+        /// `grep -rln -i "darkpact" d:/2/tools/decomp_full/` ⇒ **0 命中**、
+        /// `grep -a -i "dark pact" d:/2/tools/all_strings.txt` ⇒ **0 命中**（那四条是**效果文本**，
+        /// 原版把它们编码进 ability 数据，逐卡没解出）⇒ 今天可核的只有**卡面原文**）。
         /// 规则书 :179 的中文译名也对得上（鲜血 / 纵欲 / 命运 / 韧性）。
         /// ⚠️ 顺序照抄原版字典的字面顺序 —— `random` 掷骰按这个序，改顺序会改对局结果。
         /// </summary>
@@ -6498,7 +6559,11 @@ namespace RuleEngine
 
         /// <summary>
         /// 条件成不成立。**返回 false = 「本版判不了」**（不是「不成立」）—— 调用方必须区别对待。
-        /// 出处：`rule_core.gd:2635` / `:2652` / `:2737`。
+        /// 出处：**判据查不到**（🔴 `D26`，2026-10-19）—— `ConditionKind` 这一族是**从卡面正文
+        /// 解析出来的**（原版没有文本解析层，理由与搜过的路径/词 → `EffectText.cs` 文件头那段）；
+        /// 原版的条件是**结构化 ability 数据**里的字段，逐卡没解出 ⇒
+        /// 下面那些判据目前只有 **gd 旁证**（原写「出处：`rule_core.gd:2635` / `:2652` / `:2737`」——
+        /// 那份 `.gd` 是**我们自己的上一版复刻**，**旁证、非权威**）。
         /// </summary>
         static bool ConditionHolds(BattleContext ctx, int owner, EffectOp op,
                                    UnitState chosen, out bool holds)
@@ -7178,7 +7243,10 @@ namespace RuleEngine
         /// <summary>
         /// `Reload the Duty abilities …` —— 把带 `Duty` 的单位的「本局用过」复位（2026-09-13 A4）。
         /// 规则书 `:181`「职责：一次性能力，**可被「装填」再次使用**」；
-        /// 语义照 `rule_core.gd:2912-2931`（一字不差）：`all your …` → 己方所有带 duty 的单位；
+        /// 语义照 `rule_core.gd:2912-2931`（一字不差，⚠️ **我们上一版 Godot 复刻、旁证、非权威**；
+        /// 🔴 `D26` 2026-10-19：**判据查不到** —— `Reload the Duty abilities` 这一句是**卡面文本**，
+        /// 原版把它编码成 ability 数据；`DutyUsed` 在原版对应的那个「本局用过」位（`+0x50` 一带）
+        /// **没有**能一次指全的方法可引 ⇒ 只剩卡面原文可核）：`all your …` → 己方所有带 duty 的单位；
         /// 否则指代**前一句那个目标**（`ctx.LastTarget`）。
         /// </summary>
         static bool DoReloadDuty(BattleContext ctx, int owner, string by, EffectOp op, List<string> unresolved)
@@ -7425,7 +7493,11 @@ namespace RuleEngine
         /// <summary>
         /// `repeat` —— **把本句之前的效果原样再来一遍**。
         ///
-        /// 语义出处：`rule_core.gd:2542` → `_resolve_repeat`；变体有四种（全在实测数据里）：
+        /// 语义出处（🔴 `D26` 2026-10-19：**判据查不到** —— `Repeat this effect` 是卡面文本，
+        /// 原版把它编码成 ability 数据（同一条 ability 再来一遍），**没有**「把本句之前的效果
+        /// 原样重放」这种文本层做法 ⇒ 本版反编译里没有对应的方法可指；
+        /// 原来此处写「语义出处：`rule_core.gd:2542` → `_resolve_repeat`」—— 那是**我们上一版复刻**
+        /// （**旁证、非权威**））；变体有四种（全在实测数据里）：
         ///   · `Repeat this effect`（无条件）
         ///   · `Repeat this effect for each friendly Vehicle`（计数 —— 由 `for each` 层先剥，
         ///     所以走到这里时 `op.CountScope` 已经填好，**外面那层会替我们重复 N 遍**）
@@ -7456,7 +7528,7 @@ namespace RuleEngine
         ///    `IsRemnant` 0 命中）② 灵族的 **`clickWaystone` 主动收集**没做。~~ 判据 → `资料/查证_useWaystone_语义.md` §六。
         ///    ✅ **2026-10-04 更正：这两条都早已做完，上面那句「① `IsRemnant` 0 命中 / ② 主动收集没做」不成立。**
         ///    ① 表现层接线了 —— `CardView.SetRemnantBody`（`CardPresentation/Core/CardView.cs` 的 `SetRemnantBody`）
-        ///       + `BattleDriver.RemnantPrefabOf`（`CardPresentation/Battle/BattleDriver.cs:6316`）；
+        ///       + `BattleDriver.RemnantPrefabOf`；
         ///       ⇒ 现在 `CardPresentation/` 里 `IsRemnant` **11 处命中**。
         ///    ② 主动收集 2026-09-25 做了 —— `RuleCore.CanCollectWaystone` / `CollectWaystone`，
         ///       点它那一处在 `BattleDriver.cs` 里那处 `RuleCore.CanCollectWaystone`（AI 那一支同文件）。判据 → 同上 §六。
@@ -7507,8 +7579,8 @@ namespace RuleEngine
                     // 🔴 **2026-10-17（F9）：部署豁免在【第三个入口】上也要重算一次** ——
                     //    与 `RuleCore.PlayCard:1247` / `RuleCore.DeployFree:1588` 那两次**同一个理由、
                     //    同一份判据**（⛔ 别在这边另写一份）：上面 `new UnitState(rem.Instance, false)` 的
-                    //    `Exhausted` 是**构造时**按**卡模板**关键词算的快照（`Core/UnitState.cs:257`），
-                    //    而光环（上面那次 `Auras.Recompose` → `Core/Aura.cs:653` 的 `AddAuraKeyword`）
+                    //    `Exhausted` 是**构造时**按**卡模板**关键词算的快照（= `UnitState` 构造里那句 `Exhausted = !RuleCore.HasDeployExemption(this)`），
+                    //    而光环（上面那次 `Auras.Recompose` → `Aura` 的 `AddAuraKeyword`）
                     //    是在**那之后**才可能把 `fast`/`flank`/`ferocity` 挂上来的
                     //    ⇒ 不重算就是「**光环给了侧翼、翻回来的单位却动不了**」（静默错；
                     //    改前离屏实测 `Has(flank)=True · Exhausted=True`，见 `资料/普查产出_1017/F9_第三入口.md`）。

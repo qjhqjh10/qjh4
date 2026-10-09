@@ -4,7 +4,7 @@
 // 原版 `Vanguard Frame Animated VAT.prefab` 上挂着 4 个组件，其中第 4 个是
 // `StoryProgramming.VATGPUPlayer`（`m_Script` → `3946243950355606049`，在
 // `bundle_Waprforge_monoscripts` 里）。我们工程里没有那个脚本 ⇒ 导出器
-// `EffectExporter.StripMissingScripts`（`WarpforgeArena1/Editor/EffectExporter.cs:1554`，
+// `EffectExporter.StripMissingScripts`（`WarpforgeArena1/Editor/EffectExporter.cs`，
 // 调用点 `:1053`）把**整条 MonoBehaviour 删掉** ⇒ 结果：（行号 2026-10-08 现读刷新 —— 原来写的是 `:1309` / `:878`，都已漂）
 //   · `_State` 永远停在 prefab 手写值（`_state: 0.0`）上；
 //   · 那件 mesh 的顶点位置永远采样贴图的第 0 行 ⇒ **一点都不动**。
@@ -158,7 +158,7 @@
 // ⚠️ **导出器还没教过它**：`EffectExporter` 现在只在 `StripMissingScripts`（`:878`）之后补
 //    `AttachPoolables`（`:880`），没有 VAT 这一类 ⇒ **下次重导会把本组件连带删掉**。
 //    要根治得照 `AttachPoolables` 的形状加一个 `AttachVatDrivers(inst, src.name)`
-//    （落点 `EffectExporter.cs:880` 之后、`PrefabUtility.SaveAsPrefabAsset` 之前）。
+//    （落点 = `EffectExporter.StripMissingScripts(inst)` 之后、`PrefabUtility.SaveAsPrefabAsset` 之前）。
 //    本文件所在的那次改动**没有**动 `EffectExporter.cs`（在白名单之外）⇒ 见交接报告。
 
 using System;

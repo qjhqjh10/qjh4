@@ -277,10 +277,13 @@ namespace CardPresentation.Net
         /// <para>🔴 **2026-10-19（P6d）这四条路都多了一步 `NetWireText.Unpack`（取词），次序是
         /// 【先钳、后取词】** —— 理由（反过来的话会截到我们自己的文案）见 <see cref="NetWireText"/> 的类注释。
         /// ⚠️ 原来本段写的是三处、且行号写死（`:428`/`:336`/`:362`）—— **那些行号早就漂了**
-        /// （2026-10-19 现读已不是那三行）⇒ 就地改成**符号名索引**（铁律 5；⛔ 以后别在本文件写死行号）。</para>
+        /// （2026-10-19 现读已不是那三行）⇒ 就地改成**符号名索引**（铁律 5；⛔ 以后别在本文件写死行号）。
+        /// 🔴 **2026-10-20（`A1123`）**：紧隔壁那段「取 40 的判据」当时**自己破了这个例** ——
+        /// 还留着一条硬行号 `Shell/SearchingMatchPopup.cs:408`（也已落空）⇒ **已改成符号名**
+        /// `Shell/SearchingMatchPopup.HintLineMaxChars`。**本文件剩余写死行号：0 处。**</para>
         ///
-        /// <para>**取 40 的判据** = 提示行自己的那条上限：`Shell/SearchingMatchPopup.cs:408` 的
-        /// `HintLineMaxChars = 40`（B17 已解；超长只 `LogWarning`、**照画**）——「对端塞进来的那一段」
+        /// <para>**取 40 的判据** = 提示行自己的那条上限：`Shell/SearchingMatchPopup.HintLineMaxChars`
+        /// （= 40；B17 已解；超长只 `LogWarning`、**照画**）——「对端塞进来的那一段」
         /// 不该比**整行提示**的预算还长。那个常量落在 `Shell/`，这里不引它（`Net/` 不该依赖 `Shell/`），
         /// **数值照抄、出处写在这儿**。</para>
         ///

@@ -246,7 +246,7 @@ namespace CardPresentation
             get
             {
                 // 🔴 **2026-10-18（波 1b）**：这两句走词条（键 `MenuDeck/GameMode/{Skirmish,Classic}`，
-                //   出处 `Core/Loc.cs:1225-1226`；ZH 列与改前写死串**逐字相同** ⇒ 中文档零变化）。
+                //   键名照原版；ZH 列与改前写死串**逐字相同** ⇒ 中文档零变化）。
                 //   ⚠️ 别与 `StartMatch` 里那个 `modeStr`（`"Skirmish"`/`"Classic"`）混为一谈 —— 那两个是
                 //   **网络协议串**（喂 `NetMatchmaking.TryStart`、两边对账用），⛔ 绝不能翻（`A1036`）。
                 return DeckGameMode == (int)GameMode.Skirmish
@@ -287,7 +287,7 @@ namespace CardPresentation
             if (pre != null)
             {
                 if (pre.gameMode == DeckGameMode) { why = null; return true; }
-                // 整句走词条（键 `MenuDeck/Error/WrongGameMode`，出处 `Core/Loc.cs:1229-1230`）。
+                // 整句走词条（键 `MenuDeck/Error/WrongGameMode`）。
                 // ⚠️ 两个替换值**都来自 `Loc`**（词条正文里不会有花括号）⇒ 次序无所谓；这一处照「高位先填」。
                 why = Loc.T("MenuDeck/Error/WrongGameMode")
                           .Replace("{1}", DeckGameModeName)
@@ -299,12 +299,12 @@ namespace CardPresentation
             var raw = CollectionData.Raw(DeckIndex);
             if (raw == null)
             {
-                // 整句走词条（键 `MenuDeck/Error/NoDeckForMode`，出处 `Core/Loc.cs:1233-1234`）。
+                // 整句走词条（键 `MenuDeck/Error/NoDeckForMode`）。
                 why = Loc.T("MenuDeck/Error/NoDeckForMode").Replace("{0}", DeckGameModeName);
                 return false;
             }
             if (DeckFitsMode(raw)) { why = null; return true; }
-            // 整句走词条（键 `MenuDeck/Error/WrongGameModeDeck`，出处 `Core/Loc.cs:1231-1232`）。
+            // 整句走词条（键 `MenuDeck/Error/WrongGameModeDeck`）。
             // 🔴 **`{0}` 必须最后填**：`Replace` 会**再扫一遍已填入的内容**，而 `{0}` 是**玩家数据**（卡组名，
             //    用户随便起）—— 只有「最后填」才能保证名字里万一出现 `{1}`/`{2}` 也不会被当成占位符换掉。
             //    （`{2}`/`{1}` 的值来自 `Loc`，词条正文不含花括号。）
@@ -531,8 +531,7 @@ namespace CardPresentation
 
             // `No Deck Text`（+ `Create deck` 那颗钮）—— **只有在没有督军时才显示**（原版 `NoDeckText` 那一族）
             var none = MenuDraw.Node(col, "No Deck", new PxRect(NoDeckL, NoDeckT, NoDeckR, NoDeckB));
-            // 🔴 **2026-10-18（波 1b）**：这一句走词条（键 `MenuDeck/HUD/NoWarlordText`，出处
-            //   `Core/Loc.cs:1246-1247`；ZH 列与改前写死串**逐字相同** ⇒ 中文档零变化）。
+            // 🔴 **2026-10-18（波 1b）**：这一句走词条（键 `MenuDeck/HUD/NoWarlordText`；ZH 列与改前写死串**逐字相同** ⇒ 中文档零变化）。
             //   ⚠️ 它是「整句」—— 别拿 `MenuDeck/Error/NoWarlord`（短键「还没有选战将」）替，那会**丢信息**（`A1034`）。
             var ndt = MenuDraw.Text(none, new PxRect(NoDeckL, NoDeckT, NoDeckR, NoDeckB),
                                     Loc.T("MenuDeck/HUD/NoWarlordText"), Color.white,
@@ -961,10 +960,10 @@ namespace CardPresentation
             if (string.IsNullOrEmpty(d.WarlordId) && PickedPrebuilt == null)
             {
                 Debug.LogWarning("[Event] 这套卡组**没有督军**，开不了局 —— 如实说，不静默。");
-                // 弹窗正文走**整句**词条（键 `MenuDeck/Error/CantStartNoWarlord`，出处 `Core/Loc.cs:1251-1252`；
+                // 弹窗正文走**整句**词条（键 `MenuDeck/Error/CantStartNoWarlord`；
                 //   `A1034` 裁定：这里原来复用了短键 `MenuDeck/Error/NoWarlord`（「还没有选战将」）⇒ 正文从
                 //   「这套卡组还没有选战将，开不了局。」缩成 5 个字 = 玩家可见内容缩水 ⇒ **改回整句**）；
-                // 钮文案 `MainMenu/General/OK`（出处 `Core/Loc.cs:960-977`，⚠️ 是 `OK` 不是 `Ok`）。
+                // 钮文案 `MainMenu/General/OK`（见 `Core/Loc.cs` 里那一条的留痕块，⚠️ 是 `OK` 不是 `Ok`）。
                 if (Manager != null) Manager.ShowPopUp(Loc.T("MenuDeck/Error/CantStartNoWarlord"), Loc.T("MainMenu/General/OK"), null);
                 return;
             }
@@ -1035,13 +1034,13 @@ namespace CardPresentation
             if (NetMatchmaking.Cancel("对局发起方点了取消", out string why))
             {
                 NetTookOver = false;
-                // 整句走词条（键 `Settings/Online/MatchCancelled`，出处 `Core/Loc.cs:1222-1223`）。
+                // 整句走词条（键 `Settings/Online/MatchCancelled`）。
                 NetRuntime.Notice(Loc.T("Settings/Online/MatchCancelled"));
             }
             else
             {
                 // **不假装取消成功**（红线）：说清为什么、以及该怎么办。
-                // 走词条（键 `Settings/Online/MatchCancelFailed`，出处 `Core/Loc.cs:1224`）。
+                // 走词条（键 `Settings/Online/MatchCancelFailed`）。
                 NetRuntime.Notice(Loc.T("Settings/Online/MatchCancelFailed").Replace("{0}", why));
             }
         }

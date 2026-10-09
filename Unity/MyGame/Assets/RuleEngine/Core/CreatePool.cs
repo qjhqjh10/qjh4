@@ -858,12 +858,12 @@ namespace RuleEngine
         /// （卡面印的是 `[Talent 图标] Talent: &lt;名&gt;`，数据管线把图标和前缀一起去了 —— 照成品卡图核过，
         /// 铁律 7）。前缀一没，规则② 就**挡不住**，那一段里的天赋名被当成了「正文点名」
         /// ⇒ 英文那一趟出**假命中**。全池就这 3 张（`CardDef.cs` 的 `ExtractBareTalentName` 注释里
-        /// 与 `:1727` 的实测名单都是同一批）：
+        /// 与 `HandledByOtherLayer` 里那条实测名单都是同一批）：
         ///  · `Azrael`（`DA3`）—— `… put it at the top of your deck. **Supreme Grand Master**`（第二段才是名字）
         ///  · `Aun'Va`（`TAU1`）—— 整条 desc 就是 `**Ethereal Supreme**`
         ///  · `Abaddon the Despoiler`（`BL1`）—— 整条 desc 就是 `**Chosen of the Four**`（名字是从 `keywords` 里抽的）</para>
         ///
-        /// <para>**判据不是这里新发明的，是转调两处现成的**（`CardDef.cs:1727` 逐字同款）：
+        /// <para>**判据不是这里新发明的，是转调两处现成的**（`CardDef.HandledByOtherLayer` 里那条 `ExtractBareTalentName(seg) == c.TalentName` 逐字同款）：
         /// ① `CardDef.ExtractBareTalentName(seg)` —— 「这一段像不像一个裸写的天赋名」；
         /// ② 它**恰好等于**本卡已抽出来的 <see cref="CardDef.TalentName"/> —— 第二道闸：
         ///    「像名字」还不够，得是**本卡的**那个名字。

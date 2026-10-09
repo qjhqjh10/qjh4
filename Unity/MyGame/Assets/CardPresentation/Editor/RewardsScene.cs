@@ -114,6 +114,111 @@ public static class RewardsScene
     /// ⚠️ **它不认识 `A/B/C` 这种路径写法** —— 要路径用本文件自己的 `FindPath`。</summary>
     static Transform FindChild(Transform parent, string name) => MenuCheck.FindChild(parent, name);
 
+    /// <summary>🆕 **2026-10-09（`A1125`）**：一颗**关窗钮**的「命中区 + 换图层」四连断。
+    /// <para>四个闸落在**四个不同对象**上（前提 / 命中区尺寸 / 命中区位置 / 换图层绑定）⇒ 改坏任一处只红其中一条：
+    /// ① 按钮 / 命中 / 可见面三件都取得到（取不到就不许往下断 = 不静默变绿）；
+    /// ② 命中区**尺寸** = 原版可射线件**并集**（⛔ 不是根矩形）；③ 命中区**中心** == 可见面渲染中心
+    /// （可见面矩形与命中区**不同源** ⇒ 位置那一半的独立锚）；④ 换图层 = 原版 `m_TargetGraphic`
+    /// 指到的那一颗（节点名 + 贴图名**两个条件**；`targetNodeName == null` ⇒ 只断**贴图名**）。</para>
+    /// <para>`btnName == null` ⇒ 直接在**窗根**下找 `hitName` / `faceName`（命中节点挂窗根那两扇）。
+    /// ⛔ 期望值全是**原版 prefab 的读数**，不从被测实现里读。判据 → 同族五份 `A1125Close`。</para></summary>
+    static void A1125Close(string win, Transform winRoot, string btnName, string hitName,
+                           string faceName, string faceTex, string targetNodeName, float wPx, float hPx)
+    {
+        var btn = winRoot == null ? null : (btnName == null ? winRoot : FindChild(winRoot, btnName));
+        CheckTrue(btn != null, $"（前提·不静默）A1125 {win}：关窗钮节点 `{btnName ?? "<窗根>"}` 拿得到"
+                             + " —— ⛔ 取不到就不往下断（不静默变绿）");
+        var hitG = btn != null ? FindChild(btn, hitName) : null;
+        CheckTrue(hitG != null, $"（前提·不静默）A1125 {win}：命中节点 `{hitName}` 拿得到");
+        var faceG = btn != null ? FindChild(btn, faceName) : null;
+        CheckTrue(faceG != null, $"（前提·不静默）A1125 {win}：可见面子件 `{faceName}` 拿得到");
+        var hq = hitG != null ? hitG.GetComponentInChildren<ImageQuad>(true) : null;
+        float hx1 = 0f, hy1 = 0f, hx2 = 0f, hy2 = 0f;      // ⛔ 先归零：`&&` 短路时编译器要求 out 已赋值
+        bool okH = hq != null && MenuDraw.QuadRectPx(hq, out hx1, out hy1, out hx2, out hy2);
+        CheckTrue(okH && Mathf.Abs((hx2 - hx1) - wPx) <= 0.5f && Mathf.Abs((hy2 - hy1) - hPx) <= 0.5f,
+                  $"★★ A1125 {win}：关窗钮**命中区** = 原版可射线件并集 **{wPx}×{hPx}**（设计 px）"
+                + (okH ? $"（现读 {hx2 - hx1:F2}×{hy2 - hy1:F2}）" : "（命中 quad 取不到）")
+                + "｜🧨 ① 改回根矩形 ⇒ 每边小 ~11（绿族 ~10.7/9.8）⇒ 红；② 改回子件裸矩形 ⇒ 每边小 20 ⇒ 红");
+        var fq = faceG != null ? faceG.GetComponentInChildren<ImageQuad>(true) : null;
+        float fx1 = 0f, fy1 = 0f, fx2 = 0f, fy2 = 0f;
+        bool okF = fq != null && MenuDraw.QuadRectPx(fq, out fx1, out fy1, out fx2, out fy2);
+        CheckTrue(okH && okF
+                  && Mathf.Abs((hx1 + hx2) * 0.5f - (fx1 + fx2) * 0.5f) <= 0.6f
+                  && Mathf.Abs((hy1 + hy2) * 0.5f - (fy1 + fy2) * 0.5f) <= 0.6f,
+                  $"★★ A1125 {win}：命中区**中心** == 可见面 `{faceName}` 的渲染中心（独立锚）"
+                + (okH && okF ? $"（{((hx1 + hx2) * 0.5f):F2},{((hy1 + hy2) * 0.5f):F2} vs "
+                                + $"{((fx1 + fx2) * 0.5f):F2},{((fy1 + fy2) * 0.5f):F2}）" : "（取不到）")
+                + "｜🧨 把命中节点整体搬走（`localPosition += (20,0,0)`）⇒ 只错位置不错尺寸 ⇒ 只这条红（与 ② 不同源）");
+        var wb = hitG != null ? hitG.GetComponent<WindowButton>() : null;
+        string got = wb == null || wb.target == null || wb.target.Texture == null
+                   ? "<没绑>" : wb.target.gameObject.name + " / " + wb.target.Texture.name;
+        CheckTrue(wb != null && wb.target != null && wb.target.Texture != null
+                  && wb.target.Texture.name == faceTex
+                  && (targetNodeName == null || wb.target.gameObject.name == targetNodeName),
+                  $"★★ A1125 {win}：**换图层** = 子件 `{targetNodeName ?? faceName}`（图 `{faceTex}`；"
+                + "= 原版 `m_TargetGraphic` 指到的那一颗）—— 现读「" + got + "」"
+                + "｜🧨 把它传成根圆底盘（`UI_Button_Round_background`）⇒ 红（错因 = 只读 `m_Transition`、没读 `m_TargetGraphic`）");
+    }
+
+    /// <summary>🆕 **2026-10-18（B5）**：关窗钮**圆底盘**那颗 quad 的**实绘矩形**两连断 ——
+    /// 补 `A1125Close` 上面那个**静默缺口**（那四格读的是：命中区 quad 的矩形 / 命中区中心 vs 见面中心 /
+    /// 可见面的**节点名** / 可见面的**贴图名** —— **没有一格量圆底盘的矩形成像**。
+    /// 因为圆底盘等比后**仍居中**，连「中心」那一格都抓不住它）。
+    /// <para>🔴 **量的是【根节点自己身上】那颗 quad**（原版 `Generic Close Button Orange` 的 `Image`
+    /// 就长在**根节点**自己身上，⛔ 不是自造子件）—— 所以用 `GetComponent` 而**不是** `GetComponentInChildren`：
+    /// 后者会把「搬回自造子件 `Base`」这个偏离**静默量成合格**。</para>
+    /// <para>⛔ **期望值来自原版 prefab 的读数**（逐字段直读，不是推的
+    /// → `资料/普查产出_第八会话/B4_InboxWindow圆底盘归真.md` §1·2 / §1·3）：
+    /// 三颗都是 `m_PreserveAspect = 1` · `m_Type = 0`(Simple) · 根那一格 **74.39×75.60** ·
+    /// 贴图 `UI_Button_Round_background` 的 sprite `m_Rect` = **237×237（正方）**、`m_Border` / `m_Offset` 全 0
+    /// ⇒ 等比内接进「根那一格」= **实绘 74.39×74.39**（高被缩到宽那一档）。
+    /// 我们这侧导入的 PNG 也是 237×237（实读 PNG 头）⇒ 落到 `CardbackFace.Fit` 的兜底支 =
+    /// 「拿贴图自身宽高当 `m_Rect`」⇒ 同值。⚠️ 但本格读数走 `MenuDraw.QuadRectPx`（**渲染几何**），
+    /// ⛔ 期望值**不从被测实现里读回来**（那是自证）。</para>
+    /// <para>`frameW` / `frameH` = **根那一格**（`InboxWindow.CloseBtn` = 74.38×75.60）——
+    /// 它钉的是「**量的是根那一格**」这件事：⛔ 传子件框 `CloseBg`（56.86×58.13）就不是原版那一格了。</para>
+    /// <para>🔴 **两格各钉一轴**（① 实绘**宽** = `basePx`；② 实绘**宽 == 实绘高** = 等比不变量）——
+    /// 这样两种改坏法**各红不同的一格**、**结构上不可能一起变绿**：
+    /// `CloseBtn`→`CloseBg` ⇒ 只 ① 红（56.86 仍是正方 ⇒ ② 绿）；去掉 `keepAspect` ⇒ 只 ② 红（宽没变 ⇒ ① 绿）。
+    /// ⛔ **别把高度也塞进 ①** —— 那会让两种改坏法都红 ①、② 就没有独立作用了（弱断言 / 分不出两种状态）。</para></summary>
+    static void A1125CloseBase(string win, Transform winRoot, string btnName, string baseTex,
+                               float basePx, float frameW, float frameH)
+    {
+        var btn = winRoot == null ? null : (btnName == null ? winRoot : FindChild(winRoot, btnName));
+        // 🔴 `GetComponent`（**本节点自己**那一颗）而不是 `GetComponentInChildren` —— 见上面 doc 第 2 段：
+        //    `GetComponentInChildren` 会往下钻，把「圆底盘搬回自造子件」那种偏离量成合格（静默）。
+        var bq = btn != null ? btn.GetComponent<ImageQuad>() : null;
+        string baseGot = bq == null ? "<没有 quad>" : (bq.Texture == null ? "<没贴图>" : bq.Texture.name);
+        CheckTrue(bq != null && bq.Texture != null && bq.Texture.name == baseTex,
+                  $"（前提·不静默）A1125 {win}：**根节点自己身上**那颗 quad（圆底盘 `{baseTex}`）拿得到、"
+                + "且贴图就是原版那一张 —— ⛔ 取不到 / 取错就不往下断（不静默变绿）"
+                + $"｜现读「{baseGot}」｜🧨 圆底盘若被搬回自造子件（原版没有那个子件）⇒ 本格红"
+                + "（⛔ 别改成 `GetComponentInChildren` 去「修」它 —— 那正是本格要挡的偏离）");
+        float bx1 = 0f, by1 = 0f, bx2 = 0f, by2 = 0f;      // ⛔ 先归零：`&&` 短路时编译器要求 out 已赋值
+        bool okB = bq != null && MenuDraw.QuadRectPx(bq, out bx1, out by1, out bx2, out by2);
+        float bw = bx2 - bx1, bh = by2 - by1;
+        // 🔴 **本格【只钉宽】**（高由下面那格「宽==高」钉）—— 两格各钉一轴，**改坏法才各红一格**：
+        //    `CloseBg` ⇒ 只有本格红（宽 56.86 ≠ 74.38，而 56.86 仍是正方 ⇒ 下格绿）；
+        //    去掉 `keepAspect` ⇒ 只有下格红（宽 74.38 没变 ⇒ 本格绿）。
+        //    ⛔ 别把高度也塞进本格 —— 那会让两种改坏法都红本格，下格就没有独立作用了。
+        CheckTrue(okB && Mathf.Abs(bw - basePx) <= 0.5f,
+                  $"★★ A1125 {win}：**圆底盘实绘宽** = 原版 **{basePx:F2}**（设计 px；配下面那格「宽==高」"
+                + $"⇒ 两条一起 = 原版 **{basePx:F2}×{basePx:F2}**）"
+                + (okB ? $"（现读宽 {bw:F2}，高 {bh:F2}）" : "（圆底盘 quad 取不到）")
+                + $"｜= 根那一格 **{frameW:F2}×{frameH:F2}** 的宽（原版读数 74.39，本窗 `CloseBtn` 常量 74.38）"
+                + "｜🧨 把矩形改回子件框 `CloseBg`（56.86×58.13）⇒ 宽少 ~17.5 ⇒ **只本格红**"
+                + "（下面「宽==高」那格**仍绿** —— 56.86 也是正方）");
+        // 🔴 **本格 = 等比这条不变量**（比断绝对数抗「将来换贴图」：换成别的正方贴图它照旧成立），
+        //    而且**只有【去掉 `keepAspect`】这一种改坏法会红它** ⇒ 与上格**结构上不可能一起变绿**。
+        CheckTrue(okB && Mathf.Abs(bw - bh) <= 0.5f,
+                  $"★★ A1125 {win}：圆底盘**实绘宽 == 实绘高**（= **等比**这条不变量；根那一格本身是 "
+                + $"{frameW:F2}×{frameH:F2} 的**非正方**框 ⇒ 只有真等比才会两轴相等）"
+                + (okB ? $"（现读 {bw:F2}×{bh:F2}）" : "（圆底盘 quad 取不到）")
+                + "｜🧨 把 `keepAspect: true` 去掉 ⇒ 实绘变 74.38×75.60（**宽≠高**）⇒ **只本格红**"
+                + "（宽 74.38 没变 ⇒ 上格绿）"
+                + "｜🔴 这就是「它用的是**根那一格**（非正方）+ 等比」的判别式 —— 少了等比，高度就顶到 75.60");
+    }
+
     /// <summary>**按路径**找一个节点（`Content/Scroll View/Viewport/…`）。
     /// 🔴 2026-09-23 踩过：`FindChild` 是**按名字**找的（`GetComponentsInChildren` + `name ==`），
     /// **不认识 `A/B/C` 这种写法** —— 传路径进去**永远返回 null**，而断言只会报「不成立」，
@@ -8828,6 +8933,53 @@ public static class RewardsScene
         var warnNode = FindChild(inbox.transform, "No News Warning");
         CheckTrue(mdNode != null && !mdNode.gameObject.activeSelf, "空态下 `Message Display` **是关的**");
         CheckTrue(warnNode != null && warnNode.gameObject.activeSelf, "空态下 `No News Warning` **是开的**");
+        // 🆕 2026-10-09（`A1125`）：关窗钮的**命中区 + 换图层**四连断。
+        //   🔴 **2026-10-18（B3）**：`Shell/InboxWindow.cs` 那处**节点名与内容错位**已按原版**改正** ——
+        //   改前叫 `Background` 的 quad 画**圆底盘**、叫 `Icon` 的画**黄面**、叫 `Icon (X)` 的画叉
+        //   （三个名字整体错开一格）；改后 = `Background`(**黄面** `40k_general_bt_yellow`) ·
+        //   `Icon`(**叉** `40k_general_bt_yellow_close`)。
+        //   ⇒ ④ 这一格从「只断贴图名」**补齐成【节点名 + 贴图名】两个条件都断**（`targetNodeName` 不再传 `null`）。
+        //   🔴 **2026-10-18（B4）圆底盘【归真】**：那颗 `UI_Button_Round_background` 改前画在**自造子件** `Base` 上、
+        //     用**子件矩形** `CloseBg`、**没传 `keepAspect`**；B4 现读原版（`pa.py` 逐字段）⇒ 三颗**全是**
+        //     `m_PreserveAspect=1` · `m_Type=0`(Simple) · `m_PixelsPerUnitMultiplier=1.0`，圆底盘矩形 = **根矩形 `CloseBtn`**
+        //     ⇒ 已照**兄弟窗先例**（`Shell/BaseOfferPopup.cs:742` · `Shell/ReferralPopupWindow.cs:386`）改成
+        //     **画在根节点 `Generic Close Button Orange` 自己身上 + `keepAspect`**，自造名 `Base` **取消**。
+        //     ⚠️ **本条断言的四格一个数都没变**（故这一行调用**逐字未改**）：② 量的是**命中区 quad**
+        //     （`MenuDraw.Hit` 按 `PaddedRect(CloseBg, ClosePad)` 独立建 = 96.86×98.13，与三颗的矩形成像无关）；
+        //     ③ 比的是**命中区中心 vs 可见面渲染中心** —— 可见面等比后**仍居中**（`CloseBg` 的中心没动）
+        //     ⇒ 中心那两轴仍逐值相等；① 与 ④ 只看节点名与贴图名。
+        //     ✅ **2026-10-18（B5）这条缺口已补**（这里原来写着「本文件里**没有任何一条**钉住圆底盘那颗 quad 的
+        //     渲染矩形 = 74.39×74.39」⇒ 改回 `CloseBg` / 去掉 `keepAspect` 四条一条都不会红）。
+        //     现在下面这一行调用之后多两格（`A1125CloseBase`）：① **圆底盘实绘【宽】** = 原版 **74.38**
+        //     （= 根那一格 74.38×75.60 等比内接后高缩到宽那一档；原版读数 74.39，我们 `CloseBtn` 常量小 0.01，
+        //     容差 0.5 覆盖）；② **实绘宽 == 实绘高**（= **等比**这条不变量）。
+        //     🔴 **两格各只钉一轴**（① 钉宽 / ② 钉宽高相等）⇒ 两条改坏法**各红不同的一格**：
+        //     `CloseBtn`→`CloseBg`（56.86×58.13）⇒ **只 ① 红**（宽少 17.5；而 56.86 仍是正方 ⇒ ② 绿）；
+        //     去掉 `keepAspect: true` ⇒ **只 ② 红**（实绘 74.38×75.60，宽≠高；宽没变 ⇒ ① 绿）。
+        //     尺子 = 上面 B4 那三行直读（根矩形 74.39×75.60 / `PA=1` / sprite `m_Rect` 237×237 正方）。
+        //   期望值全是**原版 prefab 的读数**（本件亲跑，读数逐字抄自输出）：
+        //     · `python -I d:/tmp/wf_hit/rcunion.py bundle_menus_assets_all "Inbox Menu" --depth 8` 三行 ——
+        //       根 `Generic Close Button Orange` 的 `Image[UI_Button_Round_background RT=0]`（**不吃射线**）·
+        //       子件 `Background[40k_general_bt_yellow RT=1 pad(-20)⁴]` · 子件 `Icon[40k_general_bt_yellow_close RT=1 pad(-20)⁴]`；
+        //     · `python -I d:/tmp/wf_hit/tgt.py bundle_menus_assets_all 5609434692533257010` ⇒
+        //       **GO 名 = `Background` · 贴图 = `40k_general_bt_yellow`**（= 原版那颗 `EverguildButton` 的 `m_TargetGraphic`）。
+        //   旁证（非唯一判据）：`资料/普查产出_第六会话/W_命中区批2.md` §⑧-2。
+        //   🧨 **改坏法（两半各一条，任一改回必红）**：① **名字那半** —— 把 `Shell/InboxWindow.cs` 里画黄面那颗 quad 的
+        //     节点名从 `"Background"` 改回 `"Icon"`（或把 `MenuDraw.Hit` 的 `target` 实参改去指**圆底盘那颗**
+        //     `closeQ` —— 即根节点 `Generic Close Button Orange` 上那一颗）⇒ 红；
+        //     ② **贴图那半** —— 把 `ArtCloseIcon`（`40k_general_bt_yellow`）换成根圆底盘 `UI_Button_Round_background` ⇒ 红。
+        A1125Close("InboxWindow", inbox.transform, "Generic Close Button Orange", "Hit",
+                   "Background", "40k_general_bt_yellow", "Background", 96.86f, 98.13f);
+        // 🆕 **2026-10-18（B5）**：把上面那个**静默缺口**补上 —— 圆底盘那颗 quad 的**实绘矩形**两连断。
+        //   期望值全是**原版 prefab 的读数**（B4 逐字段直读，⛔ 不从被测实现读回来）：
+        //   · `Inbox Menu` 根 `Generic Close Button Orange` 的 `Image`：sprite `UI_Button_Round_background` ·
+        //     `m_PreserveAspect=1` · `m_Type=0`(Simple) · 矩形 = **74.39×75.60**（= 本窗 `CloseBtn` 那一格）；
+        //   · 那张 sprite 的 `m_Rect` = **237×237**（正方）· `m_Border`/`m_Offset` 全 0 ⇒ 等比内接 ⇒ 实绘 **74.39×74.39**。
+        //   下面传的 `74.38f` = **实绘宽**（= 根那一格的宽；本窗 `CloseBtn` 1785.54→1859.92）；
+        //   `74.38f, 75.60f` = **根那一格**（只进消息，用来说明「非正方的框 + 等比 ⇒ 高缩到宽那一档」）。
+        //   ⚠️ 下面两格**各只钉一轴**（宽 / 宽==高）⇒ 两种改坏法各红一格，见 `A1125CloseBase` 的 doc。
+        A1125CloseBase("InboxWindow", inbox.transform, "Generic Close Button Orange",
+                       "UI_Button_Round_background", 74.38f, 74.38f, 75.60f);
         // ============================================================ 🆕 **2026-10-13（A473 · 落 H31 §四·3）**
         // 本窗三颗**窗级 TMP** 的自适应窗口 / 二分起点 / 折行 —— 这三笔账（A468）本件之前**一条断言都没有**。
         // 🔴 期望值全是**原版 prefab 的读数**（H31 §三·3 那三行 dump 原文**逐字抄**）：
@@ -10276,6 +10428,130 @@ public static class RewardsScene
             SmallScreenUI.Set(false);
             SmallScreenUI.PersistOverride = false;
             CheckTrue(!SmallScreenUI.Enabled, "（收尾）A327：自检跑完把开关放回**出厂值 关**");
+
+            // ================= 🆕 2026-10-09（`A1137`）：`CampaignTab.BuildLine` 的**视口剔除**在非 16:9 下的两态 =================
+            // 本节补的是 `A1092` 那一修（`Shell/CampaignTab.cs:581-584`：剔除的中心与半宽**成对**换到
+            //   `ToDesignPixel` + `PxPerWorldX`）的**牙口** —— 那一修在 16:9 与旧式【逐位相同】⇒ 现有断言一条都照不出。
+            // 判据（原版）= `RectMask2D`：整段在视口外就该**不建**；中心与半宽必须**同一条斜率**。
+            // 🔴 两态 = **宽高比**（`cam.aspect` = 16:9 / 4:3 / 21:9）。16:9 是「旧实现也过」的对照档 ⇒ **只断非 16:9 那两档**。
+            // 🔴 **必须 `RefreshNodes()` 重建**（E15 §④ 那套没这一步 ⇒ 照它写会量到 16:9 冻结的树：位置在**建的那一刻**算一次）。
+            // ⚠️ 与 `A327` 的 `CheckScaleTwo` **不同源**（那个改 `SmallScreenUI` 的父链缩放 `M`、不是宽高比）。
+            {
+                var a1137Cam = LayoutSpace.Cam;
+                CheckTrue(a1137Cam != null,
+                          "（前提·不静默）A1137：`LayoutSpace.Cam` 在（`VisibleWidth` 由它给；不在 ⇒ 本节等于没验）");
+                var a1137Tab = camp != null ? camp.GetComponent<CampaignTab>() : null;
+                CheckTrue(a1137Tab != null && a1137Tab.TrackScroll != null,
+                          "（前提·不静默）A1137：`CampaignTab` 取得到、滚动区在");
+                if (a1137Cam != null && a1137Tab != null && a1137Tab.TrackScroll != null)
+                {
+                    // ⚠️ `_vpR` 没有公开只读口 ⇒ 走 `TrackScroll.Viewport`（`CampaignTab.cs:325` 把 `_vpR` **原样**传进去，
+                    //    今天逐位同源）—— ⛔ **别**给 `CampaignTab` 新增 `VpRectForTest`（两处写同一条规则）。
+                    var a1137Vp = a1137Tab.TrackScroll.Viewport;
+                    var a1137Back = a1137Cam.aspect;
+                    System.Func<Transform> a1137FirstLine = () =>
+                    {
+                        foreach (var t in camp.GetComponentsInChildren<Transform>(true))
+                            if (t.name.StartsWith("NodeLine_", System.StringComparison.Ordinal)) return t;
+                        return null;
+                    };
+                    try
+                    {
+                        foreach (float asp in new[] { LayoutSpace.DesignAspect, 4f / 3f, 21f / 9f })
+                        {
+                            a1137Cam.aspect = asp;                       // ⚠️ 必须在【重建之前】改（位置在建的那一刻算一次）
+                            var beforeLine = a1137FirstLine();
+                            a1137Tab.RefreshNodes();                     // 🔴 重建
+                            var afterLine = a1137FirstLine();
+                            CheckTrue(afterLine != null && afterLine != beforeLine,
+                                      $"（前提）A1137：换完 aspect（{asp:F4}）之后 `RefreshNodes()` **真的换了实例**"
+                                    + " —— 拿的是**新**节点 ⇒ 几何是在本档下重算的，不是 16:9 冻结的那份。"
+                                    + "🧨 把 `RefreshNodes()` 从夹具里删掉 ⇒ 拿到上一档的实例 ⇒ 红");
+                            float a1137R = LayoutSpace.VisibleWidth / LayoutSpace.DesignWidth;
+                            bool a1137IsDesign = Mathf.Abs(asp - LayoutSpace.DesignAspect) < 1e-4f;
+                            if (!a1137IsDesign)
+                                CheckTrue(Mathf.Abs(a1137R - 1f) > 0.1f,
+                                          $"（前提·本档有鉴别力）A1137：`{asp:F4}` 档 |r−1| > 0.1（r = VisibleWidth/DesignWidth = {a1137R:F4}）");
+                            // P4：两半的口径确实分家（旧式 `ToPixel`[写死 108] vs 新式 `ToDesignPixel`[实测 VisibleWidth]）
+                            float a1137Sep = 0f;
+                            for (int i = 0; i < CampaignData.NodeCount; i++)
+                            {
+                                var nr = a1137Tab.NodeRectForTest(i);
+                                var w = LayoutSpace.FromPixel((nr.x1 + nr.x2) * 0.5f, (nr.y1 + nr.y2) * 0.5f);
+                                a1137Sep = Mathf.Max(a1137Sep,
+                                                     Mathf.Abs(LayoutSpace.ToPixel(w).x - LayoutSpace.ToDesignPixel(w).x));
+                            }
+                            if (!a1137IsDesign)
+                                CheckTrue(a1137Sep > 50f,
+                                          $"（前提·本档不是空转）A1137：旧式（`ToPixel` 写死 108）与新式（`ToDesignPixel`）"
+                                        + $"在某一对上差 **{a1137Sep:F1}px** > 50 —— 不成立 ⇒ 本节没验到东西");
+                            // 一次性收名字表（⛔ 别每条都 `GetComponentsInChildren`）
+                            var a1137Names = new System.Collections.Generic.HashSet<string>();
+                            foreach (var t in camp.GetComponentsInChildren<Transform>(true)) a1137Names.Add(t.name);
+                            // ---- A 上界（不许多建）：每条**建出来的**连线，其【真 x 区间】必须与视口相交 ----
+                            //   真区间 = 两端节点中心的**设计 px** x 跨度（`NodeRectForTest` 是**纯算式** ⇒ 节点剔没剔都算得出）。
+                            //   🔴 **容差 100px（不是 §二·3 写的 ±15）—— 本次自己按几何重算的**：
+                            //     正确实现那条剔除用 `halfLen = |ab|·PxPerWorldX/2`（把整段长度当成沿 x）⇒ 比真 x 跨度**宽**；
+                            //     本 camp 图最陡一跳 = `UM1→UM3`（内容 dx=320 / dy=256）⇒ 乘 `Ratio`（= (759.06−100)/(2×264)
+                            //     ≈ **1.2482**）后 (399.4, 319.5) 设计 px ⇒ 过估 = (511.6−399.4)/2 ≈ **56px**，
+                            //     再加厚度项 `Px(LineH)·PxPerWorldX/2`（16:9 5.0 / 4:3 6.7 / 21:9 3.8）与 ±2 的 slack
+                            //     ⇒ 上界 **≈ 65px** ⇒ 取 **100** 留 1.5 倍余量（**对正确实现不报红**）。
+                            //   🔴 **为什么这条判据在三个 aspect 下都成立**：`midPx`/`halfLen` 换回设计 px 后**与宽高比无关**
+                            //     （`ToDesignPixel(FromPixel(x)) == x` ⇒ 节点设计 px 位置三档相同；`|ab|·PxPerWorldX` 也相同）
+                            //     ⇒ **正确实现的剔除判决三档逐位相同**；而旧式（`ToPixel`/108）在 4:3 是 **0.75×**、21:9 是 **1.3125×**
+                            //     ⇒ 判决会变 ⇒ 本条与 B 就是照它两条尾巴来的。
+                            int a1137Over = 0; string a1137OverFirst = null;
+                            foreach (var a1137Ln in a1137Names)
+                            {
+                                if (!a1137Ln.StartsWith("NodeLine_", System.StringComparison.Ordinal)) continue;
+                                var parts = a1137Ln.Split('_');
+                                if (parts.Length != 3) continue;
+                                int pi, pj;
+                                if (!int.TryParse(parts[1], out pi) || !int.TryParse(parts[2], out pj)) continue;
+                                var ri = a1137Tab.NodeRectForTest(pi);
+                                var rj = a1137Tab.NodeRectForTest(pj);
+                                float lo = Mathf.Min((ri.x1 + ri.x2) * 0.5f, (rj.x1 + rj.x2) * 0.5f);
+                                float hi = Mathf.Max((ri.x1 + ri.x2) * 0.5f, (rj.x1 + rj.x2) * 0.5f);
+                                if (hi < a1137Vp.x1 - 100f || lo > a1137Vp.x2 + 100f)
+                                { a1137Over++; if (a1137OverFirst == null) a1137OverFirst = a1137Ln; }
+                            }
+                            CheckTrue(a1137Over == 0,
+                                      $"★ A1137-A（上界·不许多建）：`{asp:F4}` 档下建出来的连线里，**真 x 区间**落在视口外"
+                                    + $"[{a1137Vp.x1:F1},{a1137Vp.x2:F1}]（±100px）的有 **{a1137Over}** 条"
+                                    + (a1137OverFirst == null ? "" : $"，第一条 `{a1137OverFirst}`")
+                                    + " —— **改坏法**：把 `Shell/CampaignTab.cs:581` 的 `ToDesignPixel` 换回 `ToPixel`（或 `:582` 的"
+                                    + " `PxPerWorldX` 换回 `108f`）⇒ 4:3 下区间被**压向中心**（0.75×）⇒ 该剔的没剔 ⇒ 本条红");
+                            // ---- B 下界（不许少建）：两端节点**都建出来了** ⇒ 这条连线**必须存在** ----
+                            //   期望值来自**两个独立口**：`CampaignData.At(i).Next`（配对表）+ 树里 `CampaignNode_*` 的**存在性**。
+                            int a1137Miss = 0; string a1137MissFirst = null;
+                            for (int i = 0; i < CampaignData.NodeCount; i++)
+                            {
+                                if (!a1137Names.Contains("CampaignNode_" + i)) continue;
+                                var nx = CampaignData.At(i).Next;
+                                if (nx == null) continue;
+                                foreach (var jj in nx)
+                                {
+                                    if (jj == i) continue;          // ⛔ 自环：`BuildLine` 首句 `d.sqrMagnitude < 1e-6` 直接 return
+                                    if (!a1137Names.Contains("CampaignNode_" + jj)) continue;
+                                    if (!a1137Names.Contains("NodeLine_" + i + "_" + jj))
+                                    { a1137Miss++; if (a1137MissFirst == null) a1137MissFirst = i + "_" + jj; }
+                                }
+                            }
+                            CheckTrue(a1137Miss == 0,
+                                      $"★ A1137-B（下界·不许少建）：`{asp:F4}` 档下**两端节点都建了、连线却没建**的有 **{a1137Miss}** 对"
+                                    + (a1137MissFirst == null ? "" : $"，第一对 `{a1137MissFirst}`")
+                                    + " —— 期望值 = `CampaignData.At(i).Next`（配对表）∩ 树里 `CampaignNode_*` 的存在性"
+                                    + "（⛔ 不读被测的 `midPx`/`halfLen`）。**改坏法**：21:9 下 `108f > PxPerWorldX(82.29)` 半宽被放大"
+                                    + " ⇒ 该建的被剔 ⇒ 本条红");
+                        }
+                    }
+                    finally
+                    {
+                        a1137Cam.aspect = a1137Back;      // ⚠️ 必须还原
+                        a1137Tab.RefreshNodes();          // 🔴 还原后**也要重建** —— 否则本节余下的几何全是 21:9 建的
+                    }
+                }
+            }
 
             // ================= 🆕 2026-10-13（A353）：`CampaignTab` 四处「原版没有 mask」的件 =================
             // **代码侧**已经在树上（`Shell/CampaignTab.cs` 的私有 `ClearClip()` / `RestoreClip()` 把四处成对包住）；

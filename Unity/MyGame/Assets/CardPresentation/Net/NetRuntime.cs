@@ -107,7 +107,7 @@ namespace CardPresentation
                 }
                 var wm = WindowsManager.Instance;
                 // 🔴 **2026-10-19（P6 · 双语）**：钮上的字走词条 `MainMenu/General/OK`（原版那颗钮的键，
-                //    `Core/Loc.cs:997`）。⚠️ **中文档从「知道了」变成「确定」** —— 那是词条 ZH 列的措辞
+                //    表里那条）。⚠️ **中文档从「知道了」变成「确定」** —— 那是词条 ZH 列的措辞
                 //    （原版键的英文列 = `OK`），如实标出这处**玩家可见的变化**。
                 if (wm != null) wm.ShowPopUp(t, Loc.T("MainMenu/General/OK"), null);
                 else Debug.LogWarning("[Net] 有件事要告诉玩家，但这一帧**没有 `WindowsManager`**"

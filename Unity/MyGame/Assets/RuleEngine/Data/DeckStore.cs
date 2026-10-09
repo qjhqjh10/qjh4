@@ -204,8 +204,8 @@ namespace RuleEngine
         }
 
         /// <summary>⚠️ **兼容重载（旧的 `out string note`）** —— 只给
-        /// `RuleEngine/Editor/DeckRulesTest.cs:217/241/457` 那几条既存断言用（**那个文件不在本件白名单里**，
-        /// ⇒ 没跟着改；`DeckRulesTest.cs:243` 的 `note.Contains("失败")` 因此会红，见交件报告）。
+        /// `RuleEngine/Editor/DeckRulesTest.cs` 里仍在用旧 `out string note` 重载的那几条断言用（**那个文件不在本件白名单里**，
+        /// ⇒ 没跟着改；`DeckRulesTest` 里 `note.Contains("失败")` 那一半因此恒假（grep `note.Contains` 定位），见交件报告）。
         ///
         /// 🔴 **它现在吐的是 `detail`（诊断串），不再是「还没有存档」那类中文整句**
         /// （`"no save file"` / `"save file has no decks"` / `"read failed: …"`）。

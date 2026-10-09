@@ -387,17 +387,27 @@ namespace CardPresentation
         public static string Health { get { return Loc.T("Tips/HealthTip"); } }
         public static string Cost   { get { return Loc.T("Tips/CostTip"); } }
 
-        /// <summary>HUD 计数。键 = 原版 HUD 那几个计数节点上的 `EverguildTooltipTrigger.text`
+        /// <summary>HUD 计数 —— **我方那五条**。键 = 原版 HUD 那几个计数节点上的 `EverguildTooltipTrigger.text`
         /// （13 个 arena 各一颗；逐条计数 → `Core/Loc.cs` 那一块）。
-        /// ⚠️ **原版敌我各一条键**（`Tips/Hud/{Player,Opponent}…Count`），而我们的消费点
-        /// （`Battle/BattleDriver.cs:13287-13290`）把**同一个串同时用在双方图标上**
-        /// ⇒ 本批取 `Player*Count` 那一条、两列文案写**对双方都成立的中性说法**；
-        /// 要拆成两条得改 `BattleDriver`（不在本笔白名单，已记进交件报告）。</summary>
+        /// ✅ **2026-10-09（`A1086②`）已照原版把敌我拆开**：原版**敌我各一条键**
+        /// （`Tips/Hud/{Player,Opponent}…Count`，各 13 颗）⇒ **我方**图标取下面这五条、
+        /// **对面**图标取 `Foe*` 那四条（消费点 = `Battle/Tooltip` 的调用方 `BattleDriver.TickTooltipAt`）。
+        /// ⚠️ **`Skulls` 只有一条** —— 原版**没有** `Tips/Hud/OpponentSkulls`（双方共用同一颗里程碑计数）
+        /// ⇒ ⛔ 别硬造一条对面键。</summary>
         public static string Energy      { get { return Loc.T("Tips/Hud/PlayerEnergyCount"); } }
         public static string Skulls      { get { return Loc.T("Tips/Hud/Skulls"); } }
         public static string QuestPoints { get { return Loc.T("Tips/Hud/PlayerQPCount"); } }
         public static string Faith       { get { return Loc.T("Tips/Hud/PlayerFaithCount"); } }
         public static string SpiritStone { get { return Loc.T("Tips/Hud/PlayerSpiritStoneCount"); } }
+
+        /// <summary>HUD 计数 —— **对面那四条**（`A1086②`，2026-10-09 补；键名 = 原版各 13 颗）。
+        /// ⚠️ **两列文案全自拟**（原版那两个触发器 `localize = 1`，显示串在**远端 I2 表**；
+        /// 逐条 → `Core/Loc.cs` 那一块）⇒ ⛔ 别当成「原版这么说」。
+        /// ⚠️ 没有「对面的 `Skulls`」这一条 —— 原版那条键只有一颗（双方共用），理由见上一段。</summary>
+        public static string FoeEnergy      { get { return Loc.T("Tips/Hud/OpponentEnergyCount"); } }
+        public static string FoeQuestPoints { get { return Loc.T("Tips/Hud/OpponentQPCount"); } }
+        public static string FoeFaith       { get { return Loc.T("Tips/Hud/OpponentFaithCount"); } }
+        public static string FoeSpiritStone { get { return Loc.T("Tips/Hud/OpponentSpiritStoneCount"); } }
 
         // ==================================================================
         //  🆕 2026-09-21：关键词（trait）的 tooltip —— 悬停卡面关键词段里那一枚图标时弹的

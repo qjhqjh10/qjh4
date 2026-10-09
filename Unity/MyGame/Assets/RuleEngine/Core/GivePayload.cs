@@ -147,6 +147,16 @@ namespace RuleEngine
             new[] { "flank", "flank" }, new[] { "pindown", "pindown" },
             new[] { "invulnerable", "invulnerable" }, new[] { "regeneration", "regeneration" },
             new[] { "shield", "shield" }, new[] { "blast", "blast" },
+            // 🆕 **2026-10-09 `A1105`：`dodge` 在这一族里【原本没有】**（和上面 `blind` 是同一条先例，
+            //    照卡面补原版的漏）。
+            //    代价：效果文字 `Give Dodge to …` 会**整段判「不认识」** —— 卡面打着、引擎不认。
+            //    `dodge` 本身**早就实现了**（`KeywordTable.Implemented` 里有，读点一律 `Has("dodge")`，
+            //    见 `RuleCore.cs` 攻击减伤那几处），只是没人从**载荷**这条路给过它。
+            //    🔴 **现池 `Dodge` = 0/1126 张卡 —— 0 张也照做**（铁律 11：原版有的就要复刻，
+            //       不按「今天几张卡用得上」决定做不做）。
+            //    ⛔ **别给它也加一个缓存字段**（`shield` 那种「bool 字段 + `Has("shield")`」的双表示
+            //       正是 `A1106` 刚收掉的病；`dodge` 保持**单一表示**）。
+            new[] { "dodge", "dodge" },
             new[] { "stun", "stun" }, new[] { "waystone", "waystone" },
             new[] { "sentry", "sentry" }, new[] { "fast", "fast" },
             new[] { "rally", "rally" }, new[] { "slay", "slay" }, new[] { "strike", "strike" },
@@ -277,6 +287,22 @@ namespace RuleEngine
         static readonly string[] IconNames =
             { "wings", "skull", "icon", "eye icon", "codex icon", "faith icon" };
 
+        /// <summary>🆕 **`[X] X`**（记号 + 同一个词、忽略大小写）—— 见 `ParseInto` 的 ①-a 那一段（`A992`）。
+        /// <para>⚠️ **只在这里写一次**：⛔ **不在 `PayloadOp` 层再去一次重** ——
+        /// 在 ops 层按关键词合并会**误并合法的重复授予**（同一张卡真的给两次、值不同的那种）。</para></summary>
+        static readonly Regex ReDupMarker = new Regex(@"\[\s*([A-Za-z][A-Za-z '\-]*?)\s*\]\s*\1\b",
+                                                      RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>🆕 **不带方括号的邻接重复词**（`shield shield` → `shield`）—— 见 `ParseInto` ①-a。
+        /// <para>🔴 **为什么必须有这一条**（2026-10-09 `A992` 现核订正）：**上游已经把方括号换成了关键词名**
+        /// （`EffectText.Parse` 那一层），所以进到 `ParseInto` 的 payload 里**一个 `[` 都没有**
+        /// ⇒ 只有 `ReDupMarker` 的话**在生产路径上恒不命中**（实测：全池 1120 张喂 `EffectText.Parse`，
+        /// `Payload`/`AltPayload` 含方括号的 = **0**）。这条才吃得到真卡那一支。</para>
+        /// <para>⚠️ **为什么折叠它不会误伤**：全池 1126 张的 `desc` 里**邻接重复词 = 0**
+        /// ⇒ 唯一会产生邻接重复的路径**就是** `[X] X` 那一族（方括号 token 换成关键词名之后变成 `X X`）。</para></summary>
+        static readonly Regex ReDupWord = new Regex(@"\b([A-Za-z][A-Za-z'\-]*)\s+\1\b",
+                                                    RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
         /// <summary>`N energy` / `[N] energy` / **`+N energy`**（方括号是付费标记，我们上一版复刻 `rule_core.gd:2519` 会剥掉）。
         /// 🔴 **2026-09-16 补 `\+?`**：`Chaplain Gabutheron`（`DA82`）卡面写的是 **`gain +1 Energy`**
         /// —— 带正号，原来这条正则**整段失配** ⇒ 那半句从来不给（`Agenda: Heal 4 … and gain +1 Energy`）。
@@ -326,9 +352,26 @@ namespace RuleEngine
         static bool ParseInto(string payload, List<PayloadOp> ops)
         {
             if (string.IsNullOrEmpty(payload)) return false;
+            string w = payload;
+
+            // ①-a 🆕 **`[X] X` 这种「记号 + 同一个词」压成一份**（`A992`，2026-10-09）。
+            //     🔴 **成因**：卡面写的是「**图标 + 词**」两个载体（`Give ⟨盾图标⟩ Shield to …`），
+            //        而我们的**文本导出把图标序列化成了方括号记号** ⇒ 载荷串里就成了 `[Shield] Shield`。
+            //     ⚠️ **这不是卡面数据错** —— `cards_engine.json` 的 `desc` 是**照卡图抄的原文**（是**尺子**）
+            //        ⇒ 所以归一化**落在解析层这一处**：⛔ **不动数据**、⛔ **也不在 ops 层再删一次重**
+            //        （ops 层按关键词合并会**误并合法的重复授予** —— 同一张卡真的给两次、值不同的那种）。
+            //     🔴 **必须在脱 `[]` 之前**做：脱完就只剩 `Shield Shield`、分不出哪个是记号了。
+            //     📌 **实测影响面**（全池 1126 张逐张跑过）：**只碰 11 张** —— `ASH44` · `BL51` · `GOF100` ·
+            //        `GOF_Stomp_Em` · `GOF_Uge_Choppa` · `SOR52` · `SW68` · `TAU47` · `TAU49` · `TAU65` ·
+            //        `UM_Death_from_Above`（含跨行那处）；而 `[Spirit Stone]` / `[Attack]` / `[Energy]`
+            //        这些**后面没跟同一个词的一个都没被碰**。
+            //     🔴 **两条都要**（2026-10-09 现核订正）：**上游已把方括号换成关键词名**，所以进到这里的 payload
+            //        **一个 `[` 都没有** ⇒ 只有 `ReDupMarker` 在生产路径上**恒不命中**；`ReDupWord` 才吃得到真卡那一支。
+            w = ReDupMarker.Replace(w, "$1");
+            w = ReDupWord.Replace(w, "$1");
+
             // ①-b **图标名连同方括号一起丢**（`[Wings] Flying` / `[skull] Slay: …`）—— 见 `IconNames`。
             //     🔴 **必须在脱 `[]` 之前**做：脱完就分不出「括号里是图标名」还是「括号里就是关键词」了。
-            string w = payload;
             foreach (string icon in IconNames)
                 w = Regex.Replace(w, @"\[\s*" + Regex.Escape(icon) + @"\s*\]\s*", " ",
                                   RegexOptions.IgnoreCase);

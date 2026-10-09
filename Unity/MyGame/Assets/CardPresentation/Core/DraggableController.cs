@@ -286,6 +286,13 @@ namespace CardPresentation
         private float boxW, boxH;
         private bool boxOk;
 
+        /// <summary>🆕 2026-10-19（B2）：**外接框中心那一处局部位置**（= 出厂那一刻记下的）。
+        /// 原版画心**不居中**（按 sprite 的 `padding` 偏 ⇒ 见 `Core/CardbackFace.cs`），
+        /// `Initialize` 每次都要「回到基准 + 偏移」—— ⛔ **不能在现位置上累加**
+        /// （拖第二次就再偏一点，静默；与上面 `boxW/boxH` 那条注释是同一族坑）。</summary>
+        private Vector3 baseLocalPos;
+        private bool basePosOk;
+
         /// <summary>⚠️ 接线口（偏离 ③，同 `DraggableController.Bind`）。</summary>
         public void BindView(ImageQuad img, System.Func<string, Texture2D> textureOf)
         {
@@ -295,14 +302,33 @@ namespace CardPresentation
             {
                 boxW = img.WorldW; boxH = img.WorldH; boxOk = true;
             }
+            // 🆕 2026-10-19（B2）：记下出厂那一刻的局部位置（= 外接框中心）。见字段上的注释。
+            if (img != null) { baseLocalPos = img.transform.localPosition; basePosOk = true; }
         }
 
         /// <summary>🔴 **`Image.m_PreserveAspect = 1` 的等价物**（本仓**唯一**一份口径 ——
         /// 卡背格那条（`DeckRuntime` 的 `q.SetAspect(CosmoCellW / CosmoCellH)`）要复刻同一件事时
         /// **调这个口**，⛔ 别抄第二份）。
-        /// <para>把贴图**按它自己的比例内接**进 `boxW×boxH`，返回该填的 `(w, h)`：
-        /// 贴图比框「更宽」⇒ **宽定、高缩**；否则**高定、宽缩**。</para>
+        /// <para>🔴 **2026-10-19（B2）就地订正（铁律 5）**：本句原来写「把贴图**按它自己的比例**内接进
+        /// `boxW×boxH`」—— **不全对**。uGUI 是**两段**：定框比的是 **sprite 的 `rect`（`m_Rect`）**、
+        /// 贴图再按 **`padding`** 内缩（⇒ 画心不居中）。算式与判据全文 → `Core/CardbackFace.cs`；
+        /// 本函数**只转调**它。对已裁成 `textureRect` 的卡背：**比例不变、尺寸缩小、位置偏**
+        /// （老写法的「按贴图自身比例内接、居中」在**没登记的贴图**上逐字保留）。</para>
         /// <para><b>判据（两条，都是原版侧）</b>：
+        /// ① 原版那两颗 `Image` 都带 **`m_PreserveAspect = 1`**（现读
+        ///    `python 工具/menu_dump.py bundle_menus_assets_all "Collection Cosmetic" --depth 4`：
+        ///    预览那颗 `content > Image` = **220×330** + `Cardback_UM_Campaign_Premium_Main 707×1020` +
+        ///    `preserveAspect`；卡背格那颗 `Cardback Container > Cardback` = **250×405** 同样带
+        ///    `preserveAspect` —— 两个 prefab 同名不同类：`CosmeticPreview` vs `CollectionCosmetic`）。
+        /// ② 它怎么算：uGUI 源码 `Library/PackageCache/com.unity.ugui@…/Runtime/UGUI/UI/Core/Image.cs`
+        ///    的 `PreserveSpriteAspectRatio(ref rect, spriteSize)`（本机现读）——
+        ///    `spriteRatio > rectRatio` ⇒ `rect.height = rect.width / spriteRatio`（宽定），
+        ///    否则 `rect.width = rect.height * spriteRatio`（高定）；两支都绕 `rectTransform.pivot` 居中
+        ///    （这里是 `.5/.5` ⇒ **绕中心**，与 `ImageQuad` 的居中 quad 同构）。</para>
+        /// <para>⚠️ **定框比的是「sprite 的 `m_Rect` 比例」，⛔ 不是「框的比例」** —— 2026-10-18 `A944` 那轮把
+        /// `m_PreserveAspect=1` 读成了「比例就取 220/330」（= **拉伸**）⇒ 预览被竖向拉长
+        /// （`Cardback_AM_Shield of Humanity` 707×981：内接 **132×183.2** vs 拉伸 **132×198**，
+        /// 差 **14.8**px）；`A994③` 就地订正。贴图取不到 / 尺寸为 0 ⇒ 返回 `false`、⛔ **不改几何**。</para></summary>
         /// ① 原版那两颗 `Image` 都带 **`m_PreserveAspect = 1`**（现读
         ///    `python 工具/menu_dump.py bundle_menus_assets_all "Collection Cosmetic" --depth 4`：
         ///    预览那颗 `content > Image` = **220×330** + `Cardback_UM_Campaign_Premium_Main 707×1020` +
@@ -319,11 +345,29 @@ namespace CardPresentation
         /// 差 **14.8**px）；`A994③` 就地订正。贴图取不到 / 尺寸为 0 ⇒ 返回 `false`、⛔ **不改几何**。</para></summary>
         public static bool PreserveAspectSize(Texture2D t, float boxW, float boxH, out float w, out float h)
         {
-            w = boxW; h = boxH;
-            if (t == null || t.height <= 0 || boxW <= 0f || boxH <= 0f) return false;
-            float s = t.width / (float)t.height;                 // 贴图自己的比例
-            if (s > boxW / boxH) h = boxW / s;                   // 贴图「更宽」⇒ 宽定、高缩
-            else                 w = boxH * s;                   // 否则高定、宽缩
+            float dx, dyUp;
+            return PreserveAspectSize(t, boxW, boxH, out w, out h, out dx, out dyUp);
+        }
+
+        /// <summary>同上，另外给出**画心相对框中心的偏移**（`dyUp` 向上为正 —— uGUI 的方向）。
+        ///
+        /// <para>🔴 **2026-10-19（B2）就地订正（铁律 5）**：本函数原来自己算「按**贴图自己**的比例内接」——
+        /// 那只是 uGUI 的**第一段**。原版是**两段**：① 按 sprite 的 **`m_Rect`** 定框；
+        /// ② 贴图再按 **`padding`** 内缩 ⇒ 画心**既不等于框、也不居中**。
+        /// 算式与判据全文 → `Core/CardbackFace.cs`（**本仓唯一一份**；这里只是一层转调，
+        /// 所以「改口径」不会再漏掉本处）。</para>
+        /// <para>⚠️ 对本仓那 233 张**已裁成 `textureRect` 的卡背**，净效果 = **比例不变、尺寸乘 `texRect/m_Rect`、
+        /// 位置按 `padding` 偏**；**没登记的贴图**在 `Fit` 里退化成老写法（= 本函数改动前逐字同值，
+        /// `dx/dyUp` 恒 0）。取不到贴图 / 尺寸为 0 ⇒ 返回 `false` 且 `w,h = boxW,boxH`、偏移归零
+        /// （**调用方一律不改几何**，与改动前同一条口径）。</para></summary>
+        public static bool PreserveAspectSize(Texture2D t, float boxW, float boxH,
+                                              out float w, out float h, out float dx, out float dyUp)
+        {
+            if (!CardbackFace.Fit(t, boxW, boxH, out w, out h, out dx, out dyUp))
+            {
+                w = boxW; h = boxH; dx = 0f; dyUp = 0f;
+                return false;
+            }
             return true;
         }
 
@@ -346,16 +390,24 @@ namespace CardPresentation
             if (t != null) cardbackImage.SetTexture(t, keepAspect: true);
 
             // 🔴 **2026-10-18（`A994③`）**：原版那颗 `Image` 还带 **`m_PreserveAspect = 1`**
-            //   ⇒ 换完图要**按贴图自己的比例内接**进 `boxW×boxH`（口径与判据全文 → `PreserveAspectSize`）。
+            //   ⇒ 换完图要**按原版那套内接**进 `boxW×boxH`（口径与判据全文 → `PreserveAspectSize`）。
             //   ⚠️ 这一步**不能省**：上一条 `keepAspect: true` 只是「别把框比例冲掉」，
             //   把贴图**拉满**那个 132×198 的框是**另一件事**（原版从不拉满 —— 那是 preserveAspect 的反面）。
+            //   🔴 **2026-10-19（B2）就地订正（铁律 5）**：本句原来写「按**贴图自己**的比例内接」——
+            //   那只是 uGUI 的**第一段**。定框比的是 sprite 的 `m_Rect`，贴图还要按 `padding` 内缩并**挪位**。
             if (boxOk)
             {
-                float w, h;
-                if (PreserveAspectSize(t, boxW, boxH, out w, out h))
+                float w, h, dox, doyUp;
+                if (PreserveAspectSize(t, boxW, boxH, out w, out h, out dox, out doyUp))
                 {
                     cardbackImage.SetWorldHeight(h);        // ⚠️ 先改高、再把比例拉回 ⇒ `WorldW = WorldH × _aspect`
                     cardbackImage.SetAspect(w / h);
+                    // 🔴 **2026-10-19（B2）**：画心**不居中** —— 原版按 sprite 的 `padding` 偏
+                    //   （算式/判据 → `Core/CardbackFace.cs`）。本处的框是**世界单位**、y 向上
+                    //   （`DeckRuntime.Pos` 的 y 就是这么算的）⇒ `doyUp` **直接加**，⛔ 别在这里反号。
+                    if (basePosOk)
+                        cardbackImage.transform.localPosition =
+                            baseLocalPos + new Vector3(dox, doyUp, 0f);
                 }
             }
         }

@@ -14,7 +14,7 @@
 //
 // ---- 🔴 记账口一共【三个】（改动时照这张表核对，正本 = `BattleDriver.cs` 文件头那张清单）----
 //   ① **玩家动作** —— `BattleDriver.LocalAct`（出牌 / 技能 / 攻击 / 收集灵魂石）+ `EndPlayerTurn` 里那条；
-//   ② **AI 动作** —— `SimpleAI.Executed`（挂在引擎边界上，见 `SimpleAI.cs:1152`）；
+//   ② **AI 动作** —— `SimpleAI.Executed`（挂在引擎边界上，见 `SimpleAI.Executed` 那条字段）；
 //   ③ 🆕 **2026-10-18（A938）教程脚本动作** —— `TutorialScript.Executed`
 //      （`RuleEngine/Core/TutorialScript.cs`，**形状与 ② 一样**：执行器在引擎边界上发「已执行的动作」）。
 //      🔴 **为什么非有它不可**：教程脚本驱动的那些动作**既不是玩家挑的、也不是 AI 挑的**

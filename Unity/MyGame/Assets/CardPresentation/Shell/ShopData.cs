@@ -295,9 +295,9 @@ namespace CardPresentation
         /// 🔴 **词条在远端语言表里** —— 本地只有 key（`stringliteral.json` 里 `0x42D24E0` 就是它），
         /// **没有英文原文** ⇒ 表里那两列是**我们写的**，如实标（铁律 3）。
         /// 🆕 **2026-10-18（波 1 · P3）**：原来这里是 `public const string` 写死的中文 ⇒ **英文档也印中文**。
-        /// 改成读词条（键 `MenuShop/ExtraLegendaryWarning`，已在 `Core/Loc.cs:996` 的表里；中文列与改前
+        /// 改成读词条（键 `MenuShop/ExtraLegendaryWarning`，已在表里；中文列与改前
         /// 那句**逐字相同** ⇒ 中文档零变化）；键名有出处 = 原版 `CatalogItemContainer__TryPurchase`
-        /// 的 `0x42D24E0`（地址表实读，见 `Core/Loc.cs:991-996`）。
+        /// 的 `0x42D24E0`（地址表实读，见 `Core/Loc.cs` 里这条键的留痕）。
         /// ⚠️ **`const` → 属性** ⇒ 不能再当编译期常量用（`case` 标签 / 特性实参 / 别的 `const` 初值）；
         /// 全仓消费点只有 `Shell/ShopWindow.cs:791` 一个普通实参（现读 `grep`）⇒ 安全。</summary>
         public static string LegendaryWarnText { get { return Loc.T("MenuShop/ExtraLegendaryWarning"); } }

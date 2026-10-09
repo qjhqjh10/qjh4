@@ -290,7 +290,7 @@ namespace CardPresentation
             //   `"Generic Tab UI Button Info"` / `"… Trophies"` 就是 `Toggle` 的第 3 实参）。
             //   配对判据（逐颗按 pid 读原版）：
             //     · `Generic Tab UI Button Info/Button Text` = TMP `General` + `mTerm` **`Settings/General/Title`**
-            //       —— 🔴 **原版自己复用了【设置窗】那条通用词条**（`Core/Loc.cs:150` 那条，**本批不新增**）；
+            //       —— 🔴 **原版自己复用了【设置窗】那条通用词条**（表里 `Settings/General/Title` 那条，**本批不新增**）；
             //       它的父链 = `Button Text < Generic Tab UI Button Info < Tab buttons < Alliance Header Buttons (1)
             //       < AllianceMemberVariant < Alliances Tab < …` ⇒ **与我们这一颗逐节同名**；
             //     · `Generic Tab UI Button Trophies/Button Text` = TMP `Trophies` + `mTerm` **`SocialMenu/Alliances/Trophies`**

@@ -1133,6 +1133,9 @@ namespace CardPresentation
                         //    实绘 **337.5×438.75**（高缩 112.05、上下各内缩 56.025）。
                         //    ⚠️ **反证**：拉满时 x 缩放 = 337.5/100 = **3.375**，而 y 缩放 = 550.8/130 = **4.237**
                         //    —— **非等比**，距离场会被竖向拉长；内接之后两轴都是 **3.375**（= 等比）。
+                        //    🆕 **2026-10-19（B2）**：`_SDF` 那批**故意不进** `Core/CardbackFace.cs` 那张表
+                        //    ⇒ 本层走的仍是「按贴图自身比例内接」（`Fit` 的兜底）—— 理由：它的 `padding`
+                        //    恒 0（只差图集取整 0.5px），两段式与本式差 <0.4%。全文 → 那个文件的文件头。
                         //    `keepAspect` 在**求交之前**作用（与 uGUI 的顺序一致：先按 pivot 内缩矩形、
                         //    再由 `RectMask2D` 裁）⇒ uv 仍跟着裁剩那块走，不引入拉伸。
                         var qs = MenuDraw.Rect(cell, sdfTex, sr, "Cardback Shadow SDF", QPageSdf,
@@ -1154,11 +1157,18 @@ namespace CardPresentation
                     // 🔴 同上：卡背本体也走公共件（**整块在视口外 ⇒ 连节点都不建**，同原版 `RectMask2D` 的命中语义）
                     //    🔴 **A16（2026-10-13）**：`CosmoView` → `null`（理由逐条同上面那一处）。
                     //    🔴 **2026-10-18（A994③）**：`keepAspect` 从 `false` 改成 **`true`** —— 原版那颗
-                    //    `Cardback` 的 `Image` 也带 **`m_PreserveAspect = 1`**（A4 §2·1）⇒ 按**贴图自己的比例**
-                    //    内接进 250×405（比例 0.61728），⛔ 不是拉满 250×405（我们原来就是这么画的 = 拉伸）。
-                    //    实测那 **233** 张比例 **0.6188~0.7652**、全部 > 0.61728 ⇒ **一律宽定**（宽仍 250、高缩）：
-                    //    例 `Cardback_AM_Shield of Humanity` 707×981 ⇒ **250×346.90**；
-                    //    偏离最大的 `Cardback_All_Premium4` 707×924 ⇒ **250×326.73**（拉满时高多 78.27px）。
+                    //    `Cardback` 的 `Image` 也带 **`m_PreserveAspect = 1`**（A4 §2·1），
+                    //    ⛔ 不是拉满 250×405（我们原来就是这么画的 = 拉伸）。
+                    //    🔴 **2026-10-19（B2）就地订正（铁律 5）**：上面那句原来接着写「按**贴图自己的比例**
+                    //    内接」「一律宽定：宽仍 250，高缩」——**只是半套**。uGUI 是**两段**
+                    //    （定框比 sprite 的 `m_Rect` = 707×1020；贴图再按 `padding` 内缩并挪位），
+                    //    算式/判据全文 → `Core/CardbackFace.cs`（本仓唯一一份，`MenuDraw.Rect` 转调它）。
+                    //    对本仓那批**已裁成 `textureRect`** 的 PNG：**比例不变**，但**宽也缩**（不是「宽仍 250」）
+                    //    —— 框仍是 `250 × 250·1020/707 = 250×360.68`，画心 = 框 × (`texRect`/`m_Rect`)。
+                    //    例 `Cardback_AM_Shield of Humanity`（`texRect` **707**×981）⇒ **250×346.9**（宽没缩）；
+                    //    **偏得最远的**是 `Cardback_All_Early Backer`（`texRect` **608.85**×926.9）⇒
+                    //    **215.3×327.8**（宽少 **34.7**px、高少 **52.8**px，且按 `padding` 上下各挪）。
+                    //    ⛔ 别拿某一张的值当全部（铁律 5·c）—— 那张表的 `rectW/rectH/padX` 六列逐张不同。
                     var q = MenuDraw.Rect(cell, tex, r, "Cardback", QPageRow, null, true, null, default(Vector2));
                     if (q != null) q.SetRenderQueue(QPageRow);
                 }
@@ -2319,10 +2329,10 @@ namespace CardPresentation
                  "Filters Icon", QPageRow, null, true);
             // 🔴 **2026-10-18（A891 的续 · 续做 B）：字走 `Loc.T`** —— 键 = 原版那颗 `Label` 的
             //   `Localize.mTerm` 原文 **`MenuDeck/Filters/Filters`**（与卡组编辑窗页头那颗**同一条键**，
-            //   `Core/Loc.cs:209` 早就有；`Deck/DeckRuntime.cs` 的 `hdr_fltlbl` 一直在用）。
+            //   表里早就有；`Deck/DeckRuntime.cs` 的 `hdr_fltlbl` 一直在用）。
             //   🔴 本批之前这里是**写死 `"Filters"`** ⇒ 中文档下卡组编辑窗印「过滤器」、**收藏窗四页页头却印英文**
             //   （同一条键两种表现）。英文列 = 那颗 TMP 的 `m_text` 原文 `Filters`；中文列 = 「过滤器」
-            //   （⚠️ 那一列是**原版实拍**读到的，见 `Core/Loc.cs:209` 那条的注释）。
+            //   （⚠️ 那一列是**原版实拍**读到的，见 `Core/Loc.cs` 里 `MenuDeck/Filters/Filters` 那条的注释）。
             //   ⛔ 节点名 `"Filters Label"`（`Editor/CollectionScene.cs` 按名找）与上面那颗底图/图标的名字都不动。
             var fltLab = Text(page, Loc.T("MenuDeck/Filters/Filters"), 437.2f, 587.2f, FltBtnY, FltBtnY + FltBtnS, 5, PageInk,
                               "Filters Label", filterPx);

@@ -387,7 +387,7 @@ namespace CardPresentation
             //     ① 断言用的是 `FindChild` = `GetComponentsInChildren`（**整棵子树**）⇒ 挂在 `RightSide` 下
             //        照样捞得到、量的矩形也照样对（正是 `MainMenuScene.cs` 那条「`FindChild` 走整棵子树
             //        ⇒ 那样写恒真」的同一个坑）；
-            //     ② `MenuDraw.Local`（`Shell/MenuDraw.cs:25-26`）= `RectCenter − parent.position`，
+            //     ② `MenuDraw.Local`（现读其实现已收口到 `MenuDraw.PosInDesignSpace`）= 「原来写的 `RectCenter − parent.position`」，
             //        而 `Label.AlignLeftOn`（`Battle/Label.cs:519-527`）也是「**世界 x − 父的世界 x**」
             //        ⇒ 换父时局部坐标**按新父重算** ⇒ **世界矩形逐位不变**。
             //   ⇒ 只有**层级**是错的：`FindChild(<RightSide 的子树>, "Next Tier")` 恒非 null，

@@ -93,7 +93,7 @@ public static partial class RuleEngineTest
             //    **那是「拆码前」的值**，现在**必红**。`A985⑧` 第二步把 `ErrSlot` 拆成三档：
             //      · `ErrSlot`（=3）**只剩「参数非法 / 越界」**这一层意思；
             //      · 「棋盘放不下」（= 本块这一支：**两侧都满**）现在返回 `ErrNotEnoughRoom`（=19）
-            //        —— `RuleEngine/Core/RuleCore.cs:1366` 的 `!BoardSlots.HasRoomFor(ps, slot)` 那一格；
+            //        —— `RuleCore.CanPlayCard` 里 `!BoardSlots.HasRoomFor(ps, slot)` 那一格；
             //      · 「要选目标的卡一个合法目标都没有」返回 `ErrNoTargetAvailable`（=18，与本块无关）。
             //    判据 = **原版** `BattleManager__CanPlayCard.c:104-120`：`MinionManager.IsAvailableSlot`
             //    为假（棋盘满）⇒ `Battle/Tips/NotEnoughRoom` —— 即原版本来就**按因分档**，

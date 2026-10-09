@@ -1303,8 +1303,24 @@ public static class BattleScene
                 if (pile != null && pile.Texture != null && dsdf != null)
                 {
                     float rw = dsdf.WorldW / pile.WorldW, rh = dsdf.WorldH / pile.WorldH;
-                    Check(Mathf.Abs(rw - 2.9212f / 2.1739f) < 0.02f && Mathf.Abs(rh - 3.8122f / 3.1364f) < 0.02f,
-                          $"★ SDF 比卡背大 **1.34376 × 1.21548**（原版两个 sizeDelta 之比）—— 实得 {rw:F5} × {rh:F5}");
+                    // 🔴 **2026-10-19（F1 修红）**：这条原来**量纲混用** —— 分子 `dsdf` 是 `MakeDeckSdf` 建的，
+                    //   用 `DeckSdfPx` ＋ 节点自己的比例 ⇒ 它那个 quad 里存的**就是框**（`_SDF` 那批两轴
+                    //   padding 代数和 = 0）⇒ **框 == 画心**；而分母 `pile` 从 **B2** 起由 `FitDeckPile` 写的是
+                    //   **画心**（`h = fh × (1020−padB−padT)/1020`）。⇒ 实得 = **SDF(框) ÷ 卡背(画心)**，
+                    //   与「两个 `sizeDelta` 之比（框 ÷ 框）」**本来就差一个 `texRect/m_Rect`**。
+                    //   根因：**卡背那批 sprite 的 padding ≠ 0（233/233），`_SDF` 那批 = 0**（`CardbackFace` 文件头）。
+                    //   ⚠️ 期望值**随「这一局用哪张卡背」变** —— 四张阵营默认卡背的 `eh` 现算从 **1.21553**
+                    //      （TL，`textureRect` 满高）漂到 **1.33324**（GOF）⇒ ⛔ **不能写成一个新常量**。
+                    //   分母 707×1020 = 卡背那 233 张**恒定**的 `m_Rect`（`Cardbacks.json` 233/233 都是它）；
+                    //   分子取**贴图自己**（我们的 PNG 就是 `textureRect` 裁片，同一张表逐张载的）
+                    //   —— 独立于 `CardbackTable` / `CardbackFace.Fit`，⛔ 不问被测实现。
+                    //   🧨 **改坏法**：把 `FitDeckPile` 里那个 `sh = (1020−padB−padT)/1020` 去掉（画心变回框）
+                    //      ⇒ **本条必红**（正是 2026-10-19 这次红的成因）。
+                    float kx = pile.Texture.width / 707f, ky = pile.Texture.height / 1020f;
+                    float ew = (2.9212f / 2.1739f) / kx, eh = (3.8122f / 3.1364f) / ky;
+                    Check(Mathf.Abs(rw - ew) < 0.02f && Mathf.Abs(rh - eh) < 0.02f,
+                          $"★ SDF(**框**) 比卡背(**画心**) 大 **{ew:F5} × {eh:F5}**"
+                        + $"（原版框之比 1.34376 × 1.21548 ÷ texRect/m_Rect）—— 实得 {rw:F5} × {rh:F5}");
                     Check(dsdf.Texture.name.EndsWith("_sdf"),
                           $"★ SDF 贴的是**这张牌堆卡背自己的掩码**（`{dsdf.Texture.name}`）");
                     var mr = dsdf.GetComponent<MeshRenderer>();
@@ -2069,6 +2085,203 @@ public static class BattleScene
                                 UnityEngine.Object.DestroyImmediate(dkInst);
                                 UnityEngine.Object.DestroyImmediate(tvInst);
                             }
+                        }
+                    }
+
+                    // ============================================================
+                    // 🆕 2026-10-19（A345-T-b）**独立一节**：13 场逐场「分组节点**未解析 0 条**」
+                    //
+                    // 判据 = `资料/普查产出_1013/WA345Ta_战场全树生成侧.md` §八 那条
+                    //   **A345-T-b：「没对上 0 条 ×13」**（⛔ 不是我们自己的常量）。
+                    // 为什么单开一节：这条账从 2026-10-14 起一直挂着 —— 13 场**逐场**都报
+                    //   「没对上 1 条 `target BoardCamera`」，而 `ArenaBuilder.LastGroupNodeMissed`
+                    //   全仓**没有任何断言在读**（只有它自己那一行日志）⇒ 它一直静默地红着、
+                    //   也**没有任何东西替我们盯住它**（同 `资料/战场场景线_交接.md` §五 末的 A591 落痕）。
+                    //
+                    // 那 1 条是什么（**已定案，别重查**）：**假目标**。
+                    //   `工具/gen_arena_groups.py` 把 `manifest.camera` **无条件**当成了
+                    //   「`ArenaBuilder` 会建的对象」塞进 `built_paths`（`light` 那一格的假设是对的、
+                    //   相机这一格错了），而 **`BuildContent` 从不建相机** —— 相机光学只是**数据**
+                    //   （`ArenaPrefabData.state` 的 `cam*` 那几项），真那台相机是**战斗场景自己的**
+                    //   （`BattleScene.BuildBoardCamera`，名字还叫 `BoardCamera 透视（原版值）`）
+                    //   或**独立战场场景**根上的（`ArenaBuilder.BuildSceneTail`）
+                    //   ⇒ 每场恒有一条同名同 pos 的 `BoardCamera` 永远对不上
+                    //   （13 份 `<场>_groups.json` 现读：`BoardCamera` · pos **(100.000,2.222,-13.572)** ·
+                    //    parent `BattlePrefab/BattleBoardElements`，**13/13 逐字相同、每场恰好 1 条**；
+                    //    `targets.Length = 改挂 + 1` 在 13 场全部成立 ⇒ 除了它再无第二条没对上）。
+                    //   处置 = **C# 侧显式跳过**（`ArenaBuilder.IsCameraTarget` / `LastGroupNodeCameraSkipped`）——
+                    //   ⛔ 不动 13 场 prefab 的**内容**、⛔ 不把相机**建进** prefab
+                    //   （与 §27 冲突：会多一台 `depth = −1` 的相机）。
+                    //   诊断全文 = `资料/普查产出_第八会话/S1_诊断A345Tb根因.md`。
+                    //
+                    // 做法 = **两条腿**（互相不可能被同一条错改法一起骗绿）：
+                    //   ① **判据侧独立核**：把每场 prefab 实例化一份，拿**生产那份解析器**（`SceneResolver`，
+                    //      与 `ArenaBuilder.FindBuilt` 是同一套「`Norm(名字)` + 最近世界位置」—— ⛔ 不另写一套）
+                    //      逐条找 `targets[]` / `adds[]`：那一条相机**按判据跳过**、**其余必须全部找得到**；
+                    //   ② **读生产计数口**：把 `ArenaBuilder.ApplyGroupNodes` 在同一份实例上**真的跑一遍**，
+                    //      现读 `LastGroupNodeMissed` / `LastGroupNodeCameraSkipped`（全仓只有那一个写手）。
+                    //   ⚠️ ①②的**次序不能反**：`ApplyGroupNodes` 的 ① 段会**新建同名节点**（它不查节点是否已在树里）
+                    //   ⇒ 跑完之后树里会多出 263 颗空节点（13 场合计），那会给腿①造出**假的「找得到」**
+                    //   ⇒ 腿①必须在**干净实例**上做、腿②再跑。
+                    // ⚠️ 只在编辑模式实例化，每场跑完**立刻** `DestroyImmediate`；本段**不写任何资产**。
+                    // ============================================================
+                    {
+                        // 相机那一条的**期望身份**（13 场逐字相同）—— 判据来源 = **原版场景包**
+                        //   （`bundle_scenes_scenes_battlearena1/GameObject/BoardCamera.json`；经两跳旁挂落到我们工程：
+                        //    `工具/gen_arena_camera.py` → `<场>_manifest.json` · `工具/gen_arena_groups.py` → `<场>_groups.json`）。
+                        // ⚠️ 这两样**必须写字面量**（照 `A340` 那条 `wantCue` 的同一套写法，判据是原版包、
+                        //   不是我们的实现）：⛔ 别从**被检的那条旁挂**里把期望读回来 —— 那就是自证
+                        //   （旁挂被改成什么，期望就跟着变什么、永远绿）。
+                        const string CamParentWant = "BattlePrefab/BattleBoardElements";
+                        float[] camPosWant = new float[] { 100.0f, 2.222075f, -13.57198f };
+                        // 路径比较**按段 Trim**（旁挂里真有带尾随空格的名字，如 `Railgun Turret 1 Target `）——
+                        // 与 `findPath` 的逐段 `Norm` 同一套语义。
+                        System.Func<string, string> normSeg = p =>
+                        {
+                            if (string.IsNullOrEmpty(p)) return "";
+                            var ss = p.Split('/');
+                            var sb = new System.Text.StringBuilder();
+                            for (int k = 0; k < ss.Length; k++)
+                            {
+                                var seg = ss[k].Trim();
+                                if (seg.Length == 0) continue;
+                                if (sb.Length > 0) sb.Append('/');
+                                sb.Append(seg);
+                            }
+                            return sb.ToString();
+                        };
+                        System.Func<float[], string> ps = p =>
+                            (p == null || p.Length < 3) ? "(?)" : $"({p[0]:F3},{p[1]:F3},{p[2]:F3})";
+                        // 「这一条是不是相机」的**独立**判据（名字 + pos，两样都写字面量，**不经过** `ArenaBuilder`）。
+                        // ⚠️ 它与生产那份 `ArenaBuilder.IsCameraTarget` 是**两个**独立的判据 —— 下面会逐条比它们
+                        //   是否**一致**（`predAgree`）：生产那份被改宽/改窄（例如「同名就跳」）时，这里当场红。
+                        System.Func<ArenaBuilder.GroupTarget, bool> isCamEntry = t =>
+                            t != null && !string.IsNullOrEmpty(t.name)
+                            && CardPresentation.EnvironmentApplier.Norm(t.name) == "BoardCamera"
+                            && t.pos != null && t.pos.Length >= 3
+                            && Mathf.Abs(t.pos[0] - camPosWant[0]) <= 1e-3f
+                            && Mathf.Abs(t.pos[1] - camPosWant[1]) <= 1e-3f
+                            && Mathf.Abs(t.pos[2] - camPosWant[2]) <= 1e-3f;
+
+                        // 前置：判据 A345-T-b 要的是 **×13**（13 个战场逐场）—— 一个都不能少，
+                        //   ⛔ 别在别处写死「13 场」（这一条就是那个「13」的唯一出处）。
+                        Check(ArenaBuilder.AllArenas != null && ArenaBuilder.AllArenas.Length == 13,
+                              $"★ A345-T-b 的前置：13 个战场都在册（{ArenaBuilder.AllArenas?.Length ?? -1} 个）"
+                            + " —— 判据是「**没对上 0 条 ×13**」，少一场它就换了判据");
+
+                        foreach (var s in ArenaBuilder.AllArenas)
+                        {
+                            var amf = ArenaBuilder.LoadManifest(s);
+                            var asc = ArenaBuilder.LoadGroups(s);
+                            var apf = Resources.Load<GameObject>("ArenaPrefabs/" + s);
+                            if (amf == null || asc == null || apf == null)
+                            {
+                                Check(false,
+                                      $"★ A345-T-b：`{s}` 的前置取不到（清单 {(amf != null ? "✓" : "✗")} / "
+                                    + $"分组旁挂 {(asc != null ? "✓" : "✗")} / prefab {(apf != null ? "✓" : "✗")}）"
+                                    + " —— 旁挂与 prefab **不同步** ⇒ 跑一次 `ArenaBuilder.BuildArenaPrefabs`");
+                                continue;
+                            }
+                            var tArr = asc.targets ?? new ArenaBuilder.GroupTarget[0];
+                            var dArr = asc.adds ?? new ArenaBuilder.GroupTarget[0];
+                            // 分母**现算**（逐场不同：`nodes[]` 6…96 · `targets[]` 62…135）—— ⛔ 一个数都别写死。
+                            int denom = asc.nodes.Length + tArr.Length + dArr.Length;
+
+                            var aInst = UnityEngine.Object.Instantiate(apf);
+                            int camInPrefab = -1, camEntry = 0, nEnt = 0, predAgree = 0, unresolved = 0;
+                            int bCreated = -1, bMoved = -1, bAnim = -1, bMissed = -1, bCamSkip = -1;
+                            string camEntryWhat = "", unresWhat = "", bMissWhat = "";
+                            bool camParentOk = false;
+                            try
+                            {
+                                // ---- 腿①：判据侧**独立核**（在**干净实例**上做，见本节头注那条次序）----
+                                camInPrefab = aInst.GetComponentsInChildren<Camera>(true).Length;
+                                var aRes = new CardPresentation.EnvironmentApplier.SceneResolver(aInst.transform);
+                                foreach (var per in new[] { tArr, dArr })
+                                    foreach (var t in per)
+                                    {
+                                        if (t == null || string.IsNullOrEmpty(t.name)) continue;
+                                        nEnt++;
+                                        bool byLit = isCamEntry(t);
+                                        bool byPred = ArenaBuilder.IsCameraTarget(amf, t);
+                                        if (byLit == byPred) predAgree++;
+                                        if (byLit)
+                                        {
+                                            camEntry++;
+                                            camEntryWhat = $"名 `{t.name}` · pos {ps(t.pos)} · parent `{t.parent}`";
+                                            camParentOk = normSeg(t.parent) == normSeg(CamParentWant);
+                                            continue;      // 相机**按判据跳过**：它本来就不该在内容树里
+                                        }
+                                        var got = aRes.GoOf(new CardPresentation.EnvBlendables.Target
+                                        { path = t.name, leaf = t.name, pos = t.pos, kind = "go" });
+                                        if (got == null)
+                                        {
+                                            unresolved++;
+                                            unresWhat += $"`{t.name}`（pos {ps(t.pos)}）";
+                                        }
+                                    }
+
+                                // ---- 腿②：把**生产那条链**在同一份实例上真的跑一遍，读它自己的计数口 ----
+                                ArenaBuilder.ApplyGroupNodes(amf, aInst);
+                                bCreated = ArenaBuilder.LastGroupNodeCreated;
+                                bMoved   = ArenaBuilder.LastGroupNodeMoved;
+                                bAnim    = ArenaBuilder.LastGroupNodeAnimAdded;
+                                bMissed  = ArenaBuilder.LastGroupNodeMissed;
+                                bCamSkip = ArenaBuilder.LastGroupNodeCameraSkipped;
+                                bMissWhat = string.Join(" / ", ArenaBuilder.LastGroupNodeMissedWhat);
+                            }
+                            finally { UnityEngine.Object.DestroyImmediate(aInst); }
+
+                            // ---- ① 判据 A345-T-b：**未解析 0 条**（两条腿都必须是 0）----
+                            // 🧨 **改坏法**：把 `ArenaBuilder.BuildContent` 里那句 `ApplyGroupNodes(mf, root)`
+                            //   注释掉 ⇒ 腿② `bMissed` 暴涨 ⇒ 红；把旁挂里某一条 `nodes[]` 删掉再重打 prefab
+                            //   ⇒ 腿① `unresolved` 报出来 ⇒ 红。
+                            // 🧨 **灭自证（必须与「未解析 0 条」写在**同一条**断言里）**：`camInPrefab == 0`。
+                            //   理由 —— 「把相机**建进** prefab」与「把相机**从旁挂拿掉**」这两条**结果一样、
+                            //   性质相反**的路，**都会让未解析数变 0** ⇒ 只压未解析数的话，前者会被静默放过。
+                            //   钉上「prefab 里一个 `Camera` 组件都没有」之后：**两条路都不可能同时满足**。
+                            //   （依据 = `ArenaSceneState.cs:44`「战斗场景那台 `BoardCamera` 是场景自己的」
+                            //     + `ArenaRuntimeLoader.cs:127` 的 `cam` 是**外面传进来**的 ⇒ prefab 只带相机光学**数据**。）
+                            Check(unresolved == 0 && bMissed == 0 && camInPrefab == 0,
+                                  $"★ A345-T-b：`{s}` 的分组节点旁挂**未解析 0 条**"
+                                + $"（分母现算 = `nodes[]` {asc.nodes.Length} + `targets[]` {tArr.Length}"
+                                + $" + `adds[]` {dArr.Length} = {denom}；"
+                                + $"除相机那 {camEntry} 条外，其余 {nEnt - camEntry} 条 target 判据侧独立核得到；"
+                                + $"生产口 `LastGroupNodeMissed` = {bMissed}"
+                                + $"（新建节点 {bCreated} · 改挂 {bMoved} · 补 `Animation` {bAnim}）"
+                                + $"；**该场 prefab 里 `Camera` 组件 {camInPrefab} 个（必须 0** —— prefab 只带相机光学**数据**，"
+                                + "真那台相机是战斗场景自己的 ⇒ 这一格与「未解析 0 条」压在同一条上，"
+                                + "堵住「把相机建进 prefab 让未解析数归零」那条路）"
+                                + (unresolved > 0 ? $"；**判据侧核出 {unresolved} 条不在树里**：{unresWhat}"
+                                                  + "（闸门挡掉 / prefab 没随旁挂重建 ⇒ 见 D4 §二）" : "")
+                                + (bMissed > 0 ? $"；**生产口报 {bMissed} 条没对上**：{bMissWhat}"
+                                                 + "（⚠️ 逐条比 `(名字, pos)`：**对不上** `BoardCamera` / "
+                                                 + $"{ps(camPosWant)} 的那几条 = **新缺陷**，"
+                                                 + "⛔ 别按「既有的、预期的」放过 —— A591 那次就是这么误导的）" : "")
+                                + "）");
+
+                            // ---- ② 相机那一格**单独钉住** + 🧨 **灭自证** ----
+                            // 五个条件必须**同时**成立，因为它们分别堵住一条「把 `miss` 变成 0」的歪路：
+                            //   · `camEntry == 1`      ⇒ 旁挂里**今天仍然**写着这一条（⛔ 拿掉它 ⇒ 红）；
+                            //   · `camParentOk`        ⇒ 跳过的那一条**确系** `BattlePrefab/BattleBoardElements`
+                            //     下的那一条（不是随手同名的一条）；
+                            //   · `bCamSkip == 1`      ⇒ 生产口是「**认出来 + 显式跳过**」，
+                            //     ⛔ 不是「旁挂里那条没了所以无事发生」（那时这个数是 **0**）；
+                            //   · `camInPrefab == 0`   ⇒ ⛔ **没有**把相机**建进** prefab
+                            //     （§27：`ArenaSceneState.cs` 写着「战斗场景那台 `BoardCamera` 是场景自己的」、
+                            //      `ArenaRuntimeLoader` 的 `cam` 是**外面传进来**的 ⇒ 建进去会多一台 `depth = −1` 的相机）；
+                            //   · `predAgree == nEnt`  ⇒ 生产那份 `IsCameraTarget` 与这里的**独立**判据
+                            //     **逐条一致**（被改宽/改窄 ⇒ 当场红）。
+                            // ⇒ 「把相机塞进 prefab」与「把相机从旁挂拿掉」这两条**结果一样、性质相反**的路，
+                            //    **都不可能同时满足上面五条** —— 这就是本条的灭自证。
+                            Check(camEntry == 1 && camParentOk && bCamSkip == 1 && camInPrefab == 0 && predAgree == nEnt,
+                                  $"★ A345-T-b：`{s}` 的「相机那一格」被**显式跳过**了 —— 且⛔**不是**靠"
+                                + "「把它建进 prefab」或「把它从旁挂拿掉」变绿的"
+                                + $"（旁挂里那 1 条 = {camEntryWhat}（期望 parent `{CamParentWant}` · pos {ps(camPosWant)}；"
+                                + $"实得 {camEntry} 条 · 父路径 {(camParentOk ? "✓" : "✗")}）"
+                                + $" · 生产口 `LastGroupNodeCameraSkipped` = {bCamSkip}（必须 1）"
+                                + $" · 该场 prefab 里 `Camera` 组件 **{camInPrefab} 个**（必须 0 —— §27：prefab 只带相机光学**数据**）"
+                                + $" · 两份 `IsCameraTarget` 判据逐条一致 {predAgree}/{nEnt}）");
                         }
                     }
 
@@ -3007,9 +3220,15 @@ public static class BattleScene
         //   判据 → `RuleEngine/Core/RuleCodes.cs` 的 `TermKey` doc + `资料/普查产出_1018/G5_战斗本地化剩余.md` §4·B
         //        + `Core/Loc.cs` 的 `T` / `HasEntry`（`HasEntry` 是**唯一**「键在不在表里」的公开查询口）。
         //   🔴 **2026-10-18（第三会话）本节换了方向（铁律 5）**：原来第 ① 组断的是「**有键** ⇒ 词条那一档」，
-        //     而**今天那四条映射键一条都不在 `Loc` 表里**（`TermKey` 非 null 只是「有键名」）⇒
+        //     而**那会儿那四条映射键一条都不在 `Loc` 表里**（`TermKey` 非 null 只是「有键名」）⇒
         //     那一条当时实际断的是「**印出了键名**」，把**一个真缺陷**（提示行显示
         //     `Battle/Tips/NotEnoughMana` 这种字符串）当成了正确行为。
+        //   ✅ **2026-10-09（`A1018①`）就地订正**：上面那句「一条都不在表里」**是加键之前的事实、今天已不成立** ——
+        //     那四条键**已在表**（`Core/Loc.cs` 那一节 `Battle/Tips/NotEnough*`，**键名逐条**：
+        //     `Battle/Tips/NotEnoughMana` / `Battle/Tips/NotYourTurn` /
+        //     `Battle/Tips/NoTargetAvailable` / `Battle/Tips/NotEnoughRoom`）
+        //     ⇒ 单参那条路**今天走的是「词条值」那一档**，`Describe` 只留给「无键码 / 键不在表里」兜底。
+        //     ⛔ 本节不写任何 `文件:行号` 引用（行号会漂，一律按**键名 / 符号名**认）。
         //     现在改成两态：**缺键态**断「回人话」、**有键态**由 `HintForCodeWithKey` 直接喂一个
         //     **`Loc` 表里真有的键**（那是唯一能构造出该态的路 —— 表是 `Loc` 的私有字段、无写入口）。
         {
@@ -3017,12 +3236,14 @@ public static class BattleScene
             Check(keyCost == "Battle/Tips/NotEnoughMana",
                   $"★ `ErrCost` 有原版键（`{keyCost}` —— 原版 `CanPlayCard.c:83-95` 那一支：`HasEnoughMana` 假）");
             // 🔴 **新前提（本会话修完缺陷之后才成立）**：「有键名」**不等于**「表里有词条」——
-            //   今天四条映射键（`…NotEnoughMana` / `…NotYourTurn` / `…NoTargetAvailable` / `…NotEnoughRoom`）
-            //   **一条都不在 `Loc` 表里**（I2 词条表在远端 CCD）⇒ 单参那条路**今天只能走 `Describe`**。
-            // ① **单参那条路**（`HintForCode(rc)`）：今天 `Loc` 表里**没有**这条键
-            //    ⇒ 断的是「**缺键态 → 回人话**」那一档（改前就是在这里印出键名的）。
-            //    🔴 **不把「表里没有」写死成一条前提断言** —— 值哪天补进 `Loc`（`G5` 的下一步）时
-            //      那会**假红**，而那时行为其实是对的。⇒ 按【表里到底有没有】自动选期望值，两态都有话说。
+            //   四条映射键（`…NotEnoughMana` / `…NotYourTurn` / `…NoTargetAvailable` / `…NotEnoughRoom`）
+            //   **✅ 已在表**（`Core/Loc.cs` 那一节 `Battle/Tips/NotEnough*` 那四条）。
+            //   ⚠️ **加键之前它们一条都不在表里**（I2 词条表在远端 CCD）—— 那正是这一段要防的那个洞。
+            // ① **单参那条路**（`HintForCode(rc)`）：这四条键今天**在表里** ⇒ 它已自动翻到
+            //    「**有键态 → 词条值**」那一档（改前它在这一档印出的是**键名本身**）。
+            //    🔴 **不把「表里没有」写死成一条前提断言** —— 值一旦补进 `Loc` 那会**假红**，
+            //      而那时行为其实是对的（✅ 这一批就真的补进去了 ⇒ 这条自适应当场兑现）。
+            //      ⇒ 按【表里到底有没有】自动选期望值，两态都有话说。
             //      （有键态下 `hCostWant` 那条是**定义式**、不作主判据；主判据是下面「不许含前缀」那条。）
             bool costInTable = Loc.HasEntry(keyCost);
             int missBefore = Loc.MissingCount;
@@ -3046,8 +3267,10 @@ public static class BattleScene
                 + "（`Loc.T` **从不返回 null**：空键给 `\"\"`、缺键给**键名** ⇒ `??` 那一半永不触发）");
 
             // ---- ② **有键态**：印词条值（⛔ 不是键名）----
-            //   ⚠️ 键只能由**自检**喂进来（`HintForCodeWithKey`）：上面那四条映射键今天一条都不在表里，
-            //     而 `Loc` 那张表是私有字段、**没有写入口** ⇒ 「有键态」走 `HintForCode(rc)` 构造不出来。
+            //   ⚠️ 键只能由**自检**喂进来（`HintForCodeWithKey`）：那四条映射键**✅ 已在表**
+            //     （`Core/Loc.cs` 那一节 `Battle/Tips/NotEnough*` 那四条；⚠️ 加键之前它们**一条都不在**表里
+            //      —— 那句是**历史**）。但 `Loc` 那张表是私有字段、**没有写入口** ⇒
+            //     本口仍然要留着：它让自检能**指名**喂一个确实在表里的键（见下一行的符号）。
             //     这里挑 `Battle/Tips/HandFull`（`Loc.cs` 表里确有其条，`G5` 那一轮补的）。
             const string keyInTable = BattleDriver.HandFullTerm;
             Check(Loc.HasEntry(keyInTable), $"（前提）`{keyInTable}` 在 `Loc` 表里（它有值 ⇒ 能验有键态）");
@@ -5610,6 +5833,151 @@ public static class BattleScene
             int guard = RuleCore.IsValidTarget(probe, 0, 1, 1, 1, false);
             Check(noGuard == RuleCodes.ErrTarget, $"场上有护卫时打不了普通单位（{RuleCodes.Describe(noGuard)}）");
             Check(guard == RuleCodes.OK, "场上有护卫时可以打护卫");
+        }
+
+        // ---- 5b. 眩晕 / 失明：**单一表示**（trait）+「回合开始时就在这个状态」的闸门 ----
+        //
+        // 🆕 2026-10-09（`A1116` 两处表示收成一处 · `A1121` 眩晕**永不解除**的真缺陷）—— 一件一批：
+        // 它俩的落点是同一批文件，拆开改**编不过**（`UnitState.IsStunned` 从字段改成派生属性）。
+        // 判据全是**反编译**（`d:/2/tools/decomp_full/`，第一权威），不是照我们自己上一件抄 ——
+        // `stun` = `DefinedTrait.stun = 100` / `blind` = `975`；施加 = `CardScript__Stun.c:48` /
+        // `CardScript__AddEffect.c:475-487`；**只有 trait 一份表示**，读点全是 `HasCurrentTrait`。
+        // 两个闸门 = `EntityScript.stunnedAtStartOfTurn`(`+0x55`) / `blindedAtStartOfTurn`(`+0x56`)：
+        // 置 1 在 `CardScript__OnTurnStart.c:119-126`、摘下在 `CardScript__OnTurnEnd.c:124-134`。
+        // 逐条出处见 `UnitState.IsStunned` / `StunnedAtStartOfTurn` / `RuleCore.EndTurn` 里那几段注释。
+        Debug.Log(P + "--- 眩晕/失明：单一表示 + 只废一个回合 ---");
+        {
+            // ---- 本地夹具（照 `RuleEngineTest` 那套最小形状；只为这一段用）----
+            CardDef PUnit(string name, int cost, int atk, int hp, params string[] kws)
+                => new CardDef(name, name, "unit", "", null, "Test", cost, atk, hp, 0, kws);
+            CardDef PTactic(string name, int cost, string desc)
+                => new CardDef(name, name, "tactic", desc, "common", "Test", cost, 0, 0, 0, null);
+            // ⚠️ 抽牌是 `pop_back` ⇒ 要抓到的牌放**最后**（和 `RuleEngineTest.Deck` 一个约定）
+            List<CardDef> PDeck(params CardDef[] hand)
+            {
+                var d = new List<CardDef>
+                {
+                    new CardDef("ProbeWarlord", "ProbeWarlord", "hero", "", null, "Test",
+                                0, 2, 30, 0, null, subtype: "Warlord"),
+                };
+                for (int i = 0; i < 20; i++) d.Add(PUnit("probeFiller" + i, 1, 0, 1));
+                for (int i = hand.Length - 1; i >= 0; i--) d.Add(hand[i]);
+                return d;
+            }
+            BattleContext PNew(params CardDef[] myHand)
+                => RuleCore.NewBattle(PDeck(myHand), PDeck(), seed: 0, shuffle: false);
+            // ⚠️ 走 `ctx.NewInstance`（对局号段），别用 `new UnitState(card, …)` —— 那是**分离实例**
+            UnitState Put(BattleContext c, int side, int slot, CardDef card)
+            {
+                var u = new UnitState(c.NewInstance(card), false) { Exhausted = false };
+                u.DeployedTurn = c.Turn;
+                c.Players[side].Board[slot] = u;
+                return u;
+            }
+            int HandOf(BattleContext c, int side, string name)
+            {
+                var h = c.Players[side].Hand;
+                for (int i = 0; i < h.Count; i++) if (h[i].Card.Name == name) return i;
+                return -1;
+            }
+
+            // ---- ① 「`Stun an enemy`」⇒ **眩晕关键词真的挂上了**（单一表示的第一半）----
+            {
+                var tac = PTactic("ProbeStunTac", 0, "Stun an enemy");
+                var c = PNew(tac);
+                RuleCore.BeginTurn(c);
+                var victim = Put(c, 1, 3, PUnit("ProbeVictim", 1, 2, 9));
+                int hi = HandOf(c, 0, "ProbeStunTac");
+                Check(hi >= 0, "夹具：「Stun an enemy」在起手里（下面是它打出去之后的断言）");
+                if (hi >= 0)
+                {
+                    Check(RuleCore.PlayTactic(c, 0, hi, 3) == RuleCodes.OK, "「Stun an enemy」打出去了");
+                    Check(victim.Has(KeywordTable.Stun),
+                          "★ **眩晕 = 挂 `stun` trait**（原版 `CardScript__Stun.c:48` 是 `AddTraitSilently(100)`，"
+                          + "全反编译里施加眩晕只此一条路）"
+                          + "｜🧨 只写字段、不挂关键词 ⇒ 本条红（那正是 `A1116` 修的偏离之一）");
+                    Check(victim.IsStunned, "★ 目标 `IsStunned`（= 那个关键词的**派生属性**）");
+                }
+                // 反向：**摘掉关键词 ⇒ 眩晕当场消失**（`RemoveAll` 原来漏了 `stun` 这一条）
+                victim.RemoveAll(KeywordTable.Stun);
+                Check(!victim.IsStunned,
+                      "★ 摘掉 `stun` 关键词 ⇒ `IsStunned` **立即**为假（单一表示，没有第二份可以脱节）"
+                      + "｜🧨 `UnitState.RemoveAll` 漏掉 `stun` ⇒ 本条红（`A1116` 修的另一个方向）");
+            }
+
+            // ---- ② 失明同一条纪律（数值也跟着回来 ⇒ 不是「两个字段恰好同步」）----
+            {
+                var tac = PTactic("ProbeBlindTac", 0, "Blind a random enemy troop");
+                var c = PNew(tac);
+                RuleCore.BeginTurn(c);
+                var victim = Put(c, 1, 3, PUnit("ProbeBlindVictim", 1, 2, 9));
+                victim.RangedAttack = 4;
+                Check(RuleCore.FieldAttack(c, 1, victim, true) == 4, "（前提）它远程 4");
+                int hi = HandOf(c, 0, "ProbeBlindTac");
+                Check(hi >= 0, "夹具：「Blind a random enemy troop」在起手里");
+                if (hi >= 0)
+                {
+                    Check(RuleCore.PlayTactic(c, 0, hi, 3) == RuleCodes.OK, "「Blind a random enemy troop」打出去了");
+                    Check(victim.Has(KeywordTable.Blind),
+                          "★ 失明 = 挂 `blind` trait（原版 `CardScript__AddEffect.c:475-487`，trait `0x3cf = 975`）");
+                    Check(victim.IsBlind, "★ `IsBlind`（= 关键词的**派生属性**）");
+                    Check(RuleCore.FieldAttack(c, 1, victim, true) == 0,
+                          "★ 数值层真的读了它：失明期间**远程攻击力 = 0**"
+                          + "（原版 `EntityScript__get_CurrentRangeAttack.c:25-27`）");
+                }
+                victim.RemoveAll(KeywordTable.Blind);
+                Check(!victim.IsBlind && RuleCore.FieldAttack(c, 1, victim, true) == 4,
+                      "★ 摘掉关键词 ⇒ `IsBlind` 与**远程数值同时**回来");
+            }
+
+            // ---- ③ 🔴 **眩晕只废一个回合**（`A1121`：改前它**永不解除**）----
+            {
+                var c = PNew();
+                RuleCore.BeginTurn(c);
+                Put(c, 0, 3, PUnit("ProbeCon", 1, 1, 9, "Concussion"));
+                var vic = Put(c, 1, 3, PUnit("ProbePin", 1, 1, 9));
+                // 🔴 **夹具前提（人为掰出来的）**：闸门本来只会在「**自己**回合开始时就是晕的」那一刻为真，
+                //    而这里 P1 的回合已经开始了 ⇒ 先手动掰成真，下面那句「施加时清 0」才验得到东西
+                //    （不掰的话它**恒为假**，那条断言就成了空过 —— 本工程的老账）。
+                vic.StunnedAtStartOfTurn = true;
+                Check(RuleCore.DeclareAttack(c, 0, 3, 1, 3) == RuleCodes.OK, "震荡单位攻击（P1 的回合）");
+                Check(vic.IsStunned, "挨了震荡一下 ⇒ 晕了");
+                Check(!vic.StunnedAtStartOfTurn,
+                      "★ **施加时清闸门**（原版 `CardScript__Stun.c:98` 写 `+0x55 = 0`）"
+                      + "｜🧨 删掉 `DoStun`/震荡 里的那一句 ⇒ 本条红");
+
+                // P1 的回合末：**不是它的回合末**（闸门只在**它自己**的回合开始置）⇒ 不摘
+                RuleCore.EndTurn(c);
+                Check(vic.IsStunned,
+                      "★ P1 的回合结束 ⇒ 它还晕着（闸门没置、也不在自己的回合末）"
+                      + "｜🧨 写成「每个回合末都摘」⇒ 本条红");
+
+                // P2 的回合开始：闸门置 1 ⇒ **这一整个回合它动不了**
+                RuleCore.BeginTurn(c);
+                Check(c.Active == 1, "轮到 P2");
+                Check(vic.StunnedAtStartOfTurn,
+                      "★ **它在自己回合开始时就是晕的** ⇒ 闸门置 1（原版 `CardScript__OnTurnStart.c:121`）"
+                      + "｜🧨 删掉 `RuleCore.BeginTurn` 里那句置位 ⇒ 本条红");
+                Check(vic.IsStunned, "这一个回合它一直晕着");
+                Check(RuleCore.CanAttackNow(c, 1, 3, false) == RuleCodes.ErrStunned,
+                      "★ 这回合它打不了 —— 废掉的就是**这一个**回合");
+
+                // P2 的回合末：闸门置了 ⇒ 摘掉
+                RuleCore.EndTurn(c);
+                Check(!vic.IsStunned,
+                      "★ **眩晕只废一个回合**：P2 的回合末就解除了（原版 `CardScript__OnTurnEnd.c:124-129`）"
+                      + "｜🧨 没有这一趟 ⇒ 被晕的单位**整局再也动不了**（`A1121` 记的就是这个）");
+                Check(!vic.Has(KeywordTable.Stun), "（对照）`stun` 关键词也摘了 —— 两处表示同步");
+                Check(!vic.StunnedAtStartOfTurn, "闸门一并清 0（原版 `OnTurnEnd.c:128` 写 `+0x55 = 0`）");
+
+                // 再走一圈：**下一个自己的回合它必须能动**
+                RuleCore.BeginTurn(c);                                  // 又是 P1
+                RuleCore.EndTurn(c); RuleCore.BeginTurn(c);             // → P2（第 4 回合）
+                Check(c.Active == 1, "又轮到 P2");
+                Check(RuleCore.CanAttackNow(c, 1, 3, false) == RuleCodes.OK,
+                      "★ 第 2 个自己的回合它**能攻击了**（这才是「只废一个回合」）"
+                      + "｜🧨 眩晕不解除 ⇒ 这里返回 `ErrStunned` ⇒ 红");
+            }
         }
 
         // ---- 6. 技能与触发：引擎的**事件流** → 特效 ----
@@ -8861,7 +9229,14 @@ public static class BattleScene
                     finally { Loc.PersistOverride = locPersistWas; }
                 }
 
-                // ---- 14b4b. 🆕 2026-10-18（第十二轮 · W6）：本批新接的 **`Battle/` 一族词条**收口扫描 ----
+                // ---- 14b4b. 🆕 2026-10-18（第十二轮 · W6）：本批涉及的键收口扫描 ----
+                // ⚠️ **2026-10-09 就地订正（铁律 5）**：本行原文写「本批新接的 **`Battle/` 一族词条**收口扫描」
+                //   —— **名不副实**：下面那个数组后来陆续并进了 `MainMenu/*` / `Settings/*` /
+                //   `TutorialData/*` / `Tips/Trait/*` ⇒ `Battle/` 只是其中**一族**（照原标题读会以为扫的是别的范围）。
+                // 🔴 **现在实含哪几族**（逐条照下面数组**现读**，⛔ 别再照标题推）：
+                //   `Battle/` 的 `Overtime` / `HUD` / `ChooseCard` / `Mulligan` / `Prebattle` / `Settings` /
+                //   `Tips` / `BattleEnd` / `Effect` 九支 · `TutorialData/Lesson/*` ·
+                //   `MainMenu/Settings/SettingLabel/*` · `Settings/Media/*` · `Tips/Trait/*`（我们自己自拟的两条）。
                 // 两条判据：
                 //   ① **每一条键都必须在 `Loc` 表里**（`Loc.HasEntry`）—— 这就是 `资料/已知的坑.md` #18
                 //      「**原版有这条词条 ≠ 我们表里有这个键**」：只核原版那一侧 ⇒ 界面上印的是**键名本身**
@@ -8895,6 +9270,11 @@ public static class BattleScene
                         "Battle/Tips/DragToTarget", "Battle/Tips/UnitNotReady",
                         "Battle/Effect/ChangeMeleeAttackOneTurn", "Battle/Effect/ChangeRangedAttackOneTurn",
                         "Battle/Effect/ChangeHealthOneTurn", "Battle/Effect/ChangeArmourOneTurn",
+                        // ---- 🆕 2026-10-09（`A1086④`）：`Tips/Trait/` 那两条（**已上屏**，原来漏扫）----
+                        //  判据 → `Core/Loc.cs` 那一节（🔴 **两条都是我们自拟的、原版没有**，见那两条的注释）；
+                        //  消费点 = `Core/Tooltip.cs` 的 `TipText.Trait`（tooltip **正文**那两处 ——
+                        //  「规则书里没这条」/「（规则书 :行号）」）⇒ 缺键时 tooltip 正文明晃晃印**键名**。
+                        "Tips/Trait/NoRulebookEntry", "Tips/Trait/RulebookLine",
                     };
                     var w6LangWas = Loc.Current;
                     foreach (var k in w6Keys)
@@ -9510,7 +9890,12 @@ public static class BattleScene
                         //    验完全部还原（这工程的老账：「自检绿不等于口径对」—— 一个都不亮的局面里 0==0 是空过）。
                         int svWinner = drv.Ctx.Winner, svActive = drv.Ctx.Active;
                         drv.Ctx.Winner = 0;
-                        int slot = -1, owner = -1; bool svEx = false, svStun = false;
+                        int slot = -1, owner = -1; bool svEx = false;
+                        // 🔴 **2026-10-09（`A1116`）**：`svStun` 从 `bool` 改成 `int`（关键词的**层数**）——
+                        //    `IsStunned` 已经是 `stun` 关键词的**派生只读属性**，不能再赋值
+                        //    ⇒ 这一段临时「摘掉眩晕」改成 `RemoveAll` / `AddKeyword`（语义与原实现相同：
+                        //    「把这一格的眩晕先摘掉，看绿光亮不亮，再还原」）。
+                        int svStun = 0;
                         int svAtk = 0, svA = 0, svR = 0;
                         string why = "";
                         for (int side = 0; side < 2 && slot < 0; side++)
@@ -9523,17 +9908,17 @@ public static class BattleScene
                                 var u = pl.Board[s];
                                 if (u == null) continue;
                                 if (u.IsRemnant) continue;
-                                svEx = u.Exhausted; svStun = u.IsStunned; svAtk = u.AttacksThisTurn;
+                                svEx = u.Exhausted; svStun = u.KwValue(KeywordTable.Stun); svAtk = u.AttacksThisTurn;
                                 svA = u.Attack; svR = u.RangedAttack;
                                 // **把「能打」人为造出来** —— 攻击力本身由 `RuleEngineTest` 盯着，这里只验接线
-                                u.Exhausted = false; u.IsStunned = false; u.AttacksThisTurn = 0;
+                                u.Exhausted = false; u.RemoveAll(KeywordTable.Stun); u.AttacksThisTurn = 0;
                                 u.Attack = Mathf.Max(1, u.Attack); u.RangedAttack = Mathf.Max(1, u.RangedAttack);
                                 if (RuleEngine.RuleCore.CanActNow(drv.Ctx, owner, s)) slot = s;
                                 else
                                 {
                                     why += $" {side}/{s}({u.Name},blind={u.IsBlind},pin={u.Has("pindown")})"
                                          + $"={RuleEngine.RuleCore.CanAttackNow(drv.Ctx, owner, s, true)};";
-                                    u.Exhausted = svEx; u.IsStunned = svStun; u.AttacksThisTurn = svAtk;
+                                    u.Exhausted = svEx; RestoreKw(u, KeywordTable.Stun, svStun); u.AttacksThisTurn = svAtk;
                                     u.Attack = svA; u.RangedAttack = svR;
                                 }
                             }
@@ -9545,7 +9930,7 @@ public static class BattleScene
                             var v1 = drv.BoardViewAt(slot, owner == drv.MyIndex);
                             bool lit = v1 != null && v1.CanActVisible;
                             var u = drv.Ctx.Players[owner].Board[slot];
-                            u.Exhausted = svEx; u.IsStunned = svStun; u.AttacksThisTurn = svAtk;
+                            u.Exhausted = svEx; RestoreKw(u, KeywordTable.Stun, svStun); u.AttacksThisTurn = svAtk;
                             u.Attack = svA; u.RangedAttack = svR;
                             drv.Ctx.Winner = svWinner;
                             drv.RefreshAll();
@@ -19875,6 +20260,20 @@ public static class BattleScene
         CardTween.Advance(dt);
         foreach (var ps in Object.FindObjectsOfType<ParticleSystem>(true))
             if (ps != null) ps.Simulate(dt, withChildren: false, restart: false, fixedTimeStep: true);
+    }
+
+    /// <summary>
+    /// 把某个关键词**还原**成 `count` 层（`count &lt;= 0` ⇒ 摘掉）。
+    ///
+    /// 🆕 2026-10-09（`A1116`）：绿光那一段夹具原来写 `svStun = u.IsStunned; … u.IsStunned = false; …
+    /// u.IsStunned = svStun;` —— `IsStunned` 改成**派生只读属性**之后不能再赋值（`CS0200`）
+    /// ⇒ 夹具改成操作**关键词**（那才是唯一表示）。语义一模一样：临时摘掉眩晕、验完还原。
+    /// </summary>
+    static void RestoreKw(UnitState u, string kw, int count)
+    {
+        if (u == null || string.IsNullOrEmpty(kw)) return;
+        u.RemoveAll(kw);
+        if (count > 0) u.AddKeyword(kw, count);
     }
 
     /// <summary>按**英文卡名**从卡池里找一张（自检挑样卡用；找不到返回 null —— 调用方要断「前提」）。</summary>

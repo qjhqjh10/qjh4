@@ -588,8 +588,8 @@ namespace RuleEngine
             // 🆕 2026-10-18（`A985④`）**「这份牌是谁造出来的」** —— 见下面 `_createdBy` 那一段。
             //   `ActingUnit` 优先（每次 op 都 save/restore，出了结算必为 `null` ⇒ 它是**结算中**的
             //   可靠信号；这个「先 `ActingUnit` 再 `PlayingCard`」的次序是照本仓既有口径 ——
-            //   `EffectResolver.cs:4117` / `:7234` 两处就是同一个写法）；
-            //   战术卡那条路 `source` 是 `null`（`EffectResolver.cs:1119` 传的是
+            //   `EffectResolver` 里那两处 `ActingUnit != null ? ActingUnit.Card : PlayingCard` 就是同一个写法）；
+            //   战术卡那条路 `source` 是 `null`（`EffectResolver` 里那处传的是
             //   `ResolveOps(ctx, p, null, …)`）⇒ 靠 `PlayingCard`（`ResolveOps` 入口 + **`NotePlayed`
             //   那一刻**写的那张卡，见 `NotePlayed` 里那段注释）。
             //   ⚠️ 只在**有来源**时盖章：开局那几处（初始牌库 / 督军 / 起手 / 防御卡）跑在任何
@@ -1043,7 +1043,7 @@ namespace RuleEngine
             //  传**技能属主那张卡** ⇒ 「刚打出/正在结算的那张卡」正是同一个东西。
             //  ⚠️ **不改变任何既有读者**：`PlayingCard` 现在的读点全在 op 里，而 `ResolveOps`
             //  入口**每次都覆写**它（含写成 `null`）⇒ 这一句在它们之前就被顶掉了
-            //  （`EffectResolver.cs:50` 是唯一另一处写点，语义不变）。
+            //  （`EffectResolver` 里 `ctx.PlayingCard = sourceCard` 那一句是唯一另一处写点，语义不变）。
             PlayingCard = inst != null ? inst.Card : null;
         }
 

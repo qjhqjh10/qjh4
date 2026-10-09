@@ -2409,26 +2409,54 @@ namespace CardPresentation
             SetFpsFromPointer(LayoutSpace.ScreenToWorld(m.position.ReadValue(), LayoutSpace.Cam));
         }
 
-        /// <summary>按住拖动（= 原版 `Slider.OnDrag` → `UpdateDrag`）。⚠️ 批处理没有帧循环 ⇒ 自检直调。</summary>
+        /// <summary>按住拖动（= 原版 `Slider.OnDrag` → `UpdateDrag`）。⚠️ 批处理没有帧循环 ⇒ 自检直调。
+        /// <para>🔴 **2026-10-18（`A1092` 收尾 · (B) 方案）**：本方法**只剩**「取指针位置 + 左键的两个态」，
+        /// 换算体整段搬进 <see cref="UpdateFpsDragAt"/>（两个早退分支按原序留在**这里** —— 见那边的注释）。
+        /// **为什么非抽不可**：本方法头两件事之一就是读 `Mouse.current`，而**批处理下它恒 `null`**
+        /// ⇒ 原方法体里那一层换算（`MenuDraw.PixelOfDesign`）**没有任何自检看得见** ——
+        /// 这正是它从 `A990②` 潜伏到 `A1092` 的原因。两态断言 → `Editor/SettingsScene.cs` 的「`A1092` 站点②」那节。</para></summary>
         void UpdateFpsDrag()
         {
             if (_fpsSliderRoot == null || !_fpsSliderRoot.gameObject.activeInHierarchy)
             { _fpsDragging = false; return; }
             var m = Mouse.current;
             if (m == null) { _fpsDragging = false; return; }
-            var wp = LayoutSpace.ScreenToWorld(m.position.ReadValue(), LayoutSpace.Cam);
-            if (m.leftButton.wasPressedThisFrame)
+            UpdateFpsDragAt(LayoutSpace.ScreenToWorld(m.position.ReadValue(), LayoutSpace.Cam),
+                            m.leftButton.wasPressedThisFrame, m.leftButton.isPressed);
+        }
+
+        /// <summary>拖动那一路的核 —— 吃**世界坐标**与**左键的两个态**（后两个由 `Mouse.current` 取，见调用点
+        /// <see cref="UpdateFpsDrag"/>；`_fpsSliderRoot` 那两道早退闸也留在**调用点**、按原序）。
+        /// <para>🔴 **2026-10-18（`A1092` 收尾 · (B) 方案）：纯重构** —— 方法体 = <see cref="UpdateFpsDrag"/>
+        /// 原来那一段，除「从 `m` 读键态」换成「从入参读」之外**一字未动**
+        /// （控制流 / `_fpsDragging` 的三处写 / 末尾 `MenuScroll.Stop` 那一句全在原位）。
+        /// ⛔ **别再在这里复读 `Mouse.current`** —— 那会让批处理下恒早退，抽出来的口就成了
+        /// 「看着能调、其实什么都没发生」的**假口**（本仓红线：「靠『什么都没发生』的假断言」）。</para>
+        /// <para>⚠️ **`public` 是给自检留的**（全仓 **0 个 `.asmdef`** ⇒ `internal` 自检看不见）——
+        /// `Editor/SettingsScene.cs` 的「`A1092` 站点②」那节直调它，喂**手柄中心对应的世界坐标**
+        /// （两态：16:9 对照 + 4:3 / 21:9；旧实现在非 16:9 下取档的 x 走的是写死 108 的那条斜率）。</para></summary>
+        public void UpdateFpsDragAt(Vector3 wp, bool pressedThisFrame, bool held)
+        {
+            if (pressedThisFrame)
             {
                 // 🔴 **判据只此一份（A202①）**：这一下算不算点在滑块上，走 `FpsPressAtCanvas`
                 //    —— 命中带 = `WfSlider.HitBand`（**只此一份**，与命中区 quad 同一个函数调出来的）。
                 //    ⛔ 原来这里手写的是 `px < s.x1-24 || px > s.x2+24 || py < s.y1-16 || py > s.y2+16`
                 //    那份**第二份几何**，别写回来（两套值**并不等价**，自检里那条负例正是拿
                 //    「旧带会认、`HitBand` 不认」的那一点去分辨的，见 `Editor/SettingsScene.cs` A202① 那节）。
-                FpsPressAtCanvas(LayoutSpace.PxX(wp.x), LayoutSpace.PxY(wp.y));
+                // 🔴 **2026-10-18（A1092）**：两个分量都换成**设计 px 那一帧**（原来写的是
+                //    `LayoutSpace.PxX(wp.x)` / `LayoutSpace.PxY(wp.y)` —— x 斜率写死 108）。
+                //    `FpsPressAtCanvas` 吃的是**画布 px**（= 先过 `Screen()`、把固定的 `RootScale`
+                //    烘进设计 px），与 `SetFpsFromPointer` 用的是**同一条读口** ⇒ 本函数必须跟它同帧，
+                //    否则「点选」那半已修、「拖动」这半还是 16:9-only（**同一扇窗里两半不一致**）。
+                //    ⚠️ y 那一半本来就同值（`ToDesignPixel` 的 y 直接转调 `PxY`）⇒ **只有 x 真的变**。
+                Vector2 wpx = MenuDraw.PixelOfDesign(wp);
+                FpsPressAtCanvas(wpx.x, wpx.y);
             }
             else if (_fpsDragging)
             {
-                if (m.leftButton.isPressed) SetFpsFromCanvasX(LayoutSpace.PxX(wp.x));
+                // 🔴 同上（`A1092`）：取值这一路也必须是**设计 px 那一帧**，与 `SetFpsFromPointer` 同款。
+                if (held) SetFpsFromCanvasX(MenuDraw.PixelOfDesign(wp).x);
                 else _fpsDragging = false;
             }
             // 🔴 **拖这根滑块时不滚这一列** —— 原版是 uGUI `Slider` 自己吃掉了拖拽事件（不会冒泡到 `ScrollRect`）。
@@ -2479,7 +2507,14 @@ namespace CardPresentation
             _fpsGrabPx = 0f;
             if (_fpsHandle != null)
             {
-                float hx = _fpsHandle.transform.position.x * 108f + 960f;
+                // 🔴 **2026-10-18（`A1092` 收尾）**：`hx` 必须与入参 `px` **同帧**（两者都是**画布 px**）。
+                //    原来这里是**内联的 108 帧**（`…position.x * 108f + 960f`）：`A1092` 把 `px` 那一路
+                //    换成设计帧之后，**同一个函数里两半不再同帧**（改动前两者同为 108 帧 ⇒ 16:9 下两帧重合
+                //    ⇒ **单态断言抓不住它**）。4:3 下偏差 = `|px − hx| = 0.25 × |px − 960|`
+                //    （手柄离画布中心 480px 时差 **120px**，远大于 `half` = `FpsHandleSquare × RootScale ÷ 2`
+                //    = **15.93**）⇒「按在手柄上」那条判据**恒假** ⇒ `_fpsGrabPx` 恒 0 ⇒ 抓手偏移丢失
+                //    （拖手柄会跳一下）。⛔ **纯重构**：只统一「读数走哪条斜率」，判定式与阈值一字未动。
+                float hx = MenuDraw.PixelOfDesign(_fpsHandle.transform.position).x;
                 float half = FpsHandleSquare * RootScale * 0.5f;
                 if (px >= hx - half && px <= hx + half) _fpsGrabPx = px - hx;
             }
@@ -2497,13 +2532,21 @@ namespace CardPresentation
         /// 改前那一份的 x 写死 108px/世界单位 ⇒ **只在 16:9** 与 `Screen()` 同帧，
         /// 4:3 下指针读数被压到 **0.9 × 0.75**、而命中带/滑区还是 `0.9` ⇒ 点手柄取到的档位**系统性偏小**
         /// （越靠边差越多：轨道右端 1284.63 → 偏 **0.75 倍行程** ≈ 判成档 1 而不是档 2）。</para>
-        /// <para>⚠️ **同一帧的三处**（本窗指针路上全部要吃同一条换算）：本行 ·
-        /// `FpsClickAtPointer`（转调本行 ✔）· `UpdateFpsDrag` 里那两个 `LayoutSpace.PxX/PxY`
-        /// —— 后两处**不在本件白名单**（派单只许改本行），已记在报告 §没查清 里：
-        /// **改前改后都是同一档偏差**（本轮不动它们 = 不引入新错），但那一半仍是 16:9-only。</para>
+        /// <para>⚠️ **同一帧的三处**：本行 · `FpsClickAtPointer`（转调本行 ✔）·
+        /// `UpdateFpsDrag`（**2026-10-18 `A1092` 已一并换成 `MenuDraw.PixelOfDesign`** —— 三处现在同一条读口）。
+        /// ⚠️ **2026-10-18（E18）就地订正（铁律 5）**：本段原来写的是「…… `UpdateFpsDrag` 里那两个
+        /// `LayoutSpace.PxX/PxY` —— 后两处不在本件白名单 …… 但**那一半仍是 16:9-only**」。
+        /// **那句已随 `A1092` 作废**（`UpdateFpsDrag` 现在与本节同一帧，见上一行）——
+        /// 留此痕是为了别把旧结论再抄回来。</para>
         /// <para>⚠️ 批处理里 `Mouse.current` 是 null ⇒ 自检不经过本行（`FpsClickAtPointer` 早退；
         /// 自检直调 `FpsPressAtCanvas` / `SetFpsFromCanvasX` 那两个**吃画布 px**的口）
-        /// ⇒ **12 条自检一条都不受影响**。</para></summary>
+        /// ⇒ **12 条自检一条都不受影响**。
+        /// 🔴 **2026-10-18（E18 现核）：`UpdateFpsDrag` 那一层换算今天【仍然没有任何口能被批处理驱动】**
+        /// —— 它的方法体除 `wp` 之外**还读两次 `Mouse.current.leftButton`**
+        /// （`:2420` `wasPressedThisFrame` · `:2439` `isPressed`），而批处理下 `m` 恒 null ⇒ 无论
+        /// 怎么抽方法，都**要么方法体不能原样搬、要么抽出来的口照样在 `m == null` 处早退**（= 一个「假口」）。
+        /// ⇒ `A1092` 那个「甲」**没做成**，详见 `资料/普查产出_第八会话/E18_A1092收尾.md` §④·1（给了三条修法）；
+        /// ⛔ **别以为把口抽出来就等于自检看得见了**（那会变成「靠『什么都没发生』的假断言」）。</para></summary>
         public bool SetFpsFromPointer(Vector3 world) => SetFpsFromCanvasX(MenuDraw.PixelOfDesign(world).x);
 
         /// <summary>按**画布 px 的 x** 取值 —— 逐句照 uGUI `Slider.UpdateDrag`：
@@ -2549,6 +2592,15 @@ namespace CardPresentation
         /// ⇒ 自检拿 `FpsPressAtCanvas(画布 px, 画布 px)` 打进来、再读这一个 —— 断的是**状态**，
         /// 不是那个方法的返回值（「一直为真 / 一直为假」两种改坏法都要能分辨，见 A202① 那节的探针对）。</summary>
         public bool FpsDragging { get { return _fpsDragging; } }
+        /// <summary>开始拖那一刻记下的**抓手偏移**（画布 px，= 原版 uGUI `Slider.OnPointerDown` 里的
+        /// `m_Offset`：「按在手柄上」时 = `按下点 − 手柄中心`；按在轨道空处 = 0）。**只读，给自检。**
+        /// <para>🔴 **2026-10-18（`A1092` 收尾 · 调度台裁定加的本口）**：加它的理由 = 本仓点名的三条系统性毛病之一
+        /// 「**弱断言分不出两种状态**」—— 抓手偏移的**最大作用范围只有 `half`**
+        /// （= `FpsHandleSquare × RootScale ÷ 2` = **15.93 画布 px**）⇒ 它只把「值跟谁走」搬 **0.0736 档**
+        /// ⇒ **只从档位上看，这一格必须贴着取整边界才观测得到**（既难看又脆）。
+        /// 本口返回**那个字段的原值** —— ⛔ **不是第二份算式**（不在这里按 `px`/`hx` 重算一遍）。
+        /// 调用点 → `Editor/SettingsScene.cs` 的「`A1092` 站点②」②-3（直断 `== +15.0`）。</para></summary>
+        public float FpsGrabPxForTest { get { return _fpsGrabPx; } }
         /// <summary>滑块那三件的父节点（自检量几何用）。</summary>
         public Transform FpsSliderRoot { get { return _fpsSliderRoot; } }
 
@@ -2621,7 +2673,7 @@ namespace CardPresentation
             var box = Node(page, "Audio Settings", AuL, AuT, AuR, AuB);
             var names = new[] { "Music", "Sound Effects", "Voice-overs" };
             // 🆕 **2026-10-18（第四会话 · 「设置窗未接的标签」· 调度台已放行）**：**行标签的文字**改走表里的键。
-            //   键**早就在表里**（`Loc.cs:667/:668/:669`）、代码画的却是上面那排字面量 ⇒ 中文档一直印英文
+            //   键**早就在表里**（`lkSetMusic` / `lkSetSoundFx` / `lkSetVoiceOvers` 那三条）、代码画的却是上面那排字面量 ⇒ 中文档一直印英文
             //   （判据 = `交件_换语言刷新链.md` §④·2）。⛔ **`names` 那排仍要留着** —— 它是**节点名**
             //   （下一行的 `name + " Container"`），节点名不进本地化（施工单 §⑦），换了 = 静默改树。
             //   ⚠️ 这两条音量键的中文是 `Loc.cs` 自己标「自拟」的（真值在远端 I2 表）。

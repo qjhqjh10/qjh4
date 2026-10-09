@@ -31,7 +31,11 @@
 //   · `Share` / `Share On Chat` —— ✅ **接了**（`A1040` 2026-10-08 收口）。🔴 **这是两件不同的事**：
 //     · `Share` = **写系统剪贴板 + 弹一条提示**（原版 `DeckInfoPopup__ShareDeck.c` 三句：造串 →
 //       `UnityEngine.GUIUtility.set_systemCopyBuffer(串)` → `UIMessageController.ShowMessage`）；
+//       🔴 **2026-10-09（`A1050`）：第 ③ 句现在与原版【同形】** —— 走 `Shell/MessageToast`（宿主 = 原版
+//       `UIMessageController`）。**改前**它是 `Manager.ShowPopUp(…)` = **要玩家点 OK 的模态弹窗**（那句
+//       「我们是模态弹窗」的标注就是它），**已按铁律 5 就地改掉**（改前/改后与全部判据 → `ShareDeck` 的 doc）；
 //       写剪贴板那份实现**全库只有一处** = `Deck/DeckRuntime.CopyDeckToClipboard`（卡组编辑那颗 `Share` 也走它）
+//       ⚠️ **卡组编辑那一侧仍没接上**（`DeckRuntime.ShareDeckString()` 走 `Say()`，屏幕上什么都不画）—— 如实标注，见 `ShareDeck` 的 doc。
 //     · `Share On Chat` = 原版**开一扇两键面板（群组 / 全局）→ 发一条聊天消息**、**不写剪贴板**；
 //       那扇面板**还没建**（账 `A1045`）⇒ 本路**如实出声**（`NotBuilt`）+ 把卡组串印出来给玩家自己抄
 //     🔴 **订正（铁律 5）**：本条原文写「原版走平台/服务端，我们**给卡组串**」—— **两半都不对**：
@@ -840,7 +844,7 @@ namespace CardPresentation
             if (facTex != null)
                 Img(root, root, facTex, DdIconL, DdIconT, DdIconR, DdIconB, "Army Icon", QDIRow, true);
             Txt(root, root, info.Name, DdNameL, DdNameT, DdNameR, DdNameB, 44.5f, Align.Left, "Deck Name", QDIText);
-            // 空战将位那行字走词条（键 `MenuDeck/Error/NoWarlord`，出处见 `Core/Loc.cs:904`）。
+            // 空战将位那行字走词条（键 `MenuDeck/Error/NoWarlord`）。
             // ⚠️ 中文列是「还没有选战将」—— 与改前写死的「未选战将」**不同字**，这是**有意的**：
             //    施工单 §附_Shell #1 判「语义一致 ⇒ 复用，别新造」（铁律 6：同义两键迟早不一致）。
             Txt(root, root, wl != null ? wl.Name : Loc.T("MenuDeck/Error/NoWarlord"), DdWlL, DdWlT, DdWlR, DdWlB, 40f, Align.Left,
@@ -1179,7 +1183,7 @@ namespace CardPresentation
                 {
                     var wl = CollectionData.Warlord(DeckIndex);
                     // 🔴 **2026-10-18（波 1b）**：原来这里是**写死的英文**（中文档下也印英文）⇒ 改走词条
-                    //   （键 `MenuDeck/CantImportDeck`，出处 `Core/Loc.cs:1250`；EN 列与改前写死串**逐字相同**）。
+                    //   （键 `MenuDeck/CantImportDeck`；EN 列与改前写死串**逐字相同**）。
                     //   ⚠️ 这条**键名是原版的**（`stringliteral.json` RVA `0x42CEBF0`）—— 正是上面注释里那个
                     //   `DAT_1842cebf0`（VA − ImageBase `0x180000000`）⇒ 查到就用它，不再自拟。
                     string msg = Loc.T("MenuDeck/CantImportDeck") + (wl != null ? "（" + wl.Name + "）" : "");
@@ -1187,7 +1191,7 @@ namespace CardPresentation
                                      + "（原版 `DeckInfoPopup.EditDeck` 那条闸）；⚠️ 提示文案**是我们挑的** —— "
                                      + "原版那一条是 I2 词条键（`DAT_1842cebf0`），本地无语言表");
                     // 弹窗唯一那颗钮走词条（键 `MainMenu/General/OK`，出处 = 原版同 GO TMP `m_text` = `OK`；
-                    //   证据与来历写在 `Core/Loc.cs:960-977`）。⚠️ 是 `OK` **不是** `Ok`（施工单 §④ 那条口径）。
+                    //   证据与来历写在 `Core/Loc.cs` 里 `MainMenu/General/OK` 那一条的留痕块）。⚠️ 是 `OK` **不是** `Ok`（施工单 §④ 那条口径）。
                     if (Manager != null) Manager.ShowPopUp(msg, Loc.T("MainMenu/General/OK"), null);
                     return;
                 }
@@ -1277,7 +1281,7 @@ namespace CardPresentation
             {
                 Debug.LogWarning("[DeckInfo] 我这副「" + (mine != null ? mine.Name : "?") + "」里有**隐藏卡** ⇒ "
                                  + "**不开打**（原版 `CheckHiddenCardsInDeck` 那一支）" + hiddenWhy);
-                // 正文走词条（键 `MenuDeck/Error/HiddenCards`，出处 `Core/Loc.cs:1235-1236`；ZH 列与改前逐字相同）。
+                // 正文走词条（键 `MenuDeck/Error/HiddenCards`；ZH 列与改前逐字相同）。
                 // ⚠️ 拼在后面的 `hiddenWhy` 是**自检注入向的诊断串**（P3 §③·D 判 ②、未进表）⇒ 英文档下这条会是
                 //    「英文正文 + 中文诊断」的混合体。如实记着，**不是静默**。
                 if (Manager != null)
@@ -1384,7 +1388,17 @@ namespace CardPresentation
         /// 与「（**批处理与桌面都没法替用户按剪贴板**）」—— **两句都不成立**：原版既不走上服务端、也没做
         /// 平台分享（`DeckInfoPopup__ShareDeck.c:16` 调的就是本地 API `GUIUtility.systemCopyBuffer`）；而
         /// 「没法按剪贴板」被**同一个动作本来的那份实现**直接反证（`Deck/DeckRuntime.cs` 的 `ShareDeckString()`，
-        /// 它早就写着 `GUIUtility.systemCopyBuffer = s`）⇒ 那句理由**本身就是错的**，已删。</para></summary>
+        /// 它早就写着 `GUIUtility.systemCopyBuffer = s`）⇒ 那句理由**本身就是错的**，已删。</para>
+        /// <para>🆕 **2026-10-09（`A1050`）：第 ③ 句现在是【同一形】了 —— 改前不是。**
+        /// 改前挂的是 `Manager.ShowPopUp(…)` = **要玩家点 `确定` 的模态弹窗**（旧注释里那句
+        /// 「我们是模态弹窗」说的就是它）；现走 <see cref="MessageToast.Show"/>（= 原版
+        /// `UIMessageController` 那条瞬时提示，**自己会消失、不用点**）。
+        /// 判据 = `decomp_full/DeckInfoPopup__ShareDeck.c:21-23` 的 `UIMessageController.ShowMessage`
+        /// （公开重载 `ShowMessage(string, bool)`，`localize = 1`；尾参那个 `0` 是 IL2CPP 的 `MethodInfo*`，
+        /// **不是第 4 个实参** —— 逐条实证见 `Shell/MessageToast.cs` 文件头 ①）。
+        /// ⚠️ **另一处宿主（卡组编辑那颗 `Share`）仍是旧形**：`Deck/DeckRuntime.cs` 的 `ShareDeckString()`
+        /// 走的是 `Say()`（D35 删件之后它**只写日志、屏幕上什么都不画**）⇒ 那一边**还没**接上这条通道
+        /// （`Deck/` 不在本批白名单，已如实上报，归调度台）。</para></summary>
         void ShareDeck(string key)
         {
             if (key == "Share On Chat") { ShareOnChat(); return; }   // ⛔ 那条**不写剪贴板**（原版也不写）
@@ -1397,10 +1411,31 @@ namespace CardPresentation
                 return;
             }
             Debug.Log("[DeckInfo] `Share` ⇒ 卡组串（" + s.Length + " 字符）**已写进系统剪贴板**：" + s);
-            if (Manager != null)
-                Manager.ShowPopUp(DeckRuntime.ShareCopiedText(s.Length) + "\n\n" + s,
-                                  Loc.T("MainMenu/General/OK"), null);
+            // 🆕 **2026-10-09（`A1050`）**：原版第 ③ 句是 **toast（瞬时提示）**，⛔ **不是模态弹窗** ——
+            //   换走 `MessageToast`（宿主 = 原版 `UIError Message Controller`；判据、复用的理由与一处
+            //   已知偏离 → `Shell/MessageToast.cs` 文件头）。
+            //   🔴 **改前 → 改后**：`Manager.ShowPopUp(ShareCopiedText(len) + "\n\n" + 串, 确定, null)`
+            //     （**要玩家点 OK**） →  `MessageToast.Show(键, localize:true, 兜底句)`（自己会消失）。
+            //   🔴 **文案照原版的形状**：键 = **`MenuDeck/Share/ExportSuccesful`** —— 出处是原版自己的
+            //     **字符串常量表**（`d:/2/tools/il2cpp_out/stringliteral.json:98759`，
+            //     同族另三条 `MenuDeck/Share/{Title,ShareOnAlliance,ShareOnGlobal}` 紧邻），
+            //     `localize = true`（= 原版 `ShowMessage(键, 1)`）。⚠️ 原版把 `Successful` 拼成了
+            //     **`Succesful`（一个 s）** —— **一个字都别改**，改了就等于换了一条键。
+            //   ⚠️ 那条键**本地词条表里没有 value**（`Core/Loc.cs` 那 6 条 `MenuDeck/Share/*` 全无 value，
+            //     与其余 I2 值一样在远端）⇒ 今天恒走**兜底句** `ShareCopiedText`（两个宿主共用的那一份文案）。
+            //     ⛔ 别把键名印到屏幕上（`ShowMessage` 的两态行为见 `ErrorMessageBanner.ShowMessage`）。
+            //   ⚠️ 与旧弹窗的**一处有意差别**：原版那条提示**只有一句话、不含卡组串**（串已经写进系统
+            //     剪贴板了）⇒ 这里也**不再把串印出来**（原来印串是「让玩家自己抄」的权宜做法）。
+            MessageToast.Show(ShareSuccessTerm, true, DeckRuntime.ShareCopiedText(s.Length));
         }
+
+        /// <summary>分享成功那条 toast 的**词条键** —— **原版字符串常量表实读**（不是自拟）：
+        /// `d:/2/tools/il2cpp_out/stringliteral.json:98759` 的 `"MenuDeck/Share/ExportSuccesful"`
+        /// （拼写照原版，**少一个 s**）。
+        /// <para>⚠️ 它的 **value 在远端 I2 语言表**里，本地**没有** ⇒ 调用点必须给兜底句
+        /// （`DeckRuntime.ShareCopiedText`）—— 见 <see cref="ShareDeck"/> 里那一串注释。
+        /// ⛔ 别因为「看着像拼错」就改成 `Successful`：那样键就变了、永远查不到。</para></summary>
+        public const string ShareSuccessTerm = "MenuDeck/Share/ExportSuccesful";
 
         /// <summary>`Share On Chat`（原版 `DeckInfoPopup__ShareDeckOnChat.c`）—— ⛔ **不写剪贴板**（原版不写）。
         /// <para>原版 = 开一扇 `GenericOptionsPanel`（两键：发给群组 / 发给全局）→ 选中后

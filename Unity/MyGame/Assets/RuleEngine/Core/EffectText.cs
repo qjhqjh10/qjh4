@@ -14,6 +14,26 @@
 //   🔴 **下面凡引 `rule_core.gd:<行>` 的，一律读作「我们上一版当时怎么写的（旁证、非权威）」**，
 //   别当原版结论。
 //
+// 🔴🔴 **2026-10-19（`D26`）—— 本文件这一层【没有原版判据可指】，这是查明的事实、不是偷懒**：
+//   原版**根本没有「效果文本 → 结构化效果」这一层** —— 它的效果是**结构化 ability 数据**
+//   （`CardAbility` / `RawCardScript`，`AbilityLogic.PlayAbility` 逐条 `AddEffect`），
+//   `desc` 只是**给玩家看的展示文本**，原版从不去解析它。
+//   **搜过的路径 / 词（复现即可，⛔ 别再重复搜）**：
+//     · `grep -rln "Regex\|RegularExpressions" d:/2/tools/decomp_full/` ⇒ **33 个文件**，
+//       逐个看过：`CardNameFilter__RemoveBetween` · `SupportMethods__RemoveAngleBracketContent` ·
+//       `SupportMethods__IsValidEmail` · `Everguild.LiveOps.CSVReader__*` · `RESTClient.*` ·
+//       `I2.Loc.*`（本地化）· `CryptoString__*` · `CardCollectionFilter*` ——
+//       **没有一个效果文本解析器**（没有 `ParseDesc` / `ParseAbilityText` / 句型分派这类东西）。
+//     · `ls d:/2/tools/decomp_full/ | grep -i "text\|grammar\|parse"` ⇒ 只有本地化 / UI / 输入类。
+//     · `d:/2/tools/all_strings.txt`（带 `-a`）里搜句型模板 ⇒ 0 命中。
+//   ⇒ 本文件（以及 `GivePayload` / `Aura` 的**句子层**）的判据只能是：
+//     **① 成品卡图卡面原文**（`d:/2/Warpforge部队卡片/<阵营>/<分类>/*.png` —— 那是印刷品上的字、
+//        可逐张核，是「**这条句型真的存在**」的判据）
+//     **② 逐卡的结构化 ability 数据**（`d:/2/新解包资源/assets_full/…/MonoBehaviour/*`，
+//        仍未逐卡解出 ⇒ **今天拿不到**）。
+//   ⚠️ 所以下面那些「出处 `rule_core.gd:NNNN`」**全都不是判据**，**是旁证**：能改指卡图的已改指卡图；
+//      试过、指不动的**如实写「判据查不到」**（铁律 2：⛔ 不许把「查不到」写成猜测）。
+//
 // 和 `EffectSpec` 的分工：
 //   · `EffectSpec`  —— **我们自己设计的 26 张卡**用的封闭文法（`Damage 2 EnemyUnit` 那种），
 //     小而严，写错了自检抓得到。**不动它。**
@@ -237,7 +257,11 @@ namespace RuleEngine
         /// `dead`（本局阵亡的部队）/ `pool`（全卡池，**默认** —— 卡面没写「从哪来」就是生成一张）/
         /// 🆕 `played`（**本局你打出过**的牌 —— 卡面写 `… you played this game`，
         /// 实测 1 处：`Suppressor` 的 `Choose a non-Legendary Stratagem you played this game …`）。
-        /// 出处 `rule_core.gd:1185-1207`。
+        /// 🔴 **判据查不到**（`D26`）：原版没有文本解析层，「候选来源」这类取值无从对起 ——
+        ///    理由与**搜过的路径 / 词**见本文件头那段（⛔ 别重复搜）。
+        ///    可核的坐标 = **卡面原文**：`from your deck` / `from your hand` / `from the enemy's hand`
+        ///    （`Suppressor`，`Ultramarines/3部队/UPDATED_Warpforge_15_Suppressor.png`）。
+        ///    ⚠️ `rule_core.gd:1185-1207` 是**我们上一版复刻**当时怎么切的（**旁证、非权威**）。
         /// ⚠️ **`played` 是我们的扩充、不是原版那个函数的取值**：2026-10-17（B14）之前
         ///    那半句 `you played this game` 被当**噪声**留在筛选词里 ⇒ 筛选词退化成
         ///    「非传说的战略卡」⇒ 候选 = **全卡池里 349 张战略/防御卡**（实测，见报告），
@@ -485,7 +509,14 @@ namespace RuleEngine
         /// <summary>
         /// **付费修饰型激活**（`Verb == "paidmod"`）要改的那批 op —— 就是**本卡在它之前**的效果。
         ///
-        /// 出处：`rule_core.gd:1588 _energy_act_prep` 的 `replay` 栏（基础效果文本）。
+        /// 🔴 **判据查不到**（`D26`）：`6 [Energy]: Extend effect until your next turn` 这一类
+        ///    「付费改**前面那句**的时长」在原版是**结构化 ability 数据**里的两条效果
+        ///    （`CardAbility` → `CardScript.AddEffect` / `AddTrigger…`），**没有**「回填前一句」
+        ///    这种文本层的做法 ⇒ 本版反编译里**没有对应的方法可指**
+        ///    （理由与搜过的路径 / 词 → 本文件头那段）。
+        ///    可核的坐标 = **卡面原文**：`Sorotitas/4计策/Warpforge_52_Miraculous-Feat.png` ·
+        ///    `Sorotitas/2天赋/Warpforge_02_Daemonbreaker.png`。
+        ///    ⚠️ `rule_core.gd:1588 _energy_act_prep` 的 `replay` 栏是**我们上一版复刻**的写法（**旁证**）。
         /// 由 <see cref="EffectText.Parse"/> 在整条 desc 解析完之后统一回填
         /// （逐句解析时看不到「之前」），和 <see cref="RepeatOps"/> 是同一个套路。
         /// `Payload` 记的是哪一种修饰：`extend`（`this turn` → `until your next turn`）/
@@ -728,7 +759,7 @@ namespace RuleEngine
         /// 现在：解析层置位（看到目标短语里有 `in hand` / `in your hand`），
         /// 结算层 `EffectResolver.GrantHandBuffForTargets` 按它往 **`CardInstance.HandEffects`**
         /// 登记（⚠️ **2026-10-18（`A885`）就地订正**：原来这里写的是 `ctx.HandBuffs` ——
-        /// 那张**对局级的表已删**，现在挂在**每一份牌自己**身上，见 `BattleContext.cs:501-511`）——
+        /// 那张**对局级的表已删**，现在挂在**每一份牌自己**身上，见 `BattleContext` 里那段 `A885` 搬走的订正痕）——
         /// **兑现点一个字没动**（还是 `RuleCore.ApplyHandBuffs`，在这次之后打出那个单位时生效）。
         /// </summary>
         public bool AlsoHand;
@@ -906,9 +937,9 @@ namespace RuleEngine
                 //    （🔴 **2026-10-18 就地订正（铁律 5）**：这里原来写 `ErrSlot` —— **拆码前**的值，
                 //     拆码后这一支返回 **`ErrNoTargetAvailable`**。**判成「没有合法目标」而不是「满了」**：
                 //     本句点名的是 `CanPlayTactic`，而它那两处「要选目标」的出口
-                //     （`targetSlot < 0 / 越界` 与 `那一格没有合法候选`）在 `EffectResolver.cs:908/910`
+                //     （`targetSlot < 0 / 越界` 与 `那一格没有合法候选`）在 `EffectResolver.CanPlayTactic` 里那两句 `return RuleCodes.ErrNoTargetAvailable`
                 //     **都**返回 `ErrNoTargetAvailable`；`ErrNotEnoughRoom` 只出自 `RuleCore.CanPlayCard`
-                //     的 `!BoardSlots.HasRoomFor`（**单位卡**那条，`RuleCore.cs:1366`），与战术卡无关。
+                //     的 `!BoardSlots.HasRoomFor`（**单位卡**那条，`RuleCore.CanPlayCard` 里的 `!BoardSlots.HasRoomFor`），与战术卡无关。
                 //     ⇒ 只有一种可能，**不是**「两种都可能」）。
                 if (t.Kind == "warlord") continue;
                 // 🆕 `… attacked [by this unit]`（2026-09-14 A5 批 3）：锚在**这一下的被打者**上，
@@ -1338,7 +1369,7 @@ namespace RuleEngine
             // ⚠️ **2026-10-18（`A885`）就地订正**：原来这里写的是 `BattleContext.HandBuff` ——
             // 那个**类已删**（连后来的对局表 `BattleContext.HandBuffs` 一起删了），
             // 现在挂在**每一份牌自己**身上（`CardInstance.HandEffects` / `HandBuffOps`，
-            // = 原版 `CardScript +0x108`；订正痕迹 → `BattleContext.cs:501-511`）。落地三处：
+            // = 原版 `CardScript +0x108`；订正痕迹 → `BattleContext` 里那段 `A885` 搬走的订正痕）。落地三处：
             // `EffectResolver.GrantHandBuff`（登记）· `RuleCore.ApplyHandBuffs`（打出时兑现）·
             // `RepeatTacticOnAdjacent` 那一支的分流（`handScope`）。
             // ⚠️ 判据**别删成注释**：它现在是**真机制**，`ImplementedEffectVerbs` 那一路会放行，
@@ -1522,7 +1553,7 @@ namespace RuleEngine
                 //   ⚠️ 判据**全部转调 `CardDef.HandledByOtherLayer`**（它再转调那三个采集器用的
                 //      抽取函数）—— **一行新文法都不写**，否则就是「两处写同一条规则」。
                 //   ⚠️ 卡面**不会**因此骗人：`*` 那条装饰只打在**战术卡**上
-                //      （`BattleDriver.cs:2222` 明写 `c.Type == "tactic"`），单位卡不受这条影响。
+                //      （`BattleDriver` 里那句 `c.Type == "tactic" || c.Type == "defence"`），单位卡不受这条影响。
                 for (int i = unparsed.Count - 1; i >= 0; i--)
                     if (CardDef.HandledByOtherLayer(c, unparsed[i]) != null) unparsed.RemoveAt(i);
                 for (int i = partial.Count - 1; i >= 0; i--)
@@ -1719,7 +1750,7 @@ namespace RuleEngine
 
             // ---- 🆕 可路由的**触发前缀**（`Rally: …` / `Strike: …` / `Slay: …` …）----
             // 🔴 单位卡的触发正文**在引擎里不是按整句解析的** —— 走的是 `CardDef.AddTriggerOp`：
-            //    冒号后那段**单独**送进 `EffectText.Parse(body)`（`CardDef.cs:251`，判据是
+            //    冒号后那段**单独**送进 `EffectText.Parse(body)`（`CardDef.ReTriggerHead`，判据是
             //    `CardDef.RoutableTriggers` 那 8 个）。所以这里也照那条路走。
             //
             // 为什么必须剥（2026-09-13 候选 F 顺手修）：不剥的话整句
@@ -1765,8 +1796,12 @@ namespace RuleEngine
             //   `6 [Energy]: Extend effect until your next turn`（`Miraculous Feat`）·
             //   `8 [Energy]: Give it permanently`（`Daemonbreaker`）。
             //
-            // 🔴 这一族**不是新效果**，是**改前面那句效果的时长**。出处：`rule_core.gd:1588`
-            //    `_energy_act_prep` 的 `undo`/`replay` 两栏 ——
+            // 🔴 这一族**不是新效果**，是**改前面那句效果的时长**。
+            //    **判据查不到**（`D26`，与 `EffectOp.BaseOps` 那一栏同一条 —— 理由与搜过的路径/词
+            //    见本文件头那段：原版没有文本解析层）；可核坐标 = 卡面原文
+            //    `Sorotitas/4计策/Warpforge_52_Miraculous-Feat.png` · `Sorotitas/2天赋/Warpforge_02_Daemonbreaker.png`。
+            //    ⚠️ 下面这两条**旁证**来自我们上一版复刻 `rule_core.gd:1588 _energy_act_prep` 的
+            //    `undo`/`replay` 两栏（**非权威**）：
             //      · `extend effect` → **撤销基础效果**，再用 `this turn` → `until your next turn` 重结算
             //      · `permanently`   → **撤销基础效果**，再**去掉时长**重结算（永久版）
             //    （付费是**可选**的：不付就保持基础效果 —— `rule_core.gd:1799` 明写「false → 放弃（基础已结算）」）。
@@ -3174,7 +3209,7 @@ namespace RuleEngine
             //      · ✅ **① 判据首选 = 成品卡图的卡面英文原文**：卡面写 `units` 时**督军要算**、
             //        写 `troops` 才不算（`d:/2/Warpforge部队卡片/` 逐张可核）；
             //      · ✅ 落地那一处 = 反编译的 `EffectResolver.AddSide`：`troopOnly = spec.Kind == "troop"`
-            //        （`EffectResolver.cs:1175` 起，`if (troopOnly && u.IsWarlord) continue;`）；
+            //        （`EffectResolver.AddSide` 里那句，`if (troopOnly && u.IsWarlord) continue;`）；
             //      · ⚠️ **旁证**：我们上一版复刻 `d:/warpforge/scripts/rule_core.gd` 的 `_fe_count`
             //        也是这么写的（`var troop_only := s.contains("troop")`）；
             //      · ⚠️ **旁证（第二来源）**：粉丝实体版规则书中文版 `:70-75`「单位含督军，部队不含」
@@ -4246,10 +4281,10 @@ namespace RuleEngine
         ///    真实状态：**引擎侧做完了**（`DoChooseEffect` 的 `handScope` 分支 → `GrantHandBuff` →
         ///    **`CardInstance.HandEffects`** → `RuleCore.ApplyHandBuffs`；理由「按卡 + 份数记账与实例身份语义等价」）；
         ///    ⚠️ **2026-10-18（`A885`）就地订正**：这一行原来写的是 `ctx.HandBuffs` —— 那张**对局级的表已删**，
-        ///    现在挂在**每一份牌自己**身上（订正痕迹 → `BattleContext.cs:501-511`）。
+        ///    现在挂在**每一份牌自己**身上（订正痕迹 → `BattleContext` 里那段 `A885` 搬走的订正痕）。
         ///    ✅ **2026-10-17（B24）就地订正（铁律 5）**：这一行原来写着
         ///    「**面板那一侧仍然没做**（`BattleDriver.ShowAsk` 见到 `ChooseEffectIsHand` 就不问了）」
-        ///    —— **已不成立**：A905（2026-10-17）把那条短路删掉了（痕迹 → `BattleDriver.cs:4714-4724`；⚠️ **2026-10-18 订正**：原写 `:4446`，那是 `AddQuota` 里、与 A905 无关 —— 全文件 `grep -n "A905"` 独占命中 `:4716`）
+        ///    —— **已不成立**：A905（2026-10-17）把那条短路删掉了（痕迹 → `BattleDriver` 里那条 `A905` 订正痕 —— **grep `A905` 就能定位**；⚠️ **2026-10-18 订正**：原写 `:4446`，那是 `AddQuota` 里、与 A905 无关）
         ///    ⇒ `hand` 那一支现在**面板照常弹**（判据/行为在解析层仍一个字没变）。
         ///    判据全文 = `资料/普查产出_1017/W_B22_选牌ask时机.md` §A905。
         ///    ⇒ 解析层这一支的**行为一个字没变**（照样产出 op、`Payload = "hand"`），别照上面那两行动它。
@@ -4918,7 +4953,10 @@ namespace RuleEngine
                 //    代词在前的写法它整个失配 ⇒ 尾句判「不认」⇒ 整句半懂、**卡面打 `*`**。
                 // ⚠️ **只认复数 `them`**：单数的 `it` / `the target` / `this unit` 是**指代上一条
                 //    效果的目标**（走 `ParseTarget` 的 `prev`），而 `them` 在原版是**己方全体**
-                //    （出处 `rule_core.gd:2842`，和下面 `IsPluralPronoun` 那条同一条依据）。
+                //    （**判据查不到** —— 理由与搜过的路径/词见本文件头那段；可核坐标 = 卡面原文
+                //      `Sorotitas/2天赋/Warpforge_06_Righteous-Repugnance.png` 的 `… and Heal them 1`。
+                //      ⚠️ `rule_core.gd:2842` 是**我们上一版复刻**怎么定 `them` 的，**旁证、非权威**，
+                //      与下面 `IsPluralPronoun` 那条同一条依据）。
                 var mvt = ReHealVerbThem.Match(low);
                 if (mvt.Success)
                     return new EffectOp
@@ -6444,7 +6482,7 @@ namespace RuleEngine
         /// 🔴 **2026-09-15：先把句中的 ` instead` 摘掉，再交给 <see cref="TryGiveInner"/>。**
         ///
         /// 为什么单开一层：`instead` 是**替换**语义（结算层靠 `op.Instead` 配对、跳掉基础效果，
-        /// 见 `EffectResolver.cs:69-95`），而**原来只有条件句那条路**（`TryIf`）剥它。
+        /// 见 `EffectResolver` 里 `op.Instead` 配对那一段），而**原来只有条件句那条路**（`TryIf`）剥它。
         /// 非条件句的 `instead` 会**留在载荷里** —— 实测（逐句探针）：
         /// `4 Energy: Give +2 Attack and +2 Ranged **instead** and Heal them 1`
         /// （`Righteous Repugnance`，全池只此一句）⇒ 载荷变成 `+2 attack and +2 ranged instead`
@@ -6491,7 +6529,12 @@ namespace RuleEngine
             SplitAndTail(low, out low, out giveTail);
 
             // ---- ② `Give to <目标> <内容>` —— **先用窄的那条**（2026-09-14 修静默错打）----
-            // 出处：`rule_core.gd:3012` 的 `re_g2` —— 目标短语是**写死的一小组**
+            // **判据查不到**（`D26`）：那条「窄写法」的**目标短语清单**在原版是结构化数据
+            //    （`CardAbility.targetCriteria` 那几个枚举值），**没有**一份「写死的目标短语正则」
+            //    可指（理由与搜过的路径/词 → 本文件头那段）。
+            //    可核的坐标 = **卡面原文**：`Genestealer Cult/4计策/Warpforge_50_Enhanced-Aggression.png`
+            //    的 `Give to a friendly troop Flank and 'Strike: Draw a card'`。
+            //    ⚠️ `rule_core.gd:3012` 的 `re_g2` 是**我们上一版复刻**那份写死的清单（**旁证、非权威**）。
             // （`an? (friendly|enemy) (troop|unit)s?` / `your units?` / `your troops?` / `it` / `the target`）。
             // 🔴 我们原来是 `^gives?\s+to\s+(.+?)\s+(.+)$`，目标**非贪婪** ⇒ 只吃一个字：
             //    `Give to a friendly troop Flank and 'Strike: Draw a card'` 被切成

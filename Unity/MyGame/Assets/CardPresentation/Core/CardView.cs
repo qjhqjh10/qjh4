@@ -1807,7 +1807,7 @@ namespace CardPresentation
         /// 英文那半还有旁证（原版预制体里那个 TMP 的占位串是 `Created by someone fancy`
         /// ⇒ 模板形态 = `Created by {0}`），**中文那半是我们自己写的**。
         /// ✅ **2026-10-08（第六会话 · `Core双语-第一步`）已接上** —— 键 `Battle/HUD/CreatedBy` 就在
-        ///    `Core/Loc.cs:813`（值 = `由 {0} 创建` / `Created by {0}`，与原来那两句**逐字相同**
+        ///    表里（键 `Battle/HUD/CreatedBy`；值 = `由 {0} 创建` / `Created by {0}`，与原来那两句**逐字相同**
         ///    ⇒ 这次接线**不改变界面上的字**，只把「按 `Loc.Current` 二选一拼」换成走语言表）。
         ///    ⛔ 别留两套口径（原来那句「等它收了这条键就改走 `Loc.T`」已兑现，就地删掉）。</summary>
         static string CreatedByLine(string creatorName)

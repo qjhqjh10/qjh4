@@ -728,11 +728,18 @@ namespace RuleEngine
         //  消费在 `CardScript__ResolveActiveAbilityPlayed.c:66-72` = 基础 1 次 + 再来 N 次）·
         //  `CardScript__CanUseOathAbility.c:8`（跨回合豁免）与 `:16-20`（次数上限）。
         //
-        //  ⚠️ **我们落地成「扫同方」**（R2 子代理的建议，如实记成我们挑的）：原版对 UM89 / Vico
-        //     这两个 trait 是在**被激活的那张牌自己身上**读的 ⇒ 严格照抄需要「把 trait 授予友方部队」
-        //     这一层（我们没有）；`oathDouble` 原版本来就是扫同方。三句卡面写的也都是
-        //     `friendly troops` 的「所有友方」⇒ 扫同方**与卡面字面一致**，且不用新造一层。
-        //  ⚠️ 读点**只此一处**：`RuleCore.CanUseOathAbility` / `EffectResolver.ResolveOathAbility`。
+        //  ✅ **2026-10-19（`D28` 施工单 H）已改成照原版** —— 原来是「扫同方、找到源牌就用」
+        //     （R2 子代理的建议，如实记成我们挑的），现在建了**授予层**：
+        //     源牌在场 ⇒ 把这两个 trait 授予**同方友方部队**（督军不收，卡面写的是 `troops`），
+        //     落在收件人自己的 `UnitState.OathTripleGranted` / `OathAllTurnsGranted` 上
+        //     （写点 = `Auras.Recompose` 的「②·b 誓约授予层」，与光环同生命周期：
+        //      来源离场由 `ClearAuraGrants` 整份收回 ⇒ 读点仍是**被激活那张牌自己**
+        //      = 原版 `CardScript__CanUseOathAbility.c:8` / `:16` 的
+        //      `EntityScript__HasCurrentTrait(param_1, …)`）。
+        //     ⚠️ `oathDouble`（第三句）**不参与**这次改动 —— 原版
+        //        `BattleManager__IsThereDoubleOathEffect.c:33` 本来就是扫同方数张数，那份照抄。
+        //  ⚠️ 读点仍是两处：`RuleCore.OathActivationCap` / `OathAllTurns`（都读**收件人**那一格）
+        //     与 `EffectResolver.ResolveOathAbility`（只读 `OathExtraReplays`）。
         // ==================================================================
 
         /// <summary>`Friendly [Oath] abilities apply an additional time` —— 友方誓约能力**多结算几次**
@@ -1953,6 +1960,32 @@ namespace RuleEngine
         ///    不是在修一个今天会犯的错。**⛔ 不许因为「没几张卡用」就记成「不做」**。
         /// </summary>
         public const string Dodge = "dodge";
+        /// <summary>
+        /// **眩晕**（`stun`）—— 原版 `DefinedTrait.stun = 100`
+        /// （`d:/2/tools/il2cpp_out/dump.cs:45732`；反编译里写作 `0x64`）。
+        ///
+        /// 🔴 **2026-10-09（`A1116`）补**：这个常量原来**根本没有** —— `UnitState.SyncKeywordState` /
+        ///    `RemoveAll` 里是拿裸字面量 `"stun"` 比对的，而 `EffectResolver.DoStun` 更是
+        ///    **只写布尔字段、压根不挂这个关键词**。补上常量 = 「一条规则只有一个名字」那一半。
+        /// 语义与判据链见 `UnitState.IsStunned`（**单一份表示**：`stun` 就是一个 trait）
+        /// 与 `UnitState.StunnedAtStartOfTurn`（「回合开始时就在这个状态」的闸门，原版 `+0x55`）。
+        /// ⚠️ **不进/不出 <see cref="Implemented"/> 的问题不存在** —— 它在那一栏里**早就有**了
+        ///    （下面那个 `"stun"` 条目），本常量只是给代码一个名字。
+        /// </summary>
+        public const string Stun = "stun";
+        /// <summary>
+        /// **失明**（`blind`）—— 原版 `DefinedTrait.blind = 975`
+        /// （`d:/2/tools/il2cpp_out/dump.cs:45816`；反编译里写作 `0x3cf`）。
+        ///
+        /// 🔴 **2026-10-09（`A1116`）补**：和 <see cref="Stun"/> 同批（原来也只有裸字面量）。
+        /// 语义见 `UnitState.IsBlind`（**单一份表示**）与 `UnitState.BlindedAtStartOfTurn`（原版 `+0x56`）。
+        /// 施加点 = `EffectResolver.DoBlind`（原版 `CardScript__AddEffect.c:475-487`）；
+        /// 读点 = `RuleCore.FieldAttack`（失明期间**远程攻击力视为 0**，原版
+        /// `EntityScript__get_CurrentRangeAttack.c:25-27`）。
+        /// ⚠️ **它顺带把当前攻击型改成近战**（`+0x120`，原版同一处 `:479-483`）—— 那是**另一维**，
+        ///    落在 `UnitState.SyncKeywordState`，见那里的注释。
+        /// </summary>
+        public const string Blind = "blind";
         public const string CantAttack = "cantattack";
         public const string LongRange = "longrange";
         /// <summary>黑暗契约：可带变体（`of blood` / `of excess` / `of fate` / `of resilience`），
@@ -2030,11 +2063,17 @@ namespace RuleEngine
         ///   ② **收不下 `Ecstasy N:` 的正文** —— `AddTriggerOp` 改成认「**名字 + 可选数字后缀**」
         ///      （见那个方法里的 `ReTriggerHead`）。
         ///
-        /// ⚠️ **触发判据是「首次越线、一辈子一次」**，不是「每次挨打只要 ≤ X 就触发」——
-        ///    出处：我们上一版 Godot 复刻 `rule_core.gd:4438-4449`（它用 `_ecstasy_fired` 置位防重复）；
-        ///    ⚠️ 2026-10-18 更正：这句原来写「**参考实现**」= 当判据读 —— gd 是我们自己的复刻、
-        ///    **只算旁证**（见文件头）；卡面 `Ecstasy N:` 只印触发条件，防重复这条**还没回反编译核过**。
-        ///    我们对应的字段是 <see cref="UnitState.EcstasyFired"/>。
+        /// 🔴 **2026-10-19（`D26`）就地订正（铁律 5）—— 「防重复」那条【已经回反编译核过了，
+        ///    而且核出来的答案是：原版根本没有防重复】**：
+        ///    `decomp_full/CardScript__ShouldTriggerEcastasy.c` 的守卫 =
+        ///      `HasDefaultTrait(raw, 0x4e2)` ∧ `!EnoughPendingDamageToDie(card)`
+        ///      ∧ **`traitValue(0x4e2) &lt; healthBefore`** ∧ **`healthAfter &lt;= traitValue(0x4e2)`**
+        ///    ⇒ 判的是「**从 &gt; X 掉到 ≤ X**」这个**跨越**，**没有**任何一次性置位 ⇒
+        ///      治回 X 以上再被打下去会**再触发**。
+        ///    （下面那句原写「触发判据是『首次越线、一辈子一次』…出处 = gd 的 `_ecstasy_fired`」
+        ///      —— **作废**：那是**我们上一版复刻**的做法，不是原版。）
+        ///    我们对应的实现 = `RuleCore.Hurt` 里的 `hpBefore &gt; ex &amp;&amp; u.Health &lt;= ex`；
+        ///    ⛔ `UnitState.EcstasyFired` **已删**、别加回来。
         /// </summary>
         public const string Ecstasy = "ecstasy";
 
@@ -2227,7 +2266,7 @@ namespace RuleEngine
         /// <summary>
         /// 🆕 2026-10-18（`W4` 整改 · 审查问题 6）：**`jam`（干扰）** ——
         /// 原版 `DefinedTrait.jam = 130`（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/DefinedTrait.cs:13`，
-        /// 十进制 **130** = 反编译里那个 `0x82`）。同一句也早已记在 `Core/BattleContext.cs:374`
+        /// 十进制 **130** = 反编译里那个 `0x82`）。同一句也早已记在 `BattleContext` 里那条 `jam = 130` 的注
         /// （「`jam` = `DefinedTrait.jam = 130`。**不建模**：全池 0 张卡提到它」）。
         ///
         /// **为什么现在要认它**：`RuleCore.HandEffectExpired` 那条**原版判据**
@@ -2432,14 +2471,27 @@ namespace RuleEngine
             /// ⚠️ **只管效果句那一半**；单位「部署时」那一半没接。</summary>
             "oath",
             /// <summary>眩晕：**无法行动**。两条路都在 ——
-            /// ① **效果** `Stun an enemy` → `EffectResolver.DoStun`（置 `IsStunned` + 广播）；
-            /// ② **关键词授予** → `UnitState.AddKeyword("stun")` 里同步状态位（`:144`）。
-            /// 禁行动判在 `RuleCore.DeclareAttack` / `CanUseAbility`。
+            /// ① **效果** `Stun an enemy` → `EffectResolver.DoStun`（**挂 `stun` trait** + 广播）；
+            /// ② **关键词授予**（`give X Stun` / 光环）→ `UnitState.AddKeyword`。**两处落到同一份表示**。
+            /// 🔴 **2026-10-09（`A1116`）就地订正**：这一格原来写「①…（置 `IsStunned` + 广播）」
+            ///    「②…`UnitState.AddKeyword("stun")` 里同步状态位（`:144`）」——
+            ///    **两半都作废**：`IsStunned` 已改成 `stun` 关键词的**派生只读属性**，
+            ///    没有什么「状态位」要同步（`DoStun` 当年**只写字段不挂关键词**，正是本件修的偏离）。
+            /// 禁行动判在 `RuleCore.CanAttackNow` / `CanUseAbility` / `CanUseOathAbility` /
+            /// `CanUseKeyword`（四道 `ErrStunned`）。
             /// ⚠️ **卡面上那 5 个 `Stun` 关键词是数据误抽**（从 `Deal 3 damage to an enemy and Stun it`
-            ///    里抽出来的），而卡面关键词是**构造函数直接灌字典、不走 `AddKeyword`** ⇒ 那个本身是死的。
-            ///    那 5 张是 `Banshee Mask` / `Hektor Thenmann` / `Malicious Volleys` /
-            ///    `Snakebite Grot` / `Toxic Bonfire`。见 `资料/阵营推进_清单与交接.md` §五。</summary>
-            "stun",
+            ///    里抽出来的）：`Banshee Mask` / `Hektor Thenmann` / `Malicious Volleys` /
+            ///    `Snakebite Grot` / `Toxic Bonfire`。见 `资料/阵营推进_清单与交接.md` §五。
+            ///    🔴 **2026-10-09（`A1116`）现核（数据 + 危险性质都变了，别照旧读）**：
+            ///      ① **数据那一半已经干净了** —— `cards_engine.json` 1126 张逐张扫 `keywords`，
+            ///         带 `stun`/`blind` 的 **0 张**（上面这 5 张现在分别是 `[]` / `['Duty','Talent']`
+            ///         / `[]` / `['Tide 1']` / `[]`）；
+            ///      ② **「那个本身是死的」这句已经作废** —— 当年它死是因为结算读的是 `IsStunned`
+            ///         **字段**、而卡面关键词只进 `_keywords`；现在 `IsStunned` **就是** `Has("stun")`
+            ///         ⇒ 一旦数据再出现这种误抽，那个单位**真的会一上场就动不了**
+            ///         （要到它自己回合末才被闸门摘掉，见 `UnitState.StunnedAtStartOfTurn`）。
+            ///         ⇒ 这才是「单一表示」的代价，也是为什么数据侧要盯着这几张卡。</summary>
+            Stun,
             /// <summary>天赋：**回合开始时在手牌中生成临时战术**（规则书 `:218`）。
             /// 实测 **80 个天赋名里 72 个在卡池里查得到同名卡**（全是 `tactic`，如 `Witchfire` /
             /// `Path of the Seer` / `Flickerjump`）⇒ 机制 = **去卡池找同名卡塞进手牌 + `MarkEphemeral`**，
@@ -2512,8 +2564,14 @@ namespace RuleEngine
             /// 实现在 `RuleCore.EndTurn`</summary>
             "regeneration",
             /// <summary>失明：期间**远程攻击力设为 0**（规则书 :166；上一版复刻 `:4212` 直接拒绝远程攻击）。
-            /// 实现在 `RuleCore.FieldAttack`（数值层）+ `EndTurn`（到期清）。</summary>
-            "blind",
+            /// 实现在 `RuleCore.FieldAttack`（数值层，原版 `EntityScript__get_CurrentRangeAttack.c:25-27`）
+            /// + `RuleCore.EndTurn`（到期清）。
+            /// 🔴 **2026-10-09（`A1116`/`A1121`）就地订正**：`IsBlind` 已改成本关键词的**派生只读属性**
+            ///    （原版只有 trait `0x3cf` 一份表示），所以「到期清」现在有**两条**（都照原版）：
+            ///    ① `UnitState.BlindedAtStartOfTurn` 那个闸门（原版 `OnTurnEnd.c:130-134`，**只废一个回合**）——
+            ///       **这才是原版的机制**；② `UnitState.BlindTurnEnd`/`BlindOwner`（我们按卡面
+            ///       `until your next turn` 实现的到期点，和①在正常局面下等价、保留着，见那两个字段的注释）。</summary>
+            Blind,
             /// <summary>压制：无法执行**近战**攻击（规则书 :194；上一版复刻 `:4209` 直接拒绝近战）。
             /// ⚠️ 只禁近战 —— 远程照常</summary>
             "pindown",

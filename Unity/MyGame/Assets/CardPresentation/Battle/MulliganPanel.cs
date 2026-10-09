@@ -106,7 +106,7 @@ namespace CardPresentation
 
         /// <summary>提示行那条的词条键 —— **只此一份**（`Build()` 与自检都取它）。
         /// ⚠️ 原版的 `WaitText`（`Battle/Mulligan/WaitEnemy`）是**另一条**键，挂在等待横幅上，
-        /// ⛔ 别把两条并成一条（它们挂在不同节点、`BattleDriver.cs:3662` 那一格根本没有对应词条）。</summary>
+        /// ⛔ 别把两条并成一条（它们挂在不同节点、`BattleDriver` 里那个等待横幅节点根本没有对应词条）。</summary>
         public const string PromptTerm = "Battle/Mulligan/Instructions";
 
         /// <summary>每张牌上那颗「换」钮的词条键 —— **只此一份**（判据全文 → `Core/Loc.cs`）。</summary>
@@ -202,7 +202,7 @@ namespace CardPresentation
         /// ✅ **颜色那句 2026-10-18 订正（铁律 5）**：这里原写「已知未改：原版纯白、我们用的是暖色 (1,0.94,0.82)」
         /// —— **已不成立**：2026-09-30 两行都改成 `Color.white` 了（本文件 `Create()` 里那两处
         /// `Label.Create(…, Color.white, …)`；判据 = `MonoBehaviour_3731.json` / `MonoBehaviour_3856.json`
-        /// 的 `m_fontColor32 = 4294967295`）。断言在 `Editor/BattleScene.cs:11843`。</summary>
+        /// 的 `m_fontColor32 = 4294967295`）。断言在 `Editor/BattleScene` 里那条断 `m_fontColor32` 的检查。</summary>
         const float TurnCx = 966.03f, TurnCy = 156.5f, TurnW = 1307.06f, TurnH = 54.17f, TurnPx = 55f;
         const float BarCx = 1611.45f, BarCy = 980.25f, BarW = 577.5f, BarH = 63.8f;
         const float PlayCx = 1763.45f, PlayCy = 980.25f, PlayH = 79.6f;

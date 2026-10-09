@@ -99,6 +99,42 @@
 //     **`OutQuad 6`** …… 与 `BattleCameraSreenSize.cs` 文件头 ⑤ 那份枚举同源）—— 也正是 DOTween 的出厂默认。
 //    ⚠️ **原版自己的 `DOTweenSettings` 资产本地没有**（`assets_full` 全盘按名找不到）⇒
 //      **「原版=OutQuad」这一条是推断**，如实标；我们按 OutQuad 写（`EaseOut`，见下）。
+// ⑪ 🔴 **两场景的子树【不是】逐字段相同 —— 「只有根 `ap` 不同」那句话是错的**（2026-10-09 现读订正）。
+//    ⚠️ 上面 ③④ 那一组是 **`battlearena1` 那一档**的实读值；原版同一件控制器在 **13 个战场**与
+//    **主菜单**里**不是一个尺寸**。上一版（`Shell/MessageToast.cs` 的 2026-10-09 初版 +
+//    `资料/普查产出_第八会话/E7_弹窗星号与toast.md:110`）写「两场景的控制器子树逐字段相同，
+//    只有根自己的 `m_AnchoredPosition` 不同」——**那句话只对【根 / 容器 / 时序 MB】三处成立**：
+//    | 项 | 战斗（`bundle_scenes_scenes_battlearena1`） | 主菜单（`…_mainmenuwarpforge`） |
+//    |---|---|---|
+//    | 根 `m_AnchoredPosition` | `(0, **−213.5997314453125**)`（`RT 3373`） | `(**−0.00010299999848939478**, **0.0**)`（`RT 1206`） |
+//    | 根 `sd` | `1920.699951171875 × 336.6400146484375` | **同**（✔ 这一半上一版是对的） |
+//    | 容器 `RT` 四件 | `RT 3154`：`anchor (0,0)-(1,0)` · `ap (0,133.14500427246094)` · `sd (0,266.2900085449219)` · `pivot (0.5,0.5)` | `RT 1205`：**逐位相同**（✔） |
+//    | 容器 `VerticalLayoutGroup` | `MB 4106`：`m_ChildAlignment 7` · `spacing 0` · **`m_ChildControlWidth/Height = 0`** | `MB 2086`：**逐位相同**（✔） |
+//    | item `sd` | `RT 2823`：**1439.1600341796875 × 80** | `RT 1208`：**1310 × 50**（🔴 **不同 ⇒ 本件开档位**） |
+//    | item `ap`（存档） | `RT 2823`：`(960.3499755859375, −241.29000854492188)` | `RT 1208`：**逐位相同**（✔） |
+//    | 文字 `m_fontSize` | `MB 3740`：**60** | `MB 1740`：**36**（正好 0.6×） |
+//    | 文字 `sd.y`（= 原版单行高） | `RT 2942`：**56.849998474121094** | `RT 1207`：**34.11000061035156** |
+//    | `Background` `sd` | `RT 2989`：**870.97998046875 × 60.849998474121094** | `RT 1204`：**618.5899658203125 × 38.11000061035156** |
+//    | 根上两颗（`Canvas` / 控制器 `MB`） | `Canvas 2577`（`RenderMode 2` · `m_OverrideSorting 1` · `SortingOrder 1`）· `MB 5029` | `Canvas 1076` **逐位相同** · `MB 2356` 的 `messageColor (1,1,1,1)` / `errorColor (0.8,0,0,1)` **逐位相同**（✔） |
+//
+//    🔴 **item 的 `sd.y` 那一格为什么是「位置」的一半**：容器那个 `VerticalLayoutGroup` 是
+//    **`m_ChildControlHeight = 0`** ⇒ uGUI 取**子件自己的 `sizeDelta`** 当它这一轴的长度
+//    （`LayoutGroup.GetChildSizes`：`if (!controlSize) { min = child.sizeDelta[axis]; … }`，
+//    即 `Build()`/`RelayoutActive()` 里那个 `LayoutPreset.ItemHPx` = **布局的堆叠步长**）。
+//    ⇒ 菜单档的项高是 **50**、不是 80 ⇒ 单条条心比「照战斗档算」再**往下 `ItemHPx/2 = 15 px`**。
+//
+//    **旁证（很硬，2026-10-09）**：菜单那条 item 的**存档** `ap.y = −241.29000854492188` **正是
+//    h = 50、N = 1 时布局算法会写出来的那个值**（`−(266.2900085449219 − 50) − 50 × 0.5`）——
+//    若 h = 80 它该是 `−226.29`。而且菜单那份 item 的 GO 是 **`m_IsActive = true`**
+//    （战斗那份的模板是 `false`）⇒ 菜单场景里**布局是真跑过的**，那个存档值就是它的输出。
+//    ⛔ 所以「照 h = 80 算出 296.64」是错的，**菜单档单条条心（自上而下）**：
+//      `容器上缘(=0 + 336.6400146484375 − 266.2900085449219 = 70.3500061035156)` +
+//      `(266.2900085449219 − 50)` + `25` = **311.6400146484375** px
+//      （= `根上缘 + RootH − ItemHPx/2`；战斗档同式 = `213.5997314453125 + 336.6400146484375 − 40`
+//       = **510.23974609375** ✔ 与本件 ④ 那个值逐位相同 ⇒ **战斗档一字未动**）。
+//    ⇒ **做法 = 开「档位」而不是改常量**：随场景变的那六项收进 `LayoutPreset`
+//      （`BattlePreset` = 本文件原来那一组、`MenuPreset` = 主菜单那一组）。
+//      不传档的 `Create(parent)` 行为与加档之前**逐位相同**（`BattleDriver` 那条路不传）。
 
 // ============================ 我们做的三处「等价物」（⛔ 不当原版） ============================
 // A. **`ContentSizeFitter` 那一跳**：原版底条是 **Hug**（ContentSizeFitter PreferredSize + 内层
@@ -106,8 +142,9 @@
 //    `高 = 文字高 + 4`。⚠️ 所以场景里那组 `870.98 × 60.85` 是**参考串 `ERROR MESSAGE CONTENT` 的
 //    量出来的结果**、⛔ **不是固定尺寸**（查证报告给的是这一组数，本件照**规则**实现、并在
 //    `BarSizeOf` 上留读数）。我们不是 uGUI ⇒ 自己量文字（`Label.WorldW/WorldH`）再重建九宫格。
-//    🔴 **高度那一格我们掺了一个原版常量**：`OrigLineHeightPx = 56.85`（= 参考串在原版下的
-//    TMP preferred 高度，取自 `RT 2942` 的 `sd.y`）。**为什么**：原版 `高 = TMP preferred 高度 + 4`，
+//    🔴 **高度那一格我们掺了一个原版常量**：`LayoutPreset.RefLineHeightPx`（战斗档 `56.85`，= 参考串在原版下的
+//    TMP preferred 高度，取自 `RT 2942` 的 `sd.y`；菜单档 `34.11`，取自 `RT 1207` —— 见文件头 ⑪）。
+//    **为什么**：原版 `高 = TMP preferred 高度 + 4`，
 //    而 preferred 高度是**字体的行高**（与串无关）；本工程用的是 NotoSerifCJK（行高 **1.437 em**），
 //    原版那条字是 Pragati 族（**0.9475 em**）⇒ 直接拿我们的行高会**高 40%**。取法 = 两条取**大**：
 //    `底条高 = max(56.85, 我们量到的文字高) + 4` —— 英文句子上与原版**逐位相同（60.85）**，
@@ -166,33 +203,109 @@ namespace CardPresentation
         /// <summary>整条横幅活着的总时长（= 停 + 淡，原版两条 tween 各自跑完 ⇒ 取大的那一条）。</summary>
         public const float Lifetime = TimeToStartFading + TimeToFade;   // 2.25 s
 
-        // ---- 几何（原版 1920×1080 绝对 px，y **从上**；文件头 ③④）
+        // ---- 几何（原版 1920×1080 绝对 px，y **从上**；文件头 ③④⑪）
         //      🔴 **全部写 `RectTransform_*.json` 的未取整值**（查证报告那张表是取整到 0.01/0.1 的写法；
         //      本件按原值写，与 `BattleDriver` 里 A513/A531 那一档口径一致）。
+        //      🔴 **两场景（战斗 / 主菜单）不是同一个尺寸** ⇒ 随场景变的六项收进 `LayoutPreset`（文件头 ⑪）。
 
-        /// <summary>根矩形（RT 3373）：`sd 1920.699951171875 × 336.6400146484375`、
-        /// `ap (0, −213.5997314453125)` + `anchor/pivot (0.5,1)` ⇒ 中心 **(960, 381.91973876953125)**。</summary>
+        /// <summary>根矩形 `sd`（`RT 3373` / `RT 1206`，**两档逐位相同**）：`1920.699951171875 × 336.6400146484375`。
+        /// `anchor/pivot = (0.5,1)` ⇒ 上缘 = `LayoutPreset.RootTopPx`、x 中心 = <see cref="RootCx"/>。</summary>
         const float RootW = 1920.699951171875f, RootH = 336.6400146484375f;
-        const float RootCx = 960f, RootCy = 381.91973876953125f;
-        /// <summary>容器（RT 3154）：stretch 横（宽 = 父宽 1920.699951171875、左缘 **−0.3499755859375**）·
-        /// 高 266.2900085449219 · `ap (0, 133.14500427246094)` + `anchor (0,0)-(1,0)` ⇒ 上缘 **283.94973754882813**。</summary>
+        /// <summary>根 x 中心（两档同：`ap.x` 战斗 `0` / 菜单 `−0.00010299999848939478`
+        /// ⇒ 差 0.0001 px，**不给它开档位**，如实记在文件头 ⑪）。</summary>
+        const float RootCx = 960f;
+        /// <summary>**战斗档**的根上缘（屏幕自上而下 px）= `−ap.y` = `213.5997314453125`（`RT 3373`）。
+        /// 菜单档是 `0`（`RT 1206`）⇒ 见 <see cref="MenuPreset"/>。战斗档的根中心 y = `381.91973876953125`。</summary>
+        const float BattleRootTopPx = 213.5997314453125f;
+        /// <summary>容器（`RT 3154` / `RT 1205`，**两档逐位相同**）：stretch 横（宽 = 父宽 1920.699951171875、
+        /// 左缘 **−0.3499755859375**）· 高 266.2900085449219 · `ap (0, 133.14500427246094)` + `anchor (0,0)-(1,0)`。</summary>
         const float ContW = 1920.699951171875f, ContH = 266.2900085449219f;
-        const float ContLeftX = -0.3499755859375f, ContTopY = 283.94973754882813f;
-        /// <summary>item（RT 2823）：`sd 1439.1600341796875 × 80.00`（**这个 80 就是布局的堆叠步长**，文件头 ④）。</summary>
-        const float ItemW = 1439.1600341796875f, ItemH = 80.00f;
-        /// <summary>item 的**存档** `anchoredPosition`（RT 2823，anchor `(0,1)`）—— 只有模板/未激活时是它
-        /// （文件头 ④：真正亮起来时由布局算法覆写）。</summary>
+        const float ContLeftX = -0.3499755859375f;
+        /// <summary>容器上缘相对**根上缘**的距离（px，向下为正）= `RootH − ContH` = **70.3500061035156**。
+        /// 两档同（容器是 stretch 横 + 贴根底）⇒ **不随档变**；战斗档上缘 = `283.94973754882813`。</summary>
+        const float ContTopFromRootTop = RootH - ContH;
+        /// <summary>item 的**存档** `anchoredPosition`（`RT 2823` / `RT 1208`，**两档逐位相同** ·
+        /// `anchor (0,1)`）—— 只有模板/未激活时是它（文件头 ④：真正亮起来时由布局算法覆写）。</summary>
         const float ItemApX = 960.3499755859375f, ItemApY = -241.29000854492188f;
-        /// <summary>底条内层 layout 的 padding（MB 4467）= (L120, R120, T4, B0)。</summary>
+        /// <summary>底条内层 layout 的 padding（`MB 4467`）= (L120, R120, T4, B0)。**两档同。**</summary>
         const float PadL = 120f, PadR = 120f, PadT = 4f, PadB = 0f;
-        /// <summary>文字那一颗的 `m_fontSize` = `m_fontSizeBase` = **60.0**、`enableAutoSizing = 0`
-        /// （`MonoBehaviour_3740.json` 实读）；对齐 = `H 2`(Center) / `V 512`(Middle)。</summary>
-        const float TextFontPx = 60f;
-        /// <summary>原版字号 60 的**单行高**（= 参考串 `ERROR MESSAGE CONTENT` 的 TMP preferred 高度，
-        /// 实读 `RectTransform_2942.json` 的 `sd.y = 56.849998474121094`）。用途与取舍见文件头 A。</summary>
-        const float OrigLineHeightPx = 56.849998474121094f;
-        /// <summary>模板那两颗子件的实读尺寸（`RT 2989` / `RT 2942`）。</summary>
-        const float RefBarW = 870.97998046875f, RefBarH = 60.849998474121094f;
+
+        /// <summary>
+        /// **两场景不同的那六项几何**（2026-10-09 实测；判据逐条、含旁证 → 文件头 ⑪）。
+        /// 原版同一件控制器在 13 个战场与主菜单里**不是一个尺寸**：主菜单那套是
+        /// **根上缘 0 · 项高 50 · 字号 36** 的小一号版本。
+        /// <para>🔴 **为什么位置也要靠它**：条目位置是**布局算法**按 `ItemHPx` 算出来的
+        /// （`LayoutGroup` 那套，文件头 ④）⇒ 项高一改，条心就跟着走 `ItemHPx/2`。</para>
+        /// <para>⛔ 别拿战斗那一档去顶壳里那颗（那正是 2026-10-09 初版落在屏顶下 510.24、
+        /// 而主菜单那一档是 311.64 的原因）。</para>
+        /// </summary>
+        public struct LayoutPreset
+        {
+            /// <summary>根上缘（屏幕自上而下 px）= `−根.m_AnchoredPosition.y`。
+            /// 战斗 `213.5997314453125`（`RT 3373`）· 菜单 `0`（`RT 1206`）。
+            /// ⚠️ 它同时决定**容器上缘**（= 本值 + <see cref="ContTopFromRootTop"/>）。</summary>
+            public float RootTopPx;
+            /// <summary>item 节点的矩形（`anchor (0,1)` ⇒ 这两格就是 `sd`）。
+            /// 战斗 `1439.1600341796875 × 80`（`RT 2823`）· 菜单 `1310 × 50`（`RT 1208`）。
+            /// 🔴 **高那一格 = 布局的堆叠步长**：容器的 `VerticalLayoutGroup` 是
+            /// `m_ChildControlHeight = 0` ⇒ uGUI 取**子件自己的 `sizeDelta`**
+            /// （`LayoutGroup.GetChildSizes` 的 `if (!controlSize)` 那一支）；宽那一格不参与布局结果
+            /// （`LowerCenter` ⇒ 条心 x 恒 = 容器中心 960，与项宽无关），留着是为了如实记下原版值。</summary>
+            public float ItemWPx, ItemHPx;
+            /// <summary>模板底条（`Background`）**参考串量出来的**那一组：战斗 `RT 2989` =
+            /// `870.97998046875 × 60.849998474121094` · 菜单 `RT 1204` = `618.5899658203125 × 38.11000061035156`。
+            /// ⚠️ ⛔ **不是固定尺寸**（真规则是 Hug，见文件头 A）—— 只在两处用：模板那条、以及文字量不出时的兜底。</summary>
+            public float RefBarWPx, RefBarHPx;
+            /// <summary>文字 `m_fontSize`（`enableAutoSizing = 0`）：战斗 `60`（`MB 3740`）· 菜单 `36`（`MB 1740`）。</summary>
+            public float FontPx;
+            /// <summary>原版字体的**单行高**（= 参考串的 TMP preferred 高度 = 文字 `RT` 的 `sd.y`）：
+            /// 战斗 `56.849998474121094`（`RT 2942`）· 菜单 `34.11000061035156`（`RT 1207`）。
+            /// 用途与取舍见文件头 A（底条高 = `max(它, 我们量到的文字高) + 4`）。</summary>
+            public float RefLineHeightPx;
+        }
+
+        /// <summary>**战斗档** = 原版 13 个 `battlearena*`（`RT 3373` 那一族）。
+        /// 🔴 也是**本件加档之前的唯一那一档** ⇒ 不传档的 <see cref="Create(Transform)"/>
+        /// 与加档之前**逐位相同**（`BattleDriver.BuildErrorBanner` 那条路就是不传档的）。</summary>
+        public static readonly LayoutPreset BattlePreset = new LayoutPreset
+        {
+            RootTopPx = BattleRootTopPx,
+            ItemWPx = 1439.1600341796875f, ItemHPx = 80.00f,
+            RefBarWPx = 870.97998046875f, RefBarHPx = 60.849998474121094f,
+            FontPx = 60f, RefLineHeightPx = 56.849998474121094f,
+        };
+
+        /// <summary>**主菜单档** = 原版 `bundle_scenes_scenes_mainmenuwarpforge` 那一颗（`RT 1206` 那一族）。
+        /// 🔴 **外壳侧的 `Shell/MessageToast` 用这一档**（原版那条 toast 就是从主菜单喊的）。
+        /// 判据（含 `RT 1208` / `MB 1740` / `RT 1207` / `RT 1204` 四处）→ 文件头 ⑪。
+        /// <para>⇒ 单条条心（自上而下）= `0 + 336.6400146484375 − 25` = **311.6400146484375** px。</para></summary>
+        public static readonly LayoutPreset MenuPreset = new LayoutPreset
+        {
+            RootTopPx = 0f,
+            ItemWPx = 1310f, ItemHPx = 50.00f,
+            RefBarWPx = 618.5899658203125f, RefBarHPx = 38.11000061035156f,
+            FontPx = 36f, RefLineHeightPx = 34.11000061035156f,
+        };
+
+        /// <summary>本件这一颗用的是哪一档（自检要能分辨「壳里那颗取的是菜单档」）。</summary>
+        public LayoutPreset Preset { get { return _preset; } }
+
+        /// <summary>本件这一档的根上缘（自上而下 px）—— 自检口（战斗 `213.5997314453125` / 菜单 `0`）。</summary>
+        public float RootTopPx { get { return _preset.RootTopPx; } }
+
+        /// <summary>本件这一档的**容器上缘**（自上而下 px）= 根上缘 + `RootH − ContH`
+        /// （战斗 `283.94973754882813` / 菜单 `70.3500061035156`）。</summary>
+        public float ContainerTopPx { get { return _preset.RootTopPx + ContTopFromRootTop; } }
+
+        /// <summary>本件这一档的**项高**（= 布局的堆叠步长，自检口：战斗 `80` / 菜单 `50`）。</summary>
+        public float ItemHeightPx { get { return _preset.ItemHPx; } }
+
+        /// <summary>**只亮一条时**那一条的条心（自上而下 px）—— 自检口，也是本档「位置」的那一个数。
+        /// <para>算法：`条心 = 容器上缘 + (容器高 − 项高) + 项高/2 = 根上缘 + RootH − 项高/2`。</para>
+        /// ⇒ 战斗档 = `213.5997314453125 + 336.6400146484375 − 40` = **510.23974609375**（与实测逐位相同）·
+        /// 菜单档 = `0 + 336.6400146484375 − 25` = **311.6400146484375**（文件头 ⑪）。
+        /// ⛔ 别拿 `−ItemApY`（= 525.24 / 241.29）当它 —— 那是**存档值**，不是布局算出来的位置（文件头 ④）。</summary>
+        public float SingleItemCenterYpx { get { return _preset.RootTopPx + RootH - _preset.ItemHPx * 0.5f; } }
 
         // ---- 底图 `40k_bt_underbutton`（文件头 ⑧） ----
         const string BarArt = "40k_bt_underbutton";
@@ -237,12 +350,17 @@ namespace CardPresentation
         Item _template;
         int _currentIndex;
         bool _built;
+        /// <summary>这一颗用的**场景档**（默认 <see cref="BattlePreset"/> ⇒ 与加档之前逐位相同）。
+        /// 由 <see cref="Create(Transform, LayoutPreset)"/> 在 `Build()` **之前**赋值 —— ⛔ 别在 `Build` 之后再改，
+        /// 位置/尺寸已经写进节点了（那份是「按档算一次」的口径，同原版序列化值）。</summary>
+        LayoutPreset _preset = BattlePreset;
 
         /// <summary>模板那一条（原版 `Error Mensage_Ref`，永远不显示；自检可以用它量「参考串的底条多大」）。</summary>
         public bool TemplateBuilt { get { return _template != null && _template.barRoot != null && _template.text != null; } }
 
-        /// <summary>模板底条画出来的尺寸（px）—— 与文件头 ③ 那组 `870.98 × 60.85` 对比，
-        /// 差值就是**我们 TMP 度量 vs 原版** 的差（⛔ 不是缺陷，别拿它当红的判据）。</summary>
+        /// <summary>模板底条画出来的尺寸（px）—— 与本档 `LayoutPreset.RefBarWPx/HPx`（战斗 `870.98 × 60.85` /
+        /// 菜单 `618.59 × 38.11`）对比，差值就是**我们 TMP 度量 vs 原版** 的差
+        /// （⛔ 不是缺陷，别拿它当红的判据 —— 模板底条是照那两个常量建的，逐位相同）。</summary>
         public Vector2 TemplateBarSizePx
         {
             get
@@ -274,17 +392,28 @@ namespace CardPresentation
         //  建件（= 原版 `Awake` 那一段：模板 → 关掉 → 克隆 5 份）
         // ==================================================================
 
-        /// <summary>建在 `parent`（= HUD 根 = 原版 `BattleHud` 那一级）下。
-        /// ⚠️ 原版这一颗挂在 **Canvas 直子**上（`BattleHud/Canvas/…`）；我们这套没有 uGUI Canvas 节点
-        /// （`BattleDriver.BuildHud` 的 `HudRoot` 就是原版 `BattleHud` 那一级）⇒ 挂 `parent` 下。</summary>
+        /// <summary>建在 `parent`（= HUD 根 = 原版 `BattleHud` 那一级）下，用**战斗档**（<see cref="BattlePreset"/>）。
+        /// <para>⚠️ 原版这一颗挂在 **Canvas 直子**上（`BattleHud/Canvas/…`）；我们这套没有 uGUI Canvas 节点
+        /// （`BattleDriver.BuildHud` 的 `HudRoot` 就是原版 `BattleHud` 那一级）⇒ 挂 `parent` 下。</para></summary>
         public static ErrorMessageBanner Create(Transform parent)
+        {
+            return Create(parent, BattlePreset);
+        }
+
+        /// <summary>同上，但**指定场景档**（文件头 ⑪）。
+        /// <para>🔴 谁该传哪一档：战场侧（`BattleDriver.BuildErrorBanner`）**不传** ⇒ 战斗档；
+        /// 外壳侧（`Shell/MessageToast`，= 原版**主菜单**里那颗的同族）传 <see cref="MenuPreset"/>。</para>
+        /// <para>⛔ **档里没有的东西都按「两档相同」处理**（根 `sd` / 容器四件 / item 的存档 `ap` /
+        /// padding / 池容量 / 四段时长）—— 那几项是两场景**逐位相同**的实读值（文件头 ⑪ 那张表）。</para></summary>
+        public static ErrorMessageBanner Create(Transform parent, LayoutPreset preset)
         {
             var go = new GameObject("UI Error Message Controller (MUST BE ENABLED)", typeof(RectTransform));
             go.transform.SetParent(parent, false);
             MenuDraw.SetPxSize(go.transform, RootW, RootH);
-            // 根的位置 = 它的**矩形中心**（anchor (0.5,1) + ap (0,−213.60) ⇒ 中心 (960, 381.92)）
-            go.transform.localPosition = LayoutSpace.FromPixel(RootCx, RootCy);
+            // 根的位置 = 它的**矩形中心**（anchor (0.5,1) + ap (0,−档.RootTopPx) ⇒ 中心 (960, 档上缘 + RootH/2)）
+            go.transform.localPosition = LayoutSpace.FromPixel(RootCx, preset.RootTopPx + RootH * 0.5f);
             var b = go.AddComponent<ErrorMessageBanner>();
+            b._preset = preset;
             b.Build();
             return b;
         }
@@ -296,10 +425,11 @@ namespace CardPresentation
 
             var container = new GameObject("Container", typeof(RectTransform));
             container.transform.SetParent(transform, false);
-            // 容器：stretch 横 + 高 266.29 ⇒ 矩形 x[−0.35,1920.35] y[283.945,550.235]，中心 (960, 417.09)
+            // 容器：stretch 横 + 高 266.29 ⇒ 矩形 x[−0.35,1920.35] y[档上缘+70.35, 档上缘+336.64]、
+            // 中心 (960, 档上缘 + 203.67)；战斗档 = y[283.945,550.235] 中心 (960, 417.09)（文件头 ③⑪）
             MenuDraw.SetPxSize(container.transform, ContW, ContH);
             container.transform.localPosition =
-                LayoutSpace.FromPixel(ContLeftX + ContW * 0.5f, ContTopY + ContH * 0.5f)
+                LayoutSpace.FromPixel(ContLeftX + ContW * 0.5f, _preset.RootTopPx + ContTopFromRootTop + ContH * 0.5f)
                 - transform.localPosition;
             _container = container.transform;
 
@@ -312,12 +442,14 @@ namespace CardPresentation
             BuildTemplateChildren(tmplItem);
             // 模板**停在存档位**上（= 原版 `ap (960.3499755859375, −241.29000854492188)` + `anchor (0,1)`
             // 换算出来的那个点：容器左缘 −0.3499755859375 + 960.3499755859375 = **960.0**、
-            // 上缘 283.94973754882813 + 241.29000854492188 = **525.23974609375**）。
+            // 上缘 + 241.29000854492188 = **525.23974609375**）。
             // ⚠️ 它**不是**布局算出来的位置（存档值只在「一条都没亮、布局没跑」时成立 —— 运行期 dump
             // 里六个 item 全是这一组值，正是那个状态）⇒ 模板永远不亮、也就永远停在这一档。
+            // 🔴 这一组 `ap` **两档逐位相同**（战斗 `RT 2823` = 菜单 `RT 1208`）⇒ 用常量、不随档变
+            //    （文件头 ⑪ 那张表；⛔ 别拿它跟「条心」混 —— 条心是亮起来时布局算的，另一回事）。
             tmplItem.root.localPosition =
                 _container.InverseTransformPoint(
-                    LayoutSpace.FromPixel(ContLeftX + ItemApX, ContTopY - ItemApY));
+                    LayoutSpace.FromPixel(ContLeftX + ItemApX, _preset.RootTopPx + ContTopFromRootTop - ItemApY));
             tmplItem.root.gameObject.SetActive(false);
 
             // ② 5 个克隆（原版 `Instantiate(ref, parent)` 跑五次）
@@ -331,17 +463,19 @@ namespace CardPresentation
             _currentIndex = 0;
         }
 
-        /// <summary>模板那两颗子件（原版实读值）：`Background` = `40k_bt_underbutton` 按 `870.98 × 60.85`、
-        /// 文字 = 参考串 `ERROR MESSAGE CONTENT`（`sd 630.98 × 56.85` · `m_fontSize 60` ·
-        /// `m_fontColor (0.8019,0,0,1)`）。⚠️ 文字色那一档已被 `Show` 覆盖（文件头 ⑨）⇒ 模板这颗照
-        /// **它自己的序列化值**画（模板本来就不走 `Show`）。</summary>
+        /// <summary>模板那两颗子件（原版实读值）：`Background` = `40k_bt_underbutton` 按**本档**的参考串尺寸
+        /// （战斗 `870.98 × 60.85` / 菜单 `618.59 × 38.11`，见 `LayoutPreset.RefBarW/H`）、
+        /// 文字 = 参考串 `ERROR MESSAGE CONTENT`（战斗 `sd 630.98 × 56.85` · `m_fontSize 60` ·
+        /// `m_fontColor (0.8019,0,0,1)`；菜单那档的 `m_fontSize` 是 36）。
+        /// ⚠️ 文字色那一档已被 `Show` 覆盖（文件头 ⑨）⇒ 模板这颗照 **它自己的序列化值**画
+        /// （模板本来就不走 `Show`）。</summary>
         void BuildTemplateChildren(Item t)
         {
             var tex = CardArt.Ui(BarArt);
             if (tex != null)
             {
                 t.barRoot = ImageQuad.CreateNineSlice(t.root, tex, BarBorder, tex.width, tex.height,
-                                                      new Vector3(0f, 0f, ZBar), U(RefBarW), U(RefBarH), "Background");
+                                                      new Vector3(0f, 0f, ZBar), U(_preset.RefBarWPx), U(_preset.RefBarHPx), "Background");
                 if (t.barRoot != null)
                 {
                     t.barParts = new List<ImageQuad>(t.barRoot.GetComponentsInChildren<ImageQuad>(true));
@@ -357,17 +491,18 @@ namespace CardPresentation
             t.text = Label.Create(t.root, "ERROR MESSAGE CONTENT",
                                   new Vector3(0f, U(-(PadT - PadB) * 0.5f), ZText), 1,
                                   new Color(0.801886796951294f, 0f, 0f, 1f), new Vector2(0.5f, 0.5f), "ErrorMesage Text");
-            if (t.text != null) { t.text.SetScriptHeight("ERROR MESSAGE CONTENT", TextFontPx, 108f); t.text.SetRenderQueue(QText); }
+            if (t.text != null) { t.text.SetScriptHeight("ERROR MESSAGE CONTENT", _preset.FontPx, 108f); t.text.SetRenderQueue(QText); }
         }
 
-        /// <summary>建一个 item 节点（只有 `RectTransform`，尺寸写原版 `1439.16 × 80.00`；
+        /// <summary>建一个 item 节点（只有 `RectTransform`，尺寸写**本档**的 `sd`：战斗 `1439.16 × 80.00`
+        /// / 菜单 `1310 × 50` —— 高那一格是**布局的堆叠步长**，见 `LayoutPreset.ItemHPx`；
         /// `Background`/`ErrorMesage Text` 两颗子件在第一次 `Show` 时按**那一条的文案**建 —— 模板例外，
         /// 它按参考串预先建好，见 <see cref="BuildTemplateChildren"/>）。</summary>
         Transform BuildItemNode(Transform parent, string name)
         {
             var go = new GameObject(name, typeof(RectTransform));
             go.transform.SetParent(parent, false);
-            MenuDraw.SetPxSize(go.transform, ItemW, ItemH);
+            MenuDraw.SetPxSize(go.transform, _preset.ItemWPx, _preset.ItemHPx);
             return go.transform;
         }
 
@@ -441,7 +576,7 @@ namespace CardPresentation
             else it.text.SetText(text);
             if (it.text != null)
             {
-                it.text.SetScriptHeight(text, TextFontPx, 108f);
+                it.text.SetScriptHeight(text, _preset.FontPx, 108f);      // 战斗 60 / 菜单 36（文件头 ⑪）
                 it.text.SetColor(color);
             }
 
@@ -449,18 +584,18 @@ namespace CardPresentation
             float textWpx = it.text != null ? it.text.WorldW * 108f : 0f;
             float textHpx = it.text != null ? it.text.WorldH * 108f : 0f;
             // 🔴 防守（**不许静默**）：TMP 在「没量出来」时会回一个天文数字（`Label` 的 doc 记着实测
-            //    `tmpW = 4.29e9`）—— 直接拿它建底条会画出一条几万 px 宽的灰带。不合理就退回**参考串那一档**
-            //    （`RefBarW − 240` / `RefBarH − 4`）并出声。
+            //    `tmpW = 4.29e9`）—— 直接拿它建底条会画出一条几万 px 宽的灰带。不合理就退回**本档参考串那一档**
+            //    （`RefBarWPx − 240` / `RefBarHPx − 4`）并出声。
             if (!(textWpx > 0f) || !(textHpx > 0f) || textWpx > 20000f || textHpx > 20000f)
             {
                 Debug.LogWarning($"[ErrorMessageBanner] 文字量出来的尺寸不可信（{textWpx}×{textHpx} px）"
-                               + " ⇒ 底条退回**参考串那一档**（`{RefBarW - PadL - PadR} × {RefBarH - PadT - PadB}`）。"
+                               + " ⇒ 底条退回**本档参考串那一档**（`{_preset.RefBarWPx - PadL - PadR} × {_preset.RefBarHPx - PadT - PadB}`）。"
                                + "多半是 TMP 在对象未激活时量了尺寸（见本文件头 A 与 `Label` 那条坑）。");
-                textWpx = RefBarW - PadL - PadR;
-                textHpx = RefBarH - PadT - PadB;
+                textWpx = _preset.RefBarWPx - PadL - PadR;
+                textHpx = _preset.RefBarHPx - PadT - PadB;
             }
             float barW = textWpx + PadL + PadR;
-            float barH = Mathf.Max(OrigLineHeightPx, textHpx) + PadT + PadB;
+            float barH = Mathf.Max(_preset.RefLineHeightPx, textHpx) + PadT + PadB;   // 战斗 56.85 / 菜单 34.11
             BuildBar(it, barW, barH);
 
             // 文字在底条里**居中**、但内层 padding 是 (T4, B0) 不对称 ⇒ 中心下沉 (4−0)/2 = 2 px
@@ -506,21 +641,25 @@ namespace CardPresentation
         //  布局（= 原版那套 VerticalLayoutGroup 的算法；文件头 ④）
         // ==================================================================
 
-        /// <summary>把**活动**的条目按原版布局算法重排（`LowerCenter` ⇒ 从容器底往上、间距 = 项高 80）。
-        /// ⚠️ 只算**活动**的（`activeInHierarchy` 那一道闸，判据见文件头 ④）。</summary>
+        /// <summary>把**活动**的条目按原版布局算法重排（`LowerCenter` ⇒ 从容器底往上、间距 = 项高 = **本档的 `ItemHPx`**）。
+        /// ⚠️ 只算**活动**的（`activeInHierarchy` 那一道闸，判据见文件头 ④）。
+        /// 🔴 **项高取自档位**：容器 `VerticalLayoutGroup` 是 `m_ChildControlHeight = 0` ⇒ uGUI 用子件自己的
+        /// `sizeDelta`（战斗 80 / 菜单 50）⇒ 条心 = `根上缘 + RootH − 项高/2`（战斗 510.24 / 菜单 311.64，文件头 ⑪）。</summary>
         void RelayoutActive()
         {
             if (_container == null) return;
             int n = VisibleCount;
             if (n == 0) return;
+            float itemH = _preset.ItemHPx;
+            float contTopY = _preset.RootTopPx + ContTopFromRootTop;
             int j = 0;
             for (int i = 0; i < _items.Count; i++)
             {
                 var it = _items[i];
                 if (!it.active || it.root == null) continue;
                 // pos = (容器高 − 项高×N) + 项高×j（从容器**上缘**往下量）
-                float pos = (ContH - ItemH * n) + ItemH * j;
-                float centerY = ContTopY + pos + ItemH * 0.5f;      // 自上而下的 px
+                float pos = (ContH - itemH * n) + itemH * j;
+                float centerY = contTopY + pos + itemH * 0.5f;      // 自上而下的 px
                 // 子节点的 localPosition 是相对**容器**的（容器自己也有偏移，⛔ 别当成相对根）
                 it.root.localPosition =
                     _container.InverseTransformPoint(LayoutSpace.FromPixel(ContLeftX + ContW * 0.5f, centerY));
@@ -647,7 +786,8 @@ namespace CardPresentation
             return new Vector2((maxX - minX) * 108f, (maxY - minY) * 108f);
         }
 
-        /// <summary>第 i 条**根节点**的自上而下中心（px）。用它钉布局算法（文件头 ④：单条时 y = 510.235）。</summary>
+        /// <summary>第 i 条**根节点**的自上而下中心（px）。用它钉布局算法（文件头 ④⑪：单条时
+        /// 战斗档 y = `510.23974609375`、菜单档 y = `311.6400146484375`）。</summary>
         public Vector2 ItemCenterPxOf(int i)
         {
             if (i < 0 || i >= _items.Count || _items[i].root == null) return new Vector2(-9999f, -9999f);

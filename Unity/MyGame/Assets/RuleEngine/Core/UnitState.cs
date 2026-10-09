@@ -125,7 +125,39 @@ namespace RuleEngine
         /// </summary>
         public bool CannotAttackThisTurn;
 
-        public bool IsStunned;
+        /// <summary>
+        /// **正在眩晕**（`stun`）。
+        ///
+        /// 🔴 **2026-10-09（`A1116`）：它从【字段】改成【派生只读属性】—— 两个表示收成一处**
+        /// （和 <see cref="HasShield"/> 同一条纪律、同一个成因）。
+        ///
+        /// **判据：原版只有一份表示**（`d:/2/tools/decomp_full/`，第一权威）—— `stun` 就是一个 trait：
+        /// `DefinedTrait.stun = 100`（`d:/2/tools/il2cpp_out/dump.cs:45732`），原版**没有任何**
+        /// 「眩晕布尔字段」：
+        ///   · **施加**：`CardScript__Stun.c:48` `AddTraitSilently(param_1, 100, …)`
+        ///     —— **全反编译里唯一**一处写 trait 100 的地方
+        ///     （`grep -n "AddTraitSilently(param_1,100" *.c` 只此一条）；
+        ///   · **读点**全走 `HasCurrentTrait(100)`：`CardScript__CheckStun.c:7` ·
+        ///     `CardScript__ActivateMinion.c:23/:55` · `CardScript__get_mightAct.c:23` ·
+        ///     `BattleManager__CanAttackCard.c:31` · `IsValidAttackTarget.c:215` ·
+        ///     `AllowResolveAttack.c:237` · `AddScriptedAttack.c:49` · `AI__GetCardValueInPlay.c:42` ·
+        ///     `CardScript__OnTurnStart.c:119` · `CardScript__OnTurnEnd.c:125`。
+        ///   ⇒ 我们的四道 `ErrStunned`（= `RuleCore` 里那四处 `if (u.IsStunned) return RuleCodes.ErrStunned;`）
+        ///     正好落在原版同一批位置上（`CanAttackCard` / `IsValidAttackTarget` / `AllowResolveAttack`）。
+        ///
+        /// ⚠️ **改之前这里是独立字段，与关键词两个方向都脱节**（本件修的就是这个）：
+        ///   · `EffectResolver.DoStun` 与 `RuleCore` 的震荡（Concussion）**只写字段、从不挂关键词**
+        ///     ⇒ 走 `Stun an enemy` 之后 `IsStunned == true` 而 `Has("stun") == false`
+        ///     （`SimpleAI.TraitScore` 遍历的是 `_keywords` ⇒ AI 也少算一维）；
+        ///   · 反向：<see cref="RemoveAll"/> 里**没有** `stun` 那一条 ⇒ `give X Stun` 的关键词被
+        ///     `TempBuff` 到期 / `lose Stun` / 光环收回摘掉之后，`IsStunned` **仍为真**。
+        ///
+        /// ⛔ **别改回字段**、也别在别处补第二份同步 —— 那又变成「同一条规则两处写」。
+        /// ⚠️ **别拿 <see cref="StunnedAtStartOfTurn"/> 顶它**：那是**另一个东西**
+        ///    （「回合开始时就在这个状态」的闸门，原版 `+0x55`），语义完全不同。
+        /// </summary>
+        public bool IsStunned { get { return Has(KeywordTable.Stun); } }
+
         /// <summary>
         /// **职责已经用过了**（2026-09-13 A2）—— 规则书 `:181`「职责：**一次性能力**；
         /// 可由其他卡牌效果**装填**再次使用」。
@@ -219,7 +251,7 @@ namespace RuleEngine
         /// ⚠️ **改前它是个独立字段，与关键词会互相脱节**（本件修的就是这个）：
         ///   · 盾被用掉时 `RuleCore.ApplyDamage` 只写 `HasShield = false`、**从不摘关键词**
         ///     （全仓 `RemoveAll("shield")` 0 命中）⇒ `u.Has("shield")` 仍为真，而
-        ///     `SimpleAI.ScoreDamaging`（`Data/SimpleAI.cs:588`）读的正是**关键词**
+        ///     `SimpleAI.ScoreDamaging`读的正是**关键词**
         ///     ⇒ **AI 把已经用掉盾的单位继续当带盾、只给一点点分**；
         ///   · 反向：`RemoveAll("shield")`（`lose Shield` / 光环收回 / `RemoveKeyword` 减到 0）
         ///     **不清**这个字段 ⇒ 关键词没了、那一刻**还能再挡一下**。
@@ -236,18 +268,72 @@ namespace RuleEngine
         ///    出处：那份 `.gd` 的 `:4212` `if is_ranged and bool(attacker.get("blind", false)): return ERR_NO_ATTACK`
         ///    （⚠️ 这些 `:NNNN` 全是**我们自己的复刻**的行号，**旁证、非原版**；
         ///     2026-10-18 更正：原来写作「原版是……」「出处：原版」）。
+        ///
+        /// 🔴 **2026-10-09（`A1116`）：它从【字段】改成【派生只读属性】—— 和 <see cref="IsStunned"/> 同批。**
+        ///
+        /// **判据：原版只有一份表示**（`d:/2/tools/decomp_full/`，第一权威）—— `blind` 也是一个 trait：
+        /// `DefinedTrait.blind = 975`（`d:/2/tools/il2cpp_out/dump.cs:45816`，反编译里写作 `0x3cf`）：
+        ///   · **施加**：`CardScript__AddEffect.c:475-487`（挂上 `0x3cf`）；
+        ///   · **读点**：`EntityScript__get_CurrentRangeAttack.c:25-27`
+        ///     （`HasCurrentTrait(param_1, 0x3cf)` ⇒ **`return 0`**）—— 正是
+        ///     `RuleCore` 里那句 `if (ranged && u.IsBlind) return 0;`；
+        ///   · **摘除**：`CardScript__AddEffect.c:692`（case 4 摘 trait）。
+        ///
+        /// ⚠️ **改之前这里是独立字段**：`DoBlind` 同时写字段和关键词，而 `RemoveAll` 只清这一个字段
+        ///   ⇒ 「关键词在、字段不在」和「字段在、关键词不在」两个方向都出现过。
+        ///
+        /// ⛔ **别改回字段**。⚠️ **别拿 <see cref="BlindedAtStartOfTurn"/> 顶它**（那是闸门，见下）。
+        /// ⚠️ <see cref="BlindTurnEnd"/> / <see cref="BlindOwner"/> **不是这一维** —— 那是「到期点」，
+        ///    ⛔ 别顺手删（`RuleEngineTest` 在断言它）。
         /// </summary>
-        public bool IsBlind;
+        public bool IsBlind { get { return Has(KeywordTable.Blind); } }
+
+        // ---- 🆕 2026-10-09（`A1121`）「回合开始时就在这个状态」的两个闸门（原版 `+0x55` / `+0x56`）----
+        //
+        // 🔴 **它们不是「当前是否眩晕/失明」的第二个口** —— 上面那两个派生属性才是那个口。
+        //    语义 = **「这个状态是在本单位自己的回合开始时就在的」**，只用来决定**回合末摘不摘**：
+        //      · 置 1：`CardScript__OnTurnStart.c:119-126` —— `ActivateMinion` 之后，
+        //        `HasCurrentTrait(100 /*stun*/)`（或 `0x3cf /*blind*/`）
+        //        **且**「这一回合属于这张卡的拥有者」（`param_2 == *(char*)(card + 0x40)`）
+        //        ⇒ `card[+0x55] = 1`（`:121`）/ `+0x56 = 1`（`:125`）；
+        //      · 摘掉并清 0：`CardScript__OnTurnEnd.c:124-134`（`+0x55` 那一段清了，`+0x56` 那一段**没清**
+        //        —— 原版的遗漏，我们这边由 <see cref="RemoveAll"/> 补上，见那里的注释）；
+        //      · 施加时清 0：`CardScript__Stun.c:98`（stun）· `CardScript__AddEffect.c:487`（blind）；
+        //      · 摘除时清 0：`CardScript__AddEffect.c:692`（**只有 blind**）；
+        //      · 另有 `CardScript__ResetToValuesInHand.c:152` / `CardScript__ReactToUnitJammed.c:125`
+        //        （`*(undefined2 *)(param_1 + 0x55) = 0` = **一次清两格**）：
+        //        前者 = 卡回手时重置 ⇒ 我们这边**天然等价**（回手再上场是 `RuleCore.PlayCard` 里
+        //        `new UnitState(...)` 新建对象，闸门跟着没了）；
+        //        后者 = `jam`，**本工程全池 0 张卡带它、未建模**（见 `KeywordTable.Jam`）⇒ 无对应入口。
+        //
+        // ⇒ **效果 = 眩晕/失明只废掉「一个自己的回合」**（在别人回合里挨的那一下，
+        //    撑到自己下个回合开始时置闸门 ⇒ 那一整个回合动不了 ⇒ 自己回合末摘掉）。
+        //    没有这两个闸门的话，眩晕**永不解除**（`A1121` 记的那个真缺陷）。
+        //
+        // ⚠️ **照原版命名**（`EntityScript.stunnedAtStartOfTurn` / `blindedAtStartOfTurn`，
+        //    `dump.cs:21985/:21987`，属性在 `:22046-22047`），⛔ 别起我们自己的名字。
+        // ⚠️ 两者**都必须**是**独立字段**（不能从关键词派生）—— 它记的是**历史事实**
+        //    （「回合开始时它在不在」），与「现在在不在」是两件事。
+
+        /// <summary>「**本回合开始时就是晕的**」（原版 `EntityScript.stunnedAtStartOfTurn`，字段偏移 `+0x55`）。
+        /// 只用来决定回合末摘不摘。见上面那一段的完整判据。</summary>
+        public bool StunnedAtStartOfTurn;
+
+        /// <summary>「**本回合开始时就是失明的**」（原版 `EntityScript.blindedAtStartOfTurn`，字段偏移 `+0x56`）。
+        /// 只用来决定回合末摘不摘。见上面那一段的完整判据。</summary>
+        public bool BlindedAtStartOfTurn;
 
         /// <summary>
-        /// **狂喜已经触发过**（2026-09-14）—— 对照我们上一版复刻 `rule_core.gd:4447` 的（⚠️ **旁证**）
-        /// `u["_ecstasy_fired"]`（原话：「**首次越线触发一次防重复**」）。
+        /// 🔴 **2026-10-19（`D26`）这一位【已删】** —— 它原来叫 `EcstasyFired`
+        /// （`rule_core.gd:4447` 的 `_ecstasy_fired`，**旁证**）。
         ///
-        /// 🔴 **这一位不能省**：`RuleCore.Hurt` 的判据是「生命 ≤ X 且未死」——
-        ///    没有它的话，一个 2 血、`Ecstasy 2` 的单位**每挨一次打都会再触发一次**
-        ///    （原版是**一辈子一次**）。判据与落点在 `RuleCore.Hurt`。
+        /// **为什么删**：回到原版反编译核过之后，那个「一次性置位」是**错的** ——
+        /// `decomp_full/CardScript__ShouldTriggerEcastasy.c` 的守卫里**没有任何置位**，
+        /// 它判的是 **`traitValue(0x4e2) &lt; healthBefore` ∧ `healthAfter &lt;= traitValue(0x4e2)`**
+        /// （= 「**从 &gt; X 掉到 ≤ X**」）⇒ 治回 X 以上再被打下去**会再触发**，
+        /// 不是「一辈子一次」。判据全文与触发点 → `RuleCore.Hurt` 那一格的注释。
+        /// ⛔ **别把这一位加回来**。
         /// </summary>
-        public bool EcstasyFired;
 
         /// <summary>
         /// 失明的**到期回合**（`blind_turn_end`，我们上一版复刻 `rule_core.gd:2815`；⚠️ **旁证，非原版**）。
@@ -575,8 +661,10 @@ namespace RuleEngine
         }
 
         /// <summary>关键词授予/叠加（我们上一版复刻 `rule_core._apply_gain:3292`：`kws[name] += val`；⚠️ **旁证**）。
-        /// ⚠️ `armour`/`stun` **两个**还要**同步状态字段** —— 引擎别处是按字段结算的，
-        /// 只加 kws 不改字段 = 给了护甲却不减伤（那份 `.gd` 的 `:3293-3299` 专门补过这个 bug）。
+        /// ⚠️ 有副作用的那几个关键词走 <see cref="SyncKeywordState"/>（`armour` 要连着 `Armor`、
+        ///    `blind`/`pindown` 要连着**攻击型**那一格）。
+        ///    🔴 **2026-10-09（`A1116`）就地订正**：这一句原来写「`armour`/`stun` **两个**还要同步状态字段」——
+        ///    `stun`/`blind` 那两个状态字段**已经删掉了**（`IsStunned`/`IsBlind` 改成关键词的派生属性）。
         /// 🔴 **2026-10-18（`W5`）**：那一串同步搬进 <see cref="SyncKeywordState"/> ——
         /// 它原来与 `AddAuraKeyword` 各写一份（光环那份漏了 `blind` 与攻击型两条）。
         /// 🔴 **2026-10-09（`A1106`）**：原来这里是**三个**（多一个 `shield`）—— `shield` 已从
@@ -592,11 +680,14 @@ namespace RuleEngine
         /// <summary>
         /// **「关键词被挂上」的副作用**（引擎别处按**字段**结算，不按 `_keywords`）——
         /// 判据只此一份，`AddKeyword` 与 <see cref="AddAuraKeyword"/> 共用。
-        ///   · `stun` —— 状态字段（`rule_core._apply_gain:3293-3299` 那三条之一）；
         ///   · `armour` —— 见方法尾那一句（**加减都要**，所以不在 `value &gt; 0` 里）；
-        ///   · `blind` —— `IsBlind`（`RuleCore.FieldAttack` 直接读它：失明期间远程攻击力视为 0，
-        ///     规则书 `:166`）。**2026-09-14 A6 族 C 补**：原来这一行不在，`give them Blind`
-        ///     会「给了关键词却什么都没发生」（`Has("blind")` 为真、远程照打）= 典型静默失效。
+        ///   · `blind` —— **攻击型**那一格（见下面 `K3` 那两条）。**2026-09-14 A6 族 C 补**：
+        ///     当年缺了它会让 `give them Blind` 「给了关键词却什么都没发生」= 典型静默失效。
+        ///   · 🔴 **2026-10-09（`A1116`）**：原来这一栏还有 `stun` 与 `blind` 两条
+        ///     「同步状态字段（`IsStunned` / `IsBlind`）」—— **两条都删掉了**，理由见那两个属性的
+        ///     注释（改成关键词的派生属性 ⇒ 不需要、也不许再有第二处同步）。
+        ///     ⛔ **别再往这里加 `if (keyword == …Stun) …` 这种行**：那正是当初两个表示互相脱节的
+        ///     成因（`DoStun` 走字段、`GiveKw` 走关键词，各写一半，两个方向都漏）。
         ///   · 🆕 **`K3` 的攻击型那两条**（原版 `CardScript.AddEffect` 里那两处）：
         ///     `blind` ⇒ `+0x120 = 1`（`CardScript__AddEffect.c:479-480`，trait `0x3cf = 975`）·
         ///     `pindown` ⇒ `+0x120 = 2`（`CardScript__AddEffect.c:625-626`，trait `0x3ca = 970`；
@@ -610,14 +701,16 @@ namespace RuleEngine
         ///    `Has(KeywordTable.Shield)` 的**派生只读属性**（见它的注释），而 `_keywords`
         ///    在调本方法**之前**就已经写好 ⇒ 它自动为真。**别再往这里加 `if (…Shield) …`**：
         ///    「同一个判据写两处」正是这个字段当初与关键词脱节的成因（原版只有 trait 一份表示）。
+        /// 🔴 **2026-10-09（`A1116`）`stun` / `blind` 那两条同批删掉** —— 同一条理由。
         /// </summary>
         void SyncKeywordState(string keyword, int value)
         {
             if (value > 0)
             {
-                if (keyword == "stun") IsStunned = true;
-                if (keyword == "blind") IsBlind = true;
-                if (keyword == "blind") CurrentAttackType = AttackTypeMelee;
+                // ⚠️ **这一行不是「是否失明」** —— 它是 `+0x120`（当前攻击型）那一维：
+                //    原版 `CardScript__AddEffect.c:479-483` 挂上 `blind`(`0x3cf`) 时把 `+0x120` 写成 `1`
+                //    （近战）。⇒ **留着，别顺手删**（`RuleEngineTest` 在断言它，见 §「`W5` ①a」）。
+                if (keyword == KeywordTable.Blind) CurrentAttackType = AttackTypeMelee;
                 else if (keyword == "pindown") CurrentAttackType = AttackTypeRanged;
             }
             if (keyword == KeywordTable.Armour) Armor += value;
@@ -644,10 +737,20 @@ namespace RuleEngine
             if (string.IsNullOrEmpty(keyword)) return;
             _keywords.Remove(keyword);
             if (keyword == KeywordTable.Armour) Armor = 0;
-            // 🆕 2026-09-14 A6 族 C：`blind` 的**状态字段**也要跟着摘
-            // （`AddKeyword` 那边补了置位，这里是它的对偶；限时增益到期走
-            //  `TempBuff` → `RemoveKeyword` → 这里，所以「到你的下回合」也能正确解除）。
-            if (keyword == "blind") IsBlind = false;
+            // 🔴 **2026-10-09（`A1116`）**：这里原来写的是
+            //   `if (keyword == "blind") IsBlind = false;`（「`AddKeyword` 那边补了置位，这是它的对偶」）
+            //   —— 那是**两个表示的第二次同步**，删掉：`IsBlind` 现在派生自关键词，摘掉键它自己就为假。
+            //   ⚠️ **`stun` 当年连这一行都漏了**（本件修的另一半）：`give X Stun` 的关键词被
+            //   `TempBuff` 到期 / `lose Stun` / 光环收回摘掉之后 `IsStunned` **仍为真** ——
+            //   派生属性一并把那个坑堵上（**没有第二份可漏**）。
+            // 🆕 2026-10-09（`A1121`）：**「回合开始时就在失明」那个闸门在摘掉失明时清 0**。
+            //   判据 = 原版 `CardScript__AddEffect.c:692`（case 4 摘 trait：`RemoveBuffedTrait` +
+            //   `RemoveTrait` 之后 `if (*(int*)(param_2 + 0x3c) == 0x3cf) *(char*)(card + 0x56) = 0;`）。
+            //   ⚠️ 原版那一处**只判 `blind`（`0x3cf`），没有 `stun`（100）** —— 如实照做
+            //   （`stun` 的闸门只在 `CardScript__Stun.c:98` 与 `OnTurnEnd.c:128` 清）。
+            //   ⚠️ 顺带说明：`OnTurnEnd.c:130-134` 那一段 blind **没清 `+0x56`**（原版遗漏），
+            //   而我们摘除一律走本方法 ⇒ 那处遗漏在我们这里不成立（行为上等于清了）。
+            if (keyword == KeywordTable.Blind) BlindedAtStartOfTurn = false;
             // 🆕 2026-09-16：**授予的正文也要一起撤**（`GrantOps` 那一本账）。
             //   ⚠️ 不撤的话：关键词被摘掉了，`_grantedOps` 还在 ⇒ `RuleCore.FireTriggerAt`
             //   （它的门在 `FxOps` 里、**不在触发点**）照样找得到正文 ⇒
@@ -837,6 +940,10 @@ namespace RuleEngine
             // 障碍标记也要清 —— 它**不一定**伴随关键词/属性（`Nemesor Zahndrekh` 那条只置这个标记），
             // 所以**无条件**清，不能塞在上面那个 `if` 里
             AuraRemnantStay = false;
+            // 🆕 2026-10-19（`D28` 施工单 H）：誓约授予那一份同理 —— **无条件**清
+            // （`Ferren Areios` 那两句只置这两格，不伴随关键词/属性）
+            OathTripleGranted = false;
+            OathAllTurnsGranted = false;
         }
 
         /// <summary>
@@ -846,6 +953,31 @@ namespace RuleEngine
         /// ⚠️ 它是**光环给的**，所以来源离场后就该变回 false —— 别在这儿写死。
         /// </summary>
         public bool AuraRemnantStay;
+
+        /// <summary>
+        /// 🆕 **2026-10-19（`D28` 施工单 H）**：这张牌**自己身上被授予的**「誓约可激活 3 次」
+        /// （原版 `DefinedTrait.oathTripleActivation = 0x4fe`）。
+        ///
+        /// 🔴 **为什么是「身上带着的」而不是「读的时候扫同方」**：原版那两个 trait 的**唯一读点**
+        /// 是 `CardScript__CanUseOathAbility.c:16` 的
+        /// `EntityScript__HasCurrentTrait(param_1, 0x4fe)`，而 `param_1` = **正在被激活的那张牌**
+        /// （全反编译里 `0x4fc` / `0x4fe` 只出现在 `CanUseOathAbility.c`
+        /// 与 `EntityScript__GetCardEffectsToShow.c:151-161` 那处展示；
+        /// `grep -rn "0x4fc\|0x4fe" d:/2/tools/decomp_full/` 可复现）。
+        /// 源牌（`Ferren Areios`）是把它**当持续效果授予友方部队**的 —— 全反编译唯一的授予口是
+        /// `CardScript__AddEffect.c:499` 的 `AddTraitSilently(card, effect.trait)`。
+        /// ⇒ 读点必须在**被激活的牌自己身上**；「扫同方」会静默放宽（卡面写的是
+        /// `friendly **troops**`，督军不该收）。
+        ///
+        /// **谁写**：<see cref="Auras.Recompose"/>（和别的光环同一趟、同一本账）。
+        /// **谁清**：<see cref="ClearAuraGrants"/> —— 与光环**同生命周期**（来源离场就没了）。
+        /// **谁读**：`RuleCore.OathActivationCap`（**只此一处**）。
+        /// </summary>
+        public bool OathTripleGranted;
+
+        /// <summary>见 <see cref="OathTripleGranted"/>（另一半：`oathInAllTurns = 0x4fc`
+        /// `CardScript__CanUseOathAbility.c:8`；读点 `RuleCore.OathAllTurns`）。</summary>
+        public bool OathAllTurnsGranted;
 
         // ---- 限时增益（我们上一版复刻的 `temp_buffs`，`rule_core.gd:3300`；⚠️ **旁证，非原版**）----
         //

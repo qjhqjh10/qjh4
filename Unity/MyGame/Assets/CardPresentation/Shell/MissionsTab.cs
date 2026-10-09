@@ -1488,7 +1488,7 @@ namespace CardPresentation
                 //      ② 它建的是 `new Material(shader)` ⇒ 队列退回 **shader 自带的那一个**，而
                 //         `Everguild/UI/Greyscale` 的 SubShader 标签是 `QUEUE: Transparent` = **3000**
                 //         （`工具/dump_shader.py "Everguild/UI/Greyscale"` 实读，2026-10-05）；
-                //      ③ 本页的**行底图在 `QPanel = 3005`**（`Shell/MenuWindowBase.cs:72`）⇒ 不补这一句，
+                //      ③ 本页的**行底图在 `QPanel = 3005`**（`Shell/MenuWindowBase.QPanel`）⇒ 不补这一句，
                 //         变灰那颗钮会掉到**底图之下、被自己的行底图盖住** = 画面上「按钮没了」，
                 //         而 `AuditGrayLook` 那条断言**照样全绿**（它只看 shader 名，不看队列）。
                 //    ⇒ 显式补回它本来就该在的那一层（`Draw` 那一次传的就是 `QContent`）。
