@@ -75,4 +75,40 @@
   ⚠️ **断言【没跑过】**（铁律 12：待办没做完不跑自检）⇒ 收口那趟要跑 `RewardsScene.Run`（它属 `Shell`/`Rewards` 那一族）。
 - ⚠️ **一处日期口径留痕**：`P-B` 报本机系统日期是 **2026-10-10**，而同文件邻近注释块（`A305①`/`A303②`）与本批 `普查产出_1011/` 都写 **2026-10-11**。它**跟着同文件既有口径用了 2026-10-11**（没去改别人的日期）。**两个日期谁对、要不要统一 —— 留着，⛔ 别再各写各的。**
 
+---
+
+### 4. `A1176` —— 震荡那一格缺「那张牌还在不在棋盘上」 —— ✅ **2026-10-10 已修**（**执行代理 P-D 交件**）
+
+**原文（`项目任务.md` §29·b 第一节那一行 —— ⛔ 已在正本里删掉该行；下面是它的要点，全文见 `git log`）**：
+
+> ⚠️ **震荡那一格缺「那张牌还在不在棋盘上」** —— `A1166` 已查实原版那道闸 = **`CardScript.IsInPlay()`**；**但震荡那一格只有 `target.IsAlive`、没有「还在棋盘上」**⇒ 若某个死亡触发在伤害后、震荡前把目标弹回手牌，原版判假、我们仍会晕它。 —— ✅ **2026-10-10（`R3`）已查实，🔴 裁定【要补】，但方向与当初的框定【相反】**：③ **它查到一条【真的、可达的】差异 —— 我们【少晕】**：`CheckIfDead.c:110-147` 有一条**不置 5** 的支路 `HasToTransformIntoRemnant`（= `remnant(0x41a)` ∨ `waystone(0x474)`）⇒ 与 stun **同队列**、stun **入队更早** ⇒ FIFO **先晕、后翻面** ⇒ **原版会晕**。🔴 **正解 = 让判别式对齐原版** —— ⛔ **不是**加「还在棋盘上」（方向反了）。⚠️ **改前必须核** `targetDied` 另三个用户（Stomp / Sniper / Markerlight）。
+
+**🔴 收口时把简报的前提【推翻了】（理由成立）** —— `P-D` 逐条现读 `d:/2/tools/decomp_full/`，核出 `targetDied` 一共 **5 处用途 + 3 处写入点**，**原版那 5 处没有一处用「会不会翻面」**：
+
+| 用途 | 原版判据 | 与「会不会翻面」一致？ |
+|---|---|---|
+| **Stomp** `:3534` | `ShouldTriggerStompDamage.c:20-36`：`HasCurrentTrait(攻方,0x4d8)` ∧ **`*(int*)(目标+0x68) < 0`（裸血）** ∧ 相邻表>0 | ❌ 纯裸血 |
+| **Sniper** `:3555` | `ActivatesNoReturnSniperAttack.c` → **`DamageKillsTarget`**（**预测**）+ `!IsProtectedFromDamageOrSurvivor` | ❌ |
+| **Markerlight** `:3587` | `_ResolveAttack…:1254` **`EnoughPendingDamageToDie(目标)`** | ❌ |
+| **`sniperKillEarly`** `:3408` | `EnoughPendingDamageToDie(攻方)` | ❌ |
+| **星镖档跳主伤害** `:3463` | `_ResolveAttack…:616/:632` 的 2 字节双标志（`+0x139`/`+0x13a`） | ❌ |
+
+⇒ **裁定：`targetDied` 的定义【一个字节都不动】**（照简报第一种形状会**一次性引入 3~4 处新偏离**）；**只有第 6 处用途（震荡那一格）的原版判据是 `IsInPlay()`**。
+
+**实现**：新增**具名判定口** `RuleCore.StunStillOnBoard(ctx, tgtP, tgtSlot, target, targetDied)`（`RuleCore.cs:2892`），震荡那一格（老闸 `!targetDied && target.IsAlive`）改成调它。
+- ① 没被打死 ⇒ 返回 `target`（**判据一个字节没改**，只是从调用点搬进来）；② 打死了 ⇒ **唯有** `Board[tgtSlot]` 是「`IsRemnant` ∧ **实例相等**」的才算还在场上，返回它。
+- 🔑 **不构成第二份判别式**：它读的是**棋盘事实**，不用「会不会翻面」的预测；而 `IsRemnant = true` 全仓**只有 `RuleCore.cs:4465` 一个写点**（现核 `grep`）⇒「什么算翻面」这条规则仍**只有一处**。
+- 🔴 **必须返回棋盘上占位的那一个**：`CleanupDeaths` 翻面时**新建** `rem`（`UnitState._keywords` 每实例一份）⇒ 挂旧 `target` = **静默丢掉**。
+- ⛔ 注释里明确否掉两种写法：「加一条『还在棋盘上』」（方向反了）·「`Board[slot].IsAlive`」（会晕到搬进来的别人身上）。
+
+**断言**（`RuleEngine/Editor/RuleEngineTest.cs` `TestAttackKeywords` ③ 之后；⚠️ **只写没跑**）：③′（`Remnant`：5 攻 Concussion 打死带残骸的单位 ⇒ 翻面**且**被晕）· ③″（**灭自证的另一半**：同一发打**不带**残骸的 ⇒ 格位空、整张敌方棋盘一个被晕的都没有）· ③‴（关键词换 `Waystone` ⇒ 同样翻面**且**被晕）。
+🔑 **灭自证成立的理由**：③′/③″ **只差「会不会翻面」一个变量**而结果要求相反 ⇒ 改回旧写法红、放宽成「血≤0也晕」红、挂回旧对象 ③′ 红 —— **不可能一起改回去还全绿**。
+
+**顺带就地更正**：`RuleCore.cs` 里 `A1166` 那块「已判等价」的结论（差的就是残骸那一档，错因 = 「血 ≤ 0」≠「这一批必死」）；并把它挂着的那条「**没查清**：`CheckIfDead` 与眩晕结算的先后」**改成已查清**。
+
+- **验证**：`TMPDIR=/tmp/wf_pd … typecheck.sh` ⇒ **运行时 0 / 编辑器 0**（跑两次）。`git diff --numstat`：`RuleCore.cs` **117/31** · `RuleEngineTest.cs` **67/0**（**行尾没被翻**）。
+- 🔴 **断言【没跑过】** ⇒ **收口那趟必须跑 `RuleEngineTest.Run`**（动了 `RuleEngine/Core/` ⇒ **必跑这一条**）。
+- 📌 **`P-D` 顺手订正了调度台的一处事实错**：简报写的自检文件路径 `CardPresentation/Editor/RuleEngineTest.cs`**不存在**，真身是 **`RuleEngine/Editor/RuleEngineTest.cs`**（**CRLF** · 23497/23497，现核）。⇒ **简报里的路径类事实要现核**。
+- 🆕 **它顺手带出的三条已另立账**：`A1223`（`Slay`/`Kills`）· `A1224`（`EffectResolver.DoStun`）· `A1225`（`survivor(430)` 补记，归 `A1218②`）。
+
 
