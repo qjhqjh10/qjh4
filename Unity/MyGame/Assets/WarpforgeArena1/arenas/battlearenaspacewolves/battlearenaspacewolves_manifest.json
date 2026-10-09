@@ -131,6 +131,7 @@
       "worldBaked": false,
       "obj": "Cauldron 21",
       "objFile": "Cauldron 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         101.163857,
@@ -789,7 +790,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Full Moon 5",
@@ -797,6 +799,7 @@
       "worldBaked": false,
       "obj": "Full Moon 51",
       "objFile": "Full Moon 51.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         74.998688,
@@ -1455,7 +1458,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": false
     },
     {
       "go": "Full Moon 6",
@@ -1463,6 +1467,7 @@
       "worldBaked": false,
       "obj": "Full Moon 61",
       "objFile": "Full Moon 61.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         87.258583,
@@ -2121,7 +2126,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": false
     },
     {
       "go": "Cauldron 7",
@@ -2129,6 +2135,7 @@
       "worldBaked": false,
       "obj": "Cauldron 71",
       "objFile": "Cauldron 71.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         89.982033,
@@ -2787,7 +2794,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Cauldron 1",
@@ -2795,6 +2803,7 @@
       "worldBaked": false,
       "obj": "Cauldron 11",
       "objFile": "Cauldron 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         102.576393,
@@ -3453,7 +3462,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Full Moon 2",
@@ -3461,6 +3471,7 @@
       "worldBaked": false,
       "obj": "Full Moon 21",
       "objFile": "Full Moon 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         89.610886,
@@ -4119,7 +4130,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": false
     },
     {
       "go": "Dynamic Lights 6",
@@ -4127,6 +4139,7 @@
       "worldBaked": false,
       "obj": "Dynamic Lights 61",
       "objFile": "Dynamic Lights 61.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         102.140106,
@@ -4785,7 +4798,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Full Moon 13",
@@ -4793,6 +4807,7 @@
       "worldBaked": false,
       "obj": "Full Moon 131",
       "objFile": "Full Moon 131.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         72.053841,
@@ -5451,7 +5466,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": false
     },
     {
       "go": "Dynamic Lights 7",
@@ -5459,6 +5475,7 @@
       "worldBaked": false,
       "obj": "Dynamic Lights 71",
       "objFile": "Dynamic Lights 71.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         109.502472,
@@ -6117,7 +6134,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Rock 1",
@@ -6125,6 +6143,7 @@
       "worldBaked": false,
       "obj": "Rock 11",
       "objFile": "Rock 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         107.31942,
@@ -6783,7 +6802,109 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
+    },
+    {
+      "go": "Shadow Receiver",
+      "subMesh": null,
+      "worldBaked": false,
+      "obj": "Quad",
+      "objFile": null,
+      "builtinMesh": "Quad",
+      "subFiles": null,
+      "pos": [
+        100.0,
+        0.0,
+        0.0
+      ],
+      "rot": [
+        0.707106,
+        0.0,
+        0.0,
+        0.707108
+      ],
+      "scale": [
+        81.161079,
+        35.126866,
+        41.907949
+      ],
+      "tex": null,
+      "texFile": null,
+      "subMats": [
+        {
+          "tex": null,
+          "texFile": null,
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 2,
+          "dstBlend": 0,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/Misc/URP Transparent Shadow Receiver",
+          "queue": 3000,
+          "props": [
+            {
+              "k": "_ShadowColor",
+              "t": "c",
+              "c": [
+                0.3499999940395355,
+                0.4000000059604645,
+                0.44999998807907104,
+                1.0
+              ]
+            }
+          ]
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 2,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/Misc/URP Transparent Shadow Receiver",
+      "props": [
+        {
+          "k": "_ShadowColor",
+          "t": "c",
+          "c": [
+            0.3499999940395355,
+            0.4000000059604645,
+            0.44999998807907104,
+            1.0
+          ]
+        }
+      ],
+      "texOpaquePct": null,
+      "texClearPct": null,
+      "active": false,
+      "hasShadow": true,
+      "shadowCast": 1,
+      "shadowReceive": 1
     },
     {
       "go": "Full Moon 1",
@@ -6791,6 +6912,7 @@
       "worldBaked": false,
       "obj": "Full Moon 14",
       "objFile": "Full Moon 14.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         96.194298,
@@ -7449,7 +7571,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": false
     },
     {
       "go": "Dynamic Lights 3",
@@ -7457,6 +7580,7 @@
       "worldBaked": false,
       "obj": "Dynamic Lights 31",
       "objFile": "Dynamic Lights 31.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         102.22316,
@@ -8115,7 +8239,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Keep",
@@ -8123,6 +8248,7 @@
       "worldBaked": false,
       "obj": "Keep1",
       "objFile": "Keep1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         107.36705,
@@ -8781,7 +8907,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Background Mountain 2",
@@ -8789,6 +8916,7 @@
       "worldBaked": false,
       "obj": "Background Mountain 21",
       "objFile": "Background Mountain 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         61.122963,
@@ -9447,7 +9575,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Full Moon 9",
@@ -9455,6 +9584,7 @@
       "worldBaked": false,
       "obj": "Full Moon 91",
       "objFile": "Full Moon 91.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         93.717667,
@@ -10113,7 +10243,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": false
     },
     {
       "go": "Keep Light",
@@ -10121,6 +10252,7 @@
       "worldBaked": false,
       "obj": "Keep Light1",
       "objFile": "Keep Light1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         107.477554,
@@ -10779,7 +10911,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Full Moon 8",
@@ -10787,6 +10920,7 @@
       "worldBaked": false,
       "obj": "Full Moon 81",
       "objFile": "Full Moon 81.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         70.245941,
@@ -11445,7 +11579,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": false
     },
     {
       "go": "Full Moon 11",
@@ -11453,6 +11588,7 @@
       "worldBaked": false,
       "obj": "Full Moon 111",
       "objFile": "Full Moon 111.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         60.527447,
@@ -12111,7 +12247,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": false
     },
     {
       "go": "Full Moon",
@@ -12119,6 +12256,7 @@
       "worldBaked": false,
       "obj": "Full Moon1",
       "objFile": "Full Moon1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         13.082267,
@@ -12777,7 +12915,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": false
     },
     {
       "go": "Cache Stealth",
@@ -12785,6 +12924,7 @@
       "worldBaked": false,
       "obj": "Card 3D WH40k",
       "objFile": null,
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         99.529999,
@@ -13463,7 +13603,8 @@
         }
       ],
       "texOpaquePct": 57.7,
-      "texClearPct": 0.0
+      "texClearPct": 0.0,
+      "active": false
     },
     {
       "go": "Structure 4",
@@ -13471,6 +13612,7 @@
       "worldBaked": false,
       "obj": "Structure 41",
       "objFile": "Structure 41.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         89.538925,
@@ -14129,7 +14271,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Cauldron 4",
@@ -14137,6 +14280,7 @@
       "worldBaked": false,
       "obj": "Cauldron 41",
       "objFile": "Cauldron 41.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         112.255379,
@@ -14795,7 +14939,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Dynamic Lights 2",
@@ -14803,6 +14948,7 @@
       "worldBaked": false,
       "obj": "Dynamic Lights 21",
       "objFile": "Dynamic Lights 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         107.161354,
@@ -15461,7 +15607,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Dynamic Lights 4",
@@ -15469,6 +15616,7 @@
       "worldBaked": false,
       "obj": "Dynamic Lights 41",
       "objFile": "Dynamic Lights 41.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         111.425026,
@@ -16127,7 +16275,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Cauldron 3",
@@ -16135,6 +16284,7 @@
       "worldBaked": false,
       "obj": "Cauldron 31",
       "objFile": "Cauldron 31.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         108.770729,
@@ -16793,7 +16943,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Structure 1",
@@ -16801,6 +16952,7 @@
       "worldBaked": false,
       "obj": "Structure 11",
       "objFile": "Structure 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         96.722755,
@@ -17459,7 +17611,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Full Moon 7",
@@ -17467,6 +17620,7 @@
       "worldBaked": false,
       "obj": "Full Moon 71",
       "objFile": "Full Moon 71.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         95.236031,
@@ -18125,7 +18279,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": false
     },
     {
       "go": "Full Moon 4",
@@ -18133,6 +18288,7 @@
       "worldBaked": false,
       "obj": "Full Moon 41",
       "objFile": "Full Moon 41.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         47.695625,
@@ -18791,7 +18947,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": false
     },
     {
       "go": "Floor",
@@ -18799,6 +18956,7 @@
       "worldBaked": false,
       "obj": "Floor",
       "objFile": "Floor.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         100.61203,
@@ -19477,7 +19635,8 @@
         }
       ],
       "texOpaquePct": 80.7,
-      "texClearPct": 19.2
+      "texClearPct": 19.2,
+      "active": true
     },
     {
       "go": "Full Moon 10",
@@ -19485,6 +19644,7 @@
       "worldBaked": false,
       "obj": "Full Moon 101",
       "objFile": "Full Moon 101.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         62.670692,
@@ -20143,7 +20303,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": false
     },
     {
       "go": "Background Sky First Light",
@@ -20151,6 +20312,7 @@
       "worldBaked": false,
       "obj": "Background Sky",
       "objFile": "Background Sky.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         13.513046,
@@ -20829,7 +20991,8 @@
         }
       ],
       "texOpaquePct": 80.7,
-      "texClearPct": 19.2
+      "texClearPct": 19.2,
+      "active": false
     },
     {
       "go": "Rock Midground",
@@ -20837,6 +21000,7 @@
       "worldBaked": false,
       "obj": "Rock Midground1",
       "objFile": "Rock Midground1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         90.934196,
@@ -21495,7 +21659,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Rock 5",
@@ -21503,6 +21668,7 @@
       "worldBaked": false,
       "obj": "Rock 51",
       "objFile": "Rock 51.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         102.527702,
@@ -22161,7 +22327,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Structure 3",
@@ -22169,6 +22336,7 @@
       "worldBaked": false,
       "obj": "Structure 31",
       "objFile": "Structure 31.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         93.750282,
@@ -22827,7 +22995,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Rock 2",
@@ -22835,6 +23004,7 @@
       "worldBaked": false,
       "obj": "Rock 21",
       "objFile": "Rock 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         91.806297,
@@ -23493,7 +23663,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Wolf Right",
@@ -23501,6 +23672,7 @@
       "worldBaked": false,
       "obj": "Wolf Right1",
       "objFile": "Wolf Right1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         110.12236,
@@ -24159,7 +24331,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Banner 1",
@@ -24167,6 +24340,7 @@
       "worldBaked": false,
       "obj": "Banner 11",
       "objFile": "Banner 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         105.360992,
@@ -24865,7 +25039,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Full Moon 3",
@@ -24873,6 +25048,7 @@
       "worldBaked": false,
       "obj": "Full Moon 31",
       "objFile": "Full Moon 31.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         91.609566,
@@ -25531,7 +25707,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": false
     },
     {
       "go": "Dynamic Lights 5",
@@ -25539,6 +25716,7 @@
       "worldBaked": false,
       "obj": "Dynamic Lights 51",
       "objFile": "Dynamic Lights 51.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         101.120766,
@@ -26197,7 +26375,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Background Wolf",
@@ -26205,6 +26384,7 @@
       "worldBaked": false,
       "obj": "Background Wolf1",
       "objFile": "Background Wolf1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         40.26292,
@@ -26863,7 +27043,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Rock 3",
@@ -26871,6 +27052,7 @@
       "worldBaked": false,
       "obj": "Rock 31",
       "objFile": "Rock 31.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         98.158585,
@@ -27529,7 +27711,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Cauldron 6",
@@ -27537,6 +27720,7 @@
       "worldBaked": false,
       "obj": "Cauldron 61",
       "objFile": "Cauldron 61.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         102.891045,
@@ -28195,7 +28379,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Container Cover",
@@ -28203,6 +28388,7 @@
       "worldBaked": false,
       "obj": "Container Cover1",
       "objFile": "Container Cover1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         110.803337,
@@ -28861,7 +29047,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Structure 2",
@@ -28869,6 +29056,7 @@
       "worldBaked": false,
       "obj": "Structure 21",
       "objFile": "Structure 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         95.669273,
@@ -29527,7 +29715,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Structure 5",
@@ -29535,6 +29724,7 @@
       "worldBaked": false,
       "obj": "Structure 51",
       "objFile": "Structure 51.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         89.531151,
@@ -30193,7 +30383,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Background Sky",
@@ -30201,6 +30392,7 @@
       "worldBaked": false,
       "obj": "Background Sky",
       "objFile": "Background Sky.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         13.513046,
@@ -30879,7 +31071,8 @@
         }
       ],
       "texOpaquePct": 80.7,
-      "texClearPct": 19.2
+      "texClearPct": 19.2,
+      "active": true
     },
     {
       "go": "Wolf Left",
@@ -30887,6 +31080,7 @@
       "worldBaked": false,
       "obj": "Wolf Left1",
       "objFile": "Wolf Left1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         101.287399,
@@ -31545,7 +31739,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Banner 2",
@@ -31553,6 +31748,7 @@
       "worldBaked": false,
       "obj": "Banner 21",
       "objFile": "Banner 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         108.994019,
@@ -32251,7 +32447,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Dynamic Lights 1",
@@ -32259,6 +32456,7 @@
       "worldBaked": false,
       "obj": "Dynamic Lights 11",
       "objFile": "Dynamic Lights 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         103.744858,
@@ -32917,7 +33115,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Cauldron 5",
@@ -32925,6 +33124,7 @@
       "worldBaked": false,
       "obj": "Cauldron 51",
       "objFile": "Cauldron 51.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         93.295418,
@@ -33583,7 +33783,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Full Moon 12",
@@ -33591,6 +33792,7 @@
       "worldBaked": false,
       "obj": "Full Moon 121",
       "objFile": "Full Moon 121.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         73.012215,
@@ -34249,7 +34451,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": false
     },
     {
       "go": "Rock 4",
@@ -34257,6 +34460,7 @@
       "worldBaked": false,
       "obj": "Rock 41",
       "objFile": "Rock 41.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         101.427467,
@@ -34915,7 +35119,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Background Gun Placement",
@@ -34923,6 +35128,7 @@
       "worldBaked": false,
       "obj": "Background Gun Placement1",
       "objFile": "Background Gun Placement1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         79.26973,
@@ -35581,7 +35787,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Container",
@@ -35589,6 +35796,7 @@
       "worldBaked": false,
       "obj": "Container1",
       "objFile": "Container1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         110.668365,
@@ -36247,7 +36455,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     },
     {
       "go": "Background Mountain 1",
@@ -36255,6 +36464,7 @@
       "worldBaked": false,
       "obj": "Background Mountain 11",
       "objFile": "Background Mountain 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         99.712578,
@@ -36913,7 +37123,8 @@
         }
       ],
       "texOpaquePct": 47.6,
-      "texClearPct": 50.5
+      "texClearPct": 50.5,
+      "active": true
     }
   ],
   "particles": [

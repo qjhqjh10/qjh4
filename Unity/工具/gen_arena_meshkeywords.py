@@ -87,11 +87,22 @@ def scan_arena(UnityPy, aa, idx, arena):
         if m is not None:
             return sorted(set(m.get('m_ValidKeywords') or [])), m.get('m_Name', '')
         cands = (idx.get('mat') or {}).get(str(pid)) or []
-        for b, nm, kws in cands:
+        # 🔴 **2026-10-09 就地订正（铁律 5）**：下面原来按 **3 元组** `for b, nm, kws in cands` 解包 ——
+        #    **从 2026-10-06 起就是坏的**（`A160` / `A152` 给条目补了 CAB：
+        #    `mat[pid] = [[bundle, CAB, 材质名, [关键字]], …]`，见 `gen_arena_texslots.build_index`
+        #    的 docstring 与它 `:106` 的 `append([f, cab, nm, kws])`）⇒
+        #    解 3 个必然 `ValueError: too many values to unpack`，**这个脚本从那一天起跑不起来**。
+        #    ⚠️ 注意 `tex` 那张表**仍是 3 元组**（`:101`）⇒ **两张表形状不一样**，别照抄。
+        #    改法：按 4 元组解，且**名字要取 `[2]`、不是 `[1]`**（`[1]` 是 CAB，取错了会静默拿 CAB 当材质名）。
+        for row in cands:
+            if len(row) != 4:
+                raise ValueError('mat 索引条目形状不对（期望 [bundle, CAB, 名字, 关键字]，实得 %d 项）：%r'
+                                 % (len(row), row))
+            b, _cab, nm, kws = row
             if b == bundle:
                 return sorted(set(kws or [])), nm
         if cands:
-            return sorted(set(cands[0][2] or [])), cands[0][1]
+            return sorted(set(cands[0][3] or [])), cands[0][2]
         return None, None
 
     # GO 名 → 关键字集合（同名可能多份 ⇒ 记下来，冲突就出声）

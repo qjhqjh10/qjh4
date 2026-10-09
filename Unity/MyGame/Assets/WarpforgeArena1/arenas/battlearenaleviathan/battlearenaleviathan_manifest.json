@@ -131,6 +131,7 @@
       "worldBaked": false,
       "obj": "Prop_vehicle_21",
       "objFile": "Prop_vehicle_21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         108.440926,
@@ -729,7 +730,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Prop_front_2.001",
@@ -737,6 +739,7 @@
       "worldBaked": false,
       "obj": "Prop_front_2.0011",
       "objFile": "Prop_front_2.0011.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         -0.160507,
@@ -1425,7 +1428,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Dynamic_3.002",
@@ -1433,6 +1437,7 @@
       "worldBaked": false,
       "obj": "Dynamic_3.0021",
       "objFile": "Dynamic_3.0021.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         108.429802,
@@ -2121,7 +2126,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Prop_front_4",
@@ -2129,6 +2135,7 @@
       "worldBaked": false,
       "obj": "Prop_front_41",
       "objFile": "Prop_front_41.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         105.185577,
@@ -2767,7 +2774,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "BG_Building_1",
@@ -2775,6 +2783,7 @@
       "worldBaked": false,
       "obj": "BG_Building_11",
       "objFile": "BG_Building_11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         95.226036,
@@ -3443,7 +3452,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Toxic Pool Glow (1)",
@@ -3451,6 +3461,7 @@
       "worldBaked": false,
       "obj": "Toxic Pool Glow",
       "objFile": "Toxic Pool Glow.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         103.860001,
@@ -4399,7 +4410,8 @@
         }
       ],
       "texOpaquePct": 22.4,
-      "texClearPct": 59.8
+      "texClearPct": 59.8,
+      "active": true
     },
     {
       "go": "Dynamic_2.007",
@@ -4407,6 +4419,7 @@
       "worldBaked": false,
       "obj": "Dynamic_2.0071",
       "objFile": "Dynamic_2.0071.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         87.202492,
@@ -5095,7 +5108,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Dynamic_3",
@@ -5103,6 +5117,7 @@
       "worldBaked": false,
       "obj": "Dynamic_31",
       "objFile": "Dynamic_31.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         110.302223,
@@ -5791,7 +5806,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Prop_back_1",
@@ -5799,6 +5815,7 @@
       "worldBaked": false,
       "obj": "Prop_back_11",
       "objFile": "Prop_back_11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         83.801842,
@@ -6397,7 +6414,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Toxic_pool_wall (1)",
@@ -6405,6 +6423,7 @@
       "worldBaked": false,
       "obj": "Toxic_pool_wall1",
       "objFile": "Toxic_pool_wall1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         -33.93,
@@ -7043,7 +7062,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Dynamic_2.003",
@@ -7051,6 +7071,7 @@
       "worldBaked": false,
       "obj": "Dynamic_2.0031",
       "objFile": "Dynamic_2.0031.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         94.953506,
@@ -7739,7 +7760,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Dynamic_2.004",
@@ -7747,6 +7769,7 @@
       "worldBaked": false,
       "obj": "Dynamic_2.0041",
       "objFile": "Dynamic_2.0041.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         0.0,
@@ -8435,7 +8458,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Prop_front_3",
@@ -8443,6 +8467,7 @@
       "worldBaked": false,
       "obj": "Prop_front_31",
       "objFile": "Prop_front_31.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         104.758522,
@@ -9081,7 +9106,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Prop_front_1",
@@ -9089,6 +9115,7 @@
       "worldBaked": false,
       "obj": "Prop_front_11",
       "objFile": "Prop_front_11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         0.0,
@@ -9567,7 +9594,109 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
+    },
+    {
+      "go": "Shadow Receiver",
+      "subMesh": null,
+      "worldBaked": false,
+      "obj": "Quad",
+      "objFile": null,
+      "builtinMesh": "Quad",
+      "subFiles": null,
+      "pos": [
+        100.0,
+        0.0,
+        0.0
+      ],
+      "rot": [
+        0.707106,
+        0.0,
+        0.0,
+        0.707108
+      ],
+      "scale": [
+        81.161079,
+        35.126866,
+        41.907949
+      ],
+      "tex": null,
+      "texFile": null,
+      "subMats": [
+        {
+          "tex": null,
+          "texFile": null,
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 2,
+          "dstBlend": 0,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/Misc/URP Transparent Shadow Receiver",
+          "queue": 3000,
+          "props": [
+            {
+              "k": "_ShadowColor",
+              "t": "c",
+              "c": [
+                0.3499999940395355,
+                0.4000000059604645,
+                0.44999998807907104,
+                1.0
+              ]
+            }
+          ]
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 2,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/Misc/URP Transparent Shadow Receiver",
+      "props": [
+        {
+          "k": "_ShadowColor",
+          "t": "c",
+          "c": [
+            0.3499999940395355,
+            0.4000000059604645,
+            0.44999998807907104,
+            1.0
+          ]
+        }
+      ],
+      "texOpaquePct": null,
+      "texClearPct": null,
+      "active": false,
+      "hasShadow": true,
+      "shadowCast": 1,
+      "shadowReceive": 1
     },
     {
       "go": "Bunker_wall",
@@ -9575,6 +9704,7 @@
       "worldBaked": false,
       "obj": "Bunker_wall1",
       "objFile": "Bunker_wall1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         99.467079,
@@ -10173,7 +10303,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Prop_vehicle_1",
@@ -10181,6 +10312,7 @@
       "worldBaked": false,
       "obj": "Prop_vehicle_11",
       "objFile": "Prop_vehicle_11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         90.379501,
@@ -10779,7 +10911,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Cache Stealth",
@@ -10787,6 +10920,7 @@
       "worldBaked": false,
       "obj": "Card 3D WH40k",
       "objFile": null,
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         99.529999,
@@ -11465,7 +11599,8 @@
         }
       ],
       "texOpaquePct": 57.7,
-      "texClearPct": 0.0
+      "texClearPct": 0.0,
+      "active": false
     },
     {
       "go": "Floor Tentacle",
@@ -11473,6 +11608,7 @@
       "worldBaked": false,
       "obj": "Floor Tentacle1",
       "objFile": "Floor Tentacle1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         104.585846,
@@ -12111,7 +12247,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Toxic_pool",
@@ -12119,6 +12256,7 @@
       "worldBaked": false,
       "obj": "Toxic_pool1",
       "objFile": "Toxic_pool1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         109.825142,
@@ -12787,7 +12925,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Background_sky",
@@ -12795,6 +12934,7 @@
       "worldBaked": false,
       "obj": "Background_sky1",
       "objFile": "Background_sky1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         100.258759,
@@ -13463,7 +13603,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Thorn_4",
@@ -13471,6 +13612,7 @@
       "worldBaked": false,
       "obj": "Thorn_41",
       "objFile": "Thorn_41.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         100.475639,
@@ -14019,7 +14161,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Bunker",
@@ -14027,6 +14170,7 @@
       "worldBaked": false,
       "obj": "Bunker1",
       "objFile": "Bunker1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         91.389618,
@@ -14665,7 +14809,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Spore_Large",
@@ -14673,6 +14818,7 @@
       "worldBaked": false,
       "obj": "Spore_Large1",
       "objFile": "Spore_Large1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         0.0,
@@ -15221,7 +15367,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Thorn_2",
@@ -15229,6 +15376,7 @@
       "worldBaked": false,
       "obj": "Thorn_21",
       "objFile": "Thorn_21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         84.678085,
@@ -15777,7 +15925,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Capillary_1",
@@ -15785,6 +15934,7 @@
       "worldBaked": false,
       "obj": "Capillary_11",
       "objFile": "Capillary_11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         120.899948,
@@ -16333,7 +16483,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Dynamic_2.006",
@@ -16341,6 +16492,7 @@
       "worldBaked": false,
       "obj": "Dynamic_2.0061",
       "objFile": "Dynamic_2.0061.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         105.065758,
@@ -17029,7 +17181,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Toxic_pool_wall",
@@ -17037,6 +17190,7 @@
       "worldBaked": false,
       "obj": "Toxic_pool_wall1",
       "objFile": "Toxic_pool_wall1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         0.0,
@@ -17675,7 +17829,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "BG_Building_5",
@@ -17683,6 +17838,7 @@
       "worldBaked": false,
       "obj": "BG_Building_51",
       "objFile": "BG_Building_51.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         75.658585,
@@ -18281,7 +18437,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Dynamic_2.005",
@@ -18289,6 +18446,7 @@
       "worldBaked": false,
       "obj": "Dynamic_2.0051",
       "objFile": "Dynamic_2.0051.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         105.245003,
@@ -18977,7 +19135,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Dynamic_3.001",
@@ -18985,6 +19144,7 @@
       "worldBaked": false,
       "obj": "Dynamic_3.0011",
       "objFile": "Dynamic_3.0011.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         96.485809,
@@ -19673,7 +19833,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Toxic Pool Glow",
@@ -19681,6 +19842,7 @@
       "worldBaked": false,
       "obj": "Toxic Pool Glow",
       "objFile": "Toxic Pool Glow.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         110.867661,
@@ -20629,7 +20791,8 @@
         }
       ],
       "texOpaquePct": 22.4,
-      "texClearPct": 59.8
+      "texClearPct": 59.8,
+      "active": true
     },
     {
       "go": "BG_Building_2",
@@ -20637,6 +20800,7 @@
       "worldBaked": false,
       "obj": "BG_Building_21",
       "objFile": "BG_Building_21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         124.006927,
@@ -21305,7 +21469,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Thorn_1",
@@ -21313,6 +21478,7 @@
       "worldBaked": false,
       "obj": "Thorn_11",
       "objFile": "Thorn_11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         94.966286,
@@ -21861,7 +22027,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "BG_Building_4",
@@ -21869,6 +22036,7 @@
       "worldBaked": false,
       "obj": "BG_Building_41",
       "objFile": "BG_Building_41.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         132.204941,
@@ -22467,7 +22635,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Thorn_5",
@@ -22475,6 +22644,7 @@
       "worldBaked": false,
       "obj": "Thorn_51",
       "objFile": "Thorn_51.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         108.758865,
@@ -23023,7 +23193,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Capillary_3",
@@ -23031,6 +23202,7 @@
       "worldBaked": false,
       "obj": "Capillary_31",
       "objFile": "Capillary_31.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         134.405624,
@@ -23579,7 +23751,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "BG_Building_6",
@@ -23587,6 +23760,7 @@
       "worldBaked": false,
       "obj": "BG_Building_61",
       "objFile": "BG_Building_61.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         125.580894,
@@ -24255,7 +24429,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "BG_Building_3",
@@ -24263,6 +24438,7 @@
       "worldBaked": false,
       "obj": "BG_Building_31",
       "objFile": "BG_Building_31.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         103.664917,
@@ -24931,7 +25107,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Dynamic_2.002",
@@ -24939,6 +25116,7 @@
       "worldBaked": false,
       "obj": "Dynamic_2.0021",
       "objFile": "Dynamic_2.0021.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         95.105431,
@@ -25627,7 +25805,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Floor",
@@ -25635,6 +25814,7 @@
       "worldBaked": false,
       "obj": "Floor",
       "objFile": "Floor.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         99.286232,
@@ -26103,7 +26283,8 @@
         }
       ],
       "texOpaquePct": 57.2,
-      "texClearPct": 40.7
+      "texClearPct": 40.7,
+      "active": true
     },
     {
       "go": "Prop_front_2",
@@ -26111,6 +26292,7 @@
       "worldBaked": false,
       "obj": "Prop_front_21",
       "objFile": "Prop_front_21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         95.452744,
@@ -26749,7 +26931,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Thorn_3",
@@ -26757,6 +26940,7 @@
       "worldBaked": false,
       "obj": "Thorn_31",
       "objFile": "Thorn_31.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         91.601891,
@@ -27305,7 +27489,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Bunker_door",
@@ -27313,6 +27498,7 @@
       "worldBaked": false,
       "obj": "Bunker_door1",
       "objFile": "Bunker_door1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         92.922998,
@@ -27981,7 +28167,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     },
     {
       "go": "Capillary_2",
@@ -27989,6 +28176,7 @@
       "worldBaked": false,
       "obj": "Capillary_21",
       "objFile": "Capillary_21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         129.881943,
@@ -28537,7 +28725,8 @@
         }
       ],
       "texOpaquePct": 39.7,
-      "texClearPct": 57.8
+      "texClearPct": 57.8,
+      "active": true
     }
   ],
   "particles": [

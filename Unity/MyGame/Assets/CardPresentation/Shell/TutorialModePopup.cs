@@ -626,10 +626,20 @@ namespace CardPresentation
             //   ⚠️ 我们画的那 6 件的**尺寸/相对位置与原版逐位相同**（`ItemBanner` 582.26×173.62 ·
             //   `ItemBack` 196.93×196.92 · `ItemBar` 187.36×26.21 · 三行字 347.05×46.55 / 347.04×47.63 /
             //   349.85×56.08 逐个对上）⇒ **直接对这几件取并集**就是原版那个数（⛔ 不写死 624.75 那个字面量）。
-            var hitR = Union(MenuDraw.PaddedRect(ItemBanner, ItemPiecePad),
-                             MenuDraw.PaddedRect(ItemBack, ItemPiecePad),
-                             MenuDraw.PaddedRect(ItemBar, ItemPiecePad),
-                             ItemTi, ItemSu, ItemDone);
+            // 🔴🔴 **2026-10-09 就地修（真缺陷，收口自检抓到的 6 条红；铁律 5）**：
+            //   下面这一串原来**漏了 `InCell(cell, …)`** —— 那几个 `ItemXxx` 是**格内局部**矩形
+            //   （见 `:199-201` 与上面 `:603-611`：**画图每一处都套了 `InCell`**），只有命中区没套
+            //   ⇒ `hitR` 落在**画布左上角**、与本格毫无交集 ⇒ `MenuDraw.Hit` 连节点都不建
+            //   ⇒ **6 关在真游戏里【全部点不动】**（不只是自检红：`SelectStage` 从不被调 ⇒
+            //     `SetPendingTutorialStage(StageIndex)` 放进通道的恒是 0）。
+            //   ⚠️ 是 `d6c4111`（第六会话收尾那次 `A1053`「命中区 = 可射线件的并集」）改出来的 ——
+            //     改前传的是**整格** `cell`（本来就是画布坐标）所以没露。
+            //   ✅ 修法 = 逐项套 `InCell`（`InCell` 是平移、`PaddedRect` 是按边扩，**先后不影响结果**）。
+            //   📌 上面那段注释里的 **624.76 × 216.92** 是**尺寸**、平移不变 ⇒ 修完照样对。
+            var hitR = Union(InCell(cell, MenuDraw.PaddedRect(ItemBanner, ItemPiecePad)),
+                             InCell(cell, MenuDraw.PaddedRect(ItemBack, ItemPiecePad)),
+                             InCell(cell, MenuDraw.PaddedRect(ItemBar, ItemPiecePad)),
+                             InCell(cell, ItemTi), InCell(cell, ItemSu), InCell(cell, ItemDone));
             int idx = i;
             MenuDraw.Hit(node, "Hit", hitR, QHit, () => SelectStage(idx));
             return node;

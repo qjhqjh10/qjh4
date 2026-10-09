@@ -131,6 +131,7 @@
       "worldBaked": false,
       "obj": "Crate Right 11",
       "objFile": "Crate Right 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         109.60157,
@@ -809,7 +810,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Vehicle 3",
@@ -817,6 +819,7 @@
       "worldBaked": false,
       "obj": "Vehicle 31",
       "objFile": "Vehicle 31.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         135.486633,
@@ -1495,7 +1498,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Background Right",
@@ -1503,6 +1507,7 @@
       "worldBaked": false,
       "obj": "Background Right1",
       "objFile": "Background Right1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         129.20343,
@@ -2181,7 +2186,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Cranes Left",
@@ -2189,6 +2195,7 @@
       "worldBaked": false,
       "obj": "Cranes Left1",
       "objFile": "Cranes Left1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         106.890602,
@@ -2867,7 +2874,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Vehicle 2",
@@ -2875,6 +2883,7 @@
       "worldBaked": false,
       "obj": "Vehicle 21",
       "objFile": "Vehicle 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         122.784775,
@@ -3553,7 +3562,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Barrels",
@@ -3561,6 +3571,7 @@
       "worldBaked": false,
       "obj": "Barrels1",
       "objFile": "Barrels1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         83.848473,
@@ -4239,7 +4250,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Banner 3",
@@ -4247,6 +4259,7 @@
       "worldBaked": false,
       "obj": "Banner 31",
       "objFile": "Banner 31.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         92.36068,
@@ -4925,7 +4938,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Floor",
@@ -4933,6 +4947,7 @@
       "worldBaked": false,
       "obj": "Floor",
       "objFile": "Floor.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         100.20826,
@@ -5571,7 +5586,8 @@
         }
       ],
       "texOpaquePct": 76.1,
-      "texClearPct": 23.6
+      "texClearPct": 23.6,
+      "active": true
     },
     {
       "go": "Statue Plane",
@@ -5579,6 +5595,7 @@
       "worldBaked": false,
       "obj": "Statue Plane1",
       "objFile": "Statue Plane1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         96.850304,
@@ -6257,7 +6274,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Pipes 1",
@@ -6265,6 +6283,7 @@
       "worldBaked": false,
       "obj": "Pipes 11",
       "objFile": "Pipes 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         106.216217,
@@ -6943,7 +6962,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Banner 7",
@@ -6951,6 +6971,7 @@
       "worldBaked": false,
       "obj": "Banner 71",
       "objFile": "Banner 71.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         101.196899,
@@ -7569,7 +7590,109 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
+    },
+    {
+      "go": "Shadow Receiver",
+      "subMesh": null,
+      "worldBaked": false,
+      "obj": "Quad",
+      "objFile": null,
+      "builtinMesh": "Quad",
+      "subFiles": null,
+      "pos": [
+        100.0,
+        0.0,
+        0.0
+      ],
+      "rot": [
+        0.707106,
+        0.0,
+        0.0,
+        0.707108
+      ],
+      "scale": [
+        81.161079,
+        35.126866,
+        41.907949
+      ],
+      "tex": null,
+      "texFile": null,
+      "subMats": [
+        {
+          "tex": null,
+          "texFile": null,
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 2,
+          "dstBlend": 0,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/Misc/URP Transparent Shadow Receiver",
+          "queue": 3000,
+          "props": [
+            {
+              "k": "_ShadowColor",
+              "t": "c",
+              "c": [
+                0.3499999940395355,
+                0.4000000059604645,
+                0.44999998807907104,
+                1.0
+              ]
+            }
+          ]
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 2,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/Misc/URP Transparent Shadow Receiver",
+      "props": [
+        {
+          "k": "_ShadowColor",
+          "t": "c",
+          "c": [
+            0.3499999940395355,
+            0.4000000059604645,
+            0.44999998807907104,
+            1.0
+          ]
+        }
+      ],
+      "texOpaquePct": null,
+      "texClearPct": null,
+      "active": false,
+      "hasShadow": true,
+      "shadowCast": 1,
+      "shadowReceive": 1
     },
     {
       "go": "Generator Right 2",
@@ -7577,6 +7700,7 @@
       "worldBaked": false,
       "obj": "Generator Right 21",
       "objFile": "Generator Right 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         113.066978,
@@ -8255,7 +8379,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Platform Left",
@@ -8263,6 +8388,7 @@
       "worldBaked": false,
       "obj": "Platform Left1",
       "objFile": "Platform Left1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         85.549911,
@@ -8941,7 +9067,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Statue Sculpt",
@@ -8949,6 +9076,7 @@
       "worldBaked": false,
       "obj": "Statue Sculpt1",
       "objFile": "Statue Sculpt1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         96.303101,
@@ -9627,7 +9755,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Banner 9",
@@ -9635,6 +9764,7 @@
       "worldBaked": false,
       "obj": "Banner 91",
       "objFile": "Banner 91.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         104.184082,
@@ -10253,7 +10383,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Genestaler Fan",
@@ -10261,6 +10392,7 @@
       "worldBaked": false,
       "obj": "Genestaler Fan",
       "objFile": "Genestaler Fan.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         112.604401,
@@ -10969,7 +11101,8 @@
         }
       ],
       "texOpaquePct": 77.7,
-      "texClearPct": 21.4
+      "texClearPct": 21.4,
+      "active": true
     },
     {
       "go": "Cache Stealth",
@@ -10977,6 +11110,7 @@
       "worldBaked": false,
       "obj": "Card 3D WH40k",
       "objFile": null,
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         99.529999,
@@ -11655,7 +11789,8 @@
         }
       ],
       "texOpaquePct": 57.7,
-      "texClearPct": 0.0
+      "texClearPct": 0.0,
+      "active": false
     },
     {
       "go": "Hanging Hook",
@@ -11663,6 +11798,7 @@
       "worldBaked": false,
       "obj": "Hanging Hook1",
       "objFile": "Hanging Hook1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         86.595718,
@@ -12341,7 +12477,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Crate Right 3",
@@ -12349,6 +12486,7 @@
       "worldBaked": false,
       "obj": "Crate Right 31",
       "objFile": "Crate Right 31.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         106.165016,
@@ -13027,7 +13165,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Floor Fence",
@@ -13035,6 +13174,7 @@
       "worldBaked": false,
       "obj": "Floor Fence",
       "objFile": "Floor Fence.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         120.314682,
@@ -13713,7 +13853,8 @@
         }
       ],
       "texOpaquePct": 76.1,
-      "texClearPct": 23.6
+      "texClearPct": 23.6,
+      "active": true
     },
     {
       "go": "Chain 3",
@@ -13721,6 +13862,7 @@
       "worldBaked": false,
       "obj": "Chain 31",
       "objFile": "Chain 31.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         100.889999,
@@ -14399,7 +14541,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Machinery Center 2",
@@ -14407,6 +14550,7 @@
       "worldBaked": false,
       "obj": "Machinery Center 21",
       "objFile": "Machinery Center 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         108.825752,
@@ -15085,7 +15229,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Crates Left 1",
@@ -15093,6 +15238,7 @@
       "worldBaked": false,
       "obj": "Crates Left 11",
       "objFile": "Crates Left 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         82.126221,
@@ -15771,7 +15917,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Platform Left Fence",
@@ -15779,6 +15926,7 @@
       "worldBaked": false,
       "obj": "Platform Left Fence1",
       "objFile": "Platform Left Fence1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         82.454201,
@@ -16457,7 +16605,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Generator Left extra",
@@ -16465,6 +16614,7 @@
       "worldBaked": false,
       "obj": "Generator Left extra1",
       "objFile": "Generator Left extra1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         81.276352,
@@ -17143,7 +17293,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Background Platform Right",
@@ -17151,6 +17302,7 @@
       "worldBaked": false,
       "obj": "Background Platform Right1",
       "objFile": "Background Platform Right1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         126.914108,
@@ -17829,7 +17981,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Banner 5",
@@ -17837,6 +17990,7 @@
       "worldBaked": false,
       "obj": "Banner 51",
       "objFile": "Banner 51.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         98.432175,
@@ -18455,7 +18609,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Crate Right 2",
@@ -18463,6 +18618,7 @@
       "worldBaked": false,
       "obj": "Crate Right 21",
       "objFile": "Crate Right 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         110.12355,
@@ -19141,7 +19297,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Banner 2",
@@ -19149,6 +19306,7 @@
       "worldBaked": false,
       "obj": "Banner 21",
       "objFile": "Banner 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         91.63295,
@@ -19767,7 +19925,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Genestaler Fan",
@@ -19775,6 +19934,7 @@
       "worldBaked": false,
       "obj": "Genestaler Fan",
       "objFile": "Genestaler Fan.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         112.604401,
@@ -20483,7 +20643,8 @@
         }
       ],
       "texOpaquePct": 77.7,
-      "texClearPct": 21.4
+      "texClearPct": 21.4,
+      "active": true
     },
     {
       "go": "Background Cave",
@@ -20491,6 +20652,7 @@
       "worldBaked": false,
       "obj": "Background Cave",
       "objFile": "Background Cave.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         91.784615,
@@ -21249,7 +21411,8 @@
         }
       ],
       "texOpaquePct": 76.1,
-      "texClearPct": 23.6
+      "texClearPct": 23.6,
+      "active": true
     },
     {
       "go": "Machinery Center",
@@ -21257,6 +21420,7 @@
       "worldBaked": false,
       "obj": "Machinery Center1",
       "objFile": "Machinery Center1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         93.00399,
@@ -21935,7 +22099,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Crates Left 2",
@@ -21943,6 +22108,7 @@
       "worldBaked": false,
       "obj": "Crates Left 21",
       "objFile": "Crates Left 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         86.127594,
@@ -22621,7 +22787,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Background Platform Right.001",
@@ -22629,6 +22796,7 @@
       "worldBaked": false,
       "obj": "Background Platform Right.0011",
       "objFile": "Background Platform Right.0011.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         129.680099,
@@ -23307,7 +23475,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Generator Right 1",
@@ -23315,6 +23484,7 @@
       "worldBaked": false,
       "obj": "Generator Right 11",
       "objFile": "Generator Right 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         112.621742,
@@ -23993,7 +24163,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Vehicle 1",
@@ -24001,6 +24172,7 @@
       "worldBaked": false,
       "obj": "Vehicle 11",
       "objFile": "Vehicle 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         114.384537,
@@ -24679,7 +24851,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Statue Base Extra",
@@ -24687,6 +24860,7 @@
       "worldBaked": false,
       "obj": "Statue Base Extra1",
       "objFile": "Statue Base Extra1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         96.45903,
@@ -25365,7 +25539,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Chain 4",
@@ -25373,6 +25548,7 @@
       "worldBaked": false,
       "obj": "Chain 41",
       "objFile": "Chain 41.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         101.561783,
@@ -26051,7 +26227,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Chain 2",
@@ -26059,6 +26236,7 @@
       "worldBaked": false,
       "obj": "Chain 21",
       "objFile": "Chain 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         93.411659,
@@ -26737,7 +26915,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Banner 1",
@@ -26745,6 +26924,7 @@
       "worldBaked": false,
       "obj": "Banner 11",
       "objFile": "Banner 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         89.388603,
@@ -27363,7 +27543,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Banner 8",
@@ -27371,6 +27552,7 @@
       "worldBaked": false,
       "obj": "Banner 81",
       "objFile": "Banner 81.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         102.503311,
@@ -27989,7 +28171,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Generator Left",
@@ -27997,6 +28180,7 @@
       "worldBaked": false,
       "obj": "Generator Left1",
       "objFile": "Generator Left1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         77.555466,
@@ -28675,7 +28859,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Banner 4",
@@ -28683,6 +28868,7 @@
       "worldBaked": false,
       "obj": "Banner 41",
       "objFile": "Banner 41.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         94.721977,
@@ -29301,7 +29487,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Banner 6",
@@ -29309,6 +29496,7 @@
       "worldBaked": false,
       "obj": "Banner 61",
       "objFile": "Banner 61.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         100.35524,
@@ -29987,7 +30175,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Background Platform Left",
@@ -29995,6 +30184,7 @@
       "worldBaked": false,
       "obj": "Background Platform Left1",
       "objFile": "Background Platform Left1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         61.665207,
@@ -30673,7 +30863,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Chain 1",
@@ -30681,6 +30872,7 @@
       "worldBaked": false,
       "obj": "Chain 11",
       "objFile": "Chain 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         92.554001,
@@ -31359,7 +31551,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     },
     {
       "go": "Statue Back rubble",
@@ -31367,6 +31560,7 @@
       "worldBaked": false,
       "obj": "Statue Back rubble1",
       "objFile": "Statue Back rubble1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         96.685669,
@@ -32045,7 +32239,8 @@
         }
       ],
       "texOpaquePct": 39.1,
-      "texClearPct": 58.8
+      "texClearPct": 58.8,
+      "active": true
     }
   ],
   "particles": [

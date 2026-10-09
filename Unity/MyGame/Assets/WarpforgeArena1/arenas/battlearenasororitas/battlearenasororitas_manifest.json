@@ -131,6 +131,7 @@
       "worldBaked": false,
       "obj": "Background Windows",
       "objFile": "Background Windows.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         206.600006,
@@ -829,7 +830,8 @@
         }
       ],
       "texOpaquePct": 7.6,
-      "texClearPct": 91.3
+      "texClearPct": 91.3,
+      "active": true
     },
     {
       "go": "Statue L",
@@ -837,6 +839,7 @@
       "worldBaked": false,
       "obj": "Statue L2",
       "objFile": "Statue L2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         81.324387,
@@ -1495,7 +1498,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Cauldron R.001",
@@ -1503,6 +1507,7 @@
       "worldBaked": false,
       "obj": "Cauldron R.001",
       "objFile": "Cauldron R.001.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         106.285347,
@@ -2161,7 +2166,8 @@
         }
       ],
       "texOpaquePct": 4.7,
-      "texClearPct": 42.4
+      "texClearPct": 42.4,
+      "active": true
     },
     {
       "go": "Banner 4",
@@ -2169,6 +2175,7 @@
       "worldBaked": false,
       "obj": "Banner 42",
       "objFile": "Banner 42.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         109.603142,
@@ -2767,7 +2774,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Candles 21",
@@ -2775,6 +2783,7 @@
       "worldBaked": false,
       "obj": "Candles 213",
       "objFile": "Candles 213.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         110.921989,
@@ -3393,7 +3402,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Rope 1",
@@ -3401,6 +3411,7 @@
       "worldBaked": false,
       "obj": "Rope 12",
       "objFile": "Rope 12.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         103.564667,
@@ -4059,7 +4070,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "CandleFlame_mid",
@@ -4067,6 +4079,7 @@
       "worldBaked": false,
       "obj": "CandleFlame_mid",
       "objFile": null,
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         97.271851,
@@ -4108,7 +4121,8 @@
       "shader": null,
       "props": [],
       "texOpaquePct": null,
-      "texClearPct": null
+      "texClearPct": null,
+      "active": true
     },
     {
       "go": "Side Altar 2 R",
@@ -4116,6 +4130,7 @@
       "worldBaked": false,
       "obj": "Side Altar 2 R2",
       "objFile": "Side Altar 2 R2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         108.308388,
@@ -4774,7 +4789,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Candles 29",
@@ -4782,6 +4798,7 @@
       "worldBaked": false,
       "obj": "Candles 292",
       "objFile": "Candles 292.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         85.601471,
@@ -5440,7 +5457,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Statue Base R",
@@ -5448,6 +5466,7 @@
       "worldBaked": false,
       "obj": "Statue Base R2",
       "objFile": "Statue Base R2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         112.441162,
@@ -6106,7 +6125,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "CandleFlame_small",
@@ -6114,6 +6134,7 @@
       "worldBaked": false,
       "obj": "CandleFlame_small",
       "objFile": null,
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         97.271851,
@@ -6155,7 +6176,8 @@
       "shader": null,
       "props": [],
       "texOpaquePct": null,
-      "texClearPct": null
+      "texClearPct": null,
+      "active": true
     },
     {
       "go": "Side Altar R",
@@ -6163,6 +6185,7 @@
       "worldBaked": false,
       "obj": "Side Altar R2",
       "objFile": "Side Altar R2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         110.28611,
@@ -6821,7 +6844,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Floor",
@@ -6829,6 +6853,7 @@
       "worldBaked": false,
       "obj": "Floor",
       "objFile": "Floor.obj",
+      "builtinMesh": null,
       "subFiles": [
         "Floor__sub0.obj",
         "Floor__sub1.obj"
@@ -7810,7 +7835,8 @@
         }
       ],
       "texOpaquePct": 7.6,
-      "texClearPct": 91.3
+      "texClearPct": 91.3,
+      "active": true
     },
     {
       "go": "Hanging Cauldron L",
@@ -7818,6 +7844,7 @@
       "worldBaked": false,
       "obj": "Hanging Cauldron L2",
       "objFile": "Hanging Cauldron L2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         89.442291,
@@ -8476,7 +8503,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Pillar 1 L",
@@ -8484,6 +8512,7 @@
       "worldBaked": false,
       "obj": "Pillar 1 L2",
       "objFile": "Pillar 1 L2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         88.810265,
@@ -9142,7 +9171,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Banner 2",
@@ -9150,6 +9180,7 @@
       "worldBaked": false,
       "obj": "Banner 22",
       "objFile": "Banner 22.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         88.557281,
@@ -9748,7 +9779,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Candles 23",
@@ -9756,6 +9788,7 @@
       "worldBaked": false,
       "obj": "Candles 232",
       "objFile": "Candles 232.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         109.710083,
@@ -10374,7 +10407,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Candles 18",
@@ -10382,6 +10416,7 @@
       "worldBaked": false,
       "obj": "Candles 182",
       "objFile": "Candles 182.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         109.009399,
@@ -11040,7 +11075,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Candles 9",
@@ -11048,6 +11084,7 @@
       "worldBaked": false,
       "obj": "Candles 92",
       "objFile": "Candles 92.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         83.600685,
@@ -11666,7 +11703,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Candles 1",
@@ -11674,6 +11712,7 @@
       "worldBaked": false,
       "obj": "Candles 112",
       "objFile": "Candles 112.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         96.293228,
@@ -12292,7 +12331,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Candles 8",
@@ -12300,6 +12340,7 @@
       "worldBaked": false,
       "obj": "Candles 82",
       "objFile": "Candles 82.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         82.458397,
@@ -12918,7 +12959,109 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
+    },
+    {
+      "go": "Shadow Receiver",
+      "subMesh": null,
+      "worldBaked": false,
+      "obj": "Quad",
+      "objFile": null,
+      "builtinMesh": "Quad",
+      "subFiles": null,
+      "pos": [
+        100.0,
+        0.0,
+        0.0
+      ],
+      "rot": [
+        0.707106,
+        0.0,
+        0.0,
+        0.707108
+      ],
+      "scale": [
+        81.161079,
+        35.126866,
+        41.907949
+      ],
+      "tex": null,
+      "texFile": null,
+      "subMats": [
+        {
+          "tex": null,
+          "texFile": null,
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 2,
+          "dstBlend": 0,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/Misc/URP Transparent Shadow Receiver",
+          "queue": 3000,
+          "props": [
+            {
+              "k": "_ShadowColor",
+              "t": "c",
+              "c": [
+                0.3499999940395355,
+                0.4000000059604645,
+                0.44999998807907104,
+                1.0
+              ]
+            }
+          ]
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 2,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/Misc/URP Transparent Shadow Receiver",
+      "props": [
+        {
+          "k": "_ShadowColor",
+          "t": "c",
+          "c": [
+            0.3499999940395355,
+            0.4000000059604645,
+            0.44999998807907104,
+            1.0
+          ]
+        }
+      ],
+      "texOpaquePct": null,
+      "texClearPct": null,
+      "active": false,
+      "hasShadow": true,
+      "shadowCast": 1,
+      "shadowReceive": 1
     },
     {
       "go": "Pillar 2 R",
@@ -12926,6 +13069,7 @@
       "worldBaked": false,
       "obj": "Pillar 2 R2",
       "objFile": "Pillar 2 R2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         114.297516,
@@ -13584,7 +13728,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Side Altar 5 R",
@@ -13592,6 +13737,7 @@
       "worldBaked": false,
       "obj": "Side Altar 5 R2",
       "objFile": "Side Altar 5 R2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         107.75293,
@@ -14250,7 +14396,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Candles 12",
@@ -14258,6 +14405,7 @@
       "worldBaked": false,
       "obj": "Candles 122",
       "objFile": "Candles 122.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         87.579636,
@@ -14876,7 +15024,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Candles 19",
@@ -14884,6 +15033,7 @@
       "worldBaked": false,
       "obj": "Candles 192",
       "objFile": "Candles 192.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         109.459785,
@@ -15502,7 +15652,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Candles 3",
@@ -15510,6 +15661,7 @@
       "worldBaked": false,
       "obj": "Candles 35",
       "objFile": "Candles 35.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         97.283875,
@@ -16128,7 +16280,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Banner 1",
@@ -16136,6 +16289,7 @@
       "worldBaked": false,
       "obj": "Banner 12",
       "objFile": "Banner 12.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         83.763229,
@@ -16734,7 +16888,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Pillar 1 Base Wall L",
@@ -16742,6 +16897,7 @@
       "worldBaked": false,
       "obj": "Pillar 1 Base Wall L2",
       "objFile": "Pillar 1 Base Wall L2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         89.823357,
@@ -17400,7 +17556,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Candles 4",
@@ -17408,6 +17565,7 @@
       "worldBaked": false,
       "obj": "Candles 42",
       "objFile": "Candles 42.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         103.245499,
@@ -18026,7 +18184,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Side Altar 2 L",
@@ -18034,6 +18193,7 @@
       "worldBaked": false,
       "obj": "Side Altar 2 L2",
       "objFile": "Side Altar 2 L2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         84.637985,
@@ -18692,7 +18852,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Cache Stealth",
@@ -18700,6 +18861,7 @@
       "worldBaked": false,
       "obj": "Card 3D WH40k",
       "objFile": null,
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         99.529999,
@@ -19378,7 +19540,8 @@
         }
       ],
       "texOpaquePct": 57.7,
-      "texClearPct": 0.0
+      "texClearPct": 0.0,
+      "active": false
     },
     {
       "go": "Candles 13",
@@ -19386,6 +19549,7 @@
       "worldBaked": false,
       "obj": "Candles 132",
       "objFile": "Candles 132.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         87.04496,
@@ -20004,7 +20168,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Candles 14",
@@ -20012,6 +20177,7 @@
       "worldBaked": false,
       "obj": "Candles 142",
       "objFile": "Candles 142.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         106.620674,
@@ -20630,7 +20796,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Statue Base L",
@@ -20638,6 +20805,7 @@
       "worldBaked": false,
       "obj": "Statue Base L2",
       "objFile": "Statue Base L2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         80.185959,
@@ -21296,7 +21464,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Altar Center",
@@ -21304,6 +21473,7 @@
       "worldBaked": false,
       "obj": "Altar Center2",
       "objFile": "Altar Center2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         95.495995,
@@ -21962,7 +22132,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Foreground Decorations R",
@@ -21970,6 +22141,7 @@
       "worldBaked": false,
       "obj": "Foreground Decorations R2",
       "objFile": "Foreground Decorations R2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         103.454781,
@@ -22628,7 +22800,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Rope 1.001",
@@ -22636,6 +22809,7 @@
       "worldBaked": false,
       "obj": "Rope 1.0012",
       "objFile": "Rope 1.0012.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         102.482628,
@@ -23294,7 +23468,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Banner 3",
@@ -23302,6 +23477,7 @@
       "worldBaked": false,
       "obj": "Banner 32",
       "objFile": "Banner 32.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         103.091911,
@@ -23900,7 +24076,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Candles 15",
@@ -23908,6 +24085,7 @@
       "worldBaked": false,
       "obj": "Candles 152",
       "objFile": "Candles 152.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         107.322388,
@@ -24566,7 +24744,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Pillar 1 Base L",
@@ -24574,6 +24753,7 @@
       "worldBaked": false,
       "obj": "Pillar 1 Base L2",
       "objFile": "Pillar 1 Base L2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         89.031364,
@@ -25232,7 +25412,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Background Stairs R",
@@ -25240,6 +25421,7 @@
       "worldBaked": false,
       "obj": "Background Stairs R2",
       "objFile": "Background Stairs R2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         117.281944,
@@ -25898,7 +26080,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Side Altar 6 R",
@@ -25906,6 +26089,7 @@
       "worldBaked": false,
       "obj": "Side Altar 6 R2",
       "objFile": "Side Altar 6 R2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         114.275993,
@@ -26564,7 +26748,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Cables ceiling 2",
@@ -26572,6 +26757,7 @@
       "worldBaked": false,
       "obj": "Cables ceiling 22",
       "objFile": "Cables ceiling 22.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         108.087128,
@@ -27230,7 +27416,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "CandleFlame_big",
@@ -27238,6 +27425,7 @@
       "worldBaked": false,
       "obj": "CandleFlame_big",
       "objFile": null,
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         97.271851,
@@ -27856,7 +28044,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Pillar 1 R",
@@ -27864,6 +28053,7 @@
       "worldBaked": false,
       "obj": "Pillar 1 R2",
       "objFile": "Pillar 1 R2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         109.714027,
@@ -28522,7 +28712,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Candles 22",
@@ -28530,6 +28721,7 @@
       "worldBaked": false,
       "obj": "Candles 222",
       "objFile": "Candles 222.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         109.08548,
@@ -29148,7 +29340,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Side Altar 3 R",
@@ -29156,6 +29349,7 @@
       "worldBaked": false,
       "obj": "Side Altar 3 R2",
       "objFile": "Side Altar 3 R2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         105.54184,
@@ -29814,7 +30008,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Side Altar 4 R",
@@ -29822,6 +30017,7 @@
       "worldBaked": false,
       "obj": "Side Altar 4 R2",
       "objFile": "Side Altar 4 R2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         112.258522,
@@ -30480,7 +30676,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Background Tower",
@@ -30488,6 +30685,7 @@
       "worldBaked": false,
       "obj": "Background Tower2",
       "objFile": "Background Tower2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         93.702225,
@@ -31146,7 +31344,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Candles 11",
@@ -31154,6 +31353,7 @@
       "worldBaked": false,
       "obj": "Candles 113",
       "objFile": "Candles 113.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         85.496506,
@@ -31772,7 +31972,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Candles 2",
@@ -31780,6 +31981,7 @@
       "worldBaked": false,
       "obj": "Candles 212",
       "objFile": "Candles 212.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         96.871559,
@@ -32398,7 +32600,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Candles 28",
@@ -32406,6 +32609,7 @@
       "worldBaked": false,
       "obj": "Candles 282",
       "objFile": "Candles 282.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         112.517975,
@@ -33064,7 +33268,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Candles 31",
@@ -33072,6 +33277,7 @@
       "worldBaked": false,
       "obj": "Candles 312",
       "objFile": "Candles 312.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         111.980743,
@@ -33730,7 +33936,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Pillar 2 L",
@@ -33738,6 +33945,7 @@
       "worldBaked": false,
       "obj": "Pillar 2 L2",
       "objFile": "Pillar 2 L2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         77.563133,
@@ -34396,7 +34604,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Candles 7",
@@ -34404,6 +34613,7 @@
       "worldBaked": false,
       "obj": "Candles 72",
       "objFile": "Candles 72.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         106.059082,
@@ -35022,7 +35232,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Cauldron L.001",
@@ -35030,6 +35241,7 @@
       "worldBaked": false,
       "obj": "Cauldron L.001",
       "objFile": "Cauldron L.001.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         93.957466,
@@ -35688,7 +35900,8 @@
         }
       ],
       "texOpaquePct": 4.7,
-      "texClearPct": 42.4
+      "texClearPct": 42.4,
+      "active": true
     },
     {
       "go": "Side Altar 4 L",
@@ -35696,6 +35909,7 @@
       "worldBaked": false,
       "obj": "Side Altar 4 L2",
       "objFile": "Side Altar 4 L2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         80.58091,
@@ -36354,7 +36568,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Candles 27",
@@ -36362,6 +36577,7 @@
       "worldBaked": false,
       "obj": "Candles 272",
       "objFile": "Candles 272.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         108.858833,
@@ -36980,7 +37196,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Candle 20",
@@ -36988,6 +37205,7 @@
       "worldBaked": false,
       "obj": "Candle 202",
       "objFile": "Candle 202.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         111.087578,
@@ -37606,7 +37824,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Candles 17",
@@ -37614,6 +37833,7 @@
       "worldBaked": false,
       "obj": "Candles 172",
       "objFile": "Candles 172.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         108.654099,
@@ -38232,7 +38452,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Statue R",
@@ -38240,6 +38461,7 @@
       "worldBaked": false,
       "obj": "Statue R2",
       "objFile": "Statue R2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         111.871353,
@@ -38898,7 +39120,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Side Altar 3 L",
@@ -38906,6 +39129,7 @@
       "worldBaked": false,
       "obj": "Side Altar 3 L2",
       "objFile": "Side Altar 3 L2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         87.578697,
@@ -39564,7 +39788,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Cauldron L",
@@ -39572,6 +39797,7 @@
       "worldBaked": false,
       "obj": "Cauldron L2",
       "objFile": "Cauldron L2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         94.008194,
@@ -40230,7 +40456,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Side Altar 5 L",
@@ -40238,6 +40465,7 @@
       "worldBaked": false,
       "obj": "Side Altar 5 L2",
       "objFile": "Side Altar 5 L2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         85.340897,
@@ -40896,7 +41124,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Candles 30",
@@ -40904,6 +41133,7 @@
       "worldBaked": false,
       "obj": "Candles 302",
       "objFile": "Candles 302.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         84.956665,
@@ -41562,7 +41792,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Candles 26",
@@ -41570,6 +41801,7 @@
       "worldBaked": false,
       "obj": "Candles 262",
       "objFile": "Candles 262.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         108.164864,
@@ -42228,7 +42460,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Hanging Cauldron R",
@@ -42236,6 +42469,7 @@
       "worldBaked": false,
       "obj": "Hanging Cauldron R2",
       "objFile": "Hanging Cauldron R2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         104.523689,
@@ -42894,7 +43128,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Candles 16",
@@ -42902,6 +43137,7 @@
       "worldBaked": false,
       "obj": "Candles 162",
       "objFile": "Candles 162.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         107.757332,
@@ -43520,7 +43756,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Foreground Decorations L",
@@ -43528,6 +43765,7 @@
       "worldBaked": false,
       "obj": "Foreground Decorations L2",
       "objFile": "Foreground Decorations L2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         97.108727,
@@ -44186,7 +44424,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Candles 5",
@@ -44194,6 +44433,7 @@
       "worldBaked": false,
       "obj": "Candles 52",
       "objFile": "Candles 52.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         103.556831,
@@ -44812,7 +45052,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Side Altar L",
@@ -44820,6 +45061,7 @@
       "worldBaked": false,
       "obj": "Side Altar L2",
       "objFile": "Side Altar L2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         82.670563,
@@ -45478,7 +45720,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Candles 24",
@@ -45486,6 +45729,7 @@
       "worldBaked": false,
       "obj": "Candles 242",
       "objFile": "Candles 242.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         85.748932,
@@ -46104,7 +46348,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Background Stairs L",
@@ -46112,6 +46357,7 @@
       "worldBaked": false,
       "obj": "Background Stairs L2",
       "objFile": "Background Stairs L2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         68.386124,
@@ -46770,7 +47016,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Candles 25",
@@ -46778,6 +47025,7 @@
       "worldBaked": false,
       "obj": "Candles 252",
       "objFile": "Candles 252.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         107.580544,
@@ -47436,7 +47684,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Candles 6",
@@ -47444,6 +47693,7 @@
       "worldBaked": false,
       "obj": "Candles 62",
       "objFile": "Candles 62.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         103.866325,
@@ -48062,7 +48312,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Pillar 1 Base R",
@@ -48070,6 +48321,7 @@
       "worldBaked": false,
       "obj": "Pillar 1 Base R2",
       "objFile": "Pillar 1 Base R2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         109.413063,
@@ -48728,7 +48980,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Candles 10",
@@ -48736,6 +48989,7 @@
       "worldBaked": false,
       "obj": "Candles 102",
       "objFile": "Candles 102.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         85.570465,
@@ -49354,7 +49608,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Cables ceiling 1",
@@ -49362,6 +49617,7 @@
       "worldBaked": false,
       "obj": "Cables ceiling 12",
       "objFile": "Cables ceiling 12.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         82.956978,
@@ -50020,7 +50276,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Pillar 1 Base Wall R",
@@ -50028,6 +50285,7 @@
       "worldBaked": false,
       "obj": "Pillar 1 Base Wall R2",
       "objFile": "Pillar 1 Base Wall R2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         107.778152,
@@ -50686,7 +50944,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Altar Stairs",
@@ -50694,6 +50953,7 @@
       "worldBaked": false,
       "obj": "Altar Stairs2",
       "objFile": "Altar Stairs2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         95.866241,
@@ -51352,7 +51612,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Cauldron R",
@@ -51360,6 +51621,7 @@
       "worldBaked": false,
       "obj": "Cauldron R2",
       "objFile": "Cauldron R2.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         106.223946,
@@ -52018,7 +52280,8 @@
         }
       ],
       "texOpaquePct": 33.6,
-      "texClearPct": 64.4
+      "texClearPct": 64.4,
+      "active": true
     },
     {
       "go": "Background Windows",
@@ -52026,6 +52289,7 @@
       "worldBaked": false,
       "obj": "Background Windows",
       "objFile": "Background Windows.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         93.740242,
@@ -52724,7 +52988,8 @@
         }
       ],
       "texOpaquePct": 7.6,
-      "texClearPct": 91.3
+      "texClearPct": 91.3,
+      "active": true
     }
   ],
   "particles": [

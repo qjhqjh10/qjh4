@@ -3039,18 +3039,13 @@ namespace RuleEngine
                 hpBefore = target.Health;      // 践踏要算「溢出多少」，所以得记打之前那一下
                 if (!targetDied)
                 {
-                    int dmg = atk;
-                    // 标记光 X：目标带标记光时，**远程**攻击伤害 +X；受远程伤害后**移除全部**标记光
-                    // （规则书 :192；原版 `:4296` 一带）
-                    if (ranged && target.Has("markerlight"))
-                    {
-                        int ml = target.KwValue("markerlight");
-                        dmg += ml;
-                        // ⚠️ 规则书 :192 是「移除**全部**标记光」—— 用 `RemoveKeyword` 只会减一层
-                        target.RemoveAll("markerlight");
-                        ctx.Log($"{target.Name} 身上的 Markerlight {ml} 让这次远程伤害 +{ml}，标记光随后移除");
-                    }
-                    dealt = Hurt(ctx, target, dmg, attacker.Name, p);
+                    // ⚠️ 主伤害里**不含**标记光 —— 标记光是主攻击**之后**单独的一段（见下面那个块）。
+                    //    🔴 **2026-10-09（`A1107` 用户拍板）就地改的**：原来这里是 `dmg += ml`（并进来），
+                    //    那是照**登记**次序（`RecordAttackPendingDamage`：星镖 → 标记光 → 主伤害）推的，
+                    //    **不是结算次序**。结算次序见 `_ResolveAttack_d__438__MoveNext.c`：
+                    //    **星镖 `:618` → 主伤害 `:1116` → 标记光 `:1251`**（用户原话：
+                    //    「星镖—主攻击—标记光/易伤」）。
+                    dealt = Hurt(ctx, target, atk, attacker.Name, p);
                 }
                 ctx.Log($"{attacker.Name} {(ranged ? "远程" : "近战")}攻击 {target.Name}："
                       + $"{atk} 攻 → 实际 {dealt} 伤（{target.Name} 剩 {target.Health}）");
@@ -3059,6 +3054,72 @@ namespace RuleEngine
                 //    而 Sniper 的判断依据正是它。这里补上：`dealt > 0` 是「真的打中了」
                 //    （护盾全挡 = 0、无敌 = 0、打空 = 0），打中了且没血了就是摧毁。
                 if (dealt > 0 && !target.IsAlive) targetDied = true;
+
+                // ================================================================
+                //  🔴 **次序照原版 `_ResolveAttack`**（2026-10-09 就地改的）：
+                //     星镖 `:686` → 主伤害 `:999` → **爆裂 `:1030`** → **践踏 `:1089`**
+                //     → 反击 `:1142` → 标记光 `:1290`。
+                //  ⚠️ 这两段原来排在**反击与标记光之后**，而且**两段的先后也是反的**——
+                //     原来那段注释写的是「规则书把攻击段列成 …④践踏 ⑤爆裂」，那是照**规则书**
+                //     （粉丝实体版、第二来源）排的，**不是照原版代码**。
+                //     判据与独立核验 → `资料/普查产出_第六会话/查证_结算守卫与溢出.md`
+                //     （调动点行号：`ResolveTraitAdjacentDamage` 叫在 `:1030`、`ResolveTraitStompDamage` 在 `:1089`）。
+                //  ⚠️ 它们现在在**同一个批内** ⇒ 「本段打死的单位」死亡**延后到批末** —— 与原版一致：
+                //     主文件与 `CardScript._ReceiveDamage_d__381__MoveNext.c`（373 行）里
+                //     **都没有** `Destroy` / `RemoveMinion` 之类 ⇒ 原版整趟结算里**一个单位都不会被移出场**。
+                // ================================================================
+
+                // ---- 相邻表：**只算一次**，爆裂与践踏共用（原版 `:1012 GetAdjacentUnits`，核验过中途没重算）----
+                var adjSlots = new List<int>();
+                BoardSpec.AdjacentSlots(tgtSlot, adjSlots);   // 🔴「谁算相邻」只此一处（`BoardSpec`）
+                var adjUnits = new List<int>();
+                foreach (int adj in adjSlots)
+                    if (ctx.Players[tgtP].Board[adj] != null) adjUnits.Add(adj);
+
+                // ---- 爆裂 Blast X：对目标**相邻的敌方单位**造成 X 伤害（规则书 :170；原版 `:1020-1045`）----
+                //   · 伤害 = **关键词值** `CurrentBlast`（trait `0x15e`），**不是溢出**；
+                //     每个相邻单位**各打一次**（原版 `ResolveTraitAdjacentDamage.c:18-24`）。
+                //   🔴 **2026-10-09 就地订正（铁律 5）**：原来这里写着
+                //     「只溅射**部队**，不溅射督军（**原版那儿写着** `au.is_warlord: continue`）」——
+                //     **那句是错的**：`is_warlord` 那条的出处在 `d:/warpforge/scripts/rule_core.gd:4355`，
+                //     是【我们自己的 Godot 复刻】（`CLAUDE.md` 点名过它不是权威）。
+                //     真原版**没有**这道过滤 —— 独立核验确认 `MinionManager__GetAdjacentUnits.c:26/57/64/112/119`
+                //     **会把督军放进相邻表**（目标在某行 index 0 ⇒ 靠督军那侧的邻居取的正是 `GetHero()`），
+                //     而主文件 `:1020-1045` 与 `ResolveTraitAdjacentDamage.c` 全程零督军判断 ⇒ **去掉过滤**。
+                //   ⚠️ 也不再看「还活着没有」（原版全程不移出场，见上面那段；`au == null` 仍要判防越界）。
+                if (attacker.Has("blast"))
+                {
+                    int blast = attacker.KwValue("blast");
+                    foreach (int adj in adjUnits)
+                    {
+                        var au = ctx.Players[tgtP].Board[adj];
+                        if (au == null) continue;             // 只跳过空槽（原版那张表里本来就没有空格）
+                        int bd = Hurt(ctx, au, blast, attacker.Name + " 的 Blast");
+                        ctx.Log($"Blast {blast}：溅射 {au.Name} {bd} 伤（剩 {au.Health}）");
+                    }
+                }
+
+                // ---- 践踏 Stomp：**溢出伤害**溅到相邻**随机一个**单位（规则书 :213；原版 `:1057-1112`）----
+                //   判据（`BattleManager__ShouldTriggerStompDamage.c:20-36`）：
+                //     攻方 `HasCurrentTrait(0x4d8)` ∧ **目标裸血 `+0x68 < 0`** ∧ **相邻表长度 > 0**。
+                //   · 我们的 `dealt > hpBefore` ⇔「打完之后血 < 0」（血 = 打前血 − 实际伤害）—— **等价**
+                //     （我们没做 `Bastion` 之类会在中间改血的东西）。
+                //   · **相邻表就用上面那一张**（原版 `:1059` 传的正是同一个 `lVar20.Count`、`:1061/:1066` 也从它挑）
+                //     ⇒ **不重算**、**也不**过滤督军 —— 与爆裂同一张表。
+                //   · 挑法（`:1061-1068`）：只有 1 个就用它，>1 个走**随机**（`GetRandomInt`）
+                //     ⇒ 我们走 `ctx.Rng`（同一局可复现）。
+                if (targetDied && attacker.Has("stomp") && dealt > hpBefore && adjUnits.Count > 0)
+                {
+                    int pickSlot = adjUnits[ctx.Rng.Next(adjUnits.Count)];
+                    var au = ctx.Players[tgtP].Board[pickSlot];
+                    if (au != null)
+                    {
+                        int excess = dealt - hpBefore;
+                        int sd = Hurt(ctx, au, excess, attacker.Name + " 的 Stomp");
+                        ctx.Log($"Stomp：{attacker.Name} 的 {excess} 点溢出伤害溅到相邻的 {au.Name}"
+                              + $"（实际 {sd}，剩 {au.Health}）");
+                    }
+                }
 
                 // 反击：目标用**近战攻击力**反击（不是远程）。只有两个来源能免：
                 //   · Long Range：远程攻击不承受伤害（规则书 :191）
@@ -3079,63 +3140,43 @@ namespace RuleEngine
                 {
                     ctx.Log($"{attacker.Name} 的 Sniper：远程击杀 {target.Name} —— **不承受反击**");
                 }
+
+                // ---- 标记光 X：**主攻击 + 反击之后的最后一段伤害**，自己一次 `Hurt` ----
+                //  判据（原版 `BattleManager._ResolveAttack_d__438__MoveNext.c`，逐句读过）：
+                //   🔴 **位置**：那一段是文件里**最后一次**打目标的 `ReceiveDamage` ——
+                //     星镖 `:686` → 主伤害 `:999` → **反击 `:1142`（打的是攻方）** → **标记光 `:1290`**
+                //     ⇒ 所以它排在**反击之后**，不是紧随主伤害（我们 2026-10-09 第一版放错了）。
+                //   · `:1251` `iVar14 = CurrentMarkerlight(param_1 + 0x130 /* 被打的那个 */)`
+                //     ⇒ 条件 = **目标带标记光**（与我们的 `target.Has("markerlight")` 同）；
+                //   · `:1252` `&& *(int *)(param_1 + 0x58) == 2` ⇒ **只在远程**（同我们的 `ranged`）；
+                //   · `:1254` 🔴 **`if (EnoughPendingDamageToDie(target) != 0) → 整段跳过`**
+                //     ⇒ **这一枪已经要打死它 ⇒ 标记光这一段不做、标记光也不摘**（下面照它）；
+                //   · `:1275-1281` 造 `DamageInfo(attacker, CurrentMarkerlight(target))` → `:1277`
+                //     `BattleManager__BroadcastUnitDamaged` → `:1290` **`CardScript__ReceiveDamage`**
+                //     ⇒ **独立的一次受伤**（不是并进主伤害 ⇒ 护甲对它**另扣一次**）；
+                //   · `:1633`（case `0x1a`，那一次 `ReceiveDamage` 协程跑完之后）
+                //     `CardScript__SetRemoveMarkerlight(target)` ⇒ **摘掉全部标记光**，在**这一段之后**。
+                //  ⚠️ **不进 `dealt`**：`dealt` 是**主攻击**的伤害，践踏的「溢出」按它算
+                //     （而且按上面那条守卫，这一段只在主攻击**没**打死时才走）。
+                //  ⚠️ **`vulnerable`（易伤）不是第四条** —— 它在**每一次** `Hurt` 内部按**当时**的值加
+                //     （原版 `GetAdjustedDamage`）⇒ 各段按**各自那一刻**的易伤算；
+                //     用户那句「看获得这个 buff 的前后」正是靠「逐步读值」自然满足的。
+                if (!targetDied && ranged && target.Has("markerlight"))
+                {
+                    int ml = target.KwValue("markerlight");
+                    int mld = Hurt(ctx, target, ml, attacker.Name + " 的 Markerlight");
+                    // ⚠️ 规则书 :192 是「移除**全部**标记光」—— 用 `RemoveKeyword` 只会减一层
+                    target.RemoveAll("markerlight");
+                    ctx.Log($"Markerlight {ml}：{target.Name} 的标记光在**主攻击（与反击）之后**再算 → "
+                          + $"实际 {mld} 伤（剩 {target.Health}），标记光随后移除");
+                    if (mld > 0 && !target.IsAlive) targetDied = true;
+                }
             }
             // ⬆️ 出批：**到这儿两边伤害才算完**，死亡触发（Backlash / 死亡监听器 / 离场）现在才跑 ——
             //    顺序就是 `:238` 那句「双方结算伤害 → 生命归 0 方触发效果」。
             // ⚠️ 别再在这里手工调 `CleanupDeaths`：`FlushDeaths` 已经处理过了，
             //    重复调虽然安全（第二遍 `u == null` 直接返回），但**猎杀标记**那段在函数最前面，
             //    会**结算两遍**（`AddPendingDeath` 的去重正是为这个加的，别再绕开它）。
-
-            // ---- 践踏 Stomp：**溢出伤害**对目标**相邻随机一个**敌方单位造成 ----
-            //      规则书 :213「攻击时，溢出伤害对目标相邻随机敌方单位造成」；
-            //      我们自己的 `rule_core.gd:4372`（旁证、非权威） 的判据 + `_stomp_splash:4489` 的实现，逐条照抄：
-            //        ① 目标**被打死**了（没死就谈不上「溢出」）
-            //        ② `dealt > 打之前的血量`（护盾全挡 / 无敌时 dealt 是 0，不成立）
-            //        ③ 候选 = 目标格**左右紧邻**那两格里的单位（**不排除督军** —— 原版没排除）
-            //        ④ 候选里**随机**挑一个（走 `ctx.Rng`，同一局可复现；原版是 `randi()`）
-            if (targetDied && attacker.Has("stomp") && dealt > hpBefore)
-            {
-                var cands = new List<int>();
-                var adjSlots = new List<int>();
-                BoardSpec.AdjacentSlots(tgtSlot, adjSlots);      // 🔴「谁算相邻」只此一处（`BoardSpec`）
-                foreach (int adj in adjSlots)
-                {
-                    var au0 = ctx.Players[tgtP].Board[adj];
-                    if (au0 != null && au0.IsAlive) cands.Add(adj);
-                }
-                if (cands.Count > 0)
-                {
-                    int pickSlot = cands[ctx.Rng.Next(cands.Count)];
-                    var au = ctx.Players[tgtP].Board[pickSlot];
-                    int excess = dealt - hpBefore;
-                    int sd = Hurt(ctx, au, excess, attacker.Name + " 的 Stomp");
-                    ctx.Log($"Stomp：{attacker.Name} 的 {excess} 点溢出伤害溅到相邻的 {au.Name}"
-                          + $"（实际 {sd}，剩 {au.Health}）");
-                }
-            }
-
-            // ---- 爆裂 X：攻击时对目标**相邻的敌方单位**造成 X 伤害（规则书 :170；原版 `:4348`）----
-            //      ⚠️ 只溅射**部队**，不溅射督军（原版那儿写着 `au.is_warlord: continue`）
-            // ⚠️ **另开一个批**（不是接着践踏那个）：同一次攻击里的两段衍生伤害是**先后**的
-            //    （规则书把攻击段列成 …④践踏 ⑤爆裂），各自结算完自己的死亡。
-            //    不分开的话，被践踏打死的那张**还站在棋盘上**（死亡延后了），
-            //    爆裂会把伤害**打在尸体上** —— 而 `au.IsAlive` 那道守卫本来是挡这个的。
-            using (SimultaneousDamage(ctx))
-            {
-                if (attacker.Has("blast"))
-                {
-                    int blast = attacker.KwValue("blast");
-                    var adjSlots = new List<int>();
-                    BoardSpec.AdjacentSlots(tgtSlot, adjSlots);  // 🔴「谁算相邻」只此一处（`BoardSpec`）
-                    foreach (int adj in adjSlots)
-                    {
-                        var au = ctx.Players[tgtP].Board[adj];
-                        if (au == null || au.IsWarlord || !au.IsAlive) continue;
-                        int bd = Hurt(ctx, au, blast, attacker.Name + " 的 Blast");
-                        ctx.Log($"Blast {blast}：溅射 {au.Name} {bd} 伤（剩 {au.Health}）");
-                    }
-                }
-            }
 
             // ---- 震荡：**被本单位攻击的单位获得眩晕**（规则书 :177；原版 `:4363`）----
             //      原版只在**目标没死**时施加
@@ -3405,18 +3446,44 @@ namespace RuleEngine
 
         /// <summary>
         /// **普通攻击**这一下打在 <paramref name="tgtP"/>/<paramref name="tgtSlot"/> 那个单位上的
-        /// **全部伤害条目** —— 次序照原版 `CardHighlight__ToggleCombatPreviewHighlight.c:53-81`：
-        /// **[0] 主伤害 → [1] 攻方的星镖 → [2] 被打方身上的标记光**。
+        /// **全部伤害条目** —— 次序 = **真实结算的次序**：
+        /// **[0] 攻方的星镖 → [1] 主伤害 → [2] 被打方的标记光**（三段各自独立，护甲各扣一次）。
         ///
-        /// 🔴 **次序是有意义的**：第 0 条正是 `dodge` / `Shield` 能挡下的那一条
-        ///    （见 <see cref="DamageAfterReductionOne"/>）—— 原版 `<c>:62</c>` 先 `Add` 主伤害，
-        ///    星镖 / 标记光才追加在后面。
+        /// 🔴🔴 **2026-10-09 用户拍板（`A1107`）：本条【不再】照原版预览那一套的次序。**
+        ///    原版自己有两套次序、且互不相同：
+        ///      · **预览** `CardHighlight__ToggleCombatPreviewHighlight.c:62-81`
+        ///        = `[主伤害, 星镖, 标记光]`（本方法历史上照的就是这一套）；
+        ///      · **登记** `BattleManager__RecordAttackPendingDamage.c:59-84` = `[星镖, **标记光**, 主伤害]`
+        ///        （那是 `pendingDamage` 台账，**只喂判死**）；
+        ///      · 🔴 **真实结算** `BattleManager._ResolveAttack_d__438__MoveNext.c`：
+        ///        **星镖 `:618` → 主伤害 `:1116` → 标记光 `:1251`**（用户原话「星镖—主攻击—标记光/易伤」）。
+        ///    ⇒ **裁决：准星（预测）一律照【真实结算】那一套 = `[星镖, 主伤害, 标记光]`** ——
+        ///      预测的职责是与实际一致，照抄原版预览（或那张登记台账）的次序 = 照抄一个**预测不准**的算法。
+        ///    🔴 **这是对原版预览代码的【故意偏离】**，出处 = **用户 2026-10-09 拍板**
+        ///      （铁律 11 例外②）—— ⛔ **别把它「改回原版」**。判据全文
+        ///      → `资料/普查产出_第六会话/W_dodge整条.md` §⑥3 + `TestDodgeKeyword` 第 (4) 组。
         ///
-        /// ⚠️ **两处「跟着我们自己的实际伤害走」**（不是照抄原版那一支，如实标着）：
-        ///   · **标记光只在远程**追加 —— 原版 `<c>:74</c>` 那一支**没判远程**，但我们的实际伤害判了
-        ///     （本文件 `DeclareAttack` 里 `if (ranged &amp;&amp; target.Has("markerlight"))`）⇒
-        ///     预览跟着**实际**走，否则会多报一条**不会发生**的伤害。
-        ///   · **星镖不判远程**（我们的实际伤害也不判）。
+        /// 🔴 **与结算对齐的第二处（同源、一并照结算）：标记光是【独立的一条】，不并进主伤害。**
+        ///    结算那边它是**自己一次 `ReceiveDamage`**（原版 `_ResolveAttack…:1279`）⇒ 护甲对它
+        ///    **另扣一次**；并进主伤害会少扣一次、总伤害与结算不符。
+        ///    🔴 **2026-10-09 晚些的就地订正（用户补充裁决）**：本条一度写成「并进主伤害」——
+        ///    那是照**登记**次序（`RecordAttackPendingDamage` 把标记光记在主伤害**之前**）推的，
+        ///    **不是结算次序**。⇒ 现在三段各自独立，次序照结算那一套。
+        ///
+        /// ⚠️ **落地那三步的真实形状**（`DeclareAttack`；逐条断言在 `TestDodgeKeyword` 第 (4) 组）：
+        ///   ① 星镖**先**单独 `Hurt`（**打死就跳过后面全部**）；
+        ///   ② 主伤害 `Hurt`（**不含标记光**）；
+        ///   ②·b **反击**（打的是**攻方**，不是被打的那个 ⇒ 不进这张表）；
+        ///   ③ 标记光**再单独 `Hurt` 一次**（**已经要打死就整段跳过、连标记光都不摘** —— 原版 `:1254`
+        ///      那个 `EnoughPendingDamageToDie` 守卫），随后摘掉全部标记光。
+        ///   ⇒ **盾 / 闪避在星镖那一下就被消耗掉、主伤害照落**；护甲对**每一条各扣一次**。
+        ///   · 🔴 **`vulnerable`（易伤）不是独立的第四条**：它在**每一次** `Hurt` 内部按**当时**的值加
+        ///     （原版 `GetAdjustedDamage`）⇒ 三段各按各自那一刻的易伤算 —— **「看获得这个 buff 的前后」**
+        ///     这条时序规则正是靠「逐步读值」自然满足的。
+        ///   · 星镖打死时本表**不做**「跳过第 1/2 条」那一步 —— 表只喂
+        ///     <see cref="WouldKillByEntries"/>（判「会不会死」），而那时人已经死了，结论不变。
+        ///   · **标记光只在远程**计入 —— 落地判了远程（原版 `:1252` 那个 `== 2`），预览跟着实际走；
+        ///     **星镖不判远程**（落地也不判）。
         /// </summary>
         public static List<int> AttackDamageEntries(BattleContext ctx, int p, int slot,
                                                     int tgtP, int tgtSlot, bool ranged)
@@ -3427,9 +3494,12 @@ namespace RuleEngine
             var t = ctx.Players[tgtP].Board[tgtSlot];
             if (atk == null || t == null) return list;
 
-            list.Add(FieldAttack(ctx, p, atk, ranged));                              // [0] 主伤害
-            if (atk.Has("shuriken")) list.Add(atk.KwValue("shuriken"));              // [1] 攻方的星镖
-            if (ranged && t.Has("markerlight")) list.Add(t.KwValue("markerlight"));  // [2] 被打方的标记光
+            // [0] 攻方的星镖 —— 结算的**第一段**（独立 `Hurt`，先于主伤害）
+            if (atk.Has("shuriken")) list.Add(atk.KwValue("shuriken"));
+            // [1] 主伤害 —— 结算的**第二段**（**不含**标记光）
+            list.Add(FieldAttack(ctx, p, atk, ranged));
+            // [2] 被打方的标记光 —— 结算的**第三段**（**独立一条**，护甲对它另扣一次）
+            if (ranged && t.Has("markerlight")) list.Add(t.KwValue("markerlight"));
             return list;
         }
 

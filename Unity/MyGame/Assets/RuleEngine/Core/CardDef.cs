@@ -1941,6 +1941,9 @@ namespace RuleEngine
         ///     `CardScript__EnoughPendingDamageToDieWithDamageValues.c:115-119`：
         ///     `0xf0`(dodge) 与 `0x50`(shield) 那两个条件**都带 `|| iVar11 != 0`**
         ///     ⇒ 只有第 0 条被跳过；`0x136`(invulnerable) 不在那一组里 ⇒ 任意条目都跳。
+        ///     🔴 **「第 0 条」是哪一条 —— 2026-10-09 用户拍板（`A1107`）= `星镖`**
+        ///        （照**真实结算**的次序 `[星镖, 主伤害, 标记光]`，原版预览那一套 `[主伤害, …]` 已被裁决弃用）
+        ///        ⇒ 详见 `RuleCore.AttackDamageEntries` 的头注释，⛔ 别照原版预览改回去。
         ///     ✅ 预览侧那一半早已落地（2026-10-08 `W8b3`）：`RuleCore.DamageAfterReductionOne`。
         ///     ✅ 结算侧那一半在本次补上：`RuleCore.DamageAfterReduction` + `RuleCore.ApplyDamage`。
         ///

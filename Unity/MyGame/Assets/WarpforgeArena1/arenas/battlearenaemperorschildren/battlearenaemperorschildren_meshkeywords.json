@@ -2,6 +2,24 @@
   "scene": "battlearenaemperorschildren",
   "meshes": [
     {
+      "go": "Tank distortion 1",
+      "mat": "Emperos Children Fake Distort 1",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Tank distortion 1 (1)",
+      "mat": "Emperos Children Fake Distort 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
       "go": "Cauldron 1",
       "mat": "Battle Arean Emperor's Children Baked Mat",
       "keywords": [

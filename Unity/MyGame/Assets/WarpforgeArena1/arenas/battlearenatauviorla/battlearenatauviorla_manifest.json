@@ -131,6 +131,7 @@
       "worldBaked": false,
       "obj": "Energy Bar",
       "objFile": "Energy Bar.obj",
+      "builtinMesh": null,
       "subFiles": [
         "Energy Bar__sub0.obj",
         "Energy Bar__sub1.obj"
@@ -1652,7 +1653,8 @@
         }
       ],
       "texOpaquePct": null,
-      "texClearPct": null
+      "texClearPct": null,
+      "active": true
     },
     {
       "go": "Console Front Left",
@@ -1660,6 +1662,7 @@
       "worldBaked": false,
       "obj": "Console Front Left1",
       "objFile": "Console Front Left1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         98.130341,
@@ -2338,7 +2341,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "Railgun Tower Base",
@@ -2346,6 +2350,7 @@
       "worldBaked": false,
       "obj": "Railgun Tower Base1",
       "objFile": "Railgun Tower Base1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         47.224384,
@@ -3024,7 +3029,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "Dynamic Lights 4",
@@ -3032,6 +3038,7 @@
       "worldBaked": false,
       "obj": "Dynamic Lights 41",
       "objFile": "Dynamic Lights 41.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         84.895645,
@@ -3710,7 +3717,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "Crashed flyer",
@@ -3718,6 +3726,7 @@
       "worldBaked": false,
       "obj": "Crashed flyer1",
       "objFile": "Crashed flyer1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         99.582314,
@@ -4396,7 +4405,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "BG mountain 1",
@@ -4404,6 +4414,7 @@
       "worldBaked": false,
       "obj": "BG mountain 11",
       "objFile": "BG mountain 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         211.992355,
@@ -5082,7 +5093,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "Dynamic Lights 5",
@@ -5090,6 +5102,7 @@
       "worldBaked": false,
       "obj": "Dynamic Lights 51",
       "objFile": "Dynamic Lights 51.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         89.608475,
@@ -5768,7 +5781,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "Planet 1",
@@ -5776,6 +5790,7 @@
       "worldBaked": false,
       "obj": "Planet 11",
       "objFile": "Planet 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         33.762764,
@@ -6454,7 +6469,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "Bunker console",
@@ -6462,6 +6478,7 @@
       "worldBaked": false,
       "obj": "Bunker console1",
       "objFile": "Bunker console1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         105.069756,
@@ -7140,7 +7157,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "Tau Viorla Energy Bar",
@@ -7148,6 +7166,7 @@
       "worldBaked": false,
       "obj": "Energy Bar",
       "objFile": "Energy Bar.obj",
+      "builtinMesh": null,
       "subFiles": [
         "Energy Bar__sub0.obj",
         "Energy Bar__sub1.obj"
@@ -8669,7 +8688,8 @@
         }
       ],
       "texOpaquePct": null,
-      "texClearPct": null
+      "texClearPct": null,
+      "active": true
     },
     {
       "go": "Railgun Turret Base.002",
@@ -8677,6 +8697,7 @@
       "worldBaked": false,
       "obj": "Railgun Turret Base.002",
       "objFile": "Railgun Turret Base.002.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         110.742393,
@@ -9265,7 +9286,8 @@
         }
       ],
       "texOpaquePct": 100.0,
-      "texClearPct": 0.0
+      "texClearPct": 0.0,
+      "active": true
     },
     {
       "go": "Railgun BIG (1)",
@@ -9273,6 +9295,7 @@
       "worldBaked": false,
       "obj": "Railgun BIG",
       "objFile": "Railgun BIG.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         50.897991,
@@ -9951,7 +9974,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "Crashed tank",
@@ -9959,6 +9983,7 @@
       "worldBaked": false,
       "obj": "Crashed tank1",
       "objFile": "Crashed tank1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         114.449097,
@@ -10637,7 +10662,109 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
+    },
+    {
+      "go": "Shadow Receiver",
+      "subMesh": null,
+      "worldBaked": false,
+      "obj": "Quad",
+      "objFile": null,
+      "builtinMesh": "Quad",
+      "subFiles": null,
+      "pos": [
+        100.0,
+        0.0,
+        0.0
+      ],
+      "rot": [
+        0.707106,
+        0.0,
+        0.0,
+        0.707108
+      ],
+      "scale": [
+        81.161079,
+        35.126866,
+        41.907949
+      ],
+      "tex": null,
+      "texFile": null,
+      "subMats": [
+        {
+          "tex": null,
+          "texFile": null,
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 2,
+          "dstBlend": 0,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/Misc/URP Transparent Shadow Receiver",
+          "queue": 3000,
+          "props": [
+            {
+              "k": "_ShadowColor",
+              "t": "c",
+              "c": [
+                0.3499999940395355,
+                0.4000000059604645,
+                0.44999998807907104,
+                1.0
+              ]
+            }
+          ]
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 2,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/Misc/URP Transparent Shadow Receiver",
+      "props": [
+        {
+          "k": "_ShadowColor",
+          "t": "c",
+          "c": [
+            0.3499999940395355,
+            0.4000000059604645,
+            0.44999998807907104,
+            1.0
+          ]
+        }
+      ],
+      "texOpaquePct": null,
+      "texClearPct": null,
+      "active": false,
+      "hasShadow": true,
+      "shadowCast": 1,
+      "shadowReceive": 1
     },
     {
       "go": "Dynamic Lights 7",
@@ -10645,6 +10772,7 @@
       "worldBaked": false,
       "obj": "Dynamic Lights 71",
       "objFile": "Dynamic Lights 71.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         87.623795,
@@ -11323,7 +11451,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "Cache Stealth",
@@ -11331,6 +11460,7 @@
       "worldBaked": false,
       "obj": "Card 3D WH40k",
       "objFile": null,
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         99.529999,
@@ -12009,7 +12139,8 @@
         }
       ],
       "texOpaquePct": 57.7,
-      "texClearPct": 0.0
+      "texClearPct": 0.0,
+      "active": false
     },
     {
       "go": "Cylinder.001",
@@ -12017,6 +12148,7 @@
       "worldBaked": false,
       "obj": "Cylinder.001",
       "objFile": "Cylinder.001.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         83.90017,
@@ -12605,7 +12737,8 @@
         }
       ],
       "texOpaquePct": 100.0,
-      "texClearPct": 0.0
+      "texClearPct": 0.0,
+      "active": true
     },
     {
       "go": "Plasma Generator",
@@ -12613,6 +12746,7 @@
       "worldBaked": false,
       "obj": "Plasma Generator1",
       "objFile": "Plasma Generator1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         83.468796,
@@ -13291,7 +13425,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "Cylinder.003",
@@ -13299,6 +13434,7 @@
       "worldBaked": false,
       "obj": "Cylinder.003",
       "objFile": "Cylinder.003.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         110.746606,
@@ -13887,7 +14023,8 @@
         }
       ],
       "texOpaquePct": 100.0,
-      "texClearPct": 0.0
+      "texClearPct": 0.0,
+      "active": true
     },
     {
       "go": "Console Front Right 2",
@@ -13895,6 +14032,7 @@
       "worldBaked": false,
       "obj": "Console Front Right 21",
       "objFile": "Console Front Right 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         107.694038,
@@ -14573,7 +14711,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "BG Building 1",
@@ -14581,6 +14720,7 @@
       "worldBaked": false,
       "obj": "BG Building 11",
       "objFile": "BG Building 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         -23.435263,
@@ -15259,7 +15399,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "Dynamic Lights 3",
@@ -15267,6 +15408,7 @@
       "worldBaked": false,
       "obj": "Dynamic Lights 31",
       "objFile": "Dynamic Lights 31.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         88.471069,
@@ -15945,7 +16087,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "Background Sky",
@@ -15953,6 +16096,7 @@
       "worldBaked": false,
       "obj": "Background Sky",
       "objFile": "Background Sky.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         98.81768,
@@ -16631,7 +16775,8 @@
         }
       ],
       "texOpaquePct": 17.9,
-      "texClearPct": 80.2
+      "texClearPct": 80.2,
+      "active": true
     },
     {
       "go": "Floor Rocks",
@@ -16639,6 +16784,7 @@
       "worldBaked": false,
       "obj": "Floor Rocks1",
       "objFile": "Floor Rocks1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         100.658951,
@@ -17317,7 +17463,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "Turret Wall",
@@ -17325,6 +17472,7 @@
       "worldBaked": false,
       "obj": "Turret Wall1",
       "objFile": "Turret Wall1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         66.610985,
@@ -18003,7 +18151,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "Railgun Turret Base.001",
@@ -18011,6 +18160,7 @@
       "worldBaked": false,
       "obj": "Railgun Turret Base.001",
       "objFile": "Railgun Turret Base.001.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         83.895958,
@@ -18599,7 +18749,8 @@
         }
       ],
       "texOpaquePct": 100.0,
-      "texClearPct": 0.0
+      "texClearPct": 0.0,
+      "active": true
     },
     {
       "go": "Floor",
@@ -18607,6 +18758,7 @@
       "worldBaked": false,
       "obj": "Floor",
       "objFile": "Floor.obj",
+      "builtinMesh": null,
       "subFiles": [
         "Floor__sub0.obj",
         "Floor__sub1.obj"
@@ -19548,7 +19700,8 @@
         }
       ],
       "texOpaquePct": 17.9,
-      "texClearPct": 80.2
+      "texClearPct": 80.2,
+      "active": true
     },
     {
       "go": "Plasma Generator Vent 1",
@@ -19556,6 +19709,7 @@
       "worldBaked": false,
       "obj": "Plasma Generator Vent 11",
       "objFile": "Plasma Generator Vent 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         83.19709,
@@ -20234,7 +20388,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "BG Building 4",
@@ -20242,6 +20397,7 @@
       "worldBaked": false,
       "obj": "BG Building 41",
       "objFile": "BG Building 41.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         153.322922,
@@ -20920,7 +21076,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "BG Building 3",
@@ -20928,6 +21085,7 @@
       "worldBaked": false,
       "obj": "BG Building 31",
       "objFile": "BG Building 31.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         91.861588,
@@ -21606,7 +21764,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "Gun 1",
@@ -21614,6 +21773,7 @@
       "worldBaked": false,
       "obj": "Gun 11",
       "objFile": "Gun 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         98.567642,
@@ -22292,7 +22452,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "Railgun Tower",
@@ -22300,6 +22461,7 @@
       "worldBaked": false,
       "obj": "Railgun Tower1",
       "objFile": "Railgun Tower1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         45.190811,
@@ -22978,7 +23140,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "Generator coil 2",
@@ -22986,6 +23149,7 @@
       "worldBaked": false,
       "obj": "Generator coil 21",
       "objFile": "Generator coil 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         76.743698,
@@ -23664,7 +23828,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "Console lever",
@@ -23672,6 +23837,7 @@
       "worldBaked": false,
       "obj": "Console lever1",
       "objFile": "Console lever1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         106.39608,
@@ -24350,7 +24516,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "Planet 2",
@@ -24358,6 +24525,7 @@
       "worldBaked": false,
       "obj": "Planet 21",
       "objFile": "Planet 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         66.531464,
@@ -25036,7 +25204,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "Gun 2",
@@ -25044,6 +25213,7 @@
       "worldBaked": false,
       "obj": "Gun 21",
       "objFile": "Gun 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         98.423355,
@@ -25722,7 +25892,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "BG mountain 2",
@@ -25730,6 +25901,7 @@
       "worldBaked": false,
       "obj": "BG mountain 21",
       "objFile": "BG mountain 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         128.312439,
@@ -26408,7 +26580,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "Dynamic Lights 2",
@@ -26416,6 +26589,7 @@
       "worldBaked": false,
       "obj": "Dynamic Lights 21",
       "objFile": "Dynamic Lights 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         106.692917,
@@ -27094,7 +27268,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "Console Front Right",
@@ -27102,6 +27277,7 @@
       "worldBaked": false,
       "obj": "Console Front Right1",
       "objFile": "Console Front Right1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         106.724197,
@@ -27780,7 +27956,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "Tau Viorla Energy Bar (4)",
@@ -27788,6 +27965,7 @@
       "worldBaked": false,
       "obj": "Energy Bar",
       "objFile": "Energy Bar.obj",
+      "builtinMesh": null,
       "subFiles": [
         "Energy Bar__sub0.obj",
         "Energy Bar__sub1.obj"
@@ -29309,7 +29487,8 @@
         }
       ],
       "texOpaquePct": null,
-      "texClearPct": null
+      "texClearPct": null,
+      "active": true
     },
     {
       "go": "Drone 1",
@@ -29317,6 +29496,7 @@
       "worldBaked": false,
       "obj": "Drone 11",
       "objFile": "Drone 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         105.931152,
@@ -29995,7 +30175,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "Drone 2",
@@ -30003,6 +30184,7 @@
       "worldBaked": false,
       "obj": "Drone 21",
       "objFile": "Drone 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         105.931931,
@@ -30681,7 +30863,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "Dynamic Lights 1",
@@ -30689,6 +30872,7 @@
       "worldBaked": false,
       "obj": "Dynamic Lights 11",
       "objFile": "Dynamic Lights 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         83.976852,
@@ -31367,7 +31551,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "BG Building 2",
@@ -31375,6 +31560,7 @@
       "worldBaked": false,
       "obj": "BG Building 21",
       "objFile": "BG Building 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         97.131462,
@@ -32053,7 +32239,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "Dynamic Lights 6",
@@ -32061,6 +32248,7 @@
       "worldBaked": false,
       "obj": "Dynamic Lights 61",
       "objFile": "Dynamic Lights 61.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         108.071899,
@@ -32739,7 +32927,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "Bunker 2",
@@ -32747,6 +32936,7 @@
       "worldBaked": false,
       "obj": "Bunker 21",
       "objFile": "Bunker 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         84.094177,
@@ -33425,7 +33615,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "Generator coil 1",
@@ -33433,6 +33624,7 @@
       "worldBaked": false,
       "obj": "Generator coil 11",
       "objFile": "Generator coil 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         76.154366,
@@ -34111,7 +34303,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "Plasma Generator inside",
@@ -34119,6 +34312,7 @@
       "worldBaked": false,
       "obj": "Plasma Generator inside1",
       "objFile": "Plasma Generator inside1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         82.869179,
@@ -34797,7 +34991,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "Bunker 1",
@@ -34805,6 +35000,7 @@
       "worldBaked": false,
       "obj": "Bunker 11",
       "objFile": "Bunker 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         110.873238,
@@ -35483,7 +35679,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "Plasma Generator Vent 2",
@@ -35491,6 +35688,7 @@
       "worldBaked": false,
       "obj": "Plasma Generator Vent 21",
       "objFile": "Plasma Generator Vent 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         87.236694,
@@ -36169,7 +36367,8 @@
         }
       ],
       "texOpaquePct": 33.5,
-      "texClearPct": 65.0
+      "texClearPct": 65.0,
+      "active": true
     },
     {
       "go": "Tau Viorla Energy Bar (2)",
@@ -36177,6 +36376,7 @@
       "worldBaked": false,
       "obj": "Energy Bar",
       "objFile": "Energy Bar.obj",
+      "builtinMesh": null,
       "subFiles": [
         "Energy Bar__sub0.obj",
         "Energy Bar__sub1.obj"
@@ -37698,7 +37898,8 @@
         }
       ],
       "texOpaquePct": null,
-      "texClearPct": null
+      "texClearPct": null,
+      "active": true
     }
   ],
   "particles": [

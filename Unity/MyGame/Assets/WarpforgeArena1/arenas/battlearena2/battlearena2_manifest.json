@@ -131,6 +131,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene)",
       "objFile": "Combined Mesh (root_ scene).obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene)__sm10.obj"
       ],
@@ -881,7 +882,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Rope",
@@ -889,6 +891,7 @@
       "worldBaked": false,
       "obj": "Rope1",
       "objFile": "Rope1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         124.438225,
@@ -1507,7 +1510,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Scrap_5",
@@ -1515,6 +1519,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene)",
       "objFile": "Combined Mesh (root_ scene).obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene)__sm15.obj"
       ],
@@ -2135,7 +2140,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Tower_Left.001",
@@ -2143,6 +2149,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene)",
       "objFile": "Combined Mesh (root_ scene).obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene)__sm19.obj"
       ],
@@ -2893,7 +2900,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Steam pipes 2",
@@ -2901,6 +2909,7 @@
       "worldBaked": false,
       "obj": "Steam pipes 21",
       "objFile": "Steam pipes 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         126.846745,
@@ -3519,7 +3528,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "DL_7_Tower_Right",
@@ -3527,6 +3537,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene)",
       "objFile": "Combined Mesh (root_ scene).obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene)__sm25.obj"
       ],
@@ -4027,7 +4038,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "DL_3_Barrels",
@@ -4035,6 +4047,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene)",
       "objFile": "Combined Mesh (root_ scene).obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene)__sm9.obj"
       ],
@@ -4535,7 +4548,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Scrap_3",
@@ -4543,6 +4557,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene)",
       "objFile": "Combined Mesh (root_ scene).obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene)__sm7.obj"
       ],
@@ -5293,7 +5308,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Pump mask",
@@ -5301,6 +5317,7 @@
       "worldBaked": false,
       "obj": "Pump_mask_plane",
       "objFile": "Pump_mask_plane.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         0.0,
@@ -5919,7 +5936,8 @@
         }
       ],
       "texOpaquePct": 58.6,
-      "texClearPct": 37.1
+      "texClearPct": 37.1,
+      "active": true
     },
     {
       "go": "Pipes_3",
@@ -5927,6 +5945,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene)",
       "objFile": "Combined Mesh (root_ scene).obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene)__sm11.obj"
       ],
@@ -6547,7 +6566,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Skyline",
@@ -6555,6 +6575,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene) 2",
       "objFile": "Combined Mesh (root_ scene) 2.obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene) 2__sm1.obj"
       ],
@@ -7305,7 +7326,8 @@
         }
       ],
       "texOpaquePct": 59.5,
-      "texClearPct": 38.5
+      "texClearPct": 38.5,
+      "active": true
     },
     {
       "go": "DL_2_Ground",
@@ -7313,6 +7335,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene)",
       "objFile": "Combined Mesh (root_ scene).obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene)__sm3.obj"
       ],
@@ -7813,7 +7836,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Pipes_1",
@@ -7821,6 +7845,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene)",
       "objFile": "Combined Mesh (root_ scene).obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene)__sm18.obj"
       ],
@@ -8571,7 +8596,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Tower_Right",
@@ -8579,6 +8605,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene)",
       "objFile": "Combined Mesh (root_ scene).obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene)__sm26.obj"
       ],
@@ -9329,7 +9356,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Skull_Right.001",
@@ -9337,6 +9365,7 @@
       "worldBaked": false,
       "obj": "Skull_Right.0011",
       "objFile": "Skull_Right.0011.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         93.570067,
@@ -9955,7 +9984,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Torch_Left",
@@ -9963,6 +9993,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene)",
       "objFile": "Combined Mesh (root_ scene).obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene)__sm12.obj"
       ],
@@ -10583,7 +10614,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Background",
@@ -10591,6 +10623,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene) 2",
       "objFile": "Combined Mesh (root_ scene) 2.obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene) 2__sm0.obj"
       ],
@@ -11341,7 +11374,109 @@
         }
       ],
       "texOpaquePct": 59.5,
-      "texClearPct": 38.5
+      "texClearPct": 38.5,
+      "active": true
+    },
+    {
+      "go": "Shadow Receiver",
+      "subMesh": null,
+      "worldBaked": false,
+      "obj": "Quad",
+      "objFile": null,
+      "builtinMesh": "Quad",
+      "subFiles": null,
+      "pos": [
+        100.0,
+        0.0,
+        0.0
+      ],
+      "rot": [
+        0.707106,
+        0.0,
+        0.0,
+        0.707108
+      ],
+      "scale": [
+        81.161079,
+        35.126866,
+        41.907949
+      ],
+      "tex": null,
+      "texFile": null,
+      "subMats": [
+        {
+          "tex": null,
+          "texFile": null,
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 2,
+          "dstBlend": 0,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/Misc/URP Transparent Shadow Receiver",
+          "queue": 3000,
+          "props": [
+            {
+              "k": "_ShadowColor",
+              "t": "c",
+              "c": [
+                0.3499999940395355,
+                0.4000000059604645,
+                0.44999998807907104,
+                1.0
+              ]
+            }
+          ]
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 2,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/Misc/URP Transparent Shadow Receiver",
+      "props": [
+        {
+          "k": "_ShadowColor",
+          "t": "c",
+          "c": [
+            0.3499999940395355,
+            0.4000000059604645,
+            0.44999998807907104,
+            1.0
+          ]
+        }
+      ],
+      "texOpaquePct": null,
+      "texClearPct": null,
+      "active": false,
+      "hasShadow": true,
+      "shadowCast": 1,
+      "shadowReceive": 1
     },
     {
       "go": "Rope_High",
@@ -11349,6 +11484,7 @@
       "worldBaked": false,
       "obj": "Rope_High1",
       "objFile": "Rope_High1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         104.223953,
@@ -11927,7 +12063,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Scrap_6",
@@ -11935,6 +12072,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene)",
       "objFile": "Combined Mesh (root_ scene).obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene)__sm16.obj"
       ],
@@ -12555,7 +12693,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Toxic_Plant",
@@ -12563,6 +12702,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene)",
       "objFile": "Combined Mesh (root_ scene).obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene)__sm28.obj"
       ],
@@ -13183,7 +13323,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "DL_1_Trashpile",
@@ -13191,6 +13332,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene)",
       "objFile": "Combined Mesh (root_ scene).obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene)__sm0.obj"
       ],
@@ -13691,7 +13833,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Cache Stealth",
@@ -13699,6 +13842,7 @@
       "worldBaked": false,
       "obj": "Card 3D WH40k",
       "objFile": null,
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         99.529999,
@@ -14377,7 +14521,8 @@
         }
       ],
       "texOpaquePct": 57.7,
-      "texClearPct": 0.0
+      "texClearPct": 0.0,
+      "active": false
     },
     {
       "go": "DL_4_Tower_Left",
@@ -14385,6 +14530,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene)",
       "objFile": "Combined Mesh (root_ scene).obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene)__sm5.obj"
       ],
@@ -14885,7 +15031,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Skull_Left.001",
@@ -14893,6 +15040,7 @@
       "worldBaked": false,
       "obj": "Skull_Left.0011",
       "objFile": "Skull_Left.0011.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         89.001374,
@@ -15511,7 +15659,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Rubble_Background",
@@ -15519,6 +15668,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene)",
       "objFile": "Combined Mesh (root_ scene).obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene)__sm27.obj"
       ],
@@ -16139,7 +16289,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Floor",
@@ -16147,6 +16298,7 @@
       "worldBaked": false,
       "obj": "Floor",
       "objFile": "Floor.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         0.0,
@@ -16705,7 +16857,8 @@
         }
       ],
       "texOpaquePct": 58.6,
-      "texClearPct": 37.1
+      "texClearPct": 37.1,
+      "active": true
     },
     {
       "go": "Container1",
@@ -16713,6 +16866,7 @@
       "worldBaked": false,
       "obj": "Container11",
       "objFile": "Container11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         126.373319,
@@ -17331,7 +17485,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Rubble_Foreground",
@@ -17339,6 +17494,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene)",
       "objFile": "Combined Mesh (root_ scene).obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene)__sm30.obj"
       ],
@@ -18089,7 +18245,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Rubble",
@@ -18097,6 +18254,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene)",
       "objFile": "Combined Mesh (root_ scene).obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene)__sm29.obj"
       ],
@@ -18717,7 +18875,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Floor.002",
@@ -18725,6 +18884,7 @@
       "worldBaked": false,
       "obj": "Floor.002",
       "objFile": "Floor.002.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         97.80825,
@@ -19333,7 +19493,8 @@
         }
       ],
       "texOpaquePct": 58.6,
-      "texClearPct": 37.1
+      "texClearPct": 37.1,
+      "active": true
     },
     {
       "go": "Tower_Left",
@@ -19341,6 +19502,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene)",
       "objFile": "Combined Mesh (root_ scene).obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene)__sm2.obj"
       ],
@@ -19961,7 +20123,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Steam pipes 1",
@@ -19969,6 +20132,7 @@
       "worldBaked": false,
       "obj": "Steam pipes 11",
       "objFile": "Steam pipes 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         124.211812,
@@ -20587,7 +20751,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Pump base",
@@ -20595,6 +20760,7 @@
       "worldBaked": false,
       "obj": "Pump base1",
       "objFile": "Pump base1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         125.576001,
@@ -21213,7 +21379,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Scrap_1",
@@ -21221,6 +21388,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene)",
       "objFile": "Combined Mesh (root_ scene).obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene)__sm8.obj"
       ],
@@ -21971,7 +22139,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Scrap_2",
@@ -21979,6 +22148,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene)",
       "objFile": "Combined Mesh (root_ scene).obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene)__sm6.obj"
       ],
@@ -22599,7 +22769,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Tower_Silk_1",
@@ -22607,6 +22778,7 @@
       "worldBaked": false,
       "obj": "Tower_Silk_11",
       "objFile": "Tower_Silk_11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         111.188065,
@@ -23185,7 +23357,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Looted_Russ",
@@ -23193,6 +23366,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene)",
       "objFile": "Combined Mesh (root_ scene).obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene)__sm1.obj"
       ],
@@ -23943,7 +24117,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Skull_Left",
@@ -23951,6 +24126,7 @@
       "worldBaked": false,
       "obj": "Skull_Left1",
       "objFile": "Skull_Left1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         89.002419,
@@ -24569,7 +24745,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Scrap_8",
@@ -24577,6 +24754,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene)",
       "objFile": "Combined Mesh (root_ scene).obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene)__sm23.obj"
       ],
@@ -25197,7 +25375,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "DL_6_Torch_Right",
@@ -25205,6 +25384,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene)",
       "objFile": "Combined Mesh (root_ scene).obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene)__sm20.obj"
       ],
@@ -25705,7 +25885,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Pump support",
@@ -25713,6 +25894,7 @@
       "worldBaked": false,
       "obj": "Pump support1",
       "objFile": "Pump support1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         124.426854,
@@ -26331,7 +26513,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Banner",
@@ -26339,6 +26522,7 @@
       "worldBaked": false,
       "obj": "Banner1",
       "objFile": "Banner1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         93.297585,
@@ -26917,7 +27101,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Scrap_7",
@@ -26925,6 +27110,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene)",
       "objFile": "Combined Mesh (root_ scene).obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene)__sm22.obj"
       ],
@@ -27545,7 +27731,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Torch_Right",
@@ -27553,6 +27740,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene)",
       "objFile": "Combined Mesh (root_ scene).obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene)__sm21.obj"
       ],
@@ -28173,7 +28361,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Pump Base body",
@@ -28181,6 +28370,7 @@
       "worldBaked": false,
       "obj": "Pump Base body1",
       "objFile": "Pump Base body1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         125.000821,
@@ -28799,7 +28989,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Rope_Long",
@@ -28807,6 +28998,7 @@
       "worldBaked": false,
       "obj": "Rope_Long1",
       "objFile": "Rope_Long1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         92.243515,
@@ -29385,7 +29577,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Skull_Right",
@@ -29393,6 +29586,7 @@
       "worldBaked": false,
       "obj": "Skull_Right1",
       "objFile": "Skull_Right1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         93.569,
@@ -30011,7 +30205,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Pipes_2",
@@ -30019,6 +30214,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene)",
       "objFile": "Combined Mesh (root_ scene).obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene)__sm17.obj"
       ],
@@ -30639,7 +30835,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Barrel_fire",
@@ -30647,6 +30844,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene)",
       "objFile": "Combined Mesh (root_ scene).obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene)__sm4.obj"
       ],
@@ -31397,7 +31595,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "DL_5_Torch_Left",
@@ -31405,6 +31604,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene)",
       "objFile": "Combined Mesh (root_ scene).obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene)__sm13.obj"
       ],
@@ -31905,7 +32105,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "pump",
@@ -31913,6 +32114,7 @@
       "worldBaked": false,
       "obj": "pump1",
       "objFile": "pump1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         124.427777,
@@ -32531,7 +32733,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Skull_Background",
@@ -32539,6 +32742,7 @@
       "worldBaked": false,
       "obj": "Skull_Background1",
       "objFile": "Skull_Background1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         105.62323,
@@ -33157,7 +33361,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Fort Wall",
@@ -33165,6 +33370,7 @@
       "worldBaked": false,
       "obj": "Fort Wall1",
       "objFile": "Fort Wall1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         98.063629,
@@ -33913,7 +34119,8 @@
         }
       ],
       "texOpaquePct": 59.5,
-      "texClearPct": 38.5
+      "texClearPct": 38.5,
+      "active": true
     },
     {
       "go": "Scrap_4",
@@ -33921,6 +34128,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene)",
       "objFile": "Combined Mesh (root_ scene).obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene)__sm14.obj"
       ],
@@ -34541,7 +34749,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     },
     {
       "go": "Crates",
@@ -34549,6 +34758,7 @@
       "worldBaked": true,
       "obj": "Combined Mesh (root: scene)",
       "objFile": "Combined Mesh (root_ scene).obj",
+      "builtinMesh": null,
       "subFiles": [
         "Combined Mesh (root_ scene)__sm24.obj"
       ],
@@ -35299,7 +35509,8 @@
         }
       ],
       "texOpaquePct": 29.4,
-      "texClearPct": 65.2
+      "texClearPct": 65.2,
+      "active": true
     }
   ],
   "particles": [

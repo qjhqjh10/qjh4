@@ -31,6 +31,14 @@ public static class EffectExporter
     // 🆕 2026-10-01：动画那一跳（`AnimationClip` → `.anim` · `AnimatorController` → `.controller`）
     const string AnimDir = Root + "/Animations";
     const string CtrlDir = Root + "/Animators";
+    // 🆕 2026-10-09（`A1089` 的另一半）：**不是导出器生成**的那两张 VAT 贴图的**真身常驻目录**。
+    //    `Runtime/` 在 `.gitignore` 白名单里（`:27`）、且 `ClearGenerated` **只管 Mat/Tex/Mesh/Prefab 四个目录**
+    //    ⇒ 放这儿不会被清。文件名**与 `Textures/` 里那份逐字相同**（只换目录）。
+    const string RuntimeVatDir = Root + "/Runtime/Vat";
+    static readonly string[] VatTexNames = {
+        "Vanguard Frame Animation VAT_PositionTex",
+        "Vanguard Frame Animation VAT_RotationTex",
+    };
     // 原版 shader 无法落成工程资产，只能随包带着运行时加载
     const string ShaderBundleSrc = "shaders_assets_all.bundle";
     const string StreamDir = "Assets/StreamingAssets/WarpforgeVFX";
@@ -418,6 +426,7 @@ public static class EffectExporter
         if (!Resume)
         {
             ClearGenerated();
+            RestoreVatTextures();      // 🆕 2026-10-09（`A1089` 的另一半）：补回**不是导出器生成**的那两张 VAT 贴图
             if (File.Exists(ReportPath)) File.Delete(ReportPath);
         }
         Report.Clear();
@@ -584,6 +593,63 @@ public static class EffectExporter
             }
         }
         AssetDatabase.SaveAssets();
+    }
+
+    /// <summary>🔴 **2026-10-09 新增（`A1089` 的另一半：把上次没覆盖到的那一半补上）** ——
+    /// 清完产物之后，把 **VAT 那两张贴图补回 `Textures/`**。
+    ///
+    /// **为什么必须有这一步**：`ClearGenerated()`（`Resume=false` 时**无条件**跑）会**清空 `Textures/` 整个目录**，
+    /// 而这两张贴图**不是导出器生成的** —— 原版里它们只被 `Vanguard Frame Animation VAT` 那个组件的字段引用，
+    /// **不在任何「效果根」的依赖树里** ⇒ 全量重导一次就**永久丢掉**。丢了之后 `LoadVatTex` 只能**出声**、
+    /// 把驱动的 `PositionsTex`/`RotationsTex` 写成 `null` ⇒ **`VanguardIdleEffect` 与出牌那一件都画不出来**。
+    /// （2026-10-09 全量重导时实测踩到：两张 PNG 被删、prefab 里 `PositionsTex: {fileID: 0}`。）
+    ///
+    /// **做法**：真身常驻 <see cref="RuntimeVatDir"/>（不会被清，见那里的注释），
+    /// 这里只做**拷贝 + 按原资产设导入项**。⚠️ 每次全量重导都会重新拷一遍 ⇒ 与源目录**永远一致**。
+    ///
+    /// 🔴 **导入项必须显式设、不能吃默认值**（原资产实测）：**28×41 / 14×41 是 NPOT**
+    ///    （默认 `ToNearest` 会把它缩放 ⇒ 布局全毁）· `m_ColorSpace: 0` ⇒ **线性数据贴图** ·
+    ///    无 mip · **RGBA32 不压缩**。
+    ///    ⛔ **别改成走 `ImportTexture`**：它写死 `sRGBTexture = true`、mip 照原资产，一导就毁。
+    /// </summary>
+    static void RestoreVatTextures()
+    {
+        if (!AssetDatabase.IsValidFolder(RuntimeVatDir))
+        {
+            Debug.LogWarning(EX1 + $"A1089 VAT 贴图源目录 `{RuntimeVatDir}` 不在 ⇒ 驱动照样挂，"
+                           + "但 `VanguardIdleEffect` 那一件**画不出来**（出声，不静默）");
+            return;
+        }
+        int ok = 0;
+        foreach (var nm in VatTexNames)
+        {
+            string srcRel = $"{RuntimeVatDir}/{nm}.png";
+            string dstRel = $"{TexDir}/{nm}.png";
+            string srcAbs = Path.Combine(Directory.GetCurrentDirectory(), srcRel);
+            string dstAbs = Path.Combine(Directory.GetCurrentDirectory(), dstRel);
+            if (!File.Exists(srcAbs))
+            {
+                Debug.LogWarning(EX1 + $"A1089 VAT 贴图源缺 `{srcRel}` —— 这一张补不回来（出声，不静默）");
+                continue;
+            }
+            if (!File.Exists(dstAbs)) File.Copy(srcAbs, dstAbs, true);
+            AssetDatabase.ImportAsset(dstRel, ImportAssetOptions.ForceUpdate);
+            var ti = AssetImporter.GetAtPath(dstRel) as TextureImporter;
+            if (ti == null)
+            {
+                Debug.LogWarning(EX1 + $"A1089 `{dstRel}` 不是 `TextureImporter` ⇒ 导入项没配上");
+                continue;
+            }
+            ti.textureType = TextureImporterType.Default;
+            ti.npotScale = TextureImporterNPOTScale.None;   // 🔴 NPOT：默认 ToNearest 会缩放、布局全毁
+            ti.mipmapEnabled = false;
+            ti.sRGBTexture = false;                          // 线性数据贴图（原资产 m_ColorSpace: 0）
+            ti.alphaIsTransparency = false;
+            ti.textureCompression = TextureImporterCompression.Uncompressed;
+            ti.SaveAndReimport();
+            ok++;
+        }
+        Debug.Log(EX1 + $"A1089 VAT 贴图补回 **{ok}** 张（源目录 `{RuntimeVatDir}`）");
     }
 
     const string EX1 = "EX1 ";
@@ -1039,10 +1105,12 @@ public static class EffectExporter
         var t = AssetDatabase.LoadAssetAtPath<Texture2D>(rel);
         if (t == null)
             Debug.LogWarning(EX1 + $"A1089 VAT 贴图 `{rel}` 不在工程里 ⇒ 驱动挂上了、但这一件**画不出来**"
-                           + "（贴图引用是 null）。修复：从源包 `Texture2D/` 把这张 PNG 放回该路径；"
-                           + "导入设置照原资产 —— 28×41 / 14×41 是 **NPOT** ⇒ `nPOTScale: 0`、"
-                           + "`sRGBTexture: 0`（线性数据贴图）、无 mip、RGBA32 不压缩。"
-                           + "⛔ 别走 `ImportTexture`：它不设 `nPOTScale`/`sRGBTexture`，一导就把布局毁了。");
+                           + "（贴图引用是 null）。"
+                           + "🆕 **2026-10-09 起这条不该再出现** —— `Run` 在 `ClearGenerated()` 之后会调 "
+                           + "`RestoreVatTextures()` 自动补回（真身常驻 `" + RuntimeVatDir + "`）。"
+                           + "真出现了 ⇒ 先看 `RestoreVatTextures` 那两条出声里的哪一条。"
+                           + "（判据：28×41 / 14×41 是 **NPOT** ⇒ `npotsScale: None`、`sRGBTexture: 0` 线性、无 mip、RGBA32 不压缩；"
+                           + "⛔ 别走 `ImportTexture`：它写死 `sRGBTexture = true`，一导就把布局毁了。）");
         return t;
     }
 

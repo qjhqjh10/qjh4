@@ -270,6 +270,25 @@ d = json.load(open('.../RuleEngine/Resources/cards_engine.json', encoding='utf-8
    ⚠️ **`AttackDamageEntries`（喂 `BattleDriver.SetReticleTarget` 的「会不会死」准星）用的是另一套** ⇒
    对「带 dodge 且有星镖」的极小局面，**准星可能与实际结果不符**。
    **⇒ 只报不改**（那是 `W8b3` 的件、且改它会动到准星与它那批断言，属需要裁定的判断）。
+   🔴🔴 **2026-10-09 补记（用户拍板 `A1107`，本文件写下之后的事）**：**已裁 = 统一成【真实结算】那一套**，
+   **已改**：`RuleCore.AttackDamageEntries` 现在 = **`[星镖, 主伤害, 标记光]`**（**三段各自独立**，
+   标记光**不并进**主伤害 —— 结算那边它是自己一次 `ReceiveDamage`，护甲对它**另扣一次**）；
+   `DeclareAttack` 侧**也改了**（原先把标记光 `dmg += ml` 并进主伤害，现在挪成
+   **主攻击 + 反击之后的独立一段**，并照原版 `:1254` 那条 `EnoughPendingDamageToDie` 守卫
+   「已经要打死就整段跳过、连标记光都不摘」）。
+   🔴 **本文件 §⑥3 里那条判据要按这一轮读准**：`BattleManager__RecordAttackPendingDamage.c` 是
+   【**登记**】那一套（`[星镖, 标记光, 主伤害]`，只是 `pendingDamage` 台账、只喂判死），**不是结算** ——
+   我照它推过一版「把标记光并进主伤害」，**是错的、已订正**。**真结算**在
+   `BattleManager._ResolveAttack_d__438__MoveNext.c`，逐次 `ReceiveDamage` 的位置 =
+   **星镖 `:686` → 主伤害 `:999` → 反击 `:1142`（打的是**攻方**）→ 标记光 `:1290`**，`:1633` 才摘标记光
+   ⇒ 用户原话「**星镖—主攻击—标记光/易伤**」指的是这一套。
+   `vulnerable`（易伤）**不是第四条**：它在**每一次** `Hurt` 内部按当时的值加
+   ⇒ 「看获得这个 buff 的前后」靠逐步读值自然满足。
+   断言与注释同批改（`RuleEngineTest` 的 `TestWillDiePreviewEntries` (b-1)/(b-2)/(b-2b)/(b-3) +
+   `TestDodgeKeyword` 第 (7) 组、`BattleDriver.SetReticleTarget` 头注释、`CardDef.Dodge` 注释）；
+   🔑 **灭自证同时换掉一个错基准** —— 旧版断「预览 ≠ `DamageAfterReduction(整包)`」，
+   而整包版是**单次 `Hurt` 一个数**、**不代表攻击的结算序列** ⇒ 现在断「**预览合计 == 真打一局的实际掉血**」。
+   ⚠️ **断言尚未跑**（归收口那趟 `RuleEngineTest.Run`）；秒级类型检查已跑 **0 错**。
 4. **`SyncKeywordState` 不需要为 `dodge` 加分支**（`UnitState.cs:575-586`）——
    `shield` 之所以要在那里写一句 `HasShield = true`，是因为它**另有一个缓存字段**被引擎别处读；
    `dodge` **没有字段**（全仓 `dodge` 的读点只有 `Has(...)`），关键词字典就是唯一表示

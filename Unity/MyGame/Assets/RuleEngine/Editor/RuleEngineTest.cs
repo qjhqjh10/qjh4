@@ -18958,20 +18958,29 @@ public static partial class RuleEngineTest
     }
 
     /// <summary>
-    /// **「这一下会打死它」那条预览的【逐条】口径**（2026-10-08 `W8b3`）。
+    /// **「这一下会打死它」那条预览的【逐条】口径**（2026-10-08 `W8b3`；**2026-10-09 按用户裁决改了次序**）。
+    ///
+    /// 🔴🔴 **2026-10-09 用户拍板（`A1107`）：预览的条目次序改照【真实落地】，不再照原版预览那一套。**
+    ///    原版自己两套次序不同、而 `dodge` / `Shield` **只挡第 0 条** ⇒ 两套对
+    ///    「带盾/闪避 + 攻方有星镖」给出**相反**的「会不会死」：
+    ///      · 预览 `CardHighlight__ToggleCombatPreviewHighlight.c:62-81` = `[主伤害, 星镖, 标记光]`（**改前我们照的**）；
+    ///      · 落地 `BattleManager__RecordAttackPendingDamage.c:59-84` + `ReceiveDamage` = `[星镖, 标记光, 主伤害]`。
+    ///    ⇒ 现在 `RuleCore.AttackDamageEntries` = **`[星镖, 主伤害, 标记光]`**（三段各自独立、
+    ///      照**结算**次序；标记光**不并进**主伤害）。
+    ///    🔑 **本方法里凡「原版 = …」的期望值，指的都是原版 `EnoughPendingDamageToDieWithDamageValues`
+    ///    那套【逐条】算法本身**（护甲每条各扣一次、盾/闪避只跳第 0 条）—— 那几条判据没变；
+    ///    变的是**喂进去的条目次序与拆分**，出处 = 用户拍板，别「改回原版」。
     ///
     /// 判据 = 原版两份反编译（全文与行号 → `RuleCore.DamageAfterReductionOne` 上面那一段）：
-    ///   · `CardHighlight__ToggleCombatPreviewHighlight.c:37-93` —— 预览的伤害是一个 `List&lt;int&gt;`：
-    ///     **技能支**（`:86`）`EntityScript.GetActiveAbilityDamage` **只填 1 条**；
-    ///     **普通攻击**（`:62`）主伤害，再（`:66-81`）追加 `CurrentShuriken` / `CurrentMarkerlight`
-    ///     **两条独立条目**。
     ///   · `CardScript__EnoughPendingDamageToDieWithDamageValues.c:115-119` ——
     ///     `dodge`(240) / `shield`(80) **只在第 0 条**跳过；`invulnerable`(310) **任意条目**都跳过。
     ///   · 同文件 `:138-156` —— `armour > 0 &amp;&amp; dmg > 0 ⇒ dmg = Math.Max(1, dmg − armour)`，**每一条各扣一次**。
     ///
-    /// 🔴 **期望值一律写死原版算出来的那个数**（不拿被测函数反推）—— 每组里都写着「原版 = …」。
-    /// 🔴 **每组还配一条【灭自证】反证**：把逐条口径与合计口径（`DamageAfterReduction`，实际结算那一份）
-    ///    放在一起比，两者**必须给出不同的数** —— 「把两条口径又合并回一条」在这里必红。
+    /// 🔴 **期望值一律写死算出来的那个数**（不拿被测函数反推）—— 每组里都写着「= …」。
+    /// 🔴 **灭自证自 2026-10-09 起换口径**：**预览合计必须【等于】真打一局的实际掉血**
+    ///    （`DeclareAttack` 真跑一次、比血量差）—— 这才是这条预览存在的理由。
+    ///    旧口径「预览 ≠ 合计版（`DamageAfterReduction`）」**已不再成立也不该成立**：
+    ///    那个「合计版」是**单次 `Hurt` 一个数**的口径，**不代表攻击的落地序列**，拿它当基准是错的。
     /// </summary>
     static void TestWillDiePreviewEntries()
     {
@@ -19022,8 +19031,8 @@ public static partial class RuleEngineTest
                   "反例：裸 `Deal 3 damage` 0 条 —— 原版那是 `lowestHealth`(=240)，只认 `target`(=30)");
         }
 
-        // ---- (b-1) **护甲 × 多条目**：原版每条各扣一次（`:138-156`）----
-        //  条目 [2, 3]、护甲 2 ⇒ 原版 = Max(1,2−2) + Max(1,3−2) = 1 + 1 = **2**
+        // ---- (b-1) **护甲 × 多条目**：每条各扣一次（`:138-156`）----
+        //  条目 [星镖 3, 主伤害 2]（**落地次序**）、护甲 2 ⇒ Max(1,3−2) + Max(1,2−2) = 1 + 1 = **2**
         {
             UnitState a, b;
             var atk = Unit("ArmorProbe", 1, 2, 9, "Shuriken 3");
@@ -19032,32 +19041,40 @@ public static partial class RuleEngineTest
             Check(t.Armor, 2, "（前提）目标护甲 2");
 
             var entries = RuleCore.AttackDamageEntries(ctx, 0, 3, 1, 3, false);
-            Check(entries.Count, 2, "攻击路 2 条（主伤害 + 星镖；原版 `:62` 与 `:67-71`）");
-            Check(entries[0], 2, "…[0] 主伤害 **2**");
-            Check(entries[1], 3, "…[1] 星镖 **3**");
+            Check(entries.Count, 2,
+                  "攻击路 2 条 = **[星镖, 主伤害]**（落地次序；用户 2026-10-09 裁决 `A1107`）");
+            Check(entries[0], 3, "…[0] **星镖 3**（落地时它先单独打一次）");
+            Check(entries[1], 2, "…[1] **主伤害 2**");
             Check(RuleCore.DamageAfterReductionList(t, entries), 2,
-                  "★ 原版逐条：Max(1,2−2) + Max(1,3−2) = 1+1 = **2**");
-            Check(RuleCore.DamageAfterReduction(t, 5), 3,
-                  "★【灭自证】合计版（实际结算那一份，没动）给 **3**（= 5−2）——"
-                + " 与逐条版的 2 **不同**；把两条口径合并回一条在这里必红");
+                  "★ 逐条：Max(1,3−2) + Max(1,2−2) = 1+1 = **2**");
+            // 🔴【灭自证·**2026-10-09 换的新口径**】预览合计必须**等于**真打一局的实际掉血。
+            //   旧口径「预览 ≠ `DamageAfterReduction(整包)`」已废：那个整包版是**单次 `Hurt` 一个数**，
+            //   **不代表攻击的落地序列**（落地是两次 `Hurt`），拿它当基准是把错的当对的。
+            Check(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3), RuleCodes.OK, "（前提）攻击声明成功");
+            Check(t.Health, 7,
+                  "★【灭自证】真打一局 = 星镖 Max(1,3−2)=1，主伤害 Max(1,2−2)=1 ⇒ 9−2 = **7**；"
+                + " 预览合计 2 与它**相等**（把次序改回 [主伤害, 星镖] 这里不一定会红，"
+                + " 但 (b-2)/(b-2b) 那两组带盾的必红）");
         }
-        //  条目 [3, 3]、护甲 2 ⇒ 原版 = 1 + 1 = **2**（合计版 = 6−2 = 4）
+        //  条目 [3, 3]、护甲 2 ⇒ Max(1,3−2) + Max(1,3−2) = 1 + 1 = **2**
         {
             UnitState a, b;
             var atk = Unit("ArmorProbe2", 1, 3, 9, "Shuriken 3");
             var ctx = Duel(atk, Unit("Armored2", 1, 0, 9, "Armour 2"), out a, out b);
             var t = Board(ctx, 1, 3);
             var entries = RuleCore.AttackDamageEntries(ctx, 0, 3, 1, 3, false);
-            Check(entries[0], 3, "（前提）主伤害 3");
+            Check(entries[0], 3, "（前提）[0] 星镖 3（两条都是 3 ⇒ 次序在这一组里看不出来）");
+            Check(entries[1], 3, "（前提）[1] 主伤害 3");
             Check(RuleCore.DamageAfterReductionList(t, entries), 2,
-                  "★ 原版逐条：条目 [3,3] ⇒ 1+1 = **2**");
-            Check(RuleCore.DamageAfterReduction(t, 6), 4,
-                  "★【灭自证】合计版给 **4**（= 6−2）—— 与逐条版的 2 不同");
+                  "★ 逐条：条目 [3,3] ⇒ 1+1 = **2**");
+            Check(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3), RuleCodes.OK, "（前提）攻击声明成功");
+            Check(t.Health, 7, "★ 真打一局也是 9−2 = **7** ⇒ 与预览一致");
         }
 
-        // ---- (b-2) **盾 / 闪避 + 星镖**：原版只跳过**第 0 条**（`:115-119`）----
-        //  条目 [主伤害 2, 星镖 3]、目标带 Shield、3 血 ⇒ 原版 = 0 + 3 = **3** ⇒ **会死**
-        //  （我们改前对**整包**判 `HasShield → 0` ⇒ 报「不会死」，**方向相反**）
+        // ---- (b-2) **盾 / 闪避 + 星镖**：只跳过**第 0 条**，而第 0 条现在 = **星镖**（`:115-119`）----
+        //  条目 [星镖 3, 主伤害 2]（**落地次序**）、目标带 Shield、3 血 ⇒ 0 + 2 = **2** ⇒ **不会死**（剩 1）
+        //  🔴 **这就是 `A1107` 那条裁决要修的东西**：改前预览第 0 条是**主伤害** ⇒ 报 0 + 3 = 3 ⇒ 「**会死**」，
+        //     而真打一局是「盾被星镖吃掉、主伤害 2 照落」⇒ 3 血剩 **1** ⇒ 「**不会死**」—— **方向相反**。
         {
             UnitState a, b;
             var atk = Unit("ShieldProbe", 1, 2, 9, "Shuriken 3");
@@ -19065,16 +19082,18 @@ public static partial class RuleEngineTest
             var t = Board(ctx, 1, 3);
             CheckTrue(t.HasShield, "（前提）目标带 Shield");
             var entries = RuleCore.AttackDamageEntries(ctx, 0, 3, 1, 3, false);
-            Check(entries.Count, 2, "（前提）条目 = [主伤害 2, 星镖 3]");
+            Check(entries.Count, 2, "（前提）条目 = **[星镖 3, 主伤害 2]**");
             Check(RuleCore.DamageAfterReductionOne(t, entries[0], 0), 0,
-                  "★ 第 0 条被 Shield 挡下 = **0**（原版 `:117` 那个 `shield` 条件）");
-            Check(RuleCore.DamageAfterReductionOne(t, entries[1], 1), 3,
-                  "★ 第 1 条（星镖）**照算** = **3**（原版那两个条件都带 `|| iVar11 != 0`）");
-            Check(RuleCore.DamageAfterReductionList(t, entries), 3, "★ 逐条合计 = 0 + 3 = **3**");
-            CheckTrue(RuleCore.WouldKillByEntries(t, entries),
-                      "★ 3 点打 3 血 ⇒ **会死**（改前整包判盾 ⇒ 「不会死」——方向相反）");
-            Check(RuleCore.DamageAfterReduction(t, 5), 0,
-                  "★【灭自证】合计版把整包判成 **0** —— 与逐条版的 3 方向相反，合并回去必红");
+                  "★ 第 0 条（**星镖**）被 Shield 挡下 = **0**（原版 `:117` 那个 `shield` 条件）");
+            Check(RuleCore.DamageAfterReductionOne(t, entries[1], 1), 2,
+                  "★ 第 1 条（**主伤害**）**照算** = **2**（原版那两个条件都带 `|| iVar11 != 0`）");
+            Check(RuleCore.DamageAfterReductionList(t, entries), 2, "★ 逐条合计 = 0 + 2 = **2**");
+            CheckTrue(!RuleCore.WouldKillByEntries(t, entries),
+                      "★ 2 点打 3 血 ⇒ **不会死**（改前预览报「会死」—— 方向相反，这就是 A1107）");
+            // 🔴【灭自证】真打一局必须给出同一个数（盾被星镖吃掉 ⇒ 主伤害照落）
+            Check(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3), RuleCodes.OK, "（前提）攻击声明成功");
+            Check(t.Health, 1, "★【灭自证】真打一局：3 − 2 = **1**（盾挡的是星镖、不是主伤害）");
+            CheckTrue(!t.HasShield, "…盾**被消耗**掉了（在星镖那一下）");
         }
         //  `dodge` 与 `shield` **同一条规则**（原版 `:115-118` 那两个条件是并列的）。
         //  🔴 **就地订正（2026-10-08，当天晚些的 `A1077`）**：这一段原来写着
@@ -19091,9 +19110,12 @@ public static partial class RuleEngineTest
             t.AddKeyword("dodge", 1);
             CheckTrue(t.Has("dodge"), "（前提）目标带 dodge");
             var entries = RuleCore.AttackDamageEntries(ctx, 0, 3, 1, 3, false);
-            Check(RuleCore.DamageAfterReductionOne(t, entries[0], 0), 0, "dodge：第 0 条被跳过 = 0");
-            Check(RuleCore.DamageAfterReductionList(t, entries), 3,
-                  "★ dodge 与 shield 同规则：只跳第 0 条 ⇒ 星镖 3 照算");
+            Check(RuleCore.DamageAfterReductionOne(t, entries[0], 0), 0,
+                  "dodge：第 0 条（**星镖 3**）被跳过 = 0");
+            Check(RuleCore.DamageAfterReductionList(t, entries), 2,
+                  "★ dodge 与 shield 同规则：只跳第 0 条 ⇒ **主伤害 2 照落**");
+            Check(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3), RuleCodes.OK, "（前提）攻击声明成功");
+            Check(t.Health, 1, "★【灭自证】真打一局 3 − 2 = **1** ⇒ 与预览合计一致");
         }
         //  `invulnerable` **任意条目**都跳过（原版 `:119` 它不在 `iVar11 != 0` 那一组里）
         {
@@ -19107,27 +19129,37 @@ public static partial class RuleEngineTest
                   "★ invulnerable：**两条都跳过**（不像盾/闪避只跳第 0 条）");
         }
 
-        // ---- (b-3) **markerlight 是独立条目**（原版 `:74-80` 追加 `CurrentMarkerlight`）----
-        //  我们改前把它**并进主伤害**（`dmg += ml`），所以合计数不同：
-        //  条目 [远程 3, 标记光 2]、护甲 1 ⇒ 原版 = Max(1,3−1) + Max(1,2−1) = 2 + 1 = **3**
-        //  （合计版 = (3+2)−1 = **4**）
+        // ---- (b-3) **markerlight 是独立的一条、且排在【主攻击之后】**（**结算**次序）----
+        //  原版 `_ResolveAttack_d__438__MoveNext.c`：星镖 `:618` → 主伤害 `:1116` → 标记光 `:1251`；
+        //  标记光是**自己一次 `ReceiveDamage`**（`:1279`）⇒ 护甲对它**另扣一次**。
+        //  条目 [主伤害 3, 标记光 2]、护甲 1 ⇒ Max(1,3−1) + Max(1,2−1) = 2 + 1 = **3**
+        //  🔴 **2026-10-09（`A1107`）这一组改过两次**：先按【登记】次序并成一条（**错**），
+        //     再按用户补充裁决改回「三条独立、标记光排第三」。⛔ 别并回去、也别挪到主伤害之前。
         {
             UnitState a, b;
             var atk = Ranged("MlProbe", 1, 1, 9, 3);
-            var ctx = Duel(atk, Unit("Marked", 1, 0, 4, "Markerlight 2", "Armour 1"), out a, out b);
+            var ctx = Duel(atk, Unit("Marked", 1, 0, 9, "Markerlight 2", "Armour 1"), out a, out b);
             var t = Board(ctx, 1, 3);
             Check(t.KwValue("markerlight"), 2, "（前提）目标带 Markerlight 2");
 
             var entries = RuleCore.AttackDamageEntries(ctx, 0, 3, 1, 3, true);
-            Check(entries.Count, 2, "★ 标记光是**独立的第 1 条**（原版 `:74-80`），不是并进主伤害");
+            Check(entries.Count, 2, "★ 2 条：主伤害 + 标记光（**标记光是独立一条**，不并进主伤害）");
             Check(entries[0], 3, "…[0] 主伤害（远程）**3**");
-            Check(entries[1], 2, "…[1] 标记光 **2**");
+            Check(entries[1], 2, "…[1] 标记光 **2**（结算次序里它排**最后**）");
             Check(RuleCore.DamageAfterReductionList(t, entries), 3,
-                  "★ 原版逐条（护甲 1）：Max(1,3−1) + Max(1,2−1) = 2 + 1 = **3**");
-            Check(RuleCore.DamageAfterReduction(t, 5), 4,
-                  "★【灭自证】合计版（= 并进主伤害那条老口径）给 **4**（5−1）—— 与逐条的 3 不同");
-            Check(RuleCore.AttackDamageEntries(ctx, 0, 3, 1, 3, false).Count, 1,
-                  "…近战时**不**追加标记光那条（我们的实际伤害也只在远程吃它，见 `RuleCore.AttackDamageEntries`）");
+                  "★ 逐条（护甲 1）：Max(1,3−1) + Max(1,2−1) = 2 + 1 = **3**");
+            Check(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3, true), RuleCodes.OK, "（前提）远程攻击声明成功");
+            Check(t.Health, 6,
+                  "★【灭自证】真打一局：9 − 3 = **6**（主伤害 2 + 标记光 1，护甲各扣一次）"
+                + " —— 与预览合计一致（并成一条的话护甲少扣一次 ⇒ 这里必红）");
+            // 近战**不**计入标记光（原版 `:1252` 那个 `param_1+0x58 == 2` 就是「只远程」）
+            UnitState c, d;
+            var ctx2 = Duel(Ranged("MlProbe2", 1, 1, 9, 3),
+                            Unit("Marked2", 1, 0, 9, "Markerlight 2", "Armour 1"), out c, out d);
+            Check(RuleCore.AttackDamageEntries(ctx2, 0, 3, 1, 3, false).Count, 1,
+                  "…近战 1 条、且不含标记光（结算也只在远程那一支读它）");
+            Check(RuleCore.AttackDamageEntries(ctx2, 0, 3, 1, 3, false)[0], 1,
+                  "…那一条 = 近战攻击力 **1**（不是 3，也不含标记光 2）");
         }
 
         // ---- 回归：**实际结算用的那一份没动**（合计版与 `WouldKill` 还是老口径）----
@@ -19163,10 +19195,12 @@ public static partial class RuleEngineTest
     ///     **各占一段独立的 `if`**（不是 `else if`）⇒ 同挡、同消耗；两者同时在身时**一起被消耗**；
     ///   · **预览只跳第 0 条** `CardScript__EnoughPendingDamageToDieWithDamageValues.c:115-119`。
     ///
-    /// 🔴 **期望值一律写死原版算出来的那个数**，不拿被测函数反推。
+    /// 🔴 **期望值一律写死算出来的那个数**，不拿被测函数反推。
     /// 🔴 **灭自证**有三处：①「带 dodge ⇒ 0」与「不带 ⇒ 3」是同一形状的**两个方向**；
-    ///    ②被挡之后必须**真的被消耗**（否则下一刀还是 0）；③预览逐条口径与结算合计口径
-    ///    **必须给出不同的数** —— 把两条口径合并成一条、或把 `dodge` 从结算侧删掉，这里都必红。
+    ///    ②被挡之后必须**真的被消耗**（否则下一刀还是 0）；③🔴 **2026-10-09（`A1107` 用户裁决）换了口径** ——
+    ///    预览合计必须**等于真打一局的实际掉血**（第 (7) 组真跑一次 `DeclareAttack` 比血量差）。
+    ///    ⛔ 旧口径「预览 ≠ `DamageAfterReduction(整包)`」**已废**：整包版是「单次 `Hurt` 一个数」，
+    ///    **不代表攻击的落地序列**，拿它当基准是把错的当对的（当时的期望值 3 vs 0 也是错的）。
     /// </summary>
     static void TestDodgeKeyword()
     {
@@ -19220,8 +19254,12 @@ public static partial class RuleEngineTest
         //  ⚠️ **次序按我们引擎 / 原版 `RecordAttackPendingDamage` 的登记次序**：星镖**先于**主伤害
         //     （原版 `BattleManager__RecordAttackPendingDamage.c:69-73` 先记 `CurrentShuriken`，
         //      `:80-84` 才记主伤害；我们 `DeclareAttack` 同序）。
-        //     ⛔ 与预览那条路（`ToggleCombatPreviewHighlight.c:62-71` 把**主伤害**放第 0 条）
-        //        **次序不同** —— 那是原版自己的两处写法，如实记着，别去「统一」它们。
+        //  🔴 **2026-10-09（`A1107` 用户裁决）就地改的**：这一段原来写着
+        //     「⛔ 与预览那条路（`ToggleCombatPreviewHighlight.c:62-71` 把**主伤害**放第 0 条）
+        //       **次序不同** —— 那是原版自己的两处写法，如实记着，别去「统一」它们」——
+        //     **现在已统一**：用户裁决**预览一律照这一套（真实落地）** ⇒
+        //     `RuleCore.AttackDamageEntries` 现在也是 `[星镖, 主伤害+标记光]`，
+        //     本组与 `TestWillDiePreviewEntries` 的 (b-2)/(b-3) 现在钉的是**同一个次序**。
         {
             UnitState a, b;
             var atk = Unit("DodgeAtk2", 1, 2, 9, "Shuriken 3");
@@ -19258,7 +19296,13 @@ public static partial class RuleEngineTest
             Check(RuleCore.ApplyDamage(ctx, t, 3, "自检"), 3, "…第二下照吃 **3**");
         }
 
-        // ---- (7) 【灭自证·两条路】**预览逐条口径与结算合计口径必须给出不同的数** ----
+        // ---- (7) 【灭自证·**2026-10-09 换过口径**】**预览合计必须【等于】真打一局的实际掉血** ----
+        //  🔴 旧版断言的是「预览 ≠ `DamageAfterReduction(整包)`」（3 vs 0）—— **那个基准是错的**：
+        //     整包版是「**单次 `Hurt` 一个数**」的口径，而攻击落地是**两次** `Hurt`
+        //     （星镖一次、主伤害一次）⇒ 整包版**根本不代表落地序列**，它给的 0 也不对。
+        //  🔑 正确的不变量是「**预览 == 真打一局**」，而且它是**结构性的**：
+        //     把 `AttackDamageEntries` 的次序改回 `[主伤害, 星镖]` ⇒ 预览变 0 + 3 = 3、
+        //     而实际仍是 0 + 2 = 2 ⇒ 这条必红。⛔ 别再把整包版请回来当基准。
         {
             UnitState a, b;
             var atk = Unit("DodgeAtk3", 1, 2, 9, "Shuriken 3");
@@ -19266,14 +19310,16 @@ public static partial class RuleEngineTest
             var t = Board(ctx, 1, 3);
             t.AddKeyword(KeywordTable.Dodge, 1);
             var entries = RuleCore.AttackDamageEntries(ctx, 0, 3, 1, 3, false);
-            Check(entries.Count, 2, "（前提）预览条目 = [主伤害 2, 星镖 3]");
-            int preview = RuleCore.DamageAfterReductionList(t, entries);   // 只跳第 0 条 ⇒ 0 + 3
-            int settle = RuleCore.DamageAfterReduction(t, 5);              // 一次一个数 ⇒ 整下被挡
-            Check(preview, 3, "★ 预览逐条：只跳第 0 条 ⇒ 0 + 3 = **3**");
-            Check(settle, 0, "★ 结算合计：整下被挡 = **0**");
-            Check(preview != settle, true,
-                  "★【灭自证】两条口径必须**不同**（预览 " + preview + " vs 结算 " + settle
-                + "）—— 合并成一条、或把 dodge 从结算侧删掉，这里必红");
+            Check(entries.Count, 2, "（前提）预览条目 = **[星镖 3, 主伤害 2]**（落地次序）");
+            int preview = RuleCore.DamageAfterReductionList(t, entries);
+            Check(preview, 2, "★ 预览逐条：第 0 条 = **星镖 3** 被 dodge 跳掉 ⇒ 0 + 2 = **2**");
+            int hp0 = t.Health;
+            Check(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3), RuleCodes.OK, "（前提）攻击声明成功");
+            int landed = hp0 - t.Health;
+            Check(landed, 2, "★ 落地实际掉血 = **2**（dodge 在星镖那一下被消耗、主伤害照落）");
+            Check(preview, landed,
+                  "★【灭自证】预览必须**等于**落地（预览 " + preview + " vs 落地 " + landed
+                + "）—— 次序改回 [主伤害, 星镖] ⇒ 预览 3、落地 2 ⇒ 这里必红");
         }
     }
 

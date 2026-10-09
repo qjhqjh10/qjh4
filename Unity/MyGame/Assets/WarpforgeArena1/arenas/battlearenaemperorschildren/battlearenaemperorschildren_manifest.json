@@ -126,11 +126,1354 @@
   },
   "meshes": [
     {
+      "go": "Tank distortion 1",
+      "subMesh": null,
+      "worldBaked": false,
+      "obj": "Quad",
+      "objFile": null,
+      "builtinMesh": "Quad",
+      "subFiles": null,
+      "pos": [
+        110.351817,
+        2.334785,
+        3.720301
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.254458,
+        2.889816,
+        1.0
+      ],
+      "tex": "Emperos Children Fake Distort 1",
+      "texFile": "Emperos Children Fake Distort 1.png",
+      "subMats": [
+        {
+          "tex": "Emperos Children Fake Distort 1",
+          "texFile": "Emperos Children Fake Distort 1.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
+          "props": [
+            {
+              "k": "_APPLYAMBIENTCOLOR",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_AlphaClip",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_AlphaToMask",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_BaseColor",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "k": "_Blend",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_BlendModePreserveSpecular",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_BumpScale",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_CastShadows",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_ClearCoatMask",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_ClearCoatSmoothness",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_ClipThreshold",
+              "t": "f",
+              "f": 0.5
+            },
+            {
+              "k": "_Color",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "k": "_Cull",
+              "t": "f",
+              "f": 2.0
+            },
+            {
+              "k": "_Cutoff",
+              "t": "f",
+              "f": 0.5
+            },
+            {
+              "k": "_DetailAlbedoMapScale",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_DetailNormalMapScale",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_DistortSpeed_XY_Scale_ZW",
+              "t": "c",
+              "c": [
+                0.0,
+                -0.019999999552965164,
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "k": "_DistortStrength",
+              "t": "f",
+              "f": 0.014999999664723873
+            },
+            {
+              "k": "_DistortionStrength",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_DistortionStrength_1",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_DstBlend",
+              "t": "f",
+              "f": 10.0
+            },
+            {
+              "k": "_DstBlendAlpha",
+              "t": "f",
+              "f": 10.0
+            },
+            {
+              "k": "_ENABLEMATCAP",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_EmissionColor",
+              "t": "c",
+              "c": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ]
+            },
+            {
+              "k": "_EnvironmentReflections",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_ExtraAmbientColor",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                1.0,
+                0.0
+              ]
+            },
+            {
+              "k": "_FogContribution",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_GlossMapScale",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_Glossiness",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_GlossyReflections",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_MatcapIntensity",
+              "t": "f",
+              "f": 2.0
+            },
+            {
+              "k": "_Metallic",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_OcclusionStrength",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_Parallax",
+              "t": "f",
+              "f": 0.004999999888241291
+            },
+            {
+              "k": "_QueueControl",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_QueueOffset",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_ROTATEUVS",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_ReceiveShadows",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_RotationSpeed",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_Smoothness",
+              "t": "f",
+              "f": 0.5
+            },
+            {
+              "k": "_SmoothnessTextureChannel",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_SpecColor",
+              "t": "c",
+              "c": [
+                0.20000000298023224,
+                0.20000000298023224,
+                0.20000000298023224,
+                1.0
+              ]
+            },
+            {
+              "k": "_SpecularHighlights",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_SrcBlend",
+              "t": "f",
+              "f": 5.0
+            },
+            {
+              "k": "_SrcBlendAlpha",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_Surface",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_USEDISTORT",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_UVSpeed",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                0.0,
+                0.0
+              ]
+            },
+            {
+              "k": "_WorkflowMode",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_ZTest",
+              "t": "f",
+              "f": 4.0
+            },
+            {
+              "k": "_ZWrite",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_ZWriteControl",
+              "t": "f",
+              "f": 0.0
+            }
+          ]
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
+      "props": [
+        {
+          "k": "_APPLYAMBIENTCOLOR",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_AlphaClip",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_AlphaToMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BaseColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_Blend",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BlendModePreserveSpecular",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_BumpScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CastShadows",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatSmoothness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClipThreshold",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_Color",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_Cull",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_Cutoff",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_DetailAlbedoMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DetailNormalMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortSpeed_XY_Scale_ZW",
+          "t": "c",
+          "c": [
+            0.0,
+            -0.019999999552965164,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_DistortStrength",
+          "t": "f",
+          "f": 0.014999999664723873
+        },
+        {
+          "k": "_DistortionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionStrength_1",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DstBlend",
+          "t": "f",
+          "f": 10.0
+        },
+        {
+          "k": "_DstBlendAlpha",
+          "t": "f",
+          "f": 10.0
+        },
+        {
+          "k": "_ENABLEMATCAP",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_EmissionColor",
+          "t": "c",
+          "c": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_EnvironmentReflections",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ExtraAmbientColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_FogContribution",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_GlossMapScale",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Glossiness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossyReflections",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_MatcapIntensity",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_Metallic",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_OcclusionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Parallax",
+          "t": "f",
+          "f": 0.004999999888241291
+        },
+        {
+          "k": "_QueueControl",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_QueueOffset",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ROTATEUVS",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ReceiveShadows",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_RotationSpeed",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Smoothness",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_SmoothnessTextureChannel",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SpecColor",
+          "t": "c",
+          "c": [
+            0.20000000298023224,
+            0.20000000298023224,
+            0.20000000298023224,
+            1.0
+          ]
+        },
+        {
+          "k": "_SpecularHighlights",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SrcBlend",
+          "t": "f",
+          "f": 5.0
+        },
+        {
+          "k": "_SrcBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Surface",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_USEDISTORT",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_UVSpeed",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_WorkflowMode",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ZTest",
+          "t": "f",
+          "f": 4.0
+        },
+        {
+          "k": "_ZWrite",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ZWriteControl",
+          "t": "f",
+          "f": 0.0
+        }
+      ],
+      "texOpaquePct": 44.0,
+      "texClearPct": 16.0,
+      "active": true,
+      "hasShadow": true,
+      "shadowCast": 1,
+      "shadowReceive": 1
+    },
+    {
+      "go": "Tank distortion 1 (1)",
+      "subMesh": null,
+      "worldBaked": false,
+      "obj": "Quad",
+      "objFile": null,
+      "builtinMesh": "Quad",
+      "subFiles": null,
+      "pos": [
+        109.469817,
+        1.110785,
+        5.364439
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        0.664459,
+        1.088045,
+        0.37651
+      ],
+      "tex": "Emperos Children Fake Distort 2",
+      "texFile": "Emperos Children Fake Distort 2.png",
+      "subMats": [
+        {
+          "tex": "Emperos Children Fake Distort 2",
+          "texFile": "Emperos Children Fake Distort 2.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
+          "props": [
+            {
+              "k": "_APPLYAMBIENTCOLOR",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_AlphaClip",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_AlphaToMask",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_BaseColor",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "k": "_Blend",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_BlendModePreserveSpecular",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_BumpScale",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_CastShadows",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_ClearCoatMask",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_ClearCoatSmoothness",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_ClipThreshold",
+              "t": "f",
+              "f": 0.5
+            },
+            {
+              "k": "_Color",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "k": "_Cull",
+              "t": "f",
+              "f": 2.0
+            },
+            {
+              "k": "_Cutoff",
+              "t": "f",
+              "f": 0.5
+            },
+            {
+              "k": "_DetailAlbedoMapScale",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_DetailNormalMapScale",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_DistortSpeed_XY_Scale_ZW",
+              "t": "c",
+              "c": [
+                0.0,
+                -0.03999999910593033,
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "k": "_DistortStrength",
+              "t": "f",
+              "f": 0.02500000037252903
+            },
+            {
+              "k": "_DistortionStrength",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_DistortionStrength_1",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_DstBlend",
+              "t": "f",
+              "f": 10.0
+            },
+            {
+              "k": "_DstBlendAlpha",
+              "t": "f",
+              "f": 10.0
+            },
+            {
+              "k": "_ENABLEMATCAP",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_EmissionColor",
+              "t": "c",
+              "c": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ]
+            },
+            {
+              "k": "_EnvironmentReflections",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_ExtraAmbientColor",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                1.0,
+                0.0
+              ]
+            },
+            {
+              "k": "_FogContribution",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_GlossMapScale",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_Glossiness",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_GlossyReflections",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_MatcapIntensity",
+              "t": "f",
+              "f": 2.0
+            },
+            {
+              "k": "_Metallic",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_OcclusionStrength",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_Parallax",
+              "t": "f",
+              "f": 0.004999999888241291
+            },
+            {
+              "k": "_QueueControl",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_QueueOffset",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_ROTATEUVS",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_ReceiveShadows",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_RotationSpeed",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_Smoothness",
+              "t": "f",
+              "f": 0.5
+            },
+            {
+              "k": "_SmoothnessTextureChannel",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_SpecColor",
+              "t": "c",
+              "c": [
+                0.20000000298023224,
+                0.20000000298023224,
+                0.20000000298023224,
+                1.0
+              ]
+            },
+            {
+              "k": "_SpecularHighlights",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_SrcBlend",
+              "t": "f",
+              "f": 5.0
+            },
+            {
+              "k": "_SrcBlendAlpha",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_Surface",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_USEDISTORT",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_UVSpeed",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                0.0,
+                0.0
+              ]
+            },
+            {
+              "k": "_WorkflowMode",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_ZTest",
+              "t": "f",
+              "f": 4.0
+            },
+            {
+              "k": "_ZWrite",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_ZWriteControl",
+              "t": "f",
+              "f": 0.0
+            }
+          ]
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
+      "props": [
+        {
+          "k": "_APPLYAMBIENTCOLOR",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_AlphaClip",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_AlphaToMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BaseColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_Blend",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BlendModePreserveSpecular",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_BumpScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CastShadows",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatSmoothness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClipThreshold",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_Color",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_Cull",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_Cutoff",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_DetailAlbedoMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DetailNormalMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortSpeed_XY_Scale_ZW",
+          "t": "c",
+          "c": [
+            0.0,
+            -0.03999999910593033,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_DistortStrength",
+          "t": "f",
+          "f": 0.02500000037252903
+        },
+        {
+          "k": "_DistortionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionStrength_1",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DstBlend",
+          "t": "f",
+          "f": 10.0
+        },
+        {
+          "k": "_DstBlendAlpha",
+          "t": "f",
+          "f": 10.0
+        },
+        {
+          "k": "_ENABLEMATCAP",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_EmissionColor",
+          "t": "c",
+          "c": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_EnvironmentReflections",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ExtraAmbientColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_FogContribution",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_GlossMapScale",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Glossiness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossyReflections",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_MatcapIntensity",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_Metallic",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_OcclusionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Parallax",
+          "t": "f",
+          "f": 0.004999999888241291
+        },
+        {
+          "k": "_QueueControl",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_QueueOffset",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ROTATEUVS",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ReceiveShadows",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_RotationSpeed",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Smoothness",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_SmoothnessTextureChannel",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SpecColor",
+          "t": "c",
+          "c": [
+            0.20000000298023224,
+            0.20000000298023224,
+            0.20000000298023224,
+            1.0
+          ]
+        },
+        {
+          "k": "_SpecularHighlights",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SrcBlend",
+          "t": "f",
+          "f": 5.0
+        },
+        {
+          "k": "_SrcBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Surface",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_USEDISTORT",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_UVSpeed",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_WorkflowMode",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ZTest",
+          "t": "f",
+          "f": 4.0
+        },
+        {
+          "k": "_ZWrite",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ZWriteControl",
+          "t": "f",
+          "f": 0.0
+        }
+      ],
+      "texOpaquePct": 26.0,
+      "texClearPct": 32.1,
+      "active": true,
+      "hasShadow": true,
+      "shadowCast": 1,
+      "shadowReceive": 1
+    },
+    {
       "go": "Cauldron 1",
       "subMesh": null,
       "worldBaked": false,
       "obj": "Cauldron 11",
       "objFile": "Cauldron 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         96.422516,
@@ -789,7 +2132,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Glass Tube 4",
@@ -797,6 +2141,7 @@
       "worldBaked": false,
       "obj": "Glass Tube 41",
       "objFile": "Glass Tube 41.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         112.297264,
@@ -1455,7 +2800,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Moon 11",
@@ -1463,6 +2809,7 @@
       "worldBaked": false,
       "obj": "Moon 111",
       "objFile": "Moon 111.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         153.367889,
@@ -2121,7 +3468,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Hook 2",
@@ -2129,6 +3477,7 @@
       "worldBaked": false,
       "obj": "Hook 21",
       "objFile": "Hook 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         99.857567,
@@ -2787,7 +4136,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Machinery 1",
@@ -2795,6 +4145,7 @@
       "worldBaked": false,
       "obj": "Machinery 11",
       "objFile": "Machinery 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         109.46476,
@@ -3453,7 +4804,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Glass Tube 3",
@@ -3461,6 +4813,7 @@
       "worldBaked": false,
       "obj": "Glass Tube 31",
       "objFile": "Glass Tube 31.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         112.579422,
@@ -4119,7 +5472,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Curtain 6",
@@ -4127,6 +5481,7 @@
       "worldBaked": false,
       "obj": "Curtain 61",
       "objFile": "Curtain 61.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         107.300186,
@@ -4725,7 +6080,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Moon 2",
@@ -4733,6 +6089,7 @@
       "worldBaked": false,
       "obj": "Moon 21",
       "objFile": "Moon 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         84.537224,
@@ -5391,7 +6748,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Trophy Rack",
@@ -5399,6 +6757,7 @@
       "worldBaked": false,
       "obj": "Trophy Rack1",
       "objFile": "Trophy Rack1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         89.641212,
@@ -6057,7 +7416,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Spike 5",
@@ -6065,6 +7425,7 @@
       "worldBaked": false,
       "obj": "Spike 51",
       "objFile": "Spike 51.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         92.677048,
@@ -6723,7 +8084,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Cauldron 2",
@@ -6731,6 +8093,7 @@
       "worldBaked": false,
       "obj": "Cauldron 21",
       "objFile": "Cauldron 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         104.362694,
@@ -7389,7 +8752,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Pipe 9",
@@ -7397,6 +8761,7 @@
       "worldBaked": false,
       "obj": "Pipe 91",
       "objFile": "Pipe 91.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         111.788017,
@@ -8055,7 +9420,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Chain 2",
@@ -8063,6 +9429,7 @@
       "worldBaked": false,
       "obj": "Chain 21",
       "objFile": "Chain 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         86.44445,
@@ -8721,7 +10088,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Machinery 2",
@@ -8729,6 +10097,7 @@
       "worldBaked": false,
       "obj": "Machinery 21",
       "objFile": "Machinery 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         108.871948,
@@ -9387,7 +10756,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Ornament 3",
@@ -9395,6 +10765,7 @@
       "worldBaked": false,
       "obj": "Ornament 31",
       "objFile": "Ornament 31.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         107.280563,
@@ -10053,7 +11424,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Curtain 5",
@@ -10061,6 +11433,7 @@
       "worldBaked": false,
       "obj": "Curtain 51",
       "objFile": "Curtain 51.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         97.232124,
@@ -10659,7 +12032,109 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
+    },
+    {
+      "go": "Shadow Receiver",
+      "subMesh": null,
+      "worldBaked": false,
+      "obj": "Quad",
+      "objFile": null,
+      "builtinMesh": "Quad",
+      "subFiles": null,
+      "pos": [
+        100.0,
+        0.0,
+        0.0
+      ],
+      "rot": [
+        0.707106,
+        0.0,
+        0.0,
+        0.707108
+      ],
+      "scale": [
+        81.161079,
+        35.126866,
+        41.907949
+      ],
+      "tex": null,
+      "texFile": null,
+      "subMats": [
+        {
+          "tex": null,
+          "texFile": null,
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 2,
+          "dstBlend": 0,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/Misc/URP Transparent Shadow Receiver",
+          "queue": 3000,
+          "props": [
+            {
+              "k": "_ShadowColor",
+              "t": "c",
+              "c": [
+                0.3499999940395355,
+                0.4000000059604645,
+                0.44999998807907104,
+                1.0
+              ]
+            }
+          ]
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 2,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/Misc/URP Transparent Shadow Receiver",
+      "props": [
+        {
+          "k": "_ShadowColor",
+          "t": "c",
+          "c": [
+            0.3499999940395355,
+            0.4000000059604645,
+            0.44999998807907104,
+            1.0
+          ]
+        }
+      ],
+      "texOpaquePct": null,
+      "texClearPct": null,
+      "active": false,
+      "hasShadow": true,
+      "shadowCast": 1,
+      "shadowReceive": 1
     },
     {
       "go": "Pipes 10",
@@ -10667,6 +12142,7 @@
       "worldBaked": false,
       "obj": "Pipes 101",
       "objFile": "Pipes 101.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         110.417984,
@@ -11325,7 +12801,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Midground 2",
@@ -11333,6 +12810,7 @@
       "worldBaked": false,
       "obj": "Midground 21",
       "objFile": "Midground 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         92.731148,
@@ -11991,7 +13469,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Chain 1",
@@ -11999,6 +13478,7 @@
       "worldBaked": false,
       "obj": "Chain 11",
       "objFile": "Chain 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         97.23661,
@@ -12657,7 +14137,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Ornament 1",
@@ -12665,6 +14146,7 @@
       "worldBaked": false,
       "obj": "Ornament 11",
       "objFile": "Ornament 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         95.993896,
@@ -13323,7 +14805,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Cache Stealth",
@@ -13331,6 +14814,7 @@
       "worldBaked": false,
       "obj": "Card 3D WH40k",
       "objFile": null,
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         99.529999,
@@ -14009,7 +15493,8 @@
         }
       ],
       "texOpaquePct": 57.7,
-      "texClearPct": 0.0
+      "texClearPct": 0.0,
+      "active": false
     },
     {
       "go": "Moon 8",
@@ -14017,6 +15502,7 @@
       "worldBaked": false,
       "obj": "Moon 81",
       "objFile": "Moon 81.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         201.662903,
@@ -14675,7 +16161,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Curtain 3",
@@ -14683,6 +16170,7 @@
       "worldBaked": false,
       "obj": "Curtain 31",
       "objFile": "Curtain 31.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         82.987846,
@@ -15281,7 +16769,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Lines 2",
@@ -15289,6 +16778,7 @@
       "worldBaked": false,
       "obj": "Lines 21",
       "objFile": "Lines 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         115.533432,
@@ -15947,7 +17437,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Moon 1",
@@ -15955,6 +17446,7 @@
       "worldBaked": false,
       "obj": "Moon 13",
       "objFile": "Moon 13.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         77.009674,
@@ -16613,7 +18105,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Pipe Claw",
@@ -16621,6 +18114,7 @@
       "worldBaked": false,
       "obj": "Pipe Claw1",
       "objFile": "Pipe Claw1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         110.240768,
@@ -17279,7 +18773,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Background growth",
@@ -17287,6 +18782,7 @@
       "worldBaked": false,
       "obj": "Background growth1",
       "objFile": "Background growth1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         117.251511,
@@ -17945,7 +19441,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Curtain 2",
@@ -17953,6 +19450,7 @@
       "worldBaked": false,
       "obj": "Curtain 21",
       "objFile": "Curtain 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         90.227516,
@@ -18551,7 +20049,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Curtain 4",
@@ -18559,6 +20058,7 @@
       "worldBaked": false,
       "obj": "Curtain 41",
       "objFile": "Curtain 41.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         89.14399,
@@ -19217,7 +20717,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Hook 3",
@@ -19225,6 +20726,7 @@
       "worldBaked": false,
       "obj": "Hook 31",
       "objFile": "Hook 31.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         89.772232,
@@ -19883,7 +21385,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Curtain 9",
@@ -19891,6 +21394,7 @@
       "worldBaked": false,
       "obj": "Curtain 91",
       "objFile": "Curtain 91.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         93.295456,
@@ -20489,7 +21993,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Spike 7",
@@ -20497,6 +22002,7 @@
       "worldBaked": false,
       "obj": "Spike 71",
       "objFile": "Spike 71.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         105.939857,
@@ -21155,7 +22661,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Weapon Rack",
@@ -21163,6 +22670,7 @@
       "worldBaked": false,
       "obj": "Weapon Rack1",
       "objFile": "Weapon Rack1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         89.569061,
@@ -21821,7 +23329,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Hook 1",
@@ -21829,6 +23338,7 @@
       "worldBaked": false,
       "obj": "Hook 11",
       "objFile": "Hook 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         89.857651,
@@ -22487,7 +23997,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Moon 10",
@@ -22495,6 +24006,7 @@
       "worldBaked": false,
       "obj": "Moon 101",
       "objFile": "Moon 101.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         162.953583,
@@ -23153,7 +24665,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Crate 4",
@@ -23161,6 +24674,7 @@
       "worldBaked": false,
       "obj": "Crate 41",
       "objFile": "Crate 41.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         90.42025,
@@ -23819,7 +25333,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Hook 4",
@@ -23827,6 +25342,7 @@
       "worldBaked": false,
       "obj": "Hook 41",
       "objFile": "Hook 41.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         104.349663,
@@ -24485,7 +26001,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Spike 6",
@@ -24493,6 +26010,7 @@
       "worldBaked": false,
       "obj": "Spike 61",
       "objFile": "Spike 61.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         93.862564,
@@ -25151,7 +26669,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Background Sky",
@@ -25159,6 +26678,7 @@
       "worldBaked": false,
       "obj": "Background Sky",
       "objFile": "Background Sky.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         96.254555,
@@ -25817,7 +27337,8 @@
         }
       ],
       "texOpaquePct": 96.1,
-      "texClearPct": 3.8
+      "texClearPct": 3.8,
+      "active": true
     },
     {
       "go": "Spike 1",
@@ -25825,6 +27346,7 @@
       "worldBaked": false,
       "obj": "Spike 11",
       "objFile": "Spike 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         107.967743,
@@ -26483,7 +28005,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Midground 3",
@@ -26491,6 +28014,7 @@
       "worldBaked": false,
       "obj": "Midground 31",
       "objFile": "Midground 31.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         88.602448,
@@ -27149,7 +28673,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Hook 7",
@@ -27157,6 +28682,7 @@
       "worldBaked": false,
       "obj": "Hook 71",
       "objFile": "Hook 71.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         103.323288,
@@ -27815,7 +29341,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Glass Tube 2",
@@ -27823,6 +29350,7 @@
       "worldBaked": false,
       "obj": "Glass Tube 21",
       "objFile": "Glass Tube 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         109.433182,
@@ -28481,7 +30009,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Pipe 5",
@@ -28489,6 +30018,7 @@
       "worldBaked": false,
       "obj": "Pipe 51",
       "objFile": "Pipe 51.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         109.590973,
@@ -29147,7 +30677,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Hook 5",
@@ -29155,6 +30686,7 @@
       "worldBaked": false,
       "obj": "Hook 51",
       "objFile": "Hook 51.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         99.468979,
@@ -29813,7 +31345,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Hook 6",
@@ -29821,6 +31354,7 @@
       "worldBaked": false,
       "obj": "Hook 61",
       "objFile": "Hook 61.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         104.912651,
@@ -30479,7 +32013,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Pipe 4",
@@ -30487,6 +32022,7 @@
       "worldBaked": false,
       "obj": "Pipe 41",
       "objFile": "Pipe 41.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         109.567711,
@@ -31145,7 +32681,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Crate 3",
@@ -31153,6 +32690,7 @@
       "worldBaked": false,
       "obj": "Crate 31",
       "objFile": "Crate 31.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         90.594566,
@@ -31811,7 +33349,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Spike 3",
@@ -31819,6 +33358,7 @@
       "worldBaked": false,
       "obj": "Spike 31",
       "objFile": "Spike 31.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         91.803497,
@@ -32477,7 +34017,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Curtain 7",
@@ -32485,6 +34026,7 @@
       "worldBaked": false,
       "obj": "Curtain 71",
       "objFile": "Curtain 71.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         115.867569,
@@ -33083,7 +34625,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Pipe 2",
@@ -33091,6 +34634,7 @@
       "worldBaked": false,
       "obj": "Pipe 21",
       "objFile": "Pipe 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         109.671326,
@@ -33749,7 +35293,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Gun 3",
@@ -33757,6 +35302,7 @@
       "worldBaked": false,
       "obj": "Gun 31",
       "objFile": "Gun 31.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         90.019684,
@@ -34415,7 +35961,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Crate 2",
@@ -34423,6 +35970,7 @@
       "worldBaked": false,
       "obj": "Crate 21",
       "objFile": "Crate 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         90.412331,
@@ -35081,7 +36629,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Moon 4",
@@ -35089,6 +36638,7 @@
       "worldBaked": false,
       "obj": "Moon 41",
       "objFile": "Moon 41.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         102.315132,
@@ -35747,7 +37297,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Moon 5",
@@ -35755,6 +37306,7 @@
       "worldBaked": false,
       "obj": "Moon 51",
       "objFile": "Moon 51.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         223.690384,
@@ -36413,7 +37965,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Throne",
@@ -36421,6 +37974,7 @@
       "worldBaked": false,
       "obj": "Throne1",
       "objFile": "Throne1.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         101.279442,
@@ -37079,7 +38633,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Crate 1",
@@ -37087,6 +38642,7 @@
       "worldBaked": false,
       "obj": "Crate 11",
       "objFile": "Crate 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         89.011002,
@@ -37745,7 +39301,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Pipe 1",
@@ -37753,6 +39310,7 @@
       "worldBaked": false,
       "obj": "Pipe 11",
       "objFile": "Pipe 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         111.591949,
@@ -38411,7 +39969,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Midground 4",
@@ -38419,6 +39978,7 @@
       "worldBaked": false,
       "obj": "Midground 41",
       "objFile": "Midground 41.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         88.069595,
@@ -39077,7 +40637,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Gun 1",
@@ -39085,6 +40646,7 @@
       "worldBaked": false,
       "obj": "Gun 11",
       "objFile": "Gun 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         89.661812,
@@ -39743,7 +41305,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Floor",
@@ -39751,6 +41314,7 @@
       "worldBaked": false,
       "obj": "Floor",
       "objFile": "Floor.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         99.509293,
@@ -40389,7 +41953,8 @@
         }
       ],
       "texOpaquePct": 96.1,
-      "texClearPct": 3.8
+      "texClearPct": 3.8,
+      "active": true
     },
     {
       "go": "Pipe 8",
@@ -40397,6 +41962,7 @@
       "worldBaked": false,
       "obj": "Pipe 81",
       "objFile": "Pipe 81.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         111.444733,
@@ -41055,7 +42621,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Midground 1",
@@ -41063,6 +42630,7 @@
       "worldBaked": false,
       "obj": "Midground 11",
       "objFile": "Midground 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         111.339668,
@@ -41721,7 +43289,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Moon 3",
@@ -41729,6 +43298,7 @@
       "worldBaked": false,
       "obj": "Moon 31",
       "objFile": "Moon 31.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         98.258865,
@@ -42387,7 +43957,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Pipe 7",
@@ -42395,6 +43966,7 @@
       "worldBaked": false,
       "obj": "Pipe 71",
       "objFile": "Pipe 71.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         110.995056,
@@ -43053,7 +44625,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Lines 1",
@@ -43061,6 +44634,7 @@
       "worldBaked": false,
       "obj": "Lines 11",
       "objFile": "Lines 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         88.891922,
@@ -43719,7 +45293,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Moon 6",
@@ -43727,6 +45302,7 @@
       "worldBaked": false,
       "obj": "Moon 61",
       "objFile": "Moon 61.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         202.253555,
@@ -44385,7 +45961,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Glass Tube 1",
@@ -44393,6 +45970,7 @@
       "worldBaked": false,
       "obj": "Glass Tube 11",
       "objFile": "Glass Tube 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         110.305122,
@@ -45051,7 +46629,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Curtain 8",
@@ -45059,6 +46638,7 @@
       "worldBaked": false,
       "obj": "Curtain 81",
       "objFile": "Curtain 81.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         107.652458,
@@ -45657,7 +47237,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Spike 2",
@@ -45665,6 +47246,7 @@
       "worldBaked": false,
       "obj": "Spike 21",
       "objFile": "Spike 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         106.985161,
@@ -46323,7 +47905,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Pipe 3",
@@ -46331,6 +47914,7 @@
       "worldBaked": false,
       "obj": "Pipe 31",
       "objFile": "Pipe 31.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         110.79689,
@@ -46989,7 +48573,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Moon 12",
@@ -46997,6 +48582,7 @@
       "worldBaked": false,
       "obj": "Moon 121",
       "objFile": "Moon 121.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         87.993103,
@@ -47655,7 +49241,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Gun 2",
@@ -47663,6 +49250,7 @@
       "worldBaked": false,
       "obj": "Gun 21",
       "objFile": "Gun 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         90.447266,
@@ -48321,7 +49909,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Spike 4",
@@ -48329,6 +49918,7 @@
       "worldBaked": false,
       "obj": "Spike 41",
       "objFile": "Spike 41.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         89.882843,
@@ -48987,7 +50577,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Ornament 2",
@@ -48995,6 +50586,7 @@
       "worldBaked": false,
       "obj": "Ornament 21",
       "objFile": "Ornament 21.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         106.006508,
@@ -49653,7 +51245,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Moon 7",
@@ -49661,6 +51254,7 @@
       "worldBaked": false,
       "obj": "Moon 71",
       "objFile": "Moon 71.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         203.262299,
@@ -50319,7 +51913,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Curtain 1",
@@ -50327,6 +51922,7 @@
       "worldBaked": false,
       "obj": "Curtain 11",
       "objFile": "Curtain 11.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         113.86853,
@@ -50985,7 +52581,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Moon 9",
@@ -50993,6 +52590,7 @@
       "worldBaked": false,
       "obj": "Moon 91",
       "objFile": "Moon 91.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         165.102219,
@@ -51651,7 +53249,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     },
     {
       "go": "Pipe 6",
@@ -51659,6 +53258,7 @@
       "worldBaked": false,
       "obj": "Pipe 61",
       "objFile": "Pipe 61.obj",
+      "builtinMesh": null,
       "subFiles": null,
       "pos": [
         111.429031,
@@ -52317,7 +53917,8 @@
         }
       ],
       "texOpaquePct": 28.6,
-      "texClearPct": 69.3
+      "texClearPct": 69.3,
+      "active": true
     }
   ],
   "particles": [
