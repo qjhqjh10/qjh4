@@ -1172,8 +1172,20 @@ namespace CardPresentation
             //   拼词条 key → `I2_Loc.GetTranslation`），而**词条表在远端 CCD、本地没有**
             //   ⇒ 我们画的是**枚举名**（`Ultramarines`），**不是原版屏幕上那串**（同 `Claim`/`Claimed` 那两处的口径）
             if (st.NamePx > 0f && fac != null)
+            {
+                // 🆕 **2026-10-10（A1212 块 11）接上自适应**：原版那一颗
+                //   `… Drawer ▸ Content/Army` 四格 = `12 / 75 / 36 / 1`（折行 **1** ⇒ 不用还原）。
+                //   出处 = `资料/普查产出_第十会话/R6_包装层战斗与其余.md` §2·H #67
+                //   （六份抽屉逐个现读，`Wildcard Drawer` 那份实测同值）；归组 =
+                //   `资料/普查产出_第十一会话/RA1212_切块表.md` 块 11。
+                //   ⚠️ **三格一起乘 `k`** —— 本文件 `ClippedText` 的 doc 写着「三者都是**原版设计空间的原文**，
+                //   调用方自己按该族的**刻度**换算（见 `AlreadyOwned` 那一处）」，而同族已接的那一站
+                //   （`:970`）用的正是 `k = box.H / DecorRefH`（`DecorRefH = 1080` = 抽屉的参考高）
+                //   ⇒ 照抄同族写法，⛔ 不自己发明系数。
+                float k = box.H / DecorRefH;
                 ClippedText(node, NameStrip(box, st.NamePx), fac, Color.white, NodeArmyName,
-                            st.NamePx, st.QText, box.W - 20f, st);
+                            st.NamePx, st.QText, box.W - 20f, st, 0, 12f * k, 75f * k, 36f * k);
+            }
             if (st.QuantityPx > 0f) Quantity(node, box, qty, st);
         }
 
@@ -1256,7 +1268,17 @@ namespace CardPresentation
             //    顺序反了：`ClipText` 夹的是**世界坐标**的顶点，先裁再挪 = 把裁好的块挪出框
             //    （同 `CampaignRewardWindow.cs` 那颗 `Warning` 踩过的那次）。⇒ 改走 `ClippedText(align: 2)`，
             //    **对齐在裁之前**（这是它签名的第 3 步）。
-            ClippedText(node, qr, "x" + qty, Color.white, NodeQuantity, st.QuantityPx, st.QText, qr.W, st, 2);
+            // 🆕 **2026-10-10（A1212 块 11）接上自适应**：原版那一颗
+            //   `… Drawer ▸ Content/Label/Quantity` 四格 = `12 / 75 / 36 / 0`，出处 =
+            //   `R6_包装层战斗与其余.md` §2·H #69（六份抽屉现读；⚠️ 原报告同时记着
+            //   `Currency Drawer` 是 `auto[12~100]`、`Title Drawer` 是 `fs40` —— 那是**别的抽屉**，
+            //   本函数只有这一个调用点、按**多数那一档**接，差额如实记在报告里）。
+            //   ⚠️ 折行 = **0** ⇒ `wrapOff: true`（`SetAutoFitBox` 内部那句 `SetWrapWidth` 会无条件开折行，
+            //   而这句还原在 `ClippedText` 体内、`ClipText` **之前**做 —— 调用方拿到返回值再关就晚了，
+            //   见那个形参自己的 doc）。⚠️ 三格乘 `k` 的理由同 `Army Name` 那一处。
+            float k = box.H / DecorRefH;
+            ClippedText(node, qr, "x" + qty, Color.white, NodeQuantity, st.QuantityPx, st.QText, qr.W, st, 2,
+                        12f * k, 75f * k, 36f * k, true);
         }
 
         /// <summary>抽屉里一段**吃裁切**的文字（🆕 **2026-10-11（A302）**）—— 全库唯一一份。

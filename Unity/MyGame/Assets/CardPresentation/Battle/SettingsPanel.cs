@@ -133,8 +133,33 @@ namespace CardPresentation
         /// <summary>原版那三颗 `Text` 的**框高** —— 现读 `menu_dump.py … "Volume Sliders" --depth 3 --no-sprite`
         /// 的 `高` 列（三颗同值）。`Bottom` 那一档要它（`Label.SetVAlign` 的框高）。</summary>
         const float LabelBoxH = 55.00f;
+        /// <summary>原版那三颗 `Text` 的**框宽** —— 同一份 dump 的矩形是 `677.5,332.5→1308.7,387.5`
+        /// （1920×1080 左上原点）⇒ 宽 = `1308.7 − 677.5 = 631.21`（三颗同值）。
+        /// 🆕 **2026-10-10（A1212 块 9）新加** —— 它是 `Label.SetAutoFitBox` 的**框宽**（`wrapPx`）那一格，
+        /// 出处 = 本文件 `:107/:115` 那条注释里逐字写着的「框 631.21×55.00」（同 `LabelBoxH` 一份 dump）。
+        /// ⚠️ 原来只有 `LabelBoxH`（`SetVAlign` 那一档只要高）；接自适应**必须同时给宽**
+        /// （`MenuDraw.TextCore` 那条路的闸第一条就是 `wrapPx > 0`）。</summary>
+        const float LabelBoxW = 631.21f;
         const float LabelLeftX = -282.54f;
         const float LabelFontPx = 42f;                       // 原版 fs42（autoSizing 10–42）
+        /// <summary>原版那三颗 `Text` 的 `m_fontSizeMin` / `m_fontSizeBase`
+        /// （上限那一格 = <see cref="LabelFontPx"/> 本身 —— 原版 `m_fontSizeMax = 42 = m_fontSize`）。
+        /// 🆕 **2026-10-10（A1212 块 9）**：出处 = `资料/普查产出_第十会话/R6_包装层战斗与其余.md` §2·D
+        /// （`SettingsPanel.cs:664/:665/:666` 那三处，原版四格 `10 / 42 / 36 / 1`）+
+        /// 本文件 `:108` 那条实读注释「折行=1 · fs42 · auto[10~42] · base 36」；归组 =
+        /// `资料/普查产出_第十一会话/RA1212_切块表.md` 块 9。
+        /// ⚠️ `max = 42 = m_fontSize` ⇒ 自适应**只能缩、不能涨**（与 `Title` / `Button Text` 那两颗同一条口径）。
+        /// <para>🔴 **2026-10-10 如实登记一条「本族特有的量纲隐患」（本处是全仓第一处「`Cap` 路 + `SetAutoFitBox`」，⛔ 没改口径、只登记）**：
+        /// 本面板这三颗走 <see cref="ApplyLangFont"/> ⇒ <see cref="Label.SetScriptHeight"/> ——
+        /// **汉字档走 `SetGlyphHeight`、拉丁档走 `SetCapHeight`**（`Loc.HasCjk` 那条唯一判据）。
+        /// 而 `Label.SetAutoFitBox` 内部把 `maxPx` 折成 `fontSize` 时用的分母是 `NominalPx()` =
+        /// `FontSizeToPx(TmpFontSize())` —— 对 `SetGlyphHeight` 路，`NominalPx == 调用方那个 px`（`42`）；
+        /// 对 `SetCapHeight` 路，它量出来的是**汉字墨高口径**的值（`42 × 0.72 × (0.0948/0.0779) ≈ 36.8`）
+        /// ⇒ 同一个 `maxPx = 42` 在**英文档**下写进的 `m_fontSizeMax` 会**比 `cur` 大 ≈ 1.14 倍**。
+        /// 判据 = `Battle/Label.cs` 的 `NominalPx()` 那段就地订正（它自己写着「哪天有人给 Cap 那一路接上
+        /// 自适应，就会静默大 1.22 倍」—— 本次就是那一档，比例按现读的两个实测值算是 1.14）。
+        /// ⛔ **不在这里乘补偿系数**（那是自己发明口径）；如实记着、交调度台裁。</para></summary>
+        const float LabelAutoMin = 10f, LabelAutoBase = 36f;
         /// <summary>三根音量滑块标签的**原版词条键**（顺序 = `SliderCy` / `LabelBoxCy` 的顺序）。</summary>
         static readonly string[] SliderNameTerms =
         {
@@ -1112,6 +1137,16 @@ namespace CardPresentation
             //    拉丁大写只占约 **0.72 em**、汉字约占 **1 em** —— 写死一种就会让另一档差 28%/39%。
             //    （这两条标签自 2026-10-18 起**跟着语言变**，所以这里不能再写死 `SetCapHeight(0.72em)`。）
             ApplyLangFont(l, text, LabelFontPx);
+            // 🆕 **2026-10-10（A1212 块 9）接上自适应**：原版那三颗 `Text` 四格 = `10 / 42 / 36 / 1`
+            //   （出处 = `R6_包装层战斗与其余.md` §2·D 的 `:664/:665/:666` 三处 + 本文件 `:108` 那条实读；
+            //   归组 = `RA1212_切块表.md` 块 9）。**走 `Label.SetAutoFitBox` 那条路 ⇒ 没有那三道闸。**
+            //   · 量纲（`Label.SetAutoFitBox(worldW, worldH, minPx, maxPx, basePx)` 的 doc 写着）：
+            //     **框宽/框高走世界单位** ⇒ 过 `U()`（本文件的 px→世界单位换算，= `/108`）；
+            //     **`min/max/base` 走原版画布 px**（画布 1920×1080，与我们同一把尺）⇒ **原样传、⛔ 不乘任何系数**。
+            //   · ⚠️ **必须在 `SetVAlign` 之前调** —— `SetWrapWidth` / `SetAutoFitBox` 都会重排 mesh，
+            //     而 `Bottom` 那一档要按框高重算（`Label.SetVAlign` 的 doc 那句「排在重排之后才稳」）。
+            //   · ⚠️ 折行 = **1** ⇒ 不用还原（`SetAutoFitBox` 内部顺带开的就是 `Normal(1)`）。
+            if (l != null) l.SetAutoFitBox(U(LabelBoxW), U(LabelBoxH), LabelAutoMin, LabelFontPx, LabelAutoBase);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向档 = 原版那三颗 `Text` 的 **`VAlign Bottom`**
             //   （判据 = 本文件 `:48` 引的那条实读「标签文字 Music / Sound Effects / Voice-overs，
             //    fs42 白，左对齐 / **VAlign Bottom**」+ `menu_dump.py` 现读的 `对齐=Left/Bottom`）。

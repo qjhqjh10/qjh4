@@ -598,7 +598,17 @@ namespace CardPresentation
             var hl = DrawRect(e, Art(ArtHighlight), O(E_Highlight), "Highlight", QPanel, HighlightTint);
             if (hl != null) hl.gameObject.SetActive(unlocked && !claimed);
             DrawRect(e, Art(DailyData.StreakRewardIcon(day)), O(E_Holder), "Reward Holder", QContent, null, true);
-            var lbRwName = Text(e, O(E_Name), DailyData.StreakRewardName(day), Color.white, "Reward Name", 34.05f * k, QText);
+            // 🆕 **2026-10-10（A1212 块 10）接上自适应**：原版那一颗四格 = `18 / 40 / 36 / 1`
+            //   （出处 = `资料/普查产出_第十会话/R6_包装层战斗与其余.md` §3；归组 =
+            //   `资料/普查产出_第十一会话/RA1212_切块表.md` 块 10 #33）。
+            //   闸（`MenuDraw.TextCore`）：`wrapPx O(E_Name).W > 0` ∧ `18 > 0` ∧ `34.05×k > 18` ⇒ 全真。
+            //   ⚠️ `折行 = 1` ⇒ 不用还原。⚠️ 用**命名实参**（`WindowsManager.Text` 的 `align` 是 `int`
+            //   且排在 `autoMaxPx` 前面，位置一错会**静默**绑错 —— 同 `Collect Text` 那条注释）。
+            //   ⚠️ 三格**不乘 `k`**：本族已接的先例 = `Shell/CampaignRewardWindow.cs` 的
+            //   `WarnAutoMin/WarnAutoMax/WarnAutoBase`（同一条 `GameWindow.Text` 的路，全按原版画布 px **原样传**）。
+            var lbRwName = Text(e, O(E_Name), DailyData.StreakRewardName(day), Color.white, "Reward Name",
+                                34.05f * k, QText, wrapPx: O(E_Name).W, autoMinPx: 18f,
+                                autoMaxPx: 40f, autoBasePx: 36f);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版
             //   `Daily Streak Reward Popup Entry/Reward Name` = `对齐=Center/**Midline**`（fs34.05）
             //   （判据 = `python 工具/menu_dump.py bundle_menus_assets_all "Daily Streak Reward Popup Entry" --depth 4 --md`；
@@ -627,7 +637,11 @@ namespace CardPresentation
                 //    ⚠️ 用**命名实参**（⛔ 别把它插到 `autoMaxPx` 前面当位置实参）——
                 //    `int` 字面量能隐式转 `float`，位置一错会**静默**绑成 `autoMaxPx`、对齐退回 0。
                 var lbCollect = Text(e, O(E_CollectText), DailyData.StreakClaimText(), Color.white, "Collect Text",
-                     52.85f * 0.7f * k, QText, align: 1);
+                     52.85f * 0.7f * k, QText, wrapPx: O(E_CollectText).W, autoMinPx: 18f,
+                     autoMaxPx: 72f, autoBasePx: 36f, align: 1);
+                // 🆕 **2026-10-10（A1212 块 10）接上自适应**：原版那一颗四格 = `18 / 72 / 36 / 1`
+                //   （出处 = `RA1212_切块表.md` 块 10 #34）；闸全真（`52.85×0.7×k ≈ 37 > 18`）。
+                //   ⚠️ `折行 = 1` ⇒ 不用还原。⚠️ 三格**不乘 `k`**（理由同 `Reward Name` 那一处）。
                 // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 同一行 dump 实读 `对齐=Left/**Midline**`。
                 MenuDraw.SetVAlign(lbCollect, Label.VAlign.Midline, O(E_CollectText));
                 if (c != null)

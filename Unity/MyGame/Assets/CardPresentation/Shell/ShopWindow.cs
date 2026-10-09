@@ -460,8 +460,15 @@ namespace CardPresentation
                 //   —— 它留着当「原版英文原文」的留档（⛔ 那份文件不在本批白名单里，一个字没动它）。
                 //   ⛔ 节点名 `"RefreshText"` 不动（`Editor/ShopScene.cs` 按名找）。
                 var lb = _win.Text(tc, Loc.T("MenuShop/RefreshCounter"), TimeCounter.x1, TimeCounter.x2,
-                                   TimeCounter.y1, TimeCounter.y2, 5, Color.white, "RefreshText", 30f);
-                if (lb != null) { lb.SetRenderQueue(QHeaderText); parts.Add(lb.transform); widths.Add(lb.WorldW * 108f); }
+                                   TimeCounter.y1, TimeCounter.y2, 5, Color.white, "RefreshText", 30f,
+                                   TimeCounter.W, 10f, 30f, 25f);
+                // 🆕 **2026-10-10（A1212 块 6）接上自适应**：原版那一颗四格 = `10 / 30 / 25 / 0`，
+                //   出处 = `资料/普查产出_第十会话/R6_包装层战斗与其余.md` §3（块 6 逐处表 =
+                //   `资料/普查产出_第十一会话/RA1212_切块表.md` 块 6 #15）。闸（`MenuDraw.TextCore`）三条：
+                //   `wrapPx 311.40 > 0` ∧ `autoMinPx 10 > 0` ∧ `fontPx 30 > 10` ⇒ 全真，真生效。
+                //   ⚠️ 原版 `折行 = 0` ⇒ `SetAutoFitBox` 顺带打开的 `Normal(1)` 要**显式还原**
+                //   （两条路的帮助器都**没有**任何 wrap 还原，见块表那段注）。
+                if (lb != null) { lb.SetWrapping(false); lb.SetRenderQueue(QHeaderText); parts.Add(lb.transform); widths.Add(lb.WorldW * 108f); }
             }
             else
             {
@@ -485,9 +492,13 @@ namespace CardPresentation
             }
 
             // `Time`（`LayoutElement.minWidth = 111.31`，实测）
+            // 🆕 **2026-10-10（A1212 块 6）接上自适应**：原版那一颗四格 = `15 / 30 / 25 / 0`
+            //   （出处 = `RA1212_切块表.md` 块 6 #16）。闸三条全真（`311.40 > 0` ∧ `15 > 0` ∧ `30 > 15`）。
+            //   ⚠️ `折行 = 0` ⇒ 显式还原（同上）。
             var tm = _win.Text(tc, ShopData.RefreshTime, TimeCounter.x1, TimeCounter.x2,
-                               TimeCounter.y1, TimeCounter.y2, 5, Color.white, "Time", 30f);
-            if (tm != null) { tm.SetRenderQueue(QHeaderText); parts.Add(tm.transform); widths.Add(111.31f); }
+                               TimeCounter.y1, TimeCounter.y2, 5, Color.white, "Time", 30f,
+                               TimeCounter.W, 15f, 30f, 25f);
+            if (tm != null) { tm.SetWrapping(false); tm.SetRenderQueue(QHeaderText); parts.Add(tm.transform); widths.Add(111.31f); }
 
             // 居中排：总宽 = Σ + spacing×(n−1)，从容器中心往两边分
             float total = 0f;
@@ -720,6 +731,12 @@ namespace CardPresentation
             if (o.AvailableMax > 0)
             {
                 var ar = Rect(r, CellAvail);
+                // 🔴 **2026-10-10（A1212 块 6）· 这一处【被闸挡住】⇒ 如实只报不接**（⛔ 别硬塞、别改共用闸）：
+                //   原版那一颗四格 = `16 / 31.5 / 39 / 0`（出处 = `RA1212_切块表.md` 块 6 #17），
+                //   而 `MenuDraw.TextCore` 的闸要求 `fontPx > autoMinPx` **严格大于** —— 本处
+                //   `fontPx = 16`（原版 `m_fontSize`）**恰等于** `autoMinPx = 16` ⇒ **第三条假**、
+                //   `SetAutoFitBox` 不会被执行。那一族的裁定（`A1208`）是「**先查实是不是标称抄错**、
+                //   ⛔ 别先改共用闸」⇒ 本批**不接**，挂账给调度台。
                 var al = _win.Text(cell, "Available: " + o.Available + "/" + o.AvailableMax,
                                    ar.x1, ar.x2, ar.y1, ar.y2, 5, Color.white, "Available Counter", 16f);
                 if (al != null)
@@ -740,8 +757,12 @@ namespace CardPresentation
                 var cr = Rect(r, CellCount);
                 _win.Rect(cell, "40K_main_deck_card_counter", cr, "Counter", QCellCount, null, true);
                 var tr = Rect(r, CellCountText);
+                // 🆕 **2026-10-10（A1212 块 6）接上自适应**：原版那一颗（`x{Owned}` 角标）四格 =
+                //   `18 / 72 / 32 / 1`（出处 = `RA1212_切块表.md` 块 6 #18）。闸三条全真（`23 > 18`）。
+                //   ⚠️ 折行 = **1** ⇒ 不用还原（`SetAutoFitBox` 顺带开的就是 `Normal(1)`）。
                 var tl = _win.Text(cell, "x" + ShopData.OwnedOf(_page, idx),
-                                   tr.x1, tr.x2, tr.y1, tr.y2, 5, Color.white, "Text (TMP)", 23f);
+                                   tr.x1, tr.x2, tr.y1, tr.y2, 5, Color.white, "Text (TMP)", 23f,
+                                   tr.W, 18f, 72f, 32f);
                 if (tl != null) { tl.SetRenderQueue(QCellCountText); MenuDraw.AlignRight(tl, tr); }
             }
 
@@ -751,8 +772,15 @@ namespace CardPresentation
                 // 🆕 2026-10-03 A17：原版这一颗是 SpriteSwap —— `40K_button` → `40K_button_hover`
                 //（普查 §块 2 第 1 行：`Catalog Item Shop Container>background>price-bg>Price Display Button>Generic UI Button`）
                 var priceQ = _win.Rect(cell, "40K_button", pr, "Generic UI Button", QCellPrice, PriceTint, true);
-                var lt = _win.Text(cell, o.Price, pr.x1, pr.x2, pr.y1, pr.y2, 5, Color.white, "Button Text", 30f);
-                if (lt != null) lt.SetRenderQueue(QCellPriceText);
+                // 🆕 **2026-10-10（A1212 块 6）接上自适应**：原版那一颗（价格）四格 = `13.46 / 40 / 39 / 0`
+                //   （出处 = `RA1212_切块表.md` 块 6 #19）。闸三条全真（`30 > 13.46`）。
+                //   🔴 **同层另有【一颗也叫 `Button Text`】**（`INACT`/空串/`fs12·base12·auto[12~38]`）
+                //   —— 切块表点名「**别抄它**」；本处只填这一颗自己的四格，**节点名一个字不动**
+                //   （`Editor/ShopScene.cs` 按名找）。
+                //   ⚠️ 折行 = **0** ⇒ 显式还原（同 `RefreshText`）。
+                var lt = _win.Text(cell, o.Price, pr.x1, pr.x2, pr.y1, pr.y2, 5, Color.white, "Button Text", 30f,
+                                   pr.W, 13.46f, 40f, 39f);
+                if (lt != null) { lt.SetWrapping(false); lt.SetRenderQueue(QCellPriceText); }
                 var hit = MainMenuSubmenuWindow.New(cell, "Hit");
                 var hq = ImageQuad.Create(hit, CardArt.Solid(),
                                           MainMenuSubmenuWindow.Local(hit, pr.x1, pr.y1, pr.x2, pr.y2),

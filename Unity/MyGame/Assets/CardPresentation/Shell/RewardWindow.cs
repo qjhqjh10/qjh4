@@ -244,9 +244,17 @@ namespace CardPresentation
         /// ⚠️ 影响面（如实说）：`autoBasePx` 只改自适应的**二分起点**，终点两侧都收敛
         /// ⇒ 渲染差 ≤ 0.05 fontSize 单位。按铁律 11 仍要补（「影响小」只决定先后，不决定做不做）。</para></summary>
         public const float TitleAutoBase = 36f;
-        /// <summary>`Button Text` 的 `m_text` 与字号（auto[10~40]，`Center/Capline`，折行 0）。</summary>
+        /// <summary>`Button Text` 的 `m_text` 与字号（auto[10~40]，`Center/Capline`，折行 0）。
+        /// 🆕 **2026-10-10（A1212 块 12）补后两格**：`m_fontSizeMax = 40`（= <see cref="CollectFont"/> 本身）、
+        /// `m_fontSizeBase = 12`。出处 = `资料/普查产出_第十会话/R6_包装层战斗与其余.md` §3 #30
+        /// （= `Shell/RewardWindow.cs:1120` 那一颗，原版四格 `10 / 40 / 12 / 0`）；
+        /// 归组见 `资料/普查产出_第十一会话/RA1212_切块表.md` 块 12。
+        /// ⚠️ `max` 恰好等于 `m_fontSize` ⇒ 自适应**只能缩、不能涨**（与 `Title` 那颗同一条口径）。
+        /// ⚠️ 本颗 `折行 = 0` ⇒ 接完必须 `SetWrapping(false)`（`SetAutoFitBox` 内部那句 `SetWrapWidth`
+        /// 会**无条件**把模式开成 `Normal(1)`，`Label.SetWrapping` 的 doc 写着这条）。</summary>
         public const string TxtCollect = "Collect";
         public const float CollectFont = 40f, CollectAutoMin = 10f;
+        public const float CollectAutoMax = 40f, CollectAutoBase = 12f;
         /// <summary>`Premium Disclaimer` 的 `m_text`（36px · Right/Middle · 折行 0 · **autosize 0**）。
         /// ⚠️ 原版这一串是 I2 词条（`Localize`），**词条表在远端 CCD、本地没有** ⇒ 我们画的就是 prefab 里这串英文。</summary>
         public const string TxtPremium = "Upgrade to premium to unlock";
@@ -1117,8 +1125,21 @@ namespace CardPresentation
             var btn = MenuDraw.Node(content, "Collect Button", CollectBtn);
             var btnQ = MenuDraw.Rect(btn, Art(ArtCollectBtn), CollectBtn, "bg", QCollectBg);
             // `Button Text`：原版 `Center/Capline`（`Label` 天然水平居中 ⇒ 水平那一半不用动）
+            // 🆕 **2026-10-10（A1212 块 12）接上自适应**：原版那一颗四格 = `10 / 40 / 12 / 0`
+            //   （出处 = `R6_包装层战斗与其余.md` §3 #30；归组 = `RA1212_切块表.md` 块 12）。
+            //   ⚠️ 原调用点的 `wrapPx` 传的是 `0f` —— 而 `MenuDraw.TextCore` 的闸是
+            //   `wrapPx > 0 ∧ autoMinPx > 0 ∧ fontPx > autoMinPx` **三条全真**
+            //   ⇒ 只补 `autoMinPx` = **死实参**（R6 §3 那句点名就是这一处）⇒ 这里必须**同时**把
+            //   `wrapPx` 改成**框宽**（`ButtonText.W`）。
+            //   ⚠️ `autoMaxPx` / `autoBasePx` 走**命名实参**：`align` 那颗 `int` 排在 `autoMaxPx` 前面，
+            //   位置实参一错会**静默**绑错（`Shell/WindowsManager.cs` 的 `Text` 形参注释写着这条）。
             var collectLb = Text(btn, ButtonText, TxtCollect, Color.white, "Button Text",
-                 CollectFont, QCollectText, 0f, 0f, 0);
+                 CollectFont, QCollectText, wrapPx: ButtonText.W, autoMinPx: CollectAutoMin,
+                 autoMaxPx: CollectAutoMax, autoBasePx: CollectAutoBase);
+            // 🔴 原版这一颗 `折行 = 0` ⇒ 把 `SetAutoFitBox` 顺带打开的 `Normal(1)` 还原回去。
+            //    ⚠️ 必须在 `SetVAlign` **之前**：`SetWrapping` 自己会 `ForceRelayout` 推版面，
+            //    而下面那句要读框高（`Label.SetWrapWidth` 的 doc：兑现那一刀只做「生成 + 重新量」）。
+            if (collectLb != null) collectLb.SetWrapping(false);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版那一颗 = `Center/**Capline**`
             //   （判据 = 上一行那句「`Button Text`：原版 `Center/Capline`」+ 本文件 `:247` 的 summary）。
             MenuDraw.SetVAlign(collectLb, Label.VAlign.Capline, ButtonText);

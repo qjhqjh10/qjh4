@@ -82,6 +82,18 @@ namespace CardPresentation
         // 原版四个字的字体：Name/Cost/Desc 是 Asar-Regular SDF（PointSize 94 / CapLine 61），
         // Targets 是 Pragati-Regular SDF（95 / 60）。我们统一用中文那份 —— 反正要出汉字。
 
+        // 🆕 **2026-10-10（A1212 块 7）**：原版那四颗 TMP 的自适应三格 —— **四颗逐值完全相同**。
+        // 出处 = `资料/普查产出_第十会话/R6_包装层战斗与其余.md` §2·C（`:143/:144/:146/:147` 那四处）
+        // 与 §3 的行 23–26：`bundle_scenes_scenes_battlearena1 ▸ FrontCanvas/Safe area FrontCanvas/
+        // ActiveSkillDesc/AbilityContainer/{NameText,CostText,DescText,TargetsAvailableText}`
+        // 四格 = `4 / 60 / 36 / 1`（`m_fontSizeMin 4` · `m_fontSizeMax 60` · `m_fontSizeBase 36` ·
+        // `m_TextWrappingMode 1`）；归组 = `资料/普查产出_第十一会话/RA1212_切块表.md` 块 7。
+        // ⚠️ **走 `Label.SetAutoFitBox` 那条路 ⇒ 没有 `MenuDraw.TextCore` 那三道闸**；但量纲要自己认：
+        //   框宽/框高走**世界单位**（本面板的 `W01/H01` 正好就是世界单位）、`min/max/base` 走**原版画布 px**
+        //   ⇒ 三个数**原样传、⛔ 不乘任何系数**（面板内 px 与画布 px 的换算已经烘在 `W01/H01` 里）。
+        // ⚠️ 折行 = **1** ⇒ 不用还原（`SetAutoFitBox` 内部那句 `SetWrapWidth` 顺带开的就是 `Normal(1)`）。
+        const float AutoMinPx = 4f, AutoMaxPx = 60f, AutoBasePx = 36f;
+
         /// <summary>原版 `fadeTime`</summary>
         public const float FadeTime = 0.2f;
 
@@ -218,6 +230,17 @@ namespace CardPresentation
             // ⚠️ 原版四个字都开着 `m_enableAutoSizing`（min 4 / max 60），序列化字号是
             //    **编辑器烘进去的「上次结果」**。这里用「装不进矩形就整体回缩」逼近它 ——
             //    像 `TargetsAvailableText`（56.45 em）塞进 53.5 px 高的矩形，原版一定是缩过的。
+            // 🆕 **2026-10-10（A1212 块 7）**：上面那句「逼近」现在**真的接上了** —— 四颗各自按
+            //    `SetAutoFitBox` 开原版那套自适应（`4/60/36`，见 `AutoMinPx` 那一组常量）；
+            //    框就是下面 `Fit` 用的**同一个矩形**（同一条算式，⛔ 别让它俩对不上）。
+            //    ⚠️ 顺序：**先 `SetAutoFitBox`、再 `Fit`** —— 前者会重排 mesh（`ForceMeshUpdate`）并按
+            //    「装得下的最大号」收敛，后者读的是**收敛之后**的 `WorldW/WorldH`
+            //    ⇒ 收敛成功时它那句 `k >= 1f` 早退、**一个字节都不改**（保留它 = 兜底，不是第二套规则）。
+            FitBox(_name, W01(NameRect.width), H01(NameRect.height));
+            FitBox(_cost, W01(CostTextRect.width), H01(CostTextRect.height));
+            FitBox(_targets, W01(TargetsRect.width), H01(TargetsRect.height));
+            FitBox(_desc, W01(DescRect.width) - WorldOfPx(DescMarginPx), H01(DescRect.height));
+
             Fit(_name, W01(NameRect.width), H01(NameRect.height));
             Fit(_cost, W01(CostTextRect.width), H01(CostTextRect.height));
             Fit(_targets, W01(TargetsRect.width), H01(TargetsRect.height));
@@ -249,6 +272,20 @@ namespace CardPresentation
         }
 
         static void Layout(Label l, Vector3 p) { if (l != null) l.transform.localPosition = p; }
+
+        /// <summary>
+        /// 🆕 **2026-10-10（A1212 块 7）**：给这四颗字接上**原版那一套自适应**（`4/60/36`）。
+        /// 框宽/框高走**世界单位**（`W01/H01` 的值就是；`Label.SetAutoFitBox` 的 doc 写着这条量纲），
+        /// `min/max/base` 走**原版画布 px** —— 三个数原样传（出处见 `AutoMinPx` 那一组常量的注释）。
+        /// <para>⚠️ 它会**重排 mesh** ⇒ 与本文件末尾那次裁切（如果将来加）以及 `Fit` 的次序：
+        /// `SetAutoFitBox` 在前、`Fit` 在后（`Fit` 读收敛后的尺寸，见 `RefreshLayout` 里那段注）。</para>
+        /// </summary>
+        static void FitBox(Label l, float boxW, float boxH)
+        {
+            if (l == null) return;
+            if (!(boxW > 0f) || !(boxH > 0f)) return;      // 退化框：不接（`SetAutoFitBox` 对 `worldH<=0` 也不写框高）
+            l.SetAutoFitBox(boxW, boxH, AutoMinPx, AutoMaxPx, AutoBasePx);
+        }
 
         /// <summary>
         /// 装不进矩形就整体回缩 —— 逼原版那个 `enableAutoSizing`。
