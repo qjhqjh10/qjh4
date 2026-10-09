@@ -208,7 +208,7 @@ namespace CardPresentation
             //   再手工补一次 —— 两份写法并存 = 迟早不一致）。三个数值的出处见下面那段 A305① 注释。
             _title = _win.Text(hdr, "", _titleR.x1, _titleR.x2, _titleR.y1, _titleR.y2, 5,
                                Color.white, "Title", 31.75f,
-                               wrapPx: _titleR.W, autoMinPx: 25f, autoMaxPx: 31.75f, autoBasePx: 36f);
+                               wrapPx: _titleR.W, autoMinPx: 25f, autoMaxPx: 35f, autoBasePx: 36f);
             if (_title != null)
             {
                 _title.SetRenderQueue(QHeaderTitle);
@@ -217,7 +217,12 @@ namespace CardPresentation
                 //    `m_fontSize 31.75` · `auto[25~35]` · **`m_fontSizeBase 36.0`**（= TMP 序列化默认值，
                 //    即原版**没显式设过** —— `TMP_Text.cs:473` / 开着自适应时 setter 不回写 base，`:467`）。
                 //    逐站表 → `资料/普查产出_1011/V7_A305_A304_普查.md` §二·3 #1。
-                //    ⚠️ 上限那一格原版是 **35**、我们传的是 31.75（= `m_fontSize`）—— 那是**另一条**（A333），本轮不动。
+                //    ✅ **2026-10-11（A1206）已改**：上限那一格原来抄的是标称 `31.75`（= `m_fontSize`），
+                //    现改为原版实读的 **`35`** —— 判据同上（`menu_dump.py bundle_menus_assets_all
+                //    "Rewards Base Submenu Variant" --depth 8` → `Campaign Header/Title`
+                //    = 字号 31.75 · 基准 36.0 · **auto[25.0~35.0]** · 折行=0）。
+                //    这是「只判实参非 0」抓不到的「形状对、值不全对」（`R5_包装层菜单族.md` §3 注③ / §6 隐患 2）；
+                //    同族的 `panTitle`（`:934`）当年在 A274 已修，这两颗是漏网的。
                 // 🆕 **2026-10-11（A303②）：还原本条 TMP 的 `m_TextWrappingMode = 0`** ——
                 //   上面那段 `SetAutoFitBox` 内部会 `SetWrapWidth`，而那个**无条件**把模式设成
                 //   `Normal(=1)`（`Core/TmpFont.cs` 的 `SetWrapWidthRect` 头）。照 A62 那一族的既有写法补一句。
@@ -236,13 +241,16 @@ namespace CardPresentation
             // 🔴 **2026-10-09（A1173）**：同上（`_title`）—— `SetAutoFitBox` 收进 `Text` 的形参。
             _points = _win.Text(hdr, "", ptsRect.x1, ptsRect.x2, ptsRect.y1, ptsRect.y2, 5,
                                 Color.white, "Points", 34.8f,
-                                wrapPx: ptsRect.W, autoMinPx: 18f, autoMaxPx: 34.8f, autoBasePx: 36f);
+                                wrapPx: ptsRect.W, autoMinPx: 18f, autoMaxPx: 40f, autoBasePx: 36f);
             if (_points != null)
             {
                 _points.SetRenderQueue(QHeaderPts);
                 // 🔴 **2026-10-11（A305①）**：`autoBasePx` = 原版 `m_fontSizeBase` **36.0**（同上一条，TMP 默认值）。
                 //    判据：`/Campaign Tab/Campaign Header/Points` = `m_fontSize 34.8` · `auto[18~40]` · `base 36.0`
-                //    （逐站表 §二·3 #2）。⚠️ 上限原版 **40**、我们传 34.8 —— A333，本轮不动。
+                //    （逐站表 §二·3 #2）。✅ **2026-10-11（A1206）已改**：上限原来抄的是标称 `34.8`，
+                //    现改为原版实读的 **`40`** —— 现场复核：`menu_dump.py bundle_menus_assets_all
+                //    "Rewards Base Submenu Variant" --depth 8` → `Campaign Header/Points`
+                //    = 字号 34.8 · 基准 36.0 · **auto[18.0~40.0]** · 折行=0（同 `R5` §3 注③）。
                 // 🆕 **2026-10-11（A303②）**：同上一处（`_title`）—— 还原本条 TMP 的 `m_TextWrappingMode = 0`。
                 //   **判据（原版实读）**：`menu_dump.py bundle_menus_assets_all "Rewards Base Submenu Variant"
                 //   --depth 6` → `Campaign Header/Points` = 字号 34.8 · auto[18.0~40.0] · **折行=0**

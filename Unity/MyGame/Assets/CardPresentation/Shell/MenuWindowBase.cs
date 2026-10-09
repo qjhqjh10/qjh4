@@ -774,6 +774,18 @@ namespace CardPresentation
             MenuDraw.Nine(plate, s.PlateTex, s.PlateRect, PlateBorder, PlateTexW, PlateTexH, s.QPlate);
 
             // ---- `Window Title`（原版 hAlign = **Left**，不是居中）
+            // 🔴 **2026-10-10（A1191）裁定：这里【故意不走】`MenuDraw.Text` 的 `wrapPx` / `auto*` 形参，⛔ 别把它「收口」成那一档。**
+            //    判据 = 上面 `TitleFit` 那条 doc ＋ `MenuDraw.TextCore` 的实现：
+            //    · `TextCore` 把自适应整段藏在 `wrapPx > 0f` 那道闸里，而且 **`Text` 的十个形参里根本没有 `charSpacing`**
+            //      ⇒ 它**表达不出**本处那三档 —— `FitBeforeSpacing` / `FitAfterSpacing` 要的正是
+            //      「`SetAutoFitBox`（改渲染宽度）与 `SetCharSpacing`（改字距）的先后」，`SpacingOnly` 更是**完全不要自适应**。
+            //    · ⇒ `A1191` 原来把它记成「`A1173` 刚消灭掉的那种『两处写同一条规则』」—— **框定不成立**：
+            //      这是**能力缺口**（`TextCore` 少两维），不是同一件事写了两遍。**与 `A1195` 同一族的裁定**（两条契约语义不同 ⇒ ⛔ 不统一形状）。
+            //      ⚠️ 旁证：本仓「手工 `SetAutoFitBox`」是**既有且普遍**的写法（`Deck/DeckRuntime.cs` · `Battle/UnitChatPanel.cs` · …）
+            //      —— 那些站各自的原版 `min/max/base` 都不同，规则本身只有 `Label.SetAutoFitBox` **一处**（没有第二份规则）。
+            //    ✅ **本件的收口 = 把这条差异写在这里**（就是本段），⛔ 不是把形状统一。
+            //    ⚠️ 真要合并，得先给 `MenuDraw.Text` 加「字距 + 次序」两维 —— 那是 `MenuDraw.cs`（**共用件**）的改动，
+            //      会牵动所有走它的调用点（`TextCore` 也是 `TextBox` 的内层）⇒ **另立账**，⛔ 别在本件里顺手做。
             var title = MenuDraw.Text(plate, s.TitleRect, s.TitleText, Color.white, TitleName, TitleFontPx, s.QTitle);
             parts.Title = title;
             if (title != null)
