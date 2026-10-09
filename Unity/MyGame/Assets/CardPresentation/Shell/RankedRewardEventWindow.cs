@@ -588,12 +588,21 @@ namespace CardPresentation
             else MenuDraw.Node(go, "Feature Badge", bdR);
             // `Army Icon` 的图原版由 `ArmyIconsSO.GetArmyIcon(army)` 在运行期灌（`SimpleArmyImage.Initialize.c`）
             // —— 本地那张表**没有**（`SingletonBehaviour` 那份在远端）⇒ 只建节点、不画。
+            // 🔴 **2026-10-10 订正（铁律 5）**：本文原来印的是「`Army Icon` 与 `Background` 的图**都**本仓没有
+            //   ⇒ **两张都只建节点、不画**」—— **那句话今天在骗人**：`Background` 那张底图（`ArtCardBg`）
+            //   **本仓有**（见 `ArtCardBg` 那条 doc）⇒ 上面 `:565` 那颗 `if (bgTex != null)` **真会把它铺满**，
+            //   只有取不到时才退化成空节点。⇒ 出声文案改成**按实际走的那一支**说（见下），⛔ 别再印那句旧话。
+            //   ⚠️ 连带：这道 `if` 原来只看 `_warnedCardIcon`、**不看 `bgTex`** ⇒ 它会在「Background 明明画出来了」
+            //   的情况下也报「没画」。现在把 `bgTex` 那一半并进文案里，两者一致。
             if (!_warnedCardIcon)
             {
                 _warnedCardIcon = true;
-                Debug.Log("[RankedBoost] 阵营卡的 `Army Icon` 与 `Background`：前者原版由 "
-                        + "`ArmyIconsSO.GetArmyIcon(army)` 运行期灌（本地没有那张表），后者那张图本仓没有 "
-                        + "⇒ **两张都只建节点、不画**。");
+                Debug.Log("[RankedBoost] 阵营卡的 `Army Icon`：原版由 "
+                        + "`ArmyIconsSO.GetArmyIcon(army)` 运行期灌（本地没有那张表）"
+                        + "⇒ **只建节点、不画**。"
+                        + (bgTex != null
+                            ? " `Background` 那张底图本仓有 ⇒ **已铺满**。"
+                            : " ⚠️ 本次 `Background` 底图**取不到**（`ArtCardBg` 没命中）⇒ 它也只建了节点。"));
             }
             return go;
         }
