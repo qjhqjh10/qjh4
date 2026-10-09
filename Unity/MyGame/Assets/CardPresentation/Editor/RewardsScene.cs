@@ -6811,6 +6811,23 @@ public static class RewardsScene
                   + $"实测 {TextLeftPx(FindChild(cpan2, "Timer Text")):F1}）");
         CheckNear(TextLeftPx(FindChild(FindChild(camView, "Campaign Header"), "Title")), 480.69f, 2f,
                   "`Campaign Header/Title` 的**左边缘 = 框左边 480.69**（原版 `TMP(左/中)`）");
+        // 🆕 **2026-10-10（A1206）**：`Campaign Header` 那两颗的**自适应窗口**。
+        //   与上面 `Premium Panel/Title`（`A274`）那条**同族** —— 但这两颗**一直零断言覆盖**（`P-B` 顺手查出）：
+        //   本文件里与它们有关的只有 `A303②` 那条「折行 = 0」（`:10219` 一带）与上面那条「左边缘 = 480.69」
+        //   ⇒ 四格（`min`/`max`/`base`/折行）里 **三格没人兜着** ⇒ `A1206` 那种「上限抄成标称」改了不会红也不会绿。
+        //   判据 = 原版实读（本件现场量的，同 `Shell/CampaignTab.cs:215-233` / `:248` 那两段注释）：
+        //   · `Campaign Header/Title`  = 字号 `31.75` · 基准 `36.0` · **`auto[25.0~35.0]`** · 折行 `0`
+        //   · `Campaign Header/Points` = 字号 `34.8`  · 基准 `36.0` · **`auto[18.0~40.0]`** · 折行 `0`
+        //   **改坏法**：把 `Shell/CampaignTab.cs` 那两行的**第 4 个实参**改回标称（`31.75f` / `34.8f`）
+        //   ⇒ 上界读成 31.75 / 34.8 ≠ 35 / 40 ⇒ 这两条红（正是 `A1206` 抓到的那个错）。
+        //   ⚠️ **`base` 那一格本助手断不了**（`CheckFontWindow` 只收 `wantMin/max`）⇒ 如实登记，⛔ 别拿它冒充断全了。
+        //   ⚠️ 起找的父节点**必须是 `Campaign Header`**（不是 `camView`）：助手内部是 `FindChild`（**按名递归**）
+        //   + **单参** `GetComponentInChildren<Label>()`，而整棵树里叫 `Title` 的**不止一颗** ⇒ 从 `camView` 起找会串味。
+        var camHeader = FindChild(camView, "Campaign Header");
+        CheckFontWindow(camHeader, "Title", 25f, 35f,
+                        "★ `Campaign Header/Title` 的自适应窗口 = 原版 `m_fontSizeMin/Max` 的 **25 / 35 px**");
+        CheckFontWindow(camHeader, "Points", 18f, 40f,
+                        "★ `Campaign Header/Points` 的自适应窗口 = 原版 `m_fontSizeMin/Max` 的 **18 / 40 px**");
         win.tabButtons.Click(2);                                  // 视觉第 3 键 = Forge（第 3 层第 1 件）
         ShootShellPage(win, WindowTabType.Forge, "03_锻造厂.png");
         // 🔴 再拍一张**不可领**的：当前阵营（Goff）是可领态，`Ready for level up` 那团 700² 的洋红光

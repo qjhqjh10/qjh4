@@ -51,3 +51,28 @@
 - **验证**：`TMPDIR=/tmp/wf_main bash d:/4/Unity/工具/typecheck.sh` ⇒ **运行时 0 / 编辑器 0**。
 - ⚠️ **残留（如实登记，⛔ 不属本账）**：若将来真要给 `MenuDraw.Text` 加那两维，**那是一次共用件改造**，判据要另立（且必须先想清「`TextCore` 还是 `TextBox` 的内层」这一层影响面）。
 
+---
+
+### 3. `A1206` —— `CampaignTab` 两处把 `max` 抄成了标称 —— ✅ **2026-10-10 已修**（**执行代理 P-B 交件，调度台复核**）
+
+**原文（`项目任务.md` §29·b 第一节那一行，一字未改）**：
+
+> ⚠️ **`CampaignTab` 两处把 `max` 抄成了标称**（`R5` 现核查出，⛔ 没改）—— `:209 _title` 传 **31.75**，原版是 **`auto[25~35]`**；`:237 _points` 传 **34.8**，原版是 **`auto[18~40]`**（两处的 `min`/`base` 已对，**只错 `max`**）。⚠️ **`A274` 只修了 `panTitle` 那一颗**（同族漏了两颗）⇒ **真偏离**，⇒ **要做**（铁律 11）。出处 → 同上 §2·⚠️。
+
+**✅ 收口内容**（`CardPresentation/Shell/CampaignTab.cs`，**LF**）：
+
+| # | 落点 | 改前 → 改后 | 判据 |
+|---|---|---|---|
+| 1 | `:211` `_title` | `autoMaxPx: 31.75f` → **`35f`** | 原版 `Campaign Header/Title` = 字号 31.75 · 基准 36.0 · **`auto[25.0~35.0]`** · 折行 0 |
+| 2 | `:244` `_points` | `autoMaxPx: 34.8f` → **`40f`** | 原版 `Campaign Header/Points` = 字号 34.8 · 基准 36.0 · **`auto[18.0~40.0]`** · 折行 0 |
+
+- **判据复核**：`P-B` **没照抄 `R5`**，自己跑了一遍 `python -I d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all "Rewards Base Submenu Variant" --depth 8` 实读，与 `R5_包装层菜单族.md` §3 注③ / §6 隐患 2 **逐位一致**。`min`/`base` 一格没动。
+- **验证**：`TMPDIR=/tmp/wf_pb bash d:/4/Unity/工具/typecheck.sh` ⇒ 运行时 0 / 编辑器 0；`git diff --numstat` = `12 增 / 4 删`（没翻行尾）。
+- 🔑 **配套补的断言（调度台自己加的，`Editor/RewardsScene.cs`，2026-10-10）**：`P-B` 顺手查出**这两颗的 autosize 窗口一直零断言覆盖**（本文件里与它们有关的只有 `A303②` 的「折行 = 0」与「左边缘 = 480.69」⇒ 四格 `min`/`max`/`base`/折行 里**三格没人兜着**）⇒ 在 `:6813` 之后补了两条 `CheckFontWindow(camHeader, "Title", 25f, 35f, …)` / `(…, "Points", 18f, 40f, …)`。
+  ⚠️ **如实登记两处缺口**：① **`base` 那一格 `CheckFontWindow` 断不了**（它只收 `wantMin/max`）⇒ 别拿它冒充断全了；② 起找的父节点**必须是 `Campaign Header`**（助手内部是 `FindChild` 按名递归 + **单参** `GetComponentInChildren<Label>()`，整棵树里叫 `Title` 的不止一颗 ⇒ 从 `camView` 起找会串味）。
+  **改坏法**（写进断言文案）：把那两行的第 4 个实参改回标称 `31.75f` / `34.8f` ⇒ 上界读成 31.75 / 34.8 ≠ 35 / 40 ⇒ 这两条红。
+  **验证**：`TMPDIR=/tmp/wf_main … typecheck.sh` ⇒ 0 / 0；`git diff --numstat` = `17 增 / 0 删`。
+  ⚠️ **断言【没跑过】**（铁律 12：待办没做完不跑自检）⇒ 收口那趟要跑 `RewardsScene.Run`（它属 `Shell`/`Rewards` 那一族）。
+- ⚠️ **一处日期口径留痕**：`P-B` 报本机系统日期是 **2026-10-10**，而同文件邻近注释块（`A305①`/`A303②`）与本批 `普查产出_1011/` 都写 **2026-10-11**。它**跟着同文件既有口径用了 2026-10-11**（没去改别人的日期）。**两个日期谁对、要不要统一 —— 留着，⛔ 别再各写各的。**
+
+
