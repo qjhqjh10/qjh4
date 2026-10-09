@@ -179,12 +179,25 @@ namespace CardPresentation
             ClassicHit = btns.Find("Button Classic/Hit");
 
             // 右上那颗绿圆钮 = **关闭钮**（节点名没写 Close，图标是关闭 ⇒ 普查 §B 判为 closeButton）
-            var close = Node(win, "Generic Rounded Button Green", CloseR);
-            Rect(close, "UI_Button_Round_background", CloseR, "Image", QBg, null, true);
+            // 🔴🔴 **2026-10-18（A1149 第一半）圆底盘【挂点】归真**（本件 = 第九会话 P7）：
+            //   改前圆底盘画在一颗**自造子件 `Image`** 上、而 `Generic Rounded Button Green` 是颗**裸节点**；
+            //   原版那颗 `Image` **就长在根节点自己身上**（无独立子件名）。
+            //   判据（逐字段直读）= `python -I d:/tmp/wf_b4probe/pa.py bundle_menus_assets_all
+            //   "MessagePopupWindowDuel" 8`：根 `Generic Rounded Button Green` **自己带 `Image`**
+            //   （下面只列了它一行、子件只有 `Icon`）：`UI_Button_Round_background` · `m_Type=0`(Simple) ·
+            //   **`m_PreserveAspect=1`** · `m_RaycastTarget=0` · 矩形 **75.00×75.00**；
+            //   贴图 `m_Rect` = **237×237 正方** ⇒ 实绘 **75×75**（框本身即正方）。
+            //   ⇒ 照兄弟窗先例 `Shell/InboxWindow.cs:386-387` / `Shell/ChatPanel.cs:307-308` 的形状
+            //   （`Rect` 画在根节点上、图取不到才退回 `Node`）。矩形与 `keepAspect` **改前就是对的**。
+            var closeBase = Rect(win, "UI_Button_Round_background", CloseR,
+                                 "Generic Rounded Button Green", QBg, null, true);
+            var close = closeBase != null ? closeBase.transform
+                                          : Node(win, "Generic Rounded Button Green", CloseR);
             var closeIconQ = Rect(close, "40k_bt_close", CloseIcR, "Icon", QContent, null, true);
             // 🆕 **2026-10-18（A1058 · 第六会话批 2）**：**原来这一颗根本没传 `target`**
             //   ⇒ `WindowButton.Bind` 从不被调用 ⇒ **悬停/按下零反馈**（原版是 `SpriteSwap`）。
-            //   原版那层 = **子件 `Icon`**（`40k_bt_close`），⛔ 不是圆底盘 `Image`。
+            //   原版那层 = **子件 `Icon`**（`40k_bt_close`），⛔ 不是圆底盘
+            //   （改前它挂在一颗自造子件 `Image` 上，本件已归真到根节点 `Generic Rounded Button Green` 自己）。
             //   判据（原版 prefab 亲读）=
             //   `python -I d:/tmp/wf_hit/rcunion.py bundle_menus_assets_all "MessagePopupWindowDuel" --depth 6`：
             //   根 `Generic Rounded Button Green` 那颗 `EverguildButton` 的

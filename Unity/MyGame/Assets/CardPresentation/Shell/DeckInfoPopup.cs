@@ -1418,22 +1418,36 @@ namespace CardPresentation
             //     （**要玩家点 OK**） →  `MessageToast.Show(键, localize:true, 兜底句)`（自己会消失）。
             //   🔴 **文案照原版的形状**：键 = **`MenuDeck/Share/ExportSuccesful`** —— 出处是原版自己的
             //     **字符串常量表**（`d:/2/tools/il2cpp_out/stringliteral.json:98759`，
-            //     同族另三条 `MenuDeck/Share/{Title,ShareOnAlliance,ShareOnGlobal}` 紧邻），
-            //     `localize = true`（= 原版 `ShowMessage(键, 1)`）。⚠️ 原版把 `Successful` 拼成了
-            //     **`Succesful`（一个 s）** —— **一个字都别改**，改了就等于换了一条键。
-            //   ⚠️ 那条键**本地词条表里没有 value**（`Core/Loc.cs` 那 6 条 `MenuDeck/Share/*` 全无 value，
-            //     与其余 I2 值一样在远端）⇒ 今天恒走**兜底句** `ShareCopiedText`（两个宿主共用的那一份文案）。
-            //     ⛔ 别把键名印到屏幕上（`ShowMessage` 的两态行为见 `ErrorMessageBanner.ShowMessage`）。
+            //     同族另三条 `MenuDeck/Share/{Title,ShareOnAlliance,ShareOnGlobal}` 紧邻）。⚠️ 原版把
+            //     `Successful` 拼成了 **`Succesful`（一个 s）** —— **一个字都别改**，改了就等于换了一条键。
+            //   🔴 **2026-10-19（第九会话 · `A1163`）就地改口（铁律 5）**：上面原来写「**那条键本地词条表里
+            //     没有 value** …… ⇒ 今天**恒走兜底句**」—— **说反了**。`Core/Loc.cs` 现读**已有该键**
+            //     （`MenuDeck/Share/ExportSuccesful`；ZH/EN 两列都是我们**自拟**的 —— 原版那套值在**远端 I2
+            //      语言表**、本地取不到，判据见 `Core/Loc.cs` 那条自己的注释）⇒ `ErrorMessageBanner.ShowMessage`
+            //     走的是「**表里有键**」那一支，**兜底句不被使用**。
+            //     ⛔ 别把键名印到屏幕上（两态行为 → `ErrorMessageBanner.ShowMessage`）。
+            //   🔴 **2026-10-19（第九会话 · `A1153`）：「（N 字符）」那一截要【保住】** —— 它是 `A1050`
+            //     落键那一步丢掉的。做法 = 把长度拼进**表里那条模板**（那条键的值带 `{0}`）+ `string.Format` 取词。
+            //     ✅ **中文档与改前逐字相同**（改前走兜底句 `DeckRuntime.ShareCopiedText(len)`，它拼的就是
+            //     「卡组串已复制到剪贴板（N 字符）」）；EN 档顺带从「印中文兜底句」变成「印英文模板」。
+            //     ⛔ 别退回 `MessageToast.Show(键, localize:true, 兜底句)` —— 表里有键时**兜底句根本不会被用**，
+            //       字符数就又没了；⛔ 也别把兜底句那份文案再抄一遍（它仍是「表里没这条键」那一支的，两宿主共用）。
             //   ⚠️ 与旧弹窗的**一处有意差别**：原版那条提示**只有一句话、不含卡组串**（串已经写进系统
             //     剪贴板了）⇒ 这里也**不再把串印出来**（原来印串是「让玩家自己抄」的权宜做法）。
-            MessageToast.Show(ShareSuccessTerm, true, DeckRuntime.ShareCopiedText(s.Length));
+            string shareMsg = Loc.HasEntry(ShareSuccessTerm)
+                ? string.Format(Loc.T(ShareSuccessTerm), s.Length)     // 表里那条模板的 `{0}` = 卡组串长度
+                : DeckRuntime.ShareCopiedText(s.Length);               // 表里**没有**这条键才落它（两宿主共用）
+            MessageToast.Show(shareMsg, false);
         }
 
         /// <summary>分享成功那条 toast 的**词条键** —— **原版字符串常量表实读**（不是自拟）：
         /// `d:/2/tools/il2cpp_out/stringliteral.json:98759` 的 `"MenuDeck/Share/ExportSuccesful"`
         /// （拼写照原版，**少一个 s**）。
-        /// <para>⚠️ 它的 **value 在远端 I2 语言表**里，本地**没有** ⇒ 调用点必须给兜底句
-        /// （`DeckRuntime.ShareCopiedText`）—— 见 <see cref="ShareDeck"/> 里那一串注释。
+        /// <para>🔴 **2026-10-19（第九会话 · `A1163`）就地改口（铁律 5）**：本段原来写「它的 **value 在远端
+        /// I2 语言表**里，本地**没有** ⇒ 调用点**必须**给兜底句（`DeckRuntime.ShareCopiedText`）」——
+        /// **前半句仍对**（原版那套值确实在远端），**后半句已过期**：`Core/Loc.cs` 现读**已有这条键 + 自拟值**
+        /// （且那条值带 `{0}`）⇒ 调用点走的是「表里有键」那一支、**兜底句不被使用**，字符数由
+        /// `string.Format` 拼进去 —— 见 <see cref="ShareDeck"/> 里那一串注释。
         /// ⛔ 别因为「看着像拼错」就改成 `Successful`：那样键就变了、永远查不到。</para></summary>
         public const string ShareSuccessTerm = "MenuDeck/Share/ExportSuccesful";
 

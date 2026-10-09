@@ -17177,7 +17177,9 @@ public static partial class RuleEngineTest
                                  "Ecstasy 5: Double this troop's [Melee] and [Ranged]",
                                  "common", "Test", 8, 3, 6, 2, null, subtype: "Vehicle"); // 生命 6 —— **必须 > 狂喜 5**，否则「跨越」永远不成立（2026-10-19 原为 4，把错口径钉死了）
             var hit = Tactic("T_HitSelf", 0, "Deal 1 damage to a friendly unit");
-            var ctx = ProbeBattle(new[] { hit }, new[] { Unit("MFFoe", 1, 0, 30) });
+            // ⚠️ 手牌放 **2 张**：下面要打 2 次（触发那一次 + A1162 补的「不跨越 ⇒ 不许再触发」那一次）——
+            //    张数不够时第 2 次会 `HandIdx == -1` ⇒ 断言静默走不到（弱断言）。
+            var ctx = ProbeBattle(new[] { hit, hit }, new[] { Unit("MFFoe", 1, 0, 30) });
             ToP1Turn(ctx, 3);
             var u = Place(ctx, 0, 3, mf, exhausted: true);
             Check(u.Attack, 3, "前提：近战 3");
@@ -17190,6 +17192,18 @@ public static partial class RuleEngineTest
             CheckTrue(u.Health == 5 && u.MaxHealth == 6,
                       $"★ **生命没被翻倍**（应为 5/6，实得 {u.Health}/{u.MaxHealth}）—— "
                       + "照「近战+生命」套的话会变成 10/12，那正是当年把它整句挡掉的原因");
+
+            // 🔴 **A1162（2026-10-09）补一腿：再挨一下、仍【不跨越】⇒ 不许再翻一倍。**
+            //    上面那一步是从 6 打到 **5** —— **恰好落在阈值 5 上** ⇒ 把 `RuleCore.Hurt` 那句
+            //    `hpBefore > ex &&` 删掉会退化成 `5 <= 5`、**照样绿**，那一格就分不出「跨越」与
+            //    「状态」两种口径（`F2` 现核报的覆盖缺口）。判据现读 = `RuleEngine/Core/RuleCore.cs:4041`
+            //    的 `if (hpBefore > ex && u.Health <= ex)`：`hpBefore == ex` ⇒ **不是新的一次跨越**。
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_HitSelf"), 3), RuleCodes.OK,
+                      "（A1162）再打自己 1 点（生命 5 → 4）");
+            Check(u.Health, 4, "（A1162）生命 5 → **4**（仍在狂喜 5 之下，**没有跨越**）");
+            Check(u.Attack, 6,
+                  "★ **没跨越 ⇒ 不许再翻倍**（近战仍是 6，⛔ 不是 12）—— 🧨 改坏法：把 `RuleCore.Hurt` 那句 "
+                  + "`hpBefore > ex &&` 去掉 ⇒ 这里会再翻一倍（实得 12，红）");
         }
 
         // ---- ② `Runtherd`：`create` 那条路要把**费用区间**抽出来并传给池子 ----

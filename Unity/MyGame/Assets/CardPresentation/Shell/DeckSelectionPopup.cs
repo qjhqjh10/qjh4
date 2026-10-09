@@ -483,16 +483,29 @@ namespace CardPresentation
             //    （同族 `DeckInfoPopup` / `PlayerProfileWindow` 都有）。⚠️ **换图的目标是【圆底那一层】**（见下面 `Hit` 那条），
             //    ⚠️ 同时把图标提到更高一档队列 —— 原来底色与图标**同一个 `QDsRow`**（谁盖谁不可控，
             //    见 `资料/已知的坑.md`「同一个渲染队列的两层」）。
-            var closeBase = MenuDraw.Rect(root, CardArt.MenuUi("UI_Button_Round_background"),
-                          new PxRect(CloseL, CloseT, CloseR, CloseB), "Close Bg", QDsRow, null, true);
+            // 🔴🔴 **2026-10-18（A1149 第一半）圆底盘【挂点 + 按钮节点】归真**（本件 = 第九会话 P7）：
+            //   改前**原版那颗 `Generic Close Button Orange` 节点我们根本没建** —— 三颗图全是 `root`
+            //   的直接子件、圆底盘画在自造子件 `Close Bg` 上。
+            //   判据（逐字段直读）= `python -I d:/tmp/wf_b4probe/pa.py bundle_menus_assets_all
+            //   "Deck Selection Popup with Tabs" 8`：根 `Generic Close Button Orange`（**74.39×75.60**）
+            //   **自己带 `Image`**：`UI_Button_Round_background` · `m_Type=0`(Simple) · **`m_PreserveAspect=1`** ·
+            //   `m_PixelsPerUnitMultiplier=1.0` · `m_RaycastTarget=0`；它下面唯一的子件 = `Background`(56.86×58.13)
+            //   （= 我们那颗 `Close Face`）。贴图 `m_Rect` = **237×237 正方** ⇒ 实绘 **74.39×74.39**。
+            //   ⇒ 照兄弟窗先例 `Shell/InboxWindow.cs:386-387` / `Shell/ChatPanel.cs:307-308` 的形状
+            //   （`Rect` 画在根节点上、图取不到才退回 `Node`）。矩形与 `keepAspect` **改前就是对的**。
+            var closeBaseQ = MenuDraw.Rect(root, CardArt.MenuUi("UI_Button_Round_background"),
+                          new PxRect(CloseL, CloseT, CloseR, CloseB), "Generic Close Button Orange", QDsRow, null, true);
+            var closeNode = closeBaseQ != null ? closeBaseQ.transform
+                          : MenuDraw.Node(root, "Generic Close Button Orange", new PxRect(CloseL, CloseT, CloseR, CloseB));
             float ix = CloseL + (CloseR - CloseL - CloseIw) * 0.5f;
             float iy = CloseT + (CloseB - CloseT - CloseIh) * 0.5f;
-            var closeFace = MenuDraw.Rect(root, CardArt.MenuUi("40k_general_bt_yellow"),
+            var closeFace = MenuDraw.Rect(closeNode, CardArt.MenuUi("40k_general_bt_yellow"),
                           new PxRect(ix, iy, ix + CloseIw, iy + CloseIh), "Close Face", QDsRow + 1, null, true);
-            MenuDraw.Rect(root, CardArt.MenuUi("40k_general_bt_yellow_close"),
+            MenuDraw.Rect(closeNode, CardArt.MenuUi("40k_general_bt_yellow_close"),
                           new PxRect(ix, iy, ix + CloseIw, iy + CloseIh), "Close Icon", QDsRow + 2, null, true);
             // 🆕 **2026-10-18（A1058 · 第六会话批 2）**：换图那一层 = **黄面 `closeFace`**
-            //   （`40k_general_bt_yellow`），⛔ **不是圆底盘 `closeBase`**（它留着**只画**，不做换图目标）。
+            //   （`40k_general_bt_yellow`），⛔ **不是圆底盘 `closeBaseQ`**（它留着**只画**，不做换图目标；
+            //   本件归真后它已从自造子件 `Close Bg` 搬到根节点 `Generic Close Button Orange` 自己身上）。
             //   判据（原版 prefab 亲读）=
             //   `python -I d:/tmp/wf_hit/rcunion.py bundle_menus_assets_all "Deck Selection Popup with Tabs" --depth 8`：
             //   根 `Generic Close Button Orange` 那颗 `EverguildButton` 的

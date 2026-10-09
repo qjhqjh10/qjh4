@@ -180,20 +180,38 @@ public static class RewardsScene
     /// <para>🔴 **两格各钉一轴**（① 实绘**宽** = `basePx`；② 实绘**宽 == 实绘高** = 等比不变量）——
     /// 这样两种改坏法**各红不同的一格**、**结构上不可能一起变绿**：
     /// `CloseBtn`→`CloseBg` ⇒ 只 ① 红（56.86 仍是正方 ⇒ ② 绿）；去掉 `keepAspect` ⇒ 只 ② 红（宽没变 ⇒ ① 绿）。
-    /// ⛔ **别把高度也塞进 ①** —— 那会让两种改坏法都红 ①、② 就没有独立作用了（弱断言 / 分不出两种状态）。</para></summary>
+    /// ⛔ **别把高度也塞进 ①** —— 那会让两种改坏法都红 ①、② 就没有独立作用了（弱断言 / 分不出两种状态）。</para>
+    /// <para>🆕 **2026-10-18（第九会话 P6 · `A1149` 第二半）取法扩成「先根后子」**：① 先取**根节点自己**身上那一颗
+    /// （= 原版结构）；② 根上没有、且调用点**显式给了**子件名 `baseChild` 时才退一步取 `btn/&lt;baseChild&gt;` 那一颗
+    /// —— 那是 `A1149` 第一半现读出来的**已知偏离**（圆底盘被画在自造子件上），消息里点名。
+    /// `baseChild == null` ⇒ **不许退**。⚠️ 用意：把圆底盘**归真到根节点上不会让本格变红**；
+    /// ⛔ 两处都**不下钻**（不用 `GetComponentInChildren` —— 盲扫子树会把「搬到别的层」静默量成合格）。</para>
+    /// <para>⚠️ 原版根那一格本身是**正方**的窗（绿族 75×75）第二格**恒真** —— 那种窗本来就没有「等比不变量」可丢，
+    /// **不是缺口**（见各调用点注释）。</para></summary>
     static void A1125CloseBase(string win, Transform winRoot, string btnName, string baseTex,
-                               float basePx, float frameW, float frameH)
+                               float basePx, float frameW, float frameH, string baseChild = null)
     {
         var btn = winRoot == null ? null : (btnName == null ? winRoot : FindChild(winRoot, btnName));
-        // 🔴 `GetComponent`（**本节点自己**那一颗）而不是 `GetComponentInChildren` —— 见上面 doc 第 2 段：
-        //    `GetComponentInChildren` 会往下钻，把「圆底盘搬回自造子件」那种偏离量成合格（静默）。
+        // 🔴 `GetComponent`（**本节点自己**那一颗）而不是 `GetComponentInChildren` —— 见上面 doc：
+        //    `GetComponentInChildren` 会往下钻，把「圆底盘搬到别的层」那种偏离量成合格（静默）。
         var bq = btn != null ? btn.GetComponent<ImageQuad>() : null;
+        bool baseOnRoot = bq != null && bq.Texture != null && bq.Texture.name == baseTex;
+        if (!baseOnRoot && btn != null && baseChild != null)
+        {
+            // ⚠️ **只有调用点显式点名子件时才退这一步**（= `A1149` 第一半现读的已知偏离，消息里点名）
+            var baseHost = FindChild(btn, baseChild);
+            bq = baseHost != null ? baseHost.GetComponent<ImageQuad>() : null;
+        }
+        string baseWhere = baseOnRoot ? "根节点自己身上（= 原版结构）"
+                         : (baseChild != null
+                            ? "子件 `" + baseChild + "`（⚠️ **已知偏离**：原版长在根节点自己身上 —— `A1149` 第一半）"
+                            : "根节点自己身上（⚠️ 那颗 quad 取不到）");
         string baseGot = bq == null ? "<没有 quad>" : (bq.Texture == null ? "<没贴图>" : bq.Texture.name);
         CheckTrue(bq != null && bq.Texture != null && bq.Texture.name == baseTex,
-                  $"（前提·不静默）A1125 {win}：**根节点自己身上**那颗 quad（圆底盘 `{baseTex}`）拿得到、"
-                + "且贴图就是原版那一张 —— ⛔ 取不到 / 取错就不往下断（不静默变绿）"
-                + $"｜现读「{baseGot}」｜🧨 圆底盘若被搬回自造子件（原版没有那个子件）⇒ 本格红"
-                + "（⛔ 别改成 `GetComponentInChildren` 去「修」它 —— 那正是本格要挡的偏离）");
+                  $"（前提·不静默）A1125 {win}：圆底盘 `{baseTex}` 那颗 quad 拿得到、且贴图就是原版那一张"
+                + " —— ⛔ 取不到 / 取错就不往下断（不静默变绿）"
+                + $"｜现读「{baseGot}」｜取处 = {baseWhere}"
+                + "｜🧨 把圆底盘整颗删掉 / 换成别张图 ⇒ 本格红（⛔ 别改成盲扫子树去「修」它）");
         float bx1 = 0f, by1 = 0f, bx2 = 0f, by2 = 0f;      // ⛔ 先归零：`&&` 短路时编译器要求 out 已赋值
         bool okB = bq != null && MenuDraw.QuadRectPx(bq, out bx1, out by1, out bx2, out by2);
         float bw = bx2 - bx1, bh = by2 - by1;
@@ -205,18 +223,19 @@ public static class RewardsScene
                   $"★★ A1125 {win}：**圆底盘实绘宽** = 原版 **{basePx:F2}**（设计 px；配下面那格「宽==高」"
                 + $"⇒ 两条一起 = 原版 **{basePx:F2}×{basePx:F2}**）"
                 + (okB ? $"（现读宽 {bw:F2}，高 {bh:F2}）" : "（圆底盘 quad 取不到）")
-                + $"｜= 根那一格 **{frameW:F2}×{frameH:F2}** 的宽（原版读数 74.39，本窗 `CloseBtn` 常量 74.38）"
+                + $"｜= 原版根那一格 **{frameW:F2}×{frameH:F2}** 的宽（正方贴图 + `m_PreserveAspect=1` 的等比内接）"
                 + "｜🧨 把矩形改回子件框 `CloseBg`（56.86×58.13）⇒ 宽少 ~17.5 ⇒ **只本格红**"
                 + "（下面「宽==高」那格**仍绿** —— 56.86 也是正方）");
         // 🔴 **本格 = 等比这条不变量**（比断绝对数抗「将来换贴图」：换成别的正方贴图它照旧成立），
         //    而且**只有【去掉 `keepAspect`】这一种改坏法会红它** ⇒ 与上格**结构上不可能一起变绿**。
         CheckTrue(okB && Mathf.Abs(bw - bh) <= 0.5f,
-                  $"★★ A1125 {win}：圆底盘**实绘宽 == 实绘高**（= **等比**这条不变量；根那一格本身是 "
-                + $"{frameW:F2}×{frameH:F2} 的**非正方**框 ⇒ 只有真等比才会两轴相等）"
+                  $"★★ A1125 {win}：圆底盘**实绘宽 == 实绘高**（= **等比**这条不变量；原版根那一格本身是 "
+                + $"{frameW:F2}×{frameH:F2} 的框 ⇒ 只有真等比才两轴相等）"
                 + (okB ? $"（现读 {bw:F2}×{bh:F2}）" : "（圆底盘 quad 取不到）")
-                + "｜🧨 把 `keepAspect: true` 去掉 ⇒ 实绘变 74.38×75.60（**宽≠高**）⇒ **只本格红**"
-                + "（宽 74.38 没变 ⇒ 上格绿）"
-                + "｜🔴 这就是「它用的是**根那一格**（非正方）+ 等比」的判别式 —— 少了等比，高度就顶到 75.60");
+                + $"｜🧨 把 `keepAspect: true` 去掉 ⇒ 实绘变框那一格 {frameW:F2}×{frameH:F2}"
+                + (Mathf.Abs(frameW - frameH) > 0.5f ? "（**宽≠高**）⇒ **只本格红**（宽没变 ⇒ 上一格绿）"
+                                                     : "（= 同值）⇒ 本窗**框本身正方**，去掉 `keepAspect` 本就无差别")
+                + "｜🔴 这就是「它用的是**根那一格** + 等比」的判别式 —— 少了等比，高度就顶到框高");
     }
 
     /// <summary>**按路径**找一个节点（`Content/Scroll View/Viewport/…`）。

@@ -236,10 +236,23 @@ namespace CardPresentation
             }
 
             // 5) 关闭圆钮（绿的那一颗）
-            Img(root, "UI_Button_Round_background", CloseL, CloseT, CloseR, CloseB, "Close Bg", QImpRow, true);
+            // 🔴🔴 **2026-10-18（A1149 第一半）圆底盘【挂点 + 按钮节点】归真**（本件 = 第九会话 P7）：
+            //   改前**原版那颗 `Generic Close Button Green` 节点我们根本没建** —— 圆底盘与图标都是 `root`
+            //   的直接子件、圆底盘画在自造子件 `Close Bg` 上。
+            //   判据（逐字段直读）= `python -I d:/tmp/wf_b4probe/pa.py bundle_menus_assets_all
+            //   "Import Deck Popup" 8`：根 `Generic Close Button Green`（**75.00×75.00**）**自己带 `Image`**：
+            //   `UI_Button_Round_background` · `m_Type=0`(Simple) · **`m_PreserveAspect=1`** ·
+            //   `m_RaycastTarget=0`；它下面**唯一的子件 = `Icon`**（56.37×54.50，无 `Background` 层）。
+            //   贴图 `m_Rect` = **237×237 正方** ⇒ 实绘 **75×75**（框本身即正方）。
+            //   ⇒ 照兄弟窗先例 `Shell/InboxWindow.cs:386-387` 的形状（`Img` 取不到图才退回 `MenuDraw.Node`）。
+            var closeBaseQ = Img(root, "UI_Button_Round_background", CloseL, CloseT, CloseR, CloseB,
+                                 "Generic Close Button Green", QImpRow, true);
+            var closeNode = closeBaseQ != null
+                ? closeBaseQ.transform
+                : MenuDraw.Node(root, "Generic Close Button Green", new PxRect(CloseL, CloseT, CloseR, CloseB));
             float ix1 = CloseL + (CloseR - CloseL - 56.37f) * 0.5f;
             float iy1 = CloseT + (CloseB - CloseT - 54.50f) * 0.5f;
-            var closeIconQ = Img(root, "40k_bt_close", ix1, iy1, ix1 + 56.37f, iy1 + 54.50f, "Close Icon", QImpRow, true);
+            var closeIconQ = Img(closeNode, "40k_bt_close", ix1, iy1, ix1 + 56.37f, iy1 + 54.50f, "Close Icon", QImpRow, true);
             // A17：原版 `Window>Generic Close Button Green` 是 SpriteSwap，`40k_bt_close` → `40k_bt_close_hover`（普查 §块 3 第 12 行）
             var clHit = Hit(root, "CloseHit",
                             MenuDraw.PaddedRect(new PxRect(ix1, iy1, ix1 + 56.37f, iy1 + 54.50f), ClosePad),

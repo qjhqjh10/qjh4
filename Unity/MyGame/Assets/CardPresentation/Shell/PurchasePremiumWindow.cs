@@ -561,10 +561,22 @@ namespace CardPresentation
             sb.gameObject.SetActive(false);
 
             // ---- 9) `Generic Close Button Orange` ----
-            var close = MenuDraw.Node(root, "Generic Close Button Orange", Abs(CloseR));
+            // 🔴🔴 **2026-10-18（A1149 第一半）圆底盘【挂点】归真**（本件 = 第九会话 P7）：
+            //   改前圆底盘画在一颗**自造子件 `Image`** 上、而 `Generic Close Button Orange` 是颗**裸节点**；
+            //   原版那颗 `Image` **就长在根节点自己身上**（无独立子件名）。
+            //   判据（逐字段直读）= `python -I d:/tmp/wf_b4probe/pa.py bundle_menus_assets_all
+            //   "Purchase Premium Window" 8`：根 `Generic Close Button Orange` 自己带 `Image`：
+            //   `UI_Button_Round_background` · `m_Type=0`(Simple) · **`m_PreserveAspect=1`** ·
+            //   `m_PixelsPerUnitMultiplier=1.0` · `m_RaycastTarget=0` · 矩形 **74.39×75.61**；
+            //   贴图 `m_Rect` = **237×237 正方** ⇒ 实绘 **74.39×74.39**。
+            //   ⇒ 照兄弟窗先例 `Shell/InboxWindow.cs:386-387` / `Shell/ChatPanel.cs:307-308` 的形状
+            //   （`Rect` 画在根节点上、图取不到才退回 `Node`）。矩形与 `keepAspect` **改前就是对的**。
             var closeTex = Tex(ArtClose, "关窗钮底");
-            ImageQuad closeBg = null;
-            if (closeTex != null) closeBg = MenuDraw.Rect(close, closeTex, Abs(CloseR), "Image", QClose, null, true);
+            var closeBg = closeTex != null
+                ? MenuDraw.Rect(root, closeTex, Abs(CloseR), "Generic Close Button Orange", QClose, null, true)
+                : null;
+            var close = closeBg != null ? closeBg.transform
+                                        : MenuDraw.Node(root, "Generic Close Button Orange", Abs(CloseR));
             var cbTex = Tex(ArtCloseBg, "关窗钮内底");
             var closeFaceQ = cbTex != null
                 ? MenuDraw.Rect(close, cbTex, Abs(CloseBgR), "Background", QClose, null, true) : null;

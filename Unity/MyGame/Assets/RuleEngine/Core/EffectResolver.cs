@@ -2111,29 +2111,42 @@ namespace RuleEngine
             };
             var targets = ResolveTargets(ctx, owner, spec, null, chosen);
             foreach (var t in targets)
-                if (t != null && t.IsAlive && !t.IsStunned)
+            {
+                if (t == null || !t.IsAlive) continue;
+                // 🔴 **2026-10-09（`A1134`）：`unstunnable`（原版 `HasCurrentTrait(0xfa)`）⇒ 整个施加段跳过。**
+                //    判据 = 原版 `CardScript__Stun.c:46-47`：
+                //      `cVar13 = EntityScript__HasCurrentTrait(param_1, 0xfa, 0); if (cVar13 == '\0') { …施加… }`
+                //    —— 非假时那一支只打一条 `LogWarning` + `ActivateUnstunnable` 音效，**不加 trait**。
+                //    ⚠️ **是「当前关键词」（`UnitState.Has` = 可被运行时授予），⛔ 不是印刷关键词。**
+                //    判定口共用 `RuleCore.StunBlockedByTraits`（震荡那一格、`SimpleAI.ScoreStun` 同一条）。
+                if (RuleCore.StunBlockedByTraits(t))
                 {
-                    // 🔴 **2026-10-09（`A1116`）**：原来是 `t.IsStunned = true;`（**只写字段、不挂关键词**）
-                    //     ⇒ 改成**挂 `stun` trait**。判据 = 原版 `CardScript__Stun.c:48`
-                    //     `AddTraitSilently(param_1, 100, …)` —— 全反编译里施加眩晕**只此一条路**
-                    //     （`grep -n "AddTraitSilently(param_1,100" *.c` 只命中它）；
-                    //     读点全是 `HasCurrentTrait(100)`（`CheckStun` / `CanAttackCard` /
-                    //     `IsValidAttackTarget` / `AllowResolveAttack` / `get_mightAct` / `ActivateMinion` …）
-                    //     ⇒ **原版只有一份表示**，`IsStunned` 现在的定义就是它。
-                    t.AddKeyword(KeywordTable.Stun, 1);
-                    // 🆕 2026-10-09（`A1121`）：**施加时清「回合开始时就在这个状态」那个闸门** ——
-                    //    判据 = `CardScript__Stun.c:98`（`*(undefined1 *)(card + 0x55) = 0;`）。
-                    //    ⇒ 这一下眩晕**不会**在**本回合末**被 `RuleCore.EndTurn` 摘掉
-                    //    （它是「回合中途挂上的」，不是「回合开始时就在的」）——
-                    //    要撑到它自己的下个回合末才摘 ⇒ 「只废一个回合」。
-                    //    ⚠️ 原版那一句还带一个 `+0x108 != 0`（「activeEffects 列表非空」）的守卫，
-                    //       那是表现层的容器、对我们没有对应物 ⇒ 无条件执行，如实标着。
-                    t.StunnedAtStartOfTurn = false;
-                    // 🆕 `When an enemy receives a Stun, …`（2026-09-13 第三十四轮）。
-                    // ⚠️ `!t.IsStunned` 那道守卫是**行为保持**的 —— 重复眩晕也只是把关键词叠一层
-                    //    （`Has` 一样为真），但**广播不能重复**：卡面写的是「**收到**一次眩晕」。
-                    BroadcastKeywordEvent(ctx, WhenEventKind.GetsStun, t);
+                    ctx.Log($"{by}：「{op.Source}」想眩晕 {t.Name}，但它有 `unstunnable`"
+                          + "（原版 `CardScript__Stun.c:46` 直接跳过施加）");
+                    continue;
                 }
+                if (t.IsStunned) continue;      // 已经是了：见下面那条「广播不能重复」
+                // 🔴 **2026-10-09（`A1116`）**：原来是 `t.IsStunned = true;`（**只写字段、不挂关键词**）
+                //     ⇒ 改成**挂 `stun` trait**。判据 = 原版 `CardScript__Stun.c:48`
+                //     `AddTraitSilently(param_1, 100, …)` —— 全反编译里施加眩晕**只此一条路**
+                //     （`grep -n "AddTraitSilently(param_1,100" *.c` 只命中它）；
+                //     读点全是 `HasCurrentTrait(100)`（`CheckStun` / `CanAttackCard` /
+                //     `IsValidAttackTarget` / `AllowResolveAttack` / `get_mightAct` / `ActivateMinion` …）
+                //     ⇒ **原版只有一份表示**，`IsStunned` 现在的定义就是它。
+                t.AddKeyword(KeywordTable.Stun, 1);
+                // 🆕 2026-10-09（`A1121`）：**施加时清「回合开始时就在这个状态」那个闸门** ——
+                //    判据 = `CardScript__Stun.c:98`（`*(undefined1 *)(card + 0x55) = 0;`）。
+                //    ⇒ 这一下眩晕**不会**在**本回合末**被 `RuleCore.EndTurn` 摘掉
+                //    （它是「回合中途挂上的」，不是「回合开始时就在的」）——
+                //    要撑到它自己的下个回合末才摘 ⇒ 「只废一个回合」。
+                //    ⚠️ 原版那一句还带一个 `+0x108 != 0`（「activeEffects 列表非空」）的守卫，
+                //       那是表现层的容器、对我们没有对应物 ⇒ 无条件执行，如实标着。
+                t.StunnedAtStartOfTurn = false;
+                // 🆕 `When an enemy receives a Stun, …`（2026-09-13 第三十四轮）。
+                // ⚠️ `!t.IsStunned` 那道守卫是**行为保持**的 —— 重复眩晕也只是把关键词叠一层
+                //    （`Has` 一样为真），但**广播不能重复**：卡面写的是「**收到**一次眩晕」。
+                BroadcastKeywordEvent(ctx, WhenEventKind.GetsStun, t);
+            }
             ctx.Log($"{by}：「{op.Source}」眩晕了 {targets.Count} 个单位");
             return true;
         }

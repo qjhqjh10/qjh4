@@ -2365,10 +2365,14 @@ namespace CardPresentation
 
         /// <summary>建 `Cosmetic Drag Controller` 那一棵（原版形状：**空节点 + 一个关着的预览子节点**）。
         /// 出厂：预览 **inactive**（原版 `Collection Cosmetic` 就是 `m_IsActive: false`）。
-        /// ⚠️ **两个容器都摆在场景原点**（`NewGo` 就是这么挂的）—— 本工程 `Txt` / `Img` 那些助手带 `parent`
-        /// 时把 `Pos(...)` 当**局部**位置用（`Label.Create`/`ImageQuad.Create` 里那句
-        /// `go.transform.localPosition = pos`）⇒ 「父件在原点」才是它们的既有前提，`Root` 本身也是这个前提。
-        /// 拖拽时 `OnDrag` 把容器挪到指针上，整棵子树跟着走（子件的局部位置不变）。</summary>
+        /// ⚠️ 本工程 `Txt` / `Img` 那些助手带 `parent` 时把 `Pos(...)` 当**局部**位置用
+        /// （`Label.Create`/`ImageQuad.Create` 里那句 `go.transform.localPosition = pos`）
+        /// ⇒ 「父件在原点」才是它们的既有前提，`Root` 本身也是这个前提。
+        /// 拖拽时 `OnDrag` 把**预览根**挪到指针上，整棵子树跟着走（子件的局部位置不变）。
+        /// <para>🔴 **2026-10-19（A1151）就地订正（铁律 5）**：本句原来写「**两个容器都摆在场景原点**」——
+        /// 拖拽节点（`cosm_drag`）仍在原点，但**预览根**（`cosm_preview`）已改摆在**布局框中心**
+        /// `Pos(pcx, pcy)` 上（判据与后果见下面那一句的注释）⇒ 按旧写法画心会
+        /// **= 指针 + 布局框中心**。</para></summary>
         void BuildCosmeticDrag()
         {
             _cosmDragNode = NewGo("cosm_drag");
@@ -2377,6 +2381,25 @@ namespace CardPresentation
             float pcx = (PrevX1 + PrevX2) * 0.5f, pcy = (PrevY1 + PrevY2) * 0.5f;
             _cosmPreviewGo = NewGo("cosm_preview");
             _cosmPreviewGo.transform.SetParent(_cosmDragNode.transform, false);
+            // 🔴 **2026-10-19（A1151）**：「布局框中心」这个偏置放在**预览根**上 —— 它就是原版
+            //   `Collection Cosmetic` 那一件（`Draggable`/`CosmeticPreview` 挂的那一件，也就是
+            //   起手没拖、和拖起来之后 `OnDrag` 每帧**整句覆盖 `localPosition`** 的那一件）。
+            //   判据（原版方法体，逐句还原 → `Core/DraggableController.cs` 文件头 ②）：
+            //     `OnDrag` = `RectTransformUtility.ScreenPointToLocalPointInRectangle(draggable.transform.parent, …)`
+            //     ＋ `this.draggable.transform.localPosition = local`
+            //   ⇒ **偏置在原版是放在「预览根」上的**（拖拽那一拍被指针位置覆盖掉）⇒ 原版画心**贴着指针**。
+            //   ⚠️ 我们原来把它记在**子件 quad** 的 `localPosition` 上（那句 `ImageQuad.Create(…, Pos(pcx, pcy), …)`），
+            //     而 `OnDrag` 改的是**根** ⇒ 画心 = 指针 **+ `Pos(pcx, pcy)`**
+            //     = 指针 **+ (108.59 px 右, 107.0 px 下)**（⚠️ `Pos(1068.59, 647)` 是「**以屏幕中心为原点**」
+            //     的世界坐标 = `(1.0055, −0.9907)` 世界单位，⛔ **不是**「1086 px 那么大的偏置」——
+            //     把它当 px 偏置来算会看出「画到屏幕外」那种量级）。
+            //   📌 **2026-10-19 本件顺带订正第八会话 `B6` 的一处量级**：`B6` 记的是「画心 ≈ (1308, 1410)、
+            //     几乎画到屏幕外」（它把 `Pos` 的**入参**当成了世界/px 偏置）—— 真实偏置见上一行，
+            //     **「偏置归属错了」这个结论不变**，只是没到「跑出屏幕」那么多。
+            //   🔴 **本条只到「读代码链」这一层、没有实况证据**（第八会话 `B6` 现读报的 ——
+            //     出处 `资料/普查产出_第八会话/B6_DeckScene卡背期望值同步.md` §2·2）⇒ 照此措辞，
+            //     ⛔ 别把这句写成「原版就是这样（已验）」。
+            _cosmPreviewGo.transform.localPosition = Pos(pcx, pcy);
             // 🆕 **2026-10-18（A944）**：原版是**三层**（`Collection Cosmetic` > `content` > `Image_…`）
             //   ⇒ 补建中间那一层 `content`。它的**原版参数**：`sizeDelta` **0×0** · anchor **0,0→1,1**
             //   （= **撑满父件**）· 自己**不挂任何图** ⇒ **视觉零影响**（⛔ **别拿它当判据**；
@@ -2394,7 +2417,11 @@ namespace CardPresentation
             //   （`PreserveAspectSize`，本仓唯一一份口径）—— 本处只负责建「外接框」，
             //   `BindView` 之后由它按**真图**改。⚠️ 预览出厂就 `SetActive(false)`（下面那句），
             //   所以这里摆成外接框**不会被人看见**；⛔ 别把本处这跳当成「比例已经对了」。
-            var quad = ImageQuad.Create(contentGo.transform, CardArt.Solid(), Pos(pcx, pcy),
+            //   🔴 **2026-10-19（A1151）**：quad 建在**局部零点**（= 预览根的中心）—— 「布局框中心」
+            //   那一跳挪到上面 `_cosmPreviewGo.transform.localPosition = Pos(pcx, pcy)` 去了（判据见那里）。
+            //   ⚠️ 本工程助手把 `pos` 当**局部**位置写（`ImageQuad.Create` 末尾那句
+            //   `go.transform.localPosition = pos`）⇒ 这里给 `Vector3.zero` 才是「贴着根」。
+            var quad = ImageQuad.Create(contentGo.transform, CardArt.Solid(), Vector3.zero,
                                         U(CosmImgH * PrevScale), new Vector2(0.5f, 0.5f), "cosm_preview_img");
             if (quad != null)
             {
@@ -3896,9 +3923,15 @@ namespace CardPresentation
         /// `PopUpGameWindow.Terms.ContainsKey(key)`，而**那张表是恒空的**（它自己文件头写着「故意留空」）
         /// ⇒ **今天恒判「查不到」、永远退成兜底键** `MenuDeck/Error/InvalidDeck`，
         /// **永远说不出真正的不合法原因**（看着有判据、判据却指向一张空表 —— 一处**静默失败**）。
-        /// 换成 `Loc.HasEntry` 之后：`Loc` 表**里有的**键（如哪天补上 `MenuDeck/Error/5`）就真的用它；
-        /// ⚠️ **今天 `MenuDeck/Error/{2,4,5}` 这三条数字键仍不在 `Loc` 表里** ⇒ 兜底键**照旧**是今天的
-        /// 可见结果（**不是缺陷、是还没词条**）—— 补词条是**另一笔账**，⛔ 别在这里编文案。</para>
+        /// 换成 `Loc.HasEntry` 之后：`Loc` 表**里有的**键就真的用它。
+        /// ✅ **2026-10-09 已补（第九会话 · `A1133`）：`MenuDeck/Error/{2,4,5}` 三条数字键现在就在 `Loc` 表里**
+        ///   （键名照原版的**数字族**；判据 = `DeckUtility__ToRawLocalizationString.c` 的格式串 + 原版枚举
+        ///   `DeckError.cs` 只返 2/4/5 ⇒ **不补 1/3**，补了就是永不触发的空键；
+        ///   ⚠️ 那两列文案在**远端 I2** 取不到 ⇒ `Loc` 里这两条是**自拟**、已如实标注）。
+        ///   ⇒ 原写「今天仍不在 `Loc` 表里 …… 补词条是**另一笔账**」**已作废**（铁律 5 就地订正）——
+        ///   **兜底键不再是今天的可见结果**，号 2/5 现在真能说出「缺战将」/「张数不对」那两类原因。
+        ///   ⚠️ 号 **1（`CardsNotOwned`）与 3（`InvalidDeckBannedCards`）仍然不回**（没有那个数据源，见上），
+        ///   ⛔ 别为它们编号、也别在这里编文案。</para>
         /// <para>⚠️ **与 `PopUpGameWindow.Term` 的分工**：本函数只管「**用哪个键**」，
         /// 「键 → 屏上那句字」由 `Term()` 负责（`Shell/PopUpGameWindow.cs`）。
         /// ⇒ 两处都改成看 `Loc` 之后，**同一条表**说话，不会再出现「判据说没有、印的却有」。</para></summary>

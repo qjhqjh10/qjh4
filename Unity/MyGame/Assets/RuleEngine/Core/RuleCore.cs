@@ -1298,6 +1298,35 @@ namespace RuleEngine
             // → `energy = 0` → Regeneration）的相对次序一致。
             ResolveAtTurn(ctx, "turn_end");
 
+            // ---- 再生 X：**每回合结束时**治疗 X（规则书 :201「每回合结束时治疗 X」）----
+            //      🔴 **2026-10-09（`A1135`）**：这一段原来排在下面「残骸摧毁」与「眩晕/失明闸门摘除」
+            //      **之后** —— 与原文次序**反了**，已挪到这里。判据（第一权威 `d:/2/tools/decomp_full/`）
+            //      = `CardScript__OnTurnEnd.c` **同一个逐卡方法体**里的先后：
+            //        `:72 OnTrigger(0x28=40 TurnEnd)` → **`:84-108 再生**
+            //        （`HasCurrentTrait(0x406 /*regeneration*/)` ⇒ `BattleManager__HealOneCharacter`）
+            //        → `:117-123 残骸摧毁` → `:124-134 眩晕/失明闸门摘除`。
+            //      ⚠️ **行为上几乎观测不到**（如实标着）：这一段只治 `IsAlive` 的单位，而残骸
+            //      （`IsRemnant`）在 `RuleCore.CleanupDeaths` 里翻面那三行就定了
+            //      `Health = MaxHealth = 1` ⇒ 就算挪前之后扫到它，`min(h + heal, MaxHealth)`
+            //      也治不动（既无日志、也无 `Hit` 事件）。⇒ 今天唯一的差别是**结算次序本身**。
+            //      ⚠️ `rule_core.gd:2025`（旁证、非权威）只提供「每回合结束治**双方**」这一条，
+            //      ⛔ 不再拿它当**次序**的判据。
+            for (int pl = 0; pl < 2; pl++)
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var u = ctx.Players[pl].Board[s];
+                    if (u == null || !u.IsAlive || !u.Has("regeneration")) continue;
+                    int heal = u.KwValue("regeneration");
+                    int before = u.Health;
+                    u.Health = System.Math.Min(u.Health + heal, u.MaxHealth);
+                    if (u.Health != before)
+                    {
+                        ctx.Log($"{u.Name} 的 Regeneration {heal}：{before} → {u.Health}"
+                              + $"（上限 {u.MaxHealth}）");
+                        EmitUnit(ctx, EvtKind.Hit, u, -(u.Health - before));   // 负数 = 治疗，表现层据此走绿字
+                    }
+                }
+
             // ---- 残骸的回合末摧毁（规则书 `:203`）---------------------------------
             // 👆 和「本回合限时增益到期」一样，两边场上都要扫 —— 但**摧毁只发生在自己回合结束时**，
             //    所以下面那一趟只扫**当前行动方**（规则书 `:203`「控制者回合结束时被摧毁」）。
@@ -1309,6 +1338,8 @@ namespace RuleEngine
             //    行为上的意义：**回合末触发还能把它翻回来**（`reanimate` 那类）——
             //    翻回来之后它就不是残骸了，下面这一趟自然扫不到它。
             //    本工程自检钉住了这件事：`RuleEngineTest.TestRemnant` 的 ④c。
+            // ⚠️ **2026-10-09（`A1135`）**：上面「再生」那一段现在夹在 `ResolveAtTurn("turn_end")` 与
+            //    本行之间（原版 `:84-108` 也在 `:117` 之前）—— ⛔ 别把它当「多出来的一段」删掉。
             // ⚠️ 放在 `ctx.IsOver` 那个早退**之前**：与改动前「它在触发段之前跑」的覆盖面保持一致
             //    （对局已结束时也照扫，谁的账都不欠）。
             DestroyRemnants(ctx, ctx.Active);
@@ -1326,8 +1357,13 @@ namespace RuleEngine
             //     在别人回合里挨的那一下 ⇒ 撑到自己下个回合开始时置闸门 ⇒ 那一整个回合动不了
             //     ⇒ 自己回合末摘掉。**改前我们没有任何一处摘它 ⇒ 被晕的单位整局再也动不了**。
             //
-            //   ⚠️ **次序照原版**：这一趟排在「回合末触发」（上面 `ResolveAtTurn(ctx, "turn_end")`）
-            //      与残骸摧毁**之后**、再生 / `oath` 重挑攻击型**之前**（原版同一方法体里的次序）。
+            //   ⚠️ **次序照原版**：这一趟排在「回合末触发」（上面 `ResolveAtTurn(ctx, "turn_end")`）、
+            //      **再生**、残骸摧毁**之后**，`oath` 重挑攻击型**之前** —— 就是原版同一个方法体里的次序
+            //      （`CardScript__OnTurnEnd.c`：再生 `:84-108` → 残骸摧毁 `:117-123` →
+            //      **闸门摘除 `:124-134`**）。
+            //      🔴 **2026-10-09（`A1135`）就地订正**：这一句原来写「…与残骸摧毁**之后**、
+            //      **再生** / `oath` 重挑攻击型**之前**」—— 那是**错的**（把再生当成了在它后面），
+            //      已随本笔把再生那一段挪到**前面**去（见上面 `ResolveAtTurn` 之后那段）。
             //   ⚠️ **扫描面 = 双方棋盘**（不是只扫当前行动方）：原版
             //      `BattleManagerSupport__BroadcastTurnEnd.c:41-52` 对**场上每一张卡**逐个调 `OnTurnEnd`，
             //      而摘除只看 `+0x55`、**没有侧别守卫**。「只扫当前行动方」在正常情况下等价，
@@ -1365,25 +1401,6 @@ namespace RuleEngine
             }
 
             if (ctx.IsOver) return ctx.Winner;
-
-            // ---- 再生 X：**每回合结束时**治疗 X（规则书 :201「每回合结束时治疗 X」）----
-            //      我们自己的 `rule_core.gd:2025`（旁证、非权威） 明写 `at the end of EACH turn → 双方单位`，
-            //      而且是在 `energy = 0` **之前**结算的 —— 顺序照抄。
-            for (int pl = 0; pl < 2; pl++)
-                for (int s = 0; s < BoardSpec.Size; s++)
-                {
-                    var u = ctx.Players[pl].Board[s];
-                    if (u == null || !u.IsAlive || !u.Has("regeneration")) continue;
-                    int heal = u.KwValue("regeneration");
-                    int before = u.Health;
-                    u.Health = System.Math.Min(u.Health + heal, u.MaxHealth);
-                    if (u.Health != before)
-                    {
-                        ctx.Log($"{u.Name} 的 Regeneration {heal}：{before} → {u.Health}"
-                              + $"（上限 {u.MaxHealth}）");
-                        EmitUnit(ctx, EvtKind.Hit, u, -(u.Health - before));   // 负数 = 治疗，表现层据此走绿字
-                    }
-                }
 
             // ---- 🆕 2026-10-18（`W5` · `K3` 账 · `+0x120` 第 8 个写点）：**带 `oath` 的单位重挑攻击型** ----
             //   原版 `CardScript.OnTurnEnd`（`CardScript__OnTurnEnd.c:214-218`）：
@@ -1737,7 +1754,17 @@ namespace RuleEngine
             //    把「本版不支持」误导成「再等等就能打」（原注释记的就是这个坑）。
             if (!card.IsUnit) return CanPlayTactic(ctx, p, handIdx, slot);
 
-            // ⚠️ 校验顺序和 rule_core.play_card 一致：**先费用、后格位**
+            // ⚠️ **先费用、后格位**。⛔ **别把这句读成「次序照原版」** —— 它是**近似/旁证**，如实标着：
+            //    · 原来那句「校验顺序和 `rule_core.play_card` 一致」**已作废**：`rule_core.gd` 是
+            //      **我们自己的上一版 Godot 复刻**（旁证、非权威 —— 见本文件头与 `CLAUDE.md` 铁律 2
+            //      的 2026-09-18 更正，`D26` 那一族）；
+            //    · **真判据已按 `D26` 改指** `d:/2/tools/decomp_full/BattleManager__PayCardCost.c`
+            //      一族（费用那一半就在它里面：`:23 EntityScript__get_CurrentCost` +
+            //      `:27 PlayerManager__UseMana`；配 `BattleManager__CanPlayCard.c:104-120` 的格位那一半），
+            //      但**「费用一定排在格位之前」这半条还没逐句核过**（`A1155`③）。
+            //    · ⚠️ **与 `Core/DeckRules.cs` 的 `ValidateDeck` 那段 legend 是同一口径**
+            //      （两处都写「先费用后格位、真判据在 `PayCardCost.c` 一族」）—— 改一处就改两处，
+            //      ⛔ 别留两套说法（`A1164` 就是这两处打架过）。
             //    （测试断言过「非法格不扣费」—— 顺序反了会出现「判了格位却已经扣过费」的中间态）
             if (CostOf(ctx, p, inst) > ps.Energy) return RuleCodes.ErrCost;
 
@@ -2671,6 +2698,50 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// **`unstunnable`（晕不了）** —— 原版 `DefinedTrait.unstunnable = 250`
+        /// （`d:/2/tools/il2cpp_out/dump.cs` 的 DefinedTrait 全表；反编译里写作 `0xfa`）。
+        ///
+        /// 🔴 **2026-10-09（`A1134`）补**：原版 `CardScript__Stun.c:46-47` 在**施加 `stun` 之前**
+        ///    先读它 ——
+        ///    `cVar13 = EntityScript__HasCurrentTrait(param_1, 0xfa, 0);`
+        ///    **非假 ⇒ 整个施加段（`:48` 的 `AddTraitSilently(100)` 与后面那一串）跳过**，
+        ///    只走 `:137-158` 那支：`LogWarning` + `DisplayTriggerAnim` + `ActivateUnstunnable` 音效、
+        ///    `return 0`（**不加 trait**）。
+        ///    Concussion 也走同一条路（`BattleManager__ResolveStun.c:78` → `CardScript__Stun`）。
+        ///    ⇒ 我们原来**没有这道守卫**（`EffectResolver.DoStun` 与 `RuleCore` 的震荡都不读它，
+        ///    只有 `SimpleAI.ScoreStun` 拿它打过 AI 的分）⇒「打不晕的单位照样被晕」。
+        ///
+        /// ⚠️ **读的是「当前关键词」（`HasCurrentTrait` 的等价物 = `UnitState.Has`），
+        ///    ⛔ 不是「印刷关键词」** —— 运行时由 `UnitState.AddKeyword` 授予的也算数
+        ///    （原版那个 `HasCurrentTrait` 正是「当前」语义；光环/效果给的同样生效）。
+        ///
+        /// ⚠️ **常量为什么声明在本文件**（同 <see cref="Noncombatant"/>）：`KeywordTable` 在
+        ///    `Core/CardDef.cs`，本轮不是本写手的文件 ⇒ 先在本文件登记。
+        ///    ✅ **2026-10-09 现读定案（第九会话 / 铁律 5）**：就**留在本文件**、由 `CardDef.cs`
+        ///    反向引用（`RuleCore.Unstunnable`）—— 照 `noncombatant` 的先例（`CardDef.cs` 里
+        ///    `Prefixes` 与 `Implemented` 两处写的都是 `RuleCore.Noncombatant`）。⛔ 不再提「归并进 `KeywordTable`」。
+        ///    ✅ **同日的连锁缺口也已收口**：原来这里记着「`KeywordTable.Prefixes` 里**没有**
+        ///    `unstunnable` ⇒ 卡数据 `keywords` 列里写它会**被静默丢掉**（与 `noncombatant` 同形）」——
+        ///    现已在 `Core/CardDef.cs` 的 `KeywordTable.Prefixes`（`new[] { "unstunnable", RuleCore.Unstunnable }`）
+        ///    与 `KeywordTable.Implemented` **两处都登记**（2026-10-09 由调度台补，判据见本注释）。
+        ///    ⇒ 现在卡数据 / 卡面正文写它 **认得出**；夹具 `UnitState.AddKeyword` 那条路照旧可用
+        ///    （**不做 Normalize**，正是原版「运行时授予 trait」的形状）。⚠️ 全池**仍是 0 张卡**带它。
+        /// </summary>
+        public const string Unstunnable = "unstunnable";
+
+        /// <summary>
+        /// **「这个单位晕不了」的共用判定口** —— `EffectResolver.DoStun`（战吼/效果那条路）、
+        /// `RuleCore` 的震荡（Concussion，`DeclareAttack` 里那一格）与 `SimpleAI.ScoreStun`
+        /// **三处都调它**（一条规则只有一个判定口；`SimpleAI` 原来自己写了一份裸字符串比较，
+        /// `A1134` 一并收口到本方法）。
+        /// 判据（原版方法体 + trait 号）见 <see cref="Unstunnable"/> 的注释。
+        /// </summary>
+        public static bool StunBlockedByTraits(UnitState u)
+        {
+            return u != null && u.Has(Unstunnable);
+        }
+
+        /// <summary>
         /// 目标合法性。（rule_core.is_valid_target）
         /// </summary>
         public static int IsValidTarget(BattleContext ctx, int p, int atkSlot, int tgtP, int tgtSlot, bool ranged)
@@ -3444,21 +3515,36 @@ namespace RuleEngine
                 //    Concussion 造成的也是「被眩晕」，卡面分不出来 ⇒ 走**同一个**事件。
                 //    ⚠️ 守卫是行为保持的：原来重复眩晕只是把 `true` 再赋一次，
                 //       但广播不能重复（卡面写的是「收到**一次**眩晕」）。
-                if (!target.IsStunned)
+                //
+                // 🔴 **2026-10-09（`A1134`）：先过 `unstunnable` 那道守卫。**
+                //    判据 = 原版 `CardScript__Stun.c:46-47`（`HasCurrentTrait(param_1, 0xfa)` 非假 ⇒
+                //    **整个施加段跳过**、只打一条 `LogWarning`）；Concussion 走的就是同一个函数
+                //    （`BattleManager__ResolveStun.c:78` → `CardScript__Stun`）⇒ 这一格也要拦。
+                //    判定口 = `StunBlockedByTraits`（⛔ 别在这儿再写一遍字符串比较）。
+                if (StunBlockedByTraits(target))
                 {
-                    // 🔴 **2026-10-09（`A1116`）**：原来是 `target.IsStunned = true;`（只写字段）
-                    //    ⇒ 改成**挂 `stun` trait** —— 全反编译里施加眩晕**只有这一条路**
-                    //    （`CardScript__Stun.c:48` 的 `AddTraitSilently(param_1, 100, …)`；
-                    //     `grep -n "AddTraitSilently(param_1,100" *.c` 只此一条），
-                    //    而 `IsStunned` 现在是它的派生属性。
-                    target.AddKeyword(KeywordTable.Stun, 1);
-                    // 🆕 2026-10-09（`A1121`）：**施加时清「回合开始时就在这个状态」的闸门** ——
-                    //    判据 = `CardScript__Stun.c:98`（`*(char *)(card + 0x55) = 0`）。
-                    //    ⇒ 这一下眩晕在**本回合末不会被摘**，要到它自己的下个回合末才摘。
-                    target.StunnedAtStartOfTurn = false;
-                    BroadcastKeywordEvent(ctx, WhenEventKind.GetsStun, target);
+                    // 原版那一支还有 `ActivateUnstunnable` 音效 —— 我们这边没有，**出声代替**（⛔ 不静默）。
+                    ctx.Log($"{target.Name} 有 `unstunnable` —— {attacker.Name} 的震荡打不晕它"
+                          + "（原版 `CardScript__Stun.c:46`）");
                 }
-                ctx.Log($"{target.Name} 被 {attacker.Name} 打晕了（Concussion）");
+                else
+                {
+                    if (!target.IsStunned)
+                    {
+                        // 🔴 **2026-10-09（`A1116`）**：原来是 `target.IsStunned = true;`（只写字段）
+                        //    ⇒ 改成**挂 `stun` trait** —— 全反编译里施加眩晕**只有这一条路**
+                        //    （`CardScript__Stun.c:48` 的 `AddTraitSilently(param_1, 100, …)`；
+                        //     `grep -n "AddTraitSilently(param_1,100" *.c` 只此一条），
+                        //    而 `IsStunned` 现在是它的派生属性。
+                        target.AddKeyword(KeywordTable.Stun, 1);
+                        // 🆕 2026-10-09（`A1121`）：**施加时清「回合开始时就在这个状态」的闸门** ——
+                        //    判据 = `CardScript__Stun.c:98`（`*(char *)(card + 0x55) = 0`）。
+                        //    ⇒ 这一下眩晕在**本回合末不会被摘**，要到它自己的下个回合末才摘。
+                        target.StunnedAtStartOfTurn = false;
+                        BroadcastKeywordEvent(ctx, WhenEventKind.GetsStun, target);
+                    }
+                    ctx.Log($"{target.Name} 被 {attacker.Name} 打晕了（Concussion）");
+                }
             }
 
             // ---- 攻击之后的触发：规则书 :208 / :214，都写着「（本单位存活时）」----

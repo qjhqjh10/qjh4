@@ -85,6 +85,9 @@ namespace CardPresentation
     /// 判据、复用的理由 → 本文件头。
     /// <para>用法：<c>MessageToast.Show("MenuDeck/Share/ExportSuccesful", localize: true,
     /// fallback: 兜底句)</c>。⛔ 生产路径**只走这一个口** —— 别在调用点自己 `Create` 一颗横幅。</para>
+    /// <para>⚠️ **2026-10-09（`P1` · `A1153`）**：分享那条路**已经不再是这个写法** —— 那个词条的值现在是
+    /// **带 `{0}` 的模板**，调用点先判 `Loc.HasEntry` 两态、再 `string.Format(Loc.T(键), s.Length)`
+    /// （见 `Shell/DeckInfoPopup.cs` 分享那一处）。上面这行只在**值不带占位符**的词条上照旧成立。</para>
     /// </summary>
     public class MessageToast : MonoBehaviour
     {

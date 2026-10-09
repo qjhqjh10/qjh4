@@ -7,6 +7,14 @@ convert_unity_particles.py — Unity ParticleSystem JSON → Godot 粒子中间�
       + 纹理 (从 bundle 或解包目录)
 用法: py312/python.exe scripts/convert_unity_particles.py AttackHitSmall Actual_Explosion ...
       py312/python.exe scripts/convert_unity_particles.py --3d AttackHitSmall ...
+
+⚠️ 2026-10-09 更正（A1165 / A1144 / 铁律 5）：
+  本文件过去找 GO 一律走「文件名前缀 glob」（go_file()）—— 遇【同名 GO 撞车】
+  （导出树里 `Container.json` 与 `Container_132.json` 并存）会同时命中、可能取错的那个。现在：
+    · 递归子 GO 那一路：child_go_of() 本来就按 m_Component[].m_PathID 反查，但过去只把 m_Name
+      往上传 ⇒ 等于拿名字再查一遍、撞车风险原样回来。现在改成一路上带【GO 文件路径】（load_go_path）。
+    · go_file() 落到前缀 glob 兜底时【出声】（打印全部候选与被选中的那个），⛔ 不再静默取 sorted[0]。
+  ⚠️ 改的是 d:/4 这一份；`d:/2/Warpforge_tools/scripts/` 下那份**尚未同步**（动档案库要先经用户同意）。
 """
 import json
 import glob
@@ -122,7 +130,15 @@ def go_file(go_name):
         return exact
     cands = [f for f in glob.glob(os.path.join(PREFAB, 'GameObject', go_name + '*.json'))
              if not re.search(r'_\d+_\d+[-+]?\d*\.json$', f)]
-    return sorted(cands)[0] if cands else None
+    if not cands:
+        return None
+    # ⚠️ A1165 / A1144：前缀 glob 会命中【同名 GO 的变体 / 同名撞车】⇒ ⛔ 不许静默挑一个
+    picked = sorted(cands)[0]
+    rest = ', '.join(os.path.basename(c) for c in sorted(cands)[1:]) or '无'
+    print(f'  [警告] {go_name}: 无精确同名文件，前缀匹配到 {len(cands)} 个候选'
+          f' ⇒ 取 {os.path.basename(picked)}（其余：{rest}）'
+          f' —— 同名 GO 撞车见 A1144/A1165：能用 PathID 定位的调用点请走 child_go_of()/load_go_path()')
+    return picked
 
 
 def load_go(go_name):
@@ -135,6 +151,25 @@ def load_go(go_name):
     g = _go_cache[gp]
     comps = [c['component']['m_PathID'] for c in g.get('m_Component', [])]
     return g, comps
+
+
+def load_go_path(gp):
+    """GO【文件全路径】 → (GameObject dict, 组件 PathID 列表); 带文件缓存
+    🆕 A1144/A1165：拿得到路径就走这条 —— ⛔ 别再按名字回头查一遍（那正是撞车点）。"""
+    if not gp or not os.path.exists(gp):
+        return None, None
+    if gp not in _go_cache:
+        _go_cache[gp] = json.load(open(gp, encoding='utf-8'))
+    g = _go_cache[gp]
+    comps = [c['component']['m_PathID'] for c in g.get('m_Component', [])]
+    return g, comps
+
+
+def load_go_ref(ref):
+    """GO【名】或【文件路径】→ (dict, comps)：判据 = 是否以 .json 结尾（GO 名不会）"""
+    if ref.endswith('.json'):
+        return load_go_path(ref)
+    return load_go(ref)
 
 
 def ps_file_of(comps):
@@ -181,7 +216,9 @@ def transform_of(comps):
 
 
 def child_go_of(cpid):
-    """子 Transform 组件 PathID → 子 GO 名 (扫描 GameObject 目录匹配)"""
+    """子 Transform 组件 PathID → 子 GO 的【文件全路径】
+    （按 m_Component[].m_PathID 反查，扫描 GameObject 目录）
+    🆕 A1144/A1165：⛔ 不再只返回 m_Name —— 名字是撞车的入口，路径才是身份。"""
     for fn in os.listdir(os.path.join(PREFAB, 'GameObject')):
         if not fn.endswith('.json'):
             continue
@@ -196,28 +233,29 @@ def child_go_of(cpid):
             continue
         gcomps = [c['component']['m_PathID'] for c in gg.get('m_Component', [])]
         if cpid in gcomps:
-            return gg.get('m_Name')
+            return gp
     return None
 
 
-def collect_ps(go_name, depth, cands):
-    """递归收集子树全部含 ParticleSystem 的候选 [(go名, ps_path, comps), ...]"""
+def collect_ps(go_ref, depth, cands):
+    """递归收集子树全部含 ParticleSystem 的候选 [(GO 名或路径, ps_path, comps), ...]
+    🆕 A1144/A1165：入口传【名】、子 GO 传【路径】—— 子 GO 那一路⛔ 不许转回名字（撞车点）。"""
     if depth > 6:
         return
-    _, comps = load_go(go_name)
+    _, comps = load_go_ref(go_ref)
     if comps is None:
         return
     ps_f = ps_file_of(comps)
     if ps_f:
-        cands.append((go_name, ps_f, comps))
+        cands.append((go_ref, ps_f, comps))
     tr = transform_of(comps)
     if not tr:
         return
     for ch in tr.get('m_Children', []):
         cpid = ch.get('m_PathID') if isinstance(ch, dict) else ch
-        child_name = child_go_of(cpid)
-        if child_name:
-            collect_ps(child_name, depth + 1, cands)
+        child_gp = child_go_of(cpid)
+        if child_gp:
+            collect_ps(child_gp, depth + 1, cands)
 
 
 def find_ps_recursive(go_name, depth=0):
@@ -227,9 +265,9 @@ def find_ps_recursive(go_name, depth=0):
     collect_ps(go_name, 0, cands)
     if not cands:
         return None
-    for gname, ps_f, comps in cands:
+    for gref, ps_f, comps in cands:
         if go_has_tex(comps):
-            return (gname, ps_f, comps)
+            return (gref, ps_f, comps)
     return cands[0]
 
 
@@ -260,9 +298,10 @@ def convert_effect(go_name, as3d=False, as_name=None):
     if not ps_path:
         r = find_ps_recursive(go_name)
         if r:
-            resolved_name, ps_path, rcomps = r
-            g, comps = load_go(resolved_name)
-            print(f'  [子GO] {go_name} → {resolved_name}')
+            resolved_ref, ps_path, rcomps = r
+            # 🆕 A1144/A1165：resolved_ref 多半是【GO 文件路径】⇒ 按路径装，⛔ 别回头按名字查
+            g, comps = load_go_ref(resolved_ref)
+            print(f'  [子GO] {go_name} → {os.path.basename(resolved_ref)}')
     if not ps_path:
         print(f'✗ {go_name}: 无 ParticleSystem 组件')
         return False

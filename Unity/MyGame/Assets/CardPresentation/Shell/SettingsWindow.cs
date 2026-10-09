@@ -632,6 +632,15 @@ namespace CardPresentation
         /// <summary>🔴 **2026-10-18（A1053）**：关窗钮那颗 `Icon` 子件**自己的** `m_RaycastPadding`
         /// （原版实读 `(-20)⁴`；L,B,R,T · **负 = 外扩**）⇒ 命中区 = 子件矩形（`CloseIconL..CloseIconB`）
         /// 外扩 20 = **96.37 × 94.50**（⛔ 不是根矩形 `CloseL..CloseB` 的 75×75）。
+        /// 🔴 **2026-10-19（第九会话 · `A1122`）就地补标注（铁律 5）**：上面这个 `96.37 × 94.50` 是
+        ///   **【设计 px】**（未过 `Screen()`）—— 原文**没说是哪一档**，`A1120` 那轮的只读诊断就是拿它当
+        ///   **屏上值**去比原版实读的 `86.73 × 85.05`，才误判成「两边都没定死」。
+        ///   现算一遍（本窗根 `m_LocalScale` 恒 1、那 0.9 是**烘进坐标**的 —— 见 `Screen()` 与 `RootScale`）：
+        ///   **× 0.9 ⇒ 屏上 = 86.73 × 85.04**（= 原版实读 `86.73 × 85.05`；那 0.01 差 = 本表 `CloseIconB`
+        ///   比原版实读少 0.01，见 `资料/普查产出_第八会话/E1_A1120两条红.md` §⑤·3，**没改**）。
+        ///   原版实读命令（只读、不跑 Unity）：`python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all
+        ///   "Main Menu Settings Window" --depth 8 --substr "Generic Close Button"`
+        ///   ⇒ `Icon` 含 pad = `86.73 x 85.05`、并打印「父链缩放 =(0.900000,0.900000)」（= 屏幕坐标那一档）。
         /// 算式只走 `MenuDraw.PaddedRect`；口径 → `普查_全仓命中区与关闭键族.md` §〇-1。
         /// ⚠️ 本窗是全仓唯一有 `RootScale 0.9` 的窗：子件**局部**矩形 56.37×54.50 × 0.9 = 屏幕上那 50.73×49.05
         /// —— 我们这套常量本来就是**局部那一档**（设计帧），所以这里直接用局部值 + 局部 pad，⛔ 不用再折 0.9。</summary>
@@ -937,8 +946,22 @@ namespace CardPresentation
             Rect(area, "Separators", BarSepL, BarSepT, BarSepR, BarSepB, ArtSep, QPanel);
 
             // 3) 关闭钮（圆底 + 图标；**图标是钮的子节点** —— 原版就是这么套的）
-            var closeN = Node(area, "Generic Close Button", CloseL, CloseT, CloseR, CloseB);
-            var closeBgQ = Rect(closeN, "bg", CloseL, CloseT, CloseR, CloseB, ArtCloseBg, QContent);   // ⛔ 只画，**不做换图目标**
+            // 🔴🔴 **2026-10-18（A1149 第一半）圆底盘【挂点】归真**（本件 = 第九会话 P7）：
+            //   改前圆底盘画在一颗**自造子件 `bg`** 上、而 `Generic Close Button` 是颗**裸节点**；
+            //   原版那颗 `Image` **就长在根节点自己身上**（无独立子件名、无 `bg` 这一层）。
+            //   判据（逐字段直读）= `python -I d:/tmp/wf_b4probe/pa.py bundle_menus_assets_all
+            //   "Main Menu Settings Window" 12`：根 `Menu Area/Generic Close Button` **自己带 `Image`**：
+            //   `UI_Button_Round_background` · `m_Type=0`(Simple) · **`m_PreserveAspect=1`** ·
+            //   `m_PixelsPerUnitMultiplier=1.0` · `m_RaycastTarget=0`；它下面**唯一**的子件 = `Icon`（50.73×49.05）。
+            //   ⚠️ 该 prefab 根 `m_LocalScale = 0.9`，`pa.py` 印的是**已缩放**的 `67.50×67.50`
+            //   ⇒ **设计 px = 75×75**（= 我们那对 `CloseL..CloseB` 常量）。贴图 `m_Rect` = **237×237 正方**
+            //   ⇒ 实绘 **75×75**（框本身即正方）。
+            //   ⇒ 照兄弟窗先例 `Shell/InboxWindow.cs:386-387` 的形状（`Rect` 画在根节点上、
+            //   图取不到才退回 `Node`）。矩形与 `keepAspect` **改前就是对的**。
+            var closeBgQ = Rect(area, "Generic Close Button", CloseL, CloseT, CloseR, CloseB, ArtCloseBg, QContent);   // ⛔ 只画，**不做换图目标**
+            var closeN = closeBgQ != null
+                ? closeBgQ.transform
+                : Node(area, "Generic Close Button", CloseL, CloseT, CloseR, CloseB);
             var closeIconQ = Rect(closeN, "Icon", CloseIconL, CloseIconT, CloseIconR, CloseIconB, ArtCloseIcon, QOverlay);
             // 🆕 **2026-10-18（A1058 · 第六会话批 2）**：换图那一层 = **子件 `Icon`**
             //   （`closeIconQ`，画的是 `ArtCloseIcon` = `40k_bt_close`），⛔ **不是圆底盘 `closeBgQ`**。
@@ -958,9 +981,12 @@ namespace CardPresentation
             // 🆕 **2026-10-18（A1053 · 第六会话批 2）**：**命中区**归真值 —— 原版根那颗
             //   `UI_Button_Round_background` 带 **`m_RaycastTarget = 0`**（不吃射线），吃射线的只有
             //   子件 `Icon`（`40k_bt_close`，局部 56.37×54.50）按自己的 `m_RaycastPadding (-20)⁴` 外扩
-            //   = **96.37 × 94.50**；改前传根矩形（75×75）⇒ 每边小 10.7 / 9.8。
+            //   = **96.37 × 94.50**（**设计 px** —— 未过 `Screen()`；屏上 ×0.9 = **86.73 × 85.04**，
+            //   算法与出处见 `ClosePad` 那条 doc 上的 `A1122` 那一格）；改前传根矩形（75×75）⇒ 每边小 10.7 / 9.8。
             //   判据 = `python -I d:/tmp/wf_hit/rcpad.py bundle_menus_assets_all "Main Menu Settings Window"
-            //   --depth 8 --substr "Generic Close Button"`（实读 `96.37 x 94.50`）。
+            //   --depth 8 --substr "Generic Close Button"` —— ⚠️ 该脚本量的是**屏幕坐标**档
+            //   （实读 `86.73 x 85.05` + 「父链缩放 =(0.900000,0.900000)」）⇒ 我们这 `96.37 × 94.50`
+            //   是照它 **÷0.9 折回【设计帧】**的值（所以别把两个数当同一档去比）。
             var closeHitR = MenuDraw.PaddedRect(new PxRect(CloseIconL, CloseIconT, CloseIconR, CloseIconB), ClosePad);
             Hit(closeN, "Hit", closeHitR.x1, closeHitR.y1, closeHitR.x2, closeHitR.y2, QOverlay, () =>
             {

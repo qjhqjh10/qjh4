@@ -185,9 +185,12 @@ namespace CardPresentation
         /// <summary>联机局才有（单机 = null）。</summary>
         public NetBattle Net { get { return _net; } }
         NetBattle _net;
-        /// <summary>联机局：**牌堆顺序由主机下发**（`RuleCore.NewBattle` 按座位顺序抽随机数洗牌
-        /// ⇒ 两端镜像跑会洗出不同的牌堆，见 `NetBattle` 文件头）。</summary>
-        bool _shuffleDecks = true;
+        // 🔴 **2026-10-09（`A1127`）：字段 `_shuffleDecks` 已删** —— 它原来是**产品往字段里写**的一格
+        //   （`BeginFromPendingCore` 里 `= !pb.NoShuffle`），与同族的 `ForceFirstSeat`（`A1100`）/
+        //   `_noAiMulligan`（`A1110`）是**同一族跨局泄漏**的形状（产品写、无处清）
+        //   ⇒ 照那两条的先例收口成 **`Begin(shuffle:)` 显式形参**（判据见那个形参的注释）。
+        //   ⚠️ 它当时读的是 `NetPendingBattle.NoShuffle` —— **死字段**（只声明、全仓无赋值 ⇒ 恒 `false`）
+        //   ⇒ `shuffle` 恒 `true`，**本改动行为零变化**。判据原文 → `资料/普查产出_第九会话/P3_引擎小改族.md`。
         /// <summary>联机局：**对面换牌不跑 AI** —— 由主机定序后下发（`RuleCore.Mulligan` 会掷 `ctx.Rng`）。
         /// 🔴 **2026-10-19（`A1110`）**：这是**本局**的状态，由 `Begin(noAiMulligan:)` **每局显式复位**
         ///   （调用方 = `BeginFromPendingCore`，联机开局 / 重连重建 / 放录像三档传 `true`）。
@@ -1237,21 +1240,49 @@ namespace CardPresentation
         // 出处：运行时 dump `runtime_ui_dump_Battle_Arena_1.tsv` 里 `PlayerDeck` 的子树
         /// <summary>牌堆底板 `UI_Deck_Background`：`PlayerDeck` 自己的 230×230</summary>
         const float DeckPlatePx = 230f;
-        /// <summary>卡背：`Cardback` 的 `sizeDelta` 2.1739 × 3.1364，父节点 scale 100 → 217×314 px</summary>
+        /// <summary>卡背：`Cardback` 的 `sizeDelta` 2.1739 × 3.1364 ⇒ @100 px/单位 = 217×314 px。
+        /// ⚠️ **2026-10-19（A1161）就地订正（铁律 5）**：本句原来写「**父节点 scale 100**」——
+        /// 那前提不成立（链上三级 `m_LocalScale` 全是 1.0，判据 → 下面 `DeckSdfPx` 的注释）。
+        /// ⛔ **值不动**，只把「那个 100 在哪」写对。</summary>
         const float DeckCardPx = 314f;
 
         /// <summary>🆕 2026-09-26：牌堆那层 **SDF** 的高度（px）。
         ///
         /// 🔴 逐值出处 = 原版预制体 `Cardback Container` 下**两个兄弟节点自己的 sizeDelta**
         /// （`bundle_battleprefabs_vfxandmisc_assets_all/GameObject/`，2026-09-26 实读）：
-        ///   · `Cardback`              = **2.1739 × 3.1364** ⇒ @容器 scale 100 = 217.39 × 313.64 px（= 上面那个 314）
+        ///   · `Cardback`              = **2.1739 × 3.1364** ⇒ @100 px/单位 = 217.39 × 313.64 px（= 上面那个 314）
         ///   · `Cardback Shadow SDF`   = **2.9212 × 3.8122** ⇒ @100 = **292.12 × 381.22 px**
         ///   · 两个都是 `anchoredPos (0,0)` / `pivot (.5,.5)` ⇒ **同心**，SDF 比卡背大 **1.34376 / 1.21548 倍**
         /// ⚠️ 与「收藏窗卡背格」那处的**倍数不同**（那边 337.5/250 = 1.35、550.8/405 = 1.36）——
         ///    两处各自的 rect 不一样，**别拿一个值当全部**（铁律 5·c）。
         /// 本常量按同一比例从 `DeckCardPx` 推：`314 × 3.8122 / 3.1364 = 381.66`。
-        /// 📌 旁证：`资料/战斗UI_原版对账表.md:90` 记的「原版 292×381」与上面逐值吻合。</summary>
+        /// 📌 旁证：`资料/战斗UI_原版对账表.md:90` 记的「原版 292×381」与上面逐值吻合。
+        /// <para>🔴 **2026-10-19（A1161）就地订正（铁律 5）**：上面那句「@容器 scale 100」
+        /// （以及 `DeckCardPx` 上、`BuildHud` 里建牌堆那一截注释里的同一句）
+        /// **不成立** —— 本 prefab 链上 `Cardback` / `Cardback Container` / `2DCard` 的
+        /// **`m_LocalScale` 全是 (1,1,1)**。本件**现读复核**（不是转述）：
+        /// `d:/2/新解包资源/assets_full/bundle_staticgeneralassets_assets_all/RectTransform/`
+        /// 里从 `RectTransform_-4585763702919738994`（`Cardback`，`sizeDelta` 2.1739×3.1364）
+        /// 沿 `m_Father` 逐级解到根 —— 父 = `Cardback Container`（`sizeDelta` 1×1）→ 父 = `2DCard`
+        /// （2.0927×3.3313）→ 根（`m_Father.m_PathID = 0`）；**三级 `m_LocalScale` 全是 1.0**
+        /// （`Cardback Shadow SDF` 那一支同样如此）。
+        /// ⇒ **×100（= 314 px 那个换算）不在这一层 prefab 里**，来自**别处**：第八会话 `X2` 记的是
+        /// 「**更上游的场景侧缩放**」—— ⚠️ 本件只核到「**不在这一层**」，**没核到「在哪一层」**，
+        /// 要钉死得跑实况或读场景侧那一级的 `m_LocalScale`（⛔ 别把「更上游」写成已核实的结论）。
+        /// 出处 → `资料/普查产出_第八会话/X2_诊断SDF比卡背红.md:49-51`。
+        /// ⛔ **只改注释**：`DeckCardPx` / `DeckSdfPx` / `CardbackRectAspect` 的值一个都不动。</para></summary>
         const float DeckSdfPx = DeckCardPx * (3.8122f / 3.1364f);
+
+        /// <summary>🔴 **2026-10-19（A1150）**：原版 `2DCard/Cardback Container/Cardback` **自己那个 rect**
+        /// 的 **宽 × 高**（**卡单位** —— 与 `CardView.Width/Height` 同一套量纲，⛔ 不是 px）。
+        /// 本件**现读**出处：`d:/2/新解包资源/assets_full/bundle_staticgeneralassets_assets_all/RectTransform/`
+        /// `RectTransform_-4585763702919738994.json`（其 `m_GameObject` = `GameObject/Cardback_7876992375092988302.json`，
+        /// `m_Name = "Cardback"`）的 `m_SizeDelta` = **(2.1739, 3.1364)**；另一份副本
+        /// （`RectTransform_-616306181444777464.json`）同值。
+        /// ⚠️ 它与**卡身** `CardView.Width × Height`（**2.0927 × 3.3313**）**不是同一个矩形**：卡背节点
+        /// 比卡身**宽 3.88%**（2.1739 vs 2.0927）、**矮 5.85%**（3.1364 vs 3.3313）。敌方手牌画的是卡背
+        /// （原版 `PlayerHand__SetupCardInHand.c:45` → `ShowCardBack(!isPlayer)`）⇒ 尺寸的**框**取**这一个**。</summary>
+        const float CardbackNodeRectW = 2.1739f, CardbackNodeRectH = 3.1364f;
 
         /// <summary>原版 `Cardback Container` 下两个兄弟节点**自己的** rect 宽高比（见 `DeckSdfPx` 的注释）。
         /// 🔴 **2026-10-19（B2）就地订正（铁律 5）**：这里原来写「按它们定形状、**不要**用贴图自己的比例」
@@ -1260,8 +1291,10 @@ namespace CardPresentation
         /// · `CardbackRectAspect` = **牌堆那个节点框的宽高比**（喂给 `CardbackFace.Fit` 当 `boxW/boxH`，
         ///   即 `DeckCardPx × CardbackRectAspect`）—— 仍是「照原版节点」，只是**还要再走第二段**；
         /// · `DeckSdfRectAspect` = 同上，给 SDF 那一层用（SDF 那批 `padding` 恒 0、**不必**走第二段，
-        ///   见 `Core/CardbackFace.cs` 文件头的「哪些贴图走这条」）。</summary>
-        const float CardbackRectAspect = 2.1739f / 3.1364f;
+        ///   见 `Core/CardbackFace.cs` 文件头的「哪些贴图走这条」）。
+        /// <para>⚠️ **2026-10-19（A1150）**：本常量的**分子分母提到了上面那两个具名常量**（`CardbackNodeRectW/H`）
+        /// —— 同一个数别写两份（敌方手牌那一处也要用它们，判据见那条注释）。</para></summary>
+        const float CardbackRectAspect = CardbackNodeRectW / CardbackNodeRectH;
         const float DeckSdfRectAspect = 2.9212f / 3.8122f;
         /// <summary>回合灯：`YourTurnImage` 的 anchor 占底板的 9.9%×15% → 矩形 22.8×34.5，
         /// 但贴图 60×59 是 **KEEP_ASPECT** 缩进这个矩形 → 实绘 **23.4×23.4**。
@@ -2093,7 +2126,10 @@ namespace CardPresentation
         {
             if (pb == null) { Debug.LogError("[Net] `BeginFromPendingCore(null)` —— 不开局"); return; }
             SetMySeat(pb.MySeat);
-            _shuffleDecks = !pb.NoShuffle;
+            // 🔴 **2026-10-09（`A1127`）订正**：这里原来是 `_shuffleDecks = !pb.NoShuffle;` —— 与
+            //   `A1100`（`ForceFirstSeat`）/ `A1110`（`_noAiMulligan`）**同一族的跨局泄漏形状**：
+            //   产品往一个字段里写、而那个字段无处清。⇒ 那个字段已删，改走**显式形参**（见下面那句 `Begin(...)`）。
+            //   ⚠️ `NetPendingBattle.NoShuffle` 今天仍是**死字段**（只声明、全仓无赋值）⇒ 这里恒传 `true`。
             // 🔴 **2026-10-19（A1100）订正**：这里原来是 `ForceFirstSeat = pb.FirstSeat;` ——
             //   而 `ForceFirstSeat` 是**自检的钉子**（那个字段的注释自己写着「钉住的是自检，不是产品」）
             //   ⇒ 产品往它里面写 = **跨局泄漏**：打完一局**联机** / 放完一局**录像**之后，**下一局单机**
@@ -2134,7 +2170,8 @@ namespace CardPresentation
                   myDeck: pb.Seat0Deck, foeDeck: pb.Seat1Deck, deckNote: deckNote, vars: vars,
                   playMode: pb.PlayMode, botSeatOverride: botSeatOverride,
                   firstSeatOverride: pb.FirstSeat,      // 🆕 A1100（⛔ 不再写 `ForceFirstSeat`）
-                  noAiMulligan: true);                  // 🆕 A1110（⛔ 不再写 `_noAiMulligan`）
+                  noAiMulligan: true,                   // 🆕 A1110（⛔ 不再写 `_noAiMulligan`）
+                  shuffle: !pb.NoShuffle);              // 🆕 A1127（⛔ 不再写 `_shuffleDecks`）
             // ⚠️ `Begin` 收的 `myFaction/foeFaction` 是**座位 0/1** 的阵营，而 `_myFaction/_foeFaction`
             //    这后面全是**视图侧**用（`owner == _me ? _my : _foe`）⇒ 客机（`_me == 1`）要换回来。
             if (_me == 1) { var t = _myFaction; _myFaction = _foeFaction; _foeFaction = t; }
@@ -2680,7 +2717,16 @@ namespace CardPresentation
                           //     ⇒ **对面的 AI 换牌整段不跑**（`OpenMulligan` 那道闸），而 `RuleCore.Mulligan`
                           //     吃 `ctx.Rng` ⇒ 整局随机流跟着变（对局可复现受损）。
                           //   ⇒ 现在**每局由 `Begin` 显式复位**（见下面「本局一次的闩」那一段）。
-                          bool noAiMulligan = false)
+                          bool noAiMulligan = false,
+                          // 🆕 2026-10-09（`A1127`）：**本局「发牌要不要洗」也由调用方指定**
+                          //   （联机开局 / 重连重建 / 放录像三档 = `!pb.NoShuffle`，调用点 = `BeginFromPendingCore`）。
+                          //   不传（`true`）= 老口径（洗），与加这个参数之前**逐字等价**。
+                          //   🔴 **为什么要开这个形参**：`_shuffleDecks` 原来是产品往字段里写的那一格，
+                          //     而与 `ForceFirstSeat` / `_noAiMulligan` **同一族跨局泄漏的形状**
+                          //     ⇒ 照 `A1100` / `A1110` 的先例改成显式形参（`A1127`）。
+                          //   ⚠️ `NetPendingBattle.NoShuffle` 今天仍是**死字段**（只声明、全仓无赋值 ⇒ 恒 `false`）
+                          //     ⇒ `shuffle` 恒 `true`、**本改动行为零变化**；将来谁真给它赋值，这条路已经是干净的。
+                          bool shuffle = true)
         {
             if (tutorial == null && (exactMine != null || exactFoe != null))
             {
@@ -2959,7 +3005,8 @@ namespace CardPresentation
             //   「对手是真人（-1）」的录像会被当成「座位 1 是电脑（1）」⇒ 后手那张防御卡与随机流
             //   全错位（`RuleCore.GoesSecondCard`）⇒ 回放演成另一局。
             int botSeatThisGame = botSeatOverride ?? (AiShouldDriveOpponent ? 1 : -1);
-            Ctx = RuleCore.NewBattle(myCards, foeCards, seed, shuffle: _shuffleDecks, cardPool: pool,
+            // 🆕 A1127：这一格的 `shuffle` 改由 `Begin` 的形参来（原来是字段 `_shuffleDecks` —— 跨局泄漏形状，已删）
+            Ctx = RuleCore.NewBattle(myCards, foeCards, seed, shuffle: shuffle, cardPool: pool,
                                      openMulligan: mulliganEnabled, vars: _vars, firstSeat: firstSeat,
                                      tutorial: tutorial, botSeat: botSeatThisGame);   // A1070：单机（无联机层）⇒ 座位 1 是电脑
             // 🔴 **2026-10-15（A383）**：**本局真正的模式号落位**。
@@ -4296,8 +4343,10 @@ namespace CardPresentation
         bool BeginOffensivePhaseIfAny()
         {
             if (_offensivePhaseDone) return false;
-            _offensivePhaseDone = true;                  // 一局只来一次
+            // 🔴 **2026-10-09（`A1128`）订正**：闩原来排在闸**之前** ⇒ 自检里「关掉这一段」的调用
+            //   **照样把闩闩上**（同族泄漏的温床）。改成**闸之后**：关掉就**不闩**。
             if (!offensivePhaseEnabled) return false;    // 自检关掉它（见那个字段的注释）
+            _offensivePhaseDone = true;                  // 一局只来一次
             if (!OffensiveCards.Available) return false;
 
             // 🆕 2026-09-30：**联机局不再整段跳过** —— 原来这里 `return false` 并出声（那时同步链还没做）。
@@ -11168,21 +11217,60 @@ namespace CardPresentation
             get { return CardView.Height * HandLayout.EnemyCardScale * LayoutSpace.Scale; }
         }
 
+        /// <summary>敌方手牌那张**卡背**（不是卡身）的屏幕高度（世界单位）——
+        /// = 卡背节点自己那个 rect 的高 × `m_scale 0.54` × 分辨率缩放。
+        ///
+        /// <para>🔴 **2026-10-19（A1150）**：原版敌方手牌露出来的是 **卡背节点**
+        /// （`2DCard/Cardback Container/Cardback` = `CardbackNodeRectW × CardbackNodeRectH`，
+        /// 见那个常量的注释），而我们原来把它画成了**卡身**那个矩形
+        /// （`FoeCardWorldH` / `CardView.Width ÷ CardView.Height`）—— 两个不是同一个矩形：
+        /// 卡身比卡背节点**窄 3.74%**（2.0927 vs 2.1739）、**高 6.21%**（3.3313 vs 3.1364）；
+        /// 再加上第二段 `padding` 内缩，两边的画心差得更多。</para>
+        ///
+        /// <para>⚠️ **手牌那一层的 px 桥是「1 卡单位 = 1 世界单位」**（`CardView.Width × cardScale`
+        /// = 手牌卡宽 165 px @108 px/单位；见 `HandLayout` 文件头）—— 与**牌堆**那一层
+        /// （`DeckCardPx` 的 ×100）**不是同一个桥**，⛔ 别混用（铁律 5·c）。</para></summary>
+        static float FoeCardBackNodeWorldH
+        {
+            get { return CardbackNodeRectH * HandLayout.EnemyCardScale * LayoutSpace.Scale; }
+        }
+
+        /// <summary>敌方手牌卡背的**几何**（两段式）—— 尺寸与画心偏置都出自它。
+        /// 框 = 卡背节点自己那个 rect（高 `FoeCardBackNodeWorldH`、宽 = 高 × `CardbackRectAspect`），
+        /// 算法 → `Core/CardbackFace.cs`（**本仓唯一一份口径**，⛔ 别在这里另写一套）。
+        /// 返回 `false` = 没有可用的几何（贴图为 null / 框非正）⇒ 调用方**不改几何、不挪位**
+        /// （此时四个出参是 `Fit` 给的退化值：`w=boxW`、`h=boxH`、偏置 0）。</summary>
+        static bool FoeHandBackGeom(Texture2D tex, out float w, out float h, out float dx, out float dyUp)
+        {
+            float boxH = FoeCardBackNodeWorldH;
+            return CardbackFace.Fit(tex, boxH * CardbackRectAspect, boxH, out w, out h, out dx, out dyUp);
+        }
+
         void SyncFoeHand()
         {
             if (foeHand == null) return;
             var h = Ctx.Players[1 - _me].Hand;
             _foeDealt.Clear();
 
+            // 🔴 **2026-10-19（A1150）**：卡背那一格的**尺寸 / 比例 / 画心偏置**一律出自
+            //   `CardbackFace.Fit`（两段式，本仓唯一一份口径 → `Core/CardbackFace.cs`）；
+            //   取图仍走 `CardArt.CardBack`（缺图那边会出声），本处不再自己 `SetAspect(卡身比例)`。
+            //   ⚠️ 一把牌里每张用的都是**同一张**卡背（按 `_foeFaction` 取）⇒ 几何算**一次**就够。
+            var backTex = CardArt.CardBack(_foeFaction);
+            float backW, backH, backDx, backDyUp;
+            bool backGeom = FoeHandBackGeom(backTex, out backW, out backH, out backDx, out backDyUp);
+
             // 卡背视图按需增减（手牌只会一张张长；打到上限就停）
             while (_foeHandViews.Count < h.Count)
             {
-                var q = ImageQuad.Create(foeHand.transform, CardArt.CardBack(_foeFaction), Vector3.zero,
-                                         FoeCardWorldH, new Vector2(0.5f, 0.5f),
+                // 给的是**卡背节点**的高（`FoeCardBackNodeWorldH`）—— `A1150` 之前给的是卡身的高。
+                var q = ImageQuad.Create(foeHand.transform, backTex, Vector3.zero,
+                                         backGeom ? backH : FoeCardWorldH, new Vector2(0.5f, 0.5f),
                                          "FoeHand_" + _foeHandViews.Count);
                 if (q == null) break;                       // 没卡背图就整个不建（别静默建一半）
-                // 画成**卡本身那个矩形**（卡背图自己的宽高比和 2DCard 不一样）
-                q.SetAspect(CardView.Width / CardView.Height);
+                // 画心**不是**「铺满节点」：节点比例 == 该 sprite 的 `m_Rect` 比例 ⇒ 第一段（定框）
+                // 是空操作，真正起作用的是第二段（按 `padding` 内缩 + 挪位）。
+                if (backGeom) q.SetAspect(backW / backH);
                 _foeHandViews.Add(q);
                 _foeDealt.Add(q);
             }
@@ -11199,8 +11287,15 @@ namespace CardPresentation
                 var q = _foeHandViews[i];
                 if (q == null) continue;
                 var tr = q.transform;
-                tr.localPosition = foeHand.SlotPosition(i, n);
-                tr.localRotation = Quaternion.Euler(0f, 0f, foeHand.RotationAt(i, n));
+                var rot = Quaternion.Euler(0f, 0f, foeHand.RotationAt(i, n));
+                // 画心 = 槽位 + 偏置。🔴 偏置要**跟着张角转进卡自己的局部系**：原版那一跳是那颗
+                // `Image` 的**网格**在自己的 rect 里按 `padding` 内缩 —— 网格当然跟着节点一起转；
+                // 直接加在父件系里（不转）会让偏置与卡的姿态不一致（`A1150`）。
+                // ⚠️ `rot * (dx, dyUp, 0)`：`dyUp` 向上为正（uGUI 的方向）—— 手牌这一层的世界坐标
+                //    y 也是**向上**为正（`HandLayout.SlotPosition` → `LayoutSpace.ToWorld(nx, yFromBottom)`）
+                //    ⇒ 这里**直接加**，⛔ 别反号（同 `FitDeckPile` 那条）。
+                tr.localPosition = foeHand.SlotPosition(i, n) + rot * new Vector3(backDx, backDyUp, 0f);
+                tr.localRotation = rot;
                 tr.localScale = Vector3.one;
             }
 
@@ -11826,7 +11921,11 @@ namespace CardPresentation
             //                         图 `40k_DeckHolder_light_green` / `_light_red` —— **回合灯**
             //                         （anchor 0.779–0.878 × 0.051–0.201，在底板右下角）
             //   `Player Deck Size Container`（图 `40K_display`）→ `Player Deck Size Tex` —— 张数
-            //   `Cardback Container`（scale 100）→ `Cardback`(2.17×3.14×100 = **217×314 px**)
+            //   `Cardback Container` → `Cardback`(2.17×3.14 @100 px/单位 = **217×314 px**)
+            //     ⚠️ **2026-10-19（A1161）**：这一行原来写「（scale 100）」＋「2.17×3.14×100」——
+            //     那个「×100」说的是同一件不成立的事：链上 `Cardback` / `Cardback Container` / `2DCard`
+            //     三级 `m_LocalScale` **全是 1.0**（本件现读复核）⇒ **×100 不在这一层**
+            //     （判据/出处全文 → `DeckSdfPx` 的注释）。
             //                                     + `Cardback Shadow SDF`(292×381 px)
             // 230 px = 2.13 世界单位、314 px = 2.91 世界单位（108 px/单位）。
             // 张数文字原来压在一个 `40K_display` 小板上，我们直接用文字（那张图没在用的集合里）。

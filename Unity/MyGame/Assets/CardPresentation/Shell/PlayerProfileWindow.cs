@@ -362,8 +362,17 @@ namespace CardPresentation
 
         void BuildCloseButton(Transform tabArea)
         {
-            var c = MenuDraw.Node(tabArea, "Generic Close Button Orange",
-                                  new PxRect(CloseL, CloseT, CloseR, CloseB));
+            // 🔴🔴 **2026-10-18（A1149 第一半）圆底盘【挂点】归真**（本件 = 第九会话 P6）：
+            //   改前圆底盘画在一颗**自造子件 `Image`** 上、而 `Generic Close Button Orange` 是颗**裸节点**；
+            //   原版那颗 `Image` **就长在根节点自己身上**（无独立子件名）。
+            //   判据（逐字段直读）=
+            //   `python -I d:/tmp/wf_b4probe/pa.py bundle_menus_assets_all "Player Profile Window" 8`：
+            //   根 `Generic Close Button Orange`（在 `Menu Area/Tab  Area/` 下）自己带 `Image`：
+            //   `UI_Button_Round_background` · `m_Type=0`(Simple) · **`m_PreserveAspect=1`** ·
+            //   `m_PixelsPerUnitMultiplier=1.0` · `m_RaycastTarget=0` · 矩形 **74.39×75.61**；
+            //   贴图 `m_Rect` = **237×237 正方** ⇒ 实绘 **74.39×74.39**。
+            //   ⇒ 照兄弟窗先例 `Shell/BaseOfferPopup.cs:742-743` / `Shell/ReferralPopupWindow.cs:386-387` 的形状
+            //   （`Rect` 画在根节点上、图取不到才退回 `Node`）。矩形与 `keepAspect` **改前就是对的**（本处只改挂点）。
             // 🆕 **2026-10-18（A1058 · 第六会话批 2）**：换图那一层 = **子件 `Background`**（`closeFaceQ`，
             //   画的是 `ArtCloseBg` = `40k_general_bt_yellow`），⛔ **不是圆底盘 `closeBaseQ`**。
             //   判据（原版 prefab 亲读）=
@@ -373,7 +382,11 @@ namespace CardPresentation
             //   贴图 pid `5693181797853584851` → `40k_general_bt_yellow`（`d:/4/_tmp_view/sprite_pids_ALL.json`）。
             //   ⚠️ **2026-10-18 更正（铁律 5）**：原注释写「`trans=2` 换的是它自己的 Image = `UI_Button_Round_background`」
             //   —— **那句是错的**（错因 = 只读 `m_Transition`、没读 `m_TargetGraphic`）。
-            var closeBaseQ = MenuDraw.Rect(c, ArtInternal(ArtClose), new PxRect(CloseL, CloseT, CloseR, CloseB), "Image", QChrome, null, true);
+            var closeBaseQ = MenuDraw.Rect(tabArea, ArtInternal(ArtClose), new PxRect(CloseL, CloseT, CloseR, CloseB),
+                                           "Generic Close Button Orange", QChrome, null, true);
+            var c = closeBaseQ != null ? closeBaseQ.transform
+                                       : MenuDraw.Node(tabArea, "Generic Close Button Orange",
+                                                       new PxRect(CloseL, CloseT, CloseR, CloseB));
             var closeFaceQ = MenuDraw.Rect(c, ArtInternal(ArtCloseBg), new PxRect(CloseInL, CloseInT, CloseInR, CloseInB),
                                            "Background", QChrome + 1, null, true);
             MenuDraw.Rect(c, ArtInternal(ArtCloseIcon), new PxRect(CloseInL, CloseInT, CloseInR, CloseInB),

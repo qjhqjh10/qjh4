@@ -187,16 +187,18 @@ namespace CardPresentation.Net
             if (_started) { DeferToBattleLayer(Loc.T("Settings/Online/Lobby/PeerLostFrag")); return; }
             string tail = RevokeMatchLocal();
             // 🔴 **2026-10-18（A933）压缩这一句**。原 =「联机断开了：对面掉线了 —— <tail>（对面回来之后，
-            //   两边重新各点一次 `Battle!`）」= **52 / 56 字**（两条 `tail` 分支），超过提示行按框算的 40 字
-            //   （`Shell/SearchingMatchPopup.HintLineMaxChars = 40`）⇒ 真跑到这一跳时每次都会 `LogWarning`。
-            //   现压到 **36 / 40 字**（两条都 ≤ 40）。去掉的只是**弹窗已经说过的那半句**（「联机断开了：」
+            //   两边重新各点一次 `Battle!`）」= **52 / 56 字**（两条 `tail` 分支），超过提示行的**尺子**
+            //   （`Shell/SearchingMatchPopup`：`HintLineWidth(句) > HintLineMaxWidth` = **80 个半宽字位**；
+            //    其中 `HintLineMaxChars` = 40 个**汉字** = 中文档那一档 —— 下面这些数都是**中文列**的字符数）
+            //   ⇒ 真跑到这一跳时每次都会 `LogWarning`。
+            //   现压到 **36 / 40 字**（两条都 ≤ `HintLineMaxChars`）。去掉的只是**弹窗已经说过的那半句**（「联机断开了：」
             //   与那对 em-dash）—— 两处本来就是**两个口**（判据 → `SearchingMatchPopup.ShowHint` 上头那段）。
             //   ✅ **信息一个不少**：对面掉线了 · `tail`（这一局撤没撤）· **两边**都 · 回来各点一次 `Battle!`。
             //   ⚠️ 自检读的是子串 `Contains("掉线")`（`Editor/NetSelfTest.cs` M⑧ `:538` 与 N④ `:749`）⇒ **那个词保留**。
             // ⚠️ **2026-10-18 订正（铁律 5）**：`A933` 把「47 字那句」记在 **`:409`（「对面回来了…」）**上
             //   —— **对不上**：`:409` 实测 **39 字**（本来就没越界）。🔑 按长度反查，**47 字那句实测就是
             //   下面的 `DeferToBattleLayer`**（`what` = 14 ⇒ 14 + 33 = 47，逐字吻合）⇒ A933 的**落点漂了**；
-            //   真正的越界句是**两句**：下面那一句 + **本句**（52/56），现都压到 ≤ 40。
+            //   真正的越界句是**两句**：下面那一句 + **本句**（52/56），现都压到 ≤ `HintLineMaxChars`(40 个汉字)。
             SayLobby(string.Format(Loc.T("Settings/Online/Lobby/PeerLostHint"), tail),
                      string.Format(Loc.T("Settings/Online/Lobby/PeerLost"), tail));
             _peerGonePopup = true;
@@ -210,8 +212,9 @@ namespace CardPresentation.Net
             string body = string.IsNullOrEmpty(why) ? Loc.T("Settings/Online/St/PeerLeft") : why;
             // 🔴 **2026-10-19（P6d · A1079②）**：「对面离开了：」这个**前缀碎片**原来是裸中文字面量 ⇒ 落键。
             //   ⚠️ **取词在拼句【之前】**（`body` 上面那一行就已经是取了词的那一句）—— 这条次序是硬的：
-            //      反过来的话 `what` 会变成「带着键名的 35 字」⇒ 拼进 `DeferToBattle` 后 59 > 40
-            //      （提示行框宽 `SearchingMatchPopup.HintLineMaxChars`），每次都 `LogWarning`。
+            //      反过来的话 `what` 会变成「带着键名的 35 字」⇒ 拼进 `DeferToBattle` 后 59 字
+            //      > 提示行的尺子（`Shell/SearchingMatchPopup.HintLineWidth(句) > HintLineMaxWidth`；
+            //        中文档那一档 = `HintLineMaxChars` = 40 个汉字），每次都 `LogWarning`。
             if (_started) { DeferToBattleLayer(Loc.T("Settings/Online/Lobby/PeerLeftFrag") + body); return; }
             string tail = RevokeMatchLocal();
             SayLobby(string.Format(Loc.T("Settings/Online/Lobby/PeerLeftHint"), body, tail),
@@ -224,25 +227,29 @@ namespace CardPresentation.Net
         /// 判据 = 接上时会话不在 `Lobby`）。这里只记日志 + 那一行提示（⛔ 不静默）。
         /// <para>⚠️ **参数 `what` 是【已经取过词的碎片】**（调用点自己拼好，例如
         /// `Lobby/PeerLeftFrag` + `body`）—— ⛔ 不要改成「把键传进来在这儿取词」：
-        /// 那个戳会把取词推到**拼句之后**，`what` 就会带上 29 字的键名（见下面那条 40 字预算）。</para></summary>
+        /// 那个戳会把取词推到**拼句之后**，`what` 就会带上 29 字的键名（见下面那条提示行尺子的预算）。</para></summary>
         static void DeferToBattleLayer(string what)
         {
             Debug.LogWarning("[Net] 大厅：" + what + " —— 但这一局**已经开局**（开局包已发/收）⇒ "
                            + "**不在大厅这一半弹窗**，交给对局那一层（`NetBattle` 接上来时会看到会话不在 `Lobby`）");
             // 🔴 **2026-10-18（A933）同时压缩这一句**：原 = `what` + 「 —— 这一局已经开局、正在进战场
-            //   （断线那件事由对局那一层接着说）」（字面量 33 字）⇒ `what` 一长就超 40。
+            //   （断线那件事由对局那一层接着说）」（字面量 33 字）⇒ `what` 一长就超 `HintLineMaxChars`(40)。
             //   🔑 **`A933` 说的那句「47 字」实测就是这一句**：生产最长那条 `what` = `对面离开了：` +
             //   对方报的 `对面离开了这一局` = **14 字**，14 + 33 = **47** ⇒ 每次都出声（不是「对面回来了」那句）。
-            //   现字面量 **24 字** ⇒ 生产路径最长那条 = **38 字**（`what` = 14），全部 ≤ 40
+            //   现字面量 **24 字** ⇒ 生产路径最长那条 = **38 字**（`what` = 14），全部 ≤ `HintLineMaxChars`
             //   （`what` 只有两个来源：`HandleLobbyPeerLost` 的「对面掉线了」= 5 ·
             //    `HandleLobbyPeerClosed` 的「对面离开了：」+ 对方报的理由）。
             // 🔴 **2026-10-19（P6d）核过一遍，两个数都不变**：那两段碎片各自落成词条
             //   `Lobby/{PeerLostFrag,PeerLeftFrag}`，**ZH 列 = 调用点原话逐字** ⇒ 中文档长度**逐字相同**
-            //   （5 字 / 6 字）⇒ 上面那条「最长 38 ≤ 40」照旧成立。
-            //   ⚠️ **英文档本来就超**（下面是 `DeferToBattle` 的 EN 列，光模板就 86 字）——
-            //      那是**接线前就有的**、与本次改动无关；✅ **如实记着**（`HintLineMaxChars` 只对**中文列**算过）。
+            //   （5 字 / 6 字）⇒ 上面那条「最长 38 ≤ `HintLineMaxChars`」照旧成立。
+            // ⚠️ **本段所有那些数都是【中文列字符数】**，比的是 `Shell/SearchingMatchPopup.HintLineMaxChars`
+            //   （40 个**汉字**）。提示行真正的那把尺子是 `HintLineWidth(句) > HintLineMaxWidth`
+            //   （**80 个半宽字位**，中英混排按字算）—— ⛔ 别再把「40 字」当成整条提示行的预算
+            //   （那是 `A1083` 换尺子**之前**的口径）。
+            //   ⇒ **英文档本来就超**（下面是 `DeferToBattle` 的 EN 列，光模板就 86 字符）——
+            //      那是**接线前就有的**、与本次改动无关；✅ **如实记着**（按半宽位算它更是远超 80）。
             //   ⚠️ `body` 现在可能来自**词条键取词**（`Wire/*` 那 7~8 条，最长 ZH 13 字）
-            //      ⇒ 最坏 `what` = 6 + 13 = 19 ⇒ 19 + 24 = 43 > 40（**接线前同样是 19**，
+            //      ⇒ 最坏 `what` = 6 + 13 = 19 ⇒ 19 + 24 = 43 > `HintLineMaxChars`(40)（**接线前同样是 19**，
             //      因为那时对面直接发中文整句）⇒ **不是本次引入的回归**。
             SayHintOnly(string.Format(Loc.T("Settings/Online/Lobby/DeferToBattle"), what));
         }

@@ -726,10 +726,11 @@ public static class DeckScene
             //   里出现的**活键字面量** ∩ `Core/Loc.cs` 的表键（超集无害、且更严）。
             // ⛔ 排除项（写了必红/空转）：① 前缀常量 `MenuDeck/Error/` 与格式串 `MenuDeck/Error/{0}`（不是词条键）；
             //   ② `MenuDeck/HUD/DefaultCardback`（**只在注释里**、`A1042③` 已裁定**不建**）。
-            // 🔴 **`MenuDeck/Share/ExportSuccesful` 也【不在】本数组**：它是一条「代码引了、表里没有」的**真现象**
-            //   （`Shell/DeckInfoPopup.cs:1438` 的 `ShareSuccessTerm`），走的是 `ErrorMessageBanner.ShowMessage`
-            //   的 `fallback` 支 ⇒ **界面上不印键名**（**不是缺陷**）；它的正主是 **`A1050`**「把 `ExportSuccesful`
-            //   建进表」—— ⛔ 别把它塞进本数组然后「顺手放宽」。
+            // ✅ **2026-10-09 就地订正（铁律 5）**：原来这里写着「`MenuDeck/Share/ExportSuccesful` 是一条
+            //   『代码引了、表里没有』的**真现象**」—— **已作废**：第九会话（`A1153`）已把这条键**建进 `Loc` 表**
+            //   （值 = **带 `{0}` 的模板**；调用点 `Shell/DeckInfoPopup.cs` 走 `Loc.HasEntry` 两态 + `string.Format`）。
+            //   ⛔ **它仍不进本数组** —— 本数组只收**本批生产文件**（`Deck/*.cs` + `Core/FilterPanelModel.cs`）里的活键，
+            //   而它用在 `Shell/DeckInfoPopup.cs`。
             // 🧨 改坏法：① `Loc.cs` 删掉本批任一条键 ⇒ ①红（且 ② 也会红：`Loc.T(k) == k`）；
             //   ② 某条**英文列**填成中文/全角空格 ⇒ ③红；③ **中文列**清空 ⇒ ②红；④ 值改成键名本身 ⇒ ②红；
             //   ⑤ 表删掉一半 ⇒ ④红（`EntryCount` 掉到基线之下）；⑥「把实现与期望一起改回写死中文 **并** 把表里那条删掉」
@@ -4158,33 +4159,35 @@ public static class DeckScene
                 //        ⇒ 往 `Terms` 塞一条 `MenuDeck/Error/5`，**选出来的键不动、字却取到了**
                 //        —— **同一个实现不可能同时**「选键看 `Terms`」又「选键不看 `Terms`」
                 //        （原来那两条是「两边一起改回去就全绿」的自证）。
-                //   ⚠️ 「数字键在表里 ⇒ 就用它」那一档**今天构造不出来**（`Loc` 无写入口、那三条数字键不在表里）
-                //     ⇒ 由 ② 那条前提把**切换时机**钉住：哪天补上词条 ② 自动红、提醒把 ③-a 的期望值一起改。
+                //   ✅ **2026-10-09（第九会话 · `A1133`）**：`MenuDeck/Error/{2,4,5}` 三条数字键**已经补进 `Loc` 表**
+                //     ⇒ 「数字键在表里 ⇒ 就用它」那一档**现在是实况**；下面 ② 那条前提与 ③-a / ③-b 的期望值
+                //     **已按新实况改**（原来那套是按「不在表里」写的）。
                 CheckTrue(Loc.HasEntry(DeckRuntime.MenuDeckErrorKeyFallback),
                           $"★ 兜底键 `{DeckRuntime.MenuDeckErrorKeyFallback}` **在 `Loc` 表里**"
                         + "（`Term` 真能把它取成词条）｜🧨 它不在 ⇒ 那扇窗印的是键名本身");
                 string numKey5 = string.Format(DeckRuntime.MenuDeckErrorKeyFmt,
                                                DeckRuntime.MenuDeckErrorNumber(DeckError.TooFewCards));
-                CheckTrue(!Loc.HasEntry(numKey5),
-                          $"★ **真前提**（今天的实情）：数字键 `{numKey5}` **不在** `Loc` 表里 ——"
-                        + " 下面那条期望值（落**兜底键**）就是照这个实情写的｜🧨 哪天补上这条词条"
-                        + " ⇒ **这一条自动红**，那时把下面 ③-a 的期望值一起改成 `" + numKey5 + "`"
+                CheckTrue(Loc.HasEntry(numKey5),
+                          $"★ **真前提**（2026-10-09 起的实情）：数字键 `{numKey5}` **在** `Loc` 表里 ——"
+                        + " 下面 ③-a / ③-b 的期望值（落**数字键**、取到**词条**）就是照这个实情写的｜🧨 哪天把这条"
+                        + " 词条**删掉** ⇒ **这一条自动红**，那时把 ③-a 的期望值一起改回**兜底键**"
                         + "（两态跟着切，⛔ 别把它当缺陷去改实现）");
                 CheckTrue(PopUpGameWindow.Terms.Count == 0,
                           "（前提）本类的 `Terms` 落点**仍是空的** —— 它与 `Loc` 是**两处**表"
                         + "（`Term()` 先查前者、再转后者；见 `Shell/PopUpGameWindow.cs` 的 `Term`）");
                 // ---- ③-a 选键那一侧：看 `Loc` ----
-                Check(DeckRuntime.MenuDeckErrorKey(DeckError.TooFewCards), DeckRuntime.MenuDeckErrorKeyFallback,
-                      "★ 选键：数字键不在表里 ⇒ 原版 `ToRawLocalizationString` 落到**兜底键**"
-                    + "（**兜的也是键、不是明文**）｜🧨 判据改回 `Terms.ContainsKey`（那张**恒空**的表）⇒ ③-c 红");
+                Check(DeckRuntime.MenuDeckErrorKey(DeckError.TooFewCards), numKey5,
+                      "★ 选键：数字键**在表里** ⇒ 原版 `ToRawLocalizationString` **直接用数字键**（⛔ 不再落兜底键）"
+                    + "｜🧨 判据改回 `Terms.ContainsKey`（那张**恒空**的表）⇒ ③-c 红");
                 Check(DeckRuntime.MenuDeckErrorKey(DeckError.None), "", "★ ……`None` ⇒ 空串（原版 `:16` 那一支）");
                 // ---- ③-b 取字那一侧：**先**看 `Terms`、再转 `Loc` ----
-                Check(PopUpGameWindow.Term("MenuDeck/Error/5"), "MenuDeck/Error/5",
-                      "★ 取字：`Terms` 与 `Loc` **两处都没有**这条键 ⇒ 返回**键本身**（⛔ 不自己编文案）");
+                Check(PopUpGameWindow.Term("MenuDeck/Error/5"), Loc.T("MenuDeck/Error/5"),
+                      "★ 取字：`Terms` 没有、**`Loc` 有** ⇒ `Term()` 的第二跳转到 `Loc`、取到**词条**"
+                    + "（`Loc.T` 的实值；⛔ 不是键名本身）");
                 // ---- ③-c **灭自证（结构）**：同一时刻，选出来的键不动、字却取到了塞进去的那条 ----
                 PopUpGameWindow.Terms["MenuDeck/Error/5"] = "（自检塞的假词条）";
-                Check(DeckRuntime.MenuDeckErrorKey(DeckError.TooFewCards), DeckRuntime.MenuDeckErrorKeyFallback,
-                      "★ 灭自证之一：往 `Terms` 塞了 `MenuDeck/Error/5`，**选出来的键还是兜底键** ——"
+                Check(DeckRuntime.MenuDeckErrorKey(DeckError.TooFewCards), numKey5,
+                      "★ 灭自证之一：往 `Terms` 塞了 `MenuDeck/Error/5`，**选出来的键仍是数字键** ——"
                     + " 选键那一侧看的是 `Loc.HasEntry`，`Terms` **不参与选键**｜🧨 判据改回 `Terms.ContainsKey` ⇒ 红");
                 Check(PopUpGameWindow.Term("MenuDeck/Error/5"), "（自检塞的假词条）",
                       "★ 灭自证之二：**同一时刻** `Term` 取到的却是塞进去的那条（`Terms` 仍**优先于** `Loc`）"
@@ -4225,8 +4228,8 @@ public static class DeckScene
                     CheckNear(pop.extraScaleSmallScreen, 1f, 1e-6f, "★ `extraScaleSmallScreen = 1.0`（原版 MB 实读）");
                     Check(pop.transform.parent != null ? pop.transform.parent.name : "(空)",
                           "3 - PopUp Holder", "★ 挂在 **Popup(15)** 那档锚点下（原版同一个 Holder）");
-                    Check(pop.MessageKey, "MenuDeck/Error/InvalidDeck",
-                          "★ 正文键 = 兜底键（判据 = 数字键 `MenuDeck/Error/5` **不在** `Loc` 表里，见 ① ③-a）");
+                    Check(pop.MessageKey, "MenuDeck/Error/5",
+                          "★ 正文键 = **数字键** `MenuDeck/Error/5`（判据 = 它**在** `Loc` 表里，见 ① ③-a）");
                     // 🔴 **2026-10-19（A1012）就地改口径（铁律 5）**：下面这几条原来断的是
                     //   「**画出来的就是那个键**」—— `Term()` 转 `Loc` 之后**已经不对了**（印的是**词条**）。
                     //   现在按本文件既有写法（先例 = A891 那一节的 `Loc.HasEntry(键)` + `Loc.T(键)` 一对）拆成：
@@ -4235,7 +4238,7 @@ public static class DeckScene
                     //     ③ **灭自证**：印的**不是键名本身** —— 这正是本缺陷要防的那一半
                     //        （把 `Term()` 末句改回 `return key ?? ""` ⇒ ③ 红）。
                     //   ⚠️ 只有 ① 会「两边一起退化成键名」而假绿（键不在表里时）⇒ ①③ 缺一不可。
-                    string wantMsg = Loc.T("MenuDeck/Error/InvalidDeck");
+                    string wantMsg = Loc.T("MenuDeck/Error/5");
                     Check(pop.MessageShown, wantMsg,
                           $"★ ……而且**画出来的是那条键的词条**（`A1012` 起 `Term()` 先查 `Terms`、再转 `Loc`；"
                         + $"当前语档下 =「{wantMsg}」）");

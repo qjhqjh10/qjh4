@@ -1530,8 +1530,22 @@ namespace CardPresentation
         {
             string side = mirror ? "Left" : "Right";
             var r = new PxRect(x1, StyleArrowY1, x1 + StyleArrowW, StyleArrowY2);
-            var node = Node(page, "Select Art Button " + side, r);
-            Rect(node, "UI_Button_Round_background", r, "Background Round", QPagePanel, null, true);
+            // 🔴🔴 **2026-10-18（A1149 第一半）圆底盘【挂点】归真**（本件 = 第九会话 P6）。
+            //   ⚠️ **它不是关窗钮** —— 是「换风格」圆钮；`A1149` 那一行把它记成
+            //   `Shell/CollectionWindow.cs:1524`（挂在子件 `Background Round`），**行号是旧的、类别也标错了**：
+            //   本文件里唯一「圆底盘画在子件上」的就是**这一处**（`:1534`，现读）。
+            //   **改前**：圆底盘画在一颗**自造子件 `Background Round`** 上、节点 `Select Art Button {L,R}` 是裸节点。
+            //   **原版实读**（`资料/普查产出_0923/A4_装饰页与驱动链.md:129`，逐字段）：
+            //   `/Header/Select Art Button Right` 自己带 `Image[UI_Button_Round_background]` ·
+            //   **Simple · `preserveAspect`** · `sizeDelta = 74.386×75.605` · `EverguildButton`；
+            //   两个子件 = `Background`(`40k_general_bt_yellow`) 与 `Icon`(`40k_general_bt_arrow`)
+            //   ⇒ 圆底盘**长在根节点自己身上**（无独立子件名）。
+            //   贴图 `UI_Button_Round_background` 的 sprite `m_Rect` = **237×237 正方**、`m_Border`/`m_Offset` 全 0
+            //   ⇒ `PA=1` 等比内接 = **实绘 74.386×74.386**。
+            //   ⇒ 照兄弟窗先例 `Shell/BaseOfferPopup.cs:742-743` / `Shell/ReferralPopupWindow.cs:386-387` 的形状
+            //   （`Rect` 画在根节点上、图取不到才退回 `Node`）。位置/子件序**逐位不变**（同一份 `Local(parent, …)`）。
+            var baseQ = Rect(page, "UI_Button_Round_background", r, "Select Art Button " + side, QPagePanel, null, true);
+            var node = baseQ != null ? baseQ.transform : Node(page, "Select Art Button " + side, r);
             float ix = x1 + (StyleArrowW - StyleArrowIconW) * 0.5f;
             float iy = StyleArrowY1 + (StyleArrowH - StyleArrowIconH) * 0.5f;
             var ir = new PxRect(ix, iy, ix + StyleArrowIconW, iy + StyleArrowIconH);

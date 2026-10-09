@@ -180,6 +180,74 @@ public static class CollectionScene
                     + "｜🧨 把它传成根圆底盘（`UI_Button_Round_background`）⇒ 红（错因 = 只读 `m_Transition`、没读 `m_TargetGraphic`）");
         }
 
+        /// <summary>🆕 **2026-10-18（`A1149` 第二半 · 第九会话 P6）**：关窗钮**圆底盘**那颗 quad 的
+        /// **实绘矩形**两连断 —— 补 `A1125Close` 上面那个**静默缺口**（那四格读的是：命中区 quad 的矩形 /
+        /// 命中区中心 vs 见面中心 / 可见面的**节点名** / 可见面的**贴图名** —— **没有一格量圆底盘的矩形成像**；
+        /// 圆底盘等比后**仍居中** ⇒ 连「中心」那一格也抓不住它）。
+        /// <para>⛔ **期望值全部来自原版 prefab 的逐字段直读**（⛔ 不是我们现在的实绘值、更不是从被测实现里读回来）：
+        /// 圆底盘那几颗一律 `m_Type=0`(Simple) · **`m_PreserveAspect=1`** · `m_PixelsPerUnitMultiplier=1.0`；
+        /// 贴图 `UI_Button_Round_background` 的 sprite `m_Rect` = **237×237 正方**、`m_Border` / `m_Offset` 全 0
+        /// ⇒ 等比内接进「原版根那一格」= **实绘 min(框宽,框高) 见方**（橙族框 74.39×75.61 ⇒ **74.39×74.39**；
+        /// 绿族框 75×75 ⇒ **75×75**）。逐窗读数 → `资料/普查产出_第八会话/B4_InboxWindow圆底盘归真.md` §1·2/§1·3
+        /// （本件 P6 用 `d:/tmp/wf_b4probe/pa.py` 逐窗复跑核过）。</para>
+        /// <para>`frameW` / `frameH` = **原版根那一格**的框（只进消息）；`basePx` = 期望边长。</para>
+        /// <para>🔴 **两格各钉一轴**（① 实绘**宽** == `basePx`；② 实绘**宽 == 实绘高** = 等比不变量）⇒
+        /// 两种改坏法**各红不同的一格**、**结构上不可能一起变绿**：把矩形改回**子件框** ⇒ 只 ① 红（那档也近正方 ⇒ ② 绿）；
+        /// 去掉 `keepAspect` ⇒ 只 ② 红（宽没变 ⇒ ① 绿）。⛔ 别把高度也塞进 ①（否则 ① 两种改坏法都红、② 失去独立作用）。</para>
+        /// <para>🆕 **取法 = 「先根后子」**：① 先取**根节点自己**身上那一颗（= 原版结构：原版那颗 `Image` 就长在根节点
+        /// `Generic Close Button Orange` / `Generic Close Button Green` 上、**没有独立子件名**）；
+        /// ② 根上没有、且调用点**显式给了**子件名 `baseChild` 时才退一步取 `btn/&lt;baseChild&gt;` 那一颗
+        /// —— 那是 `A1149` 第一半现读出来的**已知偏离**（圆底盘被画在自造子件上），消息里点名。
+        /// `baseChild == null` ⇒ **不许退**。⚠️ 用意：把圆底盘**归真到根节点上不会让本格变红**；
+        /// ⛔ 两处都**不下钻**（不用 `GetComponentInChildren` —— 盲扫子树会把「搬到别的层」静默量成合格）。</para>
+        /// <para>⚠️ 原版根那一格本身是**正方**的窗（绿族 75×75）第二格**恒真** —— 那种窗本来就没有「等比不变量」可丢，
+        /// **不是缺口**（见各调用点注释）。</para></summary>
+        static void A1125CloseBase(string win, Transform winRoot, string btnName, string baseTex,
+                                   float basePx, float frameW, float frameH, string baseChild = null)
+        {
+            var btn = winRoot == null ? null : (btnName == null ? winRoot : FindChild(winRoot, btnName));
+            // 🔴 `GetComponent`（**本节点自己**那一颗）而不是 `GetComponentInChildren` —— 见上面 doc：
+            //    `GetComponentInChildren` 会往下钻，把「圆底盘搬到别的层」那种偏离量成合格（静默）。
+            var bq = btn != null ? btn.GetComponent<ImageQuad>() : null;
+            bool baseOnRoot = bq != null && bq.Texture != null && bq.Texture.name == baseTex;
+            if (!baseOnRoot && btn != null && baseChild != null)
+            {
+                // ⚠️ **只有调用点显式点名子件时才退这一步**（= `A1149` 第一半现读的已知偏离，消息里点名）
+                var baseHost = FindChild(btn, baseChild);
+                bq = baseHost != null ? baseHost.GetComponent<ImageQuad>() : null;
+            }
+            string baseWhere = baseOnRoot ? "根节点自己身上（= 原版结构）"
+                             : (baseChild != null
+                                ? "子件 `" + baseChild + "`（⚠️ **已知偏离**：原版长在根节点自己身上 —— `A1149` 第一半）"
+                                : "根节点自己身上（⚠️ 那颗 quad 取不到）");
+            string baseGot = bq == null ? "<没有 quad>" : (bq.Texture == null ? "<没贴图>" : bq.Texture.name);
+            CheckTrue(bq != null && bq.Texture != null && bq.Texture.name == baseTex,
+                      $"（前提·不静默）A1125 {win}：圆底盘 `{baseTex}` 那颗 quad 拿得到、且贴图就是原版那一张"
+                    + " —— ⛔ 取不到 / 取错就不往下断（不静默变绿）"
+                    + $"｜现读「{baseGot}」｜取处 = {baseWhere}"
+                    + "｜🧨 把圆底盘整颗删掉 / 换成别张图 ⇒ 本格红（⛔ 别改成盲扫子树去「修」它）");
+            float bx1 = 0f, by1 = 0f, bx2 = 0f, by2 = 0f;      // ⛔ 先归零：`&&` 短路时编译器要求 out 已赋值
+            bool okB = bq != null && MenuDraw.QuadRectPx(bq, out bx1, out by1, out bx2, out by2);
+            float bw = bx2 - bx1, bh = by2 - by1;
+            // 🔴 **本格【只钉宽】**（高由下面那格「宽==高」钉）—— 两格各钉一轴，**改坏法才各红一格**。
+            CheckTrue(okB && Mathf.Abs(bw - basePx) <= 0.5f,
+                      $"★★ A1125 {win}：**圆底盘实绘宽** = 原版 **{basePx:F2}**（设计 px；配下面那格「宽==高」"
+                    + $"⇒ 两条一起 = 原版 **{basePx:F2}×{basePx:F2}**）"
+                    + (okB ? $"（现读宽 {bw:F2}，高 {bh:F2}）" : "（圆底盘 quad 取不到）")
+                    + $"｜= 原版根那一格 **{frameW:F2}×{frameH:F2}** 的宽（正方贴图 + `m_PreserveAspect=1` 的等比内接）"
+                    + "｜🧨 把矩形改回**子件框**（橙族 56.86×58.13 / 绿族 56.37×54.50）⇒ 宽少 ~17 ⇒ **只本格红**"
+                    + "（那两档也近正方 ⇒ 下一格**仍绿**）");
+            // 🔴 **本格 = 等比这条不变量**（比断绝对数抗「将来换贴图」：换成别的正方贴图它照旧成立）。
+            CheckTrue(okB && Mathf.Abs(bw - bh) <= 0.5f,
+                      $"★★ A1125 {win}：圆底盘**实绘宽 == 实绘高**（= **等比**这条不变量；原版根那一格本身是 "
+                    + $"{frameW:F2}×{frameH:F2} 的框 ⇒ 只有真等比才两轴相等）"
+                    + (okB ? $"（现读 {bw:F2}×{bh:F2}）" : "（圆底盘 quad 取不到）")
+                    + $"｜🧨 把 `keepAspect: true` 去掉 ⇒ 实绘变框那一格 {frameW:F2}×{frameH:F2}"
+                    + (Mathf.Abs(frameW - frameH) > 0.5f ? "（**宽≠高**）⇒ **只本格红**（宽没变 ⇒ 上一格绿）"
+                                                         : "（= 同值）⇒ 本窗**框本身正方**，去掉 `keepAspect` 本就无差别")
+                    + "｜🔴 这就是「它用的是**根那一格** + 等比」的判别式 —— 少了等比，高度就顶到框高");
+        }
+
         /// <summary>一格卡的渲染队列（取卡内所有层里**最小的那个** —— 卡内层序靠 z 偏移、整格一起平移，
         /// 所以最小号就代表这一格；见 `CardFan.SetCardQueue`）。
         /// ⚠️ 读 `sharedMaterial`：`SetCardQueue` 走 `.material`（会把实例写回 `sharedMaterial`），
@@ -3508,12 +3576,22 @@ public static class CollectionScene
                                         560f, 234.07f, 1360f, 685.93f,
                                         ImportDeckPopup.QImp, ImportDeckPopup.QImpHit, () => imp3.CurrentState);
                         // 🆕 2026-10-09（`A1125`）：关窗钮的**命中区 + 换图层**四连断 ——
-                        //   ⚠️ 本扇的命中节点 `CloseHit` / 脸 `Close Icon` 都挂**窗根**（⛔ 不套按钮节点；
-                        //   `Shell/ImportDeckPopup.cs:244` 的 `Hit(root, "CloseHit", …)`）；本扇是**绿族**
-                        //   （脸 `Close Icon` / 图 `40k_bt_close`）。
-                        //   ⚠️ 上面那扇 `imp2` 已被点关过两次 ⇒ 本条的**另一扇** `imp3` 正开着（⛔ 不用 `imp2`）。
+                        //   🔴 **2026-10-18（`A1149` 第一半 · 第九会话 P7）就地更正**：上面原来写
+                        //   「脸 `Close Icon` 也挂**窗根**（⛔ 不套按钮节点）」——**已经不是了**：
+                        //   `Shell/ImportDeckPopup.cs` 现补建了原版那颗 `Generic Close Button Green` 节点，
+                        //   图标 `Close Icon` 挂在**它**下面（`CloseHit` 仍在窗根）。
+                        //   两条 `FindChild` 都是**递归**的 ⇒ 断言逐字不变仍绿。
                         A1125Close("ImportDeckPopup", imp3.transform, null, "CloseHit",
                                    "Close Icon", "40k_bt_close", "Close Icon", 96.37f, 94.50f);
+                        // 🆕 **2026-10-18（`A1149` 第二半）**：圆底盘**实绘矩形**两连断。绿族框 **75×75 正方**
+                        //   ⇒ 第二格恒真（那类窗没有等比不变量可丢）；第一格钉「用的是原版根那一格 **75**，
+                        //   ⛔ 不是子件框 56.37×54.50」。
+                        //   🔴 **2026-10-18（`A1149` 第一半 · 第九会话 P7）就地更正**：上面原来写「本窗**没有**
+                        //   原版那颗 `Generic Close Button Green` 节点 … 圆底盘现读挂在子件 `Close Bg` 上」
+                        //   ——**两件都已归真**（节点补建 + 圆底盘画在它身上）⇒ `btnName` 由 `null` 改成
+                        //   **`"Generic Close Button Green"`**、第 8 实参（子件名 `"Close Bg"`）**已删**。
+                        A1125CloseBase("ImportDeckPopup", imp3.transform, "Generic Close Button Green",
+                                       "UI_Button_Round_background", 75.00f, 75.00f, 75.00f);
                     }
                 }
             }
@@ -6122,6 +6200,15 @@ public static class CollectionScene
                       "`Select Art Button Right` 中心 x = **1357.59**（1320.40 + 74.39/2）");
             CheckTrue(aL != null && aR != null && Mathf.Abs(PxYOf(aL.position.y) - 228.47f) <= 1f,
                       "两个圆钮中心 y = **228.47**（190.67 + 75.61/2）");
+            // 🆕 **2026-10-18（`A1149` 第一半 · 第九会话 P6）**：这两颗**换风格圆钮**的**圆底盘实绘矩形**
+            //   —— 同族那个「圆底盘长在子件上」的偏离（判据 = 原版 `/Header/Select Art Button {L,R}` 自己带
+            //   `Image[UI_Button_Round_background]` · Simple · `preserveAspect` · `sizeDelta 74.386×75.605`，
+            //   → `资料/普查产出_0923/A4_装饰页与驱动链.md:129`）**已归真到根节点自己身上**
+            //   （`Shell/CollectionWindow.cs:1547`）⇒ 第 8 实参不传。期望值 = 正方贴图 237×237 等比内接 ⇒ **74.39×74.39**。
+            //   ⚠️ 只断左钮：两颗走**同一个** `BuildStyleArrow`（⇔ 同一份代码），右侧那颗的矩形是同一支算出来的。
+            A1125CloseBase("CollectionWindow/Select Art Button Left", spage,
+                           "Select Art Button Left", "UI_Button_Round_background",
+                           74.39f, 74.39f, 75.61f);
             // 🔴 **箭头那一层必须比黄底高一级队列** —— 两层摆在同一个矩形上，同队列时「谁盖谁不可控」
             //    （2026-09-24 实拍：箭头**整个没出现**、只看得见黄底，而矩形断言全绿）。
             //    判据照坑表那条：**比 `RenderQueue`，不比 z**。

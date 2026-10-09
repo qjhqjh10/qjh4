@@ -927,7 +927,17 @@ namespace CardPresentation
             Hit(btn, "ChangeNameHit", new PxRect(CnbL, CnbT, CnbR, CnbB), L_NameHit, CommitNameWindow, cnQ, ArtButton);
 
             // `Generic Close Button Green`（75×75 圆底 + `40k_bt_close`）
-            var cb = Node(_nameWin, "Generic Close Button Green", new PxRect(CbL, CbT, CbR, CbB));
+            // 🔴🔴 **2026-10-18（A1149 第一半）圆底盘【挂点】归真**（本件 = 第九会话 P7）：
+            //   改前圆底盘画在一颗**自造子件 `Image`** 上、而 `Generic Close Button Green` 是颗**裸节点**
+            //   （原来在这里先 `Node(...)` 建它、下面再 `Rect(cb, …, "Image", …)` 套一层）。
+            //   原版那颗 `Image` **就长在根节点自己身上**（无独立子件名）。
+            //   判据（逐字段直读）= `python -I d:/tmp/wf_b4probe/pa.py bundle_menus_assets_all
+            //   "ChooseNameWindow" 8`：根 `Generic Close Button Green` **自己带 `Image`**
+            //   （它下面唯一的子件是 `Icon`）：`UI_Button_Round_background` · `m_Type=0`(Simple) ·
+            //   **`m_PreserveAspect=1`** · `m_RaycastTarget=0` · 矩形 **75.00×75.00**；
+            //   贴图 `m_Rect` = **237×237 正方** ⇒ 实绘 **75×75**（框本身即正方）。
+            //   ⚠️ `cb` 这个局部量**已挪到下面那颗 quad 之后**（`Rect` 取不到图才退回 `Node`）——
+            //   中间那段全是注释、没有任何引用。
             // 🆕 **2026-10-18（A1058 · 第六会话批 2）**：换图那一层 = **子件 `Icon`**
             //   （画的是 `ArtCloseIcon` = `40k_bt_close`），⛔ **不是圆底盘 `cbBaseQ`**。
             //   判据（原版 prefab 亲读；原版那颗的父窗是 `ChooseNameWindow`，**独立于
@@ -941,7 +951,10 @@ namespace CardPresentation
             //   **那句是错的**（错因 = 只读 `m_Transition`、没读 `m_TargetGraphic`）。
             //   ⚠️ 同族的 `Deck Info`（`Shell/DeckInfoPopup.cs:1020`）与 `Battle Log` 早就绑对了「按钮脸」——
             //   本处是漏网（`A1058`）。
-            var cbBaseQ = Rect(cb, ArtRoundBtn, new PxRect(CbL, CbT, CbR, CbB), "Image", L_Frame, null, true);
+            var cbBaseQ = Rect(_nameWin, ArtRoundBtn, new PxRect(CbL, CbT, CbR, CbB),
+                               "Generic Close Button Green", L_Frame, null, true);
+            var cb = cbBaseQ != null ? cbBaseQ.transform
+                                     : Node(_nameWin, "Generic Close Button Green", new PxRect(CbL, CbT, CbR, CbB));
             var cbIconQ = Rect(cb, ArtCloseIcon, new PxRect(CbIcL, CbIcT, CbIcR, CbIcB), "Icon", L_Title);
             // 🆕 **2026-10-18（A1053 · 第六会话批 2）**：**命中区**归真值 —— 原版根那颗
             //   `UI_Button_Round_background` 带 `m_RaycastTarget = 0`（不吃射线），吃射线的只有子件 `Icon`

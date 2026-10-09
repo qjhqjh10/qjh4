@@ -2360,6 +2360,11 @@ namespace RuleEngine
             //   ⇒ 机制上等价于 `CantAttack`，所以一并算「已实现」（否则带它的卡会被
             //   误报成未实现关键词、卡面白打一个 `*`）。全池今天 0 张卡带它。
             RuleCore.Noncombatant,
+            // 🆕 2026-10-09（第九会话）：**`unstunnable`（晕不了，trait 250）** —— 机制由 `A1134` 建起来
+            //   （共用判定口 `RuleCore.StunBlockedByTraits`，判据 = 原版 `CardScript__Stun.c:46-47`）。
+            //   ⚠️ 不登记在这一栏 ⇒ 卡面会白打一个 `*`、`UnimplementedKeywords` 会多报一条。
+            //   判据与全池张数见 `RuleCore.Unstunnable` 的注释。全池今天 **0 张卡**带它。
+            RuleCore.Unstunnable,
             // 触发类 + 主动技能：结算全部走 `RuleCore.FireUnitTrigger` / `UseAbility`。
             // ⚠️ 「关键词已实现」≠「这张卡的效果能跑」—— 效果文字解析不出来的，
             //    由 `CardDef.UnparsedEffects` 单独标出来（卡面照旧打 `*`）。
@@ -2645,6 +2650,19 @@ namespace RuleEngine
             //    （卡面既不报「未实现」、也不打 `*`）—— 正是本工程「不许静默失败」红线。
             //    ⚠️ 今天全池 **0 张卡**带它（现状无行为缺口），补的是「将来写得出」这一层。
             new[] { "noncombatant", RuleCore.Noncombatant },
+            // 🆕 2026-10-09（第九会话 · 收 `A1134` 的连锁缺口 / `P3` 顺手发现）：
+            //    **`unstunnable`（晕不了，`DefinedTrait.unstunnable = 250`）**。
+            //    判据 = 原版 `CardScript__Stun.c:46-47` 在**施加 `stun` 之前**先读它
+            //    （`HasCurrentTrait(0xfa)` 非假 ⇒ 整个施加段跳过、只出声）；共用判定口
+            //    `RuleCore.StunBlockedByTraits`；常量与判据全文见 `RuleCore.Unstunnable` 的注释
+            //    （⛔ 别在这里抄第二份）。
+            //    ⚠️ **为什么必须登记在这里**：不登记 ⇒ `Normalize` 返回 null ⇒ `KeywordTable.Parse`
+            //    与构造函数**双双丢弃** ⇒ 卡数据 / 卡面正文写它会被**静默丢掉**（既不报「未实现」、
+            //    卡面也不打 `*`）—— 与 `noncombatant` 当年那个缺口**同形**，踩的是同一条
+            //    「不许静默失败」红线。
+            //    ⚠️ 今天全池 **0 张卡**带它（`RuleEngine/Resources/cards_engine.json` 1126 张现读命中 0）
+            //    ⇒ 补的是「将来写得出」这一层；⚠️ 也一并进了 `Implemented`（机制已由 `A1134` 建起来）。
+            new[] { "unstunnable", RuleCore.Unstunnable },
             // 🔴 2026-09-13 补（派子代理做「关键词三列对账」时查出）：这三个词**根本不在表里**，
             //    于是 `Normalize` 返回 null → `Parse`/构造函数**双双丢弃**
             //    ⇒ 它们既不出现在 `UnimplementedKeywords()` 单上，**卡面也不打 `*`**

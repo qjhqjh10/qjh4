@@ -242,8 +242,10 @@ public static class NetSelfTest
             Loc.SetLanguage(AvailableLanguages.Chinese);
             zhLost = Loc.T("Settings/Online/Lobby/PeerLost");
             zhHint = Loc.T("Settings/Online/Lobby/PeerLostHint");
-            // P6 §⑤ 那条**额外要求**：两条提示行词条要能塞进 `SearchingMatchPopup` 那个 40 字框
-            // （超了它每次都 `LogWarning`；中文按字符数算 ⇒ 只量**中文列**，写法同 `A933` 的注释）
+            // P6 §⑤ 那条**额外要求**：两条提示行词条要能塞进 `SearchingMatchPopup` 的**提示行尺子**
+            // （`HintLineWidth(句) > HintLineMaxWidth` ⇒ **80 个半宽字位**；超了它每次都 `LogWarning`；
+            //  ⚠️ 下面这几条按**中文列字符数**算、比的是 `HintLineMaxChars`(= 40 个**汉字**) ——
+            //   那是同一条尺子上**更严**的那半边（全宽字 = 2 位 ⇒ 40 字 = 80 位），写法同 `A933` 的注释）
             zhHintLen = Loc.T("Settings/Online/Lobby/PeerLostHint").Length;
             zhLeftLen = Loc.T("Settings/Online/Lobby/PeerLeftHint").Length;
             Loc.SetLanguage(AvailableLanguages.English);
@@ -1173,7 +1175,9 @@ public static class NetSelfTest
     /// `NetMatchmaking.HandleLobbyPeerClosed(why)` 把 `why` 拼进提示），而它**在源头就钳过**
     /// （`NetSession.ClampPeerText` 是**一处闸**、三个收包入口都在 `NetSession`）⇒ 本节点**不写第二份钳**。
     /// 下面 **A932⑤** 把「**本节点不做第二道钳**」钉成断言（推一句夹着 60 字「对端文本」的提示，看它原样照收）
-    /// —— ⚠️ 那一条会**顺带触发** `ShowHint` 那条「超过 40 字」的告警，**那是预期的**（它在出声，不是失败：
+    /// —— ⚠️ 那一条会**顺带触发** `ShowHint` 那条「超过 **80 个半宽字位**」（判据 = `HintLineWidth(句) >`
+    /// `HintLineMaxWidth`，⛔ 不再是「超过 40 字」—— 那个 40 是 `A1083` 换尺子**之前**的口径）
+    /// 的告警，**那是预期的**（它在出声，不是失败：
     /// 「这行按框放不下」与「钳对端文本」本来就是两件事，见那扇窗类头那一节）。</para>
     ///
     /// <para>⚠️ **本宿主是纯逻辑的**（`NetSelfTest` 一行 UI 都不建）⇒ 与 N⑤ 同一条先例：

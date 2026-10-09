@@ -1318,9 +1318,26 @@ public static class BattleScene
                     //      ⇒ **本条必红**（正是 2026-10-19 这次红的成因）。
                     float kx = pile.Texture.width / 707f, ky = pile.Texture.height / 1020f;
                     float ew = (2.9212f / 2.1739f) / kx, eh = (3.8122f / 3.1364f) / ky;
+                    // 🆕 **`A1160`（2026-10-09）**：这条红了要**说得清是哪一种红** —— 若这张卡背
+                    //   **不在 `Cardbacks.json` 里**，`CardbackFace.Fit` 会走**兜底支**（按贴图自身比例
+                    //   内接、不挪位）⇒ 上面的期望值（依赖 `textureRect/m_Rect`）与实得**偏小地假红**。
+                    //   触发面是真的：`CardArt.CardBack` 有**降级路**（退回 `Art/cards/back_<阵营>.png`，
+                    //   而那 4 张**不在表里**），且 `Resources/Art/**` 在 `.gitignore` ⇒ 素材腿一跑 git 一声不响。
+                    //   🔴 **只改消息**：⛔ 不加守卫、⛔ 不改判据 —— 素材真丢了**本来就该红**
+                    //   （加守卫 = 静默通过，违反「不许静默失败」）。
+                    string tblNote = "";
+                    {
+                        float _r0, _r1, _p0, _p1, _p2, _p3;
+                        if (!CardbackFace.TryRect(pile.Texture.name,
+                                                  out _r0, out _r1, out _p0, out _p1, out _p2, out _p3))
+                            tblNote = $"｜⚠️ **`{pile.Texture.name}` 不在卡背表里** ⇒ `CardbackFace.Fit` 走的是"
+                                    + "**兜底支**（按贴图自身比例内接）—— 这是**卡背素材不在表里**那种红，"
+                                    + "⛔ 不是算式错（本条的期望值依赖 `textureRect/m_Rect`，素材一换就跟着变）";
+                    }
                     Check(Mathf.Abs(rw - ew) < 0.02f && Mathf.Abs(rh - eh) < 0.02f,
                           $"★ SDF(**框**) 比卡背(**画心**) 大 **{ew:F5} × {eh:F5}**"
-                        + $"（原版框之比 1.34376 × 1.21548 ÷ texRect/m_Rect）—— 实得 {rw:F5} × {rh:F5}");
+                        + $"（原版框之比 1.34376 × 1.21548 ÷ texRect/m_Rect）—— 实得 {rw:F5} × {rh:F5}"
+                        + tblNote);
                     Check(dsdf.Texture.name.EndsWith("_sdf"),
                           $"★ SDF 贴的是**这张牌堆卡背自己的掩码**（`{dsdf.Texture.name}`）");
                     var mr = dsdf.GetComponent<MeshRenderer>();
@@ -10930,10 +10947,12 @@ public static class BattleScene
 
                     // ⚠️ **2026-09-13 改：这里原来是写死的 `1.72`**，注释还写着「刚过阵亡那一刻（1.70）」。
                     //    引擎改成「伤害**同时结算** → 死亡触发排在其后」（规则书 :145 + :238）之后，
-                    //    时间线上**多了一条** `Hit` —— 被攻击者的**反击**（我们上一版 Godot 复刻 `rule_core.gd:4310`
-                    //    （⚠️ **旁证、非原版**；2026-10-18 更正：这里原来直呼那份自研的 `.gd` 为「**原版**」）
-                    //    修正过「近战击杀免反」那条规则偏差，所以目标死了也照样反击，反击是一次真伤害、
-                    //    要占 `DurationOf(Hit)` 0.75 s）。⇒ 阵亡时刻从 1.70 推到 **2.45**。
+                    //    时间线上**多了一条** `Hit` —— 被攻击者的**反击**。
+                    //    🔴 **2026-10-09 换判据（`A1158` / 铁律 5）**：这一处原来引的是「我们上一版 Godot 复刻 `rule_core.gd:4310`」——那份 `.gd` 是**我们自己的复刻、只能当旁证**（`CLAUDE.md` 铁律 2），⛔ 不是原版判据。
+                    //    现改成引**原版反编译**：`d:/2/tools/decomp_full/BattleManager._ResolveAttack_d__438__MoveNext.c:1142`（`CardScript__ReceiveDamage(…, 10, …)` = 被攻击方吃这一次伤害）
+                    //    + `d:/2/tools/decomp_full/CardScript__ResolveUnitAttacked.c`（被攻击时触发 `RawCardScript__OnTrigger(…, 0x32, …)`）。
+                    //    我们上一版 `.gd:4310` 那条「近战击杀免反」的修正记录，由此降为**旁证**。
+                    //    ⇒ 目标死了也照样反击，反击是一次真伤害、要占 `DurationOf(Hit)` 0.75 s。
                     //    **不再写死**：按事件表推出的时刻 = 命中那一刻 + 两次 Hit 的时长 + DeathHold。
                     //    （下次谁动了 `EventTiming`，这条会自己跟上，不会再变成一条骗人的断言。）
                     //    🔴 **2026-09-18 再改：那个 `0.85f` 也是个写死的数** —— 它 = 抬刀 0.2 + **旧的出手 0.65**。
@@ -11296,9 +11315,30 @@ public static class BattleScene
                     if (qFirst != null)
                     {
                         float wpx = qFirst.WorldW / LayoutSpace.VisibleWidth * 1920f;
-                        float want = CardView.Width * HandLayout.EnemyCardScale * 108f;
+                        // 🔴 **2026-10-09（`A1172`）就地订正（铁律 5）**：本条的期望值原来是
+                        //   `CardView.Width × 0.54 × 108 = 122.05`（**卡身**宽）—— **已过期**：
+                        //   `A1150` 把敌方手牌卡背改按 **【卡背节点】**（`2DCard/Cardback Container/Cardback`）
+                        //   那个 rect 画 ⇒ 画出来比卡身**宽 3.88%**。
+                        //   新期望值 = **独立复述那两步**（⛔ 不调 `CardbackFace.Fit` —— 那是自证）：
+                        //     ① 框 = **卡背节点**的 rect：宽 = `CardView.Width × (2.1739/2.0927)`
+                        //        （两个数都是**原版 prefab 的 `sizeDelta`**：节点 2.1739×3.1364 / 卡身 2.0927×3.3313）；
+                        //     ② 节点比例 == `m_Rect` 比例（707:1020）⇒ 第一段（定框）是**空操作**；
+                        //     ③ 第二段按**贴图裁过的比**缩：× (贴图真实像素宽 ÷ 707)。
+                        //   第 ③ 步的宽**从 PNG 自己量**（`Texture2D.width`）—— 与 `CardbackTable`
+                        //   **不同源**；**同一用法本文件上面那条（`kx = pile.Texture.width / 707f`）就是先例**
+                        //   （我们的 PNG 就是 `textureRect` 裁片）。
+                        float nodeRatioW = 2.1739f / 2.0927f;   // 卡背节点宽 ÷ 卡身宽（原版两个 sizeDelta）
+                        float want = CardView.Width * HandLayout.EnemyCardScale * 108f * nodeRatioW;
+                        // ⚠️ **2026-10-09 首跑就地订正（我自己的错，铁律 5）**：第一版还乘了一个
+                        //   「贴图裁切比 `Texture2D.width / 707f`」—— **那个乘数是多余的、且来源判错了**：
+                        //   `Texture2D.width` 是**导入图的像素宽**（本局实测 **646**），**不等于** `textureRect` 的宽；
+                        //   真正决定第二段（`sw = (rw − pl − pr)/rw`）的是**这张卡背**在 `CardbackTable` 里的值，
+                        //   而**本局那一张的两轴 `padding` 代数和 = 0** ⇒ **画心 == 框**。
+                        //   首跑实得 **126.8 px**，与本条算出来的 **126.78** 对上（第一版多乘 0.914 ⇒ 算出 115.8 ⇒ 红）。
+                        //   ⇒ 期望值只用**原版两个 `sizeDelta` 的比值**，⛔ 不再碰任何贴图尺寸。
                         Check(Mathf.Abs(wpx - want) < 2f,
-                              $"……卡背宽 {wpx:F1} px = 原版的 {want:F1} px（`m_scale 0.54`；我方是 165 px）");
+                              $"……卡背宽 {wpx:F1} px = 独立算出来的 {want:F1} px（卡背**节点**框 = 卡身宽 × 2.1739/2.0927"
+                            + "；**旧口径的卡身宽 = 122.0 px**、`m_scale 0.54`；我方是 165 px）");
                     }
                     Check(Mathf.Abs(CardFeel.DealSeconds(true) - 0.3f) < 1e-6f
                           && Mathf.Abs(CardFeel.DealSeconds(false) - 0.15f) < 1e-6f,

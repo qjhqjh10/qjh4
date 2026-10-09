@@ -199,6 +199,42 @@ public static class SettingsScene
                   + "本窗其余几何断言会跟着一起错、只有它会红）");
     }
 
+    /// <summary>🆕 **2026-10-18（`A1149` 第一半 · 第九会话 P7）**：量**节点自己身上**那一颗
+    /// `ImageQuad` 的渲染矩形（`GetComponent`）。
+    /// <para>🔴 **为什么不能复用 `CheckRectPx` / `CheckRectS`**：那两条走 `RectOf` = **子树并集**
+    /// （`MenuDraw.UnionQuadRectPx`）。关窗钮归真之后圆底盘就长在钮的**根节点**上，而它底下还挂着
+    /// **命中层 `Hit`**（`96.37×94.50`，**比可见面大**）⇒ 并集口径量到的是命中层、不是那张脸。
+    /// 这一条只看节点自己那一颗，⛔ 不往下钻。</para>
+    /// <para>`texName` 非 null 时先断贴图名（**前提·不静默**那一格）。期望值口径同
+    /// <see cref="CheckRectPx"/>：**不过 `Screen()`**（字面量）。</para></summary>
+    static void CheckQuadRectPx(Transform t, string texName, float x1, float y1, float x2, float y2, string what)
+    {
+        var q = t != null ? t.GetComponent<ImageQuad>() : null;
+        if (texName != null)
+        {
+            string got = q == null ? "<没有 quad>" : (q.Texture == null ? "<没贴图>" : q.Texture.name);
+            CheckTrue(q != null && q.Texture != null && q.Texture.name == texName,
+                      $"{what}：（前提·不静默）**节点自己身上**那颗 quad 的贴图 = 原版 `{texName}`"
+                    + $"｜现读「{got}」"
+                    + " —— ⛔ 取不到 / 取错就不该把下一条当绿（🧨 把圆底盘改回自造子件 ⇒ 本格红）");
+        }
+        float lx = 0f, ty = 0f, rx = 0f, by = 0f;      // ⛔ 先归零：`&&` 短路时编译器要求 out 已赋值
+        bool ok = q != null && MenuDraw.QuadRectPx(q, out lx, out ty, out rx, out by);
+        CheckTrue(ok && Mathf.Abs(lx - x1) <= 1.5f && Mathf.Abs(ty - y1) <= 1.5f
+                  && Mathf.Abs(rx - x2) <= 1.5f && Mathf.Abs(by - y2) <= 1.5f,
+                  $"{what} 渲出来 = [{lx:F2},{ty:F2}]–[{rx:F2},{by:F2}]（{rx - lx:F1}×{by - ty:F1}）"
+                + $"，应落在 [{x1:F2},{y1:F2}]–[{x2:F2},{y2:F2}]（{x2 - x1:F1}×{y2 - y1:F1}）±1.5px"
+                + " —— ⚠️ 取的是**节点自己**那颗 quad（`GetComponent`；`CheckRectPx`/`RectOf` 的"
+                + "「子树并集」会把命中层 `Hit` 并进来 ⇒ 量成 96.37×94.50）");
+    }
+
+    /// <summary>同 <see cref="CheckQuadRectPx"/>，但期望值**过 `Screen()`**（本窗把根那层 0.9 烘进矩形的那个换算）。</summary>
+    static void CheckQuadRectS(Transform t, string texName, float x1, float y1, float x2, float y2, string what)
+    {
+        var s = SettingsWindow.Screen(x1, y1, x2, y2);
+        CheckQuadRectPx(t, texName, s.x1, s.y1, s.x2, s.y2, what);
+    }
+
     /// <summary>`AlignLeft` 会把 Label 的节点挪走（`MainMenuWindowBase` 的注释里写着）⇒
     /// **不能**拿它的位置去比矩形中心，要比**左边缘**。</summary>
     static void CheckLeftS(Transform t, float x1, float x2, float y1, float y2, string what)
@@ -469,16 +505,25 @@ public static class SettingsScene
                        SettingsWindow.FillR, SettingsWindow.FillB, "`Background fill`（`40k_popup_texture` 平铺）");
             CheckRectS(FindChild(Area(root), "Separators"), SettingsWindow.BarSepL, SettingsWindow.BarSepT,
                        SettingsWindow.BarSepR, SettingsWindow.BarSepB, "`Separators`");
-            // 🔴 **2026-10-09（A1120）**：这一条量的是钮的**可见面子件 `bg`**（75×75 那张圆底），
+            // 🔴 **2026-10-09（A1120）**：这一条量的是钮的**可见面**（75×75 那张圆底），
             //   **不是「Generic Close Button」那棵子树** —— `d6c4111`（`A1053`「命中区归真值」）起，
             //   子树里多了一颗**命中层**（`Hit` 节点，矩形 = 原版射线区，**比可见面大**）⇒
             //   `RectOf` 的「子树并集」会量到那颗、不再等于钮的脸（这正是那两条红：量出 86.7×85.0、
             //   期望 67.5×67.5）。**期望值一个字没改**（仍是原版 `1559.00,91.61→1634.00,166.61` 过 `Screen()`）。
-            //   ⚠️ 不是「把锚改成实测值」：改的是**量的对象口径**（脸 vs 脸∪命中层），
-            //      而且 `bg` 就是原版那颗 `UI_Button_Round_background` 的落点（见 `Shell/SettingsWindow.cs:941`）。
-            CheckRectS(FindChild(FindChild(Area(root), "Generic Close Button"), "bg"),
-                       SettingsWindow.CloseL, SettingsWindow.CloseT,
-                       SettingsWindow.CloseR, SettingsWindow.CloseB, "`Generic Close Button` 的可见面 `bg`（75×75）");
+            //   🔴 **2026-10-18（`A1149` 第一半 · 第九会话 P7）就地更正**：原来这一条取的是**子件 `bg`**
+            //   （`FindChild(节点, "bg")`）—— **那颗子件已经不存在了**：挂点已归真，圆底盘现画在根节点
+            //   `Generic Close Button` **自己身上**（= 原版结构：`Main Menu Settings Window > Menu Area >
+            //   Generic Close Button` 那颗 `Image` 就是圆底、**没有 `bg` 这一层**；判据 = `python -I
+            //   d:/tmp/wf_b4probe/pa.py bundle_menus_assets_all "Main Menu Settings Window" 12`）。
+            //   ⇒ 改量**节点自己身上那一颗**（`GetComponent`，⛔ **不能**退回 `CheckRectS` 的「子树并集」：
+            //   那会把命中层 `Hit` 并进来 ⇒ 量出 96.37×94.50）。这一改**同时**把
+            //   「圆底盘必须长在根节点自己身上」钉住：🧨 把它改回自造子件 `bg` ⇒ 本格红。
+            {
+                CheckQuadRectS(FindChild(Area(root), "Generic Close Button"), "UI_Button_Round_background",
+                               SettingsWindow.CloseL, SettingsWindow.CloseT,
+                               SettingsWindow.CloseR, SettingsWindow.CloseB,
+                               "`Generic Close Button` 的可见面（圆底 `UI_Button_Round_background`，75×75）");
+            }
             CheckRectS(FindChild(FindChild(Area(root), "Generic Close Button"), "Icon"),
                        SettingsWindow.CloseIconL, SettingsWindow.CloseIconT,
                        SettingsWindow.CloseIconR, SettingsWindow.CloseIconB, "关闭钮的 `Icon`");
@@ -557,16 +602,21 @@ public static class SettingsScene
             //     `RootScale` 0.9→0.8 ⇒ 实测变 [1439.20…1499.20]（x1 差 59.90px）；
             //     `Screen()` 的缩放中心从画布中心改成 (0,0) ⇒ 变 [1403.10…1470.60]；
             //     整条映射漏掉那 0.9 ⇒ 变 [1559.00…1634.00]（= 未缩放的矩形）。三种都会红。
-            //  ⑤ 🔴 **2026-10-09（A1120）**：量的是那颗**可见面**子件 `bg`（矩形与「关闭钮」节点逐值相同：
+            //  ⑤ 🔴 **2026-10-09（A1120）**：量的是那颗**可见面**（矩形与「关闭钮」节点逐值相同：
             //     仍是 [1559.00,91.61]–[1634.00,166.61]），**⛔ 不是「Generic Close Button」那棵子树** ——
             //     自 `d6c4111`（`A1053`）起子树里多了一颗**命中层**（`Hit` = 原版射线区 86.73×85.05，
             //     **比可见面大**）⇒ 量子树会量到它、这条锚当场红（[1489.48,127.67]–[1576.21,212.72]）。
             //     锚的价值**一分没少**（同一个矩形、仍离画布中心最远；③④ 那两段手算与改坏法逐条照旧）。
+            //  ⑥ 🔴 **2026-10-18（`A1149` 第一半 · 第九会话 P7）就地更正**：上面 ⑤ 原来取的是子件 `bg`
+            //     —— **那颗子件已经不存在了**（挂点已归真：圆底盘现画在 `Generic Close Button` **自己身上**，
+            //     见 `Shell/SettingsWindow.cs` 那一段；原版 `Main Menu Settings Window > Menu Area >
+            //     Generic Close Button` 那颗 `Image` 就是圆底、没有 `bg` 这一层）。
+            //     ⇒ 改走新助手 `CheckQuadRectPx`（**节点自己那颗** quad，⛔ 不是子树并集）。期望值**一个字没改**。
             Section("🔴 ②（A131）映射锚断言：期望值是原版字段手算的字面量（⛔ 不过 `Screen()` / `OrigPxY`）");
-            CheckRectPx(FindChild(FindChild(Area(root), "Generic Close Button"), "bg"),
-                        1499.10f, 136.44f, 1566.60f, 203.94f,
-                        "（②锚）关闭钮可见面 `bg` 的渲染矩形 = 原版 [1559.00,91.61]–[1634.00,166.61]"
-                        + " 经「0.9 + 画布中心」缩放");
+            CheckQuadRectPx(FindChild(Area(root), "Generic Close Button"), null,
+                            1499.10f, 136.44f, 1566.60f, 203.94f,
+                            "（②锚）关闭钮可见面的渲染矩形 = 原版 [1559.00,91.61]–[1634.00,166.61]"
+                            + " 经「0.9 + 画布中心」缩放（`bg` 那一层已归真到根节点自己身上）");
             var bgQ = FindChild(Area(root), "Generic Popup Background").GetComponentInChildren<ImageQuad>();
             CheckTrue(bgQ != null && bgQ.Texture != null && bgQ.Texture.name == "40k_popup",
                       "弹窗底图 = `40k_popup`");

@@ -327,7 +327,25 @@ namespace CardPresentation
 
             // ③ 关闭钮：原版这一件的**底图本身 `m_Enabled=1`**（与 `Battle Log Popup` 那条不同！），
             //    它自己是 `UI_Button_Round_background`，下面再叠两个子件。
-            var close = Node(window, "Generic Close Button Orange", CloseR);
+            // 🔴🔴 **2026-10-18（A1149 第一半）圆底盘【挂点 + 矩形】归真**（本件 = 第九会话 P6）。
+            //   **改前**：圆底盘用**子件矩形 `CloseArtR`（56.86×58.14）**、画在一颗**自造子件 `Base`** 上
+            //     ⇒ 比原版**小约 24%**（原版实绘 74.39×74.39）。
+            //   **原版实读**（逐字段直读，⛔ 不是推的；同 `B4_InboxWindow圆底盘归真.md` §1·2 那份口径）：
+            //     `python -I d:/tmp/wf_b4probe/pa.py bundle_menus_assets_all "Booster Info Popup" 8` ⇒
+            //     根 `Generic Close Button Orange` 自己带 `Image`：`m_Sprite=2381704724431365035`
+            //     (`UI_Button_Round_background`) · `m_Type=0`(Simple) · **`m_PreserveAspect=1`** ·
+            //     `m_PixelsPerUnitMultiplier=1.0` · `m_RaycastTarget=0` · 矩形 **74.39×75.61**；
+            //     两张子件同矩形 56.86×58.13（= 我们的 `CloseArtR`）。
+            //     贴图 `UI_Button_Round_background` 的 sprite `m_Rect` = **237×237 正方**、`m_Border`/`m_Offset` 全 0
+            //     ⇒ `PA=1` 等比内接进「根那一格」= **实绘 74.39×74.39**（高被缩到宽那一档）。
+            //   ⇒ 照兄弟窗先例 `Shell/BaseOfferPopup.cs:742-743` / `Shell/ReferralPopupWindow.cs:386-387`
+            //     （那是唯一与原版同构的写法）：**画在根节点自己身上**、图取不到时才退回 `MenuDraw.Node`。
+            //     自造名 `Base` **随之取消**（原版那颗 `Image` 就在根节点上、没有独立子件名）。
+            //   ⚠️ 位置/子件序**逐位不变**：`Rect` 与 `Node` 用同一份 `Local(parent, …)` 摆矩形中心
+            //     （`MenuDraw.cs:30-31` / `ApplyPxRect:180-183`），`ImageQuad.Create` 也是 `SetParent(parent, false)` 追加
+            //     ⇒ 同一个父 `window`、同一个子件序号（B4 对收件箱那一处已实测同形）。
+            //   ⚠️ 命中区/换图层/队列**不受影响**：命中 quad 由下面 `MenuDraw.Hit` 独立建
+            //     （`PaddedRect(CloseArtR, ClosePad)` = 96.86×98.13），与圆底盘的矩形成像无关。
             // 🆕 **2026-10-18（A1058 · 第六会话批 2）**：悬停换图那一层 = **子件 `Background`**
             //    （画的是 `40k_general_bt_yellow`，= 下面那颗 `faceQ`），⛔ **不是圆底盘**。
             //    判据（原版 prefab 亲读）=
@@ -339,11 +357,17 @@ namespace CardPresentation
             //    ⚠️ **2026-10-18 更正（铁律 5）**：原来这一段的注释写「`trans=2` 换的是**它自己那个 Image**」
             //    ⇒ 代码把 `baseQ`（圆底盘）传成了换图目标 ⇒ 悬停**把圆底盘换成黄圆图、黄圆本身不变**
             //    （看着像「换了个底座」）。**错因 = 只读了 `m_Transition`、没读 `m_TargetGraphic`**。
-            var baseQ = Rect(close, "UI_Button_Round_background", CloseArtR, "Base", QClose, null, true);
-            var cb = Node(close, "Background", CloseArtR);
-            var faceQ = Rect(cb, "40k_general_bt_yellow", CloseArtR, "Background", QClose, null, true);
-            var ci = Node(close, "Icon", CloseArtR);
-            Rect(ci, "40k_general_bt_yellow_close", CloseArtR, "Icon", QClose, null, true);
+            var baseQ = Rect(window, "UI_Button_Round_background", CloseR, "Generic Close Button Orange", QClose, null, true);
+            var close = baseQ != null ? baseQ.transform : Node(window, "Generic Close Button Orange", CloseR);
+            // 🔴🔴 **2026-10-18（`A1149` 同批第二条 · 第九会话 P7）黄面/叉【各多一层】归真**：
+            //   改前是 `Node(close, "Background")` 里**再套**一颗同名 quad（`Icon` 同形），
+            //   即 `close/Background/Background`、`close/Icon/Icon` **各四层**；
+            //   原版 `Background` / `Icon` 都是**一颗节点直接带 `Image`**（判据 = 上面那条 `pa.py` 同一跑：
+            //   `Generic Close Button Orange` 的 `m_Children` = `[Background, Icon]`，两颗**各自**带 `Image`、
+            //   无内层同名 quad）。全 `Shell/` 现读**只有本窗**这么套（`grep -rn 'Node(close, "Background"' Shell/`）。
+            //   ⚠️ 队列/命中区/换图目标**一个字没动**（`QClose` 不变、`Hit` 仍绑 `faceQ`）。
+            var faceQ = Rect(close, "40k_general_bt_yellow", CloseArtR, "Background", QClose, null, true);
+            Rect(close, "40k_general_bt_yellow_close", CloseArtR, "Icon", QClose, null, true);
             // 🆕 **2026-10-18（A1053 · 第六会话批 2）**：**命中区**归真值 —— 原版圆底盘
             //   `m_RaycastTarget = 0`（不吃射线），吃射线的是两个同矩形子件（56.86×58.13）按各自的
             //   `m_RaycastPadding (-20)⁴` 外扩 ⇒ **96.86 × 98.13**；改前传根矩形 `CloseR`（74.39×75.61）

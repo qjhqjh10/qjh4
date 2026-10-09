@@ -377,6 +377,75 @@ public static class ShellScene
                 + "｜🧨 把它传成根圆底盘（`UI_Button_Round_background`）⇒ 红（错因 = 只读 `m_Transition`、没读 `m_TargetGraphic`）");
     }
 
+    /// <summary>🆕 **2026-10-18（`A1149` 第二半 · 第九会话 P6）**：关窗钮**圆底盘**那颗 quad 的
+    /// **实绘矩形**两连断 —— 补 `A1125Close` 上面那个**静默缺口**（那四格读的是：命中区 quad 的矩形 /
+    /// 命中区中心 vs 见面中心 / 可见面的**节点名** / 可见面的**贴图名** —— **没有一格量圆底盘的矩形成像**；
+    /// 圆底盘等比后**仍居中** ⇒ 连「中心」那一格也抓不住它）。
+    /// <para>⛔ **期望值全部来自原版 prefab 的逐字段直读**（⛔ 不是我们现在的实绘值、更不是从被测实现里读回来）：
+    /// 圆底盘那几颗一律 `m_Type=0`(Simple) · **`m_PreserveAspect=1`** · `m_PixelsPerUnitMultiplier=1.0`；
+    /// 贴图 `UI_Button_Round_background` 的 sprite `m_Rect` = **237×237 正方**、`m_Border` / `m_Offset` 全 0
+    /// ⇒ 等比内接进「原版根那一格」= **实绘 min(框宽,框高) 见方**（橙族框 74.39×75.61 ⇒ **74.39×74.39**；
+    /// 绿族框 75×75 ⇒ **75×75**）。逐窗读数 → `资料/普查产出_第八会话/B4_InboxWindow圆底盘归真.md` §1·2/§1·3
+    /// （本件 P6 用 `d:/tmp/wf_b4probe/pa.py` 逐窗复跑核过）。</para>
+    /// <para>`frameW` / `frameH` = **原版根那一格**的框（只进消息）；`basePx` = 期望边长。</para>
+    /// <para>🔴 **两格各钉一轴**（① 实绘**宽** == `basePx`；② 实绘**宽 == 实绘高** = 等比不变量）⇒
+    /// 两种改坏法**各红不同的一格**、**结构上不可能一起变绿**：把矩形改回**子件框** ⇒ 只 ① 红（那档也近正方 ⇒ ② 绿）；
+    /// 去掉 `keepAspect` ⇒ 只 ② 红（宽没变 ⇒ ① 绿）。⛔ 别把高度也塞进 ①（否则 ① 两种改坏法都红、② 失去独立作用）。</para>
+    /// <para>🆕 **取法 = 「先根后子」**：① 先取**根节点自己**身上那一颗（= 原版结构：原版那颗 `Image` 就长在根节点
+    /// `Generic Close Button Orange` / `Generic Rounded Button Green` 上、**没有独立子件名**）；
+    /// ② 根上没有、且调用点**显式给了**子件名 `baseChild` 时才退一步取 `btn/&lt;baseChild&gt;` 那一颗
+    /// —— 那是 `A1149` 第一半现读出来的**已知偏离**（圆底盘被画在自造子件上），消息里点名。
+    /// `baseChild == null` ⇒ **不许退**。⚠️ 用意：把圆底盘**归真到根节点上不会让本格变红**；
+    /// ⛔ 两处都**不下钻**（不用 `GetComponentInChildren` —— 盲扫子树会把「搬到别的层」静默量成合格）。
+    /// ⚠️ 本文件的取节点口是 `FindChildIn`（**递归含 inactive**）—— 与 `FindChild` 同一族、语义更宽。</para>
+    /// <para>⚠️ 原版根那一格本身是**正方**的窗（绿族 75×75）第二格**恒真** —— 那种窗本来就没有「等比不变量」可丢，
+    /// **不是缺口**（见各调用点注释）。</para></summary>
+    static void A1125CloseBase(string win, Transform winRoot, string btnName, string baseTex,
+                               float basePx, float frameW, float frameH, string baseChild = null)
+    {
+        var btn = winRoot == null ? null : (btnName == null ? winRoot : FindChildIn(winRoot, btnName));
+        // 🔴 `GetComponent`（**本节点自己**那一颗）而不是 `GetComponentInChildren` —— 见上面 doc：
+        //    `GetComponentInChildren` 会往下钻，把「圆底盘搬到别的层」那种偏离量成合格（静默）。
+        var bq = btn != null ? btn.GetComponent<ImageQuad>() : null;
+        bool baseOnRoot = bq != null && bq.Texture != null && bq.Texture.name == baseTex;
+        if (!baseOnRoot && btn != null && baseChild != null)
+        {
+            // ⚠️ **只有调用点显式点名子件时才退这一步**（= `A1149` 第一半现读的已知偏离，消息里点名）
+            var baseHost = FindChildIn(btn, baseChild);
+            bq = baseHost != null ? baseHost.GetComponent<ImageQuad>() : null;
+        }
+        string baseWhere = baseOnRoot ? "根节点自己身上（= 原版结构）"
+                         : (baseChild != null
+                            ? "子件 `" + baseChild + "`（⚠️ **已知偏离**：原版长在根节点自己身上 —— `A1149` 第一半）"
+                            : "根节点自己身上（⚠️ 那颗 quad 取不到）");
+        string baseGot = bq == null ? "<没有 quad>" : (bq.Texture == null ? "<没贴图>" : bq.Texture.name);
+        CheckTrue(bq != null && bq.Texture != null && bq.Texture.name == baseTex,
+                  $"（前提·不静默）A1125 {win}：圆底盘 `{baseTex}` 那颗 quad 拿得到、且贴图就是原版那一张"
+                + " —— ⛔ 取不到 / 取错就不往下断（不静默变绿）"
+                + $"｜现读「{baseGot}」｜取处 = {baseWhere}"
+                + "｜🧨 把圆底盘整颗删掉 / 换成别张图 ⇒ 本格红（⛔ 别改成盲扫子树去「修」它）");
+        float bx1 = 0f, by1 = 0f, bx2 = 0f, by2 = 0f;      // ⛔ 先归零：`&&` 短路时编译器要求 out 已赋值
+        bool okB = bq != null && MenuDraw.QuadRectPx(bq, out bx1, out by1, out bx2, out by2);
+        float bw = bx2 - bx1, bh = by2 - by1;
+        // 🔴 **本格【只钉宽】**（高由下面那格「宽==高」钉）—— 两格各钉一轴，**改坏法才各红一格**。
+        CheckTrue(okB && Mathf.Abs(bw - basePx) <= 0.5f,
+                  $"★★ A1125 {win}：**圆底盘实绘宽** = 原版 **{basePx:F2}**（设计 px；配下面那格「宽==高」"
+                + $"⇒ 两条一起 = 原版 **{basePx:F2}×{basePx:F2}**）"
+                + (okB ? $"（现读宽 {bw:F2}，高 {bh:F2}）" : "（圆底盘 quad 取不到）")
+                + $"｜= 原版根那一格 **{frameW:F2}×{frameH:F2}** 的宽（正方贴图 + `m_PreserveAspect=1` 的等比内接）"
+                + "｜🧨 把矩形改回**子件框**（橙族 56.86×58.13 / 绿族 56.37×54.50）⇒ 宽少 ~17 ⇒ **只本格红**"
+                + "（那两档也近正方 ⇒ 下一格**仍绿**）");
+        // 🔴 **本格 = 等比这条不变量**（比断绝对数抗「将来换贴图」：换成别的正方贴图它照旧成立）。
+        CheckTrue(okB && Mathf.Abs(bw - bh) <= 0.5f,
+                  $"★★ A1125 {win}：圆底盘**实绘宽 == 实绘高**（= **等比**这条不变量；原版根那一格本身是 "
+                + $"{frameW:F2}×{frameH:F2} 的框 ⇒ 只有真等比才两轴相等）"
+                + (okB ? $"（现读 {bw:F2}×{bh:F2}）" : "（圆底盘 quad 取不到）")
+                + $"｜🧨 把 `keepAspect: true` 去掉 ⇒ 实绘变框那一格 {frameW:F2}×{frameH:F2}"
+                + (Mathf.Abs(frameW - frameH) > 0.5f ? "（**宽≠高**）⇒ **只本格红**（宽没变 ⇒ 上一格绿）"
+                                                     : "（= 同值）⇒ 本窗**框本身正方**，去掉 `keepAspect` 本就无差别")
+                + "｜🔴 这就是「它用的是**根那一格** + 等比」的判别式 —— 少了等比，高度就顶到框高");
+    }
+
     /// <summary>🆕 2026-10-07（A77⑮/⑧a）：一颗命中区节点的**渲染队列档**（`ImageQuad.RenderQueue`）。
     /// 自检拿它核「哪一层压哪一层」——分层用的是**渲染队列、不是 z**（`CLAUDE.md` §三）。
     /// 取不到 ⇒ 返回 `int.MinValue`（那样任何「＞某档」的断言都会红，⛔ 不会静默当成通过）。</summary>
@@ -3506,6 +3575,16 @@ public static class ShellScene
                 //   按 `(-20)⁴` 外扩 ⇒ **96.37 × 94.50**。
                 A1125Close("ProfileTab/ChooseNameWindow", ptab.transform, "Generic Close Button Green", "Hit",
                            "Icon", "40k_bt_close", "Icon", 96.37f, 94.50f);
+                // 🆕 **2026-10-18（`A1149` 第二半）**：圆底盘**实绘矩形**两连断。绿族框 **75×75 正方**
+                //   ⇒ 第二格恒真（那类窗没有等比不变量可丢）；第一格钉「用的是原版根那一格 **75**，
+                //   ⛔ 不是子件框 56.37×54.50」。
+                //   🔴 **2026-10-18（`A1149` 第一半 · 第九会话 P7）就地更正**：上面原来写「本窗圆底盘
+                //   现读仍挂在自造子件 `Image` 上 … 显式点名子件」——**挂点已归真**
+                //   （`Shell/ProfileTab.cs` 那颗 quad 现画在根节点 `Generic Close Button Green` 自己身上）
+                //   ⇒ 第 8 实参（子件名）**已删**，走助手「先根后子」的**根那一路**。
+                //   ⚠️ 必须摆在下面 `ClickAt` **之前**（那一下把改名窗关掉）。
+                A1125CloseBase("ProfileTab/ChooseNameWindow", ptab.transform, "Generic Close Button Green",
+                               "UI_Button_Round_background", 75.00f, 75.00f, 75.00f);
                 plL.ClickAt(pPage.x, pPage.y);
                 CheckTrue(!ptab.NameWindowOpen, "…（顺带：点压暗层真的把改名窗关上了 = `CancelNameWindow` 接在它身上）");
             }
@@ -5606,13 +5685,24 @@ public static class ShellScene
                           + "= 原版 `m_TargetGraphic` 指到的那一颗）—— 现读「"
                           + (clWbG == null || clWbG.target == null || clWbG.target.Texture == null
                              ? "<没绑>" : clWbG.target.gameObject.name + " / " + clWbG.target.Texture.name)
-                          + "」。🔴 **改坏法**：把它传成那颗根圆底盘（`UI_Button_Round_background` / 节点名 `Image`）"
+                          + "」。🔴 **改坏法**：把它传成那颗根圆底盘（`UI_Button_Round_background`；它的节点名现在**就是**"
+                          + "`Generic Close Button Orange` 自己 —— ⚠️ **2026-10-18（A1149 第一半）已归真**：改前它挂在一颗"
+                          + "自造子件 `Image` 上，那句旧注释里的 `Image` 已作废）"
                           + "⇒ 两个条件同时不成立 ⇒ 红（错因 = 只读 `m_Transition`、没读 `m_TargetGraphic`）");
                 Check(clWbG != null && clWbG.HoverTexForTest != null ? clWbG.HoverTexForTest.name : "<null>",
                       "40k_general_bt_yellow_hover",
                       "换图的 `art` 实参 = `40k_general_bt_yellow`（原版 `m_SpriteState.m_HighlightedSprite` 逐字相同；"
                       + "`Shell/LeaderboardWindow.cs` 里由 `Bind` 的表外后备 `+_hover` 推出，⛔ 没有写死第二个字符串）"
                       + "—— 把那个 `art` 实参拿掉 ⇒ 这里取到 `<null>` ⇒ 红");
+                // 🆕 **2026-10-18（`A1149` 第二半）**：关窗钮**圆底盘**那颗 quad 的**实绘矩形**两连断
+                //   （期望值 = 原版逐字段直读：`python -I d:/tmp/wf_b4probe/pa.py bundle_menus_assets_all
+                //   "RankedSkirmishLeaderboardPopup" 8` ⇒ 根自己带 `UI_Button_Round_background` ·
+                //   `m_PreserveAspect=1` · 框 **74.38×75.61** · sprite `m_Rect` 237×237 正方 ⇒ 实绘 **74.38×74.38**）。
+                //   本窗圆底盘**改前挂点就是对的**（`Shell/LeaderboardWindow.cs` 画在根节点上）⇒ 第 8 实参不传。
+                //   🔴 **本格与上面 `A1065③` 那两条不同源**：那两条量的是**命中区**（96.86×98.13）与**换图层**，
+                //   一条都不量圆底盘的矩形成像（B5 记的那个静默缺口）。
+                A1125CloseBase("LeaderboardWindow", lbG.transform, "Generic Close Button Orange",
+                               "UI_Button_Round_background", 74.38f, 74.38f, 75.61f);
             }
             lbG.Close();
 

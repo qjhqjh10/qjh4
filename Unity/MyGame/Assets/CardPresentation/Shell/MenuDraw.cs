@@ -2067,20 +2067,22 @@ namespace CardPresentation
         //       **错因**：**A81 那批又加了 5 扇窗**（`DeckInfoPopup:578` · `CampaignRewardWindow:251` ·
         //       `DailyStreakPopup:150` · `InboxWindow:104` · `SettingsWindow:242`）—— A81 那一行自己写着
         //       「全工程站点 **16 → 21**」，**但本段的注释与判据文件都没跟着改**，于是两处都说成 16/17。
-        //    ✅ **正确口径（2026-10-12 A409 逐行现读，铁律 5 就地订正：本条取代上面那个 21/22）**：
-        //       🔴 **真调用 = 23 处**。**口径 = 只数【真调用】，不数【注释散文】**。
+        //    ✅ **正确口径（2026-10-09 第九会话逐行现读，铁律 5 就地订正：本条取代上面所有旧数）**：
+        //       🔴 **真调用 = 32 处**。**口径 = 只数【真调用】，不数【注释散文】**。
         //       · **怎么数的**：`grep -rn "MenuDraw\.ShadeHit(" --include=*.cs`
-        //         （在 `Assets/CardPresentation/` 下）**裸命中 = 27 条**，其中 **4 条是注释散文**
-        //         （`Editor/CollectionScene.cs:190` · `Editor/MainMenuScene.cs:170` ·
-        //         `Editor/RewardsScene.cs:293` · `Editor/ShopScene.cs:874` —— 讲的都是
-        //         「名字是各调用点自己传的形参」那一句）⇒ **27 − 4 = 23**。
-        //       · **数了哪些**：**`Shell/` 22 处**（逐窗一处，全是 `GameWindow` 子类弹窗 ——
-        //         就是下面那串清单 **2 + 13 + 1 + 5 = 21 处** **＋ `Shell/RewardWindow.cs:726`**，
-        //         那个文件 **2026-10-11 批次 2** 才进本仓，是 21 之后新加的那一处）
-        //         **＋ `Editor/ShellScene.cs:2314` 1 处**（自检探针 `BgProbeB` 那扇，**不是生产站点**）。
+        //         （在 `Assets/CardPresentation/` 下）**裸命中 = 37 条**，其中 **5 条是注释散文**
+        //         （`Editor/MainMenuScene.cs:10624` · `Editor/RewardsScene.cs:6162` ·
+        //         `Shell/EnergySinglePlayerOnlyEventWindow.cs:62` · `Shell/MenuDraw.cs:2448` · `:2720`
+        //         —— 后两条就是本段自己的散文）⇒ **37 − 5 = 32**。
+        //       · **数了哪些**：**`Shell/` 31 处**（逐窗一处，全是 `GameWindow` 子类弹窗）
+        //         **＋ `Editor/ShellScene.cs:3380` 1 处**（自检探针 `BgProbeB` 那扇，**不是生产站点**）。
         //       · ➕ 另有 **1 处裁定过的例外**（`Shell/ProfileTab.cs` 里那句 `Hit(_nameWin, "DarkBgHit", …, L_NameBgHit, CancelNameWindow)`，走旧写法、⛔ 不许收口，见下）
-        //         ⇒ **生产站点 = 23 个**（= 上面那 22 扇窗 ＋ 这 1 处例外）。
-        //       ⚠️ 「真调用 23」与「生产站点 23」**数值相同纯属巧合**，是两件事，别混为一谈。
+        //         ⇒ **生产站点 = 32 个**（= 上面那 31 扇窗 ＋ 这 1 处例外）。
+        //       ⚠️ 「真调用 32」与「生产站点 32」**数值相同纯属巧合**，是两件事，别混为一谈。
+        //       ⚠️ **2026-10-09 订正记（`A1169`）**：本条原来写「裸命中 27 · 注释散文 4 · 27 − 4 = 23」，
+        //       而它点名的那 4 条注释散文（`CollectionScene:190` · `MainMenuScene:170` ·
+        //       `RewardsScene:293` · `ShopScene:874`）**现读一条都不是**（其中两个文件里连那个串都没了）。
+        //       **错因 = 只有【总数】在滚、【明细】没跟着重数** ⇒ 以后改这段，**两样一起重数**。
         //       ⚠️ **2026-10-07 就地订正（A77⑬①现读）**：这处例外原来写的行号是 `675` —— 那颗节点
         //       （`Hit(_nameWin, "DarkBgHit", …, L_NameBgHit, CancelNameWindow)`）已被后续波次推到 **`:739`**；
         //       判据文件（`资料/待办判据_审查发现_1005.md` ⑬①）里那个数**也是 675**，同属过期行号。
@@ -2097,16 +2099,16 @@ namespace CardPresentation
         //        ⚠️ `BoosterPackOpenWindow.cs` 的 `95/310` 是**同一处**的常量行与建节点行 ⇒ **只算一处**；
         //        把它数成两处，总数就会变成 18（这一段的上一版就是这么错的）；
         //      · **1 处不在那一批的白名单里**：`ChatPanel` ⇒ **2 + 13 + 1 = 16**（= A81 之前的数）；
-        //      · **A81 又加 5 处**（上面那五扇）⇒ **16 + 5 = 21**（⚠️ **那是 A81 当时的数**；
-        //        现读真值 → 上面那条 2026-10-12 的「真调用 = 23 处」，多出来的 2 处是那之后新加的）✅。
+        //      · **A81 又加 5 处**（上面那五扇）⇒ **16 + 5 = 21**（⚠️ **那是 A81 当时的数，只当历史读**）；
+        //        现读真值 → **本段顶上那条 2026-10-09 的「真调用 = 32 处」**，多出来的都是那之后新加/新数出来的）✅。
         //    🔴 **2026-10-07 就地订正（A77⑬①现读）**：上面那一串 `文件:行号` 是**当时的坐标，多数已漂**
         //       —— 现读的实位：`DeckInfoPopup:633`（原记 578）· `CampaignRewardWindow:260`（251）·
         //       `SettingsWindow:438`（242）· `TrophyInfoPopup:250`（202）；`DailyStreakPopup:150` /
         //       `InboxWindow:104` / `ImportDeckPopup:103` 三处**仍对**。⛔ **要行号就现 `grep -n`**
         //       （老坑：引用的行号会被后续波次推走）。
-        //    ✅ **当前状态（2026-10-12 A409 逐条 grep 过；那之前的 2026-10-07 是 21 处）**：真调用 **23 处**
+        //    ✅ **当前状态（2026-10-09 第九会话逐条 grep 过；⚠️ 数字**只认**本段顶上那一条）**：真调用 **32 处**
         //       （口径与清单见上面那条）**全部**走公共件；
-        //       **只剩 `Shell/ProfileTab.cs` 里那句 `Hit(_nameWin, "DarkBgHit", …, L_NameBgHit, CancelNameWindow)` 一处仍是旧写法**（⇒ 生产站点 = 上面那 22 扇窗 ＋ 这 1 处 = **23 个**）
+        //       **只剩 `Shell/ProfileTab.cs` 里那句 `Hit(_nameWin, "DarkBgHit", …, L_NameBgHit, CancelNameWindow)` 一处仍是旧写法**（⇒ 生产站点 = 上面那 31 扇窗 ＋ 这 1 处 = **32 个**）
         //       （`Hit(_nameWin, "DarkBgHit", …, L_NameBgHit, CancelNameWindow)`）——
         //       🔴 **它是本规矩的第一条【例外】，不是漏掉的欠账**：改名窗是**窗内浮层**，
         //       打开时下层页面内容仍然 active，所以命中档要**夹在下层内容与浮层内容之间**
@@ -2115,7 +2117,7 @@ namespace CardPresentation
         //       那会把改名的按钮点不动）。
         //
         // ⚠️ **落点为什么是 `MenuDraw` 而不是 `MenuWindowBase`**（与 A25⑥ 的措辞有一处出入，理由如下）：
-        //    上面那 22 处 `Shell/` 站点**全都是 `GameWindow` 的子类（弹窗）**，而 `MenuWindowBase.cs` 里那个类
+        //    上面那 31 处 `Shell/` 站点**全都是 `GameWindow` 的子类（弹窗）**，而 `MenuWindowBase.cs` 里那个类
         //    （`MainMenuSubmenuWindow`）只服务**子菜单窗**（奖励/商店/社交/收藏）——
         //    放那儿这些站点**一处也够不着**，等于再多一层皮。`MenuDraw.Hit` 才是它们**本来就在用**的公共件。
         //    ⇒ 这是把「一份」放在**能覆盖全工程**的那一层，不是另起一套。

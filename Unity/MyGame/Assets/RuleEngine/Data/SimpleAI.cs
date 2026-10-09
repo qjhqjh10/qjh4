@@ -628,7 +628,11 @@ namespace RuleEngine
         public static float ScoreStun(UnitState target)
         {
             if (target == null || !target.IsAlive) return 0f;
-            if (target.Has(KeywordTable.CantAttack) || target.Has("unstunnable"))
+            // `unstunnable` 那一半走**共用判定口** —— 原来这里是**第二份裸字符串比较**
+            // （`A1134` 收口到 `RuleCore.StunBlockedByTraits`；判据 = 原版 `CardScript__Stun.c:46`
+            // 的 `HasCurrentTrait(0xfa)`，见 `RuleCore.Unstunnable` 的注释）。
+            // ⚠️ **打分口径不变**（还是那 0.2 倍），改的只是「这条规则在哪儿判」。
+            if (target.Has(KeywordTable.CantAttack) || RuleCore.StunBlockedByTraits(target))
                 return ValueInPlay(target) * 0.2f;
             return target.Attack * (target.IsWarlord ? 1f : 0.5f);
         }

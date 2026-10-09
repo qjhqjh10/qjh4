@@ -121,7 +121,18 @@ namespace CardPresentation
 
         // ---- 自检/诊断口（⛔ 别为了好看藏起来：自检拿不到就只能瞎猜）----
 
-        /// <summary>表里没有的键**被问到**的次数（`T()` 计数）。</summary>
+        /// <summary>表里没有的键**被问到**的次数（`T()` 计数）。
+        /// <para>🔴 **2026-10-19（`A1143`）语义漂了，如实记在这里（⛔ 只是记，行为一个字没改）**：
+        /// 它原本读作「**缺词条【键】**数」，但从 `A1012` 起 **`Shell/PopUpGameWindow.Term()` 也会把
+        /// 【明文站点】传进来的整句明文字符串喂给 `T()`**（壳侧 20+ 个调用点传的是明文、不是键，
+        /// 见 `Shell/WindowsManager.cs` 里那两处「它们各自传的都是【明文】」）
+        /// ⇒ 今天的口径是「**被问到的、而表里没有的【字符串】**数」——**不一定都是词条键**。
+        /// 判据：同一个明文字符串第一次被问到也会 +1（`_warnedMissing` 只去重**日志**、不去重记账）。</para>
+        /// <para>⚠️ **今天没有任何断言读它的【绝对量】**（全是「进来时存一份、出去比增量」，逐条核过：
+        /// `Editor/BattleScene.cs` 的「提示码那节」· `Editor/DeckScene.cs` 的去重那两条 ·
+        /// `Editor/SettingsScene.cs` 的 `ResetMissingWarnedForTest` 那节）⇒ 漂了也不红；
+        /// 🔴 但**将来若有谁写「`MissingCount` 必须为 0」这类绝对断言，会被明文站点这一族【假红】**——
+        /// 要用就用**增量**写法（同那三条先例）。</para></summary>
         public static int MissingCount { get; private set; }
         /// <summary>最后一个没查到的键（自检/日志要能说出是哪一个）。</summary>
         public static string LastMissingKey { get; private set; }
@@ -324,14 +335,23 @@ namespace CardPresentation
             //   如实标注（先例 = `MenuDeck/Button/Random` / `MenuDeck/MenuButtons/ImportDeck` 那一族）。
             //   措辞取**现有兜底句去掉字符数那一截**（`DeckRuntime.ShareCopiedText`），
             //   让接上之后界面文案的**变化面最小**。
-            // 🔴 **接线前后【有行为变化】，如实记在这儿**：消费侧
-            //   `Shell/DeckInfoPopup.cs` 的 `MessageToast.Show(ShareSuccessTerm, true, 兜底句)`
-            //   走的是 `ErrorMessageBanner.ShowMessage` 的**两态支**（`Loc.HasEntry(键)` 真 ⇒ 用表里
-            //   这条；假 ⇒ 才用兜底句）⇒ **本键一落表，那条 `（N 字符）` 就不再显示了**。
-            //   要保住字符数得**改调用点**（把 N 拼进文案，或走带参数的口）——
-            //   调用点在 `Shell/`（**不在本批白名单**）⇒ 这一笔**只报不改**，留给调度台派活。
-            // 消费侧 = `Shell/DeckInfoPopup.cs:1429`（`ShareSuccessTerm` 那个常量上写着键的判据）。
-            { "MenuDeck/Share/ExportSuccesful",               new Entry("卡组串已复制到剪贴板", "Deck code copied to your clipboard") },
+            //   ⚠️ **但那一版把「（N 字符）」一起丢了**（`A1050` 的选择）⇒ `A1153` 已把它接回来
+            //      （本条目现在的值**带 `{0}`**，见下面那段更新）。
+            // 🔴 **2026-10-19（第九会话 · `A1153`）就地更新（铁律 5）：下面那段「只报不改」已过期。**
+            //   ⚠️ **原来写 X**：「本键一落表，那条 `（N 字符）` 就不再显示了 …… 要保住字符数得改调用点
+            //      （把 N 拼进文案，或走带参数的口）—— 这一笔**只报不改**，留给调度台派活」。
+            //   ⚠️ **实际是 Y**：字符数那一截**已经接回来了**，做法 = 本条的值改成**带 `{0}` 的模板**
+            //      （`{0}` = 卡组串长度）+ 调用点（`Shell/DeckInfoPopup.cs` 的 `ShareDeck`）用
+            //      `string.Format(Loc.T(键), s.Length)` 取词 ⇒ **中文档与改前【逐字相同】**
+            //      （改前走兜底句 `DeckRuntime.ShareCopiedText(len)`，它拼的就是「卡组串已复制到剪贴板（N 字符）」；
+            //       那句兜底句**一个字没动**，仍是「表里没这条键」那一支的文案）。
+            //   ⚠️ **错因 Z**：`A1050` 落值时按「去掉字符数、变化面最小」选了措辞，那一步**把字符数一起丢了**
+            //      ⇒ 现在用模板把它接回来。顺带修好英文档：改前 EN 档看到的是**中文**兜底句，现在是英文模板。
+            //   ⚠️ 本表里带 `{0}` 的模板本来就有不少（`MenuDeck/Error/NoDeckForMode` ·
+            //      `Settings/Online/Lobby/PeerLostHint` …）；🔴 但**取词与格式化必须是同一处** ——
+            //      这条键的 `String.Format` 只在 `ShareDeck` 那一处做，⛔ 别在别处再折一次。
+            // 消费侧 = `Shell/DeckInfoPopup.cs` 的 `ShareDeck`（`ShareSuccessTerm` 那个常量上写着键的判据）。
+            { "MenuDeck/Share/ExportSuccesful",               new Entry("卡组串已复制到剪贴板（{0} 字符）", "Deck code copied to your clipboard ({0} characters)") },
 
             // ------------- 🆕 **2026-10-17（A891）：导入窗那个 `Confirm` 钮的词条** -------------
             // 节点 = `Import Deck Popup/Window/Buttons/Generic UI Button/**Button Text**`（同一份 prefab）。
@@ -1042,6 +1062,34 @@ namespace CardPresentation
             { "MenuDeck/Error/EffectOnlyCard",          new Entry("这张是效果生成的卡（药剂/破坏/秘仪），不能放进卡组",
                                                                 "This is an effect-generated card (Elixir / Sabotage / Ritual) and cannot go into a deck") },
 
+            // ============================================================ 🆕 **2026-10-19（第九会话 · `A1133`）：原版【数字族】那三条键**
+            //
+            // 🔴 **为什么要补**：原版 `DeckUtility.ToRawLocalizationString(err)`（`DeckUtility__ToRawLocalizationString.c`）
+            //   拼的是**数字键** —— 格式串 `"MenuDeck/Error/{0}"`（`DAT_1842cfbf0` 地址表读数，见
+            //   `资料/普查产出_1011/WB1_A330.md` §2.4 那四行表；我们这边的同名常量 = `DeckRuntime.MenuDeckErrorKeyFmt`），
+            //   `{0}` = **原版 `DeckError` 的号**（**本件现读** `d:/2/Warpforge_code/Scripts/Assembly-CSharp/DeckError.cs:1-10`：
+            //   `None=0 · CardsNotOwned=1 · MissingHero=2 · InvalidDeckBannedCards=3 · InvalidDeck=4 · IncompleteDeck=5`）。
+            //   ⚠️ 而本表原来**只有具名族**（上面那 13 条 `"MenuDeck/Error/" + 枚举名`，是我们 `G9` 仿形状起的名字）
+            //   ⇒ `DeckRuntime.MenuDeckErrorKey` 现读走 `Loc.HasEntry(数字键)` **恒假** ⇒ 那扇窗**永远退成兜底键**
+            //   `MenuDeck/Error/InvalidDeck` ⇒ **永远只说「卡组不合法」，说不出到底是缺战将 / 别的不合法 / 张数不对**。
+            // ⛔ **别拿具名族的文案去「顶替」这两族**：`MenuDeck/Error/TooFewCards`（具名，我们起的名）与
+            //   `MenuDeck/Error/5`（原版数字键）**是两条不同的键** —— **键名必须照原版**，两族并存（原版自己也是两族并存）。
+            // 🔴 **两列文案都是我们自拟的**（⛔ 不许写成「原版文案」）：原版那套值在**远端 I2 语言表**里，
+            //   本地取不到（84 个本地 bundle 无 `localization_assets_all.bundle`，同本文件头那段）——
+            //   按本仓口径（先例 = `MenuDeck/Button/Random`）**如实标「自拟」**。
+            //   措辞**取我们具名族里同义的那条**（只为让中文档读起来与今天一致，**不是**「原版这么写」）：
+            //   2 ↔ `NoWarlord`（原版 `MissingHero`）· 4 ↔ 兜底键 `InvalidDeck`（原版 catch-all）· 5 ↔ `TooFew/TooManyCards`（原版 `IncompleteDeck`）。
+            // 🔴 **号→义的映射只有一处** = `DeckRuntime.MenuDeckErrorNumber`（那张表上面写着逐条出处）——
+            //   本表只按那三个号落键，⛔ 别在这儿再推一遍。
+            // ⚠️ **1（`CardsNotOwned`）与 3（`InvalidDeckBannedCards`）不补**：我们**永远不回**这两个号
+            //   （前者是持有数、单机全解锁 ⇒ 恒真；后者是 LiveOps 远端下发的禁卡表、本地没有那个数据源）
+            //   ⇒ 补了就是两条**恒不会被问到**的空键。判据同上段那张表。
+            // 账 → `项目任务.md` §29·b 的 `A1133`；判据原文 → `资料/普查产出_第八会话/E14_A1012后半中心修.md` §④·C。
+            // 消费侧 = `Deck/DeckRuntime.cs` 的 `MenuDeckErrorKey`（选键）+ `Shell/PopUpGameWindow.cs` 的 `Term`（取字）。
+            { "MenuDeck/Error/2",                       new Entry("卡组还没有选战将", "This deck has no warlord yet") },              // 原版号 2 = MissingHero · ZH/EN **自拟**
+            { "MenuDeck/Error/4",                       new Entry("卡组不合法", "Invalid deck") },                                    // 原版号 4 = InvalidDeck（catch-all）· ZH/EN **自拟**
+            { "MenuDeck/Error/5",                       new Entry("卡组张数不对", "This deck has the wrong number of cards") },        // 原版号 5 = IncompleteDeck · ZH/EN **自拟**
+
             // ============================================================ 🆕 **2026-10-18（第四会话 · 双语③ 波 0）：现读扫出的缺键**
             //
             // 🔴 **这一批不是新功能，是「键早就写在代码里、表里却一直没有」** —— `Loc.T` 对缺键的行为是
@@ -1615,8 +1663,11 @@ namespace CardPresentation
             //  ---------------------------------------------------------- ⑬·B `Settings/Online/Lobby/*` · 17 条
             //  出处：`NetMatchmaking.cs` `:197`(+`:198-200`) · `:212`(+`:213-215`) · `:249` · `:233` · `:360/:362/:363`
             //    · `:402-406` · `:427` · `:466-467` · `:502-503` · `:509-510` · `:539-540` · `:587`
-            //  ⚠️ 这 19 处里 `PeerLostHint`/`PeerLeftHint` 是**提示行**（`SearchingMatchPopup.HintLineMaxChars = 40`，超了会 `LogWarning`）
-            //     ⇒ P6 §⑤ 要求自检额外断 `Loc.T(键).Length <= 40`。
+            //  ⚠️ 这 19 处里 `PeerLostHint`/`PeerLeftHint` 是**提示行**（尺子 = `Shell/SearchingMatchPopup` 的
+            //     `HintLineWidth(句) > HintLineMaxWidth`，**80 个半宽字位**；其中 `HintLineMaxChars = 40` 是
+            //     **中文档**那一档的上限 —— ⛔ 别再写成「40 字」的预算（那是 `A1083` 改尺子**之前**的口径）。
+            //     超了会 `LogWarning`）⇒ P6 §⑤ 要求自检额外断 `Loc.T(键).Length <= SearchingMatchPopup.HintLineMaxChars`
+            //     （**只量中文列**：字符数 ≤ 40 ⇔ 全宽 ≤ 80 位，是同一条尺子的**更严**半边，见那条常量的 doc）。
             //  ⚠️ `{0}`/`{1}` 的含义逐条不同（`PeerLeftHint` 的 `{0}` = 对方报的离开理由、`{1}` = 本地撤销那半句）⇒ 拼法见调用点。
             { "Settings/Online/Lobby/PeerLostHint",         new Entry("对面掉线了，{0}（两边回来各点一次 `Battle!`）",
                                                             "Opponent disconnected, {0} (both of you press Battle! again after they return)") },
@@ -1628,7 +1679,8 @@ namespace CardPresentation
             //  🆕 **2026-10-19（P6d · A1079②）**：`NetMatchmaking.DeferToBattleLayer(what)` 的两个 **`what` 碎片**
             //    —— 它们喂 `Lobby/DeferToBattle` 的 `{0}`，原来是**裸中文字面量**（英文档下会冒中文）。
             //    🔴 **为什么不改父键形状**（把 `DeferToBattle` 拆成两条整句键）：父键在
-            //    `Editor/NetSelfTest.cs` 的键清单里、也在这条 40 字预算的账里（`NetMatchmaking` 的注释逐字引它）
+            //    `Editor/NetSelfTest.cs` 的键清单里、也在**提示行尺子**的账里（尺子 = `Shell/SearchingMatchPopup` 的
+            //    `HintLineWidth(句) > HintLineMaxWidth`，**80 个半宽字位**；`NetMatchmaking` 的注释逐字引它）
             //    ⇒ 拆了要动**别的格**；**碎片键的代价只落在这一处**。⇒ 选「碎片建成独立键」。
             //    ⚠️ **两张原版表都搜过、0 命中** ⇒ 键名 + 两列全自拟；ZH 列 = 调用点原话逐字（中文档零变化）。
             //    ⚠️ 这两个碎片**只**用在 `DeferToBattle` 的 `{0}` 上；`Lobby/PeerLostHint`/`PeerLeftHint`
@@ -1807,7 +1859,8 @@ namespace CardPresentation
             //     **P6d 已经把线接完了** —— 做法**不是**发那串已渲染的中文，而是**线上发词条键**、
             //     收侧 `NetProtocol.NetWireText.Unpack` 按**它自己的语言**取词
             //     （编码、兼容面与「为什么不 + 协议版本号」→ `NetWireText` 的类注释）。
-            //     ⇒ 「两端要同批更新」这句话**不再成立**：**不 +版本号**、旧端收键名照印（≤40 字、不被钳）。
+            //     ⇒ 「两端要同批更新」这句话**不再成立**：**不 +版本号**、旧端收键名照印（键名是纯 ASCII、
+            //        且长度 ≤ `NetProtocol.MaxPeerTextChars`(40) ⇒ `ClampPeerText` 那一闸不会截它）。
             //
             //  🔴 **2026-10-19（P6d）另一处就地订正（铁律 5）：上面那句「`St/*` 与 `Wire/*` 是两族」【部分作废】。**
             //     分族的真正判据不是「本机显示 vs 发给对面」，而是「**两个角色下要印的那句话措辞是否相同**」：

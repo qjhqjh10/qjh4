@@ -661,7 +661,16 @@ namespace CardPresentation
 
         void BuildCloseButton()
         {
-            var close = Node(transform, "Generic Close Button Orange", CloseR);
+            // 🔴🔴 **2026-10-18（A1149 第一半）圆底盘【挂点】归真**（本件 = 第九会话 P6）：
+            //   改前圆底盘画在一颗**自造子件 `Image`** 上、而节点 `Generic Close Button Orange` 是颗**裸节点**；
+            //   原版那颗 `Image` **就长在根节点 `Generic Close Button Orange` 自己身上**（无独立子件名）。
+            //   判据（逐字段直读）=
+            //   `python -I d:/tmp/wf_b4probe/pa.py bundle_menus_assets_all "RankedSkirmishLeaderboardPopup" 8`：
+            //   根 `Generic Close Button Orange` 自己带 `Image`：`UI_Button_Round_background` ·
+            //   `m_Type=0`(Simple) · **`m_PreserveAspect=1`** · `m_PixelsPerUnitMultiplier=1.0` ·
+            //   `m_RaycastTarget=0` · 矩形 **74.38×75.61**；贴图 `m_Rect` = **237×237 正方** ⇒ 实绘 **74.38×74.38**。
+            //   ⇒ 照兄弟窗先例 `Shell/BaseOfferPopup.cs:742-743` / `Shell/ReferralPopupWindow.cs:386-387` 的形状
+            //   （`Rect` 画在根节点上、图取不到才退回 `Node`）。矩形与 `keepAspect` **改前就是对的**（本处只改挂点）。
             // 三件**都是 `preserveAspect`**（正本 §A·4·7）；`Image` 自己的底图 **m_Enabled 是开的**
             //（与 `BattleLogPopup` 那颗不同 —— 那边底图 m_Enabled=0、只画两个子件）。
             // 🔴 **换图落在「按钮脸」那一层**（= 子件 `Background`，画的是 `ArtCloseCircle` = `40k_general_bt_yellow`），
@@ -682,7 +691,8 @@ namespace CardPresentation
             //   ⛔ **`art` 实参传的是【常态图名】**（= 换图那一层的图）：`Bind` 由它推高亮/按下图
             //      （表外后备 `+_hover`、`PressedNames` 里 `40k_general_bt_yellow → …_pressed`）
             //      ⇒ 两个图名与上面读到的原版 `m_SpriteState` **逐字相同**，不必再写死字符串。
-            var closeBaseQ = Rect(close, ArtCloseBg, CloseR, "Image", QBg, null, true);   // ⛔ 只画，**不做换图目标**
+            var closeBaseQ = Rect(transform, ArtCloseBg, CloseR, "Generic Close Button Orange", QBg, null, true);   // ⛔ 只画，**不做换图目标**
+            var close = closeBaseQ != null ? closeBaseQ.transform : Node(transform, "Generic Close Button Orange", CloseR);
             var closeFaceQ = Rect(close, ArtCloseCircle, CloseInnerR, "Background", QContent, null, true);
             Rect(close, ArtCloseIcon, CloseInnerR, "Icon", QContent, null, true);
             // 🆕 A17：原版 `…>RankedSkirmishLeaderboardPopup` 那颗 `Generic Close Button Orange` 是 SpriteSwap、

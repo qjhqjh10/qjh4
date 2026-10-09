@@ -207,7 +207,8 @@ namespace CardPresentation.Net
     /// <para>**为什么不 +`NetProtocol.Version`**（主对话 2026-10-19 裁定）：照**同族先例**
     /// `NetPendingBattle.PlayMode` + `PlayModeNames.Parse`（`Net/NetBattle.cs` + `RuleEngine/Core/GameplayVariables.cs`）
     /// —— 那一条也换了线上字符串的编码、也**没有** +版本号，靠**收侧出声兜底**。两端的兼容表现：
-    ///   · **旧端收新键** ⇒ `HasEntry` 假 ⇒ **原样印出键名**（≤ 40 字、连 `ClampPeerText` 都不会截）、
+    ///   · **旧端收新键** ⇒ `HasEntry` 假 ⇒ **原样印出键名**（键名是纯 ASCII，长度 ≤ `MaxPeerTextChars`(40)
+    ///     ⇒ 连 `ClampPeerText` 都不会截）、
     ///     不崩、不忽略（`NetSession` 的 `Bye`/`Ack` 与 `NetBattle` 的 `Reject` 三条收包路都验过）；
     ///   · **新端收旧中文串** ⇒ `HasEntry` 假 ⇒ **原样回显** ⇒ **显示恰好正确**（这是白赚的兼容）。
     /// ⛔ **别改成「不认识的串一律落一句本地固定话」** —— 那会让新端**丢掉对面那句话**，
@@ -215,8 +216,9 @@ namespace CardPresentation.Net
     /// 断的正是「那条话里带着对面报的理由」，会当场红。</para>
     ///
     /// <para>⚠️ **钳位次序是硬的**：**先 `NetSession.ClampPeerText`（钳【对端可控的原串】）再 `Unpack`（取词）**。
-    /// 反过来的话，取完词的那句是**我们自己的文案**（英文列可到 90+ 字），拿 40 去钳它会把
-    /// 我们自己的话截掉 —— 而那个 40 的判据本来是「**对端塞进来的**那一段不该比整行提示还长」。</para>
+    /// 反过来的话，取完词的那句是**我们自己的文案**（英文列可到 90+ 字），拿 `MaxPeerTextChars`(40)
+    /// 去钳它会把我们自己的话截掉 —— 而那个 40 的判据本来是「**对端塞进来的**那一段不该比整行提示
+    /// 还长」（判据的出处与「为什么恰好取 40」见下面 `MaxPeerTextChars` 的 doc）。</para>
     /// </summary>
     public static class NetWireText
     {
@@ -282,9 +284,15 @@ namespace CardPresentation.Net
         /// 还留着一条硬行号 `Shell/SearchingMatchPopup.cs:408`（也已落空）⇒ **已改成符号名**
         /// `Shell/SearchingMatchPopup.HintLineMaxChars`。**本文件剩余写死行号：0 处。**</para>
         ///
-        /// <para>**取 40 的判据** = 提示行自己的那条上限：`Shell/SearchingMatchPopup.HintLineMaxChars`
-        /// （= 40；B17 已解；超长只 `LogWarning`、**照画**）——「对端塞进来的那一段」
-        /// 不该比**整行提示**的预算还长。那个常量落在 `Shell/`，这里不引它（`Net/` 不该依赖 `Shell/`），
+        /// <para>**取 40 的判据** = 提示行自己的那条预算：`Shell/SearchingMatchPopup.HintLineMaxChars`
+        /// （= **40 个汉字**，即 `HintLineMaxWidth ÷ 2` —— 那把尺子的总预算是 **80 个半宽字位**；
+        /// `B17` 已解；超长只 `LogWarning`、**照画**）——「对端塞进来的那一段」
+        /// 不该比**整行提示**的预算还长。
+        /// 🔴 **2026-10-19（第九会话 · `A1131`）就地补口径（铁律 5）**：提示行的尺子自 `A1083` 起已经不是
+        ///   「字符数 ≤ 40」而是「`HintLineWidth(句) > HintLineMaxWidth` = **80 个半宽字位**」（中英混排按字算）。
+        ///   这里取 40 是**照【汉字】那一档**取的（40 个全宽字 = 80 位，两档同值、所以数值不用改），
+        ///   ⛔ 别把它读成「整行提示统共只放得下 40 个字位」。
+        /// 那两个常量都落在 `Shell/`，这里不引它们（`Net/` 不该依赖 `Shell/`），
         /// **数值照抄、出处写在这儿**。</para>
         ///
         /// <para>⚠️ **这是我们自拟的口径，不是复刻**（铁律 3 要求如实标出）：原版**没有**对端可控文本

@@ -301,11 +301,23 @@ namespace CardPresentation
             //   —— 原版 `Generic Close Button Orange` 的 `m_Children` = `[Background, Icon]`（dump 的缩进
             //   也写着它们是**子件**）。⛔ 层级错了会**静默**：节点按名字找得到、`FindChild(父, "Background")`
             //   却找不到（同步点实跑就是这么红的：6 条「节点不在」）。
-            //   ⚠️ 我们这颗钮的**自己那张图**（原版是钮身上那颗 `Image`）只能另开一层 —— 本工程一个
-            //   `ImageQuad` 占一个 GameObject ⇒ 命名成 `Image`（照本仓「节点自己那颗图」的先例）。
-            var closeNode = MenuDraw.Node(win, "Generic Close Button Orange", CloseR);
-            var closeBg = MenuDraw.Rect(closeNode, Tex("UI_Button_Round_background"), CloseR,
-                                        "Image", QClose, null, true);
+            //   🔴🔴 **2026-10-18（A1149 第一半）圆底盘【挂点】归真**（本件 = 第九会话 P7）：
+            //     改前圆底盘画在一颗**自造子件 `Image`** 上、而 `Generic Close Button Orange` 是颗**裸节点**
+            //     （上面那条注释原来写着「本工程一个 `ImageQuad` 占一个 GameObject ⇒ 只能另开一层」——
+            //      **那句是错的**：`MenuDraw.Rect` 的 `name` 实参就是**那颗 quad 自己的 GO 名**
+            //      （`ImageQuad.Create(parent, …, name)`），⛔ 不需要先 `Node` 再 `Rect` 套一层）。
+            //     原版那颗 `Image` **就长在根节点自己身上**（无独立子件名）。
+            //     判据（逐字段直读）= `python -I d:/tmp/wf_b4probe/pa.py bundle_menus_assets_all
+            //     "Alliance Trophy Info Popup" 8`：根 `Generic Close Button Orange` 自己带 `Image`：
+            //     `UI_Button_Round_background` · `m_Type=0`(Simple) · **`m_PreserveAspect=1`** ·
+            //     `m_PixelsPerUnitMultiplier=1.0` · `m_RaycastTarget=0` · 矩形 **74.39×75.61**；
+            //     贴图 `m_Rect` = **237×237 正方** ⇒ 实绘 **74.39×74.39**。
+            //     ⇒ 照兄弟窗先例 `Shell/InboxWindow.cs:386-387` / `Shell/ChatPanel.cs:307-308` 的形状
+            //     （`Rect` 画在根节点上、图取不到才退回 `Node`）。矩形与 `keepAspect` **改前就是对的**。
+            var closeBg = MenuDraw.Rect(win, Tex("UI_Button_Round_background"), CloseR,
+                                        "Generic Close Button Orange", QClose, null, true);
+            var closeNode = closeBg != null ? closeBg.transform
+                                            : MenuDraw.Node(win, "Generic Close Button Orange", CloseR);
             var closeFaceQ = MenuDraw.Rect(closeNode, Tex("40k_general_bt_yellow"), CloseBgR,
                                            "Background", QClose, null, true);
             MenuDraw.Rect(closeNode, Tex("40k_general_bt_yellow_close"), CloseBgR,

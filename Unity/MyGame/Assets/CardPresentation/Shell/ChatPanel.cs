@@ -283,7 +283,17 @@ namespace CardPresentation
                 "[Chat] `TrySendMessage`：**没有服务器**，也没有 `ChatGlobalManager` 的对等物 ⇒ 发不出去。"));
 
             // 右上关闭钮（`ChatPanel.closeButton` 指的就是它）
-            var close = Node(chat, "Generic Close Button Orange", CloseBtnR);
+            // 🔴🔴 **2026-10-18（A1149 第一半）圆底盘【挂点】归真**（本件 = 第九会话 P6）：
+            //   改前圆底盘画在一颗**自造子件 `Background Round`** 上、而 `Generic Close Button Orange` 是颗**裸节点**；
+            //   原版那颗 `Image` **就长在根节点自己身上**（无独立子件名）。
+            //   判据（逐字段直读）=
+            //   `python -I d:/tmp/wf_b4probe/pa.py bundle_menus_assets_all "ChatPanel" 8`：
+            //   根 `Chat/Holder/Chat/Generic Close Button Orange` 自己带 `Image`：
+            //   `UI_Button_Round_background` · `m_Type=0`(Simple) · **`m_PreserveAspect=1`** ·
+            //   `m_PixelsPerUnitMultiplier=1.0` · `m_RaycastTarget=0` · 矩形 **74.39×75.61**；
+            //   贴图 `m_Rect` = **237×237 正方** ⇒ 实绘 **74.39×74.39**。
+            //   ⇒ 照兄弟窗先例 `Shell/BaseOfferPopup.cs:742-743` / `Shell/ReferralPopupWindow.cs:386-387` 的形状
+            //   （`Rect` 画在根节点上、图取不到才退回 `Node`）。矩形与 `keepAspect` **改前就是对的**（本处只改挂点）。
             // 🆕 **2026-10-18（A1058 · 第六会话批 2）**：悬停换图那一层 = **子件 `Background`**
             //   （画的是 `40k_general_bt_yellow`，= 下面那颗 `closeFaceQ`），⛔ **不是圆底盘**。
             //   判据（原版 prefab 亲读）=
@@ -294,7 +304,8 @@ namespace CardPresentation
             //   ⚠️ **2026-10-18 更正（铁律 5）**：原注释写「`trans=2` 换的是它自己的 Image」——
             //   **那句是错的**（错因 = 只读 `m_Transition`、没读 `m_TargetGraphic`）⇒
             //   改前悬停把**圆底盘**换成黄圆图、黄圆本身不变。
-            var closeBase = Rect(close, "UI_Button_Round_background", CloseBtnR, "Background Round", QBg, null, true);
+            var closeBase = Rect(chat, "UI_Button_Round_background", CloseBtnR, "Generic Close Button Orange", QBg, null, true);
+            var close = closeBase != null ? closeBase.transform : Node(chat, "Generic Close Button Orange", CloseBtnR);
             var closeFaceQ = Rect(close, "40k_general_bt_yellow", CloseIconR, "Background", QContent, null, true);
             Rect(close, "40k_general_bt_yellow_close", CloseIconR, "Icon", QContent + 1, null, true);
             // 🆕 A17：原版 `Chat>Holder>ChatPanel>Generic Close Button Orange` 是 SpriteSwap（实测 HL 见下）
