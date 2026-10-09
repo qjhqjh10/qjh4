@@ -507,7 +507,12 @@ namespace CardPresentation
         /// **全是 `Deck info` 的直接子件**；`Background Info` 实读是**空容器**。</summary>
         void BuildDeckInfo(Transform root)
         {
-            _txtArmy = Txt(root, SelectedArmyName(), ArmyTxL, ArmyTxR, ArmyTxT, ArmyTxB, 36f, Align.Center, "Selected Army Title", QPrText);
+            // 🆕 **A1205 接上**（`R5` §2·H #46：原版 `Deck Selector ▸ Deck Buttons ▸ Selected Army Title`
+            //    = `auto[1~36] · base 23 · 折行 1`）⇒ 折行档 = 1，`wrapPx` = 本格框宽
+            //    （原版那颗的宽由布局排出来、prefab 里是模板位 ⇒ **这一格不是原版字段值**，
+            //     同 `Shell/SettingsWindow.cs:4717` 那条登记）。
+            _txtArmy = Txt(root, SelectedArmyName(), ArmyTxL, ArmyTxR, ArmyTxT, ArmyTxB, 36f, Align.Center, "Selected Army Title", QPrText,
+                           wrapPx: ArmyTxR - ArmyTxL, autoMinPx: 1f, autoMaxPx: 36f, autoBasePx: 23f);
 
             // `Deck info` —— **容器本身没有图**（红底在子件 `Generic Window Red Background Big` 上，见常量段注释）
             // 🔴 **2026-10-11（A332）**：矩形随节点一起写（`InfoL/InfoT/InfoR/InfoB` = 638.38,78.79→1842.38,863.77
@@ -557,13 +562,17 @@ namespace CardPresentation
         {
             var d = CollectionData.DeckAt(DeckIndex);
             var wl = CollectionData.Warlord(DeckIndex);
-            _txtDeckName = Txt(_info, d.Name, DnL, DnR, DnT, DnB, 36f, Align.Left, "Deck Name", QPrText);
+            // 🆕 **A1205 接上**（`R5` §2·H #47：原版 `Deck info ▸ Deck Name` = `auto[1~36] · base 22.68 · 折行 1`）
+            _txtDeckName = Txt(_info, d.Name, DnL, DnR, DnT, DnB, 36f, Align.Left, "Deck Name", QPrText,
+                               wrapPx: DnR - DnL, autoMinPx: 1f, autoMaxPx: 36f, autoBasePx: 22.68f);
             // 「未选战将」在本文件有三处（建窗这一处 + 两个 `SetText` 刷新点）—— **一律**走同一条词条
             // `MenuDeck/Error/NoWarlord`，施工单 §附_Shell #1 判「复用，别新造」。
             // ⚠️ **如实记**：表里中文列是「还没有选战将」—— 与改前写死的「未选战将」**不同字**，这是有意的
             //    （键名/两列都由 `Loc` 定，⛔ 别为「保住旧字」另立一条同义键，铁律 6）。
+            // 🆕 **A1205 接上**（`R5` §2·H #48：原版 `Deck info ▸ Warlord Name` = `auto[1~35] · base 24.3 · 折行 1`）
             _txtWarlord = Txt(_info, wl != null ? wl.Name : Loc.T("MenuDeck/Error/NoWarlord"), WnL, WnR, WnT, WnB, 35f,
-                              Align.Left, "Warlord Name", QPrText);
+                              Align.Left, "Warlord Name", QPrText,
+                              wrapPx: WnR - WnL, autoMinPx: 1f, autoMaxPx: 35f, autoBasePx: 24.3f);
             _armyIcon = Img(_info, DeckRuntime.FactionIcon(d.Faction), ArmImgL, ArmImgT, ArmImgR, ArmImgB,
                             "Army Image", QPrRow, true);
         }
@@ -594,8 +603,11 @@ namespace CardPresentation
             //   · `cost drawer` **1329.20,405.18→1487.35,604.24** · **`localScale 1.2`**（`Deck Info Popup` 那份是 1.8）
             //   🔴 **画法不在这儿**：与 `Deck Info Popup` 那扇共用 `Core/CostCurveDrawer`
             //      （CLAUDE.md §三：两处写同一条规则 = 迟早不一致）。
+            // 🆕 **A1205 接上**（`R5` §2·H #49：原版 `Deck info ▸ General container ▸
+            //    Deck Information Cost/balance text` = `auto[1~34] · base 22.3 · 折行 1`）
             Txt(_general, "Card / Energy cost", CostTxtL, CostTxtR, CostTxtT, CostTxtB, 34f, Align.Center,
-                "Deck Information Cost/balance text", QPrText);
+                "Deck Information Cost/balance text", QPrText,
+                wrapPx: CostTxtR - CostTxtL, autoMinPx: 1f, autoMaxPx: 34f, autoBasePx: 22.3f);
             {
                 var counts = CostCurveDrawer.Counts(CollectionData.Raw(DeckIndex), CollectionData.Card);
                 CostCurveDrawer.Build(_general, CostDrwCX, CostDrwCY, CostDrwScl, counts, QPrRow, QPrText);
@@ -619,7 +631,11 @@ namespace CardPresentation
                   () => ShowDeckContent());
 
             Img(_general, "UI_Button_Mulligan", ChgL, ChgT, ChgR, ChgB, "Change Deck Bg", QPrRow, true);
-            Txt(_general, "Change Deck", ChgL, ChgR, ChgT, ChgB, 45f, Align.Center, "Change Deck Text", QPrText);
+            // 🆕 **A1205 接上**（`R5` §2·H #50：原版 `General container ▸ Generic Simplified UI Button ▸
+            //    Button Text` = `auto[10~45] · base 12 · **折行 0**`）—— 本方法 8 处里**唯一**折行 0 的一处
+            //    ⇒ `wrapPx` 缺省 0（漏斗内部会 `SetWrapping(false)` 把 `SetWrapWidth` 开的 `Normal` 还原）。
+            Txt(_general, "Change Deck", ChgL, ChgR, ChgT, ChgB, 45f, Align.Center, "Change Deck Text", QPrText,
+                autoMinPx: 10f, autoMaxPx: 45f, autoBasePx: 12f);
             // ✅ 原版这条就是 `DeckGeneralInfoDemo.ChangePlayerDeckButton`
             //    → `WindowsManager.OpenWindow(new DeckSelectionContext(...))`（`…__ChangePlayerDeckButton.c`）。
             HitOn(_general, _general, "ChangeDeckHit", new PxRect(ChgL, ChgT, ChgR, ChgB), () => OpenDeckSelection());
@@ -775,7 +791,9 @@ namespace CardPresentation
             // 2) `Back`（圆钮 + 箭头 + 文案）
             Img(root, "UI_Button_Round_background", BackL, BackT, BackR, BackB, "Back Bg", QPrRow, true);
             var backIc = Img(root, "40k_UI_bt_back", BackIcL, BackIcT, BackIcR, BackIcB, "Back Icon", QPrRow, true);
-            Txt(root, "Back", BackTxL, BackTxR, BackT, BackB, 45f, Align.Left, "Back Text", QPrText);
+            // 🆕 **A1205 接上**（`R5` §2·H #51：原版 `Back button ▸ Text` = `auto[1~45] · base 31.9 · 折行 1`）
+            Txt(root, "Back", BackTxL, BackTxR, BackT, BackB, 45f, Align.Left, "Back Text", QPrText,
+                wrapPx: BackTxR - BackTxL, autoMinPx: 1f, autoMaxPx: 45f, autoBasePx: 31.9f);
             // 🆕 A17：原版 `Practice Mode Menu` 的 `Back button` 是 SpriteSwap（普查 §块 5 第 21 行）
             var backHit = Hit(root, root, "BackHit", new PxRect(BackL, BackT, BackR, BackB), () => Close());
             var backWb = backHit != null ? backHit.GetComponent<WindowButton>() : null;
@@ -790,7 +808,10 @@ namespace CardPresentation
             //   那颗 `Image` 的 **`m_RaycastTarget = 1`**（2026-10-06 `rayscan` 实读）—— 射线打到它自己、
             //   父链上没有点击处理器（关窗那颗 `BackgroundCloseButton` 在压暗层上）⇒ 原版**什么都不做**。
             MenuDraw.Absorb(root, "AbsorbHit", new PxRect(DbtnL, DbtnT, DbtnR, DbtnB), QPr, QPrHit);
-            Txt(root, "Select deck to play", TipL, TipR, TipT, TipB, 38f, Align.Center, "tooltip", QPrText);
+            // 🆕 **A1205 接上**（`R5` §2·H #52：原版 `Deck Selector ▸ Deck Buttons ▸ tooltip`
+            //    = `auto[1~38] · base 23.2 · 折行 1`）
+            Txt(root, "Select deck to play", TipL, TipR, TipT, TipB, 38f, Align.Center, "tooltip", QPrText,
+                wrapPx: TipR - TipL, autoMinPx: 1f, autoMaxPx: 38f, autoBasePx: 23.2f);
             BuildArmySelector(root);
             BuildDeckRows(root);
 
@@ -806,7 +827,10 @@ namespace CardPresentation
 
             Img(root, "40k_bt_underbutton", ContL, ContT, ContR, ContB, "Continue Button", QPrRow, true,
                 new Color(0.369f, 0.894f, 0.587f, 1f));
-            Txt(root, "Battle!", BtTxL, BtTxR, BtTxT, BtTxB, 45f, Align.Right, "Battle Text", QPrText);
+            // 🆕 **A1205 接上**（`R5` §2·H #54：原版 `DeckSelectionContinueButton ▸ Text`
+            //    = `auto[18~45] · base 36 · 折行 1`）
+            Txt(root, "Battle!", BtTxL, BtTxR, BtTxT, BtTxB, 45f, Align.Right, "Battle Text", QPrText,
+                wrapPx: BtTxR - BtTxL, autoMinPx: 18f, autoMaxPx: 45f, autoBasePx: 36f);
             Img(root, "40k_UI_bt_play", CircL, CircT, CircR, CircB, "CircleButton", QPrRow, true);
             HitOn(root, root, "BattleHit", new PxRect(ContL, ContT, CircR, CircB), () => StartBattle(),
                   QPrHit);
@@ -1893,16 +1917,52 @@ namespace CardPresentation
 
         /// <summary>🆕 A9 尾巴：多了 `clip` / `clipSoftness` —— 原版 `RectMask2D` 对**文字**与图一视同仁
         /// （掩码在 shader 里按像素裁），我们这边走 `MenuDraw.ClipText`（TMP 逐字夹顶点 + 改 uv + 按剖面削 alpha）。
-        /// 🔴 **必须在最后调**（`SetText` / `SetGlyphHeight` 任何一次重排都会把 mesh 重算回去）⇒ 放在本函数的**末句**。</summary>
+        /// 🔴 **必须在最后调**（`SetText` / `SetGlyphHeight` 任何一次重排都会把 mesh 重算回去）⇒ 放在本函数的**末句**。
+        /// <para>🆕 **2026-10-19（A1205）：补上 `wrapPx` / `autoMinPx` / `autoMaxPx` / `autoBasePx` 四个形参**
+        /// —— 本方法此前**一个 autosize 形参都没有** ⇒ 本文件里**8 处「该接」不是「忘了传」是「没地方传」**
+        /// （出处 = `资料/普查产出_第十会话/R5_包装层菜单族.md` §2·H #46–#52、#54）。
+        /// 四个新形参**全默认 `0`** ⇒ **既有调用点一字不改、行为逐位不变**
+        /// （含 `:1173` 那处把 `null, DeckClipSoft` **按位置**传给 `clip`/`clipSoftness` 的写法 ——
+        /// 新形参排在它们**之后**，位置语义不变）。</para>
+        /// <para>🔴 **契约取哪一档 —— 照 `A1195`「从原版那颗 TMP 真有的组合倒推」**：本文件这 8 处里
+        /// **7 处是 `m_TextWrappingMode = 1`**、**1 处是 `折行 = 0` 却开着自适应**
+        /// （`Change Deck Text` = `auto[10~45] · base 12 · 折行 0`）⇒ **必须取
+        /// `Shell/SettingsWindow.cs` 的 `Text`（`A1181`）那一档：两个开关拆开**
+        /// （`wrapPx` = 折行开关 · `autoMinPx` = 自适应开关）——
+        /// `Shell/MenuWindowBase.cs` 的 `Text`（`A1173`）那条闸把两个开关绑在一起、**表达不了那个组合**。
+        /// ⛔ 不是「把两个漏斗改成一个样」（`A1195` 禁止的那件事）；契约原文 → `Shell/SettingsWindow.cs` 的方法头。</para>
+        /// <para>🔴 **量纲**：四个新形参与本方法的 `fontPx` 同一档（= 原版 TMP 的**设计 px**）；
+        /// `SetAutoFitBox` 的后三个实参按它的量纲注**不过** `LayoutSpace.Px()`（同 `MenuWindowBase.Text:337`）。
+        /// ⚠️ 本方法**没有** `MenuDraw.TextCore` 那条 `fontPx &gt; autoMinPx` 的闸（走 `Label.SetAutoFitBox`
+        /// 的这条路本来就没有）—— 本文件 8 处的 `autoMinPx` 全部 &lt; 各自 `fontPx`，今天加不加闸同效。
+        /// ⚠️ **次序**：自适应/折行两步排在 `MenuDraw.ClipText` **之前**（裁切必须是最后一步 —— 见上面那条）。</para></summary>
         Label Txt(Transform parent, string text, float x1, float x2, float y1, float y2, float fontPx,
                   Align align, string name, int q,
-                  PxRect? clip = null, Vector2 clipSoftness = default(Vector2))
+                  PxRect? clip = null, Vector2 clipSoftness = default(Vector2),
+                  float wrapPx = 0f, float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f)
         {
             var lb = Label.Create(parent, text ?? "", Local3(parent, x1, y1, x2, y2), 5, Color.white,
                                   new Vector2(0.5f, 0.5f), name);
             if (lb == null) return null;
             lb.SetRenderQueue(q);
             if (fontPx > 0f) lb.SetGlyphHeight(LayoutSpace.Px(fontPx));
+            // 🆕 **A1205**：自适应 + 折行两个开关（逐字照 `Shell/SettingsWindow.cs:4741-4748` 那一档的算法，
+            //    落在裸 `Label` 上）。🔴 **必须排在下面两句对齐之前** —— `SetWrapWidth` / `SetAutoFitBox`
+            //    会改写 `sizeDelta.x`，而对齐读的就是那一份（次序判据 → `Battle/Label.cs` 的 `SetWrappingMode` 头）。
+            //    两个开关全缺省 ⇒ `fitW = 0` ⇒ **一个分支都不进 = 旧行为逐位不变**。
+            float fitW = wrapPx > 0f ? wrapPx : (autoMinPx > 0f ? x2 - x1 : 0f);
+            if (fitW > 0f)
+            {
+                lb.SetWrapWidth(LayoutSpace.Px(fitW));
+                if (autoMinPx > 0f)
+                    // 上限兜底 `autoMaxPx <= 0 ⇒ fontPx` 与 `MenuDraw.TextCore` 同义（A333）
+                    lb.SetAutoFitBox(LayoutSpace.Px(fitW), LayoutSpace.Px(y2 - y1), autoMinPx,
+                                     autoMaxPx > 0f ? autoMaxPx : fontPx, autoBasePx);
+            }
+            // 🔴 原版 `折行 = 0` 那一档（本文件 8 处里 1 处：`Change Deck Text`）要还原：
+            //    上面 `SetWrapWidth` **无条件**把模式开成 `Normal`。也必须在 `ClipText` **之前**（它下面的末句）
+            //    —— `SetWrapping` 自己会 `ForceRelayout`。
+            if (autoMinPx > 0f && wrapPx <= 0f) lb.SetWrapping(false);
             if (align == Align.Right) lb.AlignRightOn(LayoutSpace.FromPixel(x2, 0f).x);
             else if (align == Align.Left) lb.AlignLeftOn(LayoutSpace.FromPixel(x1, 0f).x);
             // 🔴 **2026-10-09（A233）就地订正（铁律 5）**：原来这道闸写的是

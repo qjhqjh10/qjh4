@@ -107,15 +107,55 @@ namespace CardPresentation
         /// 而它用的是工程里**实测过的**换算 `TmpFont.WorldGlyphPerFontSize`（拿「国」字量的，汉字≈1 em）。
         /// 🔴 2026-09-22 实测更正：第一版用的是 `Label.SetFontSize(px/108)` —— **字会大到 2.7 倍**
         ///    （量出来：`Player Name` 才 32px 字号却渲出 **476.8px 宽 / 11 个字符 ≈ 每字 43px**）。
-        ///    `fontSize` 到实际字形之间还差一层字体资产的换算，**别自己乘 108**。</summary>
+        ///    `fontSize` 到实际字形之间还差一层字体资产的换算，**别自己乘 108**。
+        ///
+        /// <para>🆕 **2026-10-19（A1205）：补上 `wrapPx` / `autoMinPx` / `autoMaxPx` / `autoBasePx` 四个形参**
+        /// —— 本方法此前**一个 autosize 形参都没有** ⇒ 走本层的调用点**不是「忘了传」是「没地方传」**
+        /// （本文件 `NavButton` / `BuildModeCard` 那两处只能自己再补一句 `SetAutoFitBox`）。
+        /// 四个新形参**全默认 `0`** ⇒ **既有调用点一字不改、行为逐位不变**。</para>
+        ///
+        /// <para>🔴 **契约取哪一档 —— 照 `A1195` 那条裁定「从原版那颗 TMP 真有的组合倒推」**：
+        /// 本方法今天**没有一处**要接自适应（`R5_包装层菜单族.md` §2·D 两行 = `ChatPreview` 那两条消息，
+        /// 原版 `m_enableAutoSizing = 0`、折行 `0`）⇒ **「原版组合」倒推不出形状**。
+        /// ⇒ 取 **`Shell/SettingsWindow.cs` 的 `Text`（`A1181`）那一档：两个开关拆开**
+        /// （`wrapPx` = **折行开关** · `autoMinPx` = **自适应开关**），理由是它**严格更宽**
+        /// —— `A1181` 能表达「**折行 = 0 且开着自适应**」这个**原版真有的组合**，
+        /// 而 `Shell/MenuWindowBase.cs` 的 `Text`（`A1173`）那条闸（折行与自适应共用一个 `wrapPx` 开关）
+        /// **表达不了**；本方法今天无人传这四个形参 ⇒ 选宽的一档**不会**造成任何偏离。
+        /// ⛔ **这不是「把两个漏斗改成一个样」**（`A1195` 明令禁止的那件事）—— 本方法**自成一档**，
+        /// 与那两个漏斗各自的契约**并存**；`Shell/SettingsWindow.cs` 那一档的契约原文
+        /// （含「为什么它不能和 `TextCore` 那档统一」）→ 它的方法头，⛔ 别在这儿抄第二份。</para>
+        ///
+        /// <para>🔴 **量纲**：`wrapPx` / `autoMinPx` / `autoMaxPx` / `autoBasePx` 与本方法的 `fontPx` **同一档**
+        /// （= 原版 TMP 的**设计 px**）⇒ 内部与 `fontPx` 同路走 `LayoutSpace.Px()`；
+        /// 而 `SetAutoFitBox` 的后三个实参按它的量纲注**不过** `Px()`（同 `MenuWindowBase.Text:337`）。
+        /// ⚠️ **本方法没有 `MenuDraw.TextCore` 那条 `fontPx &gt; autoMinPx` 的闸**（走 `Label.SetAutoFitBox`
+        /// 的这条路本来就没有）⇒ 若将来给某站传了 `autoMinPx &gt;= fontPx`，TMP 会把字**放大到下限**
+        /// —— **那不是本方法的 bug、是那一站的值**（同 `A1208` 的口径：先查值、别先加闸）。</para></summary>
         Label Text(Transform parent, string text, float x1, float x2, float y1, float y2, int scale,
-                   Color color, string name, float fontPx = 0f, int queue = QText)
+                   Color color, string name, float fontPx = 0f, int queue = QText,
+                   float wrapPx = 0f, float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f)
         {
             var lb = Label.Create(parent, text, Center(x1, x2, y1, y2), scale, color,
                                   new Vector2(0.5f, 0.5f), name);
             if (lb == null) return null;
             lb.SetRenderQueue(queue);        // 🔴 顶栏那几段文字要跟着整条带子走（传 `QBarText`；2026-10-11 起那条带子**降到窗之下**）
             if (fontPx > 0f) lb.SetGlyphHeight(fontPx / 108f);
+            // 🆕 **A1205**：自适应 + 折行两条路（逐字照 `Shell/SettingsWindow.cs:4741-4748` 那一档的算法，
+            //    只是落在裸 `Label` 上 —— 本方法没有 `MenuDraw.Text` 那条路可走）。
+            //    `fitW > 0` 才动：`autoMinPx <= 0` 且 `wrapPx <= 0` ⇒ `fitW = 0` ⇒ **一个分支都不进 = 旧行为逐位不变**。
+            float fitW = wrapPx > 0f ? wrapPx : (autoMinPx > 0f ? x2 - x1 : 0f);
+            if (fitW > 0f)
+            {
+                lb.SetWrapWidth(LayoutSpace.Px(fitW));
+                if (autoMinPx > 0f)
+                    // 上限的兜底 `autoMaxPx <= 0 ⇒ fontPx` 与 `MenuDraw.TextCore` / `Text` 同义（A333）
+                    lb.SetAutoFitBox(LayoutSpace.Px(fitW), LayoutSpace.Px(y2 - y1), autoMinPx,
+                                     autoMaxPx > 0f ? autoMaxPx : fontPx, autoBasePx);
+            }
+            // 🔴 原版 `折行 = 0` 那一档要还原：上面 `SetWrapWidth` **无条件**把它开成 `Normal`
+            //    （`TmpFont.SetWrapWidthRect` 原文）—— 必须在**定完字号之后**、且本方法没有后续重排（无裁切）。
+            if (autoMinPx > 0f && wrapPx <= 0f) lb.SetWrapping(false);
             return lb;
         }
 

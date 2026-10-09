@@ -843,12 +843,16 @@ namespace CardPresentation
             var facTex = string.IsNullOrEmpty(info.Faction) ? null : CardArt.MenuUi(DeckRuntime.FactionIcon(info.Faction));
             if (facTex != null)
                 Img(root, root, facTex, DdIconL, DdIconT, DdIconR, DdIconB, "Army Icon", QDIRow, true);
-            Txt(root, root, info.Name, DdNameL, DdNameT, DdNameR, DdNameB, 44.5f, Align.Left, "Deck Name", QDIText);
+            // 🆕 **A1205 接上**（四格出处 = `R5_包装层菜单族.md` §2·F #35：原版
+            //    `Deck Details ▸ Deck Details ▸ Deck Name` = `auto[10~45] · base 42 · 折行 0`）
+            Txt(root, root, info.Name, DdNameL, DdNameT, DdNameR, DdNameB, 44.5f, Align.Left, "Deck Name", QDIText,
+                autoMinPx: 10f, autoMaxPx: 45f, autoBasePx: 42f);      // `wrapPx` 缺省 0 = 原版 `折行 = 0`
             // 空战将位那行字走词条（键 `MenuDeck/Error/NoWarlord`）。
             // ⚠️ 中文列是「还没有选战将」—— 与改前写死的「未选战将」**不同字**，这是**有意的**：
             //    施工单 §附_Shell #1 判「语义一致 ⇒ 复用，别新造」（铁律 6：同义两键迟早不一致）。
+            // 🆕 **A1205 接上**（`R5` §2·F #36：`Deck Details ▸ Warlord Name` = `auto[10~40] · base 38 · 折行 0`）
             Txt(root, root, wl != null ? wl.Name : Loc.T("MenuDeck/Error/NoWarlord"), DdWlL, DdWlT, DdWlR, DdWlB, 40f, Align.Left,
-                "Warlord Name", QDIText);
+                "Warlord Name", QDIText, autoMinPx: 10f, autoMaxPx: 40f, autoBasePx: 38f);
 
             // 5) `Info Panel` + 两个抽屉（`Deck List` 出厂在前、`Deck Info` 出厂 **INACT** ⇒ 建了关着）
             Nine(root, root, "UI_Deck_Information_submenu_Back", PanelBorder, PanelTexW, PanelTexH,
@@ -889,8 +893,12 @@ namespace CardPresentation
                     //   ⚠️ 原版 6 个调用点全传 null ⇒ 这条在本 build 里从不触发；我们照原样摆着。
                     string labelText = (btns[i] == "Select Deck" && SelectButtonProvided)
                                        ? (SelectButtonText ?? "") : btns[i];
+                    // 🆕 **A1205 接上**（`R5` §2·F #37：`Buttons ▸ {Practice,Edit,Select} Deck ▸ Button Text`
+                    //    三颗逐值相同 = `auto[10~40] · base 12 · 折行 0`）
+                    // ⚠️ 我们这颗传的标称 `fontPx = 34`、原版 `m_fontSize = 40`（`R5` §5·2 登记、未裁）
+                    //    —— 标称那一格**不在本笔**（本笔只接 min/max/base/折行），原样不动。
                     var lab = Txt(holder.transform, holder.transform, labelText, r.x1, r.y1, r.x2, r.y2, 34f, Align.Center,
-                        "Text " + btns[i], QDIText);
+                        "Text " + btns[i], QDIText, autoMinPx: 10f, autoMaxPx: 40f, autoBasePx: 12f);
                     string key = btns[i];
                     // A17：原版 `Buttons>{Practice,Edit,Select} Deck` 是 SpriteSwap（普查 §块 3 第 6 行）
                     var hitq = Hit(holder.transform, holder.transform, "Btn_" + key, r, () => OnButton(key),
@@ -1103,12 +1111,20 @@ namespace CardPresentation
                       new Color(1f, 1f, 1f, 0.08f), QDIRow, "Row Bg");
                 Img(node.transform, node.transform, CardArt.MenuUi("Card_Frame_Cost_Icon"),
                     x1 + 6f, y1 + 9f, x1 + 46f, y1 + 49f, "Cost", QDIRow, true);
+                // 🆕 **A1205 接上**（`R5` §2·F #38–#40：原版 `Deck Selector Card Info button ▸ Content ▸
+                //    Background ▸ Cost Image ▸ Cost` = `auto[18~50] · base 32 · 折行 1` ·
+                //    `… ▸ banned Icon ▸ Card Name` = `auto[2~38] · base 27.69 · 折行 0` ·
+                //    `… ▸ banned Icon ▸ Count` = `auto[2~32] · base 36 · 折行 0`）
+                // ⚠️ 三处标称都传 26、原版是 50 / 38 / 32（`R5` §5·2 登记、未裁）—— **标称不在本笔**。
+                // ⚠️ `Cost Text` 是 `折行 = 1` 那一档 ⇒ `wrapPx` 必须给（只传 `autoMinPx` 是**死实参**）；
+                //    折行宽 / 自适应框宽 = **本格框宽** 40（`x1+6 … x1+46`）—— 原版那颗的宽是布局排出来的，
+                //    prefab 里读到的是模板位 ⇒ **这一格不是原版字段值**（同 `Shell/SettingsWindow.cs:4717` 那条登记）。
                 Txt(node.transform, node.transform, card.Cost.ToString(), x1 + 6f, y1 + 9f, x1 + 46f, y1 + 49f, 26f, Align.Center,
-                    "Cost Text", QDIText);
+                    "Cost Text", QDIText, wrapPx: 40f, autoMinPx: 18f, autoMaxPx: 50f, autoBasePx: 32f);
                 Txt(node.transform, node.transform, card.Name, x1 + 52f, y1, x1 + RowW - 52f, y1 + RowH, 26f, Align.Left,
-                    "Name", QDIText);
+                    "Name", QDIText, autoMinPx: 2f, autoMaxPx: 38f, autoBasePx: 27.69f);
                 Txt(node.transform, node.transform, "x" + count[order[i]], x1 + RowW - 52f, y1, x1 + RowW - 8f, y1 + RowH, 26f,
-                    Align.Right, "Count", QDIText);
+                    Align.Right, "Count", QDIText, autoMinPx: 2f, autoMaxPx: 32f, autoBasePx: 36f);
                 Rows.Add(node.transform);
             }
         }
@@ -1130,8 +1146,11 @@ namespace CardPresentation
 
             // ① 标题那条（原版是**葡语占位** `Cartas / Coste` · fs44 auto[10,44] · hAlign=Center）
             //    ⇒ 我们写英文 `Cards / Cost`（**这一处文案是我们挑的**，原版那份是占位串）
+            // 🆕 **A1205 接上**（`R5` §2·F #41：`Info Panel ▸ Deck Info ▸ Deck Information Cost/balance text`
+            //    = `auto[10~44] · base 22.3 · 折行 1`）。折行档 = 1 ⇒ `wrapPx` = 本格框宽（同上那条说明）。
             Txt(b, b, "Cards / Cost", DiHeadL, DiHeadT, DiHeadR, DiHeadB, 44f, Align.Center,
-                "Deck Information Cost/balance text", QDIText);
+                "Deck Information Cost/balance text", QDIText,
+                wrapPx: DiHeadR - DiHeadL, autoMinPx: 10f, autoMaxPx: 44f, autoBasePx: 22.3f);
 
             // ② 费用曲线（9 行 = 费用 0..8）
             BuildCostDrawer(b);
@@ -1568,8 +1587,29 @@ namespace CardPresentation
             return MenuDraw.Nine(parent, tex, new PxRect(x1, y1, x2, y2), border, texW, texH, q, tint, true, name);
         }
 
+        /// <summary>按原版矩形摆一段字（本类唯一的文字口）。
+        /// <para>🆕 **2026-10-19（A1205）：补上 `wrapPx` / `autoMinPx` / `autoMaxPx` / `autoBasePx` 四个形参**
+        /// —— 本方法此前**一个 autosize 形参都没有** ⇒ 本文件里**7 处「该接」不是「忘了传」是「没地方传」**
+        /// （出处 = `资料/普查产出_第十会话/R5_包装层菜单族.md` §2·F #35–#41）。
+        /// 四个新形参**全默认 `0`** ⇒ **既有调用点一字不改、行为逐位不变**。</para>
+        ///
+        /// <para>🔴 **契约取哪一档 —— 照 `A1195`「从原版那颗 TMP 真有的组合倒推」**：本文件这 7 处里
+        /// **5 处是 `m_TextWrappingMode = 0`（不折行）却开着自适应**（`Deck Name` / `Warlord Name` /
+        /// 三颗按钮文案 / 卡名 / 数量 —— R5 §2·F 逐行给了 `折行`），只有 2 处是 `折行 = 1`。
+        /// ⇒ **必须取 `Shell/SettingsWindow.cs` 的 `Text`（`A1181`）那一档：两个开关拆开**
+        /// （`wrapPx` = **折行开关** · `autoMinPx` = **自适应开关**）——
+        /// `Shell/MenuWindowBase.cs` 的 `Text`（`A1173`）那条闸把折行与自适应绑在同一个 `wrapPx` 上，
+        /// **表达不了「折行 = 0 且开着自适应」**（那正是 `A1195` 记下的原版真有组合）。
+        /// ⛔ 这不是「把两个漏斗改成一个样」（`A1195` 禁止的那件事）—— 本方法**自成一档**、与那两个并存；
+        /// 契约原文（含「为什么不能统一」）→ `Shell/SettingsWindow.cs` 的方法头，⛔ 别抄第二份。</para>
+        ///
+        /// <para>🔴 **量纲**：四个新形参与本方法的 `fontPx` 同一档（= 原版 TMP 的**设计 px**）；
+        /// `SetAutoFitBox` 的后三个实参按它的量纲注**不过** `LayoutSpace.Px()`（同 `MenuWindowBase.Text:337`）。
+        /// ⚠️ **本方法没有 `MenuDraw.TextCore` 那条 `fontPx &gt; autoMinPx` 的闸**（走 `Label.SetAutoFitBox`
+        /// 的这条路本来就没有）—— 本文件 7 处的 `autoMinPx` **全部 &lt; 各自的 `fontPx`**，所以今天加不加闸同效。</para></summary>
         Label Txt(Transform parent, Transform basis, string text, float x1, float y1, float x2, float y2,
-                  float fontPx, Align align, string name, int q)
+                  float fontPx, Align align, string name, int q,
+                  float wrapPx = 0f, float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f)
         {
             // 🔴 **2026-10-09（A229）**：与同文件 `Nine`（上面那条）**同一条守卫、同一句话** ——
             //   本类「**位置按 `basis` 算、树父给 `parent`**」这一套里，`basis != parent` 就是**两套坐标系**
@@ -1586,6 +1626,23 @@ namespace CardPresentation
             if (lb == null) return null;
             lb.SetRenderQueue(q);
             if (fontPx > 0f) lb.SetGlyphHeight(LayoutSpace.Px(fontPx));
+            // 🆕 **A1205**：自适应 + 折行两个开关（逐字照 `Shell/SettingsWindow.cs:4741-4748` 那一档的算法，
+            //    只是落在裸 `Label` 上）。🔴 **必须排在下面那两句对齐之前** —— `SetWrapWidth` / `SetAutoFitBox`
+            //    会改写 `sizeDelta.x`，而对齐读的就是那一份（`Battle/Label.cs` 的 `SetWrappingMode` 头写着
+            //    次序：`SetAutoFitBox` → 换行模式 → 对齐 → 量）。
+            //    `fitW > 0` 才动：两个开关全缺省 ⇒ `fitW = 0` ⇒ **一个分支都不进 = 旧行为逐位不变**。
+            float fitW = wrapPx > 0f ? wrapPx : (autoMinPx > 0f ? x2 - x1 : 0f);
+            if (fitW > 0f)
+            {
+                lb.SetWrapWidth(LayoutSpace.Px(fitW));
+                if (autoMinPx > 0f)
+                    // 上限兜底 `autoMaxPx <= 0 ⇒ fontPx` 与 `MenuDraw.TextCore` 同义（A333）
+                    lb.SetAutoFitBox(LayoutSpace.Px(fitW), LayoutSpace.Px(y2 - y1), autoMinPx,
+                                     autoMaxPx > 0f ? autoMaxPx : fontPx, autoBasePx);
+            }
+            // 🔴 原版 `折行 = 0` 那一档（本文件 7 处「该接」里占 5 处）要还原：上面 `SetWrapWidth`
+            //    **无条件**把模式开成 `Normal`（`TmpFont.SetWrapWidthRect` 原文）。
+            if (autoMinPx > 0f && wrapPx <= 0f) lb.SetWrapping(false);
             // 原版这几条 TMP 的对齐：`Deck Name`/`Warlord Name` 居中、行里的卡名左、数量右
             if (align == Align.Right) lb.AlignRightOn(LayoutSpace.FromPixel(x2, 0f).x);
             else if (align == Align.Left) lb.AlignLeftOn(LayoutSpace.FromPixel(x1, 0f).x);

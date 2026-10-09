@@ -195,7 +195,12 @@ namespace CardPresentation
             // 🔴 **2026-10-17（A891）**：提示行走**词条**（`TitleTerm`，见那颗常量的 doc）—— 原版那颗挂着 `Localize`
             //   （`mTerm = "MenuDeck/Share/PasteDeck"`）⇒ 它**跟着语言变**，写死就永远是英文。
             //   ⚠️ 与占位符同一个坑：**建的时候取一次**，换语言不会回头改这扇已建的窗（见 `RefreshInputText` 的注释）。
-            Txt(root, Loc.T(TitleTerm), MsgL, MsgT, MsgR, MsgB, MsgFontPx, Align.Center, "Main Search message", QImpText);
+            // 🆕 **A1205 接上**（`R5` §2·G #42：原版 `Import Deck Popup ▸ Window ▸ Main Search message`
+            //    = `auto[4~50] · base 36 · 折行 1`）⇒ 折行档 = 1，`wrapPx` = 本格框宽（`MsgL … MsgR`；
+            //    原版那颗的宽是布局排出来的、prefab 里是模板位 ⇒ **这一格不是原版字段值**，同
+            //    `Shell/SettingsWindow.cs:4717` 那条登记）。
+            Txt(root, Loc.T(TitleTerm), MsgL, MsgT, MsgR, MsgB, MsgFontPx, Align.Center, "Main Search message", QImpText,
+                wrapPx: MsgR - MsgL, autoMinPx: 4f, autoMaxPx: 50f, autoBasePx: 36f);
             Nine(win.transform, win.transform, "40K_dropdown_bg", DropBorder, DropTexW, DropTexH, InL, InT, InR, InB,
                  QImpRow, "Input Field", new Color(0.29f, 0.953f, 0.682f, 1f));
             RefreshInputText();
@@ -205,7 +210,11 @@ namespace CardPresentation
             //   我们原来传的是 `Align.Right`（照 A1 §4 那张表抄的错）。
             //   ⚠️ 这一颗节点**有两个出生入口**（`Build` 与 `RebuildErrorLine`，⛔ 别按行号找）
             //   —— `CLAUDE.md` §10 第 5 条：多入口的状态要在**每个入口**都设对 ⇒ **两处都传 `Align.Center`**。
-            Txt(root, _error, ErrL, ErrT, ErrR, ErrB, ErrFontPx, Align.Center, "Error msg", QImpText);
+            // 🆕 **A1205 接上**（`R5` §2·G #43/#45：原版 `Import Deck Popup ▸ Window ▸ Error msg`
+            //    = `auto[4~28] · base 36 · 折行 0`）—— 这一颗**有两个出生入口**
+            //    （`Build` 与 `RebuildErrorLine`）⇒ 两处都传（`CLAUDE.md` §10 第 5 条）。
+            Txt(root, _error, ErrL, ErrT, ErrR, ErrB, ErrFontPx, Align.Center, "Error msg", QImpText,
+                autoMinPx: 4f, autoMaxPx: 28f, autoBasePx: 36f);        // `wrapPx` 缺省 0 = 原版 `折行 = 0`
             AddHitOn(win.transform, win.transform, "InputHit", new PxRect(InL, InT, InR, InB), () => BeginTyping());
 
             // 4) `Confirm`（VLG 只有一个钮 ⇒ 容器内居中）
@@ -219,7 +228,10 @@ namespace CardPresentation
                      QImpRow, "Confirm Bg");
                 // 🔴 **2026-10-17（A891）**：钮上的字走**词条**（`ConfirmTerm`，见那颗常量的 doc）——
                 //   原版那颗 `Button Text` 挂着 `Localize`（`mTerm = "MainMenu/General/Confirm"`）⇒ 跟着语言变。
-                var okLb = Txt(b.transform, Loc.T(ConfirmTerm), r.x1, r.y1, r.x2, r.y2, 45f, Align.Center, "Confirm Text", QImpText);
+                // 🆕 **A1205 接上**（`R5` §2·G #44：原版 `… Window ▸ Buttons ▸ Generic UI Button ▸ Button Text`
+                //    = `auto[12~45] · base 12 · 折行 0`）
+                var okLb = Txt(b.transform, Loc.T(ConfirmTerm), r.x1, r.y1, r.x2, r.y2, 45f, Align.Center, "Confirm Text", QImpText,
+                               autoMinPx: 12f, autoMaxPx: 45f, autoBasePx: 12f);
                 // 🔴 **2026-10-18（A892）：纵向档显式落成 `Midline`。** 判据 = 原版那颗 TMP 按 pid 亲读
                 //   （`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_6959005812579893394.json`）：
                 //   `m_text='Confirm'` · **`m_VerticalAlignment = 4096`（= `Midline`）** · `m_HorizontalAlignment = 2`（Center）·
@@ -357,7 +369,11 @@ namespace CardPresentation
             //   我们原来传的是 `Align.Right`（照 A1 §4 那张表抄的错）。
             //   ⚠️ 这一颗节点**有两个出生入口**（`Build` 与 `RebuildErrorLine`，⛔ 别按行号找）
             //   —— `CLAUDE.md` §10 第 5 条：多入口的状态要在**每个入口**都设对 ⇒ **两处都传 `Align.Center`**。
-            Txt(root, _error, ErrL, ErrT, ErrR, ErrB, ErrFontPx, Align.Center, "Error msg", QImpText);
+            // 🆕 **A1205 接上**（`R5` §2·G #43/#45：原版 `Import Deck Popup ▸ Window ▸ Error msg`
+            //    = `auto[4~28] · base 36 · 折行 0`）—— 这一颗**有两个出生入口**
+            //    （`Build` 与 `RebuildErrorLine`）⇒ 两处都传（`CLAUDE.md` §10 第 5 条）。
+            Txt(root, _error, ErrL, ErrT, ErrR, ErrB, ErrFontPx, Align.Center, "Error msg", QImpText,
+                autoMinPx: 4f, autoMaxPx: 28f, autoBasePx: 36f);        // `wrapPx` 缺省 0 = 原版 `折行 = 0`
         }
 
         // ============================================================ 画图小工具
@@ -448,14 +464,47 @@ namespace CardPresentation
         //    那一次就是现在）—— 包装**保留**（调用方那 12 个实参的写法不动），但体内已改调
         //    `MenuDraw.Nine`，于是 `clip` / `clipSoftness` 这条路**已经通到本窗**。
 
+        /// <summary>按原版矩形摆一段字（本类唯一的文字口）。
+        /// <para>🆕 **2026-10-19（A1205）：补上 `wrapPx` / `autoMinPx` / `autoMaxPx` / `autoBasePx` 四个形参**
+        /// —— 本方法此前**一个 autosize 形参都没有** ⇒ 本文件里**4 处「该接」不是「忘了传」是「没地方传」**
+        /// （出处 = `资料/普查产出_第十会话/R5_包装层菜单族.md` §2·G #42–#45）。
+        /// 四个新形参**全默认 `0`** ⇒ **既有调用点一字不改、行为逐位不变**。</para>
+        ///
+        /// <para>🔴 **契约取哪一档 —— 照 `A1195`「从原版那颗 TMP 真有的组合倒推」**：本文件 4 处里
+        /// **3 处是 `m_TextWrappingMode = 0`（不折行）却开着自适应**（`Error msg` ×2 · `Confirm Text`），
+        /// 只有 `Main Search message` 是 `折行 = 1` ⇒ **必须取 `Shell/SettingsWindow.cs` 的 `Text`（`A1181`）
+        /// 那一档：两个开关拆开**（`wrapPx` = 折行开关 · `autoMinPx` = 自适应开关）——
+        /// `Shell/MenuWindowBase.cs` 的 `Text`（`A1173`）那条闸把两个开关绑在一起、**表达不了那个组合**。
+        /// ⛔ 不是「把两个漏斗改成一个样」（`A1195` 禁止的那件事）；契约原文 → `Shell/SettingsWindow.cs` 的方法头。</para>
+        ///
+        /// <para>🔴 **量纲**：四个新形参与本方法的 `fontPx` 同一档（= 原版 TMP 的**设计 px**）；
+        /// `SetAutoFitBox` 的后三个实参按它的量纲注**不过** `LayoutSpace.Px()`（同 `MenuWindowBase.Text:337`）。
+        /// ⚠️ 本方法**没有** `MenuDraw.TextCore` 那条 `fontPx &gt; autoMinPx` 的闸（走 `Label.SetAutoFitBox`
+        /// 的这条路本来就没有）—— 本文件 4 处的 `autoMinPx` 全部 &lt; 各自 `fontPx`，今天加不加闸同效。</para></summary>
         Label Txt(Transform parent, string text, float x1, float y1, float x2, float y2, float fontPx,
-                  Align align, string name, int q)
+                  Align align, string name, int q,
+                  float wrapPx = 0f, float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f)
         {
             var lb = Label.Create(parent, text ?? "", Local3(parent, x1, y1, x2, y2), 5, Color.white,
                                   new Vector2(0.5f, 0.5f), name);
             if (lb == null) return null;
             lb.SetRenderQueue(q);
             if (fontPx > 0f) lb.SetGlyphHeight(LayoutSpace.Px(fontPx));
+            // 🆕 **A1205**：自适应 + 折行两个开关（逐字照 `Shell/SettingsWindow.cs:4741-4748` 那一档的算法，
+            //    落在裸 `Label` 上）。🔴 **必须排在下面两句对齐之前** —— `SetWrapWidth` / `SetAutoFitBox`
+            //    会改写 `sizeDelta.x`，而对齐读的就是那一份（次序判据 → `Battle/Label.cs` 的 `SetWrappingMode` 头）。
+            //    两个开关全缺省 ⇒ `fitW = 0` ⇒ **一个分支都不进 = 旧行为逐位不变**。
+            float fitW = wrapPx > 0f ? wrapPx : (autoMinPx > 0f ? x2 - x1 : 0f);
+            if (fitW > 0f)
+            {
+                lb.SetWrapWidth(LayoutSpace.Px(fitW));
+                if (autoMinPx > 0f)
+                    // 上限兜底 `autoMaxPx <= 0 ⇒ fontPx` 与 `MenuDraw.TextCore` 同义（A333）
+                    lb.SetAutoFitBox(LayoutSpace.Px(fitW), LayoutSpace.Px(y2 - y1), autoMinPx,
+                                     autoMaxPx > 0f ? autoMaxPx : fontPx, autoBasePx);
+            }
+            // 🔴 原版 `折行 = 0` 那一档（本文件 4 处里占 3 处）要还原：上面 `SetWrapWidth` 无条件开成 `Normal`。
+            if (autoMinPx > 0f && wrapPx <= 0f) lb.SetWrapping(false);
             if (align == Align.Right) lb.AlignRightOn(LayoutSpace.FromPixel(x2, 0f).x);
             else if (align == Align.Left) lb.AlignLeftOn(LayoutSpace.FromPixel(x1, 0f).x);
             return lb;
