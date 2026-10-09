@@ -93,7 +93,7 @@ namespace CardPresentation
             public readonly float BadgeDy;
             /// <summary>🔴 **2026-10-12（A336①）：原版那一颗 `TabButtonLabel` 的 `m_fontSizeBase`**（画布 px）。
             /// 它只影响自适应的**二分起点**（`TextMeshPro.cs:2148-2149`），终点收敛到「装得下的最大号」
-            /// ⇒ 渲染差 ≤ 0.05 fontSize 单位；**但不传就是错的字段**（`Battle/Label.cs:549-570`）。
+            /// ⇒ 渲染差 ≤ 0.05 fontSize 单位；**但不传就是错的字段**（`Battle/Label` 的 `SetAutoFitBox(…, basePx)` —— `basePx` 那个形参）。
             /// <para>📌 **缺省 `23f` 是【逐窗实读值】，不是通则**（铁律 5·c）：原版**四个窗的左栏键文案
             /// 各一颗一颗读下来全是 23.0** ——
             /// `Rewards Base Submenu Variant/Content Area/Tab Buttons/{MissionsRewardsButton,CampaignRewardsButton,Forge Button}/Label/TabButtonLabel`
@@ -280,9 +280,23 @@ namespace CardPresentation
         //    **判据 / 更正痕迹 / 端到端断言出处全在 `GameWindow.AddHit` 的注释里**，⛔ 别在这儿再写第二份。
 
         /// <summary>按像素矩形摆一段文字（居中）。`fontPx` = **原版 TMP 的 `m_fontSize`**（画布像素）
-        /// —— 内部走 `Label.SetGlyphHeight(px/108)`；🔴 **别用 `SetFontSize(px/108)`**，那会大 2.7 倍。</summary>
+        /// —— 内部走 `Label.SetGlyphHeight(px/108)`；🔴 **别用 `SetFontSize(px/108)`**，那会大 2.7 倍。
+        /// <para>🆕 **2026-10-09（A1173）：补上 `wrapPx` / `autoMinPx` / `autoMaxPx` / `autoBasePx` 四个形参**
+        /// —— 本方法此前**一个 autosize 形参都没有** ⇒ 走本层的窗（`CollectionWindow` / `ShopWindow` /
+        /// `CampaignTab` …）**不是「忘了传」，是「没地方传」**，只能各自在调用点手工补 `SetAutoFitBox`
+        /// （**实读 11 处**，见下面那条 🔴）。形参表与内部接线**照同文件的兄弟方法
+        /// <see cref="TextBox"/>（本文件 `:325`）与 `MenuDraw.TextCore` 抄**，量纲/命中条件逐条对齐：
+        /// **`wrapPx &gt; 0` ∧ `autoMinPx &gt; 0` ∧ `fontPx &gt; autoMinPx` 三条全真**才真调
+        /// `SetAutoFitBox`（`autoMaxPx &lt;= 0` 时上限退回 `fontPx` = 旧行为）——
+        /// ⚠️ **只传 `autoMinPx` 不传 `wrapPx` = 死实参**（判据 = `Shell/MenuDraw.cs` 的 `TextCore`，⛔ 别抄第二份）。
+        /// 四个新形参**全默认 `0`** ⇒ **24 个既有调用点一字不改、行为逐位不变**（与 `TextBox` 同一约定）。</para>
+        /// <para>🔴 **裁切次序**：autosize 那两步（`SetWrapWidth` / `SetAutoFitBox`）会**重排 mesh**
+        /// ⇒ 必须排在下面那句 `ClipText` **之前**（同 <see cref="TextBox"/> 与 `MenuDraw.TextCore` 的纪律）。
+        /// 收口前那 11 处是「调用点先 `Text`、再 `SetAutoFitBox`」⇒ 那一刀裁在**重排之前**、**被冲掉**
+        /// ⇒ 现在这些标签的裁切**第一次真生效**（画面差 = 只有「本当被视口裁掉」的那些字）。</para></summary>
         public Label Text(Transform parent, string text, float x1, float x2, float y1, float y2, int scale,
-                          Color color, string name, float fontPx = 0f)
+                          Color color, string name, float fontPx = 0f,
+                          float wrapPx = 0f, float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f)
         {
             // **裁切**：① 「**整块**在视口外 ⇒ 不建」—— 收口到 `MenuDraw.Visible`（🔴 **2026-10-10 订正（A184）**：
             //   原写「A25④ 那四处内联的唯一实现」，那四处内联早已收口 ⇒ **现在它是全壳唯一一份求交**）；
@@ -311,6 +325,18 @@ namespace CardPresentation
             if (lb == null) return null;
             lb.SetRenderQueue(QText);
             if (fontPx > 0f) lb.SetGlyphHeight(LayoutSpace.Px(fontPx));
+            // 🆕 **2026-10-09（A1173）：autosize 两步** —— 逐字照 `MenuDraw.TextCore`（`Shell/MenuDraw.cs`，
+            //    其注释里写着为什么只有那三个条件同时成立才真调 `SetAutoFitBox`；⛔ 别在这儿再写第二份判据）。
+            //    ⚠️ **必须排在下面那句 `ClipText` 之前** —— 这两步会重排 mesh，裁切在它们之前会被冲掉
+            //    （正是收口前那 11 处调用点的写照：`Text` 里裁一刀、调用点再 `SetAutoFitBox` 把它抹掉）。
+            //    ⚠️ 上限的兜底 `autoMaxPx <= 0 ⇒ fontPx` 与 `MenuDraw.Text` / `TextCore` 同义（A333）。
+            if (wrapPx > 0f)
+            {
+                lb.SetWrapWidth(LayoutSpace.Px(wrapPx));
+                if (autoMinPx > 0f && fontPx > autoMinPx)
+                    lb.SetAutoFitBox(LayoutSpace.Px(wrapPx), LayoutSpace.Px(y2 - y1), autoMinPx,
+                                     autoMaxPx > 0f ? autoMaxPx : fontPx, autoBasePx);
+            }
             // 🔴 A435①：形参 = **调用方原样那一份**（`RenderClip` / `ClipSoftness`），**不是** `_st` 里那两份 ——
             //    形参非空时两条路逐位相同，而形参为 `null` 时它让 `ClipText` / `ClippedTextGuard`
             //    **跟着父链重解析**（守卫要在节点挪动之后重裁，快照会拿旧框裁，见 `ClippedTextGuard` 的类注释）。
@@ -484,11 +510,16 @@ namespace CardPresentation
             Rect(b, ArtNametag, cx - labW * 0.5f, cx + labW * 0.5f, lb - labH, lb, "Text Background", QContent);
 
             // 文案：TMP 字号 = 原版 `m_fontSize`（画布像素）；色 **#F4E1AC**；`m_fontStyle=UpperCase`
+            // 🔴 **2026-10-09（A1173）**：autosize 那四个数收进 `Text` 的形参（原来是「先 `Text`、
+            //    再手工 `SetAutoFitBox`」—— 两份写法并存 = 迟早不一致）。
+            //    ⚠️ 框 = 底下那块 `Label` 底 (`labW`×`labH`)，与本行那对 `cx ± labW*0.5f` / `lb-labH..lb`
+            //    **同一个矩形**；`autoBasePx` = 原版 `m_fontSizeBase`（23），见 `TabBtnSpec.AutoBase`。
             var txt = Text(b, (spec.Label ?? "").ToUpperInvariant(), cx - labW * 0.5f, cx + labW * 0.5f,
-                           lb - labH, lb, 6, new Color(0.9569f, 0.8824f, 0.6745f), "Text", spec.FontPx);
-            if (txt != null) txt.SetAutoFitBox(LayoutSpace.Px(labW), LayoutSpace.Px(labH), spec.AutoMin, spec.AutoMax,
-                                               spec.AutoBase);   // 🔴 A336①：base = 原版 `m_fontSizeBase`（23），见 `TabBtnSpec.AutoBase`
-            // 🔴 **2026-10-08（A212 · A62 主表 #31「四窗左栏页签」）**：上面那句 `SetAutoFitBox` 内部会
+                           lb - labH, lb, 6, new Color(0.9569f, 0.8824f, 0.6745f), "Text", spec.FontPx,
+                           wrapPx: labW, autoMinPx: spec.AutoMin, autoMaxPx: spec.AutoMax,
+                           autoBasePx: spec.AutoBase);
+            // 🔴 **2026-10-08（A212 · A62 主表 #31「四窗左栏页签」）**：上面 `Text(...)` 里那两步
+            //    （`wrapPx > 0` ⇒ `SetWrapWidth` + `SetAutoFitBox`；**A1173 起收口进漏斗**）内部会
             //    `SetWrapWidth` ⇒ **无条件把模式开成 `Normal`**（`Core/TmpFont.cs` 的 `SetWrapWidth`），而原版**四个窗的
             //    左栏键文案一律 `m_TextWrappingMode = 0`**（判据 = 逐窗现读 `工具/menu_dump.py …
             //    "<窗口根>" --depth 6 --md` 的 `折行=` 列，四窗各一份、**没有一个是 1**）：
@@ -508,12 +539,12 @@ namespace CardPresentation
             //     **实际是**：2026-10-08 波 C3（A212 主表 #31）已经给**四扇窗各自**加了该断言，
             //     **每窗 4 颗键逐颗断**，而且断的**正是本函数建出来的那几颗**
             //     （`BuildShell(…, "<X>TabButton_", …)` → `BuildTabBar:414` → `BuildTabButton`）：
-            //       · 奖励窗 `Editor/RewardsScene.cs:980`（`RewardsTabButton_*`）
-            //       · 商店窗 `Editor/ShopScene.cs:1278`（`ShopTabButton_*`）
-            //       · 收藏窗 `Editor/CollectionScene.cs:892`（`CollectionTabButton_*`）
-            //       · 社交窗 `Editor/MainMenuScene.cs:5360`（`SocialTabButton_*`；宿主是它）
-            //     ⚠️ **行号 = 2026-10-13 现读**（本条订正那一刻），会漂 ⇒ 按句子现读找
-            //     （关键词 = 「渲出来的宽 ≤ 框宽 155」）。
+            //       · 奖励窗 `Editor/RewardsScene`（找 `RewardsTabButton_*`）
+            //       · 商店窗 `Editor/ShopScene`（找 `ShopTabButton_*`）
+            //       · 收藏窗 `Editor/CollectionScene`（找 `CollectionTabButton_*`）
+            //       · 社交窗 `Editor/MainMenuScene`（找 `SocialTabButton_*`；宿主是它）
+            //     ⚠️ **只认符号名、⛔ 不记行号**（行号天天漂 —— 这正是 A1123 要治的）⇒ 现读就按上面
+            //     那四个 `*TabButton_*` 前缀 `grep`，另一条关键词 = 「渲出来的宽 ≤ 框宽 155」。
             //     四条都是「`渲出来的宽 ≤ 155 + 0.5`」，框宽 **155** = 原版 `Tab Buttons/*/Label`
             //     的 `sz=(155,37.86)`；四窗各有一条同批的块注释自陈这件事。
             //     **错因**：原句写作时（波 C3 **之前**）确实成立 —— 它是**当时的实况**；
@@ -527,8 +558,8 @@ namespace CardPresentation
             //     **更外层的助手**（`RectOf` / `TextLeftPx` / `TextRightPx` 等）里还留着 —— 形状不同、用途也不同
             //     （三个宿主那份清单 → `资料/普查产出_1013/WA750_同族三处.md` §5·2）。
             //     **错因** = 同族「当时对、现在不对」：写这条时（A750 **之前**）确是实况，A750 换完口没回头改它。
-            //     ② 原句后半「同形的两条在档案窗键循环里」也过期了（那两条现读 `MainMenuScene.cs:2769-2772`，
-            //     且早已换成 `TmpRenderedRect`）。）
+            //     ② 原句后半「同形的两条在档案窗键循环里」也过期了 —— 那两条现读在 `Editor/MainMenuScene.cs`
+            //     的档案窗键循环里（按 `TmpRenderedRect` 找），且早已换成 `TmpRenderedRect`）。）
             if (txt != null) txt.SetWrapping(false);
 
             // `Badge Highlight`：35²；色 **#BCBCBC**；纵向偏置**逐键不同**（见 `TabBtnSpec.BadgeDy`）。

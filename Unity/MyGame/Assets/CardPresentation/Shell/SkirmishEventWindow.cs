@@ -93,18 +93,45 @@ namespace CardPresentation
 
             // `Reward Tile`（"Progression" fs45.87 R）· `Reward Help`（fs38 居中）
             // 原版 hAlign：`Reward Tile` = Center（不调）· `Reward Help` = **Left**
+            // 🔴 **2026-10-19（A1179）**：这一处原来**一个 autosize 实参都没传** ⇒ 固定 45.87px。
+            //   判据 = 逐颗现读原版那一颗（`python -I d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all
+            //   "SkirmishModeEventWindow" --depth 6 --relative --no-sprite --no-layout`）：
+            //   `Reward Display/Reward Tile` · `'Progression'` · 字号 **45.87** · 基准 **36.0** ·
+            //   **`m_enableAutoSizing = 1` · `auto[18.0~45.869999…]`** · 对齐 `Center/Midline` ·
+            //   **折行 = 1** · 框 **522.01 × 54.68**（与本文件 `RTile*` 四个常量同值）。
+            //   ⚠️ 原版**折行 = 1** ⇒ 传 `wrapPx`（= 本框宽）与它同档，⛔ **不要**再补 `SetWrapping(false)`
+            //   （那是给原版 `折行=0` 的件的成对写法，见 A34-F4 那一族）。
+            //   实参顺序照 `MenuDraw.Text(parent, r, text, color, name, fontPx, q, wrapPx, autoMinPx,
+            //   autoMaxPx, autoBasePx, …)`；三道闸（`wrapPx > 0` ∧ `autoMinPx > 0` ∧ `fontPx > autoMinPx`）
+            //   在 `MenuDraw.TextCore` 里（45.87 > 18 ⇒ 过闸）。
             MenuDraw.Text(col, new PxRect(RTileL, RTileT, RTileR, RTileB), "Progression",
-                          Color.white, "Reward Tile", 45.87f, QText);
+                          Color.white, "Reward Tile", 45.87f, QText,
+                          RTileR - RTileL, 18f, 45.87f, 36f);
+            // 🔴 **2026-10-18（A1126 · A1 档）**：这一处原来**一个 autosize 实参都没传** ⇒ 固定字号 38px。
+            //   判据 = 逐颗现读原版那一颗（`工具/menu_dump.py bundle_menus_assets_all "SkirmishModeEventWindow" --md`）：
+            //   `Reward Display/Reward Help` = `'Win battles …unlock rewards.'` · 字号 **38.0** · 基准 **36.0** ·
+            //   **`auto[18.0~38.0]`**（= `m_enableAutoSizing = 1` · `m_fontSizeMin 18` · `m_fontSizeMax 38`）·
+            //   对齐 `Left/Top` · **折行 = 1** · 框 **592.774 × 100.99**（与本文件 `RHelp*` 那四个常量逐位同值）。
+            //   ⚠️ 本处是 `TextBox`（**无条件折行**，`SetWrapWidth(r.W)`）⇒ 「38px × 1.437 行高 ≈ 54.6px、
+            //   两行 ≈ 109 > 框高 101」这一定量**只有开了 autosize 才收得住**。
+            //   实参顺序照 `MenuDraw.TextBox(parent, r, text, color, name, fontPx, autoMinPx, q, autoMaxPx, autoBasePx, …)`。
             var help = MenuDraw.TextBox(col, new PxRect(RHelpL, RHelpT, RHelpR, RHelpB),
                                         "Win battles to progress in the event and unlock rewards.", Color.white,
-                                        "Reward Help", 38f);
+                                        "Reward Help", 38f, 18f, QText, 38f, 36f);
             MenuDraw.AlignLeft(help, new PxRect(RHelpL, RHelpT, RHelpR, RHelpB));
 
             // `Player victories`：`Vicotries title`(fs48) + `Skull Victories`(Rank Skull) + `Total Victories`(fs48)
             var vic = MenuDraw.Node(col, "Player victories", new PxRect(VictL, VictT, VictR, VictB));
             // 原版 hAlign：`Vicotries title` = **Right**（它右对齐到那条线上）
+            // 🔴 **2026-10-18（A1126 · A1 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 48px。
+            //   判据 = 逐颗现读原版那一颗（同上一处那条命令）：`…/Player victories/Vicotries title`
+            //   = `'Victories: '` · 字号 **48.0** · 基准 **36.0** · **`auto[18.0~48.0]`** · 对齐 `Right/Capline` ·
+            //   **折行 = 1** · 框 **236.63 × 50.00**（与本文件 `VTitle*` 四个常量逐位同值）。
+            //   ⚠️ 原版**折行 = 1** ⇒ 传 `wrapPx`（= 本框宽）与它同档，⛔ **不要**再补 `SetWrapping(false)`
+            //   （那是给原版 `折行=0` 的件的成对写法，见 A34-F4 那一族）。
             var vt = MenuDraw.Text(vic, new PxRect(VTitleL, VTitleT, VTitleR, VTitleB), "Victories: ",
-                                   Color.white, "Vicotries title", 48f, QText);
+                                   Color.white, "Vicotries title", 48f, QText,
+                                   VTitleR - VTitleL, 18f, 48f, 36f);
             MenuDraw.AlignRight(vt, new PxRect(VTitleL, VTitleT, VTitleR, VTitleB));
             // ⚠️ `Total Victories` 原版是 `Skull Victories` 的**子件**（实读 depth 4）
             var skull = MenuDraw.Node(vic, "Skull Victories", new PxRect(VSkullL, VSkullT, VSkullR, VSkullB));
@@ -112,8 +139,15 @@ namespace CardPresentation
                           "Skull", QArt, null, true);
             //   ⚠️ 原版这个数是**活动里赢了几局**（liveop 事件数据）—— 我们没有事件 ⇒ 印 `0`（= 本地事实），出声；
             //   原版 hAlign = **Left**
+            // 🔴 **2026-10-19（A1179）**：补 autosize 四格（原来没传 ⇒ 固定 48px）。
+            //   判据 = 同一颗现读（命令见上面 `Reward Tile` 那一段）：
+            //   `…/Player victories/Skull Victories/Total Victories` · `'125'` · 字号 **48.0** · 基准 **36.0** ·
+            //   **`m_enableAutoSizing = 1` · `auto[18.0~48.0]`** · 对齐 `Left/Midline` ·
+            //   **折行 = 1** · 框 **180.84 × 50.00**（与本文件 `VCount*` 四个常量逐位同值）。
+            //   ⚠️ 原版**折行 = 1** ⇒ 传 `wrapPx` 与它同档，⛔ 不要补 `SetWrapping(false)`。
             var tv = MenuDraw.Text(skull, new PxRect(VCountL, VCountT, VCountR, VCountB), "0", Color.white,
-                                   "Total Victories", 48f, QText);
+                                   "Total Victories", 48f, QText,
+                                   VCountR - VCountL, 18f, 48f, 36f);
             MenuDraw.AlignLeft(tv, new PxRect(VCountL, VCountT, VCountR, VCountB));
             Debug.Log("[Event] `Total Victories` 印的是 **0** —— 原版读 liveop 事件里的胜利数，"
                       + "我们本地没有事件（**不编数字**，如实印 0）");
@@ -202,8 +236,15 @@ namespace CardPresentation
         {
             var b = MenuDraw.Node(root, "Banned card in deck", new PxRect(BannedL, BannedT, BannedR, BannedB));
             // 原版 hAlign = Center ⇒ 不调 `Align*`
+            // 🔴 **2026-10-19（A1190）**：这一颗原来**没传 autosize 实参** ⇒ 固定 50px。
+            //   判据 = 逐颗现读原版那一颗（`工具/menu_dump.py bundle_menus_assets_all
+            //   "SkirmishModeEventWindow" --depth 8 --md`）：
+            //   `…/Banned card in deck/Text` = `'The deck has banned cards'` · 字号 **50.0** ·
+            //   基准 **36.0** · **`auto[18.0~50.0]`**（`m_enableAutoSizing = 1`）·
+            //   对齐 `Center/Midline` · **折行 = 1** · 框 **678.30 × 53.93**（= `Banned*` 四个常量逐位同值）
+            //   ⇒ 传 `wrapPx` 与原版同档（折行 1 ⇒ ⛔ 不补 `SetWrapping(false)`，那是折行 0 那族的成对写法）。
             MenuDraw.Text(b, new PxRect(BannedL, BannedT, BannedR, BannedB), "The deck has banned cards",
-                          Color.white, "Text", 50f, QText);
+                          Color.white, "Text", 50f, QText, BannedR - BannedL, 18f, 50f, 36f);
             b.gameObject.SetActive(false);
             // 🔴 **原版出厂 act=1**，是**运行时**按「这副牌里有没有禁用卡」关掉的；我们**没有禁用卡表**
             //    ⇒ 只能主动关掉，**出声**（别让它静默消失）

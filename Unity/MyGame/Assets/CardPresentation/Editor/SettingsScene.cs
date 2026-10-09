@@ -236,7 +236,12 @@ public static class SettingsScene
     }
 
     /// <summary>`AlignLeft` 会把 Label 的节点挪走（`MainMenuWindowBase` 的注释里写着）⇒
-    /// **不能**拿它的位置去比矩形中心，要比**左边缘**。</summary>
+    /// **不能**拿它的位置去比矩形中心，要比**左边缘**。
+    /// <para>🔴 **2026-10-19（`A1189`）它的形参收了 `y1`/`y2` 却一个都没用** —— 只比 `s.x1`。
+    /// 于是被它接手的那些站（本窗 `EmailText` / `PasswordText`）**纵向与渲染尺度没人管了**
+    /// （出处 = `资料/普查产出_第十会话/P0_断言7条修.md` §5 第 2 条）。
+    /// ⇒ 那两维由下面那颗 <see cref="CheckTopBotS"/> 补，⛔ **别把两格并进本函数**：
+    /// 它还有第 3 个调用点（页标题那一族），一起改会把「只比左边缘」的语义悄悄换掉。</para></summary>
     static void CheckLeftS(Transform t, float x1, float x2, float y1, float y2, string what)
     {
         var lb = t != null ? t.GetComponentInChildren<Label>() : null;
@@ -246,8 +251,199 @@ public static class SettingsScene
         CheckTrue(Mathf.Abs(leftPx - s.x1) <= 2f, $"{what} 左边缘 = {leftPx:F1}（应为 {s.x1:F1}）");
     }
 
+    /// <summary>🆕 **2026-10-19（`A1189`）**：<see cref="CheckLeftS"/> 的**纵向那一半** ——
+    /// 给「被 `AlignLeft` 挪过、因而不能比矩形中心」的那一族补上**上下沿**这两维。
+    /// <para>🔴 **为什么这维能独立量**：`Label.AlignLeftOn` 写的是
+    /// `new Vector3(worldLeftX − …, **p.y**, p.z)` —— **只挪 x、`y` 原样保留**
+    /// （`Battle/Label.cs`）。所以「左边缘对」与「纵向对」是**两件互不蕴含的事**，
+    /// 前者绿不代表后者绿。</para>
+    /// <para>两格判据都是**原版那一颗 TMP 的矩形**（设计 px 字面量 → 过 `Screen()`，与 `CheckLeftS` 同一条换算）：
+    /// ① **纵向中心**：节点中心必须落在原版矩形的纵向中心上；
+    /// ② **渲出来的字高 ≤ 原版框高**：`CLAUDE.md` §二 `AutoFitBox` 那条教训的**纵向那一半**
+    /// （只比字号会漏掉「字号对而字把框撑破」那一族）。量法 = <see cref="TextRenderedPx"/>
+    /// （TMP 自己的 `textBounds`），⛔ **不读 `Label.WorldH`** —— 那是**被测实现自己**写的字段缓存。</para>
+    /// <para>⚠️ 量的是**节点自己的 `transform`**（同 `CheckLeftS`；`AlignLeft` 挪的就是它）。
+    /// ⛔ **量不到必须报红**（`TextRenderedPx` 返回 `(−1,−1)` 那一档不许当 0 混过去）。</para></summary>
+    static void CheckTopBotS(Transform t, float x1, float x2, float y1, float y2, string what)
+    {
+        var lb = t != null ? t.GetComponentInChildren<Label>() : null;
+        if (lb == null) { CheckTrue(false, what + "（没有 Label）"); return; }
+        var s = SettingsWindow.Screen(x1, y1, x2, y2);
+        float cy = -lb.transform.position.y * 108f + 540f;
+        CheckTrue(Mathf.Abs(cy - (s.y1 + s.y2) * 0.5f) <= 2f,
+                  $"{what} 纵向中心 = {cy:F1}（应为 {(s.y1 + s.y2) * 0.5f:F1}）"
+                + " —— ⚠️ 这一维**必须单独量**：`CheckLeftS` 只比左边缘，而"
+                + " `Label.AlignLeftOn` 保留 `p.y` ⇒ 「左边缘对」推不出「纵向对」");
+        var sz = TextRenderedPx(lb);
+        CheckTrue(sz.y > 0f,
+                  $"{what}：TMP 的 `textBounds` **量得到**（实得 {sz.x:F1}×{sz.y:F1}px）"
+                + " —— ⛔ 量不到（没有 TMP / 点阵兜底后端）不许当 0 混过去，"
+                + "那会让「没量到」静默变成「装得下」（同 `CheckAutoFit` 那条）");
+        if (sz.y <= 0f) return;      // 没量到 ⇒ 下面那格无从谈起
+        CheckTrue(sz.y <= s.H + 1.5f,
+                  $"{what} 渲出来的字高 = {sz.y:F1}px ≤ **原版框高 {s.H:F1}px**"
+                + $"（原版矩形 {y1:F2}…{y2:F2} 设计 px × 0.9，容差 1.5px）"
+                + " —— ⚠️ 量的是 TMP 自己的 `textBounds`（⛔ 不是 `Label.WorldH` 那个字段缓存）");
+    }
+
     /// <summary>🆕 2026-10-18（第四会话）：收口到 `MenuCheck.FindChild`（5 份逐字相同的那一份）。</summary>
     static Transform FindChild(Transform parent, string name) => MenuCheck.FindChild(parent, name);
+
+    /// <summary>🆕 **2026-10-19（`A1181`）**：一颗 `Label` **渲出来**那块字有多大（画布 px · `Vector2(w, h)`）。
+    /// 🔴 **走哪条口**：`TMP.textBounds`（= TMP 自己渲出来那块），同 `Editor/CollectionScene.cs` 的
+    /// `LabelRenderedPx` / `TmpRenderedRect` 那一族口。
+    /// ⛔ **不许读 `Label.WorldW/H`** —— 那是**字段缓存**（`_tmpW/_tmpH`，只有 `RefreshBounds()` 写），
+    /// 也就是**被测实现自己** ⇒ 拿它当量法就是自证（本件验收原文点名的那一条）。
+    /// ⛔ **也不许退到「我们传了多少」**（那量的是实参、不是画出来的东西）。
+    /// <para>⚠️ 取**组件自己的 `transform`**（`AlignLeft/Right` 会把 `Label` 的节点挪走，拿外层容器算会偏）。
+    /// 量不到（`lb == null` / 没有 TMP / 点阵兜底后端）⇒ 返回 `(-1,-1)`，**调用方必须报红**
+    /// （⛔ 不许当 0 混过去 —— 那会让「量不到」静默变成「装得下」）。</para></summary>
+    static Vector2 TextRenderedPx(Label lb)
+    {
+        if (lb == null) return new Vector2(-1f, -1f);
+        var tmp = lb.GetComponentInChildren<TMPro.TextMeshPro>(true);
+        if (tmp == null) return new Vector2(-1f, -1f);
+        var b = tmp.textBounds;                       // 局部空间的行盒（`Bounds`）
+        var M = tmp.transform.localToWorldMatrix;
+        float x1 = float.MaxValue, y1 = float.MaxValue, x2 = float.MinValue, y2 = float.MinValue;
+        for (int c = 0; c < 4; c++)
+        {
+            var corner = M.MultiplyPoint3x4(new Vector3((c % 2 == 0) ? b.min.x : b.max.x,
+                                                        (c < 2) ? b.min.y : b.max.y, 0f));
+            float px = LayoutSpace.PxX(corner.x), py = LayoutSpace.PxY(corner.y);
+            x1 = Mathf.Min(x1, px); x2 = Mathf.Max(x2, px);
+            y1 = Mathf.Min(y1, py); y2 = Mathf.Max(y2, py);
+        }
+        return new Vector2(x2 - x1, y2 - y1);
+    }
+
+    /// <summary>🆕 **2026-10-19（`A1181`）**：一个「文字站」的自适应核查。
+    /// <para>🔴 **期望值一律取【原版 prefab 的字段值】**（由调用点逐条给，出处见那张表）——
+    /// ⛔ **不是**我们传给 `SettingsWindow.Text` 的实参、⛔ 更不是 `SettingsWindow` 里的常量
+    /// （拿被测实现里的数当期望 = 同式自证，通则 → `A131_自证通则.md`）。</para>
+    /// <para>⚠️ 四格都是**原版设计 px** ⇒ 比之前先 × **0.9**（根上那层 `m_LocalScale`）。
+    /// 那个 `0.9` 在这里**写字面量**、⛔ 不写 `SettingsWindow.RootScale`（后者在被测实现里）。</para>
+    /// <para>🔴 **为什么还要量「渲出来那块字」**（`CLAUDE.md` §二 `AutoFitBox` 那条教训）：
+    /// 只比字号的话，「字号字段对、字却溢出框」照样全绿。量的是 TMP 自己的 `textBounds`
+    /// （<see cref="TextRenderedPx"/>），⛔ 不是 `Label.WorldW/H` 那个字段缓存。</para>
+    /// <para>⚠️ `skipRendered` 那一档**只给「落在**没激活**子树里」的站用**（`Login Window`：
+    /// 未激活的 TMP 不重排 ⇒ `textBounds` 是旧的 ⇒ 量了也是假绿）。那种站本条**如实说清没量**，
+    /// ⛔ 不许把它算成「渲出来 ≤ 框」那一格。</para>
+    /// <para>🔴 **2026-10-19（第十会话 · `A1194`）补上【框高】那一半**：原来只有 `boxW`
+    /// （= 原版 `m_SizeDelta.x`）⇒ 「渲出来 ≤ 框」**只钉了宽**；而 `D2` 诊断
+    /// （`资料/普查产出_第十会话/D2_全跑8红诊断.md` §2·C）实测**收敛值是被【框高】夹住的**
+    /// （三点独立一致：`Account Tab Title` `63 ÷ 41.46` · `Tab Toggle Title` `36 ÷ 23.54` ·
+    /// `VersionText` `36.70 ÷ 24.06`）⇒ **只比宽等于只补了一半**（`CLAUDE.md` §二 `AutoFitBox` 教训）。
+    /// 新形参 `boxH` = **原版那一颗的 `m_SizeDelta.y`（设计 px，与 `boxW` 同一份 `menu_dump` 读数）**，
+    /// ⛔ **不是**我们传给 `SettingsWindow.Text` 的实参、⛔ 更不是 `Shell/SettingsWindow.cs` 里的常量。
+    /// ⚠️ 原版有几站的 `m_SizeDelta` 是**布局组/`AspectRatioFilter` 排出来的**（prefab 里读到 `0×0`）——
+    /// 那几格的值取自 `menu_dump` 的**布局后**列、逐站在调用点注明。</para></summary>
+    static void CheckAutoFit(Transform start, string[] chain, string what,
+                             float minPx, float maxPx, float basePx, int wrapMode, float boxW, float boxH,
+                             bool skipRendered = false)
+    {
+        const float RS = 0.9f;      // = 原版根上那层 `m_LocalScale`（**字面量**，见上）
+        // 🔴 **2026-10-09（第十会话 · `D2` 诊断）**：**哨兵闸的上界** —— TMP 在「未重排 / 文案为空」时
+        //   `textBounds` 停在 `2^32` 世界单位（画布 ≈ `4.64e11` px），而**它是个大正数**，
+        //   所以原来那道 `sz.x >= 0f` 的闸**挡不住它**。真画布最多几千 px ⇒ 1e6 足够把它们分开。
+        const float SentinelPx = 1e6f;
+        Transform t = start;
+        for (int i = 0; i < chain.Length && t != null; i++) t = FindChild(t, chain[i]);
+        if (t == null)
+        { CheckTrue(false, $"{what}：找不到节点链 `{string.Join(" / ", chain)}`（下面几格无从谈起）"); return; }
+        var lb = t.GetComponentInChildren<Label>();
+        if (lb == null) { CheckTrue(false, $"{what}：那一格上找不到 `Label`"); return; }
+
+        CheckTrue(lb.AutoSizing,
+                  $"{what}：**真的开了自适应**（原版 `m_enableAutoSizing = 1`）"
+                + " —— 🧨 改坏法：把 `SettingsWindow.Text` 里那次 `MenuDraw.Text(…, fitW * RootScale, …)`"
+                + " 的四个实参传回 `0`（= 本笔之前的写法）⇒ `AutoSizing` 恒 false ⇒ 本行红");
+        CheckNear(Label.FontSizeToPx(lb.FontSizeMin), minPx * RS, 0.2f,
+                  $"{what}：自适应**下限** = 原版 `m_fontSizeMin` **{minPx:F2}px** × 0.9 = {minPx * RS:F2}"
+                + $"（实得 {Label.FontSizeToPx(lb.FontSizeMin):F2}）—— ⛔ 不是我们那一侧的实参");
+        CheckNear(Label.FontSizeToPx(lb.FontSizeMax), maxPx * RS, 0.2f,
+                  $"{what}：自适应**上限** = 原版 `m_fontSizeMax` **{maxPx:F2}px** × 0.9 = {maxPx * RS:F2}"
+                + $"（实得 {Label.FontSizeToPx(lb.FontSizeMax):F2}）—— 🧨 改坏法：上限按 `fs` 推（原版有几颗"
+                + " `max ≠ fs`）⇒ 本行红");
+        CheckNear(Label.FontSizeToPx(lb.FontSizeBase), basePx * RS, 0.2f,
+                  $"{what}：二分起点 = 原版 `m_fontSizeBase` **{basePx:F2}px** × 0.9 = {basePx * RS:F2}"
+                + $"（实得 {Label.FontSizeToPx(lb.FontSizeBase):F2}）");
+        Check(lb.WrappingMode, wrapMode,
+              $"{what}：折行档 = **原版 `m_TextWrappingMode = {wrapMode}`**"
+            + (wrapMode == 0 ? "（`NoWrap`）" : "（`Normal` = 折行开）")
+            + " —— 🧨 改坏法：把 `SettingsWindow.Text` 里那句 `if (autoMinPx > 0f && wrapPx <= 0f) lb.SetWrapping(false);`"
+            + " 删掉 ⇒ 折行=0 的那些站全变 1 ⇒ 本行红");
+
+        if (skipRendered)
+        {
+            // ⚠️ 断的是【跳过的理由】而不是「跳过了」：这一件必须在**没激活**的子树里
+            //    （未激活的 TMP 不重排 ⇒ `textBounds` 停在旧值 ⇒ 量出来是假绿）。
+            CheckTrue(!lb.gameObject.activeInHierarchy,
+                      $"{what}：⚠️ **「渲出来 ≤ 框」这一格【没量】** —— 这一件在**没激活**的子树里"
+                    + "（那颗 TMP 自己出厂就是 `m_IsActive = 0`，或整棵宿主是关着的）⇒ 未激活的 TMP 不重排、"
+                    + "`textBounds` 停在旧值 ⇒ **如实登记**，⛔ 别当它绿；"
+                    + "🧨 本行红 = 它现在其实是**激活**的（那这一格就该真量）");
+            return;
+        }
+        var sz = TextRenderedPx(lb);
+        // 🔴 **2026-10-09（第十会话 · `D2` 诊断 · α · 本条修两个病，都在这一小段）**：
+        //   ① **空串先判**：TMP 对**空串**不生成字形 ⇒ `textBounds` 停在**哨兵值**（实测世界 `2^32`
+        //      ⇒ 画布 ≈ `4.64e11` px）。账号页那颗 `Account Form > Error Message` **出厂就是 `""`**
+        //      ⇒ 「渲出来 ≤ 框宽」对它**无意义**。原来那句注释承诺「文案为空时宽度 0 是正常的」，
+        //      可代码却接着拿哨兵去比框宽 ⇒ **红**。⇒ 改成**如实登记 + 跳过**（⛔ 不是「装得下」）。
+        //   ② **哨兵闸**：原来那道闸写的是 `sz.x >= 0f` —— 而**哨兵是个大正数、照样过闸**
+        //      ⇒ 「没量到」被当成「量到了」，最后红报到**「字溢出框」**上：**既假红、又把真因盖住**。
+        //      真画布最多几千 px ⇒ 用 `SentinelPx` 把它挡在外面。
+        //   🔑 顺带：**量不到时**要手动推一次版面 —— 见下面那段 `ForceRelayout`（⛔ 不是靠读 `WorldW`：
+        //      那条路只在「有【待办】的折行」时才兑现，`_pendWrapW < 0` 时**直接返回**，
+        //      对「批处理没有帧循环 ⇒ 压根没重排过」这一档**不管用**）。
+        if (string.IsNullOrEmpty(lb.Text))
+        {
+            CheckTrue(true, $"{what}：⚠️ **文案出厂为空串 ⇒ 本格【不量】渲出宽**"
+                          + $"（TMP 对空串的 `textBounds` 是哨兵值，实测 {sz.x:F1}px）"
+                          + " —— 这是**如实登记**，⛔ 别读成「装得下」");
+            return;
+        }
+        bool measured = sz.x >= 0f && sz.x < SentinelPx;
+        //   🔑 顺带（2026-10-09 第二轮）：**量不到就手动推一次版面** —— 批处理**没有帧循环**，
+        //      TMP 的 `OnPreRenderObject` 不会自己跑 ⇒ 有些 Label 的 `textBounds` 会一直停在哨兵
+        //      （实测 `Graphics Tab > FPS Limit > FPS Slider > 30 FPS` 就是）。本仓现成的口 =
+        //      **`Label.ForceRelayout()`**（`SetFontSize(当前值)` 早退 + 一次 `ForceMeshUpdate`，
+        //      **幂等**、按当前折行模式与 `[min,max]` 重新收敛）—— 形状同「批处理下粒子要手动 `Simulate`」。
+        //      ⚠️ **只在量不到时才推**（常态一次都不推）：它按新宽度重排会挪 TMP 子节点，
+        //      常态推会动到别的断言量的坐标。
+        if (!measured)
+        {
+            lb.ForceRelayout();
+            sz = TextRenderedPx(lb);
+            measured = sz.x >= 0f && sz.x < SentinelPx;
+        }
+        CheckTrue(measured,
+                  $"{what}：TMP 的 `textBounds` **量得到**（实得 {sz.x:F1}×{sz.y:F1}px）"
+                + " —— ⛔ 量不到（`TextRenderedPx` 返回 −1：没有 TMP / 点阵兜底后端）不许当 0 混过去，"
+                + "那会让「没量到」静默变成「装得下」；"
+                + $"⚠️ **哨兵**（TMP 未重排时 `textBounds` 停在 `2^32` 世界单位 ≈ `4.64e11` 画布 px）也归这一档");
+        if (!measured) return;      // 没量到 ⇒ 下面两条无从谈起（⛔ 别拿哨兵去比框宽）
+        CheckTrue(sz.x > 0f,
+                  $"{what}：**文案非空 ⇒ 渲出来的宽度也必须 > 0**（实得 {sz.x:F1}px；文案 = 「{lb.Text}」）"
+                + " —— 这一条防的是「整颗字一个字形都没生成」（那种情况下下面那条会假绿）");
+        CheckTrue(sz.x <= boxW * RS + 1.5f,
+                  $"{what}：**渲出来 {sz.x:F1}px ≤ 框宽 {boxW * RS:F1}px**（原版 `m_SizeDelta.x` {boxW:F2}px × 0.9，"
+                + "容差 1.5px = TMP 二分收敛粒度）—— 🧨 只比字号会漏掉「字号对而溢出」那一族（`AutoFitBox` 教训）");
+        // 🔴 **2026-10-19（第十会话 · `A1194`）**：「渲出来 ≤ 框」的**另一半**。
+        //   `D2` 诊断（§2·C）三点独立一致地实测出**收敛字号 = 框高 ÷ 1.52**
+        //   （`Account Tab Title` 63÷41.46 · `Tab Toggle Title` 36÷23.54 · `VersionText` 36.70÷24.06）
+        //   ⇒ **框高才是这几站的实际约束**，只钉框宽 = 只补了一半（`CLAUDE.md` §二 `AutoFitBox` 那条）。
+        //   ⚠️ `1.52` 是 `D2` 的**算术拟合**、没从字体资产核过行高比 ⇒ ⛔ 别把这个数写进断言；
+        //      本条比的是**渲出来的字高 vs 原版框高**，判据 = 原版 `m_SizeDelta.y`。
+        //   🧨 改坏法：把框高传大（`Shell/SettingsWindow.cs` 里 `SetAutoFitBox` 那一格的 `r.H`
+        //      换成别的数）⇒ 字被放到撑出原版框 ⇒ 本行红。
+        CheckTrue(sz.y <= boxH * RS + 1.5f,
+                  $"{what}：**渲出来 {sz.y:F1}px ≤ 框高 {boxH * RS:F1}px**（原版 `m_SizeDelta.y` {boxH:F2}px × 0.9，"
+                + "容差 1.5px）—— 🧨 这一格是 `AutoFitBox` 教训的**纵向那一半**："
+                + "`D2` §2·C 实测**收敛值是被框高夹住的**（`Tab Title` 63÷41.46 等三点一致）"
+                + "⇒ 只钉框宽那一条等于只补了一半");
+    }
 
     /// <summary>🔴 **2026-10-10（F4）：`Menu Area` / `Tab Buttons` 一律【现取】，⛔ 别存进局部变量。**
     /// <para>**为什么要单开一对助手**：`SettingsWindow.Open()`（= `TryOpen` / `WindowsManager.OpenWindow`
@@ -637,15 +833,33 @@ public static class SettingsScene
             //   而 A176 那一段的 `Close()` + 两次 `OpenWindow` 会把整棵树重建 ⇒ 存下来的 `bar` 变假 null
             //   ⇒ 音频页 / 联机页**一次都没切过去**、并连带 5 条矩形断言假红）。改走**现取** `Bar(root)`。
             CheckAtS(Bar(root), SettingsWindow.BarL, SettingsWindow.BarT, SettingsWindow.BarR, SettingsWindow.BarB, "`Tab Buttons` 列");
-            // 🔴 **2026-10-17**：`General` 是**第一个**（原版页签序 `General/Media/Account/Graphics/Support` 也是它第一，
-            //    见 `Shell/SettingsWindow.cs` 的 `BuildTabs`）⇒ 这一列现在 **4** 个键。
-            var names = new[] { "General", "Graphics", "Audio", "Online" };
-            // 🆕 **2026-10-19（波 1b）**：四个页签**各自的词条键**（顺序与 `names` 逐位对齐）。
+            // 🔴 这一列的数量走过 **4 → 5 →（一度 6 → 裁定后回到）5**（`General` 是**第一个**，原版页签序
+            //    `General/Media/Account/Graphics/Support` 也是它第一 —— 见 `Shell/SettingsWindow.cs` 的 `BuildTabs`；
+            //    4 那一档 = `A1175` 之前、5 那一档 = `A1175` 建了 `Account`）。**下面是最后那一档的判据。**
+            // 🔴 **2026-10-19（A1183 + `A1186` 裁定 ①）**：`Support` 页建出来、`Online` **从栏里撤掉**
+            //     ⇒ 栏里**仍然是 5 格**，而且**逐位是原版那 5 个键**：
+            //     `General / Audio`(=原版 `Media`)`/ Account / Graphics / Support`。
+            //     **为什么不让它 6 格**（用户裁定、⛔ 别翻案）：原版那条栏是 `VerticalLayoutGroup` + **居中对齐**
+            //     ⇒ 多一格会把原版那 5 格**整体上移 41.65px**、并两头溢出（上 67.31 / 下 80.31 设计 px）。
+            //     `Online` 的入口改到 `General` 页那颗钮上（见本文件 ⑥ 那一段 + `GenOnlineEntry`）。
+            //     ⚠️ **`Online` 仍是合法页号**（`SettingsTab.Online = 5`）—— 只是这一栏里没有它的键，
+            //     ⛔ 因此**下面这一节不许再 `Click(Bar(root), "Online")`**（那会点了个不存在的键）。
+            //     ⛔ 次序必须与 `Shell/SettingsWindow.cs` 的 `SettingsTab` 序号**逐个对齐**（`Click` 之后比 `Current`）。
+            var names = new[] { "General", "Audio", "Account", "Graphics", "Support" };
+            // 🆕 **2026-10-19（波 1b）**：五个页签**各自的词条键**（顺序与 `names` 逐位对齐）。
             //   ⚠️ 「节点名」（`names`）与「页签上印的字」（键）是**两件事**：节点名一个都没动
             //   （`FindChild` / `Click` 靠它），键只决定画出来那行字（见 `Shell/SettingsWindow.cs` 的 `BuildTabs`）。
             //   ⚠️ `Audio` 那一格的键是 `Settings/Media/Title` ⇒ **英文档印 `Media`**（波 0b3 已裁、有意）。
-            var tabTitleKeys = new[] { "Settings/General/Title", "Settings/Graphics/Title",
-                                       "Settings/Media/Title",   "Settings/Online/Title" };
+            //   🔴 **2026-10-19（A1185 + `A1183` 的收尾 · 铁律 5）就地改掉两格**：
+            //     · 第 5 格 `"Online"` → **`"Settings/Support/Title"`**（栏里那第 5 格现在是 `Support` 页签）；
+            //     · 第 3 格原来写的是**字面 `null`** —— 那一格当时是一条「**进表就红**」的哨兵
+            //       （`Loc.HasEntry(null)` 恒 false ⇒ 期望值停在英文 `Account`）。**`Settings/Account/Title`
+            //       已经在表里了**（`A1185` 那批 25 条）⇒ 那句注释说的「把期望值改成 `Loc.T(键)`」**现在做**：
+            //       填**真键**，下面那行期望值就一律是 `Loc.T(键)`（五格同一条算式，不再有那一档三元式）。
+            //       ⛔ **这条断言不许删** —— 它两个方向都还在盯：键被删 ⇒ 生产代码 `AcTerm` 退英文、
+            //       而 `Loc.T` 会**返回键名本身** ⇒ 红。
+            var tabTitleKeys = new[] { "Settings/General/Title", "Settings/Media/Title", "Settings/Account/Title",
+                                       "Settings/Graphics/Title", "Settings/Support/Title" };
             // ---- ① A863 参数（**字面量**，逐条带原版出处；这几条同时是「旧值改坏了会红」的判别式）----
             //   ⚠️ 键高那条尤其要认准：`menu_dump` 印的 **141.92 是屏幕 px**（= 157.6835 × 根上那层 0.9），
             //      **不是设计值**。照 141.92 改键高会比原版**矮 11%**（正是本工程踩过的那类单位坑）。
@@ -660,36 +874,56 @@ public static class SettingsScene
                       "键宽 = 原版五个键的 `m_SizeDelta.x` **165.0**（旧代码 = 满栏宽 178.42）");
             CheckNear(SettingsWindow.TabStep, 166.6035f, 0.01f, "键顶步进 = 高 157.6835 + 缝 8.92 = **166.6035**");
             // ② 键顶**逐行**：期望值是**手算字面量**（⛔ 不过 `SettingsWindow.TabTop` —— 那是被测实现）。
-            //    uGUI `GetStartOffset`：content = 4×157.6835 + 3×8.92 = **657.4940**
-            //    surplus = (966.19 − 123.10) − (657.4940 + 13 + 0) = **172.5960**；`align = 0.5`
-            //    ⇒ start = 123.10 + 13 + 172.5960×0.5 = 222.3980；加 k×166.6035。
-            var tabTops = new[] { 222.398f, 389.0015f, 555.605f, 722.2085f };
-            for (int i = 0; i < 4; i++)
+            //    uGUI `GetStartOffset`：content = **5**×157.6835 + **4**×8.92 = **824.09751**
+            //    surplus = (966.19 − 123.10) − (824.09751 + 13 + 0) = **5.99249**；`align = 0.5`
+            //    ⇒ start = 123.10 + 13 + 5.99249×0.5 = **139.09624**；加 k×166.6035。
+            //    🔴 **2026-10-19（A1175）就地重算**（原来那一套是 **4** 页档：657.4940 / 172.5960 / 222.3980）——
+            //    页数从 4 变 5 ⇒ 余量重新分摊，首键顶 **222.398 → 139.096**。
+            //    ⚠️ 这一档**正是原版 prefab 的真值档**（原版就是 5 个键，`Shell/SettingsWindow.cs` 文件头记的
+            //    「首键顶 = 139.11」与这里差 **0.014** —— 那是 `menu_dump` 布局仿真的取整，⛔ 不是我们算错）。
+            //    🔴 **2026-10-19（`A1186` 裁定 ①）这一档【不许再动】**：`A1183` 那一笔一度把键数推到 6
+            //    （首键顶会变成 **55.794** = 余量 −160.611 的一半、两头各溢出 67.31 / 80.31）
+            //    ⇒ 用户裁定栏里就放原版那 5 格 ⇒ **这一组字面量回到上面那一条**（照旧是设计值、不过 `TabTop`）。
+            var tabTops = new[] { 139.09624f, 305.69975f, 472.30325f, 638.90675f, 805.51025f };
+            for (int i = 0; i < 5; i++)
             {
+                // 🔴 **2026-10-19（`A1183` + `A1186` 裁定 ①）**：这一列现在 = **原版那 5 个键逐位**：
+                //   `General / Audio`(=原版 `Media`)`/ Account / Graphics / Support`（`A1175` 建了 `Account`、
+                //   `A1183` 建了 `Support`；`Online` **从栏里撤掉**、改从 `General` 页那颗钮进）。
                 var n = FindChild(Bar(root), names[i]);
-                CheckTrue(n != null, $"第 {i + 1} 个键 `{names[i]}` 建出来了（我们建 4 个 —— 原版 5 个，见文件头 ③）");
+                CheckTrue(n != null, $"第 {i + 1} 个键 `{names[i]}` 建出来了（我们建 5 个 = 原版那 5 个，逐位）");
                 if (n == null) continue;
                 // 键那一格：左沿 **341.52**（= 栏右沿 506.52 − 键宽 165，**贴右沿**、⛔ 不是满栏宽）
                 CheckAtS(n, 341.52f, tabTops[i], 506.52f, tabTops[i] + 157.6835f,
                          $"`{names[i]}` 键在 VLG 算出来的位置（第 {i + 1} 个）");
-                // 🔴 **2026-10-19（波 1b）就地改掉「拿节点名当期望值」**：四个页签**全接词条了**
+                // 🔴 **2026-10-19（波 1b）就地改掉「拿节点名当期望值」**：页签**全接词条了**
                 //    （`Graphics/Audio/Online` 三条原来 `Key = (string)null`、照 `Label` 原样画）。
                 //    旧写法 `names[i] == "General" ? Loc.T(…) : names[i]` 现在**两档各红几条**：
-                //    · 中文档：`图像`/`媒体`/`联机` ≠ `Graphics`/`Audio`/`Online` ⇒ 红 3 条；
+                //    · 中文档：`图像`/`媒体`/`支持` ≠ `Graphics`/`Audio`/`Support` ⇒ 红 3 条；
                 //    · 英文档：`Audio` 那条印的是 `Media`（`Settings/Media/Title` 的 EN 列）⇒ 仍红 1 条；
-                //      （`Graphics`/`Online` 两条恰好逐字相等 ⇒ 那两档看不出问题 —— 正是「只断一种情况」的坑。）
+                //      （剩两条恰好逐字相等的 ⇒ 那两档看不出问题 —— 正是「只断一种情况」的坑。）
                 //    ⇒ 期望值一律走 `Loc.T(键)`：⛔ 不写死节点名、也⛔ 不写死中文（那只是把红挪到英文档）。
                 //    🔴 **节点名照旧不进本地化**（上面 `FindChild` / 下面 `Click` 都靠 `names[i]`）。
-                Check(TextOf(n), Loc.T(tabTitleKeys[i]),
-                      $"`{names[i]}` 的页签文字 = `Loc.T(\"{tabTitleKeys[i]}\")`（实得「{TextOf(n)}」；"
+                //    🆕 **2026-10-19（`A1185` 收尾）就地收掉那条哨兵**：`Account` 那一格（i == 2）原来
+                //      走「表里有走表、没有退原版英文」的两步三元式（因为当时 `Settings/Account/Title`
+                //      **还没进表**）。**那条键已经在表里了**（`A1185` 那批 25 条）⇒ 现在**五格同一条算式**。
+                //      ⛔ 本条不是「红不了」的假断言：键被删 ⇒ `AcTerm` 退英文、而 `Loc.T` 返回**键名本身** ⇒ 红。
+                //      ⛔ 判据是**生产代码那一行**（`AcTerm`），不是我们自己的常量。
+                string want = Loc.T(tabTitleKeys[i]);
+                Check(TextOf(n), want,
+                      $"`{names[i]}` 的页签文字（实得「{TextOf(n)}」；期望 = `Loc.T(\"{tabTitleKeys[i]}\")`"
+                    + " —— 生产代码走 `Term(键, 原版英文)` 两步漏斗，键在表里时即 `Loc.T`）"
                     + "⛔ 节点名 `" + names[i] + "` 与这行字是两件事 —— 节点名一个都没动）");
             }
             // ③ 🔴 **判别式**（结构上不可能与旧实现同时满足）：
             //    (a) 起排位置 —— 旧式 `BarT + 30 + i×157.68` 会给首键顶 **153.10**；
-            //        改回「上对齐 + padTop 13」会给 **136.10**；只有「padTop 13 + MiddleCenter」才是 **222.398**。
-            CheckNear(SettingsWindow.TabTop(0, 4) - 123.10f - 13f, 86.298f, 0.02f,
-                      "🔴 首键顶 = 栏顶 + padTop 13 + **余量一半 86.298**（`m_ChildAlignment = 5` 那条；上对齐会给 0）");
-            CheckNear(SettingsWindow.TabTop(1, 4) - SettingsWindow.TabTop(0, 4), 166.6035f, 0.02f,
+            //        改回「上对齐 + padTop 13」会给 **136.10**；**4 页档**会给 **222.398**；
+            //        **6 键档**会给 **55.794** —— 只有「padTop 13 + MiddleCenter + **5 个键**」才是 **139.096**。
+            CheckNear(SettingsWindow.TabTop(0, 5) - 123.10f - 13f, 2.99624f, 0.02f,
+                      "🔴 首键顶 = 栏顶 + padTop 13 + **余量一半 2.99624**（`m_ChildAlignment = 5` 那条；上对齐会给 0）"
+                    + " —— 🧨 键数改回 4 ⇒ 余量一半变 86.298 ⇒ 红；**改回 6 ⇒ −80.30551 ⇒ 红**"
+                    + "（后者正是 `A1186` 裁定 ① 钉住的那一格：栏里只许放原版那 5 个键）");
+            CheckNear(SettingsWindow.TabTop(1, 5) - SettingsWindow.TabTop(0, 5), 166.6035f, 0.02f,
                       "🔴 相邻键的顶之差 = **166.6035**（只改高不改缝 ⇒ 157.6835 ⇒ 红；旧代码正是这一档）");
             //    (b) 键上那两层**居中于【键】那一格**：原版实测 `Icon` 中心 = `Label` 中心 = 设计 **424.06**
             //        （屏幕 `477.65`）。旧代码居中的是整条栏（417.31 ⇒ 屏幕 471.58，差 6.1px ⇒ 红）。
@@ -701,8 +935,18 @@ public static class SettingsScene
                           "🔴 键上那行字**居中于【键】**（原版实测中心 = 设计 424.06 ⇒ 屏幕 477.65）"
                         + " —— 居中于整条栏会给 471.58（旧代码正是这一档）");
             }
-            CheckTrue(FindChild(Bar(root), "Account") == null && FindChild(Bar(root), "Support") == null,
-                      "原版的 `Account` / `Support` 两个键**不建**（那两页没做，不摆假键）");
+            // 🔴 **2026-10-19（A1175 → A1183 → `A1186` 裁定 ①）就地更正（铁律 5）**：这一句原来写
+            //    「`Account` / `Support` 两个键**不建**」→ 后来只断「`Support` 仍然不建」。
+            //    **两个键现在都建了**（`Account` = `A1175`、`Support` = `A1183`），而且栏里就是这两格
+            //    ⇒ 改断「两个都在」。⛔ 别再退回旧口径（那会让建好的键静默消失也没人管）。
+            //    🔴 同一句里顺手钉住裁定 ① 的另一半：**`Online` 那一格必须【不在】栏里**
+            //    （`A1183` 那一笔曾经把它摆在末位 ⇒ 6 格 ⇒ 原版那 5 格整体上移 41.65px，用户裁定撤掉）。
+            CheckTrue(FindChild(Bar(root), "Account") != null && FindChild(Bar(root), "Support") != null,
+                      "`Account` 键（A1175）与 `Support` 键（A1183）**都建了** —— 栏里那 5 格 = 原版那 5 个");
+            CheckTrue(FindChild(Bar(root), "Online") == null,
+                      "🔴 `Online` **不在页签栏里**（`A1186` 裁定 ①：栏里只放原版那 5 个键 ⇒ "
+                    + "多一格会把原版那 5 格整体上移 41.65px）—— 它的入口是 `General` 页那颗 `Online Button`；"
+                    + "改坏法：把它加回 `BuildTabs` 的 `specs` ⇒ 本条红、上面 `TabTop(0, 5)` 那条也红");
 
             // 🆕 A17：本窗的换图（关闭钮的圆底 → `40k_bt_close_hover` · 三个页签 → `…_selected` · 画质下拉 → `…_opened`
             //   · 动作钮 → `40K_button_hover`）逐个悬停验一遍；顺带盯 A21「选中态用 `_hover`」
@@ -717,12 +961,17 @@ public static class SettingsScene
             //   而**只报一句 `点击区 `?``**：分不出「没建」与「旧树」，见 `Click` 的注释）。
             //   ⛔ 别退回 `Click(FindChild(存下来的父, 名字))`。
             Section("切页（只切 activeSelf）");
-            var pages = new[] { "General Tab", "Graphics Tab", "Media Tab", "Online Tab" };
-            for (int i = 0; i < 4; i++)
+            // 🔴 **2026-10-19（A1175 → A1183 → `A1186` 裁定 ①）**：页签数 4 → 5 →（一度 6 → 裁定后回到）**5**，
+            //   且 `pages` 的次序必须与 `names` **逐位对齐**（节点的名字不变：音频页那一棵仍叫 `Media Tab`、
+            //   第 5 格那一棵叫 `Support Tab`）。
+            //   ⚠️ **`Online Tab` 这一棵仍在 `pages` 之外**：它在栏里没有键（裁定 ①）⇒ 它的切页链
+            //   由下面 ⑥ 那颗入口钮那条断言验（`Click` 之后比 `win.Current == SettingsTab.Online`）。
+            var pages = new[] { "General Tab", "Media Tab", "Account Tab", "Graphics Tab", "Support Tab" };
+            for (int i = 0; i < 5; i++)
             {
                 Click(Bar(root), names[i]);
                 Check(win.Current, (SettingsTab)i, $"点 `{names[i]}` ⇒ 切到第 {i + 1} 页");
-                for (int j = 0; j < 4; j++)
+                for (int j = 0; j < 5; j++)
                 {
                     var pg = FindChild(root, pages[j]);
                     CheckTrue(pg != null && pg.gameObject.activeSelf == (i == j),
@@ -734,6 +983,246 @@ public static class SettingsScene
                 CheckTrue(title != null && !string.IsNullOrEmpty(TextOf(title)), $"`{pages[i]}` 有页标题");
                 CheckLeftS(title, SettingsWindow.TitleL, SettingsWindow.TitleR, SettingsWindow.TitleT,
                            SettingsWindow.TitleB, "页标题**左对齐**到原版矩形左边缘（fs55 那条）");
+            }
+
+            // ---------------- 🆕 2026-10-19（A1175）账号页 + 登录弹窗 ----------------
+            // 判据（逐值出处）：
+            //   · **几何** = `python 工具/menu_rect.py bundle_menus_assets_all "Account Tab" --depth 4
+            //     --no-ancestor-scale`（未缩放帧 = 设计 px；本窗其余断言收的也是这一档）；
+            //   · **组件 / 词条 / 颜色 / 显隐** = `python -I d:/tmp/wf_w4probe/w4probe.py bundle_menus_assets_all
+            //     "Account Tab" 4` + 全量反编译 `AccountTab__*.c` / `BasicLoginWithEmailWindow__*.c`；
+            //   · **层 × 出现条件**那六条 = `AccountTab__Refresh.c` 里那 6 处 `SetActive`
+            //     （`+0x30` 未登录 · `+0x38` 恒关 · `+0x48` 恒开 · `+0x50` 登录态 · `+0x58` 恒关 · `+0x88` 登录态）。
+            // 🔴 **期望值一律字面量**（⛔ 不从 `SettingsWindow.Ac*` / `Lw*` 读 —— 那是被测实现）。
+            Section("A1175 账号页（原版 `Account Tab`）：树 / 矩形 / 层×出现条件 / 命中区");
+            {
+                // 自检**绝不写 `PlayerPrefs`**（`PersistOverride`）+ 收尾**逐值放回**（同本文件其余几处）。
+                bool acWasPersist = SettingsWindow.AccountState.PersistOverride;
+                bool acWasReg = SettingsWindow.AccountState.Registered;
+                string acWasMail = SettingsWindow.AccountState.Email;
+                SettingsWindow.AccountState.PersistOverride = true;
+                SettingsWindow.AccountState.ResetForTest();      // 出厂态 = **未登录**（下面那一档的前提）
+
+                Click(Bar(root), "Account");
+                Check(win.Current, SettingsTab.Account, "点 `Account` ⇒ 切到第 **3** 页（原版页签序里的第三格）");
+                var acPage = FindChild(root, "Account Tab");
+                CheckTrue(acPage != null && acPage.gameObject.activeSelf, "`Account Tab` 那一棵建出来了、而且开着");
+
+                // ---- ① 树（逐颗点名；名字全是**原版 GO 名**）----
+                var acTree = new[]
+                {
+                    "Tab Title", "Player Id", "Player Id Text", "External Link Icon",
+                    "Account Form", "EmailText", "InputEmail", "PasswordText", "InputPassword",
+                    "Reset Password", "Forgot Password", "Error Message",
+                    "Subscribe Newsletter", "Social Media Links",
+                    "Discord Button", "IG Button", "Facebook Button", "Twitter Button", "Youtube Button",
+                    "Buttons", "Unregistered Buttons", "Register Button", "Registered Buttons",
+                    "Switch Account Button", "Logout Button", "Twitch Button", "Delete Button",
+                    "Login Window",
+                };
+                foreach (var nm in acTree)
+                    CheckTrue(FindChild(acPage, nm) != null, $"账号页有 `{nm}`（原版 GO 名）");
+                // 🔴 **名字末尾那个空格是原版原文**（`GameObject/Login Button.json` 的 `m_Name` = `"Login Button "`）
+                //    ⇒ 这一对是**判别式**：谁「顺手 trim」了 ⇒ 上一句红；谁「顺手补上」了 ⇒ 前一句红。
+                var acULogin = FindChild(acPage, "Login Button ");
+                // 🔴 **2026-10-19（A1181）就地改：判别式的【作用域】** —— 这里原来是 `FindChild(acPage, …)`
+                //   = **整页**，而 `acPage` 含登录弹窗（`BuildLoginWindow(page)`），弹窗里那颗**正好也叫
+                //   `Login Button`（无空格）** ⇒ 判别式第二半**恒为 false** = 这条**恒红、零验证力**
+                //   （恒红与被测实现对错**无关**）。
+                //   ⇒ 收窄到页内那一格：`Unregistered Buttons` 是 `Buttons` 的子件、**不含弹窗**
+                //     （弹窗 `Login Window` 是 page 的直接子件）⇒ 原版那两颗各在各自那一格。
+                //   ⚠️ **判别力不变**：谁把名字末尾那个空格 trim 掉 ⇒ 这一半当场红。
+                var acUnreg = FindChild(acPage, "Unregistered Buttons");
+                CheckTrue(acULogin != null && acUnreg != null && FindChild(acUnreg, "Login Button") == null,
+                          "`Login Button ` **末尾带一个空格**（原版 `m_Name` 就是 `\"Login Button \"`）"
+                        + "，而没有那颗**去掉空格**的同名件（⛔ 别 trim —— `FindChild` 按名字精确匹配）"
+                        + "（作用域 = 页里 `Unregistered Buttons` 那一格 —— ⛔ 别改回整页："
+                        + "弹窗里那颗也叫 `Login Button`，整页当作用域会被它顶掉）");
+                // 弹窗里那一棵（原版 `Account Tab > Login Window`：**内嵌的子树**，不是外链 prefab）
+                var lw = FindChild(acPage, "Login Window");
+                CheckTrue(lw != null, "`Login Window` 挂在 `Account Tab` 子树里（原版 `m_Father` 实读）");
+                foreach (var nm in new[] { "Backgroun filler", "Generic Popup Background", "Mask", "Background fill",
+                                           "EmailText", "InputEmail", "PasswordText", "InputPassword",
+                                           "Forgot Password", "ErrorMensajeContainer", "Animated Loading Image",
+                                           "Cog", "Error Message", "Login Button",
+                                           "Generic Close Button Green", "Icon" })
+                    CheckTrue(FindChild(lw, nm) != null, $"登录弹窗里有 `{nm}`（原版 GO 名）");
+
+                // ---- ② 关键矩形（设计 px 字面量 → 过 `Screen()`；⛔ 不过 `Screen()` 的锚在 A131 那一段）----
+                CheckAtS(FindChild(acPage, "Account Form"), 596.52f, 273.14f, 1516.52f, 685.06f, "`Account Form`");
+                // 🔴 **2026-10-19（A1181）就地改（#4/#5）：量法** —— `EmailText` / `PasswordText` 这两颗 Label
+                //   被 `AlignLeft` 挪过（`SettingsWindow.cs` 账号页那两句），而 `Label.AlignLeftOn` 把**节点中心**
+                //   移到「左沿 + 宽/2」⇒ 拿 `CheckAtS`（比**节点中心**）去量**必红** —— 中心天然不等于原版矩形中心
+                //   （这不是实现错，是量法错）。⇒ 改用本窗**已有的** `CheckLeftS`（`:238` 的 doc 就是为这一档写的：
+                //   「`AlignLeft` 会把 Label 的节点挪走 ⇒ 不能比中心，要比**左边缘**」）。
+                //   ⚠️ 期望值都是**同一组原版矩形、一个字没改**；判别力不减 —— 矩形摆错 ⇒ 左边缘跟着错 ⇒ 红。
+                CheckLeftS(FindChild(acPage, "EmailText"), 596.52f, 1056.52f, 261.43f, 321.43f, "`EmailText`");
+                // 🔴 **2026-10-19（A1189）**：上面那条**只比 x**（`CheckLeftS` 收了 `y1`/`y2` 没用）
+                //   ⇒ 这两颗的**纵向位置与渲染尺度**当场没人管（原委 → `CheckTopBotS` 的 doc）。
+                //   两格判据 = 同一组原版矩形（`menu_dump` 的设计 px 字面量），**一个字没改**。
+                CheckTopBotS(FindChild(acPage, "EmailText"), 596.52f, 1056.52f, 261.43f, 321.43f, "`EmailText`");
+                CheckAtS(FindChild(acPage, "InputEmail"), 596.52f, 320.67f, 1516.52f, 380.67f, "`InputEmail`");
+                CheckLeftS(FindChild(acPage, "PasswordText"), 596.52f, 1056.52f, 390.71f, 450.71f, "`PasswordText`");
+                CheckTopBotS(FindChild(acPage, "PasswordText"), 596.52f, 1056.52f, 390.71f, 450.71f, "`PasswordText`");
+                CheckAtS(FindChild(acPage, "InputPassword"), 596.52f, 450.75f, 1516.52f, 510.75f, "`InputPassword`");
+                CheckAtS(FindChild(acPage, "Reset Password"), 1056.52f, 403.43f, 1516.52f, 447.80f, "`Reset Password`");
+                CheckAtS(FindChild(acPage, "Forgot Password"), 1056.52f, 403.43f, 1516.52f, 447.80f,
+                         "`Forgot Password`（与 `Reset Password` **同矩形** —— 原版就这么叠着、分时出场）");
+                CheckAtS(FindChild(acPage, "Error Message"), 596.52f, 524.59f, 1516.52f, 571.69f, "`Error Message`");
+                CheckAtS(FindChild(acPage, "Subscribe Newsletter"), 596.52f, 552.99f, 1195.98f, 629.70f, "`Subscribe Newsletter`");
+                CheckAtS(FindChild(acPage, "Social Media Links"), 584.92f, 666.74f, 1222.15f, 747.64f, "`Social Media Links`");
+                CheckAtS(FindChild(acPage, "Discord Button"), 584.92f, 659.69f, 712.36f, 754.69f, "`Discord Button`");
+                CheckAtS(FindChild(acPage, "Youtube Button"), 1094.70f, 667.19f, 1222.15f, 747.19f, "`Youtube Button`");
+                CheckAtS(FindChild(acPage, "Buttons"), 972.65f, 690.47f, 1072.65f, 790.47f, "`Buttons`（100×100 的空容器）");
+                CheckAtS(FindChild(acPage, "Unregistered Buttons"), 891.25f, 545.27f, 1513.25f, 635.27f, "`Unregistered Buttons`");
+                CheckAtS(FindChild(acPage, "Register Button"), 1213.25f, 545.27f, 1513.25f, 635.27f, "`Register Button`");
+                CheckAtS(acULogin, 1202.25f, 545.27f, 1502.25f, 635.27f, "`Login Button `（Unregistered 里那颗）");
+                CheckAtS(FindChild(acPage, "Registered Buttons"), 596.52f, 805.36f, 1256.52f, 895.36f, "`Registered Buttons`");
+                CheckAtS(FindChild(acPage, "Switch Account Button"), 596.52f, 805.36f, 896.52f, 895.36f, "`Switch Account Button`");
+                CheckAtS(FindChild(acPage, "Logout Button"), 926.52f, 805.36f, 1226.52f, 895.36f, "`Logout Button`");
+                CheckAtS(FindChild(acPage, "Twitch Button"), 909.35f, 805.36f, 1206.66f, 895.36f, "`Twitch Button`");
+                CheckAtS(FindChild(acPage, "Delete Button"), 1216.52f, 806.07f, 1516.52f, 896.07f, "`Delete Button`");
+                CheckAtS(FindChild(acPage, "Player Id"), 1148.33f, 165.43f, 1515.44f, 204.46f, "`Player Id`");
+                // 弹窗那一族
+                CheckAtS(lw, 360.36f, 264.65f, 1568.94f, 664.65f, "`Login Window`（1208.58×400）");
+                CheckAtS(FindChild(lw, "Backgroun filler"), 372.27f, 274.19f, 1556.31f, 650.43f, "`Backgroun filler`（原版拼写如此）");
+                CheckAtS(FindChild(lw, "InputEmail"), 402.52f, 367.67f, 1214.52f, 427.67f, "弹窗 `InputEmail`");
+                CheckAtS(FindChild(lw, "InputPassword"), 402.52f, 497.75f, 1214.52f, 557.75f, "弹窗 `InputPassword`");
+                CheckAtS(FindChild(lw, "Forgot Password"), 777.02f, 451.74f, 1214.52f, 496.11f, "弹窗 `Forgot Password`");
+                CheckAtS(FindChild(lw, "ErrorMensajeContainer"), 402.52f, 576.78f, 1214.52f, 613.51f, "`ErrorMensajeContainer`（西语残留拼写）");
+                CheckAtS(FindChild(lw, "Login Button"), 1238.33f, 496.10f, 1547.50f, 556.10f, "弹窗 `Login Button`（309.17×60）");
+                CheckAtS(FindChild(lw, "Generic Close Button Green"), 1526.15f, 232.15f, 1601.15f, 307.15f,
+                         "`Generic Close Button Green`（75×75，**第二颗关窗钮**）");
+
+                // ---- ③ 「层 × 出现条件」那六条（**两档各断一次** ⇒ 互为判别式）----
+                var acReg = FindChild(acPage, "Register Button");
+                var acReset = FindChild(acPage, "Reset Password");
+                var acForgot = FindChild(acPage, "Forgot Password");
+                var acNews = FindChild(acPage, "Subscribe Newsletter");
+                var acSwitch = FindChild(acPage, "Switch Account Button");
+                var acLogout = FindChild(acPage, "Logout Button");
+                var acDelete = FindChild(acPage, "Delete Button");
+                var acTwitch = FindChild(acPage, "Twitch Button");
+                var acPid = FindChild(acPage, "Player Id");
+                System.Func<Transform, bool> on = t => t != null && t.gameObject.activeSelf;
+                CheckTrue(!SettingsWindow.AccountState.Registered, "（前提）自检从**未登录**那一档开始（`ResetForTest`）");
+                CheckTrue(on(acReg) && !on(acULogin) && on(acSwitch) && !on(acReset) && !on(acForgot) && !on(acNews),
+                          "未登录档：`Register Button` 开 · **`Login Button ` 关** · `Switch Account Button` 开 · "
+                        + "`Reset Password` 关 · `Forgot Password` 关 · `Subscribe Newsletter` 关"
+                        + "（判据 = `AccountTab__Refresh.c` 的 `SetActive(!登录态) / (0) / (1) / (登录态) / (0) / (登录态)`）");
+                CheckTrue(!on(acLogout) && on(acDelete) && !on(acTwitch) && !on(acPid) && !on(lw),
+                          "**原版 `Refresh` 一个字都不碰**的那几颗停在 prefab 值：`Logout` 关 · `Delete` **开** · "
+                        + "`Twitch` 关 · `Player Id` 关 · `Login Window` 关（🧨 谁把它们也按登录态开关 ⇒ 本条红）");
+
+                // 登录态那一档（**注入**，不落盘）：`Register` 关 · `Reset`/`Subscribe` 开 · 其余不变
+                SettingsWindow.AccountState.SignIn("selfcheck@example.invalid");
+                win.RefreshAccount();
+                CheckTrue(on(acReg) == false && on(acReset) && on(acNews) && on(acSwitch) && on(acDelete) && !on(acLogout),
+                          "登录档：`Register Button` 关 · `Reset Password` 开 · `Subscribe Newsletter` 开 · "
+                        + "而 `Switch Account` / `Delete` **仍开**、`Logout` **仍关**（后三者是「原版不碰」那一族的判别式）");
+                // 两颗输入框：登录态下回填邮箱 + 清空密码（原版 `Refresh` 那两句 `set_text`）
+                Check(win.AccountEmail != null ? win.AccountEmail.Text : null, "selfcheck@example.invalid",
+                      "登录档下 `InputEmail` 回填成已登录的邮箱（原版 `TMP_InputField.set_text`）");
+                Check(win.AccountPassword != null ? win.AccountPassword.Text : null, "",
+                      "登录档下 `InputPassword` 被清空（原版同一段）");
+                Check(TextOf(FindChild(acPage, "Player Id")), "Player ID: " + SettingsWindow.AccountState.PlayerId,
+                      "`Player Id` 那行 = 原版 prefab 的 `Player ID: ` 前缀 + 本机模拟 id");
+
+                // ---- ④ 登录弹窗：开 / 关 / 「该藏的时候藏住了」----
+                CheckTrue(!win.LoginWindowOpen && !lw.gameObject.activeSelf, "（前提）弹窗出厂关着（原版 `m_IsActive = 0`）");
+                // 「该藏的时候藏住了」= **`PointerLayer` 扫不到它**（`HitQuad` 对 inactive 的 quad 返回 null）
+                {
+                    int live = 0; string who = "";
+                    foreach (var b in lw.GetComponentsInChildren<WindowButton>(true))
+                        if (PointerLayer.HitQuadForTest(b) != null) { live++; if (who.Length < 60) who += b.name + " "; }
+                    CheckTrue(live == 0, $"弹窗**关着**时它子树里 {live} 颗命中区仍然生效（应有 0）"
+                                       + (live > 0 ? $"：{who}" : "")
+                                       + " —— 🧨 建了却没跟着藏 ⇒ 关着的窗照样吃点击（本仓踩过这个坑）");
+                }
+                // 点 `Switch Account Button` ⇒ 弹窗亮起来（判据 = `AccountTab__SwitchAccount.c`）
+                Click(acSwitch);
+                CheckTrue(win.LoginWindowOpen && lw.gameObject.activeSelf,
+                          "点 `Switch Account Button` ⇒ `Login Window` 亮起来（原版那一跳是 `WindowsManager.OpenWindow(loginWindow)`）");
+                {
+                    var lb = FindChild(lw, "Login Button");
+                    var wb = lb != null ? FindChild(lb, "Hit") : null;
+                    var btn = wb != null ? wb.GetComponent<WindowButton>() : null;
+                    CheckTrue(btn != null && PointerLayer.HitQuadForTest(btn) != null,
+                              "弹窗**开着**时 `Login Button` 的命中区生效（与上面那条互为判别式）");
+                }
+                // 弹窗整段**高于本页内容**（否则点弹窗会穿透到底下那一页）
+                {
+                    var lwQ = FindChild(lw, "Login Button") != null
+                            ? FindChild(FindChild(lw, "Login Button"), "bg").GetComponent<ImageQuad>() : null;
+                    var pgQ = FindChild(acPage, "Account Form") != null
+                            ? FindChild(FindChild(acPage, "Account Form"), "InputEmail").GetComponentInChildren<ImageQuad>() : null;
+                    CheckTrue(lwQ != null && pgQ != null && lwQ.RenderQueue > pgQ.RenderQueue,
+                              $"弹窗内容档 {lwQ?.RenderQueue} **严格高于**本页内容档 {pgQ?.RenderQueue}"
+                            + "（分层用渲染队列、不能用 z —— 本仓红线）");
+                }
+                // `ESC` 先关弹窗（原版那颗 MB 的 `closeOnESC = 1`），**窗不关**
+                CheckTrue(win.ESCPressed(), "`ESC` 这一下被弹窗吃掉了（返回 true = 窗不关）");
+                CheckTrue(!win.LoginWindowOpen, "…而且它真的关了");
+                CheckTrue(win.CurrentState == WindowState.Open, "…窗本身**还开着**");
+                // 再开一次、用那颗绿关窗钮关掉
+                Click(acSwitch);
+                CheckTrue(win.LoginWindowOpen, "（再开一次）弹窗又亮起来了");
+                {
+                    var cn = FindChild(lw, "Generic Close Button Green");
+                    Click(cn);
+                    CheckTrue(!win.LoginWindowOpen, "绿关窗钮 ⇒ 弹窗关掉（原版那颗 `closeButton`）");
+                }
+
+                // ---- ⑤ 命中区（**原版射线件的矩形**，⛔ 不是可见面）----
+                //   弹窗绿关窗钮：吃射线的是**子件 `Icon`**（局部 56.37×54.50），按它自己的
+                //   `m_RaycastPadding (-20)⁴` **外扩** ⇒ 96.37 × 94.50 设计 px（⛔ 不是 75×75 的可见面）。
+                //
+                // 🔴 **2026-10-19（A1181）就地改（#6/#7/#8，**一个根因**）：取命中 quad 的【唯一一个口】。**
+                //   `MenuDraw.Hit` 建的是「**一颗裸 `RectTransform` 节点** + **一颗同名子 `ImageQuad`**」
+                //   （`new GameObject(name, typeof(RectTransform))` 然后 `ImageQuad.Create(hit, …, "Hit")`）
+                //   ⇒ 把 `Hit` **节点**交给 `CheckQuadRectPx`（头一句就是 `t.GetComponent<ImageQuad>()`）
+                //   **必得 null** ⇒ 这三条原来**恒红、零验证力**（打印的是归零的 `0.00×0.00`，
+                //   恒红与被测实现对错**无关** —— 与 `:910` 那条走 `PointerLayer` 的绿断言正好互证）。
+                //   ⇒ 取 **`Hit` 节点子树里那颗 `ImageQuad`**（`GetComponentInChildren<ImageQuad>(true)`）。
+                //   🔴 **`true` 那个参数是【必须】的，⛔ 别去掉**：量 `Register Button` 那一颗时它**正关着**
+                //     （③ 的登录档 `Refresh` 把它 `SetActive(0)` —— 上面「登录档…`Register Button` 关」
+                //     那条断言刚刚确认过）⇒ 走**生产**那个口 `PointerLayer.HitQuadForTest`
+                //     （`HitQuad` 带 `isActiveAndEnabled` 闸）会**当场 null**、本格照旧红。
+                //     本格断的是「**建出来的**命中区几何」，「它今天开没开」是另一件事（归 ③ 那一族）。
+                //   **判别力**（三种都红）：命中 quad **没建** / **建到别处去了（子树里取不到）** / **矩形摆错**。
+                System.Func<Transform, Transform> hitQuadOf = hit =>
+                {
+                    var hq = hit != null ? hit.GetComponentInChildren<ImageQuad>(true) : null;
+                    return hq != null ? hq.transform : null;
+                };
+                Click(acSwitch);
+                {
+                    var cn = FindChild(lw, "Generic Close Button Green");
+                    var hit = cn != null ? FindChild(cn, "Hit") : null;
+                    CheckQuadRectS(hitQuadOf(hit), null, 1535.46f - 20f, 242.40f - 20f, 1591.83f + 20f, 296.90f + 20f,
+                                   "弹窗关窗钮的命中区 = 子件 `Icon` 矩形外扩 20（`m_RaycastPadding = (-20)⁴`，"
+                                 + "负 = **外扩**）⇒ 设计 96.37×94.50，⛔ 不是可见面 75×75");
+                    var lb2 = FindChild(lw, "Login Button");
+                    CheckQuadRectS(hitQuadOf(lb2 != null ? FindChild(lb2, "Hit") : null), null,
+                                   1238.33f, 496.10f, 1547.50f, 556.10f, "弹窗 `Login Button` 的命中区 = 它自己的矩形");
+                }
+                {
+                    var hit = FindChild(acReg, "Hit");
+                    CheckQuadRectS(hitQuadOf(hit), null, 1213.25f, 545.27f, 1513.25f, 635.27f, "`Register Button` 的命中区");
+                }
+                CheckTrue(win.ESCPressed(), "（收尾）把弹窗关掉（`ESC`）");
+                CheckTrue(!win.LoginWindowOpen, "…弹窗关掉了");
+
+                // ---- ⑥ 收尾：逐值放回 + 切回**页签循环收尾时的那一页** ----
+                SettingsWindow.AccountState.RestoreForTest(acWasReg, acWasMail);
+                SettingsWindow.AccountState.PersistOverride = acWasPersist;
+                // 🔴 **2026-10-19（`A1186` 裁定 ①）就地改**：原来收尾切的是 `Online`（= 当时那个切页循环的末位）。
+                //   栏里现在是**原版那 5 格** ⇒ 循环收尾停在 **`Support`**（第 5 格）⇒ 收尾跟着它
+                //   （本条的语义是「放回本段进来之前的现状」，不是「回联机页」）。
+                //   ⛔ 别退回 `Click(Bar(root), "Online")` —— 栏里没有那一格了，那会只报一句「点击区不在」。
+                Click(Bar(root), "Support");
+                Check(win.Current, SettingsTab.Support,
+                      "（收尾）切回 `Support` 页 —— 与本段进来之前的现状一致（= 上面那个切页循环的末位）");
             }
 
             // ---------------- 🆕 2026-10-17：中英双语基础设施（`Core/Loc.cs`）----------------
@@ -965,6 +1454,60 @@ public static class SettingsScene
                     if (SettingsWindow.Instance != null) SettingsWindow.Instance.RefreshTexts();
                     CheckTrue(Loc.Current == langBefore, $"收尾：语言放回本节开始前那一档（{langBefore}）");
                 }
+
+                // ⑥ 🆕 **2026-10-19（`A1186` 裁定 ②）**：`Online` 页那颗**入口钮** ——
+                //    页签栏里已经没有 `Online` 那一格了（裁定 ①）⇒ **这是进联机页的唯一 UI 入口**。
+                //    🔴 **判据分两半**：几何那半是**我们挑的**（`Shell/SettingsWindow.cs` 的 `GenOnlineL`
+                //    那条 doc 里写了「为什么摆这一格」、还列了被否掉的两处空地）⇒ 期望值照本窗对
+                //    **自加元素**的既有写法走 `SettingsWindow.GenOnline*`（⛔ 原版没有这一颗，没有原版字段值可抄）；
+                //    **而「不压原版元素」那半用【渲出来的矩形】断**（下面第二条）—— 那才是「为什么能放这里」的判据。
+                //    ⚠️ 「点它切页」那一条必须放在**本节最后**：它会切到 `Online` 页，而本节上面几条都要留在
+                //      General 页上量 ⇒ 收尾必须切回来（后面几节也都在 General 页上开工）。
+                {
+                    var onBtn = FindChild(gtab, "Online Button");
+                    CheckTrue(onBtn != null, "`General` 页上那颗 `Online` 入口钮建出来了");
+                    if (onBtn == null)
+                        CheckTrue(false, "`Online` 入口钮**没建出来** ⇒ 下面「点它切页」那条等于没验（⛔ 不是忽略）");
+                    else
+                    {
+                        CheckAtS(onBtn, SettingsWindow.GenOnlineL, SettingsWindow.GenBtnT,
+                                 SettingsWindow.GenOnlineR, SettingsWindow.GenBtnT + SettingsWindow.GenBtnH,
+                                 "`Online Button` 的矩形（**我们挑的** —— 顶/高照抄原版 `Bottom Buttons` 那一行、"
+                               + "左沿留 `GenBtnGap` 40、右沿取本页内容列右沿 `GenR`，见 `GenOnlineL` 那条 doc）");
+                        // 🔴 **「不压原版任何元素」**：量**渲出来的**矩形，与原版那颗钮的**渲染**矩形比
+                        //   —— 判据是**不相交**，⛔ 不是拿我们自己的常量比（拿常量比 = 自证）。
+                        float eLx, eTy, eRx, eBy, cLx, cTy, cRx, cBy;
+                        var closeBtn = FindChild(gtab, "Close Game Button");
+                        if (RectOf(onBtn, out eLx, out eTy, out eRx, out eBy)
+                            && RectOf(closeBtn, out cLx, out cTy, out cRx, out cBy))
+                            CheckTrue(eLx >= cRx - 0.5f,
+                                      $"🔴 入口钮在**原版两颗钮的右边**、两颗不相交（新钮左沿 {eLx:F1} ≥ "
+                                    + $"`Close Game Button` 右沿 {cRx:F1}）—— 原版 `Bottom Buttons` 从左起排两颗 300 宽"
+                                    + " ⇒ 设计 px 里 `x > 1236.52` 一直是空的；改坏法：把它挪到 `GenL` 上"
+                                    + "（= 与 `Redeem Code` 同格）⇒ 本条红、而 ① 那条矩形断言照样绿");
+                        else
+                            CheckTrue(false, "（前提）`Online Button` / `Close Game Button` 的渲染矩形量得到"
+                                           + " —— 量不到 = 上面那条等于没验（`RectOf` 返 false）");
+                        Check(TextOf(onBtn), Loc.T("Settings/Online/Title"),
+                              "钮上那行字 = 词条 `Settings/Online/Title`（= 那一页的页标题，也正是它原来"
+                            + "在页签栏上那行字 —— 撤掉页签之后**原样**搬到钮上，⛔ 没另造文案）");
+                        // 点它 ⇒ **真的切到 `Online` 页**（判据 = `OpenTab` 的两件事：页号 + 那一棵 `activeSelf`）
+                        Click(onBtn, "Hit");
+                        Check(win.Current, SettingsTab.Online,
+                              "点入口钮 ⇒ **切到 `Online` 页**（`SettingsTab.Online`）—— 改坏法：把那句 "
+                            + "`OpenTab(SettingsTab.Online)` 改成只切视觉/或删掉 ⇒ 目测看不出、本条红");
+                        CheckTrue(FindChild(root, "Online Tab") != null
+                                  && FindChild(root, "Online Tab").gameObject.activeSelf,
+                                  "…而且 `Online Tab` 那一棵**真的开着**（只改 `Current` 不改 `activeSelf` ⇒ 本条红）");
+                        CheckTrue(FindChild(root, "General Tab") != null
+                                  && !FindChild(root, "General Tab").gameObject.activeSelf,
+                                  "…`General Tab` 同时**关掉了**（切页是互斥的 —— 同上面那个切页循环）");
+                        // 收尾：切回 `General` —— 本节后面（以及后面几节）都假定停在 General 页上。
+                        Click(Bar(root), "General");
+                        Check(win.Current, SettingsTab.General,
+                              "（收尾）切回 `General` 页 —— 后面几节都在这一页上开工");
+                    }
+                }
             }
 
             // ---------------- 🆕 2026-10-17（A862）：语言下拉的 12 行列表（原版 `LanguagesDropdown > Template`）----------------
@@ -1062,9 +1605,40 @@ public static class SettingsScene
                           "行底图 = `40K_dropdown_item`（原版 `Item Background` 那颗 `Image.m_Sprite`）");
                 // 行字号：一条**判别式** —— 原版 `Item Label` 的 `m_fontSize = 30` ⇒ 屏幕 27px
                 //（⛔ 不是 caption 那颗的 16.2、也不是勾选框的 37.8 —— 三个都在这扇窗里，容易混）
-                CheckNear(l0 != null ? l0.FontPxNow : -1f, 27f, 0.35f,
-                          "★ 行内字号 = 原版 `Item Label` 的 `m_fontSize **30**` × 0.9 = **27px**"
-                        + "（同窗另外两档是 16.2 = caption 的 18、37.8 = 行标签的 42 —— 三档必须分得开）");
+                // 🔴 **2026-10-19（第十会话 · `A1196`）本条的【口径】换成 `A171` 那一族** ——
+                //   原来读的是 `FontPxNow`（**TMP 的收敛值**）。可 `A1181` 给这一颗接上 autosize 之后
+                //   （`Shell/SettingsWindow.cs` 那个调用点：`18 / 40 / **14** · 折行 1`），
+                //   `FontPxNow` 是**二分收敛结果**、「**停在标称**」那一态；谁哪天把 `min/max`
+                //   改一档、或字号资产一换，它就会像 `A171` 当初那样变成**恒红（或恒绿）**
+                //  （诊断原委 → `资料/普查产出_第十会话/D2_全跑8红诊断.md` §4「枚举式字号断言」那一格）。
+                //  ⇒ 改读**字段** `m_fontSizeBase`（`Label.FontSizeBase`，一律经
+                //    `Label.FontSizeToPx` 折成画布 px）—— 同 `A171` 那一节 2026-10-09 定的口径：
+                //    **要断「它是什么」读【字段】；要断「它长什么样」读【渲染】。**
+                //    `m_fontSizeBase` 才是那条不变式（autosize 关着时 TMP 让 `m_fontSizeBase ≡ m_fontSize`，
+                //    `TMP_Text.cs:467`）⇒ 两条入口读到的是同一个口径。
+                //  ⚠️ **判别力不减**（原版逐字段实读 `fs **30** · base **14** · auto[18~40]`）：
+                //    30 × 0.9 = 27、14 × 0.9 = **12.6** ⇒ 与同窗另外两档（caption `fs18` → 16.2、
+                //    行标签 `base36` → 32.4）**照样分得开**；谁把 `autoBasePx` 传回 0 ⇒ 字段退回标称 27 ⇒ 红。
+                float l0BasePx = l0 != null ? Label.FontSizeToPx(l0.FontSizeBase) : -1f;
+                CheckNear(l0BasePx, 12.6f, 0.35f,
+                          "★ 行内字号 = 原版 `Item Label` 的 `m_fontSizeBase **14**` × 0.9 = **12.6px**"
+                        + "（读的是【字段】`m_fontSizeBase` —— 本笔给它接上 autosize 之后 `FontPxNow` 是**收敛值**、"
+                        + "本来就不该再等于「原版值 × 0.9」，口径同 `A171` 那一节）"
+                        + "；同窗另外两档是 16.2 = caption 的 18、32.4 = 行标签的 base 36 —— 三档必须分得开；"
+                        + "🧨 改坏法：把 `autoBasePx` 传回 0 ⇒ 字段退回调用方那一档 30 × 0.9 = 27.00 ⇒ 红");
+                // ⚠️ **另加一条「实得落在钳位区间里」**（同 `A171` 那一节的 ④）—— **不是**把上面那条放宽：
+                //   它挡的是「`min`/`max` 写错档 / 收敛跑到区间外」，两条合起来比原来那条更强。
+                if (l0 != null)
+                {
+                    float l0Now = l0.FontPxNow;
+                    float l0Lo = Label.FontSizeToPx(l0.FontSizeMin) - 0.35f;
+                    float l0Hi = Label.FontSizeToPx(l0.FontSizeMax) + 0.35f;
+                    CheckTrue(l0.AutoSizing && l0Now > 0f && l0Now >= l0Lo && l0Now <= l0Hi,
+                              $"…而且这一颗**真的开着 autosize、实得落在钳位区间里**（实得 {l0Now:F2} ∈ "
+                            + $"[{l0Lo:F2}, {l0Hi:F2}]；`AutoSizing` = {l0.AutoSizing}；"
+                            + "原版 `auto[18~40]` ⇒ 屏幕上 `[16.20, 36.00]`）"
+                            + " —— 🧨 少了这一条，把 autosize 关掉（实得回到 27.00）时上面那条照样绿");
+                }
                 // ④ 🔴 **点第 3 行 ⇒ 选中 + 收起**（`OnSelectItem:1247` 那条链：行号 = 兄弟序 − 1 ⇒ `value = 3`）
                 //    两态自己定死：先落到 `Chinese`（声明序 11），点第 3 行 ⇒ 必须变成 `Loc.Languages[3]`。
                 Loc.SetLanguage(AvailableLanguages.Chinese);
@@ -2662,7 +3236,12 @@ public static class SettingsScene
                       "三根滑块都建出来了（Music / Sound Effects / Voice-overs）");
             // 🆕 A125②：行名数组**提上来一份**（原来只在「行顶」那一段里有）—— 轨道高那一段
             //    也要按行名去 `FindChild` 拿**那一根滑块**的 `Fill` 层（见下面那两条断言）。
-            var auNames = new[] { "Music", "Sound Effects", "Voice-overs" };
+            // 🔴 **2026-10-20（`A1202`）**：`Sound Effects` / `Voice-overs` → **`FX` / `Voiceovers`**
+            //   —— 这三个是**行容器的节点名**（生产代码里 `names[i] + " Container"`），
+            //   原版 `m_Name` 逐字就是 `Music Container` / `FX Container` / `Voiceovers Container`
+            //   （判据 = `python 工具/menu_rect.py bundle_menus_assets_all "Audio Settings" --depth 3 --cs`）。
+            //   ⛔ 页面上印的字**不是**这一排（那三条走词条表的 `keys[]`，见 `Shell/SettingsWindow.cs`）。
+            var auNames = new[] { "Music", "FX", "Voiceovers" };
             if (sl != null && sl[0] != null)
             {
                 CheckTrue(sl[0].HasArt, "滑块的三张图都在（`Volume_bar_inactive` / `_active` / `Volume_button`）");
@@ -2925,8 +3504,18 @@ public static class SettingsScene
                 float[] auTop = { 280.146985f, 396.413648f, 513.680310f };   // 原版行顶（逐行给，别推）
                 float[] auH = { 105f, 106f, 106f };                           // 原版三行行高（**不相等**）
                 float[] auLblH = { 62f, 63f, 63f };                           // 原版三行 `Label` 的高
+                // 🆕 **2026-10-20（`A1201`）**：原版三行 `Label` 的**框宽**（= 折行宽，**屏幕 px**，逐颗实读）。
+                //   判据 = `python 工具/menu_dump.py bundle_menus_assets_all "Audio Settings" --depth 3`
+                //   那三行 `Label` 的「宽」列 = **307.89 / 615.77 / 615.77**（= 原版设计值 342.0975 / 684.195 × 0.9）。
+                //   🔴 设计值那一侧来自**锚点字段**（`menu_rect.py … --depth 3 --cs`）：
+                //   `Music Container > Label` 的 `aMax.x = **0.5**`（`aMin.x` 恒 0、`m_SizeDelta.x` 恒 0
+                //   ⇒ 宽 = 行宽 684.195 × 0.5 = **342.0975**）、另两颗 `aMax.x = **1**`（= 整行 684.195）。
+                //   ⚠️ 逐颗写，⛔ **别一刀切成同一个数**（原版那一颗是半行、另两颗是整行）。
+                //   ⚠️ 与上面 `CheckAutoFit(…, boxW: …)` 的关系：那一条断的是「**渲出来** ≤ 框」
+                //     （那一行的字本来就短 ⇒ 框放宽一倍也是绿的），**这一条才断「框本身」**。
+                float[] auLblWpx = { 307.89f, 615.78f, 615.78f };
                 var auBox = FindChild(FindChild(root, "Media Tab"), "Audio Settings");
-                CheckTrue(auBox != null, "音频页的 `Audio Settings` 组在（下面 9 条都要它）");
+                CheckTrue(auBox != null, "音频页的 `Audio Settings` 组在（下面 12 条都要它）");
                 for (int i = 0; i < 3; i++)
                 {
                     var auRow = FindChild(auBox, auNames[i] + " Container");
@@ -2937,9 +3526,33 @@ public static class SettingsScene
                     var auLb = FindChild(auRow, "Label");
                     if (auLb == null) CheckTrue(false, $"第 {i + 1} 行的 `Label` 在");
                     else
+                    {
                         CheckNearPx(OrigPxY(auLb) - auLblH[i] * 0.5f, auTop[i] - 13.5f,
                                     $"第 {i + 1} 行 `Label` 的**顶** = 行顶 − 13.5"
                                     + $"（旧摆法把它摆在行顶 {auTop[i]:F3} ⇒ 差 13.5px）");
+                        // ---- 🆕 2026-10-20（`A1201`）：三行 `Label` 的**框宽**（= 折行宽）----
+                        //  🔴 **为什么单开这一条**：上面 `CheckAutoFit(…, boxW)` 断的是「**渲出来**的字 ≤ 框」
+                        //    —— 而 `Music` 那一行的字本来就短（42px 档下 ≪ 框宽），**框被放宽一倍照样绿**
+                        //    （`A1201` 报的就是这个：实现传整行、期望值也写整行 ⇒ 假绿）。
+                        //    本仓先例 = `Editor/CollectionScene.cs:4259-4277`（`Back` 那颗钮的文字框宽
+                        //    150 与 132.86 中心只差 0.25px ⇒ 必须**单独断框宽**）。
+                        //  ⚠️ **量法**：读**那颗 TMP 的 `rectTransform.sizeDelta.x`** —— 那正是
+                        //    `SetWrapWidth` / `SetAutoFitBox` 真写进去的值（`Label.SetWrapWidth` →
+                        //    `TmpFont.SetWrapWidthRect`：`sizeDelta = (width, 0)`），× 108 换成画布 px
+                        //    （本窗那 0.9 **烘进矩形**、节点 `lossyScale == 1`，见上面 `slider_vol` 那条前提）。
+                        //    ⛔ **不是**读我们传进 `SettingsWindow.Text` 的实参、⛔ 更不是读
+                        //    `SettingsWindow.AuLabelAnchorWs` 再算一遍（那是被测实现 = 自证）。
+                        //    判据 = 原版那一颗自己的**锚点跨度 × 行宽**（本数组上面那段逐颗写了算式）。
+                        //  🧨 **改坏法**：把 `Shell/SettingsWindow.cs` 里 `Text(…, boxW, …)` 那一格的
+                        //    `boxW` 换回 `AuR - AuL`（整行）⇒ 第 1 行读 **615.77**、原版 307.89 ⇒ **红**。
+                        var auLbTmp = auLb.GetComponentInChildren<TMPro.TextMeshPro>(true);
+                        CheckNearPx(auLbTmp != null ? auLbTmp.rectTransform.sizeDelta.x * 108f : -1f,
+                                    auLblWpx[i],
+                                    $"★ A1201：第 {i + 1} 行 `Label` 的**框宽**（= 折行宽）= {auLblWpx[i]:F2}px"
+                                    + (i == 0
+                                       ? "（原版那一颗锚 `aMax.x = **0.5**` ⇒ 半行 = 行宽 684.195 × 0.5 × 0.9）"
+                                       : "（原版那一颗锚 `aMax.x = 1` ⇒ 整行 = 行宽 684.195 × 0.9）"));
+                    }
                     if (sl == null || sl.Length != 3 || sl[i] == null)
                         CheckTrue(false, $"第 {i + 1} 行滑块在（量不到中心就没法比）");
                     else
@@ -2951,7 +3564,12 @@ public static class SettingsScene
 
             // ---------------- 联机页 ----------------
             Section("联机页（**这一页是我们新增的设计**，用户规格逐条）");
-            Click(Bar(root), "Online");
+            // 🔴 **2026-10-19（`A1186` 裁定 ①/②）换路**：这一页**在页签栏里没有键**了
+            //   （裁定 ①：栏里只放原版那 5 格）⇒ 进它要**照玩家走的那条路**：先到 `General` 页、
+            //   再点那颗 `Online Button`（裁定 ②）。⛔ 别改成直调 `win.OpenTab(...)` —— 那样就**不验入口**了。
+            Click(Bar(root), "General");
+            Click(FindChild(root, "General Tab"), "Online Button");
+            Check(win.Current, SettingsTab.Online, "（前提）入口钮把这一页切出来了（下面这一节才有对象可量）");
             CheckTrue(win.HostBlock != null && win.ClientBlock != null, "主机块与客机块都建了");
             Check(win.Role, NetRole.Host, "出厂是「主机」那一块（用户规格：勾选主机或客机）");
             CheckTrue(win.HostBlock.gameObject.activeSelf && !win.ClientBlock.gameObject.activeSelf,
@@ -3135,7 +3753,9 @@ public static class SettingsScene
             // ⚠️ 节点名**一个都没动**（上游逐条核过 ⇒ `FindChild` / `Click` 照旧靠节点名）；本节断的全是**字**。
             // ⚠️ 取节点一律走**闭包现取**（`Open()` = `Build()` 会把窗根子件整棵重建 ⇒ 存下来的 `Transform`
             //     当场变假 null，见 `Area` / `Bar` 那对助手的注释）。
-            Section("波 1b：接进语言表的那批字（四页签 / 四个页标题 / 图像页 6 处 / 联机页 8 处）—— 两语档各断一次");
+            // 🔴 **2026-10-19（`A1186` 裁定 ①/②）就地订正标题里的格数**：那一栏现在有 **5 格**，
+            //   且 `Online` 那一格换成了「`General` 页上那颗入口钮」（挂同一条键）⇒ 本节这两处都登记。
+            Section("波 1b：接进语言表的那批字（五页签 + `Online` 入口钮 / 四个页标题 / 图像页 6 处 / 联机页 8 处）—— 两语档各断一次");
             {
                 var langB1 = Loc.Current;
                 bool perB1 = Loc.PersistOverride;
@@ -3155,15 +3775,22 @@ public static class SettingsScene
                 //      改一行不会把「名字/键/取法」错位到隔壁那一格上（那会**静默**验错对象）。
                 var probes = new[]
                 {
-                    // —— 四页签（`Bar(root)` 下四个键；节点名 = 原版 GO 名）——
+                    // —— 页签（`Bar(root)` 下的 5 格；节点名 = 原版 GO 名）——
                     new { What = "页签 `General`", Key = "Settings/General/Title", Differ = true,
                           Find = (System.Func<Transform>)(() => FindChild(Bar(root), "General")) },
                     new { What = "页签 `Graphics`", Key = "Settings/Graphics/Title", Differ = true,
                           Find = (System.Func<Transform>)(() => FindChild(Bar(root), "Graphics")) },
                     new { What = "页签 `Audio`", Key = "Settings/Media/Title", Differ = true,
                           Find = (System.Func<Transform>)(() => FindChild(Bar(root), "Audio")) },
-                    new { What = "页签 `Online`", Key = "Settings/Online/Title", Differ = true,
-                          Find = (System.Func<Transform>)(() => FindChild(Bar(root), "Online")) },
+                    // 🆕 **2026-10-19（`A1183` + `A1186` 裁定 ①）**：栏里那第 5 格现在是 **`Support`**
+                    //   （原来这一行点的是 `Online` 那一格 —— 它**已经不在栏里了**，直接换掉会**少验一格**）
+                    //   ⇒ 两处都登记上：栏里的 `Support` 页签 + `General` 页上那颗 `Online` 入口钮
+                    //   （后者挂的是**同一条键** `Settings/Online/Title` —— 正好把裁定 ② 那颗也纳进「两档字真的不同」的判据）。
+                    new { What = "页签 `Support`", Key = "Settings/Support/Title", Differ = true,
+                          Find = (System.Func<Transform>)(() => FindChild(Bar(root), "Support")) },
+                    new { What = "`General` 页那颗 `Online` 入口钮（栏里已无这一格）", Key = "Settings/Online/Title",
+                          Differ = true,
+                          Find = (System.Func<Transform>)(() => FindChild(FindChild(root, "General Tab"), "Online Button")) },
                     // —— 四个页标题（每页自己那棵 `Tab Title`；与页签**共用同一条键**，这是设计如此）——
                     new { What = "`General Tab` 的页标题", Key = "Settings/General/Title", Differ = true,
                           Find = (System.Func<Transform>)(() => FindChild(FindChild(root, "General Tab"), "Tab Title")) },
@@ -3195,17 +3822,19 @@ public static class SettingsScene
                     //     ⇒ 它们在两档之间**真的跟着变**，正是 `A1048` 那条刷新链的判据；而三根音量行标签
                     //     另是 `A1059`「键早在表里、代码画字面量」那四笔里的三笔（第四笔 = 图像页 `Auto zoom`，
                     //     那条在本文件 `A172` 那一节里已两语档断过）。
-                    //   ⚠️ 节点名一个都没动：行容器仍是 `{"Music","Sound Effects","Voice-overs"} + " Container"`、
-                    //     说明行仍是 `Note`（⛔ 别按显示字找，那是会随语言变的那一层）。
+                    //   ⚠️ 节点名一个都没动**显示字**（显示字由 `keys[]` 那一行走表给、跟着语言变）：
+                    //      行容器 = `{"Music","FX","Voiceovers"} + " Container"`（🔴 2026-10-20（`A1202`）
+                    //      已照原版 `m_Name` 订正 —— 原写 `Sound Effects` / `Voice-overs`）、
+                    //      说明行仍是 `Note`（⛔ 别按显示字找，那是会随语言变的那一层）。
                     new { What = "音频页 `Music Container` 行标签", Key = "MainMenu/Settings/SettingLabel/Music", Differ = true,
                           Find = (System.Func<Transform>)(() => FindChild(FindChild(FindChild(FindChild(root, "Media Tab"),
                                           "Audio Settings"), "Music Container"), "Label")) },
-                    new { What = "音频页 `Sound Effects Container` 行标签", Key = "MainMenu/Settings/SettingLabel/SoundFx", Differ = true,
+                    new { What = "音频页 `FX Container` 行标签", Key = "MainMenu/Settings/SettingLabel/SoundFx", Differ = true,
                           Find = (System.Func<Transform>)(() => FindChild(FindChild(FindChild(FindChild(root, "Media Tab"),
-                                          "Audio Settings"), "Sound Effects Container"), "Label")) },
-                    new { What = "音频页 `Voice-overs Container` 行标签", Key = "Settings/Media/VoiceOvers", Differ = true,
+                                          "Audio Settings"), "FX Container"), "Label")) },
+                    new { What = "音频页 `Voiceovers Container` 行标签", Key = "Settings/Media/VoiceOvers", Differ = true,
                           Find = (System.Func<Transform>)(() => FindChild(FindChild(FindChild(FindChild(root, "Media Tab"),
-                                          "Audio Settings"), "Voice-overs Container"), "Label")) },
+                                          "Audio Settings"), "Voiceovers Container"), "Label")) },
                     new { What = "音频页 `Note` 说明行", Key = "Settings/Media/AudioMixerNote", Differ = true,
                           Find = (System.Func<Transform>)(() => FindChild(FindChild(root, "Media Tab"), "Note")) },
                     // —— 联机页 9 处（两颗角色钮 / 测外网 / 两个标签 / 刷新 / 保存 / 检查连接）——
@@ -3516,29 +4145,67 @@ public static class SettingsScene
             //
             // 判据（第一权威 = 原版 prefab 实读 `bundle_menus_assets_all` 的 `Main Menu Settings Window`）：
             //   · 根 `RectTransform_-7066813013973172314`：`m_LocalScale = (0.9,0.9,0.9)`
-            //   · 各级 TMP 的 `m_fontSize` 原文：`Tab Title` **55** · FPS 标题与三个刻度 **42**（`FpsFont`）
-            //     · 按钮 / 输入框 **40**（`FontButton` / `MenuInputField`）· 页签 **35** · 小字 **34**（`FontSmall`）
+            //   · 量具 = `python d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all "Main Menu Settings Window"
+            //     --depth 20 --no-sprite --no-layout`（逐颗印 `字号=` / `基准=` / `auto[min~max]`）
+            //   · 全 prefab 共 **102 颗 TMP**：`m_enableAutoSizing = 1` 的 **100 颗**，其 `m_fontSizeBase`
+            //     **只取 {12, 14, 26, 35, 36, 37, 44} 这 7 个值**；另 2 颗自适应**关**着
+            //     （`Debug button text` / `Account Tab > Player Id`），它们的 `m_fontSize` = **{36, 40}**
+            //   ⇒ 屏幕上只可能是【原版那一颗的 `base`（自适应关着时 = `m_fontSize`）】× **0.9**。
             //   🔴 **2026-10-10 订正（A207）**：本行原写「常规 **40**（`FontLabel`/`FontButton`）」——
             //      **「行标签」那一族（开关行 / 音轨行 / `Quality selector text`）的原版是 42、不是 40**，
             //      已改用新常量 `SettingsWindow.FontRowLabel`（亲读 `Vsync/Label` = `m_fontSize 42` 作证）。
             //      `FontLabel`（40）**原地留着**，它现在只服务两个判据未定的站（`Quality Value` + 我们自己的联机页）。
-            //   ⇒ 屏幕上只可能是 {49.5 · 37.8 · 36 · 31.5 · 30.6}。
+            //      ⚠️ 但 **42 不再是这一扫的允许值** —— 那一族的 `base` 是 **36**（见下面 2026-10-09 的删值说明）。
             //
             // 🔴 **期望值全写字面量**：⛔ 不写 `SettingsWindow.RootScale` / `PageTitleFontPx` / `FontSmall`
             //    —— 那是**被测实现里的常量**，拿它算期望就是同式自证（通则 → `A131_自证通则.md`）。
-            // 🔴 量的是 `Label.FontPxNow`（TMP **实际生效**的 `fontSize` 折成画布 px），⛔ 不是
-            //    `GlyphHeightWorld`/`CapHeightWorld`（那两个是**回读传入值**的伪测量，见 `已知的坑.md`）。
-            Section("A171：本窗文字字号 = 原版 `m_fontSize` × 根上那层 0.9（**全窗一起缩**）");
+            // 🔴 **2026-10-09（第十会话 · `D2` 诊断 · δ）本条量的是【字段】`m_fontSizeBase`**
+            //    （`Label.FontSizeBase`，一律经 `Label.FontSizeToPx` 折成画布 px），⛔ **不是 `FontPxNow`**：
+            //    本批给 25 站接上 autosize 之后，`FontPxNow` 是 **TMP 的收敛值**（可以低到 `min`；
+            //    实测 10.80 / 24.06 / 23.54 …），与「原版值 × 0.9」**本来就不该再相等** ——
+            //    原来那条读 `FontPxNow` 是**前提过期**（诊断 `普查产出_第十会话/D2_全跑8红诊断.md` §1 第 2 行）。
+            //    `m_fontSizeBase` 才是那条不变式：**自适应关着时 TMP 让 `m_fontSizeBase ≡ m_fontSize`**
+            //    （`TMP_Text.fontSize` 的 setter：`if (!m_enableAutoSizing) m_fontSizeBase = m_fontSize;`，
+            //    `TMP_Text.cs:467`）⇒ 两条入口（接了自适应 / 没接）读到的是同一个口径。
+            //    ⛔ 量法**不是** `GlyphHeightWorld`/`CapHeightWorld`（那两个是**回读传入值**的伪测量，见 `已知的坑.md`）。
+            //    ⚠️ 另加一条「实得必须落在钳位区间里」（见下面扫描 ④）—— **不是**把这条放宽，两条合起来比原来更强。
+            Section("A171：本窗文字字号 = 原版那一颗的 `m_fontSizeBase`（自适应关着时 = `m_fontSize`）× 根上那层 0.9（**全窗一起缩**）");
             {
-                // 原版设计字号 55 / 42 / 40 / 38 / 35 / 34 / 28 / 18 ⇒ × 0.9（原版根的 `m_LocalScale`）= 下面这 8 个值
-                // 🔴 **2026-10-17 加了三档**（General 页带进来的，每一档都有原版出处 —— 见 `Gen*` 常量）：
-                //    38 → **34.2**（`Bottom Buttons > Close Game Button > Button Text`，原版 TMP `m_fontSize = 38`）
-                //    28 → **25.2**（`VersionText`）· 18 → **16.2**（`LanguagesDropdown > Label`）
-                //    ⛔ 加档 = **放宽**这一扫，只许加「原版真有这个字号」的那些 —— 别拿它当「扫不过就加一个值」。
-                // 🔴 **2026-10-17（A862）再加一档**：30 → **27**（语言下拉那 12 行的 `Item Label`，
-                //    原版 prefab `Template > Viewport > Content > Item > Item Label` 的 TMP `m_fontSize = 30`，
-                //    `m_fontSizeBase 14`、auto 18~40 —— 逐字段实读）。
-                float[] wantPx = { 49.5f, 37.8f, 36f, 34.2f, 31.5f, 30.6f, 27f, 25.2f, 16.2f };
+                // 🔴 **2026-10-09（第十会话 · `D2` 诊断 · δ）本表重写**：旧表的 13 个值**大多是那几颗的
+                //    `m_fontSize` × 0.9**（43 / 42 / 38 / 32 / 31.05 / 30 / 28 …），而本批给那些站接上 autosize 之后
+                //    这一扫读的是 **`base`** ⇒ 那 7 个值**已不可达**（38.7 · 37.8 · 34.2 · 28.8 · 27.945 · 27 · 25.2）。
+                //    ⛔ **不是「扫不过就删」**：留着它们 = 把「某颗的 `autoBasePx` 传回 0 ⇒ base 退回调用方那一档
+                //    （= 旧标称）」这档改坏法**静默变绿**（A1181 那一节第 4 条钉的正是这一档）⇒ **必须删**。
+                //    现值 = **{原版 7 个 base} ∪ {原版 2 个「自适应关」的 fs} ∪ {18（被共用闸挡住那一颗）} ∪ {34（`OneText` 那一档）}**，
+                //    每一个都逐颗回原版取过出处（⛔ 一个来源不明的值都不许加；⛔ 加值 = **放宽**这一扫，不是修 bug）：
+                //      55        → 49.5   `{General,Media,Graphics,Account,Online} Tab > Tab Title`
+                //                        （`fs 55 · base 55 · auto[4~55]`；Online 那颗是 `auto[10~55]`）
+                //      **44**    → 39.6   `Account Tab > Subscribe Newsletter`（`fs 40 · base 44 · auto[32~40]`；
+                //                        **base > max** —— TMP 渲染时夹到 max，但**字段就是 44**）
+                //      **40**（自适应关） → 36   `Account Tab > Player Id`（`字号=40.0 基准=40.0 auto=OFF`）——
+                //                        我们这一族（`FontLabel`/`FontButton` 40 · 两个输入框 40）原版**也没开**自适应
+                //      37        → 33.3   `EmailText` / `PasswordText` / `Error Message`（账号页 3 颗 + 登录窗 3 颗）
+                //      **36**    → 32.4   「行标签」家族：`… Toggle > Label` ×7 · `FPS Limit > Title` · FPS 三刻度 ·
+                //                        `Quality selector text` · `Audio Settings > {Music,FX,Voiceovers} Container > Label` ·
+                //                        `SelectLanguageText` · `Reset|Forgot Password > Text`（**base 36 ≠ 它的 fs 42/32**）
+                //      35        → 31.5   `… Tab Buttons > */Label/Tab Toggle Title` ×5（`fs 35 · base 35`）
+                //      **34**    → 30.6   本窗 `FontSmall` 那一族（音频 `Note` + 联机页 `Status`/`Note`/`Refresh`）。
+                //                        ⚠️ **联机页是我们自加的**（原版没有这一页）⇒ **没有原版对应件**；取 34 是因为
+                //                        本窗原版确有这个字号（`OneText`：`字号=34.0 基准=36.0 auto[18~34]`），
+                //                        且「联机页沿用本窗既有档」是既有口径 —— **这是我们的选择，不冒充原版**
+                //      **26**    → 23.4   `General Tab > VersionText`（`fs 28 · base 26 · auto[1~28]`）
+                //      18        → 16.2   `LanguagesDropdown > Label`（原版 `fs 18 · base 14 · auto[18~40]`；
+                //                        我们这颗 `fs 18 == min 18` ⇒ 共用闸 `fontPx > autoMinPx` 过不去 ⇒
+                //                        **字段停在 18**，见 `Shell/SettingsWindow.cs` 那个调用点与 A1181 那一节）
+                //      **14**    → 12.6   `… Template > Viewport > Content > Item > Item Label`（语言下拉 12 行；
+                //                        `fs 30 · base 14 · auto[18~40]`）
+                //      **12**    → 10.8   **所有钮那一族**（`Button > Button Text`：`Bottom Buttons` ·
+                //                        `Social Media Links` · 账号页 / 登录窗那几颗；原版 `base` **恒 12**）
+                //    ⚠️ 第一列带 **粗体** 的 = 「原版那一颗的 `base` ≠ 它的 `fs`」⇒ **只有读字段才分得出来**的那几档。
+                float[] wantPx = { 49.5f, 39.6f, 36f, 33.3f, 32.4f, 31.5f, 30.6f, 23.4f, 16.2f, 12.6f, 10.8f };
+                // 🔴 上表**只此一份**：断言文案里那个列表由它生成（`D2` §4 记的「数组与文案两份」已收口）
+                string wantTxt = "";
+                for (int k = 0; k < wantPx.Length; k++) wantTxt += (k > 0 ? "／" : "") + wantPx[k].ToString("0.###");
                 const float TolPx = 0.35f;
 
                 // ① 页标题（原版 `Tab Title`，`m_fontSize = 55`）—— 逐条点名的那一条
@@ -3556,50 +4223,138 @@ public static class SettingsScene
                         + " —— ①+② 合起来才说明 49.5 是**缩过**的结果");
 
                 // ③ **全窗扫一遍**（验收原文：「要修就**全窗一起修**」）：
-                //    窗根下**每一个** `Label` 的字号都必须落在那 5 个值里（±0.35px）。
+                //    窗根下**每一个** `Label` 的**字体字段**都必须落在上面那 11 个值里（±0.35px）。
                 //    ⛔ **故意不点名节点**：点名只盖得住点到的那些；扫全树才抓得住「新加一段字忘了缩」——
                 //      `MenuInputField`（联机页两个输入框）就是**绕过** `SettingsWindow.Text` 漏斗的第二个入口，
                 //      本批也在它自己那边过了 `RootScale`（`MenuInputField.InputFontPx`）。
                 var allLb = root.GetComponentsInChildren<Label>(true);
                 int badN = 0, zeroN = 0; string badList = "";
+                int autN = 0, autBadN = 0, autSkipN = 0; string autBadList = "", autSkipList = "";
+                // 🔴 **2026-10-09**：原来截断在 300 字符 ⇒ 实测 28 个越界**只印得出 17 个名字**
+                //    （诊断 `D2` §5 第 3 条：那 11 个看不见的正是最该看的）⇒ 放到 1200，并在文案里写明「印到上限为止」。
+                const int TruncLen = 1200;
                 for (int i = 0; i < allLb.Length; i++)
                 {
-                    float px = allLb[i].FontPxNow;
+                    var lb = allLb[i];
+                    // ★ 读的是【字段】`m_fontSizeBase`（⛔ 不是收敛值 `FontPxNow`）—— 见本节头部 2026-10-09 那条
+                    float px = Label.FontSizeToPx(lb.FontSizeBase);
                     bool ok = false;
                     for (int k = 0; k < wantPx.Length; k++)
                         if (Mathf.Abs(px - wantPx[k]) <= TolPx) { ok = true; break; }
-                    if (ok) continue;
-                    if (px <= 0f) { zeroN++; continue; }   // 点阵兜底 / TMP 没起来（`FontPxNow` 恒 0）—— 与「没缩」分开报
-                    badN++;
-                    if (badList.Length < 300) badList += $"{allLb[i].name}={px:F2} ";
+                    if (!ok)
+                    {
+                        if (px <= 0f) { zeroN++; }   // 点阵兜底后端（`FontSizeBase` 恒 −1）—— 与「没缩」分开报
+                        else
+                        {
+                            badN++;
+                            if (badList.Length < TruncLen) badList += $"{lb.name}={px:F2} ";
+                        }
+                    }
+
+                    // ④ 🆕 **2026-10-09（第十会话）另加的一条**：开着**自适应**的那些，**实得渲染字号**
+                    //    （`FontPxNow`）必须落在**它自己**的钳位区间 `[FontSizeToPx(min), FontSizeToPx(max)]` 里
+                    //    （两个字段都经 `Label.FontSizeToPx` 折成画布 px，⛔ 不再乘第二遍 0.9 —— 那层缩放
+                    //    `SetAutoFitBox` 写字段时已经过了一次）。它挡的是「`min`/`max` 写错档 / 收敛跑到区间外」。
+                    //    ⚠️ **未激活**的 `Label` 只放行「**停在 `base`**」那一档：TMP **不给未激活的对象重排**
+                    //       （同族判据 → `CheckAutoFit` 的 `skipRendered` 那一格），那颗的 `fontSize` 停在
+                    //       `SetAutoFitBox` 写下的 `base` 上 —— 实测那 5 颗外链钮正是 `10.80 = base`，
+                    //       诊断 `D2` §2 也记着「未激活 ⇒ 实得 = base」⇒ **它不是「渲出来的字号」**，
+                    //       拿它断区间没有意义。⛔ 但它**不是被静默跳过**：③ 那条照样管着它的字段。
+                    if (lb.AutoSizing && px > 0f)
+                    {
+                        float now = lb.FontPxNow;
+                        float lo = Label.FontSizeToPx(lb.FontSizeMin) - TolPx;
+                        float hi = Label.FontSizeToPx(lb.FontSizeMax) + TolPx;
+                        // 🔴 **2026-10-10（第十会话 · 收口复跑抓到）**：**先给它一次「手动推版面」的机会** ——
+                        //   批处理**没有帧循环** ⇒ TMP 不会自己重排，字段可能停在「上一次写入的残留」上。
+                        //   `ForceRelayout()` 是**幂等**的（按当前的折行模式与 `[min,max]` 重新收敛一次），
+                        //   与 `CheckAutoFit` 里那处**同一套口**。
+                        if (!(now >= lo && now <= hi)) { lb.ForceRelayout(); now = lb.FontPxNow; }
+                        bool inRange = now >= lo && now <= hi;
+                        // ⚠️ **未激活**的 Label：TMP **不给未激活对象重排** ⇒ 那个字段**既不是 base、也不是收敛值**，
+                        //   而是**上一次写入的残留**（实测那颗恒关的社交 `Button Text` 停在**标称** `38.70 = 43×0.9`）。
+                        //   ⇒ 拿它断区间**没有意义** ⇒ **放行，但【如实印出来】**（⛔ 不是静默跳过）。
+                        //   🔑 订正上一版的判据：它原来只放行「**停在 `base`**」那一档（`|now - px| ≤ Tol`），
+                        //   实测**太窄** —— 那颗停的是**标称**、不是 base。
+                        bool inactive = !lb.gameObject.activeInHierarchy;
+                        autN++;
+                        if (!inRange)
+                        {
+                            if (inactive)
+                            {
+                                autSkipN++;
+                                if (autSkipList.Length < TruncLen)
+                                    autSkipList += $"{lb.name}={now:F2}∉[{lo:F2},{hi:F2}]（未激活） ";
+                            }
+                            else
+                            {
+                                autBadN++;
+                                if (autBadList.Length < TruncLen)
+                                    autBadList += $"{lb.name}={now:F2}∉[{lo:F2},{hi:F2}] ";
+                            }
+                        }
+                    }
                 }
                 CheckTrue(allLb.Length >= 15,
                           $"窗根下扫到 **{allLb.Length}** 个 `Label`（≥ 15 这一扫才有意义 —— 扫不到就等于没扫；"
                         + "⛔ 别把这个门槛删掉）");
                 CheckTrue(badN == 0,
-                          $"★ **全窗 {allLb.Length} 个 `Label` 的字号都 = 原版值 × 0.9**"
-                        + $"（允许的 {wantPx.Length} 个：49.5／37.8／36／34.2／31.5／30.6／27／25.2／16.2，±{TolPx}px）"
-                        + (badN > 0 ? $" —— **有 {badN} 个不在里面**：{badList}" : "")
-                        + (zeroN > 0 ? $"；另有 {zeroN} 个 `FontPxNow` ≤ 0（TMP/字体资产没起来 —— 那是另一回事，"
-                                     + "`FontPxNow` 在点阵兜底后端恒 0）" : "")
+                          $"★ **全窗 {allLb.Length} 个 `Label` 的字体字段都 = 原版值 × 0.9**"
+                        + $"（读的是字段 `m_fontSizeBase`；允许的 {wantPx.Length} 个：{wantTxt}，±{TolPx}px）"
+                        + (badN > 0 ? $" —— **有 {badN} 个不在里面**：{badList}"
+                                    + (badList.Length >= TruncLen ? "…（名字太多，印到上限为止）" : "") : "")
+                        + (zeroN > 0 ? $"；另有 {zeroN} 个 `FontSizeBase` ≤ 0（点阵兜底后端 —— 那是另一回事，"
+                                     + "`Label.FontSizeBase` 在点阵后端恒 −1）" : "")
                         + "；改坏法：把 `SettingsWindow.Text` 的 `fs * RootScale` 去掉（或新加一段字直接调"
-                        + " `MenuDraw.Text`、没自己过 0.9）⇒ 那一批实得回到 55/42/40/35/34 ⇒ 这条红");
+                        + " `MenuDraw.Text`、没自己过 0.9）⇒ 那一批的字段回到 55/42/40/35/34 ⇒ 这条红；"
+                        + "把某颗的 `autoBasePx` 传回 0 ⇒ 字段退回调用方那一档（= 旧标称）⇒ 同样红");
+                CheckTrue(autN >= 10,
+                          $"…而且这一扫**确实覆盖到自适应站**：全窗 **{autN}** 个 `Label` 开着自适应（≥ 10 才有意义）");
+                CheckTrue(autBadN == 0,
+                          $"★ 全窗 **{autN}** 个开着自适应的 `Label`，**实得字号都落在各自的钳位区间**里"
+                        + $"（`[FontSizeToPx(min), FontSizeToPx(max)]` ±{TolPx}px）"
+                        + (autBadN > 0 ? $" —— **有 {autBadN} 个越界**：{autBadList}" : "")
+                        + (autSkipN > 0 ? $"；另有 **{autSkipN} 个是【未激活】的、按判据放行**（如实登记、⛔ 不是静默跳过）：{autSkipList}" : "")
+                        + " —— 🧨 这一条挡的是「`min`/`max` 写错档 / 收敛跑到区间外」；"
+                        + "🔴 **订正（2026-10-10）**：原来这里写「未激活的只认『停在 `base`』那一档」—— **实测太窄**："
+                        + "TMP **不给未激活对象重排** ⇒ 那格的字段**既不是 base、也不是收敛值**，而是**上一次写入的残留**"
+                        + "（实测那颗恒关的社交 `Button Text` 停在**标称** `38.70 = 43×0.9`）⇒ 拿它断区间没有意义，"
+                        + "**整档放行并如实印出来**（③ 那条字段检查照样管着它）");
 
                 // 🆕 **2026-10-10（A207）点名钉那一族「行标签」= 原版 42** ——
                 //    ③ 那条全窗扫描**同时允许 36（= 40×0.9）与 37.8（= 42×0.9）** ⇒
                 //    「把 `SettingsWindow.FontRowLabel` 合并回 `FontLabel`（40）」这种错**它抓不住**（会静默绿）。
+                //    🔴 **2026-10-09（第十会话）就地订正**：③ 从「读实得」改成「读字段 `m_fontSizeBase`」（见本节那两条说明），
+                //    而这一族的 **`base` 是 36**（`fs` 42 只是它的标称）⇒ **表里如今只剩 36 那一档、37.8 已删掉**
+                //    ⇒ 上面那句话照样成立（③ 分不出 40 与 42）、而且**更成立**：下面这两条读的是 **`m_fontSizeMax` 字段**。
                 //    判据 = 原版 `Vsync/Label` 亲读 **`m_fontSize = 42`**（`m_fontSizeMin 29` / `m_fontSizeMax 42` / 折行 1）
                 //    —— `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_2205799620510384038.json`。
                 var vsN = FindChild(root, "VSync");
                 var vsLb = vsN != null ? vsN.GetComponentInChildren<Label>() : null;
                 CheckTrue(vsLb != null, "`VSync` 那一行在（下面两条才有对象可量）");
-                float vsPx = vsLb != null ? vsLb.FontPxNow : -1f;
+                // 🔴 **2026-10-09（第十会话 · `D2` 诊断 · δ）**：本批给这一族**接上了 autosize**（29/42/36·折行1）
+                //   ⇒ `FontPxNow` 是 **autosize 的收敛值**（实测 32.40 = `36 × 0.9`），**再也不是** `42 × 0.9 = 37.8`。
+                //   ⚠️ **42 是【上限】`m_fontSizeMax`**、**36 才是 `m_fontSizeBase`** ⇒ 这条不变的判据要读 **`FontSizeMax`**
+                //   （仍 = 37.8，**仍能把「42 族」与「40 族」分开**：若谁把调用点改回 `FontLabel`(40)，max 会跟着变 40 ⇒ 36.00）。
+                //   ⛔ **不是把断言放宽** —— 下面另加一条「**实得**必须落在 autosize 区间里」，两条合起来比原来更强。
+                float vsPx = vsLb != null ? Label.FontSizeToPx(vsLb.FontSizeMax) : -1f;
                 CheckNear(vsPx, 37.8f, TolPx,
-                          "★ 「**行标签**」族字号 = **原版 42 × 0.9 = 37.8 px**（`VSync` 作证）"
+                          "★ 「**行标签**」族字号 = **原版 42 × 0.9 = 37.8 px**（`VSync` 作证；读的是"
+                        + " `m_fontSizeMax` —— 那一档是**作者填的原版值**、autosize 开关不会改它）"
                         + "（改坏法：把调用点改回 `FontLabel`（40）⇒ 实得 36.00 ⇒ 红）");
                 CheckTrue(Mathf.Abs(vsPx - 36f) > 0.5f,
                           $"…而且它**不是** 40 那一档缩出来的 36（实得 {vsPx:F2}）"
                         + " —— 这一条与上一条合起来，才把「42 族」与「40 族」**分开**");
+                if (vsLb != null)
+                {
+                    float vsNow = vsLb.FontPxNow;
+                    float vsLo = Label.FontSizeToPx(vsLb.FontSizeMin) - TolPx;
+                    float vsHi = Label.FontSizeToPx(vsLb.FontSizeMax) + TolPx;
+                    CheckTrue(vsLb.AutoSizing && vsNow > 0f && vsNow >= vsLo && vsNow <= vsHi,
+                              $"…并且它**真的开着 autosize、实得落在钳位区间里**（实得 {vsNow:F2} ∈ "
+                            + $"[{vsLo:F2}, {vsHi:F2}]；`AutoSizing` = {vsLb.AutoSizing}）"
+                            + " —— 🧨 少了这一条，把 autosize 关掉（实得回到 37.8）时上面两条照样绿");
+                }
 
                 // ④ **别的窗零变化**（共用件那条默认路径）：
                 //    本批**没有改** `Shell/MenuDraw.cs`（`git diff --numstat` 里它那两列是空的）⇒
@@ -3686,6 +4441,229 @@ public static class SettingsScene
                 //    （`MenuInputField.Create`）的**矩形**是**裸设计值**、没过 `Screen()`（字号本批已修）——
                 //    它比同页的标签大 11%、位置也偏外（`Shell/SettingsWindow.cs` 的 `BuildRoleBlock` 传的是
                 //    未缩放的 `x1/OnFieldT/OnFieldH`）。⇒ 已写进 `波8_A171_设置窗字号.md` 的报告，另行派活。
+            }
+
+            // ---------------- 🆕 2026-10-19（A1181）：本窗文字漏斗的【自适应】 ----------------
+            //
+            // 缺陷（本笔）：`Shell/SettingsWindow.cs` 的 `Text(...)` 是本窗文字的**唯一漏斗**（它自己的
+            //   注释写着「新加文字必须走这个漏斗」），可它**形参里连 autosize 都没有** ⇒ 走它的
+            //   **41 个调用点一处都开不了自适应**（`MenuDraw.Text` 的自适应那一整段写在 `if (wrapPx > 0f)` 里）。
+            //   而原版 `Main Menu Settings Window` 里**压倒多数**的 TMP 是 `m_enableAutoSizing = 1`。
+            //
+            // 判据（第一权威 = 原版 prefab 逐字段实读，`bundle_menus_assets_all` + `bundle_scenes_scenes_mainmenuwarpforge`）：
+            //   量具 = `python 工具/menu_dump.py bundle_menus_assets_all "Main Menu Settings Window" --depth 10
+            //           --no-sprite --no-layout`（印 `字号=` / `基准=` / **`auto[min~max]`** / `折行=`）；
+            //   收录表 = `资料/普查产出_第十会话/R2_A1126原版autosize真值.md` §3 注⑥ + §7。
+            //   下表**逐站四格**（`min / max / base / 折行`）+ **原版那一颗的折行宽 / 容器宽**。
+            //
+            // 🔴 **期望值一律是【原版字段值 × 0.9】的字面量**（⛔ 不写 `SettingsWindow.RootScale` /
+            //   `PageTitleFontPx` 这类**被测实现里的**常量 —— 拿它算期望 = 同式自证，见 `A171` 那节的口径）。
+            // 🔴 **⛔ 本笔一个字没改 `Shell/MenuDraw.cs`**（共用件，不在白名单）—— 收尾那条探针（④）钉的就是这一件。
+            //
+            // 🧨 **旧写法下会红在哪**：把 `SettingsWindow.Text` 里那四个实参传回 `0`（= 本笔之前那一版）
+            //   ⇒ 每一站的 `AutoSizing` 那一条立刻红（自适应那一段**整段不执行**，
+            //   `fontSizeMin/Max` 停在 TMP 出厂 `0/0`）。⛔ **本表不是「怎么都能绿」**：四条字段级断言
+            //   （`AutoSizing` / `min` / `max` / `base`）+ 折行档 + 「渲出来 ≤ 框」各钉一种改坏法。
+            Section("A1181：本窗文字漏斗的自适应 —— 原版四格（min/max/base/折行）真的落进 TMP");
+            {
+                var tabWas = win.Current;
+
+                // 🔴 **2026-10-19（第十会话 · `A1194`）形参表多了一格 `boxH`** = 原版那一颗的
+                //   **`m_SizeDelta.y`（设计 px）** —— 「渲出来 ≤ 框」的**纵向那一半**（原委 → `CheckAutoFit` 的 doc）。
+                //   读数出处 **只此一份**：`python d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all
+                //   "Main Menu Settings Window" --depth 20 --no-sprite --no-ancestor-scale`
+                //   （设计帧、与 `boxW` 同一份表；`--no-ancestor-scale` 那一档的「高」列）。
+                //   ⚠️ **有两族的 `m_SizeDelta` 在 prefab 里读不到**（布局组 / `AspectRatioFilter` 排出来的）：
+                //     · 四行开关的 `… Toggle > Label`：prefab 读到 `0×0`（`HorizontalLayoutGroup` `ctrlH=1`
+                //       排出来的）⇒ 取**布局后**那一列 `75.64`（同 `boxW` 那条「这一格没有字段值可抄」）；
+                //     · `… Button Text` 那一族带 `AspectRatioFilter`：**prefab 字段**（`--no-layout` 列）
+                //       才是「作者填的原版值」，也正是我们照抄进 `Shell/SettingsWindow.cs` 的那一档
+                //       （逐站核过：`33.55/13.55/50.06/52.36/90/90` 全对得上）⇒ 一律取**字段值**。
+                //   📌 **逐站对账表**（我们传的框高 vs 原版 `m_SizeDelta.y`）→
+                //       `资料/普查产出_第十会话/P7_A1189A1194A1196.md` §2。
+
+                // ---- ① 页签那一行（不在任何页里，恒在） ----
+                //   原版 `… > Tab Buttons > */Label/Tab Toggle Title` 五颗逐颗同值：10 / 35 / 35 · 折行 0
+                //   ⚠️ 框高 40 = 原版 `m_SizeDelta.y`（`139.50×36.00` 屏幕 ÷ 0.9 = `155×40`）
+                CheckAutoFit(Bar(root), new[] { "General", "Tab Toggle Title" },
+                             "页签 `Tab Toggle Title`（原版 5 颗逐颗同值）",
+                             10f, 35f, 35f, 0, 155f, 40f);
+
+                // ---- ② `General` 页 ----
+                Click(Bar(root), "General");
+                Check(win.Current, SettingsTab.General, "点 `General` ⇒ 切到第 1 页（下面这些站的宿主）");
+                var genTab = FindChild(root, "General Tab");
+                CheckTrue(genTab != null && genTab.gameObject.activeSelf, "（前提）`General Tab` 开着");
+                //  页标题：General / Media / Graphics / Support 四页都是 `4 / 55 / 55 · 折行 1`
+                CheckAutoFit(genTab, new[] { "Tab Title" }, "`General Tab > Tab Title`", 4f, 55f, 55f, 1, 942.26f, 70f);
+                //  `VersionText`：⚠️ `base 26` **≠ fs 28** —— 这条自带「base 不是退回 fs」的判别力
+                //  （退回调用方那一档 ⇒ 量出 28 × 0.9 = 25.2 ≠ 26 × 0.9 = 23.4 ⇒ 红）
+                CheckAutoFit(genTab, new[] { "VersionText" }, "`General Tab > VersionText`", 1f, 28f, 26f, 1, 273f, 40.78f);
+                CheckAutoFit(genTab, new[] { "Language Selector", "SelectLanguageText" },
+                             "`General Tab > Language Selector > SelectLanguageText`", 29f, 42f, 36f, 1, 407.44f, 59.4f);
+                CheckAutoFit(genTab, new[] { "Disable Bots", "Label" },
+                             "`General Tab > Checkboxes > Disable Bots > Label`", 29f, 42f, 36f, 1, 755.81f, 75.64f);
+                CheckAutoFit(genTab, new[] { "Redeem Code", "Button Text" },
+                             "`General Tab > Bottom Buttons > Redeem Code > Button Text`", 12f, 40f, 12f, 0, 300f, 90f);
+                //  `Close Game Button` 那颗原版 `m_fontSize = 38`（⚠️ 与上一颗**不同**）⇒ `max` 跟着它走
+                CheckAutoFit(genTab, new[] { "Close Game Button", "Button Text" },
+                             "`General Tab > Bottom Buttons > Close Game Button > Button Text`", 12f, 38f, 12f, 0, 300f, 90f);
+                //  🆕 **2026-10-19（`A1186` 裁定 ②）**：`General` 页那颗 `Online` 入口钮 ——
+                //  **原版没有这一颗** ⇒ 这四格是**我们照同族那两颗抄的**（`12 / 38 / 12 · 折行 0`），
+                //  框宽 = 本颗钮那一格 **154.81** 设计 px（= `GenOnlineR − GenOnlineL` = `1431.33 − 1276.52`，
+                //  ⛔ 别照抄 300）。
+                //  ⚠️ 这一条同时是「字形装得下」的量法（`sz.x ≤ boxW × 0.9`）—— 它才是这一批要的那一档。
+                CheckAutoFit(genTab, new[] { "Online Button", "Button Text" },
+                             "`General Tab > Online Button > Button Text`（**我们自加**）", 12f, 38f, 12f, 0, 154.81f, 90f);
+
+                //  🔴 **原版【关着】autosize 的站 —— 不许接**（本笔的反面：接了就是主动制造偏离）
+                //   ① 语言框里那行 `Label`：原版 `m_fontSizeMin == m_fontSize`（18/18）
+                //      ⇒ 共用闸 `fontPx > autoMinPx` **三条全真**那条过不去 ⇒ 我们**照原版把四格接上了**、
+                //      但它**不会**生效。⚠️ **如实登记**：这条红了有两种可能 —— ⓐ 共用闸被放宽了
+                //      （那时应当把它改成「断真」）ⓑ 有人把 `autoMinPx` 往下改动了（**不许**）。
+                {
+                    var capN = FindChild(FindChild(FindChild(genTab, "Language Selector"), "LanguagesDropdown"), "Label");
+                    var capLb = capN != null ? capN.GetComponentInChildren<Label>() : null;
+                    CheckTrue(capLb != null, "（前提）语言框里那行 `Label` 在");
+                    CheckTrue(capLb != null && !capLb.AutoSizing,
+                              "⚠️ `LanguagesDropdown > Label`：原版 `m_fontSizeMin == m_fontSize = 18` ⇒ "
+                            + "**共用闸 `MenuDraw.TextCore` 的 `fontPx > autoMinPx` 过不去** ⇒ 传了也不生效"
+                            + "（四格照原版接了，见 `SettingsWindow.Text` 的调用点）"
+                            + " —— 🧨 本行红 = ① 共用闸被人放宽了（那请把它改成断真、并销掉这条备注）"
+                            + "或 ② 有人把 `autoMinPx` 改成 < 18（**那是发明一个原版没有的值，不许**）");
+                }
+
+                // ---- ③ `Graphics` 页（四行开关 + FPS 那一行 + 三个刻度） ----
+                Click(Bar(root), "Graphics");
+                Check(win.Current, SettingsTab.Graphics, "点 `Graphics` ⇒ 切到第 4 页（下面这些站的宿主）");
+                var gfxTab = FindChild(root, "Graphics Tab");
+                CheckTrue(gfxTab != null && gfxTab.gameObject.activeSelf, "（前提）`Graphics Tab` 开着");
+                CheckAutoFit(gfxTab, new[] { "Tab Title" }, "`Graphics Tab > Tab Title`", 4f, 55f, 55f, 1, 942.26f, 70f);
+                CheckAutoFit(gfxTab, new[] { "Quality Selector", "Quality selector text" },
+                             "`Graphics Tab > Quality Selector > Quality selector text`", 29f, 42f, 36f, 1, 407.51f, 59.4f);
+                //  四行开关的 `Label`：原版 `Small Screen Size Toggle` / `Auto Zoom Toggle` /
+                //  `Use super sampling` / `VSync` 四颗**逐值相同** = 29 / 42 / 36 · 折行 1
+                //  ⚠️ 框高 75.64：这四颗的 `m_SizeDelta` 是 `HorizontalLayoutGroup`（`ctrlH=1`）排出来的、
+                //     prefab 里读到 `0×0` ⇒ 取**布局后**那一列（同 `boxW` 那条「没有字段值可抄」的如实登记）。
+                CheckAutoFit(gfxTab, new[] { "Small Screen UI", "Label" }, "`Graphics Tab > Small Screen UI > Label`",
+                             29f, 42f, 36f, 1, 325.21f, 75.64f);
+                CheckAutoFit(gfxTab, new[] { "Auto Zoom", "Label" }, "`Graphics Tab > Auto Zoom > Label`",
+                             29f, 42f, 36f, 1, 325.21f, 75.64f);
+                CheckAutoFit(gfxTab, new[] { "VSync", "Label" }, "`Graphics Tab > VSync > Label`",
+                             29f, 42f, 36f, 1, 325.21f, 75.64f);
+                //  FPS 那一行：原版 `FPS Limit > Title` = 18 / 42 / 36 · 折行 1；
+                //  ⚠️ 下限是 **18**（**不是** 29 —— 与上面那四行**不同**，逐颗实读，别一刀切）
+                CheckAutoFit(gfxTab, new[] { "FPS Limit", "Title" }, "`Graphics Tab > FPS Limit > Title`",
+                             18f, 42f, 36f, 1, 309.55f, 62f);
+                CheckAutoFit(gfxTab, new[] { "FPS Limit", "FPS Slider", "30 FPS" },
+                             "`Graphics Tab > FPS Limit > FPS Slider > 30 FPS`", 18f, 42f, 36f, 1, 228.02f, 62f);
+
+                // ---- ④ `Media` 页（三行音轨） ----
+                // 🔴 **2026-10-09（第十会话 · `D2` 诊断 · α）**：这里原来写 `Click(Bar(root), "Media")`
+                //   —— **把【页签印的那个字】当成了【节点名】**。原版那一条页签**印的是 `Media`**，
+                //   可**我们的页签节点名是 `Audio`**（`SettingsWindow.BuildTabs` 的 `specs[i].Label`；
+                //   同窗另外 8 处 `Click(Bar(root), …)` 用的都是节点名，含本页的 `"Audio"`）。
+                //   ⇒ 点不到 ⇒ 第 2 页没切过去 ⇒ **连带下面两条（切页 / 前提）一起红**（一个字符 = 三条红）。
+                //   ⚠️ 页**节点**名仍是 `Media Tab`（`BuildAudioPage` 里 `Node(area, "Media Tab", …)`），
+                //   ⛔ 别把这一行的改动顺手抄到下面那两行。
+                Click(Bar(root), "Audio");
+                Check(win.Current, SettingsTab.Audio, "点 `Media` ⇒ 切到第 2 页（下面这些站的宿主）");
+                var meTab = FindChild(root, "Media Tab");
+                CheckTrue(meTab != null && meTab.gameObject.activeSelf, "（前提）`Media Tab` 开着");
+                CheckAutoFit(meTab, new[] { "Tab Title" }, "`Media Tab > Tab Title`", 4f, 55f, 55f, 1, 942.26f, 70f);
+                //  原版三颗 `… Container > Label` 逐颗同值 = 18 / 42 / 36 · 折行 1（⚠️ 下限 18，同 FPS 那行）
+                //  ⚠️ 框高逐颗实读：`Music Container` **62.00**、另两颗 **63.00**（⛔ 别一刀切取同一个数）。
+                //  🔴 **2026-10-20（`A1201`）**：`Music Container > Label` 的**框宽**原来是错的（传了另两颗
+                //     的值 684.19 = 整行）—— 原版那一颗的**横幅锚点**是 `aMax.x = 0.5`（**半行**），
+                //     另两颗才是 `1`（整行）。判据 = `python 工具/menu_rect.py bundle_menus_assets_all
+                //     "Audio Settings" --depth 3 --cs`：`N(2,"Label", 0,0.5, **0.5**,0.5, 0,0.5, 0,35, 0,62)`；
+                //     算式 = **行宽 684.195（= `0.75 × 1032.26 − 90`）× `aMax.x`** ⇒ 本格 = **342.0975** 设计 px。
+                //     （第二路复核：`menu_dump … --depth 3` 那一行「宽」列 = **307.89** = 342.0975 × 0.9。）
+                //     ⛔ 本行的期望值**不许再写 684.19**（那是放宽一倍 = 假绿）；⛔ 另两颗**不许**跟着改半行。
+                //     ⚠️ 只改 `boxW` 这一格还是**分辨不出**「实现摆回整行」（那一行的字本来就短）——
+                //       真正有分辨力的是下面「三行行顶/标签」那一节新加的**框宽**断言（读 TMP 的 `sizeDelta`）。
+                CheckAutoFit(meTab, new[] { "Audio Settings", "Music Container", "Label" },
+                             "`Media Tab > Audio Settings > Music Container > Label`", 18f, 42f, 36f, 1, 342.10f, 62f);
+                CheckAutoFit(meTab, new[] { "Audio Settings", "FX Container", "Label" },
+                             "`Media Tab > Audio Settings > FX Container > Label`", 18f, 42f, 36f, 1, 684.19f, 63f);
+                CheckAutoFit(meTab, new[] { "Audio Settings", "Voiceovers Container", "Label" },
+                             "`Media Tab > Audio Settings > Voiceovers Container > Label`", 18f, 42f, 36f, 1, 684.19f, 63f);
+
+                // ---- ⑤ `Account` 页 + 登录弹窗 ----
+                Click(Bar(root), "Account");
+                Check(win.Current, SettingsTab.Account, "点 `Account` ⇒ 切到第 3 页（下面这些站的宿主）");
+                var acTab = FindChild(root, "Account Tab");
+                CheckTrue(acTab != null && acTab.gameObject.activeSelf, "（前提）`Account Tab` 开着");
+                //  🔴 页标题这一页的**下限是 10**（另外四页是 4）—— 逐颗实读，⛔ 别一刀切
+                CheckAutoFit(acTab, new[] { "Tab Title" }, "`Account Tab > Tab Title`", 10f, 55f, 55f, 1, 942.26f, 70f);
+                //  🔴 **原版【关着】autosize 的站**：`Player Id` 那颗 TMP 的字段里没有 `auto`（fs 40 / 折行 1）
+                {
+                    var pidT = FindChild(acTab, "Player Id");
+                    var pidLb = pidT != null ? FindChild(pidT, "Label") : null;
+                    var pidL = pidLb != null ? pidLb.GetComponentInChildren<Label>() : null;
+                    CheckTrue(pidL != null, "（前提）`Player Id > Label` 在（原版那颗 TMP 长在 `Player Id` 自己身上）");
+                    CheckTrue(pidL != null && !pidL.AutoSizing,
+                              "⚠️ `Player Id > Label`：原版那颗 TMP **没开** `m_enableAutoSizing`"
+                            + "（逐字段实读：只有 `fs 40` / `m_fontSizeBase 40` / `折行 1`，**没有 auto**）"
+                            + " ⇒ **我们也不接** —— 🧨 本行红 = 有人给它接了自适应（那是**主动制造偏离**）");
+                }
+                //  账号页那两颗标签的下限是 **10**（⚠️ 与登录弹窗里同名的两颗**不同**，见下）
+                CheckAutoFit(acTab, new[] { "Account Form", "EmailText" }, "`Account Form > EmailText`", 10f, 37f, 37f, 1, 460f, 60f);
+                CheckAutoFit(acTab, new[] { "Account Form", "PasswordText" }, "`Account Form > PasswordText`", 10f, 37f, 37f, 1, 460f, 60f);
+                //  两颗链接（原版那颗 TMP 就长在钮节点自己身上）：29 / 32 / 36 · 折行 1（⚠️ base 36 **>** max 32）
+                CheckAutoFit(acTab, new[] { "Account Form", "Reset Password", "Text" },
+                             "`Account Form > Reset Password > Text`", 29f, 32f, 36f, 1, 460f, 44.36f);
+                CheckAutoFit(acTab, new[] { "Account Form", "Forgot Password", "Text" },
+                             "`Account Form > Forgot Password > Text`", 29f, 32f, 36f, 1, 460f, 44.36f);
+                CheckAutoFit(acTab, new[] { "Account Form", "Error Message" }, "`Account Form > Error Message`", 29f, 37f, 37f, 1, 920f, 47.1f);
+                //  订阅钮：32 / 40 / 44 · 折行 1 —— ⚠️ base **44 比 max 还大**（原版原文）⇒ 再单钉一条
+                CheckAutoFit(acTab, new[] { "Subscribe Newsletter", "Label" }, "`Subscribe Newsletter > Label`", 32f, 40f, 44f, 1, 599.46f, 76.71f);
+                //  五条外链的 `Button Text`（原版恒关）：12 / 38 / 12 · 折行 0；⚠️ `max 38 < fs 43`
+                //  ⚠️ 我们这五颗也照原版 `SetActive(false)`（`m_IsActive = 0`）⇒ 未激活的 TMP 不重排
+                //  ⇒ 这两条**只断字段级**（`skipRendered: true`），如实说清「渲出来 ≤ 框」那一格**没量**。
+                //  ⚠️ 框高 = prefab **字段值**（`AspectRatioFilter` 排出来的那一列更大/更小，⛔ 不取它，
+                //     理由见本节头那段）—— 这两颗恒关、这一格本来也不量。
+                CheckAutoFit(acTab, new[] { "Social Media Links", "Discord Button", "Button Text" },
+                             "`Social Media Links > Discord Button > Button Text`", 12f, 38f, 12f, 0, 101.45f, 33.55f, true);
+                CheckAutoFit(acTab, new[] { "Social Media Links", "IG Button", "Button Text" },
+                             "`Social Media Links > IG Button > Button Text`（fs 31.05 那颗）", 12f, 38f, 12f, 0, 101.45f, 13.55f, true);
+                //  七颗大钮：12 / max=那一颗的 fs / 12 · 折行 0（Register 40 · Twitch **38**）
+                CheckAutoFit(acTab, new[] { "Buttons", "Unregistered Buttons", "Register Button", "Button Text" },
+                             "`Buttons > Unregistered Buttons > Register Button > Button Text`", 12f, 40f, 12f, 0, 277.6f, 54f);
+                CheckAutoFit(acTab, new[] { "Buttons", "Twitch Button", "Button Text" },
+                             "`Buttons > Twitch Button > Button Text`（fs 38 那颗）", 12f, 38f, 12f, 0, 271.32f, 50.06f);
+                //  登录弹窗那五件：⚠️ 与页内同名的两颗**下限不同**（EmailText 32 / PasswordText 29）
+                //  ⚠️ 整棵 `Login Window` **出厂关着** ⇒ 未激活的 TMP 不重排、`textBounds` 是旧的
+                //  ⇒ 那五条**只断字段级**（`skipRendered: true`），如实说清「渲出来 ≤ 框」那一格**没量**。
+                CheckAutoFit(acTab, new[] { "Login Window", "EmailText" },
+                             "`Login Window > EmailText`", 32f, 37f, 37f, 1, 437.5f, 60f, true);
+                CheckAutoFit(acTab, new[] { "Login Window", "PasswordText" },
+                             "`Login Window > PasswordText`", 29f, 37f, 37f, 1, 437.5f, 60f, true);
+                CheckAutoFit(acTab, new[] { "Login Window", "Forgot Password", "Text" },
+                             "`Login Window > Forgot Password > Text`", 29f, 32f, 36f, 1, 437.5f, 44.36f, true);
+                CheckAutoFit(acTab, new[] { "Login Window", "ErrorMensajeContainer", "Error Message" },
+                             "`Login Window > ErrorMensajeContainer > Error Message`", 29f, 37f, 37f, 1, 774.1f, 36.73f, true);
+                CheckAutoFit(acTab, new[] { "Login Window", "Login Button", "Button Text" },
+                             "`Login Window > Login Button > Button Text`", 12f, 40f, 12f, 0, 283.17f, 52.36f, true);
+
+                // ---- ⑥ `MenuDraw` 的默认路径零变化（= 别的窗那一百多处调用） ----
+                //   本笔只加形参、**给的都是缺省 0** ⇒ 不传的那 31 个调用点（含别窗全部）走的是逐字节相同的老路。
+                //   ⚠️ 这条与「`Player Id` 那颗没开自适应」是**两条**：那条钉「原版关着的站我们没接」，
+                //   这条钉「**共用件**的缺省行为没被顺手改掉」（⛔ 那是别的 7 个宿主窗共用的那一层）。
+                {
+                    var probeGo2 = new GameObject("A1181 probe (MenuDraw.Text 默认路径)");
+                    var p0 = MenuDraw.Text(probeGo2.transform, new PxRect(0f, 0f, 300f, 60f), "p0",
+                                           Color.white, "p0", 40f, MenuDraw.QText);
+                    CheckTrue(p0 != null && !p0.AutoSizing,
+                              "★ 共用件默认路径：`MenuDraw.Text(…40f…)` **不开自适应**（`AutoSizing` = false）"
+                            + " —— 别窗那一百多处调用拿到的是逐字节相同的代码；"
+                            + "🧨 改坏法：把自适应那一段从 `if (wrapPx > 0f)` 里挪出来、或给 `autoMinPx` 一个非 0 缺省 ⇒ 本行红");
+                    Object.DestroyImmediate(probeGo2);
+                }
+
+                // ---- ⑦ 收尾：把当前页还原（本段进来时是哪一页就退回哪一页） ----
+                win.OpenTab(tabWas);
+                Check(win.Current, tabWas, "（收尾）切回本段进来之前那一页 —— 与本段之前的现状一致");
             }
 
             // 关窗

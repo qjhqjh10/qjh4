@@ -146,6 +146,21 @@ namespace CardPresentation
         const float AllianceNamePx = 28.00f;   // 35   × 0.8
         const float NotInAlliancePx = 26.32f;  // 32.9 × 0.8
 
+        // 🔴 **2026-10-09（A1126 · A2 档）**：上面这七颗原版 **全是 `m_enableAutoSizing = 1`**
+        //   （现读 `scenes_battlearena1 ▸ Alliance Panel` 那 7 颗 TMP：
+        //    `PlayerLabel` / `Name Text` / `TitleLabel` / `Title Text` / `Alliance Label` / `Alliance Name` /
+        //    `NotInaAllianceText`）—— 我们原来**一个 autosize 实参都没传** ⇒ 固定字号。
+        //   四格真值：`min = 18` · `base = 36` · **折行 = 0** · `max = 35`（六颗）／**40**（只有 `Name Text`）。
+        //   🔴 **三格都要乘本族那个 `localScale = 0.8`** —— 与上面那几个 `*Px` 是**同一条换算**
+        //   （原版 `m_fontSizeMin/Max/Base` 是**未缩放的设计空间原值**）。
+        //   判据 = 本仓既有先例 `Shell/MissionsTab.cs` 的 `FS()`：**「自适应上下限也要一起乘」**
+        //   （落地在 `:345` `FS(autoMinPx)` 与 `:380` `FS(minPx), FS(maxPx), FS(basePx)`；说明见 `:1302`）。
+        //   ⛔ **不是我们挑的**：换算是「照原版实绘」，裸传原值反而会让上限比原版高 25%。
+        const float AutoMinPx = 18f * 0.8f;       // 14.4（七颗同值）
+        const float AutoBasePx = 36f * 0.8f;      // 28.8（七颗同值）
+        const float AutoMaxPx = 35f * 0.8f;       // 28  （六颗）
+        const float AutoMaxNamePx = 40f * 0.8f;   // 32  （只有 `Name Text` 是 40 —— ⛔ 别一刀切）
+
         // 原版那 4 颗 TMP 的**静态原文**（= prefab 出厂值，也是运行期 `GetTranslation` 的兜底）。
         //  🔴 运行期那 4 条真值在**远端 I2 表**（本仓没有，见 `资料/普查产出_1018/G2b_战斗本地化收口.md`）
         //     ⇒ 先查 `Loc` 表；`Loc` 里没这一条就用 prefab 原文（= 原版出厂就是那句英文）。
@@ -244,7 +259,9 @@ namespace CardPresentation
             var nameRow = MenuDraw.Node(_root, "NameHolder", NameRowR);
             Txt(nameRow, NameLabelR, LocOr(NameLabelTerm, NameLabelEn), Color.white, "PlayerLabel",
                 NameLabelPx, Label.VAlign.Capline);
-            _nameLb = Txt(nameRow, NameTextR, "", Color.white, "Name Text", NameTextPx, Label.VAlign.Capline);
+            // ⚠️ **只有这一颗**原版 `m_fontSizeMax` 是 **40**（其余六颗都是 35）⇒ 显式给上限，⛔ 别一刀切
+            _nameLb = Txt(nameRow, NameTextR, "", Color.white, "Name Text", NameTextPx, Label.VAlign.Capline,
+                          AutoMaxNamePx);
 
             _titleHolder = MenuDraw.Node(_root, "TitleHolder", TitleRowR);
             Txt(_titleHolder, TitleLabelR, LocOr(TitleLabelTerm, TitleLabelEn), Color.white, "TitleLabel",
@@ -339,11 +356,21 @@ namespace CardPresentation
         // ============================================================ 助手
         /// <summary>一段**左对齐**的文字（原版这几颗全是 `m_HorizontalAlignment = 1`=Left）。
         /// 字号 = `px`（**已乘过 localScale 的实绘 em**）；垂直档 = 原版 `m_VerticalAlignment`。</summary>
+        /// <remarks>🔴 **2026-10-09（A1126 · A2 档）**：本函数原来**连 `autoMinPx` 都没有**（= 固定字号），
+        /// 而原版这七颗 **全是 `m_enableAutoSizing = 1`**。现在补上三格 —— 取值见上面
+        /// `AutoMinPx` / `AutoMaxPx` / `AutoMaxNamePx` / `AutoBasePx` 那一段（**已乘 0.8**）。
+        /// ⚠️ **折行 0**：原版这七颗 `m_TextWrappingMode = 0`，而 `SetAutoFitBox` 内部那句 `SetWrapWidth`
+        /// 会**无条件**把它开成 `Normal` ⇒ 传 `wrapPx = r.W` 之后**紧接着**关掉（⚠️ 必须在 ①②③ 之前 ——
+        /// `SetWrapping` 会推版面，排在对齐后面会把刚摆好的位置抹掉）。
+        /// ⚠️ `wrapPx = r.W` 不只是为了折行：`MenuDraw.TextCore` 那道闸是
+        /// `wrapPx &gt; 0 ∧ autoMinPx &gt; 0 ∧ fontPx &gt; autoMinPx` **三条全真**才调 `SetAutoFitBox`
+        /// ⇒ **只传 `autoMinPx` 不传 `wrapPx` = 死实参**。</remarks>
         static Label Txt(Transform parent, PxRect r, string text, Color col, string name,
-                         float px, Label.VAlign v)
+                         float px, Label.VAlign v, float autoMaxPx = AutoMaxPx)
         {
-            var lb = MenuDraw.Text(parent, r, text, col, name, px, QText);
+            var lb = MenuDraw.Text(parent, r, text, col, name, px, QText, r.W, AutoMinPx, autoMaxPx, AutoBasePx);
             if (lb == null) return null;
+            lb.SetWrapping(false);              // ⓪ 原版折行=0（`SetAutoFitBox` 会无条件开成 Normal）
             lb.SetAlignLeft();                  // ① 逐行左对齐（真折行时才看得见）
             MenuDraw.SetVAlign(lb, v, r);       // ② 垂直档（⚠️ 必须排在 ① 后面：`Left` 自带 V=Middle）
             MenuDraw.AlignLeft(lb, r);          // ③ 整块左缘贴框左缘（⚠️ 只调 ① 不够，见 `Apply` 那条注释）

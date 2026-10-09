@@ -17656,6 +17656,113 @@ public static class BattleScene
                         + " —— 结构上不可能被「两个开关一起改成同一个常量」同时满足 ⇒ 它盯的是「两个开关**真被反相**驱动」，"
                         + "而不是只看其中一条（原版那三条 `SetActive` 的判据就是同一个「联盟名空不空」）");
 
+                    // ---- 四、🆕 2026-10-19（A1192）：那 7 颗字的**自适应四格** + 「渲出来 ≤ 框」----
+                    //   为什么放这儿：那 7 颗的**参数**（`A1126`·`A2` 档）已于 2026-10-09 在
+                    //   `Shell/AlliancePanelWindow.cs` 落地（`AutoMinPx` / `AutoMaxPx` / `AutoMaxNamePx` /
+                    //   `AutoBasePx` 四个常量 + `Txt` 助手），**缺的是断言**；而它是**战斗侧 HUD 窗**
+                    //   ⇒ 全仓只有本宿主够得到（`P4` 报告 §7·3 自己就是这么登记的）。
+                    //   判据 = 原版 `scenes_battlearena1 ▸ Alliance Panel` 那 7 颗 TMP 逐字段实读：
+                    //     `m_enableAutoSizing = 1` · `m_fontSizeMin = 18` · `m_fontSizeBase = 36` ·
+                    //     `m_fontSizeMax = 35`（六颗）／**40**（**只有** `Name Text`）· `m_TextWrappingMode = 0`。
+                    //   🔴 该族 `localScale = 0.8`（本文件族那 7 颗的字号都写着 `× 0.8`）⇒ **三格一起乘 0.8**
+                    //     ⇒ 期望值 = `min 14.4` · `base 28.8` · `max 28`（六颗）／`32`（`Name Text`）。
+                    //     先例（不是我发明的口径）= `Shell/MissionsTab.cs` 的 `FS()`「自适应上下限也要一起乘」。
+                    //   ⚠️ 量法：**TMP 自己的 `textBounds` 活值**（⛔ 不是 `Label.WorldW/H` —— 那是被测实现
+                    //     自己写的字段缓存，`SetFontSize` 一族不刷它 = **自证**）；算式与本文件 A712 那节
+                    //     （`:4074` `sc = |lossyScale| × pxPerWorld`）**同一份**，⛔ 没另造第二种量法。
+                    //     ⚠️ 未激活 / 空串时 `textBounds` 是哨兵天文数字 ⇒ 下面那道闸有**上界**。
+                    //   🔴 辨析力（如实说）：四格那 4 条在**旧写法**（`Txt` 一个 autosize 实参都不传）下
+                    //     **全红**（`enableAutoSizing` 停在 TMP 出厂 `false` · `m_fontSizeBase` 停在序列化
+                    //     默认 **36** ⇒ `FontSizeToPx` 量出 ≈368px）；`WrappingMode == 0` 那条**只挡
+                    //     「漏了 `SetWrapping(false)`」**（旧写法恰好也是 0 ⇒ 对它无辨析力）。
+                    {
+                        float pxPerWorld1192 = Mathf.Abs(LayoutSpace.PxY(0f) - LayoutSpace.PxY(1f));
+                        Label L1192(string path)
+                        {
+                            var tr = panel985.Root != null ? panel985.Root.Find(path) : null;
+                            return tr != null ? tr.GetComponent<Label>() : null;
+                        }
+                        // 渲出来的宽（画布 px）。量不到 ⇒ `NaN`（⛔ 不返回 0 —— 0 会被读成「刚好装下」）
+                        float RW1192(Label lb)
+                        {
+                            if (lb == null) return float.NaN;
+                            var t = lb.GetComponentInChildren<TMPro.TextMeshPro>(true);
+                            if (t == null) return float.NaN;
+                            float sc = Mathf.Abs(t.transform.lossyScale.x);          // TMP 局部单位 → 世界
+                            if (!(sc > 1e-6f)) return float.NaN;
+                            float w = Mathf.Abs(t.textBounds.size.x) * sc * pxPerWorld1192;
+                            return (w > 0.5f && w < 100000f) ? w : float.NaN;         // 上界挡哨兵（4.6e11 那种）
+                        }
+
+                        // 7 颗：路径 · 原版 `m_fontSizeMax`（设计空间）· 原版框宽（画布 px · 实绘值 × 0.8）
+                        var seven1192 = new[]
+                        {
+                            // 路径（`AlliancePanelWindow.Build` 里 `MenuDraw.Node` + `Txt` 的名字）· max · 框宽
+                            new { P = "NameHolder/PlayerLabel",      Max = 35f, W =  93.941f },   // 273.941−180.000
+                            new { P = "NameHolder/Name Text",        Max = 40f, W = 279.008f },   // 555.228−276.220（**40**）
+                            new { P = "TitleHolder/TitleLabel",      Max = 35f, W =  94.434f },   // 274.429−179.995
+                            new { P = "TitleHolder/Title Text",      Max = 35f, W = 279.008f },   // 555.223−276.215
+                            new { P = "Alliance/Alliance Label",     Max = 35f, W =  94.912f },   // 278.002−183.090
+                            new { P = "Alliance/Alliance Name",      Max = 35f, W = 256.887f },   // 535.827−278.940
+                            new { P = "NotInaAllianceText",          Max = 35f, W = 474.112f },   // 529.877− 55.765
+                        };
+                        int found1192 = 0;
+                        foreach (var s1192 in seven1192)
+                            if (L1192(s1192.P) != null) found1192++;
+                        Check(found1192 == 7,
+                              $"★ A1192：（前提）那 7 颗字**都建出来了**（实得 {found1192}/7）"
+                            + " —— 节点名逐字照 `AlliancePanelWindow.Build` 的 `MenuDraw.Node(…)` + `Txt(…, name)`；"
+                            + "缺一颗 ⇒ 下面的断言**整体跳过**（⛔ 不假绿）");
+
+                        if (found1192 == 7)
+                        {
+                            foreach (var s1192 in seven1192)
+                            {
+                                var lb1192 = L1192(s1192.P);
+                                if (lb1192 == null) continue;
+                                float fMin1192 = Label.FontSizeToPx(lb1192.FontSizeMin);   // 期望 14.4
+                                float fMax1192 = Label.FontSizeToPx(lb1192.FontSizeMax);   // 期望 28 / 32
+                                float fBas1192 = Label.FontSizeToPx(lb1192.FontSizeBase);  // 期望 28.8
+                                Check(lb1192.AutoSizing,
+                                      $"★ A1192：`{s1192.P}` 的**自适应开着**（原版 `m_enableAutoSizing = 1`）"
+                                    + "；🧨 改坏法：把 `Txt` 那个 `AutoMinPx` 实参去掉（或 `wrapPx` 只传一半）⇒"
+                                    + " `MenuDraw.TextCore` 那三条闸过不去 ⇒ 本件红");
+                                Check(Mathf.Abs(fMin1192 - 14.4f) < 0.5f,
+                                      $"★ A1192：`{s1192.P}` 的自适应**下限 = 原版 18×0.8 = 14.4px**（实得 {fMin1192:F2}px）");
+                                Check(Mathf.Abs(fMax1192 - s1192.Max * 0.8f) < 0.5f,
+                                      $"★ A1192：`{s1192.P}` 的自适应**上限 = 原版 {s1192.Max}×0.8 = {s1192.Max * 0.8f:F1}px**"
+                                    + $"（实得 {fMax1192:F2}px）—— ⛔ 六颗 35 里只 `Name Text` 是 **40**，别一刀切");
+                                Check(Mathf.Abs(fBas1192 - 28.8f) < 0.5f,
+                                      $"★ A1192：`{s1192.P}` 的 `m_fontSizeBase = 原版 36×0.8 = 28.8px`"
+                                    + $"（实得 {fBas1192:F2}px）—— 它是 TMP 自适应**二分的起点**，⛔ 不是字号、也不是上下限");
+                                Check(lb1192.WrappingMode == 0,
+                                      $"★ A1192：`{s1192.P}` 的**折行 = 0**（原版 `m_TextWrappingMode = 0`；"
+                                    + $"实得 {lb1192.WrappingMode}）—— `SetAutoFitBox` 内部那句 `SetWrapWidth`"
+                                    + " 会**无条件**把它开成 `Normal(1)` ⇒ 调用方得在**再往后**显式关回来；"
+                                    + "⚠️ 本条只挡「漏了那一步」（旧写法恰好也是 0）");
+                            }
+
+                            // 「渲出来的宽 ≤ 框宽」（`CLAUDE.md` §三 的 `AutoFitBox` 教训：字号对而溢出，
+                            //  只比字号的自检照样全绿）—— 框宽 = **原版那 7 颗的实绘矩形宽**（上面 `W` 那一列，
+                            //  ⛔ 不读被测实现的常量）。`NotInaAllianceText` 此刻是**关的**（`Open` 给了联盟名）
+                            //  ⇒ TMP 量不出 `textBounds`（哨兵）⇒ 那一颗**只断四格、不断宽**，如实跳过。
+                            foreach (var s1192 in seven1192)
+                            {
+                                if (s1192.P == "NotInaAllianceText") continue;
+                                var lb1192 = L1192(s1192.P);
+                                float w1192 = RW1192(lb1192);
+                                if (float.IsNaN(w1192)) continue;      // 量不到 ⇒ 不假绿也不假红（上面那条已断字段）
+                                Check(w1192 <= s1192.W + 0.5f,
+                                      $"★ A1192：`{s1192.P}` **渲出来的宽 ≤ 框宽**（实得 {w1192:F2}px vs 框 {s1192.W:F2}px）"
+                                    + " —— 框宽 = 原版那一颗的实绘矩形（prefab RT + 该族 `localScale 0.8`）；"
+                                    + "🧨 改坏法：把 `AutoMinPx` 调大、或把 `AutoMaxPx` 调到 `fontPx` 之上"
+                                    + "（自适应上限放大）⇒ 字号顶到框外、字溢出到框右面 ⇒ 红");
+                            }
+                            Debug.Log(P + $"--- A1192（战斗侧）：联盟窗那 7 颗字的自适应四格 + 渲出宽守卫已断"
+                                        + $"（`NotInaAllianceText` 此刻关着 ⇒ 只断四格不断宽）---");
+                        }
+                    }
+
                     // ---- 收尾：关窗 + 把指针那两个钉子放回去 ----
                     panel985.Close();
                     Check(!driver.AlliancePanelVisible, "★ A985③：（收尾）窗关上了");

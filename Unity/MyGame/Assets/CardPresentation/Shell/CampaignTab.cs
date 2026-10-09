@@ -204,20 +204,22 @@ namespace CardPresentation
             //    2026-09-23 实测：`Siguiente: 5d 20h 15m`（37.9fs ≈ 400px）在 285.92 的框里被折成两行。
             // 🔴 另外**文字必须显式排队列** —— `Text` 默认落在 `QText`(3011)，而本页底板在 3050+
             //    ⇒ 不设就是「底板把字盖死」（实测：一个字都看不见，而**矩形断言全绿**）。
+            // 🔴 **2026-10-09（A1173）**：那一刀 `SetAutoFitBox` 收进 `Text` 的形参（原来是先 `Text`、
+            //   再手工补一次 —— 两份写法并存 = 迟早不一致）。三个数值的出处见下面那段 A305① 注释。
             _title = _win.Text(hdr, "", _titleR.x1, _titleR.x2, _titleR.y1, _titleR.y2, 5,
-                               Color.white, "Title", 31.75f);
+                               Color.white, "Title", 31.75f,
+                               wrapPx: _titleR.W, autoMinPx: 25f, autoMaxPx: 31.75f, autoBasePx: 36f);
             if (_title != null)
             {
                 _title.SetRenderQueue(QHeaderTitle);
-                // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版这一颗的 `m_fontSizeBase` **原文**。
+                // 🔴 **2026-10-11（A305①）**：`autoBasePx` = 原版这一颗的 `m_fontSizeBase` **原文**。
                 //    判据（原版实读）：`/Campaign Tab/Campaign Header/Title`
                 //    `m_fontSize 31.75` · `auto[25~35]` · **`m_fontSizeBase 36.0`**（= TMP 序列化默认值，
                 //    即原版**没显式设过** —— `TMP_Text.cs:473` / 开着自适应时 setter 不回写 base，`:467`）。
                 //    逐站表 → `资料/普查产出_1011/V7_A305_A304_普查.md` §二·3 #1。
                 //    ⚠️ 上限那一格原版是 **35**、我们传的是 31.75（= `m_fontSize`）—— 那是**另一条**（A333），本轮不动。
-                _title.SetAutoFitBox(LayoutSpace.Px(_titleR.W), LayoutSpace.Px(_titleR.H), 25f, 31.75f, 36f);
                 // 🆕 **2026-10-11（A303②）：还原本条 TMP 的 `m_TextWrappingMode = 0`** ——
-                //   上面那句 `SetAutoFitBox` 内部会 `SetWrapWidth`，而那个**无条件**把模式设成
+                //   上面那段 `SetAutoFitBox` 内部会 `SetWrapWidth`，而那个**无条件**把模式设成
                 //   `Normal(=1)`（`Core/TmpFont.cs` 的 `SetWrapWidthRect` 头）。照 A62 那一族的既有写法补一句。
                 //   **判据（原版实读，就在本件现场量的）**：`python 工具/menu_dump.py bundle_menus_assets_all
                 //   "Rewards Base Submenu Variant" --depth 6` →
@@ -231,15 +233,16 @@ namespace CardPresentation
             var ptsRect = UguiRect.Child(_headerR, new Vector2(0.2f, 0.25f), new Vector2(1f, 0.45f),
                                          UguiRect.P01, new Vector2(57.9551f, 0f), Vector2.zero);
             _pointsR = ptsRect;
+            // 🔴 **2026-10-09（A1173）**：同上（`_title`）—— `SetAutoFitBox` 收进 `Text` 的形参。
             _points = _win.Text(hdr, "", ptsRect.x1, ptsRect.x2, ptsRect.y1, ptsRect.y2, 5,
-                                Color.white, "Points", 34.8f);
+                                Color.white, "Points", 34.8f,
+                                wrapPx: ptsRect.W, autoMinPx: 18f, autoMaxPx: 34.8f, autoBasePx: 36f);
             if (_points != null)
             {
                 _points.SetRenderQueue(QHeaderPts);
-                // 🔴 **2026-10-11（A305①）**：base = 原版 `m_fontSizeBase` **36.0**（同上一条，TMP 默认值）。
+                // 🔴 **2026-10-11（A305①）**：`autoBasePx` = 原版 `m_fontSizeBase` **36.0**（同上一条，TMP 默认值）。
                 //    判据：`/Campaign Tab/Campaign Header/Points` = `m_fontSize 34.8` · `auto[18~40]` · `base 36.0`
                 //    （逐站表 §二·3 #2）。⚠️ 上限原版 **40**、我们传 34.8 —— A333，本轮不动。
-                _points.SetAutoFitBox(LayoutSpace.Px(ptsRect.W), LayoutSpace.Px(ptsRect.H), 18f, 34.8f, 36f);
                 // 🆕 **2026-10-11（A303②）**：同上一处（`_title`）—— 还原本条 TMP 的 `m_TextWrappingMode = 0`。
                 //   **判据（原版实读）**：`menu_dump.py bundle_menus_assets_all "Rewards Base Submenu Variant"
                 //   --depth 6` → `Campaign Header/Points` = 字号 34.8 · auto[18.0~40.0] · **折行=0**
@@ -923,8 +926,12 @@ namespace CardPresentation
             var p = RewardsWindow.Node(root, "Premium Panel", panel);
             _win.Rect(p, "WF_UI_Ranked_Background_Gold", panel, "Background", QPanel);
             var panTitleR = new PxRect(354.43f, 874.01f, 710.22f, 916.33f);
+            // 🔴 **2026-10-09（A1173）**：这颗也**在收口名单里**（R1 那张表按「调用点后 45 行内出现
+            //    `SetAutoFitBox`」判，本处相隔 52 行 ⇒ 被漏记；实读判据见下面那段）。那五个数现在直接喂
+            //    `Text` 的形参 —— 与 `_title` / `_points` / 左栏四键同一形状。
             var panTitle = _win.Text(p, "Premium Campaign daily bonus", panTitleR.x1, panTitleR.x2,
-                                     panTitleR.y1, panTitleR.y2, 5, Color.white, "Title", 33.3f);
+                                     panTitleR.y1, panTitleR.y2, 5, Color.white, "Title", 33.3f,
+                                     wrapPx: panTitleR.W, autoMinPx: 10f, autoMaxPx: 40f, autoBasePx: 12f);
             if (panTitle != null)
             {
                 panTitle.SetRenderQueue(QPanelTitle);
@@ -971,11 +978,11 @@ namespace CardPresentation
                 //         · `Shell/CollectionWindow.cs` 里那处 `SetAutoFitBox` 的折行档 同一写法），**放在 `SetAutoFitBox` 之后、对齐之前**
                 //         （A205：`SetWrapping` 内部会 `ForceRelayout` ⇒ 对齐必须在它**之后**算）。
                 //       ⛔ **不许改 `Core/TmpFont.cs`**（共用件）—— 这一条只改**调用侧**。
-                // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版 `m_fontSizeBase`。
+                // 🔴 **2026-10-11（A305①）**：`autoBasePx` = 原版 `m_fontSizeBase`。
                 //    判据：`/Campaign Tab/Premium Panel/Title` = `m_fontSize 33.3` · `auto[10~40]` ·
                 //    **`base 12.0`**（逐站表 §二·3 #3）—— ⚠️ 同页三颗里**只有它是 12**（另两颗是 36），
                 //    所以这一颗必须显式传（这正是「12 不是通则」那条订正的现场证据）。
-                panTitle.SetAutoFitBox(LayoutSpace.Px(panTitleR.W), LayoutSpace.Px(panTitleR.H), 10f, 40f, 12f);
+                //    ⛔ 那五个实参已搬到上面 `Text(...)` 那一行（A1173），此处不再补第二刀。
                 panTitle.SetWrapping(false);        // 🆕 2026-10-11（A281）：还原本条 TMP 的 `m_TextWrappingMode = 0`
                 MenuDraw.AlignRight(panTitle, panTitleR);
             }

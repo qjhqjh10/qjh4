@@ -244,7 +244,7 @@ namespace CardPresentation
             //   `UI_Button_Round_background` · `m_Type=0`(Simple) · **`m_PreserveAspect=1`** ·
             //   `m_RaycastTarget=0`；它下面**唯一的子件 = `Icon`**（56.37×54.50，无 `Background` 层）。
             //   贴图 `m_Rect` = **237×237 正方** ⇒ 实绘 **75×75**（框本身即正方）。
-            //   ⇒ 照兄弟窗先例 `Shell/InboxWindow.cs:386-387` 的形状（`Img` 取不到图才退回 `MenuDraw.Node`）。
+            //   ⇒ 照兄弟窗先例 `Shell/InboxWindow.cs` 里那条形状（`Img` 取不到图才退回 `MenuDraw.Node`）。
             var closeBaseQ = Img(root, "UI_Button_Round_background", CloseL, CloseT, CloseR, CloseB,
                                  "Generic Close Button Green", QImpRow, true);
             var closeNode = closeBaseQ != null

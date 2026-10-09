@@ -220,6 +220,60 @@ namespace CardPresentation
             // ⇒ 这一条的键名与两列文案**都是我们起的**（照原版那一族的命名形状写）。
             { "Settings/Online/Title",                new Entry("联机",       "Online") },
 
+            // ============================================================ 🆕 2026-10-19（A1185）账号页 / 登录弹窗
+            //
+            // 键 = **原版 `Localize.mTerm` 原文**（逐颗实读：`python -I d:/tmp/wf_w4probe/w4probe.py
+            //   bundle_menus_assets_all "Account Tab" 8` 把 `Account Tab` 整棵（含它子树里那扇
+            //   `Login Window`）的 `mTerm` 全扫了一遍 —— 去重后**正好这 16 条**）。
+            // 英文那一列 = **那颗 TMP 的 `m_text` 原文逐字符照抄**（含 `E-mail` 那个连字符、
+            //   `Log in` 那个空格、`Delete account` 那个小写 a）。
+            // 🔴 中文那一列**是我们自己译的**（同本文件其余部分 —— 原版中文在**远端 I2 表**里，
+            //   本地 84 个 bundle 无本地化包，见文件头）。措辞照本文件既有风格（`退出游戏`/`选择语言` 那一族）。
+            // ⚠️ 五条社交那条的**英文列没有原版出处**：原版那五颗 `Button Text` 的 `m_text` 是**空串**
+            //   （`m_IsActive = 0`，只为无障碍留的）⇒ EN 取**节点名那一档**（`Discord`/`Instagram`/…），
+            //   与 `Shell/SettingsWindow.cs` 的 `AcSocEn` **同一份口径**（⛔ 那一份别另外再写一遍）。
+            { "Settings/Account/Title",                       new Entry("账号",         "Account") },
+            { "MainMenu/Login/Email",                         new Entry("电子邮箱",     "E-mail") },
+            { "MainMenu/Login/Password",                      new Entry("密码",         "Password") },
+            { "Settings/Account/ResetPassword",               new Entry("重置密码",     "Reset Password") },
+            { "Settings/Account/ForgotPassword",              new Entry("忘记密码",     "Forgot Password") },
+            { "Settings/Account/SubscribeToTheNewsletter",    new Entry("订阅新闻通讯？", "Subscribe to the Newsletter?") },
+            { "MainMenu/Login/SignInButton",                  new Entry("登录",         "Log in") },
+            { "MainMenu/Login/Register",                      new Entry("注册",         "Register") },
+            // 🔴 键名**中间真有一个空格**（原版 `mTerm` 原文就是 `Settings/Account/Switch Account`）——
+            //    逐字照抄，⛔ 别「顺手」改成 `SwitchAccount`（改了就取不到词条、界面上印键名）。
+            { "Settings/Account/Switch Account",              new Entry("切换账号",     "Switch Account") },
+            { "Settings/Account/Logout",                      new Entry("登出",         "Logout") },
+            { "MainMenu/Settings/ButtonLabel/DeleteAccount",  new Entry("删除账号",     "Delete account") },
+            // ⚠️ 原版那颗 `Twitch Button` 的 `mTerm` **指的就是 Youtube 这条**（prefab copy-paste 残留，
+            //    prefab 里印的是 `Link Twitch`）—— 照抄原版（铁律 11），⛔ 不另造一条 Twitch 键。
+            { "MainMenu/Settings/ButtonLabel/Youtube",        new Entry("YouTube",      "Youtube") },
+            { "MainMenu/Settings/ButtonLabel/Discord",        new Entry("Discord",      "Discord") },
+            { "MainMenu/Settings/ButtonLabel/Instagram",      new Entry("Instagram",    "Instagram") },
+            { "MainMenu/Settings/ButtonLabel/Facebook",       new Entry("Facebook",     "Facebook") },
+            { "MainMenu/Settings/ButtonLabel/Twitter",        new Entry("Twitter",      "Twitter") },
+
+            // ---- 🆕 2026-10-19（A1183）支持页（原版 `Support Tab`）----
+            // 键 = 原版 `Localize.mTerm` 原文（`w4probe … "Support Tab" 4` 逐颗实读；
+            //   `Settings/Support/Title` 在原版里挂了**三处**：页签 `Tab Toggle Title` ·
+            //   页标题 `Tab Title` · `Support Button > Button Text`）。
+            { "Settings/Support/Title",            new Entry("支持",       "Support") },
+            { "Settings/Support/FAQText",          new Entry("对游戏有疑问？请先看常见问题解答",
+                                                               "Questions about the game? Visit the Frequent Asked Questions") },
+            { "Settings/Support/FAQButton",        new Entry("常见问题",   "FAQ") },
+            { "Settings/Support/MiddleText",       new Entry("需要我们帮忙吗？", "Do you need help from us?") },
+            { "Settings/Support/ContactButton",    new Entry("联系我们",   "Contact") },
+            // ⚠️ 英文列里那个换行是**原版 `m_text` 里的真换行**（照抄），不是我们排的版。
+            { "Settings/Support/ContactText",      new Entry("也可以用 support@everguild.com 联系我们\n我们会尽力帮你！",
+                                                               "You can also contact us at support@everguild.com\nWe'll do our best to help you!") },
+            { "Settings/Support/TermsOfService",   new Entry("服务条款",   "Terms of Service") },
+            { "Settings/Support/FAQTextMobile",    new Entry("对游戏有疑问？请看常见问题解答，或联系客服",
+                                                               "Questions about the game? Check out the Frequent Asked Questions or contact Support") },
+            // ⚠️ 这条**不在** `Settings/Support/` 前缀下（原版就那么写的）：底部两颗链里 `Privacy Policy`
+            //    那颗 `Button Text` 挂的是 `MainMenu/Settings/ButtonLabel/PrivacyPolicy`，而
+            //    `Terms of Service` 那颗挂的是 `Settings/Support/TermsOfService`（两条前缀不同，⛔ 别统一）。
+            { "MainMenu/Settings/ButtonLabel/PrivacyPolicy", new Entry("隐私政策", "Privacy Policy") },
+
             // ---- 语言名（下拉的 12 项）----
             // 🔴 键 = `MainMenu/Settings/LanguageName/<枚举名>`（原版 `ResetLanguagesDropdown` 的拼法，
             //    前缀字面量已在 `global-metadata.dat` 核到）。英文那一列 = **枚举名本身**

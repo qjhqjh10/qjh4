@@ -1,0 +1,78 @@
+# （已沿 `m_Father` 爬父链：被查节点的父 = 「Tab Content」 551.87,164.79 → 1480.90,923.57）
+# ⚠️ 父链上有 `m_LocalScale`：`lossyScale(父)` = 0.9,0.9 ⇒ 下面所有矩形都按它换算
+// Account Tab —— 锚点五元组（**prefab JSON 里的原值**；本工具【不跑】布局；缩进 = 层级）
+// 出处 d:/2/新解包资源/assets_full\bundle_menus_assets_all
+// ⚠️ 带 `⚠️localScale` 注释的行：**那一件的 `m_LocalScale ≠ 1`** —— 这几个五元组是**布局框**，画出来还要 × 那个倍数（`UguiRect.Child` 算完的框不是屏幕框）。
+// ⚠️ 被布局组管的节点：prefab 里存的 `m_AnchoredPosition`/`m_SizeDelta` **就是**这几个数（本工具不跑布局），但**运行期会被布局组改写**（`menu_dump.py` 那张表印的是改写后的值）。
+// ⚠️ 行末 `// 出厂 inactive` = **这一件自己的 `m_IsActive=0`**；`// ⛔ANC-off` = 它自己 active、**祖先 inactive**（uGUI 的 `activeInHierarchy` 看整条父链）⇒ **原版一个像素都不画**。两者可能各自出现，含义不同。
+// 用法：`UguiRect.Child(父矩形, new Vector2(aMinX,aMinY), new Vector2(aMaxX,aMaxY), new Vector2(pivX,pivY), new Vector2(posX,posY), new Vector2(szX,szY))`
+    N(0, "Account Tab", 0,0, 1,1, 0.5,0.5, 0,0, 0,0),   // 出厂 inactive
+    N(1, "Tab Title", 0,0.5, 1,0.5, 0,0.5, 90,320.406, -90,70),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(1, "Player Id", 0,0.5, 0,0.5, 0,0.5, 641.81,359.7, 367.111,39.03),   // 出厂 inactive
+    N(2, "Player Id Text", 0,0.5, 0,0.5, 0,0.5, -63.3938,2.26404, 430.504,52.6145),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(2, "External Link Icon", 0.5,0.5, 0.5,0.5, 0.5,0.5, -228,4.4506, 56.8386,56.9876),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(1, "Account Form", 0,0.5, 0,0.5, 0,0.5, 90,65.544, 920,411.918),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(2, "EmailText", 0,1, 0.5,1, 0,0.5, 0,-18.2816, 0,60),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(2, "InputEmail", 0,1, 0,1, 0,0.5, 0,-77.5303, 920,60),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(3, "Text Area", 0,0.5, 1,0.5, 0,0.5, 20,0, -20,31),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(4, "Placeholder", 0,0, 1,1, 0.5,0.5, 0,0, 0,0),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(4, "Text", 0,0, 1,1, 0.5,0.5, 0,0, 0,0),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(2, "PasswordText", 0,1, 0.5,1, 0,0.5, 0,-147.57, 0,60),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(2, "InputPassword", 0,1, 0,1, 0,0.5, 0,-207.602, 920,60),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(3, "Text Area", 0,0.5, 1,0.5, 1,0.5, 0,0, -20,31),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(4, "Placeholder", 0,0, 1,1, 0.5,0.5, 0,0, 0,0),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(4, "Text", 0,0, 1,1, 0.5,0.5, 0,0, 0,0),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(2, "Reset Password", 0.5,1, 1,1, 1,0.5, 0,-152.472, 0,44.3627),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(2, "Forgot Password", 0.5,1, 1,1, 1,0.5, 0,-152.472, 0,44.3627),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(2, "Error Message", 0,1, 1,1, 0,0.5, 0,-275, 0,47.1),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(1, "Subscribe Newsletter", 0,0.5, 1,0.5, 0,0.5, 90,-46.7, -432.8,76.705),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(1, "Social Media Links", 0,0, 0,0, 0,0.5, 78.4,259, 637.23,80.9),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(2, "Discord Button", 0,1, 0,1, 0,0.5, 0,-40.45, 127.446,95),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(3, "Button Text", 0,0, 1,1, 0.5,0.5, -0.304016,0.608997, -26,-61.453),   // 出厂 inactive
+    N(2, "IG Button", 0,1, 0,1, 0,0.5, 127.446,-40.45, 127.446,75),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(3, "Button Text", 0,0, 1,1, 0.5,0.5, -0.304016,0.608997, -26,-61.453),   // 出厂 inactive
+    N(2, "Facebook Button", 0,1, 0,1, 0,0.5, 254.892,-40.45, 127.446,75),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(3, "Button Text", 0,0, 1,1, 0.5,0.5, -0.304016,0.608994, -26,-61.453),   // 出厂 inactive
+    N(2, "Twitter Button", 0,1, 0,1, 0,0.5, 382.338,-40.45, 127.446,75),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(3, "Button Text", 0,0, 1,1, 0.5,0.5, -0.304016,0.608997, -26,-61.453),   // 出厂 inactive
+    N(2, "Youtube Button", 0,1, 0,1, 0,0.5, 509.784,-40.45, 127.446,80),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(3, "Button Text", 0,0, 1,1, 0.5,0.5, -0.304016,0.608994, -26,-61.453),   // 出厂 inactive
+    N(1, "Buttons", 0.5,0.5, 0.5,0.5, 0.5,0.5, 0,-195.82, 100,100),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(2, "Unregistered Buttons", 0,0, 0,0, 0,0.5, -81.4,200.2, 622,90),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(3, "Register Button", 0,1, 0,1, 0,0.5, 322,-45, 300,90),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(4, "Button Text", 0,0, 1,1, 0.5,0.5, -0.199997,0.608994, -22.4,-35.9982),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(3, "Login Button ", 0,1, 0,1, 0,0.5, 311,-45, 300,90),   // 出厂 inactive
+    N(4, "Button Text", 0,0, 1,1, 0.5,0.5, -0.304016,0.608994, -26,-39.422),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(2, "Twitch Button", 0,1, 0,1, 0,0.5, -63.3,-159.89, 297.313,89.998),   // 出厂 inactive
+    N(3, "Button Text", 0,0, 1,1, 0.5,0.5, -0.304016,0.608994, -26,-39.9427),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(2, "Delete Button", 0,1, 0,1, 0,0.5, 243.871,-160.6, 300,90),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(3, "Button Text", 0,0, 1,1, 0.5,0.5, -0.304016,0.608994, -26,-36.6985),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(2, "Registered Buttons", 0,0, 0,0, 0,0.5, -376.129,-59.89, 660,90),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(3, "Switch Account Button", 0,1, 0,1, 0,0.5, 0,-45, 300,90),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(4, "Button Text", 0,0, 1,1, 0.5,0.5, -0.304016,0.608994, -26,-36.6985),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(3, "Logout Button", 0,1, 0,1, 0,0.5, 330,-45, 300,90),   // 出厂 inactive
+    N(4, "Button Text", 0,0, 1,1, 0.5,0.5, -0.304016,0.608994, -26,-39.422),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(1, "Login Window", 0.5,0.5, 0.5,0.5, 0.5,0.5, -58,80, 1208.58,400),   // 出厂 inactive
+    N(2, "Backgroun filler", 0,0, 1,1, 0.5,0.5, -0.357605,2.3345, -24.5522,-23.7568),   // 出厂 inactive
+    N(2, "Generic Popup Background", 0,0, 1,1, 0.5,0.5, 0,0, 0,0),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(3, "Mask", 0,0, 1,1, 0.5,0.5, 0.262024,0.178986, -20.268,-19.245),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(4, "Background fill", 0,0, 1,1, 0.5,0.5, 0,0, 0,0),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(2, "EmailText", 0,1, 0.5,1, 0,0.5, 42.1624,-73.7786, -166.792,60),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(2, "InputEmail", 0,1, 0,1, 0,0.5, 42.1624,-133.027, 812,60),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(3, "Text Area", 0,0.5, 1,0.5, 0,0.5, 20,0, -20,31),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(4, "Placeholder", 0,0, 1,1, 0.5,0.5, 0,0, 0,0),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(4, "Text", 0,0, 1,1, 0.5,0.5, 0,0, 0,0),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(2, "PasswordText", 0,1, 0.5,1, 0,0.5, 42.1624,-203.067, -166.792,60),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(2, "InputPassword", 0,1, 0,1, 0,0.5, 42.1624,-263.099, 812,60),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(3, "Text Area", 0,0.5, 1,0.5, 1,0.5, 0,0, -20,31),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(4, "Placeholder", 0,0, 1,1, 0.5,0.5, 0,0, 0,0),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(4, "Text", 0,0, 1,1, 0.5,0.5, 0,0, 0,0),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(2, "Forgot Password", 0.5,1, 1,1, 1,0.5, -354.421,-209.277, -166.792,44.3627),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(2, "ErrorMensajeContainer", 0.5,0.5, 0.5,0.5, 0.5,0.5, -156.13,-130.497, 812,36.734),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(3, "Animated Loading Image", 0,1, 0,1, 0.5,0.5, 18.952,-18.367, 37.904,37.904),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(4, "Cog", 0,0, 1,1, 0.5,0.5, 3.05176e-05,0, 0,0),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(3, "Error Message", 0,1, 0,1, 0,0.5, 49.904,-18.367, 774.1,36.734),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(2, "Login Button ", 0.5,0.5, 0.5,0.5, 0.5,0.5, 428.271,-61.456, 309.172,60),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(3, "Button Text", 0,0, 1,1, 0.5,0.5, -0.304016,0.608994, -26,-7.63772),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(2, "Generic Close Button Green", 0.5,0.5, 0.5,0.5, 0.5,0.5, 599,195, 75,75),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）
+    N(3, "Icon", 0.126634,0.13672, 0.873366,0.86328, 0.5,0.5, 0,0, 0.364201,0.00779724),   // ⛔ANC-off（祖先 inactive ⇒ 原版不画它）

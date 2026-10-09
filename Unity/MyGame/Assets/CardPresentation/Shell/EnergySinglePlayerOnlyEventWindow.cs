@@ -340,7 +340,15 @@ namespace CardPresentation
             var rp = MenuDraw.Node(root, "Reward Progress Panel", RPPR);
             BuildScoreBar(rp);
             // `Reward Tile`：原版 hAlign = **Center**（现读 `对齐=Center/Midline`）⇒ 不调 `Align*`
-            MenuDraw.Text(rp, RTileR, "Progression", Color.white, "Reward Tile", 45.87f, QText);
+            // 🔴 **2026-10-19（A1179）**：补 autosize 四格（原来没传 ⇒ 固定 45.87px）。
+            //   判据 = 逐颗现读原版那一颗（`python -I d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all
+            //   "EnergySinglePlayerOnlyEventWindow" --depth 8 --relative --no-sprite --no-layout`）：
+            //   `Reward Tile` · `'Progression'` · 字号 **45.87** · 基准 **36.0** ·
+            //   **`m_enableAutoSizing = 1` · `auto[18.0~45.869999…]`** · **折行 = 1** ·
+            //   框 **594.81 × 54.68**（与本文件 `RTileR` 逐位同值）。
+            //   ⚠️ 原版**折行 = 1** ⇒ 传 `wrapPx` 与它同档，⛔ 不要补 `SetWrapping(false)`。
+            MenuDraw.Text(rp, RTileR, "Progression", Color.white, "Reward Tile", 45.87f, QText,
+                          RTileR.W, 18f, 45.87f, 36f);
             // `Reward Help`：**出厂 act = F** ⇒ 建出来、**关着**（同族先例：`Banned card in deck`）
             var help = MenuDraw.TextBox(rp, RHelpR, "Win battles to progress in the event and unlock rewards.",
                                         Color.white, "Reward Help", 38f, 18f, QText, 38f, 36f);
@@ -376,7 +384,18 @@ namespace CardPresentation
             _collect = MenuDraw.Node(bar, "Generic Simplified UI Button", CollectR);
             var cb = MenuDraw.Rect(_collect, Art(ArtMulligan), CollectR, "Bg", QArt1, null, true);
             _collectBg = cb != null ? cb.transform : null;
-            MenuDraw.Text(_collect, CollectTxR, "Collect", Color.white, "Button Text", 55f, QText);
+            var ct = MenuDraw.Text(_collect, CollectTxR, "Collect", Color.white, "Button Text", 55f, QText,
+                                   CollectTxR.W, 10f, 55f, 12f);
+            // 🔴 **2026-10-19（A1190）**：这一颗原来**没传 autosize 实参** ⇒ 固定 55px。
+            //   判据 = 逐颗现读原版那一颗（`工具/menu_dump.py bundle_menus_assets_all
+            //   "EnergySinglePlayerOnlyEventWindow" --depth 10 --md`）：
+            //   `…/Generic Simplified UI Button/Button Text` = `'Collect'` · 字号 **55.0** ·
+            //   基准 **12.0** · **`auto[10.0~55.0]`**（`m_enableAutoSizing = 1`）·
+            //   对齐 `Center/Capline` · 🔴 **折行 = 0** · 框 **280.88 × 73.17**（= `CollectTxR` 逐位同值）。
+            //   ⚠️ **折行 0**：`SetAutoFitBox` 内部那句 `SetWrapWidth` 会**无条件**把模式开成 `Normal`
+            //   ⇒ 紧跟着关掉（同族先例 = `Shell/AlliancePanelWindow.cs:373` 的 `lb.SetWrapping(false)`）。
+            //   ⚠️ 关得越早越好（`SetWrapping` 会推版面）—— 本颗后面**没有** `Align*`，所以排在这里就够。
+            if (ct != null) ct.SetWrapping(false);
             // 原版这颗钮 → `CollectClicked()`：要向 LiveOps 领奖 ⇒ **要服务器**。
             //（本工程边界③：入口照做、点了如实说，⛔ 不静默。）
             MenuDraw.Hit(_collect, "CollectHit", CollectR, QHit, OnCollectClick, cb, ArtMulligan,
@@ -453,7 +472,16 @@ namespace CardPresentation
                               "Skull", QArt);
                 // `Score`：原版 hAlign = **Right**（现读 `对齐=Right/Midline · 折行=1`）⇒ 右对齐到那一格
                 var sr = CenterRect(ScoreCx, ScoreCy + dy, ScoreW, ScoreH);
-                var sc = MenuDraw.Text(row, sr, "1256", Color.white, "Score", 48f, QText);
+                // 🔴 **2026-10-19（A1190）**：这一处原来**没传 autosize 实参** ⇒ 固定 48px。
+                //   判据 = 逐颗现读原版那 5 颗（`工具/menu_dump.py bundle_menus_assets_all
+                //   "EnergySinglePlayerOnlyEventWindow" --depth 10 --md` ⇒
+                //   `…/Score Bar Line Level 1..5/Score`）：**5 颗逐值完全一致** ——
+                //   字号 **48.0** · 基准 **36.0** · **`auto[18.0~48.0]`**（`m_enableAutoSizing = 1`）·
+                //   对齐 `Right/Midline` · **折行 = 1** · 框 **133.32 × 57.39**（= `ScoreW`/`ScoreH` 逐位同值）
+                //   ⇒ 一行建 5 颗、**5 颗同值**，一套实参就够（⛔ 不是「原版 5 颗不同值」那一族）。
+                //   ⚠️ 折行 1 ⇒ ⛔ 不补 `SetWrapping(false)`。
+                var sc = MenuDraw.Text(row, sr, "1256", Color.white, "Score", 48f, QText,
+                                       sr.W, 18f, 48f, 36f);
                 MenuDraw.AlignRight(sc, sr);
             }
             Debug.Log("[Energy] 5 行 `Score` 照的是 **prefab 出厂原文 `1256`**、`Highlight Crate` 照出厂"
@@ -472,12 +500,33 @@ namespace CardPresentation
             //   （铁律 3：查不到就写「查不到」）：按「右/左对齐到现读的那条边 + 框撑到横幅内侧」给。
             //   `Victories title` 右沿 = 现读 **1574.60**；`Total Victories` 左沿 = 现读 **1661.19**。
             var vtR = new PxRect(VBgR.x1, VTitleY1, VTitleX2, VTitleY2);
-            var vt = MenuDraw.Text(pv, vtR, "Victories: ", Color.white, "Victories title", 53.5f, QText);
+            // 🔴 **2026-10-18（A1126 · A1 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 53.5px。
+            //   判据 = 逐颗现读原版那一颗（`工具/menu_dump.py bundle_menus_assets_all
+            //   "EnergySinglePlayerOnlyEventWindow" --depth 6 --md`）：
+            //   `…/PLayer Victories/Victories title` = `'Victories: '` · 字号 **53.5** · 基准 **36.0** ·
+            //   **`auto[18.0~53.5]`**（`m_enableAutoSizing = 1`）· 对齐 `Right/Capline` · **折行 = 1**
+            //   ⇒ 传 `wrapPx` 与原版同档（⛔ 不补 `SetWrapping(false)`）。
+            //   ⚠️ 原版那颗**宽 = 0** + `ContentSizeFitterMinMax(h:PreferredSize)`（工具标注 `⚙CSF` = 算不出）
+            //   ⇒ 运行时框宽 = **文字的 preferred width**，而 `vtR` 的 **254.11 是我们摆的**
+            //   （见上面那段「这两格是我们摆的」，铁律 3）⇒ **原版「框放不下才缩」这条边界我们复刻不了**：
+            //   我们这 254.11 若比原版 preferred 窄，开自适应会让字**比原版小一点**（如实记在
+            //   `资料/普查产出_第十会话/W2_A1126A1.md` §五）。
+            var vt = MenuDraw.Text(pv, vtR, "Victories: ", Color.white, "Victories title", 53.5f, QText,
+                                   vtR.W, 18f, 53.5f, 36f);
             MenuDraw.AlignRight(vt, vtR);
             _victoriesTitle = vt != null ? vt.transform : null;
             MenuDraw.Rect(pv, Art(ArtSkull), VSkullR, "Skull Victories", QArt);
             var ttR = new PxRect(VTotalX1, VTitleY1, VBgR.x2, VTitleY2);
-            var tt = MenuDraw.Text(pv, ttR, "751", Color.white, "Total Victories", 77f, QText);
+            // 🔴 **2026-10-19（A1179）**：补 autosize 四格（原来没传 ⇒ 固定 77px）。
+            //   判据 = 同一颗现读（同 `Reward Tile` 那条命令）：
+            //   `…/PLayer Victories/Total Victories` · `'751'` · 字号 **77.0** · 基准 **36.0** ·
+            //   **`m_enableAutoSizing = 1` · `auto[18.0~77.0]`** · 对齐 `Left/Midline` · **折行 = 1** ·
+            //   原版框 **宽 0**（+ `ContentSizeFitterMinMax(h:PreferredSize)`，工具标注 `⚙CSF` = 算不出，
+            //   运行期框宽 = 文字的 preferred width）⇒ 下面传的 `ttR.W` = **213.99 是我们摆的**
+            //   （同上面 `Victories title` 那一段的处置与残差说明）。
+            //   ⚠️ 原版**折行 = 1** ⇒ 传 `wrapPx` 与它同档，⛔ 不要补 `SetWrapping(false)`。
+            var tt = MenuDraw.Text(pv, ttR, "751", Color.white, "Total Victories", 77f, QText,
+                                   ttR.W, 18f, 77f, 36f);
             MenuDraw.AlignLeft(tt, ttR);
             _victoriesTotal = tt != null ? tt.transform : null;
         }
@@ -538,7 +587,19 @@ namespace CardPresentation
             // 那一格的现读框**宽 = 0**（`ContentSizeFitterMinMax(h:PreferredSize)` 算不出）⇒ 框是**我们摆的**
             //（从图标右沿 981.95 撑到容器右沿 1271.67）。**文字照 prefab 出厂原文**。
             var txR = new PxRect(TimerTxX1, TimerTxY1, TimerR.x2, TimerTxY2);
-            var tx = MenuDraw.Text(tm, txR, "Termina en: 23d 5h", Color.white, "Timer", 38f, QText);
+            // 🔴 **2026-10-18（A1126 · A1 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 38px。
+            //   判据 = 逐颗现读原版那一颗（同本文件头那条命令）：`…/Timer/Timer`（TMP） = `'Termina en: 23d 5h'` ·
+            //   字号 **38.0** · 基准 **38.0** · **`auto[10.0~38.0]`**（`m_enableAutoSizing = 1`）·
+            //   对齐 `Center/Capline` · **折行 = 0**（`m_TextWrappingMode = 0`）· 原版 `m_SizeDelta = (0, 55.905)`。
+            //   ⚠️ 原版**折行 = 0** ⇒ 传 `wrapPx` 会让 `SetWrapWidth` 把它**静默开成 `Normal(1)`**
+            //   ⇒ 紧跟一句 `SetWrapping(false)` 还原（成对写法同 A404 / A205 / A34-F4 那一族）。
+            //   ⚠️ 原版那颗**宽 = 0** + `ContentSizeFitterMinMax(h:PreferredSize)`（工具标注 `⚙CSF` = 算不出）
+            //   ⇒ 运行时框宽 = **文字的 preferred width**；`txR` 的 **289.72 是我们摆的**（见上面那段）
+            //   ⇒ 「原版框放不下才缩」这条边界我们复刻不了，残差如实记在
+            //   `资料/普查产出_第十会话/W2_A1126A1.md` §五。
+            var tx = MenuDraw.Text(tm, txR, "Termina en: 23d 5h", Color.white, "Timer", 38f, QText,
+                                   txR.W, 10f, 38f, 38f);
+            if (tx != null) tx.SetWrapping(false);
             _timerText = tx != null ? tx.transform : null;
         }
 
@@ -575,7 +636,16 @@ namespace CardPresentation
         void BuildArmySelector(Transform root)
         {
             var asp = MenuDraw.Node(root, "Army Selector Panel", AspR);
-            var ft = MenuDraw.Text(asp, FacTitleR, "Factions", Color.white, "Factions Title", 44.65f, QText);
+            // 🔴 **2026-10-19（A1190）**：这一颗原来**没传 autosize 实参** ⇒ 固定 44.65px。
+            //   判据 = 逐颗现读原版那一颗（同一颗的现读命令见 `Reward Tile` 那一段）：
+            //   `…/Army Selector Panel/Factions Title` = `'Factions'` · 字号 **44.65** ·
+            //   基准 **36.0** · **`auto[18.0~45.869998…]`**（`m_enableAutoSizing = 1`）·
+            //   对齐 `Left/Midline` · **折行 = 1** · 框 **563.61 × 54.68**（= `FacTitleR` 逐位同值）。
+            //   ⚠️ 🔴 **`m_fontSizeMax`(45.87) ≠ `m_fontSize`(44.65)** —— 别拿字号顶上限（那是 A333 那一条），
+            //   上限照实传 **45.87**（同 `label.SetAutoFitBox` 那条「上限不能取 `_tmp.fontSize`」的血证）。
+            //   ⚠️ 折行 1 ⇒ ⛔ 不补 `SetWrapping(false)`。
+            var ft = MenuDraw.Text(asp, FacTitleR, "Factions", Color.white, "Factions Title", 44.65f, QText,
+                                   FacTitleR.W, 18f, 45.87f, 36f);
             MenuDraw.AlignLeft(ft, FacTitleR);
             // `Army Selector`（原版 `ScrollRect` + `CustomRaycaster` + `ShowEventArmiesPanel`）
             var sel = MenuDraw.Node(asp, "Army Selector", ArmySelR);

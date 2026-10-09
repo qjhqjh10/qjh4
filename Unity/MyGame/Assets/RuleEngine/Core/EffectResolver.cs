@@ -2113,6 +2113,12 @@ namespace RuleEngine
             foreach (var t in targets)
             {
                 if (t == null || !t.IsAlive) continue;
+                // 🆕 **2026-10-09（`A1166`）**：上面这一句 `!IsAlive` 就是原版 `CardScript__Stun.c:44-45`
+                //    那道 `cardState ∈ {2, 0xf, 3, 0x11}`（= `CardScript.IsInPlay()`）闸在我们这边的落点
+                //    —— 本方法的目标一律来自 `ResolveTargets` → `AddSide`（**只遍历 `ps.Board[s]`**，
+                //    本文件 `:1296-1304`），**按构造就在棋盘上** ⇒ 那道闸恒真、**已判等价、⛔ 不另加判据**。
+                //    逐档对照（18 档 `CardStateOptions` 与我们的对应物）与判据出处
+                //    见 `RuleCore.StunBlockedByTraits` 下方那段 `A1166` 注释。
                 // 🔴 **2026-10-09（`A1134`）：`unstunnable`（原版 `HasCurrentTrait(0xfa)`）⇒ 整个施加段跳过。**
                 //    判据 = 原版 `CardScript__Stun.c:46-47`：
                 //      `cVar13 = EntityScript__HasCurrentTrait(param_1, 0xfa, 0); if (cVar13 == '\0') { …施加… }`

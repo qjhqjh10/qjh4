@@ -524,10 +524,17 @@ namespace CardPresentation
             // 🔴 **对齐照修好的 `menu_dump.py` 重导**（原来那份的 `hAlign` 映射错位一位：
             //    真枚举是位标志 `Left=1 · Center=2 · Right=4 · Flush=16` —— 见 `资料/已知的坑.md`）。
             //    这两行原版是 **Center** ⇒ 不调 `Align*`（`MenuDraw.Text` 默认就是居中）。
+            // 🔴 **2026-10-09（A1126 · A2 档）**：这两颗原来**没传 autosize 实参** ⇒ 固定 62.85 / 44.65px。
+            //   判据 = 原版 `menus ▸ SkirmishModeEventWindow ▸ Ranked Deck Selection/{Deck Name, Deck Warlord}`
+            //   （逐颗现读 TMP 字段）：**两格 `m_enableAutoSizing = 1`** · `m_fontSizeMin = **18**` ·
+            //   `m_fontSizeMax = **72**` · `m_fontSizeBase = **36**` · 折行 = 1。
+            //   ⚠️ 本窗刻度 = 原版刻度（下面 `No Deck Text` 那处传的就是原版原值 `18/45/36`，"原文"逐字）
+            //   ⇒ 四格照抄、**不做比例换算**。
             _txtDeckName = MenuDraw.Text(col, new PxRect(DnL, DnT, DnR, DnB), d.Name, Color.white,
-                                         "Deck Name", 62.85f, QText);
+                                         "Deck Name", 62.85f, QText, DnR - DnL, 18f, 72f, 36f);
             _txtDeckWarlord = MenuDraw.Text(col, new PxRect(DwL, DwT, DwR, DwB),
-                                            wl != null ? wl.Name : "", Color.white, "Deck Warlord", 44.65f, QText);
+                                            wl != null ? wl.Name : "", Color.white, "Deck Warlord", 44.65f, QText,
+                                            DwR - DwL, 18f, 72f, 36f);
 
             // `No Deck Text`（+ `Create deck` 那颗钮）—— **只有在没有督军时才显示**（原版 `NoDeckText` 那一族）
             var none = MenuDraw.Node(col, "No Deck", new PxRect(NoDeckL, NoDeckT, NoDeckR, NoDeckB));
@@ -586,8 +593,12 @@ namespace CardPresentation
             MenuDraw.Rect(cnt, Tex(ArtDeckCount), new PxRect(CntIcL, CntIcT, CntIcR, CntIcB),
                           "Icon", QArt, null, true);
             // 原版 hAlign = **Left** ⇒ 左对齐（不是居中）
+            // 🔴 **2026-10-09（A1126 · A2 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 60.5px。
+            //   判据 = 原版 `menus ▸ SkirmishModeEventWindow ▸ …/Numer Of Army Decks`：**`m_enableAutoSizing = 1`** ·
+            //   `m_fontSizeMin = **18**` · `m_fontSizeMax = **63.4**` · `m_fontSizeBase = **36**` · 折行 = 1
+            //   （⚠️ 上限 63.4 与上面两颗的 72 **不同**，⛔ 别一刀切）。
             _txtDeckCount = MenuDraw.Text(cnt, new PxRect(CntL, CntT, CntR, CntB), DeckCountText(), Color.white,
-                                          "Text", 60.5f, QText);
+                                          "Text", 60.5f, QText, CntR - CntL, 18f, 63.4f, 36f);
             MenuDraw.AlignLeft(_txtDeckCount, new PxRect(CntL, CntT, CntR, CntB));
         }
         Label _txtDeckCount;

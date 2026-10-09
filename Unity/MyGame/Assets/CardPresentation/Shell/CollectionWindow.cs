@@ -210,7 +210,7 @@ namespace CardPresentation
         /// <para>🔴 **2026-10-17（A934）：上限那一档必须带【卡型】** —— 原来只传稀有度，而原版
         /// `GetMaxCopiesInDeck` 那句 `if (cardType == 10) return 1;` **排在稀有度判断之前** ⇒ 我们池子里
         /// **28 位非传说督军**（epic 15 / rare 13）被印成了 `x2`。判据 / 出处 = `CardProgress.DeckCap` 的 doc
-        /// （**在 `Shell/CardDetailPopup.cs:74` / `:79`**，⛔ 不是本文件）；⛔ **别退回不带卡型那一档**。</para></summary>
+        /// （**在 `Shell/CardDetailPopup.cs` 的 `CardProgress.DeckCap` 那两个重载上** —— `DeckCap(string rarity)` / `DeckCap(string rarity, string type)`，⛔ 不是本文件）；⛔ **别退回不带卡型那一档**。</para></summary>
         public static string CardsCounterText(CardDef def)
         {
             int cap = CardProgress.DeckCap(def.Rarity, def.Type);
@@ -244,15 +244,18 @@ namespace CardPresentation
             var q = Rect(parent, CardsCounterSprite, bar, "Counter " + i, QPageRow, null, true);
             if (q == null) return;                  // = 整条在视口外（正常，见上 ②）
             var tr = CardsCounterTextRect(bar);
+            // 🔴 **2026-10-09（A1173）**：原版这颗开了 autosize、`m_fontSizeBase = 32`（框只有 22.69 高 ⇒
+            //   运行时会被压小）。**这四个数现在直接喂 `Text` 的形参**（口径 = 原版 prefab 的字段值）；
+            //   ⛔ 收口前那套「先 `Text`、再手工 `SetAutoFitBox`」已删（两份写法并存 = 迟早不一致），
+            //   而且那一套还**把 `Text` 里那道 `ClipText` 裁在了重排之前**（被 `SetAutoFitBox` 抹掉）。
+            //   ⚠️ 那三档 autosize 是**原版 prefab 的字段值**（见上面那段现读）；`DeckRuntime` 那处传的上限是
+            //    31.9（= `m_fontSize`，原版上限其实是 32），那条挂在 A333 上 ⇒ **别照它抄**。
             var lb = Text(q.transform, CardsCounterText(def), tr.x1, tr.x2, tr.y1, tr.y2, 5, PageInk,
-                          "Text (TMP)", CardsCounterFontPx);
+                          "Text (TMP)", CardsCounterFontPx,
+                          wrapPx: tr.W, autoMinPx: CardsCounterFontMin, autoMaxPx: CardsCounterFontMax,
+                          autoBasePx: CardsCounterFontMax);
             if (lb == null) return;
             lb.SetRenderQueue(QPageText);
-            // 原版这颗开了 autosize、`m_fontSizeBase = 32`（框只有 22.69 高 ⇒ 运行时会被压小）。
-            // ⚠️ 传的 4 个数是**原版 prefab 的字段值**（见上面那段现读）；`DeckRuntime` 那处传的上限是
-            //    31.9（= `m_fontSize`，原版上限其实是 32），那条挂在 A333 上 ⇒ **别照它抄**。
-            lb.SetAutoFitBox(LayoutSpace.Px(tr.W), LayoutSpace.Px(tr.H),
-                             CardsCounterFontMin, CardsCounterFontMax, CardsCounterFontMax);
             // 纵向档 = 原版 `m_VerticalAlignment = 4096 (Midline)`；
             // 水平档 = `2 (Center)` = `TmpFont.NewText` 的出厂档 ⇒ **不调** `Align*`（调了反而偏）。
             MenuDraw.SetVAlign(lb, Label.VAlign.Midline, tr);
@@ -1457,14 +1460,14 @@ namespace CardPresentation
             //       ⛔ 本窗那个 `StyleLogoWidthPx` 属性（读 `Label.WorldW` = **字段缓存** `_tmpW/_tmpH`，
             //       只有 `RefreshBounds()` 写 = **被测实现自己**）**已删**，别再把它加回来当尺子。
             //       （判据 → `资料/普查产出_1014/RO_缓存口径与输入三件.md` §一·3；同族先例 = W4/W5/W6 三个宿主换口。）
+            // 🔴 **2026-10-09（A1173）**：那对 `(18f, 56f)` 现在直接喂 `Text` 的形参（原来是「先 `Text`、
+            //   再手工 `SetAutoFitBox`」两份写法；且 `Text` 里那道裁切还被那次重排抹掉）。
             _styleLogo = Text(page, StyleLabel(CurrentStyleName()), StyleLogoL, StyleLogoR, StyleBarT, StyleBarB,
-                              6, PageInk, "Art Style Logo", 56f);
+                              6, PageInk, "Art Style Logo", 56f,
+                              // 框 = 那一格自己（`StyleLogoR−L` × `StyleBarB−T`），与收口前手传的两维逐值相同
+                              wrapPx: StyleLogoR - StyleLogoL, autoMinPx: 18f, autoMaxPx: 56f);
             if (_styleLogo != null)
-            {
                 _styleLogo.SetRenderQueue(QPageText);
-                _styleLogo.SetAutoFitBox(LayoutSpace.Px(StyleLogoR - StyleLogoL),
-                                         LayoutSpace.Px(StyleBarB - StyleBarT), 18f, 56f);
-            }
             Rect(page, "40k_main_line", new PxRect(StyleSep1L, StyleSep1T, 1920.01f, StyleSep1B),
                  "Separator Line (1)", QPageRow);
 
@@ -1542,8 +1545,8 @@ namespace CardPresentation
             //   ⇒ 圆底盘**长在根节点自己身上**（无独立子件名）。
             //   贴图 `UI_Button_Round_background` 的 sprite `m_Rect` = **237×237 正方**、`m_Border`/`m_Offset` 全 0
             //   ⇒ `PA=1` 等比内接 = **实绘 74.386×74.386**。
-            //   ⇒ 照兄弟窗先例 `Shell/BaseOfferPopup.cs:742-743` / `Shell/ReferralPopupWindow.cs:386-387` 的形状
-            //   （`Rect` 画在根节点上、图取不到才退回 `Node`）。位置/子件序**逐位不变**（同一份 `Local(parent, …)`）。
+            //   ⇒ 照兄弟窗先例 `Shell/BaseOfferPopup.cs` / `Shell/ReferralPopupWindow.cs` 的形状
+            //   （`closeQ != null ? closeQ.transform : MenuDraw.Node(…)` —— `Rect` 画在根节点上、图取不到才退回 `Node`）。位置/子件序**逐位不变**（同一份 `Local(parent, …)`）。
             var baseQ = Rect(page, "UI_Button_Round_background", r, "Select Art Button " + side, QPagePanel, null, true);
             var node = baseQ != null ? baseQ.transform : Node(page, "Select Art Button " + side, r);
             float ix = x1 + (StyleArrowW - StyleArrowIconW) * 0.5f;
@@ -2041,13 +2044,17 @@ namespace CardPresentation
         void TextAligned(Transform parent, string text, PxRect r, Color col, string name, float fontPx, bool right,
                          float autoMinPx, bool center, int wrapMode, float autoMaxPx = 0f, float basePx = 0f)
         {
-            var lb = Text(parent, text, r.x1, r.x2, r.y1, r.y2, 5, col, name, fontPx);
+            // 🔴 **2026-10-09（A1173）**：autosize 那一段收进 `Text` 的形参（原来是「先 `Text`、再手工
+            //   `SetAutoFitBox`」——`autoMinPx > 0` 那道闸现在由**漏斗**判，本处只要把 `wrapPx` 一并带上
+            //   （⚠️ **只传 `autoMinPx` 不传 `wrapPx` = 死实参**，见 `MenuWindowBase.Text` 的注释）。
+            //   `autoMinPx == 0`（= 这一族不开自适应）时 `wrapPx` 传 0 ⇒ **连 `SetWrapWidth` 都不调**，
+            //   与收口前逐位相同（那时整段都被 `if (autoMinPx > 0f)` 挡着）。
+            //   ⚠️ 上限 `autoMaxPx <= 0 ⇒ fontPx`（A333）、base `basePx` 都由漏斗按同一口径兜底。
+            var lb = Text(parent, text, r.x1, r.x2, r.y1, r.y2, 5, col, name, fontPx,
+                          wrapPx: autoMinPx > 0f ? r.W : 0f,
+                          autoMinPx: autoMinPx, autoMaxPx: autoMaxPx, autoBasePx: basePx);
             if (lb == null) return;
             lb.SetRenderQueue(QFltText);
-            // 🔴 A333：上限取**原版 `m_fontSizeMax`**（`autoMaxPx <= 0` 才退回 `fontPx` = 旧行为）；
-            //    A336④：base 取**原版 `m_fontSizeBase`**（`basePx <= 0` 才退回调用方那一档）。
-            if (autoMinPx > 0f) lb.SetAutoFitBox(LayoutSpace.Px(r.W), LayoutSpace.Px(r.H), autoMinPx,
-                                                 autoMaxPx > 0f ? autoMaxPx : fontPx, basePx);
             // 🔴 **2026-10-08（A212）**：折行按**原版逐处实读的那一档**显式设 ——
             //    与 `Deck/DeckRuntime.cs` 的 `RefreshFilterCells` / `RefreshCosmoFilters` 里那两行**同一条判据**（那扇窗已经收口过），
             //    漏了这一步就是「碰巧对/碰巧错」（`SetAutoFitBox` 刚无条件开过折行）。
@@ -2365,7 +2372,7 @@ namespace CardPresentation
             //   Header / Alternate Art Tab 的 Header Filters / Select Deck Tab 的 Header}/Clear Filter Button/Button Text`）。
             //   英文列 = 那颗 TMP 的 `m_text` 原文 `Clear filters`；中文列 = 「清除筛选」(`zh_CN.csv:9`)。
             //   ⛔ **上一个实参（节点名 `"Clear filters"`）与 `"Clear filters Text"` 都不动**
-            //      （`Editor/CollectionScene.cs:4325` 按名找底图、`:4316` 按名找字）。
+            //      （`Editor/CollectionScene` 里按名找它的那两处 —— 底图 `FindChild(…, "Clear filters")`、字 `…"Clear filters Text"`）。
             var clrLab = Text(page, Loc.T("MenuDeck/Filters/ClearFilters"),
                               ClearFltX, ClearFltX + ClearFltW, ClearFltY, ClearFltY + ClearFltH,
                               5, PageInk, "Clear filters Text", clearPx);
@@ -2549,17 +2556,20 @@ namespace CardPresentation
                 //   `… > Collection Menu Variant > Content Area > Tabs > Shared > Close Button > Button Text`
                 //   —— 正是本行底下那颗）。英文列 = TMP 原文 `Back`；中文列 = 「返回」(`zh_CN.csv:5`)。
                 //   ⛔ 节点名 `"Button Text"` 不动（`Editor/CollectionScene.cs` 的 A212 那一节按名找它读折行档）。
+                // 🔴 **2026-10-09（A1173）**：`SetAutoFitBox` 那 5 个数收进 `Text` 的形参（原来是先 `Text`、
+                //   再手工补一次 —— 两份写法并存 = 迟早不一致）。下面那段 A305① 的判据原样留着。
+                //   ⚠️ 框用**文字自己的** `bt`（`bt.W × bt.H`），⛔ 不是整颗钮的 `cr`（见 A265 那条注释）。
                 var cl = Text(cq != null ? cq.transform : shared, Loc.T("MainMenu/MainButtons/ButtonLabel/Back"),
                               bt.x1, bt.x2, bt.y1, bt.y2,
-                              5, Color.white, "Button Text", 40f);
+                              5, Color.white, "Button Text", 40f,
+                              // 🔴 **2026-10-11（A305①）**：`autoBasePx` = 原版 `Button Text` 的 `m_fontSizeBase` **原文**。
+                              //    判据（原版实读）：`/Collection Menu Variant/…/Shared/Close Button/Button Text`
+                              //    = `m_fontSize 40` · `auto[10~40]` · **`base 12.0`**（逐站表 §二·3 #22）
+                              //    —— 同族（按钮文案那一族）`Back` / `WebShop Button` / `Continue` 也都是 **12**。
+                              wrapPx: bt.W, autoMinPx: 10f, autoMaxPx: 40f, autoBasePx: 12f);
                 if (cl != null)
                 {
                     cl.SetRenderQueue(QText);
-                    // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版 `Button Text` 的 `m_fontSizeBase` **原文**。
-                    //    判据（原版实读）：`/Collection Menu Variant/…/Shared/Close Button/Button Text`
-                    //    = `m_fontSize 40` · `auto[10~40]` · **`base 12.0`**（逐站表 §二·3 #22）
-                    //    —— 同族（按钮文案那一族）`Back` / `WebShop Button` / `Continue` 也都是 **12**。
-                    cl.SetAutoFitBox(LayoutSpace.Px(bt.W), LayoutSpace.Px(bt.H), 10f, 40f, 12f);
                     // 🔴 **2026-10-08（A212）**：原版这颗 `Button Text` 是 **`折行=0`**（实读：
                     //   `Button Text … 'Back' 字号=40.0 auto[10.0~40.0] 对齐=Center/Capline 折行=0`
                     //   —— 命令 `python 工具/menu_dump.py bundle_menus_assets_all "Collection Menu Variant" --depth 20`），
@@ -2669,7 +2679,7 @@ namespace CardPresentation
             //     · `Import` 那颗 = **`MenuDeck/MenuButtons/ImportDeck`**，TMP 原文 `Import Deck`。
             //   中文列：`Create Deck` = 「创建卡组」(`zh_CN.csv:7`)；⚠️ `Import Deck` 那份 CSV 里**没有这个键**
             //   ⇒ 那一条的中文**是我们自拟的**（见 `Core/Loc.cs` 那一条自己的注释）。
-            //   ⛔ 节点名 `"Create Text"` / `"Import Text"` 不动（`Editor/CollectionScene.cs:1087/1088` 按名找）。
+            //   ⛔ 节点名 `"Create Text"` / `"Import Text"` 不动（`Editor/CollectionScene` 里按名找它们的那两处）。
             var newLab = Text(newQ != null ? newQ.transform : ctrl, Loc.T("MenuDeck/MenuButtons/CreateDeck"),
                               CreateX, CreateX + HdrBtnW,
                               HdrBtnY, HdrBtnY + HdrBtnH, 5, PageInk, "Create Text", 42f);
@@ -2753,7 +2763,7 @@ namespace CardPresentation
                 //   Empty Collection Warning/Warning`）。
                 //   🔴 **我们原来那句英文与原文【不同】**（我们写 `There are no decks in your collection`，
                 //   原文是 `There are no deck …` 单数 + `…for the selected filters`）—— 按本表英文列的口径
-                //   照抄原文（含原版自己的语病），⛔ 不再用我们那句（`Shell/ShopWindow.cs:287` 的 `TxtEmpty`
+                //   照抄原文（含原版自己的语病），⛔ 不再用我们那句（`Shell/ShopWindow.cs` 的 `TxtEmpty`
                 //   用的一直是原文那一串，现在两处同一串了）。
                 var wt = Text(ew, Loc.T("MenuCollection/NoDecksFound"), 165.88f, 1970.01f, 70.94f, 1080f, 5, PageInk,
                               "Warning", 36f);

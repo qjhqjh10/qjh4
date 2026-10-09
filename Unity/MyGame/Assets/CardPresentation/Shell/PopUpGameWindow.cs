@@ -152,11 +152,30 @@ namespace CardPresentation
         public const float Btn1TextAposX = -0.303955078125f, Btn1TextAposY = 0.6089935302734375f;
 
         // ---- 字号（`TextMeshProUGUI` 逐字段实读）----
-        /// <summary>正文：`m_fontSize = 40` · `m_enableAutoSizing = 1` · `auto[4, 40]` · 居中(Middle/Center) · **折行开**。</summary>
+        /// <summary>正文：`m_fontSize = 40` · `m_enableAutoSizing = 1` · `auto[4, 40]` · **`m_fontSizeBase = 36`** · 居中(Middle/Center) · **折行开**。</summary>
         public const float MsgFontPx = 40f, MsgAutoMinPx = 4f;
         /// <summary>按钮字：1 按钮版 `auto[12,40]`（`m_fontSize = 40`）· 2 按钮版 `auto[12,38]`（`m_fontSize = 38`）。
-        /// 两处**折行都关**（`折行=0`，靠自适应缩字号）。</summary>
+        /// 两处**折行都关**（`折行=0`，靠自适应缩字号）。**两版 `m_fontSizeBase` 逐值相同 = 12**。</summary>
         public const float Btn1FontPx = 40f, Btn2FontPx = 38f, BtnAutoMinPx = 12f;
+
+        // 🔴 **2026-10-19（A1188）**：`base` 那一格原来**传的是缺省 `0`**（= `SetAutoFitBox` 的
+        //   「base 退回调用方那一档」老行为），而原版两颗都**显式设过** `m_fontSizeBase`：
+        //   · `MessageText`  = **36**（`m_fontSize 40` ⇒ 比值 0.9）
+        //   · `Button Text`  = **12**（1 按钮版 `m_fontSize 40` / 2 按钮版 `38`，**两版都是 12**）
+        //   判据 = `工具/menu_dump.py bundle_generalgamewindows_assets_all "MessagePopupWindow"` 与
+        //          `… "MessagePopupWindow2Buttons"`（`--no-sprite --no-layout`）实读的 **`基准=`** 那一列
+        //          （两扇 prefab 逐颗亲读：`MessageText` `字号=40.0 基准=36.0 auto[4.0~40.0] 折行=1` ·
+        //           `Button Text` `字号=40.0/38.0 基准=12.0 auto[12.0~40.0]/[12.0~38.0] 折行=0`）。
+        //   ⚠️ **本窗没有把 `localScale` 烘进字号**（`grep localScale` 本文件 0 命中；
+        //      `Window` 的父链上也没有缩放：`menu_dump` 那两扇树里 `ls=` 一处都没标）⇒
+        //      **不需要像 `AlliancePanelWindow` / `DailyRewardPopup` 那样乘刻度** —— 原文照抄。
+        //   ⚠️ `base` **不是**「字号」（`m_fontSize`）、也**不是**上下限：它是 TMP 自适应**二分的起点**
+        //      （`Label.SetAutoFitBox` = `cur × basePx/nomPx`，写进 `m_fontSizeBase`）。
+        //      base ≠ 正文那一档时，收敛结果可能与原版不同 ⇒ 必须照抄，⛔ 别留缺省 0。
+        /// <summary>`MessageText` 的 `m_fontSizeBase`（两扇 prefab 逐值相同 = **36**）。</summary>
+        public const float MsgAutoBasePx = 36f;
+        /// <summary>`Button Text` 的 `m_fontSizeBase`（**1 按钮版与 2 按钮版逐值相同 = 12**）。</summary>
+        public const float BtnAutoBasePx = 12f;
 
         // ============================================================ 术语（I2 语言表 —— **本地没有**）
 
@@ -392,9 +411,11 @@ namespace CardPresentation
             //    我们直接按 `Mask` 的矩形铺（**矩形与它逐位相同** ⇒ 差的是四个圆角那一小圈，如实标）。----
             MenuDraw.Tiled(maskNode, Tex(ArtPopupFill), maskR, FillTilePx, QFill, "Background fill");
 
-            // ---- 6) `MessageText`：fs 40 · auto[4,40] · 居中 · **折行开**（`折行=1`，别给它关掉）----
+            // ---- 6) `MessageText`：fs 40 · auto[4,40] · **base 36** · 居中 · **折行开**（`折行=1`，别给它关掉）----
+            //    ⚠️ `base` = `MsgAutoBasePx`（原版 `m_fontSizeBase`，A1188）—— 原来传缺省 `0`
+            //    = 「base 退回调用方那一档」，与原版**不一致**（详见 `MsgAutoBasePx` 的注释）。
             _msgLb = MenuDraw.Text(winNode, msgR, Term(_msgKey), Color.white, "MessageText",
-                                   MsgFontPx, QText, msgR.W, MsgAutoMinPx, MsgFontPx);
+                                   MsgFontPx, QText, msgR.W, MsgAutoMinPx, MsgFontPx, MsgAutoBasePx);
             if (_msgLb == null) Debug.LogWarning("[PopUp] `MessageText` 没建出来（标签建失败）");
 
             // ---- 7) `Buttons` 行（它是**布局组容器**，子件位置由下面的成品矩形定死）----
@@ -464,8 +485,10 @@ namespace CardPresentation
             float tw = r.W - TextInsetX, th = tw / TextAspect;
             float cx = (r.x1 + r.x2) * 0.5f + aposX, cy = (r.y1 + r.y2) * 0.5f - aposY;
             var tr = new PxRect(cx - tw * 0.5f, cy - th * 0.5f, cx + tw * 0.5f, cy + th * 0.5f);
+            // 🔴 A1188：`base` = `BtnAutoBasePx`（原版 `m_fontSizeBase = 12`，**1/2 按钮版逐值相同**）——
+            //   原来传缺省 `0`（= 退回调用方那一档），与原版不一致。判据见 `BtnAutoBasePx` 的注释。
             var lb = MenuDraw.Text(go, tr, Term(key), Color.white, "Button Text",
-                                   fontPx, QText, tw, BtnAutoMinPx, fontPx);
+                                   fontPx, QText, tw, BtnAutoMinPx, fontPx, BtnAutoBasePx);
             if (lb == null) { Debug.LogWarning("[PopUp] `" + nodeName + "` 的字没建出来"); return null; }
             // 原版那一站 `折行=0`（靠 `auto 12~38/40` 缩字号）⇒ 照它关掉折行。
             // ⚠️ 上面那个 `wrapPx` 只为把**框宽**设上（自适应按框量），模式按原版走。

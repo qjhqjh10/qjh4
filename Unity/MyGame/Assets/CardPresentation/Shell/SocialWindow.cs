@@ -39,7 +39,7 @@ namespace CardPresentation
         //    屏幕中间的反而更近）。窗壳用基类的 3005/3010/3011/3014；**页**另起一档
         //    （照档案窗 `PlayerProfileWindow.QPageBase = 3160` 那条先例），每页 10 个号。
         // ⚠️ **弹窗要再高一档** —— 🔴 **2026-10-04 更正（Y5 查出，铁律 5）**：这里原来写「`MessagePopupWindowDuel` 用 **3250+**」——
-        //    **`MessagePopupWindowDuel` 就是 `DuelPopupWindow`**（`DuelPopupWindow.cs:2,33`），它的 **`QBase = 3400`**（`:38`），
+        //    **`MessagePopupWindowDuel` 就是 `DuelPopupWindow`**（`DuelPopupWindow.cs`：类名 + 它自己的 `QBase` 常量），它的 **`QBase = 3400`**，
         //    而**全工程没有一处用 3250**（唯一出现就是这句注释）。`RewardsScene` 那条「弹窗 > 页 > 窗」的断言仍然成立（3400 > 3200）。
         //    📌 **层带地图**（2026-10-04 实测扫过全工程的 `const int Q*`；🔴 **2026-10-11（A307）就地订正**）：
         //    **2986–2998（顶栏 —— 原来写 `3600–3604`：同日的 A283 按用户裁定「照原版」把整条顶栏降到
@@ -480,7 +480,7 @@ namespace CardPresentation
         /// 正常路径上它一定在：`PointerLayer` 与窗口管理器**同生共死**
         /// （`WindowsManager.Awake` / `EnsureHost` 都调 `PointerLayer.Ensure`）。
         /// 🔴 **2026-10-04（A35⑧）补第二条判据：`Owner` 也要判** —— `PointerLayer.PruneScrolls`
-        /// （`PointerLayer.cs:218-227`）把 `Owner == null` 当**死的**条目删掉（那条注释写着
+        /// （`PointerLayer.PruneScrolls`）把 `Owner == null` 当**死的**条目删掉（那条注释写着
         /// 「`s.Owner == null` 有两个来源：**指向的对象被销毁**（Unity 的假 null）与**从没设过**」）
         /// ⇒ 忘设 `Owner` 的滚动区**下一次登记时会被悄悄删掉**，而这条路原来一声不响
         /// （画面照样正常，只是滚轮永远落不上去）。**出声，但仍然登记**（不改行为）。</summary>

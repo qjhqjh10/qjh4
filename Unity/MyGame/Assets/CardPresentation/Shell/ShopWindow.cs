@@ -456,7 +456,7 @@ namespace CardPresentation
                 //   `Localize.mTerm` 原文 **`MenuShop/RefreshCounter`**（4 颗同键；`Card Shop Tab` 那颗
                 //   TMP = `Refreshes in:`、`Daily Shop Tab` 那颗 = **葡语占位串** `Atualiza em:`
                 //   —— 但**同一条 mTerm** ⇒ 原版两页共用一条键，我们也共用）。
-                //   ⚠️ 原来读的是 `Shell/ShopData.cs:240` 那个**写死的英文常量** `ShopData.RefreshText`
+                //   ⚠️ 原来读的是 `Shell/ShopData.cs` 里那个**写死的英文常量** `ShopData.RefreshText`
                 //   —— 它留着当「原版英文原文」的留档（⛔ 那份文件不在本批白名单里，一个字没动它）。
                 //   ⛔ 节点名 `"RefreshText"` 不动（`Editor/ShopScene.cs` 按名找）。
                 var lb = _win.Text(tc, Loc.T("MenuShop/RefreshCounter"), TimeCounter.x1, TimeCounter.x2,
@@ -672,14 +672,13 @@ namespace CardPresentation
                 var ar = Rect(r, CellArtBox);
                 var pr = new PxRect(ar.CX - 84f, ar.CY - 84f, ar.CX + 84f, ar.CY + 84f);
                 _win.Rect(cell, null, pr, "ArtPlaceholder", QCellArt, ArtPlaceholderTint);
+                // 🔴 **2026-10-09（A1173）**：autosize 收进 `Text` 的形参（原来是先 `Text`、再手工补一次）。
+                //    ⚠️ 框 = **内缩 8 之后那一格**（`pr.W−16` × `pr.H−16`）—— 与上面那对 `x1+8/x2−8` 同一个框。
                 var pl = _win.Text(cell, ShopData.ShortName(o.Name), pr.x1 + 8f, pr.x2 - 8f,
                                    pr.y1 + 8f, pr.y2 - 8f, 5, new Color(0.78f, 0.78f, 0.82f, 1f),
-                                   "PlaceholderName", 24f);
-                if (pl != null)
-                {
-                    pl.SetRenderQueue(QCellText);
-                    pl.SetAutoFitBox(LayoutSpace.Px(pr.W - 16f), LayoutSpace.Px(pr.H - 16f), 14f, 24f);
-                }
+                                   "PlaceholderName", 24f,
+                                   wrapPx: pr.W - 16f, autoMinPx: 14f, autoMaxPx: 24f);
+                if (pl != null) pl.SetRenderQueue(QCellText);
             }
 
             // 🆕 2026-10-03（§三 第 29 条 A6）：`Booster Pack` 那一类商品 —— **点主图开 `Booster Info Popup`**。
@@ -695,22 +694,24 @@ namespace CardPresentation
             //    而名字带只有 **316.6px** ⇒ `AlignRight` 之后**左边越出格子 2.8px**
             //    （同 `资料/已知的坑.md` 那条「AutoFitBox：字号对而溢出，自检照样全绿」）。
             //    ⚠️ 顺序：**先 `SetAutoFitBox` 再 `AlignRight`** —— 对齐是按**当前**文字宽度算的。
+            //    🔴 **2026-10-09（A1173）**：那一刀 `SetAutoFitBox` 收进 `Text` 的形参；**次序不变**
+            //      （漏斗里那两步排在返回之前 ⇒ 仍早于下面这句 `AlignRight`）。
             {
                 var tyR = Rect(r, CellTypeBand);
                 var ty = _win.Text(cell, o.Type, tyR.x1, tyR.x2, tyR.y1, tyR.y2, 5,
-                                   new Color(0.717f, 0.717f, 0.717f, 1f), "Type", 26f);
+                                   new Color(0.717f, 0.717f, 0.717f, 1f), "Type", 26f,
+                                   wrapPx: tyR.W, autoMinPx: 16f, autoMaxPx: 26f);
                 if (ty != null)
                 {
                     ty.SetRenderQueue(QCellText);
-                    ty.SetAutoFitBox(LayoutSpace.Px(tyR.W), LayoutSpace.Px(tyR.H), 16f, 26f);
                     MenuDraw.AlignRight(ty, tyR);
                 }
                 var nmR = Rect(r, CellNameBand);
-                var nm = _win.Text(cell, o.Name, nmR.x1, nmR.x2, nmR.y1, nmR.y2, 5, Color.white, "Name", 30f);
+                var nm = _win.Text(cell, o.Name, nmR.x1, nmR.x2, nmR.y1, nmR.y2, 5, Color.white, "Name", 30f,
+                                   wrapPx: nmR.W, autoMinPx: 18f, autoMaxPx: 30f);
                 if (nm != null)
                 {
                     nm.SetRenderQueue(QCellText);
-                    nm.SetAutoFitBox(LayoutSpace.Px(nmR.W), LayoutSpace.Px(nmR.H), 18f, 30f);
                     MenuDraw.AlignRight(nm, nmR);
                 }
             }

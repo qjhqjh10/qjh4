@@ -36,8 +36,14 @@
 //     **键贴栏的右沿、左留 `178.42 − 165 = 13.42`**（`GetStartOffset` 的 `surplus × align`）。
 //     实读印证：键 x = 设计 **341.52…506.52**（屏幕 403.4…551.9）。
 //     ⚠️ 竖轴 `GetAlignmentOnAxis(1) = (5 / 3) × 0.5 = 0.5`（居中）⇒ 5 个键时堆叠几乎占满、
-//     首键顶 = **139.11**（屏幕 179.2，= 栏顶 123.10 + padTop 13 + 余量 3.0）；**我们只有 4 页**
-//     ⇒ 余量 172.60 一半 86.30 ⇒ 首键顶 = **222.40**（**这是页数差异的下游后果，见 `TabAlignY`**）。
+//     首键顶 = **139.11**（屏幕 179.2，= 栏顶 123.10 + padTop 13 + 余量 3.0）。
+//     🔴 **2026-10-19（A1183 + `A1186` 裁定 ①）就地更正（铁律 5）**：这里一度写「A1183 起是 6 页 ⇒
+//     首键顶 = `TabTop(0, 6)` = **55.794**」—— **那条口径已被用户裁定撤掉**：栏里**只放原版那 5 个键**
+//     （`Online` 不进这条栏，它的入口改到 `General` 页那颗钮上 —— 见 `GenOnlineEntry`）。
+//     ⇒ **键数回到 5、`TabTop(0, 5)` = 139.09624**（= 原版 prefab 的真值档）。
+//     ⚠️ 6 键那一档的几个数（`content` 990.701 · `surplus` −160.611 · 首键顶 **55.794** ·
+//     上溢出 67.31 / 下溢出 80.31）**留着当判别式**：哪天有人再往 `specs` 里塞一格，这几条数会立刻回来。
+//     ⛔ 别再按「n 页 ⇒ 首键顶 = 某个固定数」背 —— 起排算式只有 `TabTop(i, n)` 一处。
 //   · `Separators` [505.07,103.11]–[507.97,986.19]（`40k_Separator_Fade_Sides_Vertical`）。
 //   · 内容区 `Tab Content` [506.52,123.11]–[1538.78,966.19]；页标题 `Tab Title` [596.52,189.24]–[1538.78,259.24]
 //     （**fs 55 · 左对齐**，实测 `m_HorizontalAlignment=1`）。
@@ -62,14 +68,29 @@
 //   ② **页签文案**：解包里那几个 `Tab Toggle Title` 的 `m_text` 是**西班牙语**（`Gráficos`/`Soporte`/`Cuenta`，
 //      第 2 页是 `Multimedia`）、TMP **没挂 I2 词条** ⇒ 英文正式文案本地拿不到。我们写
 //      **Graphics / Audio / Online**（英文，与工程别处「先用英文」的口径一致），**这是我们的选择**。
-//   ③ **建 5 页里的 4 页**（Account / Support 不建 —— 账号页整页走服务器、支持页是外链）。
-//      切到没建的页要**出声**，不静默。
-//      🔴 **2026-10-17 就地更正（铁律 5）**：这里原来写的是
-//      「只建 5 页里的 **3** 页（**General** / Account / Support 不建 —— General 页是语言/退出游戏）」。
-//      **General 页 2026-10-17 已建**（= 用户 2026-09-28 立项的中英双语那一步「**2. 设置窗 General 页 +
-//      语言下拉**」，判据全文 = `资料/待办判据_卡面卡池与双语.md` §23）⇒ 现在有 **4** 页。
-//      🔴 **语言下拉就在这一页**（原版页签序里 General 也是第一个）。
-//      ⛔ **`Account` / `Support` 仍然不建**（那两页整页走服务器/外链）。
+//   ③ **原版五页【全部建了】**（`General` / `Media`→节点名 `Audio` / `Account` / `Graphics` / **`Support`**）
+//      + **我们自己加的 `Online`**（见 ①）⇒ **内容页共 6 页**，而**页签栏只有 5 格**。
+//      🔴 **2026-10-19（`A1186` 裁定 ①）**：栏里**逐位照原版那 5 个键**（`General / Audio`(原版 `Media`)
+//      `/ Account / Graphics / Support`），**`Online` 不在栏里** —— 原版那条栏是 `VerticalLayoutGroup`
+//      + **居中对齐** ⇒ 多一格会把原版那 5 格**整体上移 41.65px** 并两头溢出（67.3 / 80.3）
+//      ⇒ 用户裁定「保住原版 5 格、逐位不变」。`Online` 的入口 = **`General` 页上一颗文字钮**（裁定 ②），
+//      见 `GenOnlineEntry`；⛔ **不画图标**（原版那一族 5 张专用图标一张都没多出来，借哪张都是替原版表态）。
+//      🔴 **2026-10-19（A1183）就地更正（铁律 5）**：这里原来写「原版 5 页里 **`Support` 仍未建**
+//      —— 整页外链，另立账」。**`Support` 页 2026-10-19 已建**（A1183）⇒ 「原版五页」现在**全在建里**，
+//      **六页里没有一格是空的**（`_pages` 那六条 + `BuildTabs` 那五条 `specs`）。
+//      ⛔ **点了没实现的页要出声、不静默**。
+//      🔴 **语言下拉在 `General` 页**（原版页签序里 General 也是第一个）。
+//   · `Support Tab`（原版第 5 页，🆕 2026-10-19 `A1183`）：**整页五个外链钮**，
+//     `urlButton` 四条（FAQ / Contact / Privacy Policy / Terms of Service）+ `Support Button`
+//     （`SupportTab__OnClickSupport` → `HelpshiftManager.ShowFAQ`，**PC 档关着**）。
+//     逐层的显隐表（`PlatformBasedComponents` 三档）与逐值出处 → `Sp*` 常量那一段的头部注释。
+//   ③·b 🔴 **`Account` 页的原版行为要把「服务器那半」如实标出来**（本仓红线：不许静默失败）：
+//      `AccountTab__Login / _Register / _SwitchAccount / _Logout / _ResetPassword / _OnSuscribe /
+//      _InactivateAccount`（`d:/2/tools/decomp_full/`）**每一步都打 PlayFab**（`LoginWithEmailHelper.Login` /
+//      `PlayerDataManager.SendAccountConfirmationEmail` …）。**原版服务器已关**（`项目任务.md`）⇒ 我们
+//      **本地模拟**这七步（写 `PlayerPrefs` + 在页面上/日志里**明说这是本地模拟**），⛔ 不假装登录成功。
+//      逐条的判据与「哪一半是本地模拟」→ `AccountState` 那一段的 doc。
+
 //   ④ **联机页的页面标题、说明行、状态行**都是我们写的文案。
 //   ⑤ 原版勾选图与下拉框底的 **sprite PathID 没解出名字**（`-5728790147372056906` / `4411787853012002210`
 //      / `4198243566598287219`，UnityPy 按 PathID 反查没查到）⇒ 勾选改用原版**别处**在用的
@@ -84,10 +105,21 @@ using CardPresentation.Net;
 
 namespace CardPresentation
 {
-    /// <summary>设置窗的四个页（原版有五个，我们只建这四个 —— 见文件头 ③）。
-    /// 🔴 **2026-10-17**：`General` 加进来之后它是 **0**，其余三页各 +1（⛔ 序号必须与
-    /// `Build()` 里 `_pages.Add` 的顺序**逐个对齐** —— `OpenTab` 是按序号切 `activeSelf` 的）。</summary>
-    public enum SettingsTab { General = 0, Graphics = 1, Audio = 2, Online = 3 }
+    /// <summary>设置窗的**六个内容页** = **原版那五页** + **我们自加的 `Online`**。
+    /// 🔴 **这个号 = `Build()` 里 `_pages.Add` 的次序、也是 `OpenTab` 切 `activeSelf` 用的号**；
+    /// ⚠️ **它【不是】页签栏里的格号** —— 栏里只有 **5 格**（见 `BuildTabs` 的 `specs`），
+    /// `Online` 那一页**在栏里没有键**，入口在 `General` 页那颗钮上（`GenOnlineEntry`）。
+    /// <para>序照**原版**：原版页签序 = `General / Media / Account / Graphics / Support`
+    /// （`Main Menu Settings Window > Menu Area > Mask Tabs buttons > Tab Buttons` 的五个键，逐颗实读）；
+    /// 我们 = 那**五页全部**（`General` · `Media`→本工程节点名 `Audio` · `Account` · `Graphics` ·
+    /// **`Support`**）+ **`Online`**（原版没有这一页，见文件头 ①）排在**末位**。</para>
+    /// <para>🔴 **2026-10-19（`A1186` 裁定 ① / ②）把口径收回来（铁律 5）**：`A1183` 那一笔一度把
+    /// `Support` 与 `Online` **都**摆进页签栏（栏变 6 格）⇒ 原版那条 `VerticalLayoutGroup` + `MiddleCenter`
+    /// 的余量被重新分摊，原版那 5 格**整体上移 41.65px**、上下各溢出 67.31 / 80.31 设计 px。
+    /// 用户裁定：**栏里回到原版那 5 格、逐位不变**；`Online` 改从 `General` 页那颗钮进
+    /// （⛔ 不画图标 —— 原版那一族一共 5 张专用图标，已被原版那 5 个键各占一张，不存在「没人用的同族图」）。
+    /// **页号 `Online = 5` 照旧合法**（`OpenTab` / `_pages` 都按它切），只是栏里没有它的键。</para></summary>
+    public enum SettingsTab { General = 0, Audio = 1, Account = 2, Graphics = 3, Support = 4, Online = 5 }
 
     public class SettingsWindow : GameWindow
     {
@@ -135,11 +167,17 @@ namespace CardPresentation
         public const float TabL = BarR - TabW;                      // 341.52
         /// <summary>竖轴对齐系数 = 原版 VLG `m_ChildAlignment = 5 (MiddleCenter)` 的
         /// `GetAlignmentOnAxis(1) = (5 / 3) × 0.5 = **0.5**`（`CalcAlongAxis` 里那个 `align`）。
-        /// <para>🔴 **这一项是本笔里唯一一处「原版没在 4 页下出现过」的读数**（原版 `SettingsMenu` 恒为 5 页 ——
+        /// <para>🔴 **这一项是「原版没在别的键数下出现过」的读数**（原版 `SettingsMenu` 恒为 5 页 ——
         /// 全量反编译里 `SettingsMenu*` 一次都没调过 `TabButtons.AddTabButton / RemoveTabButton`，
-        /// 那 5 个键就是 prefab 里序列化的 5 个）⇒ 照 uGUI 语义，**我们 4 页时它会居中**
-        /// （上下各留 86.30 设计 px = 77.7 屏幕 px 的空）。本窗**照原版语义落地**（铁律 11：不因难看而改口径）；
-        /// 若调度台要的是「看起来像原版那 5 页」（首键顶 139.11），把这一项改成 `0f` 即可（只此一处）。</para></summary>
+        /// 那 5 个键就是 prefab 里序列化的 5 个）⇒ 照 uGUI 语义，**键数与原版不同时余量重新分摊**：
+        /// **5 个键 ⇒ 余量 +5.99（首键顶 139.09624，= 原版真值档）**；6 个键 ⇒ 余量 **−160.61**
+        /// （首键顶 **55.794**，**上溢出栏 67.31 / 下溢出 80.31** —— `MiddleCenter` 在余量为负时就是两头对半溢出）。
+        /// 🔴 **2026-10-19（`A1186` 裁定 ①）**：用户裁定**栏里就放原版那 5 个键**（键数与原版相同）
+        /// ⇒ 本项**照原版语义落地**、那个 6 键档**不再出现**；⛔ **常量一个字没动**（`0.5` 是原版字段值）。
+        /// ⚠️ 当时列的三条备选（改上对齐 / 缩键高 / 补原版 `Mask Tabs buttons` 那层遮罩）**随裁定①一并作废**，
+        /// 记在这里只为「别再翻案」—— 那条栏本来就只有 5 个键，回到原版即是正解。
+        /// 📌 另一条**仍然成立、另立账**的既有偏离：原版 `Tab Buttons` 的父级上那层 `Mask` 我们**没实现**
+        /// （本窗不在本件范围，见 `项目任务.md`）。</para></summary>
         public const float TabAlignY = 0.5f;
         /// <summary>第 `i` 个页签的**顶边**（设计 px，未过 `Screen()`）。**唯一一份**起排算式，
         /// 逐句照 uGUI `HorizontalOrVerticalLayoutGroup.GetStartOffset`：
@@ -195,6 +233,24 @@ namespace CardPresentation
         /// <summary>三行 `Label` 各自的高（原版 `sizeDelta.y`：Music **62**、Sound effects / Voiceovers **63**）。
         /// 🔴 旧代码这里写死 `t + 62f`（三行都 62）—— 第 2、3 行各差 1px。</summary>
         public static readonly float[] AuLabelHs = { 62f, 63f, 63f };
+        /// <summary>🆕 **2026-10-20（`A1201`）**：三行 `Label` 各自的**横幅锚点跨度** = 原版那一颗的
+        /// `aMax.x − aMin.x`（`aMin.x` 恒 **0**、`m_SizeDelta.x` 恒 **0** ⇒ **框宽全由锚点给**）。
+        ///
+        /// <para>判据 = `python 工具/menu_rect.py bundle_menus_assets_all "Audio Settings" --depth 3 --cs`
+        /// （prefab 原值，不跑布局）逐字：
+        /// · `Music Container > Label`　　　`N(2,"Label", 0,0.5, **0.5**,0.5, 0,0.5, 0,35, 0,62)`
+        /// · `FX Container > Label`　　　　`N(2,"Label", 0,0.5, **1**,0.5,   0,0.5, 0,35, 0,63)`
+        /// · `Voiceovers Container > Label` `N(2,"Label", 0,0.5, **1**,0.5,   0,0.5, 0,35, 0,63)`
+        /// ⇒ **只有 `Music` 那一颗是半行**。第二路复核（跑布局后的读数，`python 工具/menu_dump.py
+        /// bundle_menus_assets_all "Audio Settings" --depth 3`）：三颗的宽 = **307.89 / 615.77 / 615.77**
+        /// （屏幕 px；615.77 ÷ 2 = 307.885 ⇒ 与「半行」逐位吻合）。</para>
+        ///
+        /// <para>🔴 **框宽（= 折行宽）的算式 = 行宽 × 本值**，行宽 = `AuR − AuL`（= 原版 `Audio Settings`
+        /// 组宽，逐字段 = `0.75 × 1032.26 − 90` = 684.195 设计 px；见 `BuildAudioPage` 里
+        /// `Node(box, …)` 那一句 —— 三行容器撑满组宽）。⛔ **别一刀切取同一个数**：
+        /// 旧代码三颗一律传 `AuR − AuL`（整行）⇒ **`Music` 那一格放宽了一倍**（静默，
+        /// 因为 `CheckAutoFit` 只断「渲出来 ≤ 框」而那一行的字本来就短）。</para></summary>
+        public static readonly float[] AuLabelAnchorWs = { 0.5f, 1f, 1f };
         /// <summary>滑块轨道宽 —— 取**本页容器宽**（原版 Media 页容器撑满 684.19）。
         /// ⚠️ `WfSlider` 自己的常量 561.08 来自**战斗内**那根，别混。</summary>
         public const float AuTrackW = 684.19f;
@@ -444,13 +500,40 @@ namespace CardPresentation
 
         /// <summary>`Bottom Buttons` 行：屏幕 `755.6…836.6` ⇒ 设计 `779.56…869.56`（高 **90**）、
         /// 左沿 `GenL`、右沿 `TabsR`(1538.78)；两颗钮各 **300×90**、**间距 40**（原版 HLG `m_Spacing 40`）：
-        /// `Redeem Code` 设计 `596.52…896.56` · `Close Game Button` `936.56…1236.56`。
+        /// `Redeem Code` 设计 `596.52…896.52` · `Close Game Button` `936.52…1236.52`。
+        /// 🔴 **2026-10-19（`A1186` 裁定 ②）就地更正（铁律 5）**：这三个右沿原来写的是
+        /// `896.56 / 936.56 / 1236.56` —— **加错了 0.04**（`596.52 + 300 = 896.52`）。
+        /// 判据 = 原版 `menu_rect` dump 自己印的 `896.52`（`Redeem Code` 那一行）；
+        /// 本笔那颗新钮的几何就挂在 `1236.52` 上，所以顺手把这三个数改对（⛔ 别照 .56 那档推算新坐标）。
         /// 两张底图都是 `40K_button`（489×107）`Simple + preserveAspect` + 染色 `(0.369,0.894,0.588,1)`、
         /// 文字白：`Redeem Code` fs **40**、`Exit Game` fs **38**（原版两颗**不一样大**，照抄）。</summary>
         public const float GenBtnT = 779.56f, GenBtnH = 90f, GenBtnW = 300f, GenBtnGap = 40f;
-        public const float GenBtn2L = GenL + GenBtnW + GenBtnGap;      // 936.56
+        public const float GenBtn2L = GenL + GenBtnW + GenBtnGap;      // 936.52（见上面那条更正：旧注释写 936.56）
         public const float GenBtnFont1 = 40f, GenBtnFont2 = 38f;
         public static readonly Color GenBtnTint = new Color(0.369f, 0.894f, 0.588f, 1f);
+
+        /// <summary>🆕 **2026-10-19（`A1186` 裁定 ②）**：`Online` 页那颗**入口钮**（在 `General` 页上）的矩形。
+        /// <para>🔴 **这是我们自加的、原版没有**（原版那一栏只有 5 个键，`Online` 页也是我们自加的）
+        /// ⇒ 这四个数**不是原版判据**，是**我们挑的**。**为什么挑这里**：现读 `General Tab` 的节点矩形
+        /// （原版 `menu_rect` dump + 本文件 `Gen*` 那一段）之后，本页只有三片空地 ——
+        /// ① 勾选行底（`GenChkT + 2×ChkRowStep + ChkRowH` = **683.03**）到 `Bottom Buttons` 顶（`GenBtnT`）
+        /// 那条横带；② `Close Game Button` 右沿（`GenBtn2L + GenBtnW` = **1236.52**）到本页内容列右沿
+        /// `GenR` 这一格；③ 两颗钮底下到页底。**取 ②**，理由：①③ 都落在**语言下拉列表**
+        /// （原版 `LanguagesDropdown > Template` = 596.52…992.18 × 390.65…964.61）那一块的**范围内/下方**，
+        /// 列表一开就压住它；② 在 `x > 992.18` 之外、**任何时候都不被压**，而且它落在原版
+        /// `Bottom Buttons` 那一行**本来就没用到的余量**里（原版那颗 HLG 从左起排两颗 300 宽
+        /// ⇒ `x > 1236.52` 一直是空的），既不压任何原版元素、也不动它们的矩形。</para>
+        /// <para>⚠️ **左沿留了 `GenBtnGap`(40)** —— 与 `Bottom Buttons` 的 `m_Spacing 40` 同值，
+        /// 免得贴在 `Close Game Button` 上像那颗钮的一部分；**右沿取 `GenR`**（本页内容列的右沿 ——
+        /// 勾选行 / 语言行都是它，⛔ 不是 `TabsR`：那是 `Bottom Buttons` 那一行自己的右沿）。</para>
+        /// <para>⚠️ 顶 / 高**照抄那一行**（`GenBtnT` / `GenBtnH`）⇒ 与两颗原版钮齐平；宽 = `GenOnlineR − GenOnlineL`
+        /// = **154.81**（= `GenR − 1276.52`；⛔ 别按「1236.**56**」那档旧注释推 —— 见上面那条更正）。</para></summary>
+        public const float GenOnlineL = GenBtn2L + GenBtnW + GenBtnGap,   // 1276.52
+                           GenOnlineR = GenR;                             // 1431.33
+        /// <summary>那颗钮上的字号 —— **我们挑的**（同族那两颗原版是 40 / 38；取 38 = 它右手边那颗
+        /// `Close Game Button` 那一档）。⚠️ 它同时是自适应上限（`autoMaxPx`），下限 / `base` 照同族那两颗
+        /// 的 `12 / fs / 12 · 折行 0`。</summary>
+        public const float GenOnlineFontPx = 38f;
         /// <summary>下拉框底图的染色（原版 `LanguagesDropdown` 那颗 `Image.m_Color`）。
         /// ⚠️ 与底下两颗钮那个绿**不是同一个值**（(0.286,0.965,0.686) vs (0.369,0.894,0.588)）——
         /// 两处**各抄各的**，⛔ 别合并成一个常量。</summary>
@@ -475,6 +558,28 @@ namespace CardPresentation
 
         /// <summary>General 页签的图标（原版 `40K_settings_button_general`，同一族里确有此图）。</summary>
         public const string ArtTabIconGeneral = "40K_settings_button_general";
+        /// <summary>🆕 **2026-10-19（A1175）** `Account` 页签的图标 —— 原版那颗
+        /// `Tab Buttons > Account > Icon` 的 `Image.m_Sprite` PathID `8277050904649175715` 解出来就是这个名字
+        /// （实读工具 `d:/tmp/wf_w4probe/w4probe.py bundle_menus_assets_all 599645953609269158 3`）。
+        /// ⚠️ 那张 `Icon` 自己的 `m_Color.a = 0.8627451`、`m_RaycastTarget = 0`（我们照旧按 PA=1 画）。</summary>
+        public const string ArtTabIconAccount = "40K_settings_button_account";
+        /// <summary>🆕 **2026-10-19（A1183）** `Support` 页签的图标 —— 原版那颗
+        /// `Tab Buttons > Support > Icon` 的 `Image.m_Sprite` PathID **`5210374657225443124`**
+        /// 查名字表解出来就是这个名字（同一张 `Icon` 的 `m_Color` = `(1,1,1,0.8627451)`、
+        /// `m_Type = 0`(Simple) + **`m_PreserveAspect = 1`** ⇒ 照 PA 画，与另外四个键同一档）。
+        /// 🔴 这正是 `A1186` 记着「**留给 `Support` 页、⛔ 别挪用**」的那一张 —— 本件照原版用它。
+        /// **没有**把它借给 `Online`：🔴 `A1186` 裁定 ② —— 原版那一族**一共就这 5 张**
+        /// （`…_{general,quality,account,graphics,support}`，`ui_extract` 与工程 `Resources/Art/ui_menu/`
+        /// 两边逐张核过），**一张都没多出来** ⇒ 借任何一张都是在替原版表态。</summary>
+        public const string ArtTabIconSupport = "40K_settings_button_support";
+        /// <summary>🆕 **2026-10-19（A1183）** 支持页四颗外链钮上那颗小箭头（原版 GO 名 `External Link Icon`）。
+        /// 出处 = `w4probe … "Support Tab" 4`：四颗逐颗实读 `Image.m_Sprite` PathID `-8057500462619036988`
+        /// → 名字表解出来 = `Button_External_Link`；`m_Type = 0`(Simple) + **`m_PreserveAspect = 1`** ·
+        /// `m_RaycastTarget = 1`（会吃射线 —— 但它与钮自己的命中区重叠，本工程那套取并集 ⇒ 不额外处理）。
+        /// ⚠️ **这张图本地【还没导进工程】**（`Resources/` 全树 `find` 零命中，而
+        /// `d:/2/Warpforge_tools/data/ui_extract/**/Sprite/Button_External_Link.png` 里有）
+        /// ⇒ 与 `A1184` 那六张是**同一族「导入路缺口」**；本件照本窗既有兜底写法先建**同名空节点**（`Tex` 出声）。</summary>
+        public const string ArtExtLink = "Button_External_Link";
 
         // ============================================================ 语言下拉的【12 行列表】（A862，2026-10-17）
         //
@@ -602,6 +707,322 @@ namespace CardPresentation
         /// <summary>列表根节点的名字 —— **照原版运行时的名字**（`TMP_Dropdown.Show():820` 的 `"Dropdown List"`）。</summary>
         public const string LangListNodeName = "Dropdown List";
 
+        // ============================================================ 🆕 2026-10-19（A1175）账号页
+        // 判据（逐值出处）：
+        //   · **几何** = `python 工具/menu_rect.py bundle_menus_assets_all "Account Tab" --depth 4
+        //     --no-ancestor-scale`（**未缩放帧 = 设计 px**；本窗所有包装函数收的都是这个坐标系）。
+        //     🔴 **必须带 `--no-ancestor-scale`**：不带的话印的是**屏幕 px**（本窗根 `m_LocalScale = 0.9`
+        //     已经乘进去），照抄会整体缩 11%。
+        //   · **组件 / 词条 / 颜色 / 显隐 / 命中** = `python -I d:/tmp/wf_w4probe/w4probe.py
+        //     bundle_menus_assets_all "Account Tab" 4`（逐颗 MB 原字段）＋ 全量反编译
+        //     `AccountTab__*.c` / `BasicLoginWithEmailWindow__*.c`（`d:/2/tools/decomp_full/`）。
+        //
+        // 🔴 **层 × 出现条件**（完整表 = `资料/普查产出_第十会话/W4_A1175.md` §2；这里只留可执行的结论）：
+        //   | 层 | 出现条件 | 出处 |
+        //   |---|---|---|
+        //   | `Register Button` | `!登录态` | `AccountTab__Refresh.c:26`（`+0x30`=registerButton，`SetActive(!bVar4)`）|
+        //   | `Login Button `（Unregistered 那颗） | **恒关** | 同上 `:30`（`+0x38`，`SetActive(0)`）—— 出厂就 `m_IsActive=0` |
+        //   | `Switch Account Button` | **恒开** | 同上 `:34`（`+0x48`，`SetActive(1)`）|
+        //   | `Reset Password` | `登录态` | 同上 `:38`（`+0x50`）|
+        //   | `Forgot Password` | **恒关** | 同上 `:43`（`+0x58`，`SetActive(0)`）|
+        //   | `Subscribe Newsletter` | `登录态` | 同上 `:48`（`+0x88`）|
+        //   | `Logout Button` / `Delete Button` / `Login Window` / `Player Id` | **`Refresh` 一个字都不碰** ⇒ 停在 prefab 值（三者都 `m_IsActive=0`）|
+        //       出处：`AccountTab__Refresh.c` 只 `SetActive` 那 6 处（`grep -n SetActive AccountTab*.c` 命中 6 行，全在同一函数）|
+        //   | `Login Window` 的**开**点 | `Switch Account Button` 点下去 | `AccountTab__SwitchAccount.c`：`WindowsManager.OpenWindow(param_1 + 0x68)`，`0x68` = `loginWindow` 字段 |
+        //   | `Login Window` 的**关**点 | 那颗 `Generic Close Button Green` / `ESC` | 它自己那颗 MB 的 `closeButton` + `closeOnESC = 1`（`MonoBehaviour_6952589498206683046.json`）|
+        //   | 五个外链钮的 `Button Text` | **恒关**（`m_IsActive=0`，为无障碍留的） | `AccountTab` 子树逐颗实读 |
+        //
+        // 🔴 **词条**：这批原版键（`Settings/Account/*` · `MainMenu/Login/*`）**还没进 `Core/Loc.cs`**
+        //   （那份文件不在本件白名单）⇒ 走 `AcTerm`：表里有就用表、没有就退**原版英文原文**并且**出声**。
+        //
+        // `Account Form` —— 输入框那一族（底板 `40K_dropdown_bg` · **Sliced** · 绿 `m_Color`）
+        public const float AcFormL = 596.52f, AcFormT = 273.14f, AcFormR = 1516.52f, AcFormB = 685.06f;
+        public const float AcLblL = 596.52f, AcLblR = 1056.52f, AcLblH = 60f;      // EmailText / PasswordText
+        public const float AcEmailLblT = 261.43f, AcPwdLblT = 390.71f;
+        public const float AcInL = 596.52f, AcInR = 1516.52f, AcInH = 60f;         // InputEmail / InputPassword
+        public const float AcEmailInT = 320.67f, AcPwdInT = 450.75f;
+        /// <summary>`Text Area`（原版挂 `RectMask2D`）—— 左右各内缩 20、上下居中、**高 31**（逐颗实读同值）。</summary>
+        public const float AcAreaInset = 20f, AcAreaH = 31f;
+        /// <summary>`Reset Password` / `Forgot Password` 那一格（两颗**同矩形、叠在一起** —— 原版就这样，
+        /// 由上面那条显隐表分时出场）。字号 **32** · `Right/Baseline` · 白 `a = 0.8235`。</summary>
+        public const float AcLinkL = 1056.52f, AcLinkR = 1516.52f, AcLinkT = 403.43f, AcLinkB = 447.80f;
+        /// <summary>页内那条错误行（`Account Form > Error Message`）· 字号 **37** · `Left/Baseline` ·
+        /// 红 `(1, 0, 0.05804, 1)`；出厂文本 = `"* Invalid Password"`（原版 prefab 的 `m_text` 原文）。</summary>
+        public const float AcErrL = 596.52f, AcErrT = 524.59f, AcErrR = 1516.52f, AcErrB = 571.69f;
+        public const float AcFormFontPx = 37f, AcLinkFontPx = 32f;
+        /// <summary>输入框底板那抹绿 —— 原版 `Image.m_Color` 原文 `(0.2901961, 0.9529412, 0.6823529, 1)`。
+        /// ⚠️ 与 General 页 `GenFieldTint`（`0.286,0.965,0.686`）**不是同一个值**（两处各抄各的，别归一）。</summary>
+        public static readonly Color AcInTint = new Color(0.2901961f, 0.9529412f, 0.6823529f, 1f);
+        public static readonly Color AcLinkColor = new Color(1f, 1f, 1f, 0.8235294f);
+        public static readonly Color AcErrColor = new Color(1f, 0f, 0.0580378f, 1f);
+        /// <summary>`40K_dropdown_bg` 的九宫格（**贴图 px**，本工程已有的一份 = `LstPanelBorder`）。
+        /// `m_PixelsPerUnitMultiplier`：账号页那两颗是 **1.0**、登录弹窗那两颗是 **1.2**（逐颗实读）
+        /// ⇒ 角块 = `m_Border ÷ ppuMul`（见 `NineOut` 的 doc）。</summary>
+        public const float AcInTexW = 119f, AcInTexH = 102f;
+        public static readonly Vector4 AcInBorder = new Vector4(23f, 20f, 23f, 20f);
+        /// <summary>输入框底板那张图 —— 原版那四颗的 `Image.m_Sprite` PathID `-5728790147372056906`
+        /// 解出来就是 `40K_dropdown_bg`（与语言下拉那族**同一张**）。见 <see cref="AcInput"/>。</summary>
+        public const string AcInArt = "40K_dropdown_bg";
+
+        // `Player Id`（原版在页标题右上方；**出厂 `m_IsActive=0`、且 `Refresh` 从不激活它** ⇒ 原版永远不显示）
+        public const float AcPidL = 1148.33f, AcPidT = 165.43f, AcPidR = 1515.44f, AcPidB = 204.46f;
+        public const float AcPidTextL = 1084.93f, AcPidTextT = 156.38f, AcPidTextR = 1515.44f, AcPidTextB = 208.99f;
+        public const float AcPidIconL = 1075.46f, AcPidIconT = 152.00f, AcPidIconR = 1132.30f, AcPidIconB = 208.99f;
+        public const float AcPidFontPx = 40f;
+        /// <summary>`Player ID: ` 这一截 —— 取自原版 prefab 里那颗 TMP 的 `m_text`（`"Player ID: 325161617"`），
+        /// ⛔ 那一串数字是**原版玩家自己的 id**、不是格式的一部分。**我们自己的 id 是本机模拟值**
+        /// （`AccountState.PlayerId`，见那一段）。</summary>
+        public const string AcPidPrefix = "Player ID: ";
+        public const string AcPidIconArt = "Copy@3x";       // ⚠️ 这张图**本地还没有**（见 `MissingArt` 的出声）
+
+        // `Subscribe Newsletter`（**整颗就是一个钮**：`EverguildButton` 的 `m_TargetGraphic` = 它自己的 TMP）
+        public const float AcNewsL = 596.52f, AcNewsT = 552.99f, AcNewsR = 1195.98f, AcNewsB = 629.70f;
+        public const float AcNewsFontPx = 40f;
+
+        // `Social Media Links`（HLG 排的五个外链钮；**逐颗绝对值**见下面那把 `AcSoc*`，⛔ 别按等距推）
+        public const float AcSocL = 584.92f, AcSocT = 666.74f, AcSocR = 1222.15f, AcSocB = 747.64f;
+        public static readonly string[] AcSocNode =
+            { "Discord Button", "IG Button", "Facebook Button", "Twitter Button", "Youtube Button" };
+        public static readonly string[] AcSocArt =
+            { "Discord-Logo-Color", "Instagram_icon", "fb-icon",
+              "Twitter_Social_Icon_Rounded_Square_Color", "YouTube_full-color_icon_(2017).svg" };
+        public static readonly string[] AcSocKey =
+            { "MainMenu/Settings/ButtonLabel/Discord", "MainMenu/Settings/ButtonLabel/Instagram",
+              "MainMenu/Settings/ButtonLabel/Facebook", "MainMenu/Settings/ButtonLabel/Twitter",
+              "MainMenu/Settings/ButtonLabel/Youtube" };
+        public static readonly string[] AcSocEn = { "Discord", "Instagram", "Facebook", "Twitter", "Youtube" };
+        /// <summary>五条外链 —— 出处 = `d:/2/tools/il2cpp_out/stringliteral.json`（原版字面量表，逐条命中）。
+        /// 🔴 **按【节点名】对上去的**（Discord 钮 → discord 那条 …）—— ⛔ 不是靠解 `AccountTab__OnSetup.c`
+        /// 里那五个 `DAT_` 指针（那要逐个走托管字符串，本件没做）。**这一格是「按语义对」、不是「按地址对」**，
+        /// 已写进报告。⚠️ `Twitch Button` **不在这五条里**：原版 Twitch 那条是运行时用玩家存档拼出来的
+        /// （`AccountTab__OnSetup.c` 末尾那条 5 段 `String.Concat`）⇒ 我们**不打开外链、只记日志**。</summary>
+        public static readonly string[] AcSocUrl =
+            { "https://discord.gg/warpforge", "https://www.instagram.com/warpforge40k/",
+              "https://www.facebook.com/warpforge40k/", "https://twitter.com/warpforge40k/",
+              "https://www.youtube.com/channel/UCFFUq9a3MzPE3AxSE8zm-GQ" };
+        public static readonly float[] AcSocX1 = { 584.92f, 712.36f, 839.81f, 967.26f, 1094.70f };
+        public static readonly float[] AcSocX2 = { 712.36f, 839.81f, 967.26f, 1094.70f, 1222.15f };
+        public static readonly float[] AcSocY1 = { 659.69f, 669.69f, 669.69f, 669.69f, 667.19f };
+        public static readonly float[] AcSocY2 = { 754.69f, 744.69f, 744.69f, 744.69f, 747.19f };
+        /// <summary>`Button Text`（恒关那一层）：左沿 = 钮左沿 **+12.69**、顶 = 钮顶 **+30.12**、宽 **101.45**
+        /// （五个逐颗实读，三项全同 ⇒ 只留一份）；**高逐颗不同**（见 `AcSocTxtH`，那是 `AspectRatioFitter` 的产物）。
+        /// **字号 43 / 31.05 交替**（逐颗实读，⛔ 不统一）。</summary>
+        public const float AcSocTxtDx = 12.69f, AcSocTxtDy = 30.12f, AcSocTxtW = 101.45f;
+        public static readonly float[] AcSocTxtH = { 33.55f, 13.55f, 13.55f, 13.55f, 18.55f };
+        public static readonly float[] AcSocTxtFont = { 43f, 31.049999f, 43f, 31.049999f, 43f };
+
+        // `Buttons` —— 原版这颗是个 **100×100 的空容器**（挂 `PlatformBasedComponents`，按平台开关子件），
+        // 两个 HLG 组 + 两颗中缝钮都在它下面。⛔ 它自己**没有图**（别给它画东西）。
+        public const float AcBtnsL = 972.65f, AcBtnsT = 690.47f, AcBtnsR = 1072.65f, AcBtnsB = 790.47f;
+        // `Unregistered Buttons`（HLG · 622×90 · 组内两颗 300×90）
+        public const float AcUnregL = 891.25f, AcUnregT = 545.27f, AcUnregR = 1513.25f, AcUnregB = 635.27f;
+        public const float AcRegL = 1213.25f, AcRegR = 1513.25f;        // `Register Button`
+        public const float AcULoginL = 1202.25f, AcULoginR = 1502.25f;  // `Login Button `（**名字末尾有一个空格**）
+        // `Registered Buttons`（HLG · 660×90 · 组内两颗 300×90）
+        public const float AcRegdL = 596.52f, AcRegdT = 805.36f, AcRegdR = 1256.52f, AcRegdB = 895.36f;
+        public const float AcSwitchL = 596.52f, AcSwitchR = 896.52f;    // `Switch Account Button`
+        public const float AcLogoutL = 926.52f, AcLogoutR = 1226.52f;   // `Logout Button`
+        // 中缝那两颗（**不在任何 HLG 里**，绝对矩形逐颗实读）
+        public const float AcTwitchL = 909.35f, AcTwitchT = 805.36f, AcTwitchR = 1206.66f, AcTwitchB = 895.36f;
+        public const float AcDeleteL = 1216.52f, AcDeleteT = 806.07f, AcDeleteR = 1516.52f, AcDeleteB = 896.07f;
+        public const float AcBtnFontPx = 40f, AcTwitchFontPx = 38f;
+        /// <summary>Twitch 钮那抹洋红 —— 原版 `Image.m_Color` 原文 `(1, 0, 0.8893332, 1)`。</summary>
+        public static readonly Color AcTwitchTint = new Color(1f, 0f, 0.8893332f, 1f);
+        /// <summary>`Delete Button` 的红 —— 原版 `Image.m_Color` 原文 `(1, 0.0327738, 0, 1)`。</summary>
+        public static readonly Color AcDeleteTint = new Color(1f, 0.0327738f, 0f, 1f);
+        /// <summary>七颗「大钮」的 `Button Text` 矩形（**逐颗实读** —— ⛔ 不是「钮矩形 ± 同一个内缩」，
+        /// 七颗的内缩互不相同：`11.00 / 12.69 / 12.69 / 12.69 / 12.69 / 12.69 / 12.69`）。
+        /// 序 = Register · Login(Unregistered) · Twitch · Delete · Switch · Logout · LoginWindow 那颗 Login。</summary>
+        public static readonly PxRect[] AcBtnText =
+        {
+            new PxRect(1224.25f, 562.66f, 1501.85f, 616.66f),   // Register
+            new PxRect(1214.94f, 564.37f, 1488.94f, 614.95f),   // Login Button （Unregistered）
+            new PxRect( 922.04f, 824.72f, 1193.36f, 874.78f),   // Twitch
+            new PxRect(1229.21f, 823.81f, 1503.21f, 877.11f),   // Delete
+            new PxRect( 609.21f, 823.10f,  883.21f, 876.40f),   // Switch Account
+            new PxRect( 939.21f, 824.46f, 1213.21f, 875.04f),   // Logout
+            new PxRect(1251.03f, 499.31f, 1534.20f, 551.68f),   // Login Window 那颗 Login Button
+        };
+        /// <summary>那一圈「名字末尾带空格」的原版 GO 名 —— **逐字照抄**（`bundle_menus_assets_all/GameObject/
+        /// Login Button.json` 的 `m_Name` 就是 `"Login Button "`）。⛔ 别「顺手 trim」：自检 `FindChild` 按名字找。
+        /// ⚠️ 原版这一列**两颗**都是这个名字（`Unregistered Buttons` 里一颗、`Login Window` 里一颗）。</summary>
+        public const string AcLoginBtnName = "Login Button ";
+
+        // ============================================================ 🆕 2026-10-19（A1175）登录弹窗
+        // 判据同上（`menu_rect … "Login Window" --no-ancestor-scale` + `w4probe` + 反编译）。
+        // 🔴 **它长在 `Account Tab` 的子树里**（原版 `Account Tab > Login Window`，**不是外链 prefab** ——
+        // `RectTransform_-7567295423343788122.json` 的 `m_Father` 就是 `Account Tab` 那颗、`m_FileID = 0`）。
+        // ⇒ 我们**照原版套在页子树里**、`SetActive` 开关，⛔ 不另立一扇 `GameWindow`。
+        public const float LwL = 360.36f, LwT = 264.65f, LwR = 1568.94f, LwB = 664.65f;   // 1208.58 × 400
+        /// <summary>`Backgroun filler`（原版拼写就是 `Backgroun`，少一个 `d` —— ⛔ 别改）：
+        /// 不透明黑 `(0,0,0,1)`、**无 sprite**、`m_RaycastTarget = 1`。</summary>
+        public const float LwFillL = 372.27f, LwFillT = 274.19f, LwFillR = 1556.31f, LwFillB = 650.43f;
+        /// <summary>`Mask` + 它下面那颗 `Background fill`（`40k_popup_texture` Tiled · `ppuMul 2` ⇒ **64 px 一格**）。</summary>
+        public const float LwMaskL = 370.75f, LwMaskT = 274.09f, LwMaskR = 1559.07f, LwMaskB = 654.85f;
+        public const float LwLblL = 402.52f, LwLblR = 840.02f, LwLblH = 60f;
+        public const float LwEmailLblT = 308.43f, LwPwdLblT = 437.71f;
+        public const float LwInL = 402.52f, LwInR = 1214.52f, LwInH = 60f;
+        public const float LwEmailInT = 367.67f, LwPwdInT = 497.75f;
+        // ⚠️ 弹窗那两颗输入框的 `Text Area` 内缩与高**与账号页那两颗逐值相同**（20 / 31，逐颗实读）
+        //    ⇒ **不另开一对常量**（同一条规则只留一处）—— 共用 `AcAreaInset` / `AcAreaH`。
+        /// <summary>🔴 弹窗这两颗输入框的 `m_PixelsPerUnitMultiplier` = **1.2**（账号页那两颗是 1.0）——
+        /// uGUI 按 `m_Border ÷ ppuMul` 画角块 ⇒ **角块比账号页那两颗小 1/1.2**。⛔ 别抄成同一个值。</summary>
+        public const float LwInPpuMul = 1.2f;
+        public const float LwForgotL = 777.02f, LwForgotR = 1214.52f, LwForgotT = 451.74f, LwForgotB = 496.11f;
+        /// <summary>`ErrorMensajeContainer`（原版拼写 `Mensaje` = 西语残留，⛔ 别改成 `Message`）——
+        /// 一个 HLG：左骷髅 + 右错误行。**打开弹窗时整块关掉**（`BasicLoginWithEmailWindow__Open.c`：
+        /// `param_1[0x13]` 那颗 `SetActive(0)`），登录中才亮。</summary>
+        public const float LwErrBoxT = 576.78f, LwErrBoxB = 613.51f, LwErrBoxL = 402.52f, LwErrBoxR = 1214.52f;
+        public const float LwLoadL = 402.52f, LwLoadT = 576.19f, LwLoadR = 440.42f, LwLoadB = 614.10f;
+        /// <summary>🔴 错误行的**右沿 1226.52 超出弹窗右沿 1214.52**（原版就这样 —— HLG 把子件撑出去了）。
+        /// **照抄**（铁律 11），并在报告里记一笔。</summary>
+        public const float LwErrL = 452.42f, LwErrR = 1226.52f;
+        public const float LwBtnL = 1238.33f, LwBtnT = 496.10f, LwBtnR = 1547.50f, LwBtnB = 556.10f;
+        public const float LwCloseL = 1526.15f, LwCloseT = 232.15f, LwCloseR = 1601.15f, LwCloseB = 307.15f;
+        public const float LwCloseIconL = 1535.46f, LwCloseIconT = 242.40f, LwCloseIconR = 1591.83f, LwCloseIconB = 296.90f;
+        public const float LwFormFontPx = 37f, LwLinkFontPx = 32f, LwBtnFontPx = 40f;
+        /// <summary>弹窗自己的名字 —— 照原版 GO 名（`Account Tab > Login Window`）。</summary>
+        public const string LwNodeName = "Login Window";
+
+        /// <summary>🔴 **2026-10-19（A1175）弹窗那一族的渲染队列** —— 夹在**本窗既有最高档
+        /// （语言下拉 `QScroll = 3144`）之上、`Tooltip`（3605–3607）之下**，
+        /// 且**严格高于本页所有内容**（`QContent 3133` / `QText 3134` / 命中 `QOverlay 3135`）。
+        /// <para>⚠️ 全工程这一段（3100–3169）本来就是**所有窗共用**的（`BoosterPackOpenWindow` 的注释里
+        /// 写着「全屏/弹窗那一整段」）⇒ 撞号是常态（例：`PromptPopup.QShade` = 本窗 `QBlocker` = 3140）。
+        /// **本件只保证两件事**：① 弹窗内**自洽**（`QLwBlocker` &lt; `QLwHit`）；② 弹窗整段
+        /// **高于本窗内容** —— 否则点弹窗会穿透到底下那一页。</para>
+        /// <para>🔴 **`QLwHit` 与 `QLwText` 之间那一档（3149）是给「吃点击」那层留的**：
+        /// `MenuDraw.Absorb` **自己算** `q = qContentMin − 1`（= `QLwHit − 1`）⇒ 调用方**别写死**它
+        /// （这与 `MenuDraw.Absorb` 那段「档由本函数算，让调用方各挑一档迟早挑错」是同一条）。
+        /// —— 它必须**严格低于 `QLwHit`**：那个吸收层盖满整个弹窗，与弹窗里那几颗真按钮**重叠**
+        /// ⇒ 同号时谁吃到命中退化成「枚举顺序」（症状：点 `Log in` 有时没反应）。</para>
+        /// <para>⚠️ 与 `QLwText`（3149）**同号**是**有意**的：命中那一层只比「哪颗 quad 的队列大」，
+        /// 而文字层**没有命中区**（`Label` 不是 `ImageQuad`）⇒ 同号不抢命中
+        /// （同 `MenuDraw.Absorb` 那段「q 与某个文字档同号是无害的」）。</para>
+        /// <para>🔴 **`QLwHit = 3150` 是全工程「全屏/弹窗那一整段（3100–3169）」里的第 51 个数** ——
+        /// 它与 `PlayerProfileWindow.QShade`（3150）**撞号**，已知且**只在两扇窗同开时**才可能有歧义
+        /// （那一段本来就全域共用，例：`PromptPopup.QShade` = 本窗 `QBlocker` = 3140）。已写进报告。</para></summary>
+        public const int QLwDim = 3145, QLwPanel = 3146, QLwFill = 3147, QLwContent = 3148,
+                         QLwText = 3149, QLwHit = 3150;
+
+        // ============================================================ 🆕 2026-10-19（A1183）支持页
+        // 判据（逐值出处）：
+        //   · **几何** = `python 工具/menu_rect.py bundle_menus_assets_all "Support Tab" --depth 4
+        //     --no-ancestor-scale`（**未缩放帧 = 设计 px**；本窗所有包装函数收的就是这个坐标系）。
+        //     🔴 **必须带 `--no-ancestor-scale`**：不带的话印的是**屏幕 px**（本窗根 `m_LocalScale = 0.9`
+        //     已经乘进去），照抄会整体缩 11%（同账号页那条）。
+        //   · **组件 / 词条 / 颜色 / 字号 / 对齐** = `python -I d:/tmp/wf_w4probe/w4probe.py
+        //     bundle_menus_assets_all "Support Tab" 4`（逐颗 MB 原字段）。
+        //   · **显隐** = 全量反编译 `d:/2/tools/decomp_full/SupportTab__{OnSetup,OnClickSupport,OnDestroy}.c`
+        //     + `PlatformBasedComponents__{Start,DisplayPlatform}.c`
+        //     + `d:/2/Warpforge_code/Scripts/Assembly-CSharp/PlatformBasedComponents.cs`（枚举值）。
+        //
+        // 🔴 **层 × 出现条件**（完整表；`PHY` = 本页 `PlatformBasedComponents` 那颗 MB
+        //    `MonoBehaviour_-495934671143534682.json`，`SETUP` = `SupportTab__OnSetup.c`）：
+        //
+        // | 层（原版 GO 名） | 出厂 `m_IsActive` | 运行时条件 | 出处 |
+        // |---|---|---|---|
+        // | `Support Tab`（页根，挂 `SupportTab` + `PlatformBasedComponents`） | **0** | 由页签切换决定 | 实读：`menu_rect` 印 `INACT` |
+        // | ├ `Tab Title`（mTerm `Settings/Support/Title`） | 1 | **恒开**（三档平台组都是 1） | `PHY` |
+        // | ├ `Faq Text`（`Settings/Support/FAQText`） | 1 | **PC=1** · iOS/android=**0** | `PHY` |
+        // | ├ `Faq Button`（+ `Button Text` / `External Link Icon`） | 1 | **PC=1** · 其他 **0** | `PHY` |
+        // | ├ `Contact Text`（`Settings/Support/MiddleText`） | 1 | **PC=1** · 其他 **0** | `PHY` |
+        // | ├ `Contact Button`（+ 两子件） | 1 | **PC=1** · 其他 **0** | `PHY` |
+        // | ├ `Email Text`（`Settings/Support/ContactText`） | 1 | **PC=1** · 其他 **0** | `PHY` |
+        // | ├ `bottom links`（HLG：`Terms of Service` + `Privacy Policy` 两棵） | 1 | **三档都是 1** | `PHY` |
+        // | ├ `Support Button`（+ `Button Text`；**没有** `UrlButton`） | 1 | **PC=0** · iOS/android=**1** | `PHY` |
+        // | ├ `Faq Text Mobile`（`Settings/Support/FAQTextMobile`） | 1 | **PC=0** · 其他 **1** | `PHY` |
+        // | └ `Email Text Mobile`（`Settings/Support/ContactText`） | 1 | **PC=0** · 其他 **1** | `PHY` |
+        //
+        // 另有两处**代码**判据（`SETUP`）：
+        //  ① `termsOfServiceButton`（字段序第 2 个 = `+0x38`）拿到的是**运行时才算得出来的 URL**
+        //     （`*(*(GameStaticData.<静态 +0xb8>) + 0x70)`），紧接着 `SetActive(该 URL != null)`
+        //     ⇒ **这一颗的显隐在本地判不了**（我们拿不到那个运行时串，见「没查清」）。
+        //     本件**停在出厂值 1 + PC 档 1**（⛔ 不猜一个 URL 出来）。
+        //  ② `supportButton`（字段序第 5 个 = `+0x50`）挂 `OnClickSupport`
+        //     → `HelpshiftManager.ShowFAQ(profile.faqId)`（**服务器 SDK**，本地没有）。
+        //     ⚠️ 字段序 → 偏移的对应是**由本页自己的 JSON 字段序 + 那颗「没有 `UrlButton`」的结构反推的**
+        //     （`MonoBehaviour_7781154552317837222.json`：privacy / terms / faq / contact / support，
+        //      与 `+0x50` 那颗恰好就是**唯一没有 `UrlButton`** 的 `Support Button` 互证）。
+        //
+        // 🔴 **三档平台组**（`PHY` 的 `platforms`；枚举值出处 = `PlatformBasedComponents.cs`：
+        //    `android = 0` · `iOS = 10` · **`PC = 20`**）—— **每组都列全了同样那 10 件**，只是开关不同：
+        //    · **PC(20)**：`Tab Title` `Faq Text` `Faq Button` `Contact Text` `Contact Button` `Email Text`
+        //      `bottom links` **开**；`Support Button` `Faq Text Mobile` `Email Text Mobile` **关**；
+        //    · **iOS(10) / android(0)**：`Tab Title` `bottom links` `Support Button` `Faq Text Mobile`
+        //      `Email Text Mobile` **开**；其余五件**关**。
+        //    ⇒ **我们是 PC 游戏**，而且原版 `PlatformBasedComponents__Start.c` **无条件**只跑
+        //      `platformType == 0x14 (= 20 = PC)` 那一组 ⇒ **按 PC 档落地**（这也是原版开局的默认档）。
+        //
+        // 🔴 **四颗外链钮的 URL**：`SETUP` 里那四条是**托管字符串指针**（`DAT_1842399e8` / `DAT_184236fe8` /
+        //    `DAT_1842370e8` + 一条运行时拼的），**本地解不出来**（这三个 `DAT_` 在全量反编译里
+        //    **只出现在 `SupportTab__OnSetup.c` 这一处**、`stringliteral.json` 也不带地址 ⇒ 无从对上）。
+        //    ⇒ 本件按**语义**把 `stringliteral.json` 里那几条 URL 对到钮上（**这一格是「按语义对」、
+        //      不是「按地址对」**，与账号页那五条外链**同一个口径**），并在报告里如实标注。
+        //    ⛔ `Terms of Service` **一条都对不上**（全表没有 terms 字样的 URL）⇒ 它**不打开外链、只出声**。
+        public const float SpTitleAutoMinPx = 4f;       // 原版 `Support Tab > Tab Title`：min 4 / max 55 / base 55 · 折行 1
+        public const float SpFontPx = 35f;              // 本页**十颗** TMP 的 `m_fontSize` 全是 35（逐颗实读）
+        public const float SpBtnFontPx = 35f;           // 四颗钮里 `Button Text` 的 `m_fontSize` 也是 35
+
+        // ---- 正文那几行（`Text`）----
+        public const float SpFaqTextL = 596.52f, SpFaqTextT = 272.24f, SpFaqTextR = 1538.78f, SpFaqTextB = 357.24f;
+        public const float SpContactTextL = 596.52f, SpContactTextT = 452.62f, SpContactTextR = 1538.78f, SpContactTextB = 515.56f;
+        public const float SpEmailTextL = 596.52f, SpEmailTextT = 619.75f, SpEmailTextR = 1538.78f, SpEmailTextB = 757.75f;
+        public const float SpFaqTextMobL = 596.52f, SpFaqTextMobT = 272.24f, SpFaqTextMobR = 1538.78f, SpFaqTextMobB = 364.22f;
+        public const float SpEmailTextMobL = 596.52f, SpEmailTextMobT = 455.25f, SpEmailTextMobR = 1538.78f, SpEmailTextMobB = 593.25f;
+
+        // ---- 四颗外链钮（300×60 那一档；⛔ 宽不是 324 —— `menu_dump` 印的 324 是**屏幕 px**，设计值 360）----
+        public const float SpFaqBtnL = 596.52f, SpFaqBtnT = 373.11f, SpFaqBtnR = 956.52f, SpFaqBtnB = 433.11f;
+        public const float SpContactBtnL = 596.52f, SpContactBtnT = 529.90f, SpContactBtnR = 956.52f, SpContactBtnB = 589.90f;
+        /// <summary>`Support Button` —— 与 `Faq Button` **几乎同一个矩形**（只差 0.74）：它是 **mobile 那一档**
+        /// 才亮的那颗（PC 档关着），原版两个平台组**共用同一块位置**（`Faq` vs `Support` 二选一）。
+        /// ⛔ **PC 档下它和 `Faq Button` 重叠** —— 原版就是靠平台组不同时亮来错开的，我们照抄这条显隐。</summary>
+        public const float SpSupportBtnL = 596.52f, SpSupportBtnT = 372.37f, SpSupportBtnR = 956.52f, SpSupportBtnB = 432.37f;
+        /// <summary>钮上那行 `Button Text`（**逐颗实读** —— ⛔ 不是「钮矩形 ± 同一个内缩」：
+        /// Faq/Contact 两颗的内缩一样，`Support` 那颗**不一样**）。</summary>
+        public const float SpTxtFaqL = 657.72f, SpTxtFaqT = 375.45f, SpTxtFaqR = 942.12f, SpTxtFaqB = 430.77f;
+        public const float SpTxtContactL = 657.72f, SpTxtContactT = 532.24f, SpTxtContactR = 942.12f, SpTxtContactB = 587.57f;
+        public const float SpTxtSupportL = 624.77f, SpTxtSupportT = 371.50f, SpTxtSupportR = 942.12f, SpTxtSupportB = 433.23f;
+        /// <summary>`External Link Icon` 在钮内的框（Faq / Contact 两颗逐值相同：40.12×31.53）。</summary>
+        public const float SpIconFaqL = 606.46f, SpIconFaqT = 387.35f, SpIconFaqR = 646.58f, SpIconFaqB = 418.88f;
+        public const float SpIconContactT = 544.14f;    // 同一对 x，只是纵移了 156.79
+
+        // ---- `bottom links`（HLG 排的两棵：`Terms of Service` + `Privacy Policy`）----
+        // ⚠️ 原版这一组**自己不在 `activeInHierarchy` 里**（它在`Support Tab` 下、而页是关的）
+        //    ⇒ `menu_rect` 印的是**布局跑之后**的设计值；本工程不实现 LayoutGroup ⇒ 照这些**绝对值**摆
+        //    （同账号页 `Social Media Links` 那几组的既有做法）。
+        public const float SpLinksL = 596.52f, SpLinksT = 803.15f, SpLinksR = 1538.78f, SpLinksB = 862.15f;
+        public const float SpTermsL = 596.52f, SpTermsT = 803.14f, SpTermsR = 1067.65f, SpTermsB = 862.15f;
+        public const float SpTermsTxtL = 646.52f, SpTermsTxtR = 1067.52f;      // `Terms of Service Text`（mTerm `Settings/Support/TermsOfService`）
+        public const float SpPrivacyL = 1067.65f, SpPrivacyT = 803.14f, SpPrivacyR = 1538.78f, SpPrivacyB = 862.15f;
+        public const float SpPrivacyBtnL = 1117.65f, SpPrivacyBtnR = 1538.65f;  // `Privacy Policy Button`
+        public const float SpPrivacyTxtL = 1122.65f, SpPrivacyTxtT = 791.57f, SpPrivacyTxtR = 1538.65f, SpPrivacyTxtB = 872.50f;
+        /// <summary>`bottom links` 里那两颗 `External Link Icon`（**逐颗实读**：Terms 那颗宽 40.00、
+        /// Privacy 那颗也是 40.00 —— 与上面那两颗 40.12 不是同一个数，两处各抄各的）。</summary>
+        public const float SpTermIconL = 596.52f, SpTermIconT = 816.88f, SpTermIconR = 636.52f, SpTermIconB = 848.41f;
+        public const float SpPrivIconL = 1067.65f, SpPrivIconR = 1107.65f;
+        /// <summary>`Privacy Policy Button` 的绿 —— 原版 `Image.m_Color` 原文
+        /// `(0.36862748861312866, 0.8941176533699036, 0.5874372720718384, **0.0**)`：**alpha 是 0**
+        /// （那颗钮只画字、底子透明 —— ⛔ 别给它一个实心绿底）。</summary>
+        public static readonly Color SpPrivacyTint = new Color(0.36862748861312866f, 0.8941176533699036f,
+                                                               0.5874372720718384f, 0f);
+
+        /// <summary>支持页那四颗外链钮的 URL —— **出处 = `d:/2/tools/il2cpp_out/stringliteral.json`**
+        /// （逐条在字面量表里命中）。🔴 **按语义对上去的**（FAQ 钮 → helpshift 的 FAQ 那条 …）——
+        /// ⛔ **不是**解 `SupportTab__OnSetup.c` 里那三个 `DAT_` 托管字符串指针（本地解不出，见本段头）。
+        /// ⚠️ `Terms of Service` **不在这张表里**：全字面量表没有 terms 字样的 URL ⇒ 我们**不打开**它（只出声）。</summary>
+        public const string SpFaqUrl = "https://everguild.helpshift.com/hc/app/4-warhammer-40-000-warpforge/";
+        public const string SpContactUrl = "https://everguild.helpshift.com/hc/en/4-warhammer-40-000-warpforge/contact-us/";
+        public const string SpPrivacyUrl = "https://www.warpforge40k.com/privacy-policy/";
+
+        /// <summary>🔴 **本地模拟**那一句（`Support Button` 那颗 = 原版 `HelpshiftManager.ShowFAQ`，
+        /// 是**服务器 SDK**；我们没有）。⛔ 不假装打开、也不静默 —— 照本窗账号页 `AcLocalNote` 的口径出声。</summary>
+        const string SpSdkNote = "(local simulation: the original opens the Helpshift support SDK here, "
+                               + "which needs a backend we do not have - nothing was sent)";
+        /// <summary>`Terms of Service` 那一下**没有**可用的常量 URL（见 `SpFaqUrl` 那段）⇒ 只出声、不开浏览器。</summary>
+        const string SpTermsUrlNote = " | Terms of Service: no constant URL exists locally "
+                                    + "(the original passes a runtime-built string), so we do NOT open one";
+
         // 联机页（**这一页是我们设计的**，见文件头 ①）
         public const float OnRoleT = 280f, OnRoleB = 340f, OnRoleW = 300f, OnRoleGap = 20f;
         public const float OnLabelT = 370f, OnFieldT = 400f, OnFieldH = 60f, OnFieldW = 500f;
@@ -694,6 +1115,26 @@ namespace CardPresentation
         /// A77⑬③ 起已换成**视觉压暗层** `darkVisual` —— 量的是那颗 quad 的 `RenderQueue`，不是传进来的常量）。</summary>
         public Transform ShadeHit { get { return transform.Find("BackgroundHit"); } }
 
+        // ---- 🆕 2026-10-19（A1175）账号页 / 登录弹窗的只读口（**别为了好看把它们藏起来**：自检拿不到就只能瞎猜）----
+        /// <summary>登录弹窗那棵子树（`Account Tab > Login Window`；关着时它自己的 `activeSelf == false`）。</summary>
+        public Transform LoginWindowNode { get { return _loginWindow; } }
+        /// <summary>弹窗当前**亮着**没有（读 `activeSelf`，不是 `activeInHierarchy` —— 它整条父链都在窗根下）。</summary>
+        public bool LoginWindowOpen { get { return _loginWindow != null && _loginWindow.gameObject.activeSelf; } }
+        /// <summary>页内 / 弹窗那四颗输入框（自检灌字用：`Text` 只读 + `SetText` 程序化写）。</summary>
+        public AcInput AccountEmail { get { return _acEmail; } }
+        public AcInput AccountPassword { get { return _acPwd; } }
+        public AcInput LoginWindowEmail { get { return _lwEmail; } }
+        public AcInput LoginWindowPassword { get { return _lwPwd; } }
+        /// <summary>两颗错误行（页内 / 弹窗内）—— 里面是**动态**文案，所以有只读口给自检取。</summary>
+        public Label AccountError { get { return _acError; } }
+        public Label LoginWindowError { get { return _lwError; } }
+        /// <summary>那颗 `Player Id`（恒关，见常量的「层 × 出现条件」表）。</summary>
+        public Label AccountPlayerId { get { return _acPid; } }
+        /// <summary>登录态（= 本机模拟的那一格，真值在 <see cref="AccountState"/>）。**只读**。</summary>
+        public bool AccountLoggedIn { get { return AccountState.Registered; } }
+        /// <summary>`AccountState` 的词条缺键清单（自检打印 / 报告用；空 = 那条键已在表里）。</summary>
+        public static IList<string> AccountMissingTermKeys { get { return _acMissingKeys; } }
+
         readonly List<ImageQuad> _tabBgs = new List<ImageQuad>();
         /// <summary>页签底图对应的按钮（A17 换图用）—— **选中态是别人改底图的** ⇒ 换完要同步
         /// 按钮记的「常态图」，否则悬停退出会把选中态还原成未选中的图。</summary>
@@ -706,7 +1147,10 @@ namespace CardPresentation
         struct Keyed
         {
             public Label Lb; public string Key;
-            public Keyed(Label lb, string key) { Lb = lb; Key = key; }
+            /// <summary>🆕 **2026-10-09（第十会话 · `D1` 诊断）**：**缺键时的原版英文原文**（`null` = 老行为）。
+            /// 见 `Term` 的 doc —— 没有它，`RefreshTexts` 就只能用裸 `Loc.T(键)`，缺键时会**把键名印到页签上**。</summary>
+            public string En;
+            public Keyed(Label lb, string key, string en = null) { Lb = lb; Key = key; En = en; }
         }
         /// <summary>页签上那几行字（目前只有 `General` 那条的词条是通的 —— 见 `BuildTabs` 的注释）。</summary>
         readonly List<Keyed> _tabLabels = new List<Keyed>();
@@ -747,6 +1191,26 @@ namespace CardPresentation
         Transform _hostBlock, _clientBlock;
         Label _statusLabel;
         NetRole _role = NetRole.Host;
+
+        // ============================================================ 🆕 2026-10-19（A1175）账号页 / 登录弹窗的控件
+        /// <summary>登录弹窗那棵子树（恒挂在 `Account Tab` 下，出厂 `m_IsActive = 0`）—— **关着时是 null 之外唯一的空值**。
+        /// 对外只读口 = <see cref="LoginWindowNode"/>。</summary>
+        Transform _loginWindow;
+        /// <summary>弹窗那颗绿关窗钮的 `Icon` 子件（悬停换图目标 —— 与主关窗钮同一条判据：
+        /// `m_TargetGraphic` 指的是**子件 `Icon`**，⛔ 不是圆底盘）。</summary>
+        ImageQuad _loginCloseIcon;
+        /// <summary>四颗输入框（页内两颗 + 弹窗两颗）—— 本窗自建的那一族（见 <see cref="AcInput"/>）。</summary>
+        AcInput _acEmail, _acPwd, _lwEmail, _lwPwd;
+        /// <summary>两颗动态文字：页内错误行 / 弹窗错误行、以及那颗 `Player Id`。</summary>
+        Label _acError, _lwError, _acPid;
+        /// <summary>弹窗里那个 `ErrorMensajeContainer`（左边那颗转圈的骷髅 + 右边错误行）——
+        /// **开弹窗时整块关掉**（原版 `BasicLoginWithEmailWindow__Open.c` 那句 `SetActive(0)`）。</summary>
+        Transform _lwErrorBox;
+        /// <summary>被 `RefreshAccount()` 开关的那几颗（**判据 = `AccountTab__Refresh.c` 只 `SetActive` 这 6 处**；
+        /// 其余几颗（`Logout` / `Delete` / `Twitch` / `Login Window` / `Player Id`）原版**一个字都不碰**
+        /// ⇒ 停在 prefab 值，本窗也照原样不碰）。</summary>
+        Transform _acRegisterBtn, _acULoginBtn, _acResetBtn, _acForgotBtn, _acNewsBtn, _acSwitchBtn;
+        Transform _acLogoutBtn, _acDeleteBtn;
 
         /// <summary>最后一次操作的结果（人话）。🔴 **现在是一个「现算工厂 + 求值结果」的属性**，
         /// 不再是那个只会记「算出来的那句话」的 `string`。
@@ -856,6 +1320,9 @@ namespace CardPresentation
             //   我们的列表挂在窗根下 ⇒ 根一销毁就没了，但**光收不显式关**会留下一个活着的 `Blocker`
             //   命中区（队列 3140）挡住下一扇窗 —— 那是静默故障）。⛔ 别删这两句。
             HideLangList();
+            // 🆕 A1175：登录弹窗同理（它挂在账号页子树里 ⇒ 子树随根一起销毁，但**先显式收掉**这一条
+            //   与 `HideLangList` 同一形状：显式收 = 意图清楚 + 将来若把它挪到窗根下也不会留下浮层）。
+            HideLoginWindow();
             base.Close();
             SuperSampling.ApplyIfDirty();
         }
@@ -871,6 +1338,14 @@ namespace CardPresentation
         /// ⚠️ **列表没开时不改变任何既有行为**（直接转发 `base`）。</summary>
         public override bool ESCPressed()
         {
+            // 🆕 **2026-10-19（A1175）**：登录弹窗在最上面 ⇒ **`ESC` 先关它**（原版那颗 MB 的
+            //   `closeOnESC = 1`）。判据/形状与下面那条 `HideLangList` 逐字同族（谁在最上面谁先吃这一下）。
+            if (LoginWindowOpen)
+            {
+                HideLoginWindow();
+                Debug.Log("[Settings] ESC：**先关登录弹窗**（原版 `BasicLoginWithEmailWindow.closeOnESC = 1`）—— 窗不关");
+                return true;
+            }
             if (LangListOpen)
             {
                 HideLangList();
@@ -907,6 +1382,14 @@ namespace CardPresentation
             // 🆕 A862：列表这一族也要清（`_langList` / `_langBlocker` 是 `Build()` 里新挂的子树，
             //   上一棵树的引用会变假 null）；⚠️ `PointerLayer` 那几件不在本窗（列表不注册滚动区，见 `LstHandleH`）。
             _langRows.Clear(); _langList = null; _langBlocker = null; _langBlockerHit = null; _langTemplate = null;
+            // 🆕 **2026-10-19（A1175）账号页 / 登录弹窗那一族也要清**：它们全是**这一棵树里的**件
+            //   （弹窗子树、四颗输入框、两颗错误行 `Label`）⇒ 与 `_langList` 同一条理由
+            //   （不清 = 指着上一棵树里已销毁的件 ⇒ 假 null，守卫挡住不炸但那一格**永远不再更新**）。
+            _loginWindow = null; _loginCloseIcon = null; _lwErrorBox = null;
+            _acEmail = null; _acPwd = null; _lwEmail = null; _lwPwd = null;
+            _acError = null; _lwError = null; _acPid = null;
+            _acRegisterBtn = null; _acULoginBtn = null; _acResetBtn = null; _acForgotBtn = null;
+            _acNewsBtn = null; _acSwitchBtn = null; _acLogoutBtn = null; _acDeleteBtn = null;
 
             // 1) 压暗整屏（`Menu Dark Background`：无 sprite 的纯色块）
             Node(root, "Menu Dark Background", 960f - ShadeW * 0.5f, 540f - ShadeH * 0.5f,
@@ -994,34 +1477,48 @@ namespace CardPresentation
                 Close();
             }, closeIconQ, ArtCloseIcon, "40k_bt_close_hover");
 
-            // 4) 左栏四个页签 + 四页内容
+            // 4) 左栏五个页签 + 六页内容
             //    🔴 **顺序 = `SettingsTab` 的序号**（`OpenTab` 按序号切 `activeSelf`）——
-            //    原版页签序也是 `General` 第一（`General / Media / Account / Graphics / Support`）。
+            //    **原版五页全建**（`General / Media / Account / Graphics / Support`，逐位照原版）。
+            //    ⚠️ **页码 6 ≠ 键数 5**：`Online` 那一页**不在栏里**（`A1186` 裁定 ①），入口在
+            //    `General` 页那颗钮上（裁定 ②）。逐条出处 → `SettingsTab` 的 doc。
             BuildTabs(area);
-            _pages.Add(BuildGeneralPage(area));
-            _pages.Add(BuildGraphicsPage(area));
-            _pages.Add(BuildAudioPage(area));
-            _pages.Add(BuildOnlinePage(area));
+            _pages.Add(BuildGeneralPage(area));      // 0 General
+            _pages.Add(BuildAudioPage(area));        // 1 Audio（= 原版 `Media`）
+            _pages.Add(BuildAccountPage(area));      // 2 Account（A1175）
+            _pages.Add(BuildGraphicsPage(area));     // 3 Graphics
+            _pages.Add(BuildSupportPage(area));      // 4 Support（🆕 A1183 = 原版第 5 格）
+            _pages.Add(BuildOnlinePage(area));       // 5 Online（我们自加的那一页；栏里没有它的键）
         }
 
         void BuildTabs(Transform area)
         {
             var bar = Node(area, "Tab Buttons", BarL, BarT, BarR, BarB);
-            // 四个键（原版这一列有 5 个，我们建 4 个 —— 文件头 ③）
+            // **五个键** = **原版那一列的形状，逐位不变**（`A1186` 裁定 ①；原版五页全建 + `Online` **不进栏**）
             // 🔴 **`Label` 有两个身份，别混**：① `Node(...)` 的**节点名**（= 自检 `FindChild` / `Click` 用的
             //    稳定英文标识，⛔ 不随语言变）② 画在键上那行字的**文案**（走 `Key`，语言一换就变）。
             //    2026-10-17 之前两者是同一个字符串（只有 `Graphics/Audio/Online` 三页、不翻译）；
             //    General 页是**第一个要翻译的** ⇒ 拆开。
             // 🆕 **2026-10-18（波 1b · `A1046(d)`/`A1062`）**：`Graphics/Audio/Online` 三页的 `Key` 也接上了
-            //    （原来三条都是 `(string)null`）⇒ **四个页签现在全走词条、没有一页照 `Label` 原样画**。
+            //    （原来三条都是 `(string)null`）⇒ **页签现在全走词条、没有一页照 `Label` 原样画**。
             //    ⚠️ `Audio` 那条的键是 `Settings/Media/Title` ⇒ **英文档由 `Audio` 变 `Media`**（波 0b3 已裁、**有意**）。
             //    ⚠️ `Label`（节点名）**一个字没动**：`Graphics` / `Audio` / `Online` 照旧（自检 `FindChild` 靠它）。
+            // 🆕 **2026-10-19（A1175）**：`Account` 插在第 3 格（原版序），`Graphics` 顺延到第 4 ——
+            //    ⛔ **`specs` 的次序必须与 `SettingsTab` 的序号逐个对上**（`OpenTab` 按序号切页）。
+            // 🆕 **2026-10-19（A1183 → `A1186` 裁定 ①）**：`Support` 插在第 5 格（**原版它就是第 5 个**），
+            //    **`Online` 从栏里撤掉**（`A1183` 那一笔曾把它顺延到第 6 格 —— 那条口径被裁定撤掉了，铁律 5）。
+            //    ⇒ 这五条 `specs` = **原版那 5 个键，逐位不变**；键数回到 5 ⇒ `TabTop` 回到原版真值档
+            //    （首键顶 **139.09624**，不是 6 键档的 55.794 —— 见 `TabAlignY` 那条 doc）。
+            //    ⚠️ `Support` 的图标 = **`40K_settings_button_support`**（原版那个键的 `Icon.m_Sprite`
+            //    PathID `5210374657225443124` 解出来的名字，逐颗实读）。⛔ **`Online` 我们不画图标**
+            //    （裁定 ②：那一族 5 张全被原版 5 个键各占一张，见 `ArtTabIconSupport` 那条 doc）。
             var specs = new[]
             {
                 new { Tab = SettingsTab.General,  Label = "General",  Key = lkGenTitle,   Icon = ArtTabIconGeneral },              // 原版页签图标有单独一张 general
-                new { Tab = SettingsTab.Graphics, Label = "Graphics", Key = lkGfxTitle,   Icon = "40K_settings_button_graphics" },
                 new { Tab = SettingsTab.Audio,    Label = "Audio",    Key = lkMediaTitle, Icon = "40K_settings_button_quality" },   // 原版 Media 页用的就是 quality 那张
-                new { Tab = SettingsTab.Online,   Label = "Online",   Key = lkOnTitle,    Icon = "40K_settings_button_account" },   // ⚠️ 我们挑的（联机页原版没有）
+                new { Tab = SettingsTab.Account,  Label = "Account",  Key = lkAcTitle,    Icon = ArtTabIconAccount },              // A1175：原版 `…_account`，词条 `Settings/Account/Title`
+                new { Tab = SettingsTab.Graphics, Label = "Graphics", Key = lkGfxTitle,   Icon = "40K_settings_button_graphics" },
+                new { Tab = SettingsTab.Support,  Label = "Support",  Key = lkSupTitle,   Icon = ArtTabIconSupport },              // 🆕 A1183：原版 `…_support`（原版第 5 个键就是它）
             };
             for (int i = 0; i < specs.Length; i++)
             {
@@ -1046,10 +1543,21 @@ namespace CardPresentation
                 float cm = (TabL + BarR) * 0.5f;
                 Rect(page, "Icon", cm - 141f * 0.5f, t + 13f, cm + 141f * 0.5f, t + 120f, specs[i].Icon, QOverlay,
                      null, true);
-                var lb = Text(page, "Tab Toggle Title", specs[i].Key != null ? Loc.T(specs[i].Key) : specs[i].Label,
+                // 🆕 **2026-10-19（A1181）**：页签的**自适应**接上 —— 原版 `Tab Toggle Title` 五颗逐颗实读
+                //   （`bundle_menus_assets_all > Main Menu Settings Window > … > Tab Buttons > */Label/Tab Toggle Title`）：
+                //   `fs 35` · `m_fontSizeMin **10**` · `m_fontSizeMax **35**` · `m_fontSizeBase **35**` ·
+                //   `m_TextWrappingMode **0**`（`NoWrap`；量具 = `工具/menu_dump.py`，见 `R2_A1126原版autosize真值.md` §3 注⑥）。
+                //   ⚠️ 折行档 = 0 ⇒ `wrapPx` 传 **0**（漏斗内部会补本格框宽当自适应框、并在下游还原 `NoWrap`）。
+                var lb = Text(page, "Tab Toggle Title",
+                              specs[i].Key != null ? Term(specs[i].Key, specs[i].Label) : specs[i].Label,
                               cm - 155f * 0.5f, cm + 155f * 0.5f,
-                              t + 106f, t + 146f, 35f, Color.white, QText);
-                if (specs[i].Key != null) _tabLabels.Add(new Keyed(lb, specs[i].Key));
+                              t + 106f, t + 146f, 35f, Color.white, QText,
+                              null, 0f, 10f, 35f, 35f);
+                // 🔴 **2026-10-09（第十会话 · `D1` 诊断 · 真缺陷 β）**：这里原来走**裸 `Loc.T(键)`**
+                //   ⇒ 缺键时把**键名本身**印上页签（实测：`Account` 那一格印出 `Settings/Account/Title`）。
+                //   改走本窗的两步漏斗 `Term(键, 原版英文)`（同页的页标题 `PageTitle(page, AcTerm(...))` 本来就走对了）；
+                //   **`En` 一路带进 `Keyed`** ⇒ `RefreshTexts()` 换语言时也走同一支（那一处原来**同病**）。
+                if (specs[i].Key != null) _tabLabels.Add(new Keyed(lb, specs[i].Key, specs[i].Label));
                 var tab = specs[i].Tab;
                 // 🆕 A17：原版页签是 `EverguildToggle`（`onSprite = 40K_settings_button_hover` ·
                 // `offSprite = 40K_settings_button`），而 **`m_SpriteState` 的悬停图是 `…_selected`**
@@ -1067,6 +1575,10 @@ namespace CardPresentation
             // 🆕 A862：切页时先把语言下拉收掉（列表挂在 `General Tab` 的 `LanguagesDropdown` 下、而
             //   `Blocker` 挂在**窗根**下 ⇒ 切走那一页的话列表跟着藏了、`Blocker` 却还盖着整屏 = 静默卡死）。
             HideLangList();
+            // 🆕 **2026-10-19（A1175）**：登录弹窗是**账号页子树里**的一层浮层（队列 3145–3150 ⇒ 盖在整页之上）
+            //   —— 与上面那条 `HideLangList` **同一个理由**：切走那一页时它若还亮着，就会盖在**别的页**上面
+            //   （原版它是独立的 `GameWindow`、不存在这个问题；我们把它套在页子树里 ⇒ 这一句是必须的）。
+            HideLoginWindow();
             for (int i = 0; i < _pages.Count; i++)
                 if (_pages[i] != null) _pages[i].gameObject.SetActive(i == (int)t);
             for (int i = 0; i < _tabBgs.Count; i++)
@@ -1084,6 +1596,9 @@ namespace CardPresentation
                 if (i < _tabWbs.Count && _tabWbs[i] != null) _tabWbs[i].SetNormalTex(onTex);
             }
             if (t == SettingsTab.Online) RefreshOnline();
+            // 🆕 A1175：切到账号页时把「层 × 出现条件」那六条摆一遍（登录态可能刚被别处改过 —— 原版的
+            //   `AccountTab.Refresh` 也是每次 `OnOpen` 都跑）
+            if (t == SettingsTab.Account) RefreshAccount();
             // 🆕 2026-10-17：切页时**兜一道**文案（别处换过语言的话 —— `Loc` 不发事件，见 `RefreshTexts`）。
             // ⚠️ 它**不动**只会被 `Build` 建一次的那几件（`_genLabels` 里存的引用是活的 ⇒ 直接重设文本，不重建节点）。
             RefreshTexts();
@@ -1195,6 +1710,51 @@ namespace CardPresentation
         const string lkSetVoiceOvers   = "Settings/Media/VoiceOvers";
         const string lkGfxAutoZoom     = "Settings/Graphics/AutoZoom";
 
+        // ---- 🆕 2026-10-19（A1175）账号页 / 登录弹窗的**原版词条键** ----
+        // 🔴 **2026-10-19（A1185）就地更正（铁律 5）**：这里原来写「这 11 条键**还没进** `Core/Loc.cs`」
+        //    —— **已过期**：A1185 那一笔把账号页 / 登录弹窗那 **16 条**（下列 12 条 + 五条社交里的四条，
+        //    `…/Youtube` 与 `lkAcTwitch` 是**同一条**）全部补进了 `Core/Loc.cs` 的表。
+        //    ⇒ 现在走 `AcTerm(键, 原版英文)` 的**第一档**（表里有走表），**那条 `warning` 不再触发**；
+        //    第二档（退原版英文并出声）留着不动 —— 它是**新增键时的安全网**，⛔ 别删。
+        //    ⚠️ 三处不变量：**键名逐字照原版 `Localize.mTerm`**（含 `Switch Account` 里那个空格、`E-mail` 里那个连字符）。
+        // 出处（逐条）= 原版 prefab 每颗 TMP 上那颗 `Localize.mTerm` 的原文（`w4probe` 逐颗实读）。
+        const string lkAcTitle      = "Settings/Account/Title";                  // 页签 + 页标题（原版同一条键两处用）
+        const string lkAcEmail      = "MainMenu/Login/Email";                    // 预置英文 `E-mail`
+        const string lkAcPassword   = "MainMenu/Login/Password";                 // 预置英文 `Password`
+        const string lkAcResetPwd   = "Settings/Account/ResetPassword";          // 预置英文 `Reset Password`
+        const string lkAcForgotPwd  = "Settings/Account/ForgotPassword";         // 预置英文 `Forgot Password`
+        const string lkAcNewsletter = "Settings/Account/SubscribeToTheNewsletter";
+        const string lkAcSignIn     = "MainMenu/Login/SignInButton";             // 预置英文 `Log in`
+        const string lkAcRegister   = "MainMenu/Login/Register";                 // 预置英文 `Register`
+        /// <summary>⚠️ 原版这条键**中间真有一个空格**（`Settings/Account/Switch Account`）——
+        /// 逐字照抄（`Localize.mTerm` 原文），⛔ 别「顺手」改成下划线（改了就取不到词条）。</summary>
+        const string lkAcSwitchAcc  = "Settings/Account/Switch Account";
+        const string lkAcLogout     = "Settings/Account/Logout";
+        const string lkAcDeleteAcc  = "MainMenu/Settings/ButtonLabel/DeleteAccount";   // 预置英文 `Delete account`
+        /// <summary>🔴 原版那颗 `Twitch Button` 的 `Localize.mTerm` 指的**就是 Youtube 这条**
+        /// （prefab 里的 copy-paste 残留，prefab 文本是 `Link Twitch`）—— **照抄原版**（铁律 11），
+        /// 并把这条「原版自己的 prefab 残留」记进报告；⛔ 不自己另造一条 Twitch 键。</summary>
+        const string lkAcTwitch     = "MainMenu/Settings/ButtonLabel/Youtube";
+
+        // ---- 🆕 2026-10-19（A1183）支持页（原版 `Support Tab`）的**原版词条键** ----
+        // 出处（逐条）= 原版 prefab 每颗 TMP 上那颗 `Localize.mTerm` 的原文
+        //   （`python -I d:/tmp/wf_w4probe/w4probe.py bundle_menus_assets_all "Support Tab" 4` 逐颗实读）。
+        // 🔴 **这九条 2026-10-19 已进 `Core/Loc.cs`**（本件 = A1185 那一笔的同族）⇒ 与账号页那批**同一条口子**：
+        //    `Term(键, 原版英文)` 两步走（表里有走表、没有退原版英文并出声）。⛔ 不自造键。
+        const string lkSupTitle     = "Settings/Support/Title";        // ⚠️ 原版**同一条键挂三处**：页签 / 页标题 / `Support Button > Button Text`
+        const string lkSupFaqText   = "Settings/Support/FAQText";
+        const string lkSupFaqBtn    = "Settings/Support/FAQButton";
+        const string lkSupMidText   = "Settings/Support/MiddleText";
+        const string lkSupContactBtn = "Settings/Support/ContactButton";
+        const string lkSupContactTxt = "Settings/Support/ContactText"; // ⚠️ `Email Text` 与 `Email Text Mobile` **共用这一条**
+        const string lkSupTerms     = "Settings/Support/TermsOfService";
+        const string lkSupFaqMob    = "Settings/Support/FAQTextMobile";
+        /// <summary>⚠️ 这一条**不在** `Settings/Support/` 前缀下（原版就那么写的）：底部两颗链里
+        /// `Privacy Policy` 那颗 `Button Text` 挂的是 `MainMenu/Settings/ButtonLabel/PrivacyPolicy`，
+        /// 而同一组的 `Terms of Service` 挂的是 `Settings/Support/TermsOfService` ——
+        /// **两条前缀不同是原版的**，⛔ 别为了「看着整齐」把它们统一。</summary>
+        const string lkSupPrivacy   = "MainMenu/Settings/ButtonLabel/PrivacyPolicy";
+
         // ---- 🆕 2026-10-18（波 1b · P2b 尾巴 + `A1046`/`A1062`）：本文件**剩下那批还没接的标签** ----
         // 🔴 **键全部早就在表里**（波 0b / 0b2 / 0b3 / 0b4 建好）⇒ 本笔只把调用点的**字面量**换成 `Loc.T(键)`，
         //    ⛔ **不新建、不改任何键**（判据 = `查证_23双语键盘点.md` 表 B1/B2）。
@@ -1237,8 +1797,10 @@ namespace CardPresentation
             var page = Node(area, "General Tab", TabsL, TabsT, TabsR, TabsB);
 
             // ① 页标题（原版 `General Tab > Tab Title`：TMP `'General'` · fs55 · `Left/Capline`）
+            //    🆕 A1181：自适应 = 原版 `4 / 55 / 55` + `折行 1`（逐字段实读，见 `PageTitle` 的注释）
             var title = Text(page, "Tab Title", Loc.T(lkGenTitle), TitleL, TitleR, TitleT, TitleB,
-                             PageTitleFontPx, Color.white, QText);
+                             PageTitleFontPx, Color.white, QText,
+                             null, TitleR - TitleL, 4f, PageTitleFontPx, PageTitleFontPx);
             if (title != null)
             {
                 AlignLeft(title, new PxRect(TitleL, TitleT, TitleR, TitleB));
@@ -1247,8 +1809,10 @@ namespace CardPresentation
 
             // ② 版本号（原版 `VersionText`：fs28 · **`Right/Middle`** · 右上角那一格）
             //    文字 = `"v" + 版本`（见 `VersionText()`），⛔ 不写死原版那句 `v0.15.5PREPROD-0`。
+            //    🆕 A1181：自适应 = 原版 `1 / 28 / 26`（**base 26 ≠ fs 28** —— 逐字段实读，⛔ 别按 fs 推）+ `折行 1`
             var ver = Text(page, "VersionText", VersionText(), GenVerL, GenVerR, GenVerT, GenVerB,
-                           GenVerFontPx, Color.white, QText);
+                           GenVerFontPx, Color.white, QText,
+                           null, GenVerR - GenVerL, 1f, 28f, 26f);
             if (ver != null) AlignRight(ver, new PxRect(GenVerL, GenVerT, GenVerR, GenVerB));
 
             // ③ 语言（原版 `General Tab > Language Selector`，组件 `LanguageSelector`）
@@ -1267,9 +1831,15 @@ namespace CardPresentation
                 // 框里那行**当前语言名**（原版 `LanguagesDropdown > Label`，fs18 · `Left/Middle` · 灰 (0.67)）
                 // ⚠️ 字号 18 ⇒ 屏幕上是 16.2px（本窗文字要一起过根上那层 0.9，见 `Text` 的注释）
                 //     —— `Editor/SettingsScene.cs` 那条「全窗字号」扫描的允许表已按原版加上这一档。
+                // 🆕 **2026-10-19（A1181）**：原版 `LanguagesDropdown > Label` 的四格 = `18 / 40 / 14 · 折行 0`
+                //   （逐字段实读）。🔴 **如实记一处「传了但不生效」**：那道共用闸是 `fontPx > autoMinPx`
+                //   （`MenuDraw.TextCore`），而这一颗原版 `m_fontSizeMin` **恰等于 `m_fontSize`（18/18）**
+                //   ⇒ 传了也**不会**进 `SetAutoFitBox`。参数照样照原版接上（闸一放宽它就活），
+                //   ⛔ **不许为了让这一颗生效而把 `autoMinPx` 往下改**（那是发明一个原版没有的值）。
                 _langCap = Text(fld, "Label", Loc.LanguageName(Loc.Current),
                                 GenL + GenCapInset, GenFieldR - GenCapInset, GenSelT, selB,
-                                GenCapFontPx, GenCapColor, QText);
+                                GenCapFontPx, GenCapColor, QText,
+                                null, 0f, 18f, 40f, 14f);
                 if (_langCap != null)
                     AlignLeft(_langCap, new PxRect(GenL + GenCapInset, GenSelT, GenFieldR - GenCapInset, selB));
                 // 右端那个箭头（原版 `Arrow`：20×20 · **preserveAspect** · 图名是我们的选择，见常量注释；
@@ -1278,8 +1848,10 @@ namespace CardPresentation
                 Rect(fld, "Arrow", GenArrowL, GenArrowT, GenArrowL + GenArrowW, GenArrowT + GenArrowW,
                      ArtLangArrow, QOverlay, GenArrowTint, true);
                 // 左边那行标签 `Select Language`（词条与**对战那扇窗共用同一条**）
+                // 🆕 A1181：自适应 = 原版 `29 / 42 / 36 · 折行 1`（逐字段实读）
                 var sel = Text(row, "SelectLanguageText", Loc.T(lkSelectLang), GenSelTextL, GenR,
-                               GenSelTextT, GenSelTextT + GenSelH, FontRowLabel, Color.white, QText);
+                               GenSelTextT, GenSelTextT + GenSelH, FontRowLabel, Color.white, QText,
+                               null, GenR - GenSelTextL, 29f, 42f, 36f);
                 if (sel != null)
                 {
                     AlignLeft(sel, new PxRect(GenSelTextL, GenSelTextT, GenR, GenSelTextT + GenSelH));
@@ -1318,7 +1890,792 @@ namespace CardPresentation
             GenButton(page, "Redeem Code", GenL, lkRedeemCode, GenBtnFont1, RedeemCode);
             GenButton(page, "Close Game Button", GenBtn2L, lkExitGame, GenBtnFont2, ExitGame);
 
+            // ⑥ 🆕 **2026-10-19（`A1186` 裁定 ②）**：`Online` 页的入口钮。
+            //    🔴 原版**没有**这一颗（`General Tab` 的节点表里没它）、`Online` 那一页本身也是我们自加的
+            //    （文件头 ①）⇒ 位置 / 字号 / 文案**都是我们挑的**，出处与「为什么摆这一格」→ `GenOnlineL`
+            //    那条 doc。它**不压**本页任何原版元素（落在原版 `Bottom Buttons` 未用到的余量里）。
+            GenOnlineEntry(page);
+
             return page;
+        }
+
+        // ============================================================ 页 2：账号（原版 `Account Tab`，🆕 A1175）
+        //
+        // 判据（逐值出处）：
+        //   · **几何** = `python 工具/menu_rect.py bundle_menus_assets_all "Account Tab" --depth 4
+        //     --no-ancestor-scale`（**未缩放帧 = 设计 px**，本窗所有包装函数收的就是这个坐标系）；
+        //   · **组件 / 词条 / 颜色 / 显隐 / 命中** = `python -I d:/tmp/wf_w4probe/w4probe.py
+        //     bundle_menus_assets_all "Account Tab" 4` + 全量反编译 `AccountTab__*.c`
+        //     / `BasicLoginWithEmailWindow__*.c`（`d:/2/tools/decomp_full/`，逐句实读）；
+        //   · **层 × 出现条件**表 = 本文件 `Ac*` 常量那一段的头部注释（完整表 → 报告 §2）。
+        //   · **词条** = 每颗 TMP 上那颗 `Localize.mTerm` 的原文（逐颗实读）⇒ 走 `AcTerm`。
+        //
+        // 🔴 **哪一半是本地模拟**（本仓红线：不许静默失败）：原版这七步**全打 PlayFab**
+        //   （`LoginWithEmailHelper.Login` / `Register` / `Logout` / `ResetPassword` /
+        //   `PlayerDataManager.SendAccountConfirmationEmail` / `InactivateAccount`），而**服务器已关**
+        //   ⇒ 我们本地模拟（`AccountState`），并且**每一次都在页内错误行 + 日志里明说**（`AcLocalNote`）。
+        //   ⛔ **不假装登录成功**、⛔ **不静默**。
+        const string AcLocalNote = "(local simulation: the original calls the live backend here, "
+                                 + "and that backend is gone - nothing was sent)";
+
+        /// <summary>本页那批原版词条键里、`Core/Loc.cs` **表里还没有**的那些（第一次用到时记一条 + 出声）。
+        /// 只读口 = <see cref="AccountMissingTermKeys"/>（自检 / 报告打印用）。空 = 全都进表了。
+        /// <para>🔴 **2026-10-19（A1185）之后运行时应当是【空表】**：账号页 / 登录弹窗那 16 条 + 支持页那 9 条
+        /// 都已进 `Core/Loc.cs` ⇒ 这个 `List` 现在是**回归哨兵**（哪天有人把键改错、或把表里某条删了，
+        /// 它就会长出东西来 + 那声 `warning` 回来）。⛔ **别因为「它是空的」就把它删掉**。</para></summary>
+        static readonly List<string> _acMissingKeys = new List<string>();
+
+        /// <summary>取一条**原版词条**的文案。两步走：
+        /// 表里有 → `Loc.T(键)`；表里没有 → **原版英文原文**（prefab 的 `m_text` / 词条英文列），并**出声**
+        /// （一条 `Debug.LogWarning` + 记进 <see cref="AccountMissingTermKeys"/>）。形状与
+        /// `Shell/AlliancePanelWindow.LocOr`（`:152-159`，「`HasEntry ? Loc.T : prefab 英文`」）**逐字同形**。
+        /// <para>🔴 **2026-10-19（A1185）就地更正（铁律 5）**：这里原来写「本页那批原版键**还没进** `Core/Loc.cs`」
+        /// —— **已过期**（那一批已进表）⇒ 现在**正常路径走第一档**；第二档留着当**新增键时的安全网**
+        /// （⛔ 别删：删了以后任何一条漏进表的键都会**静默印英文**，而且没人知道）。</para>
+        /// <para>⚠️ **不能写成 `Loc.T(键) ?? 兜底`**：`Loc.T` **缺键返回的是键名本身**（不是 null）
+        /// ⇒ 那样会把**键名印到屏幕上**。必须先 `Loc.HasEntry`（判据 = `Loc.T` 的 doc）。</para>
+        /// <para>⚠️ 本函数**同时是支持页的漏斗**（`Term` → `AcTerm`）—— 支持页那九条键也走同一条路，
+        /// 所以那条 `warning` 里说的「账号页」现在是**这一批新页的统称**（键名照原样印出来，不影响判读）。</para></summary>
+        static string AcTerm(string key, string origEn)
+        {
+            if (Loc.HasEntry(key)) return Loc.T(key);
+            if (!_acMissingKeys.Contains(key))
+            {
+                _acMissingKeys.Add(key);
+                Debug.LogWarning($"[Settings] 账号页 / 支持页的词条键 `{key}` **还不在 `Core/Loc.cs` 的表里** ⇒ "
+                               + $"本格退原版英文原文「{origEn}」（⛔ 不是静默：整张缺键清单见 "
+                               + "`SettingsWindow.AccountMissingTermKeys`，A1175 / A1185 那两笔都写了这条口子）。");
+            }
+            return origEn;
+        }
+
+        /// <summary>**页签 / 通用标签的两步漏斗** —— 表里有就用表、没有退 `en`（**原版英文原文**）。
+        /// <para>🔴 **2026-10-09（第十会话 · `D1` 诊断 · 真缺陷 β）**：**⛔ 别在「登记给 `RefreshTexts` 的标签」上
+        /// 用裸 `Loc.T(键)`** —— `Loc.T` 按契约在**缺键时返回【键名本身】**（本仓有记），
+        /// 于是页签上会直接印出 `Settings/Account/Title` 这种串给玩家看。
+        /// 本窗原来就栽在这里：`BuildTabs` 建页签字用 `Loc.T`、而 `RefreshTexts` 里那一段**同病**
+        /// ⇒ 开窗那一刻就已经是键名（换一次语言还会再变回来）。</para>
+        /// <para>⚠️ **`en == null` ⇒ 退回老行为（`Loc.T(key)`）** —— `_genLabels` 那两条链**逐位不变**
+        /// （它们的键都在表里，本来就没有这个病）。</para></summary>
+        static string Term(string key, string en) { return en == null ? Loc.T(key) : AcTerm(key, en); }
+
+        /// <summary>账号那一格的状态（登录态 / 邮箱 / player id）—— 原版在 `PlayerDataManager` + PlayFab 上。
+        /// <para>🔴 **我们这一格是【本地模拟】**（原版服务器已关）：三项都落 `PlayerPrefs`，
+        /// 出厂 = **未登录**（原版新装的玩家也是未登录 —— `AccountTab__Refresh.c` 判的就是
+        /// `PlayerDataManager` 那颗玩家名（`+0x348`）空不空）。⛔ **不冒充服务器**：每一次模拟动作都会
+        /// 在页内错误行 + 日志里**明说**（`AcLocalNote`）。</para>
+        /// <para>自检注入口 = <see cref="PersistOverride"/>（true ⇒ 只改内存、**不写** `PlayerPrefs`）——
+        /// 与 `GeneralFlags` / `AutoZoom` / `SuperSampling` 那三处**同形**（本窗既有形状，别另发明一套）。</para></summary>
+        public static class AccountState
+        {
+            public const string EmailPrefKey = "AcEmail";
+            public const string IdPrefKey = "AcPlayerId";
+            public const string RegisteredPrefKey = "AcRegistered";
+
+            /// <summary>自检注入点：true ⇒ <see cref="SignIn"/> / <see cref="SignOut"/> **只改内存、不落盘**。</summary>
+            public static bool PersistOverride;
+
+            static bool _loaded, _registered;
+            static string _email, _id;
+
+            static void Load()
+            {
+                if (_loaded) return;
+                _loaded = true;
+                _registered = PlayerPrefs.GetInt(RegisteredPrefKey, 0) != 0;   // 出厂 = 未登录
+                _email = PlayerPrefs.GetString(EmailPrefKey, "");
+                _id = PlayerPrefs.GetString(IdPrefKey, "");
+                if (string.IsNullOrEmpty(_id))
+                {
+                    // 本机的模拟 id（**不是**原版那种服务器发的 id）—— 9 位十进制，只用于这一格的显示。
+                    // 🔴 **这里【不落盘】**：本函数在**每次开窗**（`Build()` → `BuildAccountPage`）都会跑，
+                    //    而自检会开关这扇窗几十次 ⇒ 在这里写盘 = **自检改玩家的盘**（本仓红线）。
+                    //    落盘只在玩家**真的按下登录/登出**那一刻（`SignIn` / `SignOut`）。
+                    _id = (System.Math.Abs(Environment.TickCount) % 900000000 + 100000000).ToString();
+                }
+            }
+
+            /// <summary>登录态（= 原版 `AccountTab__Refresh` 里那个 `bVar4`）。</summary>
+            public static bool Registered { get { Load(); return _registered; } }
+            /// <summary>登录态下那两个输入框里被回填的邮箱。</summary>
+            public static string Email { get { Load(); return _email ?? ""; } }
+            /// <summary>本机的模拟 player id（见 `Load`）。</summary>
+            public static string PlayerId { get { Load(); return _id ?? ""; } }
+
+            /// <summary>「登录成功」——**本地模拟**（原版 = `LoginWithEmailHelper.Login` 打服务器）。
+            /// ⚠️ **这是本类唯一会写盘的地方之一**（另一个是 `SignOut`）—— 见 `Load` 里那条。</summary>
+            public static void SignIn(string email)
+            {
+                Load();
+                _registered = true;
+                _email = email ?? "";
+                if (PersistOverride) return;
+                PlayerPrefs.SetInt(RegisteredPrefKey, 1);
+                PlayerPrefs.SetString(EmailPrefKey, _email);
+                PlayerPrefs.SetString(IdPrefKey, _id);
+                PlayerPrefs.Save();
+            }
+
+            /// <summary>「登出」——**本地模拟**（原版 = `AccountTab__LogOut` 那个协程 + `NetworkingPeer`）。</summary>
+            public static void SignOut()
+            {
+                Load();
+                _registered = false;
+                _email = "";
+                if (PersistOverride) return;
+                PlayerPrefs.SetInt(RegisteredPrefKey, 0);
+                PlayerPrefs.SetString(EmailPrefKey, "");
+                PlayerPrefs.Save();
+            }
+
+            /// <summary>自检用：回到出厂态（未登录）并**只改内存**。</summary>
+            public static void ResetForTest() { _loaded = true; _registered = false; _email = ""; }
+            /// <summary>自检用：逐值放回（收尾还原现场 —— 同本文件其余几处的口径）。</summary>
+            public static void RestoreForTest(bool registered, string email)
+            { _loaded = true; _registered = registered; _email = email ?? ""; }
+        }
+
+        Transform BuildAccountPage(Transform area)
+        {
+            var page = Node(area, "Account Tab", TabsL, TabsT, TabsR, TabsB);
+
+            // ① 页标题（原版 `Account Tab > Tab Title`：TMP `'Account'` · **fs55** · `Left/Capline`）
+            //    🆕 A1181：自适应下限 = 原版 **10**（`Account` 那一页与另外四页**不同**，逐颗实读；另三页是 4）
+            var title = PageTitle(page, AcTerm(lkAcTitle, "Account"), 10f);
+            OnLangText(title, () => AcTerm(lkAcTitle, "Account"));
+
+            // ② `Player Id`（原版在页标题右上方的一条 id；**出厂 `m_IsActive=0`、`AccountTab__Refresh` 也不碰它**
+            //    ⇒ 原版永远不显示。**照原样建 + 照原样关** —— 铁律 11：不因「用不上」而不建。）
+            //    ⚠️ 原版那颗 TMP **长在 `Player Id` 节点自己身上**；本窗的 `Text(...)` 一律建一层子节点
+            //       （全窗既有形状，21 处同此）⇒ 这里与全窗保持一致，⛔ 不为这一处另发明一套。
+            {
+                var pid = Node(page, "Player Id", AcPidL, AcPidT, AcPidR, AcPidB);
+                // 🆕 **2026-10-19（A1181）如实记一处「原版关着」**：原版 `Account Tab > Player Id`
+                //   那颗 TMP 的字段里**没有** `auto`（`fs 40` · `m_fontSizeBase 40` · `折行 1`，
+                //   逐字段实读）⇒ **⛔ 本处不许接自适应**（接了就是**主动制造偏离**，铁律 11 的反面）。
+                _acPid = Text(pid, "Label", AcPidPrefix + AccountState.PlayerId, AcPidL, AcPidR, AcPidT, AcPidB,
+                              AcPidFontPx, Color.white, QText);
+                // 原版 `Player Id` 底下还有两颗子件（实读）：一个空容器 + 那颗「复制」图标（`Copy@3x`）
+                Node(pid, "Player Id Text", AcPidTextL, AcPidTextT, AcPidTextR, AcPidTextB);
+                var exIcon = Rect(pid, "External Link Icon", AcPidIconL, AcPidIconT, AcPidIconR, AcPidIconB,
+                                  AcPidIconArt, QContent, null, true);   // 原版 PA=1 · `Copy@3x`
+                // 🔴 **2026-10-09（第十会话 · `D1` 诊断 · 真缺陷 β）**：`Rect` 的**头一句**就是
+                //   `if (tex == null) return null;`（见 `MenuDraw`），而 `Copy@3x` **这张图本地还没进工程**
+                //   ⇒ **整颗节点都没建出来**（实测：断言「账号页有 `External Link Icon`（原版 GO 名）」红、实得 False）。
+                //   **照本窗同族的兜底写法补**（先例 = 本文件那几处的 `q != null ? q.transform : Node(...)`）：
+                //   图缺 ⇒ 建一颗**同名空节点**（⛔ 既不静默跳过、也不伪造一颗「有图」的件）。
+                if (exIcon == null) Node(pid, "External Link Icon", AcPidIconL, AcPidIconT, AcPidIconR, AcPidIconB);
+                pid.gameObject.SetActive(false);            // 出厂 `m_IsActive = 0`（见上面那条）
+            }
+
+            // ③ `Account Form`（邮箱 / 密码 / 两颗链接 / 一条错误行）
+            {
+                var form = Node(page, "Account Form", AcFormL, AcFormT, AcFormR, AcFormB);
+                // 🆕 **2026-10-19（A1181）**：账号页这两颗标签的自适应 = 原版 `Account Form > EmailText / PasswordText`
+                //   逐字段实读 `fs 37` · `min **10**` · `max **37**` · `base **37**` · `折行 **1**`
+                //   （⚠️ 登录弹窗里同名的两颗**下限不同**（32 / 29）—— 两棵树各取各的，见 `BuildLoginWindow`）。
+                var lblEmail = Text(form, "EmailText", AcTerm(lkAcEmail, "E-mail"), AcLblL, AcLblR,
+                                    AcEmailLblT, AcEmailLblT + AcLblH, AcFormFontPx, Color.white, QText,
+                                    null, AcLblR - AcLblL, 10f, 37f, 37f);
+                if (lblEmail != null) AlignLeft(lblEmail, new PxRect(AcLblL, AcEmailLblT, AcLblR, AcEmailLblT + AcLblH));
+                OnLangText(lblEmail, () => AcTerm(lkAcEmail, "E-mail"));
+                _acEmail = AcInput.Create(form, "InputEmail", new PxRect(AcInL, AcEmailInT, AcInR, AcEmailInT + AcInH),
+                                          1f, AcTerm(lkAcEmail, "E-mail"), QContent, QText, QOverlay);
+
+                var lblPwd = Text(form, "PasswordText", AcTerm(lkAcPassword, "Password"), AcLblL, AcLblR,
+                                  AcPwdLblT, AcPwdLblT + AcLblH, AcFormFontPx, Color.white, QText,
+                                  null, AcLblR - AcLblL, 10f, 37f, 37f);
+                if (lblPwd != null) AlignLeft(lblPwd, new PxRect(AcLblL, AcPwdLblT, AcLblR, AcPwdLblT + AcLblH));
+                OnLangText(lblPwd, () => AcTerm(lkAcPassword, "Password"));
+                _acPwd = AcInput.Create(form, "InputPassword", new PxRect(AcInL, AcPwdInT, AcInR, AcPwdInT + AcInH),
+                                        1f, AcTerm(lkAcPassword, "Password"), QContent, QText, QOverlay);
+
+                // 两颗链接钮**同矩形、叠在一起**（原版实读逐值相同 —— 由「层 × 出现条件」那两条分时出场：
+                // `Reset Password` 只在登录态亮、`Forgot Password` 恒关）。
+                // ⚠️ 原版那两颗 `EverguildButton` 的 `m_Transition = 1`（**ColorTint**，`m_SpriteState` 四个指针全空）
+                //    ⇒ 我们**不传换图**（`Hit` 的 `target`/`art`/`hoverArt` 都留空 = 色偏兜底，与那条判据一致）。
+                _acResetBtn = Node(form, "Reset Password", AcLinkL, AcLinkT, AcLinkR, AcLinkB);
+                {
+                    // 🆕 A1181：原版 `Reset Password` / `Forgot Password` 那颗 TMP（**TMP 就长在钮节点自己身上**）
+                    //   逐字段实读 = `fs 32` · `min **29**` · `max **32**` · `base **36**`（**base > fs**！）· `折行 **1**`
+                    var lb = Text(_acResetBtn, "Text", AcTerm(lkAcResetPwd, "Reset Password"),
+                                  AcLinkL, AcLinkR, AcLinkT, AcLinkB, AcLinkFontPx, AcLinkColor, QText,
+                                  null, AcLinkR - AcLinkL, 29f, 32f, 36f);
+                    if (lb != null) AlignRight(lb, new PxRect(AcLinkL, AcLinkT, AcLinkR, AcLinkB));
+                    OnLangText(lb, () => AcTerm(lkAcResetPwd, "Reset Password"));
+                    Hit(_acResetBtn, "Hit", AcLinkL, AcLinkT, AcLinkR, AcLinkB, QOverlay,
+                        () => AccountLocalNote("Reset Password", AcLocalNote));
+                }
+                _acForgotBtn = Node(form, "Forgot Password", AcLinkL, AcLinkT, AcLinkR, AcLinkB);
+                {
+                    var lb = Text(_acForgotBtn, "Text", AcTerm(lkAcForgotPwd, "Forgot Password"),
+                                  AcLinkL, AcLinkR, AcLinkT, AcLinkB, AcLinkFontPx, AcLinkColor, QText,
+                                  null, AcLinkR - AcLinkL, 29f, 32f, 36f);
+                    if (lb != null) AlignRight(lb, new PxRect(AcLinkL, AcLinkT, AcLinkR, AcLinkB));
+                    OnLangText(lb, () => AcTerm(lkAcForgotPwd, "Forgot Password"));
+                    Hit(_acForgotBtn, "Hit", AcLinkL, AcLinkT, AcLinkR, AcLinkB, QOverlay,
+                        () => AccountLocalNote("Forgot Password", AcLocalNote));
+                }
+
+                // 错误行（原版 fs37 · `Left/Baseline` · 红）—— 出厂文本取自 prefab 的 `m_text` 原文；
+                // ⚠️ **每次模拟动作都会往这一行写字**（含「本机模拟」那句）⇒ 它是本页**对玩家的唯一诚实出口**。
+                _acError = Text(form, "Error Message", "", AcErrL, AcErrR, AcErrT, AcErrB,
+                                AcFormFontPx, AcErrColor, QText,
+                                null, AcErrR - AcErrL, 29f, 37f, 37f);     // 🆕 A1181：原版 `29 / 37 / 37 · 折行 1`
+                if (_acError != null) AlignLeft(_acError, new PxRect(AcErrL, AcErrT, AcErrR, AcErrB));
+            }
+
+            // ④ `Subscribe Newsletter`（**整颗就是一个钮**；原版 `EverguildButton.m_TargetGraphic` = 它自己的 TMP
+            //    ⇒ `m_Transition = 1`(ColorTint)、不换图）
+            {
+                _acNewsBtn = Node(page, "Subscribe Newsletter", AcNewsL, AcNewsT, AcNewsR, AcNewsB);
+                // 🆕 A1181：原版 `Subscribe Newsletter` 那颗（**TMP 在钮节点自己身上**）逐字段实读 =
+                //   `fs 40` · `min **32**` · `max **40**` · `base **44**`（**base > max**）· `折行 **1**`
+                var lb = Text(_acNewsBtn, "Label", AcTerm(lkAcNewsletter, "Subscribe to the Newsletter?"),
+                              AcNewsL, AcNewsR, AcNewsT, AcNewsB, AcNewsFontPx, Color.white, QText,
+                              null, AcNewsR - AcNewsL, 32f, 40f, 44f);
+                if (lb != null) AlignLeft(lb, new PxRect(AcNewsL, AcNewsT, AcNewsR, AcNewsB));
+                OnLangText(lb, () => AcTerm(lkAcNewsletter, "Subscribe to the Newsletter?"));
+                Hit(_acNewsBtn, "Hit", AcNewsL, AcNewsT, AcNewsR, AcNewsB, QOverlay,
+                    () => AccountLocalNote("Subscribe Newsletter", AcLocalNote));
+            }
+
+            // ⑤ `Social Media Links`（HLG 排的五个外链钮；**逐颗绝对值**照抄 `AcSoc*`）
+            {
+                var links = Node(page, "Social Media Links", AcSocL, AcSocT, AcSocR, AcSocB);
+                for (int i = 0; i < AcSocNode.Length; i++)
+                {
+                    var n = Node(links, AcSocNode[i], AcSocX1[i], AcSocY1[i], AcSocX2[i], AcSocY2[i]);
+                    // 🔴 **图名是原版 `Image.m_Sprite` 解出来的名字** —— 那五张**本地还没有**
+                    //    （`Discord-Logo-Color` / `Instagram_icon` / `fb-icon` /
+                    //     `Twitter_Social_Icon_Rounded_Square_Color` / `YouTube_full-color_icon_(2017).svg`
+                    //     —— 五张在 `d:/2/Warpforge_tools/data/ui_extract/atlasgroup_assets_all/Sprite/` 里都有，
+                    //     只是**没导进本工程**）⇒ `Rect` 会返回 null、`Tex` 会**出声**（`MissingArt` + 一条 warning，
+                    //     ⛔ 不静默）。**导图是另一条线**（`工具/import_original_art.py` 的 `MENU_IMAGES`），
+                    //     不在本件白名单 ⇒ 已写进报告。那时**本行一个字都不用改**、图自己就亮了。
+                    // ⚠️ **悬停不换图**：原版这五颗的 `m_SpriteState` 指的是 `40K_button_hover`/`_pressed`
+                    //    （同一个 pid 与别处那颗 `40K_button` 完全一致 ⇒ prefab 里的 copy-paste 残留），
+                    //    而**常态图是各家自己的 logo** ⇒ 照它换图会把 logo 换成一块通用按钮底。
+                    //    **本件按常态图落地、不换图**，并把这条「原版自己的 prefab 残留」记进报告（⛔ 不是静默偏离）。
+                    // `Button Text`（原版那颗 `m_IsActive = 0`）—— 与全窗同一形状：`Text(...)` 建一层同名节点
+                    // 🆕 **2026-10-19（A1181）**：自适应 = 原版那**五颗** `… Button > Button Text` 逐颗实读
+                    //   全是 `min **12**` · `max **38**` · `base **12**` · `折行 **0**`（`fs` 43 / 31.05 交替，
+                    //   与 `AcSocTxtFont` 同一份实读）—— ⚠️ `max 38 < fs 43`，所以短文案**不会**被涨到 43。
+                    var lb = Text(n, "Button Text", AcTerm(AcSocKey[i], AcSocEn[i]), AcSocX1[i] + AcSocTxtDx,
+                                  AcSocX1[i] + AcSocTxtDx + AcSocTxtW, AcSocY1[i] + AcSocTxtDy,
+                                  AcSocY1[i] + AcSocTxtDy + AcSocTxtH[i], AcSocTxtFont[i], Color.white, QText,
+                                  null, 0f, 12f, 38f, 12f);
+                    // 🔴 **2026-10-09（第十会话 · 收口自检红了 4 条）—— 这里原来直接捕 `i`，是个真崩溃**：
+                    //   `i` 是 `for` 循环的**共享**变量，而 `OnLangText` 的闭包**不在建的时候跑**、
+                    //   是在 `RefreshTexts()` 里才跑（那时 `i` 已等于循环终值）⇒ `AcSocKey[i]` **越界**。
+                    //   **实测**：`IndexOutOfRangeException` 从 `SettingsWindow.Open()` 一路抛出
+                    //   （`OpenTab` → `RefreshTexts` → `OnLangText` 那条闭包）⇒ **只要开设置窗就崩**，
+                    //   连带 `DeckScene`（点齿轮）/ `ShellScene` / `MainMenuScene` / `SettingsScene` **四条自检全挂**。
+                    //   ⇒ **必须像紧下面那颗 `Hit` 一样先拷一份**（它在下一行就是这么写的：`int k = i;`；
+                    //     音频页那三行也写着「闭包捕 `i` 会让三行全指到最后一行」—— 本条是同一族里**漏掉的那一处**）。
+                    int si = i;
+                    OnLangText(lb, () => AcTerm(AcSocKey[si], AcSocEn[si]));
+                    if (lb != null) lb.gameObject.SetActive(false);   // 原版这五条 `Button Text` 恒关
+                    int k = i;
+                    Hit(n, "Hit", AcSocX1[i], AcSocY1[i], AcSocX2[i], AcSocY2[i], QOverlay,
+                        () => AccountOpenUrl(AcSocNode[k], AcSocUrl[k]));
+                }
+            }
+
+            // ⑥ `Buttons`（原版那颗 100×100 的空容器 —— **自己没图**；两个 HLG 组 + 两颗中缝钮都在它下面）
+            {
+                var btns = Node(page, "Buttons", AcBtnsL, AcBtnsT, AcBtnsR, AcBtnsB);
+
+                // `Unregistered Buttons`（HLG · 622×90 · 内含 300×90 两颗）
+                var unreg = Node(btns, "Unregistered Buttons", AcUnregL, AcUnregT, AcUnregR, AcUnregB);
+                // 🔴 **A1181**：七颗大钮末尾那个 `autoMaxPx` = **原版那一颗 `Button Text` 的 `m_fontSizeMax`**
+                //   （逐颗实读：五颗 40 —— 那颗默认走 `AcBtnFontPx` 的也是 **40**、`Twitch` 那颗 **38**）
+                //   ⇒ 与它自己的 `m_fontSize` **恒相等**（`min 12` / `base 12` / `折行 0` 三格七颗全同）。
+                _acRegisterBtn = AccountBigButton(unreg, "Register Button", AcRegL, AcUnregT, AcRegR, AcUnregB,
+                                                  BtnGreen, lkAcRegister, "Register", AcBtnText[0], AccountRegister, null,
+                                                  40f);
+                _acULoginBtn = AccountBigButton(unreg, AcLoginBtnName, AcULoginL, AcUnregT, AcULoginR, AcUnregB,
+                                                BtnGreen, lkAcSignIn, "Log in", AcBtnText[1], ShowLoginWindow, null,
+                                                40f);
+                _acULoginBtn.gameObject.SetActive(false);    // 出厂 `m_IsActive=0`（且 `Refresh` 恒 `SetActive(0)`）
+
+                // `Twitch Button` / `Delete Button`（原版这两颗**不在任何 HLG 里**，绝对矩形逐颗实读）
+                AccountBigButton(btns, "Twitch Button", AcTwitchL, AcTwitchT, AcTwitchR, AcTwitchB,
+                                 AcTwitchTint, lkAcTwitch, "Link Twitch", AcBtnText[2],
+                                 () => AccountLocalNote("Twitch", AcLocalNote + TwitchUrlNote), AcTwitchFontPx, 38f)
+                    .gameObject.SetActive(false);            // 出厂 `m_IsActive=0`（`Refresh` 不碰 ⇒ 原版恒关）
+                _acDeleteBtn = AccountBigButton(btns, "Delete Button", AcDeleteL, AcDeleteT, AcDeleteR, AcDeleteB,
+                                                AcDeleteTint, lkAcDeleteAcc, "Delete account", AcBtnText[3],
+                                                () => AccountLocalNote("Delete account", AcLocalNote), null, 40f);
+
+                // `Registered Buttons`（HLG · 660×90 · 内含 300×90 两颗）
+                var regd = Node(btns, "Registered Buttons", AcRegdL, AcRegdT, AcRegdR, AcRegdB);
+                // 🔴 `Switch Account Button` 点下去 = **开登录弹窗**（判据 = `AccountTab__SwitchAccount.c`：
+                //   `WindowsManager.OpenWindow(param_1 + 0x68)`，`0x68` = `loginWindow` 字段）
+                _acSwitchBtn = AccountBigButton(regd, "Switch Account Button", AcSwitchL, AcRegdT, AcSwitchR, AcRegdB,
+                                                BtnGreen, lkAcSwitchAcc, "Switch Account", AcBtnText[4], ShowLoginWindow, null,
+                                                40f);
+                _acLogoutBtn = AccountBigButton(regd, "Logout Button", AcLogoutL, AcRegdT, AcLogoutR, AcRegdB,
+                                                BtnGreen, lkAcLogout, "Logout", AcBtnText[5], AccountLogout, null,
+                                                40f);
+                _acLogoutBtn.gameObject.SetActive(false);    // 出厂 `m_IsActive=0`（`Refresh` 不碰 ⇒ 原版恒关）
+            }
+
+            // ⑦ 登录弹窗（`Account Tab > Login Window` —— **一棵子树**，见 `Lw*` 常量那一段）
+            BuildLoginWindow(page);
+
+            RefreshAccount();
+            return page;
+        }
+
+        /// <summary>账号页那六颗「大钮」（300×90 / 297.31×90）的**同一套做法**：底图 `40K_button`
+        /// （原版 `m_Type = 0` **Simple + `m_PreserveAspect=1`** ⇒ ⛔ 不是九宫格）+ 染色 + 那行字 + 透明命中区。
+        /// <para>🔴 **换图**：原版这六颗的 `m_Transition = 2`(SpriteSwap)，`m_TargetGraphic` = **它自己那颗底图**，
+        /// 两个下标解出来就是 `40K_button_hover` / `40K_button_pressed`（与别处 `40K_button` 那一族**同一对**）
+        /// ⇒ 与 `GenButton` 同一条路（传常态图名，`WindowButton` 的表里就有这一对）。</para>
+        /// <param name="txtRect">那行 `Button Text` 的**原版矩形**（逐颗实读，见 `AcBtnText`）——
+        /// ⛔ 别按「钮矩形 ± 一个固定内缩」推，七颗的内缩互不相同。</param>
+        /// <param name="fontPx">原版 `m_fontSize`（六颗里五颗 **40**、Twitch 那颗 **38**）。</param>
+        /// <remarks>🆕 **2026-10-19（`A1181`）**：自适应 = 原版那一颗 `Button Text` 逐颗实读
+        /// `min **12**` · `max = **m_fontSize**`（40，Twitch 那颗 38）· `base **12**` · `折行 **0**`
+        /// ⇒ 第 11 个实参 `autoMaxPx` 由调用点给（原版它**恒等于**那一颗的 `m_fontSize`）。
+        /// ⚠️ 折行 = 0 ⇒ `wrapPx` 传 0；自适应框宽取 `txtRect`（= 原版 `Button Text` 的矩形，逐颗实读）。</remarks>
+        Transform AccountBigButton(Transform parent, string name, float x1, float y1, float x2, float y2,
+                                   Color tint, string key, string origEn, PxRect txtRect, Action onClick,
+                                   float? fontPx, float autoMaxPx)
+        {
+            var n = Node(parent, name, x1, y1, x2, y2);
+            var bg = Rect(n, "bg", x1, y1, x2, y2, ArtButton, QContent, tint, true);
+            var lb = Text(n, "Button Text", AcTerm(key, origEn), txtRect.x1, txtRect.x2, txtRect.y1, txtRect.y2,
+                          fontPx.HasValue ? fontPx.Value : AcBtnFontPx, Color.white, QText,
+                          null, 0f, 12f, autoMaxPx, 12f);
+            OnLangText(lb, () => AcTerm(key, origEn));
+            Hit(n, "Hit", x1, y1, x2, y2, QOverlay, onClick, bg, ArtButton);
+            return n;
+        }
+
+        /// <summary>Twitch 那条外链**没有**可用的常量 URL —— 原版是运行时用玩家存档拼出来的
+        /// （`AccountTab__OnSetup.c` 末尾那条 5 段 `System.String.Concat`）⇒ 我们**不打开**它，只记日志。
+        /// ⛔ 别顺手编一条 `twitch.tv/warpforge`（那是「把查不到写成猜测」）。</summary>
+        const string TwitchUrlNote = " | Twitch link: the original builds it at runtime from the player profile "
+                                   + "(5-part string concat) - no constant URL exists locally, so we do NOT open one";
+
+        /// <summary>外链钮那一下（`UrlButton` 的等价物）。**批处理里不真开浏览器**（那会在自检机上弹窗口）；
+        /// 交互时走 `Application.OpenURL`。
+        /// <para>⚠️ `Application.OpenURL` 是本件**唯一一个对外动作** —— 判据 = 原版那颗 `UrlButton`
+        /// （`AccountTab__OnSetup.c` 里逐颗 `UrlButton__Initialize(button, url)`），URL 取自
+        /// `d:/2/tools/il2cpp_out/stringliteral.json`（五条逐条命中）。</para></summary>
+        void AccountOpenUrl(string what, string url)
+        {
+            Debug.Log($"[Settings] 账号页外链钮「{what}」→ {url}");
+            if (Application.isBatchMode)
+            {
+                Debug.LogWarning("[Settings] `Application.isBatchMode` ⇒ **不真开浏览器**（自检机上弹窗口没有任何意义）"
+                               + " —— 这一句是**有意**的偏离，已写进报告。");
+                return;
+            }
+            Application.OpenURL(url);
+        }
+
+        /// <summary>本地模拟那几步的**统一出口**：往页内错误行写「哪一步 + 本机模拟」+ 记一条日志。
+        /// 🔴 **别把它改成「什么都不做」** —— 本仓红线：没实现的东西要**说出来**（铁律「不许静默失败」）。
+        /// 判据 = 原版这些方法**每一步都打服务器**（`AccountTab__{Login,Register,Logout,ResetPassword,
+        /// OnSuscribe,InactivateAccount}.c`），我们**没有服务器**。</summary>
+        void AccountLocalNote(string what, string note)
+        {
+            if (_acError != null) _acError.SetText("* " + what + " " + note);
+            Debug.LogWarning($"[Settings] 账号页「{what}」：{note}");
+        }
+
+        /// <summary>提交那颗 `Login Button ` / `Register Button`（页内邮箱 + 密码）。
+        /// <para>原版 = `LoginWithEmailHelper.Login(email, password, …)` / `Register`（全在服务器）⇒ **本地模拟**：
+        /// 两格非空就当「登录成功」（写 <see cref="AccountState"/>），否则把错误行写成原版 prefab 里那句
+        /// `* Invalid Password`（`m_text` 原文）。**两种结局都会在错误行上说话**。</para></summary>
+        public void AccountRegister()
+        {
+            string em = _acEmail != null ? _acEmail.Text : "";
+            string pw = _acPwd != null ? _acPwd.Text : "";
+            if (string.IsNullOrEmpty(em) || string.IsNullOrEmpty(pw))
+            { AccountLocalNote("Register", AcLocalNote + " | " + AcInvalidPassword); return; }
+            AccountState.SignIn(em);
+            RefreshAccount();
+            AccountLocalNote("Register", AcLocalNote);
+        }
+
+        /// <summary>原版 prefab 里那颗 `Error Message` 的 `m_text` 原文（`"* Invalid Password"`）——
+        /// **原版真值**，不是我们编的。⚠️ 原版服务器会返回别的错误串（在远端 I2 表里），本地查不到。</summary>
+        const string AcInvalidPassword = "* Invalid Password";
+
+        /// <summary>`Switch Account Button` / `Unregistered Buttons` 里那颗 `Login Button ` 点下去 =
+        /// **把登录弹窗亮起来**（判据 = `AccountTab__SwitchAccount.c`）。</summary>
+        public void ShowLoginWindow()
+        {
+            if (_loginWindow == null) { Debug.LogWarning("[Settings] 登录弹窗不在树上（`OpenTab` 没建到账号页？）—— 不静默"); return; }
+            // 照原版 `BasicLoginWithEmailWindow__Open.c`：两颗输入框清空、错误块关掉、关窗钮恢复可交互
+            if (_lwEmail != null) _lwEmail.SetText("");
+            if (_lwPwd != null) _lwPwd.SetText("");
+            if (_lwError != null) _lwError.SetText("");
+            if (_lwErrorBox != null) _lwErrorBox.gameObject.SetActive(false);
+            _loginWindow.gameObject.SetActive(true);
+            Debug.Log("[Settings] 账号页：开 `Login Window`（原版 `Switch Account` 走的就是这一条）");
+        }
+
+        /// <summary>关掉登录弹窗（那颗绿关窗钮 / `ESC`）。</summary>
+        public void HideLoginWindow()
+        {
+            if (_loginWindow == null || !_loginWindow.gameObject.activeSelf) return;
+            _loginWindow.gameObject.SetActive(false);
+            Debug.Log("[Settings] 账号页：关 `Login Window`");
+        }
+
+        /// <summary>弹窗里那颗 `Login Button `（`BasicLoginWithEmailWindow.LoginButtonClick` 的本地模拟版：
+        /// 原版那一下会先 `set_interactable(false)` + 把 `<b>Searching…</b>` 那行亮起来再打服务器）。</summary>
+        public void LoginWindowSubmit()
+        {
+            string em = _lwEmail != null ? _lwEmail.Text : "";
+            string pw = _lwPwd != null ? _lwPwd.Text : "";
+            if (string.IsNullOrEmpty(em) || string.IsNullOrEmpty(pw))
+            { AccountLocalNote("Log in", AcLocalNote + " | " + AcInvalidPassword); return; }
+            AccountState.SignIn(em);
+            HideLoginWindow();
+            if (_acEmail != null) _acEmail.SetText(em);
+            RefreshAccount();
+            AccountLocalNote("Log in", AcLocalNote);
+        }
+
+        /// <summary>登出（原版 `AccountTab__LogOut` 是个协程、走 `NetworkingPeer` + PlayFab）⇒ **本地模拟**。</summary>
+        public void AccountLogout()
+        {
+            AccountState.SignOut();
+            RefreshAccount();
+            AccountLocalNote("Logout", AcLocalNote);
+        }
+
+        /// <summary>把「层 × 出现条件」那六条开关照原版 `AccountTab__Refresh.c` 摆一遍。
+        /// 🔴 **只碰那 6 颗**：`Logout` / `Delete` / `Twitch` / `Login Window` / `Player Id` 原版**一个字都不碰**
+        /// ⇒ 停在 prefab 值（前两者 `m_IsActive=0`、`Delete` 是 1、`Player Id` 是 0）。⛔ 别「顺手」把它们也按登录态开关
+        /// —— 那会与「原版等于没有这条行为」冲突（铁律 10 第 2 条：判据是那张表，不是我们的直觉）。</summary>
+        public void RefreshAccount()
+        {
+            bool on = AccountState.Registered;
+            SetAct(_acRegisterBtn, !on);      // `Refresh.c:26`（`+0x30` = registerButton）
+            SetAct(_acULoginBtn, false);      // `:30`（`+0x38`）—— 恒关
+            SetAct(_acSwitchBtn, true);       // `:34`（`+0x48`）—— 恒开
+            SetAct(_acResetBtn, on);          // `:38`（`+0x50`）
+            SetAct(_acForgotBtn, false);      // `:43`（`+0x58`）—— 恒关
+            SetAct(_acNewsBtn, on);           // `:48`（`+0x88`）
+            if (_acEmail != null) _acEmail.SetText(on ? AccountState.Email : "");
+            if (_acPwd != null) _acPwd.SetText("");
+            if (_acError != null) _acError.SetText("");
+            if (_acPid != null) _acPid.SetText(AcPidPrefix + AccountState.PlayerId);
+            Debug.Log($"[Settings] 账号页刷新：登录态 = {on}（本机模拟）");
+        }
+
+        static void SetAct(Transform t, bool on) { if (t != null) t.gameObject.SetActive(on); }
+
+        // ============================================================ 页 4：支持（原版 `Support Tab`，🆕 A1183）
+        //
+        // 判据（逐值出处）= 本文件 `Sp*` 常量那一段的头部注释（**层 × 出现条件**表全文在那里）：
+        //   · **几何** = `python 工具/menu_rect.py bundle_menus_assets_all "Support Tab" --depth 4
+        //     --no-ancestor-scale`（未缩放帧 = 设计 px）；
+        //   · **组件 / 词条 / 颜色 / 字号 / 对齐** = `python -I d:/tmp/wf_w4probe/w4probe.py
+        //     bundle_menus_assets_all "Support Tab" 4`（逐颗 MB 原字段）；
+        //   · **显隐** = 全量反编译 `SupportTab__OnSetup.c` + `PlatformBasedComponents__{Start,DisplayPlatform}.c`；
+        //   · **词条** = 每颗 TMP 上那颗 `Localize.mTerm` 的原文（九条）⇒ 走本窗两步漏斗 `Term`。
+        //
+        // 🔴 **哪一半是本地模拟**（本仓红线：不许静默失败）：原版四颗 `UrlButton` 走**真外链**、
+        //   那颗 `Support Button` 走 `HelpshiftManager.ShowFAQ`（**服务器 SDK**）—— 我们：
+        //   · 三条打开**语义对得上**的 URL（`SpFaqUrl` / `SpContactUrl` / `SpPrivacyUrl`），
+        //     批处理下**不真开浏览器**（同 `AccountOpenUrl`，那会在自检机上弹窗口）；
+        //   · `Terms of Service` 那条 URL **本地查不到** ⇒ **只出声、不打开**（⛔ 不编一条假的）；
+        //   · `Support Button` = 服务器 SDK ⇒ 只出声（`SpLocalNote`）；而它 **PC 档本来就关着**。
+        Transform BuildSupportPage(Transform area)
+        {
+            var page = Node(area, "Support Tab", TabsL, TabsT, TabsR, TabsB);
+
+            // ① 页标题（原版 `Support Tab > Tab Title`：TMP `'Support'` · **fs55** · `Left/Capline` ·
+            //    自适应 **4 / 55 / 55** · `折行 1` —— 与 General / Media / Graphics 三页**同档**，
+            //    ⚠️ 与 `Account` 那页的下限 10 **不同**，逐颗实读）。
+            var title = PageTitle(page, Term(lkSupTitle, "Support"), SpTitleAutoMinPx);
+            OnLangText(title, () => Term(lkSupTitle, "Support"));
+
+            // ② `Faq Text`（**PC 档亮**）—— 这一行与下面那颗 `Faq Button` 是一组
+            var faqText = SpText(page, "Faq Text", lkSupFaqText,
+                                 "Questions about the game? Visit the Frequent Asked Questions",
+                                 SpFaqTextL, SpFaqTextT, SpFaqTextR, SpFaqTextB, 1, 15f, 35f, 36f);
+
+            // ③ `Faq Button`（`UrlButton` → FAQ 那条 URL；`External Link Icon` 是它的子件）
+            var faqBtn = SpUrlButton(page, "Faq Button", SpFaqBtnL, SpFaqBtnT, SpFaqBtnR, SpFaqBtnB,
+                                     lkSupFaqBtn, "FAQ", new PxRect(SpTxtFaqL, SpTxtFaqT, SpTxtFaqR, SpTxtFaqB),
+                                     new PxRect(SpIconFaqL, SpIconFaqT, SpIconFaqR, SpIconFaqB), BtnGreen,
+                                     () => SpOpenUrl("FAQ", SpFaqUrl));
+
+            // ④ `Contact Text`（PC 档亮）
+            var contactText = SpText(page, "Contact Text", lkSupMidText, "Do you need help from us?",
+                                     SpContactTextL, SpContactTextT, SpContactTextR, SpContactTextB, 1, 29f, 35f, 36f);
+
+            // ⑤ `Contact Button`（`UrlButton` → contact-us 那条 URL）
+            var contactBtn = SpUrlButton(page, "Contact Button", SpContactBtnL, SpContactBtnT, SpContactBtnR, SpContactBtnB,
+                                         lkSupContactBtn, "Contact",
+                                         new PxRect(SpTxtContactL, SpTxtContactT, SpTxtContactR, SpTxtContactB),
+                                         new PxRect(SpIconFaqL, SpIconContactT, SpIconFaqR, SpIconContactT + 31.53f),
+                                         BtnGreen, () => SpOpenUrl("Contact", SpContactUrl));
+
+            // ⑥ `Support Button`（**PC 档灭、mobile 档亮**；`SupportTab__OnSetup.c` 给它挂 `OnClickSupport`
+            //    → `HelpshiftManager.ShowFAQ`，**没有** `UrlButton` ⇒ 它不吃 URL、吃的是那颗 SDK）。
+            //    ⚠️ 它与 `Faq Button` **几乎同一块矩形**（只差 0.74）—— 原版就是靠平台档错开这两颗，
+            //    我们照抄那条显隐（⛔ 别「看着重叠就挪一个位置」）。
+            var supportBtn = SpUrlButton(page, "Support Button", SpSupportBtnL, SpSupportBtnT, SpSupportBtnR, SpSupportBtnB,
+                                         lkSupTitle, "Support",
+                                         new PxRect(SpTxtSupportL, SpTxtSupportT, SpTxtSupportR, SpTxtSupportB),
+                                         null, BtnGreen, () => SpLocalNote("Support Button"));
+
+            // ⑦ `Email Text`（PC 档亮；`ContactText` 那条键与 mobile 那颗**共用**）
+            var emailText = SpText(page, "Email Text", lkSupContactTxt,
+                                   "You can also contact us at support@everguild.com\nWe'll do our best to help you!",
+                                   SpEmailTextL, SpEmailTextT, SpEmailTextR, SpEmailTextB, 1, 18f, 35f, 36f);
+
+            // ⑧ `bottom links`（HLG 排的两棵；**三档平台组都是 1** ⇒ 恒亮）
+            //    ⚠️ 本工程不实现 LayoutGroup ⇒ 照布局跑之后的设计绝对值摆（= 原版的设计意图），
+            //    与账号页 `Social Media Links` 那几组同一条做法。
+            {
+                var links = Node(page, "bottom links", SpLinksL, SpLinksT, SpLinksR, SpLinksB);
+
+                // ⑧·a `Terms of Service`（`EverguildButton` 的 `m_TargetGraphic` = **它自己那颗 TMP**
+                //   ⇒ `m_Transition = 1`(ColorTint)、**没有底图**、**不换图**）。
+                //   🔴 显隐：原版 `SupportTab__OnSetup.c:33-39` 把这一颗 `SetActive(运行时 URL != null)` ——
+                //   那个串取自 `GameStaticData.<静态 +0xb8> + 0x70`（运行时才有）⇒ **本地判不了**。
+                //   本件**停在出厂值 1 + PC 档 1**（⛔ 不猜一个 URL 出来）—— 已写进「没查清」。
+                var terms = Node(links, "Terms of Service", SpTermsL, SpTermsT, SpTermsR, SpTermsB);
+                SpIcon(terms, "External Link Icon", SpTermIconL, SpTermIconT, SpTermIconR, SpTermIconB);
+                SpText(terms, "Terms of Service Text", lkSupTerms, "Terms of Service",
+                       SpTermsTxtL, SpTermsT, SpTermsTxtR, SpTermsB, 1, 29f, 35f, 36f);
+                Hit(terms, "Hit", SpTermsL, SpTermsT, SpTermsR, SpTermsB, QOverlay,
+                    () => SpTermsNoUrl());
+
+                // ⑧·b `Privacy Policy`（容器 → `External Link Icon` + `Privacy Policy Button`）
+                var priv = Node(links, "Privacy Policy", SpPrivacyL, SpPrivacyT, SpPrivacyR, SpPrivacyB);
+                SpIcon(priv, "External Link Icon", SpPrivIconL, SpTermIconT, SpPrivIconR, SpTermIconB);
+                // 🔴 这一颗的 `Image.m_Color.a = 0`（原版原文，见 `SpPrivacyTint`）⇒ 底盘**透明**，
+                //   画面上只有那行字。⛔ 别给它一个实心绿底。
+                // ⚠️ `m_PreserveAspect = 1`（与上面那三颗 PA=0 **不是同一档**，逐颗实读）。
+                SpUrlButton(priv, "Privacy Policy Button", SpPrivacyBtnL, SpPrivacyT, SpPrivacyR, SpPrivacyB,
+                            lkSupPrivacy, "Privacy Policy",
+                            new PxRect(SpPrivacyTxtL, SpPrivacyTxtT, SpPrivacyTxtR, SpPrivacyTxtB),
+                            null, SpPrivacyTint, () => SpOpenUrl("Privacy Policy", SpPrivacyUrl), keepAspect: true);
+            }
+
+            // ⑨ 两颗 **mobile 专用**的行（**PC 档灭**；`android`/`iOS` 才亮）—— 照原版建 + 照原版关。
+            var faqMob = SpText(page, "Faq Text Mobile", lkSupFaqMob,
+                                "Questions about the game? Check out the Frequent Asked Questions or contact Support",
+                                SpFaqTextMobL, SpFaqTextMobT, SpFaqTextMobR, SpFaqTextMobB, 1, 15f, 35f, 36f);
+            var emailMob = SpText(page, "Email Text Mobile", lkSupContactTxt,
+                                  "You can also contact us at support@everguild.com\nWe'll do our best to help you!",
+                                  SpEmailTextMobL, SpEmailTextMobT, SpEmailTextMobR, SpEmailTextMobB, 1, 18f, 35f, 36f);
+
+            // ⑩ **平台档**（`PHY` = 本页 `PlatformBasedComponents` 那颗 MB）—— 逐件按 **PC(20)** 那一组摆。
+            //    出处：原版 `PlatformBasedComponents__Start.c` **无条件**只跑 `platformType == 0x14 (= 20 = PC)`
+            //    那一组（枚举 `PlatformDisplay { android = 0, iOS = 10, PC = 20 }`，
+            //    `Assembly-CSharp/PlatformBasedComponents.cs`）；我们是 PC 游戏 ⇒ 照它落地。
+            //    ⛔ **别把这些件删掉或改成别的显隐** —— 它们是原版的 mobile 档，换个平台就该亮（铁律 11）。
+            SetAct(faqText != null ? faqText.transform : null, true);
+            SetAct(faqBtn, true);
+            SetAct(contactText != null ? contactText.transform : null, true);
+            SetAct(contactBtn, true);
+            SetAct(emailText != null ? emailText.transform : null, true);
+            SetAct(supportBtn, false);                       // PC = 0
+            SetAct(faqMob != null ? faqMob.transform : null, false);      // PC = 0
+            SetAct(emailMob != null ? emailMob.transform : null, false);  // PC = 0
+            // （`Tab Title` 与 `bottom links` 三档都是 1 ⇒ 不碰 —— 照原版那两组字段原样留着。）
+
+            Debug.Log("[Settings] 支持页：按平台档 **PC(20)** 落地（原版 `PlatformBasedComponents__Start.c` "
+                    + "就是无条件跑这一档）—— `Support Button` / 两颗 mobile 行在 PC 上关着。");
+            return page;
+        }
+
+        /// <summary>支持页那几行的**同一套做法**：走本窗唯一那条文字漏斗（字号 35 · 白 · `QText`）
+        /// + **左对齐**（原版这几颗逐颗实读 `hAlign` 全是 1 = `Left`）+ 登记语言链（`OnLangText`）。
+        /// ⛔ 别直接调 `MenuDraw.Text`（那会漏掉根上那层 0.9，见 `Text` 的 doc）。</summary>
+        /// <param name="wrapOn">原版那一颗的折行档：`1` ⇒ 折行开（框宽 = 本格框宽）、`0` ⇒ `NoWrap`。
+        /// ⚠️ 传的是**原版字段值**（0/1），不是像素 —— 换算成漏斗的 `wrapPx` 那一步在函数体里。</param>
+        Label SpText(Transform p, string n, string key, string en, float l, float t, float r, float b,
+                     int wrapOn, float minPx, float maxPx, float basePx)
+        {
+            float wrap = wrapOn != 0 ? r - l : 0f;
+            var lb = Text(p, n, Term(key, en), l, r, t, b, SpFontPx, Color.white, QText,
+                          null, wrap, minPx, maxPx, basePx);
+            if (lb != null) AlignLeft(lb, new PxRect(l, t, r, b));
+            OnLangText(lb, () => Term(key, en));
+            return lb;
+        }
+
+        /// <summary>支持页那几颗 `External Link Icon`（原版四颗逐颗实读：`Button_External_Link` ·
+        /// `m_Type = 0`(Simple) + **`m_PreserveAspect = 1`**）。
+        /// 🔴 **那张图本地还没导进工程** ⇒ `Rect` 头一句 `tex == null ⇒ return null` 会让整颗节点建不出来
+        /// ⇒ 照本窗同族的兜底写法补一颗**同名空节点**（⛔ 既不静默跳过、也不伪造「有图」）。
+        /// 判据与先例 → `ArtExtLink` 那条 doc（与 `A1184` 那六张是同一族「导入路缺口」）。</summary>
+        void SpIcon(Transform p, string n, float l, float t, float r, float b)
+        {
+            var q = Rect(p, n, l, t, r, b, ArtExtLink, QContent, null, true);
+            if (q == null) Node(p, n, l, t, r, b);
+        }
+
+        /// <summary>支持页那一族外链钮（360×60 / 421×59）的**同一套做法**：底图 `40K_button` + 染色
+        /// + 那行字 + （可选）那颗小箭头 + 透明命中区。
+        /// <para>🔴 **换图**：原版这几颗的 `m_Transition = 2`(SpriteSwap)、`m_TargetGraphic` = **它自己那颗底图**，
+        /// 两个下标解出来就是 `40K_button_hover` / `_pressed`（与别处那一族**同一对**）⇒ 与 `AccountBigButton`
+        /// 同一条路（传常态图名，`WindowButton` 的表里就有这一对）。</para>
+        /// <para>⚠️ **底图按不按 PA 画是逐颗不同的**（原版实读）：`Faq` / `Contact` / `Support` 三颗
+        /// **`m_PreserveAspect = 0`**（拉伸），只有 `Privacy Policy Button` 那颗是 **1** ⇒ 由调用点传。</para>
+        /// <param name="tint">底图 `Image.m_Color` 原文色（三颗绿钮 = `BtnGreen`；`Privacy Policy` 那颗
+        /// **alpha 是 0**，见 `SpPrivacyTint`）。</param>
+        Transform SpUrlButton(Transform parent, string name, float x1, float y1, float x2, float y2,
+                              string key, string en, PxRect txtRect, PxRect? iconRect, Color tint, Action onClick,
+                              bool keepAspect = false)
+        {
+            var n = Node(parent, name, x1, y1, x2, y2);
+            if (iconRect.HasValue)
+                SpIcon(n, "External Link Icon", iconRect.Value.x1, iconRect.Value.y1,
+                       iconRect.Value.x2, iconRect.Value.y2);
+            var bg = Rect(n, "bg", x1, y1, x2, y2, ArtButton, QContent, tint, keepAspect);
+            // 那行字（自适应 = 原版逐颗实读 `min 12 / max 35 / base 12` · **折行 0**）
+            SpText(n, "Button Text", key, en, txtRect.x1, txtRect.y1, txtRect.x2, txtRect.y2, 0, 12f, 35f, 12f);
+            Hit(n, "Hit", x1, y1, x2, y2, QOverlay, onClick, bg, ArtButton);
+            return n;
+        }
+
+        /// <summary>支持页外链钮那一下（原版 `UrlButton.OnClick` 的等价物）。
+        /// ⚠️ 形状与账号页那颗 `AccountOpenUrl` **逐字同形**（本仓「两处写同一条规则 = 迟早不一致」⇒
+        /// 这里**不另开一套**：批处理下不真开浏览器、交互时才 `Application.OpenURL`）。
+        /// 🔴 `Application.OpenURL` 是本页**唯一一个对外动作**；URL 的出处与「按语义对上」这条限定
+        /// → `SpFaqUrl` 那段。</summary>
+        void SpOpenUrl(string what, string url)
+        {
+            Debug.Log($"[Settings] 支持页外链钮「{what}」→ {url}");
+            if (Application.isBatchMode)
+            {
+                Debug.LogWarning("[Settings] `Application.isBatchMode` ⇒ **不真开浏览器**（自检机上弹窗口没有任何意义）"
+                               + " —— 这一句是**有意**的偏离，已写进报告。");
+                return;
+            }
+            Application.OpenURL(url);
+        }
+
+        /// <summary>`Terms of Service` 那一下：**本地没有可用的常量 URL** ⇒ 只出声、不打开
+        /// （⛔ 别顺手编一条 `warpforge40k.com/terms` —— 那是「把查不到写成猜测」，本仓金规矩）。</summary>
+        void SpTermsNoUrl()
+        {
+            Debug.LogWarning("[Settings] 支持页「Terms of Service」：" + SpTermsUrlNote);
+        }
+
+        /// <summary>`Support Button` 那一下（原版 `SupportTab__OnClickSupport` → `HelpshiftManager.ShowFAQ`）——
+        /// **服务器 SDK，我们没有** ⇒ 只出声（形状同账号页那颗 `AccountLocalNote`）。</summary>
+        void SpLocalNote(string what)
+        {
+            Debug.LogWarning($"[Settings] 支持页「{what}」：{SpSdkNote}");
+        }
+
+        /// <summary>🆕 **2026-10-19（A1175）登录弹窗**（原版 `Account Tab > Login Window`，1208.58×400）。
+        /// <para>🔴 **它长在页子树里**（原版 `RectTransform_-7567295423343788122.json` 的 `m_Father` 就是
+        /// `Account Tab` 那颗、`m_FileID = 0` ⇒ **不是外链 prefab**）⇒ 我们照原版套在页子树里、`SetActive` 开关。
+        /// ⛔ 不另立一扇 `GameWindow`（那会把「挂在页里」这条原版结构改掉）。</para>
+        /// <para>🔴 **分层**：整段用 `QLwDim < QLwPanel < QLwContent < QLwText`，命中区在 `QLwHit`（全部高于本页内容）
+        /// —— 见那组常量的 doc。弹窗里那一整块**吃点击**（原版 `Backgroun filler` 的 `m_RaycastTarget=1`、
+        /// 面板/在它后面的东西都没处理器 ⇒ 点了**什么都不发生**）⇒ 挂一层 `QLwBlocker`。</para></summary>
+        void BuildLoginWindow(Transform page)
+        {
+            var lw = Node(page, LwNodeName, LwL, LwT, LwR, LwB);
+            _loginWindow = lw;
+            // ① `Backgroun filler`（**不透明黑、无 sprite** —— 原版那颗 `Image` 的 `m_Color = (0,0,0,1)`）
+            Solid(lw, "Backgroun filler", (LwFillL + LwFillR) * 0.5f, (LwFillT + LwFillB) * 0.5f,
+                  LwFillR - LwFillL, LwFillB - LwFillT, new Color(0f, 0f, 0f, 1f), QLwDim);
+            // ② `Generic Popup Background`（`40k_popup` 九宫格）+ `Mask` + `Background fill`（Tiled · 64 px 一格）
+            Nine(lw, "Generic Popup Background", LwL, LwT, LwR, LwB, ArtPopup, PopupTexW, PopupTexH,
+                 PopupBorder, QLwPanel, Color.white);
+            var mask = Node(lw, "Mask", LwMaskL, LwMaskT, LwMaskR, LwMaskB);
+            Tiled(mask, "Background fill", LwMaskL, LwMaskT, LwMaskR, LwMaskB, ArtFill, FillTilePx, QLwFill);
+            // 🔴 弹窗那一整块**吃点击**（原版那一圈射线件全都没处理器 ⇒ 点了没反应；压暗层底下那一页也不该被点到）
+            MenuDraw.Absorb(lw, "LwBlocker", Screen(LwL, LwT, LwR, LwB), QLwDim, QLwHit);
+
+            // ③ 两颗标签 + 两颗输入框（与页内那两颗同形，只差矩形与 `ppuMul`）
+            // 🔴 **A1181**：⚠️ 这两颗**与页内同名的那两颗下限不同**（逐颗实读：弹窗 `EmailText` = `32 / 37 / 37`、
+            //   `PasswordText` = `29 / 37 / 37`；页内那两颗都从 **10** 起）—— ⛔ 别按同族一刀切（铁律 5·c）。
+            var lblE = Text(lw, "EmailText", AcTerm(lkAcEmail, "E-mail"), LwLblL, LwLblR,
+                            LwEmailLblT, LwEmailLblT + LwLblH, LwFormFontPx, Color.white, QLwText,
+                            null, LwLblR - LwLblL, 32f, 37f, 37f);
+            if (lblE != null) AlignLeft(lblE, new PxRect(LwLblL, LwEmailLblT, LwLblR, LwEmailLblT + LwLblH));
+            OnLangText(lblE, () => AcTerm(lkAcEmail, "E-mail"));
+            _lwEmail = AcInput.Create(lw, "InputEmail", new PxRect(LwInL, LwEmailInT, LwInR, LwEmailInT + LwInH),
+                                      LwInPpuMul, AcTerm(lkAcEmail, "E-mail"), QLwContent, QLwText, QLwHit);
+            var lblP = Text(lw, "PasswordText", AcTerm(lkAcPassword, "Password"), LwLblL, LwLblR,
+                            LwPwdLblT, LwPwdLblT + LwLblH, LwFormFontPx, Color.white, QLwText,
+                            null, LwLblR - LwLblL, 29f, 37f, 37f);
+            if (lblP != null) AlignLeft(lblP, new PxRect(LwLblL, LwPwdLblT, LwLblR, LwPwdLblT + LwLblH));
+            OnLangText(lblP, () => AcTerm(lkAcPassword, "Password"));
+            _lwPwd = AcInput.Create(lw, "InputPassword", new PxRect(LwInL, LwPwdInT, LwInR, LwPwdInT + LwInH),
+                                    LwInPpuMul, AcTerm(lkAcPassword, "Password"), QLwContent, QLwText, QLwHit);
+
+            // ④ `Forgot Password`（原版 `EverguildButton` + `trans=1` ⇒ 不换图）
+            {
+                var f = Node(lw, "Forgot Password", LwForgotL, LwForgotT, LwForgotR, LwForgotB);
+                var lb = Text(f, "Text", AcTerm(lkAcForgotPwd, "Forgot Password"), LwForgotL, LwForgotR,
+                              LwForgotT, LwForgotB, LwLinkFontPx, AcLinkColor, QLwText,
+                              null, LwForgotR - LwForgotL, 29f, 32f, 36f);   // 🆕 A1181：原版 `29 / 32 / 36 · 折行 1`
+                if (lb != null) AlignRight(lb, new PxRect(LwForgotL, LwForgotT, LwForgotR, LwForgotB));
+                OnLangText(lb, () => AcTerm(lkAcForgotPwd, "Forgot Password"));
+                Hit(f, "Hit", LwForgotL, LwForgotT, LwForgotR, LwForgotB, QLwHit,
+                    () => AccountLocalNote("Forgot Password", AcLocalNote));
+            }
+
+            // ⑤ `ErrorMensajeContainer`（HLG：左骷髅 + 右错误行）—— **打开时整块关掉**（原版 `Open()` 那句）
+            {
+                var box = Node(lw, "ErrorMensajeContainer", LwErrBoxL, LwErrBoxT, LwErrBoxR, LwErrBoxB);
+                _lwErrorBox = box;
+                // `Animated Loading Image`：**那颗骷髅图就长在它自己身上**（照原版 —— 与两颗关窗钮同一形状：
+                // 图在根节点自己身上，⛔ 不是自造一层子件）；子件只有 `Cog` 一颗（原版就是这么一棵）。
+                var loadQ = Rect(box, "Animated Loading Image", LwLoadL, LwLoadT, LwLoadR, LwLoadB,
+                                 "40K_icon_searching_skull", QLwContent, new Color(1f, 1f, 1f, 0.8431373f));
+                var load = loadQ != null ? loadQ.transform
+                                         : Node(box, "Animated Loading Image", LwLoadL, LwLoadT, LwLoadR, LwLoadB);
+                Rect(load, "Cog", LwLoadL, LwLoadT, LwLoadR, LwLoadB, "40K_icon_searching_cog", QLwText,
+                     new Color(1f, 1f, 1f, 0.8f));
+                _lwError = Text(box, "Error Message", "", LwErrL, LwErrR, LwErrBoxT, LwErrBoxB,
+                                LwFormFontPx, AcErrColor, QLwText,
+                                null, LwErrR - LwErrL, 29f, 37f, 37f);   // 🆕 A1181：原版 `29 / 37 / 37 · 折行 1`
+                if (_lwError != null) AlignLeft(_lwError, new PxRect(LwErrL, LwErrBoxT, LwErrR, LwErrBoxB));
+                box.gameObject.SetActive(false);          // 原版 `Open()` 里那颗 `SetActive(0)`
+            }
+
+            // ⑥ `Login Button`（309.17×60 —— 比页里那几颗小一圈）· 换图与同族同一条
+            {
+                var n = Node(lw, "Login Button", LwBtnL, LwBtnT, LwBtnR, LwBtnB);
+                var bg = Rect(n, "bg", LwBtnL, LwBtnT, LwBtnR, LwBtnB, ArtButton, QLwContent, BtnGreen, true);
+                var lb = Text(n, "Button Text", AcTerm(lkAcSignIn, "Log in"), AcBtnText[6].x1, AcBtnText[6].x2,
+                              AcBtnText[6].y1, AcBtnText[6].y2, LwBtnFontPx, Color.white, QLwText,
+                              null, 0f, 12f, 40f, 12f);   // 🆕 A1181：原版 `12 / 40 / 12 · 折行 0`
+                OnLangText(lb, () => AcTerm(lkAcSignIn, "Log in"));
+                Hit(n, "Hit", LwBtnL, LwBtnT, LwBtnR, LwBtnB, QLwHit, LoginWindowSubmit, bg, ArtButton);
+            }
+
+            // ⑦ `Generic Close Button Green`（75×75 · 图 = `UI_Button_Round_background`）
+            //    🔴 换图目标 = **子件 `Icon`**（`EverguildButton.m_TargetGraphic` 实读指的就是那颗 `40k_bt_close`；
+            //       根那颗圆底的 `m_RaycastTarget = 0`）—— 与主关窗钮那条判据**逐字相同**。
+            {
+                var q = Rect(lw, "Generic Close Button Green", LwCloseL, LwCloseT, LwCloseR, LwCloseB,
+                             ArtCloseBg, QLwContent);
+                var cn = q != null ? q.transform : Node(lw, "Generic Close Button Green", LwCloseL, LwCloseT, LwCloseR, LwCloseB);
+                _loginCloseIcon = Rect(cn, "Icon", LwCloseIconL, LwCloseIconT, LwCloseIconR, LwCloseIconB,
+                                       ArtCloseIcon, QLwHit);
+                // 命中区：子件 `Icon` 矩形按它自己的 `m_RaycastPadding (-20)⁴` 外扩（⛔ 负 = 外扩）
+                var hr = MenuDraw.PaddedRect(new PxRect(LwCloseIconL, LwCloseIconT, LwCloseIconR, LwCloseIconB), ClosePad);
+                Hit(cn, "Hit", hr.x1, hr.y1, hr.x2, hr.y2, QLwHit, () =>
+                {
+                    Debug.Log("[Settings] 登录弹窗：关窗钮");
+                    HideLoginWindow();
+                }, _loginCloseIcon, ArtCloseIcon, "40k_bt_close_hover");
+            }
+
+            lw.gameObject.SetActive(false);              // 出厂 `m_IsActive = 0`（由 `Switch Account` 亮起来）
         }
 
         /// <summary>`VersionText` 那一行的文字 = 原版 `GeneralTab__OnSetup.c` 里那一句
@@ -1361,7 +2718,12 @@ namespace CardPresentation
             Rect(n, "Toggle", bx1, by1, bx2, by2, ArtToggleBox, QContent, GenBoxTint, true);
             var chk = Rect(n, "CheckMark", bx1, by1, bx2, by2, ArtToggleCheck, QOverlay, null, true);
             float lx = GenL + GenLabelOff;
-            var lb = Text(n, "Label", Loc.T(key), lx, GenR, t, b, FontRowLabel, Color.white, QText);
+            // 🆕 **2026-10-19（A1181）**：自适应 = 原版 `Checkboxes/{Disable Bots,Disable Notifications,Touch Input}/Label`
+            //   三颗**逐颗同值** `fs 42` · `min 29` · `max 42` · `base 36` · `折行 1`（逐字段实读）。
+            //   ⚠️ 折行宽 = 本格框宽：原版那三颗的宽是 `HorizontalLayoutGroup`（`ctrlW=1`）排出来的，
+            //   prefab 里读到的只是 `0×0` 模板位 —— **这一格没有字段值可抄**（如实登记，见 `Text` 的注释）。
+            var lb = Text(n, "Label", Loc.T(key), lx, GenR, t, b, FontRowLabel, Color.white, QText,
+                          null, GenR - lx, 29f, 42f, 36f);
             if (lb != null)
             {
                 AlignLeft(lb, new PxRect(lx, t, GenR, b));
@@ -1382,10 +2744,42 @@ namespace CardPresentation
             float x2 = x1 + GenBtnW, y2 = GenBtnT + GenBtnH;
             var n = Node(page, name, x1, GenBtnT, x2, y2);
             var aq = Rect(n, "bg", x1, GenBtnT, x2, y2, ArtButton, QContent, GenBtnTint, true);
-            var lb = Text(n, "Button Text", Loc.T(key), x1, x2, GenBtnT, y2, fs, Color.white, QText);
+            // 🆕 **2026-10-19（A1181）**：自适应 = 原版 `Bottom Buttons > */Button Text`
+            //   （`Redeem Code` fs40 · `Close Game Button` fs38）两颗逐颗实读都是
+            //   `min **12**` · `max = **m_fontSize**`（40 / 38）· `base **12**` · `折行 **0**`
+            //   ⇒ `max` 跟着 `fs` 走（⛔ 别写死 40 —— 第二颗原版就是 38）。
+            //   ⚠️ 折行 = 0 ⇒ `wrapPx` 传 0；自适应框宽取**本格框宽**（我们这一格 = 整颗钮 300 宽，
+            //   而原版那颗 `Button Text` 是 274 宽 —— 框宽那一格不是本件范围，已登记在报告里）。
+            var lb = Text(n, "Button Text", Loc.T(key), x1, x2, GenBtnT, y2, fs, Color.white, QText,
+                          null, 0f, 12f, fs, 12f);
             if (lb != null) _genLabels.Add(new Keyed(lb, key));
             // 悬停换图与联机页那几颗同一条路（`40K_button` → `40K_button_hover`，`WindowButton` 的表里有）
             Hit(n, "Hit", x1, GenBtnT, x2, y2, QOverlay, () => { Debug.Log($"[Settings] 点了 `{Loc.T(key)}`"); onClick(); },
+                aq, ArtButton);
+        }
+
+        /// <summary>🆕 **2026-10-19（`A1186` 裁定 ②）**：`General` 页上那颗 **`Online` 入口钮**
+        /// —— 页签栏里已经没有 `Online` 那一格了（裁定 ①），进联机页的**唯一 UI 入口就是它**。
+        /// <para>形状 = 本页既有那两颗文字钮（`GenButton`：底图 `40K_button` + 同一抹染色 + 白字 +
+        /// 悬停换图），**只少一颗图标** —— 原版那一族 5 张 `40K_settings_button_*` **一张都不能借**
+        /// （裁定 ②：5 张全被原版那 5 个键各占一张，借哪张都是替原版表态），见 `GenOnlineL` 那条 doc。</para>
+        /// <para>🔴 **文案走词条 `Settings/Online/Title`**（= 那一页的页标题，也正是它原来在页签栏上那行字）：
+        /// 撤掉页签之后那行字**原样**搬到钮上 ⇒ **一个概念一条键**，⛔ 不另造文案（另造就会有两份、迟早不一致）。
+        /// ⚠️ 登记进 `_genLabels`（本页那条「建一次」的刷新链）⇒ 换语言时它跟着变。</para>
+        /// <para>🔴 **行为 = `OpenTab(SettingsTab.Online)`** —— 与页签那条**同一个入口**
+        /// （`OpenTab` 是切页的唯一口：切 `activeSelf` + 收语言列表 / 登录浮层 + 刷文字）。</para></summary>
+        void GenOnlineEntry(Transform page)
+        {
+            float x1 = GenOnlineL, x2 = GenOnlineR, y1 = GenBtnT, y2 = GenBtnT + GenBtnH;
+            var n = Node(page, "Online Button", x1, y1, x2, y2);
+            var aq = Rect(n, "bg", x1, y1, x2, y2, ArtButton, QContent, GenBtnTint, true);
+            // 自适应 = 同族那两颗的四格（`12 / fs / 12 · 折行 0`）；折行 0 ⇒ `wrapPx` 传 0，
+            // 自适应框宽 = 本格文字框宽（= 整颗钮宽，与 `GenButton` 同一档）。
+            var lb = Text(n, "Button Text", Loc.T(lkOnTitle), x1, x2, y1, y2,
+                          GenOnlineFontPx, Color.white, QText, null, 0f, 12f, GenOnlineFontPx, 12f);
+            if (lb != null) _genLabels.Add(new Keyed(lb, lkOnTitle));
+            Hit(n, "Hit", x1, y1, x2, y2, QOverlay,
+                () => { Debug.Log($"[Settings] 点了 `{Loc.T(lkOnTitle)}` ⇒ 联机页"); OpenTab(SettingsTab.Online); },
                 aq, ArtButton);
         }
 
@@ -1403,7 +2797,10 @@ namespace CardPresentation
         public void RefreshTexts()
         {
             for (int i = 0; i < _tabLabels.Count; i++)
-                if (_tabLabels[i].Lb != null) _tabLabels[i].Lb.SetText(Loc.T(_tabLabels[i].Key));
+                // 🔴 **2026-10-09（第十会话 · `D1` 诊断 · 真缺陷 β）**：这里原来也是**裸 `Loc.T(键)`**
+                //   ⇒ 与 `BuildTabs` 同一个病（缺键时印键名）。**两处必须同时走 `Term`**，
+                //   否则「开窗那一刻对、换一次语言又变回键名」——`D1` 就是这么验出来的。
+                if (_tabLabels[i].Lb != null) _tabLabels[i].Lb.SetText(Term(_tabLabels[i].Key, _tabLabels[i].En));
             for (int i = 0; i < _genLabels.Count; i++)
                 if (_genLabels[i].Lb != null) _genLabels[i].Lb.SetText(Loc.T(_genLabels[i].Key));
             // 🆕 2026-10-18（换语言刷新链）：音频页 / 联机页那几件「`Build()` 里画一次」的。
@@ -1606,9 +3003,13 @@ namespace CardPresentation
             var chk = Rect(item, "Item Checkmark", LstL, (t + b) * 0.5f - LstChkS * 0.5f,
                            LstL + LstChkS, (t + b) * 0.5f + LstChkS * 0.5f, ArtLstCheck, QListText);
             // 字：行内边距 左20 右10 上2 下1；fs 30（屏幕 27 —— 那条全窗字号扫描的允许表已加 27）
+            // 🆕 **2026-10-19（A1181）**：自适应 = 原版 `Item Label` 逐字段实读
+            //   `fs 30` · `min **18**` · `max **40**`（**不是 30** —— 原版那一颗的 `m_fontSizeMax` 比 `m_fontSize` 大）
+            //   · `base **14**` · `折行 **1**`
             var lb = Text(item, "Item Label", real ? Loc.LanguageName(Loc.Languages[i]) : "Option A",
                           LstL + LstLblPadL, LstVpR - LstLblPadR, t + LstLblPadT, b - LstLblPadB,
-                          LstLblFontPx, LstLblColor, QListText);
+                          LstLblFontPx, LstLblColor, QListText,
+                          null, LstVpR - LstLblPadR - LstL - LstLblPadL, 18f, 40f, 14f);
             if (lb != null) AlignLeft(lb, new PxRect(LstL + LstLblPadL, t + LstLblPadT, LstVpR - LstLblPadR, b - LstLblPadB));
             if (!real) return;   // 原型那一行：静态样子，不接任何行为（原版 `Template` 也关着）
             int idx = i;
@@ -1839,7 +3240,7 @@ namespace CardPresentation
             //   （先例 = 联机页那条 `OnLangText(PageTitle(page, Loc.T(…)), …)`）。
             //   🔴 **也要挂刷新链**：本页标题是 `Build()` 里只画一次的（换语言只能在 General 页做 ⇒
             //   不登记就**停在旧语言**，见 `_onLabels` 那条「进链的判据只此一条」）。
-            OnLangText(PageTitle(page, Loc.T(lkGfxTitle)), () => Loc.T(lkGfxTitle));
+            OnLangText(PageTitle(page, Loc.T(lkGfxTitle), 4f), () => Loc.T(lkGfxTitle));
 
             // ① `Quality Selector`：下拉框（左） + 说明字（右）
             var row = Node(page, "Quality Selector", QualL, QualT, QualR, QualB);
@@ -1850,12 +3251,22 @@ namespace CardPresentation
             var qualQ = Rect(row, "Quality DropDown", QualL, QualT, QualBoxR, QualB, "40K_dropdown_field_closed", QContent);
             _qualityLabel = Text(row, "Quality Value", QualityName(), QualL + 20f, QualBoxR - 40f, QualT, QualB,
                                  FontLabel, Color.white, QText);
+            // 🆕 **2026-10-19（A1181）如实记一处「不接」**：这一颗**没接自适应** —— 它的判据**未定**
+            //   （`Editor/SettingsScene.cs` 的 A171 那节自己写着：`FontLabel`（40）「现在只服务两个
+            //   **判据未定**的站（`Quality Value` + 我们自己的联机页）」）。原版那颗 `Quality DropDown > Label`
+            //   是 `fs **18**` / auto `18~40` / base 14 / 折行 0，而**我们这一颗字号是 40、内缩也是自己定的**
+            //   ⇒ **它到底对的是不是原版那一颗，没查清** ⇒ 照铁律 2「查不到就说查不到」**不猜着接**
+            //   （⛔ 别拿原版那四格往一颗字号差 2.2 倍的自己人身上套）。已写进报告、由调度台裁。
             // 🆕 2026-10-18（波 1b · A1062）：这一行的字改走语言表（键 `Settings/Graphics/SelectQuality`）。
             //   ⚠️ **节点名 `Quality selector text` 不动**（自检 `FindChild` 靠它）。
             //   🔴 **挂 `_onLabels`**：本页是 `Build()` 里只画一次的（判据 = `_onLabels` 那条
             //   「进链的判据只此一条」）⇒ 不登记的话开着窗换语言会**停在旧语言**。
             var lb = Text(row, "Quality selector text", Loc.T(lkGfxQuality), QualTextL, QualR, QualT, QualB,
-                          FontRowLabel, Color.white, QText);
+                          FontRowLabel, Color.white, QText,
+                          null, QualR - QualTextL, 29f, 42f, 36f);
+            // 🆕 **2026-10-19（A1181）**：原版 `Quality Selector > Quality selector text` 逐字段实读
+            //   `29 / 42 / 36 · 折行 1`（⚠️ 同一台 prefab 里 `Text In Hand Selector` 那颗**也**叫这个名字、
+            //   四格**逐值相同** ⇒ 收在这一处；那颗我们**没建**，见本页末尾那条 `Debug.Log`）。
             if (lb != null) AlignLeft(lb, new PxRect(QualTextL, QualT, QualR, QualB));
             OnLangText(lb, () => Loc.T(lkGfxQuality));
             Hit(row, "QualityHit", QualL, QualT, QualBoxR, QualB, QOverlay, CycleQuality,
@@ -2052,7 +3463,13 @@ namespace CardPresentation
             var box = Rect(n, "Toggle", ChkL, t, ChkL + 119f, b, state() ? ArtToggleOn : ArtToggleOff,
                            QContent, null, false);
             var lb = Text(n, "Label", labelText != null ? labelText() : nodeName, ChkL + 130f, ChkR, t, b,
-                          FontRowLabel, Color.white, QText);
+                          FontRowLabel, Color.white, QText,
+                          null, ChkR - (ChkL + 130f), 29f, 42f, 36f);
+            // 🆕 **2026-10-19（A1181）**：上面那三格（`29 / 42 / 36` + 折行 1）= 原版这一列**四行**的
+            //   `… Toggle > Label` 逐颗实读（`Small Screen Size Toggle` · `Auto Zoom Toggle` ·
+            //   `Use super sampling` · `VSync`）—— 四颗**逐值相同**，所以收在这一处（⛔ 别在四个调用点各写一遍）。
+            //   ⚠️ 折行宽 = 本格框宽：原版那四颗的宽是 `HorizontalLayoutGroup`（`ctrlW=1`）排出来的，
+            //   prefab 里读到的是 `0×0` 模板位 ⇒ **这一格没有字段值可抄**（如实登记，见 `Text` 的注释）。
             if (lb != null) AlignLeft(lb, new PxRect(ChkL + 130f, t, ChkR, b));
             // 🆕 2026-10-18（设置窗未接的标签）：把刚建出来的那颗字**交回调用点**（⛔ 本方法自己不登记语言链
             //   —— 理由见签名上方那段：这一列的行每次滚动都被整批重建）。
@@ -2357,7 +3774,8 @@ namespace CardPresentation
             //   而后者挂在 `_gfxScroll.OnChanged` 上（**每滚一格整批重建**）⇒ 与 `Auto Zoom` 同一档。
             Func<string> fpsTitleText = () => Loc.T(lkGfxFrameLimit);
             var lb = Text(_fpsRow, "Title", fpsTitleText(), tl, tl + FpsTitleW, tt, tt + FpsTitleH,
-                          FpsFont, Color.white, QText);
+                          FpsFont, Color.white, QText,
+                          null, FpsTitleW, 18f, 42f, 36f);   // 🆕 A1181：原版 `FPS Limit > Title` = `18 / 42 / 36 · 折行 1`
             if (lb != null) AlignLeft(lb, new PxRect(tl, tt, tl + FpsTitleW, tt + FpsTitleH));
             OnGfxRowText(lb, fpsTitleText);
 
@@ -2392,7 +3810,10 @@ namespace CardPresentation
                 //   🔴 与前两行同一条短链（本行随 `RebuildGfxRows()` 逐格重建）。
                 string tick = i == 2 ? Loc.T(lkGfxUnlimited) : FpsTickText[i];
                 var tk = Text(_fpsSliderRoot, FpsTickName[i], tick, x, x + FpsTickW, y, y + FpsTickH,
-                              FpsFont, FpsTickColor, QText);
+                              FpsFont, FpsTickColor, QText,
+                              null, FpsTickW, 18f, 42f, 36f);
+                // 🆕 **2026-10-19（A1181）**：三个刻度（`30 FPS` / `60 FPS` / `Unlimited`）的自适应
+                //   = 原版逐颗实读 `18 / 42 / 36 · 折行 1`（三颗**逐值相同**，与上面那条 `Title` 也对得上）。
                 if (i == 2) OnGfxRowText(tk, () => Loc.T(lkGfxUnlimited));
             }
 
@@ -2694,15 +4115,22 @@ namespace CardPresentation
             var page = Node(area, "Media Tab", TabsL, TabsT, TabsR, TabsB);
             // 🆕 2026-10-18（波 1b · A1062）：页标题改走语言表 —— 键与页签**同一条**（= `Settings/Media/Title`；
             //   ⚠️ 英文档由 `Audio` 变 `Media`、**有意**，同 `BuildTabs` 那条注释）· 同上挂刷新链。
-            OnLangText(PageTitle(page, Loc.T(lkMediaTitle)), () => Loc.T(lkMediaTitle));
+            OnLangText(PageTitle(page, Loc.T(lkMediaTitle), 4f), () => Loc.T(lkMediaTitle));
 
             var box = Node(page, "Audio Settings", AuL, AuT, AuR, AuB);
-            var names = new[] { "Music", "Sound Effects", "Voice-overs" };
+            var names = new[] { "Music", "FX", "Voiceovers" };
             // 🆕 **2026-10-18（第四会话 · 「设置窗未接的标签」· 调度台已放行）**：**行标签的文字**改走表里的键。
             //   键**早就在表里**（`lkSetMusic` / `lkSetSoundFx` / `lkSetVoiceOvers` 那三条）、代码画的却是上面那排字面量 ⇒ 中文档一直印英文
             //   （判据 = `交件_换语言刷新链.md` §④·2）。⛔ **`names` 那排仍要留着** —— 它是**节点名**
             //   （下一行的 `name + " Container"`），节点名不进本地化（施工单 §⑦），换了 = 静默改树。
             //   ⚠️ 这两条音量键的中文是 `Loc.cs` 自己标「自拟」的（真值在远端 I2 表）。
+            // 🔴 **2026-10-20（`A1202`）就地更正**：`names[1]` / `names[2]` 原来写
+            //   `"Sound Effects"` / `"Voice-overs"` —— **那两个是页面上【印的字】，不是原版节点名**
+            //   （印的字由 `keys[]` 那一行走表给，见下面）。原版行容器的 `m_Name` 逐字是
+            //   **`Music Container` / `FX Container` / `Voiceovers Container`**
+            //   （判据 = `python 工具/menu_rect.py bundle_menus_assets_all "Audio Settings" --depth 3 --cs`，
+            //   第 1 层的三颗；本文件 4125 那条 A1181 注释里**一直抄的就是这三个原名**
+            //   ⇒ 口径早就在注释里、代码没跟上）。⛔ 本笔只动这两颗，其余节点名一个字不改。
             var keys = new[] { lkSetMusic, lkSetSoundFx, lkSetVoiceOvers };
             var get = new Func<float>[] { () => WarpforgeAudio.Music, () => WarpforgeAudio.SoundFx, () => WarpforgeAudio.VoiceOver };
             var set = new Action<float>[] { WarpforgeAudio.SetMusic, WarpforgeAudio.SetSoundFx, WarpforgeAudio.SetVoiceOver };
@@ -2718,7 +4146,26 @@ namespace CardPresentation
                 // 🔴 标签：原版 `Label` 锚在**行中心**（`anchoredPosition.y = +35`、pivot `(0,0.5)`、
                 //    高 62/63/63）⇒ **标签顶 = 行顶 − 13.5**（三行同值，与行高无关）。
                 float lt = t + AuLabelTopOff, lbB = lt + AuLabelHs[i];
-                var lb = Text(rowN, "Label", Loc.T(keys[i]), AuL, AuR, lt, lbB, FontRowLabel, Color.white, QText);
+                // 🆕 **2026-10-19（A1181）**：三行标签的自适应 = 原版三颗 `… Container > Label`
+                //   （`Music Container` / `FX Container` / `Voiceovers Container`）逐颗实读
+                //   `fs 42` · `min **18**` · `max **42**` · `base **36**` · `折行 **1**`（三颗逐值相同）。
+                // 🔴 **2026-10-20（`A1201`）就地更正原来那句「⚠️ 折行宽……这一格没有字段值可抄」——
+                //   那个推论不成立**：三颗的**框宽**（= 折行宽）**就在字段里**，是**横幅锚点**
+                //   （`aMin.x` 恒 0、`m_SizeDelta.x` 恒 0 ⇒ 宽 = 行宽 × `aMax.x`；逐字读数 → `AuLabelAnchorWs`）。
+                //   · `Music Container > Label` = **半行**（`aMax.x = 0.5`）；另两颗 = 整行（`aMax.x = 1`）。
+                //   ⛔ 旧代码三颗一律传 `AuR − AuL`（整行）⇒ **第一行的框宽比原版大一倍**，
+                //     而 `CheckAutoFit` 只断「渲出来 ≤ 框」、那一行的字本来就短 ⇒ **全绿**（静默，`A1201` 报的就是它）。
+                //     ⚠️ 那个错只有 `A1181`（2026-10-19 接上自适应）之后才存在 —— 在那之前这一格
+                //       `wrapPx = 0`（`Text` 压根没收到框宽）⇒ 它是**同一笔改动里带出来的**，不是陈年旧账。
+                //   ⚠️ 原句里对的那半句仍成立：**行宽**本身是 `Audio Settings` 的 VLG（`ctrlW=1`）排出来的
+                //     （prefab 里 `Music Container` 是 `0×0` 模板位、没有 `sizeDelta` 可抄）。
+                //   算式 = **行宽 × `aMax.x`**（行宽 = `AuR − AuL`，与上面 `Node(box, …)` 那一句同源）。
+                float boxW = (AuR - AuL) * AuLabelAnchorWs[i];
+                // ⚠️ 矩形右沿也跟着收到框宽 —— 原版那一颗的 rect 就是 `[行左, 行左 + 框宽]`
+                //   （pivot `(0,0.5)`、`anchoredPosition.x = 0`）；本窗 `Text` 的 `x1..x2` 只用于
+                //   「可见性闸 + 建节点时那个中心」，最终横位由下面那句 `AlignLeft` 定（读数不变）。
+                var lb = Text(rowN, "Label", Loc.T(keys[i]), AuL, AuL + boxW, lt, lbB, FontRowLabel, Color.white, QText,
+                              null, boxW, 18f, 42f, 36f);
                 if (lb != null)
                 {
                     AlignLeft(lb, new PxRect(AuL, lt, AuR, lbB));
@@ -2767,6 +4214,10 @@ namespace CardPresentation
 
             var note = Text(page, "Note", Loc.T(lkAudioMixerNote), AuL, AuR, AuB + 20f, AuB + 60f,
                             FontSmall, new Color(1f, 1f, 1f, 0.6f), QText);
+            // 🆕 **2026-10-19（A1181）如实记一处「不接」**：这一行是**我们自己的**（键
+            //   `Settings/Media/AudioMixerNote` = 自拟，`Core/Loc.cs` 里 ZH 写的是「音量走 AudioMixer」）
+            //   —— 原版 `Media Tab` 这个位置是 `Visual Settings > WindowMode Selector`（窗口模式下拉，
+            //   **我们没建**，见本页末尾那条 `Debug.Log`）⇒ **没有原版四格可抄** ⇒ 不接。
             if (note != null) AlignLeft(note, new PxRect(AuL, AuB + 20f, AuR, AuB + 60f));
             // 🆕 2026-10-18（换语言刷新链）：这一行是 `Build()` 里**只画一次**的 ⇒ 登记进 `_onLabels`
             //   （换语言只能在 General 页做，那时本页是关着的 ⇒ 不登记就停在旧语言）。
@@ -2781,12 +4232,23 @@ namespace CardPresentation
 
         Transform BuildOnlinePage(Transform area)
         {
+            // 🆕 **2026-10-19（A1181）· 本页的自适应「接不接」一次说清（⛔ 下面 8 处不再逐处重复）**：
+            //   · **页标题**（`PageTitle`）接上了 —— 但**原版这一页不存在** ⇒ 四格照同族页标题那一档取值
+            //     （`4 / 55 / 55 · 折行 1`，见 `PageTitle` 的注释）。**这是我们的选择，不冒充原版**。
+            //   · **本页其余 8 处文字**（`Status` / `Note` / 角色钮 `Text` ×2（经 `RoleButton`）/
+            //     `IP Label` / `Password Label` / `Refresh` 那行 / 三颗 `ActionButton(At)`）
+            //     **一律不接** —— 这一页是**我们新增的设计**（原版设置窗里搜过 `Online/Network/Server/…`
+            //     一个都没有，见文件头 ①），**没有原版那颗 TMP、也就没有 `min/max/base/折行` 可抄**。
+            //     ⛔ **不许自己挑一组值接上**（那正是「把猜测写成原版」）。`ActionButton`/`ActionButtonAt`
+            //     的 autosize 形参已经补上了（`A1181` 的结构缺口），将来若调度台给这一页定档，直接传即可。
+            //   ⚠️ 那两处**已经自己开折行**的（`Note` 那句 `SetWrapWidth`）**不在本账里** —— 它是 A77⑩ 记的
+            //     「判据空、我们挑的」，⛔ 别拿本笔去动它。
             var page = Node(area, "Online Tab", TabsL, TabsT, TabsR, TabsB);
             // 🆕 2026-10-18（P2b）：页标题改走语言表 —— 键与 `General` 页那条**对称**
             //   （`Settings/General/Title` 既当页签名又当页标题；这一条同理）⇒ 中文档印「联机」、英文档印 `Online`。
             // 🆕 2026-10-18（换语言刷新链）：**页标题也登记** —— 它和下面那两件一样是 `Build()` 里只画一次的
             //   （`General` 页那条页标题走的是 `_genLabels`，本页原来两条链都不在）。
-            OnLangText(PageTitle(page, Loc.T(lkOnTitle)), () => Loc.T(lkOnTitle));
+            OnLangText(PageTitle(page, Loc.T(lkOnTitle), 4f), () => Loc.T(lkOnTitle));
 
             // ① 角色：主机 / 客机（用户规格：「勾选成为主机或客机」）
             // 🆕 2026-10-18（波 1b · P2b 尾巴）：两颗角色钮的字改走语言表（键 `Settings/Online/Role{Host,Client}`）。
@@ -3015,20 +4477,31 @@ namespace CardPresentation
 
         /// <summary>动作钮。🆕 **2026-10-18（波 1b · P2b 尾巴）**：返回**钮上那颗 `Label`**
         /// （原来返回 `void`）—— 本方法**不自己登记语言链**（同 `BuildCheckRow` 的理由：它是共用的，
-        /// 登记与否由调用点决定），要登记就把返回值交给 `OnLangText`。⛔ `name`（节点名）不进本地化。</summary>
-        Label ActionButton(Transform page, string name, float t, string label, Action onClick)
+        /// 登记与否由调用点决定），要登记就把返回值交给 `OnLangText`。⛔ `name`（节点名）不进本地化。
+        /// <para>🆕 **2026-10-19（`A1181`）**：末尾三个形参**原样透传**给本窗的文字漏斗
+        /// （量纲 = 原版设计 px；`<= 0` = 不接，见 `Text` 的注释）。
+        /// 🔴 **今天没有调用点传它们** —— 本方法只服务**我们自加的联机页**（`Echo` / `Save` / `Check`），
+        /// 那一页原版没有 ⇒ **没有原版四格可抄**（⛔ 不猜一个）。加它只为把漏斗的形参表补全
+        /// （不加的话这一族**永远没地方传**，就是 `A1181` 要修的那个结构缺口本身）。
+        /// ⚠️ 折行档一律传 `0`（`NoWrap`）—— 原版那几颗按钮文案的 `折行` 都是 0；
+        /// 调用点真要折行请自己接 `Label.SetWrapWidth`（同联机页那条 `Note`）。</para></summary>
+        Label ActionButton(Transform page, string name, float t, string label, Action onClick,
+                           float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f)
         {
-            return ActionButtonAt(page, name, TitleL, t, OnBtnW, label, onClick);
+            return ActionButtonAt(page, name, TitleL, t, OnBtnW, label, onClick, autoMinPx, autoMaxPx, autoBasePx);
         }
 
         /// <summary>同上，但**能指定左边距与宽度**（联机页那颗【测外网】要放在动作钮**右边**那片空位上）。
-        /// 返回值 = 钮上那颗 `Label`（见 `ActionButton` 的注释）。</summary>
-        Label ActionButtonAt(Transform page, string name, float x1, float t, float w, string label, Action onClick)
+        /// 返回值 = 钮上那颗 `Label`（见 `ActionButton` 的注释）。
+        /// 🆕 **2026-10-19（`A1181`）**：三个 autosize 形参透传给 `Text`（见那里与 `ActionButton` 的注释）。</summary>
+        Label ActionButtonAt(Transform page, string name, float x1, float t, float w, string label, Action onClick,
+                             float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f)
         {
             float x2 = x1 + w, y2 = t + OnBtnH;
             var n = Node(page, name + " Button", x1, t, x2, y2);
             var aq = Rect(n, "bg", x1, t, x2, y2, ArtButton, QContent, BtnGreen);
-            var lb = Text(n, "Text", label, x1, x2, t, y2, FontButton, Color.black, QText);
+            var lb = Text(n, "Text", label, x1, x2, t, y2, FontButton, Color.black, QText,
+                          null, 0f, autoMinPx, autoMaxPx, autoBasePx);
             // A17：原版 `Account Tab>Buttons/*` 那几颗同族底图（`40K_button`）都是 SpriteSwap（普查 §块 4 第 16 行，⚠️ 非同名节点）
             Hit(n, "Hit", x1, t, x2, y2, QOverlay, () => { Debug.Log($"[Settings] 点了 `{label}`"); onClick(); },
                 aq, ArtButton);
@@ -3213,9 +4686,46 @@ namespace CardPresentation
         /// **扫全窗**的断言盯着这件事（有 `Label` 不在 `{49.5, 37.8, 36, 31.5, 30.6}` 里就红）。</para>
         ///
         /// <para>📌 判据（原版）：`Tab Title` 的 `m_fontSize = 55`（原版 prefab 实读，见文件头 `PageTitleFontPx`）
-        /// × 根 `m_LocalScale 0.9` = **49.5 画布 px**。⛔ 不是 55。</para></summary>
+        /// × 根 `m_LocalScale 0.9` = **49.5 画布 px**。⛔ 不是 55。</para>
+        ///
+        /// <para>🆕 **2026-10-19（`A1181`）：补上【自适应字号】那半边 —— 本漏斗原来【没地方传】autosize。**
+        /// 它原来只有 `clip` 一个跟布局有关的形参，而 `MenuDraw.Text` 的自适应那一段**写在
+        /// `if (wrapPx > 0f)` 里面**（`TextCore`，`Shell/MenuDraw.cs`）⇒ 走本漏斗的 **41 个调用点**
+        /// （`Text` 37 + `PageTitle` 4；另 `ActionButton`/`At` 3 处转发）**一处都开不了自适应**
+        /// —— 而原版 `Main Menu Settings Window` 里**压倒多数**的 TMP 是 `m_enableAutoSizing = 1`
+        /// （逐颗现读见 `资料/普查产出_第十会话/R2_A1126原版autosize真值.md` §3 注⑥）。</para>
+        ///
+        /// <para>🔴 **四个新形参的量纲 = 原版设计 px**（与 `fs` / `x1..x2` **同一档**，进来的都是**未缩放**的原版值），
+        /// 内部**统一 × `RootScale`** 再交给 `MenuDraw.Text` —— 与 `fs * RootScale` 那一句同一条规矩，
+        /// ⛔ 别在调用点自己乘（那会把 0.9 写成第二份，迟早不一致）。</para>
+        ///
+        /// <para>🔴 **`wrapPx` 在这里的语义 = 【原版那一颗的 `m_TextWrappingMode`】**（不是「随手给个宽度」）：
+        /// · **原版 `折行 = 1`（`Normal`）⇒ 传这一格的框宽**（`x2 - x1`，= 原版那颗的 `m_SizeDelta.x`，
+        ///   本窗逐档核过两者相等）；
+        /// · **原版 `折行 = 0`（`NoWrap`）⇒ 传 `0`**（本窗多数行标签就是这一档）。
+        /// ⚠️ 但 `MenuDraw.Text` 只要 `wrapPx > 0` 就**顺带把模式开成 `Normal`**
+        /// （`TmpFont.SetWrapWidthRect` 无条件写）⇒ **折行 = 0 那一档由本漏斗在它返回后 `SetWrapping(false)` 还原**
+        /// （成对写法同 `Shell/CardDetailPopup.cs` 的 A404 / A205 / A34-F4 那一族）。
+        /// ⛔ **那一对不能挪到 41 个调用点各写一遍** —— 同一个理由（本文件那条「别在 N 个调用点各写一遍 ×0.9」）。</para>
+        ///
+        /// <para>🔴 **`autoMinPx <= 0` ⇒ 完全走旧路**（一个字节不变：`wrapPx` 也不传）——
+        /// 这是本笔「原版**关着** autosize 的那些点不许动」的机械保证（31 处不接的调用点够不到这一支）。</para>
+        /// <para>⚠️ `MenuDraw.Text` 的那道闸是 `wrapPx > 0 ∧ autoMinPx > 0 ∧ fontPx > autoMinPx`
+        /// **三条全真**才 `SetAutoFitBox` ⇒ 原版 `m_fontSizeMin == m_fontSize` 的那些站
+        /// **传了也不生效**（本窗只有 1 处：`LanguagesDropdown > Label`，18/18 —— 如实记在报告里，
+        /// ⛔ 那要改共用件才治得了，不在本件白名单）。</para>
+        /// <para>⚠️ **折行 = 0 但仍然开自适应的那些点**，自适应框的宽取的是**本格框宽**
+        /// （原版那颗的宽有一批是 `HorizontalLayoutGroup` / `VerticalLayoutGroup` 排出来的 ⇒
+        /// prefab 里读到的只是 `0×0` 模板位，**没有字段值可抄**）—— 这一格**不是原版字段值**，
+        /// 已逐站登记在报告里。</para></summary>
+        /// <param name="wrapPx">**原版那一颗的折行档**：`> 0` ⇒ 折行开（值 = 折行宽 = 本格框宽）；
+        /// `0` ⇒ 原版 `NoWrap`（见上面那三段）。单位 = 原版设计 px。</param>
+        /// <param name="autoMinPx">= 原版那一颗的 `m_fontSizeMin`（**设计 px**）；`<= 0` ⇒ **不接自适应**（旧路）。</param>
+        /// <param name="autoMaxPx">= 原版那一颗的 `m_fontSizeMax`（设计 px）；`<= 0` ⇒ 退回 `fs`（`MenuDraw` 的既有语义）。</param>
+        /// <param name="autoBasePx">= 原版那一颗的 `m_fontSizeBase`（设计 px）；`<= 0` ⇒ 退回调用方那一档。</param>
         Label Text(Transform p, string n, string s0, float x1, float x2, float y1, float y2, float fs, Color c, int q,
-                   PxRect? clip = null)
+                   PxRect? clip = null,
+                   float wrapPx = 0f, float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f)
         {
             var s = Screen(x1, y1, x2, y2);
             var r = new PxRect(s.x1, s.y1, s.x2, s.y2);
@@ -3225,8 +4735,20 @@ namespace CardPresentation
             //   的话这一族文字**整块不吃裁切**（静默）。
             //   ⚠️ `clip` 形参照旧原样传（非空 = 显式覆盖那一档赢）。
             if (!MenuDraw.VisibleAbove(p, r, clip)) return null;
-            var lb = MenuDraw.Text(p, r, s0, c, n, fs * RootScale, q);   // 🔴 A171：字跟着坐标一起缩（见方法注释）
-            if (lb != null) MenuDraw.ClipText(lb, clip, default(Vector2));
+            // 🆕 A1181：**自适应框的宽**。折行开的那一档直接用 `wrapPx`（= 原版 `m_SizeDelta.x`）；
+            //   折行 = 0 但原版开了自适应的那一档，`wrapPx` 是 `0`（那是「折行档」的开关）⇒ 这里补本格框宽。
+            //   ⛔ 两个都不给（`autoMinPx <= 0`）⇒ `fitW = 0` ⇒ 下游一个分支都不进 = **旧行为逐位不变**。
+            float fitW = wrapPx > 0f ? wrapPx : (autoMinPx > 0f ? x2 - x1 : 0f);
+            var lb = MenuDraw.Text(p, r, s0, c, n, fs * RootScale, q,          // 🔴 A171：字跟着坐标一起缩
+                                   fitW * RootScale, autoMinPx * RootScale,
+                                   autoMaxPx * RootScale, autoBasePx * RootScale);
+            if (lb == null) return null;
+            // 🔴 A1181：**折行 = 0 那一档还原**（`MenuDraw.Text` 顺带把它开成了 `Normal`，见方法头那段）。
+            //   必须在 `ClipText` **之前**：`SetWrapping` 内部 `ForceRelayout` 会重排 mesh、把上一刀抹掉。
+            if (autoMinPx > 0f && wrapPx <= 0f) lb.SetWrapping(false);
+            // 🔴 **裁切必须是最后一步**（`SetGlyphHeight` / `SetAutoFitBox` / `SetWrapWidth` 任何一次重排
+            //   都会把 mesh 重算回去 —— 同 `MenuDraw.Text` 那条）。本笔多出来的 `SetWrapping` 也在这之前。
+            MenuDraw.ClipText(lb, clip, default(Vector2));
             return lb;
         }
         Transform Hit(Transform p, string n, float x1, float y1, float x2, float y2, int q, Action a,
@@ -3261,10 +4783,20 @@ namespace CardPresentation
         /// <para>🆕 **2026-10-18（波 1b · A1062）就地订正**：这里原来写着「另外两页（`Graphics` / `Audio`）
         /// 传的是**写死的英文**、那张表里也没有对应键 ⇒ 它们不登记（保持现状）」—— **该说法已过期**：
         /// `Settings/Graphics/Title` 与 `Settings/Media/Title` **本来就在表里**（页签与页标题**同一条键**，
-        /// 见 `Loc.cs` 那两条的注释）⇒ 那两页现在也走词条、也登记。**三页标题一律登记。**</para></summary>
-        Label PageTitle(Transform page, string title)
+        /// 见 `Loc.cs` 那两条的注释）⇒ 那两页现在也走词条、也登记。**三页标题一律登记。**</para>
+        ///
+        /// <para>🆕 **2026-10-19（`A1181`）**：页标题的**自适应**接上了（原版四页的 `Tab Title` 全开
+        /// `m_enableAutoSizing`，逐颗现读 `bundle_menus_assets_all`）：
+        /// · `min` / `max` / `base` 三格**逐页实读**：General / Media / Graphics / Support 都是
+        ///   **`4 / 55 / 55`**，**`Account` 是 `10 / 55 / 55`**（⇒ 下限**必须逐页给**，⛔ 别一刀切）；
+        /// · `折行 = 1` ⇒ 折行宽 = 本格框宽（`TitleR - TitleL`，= 原版那颗的 `m_SizeDelta.x`）。
+        /// ⚠️ 我们自加的 `Online` 页**原版没有** ⇒ 那一格照同族页标题取值（**这是我们的选择**、不冒充原版）。</para></summary>
+        /// <param name="autoMinPx">= 原版那一页 `Tab Title` 的 `m_fontSizeMin`（设计 px；General/Media/Graphics = 4、
+        /// Account = 10）。`<= 0` ⇒ 不接自适应（旧路）。</param>
+        Label PageTitle(Transform page, string title, float autoMinPx)
         {
-            var lb = Text(page, "Tab Title", title, TitleL, TitleR, TitleT, TitleB, PageTitleFontPx, Color.white, QText);
+            var lb = Text(page, "Tab Title", title, TitleL, TitleR, TitleT, TitleB, PageTitleFontPx, Color.white, QText,
+                          null, TitleR - TitleL, autoMinPx, PageTitleFontPx, PageTitleFontPx);
             if (lb != null) AlignLeft(lb, new PxRect(TitleL, TitleT, TitleR, TitleB));
             return lb;
         }
@@ -3541,6 +5073,116 @@ namespace CardPresentation
     /// 🔴 **A208（2026-10-10）**：**矩形也一样** —— `Create` 收的是**设计 px**，进门先过
     /// `SettingsWindow.Screen()`（原来没过 ⇒ 框比字大 11%、与同页标签错位，见 `Create` 的注释）。</para>
     /// </summary>
+    /// <summary>🆕 **2026-10-19（A1175）账号页 / 登录弹窗那四颗输入框** —— **照原版那棵树搭**。
+    /// <para>原版形状（逐颗实读）= `InputEmail` 节点**自己带** `Image`〔`40K_dropdown_bg` ·
+    /// **`m_Type = 1`(Sliced)** · `m_Color` 那抹绿 · `m_PixelsPerUnitMultiplier` 1.0 / 1.2 ·
+    /// `m_RaycastTarget = 1`〕+ 子件 `Text Area`（挂 `RectMask2D`）里再套 `Placeholder` / `Text` 两颗 TMP；
+    /// `TMP_InputField` + `EverguildInputField` 都挂在`InputEmail` 那一颗上。</para>
+    /// <para>🔴 **为什么不复用本窗现成的 `MenuInputField`**：① 它把底板画成**拉伸**（`MenuDraw.Rect`，
+    /// 没有 `m_Type = 1`）② 它**不收 tint**（原版那抹绿在 `Image.m_Color` 上）—— 两点都不对。
+    /// 而它服务的是**联机页**（我们自加的那一页）⇒ ⛔ 不动它（那一页的断言盯着它）。
+    /// **文本编辑仍走同一个入口** `PointerLayer.BeginText`（`MenuInputField.Focus` 用的就是它）——
+    /// 本工程只有这一条路，⛔ 不另发明。</para>
+    /// <para>⚠️ **与 `MenuInputField` 的一处有意差异**：内层节点名是 `Text Area` / `Placeholder` / `Text`
+    /// （= **原版 GO 名**，照抄），而 `MenuInputField` 的内层叫 `bg` / `Text` / `Hit`。</para></summary>
+    public class AcInput
+    {
+        /// <summary>框里那行字的字号（**画布 px**）—— 原版输入框那两颗 TMP 的 `m_fontSize` 在导出 JSON 里
+        /// **没有这个键**（`w4probe` 逐颗实读：`Placeholder` / `Text` 只有 `m_text`）⇒ 取本窗既有的那个口径：
+        /// `MenuInputField.InputFontPx` = 原版 **40** × 根上那层 0.9 = **36**（⛔ 不新造一个数）。</summary>
+        const float FontPx = 40f * SettingsWindow.RootScale;
+
+        public string Text { get; private set; }
+        public Transform Root { get; private set; }
+        /// <summary>框里那颗 `Text`（自检要文字时用；空 = 没建出来）。</summary>
+        public Label ValueLabel { get { return _value; } }
+        public bool Focused { get { return PointerLayer.Instance != null && PointerLayer.Instance.TextEditing && _mine; } }
+
+        Label _value, _placeholderLb;
+        string _placeholder;
+        bool _mine;
+
+        /// <summary>建一个（`r` / `placeholderInset` 都是**设计 px** —— 与同页其余包装函数同一个坐标系，
+        /// 那层 `RootScale` 由**本类自己**烘进去，同 `MenuInputField.Create` 的 A208 那条）。
+        /// <para>`ppuMul` = 原版那颗 `Image.m_PixelsPerUnitMultiplier`（账号页两颗 1.0、弹窗两颗 1.2）——
+        /// uGUI 按 `m_Border ÷ ppuMul` 画角块 ⇒ `borderOutPx` 传 `border × (1/ppuMul)`。</para>
+        /// <para>`qBg / qText / qHit` 三档**必须由调用方给**：弹窗那两颗要活在自己那一族队列里
+        /// （`QLwContent` / `QLwText` / `QLwHit`），否则会被弹窗底图盖住、或被吸收层抢走命中。</para></summary>
+        public static AcInput Create(Transform parent, string name, PxRect r, float ppuMul, string placeholder,
+                                     int qBg, int qText, int qHit)
+        {
+            var f = new AcInput();
+            f.Text = "";
+            f._placeholder = placeholder ?? "";
+            var s = SettingsWindow.Screen(r.x1, r.y1, r.x2, r.y2);   // 设计 px → 画布 px（本窗唯一那一处换算）
+
+            f.Root = MenuDraw.Node(parent, name, s);
+            // 底板：`40K_dropdown_bg` · **Sliced** · 绿
+            var tex = CardArt.MenuUi(SettingsWindow.AcInArt);
+            if (tex == null)
+                Debug.LogWarning($"[Settings] 账号页输入框的底板图 `{SettingsWindow.AcInArt}` 取不到 ⇒ 只有命中区、没有底板（不静默）");
+            else
+            {
+                float k = (ppuMul > 0f) ? 1f / ppuMul : 1f;
+                var b = SettingsWindow.AcInBorder;
+                MenuDraw.Nine(f.Root, tex, s, b, SettingsWindow.AcInTexW, SettingsWindow.AcInTexH, qBg,
+                              SettingsWindow.AcInTint, true, "bg",
+                              new Vector4(b.x * k, b.y * k, b.z * k, b.w * k));
+            }
+            // `Text Area`（原版挂 `RectMask2D`）：左右各内缩 20 设计 px、上下居中、高 31 —— 里面两颗 TMP
+            float inset = SettingsWindow.AcAreaInset * SettingsWindow.RootScale;
+            float cy = (s.y1 + s.y2) * 0.5f;
+            var area = new PxRect(s.x1 + inset, cy - SettingsWindow.AcAreaH * 0.5f * SettingsWindow.RootScale,
+                                  s.x2 - inset, cy + SettingsWindow.AcAreaH * 0.5f * SettingsWindow.RootScale);
+            var areaN = MenuDraw.Node(f.Root, "Text Area", area);
+            // 原版那两颗 TMP：`Placeholder` 画占位（空框时）、`Text` 画真值 —— **裁切**按 `Text Area` 那框
+            //（我们这套没有 `RectMask2D`，等价物 = `MenuDraw.Text` 的 `clip` 形参，同一份裁切算法）
+            f._placeholderLb = MenuDraw.Text(areaN, area, f._placeholder, new Color(1f, 1f, 1f, 0.45f),
+                                             "Placeholder", FontPx, qText, clip: area);
+            f._value = MenuDraw.Text(areaN, area, "", Color.white, "Text", FontPx, qText, clip: area);
+            MenuDraw.AlignLeft(f._value, area);
+            if (f._placeholderLb != null) MenuDraw.AlignLeft(f._placeholderLb, area);
+            MenuDraw.Hit(f.Root, "Hit", s, qHit, () => f.Focus());
+            f.Refresh();
+            return f;
+        }
+
+        /// <summary>把两颗 TMP 摆对（**原版那两颗的分工**：空框画 `Placeholder`、有字画 `Text`）。
+        /// ⚠️ 焦点态在真值后面加一个 `_`（本窗既有形状 —— `MenuInputField.Refresh` 同此）。
+        /// ⛔ **不许两颗同时画同一串字**（那会画两遍、看着比别处粗一圈）：空框时 `Text` 必须为空。</summary>
+        void Refresh()
+        {
+            bool empty = string.IsNullOrEmpty(Text);
+            bool showPh = empty && !Focused;
+            if (_placeholderLb != null)
+            {
+                _placeholderLb.gameObject.SetActive(showPh);
+                if (showPh) _placeholderLb.SetText(_placeholder);
+            }
+            if (_value != null)
+            {
+                _value.SetText(Focused ? (Text + "_") : Text);
+                _value.SetColor(empty ? new Color(1f, 1f, 1f, 0.45f) : Color.white);
+            }
+        }
+
+        /// <summary>点上去开始编辑（走本工程唯一的那个入口 `PointerLayer.BeginText`）。</summary>
+        public void Focus()
+        {
+            var pl = PointerLayer.Instance;
+            if (pl == null) { Debug.LogWarning("[Settings] 没有 `PointerLayer` ⇒ 输入框收不到键盘"); return; }
+            _mine = true;
+            pl.BeginText(Text, 64, s => { Text = s; _mine = false; Refresh(); },
+                         () => { _mine = false; Refresh(); },
+                         s => { Text = s; Refresh(); });
+            Refresh();
+            Debug.Log("[Settings] 账号页输入框获得焦点（回车确认 / ESC 取消）");
+        }
+
+        /// <summary>程序化改文本（模拟动作 / 自检 / 刷新都用它 —— **批处理里没有键盘**）。</summary>
+        public void SetText(string s) { Text = s ?? ""; Refresh(); }
+    }
+
     public class MenuInputField
     {
         /// <summary>输入框里那行字的字号，**画布 px**。原版设计值是 **40**（= 本窗 `FontLabel`），

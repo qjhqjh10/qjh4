@@ -2444,7 +2444,10 @@ namespace CardPresentation
         /// 卡行三件照原版三件：`Background`（同卡组行的九宫格底）· `Card Name` · `Cost`。
         /// <para>⚠️ **卡行摆在节点中心**，不是照 prefab 那个子件矩形 —— 那条 `[414,555 288x56]` 落在节点
         /// `[993.59,525.50] 100×100` **之外**，是「布局跑之前的模板位」（铁律 10 第 3 条那类；同
-        /// `Clear filters` 那个坑）。原版跑起来在哪儿量不到（回收列表），**这是我们挑的位置**。</para></summary>
+        /// `Clear filters` 那个坑）。原版跑起来在哪儿量不到（回收列表），**这是我们挑的位置**。</para>
+        /// <para>🔴 **2026-10-19（A1170）**：**「节点中心」那一跳现在记在拖影根自己的 `localPosition` 上**，
+        /// 三个子件改成**相对根中心**的局部坐标 ⇒ 静态画出来的位置与改动前**逐像素相同**，
+        /// 而拖起来**不再带那个偏置**（判据与量级见函数里那一段）。</para></summary>
         void BuildCardDrag()
         {
             _cardDragNode = NewGo("card_drag");
@@ -2454,6 +2457,26 @@ namespace CardPresentation
             float gx1 = gcx - CardGhostW * 0.5f, gy1 = gcy - CardGhostH * 0.5f;
             _cardGhostGo = NewGo("card_ghost");
             _cardGhostGo.transform.SetParent(_cardDragNode.transform, false);
+            // 🔴 **2026-10-19（A1170）**：「布局框中心」这个偏置放在**拖影根**上 —— 它就是原版
+            //   `Card Drag Controller > Deck Selector Card Info button` 那一件（`CardPreview` 挂的那一件，
+            //   也就是拖起来之后 `OnDrag` 每帧**整句覆盖 `localPosition`** 的那一件）。
+            //   判据（原版方法体，逐句还原 → `Core/DraggableController.cs` 文件头 ②；与同形的 `A1151`
+            //   `BuildCosmeticDrag` 用的是**同一份**——同一个 `OnDrag`、同一个形状）：
+            //     `OnDrag` = `RectTransformUtility.ScreenPointToLocalPointInRectangle(draggable.transform.parent, …)`
+            //     ＋ `this.draggable.transform.localPosition = local`
+            //   ⇒ **偏置在原版是放在「拖影根」上的**（拖拽那一拍被指针位置整句覆盖）⇒ 原版画心**贴着指针**。
+            //   ⚠️ 我们原来把它摊在**子件**的 `localPosition` 上（子件三件全按**设计 px 绝对坐标**摆：
+            //     行底 `PxRect(gx1, gy1, …)` · 圆心 `gx1+17` · 名字 `gx1+62`），而 `OnDrag` 改的是**根**
+            //     ⇒ 画心 = 指针 + `Pos(gcx, gcy)` = 指针 **+(83.59 px 右, 35.5 px 下)**
+            //     （`gcx = DragNodeX + DragNodeW*0.5 = 1043.59` · `gcy = DragNodeY + DragNodeH*0.5 = 575.50`；
+            //      `Pos(1043.59, 575.5) = (0.7739, −0.3287)` 世界单位 —— ⛔ **别把 `Pos` 的入参当成 px 偏置**
+            //      「拖出屏幕 1043 px」是误读，同 `BuildCosmeticDrag` 那条 `B6` 订正）。
+            //   📌 下面三个子件因此改成 `relativeToParent: true`（矩形相对**根中心**、仍是设计 px、y 向下）；
+            //     行底那一颗走 `MenuDraw.Nine`，它的 `MenuDraw.Local(parent, …)` 本来就会减掉父件的设计位置
+            //     ⇒ **它天然就是相对的**，只是要求根的 `localPosition` 在它**之前**摆好（就是本行）。
+            //   🔴 **本条只到「读代码链」这一层、没有实况证据**（第九会话 `P2` 报告 §③ 的「顺带发现」，
+            //     出处 `资料/普查产出_第九会话/P2_战斗表现族.md`）⇒ 照此措辞，⛔ 别写成「原版就是这样（已验）」。
+            _cardGhostGo.transform.localPosition = Pos(gcx, gcy);
 
             // 行底走**公共件**（`NineSlice` 那个助手只会挂到 `Root` 下 ⇒ 这里直调 `MenuDraw.Nine`，
             // 让它在拖影容器里 —— 同一条九宫格参：原版行底 `40k_deck_cardlist_bg` border=(150,0,150,0)）
@@ -2463,14 +2486,16 @@ namespace CardPresentation
                               new PxRect(gx1, gy1, gx1 + CardGhostW, gy1 + CardGhostH),
                               new Vector4(150f, 0f, 150f, 0f), rowBg.width, rowBg.height,
                               QDragPreview, null, true, "card_ghost_bg");
-            // 三件的相对位置照卡组行那一套（`RowCostX 17` / 名字 x 62 · 字号档 1）
+            // 三件的相对位置照卡组行那一套（`RowCostX 17` / 名字 x 62 · 字号档 1）——
+            // 坐标一律**相对拖影根中心**（`lx1/ly1` = 行框左上，见上面那段判据）
+            float lx1 = -CardGhostW * 0.5f, ly1 = -CardGhostH * 0.5f;
             Img("card_ghost_circle", Ui("Card_Frame_Cost_Icon"),
-                gx1 + 17f, gy1 + (CardGhostH - 38f) * 0.5f, 38f, 38f,
-                QDragPreview + 1, false, _cardGhostGo.transform);
-            var nm = Txt("card_ghost_n", "", gx1 + 62f, gy1, CardGhostW - 70f, CardGhostH,
-                         1, Ink, QDragPreview + 2, _cardGhostGo.transform);
-            var cs = Txt("card_ghost_c", "", gx1 + 17f, gy1 + (CardGhostH - 38f) * 0.5f, 38f, 38f,
-                         1, Ink, QDragPreview + 2, _cardGhostGo.transform);
+                lx1 + 17f, ly1 + (CardGhostH - 38f) * 0.5f, 38f, 38f,
+                QDragPreview + 1, false, _cardGhostGo.transform, relativeToParent: true);
+            var nm = Txt("card_ghost_n", "", lx1 + 62f, ly1, CardGhostW - 70f, CardGhostH,
+                         1, Ink, QDragPreview + 2, _cardGhostGo.transform, relativeToParent: true);
+            var cs = Txt("card_ghost_c", "", lx1 + 17f, ly1 + (CardGhostH - 38f) * 0.5f, 38f, 38f,
+                         1, Ink, QDragPreview + 2, _cardGhostGo.transform, relativeToParent: true);
             _cardPreview = _cardGhostGo.AddComponent<CardPreview>();
             _cardPreview.BindView(nm, cs);
             _cardDrag.Bind(_cardPreview, DragCue);
@@ -6182,15 +6207,19 @@ namespace CardPresentation
         /// <summary>按**左上角 + 宽高**摆一张图（和权威坐标表同序，抄表不会抄错）。
         /// ⚠️ 原版 rect 的比例和源图常不一样（例：行底源图 462×62、显示 325×55.7）⇒ 必须强制宽高比。
         /// 🆕 A67：`parent` 用来把左抽屉那几件挂进它们各自的容器（不传 = `Root`，与原来一致）——
-        ///   坐标仍是**屏幕绝对 px**（容器在原点、无缩放 ⇒ 两种父级下同一个数）。</summary>
+        ///   坐标仍是**屏幕绝对 px**（容器在原点、无缩放 ⇒ 两种父级下同一个数）。
+        /// 🆕 **2026-10-19（A1170）**：`relativeToParent` —— `true` 时 `x/y/w/h` 一律**相对 `parent` 的局部原点**
+        ///   （设计 px、左上原点、y 向下；口径与 `MenuDraw.Local(parent, x1,y1,x2,y2)` **同一条**），
+        ///   ⛔ 不是屏幕绝对 px。给「**父件自己会动**」的容器用（拖影根 `card_ghost` —— 判据 → `BuildCardDrag`）。
+        ///   默认 `false` = 与改动前**逐位相同**（`Pos(cx, cy)`）⇒ 既有调用点零影响。</summary>
         ImageQuad Img(string key, string sprite, float x, float y, float w, float h, int q,
-                      bool keepAspect = false, Transform parent = null)
+                      bool keepAspect = false, Transform parent = null, bool relativeToParent = false)
         {
-            return Img(key, Ui(sprite), x, y, w, h, q, keepAspect, parent);
+            return Img(key, Ui(sprite), x, y, w, h, q, keepAspect, parent, relativeToParent);
         }
 
         ImageQuad Img(string key, Texture2D tex, float x, float y, float w, float h, int queue,
-                      bool keepAspect = false, Transform parent = null)
+                      bool keepAspect = false, Transform parent = null, bool relativeToParent = false)
         {
             if (tex == null) return null;      // 缺图由 `Ui()` 记账（别在这里按 key 再记一次）
             // `keepAspect` = 原版 `Image.m_PreserveAspect`：**按 sprite 自己的比例放进框**（不拉伸）。
@@ -6211,7 +6240,8 @@ namespace CardPresentation
                 if (CardbackFace.Fit(tex, w, h, out fw2, out fh2, out fox, out foy))
                 { w = fw2; h = fh2; cx += fox; cy -= foy; }        // `Pos` 的 y 向上 ⇒ `foy`（向上为正）减
             }
-            var q = ImageQuad.Create(parent != null ? parent : Root, tex, Pos(cx, cy),
+            var q = ImageQuad.Create(parent != null ? parent : Root, tex,
+                                     relativeToParent ? new Vector3(U(cx), -U(cy), 0f) : Pos(cx, cy),
                                      h > 0f ? U(h) : 0.01f, new Vector2(0.5f, 0.5f), key);
             if (q != null && h > 0f) q.SetAspect(w / h);
             if (q != null)
@@ -6232,12 +6262,17 @@ namespace CardPresentation
         //   （`Loc.T` 对缺键就回**键名本身**），而不是悄悄退回一串写死的英文/中文。
         //   ⇒ 3 处调用点一并收成**裸 `Loc.T(键)`**（各处都留了「⚠️ 日期 更正」痕迹）。
 
+        /// <summary>摆一段字（居中 pivot）。🆕 **2026-10-19（A1170）**：`relativeToParent` 同 `Img` ——
+        /// `true` 时 `x/y/w/h` 相对 `parent` 的局部原点（设计 px、y 向下），⛔ 不是屏幕绝对 px。
+        /// 默认 `false` = 与改动前逐位相同 ⇒ 既有调用点零影响。</summary>
         Label Txt(string key, string s, float x, float y, float w, float h, int scale, Color c, int queue,
-                  Transform parent = null)
+                  Transform parent = null, bool relativeToParent = false)
         {
             float cy = h > 0f ? y + h * 0.5f : y;
-            var l = Label.Create(parent != null ? parent : Root, s, Pos(x + w * 0.5f, cy), scale, c,
-                                 new Vector2(0.5f, 0.5f), key);
+            var l = Label.Create(parent != null ? parent : Root, s,
+                                 relativeToParent ? new Vector3(U(x + w * 0.5f), -U(cy), 0f)
+                                                  : Pos(x + w * 0.5f, cy),
+                                 scale, c, new Vector2(0.5f, 0.5f), key);
             if (l != null) l.SetRenderQueue(queue);
             return l;
         }

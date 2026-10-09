@@ -316,8 +316,16 @@ namespace CardPresentation
             var iconQ = MenuDraw.Rect(holder, icon, R(D_Holder), "Reward Holder", QContent, null, true);
             if (iconQ == null && icon == null) MissingArt.Add(DailyData.RewardIconOf(day, prem));
             // 奖励名（`EverguildTextMeshPro` fs=45 × 0.8）
+            // 🔴 **2026-10-09（A1126 · A2 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 36px。
+            //   判据 = 原版 `menus ▸ Daily Reward Popup/Daily Reward Popup Entry/NormalReward/EverguildTextMeshPro`
+            //   （`Premium Reward` 那颗逐值相同）：**`m_enableAutoSizing = 1`** · `m_fontSizeMin = **18**` ·
+            //   `m_fontSizeMax = **45**` · `m_fontSizeBase = **36**` · 折行 = 1。
+            //   🔴 **四格要按本窗刻度换算**：这一组的节点带 `localScale = 0.8`（见上面 `R()` / `45f * 0.8f`
+            //   那两处），而 `m_fontSizeMin/Max/Base` 是**未缩放的设计空间原值** ⇒ **三者一样乘 0.8**
+            //   （判据 = 本仓既有先例 `Shell/MissionsTab.cs` 的 `FS()`：**「自适应上下限也要一起乘」**，
+            //     `Editor/…` 那条注释在 `:345` / `:380` / `:1302`）。⇒ 18/45/36 → **14.4 / 36 / 28.8**。
             var nm = MenuDraw.Text(node, R(D_Name), DailyData.RewardName(day, prem), Color.white,
-                                   "Name", 45f * 0.8f, QText);
+                                   "Name", 45f * 0.8f, QText, R(D_Name).W, 18f * 0.8f, 45f * 0.8f, 36f * 0.8f);
             if (nm != null) nm.AlignLeftOn(LayoutSpace.FromPixel(R(D_Name).x1, 0f).x);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `EverguildTextMeshPro`（奖励名，fs45）
             //   = `对齐=Center/**Midline**`（同一份 dump，8 份实例逐值相同）。
@@ -339,7 +347,13 @@ namespace CardPresentation
             //   --depth 12 --no-sprite` 实读，**8 份实例逐值相同**（`255.1 244.2 428.1 276.0` / `255.1 638.7 428.1 670.5` …）。
             //   ⚠️ 不显式对齐 ⇒ `Label` 默认把文字块**居中**摆在框心（原版贴左）。
             //   本文件已有同款先例（`:252` 的 `Name` 也是这个口径）。
-            var claimedTx = MenuDraw.Text(gc, R(D_ClaimedTex), DailyData.RewardClaimedText(), Color.white, "Claimed Tex", 41.95f * 0.8f, QText);
+            // 🔴 **2026-10-09（A1126 · A2 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 33.56px。
+            //   判据 = 原版 `…/NormalReward/Gacha Reward Claimed/Claimed Tex`：**`m_enableAutoSizing = 1`** ·
+            //   `m_fontSizeMin = **15**` · `m_fontSizeMax = **200**` · `m_fontSizeBase = **36**` · 折行 = 1。
+            //   🔴 同上一颗：这一组带 `localScale = 0.8` ⇒ 四格一起 × 0.8 → **12 / 160 / 28.8**
+            //   （判据 = `Shell/MissionsTab.cs` 的 `FS()`：「自适应上下限也要一起乘」）。
+            var claimedTx = MenuDraw.Text(gc, R(D_ClaimedTex), DailyData.RewardClaimedText(), Color.white, "Claimed Tex", 41.95f * 0.8f, QText,
+                                          R(D_ClaimedTex).W, 15f * 0.8f, 200f * 0.8f, 36f * 0.8f);
             MenuDraw.AlignLeft(claimedTx, R(D_ClaimedTex));
             MenuDraw.SetVAlign(claimedTx, Label.VAlign.Midline, R(D_ClaimedTex));   // A712 阶段 2：原版 `Left/Midline` 的纵向那一半
             gc.gameObject.SetActive(st == RewardState.Collected);
@@ -387,7 +401,16 @@ namespace CardPresentation
             MenuDraw.Text(p, PremTitle, DailyData.PremiumTrackTitle(), Color.white, "Title", 36f, QText);
             var price = MenuDraw.Node(p, "Price Display Button 2 Variant", PremPrice);
             var pb = MenuDraw.Rect(price, Art("UI_Button_Mulligan"), PremPrice, "Generic UI Button", QContent);
-            var lbPrice = MenuDraw.Text(price, PremPrice, DailyData.PremiumTrackPrice(), Color.white, "Price", 30f, QText);
+            // 🔴 **2026-10-09（A1126 · A2 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 30px。
+            //   判据 = 原版 `menus ▸ …/Premium Track/Price Display Button 2 Variant/Generic UI Button/Price Display/text`
+            //   （出厂文本 `'300,00'`）：**`m_enableAutoSizing = 1`** · `m_fontSizeMin = **13.46**` ·
+            //   `m_fontSizeMax = **40**` · `m_fontSizeBase = **39**` · **折行 = 0**。
+            //   ⚠️ **这一格不在 `localScale = 0.8` 的那棵子树里**（`PremPrice` 没走 `R()`，与 Header 同刻度）
+            //   ⇒ 四格**照原值抄、不乘 0.8**（判据 = 同族的 `Shell/PurchasePremiumWindow.cs` 四格常量就是原值）。
+            //   ⚠️ 折行 0 ⇒ `SetAutoFitBox` 内部 `SetWrapWidth` 会**无条件**开成 `Normal` ⇒ 紧跟一句关掉。
+            var lbPrice = MenuDraw.Text(price, PremPrice, DailyData.PremiumTrackPrice(), Color.white, "Price", 30f, QText,
+                                        PremPrice.W, 13.46f, 40f, 39f);
+            if (lbPrice != null) lbPrice.SetWrapping(false);        // 原版折行=0（A205：关这一下顺带推版面）
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版那一格 `…/Price Display Button 2 Variant/
             //   Generic UI Button/…/text`（出厂 `'300,00'`）= `对齐=Center/**Capline**`（同一份 dump）。
             //   ⚠️ 上述这条只判**纵向档**；⚠️ 顺带读到：原版那一颗 `字号=33.5`、我们传 `30f` —— 字号那一笔
@@ -448,11 +471,20 @@ namespace CardPresentation
             var h = MenuDraw.Node(root, "Header Header", Header);
             MenuDraw.Rect(h, Art(ArtHeaderBg), Header, "Background", QPanel);
             MenuDraw.Rect(h, Art(DailyData.HeaderArmyIcon()), ArmyIcon, "Army Icon", QContent, null, true);
-            var t = MenuDraw.Text(h, HeaderTitle, DailyData.HeaderArmyName(), Color.white, "Title", 40f, QText);
+            // 🔴 **2026-10-09（A1126 · A2 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 40px。
+            //   判据 = 原版 `menus ▸ Daily Reward Popup/…/Header Header/Title`：**`m_enableAutoSizing = 1`** ·
+            //   `m_fontSizeMin = **18**` · `m_fontSizeMax = **40**` · `m_fontSizeBase = **36**` · 折行 = 1。
+            //   ⚠️ Header 这一族**不带** `localScale`（我们传的 `40f` 就是原版 `m_fontSize` 原值）
+            //   ⇒ 四格照抄、**不乘 0.8**（⛔ 与上面 `Name` / `Claimed Tex` 那两颗不是一套刻度）。
+            var t = MenuDraw.Text(h, HeaderTitle, DailyData.HeaderArmyName(), Color.white, "Title", 40f, QText,
+                                  HeaderTitle.W, 18f, 40f, 36f);
             if (t != null) t.AlignLeftOn(LayoutSpace.FromPixel(HeaderTitle.x1, 0f).x);
             // 🆕 **2026-10-16（A712 阶段 2）**：原版顶栏 `Title`（fs40）= `Left/**Midline**`（同一份 dump）。
             MenuDraw.SetVAlign(t, Label.VAlign.Midline, HeaderTitle);
-            var s = MenuDraw.Text(h, HeaderSub, DailyData.HeaderArmySubTitle(), Color.white, "Sub-Title", 39.7f, QText);
+            // 同 `Header Header/Title` 那一族的刻度（不带 `localScale`）：原版 `…/Header Header/Sub-Title` =
+            // `auto[18~40] · base 36 · 折行 1`（四格照抄，⛔ 不乘 0.8）。
+            var s = MenuDraw.Text(h, HeaderSub, DailyData.HeaderArmySubTitle(), Color.white, "Sub-Title", 39.7f, QText,
+                                  HeaderSub.W, 18f, 40f, 36f);
             if (s != null) s.AlignLeftOn(LayoutSpace.FromPixel(HeaderSub.x1, 0f).x);
             // 🆕 **2026-10-16（A712 阶段 2）**：原版 `Sub-Title`（fs39.7）= `Left/**Capline**`
             //   —— ⚠️ **与上一行的 `Title`（`Midline`）同框不同档**，⛔ 别一刀切。

@@ -2735,11 +2735,105 @@ namespace RuleEngine
         /// **三处都调它**（一条规则只有一个判定口；`SimpleAI` 原来自己写了一份裸字符串比较，
         /// `A1134` 一并收口到本方法）。
         /// 判据（原版方法体 + trait 号）见 <see cref="Unstunnable"/> 的注释。
+        /// ⚠️ 它只是原版那道守卫链的**后一半** —— 前一半（「目标得**在场上**」，
+        /// `CardScript__Stun.c:44-45` 那道 `cardState` 闸）见本方法**下方** `A1166` 那段（**已判等价**）。
         /// </summary>
         public static bool StunBlockedByTraits(UnitState u)
         {
             return u != null && u.Has(Unstunnable);
         }
+
+        // ======================================================================
+        //  `A1166`（2026-10-09）—— 原版 `CardScript__Stun` 守卫链的**前一半**：
+        //  **`CardScript.cardState`（`+0x228`）∈ {2, 0xf, 3, 0x11}**，也就是 **`CardScript.IsInPlay()`**。
+        //  🔴 **判定：在我们这边【等价】—— ⛔ 不新加判据。**
+        //  ⛔ **这一段是【记账】，不是「还没做」** —— 别再当成一条待办。
+        // ======================================================================
+        //
+        // 【原版怎么写的】`d:/2/tools/decomp_full/CardScript__Stun.c:41-47`（逐行）：
+        //   :41  `if (*(longlong *)(param_1 + 0x28) == 0) goto <抛异常>;`      // `rawCardData` 空 ⇒ NRE
+        //   :42  `cVar13 = RawCardScript__IsUnit(*(longlong *)(param_1 + 0x28), 0);`
+        //   :43  `if (cVar13 != '\0') {`                                      // ← 只对**单位卡**生效
+        //   :44  `iVar1 = *(int *)(param_1 + 0x228);`                         // ← 这一格就是 `cardState`
+        //   :45  `if ((iVar1 == 2) || (iVar1 == 0xf)) || (iVar1 == 3 || iVar1 == 0x11)` ← **本笔要判的那道**
+        //   :46  `cVar13 = EntityScript__HasCurrentTrait(param_1, 0xfa, 0);`   // ← `unstunnable`（后一半，`A1134` 已做）
+        //   :47  `if (cVar13 == '\0') { …施加… }`
+        //  不满足 `:45` ⇒ 落到 `:164-166`（`CustomDebug.Log` + `return 0`），**不加 trait**。
+        //
+        // 【`+0x228` 是哪个类的哪个字段】`d:/2/tools/il2cpp_out/dump.cs:35454`
+        //   `private CardStateOptions <cardState>k__BackingField; // 0x228`
+        //   类 = `CardScript : EntityScript`（`dump.cs:35370`）。**同族偏移互相吻合、可反证偏移对**：
+        //     `:35370` 起 CardScript 自己的块 —— `0x224 <activeAbilityLoaded>` · **`0x228 <cardState>`** ·
+        //       `0x22C uniqueInGameID` · `0x230 <canAct>` · `0x290 <CardUI>`；
+        //     `:21963` 起 EntityScript 的块 —— `0x28 <rawCardData>` · `0x40 <isPlayer>` ·
+        //       **`0x55 <stunnedAtStartOfTurn>`** · **`0x108 <activeEffects>`** · `0x120 currentAttackType`。
+        //   ⇒ 本函数 `:41` 读 `+0x28`（`rawCardData`）、`:98` 清 `+0x55`（= 我们 `A1121` 做的
+        //      `StunnedAtStartOfTurn`）、`:49/:96` 读 `+0x108`（`activeEffects`）、`:105` 写 `+0x230`
+        //      （`canAct`）、`:124-141` 读 `+0x290`（`CardUI`）—— **六个偏移逐一落地，类与偏移都不存疑**。
+        //   第二来源（签名桩）：`d:/2/Warpforge_code/Scripts/Assembly-CSharp/CardScript.cs:1490`
+        //     `public CardStateOptions cardState { get; private set; }`。
+        //
+        // 【那四个值各自是什么】`d:/2/tools/il2cpp_out/dump.cs:45465-45487` 的 `CardStateOptions` 全表：
+        //      2 (0x2)  = `inPlay`                —— 在场上
+        //      0xf(15)  = `inPlayTransforming`    —— 在场上 · **变身中**
+        //      3 (0x3)  = `inPlayAttacking`       —— 在场上 · **攻击中**
+        //      0x11(17) = `inPlayAminingAttack`   —— 在场上 · **瞄准攻击中**
+        //   ⇒ **这四个 = 「这张牌现在在棋盘上」的 4 档**（原版 `inPlay` 是**放上场那一刻**置的）。
+        //   🔴 **⛔ 不是「卡的类型档位」** —— `P3_引擎小改族.md:155-158` 当时猜的是「卡的类型档位」，
+        //      **那条猜测是错的**（本条就是去证伪它的）。它是**运行时状态**，不是卡的类型。
+        //
+        // 🔴 【**判「这道闸就是 `IsInPlay()`」的铁证**】`d:/2/tools/decomp_full/CardScript__IsInPlay.c:7-14`
+        //   把**逐字相同**的四个值写成了一个方法：
+        //     `iVar1 = *(int *)(param_1 + 0x228);` …
+        //     `if ((iVar1 != 2) && (iVar1 != 0xf)) { if (iVar1 == 3) return 1; return (iVar1 == 0x11); } return 1;`
+        //   ⇒ `Stun` 里那一段是**同一个判据被内联**（`IsInPlay` 在别处是**真调用**，全库 30+ 处：
+        //     `BattleManagerSupport__BroadcastTurnStart.c:25` / `_BroadcastTurnEnd.c:26` ·
+        //     `BattleManager._ResolveAttack_d__438__MoveNext.c:296,430` ·
+        //     `BattleManager._ResolveHeal_d__491__MoveNext.c:95,121,159,200` ·
+        //     `AbilityLogic__GetTargets.c:791`（**选目标也在用它**）·
+        //     `BattleManagerSupport.__c___BroadcastUnitStunned_b__2_0.c:6`（**「单位被晕」的广播也先过它**）…）。
+        //   ⚠️ 只差一档的兄弟方法可当对照：`CardScript__IsInPlayOrDying.c:8-13` = **这 4 档 + 5**
+        //     ⇒ `IsInPlay` **明确不含 `waitingToDie(5)`**。
+        //   ⚠️ 同一函数 `:112` 那句 `cardState == 3 || == 0x11` → `CardScript__CancelAttack` 也自洽：
+        //     `CardScript__CancelAttack.c:35` 开头就是 `if (cardState != 3 && cardState != 0x11) return …`
+        //     —— **只有「正在攻击」的牌才需要取消攻击**（两条合起来反证这四个值读得对）。
+        //
+        // 🔴 【**为什么在我们这边等价**】`CardStateOptions` 那 18 档里，**只有这 4 档代表「在棋盘上」**；
+        //   其余 14 档全是**牌库 / 手牌 / 坟场 / 离场**中的状态：
+        //     `inDeck(0)` · `inHand(1)` · `waitingToBePlayed(4)` · `waitingToDie(5)` · `inCemetery(6)` ·
+        //     `drawing(7)` · `inHandShowing(8)` · `inHandMoving(9)` · `inHandPlaying(10)` ·
+        //     `removedFromGame(11)` · `inHandJustCreated(12)` · `inMulliganSelected(13)` ·
+        //     `inMulliganDiscarded(14)` · `inDeckDrawing(16)`。
+        //   （两个旁证：`removedFromGame(11)` 的唯一置位点是 `CardScript__RemoveFromGameCard.c:19`，
+        //     它的调用者全在 **`PlayerHand__*` / `_ResolveStealMinion` / `_ResolveExchangeMinion`**
+        //     —— 是**手牌**上的概念，不落在棋盘；`waitingToBePlayed(4)` 由
+        //     `CardScript__CardWaitingToBePlayed.c:5` 置，是「打出去了、还没落地」。）
+        //   而我们这边**眩晕的三个发生点，目标只可能来自棋盘**：
+        //     · `EffectResolver.DoStun`：目标来自 `ResolveTargets`，一般路径走 `AddSide`
+        //       （`EffectResolver.cs:1296-1304`，**只遍历 `ps.Board[s]`**，且自己就挡 `!u.IsAlive`）；
+        //     · `RuleCore` 的震荡（本文件 `DeclareAttack` 里那一格）：目标就是 `Board[slot]` 上那一个，
+        //       并另带 `!targetDied && target.IsAlive`；
+        //     · `SimpleAI.ScoreStun`：纯打分，`target == null || !target.IsAlive` 已挡。
+        //   三处都还有 `IsAlive`（= `Health > 0`，`UnitState.cs:1047`）那一道。两边条件摆齐：
+        //       原版 = `IsUnit && IsInPlay`；我们 = `棋盘上的 UnitState && IsAlive`
+        //   `在棋盘上` ⟹ 原版对应的一定是那 4 档之一；`IsAlive` 只会**收得更紧**、不会放宽
+        //   ⇒ **我们从不眩晕原版不会眩晕的牌**。反向「原版会晕、我们不会」只可能是 `waitingToDie`
+        //   （血 ≤ 0 但还没进坟场）那一档，而那种单位**这一批里必死**、眩晕对它不可观测。
+        //   ⇒ **判定：等价。⛔ 不新加判据** —— 再加一份「在场上」的判据只是同一件事的第二次求值，
+        //     照「两处写同一条规则 = 迟早不一致」反而有害。（原版那道闸的**形状**是「防调用方递进来
+        //     一张已经不在场上的牌」；我们这边目标由 `ResolveTargets` 当场从 `Board` 取，同义。）
+        //
+        // ⚠️ 【今天为什么更看不出来】① 全池 **0 张卡**带 `unstunnable`（见 `Unstunnable` 的注释）；
+        //   ② 更关键 —— **这一道 `IsInPlay` 闸在我们这边任何局面都恒真**（目标按构造就在棋盘上）
+        //   ⇒ **连夹具（`UnitState.AddKeyword`）都造不出差异**。
+        //
+        // ⚠️ 【**没查清的那一点**（如实标着、⛔ 没动）】原版 `_ReceiveDamage` 协程里会调 `CheckIfDead`
+        //   （`CardScript._ReceiveDamage_d__381__MoveNext.c:310`），由它把血 ≤ 0 的牌置成 `waitingToDie(5)`
+        //   （`CardScript__CheckIfDead.c:124`）。**它相对于「眩晕效果/震荡结算」的先后我没查清** ——
+        //   若「先眩晕、后 `CheckIfDead`」，则原版那一下**会**落在一张将死的牌上（加 trait + 广播
+        //   `BroadcastUnitStunned`），而我们这边 `IsAlive` 已经把目标挡掉 ⇒ 那时**有一处极小差异**
+        //   （同样不可观测：那张牌这一批就没了）。要查清得读 `_ReceiveDamage` 与 `ResolveStun`
+        //   两条协程的 `MoveNext` 状态机 —— **本条没读到那一步**。
 
         /// <summary>
         /// 目标合法性。（rule_core.is_valid_target）
@@ -3509,6 +3603,10 @@ namespace RuleEngine
 
             // ---- 震荡：**被本单位攻击的单位获得眩晕**（规则书 :177；原版 `:4363`）----
             //      原版只在**目标没死**时施加
+            // 🆕 **2026-10-09（`A1166`）**：下面这个 `!targetDied && target.IsAlive` 就是原版
+            //    `CardScript__Stun.c:44-45` 那道 `cardState ∈ {2,0xf,3,0x11}`（= `IsInPlay()`）
+            //    闸在我们这边的落点 —— **已判等价、⛔ 不另加判据**，
+            //    逐档对照与判据出处见 `StunBlockedByTraits` 下方那段 `A1166` 注释。
             if (!targetDied && target.IsAlive && attacker.Has("concussion"))
             {
                 // 🆕 同一件事的**另一个发生点**（`When an enemy receives a Stun, …`）：

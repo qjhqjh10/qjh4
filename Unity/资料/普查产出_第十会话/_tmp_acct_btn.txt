@@ -1,0 +1,1 @@
+找不到 GameObject「-8498466498180120666」（pid 或名字）—— 或它没有 RectTransform

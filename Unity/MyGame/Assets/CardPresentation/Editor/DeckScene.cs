@@ -282,6 +282,20 @@ public static class DeckScene
                                             out x1, out y1, out x2, out y2);
         }
 
+        /// <summary>🆕 **2026-10-19（A1170）**：拖影卡行**在「还没拖」那一态**下的渲染矩形（画布 px）。
+        /// 与 <see cref="UnionQuadsPx"/> **同一条量法**（`MenuDraw.UnionQuadRectPx`），只把**激活闸换成
+        /// `Self`**：拖影卡行出厂就是 `SetActive(false)`（原版 `Deck Selector Card Info button.m_IsActive: false`）
+        /// ⇒ `InHierarchy` 那一档在**起拖之前一块都量不到**，而 `Self` 只看块自己（父链关着也算）。
+        /// ⇒ 「静态版面没被搬动」那条断言**起拖前就能量**、且**不依赖测试顺序**。</summary>
+        static bool GhostStaticUnionPx(out float x1, out float y1, out float x2, out float y2)
+        {
+            x1 = y1 = x2 = y2 = 0f;
+            var rt = _rt;
+            if (rt == null || rt.UiCardGhostGo == null) return false;
+            return MenuDraw.UnionQuadRectPx(rt.UiCardGhostGo.transform, MenuDraw.QuadGate.Self, true,
+                                            out x1, out y1, out x2, out y2);
+        }
+
         /// <summary>🆕 **2026-10-12（A364）**：一个节点子树里**活着的第一块 `ImageQuad`**（量它的渲染队列/图名用）。
         /// 找不到 ⇒ null（调用点自己判，⛔ 不静默）。</summary>
         static ImageQuad FirstQuad(Transform node)
@@ -1319,6 +1333,31 @@ public static class DeckScene
                 {
                     float sx, sy, sw, sh;
                     CheckTrue(rt.UiPoolCellRect(view, out sx, out sy, out sw, out sh), "（前提）那一格的矩形在");
+                    // 🔴 **2026-10-19（A1170）**：**起拖之前**（= 静态、拖影关着）就把拖影卡行的版面位量下来。
+                    //   判据（原版 `OnDrag` 那两句 → `Core/DraggableController.cs` 文件头；同一个 `OnDrag`
+                    //   在同形的 `A1151` 已经落过地）：「布局框中心」那一跳必须记在**拖影根自己**的
+                    //   `localPosition` 上、三个子件**相对根中心**（→ `Deck/DeckRuntime.cs` 的 `BuildCardDrag`）。
+                    //   这一条是「**只搬偏置、不动静态版面**」的看门人：偏置整个删掉（子件对零、根也不加）
+                    //   ⇒ 画心掉到屏幕中心 (960,540) ⇒ **红**；旧写法下它**绿**（偏置摊在子件上、根在原点
+                    //   ⇒ 静态画出来正好也是这个位）—— 所以它管的是「别把静态版面搬歪」，不是消灭旧写法。
+                    //   期望值 = **拖拽节点的中心**（`DragNodeRectPx`；① 那四条已把它逐值钉在原版
+                    //   `[993.59,525.50] 100×100` 上 ⇒ ⛔ 不是拿我们自己的常量自证）。
+                    //   ⚠️ 量法见 `GhostStaticUnionPx`（拖影出厂是关着的 ⇒ `InHierarchy` 那档量不到一块，
+                    //   `Self` 那档才量得到）—— 这条因此**不依赖测试顺序**（不必是「本节第一拍拖动」）。
+                    {
+                        float gxL, gyT, gxR, gyB;
+                        var dn = rt.DragNodeRectPx;
+                        CheckTrue(!rt.UiCardGhostActive, "（前提）起拖前拖影卡行是**关着**的（原版 `m_IsActive: false`）");
+                        CheckTrue(GhostStaticUnionPx(out gxL, out gyT, out gxR, out gyB),
+                                  "（前提）静态下也能量出拖影卡行的渲染矩形（激活闸 = `Self`）");
+                        CheckNear(gxR - gxL, 287.9f, 0.5f, "★ 静态：拖影卡行画出来的宽仍是 **287.9**");
+                        CheckNear(gyB - gyT, 55.7f, 0.5f, "★ 静态：…… 高仍是 **55.7**");
+                        CheckNear((gxL + gxR) * 0.5f, dn.x + dn.z * 0.5f, 0.5f,
+                                  $"★ **静态画心 x 在版面位**（= 拖拽节点中心 **{dn.x + dn.z * 0.5f:0.##}**）"
+                                    + "｜🧨 改坏法：把偏置从子件上删掉却不加到根上 ⇒ 画心掉到屏幕中心 ⇒ 红");
+                        CheckNear((gyT + gyB) * 0.5f, dn.y + dn.w * 0.5f, 0.5f,
+                                  $"★ …… y（= **{dn.y + dn.w * 0.5f:0.##}**）");
+                    }
                     int before = rt.State.DeckCount;
                     CheckTrue(rt.UiCardDragBeginAt(view, 200f - sx, 600f - sy),
                               "卡牌那一支起拖（位移指向落点栏 ⇒ 不是滚动）");
@@ -1331,6 +1370,24 @@ public static class DeckScene
                         CheckNear(y2 - y1, 55.7f, 1f, "★ ……高 = **55.7**");
                     }
                     rt.UiCardDragMove(200f, 600f);
+                    {
+                        // ★★ **A1170 的正主**：拖起来之后**画心贴着指针**（= 原版 `OnDrag` 那一跳的净效果）。
+                        //   🔴 **量的是「子树里真渲染出来的矩形」**（`UnionQuadsPx` → 每颗 `ImageQuad` 的
+                        //   **世界**矩形 → 画布 px），⛔ **不读 `rt.UiCardGhostGo.transform.position`** ——
+                        //   `OnDrag` 每帧把它整句设成指针位置，拿它当检测器 = **拿被测实现自己的口验自己**
+                        //   （自证：那样连「偏置挂错了件」都看不出来 —— 那个口恒等于指针）。
+                        //   🧨 **灭自证（结构上不可能同时满足）**：偏置只要还留在**子件**上（= 旧写法），
+                        //   画心 = 指针 **+(83.59 px 右, 35.5 px 下)** ⇒ 下面两条**必红**（容差 1px，
+                        //   差两个数量级）；只有把它搬到**根**上才绿。
+                        float mx1, my1, mx2, my2;
+                        CheckTrue(UnionQuadsPx(rt.UiCardGhostGo.transform, out mx1, out my1, out mx2, out my2),
+                                  "（前提）拖动中能量出拖影卡行的渲染矩形");
+                        CheckNear((mx1 + mx2) * 0.5f, 200f, 1f,
+                                  "★ **拖动中画心贴着指针（x）** —— 原版 `OnDrag` 把拖影**根**摆到指针上"
+                                    + "（偏置在根上、被那一跳整句覆盖）｜🧨 旧写法（偏置摊在子件上）这里差 **+83.59**");
+                        CheckNear((my1 + my2) * 0.5f, 600f, 1f,
+                                  "★ ……（y）｜🧨 旧写法这里差 **+35.5**");
+                    }
                     CheckTrue(rt.UiCardDragEnd(200f, 600f),
                               "落在栏里 ⇒ **投递了**（原版 `DeckEditingPanel.Drop(RawCardScript)` ⇒ 我们的 `TryAddCard`）");
                     Check(rt.State.DeckCount, before + 1, "……卡组多了**正好 1 张**（夹具挑的就是 `CanAdd` 过得了的那张）");

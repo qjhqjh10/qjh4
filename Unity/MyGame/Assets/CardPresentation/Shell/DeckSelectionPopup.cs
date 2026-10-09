@@ -410,8 +410,14 @@ namespace CardPresentation
             //      ⛔ 别把这一列写成「原版如此」。
             //   ⚠️ **版面一个字都没动**：rect 与对齐照 prefab（`Instructions 2` 节点中心 1503.18
             //   = 本窗那颗的矩形中心；实拍那版右端贴分隔线 = 与 prefab 有漂移，**不照它**）。
-            MenuDraw.Text(root, new PxRect(Ins2L, HdrT, Ins2R, HdrB), Loc.T(TitleTerm), Color.white, "Instructions 2",
-                          36f, QDsText);
+            // 🔴 **2026-10-09（A1126 · A2 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 36px。
+            //   判据 = 原版 `menus ▸ Deck Selection Popup with Tabs ▸ Instructions 2`：**`m_enableAutoSizing = 1`** ·
+            //   `m_fontSizeMin = **18**` · `m_fontSizeMax = **40**` · `m_fontSizeBase = **36**` · **折行 = 0**。
+            //   ⚠️ 本舱刻度 = 原版刻度（我们传的 `36f` 就是原版 `m_fontSize` 那一档）⇒ 四格照抄、不换算。
+            //   ⚠️ 折行 0 ⇒ `SetAutoFitBox` 内部 `SetWrapWidth` 会**无条件**开成 `Normal` ⇒ 紧跟一句关掉。
+            var ins2 = MenuDraw.Text(root, new PxRect(Ins2L, HdrT, Ins2R, HdrB), Loc.T(TitleTerm), Color.white, "Instructions 2",
+                          36f, QDsText, Ins2R - Ins2L, 18f, 40f, 36f);
+            if (ins2 != null) ins2.SetWrapping(false);              // 原版折行=0（A205：关这一下顺带推版面）
             {
                 float ry1 = RndBoxT + (RndBoxB - RndBoxT - RndH) * 0.5f;
                 var rr = new PxRect(RndL, ry1, RndL + RndW, ry1 + RndH);
@@ -571,7 +577,14 @@ namespace CardPresentation
                           own ? "Generic Tab UI Button 1" : "Generic Tab UI Button", QDsRow,
                           on ? TabOnColor : TabOffColor);
             // 文字**两态都是白的**（原版两颗 TMP 都是 `(1,1,1,1)`，且染色够不到它 —— 见上面那段）
-            MenuDraw.Text(root, r, label, Color.white, "Tab Text " + (own ? "Own" : "Pre"), 34f, QDsText);
+            // 🔴 **2026-10-09（A1126 · A2 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 34px。
+            //   判据 = 原版 `menus ▸ …/Alliance Header Buttons/Tab buttons/Generic Tab UI Button[ 1]/Button Text`：
+            //   **`m_enableAutoSizing = 1`** · `m_fontSizeMin = **12**` · `m_fontSizeMax = **60**` ·
+            //   `m_fontSizeBase = **12**` · **折行 = 0**。⚠️ 刻度 = 原版刻度 ⇒ 四格照抄、不换算。
+            //   ⚠️ 本函数被**两个页签**各调一次（`Own` / `Pre`），两颗原版逐值相同 ⇒ 一处改动覆盖两格。
+            var tabLb = MenuDraw.Text(root, r, label, Color.white, "Tab Text " + (own ? "Own" : "Pre"), 34f, QDsText,
+                                      r.W, 12f, 60f, 12f);
+            if (tabLb != null) tabLb.SetWrapping(false);            // 原版折行=0
             Hit(root, "TabHit_" + (own ? "Own" : "Pre"), r, () => SwitchTab(own), QDsHit);
         }
 

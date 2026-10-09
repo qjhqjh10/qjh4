@@ -237,21 +237,23 @@ namespace CardPresentation
         //    压过了它，⛔ 而那张实拍**不是实况取证**；2026-10-11 用户裁定「照原版」⇒ **兄弟序 + 排序层这一侧胜出**。
         // ============================================================ 🆕 2026-10-17（F5）：下沿放宽 + 顶栏内部再分 8 档
         // 🔴 **触发**：`DeckScene.Run` 那条通用检查（「同一层的 UI 图没有互相压住」，
-        //    `Editor/DeckScene.cs:1141-1164`）实测 **8 处**，而 **8 对全在顶栏内部**。
+        //    即 `Editor/DeckScene.cs` 里 `CheckTrue(overlaps == 0, "同一层的 UI 图没有互相压住…")` 那条）实测 **8 处**，而 **8 对全在顶栏内部**。
         //    **根因**：顶栏有 **6 张两两相交**的图（A 条底 · B 玩家框 · C 名字条 · E 盾框 · F 立绘 · G 等级图标），
         //    而渲染队列是 `int`、旧带子 `[2994,2998]` **只有 5 个整数档** ⇒ **鸽笼原理，装不下**。
         //    ⛔ 三条绕法都排除过：把顶栏排除出检查（= 把主菜单/外壳同样那 8 处一起放掉）·
-        //    小数队列（`SetRenderQueue(int)`）· `≤0`（那是 `Editor/MainMenuScene.cs:610` 的**跳过口**）。
+        //    小数队列（`SetRenderQueue(int)`）· `≤0`（那是 `Editor/MainMenuScene.cs` 里那句 `if (q.RenderQueue <= 0) continue;` 的**跳过口**）。
         // 🔴 **改法（一行修好主菜单 + 外壳两处 —— 那 8 处重叠在那边同样存在、只是没人查）**：
         //    ① **下沿放宽**：`QBarPanel 2994 → 2986` ⇒ 带子 = **`[2986, 2998]`**；
         //    ② **顶栏内部按原版兄弟序分 8 档**（2986–2993）—— 完整表 + 逐档归类 →
         //       `Shell/TopBar.cs` 的队列常量上方（⛔ 别在第二个地方再抄一份）。
         //    ⚠️ **为什么下沿可以放到 2986**：`[2986,2993]` **两边都空着** —— 主菜单自己的内容最高到
-        //    `QOverlay = 2930`（本文件 `:187` 那条梯子）、卡组编辑那屏最低是 `DeckRuntime.QAreaBg = 2980`
-        //    （`Deck/DeckRuntime.cs:418`）。**上沿 `QBarOverlay 2998` 不动** ⇒ 两条不变式照旧：
+        //    `QOverlay = 2930`（本文件那条队列梯子 —— `QBg`/`QCardArt`/`QPanel`/`QContent`/`QText`/`QOverlay` 那一行常量）、卡组编辑那屏最低是 `DeckRuntime.QAreaBg = 2980`
+        //    （声明在 `Deck/DeckRuntime.cs` 的 `QAreaBg`）。**上沿 `QBarOverlay 2998` 不动** ⇒ 两条不变式照旧：
         //    `QBarOverlay(2998) < DailyStreakPopup.QShade(3002) < MainMenuSubmenuWindow.QPanel(3005)`、
-        //    以及 `QBarOverlay(2998) < DeckRuntime.QSep/QLowest(2999)`（`Editor/DeckScene.cs:4826` 那条）。
-        //    ✅ 主菜单那条「顶栏件必须落在 `[QBarPanel, QBarOverlay]`」（`Editor/MainMenuScene.cs:612`）
+        //    以及 `QBarOverlay(2998) < DeckRuntime.QSep/QLowest(2999)`（`Editor/DeckScene.cs` 里
+        //    `CheckTrue(MainMenuRuntime.QBarOverlay < DeckRuntime.QLowest, …)` 那条）。
+        //    ✅ 主菜单那条「顶栏件必须落在 `[QBarPanel, QBarOverlay]`」（`Editor/MainMenuScene.cs` 里
+        //    `inBarBand` / `wrong` 那两条断言）
         //    用的是**这两个常量本身** ⇒ **自动跟着放宽，一个字没改**。
         // 🔴 **2026-10-17（F5）就地订正 **F2 那张表里的两档次序**（铁律 5）**：表里原写
         //    「2990 盾框（E）· 2991 名字条（C）」—— 与它**自己引的**原版兄弟序**正好相反**。
@@ -330,7 +332,8 @@ namespace CardPresentation
             //    **没有它，下面开出来的收藏页画的还是【编辑前】那一份** —— 真根因与判据逐条写在
             //    `CollectionData.InvalidateLibrary` 的注释里（缓存 = `static DeckLibrary _lib`，
             //    而编辑器写盘走的是 `DeckLibrary.Load()` 另开的实例；
-            //    列表 = `CollectionWindow.cs:3032` → `CollectionData.DeckAt` → `Lib.Decks[i]`）。
+            //    列表 = `CollectionWindow.cs` 里 `MenuDraw.DeckCell(…, CollectionData.DeckAt(i), …)` 那一处
+            //    → `CollectionData.DeckAt` → `Lib.Decks[i]`）。
             //    🔴 **两个来源都作废**（`Collection` 与 `LiveOpsEvent`）—— **两条来路都能改卡组、都写盘**：
             //    事件窗那条今天只是「**不开窗**」（理由见下），但它下次被玩家打开时读的是同一份缓存
             //    ⇒ 漏掉它 = 从事件窗编辑完、之后进收藏页仍看到旧的那一版（静默）。
@@ -681,7 +684,7 @@ namespace CardPresentation
         ///   （本地只有 key、没有英文原文）⇒ 三句中文**是我们写的**（先例 = `Shell/ShopData.cs` 的 `LegendaryWarnText`）。
         /// · **退出动作**：原版那个委托的目标方法（`DAT_1842aa360`）在 `decomp_full` /
         ///   `il2cpp_out` 的方法表里**查不到名字** ⇒ 我们按字面语义做 `Application.Quit(0)`
-        ///   （先例 = `Core/PlayerBoot.cs:257`），并且**编辑器里 Quit 是空操作 ⇒ 出声**。</para></summary>
+        ///   （先例 = `Core/PlayerBoot.cs` 里那句 `Application.Quit(0)`），并且**编辑器里 Quit 是空操作 ⇒ 出声**。</para></summary>
         public static bool EscapePressed()
         {
             var mm = InstanceOrFind();
@@ -750,7 +753,7 @@ namespace CardPresentation
         /// <summary>「退出游戏」按下去做什么。
         /// 🔴 **原版那个委托的目标方法读不到名字**（`SettingsMenu__ExitGamePopup.c` 里是个数据地址
         /// `DAT_1842aa360`，`il2cpp_out` 的方法表按 RVA 查不到它）⇒ 我们按**字面语义**做 `Application.Quit(0)`
-        /// （先例 = `Core/PlayerBoot.cs:257`）。⚠️ **编辑器里 `Quit` 是空操作** ⇒ 这里出声（红线：不许静默失败）。</summary>
+        /// （先例 = `Core/PlayerBoot.cs` 里那句 `Application.Quit(0)`）。⚠️ **编辑器里 `Quit` 是空操作** ⇒ 这里出声（红线：不许静默失败）。</summary>
         public static void QuitGame()
         {
             Debug.Log("[Menu] 「退出游戏」按下 ⇒ `Application.Quit(0)`"
@@ -858,7 +861,7 @@ namespace CardPresentation
         /// 🔴 **2026-10-06（A123）：这一条【不改成复用】—— 判据是空的**（`资料/普查产出_1007/波6判据核查.md` §2
         /// 那一行明写「原版入口查不到 ⇒ 本条判不了」）⇒ **没核过原版的东西不照改**（铁律 2：查不到就说查不到，
         /// 不许拿别的入口的判据套过来）。⇒ 仍然**每次新建**，如实留在这里等判据。
-        /// ✅ **2026-10-11（A177）订正**：这一句原来写「相关残余：`Shell/BattleLogTab.cs:151` 的入口也是直调
+        /// ✅ **2026-10-11（A177）订正**：这一句原来写「相关残余：`Shell/BattleLogTab.cs` 里那个入口也是直调
         /// `Create`」—— 那条入口**已经收编到 `WindowsManager.OpenByRef`**；本方法**仍然每次新建**（判据空，见上一句）。
         /// </summary>
         public BattleLogPopup OpenBattleLogPopup()
@@ -883,7 +886,7 @@ namespace CardPresentation
         /// ⚠️ 缓存键按 **kind** 分开（`LeaderboardWindow.NameOf(kind)`）—— 原版那两颗 prefab
         /// （`RankedSkirmishLeaderboardPopup` / `RankedClassicLeaderboardPopup Variant`）是**两条引用**
         /// ⇒ 缓存里自然也是两条（换 kind 再点会开第二扇，与「一棵 prefab 一个实例」同义）。
-        /// ✅ **2026-10-11（A177）订正**：原来这里写「另一条入口 `RankedEventWindow.cs:169` 不在白名单
+        /// ✅ **2026-10-11（A177）订正**：原来这里写「另一条入口 `Shell/RankedEventWindow.cs` 不在白名单
         /// ⇒ 不共用这份缓存」—— **已过期**：那条入口（`RankedEventWindow.OpenLeaderboard`）也收编到
         /// `WindowsManager.OpenByRef`，与本法**共用同一份缓存**（`closeAll` 与否按各自那一段判据）。
         /// </summary>

@@ -632,6 +632,9 @@ namespace RuleEngine
             // （`A1134` 收口到 `RuleCore.StunBlockedByTraits`；判据 = 原版 `CardScript__Stun.c:46`
             // 的 `HasCurrentTrait(0xfa)`，见 `RuleCore.Unstunnable` 的注释）。
             // ⚠️ **打分口径不变**（还是那 0.2 倍），改的只是「这条规则在哪儿判」。
+            // 🆕 **2026-10-09（`A1166`）**：本方法开头那句 `!target.IsAlive` 就是原版
+            // `CardScript__Stun.c:44-45` 那道 `cardState ∈ {2,0xf,3,0x11}`（= `IsInPlay()`）闸的落点
+            // —— AI 只看棋盘、**已判等价、⛔ 不另加判据**（逐档对照见 `RuleCore.StunBlockedByTraits` 下方）。
             if (target.Has(KeywordTable.CantAttack) || RuleCore.StunBlockedByTraits(target))
                 return ValueInPlay(target) * 0.2f;
             return target.Attack * (target.IsWarlord ? 1f : 0.5f);

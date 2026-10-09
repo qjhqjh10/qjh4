@@ -652,9 +652,17 @@ namespace CardPresentation
         /// ⛔ **不编一个假进度**。</summary>
         void BuildCompleted(Transform root)
         {
-            MenuDraw.Text(root, new PxRect(CompL, CompT, CompR, CompB),
+            // 🔴 **2026-10-09（A1126 · A2 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 54px。
+            //   判据 = 原版 `menus ▸ Tutorial Mode Menu ▸ Completed Text`：**`m_enableAutoSizing = 1`** ·
+            //   `m_fontSizeMin = **10**` · `m_fontSizeMax = **54**` · `m_fontSizeBase = **12**` · **折行 = 0**。
+            //   ⚠️ 本窗刻度 = 原版刻度（同窗 `PlayTutorialButton/Button Text` 那颗传的就是原版原值
+            //   `74.25` / `auto[10~74.25]` / `base 12`）⇒ 四格照抄、不换算。
+            //   ⚠️ 折行 0 ⇒ `SetAutoFitBox` 内部 `SetWrapWidth` 会**无条件**开成 `Normal` ⇒ 紧跟一句关掉
+            //   （同窗 `BuildPlayButton` 那一处同款写法）。
+            var compLb = MenuDraw.Text(root, new PxRect(CompL, CompT, CompR, CompB),
                           "Completed: " + CompletedCount() + "/" + Rows.Length, Color.white,
-                          "Completed Text", 54f, QText);
+                          "Completed Text", 54f, QText, CompR - CompL, 10f, 54f, 12f);
+            if (compLb != null) compLb.SetWrapping(false);          // 原版折行=0（A205：关这一下顺带推版面）
         }
 
         /// <summary>打过的关数。**恒 0** —— 判据见 `BuildCompleted` 上面那段（进度在服务端，本地无源）。</summary>
@@ -673,8 +681,17 @@ namespace CardPresentation
             MenuDraw.Rect(btn, Tex("UI_Button_Mulligan"), new PxRect(PlayL, PlayT, PlayR, PlayB),
                           "Bg", QArt, null, true);
             // 原版 hAlign = **Center** ⇒ 不调 `Align*`
-            MenuDraw.Text(btn, new PxRect(PlayTxL, PlayTxT, PlayTxR, PlayTxB), PlayText, Color.white,
-                          "Button Text", 74.25f, QText);
+            // 🔴 **2026-10-18（A1126 · A1 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 74.25px。
+            //   判据 = 逐颗现读原版那一颗（`工具/menu_dump.py bundle_menus_assets_all "Tutorial Mode Menu" --depth 8 --md`）：
+            //   `PlayTutorialButton/Button Text` = `'Play Tutorial'` · 字号 **74.25** · 基准 **12.0** ·
+            //   **`auto[10.0~74.25]`**（`m_enableAutoSizing = 1` · min 10 · max 74.25）· 对齐 `Center/Capline` ·
+            //   **折行 = 0**（`m_TextWrappingMode = 0`）· 框 **408.77 × 106.49**（与本文件 `PlayTx*` 四个常量逐位同值）。
+            //   ⚠️ 传 `wrapPx` 会**顺带把折行模式开成 `Normal(1)`**（`SetWrapWidth` 无条件写）⇒ 原版这颗是 `0`
+            //   ⇒ 紧跟一句 `SetWrapping(false)` 还原自己那一档（成对写法同 A404 / A205 / A34-F4 那一族）。
+            //   ⚠️ 顺序：`SetWrapping` 会把版面推下去 ⇒ **在 `Align*` / 量宽之前**（本处不调 `Align*`）。
+            var playLb = MenuDraw.Text(btn, new PxRect(PlayTxL, PlayTxT, PlayTxR, PlayTxB), PlayText, Color.white,
+                                       "Button Text", 74.25f, QText, PlayTxR - PlayTxL, 10f, 74.25f, 12f);
+            if (playLb != null) playLb.SetWrapping(false);
             MenuDraw.Hit(btn, "PlayHit", new PxRect(PlayL, PlayT, PlayR, PlayB), QHit, () => PlayTutorial());
         }
 

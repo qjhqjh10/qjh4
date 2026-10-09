@@ -783,24 +783,38 @@ public static class MainMenuScene
                 CheckTrue(first != null && FindChild(first.transform, "Tab Buttons") != null,
                           "开出来的那扇窗里有 `Tab Buttons`");
                 // 🔴 **2026-10-17（B2 顺手订正 · 铁律 5）**：这一句原来写「（三个页签：图像 / 音频 / 联机）」——
-                //    **已经过期**：`Shell/SettingsWindow.cs` 的 `BuildTabs` 现在是 **4 页**
+                //    **已经过期**：`Shell/SettingsWindow.cs` 的 `BuildTabs` 当时是 **4 页**
                 //    （`SettingsTab` = `General 0 / Graphics 1 / Audio 2 / Online 3`，General 是后补的）
                 //    ⇒ 文案改成与现状一致，并**顺手把页数断上**：原来只断「有 `Tab Buttons` 这个节点」，
                 //    **少一页 / 多一页都不红** —— 那正是这一句能「写着三个、实际四个」还一直绿的原因。
-                //    ⚠️ 期望值 **4 是【我们的】页数**（原版那一栏是 5 页：`General/Media/Account/Graphics/Support`，
-                //    见 `Shell/SettingsWindow.cs` 的 `BuildTabs` 注释）⇒ 本条钉的是「我们这 4 页一个都没漏建」，
-                //    ⛔ 别读成「原版就是 4 页」。
+                // 🔴 **2026-10-09（第十会话 · `A1175` · 铁律 5）**：**又过期一次** —— `A1175` 建了原版的
+                //    `Account` 页 ⇒ 当时改成 **5 页**：`General / Audio / Account / Graphics / Online`。
+                // 🔴 **2026-10-19（第十会话 · `A1183` + `A1186` 裁定 ① · 铁律 5）就地订正（第三次）**：
+                //    上一轮那句「`Support` 建起来之后页数会变 6」**没有成真** —— `Support` 页**确实建了**
+                //    （`A1183`），但**用户裁定栏里就放原版那 5 格**：原版那条栏是 `VerticalLayoutGroup`
+                //    + **居中对齐** ⇒ 多一格会把原版那 5 格**整体上移 41.65px**、并两头溢出 67.31 / 80.31。
+                //    ⇒ **`Online` 不进栏**，它的入口改成 `General` 页上一颗文字钮（裁定 ②，
+                //    见 `Shell/SettingsWindow.cs` 的 `GenOnlineEntry`）。
+                //    ⇒ 现在是 **5 页签、而且逐位就是原版那 5 个**：
+                //      `General / Audio`(=原版 `Media`)`/ Account / Graphics / Support`。
+                //    ⇒ **本条钉的是「原版那 5 个一个都没漏建、且 `Online` 没混回栏里」**。
                 {
                     var tabsBar = first != null ? FindChild(first.transform, "Tab Buttons") : null;
                     var tabNames = new List<string>();
                     if (tabsBar != null)
                         for (int i = 0; i < tabsBar.childCount; i++) tabNames.Add(tabsBar.GetChild(i).name);
-                    CheckTrue(tabNames.Count == 4
-                              && tabNames.Contains("General") && tabNames.Contains("Graphics")
-                              && tabNames.Contains("Audio") && tabNames.Contains("Online"),
-                              "`Tab Buttons` 下是 **4 个页签**：General / Graphics / Audio / Online"
-                            + "（`SettingsTab` 四档 · `BuildTabs` 逐页建一个同名 `page` 节点）—— 实测 "
+                    CheckTrue(tabNames.Count == 5
+                              && tabNames.Contains("General") && tabNames.Contains("Account")
+                              && tabNames.Contains("Graphics")
+                              && tabNames.Contains("Audio") && tabNames.Contains("Support"),
+                              "`Tab Buttons` 下是 **5 个页签**（`A1183` 起 = 原版那 5 个、逐位）："
+                            + "General / Audio / Account / Graphics / Support"
+                            + "（`SettingsTab` 五档 · `BuildTabs` 逐格建一个同名 `page` 节点）—— 实测 "
                             + tabNames.Count + " 个：" + string.Join("、", tabNames.ToArray()));
+                    CheckTrue(!tabNames.Contains("Online"),
+                              "🔴 `Online` **不在页签栏里**（`A1186` 裁定 ①：栏里只放原版那 5 个键 —— "
+                            + "多一格会把原版那 5 格整体上移 41.65px）—— 它的入口是设置窗 `General` 页那颗"
+                            + " `Online Button`；改坏法：把它加回 `BuildTabs` 的 `specs` ⇒ 本条红");
                 }
                 // 🔴 **2026-10-05（A104）**：**再点一次**。原版 `WindowsManager.OpenWindow` 第一件事是查
                 //    `automaticallyLoadedWindows` 缓存（VA `0x180875990` 起、`call 0x1815caa30` = `TryGetValue`，
@@ -2799,6 +2813,68 @@ public static class MainMenuScene
                         {
                             // ---- ① 起手页签：**原版出厂就是「预组」页**（`DeckSelectionTabController__Start.c:5`）----
                             Check(ds2.OwnDecks, false, "开窗**起手落在「预组卡组」页**（原版 `Start()` → `ShowPrebuiltDecks(true)`）");
+                            // ============================================ ★ **A1126（A2 档）** · 2026-10-09
+                            // 本弹窗这几处**原来没传 autosize 实参**（= 固定字号），而原版那几颗 TMP
+                            //   **全是 `m_enableAutoSizing = 1`** ⇒ 现按原版四格接线（改动在 `Shell/DeckSelectionPopup.cs`）。
+                            // 🔴 期望值 = 原版**逐颗现读**：`Instructions 2` = `auto[18~40] · base 36 · 折行 0`；
+                            //   页签 `…/Alliance Header Buttons/Tab buttons/Generic Tab UI Button[ 1]/Button Text`
+                            //   = `auto[12~60] · base 12 · 折行 0`（`Own`/`Pre` 两颗**逐值相同**）。
+                            //   ⛔ **不读** `Shell/DeckSelectionPopup.cs` 的实参 = 自证。
+                            // **改坏法**：把那两行末尾的实参删回缺省（`wrapPx` 缺省 = 0 ⇒ `MenuDraw.TextCore` 里
+                            //   `if (wrapPx > 0f)` 整段不执行）⇒ 每处「自适应开着 / 下限 / 上限 / 基准」四条红；
+                            //   删掉紧随的 `SetWrapping(false)` ⇒ 折行档那条红（旧写法恰好也是 0 ⇒ 那条无鉴别力）。
+                            // 🆕 **2026-10-20（A1192）**：本块补上 `P4` §7·4 登记、当时**没写**的那条
+                            //   「**渲出来 ≤ 框宽**」守卫（那 3 站都是折行 = 0 ⇒ 正是这条守卫咬得住的那一族）。
+                            //   🔴 **框宽取原版字面量、⛔ 不读** `Shell/DeckSelectionPopup.cs` 的
+                            //   `Ins2L/Ins2R`/`TabW`（那是被测实现 = 自证）：
+                            //   · `Instructions 2` = **534.12**（`1236.12 → 1770.24`；`P4` §7·4 + 原版树
+                            //     `资料/说明书/04_界面UI/菜单全树.md:16741` 的 `Instructions 2 [1236,125 534x85]`）；
+                            //   · 页签 = **260**（`Generic Tab UI Button` 那一格；同文件 `:16726`
+                            //     `Generic Tab UI Button [66,70 260x68]`，`Button Text` 是它的子件）
+                            //     —— `Own`/`Pre` 两颗**同值**（那个容器是 `HorizontalLayoutGroup`
+                            //     `ctrlW=0/expandW=0` ⇒ 子件保持作者尺寸 260）。
+                            //   ⚠️ **如实说清判别力**：这条咬的是「框宽被传大」（`wrapPx` 越大、自适应放得越大
+                            //   ⇒ 渲出来越宽）；`Instructions 2` 那颗**满上限 40px 也够不着 534.12**
+                            //   （文案 'Select deck' 那一档 ≈ 250px）⇒ 它**咬不住**，是「钉住当前值」那一类；
+                            //   页签那两颗**咬得住**（满上限 60px 时 'Prebuilt Decks' ≈ 410px > 261.5）。
+                            {
+                                System.Action<Transform, string, float, float, float, float> a1126m =
+                                    (node, what, minPx, maxPx, basePx, boxW) =>
+                                {
+                                    var lb = node != null ? node.GetComponentInChildren<Label>() : null;
+                                    CheckTrue(lb != null, $"（前提）{what}：节点 + `Label` 拿得到"
+                                              + "（找不到 ⇒ 下面几条等于没查）");
+                                    if (lb == null) return;
+                                    CheckTrue(lb.AutoSizing, $"★ {what}：**自适应开着**"
+                                              + "（原版 `m_enableAutoSizing = 1`）"
+                                              + " —— 旧写法只传 `autoMinPx` 不传 `wrapPx` ⇒ 停在 TMP 出厂 `false`");
+                                    CheckNear(Label.FontSizeToPx(lb.FontSizeMin), minPx, 0.05f,
+                                              $"★ {what}：**下限** = 原版 `m_fontSizeMin` **{minPx}px**");
+                                    CheckNear(Label.FontSizeToPx(lb.FontSizeMax), maxPx, 0.05f,
+                                              $"★ {what}：**上限** = 原版 `m_fontSizeMax` **{maxPx}px**");
+                                    CheckNear(Label.FontSizeToPx(lb.FontSizeBase), basePx, 0.05f,
+                                              $"★ {what}：**基准** = 原版 `m_fontSizeBase` **{basePx}px**");
+                                    CheckTrue(lb.WrappingMode == 0, $"★ {what}：**折行档 = 0**"
+                                              + "（原版 `m_TextWrappingMode = 0`；`SetAutoFitBox` 内部一句"
+                                              + " `SetWrapWidth` 会**无条件**开成 `Normal(1)` ⇒ 必须显式关回去）");
+                                    // 🆕 2026-10-20（A1192）：「渲出来 ≤ 框宽」。量法走本文件既有的
+                                    //   `LabelRenderedPx`（= TMP 自己那块 `textBounds` 的**活值**），
+                                    //   ⛔ 不是 `Label.WorldW/H`（字段缓存，只有 `RefreshBounds` 写 = 自证）。
+                                    //   ⚠️ 上界闸挡哨兵（未重排 / 空串时 TMP 给 4.29e9 那种天文数字）——
+                                    //   那种读数**不是「字太宽」**，分开报（⛔ 别让它冒充「溢出」）。
+                                    float mw = LabelRenderedPx(lb).x;
+                                    bool mOk = mw > 0.5f && mw < 100000f;
+                                    CheckTrue(mOk && mw <= boxW + 1.5f,
+                                              mOk
+                                              ? $"★ {what}：字**渲出来的宽度 {mw:F2} ≤ 框宽 {boxW}**"
+                                              + "（= 原版那一格的字框；只比字号会漏掉「字号对而溢出」那一族）"
+                                              : $"★ {what}：**字块量不到**（哨兵/未重排 ⇒ 这一条**没跑**，不是绿）"
+                                              + $" —— 实得 {mw:F0}px（本闸上界 100000px）");
+                                };
+                                a1126m(FindChild(ds2.transform, "Instructions 2"), "`Instructions 2`", 18f, 40f, 36f, 534.12f);
+                                a1126m(FindChild(ds2.transform, "Tab Text Own"), "`Tab Text Own`", 12f, 60f, 12f, 260f);
+                                a1126m(FindChild(ds2.transform, "Tab Text Pre"), "`Tab Text Pre`", 12f, 60f, 12f, 260f);
+                            }
                             // 🔴 **层序 —— 2026-10-11（A283）用户裁定「照原版」⇒ 已【反转】**：
                             //    **选卡组弹窗压在顶栏之上**（页面签条 y 35.07~107.25 与顶栏 y 0~100 重合，
                             //    现在**看得见、也点得到**的是页签；顶栏那一条被本弹窗的压暗层压暗）。
@@ -3133,6 +3209,52 @@ public static class MainMenuScene
             {
                 // ---- 窗口参数（逐字段实读；那一行就是本窗：`Tutorial Mode Menu | TutorialModePopup | 1 | 15 | 1 | 0 | 1 | 1`）
                 Check(tut.type, WindowType.Popup, "`type` = **1 Popup**（原文）");
+                // ★ **A1126（A2 档）** · 2026-10-09：`Completed Text` 原来**没传 autosize 实参**（固定 54px），
+                //   而原版那颗 `m_enableAutoSizing = 1` ⇒ 按原版四格接线（改动在 `Shell/TutorialModePopup.cs`）。
+                //   期望值 = 原版 `menus ▸ Tutorial Mode Menu ▸ Completed Text` 逐颗现读：
+                //   `m_fontSizeMin 10` · `m_fontSizeMax 54` · `m_fontSizeBase 12` · `m_TextWrappingMode 0`
+                //   （⛔ **不读** `Shell/TutorialModePopup.cs` 的实参 = 自证）。
+                //   **改坏法**：把 `BuildCompleted` 那一行末尾的实参删回缺省（`wrapPx` 缺省 = 0）
+                //   ⇒ 下面四条红；删掉紧随的 `SetWrapping(false)` ⇒ 折行档那条红（旧写法恰好也是 0 ⇒ 无鉴别力）。
+                {
+                    var compN = FindChild(tut.transform, "Completed Text");
+                    var compLb = compN != null ? compN.GetComponentInChildren<Label>() : null;
+                    CheckTrue(compLb != null, "（前提）`Completed Text`：节点 + `Label` 拿得到"
+                              + "（找不到 ⇒ 下面几条等于没查）");
+                    if (compLb != null)
+                    {
+                        CheckTrue(compLb.AutoSizing, "★ `Completed Text`：**自适应开着**"
+                                  + "（原版 `m_enableAutoSizing = 1`）");
+                        CheckNear(Label.FontSizeToPx(compLb.FontSizeMin), 10f, 0.05f,
+                                  "★ …**下限** = 原版 `m_fontSizeMin` **10px**（旧写法停在 TMP 出厂 `0`）");
+                        CheckNear(Label.FontSizeToPx(compLb.FontSizeMax), 54f, 0.05f,
+                                  "★ …**上限** = 原版 `m_fontSizeMax` **54px**");
+                        CheckNear(Label.FontSizeToPx(compLb.FontSizeBase), 12f, 0.05f,
+                                  "★ …**基准** = 原版 `m_fontSizeBase` **12px**"
+                                  + "（≠ 标称 54、也 ≠ TMP 序列化默认 36 ⇒ 这一条最有鉴别力）");
+                        CheckTrue(compLb.WrappingMode == 0, "★ …**折行档 = 0**"
+                                  + "（原版 `m_TextWrappingMode = 0`；`SetAutoFitBox` 内部会无条件开成 `Normal(1)`）");
+                        // 🆕 **2026-10-20（A1192）**：「**渲出来 ≤ 框宽**」守卫 —— `P4` §7·4 登记了
+                        //   这一站的框宽、当时**没写**那条守卫（那件只许把断言放三个宿主，这一站的宿主不在
+                        //   其中）。框宽 = **658.34**（= `658.33 − (−0.01)`；出处 = 本文件上面那条
+                        //   `CheckAt` 的同一对**原版实读**矩形，`P4` §7·4 逐字列的就是这个数；原版树在
+                        //   `资料/说明书/04_界面UI/菜单全树.md:368` 记的是 `Completed Text [-0,215 658x0]`）——
+                        //   ⛔ **不读** `Shell/TutorialModePopup.cs` 的 `CompL/CompR`（那是被测实现 = 自证）。
+                        //   量法走本文件既有的 `LabelRenderedPx`（= TMP 自己那块 `textBounds` 的**活值**），
+                        //   ⛔ 不是 `Label.WorldW/H`（字段缓存 = 自证）。
+                        //   ⚠️ **如实说清判别力**：这一颗**满上限 54px 也够不着 658.34**
+                        //   （`'Completed: 0/6'` ≈ 380px）⇒ 它**咬不住**「框宽被传大」，属于「钉住当前值」
+                        //   那一类；本条的上界闸还挡哨兵（未重排 / 空串时 TMP 给 4.29e9 那种天文数字）。
+                        float compW = LabelRenderedPx(compLb).x;
+                        bool compOk = compW > 0.5f && compW < 100000f;
+                        CheckTrue(compOk && compW <= 658.34f + 1.5f,
+                                  compOk
+                                  ? $"★ `Completed Text`：字**渲出来的宽度 {compW:F2} ≤ 框宽 658.34**"
+                                  + "（= 原版那一格的字框 `-0.01 → 658.33`；只比字号会漏掉「字号对而溢出」那一族）"
+                                  : "★ `Completed Text`：**字块量不到**（哨兵/未重排 ⇒ 这一条**没跑**，不是绿）"
+                                  + $" —— 实得 {compW:F0}px（本闸上界 100000px）");
+                    }
+                }
                 Check(tut.placement, WindowsPlacement.Popup, "`windowsPlacement` = **15 Popup**（原文）");
                 CheckTrue(tut.closeOnEsc, "`closeOnESC` = **1**（原文）");
                 CheckNear(tut.extraScaleSmallScreen, 1f, 1e-4f,
@@ -4819,6 +4941,36 @@ public static class MainMenuScene
                 Check(sk.placement, WindowsPlacement.Canvas,
                       "`windowsPlacement` = **5 Canvas**（§一 原文 —— ⚠️ **不是练习窗那个 15**）");
                 Check(sk.closeOnEsc, true, "`closeOnESC` = **1**（原文）");
+                // ★ **A1126（A2 档）** · 2026-10-09：`Deck Name` / `Deck Warlord` 两颗原来**没传 autosize 实参**
+                //   （固定 62.85 / 44.65px），而原版两颗 `m_enableAutoSizing = 1` ⇒ 按原版四格接线
+                //   （改动在 `Shell/LiveOpsEventWindow.cs` 的 `BuildDeckTexts` —— 遭遇战 / 排位两扇窗共用同一份）。
+                //   期望值 = 原版 `menus ▸ SkirmishModeEventWindow ▸ Ranked Deck Selection/{Deck Name, Deck Warlord}`
+                //   逐颗现读：`m_fontSizeMin 18` · `m_fontSizeMax 72` · `m_fontSizeBase 36` · `m_TextWrappingMode 1`
+                //   （⛔ **不读** `Shell/LiveOpsEventWindow.cs` 的实参 = 自证）。
+                //   ⚠️ `base = 36` 恰好 = TMP 序列化默认 ⇒ 那一格**鉴别力弱**；本批的判别式是
+                //   「自适应开着 / 下限 / 上限 / 折行档」四条。
+                //   **改坏法**：把 `BuildDeckTexts` 那两行末尾的实参删回缺省 ⇒ 每处四条红。
+                {
+                    System.Action<Transform, string> a1126d = (node, what) =>
+                    {
+                        var lb = node != null ? node.GetComponentInChildren<Label>() : null;
+                        CheckTrue(lb != null, $"（前提）{what}：节点 + `Label` 拿得到（找不到 ⇒ 下面四条等于没查）");
+                        if (lb == null) return;
+                        CheckTrue(lb.AutoSizing, $"★ {what}：**自适应开着**（原版 `m_enableAutoSizing = 1`）"
+                                  + " —— 旧写法一个 autosize 实参都没传 ⇒ 停在 TMP 出厂 `false`");
+                        CheckNear(Label.FontSizeToPx(lb.FontSizeMin), 18f, 0.05f,
+                                  $"★ {what}：**下限** = 原版 `m_fontSizeMin` **18px**");
+                        CheckNear(Label.FontSizeToPx(lb.FontSizeMax), 72f, 0.05f,
+                                  $"★ {what}：**上限** = 原版 `m_fontSizeMax` **72px**");
+                        CheckNear(Label.FontSizeToPx(lb.FontSizeBase), 36f, 0.05f,
+                                  $"★ {what}：**基准** = 原版 `m_fontSizeBase` **36px**"
+                                  + "（⚠️ 恰好 = TMP 序列化默认 ⇒ 这一格鉴别力弱）");
+                        CheckTrue(lb.WrappingMode == 1, $"★ {what}：**折行档 = 1**"
+                                  + "（原版 `m_TextWrappingMode = 1`；旧写法没传 `wrapPx` ⇒ 停在 TMP 出厂 `0`）");
+                    };
+                    a1126d(FindChild(sk.transform, "Deck Name"), "`Deck Name`");
+                    a1126d(FindChild(sk.transform, "Deck Warlord"), "`Deck Warlord`");
+                }
 
                 // 背景三层（§二 B）—— 红底那件是**九宫格**，`Menu Vignette` 是纯色
                 CheckAtWorld(FindChild(sk.transform, "Reward Background Get Reward"), 0f, 1920f, 121.80f, 1013.11f,

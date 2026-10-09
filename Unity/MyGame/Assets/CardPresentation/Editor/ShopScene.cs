@@ -2029,6 +2029,43 @@ public static class ShopScene
                 var pd2 = FindPath(wn, "Text/Purchase buttons/Price Display/Generic UI Button");
                 CheckArt(pd2, "40K_button", "`Price Display` 的 `40K_button`");
                 Check(TextOf(FindChild(pd2, "Button Text")), ShopData.Offers(0)[0].Price, "价格文本 = 商品表的价格");
+                // 🆕 **2026-10-09（A1126 · A2 档）**：这一格的 `Button Text` 现补 autosize（原来固定 40px）。
+                //   期望值 = 原版 `Booster Info Popup ▸ Purchase buttons/Price Display/Generic UI Button/
+                //   Price Display/text` 的**逐颗现读 TMP 字段**：`m_enableAutoSizing = 1` · `m_fontSizeMin 13.46` ·
+                //   `m_fontSizeMax 40` · `m_fontSizeBase 39` · `m_TextWrappingMode = 0`。
+                //   ⛔ **不读 `Shell/BoosterInfoPopup.cs` 的实参、也不读 `BoosterInfoPopup.PriceR`** —— 那是被测实现（自证）。
+                //   **改坏法**：把 `Shell/BoosterInfoPopup.cs` 那一行末尾那串实参删回缺省（`wrapPx` 缺省 = 0
+                //   ⇒ `TextCore` 里 `if (wrapPx > 0f)` 整个不执行）⇒ 前五条红；删掉紧随的
+                //   `SetWrapping(false)` ⇒ 折行档那一条红。
+                {
+                    var priceTx = FindChild(pd2, "Button Text");
+                    var priceLb = priceTx != null ? priceTx.GetComponentInChildren<Label>() : null;
+                    CheckTrue(priceLb != null, "（前提）`Price Display/…/Button Text` 底下有 `Label`"
+                              + "（找不到 ⇒ 下面五条等于没查）");
+                    CheckTrue(priceLb != null && priceLb.AutoSizing,
+                              "★ `Button Text` 的**自适应开着**（原版 `m_enableAutoSizing = 1`）"
+                              + " —— 旧写法只传 `autoMinPx` 不传 `wrapPx` ⇒ 那段不执行、停在 TMP 出厂 `false`");
+                    CheckNear(Label.FontSizeToPx(priceLb != null ? priceLb.FontSizeMin : 0f), 13.46f, 0.05f,
+                              "★ …**下限** = 原版 `m_fontSizeMin` **13.46px**（旧写法停在 TMP 出厂 `0`）");
+                    CheckNear(Label.FontSizeToPx(priceLb != null ? priceLb.FontSizeMax : 0f), 40f, 0.05f,
+                              "★ …**上限** = 原版 `m_fontSizeMax` **40px**");
+                    CheckNear(priceLb != null ? Label.FontSizeToPx(priceLb.FontSizeBase) : -1f, 39f,
+                              0.6f, "★ …**基准** = 原版 `m_fontSizeBase` **39px**"
+                              + "（≠ 标称 40、也 ≠ TMP 序列化默认 36 ⇒ 这一条最有鉴别力）");
+                    CheckTrue(priceLb != null && priceLb.WrappingMode == 0,
+                              "★ …**折行档 = 0**（原版 `m_TextWrappingMode = 0`；`SetAutoFitBox` 内部那句"
+                              + " `SetWrapWidth` 会无条件开成 `Normal(1)` ⇒ 必须显式关回去）");
+                    // ⚠️ 量法用 `RectOf`（= TMP 自己那块 `textBounds` 的**活值**）——
+                    //    ⛔ **别换成 `Label.WorldW/H`**：那是被测实现自己写的字段缓存（`SetFontSize` 一族不刷它）= 自证。
+                    float tx1, ty1, tx2, ty2;
+                    if (!RectOf(priceTx, out tx1, out ty1, out tx2, out ty2))
+                        CheckTrue(false, "`Button Text` 的**字块矩形量不到**（这一条测不到就等于没查）");
+                    else
+                        CheckTrue(tx2 - tx1 <= 232.17f + 1.5f,
+                                  "★ 字**渲出来的宽度 ≤ 框宽 232.17**（原版 `Price Display/text` 的框"
+                                  + " 963.50→1195.67；这条是「**字号对而溢出**」那条守卫，⛔ 不替代上面五条 —— "
+                                  + "实得 " + (tx2 - tx1).ToString("F2") + "）");
+                }
                 var wsB = FindPath(wn, "Text/Purchase buttons/WebShop Button");
                 CheckArt(FindChild(wsB, "Highlight"), "OctagonUI_Filled_Fade_SDF", "`WebShop` 的 `Highlight`");
                 CheckArt(FindChild(wsB, "Button Image"), "40K_button", "`WebShop` 的 `Button Image`");

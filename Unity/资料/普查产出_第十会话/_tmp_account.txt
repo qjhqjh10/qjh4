@@ -1,0 +1,102 @@
+# bundle=bundle_menus_assets_all root=Account Tab rtpid=-2002206907880931418  bundle.path=d:/2/新解包资源/assets_full\bundle_menus_assets_all
+# root m_SizeDelta={'x': 0.0, 'y': 0.0} m_AnchorMin={'x': 0.0, 'y': 0.0} m_AnchorMax={'x': 1.0, 'y': 1.0} m_Pivot={'x': 0.5, 'y': 0.5} m_LocalScale={'x': 1.0, 'y': 1.0, 'z': 1.0} m_AnchoredPosition={'x': 0.0, 'y': 0.0}
+    External Link Icon  (56.84x56.99)  [Image] file=MonoBehaviour/MonoBehaviour_4033849276869148582.json
+        m_Sprite=-7046927121842673479 (Copy@3x)  m_Type=0  m_PreserveAspect=1  m_PixelsPerUnitMultiplier=1.0
+        m_RaycastTarget=1  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+        m_Color={'r': 1.0, 'g': 1.0, 'b': 1.0, 'a': 1.0}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+    InputEmail  (920.00x60.00)  [Image] file=MonoBehaviour/MonoBehaviour_-5385370170359054426.json
+        m_Sprite=-5728790147372056906 (40K_dropdown_bg)  m_Type=1  m_PreserveAspect=0  m_PixelsPerUnitMultiplier=1.0
+        m_RaycastTarget=1  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+        m_Color={'r': 0.29019609093666077, 'g': 0.9529411792755127, 'b': 0.6823529601097107, 'a': 1.0}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+    InputPassword  (920.00x60.00)  [Image] file=MonoBehaviour/MonoBehaviour_-7842976566873522266.json
+        m_Sprite=-5728790147372056906 (40K_dropdown_bg)  m_Type=1  m_PreserveAspect=0  m_PixelsPerUnitMultiplier=1.0
+        m_RaycastTarget=1  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+        m_Color={'r': 0.29019609093666077, 'g': 0.9529411792755127, 'b': 0.6823529601097107, 'a': 1.0}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+    Discord Button  (127.45x95.00)  [Image] file=MonoBehaviour/MonoBehaviour_-4351951773468819546.json
+        m_Sprite=-4815152253655800356 (Discord-Logo-Color)  m_Type=0  m_PreserveAspect=1  m_PixelsPerUnitMultiplier=1.0
+        m_RaycastTarget=1  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+        m_Color={'r': 1.0, 'g': 1.0, 'b': 1.0, 'a': 1.0}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+    IG Button  (127.45x75.00)  [Image] file=MonoBehaviour/MonoBehaviour_171377520929832870.json
+        m_Sprite=7154241806734808735 (Instagram_icon)  m_Type=0  m_PreserveAspect=1  m_PixelsPerUnitMultiplier=1.0
+        m_RaycastTarget=1  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+        m_Color={'r': 1.0, 'g': 1.0, 'b': 1.0, 'a': 1.0}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+    Facebook Button  (127.45x75.00)  [Image] file=MonoBehaviour/MonoBehaviour_-407335039202787418.json
+        m_Sprite=-5284805656703016282 (fb-icon)  m_Type=0  m_PreserveAspect=1  m_PixelsPerUnitMultiplier=1.0
+        m_RaycastTarget=1  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+        m_Color={'r': 1.0, 'g': 1.0, 'b': 1.0, 'a': 1.0}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+    Twitter Button  (127.45x75.00)  [Image] file=MonoBehaviour/MonoBehaviour_3137149151876448166.json
+        m_Sprite=1803529478509331708 (Twitter_Social_Icon_Rounded_Square_Color)  m_Type=0  m_PreserveAspect=1  m_PixelsPerUnitMultiplier=1.0
+        m_RaycastTarget=1  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+        m_Color={'r': 1.0, 'g': 1.0, 'b': 1.0, 'a': 1.0}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+    Youtube Button  (127.45x80.00)  [Image] file=MonoBehaviour/MonoBehaviour_4978400468439695270.json
+        m_Sprite=7682050761568011048 (YouTube_full-color_icon_(2017).svg)  m_Type=0  m_PreserveAspect=1  m_PixelsPerUnitMultiplier=1.0
+        m_RaycastTarget=1  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+        m_Color={'r': 1.0, 'g': 1.0, 'b': 1.0, 'a': 1.0}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+      Register Button  (300.00x90.00)  [Image] file=MonoBehaviour/MonoBehaviour_8356253968771547046.json
+          m_Sprite=5651555388418207694 (40K_button)  m_Type=0  m_PreserveAspect=1  m_PixelsPerUnitMultiplier=1.0
+          m_RaycastTarget=1  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+          m_Color={'r': 0.3686274588108063, 'g': 0.8941176533699036, 'b': 0.5882353186607361, 'a': 1.0}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+      Login Button   (300.00x90.00)  [Image] file=MonoBehaviour/MonoBehaviour_2473561874104942502.json
+          m_Sprite=5651555388418207694 (40K_button)  m_Type=0  m_PreserveAspect=1  m_PixelsPerUnitMultiplier=1.0
+          m_RaycastTarget=1  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+          m_Color={'r': 0.3686274588108063, 'g': 0.8941176533699036, 'b': 0.5882353186607361, 'a': 1.0}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+    Twitch Button  (297.31x90.00)  [Image] file=MonoBehaviour/MonoBehaviour_7644297488037740454.json
+        m_Sprite=5651555388418207694 (40K_button)  m_Type=0  m_PreserveAspect=1  m_PixelsPerUnitMultiplier=1.0
+        m_RaycastTarget=1  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+        m_Color={'r': 1.0, 'g': 0.0, 'b': 0.8893332481384277, 'a': 1.0}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+    Delete Button  (300.00x90.00)  [Image] file=MonoBehaviour/MonoBehaviour_-8673519954723897434.json
+        m_Sprite=5651555388418207694 (40K_button)  m_Type=0  m_PreserveAspect=1  m_PixelsPerUnitMultiplier=1.0
+        m_RaycastTarget=1  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+        m_Color={'r': 1.0, 'g': 0.03277375549077988, 'b': 0.0, 'a': 1.0}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+      Switch Account Button  (300.00x90.00)  [Image] file=MonoBehaviour/MonoBehaviour_7342831431824342950.json
+          m_Sprite=5651555388418207694 (40K_button)  m_Type=0  m_PreserveAspect=1  m_PixelsPerUnitMultiplier=1.0
+          m_RaycastTarget=1  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+          m_Color={'r': 0.3686274588108063, 'g': 0.8941176533699036, 'b': 0.5882353186607361, 'a': 1.0}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+      Logout Button  (300.00x90.00)  [Image] file=MonoBehaviour/MonoBehaviour_-8497414705688248410.json
+          m_Sprite=5651555388418207694 (40K_button)  m_Type=0  m_PreserveAspect=1  m_PixelsPerUnitMultiplier=1.0
+          m_RaycastTarget=1  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+          m_Color={'r': 0.3686274588108063, 'g': 0.8941176533699036, 'b': 0.5882353186607361, 'a': 1.0}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+    Backgroun filler  (1184.03x376.24)  [Image] file=MonoBehaviour/MonoBehaviour_-1496628238063075418.json
+        m_Sprite=0 (None)  m_Type=0  m_PreserveAspect=0  m_PixelsPerUnitMultiplier=1.0
+        m_RaycastTarget=1  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+        m_Color={'r': 0.0, 'g': 0.0, 'b': 0.0, 'a': 1.0}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+    Generic Popup Background  (1208.58x400.00)  [Image] file=MonoBehaviour/MonoBehaviour_8755819601694719910.json
+        m_Sprite=-7511397500040153103 (40k_popup)  m_Type=1  m_PreserveAspect=0  m_PixelsPerUnitMultiplier=1.0
+        m_RaycastTarget=1  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+        m_Color={'r': 1.0, 'g': 1.0, 'b': 1.0, 'a': 1.0}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+      Mask  (1188.32x380.75)  [Image] file=MonoBehaviour/MonoBehaviour_9194959744372146086.json
+          m_Sprite=-7511397500040153103 (40k_popup)  m_Type=1  m_PreserveAspect=0  m_PixelsPerUnitMultiplier=1.0
+          m_RaycastTarget=0  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+          m_Color={'r': 1.0, 'g': 1.0, 'b': 1.0, 'a': 1.0}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+        Background fill  (1188.32x380.75)  [Image] file=MonoBehaviour/MonoBehaviour_-1707700923240317018.json
+            m_Sprite=8740064623924276539 (40k_popup_texture)  m_Type=2  m_PreserveAspect=0  m_PixelsPerUnitMultiplier=2.0
+            m_RaycastTarget=0  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+            m_Color={'r': 1.0, 'g': 1.0, 'b': 1.0, 'a': 1.0}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+    InputEmail  (812.00x60.00)  [Image] file=MonoBehaviour/MonoBehaviour_-2766662645162344538.json
+        m_Sprite=-5728790147372056906 (40K_dropdown_bg)  m_Type=1  m_PreserveAspect=0  m_PixelsPerUnitMultiplier=1.2000000476837158
+        m_RaycastTarget=1  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+        m_Color={'r': 0.29019609093666077, 'g': 0.9529411792755127, 'b': 0.6823529601097107, 'a': 1.0}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+    InputPassword  (812.00x60.00)  [Image] file=MonoBehaviour/MonoBehaviour_8699808524192022438.json
+        m_Sprite=-5728790147372056906 (40K_dropdown_bg)  m_Type=1  m_PreserveAspect=0  m_PixelsPerUnitMultiplier=1.2000000476837158
+        m_RaycastTarget=1  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+        m_Color={'r': 0.29019609093666077, 'g': 0.9529411792755127, 'b': 0.6823529601097107, 'a': 1.0}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+      Animated Loading Image  (37.90x37.90)  [Image] file=MonoBehaviour/MonoBehaviour_2449319352408965030.json
+          m_Sprite=7621650145332779859 (40K_icon_searching_skull)  m_Type=0  m_PreserveAspect=0  m_PixelsPerUnitMultiplier=1.0
+          m_RaycastTarget=0  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+          m_Color={'r': 1.0, 'g': 1.0, 'b': 1.0, 'a': 0.843137264251709}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+        Cog  (37.90x37.90)  [Image] file=MonoBehaviour/MonoBehaviour_-7687775932348661850.json
+            m_Sprite=5609191530438287762 (40K_icon_searching_cog)  m_Type=0  m_PreserveAspect=0  m_PixelsPerUnitMultiplier=1.0
+            m_RaycastTarget=0  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+            m_Color={'r': 1.0, 'g': 1.0, 'b': 1.0, 'a': 0.800000011920929}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+    Login Button   (309.17x60.00)  [Image] file=MonoBehaviour/MonoBehaviour_-2191143218552995930.json
+        m_Sprite=5651555388418207694 (40K_button)  m_Type=0  m_PreserveAspect=1  m_PixelsPerUnitMultiplier=1.0
+        m_RaycastTarget=1  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+        m_Color={'r': 0.3686274588108063, 'g': 0.8941176533699036, 'b': 0.5882353186607361, 'a': 1.0}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+    Generic Close Button Green  (75.00x75.00)  [Image] file=MonoBehaviour/MonoBehaviour_6618748218856406950.json
+        m_Sprite=2381704724431365035 (UI_Button_Round_background)  m_Type=0  m_PreserveAspect=1  m_PixelsPerUnitMultiplier=1.0
+        m_RaycastTarget=0  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+        m_Color={'r': 1.0, 'g': 1.0, 'b': 1.0, 'a': 1.0}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+      Icon  (56.37x54.50)  [Image] file=MonoBehaviour/MonoBehaviour_-4106666046457282650.json
+          m_Sprite=6553861554683527146 (40k_bt_close)  m_Type=0  m_PreserveAspect=0  m_PixelsPerUnitMultiplier=1.0
+          m_RaycastTarget=1  m_RaycastPadding={'x': -20.0, 'y': -20.0, 'z': -20.0, 'w': -20.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+          m_Color={'r': 1.0, 'g': 1.0, 'b': 1.0, 'a': 1.0}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}

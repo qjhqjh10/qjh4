@@ -626,7 +626,7 @@ namespace CardPresentation
             //      ③ 本窗红底 `UI_Deck_Information_Back` 在 **`QDI = 3120`**、这几颗钮在 `QDIRow = 3121`
             //         ⇒ 不补这一句，变灰那几颗会**掉到红底之下** = 画面上「按钮没了」，
             //         而 `WindowButton.AuditGrayLook` 只核 **shader 名** ⇒ **照样全绿**（弱断言分不出两种状态）。
-            //    ⚠️ **与 `Shell/MissionsTab.cs:850` 那 6 颗是同一做法**，但那一处的注释写着「通用修法 = 让
+            //    ⚠️ **与 `Shell/MissionsTab.cs` 那 6 颗（`q.SetRenderQueue(RewardsWindow.QContent)` 那一处）是同一做法**，但那一处的注释写着「通用修法 = 让
             //       `SetMaterial` 保留 `renderQueue`」—— A85 **已经落到通用那一层了**；这一句留作**第二道**：
             //       通用修法保的是**相对值**（调用前那一份），这一句钉的是**绝对值**（这些钮本来就该在的档）。
             //    🔴 **必须在状态翻转【之后】调** —— `RefreshGray` 是同步换材质的，写在建窗那一段等于写进旧材质

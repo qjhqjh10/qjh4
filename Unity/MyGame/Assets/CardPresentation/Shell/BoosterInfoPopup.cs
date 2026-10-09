@@ -591,7 +591,18 @@ namespace CardPresentation
             var gb = Node(pd, "Generic UI Button", PriceR);
             var priceQ = Rect(gb, "40K_button", PriceR, "Image", QBtn, PriceTint, true);
             ShownPrice = o.Price;
-            var pt = MenuDraw.Text(gb, PriceR, ShownPrice, Color.white, "Button Text", 40f, QBtnText);
+            // 🔴 **2026-10-09（A1126 · A2 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 40px。
+            //   判据 = 原版那一颗（`bundle_menus_assets_all` ▸ `Booster Info Popup` ▸
+            //   `Purchase buttons/Price Display/Generic UI Button/Price Display/text`，逐颗现读 MB）：
+            //   **`m_enableAutoSizing = 1`** · `m_fontSizeMin = **13.46**` · `m_fontSizeMax = **40**` ·
+            //   `m_fontSizeBase = **39**` · **`m_TextWrappingMode = 0`（折行 = 0）**。
+            //   ⚠️ **刻度 = 原版刻度**（本文件 `BuildTexts` 那四颗 `SetAutoFitBox` 的实参就是原版字段原值
+            //   —— 见它的头注「画布 px，逐个亲读原版 MB」）⇒ **不做任何比例换算**，四格照抄。
+            //   ⚠️ 折行 0 ⇒ `SetAutoFitBox` 内部那句 `SetWrapWidth` 会**无条件**把它开成 `Normal`
+            //   ⇒ 紧跟一句 `SetWrapping(false)` 还原自己那一档（写法与下面 `WebShop Button/Button Text` 那一处成对）。
+            var pt = MenuDraw.Text(gb, PriceR, ShownPrice, Color.white, "Button Text", 40f, QBtnText,
+                                   PriceR.W, 13.46f, 40f, 39f);
+            if (pt != null) pt.SetWrapping(false);                    // 原版折行=0（A205：关这一下顺带推版面）
             if (pt != null) MenuDraw.AlignRight(pt, PriceR);          // 原版 `Button Text` 是 Right（格内那份）
             MenuDraw.Hit(pd, "Hit", PriceR, QHit, () => Buy(), priceQ, "40K_button");
 

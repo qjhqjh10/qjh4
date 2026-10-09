@@ -100,7 +100,7 @@ namespace CardPresentation
         //   · **y 与高完全不变**：`ctrlH = 0` ⇒ 高来自各自的 `sizeDelta`，`align = 0(UpperLeft)` ⇒ 贴顶。
         //
         // ⛔ **为什么不挂真的 `HorizontalLayoutGroup` / `ContentSizeFitter` 组件**（2026-10-06 调度台裁定；与 A98 同一口径）：
-        //   ① **`Shell` 全线没有 Canvas**（`Shell/ShellRuntime.cs:11-14`：正交相机 + 世界空间 mesh + TMP 世界空间文字）
+        //   ① **`Shell` 全线没有 Canvas**（`Shell/ShellRuntime.cs` 文件头那条声明：全线是「正交相机 + 世界空间 mesh + TMP 世界空间文字」）
         //      ⇒ 布局由 `CanvasUpdateRegistry`（`Canvas.willRenderCanvases`）驱动 ⇒ 挂上去的布局组件
         //      **永远不会被驱动**，是死数据；
         //   ② 更毒的是**将来一旦有 Canvas**：`ContentSizeFitter` 会按「无 rect 子件 ⇒ 首选宽 0」把这个节点的
@@ -478,7 +478,7 @@ namespace CardPresentation
             //             `timer` MB 4188647697997699280 是这一行唯一的 **dr=2**）
             //      ③ **`IsComplete()` = 「奖励已领取」**（不是「进度到顶」）—— 两条独立证据链见 `DailyData.DailyClaimed` 的注释。
             //    ⇒ 实现 = 用上面那个 `claimed` 把这**五件（= 6 个节点 —— 口径见本段开头）**包起来；
-            //      **别用「进度到顶」**（1.0 版方向反了，见 `DailyData.cs:98`）。
+            //      **别用「进度到顶」**（1.0 版方向反了，见 `Shell/DailyData.cs` 的 `DailyClaimed` 那段注释）。
             //    ⚠️ 藏 = 原版的 `SetActive(false)`（静默），不是我们偷懒 —— 所以不出声。
 
             // `description`  N(1, 0,1, 0.986689,1, .5,.5, 68.4878,-43.873, -136.374,62.253)
@@ -1484,7 +1484,7 @@ namespace CardPresentation
                 //    判据链（三段都可查；⚠️ **① / ② 记的是 A82 当时的行为** —— `SetMaterial` 后来
                 //    被 A85 改成会**保留** `renderQueue` 了，见本段末尾那条 ✅）：
                 //      ① `WindowButton.Interactable` 的 setter 走 `RefreshGray()`，而它换材质用的是
-                //         `ImageQuad.SetMaterial`（**当时**：`Battle/ImageQuad.cs:160-165` —— 只带贴图）；
+                //         `ImageQuad.SetMaterial`（**当时**：`Battle/ImageQuad.cs` 的 `SetMaterial` 那一处 —— 只带贴图）；
                 //      ② 它建的是 `new Material(shader)` ⇒ 队列退回 **shader 自带的那一个**，而
                 //         `Everguild/UI/Greyscale` 的 SubShader 标签是 `QUEUE: Transparent` = **3000**
                 //         （`工具/dump_shader.py "Everguild/UI/Greyscale"` 实读，2026-10-05）；

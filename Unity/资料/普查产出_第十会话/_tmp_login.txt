@@ -1,0 +1,47 @@
+⚠️ 「Login Window」命中 2 个，取第一个：1842882585068357741(Login Window)、3053592964502880166(Login Window_3053592964502880166)
+# bundle=bundle_menus_assets_all root=Login Window rtpid=4812468100660643949  bundle.path=d:/2/新解包资源/assets_full\bundle_menus_assets_all
+# root m_SizeDelta={'x': 1208.5833740234375, 'y': 400.0} m_AnchorMin={'x': 0.5, 'y': 0.5} m_AnchorMax={'x': 0.5, 'y': 0.5} m_Pivot={'x': 0.5, 'y': 0.5} m_LocalScale={'x': 1.0, 'y': 1.0, 'z': 1.0} m_AnchoredPosition={'x': 0.0, 'y': 80.0}
+  Backgroun filler  (1184.03x376.24)  [Image] file=MonoBehaviour/MonoBehaviour_3642701146365806701.json
+      m_Sprite=0 (None)  m_Type=0  m_PreserveAspect=0  m_PixelsPerUnitMultiplier=1.0
+      m_RaycastTarget=1  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+      m_Color={'r': 0.0, 'g': 0.0, 'b': 0.0, 'a': 1.0}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+  Generic Popup Background  (1208.58x400.00)  [Image] file=MonoBehaviour/MonoBehaviour_-4829558962746308499.json
+      m_Sprite=-7511397500040153103 (40k_popup)  m_Type=1  m_PreserveAspect=0  m_PixelsPerUnitMultiplier=1.0
+      m_RaycastTarget=1  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+      m_Color={'r': 1.0, 'g': 1.0, 'b': 1.0, 'a': 1.0}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+    Mask  (1188.32x380.75)  [Image] file=MonoBehaviour/MonoBehaviour_-5717075041626961811.json
+        m_Sprite=-7511397500040153103 (40k_popup)  m_Type=1  m_PreserveAspect=0  m_PixelsPerUnitMultiplier=1.0
+        m_RaycastTarget=0  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+        m_Color={'r': 1.0, 'g': 1.0, 'b': 1.0, 'a': 1.0}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+      Background fill  (1188.32x380.75)  [Image] file=MonoBehaviour/MonoBehaviour_-5121373328741250963.json
+          m_Sprite=8740064623924276539 (40k_popup_texture)  m_Type=2  m_PreserveAspect=0  m_PixelsPerUnitMultiplier=2.0
+          m_RaycastTarget=0  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+          m_Color={'r': 1.0, 'g': 1.0, 'b': 1.0, 'a': 1.0}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+  InputEmail  (812.00x60.00)  [Image] file=MonoBehaviour/MonoBehaviour_4439898742595897453.json
+      m_Sprite=-5728790147372056906 (40K_dropdown_bg)  m_Type=1  m_PreserveAspect=0  m_PixelsPerUnitMultiplier=1.2000000476837158
+      m_RaycastTarget=1  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+      m_Color={'r': 0.2862745225429535, 'g': 0.9647058844566345, 'b': 0.686274528503418, 'a': 1.0}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+  InputPassword  (812.00x60.00)  [Image] file=MonoBehaviour/MonoBehaviour_9140023967878334573.json
+      m_Sprite=-5728790147372056906 (40K_dropdown_bg)  m_Type=1  m_PreserveAspect=0  m_PixelsPerUnitMultiplier=1.2000000476837158
+      m_RaycastTarget=1  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+      m_Color={'r': 0.2862745225429535, 'g': 0.9647058844566345, 'b': 0.686274528503418, 'a': 1.0}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+    Animated Loading Image  (37.90x37.90)  [Image] file=MonoBehaviour/MonoBehaviour_-6001801250315909011.json
+        m_Sprite=7621650145332779859 (40K_icon_searching_skull)  m_Type=0  m_PreserveAspect=0  m_PixelsPerUnitMultiplier=1.0
+        m_RaycastTarget=0  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+        m_Color={'r': 1.0, 'g': 1.0, 'b': 1.0, 'a': 0.843137264251709}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+      Cog  (37.90x37.90)  [Image] file=MonoBehaviour/MonoBehaviour_6735471774784669805.json
+          m_Sprite=5609191530438287762 (40K_icon_searching_cog)  m_Type=0  m_PreserveAspect=0  m_PixelsPerUnitMultiplier=1.0
+          m_RaycastTarget=0  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+          m_Color={'r': 1.0, 'g': 1.0, 'b': 1.0, 'a': 0.800000011920929}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+  Login Button   (309.17x60.00)  [Image] file=MonoBehaviour/MonoBehaviour_-8376300711694382995.json
+      m_Sprite=5651555388418207694 (40K_button)  m_Type=0  m_PreserveAspect=1  m_PixelsPerUnitMultiplier=1.0
+      m_RaycastTarget=1  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+      m_Color={'r': 0.3686274588108063, 'g': 0.8941176533699036, 'b': 0.5882353186607361, 'a': 1.0}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+  Generic Close Button Green  (75.00x75.00)  [Image] file=MonoBehaviour/MonoBehaviour_-3819370765499447187.json
+      m_Sprite=2381704724431365035 (UI_Button_Round_background)  m_Type=0  m_PreserveAspect=1  m_PixelsPerUnitMultiplier=1.0
+      m_RaycastTarget=0  m_RaycastPadding={'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 0.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+      m_Color={'r': 1.0, 'g': 1.0, 'b': 1.0, 'a': 1.0}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}
+    Icon  (56.37x54.50)  [Image] file=MonoBehaviour/MonoBehaviour_8444703427424471149.json
+        m_Sprite=6553861554683527146 (40k_bt_close)  m_Type=0  m_PreserveAspect=0  m_PixelsPerUnitMultiplier=1.0
+        m_RaycastTarget=1  m_RaycastPadding={'x': -20.0, 'y': -20.0, 'z': -20.0, 'w': -20.0}  m_FillCenter=1  m_UseSpriteMesh=0  m_FillMethod=4  m_FillAmount=1.0
+        m_Color={'r': 1.0, 'g': 1.0, 'b': 1.0, 'a': 1.0}  m_Material={'m_FileID': 0, 'm_PathID': 0}  m_Enabled=1  m_Script={'m_FileID': 1, 'm_PathID': 350208831926335389}

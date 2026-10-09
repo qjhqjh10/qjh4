@@ -1,0 +1,34 @@
+⚠️ 「Login Window」命中 2 个，取第一个：1842882585068357741(Login Window)、3053592964502880166(Login Window_3053592964502880166)
+# （已沿 `m_Father` 爬父链：被查节点的父 = 「ChooseNameWindow」 0.00,0.00 → 1920.00,1080.00）
+# Login Window  绝对矩形（1920×1080 · 左上原点 · y 向下）
+# 出处 d:/2/新解包资源/assets_full\bundle_menus_assets_all
+# 🔴 「宽」「高」与四个坐标 = **布局框**（= 设计值）；画出来的是【视觉框 = 布局框 × 这一件自己的 `m_LocalScale`】—— 见行末 `视觉框=`（缩放 = 1 的行不印）
+# 行内标记：`INACT` = **这一件自己的 `m_IsActive=0`**（出厂就是这样）· `ANC✗` = 它自己 active 但**祖先 inactive**（uGUI 的 `activeInHierarchy` 看**整条父链**）⇒ **原版一个像素都不画**（与 `menu_dump.py` 同一个记号）· `⚠️LayoutGroup(m_Enabled=0)` = 布局组件**自己关着**，原版**不跑**它（见表尾）· `Mask(⚠️A625脆clause)` = 那一件的 Mask 是**脆 clause** 判出来的（全库实测 0 次，见那段注释）
+深度  名字                                                 x1       y1       x2       y2        宽        高  act  组件
+0   Login Window                                   355.71   260.00  1564.29   660.00  1208.58   400.00  INACT  
+1     Backgroun filler                             367.63   269.54  1551.66   645.79  1184.03   376.24  INACT  
+1     Generic Popup Background                     355.71   260.00  1564.29   660.00  1208.58   400.00  ANC✗   
+2       Mask                                       366.10   269.44  1554.42   650.20  1188.32   380.75  ANC✗   Mask
+3         Background fill                          366.10   269.44  1554.42   650.20  1188.32   380.75  ANC✗   
+1     EmailText                                    397.87   303.78   835.37   363.78   437.50    60.00  ANC✗   
+1     InputEmail                                   397.87   363.03  1209.87   423.03   812.00    60.00  ANC✗   
+2       Text Area                                  417.87   377.53  1209.87   408.53   792.00    31.00  ANC✗   
+3         Placeholder                              417.87   377.53  1209.87   408.53   792.00    31.00  ANC✗   
+3         Text                                     417.87   377.53  1209.87   408.53   792.00    31.00  ANC✗   
+1     PasswordText                                 397.87   433.07   835.37   493.07   437.50    60.00  ANC✗   
+1     InputPassword                                397.87   493.10  1209.87   553.10   812.00    60.00  ANC✗   
+2       Text Area                                  417.87   507.60  1209.87   538.60   792.00    31.00  ANC✗   
+3         Placeholder                              417.87   507.60  1209.87   538.60   792.00    31.00  ANC✗   
+3         Text                                     417.87   507.60  1209.87   538.60   792.00    31.00  ANC✗   
+1     Forgot Password                              772.37   447.10  1209.87   491.46   437.50    44.36  ANC✗   
+1     ErrorMensajeContainer                        397.87   572.13  1209.87   608.86   812.00    36.73  ANC✗   LayoutGroup
+2       Animated Loading Image                     397.87   571.55   435.77   609.45    37.90    37.90  ANC✗   
+3         Cog                                      397.87   571.55   435.77   609.45    37.90    37.90  ANC✗   
+2       Error Message                              447.77   572.13  1221.87   608.86   774.10    36.73  ANC✗   
+1     Login Button                                1233.68   491.46  1542.86   551.46   309.17    60.00  ANC✗   
+2       Button Text                               1246.38   494.67  1529.55   547.03   283.17    52.36  ANC✗   
+1     Generic Close Button Green                  1521.50   227.50  1596.50   302.50    75.00    75.00  ANC✗   
+2       Icon                                      1530.82   237.75  1587.18   292.25    56.37    54.50  ANC✗   
+
+⛔ **下面这些节点是布局组、但它自己不在 `activeInHierarchy` 里**（1 个，与 `menu_dump.py` 的 `⛔GRP-off` 同一个记号）—— 原版**此刻不跑它们的布局**；激活之后会跑，届时子节点位置**不是**本表给的值：
+      ErrorMensajeContainer

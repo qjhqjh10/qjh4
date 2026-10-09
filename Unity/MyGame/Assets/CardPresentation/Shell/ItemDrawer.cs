@@ -958,8 +958,17 @@ namespace CardPresentation
             //   ⚠️ 「下」在 uGUI 里是 y 减小，而本工程 `PxRect.y1` 是**上沿** ⇒ 落到 `strip.y2 + 54·k … strip.y2 + 162·k`。
             float k = box.H / DecorRefH;
             var lb = new PxRect(strip.x1, strip.y2 + 54f * k, strip.x2, strip.y2 + 162f * k);
+            // 🔴 **2026-10-19（A1187）**：这四格 = 原版 `AlreadyOwned` 那颗 TMP 的**原文**，
+            //   出处 = `工具/menu_dump.py bundle_menus_assets_all "Deck Drawer"|"Wildcard Drawer"|…`
+            //   （六个抽屉 prefab 逐个现读，**逐值相同**）：
+            //     `AlreadyOwned` = `'Already Owned' 字号=75.0 基准=36.0 auto[12.0~75.0] 对齐=Center/Middle 折行=0`
+            //   ⇒ `min 12` · `max 75`（= `m_fontSize` 本身）· `base 36` · **折行 0**。
+            //   ⚠️ **三格一起乘 `k`**（`k = box.H / 1080`）—— 本函数传的 `fontPx = 75f * k` 就是
+            //   原版 `m_fontSize × k`（同文件 `TextCentered` 的 `65f * k` 是同一条换算）
+            //   ⇒ `min/max/base` 与 `nominal` 必须**同一把尺**（先例 = `Shell/MissionsTab.cs` 的 `FS()`，
+            //   本仓 P4 报告 §3 已把这条口径逐处核过）。
             ClippedText(root, lb, AlreadyOwnedText, Color.white, NodeAlreadyOwned, 75f * k, st.QDecor + 5,
-                        lb.W, st);
+                        lb.W, st, 0, 12f * k, 75f * k, 36f * k, true);
         }
 
         /// <summary>第 2/3 跳那两个条（`Converted Drawer` / `Ephemeral Drawer`）**同锚点**：
@@ -996,7 +1005,24 @@ namespace CardPresentation
             if (!MenuDraw.VisibleAbove(parent, row, st.Clip)) return;
             // 原版这一层的节点名逐字是 `Price Display`（那一行），里面才是 `icon` / `text` 两件 ⇒ 照建。
             var pd = MenuDraw.Node(parent, NodePriceDisplay, row);
-            var lb = MenuDraw.Text(pd, row, s, Color.white, NodePriceText, textPx, q, 0f);
+            // 🔴 **2026-10-19（A1187②）**：这四格 = 原版 `Price Display/text` 那颗 TMP 的**原文**，
+            //   出处 = `工具/menu_dump.py bundle_menus_assets_all "<抽屉名>"`（**六个抽屉 prefab 逐个现读，
+            //   逐值相同**）：`text` = `'2000'/'24 hours' 字号=65.0 基准=39.0 auto[13.460000038146973~65.0]
+            //   对齐=Center/Capline 折行=0` ⇒ `min 13.46` · `max 65`（= `m_fontSize` 本身）· `base 39` · **折行 0**。
+            //   ⚠️ **三格一起乘 `k`**（`k = box.H / 1080`，本函数上面那行算的）—— 本函数传的
+            //   `textPx = 65f * k` 就是原版 `m_fontSize × k` ⇒ 上下限必须同一把尺（先例同 `SetConverted`）。
+            //   ⚠️ **不是** `R2` 报告 §2#44 说的「67 颗 `m_text='300,00'` 的 `Price Display/text`」——
+            //   那一族是**商店/礼包按钮**里的同名节点（`min/max` 分 `13.46~40` / `12~54` 两族）；
+            //   本处这一颗是**抽屉自己**那一颗（`max = 65`），判据见上面那次实读。
+            //   ⚠️ 原版这一颗的父件 `Price Display` 带 `HorizontalLayoutGroup`、它自己带 `ContentSizeFitter`
+            //   （**框宽跟文字走**）⇒ 原版**没有**一条固定的「框宽」；这里传的 `row.W` = 我们这一层的条宽
+            //   （= 原版 `Price Display` 那个节点的矩形，640.8×108 设计值 ⇒ 与六份 prefab 逐位相同），
+            //   `折行` 照原版关回 0 ⇒ 这一格是**下界守卫**、不吃掉任何排版自由度。
+            var lb = MenuDraw.Text(pd, row, s, Color.white, NodePriceText, textPx, q, row.W,
+                                   13.46f * k, 65f * k, 39f * k);
+            // ⓪ 原版折行=0（`SetAutoFitBox` 会把模式开成 `Normal(1)`）—— ⚠️ 必须在下面那次
+            //    `MenuDraw.ClipText(lb, …)`（本方法的最后一步）**之前**：`SetWrapping` 会 `ForceRelayout` 推版面。
+            if (lb != null) lb.SetWrapping(false);
             float tw = lb != null ? lb.WorldW * 108f : 0f;           // `WorldW` 是 Unity 单位 ⇒ ×108 回画布像素
             float groupW = (icon != null ? iconSide : 0f) + tw;
             float gx = row.CX - groupW * 0.5f;                       // 整组居中
@@ -1253,14 +1279,30 @@ namespace CardPresentation
         /// 派生写入已删，见各自注释），本库自己取 = 从前的 `st.Clip` 那一档逐位等价。
         /// <param name="align">0 = 居中（`Label` 默认）· 1 = 左 · 2 = 右（原版 TMP 的 `m_HorizontalAlignment`）。
         /// 与 `GameWindow.Text` 的同名形参同义。</param></summary>
+        /// <param name="autoMinPx">🔴 **2026-10-19（A1187）新加**：原版那一颗的 `m_fontSizeMin`（**画布 px**）。
+        /// **`0` = 这一档不接自适应**（= 旧行为，逐位不变）。要过 `MenuDraw.TextCore` 那道闸，
+        /// `wrapPx &gt; 0 ∧ autoMinPx &gt; 0 ∧ fontPx &gt; autoMinPx` **三条得全真** ⇒ 只传这个 = **死实参**。</param>
+        /// <param name="autoMaxPx">原版那一颗的 `m_fontSizeMax`（画布 px；`≤ 0` ⇒ 上限退回 `fontPx`）。</param>
+        /// <param name="autoBasePx">原版那一颗的 `m_fontSizeBase`（画布 px；`≤ 0` ⇒ base 退回调用方那一档）。
+        /// ⚠️ 三者都是**原版设计空间的原文**，调用方自己按该族的刻度换算（见下面 `AlreadyOwned` 那一处）。</param>
+        /// <param name="wrapOff">🔴 原版那一颗 `m_TextWrappingMode = 0`（不折行）时传 `true` ——
+        /// `SetAutoFitBox` 内部那句 `SetWrapWidth` 会**无条件**把模式开成 `Normal(1)`，
+        /// 而 `MenuDraw.ClipText` **必须是最后一步**（A781/A435：任何一次重排都会把裁好的顶点抹掉）
+        /// ⇒ 「关折行」只能在这里、`ClipText` **之前**做，⛔ 调用方拿到返回值再关就晚了。</param>
         static Label ClippedText(Transform node, PxRect r, string s, Color color, string name,
-                                 float fontPx, int q, float wrapPx, ItemDrawerStyle st, int align = 0)
+                                 float fontPx, int q, float wrapPx, ItemDrawerStyle st, int align = 0,
+                                 float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f,
+                                 bool wrapOff = false)
         {
             // 🔴 2026-10-13（A435）：`Visible` → **`VisibleAbove`**（纯矩形函数手上没有 `Transform`，
             //   解析不了节点 ⇒ 必须走带 `parent` 的那个重载，判据 → `MenuDraw.VisibleAbove` 的注释）。
             if (!MenuDraw.VisibleAbove(node, r, st.Clip)) return null;
-            var lb = MenuDraw.Text(node, r, s, color, name, fontPx, q, wrapPx);
+            var lb = MenuDraw.Text(node, r, s, color, name, fontPx, q, wrapPx,
+                                   autoMinPx, autoMaxPx, autoBasePx);
             if (lb == null) return null;
+            // ⓪ 原版 `折行=0` 的那几颗：`SetAutoFitBox` 刚把模式开成 `Normal(1)` ⇒ 在这里还原
+            //    （⚠️ 必须在 ①② 之前，且必须在 `ClipText` 之前 —— `SetWrapping` 自己会 `ForceRelayout` 推版面）
+            if (wrapOff) lb.SetWrapping(false);
             if (align == 1) MenuDraw.AlignLeft(lb, r);
             else if (align == 2) MenuDraw.AlignRight(lb, r);
             // 🔴 2026-10-13（A435）：形参**原样**交给 `ClipText`（它自己会从 `lb.transform` 解析）——

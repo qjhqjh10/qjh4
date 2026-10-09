@@ -483,7 +483,16 @@ namespace CardPresentation
             var fInfo = MenuDraw.Text(anchor, F_Info, DailyData.StreakInfoText(), Color.white, "Info", 36f, QText);
             MenuDraw.SetVAlign(fInfo, Label.VAlign.Midline, F_Info);
             var btn = MenuDraw.Rect(anchor, Art(ArtMulligan), F_ResetBtn, "Generic Simplified UI Button", QContent);
-            var fReset = MenuDraw.Text(anchor, F_ResetText, DailyData.ResetStreakText(), Color.white, "Button Text", 55f, QText);
+            // 🔴 **2026-10-09（A1126 · A2 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 55px。
+            //   判据 = 原版 `menus ▸ Daily Streak Popup ▸ Streak Failed/Generic Simplified UI Button/Button Text`
+            //   （`'Reset Streak'`）：**`m_enableAutoSizing = 1`** · `m_fontSizeMin = **10**` ·
+            //   `m_fontSizeMax = **55**` · `m_fontSizeBase = **12**` · **折行 = 0**。
+            //   ⚠️ 本窗刻度 = 原版刻度（我们传的 `55f` 就是原版 `m_fontSize` 原值）⇒ 四格照抄。
+            //   ⚠️ 折行 0 ⇒ `SetAutoFitBox` 内部 `SetWrapWidth` 会**无条件**开成 `Normal` ⇒ 紧跟一句关掉
+            //   （必须在 `SetVAlign` **之前** —— `SetWrapping` 会推版面）。
+            var fReset = MenuDraw.Text(anchor, F_ResetText, DailyData.ResetStreakText(), Color.white, "Button Text", 55f, QText,
+                                       F_ResetText.W, 10f, 55f, 12f);
+            if (fReset != null) fReset.SetWrapping(false);          // 原版折行=0（A205：关这一下顺带推版面）
             MenuDraw.SetVAlign(fReset, Label.VAlign.Capline, F_ResetText);
             if (btn != null)
             {

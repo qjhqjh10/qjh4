@@ -1240,7 +1240,7 @@ namespace CardPresentation
         /// 「这些标签此刻没在渲染，那一刀等它们真显示出来时由 `ClippedTextGuard` 补」
         /// —— **不是**「裁切坏了」。要断就断「这条路带电」（== 由 `RewardsScene` 的跨边那一幕产生）。</para>
         /// <para>⚠️ 与 `TextClipUnavailable` **分开计数**：那个的语义是「`Label` 连渲染网格都没建起来」
-        /// （`RewardsScene.cs:2891` 断它 == 0）；本条是「网格建起来了、但这一刻没有在渲染的那一份」。
+        /// （`Editor/RewardsScene` 里 `CheckTrue(MenuDraw.TextClipUnavailable == 0, …)` 那条断言）；本条是「网格建起来了、但这一刻没有在渲染的那一份」。
         /// 合成一个会让那条既有断言在本场景里假红。</para></summary>
         public static int TextClipUploadSkipped;
 
@@ -1349,7 +1349,7 @@ namespace CardPresentation
                 //    🔴 **为什么以前没炸**：这一句只在 `any`（真有一个字的角被夹出框）时才走到，而
                 //    本文那一格里**唯一贴着视口边的是 `LevelLabel`**（`Shell/ForgeTab.cs` 里 `LevelLabel` 那一处，格心 −0.6 处、宽 85）——
                 //    格心离开视口边 10px 以内才会被夹。A188 新加的「跨边那一幕」
-                //    （`Editor/RewardsScene.cs:1934` 把该格中心滚到 `330.968`）**正是第一次**造成这种夹切。
+                //    （`Editor/RewardsScene` 里 `ft0.TrackScroll.ScrollBy(cxA - 330.968f)` 那一句 —— 「跨边那一幕」）**正是第一次**造成这种夹切。
                 //    ⇒ 这一句从写下来那天起就带着这颗雷，只是**没有用例踩到过**（A225 那轮改的是 `any` 的口径，
                 //      本案里 `moved == true` ⇒ 新旧口径都会走到这里 ⇒ **A225 不是诱因**，见本件报告）。
                 //
@@ -2032,7 +2032,7 @@ namespace CardPresentation
         ///
         /// <para>`pos` = quad 相对 `node` 的位置。**两种历史摆法都要能表达**（⛔ 别统一）：
         /// `Hit` 把**节点**摆在父原点、quad 摆在矩形中心；`DeckCell` 把**节点**摆在**矩形中心**、quad 摆 0
-        /// —— 后者是既有断言量过的位置（`Editor/CollectionScene.cs:505-513`）。</para></summary>
+        /// —— 后者是既有断言量过的位置（`Editor/CollectionScene` 里那两条「命中区中心 x/y = **露出来那块的中心**」断言）。</para></summary>
         static void MakeHitQuad(Transform node, PxRect hr, int q, Vector3 pos)
         {
             var hq = ImageQuad.Create(node, CardArt.Solid(), pos, LayoutSpace.Px(hr.H),
@@ -2071,11 +2071,12 @@ namespace CardPresentation
         //       🔴 **真调用 = 32 处**。**口径 = 只数【真调用】，不数【注释散文】**。
         //       · **怎么数的**：`grep -rn "MenuDraw\.ShadeHit(" --include=*.cs`
         //         （在 `Assets/CardPresentation/` 下）**裸命中 = 37 条**，其中 **5 条是注释散文**
-        //         （`Editor/MainMenuScene.cs:10624` · `Editor/RewardsScene.cs:6162` ·
-        //         `Shell/EnergySinglePlayerOnlyEventWindow.cs:62` · `Shell/MenuDraw.cs:2448` · `:2720`
+        //         （`Editor/MainMenuScene.cs` · `Editor/RewardsScene.cs` ·
+        //         `Shell/EnergySinglePlayerOnlyEventWindow.cs` · `Shell/MenuDraw.cs` ×2
         //         —— 后两条就是本段自己的散文）⇒ **37 − 5 = 32**。
+        //         ⛔ **这 5 条别记行号**（写死的行号天天漂）：要复核就现跑上面那条 `grep` 逐条看。
         //       · **数了哪些**：**`Shell/` 31 处**（逐窗一处，全是 `GameWindow` 子类弹窗）
-        //         **＋ `Editor/ShellScene.cs:3380` 1 处**（自检探针 `BgProbeB` 那扇，**不是生产站点**）。
+        //         **＋ `Editor/ShellScene` 里 `BgProbeB` 那扇自检探针的 `MenuDraw.ShadeHit(bgB.transform, …)` 1 处**（**不是生产站点**）。
         //       · ➕ 另有 **1 处裁定过的例外**（`Shell/ProfileTab.cs` 里那句 `Hit(_nameWin, "DarkBgHit", …, L_NameBgHit, CancelNameWindow)`，走旧写法、⛔ 不许收口，见下）
         //         ⇒ **生产站点 = 32 个**（= 上面那 31 扇窗 ＋ 这 1 处例外）。
         //       ⚠️ 「真调用 32」与「生产站点 32」**数值相同纯属巧合**，是两件事，别混为一谈。
@@ -2164,11 +2165,9 @@ namespace CardPresentation
         /// 🔴 只有计数那一半换了载体：`ShadeHitTierWarns++` → 往同一颗节点上挂 `ShadeHitTierWarn`）。</summary>
         sealed class ShadeHitMark : MonoBehaviour { }
         /// <summary>这个节点**是不是 `ShadeHit` 建的**（自检用 —— 见 `ShadeHit` 的注释）。
-        /// 🔴 **签名与语义一字未改**（**5 份**自检宿主 `Editor/CollectionScene.cs:52` · `Editor/MainMenuScene.cs:52` ·
-        /// `Editor/RewardsScene.cs:165` · `Editor/SettingsScene.cs:71` · `Editor/ShopScene.cs:679` 各自那个
-        /// `CheckShadeRule` 包装照样调；⚠️ **2026-10-07（A77⑬⑥）起那 5 份包装已收口到
-        /// 本文件的 `MenuDraw.CheckShadeRule`** ⇒ 这 5 个行号是**收口前**的坐标，收口后本函数只剩
-        /// `MenuDraw.CheckShadeRule` 一个调用点）；
+        /// 🔴 **签名与语义一字未改**（5 份自检宿主各有一个包装，**2026-10-07（A77⑬⑥）起那 5 份包装已收口到
+        /// 本文件的 `MenuDraw.CheckShadeRule`** —— 唯一调用点就是它，⛔ 那 5 个旧行号**不再记**：行号天天漂，
+        /// 要看现跑 `grep -rn "CheckShadeRule" --include=*.cs .`）；
         /// 只有**判法**从「查一张全局表」换成「看节点自己身上有没有那颗标记」。
         /// ⚠️ 已销毁的节点 `node != null` 就是假（Unity 那一套）⇒ 直接返回 false，不会去 `GetComponent`。</summary>
         public static bool WasShadeHit(Transform node)
@@ -2973,7 +2972,7 @@ namespace CardPresentation
             //    （`WindowButton.onClick` 在着、自检直调 `wb.Click()` 也过 —— 所以自检当年全绿）。
             //    ⇒ 照 `Hit` 的写法补一颗**透明 quad**（`MakeHitQuad`，纯色件必须传 `CardArt.Solid()`）。
             //    ⚠️ **节点仍摆在交集块的中心**（不是父原点）—— 既有断言量的是**这个节点的位置**
-            //    （`Editor/CollectionScene.cs:505-513`「命中区中心 = 露出来那块的中心」）⇒ 换摆法 = 改行为。
+            //    （`Editor/CollectionScene` 里那两条「命中区中心 x/y = **露出来那块的中心**」断言）⇒ 换摆法 = 改行为。
             //    ⚠️ **这会改掉那两扇窗的点击面**（原来整格都点不动）⇒ 自检里单开一段按**真命中路**
             //    （`PointerLayer.ButtonAt`）验它，别拿 `wb.Click()` 自证。
             if (onClick != null)

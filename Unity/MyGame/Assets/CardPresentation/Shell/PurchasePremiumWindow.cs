@@ -695,6 +695,14 @@ namespace CardPresentation
                                         QPriceBtn, null, true, "Image",
                                         new Vector4(333f / 2f, 96f / 2f, 333f / 2f, 96f / 2f));
             // 备用文本（**出厂 act = F** ⇒ 新建出来就是关的）
+            // 🔴 **2026-10-09（A1126 · A2 档）判据注释（本处【不改值】—— 调度台已裁定「等价、不是缺口」）**：
+            //   原版那一格 `…/Generic UI Button/Button Text` = `m_enableAutoSizing = 1` · `auto[12~38]` ·
+            //   **`m_fontSizeBase = 12`** · 折行 = 0；我们下面传的 `PriceBtnTxtMin = 12` / `Max = 38` /
+            //   `Base = 12` **逐值已对**。之所以不生效，是 `MenuDraw.TextBox` 那道闸
+            //   （`Shell/MenuDraw.cs` 的 `autoMinPx > 0f && fontPx > autoMinPx`）在 `12 > 12` 上为假
+            //   —— **但原版 `base == min == 12` ⇒ 自适应在那一格也没有可缩的余量**（起点就是下限）
+            //   ⇒ **行为等价、不是偏离**。🔴 **⛔ 不许为此给共用闸加特例**，也 **⛔ 不许把
+            //   `PriceBtnTxtMin` 改到 < 12**（那会偏离原版实读值）—— 两处都由本轮调度台现核后裁定。
             var pbt = MenuDraw.TextBox(gb, Abs(PriceBtnTxtR), "", Color.white, "Button Text",
                                        PriceBtnTxtFont, PriceBtnTxtMin, QPriceBtnText, PriceBtnTxtMax, PriceBtnTxtBase);
             if (pbt != null) pbt.gameObject.SetActive(false);

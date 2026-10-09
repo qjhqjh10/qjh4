@@ -1,0 +1,83 @@
+# （已沿 `m_Father` 爬父链：被查节点的父 = 「Tab Content」 551.87,164.79 → 1480.90,923.57）
+# ⚠️ 父链上有 `m_LocalScale`：`lossyScale(父)` = 0.9,0.9 ⇒ 下面所有矩形都按它换算
+# Account Tab  绝对矩形（1920×1080 · 左上原点 · y 向下）
+# 出处 d:/2/新解包资源/assets_full\bundle_menus_assets_all
+# 🔴 「宽」「高」与四个坐标 = **布局框**（= 设计值）；画出来的是【视觉框 = 布局框 × 这一件自己的 `m_LocalScale`】—— 见行末 `视觉框=`（缩放 = 1 的行不印）
+# 行内标记：`INACT` = **这一件自己的 `m_IsActive=0`**（出厂就是这样）· `ANC✗` = 它自己 active 但**祖先 inactive**（uGUI 的 `activeInHierarchy` 看**整条父链**）⇒ **原版一个像素都不画**（与 `menu_dump.py` 同一个记号）· `⚠️LayoutGroup(m_Enabled=0)` = 布局组件**自己关着**，原版**不跑**它（见表尾）· `Mask(⚠️A625脆clause)` = 那一件的 Mask 是**脆 clause** 判出来的（全库实测 0 次，见那段注释）
+深度  名字                                                 x1       y1       x2       y2        宽        高  act  组件
+0   Account Tab                                    551.87   164.79  1480.90   923.57   929.03   758.78  INACT  
+1     Tab Title                                    632.87   224.32  1480.90   287.32   848.03    63.00  ANC✗   
+1     Player Id                                   1129.49   202.89  1459.89   238.02   330.40    35.13  INACT  
+2       Player Id Text                            1072.44   194.74  1459.89   242.09   387.45    47.35  ANC✗   
+2       External Link Icon                        1063.92   190.80  1115.07   242.09    51.15    51.29  ANC✗   
+1     Account Form                                 632.87   299.83  1460.87   670.56   828.00   370.73  ANC✗   
+2       EmailText                                  632.87   289.28  1046.87   343.28   414.00    54.00  ANC✗   
+2       InputEmail                                 632.87   342.61  1460.87   396.61   828.00    54.00  ANC✗   
+3         Text Area                                650.87   355.66  1460.87   383.56   810.00    27.90  ANC✗   
+4           Placeholder                            650.87   355.66  1460.87   383.56   810.00    27.90  ANC✗   
+4           Text                                   650.87   355.66  1460.87   383.56   810.00    27.90  ANC✗   
+2       PasswordText                               632.87   405.64  1046.87   459.64   414.00    54.00  ANC✗   
+2       InputPassword                              632.87   459.67  1460.87   513.67   828.00    54.00  ANC✗   
+3         Text Area                                650.87   472.72  1460.87   500.62   810.00    27.90  ANC✗   
+4           Placeholder                            650.87   472.72  1460.87   500.62   810.00    27.90  ANC✗   
+4           Text                                   650.87   472.72  1460.87   500.62   810.00    27.90  ANC✗   
+2       Reset Password                            1046.87   417.09  1460.87   457.02   414.00    39.93  ANC✗   
+2       Forgot Password                           1046.87   417.09  1460.87   457.02   414.00    39.93  ANC✗   
+2       Error Message                              632.87   526.13  1460.87   568.52   828.00    42.39  ANC✗   
+1     Subscribe Newsletter                         632.87   551.70  1172.38   620.73   539.51    69.03  ANC✗   
+1     Social Media Links                           622.43   654.07  1195.93   726.88   573.51    72.81  ANC✗   LayoutGroup
+2       Discord Button                             622.43   647.72   737.13   733.22   114.70    85.50  ANC✗   
+3         Button Text                              633.85   674.83   725.15   705.02    91.30    30.19  INACT  
+2       IG Button                                  737.13   656.72   851.83   724.22   114.70    67.50  ANC✗   
+3         Button Text                              748.55   683.83   839.86   696.02    91.30    12.19  INACT  
+2       Facebook Button                            851.83   656.72   966.53   724.22   114.70    67.50  ANC✗   
+3         Button Text                              863.26   683.83   954.56   696.02    91.30    12.19  INACT  
+2       Twitter Button                             966.53   656.72  1081.23   724.22   114.70    67.50  ANC✗   
+3         Button Text                              977.96   683.83  1069.26   696.02    91.30    12.19  INACT  
+2       Youtube Button                            1081.23   654.47  1195.93   726.47   114.70    72.00  ANC✗   
+3         Button Text                             1092.66   681.58  1183.96   698.27    91.30    16.69  INACT  
+1     Buttons                                      971.38   675.42  1061.38   765.42    90.00    90.00  ANC✗   
+2       Unregistered Buttons                       898.12   544.74  1457.92   625.74   559.80    81.00  ANC✗   LayoutGroup
+3         Register Button                         1187.92   544.74  1457.92   625.74   270.00    81.00  ANC✗   
+4           Button Text                           1197.82   560.39  1447.66   608.99   249.84    48.60  ANC✗   
+3         Login Button                            1178.02   544.74  1448.02   625.74   270.00    81.00  INACT  
+4           Button Text                           1189.45   561.93  1436.05   607.45   246.60    45.52  ANC✗   
+2       Twitch Button                              914.41   778.82  1181.99   859.82   267.58    81.00  INACT  
+3         Button Text                              925.84   796.25  1170.02   841.30   244.18    45.05  ANC✗   
+2       Delete Button                             1190.87   779.46  1460.87   860.46   270.00    81.00  ANC✗   
+3         Button Text                             1202.29   795.43  1448.89   843.40   246.60    47.97  ANC✗   
+2       Registered Buttons                         632.87   778.82  1226.87   859.82   594.00    81.00  ANC✗   LayoutGroup
+3         Switch Account Button                    632.87   778.82   902.87   859.82   270.00    81.00  ANC✗   
+4           Button Text                            644.29   794.79   890.89   842.76   246.60    47.97  ANC✗   
+3         Logout Button                            929.87   778.82  1199.87   859.82   270.00    81.00  INACT  
+4           Button Text                            941.29   796.01  1187.89   841.53   246.60    45.52  ANC✗   
+1     Login Window                                 420.32   292.18  1508.04   652.18  1087.73   360.00  INACT  
+2       Backgroun filler                           431.05   300.77  1496.67   639.39  1065.63   338.62  INACT  
+2       Generic Popup Background                   420.32   292.18  1508.04   652.18  1087.73   360.00  ANC✗   
+3         Mask                                     429.68   300.68  1499.16   643.36  1069.48   342.68  ANC✗   Mask
+4           Background fill                        429.68   300.68  1499.16   643.36  1069.48   342.68  ANC✗   
+2       EmailText                                  458.27   331.58   852.02   385.58   393.75    54.00  ANC✗   
+2       InputEmail                                 458.27   384.91  1189.07   438.91   730.80    54.00  ANC✗   
+3         Text Area                                476.27   397.96  1189.07   425.86   712.80    27.90  ANC✗   
+4           Placeholder                            476.27   397.96  1189.07   425.86   712.80    27.90  ANC✗   
+4           Text                                   476.27   397.96  1189.07   425.86   712.80    27.90  ANC✗   
+2       PasswordText                               458.27   447.94   852.02   501.94   393.75    54.00  ANC✗   
+2       InputPassword                              458.27   501.97  1189.07   555.97   730.80    54.00  ANC✗   
+3         Text Area                                476.27   515.02  1189.07   542.92   712.80    27.90  ANC✗   
+4           Placeholder                            476.27   515.02  1189.07   542.92   712.80    27.90  ANC✗   
+4           Text                                   476.27   515.02  1189.07   542.92   712.80    27.90  ANC✗   
+2       Forgot Password                            795.32   460.57  1189.07   500.49   393.75    39.93  ANC✗   
+2       ErrorMensajeContainer                      458.27   573.10  1189.07   606.16   730.80    33.06  ANC✗   LayoutGroup
+3         Animated Loading Image                   458.27   572.57   492.38   606.69    34.11    34.11  ANC✗   
+4           Cog                                    458.27   572.57   492.38   606.69    34.11    34.11  ANC✗   
+3         Error Message                            503.18   573.10  1199.87   606.16   696.69    33.06  ANC✗   
+2       Login Button                              1210.50   500.49  1488.75   554.49   278.25    54.00  ANC✗   
+3         Button Text                             1221.93   503.38  1476.78   550.51   254.85    47.13  ANC✗   
+2       Generic Close Button Green                1469.53   262.93  1537.03   330.43    67.50    67.50  ANC✗   
+3         Icon                                    1477.92   272.16  1528.65   321.21    50.73    49.05  ANC✗   
+
+⛔ **下面这些节点是布局组、但它自己不在 `activeInHierarchy` 里**（4 个，与 `menu_dump.py` 的 `⛔GRP-off` 同一个记号）—— 原版**此刻不跑它们的布局**；激活之后会跑，届时子节点位置**不是**本表给的值：
+      Social Media Links
+        Unregistered Buttons
+        Registered Buttons
+        ErrorMensajeContainer

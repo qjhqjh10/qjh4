@@ -413,7 +413,11 @@ namespace CardPresentation
             //   · **合成**：本作全解锁（资源固定 9999、卡池全开、`CardProgress.Owned` 直接给足
             //     `卡组上限 + 升满所需`）⇒ **没有要合的**。
             //   ⚠️ **原版这两块是有的** —— 这是**用户明确要的偏离**（同「全解锁」那条边界）。
-            //   ⚠️ **要恢复**：把下面那两行注释掉的条件去掉即可（`BuildCrafting` / `BuildUpgrade` 都还在）。
+            //   🔴 **2026-10-09 就地订正（第十会话 · `A1180` · 铁律 5）**：本行原文写
+            //     「把下面那两行**注释掉的条件**去掉即可（`BuildCrafting` / `BuildUpgrade` 都还在）」
+            //     —— **与现状不符**：这里**没有任何被注释掉的行**，那两句是**直接不存在**（只剩下面那条 `Debug.Log`）。
+            //     **恢复办法** = 把下面那行 `Debug.Log(...)` **换成** `BuildCrafting(vlg); BuildUpgrade(vlg);`
+            //     （两个方法都还在：`BuildCrafting(Transform)` 在 `:642`、`BuildUpgrade(Transform)` 在 `:683`）。
             //   📌 顺带：`Craftable()` / `WildcardIconFor()` 是上一轮为「创建副本」做的判据（含四档稀有度映射），
             //     面板停掉后**暂时没有调用点** —— **保留不删**，恢复那块面板时直接用。
             Debug.Log("[CardDetail] 本作不做升级/合成（用户 2026-09-27 拍板）⇒ 「创建副本」「升级」两块面板都不建");
@@ -658,8 +662,22 @@ namespace CardPresentation
             float ix = 1506.88f, iy = b.y1 + 10f, iw = 147.12f, ih = b.y2 - b.y1 - 20f;
             MenuDraw.Rect(p, CardArt.MenuUi(WildcardIconFor(Card.Rarity)), new PxRect(ix, iy, ix + iw, iy + ih),
                           "Craft Icon", QCdRow, null, true);
+            // 🔴 **2026-10-18（A1126 · A1 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 40px。
+            //   判据 = 逐颗现读原版那一颗（`bundle_scenes_scenes_mainmenuwarpforge`，按 `m_text` 认人：
+            //   `MonoBehaviour_1830.json` ← `RectTransform_1501` ← GO `Explanation`，本窗是**场景对象**、不是 prefab）：
+            //   `'This will consume a wildcard'` · `m_fontSize` **40.0** · `m_fontSizeBase` **36.0** ·
+            //   **`m_enableAutoSizing = 1`** · `m_fontSizeMin` **10.0** · `m_fontSizeMax` **40.0** ·
+            //   对齐 `Center/Middle` · **`m_TextWrappingMode = 1`**（折行）⇒ 与本处传 `wrapPx` 同档。
+            //   ⚠️ 原版那一颗的 `m_SizeDelta = (0,0)` + 祖先链上 `m_LocalScale = (0,0)`（动画/隐藏态）
+            //   ⇒ **原版框宽量不到**，本处的 `1307.5 → 1726`（418.5）**是我们摆的**（铁律 3：查不到就说查不到）。
+            //   ⚠️ 这条调用**当前没有生产路径** —— 「创建副本 / 升级」两块面板按用户 2026-09-27 拍板整块不建
+            //   （`Build()` 里那三句只剩 `BuildAltArt` / `BuildCounter` / `BuildWildcards`，`BuildCrafting`
+            //   全库**零调用点**）⇒ 本处是**备份实现**，接线为的是恢复面板时不用再查一遍。
+            //   📌 顺带（只报不改）：「要恢复：把下面那两行注释掉的条件去掉即可」那句 **与现状不符** ——
+            //   `Build()` 里根本没有被注释掉的行（`BuildCrafting` / `BuildUpgrade` 一个字都没留下）。
             MenuDraw.Text(p, new PxRect(1307.5f, 315.5f, 1726f, 378.79f), "This will consume a wildcard",
-                          Color.white, "Craft Explanation", 40f, QCdText);
+                          Color.white, "Craft Explanation", 40f, QCdText,
+                          1726f - 1307.5f, 10f, 40f, 36f);
             MenuDraw.Rect(p, CardArt.MenuUi("40K_generic_bt_info"), new PxRect(1740.65f, 161.91f, 1782f, 203.26f),
                           "Craft Info Icon", QCdRow, null, true);
             Hit(p, "CraftHit", b, DoCraft, QCdHit);
@@ -676,17 +694,33 @@ namespace CardPresentation
             // `Upgrade` 里那条：副本数（`cards` HLG）+ 金币（`cost` HLG）
             bool can = CardProgress.CanUpgrade(Card.Id, Card.Rarity);
             int need = CardProgress.NeedCopies[Mathf.Min(CardProgress.Level(Card.Id) + 1, CardProgress.MaxLevel)];
-            MenuDraw.Text(p, new PxRect(b.x1, b.y1, 1443.83f, b.y2), need.ToString(), Color.white, "Upgrade Need", 40f, QCdText);
+            // 🔴 **2026-10-09（A1126 · A2 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 40px。
+            //   判据 = 原版那一颗（`bundle_scenes_scenes_mainmenuwarpforge` ▸ `Upgrade Panel/Content/
+            //   Upgrade/cards/quantity`，逐颗现读 TMP 组件字段）：**`m_enableAutoSizing = 1`** ·
+            //   `m_fontSizeMin = **10**` · `m_fontSizeMax = **40**` · `m_fontSizeBase = **12**` · **折行 = 0**。
+            //   ⚠️ **刻度 = 原版刻度**（本窗 `Title` 那一族的实参就是原版原值 —— `auto[10~42] base36`
+            //   与 `Explanations` 三颗逐值吻合，见 `Title` 的头注）⇒ **不做任何比例换算**，四格照抄。
+            //   ⚠️ 折行 0 ⇒ `SetAutoFitBox` 内部那句 `SetWrapWidth` 会**无条件**开成 `Normal`
+            //   ⇒ 紧跟一句 `SetWrapping(false)` 还原自己那一档。
+            var upNeed = MenuDraw.Text(p, new PxRect(b.x1, b.y1, 1443.83f, b.y2), need.ToString(), Color.white,
+                                       "Upgrade Need", 40f, QCdText, 1443.83f - b.x1, 10f, 40f, 12f);
+            if (upNeed != null) upNeed.SetWrapping(false);          // 原版折行=0（A205：关这一下顺带推版面）
             MenuDraw.Rect(p, CardArt.MenuUi("40k_general_icon_card_amount"), new PxRect(1450f, b.y1 + 8f, 1490f, b.y2 - 8f),
                           "Upgrade Card Icon", QCdRow, null, true);
-            MenuDraw.Text(p, new PxRect(1499.72f, b.y1, 1570f, b.y2),
+            // 同 `Upgrade Need`：原版 `Upgrade Panel/Content/Upgrade/cost/quantity` =
+            // `auto[10~40] · base 12 · 折行 0`（见上面那一段的判据）。
+            var upCost = MenuDraw.Text(p, new PxRect(1499.72f, b.y1, 1570f, b.y2),
                           CardProgress.NeedGold[Mathf.Min(CardProgress.Level(Card.Id) + 1, CardProgress.MaxLevel)].ToString(),
-                          Color.white, "Upgrade Cost", 40f, QCdText);
+                          Color.white, "Upgrade Cost", 40f, QCdText, 1570f - 1499.72f, 10f, 40f, 12f);
+            if (upCost != null) upCost.SetWrapping(false);          // 原版折行=0
             MenuDraw.Rect(p, CardArt.MenuUi("40k_topmarquee_currency_gold"), new PxRect(1578f, b.y1 + 8f, 1643f, b.y2 - 8f),
                           "Upgrade Gold Icon", QCdRow, null, true);
-            MenuDraw.Text(p, new PxRect(1309f, 594.53f, 1729f, 659.33f),
+            // 同族：原版 `Upgrade Panel/Content/Upgrade/Explanation/Text Explanation` =
+            // `auto[10~40] · **base 36** · 折行 0`（base 与上面两颗不同，⛔ 别一刀切）。
+            var upExpl = MenuDraw.Text(p, new PxRect(1309f, 594.53f, 1729f, 659.33f),
                           "Will get: +" + CardProgress.Points[Mathf.Min(CardProgress.Level(Card.Id) + 1, CardProgress.MaxLevel)],
-                          Color.white, "Upgrade Explanation", 40f, QCdText);
+                          Color.white, "Upgrade Explanation", 40f, QCdText, 1729f - 1309f, 10f, 40f, 36f);
+            if (upExpl != null) upExpl.SetWrapping(false);          // 原版折行=0
             MenuDraw.Rect(p, CardArt.MenuUi("40K_generic_bt_info"), new PxRect(1740.65f, 426.42f, 1782f, 467.77f),
                           "Upgrade Info Icon", QCdRow, null, true);
             Hit(p, "UpgradeHit", b, DoUpgrade, QCdHit);
@@ -735,8 +769,16 @@ namespace CardPresentation
             float bx = PanL + (PanR - PanL - bw) * 0.5f, by = 820f;
             MenuDraw.Rect(p, CardArt.MenuUi("UI_Button_Mulligan"), new PxRect(bx, by, bx + bw, by + bh),
                           "Buy Bg", QCdRow);
-            MenuDraw.Text(p, new PxRect(bx, by, bx + bw, by + bh), has ? "Alternate art" : "No alternate art",
-                          Color.white, "Buy Original Card", 32f, QCdText);
+            // 🔴 **2026-10-09（A1126 · A2 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 32px。
+            //   判据 = 原版 `Alternate Art Panel/Buy Original Card Button/Generic UI Button/Price Display/text`
+            //   （= 画面上**可见**的那一颗；那颗钮底下另一颗 `Button Text` 是 `INACT` 空串）：
+            //   **`m_enableAutoSizing = 1`** · `m_fontSizeMin = **12**` · `m_fontSizeMax = **54**` ·
+            //   `m_fontSizeBase = **39**` · **折行 = 0**。
+            //   ⚠️ 我们这一格的框 `328.71 × 73.38` 与原版那颗钮**逐位相同** ⇒ 就是它。
+            //   ⚠️ 本窗刻度 = 原版刻度 ⇒ 四格照抄；⚠️ 折行 0 ⇒ 紧跟一句 `SetWrapping(false)`。
+            var buyLb = MenuDraw.Text(p, new PxRect(bx, by, bx + bw, by + bh), has ? "Alternate art" : "No alternate art",
+                          Color.white, "Buy Original Card", 32f, QCdText, bw, 12f, 54f, 39f);
+            if (buyLb != null) buyLb.SetWrapping(false);            // 原版折行=0
             MenuDraw.Rect(p, CardArt.MenuUi("WF_Lock_Icon_Simple"), new PxRect(1310f, 690f, 1360f, 740f),
                           "Lock Icon", QCdRow, null, true);
 

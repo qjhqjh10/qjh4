@@ -6976,6 +6976,99 @@ public static class RewardsScene
                       "★ A493#7：`Claimed Tex` 的真渲染左缘 = **255.1**（原版 `Left/Midline`，8 份实例同值）"
                     + " —— ⛔ 量的是 TMP 自己的 `textBounds`，不是 `Label.WorldW`（同 A490 那个病灶）"
                     + teeth(FindPath(e0, "NormalReward/Gacha Reward Claimed/Claimed Tex"), 255.1f, 428.1f));
+
+            // ==================================================== ★ **A1126（A2 档）** · 2026-10-09
+            // 本窗这五处**原来一个 autosize 实参都没传**（= 固定字号），而原版那五颗 TMP
+            //   **全是 `m_enableAutoSizing = 1`** ⇒ 现按原版四格接线（改动在 `Shell/DailyRewardPopup.cs`）。
+            // 🔴 期望值 = **原版逐颗现读的 `m_fontSizeMin/Max/Base` 与 `m_TextWrappingMode`**
+            //    （⛔ **不读** `Shell/DailyRewardPopup.cs` 传进去的实参 —— 那是被测实现 = 自证）。
+            // 🔴 **两组刻度不同，⛔ 别抄成一列**：`NormalReward` / `Premium Reward` 那一组带 `localScale = 0.8`
+            //    ⇒ 它的三格是**原值 × 0.8**（判据 = 本仓 `Shell/MissionsTab.cs` 的 `FS()`：
+            //      「**自适应上下限也要一起乘**」，`:345` / `:380`）；`Tracks Side Bar` / `Header Header`
+            //    那几格**不带**缩放 ⇒ 原值照抄。
+            // **改坏法**：把 `Shell/DailyRewardPopup.cs` 那几行末尾的实参删回缺省（`wrapPx` 缺省 = 0
+            //    ⇒ `MenuDraw.TextCore` 里 `if (wrapPx > 0f)` 整段不执行）⇒ 每处的「自适应开着 / 下限 / 上限 / 基准」四条红。
+            {
+                System.Action<Transform, string, float, float, float, int> a1126 =
+                    (node, what, minPx, maxPx, basePx, wrap) =>
+                {
+                    var lb = node != null ? node.GetComponentInChildren<Label>() : null;
+                    CheckTrue(lb != null, $"（前提）{what}：节点 + `Label` 拿得到（找不到 ⇒ 下面五条等于没查）");
+                    if (lb == null) return;
+                    CheckTrue(lb.AutoSizing, $"★ {what}：**自适应开着**（原版 `m_enableAutoSizing = 1`）"
+                              + " —— 旧写法「只传 `autoMinPx` 不传 `wrapPx`」= 死实参、停在 TMP 出厂 `false`");
+                    CheckNear(Label.FontSizeToPx(lb.FontSizeMin), minPx, 0.05f,
+                              $"★ {what}：**下限** = 原版 `m_fontSizeMin` **{minPx}px**"
+                              + "（⚠️ 已按本族 `localScale 0.8` 折算，见上面那段）");
+                    CheckNear(Label.FontSizeToPx(lb.FontSizeMax), maxPx, 0.05f,
+                              $"★ {what}：**上限** = 原版 `m_fontSizeMax` **{maxPx}px**");
+                    CheckNear(Label.FontSizeToPx(lb.FontSizeBase), basePx, 0.05f,
+                              $"★ {what}：**基准** = 原版 `m_fontSizeBase` **{basePx}px**");
+                    Check(lb.WrappingMode, wrap, $"★ {what}：**折行档** = 原版 `m_TextWrappingMode`**{wrap}**"
+                          + "（`SetAutoFitBox` 内部一句 `SetWrapWidth` 会**无条件**开成 `Normal(1)`"
+                          + " ⇒ 原版是 0 的必须显式关回去）");
+                };
+                a1126(FindPath(e0, "NormalReward/Name"),
+                      "`NormalReward/Name`", 14.4f, 36f, 28.8f, 1);
+                a1126(FindPath(e0, "NormalReward/Gacha Reward Claimed/Claimed Tex"),
+                      "`…/Gacha Reward Claimed/Claimed Tex`", 12f, 160f, 28.8f, 1);
+                a1126(FindPath(dr.transform, "Tracks Side Bar/Premium Track/Price Display Button 2 Variant/Price"),
+                      "`Tracks Side Bar/…/Price`", 13.46f, 40f, 39f, 0);
+                a1126(FindPath(dr.transform, "Header Header/Title"),
+                      "`Header Header/Title`", 18f, 40f, 36f, 1);
+                a1126(FindPath(dr.transform, "Header Header/Sub-Title"),
+                      "`Header Header/Sub-Title`", 18f, 40f, 36f, 1);
+                // ⚠️ 「渲染宽度 ≤ 框宽」那条守卫（`CLAUDE.md` §三 的 `AutoFitBox` 教训）——
+                //    框宽取**原版 dump 的字面量** 255.1 → 428.1（本文件上面那条 A524 断言用的同一对常量）。
+                //    量法走 `LabelRenderedWH`（= TMP `textBounds` 的活值），⛔ **不是** `Label.WorldW` 缓存（自证）。
+                //    ⚠️ 如实说清判别力：折行档 = 1 时 TMP 自己会把块宽夹进折行宽 ⇒ 这一条是**弱守卫**；
+                //    本批的**判别式**是上面那四条字段级断言。
+                {
+                    var ctLb = FindPath(e0, "NormalReward/Gacha Reward Claimed/Claimed Tex") != null
+                             ? FindPath(e0, "NormalReward/Gacha Reward Claimed/Claimed Tex")
+                                   .GetComponentInChildren<Label>() : null;
+                    float cw, ch;
+                    if (!LabelRenderedWH(ctLb, out cw, out ch))
+                        CheckTrue(false, "`Claimed Tex` 的**字块矩形量不到**（这一条测不到就等于没查）");
+                    else
+                        CheckTrue(cw <= 173.0f + 1.5f,
+                                  "★ `Claimed Tex`：字**渲出来的宽度 ≤ 框宽 173.00**（= 原版 428.1 − 255.1；"
+                                  + "「字号对而溢出」那条守卫 —— 实得 " + cw.ToString("F2") + "）");
+                }
+                // 🆕 **2026-10-20（A1192）**：`Tracks Side Bar/…/Price` 那一颗的**同一条守卫** ——
+                //   `P4` §7·4 登记了它、当时**没写**（那一件只许把断言放三个宿主，这一站的宿主不在其中）。
+                //   它是**折行 = 0** 那一族（`a1126` 上面第四个实参 = 0）⇒ 正是这条守卫咬得住的那一族。
+                //   🔴 **框宽取这一格自己的原版字面量 174**（= 原版 `Price Display Button 2 Variant` /
+                //   `Generic UI Button` 那两格的宽 **174×48**，出处 = `资料/说明书/04_界面UI/菜单全树.md:1074`：
+                //   `Price Display Button 2 Variant [31,811 174x48]`；同树的邻居逐格复核过 ——
+                //   `Free Track [0,227 236x252]` / `Premium Track [0,632 236x252]` 与我们那两格常量逐位吻合）
+                //   —— ⛔ **不读** `Shell/DailyRewardPopup.cs` 的 `PremPrice` / 那一行的 `wrapPx` 实参
+                //   （那是被测实现 = 自证）。⚠️ 正本 `资料/日常_原版规格.md:459` 那一节**点了名但没给尺寸**
+                //   （它给的是 `Tracks Side Bar` 260.47×812.091）⇒ ⛔ 别把 174 记到那条正本名下。
+                //   🔴 **⛔ 别用 `P4` §7·4 给的那颗 `232.17`**：那是**另一份实例**的框宽
+                //   （`Booster Info Popup ▸ Price Display [831,746 232x71]`，同文件 `:13412` 一带）；
+                //   本实例的钮是 **174**（本文件 `Shell/DailyRewardPopup.cs` 的 `PremPrice`
+                //   = `31.09 … 205.14` = **174.05**，与原版那一格逐位吻合）。
+                //   拿 232.17 当尺 ⇒ 这条守卫**永远咬不住**「框宽被传大」（渲出 175~232 全算绿）。
+                //   量法照上面 `Claimed Tex` 那条**同一份** `LabelRenderedWH`（= TMP `textBounds` 的活值，
+                //   ⛔ 不是 `Label.WorldW` 字段缓存 = 自证）；⚠️ 顺带补上「量得到吗」的**上界**闸
+                //   （未重排 / 空串时 TMP 给 4.29e9 那种哨兵 —— 那是**量法没生效**，⛔ 别当成「装得下」）。
+                //   ⚠️ 如实说清判别力：这一颗**满上限 40px 也够不着 174**（`'300,00'` ≈ 130px）
+                //   ⇒ 它**咬不住**「框宽被传大」，属于「钉住当前值」那一类（真正咬得住的是上面四条字段级断言）。
+                {
+                    var prN = FindPath(dr.transform, "Tracks Side Bar/Premium Track/Price Display Button 2 Variant/Price");
+                    var prLb = prN != null ? prN.GetComponentInChildren<Label>() : null;
+                    float pw, ph;
+                    bool pwOk = LabelRenderedWH(prLb, out pw, out ph) && pw > 0.5f && pw < 100000f;
+                    CheckTrue(pwOk && pw <= 174.0f + 1.5f,
+                              pwOk
+                              ? "★ `Tracks Side Bar/…/Price`：字**渲出来的宽度 ≤ 框宽 174.00**"
+                              + "（= 原版那一格 `Price Display Button 2 Variant [31,811 174x48]`；"
+                              + "「字号对而溢出」那条守卫 —— 实得 " + pw.ToString("F2") + "）"
+                              : "★ `Tracks Side Bar/…/Price`：**字块量不到**（哨兵/未重排/走的是退回旧口"
+                              + " ⇒ 这一条**没跑**，不是绿）—— 实得 " + pw.ToString("F0") + "px（本闸上界 100000px）");
+                }
+            }
         }
         // ============================================================ ★ **A640（A516）** + **A524（A493 #8）**
         // A640：原版 `Timer` 底下是**三件**（'More Rewards In' + 时钟图 + 倒计时），我们原来只建了两件。
@@ -7022,6 +7115,38 @@ public static class RewardsScene
         Check(ds.type, WindowType.Fullscreen, "`type` = 0 Fullscreen（实证）");
         Check(ds.placement, WindowsPlacement.Popup, "`windowsPlacement` = 15 Popup（实证）");
         Check(ds.closeOnEsc, false, "`closeOnESC` = **0**（实测；⚠️ 与每日奖励窗的 1 相反）");
+        // ==================================================== ★ **A1126（A2 档）** · 2026-10-09
+        // 断签面板那颗 `Reset Streak` 的 `Button Text` **原来没传 autosize 实参**（= 固定 55px），
+        //   而原版那颗 TMP **`m_enableAutoSizing = 1`** ⇒ 现按原版四格接线（改动在 `Shell/DailyStreakPopup.cs`）。
+        // 🔴 期望值 = 原版 `menus ▸ Daily Streak Popup ▸ Streak Failed/Generic Simplified UI Button/Button Text`
+        //    的**逐颗现读字段**：`m_fontSizeMin 10` · `m_fontSizeMax 55` · `m_fontSizeBase 12` ·
+        //    `m_TextWrappingMode 0`（⛔ **不读** `Shell/DailyStreakPopup.cs` 的实参 = 自证）。
+        // ⚠️ **本夹具里「Streak Failed」整块是关的**（我们的数据默认 `HasFailed = false` ⇒ 连胜态开、断签态关，
+        //    见本文件 §五 那条「两态互斥」注释）—— 但**那几颗 TMP 是照建了的**（`SetActive(false)` 在
+        //    `BuildFailed` 末尾），而下面四条读的是**组件字段**（不依赖网格/激活态）⇒ 仍然有效。
+        //    ⛔ 因此这里**不断**「渲出来的宽度 ≤ 框宽」（未激活的 TMP 量不出 `textBounds`）。
+        // **改坏法**：把 `Shell/DailyStreakPopup.cs` 那一行末尾的实参删回缺省（`wrapPx` 缺省 = 0
+        //    ⇒ `MenuDraw.TextCore` 里 `if (wrapPx > 0f)` 整段不执行）⇒ 下面四条红；
+        //    删掉紧随的 `SetWrapping(false)` ⇒ 折行档那一条红。
+        {
+            var fResetNode = FindPath(ds.transform, "Streak Failed/Button Text");
+            var fResetLb = fResetNode != null ? fResetNode.GetComponentInChildren<Label>() : null;
+            CheckTrue(fResetLb != null, "（前提）`Streak Failed/Button Text`：节点 + `Label` 拿得到"
+                      + "（找不到 ⇒ 下面四条等于没查）");
+            if (fResetLb != null)
+            {
+                CheckTrue(fResetLb.AutoSizing, "★ `Streak Failed/Button Text`：**自适应开着**"
+                          + "（原版 `m_enableAutoSizing = 1`）—— 旧写法 `wrapPx` 缺省 = 0 ⇒ 那段不执行、停在 false");
+                CheckNear(Label.FontSizeToPx(fResetLb.FontSizeMin), 10f, 0.05f,
+                          "★ …**下限** = 原版 `m_fontSizeMin` **10px**（旧写法停在 TMP 出厂 `0`）");
+                CheckNear(Label.FontSizeToPx(fResetLb.FontSizeMax), 55f, 0.05f,
+                          "★ …**上限** = 原版 `m_fontSizeMax` **55px**");
+                CheckNear(Label.FontSizeToPx(fResetLb.FontSizeBase), 12f, 0.05f,
+                          "★ …**基准** = 原版 `m_fontSizeBase` **12px**（≠ 标称 55、也 ≠ TMP 默认 36 ⇒ 最有鉴别力）");
+                Check(fResetLb.WrappingMode, 0, "★ …**折行档 = 0**（原版 `m_TextWrappingMode = 0`；"
+                      + "`SetAutoFitBox` 内部会无条件开成 `Normal(1)` ⇒ 必须显式关回去）");
+            }
+        }
         // 🆕 A83②（A81 的尾巴）：压暗层（「点窗外关窗」）那条不变量 —— 档 = **压暗层自己那一档**
         //   `QShade`(3002)，**严格低于**本窗内容命中区档 `QContent`(3010)；并核「这节点确实是
         //   公共件 `MenuDraw.ShadeHit` 建的」。期望值全是本窗自己的**原版档常量**（⛔ 不从被测实现里读）。

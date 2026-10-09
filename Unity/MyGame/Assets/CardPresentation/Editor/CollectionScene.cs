@@ -6241,8 +6241,11 @@ public static class CollectionScene
             //    ⚠️ 顺手把「量不到」这一档补红：旧写法在 `_styleLogo == null` 时返回 `0f`，而 `0 ≤ 513` 恒真
             //    ⇒ 那是一处**假绿**（`AutoFitBox` 教训的同族：字没了照样绿）。⛔ 别把 `sLogoLb != null`
             //    那一项当成多余 —— 少了它，下面这条在「节点整个不在」时反而变绿。
-            //    改坏法：`SetAutoFitBox` 那两个宽/高参（`CollectionWindow.BuildStylesPage` 里那句）传 `0`
-            //    ⇒ 自适应不生效、`Hammer and Bolter` 按 56px 渲出来 ≈1270px ⇒ 这条当场红。
+            //    改坏法（🔴 **2026-10-09（A1173）就地订正（铁律 5）** —— 原句写的是「`SetAutoFitBox` 那两个
+            //    宽/高参（`CollectionWindow.BuildStylesPage` 里那句）传 `0`」；**那句已不在**：
+            //    A1173 把 autosize 收进 `MainMenuSubmenuWindow.Text` 的四个形参）：
+            //    **把漏斗里那两步（`SetWrapWidth` + `SetAutoFitBox`）删掉**，或把调用点的
+            //    `wrapPx` / `autoMinPx` 传 `0` ⇒ 自适应不生效、`Hammer and Bolter` 按 56px 渲出来 ≈1270px ⇒ 这条当场红。
             var sLogoLb = sLogo != null ? sLogo.GetComponentInChildren<Label>() : null;
             float sLogoW = LabelRenderedPx(sLogoLb).x;
             CheckTrue(sLogoLb != null && sLogoW > 5f && sLogoW <= 512f + 1f,
@@ -6250,6 +6253,59 @@ public static class CollectionScene
                       + "（超出就会压到右边那颗换风格钮上 —— 这条**矩形断言量不到**，得量 TMP 自己渲出来那块 `textBounds`）");
             // 网格：7 张里当前风格 6 张 ⇒ 2 行；首格中心
             Check(win.StyleVisibleCount, 6, "当前风格（`AA_HB`）下可见 **6** 张异画");
+            // ================================================================
+            //  🆕 **2026-10-09（A1173）**：`MainMenuSubmenuWindow.Text` 那四个 autosize 形参的**契约判别式**。
+            //  ⛔ **别删这一对** —— 它是「形参真的接上了」唯一**独立**的判据：屏上那 11 处收口点只看
+            //  「渲染宽度 ≤ 框宽」**分不出**那个效果是**形参给的**还是**调用点自己补的**
+            //  （两套写法都满足它 ⇒ 同义反复）。
+            //  ⚠️ 用**真节点那一格**（`Art Style Logo` 的矩形/父件）当探针位，量法走 `LabelRenderedPx`
+            //  （TMP 自己的 `textBounds`，⛔ 不是 `Label.WorldW/H` 那口缓存 —— 见该助手头注）。
+            //  ⚠️ 两条探针**建完立刻 `DestroyImmediate`**（批处理下没有帧循环，`Destroy` 不生效）
+            //  ⇒ 树与后续断言一位不动。
+            if (spage != null)
+            {
+                float bw = CollectionWindow.StyleLogoR - CollectionWindow.StyleLogoL;
+                var p1 = win.Text(spage, "Hammer and Bolter",
+                                  CollectionWindow.StyleLogoL, CollectionWindow.StyleLogoR,
+                                  CollectionWindow.StyleBarT, CollectionWindow.StyleBarB,
+                                  5, Color.white, "A1173 Probe Fit", 56f,
+                                  wrapPx: bw, autoMinPx: 18f, autoMaxPx: 56f);
+                float w1 = LabelRenderedPx(p1).x;
+                CheckTrue(p1 != null && w1 > 5f && w1 <= bw + 1f,
+                          $"★ A1173 形参契约：`Text(wrapPx: {bw:F0}, autoMinPx: 18)` ⇒ 那行字**渲出来 {w1:F0}px ≤ {bw:F0}**"
+                          + "（删掉漏斗里 `wrapPx > 0` 那两步 ⇒ 按 56px 渲 ≈1270px ⇒ 本条红）");
+                // 🔴 **判别式那一半**：**只传 `autoMinPx`、不传 `wrapPx` = 死实参**（判据 = `MenuDraw.TextCore`
+                //   那三条：`wrapPx > 0` ∧ `autoMinPx > 0` ∧ `fontPx > autoMinPx` 全真才调 `SetAutoFitBox`）。
+                //   少了这一条，上面那条在「把判据放宽成只看 `autoMinPx`」时**照样绿**（= 让一个死实参蒙混过关）。
+                //   ⚠️ 期望值写成**与 p1 的比值**（不写 ≈1270 那个数）—— 那两串字一样、字号一样
+                //   ⇒ 比值只由「缩没缩」决定，与字体度量无关。
+                var p2 = win.Text(spage, "Hammer and Bolter",
+                                  CollectionWindow.StyleLogoL, CollectionWindow.StyleLogoR,
+                                  CollectionWindow.StyleBarT, CollectionWindow.StyleBarB,
+                                  5, Color.white, "A1173 Probe NoFit", 56f,
+                                  autoMinPx: 18f, autoMaxPx: 56f);
+                float w2 = LabelRenderedPx(p2).x;
+                // 🔴 **2026-10-09（第十会话 · `D2` 诊断 · α）**：这条判别式原来写的是 **`w2 > w1 * 2f`**，
+                //   而那个期望值**是推算的**（`P1` 自己在注释里写着「不缩时 ≈1270、**未实跑**」）——
+                //   实测 **569 vs 509 = 1.118×**：因为那串字**本来就短**（字号 56 时自然宽只有 ~569px，
+                //   比框 512 宽不了多少）⇒ 比值式**不成立**。
+                //   ⇒ 换成**两条都不依赖字体度量**的判别式（合起来仍挡得住「只传 `autoMinPx` 的死实参」）：
+                //     ① **字段级契约**：传了 `wrapPx` 的那条**必须开** autosize、没传的**必须不开**；
+                //     ② **几何**：开的那条**缩进框里**、没开的那条**溢出框外**（实测 509 ≤ 512 < 569）。
+                float boxW = CollectionWindow.StyleLogoR - CollectionWindow.StyleLogoL;
+                CheckTrue(p1 != null && p2 != null && p1.AutoSizing && !p2.AutoSizing,
+                          "★ A1173 判别式（契约）：**只有传了 `wrapPx` 的那条才开 autosize**"
+                        + $"（`AutoSizing`：p1 = {(p1 != null ? p1.AutoSizing.ToString() : "null")} · "
+                        + $"p2 = {(p2 != null ? p2.AutoSizing.ToString() : "null")}）"
+                        + " —— 「只传 `autoMinPx`、不传 `wrapPx`」是**死实参**，这条就是挡它的");
+                CheckTrue(w1 > 5f && w1 <= boxW + 1.5f && w2 > boxW + 1.5f,
+                          $"★ A1173 判别式（几何）：**传了 `wrapPx` 的缩进框里、不传的溢出框外**"
+                        + $"（框 {boxW:F1}px：p1 {w1:F0}px ≤ 框 · p2 {w2:F0}px > 框）"
+                        + " —— ⚠️ **⛔ 别改回比值**：实测「不缩」只有 569px（那串字本来就短），"
+                        + "原来那句「必须 `> 2×`」是**推算错**");
+                if (p1 != null) Object.DestroyImmediate(p1.gameObject);
+                if (p2 != null) Object.DestroyImmediate(p2.gameObject);
+            }
             Check(win.StyleCells.Count, 6, $"画出了 {win.StyleCells.Count} 格（视口外的不建 = 那套裁切）");
             if (win.StyleCells.Count > 0)
             {

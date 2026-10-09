@@ -330,6 +330,37 @@ public static class ShellScene
         return null;
     }
 
+    /// <summary>🆕 **2026-10-18（A1126 · `A1` 档）**：一个 `Label` **渲出来**的像素宽高（画布 px · `Vector2(w, h)`）。
+    /// <para>🔴 **为什么不能用 `Label.WorldW/H`**：那两个是**被测实现自己写的字段缓存**（`_tmpW/_tmpH`，只有
+    /// `RefreshBounds()` 写）—— `SetFontSize` / `SetCharSpacing` 这一族**只重排 mesh、不刷缓存**
+    /// ⇒ 谁在末次刷缓存之后重排一次，旧口**照旧报旧值**（拿它当检测器 = **自证**，见 `CLAUDE.md` §二
+    /// 那条 `AutoFitBox` 教训）。本助手走 TMP 自己那块 `textBounds`（**活值**）。</para>
+    /// <para>⚠️ **量不到就退回旧口**（`lb == null` / 底下没有 TMP / **点阵后端** —— 那条路本来就没有
+    /// `textBounds`）⇒ 退回与旧口**完全一样**的行为，⛔ 不是「静默吞掉新口」。</para>
+    /// <para>⚠️ **同族四份同一份算法**（`Editor/MainMenuScene.cs` 的 `LabelRenderedPx` ·
+    /// `Editor/CollectionScene.cs` · `RewardsScene.cs` · `ShopScene.cs`）—— 本文件原来**没有**这一份，
+    /// 就地补一个（⛔ 本件白名单外的那几个文件一个字不改）。</para>
+    /// <para>⚠️ **前提**：TMP 子节点那一格的 `lossyScale` 为 1 且无旋转（旧口读的是**局部**
+    /// `|textBounds.size|`，本口走 `localToWorldMatrix` ⇒ 只有带缩放那一档会差）。</para></summary>
+    static Vector2 ShellLabelRenderedPx(Label lb)
+    {
+        if (lb == null) return Vector2.zero;
+        var tmp = lb.GetComponentInChildren<TMPro.TextMeshPro>(true);
+        if (tmp == null) return new Vector2(lb.WorldW * 108f, lb.WorldH * 108f);
+        var b = tmp.textBounds;                       // 局部空间的行盒（`Bounds`）
+        var M = tmp.transform.localToWorldMatrix;
+        float x1 = float.MaxValue, y1 = float.MaxValue, x2 = float.MinValue, y2 = float.MinValue;
+        for (int c = 0; c < 4; c++)
+        {
+            var corner = M.MultiplyPoint3x4(new Vector3((c % 2 == 0) ? b.min.x : b.max.x,
+                                                        (c < 2) ? b.min.y : b.max.y, 0f));
+            float px = LayoutSpace.PxX(corner.x), py = LayoutSpace.PxY(corner.y);
+            x1 = Mathf.Min(x1, px); x2 = Mathf.Max(x2, px);
+            y1 = Mathf.Min(y1, py); y2 = Mathf.Max(y2, py);
+        }
+        return new Vector2(x2 - x1, y2 - y1);
+    }
+
     /// <summary>🆕 **2026-10-09（`A1125`）**：一颗**关窗钮**的「命中区 + 换图层」四连断。
     /// <para>四个闸落在**四个不同对象**上（前提 / 命中区尺寸 / 命中区位置 / 换图层绑定）⇒ 改坏任一处只红其中一条：
     /// ① 按钮 / 命中 / 可见面三件都取得到（取不到就不许往下断 = 不静默变绿）；
@@ -6442,6 +6473,301 @@ public static class ShellScene
             CheckTrue(Loc.EntryCount >= 429,
                       $"★（A1025）表基线：`Loc.EntryCount` = {Loc.EntryCount} ≥ **429**（开工前实测）"
                     + "｜🧨 把键删掉、断言也一起删 ⇒ 这条红");
+        }
+
+        // ============================================================ ★ A1126 · `A1` 档（6 处 autosize 接线）
+        //
+        // 🔴 **这一节盯的是什么**：`A1126` 的**真判据** = 「那处调用的实参**真的生效**」**或**「调用之后对该
+        //   `Label` 调过 `SetAutoFitBox`」—— ⛔ **不是**旧说法「调用方没传 `autoMinPx` 就不接 autosize」
+        //   （那条**只是必要条件、已被现核推翻**：全仓有一批是「调用后另调 `SetAutoFitBox`」这一形态
+        //   ——简报口径 **45 处**，本件**未自己数过**；**我逐字核过的那一条**是
+        //   `Shell/LiveOpsEventWindow.cs:536` 一个 autosize 实参都没传、`:549` 却调了 ⇒ 它是**接上的**）。
+        //   两条关键事实（都在 `Shell/MenuDraw.cs`）：
+        //     ① `TextCore` 里 `SetAutoFitBox` **关在 `if (wrapPx > 0f)` 里面**（`:1851` 是那道闸、`:1856` 才调）
+        //        ⇒ **传了 `autoMinPx` 但没传 `wrapPx` 照样不生效**（死实参）；
+        //     ② `SetWrapWidth` **无条件**把折行模式写成 `Normal(1)` ⇒ 原版 `折行=0` 的件必须紧跟 `SetWrapping(false)`。
+        // 🔴 **期望值全是原版那一颗的实读字段**（`m_enableAutoSizing` / `m_fontSizeMin` / `m_fontSizeMax` /
+        //   `m_fontSizeBase` / `m_TextWrappingMode`），**逐颗现读**（命令与读数写在各处实现侧的注释里）——
+        //   ⛔ 不读我们传进去的实参、⛔ 不读实现里的常量（那是**自证**）。
+        // 🔴 **为什么必须断「渲出来 ≤ 框」**（`CLAUDE.md` §二 那条 `AutoFitBox` 教训）：只比字号 ⇒
+        //   「字号字段对、字却溢出框」照样全绿。量的东西 = TMP 自己那块 `textBounds`（`ShellLabelRenderedPx`），
+        //   ⛔ 不是 `Label.WorldW/H`（**被测实现自己写的字段缓存** ⇒ 拿它当检测器 = 自证）。
+        // ⚠️ **本节只覆盖 5 处运行时 + 1 处源码文本**：第 6 处（`Shell/CardDetailPopup.cs` 的 `Craft Explanation`）
+        //   **没有生产路径** —— 「创建副本 / 升级」两块面板按用户 2026-09-27 拍板整块不建，
+        //   `CardDetailPopup.BuildCrafting` **全库零调用点** ⇒ 现有夹具够不到那颗 `Label`（见 ④）。
+        // 🆕 **2026-10-20（A1192）**：本块又接了 **1 处运行时** —— `Shell/CardDetailPopup.cs` 的
+        //   `Buy Original Card`（`Alternate Art Panel` 那颗价签）= `P4` §7·2 登记的那 4 处里**唯一活在
+        //   生产路径上**的那一处 ⇒ 见 ⑤（同族另 3 处在 `BuildUpgrade` 里、**全库零调用点**，
+        //   按 `A1181` 那条先例**如实登记、不为它造测试路径**）。
+        // 🔴 **改坏法（逐条）**：把任一处末尾那串 autosize 实参删回默认（或 `wrapPx` 删回 `0f`）⇒ 该处的
+        //   `AutoSizing` / `m_fontSizeMin/Max` / `m_fontSizeBase` 那几条红；删掉两颗 `折行=0` 处紧随的
+        //   `SetWrapping(false)` ⇒ 折行档那条红；把字号调大到框外 ⇒ 「渲出来 ≤ 框」那条红。
+        Section("★ A1126 · `A1` 档 6 处接上 autosize（5 处运行时 + 1 处源码文本）＋ A1192 补 1 处（`Buy Original Card`）");
+        {
+            // 逐条量法：节点上的 `Label` 找得到 ⇒ 断「自适应开了 / 上下限 = 原版 / base = 原版 / 折行档 = 原版 /
+            //   渲出来 ≤ 框」。⚠️ 五个期望值**全是原版字面量**（⛔ 不读实现里的常量名，那是同义反复）。
+            System.Action<string, Transform, float, float, float, float, float, int, string> fitCase =
+                (host, node, boxW, boxH, minPx, maxPx, basePx, wrapMode, evidence) =>
+            {
+                var lb = node != null ? node.GetComponentInChildren<Label>(true) : null;
+                CheckTrue(lb != null, $"（前提·不静默）A1126 · {host}：那一颗的 `Label` 拿得到"
+                                    + " —— ⛔ 拿不到就**不往下断**（不静默变绿）");
+                if (lb == null) return;
+                CheckTrue(lb.AutoSizing,
+                          $"★ A1126 · {host}：**真的开了自适应**（原版 `m_enableAutoSizing = 1`；{evidence}）"
+                        + "｜改坏法：把那处调用末尾那串 autosize 实参删回默认（或 `wrapPx` 删回 `0f`）⇒ 本行红");
+                CheckNear(Label.FontSizeToPx(lb.FontSizeMin), minPx, 0.05f,
+                          $"A1126 · {host}：自适应下限 = 原版 `m_fontSizeMin` **{minPx}px**"
+                        + "（⛔ 不是我们那一侧的字号常量）");
+                CheckNear(Label.FontSizeToPx(lb.FontSizeMax), maxPx, 0.05f,
+                          $"A1126 · {host}：自适应上限 = 原版 `m_fontSizeMax` **{maxPx}px**"
+                        + "｜改坏法：第 10 参不传 ⇒ 退回旧行为「上限 = 标称字号」那一档（本处两者同值，故本条咬的是 min/传参那两处）");
+                CheckNear(Label.FontSizeToPx(lb.FontSizeBase), basePx, 0.05f,
+                          $"A1126 · {host}：`m_fontSizeBase`（自适应二分起点）= 原版 **{basePx}px**"
+                        + "（`Label.FontSizeBase` 直读 TMP 的 `m_fontSizeBase`）");
+                Check(lb.WrappingMode, wrapMode,
+                      $"A1126 · {host}：折行档 = 原版 `m_TextWrappingMode = {wrapMode}`"
+                    + (wrapMode == 0
+                       ? "｜改坏法：删掉紧跟 `MenuDraw.Text` 的那句 `SetWrapping(false)` ⇒ 回 1（`SetWrapWidth` 会无条件开折行）"
+                       : ""));
+                var sz = ShellLabelRenderedPx(lb);
+                // ⚠️ **2026-10-20（A1192）：「量得到吗」那道闸补上【上界】**—— TMP 在**未重排 / 空串 /
+                //    从没生成过字形**时给的是**哨兵天文数字**（`Battle/Label.cs` 的 `HasMeasuredWidth`
+                //    文件头实测 4.29e9 一档；`Editor/BattleScene.cs:17694` 那条 A1192 上界闸记的是 4.6e11）
+                //    ⇒ 那种读数**不是「字太宽」**，是**量法没生效**：分开报，⛔ 别让它冒充「溢出」
+                //    （冒充会把下一个会话引到错方向 —— 同 `资料/已知的坑.md` 那条「量法没生效别当成缺陷」）。
+                bool szOk = sz.x > 0.5f && sz.x < 100000f && sz.y > 0.5f && sz.y < 100000f;
+                CheckTrue(szOk && sz.x <= boxW + 1.5f && sz.y <= boxH + 1.5f,
+                          szOk
+                          ? $"A1126 · {host}：**渲出来 {sz.x:F1}×{sz.y:F1}px ≤ 框 {boxW:F2}×{boxH:F2}**"
+                          + "（容差 1.5px = TMP 二分收敛粒度；只比字号会漏掉「字号对而溢出」那一族）"
+                          : $"A1126 · {host}：**字块量不到**（哨兵/未重排 ⇒ 这一条**没跑**，不是绿）"
+                          + $" —— 实得 {sz.x:F0}×{sz.y:F0}px（本闸上界 100000px）");
+            };
+
+            // ---------------- ① `Shell/SkirmishEventWindow.cs`（两处）----------------
+            // 期望值出处 = `工具/menu_dump.py bundle_menus_assets_all "SkirmishModeEventWindow" --md` 逐颗现读。
+            shell.Windows.CloseAllWindows();
+            var a1126Sk = SkirmishEventWindow.Create(shell.Windows);
+            shell.Windows.OpenWindow(a1126Sk);
+            CheckTrue(a1126Sk != null && a1126Sk.CurrentState == WindowState.Open,
+                      "（前提）遭遇战窗开起来了（`Reward Help` / `Vicotries title` 两颗挂在它下面）");
+            if (a1126Sk != null)
+            {
+                fitCase("`Shell/SkirmishEventWindow.cs` 的 `Reward Help`（`TextBox`）",
+                        FindChildIn(a1126Sk.transform, "Reward Help"),
+                        592.774f, 100.99f, 18f, 38f, 36f, 1,
+                        "原版 `…/Reward Display/Reward Help` 实读 `auto[18~38]`（`m_fontSize 38`）");
+                fitCase("`Shell/SkirmishEventWindow.cs` 的 `Vicotries title`",
+                        FindChildIn(a1126Sk.transform, "Vicotries title"),
+                        236.63f, 50f, 18f, 48f, 36f, 1,
+                        "原版 `…/Player victories/Vicotries title` 实读 `auto[18~48]`（`m_fontSize 48`）");
+                // ---- A1179（2026-10-19）：本窗**另外两处**同一把尺子（⛔ 不抄第二份 `fitCase`）----
+                // 期望值出处 = `python -I d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all
+                //   "SkirmishModeEventWindow" --depth 6 --relative --no-sprite --no-layout` 逐颗现读。
+                // 改坏法：把 `Shell/SkirmishEventWindow.cs` 那两处调用末尾的 autosize 实参删回默认 ⇒ 各红 4 条。
+                fitCase("A1179 · `Shell/SkirmishEventWindow.cs` 的 `Reward Tile`",
+                        FindChildIn(a1126Sk.transform, "Reward Tile"),
+                        522.00f, 54.69f, 18f, 45.87f, 36f, 1,
+                        "原版 `Reward Display/Reward Tile` 实读 `auto[18~45.87]`（`m_fontSize 45.87` · 基准 36 · 折行 1 · 框 522.01×54.68）");
+                fitCase("A1179 · `Shell/SkirmishEventWindow.cs` 的 `Total Victories`",
+                        FindChildIn(a1126Sk.transform, "Total Victories"),
+                        180.84f, 50f, 18f, 48f, 36f, 1,
+                        "原版 `…/Player victories/Skull Victories/Total Victories` 实读 `auto[18~48]`（框 180.84×50.00 与原版逐位同值）");
+                // ---- A1190（2026-10-19）：本窗**再一处**同一把尺子（⛔ 不抄第二份 `fitCase`）----
+                // 期望值出处 = `python -I d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all
+                //   "SkirmishModeEventWindow" --depth 8 --md` 逐颗现读：
+                //   `…/Banned card in deck/Text` = `'The deck has banned cards'` · 字号 **50.0** ·
+                //   基准 **36.0** · `auto[18.0~50.0]` · 对齐 `Center/Midline` · **折行 = 1** · 框 **678.30×53.93**。
+                // 改坏法：把 `Shell/SkirmishEventWindow.cs` 的 `BuildBanned` 那处 `MenuDraw.Text` 末尾那串
+                //   autosize 实参删回默认（或 `wrapPx` 删回 `0f`）⇒ 本处红 4 条。
+                // ⚠️ 这一颗的节点出厂被我们**主动关着**（`b.gameObject.SetActive(false)`）⇒ `FindChildIn`
+                //   含 inactive 捞得到；量的是它建的时候（整棵树当时是活的）生成、关掉之后**仍缓存着**的
+                //   `textBounds`（`ShellLabelRenderedPx` 读的就是它）。
+                fitCase("A1190 · `Shell/SkirmishEventWindow.cs` 的 `Banned card in deck/Text`",
+                        FindChildIn(a1126Sk.transform, "Banned card in deck"),
+                        678.30f, 53.93f, 18f, 50f, 36f, 1,
+                        "原版 `…/Banned card in deck/Text` 实读 `auto[18~50]`（`m_fontSize 50` · 基准 36 · 折行 1 · 框 678.30×53.93）");
+                a1126Sk.Close();
+                CheckTrue(a1126Sk.CurrentState == WindowState.Closed,
+                          "收尾：遭遇战窗关掉（它的压暗层是整屏的）");
+            }
+
+            // ---------------- ② `Shell/TutorialModePopup.cs`（一处）----------------
+            // 期望值出处 = `工具/menu_dump.py bundle_menus_assets_all "Tutorial Mode Menu" --depth 8 --md`。
+            shell.Windows.CloseAllWindows();
+            var a1126Tut = TutorialModePopup.Create(shell.Windows);
+            shell.Windows.OpenWindow(a1126Tut);
+            CheckTrue(a1126Tut != null && a1126Tut.CurrentState == WindowState.Open,
+                      "（前提）教程模式窗开起来了（`PlayTutorialButton/Button Text` 在它下面）");
+            if (a1126Tut != null)
+            {
+                fitCase("`Shell/TutorialModePopup.cs` 的 `PlayTutorialButton/Button Text`",
+                        FindChildIn(FindChildIn(a1126Tut.transform, "PlayTutorialButton"), "Button Text"),
+                        408.77f, 106.49f, 10f, 74.25f, 12f, 0,
+                        "原版 `Tutorial Mode Menu/…/PlayTutorialButton/Button Text` 实读 `auto[10~74.25]` · 折行 0");
+                a1126Tut.Close();
+                CheckTrue(a1126Tut.CurrentState == WindowState.Closed, "收尾：教程模式窗关掉");
+            }
+
+            // ---------------- ③ `Shell/EnergySinglePlayerOnlyEventWindow.cs`（两处）----------------
+            // 期望值出处 = `工具/menu_dump.py bundle_menus_assets_all "EnergySinglePlayerOnlyEventWindow" --depth 6 --md`。
+            // ⚠️ 原版这两颗的**框宽都是 0**（+ `ContentSizeFitterMinMax(h:PreferredSize)` ⇒ 运行时框宽 = 文字的
+            //   preferred width，「算不出」）⇒ 下面那两个框宽是**我们摆的那一份**（⛔ 不是原版数字，已如实标注；
+            //   残差 → `资料/普查产出_第十会话/W2_A1126A1.md` §五）。
+            shell.Windows.CloseAllWindows();
+            var a1126En = WindowsManager.OpenEnergyEvent();
+            CheckTrue(a1126En != null,
+                      "（前提）能量活动窗开出来了（`Timer` / `Victories title` 两颗挂在它下面）");
+            if (a1126En != null)
+            {
+                fitCase("`Shell/EnergySinglePlayerOnlyEventWindow.cs` 的 `Timer`",
+                        FindChildIn(a1126En.transform, "Timer"),
+                        289.72f, 55.905f, 10f, 38f, 38f, 0,
+                        "原版 `…/Timer/Timer` 实读 `auto[10~38]` · 折行 0（框宽 **0 + CSF** ⇒ 这个 289.72 是我们摆的）");
+                fitCase("`Shell/EnergySinglePlayerOnlyEventWindow.cs` 的 `Victories title`",
+                        FindChildIn(a1126En.transform, "Victories title"),
+                        254.112f, 73.385f, 18f, 53.5f, 36f, 1,
+                        "原版 `…/PLayer Victories/Vicotries title` 实读 `auto[18~53.5]`（框宽 **0 + CSF** ⇒ 这个 254.112 是我们摆的）");
+                // ---- A1179（2026-10-19）：本窗**另外四处**同一把尺子（⛔ 不抄第二份 `fitCase`）----
+                // 期望值出处 = 上面 §③ 那条 `menu_dump.py` 命令（`EnergySinglePlayerOnlyEventWindow`）逐颗现读。
+                // 前两处是**本件改的**（改坏法 = 把 `Shell/EnergySinglePlayerOnlyEventWindow.cs` 那两处调用末尾的
+                //   autosize 实参删回默认 ⇒ 各红 4 条）；后两处**本件现核 = 早已接上**（`TextBox` 那条路：
+                //   `SetWrapWidth(r.W)` 无条件 + 两个实参都过了 `fontPx > autoMinPx` 那道闸），
+                //   这四条是**把它钉住**（改坏法 = 把那两串实参删回默认 ⇒ 各红 4 条）。
+                fitCase("A1179 · `Shell/EnergySinglePlayerOnlyEventWindow.cs` 的 `Reward Tile`",
+                        FindChildIn(a1126En.transform, "Reward Tile"),
+                        594.81f, 54.69f, 18f, 45.87f, 36f, 1,
+                        "原版 `Reward Tile` 实读 `auto[18~45.87]`（`m_fontSize 45.87` · 基准 36 · 折行 1 · 框 594.81×54.68）");
+                fitCase("A1179 · `Shell/EnergySinglePlayerOnlyEventWindow.cs` 的 `Total Victories`",
+                        FindChildIn(a1126En.transform, "Total Victories"),
+                        213.99f, 73.38f, 18f, 77f, 36f, 1,
+                        "原版 `…/PLayer Victories/Total Victories` 实读 `auto[18~77]`（框宽 **0 + CSF** ⇒ 这个 213.99 是我们摆的）");
+                fitCase("A1179 · `Shell/EnergySinglePlayerOnlyEventWindow.cs` 的 `Scoring Instructions`",
+                        FindChildIn(a1126En.transform, "Scoring Instructions"),
+                        547.26f, 155.82f, 18f, 50f, 36f, 1,
+                        "原版 `Scoring Instructions` 实读 `auto[18~50]` · 基准 36 · 折行 1（框 547.25×155.83）；"
+                      + "本处**本件现核 = 原来就接着**（`MenuDraw.TextBox(…, 41.1f, 18f, QText, 50f, 36f)`）");
+                fitCase("A1179 · `Shell/EnergySinglePlayerOnlyEventWindow.cs` 的 `Energy Instructions`",
+                        FindChildIn(a1126En.transform, "Energy Instructions"),
+                        547.26f, 168.13f, 18f, 72f, 50f, 1,
+                        "原版 `Energy Instructions` 实读 `auto[18~72]` · 基准 **50**（⛔ 不是 36）· 折行 1（框 547.26×168.14）；"
+                      + "本处**本件现核 = 原来就接着**（`MenuDraw.TextBox(…, 44.35f, 18f, QText, 72f, 50f)`）");
+                // ---- A1190（2026-10-19）：本窗**再三处**（共 7 颗）同一把尺子（⛔ 不抄第二份 `fitCase`）----
+                // 期望值出处 = `python -I d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all
+                //   "EnergySinglePlayerOnlyEventWindow" --depth 10 --md` 逐颗现读。
+                // 改坏法：把 `Shell/EnergySinglePlayerOnlyEventWindow.cs` 那三处调用末尾的 autosize
+                //   实参删回默认（② 那一处是**一行建 5 颗** ⇒ 删一次红 5 条）⇒ 各红 4 条。
+                // ① `Score`：原版 `…/Score Bar Line Level 1..5/Score` —— **5 颗逐值完全一致**
+                //    （字号 48.0 · 基准 36.0 · `auto[18.0~48.0]` · 对齐 `Right/Midline` · 折行 1 · 框 133.32×57.39）
+                //    ⇒ 一行建 5 颗、**一套实参就够**（现核过，⛔ 不是「5 颗不同值」那一族）。5 颗逐颗断。
+                for (int k = 1; k <= 5; k++)
+                {
+                    var rowK = FindChildIn(a1126En.transform, "Score Bar Line Level " + k);
+                    CheckTrue(rowK != null,
+                              $"（前提·不静默）A1190 · 能源窗第 {k} 档 `Score Bar Line Level {k}` 建出来了"
+                            + " —— ⛔ 找不到就**不往下断**（不静默变绿）");
+                    fitCase($"A1190 · `Shell/EnergySinglePlayerOnlyEventWindow.cs` 的 `Score`（`Level {k}`）",
+                            FindChildIn(rowK, "Score"), 133.32f, 57.39f, 18f, 48f, 36f, 1,
+                            $"原版 `…/Score Bar Line Level {k}/Score` 实读 `auto[18~48]`"
+                          + "（`m_fontSize 48` · 基准 36 · 折行 1 · 框 133.32×57.39；5 颗逐值一致）");
+                }
+                // ② `Collect` 的 `Button Text` —— 🔴 本件**唯一**「原版折行 = 0」的一颗 ⇒ 期望 0，
+                //    改坏法：删掉紧跟 `MenuDraw.Text` 的那句 `ct.SetWrapping(false)` ⇒ 折行档那一格红
+                //    （`SetAutoFitBox` 内部的 `SetWrapWidth` 会**无条件**开成 `Normal`）。
+                fitCase("A1190 · `Shell/EnergySinglePlayerOnlyEventWindow.cs` 的 `Collect/Button Text`",
+                        FindChildIn(FindChildIn(a1126En.transform, "Scoring Bar Event Score Info"),
+                                    "Button Text"),
+                        280.88f, 73.17f, 10f, 55f, 12f, 0,
+                        "原版 `…/Generic Simplified UI Button/Button Text` 实读 `auto[10~55]` · 基准 **12**"
+                      + "（⛔ 不是 36）· **折行 = 0**（框 280.88×73.17）");
+                // ③ `Factions Title` —— ⚠️ 原版 `m_fontSize`(44.65) ≠ `m_fontSizeMax`(45.87) ⇒ 上限那一格
+                //    专门咬「拿标称字号顶上限」那一档（A333 那条）。
+                fitCase("A1190 · `Shell/EnergySinglePlayerOnlyEventWindow.cs` 的 `Factions Title`",
+                        FindChildIn(a1126En.transform, "Factions Title"),
+                        563.61f, 54.68f, 18f, 45.87f, 36f, 1,
+                        "原版 `…/Army Selector Panel/Factions Title` 实读 `auto[18~45.87]`（`m_fontSize 44.65` · 基准 36 · 折行 1 · 框 563.61×54.68）");
+            }
+            shell.Windows.CloseAllWindows();
+
+            // ---------------- ④ `Shell/CardDetailPopup.cs` 的 `Craft Explanation`（源码文本断言）----------------
+            //
+            // 🔴 **为什么不是运行时断言**：那一处**没有生产路径** —— 「创建副本 / 升级」两块面板按用户
+            //  2026-09-27 拍板整块不建，`CardDetailPopup.BuildCrafting` **全库零调用点**（`grep -rn "BuildCrafting"`）
+            //  ⇒ 现有夹具够不到那颗 `Label`。要真跑得在 `Build()` 之后**反射调私有 `BuildCrafting`** ——
+            //  本件**不做**：那是一条**新造的**、批处理里**没法现场自验**的路径（本件红线不许跑 Unity），
+            //  引一条没人验证过的新路比少一条断言更糟。
+            // ⚠️ **如实标注判别力**：这一条是**静态**的（读源码文本）—— 它只证明「那一行的实参写全了」，
+            //  **证明不了运行时生效**（其余 5 条是运行时量 TMP 的 `textBounds`）⇒ ⛔ 别当强度相同的第 6 条；
+            //  要升级成运行时断言，得先给那两块面板一条生产/夹具路径（那是另一笔账）。
+            {
+                const string cdPath = "Assets/CardPresentation/Shell/CardDetailPopup.cs";
+                string cdSrc = File.Exists(cdPath) ? File.ReadAllText(cdPath) : "";
+                CheckTrue(cdSrc.Length > 0,
+                          $"（前提·不静默）A1126：读得到 `{cdPath}` —— 读不到 ⇒ 下面那条**没跑**，不是绿");
+                // 期望值 = 原版 `Explanation`（`bundle_scenes_scenes_mainmenuwarpforge`，按 `m_text` 认人：
+                //   `MonoBehaviour_1830.json`）实读：`m_enableAutoSizing 1` · min **10** · max **40** · base **36** · 折行 **1**。
+                const string wantArgs = "1726f - 1307.5f, 10f, 40f, 36f);";
+                CheckTrue(cdSrc.Contains(wantArgs),
+                          "★ A1126 · `Shell/CardDetailPopup.cs` 的 `Craft Explanation`：那一行**带上了 autosize 实参**"
+                        + $"（`wrapPx` / min 10 / max 40 / base 36 —— 原版 `Explanation` 实读 `auto[10.0~40.0]` · `m_fontSizeBase 36`）"
+                        + $"｜改坏法：把那 4 个实参删回默认（`Text(…, 40f, QCdText);`）⇒ 本行红"
+                        + "｜⚠️ **静态断言**：证明不了运行时生效（那处没有生产路径，理由见上）");
+            }
+
+            // ---------------- ⑤ 🆕 2026-10-20（A1192 · `A1126`「`A2` 档」残余）：
+            //   `Shell/CardDetailPopup.cs` 的 `Buy Original Card`（`Alternate Art Panel` 那颗价签）----------------
+            //
+            // 🔴 **为什么放在 `ShellScene.Run`**：`P4` §7·2 已经把话说全了 —— 它登记的那 4 处里
+            //  `:776` 是**唯一活在路径上**的一处，而那扇窗**只有本宿主建**（`CardDetailPopup.Create`
+            //  全库只在两处出现：本文件 `:6113` 的 A1001 建窗表，与 `Shell/CollectionWindow.cs` 里
+            //  `OpenCardDetail` 的 `:3102`；后者是 `Shell/**`、不在本件白名单内）。
+            // 🔴 **期望值全是原版字面量**（判据 = `P4` §2 #5 / `R2` §3 注① 的逐颗现读）：
+            //  原版 `mainmenuwarpforge ▸ Alternate Art Panel/Buy Original Card Button/Generic UI Button/
+            //  Price Display/text` = `m_enableAutoSizing 1` · min **12** · max **54** · base **39** · 折行 **0**；
+            //  框宽 **328.71 × 73.38** = 原版那颗钮的实绘矩形（出处 `资料/阶段二_卡片详情窗_原版规格.md:78`
+            //  「`Buy Original Card Button`(PriceDisplayButton) **328.71×73.38**」）——
+            //  ⛔ **不读** `Shell/CardDetailPopup.cs` 的 `bw`/`bh` 常量、⛔ 不读它的 `MenuDraw.Text` 实参
+            //  （那是被测实现 = 自证）。
+            // ⚠️ **必须喂一张「有异画」的卡**：`BuildAltArt` 的末句是 `p.gameObject.SetActive(has)`
+            //  （`has = HasAltArtStyle(Card.Id)`，判据 → `AlternateArtPanel__Initialize.c:22-38`）——
+            //  拿一张**没有异画**的卡进这一节，整块是关的、TMP 不给它重排 ⇒ 那条守卫量到的是**哨兵**。
+            //  取卡的写法**逐字照** `Editor/CollectionScene.cs:6144` 那一节的先例（那份不在本件白名单内，
+            //  只当样张；⛔ 没改它一个字）。
+            // **改坏法**：把 `Shell/CardDetailPopup.cs` 那一行末尾的 4 个实参删回缺省（`wrapPx` 缺省 = 0
+            //  ⇒ `MenuDraw.TextCore` 里 `if (wrapPx > 0f)` 整段不执行）⇒ 前四条红；删掉紧随的
+            //  `SetWrapping(false)` ⇒ 折行档那条红；把 `bw`（或那一行的 wrapPx）调大到框外 ⇒
+            //  「渲出来 ≤ 框 328.71×73.38」那条红。
+            shell.Windows.CloseAllWindows();
+            var cdW = CardDetailPopup.Create(shell.Windows);
+            shell.Windows.OpenWindow(cdW);
+            CheckTrue(cdW != null && cdW.CurrentState == WindowState.Open,
+                      "（前提）卡片详情窗开起来了（`Buy Original Card` 挂在它的 `Alternate Art Panel` 下）");
+            string altId = null;
+            foreach (var a in CollectionWindow.AltArtCards)
+                if (CollectionData.Card(a.CardId) != null) { altId = a.CardId; break; }
+            CheckTrue(altId != null,
+                      "（前提·不静默）异画表里至少有一张卡**在本地卡池里**"
+                    + " —— 拿不到 ⇒ 下面那条成空转（⛔ 别把「没有卡可喂」当成绿）");
+            if (cdW != null)
+            {
+                if (altId != null)
+                {
+                    cdW.ShowCard(CollectionData.Card(altId));
+                    var altPanel = FindChildIn(cdW.transform, "Alternate Art Panel");
+                    CheckTrue(altPanel != null && altPanel.gameObject.activeSelf,
+                              $"（前提·不静默）异画面板**是开着的**（这张卡 `{altId}` 在异画表里"
+                            + " ⇒ 原版 `SetActive(…, 1)`）—— 它是关的 ⇒ 下面那条守卫量到的是哨兵，"
+                            + "**不是**「没溢出」");
+                    fitCase("A1192 · `Shell/CardDetailPopup.cs` 的 `Buy Original Card`",
+                            FindChildIn(altPanel, "Buy Original Card"),
+                            328.71f, 73.38f, 12f, 54f, 39f, 0,
+                            "原版 `Alternate Art Panel/Buy Original Card Button/…/Price Display/text` 实读 "
+                          + "`auto[12~54]` · `m_fontSizeBase 39` · 折行 0 · 框 328.71×73.38");
+                }
+                cdW.Close();
+            }
+            shell.Windows.CloseAllWindows();
         }
 
         Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");
