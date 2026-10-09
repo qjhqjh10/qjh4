@@ -2736,7 +2736,9 @@ namespace RuleEngine
         /// `A1134` 一并收口到本方法）。
         /// 判据（原版方法体 + trait 号）见 <see cref="Unstunnable"/> 的注释。
         /// ⚠️ 它只是原版那道守卫链的**后一半** —— 前一半（「目标得**在场上**」，
-        /// `CardScript__Stun.c:44-45` 那道 `cardState` 闸）见本方法**下方** `A1166` 那段（**已判等价**）。
+        /// `CardScript__Stun.c:44-45` 那道 `cardState` 闸）见本方法**下方** `A1166` 那段，
+        /// 以及判定口 <see cref="StunStillOnBoard"/>（**2026-10-10 `A1176` 起：「已判等价」那个结论
+        /// 已被更正为「差一档」，别再看旧的四个字**）。
         /// </summary>
         public static bool StunBlockedByTraits(UnitState u)
         {
@@ -2746,8 +2748,18 @@ namespace RuleEngine
         // ======================================================================
         //  `A1166`（2026-10-09）—— 原版 `CardScript__Stun` 守卫链的**前一半**：
         //  **`CardScript.cardState`（`+0x228`）∈ {2, 0xf, 3, 0x11}**，也就是 **`CardScript.IsInPlay()`**。
-        //  🔴 **判定：在我们这边【等价】—— ⛔ 不新加判据。**
-        //  ⛔ **这一段是【记账】，不是「还没做」** —— 别再当成一条待办。
+        //  🔴 **2026-10-10（`A1176`）就地更正：原来这里判「在我们这边【等价】」—— 那个判定错了一档。**
+        //     有且只有一档不等价：**「血 ≤ 0、但它会【翻面成残骸】」**那一档 ——
+        //     原版照样晕、我们原来**不晕**（我们**少晕**，方向是「我们做得更窄」）。
+        //     改法 = **把「还在不在场上」的判别式对齐**（在 `DeclareAttack` 的震荡那一格就地改掉），
+        //     ⛔ **不是**新加一道 `IsInPlay`（这道闸本身照旧不需要写进代码）。
+        //     ⚠️ **错因**：下面那句「反向差异『原版会晕、我们不会』只可能是 `waitingToDie`
+        //        （血 ≤ 0 但还没进坟场）那一档，而那种单位**这一批里必死**、眩晕对它不可观测」——
+        //        **「血 ≤ 0」并不等于「这一批必死」**：`CardScript__CheckIfDead.c:110-147`
+        //        有一条**不置 `waitingToDie(5)`** 的支路（残骸 / 路标石，见下面那个分支表）。
+        //        ⇒ 那句话把「闸比原版收得更紧」的那一档**自己论证掉了**，于是漏了它。
+        //     ✅ 本块末尾那条「没查清的那一点」（`CheckIfDead` 与眩晕结算的先后）**已查清**。
+        //  ⛔ **这一段仍然主要是【记账】** —— 别再把它读成「已判等价、可以不管」。
         // ======================================================================
         //
         // 【原版怎么写的】`d:/2/tools/decomp_full/CardScript__Stun.c:41-47`（逐行）：
@@ -2798,7 +2810,8 @@ namespace RuleEngine
         //     `CardScript__CancelAttack.c:35` 开头就是 `if (cardState != 3 && cardState != 0x11) return …`
         //     —— **只有「正在攻击」的牌才需要取消攻击**（两条合起来反证这四个值读得对）。
         //
-        // 🔴 【**为什么在我们这边等价**】`CardStateOptions` 那 18 档里，**只有这 4 档代表「在棋盘上」**；
+        // 🔴 【**当年判「等价」的那条推理**（2026-10-10 更正：**它漏了一档**，留着好认这个坑）】
+        //   `CardStateOptions` 那 18 档里，**只有这 4 档代表「在棋盘上」**；
         //   其余 14 档全是**牌库 / 手牌 / 坟场 / 离场**中的状态：
         //     `inDeck(0)` · `inHand(1)` · `waitingToBePlayed(4)` · `waitingToDie(5)` · `inCemetery(6)` ·
         //     `drawing(7)` · `inHandShowing(8)` · `inHandMoving(9)` · `inHandPlaying(10)` ·
@@ -2812,28 +2825,84 @@ namespace RuleEngine
         //     · `EffectResolver.DoStun`：目标来自 `ResolveTargets`，一般路径走 `AddSide`
         //       （`EffectResolver.cs:1296-1304`，**只遍历 `ps.Board[s]`**，且自己就挡 `!u.IsAlive`）；
         //     · `RuleCore` 的震荡（本文件 `DeclareAttack` 里那一格）：目标就是 `Board[slot]` 上那一个，
-        //       并另带 `!targetDied && target.IsAlive`；
+        //       并另带 `!targetDied && target.IsAlive`
+        //       （**2026-10-10 `A1176`：这一处已改** —— 现在走 `StunStillOnBoard()`，
+        //        「翻面成残骸」那一档**也算在场**，见那个方法的注释）；
         //     · `SimpleAI.ScoreStun`：纯打分，`target == null || !target.IsAlive` 已挡。
         //   三处都还有 `IsAlive`（= `Health > 0`，`UnitState.cs:1047`）那一道。两边条件摆齐：
         //       原版 = `IsUnit && IsInPlay`；我们 = `棋盘上的 UnitState && IsAlive`
         //   `在棋盘上` ⟹ 原版对应的一定是那 4 档之一；`IsAlive` 只会**收得更紧**、不会放宽
-        //   ⇒ **我们从不眩晕原版不会眩晕的牌**。反向「原版会晕、我们不会」只可能是 `waitingToDie`
-        //   （血 ≤ 0 但还没进坟场）那一档，而那种单位**这一批里必死**、眩晕对它不可观测。
-        //   ⇒ **判定：等价。⛔ 不新加判据** —— 再加一份「在场上」的判据只是同一件事的第二次求值，
-        //     照「两处写同一条规则 = 迟早不一致」反而有害。（原版那道闸的**形状**是「防调用方递进来
-        //     一张已经不在场上的牌」；我们这边目标由 `ResolveTargets` 当场从 `Board` 取，同义。）
+        //   ⇒ **我们从不眩晕原版不会眩晕的牌**（这一半**成立**，而且今天仍然成立 ——
+        //      `A1176` 改的是**另一半**：我们把「原版会晕」的那一档也放回来了，没有放宽 `IsAlive`）。
+        //   ⛔ **错的那一句（已删，留痕）**：「反向差异『原版会晕、我们不会』只可能是 `waitingToDie`
+        //      （血 ≤ 0 但还没进坟场）那一档，而那种单位**这一批里必死**、眩晕对它不可观测」——
+        //      **「血 ≤ 0」≠「这一批必死」**。原版 `CheckIfDead` 有两条支路**不置 `waitingToDie(5)`**：
+        //        ① `HasToTransformIntoRemnant`（`remnant(0x41a) ∨ waystone(0x474)`）⇒ 只入队
+        //           `AddTransformIntoRemnant(…, 1)`、`cardState` **仍是 2**（`CheckIfDead.c:141-144`）
+        //           ⇒ **这一档原版会晕**（`A1176` 就是它）；
+        //        ② `CurrentSurvivor ≥ 1` ⇒ `UseSurvivor`、不死也不进坟场（`CheckIfDead.c:152`）
+        //           —— 全池 **0 张卡**带 `survivor`，今天不可达（如实记着，见 `R3_三笔查实.md` §1·6）。
+        //   ⇒ **裁定（2026-10-10 更正）：【不等价】，差的就是上面①那一档。已在两处修掉：
+        //      判别式（`StunStillOnBoard`）+ 这一段文档。**
         //
-        // ⚠️ 【今天为什么更看不出来】① 全池 **0 张卡**带 `unstunnable`（见 `Unstunnable` 的注释）；
-        //   ② 更关键 —— **这一道 `IsInPlay` 闸在我们这边任何局面都恒真**（目标按构造就在棋盘上）
-        //   ⇒ **连夹具（`UnitState.AddKeyword`）都造不出差异**。
+        // ⚠️ 【**改之前为什么看不出来**（2026-10-10 订正）】① 全池 **0 张卡**带 `unstunnable`
+        //   （见 `Unstunnable` 的注释）；
+        //   ② 🔴 原来这里写「这一道 `IsInPlay` 闸在我们这边任何局面都恒真 ⇒ 连夹具都造不出差异」
+        //   —— **前半句对、后半句错**：闸的**形状**确实不需要新写代码（目标按构造来自棋盘），
+        //   但**判别式**「还在不在场上」原来写成了「没被打死」 ⇒
+        //   `Remnant` / `Waystone` 那一档就是**夹具造得出来的差异**
+        //   （`RuleEngineTest.TestAttackKeywords` ③′/③″ 两格已钉住）。
         //
-        // ⚠️ 【**没查清的那一点**（如实标着、⛔ 没动）】原版 `_ReceiveDamage` 协程里会调 `CheckIfDead`
-        //   （`CardScript._ReceiveDamage_d__381__MoveNext.c:310`），由它把血 ≤ 0 的牌置成 `waitingToDie(5)`
-        //   （`CardScript__CheckIfDead.c:124`）。**它相对于「眩晕效果/震荡结算」的先后我没查清** ——
-        //   若「先眩晕、后 `CheckIfDead`」，则原版那一下**会**落在一张将死的牌上（加 trait + 广播
-        //   `BroadcastUnitStunned`），而我们这边 `IsAlive` 已经把目标挡掉 ⇒ 那时**有一处极小差异**
-        //   （同样不可观测：那张牌这一批就没了）。要查清得读 `_ReceiveDamage` 与 `ResolveStun`
-        //   两条协程的 `MoveNext` 状态机 —— **本条没读到那一步**。
+        // ✅ 【**原来没查清、现在查清了**（2026-10-10，`R3` 逐跳核过）】原文问的是
+        //   「`CardScript__CheckIfDead`（`CardScript._ReceiveDamage_d__381__MoveNext.c:310`）
+        //    与「眩晕结算」谁先谁后」。答案 = **`CheckIfDead` 在前**：
+        //     · `CheckIfDead` 在**攻击协程里**（`_ResolveAttack…:999` 的 `ReceiveDamage` → 那条协程 `:310`）；
+        //     · 而 Concussion 的眩晕只是**入队**（`CardScript__ResolveDamageDealt.c:217` → `AddStun`，
+        //       priority **1**），真正施加在**主循环**取队时（`BattleManager__Update.c:1284-1299`
+        //       → `NextActionInQueue`(pri 2 → **1** → 3 → 0，FIFO 取 index 0) → `ResolveAction` 的
+        //       `case 0x11:1740` → `:1837 CardScript__Stun`）。
+        //   ⇒ 原版**确实会**把眩晕落在一张「血 ≤ 0 但 `CheckIfDead` 没置 5」的牌上 —— 而那是哪一档，
+        //     正是上面①（残骸/路标石）。这就是 `A1176` 的全部内容。
+        //   📌 出处：`资料/普查产出_第十会话/R3_三笔查实.md` §一（时序链逐跳）。
+
+        /// <summary>
+        /// **这一记眩晕此刻该落在谁身上** —— 原版 `CardScript__Stun.c:44-45` 那道
+        /// `cardState ∈ {2, 0xf, 3, 0x11}`（= `IsInPlay()`）闸在我们这边的落点。
+        /// 返回 `null` = 闸假、**不晕**。
+        /// </summary>
+        /// <param name="target">这一下的被打者（**这一批的死亡处理已经跑完**，它可能已经作废）。</param>
+        /// <param name="targetDied">本文件 `DeclareAttack` 里那个「被这一下打死了」的标记。</param>
+        /// <remarks>
+        /// 🔴 **2026-10-10（`A1176`）新加** —— 在那之前这里是内联的
+        /// `!targetDied && target.IsAlive`，它把「被打死」与「被打到 ≤0、但**会翻面成残骸**」
+        /// 当成同一档。**原版不是**（判据见 `StunBlockedByTraits` 下方那段 `A1166` 注释的 2026-10-10 更正）：
+        /// `CardScript__CheckIfDead.c:110-147` 在 `HasToTransformIntoRemnant` 为真时只把
+        /// **翻面**那条 action 入队（`priority 1`）、**不置 `waitingToDie(5)`** ⇒ 那一刻
+        /// `cardState` **仍是 2** ⇒ 闸真 ⇒ **会晕**；而它与 Concussion 的 stun action **同队列、且 stun
+        /// 入队更早**（`ResolveDamageDealt.c:217` 早于 `CheckIfDead` 那一跳）⇒ **FIFO：先晕、后翻面**。
+        /// ⇒ 改之前我们**少晕**这一档。
+        ///
+        /// ⚠️ **翻面之后，棋盘上占位的是【另一个】`UnitState`**：`CleanupDeaths` 残骸那一段
+        ///   **新建**一个 `rem`（`IsRemnant = true`，同一个 `CardInstance`）放进格位，旧 `target` 作废。
+        ///   `UnitState._keywords` 是**每个实例自己的一份** ⇒ 眩晕挂在旧对象上 = **静默丢掉**
+        ///   （玩家看不到、断言也看不见）⇒ 必须返回**棋盘上现在还占位的那一个**。
+        /// ⚠️ **不按格号取**：同一批里别的单位真死会让那条连续列表**内移**
+        ///   （`BoardSlots.RemoveAt` 会搬格）⇒ 按**实例**找（下面那句 `ReferenceEquals(…Instance…)`）。
+        /// </remarks>
+        static UnitState StunStillOnBoard(BattleContext ctx, int tgtP, int tgtSlot, UnitState target,
+                                         bool targetDied)
+        {
+            if (target == null) return null;
+            // ① 常规：没被打死 ⇒ 就是它自己（**判据一个字节都没动**，只是从调用点搬进来）
+            if (!targetDied && target.IsAlive) return target;
+            // ② 被打到 ≤0 —— 唯有它**翻面成残骸**时才还在场上。
+            //    翻面是 `CleanupDeaths` 干的，而那时**同一个 `CardInstance` 会落在同一格里**
+            //    （残骸那一支**不**走 `BoardSlots.RemoveAt` ⇒ 格号不变）⇒ 直接看那一格即可；
+            //    另加实例相等，是为了挡住「同一批里别人真死、列表内移」的极端情形。
+            var occ = ctx.Players[tgtP].Board[tgtSlot];
+            if (occ != null && occ.IsRemnant && ReferenceEquals(occ.Instance, target.Instance)) return occ;
+            return null;
+        }
 
         /// <summary>
         /// 目标合法性。（rule_core.is_valid_target）
@@ -3602,12 +3671,19 @@ namespace RuleEngine
             //    会**结算两遍**（`AddPendingDeath` 的去重正是为这个加的，别再绕开它）。
 
             // ---- 震荡：**被本单位攻击的单位获得眩晕**（规则书 :177；原版 `:4363`）----
-            //      原版只在**目标没死**时施加
-            // 🆕 **2026-10-09（`A1166`）**：下面这个 `!targetDied && target.IsAlive` 就是原版
-            //    `CardScript__Stun.c:44-45` 那道 `cardState ∈ {2,0xf,3,0x11}`（= `IsInPlay()`）
-            //    闸在我们这边的落点 —— **已判等价、⛔ 不另加判据**，
-            //    逐档对照与判据出处见 `StunBlockedByTraits` 下方那段 `A1166` 注释。
-            if (!targetDied && target.IsAlive && attacker.Has("concussion"))
+            //      ⛔ 原版的闸**不是**「目标没死」—— 那是我们原来的写法，**少了「翻面成残骸」那一档**
+            //      （见下面那条更正）。原版的闸 = `CardScript__Stun.c:44-45`
+            //      `cardState ∈ {2,0xf,3,0x11}`（= `IsInPlay()`）。
+            // 🔴 **2026-10-10（`A1176`）就地改的**：这一格原来内联写成 `!targetDied && target.IsAlive`，
+            //    它把「被打死」与「被打到 ≤0、但要翻面成残骸」当成同一档 ⇒ **我们少晕一档、方向与原版相反**。
+            //    判据链（逐跳见 `StunStillOnBoard` 的注释 + `资料/普查产出_第十会话/R3_三笔查实.md` §一）：
+            //      · `CheckIfDead.c:110-147`：`HasToTransformIntoRemnant` 为真 ⇒ 只入队翻面
+            //        （`priority 1`）、**不置 `waitingToDie(5)`** ⇒ `cardState` **仍是 2** ⇒ 闸真；
+            //      · 它排在 Concussion 的 stun action **之后**（同队列、stun 入队更早）⇒ FIFO ⇒ **先晕、后翻面**。
+            //    ⚠️ 是否「还在场上」的判定**收口到 `StunStillOnBoard`**（单一判定口）——
+            //    它同时解决「翻面后棋盘上占位的是【另一个】`UnitState`」这件事（挂错对象 = 静默丢）。
+            var stunVictim = StunStillOnBoard(ctx, tgtP, tgtSlot, target, targetDied);
+            if (stunVictim != null && attacker.Has("concussion"))
             {
                 // 🆕 同一件事的**另一个发生点**（`When an enemy receives a Stun, …`）：
                 //    Concussion 造成的也是「被眩晕」，卡面分不出来 ⇒ 走**同一个**事件。
@@ -3619,6 +3695,13 @@ namespace RuleEngine
                 //    **整个施加段跳过**、只打一条 `LogWarning`）；Concussion 走的就是同一个函数
                 //    （`BattleManager__ResolveStun.c:78` → `CardScript__Stun`）⇒ 这一格也要拦。
                 //    判定口 = `StunBlockedByTraits`（⛔ 别在这儿再写一遍字符串比较）。
+                //    ⚠️ **2026-10-10（`A1176`）：挡词查的是 `target`（= 挨打那一刻那张卡的状态）、
+                //       落点用的是 `stunVictim`（= 棋盘上现在占位的那一个）。** 这不是笔误：
+                //       原版这一跳打的是**同一张卡**，而「翻面」那条 action 排在它**后面**
+                //       ⇒ 那一刻它的关键词**还是挨打时那一套**（`unstunnable` 取的就是挨打那一刻的值）；
+                //       而 trait 要能留住，就必须落在棋盘上占位的那个对象上（见 `StunStillOnBoard`）。
+                //       ⚠️ 今天这一格的两种写法**结果相同**（全池 0 张卡带 `unstunnable`；
+                //         而且残骸那个新 `UnitState` 不带任何关键词）—— 照原版写，别图省事改回 `stunVictim`。
                 if (StunBlockedByTraits(target))
                 {
                     // 原版那一支还有 `ActivateUnstunnable` 音效 —— 我们这边没有，**出声代替**（⛔ 不静默）。
@@ -3627,21 +3710,24 @@ namespace RuleEngine
                 }
                 else
                 {
-                    if (!target.IsStunned)
+                    if (!stunVictim.IsStunned)
                     {
                         // 🔴 **2026-10-09（`A1116`）**：原来是 `target.IsStunned = true;`（只写字段）
                         //    ⇒ 改成**挂 `stun` trait** —— 全反编译里施加眩晕**只有这一条路**
                         //    （`CardScript__Stun.c:48` 的 `AddTraitSilently(param_1, 100, …)`；
                         //     `grep -n "AddTraitSilently(param_1,100" *.c` 只此一条），
                         //    而 `IsStunned` 现在是它的派生属性。
-                        target.AddKeyword(KeywordTable.Stun, 1);
+                        stunVictim.AddKeyword(KeywordTable.Stun, 1);
                         // 🆕 2026-10-09（`A1121`）：**施加时清「回合开始时就在这个状态」的闸门** ——
                         //    判据 = `CardScript__Stun.c:98`（`*(char *)(card + 0x55) = 0`）。
                         //    ⇒ 这一下眩晕在**本回合末不会被摘**，要到它自己的下个回合末才摘。
-                        target.StunnedAtStartOfTurn = false;
-                        BroadcastKeywordEvent(ctx, WhenEventKind.GetsStun, target);
+                        stunVictim.StunnedAtStartOfTurn = false;
+                        BroadcastKeywordEvent(ctx, WhenEventKind.GetsStun, stunVictim);
                     }
-                    ctx.Log($"{target.Name} 被 {attacker.Name} 打晕了（Concussion）");
+                    ctx.Log($"{stunVictim.Name} 被 {attacker.Name} 打晕了（Concussion）"
+                          + (ReferenceEquals(stunVictim, target) ? ""
+                             : $"（它是刚由 {target.Name} 翻面成的**残骸** —— 原版这一刻"
+                               + "`cardState` 仍是 2，所以晕得上）"));
                 }
             }
 

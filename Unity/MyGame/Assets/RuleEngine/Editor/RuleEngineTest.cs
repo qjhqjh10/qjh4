@@ -4460,6 +4460,73 @@ public static partial class RuleEngineTest
             RuleCore.DeclareAttack(ctx, 0, 3, 1, 3);
             Check(tgt.IsStunned, true, "挨了震荡单位一下就晕了");
         }
+        // ③′ 🔴 `A1176`（2026-10-10）：目标被打到 ≤0、但**翻面成残骸** ⇒ **原版照样晕**（我们原来不晕）。
+        //   判据链（逐跳）：
+        //     · `CardScript__CheckIfDead.c:110-147`：`SupportMethods.HasToTransformIntoRemnant`
+        //       （`remnant(0x41a) ∨ waystone(0x474)`）为真 ⇒ 走 `:141-144` **只入队
+        //       `AddTransformIntoRemnant(…, priority 1)`、不置 `waitingToDie(5)`** ⇒ `cardState` **仍是 2**；
+        //     · 它与 Concussion 的 stun action **同队列（priority 1）**，而 stun **入队更早**
+        //       （`CardScript__ResolveDamageDealt.c:217` 早于 `CheckIfDead` 那一跳）⇒ **FIFO：先晕、后翻面**
+        //       ⇒ 走到 `CardScript__Stun.c:44-45` 那道 `cardState ∈ {2,0xf,3,0x11}` 闸时**闸真**。
+        //   出处全文 → `资料/普查产出_第十会话/R3_三笔查实.md` §一；改法 → `RuleCore.StunStillOnBoard`。
+        {
+            var rem = new CardDef("FixtureRemnantStun", "FixtureRemnantStun", "unit", "",
+                                  "common", "Test", 1, 2, 5, 0,
+                                  new[] { KeywordTable.Remnant }, subtype: "Infantry");
+            var ctx = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            Place(ctx, 0, 3, Unit("Con", 1, 5, 5, "Concussion"));   // 5 攻 ⇒ 一击打掉 5 血
+            var killed = Place(ctx, 1, 3, rem);                     // 5 血 ⇒ 正好被打死
+            Check(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3), RuleCodes.OK, "震荡单位打死带残骸的单位");
+            var occ = Board(ctx, 1, 3);
+            CheckTrue(occ != null && occ.IsRemnant,
+                      "★ 它**翻面成残骸**了（同一格还占着、`IsRemnant`）" + LogTail(ctx, 6));
+            CheckTrue(occ != null && occ.IsStunned,
+                      "★★ **残骸被晕上了** —— 原版这一刻 `cardState` 仍是 2（`CheckIfDead` 那条支路"
+                      + "**不置 `waitingToDie(5)`**）⇒ `CardScript__Stun.c:44-45` 的闸真；"
+                      + "**改之前我们这一格是「不晕」（少晕一档）**");
+            CheckTrue(!killed.IsStunned,
+                      "★ 灭自证：眩晕**不是**挂在被打死那一份 `UnitState` 上 —— 挂在它上面 = "
+                      + "`UnitState._keywords` 是每个实例自己一份 ⇒ **静默丢掉**（玩家看不见、上一行也读不到）。"
+                      + "⚠️ 今天残骸是 `CleanupDeaths` **新建**的 `UnitState`；哪天改成原地翻面，这条要跟着改");
+        }
+        // ③″ 🔴 `A1176` 的**对照句**（灭自证的另一半）：同一发攻击，目标**真死**（不是翻面）⇒ **不晕**。
+        //   ③′ 与 ③″ 只差「目标会不会翻面成残骸」一个变量，而断言要求二者相反的结果 ⇒
+        //   **把这一格一起改回旧写法（`!targetDied && target.IsAlive`）会让 ③′ 红**，
+        //   而**改宽成「血 ≤ 0 也晕」会让 ③″ 红** —— 两边不可能同时满足。
+        {
+            var ctx = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            Place(ctx, 0, 3, Unit("Con", 1, 5, 5, "Concussion"));
+            Place(ctx, 1, 3, Unit("Plain", 1, 2, 5));               // **不带** Remnant/Waystone
+            Check(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3), RuleCodes.OK, "震荡单位打死一个普通单位");
+            Check(Board(ctx, 1, 3), null, "（前提）它**真死**了 —— 格位空了、没有翻面成残骸");
+            bool anyStunned = false;
+            for (int s = 0; s < BoardSpec.Size; s++)
+            {
+                var u = Board(ctx, 1, s);
+                if (u != null && u.IsStunned) anyStunned = true;
+            }
+            CheckTrue(!anyStunned,
+                      "★★ 敌方场上**一个被晕的都没有** —— 原版这一档 `cardState` 已置 5（`CheckIfDead.c:124`）"
+                      + "⇒ `IsInPlay()` 假 ⇒ 不晕（这一半改之前也是对的，别被 ③′ 顺手改宽）");
+        }
+        // ③‴ `A1176` 的**另一个关键词**：`Waystone`（灵族的路标石）与 `Remnant` 走的是**同一条支路**
+        //   （原版 `HasToTransformIntoRemnant` = `remnant ∨ waystone`，`SupportMethods__HasToTransformIntoRemnant.c`）
+        //   ⇒ 这里也必须有同样的行为（⛔ 只修死灵那一半、把灵族漏掉就是静默偏一半）。
+        {
+            var stone = new CardDef("FixtureWaystoneStun", "FixtureWaystoneStun", "unit", "",
+                                    "common", "Test", 1, 2, 5, 0,
+                                    new[] { KeywordTable.Waystone }, subtype: "Infantry");
+            var ctx = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            Place(ctx, 0, 3, Unit("Con", 1, 5, 5, "Concussion"));
+            Place(ctx, 1, 3, stone);
+            RuleCore.DeclareAttack(ctx, 0, 3, 1, 3);
+            var occ = Board(ctx, 1, 3);
+            CheckTrue(occ != null && occ.IsRemnant && occ.IsStunned,
+                      "★ 路标石那一支同样：翻面成残骸**并且被晕上**（`remnant ∨ waystone` 是同一条支路）");
+        }
         // ④ 嗜血：一回合能攻击**两次**（规则书 :172）—— 关键在「达到配额上限才疲劳」
         {
             var ctx = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
