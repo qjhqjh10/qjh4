@@ -11738,10 +11738,19 @@ namespace CardPresentation
             // ⚠️ 原来给的是 0.75（= 81 px 高），比原版**小 36%**。
             _enemyPlate = HudImage(root, "UI_Player_Frame", -0.005833f, 0.927083f,
                                    new Vector2(0f, 0.5f), 126.3f / 108f, "EnemyPlate");
-            _enemyText = Hud(root, "", 0.125099f, 0.940833f, 3, dim, new Vector2(0.5f, 0.5f), "EnemyPlateText");
+            // 🔴 **2026-10-10（A1213①）**：框/四格 ← 原版 `LeftArea/EnemyInfo/EnemyName/EnemyNameText`
+            //    （`RectTransform/RectTransform_3568.json`；框 290.94×36.84 是**解算后**的屏幕矩形
+            //     —— 那颗的父 `EnemyName`（`RectTransform_3083.json`）自带 `m_LocalScale = 0.8`，
+            //     见 `Hud` 的 doc 那张表）。
+            _enemyText = Hud(root, "", 0.125099f, 0.940833f, 3, dim, new Vector2(0.5f, 0.5f), "EnemyPlateText",
+                             290.94f, 36.84f, 2f, 35f, 36f, 0);
             _myPlate = HudImage(root, "UI_Player_Frame", -0.005938f, 0.060602f,
                                 new Vector2(0f, 0.5f), 126.3f / 108f, "PlayerPlate");
-            _myText = Hud(root, "", 0.123568f, 0.074583f, 3, dim, new Vector2(0.5f, 0.5f), "PlayerPlateText");
+            // 框/四格 ← 原版 `LeftArea/PlayerInfo/PlayerName/PlayerNameText`
+            // （`RectTransform/RectTransform_3016.json`；框 199.38×35.93 同为**解算后**的屏幕矩形，
+            //  父 `PlayerName` 也带 `m_LocalScale = 0.8`）
+            _myText = Hud(root, "", 0.123568f, 0.074583f, 3, dim, new Vector2(0.5f, 0.5f), "PlayerPlateText",
+                          199.38f, 35.93f, 2f, 35f, 36f, 0);
 
             // ---- 我方名牌上的**里程碑**：原版 `LeftArea/PlayerInfo/Milestones` = `BattleScoreUiManager` ----
             // 一个骷髅 + `x N`（`MatchSkulls Icon` / `MatchSkulls Score`）。原版还有 tooltip
@@ -11757,8 +11766,14 @@ namespace CardPresentation
             _skullIcon = HudImageTex(root, CardArt.Ui("40k_battle_Win_Skull"), SkullIconX01, SkullIconY01,
                                      new Vector2(0.5f, 0.5f), Px(SkullIconPx), "MatchSkullsIcon",
                                      HudImageZ - 0.05f);
+            // 🔴 **2026-10-10（A1213①）**：框/四格 ← 原版 `LeftArea/PlayerInfo/Milestones/MatchSkulls Score`
+            //    （`RectTransform/RectTransform_3467.json`；框 94.46×47.31 = **纯 `m_SizeDelta`**
+            //    —— 那颗 `anchorMin == anchorMax == (0.5,0.5)`，不拉伸）。
+            //    ⚠️ 本颗是全 17 颗里**唯一锚点不是 `(0.5,0.5)`** 的（`anchor=(0,0.5)` = 左中）
+            //    ⇒ 接上自适应之后**左缘逐位不动、右缘随字号动**（见 `Hud` 的 doc）。
             _skullScore = Hud(root, "", SkullScoreX01, SkullScoreY01, 3, Color.white,
-                              new Vector2(0f, 0.5f), "MatchSkullsScore");
+                              new Vector2(0f, 0.5f), "MatchSkullsScore",
+                              94.46f, 47.31f, 18f, 35f, 36f);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向档 = 原版 `MatchSkulls Score` 的 **`V = Midline`**
             //   —— 判据 = 上面 `SkullScoreX01` 那条 doc 自己逐字写着「原版 **H=左对齐 / V=Midline**、字号 fs 35」
             //   （出处 `子代理读报_back左区_0827.md` + `MonoBehaviour_5234,3785.json`）。
@@ -11833,10 +11848,19 @@ namespace CardPresentation
                         new Vector2(0.5f, 0.5f), FaithH / 108f, "PlayerFaithHolder", HudDecorZ + 0.05f);
             _foeFaithIcon = HudImageTex(root, CardArt.Ui("40k_Battle_Display_Faith"), FoeFaithX01, FoeFaithY01,
                         new Vector2(0.5f, 0.5f), FaithH / 108f, "EnemyFaithHolder", HudDecorZ + 0.05f);
+            // 🔴 **2026-10-10（A1213①）**：这四颗的框/四格 ← 原版
+            //    `…/Right Anchor/Energy And turn holder/{Player,Enemy}Mana/{FaithHolder,SpiritStoneHolder}/…`
+            //    （`RectTransform_3246`(我信仰) · `_3090`(敌信仰) · `_2975`(我灵魂石) · `_2906`(敌灵魂石)）。
+            //    ⚠️ **敌我两颗的高度不一样**（88.40 vs 94.19 · 136.40 vs 63.00），**不是抄错**：
+            //    两颗的父 holder 带 `m_LocalScale = (1,-1,1)`（镜像），而那一颗的 `anchorMin.y = 0`、
+            //    `anchorMax.y = 0.855 / 0.519` ⇒ `sizeDelta.y` 那个**负内缩**被镜像翻到另一侧
+            //    ⇒ 解算出来的高不同（原版就长这样，见逐颗表）。
             _myFaithText = Hud(root, "0", MyFaithX01, MyFaithY01, 4, new Color(1f, 1f, 1f),
-                               new Vector2(0.5f, 0.5f), "PlayerFaithText");
+                               new Vector2(0.5f, 0.5f), "PlayerFaithText",
+                               57.43f, 94.19f, 8f, 40f, 36f);
             _foeFaithText = Hud(root, "0", FoeFaithX01, FoeFaithY01, 4, new Color(1f, 1f, 1f),
-                                new Vector2(0.5f, 0.5f), "EnemyFaithText");
+                                new Vector2(0.5f, 0.5f), "EnemyFaithText",
+                                57.43f, 88.40f, 8f, 40f, 36f);
 
             _myStoneIcon = HudImageTex(root, CardArt.Ui("UI_Energy_Eldar"), MyStoneX01, MyStoneY01,
                         new Vector2(0.5f, 0.5f), StoneH / 108f, "PlayerSpiritStoneHolder", HudDecorZ + 0.05f);
@@ -11849,10 +11873,13 @@ namespace CardPresentation
                         new Vector2(0.5f, 0.5f), StoneGem / 108f, "EnemySpiritStone", HudDecorZ + 0.04f);
             // ⚠️ 文字位置按 **holder 中心** 摆：dump 里 `SpiritStoneText` 是**拉伸锚点**
             //    （anchorMin/Max (0.075,0)-(0.934,0.855)、sizeDelta (−43.6,−36.7)），中心≈holder 中心。
+            // 框/四格 ← 原版 `…/{Player,Enemy}Mana/SpiritStoneHolder/SpiritStoneText`（见上面那四颗的注释）
             _myStoneText = Hud(root, "0", MyStoneX01, MyStoneY01, 4, new Color(1f, 1f, 1f),
-                               new Vector2(0.5f, 0.5f), "PlayerSpiritStoneText");
+                               new Vector2(0.5f, 0.5f), "PlayerSpiritStoneText",
+                               52.80f, 63.00f, 8f, 40f, 36f);
             _foeStoneText = Hud(root, "0", FoeStoneX01, FoeStoneY01, 4, new Color(1f, 1f, 1f),
-                                new Vector2(0.5f, 0.5f), "EnemySpiritStoneText");
+                                new Vector2(0.5f, 0.5f), "EnemySpiritStoneText",
+                                52.80f, 136.40f, 8f, 40f, 36f);
             // 开局一律藏着 —— 具体的显隐每帧按值定（`RefreshHud`）
             SetFactionResourceVisible(false, false, false, false);
 
@@ -11870,7 +11897,16 @@ namespace CardPresentation
             _energyGemEmpty = HudImage(root, "40k_battle_energy_empty", MyEnergyX01, MyEnergyY01,
                                        new Vector2(0.5f, 0.5f), 0.72f, "EnergyGemEmpty");
             // 数字压在宝石上（原版 `ManaText` 就框在 `Energy Player` 上，不是并排）
-            _energyLabel = Hud(root, "", MyEnergyX01, MyEnergyY01, 4, gold, new Vector2(0.5f, 0.5f), "EnergyLabel");
+            // 🔴 **2026-10-10（A1213①）**：框/四格 ← 原版 `…/{Player,Enemy}Mana/ManaHolder/ManaText`
+            //    （`RectTransform_2994`(我) · `_2780`(敌)；框 **73.90×82.48** vs **77.34×80.95** ——
+            //     敌我那两颗的 holder 尺寸本来就不同：`RectTransform_2790.json`(我 `PlayerMana`) 的
+            //     `m_SizeDelta = (-1.8120, 1.9700)` vs `RectTransform_3479.json`(敌 `EnemyMana`) 的
+            //     `(0.2520, -0.8300)` ⇒ **不是抄错**）。
+            //    ⚠️ 这颗文案是 `10/10`（5 字），框只有 74~77 px 宽 ⇒ **折行档 = 原版 `1`**（会折行）
+            //    —— 原版就开着折行、且 `m_fontSizeMax = 40`（我 39.15 是**缩过**的收敛值，说明原版那颗框略紧），
+            //    我们这一侧字体行盒更高（`Noto` 1.437 em vs 原版 `Pragati` 0.947 em）⇒ 收敛值会与原版不同。
+            _energyLabel = Hud(root, "", MyEnergyX01, MyEnergyY01, 4, gold, new Vector2(0.5f, 0.5f), "EnergyLabel",
+                               73.90f, 82.48f, 8f, 40f, 36f);
             // 敌方水晶：原版有（`EnemyMana`，也带 `ManaText`），**我们原来一颗都没画** ——
             // 于是玩家看不到对手还剩多少能量，只能靠猜。
             _foeEnergyGem = HudImage(root, "40k_battle_energy_full", FoeEnergyX01, FoeEnergyY01,
@@ -11878,10 +11914,25 @@ namespace CardPresentation
             _foeEnergyGemEmpty = HudImage(root, "40k_battle_energy_empty", FoeEnergyX01, FoeEnergyY01,
                                           new Vector2(0.5f, 0.5f), 0.72f, "FoeEnergyGemEmpty");
             _foeEnergyLabel = Hud(root, "", FoeEnergyX01, FoeEnergyY01, 4, gold,
-                                  new Vector2(0.5f, 0.5f), "FoeEnergyLabel");
+                                  new Vector2(0.5f, 0.5f), "FoeEnergyLabel",
+                                  77.34f, 80.95f, 8f, 40f, 36f);
             // ⚠️ x01 从 0.017 挪到 0.075：手牌数底板有 **259 px 宽**，还摆在屏幕左缘的话整块板会有一半在屏幕外
             //    （第一版就是这样，截图里只看得见板子右半边）。原版那个计数在 `HandArea`（手牌区）里、不在屏幕角上，
             //    挪进来既让板进画面、也更接近原版的位置。
+            // 🔴 **2026-10-10（A1213①）：本颗【故意】没给框 + 四格（全 17 颗里唯一一颗）—— 判据在下面。**
+            //    原版那颗是 `scenes_battlearena1 ▸ CardsInHandText`（`RectTransform/RectTransform_3400.json`，
+            //    `m_SizeDelta = (2.34, 0.64)`、`auto[0.5~3.0] base36`、折行 1；出厂 `m_IsActive = 0`）。
+            //    ⛔ **四格是「缩放假」里的值**：它的父链是**纯 `Transform`**——
+            //    `HandArea m_LocalScale = 108`（`Transform/Transform_1401.json`）→ `CardsInHandText 0.925926`
+            //    ⇒ 「1 局域单位 = 100 px」。其余 16 颗的局域单位 = 1 px，**照抄同一套口径会把字号压到 3 px**
+            //    （我们这一侧的 px 口径是 `fontSize × 0.0948 × 108`，**不是**原版那条链）。
+            //    ⛔ 而换算需要的那条单位桥**本仓还没建立**，且两条候选读法互相打架：
+            //      · 按「1 fontSize = 1 局域单位」⇒ em = 3.0 × 100 = **300 px**，塞不进 64 px 的框（不自洽）；
+            //      · 按我们字体那条 0.0948 的比值 ⇒ em = 3.0 × 0.0948 × 100 = **28.4 px** ✓（自洽）
+            //        —— 但**其余 16 颗要的是「1 fontSize = 1 局域单位」才自洽**，两条**不能同时成立**。
+            //    ⇒ 按本仓红线（**不许自己发明口径**）**只报不动**；判据与两条候选读法全文 →
+            //    `资料/普查产出_第十一会话/PH_A1213Hud补框.md` §4（那一节还记了「框若按 234×64 px 算」的旁证）。
+            //    ⚠️ **只补框不补四格是没意义的** —— 框的唯一目的就是给自适应用（见 `Hud` 的 doc）。
             _handLabel = Hud(root, "", 0.075f, 0.158f, 3, dim, new Vector2(0f, 0f), "HandLabel");
             // 手牌数底板：原版 `CardsInHandText/Bg (1)`（图**也是** `40K_display`，α 0.6941177）。
             // 实绘 259.3×65.7 px（缩放链 108×0.925926×0.009 —— 见常量注释）。
@@ -11904,8 +11955,14 @@ namespace CardPresentation
             // `Battle/HUD/EndTurn`（载波 = `ClockManager.SetEndTurnText` 里的字面量；判据 + 中英两列
             // 见 `Core/Loc.cs` 那一块）。这里只是**建的时候先填一次**，之后每次 `UpdateHud` 都会重取
             // （理由见那一处：换语言要当场变）。
+            // 🔴 **2026-10-10（A1213①）**：框/四格 ← 原版 `…/Clock/TurnBtn/TurnText`
+            //    （`RectTransform/RectTransform_3420.json`；框 119.08×80.43、`auto[8~31] base36`、折行 1）。
+            //    ⚠️ 原版这颗的 `m_fontSize = 31` = `m_fontSizeMax`（收敛到顶）⇒ 我们这一侧也会往 31 涨
+            //    —— 而**命中测试读 `WorldW/WorldH`**（见上面 `Contains` 的用法），字变大命中区就跟着变大
+            //    （原版就是「命中区 = 文字块」这个模型，见 `Label.Contains`）。
             _endTurnLabel = Hud(root, CardText.Phrase("END TURN"), EndTurnX01, EndTurnY01, 3,
-                                new Color(1f, 1f, 1f), new Vector2(0.5f, 0.5f), "EndTurnButton");
+                                new Color(1f, 1f, 1f), new Vector2(0.5f, 0.5f), "EndTurnButton",
+                                119.08f, 80.43f, 8f, 31f, 36f);
             // 回合时钟：写在按钮**下半部分**（原版 `ClockManager.clockText` 也在 `Clock/TurnBtn` 子树里）。
             // 按钮 80.4 px 高 = 0.744 世界单位，往下让 0.021 ≈ 23 px，正好落在按钮下半。
             _clockLabel = Hud(root, "", EndTurnX01, EndTurnY01 + 0.021f, 2,
@@ -12002,10 +12059,21 @@ namespace CardPresentation
             if (_myDeckSizePlate != null) _myDeckSizePlate.SetTint(sizeTint);
             if (_foeDeckSizePlate != null) _foeDeckSizePlate.SetTint(sizeTint);
 
+            // 🔴 **2026-10-10（A1213①）**：框/四格 ← 原版 `RightArea/{Player,Enemy}Deck/Player Deck Size
+            //    Container/Player Deck Size Tex`（`RectTransform_2604`(我) · `_3406`(敌)）。
+            //    ⚠️ **框高不是序列化字段**：那颗 TMP 的 `m_SizeDelta.y = **0**` —— 它靠父容器
+            //    `Player Deck Size Container` 的 **`AspectRatioFitter`（宽控高 4.03465）**撑出高度，
+            //    打开 uGUI 的写法是 `m_AspectMode = WidthControlsHeight` ⇒ 框 = 容器 × 锚区比。
+            //    真值（`python 工具/menu_dump.py bundle_scenes_scenes_battlearena1 --rt 3292 --depth 4 --no-sprite`
+            //    那一趟现读、`⚙ARF` 已回写）：**我 219.42×44.93** · **敌 193.20×39.56**。
+            //    ⛔ **拿序列化的 `sizeDelta.y = 0` 当框高会把字号压到 `m_fontSizeMin`（10）**。
+            //    ⚠️ `m_fontSizeBase = 49.63`（**≠ 标称**，本族唯一一颗）—— 它是自适应二分的起点，如实照传。
             _pileLabel = Hud(root, "", mySizeX, mySizeY, 3, dim,
-                             new Vector2(0.5f, 0.5f), "MyPileLabel");
+                             new Vector2(0.5f, 0.5f), "MyPileLabel",
+                             219.42f, 44.93f, 10f, 42f, 49.63f);
             _foePileLabel = Hud(root, "", foeSizeX, foeSizeY, 3, dim,
-                                new Vector2(0.5f, 0.5f), "FoePileLabel");
+                                new Vector2(0.5f, 0.5f), "FoePileLabel",
+                                193.20f, 39.56f, 10f, 42f, 49.63f);
 
             // ---- 本回合已出牌数：原版 `CardsPlayedInTurnHolder` 里的三枚小方块 ----
             // 三枚 `40k_general_bt_yellow` 各 20×20、间距 9，居中排在 holder 里、底对齐；
@@ -12189,10 +12257,17 @@ namespace CardPresentation
             // ⚠️ 所以这一件**不是「画一行字上去」**（§13-E 第 7 条当时是这么理解的）——
             //    原版无资料时**整块都不出现**。单机没有玩家资料 ⇒ 默认关；`SetTitle` 留好了接线点。
             var titleOrange = new Color(1.0f, 0.6306f, 0.4198f);
+            // 🔴 **2026-10-10（A1213①）**：框/四格 ← 原版两侧的 `…/TitleBackground/EnemyTitle`
+            //    （`RectTransform/RectTransform_2893.json`(我) · `_3134.json`(敌)；
+            //     框 **187.40×36.84**、`auto[2~35] base36`、**折行 0**）。
+            //    ⚠️ 原版这两颗的 `m_fontSize = 30.55` **< `m_fontSizeMax = 35`** ⇒ 原版当时**是被框压下来的**
+            //    （收敛值不是上限）—— 我们这一侧同样会往 35 涨、由框高决定落点（见 `Hud` 的 doc）。
             _titleMe = Hud(root, "", 227.10895892232656f / 1920f, 1f - 1044.0677461922169f / 1080f, 3, titleOrange,
-                           new Vector2(0.5f, 0.5f), "TitleText_Me");
+                           new Vector2(0.5f, 0.5f), "TitleText_Me",
+                           187.40f, 36.84f, 2f, 35f, 36f, 0);
             _titleFoe = Hud(root, "", 227.40876360982656f / 1920f, 1f - 108.31516364216805f / 1080f, 3, titleOrange,
-                            new Vector2(0.5f, 0.5f), "TitleText_Foe");
+                            new Vector2(0.5f, 0.5f), "TitleText_Foe",
+                            187.40f, 36.84f, 2f, 35f, 36f, 0);
             if (_titleMe != null) _titleMe.SetGlyphHeight(TitleFontPx / 108f);
             if (_titleFoe != null) _titleFoe.SetGlyphHeight(TitleFontPx / 108f);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向档 = 原版两侧 `EnemyTitle` 的 **`V Midline`**
@@ -12411,10 +12486,18 @@ namespace CardPresentation
             //    不能共用局部量；判据本身只有 `ShowsQuestPoints` 一处，两处都调它，不算「写两份」。
             bool meQp = ShowsQuestPoints(_myFaction);
             bool foeQp = ShowsQuestPoints(_foeFaction);
+            // 🔴 **2026-10-10（A1213①）**：框/四格 ← 原版 `…/{Player,Enemy}Mana/QuestPointsHolder/QPText`
+            //    （`RectTransform/RectTransform_3483.json`(我) · `_2607.json`(敌)；
+            //     框 **48.17×45.26**、`auto[15.79~40.5] base36`、折行 1）。
+            //    ⚠️ 文案 `0/3`（3 字）塞在 48.17 px 宽的框里、字号上限 40.5 —— 原版就是这么紧
+            //    （`m_fontSize = 40.5` = 上限 ⇒ 原版那时装得下）；我们这一侧字体更宽/行盒更高，
+            //    落点会与原版不同 ⇒ 交给断言波 + 真 Play 量（见 `Hud` 的 doc）。
             _qpTextMe = Hud(root, "0/3", 1865.8381719470285f / 1920f, 1f - 643.9898812899978f / 1080f, 4, white,
-                            new Vector2(0.5f, 0.5f), "QPText_Me");
+                            new Vector2(0.5f, 0.5f), "QPText_Me",
+                            48.17f, 45.26f, 15.79f, 40.5f, 36f);
             _qpTextFoe = Hud(root, "0/3", 1864.9734582742763f / 1920f, 1f - 198.7184759276015f / 1080f, 4, white,
-                             new Vector2(0.5f, 0.5f), "QPText_Foe");
+                             new Vector2(0.5f, 0.5f), "QPText_Foe",
+                             48.17f, 45.26f, 15.79f, 40.5f, 36f);
             _qpTextMe.gameObject.SetActive(meQp);
             _qpTextFoe.gameObject.SetActive(foeQp);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向档 = 原版 `QPText '0/3'` 的 **`V Capline`**
@@ -13095,10 +13178,82 @@ namespace CardPresentation
         /// 🔴 **只此一份** —— 手牌/我方牌库/敌方牌库三处都走它，⛔ 别在调用点各拼一遍。</summary>
         public static string CountText(string term, int n) { return Loc.T(term) + ": " + n; }
 
+        /// <summary>HUD 上的一行字。
+        ///
+        /// <para>🔴 **2026-10-10（A1213①）：后 6 个形参是新增的「原版框 + 四格」—— 原来一个都没有。**
+        /// 病灶（普查代理 `R6` §2·A / §4 现读）：我们这颗**从不写 `sizeDelta`**
+        /// （`Label` 只在 `SetWrapWidth` / `SetAutoFitBox` 里写它，本助手两个都不调），
+        /// 而原版**每一颗 HUD 文字都有真框、而且 `m_enableAutoSizing = 1`** ⇒
+        /// 「接 autosize」这件事在原版那一侧是**有框可用**的，我们这一侧**连框都没有**。</para>
+        ///
+        /// <para>**为什么给它框不会挪动文字（本件最大的风险点，判据是结构性的）**：
+        /// 框写在 **TMP 子节点的 `sizeDelta`** 上（`TmpFont.SetWrapWidthRect` = `sizeDelta = (w, 0)`，
+        /// `SetAutoFitBox` 再补 `sizeDelta.y`），而**最终摆位**由 `Label.RefreshBounds()` 一锤定音：
+        /// 它按 `textBounds` 反算 `_tmp.rectTransform.localPosition =
+        /// (-anchor.x·W - b.min.x, -anchor.y·H - b.min.y + vOffset)`
+        /// —— **框的 pivot / `anchoredPosition` / `sizeDelta` 从不进入这条算式**
+        /// ⇒ 文字块的锚点**逐位停在 `Label` 节点的 `localPosition` 上**，与框多大、轴心在哪**无关**。
+        /// 换句话说：**框天然是「以本节点为中心」的**（与 `MenuDraw.Text` 那条
+        /// 「`Local(parent, 矩形)` = 矩形中心 − 父件位置」是同一个约定）。
+        /// ⇒ **本件不改任何一个 `x01/y01`、不动 `anchor`、不新增/改动 `SetVAlign` 与 `Align*On`**。</para>
+        ///
+        /// <para>🔴 **会变的东西（如实登记，不是缺陷）**：**字号**。
+        /// `SetAutoFitBox` 开的是**真自适应**（TMP 的 `m_enableAutoSizing`），它会
+        /// **在 `[fontSizeMin, fontSizeMax]` 里收敛**（装得下就涨到 max、装不下就缩 ——
+        /// `TextMeshPro.GenerateTextMesh()` 的两支：`#region Check Auto-Sizing (Upper Font Size Bounds)`
+        /// 与 `#region Text Auto-Sizing (Text greater than vertical bounds)`）。
+        /// ⇒ **字块尺寸会跟着变**，这正是接 autosize 的目的（原版那 17 颗的字号本来就是自适应出来的）。
+        /// ⚠️ 但**收敛结果我们这一侧量不到**（本波不跑 Unity）⇒ 交给后面的断言波 + 真 Play。
+        /// ⚠️ 副作用两处：① `Label.Contains`（END TURN 的命中区）读 `WorldW/WorldH`
+        /// —— 字变大命中区就跟着变大（**原版也是这个模型**）；② 非 `(0.5,0.5)` 锚的那一颗
+        /// （`MatchSkullsScore`，锚 `(0, 0.5)`）**左缘固定、右缘随字号动**。</para>
+        ///
+        /// <para>**逐颗判据（本表 = 本件唯一的数字正本，⛔ 别在调用点另抄一份）**
+        /// —— 全部**现读** `bundle_scenes_scenes_battlearena1`（13 场同构，字段逐值相同，只差节点 pid）：
+        /// 四格 = 原版那颗 TMP 的 `m_fontSizeMin` / `m_fontSizeMax` / `m_fontSizeBase` / `m_TextWrappingMode`
+        /// **原文**（与 `R6` §2·A 逐值吻合）；框 = 那颗 `RectTransform` 的**解算后屏幕矩形（1920×1080 画布 px）**。
+        /// 原版那 13 场里，多数框是**拉伸锚点**（`anchorMin ≠ anchorMax`，`sizeDelta` 是内缩量）⇒
+        /// **必须按父链解算**，⛔ 不能直读 `m_SizeDelta`。解算口径（uGUI 语义，逐级）：
+        /// `rect.size(局域) = sizeDelta + anchorDiff ⊙ 父局域尺寸` · `父局域 = 父屏幕 ÷ lossyScale(父)` ·
+        /// `屏幕尺寸 = 局域尺寸 × lossyScale(自己)`。命令（可复现）：
+        /// `python 工具/menu_dump.py bundle_scenes_scenes_battlearena1 --rt &lt;父&gt; --depth 5 --no-sprite`，
+        /// 或用本件留在 `资料/普查产出_第十一会话/PH_A1213Hud补框.md` 里的逐颗表。
+        /// ⚠️ `MyPileLabel`/`FoePileLabel` 那两颗的**框高来自 `AspectRatioFitter`（宽控高 4.03465）**
+        /// —— 序列化 `sizeDelta.y` 是 **0**，拿它当框高会把字号压到 min（`⚙ARF` 那几个数是要回写之后的）。</para>
+        ///
+        /// <para>⚠️ `SetAutoFitBox` **内部无条件把折行开成 `Normal`(1)**
+        /// （它调 `SetWrapWidth`，而那个写死 `textWrappingMode = Normal`）⇒
+        /// 原版那一档是 **`0`** 的四颗（两张名牌 + 两张称号）必须由 `wrapMode` 显式还原成原版那一档。
+        /// 本件 17 颗里没有 `3`（`PreserveWhitespaceNoWrap`）那一档，所以走 `SetWrappingMode(int)` 的 0/1 就够。</para>
+        ///
+        /// <para>🔴 **17 颗里【16 颗】在本件落地、【1 颗】故意没做**：`HandLabel`
+        /// （原版 `CardsInHandText`）—— 它那颗的四格是**「缩放假」里的值**（父链是纯 `Transform`、`HandArea`
+        /// 带 `m_LocalScale = 108`），照同一套口径会静默把字号压到 3 px；而换算要的单位桥本仓没有、
+        /// 两条候选读法互相打架 ⇒ 按红线「不许自己发明口径」**只报不动**。
+        /// 判据全文在那个调用点的注释 + `资料/普查产出_第十一会话/PH_A1213Hud补框.md` §4。</para>
+        /// </summary>
+        /// <param name="boxWpx">原版那颗 TMP 的**框宽**（画布 px；`0` = 不给框、行为与加这些参数之前逐位相同）。</param>
+        /// <param name="boxHpx">原版那颗 TMP 的**框高**（画布 px；同上）。</param>
+        /// <param name="autoMinPx">原版 `m_fontSizeMin` **原文**。</param>
+        /// <param name="autoMaxPx">原版 `m_fontSizeMax` **原文**。</param>
+        /// <param name="autoBasePx">原版 `m_fontSizeBase` **原文**（自适应二分的起点）。</param>
+        /// <param name="wrapMode">原版 `m_TextWrappingMode` **原文**（`0`/`1`；本族用不到 `3`）。</param>
         Label Hud(Transform root, string text, float x01, float y01, int scale,
-                  Color c, Vector2 anchor, string name)
+                  Color c, Vector2 anchor, string name,
+                  float boxWpx = 0f, float boxHpx = 0f,
+                  float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f,
+                  int wrapMode = 1)
         {
             var l = Label.Create(root, text, LayoutSpace.ToWorld(x01, y01), scale, c, anchor, name);
+            if (l != null && boxWpx > 0f && boxHpx > 0f && autoMaxPx > 0f)
+            {
+                // 框 + 四格。⚠️ `SetAutoFitBox` 只在**已激活**的对象上量得出尺寸（CLAUDE.md §三那条坑）——
+                //    HUD 这一族建的时候是活的（`HudRoot` 就在 `transform` 下），所以这里安全。
+                l.SetAutoFitBox(Px(boxWpx), Px(boxHpx), autoMinPx, autoMaxPx, autoBasePx);
+                // ⛔ 上面那一句顺带把折行开成 `Normal`(1) ⇒ 原版是 `0` 的必须还原（见本方法 doc 末尾那条）。
+                //    值没变时 `SetWrappingMode` 自己早退（不白重排一次），所以无条件调是安全的。
+                l.SetWrappingMode(wrapMode);
+            }
             _hudLabels.Add(l);
             _hudSpots.Add(new Vector2(x01, y01));
             return l;
