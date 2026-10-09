@@ -300,7 +300,11 @@ namespace CardPresentation
         /// 同一棵树里的 `Placeholder` 是 `0`。**我们这一颗 `Label` 兼作两者**（没输入时显示占位符、输入时显示文本）
         /// ⇒ 取 `Text` 那一档 —— **与 `FilterPanelModel.DeckEditInputWrap = 3` 是同一条判据、同一句写法**
         /// （那个常量早就定了，只是收藏窗这一处没跟上，一直落在 `SetAutoFitBox` 的 `Normal`(=1) 上）。</para>
-        /// ⛔ **别用 `SetWrapping(false)` 顶替** —— 那是 `0`(`NoWrap`)，会静默降级掉「空白保留」那一半。</summary>
+        /// ⛔ **别用 `SetWrapping(false)` 顶替** —— 那是 `0`(`NoWrap`)，会静默降级掉「空白保留」那一半。
+        /// 🔴 **2026-10-10（A1212 · 块 3 #12）：本窗的第二个消费者** = Deck 页那颗卡组名筛选框
+        /// （`… ▸ Deck Filters ▸ Filters ▸ Deck Name Filter ▸ Input Field ▸ Text Area ▸ Text`，
+        /// `R5_包装层菜单族.md` §2 #12 实测**折行也是 `3`**）—— 同一个形状（单行输入框）⇒ **共用这条常量**，
+        /// ⛔ 别在那边再写一个 `3`（CLAUDE.md §三：两处写同一条规则 = 迟早不一致）。</summary>
         public const int SearchBoxWrap = 3;
         /// <summary>面板**可见**高（屏幕底裁掉）—— 与卡组编辑那条筛选栏同一个数（`DeckRuntime.FltH = 924.1`）。</summary>
         public const float FltViewH = 924.1f;
@@ -834,7 +838,14 @@ namespace CardPresentation
                 Rect(page, wcIc[i], new PxRect(x, 91.5f, x + 30f, 135.5f), "Wildcard Icon " + i, QPageRow,
                      null, true);
                 var t = Text(page, "99", x + 30f, x + 71f, 91.5f, 135.5f, 5, PageInk,
-                             "Wildcard Count " + i, 32.6f);
+                             "Wildcard Count " + i, 32.6f,
+                             // 🔴 **2026-10-10（A1212 · 块 3 #1）**：接上原版那颗的 `m_enableAutoSizing`
+                             //   （四格 = **10 / 38 / 45 / 1**）。判据 = `R5_包装层菜单族.md` §2 #1
+                             //   （`Collection Menu Variant ▸ … ▸ WIldcard Display ▸ Counters ▸ {…} ▸ Counter`，
+                             //   四颗逐值相同）。`wrapPx` = 框宽 **41**（= `x+71 − (x+30)`，与卡组编辑窗那颗
+                             //   `WcCntW = 41f` 同值）。折行 = `1` ⇒ 与漏斗里那一档同档，不必还原。
+                             //   ⚠️ 闸：`wrapPx 41 > 0 ∧ autoMinPx 10 > 0 ∧ fontPx 32.6 > 10` 三条全真 ⇒ 生效。
+                             wrapPx: 41f, autoMinPx: 10f, autoMaxPx: 38f, autoBasePx: 45f);
                 if (t != null) { t.SetRenderQueue(QPageText); _wcCount[i] = t; }
             }
             // 🆕 2026-10-17（B10 · 账上「三件 UI ③」的**「按阵营」那一半**）：这一条计数条**缺的是 `Army Icon`** ——
@@ -2356,8 +2367,19 @@ namespace CardPresentation
             //   （⚠️ 那一列是**原版实拍**读到的，见 `Core/Loc.cs` 里 `MenuDeck/Filters/Filters` 那条的注释）。
             //   ⛔ 节点名 `"Filters Label"`（`Editor/CollectionScene.cs` 按名找）与上面那颗底图/图标的名字都不动。
             var fltLab = Text(page, Loc.T("MenuDeck/Filters/Filters"), 437.2f, 587.2f, FltBtnY, FltBtnY + FltBtnS, 5, PageInk,
-                              "Filters Label", filterPx);
-            if (fltLab != null) fltLab.SetRenderQueue(QPageText);
+                              "Filters Label", filterPx,
+                              // 🔴 **2026-10-10（A1212 · 块 3 #7）**：接上 `m_enableAutoSizing`（四格 = **10 / 42 / 32 / 0**）。
+                              //   判据 = `R5` §2 #7（三页三颗同名：`CardsTab ▸ Header Filters` / `Cardback Tab ▸ Header` /
+                              //   `Alternate Art Tab ▸ Header Filters`，`Filter Toggle ▸ label`）—— **本处一个调用点
+                              //   撑三页**，而 `filterPx` 逐页不同（42/35/42），⚠️ 闸要求 `fontPx > autoMinPx 10`：
+                              //   最小的那一页是 **35**，四页全过。
+                              //   ⚠️ 折行 = `0` ⇒ 漏斗内部把模式开成 `Normal(1)` 之后要**显式还原**（见下面那句）。
+                              wrapPx: 150f, autoMinPx: 10f, autoMaxPx: 42f, autoBasePx: 32f);
+            if (fltLab != null)
+            {
+                fltLab.SetRenderQueue(QPageText);
+                fltLab.SetWrappingMode(0);      // 原版 `m_TextWrappingMode = 0`
+            }
             if (onToggle != null)
                 AddHit(page, "FiltersHit", new PxRect(FltBtnX, FltBtnY, FltBtnX + FltBtnS + 220f, FltBtnY + FltBtnS),
                        QPageRow, onToggle);
@@ -2375,8 +2397,17 @@ namespace CardPresentation
             //      （`Editor/CollectionScene` 里按名找它的那两处 —— 底图 `FindChild(…, "Clear filters")`、字 `…"Clear filters Text"`）。
             var clrLab = Text(page, Loc.T("MenuDeck/Filters/ClearFilters"),
                               ClearFltX, ClearFltX + ClearFltW, ClearFltY, ClearFltY + ClearFltH,
-                              5, PageInk, "Clear filters Text", clearPx);
-            if (clrLab != null) clrLab.SetRenderQueue(QPageText);
+                              5, PageInk, "Clear filters Text", clearPx,
+                              // 🔴 **2026-10-10（A1212 · 块 3 #8）**：接上 `m_enableAutoSizing`（四格 = **10 / 42 / 12 / 0**）。
+                              //   判据 = `R5` §2 #8（三页三颗同名：`… ▸ Clear Filter Button ▸ Button Text`，
+                              //   原版 CardsTab 那颗 fs42）。`clearPx` 逐页 = 42/33/42/33 ⇒ 最小 33 > 10，闸全过。
+                              //   ⚠️ 折行 = `0` ⇒ 显式还原（下面那句）。
+                              wrapPx: ClearFltW, autoMinPx: 10f, autoMaxPx: 42f, autoBasePx: 12f);
+            if (clrLab != null)
+            {
+                clrLab.SetRenderQueue(QPageText);
+                clrLab.SetWrappingMode(0);      // 原版 `m_TextWrappingMode = 0`
+            }
             if (onClear != null)
                 // A17：原版 `…>Clear Filter Button` 是 SpriteSwap（普查 §块 3 第 4 行；我们 1 颗盖原版 3 颗）
                 AddHit(page, "ClearFiltersHit",
@@ -2682,12 +2713,28 @@ namespace CardPresentation
             //   ⛔ 节点名 `"Create Text"` / `"Import Text"` 不动（`Editor/CollectionScene` 里按名找它们的那两处）。
             var newLab = Text(newQ != null ? newQ.transform : ctrl, Loc.T("MenuDeck/MenuButtons/CreateDeck"),
                               CreateX, CreateX + HdrBtnW,
-                              HdrBtnY, HdrBtnY + HdrBtnH, 5, PageInk, "Create Text", 42f);
-            if (newLab != null) newLab.SetRenderQueue(QPageText);
+                              HdrBtnY, HdrBtnY + HdrBtnH, 5, PageInk, "Create Text", 42f,
+                              // 🔴 **2026-10-10（A1212 · 块 3 #9）**：接上 `m_enableAutoSizing`（四格 = **10 / 42 / 12 / 0**）。
+                              //   判据 = `R5` §2 #9（`… ▸ Select Deck Tab ▸ Header ▸ Control Buttons ▸ Create ▸ Button Text`）。
+                              //   闸：`42 > 0 ∧ 10 > 0 ∧ fontPx 42 > 10` 全真。折行 = `0` ⇒ 还原（下面那句）。
+                              wrapPx: HdrBtnW, autoMinPx: 10f, autoMaxPx: 42f, autoBasePx: 12f);
+            if (newLab != null)
+            {
+                newLab.SetRenderQueue(QPageText);
+                newLab.SetWrappingMode(0);      // 原版 `m_TextWrappingMode = 0`
+            }
             var impLab = Text(impQ != null ? impQ.transform : ctrl, Loc.T("MenuDeck/MenuButtons/ImportDeck"),
                               ImportX, ImportX + HdrBtnW,
-                              HdrBtnY, HdrBtnY + HdrBtnH, 5, PageInk, "Import Text", 42f);
-            if (impLab != null) impLab.SetRenderQueue(QPageText);
+                              HdrBtnY, HdrBtnY + HdrBtnH, 5, PageInk, "Import Text", 42f,
+                              // 🔴 **2026-10-10（A1212 · 块 3 #10）**：接上 `m_enableAutoSizing`（四格 = **10 / 42 / 12 / 0**）。
+                              //   判据 = `R5` §2 #10（同上 `… ▸ Control Buttons ▸ Import ▸ Button Text`）。
+                              //   折行 = `0` ⇒ 还原（下面那句）。
+                              wrapPx: HdrBtnW, autoMinPx: 10f, autoMaxPx: 42f, autoBasePx: 12f);
+            if (impLab != null)
+            {
+                impLab.SetRenderQueue(QPageText);
+                impLab.SetWrappingMode(0);      // 原版 `m_TextWrappingMode = 0`
+            }
             BuildUnlockPlaceholder(ctrl);           // 组内**最左**那一格（原版画不出东西，只建结构）
 
             // 🆕 A17：这三颗原版都是 SpriteSwap，高亮图都 = `<常态图>_hover`（普查 §块 3 第 1～3 行）
@@ -2849,8 +2896,22 @@ namespace CardPresentation
                               QFltRow, new Color(0.0627f, 0f, 0f, 1f), true, "Input BG");
             }
             _deckFltNameTx = Text(nameRow, DeckNameFilterText(), DInputL + 10f, DInputL + DInputW - 45f,
-                                  DInputT + 6.5f, DInputT + DInputH - 6.5f, 5, PageInk, "Input Text", 30f);
-            if (_deckFltNameTx != null) _deckFltNameTx.SetRenderQueue(QFltText);
+                                  DInputT + 6.5f, DInputT + DInputH - 6.5f, 5, PageInk, "Input Text", 30f,
+                                  // 🔴 **2026-10-10（A1212 · 块 3 #12）**：接上 `m_enableAutoSizing`（四格 = **10 / 35 / 26 / 3**）。
+                                  //   判据 = `R5` §2 #12（`… ▸ Select Deck Tab ▸ Deck Filters ▸ Filters ▸
+                                  //   Deck Name Filter ▸ Input Field ▸ Text Area ▸ Text`）。
+                                  //   `wrapPx` = 本条自己的框宽 = `DInputW − 55`（左右各让 10 / 45）。
+                                  //   ⚠️ **折行 = `3`**（`PreserveWhitespaceNoWrap`，TMP 给单行输入框的那一档：
+                                  //   `TMP_InputField.SetTextComponentWrapMode()` = `multiLine ? Normal : PreserveWhitespaceNoWrap`）
+                                  //   ⇒ 走本文件已有的那条常量 `SearchBoxWrap`（**同一条判据的第二处消费者**，
+                                  //   另一处 = `CardNameFilter` 那颗，A249），⛔ **别用 `SetWrapping(false)` 顶替**（那是 `0`）。
+                                  //   ⚠️ 闸：`wrapPx 226.28 > 0 ∧ 10 > 0 ∧ fontPx 30 > 10` 全真。
+                                  wrapPx: DInputW - 55f, autoMinPx: 10f, autoMaxPx: 35f, autoBasePx: 26f);
+            if (_deckFltNameTx != null)
+            {
+                _deckFltNameTx.SetRenderQueue(QFltText);
+                _deckFltNameTx.SetWrappingMode(SearchBoxWrap);   // 原版 `m_TextWrappingMode = 3`
+            }
             Rect(nameRow, "40k_icon_search", new PxRect(268.45f, 180.94f, 303.45f, 210.94f), "Search Icon",
                  QFltRow, null, true);
             AddHit(nameRow, "Hit", ir, QFltHit, BeginDeckNameFilter);
@@ -2865,7 +2926,13 @@ namespace CardPresentation
             //   中文列 = 「军队」(`zh_CN.csv:11`)。
             //   ⛔ 节点名 `"Title"` 不动。
             var ttl = Text(army, Loc.T("MenuDeck/Filters/Army"), DTitleL, DTitleL + DTitleW, DTitleT, DTitleT + DTitleH, 5, PageInk,
-                           "Title", 32f);
+                           "Title", 32f,
+                           // 🔴 **2026-10-10（A1212 · 块 3 #13）**：接上 `m_enableAutoSizing`（四格 = **10 / 36 / 32 / 1**）。
+                           //   判据 = `R5` §2 #13（`… ▸ Select Deck Tab ▸ Deck Filters ▸ Filters ▸ Army Filter ▸ Title`）。
+                           //   ⚠️ `R5` §5·2 同时登记：「我们传的 `fontPx` = **32**、原版 `m_fontSize` = **36**」——
+                           //   那是**标称那一格**的账（本批**只登记不动**，见报告）；本句照原版填的是 `m_fontSizeMax = 36`。
+                           //   折行 = `1` ⇒ 与漏斗那一档同档，不必还原。
+                           wrapPx: DTitleW, autoMinPx: 10f, autoMaxPx: 36f, autoBasePx: 32f);
             if (ttl != null) ttl.SetRenderQueue(QFltText);
             var armies = CampaignData.Armies;
             for (int i = 0; i < armies.Length; i++)

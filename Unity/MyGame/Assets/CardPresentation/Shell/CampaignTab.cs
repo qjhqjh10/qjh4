@@ -1011,8 +1011,21 @@ namespace CardPresentation
             var contQ = _win.Rect(p, "UI_Button_Mulligan", btn, "Generic Simplified UI Button", QPanelBtn);
             var btnTxR = new PxRect(btn.x1 + 9f, btn.y1 + 4f, btn.x2 - 9f, btn.y2 - 4f);
             var panBtn = _win.Text(p, "Continue", btnTxR.x1, btnTxR.x2, btnTxR.y1, btnTxR.y2, 5,
-                                   Color.white, "Button Text", 49.35f);
-            if (panBtn != null) { panBtn.SetRenderQueue(QPanelBtn); MenuDraw.AlignRight(panBtn, btnTxR); }
+                                   Color.white, "Button Text", 49.35f,
+                                   // 🔴 **2026-10-10（A1212 · 块 13 #21）**：接上原版那颗的 `m_enableAutoSizing`
+                                   //   （四格 = **10 / 55 / 12 / 0**）。判据 = `R5_包装层菜单族.md` §2 #21
+                                   //   （`Campaign Tab ▸ Premium Panel ▸ Generic Simplified UI Button ▸ Button Text`）。
+                                   //   闸：`wrapPx btnTxR.W > 0 ∧ 10 > 0 ∧ fontPx 49.35 > 10` 全真。
+                                   //   ⚠️ 折行 = `0` ⇒ 漏斗内部把它开成 `Normal(1)` 之后**显式还原**
+                                   //   （写法同本文件上面 `panTitle` 那一处 A281：`SetWrapping` 内部会 `ForceRelayout`
+                                   //   ⇒ 还原这一句必须排在 `MenuDraw.AlignRight` **之前**）。
+                                   wrapPx: btnTxR.W, autoMinPx: 10f, autoMaxPx: 55f, autoBasePx: 12f);
+            if (panBtn != null)
+            {
+                panBtn.SetRenderQueue(QPanelBtn);
+                panBtn.SetWrappingMode(0);      // 原版 `m_TextWrappingMode = 0`
+                MenuDraw.AlignRight(panBtn, btnTxR);
+            }
             AddHit(p, "ContinueHit", btn, QPanelBtn, () =>
                 Debug.Log("[Campaign] `Continue`：原版是「领高级每日奖励」，走 PlayFab 云脚本 —— **单机没有服务器**，本轮不实现"),
                 contQ, "UI_Button_Mulligan");

@@ -940,7 +940,17 @@ namespace CardPresentation
             //   `Localize.mTerm = "MainMenu/MainButtons/ButtonLabel/Back"` · 同 GO 的 TMP `m_text = "Back"`
             //   （父链沿 `RectTransform.m_Father` 逐级解到根，节点名与 `HdrBackX/Y/W/H` 那组常数同源）。
             //   ⛔ 附件里那条「自拟 `MenuDeck/Button/Back`」**不要** —— **原版有键就必须用原版的键**（施工单 §④·1）。
-            Txt("hdr_back_t", Loc.T("MainMenu/MainButtons/ButtonLabel/Back"), HdrBackX, HdrBackY, HdrBackW, HdrBackH, 2, Ink, QText);
+            var hdrBackTx = Txt("hdr_back_t", Loc.T("MainMenu/MainButtons/ButtonLabel/Back"), HdrBackX, HdrBackY, HdrBackW, HdrBackH, 2, Ink, QText);
+            // 🔴 **2026-10-10（A1212 · 块 1 #35）**：接上原版那颗的 `m_enableAutoSizing`（四格 = **10 / 40 / 12 / 0**）。
+            //   判据 = `R6_包装层战斗与其余.md` §2·F #35（`bundle_menus_assets_all ▸ Deck Editing Menu/Content Area/Header/Close/Button Text`）。
+            //   ⚠️ **折行 = `0`** ⇒ `SetAutoFitBox` 内部那句 `SetWrapWidth` 会**无条件**把模式开成 `Normal(1)`
+            //   ⇒ 紧跟一句 `SetWrappingMode(0)` 还原（现成先例 = `Shell/CollectionWindow.cs` 那颗 `Back` 的写法，
+            //   以及 `Battle/Label.cs` 的 `SetWrapping` doc 里那句「调用方在 `SetAutoFitBox` 之后还原自己那一档」）。
+            if (hdrBackTx != null)
+            {
+                hdrBackTx.SetAutoFitBox(U(HdrBackW), U(HdrBackH), 10f, 40f, 12f);
+                hdrBackTx.SetWrappingMode(0);
+            }
             Btn_("hdr_back", HdrBackX, HdrBackY, HdrBackW, HdrBackH);
 
             // Filters 圆钮 + 图标 + 文字（原版这三块是分开的三条 rect）
@@ -969,8 +979,16 @@ namespace CardPresentation
             //   页头那颗金框钮右边）。
             //   ⛔ 别在代码里再写一份中文常量表 —— 词条只此一份（`Core/Loc.cs`）。
             //   断言 → `Editor/DeckScene.cs` 的 G1 节 ⑭。
-            Txt("hdr_fltlbl", Loc.T("MenuDeck/Filters/Filters"),
+            var hdrFltLblTx = Txt("hdr_fltlbl", Loc.T("MenuDeck/Filters/Filters"),
                 HdrFltLblX, HdrFltLblY, HdrFltLblW, HdrFltLblH, 2, Ink, QText);
+            // 🔴 **2026-10-10（A1212 · 块 1 #36）**：接上 `m_enableAutoSizing`（四格 = **10 / 40 / 32 / 0**）。
+            //   判据 = `R6` §2·F #36（`…/Content Area/Header/Filters/Label`）。
+            //   ⚠️ 折行 = `0` ⇒ 接完显式还原（同 `hdr_back_t` 那一处，⛔ 别省这一句）。
+            if (hdrFltLblTx != null)
+            {
+                hdrFltLblTx.SetAutoFitBox(U(HdrFltLblW), U(HdrFltLblH), 10f, 40f, 32f);
+                hdrFltLblTx.SetWrappingMode(0);
+            }
             Btn_("hdr_filters", HdrFltBtnX, HdrFltBtnY, HdrFltLblX + HdrFltLblW - HdrFltBtnX, HdrFltLblH);
 
             // 🆕 A24：原版 `Header/Filters/Generic Simplified UI Button_updated`（文本 'Clear filters'）
@@ -988,8 +1006,16 @@ namespace CardPresentation
             //   英文那一列 = 那颗 TMP 的 `m_text` 原文 `Clear filters`；中文列 = 「清除筛选」
             //   （源 `数据/本地化/i18n/zh_CN.csv:9`，⚠️ 是我们译的）。
             //   ⛔ 节点名 `hdr_clear_t` 不动（`Editor/DeckScene.cs` 按名找）。
-            Txt("hdr_clear_t", Loc.T("MenuDeck/Filters/ClearFilters"),
+            var hdrClearTx = Txt("hdr_clear_t", Loc.T("MenuDeck/Filters/ClearFilters"),
                 HdrClearX, HdrClearY, HdrClearW, HdrClearH, 2, Ink, QText);
+            // 🔴 **2026-10-10（A1212 · 块 1 #37）**：接上 `m_enableAutoSizing`（四格 = **10 / 42 / 12 / 0**）。
+            //   判据 = `R6` §2·F #37（`…/Header/Filters/Generic Simplified UI Button_updated/Button Text`）。
+            //   ⚠️ 折行 = `0` ⇒ 显式还原（同上）。
+            if (hdrClearTx != null)
+            {
+                hdrClearTx.SetAutoFitBox(U(HdrClearW), U(HdrClearH), 10f, 42f, 12f);
+                hdrClearTx.SetWrappingMode(0);
+            }
             Btn_("hdr_clear", HdrClearX, HdrClearY, HdrClearW, HdrClearH);
 
             // Wildcard Counter：底板 + 四个稀有度图标（30×44）+ 各自的数量
@@ -1009,6 +1035,13 @@ namespace CardPresentation
                 //   与 `RefreshHeader` 那句**同一个值**，⛔ 别再把两边写成两个数。
                 _wcTxt[i] = TxtPx("hdr_wct" + i, "99", WcIconX[i] + WcIconW, WcIconY, WcCntW, WcIconH,
                                   WcCntFontPx, Ink, QText);
+                // 🔴 **2026-10-10（A1212 · 块 1 #38）**：接上 `m_enableAutoSizing`（四格 = **10 / 38 / 45 / 1**）。
+                //   判据 = `R6` §2·F #38（`…/Header/WIldcard Counter/Counters/{Common,Rare,Epic,Legendary}/Counter`
+                //   —— 原版这**四颗逐值相同**）。标称字号已经由 `TxtPx(..., WcCntFontPx)` 给定（= 原版 `m_fontSize` 32.6，
+                //   见那条常数的注释），本句只补「框 + 自适应区间 + base」。
+                //   ⚠️ 折行 = `1`（= `Normal`）⇒ 与 `SetAutoFitBox` 内部设定的那一档**同档**，不必还原。
+                if (_wcTxt[i] != null)
+                    _wcTxt[i].SetAutoFitBox(U(WcCntW), U(WcIconH), 10f, 38f, 45f);
                 // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版这 4 颗
                 //   `…/WIldcard Counter/Counters/{Common,Rare,Epic,Legendary}/Counter`
                 //   = `m_VerticalAlignment = **Capline**`（判据 = `WA712_垂直对齐普查.md` §2·5 的归属表
@@ -1214,11 +1247,28 @@ namespace CardPresentation
             if (_deckNameText != null)
             {
                 _deckNameText.SetAlignLeft();
+                // 🔴 **2026-10-10（A1212 · 块 1 #39）**：接上 `m_enableAutoSizing`（四格 = **10 / 28 / 28 / 3**）。
+                //   判据 = `R6` §2·F #39（`…/Sidebar/Window Options/Deck Name/Text Area/Text`），
+                //   折行档那一格 = 原版 `m_TextWrappingMode = **3**`（`PreserveWhitespaceNoWrap` —— TMP 给
+                //   **单行输入框**的那一档，见 `Battle/Label.cs` 的 `WrappingMode` doc）。
+                //   ⚠️ **⛔ 别拿 `SetWrapping(false)`（= `0`）顶替** —— 那是**静默降档**
+                //   （`Label.SetWrappingMode` 只收 `0/1/2/3` 的原文；同判据 = `FilterPanelModel.DeckEditInputWrap`）。
+                //   ⚠️ **位置**：这一段排在 `Txt(...)` 之后、`SetAlignLeft()` **之后** ——
+                //   `SetAlignLeft` 的 doc 写着「要在『定版面』之前调（`SetAutoFitBox` / `SetWrapWidth` /
+                //   `ForceRelayout` 那三条）」，反过来会让画面停在旧对齐上、并给 `AlignAfterLayoutCount` 多记一笔
+                //   （A546② 那条断言点名列过「会计 3 笔」）。`SetVAlign` 照旧排在最后。
+                _deckNameText.SetAutoFitBox(U(NameTxW), U(NameTxH), 10f, 28f, 28f);
+                _deckNameText.SetWrappingMode(3);
                 MenuDraw.SetVAlign(_deckNameText, Label.VAlign.Capline, nameBox);
             }
             if (_deckNameHint != null)
             {
                 _deckNameHint.SetAlignLeft();
+                // 🔴 **2026-10-10（A1212 · 块 1 #40）**：接上 `m_enableAutoSizing`（四格 = **10 / 28 / 24 / 0**）。
+                //   判据 = `R6` §2·F #40（同上 `…/Text Area/Placeholder`）。折行 = `0` ⇒ 还原（同 `hdr_back_t`）。
+                //   位置理由同上面那颗。
+                _deckNameHint.SetAutoFitBox(U(NameTxW), U(NameTxH), 10f, 28f, 24f);
+                _deckNameHint.SetWrappingMode(0);
                 MenuDraw.SetVAlign(_deckNameHint, Label.VAlign.Capline, nameBox);
             }
             Img("name_clear", "40k_icon_search", NameClrX, NameClrY, NameClrW, NameClrH, QBorder);
@@ -1254,8 +1304,24 @@ namespace CardPresentation
                                              ListX, y, RowW, RowH, QBorder));
                 _deckRowCost.Add(Img("row_c" + i, costTex, RowCostX, y + (RowH - RowCostS) * 0.5f, RowCostS, RowCostS, QRow));
                 _deckRowCntIc.Add(Img("row_k" + i, cntTex, 258f, y + 8f, 40f, RowH - 16f, QRow));
-                _deckRowName.Add(Txt("row_n" + i, "", 62f, y, 190f, RowH, 1, Ink, QText));
-                _deckRowCount.Add(Txt("row_cnt" + i, "", RowCostX, y + (RowH - RowCostS) * 0.5f, RowCostS, RowCostS, 1, Ink, QText));
+                var rowNmLb = Txt("row_n" + i, "", 62f, y, 190f, RowH, 1, Ink, QText);
+                // 🔴 **2026-10-10（A1212 · 块 1 #41）**：接上 `m_enableAutoSizing`（四格 = **2 / 38 / 27.69 / 0**）。
+                //   判据 = `R6` §2·F #41（`…/Sidebar/Deck Details/Deck List drawer/…/Background/Text fill/Card Name`）。
+                //   ⚠️ `base = 27.69` 是原版原文（**不是笔误**，原版那两颗 `Card Name` / `cardsin deck` 都是它）。
+                //   ⚠️ 折行 = `0` ⇒ 还原（同 `hdr_back_t`）。
+                if (rowNmLb != null)
+                {
+                    rowNmLb.SetAutoFitBox(U(190f), U(RowH), 2f, 38f, 27.69f);
+                    rowNmLb.SetWrappingMode(0);
+                }
+                _deckRowName.Add(rowNmLb);
+                var rowCntLb = Txt("row_cnt" + i, "", RowCostX, y + (RowH - RowCostS) * 0.5f, RowCostS, RowCostS, 1, Ink, QText);
+                // 🔴 **2026-10-10（A1212 · 块 1 #42）**：接上 `m_enableAutoSizing`（四格 = **18 / 50 / 32 / 1**）。
+                //   判据 = `R6` §2·F #42（同上 `…/Background/Cost Image/Cost`）。
+                //   ⚠️ 折行 = `1` ⇒ 与 `SetAutoFitBox` 内部那一档同档，不必还原。
+                if (rowCntLb != null)
+                    rowCntLb.SetAutoFitBox(U(RowCostS), U(RowCostS), 18f, 50f, 32f);
+                _deckRowCount.Add(rowCntLb);
             }
 
             // Empty Warning（原版 inactive，空卡组时才显示）
@@ -1353,8 +1419,16 @@ namespace CardPresentation
             //   —— 登录页那颗共用的，⛔ 不是本窗这一颗）；那颗 TMP 的 `m_text = "Done"`·fs40。
             //   中文那一列 = **原版实拍**（`用户实拍_1017/卡组编辑界面参考.png` 左栏底部那颗金框钮）。
             //   断言 → `Editor/DeckScene.cs` 的 G1 节 ⑭。
-            Txt("foot_done_t", Loc.T("MenuDeck/MenuButtons/Done"),
+            var footDoneTx = Txt("foot_done_t", Loc.T("MenuDeck/MenuButtons/Done"),
                 DoneX, DoneY, DoneW, DoneH, 2, Ink, QText);
+            // 🔴 **2026-10-10（A1212 · 块 1 #46）**：接上 `m_enableAutoSizing`（四格 = **10 / 40 / 12 / 0**）。
+            //   判据 = `R6` §2·F #46（`…/Sidebar/Footer/Done/Button Text`）。
+            //   ⚠️ 折行 = `0` ⇒ 还原（同 `hdr_back_t`）。
+            if (footDoneTx != null)
+            {
+                footDoneTx.SetAutoFitBox(U(DoneW), U(DoneH), 10f, 40f, 12f);
+                footDoneTx.SetWrappingMode(0);
+            }
             // 🔴 2026-09-27（PA 普查）：原版 `Content Area/Sidebar/Footer/Image` 是 PA=1，贴图
             //   `40k_general_icon_card_amount` **64×64** 塞进 50×40 ⇒ 原版实绘 **40×40**（居中），我们 50 宽（**1.25×**）。
             Img("foot_ic", "40k_general_icon_card_amount", FootIcX, FootIcY, FootIcW, FootIcH, QBorder, true);
@@ -2494,8 +2568,20 @@ namespace CardPresentation
                 QDragPreview + 1, false, _cardGhostGo.transform, relativeToParent: true);
             var nm = Txt("card_ghost_n", "", lx1 + 62f, ly1, CardGhostW - 70f, CardGhostH,
                          1, Ink, QDragPreview + 2, _cardGhostGo.transform, relativeToParent: true);
+            // 🔴 **2026-10-10（A1212 · 块 1 #52）**：接上 `m_enableAutoSizing`（四格 = **2 / 38 / 27.69 / 0**）。
+            //   判据 = `R6` §2·F #52（对应件 = 卡组行那颗 `…/Background/Text fill/Card Name`；
+            //   ⚠️ `R6` §8·4 记着原版有**两套同名兄弟件**，取的是**带 `Background`** 的那一套 ⇒ 与 #41 同值）。
+            //   ⚠️ 折行 = `0` ⇒ 还原（同 `hdr_back_t`）。
+            if (nm != null)
+            {
+                nm.SetAutoFitBox(U(CardGhostW - 70f), U(CardGhostH), 2f, 38f, 27.69f);
+                nm.SetWrappingMode(0);
+            }
             var cs = Txt("card_ghost_c", "", lx1 + 17f, ly1 + (CardGhostH - 38f) * 0.5f, 38f, 38f,
                          1, Ink, QDragPreview + 2, _cardGhostGo.transform, relativeToParent: true);
+            // 🔴 **2026-10-10（A1212 · 块 1 #53）**：接上 `m_enableAutoSizing`（四格 = **18 / 50 / 32 / 1**）。
+            //   判据 = `R6` §2·F #53（同上一族那颗 `Cost Image/Cost`）。折行 = `1` ⇒ 不必还原。
+            if (cs != null) cs.SetAutoFitBox(U(38f), U(38f), 18f, 50f, 32f);
             _cardPreview = _cardGhostGo.AddComponent<CardPreview>();
             _cardPreview.BindView(nm, cs);
             _cardDrag.Bind(_cardPreview, DragCue);
@@ -2681,6 +2767,10 @@ namespace CardPresentation
             //   ⚠️ 外壳那份 `Shell/ImportDeckPopup.cs` 是同款窗的**另一棵树**（节点名 `Main Search message`），
             //     它那处不属本批 ⇒ 词条已在 `Core/Loc.cs` 备好，那一批直接取用即可。
             _impTitle = Txt("imp_title", Loc.T("MenuDeck/Share/PasteDeck"), 610f, 280f, 700f, 60f, 2, Ink, QModalText);
+            // 🔴 **2026-10-10（A1212 · 块 1 #54）**：接上 `m_enableAutoSizing`（四格 = **4 / 50 / 36 / 1**）。
+            //   判据 = `R6` §2·F #54（对应件 = `bundle_menus_assets_all ▸ Import Deck Popup ▸ Window/Main Search message`
+            //   —— ⚠️ **不是**同块别的窗那一颗）。折行 = `1` ⇒ 不必还原。
+            if (_impTitle != null) _impTitle.SetAutoFitBox(U(700f), U(60f), 4f, 50f, 36f);
             // 输入框：dump 给的是 [610,370] 700×141
             _impInputBg = Img("imp_input_bg", "40K_dropdown_bg", 610f, 370f, 700f, 141f, QModalRow);
             // 🔴 **2026-10-17（A891）**：占位符走**词条**（键 = 原版那颗 `Localize` 的 `mTerm` 原文
@@ -2704,9 +2794,23 @@ namespace CardPresentation
             if (_impInputTx != null)
             {
                 _impInputTx.SetAlignLeft();
+                // 🔴 **2026-10-10（A1212 · 块 1 #55）**：接上 `m_enableAutoSizing`（四格 = **18 / 32 / 32 / 0**）。
+                //   判据 = `R6` §2·F #55（`…/Import Deck Popup ▸ Window/Input Field/Text Area/Placeholder`）。
+                //   ⚠️ 折行 = `0` ⇒ 还原。**位置**：排在 `SetAlignLeft()` **之后**
+                //   （`SetAlignLeft` 的 doc = 「要在『定版面』之前调」）、`SetVAlign` **之前**。
+                _impInputTx.SetAutoFitBox(U(660f), U(141f), 18f, 32f, 32f);
+                _impInputTx.SetWrappingMode(0);
                 MenuDraw.SetVAlign(_impInputTx, Label.VAlign.Top, impBox);
             }
             _impErr = Txt("imp_err", "", 593f, 528f, 734f, 35f, 1, new Color(0.95f, 0.45f, 0.4f), QModalText);
+            // 🔴 **2026-10-10（A1212 · 块 1 #56）**：接上 `m_enableAutoSizing`（四格 = **4 / 28 / 36 / 0**）。
+            //   判据 = `R6` §2·F #56（`…/Import Deck Popup ▸ Window/Error msg`）。
+            //   ⚠️ 折行 = `0` ⇒ 还原（同 `hdr_back_t`）。
+            if (_impErr != null)
+            {
+                _impErr.SetAutoFitBox(U(734f), U(35f), 4f, 28f, 36f);
+                _impErr.SetWrappingMode(0);
+            }
             // ---- 🆕 **D45：`Confirm` 按 VLG 跑完的位置摆**（原来写死 y=611）----
             //   🔴 **代码里原来那句「y 取 615 会让按钮**冒出窗口下沿**」的判断本身是错的** ——
             //     615 是 `Buttons` 容器里那颗按钮的**模板位**（VLG 跑之前），跑完在 **569.86..644.86**
@@ -2736,6 +2840,15 @@ namespace CardPresentation
             //   英文列 = 那颗 TMP 的 `m_text` 原文 `Confirm`；中文列 = 「确认」（`zh_CN.csv:83`）。
             //   ⛔ 节点名 `imp_ok_t` 不动（自检按名读，见 `Editor/DeckScene.cs` 导入弹窗那一节）。
             _impOkTx = Txt("imp_ok_t", Loc.T("MainMenu/General/Confirm"), okX, okY, okW, okH, 2, Ink, QModalText);
+            // 🔴 **2026-10-10（A1212 · 块 1 #57）**：接上 `m_enableAutoSizing`（四格 = **12 / 45 / 12 / 0**）。
+            //   判据 = `R6` §2·F #57（`…/Import Deck Popup ▸ Window/Buttons/Generic UI Button/Button Text`）。
+            //   ⚠️ 折行 = `0` ⇒ 还原（同 `hdr_back_t`）；下面那颗 `SetVAlign(Midline, …)` 照旧排在最后
+            //   （`SetWrappingMode` 内部会 `ForceRelayout`，放在它之前会被重排推掉）。
+            if (_impOkTx != null)
+            {
+                _impOkTx.SetAutoFitBox(U(okW), U(okH), 12f, 45f, 12f);
+                _impOkTx.SetWrappingMode(0);
+            }
             // 🔴 **2026-10-18（A892）：纵向档显式落成 `Midline`。** 判据 = 原版那颗 TMP 按 pid 亲读
             //   （`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_6959005812579893394.json`）：
             //   `m_text='Confirm'` · **`m_VerticalAlignment = 4096`（= `Midline`）** · `m_HorizontalAlignment = 2`（Center）·

@@ -128,6 +128,18 @@ namespace CardPresentation
         /// <summary>根 `m_LocalScale`。**只这一扇窗是 0.9**，别抄到别的窗上。</summary>
         public const float RootScale = 0.9f;
 
+        /// <summary>🔴 **2026-10-10（`A1216`）：本窗那一族 `Button Text` 的 `AspectRatioFitter` 比值。**
+        /// <para>原版 `Main Menu Settings Window` 里 **36 颗 `Button Text`** 几乎每一颗都挂着**同一颗**
+        /// `AspectRatioFitter`：`m_Enabled = 1` · `m_AspectMode = 1`（**`WidthControlsHeight` 宽控高**）·
+        /// `m_AspectRatio = 5.140573024749756`（逐颗实读；`MonoBehaviour_-1179297001111847002.json` 等）。
+        /// 判据全文 → `资料/普查产出_第十会话/R3_三笔查实.md` §三·逐颗表。</para>
+        /// <para>🔴 **它意味着 prefab 里存的 `m_SizeDelta.y` 不是运行期高度** —— 跑起来那一刻
+        /// `AspectRatioFitter.UpdateRect` 会把**高改写成 `宽 ÷ 比值`**（**保中心、不动 x**）。
+        /// ⇒ 凡我们照 prefab 字段抄「框高」的地方，都在按一个**原版跑不到的**值摆字
+        /// （本窗这一族一共 **9 颗**：见 `GenBtnTxt*` · `AcBtnText` · `AcSocTxt*`）。</para>
+        /// <para>⚠️ **`m_AspectMode = 1` 是「宽控高」不是「高控宽」** —— 方向反了会算出 5.14 倍而不是 1/5.14。</para></summary>
+        public const float ArfAspectRatio = 5.140573024749756f;
+
         public const float PopL = 328.10f, PopT = 123.11f, PopR = 1602.50f, PopB = 966.19f;
         public const float MaskL = 338.50f, MaskT = 132.55f, MaskR = 1592.62f, MaskB = 956.39f;
         public const float FillL = 510.62f, FillT = 132.55f, FillR = 1592.72f, FillB = 956.39f;
@@ -270,6 +282,24 @@ namespace CardPresentation
         public const float QualL = 551.52f, QualT = 267.71f, QualR = 1386.37f, QualB = 327.10f;
         public const float QualBoxR = 952.18f;          // 下拉框右边缘
         public const float QualTextL = 978.86f;         // 框右边那行字
+        /// <summary>🔴 **2026-10-10（`A1210①`）：下拉框里那颗**值文本**（原版
+        /// `Quality Selector > Quality DropDown > Label` = `TMP_Dropdown.m_CaptionText`）的框顶 / 框底。**
+        /// <para>判据（现读）= `python -I 工具/menu_dump.py bundle_menus_assets_all "Main Menu Settings Window"
+        /// --depth 12 --no-sprite --no-ancestor-scale`：那一颗 = **`561.5 … 942.2` × `274.7 … 321.1`**
+        /// （= **380.67 × 46.40** 设计 px）；`python 工具/menu_rect.py bundle_menus_assets_all "Quality DropDown"
+        /// --depth 2` 印的是同一块的**屏幕**帧（`601.37…943.97 × 301.23…342.99`）——
+        /// ⚠️ 屏幕帧回设计帧**不是简单除 0.9**，要绕过窗根那个中心（见 `Screen()`）：
+        /// x 走 `960 + (屏 − 960) ÷ 0.9`、y 走 `540 + (屏 − 540) ÷ 0.9` ⇒ 换算出来**正是上面同一对数**。
+        /// 判据全文 → `资料/普查产出_第十会话/R4_布局刻度族查实.md` §3·②。</para>
+        /// <para>🔴 **左右内缩 = 10**：`QualL + 10 = 561.52` / `QualBoxR − 10 = 942.18` ——
+        /// 与 `General Tab > LanguagesDropdown > Label` **同一档**（`GenCapInset`）：
+        /// **它们是同一个 `TMP_Dropdown` 模板**（同 prefab 里 `Text in Hand DropDown > Label` 也逐值相同）
+        /// ⇒ 字号 / 色 / 内缩三样**直接复用 `GenCapFontPx` / `GenCapColor` / `GenCapInset`**，
+        /// ⛔ 别各抄一份（两处写同一条规则 = 迟早不一致）；**只有框的位置**是这一颗自己的。
+        /// ⛔ **别拿 `QualT` / `QualB` 当它的框** —— 那是**整行**（含说明字）的高 59.39，不是这颗 caption 的 46.40。</para>
+        /// <para>⚠️ 字号 18 / 基准 14 / 自适应 `18~40` / 折行 0 / `Left/Middle` / 色 `(0.67,0.67,0.67,1)`（灰）
+        /// —— 四格与语言那颗**逐值相同**，见 `Quality Value` 那个调用点。</para></summary>
+        public const float QualLabelT = 274.70f, QualLabelB = 321.10f;
         public const float ChkL = 563.52f, ChkT = 432.50f, ChkR = 1018.73f;
         /// <summary>勾选行的**行高 / 步进**（**未缩放**设计 px）。
         /// 🔴 **2026-10-07（A172）精确化**：原版那一行的 `m_SizeDelta.y = 75.64099884033203`、VLG `m_Spacing 5`
@@ -511,6 +541,35 @@ namespace CardPresentation
         public const float GenBtn2L = GenL + GenBtnW + GenBtnGap;      // 936.52（见上面那条更正：旧注释写 936.56）
         public const float GenBtnFont1 = 40f, GenBtnFont2 = 38f;
         public static readonly Color GenBtnTint = new Color(0.369f, 0.894f, 0.588f, 1f);
+
+        /// <summary>🔴 **2026-10-10（`A1216`）**：`Bottom Buttons` 那两颗钮里 `Button Text` 的矩形
+        /// —— **原版跑 ARF 之后**的样子（设计 px）。四个数**全部从原版那两颗的字段推**，⛔ 不是抄一个现成结果：
+        /// <list type="bullet">
+        /// <item>**宽** = 钮宽 **300 − 26**：原版那颗 `m_SizeDelta.x = -26`，且锚是**横向拉伸**
+        /// （`m_AnchorMin.x = 0` → `m_AnchorMax.x = 1`）⇒ 宽 = 父宽 − 26。</item>
+        /// <item>**高** = **宽 ÷ `ArfAspectRatio`** = `274 ÷ 5.140573024749756` = **53.3015**
+        /// —— prefab 里存的 `90` 是**没跑 ARF** 的字段值，原版跑不到它。</item>
+        /// <item>**左 / 顶** = 居中 + 原版那颗的 `m_AnchoredPosition`
+        /// （轴心 `(0.5, 0.5)`、锚横向拉伸；原版存的是 `(-0.30401611328125, +0.6089935302734375)`，
+        /// uGUI 的 y 向上而本窗的设计坐标 y 向下 ⇒ 纵向那一项**取负**）。</item>
+        /// </list>
+        /// <para>判据（现读）= 原版 `… > Bottom Buttons > Redeem Code > Button Text` 的 RectTransform
+        /// `RectTransform_7891468692848082854`（`m_AnchorMin/Max` · `m_AnchoredPosition` · `m_SizeDelta`）
+        /// ＋ 同节点那颗 ARF 的字段；跑完 ARF 的实测矩形 = **609.21…883.21 × 797.33…850.63**
+        /// （`python -I 工具/menu_dump.py bundle_menus_assets_all "Main Menu Settings Window" --depth 12
+        /// --no-sprite --no-ancestor-scale` 现读），与下面这组算式**逐位吻合**。
+        /// 判据全文 → `资料/普查产出_第十会话/R3_三笔查实.md` §三 / §四。</para>
+        /// <para>⛔ **两颗钮共用同一组值** —— 原版那两颗 `Button Text` 的字段**逐值相同**（只文案与字号不同），
+        /// ⛔ 别给第二颗另开一份（`CLAUDE.md` §三：两处写同一条规则 = 迟早不一致）。</para>
+        /// <para>📌 本笔**只动文字框**：那颗**钮自己**仍是 `GenBtnW × GenBtnH` = 300 × 90
+        /// （原版也是 300 × 90，见 `GenBtnW` 那条 —— `R4` §3·③ 已核）。</para></summary>
+        public const float GenBtnTxtW = GenBtnW - 26f;                                  // 274
+        public const float GenBtnTxtH = GenBtnTxtW / ArfAspectRatio;                    // 53.3015
+        public const float GenBtnTxtApx = -0.30401611328125f, GenBtnTxtApy = 0.6089935302734375f;
+        /// <summary>文字框左沿相对钮左沿 = `(钮宽 − 文字宽) / 2 + m_AnchoredPosition.x` = **12.6960**。</summary>
+        public const float GenBtnTxtL = (GenBtnW - GenBtnTxtW) * 0.5f + GenBtnTxtApx;
+        /// <summary>文字框顶相对钮顶（本窗 y 向下 ⇒ `m_AnchoredPosition.y` **取负**）= **17.7403**。</summary>
+        public const float GenBtnTxtT = (GenBtnH - GenBtnTxtH) * 0.5f - GenBtnTxtApy;
 
         /// <summary>🆕 **2026-10-19（`A1186` 裁定 ②）**：`Online` 页那颗**入口钮**（在 `General` 页上）的矩形。
         /// <para>🔴 **这是我们自加的、原版没有**（原版那一栏只有 5 个键，`Online` 页也是我们自加的）
@@ -804,11 +863,23 @@ namespace CardPresentation
         public static readonly float[] AcSocX2 = { 712.36f, 839.81f, 967.26f, 1094.70f, 1222.15f };
         public static readonly float[] AcSocY1 = { 659.69f, 669.69f, 669.69f, 669.69f, 667.19f };
         public static readonly float[] AcSocY2 = { 754.69f, 744.69f, 744.69f, 744.69f, 747.19f };
-        /// <summary>`Button Text`（恒关那一层）：左沿 = 钮左沿 **+12.69**、顶 = 钮顶 **+30.12**、宽 **101.45**
-        /// （五个逐颗实读，三项全同 ⇒ 只留一份）；**高逐颗不同**（见 `AcSocTxtH`，那是 `AspectRatioFitter` 的产物）。
-        /// **字号 43 / 31.05 交替**（逐颗实读，⛔ 不统一）。</summary>
-        public const float AcSocTxtDx = 12.69f, AcSocTxtDy = 30.12f, AcSocTxtW = 101.45f;
-        public static readonly float[] AcSocTxtH = { 33.55f, 13.55f, 13.55f, 13.55f, 18.55f };
+        /// <summary>`Button Text`（恒关那一层）：左沿 = 钮左沿 **+12.69**、宽 **101.45**
+        /// （五个逐颗实读，两项全同 ⇒ 只留一份）。
+        /// 🔴 **2026-10-10（`A1216`）就地更正（铁律 5）**：这里原来还写着「**顶 = 钮顶 +30.12**」
+        /// 与一条**逐颗不同**的高 `AcSocTxtH = {33.55, 13.55, 13.55, 13.55, 18.55}` ——
+        /// 那两个都是 **prefab 字段值**，**不是原版跑起来的样子**：这五颗与全窗那一族一样挂着
+        /// `AspectRatioFitter`（`m_Enabled = 1` · 宽控高 · 比值见 `ArfAspectRatio`）
+        /// ⇒ 运行期高 **= 101.45 ÷ 5.140573024749756 = 19.7344，五颗全同**；
+        /// 而 ARF **保中心**，五颗的 prefab 框中心本来就都是 **706.585** ⇒ **顶 / 底也五颗全同**。
+        /// ⇒ 「钮顶 + 30.12」与「逐颗不同的高」**两条都已不成立**，换成 `AcSocTxtT` / `AcSocTxtB`
+        /// 一对**绝对值**（原版跑完 ARF 的实测：**696.71…716.45**，
+        /// `python -I 工具/menu_dump.py bundle_menus_assets_all "Main Menu Settings Window" --depth 12
+        /// --no-sprite --no-ancestor-scale` 现读）。判据全文 → `资料/普查产出_第十会话/R3_三笔查实.md` §三·逐颗表。
+        /// ⚠️ `AcSocTxtW` 保留 2 位（101.45）—— 上面那个 19.7344 是按精确值 101.4460 算的，
+        /// 差 0.0008 落在 0.01px 以下，不必把宽度也改精度。**字号 43 / 31.05 交替**（逐颗实读，⛔ 不统一）。</summary>
+        public const float AcSocTxtDx = 12.69f, AcSocTxtW = 101.45f;
+        /// <summary>那行字的**顶 / 底**（原版 ARF 之后的绝对值，五颗全同；见上面那条更正）。</summary>
+        public const float AcSocTxtT = 696.71f, AcSocTxtB = 716.45f;
         public static readonly float[] AcSocTxtFont = { 43f, 31.049999f, 43f, 31.049999f, 43f };
 
         // `Buttons` —— 原版这颗是个 **100×100 的空容器**（挂 `PlatformBasedComponents`，按平台开关子件），
@@ -832,16 +903,30 @@ namespace CardPresentation
         public static readonly Color AcDeleteTint = new Color(1f, 0.0327738f, 0f, 1f);
         /// <summary>七颗「大钮」的 `Button Text` 矩形（**逐颗实读** —— ⛔ 不是「钮矩形 ± 同一个内缩」，
         /// 七颗的内缩互不相同：`11.00 / 12.69 / 12.69 / 12.69 / 12.69 / 12.69 / 12.69`）。
+        /// 🔴 **2026-10-10（`A1216`）：这里的 `y` 是【ARF 之后】的值**（`x` 照旧 = prefab 字段 ——
+        /// ARF 是「宽控高」，**只改高、不动 x、保中心**）。这七颗与全窗那一族一样挂着
+        /// `AspectRatioFitter`（`m_Enabled = 1` · 宽控高 · 比值见 `ArfAspectRatio`）
+        /// ⇒ **跑起来的高 = 宽 ÷ 5.140573024749756**：
+        /// `Register`(277.60) → **54.0018** · `Unregistered Login`(274) → **53.3015** ·
+        /// `Twitch`(271.31) → **52.7787** · `Delete`(274) → **53.3015** · `Switch`(274) → **53.3015** ·
+        /// `Logout`(274) → **53.3015** · `LoginWindow Login`(283.17) → **55.0857**。
+        /// <para>⇒ 其中 **三格（`Register` / `Delete` / `Switch`）prefab 里本来就烘成了 ARF 值**
+        /// （差 ≤ 0.002）⇒ **本笔一格没动**；**另四格**（`Unregistered Login` / `Twitch` / `Logout` /
+        /// `LoginWindow Login`）原来抄的是 ARF **之前**的字段值 ⇒ 按「保中心」换成 ARF 之后的值
+        /// （四格的 `x` 不变，只有 `y1 / y2` 变了）。</para>
+        /// <para>判据（现读）= `python -I 工具/menu_dump.py bundle_menus_assets_all "Main Menu Settings Window"
+        /// --depth 12 --no-sprite --no-ancestor-scale` 的 `Button Text` 那一列（逐颗与上面七个数吻合）；
+        /// 判据全文 → `资料/普查产出_第十会话/R3_三笔查实.md` §三·逐颗表。</para>
         /// 序 = Register · Login(Unregistered) · Twitch · Delete · Switch · Logout · LoginWindow 那颗 Login。</summary>
         public static readonly PxRect[] AcBtnText =
         {
-            new PxRect(1224.25f, 562.66f, 1501.85f, 616.66f),   // Register
-            new PxRect(1214.94f, 564.37f, 1488.94f, 614.95f),   // Login Button （Unregistered）
-            new PxRect( 922.04f, 824.72f, 1193.36f, 874.78f),   // Twitch
-            new PxRect(1229.21f, 823.81f, 1503.21f, 877.11f),   // Delete
-            new PxRect( 609.21f, 823.10f,  883.21f, 876.40f),   // Switch Account
-            new PxRect( 939.21f, 824.46f, 1213.21f, 875.04f),   // Logout
-            new PxRect(1251.03f, 499.31f, 1534.20f, 551.68f),   // Login Window 那颗 Login Button
+            new PxRect(1224.25f, 562.66f, 1501.85f, 616.66f),   // Register（prefab 已烘成 ARF 值）
+            new PxRect(1214.94f, 563.01f, 1488.94f, 616.31f),   // Login Button （Unregistered）· 🔴 ARF 后
+            new PxRect( 922.04f, 823.36f, 1193.36f, 876.14f),   // Twitch · 🔴 ARF 后
+            new PxRect(1229.21f, 823.81f, 1503.21f, 877.11f),   // Delete（prefab 已烘成 ARF 值）
+            new PxRect( 609.21f, 823.10f,  883.21f, 876.40f),   // Switch Account（prefab 已烘成 ARF 值）
+            new PxRect( 939.21f, 823.10f, 1213.21f, 876.40f),   // Logout · 🔴 ARF 后
+            new PxRect(1251.03f, 497.95f, 1534.20f, 553.04f),   // Login Window 那颗 Login Button · 🔴 ARF 后
         };
         /// <summary>那一圈「名字末尾带空格」的原版 GO 名 —— **逐字照抄**（`bundle_menus_assets_all/GameObject/
         /// Login Button.json` 的 `m_Name` 就是 `"Login Button "`）。⛔ 别「顺手 trim」：自检 `FindChild` 按名字找。
@@ -935,10 +1020,13 @@ namespace CardPresentation
         // | └ `Email Text Mobile`（`Settings/Support/ContactText`） | 1 | **PC=0** · 其他 **1** | `PHY` |
         //
         // 另有两处**代码**判据（`SETUP`）：
-        //  ① `termsOfServiceButton`（字段序第 2 个 = `+0x38`）拿到的是**运行时才算得出来的 URL**
-        //     （`*(*(GameStaticData.<静态 +0xb8>) + 0x70)`），紧接着 `SetActive(该 URL != null)`
-        //     ⇒ **这一颗的显隐在本地判不了**（我们拿不到那个运行时串，见「没查清」）。
-        //     本件**停在出厂值 1 + PC 档 1**（⛔ 不猜一个 URL 出来）。
+        //  ① `termsOfServiceButton`（字段序第 2 个 = `+0x38`）的显隐 ——
+        //     🔴 **2026-10-10（`A1209`）就地更正（铁律 5）**：这里原来写「拿到的是**运行时才算得出来的 URL**…
+        //     ⇒ 这一颗的显隐**在本地判不了**，本件停在出厂值 1」。**错了 —— 本地判得了、而且恒 `false`**：
+        //     那个串 = `GameStaticData.TermsOfServiceUrl`（静态字段偏移 `0x70`，`dump.cs:119411`），
+        //     而 `GameStaticData__.cctor.c:147` 在静态构造里**显式赋成 `null`** ⇒ 原版跑起来**恒 `SetActive(false)`**。
+        //     判据全文 → `资料/普查产出_第十会话/R4_布局刻度族查实.md` §四。
+        //     ⇒ 我们已照此关掉（`BuildSupportPage` 的 ⑧·a，⛔ 只关这一颗）。
         //  ② `supportButton`（字段序第 5 个 = `+0x50`）挂 `OnClickSupport`
         //     → `HelpshiftManager.ShowFAQ(profile.faqId)`（**服务器 SDK**，本地没有）。
         //     ⚠️ 字段序 → 偏移的对应是**由本页自己的 JSON 字段序 + 那颗「没有 `UrlButton`」的结构反推的**
@@ -959,7 +1047,11 @@ namespace CardPresentation
         //    **只出现在 `SupportTab__OnSetup.c` 这一处**、`stringliteral.json` 也不带地址 ⇒ 无从对上）。
         //    ⇒ 本件按**语义**把 `stringliteral.json` 里那几条 URL 对到钮上（**这一格是「按语义对」、
         //      不是「按地址对」**，与账号页那五条外链**同一个口径**），并在报告里如实标注。
-        //    ⛔ `Terms of Service` **一条都对不上**（全表没有 terms 字样的 URL）⇒ 它**不打开外链、只出声**。
+        //    🔴 **2026-10-10（`A1209`）就地更正（铁律 5）**：这里原来写「⛔ `Terms of Service` 一条都对不上
+        //      ⇒ 它**不打开外链、只出声**」—— 「不打开」对，但**理由那句是错的**：
+        //      它压根不是「查不到 URL」，而是**原版那一颗恒关**（`GameStaticData.TermsOfServiceUrl`
+        //      在静态构造里被显式赋 `null` ⇒ `SetActive(false)`，见上面 ① 与 `BuildSupportPage` 的 ⑧·a）
+        //      ⇒ 它**在原版里永远不显示**，点不到，也就无所谓「打开哪一个」。⛔ 别把这一条读成「我们没找到 URL」。
         public const float SpTitleAutoMinPx = 4f;       // 原版 `Support Tab > Tab Title`：min 4 / max 55 / base 55 · 折行 1
         public const float SpFontPx = 35f;              // 本页**十颗** TMP 的 `m_fontSize` 全是 35（逐颗实读）
         public const float SpBtnFontPx = 35f;           // 四颗钮里 `Button Text` 的 `m_fontSize` 也是 35
@@ -1010,7 +1102,8 @@ namespace CardPresentation
         /// <summary>支持页那四颗外链钮的 URL —— **出处 = `d:/2/tools/il2cpp_out/stringliteral.json`**
         /// （逐条在字面量表里命中）。🔴 **按语义对上去的**（FAQ 钮 → helpshift 的 FAQ 那条 …）——
         /// ⛔ **不是**解 `SupportTab__OnSetup.c` 里那三个 `DAT_` 托管字符串指针（本地解不出，见本段头）。
-        /// ⚠️ `Terms of Service` **不在这张表里**：全字面量表没有 terms 字样的 URL ⇒ 我们**不打开**它（只出声）。</summary>
+        /// ⚠️ `Terms of Service` **不在这张表里** —— 但**理由不是「查不到」**：原版那一颗**恒关**
+        /// （判据见上面 ① 与 `BuildSupportPage` 的 ⑧·a）⇒ 它跑不起来，也就没有「该打开哪条 URL」这一问。</summary>
         public const string SpFaqUrl = "https://everguild.helpshift.com/hc/app/4-warhammer-40-000-warpforge/";
         public const string SpContactUrl = "https://everguild.helpshift.com/hc/en/4-warhammer-40-000-warpforge/contact-us/";
         public const string SpPrivacyUrl = "https://www.warpforge40k.com/privacy-policy/";
@@ -1019,9 +1112,14 @@ namespace CardPresentation
         /// 是**服务器 SDK**；我们没有）。⛔ 不假装打开、也不静默 —— 照本窗账号页 `AcLocalNote` 的口径出声。</summary>
         const string SpSdkNote = "(local simulation: the original opens the Helpshift support SDK here, "
                                + "which needs a backend we do not have - nothing was sent)";
-        /// <summary>`Terms of Service` 那一下**没有**可用的常量 URL（见 `SpFaqUrl` 那段）⇒ 只出声、不开浏览器。</summary>
-        const string SpTermsUrlNote = " | Terms of Service: no constant URL exists locally "
-                                    + "(the original passes a runtime-built string), so we do NOT open one";
+        /// <summary>`Terms of Service` 那一下 —— 🔴 **2026-10-10（`A1209`）：这一颗在原版里恒关**
+        /// （`GameStaticData.TermsOfServiceUrl` 静态构造里被赋 `null`，见 `BuildSupportPage` ⑧·a）
+        /// ⇒ 本方法**跑到等于出问题**（节点关着，点不到它）。留着只为「结构照原样」这条：
+        /// 哪天判据变了、那一颗亮起来，这一句会如实出声而不是静默什么都不做。
+        /// ⛔ 别顺手编一条 `warpforge40k.com/terms` 顶上（那是「把查不到写成猜测」，本仓金规矩）。</summary>
+        const string SpTermsUrlNote = " | Terms of Service: the original keeps this button disabled "
+                                    + "(GameStaticData.TermsOfServiceUrl is explicitly nulled in the static ctor) "
+                                    + "- no URL to open, so we do NOT open one";
 
         // 联机页（**这一页是我们设计的**，见文件头 ①）
         public const float OnRoleT = 280f, OnRoleB = 340f, OnRoleW = 300f, OnRoleGap = 20f;
@@ -1038,9 +1136,12 @@ namespace CardPresentation
         /// `FPS Limit/Title` · 三个 FPS 刻度 · 三个音轨行的 `Label` · `Quality Selector/Quality selector text`。
         /// 🔴 **本件亲读了一颗作证**：`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_2205799620510384038.json`
         /// （`m_text = "VSync"`）= **`m_fontSize 42 · m_fontSizeMin 29 · m_fontSizeMax 42 · m_TextWrappingMode 1`**。</para>
-        /// <para>⛔ **别把 `FontLabel`（40）与它合并** —— `FontLabel` 上还站着两个**判据未定**的：
-        /// ① `Quality Value`（下拉框**自己那颗值文本**，本地查不到字面量 —— 那名字是运行时给的）；
-        /// ② 我们**自己的联机页** IP/Password 两颗（无原版对应物）。
+        /// <para>⛔ **别把 `FontLabel`（40）与它合并** —— 判据不同（`FontRowLabel` 是**逐颗实读**的原版 42）。
+        /// 🔴 **2026-10-10（`A1210①`）就地更正（铁律 5）**：这里原来写着「`FontLabel` 上还站着两个**判据未定**的：
+        /// ① `Quality Value` …」—— **① 已经查定了、也已经不站在 `FontLabel` 上了**：
+        /// 原版 `Quality DropDown > Label` 是 **18 / 灰**（判据 → `QualLabelT` 那条 doc），
+        /// 我们那一颗已按它改掉 ⇒ **`FontLabel` 现在只剩 ② 一个用户**：我们**自己的联机页** IP/Password 两颗
+        /// （原版没有这一页 ⇒ 无对应物，是**我们的选择**）。
         /// ⚠️ 全窗字号扫描（`Editor/SettingsScene.cs` 的 `wantPx`）**同时允许 36 与 37.8** ⇒
         /// **合并错了它也不会红** ⇒ 必须分开（本件已另配一条**点名 `VSync`** 的断言来钉这一族）。</para></summary>
         public const float FontRowLabel = 42f;
@@ -2159,11 +2260,16 @@ namespace CardPresentation
                     //    **本件按常态图落地、不换图**，并把这条「原版自己的 prefab 残留」记进报告（⛔ 不是静默偏离）。
                     // `Button Text`（原版那颗 `m_IsActive = 0`）—— 与全窗同一形状：`Text(...)` 建一层同名节点
                     // 🆕 **2026-10-19（A1181）**：自适应 = 原版那**五颗** `… Button > Button Text` 逐颗实读
-                    //   全是 `min **12**` · `max **38**` · `base **12**` · `折行 **0**`（`fs` 43 / 31.05 交替，
+                    //   全是 `min **12**` · `max **38**` · `base **12**` · **折行 0**（`fs` 43 / 31.05 交替，
                     //   与 `AcSocTxtFont` 同一份实读）—— ⚠️ `max 38 < fs 43`，所以短文案**不会**被涨到 43。
+                    // 🔴 **2026-10-10（`A1216`）**：框那一格的 `y` 改成 `AcSocTxtT/B` 一对**绝对值**
+                    //   （原版 **ARF 之后**的顶 / 底，五颗全同）—— 原来那两格是
+                    //   `AcSocY1[i] + AcSocTxtDy` 与再 `+ AcSocTxtH[i]`（**prefab 字段值**，
+                    //   原版跑不到）⇒ 为什么换、判据在哪 → `AcSocTxtT` 那条 doc，⛔ 别抄第二份。
+                    //   ⚠️ `x` 那半**一个字没动**（ARF 是宽控高，不动 x）。
                     var lb = Text(n, "Button Text", AcTerm(AcSocKey[i], AcSocEn[i]), AcSocX1[i] + AcSocTxtDx,
-                                  AcSocX1[i] + AcSocTxtDx + AcSocTxtW, AcSocY1[i] + AcSocTxtDy,
-                                  AcSocY1[i] + AcSocTxtDy + AcSocTxtH[i], AcSocTxtFont[i], Color.white, QText,
+                                  AcSocX1[i] + AcSocTxtDx + AcSocTxtW, AcSocTxtT, AcSocTxtB,
+                                  AcSocTxtFont[i], Color.white, QText,
                                   null, 0f, 12f, 38f, 12f);
                     // 🔴 **2026-10-09（第十会话 · 收口自检红了 4 条）—— 这里原来直接捕 `i`，是个真崩溃**：
                     //   `i` 是 `for` 循环的**共享**变量，而 `OnLangText` 的闭包**不在建的时候跑**、
@@ -2387,7 +2493,10 @@ namespace CardPresentation
         //   那颗 `Support Button` 走 `HelpshiftManager.ShowFAQ`（**服务器 SDK**）—— 我们：
         //   · 三条打开**语义对得上**的 URL（`SpFaqUrl` / `SpContactUrl` / `SpPrivacyUrl`），
         //     批处理下**不真开浏览器**（同 `AccountOpenUrl`，那会在自检机上弹窗口）；
-        //   · `Terms of Service` 那条 URL **本地查不到** ⇒ **只出声、不打开**（⛔ 不编一条假的）；
+        //   · `Terms of Service` —— 🔴 **原版恒关**（`GameStaticData.TermsOfServiceUrl` 在静态构造里被赋 `null`
+        //     ⇒ `SetActive(false)`，判据 → `BuildSupportPage` ⑧·a）：**我们照此也把它关掉**，
+        //     所以那一下的处理器（`SpTermsNoUrl`）**跑到就等于出了问题**，它只出声；
+        //     ⛔ 原来这里写的是「那条 URL **本地查不到** ⇒ 只出声、不打开」——**理由错了**（铁律 5 就地更正）。
         //   · `Support Button` = 服务器 SDK ⇒ 只出声（`SpLocalNote`）；而它 **PC 档本来就关着**。
         Transform BuildSupportPage(Transform area)
         {
@@ -2443,15 +2552,32 @@ namespace CardPresentation
 
                 // ⑧·a `Terms of Service`（`EverguildButton` 的 `m_TargetGraphic` = **它自己那颗 TMP**
                 //   ⇒ `m_Transition = 1`(ColorTint)、**没有底图**、**不换图**）。
-                //   🔴 显隐：原版 `SupportTab__OnSetup.c:33-39` 把这一颗 `SetActive(运行时 URL != null)` ——
-                //   那个串取自 `GameStaticData.<静态 +0xb8> + 0x70`（运行时才有）⇒ **本地判不了**。
-                //   本件**停在出厂值 1 + PC 档 1**（⛔ 不猜一个 URL 出来）—— 已写进「没查清」。
+                //   🔴 **2026-10-10（`A1209`）就地更正（铁律 5）**：这里原来写「显隐**本地判不了**、
+                //   停在出厂值 1 + PC 档 1」—— **错了：判据本地就能定死，而且原版【恒关】**：
+                //   `SupportTab__OnSetup.c` 末尾那句是
+                //     `SetActive(TOS, *(*(DAT_18427be00 + 0xb8) + 0x70) != 0)`
+                //   而 `DAT_18427be00` = `GameStaticData` 的 `Il2CppClass*`、`+0xb8` 是 `static_fields`
+                //   ⇒ 读的静态字段偏移 **`0x70`** = `GameStaticData.TermsOfServiceUrl`
+                //   （`dump.cs:119411` 的字段表：`public static readonly string TermsOfServiceUrl; // 0x70`），
+                //   而 **`GameStaticData__.cctor.c:147` 在静态构造里把它显式写成 `0`**
+                //   （全仓 grep 逐条核过：往这个偏移写 `GameStaticData` 的**只有 cctor 这一处**；
+                //    它又是 `static readonly` ⇒ C# 语义上只能由静态构造 / 字段初始化器赋值）
+                //   ⇒ **原版运行期恒为 `SetActive(false)`**。
+                //   `OnSetup` 确实会被调：`SupportTab` 覆写的是 `protected override void OnSetup()`
+                //   （`dump.cs:88806`，虚方法槽）⇒ `.c` 里找不到调用点是正常的。
+                //   判据全文 → `资料/普查产出_第十会话/R4_布局刻度族查实.md` §四（含字段表 / cctor 那两句原样）。
+                //   ⛔ **只关这一颗** —— 同层 `Privacy Policy` **不在**这个判据里（它 `Initialize` 的是另一个
+                //   静态字段），⛔ 别顺手把它一起关掉。
+                //   ⛔ **结构照原样留着**（节点 / 图标 / 那行字 / 命中区都建、只把整棵关掉）——
+                //   与 `Support Button` 那几颗「按档关」同一条做法：哪天判据变了（比如原版真发了 URL），
+                //   去掉下面那一句即可，⛔ 不删件。
                 var terms = Node(links, "Terms of Service", SpTermsL, SpTermsT, SpTermsR, SpTermsB);
                 SpIcon(terms, "External Link Icon", SpTermIconL, SpTermIconT, SpTermIconR, SpTermIconB);
                 SpText(terms, "Terms of Service Text", lkSupTerms, "Terms of Service",
                        SpTermsTxtL, SpTermsT, SpTermsTxtR, SpTermsB, 1, 29f, 35f, 36f);
                 Hit(terms, "Hit", SpTermsL, SpTermsT, SpTermsR, SpTermsB, QOverlay,
                     () => SpTermsNoUrl());
+                SetAct(terms, false);        // 🔴 原版恒关（判据见上）；⛔ 删不得 —— 见 ⑩ 那条 log
 
                 // ⑧·b `Privacy Policy`（容器 → `External Link Icon` + `Privacy Policy Button`）
                 var priv = Node(links, "Privacy Policy", SpPrivacyL, SpPrivacyT, SpPrivacyR, SpPrivacyB);
@@ -2486,10 +2612,19 @@ namespace CardPresentation
             SetAct(supportBtn, false);                       // PC = 0
             SetAct(faqMob != null ? faqMob.transform : null, false);      // PC = 0
             SetAct(emailMob != null ? emailMob.transform : null, false);  // PC = 0
-            // （`Tab Title` 与 `bottom links` 三档都是 1 ⇒ 不碰 —— 照原版那两组字段原样留着。）
+            // （`Tab Title` 与 `bottom links` 这一层**三档平台组都是 1** ⇒ 本块不碰它们 ——
+            //   照原版那两组字段原样留着。⚠️ `bottom links` 里那颗 `Terms of Service` 是**另一条轴**关的
+            //   （`SupportTab__OnSetup` 里的 URL 判据，**恒 false**）⇒ 它已经在 ⑧·a 就地关掉，
+            //   ⛔ 别以为本块「没碰 = 还亮着」。）
 
             Debug.Log("[Settings] 支持页：按平台档 **PC(20)** 落地（原版 `PlatformBasedComponents__Start.c` "
-                    + "就是无条件跑这一档）—— `Support Button` / 两颗 mobile 行在 PC 上关着。");
+                    + "就是无条件跑这一档）—— `Support Button` / 两颗 mobile 行在 PC 上关着；"
+                    + "🔴 另有一颗**恒关**的：`bottom links > Terms of Service` —— "
+                    + "原版 `SupportTab__OnSetup.c` 的 `SetActive(URL != null)` 里那个 URL = "
+                    + "`GameStaticData.TermsOfServiceUrl`（静态字段 `+0x70`），"
+                    + "而 `GameStaticData__.cctor.c:147` 把它**显式赋成 null** ⇒ 原版跑起来**永远不显示它**；"
+                    + "我们照此 `SetActive(false)`（本条的完整判据 → `资料/普查产出_第十会话/"
+                    + "R4_布局刻度族查实.md` §四）。");
             return page;
         }
 
@@ -2561,7 +2696,8 @@ namespace CardPresentation
             Application.OpenURL(url);
         }
 
-        /// <summary>`Terms of Service` 那一下：**本地没有可用的常量 URL** ⇒ 只出声、不打开
+        /// <summary>`Terms of Service` 那一下：🔴 **原版那一颗恒关**（见 `SpTermsUrlNote` 那段）——
+        /// 这一句跑到 = 有一颗本该关着的钮亮着。**依旧如实出声、不打开任何东西**
         /// （⛔ 别顺手编一条 `warpforge40k.com/terms` —— 那是「把查不到写成猜测」，本仓金规矩）。</summary>
         void SpTermsNoUrl()
         {
@@ -2746,11 +2882,18 @@ namespace CardPresentation
             var aq = Rect(n, "bg", x1, GenBtnT, x2, y2, ArtButton, QContent, GenBtnTint, true);
             // 🆕 **2026-10-19（A1181）**：自适应 = 原版 `Bottom Buttons > */Button Text`
             //   （`Redeem Code` fs40 · `Close Game Button` fs38）两颗逐颗实读都是
-            //   `min **12**` · `max = **m_fontSize**`（40 / 38）· `base **12**` · `折行 **0**`
+            //   `min **12**` · `max = **m_fontSize**`（40 / 38）· `base **12**` · **折行 0**
             //   ⇒ `max` 跟着 `fs` 走（⛔ 别写死 40 —— 第二颗原版就是 38）。
-            //   ⚠️ 折行 = 0 ⇒ `wrapPx` 传 0；自适应框宽取**本格框宽**（我们这一格 = 整颗钮 300 宽，
-            //   而原版那颗 `Button Text` 是 274 宽 —— 框宽那一格不是本件范围，已登记在报告里）。
-            var lb = Text(n, "Button Text", Loc.T(key), x1, x2, GenBtnT, y2, fs, Color.white, QText,
+            //   ⚠️ 折行 = 0 ⇒ `wrapPx` 传 0；自适应框宽 = 本格文字框宽（= `GenBtnTxtW`）。
+            // 🔴 **2026-10-10（`A1216`）就地更正（铁律 5）**：这一格原来**摊满整颗钮**
+            //   （`x1 … x2` × `GenBtnT … GenBtnT + GenBtnH` = **300 × 90**）—— **原版不是这样**：
+            //   原版那颗 `Button Text` 是 **274 × 53.3015**（挂 `AspectRatioFitter`，跑起来的高
+            //   由**宽**推）⇒ 摊满 = 文字框比原版**宽 26 / 高 36.70**，连带自适应框（`fitW` / `r.H`）
+            //   也一起大了一圈。四个数怎么来的 → `GenBtnTxt*` 那组常量（⛔ 别在这儿再推一遍）；
+            //   判据全文 → `资料/普查产出_第十会话/R3_三笔查实.md` §三 / §四。
+            float tx1 = x1 + GenBtnTxtL, tx2 = tx1 + GenBtnTxtW;
+            float ty1 = GenBtnT + GenBtnTxtT, ty2 = ty1 + GenBtnTxtH;
+            var lb = Text(n, "Button Text", Loc.T(key), tx1, tx2, ty1, ty2, fs, Color.white, QText,
                           null, 0f, 12f, fs, 12f);
             if (lb != null) _genLabels.Add(new Keyed(lb, key));
             // 悬停换图与联机页那几颗同一条路（`40K_button` → `40K_button_hover`，`WindowButton` 的表里有）
@@ -3249,14 +3392,25 @@ namespace CardPresentation
             //  Tab Buttons>Graphics Tab>Quality Selector>Quality DropDown`：**727×102 Simple**；
             //  悬停换成 `40K_dropdown_field_opened`）。普查 §块 4 第 13 行。
             var qualQ = Rect(row, "Quality DropDown", QualL, QualT, QualBoxR, QualB, "40K_dropdown_field_closed", QContent);
-            _qualityLabel = Text(row, "Quality Value", QualityName(), QualL + 20f, QualBoxR - 40f, QualT, QualB,
-                                 FontLabel, Color.white, QText);
-            // 🆕 **2026-10-19（A1181）如实记一处「不接」**：这一颗**没接自适应** —— 它的判据**未定**
-            //   （`Editor/SettingsScene.cs` 的 A171 那节自己写着：`FontLabel`（40）「现在只服务两个
-            //   **判据未定**的站（`Quality Value` + 我们自己的联机页）」）。原版那颗 `Quality DropDown > Label`
-            //   是 `fs **18**` / auto `18~40` / base 14 / 折行 0，而**我们这一颗字号是 40、内缩也是自己定的**
-            //   ⇒ **它到底对的是不是原版那一颗，没查清** ⇒ 照铁律 2「查不到就说查不到」**不猜着接**
-            //   （⛔ 别拿原版那四格往一颗字号差 2.2 倍的自己人身上套）。已写进报告、由调度台裁。
+            _qualityLabel = Text(row, "Quality Value", QualityName(), QualL + GenCapInset, QualBoxR - GenCapInset,
+                                 QualLabelT, QualLabelB, GenCapFontPx, GenCapColor, QText,
+                                 null, 0f, 18f, 40f, 14f);
+            if (_qualityLabel != null)
+                AlignLeft(_qualityLabel, new PxRect(QualL + GenCapInset, QualLabelT, QualBoxR - GenCapInset, QualLabelB));
+            // 🔴 **2026-10-10（`A1210①`）就地更正（铁律 5）**：这一颗原来传 `FontLabel`（40）+ **白** +
+            //   框 `QualL + 20 … QualBoxR − 40`（= 571.52…912.18，宽 **340.66**）—— **三样都不是原版的**，
+            //   而且那三个数**没有出处**（`FontLabel` 自己的注释就写着「判据未定」）。
+            //   原版那一颗 = `Quality Selector > Quality DropDown > Label`（`TMP_Dropdown.m_CaptionText`）：
+            //   **字号 18 · 基准 14 · 自适应 `18~40` · 折行 0 · `Left/Middle` · 色 `(0.67,0.67,0.67,1)` 灰**、
+            //   左右内缩 **10**。框 / 出处 → `QualLabelT` 那条 doc（⛔ 别抄第二份），
+            //   判据全文 → `资料/普查产出_第十会话/R4_布局刻度族查实.md` §3·②。
+            //   ⚠️ 字号 / 色 / 内缩**复用 `GenCap*`**（同一个 `TMP_Dropdown` 模板 ⇒ 同值），⛔ 别各抄一份。
+            //   ⚠️ `Left/Middle` 要显式 `AlignLeft` —— `MenuDraw.Text` 默认把文字块**居中**放在锚点上
+            //   （`MenuDraw.AlignLeft` 那条 doc），不调就会与右对齐的件叠字（语言那颗 `_langCap` 同一做法）。
+            // ⚠️ **如实记一处「传了但不生效」**：那道共用闸是 `fontPx > autoMinPx`（`MenuDraw.TextCore`），
+            //   而这一颗原版 `m_fontSizeMin` **恰等于 `m_fontSize`（18/18）** ⇒ 与语言下拉那颗**逐字同一条**
+            //   （见 `_langCap` 那个调用点），传了也**不会**进 `SetAutoFitBox`。参数照原版接上（闸一放宽它就活），
+            //   ⛔ **不许为了让这一颗生效而把 `autoMinPx` 往下改**（那是发明一个原版没有的值）。
             // 🆕 2026-10-18（波 1b · A1062）：这一行的字改走语言表（键 `Settings/Graphics/SelectQuality`）。
             //   ⚠️ **节点名 `Quality selector text` 不动**（自检 `FindChild` 靠它）。
             //   🔴 **挂 `_onLabels`**：本页是 `Build()` 里只画一次的（判据 = `_onLabels` 那条

@@ -4503,11 +4503,16 @@ public static class SettingsScene
                              "`General Tab > Language Selector > SelectLanguageText`", 29f, 42f, 36f, 1, 407.44f, 59.4f);
                 CheckAutoFit(genTab, new[] { "Disable Bots", "Label" },
                              "`General Tab > Checkboxes > Disable Bots > Label`", 29f, 42f, 36f, 1, 755.81f, 75.64f);
+                //  🔴 **2026-10-10（A1216/A1210②）就地订正**：这两条的**框**原来写的是整颗钮 `300×90`，
+                // 而 `Button Text` 那颗**挂着 `AspectRatioFitter`**（`m_Enabled=1` · **宽控高** ·
+                // ratio `5.140573`）⇒ 原版**跑起来**的框 = 钮内缩后的 `274 × (274 ÷ 5.140573) = 274 × 53.3015`。
+                // ⚠️ **这条订正不是「可有可无」**：`CheckAutoFit` 的框那两格是**单边上限**（`sz ≤ boxW*RS + 1.5`）
+                // ⇒ 框被改小之后**旧的（更大的）常量仍然放行** ⇒ 那几条会**静默变成空判据**。
                 CheckAutoFit(genTab, new[] { "Redeem Code", "Button Text" },
-                             "`General Tab > Bottom Buttons > Redeem Code > Button Text`", 12f, 40f, 12f, 0, 300f, 90f);
+                             "`General Tab > Bottom Buttons > Redeem Code > Button Text`", 12f, 40f, 12f, 0, 274f, 53.3015f);
                 //  `Close Game Button` 那颗原版 `m_fontSize = 38`（⚠️ 与上一颗**不同**）⇒ `max` 跟着它走
                 CheckAutoFit(genTab, new[] { "Close Game Button", "Button Text" },
-                             "`General Tab > Bottom Buttons > Close Game Button > Button Text`", 12f, 38f, 12f, 0, 300f, 90f);
+                             "`General Tab > Bottom Buttons > Close Game Button > Button Text`", 12f, 38f, 12f, 0, 274f, 53.3015f);
                 //  🆕 **2026-10-19（`A1186` 裁定 ②）**：`General` 页那颗 `Online` 入口钮 ——
                 //  **原版没有这一颗** ⇒ 这四格是**我们照同族那两颗抄的**（`12 / 38 / 12 · 折行 0`），
                 //  框宽 = 本颗钮那一格 **154.81** 设计 px（= `GenOnlineR − GenOnlineL` = `1431.33 − 1276.52`，
@@ -4623,15 +4628,20 @@ public static class SettingsScene
                 //  ⇒ 这两条**只断字段级**（`skipRendered: true`），如实说清「渲出来 ≤ 框」那一格**没量**。
                 //  ⚠️ 框高 = prefab **字段值**（`AspectRatioFilter` 排出来的那一列更大/更小，⛔ 不取它，
                 //     理由见本节头那段）—— 这两颗恒关、这一格本来也不量。
+                //  🔴 **2026-10-10（A1200/A1216）就地订正框高**：原记「框⛔ 不取 ARF 排出来的那一列」
+                //  —— **那条被推翻了**：`R3`/`P-A` 现读逐组件核出该子树 **647 个 RectTransform 里挂这颗 ARF 的
+                //  = 36 颗、`m_Enabled=1` 的 36 颗、0 禁用** ⇒ 原版**跑起来用的就是 ARF 后的值**。
+                //  这五颗的宽都**没变**（`101.45`），高 = `101.45 ÷ 5.140573 = 19.7344`。
+                //  ⚠️ 同前一条：框是**单边上限** ⇒ 不订正就**静默变成空判据**。
                 CheckAutoFit(acTab, new[] { "Social Media Links", "Discord Button", "Button Text" },
-                             "`Social Media Links > Discord Button > Button Text`", 12f, 38f, 12f, 0, 101.45f, 33.55f, true);
+                             "`Social Media Links > Discord Button > Button Text`", 12f, 38f, 12f, 0, 101.45f, 19.7344f, true);
                 CheckAutoFit(acTab, new[] { "Social Media Links", "IG Button", "Button Text" },
-                             "`Social Media Links > IG Button > Button Text`（fs 31.05 那颗）", 12f, 38f, 12f, 0, 101.45f, 13.55f, true);
+                             "`Social Media Links > IG Button > Button Text`（fs 31.05 那颗）", 12f, 38f, 12f, 0, 101.45f, 19.7344f, true);
                 //  七颗大钮：12 / max=那一颗的 fs / 12 · 折行 0（Register 40 · Twitch **38**）
                 CheckAutoFit(acTab, new[] { "Buttons", "Unregistered Buttons", "Register Button", "Button Text" },
                              "`Buttons > Unregistered Buttons > Register Button > Button Text`", 12f, 40f, 12f, 0, 277.6f, 54f);
                 CheckAutoFit(acTab, new[] { "Buttons", "Twitch Button", "Button Text" },
-                             "`Buttons > Twitch Button > Button Text`（fs 38 那颗）", 12f, 38f, 12f, 0, 271.32f, 50.06f);
+                             "`Buttons > Twitch Button > Button Text`（fs 38 那颗）", 12f, 38f, 12f, 0, 271.31f, 52.7787f);
                 //  登录弹窗那五件：⚠️ 与页内同名的两颗**下限不同**（EmailText 32 / PasswordText 29）
                 //  ⚠️ 整棵 `Login Window` **出厂关着** ⇒ 未激活的 TMP 不重排、`textBounds` 是旧的
                 //  ⇒ 那五条**只断字段级**（`skipRendered: true`），如实说清「渲出来 ≤ 框」那一格**没量**。
@@ -4644,7 +4654,7 @@ public static class SettingsScene
                 CheckAutoFit(acTab, new[] { "Login Window", "ErrorMensajeContainer", "Error Message" },
                              "`Login Window > ErrorMensajeContainer > Error Message`", 29f, 37f, 37f, 1, 774.1f, 36.73f, true);
                 CheckAutoFit(acTab, new[] { "Login Window", "Login Button", "Button Text" },
-                             "`Login Window > Login Button > Button Text`", 12f, 40f, 12f, 0, 283.17f, 52.36f, true);
+                             "`Login Window > Login Button > Button Text`", 12f, 40f, 12f, 0, 283.17f, 55.0857f, true);
 
                 // ---- ⑥ `MenuDraw` 的默认路径零变化（= 别的窗那一百多处调用） ----
                 //   本笔只加形参、**给的都是缺省 0** ⇒ 不传的那 31 个调用点（含别窗全部）走的是逐字节相同的老路。
