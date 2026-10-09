@@ -699,8 +699,16 @@ public static class SettingsScene
                        SettingsWindow.PopR, SettingsWindow.PopB, "`Generic Popup Background`（九宫格 `40k_popup`）");
             CheckRectS(FindChild(Area(root), "Background fill"), SettingsWindow.FillL, SettingsWindow.FillT,
                        SettingsWindow.FillR, SettingsWindow.FillB, "`Background fill`（`40k_popup_texture` 平铺）");
-            CheckRectS(FindChild(Area(root), "Separators"), SettingsWindow.BarSepL, SettingsWindow.BarSepT,
-                       SettingsWindow.BarSepR, SettingsWindow.BarSepB, "`Separators`");
+            // 🔴 **2026-10-10（A1204）就地订正**：`Separators` 的上/下沿原来断的是**未裁**的那一对常量
+            //   （`SettingsWindow.BarSepT/BarSepB`）。`A1204` 把 `Mask Tabs buttons` 那层补上之后，
+            //   它被**裁到遮罩框**（设计 px `132.5485 … 956.3875`）⇒ quad 从 `2.610×794.772` 变
+            //   `2.610×741.455` **屏幕 px** ⇒ 旧的那一对**必红**。
+            //   ⚠️ **期望值写字面量、⛔ 不写 `SettingsWindow.TabsMaskT/B`** —— 拿被测实现自己的常量
+            //   去证明被测实现 = **自证**（本仓明令）。
+            //   **改坏法**：删掉 `Shell/SettingsWindow.cs` 里那句 `ViewportClip.Hang(area, "Mask Tabs buttons", …)`
+            //   ⇒ 裁切没了、`Separators` 回到 `794.772` ⇒ 本行红。
+            CheckRectS(FindChild(Area(root), "Separators"), SettingsWindow.BarSepL, 132.5485f,
+                       SettingsWindow.BarSepR, 956.3875f, "`Separators`（上下沿 = 被 `Mask Tabs buttons` 裁过）");
             // 🔴 **2026-10-09（A1120）**：这一条量的是钮的**可见面**（75×75 那张圆底），
             //   **不是「Generic Close Button」那棵子树** —— `d6c4111`（`A1053`「命中区归真值」）起，
             //   子树里多了一颗**命中层**（`Hit` 节点，矩形 = 原版射线区，**比可见面大**）⇒

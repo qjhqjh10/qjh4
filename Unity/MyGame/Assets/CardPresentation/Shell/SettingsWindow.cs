@@ -16,6 +16,21 @@
 //   · `Menu Area` [328.10,123.11]–[1602.50,966.19]：底图 `40k_popup`（Sliced，九宫格 169,160,169,160）
 //     ```Mask``` [338.50,132.55]–[1592.62,956.39]；`Background fill` [510.62,132.55]–[1592.72,956.39]
 //     = `40k_popup_texture` **Tiled**（`m_Type=2`，`ppuMultiplier=2.0` ⇒ 128/2 = **64 px 一格**）。
+//     🔴 **2026-10-20（`A1204`）补记父链（铁律 5）**：原版这两颗**不是** `Menu Area` 的孩子 ——
+//     `Menu Area > Generic Popup Background > Mask > Background fill`
+//     （`Mask` 的 RT `-7710459438390476890`：`Mask` + `Image`，`Background fill` 的 `m_Father` = 它）。
+//     我们**压平**成了 `Menu Area` 的三个孩子（`Node(area,"Mask",…)` + `Tiled(area,"Background fill",…)`）
+//     —— ⚠️ **可见结果等价**（那把 `Mask` 也有一颗 `Image`，本意是裁 `Background fill`；而
+//     `Background fill` 右沿 1592.72 只比遮罩右沿 1592.62 出 **0.10 px**、上下两边齐平 ⇒ 裁掉 0.10 px）。
+//     ⛔ 改不改都行，**但别把它与下面那颗 `Mask Tabs buttons` 当成同一颗** ——
+//     **它们矩形也不相等**（左沿 338.50 vs **338.2545**）、父子关系也不同。
+//   · `Generic Popup Background / Mask` [338.50,132.55]–[1592.62,956.39]（`Mask` + `Image`，见上）。
+//   · 🆕 **`Mask Tabs buttons`** [**338.2545**,132.5485]–[1592.6241,956.3875]
+//     （`Image(40k_popup, Sliced, ppuMul 0.76)` + **`Mask(showMaskGraphic = 0)`**）
+//     **是 `Tab Buttons` 的父级** ⇒ 那一列（含 `Separators`）**被裁**。
+//     ✅ **2026-10-20（`A1204`）已落地**（`BuildTabs` 里 `ViewportClip.Hang` 那一颗）——
+//     改前**整颗没有**（`Tab Buttons` 直挂 `Menu Area`）。逐字段判据 / 落法 / 更正 → `BuildTabs` 头注释，
+//     矩形算式与「为什么不等于上面那颗」→ 常量 `TabsMaskL/TabsMaskT/TabsMaskR/TabsMaskB` 的 doc。
 //   · `Generic Close Button` [1559.00,91.61] 75×75（`UI_Button_Round_background`）
 //     + `Icon` [1568.31,101.86]–[1624.68,156.35]（`40k_bt_close`）。
 //   · `Tab Buttons` 列 [328.10,123.10]–[506.52,966.19]（**178.42 宽**）。
@@ -141,7 +156,33 @@ namespace CardPresentation
         public const float ArfAspectRatio = 5.140573024749756f;
 
         public const float PopL = 328.10f, PopT = 123.11f, PopR = 1602.50f, PopB = 966.19f;
+        /// <summary>`Generic Popup Background / Mask` 那一颗（RT `-7710459438390476890`，`Mask` + `Image`）的矩形。
+        /// ⚠️ **它【不是】** `Tab Buttons` 的父级 —— 两者矩形**同高同右**、**左沿差 0.25**（见 <see cref="TabsMaskL"/>）。
+        /// ⚠️ 本文件把它**压平**建在 `Menu Area` 底下（`Build()` 那句 `Node(area, "Mask", …)`）、
+        /// `Background fill` 也抬成了兄弟 —— 见文件头那条「补记父链」。</summary>
         public const float MaskL = 338.50f, MaskT = 132.55f, MaskR = 1592.62f, MaskB = 956.39f;
+        /// <summary>🔴 **`Mask Tabs buttons`**（= **`Tab Buttons` 的父级**、那一列真正的裁切框）**自己的矩形**。
+        /// <para>逐字段来源 = `RectTransform_-423328652650053722`：`m_AnchorMin (0,0)` · `m_AnchorMax (1,1)` ·
+        /// `m_Pivot (0.5,0.5)` · `m_AnchoredPosition (**0.139892578125**, **0.178985595703125**)` ·
+        /// `m_SizeDelta (**−20.023799896240234**, **−19.2450008392334**)`；父 = `Menu Area`
+        /// （RT `-8564182181658067034`：`m_SizeDelta (1274.3934326171875, 843.083984375)` · pivot (0.5,0.5)
+        /// · `m_AnchoredPosition (5.2993998527526855, −4.646999835968018)`，父 = 窗根 pivot(0.5,0.5)@(960,540)）。</para>
+        /// <para>**算式**（uGUI `RectTransform` 语义，本仓唯一一份推导 → `工具/menu_rect.py` 文件头）：
+        /// `Menu Area` 实际矩形 = `[328.1027,123.1050] – [1602.4961,966.1890]`
+        /// （= 中心 (965.2994,544.6470) ∓ 半宽半高）⇒ 本件
+        /// `x1 = 328.1027 + 0.139893 + |−20.0238|/2 = **338.2545**` ·
+        /// `x2 = 1602.4961 + 0.139893 − 20.0238/2 = **1592.6241**` ·
+        /// `y1 = 123.1050 + 0.178986 + 19.2450/2 = **132.5485**` ·
+        /// `y2 = 966.1890 + 0.178986 − 19.2450/2 = **956.3875**`。</para>
+        /// <para>⚠️ **左沿 338.2545 ≠ `MaskL` 338.50（差 0.2455）** —— 那颗兄弟的 `m_SizeDelta.x = −20.268`、
+        /// `m_AnchoredPosition.x = 0.262024`（各自的值），**别把两颗当同一颗**。
+        /// 判据（独立复算）= `python -I 工具/menu_rect.py bundle_menus_assets_all "Main Menu Settings Window"
+        /// --depth 3 --no-ancestor-scale` 印的 **`Mask Tabs buttons  338.25  132.55  1592.62  956.39`** ✓
+        /// （`menu_dump.py --rt -423328652650053722` 的屏幕读数 **`400.4 173.3 1529.4 914.7`** 也同源）。</para>
+        /// <para>⚠️ **这 0.2455 目前【裁不到任何东西】**：遮罩下最靠左的**绘制件**是键（左沿 341.52）、
+        /// 再往左只有 `Tab Buttons` 那颗**裸节点**（328.10，不画）—— 338.25 与 338.50 之间一片空白
+        /// ⇒ 用哪个数**可见结果相同**。仍然照原版取 338.2545：**将来若往那一列左边加件，差的正是这一条线**。</para></summary>
+        public const float TabsMaskL = 338.2545f, TabsMaskT = 132.5485f, TabsMaskR = 1592.6241f, TabsMaskB = 956.3875f;
         public const float FillL = 510.62f, FillT = 132.55f, FillR = 1592.72f, FillB = 956.39f;
         public const float ShadeW = 4574.60f, ShadeH = 2572.36f;
         public static readonly Color ShadeColor = new Color(0f, 0f, 0f, 0.7725f);
@@ -186,10 +227,16 @@ namespace CardPresentation
         /// （首键顶 **55.794**，**上溢出栏 67.31 / 下溢出 80.31** —— `MiddleCenter` 在余量为负时就是两头对半溢出）。
         /// 🔴 **2026-10-19（`A1186` 裁定 ①）**：用户裁定**栏里就放原版那 5 个键**（键数与原版相同）
         /// ⇒ 本项**照原版语义落地**、那个 6 键档**不再出现**；⛔ **常量一个字没动**（`0.5` 是原版字段值）。
-        /// ⚠️ 当时列的三条备选（改上对齐 / 缩键高 / 补原版 `Mask Tabs buttons` 那层遮罩）**随裁定①一并作废**，
-        /// 记在这里只为「别再翻案」—— 那条栏本来就只有 5 个键，回到原版即是正解。
-        /// 📌 另一条**仍然成立、另立账**的既有偏离：原版 `Tab Buttons` 的父级上那层 `Mask` 我们**没实现**
-        /// （本窗不在本件范围，见 `项目任务.md`）。</para></summary>
+        /// ⚠️ 当时列的那三条里，**「改上对齐」与「缩键高」随裁定①作废**（键数回 5 ⇒ 余量又是正的）
+        /// —— 记在这里只为「别再翻案」，那条栏本来就只有 5 个键、回到原版即是正解。
+        /// 🔴 **2026-10-20（`A1204`）就地更正（铁律 5）**：那三条的**第三条**原来被写成
+        /// **「补原版 `Mask Tabs buttons` 那层遮罩」也算一条备选、一并作废** —— **那是错的**：
+        /// 那层遮罩**不是**为「6 键溢出」配的补救，它是**原版本来就有的父级节点**
+        /// （`Menu Area > Mask Tabs buttons > Tab Buttons`）⇒ 按铁律 11「与原版不符的**全部都要做**」
+        /// 它**必须**落地、与键数无关。
+        /// 📌 下面那句「原版 `Tab Buttons` 的父级上那层 `Mask` 我们**没实现**（本窗不在本件范围）」
+        /// **也已不成立**：**`A1204` 已把它补上**（`BuildTabs` 里 `ViewportClip.Hang` 那一颗，
+        /// 判据与落法见那段头注释）。</para></summary>
         public const float TabAlignY = 0.5f;
         /// <summary>第 `i` 个页签的**顶边**（设计 px，未过 `Screen()`）。**唯一一份**起排算式，
         /// 逐句照 uGUI `HorizontalOrVerticalLayoutGroup.GetStartOffset`：
@@ -1527,7 +1574,10 @@ namespace CardPresentation
             MenuDraw.Absorb(root, "AbsorbHit", Screen(PopL, PopT, PopR, PopB), QShade, QOverlay);
             Node(area, "Mask", MaskL, MaskT, MaskR, MaskB);
             Tiled(area, "Background fill", FillL, FillT, FillR, FillB, ArtFill, FillTilePx, QFill);
-            Rect(area, "Separators", BarSepL, BarSepT, BarSepR, BarSepB, ArtSep, QPanel);
+            // ⚠️ **`Separators` 不在这里建**（**2026-10-20 · `A1204`**）—— 原版它在 **`Tab Buttons` 底下**
+            //   （`Menu Area > Mask Tabs buttons > Tab Buttons > Separators`，逐颗实读 RT `3818736410477690790`：
+            //   `m_Father = -453959494957105242`（= `Tab Buttons`），带 `LayoutElement.m_IgnoreLayout = 1`）
+            //   ⇒ 它**落在页签那层遮罩里**、会被裁。搬到 `BuildTabs` 里建（父 = `Tab Buttons`）。
 
             // 3) 关闭钮（圆底 + 图标；**图标是钮的子节点** —— 原版就是这么套的）
             // 🔴🔴 **2026-10-18（A1149 第一半）圆底盘【挂点】归真**（本件 = 第九会话 P7）：
@@ -1594,7 +1644,82 @@ namespace CardPresentation
 
         void BuildTabs(Transform area)
         {
-            var bar = Node(area, "Tab Buttons", BarL, BarT, BarR, BarB);
+            // ============================================================================================
+            // 🔴🔴 **2026-10-20 · `A1204`：补上原版 `Tab Buttons` 的**父级那层遮罩**（`Mask Tabs buttons`）。**
+            // 改前我们**整颗没有** —— `Tab Buttons` 直接挂在 `Menu Area` 下 ⇒ **页签那一列没有裁切**。
+            // ============================================================================================
+            // 原版结构（逐颗实读 `d:/2/新解包资源/assets_full/bundle_menus_assets_all`）：
+            //   `Main Menu Settings Window > Menu Area > Mask Tabs buttons > Tab Buttons`
+            //   · GO `Mask Tabs buttons`（pid `3867140593184898982`）四个组件 =
+            //     `RectTransform(-423328652650053722)` · `MonoBehaviour_6350646976119472038`(**`Mask`**) ·
+            //     `MonoBehaviour_-4091509089969340506`(**`Image`**) · `CanvasRenderer`；
+            //   · `Mask` 那颗：`m_Script.m_PathID = -3041394055549590798`
+            //     → `bundle_Waprforge_monoscripts/MonoScript/MonoScript_-3041394055549590798.json` 的
+            //     `m_ClassName = **Mask**`（`UnityEngine.UI`）· `m_ShowMaskGraphic = **0**`（**只写模板、
+            //     自己不画**）；
+            //   · `Image` 那颗：`m_Sprite` = **`40k_popup`** · `m_Type = 1`(Sliced) ·
+            //     `m_PixelsPerUnitMultiplier = 0.7599999904632568` · `m_Color = (1,1,1,1)` ——
+            //     **被 `m_ShowMaskGraphic = 0` 关掉**（`Mask.GetModifiedMaterial` 给 `ColorWriteMask = 0`）
+            //     ⇒ 我们**不画它**（⛔ 别顺手补一张 `40k_popup`，那会多出一圈边框）；
+            //   · 它的 RT：`m_AnchorMin (0,0)` · `m_AnchorMax (1,1)` · `m_Pivot (0.5,0.5)` ·
+            //     `m_AnchoredPosition (0.139892578125, 0.178985595703125)` ·
+            //     `m_SizeDelta (**−20.023799896240234**, **−19.2450008392334**)`（= 父 `Menu Area` 四边各内缩
+            //     10.0119 / 9.6225 设计 px）· `m_Children[0] = -453959494957105242`（= `Tab Buttons` 的 RT）。
+            //   ⇒ **算出来的裁剪矩形（设计 px）= `[338.2545,132.5485] – [1592.6241,956.3875]`**
+            //     （1254.3696 × 823.839；算式与逐字段出处 → `TabsMaskL/TabsMaskT/TabsMaskR/TabsMaskB` 那条 doc）。
+            //     🔴 **⛔ 别拿 `MaskL/MaskR` 代进来** —— 那是**另一颗**（`Generic Popup Background/Mask`）的矩形，
+            //     左沿差 **0.2455**（338.50 vs 338.2545）；两颗的 `m_SizeDelta.x` / `m_AnchoredPosition.x`
+            //     本来就不一样（−20.0238 / 0.139893 vs −20.268 / 0.262024）。
+            //     🔴 **⛔ 别拿 `MaskL/MaskT/MaskR/MaskB` 代进来** —— 那四个常量属于**另一颗**节点
+            //     （`Generic Popup Background > Mask`），见 `TabsMaskL` 那条 doc。
+            //
+            // 🔴 **更正（铁律 5）：`资料/普查产出_第十会话/P10_Online改入口.md` §5·3 把它记成 `RectMask2D` —— 记错了。**
+            //   实读是 **`UnityEngine.UI.Mask`**（判据 = 上面那颗 `m_Script` 解出的 `m_ClassName`）。
+            //   ⚠️ **两者在我们这份模型里等价，所以不影响结论**：
+            //     ① 可见形状 —— `Mask` 靠**它那颗 `Image` 画的几何**写模板；那张 `40k_popup` 实测**近乎全不透明**
+            //        （判据 = `d:/2/Warpforge_tools/data/ui_extract/menus_assets_all_sprites/Sprite/40k_popup.png`，
+            //         359×336 里 alpha=0 的只有最外 1–2 px，占 2346/120624 ≈ 1.9%；中行/中列的 alpha 全程 245）
+            //        ⇒ `Mask` 的可见形状 ≈ **它自己的 rect**，与 `RectMask2D` 同一档；
+            //     ② 射线那一面 —— 两颗组件都是「矩形包含」（`Mask.IsRaycastLocationValid` =
+            //        `RectTransformUtility.RectangleContainsScreenPoint(rectTransform, sp, eventCamera)`，
+            //        本地 uGUI 源码 `Library/PackageCache/com.unity.ugui@27635d171b1a/Runtime/UGUI/UI/Core/Mask.cs`）
+            //        ⇒ 落到本仓那份 `ViewportClip` 上逐位相同。
+            //   ⚠️ **顺带**：`Generic Popup Background` 底下**还有一颗同名 `Mask`**（RT `-7710459438390476890`，
+            //   `Mask` + `Image`，矩形 `[338.50,132.55]–[1592.62,956.39]`，`Background fill` 是它的子件）——
+            //   **那是另一颗节点**，本文件用 `Build()` 里那句 `Node(area, "Mask", MaskL, …)` 表示（那
+            //   一句把它**压平**成了 `Menu Area` 的孩子、`Background fill` 也抬成了兄弟）。
+            //   ⇒ ⛔ **别把这一句删掉去「合并」两颗** —— 它们**矩形不相等**（左沿差 0.2455）、父子关系也不同。
+            //
+            // 🔴 **落法为什么不是新造一套**：本仓**已经在用**视口裁切（`Shell/ViewportClip.cs`，= 原版
+            //   `RectMask2D` 的等效物，生产侧 54 处 / 21 个文件）⇒ 这里照同族形状挂一颗节点即可，
+            //   参数取原版实读的**全 0**（`Mask` 没有 `m_Padding` / `m_Softness`；硬边）。
+            //   🔴 **裁切状态长在【节点】上**（`ViewportClip.Hang` ⇒ `SetBaseRect(r)`），
+            //   而 `MenuDraw.Rect/Nine/Tiled/Text/Hit` 走 `ViewportClip.Resolve` **沿父链找最近的**那一颗
+            //   ⇒ **把 `Tab Buttons` 挂进来**，它整棵子树（五个键 + `Separators`）就都被裁了，
+            //   一个绘制调用点都不用改。
+            //   ⚠️ **框的帧**：`Hang` 收的是 `Screen(...)`（= 本窗那套「0.9 烘进坐标」的屏幕 px）——
+            //   与 `MenuDraw.Local(parent, r)` / `MenuDraw.Rect(…)` 收到的是**同一档**（A811 的硬约束：
+            //   框的中心必须与被比矩形同帧）。算出 **`[400.429,173.294] – [1529.362,914.749]`**
+            //   = 原版 prefab 实读的屏幕矩形 **`[400.4,173.3] – [1529.4,914.7]`**（`menu_dump --rt -423328652650053722`
+            //   读数）✓ —— ⚠️ 这里**再不要用 `MaskL` 那一组**：那样算出的左沿是 **400.65**、与原版差 **0.25**
+            //   （那 0.25 正是两颗 `Mask` 的左沿之差，见 `TabsMaskL` 的 doc）。
+            var tabsMask = ViewportClip.Hang(area, "Mask Tabs buttons",
+                                             Screen(TabsMaskL, TabsMaskT, TabsMaskR, TabsMaskB),
+                                             Vector4.zero, Vector2Int.zero).transform;
+            // ⚠️ 这一句**不改任何矩形**：`MenuDraw.Local(parent, r)` 写的是
+            //   `RectCenter(r) − PosInDesignSpace(parent)` ⇒ 子件的落点**只由传进去的 `PxRect` 决定**、
+            //   与父节点的实时位置无关（判据 → `Shell/ViewportClip.cs` 文件头「A811 根治」那一节）。
+            //   ⇒ 换父级之后 `Tab Buttons` 仍在 `[328.10,123.10] – [506.52,966.19]`（逐位不变）。
+            var bar = Node(tabsMask, "Tab Buttons", BarL, BarT, BarR, BarB);
+            // 原版 `Separators` 就在 `Tab Buttons` 底下（`m_IgnoreLayout = 1` ⇒ VLG 不管它、停在 RT 自己的矩形上）
+            // ⇒ **它也被那层遮罩裁**：矩形 `[505.07,103.11] – [507.97,986.19]` 撞上遮罩框
+            //   ⇒ **上端被切 29.44 / 下端被切 29.80 设计 px**（屏上 ×0.9 = 26.50 / 26.82）——
+            //   改前我们画满了 883.08 高，改后是 **823.84**。
+            //   ⚠️ **既有断言会因此变红**（`Editor/SettingsScene.cs:702` 那条 `CheckRectS(…, BarSepT/BarSepB)`，
+            //   它的期望值还是**未裁**的那一对）—— 那一条要由**断言宿主那一波**改成裁切后的值，
+            //   本件只把「该改成什么」写进报告（`Editor/` 不在本件白名单）。
+            Rect(bar, "Separators", BarSepL, BarSepT, BarSepR, BarSepB, ArtSep, QPanel);
+
             // **五个键** = **原版那一列的形状，逐位不变**（`A1186` 裁定 ①；原版五页全建 + `Online` **不进栏**）
             // 🔴 **`Label` 有两个身份，别混**：① `Node(...)` 的**节点名**（= 自检 `FindChild` / `Click` 用的
             //    稳定英文标识，⛔ 不随语言变）② 画在键上那行字的**文案**（走 `Key`，语言一换就变）。

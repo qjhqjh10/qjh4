@@ -138,4 +138,26 @@
 **错因** = 只看 `⇲ls` 那一列的**名字**、没解 `m_Father` 父链。
 🔑 **连带一条更值钱的**（`R4` 顺手记下、归 `A1197`）：**我们摆 `Score` 时把它当成了【行节点的直接子件】** ⇒ **树形本身就与原版差一层**。
 
+---
+
+### 6. `A1223` —— `Slay`/`Kills` 可能是同一族 —— ✅ **2026-10-10 查实：【不成立】**（`R-N` 只读查证）
+
+**原文（一字未改）**：
+
+> 🔴 **`Slay`/`Kills` 可能是 `A1176` 的【同一族】**（`P-D` 做 `A1176` 时顺手查出，⛔ 没改 · **置信度中下**）—— `RuleCore.cs:3754` 写的是 `bool killed = !target.IsWarlord && !target.IsAlive;`（**用的是 `IsAlive`、不是 `targetDied`**）⇒ **翻面成残骸的目标会被当成「被摧毁」** ⇒ 触发 `Slay`/`Kills` 那一族关键词。原版线索：`AddTriggerSlay` **全库只有一个调用点**（`AbilityLogic__PlayAbility.c:1903`），而 `ResolveTriggerSlay.c:128` 判的是 **`IsInPlayOrDying()`（凶手还活着）**、**不判目标死活**。⇒ **先做只读查证、再决定改不改**（铁律 11）。出处 → `资料/普查产出_第十一会话/PD_targetDied残骸档.md` §8·①。
+
+**🔴 裁决：`P-D` 担心的那条【不成立】** —— **原版对「刚翻面」的目标【照样】触发 `Slay`**，与我们一致。
+
+**判据（`R-N` 新查的，全部在 `d:/2/tools/decomp_full/`）**：
+- `Slay(120)` **全库只有两个发射点**（多行感知扫了 **111 个** `RawCardScript__OnTrigger` 调用点）：
+  **A = `CardScript__ResolveDeadCard.c:259`**（死亡结算，**`P-D` 那份漏了这一处**）· **B = `CardScript__TriggerSlay.c:16`** ← `ResolveTriggerSlay.c:226` ← `AddTriggerSlay` ← `AbilityLogic__PlayAbility.c:1903` = `case AbilityEffect.triggerSlay(467)` = **「强行触发某单位的 Slay」**（卡面 `Master Lazarus`）⇒ **`P-D` 那条线索不是普通击杀的路**。
+- **普通击杀走 A**，闸（`:242-256`）= 解析出那张 **== `action.actingCard`（凶手）** ∧ 凶手 `cardState != 5` ∧ 死者 `cardType != 10`（不是督军）∧ **死者 `deathType ∈ {combatDefender(15), ability(20)}`** ∧ 凶手属当前回合方 ∧ **死者 `isRemnant(0x65) == 0`**。
+- 🔑 **`0x65` = `isRemnant`**（`EntityScript__set_isRemnant.c:5` / `TransformIntoRemnant.c:29` / `TransformFromRemnant.c:10`）；它在 `CheckIfDead.c:123` 决定「真死 vs 翻面」。而 **`TriggerUnitBacklashActions` 先于 `AddTransformIntoRemnant` 调用** ⇒ **死亡结算那一刻死者 `isRemnant` 还是 `0`** ⇒ 闸真 ⇒ **原版照样触发** ⇒ **与我们一致**。
+- 旁证：`local_28` = `UnitDeathType` 实证（`TriggerOnMinionDeath.c:97` → `OnMinionDeath.c:19-27` 把 `10/0x14/0x28` 映成 `175/180/170`）；`param_1` = 死亡广播列表里那一张（`BroadcastDeadUnit` 遍历 `bm+0x470`）⇒ 四块（`DeadHero` / 死亡触发 / `Slay` / `Requiem`）在这一读法下**全部自洽**。
+
+**🔴 但同一条判据带出两条【真差异】**（都要做，铁律 11）⇒ 已另立 **`A1249`**（我们**多**算了一档）与 **`A1250`**（我们**少**算了一档）。
+
+**⚠️ `R-N` 顺手订正一处行号**：`IsRemnant` 的**唯一写点现在是 `RuleCore.cs:4551`**（`P-D` 报的 `4465` 已因本轮改动挪位）。
+**⚠️ 没查清**：字段偏移**没拿 `dump.cs`/IL 核过**（`R-N` 用字段声明序 + 状态机拷贝基址 `+0x20` + `TriggerUnitBacklashActions` 的构造三段推的）· `bm + 0x470` 是什么列表没查 · 差异② 的可达性没数 · 25 处 `!IsAlive` 的同族性没逐条核 · **两条都没做实况验证**。
+
 
