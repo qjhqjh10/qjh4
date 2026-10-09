@@ -159,7 +159,22 @@ namespace CardPresentation
         /// 🔴 **这一族被两层 `localScale` 包着**（`Scoring Bar` 1.2563 → `Progress Bar` 0.8696），
         ///    所以 rect 不能照 `menu_rect.py` 打的本地值用 —— 要**绕各自的中心**乘回去（pivot 全是 (.5,.5)，实测）。
         ///    `menu_rect.py` **不套 scale**（`rect_of` 的 `scale` 形参收了没用）—— 这一条记在
-        ///    `资料/命令速查.md` 那条命令的注释里。下面两个换算函数就是补这一步。</summary>
+        ///    `资料/命令速查.md` 那条命令的注释里。下面两个换算函数就是补这一步。
+        /// <para>🔴 **2026-10-19（A1197）现读登记：这棵子树里有两颗 TMP，而本窗【一件都没建】**
+        /// —— 所以这一笔在本窗的**改动 = 0 处**（⛔ 不是我漏了）。逐颗现读
+        /// （`python -I d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all "SkirmishModeEventWindow"
+        /// --depth 14 --relative --no-sprite` 行末 `⇲ls=`，`m_LocalScale` 用 `_tmp_view/r4scratch/chain2.py` 逐层读）：
+        /// · `…/Score Bar Line Level k/Skull/Score`（TMP `'1256'`，现读字号 48 · 基准 36 · auto[18~48]）
+        ///   链 = `Score`(1.0) ← `Skull`(**0.8695654273033142**) ← `Score Bar Line Level k`(1.0)
+        ///        ← `Score Levels`(1.0) ← `Scoring Bar Event Score Info`(**1.2562999725341797**)
+        ///   ⇒ 祖先刻度积 = **1.0924350**（⛔ 那个 0.8696 长在 `Skull` 上、`Score` 是它的**子件**）。
+        /// · `…/Scoring Bar Event Score Info/Generic Simplified UI Button/Button Text`（TMP `'Collect'`，
+        ///   现读字号 55 · 基准 12 · auto[10~55]）⇒ 祖先刻度积 = `Scoring Bar Event Score Info` 那一颗 = **1.2563**。
+        /// ⇒ **将来补这两颗时（它们现在被有意不建，见 `BuildMilestones` 末尾两条 `Debug.Log`）**：
+        ///   `fontPx` / `autoMinPx` / `autoMaxPx` / `autoBasePx` **四格一起乘**上面那个积（框不动 ——
+        ///   `ScoreRect()` 出来的已是屏值）。判据（TMP 的自适应**在本地单位里二分** ⇒ 原版屏上字号 = 本地字号 ×
+        ///   祖先刻度积）全文 → 姊妹件 `Shell/EnergySinglePlayerOnlyEventWindow.cs` 的「A1197」那一段。
+        /// 🔴 **逐窗取值**：同一个子 prefab 在能量窗里是 **1.32**（`Score` 的积 = 1.1478264），**⛔ 别一刀切**。</para></summary>
         void BuildScoreBar(Transform col)
         {
             var bar = MenuDraw.Node(col, "Scoring Bar Event Score Info", new PxRect(SBarL, SBarT, SBarR, SBarB));

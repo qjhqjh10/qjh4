@@ -6667,20 +6667,28 @@ public static class ShellScene
                     CheckTrue(rowK != null,
                               $"（前提·不静默）A1190 · 能源窗第 {k} 档 `Score Bar Line Level {k}` 建出来了"
                             + " —— ⛔ 找不到就**不往下断**（不静默变绿）");
+                    // 🔴 **2026-10-10（A1197）**：下面三个字号期望值**已乘上该子树的祖先刻度积 `1.1478264`**
+                    //    （`Score` ← `Skull`(`0.8695654273033142`) ← … ← `Scoring Bar Event Score Info`(`1.32`)）。
+                    //    判据 = 原版 autosize 是在**本地单位**里二分的（`TextMeshProUGUI.cs:2342` 的 `m_marginWidth`
+                    //    是**局部量**）⇒ **屏上字号 = 本地字号 × 祖先刻度积**；本地 18/48/36 ⇒ 屏值 20.6609/55.0957/41.3218。
+                    //    ⚠️ **框那两格不动**（133.32×57.39 本来就是屏值）。改坏法见上面那段总注。
                     fitCase($"A1190 · `Shell/EnergySinglePlayerOnlyEventWindow.cs` 的 `Score`（`Level {k}`）",
-                            FindChildIn(rowK, "Score"), 133.32f, 57.39f, 18f, 48f, 36f, 1,
-                            $"原版 `…/Score Bar Line Level {k}/Score` 实读 `auto[18~48]`"
-                          + "（`m_fontSize 48` · 基准 36 · 折行 1 · 框 133.32×57.39；5 颗逐值一致）");
+                            FindChildIn(rowK, "Score"), 133.32f, 57.39f, 20.6609f, 55.0957f, 41.3218f, 1,
+                            $"原版 `…/Score Bar Line Level {k}/Score` 实读 `auto[18~48]` × 祖先刻度 1.1478264"
+                          + "（本地 `m_fontSize 48` · 基准 36 · 折行 1 · 框 133.32×57.39；5 颗逐值一致）");
                 }
                 // ② `Collect` 的 `Button Text` —— 🔴 本件**唯一**「原版折行 = 0」的一颗 ⇒ 期望 0，
                 //    改坏法：删掉紧跟 `MenuDraw.Text` 的那句 `ct.SetWrapping(false)` ⇒ 折行档那一格红
                 //    （`SetAutoFitBox` 内部的 `SetWrapWidth` 会**无条件**开成 `Normal`）。
+                // 🔴 **2026-10-10（A1197）**：下面三个字号期望值**已乘上该子树的祖先刻度 `1.32`**
+                //    （`Button Text` ← `Generic Simplified UI Button` ← `Scoring Bar Event Score Info`(`1.32`)）。
+                //    本地 10/55/12 ⇒ 屏值 13.2/72.6/15.84。⚠️ **框那两格不动**（280.88×73.17 本来就是屏值）。
                 fitCase("A1190 · `Shell/EnergySinglePlayerOnlyEventWindow.cs` 的 `Collect/Button Text`",
                         FindChildIn(FindChildIn(a1126En.transform, "Scoring Bar Event Score Info"),
                                     "Button Text"),
-                        280.88f, 73.17f, 10f, 55f, 12f, 0,
-                        "原版 `…/Generic Simplified UI Button/Button Text` 实读 `auto[10~55]` · 基准 **12**"
-                      + "（⛔ 不是 36）· **折行 = 0**（框 280.88×73.17）");
+                        280.88f, 73.17f, 13.2f, 72.6f, 15.84f, 0,
+                        "原版 `…/Generic Simplified UI Button/Button Text` 实读 `auto[10~55]` × 祖先刻度 1.32"
+                      + " · 基准 **12**（⛔ 不是 36）· **折行 = 0**（框 280.88×73.17）");
                 // ③ `Factions Title` —— ⚠️ 原版 `m_fontSize`(44.65) ≠ `m_fontSizeMax`(45.87) ⇒ 上限那一格
                 //    专门咬「拿标称字号顶上限」那一档（A333 那条）。
                 fitCase("A1190 · `Shell/EnergySinglePlayerOnlyEventWindow.cs` 的 `Factions Title`",

@@ -110,6 +110,43 @@ namespace CardPresentation
         const float SBarCx = 1617.90f, SBarCy = 604.285f;
         const float ProgVisW = 87.23f, ProgVisH = 475.84f;    // `Progress Bar` × scl 0.8696
         const float ProgCx = 1617.90f, ProgCy = 604.54f;
+
+        // ============================================================ 🔴 A1197：缩放子树里的**字号**刻度积
+        // **上面那些 `Vis*` 常量烘的是【框】；这一组烘的是【字号】—— 同一件事的两半，⛔ 别只做一半。**
+        // 判据（为什么字号也要乘）—— 原版 TMP 的自适应**在【本地单位】里二分**，不是屏上：
+        //   · `Unity 包源码 com.unity.ugui@27635d171b1a/Runtime/TMP/TextMeshProUGUI.cs:2333-2345`
+        //     `ComputeMarginSize()` 里 `Rect rect = m_rectTransform.rect;` —— `RectTransform.rect` 是**局部**尺寸，
+        //     不含任何祖先缩放；`m_marginWidth = rect.width - m_margin.x - m_margin.z`。
+        //   · 二分两端都拿 `m_fontSize`（本地字号）与那个**局部** `marginWidth` 比：
+        //     缩 = `:3424-3428` · 放 = `:4488-4502`。
+        //   ⇒ 祖先缩放在「局部 → 屏」那一步把 rect 与字形**一起**乘，**改不了 fit 的结果**；
+        //     而 prefab 里序列化的是**未缩放的** `m_fontSize` ⇒ 原版**屏上**字号 = 本地字号 × 祖先刻度积。
+        //   ⚠️ 这份反编译 `d:/2/tools/decomp_full/` 里**没有 TMP**（只覆盖 `Assembly-CSharp`；`grep -rl
+        //     "enableAutoSizing"` 零命中）⇒ 判据取的是**工程自带的包源码**（上面那条路径）。
+        // 我们为什么不跟着祖先走：我们的 `Label` **不在**那条缩放子树里（父件只有窗根，刻度 1.0），
+        //   而传进去的 `fontPx` 就是**画布 px**（`MenuDraw.TextCore` → `Label.SetGlyphHeight(LayoutSpace.Px(fontPx))`，
+        //   `SetAutoFitBox` 的 `minPx/maxPx` 同为画布 px）⇒ **原版屏上的那个字号，只能自己乘出来。**
+        //   ⇒ 框不动（已经是屏值）、四格字号（标称 + 自适应上/下限 + 基准）**一起乘**（乘的量纲对得上：
+        //     `fontSizeMax = cur × (maxPx / nomPx)` 在 `nomPx` 也乘了 s 之后正好等比放大 s 倍）。
+        // 先例（同一条规矩、照它的形状抄）：`Shell/MissionsTab.cs` 的 `FS()` +
+        //   `Shell/DailyStreakPopup.cs` 的 `BuildEntry`（「整组的 scl 已经烘进矩形里，但 TMP 的 `m_fontSize`
+        //   是**未缩放**的值 ⇒ 字号要自己乘」）。
+        // ⚠️ 同一份子 prefab 在**别的窗**里刻度不同（`SkirmishModeEventWindow` / `Two Sides Event Window`
+        //   的 `Scoring Bar Event Score Info` 是 **1.2563**，不是 1.32）⇒ 🔴 **逐窗取值、⛔ 别一刀切**。
+        // 出处（现读）：`python -I d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all
+        //   "EnergySinglePlayerOnlyEventWindow" --depth 14 --relative --no-sprite` 的行末 `⇲ls=`，
+        //   并用 `d:/4/_tmp_view/r4scratch/chain2.py` 逐层读 `m_LocalScale`。链子逐颗（父 ← 子）：
+        //   `Scoring Bar Event Score Info`(**1.3200000524520874**) ← `Score Levels`(1.0)
+        //       ← `Score Bar Line Level k`(1.0) ← `Skull`(**0.8695654273033142**) ← `Score`(1.0)  ⇒ 积 1.1478264
+        //   `Scoring Bar Event Score Info`(1.32) ← `Generic Simplified UI Button`(1.0) ← `Button Text`(1.0) ⇒ 积 1.32
+        //   ⚠️ 那个 0.8696 长在 **`Skull`** 上，而 `Score` 是 `Skull` 的**子件** ——
+        //     ⛔ 不是长在 `Score Bar Line Level k` 上（`资料/普查产出_第十会话/P8_A1190.md` §6·2 记错了方向）。
+        /// <summary>`Scoring Bar Event Score Info` 自己那一颗的刻度（= 它**所有**后代的公共因子）。</summary>
+        const float SBarFontScale = 1.32f;
+        /// <summary>`Skull` 自己那一颗的刻度（`Score` 那 5 颗比别的后代**多**乘这一层）。</summary>
+        const float SkullFontScale = 0.8695654273033142f;
+        /// <summary>`Score` 那 5 颗的祖先刻度积 = `1.1478264…`（`SBarFontScale × SkullFontScale`）。</summary>
+        const float ScoreFontScale = SBarFontScale * SkullFontScale;
         // `Progress Bar` 的两个子件（现读框**已经含过**那两层 scale）
         const float ProgBgCx = 1617.90f, ProgBgCy = 604.54f, ProgBgW = 50.16f, ProgBgH = 547.21f;
         const float FillX1 = 1599.06f, FillX2 = 1635.99f;     // `Fill Area` 的横向范围
@@ -384,8 +421,9 @@ namespace CardPresentation
             _collect = MenuDraw.Node(bar, "Generic Simplified UI Button", CollectR);
             var cb = MenuDraw.Rect(_collect, Art(ArtMulligan), CollectR, "Bg", QArt1, null, true);
             _collectBg = cb != null ? cb.transform : null;
-            var ct = MenuDraw.Text(_collect, CollectTxR, "Collect", Color.white, "Button Text", 55f, QText,
-                                   CollectTxR.W, 10f, 55f, 12f);
+            var ct = MenuDraw.Text(_collect, CollectTxR, "Collect", Color.white, "Button Text",
+                                   55f * SBarFontScale, QText, CollectTxR.W,
+                                   10f * SBarFontScale, 55f * SBarFontScale, 12f * SBarFontScale);
             // 🔴 **2026-10-19（A1190）**：这一颗原来**没传 autosize 实参** ⇒ 固定 55px。
             //   判据 = 逐颗现读原版那一颗（`工具/menu_dump.py bundle_menus_assets_all
             //   "EnergySinglePlayerOnlyEventWindow" --depth 10 --md`）：
@@ -395,6 +433,11 @@ namespace CardPresentation
             //   ⚠️ **折行 0**：`SetAutoFitBox` 内部那句 `SetWrapWidth` 会**无条件**把模式开成 `Normal`
             //   ⇒ 紧跟着关掉（同族先例 = `Shell/AlliancePanelWindow.cs:373` 的 `lb.SetWrapping(false)`）。
             //   ⚠️ 关得越早越好（`SetWrapping` 会推版面）—— 本颗后面**没有** `Align*`，所以排在这里就够。
+            // 🔴 **2026-10-19（A1197）**：四格字号 **全部 × `SBarFontScale`（1.32）** —— 本颗在
+            //   `Scoring Bar Event Score Info`（`m_LocalScale = 1.32`）那棵子树里，而原版 prefab 里的
+            //   `m_fontSize/m_fontSizeMin/m_fontSizeMax/m_fontSizeBase`（55/10/55/12）是**未缩放**的值
+            //   ⇒ 原版屏上字号 = 55 × 1.32 = **72.6**。我们写的 55 相对框（`CollectTxR`，已是屏值）小 **24.2%**。
+            //   判据全文 → 本文件上面那一段「A1197：缩放子树里的**字号**刻度积」。⛔ **框不动**。
             if (ct != null) ct.SetWrapping(false);
             // 原版这颗钮 → `CollectClicked()`：要向 LiveOps 领奖 ⇒ **要服务器**。
             //（本工程边界③：入口照做、点了如实说，⛔ 不静默。）
@@ -480,8 +523,16 @@ namespace CardPresentation
                 //   对齐 `Right/Midline` · **折行 = 1** · 框 **133.32 × 57.39**（= `ScoreW`/`ScoreH` 逐位同值）
                 //   ⇒ 一行建 5 颗、**5 颗同值**，一套实参就够（⛔ 不是「原版 5 颗不同值」那一族）。
                 //   ⚠️ 折行 1 ⇒ ⛔ 不补 `SetWrapping(false)`。
-                var sc = MenuDraw.Text(row, sr, "1256", Color.white, "Score", 48f, QText,
-                                       sr.W, 18f, 48f, 36f);
+                var sc = MenuDraw.Text(row, sr, "1256", Color.white, "Score",
+                                       48f * ScoreFontScale, QText, sr.W,
+                                       18f * ScoreFontScale, 48f * ScoreFontScale, 36f * ScoreFontScale);
+                // 🔴 **2026-10-19（A1197）**：四格字号 **全部 × `ScoreFontScale`（1.1478264）** ——
+                //   这颗的祖先链是 `Scoring Bar Event Score Info`(1.32) ← `Skull`(**0.86956543**) ← `Score`，
+                //   而原版 prefab 里的 48/18/48/36 是**未缩放**的值 ⇒ 原版屏上字号 = 48 × 1.1478264 = **55.096**。
+                //   我们原来直接传 48 ⇒ 相对框（`ScoreW` = 133.32，**已是屏值**）小 **12.9%**。
+                //   判据全文（含「TMP 在本地单位里二分」那两条包源码行号）→ 上面常量声明处那一段。
+                //   ⚠️ 那颗 `0.8696` 长在 **`Skull`** 身上、`Score` 是 `Skull` 的**子件**（现读链，⛔ 别记到行节点头上）。
+                //   ⛔ 框不动（`sr` = `CenterRect(…, ScoreW, ScoreH)`，本来就是乘过刻度的屏值）。
                 MenuDraw.AlignRight(sc, sr);
             }
             Debug.Log("[Energy] 5 行 `Score` 照的是 **prefab 出厂原文 `1256`**、`Highlight Crate` 照出厂"
