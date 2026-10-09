@@ -3240,6 +3240,145 @@ namespace RuleEngine
             return true;
         }
 
+        // ==================================================================
+        //  「替身」（`Bodyguard`）—— **原版是一条 `AboutToAttack` 的 ability**
+        //
+        //  🔴 **2026-10-10（`A1154`）**：这一段原来是**内联在 `DeclareAttack` 里**的
+        //     「打督军时扫防御方场上、取第一个带标记的单位」，注释自己也标着
+        //     「**位置 + 选法**仍是照 gd 旁证的、与原版那条 ability **是否等价未核**」。
+        //     现在把原版整条链逐跳读完了（第一权威 = `d:/2/tools/decomp_full/`），按它的形状
+        //     收成一个**具名口**（**判别式只有这一处** —— 照 `StunStillOnBoard` 那个先例）。
+        // ==================================================================
+
+        /// <summary>
+        /// **「替身」那一条 ability 的落点**。卡面全池唯一一张 —— `Vargard Obyron`（`SAU42`）：
+        /// `Armour 2. Any attack against your Warlord targets this troop instead.`
+        ///
+        /// 🔴 **原版整条链（逐跳读完；行号即 `d:/2/tools/decomp_full/` 里的那份）**
+        /// ```
+        /// BattleManager._ResolveAttack_d__438__MoveNext.c:528-533   // 正在结算的这记攻击动作
+        ///   → BattleManager__CheckUnitsCancellingAttack.c:33-66     // 扫 BattleManager.unitsInPlay(+0x470)
+        ///      → CardScript__HasCancelAttackAbility.c:34-43         // 本单位有没有 trigger == 0x118 的 ability
+        ///         → CardAbility__CanTriggerAbility.c:71,126-141     // trigger 相符 + IsRightContext
+        ///                                                           //   + 三条 criteria(+0x28 / +0x30 / +0x38)
+        ///   → （命中）_ResolveAttack:541-587                        // CancelAttack(攻方) +
+        ///                                                           //   ClearPendingDamage(攻方 / 原目标) +
+        ///                                                           //   RegisterPlayerActionCancelled
+        ///   → _ResolveAttack:588-596 CardScript__ResolveCancelAttack(该单位, 攻方, 原目标)
+        ///      → CardScript__ResolveCancelAttack.c:12-14            // RawCardScript.OnTrigger(0x118, …)
+        ///         → RawCardScript__TriggerAbility.c:31-33           // AbilityData.SetNewData(
+        ///                                                           //   thisCard = 该单位,
+        ///                                                           //   actingCard = **攻方**,
+        ///                                                           //   targetCard = **原目标**)
+        ///            → RawCardScript__TriggerAbility.c:89/:103 AbilityLogic__PlayAbility
+        ///               → AbilityLogic__PlayAbility.c:2716-2735      // case 0xec
+        ///                  → BattleManager__AddRedirectedAttack.c    // 排一条 redirectedAttack
+        /// ```
+        /// **那个调用点给出去的实参**（`:2730`，配 `il2cpp_out/dump.cs` 的字段偏移）：
+        ///   · `actingCard = abilityData.actingCard`（`AbilityData // 0x18`）= **打人那张牌（攻方）**；
+        ///   · `attackType = actingCard.currentAttackType`（`EntityScript // 0x120`）
+        ///     ⇒ **重定向沿用【攻方当时那一档打法】**，不是替身的打法；
+        ///   · `targetCard = AbilityLogic.GetTargets(...)[0]` = **这条 ability 自己的目标**
+        ///     （`AbilityLogic.targetCriteria`；卡面写 `this troop` ⇒ 就是它自己）。
+        /// ⇒ **净效果**：原来那一记攻击被**取消**，另排一条「**同一张牌、同一档打法、打替身**」的
+        ///    `BattleActionType.redirectedAttack = 74`（`BattleActionType.cs`）。
+        ///    我们这边是**同步结算** ⇒ 就地把 `tgtSlot` / `target` 换成替身、**打法（`ranged`）原样不动**：
+        ///    与「取消 + 重排」在**结果**上等价（同一次伤害、同一次反击、同一条攻击事件，见下两条）。
+        ///
+        /// **四道闸**（判据全是从原版读来的；**执行顺序**按「先跑最省的那一道」排 ——
+        /// 原版 `CanTriggerAbility.c:126-141` 里 `IsRightContext` 在前、criteria 在后，
+        /// 而这几道闸**哪个先假都不产出任何日志/事件**（原版只在**命中后**才 `AddRedirectedAttack`）
+        /// ⇒ 交换顺序没有可观察差异。）
+        ///   ① **被打的那张牌必须是我方督军** —— `CanTriggerAbility.c:134` 那一条是
+        ///      `CheckIfMeetsCriteria(thisCard, **targetCard**, ability.targetCriteria /* +0x30 */)`
+        ///      ⇒ ability 的 `targetCriteria` 筛的就是**被打者**；卡面 `your Warlord` 即它。
+        ///      ⚠️ **这一条是「代码读出来的形状 + 卡面读出来的内容」拼的**：原版那张卡的 ability
+        ///      **资产在远端 CCD，本地没有**（下面「未查实」第 3 条）⇒ 「这条 criteria 的内容
+        ///      就是我方督军」是从**卡面印的那句话**推的，不是从资产里读到的。
+        ///   ② **要响的单位必须还在场上、且不是将死那一档** —— `CardAbility__IsRightContext.c:20-27`
+        ///      （`abilityContext == InPlay` 那一支：`IsInPlay(thisCard) && !EnoughPendingDamageToDie(thisCard)`）。
+        ///      ⚠️ 它同时就是「替身自己刚挨过一刀、而那一刀已经够要命 ⇒ 不再截这一记」的判据。
+        ///      ⚠️ **「血 ≤ 0 但还没被标成将死」那一档两边也一致**：`EnoughPendingDamageToDie`
+        ///      在那个函数里**血 ≤ 0（且没有 Survivor）时直接返回真**
+        ///      （`CardScript__EnoughPendingDamageToDie.c:31,42-45,109`：`animState != 5`、且
+        ///      `0 < health || CurrentSurvivor != 0` 才往下走，否则落到函数末尾的 `return 1`）
+        ///      ⇒ `IsRightContext` 判假 ⇒ **不响**；
+        ///      我们这边 `!IsAlive`（`= Health > 0`）跳过，**同一个结果**。
+        ///   ③ **攻方**两道：`IsInPlay(actingCard)` 与 `!EnoughPendingDamageToDie(actingCard)`
+        ///      （`BattleManager__AddRedirectedAttack.c:36-48`；两条的日志原文在
+        ///       `d:/2/tools/all_strings.txt` 偏移 `69591552` / `69591808`：
+        ///       `Ignoring AddRedirectedAttack because unit no longer in play` /
+        ///       `Ignoring AddRedirectedAttack because unit will die`）。
+        ///      ⚠️ **后半在我们这侧只表示得出一半**：原版走到 ability 之前，`_ResolveAttack:541-587`
+        ///      那一段**已经**把攻方的 `pendingDamage` 清空了 ⇒ `EnoughPendingDamageToDie`
+        ///      只剩「`cardState == 5`（将死）」那一支还会真
+        ///      （`CardScript__EnoughPendingDamageToDie.c:31,42-45,109`）⇒ 映射成 `IsAlive` 是**等价**的。
+        ///      **我们没有 `pendingDamage` 队列**（伤害逐段现结）⇒「有致命**待**结算伤害」那一格
+        ///      **表示不出来** —— 这里如实标着，⛔ 别拿它当「漏做了一半」。
+        ///   ④ **被 `jam` 住的单位不响** —— `CheckUnitsCancellingAttack.c:47`：
+        ///      `if (!HasCurrentTrait(unit, 0x82 /* DefinedTrait.jam = 130 */))` 才收进列表。
+        ///      ⚠️ 全池 **0 张**卡带 `jam`（`Core/UnitState.cs:307` 那条如实记录）⇒ 今天恒假，但判据在，照落。
+        ///
+        /// 🔴 **两条别顺手改回去**
+        ///   · **不做目标合法性复检**：原版 `BattleManager__AllowResolveAttack.c:134-136` 对
+        ///     `redirectedAttack(0x4a)` **直接 `return 1`**（同一份 `:92-94` 对 `scriptedAttack(0x34)` 也是）
+        ///     ⇒ 既不查 `IsValidAttackTarget`、也不查「这张牌这会儿还能不能攻击」
+        ///     ⇒ **带 `Stealth` 的替身照样挨这一下**。我们这边换目标**排在 `IsValidTarget` 之后**，
+        ///     顺序正好对上 —— ⛔ 别为了「看起来更稳妥」补一道复检。
+        ///   · **一记攻击只改一次、改完不再进这一条**：原版 `_ResolveAttack:528-533` 的
+        ///     `if (*(int *)(… + 0x20) != 0x4a)` 把整段「取消」判定**跳过 `redirectedAttack`**
+        ///     ⇒ 重定向过的那一记不会再被截第二次。我们这边结构上也进不来 ——
+        ///     改完的目标是**部队**、不是督军，第 ① 条当场假。
+        ///
+        /// ⚠️ **三条如实标着「没查实」**（⛔ 别把下面这三句当已查实读）
+        ///   · **同一方有 2 个以上替身**时原版落在哪一个：`CheckUnitsCancellingAttack` 收的是
+        ///     **一个 List**、`_ResolveAttack:588-596` 对**每个**命中单位都调一次
+        ///     `ResolveCancelAttack`（各排一条重定向，而 `AddRedirectedAttack` 每次都先
+        ///     `ClearPendingDamage` 两张、再 `RecordAttackPendingDamage` 重记）
+        ///     ⇒ 终态取决于队列里哪一条最后落地（**不是**「取第一个」也不是「取最后一个」这么简单）。
+        ///     **我们保持现状：取【槽号最小】的那一个**（旁证 `rule_core.gd:4267` 同口径 —— 那不是权威）。
+        ///     要坐实得跑原版实况：本地拿不到那张卡的 ability 资产（在原版远端 CCD）。
+        ///   · **排除督军自己**（`.IsWarlord` 跳过）也是**旁证口径**：原版那条 ability 长在**部队**
+        ///     身上（卡面 `troop`），而 `BattleManager.unitsInPlay` 里到底含不含督军我们**没查到**
+        ///     （远端资产）⇒ 这一格不动。
+        ///   · **`Vargard Obyron` 那张卡的 ability 数据本身拿不到**（原版远端 CCD；本地
+        ///     `cards_engine.json` 只有卡面文本 + 数值）。所以它的
+        ///     `AbilityTrigger / 三条 criteria / AbilityEffect / targetCriteria / priority`
+        ///     **都是「按卡面那句话 + 上面那条代码链」推出来的** —— 代码那一半是**查实**的
+        ///     （调用点、实参来源、四道闸、两道短路都在方法体里），
+        ///     **「卡面语义 → 这三条 criteria 的具体取值」那一半是推断**。
+        ///     今天全池 **1 张**卡走这一条（`grep -rn "targets this troop instead"` 全池只命中它）。
+        /// </summary>
+        /// <returns>真 = 已经把这一记攻击改到替身身上（<paramref name="tgtSlot"/> /
+        /// <paramref name="target"/> 已就地改掉）。</returns>
+        static bool TryRedirectAttackToBodyguard(BattleContext ctx, int p, int atkSlot, int tgtP,
+                                                 ref int tgtSlot, ref UnitState target)
+        {
+            // ① 只有「打的是我方督军」才进这一条（判据 = ability 的 targetCriteria 筛的是被打者）
+            if (target == null || !target.IsWarlord) return false;
+            if (tgtP < 0 || tgtP > 1) return false;
+
+            // ③ 攻方两道闸（后半只表示得出「没被打死」那一半，见上面 ⚠️）
+            var attacker = ctx.Players[p].Board[atkSlot];
+            if (attacker == null || !attacker.IsAlive) return false;
+
+            // ② 扫【督军那一方】的场 —— 原版扫的是全场 `unitsInPlay`，由 ① 的 criteria 收窄到这一侧
+            var tb = ctx.Players[tgtP].Board;
+            for (int gs = 0; gs < BoardSpec.Size; gs++)
+            {
+                var gu = tb[gs];
+                // ② 自己得在场、且不是将死那一档（`IsRightContext`）· ④ 不能被 `jam` 住
+                if (gu == null || !gu.IsAlive || gu.IsWarlord) continue;
+                if (gu.Has(KeywordTable.Jam)) continue;
+                if (gu.Card == null || !gu.Card.Bodyguard) continue;
+                ctx.Log($"{attacker.Name} 打的是督军，但「{gu.Name}」是**替身** —— 改打它");
+                tgtSlot = gs;
+                target = gu;
+                return true;
+            }
+            return false;
+        }
+
         /// <summary>
         /// 攻击结算。（rule_core.declare_attack）
         ///
@@ -3295,36 +3434,17 @@ namespace RuleEngine
 
             // ---- **替身**（`Any attack against your Warlord targets this troop instead.`）----
             //  出处：`Vargard Obyron`（Sautekh），2026-09-14 A5 批 4。
-            // 🔴 **判据改指真权威（`D26`，2026-10-19）**：原来写「**位置照参考实现**
-            //    `rule_core.gd:4267`」—— 那是**我们自己的上一版 Godot 复刻**（旁证、非权威）。
-            //    回反编译查到的**真正机制**是：
-            //      · `decomp_full/BattleManager__AddRedirectedAttack.c` —— **重定向那一下**就是它干的
-            //        （`ClearPendingDamage(攻方/守方)` → `SetupAttack(攻方)` →
-            //         `RecordAttackPendingDamage(bm, 攻方, **新目标**, …)` → 造
-            //         `BattleAction(type = 0x4a)` 重新排队），而**它的唯一调用点**是
-            //        `AbilityLogic__PlayAbility.c:2730`。
-            //      ⇒ **原版把「替身」做成【一条 ability】**（重定向发生在能力结算里），**不是**
-            //        「攻击声明时在防御方场上找一个带标记的单位」。
-            //    ⚠️ **如实标着：我们这一支的「位置 + 选法」（槽号最小的那个非督军）仍是照 gd 旁证的**，
-            //       与原版那条 ability 的**触发时机/筛选**是否等价**未核**（判据不足）。
-            //       ⛔ 别把这一句当「照抄原版」读 —— 它现在的地位是**旁证一致**，不是查实。
-            //  ⚠️ 位置：**合法性已经按督军验过之后**才改目标（改在验证之前会和「督军格特殊」那套判据打架）。
-            //  ⚠️ 只找**防御方场上第一个**带标记的**非督军**单位（与旁证同口径）；
-            //     一个都没有时照常打督军（不是「打不了」）。
-            if (target != null && target.IsWarlord)
-            {
-                var tb = ctx.Players[tgtP].Board;
-                for (int gs = 0; gs < BoardSpec.Size; gs++)
-                {
-                    var gu = tb[gs];
-                    if (gu == null || !gu.IsAlive || gu.IsWarlord) continue;
-                    if (gu.Card == null || !gu.Card.Bodyguard) continue;
-                    ctx.Log($"{attacker.Name} 打的是督军，但「{gu.Name}」是**替身** —— 改打它");
-                    tgtSlot = gs;
-                    target = gu;
-                    break;
-                }
-            }
+            // 🔴 **2026-10-10（`A1154`）：实现搬进 `TryRedirectAttackToBodyguard`** ——
+            //    原版那一条是 **`AbilityTrigger.AboutToAttack(280)` 的 ability**
+            //    （链、四道闸、以及两条「别顺手改回去」**全写在那个方法的注释里**），
+            //    这一段原来是把「扫场上取第一个带标记的单位」内联在这儿、注释自己标着
+            //    「**旁证一致，不是查实**」。**判别式现在就这一处**。
+            //  ⚠️ **位置不能挪**：必须排在 `IsValidTarget` **之后** ——
+            //     原版 `redirectedAttack` 那条路**不复检目标合法性**（`AllowResolveAttack` 直接 return 1），
+            //     带 Stealth 的替身照样挨打；换到验证之前既会与「督军格特殊」那套判据打架，
+            //     也会把这条原版行为改掉。
+            //  ⚠️ 一记攻击只改一次：改完的目标是**部队**、第 ① 条判据当场假 ⇒ 不会递归。
+            TryRedirectAttackToBodyguard(ctx, p, atkSlot, tgtP, ref tgtSlot, ref target);
 
             // 攻击宣言：**在伤害之前**发 —— 表现层才有「抬手 → 命中」的余地
             // `targetCardId` 现在就记下来：留存日志以后回看时，那个格位早就换人了

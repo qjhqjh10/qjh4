@@ -5655,6 +5655,13 @@ public static partial class RuleEngineTest
         }
 
         // ② `Any attack against your Warlord targets this troop instead.` —— 替身
+        //
+        // 🔴 **2026-10-10（`A1154`）**：这一组断言按**原版那条 ability 的判据**重写了
+        //    —— 链条 / 四道闸 / 两条「别顺手改回去」全在 `RuleCore.TryRedirectAttackToBodyguard`
+        //    的注释里（第一权威 = `d:/2/tools/decomp_full/`）。
+        //    原来只有「伤害落到替身 + 督军不掉血」两条 —— 那只钉得住**结果**，
+        //    钉不住「**打法沿用攻方那一档**」「**不复检目标合法性**」「**是换目标、不是多打一记**」
+        //    这三件原版明写的事。
         {
             var guard = new CardDef("FixtureBodyguard", "FixtureBodyguard", "unit",
                                     "Any attack against your Warlord targets this troop instead.",
@@ -5671,6 +5678,135 @@ public static partial class RuleEngineTest
             CheckTrue(body.Health < bodyHp,
                       $"★ 伤害落到**替身**身上了（{bodyHp} → {body.Health}）");
             Check(lord.Health, lordHp, "★ ……而**督军一点没掉** —— 这就是「替身」的意思" + LogTail(ctx));
+        }
+
+        // ②·a **重定向沿用【攻方那一档打法】** —— 原版 `PlayAbility` 那个调用点给出去的
+        //      `attackType = actingCard.currentAttackType`（`AbilityLogic__PlayAbility.c:2730`
+        //      + `EntityScript // 0x120`）⇒ 攻方 近战 1 / 远程 5 时，替身挨的必须是**远程 5**。
+        {
+            var guard = new CardDef("FixtureBodyguardRanged", "FixtureBodyguardRanged", "unit",
+                                    "Any attack against your Warlord targets this troop instead.",
+                                    "common", "Test", 1, 1, 9, 0, null, subtype: "Infantry");
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx, 4);
+            Place(ctx, 0, 3, Ranged("FArcher", 1, 1, 9, 5), exhausted: false);
+            var body = Place(ctx, 1, 3, guard, exhausted: true);
+            int hp = body.Health;
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, BoardSpec.WarlordSlot, ranged: true),
+                      RuleCodes.OK, "声明攻击**打督军格**（远程）");
+            Check(hp - body.Health, 5,
+                  "★ 重定向之后**打法不变**：替身吃的是**攻方那一档的 5**（它自己的近战只有 1）"
+                  + LogTail(ctx));
+        }
+
+        // ②·b **不复检目标合法性** —— 原版 `BattleManager__AllowResolveAttack.c:134-136` 对
+        //      `redirectedAttack(0x4a)` **直接 `return 1`** ⇒ 带 `Stealth` 的替身**照样挨这一下**。
+        //      ⛔ 别把这一条「顺手修」成复检（那就不是原版了）。
+        //      先证尺子（直接打那个带 Stealth 的替身**是被挡的**），再证重定向那条路照打。
+        {
+            var guard = new CardDef("FixtureBodyguardStealth", "FixtureBodyguardStealth", "unit",
+                                    "Any attack against your Warlord targets this troop instead.",
+                                    "common", "Test", 1, 1, 9, 0,
+                                    new[] { "Stealth" }, subtype: "Infantry");
+            {
+                var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+                ToP1Turn(ctx, 4);
+                Place(ctx, 0, 3, Unit("FAtkS", 1, 3, 9), exhausted: false);
+                var b = Place(ctx, 1, 3, guard, exhausted: true);
+                CheckCode(RuleCore.IsValidTarget(ctx, 0, 3, 1, 3, false), RuleCodes.ErrTarget,
+                          "反面：**直接**打带 Stealth 的替身 —— 被挡（先证这条判据是活的）");
+                Check(b.Health, b.MaxHealth, "……而且一滴没掉");
+            }
+            {
+                var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+                ToP1Turn(ctx, 4);
+                Place(ctx, 0, 3, Unit("FAtkS2", 1, 3, 9), exhausted: false);
+                var b = Place(ctx, 1, 3, guard, exhausted: true);
+                var lord = ctx.Players[1].Warlord;
+                int bHp = b.Health, lHp = lord.Health;
+                CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, BoardSpec.WarlordSlot), RuleCodes.OK,
+                          "打督军格（替身带 Stealth —— 重定向那条路**不复检**）");
+                CheckTrue(b.Health < bHp,
+                          $"★ 带 Stealth 的替身**照样挨了这一下**（{bHp} → {b.Health}）"
+                          + "—— 判据 = `AllowResolveAttack` 对 0x4a 直接 return 1");
+                Check(lord.Health, lHp, "……督军照旧一滴没掉" + LogTail(ctx));
+            }
+        }
+
+        // ②·c **被 `jam` 住的替身不响** —— 判据 = `BattleManager__CheckUnitsCancellingAttack.c:47`：
+        //      收进「能截这一记」的那个列表**之前**要 `!HasCurrentTrait(unit, 0x82 /* jam = 130 */)`。
+        //      ⚠️ 全池 0 张卡带 `jam`（`Core/UnitState.cs:307`）⇒ 这是**照判据落的那一行代码**的钉子。
+        {
+            var guard = new CardDef("FixtureBodyguardJam", "FixtureBodyguardJam", "unit",
+                                    "Any attack against your Warlord targets this troop instead.",
+                                    "common", "Test", 1, 1, 9, 0,
+                                    new[] { "jam" }, subtype: "Infantry");
+            CheckTrue(guard.Bodyguard, "夹具卡认得出「替身」（被 jam 住的那一份）");
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx, 4);
+            Place(ctx, 0, 3, Unit("FAtkJ", 1, 3, 9), exhausted: false);
+            var b = Place(ctx, 1, 3, guard, exhausted: true);
+            var lord = ctx.Players[1].Warlord;
+            int bHp = b.Health, lHp = lord.Health;
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, BoardSpec.WarlordSlot), RuleCodes.OK,
+                      "打督军格（场上那个替身被 `jam` 住）");
+            Check(lord.Health, lHp - 3,
+                  $"★ 替身被 `jam` ⇒ **不截这一记** —— 3 点照落在督军身上（{lHp} → {lord.Health}）");
+            Check(b.Health, bHp, "……而替身一滴没掉" + LogTail(ctx));
+        }
+
+        // ②·d 🔴 **灭自证条：这一记攻击是【换掉目标】，不是【多打一记】。**
+        //      原版判据 = `_ResolveAttack:541-587` 那一段**先把原动作取消**（`CancelAttack` +
+        //      `ClearPendingDamage` 两张 + `RegisterPlayerActionCancelled`），
+        //      再由 `AddRedirectedAttack` 重记一遍待结算伤害 ⇒ **账面上只有一份**。
+        //      下面五条**必须同时成立** —— 只改「伤害落点」那一条路满足不了 ①②；
+        //      只另排一条攻击（老的那条照旧打督军）满足不了 ③④⑤。
+        //      （夹具把三个数**拉开**：攻方 4 · 替身 3 · 督军 2，才量得出「用的是谁的那一份」。）
+        {
+            var guard = new CardDef("FixtureBodyguardOnce", "FixtureBodyguardOnce", "unit",
+                                    "Any attack against your Warlord targets this troop instead.",
+                                    "common", "Test", 1, 3, 9, 0, null, subtype: "Infantry");
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx, 4);
+            var atk = Place(ctx, 0, 3, Unit("FAtkOnce", 1, 4, 9), exhausted: false);
+            var b = Place(ctx, 1, 3, guard, exhausted: true);
+            var lord = ctx.Players[1].Warlord;
+            int aHp = atk.Health, bHp = b.Health, lHp = lord.Health, lordAtk = lord.Attack;
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, BoardSpec.WarlordSlot), RuleCodes.OK,
+                      "声明攻击**打督军格**");
+            Check(bHp - b.Health, 4, "★①替身挨的**正好是攻方那一份**（4 点）—— 不是两份（8 点）");
+            Check(aHp - atk.Health, 3,
+                  $"★②攻方吃到的反击来自**替身**（3 点），**不是**督军的 {lordAtk} 点"
+                  + " —— 「只把伤害挪过去、反击还找督军算」在这里露馅");
+            int nAtk = 0, iLast = -1;
+            for (int i = 0; i < ctx.ActionLog.Count; i++)
+                if (ctx.ActionLog[i].Kind == EvtKind.Attack) { nAtk++; iLast = i; }
+            Check(nAtk, 1, "★③留档里**只有一条**攻击事件 —— 是【换目标】不是【多打一记】");
+            CheckTrue(iLast >= 0 && ctx.ActionLog[iLast].TargetSlot == 3
+                      && ctx.ActionLog[iLast].TargetCardId == b.Name,
+                      "★③……而那一条事件的**目标就是替身那一格/那一张**"
+                      + "（只换伤害、不换事件 = 只改了一半）");
+            Check(atk.AttacksThisTurn, 1, "★④攻方的攻击配额只记了**一次**");
+            Check(lord.Health, lHp, "①……督军一滴没掉");
+        }
+        // ②·e 反面（同一条判据的反向）：**打的是场上的普通部队** ⇒ 谁都不许动目标。
+        //      「无差别把所有攻击都改到替身身上」那一路实现在这里露馅。
+        {
+            var guard = new CardDef("FixtureBodyguardScope", "FixtureBodyguardScope", "unit",
+                                    "Any attack against your Warlord targets this troop instead.",
+                                    "common", "Test", 1, 1, 9, 0, null, subtype: "Infantry");
+            var plain = new CardDef("FixturePlainTarget", "FixturePlainTarget", "unit", "",
+                                    "common", "Test", 1, 0, 9, 0, null, subtype: "Infantry");
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx, 4);
+            Place(ctx, 0, 3, Unit("FAtkPlain", 1, 3, 9), exhausted: false);
+            var b = Place(ctx, 1, 2, guard, exhausted: true);
+            var tgt = Place(ctx, 1, 3, plain, exhausted: true);
+            int bHp = b.Health, tHp = tgt.Health;
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3), RuleCodes.OK, "打的是**普通部队格**");
+            CheckTrue(tgt.Health < tHp,
+                      $"★ 伤害落在**原来那个目标**上（{tHp} → {tgt.Health}）—— 替身只管「打督军」那一档");
+            Check(b.Health, bHp, "★ ……而场上的那个替身**一点没挨**" + LogTail(ctx));
         }
 
         // ③ `This troop can ignore enemy units with Vanguard when attacking` —— 无视先锋

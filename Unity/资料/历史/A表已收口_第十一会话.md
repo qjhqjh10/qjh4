@@ -160,4 +160,31 @@
 **⚠️ `R-N` 顺手订正一处行号**：`IsRemnant` 的**唯一写点现在是 `RuleCore.cs:4551`**（`P-D` 报的 `4465` 已因本轮改动挪位）。
 **⚠️ 没查清**：字段偏移**没拿 `dump.cs`/IL 核过**（`R-N` 用字段声明序 + 状态机拷贝基址 `+0x20` + `TriggerUnitBacklashActions` 的构造三段推的）· `bm + 0x470` 是什么列表没查 · 差异② 的可达性没数 · 25 处 `!IsAlive` 的同族性没逐条核 · **两条都没做实况验证**。
 
+---
+
+### 7. `A1154` —— 替身（Bodyguard）原版是【一条 ability】 —— ✅ **2026-10-10 已修**（**执行代理 P-K 交件**）
+
+**原文（一字未改）**：
+
+> ⚠️ **替身（Bodyguard）原版是【一条 ability】**（`BattleManager__AddRedirectedAttack.c`，唯一调用点 `AbilityLogic__PlayAbility.c:2730`），**不是**「攻击声明时扫场上」—— 我们那一支仍是 **gd 旁证口径**（`B1` 已在注释里如实标「旁证一致、**不是查实**」）。⇒ **要做**（铁律 11）。
+
+**结论（`P-K` 逐跳现读）**：原版那条链的形状确实是 **`AbilityTrigger.AboutToAttack(280)` 的一条 ability** ——
+`_ResolveAttack` → `CheckUnitsCancellingAttack` → `HasCancelAttackAbility` → `CanTriggerAbility` → `CancelAttack`/`ClearPendingDamage` → `ResolveCancelAttack` → `OnTrigger(0x118)` → `AbilityLogic.PlayAbility` 的 `case 0xec` → `AddRedirectedAttack` → `BattleActionType.redirectedAttack(74)`。
+🔑 **但净效果与我们那支「就地换目标」在结果上等价**（同一次伤害 / 同一次反击 / 同一条攻击事件）⇒ **正解不是换一套行为**，而是**按判据补齐四道闸 + 两条不变式、收成一个具名口**。
+
+**三处硬判据（现读，不是转述）**：
+1. 🔴 **反汇编钉死一个歧义**（`.c` 里 Ghidra 把 `this` 省掉了）：`AddRedirectedAttack` 头两道闸判的是 **`actingCard`（打人那张牌）**、不是新目标 —— `disasm_va.py 0x180953D70`：`180953DE2 mov rcx,rbx`（`rbx = param_2`）在分支之前就装好，`180953DED call EnoughPendingDamageToDie`。
+2. **`+=0x120` 是什么**：`il2cpp_out/dump.cs` 的 `EntityScript.currentAttackType // 0x120` ⇒ `PlayAbility.c:2731` 那句 = **重定向沿用【攻方当时那一档打法】**（不是替身的打法）。同理 `BattleManager.unitsInPlay // 0x470`（扫的是**全场**）· `CardAbility.targetCriteria // 0x30`（**筛被打者**的 criteria）。
+3. **两条短路**（各配了断言）：`AllowResolveAttack.c:134-136` 对 `redirectedAttack(0x4a)` **直接 `return 1`**（⇒ 不复检目标合法性，**带 `Stealth` 的替身照样挨打**）；`:528-533` 的 `if (actionType != 0x4a)`（⇒ 重定向过的那一记**不会被再截一次**）。
+- 顺带：从 `all_strings.txt`（`69591552`/`69591808`）拿到两条日志原文，并把 `AddScriptedAttack` 里那道 trait `100` 认成 `DefinedTrait.stun`（与 `DefinedTrait.cs:10` 对上）。
+
+**改动**（白名单两个文件）：`Core/RuleCore.cs` **150/30** —— 新增具名口 **`TryRedirectAttackToBodyguard`**（判别式**只此一处**，照 `StunStillOnBoard` 先例）+ **补攻方那两道闸** + **补 `jam` 例外**；`DeclareAttack` 里那 23 行内联换成一行调用。
+`Editor/RuleEngineTest.cs` **136/0** —— 替身格从 **4 条扩到 25 条**（新增 ②·a~②·e 共 21 条），含 **灭自证条 ②·d**（「只把伤害挪过去」/「只另排一条攻击」两种错路都过不了）与 **反面 ②·e**（打普通部队时谁都不许动目标 ⇒ 挡「无差别都改到替身身上」）。
+🔑 **没有新增「会改引擎状态的动作路径」** ⇒ 两个记账口 / 录像 / 联机**都不受影响**（重定向是 `DeclareAttack` 内部的确定性函数）。
+
+- **可达性**：全池 1126 张里**只有 1 张**走这条 —— `Vargard Obyron`（`SAU42` · Sautekh · 9 费 10/9/远程 5 · `Armour 2`）。
+- **验证**：类型检查 **4 次**（最后一次在全改完之后）⇒ **运行时 0 / 编辑器 0**。行尾 `RuleCore.cs` **LF 6615** · `RuleEngineTest.cs` **CRLF 23700/23700**（**都没被翻**）。⛔ 没跑 Unity ⇒ **收口要跑 `RuleEngineTest.Run` 一条**。
+- **⚠️ 没查清**（都如实写进代码注释，⛔ 没拿猜测填空）：① 同方 **2 个以上替身**时原版落在哪一个（原版收的是 `List`、对每个命中单位各排一条；我们**保持取槽号最小** = 旁证口径）；② `unitsInPlay` 含不含督军（我们跳过督军那一格仍是**旁证**）；③ `Vargard` 那张卡的 **ability 资产在远端 CCD** ⇒ 那几条 criteria 的**具体取值是按卡面那句话推的**（代码那一半查实）；④ 我们的 `EnoughPendingDamageToDie(攻方)` 那一半**表示不出来**（没有 `pendingDamage` 队列）—— 已论证在本路径上等价于 `IsAlive`。
+- 🆕 **它顺手带出的三条已另立账**：`A1256`（强制攻击被替身截 —— **真偏离**）· `A1257`（`CardDef` 的 `Bodyguard` 注释读点过期）· `A1258`（原版「取消攻击」是两条独立通道、替身只占第 2 条）。
+
 
