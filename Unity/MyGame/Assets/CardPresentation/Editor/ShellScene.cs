@@ -6621,14 +6621,39 @@ public static class ShellScene
                       "（前提）能量活动窗开出来了（`Timer` / `Victories title` 两颗挂在它下面）");
             if (a1126En != null)
             {
+                // 🔴 **2026-10-10（A1178）**：这两颗的**框**从「我们摆的固定宽」改成了「**建树期量出来的
+                //   preferred 宽**」（原版是 `ContentSizeFitter(h:PreferredSize)` ⇒ 原版运行期框跟文字走）。
+                //   ⇒ **框那两格在这里【故意给到整屏】**：真框是**运行时量出来的**，拿它当字面量断
+                //   就是**同义反复**（⛔ 本仓明令：期望值不许从实现里来）。牙口搬到下面的**关系**断言上。
                 fitCase("`Shell/EnergySinglePlayerOnlyEventWindow.cs` 的 `Timer`",
                         FindChildIn(a1126En.transform, "Timer"),
-                        289.72f, 55.905f, 10f, 38f, 38f, 0,
-                        "原版 `…/Timer/Timer` 实读 `auto[10~38]` · 折行 0（框宽 **0 + CSF** ⇒ 这个 289.72 是我们摆的）");
+                        1920f, 1080f, 10f, 38f, 38f, 0,
+                        "原版 `…/Timer/Timer` 实读 `auto[10~38]` · 折行 0（框宽 **0 + CSF**）；"
+                      + "⚠️ 框那两格**故意给整屏** —— 见下面 A1178 的关系断言");
                 fitCase("`Shell/EnergySinglePlayerOnlyEventWindow.cs` 的 `Victories title`",
                         FindChildIn(a1126En.transform, "Victories title"),
-                        254.112f, 73.385f, 18f, 53.5f, 36f, 1,
-                        "原版 `…/PLayer Victories/Vicotries title` 实读 `auto[18~53.5]`（框宽 **0 + CSF** ⇒ 这个 254.112 是我们摆的）");
+                        1920f, 1080f, 18f, 53.5f, 36f, 1,
+                        "原版 `…/PLayer Victories/Vicotries title` 实读 `auto[18~53.5]`（框宽 **0 + CSF**）；"
+                      + "⚠️ 框那两格**故意给整屏** —— 见下面 A1178 的关系断言");
+                // 🔴 **2026-10-10（A1178）·【关系断言】（⛔ 不是字面量）**：**字没被缩** —— 框既然按
+                //   preferred 撑开了，TMP 的收敛字号就应当**停在 `m_fontSizeMax`**。
+                //   🔑 **这条正是「`Timer` 长期被压小却全绿」的原因所在**（`P-I` 查实：它需要 ≈330–396px、
+                //   而旧框只有 `289.72` ⇒ 实得 27.8–33.4px 而非 38px；上面 `fitCase` 那条
+                //   「渲出来 ≤ 框」是**单边上限**、框放宽后**恰恰挡不住这一档**）。
+                //   **改坏法**：把 `Shell/EnergySinglePlayerOnlyEventWindow.cs` 那两处的框改回旧常量
+                //   （`Timer` `289.72f` / `Victories title` `254.112f`）⇒ 本行红。
+                foreach (var nm in new[] { "Timer", "Victories title" })
+                {
+                    var t2 = FindChildIn(a1126En.transform, nm);
+                    var l2 = t2 != null ? t2.GetComponentInChildren<Label>(true) : null;
+                    CheckTrue(l2 != null, $"（前提·不静默）A1178 · `{nm}` 的 `Label` 拿得到"
+                                        + " —— ⛔ 拿不到就**不往下断**（不静默变绿）");
+                    if (l2 == null) continue;
+                    float cap = Label.FontSizeToPx(l2.FontSizeMax), now = l2.FontPxNow;
+                    CheckNear(now, cap, 0.6f,
+                              $"★ A1178 · `{nm}`：**字没被缩** —— 收敛字号 `{now:F2}` ≈ 上限 `{cap:F2}`px"
+                            + "（框已按 preferred 撑开 ⇒ TMP 不该再缩）");
+                }
                 // ---- A1179（2026-10-19）：本窗**另外四处**同一把尺子（⛔ 不抄第二份 `fitCase`）----
                 // 期望值出处 = 上面 §③ 那条 `menu_dump.py` 命令（`EnergySinglePlayerOnlyEventWindow`）逐颗现读。
                 // 前两处是**本件改的**（改坏法 = 把 `Shell/EnergySinglePlayerOnlyEventWindow.cs` 那两处调用末尾的

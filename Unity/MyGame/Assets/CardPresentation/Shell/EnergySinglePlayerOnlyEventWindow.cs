@@ -65,6 +65,7 @@
 //     （`rayscan` 实读：两颗 `ray=1 en=1`，矩形 0,112.3 → 1920,1003.2 = 本窗 `GenRedR`）
 //     ⇒ 原版点面板**什么都不发生**，只有面板**之外**那两条窄边才是「点外面关窗」。
 using System.Collections.Generic;
+using TMPro;                       // A1178：量 `GetPreferredValues()`（复刻原版 CSF）要 TMP 的类型
 using UnityEngine;
 
 namespace CardPresentation
@@ -300,6 +301,16 @@ namespace CardPresentation
                     + "⇒ 两条路通向同一个 `Close()`。`closeOnESC = 0` ⇒ ESC 不关。"
                     + "⚠️ 但**面板那一块**（`Reward Background Get Reward` / `Noise`，`rayscan` 实读 `ray=1`）"
                     + "被吸收层吃掉、**什么都不做** ⇒ 在那儿点不出关窗（只有面板之外的窄边才关）。");
+            Debug.Log("[Energy] 🔴 A1178：`Victories title` / `Timer` 两颗的**框宽**已按原版的"
+                    + " `ContentSizeFitterMinMax(h: PreferredSize)` 复刻 —— 建树期用 `Label` 里那颗 TMP 的"
+                    + " `GetPreferredValues()` 量出**我方字体**的 preferred width 再写回框"
+                    + "（⛔ 不是照抄原版 `Pragati-Regular SDF` 算出的 176.98 / 248.44）。"
+                    + "⚠️ **已知差异（如实出声）**：原版那个 fitter 是**运行期活的** —— 换语言 / 倒计时文案一变，"
+                    + "框就跟着变；我们的框是**建树期量一次**写死的 ⇒ 文案在运行期变长时**原版撑框、我们缩字**"
+                    + "（本窗的文案目前全走 prefab 出厂原文、没有换语言的路，所以今天这条够不到）。"
+                    + "⚠️ 另注：**换字体资产会跟着变**（量就发生在建树那一刻、用的就是当时那个字体资产）；"
+                    + "「不会自动变」的只有**运行期换语言**这一条。判据 → "
+                    + "`资料/普查产出_第十会话/R4_布局刻度族查实.md` §1·1/§1·3/§1·4。");
         }
 
         // ============================================================ 建
@@ -547,9 +558,12 @@ namespace CardPresentation
             MenuDraw.Nine(pv, Art(ArtNametag), VBgR, Vector4.zero, 109f, 41f, QArt, null, true,
                           "Victories Background");
             // 🔴 这两格的现读框**宽 = 0**：原版挂 `ContentSizeFitterMinMax(h:PreferredSize)`（工具标注
-            //   `⚙CSF h:PreferredSize？` = **算不出**，要 Unity 的字体度量）。⇒ **这两格是我们摆的**
-            //   （铁律 3：查不到就写「查不到」）：按「右/左对齐到现读的那条边 + 框撑到横幅内侧」给。
-            //   `Victories title` 右沿 = 现读 **1574.60**；`Total Victories` 左沿 = 现读 **1661.19**。
+            //   `⚙CSF h:PreferredSize？` = **算不出**，要 Unity 的字体度量）。
+            //   🔴 **2026-10-10（A1178）这一档【已复刻】**：运行时框宽 = **文字的 preferred width**，
+            //   由下面的 `PreferredWidthPx` 在**建树期量一次**写回（见那个助手的判据与出处）；
+            //   ⛔ 量的是**我方字体**的宽度，**不是**原版用 `Pragati-Regular SDF` 算出来的那个数。
+            //   ⚠️ 仍然**是我们摆的**只剩「**框的右沿**」这一个自由度：`VTitleX2` = 现读 **1574.60**
+            //   （原版那一颗的 rect 宽 0 ⇒ 那个落点本身是 HLG 跑完的结果，见报告 §7 顺手发现①）。
             var vtR = new PxRect(VBgR.x1, VTitleY1, VTitleX2, VTitleY2);
             // 🔴 **2026-10-18（A1126 · A1 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 53.5px。
             //   判据 = 逐颗现读原版那一颗（`工具/menu_dump.py bundle_menus_assets_all
@@ -557,14 +571,24 @@ namespace CardPresentation
             //   `…/PLayer Victories/Victories title` = `'Victories: '` · 字号 **53.5** · 基准 **36.0** ·
             //   **`auto[18.0~53.5]`**（`m_enableAutoSizing = 1`）· 对齐 `Right/Capline` · **折行 = 1**
             //   ⇒ 传 `wrapPx` 与原版同档（⛔ 不补 `SetWrapping(false)`）。
-            //   ⚠️ 原版那颗**宽 = 0** + `ContentSizeFitterMinMax(h:PreferredSize)`（工具标注 `⚙CSF` = 算不出）
-            //   ⇒ 运行时框宽 = **文字的 preferred width**，而 `vtR` 的 **254.11 是我们摆的**
-            //   （见上面那段「这两格是我们摆的」，铁律 3）⇒ **原版「框放不下才缩」这条边界我们复刻不了**：
-            //   我们这 254.11 若比原版 preferred 窄，开自适应会让字**比原版小一点**（如实记在
-            //   `资料/普查产出_第十会话/W2_A1126A1.md` §五）。
+            //   ⚠️ 原版那颗**宽 = 0** + `ContentSizeFitterMinMax(h:PreferredSize)`（工具标注 `⚙CSF`）
+            //   ⇒ 运行时框宽 = **文字的 preferred width**（A1178 已复刻，见上）。
+            //   🔴 **2026-10-10 就地订正（A1178 · 铁律 5）**：本段原来写「我们这 254.11 若比原版 preferred 窄，
+            //   开自适应会让字**比原版小一点**」——**方向反了**。现算（`R4_布局刻度族查实.md` §1·3）：
+            //   `254.112 vs 176.98` = 我们**宽 44%** ⇒ 开自适应**不会缩字号**；两边的残差只在
+            //   「运行期文案变长」那一档（原版**撑框**、我们**缩字**），见 `Open()` 里那句出声。
             var vt = MenuDraw.Text(pv, vtR, "Victories: ", Color.white, "Victories title", 53.5f, QText,
                                    vtR.W, 18f, 53.5f, 36f);
-            MenuDraw.AlignRight(vt, vtR);
+            // 🔴 **A1178**：量 preferred width ⇒ 把框收成它（= 原版 CSF 那一档）。
+            //   生长方向 = **右沿不动**（`VTitleX2`）：原版这一颗 `H=Right`、我们下面也是 `AlignRight`
+            //   ⇒ 框往左收，右对齐那一刀的落点不变（画面上零位移；变的是「框」这个结构本身）。
+            //   ⚠️ `SetAutoFitBox` 会**再跑一次自适应**（原版 CSF 撑完框也要重排一次，语义同）；
+            //   它的 `SetWrapWidth` 顺手把折行模式开成 `Normal` —— 本颗原版就是 **折行 1** ⇒ 不用还原。
+            float vtW = PreferredWidthPx(vt, "Victories title");
+            var vtFit = vtW > 0f ? new PxRect(VTitleX2 - vtW, VTitleY1, VTitleX2, VTitleY2) : vtR;
+            if (vtW > 0f)
+                vt.SetAutoFitBox(LayoutSpace.Px(vtFit.W), LayoutSpace.Px(vtFit.H), 18f, 53.5f, 36f);
+            MenuDraw.AlignRight(vt, vtFit);
             _victoriesTitle = vt != null ? vt.transform : null;
             MenuDraw.Rect(pv, Art(ArtSkull), VSkullR, "Skull Victories", QArt);
             var ttR = new PxRect(VTotalX1, VTitleY1, VBgR.x2, VTitleY2);
@@ -635,8 +659,12 @@ namespace CardPresentation
         {
             var tm = MenuDraw.Node(root, "Timer", TimerR);
             MenuDraw.Rect(tm, Art(ArtClock), TimerIcR, "Timer Icon", QArt);
-            // 那一格的现读框**宽 = 0**（`ContentSizeFitterMinMax(h:PreferredSize)` 算不出）⇒ 框是**我们摆的**
-            //（从图标右沿 981.95 撑到容器右沿 1271.67）。**文字照 prefab 出厂原文**。
+            // 那一格的现读框**宽 = 0**（`ContentSizeFitterMinMax(h:PreferredSize)` 算不出）。
+            // 🔴 **2026-10-10（A1178）这一档【已复刻】**：运行时框宽 = **文字的 preferred width**，
+            //   由下面的 `PreferredWidthPx` 在**建树期量一次**写回（⛔ 量我方字体，不是原版那个 248.44）。
+            //   ⚠️ 仍然**是我们摆的**只剩两颗自由度：① 框的**左沿**（`TimerTxX1` = 图标右沿 981.95 ——
+            //   原版那一颗由 HLG 算位置，见报告 §7 顺手发现②）；② 量之前的那个初值框
+            //   （从图标右沿 981.95 撑到容器右沿 1271.67）。**文字照 prefab 出厂原文**。
             var txR = new PxRect(TimerTxX1, TimerTxY1, TimerR.x2, TimerTxY2);
             // 🔴 **2026-10-18（A1126 · A1 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 38px。
             //   判据 = 逐颗现读原版那一颗（同本文件头那条命令）：`…/Timer/Timer`（TMP） = `'Termina en: 23d 5h'` ·
@@ -645,12 +673,32 @@ namespace CardPresentation
             //   ⚠️ 原版**折行 = 0** ⇒ 传 `wrapPx` 会让 `SetWrapWidth` 把它**静默开成 `Normal(1)`**
             //   ⇒ 紧跟一句 `SetWrapping(false)` 还原（成对写法同 A404 / A205 / A34-F4 那一族）。
             //   ⚠️ 原版那颗**宽 = 0** + `ContentSizeFitterMinMax(h:PreferredSize)`（工具标注 `⚙CSF` = 算不出）
-            //   ⇒ 运行时框宽 = **文字的 preferred width**；`txR` 的 **289.72 是我们摆的**（见上面那段）
-            //   ⇒ 「原版框放不下才缩」这条边界我们复刻不了，残差如实记在
-            //   `资料/普查产出_第十会话/W2_A1126A1.md` §五。
+            //   ⇒ 运行时框宽 = **文字的 preferred width**（A1178 已复刻，见上面那一段）。
+            //   🔴 **2026-10-10 就地订正（A1178 · 铁律 5）**：本段原来写「`txR` 的 289.72 是我们摆的 ⇒
+            //   「原版框放不下才缩」这条边界我们复刻不了，残差如实记在 `W2_A1126A1.md` §五」——
+            //   **框那一半已复刻**（不再是「复刻不了」）；而且现算（`R4_布局刻度族查实.md` §1·3）
+            //   `289.72 vs 248.44` = 我们**宽 17%** ⇒ 用出厂文案时自适应**不会缩字**，
+            //   残差只剩「运行期文案变长」那一档（原版**撑框**、我们**缩字**，见 `Open()` 里那句出声）。
             var tx = MenuDraw.Text(tm, txR, "Termina en: 23d 5h", Color.white, "Timer", 38f, QText,
                                    txR.W, 10f, 38f, 38f);
             if (tx != null) tx.SetWrapping(false);
+            // 🔴 **A1178**：量 preferred width ⇒ 把框收成它（= 原版 CSF 那一档）。
+            //   生长方向 = **左沿不动**（`TimerTxX1` = 图标右沿 981.95）：原版这一颗在
+            //   `HorizontalLayoutGroup` 里排在**图标之后**、框自然往右长（组再整体居中）⇒
+            //   我们这一档对应的就是「框的左沿 = 图标右沿、右沿跟着文字走」。
+            //   ⚠️ 两条**我们摆的**自由度如实记：① 框的左沿（原版由 HLG 算，见报告 §7 顺手发现②）；
+            //   ② 量之前那个初值框（`txR` 的右沿 = 容器右沿 1271.67）。⚠️ 这条**不是**「零位移」——
+            //   框一收/一放，TMP 的自适应就会按新框重排（原本被压小的字会回到 38px），
+            //   而文字的定位口径是「框内居中」⇒ 字的中心会跟着框心走。判据/残差 → 报告 §4/§5。
+            float txW = PreferredWidthPx(tx, "Timer");
+            var txFit = txW > 0f ? new PxRect(TimerTxX1, TimerTxY1, TimerTxX1 + txW, TimerTxY2) : txR;
+            if (txW > 0f)
+            {
+                tx.SetAutoFitBox(LayoutSpace.Px(txFit.W), LayoutSpace.Px(txFit.H), 10f, 38f, 38f);
+                // ⚠️ 上面那一句内部会调 `SetWrapWidth` ⇒ **无条件把模式开成 `Normal`**，而原版这一颗是
+                //   **折行 = 0** ⇒ 紧跟着还原（成对写法同 A404 / A205 / A34-F4 那一族，这里与上面那次同源）。
+                tx.SetWrapping(false);
+            }
             _timerText = tx != null ? tx.transform : null;
         }
 
@@ -721,6 +769,70 @@ namespace CardPresentation
         /// <summary>「中心 + 宽高」→ 画布矩形（y 向下）。</summary>
         static PxRect CenterRect(float cx, float cy, float w, float h)
             => new PxRect(cx - w * 0.5f, cy - h * 0.5f, cx + w * 0.5f, cy + h * 0.5f);
+
+        /// <summary>🔴 **2026-10-10（A1178）**：量出这颗文字的 **preferred width**（单位 = **画布 px**）——
+        /// 复刻原版那两颗 `ContentSizeFitterMinMax(h: PreferredSize)` 的**量尺**（框宽 = 这个数）。
+        ///
+        /// <para>**原版那一档是什么**（现读）：`Victories title` 与 `Timer` 的 `m_SizeDelta.x = 0` +
+        /// `ContentSizeFitter(m_HorizontalFit = PreferredSize)` ⇒ **运行时框宽 = 文字的 preferred width**。
+        /// 出处 = `资料/普查产出_第十会话/R4_布局刻度族查实.md` §1·1（工具那一列标 `⚙CSF` = 算不出）。
+        /// `R4` §1·4 的裁定 = **要复刻这一档**（铁律 11）。</para>
+        ///
+        /// <para>🔴 **为什么量的是【我方】字体**：本仓给 TMP 赋字体的**只有一处** ——
+        /// `Core/TmpFont.cs` 的 `ResourcePath = "Fonts/NotoSerifCJK-Regular SDF"`（全仓只有一个字体资产，
+        /// 判据见那个文件头部「这不是我们换了字体，是全仓只有一个字体」那一段）；
+        /// 而原版那两颗用的是 **`Pragati-Regular SDF`**（`pointSize 95`，无 kerning）
+        /// ⇒ **两个字体量出来的宽本来就不该相等**
+        /// （原版算得 `'Victories: '`@53.5 = **176.98** · `'Termina en: 23d 5h'`@38 = **248.44**，
+        /// 公式 = `Σ advance × (fontSize/pointSize)`，出处 `TMP_Text.cs:3684-3717`）。
+        /// ⇒ ⛔ **不许照抄那两个数**，必须量我们**真的会画出来**的那个宽度。</para>
+        ///
+        /// <para>**量的是 TMP 自己的 `GetPreferredValues()`**（= `TMP_Text.GetPreferredWidth()` 那条路）——
+        /// 它与 UGUI 的 `ContentSizeFitter` **走同一个函数**：
+        /// `Library/PackageCache/com.unity.ugui@27635d171b1a/Runtime/TMP/TMP_Text.cs:3684-3699` ——
+        /// 字号取 `m_enableAutoSizing ? m_fontSizeMax : m_fontSize`、margin 取 **∞**（= 不折行）。
+        /// 这与 `SetAutoFitBox(…, maxPx: 标称)` 配起来正好是**同一个不动点**：框 = 「上限字号排一行」的宽、
+        /// 自适应二分于是收敛在**上限**上 ⇒ **字不会被缩**（原版语义逐条相同）。
+        /// ⚠️ 反编译那份（`d:/2/tools/decomp_full/`）**只覆盖 `Assembly-CSharp`、没有 TMP**
+        /// （`grep -rl "enableAutoSizing"` 零命中）⇒ 判据取**工程自带的包源码**（同 `A1197` 那一段的口径）。</para>
+        ///
+        /// <para>⚠️ **量不到就返回 0**（`lb == null` / 点阵后端 / 取不到 TMP）⇒ 调用方**保留建树时那个框**
+        /// 并出声，⛔ 不静默（红线：不许静默失败）。（点阵后端没有「preferred width」这回事 ——
+        /// 那后端连折行都没有。）</para>
+        ///
+        /// <para>🔴 **落地之后【动了自检基线】**（下一会话必读）：`Editor/ShellScene.cs` 的 `fitCase` 那两条
+        /// （`"…的 Timer"` / `"…的 Victories title"`，A1126 那一节）把**旧框宽** `289.72` / `254.112`
+        /// 当字面量传进去断「渲出来 ≤ 框」⇒ 本件改完**那两条要重基线**（`Editor/ShellScene.cs` **不在本件白名单**）。
+        /// 更该改的是**断言形态**：旧那一条拿的是「我们摆的常量」，而新框是**我们自己量出来的**
+        /// ⇒ 直接换成量出来的数就是同义反复（CLAUDE.md §三「灭自证」）⇒ 建议改成断**关系**：
+        /// 「框 ≈ 在 `fontSizeMax` 上量出的 preferred width」+「`FontPxNow` 没被缩」（= 本件真正建立的那条性质）。</para></summary>
+        static float PreferredWidthPx(Label lb, string who)
+        {
+            if (lb == null) return 0f;
+            // `Label` 没有公开 TMP 句柄（`_tmp` 私有；共用件 `Battle/Label.cs` **不在本件白名单**，
+            // 不动它）⇒ 从子件取：TMP 是 `TmpFont.NewText` 建在 `Label` 底下的**子件**
+            // （`Battle/Label.cs` 的 `BuildTmp`：`_tmp = TmpFont.NewText(transform, "text", …)`）。
+            var t = lb.GetComponentInChildren<TextMeshPro>(true);
+            if (t == null)
+            {
+                Debug.LogWarning("[Energy] `" + who + "` 量不出 preferred width（这颗没有 TMP —— 字体资产缺失时"
+                        + " `Label` 退回点阵后端）⇒ 框宽停在建树时那一档，**不是**原版 CSF 的行为。");
+                return 0f;
+            }
+            // ⚠️ 用**无参**那个重载（不是 `GetPreferredValues(text, w, h)`）—— 它不重解析 `m_text`，
+            //   且内部就是 `GetPreferredWidth()`：margin = ∞、字号取 `fontSizeMax`（判据见方法头）。
+            float wWorld = t.GetPreferredValues().x;
+            if (float.IsNaN(wWorld) || float.IsInfinity(wWorld) || wWorld <= 1e-6f)
+            {
+                Debug.LogWarning("[Energy] `" + who + "` 的 preferred width 量出 " + wWorld
+                        + "（NaN/Inf/非正）⇒ 框宽停在建树时那一档，**不是**原版 CSF 的行为。");
+                return 0f;
+            }
+            // 世界单位 → 画布 px：**`LayoutSpace.Px` 的逆**（全壳唯一那条换算：108 px = 1 世界单位）。
+            // ⛔ 别在这里手写 `× 108` —— `MenuDraw.TextCore` 收 `wrapPx` 走的就是 `LayoutSpace.Px`，
+            //    两边必须是同一条（否则「框 = 量出来的宽」差一点点就够触发 TMP 的缩小）。
+            return wWorld * (LayoutSpace.DesignPxH / LayoutSpace.DesignHeight);
+        }
 
         /// <summary>取图 + **记账**（同族 `LiveOpsEventWindow.Tex`）。
         /// 🔴 为什么要它：`MenuDraw.Rect/Nine/Tiled` **取不到图就 `return null`、一声不吭** ⇒ 整层静默消失。
