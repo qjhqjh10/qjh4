@@ -2164,7 +2164,20 @@ def walk(b, mono, rtpid, rect, scale, depth, maxdepth, out, indent,
     for c in b.children(rtpid):
         ks = (scale[0] * scl.get('x', 1), scale[1] * scl.get('y', 1)) if keep_scales \
             else (1.0, 1.0)
-        walk(b, mono, c, r, ks, depth + 1, maxdepth, out, indent + 1, apply_layout, sidx, bidx,
+        # 🔴 **2026-10-10 修一处真缺陷（与 `menu_rect.walk` 同形同错，两处一起改）**：
+        #    交给子件的必须是**本件的【屏幕】框**（`MR.screen_box`），而 `rect_of`（`:2116`）
+        #    返回的是**【布局框】**（= 屏幕框 ÷ 本件自己的 `m_LocalScale`）。
+        #    原来把布局框直接回喂 ⇒ 子件的**锚跨项**（`|aMax−aMin| × 父框`）偏 `1/|ls|`，
+        #    而 `sizeDelta` 那一项两边一样（2026-10-05 那笔修复本身是对的）。
+        #    实测：`battlearena1` 的 `EnemyNameText` 工具给 352.47×50.61、真值 290.94×36.84。
+        #    判据与逐位复算：`资料/普查产出_第十一会话/RO_menu_dump尺子裁决.md`（例 1）。
+        #    ⛔ `ks` 那一行**不动**（它已经是「含本件自己」的 `lossyScale(本件)`）。
+        #    ⚠️ `--no-ancestor-scale` 那一档不乘（口径 = 当所有 ls = 1 ⇒ 恒等帧；
+        #       ⛔ 别改：那一档是**复现 2026-10-05 之前读数**的回归锚，见 ⑤e）。
+        walk(b, mono, c, MR.screen_box(r, rt['m_Pivot'],
+                                       abs(scl.get('x', 1.0)) if keep_scales else 1.0,
+                                       abs(scl.get('y', 1.0)) if keep_scales else 1.0),
+             ks, depth + 1, maxdepth, out, indent + 1, apply_layout, sidx, bidx,
              stats=stats, rot_anc=rot_anc or bool(out[-1]['rot']), keep_scales=keep_scales,
              act_anc=(act_anc and bool(active)))
 
@@ -2438,6 +2451,13 @@ def verify_layout():
           f'（要 (100,50)）；`lossyScale=0` ⇒ {MR.local_size(r5, pr, (0.0, 0.0))}（要 None，不许抛）')
     # ⑤e **回归锚**：`--no-ancestor-scale` 必须逐位复现 2026-10-05 之前的读数。
     #    判据 = 本文档「旧口径」那一列的实测值（修之前跑出来的，见 `资料/普查产出_1005/块13_工具四件.md`）。
+    #    🔴 **2026-10-10 注（别误改这条的两颗期望值）**：`RO` 裁决把这个 `25693.57` 记成
+    #       「**characterization**、把缺陷钉住了 ⇒ 期望值要改成修正后的正确值」。**实测不成立**：
+    #       被查的那颗 `Text` 的 `ad`（`aMin = aMax = (0.5,0.5)`）**恰好为 0** ⇒ 按
+    #       `Δ_n = ad_n ⊙ (…)`，偏差**在这一级被清零** ⇒ 旧值**就是** uGUI 正确值
+    #       （`115.14550018310547 × 223.13999938964844 = 25693.5668…`，本件独立复算过）。
+    #       ⇒ 它是**弱锚**（咬不住那处缺陷），**不是错锚** —— 修完逐位不变是本条**应该**的样子。
+    #       真正咬它的是 **⑤g**（另一棵树上的 `Ban Icon`/`Banned Text` + `battlearena1` 那两颗）。
     b5 = MR.Bundle(os.path.join(BUNDLES, 'bundle_menus_assets_all'))
     g5 = b5.find_go('Generic Multi Card Display')
     rt5 = b5.rt_of_go(g5) if g5 else None
@@ -2460,6 +2480,90 @@ def verify_layout():
     print(f'  {"✅" if g5e else "❌"} ⑤e 卡片链（祖先 `CardUI Reference` scale=223.14）· '
           f'`Text` 布局宽 {tx5[3] if tx5 else float("nan"):.2f}（要 25693.57）· '
           f'`--no-ancestor-scale` 退到 {tx5b[3] if tx5b else float("nan"):.4f}（要 115.1455 = 旧口径）')
+
+    # ---- ⑤g 🔴 **「交给子件的必须是父的【屏幕】框」**（2026-10-10 修的那处真缺陷；RO 裁决）----
+    # 为什么要单开一条（⑤a–⑤f **一个都挡不住**它，逐条）：
+    #   · ⑤c 传的 `(0,0,400,300)` **本身就是屏幕框** —— `rect_of` 的**契约与算式都是对的**，
+    #     错在**调用方**（`walk` 把它的返回值 = **布局框** 当成「父屏幕框」回喂下一级）；
+    #   · ⑤f 断的是「组宽 == 子件宽」——**两边同错 ⇒ 恒真**；
+    #   · ⑤e 那两颗的 `ad`（`Text` = (0.5,0.5) 锚点重合、`CardUI Reference` 也重合）**恰好为 0**
+    #     ⇒ 按 `Δ_n = ad_n ⊙ (T_parent − A_parent × |ls_parent|)`，偏差**在这一级被清零**；
+    #     ⇒ ⑤e 的 `25693.57` **不是**缺陷产物（本件独立复算过：`115.14550018310547 × 223.13999938964844`
+    #       = `25693.5668…`，`ad = 0` ⇒ 正确值**就等于**它）—— 但它是**弱锚**（改不改都绿）。
+    #     ⛔ 所以**没有**「把旧值改成新值」这一笔账：⑤a–⑤f 全部逐位未变（实测）。
+    # 判据与逐位复算：`资料/普查产出_第十一会话/RO_menu_dump尺子裁决.md`（例 1 / 例 2 + 三条推论）。
+    #
+    # ⑤g① **入口帧**（`menu_rect.parent_rect_of`）：交给 `walk` 的必须是**被查节点的父的【屏幕】框**。
+    #   fixture = 本包（`bundle_menus_assets_all`）的 `Daily Streak Reward Popup Entry`(**ls 1.2**) →
+    #   `NormalReward`(**ls 0.8**) → `Reward Name` —— 三件的 `ad` 全为 **0**，⇒ 父的框是唯一变量。
+    #   `NormalReward` 的布局框 = `sd ⊙ L_p = (389.658203125, 503.555908203125) × 1.2000000476837158`
+    #     = `467.58983 × 604.26708`；**屏幕框 = × 0.800000011920929 = 374.07190 × 483.41370**
+    #   （🔴 旧写法把**布局框** 467.58983×604.26708 当「父屏幕框」交出去 ⇒ 差 1.25 倍）
+    #   · `lossyScale(父)` = `1.2 × 0.8 = 0.96`（这一列旧写法是对的 —— ⛔ 别以为整行都错）
+    #   ⚠️ `battlearena1` 的 `3568 EnemyNameText` **不能用这一条**：它的父链上有跨文件断点
+    #      （`1395` 只有纯 `Transform`）⇒ `parent_rect_of` 会走「整屏 + 缩放 1」那支兜底、
+    #      **拿不到** `EnemyName` 的帧（那是第二个独立缺陷，本件只让它出声、没改行为）。
+    pr7, nm7, sc7 = MR.parent_rect_of(b5, '-1162750750906311551', (0.0, 0.0, 1920.0, 1080.0))
+    g7a = (nm7 == 'NormalReward'
+           and abs((pr7[2] - pr7[0]) - 374.07190) < 0.01
+           and abs((pr7[3] - pr7[1]) - 483.41370) < 0.01
+           and abs(sc7[0] - 0.96) < 1e-5 and abs(sc7[1] - 0.96) < 1e-5)
+    ok = ok and g7a
+    print(f'  {"✅" if g7a else "❌"} ⑤g① 入口帧（`parent_rect_of`）· `Reward Name` 的父 = '
+          f'「{nm7}」**屏幕**框 {pr7[2] - pr7[0]:.5f}×{pr7[3] - pr7[1]:.5f}'
+          f'（要 374.07190×483.41370 = 389.658203125×1.2×0.8 / 503.555908203125×1.2×0.8；'
+          f'旧写法给布局框 **467.58983×604.26708**）· `lossyScale(父)` {sc7[0]:.8f}（要 0.96）')
+
+    # ⑤g② **`menu_dump.walk` 逐级**：`2684 BackCanvas` 起走全树，`EnemyNameText` / `PlayerNameText`
+    #   的两列都要是「屏幕框」那一套（手算写在下面，**不是**本工具算出来的）：
+    #   · `3568`：`ad = (0.9775614142417908−0.2343926578760147, 0.9093284606933594−0.1649981439113617)`
+    #       = `(0.7431688, 0.7443303)`、`sd = (56, −22.8)`、`ls = 1` ⇒
+    #       `w = 0.7431688 × 331.2000 + 56 × 0.8 = 246.1395 + 44.8 = 290.94`
+    #       `h = 0.7443303 × 73.9959 + (−22.8) × 0.8 = 55.0774 − 18.24 = 36.84`
+    #       （🔴 **旧写法 352.47×50.61** —— 只有锚跨那一项用了父的**布局框** 414）
+    #   · `3016 PlayerNameText`：父 `3189 PlayerName`(ls 0.8、`ad = (1,1)`、`sd ≈ (0.00012207, −0.0102844)`)
+    #       ⇒ 父屏幕框 = `(260 + 0.00012207) × 0.8` × `(75 − 0.0102844) × 0.8` = `208.0001 × 59.9918`；
+    #       `ad = (0.7431688, 0.7893285)`、`sd = (56, −14.275)` ⇒
+    #       `w = 0.7431688 × 208.0001 + 44.8 = **199.38**`、`h = 0.7893285 × 59.9918 − 11.42 = **35.93**`
+    #       （🔴 **旧写法 238.02×47.77**）
+    b7 = MR.Bundle(os.path.join(BUNDLES, 'bundle_scenes_scenes_battlearena1'))
+    o7 = []
+    walk(b7, mono_index(verbose=False), '2684', (0.0, 0.0, 1920.0, 1080.0), (1.0, 1.0),
+         0, 6, o7, 0, True, {'by_pid': {}, 'ambiguous': {}}, {})
+    ent7 = next((e for e in o7 if e['name'] == 'EnemyNameText' and e['ind'] == 5), None)
+    plt7 = next((e for e in o7 if e['name'] == 'PlayerNameText' and e['ind'] == 5), None)
+    g7b = (ent7 is not None and plt7 is not None
+           and abs(ent7['w'] - 290.94) < 0.01 and abs(ent7['h'] - 36.84) < 0.01
+           and abs(plt7['w'] - 199.38) < 0.01 and abs(plt7['h'] - 35.93) < 0.01)
+    ok = ok and g7b
+    print(f'  {"✅" if g7b else "❌"} ⑤g② `menu_dump.walk`（`battlearena1` `2684` 起）· '
+          f'`EnemyNameText` {ent7["w"] if ent7 else float("nan"):.2f}×'
+          f'{ent7["h"] if ent7 else float("nan"):.2f}（要 290.94×36.84；旧写法 **352.47×50.61**）· '
+          f'`PlayerNameText` {plt7["w"] if plt7 else float("nan"):.2f}×'
+          f'{plt7["h"] if plt7 else float("nan"):.2f}（要 199.38×35.93；旧写法 **238.02×47.77**）')
+
+    # ⑤g③ **`menu_rect.walk` 逐级**（与 ⑤g② 同形同错的那一处 —— ⛔ 两处必须一起改、一起验）。
+    #   复用 ⑤e 那棵树（`bundle_menus_assets_all` 的 `Generic Multi Card Display`），
+    #   但换**真的吃缩放**的两颗（`ad ≠ 0`）：父 `CardUI Reference` 的 `ls = 223.13999938964844`、
+    #   `ad = 0`、`sd = (2.5436999797821045, 3.3685998916625977)` ⇒
+    #   **父屏幕框宽 = 2.5436999797821045 × 223.13999938964844 = 567.6012119360275**：
+    #   · `Ban Icon`（`aMin.x = 0.1`、`aMax.x = 0.9` ⇒ `ad.x = 0.8`、`sd.x = 0`、`ls = 1`）⇒
+    #     `w = 0.8 × 567.6012119360275 + 0 = **454.08097**`、`h = 2.23009991645813 × 223.14 = **497.62449**`
+    #     （🔴 **旧写法给 2.03×497.62** —— 宽差 **223 倍**，就是「拿父的布局框 2.5437 当父屏幕框」的直接后果）
+    #   · `Banned Text`（父 `Ban Icon`、`ls = 1` ⇒ 父屏幕框 = 454.08097×497.62449；`ad = (0.8, 0.2)`）⇒
+    #     `w = 0.8 × 454.08097 = **363.26478**`、`h = 0.2 × 497.62449 = **99.52490**`
+    #     （🔴 **旧写法 1.63×99.52**）
+    bi7 = next((e for e in o5 if e[1] == 'Ban Icon' and e[0] == 4), None)
+    bt7 = next((e for e in o5 if e[1] == 'Banned Text' and e[0] == 5), None)
+    g7c = (bi7 is not None and bt7 is not None
+           and abs(bi7[3] - 454.08096954882205) < 0.01 and abs(bi7[4] - 497.62449399732213) < 0.01
+           and abs(bt7[3] - 363.2647756390577) < 0.01 and abs(bt7[4] - 99.52489879946444) < 0.01)
+    ok = ok and g7c
+    print(f'  {"✅" if g7c else "❌"} ⑤g③ `menu_rect.walk`（同一棵卡树、`CardUI Reference` ls=223.14）· '
+          f'`Ban Icon` {bi7[3] if bi7 else float("nan"):.2f}×{bi7[4] if bi7 else float("nan"):.2f}'
+          f'（要 454.08097×497.62449 = 0.8×2.5437×223.14；旧写法 **2.03**）· '
+          f'`Banned Text` {bt7[3] if bt7 else float("nan"):.2f}×{bt7[4] if bt7 else float("nan"):.2f}'
+          f'（要 363.26478×99.52490；旧写法 **1.63**）')
 
     # ---- ⑥ `layout_property` 的优先级（A60②）----
     # 🔴 期望值**照 uGUI `LayoutUtility.GetLayoutProperty` 逐行手算**（推导见 `layout_property`）。

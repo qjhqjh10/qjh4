@@ -467,6 +467,49 @@ def rect_of(rt, parent_rect, scale):
     return (x1, y1, x2, y2), (w, h)
 
 
+def screen_box(r, pivot, sx, sy):
+    """**布局框 → 屏幕框**的那一跳：把 `r` 沿它自己的 `pivot` 按 `(|sx|, |sy|)` 放大。
+
+    ## 为什么必须有它（2026-10-10 修一处真缺陷）
+    `rect_of` 的契约（它 docstring 的 ③）是「`parent_rect` = **父在屏幕上的框**」，
+    可它**返回**的是**布局框**（⑥：不含本件自己的 `m_LocalScale`）——
+    而 `walk()` / `parent_rect_of()` 原来把那个返回值**直接回喂**给下一级当「父屏幕框」。
+    设 `A_n` = 布局框、`L_p` = `lossyScale(父)`、`ls_n` = 本件自己的 `m_LocalScale`：
+    ```
+    uGUI 正确:  A_n = ad_n ⊙ (A_parent × |ls_parent|) + sd_n ⊙ L_p    ← 锚跨项吃父的【屏幕】框
+                S_n = A_n × |ls_n|                                    ← 屏幕框（= 本函数的产物）
+    工具（修前）: T_n = ad_n ⊙ T_parent              + sd_n ⊙ L_p
+    ⇒ Δ_n = ad_n ⊙ (T_parent − A_parent × |ls_parent|)
+    ```
+    ⇒ **偏差只注入在「锚跨项」上**（`sizeDelta` 那项两边一样，2026-10-05 那笔修复是对的），
+      而且 `ad_n = 0`（锚点重合）的节点把偏差**清零**（不只是不传播）；
+      `|ls| = 1` 的镜像节点（`(1,-1)`）也**没有幅度偏差**。
+    判据全文（含实例逐位复算）：`资料/普查产出_第十一会话/RO_menu_dump尺子裁决.md`。
+
+    ## 参数与坐标系（与 `rect_of` 逐条对齐）
+    · `r` = **布局框** `(x1,y1,x2,y2)`，**y 向下**（本工具的统一坐标系）；
+    · `pivot` = 那一件的 `m_Pivot` dict —— `pivot.x` 从左缘量、`pivot.y` 从**下**缘量（uGUI 口径）；
+    · `sx` / `sy` = 本件自己的 `m_LocalScale` 的**绝对值**（负缩放只翻方向、不改幅度；
+      调用方自己取 `abs` —— 本函数只吃幅度）。
+    ⛔ 算出来的枢轴点**不动**（Unity 里位置就是枢轴点的位置，缩放绕枢轴发生）。
+    ⚠️ `--no-ancestor-scale` 那一档**不要调本函数**（那一档的口径是「当所有 ls = 1」，
+      `walk` 传 `1.0` 进来即可，见两处调用点的注释）。
+
+    手算 fixture（父屏幕框 400×600、`ad = 0.5`、`sd = 100×50`、`pivot = (0.5,0.5)`、
+    `L_p = 2` ⇒ 布局框 200×100、枢轴 (320,500)）：`screen_box((220,450,420,550), pivot(0.5,0.5), 2, 2)`
+    ⇒ **(120,400)→(520,600)**（200×100 × 2 = 400×200，枢轴 (320,500) 仍是中心）。
+    """
+    x1, y1, x2, y2 = r
+    px, py = pivot['x'], pivot['y']
+    pov_x = x1 + px * (x2 - x1)        # 枢轴点（本坐标系：x 从左缘量、y 从【下】缘量）
+    pov_y = y2 - py * (y2 - y1)
+    w = (x2 - x1) * sx
+    h = (y2 - y1) * sy
+    # 与 `rect_of` 头两句（`x1 = piv_x − piv.x*w` / `y1 = piv_y − (1−piv.y)*h`）**同一个约定**
+    return (pov_x - px * w, pov_y - (1.0 - py) * h,
+            pov_x + (1.0 - px) * w, pov_y + py * h)
+
+
 def parent_local_size(parent_rect, scale):
     """**父的局部尺寸**（uGUI `GetParentSize()` = `parent.rect.size`），两个调用方都要它：
 
@@ -545,9 +588,39 @@ def parent_rect_of(b, rtpid, screen_rect, keep_scales=True):
     for p in chain[:-1]:                         # 走到「被查节点的父」为止
         rt = b.rt.get(str(p))
         if rt is None:
+            # 🔴 **2026-10-10：这一支【原来一个字都不说】—— 出声，但【行为不动】**（第二个独立缺陷）
+            #    现场（`bundle_scenes_scenes_battlearena1`）：`2684 BackCanvas` 的链是
+            #      `1395`（**纯 `Transform`**、没有 RT）→ `2759 Canvas`(ls = **0,0,0**) → `2684`。
+            #    ⛔ **试过「改成 `continue` 续爬」，结果整表塌成 0**：断点下面那一级 `2759 Canvas`
+            #       的序列化 `m_LocalScale` 就是 `(0,0,0)`（原版 prefab 里存的动画/隐藏态，
+            #       本工具文件头已记「390 个 RT 是 (0,0)」）⇒ 整棵子树的框全被乘成 0，
+            #       连根 `BackCanvas` 都报 0.00×0.00 —— **比原来的读数更坏**。
+            #    ⇒ 这一支的处置 = **只出声、不改行为**（退化成「整屏当父 + 缩放 1」）。
+            #      「拿不到那一级的框与缩放」是**真实的信息缺口**：静态导出里 RestRT 没有、
+            #      `Transform_1395.json` 只是个 3D 节点；要真修得先定「(0,0) 帧算不算数」的口径，
+            #      那是另一笔账（⛔ 别在这一支里自己发明口径）。
+            #    ⚠️ 代价（读表的人必须知道）：`--rt 3568` 这类**目标下面的节点**会拿到
+            #      「整屏 + `sd` 裸值」（实测 `EnemyNameText` = **1482.88×781.08**，比整屏还大），
+            #      **不能当判据**；要按名/按根查（`--rt 2684`：那一支退到整屏恰好就是对的，
+            #      因为被丢掉的正是「Canvas」这一级）。
+            sys.stderr.write(
+                f'⚠️ 父链在 `{p}` 处断了（这一级**没有 `RectTransform`**：跨文件 / 纯 `Transform`）'
+                f'⇒ 已算出的 **{chain.index(p)}** 级全部丢弃、剩下的 '
+                f'{max(0, len(chain) - 2 - chain.index(p))} 级一个都不算，'
+                f'退化成「**整屏当父 + 缩放 1**」（`menu_rect.parent_rect_of`）。\n'
+                f'    ⇒ 本表在这以下**可能整体偏**（含位置）；要判据请改用**按名 / `--rt <根>`** 那一支'
+                f'（本件实测：`--rt 3568` 给 1482.88×781.08 = 整屏里按 `sd` 裸值摆的，**不能用**）。\n')
             return screen_rect, None, (1.0, 1.0)
         rect, _ = rect_of(rt, rect, sc)
         s = rt.get('m_LocalScale') or {}         # 本级跑完 ⇒ 下一级的 lossyScale(父) 已更新
+        if keep_scales:
+            # 🔴 **2026-10-10 修一处真缺陷（与 `walk` 那两处同形同错）**：`rect_of` 要的
+            #    「父屏幕框」是**上一级的【屏幕】框**，而它返回的是**【布局框】**（不含本件自己的
+            #    `m_LocalScale`）—— 直接回喂 ⇒ 下一级的**锚跨项**偏 `1/|ls|`。
+            #    判据与逐位复算：`资料/普查产出_第十一会话/RO_menu_dump尺子裁决.md`（例 1）。
+            #    ⚠️ `--no-ancestor-scale` 那一档**不进来**（口径 = 当所有 ls = 1 ⇒ 恒等帧）。
+            rect = screen_box(rect, rt['m_Pivot'],
+                              abs(s.get('x', 1.0)), abs(s.get('y', 1.0)))
         sc = (sc[0] * s.get('x', 1.0), sc[1] * s.get('y', 1.0)) if keep_scales else (1.0, 1.0)
     f = b.rt.get(str(chain[-2]))
     # 🔴 **2026-10-14（同一族 · 顺手多改的这一处，只有这一行）**：父名字原来走
@@ -774,7 +847,17 @@ def walk(b, rtpid, rect, scale, depth, maxdepth, out, indent=0, force_root_rect=
     for c in b.children(rtpid):
         ks = (scale[0] * scl.get('x', 1), scale[1] * scl.get('y', 1)) if keep_scales \
             else (1.0, 1.0)
-        walk(b, c, r, ks, depth + 1, maxdepth, out, indent + 1,
+        # 🔴 **2026-10-10 修一处真缺陷（与 `menu_dump.walk` 同形同错，两处一起改）**：
+        #    交给子件的必须是**本件的【屏幕】框**，而 `rect_of` 返回的是**【布局框】**。
+        #    ⛔ `ks` 那一行**不动**（它已经是「含本件自己」的 `lossyScale(本件)`）。
+        #    偏差只注进子件的**锚跨项**（`ad` 项）—— 判据与逐位复算见
+        #    `资料/普查产出_第十一会话/RO_menu_dump尺子裁决.md`。
+        #    ⚠️ `--no-ancestor-scale` 那一档不乘（口径 = 当所有 ls = 1 ⇒ 恒等帧，
+        #       ⛔ 别改：那一档是**复现 2026-10-05 之前读数**的回归锚）。
+        walk(b, c, screen_box(r, rt['m_Pivot'],
+                             abs(scl.get('x', 1.0)) if keep_scales else 1.0,
+                             abs(scl.get('y', 1.0)) if keep_scales else 1.0),
+             ks, depth + 1, maxdepth, out, indent + 1,
              force_root_rect=None, keep_scales=keep_scales,
              act_anc=(act_anc and bool(active)), stats=stats)
 
