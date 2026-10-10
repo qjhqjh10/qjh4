@@ -72,6 +72,30 @@ namespace CardPresentation.Net
         volatile bool _peerLost;
         string _lastError = "";
 
+        // 🔴 **A1268（2026-10-19）**：连接的【代】—— `Setup` 每开一条新连接就 +1。
+        //    为什么要有它：`Setup` 关掉旧 socket 会**唤醒旧的那个读线程**，而它到底什么时候醒来
+        //    **谁也说不准**（OS 调度）—— 它可能落在新连接的 `Publish(connected: true)` **之后**，
+        //    于是**旧连接的收尾**（`Fail` → `Publish(false)` + `_peerLost = true`）
+        //    会把**活着的新连接**标成「掉了」。有了这一代号，旧读线程就认得出自己已经过期
+        //    （闸在 `Fail(int, string)` 里）。
+        //    ⚠️ 与 `_state` 同理、**别声明成 `volatile`**（可见性由 `Volatile.Read` / `Interlocked` 负责）。
+        int _gen;
+
+        // 🔴 **A1268（2026-10-19）**：本机**正在主动拆**这条连接（`ClosePeer` / `Close` 之间）。
+        //    为什么要有它：主动拆 socket 会让**我们自己的**读线程也失败一次 —— 那不是「掉线」，是收工。
+        //    不区分的话，每一次正常收台（`NetSession.Close` / `Reset` / 自检里的清理）
+        //    都会在日志里留下一条「掉线」告警 —— 那正是排查「为什么掉线」时最不该有的**假信号**。
+        //    `Setup` 开新连接时清掉它。
+        volatile bool _closing;
+
+        // 🆕 🔴 **A1267（2026-10-19）**：后台读线程要说的「**为什么掉线**」攒在这儿，由**主线程** `Pump()` 取走打印。
+        //    ⛔ **不能在 `Fail` 里直接 `Debug.Log`** —— `Fail` 的调用点里有一半在**读线程**上，
+        //    而文件头那条规矩是「后台线程只碰 socket 与并发队列，**绝不碰 Unity API**」。
+        //    （形状照抄 `_inbox`：后台入队、主线程出队。）
+        //    `_noteWarn` = 真掉线（`Debug.LogWarning`）；`_noteLog` = 正常收尾，例如旧读线程随重连退出（`Debug.Log`）。
+        readonly ConcurrentQueue<string> _noteWarn = new ConcurrentQueue<string>();
+        readonly ConcurrentQueue<string> _noteLog = new ConcurrentQueue<string>();
+
         // 🔴 **A943（2026-10-18）：连接位与接受计数【同处一个 32 位字、由一次 CAS 一起发布】**。
         //    原来 `Setup` 里是 `_connected = true;` 紧接着 `AcceptedCount++;` —— **两条独立的写**，
         //    而写它的是**接受线程**（`AcceptLoop` → `Setup`）、读它的是**主线程**
@@ -106,6 +130,22 @@ namespace CardPresentation.Net
         public string LastError { get { return _lastError; } }
         public int Port { get; private set; }
         public int AcceptedCount { get { return Volatile.Read(ref _state) >> 1; } }
+
+        /// <summary>🆕 **A1268 自检读口**：此刻这条连接是【第几代】（`Setup` 每开一条 +1）。
+        /// ⚠️ 与 `NetSession.SinceLastRecvMsForTest` / `WasInBattleForTest` 同族：
+        /// **生产路径一处都不读它**，只服务自检。</summary>
+        public int GenerationForTest { get { return Volatile.Read(ref _gen); } }
+
+        /// <summary>🆕 **A1268 自检口**：从**指定的那一代连接**报一次失败（`generation` 不等于当前代 ⇒ 旧连接迟到那一档）。
+        ///
+        /// <para>🔴 **为什么需要它**：「旧读线程迟到的 `Fail` 打在新连接上」那个交错
+        /// （`资料/普查产出_第十一会话/F5_NetBattle夹具.md` §三 C · 候选 (iii)）**微秒级、而且不可控**
+        /// —— 唤醒旧线程的是 `old.Close()` 那一下，醒来时机由 OS 调度决定 ⇒ 拿真 socket 跑一万次也撞不稳。
+        /// 写成行为断言只会是「**永远绿（或永远红）的假断言**」，比没有更糟
+        /// （同 `Editor/NetSelfTest.cs` §O 的 `_state`、§P 的 `ScriptedTransport` 那两条的理由）。
+        /// 把「哪一代」当参数摆出来，那个交错就**每次都必现**。</para>
+        /// ⚠️ **生产路径一处都不调它。**</summary>
+        public void FailForTest(int generation, string why) { Fail(generation, why); }
 
         /// <summary>A943：**原子地**翻状态字（读-改-写一次完成）。
         /// `connected` = 置/清连接位；`bumpCount` = 计数 +1。两者**在同一次写里落地**。</summary>
@@ -265,16 +305,26 @@ namespace CardPresentation.Net
             try
             {
                 c.NoDelay = true;
+                // 🔴 **A1268（2026-10-19）：先把【旧连接】作废，再关它。**
+                //    ⛔ 这两句的**次序不能反**：下面那句 `old.Close()` **正是唤醒旧读线程的那一下**
+                //       —— 先关再 +1 的话，旧线程那次小 `Fail` 会挤在「还没作废」的窗口里，
+                //       照旧打到共享状态（连接位 / `_peerLost` / `_lastError`）上。
+                int gen = Interlocked.Increment(ref _gen);
                 var old = _client;                       // 掉线后重连：旧的那条先关掉，别把 socket 漏在那
                 if (old != null && old != c) { try { old.Close(); } catch { } }
                 _client = c;
-                _stream = c.GetStream();
+                var st = c.GetStream();
+                _stream = st;                            // ⚠️ 读线程**只认这一份**（下面按值传进 `ReadLoop`）
                 _peerLost = false;
+                _closing = false;                        // A1268：新开的这条是「活着」的，不是「正在拆」
                 // 🔴 A943：**一次写**发布两个事实（原来这里是 `_connected = true;` + `AcceptedCount++;` 两句）。
                 //    顺序仍是「连接位先可见」（见字段区那段：反过来会让上层消费掉握手边沿却发不出包）。
                 Publish(connected: true, bumpCount: true);
                 _lastError = "";
-                _readThread = new Thread(ReadLoop) { IsBackground = true, Name = "wf-net-read" };
+                // 🔴 **A1268**：读线程**按值**拿到「它属于哪一代 / 哪一条流」。
+                //    原来是线程自己读 `var s = _stream;` —— 线程晚一点起来就会读到**新**的那条流
+                //    （那时它就该退出了，却会去读一条不属于它的连接）。
+                _readThread = new Thread(() => ReadLoop(gen, st)) { IsBackground = true, Name = "wf-net-read" };
                 _readThread.Start();
             }
             catch (Exception e)
@@ -288,6 +338,9 @@ namespace CardPresentation.Net
         /// （整条 `Close()` 会把监听也停掉，那主机就再也等不到人了）。</summary>
         public void ClosePeer()
         {
+            // 🆕 🔴 **A1268**：这是**本机主动拆** ⇒ 下面我们自己那个读线程失败的那一次
+            //   **不算「掉线」**（是收工），别在日志里留假信号。`Setup` 开新连接时清掉。
+            _closing = true;
             try { if (_stream != null) _stream.Close(); } catch { }
             try { if (_client != null) _client.Close(); } catch { }
             _stream = null; _client = null;
@@ -296,27 +349,29 @@ namespace CardPresentation.Net
 
         // ---- 收 ----
 
-        void ReadLoop()
+        void ReadLoop(int gen, NetworkStream s)
         {
-            var s = _stream;
             var head = new byte[NetProtocol.HeaderBytes];
-            while (s != null)
+            // 🔴 **A1268**：`gen == _gen` = 「我这条流还是**当前**那条」—— `Setup` 换了新连接就**立刻退出**，
+            //    连 `Fail` 都不叫（`Fail(int, string)` 里还有第二道闸，两道都要有：
+            //    这一道管「别再读旧流」，那一道管「别改共享状态」）。
+            while (s != null && gen == Volatile.Read(ref _gen))
             {
                 int n;
                 try { n = ReadFull(s, head, 0, NetProtocol.HeaderBytes); }
-                catch (Exception e) { Fail(string.Format(Loc.T("Settings/Online/St/ReadAbort"), e.Message)); return; }
-                if (n <= 0) { Fail(Loc.T("Settings/Online/St/PeerClosed")); return; }
+                catch (Exception e) { Fail(gen, string.Format(Loc.T("Settings/Online/St/ReadAbort"), e.Message)); return; }
+                if (n <= 0) { Fail(gen, Loc.T("Settings/Online/St/PeerClosed")); return; }
 
                 int len = NetProtocol.FrameLength(head, 0);
-                if (len < 0 || len > NetProtocol.MaxFrame) { Fail(string.Format(Loc.T("Settings/Online/St/BadFrame"), len)); return; }
+                if (len < 0 || len > NetProtocol.MaxFrame) { Fail(gen, string.Format(Loc.T("Settings/Online/St/BadFrame"), len)); return; }
 
                 var body = new byte[len];
                 try { n = ReadFull(s, body, 0, len); }
-                catch (Exception e) { Fail(string.Format(Loc.T("Settings/Online/St/ReadAbort"), e.Message)); return; }
-                if (n <= 0) { Fail(Loc.T("Settings/Online/St/PeerClosed")); return; }
+                catch (Exception e) { Fail(gen, string.Format(Loc.T("Settings/Online/St/ReadAbort"), e.Message)); return; }
+                if (n <= 0) { Fail(gen, Loc.T("Settings/Online/St/PeerClosed")); return; }
 
                 var env = NetProtocol.Parse(body, len);
-                if (env == null) { Fail(Loc.T("Settings/Online/St/BadEnvelope")); return; }
+                if (env == null) { Fail(gen, Loc.T("Settings/Online/St/BadEnvelope")); return; }
                 _inbox.Enqueue(new NetFrame { kind = env.kind, payload = env.payload });
             }
         }
@@ -334,12 +389,61 @@ namespace CardPresentation.Net
             return got;
         }
 
-        void Fail(string why)
+        /// <summary>🆕 🔴 **A1268（2026-10-19）**：`gen` = **这一次失败是从哪一代连接的上下文里报上来的**。
+        /// 只有「还是当前那一代」才允许改共享状态（连接位 / `_peerLost` / `_lastError`）。</summary>
+        void Fail(int gen, string why)
         {
+            // 🔴 **A1268：旧连接迟到的失败 —— 共享状态一个字都不许碰。**
+            //    为什么：`Publish(connected: false)` 会把**活着的新连接**标成断的、
+            //    `_peerLost = true` 会让 `NetSession.Pump` 把新连接判成「对面掉线」、
+            //    `_lastError` 会被写上一个**不属于当前连接**的原因（而 `NetSession` 拿它当掉线理由）。
+            //    ✅ 但它**要出声** —— 「旧读线程什么时候退、为什么」正是排查重连/丢帧时缺的那一格
+            //       （`资料/普查产出_第十一会话/F5_NetBattle夹具.md` §三 C · 候选 (iii)）。
+            //    ⚠️ 级别是 `Debug.Log`（不是警告）：**每一次重连**都会有一个旧读线程这样退出，是正常收尾。
+            if (gen != Volatile.Read(ref _gen))
+            {
+                _noteLog.Enqueue("[Net] 旧连接的读线程退出了（原因：" + why + "）—— 它属于第 " + gen
+                               + " 代连接、当前是第 " + Volatile.Read(ref _gen)
+                               + " 代 ⇒ **与现在这条活着的连接无关**，一律不改共享状态（A1268）");
+                return;
+            }
+
             if (_lastError == "") _lastError = why;
             Publish(connected: false, bumpCount: false);   // A943：同上 —— 掉线只清连接位
             _peerLost = true;                          // 「连过又断了」—— 与「还没连上」区分开
+
+            // 🔴 **A1267（2026-10-19）：这一行原来【没有】。** `Fail` 只写 `_lastError`、一行日志都不打
+            //    ⇒ **「为什么掉线」永远不进日志**（违反「不许静默失败」；`F5` 的 X2「`bye` 丢在哪一跳」
+            //    就卡在这一格上）。
+            //    ⚠️ **`_lastError` 的消费面如实说清**（`F5` §三 B 那句「全仓唯一消费点是 `NetSession.Send`」
+            //      **不准确**：`StartHost` / `InternalConnect` / 重连失败那三处也会把它拼进状态字）——
+            //      但**在掉线这条路上**它确实等于没人看：`NetSession.Pump` 把它读进 `why` 之后，
+            //      「对局中」那一支印的是**固定词条** `St/PeerLostInBattle`（**不含原因**），
+            //      而 `NetSession.LastError` 在被掉线覆盖的那几条路上**没有任何界面读它**
+            //      （`Shell/SettingsWindow` 只在「主机没起来」那一支读它）⇒ 原因等于石沉大海。
+            if (_closing)
+            {
+                // 本机**自己刚拆的**（`ClosePeer` / `Close`）⇒ 这不是「掉线」，是收工 —— **不出声**。
+                // ⚠️ 这**不是**静默失败：那三条路**各自**已经出过声了 ——
+                //    · 静默超时支 → `SetState(WaitingReconnect, 「N 秒没收到对面的任何消息」)`；
+                //    · 客机重连支 → `SetState(WaitingReconnect, 「正在重连主机…」)`；
+                //    · `NetSession.Close` → `SetState(Off, …)`。
+                //    在这里再喊一句「掉线」只会给排查制造**假信号**。
+            }
+            else
+            {
+                // 🔑 **这一行是给【排查】看的**（自检 / `Player.log`）——
+                //    ⛔ **别把原因拼进界面文案**：玩家那一侧看到的是 `St/PeerLostInBattle` 这种**固定词条**，
+                //      而原版那一刻也是固定词条（`Battle/HUD/WaitOpponentConnectionMsg，13 个战场各一份`）
+                //      ⇒ 这属于铁律 11 的第一类「**原版本身就没有**」，不要在 UI 上自造第二份。
+                _noteWarn.Enqueue("[Net] 传输层掉线：原因 = " + why
+                                + " —— 这一行是给**排查**看的（自检 / `Player.log`）；玩家那一侧只有固定词条的状态字"
+                                + "（原版同：`Battle/HUD/WaitOpponentConnectionMsg`），**不含原因**（A1267）");
+            }
         }
+
+        /// <summary>当前那一条连接上的失败（`Send` 的 `catch` 走它 —— 那个调用点本来就在当前连接上）。</summary>
+        void Fail(string why) { Fail(Volatile.Read(ref _gen), why); }
 
         // ---- 发 ----
 
@@ -396,6 +500,14 @@ namespace CardPresentation.Net
 
         public int Pump(List<NetFrame> into)
         {
+            // 🆕 🔴 **A1267（2026-10-19）**：**先**把后台读线程攒下的话说完 —— 必须在 `into == null`
+            //    那道早退**之前**（`NetSession` 永远传非 null，但这是公开口，别让这一支吞话）。
+            //    ⚠️ **打印只在这里**：本方法只由**主线程**调（`NetSession.Pump` ← `NetRuntime.Update` / 自检显式推）
+            //       —— `Fail` 那四个调用点里有一半在读线程上，所以「说」和「打印」必须分开。
+            string note;
+            while (_noteWarn.TryDequeue(out note)) UnityEngine.Debug.LogWarning(note);
+            while (_noteLog.TryDequeue(out note)) UnityEngine.Debug.Log(note);
+
             if (into == null) return 0;
             int n = 0;
             NetFrame f;

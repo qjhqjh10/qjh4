@@ -1334,7 +1334,17 @@ namespace RuleEngine
                     ctx.Log($"{by}：「{op.Source}」条件「{op.AltCondition}」成立 ⇒ 「{t.Name}」这一下"
                           + $"**{dmg} → {one}** 点");
                 }
+                // 🔴 **2026-10-10（`A1250`）**：**效果击杀也算一次击杀** —— 判据 = 原版
+                // `CardScript__ResolveDeadCard.c:252`（`local_28 == 0x14 /* ability(20) */` 那一档）。
+                // 凶手 = `ctx.ActingUnit`（= 原版 `AbilityData.actingCard`：**是它那条能力干的**）；
+                // 战术卡那条路上它是 `null` ⇒ 不记（原版也记不了：原版 `param_1` 遍历的是
+                // **场上那批牌**（`bm + 0x470`），战术卡不在里面）。
+                // ⚠️ **阵营要在 `Hurt` 之前取** —— 打完它可能已经不在棋盘上了（`OwnerOf` 会返回 -1，
+                //    而阵营是 `Kills` 事件极性的判据，给 -1 = 整档监听器静默不响）。
+                // 判别式 / 发射口**只有一处** ⇒ `RuleCore.TryCreditKill`。
+                int vOwner = OwnerOf(ctx, t);
                 dealt += Hurt(ctx, t, one, by);
+                RuleCore.TryCreditKill(ctx, ctx.ActingUnit, vOwner, t);
             }
             ctx.Log($"{by}：「{op.Source}」对 {targets.Count} 个目标造成 {dmg} 点伤害（共 {dealt}）"
                   + (altUsed ? "（其中有的目标按**条件替换值**结算，见上一行）" : ""));
@@ -1572,7 +1582,14 @@ namespace RuleEngine
         /// <summary>在候选里挑一个**打得动**的，按 <paramref name="ranged"/> 打一次。
         /// `OK` = 真打出去了；否则返回**最后一次**的失败码。
         /// ⚠️ 反复试是安全的：`RuleCore.DeclareAttack` 把校验全做在改动**之前**（先 `IsValidTarget`
-        ///    再消耗攻击），所以失败的那几次**没有副作用**。</summary>
+        ///    再消耗攻击），所以失败的那几次**没有副作用**。
+        /// 🔴 **2026-10-10（`A1256`）：这里传 `forced: true`** —— 本函数只被 `forceattack` 那条 op 用
+        ///    （`DoForceAttack` ⇒ `TryAttackOnce`），而原版「强制攻击」是**另一条 action**
+        ///    （`BattleActionType 0x2a` → `_ResolveForceAttack_d__504`），**全库只有 `_ResolveAttack`
+        ///    调 `CheckUnitsCancellingAttack`** ⇒ **原版那条路不被替身截**。
+        ///    我们共用同一条 `DeclareAttack` ⇒ 必须显式告诉它「这一记是强制的」，
+        ///    否则「强制攻击打督军」会被 `Vargard Obyron` 的替身改到它自己身上（真偏离）。
+        ///    判据全写在 `RuleCore.DeclareAttack` 的 `forced` 形参上。</summary>
         static int TryAttackOnce(BattleContext ctx, int owner, int atkSlot,
                                  List<UnitState> cand, bool ranged, out UnitState tgt)
         {
@@ -1583,7 +1600,7 @@ namespace RuleEngine
                 if (d == null || !d.IsAlive) continue;
                 int dp, dslot;
                 if (!FindSlot(ctx, d, out dp, out dslot)) continue;
-                int code = RuleCore.DeclareAttack(ctx, owner, atkSlot, dp, dslot, ranged);
+                int code = RuleCore.DeclareAttack(ctx, owner, atkSlot, dp, dslot, ranged, forced: true);
                 if (code == RuleCodes.OK) { tgt = d; return RuleCodes.OK; }
                 last = code;
             }
@@ -1728,7 +1745,15 @@ namespace RuleEngine
                 pool.RemoveAll(t => t == null || !t.IsAlive);
                 if (pool.Count == 0) break;               // 打空了就停（后面的单位没目标）
                 var t = pool[ctx.Rng.Next(pool.Count)];
+                // 🔴 **2026-10-10（`A1250`）**：效果击杀也要记一次 —— 凶手是**开火的这个单位 `u`**，
+                // 不是 `ctx.ActingUnit`：卡面写的是「**its** Shuriken / deals 1-2 damage」，
+                // 这一下是**它自己**打的（`for each friendly unit` 逐个数出来）。
+                // ⚠️ 如实标着：原版那一跳的 `actingCard` **读不到**（那批卡的 ability 资产在远端 CCD）
+                //    ⇒ 这一格是**按卡面语义**落的，不是逐跳核过的。
+                // 阵营要在 `Hurt` 之前取（打完它可能已经不在棋盘上了，见 `DoDeal` 同一条）。
+                int vOwner = OwnerOf(ctx, t);
                 dealt += Hurt(ctx, t, n, by);
+                RuleCore.TryCreditKill(ctx, u, vOwner, t);
                 hitters++;
             }
             string howMuch = fixedDmg
@@ -2092,7 +2117,16 @@ namespace RuleEngine
                 //    「摧毁」就变成「打一下」。直接置死，再走正常的离场流程（弃牌堆 + Death 事件 + Backlash）。
                 t.Health = 0;
                 int o2, s2;
-                if (FindUnit(ctx, t, out o2, out s2)) CleanupDeaths(ctx, o2, s2);
+                if (FindUnit(ctx, t, out o2, out s2))
+                {
+                    CleanupDeaths(ctx, o2, s2);
+                    // 🔴 **2026-10-10（`A1250`）**：**「摧毁」也是击杀的一条** —— 判据 = 原版那条闸
+                    // 允许 `local_28 == 0x14 /* ability(20) */`（`CardScript__ResolveDeadCard.c:252`）。
+                    // ⚠️ 阵营 (`o2`) 现成（就在上一行），不用像 `DoDeal` 那样先存 —— 但那一份是
+                    //    `FindUnit` 在**摧毁之前**找到的格位，同样是对的。
+                    // 凶手 = `ctx.ActingUnit`（= 原版 `AbilityData.actingCard`）。
+                    RuleCore.TryCreditKill(ctx, ctx.ActingUnit, o2, t);
+                }
                 else ctx.Log($"{by}：摧毁 {t.Name}，但它已经不在场上");
             }
             ctx.Log($"{by}：「{op.Source}」摧毁了 {targets.Count} 个目标");

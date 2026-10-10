@@ -62,6 +62,8 @@ public static class NetSelfTest
             TestStatePublishA943(FreePort()); // 🆕 2026-10-18（A943）：连接位与计数**由同一次写发布**
             TestSilentTimeoutReadSideA943();  // 🆕 2026-10-18（A943 读侧）：静默超时**不许分两次读下结论**
             TestPeerTextClampA961(FreePort()); // 🆕 2026-10-18（A961 + 「Send() 静默丢」）：对端可控文本要钳 · 丢包要出声
+            TestFailVoiceA1267A1268(FreePort()); // 🆕 2026-10-19（A1267/A1268）：掉线原因要进日志 · 旧读线程迟到不许改状态
+            TestPeerLostGateOffA1269(FreePort()); // 🆕 2026-10-19（A1269）：掉线闸必须挡 `Off`（收工后不许再报一次）
             TestOpponentHintA932();            // 🆕 2026-10-18（A932）：排位那扇全屏窗的**提示行**（自建节点）
             TestNetTermBilingual();            // 🆕 2026-10-19（P6 · 双语）：`Net/` 那批词条的两语档 + 灭自证
             TestHostResolve();
@@ -1763,6 +1765,200 @@ public static class NetSelfTest
             }
             finally { raw.Close(); }
         }
+    }
+
+    // ==================================================================
+    //  R. 🆕 2026-10-19：**传输层的三条**（`F5_NetBattle夹具.md` §七 顺手发现 1/2/3）
+    //      `A1267` `Fail()` 是静的 · `A1268` `Setup` 不停旧读线程 · `A1269` 掉线闸不挡 `Off`
+    // ==================================================================
+    /// <summary>判据 = `资料/普查产出_第十一会话/F5_NetBattle夹具.md` §三 B/§三 C·候选 (iii)/§七·3。
+    ///
+    /// <para>🔴 **`A1267`（`Fail` 静默）**：`TcpTransport.Fail` 原来只写 `_lastError`、**一行日志不打**，
+    /// 而那个字段当时**全仓唯一**的消费点是 `NetSession.Send` 的前后对比 ⇒ **「为什么掉线」永远不进日志**
+    /// （违反「不许静默失败」；`F5` 的 X2「`bye` 丢在哪一跳」就卡在这一格）。现在**出声**，
+    /// 而且按「**给谁看**」分开：这一行是**给排查的**（自检 / `Player.log`）——
+    /// ⛔ 玩家那一侧照旧只有**固定词条**的状态字（原版同：`Battle/HUD/WaitOpponentConnectionMsg`）。</para>
+    ///
+    /// <para>🔴 **`A1268`（旧读线程迟到）**：`Setup` 关旧 socket 会唤醒旧读线程，醒来时机**不可控**
+    /// ⇒ 它的小 `Fail` 可能落在新连接的 `Publish(true)` **之后**，把**活着的**新连接标成「掉了」
+    /// （还会写脏 `_lastError`）。修法是给连接编【代】（`Setup` +1），旧代一律不改共享状态。
+    /// ⚠️ **那个交错是微秒级、且不可控** ⇒ 用真 socket 跑一万次也撞不稳，写成行为断言只会是
+    /// 「永远绿（或永远红）的假断言」—— 同 §O 的 `_state`、§P 的 `ScriptedTransport` 那两条的理由。
+    /// 这里用 `FailForTest(generation, …)` 把「哪一代」**当参数摆出来** ⇒ 每次都必现。</para>
+    ///
+    /// <para>🔴 **`A1269`（掉线闸不挡 `Off`）**：`NetSession.Pump` 那道闸原来只挡 `Closed`/`WaitingReconnect`
+    /// ⇒ `Close()` 之后再被 `Pump` 一次（而 `_t.PeerLost` **还**是真 —— `ClosePeer` 不清它）
+    /// 就会**再报一次** `OnPeerLost`，状态还从 `Off` **倒回** `WaitingReconnect`。</para>
+    ///
+    /// <para>⛔ **本段两个测试都要真 socket**（各接一个 `port`）；R⑬~R⑯ 那一段用一台**裸监听**
+    /// 当对端（不是 `NetSession`）—— 这样「本机自己拆」与「对端关掉」两档都只有**一个**可能的发声方，
+    /// 计数才有鉴别力。</para></summary>
+    static void TestFailVoiceA1267A1268(int port)
+    {
+        var host = NetSession.NewTcp();
+        var cli = NetSession.NewTcp();
+        var ht = (TcpTransport)host.Transport;      // ⚠️ 那两个 `ForTest` 口长在 `TcpTransport` 上（接口上没有）
+        try
+        {
+            Ok(host.StartHost(Cfg(port, "")), "R① 主机起来了");
+            cli.CheckConnection(Cfg(port, ""));
+            Ok(PumpUntil(host, cli, () => host.State == NetState.Lobby && cli.State == NetState.Lobby, 5000),
+               "R② 两边握手到 `Lobby`（下面拿这条**活着的**连接当尺子）");
+            Ok(ht.IsConnected && !ht.PeerLost, "R③ 起手：连接位立着、「掉过线」是假的");
+            int gen = ht.GenerationForTest;
+            Ok(gen >= 1, $"R④ 这条连接是**第 {gen} 代**（`Setup` 每开一条 +1）");
+
+            // ---- ① A1268：**旧连接迟到的失败**一个字都不许碰共享状态 ----
+            string errBefore = ht.LastError;
+            var warn1 = new List<string>();
+            var log1 = new List<string>();
+            Application.LogCallback h1 = (string m, string st, LogType ty) =>
+            {
+                if (m == null || !m.Contains("[Net]")) return;
+                if (ty == LogType.Warning) warn1.Add(m); else log1.Add(m);
+            };
+            Application.logMessageReceived += h1;
+            try
+            {
+                ht.FailForTest(gen - 1, "自检：旧连接迟到的失败");
+                ht.Pump(null);            // 主线程那个出口（`into == null` 也要把攒下的话说完）
+            }
+            finally { Application.logMessageReceived -= h1; }
+            Ok(ht.IsConnected,
+               "R⑤ ★★ **旧连接迟到的 `Fail` 之后，这条活着的连接位仍然是立的**"
+             + " —— 🧨 改坏法：把 `Fail(int,string)` 里那道 `gen != _gen` 的闸删掉 ⇒ 红（这是 A1268 的正题）");
+            Ok(!ht.PeerLost,
+               "R⑥ ★★ …而且**没被标成「掉过线」**（`_peerLost` 一个字没动 ⇒ 上层不会把一条好连接判成掉线）");
+            Eq(string.CompareOrdinal(ht.LastError ?? "", errBefore ?? ""), 0,
+               "R⑦ ★ …`_lastError` 也没被写脏（它是**粘的**，写进去一个不属于当前连接的原因会一直挂着）");
+            Ok(log1.Exists(m => m.Contains("旧连接的读线程退出了")),
+               "R⑧ ★ …而且**出声**（`Debug.Log` 那一档）：那一次迟到被记下来了，"
+             + "排查重连/丢帧时能直接看出「旧读线程是什么时候退的、为什么」"
+             + $"（实得 {log1.Count} 条：「{(log1.Count > 0 ? log1[0] : "")}」）");
+            Ok(!warn1.Exists(m => m.Contains("传输层掉线")),
+               "R⑨ ★（灭自证）旧连接那一档**不许冒充「真掉线」** —— 它必须是 `Log` 级别、"
+             + "文案里也不许带「传输层掉线」那个标记（否则排查时两档分不开）");
+
+            // ---- ② A1267：**当前这一代真掉线** ⇒ 原因必须进日志 ----
+            var warn2 = new List<string>();
+            Application.LogCallback h2 = (string m, string st, LogType ty) =>
+            { if (ty == LogType.Warning && m != null && m.Contains("传输层掉线")) warn2.Add(m); };
+            Application.logMessageReceived += h2;
+            try
+            {
+                ht.FailForTest(gen, "自检：当前这一代真掉线");
+                ht.Pump(null);
+            }
+            finally { Application.logMessageReceived -= h2; }
+            Ok(!ht.IsConnected && ht.PeerLost,
+               "R⑩ 当前这一代报失败 ⇒ 连接位清掉、「掉过线」置上（**既有行为一字未改**）");
+            Eq(warn2.Count, 1,
+               "R⑪ ★★ **「为什么掉线」进日志了**（原来 `Fail` 一行都不打 ⇒ 那句原因全日志零命中）"
+             + " —— 🧨 改坏法：删掉 `Fail` 里那句 `_noteWarn.Enqueue(...)`，或删掉 `Pump` 里的出队循环 ⇒ 红");
+            Ok(warn2.Count == 1 && warn2[0].Contains("自检：当前这一代真掉线"),
+               $"R⑫ ★ 而且**带的就是 `Fail` 收到的那个原因**（实得「{(warn2.Count > 0 ? warn2[0] : "")}」）"
+             + " —— 与 `NetSession.Pump` 那条状态字**不同源**：那条是固定词条「对手掉线了，正在等他回来…」"
+             + "（原版同口径），**不含原因**");
+
+            // ---- ③ 灭自证：「本机自己拆的」**不许**冒充「真掉线」；同一台传输「对端关掉」**必须**出一条 ----
+            //   ⚠️ 对端用一台**裸监听**（不是 `NetSession`）—— 这样两档都只有**一个**可能的发声方，
+            //      「恰好 N 条」这种计数才有鉴别力。
+            var lis = new TcpListener(System.Net.IPAddress.Loopback, 0);
+            lis.Start();
+            int rp = ((System.Net.IPEndPoint)lis.LocalEndpoint).Port;
+            var raw = new TcpTransport();
+            System.Net.Sockets.TcpClient peer = null;
+            var w = new List<string>();
+            Application.LogCallback hw = (string m, string st, LogType ty) =>
+            { if (ty == LogType.Warning && m != null && m.Contains("传输层掉线")) w.Add(m); };
+            try
+            {
+                Ok(raw.Connect("127.0.0.1", rp, 3000), "R⑬ 裸传输连上一台裸监听");
+                peer = lis.AcceptTcpClient();
+                Application.logMessageReceived += hw;
+
+                // ③-a 本机主动拆（`ClosePeer`）⇒ 我们自己那个读线程那一次失败 = **收工**，不是掉线
+                raw.ClosePeer();
+                Thread.Sleep(150);                 // 让读线程真的失败一次（它一失败就退出）
+                raw.Pump(null);                    // 主线程出口：攒下的话这会儿打出来
+                Eq(w.Count, 0,
+                   "R⑭ ★ **本机主动 `ClosePeer` ⇒ 一条「掉线」告警都不许有**（收工不是掉线）"
+                 + " —— 不区分的话，每次正常收台（`NetSession.Close`/`Reset`/自检清理）都会留下假信号，"
+                 + "而那正是排查「为什么掉线」时最不该有的噪声");
+
+                // ③-b **对端关掉** ⇒ 同一台传输、同一段代码，**必须恰好出一条、且带原因**
+                try { peer.Close(); } catch { }    // ③-a 那条对端句柄收掉（夹具里别漏 socket）
+                Ok(raw.Connect("127.0.0.1", rp, 3000), "R⑮ 再连一条（同一台传输对象）");
+                peer = lis.AcceptTcpClient();
+                peer.Close();                      // 🔴 这一档才是真掉线（对面 FIN）
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                while (sw.ElapsedMilliseconds < 3000 && !raw.PeerLost) { Thread.Sleep(10); raw.Pump(null); }
+                raw.Pump(null);
+                Eq(w.Count, 1,
+                   "R⑯ ★★（灭自证）**对端关掉**时**恰好一条**「掉线」告警 —— 与 R⑭ 互为反例"
+                 + $"（不是「反正都不出声」，也不是「每帧刷一条」）（实得 {w.Count} 条："
+                 + $"「{(w.Count > 0 ? w[0] : "")}」）");
+                Ok(w.Count == 1 && (w[0].Contains(TermHead("Settings/Online/St/PeerClosed"))
+                                    || w[0].Contains(TermHead("Settings/Online/St/ReadAbort"))),
+                   "R⑰ ★ 而且那条里的原因就是**读线程亲眼看到的**那个（`St/PeerClosed`「对面关掉了连接」"
+                 + "或 `St/ReadAbort`「读取中断：…」）—— 不是我另编一句");
+            }
+            finally
+            {
+                Application.logMessageReceived -= hw;
+                try { if (peer != null) peer.Close(); } catch { }
+                try { lis.Stop(); } catch { }
+                raw.Close();
+            }
+        }
+        finally { host.Close(false); cli.Close(false); }
+    }
+
+    /// <summary>🆕 🔴 **`A1269`（2026-10-19）**：`NetSession.Pump` 那道掉线闸**只挡 `Closed`/`WaitingReconnect`、
+    /// 不挡 `Off`** ⇒ `Close()` 之后再被 `Pump` 一次（而 `_t.PeerLost` **还**是真 —— `ClosePeer` 只清连接位、
+    /// 不清它）就会**再报一次** `OnPeerLost`，状态还从 `Off` **倒回** `WaitingReconnect`。
+    /// （`F5` §七·3；它在生产路径上现在不现形 —— 只有一处 `Pump`（`NetRuntime.Update`）——
+    ///  但这是一条「**谁再 `Pump` 一次就现形**」的边。）
+    ///
+    /// <para>🧨 **灭自证**：R㉑/R㉒ 要求那道闸**该响还得响**（真掉线时要响一次、要进等重连）——
+    /// 没有这两条，把整条 `if` 删掉也能把 R㉔/R㉕ 蒙绿。</para></summary>
+    static void TestPeerLostGateOffA1269(int port)
+    {
+        var host = NetSession.NewTcp();
+        var cli = NetSession.NewTcp();
+        int cliLost = 0;
+        cli.OnPeerLost = () => cliLost++;
+        try
+        {
+            Ok(host.StartHost(Cfg(port, "")), "R⑱ 主机起来了");
+            cli.CheckConnection(Cfg(port, ""));
+            Ok(PumpUntil(host, cli, () => host.State == NetState.Lobby && cli.State == NetState.Lobby, 5000),
+               "R⑲ 两边握手到 `Lobby`");
+            Eq(cliLost, 0, "R⑳ 起手：这台客机会话一次都没报过「对面掉线」");
+
+            // ---- ① 真掉线 ⇒ 那道闸**该响就得响**（灭自证）----
+            host.Transport.ClosePeer();
+            Ok(PumpUntil(cli, null, () => cli.Transport.PeerLost, 4000),
+               "R㉑ 客机这一侧认出「对面没了」（`PeerLost` 只能来自**传输层的读线程**）");
+            cli.Pump();
+            Eq(cliLost, 1, "R㉒ ★ 真掉线 ⇒ `OnPeerLost` **响一次**"
+                         + " —— 🧨 改坏法：把 `NetSession.Pump` 那道闸整段删掉 ⇒ 这条红");
+            Ok(cli.State == NetState.WaitingReconnect, $"R㉓ 而且状态进「等重连」（实际 {cli.State}）");
+
+            // ---- ② `Close()` 之后再推：**不许**再响、**不许**把状态从 `Off` 倒回去 ----
+            cli.Close(false);
+            Ok(cli.State == NetState.Off, $"R㉔ 收工 ⇒ 状态 `Off`（实际 {cli.State}）");
+            Ok(cli.Transport.PeerLost,
+               "★ 夹具自检：**收工之后 `PeerLost` 还是真**（`ClosePeer` 只清连接位、不清它）"
+             + " —— 这正是 A1269 的**前提**，没有它下面两条就是假断言");
+            for (int i = 0; i < 5; i++) { cli.Pump(); Thread.Sleep(10); }
+            Eq(cliLost, 1, "R㉕ ★★ **收工之后再推 5 次，`OnPeerLost` 一次都不许多响**（A1269 正题）"
+                         + " —— 🧨 改坏法：把 `NetSession.cs` 那句 `State != NetState.Off` 删掉 ⇒ 红");
+            Ok(cli.State == NetState.Off,
+               $"R㉖ ★★ …而且状态**没有从 `Off` 倒回**「等重连」（实际 {cli.State}）"
+             + " —— 与 R㉕ **不同源**：R㉕ 数的是「说不说」，这条看的是「状态动没动」");
+        }
+        finally { host.Close(false); cli.Close(false); }
     }
 
     /// <summary>🆕 2026-10-18（A961 续）：`§Q⑤-a` 用的**最小联机宿主** —— 只把「说给玩家听的那句话」记下来。

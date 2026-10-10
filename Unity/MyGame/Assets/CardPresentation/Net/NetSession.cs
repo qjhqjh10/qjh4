@@ -202,7 +202,17 @@ namespace CardPresentation.Net
             long now = NowMs;
 
             // ---- 掉线检测（对局中才进等待重连；没开打就直接结束）----
-            if (_t.PeerLost && State != NetState.Closed && State != NetState.WaitingReconnect)
+            // 🔴 **A1269（2026-10-19）**：这一道闸原来**只挡 `Closed` / `WaitingReconnect`、不挡 `Off`**
+            //    ⇒ `Close()` 之后再被 `Pump` 一次（而 `_t.PeerLost` **还**是真 —— `ClosePeer` 只清连接位、
+            //    不清 `_peerLost`）就会**再报一次** `OnPeerLost`，而且状态从 `Off` **倒回** `WaitingReconnect`。
+            //    `Off` = 「还没开台 / 已经收工」（`NetSession.Close` 之后就是它）——
+            //    从一个**终态**倒回「等重连」**逻辑上就是错的**，原版也没有这一跳。
+            //    ⚠️ 生产路径现在只有一处 `Pump`（`NetRuntime.Update`），所以它平时不现形；
+            //      但这是一条「**谁再 `Pump` 一次就现形**」的边（`F5` §七·3 就是这么记的），
+            //      而且 `NetBattleTest` 里本来就有一处**手工再推一次**的写法。
+            //    ⛔ 别再把这半句删回去 —— `NetSelfTest` §R 的 R⑨~R⑫ 钉住它。
+            if (_t.PeerLost && State != NetState.Closed && State != NetState.WaitingReconnect
+                && State != NetState.Off)
             {
                 _wasInBattle = State == NetState.InBattle;
                 string why = _t.LastError;

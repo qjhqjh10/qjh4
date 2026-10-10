@@ -5809,6 +5809,62 @@ public static partial class RuleEngineTest
             Check(b.Health, bHp, "★ ……而场上的那个替身**一点没挨**" + LogTail(ctx));
         }
 
+        // ②·f 🔴 `A1256`：**「强制攻击」不被替身截** —— 原版 `forceAttack` 是**另一条 action**
+        //      （`BattleActionType 0x2a` → `_ResolveForceAttack_d__504`），而**全库只有
+        //      `_ResolveAttack` 调 `CheckUnitsCancellingAttack`**（`grep -rln` 只命中它自己 +
+        //      定义文件）⇒ 原版那条路**根本不经过替身那道闸**。
+        //      我们两边**共用同一条 `DeclareAttack`**（`EffectResolver.TryAttackOnce`）——
+        //      改之前「强制攻击打督军」会被重定向到替身身上（**真偏离**）。
+        //      修法 = `DeclareAttack(..., forced: true)`，由那个调用点传。
+        //  🔴 **灭自证**：两支用**同一个 `CardDef`、同一个目标格（督军格）、同一个攻方数值（4 攻）**，
+        //  只差「这一记是不是强制的」——
+        //   · 对照组（普通攻击）：伤害落在**替身**身上、督军一滴不掉、攻方吃的是**替身那 1 点**反击；
+        //   · 强制攻击：伤害落在**督军**身上、替身一滴不掉、攻方吃的是**督军那 2 点**反击。
+        //  ⇒ 把 `forced` 那一句去掉 ⇒ 第 2 支红；把替身那道闸整个删掉 ⇒ 第 1 支红 ——
+        //    **两边不可能同时绿**。而「反击值」那两条把「只挪伤害、没真换目标」也一起挡住。
+        {
+            var guard = new CardDef("FixtureBodyguardForce", "FixtureBodyguardForce", "unit",
+                                    "Any attack against your Warlord targets this troop instead.",
+                                    "common", "Test", 1, 1, 9, 0, null, subtype: "Infantry");
+            // 打的是**敌方督军**（`ParseTarget` 的 `enemy warlord` 那一支 = `Players[1-owner].Warlord`）
+            var mk = Tactic("T_ForceAtWarlord", 0, "Target friendly unit attacks an enemy warlord");
+            {
+                var ctx = ProbeBattle(new[] { mk }, new CardDef[0]);
+                ToP1Turn(ctx, 4);
+                var atk = Place(ctx, 0, 3, Unit("FAtkForce", 1, 4, 9), exhausted: false);
+                var body = Place(ctx, 1, 3, guard, exhausted: true);
+                var lord = ctx.Players[1].Warlord;
+                int aHp = atk.Health, bHp = body.Health, lHp = lord.Health;
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_ForceAtWarlord"), 3),
+                          RuleCodes.OK, "打出「强制攻击」那一张（**打的是敌方督军**）");
+                Check(lHp - lord.Health, 4,
+                      $"★★【`A1256`】**强制攻击打的就是督军本人** —— 3 号格那个替身截不走它"
+                      + $"（督军 {lHp} → {lord.Health}）；原版强制攻击不经过 "
+                      + "`CheckUnitsCancellingAttack`" + LogTail(ctx));
+                Check(body.Health, bHp,
+                      "★ ……而替身**一滴没掉**（被截走的那一版在这里必红）");
+                Check(aHp - atk.Health, 2,
+                      "★ 攻方吃的是**督军**那 2 点反击（替身只有 1 攻）—— "
+                      + "「只把伤害数字挪过去、目标没换」在这里露馅");
+            }
+            {
+                var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+                ToP1Turn(ctx, 4);
+                var atk = Place(ctx, 0, 3, Unit("FAtkPlainForce", 1, 4, 9), exhausted: false);
+                var body = Place(ctx, 1, 3, guard, exhausted: true);
+                var lord = ctx.Players[1].Warlord;
+                int aHp = atk.Health, bHp = body.Health, lHp = lord.Health;
+                CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, BoardSpec.WarlordSlot), RuleCodes.OK,
+                          "对照组：**普通攻击**打同一个督军格");
+                Check(bHp - body.Health, 4,
+                      "★ 普通攻击**被替身截走**（4 点全落在替身身上）—— 与上一支**结果相反**");
+                Check(lord.Health, lHp, "★ ……督军一滴不掉");
+                Check(aHp - atk.Health, 1,
+                      "★ 攻方吃的是**替身**那 1 点反击（不是督军的 2 点）—— "
+                      + "两支的「反击值」也相反");
+            }
+        }
+
         // ③ `This troop can ignore enemy units with Vanguard when attacking` —— 无视先锋
         {
             var f = new CardDef("FixtureIgnoresVanguard", "FixtureIgnoresVanguard", "unit",
@@ -19007,6 +19063,114 @@ public static partial class RuleEngineTest
         CheckCode(RuleCore.DeclareAttack(ctx4, 0, 3, 1, 3), RuleCodes.OK, "同归于尽的一刀");
         Check(Board(ctx4, 0, 3), null, "攻击者阵亡");
         Check(ctx4.Players[1].Warlord.Health, foe4, "攻击者没活下来 → Slay 不触发");
+
+        // ==================================================================
+        //  🔴 `A1249` / `A1250`（2026-10-10 第十一会话）——
+        //     **`Slay` / `Kills` 的【唯一判定口】**（`RuleCore.TryCreditKill`）
+        //
+        //  判据 = 原版 `CardScript__ResolveDeadCard.c:242-259`（**死亡结算**里那道
+        //  「挑凶手去触发 `Slay(120)`」的闸；⛔ 不是 `AddTriggerSlay` 那条「强行触发某个单位的
+        //  Slay」的路 —— 那条由 `AbilityEffect.triggerSlay(467)` 驱动，与「这一下是不是击杀」无关）。
+        //  一道闸两个方向都错过：**多算**（`A1249`）与**少算**（`A1250`）。
+        // ==================================================================
+
+        // ---- ① `A1249`：**打掉一个【本身已是残骸】的格子，不算击杀** ----
+        //   原版那一道 = `:256` 的 `*(char*)(local_308 + 0x65 /* isRemnant */) == 0`。
+        //   残骸 `Health = 1`、挨任意一下就没 ⇒ 我们原来那一句 `!IsWarlord && !IsAlive` 放它过去。
+        //   夹具：带 `Blood Thirst` 的斩杀单位一回合打两下 ——
+        //     · 第 1 下打死一个**真单位**（它随即翻面成残骸）⇒ **算击杀**（`Slay` 响）；
+        //     · 第 2 下打**已经翻面好的那具残骸** ⇒ **不算击杀**（`Slay` 不响）。
+        //   🔴 **灭自证**：两支在**同一个上下文、同一个攻方、同一张卡**上，只差「被打的那一格
+        //   是不是**已经**是残骸」这一个变量，却要求**相反**的结果 ⇒
+        //    · 把 `IsRemnant` 那一句删掉 ⇒ 第 2 支红；
+        //    · 把 Slay 整个关掉 ⇒ 第 1 支红 —— **两边不可能同时满足**。
+        {
+            var remSlay = new CardDef("FixtureRemnantSlay", "FixtureRemnantSlay", "unit", "",
+                                      "common", "Test", 1, 0, 2, 0,
+                                      new[] { KeywordTable.Remnant }, subtype: "Infantry");
+            var ctx5 = ProbeBattle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx5, 4);
+            Place(ctx5, 0, 3, Unit("FSlayerBT", 1, 3, 9,
+                                   "Blood Thirst", "Slay: Damage 2 EnemyWarlord"), exhausted: false);
+            Place(ctx5, 1, 3, remSlay);                      // 2 血 ⇒ 第 1 下正好打死
+            var lord = ctx5.Players[1].Warlord;
+            int lordHp = lord.Health;
+
+            CheckCode(RuleCore.DeclareAttack(ctx5, 0, 3, 1, 3), RuleCodes.OK,
+                      "第 1 下：打一个**真单位**");
+            var occ = Board(ctx5, 1, 3);
+            CheckTrue(occ != null && occ.IsRemnant,
+                      "★（前提）它翻面成残骸了 —— 同一格还占着（`CheckIfDead.c:110-147`）"
+                      + LogTail(ctx5));
+            Check(lord.Health, lordHp - 2,
+                  "★ 第 1 支：**打死真单位 ⇒ 算击杀**（敌方督军 -2）—— 这一支改前改后都该绿"
+                  + LogTail(ctx5));
+
+            int lordHp2 = lord.Health;
+            CheckCode(RuleCore.DeclareAttack(ctx5, 0, 3, 1, 3), RuleCodes.OK,
+                      "第 2 下：打**已经是残骸**的那一格（`Blood Thirst` 给的第二次攻击）");
+            CheckTrue(Board(ctx5, 1, 3) == null, "★（前提）那具残骸被摧毁了（离开了格位）");
+            Check(lord.Health, lordHp2,
+                  "★★【`A1249`】**打掉一具【已经是残骸】的格子不算击杀** —— 原版 `:256` 的闸是 "
+                  + "`isRemnant == 0`；我们原来那一句 `!IsWarlord && !IsAlive` 放它过去了"
+                  + LogTail(ctx5));
+        }
+
+        // ---- ② `A1250`：**用能力 / 效果摧毁也算击杀** ----
+        //   原版那道闸允许 `local_28 == 0x14 /* UnitDeathType.ability(20) */`
+        //   （另一个被放行的是 `0xf /* combatDefender(15) */` = 我们的**攻击**那一路）；
+        //   我们原来 `killed` **只在 `DeclareAttack` 里算** ⇒ 效果击杀**一次都不触发**。
+        //   夹具：一个同时带 `Ability: Damage 3 EnemyUnit` 与 `Slay: Damage 2 EnemyWarlord`
+        //   的单位，用**技能**打死一个 3 血敌人 ⇒ 它自己的 `Slay` 要响。
+        {
+            var caster = new CardDef("FixtureSlayCaster", "FixtureSlayCaster", "unit", "",
+                                     "common", "Test", 3, 2, 9, 0,
+                                     new[] { "Ability: Damage 3 EnemyUnit",
+                                             "Slay: Damage 2 EnemyWarlord" },
+                                     subtype: "Infantry");
+            var ctx6 = ProbeBattle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx6, 4);
+            Place(ctx6, 0, 3, caster, exhausted: false);
+            var prey = Place(ctx6, 1, 3, Unit("FPrey", 1, 0, 3), exhausted: true);
+            var lord = ctx6.Players[1].Warlord;
+            int lordHp = lord.Health;
+
+            CheckCode(RuleCore.UseAbility(ctx6, 0, 3, 3), RuleCodes.OK,
+                      "放技能（3 点打一个 3 血的目标）");
+            CheckTrue(!prey.IsAlive,
+                      "★（前提）**技能把它打死了** —— 这一下不是攻击" + LogTail(ctx6));
+            Check(lord.Health, lordHp - 2,
+                  "★★【`A1250`】**效果 / 能力击杀也算一次击杀** ⇒ 施放者自己的 `Slay` 响（督军 -2）。"
+                  + "改之前这一格**一次都不触发**（`killed` 只在 `DeclareAttack` 里算）"
+                  + LogTail(ctx6));
+        }
+
+        // ---- ②′ `A1250` 的**灭自证**：同一发伤害，**由战术卡打出**时【不算】击杀 ----
+        //   原版 `UnitDeathType` 里 `ability(20)` 与 `tactic(30)` 是**两档**，
+        //   而那道闸只放行 `combatDefender(15)` / `ability(20)` ⇒ **战术卡的伤害不算击杀**。
+        //   我们这边同一条事实的另一面：战术卡那条路上 `ctx.ActingUnit == null` ⇒ **没有「凶手」这张牌**
+        //   （原版 `param_1` 遍历的是**场上那批牌**，战术卡不在里面）。
+        //   🔴 这一支挡住的是「把**所有**死亡都记给『施放方』」那种实现 ——
+        //   它与 ② 只差「打这一下的是不是一张**在场上**的牌」。
+        {
+            var mk = Tactic("T_A1250Tactic", 0, "Deal 3 damage to an enemy");
+            var ctx7 = ProbeBattle(new[] { mk }, new CardDef[0]);
+            ToP1Turn(ctx7, 4);
+            Place(ctx7, 0, 3, new CardDef("FixtureSlayWatcher", "FixtureSlayWatcher", "unit", "",
+                                          "common", "Test", 1, 0, 9, 0,
+                                          new[] { "Slay: Damage 2 EnemyWarlord" },
+                                          subtype: "Infantry"), exhausted: true);
+            Place(ctx7, 1, 3, Unit("FPreyT", 1, 0, 3), exhausted: true);
+            var lord = ctx7.Players[1].Warlord;
+            int lordHp = lord.Health;
+            CheckCode(RuleCore.PlayTactic(ctx7, 0, HandIdx(ctx7, 0, "T_A1250Tactic"), 3), RuleCodes.OK,
+                      "用**战术卡**打死一个 3 血的单位");
+            CheckTrue(Board(ctx7, 1, 3) == null, "★（前提）它死了" + LogTail(ctx7));
+            Check(lord.Health, lordHp,
+                  "★★【`A1250` 灭自证】**战术卡**的伤害不算任何人的击杀 —— "
+                  + "原版 `UnitDeathType` 里 `tactic(30)` 与 `ability(20)` 是两档，那道闸只放行后者"
+                  + "（我们这边 = 那条路上没有 `ActingUnit`）" + LogTail(ctx7));
+        }
     }
 
     /// <summary>Backlash（反噬）：「单位死亡时触发效果」—— 规则书 :169</summary>

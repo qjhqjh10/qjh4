@@ -238,6 +238,9 @@ unset ELECTRON_RUN_AS_NODE && "D:/Unity/Hub/Editor/6000.3.23f1/Editor/Unity.exe"
    它只写 `_lastError`，而 `_lastError` 全仓唯一消费点是 `NetSession.Send` 的前后对比
    ⇒ 生产侧玩家看到的状态字 `St/PeerLostInBattle` **不含原因**、`LastError` **没有任何界面读它**。
    **这次的 X2 就是卡在这里**。建议（不在白名单）：`Fail` 里加一句告警 + 让原因露面。
+   > ⚠️ **2026-10-10（第十一会话 · `G2`）就地订正（铁律 5）**：上面那句「`_lastError` **全仓唯一消费点**是
+   > `NetSession.Send`」**不准确** —— 现核 **`StartHost:132` / `InternalConnect:185` / 重连失败 `:320` 也读它**。
+   > **结论不变**（**掉线那一条路上**它确实没人看）⇒ 建议照改，本条的**处置也没变**（`A1267` 已按它做完）。
 2. 🔴 **`TcpTransport.Setup` 不停旧读线程**（`NetTransport.cs:263-285`）：旧 `ReadLoop` 的 `Fail`
    会 `Publish(connected:false)` + `_peerLost = true` 打在**共享**状态字上 ⇒ 迟到的那一句会把
    **活着的新连接**标成「掉了」。`AcceptLoop` 的「已有活对家」闸也用这个状态字（`:196`）。

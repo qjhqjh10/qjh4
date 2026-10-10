@@ -3379,15 +3379,115 @@ namespace RuleEngine
             return false;
         }
 
+        // ==================================================================
+        //  「击杀」—— `Slay(120)` 与 `Kills` 事件的 **唯一判定口 + 唯一发射口**
+        //
+        //  🔴 **2026-10-10**（第十一会话）：这一格原来**内联在 `DeclareAttack` 里**
+        //     （一句 `bool killed = !target.IsWarlord && !target.IsAlive;`），于是有两个洞：
+        //     ① **`A1249` 我们【多】算一档** —— 打掉一个**本身已经是残骸**的格子，我们也算击杀；
+        //     ② **`A1250` 我们【少】算一档** —— 用**能力 / 效果**摧毁（不是攻击）一次都不算。
+        //     两条的判据是**同一处**：原版 `CardScript__ResolveDeadCard.c:242-259`
+        //     （死亡结算时那道「挑凶手去触发 Slay」的闸）。
+        //  ⇒ 照本仓先例（`StunStillOnBoard` / `TryRedirectAttackToBodyguard`）收成**具名口**；
+        //     `Slay` / `Kills` **只有这一份**（本工程红线：两处写同一条规则 = 迟早不一致）。
+        // ==================================================================
+
+        /// <summary>
+        /// **这一下算不算一次【击杀】** —— 算了就让凶手触发 `Slay(120)` 并广播 `Kills`。
+        ///
+        /// 🔴 **判据 = 原版 `CardScript__ResolveDeadCard.c:242-259`**（第一权威 `d:/2/tools/decomp_full/`）：
+        /// ```
+        /// :242  if (op_Equality(local_308 /*死者*/, param_1 /*凶手*/, 0) == 0) {
+        /// :248      if ((op_Equality(uStack_210, param_1, 0) != 0) && (*(int*)(param_1 + 0x228) != 5)) {
+        /// :252          if ((get_cardType(local_308) != 10 /*督军*/) && (local_28 == 0xf || local_28 == 0x14)) {
+        /// :256              if ((param_1.isPlayer(0x40) == IsPlayerTurn(bm)) && (*(char*)(local_308 + 0x65) == 0)) {
+        /// :259                  RawCardScript__OnTrigger(param_1.rawcard, 0x78 /* Slay = 120 */, …);
+        /// ```
+        /// ⚠️ **不是 `AddTriggerSlay` 那条路**：那条由 `AbilityEffect.triggerSlay(467)` 驱动，
+        ///    语义是「**强行触发**某个单位的 Slay」（卡面 `Trigger the … Slay effects of a friendly unit`），
+        ///    与「这一下是不是击杀」无关。**普通击杀走上面这一跳。**
+        ///
+        /// **六道闸逐条对上：**
+        ///   ① **凶手不等于死者** —— `:242`（`local_308 != param_1`）。
+        ///   ② **凶手还活着、且还在场上** —— `*(param_1 + 0x228) != 5`（不在「将死」态）；而且原版遍历的是
+        ///      **死亡广播列表**（`BattleManagerSupport__BroadcastDeadUnit` ⇒ `bm + 0x470`），
+        ///      里面装的都是**场上的牌** ⇒ 我们映射成 `IsAlive` + `FindSlot` 找得到。
+        ///   ③ **死者不是督军** —— `get_cardType(local_308) != 10`（督军不是「被摧毁」）。
+        ///   ④ **死者确实死了** —— `local_308` 是被 `CheckIfDead` 判死的那一张。
+        ///   ⑤ **死者不是残骸** —— `*(char*)(local_308 + 0x65) == 0`（`+0x65 = isRemnant`）
+        ///      ⇒ **`A1249` 就是这一道**：残骸 `Health = 1`、挨任意一下就没，我们原来照样算击杀。
+        ///      ⚠️ 语义正好对上：**刚被打到 ≤0、即将翻面**的那一下，我们手里那张 `target` 是**旧对象**
+        ///      （`IsRemnant == false`）⇒ 放行 ✓（= 原版此刻 `0x65` **还是 0** —— 翻面那条 action
+        ///      排在死亡结算**之后**，见 `CheckIfDead.c:110-147`）；
+        ///      而**本来就是残骸**的那一格，`target` 是残骸对象（`IsRemnant == true`）⇒ 挡掉 ✓。
+        ///   ⑥ **凶手属于当前回合那一方** —— `:256` 的 `param_1.isPlayer(0x40) == IsPlayerTurn(bm)`。
+        ///      ⚠️ 这一道原来我们一道都没有：对手回合里「己方触发效果（忏悔 / 反噬…）打死人」
+        ///      也会被算成己方的击杀 ⇒ 现在按判据挡掉。
+        ///
+        /// **死亡类型（`local_28`）那一格怎么落** —— 原版允许 `combatDefender(0xf = 15)` 与
+        /// `ability(0x14 = 20)` 两档（`UnitDeathType.cs`），**不允许** `combatAttacker(10)`
+        /// （死者是**攻击方**，例如被哨戒 / 反噬打死）、`tactic(30)`、`poison(40)`。
+        /// 我们的映射 = **靠调用点**：
+        ///   · **攻击那一路**（死者就是被打的防御方）→ `DeclareAttack` 尾段（`combatDefender`）；
+        ///   · **效果那几路** → `EffectResolver.DoDeal` / `DoDamageEach` / `DoDestroy` 与
+        ///     `ResolveEffect` 的 `damage` 那一支（`ability`）；
+        ///   · **哨戒 / 星镖 / 反击 / 标记光 / 不稳定**那几路**都不调**（它们对应 `combatAttacker`
+        ///     或原版未查实的档）⇒ ⛔ 别「顺手」把它们也接上（那是把「少算」换成「多算」）。
+        /// </summary>
+        /// <param name="victimP">死者的阵营（`Kills` 事件的极性靠它判）。</param>
+        /// <returns>真 = 已经记过一次击杀（`Slay` 触发 + `Kills` 广播）。</returns>
+        static bool TryCreditKill(BattleContext ctx, UnitState killer, int victimP, UnitState victim)
+        {
+            // ① 凶手 ≠ 死者（原版 `:242`）
+            if (killer == null || victim == null) return false;
+            if (ReferenceEquals(killer, victim)) return false;
+            // ② 凶手在场 + 活着（原版 `:248` 的 `state != 5`，且它得在「场上那批牌」里）
+            if (!killer.IsAlive) return false;
+            if (!FindSlot(ctx, killer, out int kOwner, out int kSlot)) return false;
+            // ⑥ 凶手属于当前回合那一方（原版 `:256` 前半）
+            if (kOwner != ctx.Active) return false;
+
+            if (victimP < 0 || victimP > 1) return false;
+            // ③ 督军不是「被摧毁」
+            if (victim.IsWarlord) return false;
+            // ④ 确实死了
+            if (victim.IsAlive) return false;
+            // ⑤ 🔴 `A1249`：残骸不算（原版 `:256` 后半的 `0x65 == 0`）
+            if (victim.IsRemnant) return false;
+
+            // ---- 唯一发射口 ----
+            // 这两个消费者是「同一件事的两种写法」：`Slay:` 关键词 / 卡面 `When this unit kills an enemy, …`
+            // （原版只有一个 `AbilityTrigger.Slay = 120`，见 `AbilityTrigger.cs:22`）。
+            FireTriggerAt(ctx, killer, KeywordTable.Slay, kOwner, kSlot);
+            // `subject` = **被击杀的那个**（正文里的 `it` 指它），`actor` = **凶手**
+            // （`this unit …` 的自指判据问的是它）—— 两个槽不能混，见 `WhenEvent`。
+            // `who` = 死者的阵营：极性（`kills an enemy` = 敌方）靠它判。
+            BroadcastWhen(ctx, WhenEventKind.Kills, victimP, victim.Card, victim, actor: killer);
+            return true;
+        }
+
         /// <summary>
         /// 攻击结算。（rule_core.declare_attack）
         ///
         /// ⚠️⚠️ **远程攻击默认也吃反击。** 只有 Long Range 免。
         ///    直觉上会写成「远程不受反击」，那是错的 —— rule_core.gd 有明确修正记录：
         ///    「2026-08-21 修正：此前远程完全不吃反击，Long Range/Sniper 成死代码」。
+        ///
+        /// 🔴 **`forced` = 「强制攻击」（`EffectResolver` 的 `forceattack` 那条 op）** —— `A1256`。
+        ///    原版 `forceAttack` 是**另一条 action**（`BattleActionType 0x2a` / `AddForceAttack.c:36`），
+        ///    由 `BattleManager._ResolveForceAttack_d__504` 结算；而**全库只有 `_ResolveAttack` 调
+        ///    `CheckUnitsCancellingAttack`**（`grep -rln` 只命中它自己 + 定义文件）
+        ///    ⇒ **原版那条路根本不经过替身那道闸**（替身 = 一条 `AboutToAttack(280)` 的 ability，
+        ///    见 `TryRedirectAttackToBodyguard` 的注释）。
+        ///    ⇒ 我们这边**共用同一条 `DeclareAttack`**（`EffectResolver.TryAttackOnce`），
+        ///    于是「强制攻击打督军」也会被替身截走 —— **真偏离**。修法就是这一个形参：
+        ///    **`forced: true` 时跳过替身重定向**，其余（疲劳 / 合法性 / 反击 / 事件 / 击杀）**一律照旧**
+        ///    （原版 `AllowResolveAttack` 对 `forceAttack` 并没有短路，走的还是常规那一套 —— 见 `P-K` §10·1）。
+        ///    ⚠️ 只有 `EffectResolver.TryAttackOnce` 那一个调用点传它；⛔ 别给玩家点击那条路也传。
         /// </summary>
         public static int DeclareAttack(BattleContext ctx, int p, int atkSlot,
-                                        int tgtP, int tgtSlot, bool ranged = false)
+                                        int tgtP, int tgtSlot, bool ranged = false,
+                                        bool forced = false)
         {
             // 🆕 2026-09-26：开头这一整段（回合/格位/疲劳/眩晕/配额/压制/攻击力）**只写一次** ⇒
             //    搬进 `CanAttackNow`，与视图层那圈「未行动」绿光共用（见它的注释）。
@@ -3444,7 +3544,11 @@ namespace RuleEngine
             //     带 Stealth 的替身照样挨打；换到验证之前既会与「督军格特殊」那套判据打架，
             //     也会把这条原版行为改掉。
             //  ⚠️ 一记攻击只改一次：改完的目标是**部队**、第 ① 条判据当场假 ⇒ 不会递归。
-            TryRedirectAttackToBodyguard(ctx, p, atkSlot, tgtP, ref tgtSlot, ref target);
+            //  🔴 **`A1256`：`forced`（强制攻击）时不走这一条** —— 原版 `forceAttack(0x2a)` 由
+            //     `_ResolveForceAttack_d__504` 结算，**全库只有 `_ResolveAttack` 调
+            //     `CheckUnitsCancellingAttack`** ⇒ 那条路根本不经过替身。判据写在 `DeclareAttack` 的
+            //     `forced` 形参上（含 `grep -rln` 的出处）。
+            if (!forced) TryRedirectAttackToBodyguard(ctx, p, atkSlot, tgtP, ref tgtSlot, ref target);
 
             // 攻击宣言：**在伤害之前**发 —— 表现层才有「抬手 → 命中」的余地
             // `targetCardId` 现在就记下来：留存日志以后回看时，那个格位早就换人了
@@ -3852,36 +3956,22 @@ namespace RuleEngine
             }
 
             // ---- 攻击之后的触发：规则书 :208 / :214，都写着「（本单位存活时）」----
-            // 存活判据要连**还在不在场上**一起看 —— 督军血 ≤ 0 时仍占着槽 4，但它已经不算活着了
             // 🔴 **2026-10-19（`D28` 施工单 E）**：这个 `if` 里**只剩 `Slay`** ——
             //    `ResolveUnitAttacked` 那一族（50 / 580 / Mob / Regiment）**已搬到主伤害之前**
             //    （在原版那条协程的 `:988` 上，见批内那段长注释）。
             //    `Slay(120)` **不在**那一支里（它走 `BattleManager.AddTriggerSlay`
             //    ← `AbilityLogic.PlayAbility.c:1903`），而且**必须在伤害之后**（要判「目标被摧毁了没有」）
             //    ⇒ 位置不动。
-            if (attacker.IsAlive && ctx.Players[p].Board[atkSlot] == attacker)
-            {
-                // Slay（斩杀）：「攻击并**摧毁单位**后触发能力」。督军不是「被摧毁」，所以不算
-                // 🆕 2026-09-13 A3：**这条判据现在两处共用** —— `Slay:` 关键词和卡面写法
-                //    `When this unit kills an enemy, …`（`Sisters Repentia`）。
-                //    合并是**照原版来的**，不是图省事：原版**只有一个**「击杀」时机
-                //    —— `AbilityTrigger.Slay = 120`（`AbilityTrigger.cs:22`，全枚举里唯一与击杀相关的值；
-                //    没有 slain / destroyedBy 之类的第二项）。投递走 `BattleActionType.triggerSlay = 89`
-                //    （`BattleManager.cs:6477 AddTriggerSlay(targetCard, actingCard, …)` —— **击杀者是显式传参**），
-                //    结算时判 `IsInPlayOrDying()`（`BattleManager__ResolveTriggerSlay.c:129`），
-                //    对本卡自己发 0x78=120（`CardScript__TriggerSlay.c:17`）。
-                //    ⇒ 「触发式关键词」与「`When` 监听器」在原版是**同一件事的两种写法**。
-                bool killed = !target.IsWarlord && !target.IsAlive;
-                if (killed)
-                {
-                    FireTriggerAt(ctx, attacker, KeywordTable.Slay, p, atkSlot);
-                    // `subject` = **被击杀的那个**（正文里的 `it` 指它），
-                    // `actor` = **凶手**（`this unit …` 的自指判据问的是它）—— 两个槽不能混，见 `WhenEvent`。
-                    // `who` = 死者的阵营：极性（`kills an enemy` = 敌方）靠它判。
-                    BroadcastWhen(ctx, WhenEventKind.Kills, tgtP, target.Card, target, actor: attacker);
-                }
-
-            }
+            // 🔴 **2026-10-10（`A1249` / `A1250`）：判别式与发射口都搬进 `TryCreditKill`** ——
+            //    这一格原来是一句 `bool killed = !target.IsWarlord && !target.IsAlive;`
+            //    外加就地 `FireTriggerAt(Slay)` + `BroadcastWhen(Kills)`。两条缺陷（残骸不算不算、
+            //    效果击杀漏算）都在那**一份**判别式上，而且它**只有这一处** ⇒ 收成具名口，
+            //    **攻击这一路**（死者 = 被打的防御方 = 原版 `UnitDeathType.combatDefender(15)`）
+            //    就是它的调用点之一。⚠️ 「凶手还活着 / 还在场上 / 属于当前回合那一方」那几道闸
+            //    现在是**共用**的（原来这里那半句 `Board[atkSlot] == attacker` 只判「还在不在本格」，
+            //    比原版严 —— 连续棋盘上本方前面死了人会把攻击者挤走，原版按 `unitsInPlay` 是**不看格号**的）。
+            //    ⚠️ 它必须在伤害**之后**（`TryCreditKill` 要读「死了没有」）⇒ 位置照旧不动。
+            TryCreditKill(ctx, attacker, tgtP, target);
 
             CheckWinner(ctx);
             return RuleCodes.OK;
@@ -6367,7 +6457,12 @@ namespace RuleEngine
                         ctx.Log($"{by} 的效果「{spec.Source}」没有合法目标，空过");
                         return;
                     }
+                    // 🔴 **2026-10-10（`A1250`）**：效果击杀也要记一次（判据 = 原版那道闸允许
+                    // `local_28 == 0x14 /* ability(20) */`）。凶手 = 这一段效果的来源 `source`
+                    // （= 原版 `AbilityData.actingCard`）。阵营要在 `Hurt` **之前**取。
+                    int vOwner = OwnerOf(ctx, t);
                     int dealt = Hurt(ctx, t, spec.Amount, by + " 的效果");
+                    TryCreditKill(ctx, source, vOwner, t);
                     ctx.Log($"{by} 的效果「{spec.Source}」对 {t.Name} 造成 {dealt} 伤（剩 {t.Health}）");
                     break;
                 }

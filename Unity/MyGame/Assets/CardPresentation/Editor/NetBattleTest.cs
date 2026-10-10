@@ -667,10 +667,18 @@ public static class NetBattleTest
                 //   ① **不需要**：上面的 ② 现在保证**客机也 `InBattle`**（= 它的 `Resume` 已被自己
                 //      `Pump()` 消化、收发两条都不再积压）⇒ 这一刻 `cs9.Close(true, …)` 把 `bye`
                 //      写出去之后，**客机这一侧没有任何事要做**（它在 `Close` 里已经 `Off`）。
-                //   ② **有反作用**：客机此刻 `State == Off`，而 `NetSession.Pump()` 里「掉线检测」
+                //   ② ⚠️ **2026-10-19 更正：这条理由的【判据】已经不成立了**（结论不变，见下）。
+                //      原文写：「客机此刻 `State == Off`，而 `NetSession.Pump()` 里「掉线检测」
                 //      那道闸（`NetSession.cs:205`）**只挡 `Closed` / `WaitingReconnect`、不挡 `Off`**
-                //      ⇒ 它这一侧只要 `_t.PeerLost` 为真就会**再报一次** `OnPeerLost`
-                //      ⇒ 下面 `n9c.Length == 1` 那条就不是 1 了（那是**假的**红，跟本段要验的东西无关）。
+                //      ⇒ 它这一侧只要 `_t.PeerLost` 为真就会**再报一次** `OnPeerLost`」。
+                //      🔴 **那是当时的一个真缺陷（账 `A1269`，出处 `F5_NetBattle夹具.md` §七·3），
+                //      2026-10-19 已经修掉**：那道闸现在补了 `State != NetState.Off`
+                //      （`Off` = 还没开台 / 已经收工，从终态倒回「等重连」逻辑上就是错的）。
+                //      ⇒ 把客机也推起来**现在不会**再报一次了（判据与断言 → `NetSelfTest` §R·R㉕/R㉖）。
+                //      ⛔ **但本段仍然只推主机** —— 理由换成 ①（客机这一侧确实没有事要做）：
+                //         `Close` 里它已经 `Off`、`bye` 也已经写出去，推它只是多花时间；
+                //         而且**③ 的主判据本来就只跟主机有关**（`bye` 到没到主机、主机弹了几条）。
+                //      ⛔ 别拿这条旧理由去动 `NetSession` 那道闸（它已经修了，见 `A1269`）。
                 //   ③ 主判据只跟**主机**有关：`bye` 到没到主机、主机弹了几条、主机提示行说了什么。
                 NetRuntime.DrainNoticesForTest();
                 hb9.LastSay = null;
