@@ -1183,6 +1183,22 @@ namespace CardPresentation
                 //   （`:970`）用的正是 `k = box.H / DecorRefH`（`DecorRefH = 1080` = 抽屉的参考高）
                 //   ⇒ 照抄同族写法，⛔ 不自己发明系数。
                 float k = box.H / DecorRefH;
+                // 🆕 **2026-10-10（`A1242③`）：`wrapPx = box.W − 20f` 的【量纲】已查实 —— 它是「我们这一档的
+                //   **框 px**」，⛔ 不是设计 px、**不需要乘 `k`**，本处与 `:1280` 用的是【同一把尺】**不存在混用**：
+                //   · `wrapPx` 必须与本行的 `r` 同量纲 —— `ClippedText` 把 `r` 与 `wrapPx` **原样**交给
+                //     `MenuDraw.Text`，而后者对两者都走 `LayoutSpace.Px(...)`（`MenuDraw.cs:1846,1850,1853,1856`）
+                //     ⇒ `wrapPx` = 那个 TMP 矩形的**宽**，量纲只能是框 px。
+                //   · 数值上也**正好**是矩形宽：`NameStrip(box, st.NamePx)` 的左右各内缩 `side = 10f`
+                //     （`NameStrip` 里那两个是**未乘 `k` 的字面量**）⇒ 它的 `W` ≡ `box.W − 20f`；
+                //     `:1280` 的 `Quantity` 更直接 —— 传的是 `qr.W` 本身（`qr` 同样 `side = 10f`）。
+                //   · 乘 `k` 的只有 `12f/75f/36f` 这三个**原版 `m_fontSizeMin/Max/Base`**（设计 px ⇒ 框 px），
+                //     而 `fontPx = st.NamePx` 本来就是框 px（`Label.SetAutoFitBox` 的 `minPx/maxPx/basePx`
+                //     与调用方的 nominal 同量纲）⇒ 两边**同尺**。
+                //   ⚠️ **另一个（真的）不对齐处，⛔ 本件没动**：`st.NamePx`（`Default()` 给 **26**）是**我们挑的
+                //     旧值**，而原版那一颗 `Army Name` 是 `75 / base 36 / auto[12~75]`（设计帧 712×1080）
+                //     ⇒ 折到 200×300 的格子应当是 `75k = 20.83` ⇒ 现在 `fontPx(26) > autoMaxPx(20.83)`，
+                //     自适应会把它压到 20.83（画面大致对，但 nominal 是死数）。要改得连 `QuantityPx = 34`
+                //     与那两个调用方（`CampaignRewardWindow` / `RewardWindow`）一起定，属另一笔账。
                 ClippedText(node, NameStrip(box, st.NamePx), fac, Color.white, NodeArmyName,
                             st.NamePx, st.QText, box.W - 20f, st, 0, 12f * k, 75f * k, 36f * k);
             }

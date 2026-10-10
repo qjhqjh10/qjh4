@@ -215,6 +215,14 @@
    ⇒ 序列化的 `m_LocalScale = 0.8` **很可能只是补间起点 / 隐藏态**，运行时真值可能是 1.12 或中间某一档。
    **还差什么**：`UITransformTweenController` 的运行时语义（起点是序列化值还是别的）+ 该场在 1920×1080 下
    这一族的静态缩放。⇒ **本件不给「改成 324.64 / 209.78」的结论**；只给「dump 的 405.95 / 299.12 不能当判据」。
+   > ✅ **2026-10-10（第十一会话 · `G3`）就地结案（铁律 5）——「补间起点 / 隐藏态」这个担心【不成立】**：
+   > `MonoBehaviour_-3705003539373417343.json` 实读 **`initializeOnAwake = 0` · `playOnEnable = 0`**，
+   > 而 **`UITransformTweenController__Awake.c:9` 与 `__OnEnable.c:9` 第一句就 `return`** ⇒ **补间根本不播**
+   > ⇒ 序列化的 **`0.8`（`NormalReward`）/ `0.7`（`Collect`）就是运行时值**。
+   > ⚠️ **另订正一处读法**：`animPosition` / `animScale` **是 bool 开关、不是比例**（本行原来把它们当比例读了）。
+   > 🔑 **由此带出一条比本行更大的账**（另立 `A1280`）：这一族**漏了三处祖先 `m_LocalScale`**（条目根 `1.2` ·
+   > `NormalReward` `0.8` · `Collect` `0.7`）+ HLG 的 `m_ChildScaleWidth = 1` ⇒ **原版中心距 `391.78`、
+   > 我们的 `EntryPitch` 只有 `315.816`** ⇒ **原版相邻卡有缝、我们这边是重叠的**（已用**用户实拍**钉死）。
 2. **`TransformScalerBySmallScreenUI` 在 1920×1080 下是否施加**：反编译读到 `LateUpdate`
    （`d:/2/tools/decomp_full/TransformScalerBySmallScreenUI__LateUpdate.c`）**把 `localScale` 乘上 `*(float*)(this+0x20)`**
    （`+0x20` = `menuScale`，`Initialize` 里再按某个**静态「小屏」标志**决定 `enabled`）。

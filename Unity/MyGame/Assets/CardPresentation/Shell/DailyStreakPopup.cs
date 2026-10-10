@@ -115,6 +115,28 @@ namespace CardPresentation
         //    ⇒ **别退回 `Simple`**）写在 `WindowHeader` 那三个常量上，⛔ 不在这里再抄一遍。
 
         // ---------------- 奖格（Entry 局部坐标，见 `menu_rect.py … "Daily Streak Reward Popup Entry"`）
+        // 🔴 **2026-10-10 已查实的偏离（`A1242②`）—— ⛔ 本件【值一个都没改】，只把判据落在这儿**：
+        //   下面这一族（`EntryW` / `EntryPitch` 与那 7 个 `E_*`）**整族漏了三处祖先 `m_LocalScale`**：
+        //     · **条目根** `Daily Streak Reward Popup Entry` = **1.2**（`rt 7189168232786238593`）；
+        //       `scaleMultiplierFirstElement` 是**在它之上再乘** 1.2 ⇒ 原版**第一格 = 1.44、其余 = 1.2**，
+        //       判据 = `DailyStreakWindow__RefreshRewards.c:97-102` 实读（`set_localScale(get_localScale()×f)`，
+        //       只对 `iVar15 == lVar9+0x10` 那一格做）。我们只在**基线 1.0** 上放大了第一格 ⇒ 每一格都小 1/1.2。
+        //     · **两层容器** `NormalReward`(ls 0.8) / `Collect`(ls 0.7) —— 它俩底下那几颗 `E_*` 是
+        //       **未缩放帧**的 rect ⇒ 屏上分别大 1/0.96 与 1/0.84（`P-L` 修好之后的 `menu_dump` 现读）。
+        //     · `Rewards Content` 那条 HLG 序列化 **`m_ChildScaleWidth = 1`**
+        //       （`MonoBehaviour_-4833776845445324117.json`；同包另一条 spacing/pad 相同的 HLG 那份是 **0**
+        //       ⇒ ⛔ 别拿它当默认值）⇒ **原版中心距 = 379.816 × 1.2 − 64 = 391.78**，而 `EntryPitch` = **315.816**（少 24%）。
+        //   🔑 **可见后果**（判据 = 用户实拍 `资料/原版参照图/用户实拍_1017/奖励-每日连胜的参考图…png`）：
+        //     原版相邻两卡**有缝**（卡框 ÷ 中心距 ≈ 336.66/391.78 = **0.859**，实拍量到 0.852），
+        //     而**我们这边是重叠的**（`E_Bg` 350.69 宽 vs 中心距 315.816）。
+        //   ⚠️ `A1242②` 点名的那两颗，**原版屏上** = `Reward Name` **324.64 × 31.00** ·
+        //     `Collect Text` **209.78 × 42.06**（`menu_dump.py bundle_menus_assets_all
+        //     "Daily Streak Reward Popup Entry" --depth 4` 现读；`R-M` 那对 `405.95/299.12` 是**旧尺子**的读数，⛔ 别用）；
+        //     我们传的是 **338.17 / 249.74** ⇒ **偏宽 4.2% / 19.1%**（⛔ 不是 `R-M` 记的「偏窄」）。
+        //   ⛔ **别只改那两个数**：整族要**一起**按「每颗 `E_*` 乘它所在容器的 `ls`（绕**该容器**中心）·
+        //     条目本身按 1.2 渲染（首格再 ×1.2）· 中心距 391.78」重算 —— 且
+        //     `Editor/RewardsScene.cs:7208`（中心距）与 `:7231`（首格 `BG` 上沿 = 289.70）那两条断言**必须同批改**。
+        //     **本件停手只报**（那两条断言不在本件的白名单里）。
         public const float EntryW = 379.816f, EntryH = 516.301f;
         /// <summary>`Rewards Content` 的 HLG：**spacing = −64**（相邻两格**故意重叠 64**）、align=3(MiddleLeft)。</summary>
         public const float EntrySpacing = -64f;

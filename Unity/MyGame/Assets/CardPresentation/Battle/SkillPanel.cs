@@ -65,8 +65,25 @@ namespace CardPresentation
         // ⚠️ 底板**不是铺满面板的** —— 它只占 84.4% × 68.1%，偏左上。
         static readonly Rect BgRect = new Rect(0.0687f, 0.2356f, 0.8439f, 0.6813f);
         static readonly Rect NameRect = new Rect(0.1004f, 0.2806f, 0.3295f, 0.2059f);
-        static readonly Rect CostIconRect = new Rect(0.7409f, 0.0829f, 0.0837f, 0.3057f);
-        static readonly Rect CostTextRect = new Rect(0.8385f, 0.0812f, 0.1155f, 0.3074f);
+        // 🔴 **2026-10-10 更正（铁律 5 · `A1242①`）：这两颗原来归一化错了参考帧。**
+        //    改前 `CostIconRect`/`CostTextRect` = (0.7409, 0.0829, 0.0837, 0.3057) /
+        //    (0.8385, 0.0812, 0.1155, 0.3074)，而**上面那五颗**（`Bg` / `Name` / `Desc` / `Targets`）
+        //    都是按**面板** `ActiveSkillDesc`(576.41×324.82) 归一化的 —— 那两颗却是按
+        //    **`AbilityContainer`**(486.44×221.29，= 本文件 `BgRect` 那一颗) 归一化的
+        //    （实据：`CostText` 的 x/w = `(1119.28−711.39)/486.44` = **0.83857**、`56.19/486.44` = **0.11549**，
+        //     与改前那两个数**逐位相同**；`CostIcon` 的 x = `(1071.80−711.39)/486.44` = **0.74099** 同）。
+        //    后果有两处，不是一处：① **位置**（`CenterOf` 摆的是错帧的心 ⇒ 屏上 x 1155.1 vs 原版 1119.3，差 35.8px）；
+        //    ② **框**（`FitBox`/`Fit` 吃的宽高同源 ⇒ 66.58×99.85 vs 原版 56.20×68.40）。
+        //    判据 = **现读**（`menu_dump.py bundle_scenes_scenes_battlearena1 "ActiveSkillDesc" --depth 4`，
+        //    用 **`P-L` 修好之后**的尺子）：
+        //      `CostText  1119.28,792.55→1175.47,860.95  56.20×68.40`（`'10'` 52.4 em，Center/Middle）
+        //      `CostIcon  1071.80,792.92→1112.53,860.95  40.73×68.03`（无图 · `preserveAspect`）
+        //    归一化（口径与那五颗**逐字相同**：x ÷ 面板宽、y 从**面板顶部**起算）：
+        //      `(x−671.80)/576.41` · `(y−698.42)/324.82`
+        //    ⚠️ `CostIcon` 自身在原版 prefab 里是 **`m_IsActive = 0`**（`menu_dump` 那一列的 `act=F`）——
+        //      但它的**矩形是真的**，`_manaIcon` 就按它摆；改后 `min(w,h)` = 40.73 ⇒ 方图边长 = 原版图宽 ✓。
+        static readonly Rect CostIconRect = new Rect(0.6939f, 0.2909f, 0.0707f, 0.2095f);
+        static readonly Rect CostTextRect = new Rect(0.7763f, 0.2898f, 0.0975f, 0.2106f);
         static readonly Rect DescRect = new Rect(0.1009f, 0.5004f, 0.7140f, 0.3335f);
         static readonly Rect TargetsRect = new Rect(0.1580f, 0.0710f, 0.6865f, 0.1646f);
         /// <summary>原版 `Lights` 那三层色片铺的范围（anchor x 0.0308–0.9630 / y 0–0.8468，y 从底部 → 折成从顶部）</summary>

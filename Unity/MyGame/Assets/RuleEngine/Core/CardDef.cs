@@ -698,10 +698,20 @@ namespace RuleEngine
         public bool MeleeEqualsHealth;
 
         /// <summary>`Any attack against your Warlord targets this troop instead.`（`Vargard Obyron`，Sautekh）。
-        /// **读点**：`RuleCore.DeclareAttack` —— 打督军时重定向到**防御方场上第一个**带它的单位。
-        /// ⚠️ 我们上一版 Godot 复刻把它叫 `bodyguard`（`rule_core.gd:202` 从 desc 识别、`:4267` 做重定向；
-        ///    **那是旁证、不是判据**），
-        ///    这里照同一条语义，只是名字用了卡面原话的意思（「替身」）。</summary>
+        /// **读点**：`RuleCore.TryRedirectAttackToBodyguard`（由 `RuleCore.DeclareAttack` 调，
+        /// 位置 = `IsValidTarget` **之后**、`Emit(EvtKind.Attack)` 之前）——
+        /// 打督军时把目标改到**防御方场上槽号最小**的那个带它的单位身上。
+        /// 🔴 **2026-10-10（`A1154`）起这一格的判据已查实**：原版是一条 `AbilityTrigger.AboutToAttack(280)`
+        /// 的 ability（`_ResolveAttack` → `CheckUnitsCancellingAttack` → `HasCancelAttackAbility`
+        /// → `CanTriggerAbility` → `ResolveCancelAttack` → `AbilityLogic.PlayAbility` 的
+        /// `case 0xec` → `AddRedirectedAttack` → `BattleActionType.redirectedAttack(74)`），
+        /// 四道闸 + 两条「别顺手改回去」的判据**全写在那个方法的注释里**（⛔ 别在这儿抄第二份）。
+        /// ⚠️ **只剩两格还是旁证**（代码里如实标着，别当已查实读）：
+        ///   ① 同方有 2 个以上替身时原版落在哪一个（我们取槽号最小 —— `rule_core.gd:4267` 同口径，非权威）；
+        ///   ② `BattleManager.unitsInPlay` 里含不含督军（我们跳过督军）。
+        ///   两格都要跑原版实况才能坐实：那张卡的 ability 资产在原版**远端 CCD、本地没有**。
+        /// ⚠️ 我们上一版 Godot 复刻把它叫 `bodyguard`（`rule_core.gd:202` 从 desc 识别、`:4267` 做重定向）——
+        ///   **那仍然只是旁证**；名字这里用卡面原话的意思（「替身」）。</summary>
         public bool Bodyguard;
 
         /// <summary>`This troop can ignore enemy units with Vanguard when attacking`（`Canoptek Wraith`，Sautekh）。
