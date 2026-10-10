@@ -786,9 +786,17 @@ namespace CardPresentation
                 // 🆕 **A1205 接上**（`R5` §2·J #59 · 登录卡那一档）—— 宿主 =
                 //    `Daily Login Container ▸ background ▸ footer ▸ Rewards` ⇒
                 //    原版 `Reward Display Mission ▸ count` = `10 / 40 / 36`（⚠️ 与每日行那一档**不同**）。
+                // 🔴 **2026-10-10（A1226/A1219）：这一档走【横向】那一套内层几何**（`sideIconW`/`sideGap`）——
+                //    这一格的 `Rewards` HLG（`bundle_menus_assets_all` 里 `MonoBehaviour` 实读：
+                //    `m_ChildControlWidth/Height = 1` · `m_ChildForceExpandWidth/Height = 1` · `m_ChildAlignment = 4`）
+                //    ⇒ 两个 `Reward Display Mission` **等分** `325` = 每格 **162.5 × 77.643 设计 px**（我们这两句本来就是对的）。
+                //    错的在**格子里**：`count` 在 prefab 里 `aMin == aMax == (0,0)`（没有锚点框），
+                //    框由父格子的 HLG 给 = **整格高**；图标宽 = `drawerHolder` 的 `LayoutElement.m_PreferredWidth = 55.0`。
+                //    `sideGap` = 两格各自的 `m_Spacing` —— **第 0 格 5.0 · 第 1 格 4.0**（不是同一个值，别抄成一个）。
+                //    判据全文与残差 → `BuildRewardCell` 函数体里那一段。
                 BuildRewardCell(parent, new PxRect(rw.x1 + rw.W * 0.5f * i, rw.y1, rw.x1 + rw.W * 0.5f * (i + 1), rw.y2),
                                 DailyData.LoginRewardArt(i), DailyData.LoginRewardCount(i).ToString(), i.ToString(),
-                                10f, 40f, 36f);
+                                10f, 40f, 36f, sideIconW: 55f, sideGap: i == 0 ? 5f : 4f);
 
             // `footer.Generic UI Button`  N(3, …, 3.1692,-24.0231, 255.992,74.6201)  `40K_button` 色 (1,0.47,0.10,1)
             var btn = UguiRect.Child(footer, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
@@ -1520,21 +1528,81 @@ namespace CardPresentation
         ///   `Rewards` 出厂 `activeSelf = false`，我们也没画，见 `BuildWeekly` 末段）</item>
         /// </list>
         /// 三档的折行**都是 `0`** ⇒ 本函数里那颗 `count` 恒传 `wrapOff: true`。
-        /// 缺省 `0` = 不接自适应（旧行为），三个调用点已全部显式传值。</para></summary>
+        /// 缺省 `0` = 不接自适应（旧行为），三个调用点已全部显式传值。</para>
+        /// <para>🆕 **2026-10-10（A1226 / A1219）多了 `sideIconW` / `sideGap` 两个形参** —— 它们选的是
+        /// **格子里那套内层几何**，因为**这一格里其实有两个不同的 prefab**（铁律 5·c）：
+        /// <list type="bullet">
+        /// <item><b>缺省（两个都 0）= 「竖向」那一档</b> `Reward Display Mission Vertical Variant`
+        ///   —— 每日行用的那一份：图标在上（`(0,0)-(1,1) + sd(−35.685,−42.369)`）、数字在下（`aMax.y = 0.337`）。</item>
+        /// <item><b>`sideIconW &gt; 0` = 「横向」那一档</b> `Reward Display Mission`
+        ///   —— 登录卡 / 骷髅卡的奖励格：图标在左（`sideIconW` 宽 × **整格高**）、数字在右（余宽 × 整格高）。
+        ///   `sideIconW` = 图标框宽、`sideGap` = 图标与数字之间的 `m_Spacing`（**设计空间 px**，原值传）。
+        ///   判据与残差全文写在函数体里那一段。</item>
+        /// </list>
+        /// ⇒ ⛔ **别把两档合成一个**：把每日行改成横向（或反过来）都会「看着像对的」地画错一整列。</para></summary>
         void BuildRewardCell(Transform parent, PxRect r, string art, string countText, string key,
-                             float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f)
+                             float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f,
+                             float sideIconW = 0f, float sideGap = 0f)
         {
-            // `drawerHolder`  N(…, a=(0,0)-(1,1) p=(.5,1) pos=(0,0) sz=(**−35.685, −42.369**))
-            // 🔴 **2026-09-23 修**：原来这里用的是**我们自己挑的百分比**（`0.1/0.9` 与 `0.08/0.78`）——
-            //    铁律 3 明令不许用「我们挑的」冒充原版。实测
-            //    （`menu_rect.py "Daily Mission Container" --depth 4 --relative --root-size 539.188x150`）：
-            //    格 126.334×150 里 `drawerHolder` = **17.84..108.49 × 0..107.63**（原来我们画的是 12.63..113.70 × 12..117）。
-            var dh = UguiRect.Child(r, UguiRect.A00, UguiRect.A11, new Vector2(0.5f, 1f),
+            PxRect dh, c;
+            if (sideIconW > 0f)
+            {
+                // ==== 「横向」那一档：**`Reward Display Mission`**（登录卡 / 骷髅卡的奖励格）====
+                // 🔴 **2026-10-10（A1226 / A1219 这一笔）：这一档原来错用了【每日行那一份】的五元组。**
+                //    原来 `dh` = 格子的 `(0,0)-(1,1) + sd(−35.685,−42.369)`、`count` = 格子的 `(1,0.337)` 锚区
+                //    —— 那是**另一个 prefab**（`Reward Display Mission Vertical Variant`：图标在上、数字在下）
+                //    的几何。这一档的 `count` 在 prefab 里是 **`aMin == aMax == (0,0)`**（`sd = (0,0)`）：
+                //    **它根本没有锚点框** ⇒ 框由【父格子上的 `HorizontalLayoutGroup`】算出来。
+                //    实据（逐条可回查，全在 `d:/2/新解包资源/assets_full/bundle_menus_assets_all/`）：
+                //      · `RectTransform/RectTransform_-1209690867104868609.json`（登录卡 `count 0`）
+                //        `m_AnchorMin = m_AnchorMax = (0,0)` · `m_AnchoredPosition = (0,0)` · `m_SizeDelta = (0,0)`
+                //        · `m_LocalScale = (1,1)`（另一格 `RectTransform_-2268973933791275265.json` 同值）；
+                //      · 父格子 `Reward Display Mission` 的 HLG：`MonoBehaviour_7266792112342177535.json`（第 0 格）·
+                //        `MonoBehaviour_-3940592343783237889.json`（第 1 格）—— 两格都是
+                //        `m_ChildControlHeight = 1` **∧** `m_ChildForceExpandHeight = 1` ⇒
+                //        uGUI `HorizontalOrVerticalLayoutGroup.SetChildrenAlongAxis` 的**交叉轴**那一支：
+                //        `GetChildSizes` 里 `childForceExpand ⇒ flexible = Mathf.Max(flexible, 1)` ⇒
+                //        `requiredSpace = Mathf.Clamp(innerSize, min, size)` = **格子的整高**
+                //        （判据 = `Library/PackageCache/com.unity.ugui@27635d171b1a/Runtime/UGUI/UI/Core/Layout/
+                //          HorizontalOrVerticalLayoutGroup.cs`；实测两格都是 **89.29 画布 px** = `77.643 × 1.15`）。
+                //        ⇒ 🔴 **这就是 `A1226` 那条账要的那一格**：原版 `count` 的**框高 = 整格高**，
+                //        不是「格高的 0.337 倍」（改前我们给 30.09）
+                //        —— 「原版收敛在上限 40」与「框高 30 px」本来就不互斥，是**我们的框取错了**。
+                //      · 图标宽 = `drawerHolder` 的 `LayoutElement.m_PreferredWidth = **55.0**`
+                //        （`MonoBehaviour/MonoBehaviour_6650146143716251391.json`）⇒ 屏上 `55 × 1.15 = **63.25**`；
+                //      · 两格各自的 `m_Spacing` = **5.0**（第 0 格）/ **4.0**（第 1 格）⇒ 由调用点传 `sideGap`。
+                //    ⚠️ **残差（如实登记，没假装对上）**：原版 `count` 的**宽**是它在 uGUI 里自己的
+                //    `preferredWidth`（随文案与字号变），**静态算不出来** ⇒ 我们取「图标右边 → 格子右边」
+                //    那一整条。两格的 `m_ChildAlignment` 并不相同（第 0 格 `5 (MiddleRight)` + `m_Padding.m_Left = −20`、
+                //    第 1 格 `3 (MiddleLeft)` + `10`）——但在「`count` 吃满剩余宽」这一口径下两者**同解**
+                //    （块宽 = 整格宽 ⇒ `GetStartOffset` 里那个对齐项恒为 0），差别只剩 `padL`，
+                //    而我们把块摆在格子左边（第 1 格那一档）。真正未复刻的那一项 = 原版把块按
+                //    `preferredWidth` 推到对齐边上的那一段位移，**已记进报告，别当成「已经一模一样」**。
+                dh = new PxRect(r.x1, r.y1, r.x1 + sideIconW, r.y2);
+                c = new PxRect(dh.x2 + sideGap, r.y1, r.x2, r.y2);
+            }
+            else
+            {
+                // `drawerHolder`  N(…, a=(0,0)-(1,1) p=(.5,1) pos=(0,0) sz=(**−35.685, −42.369**))
+                // 🔴 **2026-09-23 修**：原来这里用的是**我们自己挑的百分比**（`0.1/0.9` 与 `0.08/0.78`）——
+                //    铁律 3 明令不许用「我们挑的」冒充原版。实测
+                //    （`menu_rect.py "Daily Mission Container" --depth 4 --relative --root-size 539.188x150`）：
+                //    格 126.334×150 里 `drawerHolder` = **17.84..108.49 × 0..107.63**（原来我们画的是 12.63..113.70 × 12..117）。
+                dh = UguiRect.Child(r, UguiRect.A00, UguiRect.A11, new Vector2(0.5f, 1f),
                                     Vector2.zero, new Vector2(-35.685f, -42.369f));
+                // `count`  N(7, 0,0, 1,0.337, 0.5,0, pos=(0,0), **sz=(0, 0.602545)**)  → 文本 fs40
+                // 🔴 **2026-10-10（铁律 5 就地订正）**：上面那句五元组原来把 `0.6025` 记成了 **`pos.y`**，
+                //    写手照着那个顺序写进了 `pos` 实参 ⇒ 框高整整少了一项。**实读 prefab**（两处都是）：
+                //    `RectTransform/RectTransform_-633122907750812999.json`（每日行第 1 格）·
+                //    `RectTransform_-7110481322823208263.json`（第 3 行）——
+                //    `m_AnchoredPosition = (0,0)` · `m_SizeDelta = (0, 0.6025450825691223)`。
+                //    ⇒ 框高 = `0.337 × 150 + 0.602545` = **51.153 设计 px** → 屏上 `× 1.15 = **58.83**`
+                //    （`menu_dump bundle_menus_assets_all "Missions Tab" --depth 12 --no-sprite` 实算 58.83，
+                //      逐位同；**改前我们给的是 58.13**）。
+                c = UguiRect.Child(r, UguiRect.A00, new Vector2(1f, 0.337f), new Vector2(0.5f, 0f),
+                                   Vector2.zero, new Vector2(0f, 0.602545f));
+            }
             Draw(parent, art, dh, "Reward " + key, RewardsWindow.QContent, null, true);
-            // `count`  N(7, 0,0, 1,0.337, 0.5,0, 0,0.6025, 0,0)  → 文本 fs40（实算 0..126.33 × 98.85..150 ✓ 与我们一致）
-            var c = UguiRect.Child(r, UguiRect.A00, new Vector2(1f, 0.337f), new Vector2(0.5f, 0f),
-                                   new Vector2(0f, 0.6025f), Vector2.zero);
             // 🆕 **A1205**：三档（见上面 summary）都在 `Txt` 的 `autoMinPx`/`autoMaxPx`/`autoBasePx` 上，
             //    由**调用点**传；`折行 = 0` 是这三档**共同**的那一格 ⇒ 这里恒 `wrapOff: true`。
             Txt(parent, c, countText, Color.white, "count " + key, 40f, autoMinPx, autoMaxPx, autoBasePx,

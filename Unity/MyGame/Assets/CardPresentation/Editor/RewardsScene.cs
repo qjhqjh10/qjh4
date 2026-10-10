@@ -1292,11 +1292,23 @@ public static class RewardsScene
             CheckTrue(FindChild(rows[0], "progress") != null, "行里有 `progress` 文本（`{0}/{1}` 口径）");
             // 🔴 **行内的字号也要跟着缩放**（A124）：原版 `localScale` 缩的是**整棵子树**，TMP 的文字网格
             //    也在里头，而 prefab 里 `m_fontSize` 是**未缩放的原值** ⇒ 只缩框不缩字号 = 字比框小一圈。
-            //    判据 = **TMP 渲出来的实际字号**（`Label.FontPxNow`，⛔ 不是 `MissionsTab` 里那个 35f）。
-            //    `progress` 这一件走 `Txt1`（**不换行、无自适应**）⇒ 没有自适应把它拱到别的档，字面量可钉死。
-            CheckNear(FontPxOf(FindChild(rows[0], "progress")), 40.25f, 1.5f,
-                      "`progress` 字号 = **35 × 1.15 = 40.25**（原版 `m_fontSize` 35 × `localScale` 1.15；"
-                      + "改坏法：`FS()` 那一乘漏掉 ⇒ 这条红，而所有矩形断言照样全绿）");
+            // 🆕 **2026-10-10（A1226/A1219）：这一条原来钉的是【收敛值】`40.25`**
+            //    （`CheckNear(FontPxOf(…), 35 × 1.15, 1.5f)`，注释写着「`Txt1` ⇒ 不换行、无自适应」）——
+            //    **那个前提已过期**：`A1205` 给这颗接了自适应（原版本来就是 `m_enableAutoSizing = 1`）。
+            //    TMP 的收敛值 = **框 ÷ 字体行盒** ⇒ 拿它比字面量**时红时绿**，而且会诱使后来者
+            //    「把自适应关回去」—— `D1` §共同纪律 明令禁止（原版开着，关掉 = 往回退复刻）。
+            //    ⇒ 改成**窗口三格 + 自适应开着 + 收敛值落在窗口内**（判据与「为什么」→ `CheckFontWindow` 的 summary）。
+            //    ⚠️ **框本身核过、没动**：原版 `progress` 的 RT 实读 = `aMin (0, 0.33)` · `aMax (1, 1)` ·
+            //    `piv (0,0)` · `pos (0, −3)` · `sd (0, 6)`（`RectTransform_-4283147013975304449.json`，
+            //    另一格 `-3795425069911971583.json` 同值）= 我们 `:606` 那一行写的五元组**逐位相同**；
+            //    解算后框高 `0.67 × 59.60 + 6 × 1.15 = **46.83**` 画布 px，我们给的就是它
+            //    （`menu_dump bundle_menus_assets_all "Missions Tab" --depth 12 --no-sprite` 实算 46.84）。
+            // 窗口三格的原版实据（MB 亲读，见报告 §2 对照表）：`m_fontSizeMin/Max/Base = 10 / 40 / 36`
+            // ⇒ × 1.15 = **11.5 / 46 / 41.4**。
+            CheckFontWindow(rows[0], "progress", 11.5f, 46f,
+                            "`progress` 自适应窗口 = 原版 `m_fontSizeMin/Max 10/40` × `localScale` 1.15 = [11.5, 46]"
+                            + "（改坏法：`FS()` 那一乘漏掉 ⇒ 实得 10.00/40.00 ⇒ 红；"
+                            + "把自适应关掉 ⇒ `guards` 那条 `AutoSizing` 红）", 41.4f, true);
         }
 
         // ---------------- 🆕 2026-10-05（A82）：未达成的 `Collect` **真的变灰** ----------------
@@ -1533,10 +1545,25 @@ public static class RewardsScene
             CheckTrue(smLogin != null && smSkulls != null,
                       "（前提）两张 SM 卡都在（`Daily Login Container` + `Daily Skulls Mission Container`）"
                       + " —— 下面的字号断言**吃这一条**");
-            // ①【`Txt` 无自适应那一路】登录卡的奖励格 `count`：设计空间 **fs40** ⇒ 屏上 **46**
-            CheckFontPx(smLogin, "count 0", 46f,
-                        "登录卡奖励格 `count 0` 字号 = **40 × 1.15 = 46**"
-                        + "（原版 `m_fontSize` 40 × `Special Missions.localScale` 1.15）");
+            // ①【`Txt` 带自适应那一路】登录卡的奖励格 `count 0`：🔴 **这一颗原来是按「没有自适应」断的** —
+            //    `A143` 那段写着「`Txt` 无自适应那一路」，而 `A1205` 已经给它接了自适应
+            //    （原版本来就是 `m_enableAutoSizing = 1`）⇒ 旧断言（`CheckFontPx(…, 46f)`）第一次跑就红。
+            //    **判档 = (γ) 本批回归 + (δ) 前提过期**，**外加** `D1` 点名的真缺陷候选：
+            //    **「原版收敛在上限 40」与「我们框高只有 30 px」算术上互斥** ⇒ **框或四格有一个是错的**。
+            //    🆕 **2026-10-10 查实（实据见报告 §2 / §4）：错的是【框】，四格是对的。**
+            //    原版这一颗 `count` 的 RT 是 **`aMin == aMax == (0,0)`**（`RectTransform_-1209690867104868609.json`）
+            //    —— **它没有锚点框**，框由父格子 `Reward Display Mission` 上的 `HorizontalLayoutGroup`
+            //    算出来（`m_ChildControlHeight = 1` ∧ `m_ChildForceExpandHeight = 1` ⇒ 交叉轴那一支给
+            //    **整格高 89.29 画布 px**）。改前我们给 **30.09**（错用了另一个 prefab
+            //    `Reward Display Mission Vertical Variant` 的 `aMax.y = 0.337`）⇒ 修法在
+            //    `Shell/MissionsTab.cs` 的 `BuildRewardCell`（那一笔与这一笔**分开记**）。
+            //    ⛔ 所以这条断言**不再钉收敛值**（46 是「框够大时会收敛到上限」的结果，不是判据）——
+            //    改成窗口三格 + 自适应开着 + 收敛值落在窗口内。
+            //    窗口三格的原版实据（MB 亲读）：`m_fontSizeMin/Max/Base = 10 / 40 / 36` ⇒ × 1.15 = 11.5 / 46 / 41.4。
+            CheckFontWindow(smLogin, "count 0", 11.5f, 46f,
+                            "登录卡奖励格 `count 0` 自适应窗口 = 原版 **10 / 40** × 1.15 = [11.5, 46]"
+                            + "（与每日行那一档 `20 / 40` **不同值**，见 `BuildRewardCell` 的 summary；"
+                            + "改坏法：`FS()` 那一乘漏掉 ⇒ 实得 10.00/40.00 ⇒ 红）", 41.4f, true);
             // ②【同一条 `Txt`，换一个设计字号】`Collect` 按钮文案：设计空间 **fs35** ⇒ 屏上 **40.25**
             //    （⛔ 不是「凑一个常数」—— ① 与 ② 的设计字号不同，乘完之后是 46 / 40.25 两个数）
             CheckFontPx(smLogin, "Generic UI Button Text", 40.25f,
@@ -10872,8 +10899,34 @@ public static class RewardsScene
     ///
     /// <para>⛔ 期望值同样是「设计空间的数 × 1.15」的字面量。⚠️ **这条钉的是「窗口上下界确实乘了 1.15」**，
     /// ⛔ **不是**「上界对上原版 prefab 的 `m_fontSizeMax` 字段」—— 我们 `Txt` 把**设计字号同时当上界**，
-    /// 原版 prefab 里这两个字段本身**没核**（已记在 `资料/普查产出_1006/A143_SM字号断言.md` 的「没查清」）。</para></summary>
-    static void CheckFontWindow(Transform card, string nodeName, float wantMinPx, float wantMaxPx, string what)
+    /// 原版 prefab 里这两个字段本身**没核**（已记在 `资料/普查产出_1006/A143_SM字号断言.md` 的「没查清」）。</para>
+    ///
+    /// <para>🆕 **2026-10-10（A1226 / A1219）：多了第 6 个形参 `wantBasePx`、第 7 个 `guards`（缺省 `false`），
+    /// 并补了【关系式】那几条。**
+    /// 起因 = 本会话 `A1205` 给 `MissionsTab` 几颗字接了自适应之后，两条**旧**断言（拿收敛值当字面量）
+    /// 第一次跑就红（`progress` / 登录卡 `count 0`）。🔴 那两条的**判档都不是实现坏了**：
+    /// <br>· `D1` 判 **`(γ)` 本批回归 + `(δ)` 前提过期**（旧断言自己写着「只用在**没有自适应**的件上」）；
+    /// <br>· 而 `count 0` 上还叠了一条**真缺陷**（`A1226`/`A1219` 第一次现形）——**框取错了**，
+    ///   与「四格」无关：修法是改 `Shell/MissionsTab.cs` 的 `BuildRewardCell`（那一笔单独记）。
+    /// <br>⇒ 断言的形态改成：**窗口三格 + 「自适应确实开着」+ 「收敛值落在窗口内」**。
+    /// ⛔ **三条都不拿收敛值当期望**（收敛值 = 框 ÷ 字体行盒，随框与字体变；拿它当字面量 = 时红时绿，
+    /// 而且会诱使后来者「把自适应关掉让它变绿」—— 那正是 `D1` §共同纪律 明令禁止的那一件事，
+    /// 所以这里**专门加一条** `AutoSizing` 断言挡它）。
+    /// <br>🔴 **`guards` 缺省原来是 `false`，2026-10-10 收口时【已翻成 `true`】** —— `F3` 交件时只对
+    /// **亲核过判据的两站**（`progress` · `count 0`）开；全文件共 **15 处** `CheckFontWindow` 调用，
+    /// 其余 13 处各自吃「标签建在激活父件下 + `SetAutoFitBox` 真跑过」这个前提（逻辑上应当都成立，
+    /// **但那一路跑不了 Unity、没实跑验证**）⇒ **铺开的验证方式 = 直接翻缺省值、跑一次 `RewardsScene.Run`**：
+    /// **全绿 ⇒ 那 13 处的前提成立**（覆盖 +26 条）；**若红 ⇒ 那正是要查的东西**，⛔ 别先翻回去。
+    /// ⚠️ 翻缺省之后本文件那 15 处**一律吃**这两条闸。</para>
+    ///
+    /// <para>⚠️ **`wantBasePx` 只在【三处来源一致】的站上填**（原版 prefab 的 `m_fontSizeBase` 实读 × 1.15）：
+    /// 今天填的是 `progress`（每日行）与登录卡 `count 0` —— 两颗的原版字段都 **亲读**过
+    /// （`bundle_menus_assets_all` 的 MB：`m_fontSize = 40` · `m_fontSizeBase = 36` ·
+    /// `m_enableAutoSizing = 1` · `m_fontSizeMin = 10` · `m_fontSizeMax = 40`，
+    /// RT 见 `资料/普查产出_第十一会话/F3_MissionsTab框.md` §2 的对照表）。
+    /// 缺省 `0` = 不填 ⇒ 其余既有调用点**逐位不变**。</para></summary>
+    static void CheckFontWindow(Transform card, string nodeName, float wantMinPx, float wantMaxPx, string what,
+                                float wantBasePx = 0f, bool guards = true)
     {
         var t = card != null ? FindChild(card, nodeName) : null;
         var lb = t != null ? t.GetComponentInChildren<Label>() : null;
@@ -10884,6 +10937,29 @@ public static class RewardsScene
         }
         CheckNear(Label.FontSizeToPx(lb.FontSizeMin), wantMinPx, 0.5f, what + " 自适应**下界**");
         CheckNear(Label.FontSizeToPx(lb.FontSizeMax), wantMaxPx, 0.5f, what + " 自适应**上界**");
+        // 🆕 **2026-10-10（A1226/A1219）补的两格 + 可选的 base 那一格** —— 见本方法 summary 的最后三段。
+        if (wantBasePx > 0f)
+            CheckNear(Label.FontSizeToPx(lb.FontSizeBase), wantBasePx, 0.6f,
+                      what + " 自适应**起点**（= 原版 `m_fontSizeBase` × `localScale`；容差 0.6 同本文件"
+                      + " A459/A468 那两处 —— ⛔ 别精确比浮点）");
+        // 🔴 **`guards` 缺省 2026-10-10 收口时【已从 `false` 翻成 `true`】**：`F3` 交件时只对
+        //    **亲自核过判据**的两站开它（`progress` · 登录卡 `count 0`），因为其余 13 处各自吃
+        //    「标签建在激活父件下 + `SetAutoFitBox` 真跑过」这个前提、而那一路**跑不了 Unity**。
+        //    ⇒ **翻缺省值就是那次「铺开」**、跑一次 `RewardsScene.Run` 即验：
+        //    **全绿 ⇒ 那 13 处前提成立**（覆盖 +26）；**若红 ⇒ 那正是要查的东西**，⛔ 别先翻回去。
+        if (!guards) return;
+        CheckTrue(lb.AutoSizing,
+                  what + " 自适应**确实开着**（原版这一颗是 `m_enableAutoSizing = 1`）"
+                  + " —— 改坏法：为了让「收敛值」对上某个字面量而把自适应**关掉/放宽**，"
+                  + "那是**往回退复刻**，不是修好（`D1` §共同纪律；这条专门挡它）");
+        float nowPx = lb.FontPxNow;
+        float loPx = Label.FontSizeToPx(lb.FontSizeMin);
+        float hiPx = Label.FontSizeToPx(lb.FontSizeMax);
+        // ⚠️ **关系式，不是字面量** —— 收敛值由「框 ÷ 字体行盒」决定（我们那份 CJK 字体行盒 ≈ 1.52 em，
+        //    原版 ~1.17 em ⇒ **同一个框上我们收敛得更小**，这是**字体资产**的系统性差异，不是缺陷）。
+        CheckTrue(nowPx >= loPx - 0.5f && nowPx <= hiPx + 0.5f,
+                  what + " 收敛值**落在窗口内**（关系式）：实得 " + nowPx.ToString("F2")
+                  + " px ∈ [" + loPx.ToString("F2") + ", " + hiPx.ToString("F2") + "]");
     }
 
     static void CheckArt(Transform t, string want, string what)
