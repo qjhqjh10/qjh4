@@ -803,18 +803,34 @@ public static class MainMenuScene
                     var tabNames = new List<string>();
                     if (tabsBar != null)
                         for (int i = 0; i < tabsBar.childCount; i++) tabNames.Add(tabsBar.GetChild(i).name);
-                    CheckTrue(tabNames.Count == 5
-                              && tabNames.Contains("General") && tabNames.Contains("Account")
-                              && tabNames.Contains("Graphics")
-                              && tabNames.Contains("Audio") && tabNames.Contains("Support"),
+                    // 🔴 **2026-10-10（第十一会话 · `A1204` · 铁律 5）就地订正（第四次）**：`A1204` 把原版那层
+                    //    `Mask Tabs buttons` 补上了、并把 `Separators` **搬进了 `Tab Buttons` 底下** ——
+                    //    因为**原版树就是** `Menu Area > Mask Tabs buttons > Tab Buttons > {Separators, 5 个键}`
+                    //    （实据：原版那颗 `Separators` 的 RT `m_Father` = `Tab Buttons`，见
+                    //    `资料/普查产出_第十一会话/PJ_A1204_MaskTabsButtons.md`）。
+                    //    ⇒ 本条原来拿**【全部子件数】**断 5 ⇒ 搬运之后必红 —— 而**搬运是对的**。
+                    //    ⇒ 改成**只数页签**（把 `Separators` 这颗**装饰件**剔出去）。
+                    var tabsOnly = new List<string>();
+                    foreach (var nm in tabNames) if (nm != "Separators") tabsOnly.Add(nm);
+                    CheckTrue(tabsOnly.Count == 5
+                              && tabsOnly.Contains("General") && tabsOnly.Contains("Account")
+                              && tabsOnly.Contains("Graphics")
+                              && tabsOnly.Contains("Audio") && tabsOnly.Contains("Support"),
                               "`Tab Buttons` 下是 **5 个页签**（`A1183` 起 = 原版那 5 个、逐位）："
                             + "General / Audio / Account / Graphics / Support"
                             + "（`SettingsTab` 五档 · `BuildTabs` 逐格建一个同名 `page` 节点）—— 实测 "
-                            + tabNames.Count + " 个：" + string.Join("、", tabNames.ToArray()));
+                            + tabsOnly.Count + " 个：" + string.Join("、", tabsOnly.ToArray()));
                     CheckTrue(!tabNames.Contains("Online"),
                               "🔴 `Online` **不在页签栏里**（`A1186` 裁定 ①：栏里只放原版那 5 个键 —— "
                             + "多一格会把原版那 5 格整体上移 41.65px）—— 它的入口是设置窗 `General` 页那颗"
                             + " `Online Button`；改坏法：把它加回 `BuildTabs` 的 `specs` ⇒ 本条红");
+                    // 🆕 **2026-10-10（第十一会话 · `A1204`）**：`Separators` 必须**就在 `Tab Buttons` 底下**
+                    //   （原版树就是这么长的）—— 🔴 **`A1204` 落地时没人盯它**，补上这条。
+                    //   **改坏法**：把 `Shell/SettingsWindow.cs` 里 `Separators` 的父从 `Tab Buttons` 改回
+                    //   `Menu Area`（或删掉 `bar = Node(tabsMask, …)` 那一跳）⇒ 本条红。
+                    CheckTrue(tabNames.Contains("Separators"),
+                              "★ `Separators` **在 `Tab Buttons` 底下**（原版树 = `Tab Buttons > {Separators, 5 键}`；"
+                            + "`A1204` 补 `Mask Tabs buttons` 时一起搬的）");
                 }
                 // 🔴 **2026-10-05（A104）**：**再点一次**。原版 `WindowsManager.OpenWindow` 第一件事是查
                 //    `automaticallyLoadedWindows` 缓存（VA `0x180875990` 起、`call 0x1815caa30` = `TryGetValue`，
