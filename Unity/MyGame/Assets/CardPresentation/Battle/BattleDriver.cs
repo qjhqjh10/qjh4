@@ -5718,12 +5718,6 @@ namespace CardPresentation
         }
         /// <summary>自检用：称号那段字现在的文本</summary>
         public string TitleTextOf(bool mine) { return mine ? _titleMeText : _titleFoeText; }
-        /// <summary>自检用：称号文字**量出来**的实际字号（画布 px）。原版 `m_fontSize` = 30.55。</summary>
-        public float TitleFontPxNow(bool mine)
-        {
-            var l = mine ? _titleMe : _titleFoe;
-            return l != null ? l.FontPxNow : 0f;
-        }
         /// <summary>自检用：称号文字的**中心**（原版 1920×1080 绝对 px，y 从上）</summary>
         public Vector2 TitlePosPx(bool mine)
         {
@@ -13208,8 +13202,14 @@ namespace CardPresentation
         /// —— 字变大命中区就跟着变大（**原版也是这个模型**）；② 非 `(0.5,0.5)` 锚的那一颗
         /// （`MatchSkullsScore`，锚 `(0, 0.5)`）**左缘固定、右缘随字号动**。</para>
         ///
-        /// <para>**逐颗判据（本表 = 本件唯一的数字正本，⛔ 别在调用点另抄一份）**
-        /// —— 全部**现读** `bundle_scenes_scenes_battlearena1`（13 场同构，字段逐值相同，只差节点 pid）：
+        /// <para>**逐颗判据** —— 🔴 **2026-10-10（`F4` 报、调度台裁）就地订正**：原文写「**本表 = 本件唯一的数字正本**」，
+        /// 那句会造成一个真实的错：**自检若照它办（不另存期望值），就成了「拿实现证明实现」= 自证**（本仓明令禁止）。
+        /// ⇒ 正确的分工：**数字正本 = 【原版 prefab 的字段原文】**（用下面那条 `menu_dump` 命令**现读**；
+        /// 逐颗值另见 `资料/普查产出_第十一会话/PH_A1213Hud补框.md`）· **本表 = 实现侧的说明**（它是**转述**，
+        /// 会漂、也可能抄错）；**自检则必须自己留一份期望值**（`Editor/BattleScene.cs` 的 `CheckHudBox` 就是那么做的）。
+        /// ⛔ 在调用点别另抄一份**实现值**。</para>
+        ///
+        /// <para>全部**现读** `bundle_scenes_scenes_battlearena1`（13 场同构，字段逐值相同，只差节点 pid）：
         /// 四格 = 原版那颗 TMP 的 `m_fontSizeMin` / `m_fontSizeMax` / `m_fontSizeBase` / `m_TextWrappingMode`
         /// **原文**（与 `R6` §2·A 逐值吻合）；框 = 那颗 `RectTransform` 的**解算后屏幕矩形（1920×1080 画布 px）**。
         /// 原版那 13 场里，多数框是**拉伸锚点**（`anchorMin ≠ anchorMax`，`sizeDelta` 是内缩量）⇒
@@ -13273,7 +13273,11 @@ namespace CardPresentation
         /// （2026-09-12 截图抓到：水晶只剩一块灰板）。要压在谁底下就给它更大的 z。</summary>
         const float HudDecorZ = 0.6f;
 
-        /// <summary>称号那行字的字号（原版 `m_fontSize` = **30.55 画布像素**；见 `MonoBehaviour_3797.json`）。
+        /// <summary>称号那行字的**标称**字号（原版序列化 `m_fontSize` = **30.55 画布像素**；见 `MonoBehaviour_3797.json`）。
+        /// 🔴 **2026-10-10（`F4` · 铁律 5）就地订正**：原文写「称号那行字的字号」—— **只对了一半**：
+        /// 它只是 `SetGlyphHeight` 的**标称**（原版字段原文），**不是**那一格**渲染出来的**字号 ——
+        /// 那一颗开着自适应，真正写进 TMP 的是 `cur × 原版字段 / nomPx`（本仓 `nomPx = 27.60px`），
+        /// 再由 `Clamp(base, min, max)` 定，**并且 `m_characterCount == 0` 时根本不缩**（单机那一格恒空）。
         /// ⚠️ 别拿它去喂 `Label.SetFontSize`（那会大 2.7 倍）—— 走 `SetGlyphHeight(px/108)`。</summary>
         public const float TitleFontPx = 30.55f;
 

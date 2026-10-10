@@ -362,6 +362,110 @@ public static class BattleScene
             else { fail++; Debug.LogError(P + $"   ✗ {msg}"); }
         }
 
+        // ==================================================================
+        //  🆕 2026-10-10（`A1213①` 的**断言覆盖**那一半）：HUD「框 + 四格」的公用助手
+        //
+        //  生产代码 = `BattleDriver.Hud(…, boxWpx, boxHpx, autoMinPx, autoMaxPx, autoBasePx, wrapMode)`
+        //  （`Battle/BattleDriver.cs`，17 颗里落了 16 颗；⛔ 这一节一个字都不改它）。
+        //  判据 = **原版 `bundle_scenes_scenes_battlearena1` 的字段原文**（逐颗现读，可复现）：
+        //    `python 工具/menu_dump.py bundle_scenes_scenes_battlearena1 --rt 2684 --depth 9 --no-sprite`
+        //    · **框** = 那颗 `RectTransform` 解算到 1920×1080 的**屏幕矩形** —— ⛔ **不是** `m_SizeDelta`
+        //      （那 16 颗里只有 `MatchSkulls Score` / `CardsInHandText` 是双轴固定锚，其余是**拉伸锚**
+        //       ⇒ `sizeDelta` 在它们身上是**内缩量**，当框寸用是错的）。
+        //    · **四格** = 那颗 TMP 自己的 `m_fontSizeMin`/`m_fontSizeMax`/`m_fontSizeBase`/`m_TextWrappingMode` 原文。
+        //  🔴 四条通用读法（出处 → `资料/普查产出_第十一会话/PH_A1213Hud补框.md` §五）：
+        //    · 从 `drv.hudRoot` 按**节点名**找 `Label` —— `Label.Create` 是 `SetParent(root)` 直接挂的
+        //      ⇒ 这 17 颗都是 `HudRoot` 的**直接子件**（`Transform.Find` 不递归，正好够用）。
+        //    · TMP 子节点叫 `"text"`（`TmpFont.NewText(transform, "text", …)`）；这里走
+        //      `GetComponentInChildren<TMP_Text>(true)`（同 §4.6b 那两条的读法）。
+        //    · `Label.FontSizeMin/Max/Base` 读的是 **TMP 里那几个真字段**，经工程唯一那份
+        //      `Label.FontSizeToPx` 折成画布 px（⛔ 不是「我们传进 `SetAutoFitBox` 的实参」）。
+        //    · `Label.WrappingMode` 报的是**原版 `m_TextWrappingMode` 的原文**（`0`=NoWrap / `1`=Normal）。
+        //  ⚠️ 期望值一律写**原版字面量**（连原版节点名一起写进每条消息），**不读** `BattleDriver.Hud`
+        //     那一份注释表 —— 读它 = 自证（拿实现证明实现）。
+        // ==================================================================
+
+        /// <summary>「px → 世界单位」的那个换算（`1080 / 10 = 108`；与 `BattleDriver` 那句私有的
+        /// `Px(px) = px / 108f` 是**同一个数**，判据 = `LayoutSpace.DesignPxH / DesignHeight`）。</summary>
+        const float HudPxPerWorld = LayoutSpace.DesignPxH / LayoutSpace.DesignHeight;
+
+        /// <summary>文字块按 `anchor` 插值出来的那个点，相对**节点原点**的偏移（世界单位）。
+        /// 结构与 `Label.RefreshBounds()` 的末句恒等 ⇒ 两个分量都该 ≈ **0**
+        /// （x = `cp.x + b.min.x + anchor.x·|size.x|`；y 多减一项 A712 的字墨校正 `VOffsetWorld`）。
+        /// 🔴 **框的 pivot / `anchoredPosition` / `sizeDelta` 一个都不在这条算式里** ——
+        /// 这正是「加框不挪字」的判据（⛔ `Label.transform.localPosition` 抓不到它：那个位置
+        /// 从头到尾没人写过、恒不变；会变的是 **TMP 子节点**的 `localPosition`）。</summary>
+        Vector2 HudBlockRel(Label l, TMPro.TMP_Text t)
+        {
+            var b = t.textBounds;
+            var cp = t.rectTransform.localPosition;
+            return new Vector2(cp.x + b.min.x + l.anchor.x * Mathf.Abs(b.size.x),
+                               cp.y + b.min.y + l.anchor.y * Mathf.Abs(b.size.y) - l.VOffsetWorld);
+        }
+
+        /// <summary>HUD 一颗字的 **框 + 四格 + 折行档 + 摆位 + 收敛关系**（`A1213①` 的接线那一半）。
+        /// `bw/bh` = 原版那颗 `RectTransform` 解算到 1920×1080 的**屏幕矩形**；
+        /// `mn/mx/bs/wrap` = 原版那颗 TMP 的四个字段**原文**。
+        /// 🔴 **不拿收敛值（`FontPxNow`）当字面量** —— 开了自适应之后它是「当前文本 + 当前框」的函数
+        /// （空文本时 `TextMeshPro.cs:2149` 还会把它夹到上限）⇒ 只能断**关系**（落在窗口里）。</summary>
+        void CheckHudBox(string name, string origNode, float bw, float bh,
+                         float mn, float mx, float bs, int wrap)
+        {
+            // ⚠️ 本助手声明在 `Run()` 的**顶层块**里，而 `drv` 是各处**各自** `FindObjectOfType` 出来的
+            //    （它不在顶层块的词法作用域内）⇒ 这里自己取一份（与调用点那一句同路，拿到的是同一件）。
+            var hd = Object.FindObjectOfType<BattleDriver>();
+            var t = hd != null && hd.hudRoot != null ? hd.hudRoot.Find(name) : null;
+            var lb = t != null ? t.GetComponent<Label>() : null;
+            var tmp = t != null ? t.GetComponentInChildren<TMPro.TMP_Text>(true) : null;
+            // 🔴 前提**当场红**（⛔ 不许静默跳过 —— 红线：断言不许有能整段静默不跑的写法）
+            Check(lb != null && tmp != null,
+                  $"（前提）HUD `{name}`（原版 `{origNode}`）在、且走 TMP 后端"
+                + " —— 不成立时它下面那 **9 条**等于没验（点阵后端没有「框 / 四格 / 自适应」这三档）");
+            if (lb == null || tmp == null) return;
+
+            // ① 框真的写进去了（写在 TMP 子节点的 `sizeDelta` 上）。⚠️ 容差 1e-4：**别精确比浮点**
+            //    改坏法：把 `Hud` 的 `boxWpx/boxHpx` 传成 `0`（或漏掉那 6 个实参）⇒ 这两条立刻红
+            var sd = tmp.rectTransform.sizeDelta;
+            Check(Mathf.Abs(sd.x - LayoutSpace.Px(bw)) <= 1e-4f,
+                  $"{name} 框宽 {bw}px = 原版 `{origNode}` 的屏幕宽（实得 {sd.x * HudPxPerWorld:F2}px）");
+            Check(Mathf.Abs(sd.y - LayoutSpace.Px(bh)) <= 1e-4f,
+                  $"{name} 框高 {bh}px = 原版 `{origNode}` 的屏幕高（实得 {sd.y * HudPxPerWorld:F2}px）");
+
+            // ② 四格真的接上了
+            Check(lb.AutoSizing, $"{name} 自适应开着（原版那一颗是 `m_enableAutoSizing = 1`）");
+            //    ⚠️ 容差 0.05px 那一档 = 「TMP 自适应按 1/20 取整」；下面三个数**不受框/收敛影响**
+            //    （`SetAutoFitBox` 写的是 `cur × 原版字段 / nomPx` ⇒ px 口径下恒等于原版字段原文）。
+            Check(Mathf.Abs(Label.FontSizeToPx(lb.FontSizeMin) - mn) <= 0.05f,
+                  $"{name} 自适应**下界** = 原版 `m_fontSizeMin` {mn}px（实得 {Label.FontSizeToPx(lb.FontSizeMin):F2}px）");
+            Check(Mathf.Abs(Label.FontSizeToPx(lb.FontSizeMax) - mx) <= 0.05f,
+                  $"{name} 自适应**上界** = 原版 `m_fontSizeMax` {mx}px（实得 {Label.FontSizeToPx(lb.FontSizeMax):F2}px）");
+            //    ⚠️ `base` 这一格**有鉴别力**（A536 那个洞）：`m_fontSizeBase` 是 `protected`、只能反射读，
+            //    而 `Label` 在 `basePx == nomPx` 时会**早退**（字段停在 TMP 的序列化默认 36）
+            //    —— 本件这几颗传的 basePx 与各自标称（27.6 / 36.8 …）**都不相等** ⇒ 落在「写得进去」那一格。
+            //    **改坏法**：把 `Hud` 的第 5 个实参（`autoBasePx`）传成 `0` ⇒ base 变成调用方那一档 ⇒ 红
+            Check(Mathf.Abs(Label.FontSizeToPx(lb.FontSizeBase) - bs) <= 0.05f,
+                  $"{name} 二分**起点** = 原版 `m_fontSizeBase` {bs}px（实得 {Label.FontSizeToPx(lb.FontSizeBase):F2}px）");
+
+            // ③ 折行档 = 原版 `m_TextWrappingMode` **原文**。
+            //    ⚠️ `SetAutoFitBox` 内部**无条件把折行开成 `Normal`(1)**（它调 `SetWrapWidth`，而那个写死
+            //    `textWrappingMode = Normal`）⇒ 原版是 `0` 的四颗必须由 `Hud` 的 `wrapMode` 还原。
+            //    改坏法：删掉 `Hud` 里那句 `l.SetWrappingMode(wrapMode)` ⇒ 那 4 颗读成 1 ⇒ 红
+            Check(lb.WrappingMode == wrap,
+                  $"{name} 折行档 = 原版 `m_TextWrappingMode` {wrap}（实得 {lb.WrappingMode}）");
+
+            // ④ 摆位不变（**结构性恒等式**，见 `HudBlockRel` 的 doc）
+            //    ⚠️ 两个轴**各自**比 1e-4（别用 `.magnitude`）：文本为空时 `_tmpW/_tmpH` 会被
+            //    `RefreshBounds` 夹到 `1e-4`，残差是 `anchor × 1e-4` —— 范数那一档会把两轴的余量叠起来吃掉。
+            var rel = HudBlockRel(lb, tmp);
+            Check(Mathf.Abs(rel.x) < 1e-4f && Mathf.Abs(rel.y) < 1e-4f,
+                  $"{name} 文字块按 anchor 摆回**节点原点**（残差 x={rel.x:E2} y={rel.y:E2} 世界单位）"
+                + " —— 框的 pivot / `anchoredPosition` / `sizeDelta` 不进这条算式");
+
+            // ⑤ 关系式：**渲出来的**字号落在原版窗口里（⛔ 不写收敛值字面量）
+            Check(lb.FontPxNow >= mn - 0.06f && lb.FontPxNow <= mx + 0.06f,
+                  $"{name} 渲出来的字号 {lb.FontPxNow:F2}px 落在原版窗口 [{mn}, {mx}]px 里");
+        }
+
         var ctx = driver.Ctx;
 
         // ---- 1. 开局 ----
@@ -11722,14 +11826,160 @@ public static class BattleScene
                 drv.SetTitle(null, null);                    // 复位（后面的截图要的是原版实况那副样子）
                 Check(!drv.TitleVisible(true) && !drv.TitleBgVisible(true),
                       "清掉称号 ⇒ 又整块关回去（判据跟着数据走，不是一次性开关）");
-                // 字号与位置（**别拿常量自证**：这里比的是 TMP 渲出来的实际字号 `FontPxNow`）
-                Check(Mathf.Abs(drv.TitleFontPxNow(true) - BattleDriver.TitleFontPx) < 0.6f
-                      && Mathf.Abs(drv.TitleFontPxNow(false) - BattleDriver.TitleFontPx) < 0.6f,
-                      $"称号字号实测 {drv.TitleFontPxNow(true):F2} / {drv.TitleFontPxNow(false):F2} px ≈ 原版 m_fontSize {BattleDriver.TitleFontPx}");
+                // ---- 字号：**窗口形态**（⛔ 不拿收敛值当字面量）----
+                // 🔴 **2026-10-10：这一条按诊断的裁改了形态**（`资料/普查产出_第十一会话/D1_九条红诊断.md` #1，
+                //    判档 = **(α) 断言错**）。旧形态 = `Mathf.Abs(drv.TitleFontPxNow(…) - BattleDriver.TitleFontPx) < 0.6f`，
+                //    即「**TMP 收敛出来的字号** ≈ 原版 prefab 里序列化的 `m_fontSize` **30.55**」——
+                //    它成立的前提是「这两颗字的字号是**定死**的」，而**那个前提已经不成立**：
+                //    · 原版这一颗**本来就开着自适应**（`m_enableAutoSizing = 1`：`auto[2~35] base36`，
+                //      判据 → 下面 `CheckHudBox` 那两行；本会话 `A1213①` 只是照原版把它接上）
+                //      ⇒ `_tmp.fontSize` 从此是「**当前文本 + 当前框**」的函数；
+                //    · `30.55` 只是 prefab 里的**序列化**字段 —— **原版渲染出来的也不是它**
+                //      （`m_fontSizeBase = 36` 才是二分起点，终点在 `[2, 35]` 里按框收敛）。
+                //  🔴 **而且实测那个 35.00 连「收敛值」都不是**（本件 X1 的核算结果）：
+                //    量这一格的时候**文本是空的**（上一句 `SetTitle(null, null)` 刚把称号清掉）——
+                //    `TextMeshPro.cs:2149` 会把空文本的字号夹成 `Clamp(base 36, min 2, max 35) = 35`，
+                //    `:4164` 的 `m_characterCount == 0` 又让「按竖界缩字」那一支**根本不跑**
+                //    ⇒ 量到的是**窗口上限**，与「称号显示时多大」毫无关系（⛔ 不是「竖界没生效」）。
+                //  ⚠️ `BattleDriver.TitleFontPx`（30.55）**没废**：它仍是 `SetGlyphHeight` 的**标称**起点
+                //    （`BattleDriver.cs` 那两句），只是**不再是**「渲染出来的字号」。
+                //  ⚠️ 量字号要**在称号真的显示着的时候**量（旧写法量的是「清空之后」那一态）。
+                //  ⇒ 先例（同形态）→ `Editor/SettingsScene.cs` 的 `CheckFontWindow` 那一族 / `RewardsScene.cs`。
+                drv.SetTitle("测试称号", "测试称号");
+                CheckHudBox("TitleText_Me", "…/PlayerInfo/PlayerName/TitleBackground/EnemyTitle",
+                            187.40f, 36.84f, 2f, 35f, 36f, 0);
+                CheckHudBox("TitleText_Foe", "…/EnemyInfo/EnemyName/TitleBackground/EnemyTitle",
+                            187.40f, 36.84f, 2f, 35f, 36f, 0);
+                drv.SetTitle(null, null);                    // 复位（后面的截图要的是原版实况那副样子）
                 var tpM = drv.TitlePosPx(true); var tpF = drv.TitlePosPx(false);
                 Check(Mathf.Abs(tpM.x - 227.1f) < 1.5f && Mathf.Abs(tpM.y - 1044.05f) < 1.5f
                       && Mathf.Abs(tpF.x - 227.4f) < 1.5f && Mathf.Abs(tpF.y - 108.3f) < 1.5f,
                       $"称号文字中心 我({tpM.x:F1},{tpM.y:F1}) 敌({tpF.x:F1},{tpF.y:F1}) ≈ 原版 (227.1,1044.05)/(227.4,108.3)");
+
+                // ==================================================================
+                //  🆕 2026-10-10（`A1213①` 的**断言覆盖**那一半）：HUD 16 颗的「框 + 四格」
+                //
+                //  🔴 **为什么要在这里补**：`A1213①`（`Battle/BattleDriver.cs` 的 `Hud()`）按原版给
+                //     17 颗 HUD 文字里的 **16 颗**接上了「原版框 + 四格 + 折行」，而**当时一条断言都没有**
+                //     （`Editor/BattleScene.cs` 那个会话零改动、合计仍 2471）⇒ 那一族当时是「改坏了不会红」。
+                //     这一节就是那 16 颗的覆盖；助手的口径与通用读法 → `CheckHudBox` 的 doc。
+                //  ⚠️ 两张**称号**（`TitleText_Me/Foe`）**不在这张表里** —— 它们在上一个现场（称号那一段）
+                //     已经按同一个助手断了（那里正是原来那条红出现的地方）。
+                //  ⛔ 期望值一律写**原版字面量**（原版节点名写进每条消息里），**不读** `BattleDriver.Hud`
+                //     的注释表 —— 读它 = 自证（拿实现证明实现）。
+                //  📌 判据全文（含「框为什么不是直读 `m_SizeDelta`」、`AspectRatioFitter` 那两颗的坑）
+                //     → `资料/普查产出_第十一会话/PH_A1213Hud补框.md` §二·A / §五。
+                // ==================================================================
+                Debug.Log(P + "   --- A1213①：HUD 16 颗的框 + 四格 ---");
+                {
+                    CheckHudBox("EnemyPlateText", "…/EnemyInfo/EnemyName/EnemyNameText",
+                                290.94f, 36.84f, 2f, 35f, 36f, 0);
+                    CheckHudBox("PlayerPlateText", "…/PlayerInfo/PlayerName/PlayerNameText",
+                                199.38f, 35.93f, 2f, 35f, 36f, 0);
+                    CheckHudBox("MatchSkullsScore", "…/PlayerInfo/Milestones/MatchSkulls Score",
+                                94.46f, 47.31f, 18f, 35f, 36f, 1);
+                    CheckHudBox("PlayerFaithText", "…/PlayerMana/FaithHolder/FaithText",
+                                57.43f, 94.19f, 8f, 40f, 36f, 1);
+                    CheckHudBox("EnemyFaithText", "…/EnemyMana/FaithHolder/FaithText",
+                                57.43f, 88.40f, 8f, 40f, 36f, 1);
+                    CheckHudBox("PlayerSpiritStoneText", "…/PlayerMana/SpiritStoneHolder/SpiritStoneText",
+                                52.80f, 63.00f, 8f, 40f, 36f, 1);
+                    CheckHudBox("EnemySpiritStoneText", "…/EnemyMana/SpiritStoneHolder/SpiritStoneText",
+                                52.80f, 136.40f, 8f, 40f, 36f, 1);
+                    CheckHudBox("EnergyLabel", "…/PlayerMana/ManaHolder/ManaText",
+                                73.90f, 82.48f, 8f, 40f, 36f, 1);
+                    CheckHudBox("FoeEnergyLabel", "…/EnemyMana/ManaHolder/ManaText",
+                                77.34f, 80.95f, 8f, 40f, 36f, 1);
+                    CheckHudBox("EndTurnButton", "…/Energy And turn holder/Clock/TurnBtn/TurnText",
+                                119.08f, 80.43f, 8f, 31f, 36f, 1);
+                    CheckHudBox("MyPileLabel", "…/PlayerDeck/Player Deck Size Container/Player Deck Size Tex",
+                                219.42f, 44.93f, 10f, 42f, 49.63f, 1);
+                    CheckHudBox("FoePileLabel", "…/EnemyDeck/Player Deck Size Container/Player Deck Size Tex",
+                                193.20f, 39.56f, 10f, 42f, 49.63f, 1);
+                    CheckHudBox("QPText_Me", "…/PlayerMana/QuestPointsHolder/QPText",
+                                48.17f, 45.26f, 15.79f, 40.5f, 36f, 1);
+                    CheckHudBox("QPText_Foe", "…/EnemyMana/QuestPointsHolder/QPText",
+                                48.17f, 45.26f, 15.79f, 40.5f, 36f, 1);
+
+                    // ---- ⑤ 反向：这 5 颗 **必须没有框** ----
+                    //  判据 → `PH` §四：`TurnLabel` / `HintLabel` / `ResultLabel` **原版根本没有此件**
+                    //  （13 场 GO 名扫描 + 运行时 dump 双查）；`TurnClock` 的四格**原版读不到**
+                    //  （`ClockManager` 的 34 个方法无一含 `set_text`）；`HandLabel` 的四格在**「缩放假」**里
+                    //  （父链 `HandArea` 带 `m_LocalScale = 108`，照其余 16 颗那套口径会把字号**静默压到 3px**）。
+                    //  ⇒ ⛔ 给它们补框 = **主动制造偏离**。它们走 `Hud()` 的新默认值（`boxWpx = 0`）。
+                    //  🔑 这一组同时挡住「顺手给 `Hud` 那 6 个形参填上非零默认值」。
+                    var hudNoBox = new[] { "TurnLabel", "TurnClock", "HintLabel", "ResultLabel", "HandLabel" };
+                    //  ⑥ 对照 = **同一建造路径**下新建一条 Label 里 TMP 子节点的 `sizeDelta`
+                    //    （= TMP 自己的 `TMP_Settings.defaultTextMeshProTextContainerSize`；
+                    //      判据 = `TMP_Text.cs:5980`：`Awake` 会把出厂的 `(100,100)` 换成它）
+                    //    ⛔ 别把它写成 `100` / `20` 这种字面量 —— 那是「我们这一侧的实现细节」，不是原版判据；
+                    //      拿一条同路的 Label 当对照 = 断**同路等价**，改坏法仍然有效。
+                    var hudProbe = Label.Create(driver.transform, "X", new Vector3(0f, 99f, 0f), 3,
+                                                Color.white, new Vector2(0.5f, 0.5f), "HudNoBoxProbe");
+                    var hudProbeTmp = hudProbe != null ? hudProbe.GetComponentInChildren<TMPro.TMP_Text>(true) : null;
+                    Check(hudProbeTmp != null,
+                          "（前提）无框对照探针建起来了（`Label.Create` 那条路）"
+                        + " —— 不成立时下面那 6 条（⑥ 一条 + 那 5 颗各一条）等于没验");
+                    if (hudProbeTmp != null)
+                    {
+                        float defSd = hudProbeTmp.rectTransform.sizeDelta.x;
+                        //  ⑥ 一条**成本极低的保险**：`A1213①` 只动了 `BattleDriver.Hud` 的**形参**
+                        //     （那些形参是**局部**的：别的路建 Label 根本走不到）⇒ 「不给框」那一态逐位不变。
+                        Check(!hudProbe.AutoSizing
+                              && hudProbe.FontSizeMin == 0f && hudProbe.FontSizeMax == 0f,
+                              $"★（⑥）`Hud` **之外**那条路（`Label.Create`）建出来的字**没有**自适应"
+                            + $"（`AutoSizing={hudProbe.AutoSizing}` · min/max = "
+                            + $"{hudProbe.FontSizeMin}/{hudProbe.FontSizeMax}）"
+                            + " —— `A1213①` 只动了 `Hud` 的形参，没碰共用件");
+                        foreach (var n in hudNoBox)
+                        {
+                            var t0 = drv.hudRoot != null ? drv.hudRoot.Find(n) : null;
+                            var lb0 = t0 != null ? t0.GetComponent<Label>() : null;
+                            var tm0 = t0 != null ? t0.GetComponentInChildren<TMPro.TMP_Text>(true) : null;
+                            Check(lb0 != null && tm0 != null,
+                                  $"（前提）`{n}` 在、且走 TMP 后端 —— 不成立时它下面那条等于没验");
+                            if (lb0 == null || tm0 == null) continue;
+                            // 三条一起断：**没自适应**（四格没接）· **没折行**（`Hud` 建它时硬写的 `NoWrap`，
+                            // 一给框就会被 `SetAutoFitBox` 内部那句 `SetWrapWidth` 改成 `Normal`）·
+                            // **框宽还是建标签时的默认值**。
+                            Check(!lb0.AutoSizing && lb0.FontSizeMin == 0f && lb0.FontSizeMax == 0f
+                                  && lb0.WrappingMode == 0
+                                  && Mathf.Abs(tm0.rectTransform.sizeDelta.x - defSd) <= 1e-4f,
+                                  $"★ `{n}` **没有框**（`AutoSizing={lb0.AutoSizing}` · min/max = "
+                                + $"{lb0.FontSizeMin}/{lb0.FontSizeMax} · 折行档 {lb0.WrappingMode} · "
+                                + $"框宽 {tm0.rectTransform.sizeDelta.x:F4} = 新建一条 Label 的 {defSd:F4}）"
+                                + " —— 原版没有此件 / 四格读不到 / 四格在「缩放假」里 ⇒ 补框 = 主动制造偏离");
+                        }
+                    }
+                    Object.DestroyImmediate(hudProbe.gameObject);
+
+                    // ---- ④-2 灭自证（**结构上不可能同时满足**的那一对）----
+                    //  **同一颗 Label**：第一次**不给框**调、第二次**给框**再调，两次都要满足
+                    //  「文字块按 anchor 摆回节点原点」，而且两次的残差**逐位相同**。
+                    //  🔴 只断「新写法（给了框）是对的」是**不够**的：若被测实现与它的检测器用同一个口，
+                    //     **把两边一起改回旧写法**依然全绿。这一对守的是「框**根本不进**摆位算式」——
+                    //     只要有人把框的 pivot / `anchoredPosition` / `sizeDelta` 加进
+                    //     `Label.RefreshBounds()` 的摆位式，两次就不相等（判据 → `Hud` 的 doc 里那一串推导）。
+                    var posProbe = Label.Create(driver.transform, "测试称号", new Vector3(0f, 99f, 0f), 3,
+                                                Color.white, new Vector2(0.5f, 0.5f), "HudBoxPosProbe");
+                    var posProbeTmp = posProbe != null ? posProbe.GetComponentInChildren<TMPro.TMP_Text>(true) : null;
+                    Check(posProbe != null && posProbeTmp != null,
+                          "（前提）摆位探针走 **TMP** 后端 —— 点阵后端没有「框」这回事，下面两条等于没验");
+                    if (posProbeTmp != null)
+                    {
+                        posProbe.SetGlyphHeight(BattleDriver.TitleFontPx / 108f);
+                        var relNoBox = HudBlockRel(posProbe, posProbeTmp);        // (a) **不给框**
+                        posProbe.SetAutoFitBox(LayoutSpace.Px(187.40f), LayoutSpace.Px(36.84f), 2f, 35f, 36f);
+                        var relBox = HudBlockRel(posProbe, posProbeTmp);           // (b) **给框**（称号那颗原版的框 + 四格）
+                        Check(relNoBox.magnitude < 1e-4f && relBox.magnitude < 1e-4f,
+                              $"★ 同一颗 Label：**不给框**与**给框**两次都满足「文字块按 anchor 摆回节点原点」"
+                            + $"（残差 {relNoBox.magnitude:E2} / {relBox.magnitude:E2} 世界单位）");
+                        Check((relBox - relNoBox).magnitude < 1e-6f,
+                              $"★★ 而且两次**逐位相同**（差 {(relBox - relNoBox).magnitude:E2}）"
+                            + " —— 框的 pivot / `anchoredPosition` / `sizeDelta` **根本不进** `RefreshBounds` 的摆位式");
+                    }
+                    Object.DestroyImmediate(posProbe.gameObject);
+                }
 
                 // 加时标记：**默认关着**，图要在（原版也只在加时里出现；🆕 2026-09-20 起机制接上了）
                 Check(!drv.OvertimeVisible, "加时标记默认**不显示**（原版 `OvertimeUi.Awake` 也是关着的）");
