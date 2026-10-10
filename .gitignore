@@ -128,7 +128,16 @@
 #    判据：它整份可以从仓库里已有的东西重造（跑一条 CLI 即可）。
 /Unity/MyGame/Assets/Resources/ArenaPrefabs/
 /Unity/MyGame/Assets/Resources/ArenaPrefabs.meta
-/Unity/MyGame/Assets/CardPresentation/Scenes/
+# 🔴 **2026-10-11 第十五会话：本条【已撤销】—— `Scenes/` 改为纳入 git**（用户当天指示：「没进提交的。纳入 git」）。
+#    原来这里是 `/Unity/MyGame/Assets/CardPresentation/Scenes/`（整目录挡掉），理由是
+#    「它是一条命令就能重建的演示产物」—— 该理由**对 4 个演示/自检场景仍成立**，
+#    但**对 `Shell.unity` 与 `DeckEditor.unity` 不成立**：2026-10-10/11 那轮「两个场景在 player 里加载即崩」
+#    的修复**就落在这两份文件里**（把 8 个烘进 level 的脚本存根换成带 guid 的真引用）⇒
+#    **不进仓库 = 那份修复只存在于盘上、随时可能丢**。⚠️ 代价如实记：本目录 **108 MB**
+#    （`CollectionCheck.unity` 71 MB + `CardBase.unity` 14 MB 是自检专用、可重建；
+#    `DeckEditor.unity` 26 MB）。⇒ 自检/重建**会重写这些文件** ⇒ 每次重存会产生大 diff。
+#    见 `资料/交接_第十六会话.md` 坑 4。
+# 原登记（保留痕迹）：/Unity/MyGame/Assets/CardPresentation/Scenes/
 
 # ---------- Unity 安装包（8.8 GB）----------
 /Unity/安装Unity相关内容/
