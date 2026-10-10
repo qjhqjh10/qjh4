@@ -361,6 +361,39 @@ public static class ShellScene
         return new Vector2(x2 - x1, y2 - y1);
     }
 
+    /// <summary>🆕 **2026-10-10（`A1178` 断言重写）**：一颗 `Label` **写进去的那个框**（TMP 的
+    /// `rectTransform.rect`）换到**画布 px**，`Vector2(宽, 高)`。
+    /// <para>🔴 **换算与 <see cref="ShellLabelRenderedPx"/> 逐字同一条**（`localToWorldMatrix` +
+    /// `LayoutSpace.PxX/PxY`）⇒ 两个读数**同源可比** —— 这正是「哪一侧是紧的」那条关系式需要的
+    /// （拿它们去减出一个**框的余量**）。</para>
+    /// <para>🔴 **为什么必须有它**：TMP 的自适应有**两条**降字号的闸 —— **竖界**
+    /// （`TextMeshProUGUI.cs:3393` `textHeight &gt; marginHeight`）与 **横界**（`:3644`），
+    /// 而 `marginWidth/marginHeight` **就是填进去的框**（`ComputeMarginSize`，`:2343`）
+    /// ⇒ 收敛字号由**较紧的那一侧**决定；「较紧」只能拿**框**与**渲出**两边比出来。
+    /// ⚠️ 这里**不取任何期望值** —— 它只提供「我们填进去的框」这个**输入量**（自证那条管的是
+    /// 「期望值不许从实现里来」，不是「不许读实现写下的输入」）。</para>
+    /// <para>⚠️ 点阵后端（那棵树里没有 TMP）⇒ 返回 `Vector2.zero`：调用方**必须先 gate 掉**，
+    /// ⛔ 别让 0 混进减法里（那会变成「框宽 0 ⇒ 渲出宽超框」的**假红**）。</para>
+    /// <para>⚠️ 同前提 = TMP 那一格的 `lossyScale` 为 1 且无旋转（同 `ShellLabelRenderedPx`）。</para></summary>
+    static Vector2 ShellLabelBoxPx(Label lb)
+    {
+        if (lb == null) return Vector2.zero;
+        var tmp = lb.GetComponentInChildren<TMPro.TextMeshPro>(true);
+        if (tmp == null) return Vector2.zero;
+        var r = tmp.rectTransform.rect;               // 局部空间的框（锚点不拉伸时 = `sizeDelta`）
+        var M = tmp.transform.localToWorldMatrix;
+        float x1 = float.MaxValue, y1 = float.MaxValue, x2 = float.MinValue, y2 = float.MinValue;
+        for (int c = 0; c < 4; c++)
+        {
+            var corner = M.MultiplyPoint3x4(new Vector3((c % 2 == 0) ? r.min.x : r.max.x,
+                                                        (c < 2) ? r.min.y : r.max.y, 0f));
+            float px = LayoutSpace.PxX(corner.x), py = LayoutSpace.PxY(corner.y);
+            x1 = Mathf.Min(x1, px); x2 = Mathf.Max(x2, px);
+            y1 = Mathf.Min(y1, py); y2 = Mathf.Max(y2, py);
+        }
+        return new Vector2(x2 - x1, y2 - y1);
+    }
+
     /// <summary>🆕 **2026-10-09（`A1125`）**：一颗**关窗钮**的「命中区 + 换图层」四连断。
     /// <para>四个闸落在**四个不同对象**上（前提 / 命中区尺寸 / 命中区位置 / 换图层绑定）⇒ 改坏任一处只红其中一条：
     /// ① 按钮 / 命中 / 可见面三件都取得到（取不到就不许往下断 = 不静默变绿）；
@@ -6635,24 +6668,97 @@ public static class ShellScene
                         1920f, 1080f, 18f, 53.5f, 36f, 1,
                         "原版 `…/PLayer Victories/Vicotries title` 实读 `auto[18~53.5]`（框宽 **0 + CSF**）；"
                       + "⚠️ 框那两格**故意给整屏** —— 见下面 A1178 的关系断言");
-                // 🔴 **2026-10-10（A1178）·【关系断言】（⛔ 不是字面量）**：**字没被缩** —— 框既然按
-                //   preferred 撑开了，TMP 的收敛字号就应当**停在 `m_fontSizeMax`**。
-                //   🔑 **这条正是「`Timer` 长期被压小却全绿」的原因所在**（`P-I` 查实：它需要 ≈330–396px、
+                // 🔴 **2026-10-10（A1178）**：这两颗的牙口 = 下面那段**关系断言**（⛔ 旧形态
+                //   「收敛字号 ≈ `m_fontSizeMax`」**已废** —— 它是 (α) 断言错，错因写在下面那段头里）。
+                //   🔑 **这一节的来历**：「`Timer` 长期被压小却全绿」（`P-I` 查实：它需要 ≈330–396px、
                 //   而旧框只有 `289.72` ⇒ 实得 27.8–33.4px 而非 38px；上面 `fitCase` 那条
-                //   「渲出来 ≤ 框」是**单边上限**、框放宽后**恰恰挡不住这一档**）。
-                //   **改坏法**：把 `Shell/EnergySinglePlayerOnlyEventWindow.cs` 那两处的框改回旧常量
-                //   （`Timer` `289.72f` / `Victories title` `254.112f`）⇒ 本行红。
+                //   「渲出来 ≤ 框」因为框那两格**故意给整屏**，本来也挡不住这一档）。
+                // 🔴 **2026-10-10（A1178）·【关系断言】（⛔ 不是字面量、⛔ 不是「撞上限」）**。
+                //   **原形态是错的**（本件现核 · `A1178` 那两条红 = (α) 断言错）：它断的是
+                //   「**收敛字号 ≈ 窗口上限**」=「字没被缩」，**前提只覆盖了一半** —— 它默认
+                //   「框已按 preferred 撑开 ⇒ 宽度不再是约束 ⇒ TMP 只剩上限可撞」。而 `A1178`
+                //   撑开的**只有宽**（`Shell/EnergySinglePlayerOnlyEventWindow.cs:694-700` 的 `txFit`
+                //   只改左沿 + 宽度，`y1/y2` 原样）⇒ **紧的其实是【高度】**。
+                //   机制（判据 = 工程自带的包源码）：TMP 有**两条**降字号的闸 ——
+                //   **竖界** `TextMeshProUGUI.cs:3393` `if (textHeight > marginHeight + 0.0001f)`
+                //   （降到 `:3424-3430`，`*20+0.5)/20` = 1/20 粒度）与 **横界** `:3644-3650`；
+                //   `marginHeight/Width` **就是我们填进去的框**（`ComputeMarginSize`，`:2343`）
+                //   ⇒ **收敛值由「较紧的那一侧」决定**，「较紧」只能拿**框**与**渲出**比出来。
+                //
+                //   🔴 **框高是不是原版的？（本件现核，⛔ 不是转述）** —— 命令
+                //     `python -I d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all
+                //      "EnergySinglePlayerOnlyEventWindow" --depth 8 --md --no-sprite`：
+                //     · `…/Timer/Timer`（TMP）= `m_SizeDelta = (0, **55.905**)` · 锚 `(0,1)→(0,1)`
+                //       （**锚点不拉伸 ⇒ `rect.height` 逐位 = `sizeDelta.y`**）· `auto[10~38]` · 基准 38 · 折行 0；
+                //     · `…/PLayer Victories/Victories title` = `m_SizeDelta = (0, **73.385**)` · 同锚 ·
+                //       `auto[18~53.5]` · 基准 36 · 折行 1。
+                //     ⇒ **框高是原版的**（我们摆的是 55.90 / 73.38，差 0.005px）⇒ **同一把框高，原版装得下、我们装不下**：
+                //     原版收敛在上限 38 / 53.5 ⇒ 它的字体行盒 **≤ 55.905 ÷ 38 = 1.47em**（否则竖界早就把它压下来）；
+                //     而**我们那份正文字体行盒 ≈ 1.52em** ⇒ `38 × 1.52 = 57.8 > 55.905` ⇒ **被竖界压住**
+                //     （四条独立读数：1.5170 / 1.5252 / 1.5470 / 1.5252，见 `D1_九条红诊断.md` §证据 A）
+                //     ⇒ 我们只能收敛到 36.851 / 48.111。**这是字体度量的差（`NotoSerifCJK` 对
+                //     `Pragati`）、不是框摆错了**，残差登记在 `W2_A1126A1.md` §五；⚠️ 「行盒 1.52em vs
+                //     原版 ≤1.47em」这条**系统性**差异要落 `项目任务.md` §三 正本（`D1` §建议处置 3 明写）——
+                //     **本件白名单里没有正本** ⇒ 只在此处标出处，不动正本。
+                //
+                //   ⇒ 所以本处改成**两条关系式**（期望值一个都不取自实现）：
+                //     ① **高度那一侧是【紧】的**：渲出高 ≈ **原版那一颗的框高**（±1.5px = TMP 二分粒度）
+                //        —— 「收敛字号由框高决定」这句的可判形式；
+                //     ② **宽度那一侧【不是】约束**：**框宽 − 渲出宽 ≥ 1.5px**（**有余量**，不是刚好顶住）。
+                //
+                //   ⚠️ **改坏法（逐条）**：把 `Shell/EnergySinglePlayerOnlyEventWindow.cs` 那两处的框
+                //     **改回旧常量**（`Timer` `289.72f` / `Victories title` `254.112f`）⇒ 宽度重新变成约束：
+                //     · `Timer`：收敛掉到 ≈29.6px ⇒ 渲出高 ≈44.8px ⇒ **① 红（离 55.905 差 11px）**；
+                //     · `Victories title`：**这一档观察不到**（见下），**① / ② 都不该红**（真话，不是漏断）。
+                //     框高改错 / 字被任何一侧压小 ⇒ **① 红**。
+                //   ⚠️ **② 的牙口比 ① 弱，如实写清**：宽度真变成约束时，`框宽 − 渲出宽` 的余量
+                //     不是 0 而是「**不到一个自适应步长**」（TMP 二分停在 1/20 fontSize 单位 ⇒
+                //     对 `Timer` 那条串≈5.0px）⇒ ② 只有余量 < 1.5px 时才咬得到。
+                //     ⛔ **不把阈值抬到 5px 去换满咬合**：那时正确态的余量（`Timer` ≈11.3px）只剩
+                //     3.7px 富余，没跑过 Unity 就定这么紧 = 拿**假红**换牙口。真正兜住这一档的是 ①。
+                //   ⚠️ **已知够不到的一档（如实登记 · 铁律 2/5·b，⛔ 不是漏断）**：`Victories title`
+                //     把框改回 `254.112` 在**画面上等价** —— 它渲染只占 234.6px，而**竖界要的 234.6
+                //     才是紧的那一侧**（`254.112 > 234.6` ⇒ 宽度侧允许的字号 52.1px 仍 > 高度侧的 48.1px
+                //     ⇒ 收敛值与版面逐位不变）。⇒ 这一档**只能**靠「框宽 == TMP 的 preferred 宽」那种
+                //     **同义反复**去咬（本仓明令不用，见 `CLAUDE.md` §三「灭自证」）⇒ **本件不写**、
+                //     如实记进报告。真正的回归面由 ① 兜住（`Timer` 那一半是硬的）。
                 foreach (var nm in new[] { "Timer", "Victories title" })
                 {
+                    // 原版那一颗的 `m_SizeDelta.y`（现读 · 见上面那段命令与读数）
+                    float boxHOrig = nm == "Timer" ? 55.905f : 73.385f;
                     var t2 = FindChildIn(a1126En.transform, nm);
                     var l2 = t2 != null ? t2.GetComponentInChildren<Label>(true) : null;
                     CheckTrue(l2 != null, $"（前提·不静默）A1178 · `{nm}` 的 `Label` 拿得到"
                                         + " —— ⛔ 拿不到就**不往下断**（不静默变绿）");
                     if (l2 == null) continue;
-                    float cap = Label.FontSizeToPx(l2.FontSizeMax), now = l2.FontPxNow;
-                    CheckNear(now, cap, 0.6f,
-                              $"★ A1178 · `{nm}`：**字没被缩** —— 收敛字号 `{now:F2}` ≈ 上限 `{cap:F2}`px"
-                            + "（框已按 preferred 撑开 ⇒ TMP 不该再缩）");
+                    var tmpB = l2.GetComponentInChildren<TMPro.TextMeshPro>(true);
+                    CheckTrue(tmpB != null, $"（前提·不静默）A1178 · `{nm}` 底下有 TMP（量框要用它）"
+                                          + " —— 点阵后端量不出框 ⇒ 本颗这一节**没跑**，不是绿");
+                    if (tmpB == null) continue;
+                    var rz2 = ShellLabelRenderedPx(l2);
+                    bool rzOk = rz2.x > 0.5f && rz2.x < 100000f && rz2.y > 0.5f && rz2.y < 100000f;
+                    CheckTrue(rzOk, $"（前提·不静默）A1178 · `{nm}` 的**渲出尺寸量得到**"
+                                  + "（哨兵 / 没重排 = 本颗这一节**没跑**，不是绿）"
+                                  + $" —— 实得 {rz2.x:F1}×{rz2.y:F1}px（本闸上界 100000px）");
+                    if (!rzOk) continue;
+                    var bx2 = ShellLabelBoxPx(l2);
+                    // ① 高度那一侧【紧】—— 收敛字号由框高决定（⛔ 不要求它撞上限）
+                    CheckNear(rz2.y, boxHOrig, 1.5f,
+                              $"★ A1178 · `{nm}`：**字是被【框高】顶住的** —— 渲出高 `{rz2.y:F2}` ≈ 原版框高"
+                            + $" `{boxHOrig:F3}`px（±1.5px = TMP 二分粒度）｜判据 = 原版 `…/{nm}` 的 `m_SizeDelta.y`"
+                            + "（`menu_dump` 现读；锚点不拉伸 ⇒ 就是框高）｜改坏法：框高改错 ⇒ "
+                            + (nm == "Timer"
+                               ? "本行红；把框宽改回旧常量 `289.72f` 让宽度重新变成约束也 ⇒ 本行红"
+                                 + "（那时字更小、渲出高掉到 ≈44.8px）"
+                               : "本行红（⚠️ **把框宽改回 `254.112f` 观察不到** —— `254.112 > 它渲染要的 234.6`"
+                                 + " ⇒ 宽度侧仍不是约束，如实不设防，见本节头那段）"));
+                    // ② 宽度那一侧【不是】约束 —— 框宽比渲出宽有余量
+                    CheckTrue(bx2.x - rz2.x >= 1.5f,
+                              $"★ A1178 · `{nm}`：**宽度那一侧不是约束** —— 框宽 `{bx2.x:F2}` − 渲出宽 `{rz2.x:F2}`"
+                            + $" = `{bx2.x - rz2.x:F2}`px ≥ 1.5px（有余量 ⇒ 收敛值不是被宽度顶住的；"
+                            + "同一句也兜住「字溢出框」那一族 —— 上面 `fitCase` 那两条的框那两格是"
+                            + "**故意给整屏**的、挡不住溢出）｜改坏法：把框改回旧常量"
+                            + "（`Timer` `289.72f` / `Victories title` `254.112f`）⇒ 余量掉到「不到一个自适应步长」");
                 }
                 // ---- A1179（2026-10-19）：本窗**另外四处**同一把尺子（⛔ 不抄第二份 `fitCase`）----
                 // 期望值出处 = 上面 §③ 那条 `menu_dump.py` 命令（`EnergySinglePlayerOnlyEventWindow`）逐颗现读。
