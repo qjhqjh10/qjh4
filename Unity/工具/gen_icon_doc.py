@@ -8,6 +8,7 @@
 """
 import json
 import os
+import re
 import sys
 import collections
 
@@ -18,11 +19,46 @@ OUT = os.path.join(ROOT, "资料/卡面图标_对照与缺口.md")
 TRAITS = os.path.join(ROOT, "MyGame/Assets/CardPresentation/Resources/Art/traits")
 UI = os.path.join(ROOT, "MyGame/Assets/CardPresentation/Resources/Art/ui")
 
+# 图集切片的**原名**（`Atlas_trait_icon_*` / `Atlas_SpiritStone_*`）只活在 TMP sprite asset 里 ——
+# 盘上（`Resources/Art/traits/`）那份是**剥掉前缀**的短名（`Atlas_trait_icon_stun` → `stun`）。
+# 🔴 2026-10-10（`A1371`）：§七 那句原来把「…78 张：**73 张** `Atlas_trait_icon_*` ＋
+#    **5 张** `Atlas_SpiritStone_*`」的**后半句写死在源码里**（前半句 `len(have_t)` 是算的）——
+#    今天两个数凑巧都等于 78，但**盘上多一张不是图集切片的图**（或图集多一张我们没导的）两边就打架，
+#    而且**不会有任何报错**（这一句是**人看**的文档，没人跑它）。⇒ 三个数**全部改成现数**，
+#    并且两个集合**对不上时把差集打出来**（不许静默）。
+SPRITE_ASSET = os.path.join(
+    ROOT, "MyGame/Assets/CardPresentation/Resources/Fonts/Warpforge Trait TextSprites.asset")
+ATLAS_TI = "Atlas_trait_icon_"      # 关键词 / 数值图标切片
+ATLAS_SS = "Atlas_SpiritStone_"     # 灵族灵魂石切片（2026-09-15 才补导，见 §七 那条 ⚠️）
+
+
+def atlas_slices():
+    """TMP sprite asset 里的图集切片**原名** → 分档计数。
+
+    返回 `{"trait_icon", "spirit_stone", "total", "short"}`（`short` = 剥掉前缀后的短名，
+    应与盘上 `traits/*.png` 一一对应）；**读不到就返回 None** —— 调用方退回「按短名前缀现数」
+    并**如实标注**那一格不是图集口径，⛔ 不假装。
+    """
+    if not os.path.exists(SPRITE_ASSET):
+        return None
+    with open(SPRITE_ASSET, encoding="utf-8", errors="replace") as f:
+        raw = f.read()
+    names = sorted({m for m in re.findall(
+        "m_Name: (" + ATLAS_TI + r"[A-Za-z0-9_]+|" + ATLAS_SS + r"[0-9]+)", raw)})
+    ti = [n for n in names if n.startswith(ATLAS_TI)]
+    ss = [n for n in names if n.startswith(ATLAS_SS)]
+    short = {n[len(ATLAS_TI):] if n.startswith(ATLAS_TI) else n[len("Atlas_"):] for n in names}
+    return {"trait_icon": len(ti), "spirit_stone": len(ss),
+            "total": len(ti) + len(ss), "short": short}
+
 
 def main():
     cards = json.load(open(PLAN, encoding="utf-8"))["cards"]      # 数组形状（JsonUtility 能吃的那份）
     have_t = {os.path.splitext(f)[0] for f in os.listdir(TRAITS) if f.endswith(".png")}
     have_u = {os.path.splitext(f)[0] for f in os.listdir(UI) if f.endswith(".png")}
+    # 图集切片（现数）—— §五 与 §七 **两处**都要引用「有多少张切片」，原来这两处各写死了一个 `78`。
+    at = atlas_slices()
+    n_atlas = at["total"] if (at and at["total"]) else len(have_t)
 
     rows, gaps, sprite_use = [], [], collections.Counter()
     for card in cards:
@@ -159,7 +195,7 @@ def main():
     A("### 另外三件**素材侧**的缺口（不在上面的表里，但画之前要知道）")
     A("")
     A("1. **`Dark Pacts` / `Penitence` 没有独立图标**：规则书里有这两个关键词，"
-      "但 78 张图集切片里没有对应的图（`资料/关键词图标/关键词与图标_对照表.md:189`）。"
+      f"但 **{n_atlas} 张**图集切片里没有对应的图（`资料/关键词图标/关键词与图标_对照表.md:189`）。"
       "卡面上暗黑契约画的是**暗红盘 + 白八芒星**（`markOfChaos`，五张 `markOf*` 逐字节相同）。")
     A("2. **生命 / 费用类数值图标**：图集里**只有 `Melee`（拳）与 `Ranged`（枪）**；"
       "`+N Health` 在卡面上**永远是文字、没有图标**（已核）；护甲有裸词 `Armour N`（可带银盾图标前缀）。")
@@ -176,12 +212,36 @@ def main():
     A("")
     A("## 七、素材家底（2026-09-15 实测）")
     A("")
+    # 🔴 2026-10-10（`A1371`）：这一行原来「后半句」（73 + 5）是**硬编码**的，现在**三个数全是现数**
+    # （`at` / `n_atlas` 在 `main()` 开头算好 —— §五 那一条也共用同一个数）。
+    if at and at["total"]:
+        split = (f"**{at['trait_icon']} 张** `{ATLAS_TI}*` ＋ "
+                 f"**{at['spirit_stone']} 张** `{ATLAS_SS}*`")
+        caveat = ""
+    else:
+        n_ss = sum(1 for x in have_t if x.startswith("SpiritStone_"))
+        split = (f"**{len(have_t) - n_ss} 张** `{ATLAS_TI}*` ＋ **{n_ss} 张** `{ATLAS_SS}*`")
+        caveat = ("  ⚠️ **上面这两个数是按【短名前缀】现数的** —— `Warpforge Trait TextSprites.asset` "
+                  "读不到（或里面没有 `Atlas_*` 名）⇒ 拿不到图集的**原名**，"
+                  "⛔ 别把它当成「图集真有这么多张切片」。")
     A(f"- 关键词/数值图标：`Resources/Art/traits/` **{len(have_t)} 张**"
-      "（`40ktraiticonatlas` 78 张：73 张 `Atlas_trait_icon_*` + 5 张 `Atlas_SpiritStone_*`）。")
+      f"（`40ktraiticonatlas` **现数 {n_atlas} 张**切片：{split}）。")
+    if caveat:
+        A(caveat)
+    # 「盘上那张是不是图集切片」—— 两个集合对不上就**出声**（这一句原来会**静默**说错的口子）
+    if at and at["total"]:
+        lo = {x.lower() for x in at["short"]}
+        ht = {x.lower() for x in have_t}
+        extra = sorted(x for x in have_t if x.lower() not in lo)
+        absent = sorted(y for y in sorted(at["short"]) if y.lower() not in ht)
+        if extra or absent:
+            A(f"  🔴 **盘上与图集对不上**（盘上 {len(have_t)} 张 / 图集 {at['total']} 张切片）："
+              f"盘上多的 = {extra if extra else '无'}；"
+              f"图集里有、盘上没有的 = {absent if absent else '无'}。")
     A(f"  ⚠️ 2026-09-15 之前**只有 73 张** —— 导入脚本只认 `Atlas_trait_icon_` 一个前缀，"
       "5 张灵魂石被静默跳过（`工具/import_original_art.py` 已修）。")
-    A("- 原版图集原图：`Assets/CardPresentation/Icons/40k_Trait_icon_atlas.png`（1024×1024，"
-      "78 张切片全是 80×80 / `m_PixelsToUnits=100` / pivot 0.5,0.5）。")
+    A(f"- 原版图集原图：`Assets/CardPresentation/Icons/40k_Trait_icon_atlas.png`（1024×1024，"
+      f"{n_atlas} 张切片全是 80×80 / `m_PixelsToUnits=100` / pivot 0.5,0.5）。")
     A("- **TMP sprite asset**：`Resources/Fonts/Warpforge Trait TextSprites.asset`"
       "（96 字形 / 156 字符 —— 原版全名 + 我们的短名别名）。"
       "**照抄原版**：字形表来自 `bundle_fonts_assets_all` 的 `Warpforge Trait TextSprites`。")

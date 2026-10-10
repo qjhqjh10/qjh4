@@ -66,6 +66,26 @@ public static class CardFaceProbe
         //    `◈Waystone.  ⬇Flank.`（`Aeldari/3部队/Warpforge_20_Howling-Banshee.png`，已并排核过）
         //    ⇒ 这张是「关键词段有没有画出来」最灵敏的一张。**名字与 Exarch 是两张卡，别混**。
         "Howling Banshee",       // `ASH20`
+        // ── 🆕 2026-10-21 加：**铁律 10 第 6 条那条「并排比」欠着的 9 张**（合并规格 #88）──
+        //    两批各自留了一处「判据已核、只差并排渲一张」的缺口，原报告都点名「这 `.cs` 不在我白名单 ⇒ 没加」：
+        //      · `W5e` 那 4 张（`A1347` 修完 `oath` 徽记的**位置与数字**之后没人渲过）——
+        //        卡面一律是 `〔徽记〕Oath N: …`（记号的**位置**与 `N` 都要逐格对）；
+        //        判据 = `资料/普查产出_第十三会话/W5e_A1347徽记回归.md` §四·2（它点名要加 `Devastator Marine`）。
+        //      · `W7` 那 5 张（`A1363` 给**非首句**的 `N ☀:` 补上了信仰图标）——
+        //        要核「`☀` 有没有画在数字之后、句尾有没有多出/漏掉句号」；
+        //        判据 = `资料/普查产出_第十三会话/W7_A1363与A1364.md` §五·3（「并排渲一张」那一栏）。
+        //    ⚠️ PnP 成品卡图在 `d:/2/Warpforge部队卡片/{Ultramarines,Sorotitas}/…`（900×1200）——
+        //      它只能当**内容**的尺子（卡名 / 费用 / 攻血甲 / 效果文字 / 记号），
+        //      **版式与显隐规则不许当尺子**（铁律 10 第 3 条：PnP 是印刷品，不是数字版规格）。
+        "Devastator Marine",     // `UM80` —— `W5e`① 卡面：`〔紫尖刺〕Blast 2. 〔蓝圆盘+白袍人形〕Oath 4: Deal 5 damage to an enemy troop`
+        "Phobos Librarian",      // `UM81` —— `W5e`② 卡面：`〔兜帽〕Camouflage. 〔同一枚〕Oath 3: Deal 2-4 damage to an enemy. If target dies, gain 〔盾〕Shield`
+        "Scout Sniper",          // `UM_Scout_Sniper` —— `W5e`③ 卡面：`〔兜帽〕Camouflage. 〔准星〕Sniper. 〔同一枚〕Oath 1: Deal 1 damage`
+        "Firestrike Servo Turret", // `UM74` —— `W5e`④ 卡面：`〔导弹〕Long Range. 〔哨戒〕Sentry 2. 〔同一枚〕Oath 3: Gain 〔哨戒〕Sentry 2`
+        "Dominion Superior",     // `SOR28` —— `W7`① 卡面：`⚡Rally: Deal 1 damage.` ／ `2 ⟨金太阳⟩: Deal 1 additional damage`
+        "Devout Warriors",       // `SOR43` —— `W7`② 卡面：`Draw a troop.` ／ `2 ⟨金太阳⟩: Draw an additional troop`
+        "Beacon of Faith",       // `SOR44` —— `W7`③ 卡面：`4 ⟨金太阳⟩: …`（**图标与冒号之间没有空格**）／ `7 ⟨金太阳⟩ : …`（**有空格、句尾无句号**）
+        "Trial of Suffering",    // `SOR49` —— `W7`④ 卡面：`2 ⟨金太阳⟩: Give it ⟨银盾⟩Armour 2 instead`
+        "Imperial Creed",        // `SOR59` —— `W7`⑤ 卡面：`⟨螺旋⟩Stun three random enemies.` ／ `4 ⟨金太阳⟩: Refill 3 Energy`
     };
 
     public static void Run()

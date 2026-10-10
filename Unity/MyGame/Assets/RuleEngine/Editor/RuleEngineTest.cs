@@ -537,6 +537,56 @@ public static partial class RuleEngineTest
         Section("🆕 `Play`/`Ability` 事件的靶向位 + 伏击位（`A985⑥①`）—— 两个位**分开断**");
         Step(TestA985TargetedAndAmbushFields);
 
+
+        // ============================================================
+        //  🆕 2026-10-21（第十四会话 · 断言批）
+        // ============================================================
+        //  前一（第十三）会话落了十几笔生产代码改动、**一笔断言都没加**
+        //  （那一会话**明文禁止任何写手碰本文件**）。本批把各写手在报告里交的
+        //  「**该补什么断言（含灭自证那一半）**」逐条落地。
+        //  🔴 全部落在**新 partial 文件** `RuleEngineTest_S14.cs`
+        //     （1678 行 / 29 个方法 / 250 处 `Check`）；**本文件只加这一段用例表**
+        //     （硬规矩：一个文件同一时刻只能有一个写手）。
+        //  ✅ 这批断言**已经用离线探针真跑过一遍**（scratch csproj，只编 `RuleEngine/Core/*.cs`
+        //     + 那个文件，**不改任何工程文件**）：`272 通过 / 0 失败`；
+        //     第一轮就抓到 1 条写错的期望值。做法 → `资料/普查产出_第十四会话/W_断言_引擎.md` §六。
+        //  ⚠️ Unity 下的红绿仍以**收口那次实跑**为准。
+        Section("🆕 第十四会话 断言批（前一会话十几笔改动的回归断言）");
+        Step(TestS14SurvivorRescueAndDestroyBypass);   // 规格表 #1 #2
+        Step(TestS14EcstasyPrintedVersusGranted);   // 规格表 #4（#3 当对照）
+        Step(TestS14StunWatcherGainsAttack);   // 规格表 #8
+        Step(TestS14ApplyDeployTurnState);   // 规格表 #9 #10 #11
+        Step(TestS14PoisonAtOwnTurnEnd);   // 规格表 #12 #13
+        Step(TestS14PoisonBranchDoesNotSkipStunGate);   // 规格表 #14
+        Step(TestS14BastionAbsorbsWholeHit);   // 规格表 #15 #16
+        Step(TestS14CounterIgnoresBastion);   // 规格表 #17
+        Step(TestS14DropPodPool);   // 规格表 #18
+        Step(TestS14DropPodTakesPrecedenceOverBastion);   // 规格表 #19
+        Step(TestS14VulnerableWithBastion);   // 规格表 #20
+        Step(TestS14SacrificeOnOwnTurnRescue);   // 规格表 #21
+        Step(TestS14SacrificeNotTriggeredOnEnemyTurn);   // 规格表 #22
+        Step(TestS14SacrificeNotTriggeredOnRealDeath);   // 规格表 #23
+        Step(TestS14SurvivorTriggerAlwaysFires);   // 规格表 #24 #25
+        Step(TestS14WouldKillByEntries);   // 规格表 #26
+        Step(TestS14HandAndBoardInstancesDisjoint);   // 规格表 #28
+        Step(TestS14PronounTargetSide);   // 规格表 #33
+        Step(TestS14PronounSideUnknownStaysUnknown);   // 规格表 #34
+        Step(TestS14PronounSideChains);   // 规格表 #35
+        Step(TestS14ParseIsIdempotent);   // 规格表 #36
+        Step(TestS14ScoreGivingChargeSide);   // 规格表 #37 #38
+        Step(TestS14KeywordNumberAndHasNumber);   // 规格表 #40 #41 #42 #43
+        Step(TestS14PaidPrefixCarry);   // 规格表 #44 #45 #46
+        Step(TestS14OathActivationChargesOnce);   // 规格表 #47 #48
+        Step(TestS14CostSharedChargesOnce);   // 规格表 #49 #50
+        Step(TestS14FaithCheckCondition);   // 规格表 #51 #52 #53
+        Step(TestS14WhenBodyTargetIsSubjectless);   // 规格表 #54
+        Step(TestS14FaithCostKind);   // 规格表 #55 #56
+        Step(TestS14WouldKillByEntriesDropPodLayer);   // A1396·A1355 预览侧空投舱血池=判死第一层
+        Step(TestS14DropPodOpensAtTurnStart);   // A1396·A1354 支① 回合开始开舱
+        Step(TestS14DropPodOpensAfterAttack);   // A1396·A1354 支② 出手后开舱
+        Step(TestS14SwarmTriggerBothHalves);   // A1396·A1356 刀① swarm 两半
+        Step(TestS14BloodThirstTriggerBothHalves);   // A1396·A1356 刀② bloodthirst 那半边
+
         // ---- 汇总 ----
         int total = _pass + _fail;
         if (_fail == 0)
@@ -8392,57 +8442,706 @@ public static partial class RuleEngineTest
     ///   ① `BattleDriver` 那个卡面 `*` **只给 `Type == "tactic"` 判** ⇒
     ///      **单位卡 / 督军卡 / 防御卡的问题卡面永远看不见**；
     ///   ② 拿 `EffectText.Parse(desc)` 的结果去判单位卡，是**问错了层** ——
-    ///      单位卡的 `desc` 带 `Rally:` / `When &lt;事件>,` 前缀，正文早被
+    ///      单位卡的 `desc` 带 `Rally:` / `When &lt;事件&gt;,` 前缀，正文早被
     ///      `CardDef.AddWhenTrigger` 分走了，主解析器解出来的是**没人执行的残渣**。
     ///      （2026-09-16 中文对账那轮 12 条假阳性大半出在这里。）
     ///
-    /// 本方法按 `<see cref="EffectText.WillRunOps"/>`（**按卡类型问对的层**）重新算一遍，
+    /// 本方法按 <see cref="EffectText.WillRunOps"/>（**按卡类型问对的层**）重新算一遍，
     /// 分类型报数并列出卡名 —— **先量再改**（改卡面是玩家可见的改动，得有数才动）。
+    ///
+    /// ==================================================================
+    /// 🔴 **2026-10-10 `A1440`：这把尺子原来是【空转 ⇒ 全绿】，现在补掉了。**
+    ///
+    /// 老形状只有一种问法 —— **拿 `WillRunOps(c)` 返回的那批 op 逐条问 `OpHasMechanism`**：
+    /// `foreach (var op in ops)`，而 **`ops` 是空表时这个循环一次都不进 ⇒ 0 个卡点 ⇒ 这张卡算「全通」**。
+    /// 实测代价（`A1386`）：`CardDef.RoutableTriggers` 缺 `survivor` / `sacrifice` 时，
+    /// **卡面正文根本没被收下来**、`FireTriggerAt` 恒空转，而报表照样 **586/586 全绿**。
+    /// ⇒ **不是漏报一张，是整整一类「正文没收下来」永远报不出来**。
+    /// （本仓明令要防的【自证】形状：**被测实现和它的检测器用同一个口** —— 那个口就是 `WillRunOps`。）
+    ///
+    /// 修法 = **两条【独立的腿】对账 + 空表三档**（口径**逐档对齐** `工具/ruleprobe/WillRun.cs`
+    /// 的 `willrun`，那份的说明在 `工具/ruleprobe/README.md` 的 `## willrun` 一节）：
+    ///   · **腿 A（执行层）** = `EffectText.WillRunOps(c)` —— 引擎的**注册结果**；
+    ///   · **腿 B（卡面）**   = `desc` 分句 ∪ `keywords` **原文条目**里 `Head: body` 且 `body`
+    ///     解得开 op 的段 —— **只借归一函数**（`EffectText.Split` / `StripLeadingIcons`），
+    ///     **不借任何注册结果**。⛔ 老口径那两条腿共用一个口 ⇒ 空表时两边一起空转。
+    ///
+    /// **空表三档**（`A1432` 要的就是「**本来没正文**」与「**收漏了**」必须能分开）：
+    ///   ① **本来没正文**（卡面上没有任何「可执行正文段」—— `desc` 空 / 整条裸关键词。
+    ///      **不是缺陷**，但**必须报出来**，⛔ 不许混进「全通」冒充成绩）·
+    ///   ② **收漏了**（卡面**写着**可解析的正文、执行层**一条都没收到** ⇒ 🔴 **这就是缺陷**，`A1386` 那种）·
+    ///   ③ **未归因**（收 0 条、卡面**没有** `Head:` 段，但主解析器对整条 `desc` 解得出 op
+    ///      ⇒ **如实标出、不判**：多半由 `WillRunOps` 之外的层消费，例
+    ///      `EffectResolver.ResolveAtTurn:4792` 直接扫 `u.Card.Desc` 的回合起止从句）。
+    ///
+    /// **段级再三档**（一张卡可以「收了一半」—— 那一半**三张表全绿**而卡面那半句就是不发生）：
+    ///   `收漏`（触发头没进本卡的 `TriggerTexts`，`A1386` 是这一族）·
+    ///   `付费段`（`N ☀:` / `N [Energy]:` 形状的付费能力段 —— `WillRunOps` 的 unit/hero 支压根不看它）·
+    ///   `同头两写`（同一个头注册了，但 `desc` 与 `keywords` 两份正文**不一样**、后者被「先到先得」丢掉）。
+    ///
+    /// 🆕 **⑤「无头正文」逐句报账**（口径同探针的 `A1459`）：卡面**没有 `Head:`**、主解析器解得开 op、
+    ///   腿 A 一条都没收到、**且三道闸（`CardDef.HandledByOtherLayer` / `EffectText.AtTurnClauses` /
+    ///   `CardDef.CostWhens`）全都没认领** ⇒ **全仓没有任何一层会执行这句**（不是「查不到」）。
+    ///   这一档治的是 ①②③ 的入口**全都以 `Head:` 为锚**那道缝。
+    ///
+    /// ⚠️ **本法是【报表】，不是判决** —— 它把「空表 / 收漏 / 无消费点」**报出来**（`Debug.Log` + 报表文件），
+    ///   判决（补哪个词、补哪个消费点）另派。⛔ 但它**再也不把空表算作「全通」**。
+    /// ⚠️ 探针（`工具/ruleprobe`）与本法是**两条腿的两次实现**：口径必须一致，
+    ///   **任何一侧改档位都要同时改另一侧**（本仓红线：两处写同一条规则 = 迟早不一致）。
     /// </summary>
     static void ReportWillRunMechanism()
     {
         var pool = CardDatabase.Load();
-        var byType = new Dictionary<string, int[]>();
-        var fails = new Dictionary<string, List<string>>();
-        foreach (var c in pool)
-        {
-            if (c == null) continue;
-            int[] acc;
-            if (!byType.TryGetValue(c.Type ?? "(空)", out acc)) { acc = new int[2]; byType[c.Type ?? "(空)"] = acc; }
-            List<string> lst;
-            if (!fails.TryGetValue(c.Type ?? "(空)", out lst)) { lst = new List<string>(); fails[c.Type ?? "(空)"] = lst; }
-            acc[0]++;
-            var ops = EffectText.WillRunOps(c);
-            string why; bool imprecise;
-            foreach (var op in ops)
-            {
-                if (!EffectText.OpHasMechanism(op, c.Faction, pool, out why, out imprecise))
-                {
-                    acc[1]++;
-                    lst.Add(c.Name + "〔" + (op.Source ?? "") + "〕→ " + why);
-                    break;
-                }
-            }
-        }
+        string kwNote;
+        var rawKw = LoadRawKeywordEntries(out kwNote);
+        var rows = MeasureWillRunRows(pool, rawKw);
+
+        string[] types = { "tactic", "unit", "hero", "defence" };
+
+        // ---------------- ① 按卡类型 ----------------
+        int totalEmpty = 0, totalProse = 0, totalMissed = 0, totalUnattr = 0, totalGot = 0;
         var sb = new StringBuilder();
-        sb.AppendLine("# 「会执行的那一层」有没有机制 —— 按卡类型（2026-09-16）");
+        sb.AppendLine("# 「会执行的那一层」有没有机制 —— 按卡类型（2026-09-16；`A1440` 2026-10-10 补「空表出声」）");
         sb.AppendLine();
         sb.AppendLine("> 判据 = `EffectText.WillRunOps`（**按卡类型问对的层**）+ `OpHasMechanism`。");
-        sb.AppendLine("> `tactic`/`defence` 走主解析器；`unit`/`hero` 走事件层/触发层/灵魂石/誓约。");
+        sb.AppendLine("> `tactic`/`defence` 走主解析器；`unit`/`hero` 走事件层 / 触发层 / 灵魂石 / 誓约 / 光环。");
+        sb.AppendLine("> 🔴 **`A1440`：空表不再算「全通」** —— **腿 A**（执行层 `WillRunOps`）＋ **腿 B**（卡面文本，");
+        sb.AppendLine("> 只借归一函数、**不借注册结果**）两条**独立**的腿对账；空表三档 + 段级三档 + 「⑤ 无头正文」。");
+        sb.AppendLine("> 档位口径与 `工具/ruleprobe` 的 `willrun`（`WillRun.cs`）**逐档对齐** —— 说明见 `工具/ruleprobe/README.md`。");
+        sb.AppendLine("> `keywords` 原文来源：" + kwNote);
         sb.AppendLine();
-        var keys = new List<string>(byType.Keys); keys.Sort();
-        foreach (var k in keys)
+        sb.AppendLine("| 类型 | 卡数 | 收到正文 | 空表 | 本来没正文 | **收漏了** | 未归因 |");
+        sb.AppendLine("|---|---|---|---|---|---|---|");
+
+        Debug.Log(P + "   ===== `A1440` 「会执行的那一层」：空表要出声 =====");
+        Debug.Log(P + "   `keywords` 原文；" + kwNote);
+
+        foreach (var t in types)
         {
-            int[] a = byType[k];
-            Debug.Log(P + $"   [会执行的那层] {k,-9} {a[0] - a[1]}/{a[0]}" + (a[1] > 0 ? $"  ← **{a[1]} 张有卡点**" : "  全通"));
-            sb.AppendLine($"## [{k}] {a[0] - a[1]}/{a[0]}" + (a[1] > 0 ? $" —— **{a[1]} 张有卡点**" : " 全通"));
-            foreach (var n in fails[k]) sb.AppendLine("- " + n);
+            var g = WillRunRowsOfType(rows, t);
+            int cards = g.Count;
+            int got = WillRunCount(g, r => r.RunOps.Count > 0);
+            int empty = WillRunCount(g, r => r.RunOps.Count == 0);
+            int prose = WillRunCount(g, r => r.EmptyKind == WREmptyProse);
+            int missed = WillRunCount(g, r => r.EmptyKind == WREmptyMissed);
+            int unattr = WillRunCount(g, r => r.EmptyKind == WREmptyUnattr);
+            totalGot += got; totalEmpty += empty; totalProse += prose; totalMissed += missed; totalUnattr += unattr;
+
+            int blocked = WillRunCount(g, r => !r.OldPass);
+            Debug.Log(P + $"   [老口径·空转] {t,-9} {cards - blocked}/{cards}"
+                      + (blocked > 0 ? $"  ← **{blocked} 张有卡点**" : "  全通")
+                      + "   ⚠️ 这一行**把「空表」也算全通**（`A1440` 之前的形状，保留供对照）");
+            Debug.Log(P + $"   [新口径·A1440] {t,-9} 卡 {cards} · 收到正文 {got} · 空表 {empty}"
+                      + $"（本来没正文 {prose} / 收漏 {missed} / 未归因 {unattr}）");
+
+            sb.AppendLine($"| [{t}] | {cards} | {got} | **{empty}** | {prose} | "
+                          + (missed > 0 ? $"**{missed}**" : "0") + " | " + unattr + " |");
+        }
+        sb.AppendLine();
+
+        // ---------------- ② 两栏并排（就是「空转 ⇒ 全绿」的现场）----------------
+        sb.AppendLine("## 老口径 vs 新口径（同一批卡、同一趟算出来）");
+        sb.AppendLine();
+        sb.AppendLine("老口径 = 上面那个 `foreach (var op in ops)` 的形状（**空表不进循环 ⇒ 0 个卡点 ⇒ 全通**）。");
+        sb.AppendLine("**逐条并排就是「空转 ⇒ 全绿」的现场** —— 老口径那一栏 ⛔ 不许再当「逐卡效果可实现」的尺子。");
+        sb.AppendLine();
+        sb.AppendLine("| 类型 | 老口径（把空表算全通） | 新口径 |");
+        sb.AppendLine("|---|---|---|");
+        foreach (var t in types)
+        {
+            var g = WillRunRowsOfType(rows, t);
+            int blocked = WillRunCount(g, r => !r.OldPass);
+            sb.AppendLine($"| [{t}] | {g.Count - blocked}/{g.Count} 全通 | 收到 {WillRunCount(g, r => r.RunOps.Count > 0)}"
+                        + $" · 空表 {WillRunCount(g, r => r.RunOps.Count == 0)}"
+                        + $"（本来没正文 {WillRunCount(g, r => r.EmptyKind == WREmptyProse)}"
+                        + $" / 收漏 {WillRunCount(g, r => r.EmptyKind == WREmptyMissed)}"
+                        + $" / 未归因 {WillRunCount(g, r => r.EmptyKind == WREmptyUnattr)}） |");
+        }
+        sb.AppendLine();
+
+        // ---------------- ③ 空表的卡逐张（② 收漏 / ③ 未归因）----------------
+        var missedRows = new List<WillRunRow>();
+        var unattrRows = new List<WillRunRow>();
+        foreach (var r in rows)
+        {
+            if (r.EmptyKind == WREmptyMissed) missedRows.Add(r);
+            else if (r.EmptyKind == WREmptyUnattr) unattrRows.Add(r);
+        }
+        sb.AppendLine("## ③ 空表的卡逐张（🔴 这一栏老口径【看不见】）");
+        sb.AppendLine();
+        if (missedRows.Count == 0) { Debug.Log(P + "   ② 收漏了：**0 张**"); sb.AppendLine("**② 收漏了：0 张**"); }
+        else
+        {
+            Debug.Log(P + $"   🔴 ② 收漏了：**{missedRows.Count} 张**（缺陷：卡面写着正文、执行层一条没收到）—— "
+                      + string.Join("、", WillRunNames(missedRows)));
+            sb.AppendLine($"**② 收漏了：{missedRows.Count} 张** ← ⛔ **这是缺陷**（卡面写着正文、执行层一条都没收到）");
+            sb.AppendLine();
+            sb.AppendLine("| id | 卡名 | 类型 | 段档 | 卡面段 |");
+            sb.AppendLine("|---|---|---|---|---|");
+            foreach (var r in missedRows)
+            {
+                var kinds = new List<string>(); var raws = new List<string>();
+                foreach (var b in r.Orphans) { kinds.Add(b.Kind); raws.Add("`" + WillRunClip(b.Raw, 60) + "`(" + b.Where + ")"); }
+                sb.AppendLine($"| {r.C.Id} | {r.C.Name} | {r.C.Type} | {WillRunJoin(kinds)} | {WillRunJoin(raws)} |");
+            }
+        }
+        sb.AppendLine();
+        if (unattrRows.Count == 0) { Debug.Log(P + "   ③ 未归因：**0 张**"); sb.AppendLine("**③ 未归因：0 张**"); }
+        else
+        {
+            Debug.Log(P + $"   ⚠️ ③ 未归因：**{unattrRows.Count} 张**（空表、卡面没有 `Head:` 段，"
+                      + "但主解析器对整条 `desc` 解得出 op）—— 如实标出、本报表不判：" + string.Join("、", WillRunNames(unattrRows)));
+            sb.AppendLine($"**③ 未归因：{unattrRows.Count} 张** ← ⚠️ **如实标出，不判** —— 多半由 `WillRunOps` 之外的层消费"
+                        + "（例 `EffectResolver.ResolveAtTurn:4792` 扫 `u.Card.Desc` 的回合起止从句）。"
+                        + "⛔ 但**也绝不把它们算进「全通」**。");
+            sb.AppendLine();
+            sb.AppendLine("| id | 卡名 | 类型 | desc |");
+            sb.AppendLine("|---|---|---|---|");
+            foreach (var r in unattrRows)
+                sb.AppendLine($"| {r.C.Id} | {r.C.Name} | {r.C.Type} | 「{WillRunClip(r.C.Desc, 70)}」 |");
+        }
+        sb.AppendLine();
+
+        // ---------------- ④ 段级总账（只 unit/hero）----------------
+        int bodiesAll = 0, nMiss = 0, nPaid = 0, nTwice = 0, orphCards = 0;
+        var orphLines = new List<string>();
+        foreach (var r in rows)
+        {
+            bodiesAll += r.Bodies.Count;
+            if (r.Orphans.Count > 0) orphCards++;
+            foreach (var b in r.Orphans)
+            {
+                if (b.Kind == WRSegMiss) nMiss++;
+                else if (b.Kind == WRSegPaid) nPaid++;
+                else if (b.Kind == WRSegTwice) nTwice++;
+                orphLines.Add(b.Kind + "｜" + r.C.Id + " " + r.C.Name + " [" + r.C.Type + "] `"
+                              + WillRunClip(b.Raw, 64) + "` (" + b.Where + ") ← " + b.Why);
+            }
+        }
+        int bodies = bodiesAll, orphans = nMiss + nPaid + nTwice;
+        Debug.Log(P + $"   ④ 段级（只 unit/hero）：卡面带正文的段 {bodies} 条 · 已收到 {bodies - orphans} 条 · "
+                  + $"**没收下来 {orphans} 条**（落在 {orphCards} 张卡上）：{WRSegMiss} {nMiss} · "
+                  + $"{WRSegPaid} {nPaid} · {WRSegTwice} {nTwice}");
+        sb.AppendLine("## ④ 段级总账（**只 unit/hero** —— 一张卡可以「收了一半」，那一半老口径照样报「全通」）");
+        sb.AppendLine();
+        sb.AppendLine($"卡面带正文的段 **{bodies}** 条 · 已收到 **{bodies - orphans}** 条 · **没收下来 {orphans} 条**"
+                    + $"（落在 {orphCards} 张卡上）");
+        sb.AppendLine();
+        sb.AppendLine($"- **{WRSegMiss}** —— 触发头没进 `TriggerTexts`（`CardDef.AddTriggerOp` 要求头在 "
+                    + "`CardDef.RoutableTriggers` 里）。**`A1386` 是这一族**： " + nMiss + " 条");
+        sb.AppendLine($"- **{WRSegPaid}** —— `N ☀:` / `N [Energy]:` 形状的付费能力段"
+                    + "（`WillRunOps` 的 unit/hero 支**压根不看这类段**）。⚠️ 是**覆盖面**的洞、不是「表里缺词」： "
+                    + nPaid + " 条");
+        sb.AppendLine($"- **{WRSegTwice}** —— 同一个头注册了、但 `desc` 与 `keywords` 两份正文**不一样**，"
+                    + "后者被「先到先得」丢掉（⚠️ **数据不一致**）： " + nTwice + " 条");
+        sb.AppendLine();
+        if (orphLines.Count > 0)
+        {
+            sb.AppendLine("### 没收下来的段逐条（⛔ **候选**，判决归调度台 / 引擎侧）");
+            sb.AppendLine();
+            foreach (var l in orphLines) sb.AppendLine("- " + l);
             sb.AppendLine();
         }
+
+        // ---------------- ⑤ 无头正文（口径同探针 `A1459`）----------------
+        int headAll = 0, headNone = 0, headNoneCards = 0, headAtTurn = 0, headCostWhen = 0;
+        var headOther = new Dictionary<string, int>();
+        var headNoneLines = new List<string>();
+        foreach (var r in rows)
+        {
+            bool anyNone = false;
+            foreach (var b in r.Headless)
+            {
+                headAll++;
+                if (b.Kind == WRHeadNone)
+                {
+                    headNone++; anyNone = true;
+                    var verbs = new List<string>();
+                    foreach (var o in b.Ops)
+                    {
+                        string v = o.Verb + (string.IsNullOrEmpty(o.Payload) ? "" : " " + o.Payload)
+                                 + (o.Amount != 0 ? " " + o.Amount : "");
+                        if (!verbs.Contains(v)) verbs.Add(v);
+                    }
+                    headNoneLines.Add(r.C.Id + " " + r.C.Name + " [" + r.C.Type + "] `"
+                                      + WillRunClip(b.Raw, 64) + "` (" + b.Where + ") → op " + WillRunJoin(verbs));
+                }
+                else if (b.Kind == WRHeadAtTurn) headAtTurn++;
+                else if (b.Kind == WRHeadCostWhen) headCostWhen++;
+                else
+                {
+                    int n; headOther.TryGetValue(b.Kind ?? "", out n);
+                    headOther[b.Kind ?? ""] = n + 1;
+                }
+            }
+            if (anyNone) headNoneCards++;
+        }
+        Debug.Log(P + $"   ⑤ 「无头正文」：无头段 {headAll} 条 · 🔴 **{WRHeadNone} {headNone} 条（{headNoneCards} 张卡）** · "
+                  + $"{WRHeadAtTurn} {headAtTurn} 条 · {WRHeadCostWhen} {headCostWhen} 条"
+                  + (headNoneLines.Count > 0 ? "：" + string.Join("、", headNoneLines) : ""));
+        sb.AppendLine("## ⑤ 🔴 「无头正文」逐句报账（口径同探针的 `A1459`）");
+        sb.AppendLine();
+        sb.AppendLine("🔴 **这一档为什么必须单开**：腿 B 只抽 `Head: body`（`AddWillRunFace` 里 `col <= 0` 直接 return）");
+        sb.AppendLine("⇒ 「**卡面没有头、又没被消费**」的句子只会掉进 ①「本来没正文」/ ③「未归因」，**永远不会被点名**。");
+        sb.AppendLine("实测后果（`A1459`）：`SW23` / `GSC71` / `GSC36` 三张真缺陷**正是因为这道缝**躲开清单 ——");
+        sb.AppendLine("它们各**还有一条别的 op**（`Rally` / `Strike` / `Uprising`）⇒ **腿 A ≠ 0** ⇒ 连「③ 未归因」都进不去。");
+        sb.AppendLine();
+        sb.AppendLine($"无头段（卡面没有 `Head:`、**主解析器**解得出 op、且**腿 A 一条都没收到**）共 **{headAll}** 条：");
+        sb.AppendLine();
+        sb.AppendLine($"- 🔴 **{WRHeadNone}** —— 三道闸全空 ⇒ **全仓没有任何一层会执行这句**： **{headNone}** 条（{headNoneCards} 张卡）");
+        sb.AppendLine($"- ⚠️ **{WRHeadAtTurn}** —— `EffectText.AtTurnClauses` 认领（`ResolveAtTurn:4792` 直接扫 `u.Card.Desc`）： {headAtTurn} 条");
+        sb.AppendLine($"- ⚠️ **{WRHeadCostWhen}** —— `CardDef.CostWhens` 认领（`FireCostWhen` 消费；`WillRunOps` 的六个来源里没有它）： {headCostWhen} 条");
+        foreach (var kv in headOther)
+            sb.AppendLine($"- ⚠️ **{kv.Key}** —— `CardDef.HandledByOtherLayer` 认领（判据转调引擎那一处，⛔ 不另写一套）： {kv.Value} 条");
+        sb.AppendLine();
+        sb.AppendLine("⛔ 三道闸（`HandledByOtherLayer` / `AtTurnClauses` / `CostWhens`）**全部转调引擎自己的公开面**，");
+        sb.AppendLine("本报表**一行新文法都没写** —— 这正是它不会误报的原因。");
+        sb.AppendLine();
+        if (headNoneLines.Count > 0)
+        {
+            sb.AppendLine($"### 🔴 「{WRHeadNone}」逐条（⛔ **候选**，判决归调度台 / 引擎侧）");
+            sb.AppendLine();
+            foreach (var l in headNoneLines) sb.AppendLine("- " + l);
+            sb.AppendLine();
+        }
+
         const string path = "d:/4/_tmp_view/willrun_mechanism.md";
         System.IO.File.WriteAllText(path, sb.ToString(), System.Text.Encoding.UTF8);
         Debug.Log(P + "   全量清单写到 " + path);
+        Debug.Log(P + $"   判据：**②「收漏了」= 0 张**、段级 **{WRSegMiss} / {WRSegPaid} 都为 0**、"
+                  + $"且 **⑤「{WRHeadNone}」= 0 条**；否则这把尺子**有真缺陷挂着**（⛔ 但**空表本身绝不算全通**，"
+                  + "那是这一笔修的东西）。「本来没正文」「未归因」"
+                  + $"「{WRSegTwice}」「{WRHeadAtTurn}」「{WRHeadCostWhen}」**不算缺陷**，但也**绝不混进「全通」**。");
+        Debug.Log(P + $"   现读：卡 {rows.Count} · 收到正文 {totalGot} · 空表 {totalEmpty}"
+                  + $"（本来没正文 {totalProse} / 收漏 {totalMissed} / 未归因 {totalUnattr}）"
+                  + $" · 段级没收下来 {orphans} 条 · 无消费点 {headNone} 条"
+                  + (totalMissed == 0 && nMiss == 0 && nPaid == 0 && headNone == 0 ? "   ⇒ 三档全零" : "   ⇒ **有东西挂着**"));
+
+        // ---------------- 灭自证哨兵 ----------------
+        // 🔴 下面两条哨兵是**本笔的验收核心**（`CLAUDE.md` §三「灭自证」+ `A1432`）：
+        //    「光断新写法对」**不够** —— 若**被测实现和它的检测器用同一个口**，
+        //    把**两边一起改回旧写法**依然全绿。所以这里钉的是一个**结构上不可能同时满足**的性质：
+        //      ① 合成卡的头 `Zzsentinel` **不在** `CardDef.RoutableTriggers` 里
+        //         ⇒ 腿 A（**注册结果**）**结构上收不到它**；
+        //      ② 而**卡面文本**写着 `Zzsentinel: Gain +1 Attack`、主解析器解得开
+        //         ⇒ 腿 B（**只借归一函数**）**必须看得见它**，并判成「② 收漏了」。
+        //    ⇒ 谁要是把腿 B 改成「从 `WillRunOps` 的结果里推」，①② 立刻互相打架、这条红。
+        {
+            var ctrl = new CardDef(id: "ZZCTRL_A1440A", name: "A1440 哨兵（腿 B 独立性）",
+                                   type: "unit", desc: "Zzsentinel: Gain +1 Attack",
+                                   rarity: "common", faction: "Sororitas",
+                                   cost: 1, attack: 1, health: 1, rangedAttack: 0,
+                                   keywords: new string[0], fromOriginalPool: true, subtype: "Infantry");
+            var ctrlPool = new List<CardDef> { ctrl };
+            var ctrlRow = MeasureWillRunRow(ctrl, null, ctrlPool);
+            CheckTrue(ctrlRow.RunOps.Count == 0,
+                      "★ `A1440` 哨兵①：合成卡的头 `Zzsentinel` **不在** `CardDef.RoutableTriggers` 里 ⇒ "
+                      + "腿 A（`EffectText.WillRunOps`，**注册结果**）**结构上收不到它**"
+                      + "（实得 " + ctrlRow.RunOps.Count + " 条 op）");
+            CheckTrue(ctrlRow.EmptyKind == WREmptyMissed && ctrlRow.Orphans.Count > 0,
+                      "★ `A1440` 哨兵②（**灭自证**）：**同一张卡**腿 B（**卡面文本**，只借归一函数）"
+                      + "**必须看得见**它 —— 卡面写着 `Zzsentinel: Gain +1 Attack`、主解析器解得开 ⇒ 判「② 收漏了」。"
+                      + "实得 空表档=「" + ctrlRow.EmptyKind + "」· 卡面段 " + ctrlRow.Bodies.Count
+                      + " 条 / 没收下来 " + ctrlRow.Orphans.Count + " 条。"
+                      + "⛔ **谁把腿 B 改成从腿 A 推，① 与 ② 立刻互相打架、这条红**"
+                      + "（这就是 `A1386` 那种「正文没收下来还报全通」的形状，改成可复现的哨兵钉住）");
+
+            // 哨兵③：**无头档**（⑤）也得看得见「没有头、又不被任何一层认领」的句子。
+            var ctrl2 = new CardDef(id: "ZZCTRL_A1440B", name: "A1440 哨兵（无头档 / 无消费点）",
+                                    type: "unit", desc: "Deal 1 damage to a random enemy",
+                                    rarity: "common", faction: "Sororitas",
+                                    cost: 1, attack: 1, health: 1, rangedAttack: 0,
+                                    keywords: new string[0], fromOriginalPool: true, subtype: "Infantry");
+            var ctrl2Row = MeasureWillRunRow(ctrl2, null, new List<CardDef> { ctrl2 });
+            bool sawNone = false;
+            foreach (var b in ctrl2Row.Headless) if (b.Kind == WRHeadNone) sawNone = true;
+            CheckTrue(sawNone,
+                      "★ `A1440` 哨兵③：合成卡 `Deal 1 damage to a random enemy`（**没有 `Head:`**）"
+                      + "必须落进 **⑤「" + WRHeadNone + "」** —— 卡面写着、主解析器解得开、腿 A 收不到、"
+                      + "且 `HandledByOtherLayer` / `AtTurnClauses` / `CostWhens` 三道闸全空"
+                      + "（实得 无头段 " + ctrl2Row.Headless.Count + " 条）。"
+                      + "⛔ 谁把三道闸里任何一道改成「一律认领」，这条红");
+        }
     }
+
+    /// <summary>把卡表的 `keywords` **原文条目**读回来 —— 腿 B 要的是**原始串**
+    /// （`Rally: All enemies lose Stealth` 这种整条），不是归一后的键。
+    ///
+    /// ⚠️ **为什么是读第二遍 JSON**：`CardDef` **不保留** `keywords` 原文 —— 它只留
+    ///   <see cref="CardDef.Keywords"/>（归一键）、数值角标（<see cref="CardDef.NumericKeywords"/>）、
+    ///   以及解出来的 `EffectSpec`。走的是**引擎自己那份 DTO**（<see cref="CardDatabase.FileDto"/>），
+    ///   ⛔ 不另写一套 JSON 形状（与 `工具/ruleprobe` 的 `Program.LoadPool` 读的是**同一列**）。
+    /// 取不到时**不静默**：返回 null，并让报表把这件事打出来（那时腿 B 缺 `keywords` 那一半，
+    /// 报表头部会写明 —— ⛔ 别把那次的读数当全账）。</summary>
+    static Dictionary<string, List<string>> LoadRawKeywordEntries(out string note)
+    {
+        var asset = Resources.Load<TextAsset>(CardDatabase.ResourcePath);
+        if (asset == null)
+        {
+            note = "🔴 **读不到** `Resources/" + CardDatabase.ResourcePath + ".json` ⇒ 腿 B 缺 `keywords` 那一半（⛔ 别把这次的读数当全账）";
+            return null;
+        }
+        var dto = JsonUtility.FromJson<CardDatabase.FileDto>(asset.text);
+        if (dto == null || dto.cards == null)
+        {
+            note = "🔴 `JsonUtility` 解不出 `CardDatabase.FileDto` ⇒ 腿 B 缺 `keywords` 那一半（⛔ 别把这次的读数当全账）";
+            return null;
+        }
+        var map = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        foreach (var c in dto.cards)
+        {
+            if (c == null || string.IsNullOrEmpty(c.name)) continue;
+            string cid = string.IsNullOrEmpty(c.id) ? c.name : c.id;   // 与 `CardDatabase.Parse` 是同一句
+            var kws = new List<string>();
+            if (c.keywords != null) foreach (var k in c.keywords) if (!string.IsNullOrEmpty(k)) kws.Add(k);
+            map[cid] = kws;
+        }
+        note = "从 `Resources/" + CardDatabase.ResourcePath + ".json` 的 `keywords` 列读回 " + map.Count + " 张（按 `id` 对账）";
+        return map;
+    }
+
+    // ==================================================================
+    //  `A1440` 的**纯逻辑块** —— 🔴 **这一段里⛔ 不许出现任何 Unity 类型**
+    //  （`Debug.Log` / `Resources` / `JsonUtility` / `Application` … 一个都不许）。
+    //  理由：仓库外的**构造性实测**（`D:/tmp/wf_a1440/*`）**逐字节抽这一段**，
+    //  连同 `RuleEngine/Core/*.cs` 的副本一起单独编译、跑变异前后的对照 ——
+    //  `Core/` 本来就是「能单独编」的（判据见 `工具/ruleprobe/ruleprobe.csproj` 末尾那段）。
+    //  ⇒ 往这一段里加 Unity 调用 = **那次实测当场失效**，而它不会报错、只会静默少测。
+    //  ↓↓↓ [A1440-PURE-BEGIN] ↓↓↓（抽的时候连这两个标记行一起抽，靠它定位）
+    // ==================================================================
+
+    /// <summary>空表三档 —— 口径与探针 `WillRun.cs` 的 `EmptyKind` **逐字一致**（两处改要一起改）。</summary>
+    const string WREmptyProse = "本来没正文";    // ① 卡面上没有任何「可执行正文段」。**不是缺陷**，但必须报出来
+    const string WREmptyMissed = "收漏了";       // ② 卡面写着可解析的正文、执行层一条都没收到。🔴 **缺陷**
+    const string WREmptyUnattr = "未归因";       // ③ 收 0 条、卡面没有 `Head:` 段，但主解析器对整条 desc 解得出 op
+
+    /// <summary>段级三档 —— 口径与探针 <c>WillRun.KMiss/KPaid/KTwice</c> **逐字一致**。</summary>
+    const string WRSegMiss = "收漏";             // 触发头没进本卡 `TriggerTexts`（`A1386` 那一族）
+    const string WRSegPaid = "付费段";           // `N ☀:` 形状的付费能力段 —— `WillRunOps` 的 unit/hero 支压根不看
+    const string WRSegTwice = "同头两写";        // 同一个头注册过、但两份正文不一样（数据不一致）
+
+    /// <summary>无头档三档 —— 口径与探针 <c>WillRun.KHNone/KHAtTurn/KHCostWhen</c> **逐字一致**。</summary>
+    const string WRHeadNone = "无消费点";        // 三道闸全空 ⇒ 全仓没有任何一层会执行这句。🔴 **缺陷**
+    const string WRHeadAtTurn = "回合起止";      // `EffectText.AtTurnClauses` 认领（`ResolveAtTurn:4792` 直接扫 desc）
+    const string WRHeadCostWhen = "降费触发器";  // `CardDef.CostWhens` 认领（`FireCostWhen` 消费）
+
+    /// <summary>卡面上一段**可执行的正文**：`Head: body` 形状，且 `body` 主解析器解得出 op。
+    /// ⚠️ `public` 是为了让**仓库外**那份构造性实测能拿到它（`D:/tmp/wf_a1440` 逐字节抽纯逻辑块单独编译）——
+    ///   嵌在类里的类型默认是 `private`，抽取出去的宿主类就看不见了。别改成 `internal`（跨程序集）。</summary>
+    public class WillRunFace
+    {
+        public string Head;          // 小写、去首尾空白（口径照 `CardDef.AddTriggerOp` 里那句）
+        public string Text;          // 正文原文（`:` 之后那半句）
+        public string Raw;           // 整段原文（报表里显示）
+        public string Where;         // `desc 第N句` / `keywords[i]`
+        public List<EffectOp> Ops;
+        public string Kind = "";     // 没收下来 / 没消费点时的档（`收漏` / `付费段` / `同头两写` / …）
+        public string Why = "";      // 上面那一档的人话
+    }
+
+    /// <summary>一张卡在「正文收到没有」这把尺子上的账 —— 与探针 <c>WillRun.Row</c> **同口径**。
+    /// ⚠️ `public` 的理由同 <see cref="WillRunFace"/>（仓库外那次单独编译）。</summary>
+    public class WillRunRow
+    {
+        public CardDef C;
+        public List<EffectOp> RunOps = new List<EffectOp>();     // 腿 A：执行层收到的 op
+        public List<string> NoMech = new List<string>();          // 老口径里「没机制」的原因 + 出处
+        public bool OldPass = true;                               // 老口径（**空表算通**，保留供对照）
+        public List<WillRunFace> Bodies = new List<WillRunFace>();   // 腿 B：卡面上带正文的段（只 unit/hero）
+        public List<WillRunFace> Orphans = new List<WillRunFace>();  // 其中没被收到的
+        public List<WillRunFace> Headless = new List<WillRunFace>(); // ⑤ 无头段
+        public string EmptyKind = "";                             // 空表三档
+        public bool MissingRawKw;                                 // ⚠️ 这张卡没拿到 `keywords` 原文（腿 B 会少一半）
+    }
+
+    /// <summary>⚠️ **op 的身份【不含 `Source`】** —— 这一点是探针实测踩出来的，两边同一把尺子，别加回去：
+    ///   同一个正文，**不同采集点解析出来 `Source` 不同**（`CardDef.AddTriggerOp:1340` 存 `Parse(body)`
+    ///   ⇒ `Source` 是正文那半句；`CardDef.CollectSpiritOps:1000` 存 `Parse(Desc)` 挑出来的 op
+    ///   ⇒ `Source` 是整句）⇒ **拿 `Source` 逐字比对会把 50 条已经收到的段误报成「收漏」**
+    ///   （实测：ASH 那一族灵魂石卡全中招）。⇒ 只比 `verb / amount / payload / target` 四样。</summary>
+    static string WillRunSig(EffectOp o)
+    {
+        return (o.Verb ?? "") + "\u0001" + o.Amount + "\u0001" + (o.Payload ?? "")
+             + "\u0001" + (o.Target == null ? "" : (o.Target.Raw ?? ""));
+    }
+
+    /// <summary>全池逐卡算一遍。`rawKw` **允许为 null**（那时腿 B 缺 `keywords` 那一半，
+    /// 受影响的行会给 <see cref="WillRunRow.MissingRawKw"/> 留痕，⛔ 不静默少算）。</summary>
+    static List<WillRunRow> MeasureWillRunRows(IReadOnlyList<CardDef> pool,
+                                               IReadOnlyDictionary<string, List<string>> rawKw)
+    {
+        var rows = new List<WillRunRow>();
+        if (pool == null) return rows;
+        foreach (var c in pool)
+        {
+            if (c == null) continue;
+            List<string> kw = null;
+            if (rawKw != null && !string.IsNullOrEmpty(c.Id)) rawKw.TryGetValue(c.Id, out kw);
+            var row = MeasureWillRunRow(c, kw, pool);
+            if (kw == null && (c.Type == "unit" || c.Type == "hero")) row.MissingRawKw = true;
+            rows.Add(row);
+        }
+        return rows;
+    }
+
+    /// <summary>一张卡的账（**两条腿**，见 <see cref="ReportWillRunMechanism"/> 的说明）。</summary>
+    static WillRunRow MeasureWillRunRow(CardDef c, List<string> rawKw, IReadOnlyList<CardDef> pool)
+    {
+        var row = new WillRunRow { C = c };
+
+        // ---- 腿 A：执行层收到了什么（**老口径那个循环原样留着，供并排对照**）----
+        row.RunOps = EffectText.WillRunOps(c) ?? new List<EffectOp>();
+        row.OldPass = true;
+        foreach (var op in row.RunOps)
+        {
+            string why; bool imprecise;
+            if (EffectText.OpHasMechanism(op, c.Faction, pool, out why, out imprecise)) continue;
+            row.OldPass = false;
+            row.NoMech.Add((imprecise ? "打得宽" : "没机制") + "：" + why);
+        }
+
+        // ---- 腿 B：卡面上写着哪些「可执行正文」（**独立于腿 A**；只 unit/hero）----
+        //   为什么只做 unit/hero：`tactic`/`defence` 的 `WillRunOps` **就是** `Parse(c.Desc)`
+        //   （整条 desc 一次解析，子效果藏在 `chooseone` 的 `ChooseWhat` 或 `give "…"` 的引号里）
+        //   ⇒ 按「段」对账会产生**假警报**（实测 `ASH83` 的 `Choose one:`、`BL4` 的
+        //   `Your Warlord gains "Blast 2 and Slay: …"` 两族被逐条误报过）。
+        if (c.Type == "unit" || c.Type == "hero")
+        {
+            var segs = EffectText.Split(c.Desc);
+            for (int i = 0; i < segs.Count; i++)
+                AddWillRunFace(row.Bodies, c, segs[i], "desc 第" + (i + 1) + "句");
+            if (rawKw != null)
+                for (int i = 0; i < rawKw.Count; i++)
+                    AddWillRunFace(row.Bodies, c, rawKw[i], "keywords[" + i + "]");
+
+            var got = new HashSet<string>();
+            foreach (var o in row.RunOps) got.Add(WillRunSig(o));
+            foreach (var b in row.Bodies)
+            {
+                bool hit = false;
+                foreach (var o in b.Ops) if (got.Contains(WillRunSig(o))) { hit = true; break; }
+                if (hit) continue;
+                ClassifyWillRunFace(c, b);
+                row.Orphans.Add(b);
+            }
+
+            // ---- ⑤ 无头档：**卡面没有 `Head:`** 的段（腿 B 结构上抽不到的那一半）----
+            //   ① 无头（`col <= 0`，与 `AddWillRunFace` 拒收用的是**同一个表达式**）
+            //   ② 主解析器对它解得出一批 op
+            //   ③ 那批 op **一条都不在腿 A 里**（按 `WillRunSig` 比，与腿 B 同一把尺子）
+            //   ④ **没有任何别的层认领它**（`HandledByOtherLayer` / `AtTurnClauses` / `CostWhens`）
+            var heads = new List<WillRunFace>();
+            for (int i = 0; i < segs.Count; i++)
+                AddWillRunHeadless(heads, c, segs[i], "desc 第" + (i + 1) + "句");
+            if (rawKw != null)
+                for (int i = 0; i < rawKw.Count; i++)
+                    AddWillRunHeadless(heads, c, rawKw[i], "keywords[" + i + "]");
+            foreach (var b in heads)
+            {
+                bool hit = false;
+                foreach (var o in b.Ops) if (got.Contains(WillRunSig(o))) { hit = true; break; }
+                if (hit) continue;              // 腿 A 已经收到这一句 ⇒ 不归本档（那是「收到了」）
+                ClassifyWillRunHeadless(c, b);
+                row.Headless.Add(b);
+            }
+        }
+
+        // ---- 空表三档（`A1432` 的正面判据）----
+        if (row.RunOps.Count == 0)
+        {
+            if (row.Orphans.Count > 0) row.EmptyKind = WREmptyMissed;
+            else
+            {
+                var descOps = EffectText.Parse(c.Desc, out _, out _);
+                row.EmptyKind = (descOps != null && descOps.Count > 0) ? WREmptyUnattr : WREmptyProse;
+            }
+        }
+        return row;
+    }
+
+    /// <summary>一条卡面段 → 若它是 `Head: body` 形状、且 `body` 主解析器解得出 op，收进 <paramref name="into"/>。
+    ///
+    /// ⚠️ **归一照 `CardDef.AddTriggerOp` 的口径**（`StripLeadingIcons` 之后再找第一个 `:`）——
+    ///   卡面把触发关键词印成图标（`⚡ Rally: …`）时，不剥字形 `head` 会变成 `⚡ rally`。
+    ///
+    /// 🔴 **必须先问一句「这一句是不是已经由别的层接手了」**（转调 `CardDef.HandledByOtherLayer`）——
+    ///   否则有**假警报**：`Talent: Deploy Anchors`（`TAU45 Stormsurge Battlesuit`）里
+    ///   `Deploy Anchors` **恰好解得出一条 `deploy` op**，而它是**天赋名**、归
+    ///   `TalentName` + `RuleCore.SpawnTalents` 那一层，**根本不是正文**（探针实测被误报过）。
+    ///   同族还有 `Companion N: <卡名>` / 光环 / 开局上手 —— 引擎自己有「谁接手」的判据，
+    ///   ⛔ 别在这里另写一套。
+    ///
+    /// ⚠️ **同一段正文在 `desc` 和 `keywords` 里各印一遍是常态**（实测 `ASH32 Dire Avenger Exarch`
+    ///   两处都是 `Rally: All enemies lose Stealth and Camouflage`）⇒ 按「头 + 正文」去重，
+    ///   否则**同一个洞会被数两次**、把「收漏了几条」这个数灌水。
+    ///   ⛔ 去重键**不含 `where`**：段落在哪儿印的不改变它是一条正文这件事。</summary>
+    static void AddWillRunFace(List<WillRunFace> into, CardDef c, string seg, string where)
+    {
+        if (string.IsNullOrEmpty(seg)) return;
+        string s = EffectText.StripLeadingIcons(seg.Trim());
+        if (string.IsNullOrEmpty(s)) return;
+        int col = s.IndexOf(':');
+        if (col <= 0) return;
+        string head = s.Substring(0, col).Trim().ToLowerInvariant();
+        string body = s.Substring(col + 1).Trim();
+        if (head.Length == 0 || body.Length == 0) return;
+        var ops = EffectText.Parse(body, out _, out _);
+        if (ops == null || ops.Count == 0) return;                 // 解不出来的段不是「可执行正文」
+        if (CardDef.HandledByOtherLayer(c, seg) != null) return;   // 已有别的层接手 ⇒ 不是「漏」
+        string key = head + "\u0001" + body;
+        foreach (var x in into) if (x.Head + "\u0001" + x.Text == key) return;
+        into.Add(new WillRunFace { Head = head, Text = body, Raw = s, Where = where, Ops = ops });
+    }
+
+    /// <summary>收一条「无头段」—— 卡面**没有 `Head:`**、而**主解析器**解得出一批 op 的段。
+    ///
+    /// 🔴 **它补的是哪道缝**：<see cref="AddWillRunFace"/> 在 `col &lt;= 0`（= 这一句没有 `Head:`）时
+    ///   **直接 return** ⇒ 「卡面没有头、又没被消费」的句子**永远不可能是腿 B 的段**、也就**永远不会进任何一档**。
+    ///   实测后果（探针 `A1459`）：`SW23 Hrolf the Ironhowl`（`Friendly Beasts cost 1 less.`）/
+    ///   `GSC71 Atalan Leader`（`Friendly Vehicles cost 1 less.`）/ `GSC36 Metamorph Leader`
+    ///   （`Your troops cost 1 less.`）**三张真缺陷**正是**因为这道缝**躲开了清单。
+    ///
+    /// ⚠️ **「无头」的判据 = `AddWillRunFace` 拒收那一条的【同一个表达式】**（`s.IndexOf(':') &gt; 0` 才算有头）——
+    ///   在这里另写一套「什么叫头」迟早会和腿 B 不一致（本仓红线：两处写同一条规则 = 迟早不一致）。
+    /// ⚠️ **只对 `unit` / `hero` 走这一档**（与腿 B 同一个范围）：`tactic` / `defence` 的腿 A **就是**
+    ///   `Parse(c.Desc)` ⇒ 这一类卡的「无头句」早就被腿 A 收到了，走这一档只会**重复记账**。</summary>
+    static void AddWillRunHeadless(List<WillRunFace> into, CardDef c, string seg, string where)
+    {
+        if (string.IsNullOrEmpty(seg)) return;
+        string s = EffectText.StripLeadingIcons(seg.Trim());
+        if (string.IsNullOrEmpty(s)) return;
+        if (s.IndexOf(':') > 0) return;                    // 有 `Head:` ⇒ 归腿 B（同一表达式，见 summary）
+        var ops = EffectText.Parse(s, out _, out _);
+        if (ops == null || ops.Count == 0) return;         // 解不出来的段不是「可执行正文」
+        foreach (var x in into) if (x.Raw == s) return;    // 按段原文去重
+        into.Add(new WillRunFace { Head = "", Text = s, Raw = s, Where = where, Ops = ops });
+    }
+
+    /// <summary>给一条「无头段」定性（**先问「有没有别人认领」，再问「解不解得出 op」**）。
+    ///
+    /// 🔴 **三道闸全部【转调引擎自己的判据】，一行新文法都不写** —— 理由与 `AddWillRunFace` 转调
+    ///    `HandledByOtherLayer` 完全一样（本仓红线：⛔ 别另写一套「谁接手」）：
+    ///    1. `CardDef.HandledByOtherLayer` —— 事件层 / 天赋 / 伴生 / 开局上手 / 光环 / 静态改战斗规则；
+    ///    2. `EffectText.AtTurnClauses` —— **回合起止从句**：它**不在** `WillRunOps` 里，
+    ///       由 `EffectResolver.ResolveAtTurn:4792` 直接扫 `u.Card.Desc` 消费 ⇒ 无头、解得开、腿 A = 0，
+    ///       **但它确实在跑**（`AM15 Master of Ordnance` 那一批）。
+    ///       ⚠️ **不加这道闸会把这一族整整 19 条误报成「无消费点」**（探针实测：本档最容易误报的一处）；
+    ///    3. `CardDef.CostWhens` 的 `Body` —— **降费触发器**（`Lower cost by N every time …`，
+    ///       `TL83 Norn Emissary`）：`_costWhens` **不经过 `WillRunOps`**（那个方法只收
+    ///       `WhenTriggers`/`TriggerTexts`/`SpiritOps`/`OathOps`/`AttackedOps`/`AuraSpecs` 六个来源）
+    ///       ⇒ 同样会「无头 + 解得开 + 腿 A = 0」，**而 `FireCostWhen` 在吃它**。⚠️ 不加会误报 `TL83`。
+    ///
+    /// 三道闸都没认领 ⇒ <see cref="WRHeadNone"/>：**这句卡面正文【没有任何一层会执行】**（不是「查不到」，
+    ///   是「全仓唯一读 `u.Card.Desc` 的地方只有 `ResolveAtTurn`，而它只收回合起止从句」）。</summary>
+    static void ClassifyWillRunHeadless(CardDef c, WillRunFace b)
+    {
+        string layer = CardDef.HandledByOtherLayer(c, b.Raw);
+        if (layer != null)
+        {
+            b.Kind = layer;
+            b.Why = "由「" + layer + "」接手（判据转调 `CardDef.HandledByOtherLayer`）";
+            return;
+        }
+        if (EffectText.AtTurnClauses(b.Raw).Count > 0)
+        {
+            b.Kind = WRHeadAtTurn;
+            b.Why = "回合起止从句 —— `ResolveAtTurn:4792` 直接扫 `u.Card.Desc`，"
+                  + "**不经过 `WillRunOps`**（所以腿 A 里没有它，但它确实在跑）";
+            return;
+        }
+        var cws = c.CostWhens;
+        if (cws != null)
+            foreach (var cw in cws)
+                if (cw != null && string.Equals((cw.Body ?? "").Trim(), b.Raw,
+                                                StringComparison.OrdinalIgnoreCase))
+                {
+                    b.Kind = WRHeadCostWhen;
+                    b.Why = "降费触发器（`CardDef.CostWhens`，由 `FireCostWhen` 消费）"
+                          + " —— `WillRunOps` 的六个来源里**没有** `_costWhens`";
+                    return;
+                }
+        b.Kind = WRHeadNone;
+        b.Why = "卡面写着、主解析器解得出 op，而腿 A 一条都没收到、"
+              + "**也没有任何别的层认领它**（`HandledByOtherLayer` / 回合起止 / 降费触发器三道闸全空）";
+    }
+
+    /// <summary>给一条「没收下来」的段定性（三档，判据全在**引擎的公开面**上，⛔ 不新写文法）。</summary>
+    static void ClassifyWillRunFace(CardDef c, WillRunFace b)
+    {
+        // ① 同一个头**本卡注册过**（`TriggerTexts` 是公开面）⇒ 两份正文不一样，后者被「先到先得」丢了。
+        //    实测（探针，同一族两例）：`ASH79 Howling Banshee Exarch` 的 `Strike` 在 `desc` 里写
+        //    `Give +1 [Attack] to your units`、在 `keywords` 里写 `Give +1 to your units`；
+        //    `DA9 Ravenwing Bikes` 的 `Agenda` 在两处写 `Gain 1 Quest Point` / `Gain 1`。
+        //    ⚠️ 这不是「空转」（效果照样由另一份跑）⇒ **单独一档、不算缺陷**。
+        var tt = c.TriggerTexts;
+        if (tt != null && tt.ContainsKey(b.Head))
+        {
+            b.Kind = WRSegTwice;
+            b.Why = "这个头本卡注册过（`TriggerTexts[\"" + b.Head + "\"]` = `" + WillRunClip(tt[b.Head], 50)
+                  + "`）—— `desc` / `keywords` 两份正文**不一样**，后者被先到先得丢掉";
+            return;
+        }
+
+        // ② `N ☀:` / `N [Energy]:` / `N [Spirit Stone]:` 形状 —— 「付 N 点换这个效果」的**付费能力段**。
+        //    🔴 它**不是触发头**，`WillRunOps` 的 unit/hero 那一支也不看它
+        //    （六个来源：`WhenTriggers` / `TriggerTexts` / `SpiritOps` / `OathOps` / `AttackedOps` / `AuraSpecs`）
+        //    ⇒ 这是**覆盖面**的洞，不是「表里缺词」。
+        //    ⚠️ 那个 `☀`（U+2600）用转义写，免得这份源码的编码把判据悄悄改掉（`\u2600` 就是它）。
+        if (System.Text.RegularExpressions.Regex.IsMatch(b.Head, "^\\d+\\s*[\\[\\(]?\\s*[a-z\\u2600]"))
+        {
+            b.Kind = WRSegPaid;
+            b.Why = "付费能力段（`N ☀:` / `N [Energy]:` 形状）—— `WillRunOps` 的 unit/hero 支不收这类段";
+            return;
+        }
+
+        // ③ 其余 = **触发头没进 `TriggerTexts`** ⇒ `A1386` 那一族。
+        b.Kind = WRSegMiss;
+        b.Why = "触发头 `" + b.Head + ":` 没进本卡的 `TriggerTexts`"
+              + "（`CardDef.AddTriggerOp` 要求它在 `CardDef.RoutableTriggers` 里）";
+    }
+
+    /// <summary>取某类型的行。</summary>
+    static List<WillRunRow> WillRunRowsOfType(List<WillRunRow> rows, string t)
+    {
+        var g = new List<WillRunRow>();
+        foreach (var r in rows) if (r.C != null && (r.C.Type ?? "") == t) g.Add(r);
+        return g;
+    }
+
+    /// <summary>计数（不引 LINQ —— 这个文件里既有的写法就是不引）。</summary>
+    static int WillRunCount(List<WillRunRow> g, Func<WillRunRow, bool> f)
+    {
+        int n = 0;
+        foreach (var r in g) if (f(r)) n++;
+        return n;
+    }
+
+    /// <summary>卡名列表（报表点名用）。</summary>
+    static string WillRunNames(List<WillRunRow> g)
+    {
+        var names = new List<string>();
+        foreach (var r in g) names.Add(r.C.Id + " " + r.C.Name);
+        return string.Join("、", names);
+    }
+
+    /// <summary>去重后的字符串列表拼接（段档 / op 动词两种点名共用）。</summary>
+    static string WillRunJoin(List<string> xs)
+    {
+        var seen = new List<string>();
+        foreach (var x in xs) if (!seen.Contains(x)) seen.Add(x);
+        return string.Join(" ／ ", seen);
+    }
+
+    /// <summary>截断（报表里显示原文用）。</summary>
+    static string WillRunClip(string s, int n)
+    {
+        if (string.IsNullOrEmpty(s)) return "";
+        return s.Length <= n ? s : s.Substring(0, n) + "…";
+    }
+
+    // ==================================================================
+    //  ↑↑↑ [A1440-PURE-END] ↑↑↑ —— 这以上（含本行）到 `[A1440-PURE-BEGIN]` 之间是纯逻辑块
+    // ==================================================================
 
     // ==================================================================
     //  待办第 11 行 ① 从句级尺子（2026-09-19）

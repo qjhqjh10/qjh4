@@ -3335,6 +3335,23 @@ public static class CollectionScene
                               + (bgq != null && bgq.Texture != null ? bgq.Texture.name : "<没取到>") + "`）");
                     if (bg != null)
                     {
+                        // 🆕 **2026-10-19（`#86` · 账 `A1346`）**：**「前提·父链缩放」**（本批**第 10 处**）。
+                        //   同形先例 = `Editor/MainMenuScene.cs` 的 `CheckParentScaleUnit`（那一族 9 处；
+                        //   ⚠️ **本文件原来一条都没有** —— 别去 `CollectionScene.cs` 里找同形的那一族）。
+                        // 🔴 为什么它是**前提**：下面那四沿走的是**乙式**
+                        //   （`MenuDraw.UnionQuadRectPx` → `PosInDesignSpace`，**先把父级缩放除回去**）；
+                        //   `A1330` 收口**之前**是**甲式**（裸 `position` × 108）。
+                        //   **两式只在「父链单位缩放」时逐位相同**（差 ≤2.5e-4 px）⇒「这一处该量到什么」
+                        //   依赖这条前提。⚠️ 它红了说明两式在这一处本来就不等价 ⇒ 要改的是**期望值的口径**
+                        //   （按**乙式** = 设计矩形重算），⛔ **不是**把实现改回甲式。
+                        // ⚠️ 本处已有 `CheckScaleTwo`（`:719`，**写侧**两态夹具）—— ⛔ **两者不许合并**：
+                        //   那一条的期望方向是 `p2 == M × p1`（写侧），本族要的是**读侧** `p2 == p1`
+                        //   （判据 → 本文件 `CheckScaleTwo` 的文件头 / `Shell/MenuDraw.cs:57-61`）。
+                        CheckNear(bg.lossyScale.x, 1f, 1e-3f,
+                                  "（前提·父链缩放）`Army Selector/Background` 的 `lossyScale.x` = 1"
+                                + "（= 该处的**乙式**读口（`MenuDraw.UnionQuadRectPx`，先除回父级缩放）与"
+                                + "**甲式**（裸 `position`×108）逐位相同那一档；⚠️ 条红了该改的是**期望值口径**，"
+                                + "⛔ 不是把实现改回甲式）");
                         var pc = LayoutSpace.ToPixel(bg.position);
                         CheckNear(pc.x, 157.98f, 1.5f,
                                   "★ 底图中心 x = **69.42..246.54 的中点**（= `Army Selector` 自己那一格）");

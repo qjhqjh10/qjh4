@@ -135,6 +135,31 @@ public static class MainMenuScene
     static void CheckNear(float got, float want, float tol, string msg)
         => MenuCheck.Near(_sink, got, want, tol, msg);
 
+    /// <summary>🆕 **2026-10-19（`#69`/`#72` · 账 `A1346`/`A1350`）**：**「这一处量的那个根，父链是单位缩放」**
+    /// 这条**前提** —— 把原来只写在注释里的那句话升成断言。
+    /// 同形先例（**按符号名现读，⛔ 别抄行号**）= 本文件 `§A332` 那个 `mbox` lambda 里的那一条、
+    /// 以及练习窗 `§A218` / `§A332` 那两处（`grep -n "lossyScale.x, 1f, 1e-3f" MainMenuScene.cs`）。
+    /// 本批这 9 处（`#1`–`#9`）都走它；**第 10 处** = `Editor/CollectionScene.cs` 的练习窗底图（那一处没抽助手）。
+    ///
+    /// <para>🔴 **为什么它是前提、不是结论**：这几处量矩形走的读口是**乙式**
+    /// （`MenuDraw.UnionQuadRectPx` → `QuadRectPx` → `PosInDesignSpace`，**先把父级缩放除回去**），
+    /// 而 `A1330` 收口**之前**是**甲式**（裸 `position` × 108）。**两式只在「父链单位缩放」时逐位相同**
+    /// （差 ≤2.5e-4 px，判据 → `Shell/MenuDraw.cs` 的 `QuadRectPx` doc + `LayoutSpace.ToDesignPixel` 那条
+    /// 「16:9 下 ≤2.5e-4 px」）⇒「这一处究竟该量到什么」**依赖这条前提**。</para>
+    ///
+    /// <para>⚠️ **它红了该怎么处理**：说明**乙式与甲式在这一处本来就不等价** ⇒ 要改的是**期望值的口径**
+    /// （按**乙式** = 设计矩形重算），⛔ **不是**把实现改回甲式
+    /// —— 改回去等于把「父件带缩放时报错的落位」当成对的（`Shell/MenuDraw.cs:57-61` 写死了适用范围）。</para>
+    ///
+    /// <para>⛔ **不许省**：省掉它，「乙式 == 甲式」就只剩注释里的自称；也**不许**拿它当「实现在不在乙式」
+    /// 的判据（那是 `#70` / `#83` 两条**真两态夹具**的活，见 `CheckUnionReadTwoState` /
+    /// `CheckQuadPxRectUnderScaledParent`）。`t == null` ⇒ 实得 **−1** ⇒ **显式报红**（⛔ 不静默跳过）。</para></summary>
+    static void CheckParentScaleUnit(Transform t, string what)
+        => CheckNear(t != null ? t.lossyScale.x : -1f, 1f, 1e-3f,
+                     $"（前提·父链缩放）{what} 的 `lossyScale.x` = 1（= 该处的**乙式**读口"
+                   + "（`MenuDraw.UnionQuadRectPx`，先把父级缩放除回去）与**甲式**（裸 `position`×108）"
+                   + "逐位相同那一档；⚠️ 条红了该改的是**期望值口径**，⛔ 不是把实现改回甲式）");
+
     /// <summary>世界坐标比对（±0.01 世界单位 ≈ ±1 px）。</summary>
     static void CheckAt(Transform t, float x1, float x2, float y1, float y2, string what)
     {
@@ -1038,7 +1063,11 @@ public static class MainMenuScene
                 int inRange = 0, tot = 0;
                 for (int i = 0; rc0 != null && i < rc0.childCount; i++)
                 {
-                    var pu0 = quadUnion(FindChild(rc0.GetChild(i), "Resource Bar Background"));
+                    var pu0Pill = FindChild(rc0.GetChild(i), "Resource Bar Background");
+                    // 🆕 **2026-10-19（`#69`/`#72` · 账 `A1346`）**：把「量的那个根父链是单位缩放」
+                    //   从注释升成断言（本批 9 处里的 `#1`）。判据 = 本文件 `CheckParentScaleUnit` 的头。
+                    CheckParentScaleUnit(pu0Pill, $"第 {i + 1} 格那颗药丸 `Resource Bar Background`");
+                    var pu0 = quadUnion(pu0Pill);
                     if (!pu0.HasValue) continue;
                     // ⚠️ `quadUnion` 返的是**设计 px**（它走 `MenuDraw.UnionQuadRectPx` —— 🆕 2026-10-10 A1330
                     //    收口前是甲式 `PxX/PxY`，两式在单位缩放 + `DesignAspect` 下差 ≤2.5e-4 px）；
@@ -1255,6 +1284,28 @@ public static class MainMenuScene
             MainMenuRuntime.EnergyInResourcesBar = false;
             MainMenuRuntime.ClearCounterForTest();
             Object.DestroyImmediate(pgo);
+        }
+
+        // ============================================================ 🆕 2026-10-19（`#70`/`#83` · 账 `A1346`/`A1350`）
+        //  **读侧两态**：`A1330` 把那十处量法从**甲式**（裸 `position`）收口到**乙式**
+        //  （`MenuDraw.UnionQuadRectPx` → `PosInDesignSpace` 先除回父级缩放）——
+        //  ⚠️ 而本宿主**生产态是单位缩放** ⇒ 两式**逐位相同**（差 ≤2.5e-4 px）
+        //  ⇒ 那十处的既有断言**一条都分不出两者**：它们今天全绿**不是**「有断言挡着」、是**巧合相同**。
+        //  🔴 唯一能分开两态的判据 = **父链真带缩放** ⇒ 本节两条探针就是干这个的。
+        //  ⛔ 这是**我们自建的探针树**（不是生产里那十棵树）：`#2`/`#5`/`#8` 的行底是建窗时一次成型的，
+        //     没有「只重建某一棵子树」的入口 ⇒ 逐处挂夹具 = 重跑整扇窗。⇒ 一处覆盖**同一份共用读口**。
+        // ============================================================
+        Section("★ A1346/A1350 读侧两态：父链带缩放时，量到的仍是**设计矩形**（乙式）");
+        {
+            var a1346Host = new GameObject("A1346 UnionReadTwoState Probe");   // 世界原点 · 不在任何窗的父链上
+            try
+            {
+                // 判据 / 夹具形状 / 两条硬约束 → `CheckUnionReadTwoState` 与 `CheckQuadPxRectUnderScaledParent` 的头
+                CheckUnionReadTwoState(a1346Host.transform, 1.07f,
+                                       "`A1346` 探针九宫格根（`MenuDraw.Nine` 建）");
+                CheckQuadPxRectUnderScaledParent("`A1350` `QuadPxRect`（父链 ×2 的探针 quad）");
+            }
+            finally { Object.DestroyImmediate(a1346Host); }
         }
 
         var prof = FindChild(bar, "Player Profile");
@@ -4539,6 +4590,9 @@ public static class MainMenuScene
                                 // ---- （A）行底九宫格：**部分块被截 · 部分块被 `SetActive(false)` 关掉** ----
                                 {
                                     var bltBg = bltEd != null ? FindChild(bltEd, "Background") : null;
+                                    // 🆕 **2026-10-19（`#69` · 账 `A1346`）**：`#2` 那条「前提·父链缩放」
+                                    //   （判据 → `CheckParentScaleUnit` 的头）。
+                                    CheckParentScaleUnit(bltBg, "`A833` 压边行的行底 `Background`");
                                     float bltBgTop = float.MaxValue, bltBgBot = float.MinValue;
                                     int bltLive = 0, bltHide = 0;
                                     if (bltBg != null)
@@ -4568,6 +4622,9 @@ public static class MainMenuScene
                                               + $"（还在画 {bltLive} 块 / 关掉的 {bltHide} 块）"
                                               + "｜改坏法：删掉 `Shell/MenuDraw.cs` 的 `Nine` 里那句 "
                                               + "`if (partial) ClipNineChildren(go, clip.Value);` ⇒ 关掉/截短都不发生 ⇒ 本条红");
+                                    // 🆕 **2026-10-19（`#71`/`#74` · 账 `A1346`）**：块数守恒 + 「激活的块一定量得到」
+                                    //   （判据 → `CheckUnionBlockCount` 的头）。⚠️ 既有那条只断 `live>0 && hide>0`。
+                                    CheckUnionBlockCount(bltBg, bltLive, bltHide, "`A833`（档案窗宿主）压边行的行底九宫格");
                                     CheckNear(bltBgBot, BltVpBot, 0.5f,
                                               $"★★ A833（档案窗宿主）：`Shell/MatchLogRow.cs` 的行底九宫格（该文件 `Nine(...)` 那句传了 "
                                               + $"`clip: c.Clip`）—— **还在画**的那些块，最低边 = 视口下沿 {BltVpBot:F2}"
@@ -4577,6 +4634,9 @@ public static class MainMenuScene
                                               "…而且**只截了下沿那一侧**：最上面那块仍停在设计位（没被推走）");
                                     float bltRBot = float.MinValue;
                                     var bltBgR = bltRf != null ? FindChild(bltRf, "Background") : null;
+                                    // 🆕 **2026-10-19（`#69` · 账 `A1346`）**：`#3` 那条「前提·父链缩放」
+                                    //   （判据 → `CheckParentScaleUnit` 的头）。
+                                    CheckParentScaleUnit(bltBgR, "`A833` 参照行的行底 `Background`");
                                     if (bltBgR != null)
                                     {
                                         // 🆕 **2026-10-10（A1330）**：下沿收口到 `MenuDraw.UnionQuadRectPx`
@@ -6143,6 +6203,9 @@ public static class MainMenuScene
             }
             {
                 var bq = FindChild(row, "BackgroundHighlight");   // `IsSelf = true` ⇒ 走高亮那张
+                // 🆕 **2026-10-19（`#69` · 账 `A1346`）**：`#4` 那条「前提·父链缩放」
+                //   （判据 → `CheckParentScaleUnit` 的头）。
+                CheckParentScaleUnit(bq, "排行榜行底 `BackgroundHighlight`");
                 var bgq = bq != null ? bq.GetComponentInChildren<ImageQuad>() : null;
                 CheckTrue(bgq != null && bgq.Texture != null && bgq.Texture.name == "Background",
                           "行底用的是 Unity **内置** `Background`（32×32 · 九宫 10,10,10,10）");
@@ -6526,6 +6589,9 @@ public static class MainMenuScene
                     // ---- （A）行底九宫格：**部分块被截 · 部分块被 `SetActive(false)` 关掉**（这一行是后一档的**首个**用例）----
                     {
                         var a833Bg = a833Edge != null ? FindChild(a833Edge, "Background") : null;   // 全行 `IsSelf=false` ⇒ 走常态那张
+                        // 🆕 **2026-10-19（`#69` · 账 `A1346`）**：`#5` 那条「前提·父链缩放」
+                        //   （判据 → `CheckParentScaleUnit` 的头）。
+                        CheckParentScaleUnit(a833Bg, "`A833` 排行榜压边行的行底 `Background`");
                         float bgTop = float.MaxValue, bgBot = float.MinValue;
                         int nOn = 0, nOff = 0;
                         if (a833Bg != null)
@@ -6553,6 +6619,9 @@ public static class MainMenuScene
                                   + "「**一块都没被关掉**」（行 0 只压上沿 3.22px）正好是这一族的**两态**"
                                   + "｜改坏法：删掉 `Shell/MenuDraw.cs` 的 `Nine` 里那句 "
                                   + "`if (partial) ClipNineChildren(go, clip.Value);` ⇒ 关掉/截短都不发生 ⇒ 本条红");
+                        // 🆕 **2026-10-19（`#71`/`#77` · 账 `A1346`）**：块数守恒 + 「激活的块一定量得到」
+                        //   （判据 → `CheckUnionBlockCount` 的头）。⚠️ `#2` 与 `#5` 是**两份副本** ⇒ 两处都要补。
+                        CheckUnionBlockCount(a833Bg, nOn, nOff, "`A833` 排行榜压边行的行底九宫格");
                         CheckNear(bgBot, VpBot, 0.5f,
                                   $"★★ A833：`Shell/LeaderboardRow.cs` 的行底九宫格（`Nine`，`:152` 那句）—— **还在画**的"
                                   + $"那些块，最低边 = 视口下沿 {VpBot:F2}（它们最高边 {bgTop:F2}）"
@@ -6564,6 +6633,9 @@ public static class MainMenuScene
                         // 而不是「所有行底一律削到某个高度」这种一刀切）。
                         float rBgBot = float.MinValue;
                         var a833BgR = a833Ref != null ? FindChild(a833Ref, "Background") : null;
+                        // 🆕 **2026-10-19（`#69`/`#78` · 账 `A1346`）**：`#6` 那条「前提·父链缩放」
+                        //   （判据 → `CheckParentScaleUnit` 的头；它与 `#3` 是同形的**参照行**那一半）。
+                        CheckParentScaleUnit(a833BgR, "`A833` 排行榜参照行的行底 `Background`");
                         if (a833BgR != null)
                         {
                             // 🆕 **2026-10-10（A1330）**：下沿收口到 `MenuDraw.UnionQuadRectPx`（只用到 `y2`；
@@ -9223,11 +9295,26 @@ public static class MainMenuScene
                                                         "★ …`Featured = true` ⇒ 勾的 alpha 变 1（同一个件、只改 α）");
                                             // `Fill` 的宽 = `Fill Area` 宽 501 × 5/10 = 250.5（原版由 `Slider` 改 `Fill` 的 anchors）
                                             var pFill2 = FindChild(pFillArea, "Fill");
+                                            // 🆕 **2026-10-19（`#69` · 账 `A1346`）**：`#7` 那条「前提·父链缩放」
+                                            //   （判据 → `CheckParentScaleUnit` 的头）。
+                                            CheckParentScaleUnit(pFill2, "奖杯弹窗 `Fill`（`Fill Area` 的滑块填充）");
                                             float fx1 = float.MaxValue, fx2 = float.MinValue;
                                             // ⚠️ **排除 `end` 子树**：端帽是 `Fill` 的**子件**（原版树如此），
                                             //    而它比 `Fill` 的右端还探出 5.7px（`pivot (1,0.5)` + `pos 5.7`）
                                             //    ⇒ 算进来会把宽度撑到 256.2（量错了东西，不是实现错）。
                                             var endNode = pFill2 != null ? FindChild(pFill2, "end") : null;
+                                            // 🆕 **2026-10-19（`#79` · 账 `A1346`）**：把「`end` **真的在**、而且
+                                            //   **真的会被算进来**（不排除的话）⇒ 上面那句过滤谓词不是**空转**」钉住。
+                                            // 🔴 灭自证 = 与下面那条「宽 = 250.5」**结构上不可能同时满足**于
+                                            //   「忘了排除 `end`」的实现：那时量到的是 `256.2`（端帽探出 5.7px）
+                                            //   ⇒ 差 5.7 > 容差 1.0 ⇒ 两条**必有一条红**。
+                                            CheckTrue(endNode != null
+                                                      && endNode.GetComponentInChildren<ImageQuad>(true) != null,
+                                                      "★ `Fill/end`（端帽）**在**，而且**底下真有 `ImageQuad`** —— "
+                                                    + "两句都要：`endNode == null` 时上面那个过滤谓词恒真（= 空转）、"
+                                                    + "底下没有 quad 时「排除它」也就无从谈起（那两条断言会**假绿**）"
+                                                    + "｜反证 = 不排除 `end` 时量到的宽是 **256.2**（端帽探出 5.7px）⇒ "
+                                                    + "与「250.5±1.0」必有一条红");
                                             // 🆕 **2026-10-10（A1330）**：左右两沿收口到 `MenuDraw.UnionQuadRectPx`。
                                             // 🔴 **两项原样保留**：**激活闸 = `QuadGate.None`（完全不过滤）** ·
                                             //    **`searchInactive = true`**。**排除 `end` 子树**那一条改由共用件新加的
@@ -10364,6 +10451,9 @@ public static class MainMenuScene
                         // ---- （A）行底九宫格：**部分块被截 · 部分块被 `SetActive(false)` 关掉** ----
                         {
                             var mBg = mEd != null ? FindChild(mEd, "Background") : null;
+                            // 🆕 **2026-10-19（`#69` · 账 `A1346`）**：`#8` 那条「前提·父链缩放」
+                            //   （判据 → `CheckParentScaleUnit` 的头）。
+                            CheckParentScaleUnit(mBg, "`A833` 对局历史窗压边行的行底 `Background`");
                             float mTop2 = float.MaxValue, mBot2 = float.MinValue;
                             int mLive = 0, mHide = 0;
                             if (mBg != null)
@@ -10389,6 +10479,10 @@ public static class MainMenuScene
                                       + $"（还在画 {mLive} 块 / 关掉的 {mHide} 块）"
                                       + "｜改坏法：删掉 `Shell/MenuDraw.cs` 的 `Nine` 里那句 "
                                       + "`if (partial) ClipNineChildren(go, clip.Value);` ⇒ 关掉/截短都不发生 ⇒ 本条红");
+                            // 🆕 **2026-10-19（`#71`/`#80` · 账 `A1346`）**：块数守恒 + 「激活的块一定量得到」
+                            //   （判据 → `CheckUnionBlockCount` 的头）。⚠️ `#8` 与 `#2`/`#5` 是**三份副本**，
+                            //   三处都要补（`#8` 是「`MatchLogRow`」那一族）。
+                            CheckUnionBlockCount(mBg, mLive, mHide, "`A833` 对局历史窗压边行的行底九宫格");
                             CheckNear(mBot2, MBot, 0.5f,
                                       $"★★ A833：`Shell/MatchLogRow.cs` 的行底九宫格（该文件 `Nine(...)` 那句传了 "
                                       + $"`clip: c.Clip`）—— **还在画**的那些块，最低边 = 视口下沿 {MBot:F2}"
@@ -10398,6 +10492,9 @@ public static class MainMenuScene
                                       "…而且**只截了下沿那一侧**：最上面那块仍停在设计位（没被推走）");
                             float rBgBot = float.MinValue;
                             var mBgR = mRf != null ? FindChild(mRf, "Background") : null;
+                            // 🆕 **2026-10-19（`#69`/`#81` · 账 `A1346`）**：`#9` 那条「前提·父链缩放」
+                            //   （判据 → `CheckParentScaleUnit` 的头；它与 `#3`/`#6` 是同形的**参照行**那一半）。
+                            CheckParentScaleUnit(mBgR, "`A833` 对局历史窗参照行的行底 `Background`");
                             if (mBgR != null)
                             {
                                 // 🆕 **2026-10-10（A1330）**：下沿收口到 `MenuDraw.UnionQuadRectPx`（只用到 `y2`；
@@ -11906,6 +12003,226 @@ public static class MainMenuScene
     {
         return lb == null || string.IsNullOrEmpty(lb.Text);
     }
+
+    /// <summary>🆕 **2026-10-19（`#71`/`#74`/`#77`/`#80` · 账 `A1346`）**：**行底九宫格的块数守恒**。
+    /// 三处同形调用点：`#2` `bltBg`（玩家档案窗压边行）· `#5` `a833Bg`（排行榜压边行）·
+    /// `#8` `mBg`（对局历史窗压边行）—— 三处共用本函数（铁律「两处写同一条规则 = 迟早不一致」）。
+    ///
+    /// <para>断三件（②③ 都是**独立逐块**数出来的，⛔ 不拿调用点那份**算**出来的 `hide = 总数 − live` 回比）：
+    /// ①「还在画 + 关掉的」= 子树里 `ImageQuad` 总数；②「还在画」= `activeSelf == true` 的块数；
+    /// ③「关掉的」= `activeSelf == false` 的块数。</para>
+    ///
+    /// <para>🔴 **为什么⛔ 只写 ①**：`hide` 是调用点用 `总数 − live` **算**出来的 ⇒ ① **恒成立**（同义反复，
+    /// 写成它等于没写）。**②③ 才有牙** —— 它们咬的是收口时**唯一没判过的前提**：
+    /// 「**激活的块一定量得到**」。`MenuDraw.UnionQuadRectPx` 里那句
+    /// `if (!QuadRectPx(q, out …)) continue;`（`Shell/MenuDraw.cs:795`）今天只对 `q == null` 返 `false`
+    /// （`QuadRectPx` 首句），可一旦哪天它开始**跳过激活块**，那块会被**静默**算进「关掉的」里、
+    /// 而 ① 照样全绿。同族事故先例 = 弹窗底「量成 182×173」（只量到一块）→
+    /// `Shell/MenuDraw.cs` 的 `UnionQuadRectPx` 文件头。</para>
+    ///
+    /// <para>`root == null` ⇒ **显式报红**（⛔ 不静默跳过）。</para></summary>
+    static void CheckUnionBlockCount(Transform root, int live, int hide, string what)
+    {
+        if (root == null) { CheckTrue(false, $"（前提）{what}：并集根不在（下面三条等于没查）"); return; }
+        int nOn = 0, nOff = 0;
+        foreach (var q in root.GetComponentsInChildren<ImageQuad>(true))
+        {
+            if (q == null) continue;
+            if (q.gameObject.activeSelf) nOn++; else nOff++;
+        }
+        CheckTrue(live + hide == nOn + nOff,
+                  $"★ {what}：**块数守恒** —— 还在画的 {live} + 关掉的 {hide} = 子树里的 {nOn + nOff} 块"
+                + "（⚠️ 这一条**本身是恒等式**（`hide` 就是 `总数 − live` 算出来的）—— 它只把契约写下来，"
+                + "真正咬人的是下面那两条**独立逐块数**）");
+        CheckTrue(live == nOn,
+                  $"★★ {what}：**激活的块一定量得到**（量到 {live} / 逐块数 `activeSelf == true` 的 {nOn}）"
+                + " —— 差一块就说明有一块**活着却没被并集算进去**（`Shell/MenuDraw.cs:795` 那句 `continue` "
+                + "一旦开始跳过激活块，差数会被 `hide = 总数 − live` **静默**吃掉）");
+        CheckTrue(hide == nOff,
+                  $"…而且**关掉的块一块都不许混进来**（记 {hide} / 逐块数 `activeSelf == false` 的 {nOff}）");
+    }
+
+    /// <summary>🆕 **2026-10-19（`#70` · 账 `A1346`/`A1350`）**：`MenuDraw.UnionQuadRectPx` 的**读侧两态夹具**
+    /// —— 「**父链真带缩放时，读出来的仍是【设计矩形】**」。本文件 `#1`–`#10` 那十处量法**共用同一个口**，
+    /// 所以这一份夹具一处覆盖全部十处（⛔ 不逐处复制十份）。
+    ///
+    /// <para>🔴 **为什么必须有它**：`A1330` 收口前的**甲式**读的是**裸 `position`**（`PxX/PxY` + 硬写 108）；
+    /// 收口后的**乙式**先 `PosInDesignSpace`（除回父级缩放）再换算。而本宿主**生产态是单位缩放**
+    /// ⇒ 两式**逐位相同**（差 ≤2.5e-4 px）⇒ 那十处的既有断言**一条都分不出两者**。
+    /// 它们今天能全绿**不是**「有断言挡着」，是**巧合相同**（判据 → `Shell/MenuDraw.cs` 的
+    /// `QuadRectPx` / `PosInDesignSpace` 两份 doc）。⚠️ 唯一能分开两态的判据 = **父链真带缩放**。</para>
+    ///
+    /// <para>**夹具形状**（⛔ 照 `Editor/CollectionScene.cs` 的 `CheckScaleTwo`（那一族）与
+    /// `Editor/BattleScene.cs` 的两态探针，别另设计一套）：
+    /// ① **态一** = 开关**关**（出厂态）⇒ 量一次 → `p1`（并集矩形）+ `q1`（被量那颗 quad 的**世界**位置）；
+    /// ② **态二** = 开关**开** + **九宫格根的父级**乘 M（走**生产那条路** `TransformScalerBySmallScreenUI`：
+    /// `SetScale(M)` + `Tick()` —— 批处理**没有帧循环**）+ **重建九宫格根那棵树** ⇒ 再量 → `p2` / `q2`；
+    /// ③ **★1（前提）**：`q2 == M × q1`（证「夹具真把缩放乘上去了」——
+    /// 它不成立时 ★2 无论绿红都没有意义）；**★2（主判据）**：`p2 == p1`（**设计矩形不变**）。</para>
+    ///
+    /// <para>🔴 **两条形状上的硬约束**（都是踩过的坑，见 `CheckScaleTwo` 的文件头）：
+    /// · **M 加在【九宫格根的父级】那一级**、且被乘那一级**落在它自己父级的原点**上
+    ///   （`PosInDesignSpace` 除的正是 `t.parent.lossyScale`；式子的适用范围见 `Shell/MenuDraw.cs:57-61`）
+    ///   —— 夹具把探针根摆在**世界原点**就是为了这一条（挪走会把 ★1 恒等式亲手砸掉，同 `CheckScaleTwo` ①）；
+    /// · **态二必须重建那棵树** —— 那些块的 `localPosition` 是**建它时**按当时的父级缩放算出来的
+    ///   （`MenuDraw.Local` → `PosInDesignSpace`）⇒ 不重建就是在量「态一冻结下来的那份几何」，
+    ///   那时两式**又变回逐位相同** ⇒ 断言恒真（= 假绿，同 `CheckScaleTwo` ③）。</para>
+    ///
+    /// <para>⚠️ **如实标注（我们挑的，不冒充原版）**：夹具用**自建的探针树**
+    /// （`MenuDraw.Nine` 建的九宫格根 + `CardArt.Solid()`），**不是**生产里那十棵树 ——
+    /// 因为 `#2`/`#5`/`#8` 那些行底是**建窗时一次成型**的（行由 `…Row` 列表在 `Build()` 里生成），
+    /// **没有「只重建某一棵子树」的入口** ⇒ 逐处挂夹具 = 重跑整扇窗。⇒ 一次探针覆盖**同一份共用读口**；
+    /// 判据 = `Shell/MenuDraw.cs` 的 `UnionQuadRectPx`（**全壳唯一一份**，十处都走它）。</para>
+    ///
+    /// <para>期望值**全是结构式**（`p2 == p1` / `q2 == M×q1`），⛔ 没有一个是抄我们自己的常量。</para></summary>
+    static void CheckUnionReadTwoState(Transform host, float m, string what)
+    {
+        // 探针的九宫格子矩形：中心 (1500, 900) ⇒ 离**设计中心** (960, 540) 约 (5.0, −3.33) 设计单位
+        // —— 「可观测余量」：甲式与乙式在这一档相差 ≈108×|中心|×(M−1) ≈ 38px / 25px（≫ 容差 0.02px）。
+        const float Rx1 = 1300f, Ry1 = 820f, Rx2 = 1700f, Ry2 = 980f;
+        var tex = CardArt.Solid();
+        CheckTrue(host != null && tex != null, $"（前提）{what}：夹具的件齐了（探针宿主 + 纯色图）");
+        if (host == null || tex == null) return;
+        CheckNear(host.position.magnitude, 0f, 1e-4f,
+                  $"（前提）{what}：探针宿主在**世界原点**（⛔ 别挪 —— 挪了 ★1 那条恒等式就不成立，"
+                + "同 `CheckScaleTwo` ①：被乘那一级不在原点时偏差 = `(1−M)×位移`）");
+
+        var scaleGo = new GameObject("A1346 Probe Scaler Root");   // 「九宫格根的**父级**」= 被乘 M 的那一级
+        scaleGo.transform.SetParent(host, false);                  // ⚠️ 局部位置进 0 ⇒ 落在宿主的原点
+        Transform nineRoot = null;
+
+        // 重建「九宫格根」那一棵树（态一 / 态二 / 收尾都走这一份 —— 见函数头那条硬约束）
+        System.Action build = () =>
+        {
+            if (nineRoot != null) Object.DestroyImmediate(nineRoot.gameObject);
+            var go = MenuDraw.Nine(scaleGo.transform, tex, new PxRect(Rx1, Ry1, Rx2, Ry2),
+                                   new Vector4(16f, 16f, 16f, 16f), 64f, 64f, 3000,
+                                   null, true, "A1346 Nine");
+            nineRoot = go != null ? go.transform : null;
+        };
+        // 字段序 = `(X1, Y1, X2, Y2)`（同本文件 `quadUnion` 那个 lambda 的约定）
+        System.Func<Vector4> union = () =>
+        {
+            if (nineRoot == null
+                || !MenuDraw.UnionQuadRectPx(nineRoot, MenuDraw.QuadGate.None, true,
+                                             out float ux1, out float uy1, out float ux2, out float uy2))
+                return new Vector4(0f, 0f, 0f, 0f);
+            return new Vector4(ux1, uy1, ux2, uy2);
+        };
+        System.Func<Vector3> quadPos = () =>
+        {
+            var q = nineRoot != null ? nineRoot.GetComponentInChildren<ImageQuad>(true) : null;
+            return q != null ? q.transform.position : Vector3.zero;
+        };
+
+        bool poWas = SmallScreenUI.PersistOverride;
+        bool ssWas = SmallScreenUI.Enabled;        // 进场那一档（收尾要放回 —— ⛔ 不给后面的段留全局状态）
+        bool chWas = SmallScreenUI.ChosenManually; // `Set()` 会把这一位置 1（它不落盘，但别留给别的自检入口）
+        SmallScreenUI.PersistOverride = true;      // ⛔ 自检一个字节都不写 `PlayerPrefs`（本文件原来没压过这个）
+        TransformScalerBySmallScreenUI sc = null;
+        try
+        {
+            SmallScreenUI.Set(false);              // ---- 态一（出厂态）----
+            build();
+            CheckTrue(nineRoot != null, $"（前提）{what}：态一的九宫格根建出来了");
+            Vector4 p1 = union();
+            Vector3 q1 = quadPos();
+            CheckNear(p1.x, Rx1, 0.5f, $"（前提）{what}：态一量到的**就是**建它时给的那个设计矩形（左沿）");
+            CheckNear(p1.y, Ry1, 0.5f, $"（前提）{what}：……（上沿）—— 量到的不是这一颗 ⇒ 下面两条等于没查");
+            CheckTrue(Mathf.Abs(q1.x) > 1f || Mathf.Abs(q1.y) > 1f,
+                      $"（前提·可观测余量）{what}：被量的那颗 quad 离**世界原点** ≥1 设计单位"
+                    + $"（实测 {q1.x:F2},{q1.y:F2}）—— 它 ≈0 时「除不除父级缩放」两式**恒等** "
+                    + "⇒ ★2 会退化成假绿");
+
+            SmallScreenUI.Set(true);               // ---- 态二（开关开 + 那一级 ×M）----
+            sc = scaleGo.AddComponent<TransformScalerBySmallScreenUI>();
+            sc.SetScale(m);
+            sc.Tick();                             // 批处理没有帧循环 ⇒ 手动推一次（原版走 `LateUpdate`）
+            CheckNear(scaleGo.transform.localScale.x, m, 1e-4f,
+                      $"（前提）{what}：态二**被乘的那一级** `localScale` = M（真走的生产那条路）");
+            CheckNear(nineRoot != null ? nineRoot.lossyScale.x : -1f, m, 1e-3f,
+                      $"（前提）{what}：被量的那棵九宫格根**也在缩放里**"
+                    + "（`PosInDesignSpace` 除的正是它自己那一级 —— 它仍是 1 的话两式恒等、★2 等于没查）");
+            build();                               // ⚠️ 必须重建（见函数头那条硬约束）
+            Vector4 p2 = union();
+            Vector3 q2 = quadPos();
+
+            CheckNear(q2.x, m * q1.x, 0.02f,
+                      $"★1（前提）{what}：**态二那颗 quad 的世界位置 = M × 态一**"
+                    + $"（{q2.x:F4} vs {m:F2}×{q1.x:F4}）—— 证「夹具真把缩放乘上去了」");
+            CheckNear(q2.y, m * q1.y, 0.02f, $"★1（前提）{what}：……y 分量同理");
+            CheckNear(p2.x, p1.x, 0.02f,
+                      $"★★2（主判据）{what}：**父链带 M={m:F2} 时读出来的仍是【设计矩形】**"
+                    + $"（左沿 {p2.x:F4} vs 态一 {p1.x:F4}，容差 0.02px）"
+                    + "｜🧨 收口前的**甲式**（`PxX(裸 position)`）在这里读到的是 `M × 态一`"
+                    + $"（≈ {p1.x + (m - 1f) * q1.x * 108f:F2}）⇒ **必红** —— 本宿主十处量法今天全绿"
+                    + "是**巧合相同**，不是有断言挡着");
+            CheckNear(p2.y, p1.y, 0.02f,
+                      $"★★2（主判据）{what}：……上沿同理（y 那一半走 `PxY`，与 x 共用同一条判断）");
+            CheckNear(p2.z, p1.z, 0.02f,
+                      $"★★2（主判据）{what}：……右沿（只断左沿会被「只除了一半」的实现蒙过）");
+            CheckNear(p2.w, p1.w, 0.02f, $"★★2（主判据）{what}：……下沿");
+        }
+        finally
+        {
+            if (sc != null) Object.DestroyImmediate(sc);       // 还原（照 `CheckScaleTwo`）
+            scaleGo.transform.localScale = Vector3.one;
+            SmallScreenUI.Set(false);
+            build();
+            CheckNear(union().x, Rx1, 0.5f, $"（收尾）{what}：那一级放回 1 之后读到的又回到态一那一份");
+            Object.DestroyImmediate(scaleGo);
+            // 放回**进场那一档**（⛔ 不留全局状态给后面的段）：出厂态那两个字段都是 false ⇒ 走
+            // `ResetForTest`（它正是「把内存态放回出厂值」那个口，同族先例 = `BattleScene.cs:330-333` 那一族）。
+            if (!ssWas && !chWas) SmallScreenUI.ResetForTest(); else SmallScreenUI.Set(ssWas);
+            SmallScreenUI.PersistOverride = poWas;
+        }
+    }
+
+    /// <summary>🆕 **2026-10-19（`#83` · 账 `A1350`）**：`QuadPxRect`（= `MenuDraw.QuadRectPx` 在本宿主的转发口）
+    /// 在**父链 `localScale = 2`** 时读到的**仍是设计矩形**。
+    ///
+    /// <para>🔴 **这条本身就是「灭自证」的那一半**：检测器读的是 `q.transform.position` 这条**世界量**
+    /// （`QuadRectPx` 内部除的正是 `q.parent.lossyScale`），而期望值是**建它时给的、与实现无关的四个字面量**
+    /// —— 两边用的**不是同一处代码** ⇒ **把实现与期望一起改回甲式也救不了**（那时读到的是 `2 × 设计矩形`）。</para>
+    ///
+    /// <para>⚠️ **父链带 2× 的那个节点必须落在【它自己父级的原点】上**（同 `#70` 那条硬约束：
+    /// 范式的适用范围 = `Shell/MenuDraw.cs:57-61`）—— 本函数自建探针（世界原点）就是为这一条。</para>
+    ///
+    /// <para>⚠️ **只断 `QuadPxRect` 报的矩形，不断「画出来多大」**：`ImageQuad.WorldW` 是**建它时赋的值**、
+    /// **不含父级缩放**（`Battle/ImageQuad.cs:107-108`）⇒ 父件真带 2× 时**画出来确实是 2 倍大**，
+    /// 而本口报的是**设计矩形**。两个语义各自都对，⛔ 别拿其中一条去否另一条。</para></summary>
+    static void CheckQuadPxRectUnderScaledParent(string what)
+    {
+        const float Qx1 = 1400f, Qy1 = 200f, Qx2 = 1700f, Qy2 = 500f;
+        var host = new GameObject("A1350 Probe Host");          // 世界原点 · 单位缩放（⛔ 见函数头）
+        var mid = new GameObject("A1350 Probe Scaled");
+        mid.transform.SetParent(host.transform, false);         // 局部位置进 0（被除的那一级落在父级原点）
+        mid.transform.localScale = new Vector3(2f, 2f, 1f);
+        var tex = CardArt.Solid();
+        try
+        {
+            CheckTrue(tex != null, $"（前提）{what}：纯色图取到了");
+            var q = MenuDraw.Rect(mid.transform, tex, new PxRect(Qx1, Qy1, Qx2, Qy2), "A1350 Quad", 3000);
+            CheckTrue(q != null, $"（前提）{what}：quad 建出来了");
+            CheckNear(q != null ? q.transform.parent.lossyScale.x : -1f, 2f, 1e-4f,
+                      $"（前提）{what}：**父链真的带 2×**（`PosInDesignSpace` 除的就是这一级）"
+                    + " —— 它是 1 的话下面四条**恒等**、等于没查");
+            bool got = QuadPxRect(q, out float gx1, out float gy1, out float gx2, out float gy2);
+            CheckTrue(got, $"（前提）{what}：`QuadPxRect` 量得到（⛔ 量不到时下面四条不许静默跳过）");
+            CheckNear(gx1, Qx1, 0.01f,
+                      $"★★ {what}：父链 ×2 时 `QuadPxRect` 报的**左沿仍是设计矩形**"
+                    + $"（实得 {gx1:F4} vs 设计 {Qx1:F1}，容差 0.01px）"
+                    + "｜🧨 收口前的**甲式**（`PxX(裸 position)`）读到的是 `2 × 设计矩形` ⇒ 必红");
+            CheckNear(gy1, Qy1, 0.01f, $"★★ {what}：……上沿（`PxY` 那一半）");
+            CheckNear(gx2, Qx2, 0.01f, $"★★ {what}：……右沿（只断左沿会被「只除一半」蒙过）");
+            CheckNear(gy2, Qy2, 0.01f, $"★★ {what}：……下沿");
+        }
+        finally
+        {
+            Object.DestroyImmediate(host);                      // ⛔ 别把探针留在场景里
+        }
+    }
+
 
     /// <summary>🆕 **2026-10-07（A77-㉒②）**：卡组格内景**某一层**的渲染矩形（px）对不对。
     /// <para>量的是那一层底下**全部 `ImageQuad` 的并集**（`UnionQuadRect`）——

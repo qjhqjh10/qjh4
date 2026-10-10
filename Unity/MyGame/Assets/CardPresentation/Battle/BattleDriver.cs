@@ -11645,7 +11645,12 @@ namespace CardPresentation
             //    在 `desc` 里一个字都没有）。
             //    ⚠️ 判据用**原始 body**，不能用 `core` —— 那里面已经多了 `<sprite …>` 标签，
             //       会把它自己补的那一段又判成「已经印过」。
-            string seg = CardText.KeywordSegment(c.Keywords, zh, body);
+            //    🔴 **`c.NumericKeywords` 必须传**（`A1341`）：`KeywordSegment` 判「这个词印不印数字」
+            //       走 `Badges.CarriesValue` 的三档并集，其中**「卡面原文里写了数字」那一档的来源就是这个
+            //       `c.NumericKeywords`** —— 不传（吃默认的 `null`）⇒ 那一档**静默失效**、
+            //       与徽标（`Badges.For`）那一路裂开。⛔ 只改 `KeywordSegment` 的签名而不改这一行
+            //       = 静默偏一半（`A1332` 立的账，`A1341` 两处同批改）。
+            string seg = CardText.KeywordSegment(c.Keywords, zh, body, c.NumericKeywords);
             return new FaceBody(seg + core, zh ? "descZh" : "desc");
         }
 

@@ -15,8 +15,11 @@ namespace CardPresentation
         /// <summary>相关卡（最多 `max` 张）。**三个来源**（判据 → 正本 §八 / §九 / §十·1）：
         ///   ① **效果文本里点名的卡** —— `CreatePool.MentionedCards`（用户原话：「看效果文本的意思结合
         ///      部队卡牌名字这一关键词，**提到就是相关卡**」）；
-        ///      🔴 **喂的是哪份文本按【当前语档】取**（2026-10-18）：中文档喂 `DescZh`、英文档喂 `Desc`
-        ///      —— 见 `TextForLang`。中文卡名与英文卡名是两套串，不分开取就「卡面写着中文、相关卡却按英文找」。
+        ///      🔴 **喂的是【卡面正文那一串】**（`A1405`，2026-10-22）：直接调 `BattleDriver.FaceTextFull`
+        ///      —— 语档 / 关键词段 / 图标那几条口径**只由那一处说了算**。原来这里另有一个私有
+        ///      `TextForLang` **只复现了语档那一半**（不拼关键词段），而它自己的注释还写着
+        ///      「判据逐字照 `FaceTextFull`」—— 对不上；那一份已删，理由见下面调用点的注释。
+        ///      中文卡名与英文卡名是两套串，不按语档取就「卡面写着中文、相关卡却按英文找」。
         ///      ⚠️ **另两支（②池子 ③黑暗契约）不跟着语档走**，理由分别写在各自那一段里；
         ///   ② **天赋是个池子**时，池子里那几张（`Choose a &lt;子类型>` / `A random &lt;阵营> &lt;子类型>`）；
         ///   ③ 🆕 **「黑暗契约」那一族**（2026-09-29 用户拍板）—— 卡面/卡名提到 `Dark Pact`
@@ -42,14 +45,36 @@ namespace CardPresentation
                 return outp;
             }
 
-            // ① **效果文本里点名的卡** —— 🔴 **文本按【当前语档】取**（2026-10-18，`项目任务.md`
-            //    §三 第 19 条）。为什么非换不可：玩家在中文档下**看到的是中文**，而**中文卡名
-            //    （`NameZh`）与英文卡名（`Name`）是两套串** —— 拿英文文本去匹配，玩家眼里
-            //    「卡面明明写着『风暴守护者』」却一张相关卡都跟不出来。实测（全池 1126 张）：
-            //    中文档 **132 处 / 67 张** vs 改前拿英文文本算的 **128 处 / 67 张**。
-            //    ⚠️ 口径**逐字照** `BattleDriver.FaceTextFull`（卡面正文那条唯一的路）——
-            //    `CardText.Zh && DescZh 非空` 才用中文，否则回英文（6 张没有 `descZh` 的卡就走回英文）。
-            string mine = TextForLang(card.Desc, card.DescZh);
+            // ① **效果文本里点名的卡** —— 🔴 **喂进去的就是【卡面正文那一串】**（`A1405`，2026-10-22）：
+            //    直接调 `BattleDriver.FaceTextFull(card)`（**卡面正文那条唯一的路** —— 卡面渲染
+            //    `ToCardData(...).keywords`、单卡探针、两扇详情窗走的就是它）
+            //    ⇒ 「语档取哪份字段」「关键词段拼不拼」「正文里的记号换不换图标」这几条口径
+            //    **只有那一处说了算**，这里一个字都不再自己拼。
+            //    **为什么非换不可（`A1405` 治的就是它）**：本行原来是个私有 `TextForLang(Desc, DescZh)`，
+            //    它**只复现了 `FaceTextFull` 的一小半** —— 语档选择（`CardText.Zh && DescZh 非空`）
+            //    那一半，**不拼关键词段、不换图标** ⇒ 它自己那句「判据逐字照 `FaceTextFull`」
+            //    **对不上**（`FaceTextFull` 的产物 = `CardText.KeywordSegment(...)` + `CardIcons.Rewrite(...)`）。
+            //    两处写同一条规则 = 迟早不一致（工程红线），而这一条已经漏过半：
+            //    `FaceTextFull` 2026-10-18 刚把语档判据改对过一次，那时这里**必须跟着改**才不裂开。
+            //    ⚠️ 语档那一半的后果是硬的：玩家在中文档下**看到的是中文**，而**中文卡名（`NameZh`）
+            //    与英文卡名（`Name`）是两套串** —— 拿英文文本去匹配，玩家眼里「卡面明明写着
+            //    『风暴守护者』」却一张相关卡都跟不出来。
+            // 🔴 **`A1405` 的实测（离线复算，全池 1126 张 · 中英两档各跑一遍）**：
+            //    · **喂进去的文本有变的卡 = 815（中）/ 817（英）**（关键词段 622/633 张 + 图标改写）；
+            //    · **「点名那一支」的【结果】一处都没变**（`max = 8`，改前改后逐卡同集合）。
+            //      为什么能这么干净（两条，都在 §三 那一段里逐项验过）：
+            //      ① **没有任何一张卡的名字以 `link`/`sprite`/`name`/`nobr` 开头**
+            //         —— 英文那一趟是「按空白切词 → 拼回短语 → `Norm` → 查索引」，
+            //         而新加进来的每一个词都以这些标记名开头（`<link=…>` 与 `<sprite name="…">`
+            //         里的空格把标记切成两个词）⇒ 拼出来的键**不可能**等于任何卡名；
+            //      ② **没有任何一个关键词显示名（中/英）等于某张卡名**，也没有任何一个
+            //         图标计划里的 token 是卡名 ⇒ 关键词段与图标改写**既不会多出也不会吃掉**一处命中。
+            //    ⇒ 所以这一笔是**口径收口**（消灭第二份判据），**不是**行为改动。
+            //    ⚠️ 读数出处与复算器的自证（中文那一趟复算出全池 **132 处**，与 `CreatePool` 里
+            //    记的那条 132 逐字相同）→ `资料/普查产出_第十四会话/W_A1405相关卡文案.md` §三。
+            // ⚠️ **别把 `.body` 换成别的**（比如「把 `<link>`/`<sprite>` 剥掉再喂」）—— 那等于在这儿
+            //    **再立一条文本口径**，正是本条要治的病。
+            string mine = BattleDriver.FaceTextFull(card).body;
             string why;
             foreach (var r in CreatePool.MentionedCards(pool, card, mine, out why, max))
                 AddUnique(outp, r);
@@ -116,16 +141,17 @@ namespace CardPresentation
             return outp;
         }
 
-        /// <summary>按**当前语档**取一段卡面文本 —— 判据**逐字照** `BattleDriver.FaceTextFull`
-        /// （卡面正文那条唯一的路，⛔ 别在这儿另发明一套）：**① 拿得到中文字体 ② 当前语档是中文**
-        /// （两者合起来就是 `CardText.Zh`），**且**这张卡真有中文，才用中文。
-        /// ⚠️ 反过来写「只要 `DescZh` 非空就用中文」是**错的** —— 那是「这张卡有没有中文」，
-        /// **不是**「当前语档是不是中文」⇒ **切成 English 之后会半中半英**
-        /// （`Core/CardText.cs` 的 `Zh` 注释里记着这个坑，`FaceTextFull` 2026-10-18 刚改过来）。</summary>
-        static string TextForLang(string en, string zh)
-        {
-            return (CardText.Zh && !string.IsNullOrEmpty(zh)) ? zh : en;
-        }
+        // 🔴 **`A1405`（2026-10-22）：这里原来有一个私有 `TextForLang(en, zh)`** ——
+        //    `return (CardText.Zh && !string.IsNullOrEmpty(zh)) ? zh : en;`
+        //    **已删**，改由调用点直接调 `BattleDriver.FaceTextFull(card).body`。
+        //    它不是「等价的一小段」而是**第二条判据**：`FaceTextFull` 的产物是
+        //    `CardText.KeywordSegment(...) + CardIcons.Rewrite(...)`，而它只做了语档选择那一半。
+        //    ⛔ **别再在这儿加回任何「取哪段文本」的助手** —— 口径只许有一处（工程红线），
+        //       要改就改 `BattleDriver.FaceTextFull`。
+        //    ⚠️ 那个 ⚠️ 本身仍然值钱、别丢：**「只要 `DescZh` 非空就用中文」是错的** —— 那是
+        //       「这张卡有没有中文」，**不是**「当前语档是不是中文」⇒ **切成 English 之后会半中半英**。
+        //       正确写法就是 `FaceTextFull` 里那一行 `CardText.Zh && !string.IsNullOrEmpty(c.DescZh)`
+        //       （`Core/CardText.cs` 的 `Zh` 注释里记着这个坑，`FaceTextFull` 2026-10-18 刚改过来）。
 
         static void AddUnique(List<CardDef> list, CardDef c)
         {

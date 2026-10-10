@@ -3515,6 +3515,52 @@ public static class SettingsScene
                 }
             }
 
+            // ---------------- 🆕 2026-10-21（`A1359` / `A1351`② 的**断言**那一半）：填条那三块的几何 ----------------
+            // 判据 = `资料/普查产出_第十三会话/W6c_A1350A1351A1359.md` §三「该补什么断言」。
+            // 🔴 期望值一律写字面量、⛔ 不引用 `SettingsWindow.AuTrackW` / `RootScale`（那是**被测实参** ——
+            //    与本节上面 `A125①`/`A125②` 那两条自证同一口径）。
+            //   本页那三根实参：`trackW = 原版 684.19 × 根 0.9 = 615.771` · `capScale = 0.9`
+            //   ⇒ 端帽 = 原版 `m_Border 30 ÷ ppuMul 2 × 0.9` = **13.5** 画布 px。
+            // 🔴 与 `Editor/BattleScene.cs` 那一条**不是同一个数**（战斗那根是 561.08 / 15）⇒ 两边各断各的。
+            Section("A1359：音频页三根滑块的**填条**（端帽恒宽 / 宽随值 / 左沿不动）");
+            {
+                float[] sVals = { 1f, 0.5f, 0.2f };
+                string[] sTags = { "值 1", "值 0.5", "值 0.2" };
+                for (int i = 0; i < 3; i++)
+                {
+                    if (sl == null || i >= sl.Length || sl[i] == null)
+                    { CheckTrue(false, $"第 {i + 1} 根滑块在（量不到填条几何）"); continue; }
+                    var s = sl[i];
+                    string who = $"第 {i + 1} 根滑块";
+                    float sVWas = s.Value, sCapFirst = -1f;
+                    for (int k = 0; k < sVals.Length; k++)
+                    {
+                        float v = sVals[k];
+                        s.SetValue(v, false);      // ⚠️ `fire: false` —— 自检**只摆值**（不碰总线 / 存档）
+                        float fw = s.FillWorldW * 108f;
+                        float flx = s.FillWorldLeftX * 108f;
+                        float fcap = s.FillCapWorldW * 108f;
+                        CheckNear(flx, -307.8855f, 0.05f,
+                                  $"{who} / {sTags[k]}：填条**左沿** = 原版 684.19 × 0.9 ÷ 2 ⇒ **−307.8855**"
+                                + $"（实得 {flx:F3}；值怎么变都不动 —— 原版 `Slider` 把 `Fill` 锚在左边的锚点上）");
+                        CheckNear(fw, v * 615.771f, 0.05f,
+                                  $"{who} / {sTags[k]}：填条**画出来的宽** = 值 × 原版 684.19 × 0.9 = **{v * 615.771f:F3}**");
+                        CheckNear(fcap, 13.5f, 0.05f,
+                                  $"{who} / {sTags[k]}：端帽**恒宽** 13.5 画布 px（原版 `m_Border 30 ÷ ppuMul 2 × 0.9`）"
+                                + $"（实得 {fcap:F3}；改坏法：传 30 ⇒ 30、只除 2 不过 0.9 ⇒ 15 ⇒ 都红）");
+                        if (k == 0) sCapFirst = fcap;
+                        else
+                            // 🧨 **灭自证那一半**：跨两个值**相等** —— 旧的整体横向缩放路**结构上做不到**
+                            //    （值 0.5 时端帽掉到 6.75）；把实现与读口一起改回去也救不了这条。
+                            CheckNear(fcap, sCapFirst, 0.02f,
+                                      $"★★ {who} / {sTags[k]} 的端帽宽与「值 1」**逐值相等**"
+                                    + $"（{fcap:F3} vs {sCapFirst:F3}）—— 旧的整体缩放路在值 0.5 时掉一半 ⇒ 红");
+                    }
+                    // （还原）摆回本格进来时的那个值 —— 上面 `A169` 那一段收尾留下的也是它
+                    s.SetValue(sVWas, false);
+                }
+            }
+
             // ---------------- 音频页：三行的行顶 / 标签 / 滑块（🆕 2026-10-05 补） ----------------
             // 🔴 **补它的原因**：原来一条都没盯行顶 —— 三行一直按「组顶 + 序号 × 105」推，而原版三行
             //    行高**不相等**（`… Container` 的 `sizeDelta.y` = 105 / 106 / 106），且 VLG

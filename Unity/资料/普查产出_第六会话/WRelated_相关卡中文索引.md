@@ -276,3 +276,7 @@ foreach (var c in pool) if (!string.IsNullOrEmpty(c.NameZh))
 ## 摘要（≤300 字）
 
 「相关卡」中文索引做完。**简报第 1 条的前提被现读推翻**：`Norm` 只留 `a-z0-9`、**汉字全剥**，实测 1126/1126 张卡的 `Norm(nameZh)` **都是空串** ⇒ 照字面建 `Norm(NameZh)` 索引是**彻底的空操作**（键全空、静默查不到）。故另造 `NormCjk`（留汉字）建**第二张索引**，并在 `MentionedCards` 里加「中文那一趟」，与英文那趟**按位置合并**；英文那趟**匹配逻辑一字未改**。`RelatedCards.cs:52` 改成按语档取 `Desc`/`DescZh`（照 `FaceTextFull`）。**`phrases`（池子那支）故意没改**：`PoolFromPhrase` 是英文句法解析器，喂中文会让该支在中文档**整个消失**（真回归），且其产出与语言无关。量化：改前 128 处/67 张 → 改后中文档 **132/67**、英文档 **128/67 逐字不变**（用真编译代码跑出，10 个既有期望值全吻合）。类型检查 0 错，两文件纯 LF 未翻。未跑 Unity。
+
+---
+
+> ⚠️ **2026-10-10 后续订正（铁律 5）**：本文里凡指向 `RelatedCards.TextForLang` 的锚点（以及「相关卡印的字比卡面少一段关键词」这个说法）**已被 `A1405` 取代** —— `TextForLang` **已被删除**、`RelatedCards.Find` 现在直接走 `BattleDriver.FaceTextFull(card).body`；而「两扇窗印的字少一段」**这个前提本来就不成立**（它们一直走 `FaceTextFull`）。判据与读数 → `资料/普查产出_第十四会话/W_A1405相关卡文案.md`。

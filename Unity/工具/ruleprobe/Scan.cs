@@ -11,8 +11,9 @@ using RuleEngine;
 /// 输出格式：`id|name|unparsed|partial|op;op;...`
 ///   · 第 1 列 `id|name` = **键**（比较时只有它变 ⇒ 算「改名」）
 ///   · 第 2 列往后 = **定义**（变了 ⇒ 算「解析差异」，那才是引擎真动了）
-///   · 每条 op = `verb/chooseSrc/chooseWhat/chooseAct/amount/payload` **＋ 末尾四列**
-///     `cost/shared/condKind/countRef`（🆕 2026-10-10 `A1368`，见下）
+///   · 每条 op = `verb/chooseSrc/chooseWhat/chooseAct/amount/payload` **＋ 末尾七列**
+///     `cost/shared/condKind/countRef`（🆕 2026-10-10 `A1368`）
+///     `costKind/countScope/condition`（🆕 2026-10-10 `A1374`）—— 见下两段
 ///
 /// 🔴 **2026-10-10 `A1368`：op 列尾部追加四列** —— 原来这四样**一个字都不打**，
 ///   而它们正是「付费 / 条件 / 计数」三族改动的**全部可观测面** ⇒ 凡改这四样的活，
@@ -32,6 +33,27 @@ using RuleEngine;
 ///      而 `CheckMain` 只认**前两个** `|`（`KeyOf`/`DefOf`）⇒ 不受影响。
 ///      🔴 **不做 `|`→`,` 的替换**：那会让 dump 里的值与引擎字段**不同**，
 ///      下一个人照 dump 抄进断言就抄错了 —— 正是本笔要治的「静默」那一族。
+///
+/// 🔴 **2026-10-10 `A1374`：同「只追加」的形状，再补三列** —— 上一笔（`A1368`）补齐了
+///   「付费 / 条件 / 计数」四列之后**还剩三样一个字都不打**，于是三类改动**仍然进不了**
+///   `check`（台账 `A1374`，出处 = `W9_A1368探针补列.md` 顺手发现 1/2）：
+///     · `costKind`   ← `EffectOp.CostKind`（货币名：`energy` / `faith` / `""`）——
+///       🔴 **`A1357` 正是这一类改动**（`SOR72` 的 `Energy` → `☀`，货币由 `energy` 变 `faith`）：
+///       它当时能被 `check` 看见**纯属侥幸** —— 只因动词也跟着从 `gain` 变成了 `gainfaith`。
+///       若**只**改货币名、动词不动，`check` 依然全绿 ⇒ **这不是将来的洞，是已经发生过的**
+///       （`Program.Dump` 一直打 `ck=`，`scan` 不打 ⇒ 两个入口口径不一致）。
+///     · `countScope` ← `EffectOp.CountScope`（`board` / `draw` / `died` / `played` / `spiritspent` /
+///       `darkpact`）—— 单看 `countRef=own|unit|all` 能猜到是 `board`，但 `countRef=board`
+///       （`darkpact` 那支）与「**不计数**」在 dump 里看起来只差一个字。
+///     · `condition`  ← `EffectOp.Condition`（条件的**原文**）—— `condKind` 为空时分不出
+///       「**没条件**」与「**有条件但认不出**」（后者是已知的静默风险，`EffectText.cs:1595-1599`）。
+///   ⚠️ **仍然是「只追加、⛔ 不许插在中间」**：上一笔那 4 列（连同前 6 列）必须保持逐字节不变，
+///      基线的 diff 才只表现为「行尾再变长、老内容一字不动」—— 这是本笔唯一能自证
+///      「没顺手改坏老列」的形状（判据 = `旧行前N列 == 新行前N列` 且 `旧行 ops == strip3(新行 ops)`）。
+///      ⇒ 所以 `costKind` **没**挨着 `cost` 放（那样更好读，但会插在中间）—— 排在了尾部。
+///   ⚠️ **`condition` 也是原样打、不做转义**（同 `countRef` 那条取舍）：它可能自带 `|`，
+///      让那一行的 `|` 数再变多。`CheckMain` 只认**前两个** `|` ⇒ 不受影响；
+///      而「原样」保证 dump 的值与引擎字段**逐字相同**（照 dump 抄进断言不会错）。
 /// ⚠️ 2026-10-18 收编时修了两处（原来那份在 D:/tmp/wf_b14_probe）：
 ///   ① 参数名 `kind` 其实是 `unparsed`（EffectText.Parse 的第二个 out）—— 名字叫反了，正名。
 ///   ② 原来写 `.Append(kind)` ⇒ 命中 `StringBuilder.Append(object)` ⇒ **每张卡都打成字面量
@@ -75,6 +97,12 @@ class Scan
                       .Append("/").Append(op.CostShared ? "1" : "0")
                       .Append("/").Append(op.ConditionKind ?? "")
                       .Append("/").Append(Program.CountRefText(op))
+                      // 🔴 **2026-10-10 `A1374`：再追加这三列**（同上那 4 列一字不动 —— 见文件头）。
+                      //    `Program.Dump` 打的是**同样的三个值**（那边的标签是 `ck=` / `countScope=` / `cond=`），
+                      //    两个入口口径一致；`null` → 空串，与 `condKind` 同一条规则。
+                      .Append("/").Append(op.CostKind ?? "")
+                      .Append("/").Append(op.CountScope ?? "")
+                      .Append("/").Append(op.Condition ?? "")
                       .Append(";");
             sb.Append("\n");
         }

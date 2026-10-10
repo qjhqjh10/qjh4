@@ -154,10 +154,16 @@ namespace RuleEngine
         /// <summary>
         /// **本版有触发时机**的那几个关键词 —— 只有它们才值得收正文。
         ///
-        /// 别的触发词（`Talent` 83 条 · `Pray` 22 · `Duty` 17 · `Agenda` 8 · `Artifice` 8 …
-        /// 实测 212 条）**引擎里根本没有那个时机**，收了也没人消费 ——
+        /// 别的触发词**收下来也没人消费** ——
         /// 注册一条永远不会被消费的效果 = 骗玩家（本工程的静默失败红线）。
         /// ⇒ 它们**照旧判「不认识」**，卡面标 `*`。
+        /// ⚠️ **2026-10-10（第十四会话 · `A1398`）就地订正**：本句原来写的是
+        ///    「别的触发词（`Talent` 83 条 · `Pray` 22 · `Duty` 17 · `Agenda` 8 · `Artifice` 8 …
+        ///     实测 212 条）**引擎里根本没有那个时机**」—— **那一句今天不成立**：
+        ///    `Pray` / `Duty` / `Agenda` / `Artifice` **2026-09-13 A2 就已经进了本表**
+        ///    （见下面 `KeywordTable.Duty, KeywordTable.Pray, KeywordTable.Ferocity, KeywordTable.Agenda`
+        ///    与 `KeywordTable.Artifice` 那几行）。今天**停在本表外面**的只剩三个「正文不是效果文本」
+        ///    的词（`talent` 87 张 · `oath` 28 张 · `companion` 8 张）—— 判据与实测见本条末尾那段。
         ///
         /// ✅ 2026-09-13 第三十四轮：`Mob` 与 `Regiment` 从「没有时机」那一栏**搬到了这里** ——
         /// 时机接在 `RuleCore.DeclareAttack` 攻击后那一段（近战 / 远程各一条）。
@@ -168,6 +174,60 @@ namespace RuleEngine
         ///    `Ecstasy 2:` 的 `"ecstasy 2"` 对不上 `"ecstasy"`）。见那个常量的注释。
         /// ✅ **2026-09-14 更正：`Ecstasy` 已经进来了**（`AddTriggerOp` 已认「名字 + 可选数字后缀」，
         ///    那个判据在 `ReTriggerHead`）。上面那条「不在这里」的理由**已不成立**，留一笔。
+        ///
+        /// 🔴🔴 **2026-10-10（第十四会话 · `A1398`）：本表的【入表判据】—— 普查 47 词后定案。**
+        ///
+        /// 🔴 **<see cref="Implemented"/> 不是入表依据，两张表本来就不同**（实测
+        ///    `Implemented` 68 词 − 本表 23 词 = **47 词**）。入表要**同时**满足三条，缺一条都不进：
+        ///    ① **卡面上真有 `&lt;词&gt;[ N]: &lt;正文&gt;` 这种写法** —— 判据 = PnP 成品卡图
+        ///       （`资料/卡表核对_卡图提取/_还原效果文字.md`，1118 行逐行扫）＋ 卡池
+        ///       `cards_engine.json`（1126 张的 `desc` / `keywords`，含中文列）；
+        ///       ⚠️ **不是**「这个词有没有机制」、**也不是**「它在不在 `Implemented` 里」。
+        ///    ② **引擎在某个时机真的会调这个词的正文** —— 即有一个
+        ///       `FireTriggerAt` / `FireTriggerAlways` / `TriggerKeywordOf` 的调用点用这个词。
+        ///    ③ **那段正文是【效果文本】** —— 不是卡名（`Talent:` / `Companion N:`），
+        ///       也不是另一个层自己收的东西（`Oath N:` 走 `OathOps`）。
+        ///
+        /// **47 词逐词普查的结论：一个都不进本表**（本笔因此是**纯文档改动、零行为改动**）：
+        ///   · **44 词「卡面从不写 `<词>:`」** —— 两处卡面来源里 `0` 命中：
+        ///     `ability · armour · bastion · blast · blind · bloodthirst · camouflage · cantattack ·
+        ///      concussion · darkpact · destroyer · dodge · droppod · ephemeral · fast · flank · flying ·
+        ///      huntmark · invulnerable · longrange · markerlight · noncombatant · pack · pindown ·
+        ///      poisoned · regeneration · remnant · resistant · sabotage · sentry · shield · shuriken ·
+        ///      sniper · stealth · stomp · stun · swarm · synapse · tide · unstable · unstunnable ·
+        ///      vanguard · vulnerable · waystone`。
+        ///     ⚠️ 方括号那种写法（`Give [Shield] Shield` / `gains [Invulnerable] Invulnerable`）
+        ///        **是载荷、不是触发前缀**，逐条看过（共 14 处，一个 `&lt;词&gt;:` 都没有）。
+        ///     ⇒ 判据① **结构性不成立**：它们在原版里是 `CardTrait` / 数值关键词
+        ///       （原版 `d2/Warpforge_code/Scripts/Assembly-CSharp/AbilityTrigger.cs` 那张枚举里
+        ///       **根本没有它们**，只有 `Pack=245` / `Unstable=81` 这类**监听侧**的值）
+        ///       —— **与「今天几张卡用得到」无关**（铁律 11 例外①：判据本身就是空的）。
+        ///   · **3 词卡面确有 `<词>:` 写法，但正文不是效果文本** ⇒ 判据③不成立：
+        ///     `talent`（**87 张**，卡面 `Talent: <天赋名>` —— 名字收在 `TalentName`，见 `CollectTalent`；
+        ///       把名字当效果文本收进来 = 多一条假的 op）·
+        ///     `oath`（**28 张**，`Oath N: <正文>` —— 效果收在 `OathOps`，见 `CollectOathOps`，
+        ///       激活走 `RuleCore.UseOathAbility`，**整条路都不经过** `FireTriggerAt`）·
+        ///     `companion`（**8 张**，`Companion N: <部队名>`，见 `CollectCompanionName`）。
+        ///   · **`swarm` 单独说明**（它是 47 词里**唯一**有调用点的）：`RuleCore.TrySwarmMerge` 那一跳
+        ///     是 `FireTriggerAlways(Swarm)`，而卡面只印裸 `Swarm`、**没有正文** ⇒ 走「没正文」那一支
+        ///     **是对的**。同形的还有 `bloodthirst`：`RuleCore.EmitBloodThirst` 的注释写着原版那一跳
+        ///     **只演出、不结算**，所以**故意不调** `FireTriggerAlways`（调了会在「将来真有
+        ///     `BloodThirst:` 正文」那天多算一件事）。
+        ///
+        /// 🔴 **实测反证 —— ⛔ 别照「`Implemented` 里有就补」办**：把 47 词**原样**灌进
+        ///    本表 ＋ <see cref="BodyKeywords"/>（离线 scratch 复算，⛔ 未落工程、工程文件没动）⇒
+        ///    **全池 1126 张里 187 张的解析签名变了，而且全是坏方向**：
+        ///      · 一个 `ephemeral` 就**误收 94 张**卡的整条 `desc` 当它的正文
+        ///        （<see cref="CollectBareKeywordBody"/> 那条「裸写正文」路的必然结果），
+        ///        另有 `oath` 11 · `flying` 5 · `waystone` 4 · `vanguard` 4 · `armour` 4 · `talent` 3 …
+        ///      · **54 张丢掉本来收得好好的正文**（`-rally` / `-duty` / `-codex` / `-strike` / `-artifice` …）。
+        ///      · **只把 `talent` 补进 `BodyKeywords` 就够翻 4 张**：`AM_Hektor_Thenmann` / `DA40` /
+        ///        `DA3` / `UM65` 的 `keywords` 是「`Talent` ＋ 一个带正文词」⇒
+        ///        `CollectBareKeywordBody` 那条「带正文关键词**唯一**才敢认」的闸立刻判歧义
+        ///        ⇒ 它们**现有的 `duty` / `slay` / `agenda` / `strike` 正文整条消失**
+        ///        （改前 `duty=2/…`，改后**空**）。
+        ///    ⇒ **本表一个字都不加**。将来真要加，照上面三条逐条核；
+        ///      ⛔ 不许拿 `Implemented` 当入表名单（那正是本笔要挡掉的错法）。
         /// </summary>
         public static readonly string[] RoutableTriggers = {
             KeywordTable.Rally, KeywordTable.Strike, KeywordTable.Slay,
@@ -203,7 +263,34 @@ namespace RuleEngine
             //    要能解析出来。**消费点在 `EffectResolver.DoTriggerAbility` 里显式分支**
             //    （`kw == KeywordTable.SpiritStone` ⇒ 走 `SpiritOps`、且不付费）——
             //    没有那个分支的话，这里放行就等于「解析得出、结算空转」（本工程红线）。
-            KeywordTable.SpiritStone };
+            KeywordTable.SpiritStone,
+            // 🆕 **2026-10-21（第十四会话 · `A1386` / `A1389`）：幸存者与献祭。**
+            //
+            // 🔴 **不登记时的实测后果**（写手当场跑出来的，不是推断）：拿一张
+            //    `keywords = {"survivor 3", "Sacrifice: Gain +1 Attack"}` 的卡，
+            //    `Card.TriggerOps("sacrifice")` **返回 `null`**（`Survivor:` 同理）
+            //    ⇒ 卡面印着的那段正文**永远收不下来**，`RuleCore.CleanupDeaths` 里那两跳
+            //    （`FireTriggerAlways(Sacrifice)` / `FireTriggerAlways(Survivor)`）**必然**走
+            //    「没有正文」那一支 —— **只发 `EvtKind.Trigger`、不结算任何效果**
+            //    ⇒ 表现层看得到触发动画、数值上什么都不发生（`A1389` 说的就是这件事）。
+            //    ⚠️ 全池今天 **0 张卡**带这两个词 ⇒ **不可观测**，一有卡就被**静默吞**掉
+            //    （`cards_engine.json` 1126 张整条记录文本扫 `survivor` / `sacrific` 均 0 命中）。
+            //
+            // 🔴 **消费点已经在位**（这也是「收得到」就该收的理由）：
+            //    · 触发时机 = `RuleCore.CleanupDeaths` 的幸存者支路（原版 `CheckIfDead.c:152-165`
+            //      → `CardScript.TriggerSacrifice` / `CardScript.UseSurvivor`）；
+            //    · 那一支走的是 <see cref="RuleCore"/> 的 `FireTriggerAlways` —— 它在
+            //      `u.FxOps(kw) != null` 时**转发给 `FireTriggerAt`**（有正文就结算）。
+            //    ⇒ 收下正文之后**两半就同步了**（事件 + 数值），这正是 `A1389` 要的。
+            //    ⚠️ 收下**不等于**去掉任何条件：`Survivor:` 的正文照旧只在
+            //      `u.Survivor >= 1` 且被救回那一刻跑（条件在结算侧，不在解析侧）。
+            //
+            // ⚠️ **必须同时进 <see cref="BodyKeywords"/>**（本笔一并做掉了）——
+            //    详见那一份里 `survivor` / `sacrifice` 那两行：不进的话
+            //    `Rally: … . Survivor: …` 那种多 ability 卡面，`Survivor:` 那段会被**并进
+            //    `Rally` 的正文**（`TriggerBodyAt` 靠 `StartsAnotherThing` → `IsBodyKeyword` 断句）
+            //    —— 实测量到的读数写在那一份的注释里。
+            KeywordTable.Survivor, KeywordTable.Sacrifice };
 
         // ==================================================================
         //  狂喜 X 的**阈值 X**（2026-09-14）
@@ -271,6 +358,15 @@ namespace RuleEngine
         /// 这个名单决定「**没有 `关键词:` 前缀**时，整条 `desc` 该算谁的正文」
         /// （见 <see cref="CollectBareKeywordBody"/>）。
         ///
+        /// 🔴 **2026-10-10（第十四会话 · `A1398`）：本表 ⊆ <see cref="RoutableTriggers"/>，
+        ///    入表判据与 `RoutableTriggers` **同一份**（三条同时成立，逐词依据写在那一份的 doc 里，
+        ///    ⛔ 别在这里抄第二份）—— 本表是它的**真子集**，唯一的例外是
+        ///    `spiritstone`（可路由，但正文不走 `TriggerOps`，见那一格的注释）。
+        ///    ⚠️ **本表比 `RoutableTriggers`【更危险】**：多一个词会连带改
+        ///    <see cref="CollectBareKeywordBody"/> 的「带正文关键词**唯一**才敢认」那道闸
+        ///    ⇒ 实测只把 `talent` 补进来就会让 4 张卡的 `duty`/`slay`/`agenda`/`strike` 正文**整条消失**，
+        ///    47 词全灌进来会翻 **187 张**（读数与逐词结论见 `RoutableTriggers` 的 doc）。
+        ///
         /// ⚠️ **`remnant` / `destroyer` / `swarm` / `tide` / `companion` / `synapse` 不在这里** ——
         ///    它们的效果**不是卡面正文**（是规则写死的机制，或者带的是数字/卡名，
         ///    如 `Tide 2` / `Companion 2: Missile Drone`），拿整条 desc 当它们的正文会张冠李戴。
@@ -295,6 +391,28 @@ namespace RuleEngine
             // ✅ 狂喜（2026-09-14）：`Chaos Rhino` 那种**正文裸写在 `desc` 里**的写法靠这一条收
             //    （它的 `keywords` 里只有 `Ecstasy 5`，没有 `Ecstasy:` 前缀的正文）。
             KeywordTable.Ecstasy,
+            // ✅ **幸存者 / 献祭（2026-10-21 · 第十四会话 · `A1386` / `A1389`）** —— 和 `Ecstasy`
+            //    一样是「**裸数值 trait ＋ 可选的 `词: 正文`**」两用词，所以两个名单**都要进**。
+            //
+            // 🔴 **不进本表的实测后果**（写手当场跑出来的读数，`D:/tmp/wf_sursac/probe`）：
+            //    一张 `Desc = "Rally: Deal 3 damage to an enemy. Survivor: Gain +2 Attack"`
+            //    的卡，`TriggerText("rally")` 实得
+            //    **`"Deal 3 damage to an enemy. Survivor: Gain +2 Attack"`**、
+            //    `TriggerOps("rally")` 实得 **[2] `{deal}` `{gain|+2 attack}`**
+            //    —— 即 **`Rally` 把 `Survivor:` 那半段静默吞并了**
+            //    （`TriggerBodyAt` 往后并句时靠 <see cref="StartsAnotherThing"/> →
+            //     `IsBodyKeyword` 决定在哪停；`survivor` 不在本表 ⇒ 它不停）。
+            //    ⇒ 那张卡会**白白多拿 +2 攻**，而 `survivor` 自己也未必拿得到（两处各说各话）。
+            //    ⚠️ 这不是「修 `A1386` 才引入的」—— 今天就已经这样（`Rally:` 后面跟任何一个
+            //       **可路由但不带正文**的词都会漏）；只是因为 `survivor` / `sacrifice`
+            //       这两个词今天池里 0 张卡用，才没显形。
+            //
+            // ⚠️ **代价（如实记）**：本表还喂 <see cref="CollectBareKeywordBody"/> 的
+            //    「带正文关键词**唯一**才敢认」那道闸 —— 进了本表之后，一张
+            //    `keywords = {"Survivor 3"}` 且 `desc` 是裸写正文的卡，会被认成「`desc` 就是
+            //    `survivor` 的正文」。**这是本表所有成员共有的既有取舍**（`Ecstasy` 同理），
+            //    今天池里 0 张卡命中；真要收紧得改那道闸本身，⛔ 不在本笔范围。
+            KeywordTable.Survivor, KeywordTable.Sacrifice,
         };
 
         /// <summary>
@@ -507,8 +625,25 @@ namespace RuleEngine
             if (only == null) return;
             if (_triggerOps.ContainsKey(only)) return;   // 前面几支已经收过了
 
+            // 🔴 **`A1450`（2026-10-10）：正文原文里不许留别层的尾巴。**
+            //   原来这里直接用**整条 `Desc`** ⇒ 一张「带正文关键词 ＋ `Talent: <天赋名>`」的卡
+            //   （实测 4 张：`AM_Hektor_Thenmann` / `DA40 Sammael` / `DA3 Azrael` /
+            //   `UM65 Chaplain Letharius`）收到的正文原文**拖着一条天赋尾巴**
+            //   （例：`duty` 实得 `Deal 2 damage to an enemy and Stun it. Talent: Efficiency and Excellence.`）
+            //   —— `op` 数是对的，只有**文本**不干净（日志与卡面多印半句）。
+            //   ⛔ **不能靠把 `talent` 补进 `BodyKeywords` 治** —— 那会让上面 ② 那道
+            //      「带正文关键词**唯一**才敢认」的闸判歧义 ⇒ 这 4 张的
+            //      `duty`/`slay`/`agenda`/`strike` 正文**整条消失**（实测：改前 `duty=2/…` → 改后空）。
+            //   ✅ 换法：**判据转调现成的那两份**（不新写词表）——
+            //      ① <see cref="StartsAnotherThing"/>（`TriggerBodyAt` 停句用的**同一份**，
+            //         别让「带前缀」与「裸写」两条路打架）；
+            //      ② <see cref="HandledByOtherLayer"/>（**认卡**的那一份：`Talent:` 前缀与
+            //         **裸写天赋名**都归它，`StartsAnotherThing` 结构上认不出后者 —— `DA3` 靠它）。
+            //   段口径 = `EffectText.Split`；**只从第 2 段起截**（第 1 段永远留，正文不会变空）。
+            string bare = BareBodyText();
+
             // 正文交给战术卡那个解析器；解析不出来就**不收**（保持「卡面标 `*`」的诚实）
-            var ops = EffectText.Parse(Desc, out _, out _);
+            var ops = EffectText.Parse(bare ?? Desc, out _, out _);
             if (ops == null || ops.Count == 0) return;
             // 🔴 **`codex` 的正文必须带上「你的能量为 0」那个条件**（2026-09-14 A5）——
             //    判据**转调** `EffectText.MarkCodexCondition`（全仓只此一处），
@@ -516,7 +651,47 @@ namespace RuleEngine
             //    会变成「随时触发」，而且**没有任何报错**（静默打错时机）。
             if (only == KeywordTable.Codex) EffectText.MarkCodexCondition(ops, Desc.Trim());
             _triggerOps[only] = ops;
-            _triggerText[only] = Desc.Trim();
+            _triggerText[only] = bare ?? Desc.Trim();
+        }
+
+        /// <summary>裸写正文的**正文原文**（`A1450`，2026-10-10）：
+        /// `Desc` 从**第 1 段起**拼到**第一个「不属于本条」的段**为止。一段都没截掉时返回 `null`。
+        ///
+        /// <para>**为什么要截**：卡面把另一层的东西印在同一条 `desc` 里
+        /// （`Deal 2 damage to an enemy and Stun it. Talent: Efficiency and Excellence.`），
+        /// 不截的话那一层的**名字**会跟着正文一起进日志 / 卡面（静默多印）。</para>
+        ///
+        /// <para>**判据 = 转调现成的两份**，不新写词表：
+        /// ① <see cref="StartsAnotherThing"/>（带前缀那条路用的**同一份**，`TriggerBodyAt` 里的停句判据）；
+        /// ② <see cref="HandledByOtherLayer"/>（**认卡**那一份：`Talent:` 前缀、**裸写天赋名**、`Companion`、
+        /// 事件层、光环、开局上手都归它。`StartsAnotherThing` 是**只看一段的静态判据**，
+        /// 结构上认不出「这一段恰好等于本卡的天赋名」—— `DA3 Azrael` 靠的就是它）。</para>
+        ///
+        /// <para>⚠️ **一段都没被截掉时返回 `null`** —— 调用方照旧用整条 `Desc`。
+        /// 这是**故意**的：本方法拼段用 `". "`（与 `TriggerBodyAt` 同一个拼法），
+        /// 而 `Desc` 里原本可能是换行、句尾可能带句号 ⇒ 没必要的话**别去改全池的正文原文**
+        /// （实测：裸写那条路今天 **93 张**卡，其中 **4 张**真被截、
+        /// 剩下 89 张里还有 **8 张**只要用拼出来的串就会**顺带**被归一化
+        /// —— 换行 `\n` 变 `". "` / 句尾句号被吃掉 ⇒ 那 8 张会白进 diff）。</para>
+        ///
+        /// <para>⚠️ **只从第 2 段起看** —— 第 1 段永远留在正文里
+        /// （裸写正文本来就是「整条 `desc` 都是它的」，截到空的话就什么都没了）。</para>
+        /// </summary>
+        string BareBodyText()
+        {
+            var segs = EffectText.Split(Desc);
+            if (segs.Count <= 1) return null;
+            var sb = new System.Text.StringBuilder(segs[0].Trim());
+            for (int i = 1; i < segs.Count; i++)
+            {
+                string nx = (segs[i] ?? "").Trim();
+                if (nx.Length == 0) continue;
+                // 这一段**不属于本条**（判据只此两份，别另写词表）⇒ 到它为止
+                if (StartsAnotherThing(nx) || HandledByOtherLayer(this, nx) != null)
+                    return sb.ToString();
+                sb.Append(". ").Append(nx);
+            }
+            return null;          // 一段都没截到 ⇒ 调用方照旧用整条 `Desc`
         }
 
         /// <summary>关键词条目 → 规范名：`"Teleport: Gain Vanguard and attack by itself"` → `teleport` ·
@@ -529,7 +704,16 @@ namespace RuleEngine
             return k.TrimEnd('.').Trim();
         }
 
-        static bool IsBodyKeyword(string k)
+        /// <summary>这个（**规范键**）是不是**带正文**的触发关键词（判据表 = <see cref="BodyKeywords"/>）。
+        ///
+        /// 🔴 **2026-10-10（第十四会话 · `A1404`）：本方法由 `private` 开成 `public`** ——
+        /// 表现层 `CardPresentation/Core/CardText.cs` 的 `KeywordSegment` 要判**同一个概念**
+        /// （收尾符印 `.` 还是 `:`），原来因为取不到它**自己遍历了一遍同一张表**
+        /// （两处写同一条规则 = 迟早不一致）⇒ 现在那边**直接调本方法**，判据只此一份。
+        /// ⚠️ **匹配口径 = 精确等值**（`ecstasy` 是、`ecstasy 5` 不是）—— 调用方传的必须是
+        /// `KeywordTable.Normalize` / `KeywordTable.Parse` 出来的**规范键**（全小写）。
+        /// </summary>
+        public static bool IsBodyKeyword(string k)
         {
             foreach (string t in BodyKeywords) if (t == k) return true;
             return false;
@@ -1218,7 +1402,15 @@ namespace RuleEngine
 
             // ③④⑥ 别的层 / 别的族的地盘
             if (low.StartsWith("when ") || low.StartsWith("whenever ")) return true;
-            if (low.StartsWith("talent:") || low.StartsWith("companion ")) return true;
+            // ④ `Talent:` / `Companion N:` —— 另两层（`Biophagus` / `Pathfinder`）
+            //   ⚠️ **`Companion` 卡面上有两种写法，两种都要认**（`A1449`，2026-10-10）：
+            //      · 带数字 `Companion 2: Missile Drone`（`TAU13 Pathfinder`）
+            //      · **不带数字** `Companion: DS8 Support Turret`（`TAU28 Strike Team`，照成品卡图核过）
+            //   原来只判 `companion `（**带一个空格**）⇒ 无数字那种**不停句**：
+            //   `Rally: … . Companion: …` 会被 `Rally` 的正文**静默吞并**（`TriggerBodyAt` 往后并句）。
+            //   `Talent` 同族，一并把两种形式收全（今天池里 0 张 `Talent N:`，但同族要有）。
+            if (low.StartsWith("talent:") || low.StartsWith("talent ")
+                || low.StartsWith("companion:") || low.StartsWith("companion ")) return true;
             if (low.StartsWith("for the rest of")) return true;
 
             // ⑤ 回合起止从句（判据转调 `EffectText.AtTurnClauses`，不另写正则）
@@ -3013,6 +3205,8 @@ namespace RuleEngine
         {
             var kws = new Dictionary<string, int>();
             if (raw == null) return kws;
+            // 🔴 **已经收到过「印了数字」那一条**的名字（`A1387`，见下面那段）。
+            var numSeen = new HashSet<string>();
             foreach (var item in raw)
             {
                 string name = Normalize(item);
@@ -3028,7 +3222,27 @@ namespace RuleEngine
                 //    **`Rally 2`**（那个 2 是正文里的伤害值，根本不是 `Rally` 的参数）。
                 //    ⚠️ 当时**全池 0 张受影响**（5 个候选项第一个数字恰好都是 1）⇒ 改前/改后逐
                 //    (卡,键) 同值 —— 这是**收口**，不是行为改动。
+                //
+                // 🔴 **2026-10-21（第十四会话 · `A1387`，本段新增「印了数字的才说话」）**：
+                //    这里是**同名后写覆盖**，而「兜底 1」和「真的印了 1」在结果里分不开
+                //    ⇒ 一张卡**同时**写 `Survivor 3` 与 `Survivor: Gain +2 Attack` 时，
+                //    后者的头（`HeadOf` = `Survivor`）**一个数字都没有**、`FirstNumber` 兜底 **1**
+                //    ⇒ 把 `survivor` **冲成 1**（实测：救回后生命 **1** 而不是 **3**）。
+                //    ⚠️ 这是**输入侧**的缺陷：`survivor` / `sacrifice` 是「**裸数值 trait ＋
+                //       可选的 `词: 正文`**」两用词（与 `Ecstasy` 同形），两种写法**本来就该
+                //       共存**，正文那一条**不该**参与「值几」的表决。
+                //    ⇒ 判据（**只此一处**，判据复用 <see cref="HasNumber"/>，别另写一份）：
+                //       **同一个名字里，印了数字的那一条压过没印数字的**；
+                //       两条都印了（或都没印）⇒ 照旧**后写覆盖**（不改既有行为）。
+                //    ⚠️ 与 `A1342` 一样量过影响面：全池 **1126** 张、逐 (卡, 键) 比
+                //       「旧口径 vs 新口径」= **0 处不同**（现扫）⇒ 这也是**收口**，不是行为改动。
+                //    ⚠️ **仍然不是「相加」**：同名多次出现取**一条**的值（原版 `CardTrait` 是
+                //       一条 trait 一个 `value` 字段，`EntityScript.GetCurrentTraitValueWithModifiers`
+                //       在列表里 **Find 第一条**命中 —— 没有累加这回事）。
+                bool printed = HasNumber(item);
+                if (!printed && numSeen.Contains(name)) continue;   // 已有一条印了数字的 ⇒ 这条没有发言权
                 kws[name] = FirstNumber(HeadOf(item));
+                if (printed) numSeen.Add(name);
             }
             return kws;
         }

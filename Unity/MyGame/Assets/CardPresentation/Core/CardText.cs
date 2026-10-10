@@ -61,7 +61,7 @@ namespace CardPresentation
         //
         //  ⚠️ **`KeywordZhAliases`（`装甲` / `爆破`）【留在本文件、没搬】** —— 它**不上屏**，只参与
         //    「卡面这一段印过没有」的比对；搬走会让 5 张卡重复印一遍关键词（判据见它自己那段注释）。
-        //  ⚠️ **本文件里剩下的中文字面量**：只有 `KeywordSegment` 那个句读符 `"。"`（跟着语档走，不是词条）。
+        //  ⚠️ **本文件里剩下的中文字面量**：只有 `KeywordSegment` 那两个句读符 `"。"` / `"："`（跟着语档走，不是词条）。
         //    判断「还有没有漏搬的」就照这条查（`grep` 代码位的中文串，应只剩它一处）。
         // ==================================================================
 
@@ -178,18 +178,23 @@ namespace CardPresentation
         /// ② **只补有显示名的**（`KeywordZh`/`KeywordEn` 查得到）—— `lord commander` 这类表外词**不补**；
         /// ③ 数值**只有带数值的关键词才印** —— 走**徽标那同一个入口** `Badges.CarriesValue`
         ///    （出处规则书「带数值」列）。
-        ///    🔴 **但两处传的实参不同**（2026-10-11 · `A1332` 收口，铁律 5 把那句含糊的「判据同徽标」补全）。
+        ///    🔴 **两处传的实参（2026-10-11 `A1332` 接上两档 → `A1341` 补齐第三档）**。
         ///    ⚠️ **下面用的是 `CarriesValue` 那边的档号，与上面本方法自己的 ①②③ 不是一回事**：
-        ///    这边传的是 `CarriesValue(key, kv.Value, null)` ⇒ 只接它那两档
-        ///    —— **「引擎当前值 ≥ 2」** 与 **「那张硬编码表」**；
-        ///    **「卡面原文里写了数字」（`numericKeys` = `CardDef.NumericKeywords`）那一档没接** ——
-        ///    本方法的签名里没有它（生产调用点 `BattleDriver.FaceTextFull` 那行手里有 `c`，
-        ///    把 `numericKeys` 接进来要给本方法加参数 ⇒ 那是下一笔，别在这儿猜）。
-        ///    ✅ **今天两处逐张等价**（全池 1126 张现读：三个口径分别 **9 / 9 / 12 键**，
-        ///    两个差集**都为空**，逐张过门槛 **0 处不同** ⇒ 2026-10-11 那次收口**不动任何一张卡的输出**）。
+        ///    · 徽标那一档（`Badges.For:288`）传 `(kv.Key, kv.Value, numericKeys)`；
+        ///    · **卡面关键词行**（本方法，见下面 `:253` 那一行）传 `(key, kv.Value, numericKeys)`
+        ///      —— `numericKeys` = **本方法末尾那个带默认值的可选形参**。
+        ///    ⇒ **两处今天都接满它那三档**：
+        ///    **① 「卡面原文里写了数字」**（来源 = `CardDef.NumericKeywords`；卡面这条路靠**调用方传进来**）
+        ///    · **② 「引擎当前值 ≥ 2」** · **③ 「那张硬编码表」**。
+        ///    ⛔ **两处必须同批改**（只改一处 = 静默偏一半）——
+        ///    本方法**光加形参不够**，`BattleDriver.FaceTextFull` 那一行必须传 `c.NumericKeywords`。
+        ///    ✅ **改前后逐张等价**（全池 1126 张现读：三个口径分别 **9 / 9 / 12 键**，
+        ///    `①∖③ = ∅`、`②∖③ = ∅` ⇒ 逐张过门槛 **0 处不同**）——
+        ///    接上 ① 这一档**今天不会多印一个数字**，它是为了「卡池哪天出现**带数字、又不在 ③ 表里**的词」
+        ///    时**这一处不再静默漏印**（`A1332` 立的账）。
         ///    ⛔ **别再照「判据同徽标」去改 `Badges.CarriesValue` 的分支就以为这边跟着变** ——
-        ///    两处**共用的是那个函数体**，剩下唯一的差别就是这个 `numericKeys` 实参；
-        ///    哪天卡池出现「带数字但不在那张表里」的词，**只有这一档会把两处拉开**（`A1332`）。
+        ///    真判据**只在 `CarriesValue` 一处**，这边唯一还能和它拉开的就是「调用方忘传 `numericKeys`」
+        ///    （`A1332` 的现场；`A1341` 已把生产调用点补上）。
         ///
         /// ④ 🆕 2026-09-21：**每个词前面要加它自己的图标**（原版卡面印的就是「图标 + 词」）。
         ///    ⚠️ 走到这里才补的，全是 `body` 里**一个字都没提过**的关键词 —— 也就是原版卡面
@@ -205,13 +210,26 @@ namespace CardPresentation
         ///      原版那串是 `DefinedTrait` 的成员名，我们查的是自己的表（`TipText.Trait`），
         ///      **两套名字一一对应但不必逐字相同**。
         ///
+        /// ⑥ 🆕 **2026-10-21（`A1375`）：收尾符按「带不带正文」分** —— 带正文的关键词（判据表 =
+        ///    `CardDef.BodyKeywords`）印 **`X:`**（中文档 `X：`），其余仍印 `X.`（中文档 `X。`）。
+        ///    **为什么**：原版卡面就是「`图标+词` + 冒号 + 正文」——
+        ///    `⟳Flying. ⚡Rally: ⟳Stun an enemy`（`DA39 Dark Talon` 亲读，`A1367` 那一笔的研究对象）。
+        ///    改前一律 `. ` 收尾 ⇒ 凡走**裸写正文**那条路（`CardDef.CollectBareKeywordBody`，
+        ///    `CardDef.cs:465`；离线复算全池 1126 = **93 张**）的卡都少一个冒号。
+        ///    ⚠️ **A 路（`desc` 自带 `Rally: …`）一个字都不变** —— 那个词在 ① 就被剔掉了，走不到这一行。
+        ///    ⚠️ **每一项自己带收尾符**，不再由末尾统一补 —— 因为次序是排过的、带正文的词不一定在最后
+        ///       （`Maelon Dhrost` 的规范键序 `duty` < `regiment`，卡面却印 `Regiment: … Duty: …`）。
+        ///    ⚠️ 判据只有**这一处**（`IsBodyKeyword` + 本方法）；⛔ 别在 `CardView`/`CardIcons` 那边
+        ///       另判一次「这个词要不要冒号」（两处写同一条规则 = 迟早不一致）。
+        ///
         /// ⚠️ 顺序按 **canonical 键排序**：引擎里关键词是 `Dictionary`、枚举顺序不稳；
         ///    卡面本来该按卡自己的顺序印，但**数据里没有那个顺序** ⇒ 这是我们挑的，标明在此。
         ///    ⚠️ 排序键用**不加图标的那个词**：加了 `&lt;sprite …>` 前缀之后 Ordinal 会比到
         ///       **图名**上去（中文模式下会按英文图名排，顺序莫名其妙地变）。
         /// </summary>
         public static string KeywordSegment(IEnumerable<KeyValuePair<string, int>> keywords,
-                                            bool zh, string body)
+                                            bool zh, string body,
+                                            IReadOnlyCollection<string> numericKeys = null)
         {
             if (keywords == null) return "";
             string hay = body ?? "";
@@ -234,11 +252,13 @@ namespace CardPresentation
                 if (zh && AlreadyInHay(hay, key)) continue;
                 // ③ 走徽标那个**同一个入口**（`Badges.CarriesValue`）—— ⛔ 别在这儿另写一张表/另一套分支
                 //    （两处写同一条规则 = 迟早不一致，`A1332` 就是这条）。
-                //    ⚠️ 实参 `(key, kv.Value, null)`：`kv.Value` 让「判不判」与「印几」**同源**
-                //    （接上 `CarriesValue` 里「引擎当前值 ≥ 2」那一档）；`numericKeys` 传 `null`
-                //    = 「卡面原文里写了数字」那一档**这边不接**（签名里没有它，理由与影响见上面 ③ 那段）。
-                //    这一改**不动任何一张卡的输出**（全池 1126 张 0 处不同，离线复算见 `A1332` 报告）。
-                if (kv.Value > 0 && CardPresentation.Badges.CarriesValue(key, kv.Value, null)) word += " " + kv.Value;   // ③ + 值 ≥ 2 那一档
+                //    ⚠️ 实参 `(key, kv.Value, numericKeys)`：`kv.Value` 让「判不判」与「印几」**同源**；
+                //    `numericKeys` = 本方法的**可选形参**（`A1341` 接上；生产调用点
+                //    `BattleDriver.FaceTextFull` 传 `c.NumericKeywords`）。
+                //    ⚠️ **默认值是 `null`** ⇒ 没传的自检调用点仍是老行为（见上面 ③ 那一段）。
+                //    **三档全接**（与 `Badges.For` 那一路同口径），且**不动任何一张卡的输出**
+                //    （全池 1126 张 0 处不同，离线复算见 `A1332` / `A1341` 报告）。
+                if (kv.Value > 0 && CardPresentation.Badges.CarriesValue(key, kv.Value, numericKeys)) word += " " + kv.Value;   // ③ + 「值 ≥ 2」+「原文带数字」三档
                 if (!seen.Add(word)) continue;
                 string sprite = CardPresentation.Badges.SpriteOf(key);                                // ④
                 // 🔴 **每一项要包 `<nobr>`**（原版就是这么写的）：`<nobr><sprite …>词</nobr>`。
@@ -254,13 +274,52 @@ namespace CardPresentation
                 string item = string.IsNullOrEmpty(sprite)
                             ? "<link=" + key + ">" + word + "</link>"
                             : "<link=" + key + "><nobr><sprite name=\"" + sprite + "\">" + word + "</nobr></link>";
+                // 🔴 **2026-10-21（`A1375`）：收尾符按「这个词带不带正文」分** ——
+                //    带正文的印 `X:`（中文档 `X：`），其余仍印 `X.`（中文档 `X。`）。
+                //    判据表 = `RuleEngine.CardDef.BodyKeywords`（**只此一份**，走本文件末尾的 `IsBodyKeyword`，
+                //    ⛔ 别在这儿另写一张词表）。
+                //    · **卡面实证**：`Rally: …`（`DA39 Dark Talon` 亲读）· `Ferocity: …`（`SW11 Blood Claw`）·
+                //      **同一个词段里一个带正文、一个不带**：`Armour 1. Strike: …`（`BL46 Maulerfiend`，
+                //      `资料/卡表核对_卡图提取/Chaos__1.md:72`）—— 带正文的换冒号、不带的仍是句号。
+                //      逐张对卡面 **84/85 张带正文的关键词印的都是 `X:`** → `资料/普查产出_第十四会话/查证_A1355与A1367.md` §二。
+                //    · **数据侧旁证**：全池 1126 张里「(卡,词) 对」带 `X:` 前缀 **194** 个 vs 裸写 **95** 个
+                //      ⇒ `X:` 是这张卡表自己的**主流写法**，裸写是少数。
+                //    · **A 路不受影响**：`desc` 自带 `Rally: …` 的卡，那个词在上面 ①（`:238` 那条
+                //      「正文字里已经出现过 ⇒ 跳过」）就被剔掉了，根本走不到这一行 —— ⛔ **别动那条闸**。
+                //    ⚠️ **收尾符留在 `</link>` 外面**（与改前同一个位置）⇒ 悬停命中区一个字不变。
+                item += IsBodyKeyword(key) ? (zh ? "：" : ":") : (zh ? "。" : ".");
                 parts.Add(new KeyValuePair<string, string>(word, item));
             }
             if (parts.Count == 0) return "";
             parts.Sort((a, b) => string.CompareOrdinal(a.Key, b.Key));
             var outParts = new List<string>(parts.Count);
             foreach (var p in parts) outParts.Add(p.Value);
-            return string.Join(zh ? "。" : ". ", outParts.ToArray()) + (zh ? "。" : ". ");
+            // 🔴 **每一项自己带收尾符**、不再由这里统一补 `. `（`A1375`）——
+            //    因为次序是**排过的**（上一行 `Sort` 按规范词），**带正文的那个词不一定排在最后**：
+            //    `AM41 Maelon Dhrost` 的规范键序是 `duty` < `regiment`，而卡面印的是
+            //    `RegimentRegiment: Draw a Stratagem. DutyDuty: Lower the cost …`
+            //    （`资料/卡表核对_卡图提取/AstraMilitarum__2.md:13`）⇒ 照改前那种「末尾统一补 `. `」
+            //    的写法，`Regiment` 会被印成 `Regiment.`（冒号落在没正文的 `Duty` 上 = 印反）。
+            //    ⚠️ 形状逐字核对：英文档靠**分隔空格 + 末尾一个空格**还原改前（`Flying. Rally: ⏎`）；
+            //       中文档改前就是**无分隔符 + 末尾一个 `。`**（`装甲 1。飞行。`）⇒ 这里也同形。
+            return zh ? string.Join("", outParts.ToArray())
+                      : string.Join(" ", outParts.ToArray()) + " ";
+        }
+
+        /// <summary>这个（**规范键**）是不是**带正文**的触发关键词 —— 判据表 = `CardDef.BodyKeywords`
+        /// （**只此一份**，⛔ 别在本文件另写一张词表；表改这里跟着改）。
+        /// <para>🔴 **2026-10-10（第十四会话 · `A1404`）：本文件原来自己遍历了一遍
+        /// `CardDef.BodyKeywords`**（因为 `CardDef.IsBodyKeyword` 当时是 `private`、跨类取不到）——
+        /// 那个方法**已开成 `public`** ⇒ 这里**直接转调它**，一处判据。
+        /// ⚠️ 转调后匹配口径 = `CardDef.IsBodyKeyword` 的**精确等值**（`ecstasy` 是、`ecstasy 5` 不是）。
+        /// 改前这里用 `OrdinalIgnoreCase`，**对现有输入等价** —— 本方法收到的一律是
+        /// `KeywordTable.Normalize` / `KeywordTable.Parse` 出来的规范键（`CardDef._keywords`，全小写，
+        /// `CardDef.cs:3033` 那句 `ToLowerInvariant`）。</para>
+        /// <para>**用途只此一处**：`KeywordSegment` 决定收尾符印 `.` 还是 `:`（`A1375`）。</para></summary>
+        static bool IsBodyKeyword(string canonicalKey)
+        {
+            if (string.IsNullOrEmpty(canonicalKey)) return false;
+            return RuleEngine.CardDef.IsBodyKeyword(canonicalKey);
         }
 
         // ==================================================================
@@ -355,7 +414,7 @@ namespace CardPresentation
         /// 本工程要的是「**不静默**」，而这里**既出声又保住界面**：出声走 `Loc.T`（`MissingCount` /
         /// `LastMissingKey` 也一起记上、且按键去重不刷屏），界面回改前那句兜底。</para>
         /// <para>🔴 **`fallback` 一律是「英文 / 原值」**，⛔ 不许再写中文兜底 —— 那等于没搬干净
-        /// （本文件今天只剩 `KeywordSegment` 那个句读符 `"。"` 一处中文字面量）。</para>
+        /// （本文件今天只剩 `KeywordSegment` 那两个句读符 `"。"` / `"："` 两处中文字面量）。</para>
         /// <para>⚠️ **`fallback` 允许为 `null`**（例：`KeywordZh` 那条要的兜底就是「认不出 = `null`」）。</para></summary>
         public static string TermOr(string term, string fallback)
         {

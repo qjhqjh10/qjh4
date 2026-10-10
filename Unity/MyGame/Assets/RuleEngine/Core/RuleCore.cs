@@ -1153,6 +1153,25 @@ namespace RuleEngine
                 var u = p.Board[s];
                 if (u == null) continue;
                 u.RefreshForNewTurn();
+                // ---- 🆕 2026-10-21（`A1354`）：**回合开始【自动开舱】**（`dropPod`）----
+                //  判据 = `CardScript__OnTurnStart.c:102-108`（**本会话 VA 逐条核过**）：
+                //    `:102 bVar3 = false;` → `:103 HasCurrentTrait(param_1, 0xe6 /*dropPod*/)`
+                //    ∧ `cardState ∈ {2,0xf,3,0x11}`（`IsInPlay`）∧ `param_2 == card.isPlayer`
+                //    （**这张卡的拥有者这一回合**）⇒ `:107 CardScript__RemoveDropPod(param_1,0)`
+                //    + `:108 bVar3 = true;`；随后 `:263-266 if (bVar3) RawCardScript.OnTrigger(0x1b8
+                //    /* = `AbilityTrigger.Landing = 440` */, bm, card, card, 0, 0)`。
+                //  ① **`bVar3` 的语义没有歧义**：那个局部量在整支函数里**只被写过两次**
+                //     （`:102` 置假、`:108` 置真，`grep -n bVar3` 逐行数过）⇒ 它唯一的意思就是
+                //     「这一趟开过舱」；`.c` 里 `:263` 那段**被 Ghidra 套进了别的 if 里**（渲染
+                //     嵌套不可信，正是 `已知的坑.md` §8 那类），**按 `bVar3` 读**这一支就是开舱的落地。
+                //  ② **位置**：`ActivateMinion`（`:99`）**之后**、`stun`/`blind` 那两个「回合开始就在
+                //     这个状态」的闸门（`:119-126`）**之前** —— 正好就是这里。
+                //     ⚠️ 我们这一圈天然只跑 `p.Board` ⇒ 原版那条 `param_2 == card.isPlayer`
+                //      （本卡的拥有者正是当前行动方）**不需要另写**（同 `A1121` 那处同一个理由）。
+                //  ⚠️ **一处如实标着的次序近似**：原版 stealth 到期（`:110-118`）排在开舱**之后**，
+                //     我们这边 stealth 到期在**上面**（本函数更早那一段）⇒ 这一格相对次序与原版相反；
+                //     今天 0 张卡同时带这两个词 ⇒ 不可观测（与 `A1121` 那条「已知近似」同一族）。
+                OpenDropPod(ctx, ctx.Active, s, u);
                 // 🆕 2026-10-09（`A1121`）：「**回合开始时就在这个状态**」的两个闸门 —— 置 1。
                 //   **判据（含次序，照抄第一权威 `d:/2/tools/decomp_full/`）**：
                 //   `CardScript__OnTurnStart.c:119-126` —— `ActivateMinion`（= 我们上面那句解疲劳）
@@ -2636,28 +2655,38 @@ namespace RuleEngine
 
             // `When a friendly unit triggers Swarm, …`（`Tyranid Prime` / `Termagant Brood`）——
             // 触发者是**合并后还活着的那一个**（新来的已经不在场上了）。
-            // ⚠️ 走 `BroadcastKeywordEvent` 而不是 `FireTriggerAt`：虫群**没有卡面正文**，
-            //    而 `FireTriggerAt` 在「没写效果」时会提前 return、**连广播都不发**。
-            BroadcastKeywordEvent(ctx, WhenEventKind.Triggers(KeywordTable.Swarm), host);
-            // 🆕 2026-09-30：**补表现层那条 `EvtKind.Trigger`** —— 上面那条广播走的是
-            //   `BroadcastWhen`（只唤醒「写了 `When … triggers Swarm` 正文的监听者」），
-            //   **整段体内没有任何 `ctx.Emit`** ⇒ 事件流里**没有**这一格，表现层（trait 粒子/框）永远收不到。
-            //   这正是判据文件与 `BattleDriver.PlayTraitParticles` 头部记的那条缺口（原来记成「要做」）。
-            //   🔴 **格位怎么取（2026-10-01 二次订正）**：连续棋盘下**宿主会补位**，
-            //   而往哪边补**取决于是哪一侧** ——
-            //     · **左侧**：`right = slot+1` 是**靠里**那一格（下标更小）⇒ 摘掉外面的 `slot`
-            //       之后宿主**不动**，格位还是 `right`；
-            //     · **右侧**：`right = slot+1` 是**靠外**那一格（下标 +1）⇒ 补位之后宿主**滑到 `slot`**。
-            //   ⇒ 别再写死哪一个（第一版写死 `right`、第二版写死 `slot`，**两次都在另一侧错**）。
-            //     **按身份现查**：表现层是拿 `Ctx.Players[e.Player].Board[e.Slot]` 反查单位视图的，
-            //     给的格号必须指向**还活着的那一个**。
+            //
+            // 🔴 **2026-10-21（`A1356`）就地收成一处**：这一段原来是**两条手写的跳**
+            //    （`BroadcastKeywordEvent(Triggers(Swarm), host)` + 一段自己拼的 `ctx.Emit(EvtKind.Trigger…)`）。
+            //    现在整段换成 <see cref="FireTriggerAlways"/> 的**一次**调用 —— 它正是为这件事立的口：
+            //      · **有正文** ⇒ 转 `FireTriggerAt`（发 `EvtKind.Trigger` + 结算 + 尾部
+            //        `BroadcastWhen(Triggers(kw))`）；
+            //      · **没正文** ⇒ 自己发 `EvtKind.Trigger` + 同一句广播。
+            //    两条路的产物与上面那两条手写跳**逐格相同**（`swarm` **不在**
+            //    `CardDef.RoutableTriggers` 里 ⇒ `FxOps` 恒 null、`Effect` 恒 null ⇒ 今天必走「没正文」那一支）。
+            //    ⚠️ **旧注释说「虫群没有卡面正文」所以不能走 `FireTriggerAt`** —— 那半句判据没错，
+            //    但结论过时了：`FireTriggerAlways` 就是为了「没正文也要发」而立的（`A1336`），
+            //    ⛔ 别再手写第二条。
+            // 🔴 **为什么用 `FireTriggerAlways`（而不是「让它缺一半」）**：原版
+            //    `BattleManagerSupport__BroadcastUnitSwarm.c` 里**两件事都无条件做** ——
+            //    `:16-18` 先 `DamageSignal.Raise`（= 我们的事件流那一格），`:20-70` 再对
+            //    「场上所有卡 + 当前回合方手牌 + 对手手牌」逐个 `CardScript__TriggeredSwarm`
+            //    → `OnTrigger(0x26c /* = `AbilityTrigger.TriggeredSwarm = 620` */)`
+            //    ⇒ 「事件」与「广播」在原版里**是同一跳的两个动作、都在同一个无条件函数里**
+            //    （判据：那个函数体里没有任何 `if` 挡在两者前面）。⛔ 只补半边就是静默缺一半。
+            //
+            // ⚠️ **格位怎么取（连续棋盘：宿主会补位）** —— 保留原来的按身份现查，
+            //    ⛔ 别改回写死 `right` / `slot`（第一版写死 `right`、第二版写死 `slot`，**两次都在另一侧错**）：
+            //      · **左侧**：`right = slot+1` 是**靠里**那一格 ⇒ 摘掉外面的 `slot` 之后宿主**不动**；
+            //      · **右侧**：`right = slot+1` 是**靠外**那一格 ⇒ 补位之后宿主**滑到 `slot`**。
+            //    表现层是拿 `Ctx.Players[e.Player].Board[e.Slot]` 反查单位视图的，
+            //    给的格号必须指向**还活着的那一个**。
             int hostSlot = right;
             {
                 int hp, hs;
                 if (FindSlot(ctx, host, out hp, out hs)) hostSlot = hs;
             }
-            ctx.Emit(EvtKind.Trigger, p, hostSlot, host.Name,
-                     keyword: KeywordTable.Swarm, effect: null, amount: 0);
+            FireTriggerAlways(ctx, host, KeywordTable.Swarm, p, hostSlot);
         }
 
         // ==================================================================
@@ -2708,7 +2737,15 @@ namespace RuleEngine
             //    ⚠️ 名字里的 **without displacing** 是判据：这条路**不挤人** ⇒ 直接写在那一格上，
             //      不需要走 `Insert`（那一格按定义就是空的）。
             int dst = BoardSlots.NextWithoutDisplacing(ps);
-            if (dst < 0) return false;      // 满场 ⇒ 什么都不做（这条口径没变）
+            // 🔴 **2026-10-21（`A1352`）：这条出声原来挂在函数【尾部】**，而这一支是**无条件 `return false`**
+            //    ⇒ 尾部那句 `ctx.Log(…场上没空格了…)` + 紧跟的 `return false` 是**死代码**（编译器 `CS0162`），
+            //    **一次都没跑过** —— 「场上没空格了」这条诊断从来没打过（撞本仓「**不许静默失败**」那条）。
+            //    ⇒ 就地挪进这一支。⛔ **口径一个字没变**：满场 = 什么都不做、返回 `false`（原来就是这样）。
+            if (dst < 0)
+            {
+                ctx.Log($"{ps.Name} 场上没空格了 —— {card.Name} 部署不了");
+                return false;
+            }
             {
                 var unit = new UnitState(inst, false);   // 第 7 行第 2 步：实例原样上场
                 unit.DeployedTurn = ctx.Turn;   // 🆕 同上：免费部署也算「本回合上场」
@@ -2747,8 +2784,6 @@ namespace RuleEngine
                 ResolveDeploy(ctx, owner, unit);
                 return true;
             }
-            ctx.Log($"{ps.Name} 场上没空格了 —— {card.Name} 部署不了");
-            return false;
         }
 
         /// <summary>
@@ -3736,6 +3771,43 @@ namespace RuleEngine
                 ctx.Log($"{attacker.Name} 攻击后失去伪装（Camouflage）");
             }
 
+            // ---- 🆕 2026-10-21（`A1354`）：**出手之后【自动开舱】**（`dropPod`）----
+            //  判据 = `BattleManager._ResolveAttack_d__438__MoveNext.c:339-379`，
+            //  🔴 **本会话回 VA 逐条读清了**（`.c` 在这一段有 `yield` 状态机，光看 `.c` 会读反）
+            //  —— 入口 RVA `10145552`（`all_methods.txt`）/ VA `0x1809ACE10`，ImageBase `0x180000000`：
+            //    · `0x1809ad4c8 mov edx,0xe6` → `0x1809ad4cd call`（= `HasCurrentTrait`）
+            //      → `0x1809ad4d4 je 0x1809ad847`：**没有 `dropPod` ⇒ 跳到「正常继续」那一格**
+            //      （`0x1809ad847` 正是后面 `HasCurrentTrait(card, 0xa0 /*tainted*/)` 那一段的入口）；
+            //    · 有 `dropPod` ⇒ `0x1809ad4ec call 0x1805f6cb0`（= `RemoveDropPod(card, 0)`）；
+            //    · 然后 `0x1809ad50e mov edx,0x302`（= **`DefinedTrait.landing = 770`**，
+            //      `DefinedTrait.cs:77`）→ `0x1809ad513 call`（= `HasDefaultTrait`）
+            //      → `0x1809ad51a jne 0x1809ad55b`：
+            //        · **没有 `landing` 那个 trait** ⇒ `0x1809ad54f mov dword [rdi+0x10], 1`
+            //          （协程状态 1）+ `jmp 0x1809ad386`（**挂起一帧**，等开舱动画）。
+            //          状态 1 的**恢复点**从跳转表（`0x1809af80c`，本会话解出来的）是 `0x1809ad7e8`，
+            //          而它**一路落到 `0x1809ad847`** —— 与「没有 `dropPod`」那一支**同一个出口**
+            //          ⇒ **攻击照常打下去**，只是开舱前等了一帧；
+            //        · **有 `landing`** ⇒ `0x1809ad56d`（`CancelAttack`）+ 两次 `0x1805ea740`
+            //          （`ClearPendingDamage` 双方）+ `0x1809ad5c1 mov edx,0x1b8`
+            //          （= `AbilityTrigger.Landing = 440`）→ `0x1809ad5cb`（`OnTrigger`）
+            //          ⇒ 随后 `jmp 0x1809ad373`（= `FinishResolvingAction`，**这一下不打了**）。
+            //  ⇒ **两条结论**（原文档不准确，⛔ 别照旧说法写）：
+            //    ① 出手后的开舱 = `RemoveDropPod` **无条件**（只要带 `dropPod`）；
+            //    ② `Landing` **只在卡上带 `landing`（770）那个 trait 时才发**，而且那一下会
+            //       **取消这次攻击**；不带的东西只是开舱 + 等一帧 + 照常打。
+            //  ⚠️ **本笔只落了 ①**（② 的两支都做不了，理由见下面那条 ⚠️）。
+            OpenDropPod(ctx, p, atkSlot, attacker);
+            //  ⚠️ **如实标着：② 那两支【本笔做不了】**，理由两条、都不是「影响小」：
+            //    · **`landing`（`DefinedTrait.landing = 770`）这个 trait 我们引擎里根本没有** ——
+            //      要判它先得往 `KeywordTable` 里登记（`CardDef.cs`），而**那个文件不在本笔白名单**；
+            //      硬写 `u.Has("landing")` 会得到一个**永远为假**的分支（死代码 + 魔法字符串两宗罪）。
+            //    · **「取消这次攻击」在我们的形状里没有对应物** —— 原版那一下发生在**协程**里
+            //      （`CancelAttack` + `ClearPendingDamage` 是在 `yield` 之后、伤害之前取消一个
+            //      **已经声明、还没结算**的攻击）；我们的 `DeclareAttack` 是**同步一把跑完**的，
+            //      要等价表达就得在入口处先做一次「这一下会不会被自己开舱吃掉」的预判
+            //      ⇒ 那是另一处改动、另一套断言，**不塞进本笔**。
+            //  ⇒ 两条都写进了本笔报告；接手 `CardDef.cs` 的那一笔请把它们一起收掉。
+
             var target = ctx.Players[tgtP].Board[tgtSlot];
 
             // ---- **替身**（`Any attack against your Warlord targets this troop instead.`）----
@@ -4357,11 +4429,14 @@ namespace RuleEngine
         /// `EntityScript__get_currentDropPodHealth.c:8-12` 读同一组偏移）读进 `iVar6`，
         /// 并在 `:255-264` 把它当**循环里的第一层血量**用（`iVar5 += 伤害` 后先扣它，扣穿了才
         /// 置 `bVar3` 往幸存者/堡垒那两层走）。
-        /// ⚠️ **⇒ 预览侧其实还缺「空投舱那一层」**（`WouldKillByEntries` 现在没有它）——
-        ///    **本笔没补**，卡在哪：`:255-264` 那个 else 支在 `.c` 里渲成 `iVar5 = 0`
-        ///    （与 `if` 支的 `iVar5 = 0` 相同 ⇒ 溢出不往下传，读不通），而
-        ///    「`.c` 的块顺序/局部量 ≠ 地址顺序」正是本项目点名的那类假象 ⇒ **要回 RVA 核一遍才能落**，
-        ///    ⛔ 不猜。已记进 `资料/普查产出_第十三会话/W4_A1335A1336.md` 的「顺手发现」。
+        /// ✅ **⇒ 预览侧那一层【2026-10-21 已补】（`A1355`，铁律 5 就地订正本段）** ——
+        ///    `WouldKillByEntries` 现在有它（下面循环里那一段）。
+        ///    本段当年写「**本笔没补**，卡在哪：`:255-264` 那个 else 支在 `.c` 里渲成 `iVar5 = 0`
+        ///    （与 `if` 支相同 ⇒ 读不通），而『块顺序 ≠ 地址顺序』正是本项目点名的那类假象 ⇒ 要回 RVA 核」——
+        ///    那一步**后来核过了**：真尾块被放在**另一座岛** `0x1805EC225–266`、以**显式 `jmp 0x1805ec100`** 回边，
+        ///    **按地址顺序**重读后两支体与 `.c` **逐条相同**（含 `jge` 的条件方向），
+        ///    `0x1805ec25a xor esi,esi` 是**机器码里的真指令**、**不是**渲染假象 ⇒ **能落、已落**。
+        ///    证据与「假象是怎么排除的」→ `资料/普查产出_第十四会话/查证_A1355与A1367.md` §一。
         /// </summary>
         public static bool EnoughPendingDamageToDie(UnitState u)
         {
@@ -4383,7 +4458,11 @@ namespace RuleEngine
         ///   · `:161/206` 当 `CurrentSurvivor >= 1` 且**堡垒层还没被打穿**时，
         ///     累计伤害一旦 ≥ `生命 + 堡垒` ⇒ **这一层清零、计数重来**（`iVar5 = 0`，原版 `bVar2`）；
         ///   · `:231-248` 之后把**幸存者**当第二层屏障：累计 ≥ `survivor` ⇒ `return 1`（判死）；
-        ///   · `:206-210` `CurrentSurvivor &lt; 1`（没幸存者）⇒ 唯一屏障 = `生命 + 堡垒`。
+        ///   · `:206-210` `CurrentSurvivor &lt; 1`（没幸存者）⇒ 唯一屏障 = `生命 + 堡垒`；
+        ///   · 🆕 `:255-264` **空投舱血池是循环里的【第一层】**（`dropPod`，原版 `bVar3`）：
+        ///     池**没花完** ⇒ 池吃掉这一段累计、累计清零；**花穿了** ⇒ 这一段**整份**丢给池、
+        ///     累计清零且此后**不再看池**。🔴 **原版是 `if / else`** ⇒ 走池子的那一轮
+        ///     **不落进**幸存者/堡垒（⛔ 只插一段 `if` 会**两边都算**）。
         ///
         /// ⚠️ **原版在【预览】这一套里把 `bastion` 当【额外血量】、把 `survivor` 当【第二层血量】**——
         ///    结算那边**两条各走各的路、形状都不一样**（`bastion` = 「整份吃掉这一击」、
@@ -4391,9 +4470,22 @@ namespace RuleEngine
         ///    （照原版）⇒ 带堡垒的单位这一格**仍然可能与真打一局不一致** —— 那是**原版自身**的
         ///    形状（预览把堡垒累加成血量池、结算让它一次吃一份），⛔ 别拿本函数去「修正」结算侧。
         ///    结算侧判据 → `RuleCore.ApplyDamage` 的那两段（`A1335`，2026-10-11 `W4`）。
-        /// ⚠️ `dropPod`（空投舱血池）**不在这一口里**（原版这一路也没读它）—— 它只在
-        ///    `_ReceiveDamage` / `CheckIfDead` 那两处被读。**结算侧已做**（同上），
-        ///    预览侧**照原版不读** ⇒ 本函数一个字都不改。全池 0 张卡带 `dropPod`。
+        /// ✅ **2026-10-21（`A1355` · 铁律 5）就地订正本段原来那句话** —— 它原来写着
+        ///    「`dropPod`（空投舱血池）**不在这一口里**（原版这一路也没读它）… 预览侧**照原版不读**
+        ///    ⇒ 本函数一个字都不改」—— **被 VA 反汇编证伪**，且与本文件上面 `:4358-4370` 自相矛盾。
+        ///    **现读实据**（`CardScript__EnoughPendingDamageToDieWithDamageValues`，入口 RVA `0x5EBE00`）：
+        ///      · `0x1805ec228` `mov edx,0xe6`（`DefinedTrait.dropPod` = 230）
+        ///        → `0x1805ec232 call EntityScript$$HasCurrentTrait` → `je` 没这个词 ⇒ 走幸存者/堡垒；
+        ///      · `0x1805ec245` `cmp esi,r13d` / `0x1805ec248 jge`
+        ///        （`esi` = 累计伤害 `iVar5`，`r13d` = 池 `iVar6`）：`<` ⇒ `sub r13d,esi` + `xor esi,esi`
+        ///        （**池吃掉这一段、累计清零**）；`>=` ⇒ `xor esi,esi` + `mov byte[rbp+0x60],1`
+        ///        （**累计清零 + 池标记「已花掉」**，原版 `bVar3`）；
+        ///      · 两支**都以 `jmp 0x1805ec100` 回循环顶**（`0x1805ec255` / `0x1805ec266`）
+        ///        ⇒ 原版是 **`if / else`**：走池子的那一轮 **⛔ 不落进幸存者/堡垒**。
+        ///    ⇒ 现在本函数**这一层有了**（下面循环里那一段）。
+        /// ⚠️ **全池今天 0 张**卡**声明** `dropPod`（唯一含这个词的是 `SW31 Fenrisian Drop Pod` ——
+        ///    那是**卡名**，它 `keywords` 只有 `Flying` / `Armour 1`）⇒ 暂时**不可观测**，
+        ///    但按**铁律 11**（复刻有缺漏就补，只有先后之分）**仍要做**。
         /// </summary>
         public static bool WouldKillByEntries(UnitState u, IReadOnlyList<int> entries)
         {
@@ -4408,10 +4500,32 @@ namespace RuleEngine
             int survivor = u.Survivor;
             int acc = 0;                 // 原版 `iVar5`
             bool bastionBroken = false;  // 原版 `bVar2`
+            // 🆕 2026-10-21（`A1355`）：**空投舱血池 = 循环里的第一层** —— 原版 `bVar3`（`[rbp+0x60]`）
+            //   ＋ 池本身（原版 `iVar6` = `r13d`）。`pool` 的取法与 `ApplyDamage` **同一口**
+            //   （`u.Has` / `u.KwValue(KeywordTable.DropPod)`，⛔ 别在这儿另开算式）。
+            int podPool = u.KwValue(KeywordTable.DropPod);
+            bool podSpent = false;
             for (int i = 0; i < entries.Count; i++)
             {
                 // 逐条（护甲 / 盾 / 闪避 / 无敌的逐条口径在这一口里，判据只此一处）
                 acc += DamageAfterReductionOne(u, entries[i], i);
+
+                // 🆕 `A1355`：**原版 `:255-264` 的第一层**（`0x1805ec228` 起那一支）——
+                //   有 `dropPod` 且池**还没花掉** ⇒ 只跟池打交道，**本轮 `continue`**。
+                //   🔴 **原版是 `if / else`、两支都以 `jmp 0x1805ec100` 回循环顶**
+                //   （`0x1805ec255` / `0x1805ec266`）⇒ 这一轮**必须跳过**下面的幸存者/堡垒，
+                //   ⛔ 只插一段 `if`（不 `continue`）会**两边都算**。
+                //   · 累计 `<` 池（`cmp esi,r13d` + `jge` 不跳）⇒ 池减掉这一段、累计清零；
+                //   · 否则 ⇒ 这一段**整份**丢给池（累计清零）＋ 池标记「已花掉」，
+                //     此后不再看池（与结算侧「池整份吃掉这一击、不溢出到血」自洽，
+                //     见 `_ReceiveDamage…:159-183` / `CheckIfDead.c:76-96`）。
+                if (u.Has(KeywordTable.DropPod) && !podSpent)
+                {
+                    if (acc < podPool) { podPool -= acc; acc = 0; }
+                    else { acc = 0; podSpent = true; }
+                    continue;
+                }
+
                 if (survivor > 0 && !bastionBroken && hp + bastion <= acc)
                 {
                     // 原版 `:161-170`：第一层（生命 + 堡垒）被打穿 ⇒ 清零、进入第二层
@@ -4437,6 +4551,54 @@ namespace RuleEngine
                 }
             }
             return false;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-21（`A1354`）：**空投舱的「开舱」那一半**
+        // ==================================================================
+
+        /// <summary>
+        /// **`landing`（空投舱「开舱」时发的那个触发）** —— 原版 `AbilityTrigger.Landing = 440`
+        /// （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/AbilityTrigger.cs:55`；反编译里写作 `0x1b8`）。
+        ///
+        /// ⚠️ **它本该住在 <see cref="KeywordTable"/>（`CardDef.cs`）** —— 本笔（`A1354`）的白名单里
+        ///    **没有那个文件** ⇒ 暂住在 `RuleCore` 这一处。**全仓只此一个定义**，
+        ///    ⛔ **别在别处再写 `"landing"` 字面量**。
+        ///    接手 `CardDef.cs` 的那一笔请把它挪成 `KeywordTable.Landing`，并按需要登记
+        ///    `Prefixes` / `RoutableTriggers` —— ⚠️ 今天**没登记**，所以：
+        ///      · 卡面写 `Landing: &lt;正文&gt;` 的那一天，`Normalize` 会返回 null ⇒ 词被**静默丢掉**
+        ///        （今天卡池 **0 张**卡提到它，`cards_engine.json` 1126 张整条记录文本扫 `landing` 0 命中）；
+        ///      · `FireTriggerAlways` 因此**必走「没正文」那一支**（只发 `EvtKind.Trigger` + 广播）。
+        /// </summary>
+        const string LandingKeyword = "landing";
+
+        /// <summary>
+        /// **开舱** —— 原版 `CardScript.RemoveDropPod(card, 0)` 的等价物（`A1354`）。
+        ///
+        /// **做三件事**（原版 `CardScript__RemoveDropPod.c:7-8` = `RemoveBuffedTrait(0xe6)`
+        /// + `RemoveTrait(0xe6)`，再加镜头抖 / `BattleCardUI.RemoveStatusAnim(0xe6)` / `UpdateFigures`）：
+        ///   ① 把 `dropPod` 这个词**整个摘掉**（= 血池没了）；
+        ///   ② 发 `landing` 那一跳（**表现层那两格**：`EvtKind.Trigger{landing}` 事件
+        ///      + `When … triggers Landing` 广播）—— 走 <see cref="FireTriggerAlways"/>
+        ///      （**不是** `FireTriggerAt`：原版 `OnTrigger(0x1b8)` 是**直接调的**，
+        ///      「这张卡有没有那条 ability」不影响它被发出来）；
+        ///   ③ 打一行日志。
+        ///
+        /// ⚠️ **不调 `Auras.Recompose`**（如实标着这一条判断）：本函数**不改棋盘**（只是摘一个词），
+        ///    而 `dropPod` **既不是任何光环的来源、也不会被任何光环授予**
+        ///    （它是「池子」这一格的状态，`CardDef.AuraSpecs` 那族读的是别的词）
+        ///    ⇒ 光环重算这一步**没有输入变化**。⛔ 将来若真出现「某个光环读 `dropPod`」，
+        ///    这里必须补一次（与「棋盘写入点必须挂钩子」同一条纪律）。
+        /// </summary>
+        static void OpenDropPod(BattleContext ctx, int p, int slot, UnitState u)
+        {
+            if (ctx == null || u == null) return;
+            if (!u.Has(KeywordTable.DropPod)) return;
+            int left = u.KwValue(KeywordTable.DropPod);
+            u.RemoveAll(KeywordTable.DropPod);
+            ctx.Log($"{u.Name} 的空投舱打开（开舱）—— 血池 {left} 撤掉"
+                  + "（原版 `CardScript__RemoveDropPod`；触发 `Landing`）");
+            FireTriggerAlways(ctx, u, LandingKeyword, p, slot);
         }
 
         /// <summary>
@@ -4740,9 +4902,14 @@ namespace RuleEngine
                       + $"（血池 {pod} → {System.Math.Max(0, after)}，生命 {u.Health} 不动）");
                 if (after < 1)
                     // 原版 `CheckIfDead.c:94` `RemoveDropPod(card, true)` = 摘 trait + 状态框 + `UpdateFigures`。
-                    // ⚠️ **不发 `Landing`（`AbilityTrigger.Landing = 440`）** —— 原版只在**另外两处**发它
-                    //    （`_ResolveAttack…:359-379` 出手后、`OnTurnStart.c:102/108/263-266` 本方回合开始），
-                    //    都是「开舱落地」，不是「被打空」。那两处**没做**，见 `KeywordTable.DropPod` 的 doc。
+                    // ⚠️ **本条【不发】`Landing`（`AbilityTrigger.Landing = 440`）—— 这一半是照原版的**
+                    //    （原版只在另外两处发它：`_ResolveAttack…:339-379` 本单位出手时、
+                    //     `OnTurnStart.c:102/108/263-266` 本方回合开始时，「开舱落地」；
+                    //     被打空不是开舱）。
+                    // ✅ **2026-10-21（`A1354`）：那两处【已做】**，落点 = `OpenDropPod`
+                    //    （`BeginTurn` 的「回合开始自动开舱」与 `DeclareAttack` 的「出手后自动开舱」）。
+                    //    ⚠️ 出手那一处的第二支（卡上带 `landing` trait ⇒ 取消攻击 + 发 `Landing`）
+                    //      **仍未做**，判据与理由写在 `DeclareAttack` 那一段的注释里。
                     ctx.Log($"{u.Name} 的 Drop Pod 被打空 ⇒ 移除（原版 `CheckIfDead.c:94` `RemoveDropPod`）");
                 EmitHit(ctx, u, 0);   // 挨了一下、一点血没掉（与 Shield / Invulnerable 同一个口径）
                 return 0;
@@ -5112,13 +5279,44 @@ namespace RuleEngine
                     // `DisplayTriggerAnim` 在「有没有那条 ability」**之外**（见该口的 doc），
                     // 而 `FireTriggerAt` 在没正文时会连事件都不发 ⇒ 表现那一格会静默缺一半。
                     // 结算（有 `Sacrifice:` 正文才跑）+ `When … triggers sacrifice` 广播都在这个口里。
-                    // ⚠️ **原版 `TriggerSacrifice` 里还有半条我们【没做】**：
-                    //    `:44-45` `BattleManager.BroadcastSacrificeResolved(card)` →
-                    //    `BattleManagerSupport__BroadcastUnitUsedSacrifice.c` 对**场上所有卡 + 两手牌**
-                    //    （除被献祭那张自己）各发一次 `OnTrigger(0xe1 /* OtherCardSacrifice = 225 */, …)`。
-                    //    ⇒ 那是**独立的一条广播**、不是这个口免费带的那条
-                    //    （后者是 `triggers:<kw>` 那一族监听器）。如实记在报告里，见
-                    //    `KeywordTable.Sacrifice` 的 doc。
+                    // 🔴 **2026-10-21（`A1353` · 铁律 5 就地订正）**：本段原写
+                    //    「原版 `TriggerSacrifice` 里还有半条我们【没做】… `BroadcastSacrificeResolved`
+                    //    → `BroadcastUnitUsedSacrifice` 对场上所有卡 + 两手牌各发一次
+                    //    `OnTrigger(0xe1 /* OtherCardSacrifice = 225 */)`，**不是**这个口免费带的
+                    //    `triggers:<kw>` 那一族」—— **后半句是错的**，本条【已经实现】，就在上面这一口里。
+                    //
+                    //    **证据（三条，都读原文）**：原版的「**别的卡**因某个关键词被触发而反应」那一族
+                    //    广播，落的触发 id **就是**「本卡自己的那个词」在别的卡上那一份，形状与
+                    //    `triggers:<kw>` 一一对应：
+                    //      · `BattleManagerSupport__BroadcastUnitSwarm.c` → 场上所有卡 + 两手牌各
+                    //        `CardScript__TriggeredSwarm` → `RawCardScript.OnTrigger(0x26c /* = 620 =
+                    //        `AbilityTrigger.TriggeredSwarm` */)` ⇒ 与我们的 `triggers:swarm` 同一条
+                    //        （`TL79 Termagant Brood` / `TL22 Tyranid Prime` 卡面写的就是
+                    //        `When a friendly unit triggers Swarm, …`，靠的正是它）；
+                    //      · `CardScript__TriggerOtherCardCodex.c` → `OnTrigger(0x28a /* = 650 =
+                    //        `TriggeredCodex` */)` —— 注意：**「别的卡」用的仍是 `Triggered<X>` 那个 id**；
+                    //      · `CardScript__TriggerOtherCardMob.c` → `OnTrigger(0x285 /* = `OtherCardMob` */)`。
+                    //    ⇒ 原版这一族**本来就不统一**（Swarm/Codex 用 `Triggered<X>`，Mob/Sacrifice 用
+                    //      `OtherCard<X>`），但**角色是同一个**：「某关键词刚被触发 ⇒ 唤醒别的卡上监听它的
+                    //      那些能力」。我们的 `triggers:<kw>` 就是那个角色的表示 —— `FireTriggerAlways`
+                    //      在**有正文**（`FireTriggerAt` 尾部）与**没正文**（自己那一支）两条路上
+                    //      **都** `BroadcastWhen(WhenEventKind.Triggers(kw))`，而 `BroadcastWhen` 覆盖
+                    //      **双方棋盘 + 双方手牌**（`EffectResolver.cs` 的快照 + 两跳手牌）
+                    //      —— 与 `BroadcastUnitUsedSacrifice` 的受众逐格相同。
+                    //    **接得通**：`sacrifice` 在 `KeywordTable.Implemented` 里、`HasTriggerMoment`
+                    //      为真 ⇒ 卡面写 `When another unit uses Sacrifice, …` 会被
+                    //      `WhenEvent.TryParseKeywordTrigger`（`… uses <词>` 那一支）收成
+                    //      `triggers:sacrifice` 监听器，并在这里被叫醒。**全链路已通**。
+                    //    ⛔ **为什么不另开一个 `WhenEventKind`**（那是本账原定的做法）：那条路需要一条
+                    //      **卡面短语**，而 `… triggers / uses <词>` 这一支已经吃掉了所有这类写法
+                    //      ⇒ 新 Kind 要么**没有短语 = 死代码**，要么与现有短语**撞车 = 一次牺牲叫醒两遍**。
+                    //      而卡池**今天 0 张**卡提到 `sacrifice`（`cards_engine.json` 1126 张整条记录
+                    //      文本扫 `sacrific`：只有卡名 `TAU65 Valued Sacrifice`）⇒ 新短语**没有判据可核**。
+                    //    ⚠️ **如实标着的一处未核**：原版 `TriggerOtherCard*` 那一族里，
+                    //      棋盘/手牌那两跳对「被献祭那张自己」的排除**不一致**
+                    //      （`CardScript__TriggerOtherCardLanding/Mob/Codex` 有 `op_Inequality(self)`
+                    //       自排除，而 `ReactToUnitUsedSacrifice` 的棋盘跳传的是**空**、没有自排除）
+                    //      ⇒ 我们这边“自己会不会被自己叫醒”是否与原版一致，**没核**（0 张卡可达）。
                     FireTriggerAlways(ctx, u, KeywordTable.Sacrifice, p, slot);
 
                 // ---- ② 消耗幸存者（原版 `:160-165`）----
@@ -6642,6 +6840,31 @@ namespace RuleEngine
             // 表现层要按「这一刻这一格」去反查视图）
             ctx.Emit(EvtKind.Trigger, p, slot, u.Name,
                      keyword: KeywordTable.BloodThirst, effect: null, amount: 0);
+            // 🔴 **2026-10-21（`A1356`）：补上缺的那半边 —— 「关键词被触发」广播。**
+            //   本处原来是**只有事件、没有广播**（`EmitBloodThirst` 自己 `ctx.Emit` 了
+            //   `EvtKind.Trigger`，而 `When … triggers BloodThirst` 那一族监听器**一次都不会被叫醒**）
+            //   —— 与 `A1336` 的 `FireTriggerAlways` **同一个形状的缺口**
+            //   （原文：`FireTriggerAt` 在没正文时连 `EvtKind.Trigger` 都不发 ⇒ 表现那一格静默缺一半）。
+            //   ⇒ 照 <see cref="FireTriggerAlways"/> 的「没正文那一支」**逐句同形**补这一句：
+            //      `owner` 用调用方给的 `p`（**不**用 `BroadcastKeywordEvent` 的 `OwnerOf` 反查
+            //      —— 理由见 `FireTriggerAt` 尾部那段）。
+            //
+            //   ⚠️ **为什么不直接调 `FireTriggerAlways`**：这一跳在原版里**只演出、不结算**
+            //      （`CardScript__ActivateBloodThirst` → `SendHighlightBloodThirstAction`
+            //       → `CardScript__HighlightBloodThirst` → `BattleCardUI.HighlightBloodThirst`
+            //       + `DisplayTriggerAnim(card, 0xdc, 1, 0)`；全长没有 `OnTrigger`）。
+            //      调 `FireTriggerAlways` 会在「卡上真有 `BloodThirst:` 正文」那一天**顺手把正文结算掉**
+            //      = 多算一件事。今天卡池没有这种卡（`bloodthirst` **不在** `CardDef.RoutableTriggers`），
+            //      但这一口是移动靶 ⇒ 按「照形状补、不调那个口」办。
+            //
+            //   ⚠️ **如实标着的一条**：原版**没有** `BattleManagerSupport__BroadcastUnitBloodThirst`
+            //      （`BattleManager.*Broadcast*` 全表里没有它，逐个数过）⇒ 这一句广播
+            //      **在原版没有直接对应物**；它是我们把「触发了两半要一起发」这条规矩
+            //      （`A1336` 立的）**一致地**套到这个触发点上。今天**0 张卡**能注册这个监听器
+            //      （`bloodthirst` 虽在 `Implemented` 里，但卡面 `When a friendly unit triggers
+            //       Blood Thirst, …` 全池 0 命中）⇒ **不可观测**、也不改变任何现有行为。
+            if (u.Card != null)
+                BroadcastWhen(ctx, WhenEventKind.Triggers(KeywordTable.BloodThirst), p, u.Card, u);
         }
 
         /// <summary>
@@ -6727,8 +6950,15 @@ namespace RuleEngine
         ///     + `DisplayTriggerAnim(ui, 0x1ae, 1)` 同样无条件（下面那串音效/`OnTrigger` 才另有门）。
         /// ⇒ 本口只补**表现那一格**；**结算仍然交给 <see cref="FireTriggerAt"/>**（有正文才跑）。
         ///
-        /// ⚠️ **已经这么犯过的两处（`EmitBloodThirst` / `TrySwarmMerge`）本笔【没动】** ——
-        ///    它们是别的账上的既有缺口，如实记在报告「顺手发现」里，⛔ 别顺手改。
+        /// ✅ **2026-10-21（`A1356`）那两处【已收口】（铁律 5 就地订正本段）**：
+        ///    原来这里写着「已经这么犯过的两处（`EmitBloodThirst` / `TrySwarmMerge`）本笔【没动】」——
+        ///    现在两处都在本口上：
+        ///      · `TrySwarmMerge` 的两条手写跳**合并成一次 <see cref="FireTriggerAlways"/> 调用**；
+        ///      · `EmitBloodThirst` 补上缺的**广播**那一半（照本口「没正文那一支」逐句同形**手写**，
+        ///        ⛔ 不是调本口 —— 理由写在那一段：原版那一跳**只演出、不结算**）。
+        ///    ⚠️ 其中 `TrySwarmMerge` 那条旧说法（「有广播、没事件」）**已经过期**：
+        ///    它的 `EvtKind.Trigger` 在 2026-09-30 就补过、`RuleEngineTest` 里有断言盯着
+        ///    （`TestSwarm` 第 ① 组「虫群合并发一条 `EvtKind.Trigger`」）。
         /// ⚠️ 与 `FireTriggerAt` 的**唯一**差别就是上面那一格：有正文时**完全等价**
         ///    （转发过去，不会多发第二条事件）。
         /// </summary>

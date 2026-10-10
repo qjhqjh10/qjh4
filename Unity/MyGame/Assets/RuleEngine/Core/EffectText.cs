@@ -2086,7 +2086,16 @@ namespace RuleEngine
                                     r = rHeadB;
                                     foreach (var o in rPlusB.Ops) r.Ops.Add(o);
                                     if (rPlusB.Kind == SegKind.Partial) r.Kind = SegKind.Partial;
-                                    StampPaidCost(rPlusB.Ops, paid, paidK);
+                                    // 🔴 **2026-10-10（第十四会话 · `A1369` 洞 2）：贴【合并后的整批】`r.Ops`。**
+                                    //   原来只贴 `rPlusB.Ops`（后半批）⇒ **前半批一个 `Cost` 都没有**。
+                                    //   除了「那半句白给」，还有一条**可观测**后果：`CardDef.CollectOathOps`
+                                    //   （判据 = 「`Cost > 0` 且货币对上」，`CardDef.cs:983-986`）**收不到它**
+                                    //   ⇒ 誓约路上**前半句整个不结算**。离线实测（本会话 scratch 驱动）：
+                                    //   `Oath 2: Your Warlord gains Flying and +2 Melee Attack this turn,
+                                    //   plus an additional 1 for each friendly troop` ⇒ 改前
+                                    //   `OathOps.Count == 1`、激活后督军 `flying=False`（只有后半句落地）。
+                                    //   ⚠️ 贴点仍然只有 `StampPaidCost` 一处 —— 「谁付钱」不许出现第二份判据。
+                                    StampPaidCost(r.Ops, paid, paidK);
                                     r.PaidCost = paid; r.PaidKind = paidK;
                                     return r;
                                 }
@@ -2120,7 +2129,11 @@ namespace RuleEngine
                                 r = rHead;
                                 foreach (var o in rPlus.Ops) r.Ops.Add(o);
                                 if (rPlus.Kind == SegKind.Partial) r.Kind = SegKind.Partial;
-                                StampPaidCost(rPlus.Ops, paid, paidK);
+                                // 🔴 **2026-10-10（第十四会话 · `A1369` 洞 2）：同上 —— 贴【合并后的整批】`r.Ops`。**
+                                //   这一支只贴 `rPlus.Ops` 的话，前半批 `rHead.Ops` 一个 `Cost` 都没有
+                                //   ⇒ ① 那半句白给 · ② `CardDef.CollectOathOps` 收不到它（誓约路上整个不结算）。
+                                //   判据与实据见上一支那段注释（两支同形，改法必须同形）。
+                                StampPaidCost(r.Ops, paid, paidK);
                                 r.PaidCost = paid; r.PaidKind = paidK;
                                 return r;
                             }
@@ -2376,7 +2389,11 @@ namespace RuleEngine
             //   ⚠️ **要排在 `TryDeal` 前面**：整句里也有 `deals … damage`，落到 `TryDeal` 会被它
             //      从中间截走（`each of your units` 当成目标），**数值 `equal to its Shuriken` 整段丢掉**。
             op = TryEachUnitDeal(low, src);
-            if (op != null) { r.Ops.Add(op); r.Kind = SegKind.Ok; return r; }
+            // 🔴 **2026-10-10（第十四会话 · `A1448` 同族）改走 `Finish`** —— 同上：原来绕过
+            //    `Finish` ⇒ 切出来的尾句**没人解**。⚠️ 与 `reanimate` 不同，`eachunitdeal`
+            //    **不在** `NeedsTarget` 的假名单里 ⇒ 目标解不出来时会**如实判「半懂」**
+            //    （改前是**假干净**的 `Ok`）。实测全池 0 张受影响（见 `资料/…/W_A1447A1448尾句与have.md`）。
+            if (op != null) return Finish(r, op, src);
 
             // ---- 0f) 强制攻击族（`Make … attack by itself` / `Target … attacks …` / 裸 `Attack …`）----
             //   出处：`Murderous Desires` · `Peerless Bladesmen` · `Let Loose` 尾句 · `Damaged Hexmark`。
@@ -2522,7 +2539,15 @@ namespace RuleEngine
 
             // ---- Reanimate（打捞墓地，原版在 `_resolve_tactic` 族里）----
             op = TryReanimate(low, src);
-            if (op != null) { r.Ops.Add(op); r.Kind = SegKind.Ok; return r; }
+            // 🔴 **2026-10-10（第十四会话 · `A1448` 同族）改走 `Finish`** —— 原来这里是
+            //    `r.Ops.Add(op); return r;`，于是 `op.Tail` **从来没人解**
+            //    （`TryBlind` 2026-09-16 踩的是**同一个坑**，见上面 `2b) Blind` 那段注释）。
+            //    后果（**真卡、真可达**）：`SAU67 Resurrection Vault`（defence）的
+            //    `Reanimate a friendly Remnant and give it +1 Health` —— 尾句切得出来、
+            //    却**永远不生效**：卡级 op 只有 1 条，还报 `unparsed=0 partial=0`（假干净）。
+            //    ⚠️ `reanimate` 在 `NeedsTarget` 的**假**名单里（它的目标不靠表现层选）
+            //      ⇒ 走 `Finish` 不会把它误判成「半懂」，`r.Kind` 仍是 `Ok`。
+            if (op != null) return Finish(r, op, src);
 
             // ---- Repeat this effect   (`:2542` → `_resolve_repeat`) ----
             op = TryRepeat(low, src);
@@ -2544,7 +2569,10 @@ namespace RuleEngine
             //     `Hosts of the Dead`：`Spend all your Spirit Stones. For each one, deploy a Wraithguard`
             //     —— 花掉的数量由 `ctx.LastSpentSpirit` 记，紧接着的 `For each one, …` 读它。
             op = TrySpendSpirit(low, src);
-            if (op != null) { r.Ops.Add(op); r.Kind = SegKind.Ok; return r; }
+            // 🔴 **2026-10-10（第十四会话 · `A1448` 同族）改走 `Finish`** —— 同上（原来绕过了
+            //    `Finish` ⇒ 切出来的尾句**没人解**）。本条的 `Target` 是**写死**的
+            //    （`(玩家灵魂石)`，非 null）⇒ 走 `Finish` 不会误判「半懂」。
+            if (op != null) return Finish(r, op, src);
 
             r.Kind = SegKind.Unknown;
             r.Ops = null;
@@ -2560,12 +2588,29 @@ namespace RuleEngine
         /// </summary>
         static EffectOp TrySpendSpirit(string low, string src)
         {
+            // 🔴 **2026-10-10（第十四会话 · `A1448` 同族）：尾句要先切下来**（原来是 0 处尾句切分）。
+            //    本条的判据是**前缀**匹配（`^spend … stones?\b`）⇒ 不切的话
+            //    `Spend all your Spirit Stones and draw 2 cards` 的 `draw` 那半**凭空消失**、
+            //    而整句仍报 OK。**先做前缀匹配、再切尾句**（前缀匹配不需要整句，
+            //    万一头句认不出也不该把尾句丢掉）。
+            //    真池对这条形状 **0 命中**（本笔实测）⇒ 补它是**机制对齐**。
             if (!Regex.IsMatch(low, @"^spend\s+all\s+your\s+spirit\s+stones?\b", RegexOptions.IgnoreCase))
                 return null;
+            string tail = null;
+            SplitAndTail(low, out low, out tail);
+
+            // 🆕 **2026-10-10（第十四会话 · `A1435`）：`… instead` 先摘掉再匹配。**
+            //    ⚠️ 本条**不取目标段**（目标段是写死的「玩家灵魂石」）⇒ 摘它是为了**那面旗标**：
+            //      不摘的话句尾那个词被**静默丢掉**，`op.Instead` 永远 false
+            //      （结算层的替换配对靠它，见 `EffectResolver.ResolveOps` 那段）。
+            //    判据与「只认哪两种写法」→ `PeelInstead` 的 doc。
+            bool instead = PeelInstead(ref low);
             return new EffectOp
             {
                 Verb = "spendspirit",
                 Source = src,
+                Instead = instead,
+                Tail = tail,
                 Target = new EffectTargetSpec
                 {
                     Raw = "(玩家灵魂石)", Side = "own", Kind = "player", Count = 1, Auto = true,
@@ -3185,8 +3230,11 @@ namespace RuleEngine
                 //    ⚠️ 切出来之后交给 `TryReloadDuty`：它认 `reload` 开头 + 含 `duty`，
                 //      宾语不是 `all your…` ⇒ `Payload="prev"`，由 `DoReloadDuty` 从 `LastTarget`
                 //      取（`their` / `its` 都是「上一条效果打中的那个」，与卡面语义一致）。
-                //    ⚠️ `IsVerbWord` 的**另一个调用点**在 `TryForEach`（`:2328`，追加型 `for each`）——
+                //    ⚠️ `IsVerbWord` 的**另一个调用点**在 `TryForEach`（追加型 `for each` 那一支）——
                 //      那 2 句都不含 `for each`，**不受影响**。
+                //      （🔴 2026-10-10 就地订正：这里原写 `:2328`，那是**过期**的行号。
+                //        本工程的行号注释会漂 —— 要定位就 `grep -n 'IsVerbWord' EffectText.cs`，
+                //        现读是三处：`SplitAndTail` · `IsPronounSubjectClause` · `TryForEach`。）
                 case "reload": case "reloads":
                     return true;
                 default: return false;
@@ -4821,6 +4869,53 @@ namespace RuleEngine
         static readonly Regex ReTakeDamageBare = new Regex(
             @"^takes?\s+(\d+)\s+damage$", RegexOptions.Compiled);
 
+        /// <summary>
+        /// 🔴 **2026-10-10（第十四会话 · `A1414`）：`instead` 的【唯一】一处剥离口。**
+        ///
+        /// 把句子里的 ` instead` 摘掉，返回「**刚才摘到了没有**」—— 摘到 = 这条 op 是
+        /// **替换**语义，由调用方 `op.Instead = true`（结算层靠 `EffectResolver.ResolveOps`
+        /// 的配对那一段跳掉被替换的那条）。
+        ///
+        /// **两种写法都认**（`SOR6` 之后统一收在这一处）：
+        ///   · **句中** `… instead and <另一个动词>` —— 例：`4 Energy: Give +2 [Attack]
+        ///     and +2 [Ranged] **instead** and Heal them 1`（`SOR6 Righteous Repugnance`
+        ///     卡面原文；它在**中间**，后面还跟着尾句）。
+        ///   · **句尾** `… instead` —— 例：`Deal 2 damage instead`。
+        /// ⚠️ **只认这两种**（原来 `TryGive` 自己那份就只认这两种，本方法**逐字**是它的搬移）——
+        ///    松一点就会吃到别的句子里的 `instead`（例：`Any attack against your Warlord
+        ///    targets this troop instead.`，`SAU42` 那种**整句句尾、但主语在前**的写法）。
+        ///
+        /// 🔴 **为什么单开一层（`A1414`）**：原来**只有 `give` 那条路**剥它
+        /// （`TryGive` 里内联的那 12 行）。于是 `deal` / `heal` / `stun` 三个动词里出现
+        /// `X instead` 时，` instead` 留在目标短语/句尾上 ⇒ 正则锚了 `$` 整条失配
+        /// ⇒ **整句落 `unparsed`**（实测：`2 ☀: Deal 1 damage. Deal 2 damage instead`
+        /// 第二句不认、op 只剩 1 条 —— `R7` 给 `A1369` 洞 3 举的那个「真形状」今天根本不可达）。
+        /// ⇒ 三个 handler 各在自己的匹配**之前**调本方法；**判据只有这一份**。
+        /// ⚠️ **条件句那条路不受影响**：`TryIf` / `TryIfNoComma` 在**送进 `Dispatch` 之前**
+        ///    就把句尾的 ` instead` 剥掉了（它剥完还顺手 `op.Instead = instead`）——
+        ///    所以那些 op 到这里时句子里已经没有 `instead` 了，本方法返回 `false`。
+        ///
+        /// ⚠️ **本条与 `A1388`（结算层）是一对**：这里只是把 `Instead` 旗标贴上去；
+        ///    「**无条件的 `instead` 一定替换**」那条判定在 `EffectResolver.ResolveOps`
+        ///    的配对循环里（那边原来把它当「条件判不了」而两条都跑）。
+        /// </summary>
+        static bool PeelInstead(ref string low)
+        {
+            if (low == null) return false;
+            int at = low.IndexOf(" instead and ", System.StringComparison.Ordinal);
+            if (at >= 0)
+            {
+                low = low.Remove(at, " instead".Length);
+                return true;
+            }
+            if (low.EndsWith(" instead", System.StringComparison.Ordinal))
+            {
+                low = low.Substring(0, low.Length - " instead".Length).Trim();
+                return true;
+            }
+            return false;
+        }
+
         /// <summary>`Deal X damage [to Y]` —— 我们上一版复刻 `rule_core.gd:2672`（**旁证**）。
         /// 目标词缺省（`Deal 3 damage`）= **定死的规则**：自动选敌方最弱单位
         /// （🔴 正本 = 反编译，见下面 `TryDeal` 里那条 `AbilityLogic__GetTargets.c:837`；
@@ -4841,9 +4936,16 @@ namespace RuleEngine
             SplitAndTail(low, out head, out headTail);
             low = head;
 
+            // 🆕 **2026-10-10（第十四会话 · `A1414`）：`… instead` 先摘掉再匹配。**
+            //    不摘的话 `ReDeal`（锚了 `$`）整条失配 —— 实测 `2 ☀: Deal 1 damage.
+            //    Deal 2 damage instead` 的第二句**整句落 `unparsed`**（op 只剩 1 条），
+            //    而它正是 `R7` 给 `A1369` 洞 3 举的那个「真形状」。
+            //    判据、只认哪两种写法、以及为什么条件句那条路不受影响 → `PeelInstead` 的 doc。
+            bool instead = PeelInstead(ref low);
+
             var m = ReDeal.Match(low);
             if (!m.Success) return null;
-            var op = new EffectOp { Verb = "deal", Source = src };
+            var op = new EffectOp { Verb = "deal", Source = src, Instead = instead };
             if (m.Groups[1].Success) op.Amount = int.Parse(m.Groups[1].Value);
             if (m.Groups[2].Success) op.AmountMax = int.Parse(m.Groups[2].Value);
             string tok = m.Groups[3].Success ? m.Groups[3].Value.Trim() : "";
@@ -4909,6 +5011,22 @@ namespace RuleEngine
         /// </summary>
         static EffectOp TryEachUnitDeal(string low, string src)
         {
+            // 🔴 **2026-10-10（第十四会话 · `A1448` 同族）：尾句要先切下来**（原来是 0 处尾句切分）。
+            //    三条正则都拿 `to\s+(.+)$` 取目标 ⇒ 不切的话 `and give them Flank` 那半并进
+            //    **目标短语**（`a random enemy and give them flank`）、尾句从不发生，而整句仍报 OK。
+            //    真池对这条形状 **0 命中**（本笔实测：`^each of your units deals` ＋ ` and <动词> `
+            //    在 1126 张卡的 `desc` ＋全部 `keywords` 里一条都没有）⇒ 补它是**机制对齐**，
+            //    ⛔ **别写成「修掉了一个可见缺陷」**。
+            string tail = null;
+            SplitAndTail(low, out low, out tail);
+
+            // 🆕 **2026-10-10（第十四会话 · `A1435`）：`… instead` 先摘掉再匹配。**
+            //    三条正则都拿 `to\s+(.+)$` 取目标 ⇒ 不摘的话句尾那个词并进**目标短语**
+            //    （`a random enemy instead`）—— 与 `blind`/`destroy`（`A1427`）**同形**：
+            //    切尾句之后（本 handler 没有尾句切分）只对目标段摘。
+            //    判据与「只认哪两种写法」→ `PeelInstead` 的 doc。
+            bool instead = PeelInstead(ref low);
+
             // ① `Each of your units deals damage equal to its <关键词> to <目标>`（`Sudden Assault`）
             var m = Regex.Match(low,
                 @"^each\s+of\s+your\s+units?\s+deals?\s+damage\s+equal\s+to\s+its\s+([a-z][a-z ]*?)\s+to\s+(.+)$",
@@ -4916,7 +5034,7 @@ namespace RuleEngine
             if (m.Success)
                 return new EffectOp
                 {
-                    Verb = "eachunitdeal", Source = src,
+                    Verb = "eachunitdeal", Source = src, Instead = instead, Tail = tail,
                     Payload = m.Groups[1].Value.Trim().ToLowerInvariant(),
                     Target = ParseTarget(m.Groups[2].Value.Trim()),
                 };
@@ -4932,7 +5050,7 @@ namespace RuleEngine
             if (m.Success)
                 return new EffectOp
                 {
-                    Verb = "eachunitdeal", Source = src,
+                    Verb = "eachunitdeal", Source = src, Instead = instead, Tail = tail,
                     Amount = int.Parse(m.Groups[1].Value),
                     AmountMax = m.Groups[2].Success ? int.Parse(m.Groups[2].Value) : 0,
                     Target = ParseTarget(m.Groups[3].Value.Trim()),
@@ -4952,7 +5070,7 @@ namespace RuleEngine
                 if (subj == null) return null;      // 筛选词认不出 ⇒ **不猜**，交给后面判不知道
                 return new EffectOp
                 {
-                    Verb = "eachunitdeal", Source = src,
+                    Verb = "eachunitdeal", Source = src, Instead = instead, Tail = tail,
                     Amount = int.Parse(m.Groups[2].Value),
                     AmountMax = m.Groups[3].Success ? int.Parse(m.Groups[3].Value) : 0,
                     Subject = subj,
@@ -5006,12 +5124,33 @@ namespace RuleEngine
         /// </summary>
         static EffectOp TryForceAttack(string low, string src)
         {
+            // 🔴 **2026-10-10（第十四会话 · `A1448` 同族）：尾句要先切下来**（原来是 0 处尾句切分）。
+            //    五条分支里 ②⑤④ 用 `(.+)$` 取目标、① 还锚了 `$` ⇒ 不切的话尾句要么并进
+            //    **目标短语**（`a random enemy and give it flank`），要么让①**整条失配**
+            //    ⇒ 尾句那半**从不发生**，而整句仍报 OK。
+            //    真池对这条形状 **0 命中**（本笔实测：`^make/target/attack` ＋ ` and <动词> `
+            //    在 1126 张卡的 `desc` ＋全部 `keywords` 里一条都没有）⇒ 补它是**机制对齐**，
+            //    ⛔ **别写成「修掉了一个可见缺陷」**。
+            //    ⚠️ 切法/位置照 `TryDeal` / `TryGain`（切完尾句再摘 ` instead`）。
+            string tail = null;
+            SplitAndTail(low, out low, out tail);
+
+            // 🆕 **2026-10-10（第十四会话 · `A1435`）：`… instead` 先摘掉再匹配。**
+            //    五条分支里 ②⑤④ 用 `(.+)$` 取目标、① 还锚了 `$` ⇒ 不摘的话句尾那个词
+            //    要么并进**目标短语**（`attack a random enemy instead`），要么让①**整条失配**
+            //    （`Make a damaged friendly unit attack by itself instead` ⇒ 五条全不中 ⇒
+            //     整段落「不认识」，而它本该是一条 `forceattack`）。
+            //    ⚠️ 摘的是**本句**（头句）的句尾 —— 尾句那个由尾句自己的 handler 摘。
+            //    判据与「只认哪两种写法」→ `PeelInstead` 的 doc。
+            bool instead = PeelInstead(ref low);
+
             // ① `Make <攻击者> attack by itself`
             var m = Regex.Match(low, @"^make\s+(.+?)\s+attacks?\s+by\s+itself$", RegexOptions.IgnoreCase);
             if (m.Success)
                 return new EffectOp
                 {
-                    Verb = "forceattack", Source = src, Payload = "byitself",
+                    Verb = "forceattack", Source = src, Payload = "byitself", Instead = instead,
+                    Tail = tail,
                     Target = ParseTarget(m.Groups[1].Value.Trim()),
                 };
 
@@ -5020,7 +5159,7 @@ namespace RuleEngine
             if (m.Success)
                 return new EffectOp
                 {
-                    Verb = "forceattack", Source = src,
+                    Verb = "forceattack", Source = src, Instead = instead, Tail = tail,
                     Target = ParseTarget(m.Groups[1].Value.Trim()),
                     Target2 = ParseTarget(m.Groups[2].Value.Trim()),
                 };
@@ -5029,7 +5168,7 @@ namespace RuleEngine
             //    （`Deathwing Knight` 的 `Teleport:` 正文 `Gain Vanguard and attack by itself` 尾句）。
             m = Regex.Match(low, @"^attacks?\s+by\s+itself$", RegexOptions.IgnoreCase);
             if (m.Success)
-                return new EffectOp { Verb = "forceattack", Source = src, Payload = "byitself" };
+                return new EffectOp { Verb = "forceattack", Source = src, Payload = "byitself", Instead = instead, Tail = tail };
 
             // ⑤ `This troop attacks <被打的>` —— 攻击者是**本卡自己**（2026-09-14 A5 批 4）。
             //    全池只 1 处：`Hunta Rig`（Goff）的 Rally 尾句
@@ -5042,7 +5181,7 @@ namespace RuleEngine
             if (m.Success)
                 return new EffectOp
                 {
-                    Verb = "forceattack", Source = src,
+                    Verb = "forceattack", Source = src, Instead = instead, Tail = tail,
                     Target2 = ParseTarget(m.Groups[1].Value.Trim()),
                 };
 
@@ -5051,7 +5190,7 @@ namespace RuleEngine
             if (m.Success)
                 return new EffectOp
                 {
-                    Verb = "forceattack", Source = src,
+                    Verb = "forceattack", Source = src, Instead = instead, Tail = tail,
                     Target2 = ParseTarget(m.Groups[1].Value.Trim()),
                 };
 
@@ -5075,7 +5214,13 @@ namespace RuleEngine
             string tail = null;
             SplitAndTail(low, out low, out tail);
 
-            var op = new EffectOp { Verb = "stun", Amount = 1, Source = src, Tail = tail };
+            // 🆕 **2026-10-10（第十四会话 · `A1414`）：`… instead` 先摘掉再匹配。**
+            //    不摘的话句尾那个词会并进**目标短语**（`^stuns?\s+(.+)$` 是到句尾的）
+            //    ⇒ 目标是「an enemy instead」这种不存在的词 ⇒ 判半懂/认不出。
+            //    判据与「只认哪两种写法」→ `PeelInstead` 的 doc。
+            bool instead = PeelInstead(ref low);
+
+            var op = new EffectOp { Verb = "stun", Amount = 1, Source = src, Tail = tail, Instead = instead };
             var m = Regex.Match(low, @"stun\s+(\d+|two|three)\s+");
             if (m.Success) op.Amount = CountWord(m.Groups[1].Value);
 
@@ -5117,6 +5262,14 @@ namespace RuleEngine
                 //    Camouflage**`（`Solar Pulse`）。不切的话整段并进目标短语 ⇒ 那半句永不发生。
                 //    切法照 `TryDeal` / `TryDestroy` 一致（` and ` 后面是不是一个子句，见 `SplitAndTail`）。
                 SplitAndTail(tok, out tok, out op.Tail);
+                // 🆕 **2026-10-10（第十四会话 · `A1427`）：`… instead` 先摘掉再解目标。**
+                //    不摘的话句尾那个词会并进**目标短语**（`^blinds?\s+(.+)$` 是到句尾的）
+                //    ⇒ 目标成了「a random enemy instead」这种不存在的词 ⇒ 判半懂 / 认不出。
+                //    ⚠️ **位置**：切完尾句、只对**头句的目标段**摘 —— 与 `TryDeal` / `TryStun` /
+                //      `TryHeal` 同形（那三个也是 `SplitAndTail` 之后才摘）；尾句里那个 ` instead`
+                //      不归本句管，它会在 `Finish` 递归解尾句时由那个 handler 自己摘。
+                //    判据与「只认哪两种写法」→ `PeelInstead` 的 doc。
+                if (PeelInstead(ref tok)) op.Instead = true;
                 var md = Regex.Match(tok, @"^(\d+|two|three)\b");
                 if (md.Success) { op.Amount = CountWord(md.Groups[1].Value); tok = tok.Substring(md.Groups[1].Length).Trim(); }
                 op.Target = ParseTarget(tok);
@@ -5148,6 +5301,14 @@ namespace RuleEngine
                 //     两边都是「静默少做一半」，这一修两个方向都堵上。）
                 //    切法照 `TryDeal` 一致：` and ` 后面是**动词**才切（`SplitAndTail`）。
                 SplitAndTail(tok, out tok, out op.Tail);
+                // 🆕 **2026-10-10（第十四会话 · `A1427`）：`… instead` 先摘掉再解目标。**
+                //    不摘的话句尾那个词会并进**目标短语**（`^destroys?\s+(.+)$` 是到句尾的）
+                //    ⇒ 目标是「it instead」这种不存在的词 ⇒ 判半懂 / 认不出。
+                //    ⚠️ **位置**：切完尾句、在 `SplitTargetList` **之前**对头句摘（与 `TryDeal` /
+                //      `TryStun` / `TryHeal` 同形：都是 `SplitAndTail` 之后才摘）—— 尾句里那个
+                //      ` instead` 不归本句管，它会在 `Finish` 递归解尾句时由那个 handler 自己摘。
+                //    判据与「只认哪两种写法」→ `PeelInstead` 的 doc。
+                if (PeelInstead(ref tok)) op.Instead = true;
                 // 🆕 2026-09-16：**目标列表**再拆一条尾句 ——
                 //    `Destroy a friendly troop **and a random enemy troop**`（`Summary Execution`）：
                 //    原来只解出「消灭一个己方部队」，**敌方那半整句没有**（见 `SplitTargetList`）。
@@ -5171,6 +5332,11 @@ namespace RuleEngine
             string tail = null;
             SplitAndTail(low, out low, out tail);
 
+            // 🆕 **2026-10-10（第十四会话 · `A1414`）：`… instead` 先摘掉再匹配。**
+            //    不摘的话 `ReHeal`（锚了 `$`）整条失配 ⇒ 那句落 `unparsed`（机制没做，不是卡的问题）。
+            //    判据、只认哪两种写法、以及为什么条件句那条路不受影响 → `PeelInstead` 的 doc。
+            bool instead = PeelInstead(ref low);
+
             var m = ReHeal.Match(low);
             if (!m.Success)
             {
@@ -5188,7 +5354,7 @@ namespace RuleEngine
                 if (mvt.Success)
                     return new EffectOp
                     {
-                        Verb = "heal", Source = src, Tail = tail,
+                        Verb = "heal", Source = src, Tail = tail, Instead = instead,
                         Amount = int.Parse(mvt.Groups[1].Value),
                         Target = new EffectTargetSpec
                         {
@@ -5207,7 +5373,7 @@ namespace RuleEngine
                 if (mp.Success)
                     return new EffectOp
                     {
-                        Verb = "heal", Source = src, Tail = tail,
+                        Verb = "heal", Source = src, Tail = tail, Instead = instead,
                         Amount = int.Parse(mp.Groups[2].Value),
                         Target = ParseTarget(mp.Groups[1].Value),
                     };
@@ -5224,12 +5390,12 @@ namespace RuleEngine
                 if (!mr.Success) return null;
                 return new EffectOp
                 {
-                    Verb = "heal", Source = src, Tail = tail,
+                    Verb = "heal", Source = src, Tail = tail, Instead = instead,
                     Amount = int.Parse(mr.Groups[2].Value),
                     Target = ParseTarget(mr.Groups[1].Value),
                 };
             }
-            var op = new EffectOp { Verb = "heal", Source = src, Tail = tail };
+            var op = new EffectOp { Verb = "heal", Source = src, Tail = tail, Instead = instead };
             op.Amount = m.Groups[1].Success ? int.Parse(m.Groups[1].Value) : 0;
             if (m.Groups[2].Success) op.AmountMax = int.Parse(m.Groups[2].Value);   // `1-5`
             if (op.Amount == 0) op.Amount = CountWordOrZero(m.Groups[3].Value);
@@ -5921,6 +6087,18 @@ namespace RuleEngine
             string tail = null;
             SplitAndTail(low, out low, out tail);
 
+            // 🆕 **2026-10-10（第十四会话 · `A1435`）：`… instead` 先摘掉再匹配。**
+            //    五条正则都锚了 `$`（`ReLowerCostOf` / `ReSubjectCostLess` 那几条的
+            //    `(.+?)` / `(.+?)` 虽然是非贪婪，但尾巴上多一个词它就会**胀进去当载荷**）⇒
+            //    不摘的后果分两种，都**静默**：
+            //      · `Lower the cost of a random Infantry in your hand by 1 instead`
+            //        ⇒ 载荷胀成 `a random infantry in your hand by 1 instead`（还照样报「认了」）；
+            //      · `Lower its cost by 2 instead` ⇒ 锚了 `$` 的那几条整条失配。
+            //    ⚠️ **位置**：切完尾句、只对本句摘 —— 与 `TryDeal` / `TryStun` / `TryHeal` 同形
+            //      （尾句里那个 ` instead` 不归本句管，由 `Finish` 递归解尾句时那个 handler 自己摘）。
+            //    判据与「只认哪两种写法」→ `PeelInstead` 的 doc。
+            bool instead = PeelInstead(ref low);
+
             // ① `Lower the cost of <谁> by N`
             var m1 = ReLowerCostOf.Match(low);
             if (m1.Success)
@@ -5935,7 +6113,7 @@ namespace RuleEngine
                 var mrand = Regex.Match(who, @"^(?:a|an)\s+random\s+(.+)$", RegexOptions.IgnoreCase);
                 if (mrand.Success) { who = mrand.Groups[1].Value.Trim(); pickOne = true; }
 
-                var op = new EffectOp { Verb = "lowercost", Source = src, Payload = who, PickOne = pickOne };
+                var op = new EffectOp { Verb = "lowercost", Source = src, Payload = who, PickOne = pickOne, Instead = instead };
                 op.Amount = m1.Groups[2].Success ? int.Parse(m1.Groups[2].Value) : 1;
                 op.Duration = Dur(m1.Groups[3]);
                 op.Tail = tail;
@@ -5953,6 +6131,7 @@ namespace RuleEngine
                 {
                     Verb = "lowercost", Source = src, CostSetTo = int.Parse(m2a.Groups[1].Value),
                     Payload = "(指代上一张)", Duration = Dur(m2a.Groups[2]), Tail = tail,
+                    Instead = instead,
                 };
             }
             // ② `Lower/Reduce its cost by N` —— 指代**前一句刚回手/刚造出来**的那张
@@ -5963,8 +6142,27 @@ namespace RuleEngine
                 {
                     Verb = "lowercost", Source = src, Amount = int.Parse(m2.Groups[1].Value),
                     Payload = "(指代上一张)", Duration = Dur(m2.Groups[2]), Tail = tail,
+                    Instead = instead,
                 };
             }
+            // ③④⑤ 三条分支的 `Tail = tail` 是**同一笔账**（`A1448`）：
+            //   🔴 **改前 ③④⑤【不把 `tail` 带进 op】**（①② 带）—— 同一个函数两种口径，
+            //      后果是**切下来的尾句被静默丢掉、整句还报 OK**：
+            //      实测 `Your troops cost 1 less this turn and gain +1 Attack`
+            //      ⇒ 只剩 **1 条** `lowercost` op、`+1 Attack` **凭空消失**（`unparsed=0 partial=0`）；
+            //      对照 ② 支 `Lower its cost by 2 and give it Flank` ⇒ 正常 **2 条**。
+            //      ⇒ 三条各补 `Tail = tail`（尾句照旧由 `Finish` 递归解成第二条 op）。
+            //   📏 **真池对这几条形状 0 命中**（`SplitAndTail` 只认 `IsVerbWord` 那份动词表，
+            //      「③④⑤ 的句子 ＋ 表内动词」的组合在 1126 张卡的 `desc` ＋全部 `keywords`
+            //      里一条都没有）⇒ 全池解析签名对拍**只有 §三 那两条人工夹具**会变。
+            //   ⚠️ **没有为 `EC40` / `GOF90` 动任何东西** —— 那两张卡面写的
+            //      `… cost N less **and have** …` 是**光环**（`Auras.TryParse` 的 `ReCostCombo`：
+            //      `CostLess` 那半由 `Auras.Recompose` 登记 `CostMod`、载荷那半走 `ApplyAura`），
+            //      `EffectText` **故意不认它**（`CardDef.HandledByOtherLayer` → 「光环（AuraSpecs）」）。
+            //      把 `have` 加进 `IsVerbWord` 让主解析器也解一遍 = **两处写同一条规则**
+            //      （会与光环那份 `CostMod` 重复降费）⇒ **本笔明确不做**，判据全在
+            //      `资料/普查产出_第十四会话/W_A1447A1448尾句与have.md` §一。
+
             // ③ `(it|they) cost(s) N less [this turn]` —— 同样指代上一张
             var m3 = ReCostLess.Match(low);
             if (m3.Success)
@@ -5972,13 +6170,19 @@ namespace RuleEngine
                 return new EffectOp
                 {
                     Verb = "lowercost", Source = src, Amount = int.Parse(m3.Groups[1].Value),
-                    Payload = "(指代上一张)", Duration = Dur(m3.Groups[2]),
+                    Payload = "(指代上一张)", Duration = Dur(m3.Groups[2]), Tail = tail,
+                    Instead = instead,
                 };
             }
             // ④ `Your troops cost N less [this turn]` —— 主语是**一类牌**，不是指代
             var m4 = ReSubjectCostLess.Match(low);
             if (m4.Success)
-                return SubjectCostOp(m4.Groups[1].Value, int.Parse(m4.Groups[2].Value), m4.Groups[3].Value, src);
+            {
+                var op4 = SubjectCostOp(m4.Groups[1].Value, int.Parse(m4.Groups[2].Value), m4.Groups[3].Value, src);
+                op4.Instead = instead;
+                op4.Tail = tail;
+                return op4;
+            }
 
             // ⑤ 🆕 2026-09-14 A5 批 3 第 2 条：`Your next Stratagem this turn **costs 0**`
             //   （`Winged Tyrant`）—— **变成 0 费**，不是「降 0 费」。
@@ -5989,6 +6193,8 @@ namespace RuleEngine
             {
                 var z = SubjectCostOp(m5.Groups[1].Value, 0, m5.Groups[2].Value, src);
                 z.CostSetTo = 0;                 // 「变成 0 费」（哨兵是 -1，见 `EffectOp.CostSetTo`）
+                z.Instead = instead;
+                z.Tail = tail;
                 return z;
             }
             return null;
@@ -6127,9 +6333,27 @@ namespace RuleEngine
         /// <summary>`Reanimate a friendly Remnant` —— 从墓地把单位捞回场上（原版在 `_resolve_tactic` 族）。</summary>
         static EffectOp TryReanimate(string low, string src)
         {
+            // 🔴 **2026-10-10（第十四会话 · `A1448` 同族）：尾句要先切下来**（原来是 0 处尾句切分）。
+            //    `ReReanimate` 拿 `(.+)$` **整段**取目标 ⇒ 不切的话 `and give it +1 Health` 那半
+            //    并进**目标段**、`ParseTarget` 解不出 ⇒ **目标整个丢掉**、尾句也无影无踪，
+            //    而整句仍报 `unparsed=0 partial=0`（`NeedsTarget("reanimate")` 为假 ⇒ 不降级）。
+            //    🔴 **真卡、真可达**（不是理论缺口）：`SAU67 Resurrection Vault`（Sautekh，**defence**，
+            //      `desc` 逐字 = `Reanimate a friendly Remnant and give it +1 Health`）——
+            //      改前解出的是 `reanimate tgt='-'`（目标 null），`+1 Health` 那半**从不发生**。
+            //    ⚠️ 切法/位置照 `TryDeal` / `TryGain` / `TryLowerCost`（切完尾句再摘 ` instead`，
+            //      尾句里那个 ` instead` 由 `Finish` 递归解尾句时那个 handler 自己摘）。
+            string tail = null;
+            SplitAndTail(low, out low, out tail);
+
+            // 🆕 **2026-10-10（第十四会话 · `A1435`）：`… instead` 先摘掉再匹配。**
+            //    `ReReanimate` 拿 `(.+)$` 取目标 ⇒ 不摘的话 `Reanimate a friendly Remnant instead`
+            //    的目标段是 `a friendly remnant instead`（`ParseTarget` 常还能解出个东西 ⇒ **静默**）。
+            //    ⚠️ 摘的是**本句**（头句）的句尾 —— 尾句那个由尾句自己的 handler 摘（见上面那段）。
+            //    判据与「只认哪两种写法」→ `PeelInstead` 的 doc。
+            bool instead = PeelInstead(ref low);
             var m = ReReanimate.Match(low);
             if (!m.Success) return null;
-            var op = new EffectOp { Verb = "reanimate", Source = src };
+            var op = new EffectOp { Verb = "reanimate", Source = src, Instead = instead, Tail = tail };
             string tok = m.Groups[1].Value.Trim();
             op.Target = IsPronoun(tok) ? null : ParseTarget(tok);
             return op;
@@ -6444,6 +6668,15 @@ namespace RuleEngine
             // ⚠️ 不能丢：丢了就是「部署了但没给 Vanguard」的静默失效。
             SplitAndTail(body, out body, out op.Tail);
 
+            // 🆕 **2026-10-10（第十四会话 · `A1435`）：`… instead` 先摘掉再解目标段。**
+            //    `ReDeploy` 是 `^deploys?\s+(.+)$`（贪婪到句尾）⇒ 不摘的话
+            //    `Deploy 3 Grot instead` 的「造什么」会变成 `grot instead`（`CreatePool.Resolve`
+            //    查不到这张卡 ⇒ 部署 0 张，而且**卡面不打 `*`**）。
+            //    ⚠️ **位置**：切完尾句、只对本句摘（与 `TryBlind` / `TryDestroy` 同形）——
+            //      尾句里那个 ` instead` 不归本句管，由 `Finish` 递归解尾句时那个 handler 自己摘。
+            //    判据与「只认哪两种写法」→ `PeelInstead` 的 doc。
+            if (PeelInstead(ref body)) op.Instead = true;
+
             // ---- `up to N`（`Deploy up to 5 friendly Infantry troops…`）----
             // 「至多」= 牌不够就有几张算几张，结算层按池子大小收口（**不循环重来**）
             if (body.StartsWith("up to ")) { op.UpTo = true; body = body.Substring(6).Trim(); }
@@ -6616,6 +6849,15 @@ namespace RuleEngine
             string tail = null;
             SplitAndTail(low, out low, out tail);
 
+            // 🆕 **2026-10-10（第十四会话 · `A1414` 的姊妹 · `A1435`）：`… instead` 先摘掉再匹配。**
+            //    两条正则都拿 `(.+)$` 取东西（目的地 / 整句）⇒ 不摘的话 ` instead` 并进
+            //    **目的地**那一栏 ⇒ `ReturnDests` 的**全等**匹配对不上 ⇒ 整块判「不认识」
+            //    （`Return a friendly troop to your hand instead` 那张卡**打不出去**）。
+            //    ⚠️ **位置**：切完尾句、只对本句摘 —— 与 `TryDeal` / `TryStun` / `TryHeal` 同形
+            //      （尾句里那个 ` instead` 不归本句管，由 `Finish` 递归解尾句时那个 handler 自己摘）。
+            //    判据与「只认哪两种写法」→ `PeelInstead` 的 doc。
+            bool instead = PeelInstead(ref low);
+
             // ---- 🆕 **没写主语的 `Returns to <目的地>` = 这张卡自己回手**（2026-09-14 A5 批 3）----
             //   全池 2 处：`Grot Orderly` 的 `At the start of your turn, return to your hand` ·
             //   `Backlash: Returns to your hand and costs 2 more this turn`。
@@ -6632,7 +6874,7 @@ namespace RuleEngine
                 if (destB != null)
                     return new EffectOp
                     {
-                        Verb = "return", Source = src, Dest = destB, Tail = tail,
+                        Verb = "return", Source = src, Dest = destB, Tail = tail, Instead = instead,
                         Target = new EffectTargetSpec
                         {
                             Raw = "(未写主语：有施放者就是施放者自己，否则己方全体)",
@@ -6653,7 +6895,7 @@ namespace RuleEngine
                 if (destText == pair[0]) { dest = pair[1]; break; }
             if (dest == null) return null;              // 目的地不纯 → 判不认识，绝不猜
 
-            var op = new EffectOp { Verb = "return", Source = src, Payload = who, Dest = dest, Tail = tail };
+            var op = new EffectOp { Verb = "return", Source = src, Payload = who, Dest = dest, Tail = tail, Instead = instead };
             if (m.Groups[1].Success) { op.Amount = int.Parse(m.Groups[1].Value); op.UpTo = true; }
             // 单目标时把 `Target` 也填上 —— 表现层靠它决定高亮哪边棋盘（`EffectText.PickSide`）。
             // 两个目标的（`… and a random enemy troop …`）留空，由 `DoReturn` 自己拆 Payload。
@@ -6737,18 +6979,10 @@ namespace RuleEngine
         /// </summary>
         static EffectOp TryGive(string low, string src)
         {
-            bool instead = false;
-            int at = low.IndexOf(" instead and ");
-            if (at >= 0)
-            {
-                instead = true;
-                low = low.Remove(at, " instead".Length);
-            }
-            else if (low.EndsWith(" instead"))
-            {
-                instead = true;
-                low = low.Substring(0, low.Length - " instead".Length).Trim();
-            }
+            // 🔴 **2026-10-10（第十四会话 · `A1414`）：原来内联在这儿的 12 行搬进 `PeelInstead`** ——
+            //    现在 `deal` / `heal` / `stun` 三个动词走**同一份**剥离判据（它们原来**压根没有**这一支）。
+            //    ⚠️ **行为逐字不变**：`PeelInstead` 就是原逻辑的搬移（同样的 ` instead and ` 与句尾 ` instead`）。
+            bool instead = PeelInstead(ref low);
             var op = TryGiveInner(low, src);
             if (op != null && instead) op.Instead = true;
             return op;
@@ -6930,9 +7164,27 @@ namespace RuleEngine
         /// <summary>`All enemies lose Stealth` / `Lose X` —— `rule_core.gd:3082`。</summary>
         static EffectOp TryLose(string low, string src)
         {
+            // 🔴 **2026-10-10（第十四会话 · `A1448` 同族）：尾句要先切下来**（原来是 0 处尾句切分）。
+            //    `ReLose` 两条备选都拿 `(.+)$`（第一条的 group 2、第二条的 group 3）⇒ 不切的话
+            //    `All enemies lose Stealth and gain +1 Attack` 的**载荷**胀成
+            //    `stealth and gain +1 attack`（`GivePayload` 认不出 ⇒ 只报「载荷不认识」、
+            //    **静默失效**），而整句仍报 OK。
+            //    真池对这条形状 **0 命中**（本笔实测：`lose` 头 ＋ ` and <动词> ` 在
+            //    1126 张卡的 `desc` ＋全部 `keywords` 里一条都没有）⇒ 补它是**机制对齐**。
+            //    ⚠️ 切法/位置照 `TryDeal` / `TryGain`（切完尾句再摘 ` instead`）。
+            string tail = null;
+            SplitAndTail(low, out low, out tail);
+
+            // 🆕 **2026-10-10（第十四会话 · `A1435`）：`… instead` 先摘掉再匹配。**
+            //    `ReLose` 两条备选都拿 `(.+)$`（第一条的 group 2、第二条的 group 3）⇒
+            //    不摘的话 `All enemies lose Stealth instead` 的**载荷**是 `stealth instead`
+            //    （`GivePayload` 认不出那个词 ⇒ 只报一句「载荷不认识」、**静默失效**）。
+            //    ⚠️ 摘的是**本句**（头句）的句尾 —— 尾句那个由尾句自己的 handler 摘。
+            //    判据与「只认哪两种写法」→ `PeelInstead` 的 doc。
+            bool instead = PeelInstead(ref low);
             var m = ReLose.Match(low);
             if (!m.Success) return null;
-            var op = new EffectOp { Verb = "lose", Source = src };
+            var op = new EffectOp { Verb = "lose", Source = src, Instead = instead, Tail = tail };
             string subj = m.Groups[1].Success ? m.Groups[1].Value.Trim() : "";
             // 🔴 **2026-10-18（`W5` · 审查 §5 账 4 的连带缺陷）就地补齐（铁律 5）**：
             //   `ReLose` 的**第二条备选**（`^(?:all\s+)?loses?\s+(.+)$`）只填 **group 3**，
@@ -6960,8 +7212,32 @@ namespace RuleEngine
                 : ParseTarget(subj);
             return op;
         }
+        // 🔴 **2026-10-10（第十四会话 · `A1467`）：第一条备选的 `(?:all\s+)?` 删掉 —— 它把句首的
+        //   `All ` **吃掉**了。**
+        //   原来那条写的是 `^(?:all\s+)?(.+?)\s+loses?\s+(.+)$` ⇒ 句首 `All ` 被**非捕获组消费掉**，
+        //   group 1（主语）只剩 `enemies`，而上面的 `:7206` 又把 group 1 **原样交给 `ParseTarget`**
+        //   ⇒ `all` 这个词**永远到不了** `ParseTarget` 里那句「`StartsWith("all ")` ⇒ `Count = 0`」
+        //   （`:7729`，逐字现读）⇒ 目标退化成**「挑 1 个」**。
+        //   ⚠️ **那个前缀【没有任何补偿作用】**（本笔把两条备选都回推过一遍）：非贪婪组的回溯会让
+        //   `All lose X` 这种**无主语**写法照旧落进第一条备选（group 1 = `all`），第二条备选
+        //   **本来就不是靠这个前缀兜的**，所以删掉它**只影响「`All X lose Y`」这一种句子**
+        //   —— 而它正是我们要修的那一种。第二条备选的 `(?:all\s+)?` **照留**（它那条上无害，见下）。
+        //
+        //   受影响（全池「分段开头写 `All …`」共 5 张、其中走 `lose` 的 3 张，都是
+        //   `All enemies lose Stealth and Camouflage`）：
+        //     · `AM48 Recon Operation`（tactic）· `ASH32 Dire Avenger Exarch`（Rally）
+        //     · `UM_Tyrannic_War_Veteran`（Rally）
+        //   可观测（真卡 `AM48`，离线驱动真跑 `PlayTactic`）：
+        //     · 改前：`Count = 1` ⇒ **要玩家点目标** ⇒ 敌人全带 Stealth 时 `PlayTactic(...,-1)` 与
+        //       `(...,3)` 都返回 `18`（`ErrNoTargetAvailable`）—— **整张卡打不出去**；
+        //       只有一个敌人带 Stealth 时点非隐身的那个 `rc=0`，但日志是
+        //       「**给了 1 个目标**」、带 Stealth 那个的 Stealth **还在**。
+        //     · 改后：`Count = 0`（`all`）⇒ 与 `All enemies **gain** Stealth`（`TryGain` 那条
+        //       `ReGain` 从来不吞 `all`，一直是对的）**同形**。
+        //   判据（同形写法）→ `资料/普查产出_第十四会话/W_A1457多目标.md` 顺手发现 1 /
+        //     `W_A1436付费能力.md` §六·3；`rule_core.gd:3082`（**旁证，非原版**）。
         static readonly Regex ReLose = new Regex(
-            @"^(?:all\s+)?(.+?)\s+loses?\s+(.+)$|^(?:all\s+)?loses?\s+(.+)$", RegexOptions.Compiled);
+            @"^(.+?)\s+loses?\s+(.+)$|^(?:all\s+)?loses?\s+(.+)$", RegexOptions.Compiled);
 
         /// <summary>`Gain X` —— `rule_core.gd:3101`。三种：属性增减益 / 关键词 / **裸数字 = 1 能量**（`:3114`）。</summary>
         static EffectOp TryGain(string low, string src)
@@ -6975,6 +7251,17 @@ namespace RuleEngine
             //    `Gain +2 Attack and +1 Health` 那类不会误伤：`and` 后面是 `+1`，不是动词。
             string tail = null;
             SplitAndTail(low, out low, out tail);
+
+            // 🆕 **2026-10-10（第十四会话 · `A1435`）：`… instead` 先摘掉再匹配。**
+            //    `ReGain` 两条备选都拿 `(.+)$`（载荷）⇒ 不摘的话
+            //    `Gain +2 Attack instead` 的载荷是 `+2 attack instead`
+            //    （`GivePayload` 认不出 ⇒ 只报「载荷不认识」、**静默失效**）；
+            //    `Gain 2 Spirit Stones instead` 那条还会连**阵营资源**那条正则一起挡住
+            //    （它锚了 `$`）⇒ 连 `gainspirit` 都认不出来。
+            //    ⚠️ **位置**：切完尾句、只对本句摘 —— 与 `TryDeal` / `TryStun` / `TryHeal` 同形
+            //      （尾句里那个 ` instead` 不归本句管，由 `Finish` 递归解尾句时那个 handler 自己摘）。
+            //    判据与「只认哪两种写法」→ `PeelInstead` 的 doc。
+            bool instead = PeelInstead(ref low);
 
             var m = ReGain.Match(low);
             if (!m.Success) return null;
@@ -6999,7 +7286,7 @@ namespace RuleEngine
                 if (vAt < low.Length && qg[vAt]) return null;
             }
 
-            var op = new EffectOp { Verb = "gain", Source = src, Tail = tail };
+            var op = new EffectOp { Verb = "gain", Source = src, Tail = tail, Instead = instead };
             string subj = m.Groups[1].Success ? m.Groups[1].Value.Trim() : "";
             string what = m.Groups[2].Success ? m.Groups[2].Value.Trim() : m.Groups[3].Value.Trim();
             op.Duration = ExtractDuration(ref what, ref subj);

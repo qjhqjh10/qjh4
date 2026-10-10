@@ -146,13 +146,16 @@ static class BattleProbe19
     public static void Run(List<CardDef> pool)
     {
         Console.WriteLine("== B19 本局打出过的牌 ==");
-        var seg = EffectText.ParseSegment("Choose a non-Legendary Stratagem you played this game and return it to your hand");
+        // 🔴 **2026-10-10 `A1349`：⛔ 不许直调 `ParseSegment`** —— 走 `Program.ParseSeg`
+        //   （它会先过 `LoadPool` 建卡名索引）。见 `Program.ParseSeg` 头注：这三处原来是
+        //   `A1339` 那族的**第四种**解析入口，今天句子里没卡名所以无影响，但**塞一句带卡名的进去就会翻车**。
+        var seg = Program.ParseSeg("Choose a non-Legendary Stratagem you played this game and return it to your hand");
         var op = seg.Ops[0];
         Console.WriteLine("  真卡那句: kind=" + seg.Kind + " src=" + op.ChooseSrc
                           + " what=[" + op.ChooseWhat + "] act=[" + op.ChooseAct + "]");
 
         // 带动作的合成句（真卡的 `act` 解不出来 ⇒ 用这句才测得到取走那一步）
-        var seg2 = EffectText.ParseSegment("Choose a non-legendary Stratagem you played this game and put it in your hand");
+        var seg2 = Program.ParseSeg("Choose a non-legendary Stratagem you played this game and put it in your hand");
         var op2 = seg2.Ops[0];
         Console.WriteLine("  合成那句: kind=" + seg2.Kind + " src=" + op2.ChooseSrc
                           + " what=[" + op2.ChooseWhat + "] act=[" + op2.ChooseAct + "]");
@@ -287,7 +290,7 @@ static class B19Test
                                   "Rally: Choose a non-legendary Stratagem you played this game and put it in your hand",
                                   "common", "Test", 0, 1, 1, 0, null, subtype: "Infantry", fromOriginalPool: true);
 
-        var op = EffectText.ParseSegment("Choose a non-Legendary Stratagem you played this game and return it to your hand").Ops[0];
+        var op = Program.ParseSeg("Choose a non-Legendary Stratagem you played this game and return it to your hand").Ops[0];
 
         var ctx = ProbeBattle(new[] { A, C, L, U, chooser }, new[] { B });
         ctx.CardPool = pool;

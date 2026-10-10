@@ -1,6 +1,6 @@
 {
  "source": "由 数据/卡牌翻译/_tmp_zhcards_g1..g7.json 合并（7 组翻译产物，见本目录 README）",
- "note": "键 = 英文卡名（与 cards_engine.json 的 name 一致）。n=中文名，d=中文效果文字。由 工具/gen_cards_engine.py 读取；合并脚本见本文件 conflicts 字段的说明。不要手改。 ⚠️ 少数条目只有 `d` 没有 `n`（如 `Chosen of the Four` / `1st Company Terminator`） —— 那几张的**中文卡名另有出处**（`gen_cards_engine.py` 的 `ZH_NAME_ALIAS` / `ZH_NAME_OVERRIDE`，值取自官方 `zh_CN.csv`），两处写同一条迟早不一致。",
+ "note": "键 = 英文卡名（与 cards_engine.json 的 name 一致）。n=中文名，d=中文效果文字。由 工具/gen_cards_engine.py 读取；合并脚本见本文件 conflicts 字段的说明。不要手改。 ⚠️ 少数条目只有 `d` 没有 `n`（如 `Chosen of the Four` / `1st Company Terminator`） —— 那几张的**中文卡名另有出处**（`gen_cards_engine.py` 的 `ZH_NAME_ALIAS` / `ZH_NAME_OVERRIDE`，值取自官方 `zh_CN.csv`），两处写同一条迟早不一致。 ⚠️ 2026-10 `A1410` 批（铁律 5·b）：下面 9 条 `d` **手工改过**、已与 `cardface_fixes.json` 的 `descZh` **逐字对齐**（那一列最后说话 ⇒ 以前是「两份中文各写一套、玩家只看得到其中一份」的隐患）：`Firestrike Servo Turret` / `Slugga Boy` / `Skarboy Nob` / `Librarian` / `Lord Exultant`（这 5 张是 `A1410` 正文点名的）＋ `Bright Lance Vyper` / `Death Spinner Warp Spider` / `Avatar of Khaine` / `Phobos Lieutenant`（同一批 `A1402`/`A1419` 改动带出来的）。⚠️ `数据/卡牌翻译/_tmp_zhcards_g1..g7.json` 那 7 份**源分片没同步**（不在本批白名单）⇒ 谁重跑合并会把错值带回来、并抹掉这句。",
  "count": 1196,
  "conflicts": [
   {
@@ -471,7 +471,7 @@
   },
   "Avatar of Khaine": {
    "n": "凯恩化身",
-   "d": "护甲 2。获得爆裂 6 和伪装。天赋：凯恩之怒。"
+   "d": "护甲 2。②：获得爆裂 6 和伪装。天赋：凯恩之怒。"
   },
   "Avenging Zeal": {
    "n": "复仇热忱",
@@ -723,7 +723,7 @@
   },
   "Bright Lance Vyper": {
    "n": "亮枪蝰蛇",
-   "d": "当你触发灵魂石能力时，获得 +1 攻击。"
+   "d": "当你触发灵魂石能力时，获得狙击和 +1 [远程]。"
   },
   "Bringer of decay": {
    "n": "腐朽使者",
@@ -1227,7 +1227,7 @@
   },
   "Death Spinner Warp Spider": {
    "n": "死亡纺锤扭曲蜘蛛",
-   "d": "路标石。潜行 (1)。获得侧翼。"
+   "d": "路标石。潜行。①：获得侧翼。"
   },
   "Death from Above": {
    "n": "天降死神",
@@ -1731,7 +1731,7 @@
   },
   "Firestrike Servo Turret": {
    "n": "火击伺服炮塔",
-   "d": "3：获得哨戒 2。"
+   "d": "誓言 3：获得哨戒 2。"
   },
   "Firestrike Turrets": {
    "n": "火击炮塔",
@@ -2571,7 +2571,7 @@
   },
   "Librarian": {
    "n": "智库",
-   "d": "抽取你卡组中的下一张战术并获得 1 点任务。"
+   "d": "护盾。议程：抽取你卡组中的下一张战术并获得 1 点任务。"
   },
   "Lictor": {
    "n": "利克特",
@@ -2643,7 +2643,7 @@
   },
   "Lord Exultant": {
    "n": "狂喜领主",
-   "d": "给予所有友方部队 +1 和 +1。"
+   "d": "激励：给予所有友方部队 +1 [攻击]和 +1 [远程]。"
   },
   "Lord Kakophonist": {
    "n": "刺耳者领主",
@@ -3203,7 +3203,7 @@
   },
   "Phobos Lieutenant": {
    "n": "暗影中尉",
-   "d": "远射。誓言 1：获得潜行。斩杀：手牌生成 1 张随机极限战士卡。"
+   "d": "远射。誓言 1：获得。潜行。斩杀：手牌生成 1 张随机极限战士卡。"
   },
   "Pilfered Supplies": {
    "n": "窃取补给",
@@ -3875,7 +3875,7 @@
   },
   "Skarboy Nob": {
    "n": "伤疤老大",
-   "d": "获得 +1[攻击]。"
+   "d": "群体：获得 +1[攻击]。"
   },
   "Skeins of Fate": {
    "n": "命运丝线",
@@ -3927,7 +3927,7 @@
   },
   "Slugga Boy": {
    "n": "斯鲁格小子",
-   "d": "每有一个其他友方斯鲁格小子，获得 +1 护甲。"
+   "d": "潮涌 1。集结：每有一个其他友方斯鲁格小子，获得 +1 [攻击]。"
   },
   "Smite": {
    "n": "天罚",

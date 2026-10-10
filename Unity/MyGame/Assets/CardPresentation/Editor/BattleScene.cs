@@ -853,6 +853,89 @@ public static class BattleScene
                 }
             }
 
+            // ④·C 🆕 2026-10-21（`A1332` 的**断言**那一半 · 判据 = `资料/普查产出_第十三会话/W5b_A1332收口.md`
+            //   「该补什么断言」第 1 条）：`Badges.For` 与 `CardText.KeywordSegment` 走的是**同一个函数体**
+            //   （`CarriesValue`），差**只在实参** —— 前者 `(k, v, c.NumericKeywords)`（三档全接）、
+            //   后者 `(k, v, null)`（只接两档）。本节把「两处不许裂开」钉成**全池不变量**：
+            //   它是常驻探针 —— 哪天卡池出现「带数字、又不在③那张表里」的词，这里**先红**，
+            //   而不是等玩家发现卡面漏印数字（`Badges.cs` 那颗 doc 也只写了「两处实参不同」，没有断言盯着）。
+            //   ⚠️ 期望值**一个常量都不引用**：两边是同一个函数体、喂同一份事实，断的是【相等】。
+            {
+                var kwPool = RuleEngine.CardDatabase.Load();
+                int kwCards = 0, kwItems = 0, kwOn = 0, kwDiff = 0;
+                string kwFirst = "";
+                foreach (var c in kwPool)
+                {
+                    kwCards++;
+                    foreach (var kv in c.Keywords)
+                    {
+                        kwItems++;
+                        bool onBadge = Badges.CarriesValue(kv.Key, kv.Value, c.NumericKeywords);  // 徽标那一侧的口径
+                        bool onFace = Badges.CarriesValue(kv.Key, kv.Value, null);                // 卡面那一侧今天传的实参
+                        if (onBadge) kwOn++;
+                        if (onBadge != onFace)
+                        {
+                            kwDiff++;
+                            if (kwFirst.Length == 0) kwFirst = kv.Key + "=" + kv.Value;
+                        }
+                    }
+                }
+                Debug.Log(P + $"   全池关键词判据：{kwCards} 张 / {kwItems} 个 (卡, 关键词) —— "
+                            + $"两处一致 {kwItems - kwDiff} 处、不一致 {kwDiff} 处"
+                            + (kwDiff == 0 ? "" : $"（第一处 `{kwFirst}`）"));
+                // 🧨 **判别式**：右式**必须真的传 `c.NumericKeywords`** —— 两边都传 `null` 就退化成
+                //    同义反复（同一实参 + 同一函数体 ⇒ 恒等、永远绿），那条不变量也就抓不住裂缝。
+                Check(kwDiff == 0,
+                      "★ 全池不变量：每个 (卡, 关键词) 上 `CarriesValue(k, v, c.NumericKeywords)` "
+                    + "== `CarriesValue(k, v, null)`（两处裂开 = 卡面漏印数字而徽标照画 · `A1332`）"
+                    + (kwDiff == 0 ? "" : $"；实得 {kwDiff} 处不一致，第一处 `{kwFirst}`"));
+                // 计数下界：⛔ 少了它，「两边都返回 false」（例如卡池读空）也能全绿。
+                //   下界取 150 的判据 = `W5b` 的**独立离线复算**：**203** 个 (卡, 关键词) 过门槛、落在 182 张卡上。
+                Check(kwOn > 150,
+                      $"★ ……而且判据**真的为真**的量级对得上（实得 {kwOn} 个 (卡, 关键词) 过门槛，下界 > 150；"
+                    + "⛔ 这条挡的是「两边都 false 也全绿」）");
+            }
+
+            // ④·D 🆕（同上 · `W5b`「该补什么断言」第 2~5 条）：**改动本身的判别式** ——
+            //   全是**合成**输入（全池 0 张卡是 `Flying 2` 这种形态）⇒ 测的是**判据本身**、不是某张卡。
+            //   一条正例 · 一条反向闸 · 一条 `numericKeys` 档 · 一条「两处一起改回去也不许全绿」。
+            {
+                var kwTwo = CardText.KeywordSegment(
+                    new Dictionary<string, int> { { "flying", 2 } }, false, "");
+                Check(kwTwo.Contains("Flying 2"),
+                      "★ 关键词段把**引擎值 ≥ 2** 的那个数字印出来（`Flying 2`）—— 实得「" + kwTwo + "」"
+                    + "；⛔ 拿单实参 `CarriesValue(key)`（默认值 1 ⇒ 只走③那张表）写就红"
+                    + " ⇒ 本条**只能**靠 `kv.Value` 接进②才过");
+                var kwOne = CardText.KeywordSegment(
+                    new Dictionary<string, int> { { "flying", 1 } }, false, "");
+                Check(!kwOne.Contains("Flying 1") && !kwOne.Contains("1"),
+                      "★ 反向闸：**兜底值 1 不许印成 `Flying 1`**（也不许印任何数字）—— 实得「" + kwOne + "」");
+                Check(Badges.CarriesValue("Foo", 1, new[] { "foo" }) && !Badges.CarriesValue("Foo", 1, null),
+                      "★ `numericKeys` 那一档：键在表里 ⇒ true、不传表 ⇒ false"
+                    + " —— 这条把「① 只在【徽标】那一档生效」钉成**已知差异**（不是漏，`A1332`）");
+                // 🧨 灭自证那一半：上面两条**结构上不可能**被「两处一起改回去」同时满足 ——
+                Check(Badges.CarriesValue("flying", 2, null) != Badges.CarriesValue("flying", 1, null),
+                      "★ 判据**真的把 `value` 读进去了**：值 2 与值 1 必须给出**不同**的答案"
+                    + "（删掉②那一档、或把 `CardText` 改回单实参调用 ⇒ 上面两条里**至少红一条**）");
+                // ⛔ 反面教材（别只写它）：`CarriesValue("flying", 2, null) == true` 只管 `Badges` 那一侧，
+                //    有人把 `CardText` 改回单实参调用它照样绿。
+            }
+
+            // TODO(待裁 · `A1367③` / 合并规格 #67)：**关键词段里【带正文的关键词】该以 `:` 结尾**。
+            //   卡面印 `⟳Flying. ⚡Rally: ⟳Stun an enemy`（`DA39` 亲读），而 `KeywordSegment` 的末句
+            //   用 `". "` 收尾 ⇒ 我们印 `Rally.`。凡走 `CardDef.CollectBareKeywordBody` 那条路的卡
+            //   **都差这个冒号**（`CardDef` 那颗注释实测 **~200 张**；例 `SW11 Blood Claw` 卡面是
+            //   `⟳Ferocity: …`、我们印 `Ferocity. …`）。⚠️ 那一半**没逐张核**（`R7` 只核了 3 张）。
+            //   期望值**追得到判据**（PnP 成品卡面 + `资料/卡表核对_卡图提取/_还原效果文字.md`），
+            //   落点 = `Core/CardText.cs` 里 `KeywordSegment` 的末句 `string.Join(...)`。
+            //   🔴 **本笔不写这条断言**：实现**没修** ⇒ 写下去**今天必红**；而两条红线都不许 ——
+            //     「别把缺陷固化成期望」（写 `Rally.`）与「别把红基线引进自检」（写 `Rally:`）。
+            //   ⇒ 交调度台裁：**先修**（要按 `CardDef.BodyKeywords` 分流、会动 ~200 张卡面 ⇒ 攒批复跑）
+            //     还是在哪个宿主上先挂这条红。修完之后这里补两行：
+            //       `Check(seg.Contains("Rally:"), …)` / `Check(!seg.Contains("Rally."), …)`
+            //     夹具 = `DA39 Dark Talon`（`keywords` 含 `Rally`、`desc` = `Stun an enemy`，走 keywords 那条路）
+            //     ＋ 反例 `ASH20 Howling Banshee`（`desc` 自带 `Rally: …` ⇒ 走 desc 那条，不进这一支）。
+
             // ⑤ 真渲染：造一张**带 4 枚徽标**的卡，拍「有 / 无」两张图（只差徽标那几层）
             {
                 var badges = new System.Collections.Generic.List<Badge>
@@ -13432,12 +13515,77 @@ public static class BattleScene
             // ⚠️ **2026-10-21（`A1365`）一条用法的告诫**：这颗探针按 `value: 0.5f` 建 ⇒ `A1359` 之后
             //   它的填条**真的只画半宽**（两端端帽仍 15px —— 填条已改成原版的「改锚点」）。
             //   🔴 它下面那条 `box(...)` 只量滑块**根**的 rect（561.08 × 12），**不会因此红** ——
-            //   ⛔ 但**别拿它当「填条没变」的证据**（要量填条走 `WfSlider.FillWorldW` / `FillCapWorldW`，
-            //   判据见 `Editor/SettingsScene.cs` 那三条 A169；本文件这一侧还没补上）。
-            WfSlider.Create(a218root.transform, "A218Probe", Vector3.zero, 0.5f, null,
+            //   ⛔ 但**别拿它当「填条没变」的证据** —— 本文件这一侧**下面那一段**已经补上填条的几何断言
+            //   （`FillWorldW` / `FillCapWorldW` / 对填条子树取并集；设置窗那三根见 `Editor/SettingsScene.cs`）。
+            var a218Slider = WfSlider.Create(a218root.transform, "A218Probe", Vector3.zero, 0.5f, null,
                             queue: 3000, handlePx: 34.406f, handleOffset: WfSlider.HandleOffsetPx, capScale: 1f);
             box(a218root.transform.Find("slider_A218Probe"), "音量滑块根", 561.08f, 12f,
                 "原版战斗那三根 `Slider`：`Container sizeDelta (0,100)` + 锚 y `0.33→0.45` ⇒ 高 12 · 宽 561.08");
+
+            // ---- 🆕 2026-10-21（`A1359` / `A1351`② 的**断言**那一半）：**填条那三块的几何** ----
+            //  判据 = `资料/普查产出_第十三会话/W6c_A1350A1351A1359.md` §三「该补什么断言」。
+            //  🔴 期望值一律写**字面量**、⛔ **不引用 `WfSlider.*` 的任何常量**（那是被测实参 ⇒ 自证）。
+            //  战斗档：`trackW 561.08` · `trackH 12` · `capScale 1` ⇒ 端帽 = 原版 `m_Border 30 ÷ ppuMul 2` × 1 = **15**。
+            //  ⚠️ 设置窗那三根**不是同一个数**（615.771 / 13.5）⇒ 那边另有三条（`Editor/SettingsScene.cs` 的 `A1359` 一节）。
+            if (a218Slider == null)
+                Check(false, "（前提）滑块探针 `A218Probe` 建出来了（下面几条填条几何要靠它）");
+            else
+            {
+                // (a) 共用件报的是**建件矩形**、⛔ 不乘回子件缩放（`MenuDraw.QuadRectPx` 的规范句②）：
+                //     填条三块里**中段那一块**建件时是**满宽**（九宫格的角块固定像素、中段拉伸 ⇒
+                //     它的建件宽 = 561.08 − 15 − 15）⇒ 对整棵子树取并集 = **531.08**，
+                //     与「屏幕上那一块」（= 值 × 561.08）**不是一回事**。
+                // 🔴 这一格与下面 (b) 是**成对**的：谁哪天把 `MenuDraw` 改成「自动乘回子件缩放」，
+                //    它们就会**相等** ⇒ 红 —— 而那正是会打翻既有 40+ 个调用点的改动。
+                var fillN = a218root.transform.Find("slider_A218Probe/slider_fill");
+                float ux1 = 0f, uy1 = 0f, ux2 = 0f, uy2 = 0f;
+                bool hasUnion = fillN != null && MenuDraw.UnionQuadRectPx(
+                    fillN, MenuDraw.QuadGate.InHierarchy, true, out ux1, out uy1, out ux2, out uy2);
+                Check(hasUnion, "（前提）填条那棵子树（`slider_fill` 下的三块）量得到 quad");
+                float[] sVals = { 1f, 0.5f, 0.2f };
+                string[] sTags = { "值 1", "值 0.5", "值 0.2" };
+                float sCapFirst = -1f;
+                for (int k = 0; k < sVals.Length; k++)
+                {
+                    float v = sVals[k];
+                    a218Slider.SetValue(v, false);      // ⚠️ `fire: false` —— 自检**只摆值**（不碰总线 / 存档）
+                    float fw  = a218Slider.FillWorldW * 108f;
+                    float flx = a218Slider.FillWorldLeftX * 108f;
+                    float fcap = a218Slider.FillCapWorldW * 108f;
+                    Check(Mathf.Abs(flx + 280.54f) <= 0.05f,
+                          $"★ {sTags[k]}：填条**左沿** = 轨道宽 ÷ 2 ⇒ **−280.54**（实得 {flx:F3}）"
+                        + " —— 原版 `Slider` 把 `Fill` 锚在**左边**的锚点上（`anchorMin.x = 0`），值怎么变它都不动");
+                    Check(Mathf.Abs(fw - v * 561.08f) <= 0.05f,
+                          $"★ {sTags[k]}：填条**画出来的宽** = 值 × 原版轨道宽 561.08 = **{v * 561.08f:F3}**（实得 {fw:F3}）");
+                    Check(Mathf.Abs(fcap - 15f) <= 0.05f,
+                          $"★ {sTags[k]}：端帽**恒宽** 15 画布 px（原版 `m_Border 30 ÷ ppuMul 2 × capScale 1`；实得 {fcap:F3}）");
+                    if (k == 0) sCapFirst = fcap;
+                    else
+                        // 🧨 **灭自证那一半**：「整体横向缩放」那条旧实现**结构上做不到**这一条
+                        //    （值 0.5 时端帽必掉到 7.5）—— 要让一个**随值变化**的量变成常量，只能真改实现；
+                        //    而「把被测实现与它的读口一起改回去」也救不了：这条断的是**跨两个值相等**。
+                        Check(Mathf.Abs(fcap - sCapFirst) <= 0.02f,
+                              $"★★ {sTags[k]} 的端帽宽与「值 1」**逐值相等**（{fcap:F3} vs {sCapFirst:F3}）"
+                            + " —— 旧的整体缩放路在值 0.5 时给的是 7.5 ⇒ 红");
+                }
+                // (b) 「屏幕上那一块」（本件读口）—— 与 (a) 的期望值**必须不相等**：
+                //     两者量的是**两份不同的实现**（共用件的并集 vs 本件的读口），喂进去的期望都是字面量。
+                a218Slider.SetValue(0.5f, false);           // ⚠️ 并集要在**这个值**上现量（上面那次是取前置）
+                hasUnion = fillN != null && MenuDraw.UnionQuadRectPx(
+                    fillN, MenuDraw.QuadGate.InHierarchy, true, out ux1, out uy1, out ux2, out uy2);
+                if (hasUnion)
+                {
+                    float uniW = ux2 - ux1;
+                    float fillW05 = a218Slider.FillWorldW * 108f;
+                    Check(Mathf.Abs(uniW - 531.08f) <= 1f,
+                          $"★ 对填条子树取**并集** = **531.08**（= 轨道 561.08 − 两端端帽 30：中段那块**建件时满宽**）"
+                        + $" —— 实得 {uniW:F3}；共用件报的是**建件矩形**、⛔ 不乘回子件缩放（`QuadRectPx` 规范句②）");
+                    Check(Mathf.Abs((uniW - fillW05) - 250.54f) <= 1.2f,
+                          $"★★（灭自证那一半）并集 {uniW:F3} 与「屏幕上那一块」{fillW05:F3} **必须差 250.54**"
+                        + $"（实得 {uniW - fillW05:F3}）—— 两者一旦相等，就是有人把 `MenuDraw` 改成「自动乘回子件缩放」了");
+                }
+                a218Slider.SetValue(0.5f, false);       // （还原）探针建件时那个值
+            }
 
             // ------------------------------------------------------------------
             //  🔴 **反向那一半**：原版**本来就是裸 `Transform`** 的几处**不许被顺手补齐**

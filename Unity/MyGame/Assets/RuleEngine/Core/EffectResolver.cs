@@ -151,17 +151,83 @@ namespace RuleEngine
             //    可能还是上一张卡留下的（这类卡的「it」就是本次的目标，不是上一条效果的产物）。
             //    与其按一个过时的值判错，不如放弃替换：两条各自走正规流程。
             //    **代价是数值会叠加，如实写在这儿，不装作它是原版语义。**
+            //
+            // 🔴 **2026-10-10（第十四会话 · `A1388`）：无条件的 `instead`【一定】替换。**
+            //
+            // **改前怎么错的**：这里对**每一条** `instead` 都调 `ConditionHolds`，而它读的是
+            //   `op.ConditionKind`、`default:` 返 **`false` = 判不了**（`EffectResolver.cs` 的
+            //   `ConditionHolds` 末尾那一条）。**没有条件**的 `instead` ⇒ `ConditionKind` 是空串
+            //   ⇒ 落 `default` ⇒ `!judgeable` ⇒ 上面那句 `continue` ⇒ **两条都照常走**。
+            //   实测（`SOR6 Righteous Repugnance` 卡面原文）：`Give +1 [Attack] and +1 [Ranged]
+            //   to your units this turn. 4 Energy: Give +2 [Attack] and +2 [Ranged] instead
+            //   and Heal them 1` ⇒ 我方单位近战 **1 → 4**（**第一段 +1 与付费段 +2 都加了**），
+            //   而卡面那个 `instead` 本该**替换掉第一段**（正解 **1 → 3**）。
+            //
+            // **判据（为什么「没有条件」= 恒成立）**：`instead` 的配对语义是「这句话替换掉前一句」，
+            //   而**只有条件句**（`If …, … instead`）才谈得上「条件成立不成立」——
+            //   那份条件由 `TryIf` / `TryIfNoComma` 剥下来写在 `op.Condition` / `op.ConditionKind` 上
+            //   （`EffectText.cs`）。**条件字段为空 = 这句本来就没有条件可判**，
+            //   不是「判不了」。同一条口径 `ResolveOneCore` 自己也用着：
+            //   它那道条件闸是 `if (!string.IsNullOrEmpty(op.Condition))` —— 空的时候**根本不进**。
+            //   ⇒ 这里补上同一句：**空条件 ⇒ `judgeable = true, holds = true`**。
+            //   ⚠️ 有条件的 `instead` 一字不变（仍走 `ConditionHolds`、判不了仍「两条都跑 + 报出来」）。
+            //
+            // ⚠️ **与 `A1369` 洞 3 的接口**：无条件 `instead` 落地之后，
+            //   被跳掉的那条**付费** op 由下面那段 `pays[]` 顺延给 `instead` 那条（同组只收一次钱）。
+            //    真实形状（`A1414` 补完 `deal` / `heal` / `stun` 的贴点之后可达）：
+            //    `2 ☀: Deal 1 damage. Deal 2 damage instead` ⇒ 只结算后者、**只扣 2 点**。
             for (int i = 0; i < ops.Count; i++)
             {
                 if (!ops[i].Instead || insteadBase[i] < 0) continue;
                 int baseIdx = insteadBase[i];
-                bool holds;
-                bool judgeable = ConditionHolds(ctx, owner, ops[i], chosen, out holds);
+                bool holds, judgeable;
+                if (string.IsNullOrEmpty(ops[i].Condition))
+                {
+                    // 无条件的 `instead`（`A1388` 修的那一支）—— 没有条件可判 ⇒ 恒成立
+                    judgeable = true; holds = true;
+                }
+                else judgeable = ConditionHolds(ctx, owner, ops[i], chosen, out holds);
                 bool usesForEach = (ops[i].PerCount > 0 && !string.IsNullOrEmpty(ops[i].CountRef))
                                    || !string.IsNullOrEmpty(ops[i].CountScope);
                 if (!judgeable || usesForEach) continue;      // 两条都照常走
                 if (holds) skip[baseIdx] = true;              // 替换成立：原来那条不结算
                 else skip[i] = true;                          // 不成立：这条不结算，原效果照常
+            }
+
+            // ---- 🔴 2026-10-10（第十四会话 · `A1369` 洞 3）：**付钱那条被 `instead` 跳掉 ⇒ 付款顺延到本组下一条** ----
+            //
+            // **形状**（全池今天 0 张，但结构上可达）：付费段**内部自己成一对** ——
+            //   `2 ☀: Give +1 [Attack] to a friendly troop.`
+            //   `If you have less than 6 Energy, give +2 [Attack] to a friendly troop instead`
+            //   ⇒ 前半句（= 本组**付钱的那条**，`CostShared == false`）被 `skip[]` 掉，
+            //     而 `instead` 那条挂着 `CostShared == true` ⇒ 走 `ResolveOneCore` 的「不再收」支
+            //     ⇒ **整组一分钱都不收**（离线实测：信仰 10 → 10、效果照落地）。
+            //
+            // **判据（为什么该顺延）**：原版收费在 **ability 层** —— 一条 ability = 一个 `manaCost`
+            //   ＋ 一串 `AbilityLogic`（`ActiveAbility.cs`），一次激活只调一次 `PlayerManager.UseMana`
+            //   （`d:/2/tools/decomp_full/BattleManager__PayActiveAbilityCostOath.c:22`）。
+            //   `instead` 换掉的是「**哪一条 logic 结算**」，换不掉「**这一条 ability 被激活了**」这件事
+            //   ⇒ 钱照收，只是改由同组的另一条 op 去收。
+            //
+            // ⚠️ **只认 `CostShared` 这一个组分界标记**（本组 = 付钱那条起、紧跟的一串 `Cost>0 && CostShared`）
+            //    —— 不写第二份「哪几条算一组」的判据。
+            // ⚠️ **结果只存在本地 `pays[]`，⛔ 不写回 `op.CostShared`** —— `EffectOp` 列表是**解析产物**、
+            //    同一张卡第二次打出时是**同一份对象**（见上面 `op.Amount` 那条注释），写回就把
+            //    「这一趟的顺延」**永久固化**下来了。
+            var pays = new bool[ops.Count];
+            for (int i = 0; i < ops.Count; i++)
+                pays[i] = ops[i] != null && ops[i].Cost > 0 && !ops[i].CostShared;
+            for (int i = 0; i < ops.Count; i++)
+            {
+                if (!pays[i] || !skip[i]) continue;        // 只有「付钱那条**被跳掉**」才要顺延
+                int j = i + 1;
+                while (j < ops.Count && ops[j] != null && ops[j].Cost > 0 && ops[j].CostShared && skip[j]) j++;
+                if (j < ops.Count && ops[j] != null && ops[j].Cost > 0 && ops[j].CostShared)
+                {
+                    pays[i] = false; pays[j] = true;
+                    ctx.Log($"{by}：「{ops[i].Source}」那条**付款的**被 `instead` 跳过了 ⇒ 付款顺延到"
+                          + $"同组的「{ops[j].Source}」（一次激活只付一次，⛔ 不是整组白打）");
+                }
             }
 
             int done = 0;
@@ -194,7 +260,7 @@ namespace RuleEngine
                           + (op.AmountRef == "faith" ? "信仰" : "灵魂石") + $" {n}");
                     // ⚠️ `n == 0` 照常递下去 —— `Deal 0 damage` / `Refill 0` 是「生效了但数值是 0」，
                     //    不是「这条没生效」（报错了玩家会以为卡坏了）。
-                    if (ResolveOne(ctx, owner, source, by, refOp, chosen, unresolved)) done++;
+                    if (ResolveOne(ctx, owner, source, by, RoutePay(refOp, pays[i]), chosen, unresolved)) done++;
                     continue;
                 }
 
@@ -229,7 +295,7 @@ namespace RuleEngine
                     //    没契约时（eff = 0 + 0）`Daemonic Frenzy` 变成 +0。
                     if (eff != 0 && (op.Verb == "give" || op.Verb == "gain" || op.Verb == "lose"))
                         effOp.Payload = ScalePayload(op.Payload, eff);
-                    if (ResolveOne(ctx, owner, source, by, effOp, chosen, unresolved)) done++;
+                    if (ResolveOne(ctx, owner, source, by, RoutePay(effOp, pays[i]), chosen, unresolved)) done++;
                     continue;
                 }
 
@@ -257,15 +323,64 @@ namespace RuleEngine
                 //     「每个敌人各打一次」；`Kelermorph` 更惨，只打一下。）
                 if (op.RepeatTimes > 1) repeats *= op.RepeatTimes;
 
+                // ---- 🔴 2026-10-10（第十四会话 · `A1369` 洞 1）：**这 N 遍【只收一次钱】** ----
+                //
+                // **形状**（全池今天 0 张）：`4 Energy: Deal 1 damage to an enemy for each friendly troop`
+                //   —— 付费前缀落在一条 `for each` 的 op 上，而那条 op **跑 N 遍**。
+                //   `ResolveOneCore` 的付费支是**逐次**判的 ⇒ 原来**收 N 次**
+                //   （离线实测：场上 3 个部队 ⇒ 能量 20 → 8，日志里「付了 4 点能量」打了 3 遍）。
+                //
+                // **判据（为什么只收一次）**：原版「重复」不是重跑 ability，而是 `AbilityLogic` 上的
+                //   **乘数** —— `AbilityLogic.cs` 的 `TargetCriteria multiplier`
+                //   （Tooltip：*"If different from 'Any', multiply by number of targets meeting criteria"*）
+                //   ＋ `int furtherMultiplier` ⇒ `for each` 是**在一个 logic 内把数值乘 N**，
+                //   **根本不回到收费那一层**；一次激活只调一次 `PlayerManager.UseMana`
+                //   （`d:/2/tools/decomp_full/BattleManager__PayActiveAbilityCostOath.c:22`）。
+                //   （`N times` 那一支 = `EffectOp.RepeatTimes`，同一条循环、同理。）
+                //
+                // ⚠️ 第 2 遍起递的是**副本**（`op.Clone()`）—— `CostShared` 写回解析产物会被**永久固化**
+                //    （同一张卡第二次打出时是同一份对象，见上面 `op.Amount` 那条注释）。
+                // ⚠️ **`repeats == 0` 时一遍都不跑 ⇒ 也不收钱** —— 这一格与「原版按 ability 收、
+                //    N=0 也照收」**仍有偏离**，如实留在报告里（`A1369` 的判据只管「不重复收」）。
+                var firstOp = RoutePay(op, pays[i]);
                 bool ok = false;
                 for (int k = 0; k < repeats; k++)
-                    if (ResolveOne(ctx, owner, source, by, op, chosen, unresolved)) ok = true;
+                {
+                    var useOp = firstOp;
+                    if (k > 0 && useOp.Cost > 0 && !useOp.CostShared)
+                    {
+                        useOp = useOp.Clone();          // ⛔ 别写回解析产物
+                        useOp.CostShared = true;        // 钱在第 1 遍已经付过（原版：一条 ability 一个 cost）
+                    }
+                    if (ResolveOne(ctx, owner, source, by, useOp, chosen, unresolved)) ok = true;
+                }
                 if (ok) done++;
             }
             // 摧毁/伤害可能把督军打死 —— 结算完统一判一次胜负
             // （`Hurt` 自己不判，和攻击那条路一致：由调用方在结算完之后判）
             if (!ctx.IsOver) CheckWinner(ctx);
             return done;
+        }
+
+        /// <summary>
+        /// 🔴 **2026-10-10（第十四会话 · `A1369`）**：把「**这一趟谁付钱**」递给 `ResolveOneCore`。
+        ///
+        /// 判据仍然**只有**解析产物上那一份 <see cref="EffectOp.CostShared"/>（`EffectText.StampPaidCost` 贴、
+        /// 这里是**读**）—— 本方法**不引入第二份口径**，只是把 `ResolveOps` **本地**算出来的那格
+        /// （`pays[]`：`instead` 跳掉了付钱那条时会顺延给同组的下一条）转成 `ResolveOneCore` 认的形式。
+        /// 第二个用途：`for each` / `N times` 的第 2..N 遍（钱只在第 1 遍收，见那里的注释）。
+        ///
+        /// `pay` 与 `op.CostShared` **一致时直接递原件**（零拷贝 ⇒ 别的分支行为一字不变），
+        /// 不一致才 `Clone()` 一份改了递下去 —— ⛔ **绝不写回 `op.CostShared`**：
+        /// `EffectOp` 列表是解析产物、会被复用（见上面 `op.Amount` 那条注释）。
+        /// </summary>
+        static EffectOp RoutePay(EffectOp op, bool pay)
+        {
+            if (op == null || op.Cost <= 0) return op;      // 没价 ⇒ `CostShared` 这一格无意义
+            if (pay == !op.CostShared) return op;           // 一致 ⇒ 递原件
+            var c = op.Clone();                             // `Clone()` = `MemberwiseClone`，改这一格够用
+            c.CostShared = !pay;
+            return c;
         }
 
         static bool ResolveOne(BattleContext ctx, int owner, UnitState source, string by,
@@ -680,9 +795,65 @@ namespace RuleEngine
             // 2026-09-13 A3。见 `EffectTargetSpec.Subjectless`（判据的来龙去脉写在那儿）。
             // ⚠️ `source` 上面已经从 `ctx.ActingUnit` 回落过了 —— 单位触发正文那条路有它，
             //    战术卡那条路是 `null`（`ResolveOps(ctx, p, null, …)`）⇒ 那种仍落到己方全体（行为不变）。
+            //
+            // 🔴 **2026-10-10（第十四会话 · `A1407`）：`source` 那一档【不看 `IsAlive`】。**
+            //
+            // **改前怎么错的**：这里写的是 `source != null && source.IsAlive`。而 `IsAlive` = `Health > 0`
+            //   （`UnitState.cs`）。原版把**献祭**那一跳排在**救回**（`UseSurvivor`）之前
+            //   （`CardScript__CheckIfDead.c:152-158` 在 `:160-165` 之前）⇒ 触发 `Sacrifice:` 正文那一刻，
+            //   单位身上还是 `Health = -3` ⇒ `IsAlive == false` ⇒ **一路落到下面的「己方全体」兜底**：
+            //   `Sacrifice: Gain +1 Attack` 的 +1 加到了**督军**身上（离线实测：督军 `atk 2 → 3`、
+            //   施放者自己仍是 2）。**而且那一支一行日志都没有**（注释写着「并把这件事说清楚」——
+            //   话在那儿，代码不在）。影响面**不止 `sacrifice`**：**任何「死后才触发的触发」+ 无主语正文**
+            //   都走这一支（`Backlash` 族同形）。
+            //
+            // **判据（`self` / `actingCard` 那一档不判生死）—— 原版反编译实证**：
+            //   `d:/2/tools/decomp_full/AbilityLogic__GetTargets.c`（`TargetsAffected` 的
+            //   **唯一** resolver）里，这两档是**直接放进结果列表、没有任何存活/在场判断**：
+            //     · `:184-191` `if (iVar6 == 0x14)`（`self = 20`）⇒ `FUN_180002430(list, param_3)` = 加 **thisCard**
+            //     · `:761-769` `if ((iVar6 == 0x50) || (iVar6 == 0x28))`（`actingCard = 80` / `attacker = 40`）
+            //       ⇒ `FUN_180002430(list, param_4)` = 加 **actingCard**
+            //     两处都 `goto LAB_180818485`（`:1378` 的共同返回口）—— **闸门在它们后面**，
+            //     不会把这张卡再筛掉。（枚举值 = `d:/2/Warpforge_code/Scripts/Assembly-CSharp/
+            //     TargetsAffected.cs`；调用点 `:184` 的 `iVar6` 就是 `criteria.targetsAffected`。）
+            //   ⚠️ **判据的另外一半仍缺**：「一条**无主语正文**在原版数据里配的 `targetsAffected`
+            //     到底是 `self` 还是别的值」是**服务端数据**（本地无卡、无卡面可核）
+            //      ⇒ **不写成「原版一定打自己」**，只写成「**这一档不该按生死换语义**」。
+            //      留痕见 `资料/普查产出_第十四会话/W_SurvivalSacrifice族.md` §三 + 本笔报告。
+            //
+            // ⚠️ **为什么可以去掉 `IsAlive`**：`Subjectless` 这个旗标的口径本来就是
+            //   「**有施放者就是它自己**」（`EffectTargetSpec.Subjectless` 的 doc 写的正是这句话），
+            //   那个 `IsAlive` 是**实现时多出来的一道闸**，不是这一档的判据。
+            //   ⚠️ 用 `Subjectless` 的动词只有「给/加/减/治/翻倍/回手/受这份伤/触发能力」这几族
+            //   （`EffectText` 的 9 个产出点），**没有一个会把单位移出棋盘**；`return` 的
+            //   「施放者已离场」那一支在 `DoReturn` 里**更早**就接管了（见那边的注释）⇒ 不受影响。
+            //   🔴 **但要如实说清另一半（离线实测）**：结算层还有一条**一致约定** ——
+            //   10 个动词 handler 的逐目标循环都写着 `if (t == null || !t.IsAlive) continue;`
+            //   ⇒ 本支选出的那个（已死的）施放者**会被它们丢掉**，数值上看不见（`Backlash` 族尤甚）。
+            //   **这是两件事**：本笔修的是「**不要静默换成己方全体**」（目标选对了），
+            //   那 10 道闸**没动**（放开的风险见下面那段日志的注释）—— 照样**如实出声**。
             if (spec.Subjectless)
             {
-                if (source != null && source.IsAlive) list.Add(source);
+                if (source != null)
+                {
+                    // 🔴 **2026-10-10（`A1407`）：「施放者已死」这一格必须【出声】**。
+                    //
+                    //    本仓的结算层有一条**一致约定**：**一律不给非活体（`Health ≤ 0`）加效果** ——
+                    //    10 个动词 handler 的逐目标循环里都写着 `if (t == null || !t.IsAlive) continue;`
+                    //    （`DoGive` / `DoDeal` / `DoHeal` / `DoStun` / …）。
+                    //    ⇒ 施放者已死时，下面那句 `list.Add(source)` 交给它们之后**什么都不会发生**。
+                    //    **只出声、不换语义**：⛔ 这里**不改成**「退回己方全体」（那正是改前的病），
+                    //    ⛔ 也不去放开那 10 道闸（`Give +N Health` 会把 `Health = -3` 的尸体推成
+                    //    `> 0` ⇒ **复活一个不该复活的**）。该不该放开 → 本笔报告里列给调度台裁。
+                    //    ⚠️ **今天的可观测面**：`cards_engine.json` 1126 张里带
+                    //    `Sacrifice:` / `Survivor:` 的卡 **0 张** ⇒ 这条日志只在
+                    //    「死后才触发的触发」+ 无主语正文那种形状上出现，不会刷屏。
+                    if (!source.IsAlive)
+                        ctx.Log($"（「{spec.Raw}」：目标是**施放者自己**「{source.Name}」——"
+                              + $"而它此刻生命 {source.Health} ≤ 0 ⇒ 按本仓「不给非活体加效果」的"
+                              + "既有约定，**这一条对它不会生效**。如实报出来，⛔ 不改成「加给全队」）");
+                    list.Add(source);
+                }
                 // 战术卡没有施放者，但**玩家点了一个目标**（`chosen`）—— 那就是这张卡说的「谁」。
                 // ⚠️ 排在「己方全体」**之前**：`Beacon of Faith` 那类卡的第一次「whose」是
                 //    `your units`（`PickTarget` 返回 null ⇒ `chosen` 也是 null）⇒ 仍然落到己方全体 ✓
@@ -692,7 +863,11 @@ namespace RuleEngine
                 {
                     // 没有施放者、也没点目标：**退回既有近似**（己方全体），并把这件事说清楚 ——
                     // 静默换语义比报一行日志糟得多。
+                    // 🔴 **2026-10-10（`A1407`）：这句话以前只写在注释里、代码里一行都没有**
+                    //    （那一支是**唯一**没有任何日志的降级路）—— 现在真出声，并报出**具体收进了谁**。
                     AddSide(list, ctx.Players[owner], false, spec.Kind == "troop", -1);
+                    ctx.Log($"（「{spec.Raw}」：**没有施放者、也没点目标** ⇒ 按既有近似落到**己方全体**"
+                          + $"（{list.Count} 个：{Names(list)}）—— 这条近似不是原版语义，如实报出来）");
                 }
                 return list;
             }
@@ -7825,8 +8000,34 @@ namespace RuleEngine
             int done = 0;
             try
             {
+                // 🔴 **2026-10-10（第十四会话 · `A1415`）：重复的那批 op **一个钱都不再收**。**
+                //
+                // **改前怎么错的**：这里对每条 `o` **直接调 `ResolveOne`**，而付费是在
+                //   `ResolveOneCore` 里**逐 op** 判的 ⇒ 若 `RepeatOps` 里有一条
+                //   `Cost > 0 && !CostShared`，钱会**再扣一遍**。
+                //   **形状**：`2 Energy: Deal 2 damage to an enemy. Repeat this effect` ⇒
+                //   前半句那 2 点能量付过一次，`repeat` 又付一次 ⇒ **一次激活收 4 点**。
+                //
+                // **判据（为什么不再收）**：原版收费在 **ability 层** —— 一条 ability = 一个
+                //   `manaCost` ＋ 一串 `AbilityLogic`（`ActiveAbility.cs`），一次激活只调一次
+                //   `PlayerManager.UseMana`（`d:/2/tools/decomp_full/BattleManager__PayActiveAbilityCostOath.c:22`）；
+                //   `Repeat this effect` 重复的是**那串 logic**，**不回到收费那一层**
+                //   ⇒ 与 `for each` / `N times` 的重复（`:296-321` 那一段，钱只在第 1 遍收）
+                //   **同一条口径、同一个工具**。
+                //
+                // ⚠️ **递副本**：`RoutePay(o, false)` 只在「这条要付钱」时才 `Clone()`
+                //   （`o.Cost <= 0` 或 `o.CostShared` 已经为真 ⇒ **递原件**，主路零拷贝）
+                //   —— ⛔ **绝不写回 `op.CostShared`**（`EffectOp` 列表是解析产物、会被复用，
+                //   见 `ResolveOps` 里 `op.Amount` 那条注释）。
+                // ⚠️ **可观测性**：全池**今天 0 处可达** —— 本笔用**活的工作区解析器**逐条跑过
+                //   `cards_engine.json` 的 1126 张（desc ＋ keywords 共 2147 条文本）：
+                //   `repeat` op 共 **16** 个，其 `RepeatOps` 里带 `Cost > 0 && !CostShared` 的
+                //   **0 个**（带价的 7 处 —— 6 张 `N [货币]:` ＋ `UM98` 的 `Oath 3:` ——
+                //   价都贴在 `repeat` op **自己**身上，它重复的那条 `cost = 0`）
+                //   ⇒ 本行今天不改任何真卡读数，是**堵形状**（`A1369` 报告 §五·2）。
+                //   真读数见本笔报告的离线驱动。
                 foreach (var o in op.RepeatOps)
-                    if (ResolveOne(ctx, owner, null, by, o, chosen, unresolved)) done++;
+                    if (ResolveOne(ctx, owner, null, by, RoutePay(o, false), chosen, unresolved)) done++;
             }
             finally { ctx.EffectChain--; }
             return done > 0;

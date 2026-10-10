@@ -77,6 +77,16 @@
        "token": "路标石。",
        "sprite": "waystone",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "潜行。",
+       "sprite": "stealth",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "①",
+       "sprite": "SpiritStone_1",
+       "why": "① = 灵魂石 1 档 —— **数字烘在图里**（图集 `Atlas_SpiritStone_1..5`，逐张看过：绿圈里就是数字；真卡 Spiritseer/Wraithknight 核过）"
       }
      ]
     }
@@ -292,6 +302,11 @@
        "token": "Rally:",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Stun",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:31`（`Warpforge_20_Howling-Banshee.png`）。"
       }
      ]
     },
@@ -302,6 +317,11 @@
        "token": "集结：",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "眩晕",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:31`（`Warpforge_20_Howling-Banshee.png`）。中文侧同一条（`descZh` 里写 `眩晕`，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -367,6 +387,11 @@
        "token": "Stealth.",
        "sprite": "stealth",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Sniper",
+       "sprite": "sniper",
+       "why": "卡面 `Sniper` **前面**那枚「准星」（= `Resources/Art/traits/sniper.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:91`（`Warpforge_9_Ranger.png`）。"
       }
      ]
     },
@@ -382,6 +407,11 @@
        "token": "潜行。",
        "sprite": "stealth",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "狙击",
+       "sprite": "sniper",
+       "why": "卡面 `Sniper` **前面**那枚「准星」（= `Resources/Art/traits/sniper.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:91`（`Warpforge_9_Ranger.png`）。中文侧同一条（`descZh` 里写「狙击」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -818,6 +848,31 @@
    ]
   },
   {
+   "id": "ASH82",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Stun",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:19`（`Warpforge_09_Yrlla-the-Huntress.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "眩晕",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:19`（`Warpforge_09_Yrlla-the-Huntress.png`）。中文侧同一条（`descZh` 里写 `眩晕`，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "ASH42",
    "fields": [
     {
@@ -852,6 +907,11 @@
        "token": "天赋：",
        "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "②",
+       "sprite": "SpiritStone_2",
+       "why": "② = 灵魂石 2 档（同上）"
       }
      ]
     }
@@ -883,6 +943,31 @@
    ]
   },
   {
+   "id": "ASH51",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Stun",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:74`（`Warpforge_51_Banshee-Mask.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "眩晕",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:74`（`Warpforge_51_Banshee-Mask.png`）。中文侧同一条（`descZh` 里写 `眩晕`，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "ASH52",
    "fields": [
     {
@@ -902,6 +987,31 @@
        "token": "②",
        "sprite": "SpiritStone_2",
        "why": "② = 灵魂石 2 档（同上）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "ASH48",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Stun",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:71`（`Warpforge_48_Deadly-Ambush.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "眩晕",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:71`（`Warpforge_48_Deadly-Ambush.png`）。中文侧同一条（`descZh` 里写 `眩晕`，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -987,6 +1097,31 @@
        "token": "临时。",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "ASH_Fate_Inescapable",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Vulnerable",
+       "sprite": "vulnerable",
+       "why": "卡面 `Vulnerable` **前面**那枚「盾牌 + 闪电」（= `Resources/Art/traits/vulnerable.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:93`（`Zrzut ekranu 2026-04-16 o 18.45.25.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "脆弱",
+       "sprite": "vulnerable",
+       "why": "卡面 `Vulnerable` **前面**那枚「盾牌 + 闪电」（= `Resources/Art/traits/vulnerable.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:93`（`Zrzut ekranu 2026-04-16 o 18.45.25.png`）。中文侧同一条（`descZh` 里写「脆弱」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -1232,6 +1367,11 @@
        "token": "[Spirit Stone]",
        "sprite": "SpiritStone_1",
        "why": "档位看紧挨着的数字：`N [Spirit Stone]:` → `SpiritStone_N`（**数字烘在图里**，所以卡面文本里那个 `N ` 要一起吃掉）。图集 `Atlas_SpiritStone_1..5` 逐张看过；真卡 Spiritseer(2) / Wraithknight(3) 核过（本卡 n=1）"
+      },
+      {
+       "token": "Stun",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:12`（`Warpforge_02_Storm-of-Silence.png`）。"
       }
      ]
     },
@@ -1241,7 +1381,7 @@
       {
        "token": "[攻击]",
        "sprite": "Melee",
-       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+       "why": "还原表 Storm of Silence：`Your Warlord gains +2 Melee this turn`（中文 token 当年写「生命」、卡面画的是拳；键 2026-10-10 由 `[生命]` 订正）"
       },
       {
        "token": "[能量]",
@@ -1252,6 +1392,11 @@
        "token": "①",
        "sprite": "SpiritStone_1",
        "why": "① = 灵魂石 1 档 —— **数字烘在图里**（图集 `Atlas_SpiritStone_1..5`，逐张看过：绿圈里就是数字；真卡 Spiritseer/Wraithknight 核过）"
+      },
+      {
+       "token": "眩晕",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:12`（`Warpforge_02_Storm-of-Silence.png`）。中文侧同一条（`descZh` 里写 `眩晕`，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -1412,6 +1557,11 @@
        "token": "[Ranged]",
        "sprite": "Ranged",
        "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      },
+      {
+       "token": "Sniper",
+       "sprite": "sniper",
+       "why": "卡面 `Sniper` **前面**那枚「准星」（= `Resources/Art/traits/sniper.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:97`（`Zrzut ekranu 2026-04-16 o 18.54.28.png`）。"
       }
      ]
     },
@@ -1422,6 +1572,11 @@
        "token": "[远程]",
        "sprite": "Ranged",
        "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      },
+      {
+       "token": "狙击",
+       "sprite": "sniper",
+       "why": "同上（`descZh` 的写法）。"
       }
      ]
     }
@@ -1537,6 +1692,11 @@
        "token": "[Spirit Stone]",
        "sprite": "SpiritStone_3",
        "why": "档位看紧挨着的数字：`N [Spirit Stone]:` → `SpiritStone_N`（**数字烘在图里**，所以卡面文本里那个 `N ` 要一起吃掉）。图集 `Atlas_SpiritStone_1..5` 逐张看过；真卡 Spiritseer(2) / Wraithknight(3) 核过（本卡 n=3）"
+      },
+      {
+       "token": "Fast",
+       "sprite": "fast",
+       "why": "卡面 `Fast` **前面**那枚「旋风箭头」（= `Resources/Art/traits/fast.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:15`（`Warpforge_05_Hornet.png`）。"
       }
      ]
     },
@@ -1547,6 +1707,11 @@
        "token": "③",
        "sprite": "SpiritStone_3",
        "why": "③ = 灵魂石 3 档（同上）"
+      },
+      {
+       "token": "迅捷",
+       "sprite": "fast",
+       "why": "卡面 `Fast` **前面**那枚「旋风箭头」（= `Resources/Art/traits/fast.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:15`（`Warpforge_05_Hornet.png`）。中文侧同一条（`descZh` 里写「迅捷」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -1562,6 +1727,11 @@
        "token": "Strike:",
        "sprite": "strike",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Invulnerable",
+       "sprite": "invulnerable",
+       "why": "卡面 `Invulnerable` **前面**那枚「蓝紫圆 + 白骷髅 + 带缺口横条」（= `Resources/Art/traits/invulnerable.png`；⛔ **不是** `vulnerable.png` 那张盾+闪电，两者是不同的两张图 —— 亲读并排核过）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:32`（`Aeldari/3部队/Warpforge_21_Nuadhu-Fireheart.png`）。"
       }
      ]
     },
@@ -1572,6 +1742,11 @@
        "token": "猛击：",
        "sprite": "strike",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "无敌",
+       "sprite": "invulnerable",
+       "why": "卡面 `Invulnerable` **前面**那枚「蓝紫圆 + 白骷髅 + 带缺口横条」（= `Resources/Art/traits/invulnerable.png`；⛔ **不是** `vulnerable.png` 那张盾+闪电，两者是不同的两张图 —— 亲读并排核过）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:32`（`Aeldari/3部队/Warpforge_21_Nuadhu-Fireheart.png`）。中文侧同一条（`descZh` 里写 `无敌`，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -1652,6 +1827,11 @@
        "token": "Flank.",
        "sprite": "flank",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Sniper",
+       "sprite": "sniper",
+       "why": "卡面 `Sniper` **前面**那枚「准星」（= `Resources/Art/traits/sniper.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:24`（`Warpforge_14_Shroud-Runner.png`）。"
       }
      ]
     },
@@ -1667,6 +1847,11 @@
        "token": "侧翼。",
        "sprite": "flank",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "狙击",
+       "sprite": "sniper",
+       "why": "卡面 `Sniper` **前面**那枚「准星」（= `Resources/Art/traits/sniper.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:24`（`Warpforge_14_Shroud-Runner.png`）。中文侧同一条（`descZh` 里写「狙击」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -1962,6 +2147,11 @@
        "token": "Talent:",
        "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Stun",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:11`（`Warpforge_01_Jain-Zar.png`）。"
       }
      ]
     },
@@ -1972,6 +2162,11 @@
        "token": "天赋：",
        "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "眩晕",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:11`（`Warpforge_01_Jain-Zar.png`）。中文侧同一条（`descZh` 里写 `眩晕`，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -2097,6 +2292,11 @@
        "token": "Rally:",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Blood Thirst",
+       "sprite": "bloodThirst",
+       "why": "卡面 `Blood Thirst` **前面**那枚「尖牙」（= `Resources/Art/traits/bloodThirst.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:132`（`Warpforge_21_Attilan-Rough-Rider.png`）。"
       }
      ]
     },
@@ -2106,6 +2306,51 @@
       {
        "token": "集结：",
        "sprite": "rally",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "嗜血",
+       "sprite": "bloodThirst",
+       "why": "卡面 `Blood Thirst` **前面**那枚「尖牙」（= `Resources/Art/traits/bloodThirst.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:132`（`Warpforge_21_Attilan-Rough-Rider.png`）。中文侧同一条（`descZh` 里写「嗜血」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "AM28",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Vanguard.",
+       "sprite": "vanguard",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Armour 1.",
+       "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "先锋。",
+       "sprite": "vanguard",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "护甲 1。",
+       "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "爆破 2。",
+       "sprite": "blast",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -2131,7 +2376,7 @@
       {
        "token": "[Ranged]",
        "sprite": "Ranged",
-       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+       "why": "还原表：`+2 Ranged`（键 2026-10-10 由 `[Attack]` 订正）"
       }
      ]
     },
@@ -2178,6 +2423,11 @@
     {
      "name": "descZh",
      "items": [
+      {
+       "token": "爆破 1。",
+       "sprite": "blast",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
       {
        "token": "职责：",
        "sprite": "duty",
@@ -2477,6 +2727,11 @@
        "token": "Duty:",
        "sprite": "duty",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Stun",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:110`（`Warpforge_04_Tempestus-Scion.png`）。"
       }
      ]
     },
@@ -2492,6 +2747,11 @@
        "token": "职责：",
        "sprite": "duty",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "眩晕",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:110`（`Warpforge_04_Tempestus-Scion.png`）。中文侧同一条（`descZh` 里写 `眩晕`，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -2581,7 +2841,7 @@
       {
        "token": "[Ranged]",
        "sprite": "Ranged",
-       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+       "why": "还原表：`+2 Ranged`（键 2026-10-10 由 `[Attack]` 订正）"
       }
      ]
     },
@@ -2642,6 +2902,56 @@
        "token": "临时。",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "AM47",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Stun",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:161`（`Warpforge_47_Pinning-Fire.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "眩晕",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:161`（`Warpforge_47_Pinning-Fire.png`）。中文侧同一条（`descZh` 里写 `眩晕`，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "AM36",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Invulnerable",
+       "sprite": "invulnerable",
+       "why": "卡面 `Invulnerable` **前面**那枚「蓝紫圆 + 白骷髅 + 带缺口横条」（= `Resources/Art/traits/invulnerable.png`；⛔ **不是** `vulnerable.png` 那张盾+闪电，两者是不同的两张图 —— 亲读并排核过）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:147`（`Astra Militarum/2天赋/Warpforge_36_Renowned-Bodyguard.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "无敌",
+       "sprite": "invulnerable",
+       "why": "卡面 `Invulnerable` **前面**那枚「蓝紫圆 + 白骷髅 + 带缺口横条」（= `Resources/Art/traits/invulnerable.png`；⛔ **不是** `vulnerable.png` 那张盾+闪电，两者是不同的两张图 —— 亲读并排核过）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:147`（`Astra Militarum/2天赋/Warpforge_36_Renowned-Bodyguard.png`）。中文侧同一条（`descZh` 里写 `无敌`，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -2809,6 +3119,11 @@
      "name": "descZh",
      "items": [
       {
+       "token": "装甲 2。",
+       "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "职责：",
        "sprite": "duty",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -2836,6 +3151,11 @@
       {
        "token": "远射。",
        "sprite": "longrange",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "爆破 3。",
+       "sprite": "blast",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -2914,6 +3234,11 @@
      "name": "descZh",
      "items": [
       {
+       "token": "装甲 1。",
+       "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "职责：",
        "sprite": "duty",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -2944,6 +3269,11 @@
      "name": "descZh",
      "items": [
       {
+       "token": "爆破 2。",
+       "sprite": "blast",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "职责：",
        "sprite": "duty",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -2966,7 +3296,7 @@
       {
        "token": "[Ranged]",
        "sprite": "Ranged",
-       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+       "why": "还原表：`+1 Ranged`（键 2026-10-10 由 `[Attack]` 订正）"
       }
      ]
     },
@@ -3008,6 +3338,11 @@
     {
      "name": "descZh",
      "items": [
+      {
+       "token": "装甲 1。",
+       "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
       {
        "token": "职责：",
        "sprite": "duty",
@@ -3112,6 +3447,11 @@
        "token": "Talent:",
        "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Stun",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:104`（`Warpforge_01_Hektor-Thenmann.png`）。"
       }
      ]
     },
@@ -3122,6 +3462,11 @@
        "token": "天赋：",
        "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "眩晕",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:104`（`Warpforge_01_Hektor-Thenmann.png`）。中文侧同一条（`descZh` 里写 `眩晕`，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -3182,6 +3527,31 @@
        "token": "[远程]",
        "sprite": "Ranged",
        "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "BL31",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Vulnerable",
+       "sprite": "vulnerable",
+       "why": "卡面 `Vulnerable` **前面**那枚「盾牌 + 闪电」（= `Resources/Art/traits/vulnerable.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:203`（`Warpforge_31_Bringer-of-Decay.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "脆弱",
+       "sprite": "vulnerable",
+       "why": "卡面 `Vulnerable` **前面**那枚「盾牌 + 闪电」（= `Resources/Art/traits/vulnerable.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:203`（`Warpforge_31_Bringer-of-Decay.png`）。中文侧同一条（`descZh` 里写「脆弱」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -3363,6 +3733,56 @@
    ]
   },
   {
+   "id": "BL_Ghallaron_s_Disciple",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Vulnerable",
+       "sprite": "vulnerable",
+       "why": "卡面 `Vulnerable` **前面**那枚「盾牌 + 闪电」（= `Resources/Art/traits/vulnerable.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:211`（`Warpforge_3_Ghallarons-Disciple.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "脆弱",
+       "sprite": "vulnerable",
+       "why": "卡面 `Vulnerable` **前面**那枚「盾牌 + 闪电」（= `Resources/Art/traits/vulnerable.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:211`（`Warpforge_3_Ghallarons-Disciple.png`）。中文侧同一条（`descZh` 里写「脆弱」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "BL73",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Vulnerable",
+       "sprite": "vulnerable",
+       "why": "卡面 `Vulnerable` **前面**那枚「盾牌 + 闪电」（= `Resources/Art/traits/vulnerable.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:264`（`Warpforge_9_Havoc-Champion.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "脆弱",
+       "sprite": "vulnerable",
+       "why": "卡面 `Vulnerable` **前面**那枚「盾牌 + 闪电」（= `Resources/Art/traits/vulnerable.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:264`（`Warpforge_9_Havoc-Champion.png`）。中文侧同一条（`descZh` 里写「脆弱」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "BL33",
    "fields": [
     {
@@ -3454,9 +3874,9 @@
      "name": "descZh",
      "items": [
       {
-       "token": "[黑暗契约]",
-       "sprite": "markOfChaos",
-       "why": "卡图 Noise Marine：`gain a 〔暗红八芒星〕Dark Pact of Excess`（图标在词前面）"
+       "token": "❄",
+       "sprite": "markOfSlaanesh",
+       "why": "❄ = 暗黑契约·纵欲（Noise Marine「gain a ❄ Dark Pact of Excess」）。⚠️ 五张 markOf* 切片**逐字节相同**，认不出是哪位邪神，只能按名字选"
       }
      ]
     }
@@ -3588,6 +4008,41 @@
    ]
   },
   {
+   "id": "BL60",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Vulnerable 2",
+       "sprite": "vulnerable",
+       "why": "卡面 `Vulnerable 2` **前面**那枚「盾牌 + 闪电」（= `Resources/Art/traits/vulnerable.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:248`（`Warpforge_60_Daemonic-Pact.png`）。⚠️ 本卡 token 取 `Vulnerable 2`（不是 `Vulnerable`）—— 同一段正文里还有 `Invulnerable`，而 `Rewrite` 是**纯子串替换**，写 `Vulnerable` 会把 `Invulnerable` 里那半截一起换掉。见本块 ④。"
+      },
+      {
+       "token": "Invulnerable",
+       "sprite": "invulnerable",
+       "why": "卡面 `Invulnerable` **前面**那枚「蓝紫圆 + 白骷髅 + 带缺口横条」（= `Resources/Art/traits/invulnerable.png`；⛔ **不是** `vulnerable.png` 那张盾+闪电，两者是不同的两张图 —— 亲读并排核过）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:248`（`Chaos/4计策/Warpforge_60_Daemonic-Pact.png`）。⚠️ 本卡同一段正文里**还有** `Vulnerable 2`（`A1376` 按卡补的）——两条**安全共存**（`Rewrite` 是 `Ordinal` 替换、`invulnerable` 图名不含大写 `Vulnerable`），见本块 ④。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "脆弱",
+       "sprite": "vulnerable",
+       "why": "卡面 `Vulnerable 2` **前面**那枚「盾牌 + 闪电」（= `Resources/Art/traits/vulnerable.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:248`（`Warpforge_60_Daemonic-Pact.png`）。⚠️ 本卡 token 取 `Vulnerable 2`（不是 `Vulnerable`）—— 同一段正文里还有 `Invulnerable`，而 `Rewrite` 是**纯子串替换**，写 `Vulnerable` 会把 `Invulnerable` 里那半截一起换掉。见本块 ④。中文侧同一条（`descZh` 里写「脆弱」，位置与英文那枚一一对应）。"
+      },
+      {
+       "token": "无敌",
+       "sprite": "invulnerable",
+       "why": "卡面 `Invulnerable` **前面**那枚「蓝紫圆 + 白骷髅 + 带缺口横条」（= `Resources/Art/traits/invulnerable.png`；⛔ **不是** `vulnerable.png` 那张盾+闪电，两者是不同的两张图 —— 亲读并排核过）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:248`（`Chaos/4计策/Warpforge_60_Daemonic-Pact.png`）。⚠️ 本卡同一段正文里**还有** `Vulnerable 2`（`A1376` 按卡补的）——两条**安全共存**（`Rewrite` 是 `Ordinal` 替换、`invulnerable` 图名不含大写 `Vulnerable`），见本块 ④。中文侧同一条（`descZh` 里写 `无敌`，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "BL51",
    "fields": [
     {
@@ -3688,6 +4143,31 @@
    ]
   },
   {
+   "id": "BL76",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Vulnerable",
+       "sprite": "vulnerable",
+       "why": "卡面 `Vulnerable` **前面**那枚「盾牌 + 闪电」（= `Resources/Art/traits/vulnerable.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:227`（`Warpforge_12_Idolatrous-Despoilers.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "脆弱",
+       "sprite": "vulnerable",
+       "why": "卡面 `Vulnerable` **前面**那枚「盾牌 + 闪电」（= `Resources/Art/traits/vulnerable.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:227`（`Warpforge_12_Idolatrous-Despoilers.png`）。中文侧同一条（`descZh` 里写「脆弱」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "BL52",
    "fields": [
     {
@@ -3722,6 +4202,11 @@
        "token": "Ephemeral.",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Vulnerable",
+       "sprite": "vulnerable",
+       "why": "卡面 `Vulnerable` **前面**那枚「盾牌 + 闪电」（= `Resources/Art/traits/vulnerable.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:201`（`Warpforge_2_Litany-of-Despair.png`）。"
       }
      ]
     },
@@ -3732,6 +4217,61 @@
        "token": "临时。",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "脆弱",
+       "sprite": "vulnerable",
+       "why": "卡面 `Vulnerable` **前面**那枚「盾牌 + 闪电」（= `Resources/Art/traits/vulnerable.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:201`（`Warpforge_2_Litany-of-Despair.png`）。中文侧同一条（`descZh` 里写「脆弱」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "BL75",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Stun",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:226`（`Warpforge_11_Malicious-Volleys.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "眩晕",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:226`（`Warpforge_11_Malicious-Volleys.png`）。中文侧同一条（`descZh` 里写 `眩晕`，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "BL77",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Vulnerable",
+       "sprite": "vulnerable",
+       "why": "卡面 `Vulnerable` **前面**那枚「盾牌 + 闪电」（= `Resources/Art/traits/vulnerable.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:228`（`Warpforge_13_Spreading-Corruption.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "脆弱",
+       "sprite": "vulnerable",
+       "why": "卡面 `Vulnerable` **前面**那枚「盾牌 + 闪电」（= `Resources/Art/traits/vulnerable.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:228`（`Warpforge_13_Spreading-Corruption.png`）。中文侧同一条（`descZh` 里写「脆弱」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -3897,6 +4437,11 @@
        "token": "Talent:",
        "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Vulnerable",
+       "sprite": "vulnerable",
+       "why": "卡面 `Vulnerable` **前面**那枚「盾牌 + 闪电」（= `Resources/Art/traits/vulnerable.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:191`（`Warpforge_1_Ghallaron-the-Pious.png`）。"
       }
      ]
     },
@@ -3907,6 +4452,11 @@
        "token": "天赋：",
        "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "脆弱",
+       "sprite": "vulnerable",
+       "why": "卡面 `Vulnerable` **前面**那枚「盾牌 + 闪电」（= `Resources/Art/traits/vulnerable.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:191`（`Warpforge_1_Ghallaron-the-Pious.png`）。中文侧同一条（`descZh` 里写「脆弱」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -4122,6 +4672,11 @@
        "token": "[Attack]",
        "sprite": "Melee",
        "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "Fast",
+       "sprite": "fast",
+       "why": "卡面 `Fast` **前面**那枚「旋风箭头」（= `Resources/Art/traits/fast.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:313`（`Warpforge_36_Deathwing-Champion.png`）。"
       }
      ]
     },
@@ -4142,6 +4697,11 @@
        "token": "[攻击]",
        "sprite": "Melee",
        "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "迅捷",
+       "sprite": "fast",
+       "why": "卡面 `Fast` **前面**那枚「旋风箭头」（= `Resources/Art/traits/fast.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:313`（`Warpforge_36_Deathwing-Champion.png`）。中文侧同一条（`descZh` 里写「迅捷」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -4473,6 +5033,16 @@
     {
      "name": "descZh",
      "items": [
+      {
+       "token": "护盾。",
+       "sprite": "shield",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "议程：",
+       "sprite": "agenda",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
       {
        "token": "1 点任务",
        "sprite": "questPoints1",
@@ -4903,6 +5473,31 @@
    ]
   },
   {
+   "id": "DA_None_Must_Know",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Stun",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/DarkAngels__3.md:9` **＋** 同文件 `:18`（形状存疑条）（`Dark Angels/6秘密/IMG_3696.jpg`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "眩晕",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/DarkAngels__3.md:9` **＋** 同文件 `:18`（形状存疑条）（`Dark Angels/6秘密/IMG_3696.jpg`）。中文侧同一条（`descZh` 里写 `眩晕`，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "DA47",
    "fields": [
     {
@@ -4942,6 +5537,11 @@
        "token": "[Ranged]",
        "sprite": "Ranged",
        "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      },
+      {
+       "token": "Invulnerable",
+       "sprite": "invulnerable",
+       "why": "卡面 `Invulnerable` **前面**那枚「蓝紫圆 + 白骷髅 + 带缺口横条」（= `Resources/Art/traits/invulnerable.png`；⛔ **不是** `vulnerable.png` 那张盾+闪电，两者是不同的两张图 —— 亲读并排核过）—— 逐张判据：`资料/卡表核对_卡图提取/DarkAngels__3.md:11` **＋** 亲读 `d:/2/Warpforge部队卡片/Dark Angels/6秘密/IMG_3698.jpg`（`Dark Angels/6秘密/IMG_3698.jpg`）。⚠️ 这一张**不在** `_还原效果文字.md` 里（`6秘密/` 的手机翻拍），判据 = 本批作者亲读那张 `.jpg`。"
       }
      ]
     },
@@ -4957,6 +5557,11 @@
        "token": "[远程]",
        "sprite": "Ranged",
        "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      },
+      {
+       "token": "无敌",
+       "sprite": "invulnerable",
+       "why": "卡面 `Invulnerable` **前面**那枚「蓝紫圆 + 白骷髅 + 带缺口横条」（= `Resources/Art/traits/invulnerable.png`；⛔ **不是** `vulnerable.png` 那张盾+闪电，两者是不同的两张图 —— 亲读并排核过）—— 逐张判据：`资料/卡表核对_卡图提取/DarkAngels__3.md:11` **＋** 亲读 `d:/2/Warpforge部队卡片/Dark Angels/6秘密/IMG_3698.jpg`（`Dark Angels/6秘密/IMG_3698.jpg`）。⚠️ 这一张**不在** `_还原效果文字.md` 里（`6秘密/` 的手机翻拍），判据 = 本批作者亲读那张 `.jpg`。中文侧同一条（`descZh` 里写 `无敌`，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -5031,7 +5636,7 @@
       {
        "token": "[Ranged]",
        "sprite": "Ranged",
-       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+       "why": "同上（键 2026-10-10 由 `[Armor]` 订正）"
       }
      ]
     },
@@ -5147,6 +5752,31 @@
        "token": "1 点任务",
        "sprite": "questPoints1",
        "why": "不带方括号的**资源词**：`Quest Point(s)` 卡面画的是 `questPointsN`（数字烘在图里 —— `Aggressor` 卡面 `Gain 〔银刺环里烘着 1〕` 逐张核过）。⚠️ 同为资源词的 `Spirit Stone` / `Faith` 写在正文里**没有图标**（卡面实测），所以本规则**只做任务点**。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "DA39",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Stun",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:316`（`Warpforge_39_Dark-Talon.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "眩晕",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:316`（`Warpforge_39_Dark-Talon.png`）。中文侧同一条（`descZh` 里写 `眩晕`，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -5707,6 +6337,11 @@
        "token": "[Attack]",
        "sprite": "Melee",
        "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "Invulnerable",
+       "sprite": "invulnerable",
+       "why": "卡面 `Invulnerable` **前面**那枚「蓝紫圆 + 白骷髅 + 带缺口横条」（= `Resources/Art/traits/invulnerable.png`；⛔ **不是** `vulnerable.png` 那张盾+闪电，两者是不同的两张图 —— 亲读并排核过）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:280`（`Dark Angels/3部队/Warpforge_08_Chaplain-Gabutheron.png`）。"
       }
      ]
     },
@@ -5732,6 +6367,11 @@
        "token": "[攻击]",
        "sprite": "Melee",
        "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "无敌",
+       "sprite": "invulnerable",
+       "why": "卡面 `Invulnerable` **前面**那枚「蓝紫圆 + 白骷髅 + 带缺口横条」（= `Resources/Art/traits/invulnerable.png`；⛔ **不是** `vulnerable.png` 那张盾+闪电，两者是不同的两张图 —— 亲读并排核过）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:280`（`Dark Angels/3部队/Warpforge_08_Chaplain-Gabutheron.png`）。中文侧同一条（`descZh` 里写 `无敌`，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -5832,6 +6472,11 @@
        "token": "2 Quest Points",
        "sprite": "questPoints2",
        "why": "不带方括号的**资源词**：`Quest Point(s)` 卡面画的是 `questPointsN`（数字烘在图里 —— `Aggressor` 卡面 `Gain 〔银刺环里烘着 1〕` 逐张核过）。⚠️ 同为资源词的 `Spirit Stone` / `Faith` 写在正文里**没有图标**（卡面实测），所以本规则**只做任务点**。"
+      },
+      {
+       "token": "Vulnerable",
+       "sprite": "vulnerable",
+       "why": "卡面 `Vulnerable` **前面**那枚「盾牌 + 闪电」（= `Resources/Art/traits/vulnerable.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:312`（`Warpforge_12_Hunters-of-Heretics.png`）。"
       }
      ]
     },
@@ -5842,6 +6487,11 @@
        "token": "2 点任务",
        "sprite": "questPoints2",
        "why": "不带方括号的**资源词**：`Quest Point(s)` 卡面画的是 `questPointsN`（数字烘在图里 —— `Aggressor` 卡面 `Gain 〔银刺环里烘着 1〕` 逐张核过）。⚠️ 同为资源词的 `Spirit Stone` / `Faith` 写在正文里**没有图标**（卡面实测），所以本规则**只做任务点**。"
+      },
+      {
+       "token": "脆弱",
+       "sprite": "vulnerable",
+       "why": "卡面 `Vulnerable` **前面**那枚「盾牌 + 闪电」（= `Resources/Art/traits/vulnerable.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:312`（`Warpforge_12_Hunters-of-Heretics.png`）。中文侧同一条（`descZh` 里写「脆弱」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -5856,7 +6506,7 @@
       {
        "token": "[Ranged]",
        "sprite": "Ranged",
-       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+       "why": "还原表：`+1 Ranged`（键 2026-10-10 由 `[Attack]` 订正）"
       }
      ]
     },
@@ -6166,7 +6816,7 @@
       {
        "token": "[Ranged]",
        "sprite": "Ranged",
-       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+       "why": "同上（键 2026-10-10 由 `[Armor]` 订正）"
       }
      ]
     },
@@ -6479,6 +7129,11 @@
      "name": "descZh",
      "items": [
       {
+       "token": "激励：",
+       "sprite": "stimulation",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "[攻击]",
        "sprite": "Melee",
        "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
@@ -6691,7 +7346,12 @@
       {
        "token": "[Ranged]",
        "sprite": "Ranged",
-       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+       "why": "还原表 Sonic Blaster Noise Marine：`-1Melee and -1Ranged`（第二枚 = 紫枪；键 2026-10-10 由 `[attack]` 订正）"
+      },
+      {
+       "token": "Stun",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:359`（`Warpforge_17_Sonic-Blaster-Noise-Marine.png`）。"
       }
      ]
     },
@@ -6707,6 +7367,11 @@
        "token": "[远程]",
        "sprite": "Ranged",
        "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      },
+      {
+       "token": "眩晕",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:359`（`Warpforge_17_Sonic-Blaster-Noise-Marine.png`）。中文侧同一条（`descZh` 里写 `眩晕`，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -6822,6 +7487,11 @@
        "token": "Ecstasy 2:",
        "sprite": "Ecstasy",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Blood Thirst",
+       "sprite": "bloodThirst",
+       "why": "卡面 `Blood Thirst` **前面**那枚「尖牙」（= `Resources/Art/traits/bloodThirst.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:360`（`Warpforge_18_Threnodic-Noise-Marine.png`）。"
       }
      ]
     },
@@ -6832,6 +7502,11 @@
        "token": "狂喜 2：",
        "sprite": "Ecstasy",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "嗜血",
+       "sprite": "bloodThirst",
+       "why": "卡面 `Blood Thirst` **前面**那枚「尖牙」（= `Resources/Art/traits/bloodThirst.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:360`（`Warpforge_18_Threnodic-Noise-Marine.png`）。中文侧同一条（`descZh` 里写「嗜血」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -6851,7 +7526,7 @@
       {
        "token": "[Ranged]",
        "sprite": "Ranged",
-       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+       "why": "还原表：`Give +2 Ranged`（键 2026-10-10 由 `[Attack]` 订正）"
       }
      ]
     },
@@ -6913,6 +7588,31 @@
    ]
   },
   {
+   "id": "EC4",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Vulnerable",
+       "sprite": "vulnerable",
+       "why": "卡面 `Vulnerable` **前面**那枚「盾牌 + 闪电」（= `Resources/Art/traits/vulnerable.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:346`（`Warpforge_04_Duelists-Hubris.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "脆弱",
+       "sprite": "vulnerable",
+       "why": "卡面 `Vulnerable` **前面**那枚「盾牌 + 闪电」（= `Resources/Art/traits/vulnerable.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:346`（`Warpforge_04_Duelists-Hubris.png`）。中文侧同一条（`descZh` 里写「脆弱」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "EC72",
    "fields": [
     {
@@ -6926,7 +7626,7 @@
       {
        "token": "[Ranged]",
        "sprite": "Ranged",
-       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+       "why": "同上（键 2026-10-10 由 `[Armor]` 订正）"
       }
      ]
     },
@@ -7213,6 +7913,31 @@
    ]
   },
   {
+   "id": "GSC67",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Sabotage",
+       "sprite": "sabotage",
+       "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:490`（`Warpforge_67_Pilfered-Supplies.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "破坏",
+       "sprite": "sabotage",
+       "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:490`（`Warpforge_67_Pilfered-Supplies.png`）。中文侧同一条（`descZh` 里写「破坏」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "GSC33",
    "fields": [
     {
@@ -7342,6 +8067,11 @@
        "token": "[Attack]",
        "sprite": "Melee",
        "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "Sabotage",
+       "sprite": "sabotage",
+       "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:441`（`Warpforge_21_Acolyte-Heavy.png`）。"
       }
      ]
     },
@@ -7362,6 +8092,11 @@
        "token": "[攻击]",
        "sprite": "Melee",
        "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "破坏",
+       "sprite": "sabotage",
+       "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:441`（`Warpforge_21_Acolyte-Heavy.png`）。中文侧同一条（`descZh` 里写「破坏」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -7438,6 +8173,31 @@
    ]
   },
   {
+   "id": "GSC23",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Sabotage",
+       "sprite": "sabotage",
+       "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:443`（`Warpforge_23_Acolyte-Specialist.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "破坏",
+       "sprite": "sabotage",
+       "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:443`（`Warpforge_23_Acolyte-Specialist.png`）。中文侧同一条（`descZh` 里写「破坏」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "GSC14",
    "fields": [
     {
@@ -7497,6 +8257,11 @@
        "token": "Talent:",
        "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Stun",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:448`（`Warpforge_28_Clamavus.png`）。"
       }
      ]
     },
@@ -7512,6 +8277,11 @@
        "token": "天赋：",
        "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "眩晕",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:448`（`Warpforge_28_Clamavus.png`）。中文侧同一条（`descZh` 里写 `眩晕`，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -7607,6 +8377,11 @@
        "token": "[Attack]",
        "sprite": "Melee",
        "why": "还原表：`+2 Melee`"
+      },
+      {
+       "token": "Stun",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:455`（`Warpforge_35_Hulking-Aberrant.png`）。"
       }
      ]
     },
@@ -7627,6 +8402,11 @@
        "token": "[攻击]",
        "sprite": "Melee",
        "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "眩晕",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:455`（`Warpforge_35_Hulking-Aberrant.png`）。中文侧同一条（`descZh` 里写 `眩晕`，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -7692,6 +8472,11 @@
        "token": "Strike:",
        "sprite": "strike",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Stun",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:437`（`Warpforge_17_Locus.png`）。"
       }
      ]
     },
@@ -7707,6 +8492,11 @@
        "token": "猛击：",
        "sprite": "strike",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "眩晕",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:437`（`Warpforge_17_Locus.png`）。中文侧同一条（`descZh` 里写 `眩晕`，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -7773,6 +8563,31 @@
    ]
   },
   {
+   "id": "GSC10",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Sabotage",
+       "sprite": "sabotage",
+       "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:431`（`Warpforge_10_Neophyte-Hybrid.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "破坏",
+       "sprite": "sabotage",
+       "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:431`（`Warpforge_10_Neophyte-Hybrid.png`）。中文侧同一条（`descZh` 里写「破坏」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "GSC20",
    "fields": [
     {
@@ -7802,6 +8617,31 @@
        "token": "[远程]",
        "sprite": "Ranged",
        "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GSC11",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Sabotage",
+       "sprite": "sabotage",
+       "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:432`（`Warpforge_11_Neophyte-Specialist.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "破坏",
+       "sprite": "sabotage",
+       "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:432`（`Warpforge_11_Neophyte-Specialist.png`）。中文侧同一条（`descZh` 里写「破坏」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -7953,6 +8793,81 @@
    ]
   },
   {
+   "id": "GSC61",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Sabotage",
+       "sprite": "sabotage",
+       "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:484`（`Warpforge_61_A-Trap-Sprung.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "破坏",
+       "sprite": "sabotage",
+       "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:484`（`Warpforge_61_A-Trap-Sprung.png`）。中文侧同一条（`descZh` 里写「破坏」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GSC48",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Sabotage",
+       "sprite": "sabotage",
+       "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:471`（`Warpforge_48_Backstab.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "破坏",
+       "sprite": "sabotage",
+       "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:471`（`Warpforge_48_Backstab.png`）。中文侧同一条（`descZh` 里写「破坏」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GSC49",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Sabotage",
+       "sprite": "sabotage",
+       "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:472`（`Warpforge_49_Clandestine-Operation.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "破坏",
+       "sprite": "sabotage",
+       "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:472`（`Warpforge_49_Clandestine-Operation.png`）。中文侧同一条（`descZh` 里写「破坏」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "GSC51",
    "fields": [
     {
@@ -8012,6 +8927,16 @@
        "token": "Ephemeral.",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Sabotage",
+       "sprite": "sabotage",
+       "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:415`（`Warpforge_02_Master-Outrider.png`）。"
+      },
+      {
+       "token": "Sniper",
+       "sprite": "sniper",
+       "why": "卡面 `Sniper` **前面**那枚「准星」（= `Resources/Art/traits/sniper.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:415`（`Warpforge_02_Master-Outrider.png`）。"
       }
      ]
     },
@@ -8022,6 +8947,16 @@
        "token": "临时。",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "破坏",
+       "sprite": "sabotage",
+       "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:415`（`Warpforge_02_Master-Outrider.png`）。中文侧同一条（`descZh` 里写「破坏」，位置与英文那枚一一对应）。"
+      },
+      {
+       "token": "狙击",
+       "sprite": "sniper",
+       "why": "卡面 `Sniper` **前面**那枚「准星」（= `Resources/Art/traits/sniper.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:415`（`Warpforge_02_Master-Outrider.png`）。中文侧同一条（`descZh` 里写「狙击」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -8073,6 +9008,156 @@
    ]
   },
   {
+   "id": "GSC58",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Invulnerable",
+       "sprite": "invulnerable",
+       "why": "卡面 `Invulnerable` **前面**那枚「蓝紫圆 + 白骷髅 + 带缺口横条」（= `Resources/Art/traits/invulnerable.png`；⛔ **不是** `vulnerable.png` 那张盾+闪电，两者是不同的两张图 —— 亲读并排核过）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:481`（`Genestealer Cult/4计策/Warpforge_58_Open-Insurrection.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "无敌",
+       "sprite": "invulnerable",
+       "why": "卡面 `Invulnerable` **前面**那枚「蓝紫圆 + 白骷髅 + 带缺口横条」（= `Resources/Art/traits/invulnerable.png`；⛔ **不是** `vulnerable.png` 那张盾+闪电，两者是不同的两张图 —— 亲读并排核过）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:481`（`Genestealer Cult/4计策/Warpforge_58_Open-Insurrection.png`）。中文侧同一条（`descZh` 里写 `无敌`，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GSC47",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Invulnerable",
+       "sprite": "invulnerable",
+       "why": "卡面 `Invulnerable` **前面**那枚「蓝紫圆 + 白骷髅 + 带缺口横条」（= `Resources/Art/traits/invulnerable.png`；⛔ **不是** `vulnerable.png` 那张盾+闪电，两者是不同的两张图 —— 亲读并排核过）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:470`（`Genestealer Cult/4计策/Warpforge_47_Perfect-Ambush.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "无敌",
+       "sprite": "invulnerable",
+       "why": "卡面 `Invulnerable` **前面**那枚「蓝紫圆 + 白骷髅 + 带缺口横条」（= `Resources/Art/traits/invulnerable.png`；⛔ **不是** `vulnerable.png` 那张盾+闪电，两者是不同的两张图 —— 亲读并排核过）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:470`（`Genestealer Cult/4计策/Warpforge_47_Perfect-Ambush.png`）。中文侧同一条（`descZh` 里写 `无敌`，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GSC78",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Stun",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:460`（`Warpforge_13_Roaming-Outriders.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "眩晕",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:460`（`Warpforge_13_Roaming-Outriders.png`）。中文侧同一条（`descZh` 里写 `眩晕`，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GSC64",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Fast",
+       "sprite": "fast",
+       "why": "卡面 `Fast` **前面**那枚「旋风箭头」（= `Resources/Art/traits/fast.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:487`（`Warpforge_64_Telepathic-Domination.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "迅捷",
+       "sprite": "fast",
+       "why": "卡面 `Fast` **前面**那枚「旋风箭头」（= `Resources/Art/traits/fast.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:487`（`Warpforge_64_Telepathic-Domination.png`）。中文侧同一条（`descZh` 里写「迅捷」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GSC60",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Sabotage",
+       "sprite": "sabotage",
+       "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:483`（`Warpforge_60_Underground-Network.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "破坏",
+       "sprite": "sabotage",
+       "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:483`（`Warpforge_60_Underground-Network.png`）。中文侧同一条（`descZh` 里写「破坏」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GSC29",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Sabotage",
+       "sprite": "sabotage",
+       "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:449`（`Warpforge_29_Vox-Hacker.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "破坏",
+       "sprite": "sabotage",
+       "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:449`（`Warpforge_29_Vox-Hacker.png`）。中文侧同一条（`descZh` 里写「破坏」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "GSC34",
    "fields": [
     {
@@ -8082,6 +9167,11 @@
        "token": "Strike:",
        "sprite": "strike",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Sabotage",
+       "sprite": "sabotage",
+       "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:454`（`Warpforge_34_Achilles-Ridgerunner.png`）。"
       }
      ]
     },
@@ -8092,6 +9182,11 @@
        "token": "猛击：",
        "sprite": "strike",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "破坏",
+       "sprite": "sabotage",
+       "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:454`（`Warpforge_34_Achilles-Ridgerunner.png`）。中文侧同一条（`descZh` 里写「破坏」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -8107,6 +9202,11 @@
        "token": "Camouflage.",
        "sprite": "camouflage",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Sabotage",
+       "sprite": "sabotage",
+       "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:419`（`Warpforge_04_Atalan-Jackal.png`）。"
       }
      ]
     },
@@ -8117,6 +9217,11 @@
        "token": "伪装。",
        "sprite": "camouflage",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "破坏",
+       "sprite": "sabotage",
+       "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:419`（`Warpforge_04_Atalan-Jackal.png`）。中文侧同一条（`descZh` 里写「破坏」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -8327,6 +9432,31 @@
        "token": "集结：",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GSC72",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Sabotage",
+       "sprite": "sabotage",
+       "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:426`（`Warpforge_07_Jackal-Specialist.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "破坏",
+       "sprite": "sabotage",
+       "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:426`（`Warpforge_07_Jackal-Specialist.png`）。中文侧同一条（`descZh` 里写「破坏」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -8643,6 +9773,31 @@
    ]
   },
   {
+   "id": "SAU9",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Fast",
+       "sprite": "fast",
+       "why": "卡面 `Fast` **前面**那枚「旋风箭头」（= `Resources/Art/traits/fast.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:570`（`Warpforge_9_Flayed-One.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "迅捷",
+       "sprite": "fast",
+       "why": "卡面 `Fast` **前面**那枚「旋风箭头」（= `Resources/Art/traits/fast.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:570`（`Warpforge_9_Flayed-One.png`）。中文侧同一条（`descZh` 里写「迅捷」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "SAU14",
    "fields": [
     {
@@ -8746,6 +9901,11 @@
       {
        "token": "残骸。",
        "sprite": "remnant",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "装甲 2。",
+       "sprite": "armour",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -8867,6 +10027,11 @@
        "token": "Rally:",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Stun",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:516`（`Warpforge_23_Psychomancer.png`）。"
       }
      ]
     },
@@ -8877,6 +10042,11 @@
        "token": "集结：",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "眩晕",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:516`（`Warpforge_23_Psychomancer.png`）。中文侧同一条（`descZh` 里写 `眩晕`，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -9148,6 +10318,31 @@
    ]
   },
   {
+   "id": "SAU54",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Vulnerable",
+       "sprite": "vulnerable",
+       "why": "卡面 `Vulnerable` **前面**那枚「盾牌 + 闪电」（= `Resources/Art/traits/vulnerable.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:554`（`Warpforge_54_Curse-of-the-Phaeron.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "易伤",
+       "sprite": "vulnerable",
+       "why": "卡面 `Vulnerable` **前面**那枚「盾牌 + 闪电」（= `Resources/Art/traits/vulnerable.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:554`（`Warpforge_54_Curse-of-the-Phaeron.png`）。中文侧同一条（`descZh` 里写「易伤」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "SAU51",
    "fields": [
     {
@@ -9196,7 +10391,7 @@
       {
        "token": "[Ranged]",
        "sprite": "Ranged",
-       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+       "why": "卡图 Hardwired Destruction：第二个圆徽 = 紫枪"
       },
       {
        "token": "[Destroyer]",
@@ -9428,6 +10623,11 @@
     {
      "name": "descZh",
      "items": [
+      {
+       "token": "装甲 3。",
+       "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
       {
        "token": "天赋：",
        "sprite": "talent",
@@ -9727,6 +10927,11 @@
        "token": "Mob:",
        "sprite": "mob",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Stun",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:640`（`Warpforge_22_Gargantuan-Squiggoth.png`）。"
       }
      ]
     },
@@ -9747,6 +10952,11 @@
        "token": "群体：",
        "sprite": "mob",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "眩晕",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:640`（`Warpforge_22_Gargantuan-Squiggoth.png`）。中文侧同一条（`descZh` 里写 `眩晕`，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -9942,6 +11152,11 @@
        "token": "Tide 1.",
        "sprite": "tide",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Stun",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:585`（`Warpforge_03_Snakebite-Grot.png`）。"
       }
      ]
     },
@@ -9952,6 +11167,11 @@
        "token": "潮涌 1。",
        "sprite": "tide",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "眩晕",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:585`（`Warpforge_03_Snakebite-Grot.png`）。中文侧同一条（`descZh` 里写 `眩晕`，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -10151,7 +11371,7 @@
       {
        "token": "[攻击]",
        "sprite": "Melee",
-       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+       "why": "卡面原文 `Gain +1 Attack` —— **中文数据自己把「攻击」写成了护甲**（键 2026-10-10 由 `[护甲]` 订正）"
       }
      ]
     }
@@ -10844,6 +12064,11 @@
      "name": "descZh",
      "items": [
       {
+       "token": "群体：",
+       "sprite": "mob",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "[攻击]",
        "sprite": "Melee",
        "why": "还原表 Skarboy Nob：`Mob: Gain +1 Melee`"
@@ -10879,9 +12104,44 @@
      "name": "descZh",
      "items": [
       {
+       "token": "潮涌 1。",
+       "sprite": "tide",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "集结：",
+       "sprite": "rally",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "[攻击]",
        "sprite": "Melee",
        "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GOF_Stikkbomb_Boy",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Stun",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:581`（`Warpforge_02_Stikkbomb-Boy.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "眩晕",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:581`（`Warpforge_02_Stikkbomb-Boy.png`）。中文侧同一条（`descZh` 里写 `眩晕`，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -10968,6 +12228,56 @@
    ]
   },
   {
+   "id": "GOF40",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Stun",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:667`（`Warpforge_40_Attack-Squig.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "眩晕",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:667`（`Warpforge_40_Attack-Squig.png`）。中文侧同一条（`descZh` 里写 `眩晕`，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GOF43",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Blind",
+       "sprite": "blind",
+       "why": "卡面 `Blind` **前面**那枚「被划掉的手枪」（= `Resources/Art/traits/blind.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:670`（`Warpforge_43_Cloud-of-Smoke.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "失明",
+       "sprite": "blind",
+       "why": "卡面 `Blind` **前面**那枚「被划掉的手枪」（= `Resources/Art/traits/blind.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:670`（`Warpforge_43_Cloud-of-Smoke.png`）。中文侧同一条（`descZh` 里写「失明」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "GOF_Da_Red_Waaagh",
    "fields": [
     {
@@ -11002,6 +12312,11 @@
        "token": "[attack]",
        "sprite": "Melee",
        "why": "还原表：`+2 Melee`"
+      },
+      {
+       "token": "Blood Thirst",
+       "sprite": "bloodThirst",
+       "why": "卡面 `Blood Thirst` **前面**那枚「尖牙」（= `Resources/Art/traits/bloodThirst.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:618`（`Warpforge_09_Dead-Choppy.png`）。"
       }
      ]
     },
@@ -11012,6 +12327,11 @@
        "token": "[攻击]",
        "sprite": "Melee",
        "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "嗜血",
+       "sprite": "bloodThirst",
+       "why": "卡面 `Blood Thirst` **前面**那枚「尖牙」（= `Resources/Art/traits/bloodThirst.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:618`（`Warpforge_09_Dead-Choppy.png`）。中文侧同一条（`descZh` 里写「嗜血」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -11118,6 +12438,31 @@
    ]
   },
   {
+   "id": "GOF48",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Blood Thirst",
+       "sprite": "bloodThirst",
+       "why": "卡面 `Blood Thirst` **前面**那枚「尖牙」（= `Resources/Art/traits/bloodThirst.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:675`（`Warpforge_48_Proper-Killy.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "嗜血",
+       "sprite": "bloodThirst",
+       "why": "卡面 `Blood Thirst` **前面**那枚「尖牙」（= `Resources/Art/traits/bloodThirst.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:675`（`Warpforge_48_Proper-Killy.png`）。中文侧同一条（`descZh` 里写「嗜血」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "GOF_Stomp_Em",
    "fields": [
     {
@@ -11172,6 +12517,31 @@
        "token": "[攻击]",
        "sprite": "Melee",
        "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GOF62",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Stun",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:689`（`Warpforge_62_Toxic-Bonfire.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "眩晕",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:689`（`Warpforge_62_Toxic-Bonfire.png`）。中文侧同一条（`descZh` 里写 `眩晕`，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -11627,6 +12997,11 @@
        "token": "Rally:",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Stun",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:660`（`Warpforge_39_Stompa.png`）。"
       }
      ]
     },
@@ -11652,6 +13027,11 @@
        "token": "集结：",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "眩晕",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:660`（`Warpforge_39_Stompa.png`）。中文侧同一条（`descZh` 里写 `眩晕`，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -11667,6 +13047,11 @@
        "token": "Rally:",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Fast",
+       "sprite": "fast",
+       "why": "卡面 `Fast` **前面**那枚「旋风箭头」（= `Resources/Art/traits/fast.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:625`（`Warpforge_15_Warbiker.png`）。"
       }
      ]
     },
@@ -11677,6 +13062,11 @@
        "token": "集结：",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "迅捷",
+       "sprite": "fast",
+       "why": "卡面 `Fast` **前面**那枚「旋风箭头」（= `Resources/Art/traits/fast.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:625`（`Warpforge_15_Warbiker.png`）。中文侧同一条（`descZh` 里写「迅捷」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -12612,6 +14002,11 @@
        "token": "Rally:",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Invulnerable",
+       "sprite": "invulnerable",
+       "why": "卡面 `Invulnerable` **前面**那枚「蓝紫圆 + 白骷髅 + 带缺口横条」（= `Resources/Art/traits/invulnerable.png`；⛔ **不是** `vulnerable.png` 那张盾+闪电，两者是不同的两张图 —— 亲读并排核过）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:739`（`Sorotitas/3部队/Warpforge_38_Saint-Celestine.png`）。"
       }
      ]
     },
@@ -12622,6 +14017,11 @@
        "token": "集结：",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "无敌",
+       "sprite": "invulnerable",
+       "why": "卡面 `Invulnerable` **前面**那枚「蓝紫圆 + 白骷髅 + 带缺口横条」（= `Resources/Art/traits/invulnerable.png`；⛔ **不是** `vulnerable.png` 那张盾+闪电，两者是不同的两张图 —— 亲读并排核过）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:739`（`Sorotitas/3部队/Warpforge_38_Saint-Celestine.png`）。中文侧同一条（`descZh` 里写 `无敌`，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -13267,6 +14667,11 @@
        "token": "☀",
        "sprite": "faith",
        "why": "☀ 金太阳 = **信仰**（修女会）。逐张核过 7 张：Sister Novitiate / Blade of Faith / Sacred Rose / Paragon Warsuit / Preacher / Miraculous Feat / Daemonbreaker 同一张图；数字写在图标**外面左侧**"
+      },
+      {
+       "token": "Stun",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:760`（`Warpforge_59_Imperial-Creed.png`）。"
       }
      ]
     },
@@ -13277,6 +14682,11 @@
        "token": "☀",
        "sprite": "faith",
        "why": "☀ 金太阳 = **信仰**（修女会）。逐张核过 7 张：Sister Novitiate / Blade of Faith / Sacred Rose / Paragon Warsuit / Preacher / Miraculous Feat / Daemonbreaker 同一张图；数字写在图标**外面左侧**"
+      },
+      {
+       "token": "眩晕",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:760`（`Warpforge_59_Imperial-Creed.png`）。中文侧同一条（`descZh` 里写 `眩晕`，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -13912,6 +15322,16 @@
        "token": "Rally:",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Hunt Mark",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:795`（`Warpforge_29_Arjac-Rockfist.png`）。"
+      },
+      {
+       "token": "Invulnerable",
+       "sprite": "invulnerable",
+       "why": "卡面 `Invulnerable` **前面**那枚「蓝紫圆 + 白骷髅 + 带缺口横条」（= `Resources/Art/traits/invulnerable.png`；⛔ **不是** `vulnerable.png` 那张盾+闪电，两者是不同的两张图 —— 亲读并排核过）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:795`（`Space Wolves/3部队/Warpforge_29_Arjac-Rockfist.png`）。"
       }
      ]
     },
@@ -13922,6 +15342,16 @@
        "token": "集结：",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "猎杀标记",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:795`（`Warpforge_29_Arjac-Rockfist.png`）。中文侧同一条（`descZh` 里写「猎杀标记」，位置与英文那枚一一对应）。"
+      },
+      {
+       "token": "无敌",
+       "sprite": "invulnerable",
+       "why": "卡面 `Invulnerable` **前面**那枚「蓝紫圆 + 白骷髅 + 带缺口横条」（= `Resources/Art/traits/invulnerable.png`；⛔ **不是** `vulnerable.png` 那张盾+闪电，两者是不同的两张图 —— 亲读并排核过）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:795`（`Space Wolves/3部队/Warpforge_29_Arjac-Rockfist.png`）。中文侧同一条（`descZh` 里写 `无敌`，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -13973,6 +15403,31 @@
    ]
   },
   {
+   "id": "SW14",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Hunt Mark",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:780`（`Warpforge_14_Blood-Claw-Pack-Leader.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "猎杀标记",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:780`（`Warpforge_14_Blood-Claw-Pack-Leader.png`）。中文侧同一条（`descZh` 里写「猎杀标记」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "SW15",
    "fields": [
     {
@@ -14007,6 +15462,11 @@
        "token": "[Attack]",
        "sprite": "Melee",
        "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "Hunt Mark",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:782`（`Warpforge_16_Fenrisian-Wolf.png`）。"
       }
      ]
     },
@@ -14017,6 +15477,11 @@
        "token": "[攻击]",
        "sprite": "Melee",
        "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "猎杀标记",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:782`（`Warpforge_16_Fenrisian-Wolf.png`）。中文侧同一条（`descZh` 里写「猎杀标记」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -14042,6 +15507,31 @@
        "token": "兽群。",
        "sprite": "pack",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "SW18",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Invulnerable",
+       "sprite": "invulnerable",
+       "why": "卡面 `Invulnerable` **前面**那枚「蓝紫圆 + 白骷髅 + 带缺口横条」（= `Resources/Art/traits/invulnerable.png`；⛔ **不是** `vulnerable.png` 那张盾+闪电，两者是不同的两张图 —— 亲读并排核过）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:784`（`Space Wolves/3部队/Warpforge_18_Fyrri-Askar.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "无敌",
+       "sprite": "invulnerable",
+       "why": "卡面 `Invulnerable` **前面**那枚「蓝紫圆 + 白骷髅 + 带缺口横条」（= `Resources/Art/traits/invulnerable.png`；⛔ **不是** `vulnerable.png` 那张盾+闪电，两者是不同的两张图 —— 亲读并排核过）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:784`（`Space Wolves/3部队/Warpforge_18_Fyrri-Askar.png`）。中文侧同一条（`descZh` 里写 `无敌`，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -14077,6 +15567,31 @@
        "token": "[远程]",
        "sprite": "Ranged",
        "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "SW17",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Hunt Mark",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:783`（`Warpforge_17_Grey-Hunter.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "猎杀标记",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:783`（`Warpforge_17_Grey-Hunter.png`）。中文侧同一条（`descZh` 里写「猎杀标记」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -14133,6 +15648,81 @@
    ]
   },
   {
+   "id": "SW25",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Hunt Mark",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:791`（`Warpforge_25_Long-Fang.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "猎杀标记",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:791`（`Warpforge_25_Long-Fang.png`）。中文侧同一条（`descZh` 里写「猎杀标记」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "SW36",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Hunt Mark",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:802`（`Warpforge_36_Sons-of-Morkai-Eliminator.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "猎杀标记",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:802`（`Warpforge_36_Sons-of-Morkai-Eliminator.png`）。中文侧同一条（`descZh` 里写「猎杀标记」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "SW37",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Hunt Mark",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:803`（`Warpforge_37_Terminator-Rune-Priest.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "猎杀标记",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:803`（`Warpforge_37_Terminator-Rune-Priest.png`）。中文侧同一条（`descZh` 里写「猎杀标记」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "SW26",
    "fields": [
     {
@@ -14147,6 +15737,11 @@
        "token": "[Attack]",
        "sprite": "Melee",
        "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "Hunt Mark",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:792`（`Warpforge_26_Thunderwolf-Cavalry-Pack-Leader.png`）。"
       }
      ]
     },
@@ -14162,6 +15757,11 @@
        "token": "[攻击]",
        "sprite": "Melee",
        "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "猎杀标记",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:792`（`Warpforge_26_Thunderwolf-Cavalry-Pack-Leader.png`）。中文侧同一条（`descZh` 里写「猎杀标记」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -14177,6 +15777,11 @@
        "token": "Rally:",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Hunt Mark",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:786`（`Warpforge_20_Thunderwolf-Cavalry.png`）。"
       }
      ]
     },
@@ -14187,6 +15792,11 @@
        "token": "集结：",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "猎杀标记",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:786`（`Warpforge_20_Thunderwolf-Cavalry.png`）。中文侧同一条（`descZh` 里写「猎杀标记」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -14307,6 +15917,11 @@
        "token": "Rally:",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Hunt Mark",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:788`（`Warpforge_22_Wolf-Priest.png`）。"
       }
      ]
     },
@@ -14317,6 +15932,136 @@
        "token": "集结：",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "猎杀标记",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:788`（`Warpforge_22_Wolf-Priest.png`）。中文侧同一条（`descZh` 里写「猎杀标记」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "SW48",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Hunt Mark",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:814`（`Warpforge_48_Death-Shun.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "猎杀标记",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:814`（`Warpforge_48_Death-Shun.png`）。中文侧同一条（`descZh` 里写「猎杀标记」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "SW55",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Hunt Mark",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:821`（`Warpforge_55_Embers-of-Prospero.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "猎杀标记",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:821`（`Warpforge_55_Embers-of-Prospero.png`）。中文侧同一条（`descZh` 里写「猎杀标记」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "SW56",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Blind",
+       "sprite": "blind",
+       "why": "卡面 `Blind` **前面**那枚「被划掉的手枪」（= `Resources/Art/traits/blind.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:822`（`Warpforge_56_Fenrisian-Blizzard.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "失明",
+       "sprite": "blind",
+       "why": "卡面 `Blind` **前面**那枚「被划掉的手枪」（= `Resources/Art/traits/blind.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:822`（`Warpforge_56_Fenrisian-Blizzard.png`）。中文侧同一条（`descZh` 里写「失明」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "SW60",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Hunt Mark",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:826`（`Warpforge_60_Fenrisian-Monstrosities.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "猎杀标记",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:826`（`Warpforge_60_Fenrisian-Monstrosities.png`）。中文侧同一条（`descZh` 里写「猎杀标记」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "SW65",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Hunt Mark",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:831`（`Warpforge_65_Fenrisian-Wolfpack.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "猎杀标记",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:831`（`Warpforge_65_Fenrisian-Wolfpack.png`）。中文侧同一条（`descZh` 里写「猎杀标记」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -14373,6 +16118,56 @@
    ]
   },
   {
+   "id": "SW61",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Hunt Mark",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:827`（`Warpforge_61_Hordeslayer.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "猎杀标记",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:827`（`Warpforge_61_Hordeslayer.png`）。中文侧同一条（`descZh` 里写「猎杀标记」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "SW57",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Hunt Mark",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:823`（`Warpforge_57_Hunters-Guile.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "猎杀标记",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:823`（`Warpforge_57_Hunters-Guile.png`）。中文侧同一条（`descZh` 里写「猎杀标记」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "SW62",
    "fields": [
     {
@@ -14386,7 +16181,7 @@
       {
        "token": "[Ranged]",
        "sprite": "Ranged",
-       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+       "why": "同上（键 2026-10-10 由 `[Armour]` 订正）"
       }
      ]
     },
@@ -14458,6 +16253,31 @@
    ]
   },
   {
+   "id": "SW67",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Hunt Mark",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:833`（`Warpforge_67_Orbital-Defences.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "猎杀标记",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:833`（`Warpforge_67_Orbital-Defences.png`）。中文侧同一条（`descZh` 里写「猎杀标记」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "SW49",
    "fields": [
     {
@@ -14477,6 +16297,31 @@
        "token": "[攻击]",
        "sprite": "Melee",
        "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "SW58",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Blood Thirst",
+       "sprite": "bloodThirst",
+       "why": "卡面 `Blood Thirst` **前面**那枚「尖牙」（= `Resources/Art/traits/bloodThirst.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:824`（`Warpforge_58_Proper-Hunt.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "嗜血",
+       "sprite": "bloodThirst",
+       "why": "卡面 `Blood Thirst` **前面**那枚「尖牙」（= `Resources/Art/traits/bloodThirst.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:824`（`Warpforge_58_Proper-Hunt.png`）。中文侧同一条（`descZh` 里写「嗜血」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -14556,7 +16401,7 @@
       {
        "token": "[Ranged]",
        "sprite": "Ranged",
-       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+       "why": "还原表 Unbridled Fury：`Give +2Melee and -2Ranged`（键 2026-10-10 由 `[Armor]` 订正）"
       }
      ]
     },
@@ -14587,6 +16432,11 @@
        "token": "Ephemeral.",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Hunt Mark",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:776`（`Warpforge_10_War-Howl.png`）。"
       }
      ]
     },
@@ -14597,6 +16447,11 @@
        "token": "临时。",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "猎杀标记",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:776`（`Warpforge_10_War-Howl.png`）。中文侧同一条（`descZh` 里写「猎杀标记」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -14647,6 +16502,11 @@
        "token": "Strike:",
        "sprite": "strike",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Hunt Mark",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:796`（`Warpforge_30_Blackmane-Inceptor.png`）。"
       }
      ]
     },
@@ -14657,6 +16517,11 @@
        "token": "猛击：",
        "sprite": "strike",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "猎杀标记",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:796`（`Warpforge_30_Blackmane-Inceptor.png`）。中文侧同一条（`descZh` 里写「猎杀标记」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -14697,6 +16562,11 @@
        "token": "Slay:",
        "sprite": "slay",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Blood Thirst",
+       "sprite": "bloodThirst",
+       "why": "卡面 `Blood Thirst` **前面**那枚「尖牙」（= `Resources/Art/traits/bloodThirst.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:805`（`Warpforge_39_Murderfang.png`）。"
       }
      ]
     },
@@ -14707,6 +16577,11 @@
        "token": "斩杀：",
        "sprite": "slay",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "嗜血",
+       "sprite": "bloodThirst",
+       "why": "卡面 `Blood Thirst` **前面**那枚「尖牙」（= `Resources/Art/traits/bloodThirst.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:805`（`Warpforge_39_Murderfang.png`）。中文侧同一条（`descZh` 里写「嗜血」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -14722,6 +16597,11 @@
        "token": "Flying.",
        "sprite": "flying",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Hunt Mark",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:806`（`Warpforge_40_Stormwolf.png`）。"
       }
      ]
     },
@@ -14732,6 +16612,36 @@
        "token": "飞行。",
        "sprite": "flying",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "猎杀标记",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:806`（`Warpforge_40_Stormwolf.png`）。中文侧同一条（`descZh` 里写「猎杀标记」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "SW43",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Hunt Mark",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:809`（`Warpforge_43_Venerable-Dreadnought.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "猎杀标记",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:809`（`Warpforge_43_Venerable-Dreadnought.png`）。中文侧同一条（`descZh` 里写「猎杀标记」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -14747,6 +16657,11 @@
        "token": "Rally:",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Hunt Mark",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:807`（`Warpforge_41_Vindicator.png`）。"
       }
      ]
     },
@@ -14757,6 +16672,11 @@
        "token": "集结：",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "猎杀标记",
+       "sprite": "huntMark",
+       "why": "卡面 `Hunt Mark` **前面**那枚「兽头骨 + 交叉骨」（= `Resources/Art/traits/huntMark.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:807`（`Warpforge_41_Vindicator.png`）。中文侧同一条（`descZh` 里写「猎杀标记」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -15923,6 +17843,31 @@
    ]
   },
   {
+   "id": "TAU57",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Stun",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:902`（`Warpforge_57_Recon-Sweep.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "眩晕",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:902`（`Warpforge_57_Recon-Sweep.png`）。中文侧同一条（`descZh` 里写 `眩晕`，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "TAU3",
    "fields": [
     {
@@ -16357,6 +18302,31 @@
        "token": "潮涌 2。",
        "sprite": "tide",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "TL26",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Stun",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:935`（`Warpforge_26_Deathleaper.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "眩晕",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:935`（`Warpforge_26_Deathleaper.png`）。中文侧同一条（`descZh` 里写 `眩晕`，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -16798,6 +18768,31 @@
    ]
   },
   {
+   "id": "TL40",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Vulnerable",
+       "sprite": "vulnerable",
+       "why": "卡面 `Vulnerable` **前面**那枚「盾牌 + 闪电」（= `Resources/Art/traits/vulnerable.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:953`（`Warpforge_40_Exocrine.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "脆弱",
+       "sprite": "vulnerable",
+       "why": "卡面 `Vulnerable` **前面**那枚「盾牌 + 闪电」（= `Resources/Art/traits/vulnerable.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:953`（`Warpforge_40_Exocrine.png`）。中文侧同一条（`descZh` 里写「脆弱」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "TL36",
    "fields": [
     {
@@ -17152,6 +19147,11 @@
        "token": "[Ranged]",
        "sprite": "Ranged",
        "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      },
+      {
+       "token": "Invulnerable",
+       "sprite": "invulnerable",
+       "why": "卡面 `Invulnerable` **前面**那枚「蓝紫圆 + 白骷髅 + 带缺口横条」（= `Resources/Art/traits/invulnerable.png`；⛔ **不是** `vulnerable.png` 那张盾+闪电，两者是不同的两张图 —— 亲读并排核过）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:982`（`Tyranid/4计策/Warpforge_61_Apex-Predator.png`）。"
       }
      ]
     },
@@ -17162,6 +19162,11 @@
        "token": "[远程]",
        "sprite": "Ranged",
        "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      },
+      {
+       "token": "无敌",
+       "sprite": "invulnerable",
+       "why": "卡面 `Invulnerable` **前面**那枚「蓝紫圆 + 白骷髅 + 带缺口横条」（= `Resources/Art/traits/invulnerable.png`；⛔ **不是** `vulnerable.png` 那张盾+闪电，两者是不同的两张图 —— 亲读并排核过）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:982`（`Tyranid/4计策/Warpforge_61_Apex-Predator.png`）。中文侧同一条（`descZh` 里写 `无敌`，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -17263,6 +19268,31 @@
    ]
   },
   {
+   "id": "TL59",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Blood Thirst",
+       "sprite": "bloodThirst",
+       "why": "卡面 `Blood Thirst` **前面**那枚「尖牙」（= `Resources/Art/traits/bloodThirst.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:979`（`Warpforge_59_Ravenous-Hunter.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "嗜血",
+       "sprite": "bloodThirst",
+       "why": "卡面 `Blood Thirst` **前面**那枚「尖牙」（= `Resources/Art/traits/bloodThirst.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:979`（`Warpforge_59_Ravenous-Hunter.png`）。中文侧同一条（`descZh` 里写「嗜血」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "TL2",
    "fields": [
     {
@@ -17317,6 +19347,66 @@
        "token": "[远程]",
        "sprite": "Ranged",
        "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "TL84",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Stun",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:961`（`Warpforge_11_Toxic-Entanglement.png`）。"
+      },
+      {
+       "token": "Vulnerable",
+       "sprite": "vulnerable",
+       "why": "卡面 `Vulnerable` **前面**那枚「盾牌 + 闪电」（= `Resources/Art/traits/vulnerable.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:961`（`Warpforge_11_Toxic-Entanglement.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "眩晕",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:961`（`Warpforge_11_Toxic-Entanglement.png`）。中文侧同一条（`descZh` 里写 `眩晕`，位置与英文那枚一一对应）。"
+      },
+      {
+       "token": "脆弱",
+       "sprite": "vulnerable",
+       "why": "卡面 `Vulnerable` **前面**那枚「盾牌 + 闪电」（= `Resources/Art/traits/vulnerable.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:961`（`Warpforge_11_Toxic-Entanglement.png`）。中文侧同一条（`descZh` 里写「脆弱」，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "TL58",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Blind",
+       "sprite": "blind",
+       "why": "卡面 `Blind` **前面**那枚「被划掉的手枪」（= `Resources/Art/traits/blind.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:978`（`Warpforge_58_Toxic-Miasma.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "失明",
+       "sprite": "blind",
+       "why": "卡面 `Blind` **前面**那枚「被划掉的手枪」（= `Resources/Art/traits/blind.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:978`（`Warpforge_58_Toxic-Miasma.png`）。中文侧同一条（`descZh` 里写「失明」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -17872,6 +19962,11 @@
        "token": "Camouflage.",
        "sprite": "camouflage",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Sniper",
+       "sprite": "sniper",
+       "why": "卡面 `Sniper` **前面**那枚「准星」（= `Resources/Art/traits/sniper.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:1044`（`Warpforge_17_Eliminator.png`）。"
       }
      ]
     },
@@ -17882,6 +19977,11 @@
        "token": "伪装。",
        "sprite": "camouflage",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "狙击",
+       "sprite": "sniper",
+       "why": "卡面 `Sniper` **前面**那枚「准星」（= `Resources/Art/traits/sniper.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:1044`（`Warpforge_17_Eliminator.png`）。中文侧同一条（`descZh` 里写「狙击」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -18052,6 +20152,11 @@
        "token": "Oath 2:",
        "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Stun",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:1016`（`Warpforge_07_Incursor.png`）。"
       }
      ]
     },
@@ -18067,6 +20172,11 @@
        "token": "誓言 2：",
        "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "眩晕",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:1016`（`Warpforge_07_Incursor.png`）。中文侧同一条（`descZh` 里写 `眩晕`，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -18132,6 +20242,11 @@
        "token": "Rally:",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Blind",
+       "sprite": "blind",
+       "why": "卡面 `Blind` **前面**那枚「被划掉的手枪」（= `Resources/Art/traits/blind.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:1022`（`Warpforge_10_Octavio-Infiltrator.png`）。"
       }
      ]
     },
@@ -18142,6 +20257,11 @@
        "token": "集结：",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "失明",
+       "sprite": "blind",
+       "why": "卡面 `Blind` **前面**那枚「被划掉的手枪」（= `Resources/Art/traits/blind.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:1022`（`Warpforge_10_Octavio-Infiltrator.png`）。中文侧同一条（`descZh` 里写「失明」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -18211,6 +20331,11 @@
       {
        "token": "誓言 1：",
        "sprite": "oath",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "潜行。",
+       "sprite": "stealth",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -18333,6 +20458,31 @@
    ]
   },
   {
+   "id": "UM32",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Stun",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:1058`（`Warpforge_32_Primaris-Judiciar.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "眩晕",
+       "sprite": "stun",
+       "why": "卡面 `Stun` **前面**那枚金螺旋（= `Resources/Art/traits/stun.png`；**句首 / 句中 / 名词位置恒带**，30/30）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:1058`（`Warpforge_32_Primaris-Judiciar.png`）。中文侧同一条（`descZh` 里写 `眩晕`，位置与英文那枚一一对应）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "UM_Scout_Sniper",
    "fields": [
     {
@@ -18387,6 +20537,31 @@
        "token": "集结：",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM28",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Blind",
+       "sprite": "blind",
+       "why": "卡面 `Blind` **前面**那枚「被划掉的手枪」（= `Resources/Art/traits/blind.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:1056`（`Warpforge_28_Sergeant-Allectius.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "失明",
+       "sprite": "blind",
+       "why": "卡面 `Blind` **前面**那枚「被划掉的手枪」（= `Resources/Art/traits/blind.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:1056`（`Warpforge_28_Sergeant-Allectius.png`）。中文侧同一条（`descZh` 里写「失明」，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -18547,6 +20722,11 @@
        "token": "Oath 4:",
        "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Invulnerable",
+       "sprite": "invulnerable",
+       "why": "卡面 `Invulnerable` **前面**那枚「蓝紫圆 + 白骷髅 + 带缺口横条」（= `Resources/Art/traits/invulnerable.png`；⛔ **不是** `vulnerable.png` 那张盾+闪电，两者是不同的两张图 —— 亲读并排核过）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:1052`（`Ultramarines/3部队/Warpforge_24_Terminator-Captain.png`）。"
       }
      ]
     },
@@ -18562,6 +20742,11 @@
        "token": "誓言 4：",
        "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "无敌",
+       "sprite": "invulnerable",
+       "why": "卡面 `Invulnerable` **前面**那枚「蓝紫圆 + 白骷髅 + 带缺口横条」（= `Resources/Art/traits/invulnerable.png`；⛔ **不是** `vulnerable.png` 那张盾+闪电，两者是不同的两张图 —— 亲读并排核过）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:1052`（`Ultramarines/3部队/Warpforge_24_Terminator-Captain.png`）。中文侧同一条（`descZh` 里写 `无敌`，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -18781,7 +20966,7 @@
       {
        "token": "[Ranged]",
        "sprite": "Ranged",
-       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+       "why": "卡图 + NCC 0.688（写着 attack、画的是枪），键 2026-10-10 由 `[attack icon]` 订正"
       },
       {
        "token": "[Codex icon]",
@@ -19057,6 +21242,31 @@
        "token": "[远程]",
        "sprite": "Ranged",
        "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM52",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Invulnerable",
+       "sprite": "invulnerable",
+       "why": "卡面 `Invulnerable` **前面**那枚「蓝紫圆 + 白骷髅 + 带缺口横条」（= `Resources/Art/traits/invulnerable.png`；⛔ **不是** `vulnerable.png` 那张盾+闪电，两者是不同的两张图 —— 亲读并排核过）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:1102`（`Ultramarines/4计策/Warpforge_52_Humanitys-Shield.png`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "无敌",
+       "sprite": "invulnerable",
+       "why": "卡面 `Invulnerable` **前面**那枚「蓝紫圆 + 白骷髅 + 带缺口横条」（= `Resources/Art/traits/invulnerable.png`；⛔ **不是** `vulnerable.png` 那张盾+闪电，两者是不同的两张图 —— 亲读并排核过）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:1102`（`Ultramarines/4计策/Warpforge_52_Humanitys-Shield.png`）。中文侧同一条（`descZh` 里写 `无敌`，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -19422,6 +21632,11 @@
        "token": "[Ranged]",
        "sprite": "Ranged",
        "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      },
+      {
+       "token": "Invulnerable",
+       "sprite": "invulnerable",
+       "why": "卡面 `Invulnerable` **前面**那枚「蓝紫圆 + 白骷髅 + 带缺口横条」（= `Resources/Art/traits/invulnerable.png`；⛔ **不是** `vulnerable.png` 那张盾+闪电，两者是不同的两张图 —— 亲读并排核过）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:1092`（`Ultramarines/4计策/Warpforge_32_Shall-Know-No-Fear.png`）。"
       }
      ]
     },
@@ -19442,6 +21657,11 @@
        "token": "[远程]",
        "sprite": "Ranged",
        "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      },
+      {
+       "token": "无敌",
+       "sprite": "invulnerable",
+       "why": "卡面 `Invulnerable` **前面**那枚「蓝紫圆 + 白骷髅 + 带缺口横条」（= `Resources/Art/traits/invulnerable.png`；⛔ **不是** `vulnerable.png` 那张盾+闪电，两者是不同的两张图 —— 亲读并排核过）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:1092`（`Ultramarines/4计策/Warpforge_32_Shall-Know-No-Fear.png`）。中文侧同一条（`descZh` 里写 `无敌`，位置与英文那枚一一对应）。"
       }
      ]
     }
@@ -19590,6 +21810,16 @@
      "items": [
       {
        "token": "Oath 3:",
+       "sprite": "oath",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "誓言 3：",
        "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }

@@ -17,6 +17,7 @@
     <Compile Include="FilterAdd.cs" />
     <Compile Include="BattleProbe.cs" />
     <Compile Include="Scan.cs" />
+    <Compile Include="WillRun.cs" />
     <Compile Include="Program.cs" />
     <!-- 被测对象：相对路径（原来写死 D:/4/... 绝对路径 ⇒ 换机器/换盘就编不过）。
          🔴 从 工具/ruleprobe/ 上去两级才是 Unity/ ⇒ ../../MyGame/... -->

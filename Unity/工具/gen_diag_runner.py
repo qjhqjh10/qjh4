@@ -24,7 +24,13 @@ for j in range(i, len(src)):
         if depth == 0:
             end = j
             break
-calls = re.findall(r"^\s{8}([A-Z]\w+)\(\);\s*$", src[i + 1:end], re.M)
+# 🔴 2026-10-21 就地订正（第十四会话）：旧正则只认裸调用 `Xxx();`，而 `Run()`现在全用 `Step(Xxx);`
+#   ⇒ 命中 **0**、脚本却被 `assert` 挡住，而已生成的 `RuleEngineTest_Diag.cs` 是旧的（只 132 条 vs `Run()` 的 195）
+#   ⇒ 现在两种写法都认，且容忍行尾注释。
+calls = re.findall(
+    r"^\s{8}(?:Step\(([A-Z]\w+)\)|([A-Z]\w+)\(\));(?:\s*//.*)?\s*$",
+    src[i + 1:end], re.M)
+calls = [a or b for a, b in calls]
 assert calls, "没从 Run() 里抽到任何调用 —— 正则或格式变了，先看源头"
 
 body = "\n".join('        Safe("%s", () => %s());' % (c, c) for c in calls)
