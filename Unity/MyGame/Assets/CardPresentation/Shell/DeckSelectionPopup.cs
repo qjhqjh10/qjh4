@@ -118,6 +118,21 @@ namespace CardPresentation
         public static readonly Color ShadeColor = new Color(0f, 0f, 0f, 0.773f);
         /// <summary>`Tab buttons` 容器（HLG spacing 12.45 align MiddleLeft）；两个页签各 **260×67.6421**（模板位是重合的）。</summary>
         public const float TabL = 196.30f, TabT = 35.07f, TabW = 260f, TabH = 67.6421f, TabGap = 12.45f;
+        /// <summary>🔴 **2026-10-19（`A1219`）：`TabW`（260）是【整颗页签钮】的宽，而原版那颗 TMP 的框比它窄 —— 这里这 213 才是原版 `Button Text` 的框宽。**
+        /// 判据 = `bundle_menus_assets_all` ▸ `Deck Selection Popup with Tabs/Alliance Header Buttons/Tab buttons/`
+        /// `Generic Tab UI Button{,_1}/Button Text` 两颗粒逐值现读：
+        /// · RT `m_SizeDelta = (213.0, 0.0)` · `m_AnchorMin/Max = (0.5,0)-(0.5,1)`
+        ///   ⇒ **`x` 轴锚点重合（`ad.x = 0`）⇒ `sizeDelta.x` 就是框宽**；`y` 轴 0→1 伸到父件
+        ///   （`Generic Tab UI Button` = `260 × 67.6421`）⇒ **框 = `213.0 × 67.6421`**。
+        /// · 它与父件 `TabW` 的差 = **47**（260 → 213，**1.22×**）—— 父件那 260 仍是**底板图**的宽（照旧用 `r`）。
+        /// <para>🔴 **为什么这一颗要改、而同族的价签那几颗不改**（判据见报告 `普查产出_第十一会话/H1_A1219五站框.md`）：
+        /// 这一颗**没有任何自适配组件**（`grep` 实读它的组件表 = `TextMeshProUGUI` + `EverguildTextController` + `Localize`，
+        /// **没有 `ContentSizeFitter`**）⇒ 213 是**固定框**、而且**折行宽就是它真正会咬字的那个约束**
+        /// （`m_fontSizeMin/Max/Base = 12/60/12` ⇒ 自适应从 12 往**涨**，涨到装不下为止）。
+        /// ⚠️ 那三颗价签的 92.22 是 `ContentSizeFitter(m_HorizontalFit = PreferredSize)` 的**产物**（= 占位串 `'300,00'`
+        /// 在 `m_fontSizeMax = 40` 下的 preferred width）⇒ 原版那一格**宽跟文字走、永远不咬字**，照抄它反而会把我们的字压小。</para>
+        /// <para>⚠️ 刻度：**原样用 213，不换算** —— 本窗其它常量（`TabL` / `TabH` / `TabGap`）也都是画布 px 原值。</para></summary>
+        public const float TabTextW = 213f;
         /// <summary>红底板 `Generic Window Red Background Big`（`UI_Deck_Information_Back`，border 42/363/655/81）。</summary>
         public const float RedL = 134.50f, RedT = 82f, RedR = 1839.50f, RedB = 1032f;
         /// <summary>`Deck Display`（`Header` + `Collection Display` 的父）。</summary>
@@ -582,8 +597,13 @@ namespace CardPresentation
             //   **`m_enableAutoSizing = 1`** · `m_fontSizeMin = **12**` · `m_fontSizeMax = **60**` ·
             //   `m_fontSizeBase = **12**` · **折行 = 0**。⚠️ 刻度 = 原版刻度 ⇒ 四格照抄、不换算。
             //   ⚠️ 本函数被**两个页签**各调一次（`Own` / `Pre`），两颗原版逐值相同 ⇒ 一处改动覆盖两格。
+            // 🔴 **2026-10-19（`A1219`）就地改（铁律 5/11）**：这一句的 `wrapPx` 原来是 `r.W` = **260**（整颗页签钮的宽），
+            //   而原版那一颗 `Button Text` 的框 **只有 213**（差 47px，**1.22×**）—— 判据 / 为什么只有这一处要改
+            //   → 常量 `TabTextW` 的 doc（它旁边就贴着逐项实读）。⚠️ 底板图仍用 `r`（= `TabW` 260，原版父件就是 260）。
+            //   ⚠️ 框宽只由 `wrapPx` 决定（`TextCore` 把 `wrapPx` 写进 TMP 的 `sizeDelta.x`），
+            //   节点位置仍取 `r` 的中心 ⇒ **213 的框自动落在 260 的正中**，与原版 `a[0.5,0-0.5,1]` 同位（不用加对齐）。
             var tabLb = MenuDraw.Text(root, r, label, Color.white, "Tab Text " + (own ? "Own" : "Pre"), 34f, QDsText,
-                                      r.W, 12f, 60f, 12f);
+                                      TabTextW, 12f, 60f, 12f);
             if (tabLb != null) tabLb.SetWrapping(false);            // 原版折行=0
             Hit(root, "TabHit_" + (own ? "Own" : "Pre"), r, () => SwitchTab(own), QDsHit);
         }

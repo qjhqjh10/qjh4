@@ -1369,30 +1369,44 @@ public static class RewardsScene
         CheckTrue(FindChild(FindChild(nm, "Daily Missions"), "name (Mission Header)") != null,
                   "`Daily Missions` 上有 `Mission Header`（'Daily Missions' fs36）");
 
-        // 🆕 2026-10-03（§三 第 29 条 **B1**）：每日骷髅卡 `counter/icons` 的 `Army` 格
-        //   判据 = `d:/2/tools/decomp_full/MissionCounterDisplay__Setup.c:51-63` ——
-        //   图 = `ArmyUtilities.GetArmyIcon(challenge.Army)`，**`army == Neutral(0)` 时那一格整格 `SetActive(false)`**
-        //   （HLG 跳过它 ⇒ `skull` 与计数文字**整体左移 60**）。
-        //   ⚠️ 我们这份 daily **没有阵营维度**（服务端下发）⇒ 走 Neutral 分支 ⇒ **那格不建、也不占位**。
+        // 🔴🔴 **2026-10-10（A1271）本节整体改写 —— 判据源改判**（铁律 5，留痕）。
+        //   **原来这三条断的是**「每日骷髅卡 `counter/icons` 的 `Army` 格」：判据 =
+        //   `d:/2/tools/decomp_full/MissionCounterDisplay__Setup.c:51-63`（`army == Neutral(0)` ⇒ 那一格
+        //   `SetActive(false)`，HLG 跳过它 ⇒ `skull` 与计数文字**整体左移 60**），做法 = 我们那格不建、不占位。
+        //   **为什么作废**：那一族节点（`footer/counter/icons`）属于**独立预制体 `Daily Skulls Mission
+        //   Container Small`**；本页画的其实是**页内那一份全尺寸的**（347.64 × 555，判据四条 →
+        //   `Shell/MissionsTab.cs` 的 `BuildSkullsCard` summary）。全尺寸那一份的计数节点叫
+        //   `background/body/counter`，**同 GO 上的 `MissionCounterDisplay` 实读 `targetIcon = armyIcon = null`**
+        //   （MB `-388213497299750215`）⇒ **两个图标槽都没有**、「图标区 = Army 60 + skull 65」这套排法**不存在**。
+        //   ⚠️ **A377 核过的那条「观感」仍然成立、也仍然要保**：实拍上确实是「一个骷髅图标 + `x0`、
+        //   **没有**阵营徽记、左边也没有空槽」—— 只是载体换成了 `body/Image`（66.1655 × 64.6337，
+        //   图 = `40K_missions_icon_Daily_skulls`）⇒ 本节改成断**那一颗**。
         {
             var skc = FindChild(tab, "Daily Skulls Mission Container");
             CheckTrue(skc != null, "`Daily Skulls Mission Container` 建了");
             CheckTrue(skc != null && FindChild(skc, "Army") == null,
-                      "`counter/icons` 的 `Army` 那一格**不建**（原版 `army == Neutral` ⇒ `SetActive(false)`）");
-            var skn = skc != null ? FindChild(skc, "skull") : null;
-            float sx1, sy1, sx2, sy2;
-            bool hasSkull = RectOf(skn, out sx1, out sy1, out sx2, out sy2);
-            CheckTrue(hasSkull, "`skull` 建了");
-            if (hasSkull)
+                      "整棵子树里**没有** `Army` 那一格（全尺寸那一份的 `counter` 两个图标槽都是 `null` ⇒"
+                      + "「Army 60 + skull 65」是 Small 那一份的排法，见本节末那条留痕）");
+            var bic = skc != null ? FindChild(skc, "Image") : null;
+            CheckTrue(bic != null, "`body/Image`（骷髅图标）建了");
+            if (bic != null)
             {
-                // 🔴 **关键的判别式**：`skull` 的左边缘 = **图标区自己的左边缘**（`Army` 那格没占那 60px）。
-                //    原来我们固定让出 60px ⇒ 这条会红。
-                // ⚠️ **不另比宽度**：骷髅卡是按**设计空间**摆再整体缩放的（两个 quad 的缩放口径不同），
-                //    比宽度会把「缩放」误判成「版面错」—— 宽度在 `MissionsTab` 里由同一个设计常量给出，
-                //    真正会错的是**起点**（就是上面这条）。
-                CheckNear(sx1, MissionsTab.SkullIconLeftPx, 1f,
-                          "`skull` 的左边缘 = **图标区左边缘**（`Army` 那格**没有占位** —— 原版 Neutral 分支同）");
-                CheckTrue(sx2 - sx1 > 1f, "`skull` 有非零宽度（不是画了个零宽的东西）");
+                CheckArt(bic, "40K_missions_icon_Daily_skulls", "`body/Image` 的图");
+                // 原版框：`sd = (66.16549682617188, 64.63369750976562)` 设计 px ⇒ 屏上 ×1.15
+                CheckW(bic, 66.1655f * 1.15f, "`body/Image` 宽（原版 `sd.x` 66.1655 设计 × 1.15）");
+                CheckH(bic, 64.6337f * 1.15f, "`body/Image` 高（原版 `sd.y` 64.6337 设计 × 1.15）");
+                // 🔴 **关键的判别式**（原来那条「`skull` 左边缘 = 图标区左边缘」的接任者）：
+                //    `body` 宽 325、中心在卡心；`Image` 的 `pos.x = −129.42`、宽 66.1655
+                //    ⇒ 它的**左沿恰好 = `body` 的左沿**（−129.42 − 66.1655/2 = −162.5 = body 的左沿）
+                //    = **卡心 − 162.5 设计**。原来那版让出 60px 空槽 ⇒ 这条会红。
+                //    ⚠️ 比的是**相对卡心**（两边都过 `PxOf`）⇒ 与本页那个 `1.15` 缩放无关（缩放口径变了它照样成立）。
+                float sx1, sy1, sx2, sy2;
+                if (RectOf(bic, out sx1, out sy1, out sx2, out sy2))
+                    CheckNear(sx1 - PxOf(skc.position.x), -162.5f * 1.15f, 2f,
+                              "`body/Image` 的左沿 = **`body` 的左沿**（= 卡心 − 162.5 设计 · 左侧**没有** 60px 空槽，"
+                              + "同实拍：图标紧贴文字左边、前面是空白）");
+                else
+                    CheckTrue(false, "`body/Image` 量不到矩形（`RectOf` 失败）");
             }
         }
 
@@ -1528,6 +1542,124 @@ public static class RewardsScene
             }
         }
 
+        // ============================================================ 🆕 A1271（2026-10-10）：骷髅卡的
+        //   「卡框 → footer → Rewards → 奖励格 count 1」整条链，以及**此前零覆盖**的那一格数字。
+        //   🔴 判据源 = **页内实例**（`Missions Tab/…/Special Missions/Daily Skulls Mission Container`）——
+        //   本页画的是**全尺寸**那一份（347.64 × 555），不是独立预制体 `… Small`（336 × 277.5）；
+        //   四条互相独立的证据 → `Shell/MissionsTab.cs` 的 `BuildSkullsCard` summary。
+        //   ⛔ **每一条期望值都是原版 prefab 的字段原文 × 1.15 的字面量**（`SM_Scale`），
+        //   ⛔ 不调 `MissionsTab.FS`、⛔ 不读 `MissionsTab.SM_Scale`、⛔ 不引用我们自己的常量
+        //   （拿实现证明实现 = 自证：改 `SM_Scale` 或改几何常量都照样绿）。
+        Section("🆕 A1271（2026-10-10）骷髅卡：卡框 / footer / Rewards / 奖励格 `count 1`（此前**零覆盖**）");
+        {
+            var skc2 = FindChild(tab, "Daily Skulls Mission Container");
+            CheckTrue(skc2 != null, "（前提）骷髅卡在");
+            if (skc2 != null)
+            {
+                // ① **卡框**。原版 `Daily Skulls Mission Container` 是 HLG 的子件（`ctrlW/H = 1`）⇒
+                //    宽 = `minW` **347.64**、高 = `Clamp(innerSize, minH 555, prefH 555)` = **555**
+                //    （`HorizontalOrVerticalLayoutGroup.SetChildrenAlongAxis` 交叉轴那一支）⇒ ×1.15 =
+                //    **399.79 × 638.25**。改前我们是 Small 的 `336 × 277.5`（⇒ 386.40 × 319.13）⇒ 这两条红。
+                CheckW(skc2, 347.64f * 1.15f, "骷髅卡宽 = 原版 `LayoutElement.m_MinWidth` **347.64** × 1.15");
+                CheckH(skc2, 555f * 1.15f, "骷髅卡高 = 原版 HLG 交叉轴给的那一格 **555** × 1.15"
+                                            + "（= `LayoutElement.m_MinHeight`，判据见 `BuildSkullsCard` 的 summary）");
+                // ② **奖励格那一行的高**。`Rewards` 的 `sd = (325, 77.643)`、它那条 HLG 是
+                //    `ctrlW/H = 1 · expandW = 1 · expandH = 1`（实读）⇒ 两轴都被撑到格子的满尺寸
+                //    ⇒ **交叉轴 `requiredSpace = size` = 整格高 = 77.643 设计**。
+                //    这一格上那两个尺寸**是同一件事**（`Rewards` 高 = 格子高），所以断**画出来的那颗图标**：
+                //      · 图标宽 = `drawerHolder` 的 `LayoutElement.m_PreferredWidth` = **55.0**
+                //        （实读；`ctrlW = 1` 且 `minMaxLerp = 1` ⇒ 取首选 55 而不是最小 40）
+                //      · 图标高 = **整格高 77.643**（交叉轴 `expandH = 1` ⇒ `requiredSpace = size`）
+                //    ⚠️ 这一条正是 `A1226` 记住的那个坑：「`count` 的框高 = 整格高、不是格高的 0.337 倍」——
+                //    它在这里被钉在**骷髅卡**上（登录卡那一份在 ⑦ 那一节）。
+                var rwIcon = FindChild(skc2, "Reward 1");
+                CheckTrue(rwIcon != null, "骷髅卡奖励格的图标 `Reward 1` 建了");
+                if (rwIcon != null)
+                {
+                    // ⚠️ **量纲**：`CheckW/CheckH` 读的是 `ImageQuad.WorldW/WorldH` = **内接之后**的尺寸
+                    //    （`MenuDraw.Rect` 的 `keepAspect` 那一支会**先把矩形按贴图比例内接**、
+                    //     再把 `_aspect` 设成内接后那块的比 ⇒ 框本身读不到）。
+                    //    本格：框 = 63.25 × 89.29 画布 px、图 = `40K_genearl_icon_Campaign_points_big`
+                    //    **256 × 256（aspect 1）** ⇒ 内接 = **宽受限** ⇒ 画出来 **63.25 × 63.25**。
+                    //    ⇒ 「宽 = 63.25」这条**等效于**「框的两轴都不小于 63.25」：
+                    //      框宽 < 63.25（或框高 < 63.25）都会把内接结果压小 ⇒ 立刻红
+                    //      （改回每日行那一档的 `aMax.y = 0.337` ⇒ 框高只剩 ~5 px ⇒ 实得 ~5.8 ⇒ 红）。
+                    CheckW(rwIcon, 55f * 1.15f, "奖励格图标宽 = 原版 `LayoutElement.m_PreferredWidth` **55.0** × 1.15");
+                    CheckH(rwIcon, 55f * 1.15f, "奖励格图标高 = 同上（**宽受限**那一档：图的 aspect = 1）"
+                                                + "—— 框高（= 整格高 77.643×1.15）本身读不到，见上面那条注");
+                    // 🔴 **整块居中**（原版格子里那条 HLG 是 `m_ChildAlignment = 4 (MiddleCenter)`）。
+                    //    ⛔ 写成**窗口**而不是字面量：整块的宽 = 图标 + 间距 + **数字自己的 `preferredWidth`**，
+                    //    那一段是 TMP 的、静态算不出来（已登记的残差）⇒ 给一个**只挡「摆错边」**的窗口。
+                    //    实测三个值：按现在这一档 ≈ −5px · 整块左对齐 ≈ −157px · 按两格排（各 162.5）≈ −99px。
+                    float jx1, jy1, jx2, jy2;
+                    if (RectOf(rwIcon, out jx1, out jy1, out jx2, out jy2))
+                    {
+                        float dx = ((jx1 + jx2) * 0.5f) - PxOf(skc2.position.x);
+                        CheckTrue(Mathf.Abs(dx) <= 34.5f,
+                                  "奖励块**居中**（原版 `m_ChildAlignment = 4 (MiddleCenter)`）：图标心离卡心 "
+                                  + dx.ToString("F1") + " px，须 ≤ 34.5（= 30 设计 × 1.15）"
+                                  + " —— ⛔ 这条只挡「摆错边」（左对齐 ≈ −157 · 按两格排 ≈ −99 都在窗口外），"
+                                  + "**挡不了** 20px 级的偏差（残差：数字那一截的 `preferredWidth` 静态算不出来）");
+                    }
+                }
+                // ③ **`count 1` 那一格**（🔴 本件之前**零断言覆盖**的静默站）。
+                //    原版那一颗的 TMP 实读（MB `1175879379365507769`）：`fs **40**` · `base **36**` ·
+                //    `m_enableAutoSizing = 1` · `auto[**10 ~ 40**]` · `折行 0` ⇒ 窗口 = 10/40/36 × 1.15
+                //    = **[11.5, 46] / base 41.4**。⛔ 不钉收敛值（那是 TMP 二分出来的，随框与字体变）。
+                CheckFontWindow(skc2, "count 1", 11.5f, 46f,
+                                "骷髅卡奖励格 `count 1` 自适应窗口 = 原版 **10 / 40** × 1.15 = [11.5, 46]"
+                                + "（与每日行那一档 **20 / 40** 不同值；改坏法：`BuildRewardCell` 那三个实参"
+                                + "漏传/传成 Small 那一档 ⇒ 实得 11.50/34.50 ⇒ 红）", 41.4f, true);
+                // ④ **关系式**（挡住「框和数字两边一起改回去」）：
+                //    `count` 在 prefab 里 `aMin == aMax == (0,0)`、`sd = (0,0)` —— **它没有锚点框**，
+                //    框由父格那条 HLG 给 ⇒ 它的**高必须 = 整格高 = 图标的高**。
+                //    ⚠️ 只断「关系」不断位置：位置里含我们那条**已登记的口径残差**（数字那一截的宽是 TMP 的
+                //    `preferredWidth`、静态算不出来，见 `BuildRewardCell` 里那段）⇒ 拿它当期望 = 自证。
+                var c1 = FindChild(skc2, "count 1");
+                float cx1, cy1, cx2, cy2, ix1, iy1, ix2, iy2;
+                if (c1 != null && rwIcon != null
+                    && RectOf(c1, out cx1, out cy1, out cx2, out cy2)
+                    && RectOf(rwIcon, out ix1, out iy1, out ix2, out iy2))
+                {
+                    CheckNear(((cy1 + cy2) * 0.5f) - ((iy1 + iy2) * 0.5f), 0f, 2f,
+                              "`count 1` 与图标**同高同心**（原版那一颗没有锚点框 ⇒ 框由父格 HLG 给 ⇒"
+                              + "两者都吃满整格高；改回每日行那一档的 `aMax.y = 0.337` ⇒ 这一条立刻红）");
+                    CheckNear(cx1 - ix2, 6f * 1.15f, 2f,
+                              "`count 1` 的**左沿** = 图标右沿 + 原版那条 HLG 的 `m_Spacing` **6.0** × 1.15"
+                              + "（实读；⛔ 与登录卡那两格的 5.0 / 4.0 **不是同一个值**）");
+                }
+                else
+                {
+                    CheckTrue(false, "`count 1` / `Reward 1` 有一个量不到矩形（`RectOf` 失败）");
+                }
+                // ⑤ **footer 那条链的纵向锚点**（改前我们用 Small 的 `footer pos.y −100.83` 与
+                //    `Generic UI Button pos.y +13.548` ⇒ 两条都会红）。原版实读：
+                //      `footer`  `pos.y = −153.84`（= 卡心下方 153.84）·
+                //      `Generic UI Button` `pos.y = −24.0231` ⇒ 钮心 = 卡心下方 **177.86** 设计 ⇒ ×1.15 = **204.54**
+                //    ⇒ 这一条把 `footer` 的 `pos.y` 与钮的 `pos.y` **一起**钉住（两个都错才会同时满足）。
+                var btnK = FindChild(skc2, "Generic UI Button");
+                if (btnK != null)
+                    CheckNear(PxYOf(btnK.position.y) - PxYOf(skc2.position.y), 177.8611f * 1.15f, 2f,
+                              "骷髅卡 `Collect` 钮心 = 卡心下方 (153.84 + 24.0231) × 1.15 px"
+                              + "（原版 `footer.pos.y −153.84` + `Generic UI Button.pos.y −24.0231`）");
+                else CheckTrue(false, "骷髅卡 `Generic UI Button` 没建出来");
+                // ⑥ 时钟行同理：`TimerHolder` `a=(0,.5)-(1,.5) p=(.5,0) pos.y = −118.5 sd.y = 57.167`
+                //    ⇒ 它比 footer 心再低 118.5、自身高 57.167 ⇒ 那个 `Timer` 的**中心**在卡心下方
+                //    `153.84 + 118.5 − 57.167/2 = **243.7565**` 设计 ⇒ ×1.15 = **280.32**。
+                var tmK = FindChild(skc2, "Timer");
+                if (tmK != null)
+                    CheckNear(PxYOf(tmK.position.y) - PxYOf(skc2.position.y), 243.7565f * 1.15f, 2f,
+                              "骷髅卡时钟行 `Timer` 心 = 卡心下方 (153.84 + 118.5 − 57.167/2) × 1.15 px"
+                              + "（原版 `footer` + `TimerHolder` 两个五元组）");
+                else CheckTrue(false, "骷髅卡 `Timer` 没建出来");
+                // ⑦ **全尺寸那一份【没有】时钟图标**（Small 那份的 `TimerHolder` 才带 `WF_icon_clock`）——
+                //    实拍上那一行前面确实没有小时钟。改回 `BuildClockRow` 那条路 ⇒ 这一条红。
+                CheckTrue(FindChild(skc2, "clock") == null,
+                          "骷髅卡时钟行**没有** `WF_icon_clock`（原版全尺寸那份的 `TimerHolder` 只有一颗 `Timer`；"
+                          + "Small 那份才有图标 —— 实拍复核同）");
+            }
+        }
+
         // ============================================================ 🆕 A143（2026-10-06）：SM 卡内**字号**
         Section("🆕 A143 `Special Missions` 卡内**字号**也要 ×1.15（2026-09-23 的 D7 只缩了「位置与尺寸」）");
         {
@@ -1568,9 +1700,19 @@ public static class RewardsScene
             //    （⛔ 不是「凑一个常数」—— ① 与 ② 的设计字号不同，乘完之后是 46 / 40.25 两个数）
             CheckFontPx(smLogin, "Generic UI Button Text", 40.25f,
                         "登录卡 `Collect` 文案字号 = **35 × 1.15 = 40.25**");
-            // ③【`Txt1` 那一路】不换行、**没有自适应**：骷髅卡的计数 `x160`，设计空间 **fs26.8** ⇒ **30.82**
-            CheckFontPx(smSkulls, "counter text", 30.82f,
-                        "骷髅卡 `counter text`（`x160`）字号 = **26.8 × 1.15 = 30.82**（`Txt1` 那一路）");
+            // ③【`Txt1` 那一路】不换行的计数 `x0`。🔴 **2026-10-10（A1271）判据源改判 + 节点改名**：
+            //    原来钉的是 **Small 那一份**的 `footer/counter/counter text`（`fs 26.8` ⇒ 30.82）。
+            //    本页画的其实是**全尺寸**那一份 ⇒ 那个节点叫 **`background/body/counter`**、
+            //    TMP 实读（MB `-388213497299750215`）：`'x160000'` · **`fs 30`** · `base 36` ·
+            //    `m_enableAutoSizing = 1` · **`auto[30 ~ 35]`** · `折行 0` · `H=Left/Midline`。
+            //    ⚠️ **它的 `fs == autoMin == 30`** ⇒ `Txt1` 那条闸（`fontPx > autoMinPx`）**挡住了自适应**
+            //    ⇒ 收敛值 = 标称 = 30 × 1.15 = **34.5**（定死，不像别处那样二分）⇒ 仍然可以用 `CheckFontPx`。
+            //    ⛔ 窗口那条（30/35）**本件不另断**：闸挡住了 ⇒ `FontSizeMin/Max` 不是我们要的那两个数，
+            //       断它会红在「闸」上、不是红在值上（同 A1208 的口径，见下面 ④ 那一行的留痕）。
+            //    改坏法：把 `Txt1` 那个 `30f` 改回 `26.8f`（= Small 那一份的值）⇒ 实得 30.82 ⇒ 红。
+            CheckFontPx(smSkulls, "counter", 34.5f,
+                        "骷髅卡计数 `counter`（`x0`）字号 = **原版 `m_fontSize` 30 × 1.15 = 34.5**"
+                        + "（`Txt1` 那一路；⚠️ 这一颗 `fs == autoMin` ⇒ 自适应被那条闸挡在外面）");
             // ④【另一张卡的 `Collect` 文案】🔴 **本件起这一颗开了自适应**（原版 `m_enableAutoSizing = 1`）
             //    ⇒ **不能**再断 `FontPxNow`（那是 TMP 的**收敛值**：文案在框里装不下就会比上界小），只断**窗口**。
             //    原版判据（**两处来源一致** ✓）：`GameObject/Missions Tab.json` 的
@@ -1602,26 +1744,31 @@ public static class RewardsScene
             //    改坏法同 ⑤（下界 23.0：改成 20.00 或 13.80 都红）。
             CheckFontWindow(smSkulls, "Daily Skulls name", 23.0f, 41.4f,
                             "骷髅卡卡头标题的自适应窗口 = **原版 20/36 × 1.15 = [23.0, 41.4]**（两处来源一致）");
-            // ⑦ 骷髅卡的时钟行 `Timer`（`BuildClockRow` 那条路，**恒建** —— 不像登录卡那颗 `Timer` 吃「已领取」状态，
-            //    见 A75②）。原版判据（**两处来源一致** ✓）：`Missions Tab` 页内那颗与独立预制体
-            //    `Daily Skulls Mission Container Small` 的 `footer/TimerHolder/Timer` **都是** `m_fontSizeMin = 15`
-            //    · `m_fontSizeMax = 38` ⇒ 窗口 = **15/38 × 1.15 = [17.25, 43.7]**。
-            //    ⚠️ `m_fontSizeMax`(38) ≠ 设计字号(30.15) ⇒ 必须走 `Txt` 的 `autoMaxPx`（`TextBox` 的上界写死成 `fontPx`）。
-            //    改坏法：把 `BuildSkullsCard` 里 `BuildClockRow(…, 15f, 38f)` 那两个实参去掉 ⇒
-            //    拿默认的 0/0 走 ⇒ 窗口退回 `TextBox` 那一套（`FS(12)`/`FS(30.15)`）⇒ 实得 13.80 / 34.67 ⇒ 红。
+            // ⑦ 骷髅卡的时钟行 `Timer`（**恒建** —— 不像登录卡那颗 `Timer` 吃「已领取」状态，见 A75②）。
+            //    🔴 **2026-10-10（A1271）就地订正（铁律 5）**：这一段原来说它走 `BuildClockRow` 那条路、
+            //    并写着「`m_fontSizeMax`(38) ≠ 设计字号(30.15)」—— **`30.15` 是 Small 那一份的值，
+            //    已作废**：全尺寸那一份的 `footer/TimerHolder/Timer` 实读（MB `-1074133513752366407`）
+            //    = `fs **38**` · `base 36` · `auto[15 ~ 38]` · `折行 1` · `H=Center`；而且那一行
+            //    **只有一颗 `Timer`、没有时钟图标**（`Image` 是 Small 那份才有的）⇒ 现在走的是与登录卡
+            //    `Timer` 同一条写法（一段 `Txt` 铺满 holder），**不再调 `BuildClockRow`**。
+            //    窗口仍是 **15/38 × 1.15 = [17.25, 43.7]**（两处来源同值 ⇒ 这一条不用改）。
+            //    改坏法：把 `BuildSkullsCard` 里 `Txt(…, 38f, autoMinPx: 15f, autoMaxPx: 38f, …)` 那三个实参
+            //    去掉 ⇒ 窗口退回 `TextBox` 那一套 ⇒ 实得 13.80 / 34.67 ⇒ 红。
             //    ⚠️ `FindChild(smSkulls, "Timer")` 是安全的：另一个叫 `Timer` 的节点在 **`Weekly Mission`** 下
             //    （周常卡），**不在 SM 子树里**。
             CheckFontWindow(smSkulls, "Timer", 17.25f, 43.7f,
                             "骷髅卡时钟行 `Timer` 的自适应窗口 = **原版 15/38 × 1.15 = [17.25, 43.7]**");
-            // 🔴 **本件【故意没动】的那几条** —— 判据有**来源分叉**（照页内 `Missions Tab` vs 照独立预制体），
-            //    ⛔ 不许自己挑一个：**等调度台裁定**，全文 `资料/普查产出_1006/A143_SM字号断言.md` §七。摘要：
-            //      · 登录卡 `count` / `Button Text` / `TimerHolder/Timer` 的设计字号：页内真值 **40 / 44 / 38**，
-            //        我们传的是 **40 / 35 / 28**（后两个取自独立预制体 `Daily Login Bonus Container`）。
-            //      · 骷髅卡 `count`：页内 **40** vs 独立预制体 Small **30**（⇒ 我上一份报告说「原版 30」是**只对了一半**）。
-            //      · 骷髅卡的计数节点：页内叫 `body/counter`（fs **30**、窗口 30/35），
-            //        我们建的是 Small 的 `counter text`（fs 26.8）—— **连节点名都不是同一个**。
-            //   ⇒ 上面 ①②③ 现在钉的是**我们的现值**（它们仍能红在「`FS()` 那一乘被去掉」上），
-            //     ⛔ **不是**页内真值 —— 裁定「照页内」之后这三条要一起重算。
+            // 🔴 **「来源分叉」的裁定进度（2026-10-10 · A1271 就地更新）** —— 原文是
+            //    「本件【故意没动】的那几条 …… **等调度台裁定**」（全文 `资料/普查产出_1006/A143_SM字号断言.md` §七）。
+            //    **骷髅卡那一半已裁**：本页画的**就是页内那一份（全尺寸）**，判据四条 →
+            //    `Shell/MissionsTab.cs` 的 `BuildSkullsCard` summary ⇒ 上面 ③⑥⑦ 已按**页内真值**重算
+            //    （计数节点 `body/counter` fs 30 = 34.5 画布 · `Timer` fs 38 · `Collect` 文案 fs 44）。
+            //    ⏳ **还开着的是【登录卡那一半】**（同一类证据同样指向「卡框 334 × 565 应为 347.64 × 555」、
+            //    `Button Text` 35 → **44**、`TimerHolder/Timer` 28 → **38**）—— 本件只登记、没动（报告 §7）。
+            //      · 登录卡 `count` = 页内 **40** ✓ 已对（F3 那一笔）；
+            //      · 登录卡 `Button Text` / `TimerHolder/Timer` 的设计字号：页内真值 **44 / 38**，我们传 **35 / 28**。
+            //   ⚠️ 上面 ② 那条（登录卡 `Collect` 文案 = 40.25）钉的仍是**我们的现值**（它仍能红在
+            //     「`FS()` 那一乘被去掉」上），⛔ **不是**页内真值 —— 登录卡那一半裁下来之后要一起重算。
         }
 
         Section("§三·5 周常：`Handle` 与骑在它上面的 `counter`（2026-09-23 补）");
@@ -2222,8 +2369,9 @@ public static class RewardsScene
                                     + "A375 之前这里是 mock `160`）");
                 Check(onCount(), 0, "★ 计数 0 ⇒ **五格全灭**（与实拍一致；mock `160` 那个年代这里恒 **5**）");
                 var skF0 = FindChild(tab, "Daily Skulls Mission Container");
-                Check(skF0 != null ? TextOf(FindChild(skF0, "counter text")) : null, "x0",
-                      "★ ...计数器印的是 **`x0`**（原版 `progressTextFormat = 'x{0}'` —— 实拍那张卡上印的也是 `x0`）");
+                Check(skF0 != null ? TextOf(FindChild(skF0, "counter")) : null, "x0",
+                      "★ ...计数器印的是 **`x0`**（原版 `progressTextFormat = 'x{0}'` —— 实拍那张卡上印的也是 `x0`；"
+                      + "⚠️ A1271 起节点名是 `body/counter`（全尺寸那一份的名字），原来是 Small 的 `counter text`）");
 
                 // ---------------------------------------------------------------- ① 五档阈值
                 var wantA370 = new[] { 3, 10, 25, 50, 100 };
@@ -9086,8 +9234,9 @@ public static class RewardsScene
             {
                 mt375.Build();
                 var sk375 = FindChild(tab, "Daily Skulls Mission Container");
-                Check(sk375 != null ? TextOf(FindChild(sk375, "counter text")) : null, "x3",
-                      "★ 累计 **3** ⇒ 卡面 `counter text` = **`x3`**（原版 `progressTextFormat = 'x{0}'`，逐字同格式）");
+                Check(sk375 != null ? TextOf(FindChild(sk375, "counter")) : null, "x3",
+                      "★ 累计 **3** ⇒ 卡面 `counter` = **`x3`**（原版 `progressTextFormat = 'x{0}'`，逐字同格式；"
+                      + "⚠️ A1271 起节点名是 `body/counter`）");
                 int on375 = 0;
                 if (sk375 != null)
                     foreach (var t in sk375.GetComponentsInChildren<Transform>(true))

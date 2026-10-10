@@ -281,9 +281,15 @@ namespace CardPresentation
             _s = SM_Scale; _so = new Vector2(sm.x1, sm.y1);
             BuildLoginCard(smNode, UguiRect.Child(sm, DL_A0, DL_A1, DL_P, DL_Pos, DL_Sz));
 
-            // `Daily Skulls Mission Container`（页内那份）尺寸是 0×0（靠 `FlexibleLayoutSizeOption` 运行时定）
-            // ⇒ 用**独立预制体 `Daily Skulls Mission Container Small`** 的实尺 336×277.5（正本 §三·4）。
-            BuildSkullsCard(smNode, UguiLayout.HorizontalChild(sm, 336f, 277.5f, 1, 0f, 11.01f));   // HLG sp **11.01**
+            // 🔴 **2026-10-10（A1271）改框：`336 × 277.5` → `347.64 × 555`。**
+            //   原来那句「页内那份尺寸是 0×0 ⇒ 用独立预制体 Small 的实尺 336×277.5」**两半都不成立**：
+            //     · 页内那份 `sd = (0,0)` 只说明「**由布局组定尺寸**」（它的 `LayoutElement` 与 Small 那份
+            //       逐字段相同：`minW 347.64 · minH 555 · prefW/H −1 · flexW 0 · flexH −1`）⇒ 尺寸是**算得出来的**；
+            //     · 而 `Special Missions` 的 HLG `ctrlW/H = 1` ⇒ 子件的高被 `Clamp(innerSize, 555, 555)`
+            //       **钉成 555**、宽取 `min + flex 份额` = **347.64** ⇒ Small 那份自己写的 277.5 **在这个位置永远用不上**。
+            //   两卡各 347.64 + 间距 11.01 = **706.29** = 本段上表算出的 `SM_Sz.x`（自洽 ⇒ 第 1 个即 x = 358.65）。
+            //   判据全文与四条证据 → `BuildSkullsCard` 的 summary。
+            BuildSkullsCard(smNode, UguiLayout.HorizontalChild(sm, 347.64f, 555f, 1, 0f, 11.01f));   // HLG sp **11.01**
             _s = 1f; _so = Vector2.zero;
 
             // 🔴 **每日任务区：`Daily Missions` 的 `localScale = 1.15` 同样缩的是整棵子树**
@@ -840,23 +846,112 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>自检用：每日骷髅卡 `counter/icons` 那块「图标区」的**左边缘**（画布 px）。
-        /// 判据 → `MissionCounterDisplay__Setup.c:51-63`（`Army == Neutral` 时那一格不显示 ⇒
-        /// 这个值就是 `counter` 自己的左边缘，**没有那 60px**）。</summary>
-        public static float SkullIconLeftPx { get; private set; }
-
-        /// <summary>`Daily Skulls Mission Container Small`（336×277.5）—— 5 格里程碑 + 计数 + 领奖。
-        /// ⚠️ 页内那份实例的 `body`/`progress` 尺寸与独立预制体**不同**（正本 §三·4 vs 页内实例）；
-        /// 我们照**独立预制体 Small**（那套尺寸是确定的）。`card` 是**设计空间**矩形（见 `R`）。</summary>
+        /// <summary>🔴 **2026-10-10（A1271）判据源裁定：本页画的是【页内那一份】`Daily Skulls Mission Container`
+        /// （**全尺寸**：347.64 × 555 设计），**不是** `Daily Skulls Mission Container Small`（336 × 277.5）。**
+        ///
+        /// <para>**四条互相独立的证据**（前三条都能原地复算）：</para>
+        /// <list type="number">
+        /// <item>🔴 **`Special Missions` 的 `HorizontalLayoutGroup` 会把子件的高【钉成 555】** ——
+        ///   它的 `m_ChildControlHeight = 1` ⇒ 交叉轴那一支走
+        ///   `requiredSpace = Mathf.Clamp(innerSize, min, flexible &gt; 0 ? size : preferred)`
+        ///   （`Library/PackageCache/com.unity.ugui@*/…/HorizontalOrVerticalLayoutGroup.cs` 的
+        ///   `SetChildrenAlongAxis` 交叉轴分支）；而**所有**任务卡的 `LayoutElement` 都是
+        ///   `minH 555 · prefH −1` ⇒ `LayoutUtility.GetPreferredHeight = max(minHeight, −1) = 555`
+        ///   ⇒ `Clamp(556.223, 555, 555) = **555**`（`innerSize` 是 SM 自己的高 556.223）。
+        ///   ⇒ **Small 那份自己写的 277.5 在这个位置【永远被覆盖】**，它画出来会是「555 的卡里塞着
+        ///   一套按 277.5 排的内容、底下空 139px」。`menu_dump.py bundle_menus_assets_all "Missions Tab"` 实算：
+        ///   页内那份（active 的那个）解得 **347.64 × 555** —— 与上面这条逐位同。
+        ///   宽同理：`minW 347.64` ⇒ 两卡各占 347.64、间距 11.01 ⇒ `347.64×2 + 11.01 = 706.29` = SM 的 CSF 首选宽。</item>
+        /// <item>🔴 **`UseSmallContainer` 这个开关只挂在 `MissionEvent` 上**（类桩
+        ///   `Assembly-CSharp/IMission.cs:6` 声明、**全库唯一实现**在 `MissionEvent.cs:14`）——
+        ///   而 `FlexibleLayoutSizeOption`（Small 那份的 `sizeX/sizeY = 1/1`、全尺寸那三份都是 `1/2`）
+        ///   **只被 `FlexibleGridLayout.FindSpaceOnGrid` 消费**（类桩 `FlexibleGridLayout.cs:65,70,74`）
+        ///   ⇒ 它是**网格页的格位**（列×行）不是像素尺寸；`MissionsTab.InstantiateGridMissions` 逐帧按
+        ///   「有几条任务」把它写出来（反编译 `MissionsTab__InstantiateGridMissions.c:53-68` 那个 1/2/3 → 1/2 的映射）。</item>
+        /// <item>🔴 **用户那张原版实拍**（`资料/原版参照图/用户实拍_1017/奖励—布道所（每日任务）参考图.png`
+        ///   左栏「每日骷髅头」卡）：卡的高宽比 ≈ **1.615**，而 `555 ÷ 347.64 = **1.596**`（差 1.2%）、
+        ///   `277.5 ÷ 336 = **1.211**`（差 33%）；卡里看得见**大骷髅立绘 + `x0` 计数 + 5 格里程碑 +
+        ///   奖励格 + 收集钮 + 一行时间**，**时钟行前面【没有】小时钟图标** —— 与全尺寸那一份逐项吻合。
+        ///   （⛔ 图只用来判「有没有 / 大概什么样」，数值一律回 prefab 字段 —— 铁律 3。）</item>
+        /// <item>🔴 **两张卡的 `footer` 逐字段相同**（登录卡页内那份 / 骷髅卡页内那份）⇒ 本方法此后
+        ///   **镜像 `BuildLoginCard` 的 footer 那一段**（同一组五元组、同一套内层几何）—— 这也是
+        ///   本件能被 F3 那套形状直接覆盖的原因。</item>
+        /// </list>
+        ///
+        /// <para>🔴 **随之作废的一条旧口径**（铁律 5，留痕）：`counter/icons` 那条 `Army` 格子
+        /// （`MissionCounterDisplay.Setup` 里 `army == Neutral(0)` ⇒ 整格 `SetActive(false)`，
+        /// 2026-10-03 的 B1）**属于 Small 那一份**；**全尺寸这一份的计数节点叫 `background/body/counter`，
+        /// 它的 `MissionCounterDisplay` 实读 `targetIcon = armyIcon = null`（两个图标槽都没有）**
+        /// ⇒ 本卡不再有「图标区」那一条，`SkullIconLeftPx` 这个自检出口一并删除。
+        /// ⚠️ **A377 核过的那条「观感」仍然成立**（实拍上确实是「骷髅图标 + `x0`、没有阵营徽记」）——
+        /// 只是它现在的载体是 `body/Image` + `body/counter`，不是 `footer/counter/icons`。
+        /// 判据全文 → `资料/普查产出_第十一会话/G4_骷髅卡奖励格.md`。</para>
+        /// <para>⚠️ **未同笔改的那一半（另立一条）**：`Daily Login Container`（登录卡）的**卡框**
+        /// 我们画的是作者态的 `334 × 565`，同一支 HLG 下也应是 **347.64 × 555** ⇒
+        /// **那是同一类缺陷的第二站**，本件只登记、没动（登录卡是 F3 那一站，见报告 §7）。</para></summary>
         public void BuildSkullsCard(Transform parent, PxRect card)
         {
             parent = NodeD(parent, "Daily Skulls Mission Container", card);
             Draw(parent, "40K_missions_display_Daily_vertical", card, "Daily Skulls Mission Container", RewardsWindow.QPanel);
             BuildCardHeader(parent, card, "Daily Skulls", DailyData.SkullsTitle(), 36f, false);
 
-            // `progress.milestones`  N(3, 0,0, 1,1, .5,.5, 0,0, ~0,~0)  → `steps` HLG **spacing 20** align 4(MiddleCenter)，每格 40×40
+            // ==================== `background/body`（全尺寸那一份才有）============================
+            // 页内实例 raw（`RectTransform/RectTransform_1733095348392145593.json`）：
+            //   `a=(.5,.5)-(.5,.5) p=(.5,.5) pos=(−0.0018845, 100.88) sd=(**325 × 228.96**)`
+            //   （另一实例 `…_2092693326249269506.json` 是 Small 那份的，`sd=(325, 97.35)` ⇒ **别混**）
+            var body = UguiRect.Child(card, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
+                                      new Vector2(-0.0018845f, 100.88f), new Vector2(325f, 228.96f));
+            //   ├ `description` —— 出厂 **`m_IsActive = 0`** ⇒ **不建**（本文件纪律①）
+            //   ├ `Image`  N(a=(.5,.5) p=(.5,.5) pos=(−129.42, 88.4) sd=(66.1655, 64.6337))
+            //   │    图 = **`40K_missions_icon_Daily_skulls`**（sprite pid `-521372573458900274`
+            //   │      → `_tmp_view/sprite_pids_ALL.json`；`m_Type = 0 (Simple)` · **`m_PreserveAspect = 1`**）
+            var bIcon = UguiRect.Child(body, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
+                                       new Vector2(-129.42f, 88.4f), new Vector2(66.1655f, 64.6337f));
+            Draw(parent, "40K_missions_icon_Daily_skulls", bIcon, "Image", RewardsWindow.QContent, null, true);
+            //   ├ `counter`  N(a=(0,1)-(0,1) p=(.5,0) pos=(84.2296, −53.1288) sd=(67.8853, 31.8733))
+            //   │    TMP 实读（`MonoBehaviour_-388213497299750215.json`）：`'x160000'` · `fs 30` ·
+            //   │      `base 36` · `m_enableAutoSizing = 1` · `auto[30 ~ 35]` · **`折行 = 0`** · `H=Left/Midline`。
+            //   │    ⚠️ 运行期那个串由 `MissionCounterDisplay` 按 `progressTextFormat = "x{0}"` 填
+            //   │      （同一颗 MB：`displayRule -1` · `displayCompletedMessage 0` · `targetIcon/armyIcon` **都 null**）
+            //   │      ⇒ 与 `DailyData.SkullsCounter()` 同源（`"x" + _skullsCount`）。
+            //   │    ⚠️ `fs == autoMin == 30` ⇒ `Txt1` 那条闸（`fontPx > autoMinPx`）会**挡住自适应** ——
+            //   │      原版这一颗的窗口是 `[30, 35]`，**先把实参如实传进去**（值的问题不在这里猜，同 A1208 口径）。
+            var bCnt = UguiRect.Child(body, UguiRect.A01, UguiRect.A01, UguiRect.P01,
+                                      new Vector2(84.2296f, -53.1288f), new Vector2(67.8853f, 31.8733f));
+            var bCntLb = Txt1(parent, bCnt, DailyData.SkullsCounter(), Color.white, "counter", 30f,
+                              autoMinPx: 30f, autoMaxPx: 35f, autoBasePx: 36f);
+            // ⚠️ 原版这一颗的 TMP `m_HorizontalAlignment = 1 (Left)`（上面那行实读）—— `Txt1` 出来是居中
+            //    ⇒ 与同族另几颗一样，显式左对齐到框的左沿（`AlignL` 收的是**设计空间**矩形，内部过 `R()`）。
+            AlignL(bCntLb, bCnt);
+            //   └ `image`  N(a=(.5,0)-(.5,1) p=(.5,.5) pos=(14.516, −15.3) sd=(221.7064, −1.53e−05))
+            //        **同一张图**（`40K_missions_icon_Daily_skulls`，源图 **222 × 198**）放大成卡里那幅
+            //        **大骷髅立绘**；`m_PreserveAspect = 1` ⇒ 等比内接（`Draw` 的 `keepAspect`）
+            //        ⇒ 实画 **221.71 × 197.79**（框 221.71 × 228.96 是**宽受限**那一档，上下各留 15.58）。
+            //        🔴 **兄弟序（`m_Children` 原文）= `description → Image → counter → image`** ⇒
+            //        这一幅**在计数文字之上**（UGUI 后画的盖前面的）⇒ 队列取 `QContent + 2`
+            //        （⚠️ **不能取 `QContent + 1` —— 那个数就是 `QText = 3011`，和计数那颗 `Label` 同档**：
+            //          同档时 `ImageQuad` 的 z 恒 0、谁在上面由「到相机的距离」定 ⇒ 不可控）。
+            //        ⚠️ **实拍复核项（本件跑不了渲染图）**：那一幅的左沿落在 body 内 66.17、
+            //        而 `counter` 的墨从左沿 50.29 起（约 30 宽）⇒ 两者在 x≈66…83 那一段**重叠**
+            //        （用户那张实拍上「`x0` 的最后一字」正贴着大骷髅的左沿、没有明显被遮）
+            //        ⇒ 若将来并排渲出来发现文字被压住，先查这里是不是我们的等比口径偏大，
+            //        ⛔ 别直接把队列翻过来（那会与兄弟序打架）。
+            var bArt = UguiRect.Child(body, new Vector2(0.5f, 0f), new Vector2(0.5f, 1f), UguiRect.P50c,
+                                      new Vector2(14.516f, -15.3f), new Vector2(221.7064f, -1.5259e-05f));
+            var bArtQ = Draw(parent, "40K_missions_icon_Daily_skulls", bArt, "image",
+                             RewardsWindow.QContent + 2, null, true);
+            if (bArtQ == null)
+                Debug.LogWarning("[Missions] 骷髅卡的 `body/image`（大骷髅立绘）**没建出来** "
+                                 + "—— 卡里那一大幅会缺（红线：不许静默失败；图在 "
+                                 + "`Resources/Art/ui_menu/40K_missions_icon_Daily_skulls.png`）");
+
+            // ==================== `progress`（5 格里程碑）============================
+            // 页内实例 raw（`RectTransform_-4921119601377496391.json`）：`a=(.5,.5) p=(.5,.5)`
+            //   `pos=(−0.0018959, **−24.5**) sd=(325, **73.619**)`
+            //   （Small 那份是 `pos.y −21.313 · sd.y 79.992` ⇒ 改前我们取的是它）
+            //   └ `milestones` N(a=(0,0)-(1,1) pos=(0,0) sd≈(0,0)) → `steps` HLG **spacing 20** align 4(MiddleCenter)，每格 40×40
             var prog = UguiRect.Child(card, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
-                                      new Vector2(-0.0018959f, -21.313f), new Vector2(325f, 79.992f));
+                                      new Vector2(-0.0018959f, -24.5f), new Vector2(325f, 73.619f));
             var ms = UguiRect.Child(prog, UguiRect.A00, UguiRect.A11, UguiRect.P50c, Vector2.zero, Vector2.zero);
             // 🔴 **2026-09-23 修**：`steps` 的实测布局组参数是
             //    `align=4 (MiddleCenter) · sp=20 · ctlW=0 · ctlH=0 · expW=0 · expH=1`
@@ -875,11 +970,23 @@ namespace CardPresentation
                                DailyData.SkullsStepTarget(i).ToString());
             }
 
-            // `footer.Rewards`  N(3, …, -103.7,14.204, 109.25,47.433)  → `40K_missions_icon_Daily skulls` + 'x160'
+            // ==================== `footer`（**与登录卡逐字段相同**）============================
+            // 页内实例 raw（`RectTransform_-297076216977050951.json`）：`a=(.5,.5) p=(.5,.5)`
+            //   `pos=(−1.5201, **−153.84**) sd=(325, **181.86**)`
+            //   （Small 那份是 `pos.y −100.83 · sd.y 75.84` ⇒ 改前我们取的是它）
             var footer = UguiRect.Child(card, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
-                                        new Vector2(-1.5201f, -100.83f), new Vector2(325f, 75.84f));
+                                        new Vector2(-1.5201f, -153.84f), new Vector2(325f, 181.86f));
+            // `footer.Rewards`  N(a=(.5,.5) p=(.5,.5) pos=(**0**, **52.108**) sd=(**325 × 77.643**))
+            //   （`RectTransform_5678385577145119417.json`）—— 与登录卡那颗**同一个五元组**。
+            //   它上面那条 HLG 实读：`spacing 0 · align 1 · pad 0 · ctrlW/H 1 · expandW/H 1 · scaleW/H 0`
+            //   ⇒ 子件**等分**这一条 325（`childForceExpand` 把 flexible 抬到 1 ⇒ `childSize = surplus / n`）；
+            //   而**格数本身是数据驱动的**（`MissionRewardsDisplay__Setup` 先 `DestroyAllChildren`、
+            //   再按 `AvailableRewards()` 逐格 `Instantiate`）⇒ 我们这份骷髅奖励**只有一份**
+            //   ⇒ `childSize = Lerp(min,pref,0) + 1 × surplus = 325` ⇒ **一格吃满整条 `Rewards`**。
+            //   ✅ **可复核**：用户那张实拍上奖励块（蓝色漩涡 + `200`）**是居中的**，不是挤在左半 ——
+            //   若按 prefab 作者预览的**两格**排（各 162.5），它会被摆到卡的左沿（报告 §2 有那一行的核算）。
             var rw = UguiRect.Child(footer, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
-                                    new Vector2(-103.7f, 14.204f), new Vector2(109.25f, 47.433f));
+                                    new Vector2(0f, 52.108f), new Vector2(325f, 77.643f));
             // 🔴 **这一格画的是「骷髅卡这一份奖励」**（🆕 2026-10-05 **B4**）—— 与 `CollectSkulls` 发的**同源**。
             //    原来走的是按下标的公共表 ⇒ 这一卡画的是**封印点 ×20**（而 `CollectSkulls` 发 0 个骷髅）
             //    = 图标 / 数量 / 发放三者全对不上。
@@ -892,70 +999,51 @@ namespace CardPresentation
             //    ⇒ 下面这两个实参（骷髅图 / 200）**都是我们挑的**；判据全文见 `DailyData` 的「骷髅卡」那一段。
             // 🆕 **A1205 接上**（`R5` §2·J #59 · 骷髅卡那一档）—— 宿主 =
             //    `Daily Skulls Mission Container ▸ background ▸ footer ▸ Rewards` ⇒
-            //    原版 `Reward Display Mission ▸ count` = `10 / 40 / 36`（与登录卡同档）。
+            //    原版 `Reward Display Mission ▸ count` 的 TMP 实读（`MonoBehaviour_1175879379365507769.json`）：
+            //    `fs 40` · `base 36` · `m_enableAutoSizing = 1` · `auto[10 ~ 40]` · **`折行 = 0`**（与登录卡同档）。
+            // 🆕 **A1271（2026-10-10）第 11 个实参 `sideAlignT: 0.5f`** —— 格子里那条 HLG 实读
+            //    `m_ChildAlignment = **4 (MiddleCenter)**`（`spacing 6.0` · `pad 0` · `ctrlW/H 1` ·
+            //     `expandW 0 / expandH 1`）⇒ `GetAlignmentOnAxis(轴0) = ((int)4) % 3 × 0.5 = **0.5**`。
+            //    `sideIconW` = 图标宽 = `drawerHolder` 的 `LayoutElement.m_PreferredWidth = 55.0`
+            //    （屏上 63.25）；`sideGap` = 那条 HLG 的 `m_Spacing = 6.0`（⚠️ 与登录卡那两格**不同**：
+            //    那两格是 5.0 / 4.0 —— 铁律 5·c，别抄成一个）。
+            //    ⚠️ 残差（同 `BuildRewardCell` 里那段）：数字那一截的宽是 TMP 的 `preferredWidth`、
+            //    静态算不出来 ⇒ 我们把那一截当 0 宽记，整块因此比原版**偏右**约「数字宽 ÷ 2」
+            //    （实拍复核：原版图标左沿 ≈ 120 设计 px，我们 ≈ 132）。
             BuildRewardCell(parent, rw, DailyData.SkullsRewardArt(), DailyData.SkullsRewardCount().ToString(), "1",
-                            10f, 40f, 36f);
-            // `footer.counter`  N(3, …, -79.2,150.3, 167.6,59.925)
-            //   `counter` 自己也有布局组；`icons` 那条 HLG 的**两个格子**实测是
-            //   `Army`（60 宽，模板占位图 `40k_DeckSelection_icon_FactionBlackLegion`）+ `skull`（65 宽）⇒ 图标区共 **125 宽**。
-            // 🔴 **2026-10-03 查实并改对**（`项目任务.md` §三 第 29 条 **B1**）：
-            //   真机制 = `d:/2/tools/decomp_full/MissionCounterDisplay__Setup.c:51-63` ——
-            //   图 = `ArmyUtilities.GetArmyIcon(challenge.Army)`，**且 `army == Neutral(0)` 时
-            //   那个 `Army` 整格 `SetActive(false)`**（HLG 会跳过它 ⇒ skull 与计数文字**整体左移 60**）。
-            //   prefab 里那个 `40k_DeckSelection_icon_FactionBlackLegion` **只是模板占位**，不是真值。
-            //   ⚠️ **我们这份 daily 数据里没有阵营维度**（`Army` 由服务端下发、`grep anyArmy` 只命中静态成就）
-            //   ⇒ 按 **Neutral** 走 —— 也就是**不画那一格、也不给它留位**（此前是留了 60px 空槽，**是错的**）。
-            var cnt = UguiRect.Child(footer, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
-                                     new Vector2(-79.2f, 150.3f), new Vector2(167.6f, 59.925f));
-            const float armyW = 60f, skullW = 65f;
-            float iconL = cnt.x1;
-            string army = DailyData.SkullsArmy();                 // 我们的 mock 恒 null = Neutral
-            if (!string.IsNullOrEmpty(army))
-            {
-                // 有阵营才画那 60 宽（图走 `DeckRuntime.FactionIcon` —— 全工程唯一一份阵营徽记）
-                Draw(parent, DeckRuntime.FactionIcon(army),
-                     new PxRect(iconL, cnt.y1, iconL + armyW, cnt.y2), "Army", RewardsWindow.QContent,
-                     null, true);
-                iconL += armyW;
-            }
-            else
-            {
-                Debug.Log("[Missions] 每日骷髅任务的 `counter/Army` 那一格**不建**（原版 `army == Neutral(0)` 时 "
-                          + "`SetActive(false)`；我们这份 daily 没有阵营维度 ⇒ 走 Neutral 分支，**也不给它留 60px**）");
-            }
-            SkullIconLeftPx = R(new PxRect(iconL, cnt.y1, iconL, cnt.y2)).x1;   // 自检用（转成**画布 px**）
-            Draw(parent, "40K_missions_icon_Daily_skulls",
-                 new PxRect(iconL, cnt.y1, iconL + skullW, cnt.y2), "skull", RewardsWindow.QContent);
-            // ⚠️ 计数用 `Txt1`（**不换行**）：`icons` 占掉 125 宽后剩下的框只有 ~38 宽，
-            //    走 `TextBox` 会把 `x160` 折成 `x1`+`60` 两行（2026-09-23 渲染图就是这个）。
-            Txt1(parent, new PxRect(iconL + skullW + 5f, cnt.y1, cnt.x2, cnt.y2),
-                 DailyData.SkullsCounter(), Color.white, "counter text", 26.8f);
+                            10f, 40f, 36f, sideIconW: 55f, sideGap: 6f, sideAlignT: 0.5f);
 
-            // `footer.Generic UI Button`  N(3, …, 58,13.548, 187.467,80.492)  `40K_button` 色 (1,0.47,0.10,1)
-            // 🆕 **A75①**：这一颗也走 `OnCollect` ⇒ **领到就重建整页**（同一条链，见 `CollectThenRebuild`）。
+            // `footer.Generic UI Button`  N(a=(.5,.5) p=(.5,.5) pos=(**3.1692, −24.0231**) sd=(**255.9915 × 74.6201**))
+            //   `RectTransform_1077679669784720057.json`；那个 MB 实读 `m_Color = (1, 0.47396, 0.09906, 1)`
+            //   · `m_Sprite = 5651555388418207694`（= `40K_button`）· `m_PreserveAspect = 1`。
+            //   🆕 **A75①**：这一颗也走 `OnCollect` ⇒ **领到就重建整页**（同一条链，见 `CollectThenRebuild`）。
             var btn = UguiRect.Child(footer, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
-                                     new Vector2(58f, 13.548f), new Vector2(187.467f, 80.492f));
-            BuildButton(parent, btn, "40K_button", new Color(1f, 0.47f, 0.10f, 1f), "Collect", 34.05f, "Generic UI Button",
+                                     new Vector2(3.1692f, -24.0231f), new Vector2(255.9915f, 74.6201f));
+            //   └ `Button Text` 的 TMP 实读（`MonoBehaviour_-972942723976875335.json`）：`'Collect'` ·
+            //     `fs **44**` · `base 12` · `auto[12 ~ 44]` · `折行 0` · `H=Center`
+            //     （⚠️ 设计字号改前是 34.05 = **Small 那一份**的 `m_fontSize`；窗口 12/44 两处同值）。
+            BuildButton(parent, btn, "40K_button", new Color(1f, 0.47f, 0.10f, 1f), "Collect", 44f, "Generic UI Button",
                         () => CollectThenRebuild("骷髅卡", () => DailyData.CollectSkulls()), DailyData.CanCollectSkulls(),
                         // 🆕 **A336③**：第三格 = 原版 `Generic UI Button/Button Text` 的 `m_fontSizeBase` = **12.0**
                         //   （判据 = 全库 `'Collect'` 那族 `auto[12.0~44.0]` 的件逐颗实读都是 base 12.0 ——
                         //   登录卡/骷髅卡/每日行三处同值；`menu_dump.py` 不印这一列）。
                         12f, 44f, 12f);
 
-            // `footer.TimerHolder`  N(3, 0,0.5, 1,0.5, .5,0, 83.55,120.34, -167.1,59.926)  时钟 + 时间
+            // `footer.TimerHolder`  N(a=(**0,0.5**)-(**1,0.5**) p=(**.5,0**) pos=(**0, −118.5**) sd=(**0, 57.167**))
+            //   `RectTransform_-1896766040164224327.json` —— 与登录卡那颗**同一个五元组**。
+            //   🔴 **里面只有一颗 `Timer`（`a=(0,.5)-(1,.5)` ⇒ 吃满 holder），【没有】时钟图标** ——
+            //   Small 那份的 `footer/TimerHolder` 才带 `Image = WF_icon_clock`，而实拍上这一行
+            //   前面**确实没有小时钟**（`资料/原版参照图/用户实拍_1017/…参考图.png`）。
+            //   ⇒ 因此这里**不再走 `BuildClockRow`**（它会先画一颗 `WF_icon_clock`），改成与登录卡
+            //   `Timer` 同一条写法：一段 `Txt` 铺满 holder。
             var th = UguiRect.Child(footer, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f), new Vector2(0.5f, 0f),
-                                    new Vector2(83.55f, 120.34f), new Vector2(-167.1f, 59.926f));
-            // 🔴🔴 **2026-10-07（A77-㉓⑨）判据源混用（同登录卡那条，如实记账）**：
-            //   · **矩形 + 那一对自适应窗口实参 `15/38`** 取自**页内实例**与独立预制体 `Daily Skulls Mission
-            //     Container Small`（**两处来源一致 ✓**：那份 Small 的 `footer/TimerHolder/Timer` 就是 15/38）；
-            //   · **设计字号 `30.15`** 取自**独立 Small 预制体** —— 而**页内** `Missions Tab` 那一份的
-            //     同一个节点是另一套尺寸（正本 §3·4 的「页内实例尺寸不同」）。
-            //   ⇒ ⛔ 别把「字号」与「矩形/窗口」当成同一份判据；裁定见 `Editor/RewardsScene.cs` §A143 节末那段。
-            //   🆕 **2026-10-12（A336③）**：`m_fontSizeBase` = **36.0**（判据 = MB 里
-            //     `m_text='Resets in 12h 34 m'` · `fs=38.0` · `auto[15.0~38.0]` 那几颗 ——
-            //     `MonoBehaviour_-1074133513752366407/{…}-2080418738926235055/{…}-3515460974910655815.json`
-            //     **逐颗都是 36.0**；`menu_dump.py` 不印这一列）。
-            BuildClockRow(parent, th, 44.74f, DailyData.ResetIn(), 30.15f, 15f, 38f, 36f);
+                                    new Vector2(0f, -118.5f), new Vector2(0f, 57.167f));
+            //   那一颗 TMP 实读（`MonoBehaviour_-1074133513752366407.json`）：`'Resets in 12h 34 m'` ·
+            //     `fs **38**` · `base 36` · `auto[15 ~ 38]` · `折行 1` · `H=Center`
+            //     （⚠️ 设计字号改前是 30.15 = **Small 那一份**的 `m_fontSize`）。
+            var tm = Txt(parent, th, DailyData.ResetIn(), new Color(0.5686f, 0.5686f, 0.5882f, 1f), "Timer", 38f,
+                         autoMinPx: 15f, autoMaxPx: 38f, autoBasePx: 36f);
+            if (tm == null) Debug.LogWarning("[Rewards] 骷髅卡的 `Timer` 没建出来（红线：不许静默失败）");
         }
 
         /// <summary>`Weekly Mission`（1518.99×227.51）· **6** 个 70² 里程碑 + 进度条 + `Ends in`。
@@ -1539,10 +1627,14 @@ namespace CardPresentation
         ///   `sideIconW` = 图标框宽、`sideGap` = 图标与数字之间的 `m_Spacing`（**设计空间 px**，原值传）。
         ///   判据与残差全文写在函数体里那一段。</item>
         /// </list>
+        /// <para>🆕 **2026-10-10（A1271）多了第 11 个形参 `sideAlignT`**（缺省 `0`）—— 原版主轴上那个
+        /// `alignmentOnAxis`（`.5` = `MiddleCenter`、`0` = 左、`1` = 右）。骷髅卡那一格是
+        /// **`MiddleCenter`**（`m_ChildAlignment = 4`）⇒ 传 `0.5f`；⛔ 缺省 `0` ⇒ 既有调用点逐位不变。
+        /// 判据/残差全文同样在函数体里。</para>
         /// ⇒ ⛔ **别把两档合成一个**：把每日行改成横向（或反过来）都会「看着像对的」地画错一整列。</para></summary>
         void BuildRewardCell(Transform parent, PxRect r, string art, string countText, string key,
                              float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f,
-                             float sideIconW = 0f, float sideGap = 0f)
+                             float sideIconW = 0f, float sideGap = 0f, float sideAlignT = 0f)
         {
             PxRect dh, c;
             if (sideIconW > 0f)
@@ -1578,7 +1670,21 @@ namespace CardPresentation
                 //    （块宽 = 整格宽 ⇒ `GetStartOffset` 里那个对齐项恒为 0），差别只剩 `padL`，
                 //    而我们把块摆在格子左边（第 1 格那一档）。真正未复刻的那一项 = 原版把块按
                 //    `preferredWidth` 推到对齐边上的那一段位移，**已记进报告，别当成「已经一模一样」**。
-                dh = new PxRect(r.x1, r.y1, r.x1 + sideIconW, r.y2);
+                // 🔴 **2026-10-10（A1271）：上一条残差补了一半 —— `sideAlignT` 把「对齐项」显式建了出来。**
+                //    uGUI 主轴上那一项是 `pos = GetStartOffset(0, totalPreferred)`
+                //    = `padding.left + (innerSize − totalPreferred) × alignmentOnAxis`
+                //    （`GetAlignmentOnAxis`：轴 0 时 `((int)m_ChildAlignment) % 3 × 0.5f` ⇒ 左 0 / 中 0.5 / 右 1）。
+                //    `sideAlignT` 就是那个 `alignmentOnAxis`；原版三处：`Reward Display Mission`（左右两格）
+                //    是 **1 / 0**（`MiddleRight` / `MiddleLeft`）、**骷髅卡那一个 `MiddleCenter` = 0.5**
+                //    （MB 实读 `m_ChildAlignment = 4`）。⚠️ 被挪的不是整块宽（整块 = 图标 + 间距 + **数字自己的宽**），
+                //    而**数字那个词条的宽是 TMP 的 `preferredWidth`、静态算不出来**（同上面那条残差）
+                //    ⇒ 这里**只把 `(图标 + 间距)` 这一段按 `sideAlignT` 摆**，数字那一段的宽度**当 0 记**
+                //    （残差 +1：`sideAlignT = 0.5` 那一路，整块比原版**偏右**约「数字宽 ÷ 2」——
+                //    骷髅卡实测原版图标左沿 120 设计 px、我们 132，差 **12 设计 px ≈ 13.8 画布 px**，
+                //    可比对象 = 用户那张原版实拍 `奖励—布道所（每日任务）参考图.png` 左栏「每日骷髅头」卡）。
+                //    ⛔ **缺省 `0` ⇒ 既有调用点（每日行 / 登录卡两格）逐位不变**（`(W−块宽) × 0 = 0`）。
+                float off = (r.W - (sideIconW + sideGap)) * sideAlignT;
+                dh = new PxRect(r.x1 + off, r.y1, r.x1 + off + sideIconW, r.y2);
                 c = new PxRect(dh.x2 + sideGap, r.y1, r.x2, r.y2);
             }
             else
@@ -1605,8 +1711,16 @@ namespace CardPresentation
             Draw(parent, art, dh, "Reward " + key, RewardsWindow.QContent, null, true);
             // 🆕 **A1205**：三档（见上面 summary）都在 `Txt` 的 `autoMinPx`/`autoMaxPx`/`autoBasePx` 上，
             //    由**调用点**传；`折行 = 0` 是这三档**共同**的那一格 ⇒ 这里恒 `wrapOff: true`。
-            Txt(parent, c, countText, Color.white, "count " + key, 40f, autoMinPx, autoMaxPx, autoBasePx,
+            var cLb = Txt(parent, c, countText, Color.white, "count " + key, 40f, autoMinPx, autoMaxPx, autoBasePx,
                 wrapOff: true);
+            // 🔴 **2026-10-10（A1271）：显式左对齐** —— 原版三处宿主的 `count` 那颗 TMP
+            //    `m_HorizontalAlignment` **都是 `1 (Left)`**（实读：骷髅卡 MB `1175879379365507769` ·
+            //    每日行与登录卡同族同档）。而我们的 `Label` 是「**行盒锚在框心**」那一套
+            //    （`Label.Create(..., anchor = (0.5,0.5))`，`RefreshBounds` 把块摆到框心），
+            //    这里给 `count` 的框又是「图标右边 → 格子右边」那一整条 ⇒ **不显式左对齐，字会浮在那条
+            //    宽框的中间**（离图标约 `(框宽 − 字宽)/2`，静默：位置类断言此前一条都抓不到它）。
+            //    ⛔ 三处宿主**同一个偏差**，因此在这里统一按其原版档改（不是「只修骷髅卡」那一半）。
+            AlignL(cLb, c);
         }
 
         /// <summary>`40K_button` 底的按钮。🔴 实测这几处的 `Image` 都是 **`m_PreserveAspect = 1`**
@@ -1679,11 +1793,23 @@ namespace CardPresentation
             Txt(parent, t, label, Color.white, name + " Text", fontPx, autoMinPx, autoMaxPx, autoBasePx);
         }
 
-        /// <summary>「时钟 + 时间」一行（原版 `TimerHolder`：`WF_icon_clock` + 文本）。
+        /// <summary>🔴🔴 **本方法当前【零调用点】**（2026-10-10 · A1271 改判之后）—— **用之前先读这段**。
+        ///
+        /// <para>它画的是「**小时钟图标 + 文本**」那一版 `TimerHolder`，那是**独立预制体
+        /// `Daily Skulls Mission Container Small`** 的排法（`footer/TimerHolder/Image` = `WF_icon_clock`）。
+        /// 本页两张卡的原版实读**都没有那颗图标**：`TimerHolder` 里**只有一颗 `Timer`**
+        /// （登录卡 `…/footer/TimerHolder/Timer` 与骷髅卡 `MB -1074133513752366407` 都是 `a=(0,.5)-(1,.5)`、
+        /// 吃满 holder）—— 用户那张原版实拍上那一行前面**也确实没有小时钟**。
+        /// ⇒ 骷髅卡原来走的是本方法（**那时它还是 Small 那一份的模型**），A1271 起改成与登录卡同一条
+        /// 「一段 `Txt` 铺满 holder」的写法（见 `BuildSkullsCard` 末段）。
+        /// ⚠️ **保留而不删**：`clockPx` 那一档（`WF_icon_clock` 的显示尺寸）在本仓别处还没有第二份实现；
+        /// 但**新宿主必须先核它原版真的带 `WF_icon_clock`** —— 否则会凭空白画一颗图标（静默、且实拍上看得出来）。</para>
+        ///
+        /// <para>「时钟 + 时间」一行（原版 `TimerHolder`：`WF_icon_clock` + 文本）。
         /// 🔴 **A143（2026-10-06）**：`autoMinPx` / `autoMaxPx` = 原版那两个字段的**原值**
         /// （骷髅卡那颗实读 `m_fontSizeMin = 15` · `m_fontSizeMax = 38` —— **两处都对得上**：
         /// `Missions Tab` 页内实例 与 独立预制体 `Daily Skulls Mission Container Small` 都是 `15 / 38`）。
-        /// `m_fontSizeMax`(38) ≠ 设计字号(30.15) ⇒ 必须走 `Txt` 的 `autoMaxPx`（`TextBox` 的上界写死成 `fontPx`）。</summary>
+        /// `m_fontSizeMax`(38) ≠ 设计字号 ⇒ 必须走 `Txt` 的 `autoMaxPx`（`TextBox` 的上界写死成 `fontPx`）。</para></summary>
         void BuildClockRow(Transform parent, PxRect r, float clockPx, string text, float fontPx,
                            float autoMinPx, float autoMaxPx, float autoBasePx = 0f)
         {

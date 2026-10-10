@@ -40,6 +40,23 @@
 | **价签 · `Daily Reward Popup`** | `Daily Reward Popup/…/Premium Track/Price Display Button 2 Variant/Generic UI Button/Price Display/**text**`（同族） | **92.22 × 33.06** | 92.22 | **174.05**（`PremPrice.W` = 整格钮宽） | **+81.83（1.89×）** | `Shell/DailyRewardPopup.cs:411-412` · `PremPrice` = `:74` |
 | **价签 · 商店格（`ShopWindow` #19）** | `…/Catalog Item Shop Container/background/price-bg/Price Display Button/Generic UI Button/Price Display/**text**` | **92.22 × 33.06**（A[0,1-0,1]） | 92.22 | **176.22**（`CellPrice.W` = 整格钮宽） | **+84.00（1.91×）** | `Shell/ShopWindow.cs:780-781` · `CellPrice` = `:312` |
 | **价签 · 抽屉（`ItemDrawer.TextCentered`）** | `{六份} Drawer › Content/Converted Drawer/Price Display/**text**` | **108.97 × 93.55**（A[0,1-0,1]） | 108.97（⚠️ 带 CSF，**宽不跟文字**） | **`row.W` = 原版 `Price Display` 条宽 640.8** | **+531.83（5.88×）** | `Shell/ItemDrawer.cs:1021-1022` · 注释 `:1018-1019` 自己写着「原版没有固定框宽」 |
+
+> 🔴🔴 **2026-10-10（第十一会话 · `H1`）就地订正上表（铁律 5）—— 上面那 4 行价签【全判错了】**：
+> **`sd` 不是框** —— 那 4 颗身上都挂着 **`ContentSizeFitter`（`m_HorizontalFit = 2` / `PreferredSize`）**
+> ⇒ **原版那一格的宽【跟文字走】、结构上永不咬字**。**算穿的实据**：按 `Pragati-Regular SDF` 字形表
+> 逐字复算 `GetPreferredWidth()`（`margin = ∞` · `autosize = false` · `fontSize = m_fontSizeMax`）：
+> `'300,00' @ 40` = `(5×39.812 + 19.953) × 40/95` = **`92.217`** ↔ 原版序列化 **`92.22000122070312`**（差 **`0.004%`**）·
+> `'2000' @ 65` = `4×39.812 × 65/95` = **`108.96`** ↔ 原版 **`108.97`** ⇒ **那两个 `sd.x` 是 CSF 的产物、不是框**。
+> ✅ **三条独立旁证**（`Pragati` 行盒系数 `(70−(−20))/95 = 0.9474` ⇒ 字号 = 框高 ÷ `0.9474`）：
+> Booster `43.5594 → 45.98`（> `max 40` ⇒ 停 `40`）↔ 序列化 **`40.0`** ✅ ｜ Daily `31.7839 → 33.55` ↔ **`33.5`** ✅ ｜
+> Shop `33.0630 → 34.90` ↔ **`34.85`** ✅ ⇒ **真正咬字的是【高度】那一侧**。
+> **⇒ 结论翻案：那 4 站【不是偏离】**（我们传的 `232.17` 等**同样不咬字** ⇒ 两边都停在 `m_fontSizeMax`）。
+> 🔑 **本表的方法学要补一个轴**：「`anchorMin == anchorMax` ⇒ `sd` 就是框」**不够** ——
+> **还要查那颗 TMP 有没有 `CSF`/`ARF`/在不在布局组里**（有 ⇒ `sd` 不是框）。见 `A1285`。
+> ⚠️ **两处小错一并订正**：**② 行的高**记成 `33.06` —— **实读 `31.7839`**（`33.06` 是**商店那颗**的）·
+> **④ 行括号写「带 CSF，宽不跟文字」—— 方向反了**：`m_HorizontalFit = 2` **就是**「宽**跟**文字」。
+> ✅ **另**：4 站**父链 `lossyScale` 实测全是 `1`** ⇒ 本表**不吃** `RO_menu_dump尺子裁决` 里那条 `1/localScale` 偏差。
+> 📄 结论全文 → `H1_A1219五站框.md`（**5 站里只有 `DeckSelectionPopup` 那一站是真缺陷，已改 `260 → 213`**）。
 | **页签 · `DeckSelectionPopup`** | `Deck Selection Popup with Tabs/Alliance Header Buttons/Tab buttons/Generic Tab UI Button{,_1}/**Button Text**` | **213.00 × 0**（A[0.5,0-0.5,1] ⇒ **`sd.x` 就是框宽**） | **213.00 × 67.64** | **260**（`TabW` = 整颗页签宽） | **+47.00（1.22×）** | `Shell/DeckSelectionPopup.cs:572,583` · `TabW` = `:120` |
 
 **钮宽参照（`A1219` 那两句的原话逐条对上）**：`Price Display` 钮 = **232.17**（`Booster Info Popup` dump 行 35）·
