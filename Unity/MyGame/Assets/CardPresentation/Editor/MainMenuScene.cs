@@ -2845,10 +2845,17 @@ public static class MainMenuScene
                             //   `Ins2L/Ins2R`/`TabW`（那是被测实现 = 自证）：
                             //   · `Instructions 2` = **534.12**（`1236.12 → 1770.24`；`P4` §7·4 + 原版树
                             //     `资料/说明书/04_界面UI/菜单全树.md:16741` 的 `Instructions 2 [1236,125 534x85]`）；
-                            //   · 页签 = **260**（`Generic Tab UI Button` 那一格；同文件 `:16726`
+                            //   · 页签 = **213**（🔴 **2026-10-10（第十一会话 · `H1` 报、调度台落）就地订正（铁律 5）**：
+                            //     这里原来写 **260**（`Generic Tab UI Button` 那一格；同文件 `:16726`
                             //     `Generic Tab UI Button [66,70 260x68]`，`Button Text` 是它的子件）
+                            //     —— 🔴 **那是【父件】的宽，而 `Button Text` 是它的【子件】**
+                            //     （`A[0.5,0-0.5,1]`、`sd.x = 213`）⇒ **拿父件的宽当子件的框**。
+                            //     真值 **213**（`menu_dump.py` 现读 `Deck Selection Popup` 那棵树）。
+                            //     ⚠️ 旧值**不会红**（本条是**上界**守卫 `mw <= boxW+1.5`，字变小照样过）
+                            //     **但失去鉴别力**（回归到 `260` 也绿）⇒ 本次一并**收紧成 213**。
                             //     —— `Own`/`Pre` 两颗**同值**（那个容器是 `HorizontalLayoutGroup`
-                            //     `ctrlW=0/expandW=0` ⇒ 子件保持作者尺寸 260）。
+                            //     `ctrlW=0/expandW=0` ⇒ 子件保持作者尺寸）。
+                            //     ⚠️ **底板**仍是 `260`（原版父件就是 `260 × 67.6421`，`TabW` 没动）。
                             //   ⚠️ **如实说清判别力**：这条咬的是「框宽被传大」（`wrapPx` 越大、自适应放得越大
                             //   ⇒ 渲出来越宽）；`Instructions 2` 那颗**满上限 40px 也够不着 534.12**
                             //   （文案 'Select deck' 那一档 ≈ 250px）⇒ 它**咬不住**，是「钉住当前值」那一类；
@@ -2888,8 +2895,24 @@ public static class MainMenuScene
                                               + $" —— 实得 {mw:F0}px（本闸上界 100000px）");
                                 };
                                 a1126m(FindChild(ds2.transform, "Instructions 2"), "`Instructions 2`", 18f, 40f, 36f, 534.12f);
-                                a1126m(FindChild(ds2.transform, "Tab Text Own"), "`Tab Text Own`", 12f, 60f, 12f, 260f);
-                                a1126m(FindChild(ds2.transform, "Tab Text Pre"), "`Tab Text Pre`", 12f, 60f, 12f, 260f);
+                                a1126m(FindChild(ds2.transform, "Tab Text Own"), "`Tab Text Own`", 12f, 60f, 12f, 213f);
+                                a1126m(FindChild(ds2.transform, "Tab Text Pre"), "`Tab Text Pre`", 12f, 60f, 12f, 213f);
+                                // 🔴 **2026-10-10（第十一会话 · `H1` 报、调度台落）**：上面两条的框宽已从 `260` **收紧成 `213`**
+                                //   （原值不会红但**失去鉴别力**）。下面这条再补一句**框真的写进去了** ——
+                                //   读 TMP 的 `rectTransform.sizeDelta.x`，口径与上面 `:1226` 那条先例**逐字同形**
+                                //   （⛔ 不读 `Label.WorldW`：那是**字形行宽**，不是框）。
+                                //   **改坏法**：把 `Shell/DeckSelectionPopup.cs` 那处 `wrapPx` 改回 `r.W` ⇒ 本条红（213 → 260）。
+                                foreach (var tn in new[] { "Tab Text Own", "Tab Text Pre" })
+                                {
+                                    var tnT = FindChild(ds2.transform, tn);
+                                    var tnTmp = tnT != null ? tnT.GetComponentInChildren<TMPro.TextMeshPro>() : null;
+                                    CheckTrue(tnTmp != null, $"（前提）`{tn}` 是真 TMP（下面那条要读它的框）");
+                                    if (tnTmp == null) continue;
+                                    float bw = tnTmp.rectTransform.sizeDelta.x * 108f;
+                                    CheckNear(bw, 213f, 0.1f,
+                                              $"★ `{tn}` 的**框宽 = 原版 213**（`Generic Tab UI Button/Button Text` 的 `sd.x`；"
+                                            + $"实得 {bw:F2}px）｜改坏法：`Shell/DeckSelectionPopup.cs` 那处 `wrapPx` 改回 `r.W` ⇒ 本条红");
+                                }
                             }
                             // 🔴 **层序 —— 2026-10-11（A283）用户裁定「照原版」⇒ 已【反转】**：
                             //    **选卡组弹窗压在顶栏之上**（页面签条 y 35.07~107.25 与顶栏 y 0~100 重合，
