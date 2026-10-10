@@ -633,13 +633,45 @@ public static class NetBattleTest
                    $"★（对面掉线）**提示行**也说了（实得「{hb9.LastSay}」）");
 
                 // ---- ② 对面**回来了** ⇒ 提示行说一句（原版那一刻是 `CloseAllWindows`）----
-                Ok(PumpUntil2(hs9, cs9, hNB9, cNB9, () => hs9.State == NetState.InBattle, 25000),
-                   $"（对面回来）客机自动重连、两边回到对局（主机 {hs9.State} / 客机 {cs9.State}）");
+                // 🔴 **2026-10-10（F5）：这一格的等待条件原来只查【主机】一台** —— 而 `PumpUntil2`
+                //   的循环体是 `hs.Pump(); cs.Pump(); cond()`（本文件 `:1423`），主机那台在**同一次
+                //   `Pump` 里**就把 `Resume` 发出去并自己转 `InBattle`（`NetSession.cs:487-494`）⇒
+                //   **客机那一侧还没读到 `Resume` 帧，`cond()` 就已经为真**，循环当轮就退出。
+                //   ⇒ 之后第 ③ 步是在「客机仍 `WaitingReconnect`」这个**没验证过的状态**下关会话。
+                //   实证（5 跑 5 对，`资料/普查产出_第十一会话/F5_NetBattle夹具.md` §一）：
+                //     · 2026-10-10 全套跑（`netbattle.log:5303`）本行印「主机 InBattle / 客机 WaitingReconnect」
+                //       ⇒ 第 ③ 步三条 ★ 全红；
+                //     · 同日/前日 4 次净跑（`netbattle_rerun1/2` · `netbattle2_1020` · `netbattle2`）本行印
+                //       **「两边 InBattle」** ⇒ 第 ③ 步三条 ★ **全绿**。
+                //   ⇒ 这一格的**文案本来就写着「两边回到对局」**，判据必须两个都查。
+                //   ⛔ **别改回「只查主机」**：客机没追上时第 ③ 步那三条红是**假的**（`D1` 判的 (δ)）。
+                bool bothBack9 = PumpUntil2(hs9, cs9, hNB9, cNB9,
+                    () => hs9.State == NetState.InBattle && cs9.State == NetState.InBattle, 25000);
+                if (!bothBack9)
+                    Debug.LogWarning($"{P} ⚠️（对面回来）**等两边都回到对局·超时了**（主机 {hs9.State} / "
+                                   + $"客机 {cs9.State}）—— 客机那一侧的 `Resume` 还没被它自己的 `Pump()` 消化。"
+                                   + "⛔ **必须出声**：下面第 ③ 步会在**这个状态下**关会话，而它那三条 ★ 要的是"
+                                   + "「对面的 `bye` 到了主机」—— 客机没追上时它们**会假红**（2026-10-10 实测："
+                                   + "本行印「客机 WaitingReconnect」⇒ 第 ③ 步三条全红）。"
+                                   + "⇒ 先看这一条，再看第 ③ 步的红，别去修传输层。");
+                Ok(bothBack9,
+                   $"（对面回来）客机自动重连、**两边**回到对局（主机 {hs9.State} / 客机 {cs9.State}）"
+                 + " —— 🧨 改坏法：把条件退回「只查主机」⇒ 客机没追上时这一格照样绿，而第 ③ 步会假红"
+                 + "（`NetSession.cs:487-494`：主机转 `InBattle` 与发 `Resume` 是同一次 `Pump`）");
                 Ok(hb9.LastSay != null && hb9.LastSay.Contains("回来"),
                    $"★（对面回来）提示行改成「回来了」（实得「{hb9.LastSay}」）—— 与上面那条**不同源**："
                  + "上面验的是那一下说不说，这条验的是**恢复之后会不会改口**（不说的话玩家一直以为对面还没回来）");
 
                 // ---- ③ 对面**主动离开这一局**（`bye`）⇒ 也必须出声 ----
+                // 🔴 **2026-10-10（F5）核过：这里的 `pumpOne`（只推主机）是对的，⛔ 别改成推两台。**
+                //   ① **不需要**：上面的 ② 现在保证**客机也 `InBattle`**（= 它的 `Resume` 已被自己
+                //      `Pump()` 消化、收发两条都不再积压）⇒ 这一刻 `cs9.Close(true, …)` 把 `bye`
+                //      写出去之后，**客机这一侧没有任何事要做**（它在 `Close` 里已经 `Off`）。
+                //   ② **有反作用**：客机此刻 `State == Off`，而 `NetSession.Pump()` 里「掉线检测」
+                //      那道闸（`NetSession.cs:205`）**只挡 `Closed` / `WaitingReconnect`、不挡 `Off`**
+                //      ⇒ 它这一侧只要 `_t.PeerLost` 为真就会**再报一次** `OnPeerLost`
+                //      ⇒ 下面 `n9c.Length == 1` 那条就不是 1 了（那是**假的**红，跟本段要验的东西无关）。
+                //   ③ 主判据只跟**主机**有关：`bye` 到没到主机、主机弹了几条、主机提示行说了什么。
                 NetRuntime.DrainNoticesForTest();
                 hb9.LastSay = null;
                 cs9.Close(true, "对面离开了这一局");     // = 客机那一侧的 `BattleDriver.LeaveNetRoom()`
