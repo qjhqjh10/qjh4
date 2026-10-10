@@ -11923,14 +11923,34 @@ public static class BattleScene
                     if (hudProbeTmp != null)
                     {
                         float defSd = hudProbeTmp.rectTransform.sizeDelta.x;
+                        //  🔴 **2026-10-10（G0 · 铁律 5 就地订正）**：下面这 6 条原来还断「`min/max == 0`」——
+                        //    **那是个错的期望值**（实测恒 **18/72**，这 6 条一起红）。**它不是我们给的缺省**：
+                        //    TMP 自己的 `Awake`（`TextMeshPro.cs:549`）在**新建对象**那一刻调
+                        //    `LoadDefaultSettings()`（`TextMeshPro.cs:607`），后者按 `TMP_Text.cs:5966-6000` 写进去 ——
+                        //     `m_fontSize = m_fontSizeBase = TMP_Settings.defaultFontSize;`（`:5998`）
+                        //     · `m_fontSizeMin = m_fontSize × defaultTextAutoSizingMinRatio;`（`:5999`）
+                        //     · `m_fontSizeMax = m_fontSize × defaultTextAutoSizingMaxRatio;`（`:6000`）。
+                        //    三份值的实读 = `Assets/TextMesh Pro/Resources/TMP Settings.asset:29-31`
+                        //    （`m_defaultFontSize: 36` · `m_defaultAutoSizeMinRatio: 0.5` · `m_defaultAutoSizeMaxRatio: 2`）
+                        //    ⇒ **36 × 0.5 = 18 · 36 × 2 = 72**，与实况逐位吻合。
+                        //    🔴 而且这一对是**死值**（`m_enableAutoSizing` 是 false ⇒ TMP 一个字节都不采它）——
+                        //    本文件 `Label.AutoSizing` 的 doc 早就写着这一条（「没开自适应时它们只是死值」）。
+                        //    ⇒ ⛔ 断 `== 0` 恒红；断字面量 `18/72` 又是**拿 TMP 的内部常数当尺子**（换 TMP 版本就崩）。
+                        //    ✅ 改成**同路对照**（与上面 `defSd` 同一形态）：「这一对从没被 `SetAutoFitBox` 写过」
+                        //    是真命题，但它的判据 = 「与同一条建造路径下、同样没给框的那条 Label **逐位相等**」，
+                        //    不是某个绝对值 ⇒ 给框（`SetAutoFitBox` 会写 `cur × minPx/nomPx`）就必然不相等。
+                        float defMin = hudProbe.FontSizeMin, defMax = hudProbe.FontSizeMax;
                         //  ⑥ 一条**成本极低的保险**：`A1213①` 只动了 `BattleDriver.Hud` 的**形参**
                         //     （那些形参是**局部**的：别的路建 Label 根本走不到）⇒ 「不给框」那一态逐位不变。
-                        Check(!hudProbe.AutoSizing
-                              && hudProbe.FontSizeMin == 0f && hudProbe.FontSizeMax == 0f,
-                              $"★（⑥）`Hud` **之外**那条路（`Label.Create`）建出来的字**没有**自适应"
-                            + $"（`AutoSizing={hudProbe.AutoSizing}` · min/max = "
-                            + $"{hudProbe.FontSizeMin}/{hudProbe.FontSizeMax}）"
-                            + " —— `A1213①` 只动了 `Hud` 的形参，没碰共用件");
+                        //     ⚠️ 删掉 `min/max` 那一格之后本条**没有变松**：`!AutoSizing` 挡「共用件里偷偷调
+                        //     `SetAutoFitBox`」，`WrappingMode == 0` 再挡一层「共用件里调 `SetWrapWidth` /
+                        //     `SetAutoFitBox`」（`BuildTmp` 硬写 `NoWrap`，一给框就会被那条路改成 `Normal`）。
+                        Check(!hudProbe.AutoSizing && hudProbe.WrappingMode == 0,
+                              $"★（⑥）`Hud` **之外**那条路（`Label.Create`）建出来的字**没有**自适应、也没折行"
+                            + $"（`AutoSizing={hudProbe.AutoSizing}` · 折行档 {hudProbe.WrappingMode}）"
+                            + " —— `A1213①` 只动了 `Hud` 的形参，没碰共用件"
+                            + $"（诊断：`min/max` = {hudProbe.FontSizeMin}/{hudProbe.FontSizeMax}"
+                            + " = TMP 出厂的死值，⛔ 不作断言，见上注）");
                         foreach (var n in hudNoBox)
                         {
                             var t0 = drv.hudRoot != null ? drv.hudRoot.Find(n) : null;
@@ -11939,15 +11959,17 @@ public static class BattleScene
                             Check(lb0 != null && tm0 != null,
                                   $"（前提）`{n}` 在、且走 TMP 后端 —— 不成立时它下面那条等于没验");
                             if (lb0 == null || tm0 == null) continue;
-                            // 三条一起断：**没自适应**（四格没接）· **没折行**（`Hud` 建它时硬写的 `NoWrap`，
+                            // 四条一起断：**没自适应**（四格没接）· **没折行**（`Hud` 建它时硬写的 `NoWrap`，
                             // 一给框就会被 `SetAutoFitBox` 内部那句 `SetWrapWidth` 改成 `Normal`）·
-                            // **框宽还是建标签时的默认值**。
-                            Check(!lb0.AutoSizing && lb0.FontSizeMin == 0f && lb0.FontSizeMax == 0f
-                                  && lb0.WrappingMode == 0
-                                  && Mathf.Abs(tm0.rectTransform.sizeDelta.x - defSd) <= 1e-4f,
-                                  $"★ `{n}` **没有框**（`AutoSizing={lb0.AutoSizing}` · min/max = "
-                                + $"{lb0.FontSizeMin}/{lb0.FontSizeMax} · 折行档 {lb0.WrappingMode} · "
-                                + $"框宽 {tm0.rectTransform.sizeDelta.x:F4} = 新建一条 Label 的 {defSd:F4}）"
+                            // **框宽还是建标签时的默认值** · **`min/max` 逐位等于同路对照那一对**
+                            // （⇒ 那一对从没被 `SetAutoFitBox` 写过；⛔ 别改回 `== 0`、也别写死 `18/72`，见上面那条注）。
+                            Check(!lb0.AutoSizing && lb0.WrappingMode == 0
+                                  && Mathf.Abs(tm0.rectTransform.sizeDelta.x - defSd) <= 1e-4f
+                                  && Mathf.Abs(lb0.FontSizeMin - defMin) <= 1e-4f
+                                  && Mathf.Abs(lb0.FontSizeMax - defMax) <= 1e-4f,
+                                  $"★ `{n}` **没有框**（`AutoSizing={lb0.AutoSizing}` · 折行档 {lb0.WrappingMode} · "
+                                + $"框宽 {tm0.rectTransform.sizeDelta.x:F4} = 新建一条 Label 的 {defSd:F4} · "
+                                + $"min/max {lb0.FontSizeMin}/{lb0.FontSizeMax} = 同路对照的 {defMin}/{defMax}）"
                                 + " —— 原版没有此件 / 四格读不到 / 四格在「缩放假」里 ⇒ 补框 = 主动制造偏离");
                         }
                     }
@@ -11971,6 +11993,16 @@ public static class BattleScene
                         var relNoBox = HudBlockRel(posProbe, posProbeTmp);        // (a) **不给框**
                         posProbe.SetAutoFitBox(LayoutSpace.Px(187.40f), LayoutSpace.Px(36.84f), 2f, 35f, 36f);
                         var relBox = HudBlockRel(posProbe, posProbeTmp);           // (b) **给框**（称号那颗原版的框 + 四格）
+                        // 🔴 **2026-10-10（`G0` 报出这个薄口、调度台裁「要堵」）——【灭自证】那一半**：
+                        //    `SetAutoFitBox` **必须真的把自适应打开**。
+                        //    ⚠️ **不补它的后果**：若有人把 `Battle/Label.cs:909` 那句 `_tmp.enableAutoSizing = true;`
+                        //    整句删掉，「给框 / 不给框」两边**都不开自适应** ⇒ 本组 6 条（⑤×5 + ⑥）**一起假绿**
+                        //    （而上面 16 颗多数**仍绿**）⇒ 那一整族的判断力归零，而**没有任何一条会红**。
+                        //    ⇒ 这一条是**正向**那一半，与 ⑤/⑥ 的**反向**断言**互为对照组**（本仓「灭自证」的标准形状）。
+                        //    **改坏法**：删 `Battle/Label.cs:909` 的 `enableAutoSizing = true;` ⇒ 本行红。
+                        Check(posProbe.AutoSizing,
+                              "★★ `SetAutoFitBox` **真的打开了自适应**（`Label.AutoSizing == true`）—— "
+                            + "**灭自证**：它挡住「把 `Label` 的自适应开关整句删掉 ⇒ 上面给框/不给框两边一起绿」");
                         Check(relNoBox.magnitude < 1e-4f && relBox.magnitude < 1e-4f,
                               $"★ 同一颗 Label：**不给框**与**给框**两次都满足「文字块按 anchor 摆回节点原点」"
                             + $"（残差 {relNoBox.magnitude:E2} / {relBox.magnitude:E2} 世界单位）");
