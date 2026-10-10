@@ -4547,7 +4547,8 @@ public static class BattleScene
                       $"第 1 行「谁给的」= **施加者真卡名**（`SourceCard`，不是恒为「战术卡」的 `Src`）：{driver.CardDisplay.EffectWho(0)}");
                 Check(driver.CardDisplay.EffectWhat(0) == "+2 近战", $"第 1 行「给了什么」：{driver.CardDisplay.EffectWhat(0)}");
                 Check(driver.CardDisplay.EffectWhat(1) == "先锋",
-                      $"第 2 行是**关键词**（走 `CardText.KeywordZh`）：{driver.CardDisplay.EffectWhat(1)}");
+                      $"第 2 行是**关键词**（🔴 **2026-10-19（A1316②）起走 `CardText.KeywordDisplay`**"
+                    + $" = 跟语档的显示名，中文档 = 「先锋」）：{driver.CardDisplay.EffectWhat(1)}");
                 // 🆕 2026-10-18（第十五轮 · `G5`）：属性那一行现在走**原版词条**
                 //   （`Battle/Effect/ChangeMeleeAttackOneTurn`）。判据 → `Core/Loc.cs` 那一块：
                 //   消费链 = `CardEffectItem.LoadEffect` → `GameStaticData.GetEffectDesc`
@@ -4565,6 +4566,19 @@ public static class BattleScene
                           $"★ 英文档下那一行**跟着语言走**（实得「{driver.CardDisplay.EffectWhat(0)}」）");
                     Check(driver.CardDisplay.EffectWho(0) == "Blind Librarian",
                           "…而且「谁给的」那半行不受影响（卡名照旧）");
+                    // 🔴 **2026-10-19（A1316②）**：**关键词那一行**也要跟着语档走 —— 老实现走
+                    //   `CardText.KeywordZh`（**恒中文列**）⇒ 英文档下这一行印的还是中文。
+                    //   🧨 **灭自证**：两条一起断（期望串 + 「不是中文那一串」）⇒ 把取值口改回
+                    //   `KeywordZh` 时**两条同时红**（「文案与断言一起改回旧值」不可能同时满足）。
+                    {
+                        string kwEn = driver.CardDisplay.EffectWhat(1);
+                        Check(kwEn == "Vanguard",
+                              $"★ A1316②：英文档下**关键词那一行** = `Loc` 英文列「Vanguard」（实得「{kwEn}」）"
+                            + "｜🧨 改坏法：那一行写回 `CardText.KeywordZh`（恒中文口）⇒ 红");
+                        Check(kwEn != "先锋",
+                              "★ A1316②（**判别式**）：恒中文的 `KeywordZh` 在那一格给的是「先锋」"
+                            + " ⇒ 新口径下**必不等于**它（老实现写回来时这条当场红）");
+                    }
                     // ⚠️ **数值 0 那一档**：原版 `GetEffectDesc` 在同类字段全 0 时直接回**空串**，
                     //   我们**故意多说一个词**（印属性名、不印 `{0}`）—— 这条把它钉住，
                     //   免得 `{0}` 被原样印到界面上（那是最难看的静默失败）。
@@ -9626,11 +9640,20 @@ public static class BattleScene
                         //   0×0 的退化值，运行时才被覆盖 —— 见 A125② 报告二·3。）
                         // ⚠️ 战斗侧的**树和外壳侧不是同一条路**：三根挂在 `SettingsPanel` 下
                         //   （`WfSlider.Create(transform, "music"/"fx"/"voice", …)`，见 `Battle/SettingsPanel.cs`）
-                        //   ⇒ 按**层名** `slider_<SliderName>` → `slider_fill` 取节点。`WfSlider` 上**没有**
+                        //   ⇒ 按**层名** `slider_<SliderName>` → `slider_fill` 取节点。
+                        //   🔴 **2026-10-21 更正（`A1365` · 铁律 5）**：这一段原来写「`WfSlider` 上**没有**
                         //   `Fill` 的对外访问器（`HasArt` 只判「非空 + 有子节点」、拿不到几何；`TrackWorldH`
-                        //   只管 Background），而 `Battle/WfSlider.cs` **不在本件白名单** ⇒ **不改它**，用名字取
-                        //   （与 A125② 在外壳侧的做法一致）。改层名会让这条红 —— 那算**可接受的契约**
-                        //   （层名同样是实现的一部分），照实出声、不静默。
+                        //   只管 Background），而 `Battle/WfSlider.cs` **不在本件白名单** ⇒ **不改它**，
+                        //   用名字取（与 A125② 在外壳侧的做法一致）」—— **两个前提都已经不成立**：
+                        //   `A1359` / `A1351`② 起 `WfSlider` **有**对外读口了（`FillWorldW` /
+                        //   `FillWorldLeftX` / `FillCapWorldW`）。
+                        //   ⚠️ **但本条仍然按层名取节点**，理由换了：这里量的是 `Fill` 层的**并集高**
+                        //   （`ImageQuad.WorldH`），而新加的那三个读口**全是横向量**（宽 / 左沿 / 端帽宽）、
+                        //   一条都不报高 ⇒ 顶替不了这一条。⛔ 也别反过来把「对 `slider_fill` 子树取并集」
+                        //   当**宽度**用 —— `A1359` 起填条的缩放打在**三块子 quad** 上，子件的 `WorldW`
+                        //   是**建件时的整宽**、不含它自己的缩放（见 `WfSlider.FillSpanW` 的 doc），
+                        //   要宽就走 `FillWorldW`。
+                        //   改层名会让这条红 —— 那算**可接受的契约**（层名同样是实现的一部分），照实出声、不静默。
                         // 量法照 Background 那条：取该层九宫格子 quad 的**并集高**（`ImageQuad.WorldH`），
                         //   ⛔ 不是把参数念一遍；期望值写**字面量 `12f`**（原版解析高 = 0.12 × 容器高 100，
                         //   父链无缩放 ⇒ 屏幕上就是 12.00），⛔ 别引用 `WfSlider.TrackH`（那样常量错了也不红）。
@@ -9691,9 +9714,13 @@ public static class BattleScene
                     //     （A169 补的）、而不是轨道那一段；值 ≈ 0.5 时手柄中心落在轨道**里** ⇒ 有没有手柄那一块
                     //     都成立（**恒真**）。⇒ 换了机器 / 玩家改过音量，这条就什么都验不出来。
                     //   · ⇒ **显式把值定到 1 再测**（`fire: false` —— 自检不许改总线/存档），并补一条**负例**
-                    //     （手柄右缘之外 1 画布 px ⇒ 必须打不中）——「打得中 / 打不中」两态都分辨得出来。
-                    //     ⚠️ 负例的探针按**量出来的**手柄宽算（`ImageQuad.WorldW`），⛔ 不写死 22.406：
-                    //     手柄边长将来若按原版改成「框被轨道撑开后的高」（34.4 / 35.4），这条仍成立。
+                    //     （手柄命中框之外 ⇒ 必须打不中）——「打得中 / 打不中」两态都分辨得出来。
+                    //     ⚠️ **2026-10-19（A1301①）就地更正**：负例的探针**不再按画出来的手柄宽算** ——
+                    //     原版那颗手柄的命中框是 `m_SizeDelta`(46.811) × 运行期框高(34.406) 按
+                    //     `m_RaycastPadding(−25,−25,−25,−25)` **外扩**出来的 **96.811 × 84.406**
+                    //     （判据见下面那几条的注释与 `Battle/WfSlider.cs` 的 `HandlePadPx`）
+                    //     ⇒ 「画出来的右缘外 1 px」现在**是命中的**（那正是外扩出来的那一圈），
+                    //     负例必须挪到**框外**去（否则它就变成一条假红）。
                     s0.SetValue(1f, false);
                     Check(s0.Contains(s0.HandleWorldPos),
                           "★ 值 = 1 时指针落在音乐滑块的**手柄**上 → 命中判定打得中"
@@ -9701,16 +9728,68 @@ public static class BattleScene
                     {
                         // 1 画布 px 的世界向量：**轨道的世界宽 ÷ 原版轨道宽 561.08**（自校准，别 `*108f` 硬折）
                         Vector3 perPx = (s0.RightWorld - s0.LeftWorld) / 561.08f;
+                        Vector3 upPx = Vector3.up * perPx.magnitude;   // 1 画布 px 的纵向长度（同一套换算）
                         // 手柄自己那一层（⛔ `transform.Find` 只找直接子件 ⇒ 名字写全 `slider_<名>/slider_handle`）
                         var hNode = sp.transform.Find("slider_" + s0.SliderName + "/slider_handle");
                         var hQuad = hNode != null ? hNode.GetComponent<ImageQuad>() : null;
                         Check(hQuad != null,
-                              "（前提）音乐滑块的手柄那一层找得到（`slider_handle`）—— 找不到 = 下面那条负例等于没验");
+                              "（前提）音乐滑块的手柄那一层找得到（`slider_handle`）—— 找不到 = 下面几条等于没验");
+                        // 🔴 **2026-10-19（A1301①）**：原版那颗手柄的**命中框**半宽/半高（**画布 px**，字面量当场算）
+                        //   = `m_SizeDelta` 宽 **46.811** / **运行期**框高 = 滑区高 **12** + **22.406** = **34.406**
+                        //     （`Slider.UpdateVisuals` 把**非轴那一维**的锚写成 `0/1`、`OnEnable` 就调它 ⇒
+                        //      面板一激活框高就被撑开；运行期 dump 里那个 `(46.8, 22.4)` 是面板**未激活**时的
+                        //      序列化值，⛔ 别拿它当运行期框高）
+                        //     ⇒ 四边按 `m_RaycastPadding(−25,−25,−25,−25)` **外扩** ⇒ **96.811 × 84.406**
+                        //    ⛔ 期望值**不读** `WfSlider.HandleHitPx`（那是被测实现自己算出来的 —— 那是自证）；
+                        //      那个只读口只喂下面那条「原版常数没被悄悄改」的探测器。
+                        const float hwPx = (46.811f + 2f * 25f) * 0.5f;           // 48.4055
+                        const float hhPx = (12f + 22.406f + 2f * 25f) * 0.5f;     // 42.203
+                        Vector3 hc = s0.HandleWorldPos;
+                        // (a) 框内必中：中心 + 命中框四边各【内】1 px（中心那一点上面已单独断过）
+                        // 🔴 **2026-10-11 就地订正（铁律 5）：下面 4 个探针原来写的是 `perPx.normalized * N` —— 那是【量纲错】**。
+                        //   `perPx` 是「**1 画布 px 对应的世界向量**」（长度 = 1 px 的世界长）⇒ `perPx * N` 才是「N 画布 px」；
+                        //   而 `perPx.normalized` 把长度归一成 **1 个世界单位**，乘 N 得的是 **N 个世界单位 = 108 N 画布 px**
+                        //   ⇒ 横向那两个探针实际被推到 **≈ 5120 px 之外**、永不可能命中（纵向那条用的是
+                        //   `upPx = Vector3.up * perPx.magnitude`，**保留了 px 尺度**、所以一直是对的）。
+                        //   🔑 **发现它的经过**：`WfSlider` 那处 `ppu` 符号错修好之前，`Contains` 对任何点都返 true
+                        //   ⇒ 这条**一直在空转绿**；修好之后它才第一次真被验，当场红。⇒ **横向两条腿是空转的**。
+                        //   ⚠️ 同族的「框外 1 px 必不中」那条**横向半也一直是空转绿**（同理）；纵向半是真的。
+                        Check(s0.Contains(hc + perPx * (hwPx - 1f))
+                           && s0.Contains(hc - perPx * (hwPx - 1f))
+                           && s0.Contains(hc + upPx * (hhPx - 1f))
+                           && s0.Contains(hc - upPx * (hhPx - 1f)),
+                              $"★ A1301①：手柄 `m_RaycastPadding` 外扩出来的**那一圈**都算命中"
+                            + $"（框 {(hwPx * 2f):F3}×{(hhPx * 2f):F3} px，四边各内 1 px 都中）");
+                        // (b) 有界（灭自证）：框**外** 1 px 必不中 ⇒ 挡「恒 true / 命中区取成整屏」
+                        Check(!s0.Contains(hc + perPx * (hwPx + 1f))
+                           && !s0.Contains(hc + upPx * (hhPx + 1f)),
+                              "★ A1301①（**灭自证**）：手柄命中框**右缘 / 上缘之外 1 px** ⇒ 打不中"
+                            + "（命中框是**有界**的 —— 与上一条配对）");
+                        // (c) 🔴 **判别式（灭自证）**：**画出来的**手柄右缘外 1 px ⇒ **必中**。
+                        //     老口径（`_handle.Contains`，量的是画出来那个 34.406 的正方）在那一点**必不中**
+                        //     ⇒ 谁把口径改回「量实绘」，(c) 当场红。⚠️ 值 = 1 时手柄中心在轨道右端外 2 px，
+                        //     所以这一点也**在轨道之外** ⇒ 它只可能由手柄那一块认下来。
                         Check(hQuad != null
-                              && !s0.Contains(s0.HandleWorldPos
-                                              + perPx.normalized * (hQuad.WorldW * 0.5f + perPx.magnitude)),
-                              "★ 手柄右缘**之外 1 画布 px** ⇒ 打不中（负例 —— 上面那条「打得中」不是恒真；"
-                            + "世界距离按手柄自己量出来的半宽 + 1 画布 px 算）");
+                           && s0.Contains(hc + perPx.normalized * (hQuad.WorldW * 0.5f + perPx.magnitude)),
+                              "★ A1301①（**判别式**）：**画出来的**手柄右缘外 1 画布 px ⇒ **必中**"
+                            + "（原版命中框宽 46.811 > 画出来那个正方 ⇒ 「量实绘」的老口径在这点必不中）");
+                        // (d) 🔴 **判别式（灭自证）**：轨道中段、离手柄很远的地方**上下各 10 画布 px** ⇒ 打不中。
+                        //     判据 = 原版 `Background` / `Fill` 的框高只有 **12**（半高 6）、`m_RaycastPadding` 都是 **0**
+                        //     ⇒ 那一点原版**没有可射线件**。老口径的 `HitBand`（单矩形）会把整条轨道宽都取
+                        //     `max(半轨道 6, 半手柄 17.203)` ⇒ 那一点**必中**。谁改回单矩形近似，(d) 红。
+                        // 🔴 **2026-10-11 就地订正（铁律 5）：本行原来也写 `perPx.normalized * 120f` —— 同一个量纲错**
+                        //   （那是 **120 个世界单位 ≈ 12960 px** ⇒ `mid` 被推到轨道之外九霄云外，
+                        //   下面那条「轨道中段上下各 10 px 打不中」**一直是空转绿**）。
+                        //   ⇒ 改成 `perPx * 120f`（= 沿轨道 **120 画布 px**，离手柄很远、但仍在轨道上）。
+                        Vector3 mid = s0.WorldPos + perPx * 120f;
+                        Check(!s0.Contains(mid + upPx * 10f) && !s0.Contains(mid - upPx * 10f),
+                              "★ A1301①（**判别式**）：轨道中段上下各 10 画布 px ⇒ **打不中**"
+                            + "（原版轨道框高 12、`m_RaycastPadding = 0`；单矩形近似会把这一带多认进去）");
+                        // (e) 原版常数没被悄悄改（**只读口**；期望值同样写在断言里）
+                        var hitPx = WfSlider.HandleHitPx(12f + 22.406f);
+                        Check(Mathf.Abs(hitPx.x - 96.811f) < 0.01f && Mathf.Abs(hitPx.y - 84.406f) < 0.01f,
+                              $"★ A1301①：`WfSlider.HandleHitPx` = {hitPx.x:F3}×{hitPx.y:F3} px"
+                            + "（原版 96.811×84.406 = 46.811×34.406 四边各外扩 25）");
                     }
                     bool cap = sp.PointerFrame(s0.HandleWorldPos, true);
                     Check(cap, "★ 滑块**接住了**这一下（驱动层就不会再把它当点击转给按钮）");
@@ -11527,6 +11606,12 @@ public static class BattleScene
         // 我们这条：`CardText.KeywordSegment` 套 `<link=规范键>` → `CardView.LinkAt`
         //   → `TmpFont.LinkAt` → 文案 `TipText.Trait`（表由 `工具/gen_trait_tips.py` 从规则书生成）。
         Debug.Log(P + "--- 关键词 tooltip（trait）---");
+        // 🔴 **2026-10-11（第十二会话 `V5` 双语族）**：这一段**必须先摆回中文档** ——
+        //   本批把关键词 tooltip 的**标题**接进了 `Loc`（`CardText.KeywordDisplay` 现在**跟语档走**）
+        //   ⇒ 语档一旦不是中文，下面那条 `ab.Contains("技能")` 会**假红**（不是缺陷）。
+        //   ⚠️ 摆回来后**必须放回**（本文件别处同形，见 `:6354-6355` 那对 `langBefore`）。
+        var langBefore15c = Loc.Current;
+        Loc.RestoreForTest(AvailableLanguages.Chinese);
         {
             // ① 文案表本身：**从规则书 61 条生成的**，不是手抄进 C# 的
             Check(TipText.TraitCount == 61,
@@ -11650,6 +11735,8 @@ public static class BattleScene
                     Tooltip.Hide(); Tooltip.FinishFade();
                 }
             }
+            // 🔴 2026-10-11（`V5` 双语族）：把语档放回去（本段开头摆成了中文档）
+            Loc.RestoreForTest(langBefore15c);
         }
 
         // ---- 16. 「原版有、我们原来缺」的 HUD 件（2026-09-13 补摆）----
@@ -12589,6 +12676,54 @@ public static class BattleScene
                    && Mathf.Abs(mp.BarWorldH * 108f - 63.84f) < 1.5f,
                       $"★ 换牌底条渲染 = 原版 **577.5×63.84**（PA=0 拉满）—— 实测 "
                     + $"{mp.BarWorldW * 108f:F1}×{mp.BarWorldH * 108f:F1}");
+                // 🔴 **2026-10-19（A1301③）**：「完成换牌」那颗钮的**命中框**
+                //   = `Mulligan/ButtonsGroup/MulliganContinueButton/Button` 自己的 `rect` **577.5 × 63.84**
+                //     按 `m_RaycastPadding (0,−40,0,−40)` 外扩 ⇒ **577.5 × 143.84**（中心不变 = (1611.45, 980.25)）。
+                //   出处：`MB_5292`（pad，`m_RaycastTarget=1`）+ `RT_2659`（`m_SizeDelta` 577.5×63.84）+
+                //   `工具/menu_dump.py bundle_scenes_scenes_battlearena1 "Mulligan"`（那颗钮与它两颗子件的绝对矩形）。
+                //   期望值**字面量当场算** —— ⛔ 不读 `MulliganPanel.DoneHitPx`（那是被测实现自己算的，自证）；
+                //   那个只读口只喂最后那条探测器。
+                {
+                    // 1 设计 px 的世界向量 —— 用**建件那一份映射**（`LayoutSpace.FromPixel` = `MulliganPanel.At`
+                    // 的同一个式子）当场差出来：⛔ 不写死 108、也不假设 16:9（`HitDone` 那一侧的反推是
+                    // `ToDesignPixel`，与 `FromPixel` **互逆** —— 非 16:9 下那一对该走 VisibleWidth）。
+                    Vector3 perPxX = LayoutSpace.FromPixel(1612.45f, 980.25f) - LayoutSpace.FromPixel(1611.45f, 980.25f);
+                    Vector3 perPxY = LayoutSpace.FromPixel(1611.45f, 979.25f) - LayoutSpace.FromPixel(1611.45f, 980.25f);
+                    Vector3 bc = mp.BarWorldPos;              // 那颗钮的**框中心**（⛔ 不是 `DoneWorldPos` = 文字中心）
+                    // (a) 框内必中（四边各【内】1 px；中心那一点也算）
+                    bool inM  = mp.HitDone(bc)
+                             && mp.HitDone(bc + perPxY * (143.84f * 0.5f - 1f))
+                             && mp.HitDone(bc - perPxY * (143.84f * 0.5f - 1f))
+                             && mp.HitDone(bc + perPxX * (577.5f * 0.5f - 1f));
+                    // (b) 框外 1 px 必不中（有界 —— 灭自证）
+                    bool outM = !mp.HitDone(bc + perPxY * (143.84f * 0.5f + 1f))
+                             && !mp.HitDone(bc - perPxY * (143.84f * 0.5f + 1f))
+                             && !mp.HitDone(bc + perPxX * (577.5f * 0.5f + 1f));
+                    // (c) 🔴 **判别式（灭自证）· 多认的那半**：旧实现那个「以文字中心为心、半径 184.45 px 的圆」
+                    //     在**框下方** 119 px 处**必中**（到圆心 119 px < 184.45）；原版框到 1052.17 就结束
+                    //     ⇒ 新口径在那一点**必不中**。
+                    Vector3 oldCircle = bc - perPxX * 86.4f - perPxY * 119.75f;
+                    // (d) 🔴 **判别式（灭自证）· 漏认的那半**：旧实现**完全没过**上下那 40 px ——
+                    //     框的右上角内侧（x 距中心 278.75 px、y 距中心 61.92 px）在旧口径下
+                    //     （底条 63.84 ∪ 圆）**必不中**（离圆心 370 px），新口径**必中**。
+                    Vector3 corner = bc + perPxX * 278.75f + perPxY * 61.92f;
+                    Debug.Log(P + $"   [A1301③] 换牌「完成」命中框：原版 577.5×143.84 px"
+                                + $"（框内中={inM} · 框外不中={outM}）");
+                    Check(inM, "★ A1301③：「完成换牌」命中框（原版 577.5×143.84）**四边各内 1 px 都中**"
+                             + "｜🧨 改坏法：`HitDone` 写回 `_bar.Contains`（只有 63.84 高、不过那 40）⇒ 上下两点红");
+                    Check(outM, "★ A1301③（**灭自证**）：框**外** 1 px 必不中（有界 —— 与上一条配对）");
+                    Check(!mp.HitDone(oldCircle),
+                          "★ A1301③（**判别式**）：旧实现那个「文字中心 ±184.45 px 的圆」在**框下 119 px** 处"
+                        + "**必中** ⇒ 新口径在这一点**必不中**（那一圈原版没有可射线件）"
+                        + "｜🧨 改坏法：`HitDone` 写回那个圆 ⇒ 红");
+                    Check(mp.HitDone(corner),
+                          "★ A1301③（**判别式**）：框的**右上角内侧**必中 —— 旧口径（底条 ∪ 圆）在那一点必不中"
+                        + "（原来上下那 40 px 一点都没过）");
+                    var dhp = MulliganPanel.DoneHitPx;
+                    Check(Mathf.Abs(dhp.x - 577.5f) < 0.01f && Mathf.Abs(dhp.y - 143.84f) < 0.01f,
+                          $"★ A1301③：`MulliganPanel.DoneHitPx` = {dhp.x:F2}×{dhp.y:F2} px"
+                        + "（原版 577.5×143.84 = 577.5×63.84 上下各外扩 40）");
+                }
                 Debug.Log(P + "   " + mp.Describe());
                 Shot(cam, "24_开局换牌");
 
@@ -13294,6 +13429,11 @@ public static class BattleScene
             box(a218Wait.transform.Find("wait_popup/wait_fillRoot"), "等待提示填充层根", 1323f, 90f,
                 "原版 `Mask`（stretch ⇒ 矩形 = 父件 `Generic Popup Background` 的 1323×90）");
             // ④ 滑块根：战斗那三根原版实读 **561.08 × 12.00**（见 `WfSlider` 文件头那段）
+            // ⚠️ **2026-10-21（`A1365`）一条用法的告诫**：这颗探针按 `value: 0.5f` 建 ⇒ `A1359` 之后
+            //   它的填条**真的只画半宽**（两端端帽仍 15px —— 填条已改成原版的「改锚点」）。
+            //   🔴 它下面那条 `box(...)` 只量滑块**根**的 rect（561.08 × 12），**不会因此红** ——
+            //   ⛔ 但**别拿它当「填条没变」的证据**（要量填条走 `WfSlider.FillWorldW` / `FillCapWorldW`，
+            //   判据见 `Editor/SettingsScene.cs` 那三条 A169；本文件这一侧还没补上）。
             WfSlider.Create(a218root.transform, "A218Probe", Vector3.zero, 0.5f, null,
                             queue: 3000, handlePx: 34.406f, handleOffset: WfSlider.HandleOffsetPx, capScale: 1f);
             box(a218root.transform.Find("slider_A218Probe"), "音量滑块根", 561.08f, 12f,
@@ -13635,6 +13775,42 @@ public static class BattleScene
                 finally { Application.logMessageReceived -= h410; }
                 Check(same, "★★ **回放演完，指纹与录制时【相等】⇒ 演的是同一局**"
                           + "（这是「录全了没有」唯一的尺子 —— 不等就说明有动作没录到）");
+                // 🆕 **2026-10-11（A985⑬ / A1295）**：录像的**头 / 尾**两条【只落盘】结果记录。
+                //   ⛔ 它们不进 `MsgAction`、**不上网**（那个结构同时是**网络上**那个结构
+                //      ⇒ 往里加字段 = 把理由码送上网，与原版相反）。
+                //   🔑 **这几条为什么不自证**：
+                //     (a) 「头」比的是**设计常量**（开局那一刻还没有结果 ⇒ `Undefined`、`seat` 不写）；
+                //     (b) **判别式（灭自证）**：把「尾」那格**抹掉**后读口必须**退回 `Undefined`**
+                //         ⇒ 证明它读的确实是那两条记录本身，而不是从别处推出来的；
+                //     (c) 与**引擎事件表**独立对账 —— 两个数据源（一个在磁盘录像里、一个在 `ctx.Events` 里），
+                //         两边过**同一个解析器**（共用一份 = 铁律「两处写同一条规则迟早不一致」的反面）。
+                Check(ReplayStore.HasResultHead(playRec) && ReplayStore.HasResultTail(playRec),
+                      $"★ A985⑬：录像的**头 / 尾**两条只落盘记录都在"
+                    + $"（head={ReplayStore.HasResultHead(playRec)} · tail={ReplayStore.HasResultTail(playRec)}）");
+                Check(ReplayStore.ReadResultHead(playRec) == BattleResult.Undefined,
+                      $"★ ……「头」是设计上的 `Undefined`（实得 `{ReplayStore.ReadResultHead(playRec)}`）"
+                    + " —— 开局那一刻还没有结果");
+                // 🧨 **改坏法**：把 `RecFinish` 里那两条 `WriteResult*` 删掉 ⇒ 上面两条同时红；
+                //   把 `ReadResultCode` 改成「不看那两格、恒返回 `Undefined`」⇒ 下面那条判别式红。
+                var stripTail = ReplayStore.Load(playable);
+                if (stripTail != null) stripTail.resultTail = "";
+                Check(stripTail != null && ReplayStore.ReadResultCode(stripTail) == BattleResult.Undefined,
+                      "★ ……**抹掉「尾」之后读口退回 `Undefined`**（证明它读的是那两条记录本身）");
+                // (c) 与引擎事件表对账 —— ⚠️ **如实分两档**：**有**那条 `[BattleResult]` 行才硬断；
+                //    **没有**（例如这一局的结束不走记码那条路）就**出声说没验**，⛔ 不假装验过。
+                string evResultLine = driver.Ctx != null
+                    ? driver.Ctx.Events.Find(sv => sv != null && sv.Contains("[BattleResult]")) : null;
+                if (evResultLine == null)
+                    Debug.Log(P + "   ⚠️ 这一局的 `ctx.Events` 里没有 `[BattleResult]` 行 ⇒ 「尾那格与事件表对账」"
+                              + $"这一档**没验**（尾实得 `{ReplayStore.ReadResultTail(playRec)}`）—— 如实记，A985⑬");
+                else
+                {
+                    Check(ReplayStore.TryParseResultLine(evResultLine, out var evCode, out var evSeat),
+                          $"★ ……事件表里那条 `[BattleResult]` 行解析得出来（`{Short(evResultLine, 60)}`）");
+                    Check(ReplayStore.ReadResultTail(playRec) == evCode,
+                          $"★ ……**录像文件里的码 == 引擎事件表里的码**（文件 `{ReplayStore.ReadResultTail(playRec)}`"
+                        + $" vs 事件 `{evCode}`，座位 {evSeat}）—— 两个数据源各读一遍");
+                }
                 // 🆕 **2026-10-13（A410）**：两句一起才咬得住「**照实情说**」——
                 //   ① 不许再自称「联机开局」（判据 = 原版 `MatchType.Replay = 160` 是**独立的一档**，同 A387）；
                 //   ② 也不许干脆不出声（红线：不许静默失败）⇒ 它得说清自己是「回放开局」。
@@ -17336,18 +17512,23 @@ public static class BattleScene
                             var sl964 = sp964.SliderAt(si964);
                             if (sl964 == null || !sl964.Visible) continue;
                             slidN964++;
-                            // 轨道中心 / 手柄中心 / 左右两沿 —— 四点在 `WfSlider.HitBand`（轨道 ∪ 手柄）里都必须算命中。
+                            // 轨道中心 / 手柄中心 / 左右两沿 —— 四点**都必须算命中**。
                             // 🔴 手柄在**右端会探出轨道**（原版那两颗 Image 的 `m_RaycastTarget` 都是 1）
-                            //    ⇒ 那不是缺陷、是**照原版**做的（判据写在 `WfSlider.HitBand` 上面那段）。
+                            //    ⇒ 那不是缺陷、是**照原版**做的（判据写在 `WfSlider.Contains` 上面那段）。
+                            // ⚠️ **2026-10-19（A1301①）**：本件的 `Contains` 已**不再走 `HitBand`**
+                            //    （那是**单矩形近似**：整条轨道宽都取 `max(半轨道, 半手柄)`）——
+                            //    现在 = 「轨道那块 ∪ 手柄按 `m_RaycastPadding(−25,−25,−25,−25)` 外扩后的框」
+                            //    的**真并集**。这四点在新口径下照样全中（逐点算过）。老口径 + 那 −25 的
+                            //    判别式 → 上面「17. 设置面板…」那节的 A1301① 五条。
                             if (!sl964.Contains(sl964.WorldPos) || !sl964.Contains(sl964.HandleWorldPos)
                              || !sl964.Contains(sl964.LeftWorld) || !sl964.Contains(sl964.RightWorld))
                                 slidBad964++;
                         }
-                        hits964.Add($"E2\t音量滑块 ×{slidN964}\tWfSlider.Contains（HitBand）\t轨道/手柄/两沿\t{(slidBad964 == 0 ? "全中" : slidBad964 + " 条不中")}\t手柄探出轨道是【原版行为】");
+                        hits964.Add($"E2\t音量滑块 ×{slidN964}\tWfSlider.Contains（轨道 ∪ 手柄外扩框）\t轨道/手柄/两沿\t{(slidBad964 == 0 ? "全中" : slidBad964 + " 条不中")}\t手柄探出轨道是【原版行为】");
                         Check(slidN964 > 0 && slidBad964 == 0,
                               $"★ A964/E2：三根音量滑块（实建 {slidN964} 根）—— **轨道中心 / 手柄中心 / 左右两沿都算命中**"
-                            + "（判据只此一份 = `WfSlider.HitBand`「轨道 ∪ 手柄」；⛔ 不许在任一侧另写一份）"
-                            + "｜🧨 改坏法：把 `HitBand` 的手柄那一半去掉（只按轨道判）⇒ 值接近 1 时手柄上那一点判不中 ⇒ 红");
+                            + "（判据只此一份 = `WfSlider.Contains`；⛔ 不许在任一侧另写一份）"
+                            + "｜🧨 改坏法：把 `Contains` 的手柄那一半去掉（只按轨道判）⇒ 值接近 1 时手柄上那一点判不中 ⇒ 红");
                         sp964.Hide();
                     }
                 }
@@ -17596,6 +17777,20 @@ public static class BattleScene
                                         && sp964e.HitClose(sc964 + new Vector3(0f, 0.45f * sd964.y * 0.5f / PxPerUnit964, 0f));
                             bool outC964 = !sp964e.HitClose(sc964 + new Vector3(3f * sd964.x * 0.5f / PxPerUnit964, 0f, 0f))
                                         && !sp964e.HitClose(sc964 + new Vector3(0f, 3f * sd964.y * 0.5f / PxPerUnit964, 0f));
+                            // 🔴 **2026-10-19（A1301②）**：叉图那颗粒子的 `m_RaycastPadding` = **(−20,−20,−20,−20)**
+                            //   ⇒ 命中框 = 原版 `rect` **56.37 × 54.50** 四边各外扩 20 = **96.37 × 94.50**
+                            //   （出处：`RT_3460` 的 stretch 锚 × 父件 75×75 ＋ `m_SizeDelta (0.364, 0.008)`；
+                            //    `MB_5056` 的 pad 与 `m_RaycastTarget=1`）。期望值**字面量当场算**，
+                            //    ⛔ 不读 `SettingsPanel.CloseHitPx`（那是被测实现自己算的 —— 自证）。
+                            const float cwPx = (56.37f + 2f * 20f) * 0.5f;    // 48.185
+                            const float chPx = (54.5f  + 2f * 20f) * 0.5f;    // 47.25
+                            // (a) 外扩出来的那一圈**必中**（老口径 `_closeIcon.Contains` 量的是画出来那个 31.5 的正方
+                            //     ⇒ 距离中心 38.5 px 那一点【必不中】）—— 这是**判别式**
+                            bool padC964 = sp964e.HitClose(sc964 + new Vector3((cwPx - 1f) / PxPerUnit964, 0f, 0f))
+                                        && sp964e.HitClose(sc964 + new Vector3(0f, (chPx - 1f) / PxPerUnit964, 0f));
+                            // (b) 框**外** 1 px 必不中（有界 —— 灭自证）
+                            bool outPadC964 = !sp964e.HitClose(sc964 + new Vector3((cwPx + 1f) / PxPerUnit964, 0f, 0f))
+                                           && !sp964e.HitClose(sc964 + new Vector3(0f, (chPx + 1f) / PxPerUnit964, 0f));
                             if (sd964.x > 0f && sd964.y > 0f)
                             {
                                 hits964.Add($"E2③\t设置面板「关闭」\tSettingsPanel.HitClose\t实绘 {sd964.x:F2}×{sd964.y:F2} px"
@@ -17607,6 +17802,18 @@ public static class BattleScene
                                 Check(outC964,
                                       "★ A964/E2③（**灭自证**）：关闭钮**外侧 3 倍半宽/半高**处**判不中**（命中区有界）"
                                     + " —— 与上一条配对：「`HitClose` 恒 true」会让上一条绿、本条红");
+                                hits964.Add($"E2③\t设置面板「关闭」（A1301②）\tSettingsPanel.HitClose\t"
+                                          + $"原版命中框 {cwPx * 2f:F2}×{chPx * 2f:F2} px\t外扩圈内中={padC964} · 框外不中={outPadC964}"
+                                          + "\t46.811 → 56.37×54.50 四边外扩 20");
+                                Check(padC964,
+                                      "★ A1301②（**判别式**）：叉图 `m_RaycastPadding` 外扩出来的那一圈**必中**"
+                                    + $"（离中心 38.5 / 46.25 px 各一点；老口径量的是画出来那个 31.5 的正方 ⇒ 这两点必不中）");
+                                Check(outPadC964,
+                                      "★ A1301②（**灭自证**）：命中框**之外 1 px** 必不中（有界 —— 与上一条配对）");
+                                var chkC = SettingsPanel.CloseHitPx;
+                                Check(Mathf.Abs(chkC.x - 96.37f) < 0.01f && Mathf.Abs(chkC.y - 94.5f) < 0.01f,
+                                      $"★ A1301②：`SettingsPanel.CloseHitPx` = {chkC.x:F2}×{chkC.y:F2} px"
+                                    + "（原版 96.37×94.50 = 56.37×54.50 四边各外扩 20）");
                             }
                             sp964e.Hide();
                         }
@@ -17783,7 +17990,7 @@ public static class BattleScene
                                         && !drvE964.HitEndTurn(ee964 + new Vector3(0f, 3f * ed964.y * 0.5f / PxPerUnit964, 0f));
                             hits964.Add($"E2⑦\t结束回合钮\tBattleDriver.HitEndTurn\t实绘 {ed964.x:F2}×{ed964.y:F2} px"
                                       + $"\t内侧中={inE964} · 外侧不中={outE964}"
-                                      + "\t原版 rect 130.7×80.4（贴图 182×112 的 1.625 × 高 80.4）；命中 = 底图 quad");
+                                      + "\t原版 rect 130.7×80.4（贴图 182×112 的 1.625 × 高 80.4）；命中 = 底图 quad（🔴 2026-10-11 就地订正：这句已过时 —— 「命中」现在 = rect 与 m_RaycastPadding 的并集外扩（见 E2⑧），基准是 rect、不是画出来的 quad）");
                             Check(inE964,
                                   "★ A964/E2⑦：结束回合钮 —— **视觉中心 + 实绘矩形内的 0.45 半宽/半高点都判得中**"
                                 + $"（实绘 {ed964.x:F2}×{ed964.y:F2} px，原版 rect 130.7×80.4）"
@@ -17792,6 +17999,105 @@ public static class BattleScene
                                   "★ A964/E2⑦（**灭自证**）：结束回合钮**外侧 3 倍半宽/半高**处**判不中**（命中区有界）"
                                 + " —— 与上一条配对：「`HitEndTurn` 恒 true」会让上一条绿、本条红");
                         }
+                    }
+                }
+
+                // ================================================================
+                //  🆕 2026-10-19（A964②）：**四颗 HUD 钮的命中区 = 原版 `rect` 按 `m_RaycastPadding` 收/放**
+                // ------------------------------------------------------------------
+                //  🔴 **断言侧只写【原版字面量】**（出处 = 解包资源；13 个战场逐场核过、逐位相同）——
+                //     ⛔ 不读 `BattleDriver` 那边任何常量：否则「实现与检测器一起改」还会全绿。
+                //     · `SettingsBtn`     `MonoBehaviour_4012` / `RectTransform_2585`：rect 63.874²、
+                //        pad (−23.13, −38.6, −26.9, −25.81)
+                //     · `ChatButton`      `MonoBehaviour_5007` / `RectTransform_2984`：rect 64.443×61.846、pad 四边 −8
+                //     · `ShowCemeteryBtn` `MonoBehaviour_4020` / `RectTransform_2586`：rect 64.478×64.170、pad 四边 −8
+                //     · `TurnBtn`         `MonoBehaviour_4543` / `RectTransform_2913`：rect 130.702×80.432、
+                //        pad (−14.19, −30.3, −26.19, −18.4)
+                //     （分量序 **L,B,R,T**；**负值 = 外扩**。符号判据 → `BattleDriver.HitPaddedRect`）
+                //  ⚠️ `OffensiveButton` **不在这里**：它那份 `m_RaycastPadding` 四个分量**全是 0**
+                //     （`MonoBehaviour_4793`）⇒ 本条账不涉及它（它另有一条「`HudAbs` 只给高、没做 PA 内接 ⇒
+                //      实绘 110.39 ≠ rect 109.008」的偏离，已如实记进 A964② 的报告、另开一件）。
+                //  ⚠️ 命中框（局部 px，y 向上、原点在 quad 中心）= `[−W/2+padL, W/2−padR] × [−H/2+padB, H/2−padT]`
+                //     —— 四边不等宽时它**不居中**（本段两颗就是）⇒ 下面「四边各进/出 0.5 px」那两个探针把
+                //     **尺寸与中心偏移一起**钉住（0.5 px ≫ 浮点噪声 ~1e-4 px，不是容差级松口径）。
+                Vector3 Pt964(Vector3 ctr, float px, float py)
+                    => ctr + new Vector3(px / PxPerUnit964, py / PxPerUnit964, 0f);
+
+                void HitRect964(string which, System.Func<Vector3, bool> hit, Vector3 ctr,
+                                float rectW, float rectH, float padL, float padB, float padR, float padT,
+                                string node, string src)
+                {
+                    float xL = -rectW * 0.5f + padL, xR = rectW * 0.5f - padR;      // 命中框（局部 px）
+                    float yB = -rectH * 0.5f + padB, yT = rectH * 0.5f - padT;
+                    const float e = 0.5f;                                          // 边界探针的进/出量（px）
+                    bool inR  = hit(ctr)
+                             && hit(Pt964(ctr, xL + e, 0f)) && hit(Pt964(ctr, xR - e, 0f))
+                             && hit(Pt964(ctr, 0f, yB + e)) && hit(Pt964(ctr, 0f, yT - e));
+                    bool outR = !hit(Pt964(ctr, xL - e, 0f)) && !hit(Pt964(ctr, xR + e, 0f))
+                             && !hit(Pt964(ctr, 0f, yB - e)) && !hit(Pt964(ctr, 0f, yT + e));
+                    // 🔴 **判别式（灭自证）**：左缘**缝中点** = 「rect 外、padding 带内」那一点 ——
+                    //    口径若退回 `ImageQuad.Contains`（按**实绘**判），这一点必在实绘之外 ⇒ 红。
+                    float xSeam = (-rectW * 0.5f + xL) * 0.5f;
+                    bool seamR = hit(Pt964(ctr, xSeam, 0f));
+                    hits964.Add($"E2⑧\t{which}\t{node} 命中框\trect {rectW:F3}×{rectH:F3} ｜ pad ({padL:g},{padB:g},{padR:g},{padT:g})"
+                              + $"\t边内 0.5px 全中={inR} · 边外 0.5px 全不中={outR} · padding 带内中={seamR}\t{src}");
+                    Check(inR,
+                          $"★ A964/E2⑧：`{which}`（原版 `{node}`）—— **命中框四边各【内】0.5 px 与中心都判得中**"
+                        + $"（rect {rectW:F3}×{rectH:F3} 按 `m_RaycastPadding` ({padL:g},{padB:g},{padR:g},{padT:g}) 收/放 = "
+                        + $"{rectW - padL - padR:F3}×{rectH - padB - padT:F3} px；负 = 外扩）"
+                        + "｜🧨 改坏法：丢掉「四边不等宽 ⇒ 命中框不居中」那两个偏移项 / 把 `Px` 的 108 写成 100 ⇒ 某条边进不中 ⇒ 红");
+                    Check(outR,
+                          $"★ A964/E2⑧（**灭自证**）：`{which}` —— **命中框四边各【外】0.5 px 都判不中**（命中区有界）"
+                        + " —— 与上一条配对：「恒 return true / 命中区取成整屏」会让上一条绿、本条红");
+                    Check(seamR,
+                          $"★ A964/E2⑧（**判别式**）：`{which}` —— **「rect 外、padding 带内」那一点必须判中**"
+                        + $"（左缘缝中点 {xSeam:F3} px）—— 这正是原版 `m_RaycastPadding` 负值外扩的可观测后果；"
+                        + "🧨 口径若退回 `ImageQuad.Contains`（量**实绘**那个矩形）⇒ 这一点落在实绘之外 ⇒ 本条红");
+                }
+                {
+                    var cS964 = drv964.HudButtonWorldPosForTest("settings");
+                    var cC964 = drv964.HudButtonWorldPosForTest("chat");
+                    var cG964 = drv964.HudButtonWorldPosForTest("cemetery");
+                    var cT964 = drv964.EndTurnWorldPos;
+                    bool pre964 = cS964 != Vector3.zero && cC964 != Vector3.zero && cG964 != Vector3.zero
+                               && drv964.EndTurnDrawnPx.x > 0f;
+                    Check(pre964,
+                          "★ A964/E2⑧：（前提）设置 / 聊天（语音条）/ 日志（墓地）/ 结束回合四颗钮都建出来了"
+                        + "（缺一颗 ⇒ 下面四条探针不跑，红在本条）");
+                    if (pre964)
+                    {
+                        HitRect964("设置钮", drv964.SettingsBtnHit, cS964,
+                                   63.874f, 63.874f, -23.13f, -38.6f, -26.9f, -25.81f,
+                                   "RightArea/SettingsBtn", "MB_4012 · rect RT_2585（原版命中框 113.90×128.28）");
+                        HitRect964("聊天（语音条）钮", drv964.ChatBtnHit, cC964,
+                                   64.443f, 61.846f, -8f, -8f, -8f, -8f,
+                                   "PlayerInfo/ChatButton", "MB_5007 · rect RT_2984（原版命中框 80.443×77.846）");
+                        HitRect964("战斗日志（墓地）钮", drv964.CemeteryBtnHit, cG964,
+                                   64.478f, 64.17f, -8f, -8f, -8f, -8f,
+                                   "EnemyInfo/ShowCemeteryBtn", "MB_4020 · rect RT_2586（原版命中框 80.478×80.170）");
+                        HitRect964("结束回合钮", drv964.HitEndTurn, cT964,
+                                   130.702f, 80.432f, -14.19f, -30.3f, -26.19f, -18.4f,
+                                   "Clock/TurnBtn", "MB_4543 · rect RT_2913（原版命中框 171.082×129.132）");
+
+                        // ⚠️ **变更探测器**（**不是**上那四条的真牙）：只读几何口与**原版字面量**对表 ——
+                        //    期望值**独立写在这里**（⛔ 不读 `BattleDriver` 那边任何常量），改了常量没回头核原版就会红。
+                        var hS964 = BattleDriver.SettingsBtnHitPx; var oS964 = BattleDriver.SettingsBtnHitOffsetPx;
+                        var hC964 = BattleDriver.ChatBtnHitPx;     var hG964 = BattleDriver.CemeteryBtnHitPx;
+                        var hT964 = BattleDriver.EndTurnBtnHitPx;  var oT964 = BattleDriver.EndTurnBtnHitOffsetPx;
+                        bool port964 =
+                               Mathf.Abs(hS964.x - 113.904f) < 0.01f && Mathf.Abs(hS964.y - 128.284f) < 0.01f
+                            && Mathf.Abs(oS964.x -   1.885f) < 0.01f && Mathf.Abs(oS964.y -  -6.395f) < 0.01f
+                            && Mathf.Abs(hC964.x -  80.443f) < 0.01f && Mathf.Abs(hC964.y -  77.846f) < 0.01f
+                            && Mathf.Abs(hG964.x -  80.478f) < 0.01f && Mathf.Abs(hG964.y -  80.170f) < 0.01f
+                            && Mathf.Abs(hT964.x - 171.082f) < 0.01f && Mathf.Abs(hT964.y - 129.132f) < 0.01f
+                            && Mathf.Abs(oT964.x -   6.000f) < 0.01f && Mathf.Abs(oT964.y -  -5.950f) < 0.01f;
+                        Check(port964,
+                              "★ A964/E2⑧（**变更探测器**）：四颗钮那六个只读几何口与**原版字面量**逐项对得上"
+                            + $"（设置 {hS964.x:F3}×{hS964.y:F3} 偏 ({oS964.x:F3},{oS964.y:F3}) · "
+                            + $"聊天 {hC964.x:F3}×{hC964.y:F3} · 日志 {hG964.x:F3}×{hG964.y:F3} · "
+                            + $"结束回合 {hT964.x:F3}×{hT964.y:F3} 偏 ({oT964.x:F3},{oT964.y:F3})）"
+                            + "｜🧨 改坏法：动了 `*Pad*` / `*Rect*` 任一常量而没回头核解包资源 ⇒ 红"
+                            + "（⚠️ 真牙是上面那**四条几何** Check，本条只防「值被悄悄改了」）");
                     }
                 }
 

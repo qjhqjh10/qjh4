@@ -641,8 +641,27 @@ namespace CardPresentation
         /// − parent.position/(s·k) + …`（见报告 `资料/普查产出_1011/W4_子3.md` §五 的逐处可达性判定：
         /// 现读全壳「自带 `localScale` 且**有子件**」的节点只有三处 —— `Shell/CampaignTab.cs` 里 `Premium Mark` 那颗 `localScale` 那一句
         /// 的 `Premium Mark`(=2) · `Shell/RewardWindow.cs` 里 punch 抽屉节点那两处 `localScale` 的 punch 抽屉节点(动画值) ·
-        /// `Battle/WfSlider.cs` 里那句 `_fillRoot.transform.localScale = …` 的九宫格根(=值)；三处**今天都到不了本函数的「按几何用」那几条路**，
-        /// 但**这一档的量纲语义是「留待调度台裁」的**，别当成已收口）。</para>
+        /// `Battle/WfSlider.cs` 里那三块**填条子 quad** 的 `localScale.x`(= 值 —— `A1359` 起填条走
+        /// 「锚点式」、缩放从**根**搬到了**子件**上，见那一段的 `LayoutFill`)；三处**今天都到不了
+        /// 本函数的「按几何用」那几条路**）。
+        ///
+        /// 🔴 **2026-10-10（`A1351` ①）就地订正（铁律 5）：这一档的量纲语义【已裁定、成规范】。**
+        /// 原来这半句写的是「**这一档的量纲语义是「留待调度台裁」的**，别当成已收口」——
+        /// 调度台现已裁定如下，⛔ **以后别再当它未决**：
+        /// <list type="number">
+        /// <item>🔴 **本函数报的 = 「建它时给的那个设计矩形」**（上面那条自证恒等式就是它的定义），
+        /// **⛔ 不是屏幕上那一块**；</item>
+        /// <item>🔴 **节点自带 `localScale`（不管打在它自己身上、还是打在它的子件上）时，上面那条恒等式
+        /// 【不成立】** ⇒ **对它量矩形 / 取并集，必须由【调用点】自己把那几级缩放乘回去**；</item>
+        /// <item>🔴 **共用件【不代偿】** —— 本函数分不清调用方要的是「设计矩形」还是「渲染矩形」
+        /// （这两个在带缩放的父件下**本来就不是同一个东西**），而既有 **40+ 个调用点全按【设计帧】用**
+        /// ⇒ 在这里代偿会一次性打翻它们。</item>
+        /// </list>
+        /// ⚠️ 上表第三条（`WfSlider` 那三块子 quad）与头两条**不是一个成因**，别混：那三块**没有子件**
+        /// ⇒ 分家的是**尺寸项**（`WorldW × K` 不含它自己的缩放），中心项仍对；头两条是**中心项**分家
+        /// （`PosInDesignSpace(q.parent)` 除的是**上面那一级**）。**两者的处置相同**：都由调用点乘回。
+        /// 📌 **本仓现成的那个「调用点自己乘回」的读口** = `Battle/WfSlider.cs` 的 `FillWorldW` /
+        /// `FillWorldLeftX`（对那三块子 quad 取 `QuadRectPx` 并集会得到**整根轨道**那么宽 —— 那正是本条要挡的错）。</para>
         ///
         /// <para>⚠️ **尺寸项（`q.WorldW/WorldH × K`）本来就在设计量纲上、一个字不动**：
         /// `ImageQuad.Create` / `SetWorldHeight` 收的是 `LayoutSpace.Px(设计高)` = **设计长度**
@@ -739,10 +758,28 @@ namespace CardPresentation
         /// ② `Editor/MainMenuScene.cs` 的 `UnionQuadRect` 那一路**完全不过滤**激活态（`QuadGate.None`）。</para></summary>
         public static bool UnionQuadRectPx(Transform t, QuadGate gate, bool searchInactive,
                                            out float x1, out float y1, out float x2, out float y2)
-            => UnionQuadRectPx(t, gate, searchInactive, out x1, out y1, out x2, out y2, out _);
+            => UnionQuadRectPx(t, gate, searchInactive, null, out x1, out y1, out x2, out y2, out _);
 
         /// <summary>同上，多给一个「真被算进去的块数」。见 <see cref="UnionQuadRectPx(Transform, QuadGate, bool, out float, out float, out float, out float)"/>。</summary>
         public static bool UnionQuadRectPx(Transform t, QuadGate gate, bool searchInactive,
+                                           out float x1, out float y1, out float x2, out float y2, out int quads)
+            => UnionQuadRectPx(t, gate, searchInactive, null, out x1, out y1, out x2, out y2, out quads);
+
+        /// <summary>🆕 **2026-10-10（A1330）：同上，多给一个【逐块过滤谓词】**（`null` = 不过滤）。
+        /// <para>🔴 **为什么要它**：`Editor/MainMenuScene.cs` 那条「`Fill` 的宽 = `Fill Area` 宽 501 × 5/10」
+        /// 量的那棵子树里，端帽 `end` 是 `Fill` 的**子件**（原版树如此），而它比 `Fill` 右端还探出 **5.7px**
+        /// ⇒ 必须**整棵子树**排除，不能靠激活闸（`end` 与那些块**都是 active**）。
+        /// 原来那一处是**手写循环 + 自己写 `IsChildOf`**（同文件 `fx1/fx2` 那段）⇒ 收口时把过滤做成形参。</para>
+        /// <para>⚠️ **过滤的位置 = 激活闸之后、量矩形之前**（与原来那句 `IsChildOf` 的次序一致）；
+        /// `filter` 为 `null` 时**逐字**等价于上面那两份 ⇒ **既有调用点零影响**（它们仍绑到旧重载）。</para></summary>
+        public static bool UnionQuadRectPx(Transform t, QuadGate gate, bool searchInactive,
+                                           System.Func<ImageQuad, bool> filter,
+                                           out float x1, out float y1, out float x2, out float y2)
+            => UnionQuadRectPx(t, gate, searchInactive, filter, out x1, out y1, out x2, out y2, out _);
+
+        /// <summary>同上，多给一个「真被算进去的块数」。见上一份重载的 doc。</summary>
+        public static bool UnionQuadRectPx(Transform t, QuadGate gate, bool searchInactive,
+                                           System.Func<ImageQuad, bool> filter,
                                            out float x1, out float y1, out float x2, out float y2, out int quads)
         {
             x1 = y1 = float.MaxValue; x2 = y2 = float.MinValue; quads = 0;
@@ -752,6 +789,8 @@ namespace CardPresentation
                 if (q == null) continue;
                 if (gate == QuadGate.Self && !q.gameObject.activeSelf) continue;
                 if (gate == QuadGate.InHierarchy && !q.gameObject.activeInHierarchy) continue;
+                // 🆕 2026-10-10（A1330）：逐块过滤（`null` = 不过滤 —— 见上面那份重载的 doc）。
+                if (filter != null && !filter(q)) continue;
                 float a1, b1, a2, b2;
                 if (!QuadRectPx(q, out a1, out b1, out a2, out b2)) continue;
                 if (a1 < x1) x1 = a1;

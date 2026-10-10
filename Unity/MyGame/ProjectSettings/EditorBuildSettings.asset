@@ -17,6 +17,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/CardPresentation/Scenes/Battle.unity
     guid: 2dbe3ca9e58090b42a75f623907fc608
+  - enabled: 1
+    path: Assets/CardPresentation/Scenes/Shell.unity
+    guid: ec4b513efbb03e947907e9e878b17264
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

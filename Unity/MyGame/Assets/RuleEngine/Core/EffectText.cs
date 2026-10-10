@@ -121,6 +121,30 @@ namespace RuleEngine
         public string CostKind;
 
         /// <summary>
+        /// 🔴 **2026-10-11（第十三会话 · `A1346` ②乙 ＋ `A1358`）：这条 op 的 `Cost` 是
+        /// 「和同一份付费前缀下的其它 op 一起贴上去的」—— 结算层**只按组收一次费**。**
+        ///
+        /// **为什么需要它**：原版里「一条 ability」= **一个 `manaCost` ＋ 一串 `AbilityLogic`**
+        /// （`CardAbility.cs` = `{ AbilityTrigger trigger; …; List&lt;AbilityLogic&gt; abilityLogic }`；
+        /// 主动付费那一档 `ActiveAbility.cs` = `{ int manaCost; …; List&lt;AbilityLogic&gt; activeAbilityLogic }`），
+        /// 而 `d:/2/tools/decomp_full/BattleManager__PayActiveAbilityCostOath.c:22` 里
+        /// **一次激活只调一次 `PlayerManager.UseMana`**。我们的解析层却是「**一个付费前缀 →
+        /// 贴到本段产出的每条 op**」（`ParseSegment` 末段 ＋ `Finish` 会把 `op.Tail` 递归解成
+        /// 第二条 op）⇒ 一条前缀会同时盖住 2 条 op，而 `EffectResolver.ResolveOneCore` 的付费支
+        /// 是**逐 op 收**的 ⇒ **扣两倍**（`UM93 Fall Back` / `SOR6 Righteous Repugnance` 实测）。
+        ///
+        /// **判据（谁付）**：**组里第一条**（`CostShared == false`）付 —— 付费发生在
+        /// `ResolveOneCore` 里条件判定的**之前**，所以按序第一条一定会走到。
+        /// 后面的（`CostShared == true`）**不查余额、不再扣**，也**不再重复广播**
+        /// （灵魂石那支「触发一个灵魂石能力」的事件只该发一次）。
+        ///
+        /// ⚠️ **`Cost` 照旧留在每条 op 上**（不是只留第一条）—— `CardDef.CollectOathOps` /
+        /// `CollectSpiritOps` 靠「`Cost &gt; 0` 且货币对上」把整条 ability 的 op **都**收进去；
+        /// 只留第一条会让第二条效果**整个不结算**（比多扣一次更糟）。
+        /// </summary>
+        public bool CostShared;
+
+        /// <summary>
         /// **数值取自某个阵营资源**（2026-09-13 第三十三轮）：`faith` / `spirit`，空 = 不用。
         ///
         /// 出处：卡面 `Refill Energy **equal to your Faith**`（`Emperor's Judgement`）·
@@ -797,6 +821,50 @@ namespace RuleEngine
         public CardCriteria PrevAntecedent;
 
         /// <summary>
+        /// 🆕 **2026-10-11（`A1311`）**：代词目标（`it` / `them`，`Kind == "prev"`）的
+        /// **先行词在哪一侧** —— `"own"` / `"enemy"`；`null` = **没有先行词可判**。
+        ///
+        /// **为什么单开一栏、而不是把 <see cref="Side"/> 从 `"prev"` 改掉**：
+        /// `Side == "prev"` 是**结算层的路由键**，不是「不知道」的意思 ——
+        ///   · `EffectResolver.ResolveTargets` 见到它就取 `LastTargets` / `LastTarget`；
+        ///   · `EffectResolver.DoGive` 还要求 `Side == "prev" &amp;&amp; Kind == "prev"` 才去登记
+        ///     **手牌那一族**（`HandReferents`，`Draw two troops and give them +1` 那 3 张）。
+        /// ⇒ 把 `Side` 覆写成 `enemy` 会让上面两条**静默失效**（卡面不打 `*`、日志不报）。
+        /// 所以侧**另开一栏**，只喂「**这条效果打的是哪一侧**」这一个问句（今天的唯一消费者
+        /// 是 `SimpleAI` 打分），⛔ 不参与结算期的目标解析。
+        ///
+        /// **填法**：`Parse` 收尾那一趟 <see cref="LinkPrevAntecedent"/> —— 抄**紧邻上一条 op**
+        /// 明写的侧（`NamedSide`）；上一条自己也是代词时，顺延它**已经抄到的**那个
+        /// （`Destroy an enemy troop. Stun it and give it Fast` 这种连环 —— 同一个先行词，
+        /// 不是新猜一个；全池实测有 3 张，见 `A1311` 的报告）。
+        /// ⚠️ **不许拿「大概是自己」顶** —— 判不出就留 `null`，消费者按「不给分」处理。
+        /// </summary>
+        public string PrevSide;
+
+        /// <summary>
+        /// 🆕 **2026-10-11（`A1311`）**：这条目标**落在哪一侧** ——
+        /// `"own"` / `"enemy"` / `null`（**判不出来**）。
+        ///
+        /// 判据**只此一处**（⛔ 别在调用点再写一遍 `Side == …` 的判断）：
+        ///   · 明写了侧（`own` / `self` / `enemy`）⇒ 就用它；
+        ///   · `"prev"`（代词）⇒ 回落到 <see cref="PrevSide"/>（没有先行词 = `null`）；
+        ///   · 其余（`any` / `eventtarget` / 空）⇒ `null` = **判不出来**。
+        ///
+        /// ⚠️ **只回答「在哪一侧」，不回答「是谁」** —— 谁由 `Raw` / `Kind` / 结算期的
+        /// `LastTargets` 那一套决定。⛔ 别拿它去 `ResolveTargets` 里绕开 `prev` 那条路。
+        /// </summary>
+        public string ResolvedSide
+        {
+            get
+            {
+                if (Side == "enemy") return "enemy";
+                if (Side == "own" || Side == "self") return "own";
+                if (Side == "prev") return PrevSide;
+                return null;
+            }
+        }
+
+        /// <summary>
         /// 目标里写的是**具体某张卡的名字**（`a Stormboy` / `an Eliminator`）。
         /// ⚠️ 全等匹配，见 <see cref="CardCriteria.Name"/> 的注释（`Eliminator Sergeant` 会撞名）。
         ///
@@ -1030,6 +1098,32 @@ namespace RuleEngine
             var segText = new List<string>();
             var segKind = new List<SegKind>();
 
+            // ---- 🔴 2026-10-11（第十三会话 · `A1346` ①甲）**付费前缀的跨句承接** ----
+            //
+            // **原版判据**（一条 ability = 一个 cost ＋ 一串 logic）：
+            //   · `CardAbility.cs` = `{ AbilityTrigger trigger; …; List<AbilityLogic> abilityLogic }`；
+            //   · 主动付费那一档 `ActiveAbility.cs` = `{ int manaCost; …; List<AbilityLogic> activeAbilityLogic }`
+            //     —— **一个 cost 配一串 logic**；
+            //   · `d:/2/tools/decomp_full/BattleManager__PayActiveAbilityCostOath.c:22`：取誓约值之后
+            //     调 `PlayerManager__UseMana` **一次**；`BattleManager__CanUseActiveAbility.c` 整条 ability 判一次余额。
+            //
+            // **我们原来错在哪**：按 `.` 分句 + 付费前缀只贴**同段**（`ParseSegment`）⇒ 卡面把一条
+            //   ability 印成两句时，第二句的 op `Cost = 0` ⇒ `CardDef.CollectOathOps` 不收它
+            //   ⇒ `UM81 Phobos Librarian` 的 `Oath 3: Deal 2-4 damage to an enemy. If target dies,
+            //     gain Shield` **激活后只打伤害、不给 Shield**（静默）。
+            //
+            // **规则（三条，按序判）**：
+            //   ① 本段**自带付费前缀** ⇒ `carry` 换成它（`SOR27` 的 `2 ☀: … . 4 ☀: …`）；
+            //   ② 本段**自带触发头** ⇒ 清零（触发头 = **另一条 ability 的开头**，
+            //      `SOR72` 的 `6 ☀: … . Rally: …` 靠这条才不会被收 6 点信仰）；
+            //   ③ 都不是 ⇒ 把 `carry` 贴到本段产出、且**还没有代价**的 op 上（= 承接，`UM81`）。
+            //
+            // ⚠️ **承接来的 op 一律 `CostShared = true`** —— 钱是**上一段那条**付的
+            //   （同一次激活只付一次；判据见 `EffectOp.CostShared`）。
+            // ⚠️ **误伤面（静态扫全池）**：付费前缀段之后还有别的段的卡一共 **8 张**，
+            //   照上面三条只有 **`UM81` 一张**吃到第 ③ 条（其余 7 张的第二段都自带前缀/触发头）。
+            int carryCost = 0; string carryKind = null;
+
             foreach (string seg in Split(desc))
             {
                 var r = ParseSegment(seg);
@@ -1039,6 +1133,25 @@ namespace RuleEngine
                 if (r.Ops != null) ops.AddRange(r.Ops);
                 if (r.Kind == SegKind.Unknown) unparsed.Add(seg);
                 else if (r.Kind == SegKind.Partial) partial.Add(seg);
+
+                if (r.PaidCost > 0)
+                {
+                    carryCost = r.PaidCost; carryKind = r.PaidKind;
+                }
+                else if (r.HasTriggerHead)
+                {
+                    carryCost = 0; carryKind = null;
+                }
+                else if (carryCost > 0 && r.Ops != null)
+                {
+                    foreach (var op in r.Ops)
+                        if (op.Cost <= 0)
+                        {
+                            op.Cost = carryCost;
+                            op.CostKind = carryKind;
+                            op.CostShared = true;      // 付钱的是上一段那条
+                        }
+                }
             }
 
             // 🆕 2026-09-16 **「它本回合内死了，就把这条效果转给另一个」的跨句回填**
@@ -1114,6 +1227,11 @@ namespace RuleEngine
         ///
         /// ⚠️ 只回填 **`Kind == "prev"`** 的目标规格（代词那一族）—— 明写目标的那些
         ///    `CardCriteria.FromTarget` 本来就转得出来，别去覆盖它们。
+        ///
+        /// 🆕 **2026-10-11（`A1311`）**：同一趟里还给代词补 **<see cref="EffectTargetSpec.PrevSide"/>**
+        ///    （先行词的**侧**）—— 那是另一件独立的事，**与「抽的是哪一类牌」互不依赖**，
+        ///    所以**不做「不是 `drawtype` 就 `continue`」那个早退**：`takecontrol` 那一族
+        ///    （`Take control of an enemy troop this turn and give it Fast`）上一条根本不是抽牌。
         /// </summary>
         static void LinkPrevAntecedent(List<EffectOp> ops)
         {
@@ -1123,16 +1241,45 @@ namespace RuleEngine
                 var op = ops[i];
                 if (op == null || op.Target == null) continue;
                 if (op.Target.Kind != "prev") continue;
-                if (op.Target.PrevAntecedent != null) continue;   // `Parse` 会被反复调用，别覆盖已填的
 
                 var prevOp = ops[i - 1];
                 if (prevOp == null) continue;
+
+                // ---- ① 先行词的**侧**（🆕 2026-10-11 · `A1311`）----
+                //   ⚠️ 只认**紧邻的上一条**（和下面那个「哪一类牌」同一条纪律）；
+                //      上一条**自己也是代词**时顺延它已经抄到的那个（连环指代同一个先行词）。
+                //      本趟 `i` 是升序的 ⇒ `i-1` 那一条早就填过了，这里读到的是**本次**的结果，
+                //      不是上一趟的残留。
+                if (op.Target.PrevSide == null)
+                    op.Target.PrevSide = NamedSide(prevOp);
+                if (op.Target.PrevSide == null && prevOp.Target != null)
+                    op.Target.PrevSide = prevOp.Target.PrevSide;
+
+                // ---- ② 先行词的**种类**（2026-10-18 · `W5`）----
+                if (op.Target.PrevAntecedent != null) continue;   // `Parse` 会被反复调用，别覆盖已填的
                 if (prevOp.Verb != "drawtype" && prevOp.Verb != "draw") continue;
                 string word = (prevOp.Payload ?? "").Trim().ToLowerInvariant();
                 if (word.Length == 0 || !CreatePool.IsKindWord(word)) continue;
 
                 op.Target.PrevAntecedent = new CardCriteria { KindWord = word };
             }
+        }
+
+        /// <summary>
+        /// 🆕 **2026-10-11（`A1311`）**：这条 op 的**目标明写的侧** ——
+        /// 只有 `own`（`self` 也算）与 `enemy` 两种算「明写」；其余（`any` / `prev` /
+        /// `eventtarget` / 空 / `Target == null`）一律返回 `null` = **判不出来**。
+        ///
+        /// ⛔ **不许在这里回落到「自己那侧」** —— 那是猜（工程红线：宁可认不出，也别静默错打）。
+        ///    要不要给分由消费者决定（`SimpleAI.ScoreOp` 的 `give` 支：判不出就**不给这一档分**）。
+        /// </summary>
+        static string NamedSide(EffectOp op)
+        {
+            var t = op == null ? null : op.Target;
+            if (t == null) return null;
+            if (t.Side == "enemy") return "enemy";
+            if (t.Side == "own" || t.Side == "self") return "own";
+            return null;
         }
 
         /// <summary>
@@ -1230,6 +1377,56 @@ namespace RuleEngine
         {
             public SegKind Kind = SegKind.Unknown;
             public List<EffectOp> Ops;
+
+            /// <summary>
+            /// 🔴 **2026-10-11（`A1346` ①甲）本段自己消费掉的付费前缀**（`0` = 本段没有付费前缀）。
+            ///
+            /// 为什么要报出来：`Parse` 是**逐段**跑的，而付费前缀**原来收在本段的局部量里、
+            /// 只贴到本段产出的 op 上** ⇒ 「付费前缀跨句」时（原版那是一个 `manaCost` ＋
+            /// 一串 `logic`，我们把它印成了两句）第二句**接不上费** ——
+            /// `UM81 Phobos Librarian` 的 `Oath 3: Deal 2-4 damage to an enemy. If target dies,
+            /// gain Shield` 实测：第二句解得出 `gain` op、但 `Cost = 0` ⇒ `CollectOathOps`
+            /// 不收它 ⇒ **激活后只打伤害、不给 Shield**。
+            /// ⇒ `Parse` 的循环维护一个 `carry`（见那里），本段**自带**前缀就换掉它。
+            /// </summary>
+            public int PaidCost;
+
+            /// <summary>本段付费前缀的货币名（`oath` / `faith` / `energy` / `spirit` / `""`）。见 <see cref="PaidCost"/>。</summary>
+            public string PaidKind;
+
+            /// <summary>
+            /// 🔴 **2026-10-11（`A1346` ①甲）本段自带一个「触发头」**（`Rally:` / `Slay:` / `Pray:`
+            /// / `Codex:` … —— 判据 = `IsRoutableTrigger`，即 `CardDef.RoutableTriggers` 那一份）。
+            ///
+            /// 语义：**触发头 = 另一条 ability 的开头** ⇒ `Parse` 里那个付费前缀的 `carry` 必须
+            /// **在这里清零**，否则 `SOR72` 的 `6 ☀: …` 会漏到它后面那条 `Rally:` 上、
+            /// 让「每有一个敌人单位获得 1 点信仰」变成**要付 6 点信仰**才生效。
+            /// </summary>
+            public bool HasTriggerHead;
+        }
+
+        /// <summary>
+        /// 🔴 **2026-10-11（`A1346` ②乙 / `A1358`）把一份付费前缀贴到一批 op 上** ——
+        /// **组里第一条照旧是「付钱的那一条」**（`CostShared = false`），其余全部标
+        /// <see cref="EffectOp.CostShared"/>（结算层只收一次）。
+        ///
+        /// **判据只此一处**：三个贴付费前缀的地方（`ParseSegment` 的触发头分支 ·
+        /// `, plus` 两支 · 主分支末尾）**全走这一个口**，谁要加第四个贴点，也走这里 ——
+        /// 各写各的「哪一条付钱」迟早不一致（那就又是**静默多扣/少扣**）。
+        ///
+        /// ⚠️ **调用点必须传「本段产出的一整批」**（不是「本段所有 op」）—— 每次调用只负责
+        /// **一份前缀**，所以「这一批的第一条付钱」是对的；把两批混在一起传会让第一批的白付。
+        /// </summary>
+        static void StampPaidCost(List<EffectOp> ops, int cost, string kind)
+        {
+            if (ops == null || ops.Count == 0 || cost <= 0) return;
+            for (int i = 0; i < ops.Count; i++)
+            {
+                if (ops[i] == null) continue;
+                ops[i].Cost = cost;
+                ops[i].CostKind = kind;
+                ops[i].CostShared = i > 0;
+            }
         }
 
         /// <summary>
@@ -1698,17 +1895,19 @@ namespace RuleEngine
             // ---- 付费激活前缀 `12 [Energy]: …` / `4 : …` / `8 [Faith]: …` ----
             // `rule_core.gd:2529` 那族（我们上一版复刻：付不起就**整段不激活**，旁证）。前缀在这里剥掉、
             // 代价记进 op，正文照常往下走各个 handler。
-            int paidCost = 0; string paidKind = null;
+            // ⚠️ **前缀收在 `r.PaidCost` / `r.PaidKind` 上（不是局部量）** —— 🔴 2026-10-11（`A1346` ①甲）：
+            //    本方法有 6 个 `return r;`，收在局部量里就得每一处都记得抄一遍（漏一处 = 静默），
+            //    收在 `r` 上则「本段消费掉的前缀」天然跟着结果走，`Parse` 靠它做跨句承接。
             // ⚠️ **先试无冒号那条**（`1 Also give it Shield` / `(1) Draw a card`）——
             //    它有「后面必须是动词」的判据，比带冒号那条**更窄**，先试不会吃掉老句子。
             var mp = RePaidBare.Match(low);
             if (!mp.Success) mp = RePaid.Match(low);
             if (mp.Success)
             {
-                paidCost = int.Parse(mp.Groups["nParen"].Success ? mp.Groups["nParen"].Value
-                                                                 : mp.Groups["n"].Value);
-                paidKind = CostKindOf(mp.Groups["curB"].Success ? mp.Groups["curB"].Value
-                                   : mp.Groups["curW"].Success ? mp.Groups["curW"].Value : "");
+                r.PaidCost = int.Parse(mp.Groups["nParen"].Success ? mp.Groups["nParen"].Value
+                                                                   : mp.Groups["n"].Value);
+                r.PaidKind = CostKindOf(mp.Groups["curB"].Success ? mp.Groups["curB"].Value
+                                    : mp.Groups["curW"].Success ? mp.Groups["curW"].Value : "");
                 low = mp.Groups["body"].Value.Trim();
                 // 🔴 **付费前缀之后还要再剥一次语气词**（2026-09-13 A4 批 1）——
                 //    `Oath 4: Also destroy all damaged enemy troops`：`Oath 4:` 剥掉之后
@@ -1740,8 +1939,8 @@ namespace RuleEngine
             var mo = ReOathPaid.Match(low);
             if (mo.Success)
             {
-                paidCost = int.Parse(mo.Groups[1].Value);
-                paidKind = "oath";
+                r.PaidCost = int.Parse(mo.Groups[1].Value);
+                r.PaidKind = "oath";
                 low = mo.Groups[2].Value.Trim();
                 low = StripVocative(low);      // 同上：`Oath 4: **Also** destroy …`
                 s = low;
@@ -1775,11 +1974,20 @@ namespace RuleEngine
             if (mtrOk && IsRoutableTrigger(mtr.Groups[1].Value))
             {
                 var inner = Dispatch(mtr.Groups[2].Value.Trim(), s);
+                // 🔴 **2026-10-11（`A1346` ①甲）**：本段自带触发头 = **另一条 ability 的开头**
+                //    ⇒ 报给 `Parse` 让付费前缀的 `carry` 在这里**清零**（否则 `SOR72` 的
+                //    `6 ☀: …` 会漏到它后面那条 `Rally:` 上）；本段自己**消费掉**的前缀也照抄过去
+                //    （两件事都要，漏一件就是静默的多收/少收费）。
+                inner.HasTriggerHead = true;
+                inner.PaidCost = r.PaidCost;
+                inner.PaidKind = r.PaidKind;
                 // 前缀上挂的付费代价 / `equal to your Faith` 照旧记到正文的 op 上
                 if (inner.Ops != null)
                 {
-                    if (paidCost > 0)
-                        foreach (var o in inner.Ops) { o.Cost = paidCost; o.CostKind = paidKind; }
+                    // ⚠️ 走 `StampPaidCost`（组里**第一条**付钱、其余挂 `CostShared`）——
+                    //    别自己写 `foreach` 贴：那种写法**带不上「谁付钱」这个信息**，
+                    //    而两处各贴一份 = 迟早不一致（本工程的老坑）。
+                    StampPaidCost(inner.Ops, r.PaidCost, r.PaidKind);
                     if (amountRef != null)
                         foreach (var o in inner.Ops) o.AmountRef = amountRef;
                 }
@@ -1810,7 +2018,7 @@ namespace RuleEngine
             //    产出**没有自己效果的标记 op**，正文那批由 `Parse` 回填进 `EffectOp.BaseOps`，
             //    结算层 `DoPaidMod` 回头改它们。**两处各管一半，同 `costwhen` 那条纪律。**
             // 全卡池实测**只有这 2 张**（`permanently` / `extend effect` 各一处），别为它放宽。
-            if (paidCost > 0)
+            if (r.PaidCost > 0)
             {
                 string modKind = null;
                 if (low.Contains("extend effect")) modKind = "extend";
@@ -1820,7 +2028,7 @@ namespace RuleEngine
                     r.Ops = new List<EffectOp>
                     {
                         new EffectOp { Verb = "paidmod", Source = s, Payload = modKind,
-                                       Cost = paidCost, CostKind = paidKind },
+                                       Cost = r.PaidCost, CostKind = r.PaidKind },
                     };
                     r.Kind = SegKind.Ok;
                     return r;
@@ -1871,11 +2079,15 @@ namespace RuleEngine
                                 if (rPlusB.Ops != null && rPlusB.Ops.Count > 0
                                     && rPlusB.Kind != SegKind.Unknown)
                                 {
+                                    // ⚠️ `r` 马上被换成 `rHeadB` ⇒ **本段自己消费掉的前缀要先存下来**
+                                    //    （它挂在 `r` 上，见本方法开头那段注释）—— 不存就丢了，
+                                    //    `Parse` 的 `carry` 也跟着断。
+                                    int paid = r.PaidCost; string paidK = r.PaidKind;
                                     r = rHeadB;
                                     foreach (var o in rPlusB.Ops) r.Ops.Add(o);
                                     if (rPlusB.Kind == SegKind.Partial) r.Kind = SegKind.Partial;
-                                    if (paidCost > 0)
-                                        foreach (var op in rPlusB.Ops) { op.Cost = paidCost; op.CostKind = paidKind; }
+                                    StampPaidCost(rPlusB.Ops, paid, paidK);
+                                    r.PaidCost = paid; r.PaidKind = paidK;
                                     return r;
                                 }
                             }
@@ -1903,11 +2115,13 @@ namespace RuleEngine
                             if (rPlus.Ops != null && rPlus.Ops.Count > 0
                                 && rPlus.Kind != SegKind.Unknown)
                             {
+                                // 同上一支：`r` 被换成 `rHead` ⇒ 先把本段的前缀存下来（见那里的说明）
+                                int paid = r.PaidCost; string paidK = r.PaidKind;
                                 r = rHead;
                                 foreach (var o in rPlus.Ops) r.Ops.Add(o);
                                 if (rPlus.Kind == SegKind.Partial) r.Kind = SegKind.Partial;
-                                if (paidCost > 0)
-                                    foreach (var op in rPlus.Ops) { op.Cost = paidCost; op.CostKind = paidKind; }
+                                StampPaidCost(rPlus.Ops, paid, paidK);
+                                r.PaidCost = paid; r.PaidKind = paidK;
                                 return r;
                             }
                         }
@@ -1915,10 +2129,23 @@ namespace RuleEngine
                 }
             }
 
+            // 🔴 **`r` 马上被换成 `Dispatch` 的返回值 ⇒ 本段自己消费掉的前缀必须先存下来**
+            //    （前缀挂在 `r` 上，`r = Dispatch(...)` 一赋值就没了 —— 2026-10-11 离线探针
+            //      当场抓到过：`1 [Spirit Stone]: Give +1 [Melee] …` 那 28 张的 `cost` 全变 0）。
+            int paidCost2 = r.PaidCost; string paidKind2 = r.PaidKind;
             r = Dispatch(low, s);
             // 付费代价记到**这一句产出的每条 op** 上（`12 [Energy]: Draw 3 cards`）
-            if (paidCost > 0 && r.Ops != null)
-                foreach (var op in r.Ops) { op.Cost = paidCost; op.CostKind = paidKind; }
+            // 🔴 **2026-10-11（`A1346` ②乙 / `A1358`）**：走 `StampPaidCost` ——
+            //    **组里第一条付钱**、其余挂 `CostShared`。原来这里是「每条都贴同一个 `Cost`」，
+            //    而 `Finish` 会把 `op.Tail` 递归解成**第二条 op**（`:2490` 的 `r.Ops.AddRange`）
+            //    ⇒ 两条各带一份同样的 `Cost`，结算层逐条收 ⇒ **同一次激活收两次钱**
+            //    （实测 `UM93 Fall Back` `Oath 2: Lower its cost by 2 and give it Flank`、
+            //      `SOR6 Righteous Repugnance` 的 `4 Energy:`）。原版只付一次
+            //    （`BattleManager__PayActiveAbilityCostOath.c:22` 一次激活一次 `UseMana`）。
+            StampPaidCost(r.Ops, paidCost2, paidKind2);
+            // 前缀照旧跟着结果走（`Parse` 的 `carry` 读它 —— 见 `SegResult.PaidCost`）
+            r.PaidCost = paidCost2;
+            r.PaidKind = paidKind2;
             // `… equal to your Faith` 同理：记在每条 op 上，数值留给结算层算
             if (amountRef != null && r.Ops != null)
                 foreach (var op in r.Ops) op.AmountRef = amountRef;
@@ -6034,12 +6261,28 @@ namespace RuleEngine
         ///   ⚠️ **这是「按证据收窄」不是通例**：哪天出现**非修女会**的 `[icon]`，这条映射要重核
         ///      （别的阵营的绿色圆框就是能量）。
         /// </summary>
+        /// <summary>
+        /// 这段话里写的是不是**信仰**（`faith` 那个词 / `☀` 那枚太阳）。
+        ///
+        /// 🔴 **与 <see cref="CostKindOf"/> 同源、只此一处**：`☀` = **信仰**（不是能量，
+        ///    能量是绿圈）—— 卡图实据与那条判据早就定死了。
+        /// ⚠️ 两个**粒度**：`CostKindOf` 吃的是**一个货币词**（所以它那边 `☀` 要整词相等），
+        ///    这里吃的是**一整句**（条件句里 `☀` 夹在中间）⇒ 所以用 `Contains`。
+        /// 🔴 `public`：`EffectCondition`（本文件里**另一个顶层类**，`:7704`）与 `CostKindOf`
+        ///    两处都读它 —— 判据**只有这一份**，别在那边再写一遍 `Contains("☀")`。
+        /// </summary>
+        public static bool MentionsFaith(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return false;
+            return s.Contains("faith") || s.Contains("☀");
+        }
+
         public static string CostKindOf(string raw)
         {
             if (string.IsNullOrEmpty(raw)) return "";
             string s = raw.Trim().ToLowerInvariant().Replace("]", "").Trim();
             if (s.Length == 0) return "";
-            if (s.Contains("faith") || s == "☀") return "faith";
+            if (MentionsFaith(s)) return "faith";
             if (s.Contains("icon")) return "faith";        // ⚠️ 见上面那段实据，只对那三张成立
             if (s.Contains("spirit")) return "spirit";
             if (s.Contains("energy")) return "energy";
@@ -7556,6 +7799,17 @@ namespace RuleEngine
             if (c.Contains("is damaged")) return "damaged";
             // `If you have less than N Energy`
             if (c.Contains("you have") && c.Contains("energy")) return "energycheck";
+            // 🆕 **2026-10-11（第十三会话 · `A1357`）：同一条判据、**另一种资源** —— `☀` 是【信仰】。**
+            //   卡面实据：`SOR72 Adelaide the Serene` = `Rally: If you have less than 6 ☀,
+            //   gain 1 ☀ for each enemy unit`（卡图 `Sorotitas/3部队/Warpforge_08_Adelaide-the-Serene.png`
+            //   亲读，金太阳；`descZh` 同）；我们 `desc` 原来把它错抄成 `Energy` ⇒ **数据侧已改字**
+            //   （`cardface_fixes.json` 的 `desc` 列）。
+            //   🔴 **只改数据不改这里 = 新缺陷**：`Contains("energy")` 失配 ⇒ 归一不出种类
+            //   （`TryIf` 会给 `ConditionKind = ""`）⇒ `ConditionHolds` 返回 false = **判不了**
+            //   ⇒ 那半句**永远不发生**（比原来错判能量还糟）。
+            //   ⇒ 两个资源**各有一个种类名**，结算层一个 `case` 读一个字段
+            //     （`EffectResolver.ConditionHolds`）—— 别把两种资源塞进同一个 case 里现认字符串。
+            if (c.Contains("you have") && EffectText.MentionsFaith(c)) return "faithcheck";
             // `If it's a troop, give it Hunt Mark`
             // 🔴 **2026-09-16 起这一条是「兜底」**：`it's a <已知词>` / `it is a <已知词>` 早在
             //    本函数开头就被 `ClauseKeyword` 抓走、归成 `targethaskw`（那条路结算层**真会判**）。

@@ -380,7 +380,15 @@ namespace CardPresentation
                 var b = buffs[i];
                 if (b == null) continue;
                 string what;
-                if (b.IsKeyword) what = CardText.KeywordZh(b.Name);   // 关键词：它自己那一族词条，⛔ 不是 `Battle/Effect/*`
+                // 🔴 **2026-10-19（A1316②）就地更正**：这一行原来走 `CardText.KeywordZh`（**恒中文列**）
+                //   ⇒ **英文档下这一行仍是中文**（同一个根：拿「恒中文」的取值口当显示口）。
+                //   改成 `CardText.KeywordDisplay`（**跟语档**：中文档 = 中文列「先锋」、英文档 = 英文列
+                //   `Vanguard`）—— 中文档**逐字不变**（`Loc` 的 `Card_Trait/*` 两列就是这两串）。
+                //   同族的标题那一处（`Core/Tooltip.cs` 的 `TipText.Trait`）2026-10-10（A1084）已经这么改了
+                //   ⇒ 本行是**同一族漏掉的那一处**。
+                //   ⚠️ 表索引（`TipText.Trait` 查规则书那张按中文名索引的表）**仍然要用 `KeywordZh`** ——
+                //   只有「显示口」才换（⛔ 别把两件事合成一件）。
+                if (b.IsKeyword) what = CardText.KeywordDisplay(b.Name);   // 关键词：跟语档；⛔ 不是 `Battle/Effect/*`
                 else what = AttrText(b.Name, b.Value);
                 if (string.IsNullOrEmpty(what)) what = b.Name;      // 认不出来就**原样打出来**（不静默、不自造）
                 string who = b.SourceCard;

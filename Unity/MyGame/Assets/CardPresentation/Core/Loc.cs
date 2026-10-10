@@ -761,9 +761,29 @@ namespace CardPresentation
             //   🔴 **推翻上一轮的「中文词条查不到 ⇒ 留英文」**：键**就在本地**（当时只扫了 `menus` 一个包）。
             { "Battle/Prebattle/SelectButton",     new Entry("选择",     "Select") },       // TMP 原文 `Select`；中文 = `zh_CN.csv:13`（精确命中）
             //   `Battle/Mulligan/secondTurn`：`…battlearena1/MonoBehaviour_5183.json`，TMP 原文 `You go second`
-            { "Battle/Mulligan/secondTurn",        new Entry("你后手",   "You go second") },// TMP 原文；中文 = `zh_CN.csv:198`（精确命中）
+            //   🔴 **2026-10-10（`A1103`）中文列改成原版运行期真渲的那一句（铁律 5 / 铁律 11）**：
+            //     原写「中文 = `zh_CN.csv:198`（精确命中）」⇒ 值是 **`你后手`** —— 那是**我们自己 2026-08-27 译的**
+            //     （`zh_CN.csv` 的来源定案：`资料/全量反编译复核_靠推断的清单.md` §2.2 那格 —— 原版客户端
+            //      **没有中文表**，I2 词条在远端 CCD；本轮**独立复核过**：那张表首行是 `keys,type,zh_CN`、
+            //      按**英文源串**索引（原版 I2 导出会按 `mTerm` 索引），两句原版真渲的中文在它里面**零命中**）。
+            //     🔑 **原版判据 = 现存【唯一】一份原版真渲中文的记录**：
+            //     `资料/原版参照图/Unity参照管线_0825/data/panel_0914b/p3_mulligan_tree.tsv:15`
+            //     （2026-09-14 运行期 dump，`/MulliganText/TurnText` 的 TMP `text` = **`你是第二个行动`**，fs 41.8）。
+            //     「就是这一行」的绑定 = 那颗 `Localize.mTerm` 正是本键（`MulliganManager.mulliganTurnTextLocalize`
+            //     → MB 5183；判据全文写在 `Battle/MulliganPanel.cs` 的 `TurnText` 那段 doc 里）。
+            //     ⛔ **别删那份 dump**（同批查出：`localization_assets_all.bundle` 本机没有、远端 URL 钉在
+            //     `catalog_main.json` 里；那两句今天已不在盘上）。
+            //   ⚠️ **同一对的另一半（`Battle/Tips/GoFirst` = `你先手`）本轮【没动】** —— 那份 dump 抓的是
+            //     **后手那一局**，原版「先手」那句的真渲中文**本地没有任何记录** ⇒ 按铁律 2 如实留着，
+            //     ⛔ 不许照这一句的形状替它编一个「你是第一个行动」。
+            { "Battle/Mulligan/secondTurn",        new Entry("你是第二个行动", "You go second") }, // TMP 原文；🔴 中文 = **原版运行期真渲**（`p3_mulligan_tree.tsv:15`），⛔ 不是 `zh_CN.csv`
             //   `Battle/Mulligan/Instructions`：`…battlearena1/MonoBehaviour_5197.json`，TMP 原文 `Choose cards to replace in first hand`
-            { "Battle/Mulligan/Instructions",      new Entry("选择首局替换的卡牌", "Choose cards to replace in first hand") }, // TMP 原文；中文 = `zh_CN.csv:75`（精确命中）
+            //   🔴 **2026-10-10（`A1103`）中文列同上改成原版运行期真渲的那一句**：原写 `选择首局替换的卡牌`
+            //     （= `zh_CN.csv:75`，我们自己译的）⇒ 现 = **`选择要在首轮替换的牌`**
+            //     （`p3_mulligan_tree.tsv:13`，`/MulliganText/Text`，fs 53.7；同一棵树上绑 `mulliganTextLocalize` → MB 5197）。
+            //   ✅ **同族第三条对得上、没动**：`…/MulliganContinueButton/Text` 原版真渲 = `继续`
+            //     ⇔ 本表 `Battle/Mulligan/ButtonDone` 的 ZH 列**逐字相同**（`panel_0914b` 那棵树 :8）。
+            { "Battle/Mulligan/Instructions",      new Entry("选择要在首轮替换的牌", "Choose cards to replace in first hand") }, // TMP 原文；🔴 中文 = **原版运行期真渲**（`p3_mulligan_tree.tsv:13`）
             //   `Battle/Mulligan/Replace`：**全库只此 1 颗** —— `bundle_battleprefabs_vfxandmisc_assets_all/
             //   MonoBehaviour_4126337295248883513.json`（那颗 `ReplaceText`），TMP 原文 `Replace`
             { "Battle/Mulligan/Replace",           new Entry("换",       "Replace") },      // TMP 原文；中文**自拟**（csv 无 `Replace` 这个英文串）
@@ -894,6 +914,14 @@ namespace CardPresentation
             //     断的就是这两句（`:11007` 的 `arm.Contains(":167")` 与「没有这个词的条目」那条）。
             { "Tips/Trait/NoRulebookEntry",        new Entry("（规则书里没有这个词的条目）", "(no entry for this term in the rulebook)") }, // ⚠️ 我们加的，不许当成原版
             { "Tips/Trait/RulebookLine",           new Entry("（规则书 :{0}）", "(rulebook :{0})") }, // ⚠️ 我们加的；`{0}` = 规则书行号（我们自己的判据行）
+            //   🆕 **2026-10-10（`A1084` 第二步 · 原 `A1086③`）`Tips/Trait/TitleWithEn`**：关键词 tooltip 的
+            //   **标题那一行** = 「中文名（英文名）」。🔴 **这是我们加的**（原版 `EverguildTraitTooltipItem`
+            //   的标题只有**一条** I2 词条、本地取不到值）⇒ 两列全自拟。
+            //   **为什么单开一条键**：那对全角括号 `（` `）` 原来是 `Core/Tooltip.cs:504` 里的**裸中文字面量**
+            //   ⇒ 英文档下标题会印成 `Armour（Armour）` 这种「中文标点 + 重复词」。
+            //   ⇒ 形状 = **`{0}（{1}）`** / **`{0} ({1})`**（`{0}` = 显示名、`{1}` = 英文名）；
+            //      **两个名字相同（英文档）时调用点【不套这个模板】**，直接给一个名字（见 `TipText.Trait`）。
+            { "Tips/Trait/TitleWithEn",            new Entry("{0}（{1}）", "{0} ({1})") }, // ⚠️ 我们加的（原版没有这一层括注）
             //   `Battle/BattleEnd/{Victory,Defeat,Draw}`：**载波①** —— `bundle_menus_assets_all` 的
             //   `BattleLogItem`（`MonoBehaviour_-7028880557435028942.json` / `…_8607776031950241599.json`）
             //   那两个 `LocalizedString` 字段 `victoryKey` / `defeatKey` / `drawKey`（脚本类 = `BattleLogItem`，
@@ -1723,8 +1751,56 @@ namespace CardPresentation
             //     超了会 `LogWarning`）⇒ P6 §⑤ 要求自检额外断 `Loc.T(键).Length <= SearchingMatchPopup.HintLineMaxChars`
             //     （**只量中文列**：字符数 ≤ 40 ⇔ 全宽 ≤ 80 位，是同一条尺子的**更严**半边，见那条常量的 doc）。
             //  ⚠️ `{0}`/`{1}` 的含义逐条不同（`PeerLeftHint` 的 `{0}` = 对方报的离开理由、`{1}` = 本地撤销那半句）⇒ 拼法见调用点。
+            //  ==========================================================================================
+            //  🔴 **2026-10-10（`A1085`）：本块这几条的【英文列】整体压短 —— 判据 + 逐路径长度账**
+            //
+            //  **为什么**：提示行那把尺子（`Shell/SearchingMatchPopup.HintLineWidth(句) > HintLineMaxWidth`
+            //   = **80 个半宽字位**，`A1083` 定的）**只对中文列算过**。`A1083` 换尺子之后**英文档仍然全超**：
+            //   按原英文列实测 5 条路径 = **91 / 105 / 106 / 110~124 / 140 位**，**一条都装不进 80**
+            //   ⇒ 英文档下 `ShowHint` **每次都喊**（那是一个「只会喊、且喊得准」的告警，等于没有告警）。
+            //  ⇒ `A1085` 二选一，本笔选 **「改英文列的文案长度」**（⛔ 不改窗口布局、⛔ 不截断）：
+            //   · ⛔ **不能改布局**：那行字的框（700×148）与自适应档（4~50px）是**照原版 prefab 读的**
+            //     （`Shell/SearchingMatchPopup` 那颗 `Main Search message`）—— 改它就是偏离原版；
+            //   · ⛔ **不能截断**：整句就是「告诉玩家刚才发生了什么」，截了 = 把该玩家看的话吃掉
+            //     （`A1083` 已把这条判据写死在那扇窗的头部注释里）。
+            //   · 而**这两列文案都是我们自拟的**（键族 `Lobby/*` 两张原版表都 0 命中）⇒ 改它**不碰原版**。
+            //
+            //  **改法（一句话）：让 EN 列的宽度 ≈ ZH 列的宽度** —— 中文那几条本来就都在 80 位以内，
+            //   英文原来同样是「同一句话」却宽出 40~70%，那部分是**英文写得啰嗦**，不是信息多。
+            //   ⇒ 逐条压到与中文列**同量级**，⛔ 没有删掉任何一条信息（掉线/离开是谁 · 这一局撤没撤 ·
+            //     两边都要再点一次 `Battle!` · 已经开局正在进战场）。
+            //
+            //  **逐条（改前 → 改后，单位 = 半宽字位；中文列不动）**：
+            //   | 键（`Lobby/…`） | ZH | EN 改前 | EN 改后 |
+            //   |---|---|---|---|
+            //   | `PeerLostHint`        | 45 | 78 | **54** |
+            //   | `DeferToBattle`       | 47 | 88 | **47** |
+            //   | `LobbyRestored`       | 64 | 91 | **77** |
+            //   | `MatchRevoked`        | 20 | 35 | **19** |
+            //   | `NotMatchingThisGame` | 28 | 49 | **25** |
+            //   （`PeerLeftHint` 20/22 · `PeerLostFrag` 10/21 · `PeerLeftFrag` 12/15 **本来就够短，没动**。）
+            //  **改后逐路径实测（`HintLineWidth` 那套区间算的，可复算）**：
+            //   | 路径 | 改前 EN | 改后 EN |
+            //   |---|---|---|
+            //   | `_started` 掉线 `DeferToBattle{PeerLostFrag}`        | 106 | **65** ✅ |
+            //   | `_started` 离开 `DeferToBattle{PeerLeftFrag+body}`   | 140 | **59**（`body` = 0）· **79**（`body` = 20 位）✅ |
+            //   | 未开局掉线 `PeerLostHint{MatchRevoked}`              | 110 | **70** ✅ |
+            //   | 未开局掉线 `PeerLostHint{NotMatchingThisGame}`       | 124 | **76** ✅ |
+            //   | 未开局离开 `PeerLeftHint{body,tail}`                 | 105 | **41**（`body` = 0）✅ |
+            //   | `Reset` 后对面回来 `LobbyRestored`                   |  91 | **77** ✅ |
+            //  ⚠️ **仍然超的两格（如实记，不是没改完）**：夹着**对端原样文本**的那两条 ——
+            //   本机收侧把 `body` **钳到 40 个字符**（`NetProtocol.MaxPeerTextChars` / `NetSession.ClampPeerText`），
+            //   若对端真报满 40 个 ASCII ⇒ `DeferToBattle{PeerLeftFrag+body}` = **99** ·
+            //   `PeerLeftHint{body,NotMatching}` = **81**。🔴 **这一格我们改不了**：`body` 的长度是
+            //   **协议层的钳**、不在本表的白名单里；而且**中文档同一格也一样超**（`body` 满 40 汉字 = 80 位）
+            //   ⇒ 这是「那一行本来就装不下一条 40 字的对端理由」，**与语档无关**、也不是英文列写得啰嗦。
+            //   ⚠️ **改完这两条 EN 列宽度已 ≈ ZH 列**（47 vs 47 · 54 vs 45 · 77 vs 64 …）⇒ **英文档的相对劣势已经消掉**；
+            //     剩下的是那条**共有的**结构性问题（要真收口只能改 `MaxPeerTextChars`／改框，两者都不在本笔白名单）。
+            //  ✅ **中文档零变化**（本笔一个 ZH 列都没动）⇒ `Editor/NetSelfTest.cs` 那两条按 `Loc.T(...).Length`
+            //    ≤ `HintLineMaxChars`(40) 断**中文列**的检查**一字不用改**。
+            //  ==========================================================================================
             { "Settings/Online/Lobby/PeerLostHint",         new Entry("对面掉线了，{0}（两边回来各点一次 `Battle!`）",
-                                                            "Opponent disconnected, {0} (both of you press Battle! again after they return)") },
+                                                            "Opponent disconnected, {0} (press `Battle!` once back)") },
             { "Settings/Online/Lobby/PeerLost",             new Entry("对面掉线了 —— 联机断开。\n{0}，回到大厅。\n（对面回来之后，两边各自重新点一次 `Battle!`。原版那一刻走的是 `SearchOpponentManager.CancelSearchForDisconnect`：弹窗 + 取消搜索。）",
                                                             "Opponent disconnected — the connection is gone.\n{0}, back to the lobby.\n(After the opponent returns, both of you press Battle! once more. At that moment the original ran SearchOpponentManager.CancelSearchForDisconnect: popup + cancel search.)") },
             { "Settings/Online/Lobby/PeerLeftHint",         new Entry("联机结束：{0} —— {1}", "Match ended: {0} — {1}") },
@@ -1741,11 +1817,11 @@ namespace CardPresentation
             //      那两条的 `{0}` 走的是**别的东西**（`tail` / `body`）⇒ ⛔ 别把它们对调过去。
             { "Settings/Online/Lobby/PeerLostFrag",         new Entry("对面掉线了",     "Opponent disconnected") },
             { "Settings/Online/Lobby/PeerLeftFrag",         new Entry("对面离开了：",   "Opponent left: ") },
-            { "Settings/Online/Lobby/MatchRevoked",         new Entry("这一局的匹配已经撤销", "This match's setup has been revoked") },
+            { "Settings/Online/Lobby/MatchRevoked",         new Entry("这一局的匹配已经撤销", "Match setup revoked") },   // EN 压短（A1085：35 → 19 位）
             { "Settings/Online/Lobby/NotMatchingThisGame",  new Entry("（本机本来就没在匹配这一局）",
-                                                            "(this machine was not matching this match anyway)") },
+                                                            "(not matching this match)") },                              // EN 压短（A1085：49 → 25 位）
             { "Settings/Online/Lobby/DeferToBattle",        new Entry("{0} —— 已开局、正在进战场（后面由对局那一层说）",
-                                                            "{0} — the match has already started, entering the arena (the battle layer will continue)") },
+                                                            "{0} — match already started, entering the arena") },        // EN 压短（A1085：88 → 47 位）
             { "Settings/Online/Lobby/BotNoLink",            new Entry("联机没连上", "Not connected") },
             { "Settings/Online/Lobby/BotSessionNotReady",   new Entry("联机会话现在是 `{0}`（还没握手完）",
                                                             "The session is now `{0}` (handshake not finished)") },
@@ -1753,7 +1829,7 @@ namespace CardPresentation
             { "Settings/Online/Lobby/PlayedVsBot",          new Entry("这一局打的是电脑，不是联机。\n原因：{0}。\n你在设置里配过联机了 —— 请到「设置 → 联机」点一次{1}，再回来点 `Battle!`。",
                                                             "This match is against the AI, not online.\nReason: {0}.\nYou have configured online play — go to Settings → Online and press {1} once, then press `Battle!` again.") },
             { "Settings/Online/Lobby/LobbyRestored",        new Entry("对面回来了 —— 联机已恢复。要开这一局，两边重新各点一次 `Battle!`",
-                                                            "The opponent is back — online play restored. Both sides press `Battle!` once more to start.") },
+                                                            "Opponent is back — online play restored. Both press `Battle!` again to start.") },   // EN 压短（A1085：91 → 77 位）
             { "Settings/Online/Lobby/StartAfterCancel",     new Entry("对面在你取消之后开局了 —— 这一局没有进。\n对面那边会停在等待界面上，请重新约一次。",
                                                             "The opponent started the match after you cancelled — this one did not go through.\nThe other side will stay on the waiting screen; please arrange it again.") },
             { "Settings/Online/Lobby/MissedCancel",         new Entry("对面在你开局之后才点了取消 —— 这一局照旧开始。\n对面那边会看到「已经开局、取消不了」，要退出只能在对局里投降。",
@@ -1933,6 +2009,186 @@ namespace CardPresentation
             { "Settings/Online/Wire/PeerLeftMatch",    new Entry("对面离开了这一局",         "The opponent left this match") },
             { "Settings/Online/Wire/NotYourTurn",      new Entry("不是你的回合",             "Not your turn") },
             { "Settings/Online/Wire/RoomGone",         new Entry("这一局的联机房间已经散了", "This match's online room is gone") },
+
+            // ============================================================ 🆕 **2026-10-10（`A1084`）：卡面/HUD 那一族中文进表**
+            //
+            // 🔴 **为什么**：这几族原来全在 `Core/CardText.cs` 的**静态字典**里（键 = 英文原文或 canonical 键），
+            //   与 `Loc` 是**两条并行的取值路径** —— 工程红线「两处写同一条规则 = 迟早不一致」。
+            //   搬进本表之后：**判据只此一份**，`CardText` 那边一律转发（口径 = `TermOr`：表里有 ⇒ 按语档取，
+            //   表里没有 ⇒ 出声一次 + 回原来的兜底）。
+            //
+            // ⛔ **不许「只搬字面量」** —— 同批必须处理两件（普查 §5.3·1 点名）：
+            //   ① `CardText.AllChinese()`（**字体语料**的唯一来源，`Editor/TmpSetup.Corpus()` 读它）
+            //      ⇒ 搬完它改成内转 `Loc.AllChinese()`（本表的中文列**天然进语料**）；
+            //   ② `CardText.Zh`（**字体闸 + 语言闸**）—— 它**留着**，转发一律经 `Term`/`TermOr` 这两道闸。
+            //   ⚠️ **`AllChinese()` 那两条自检（`TmpSetup.CheckCoverage` + `BattleScene` §14b4c）读的仍是
+            //     `CardText.AllChinese()`** ⇒ 它必须继续把这几族**全覆盖**（本批已逐条核过：改成内转之后
+            //     语料只多不少，见 `Editor/CardBaseDemo.cs` 的那条判别式断言）。
+            // ⚠️ **`KeywordZhAliases`（`装甲`/`爆破`）【没搬】** —— 它不上屏、只参与「卡面这一段印过没有」的比对，
+            //   搬走会让 5 张卡（`AM13/AM28/AM34/AM37/AM54`）**重复印一遍关键词**（判据 → `CardText.cs:205-214`）。
+            //
+            // **载体/键名的出处，逐族**：
+            //   · `Card_Name/*`：**族名照原版**（原版那 8 条 `Card_Name/{EC21,EC57,…}` 是异画/特例），
+            //     **这 26 条键名自拟** —— 我们自造的 26 张起始卡在原版两张表里**都查不到**（普查 §④）。
+            //   · `Card_Trait/*`：**族 = 原版**（`GameStaticData.TraitNameToString` 拼的就是 `"Card_Trait/" + 枚举名`，
+            //     转述见 `资料/普查产出_1018/V-OATH_Oath徽记与记号.md:130-136`；**裸前缀 `Card_Trait/` 在表②**）。
+            //     ⚠️ **值取不到**（原版 I2 词条在远端 CCD；`Card_Trait/` 在 `assets_full` 全库 0 命中）
+            //     ⇒ **两列都是我们自己的写法**（ZH 列 = 改前 `CardText` 那两张表逐字，EN 列 = 改前 `KeywordEn` 的输出）。
+            //   · `Armies/*`：**族 = 原版**（那 14 条 `mTerm` 在表① 全在；`Ember`/`Tide`/`Neutral` 原版无 ⇒ 自拟）。
+            //     ⚠️ **载体没核**（普查 §⑦·2）：那 14 颗 `Localize` 挂在**主菜单阵营选择页**，
+            //        **不一定是卡面那行阵营字**（卡面那行按 `CardText.cs:459` 的注释来自 `factions.json` 的 `cn`）
+            //        —— 如实标「键名可用、载体待核」，⛔ 别写成「原版卡面就从这儿取」。
+            //   · `Battle/Phrase/*` 与 `CardEffect/*`：**两族都是自拟**（原版两张表 0 命中）。
+            //     ⚠️ `Battle/Phrase/*` **不复用近邻**（`Battle/BattleEnd/{Victory,Defeat}` · `Battle/Tips/{MeleeAttack,RangeAttack}`）
+            //        —— 那些是**结算面板标题**与**数值格标签**，语义不同；复用会让「改一处文案另一处跟着变」（铁律 6）。
+            //     ⚠️ `Battle/Phrase/*` 的 **EN 列 = 原来 `CardText.Phrases` 的字典键（英文原文）逐字**
+            //        ⇒ 英文档的显示**逐字不变**（它原来就是回那个键）。
+            // ==========================================================================================
+
+            // ---- 卡名：我们自造的 26 张起始卡（`CardDef.Name` = 键尾）----
+            { "Card_Name/Ember Warlord", new Entry("余烬督军", "Ember Warlord") },
+            { "Card_Name/Scavenger", new Entry("拾荒者", "Scavenger") },
+            { "Card_Name/Bulwark", new Entry("壁垒", "Bulwark") },
+            { "Card_Name/Falcon", new Entry("猎鹰", "Falcon") },
+            { "Card_Name/Ember Archer", new Entry("余烬弓手", "Ember Archer") },
+            { "Card_Name/Veteran", new Entry("老兵", "Veteran") },
+            { "Card_Name/Ironclad", new Entry("铁甲兵", "Ironclad") },
+            { "Card_Name/Longbowman", new Entry("长弓手", "Longbowman") },
+            { "Card_Name/Flamecaller", new Entry("焰唤者", "Flamecaller") },
+            { "Card_Name/Shadowblade", new Entry("影刃", "Shadowblade") },
+            { "Card_Name/Battering Ram", new Entry("攻城槌", "Battering Ram") },
+            { "Card_Name/War Drake", new Entry("战龙", "War Drake") },
+            { "Card_Name/Molten Colossus", new Entry("熔岩巨像", "Molten Colossus") },
+            { "Card_Name/Tide Warlord", new Entry("潮汐督军", "Tide Warlord") },
+            { "Card_Name/Tide Minion", new Entry("潮汐仆从", "Tide Minion") },
+            { "Card_Name/Wave Rider", new Entry("踏浪者", "Wave Rider") },
+            { "Card_Name/Reef Guard", new Entry("珊瑚卫", "Reef Guard") },
+            { "Card_Name/Siren", new Entry("海妖", "Siren") },
+            { "Card_Name/Coral Archer", new Entry("珊瑚弓手", "Coral Archer") },
+            { "Card_Name/Shellback", new Entry("贝壳兽", "Shellback") },
+            { "Card_Name/Ballista", new Entry("弩炮", "Ballista") },
+            { "Card_Name/Deep Hunter", new Entry("深渊猎手", "Deep Hunter") },
+            { "Card_Name/Iron Shell", new Entry("铁壳", "Iron Shell") },
+            { "Card_Name/Storm Priest", new Entry("风暴祭司", "Storm Priest") },
+            { "Card_Name/Leviathan", new Entry("利维坦", "Leviathan") },
+            { "Card_Name/Abyss Titan", new Entry("深渊泰坦", "Abyss Titan") },
+
+            // ---- 关键词：canonical 键 → 显示名（`CardText.KeywordZh` / `KeywordEn` / `Keyword` 三条路都读这里）----
+            { "Card_Trait/ability", new Entry("技能", "Ability") },
+            { "Card_Trait/agenda", new Entry("议程", "Agenda") },
+            { "Card_Trait/ambush", new Entry("伏击", "Ambush") },
+            { "Card_Trait/armour", new Entry("护甲", "Armour") },
+            { "Card_Trait/artifice", new Entry("巧技", "Artifice") },
+            { "Card_Trait/backlash", new Entry("反噬", "Backlash") },
+            { "Card_Trait/blast", new Entry("爆裂", "Blast") },
+            { "Card_Trait/blind", new Entry("失明", "Blind") },
+            { "Card_Trait/bloodthirst", new Entry("嗜血", "Blood Thirst") },
+            { "Card_Trait/camouflage", new Entry("伪装", "Camouflage") },
+            { "Card_Trait/cantattack", new Entry("无法攻击", "Can't Attack") },
+            { "Card_Trait/codex", new Entry("典籍", "Codex") },
+            { "Card_Trait/companion", new Entry("伴生", "Companion") },
+            { "Card_Trait/concussion", new Entry("震荡", "Concussion") },
+            { "Card_Trait/cruelty", new Entry("残忍", "Cruelty") },
+            { "Card_Trait/darkpact", new Entry("黑暗契约", "Dark Pacts") },
+            { "Card_Trait/destroyer", new Entry("毁灭者", "Destroyer") },
+            { "Card_Trait/duty", new Entry("职责", "Duty") },
+            { "Card_Trait/ecstasy", new Entry("狂喜", "Ecstasy") },
+            { "Card_Trait/ephemeral", new Entry("临时", "Ephemeral") },
+            { "Card_Trait/faith", new Entry("信仰", "Faith") },
+            { "Card_Trait/fast", new Entry("迅捷", "Fast") },
+            { "Card_Trait/ferocity", new Entry("狂暴", "Ferocity") },
+            { "Card_Trait/flank", new Entry("侧翼", "Flank") },
+            { "Card_Trait/flying", new Entry("飞行", "Flying") },
+            { "Card_Trait/huntmark", new Entry("猎杀标记", "Hunt Mark") },
+            { "Card_Trait/invulnerable", new Entry("无敌", "Invulnerable") },
+            { "Card_Trait/longrange", new Entry("远射", "Long Range") },
+            { "Card_Trait/markerlight", new Entry("标记光", "Markerlight") },
+            { "Card_Trait/mob", new Entry("群体", "Mob") },
+            { "Card_Trait/oath", new Entry("誓言", "Oath") },
+            { "Card_Trait/pack", new Entry("兽群", "Pack") },
+            { "Card_Trait/penitence", new Entry("忏悔", "Penitence") },
+            { "Card_Trait/pindown", new Entry("压制", "Pindown") },
+            { "Card_Trait/pray", new Entry("祈祷", "Pray") },
+            { "Card_Trait/quest", new Entry("任务", "Quest") },
+            { "Card_Trait/rally", new Entry("集结", "Rally") },
+            { "Card_Trait/regeneration", new Entry("再生", "Regeneration") },
+            { "Card_Trait/regiment", new Entry("团", "Regiment") },
+            { "Card_Trait/remnant", new Entry("残骸", "Remnant") },
+            { "Card_Trait/sabotage", new Entry("破坏", "Sabotage") },
+            { "Card_Trait/sentry", new Entry("哨戒", "Sentry") },
+            { "Card_Trait/shield", new Entry("护盾", "Shield") },
+            { "Card_Trait/shuriken", new Entry("星镖", "Shuriken") },
+            { "Card_Trait/slay", new Entry("斩杀", "Slay") },
+            { "Card_Trait/sniper", new Entry("狙击", "Sniper") },
+            { "Card_Trait/spiritstone", new Entry("灵魂石", "Spirit Stone") },
+            { "Card_Trait/stealth", new Entry("潜行", "Stealth") },
+            { "Card_Trait/stimulation", new Entry("激励", "Stimulation") },
+            { "Card_Trait/stomp", new Entry("践踏", "Stomp") },
+            { "Card_Trait/strike", new Entry("猛击", "Strike") },
+            { "Card_Trait/stun", new Entry("眩晕", "Stun") },
+            { "Card_Trait/swarm", new Entry("虫群", "Swarm") },
+            { "Card_Trait/synapse", new Entry("突触", "Synapse") },
+            { "Card_Trait/talent", new Entry("天赋", "Talent") },
+            { "Card_Trait/teleport", new Entry("传送", "Teleport") },
+            { "Card_Trait/tide", new Entry("潮涌", "Tide") },
+            { "Card_Trait/unstable", new Entry("不稳定", "Unstable") },
+            { "Card_Trait/uprising", new Entry("起义", "Uprising") },
+            { "Card_Trait/vanguard", new Entry("先锋", "Vanguard") },
+            { "Card_Trait/vulnerable", new Entry("脆弱", "Vulnerable") },
+            { "Card_Trait/waystone", new Entry("路标石", "Waystone") },
+
+            // ---- 阵营：`CardDef.Faction` = 键尾（14 条键名 = 原版 `Armies/<Faction>`；`Ember`/`Tide`/`Neutral` 自拟）----
+            { "Armies/Ember", new Entry("余烬", "Ember") },        // 我们自造的阵营（原版 `Armies/` 里没有）
+            { "Armies/Tide", new Entry("潮汐", "Tide") },          // 同上
+            { "Armies/Neutral", new Entry("中立", "Neutral") },    // ⚠️ `Armies/` 里**没有 `Neutral`**（普查 §④）⇒ 一并自拟
+            { "Armies/Ultramarines", new Entry("极限战士", "Ultramarines") },
+            { "Armies/Goff", new Entry("高夫兽人", "Orks") },
+            { "Armies/SaimHann", new Entry("赛姆汉灵族", "Saim-Hann") },
+            { "Armies/Sautekh", new Entry("索泰克死灵", "Sautekh Dynasty") },
+            { "Armies/BlackLegion", new Entry("黑色军团", "Black Legion") },
+            { "Armies/Leviathan", new Entry("利维坦泰伦", "Hive Fleet Leviathan") },
+            { "Armies/TauEmpire", new Entry("钛帝国", "T'au Empire") },
+            { "Armies/Sororitas", new Entry("战斗修女", "Adepta Sororitas") },
+            { "Armies/Genestealers", new Entry("基因窃取者教派", "Genestealer Cults") },
+            { "Armies/AstraMilitarum", new Entry("星界军", "Astra Militarum") },
+            { "Armies/DarkAngels", new Entry("暗黑天使", "Dark Angels") },
+            { "Armies/EmperorsChildren", new Entry("帝皇之子", "Emperor's Children") },
+            { "Armies/SpaceWolves", new Entry("太空野狼", "Space Wolves") },
+
+            // ---- `CardText.Phrases` 那 11 条（+ `TurnLabel`）：**另立键、不复用近邻**（见上面那条判据）----
+            //   ⚠️ 同族另 4 条（`END TURN` / `YOUR TURN` / `ENEMY TURN` / `DRAW`）**本表早已有键**
+            //      （`Battle/HUD/*` / `Battle/BattleEnd/Draw`）⇒ 这里**不重复建**，`CardText.PhraseTerms` 直接把那两个
+            //      英文原文转过去（`END TURN` 那三条是 `A1084` 之前就转好的）。
+            //   ⚠️ 另有 4 条（`HAND` / `DECK` / `DISC` / `HP`）**全仓零消费点 ⇒ 本批删掉，不建键**（普查 §5.4）。
+            { "Battle/Phrase/GameOver", new Entry("对局结束", "GAME OVER") },
+            { "Battle/Phrase/YouWin", new Entry("你赢了", "YOU WIN") },
+            { "Battle/Phrase/YouLose", new Entry("你输了", "YOU LOSE") },
+            { "Battle/Phrase/ChooseAction", new Entry("选择行动", "CHOOSE ACTION") },
+            { "Battle/Phrase/PickTarget", new Entry("选择目标", "PICK A TARGET") },
+            { "Battle/Phrase/NoLegalTarget", new Entry("没有合法目标", "NO LEGAL TARGET") },
+            { "Battle/Phrase/Melee", new Entry("近战", "MELEE") },
+            { "Battle/Phrase/Ranged", new Entry("远程", "RANGED") },
+            { "Battle/Phrase/Ability", new Entry("技能", "ABILITY") },
+            { "Battle/Phrase/Stunned", new Entry("眩晕中", "STUNNED") },
+            { "Battle/Phrase/CannotAct", new Entry("这个单位无法行动", "THIS UNIT CANNOT ACT") },
+            { "Battle/Phrase/TurnLabel", new Entry("第 {0} 回合", "TURN {0}") },
+
+            // ---- 效果小字 / 技能卡面板整句的构件（`CardText.Effect` · `EffectSentence`）----
+            //   ⚠️ `CardEffect/Sentence/Draw{Many,One}` 的 **ZH 两列同值是有意的**：中文不分单复数，
+            //      英文才分（EN 列 = 原来代码里 `n > 1 ? " cards" : " card"` 那两句逐字）。
+            //   ⚠️ `CardEffect/Sentence/{Heal,Damage}` 的 `{1}` = 目标词（= 同族 `CardEffect/Target/*` 取出来的那串），
+            //      `{0}` = 数量 —— **枚举顺序不同**（中文「为{1}…{0}…」/ 英文「… {0} … to {1}」）⇒ 两个占位符都在表里。
+            { "CardEffect/Short/Damage", new Entry("伤害", "DMG") },
+            { "CardEffect/Short/Heal", new Entry("治疗", "HEAL") },
+            { "CardEffect/Short/Draw", new Entry("抽牌", "DRAW") },
+            { "CardEffect/Target/Self", new Entry("自身", "self") },
+            { "CardEffect/Target/OwnWarlord", new Entry("己方战将", "your warlord") },
+            { "CardEffect/Target/EnemyWarlord", new Entry("敌方战将", "the enemy warlord") },
+            { "CardEffect/Target/EnemyUnit", new Entry("敌方单位", "an enemy unit") },
+            { "CardEffect/Sentence/DrawMany", new Entry("抽 {0} 张牌", "Draw {0} cards") },
+            { "CardEffect/Sentence/DrawOne", new Entry("抽 {0} 张牌", "Draw {0} card") },
+            { "CardEffect/Sentence/Heal", new Entry("为{1}回复 {0} 点生命", "Restore {0} health to {1}") },
+            { "CardEffect/Sentence/Damage", new Entry("对{1}造成 {0} 点伤害", "Deal {0} damage to {1}") },
         };
         //  ⚠️ **`Wire/HostRestarted` 的 ZH/EN 是本轮【故意改过的】**（`A1038` 顺手项，同 `NetBattle` 那条
         //     R7 中性化纪律）：原来 ZH = 调用点原话「主机重开了」，而那个调用点（`NetRuntime.Reset()`）
@@ -2039,6 +2295,20 @@ namespace CardPresentation
         {
             Entry e;
             return (!string.IsNullOrEmpty(key) && Table.TryGetValue(key, out e)) ? e.En : null;
+        }
+
+        /// <summary>取**中文那一列** —— <see cref="EnOf"/> 的对称件。**恒中文、不看当前语档**。
+        /// <para>🔴 **2026-10-10（`A1084`）为什么开这个口**：`CardText.KeywordZh` 的契约是
+        /// 「**查不到返回 `null`**、查到就给中文」（`KeywordSegment` 判「这个词认不认得」、
+        /// `TipText.Trait` 拿它当**规则书文案表的键**——那张表按中文名索引）—— 这两处都**不能**用
+        /// `T()`（`T` 按语档取：英文档下会给英文列 ⇒ 关键词段在英文档会印出中文名的替代品、
+        /// tooltip 也查不到表）。⇒ 需要一条**与语档无关**的「只要中文列」的路。</para>
+        /// <para>⛔ **别拿它当第二条显示取值路** —— 界面上正常显示**一律走 `T()`/`CardText.Term`**
+        /// （它们才管语言闸、字体闸、缺键出声那些账）。⛔ 也别拿它去覆盖/写入（本表只读）。</para></summary>
+        public static string ZhOf(string key)
+        {
+            Entry e;
+            return (!string.IsNullOrEmpty(key) && Table.TryGetValue(key, out e)) ? e.Zh : null;
         }
 
         /// <summary>

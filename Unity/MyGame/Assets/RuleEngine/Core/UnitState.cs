@@ -77,14 +77,28 @@ namespace RuleEngine
         ///     ⇒ **只有 `fast` / `flank` 免召唤病**（`ferocity` / `oath` 走**另一条**
         ///     `ActivateTraitsOnSummonOrEnchantment.c:86-99`，只抬 `canAct`）。
         ///
-        /// 🔴 **谁写它（我们这侧）**：**唯一一处** = <see cref="RuleCore.ResetSummonSickness"/>，
-        ///    由两个「**转移归属 ⇒ 重新入场**」的点各调一次（抢：`EffectResolver.DoTakeControl` ·
-        ///    回合末归还：`RuleCore.EndTurn`）。**清它** = <see cref="RefreshForNewTurn"/>。
+        /// 🔴 **谁写它（我们这侧）—— 两条路、两处写点**：
+        ///     · **普通部署**（手牌打出 / 免费部署 / 再造残骸）= <see cref="RuleCore.ApplyDeployTurnState"/>；
+        ///     · **转移归属 ⇒ 重新入场**（抢 `EffectResolver.DoTakeControl` ·
+        ///       回合末归还 `RuleCore.EndTurn`）= <see cref="RuleCore.ResetSummonSickness"/>。
+        ///    **清它** = <see cref="RefreshForNewTurn"/>。
         ///
-        /// ⚠️ **如实标着（没查实的那一半）**：**普通部署那一路我们没有找到「写 1」的原版读点** ——
-        ///    它**不**在这两个写点里，本类也**不**在构造 / `ApplyDeployTurnState` 时置这一位
-        ///    （⛔ 别把「照原版」贴到一个没查实的推断上）。细节与证据见
-        ///    `资料/普查产出_第六会话/W_补0x58位_与A1071那一行.md` §⑤。
+        /// 🔴 **2026-10-18 之后·第十二会话（`A1098`）就地订正（铁律 5）** —— 本段原来写
+        ///    「**普通部署那一路我们没有找到「写 1」的原版读点**」（并注明出处在
+        ///    `资料/普查产出_第六会话/W_补0x58位_与A1071那一行.md` §⑤）。**那一句已不成立：找到了。**
+        ///    真身 = **`CardScript._MinionPlayedIntoField_d__314__MoveNext.c:69-71`**
+        ///    （现读 `d:/2/tools/decomp_full/`）：
+        ///    `if (*(char *)(param_1 + 0x30) == '\0') *(undefined1 *)(lVar4 + 0x58) = 1;`
+        ///    = **`CardScript.MinionPlayedIntoField(...)` 协程体里的 `if (!keepStatus) summonSickness = true;`**。
+        ///    字段序逐条对上（`CardScript.cs:523-560` 那个 `_003CMinionPlayedIntoField_003Ed__314`：
+        ///    `doTransformAnim` `+0x20` / `<>4__this` `+0x28` / `keepStatus` `+0x30` /
+        ///    `unitInPlayCounter` `+0x34` / `delay` `+0x38` / `shouldTriggerSummon` `+0x3c` /
+        ///    `minionManager` `+0x40`；工厂 `CardScript__MinionPlayedIntoField.c:20-25` 逐条印证）。
+        ///    ⚠️ **错因**：上一批按**方法名**找（`grep ResetSummonSickness` / `set_summonSickness`），
+        ///    而这一处写在一个 **`[IteratorStateMachine]` 生成的协程类**里，名字里**没有**
+        ///    `summonSickness` 字样 ⇒ 按名字搜必然漏。**`set_summonSickness` 零调用点不是
+        ///    「方法体未解出」的证据** —— 原版对这个字段**一直是直接写**（`ResetSummonSickness.c:8`
+        ///    也是直接写），那个 public setter 本来就没人用。
         /// </summary>
         public bool SummonSickness;
 
@@ -287,6 +301,73 @@ namespace RuleEngine
         ///    ⛔ 别顺手删（`RuleEngineTest` 在断言它）。
         /// </summary>
         public bool IsBlind { get { return Has(KeywordTable.Blind); } }
+
+        // ---- 🆕 2026-10-11（第十三会话 · `A1159` / `A1218②`）：**伤害模型上的两个「第二条命」----
+        //
+        // 🔴 **为什么是【派生属性】而不是新字段**：原版这两个都是 `DefinedTrait`，
+        //    读法一律走 `EntityScript.GetCurrentTraitValueWithModifiers` ——
+        //      · `CurrentSurvivor` = `EntityScript__get_CurrentSurvivor.c:5`（`0x1ae` = 430）
+        //      · `CurrentBastion`  = `EntityScript__get_CurrentBastion.c:5`（`0x352` = 850）
+        //    ⇒ 我们的 `KwValue`（= `_keywords` 里那个值）**就是**那个读法，**只有一份表示**。
+        //    加一个 int 字段 = 同一条规则的第二个表示 —— 那正是 `A1116` 把 `stun` / `blind`
+        //    从布尔字段改成派生属性时铲掉的东西（`RemoveAll` 的注释点过名）。
+        //    ⛔ **别改回字段、也别在别处补第二份同步**。
+
+        /// <summary>
+        /// **当前幸存者**（`CurrentSurvivor`）—— 带它就把「这一击会打死我」改成
+        /// 「消耗掉它、把生命设回来、留场」的**第二条命**。
+        /// 常量与语义 → <see cref="KeywordTable.Survivor"/>；消耗口 → <see cref="UseSurvivor"/>；
+        /// 判死闸 → `RuleCore.EnoughPendingDamageToDie`；留场那条支路 → `RuleCore.CleanupDeaths`。
+        /// </summary>
+        public int Survivor { get { return KwValue(KeywordTable.Survivor); } }
+
+        /// <summary>
+        /// **当前堡垒**（`CurrentBastion`）—— 两处**形状不一样**，别混：
+        ///   · **预览 / 判死**（`CardScript__EnoughPendingDamageToDieWithDamageValues.c:177/222/241/248`）：
+        ///     当作**额外血量**与生命相加（`health + CurrentBastion`）→ <see cref="RuleCore.WouldKillByEntries"/>。
+        ///   · 🔴 **结算**（`CardScript._ReceiveDamage_d__381__MoveNext.c:126-156` →
+        ///     `CardScript__RemoveBastionDamage.c`）：堡垒 ≥ 1 时**整份伤害被它吃掉**、生命不动，
+        ///     存量按伤害量扣减、**打穿了才把溢出打到生命** → `RuleCore.ApplyDamage`（`W4` 落地）。
+        /// </summary>
+        public int Bastion { get { return KwValue(KeywordTable.Bastion); } }
+
+        /// <summary>
+        /// 🔴 **消耗掉幸存者**（原版 `CardScript.UseSurvivor`）—— 「第二条命」真正用掉的那一步。
+        ///
+        /// 判据 = `d:/2/tools/decomp_full/CardScript__UseSurvivor.c`（逐句）：
+        ///   · `:29-39` 生命 = **`Min(CurrentSurvivor, CurrentMaxHealthProcessed)`**
+        ///     （`System_Math__Min`）写回 `+0x68..0x78`；
+        ///   · `:41-42` `RemoveBuffedTrait(0x1ae)` + `RemoveTrait(0x1ae)`（= **整个摘掉** `survivor`）；
+        ///   · `:71` `AddTraitSilently(0x1b8 /*survivorSpent*/)`；
+        ///   · `:87` `BattleManager.BroadcastUnitHealed(card)` → 我们发一条**负数 `Hit`**（= 治疗，
+        ///     表现层据此走绿字，与 `EndTurn` 的再生段**同一个约定**）。
+        ///   · `:73-75` 🔴 **`RawCardScript.OnTrigger(raw, 0x1a4, …)`** ——
+        ///     `0x1a4` = `AbilityTrigger.Survivor = 420` ⇒ 「幸存者**作为触发 id**」那一半
+        ///     （本方法**自己不发** —— `UnitState` 上没有 ctx，由调用点
+        ///     `RuleCore.CleanupDeaths` 在本方法**之后**补一次 `FireTriggerAt(Survivor)`）。
+        /// 返回实际回的血（`0` = 没得回，调用方据此决定要不要出声）。
+        ///
+        /// ⚠️ **`survivorSpent` 那一条照原版加了**（<see cref="KeywordTable.SurvivorSpent"/>）——
+        ///    它**只是**一个 trait（原版 `:71` `AddTraitSilently(0x1b8)`），**没有**配套的触发时机：
+        ///    🔴 **2026-10-11（`W4` · 铁律 5）**：本段原来写着「它承诺的触发时机（`OnTrigger(0x1b8, …)`）
+        ///    我们还没做」—— **那句是错的**，`0x1b8` 在 `_ResolveAttack…:379` / `OnTurnStart.c:266`
+        ///    是 **`AbilityTrigger.Landing = 440`**（两个枚举数值巧合相同），
+        ///    而 `AbilityTrigger.SurvivorSpent = 422 = 0x1a6` 全量反编译 `grep` **0 命中**
+        ///    ⇒ 原版**根本没有**这条触发。详见 <see cref="KeywordTable.SurvivorSpent"/> 的 doc。
+        /// ⚠️ 原版紧邻的 `:152-155` 还有一支 **`sacrifice`（trait 470）** ——
+        ///    ⚠️ **它在 `UseSurvivor` 【之前】**（`TriggerSacrifice` 在 `:157`，`UseSurvivor` 在 `:165`）
+        ///    ⇒ 由调用点 `RuleCore.CleanupDeaths` 排在本方法之前，⛔ 别挪到本方法里。
+        /// </summary>
+        public int UseSurvivor()
+        {
+            int sv = Survivor;
+            if (sv < 1) return 0;
+            int before = Health;
+            Health = System.Math.Min(sv, MaxHealth);        // 原版 `UseSurvivor.c:29-39`
+            RemoveAll(KeywordTable.Survivor);               // 原版 `:41-42`（整个摘掉，不是减一层）
+            AddKeyword(KeywordTable.SurvivorSpent, 1);      // 原版 `:71`
+            return Health - before;
+        }
 
         // ---- 🆕 2026-10-09（`A1121`）「回合开始时就在这个状态」的两个闸门（原版 `+0x55` / `+0x56`）----
         //

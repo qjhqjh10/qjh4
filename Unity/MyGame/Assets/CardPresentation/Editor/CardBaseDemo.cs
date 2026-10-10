@@ -241,6 +241,7 @@ public static class CardBaseDemo
         Debug.Log(P + "--- 卡面：兵种行（原版 `RaceText`）按语言取词 ---");
         AssertSubtypeLine();
         AssertCardTextLanguageGate();     // 🔴 2026-10-18：`CardText.Zh` 改成语言闸（+ `Name` 补闸）
+        AssertCardTextTablesInLoc();      // 🔴 2026-10-10（A1084）：那几族中文**已搬进 `Core/Loc.cs`**（键族 + 齐全 + 值 + 语料 + 别名 + 不复用近邻）
         AssertTitleMidline();             // 🔴 2026-10-18：`A848` —— 卡名那层 = 原版的 `Midline`
         AssertCreatedBy();                // 🔴 2026-10-18：`A985④` —— 卡面第五层「由谁造出来的」（原版 `CreatedByText`）
 
@@ -859,6 +860,158 @@ public static class CardBaseDemo
                   "③ 判别式：两档的卡名**不是同一串**（防「两边都返回 id」也照样过）");
         }
         finally { Loc.RestoreForTest(langBack); Loc.PersistOverride = false; }
+    }
+
+    /// <summary>🔴 **2026-10-10（`A1084`）：`Core/CardText.cs` 那几族中文表【已搬进 `Core/Loc.cs`】**
+    /// （`Card_Name/*` · `Card_Trait/*` · `Armies/*` · `Battle/Phrase/*` · `CardEffect/*`）。
+    /// 本块断七件，**每一件的期望值都是字面量**（⛔ 一律不拿 `CardText.X()` / `Loc.T()` 当期望 ——
+    /// 那等于拿实现证明实现，两边一起改照样绿）。
+    ///
+    /// 🧨 **改坏法（哪一条会红）**：
+    ///   · 某条词条的**中文列被写成英文**（= 搬了个空壳）⇒ ③ / ④ 红；
+    ///   · 新加一张起始卡而不建 `Card_Name/&lt;名字&gt;` ⇒ ② 红；
+    ///   · **`AllChinese()` 不再覆盖这几族**（语料漏 ⇒ 字体烘字漏字、**而且不报错**）⇒ ⑥ 红
+    ///     —— 这是搬表这件事**唯一会静默失败**的那一格（普查 §5.3·1）；
+    ///   · 把 `Battle/Phrase/MELEE` 改成复用近邻 `Battle/Tips/MeleeAttack` ⇒ ⑧ 红（语义不同，⛔ 不许复用）；
+    ///   · 把 `Armies/Goff` 的英文列从 `Orks` 改成 `Goff`（「照键名直译」）⇒ ④ 红；
+    ///   · 删/搬 `KeywordZhAliases`（`装甲`/`爆破`）⇒ ⑦ 红（那 5 张卡会重复印关键词）；
+    ///   · 关键词 tooltip 的标题换回 `KeywordZh`（没有语言闸）⇒ ⑤ 红（那正是 `A1086③`）。
+    /// </summary>
+    static void AssertCardTextTablesInLoc()
+    {
+        // ---- ① 键族前缀 = 原版 / 自拟的那几个字面量 ----
+        Check(CardText.CardNameTermPrefix == "Card_Name/", "① 卡名键前缀 = `Card_Name/`（族名照原版）");
+        Check(CardText.TraitTermPrefix == "Card_Trait/",
+              "① 关键词键前缀 = `Card_Trait/`（= 原版 `GameStaticData.TraitNameToString` 的拼法）");
+        Check(CardText.ArmyTermPrefix == "Armies/", "① 阵营键前缀 = `Armies/`（= 原版那 14 颗 `Localize` 的 mTerm 前缀）");
+        Check(CardText.PhraseTermPrefix == "Battle/Phrase/", "① 短语族前缀 = 我们自拟的 `Battle/Phrase/`");
+
+        // ---- ② 逐族齐全：起始卡**一张都不能漏**、16 个阵营一个都不能少 ----
+        int missName = 0; string missWho = "";
+        foreach (var f in new[] { RuleEngine.StarterCards.EmberFaction, RuleEngine.StarterCards.TideFaction })
+            foreach (var c in RuleEngine.StarterCards.Of(f))
+                if (!Loc.HasEntry(CardText.CardNameTermPrefix + c.Name))
+                { missName++; if (missWho.Length < 80) missWho += c.Name + " "; }
+        Check(missName == 0, $"② 起始卡每张都有 `Card_Name/<名字>` 词条（缺 {missName} 张：{missWho}）"
+                           + " —— 🧨 新加一张卡而不建键 ⇒ 本条红（**这条路是静默回退**，不建键不会报错）");
+
+        string[] armies = { "Ember","Tide","Neutral","Ultramarines","Goff","SaimHann","Sautekh","BlackLegion",
+                            "Leviathan","TauEmpire","Sororitas","Genestealers","AstraMilitarum","DarkAngels",
+                            "EmperorsChildren","SpaceWolves" };
+        int missA = 0;
+        foreach (var a in armies) if (!Loc.HasEntry(CardText.ArmyTermPrefix + a)) missA++;
+        Check(missA == 0, $"② {armies.Length} 个阵营全有词条（缺 {missA} 个）");
+
+        // ---- ③ / ④ 两档的值（**期望值 = 字面量**，抄自搬表之前那几张表 / 成品卡图）----
+        var langBack = Loc.Current;
+        Loc.PersistOverride = true;                       // 自检不许动玩家的真设置
+        try
+        {
+            Check(TmpFont.Available, "★ 前提：中文字体资产在（不在 ⇒ 下面中文档那几条会退化成假绿）");
+            Loc.RestoreForTest(AvailableLanguages.Chinese);
+            Check(CardText.Zh, "★ 前提：中文档下 `CardText.Zh` = true");
+
+            // ③ 中文档
+            Check(CardText.Name("Ember Warlord") == "余烬督军",
+                  $"③ 卡名 `Ember Warlord` → `余烬督军`（实得「{CardText.Name("Ember Warlord")}」）");
+            Check(CardText.KeywordZh("vanguard") == "先锋" && CardText.KeywordZh("waystone") == "路标石",
+                  "③ 关键词 `vanguard` / `waystone` → `先锋` / `路标石`（后者改前**只在那 62 条表里**、"
+                + "12 条那张里没有 ⇒ 合并只许合并、⛔ 不许合并时丢词）");
+            Check(CardText.KeywordZh("armour") == "护甲", "③ `armour` → `护甲`（⛔ 不是别名 `装甲`）");
+            Check(CardText.Keyword("armour") == "护甲", "③ `Keyword(\"armour\")` 仍 → `护甲`（带数值那一格由调用方拼）");
+            Check(CardText.Faction("Goff") == "高夫兽人", "③ 阵营 `Goff` → `高夫兽人`");
+            Check(CardText.Phrase("GAME OVER") == "对局结束" && CardText.Phrase("YOU LOSE") == "你输了",
+                  "③ HUD 短语 `GAME OVER` / `YOU LOSE` → `对局结束` / `你输了`");
+            Check(CardText.TurnLabel(3) == "第 3 回合",
+                  $"③ `TurnLabel(3)` → `第 3 回合`（实得「{CardText.TurnLabel(3)}」）");
+            var sp = RuleEngine.EffectSpec.Parse("Damage 2 EnemyUnit");
+            Check(sp != null && CardText.Effect(sp) == "伤害2·敌方单位",
+                  $"③ 卡面效果小字 → `伤害2·敌方单位`（实得「{CardText.Effect(sp)}」）");
+            Check(sp != null && CardText.EffectSentence(sp) == "对敌方单位造成 2 点伤害",
+                  $"③ 技能卡面板整句 → `对敌方单位造成 2 点伤害`（实得「{CardText.EffectSentence(sp)}」）");
+            var hp = RuleEngine.EffectSpec.Parse("Heal 3 Self");
+            Check(hp != null && CardText.EffectSentence(hp) == "为自身回复 3 点生命",
+                  $"③ …治疗那一档的**语序**（中文「为{0}回复」）→ 实得「{CardText.EffectSentence(hp)}」");
+
+            // ④ 英文档（值**全部是字面量**）
+            Loc.RestoreForTest(AvailableLanguages.English);
+            Check(!CardText.Zh, "★ 前提：英文档 `CardText.Zh` = false");
+            Check(CardText.Name("Ember Warlord") == "Ember Warlord", "④ 英文档卡名回英文 id");
+            Check(CardText.Faction("Goff") == "Orks",
+                  $"④ 英文档阵营 = **成品卡上印的那个** `Orks`（⛔ 不是键名 `Goff`；实得「{CardText.Faction("Goff")}」）");
+            Check(CardText.Keyword("armour") == "ARMOUR",
+                  $"④ 英文档 `Keyword` 仍回大写英文（**行为逐字照改前**；实得「{CardText.Keyword("armour")}」）");
+            Check(CardText.KeywordDisplay("armour") == "Armour",
+                  $"④ 英文档 `KeywordDisplay` = 英文列（表里那份 `Armour`；实得「{CardText.KeywordDisplay("armour")}」）");
+            Check(CardText.KeywordZh("armour") == "护甲",
+                  "④ **判别式**：`KeywordZh` **恒中文**（`KeywordSegment` 在中文档也拿它比「印过没有」）⇒ 英文档下不变");
+            Check(CardText.Phrase("YOU WIN") == "YOU WIN", "④ 英文档短语**照原样回英文原文**（本笔没改这条路的显示）");
+            Check(sp != null && CardText.EffectSentence(sp) == "Deal 2 damage to an enemy unit",
+                  $"④ 英文档整句与改前逐字相同（实得「{CardText.EffectSentence(sp)}」）");
+            Check(hp != null && CardText.EffectSentence(hp) == "Restore 3 health to self",
+                  $"④ …治疗那一档（实得「{CardText.EffectSentence(hp)}」）");
+            Check(CardText.TurnLabel(3) == "TURN 3",
+                  $"④ 英文档 `TurnLabel(3)` = `TURN 3`（`Term` 那道语档闸在管；实得「{CardText.TurnLabel(3)}」）");
+
+            // ---- ⑤ 关键词 tooltip 的**标题跟语档**（原 `A1086③` 的缺陷）----
+            Loc.RestoreForTest(AvailableLanguages.Chinese);
+            string tipZh = TipText.Trait("armour");
+            Check(tipZh != null && TitleOf(tipZh).Contains("护甲（Armour）"),
+                  $"⑤ 中文档关键词 tooltip 的标题 = `护甲（Armour）`（**全角括号**，逐字同改前）"
+                + $"—— 标题段「{TitleOf(tipZh)}」");
+            Loc.RestoreForTest(AvailableLanguages.English);
+            string tipEn = TipText.Trait("armour");
+            Check(tipEn != null && TitleOf(tipEn).Contains("Armour") && !TitleOf(tipEn).Contains("护甲")
+                  && !TitleOf(tipEn).Contains("（"),
+                  $"⑤ 英文档标题**不再印中文、也不再用全角括号**（标题段「{TitleOf(tipEn)}」）"
+                + " —— 🧨 把 `KeywordDisplay` 换回 `KeywordZh` + 拼全角括号 ⇒ 本条红（那正是 `A1086③`）");
+        }
+        finally { Loc.RestoreForTest(langBack); Loc.PersistOverride = false; }
+
+        // ---- ⑥ 语料（`AllChinese`）**跟着搬了** —— 搬表唯一会静默失败的那一格 ----
+        {
+            var sb = new System.Text.StringBuilder();
+            foreach (var s in CardText.AllChinese()) sb.Append(s);
+            string all = sb.ToString();
+            string[] must = { "余烬督军", "路标石", "高夫兽人", "对局结束", "对{1}造成 {0} 点伤害", "护甲", "眩晕" };
+            int no = 0; string wh = "";
+            foreach (var m in must)
+                if (all.IndexOf(m, System.StringComparison.Ordinal) < 0) { no++; wh += "「" + m + "」"; }
+            Check(no == 0, $"⑥ 字体语料（`CardText.AllChinese()`）**覆盖搬迁后的每一族**（缺 {no} 条：{wh}）"
+                         + " —— 🧨 把 `AllChinese()` 改成只收某一族 ⇒ 本条红"
+                         + "（漏字的后果**不是报错**，而是覆盖自检静默失效 ⇒ 卡面可能印方块）");
+            int n = 0; foreach (var _ in CardText.AllChinese()) n++;
+            Check(n >= 500, $"⑥ 语料条数 ≥ 500（实测 {n}）—— 搬表**之前不到 460 条**（那时只收 12 个关键词名）"
+                          + "；⛔ 别把「条数掉回去」当成正常");
+        }
+
+        // ---- ⑦ `KeywordZhAliases`（装甲 / 爆破）**没被搬走**：它不上屏、只参与去重比对 ----
+        Check(CardText.KeywordSegment(new System.Collections.Generic.Dictionary<string, int> { { "armour", 1 } },
+                                      true, "装甲 2") == "",
+              "⑦ `body` 里写的是**别名** `装甲` ⇒ 卡面**不再补**那一段"
+            + " —— 🧨 删掉/搬走 `KeywordZhAliases` ⇒ 本条红（那 5 张卡会**重复印一遍关键词**）");
+        Check(CardText.KeywordSegment(new System.Collections.Generic.Dictionary<string, int> { { "blast", 2 } },
+                                      true, "爆破 2") == "",
+              "⑦ 同上，`blast` 的别名 `爆破`（5 张卡 `AM13/AM28/AM34/AM37/AM54` 的翻车点）");
+
+        // ---- ⑧ **另立键、不复用近邻**（铁律 6：复用会让「改一处文案另一处跟着变」）----
+        Check(Loc.ZhOf("Battle/Phrase/Melee") == "近战" && Loc.ZhOf("Battle/Phrase/Ranged") == "远程",
+              "⑧ 打法名那两条**另立键**（`Battle/Phrase/{Melee,Ranged}`）");
+        Check(Loc.ZhOf("Battle/Tips/MeleeAttack") != Loc.ZhOf("Battle/Phrase/Melee"),
+              "⑧ **判别式**：`Battle/Tips/MeleeAttack`（**数值格标签**）与本条**不是同一句**"
+            + " —— 🧨 为了省一条键把 `MELEE` 指到 `Battle/Tips/MeleeAttack` ⇒ 本条红");
+        Check(Loc.ZhOf("Battle/Phrase/GameOver") != Loc.ZhOf("Battle/BattleEnd/Victory"),
+              "⑧ **判别式**：`Battle/Phrase/GameOver`（HUD 回合行）≠ `Battle/BattleEnd/Victory`（结算面板标题）");
+    }
+
+    /// <summary>tooltip 第一条 `<b>…&lt;/b&gt;` 那一段（= 图标 + 标题）—— 判「标题跟语档」要**排开正文**
+    /// （正文是规则书原文，今天两档都是中文，那是另一笔账）。</summary>
+    static string TitleOf(string tip)
+    {
+        if (string.IsNullOrEmpty(tip)) return "";
+        int a = tip.IndexOf("<b>", System.StringComparison.Ordinal);
+        int b = tip.IndexOf("</b>", System.StringComparison.Ordinal);
+        return (a >= 0 && b > a) ? tip.Substring(a + 3, b - a - 3) : tip;
     }
 
     static void AssertSubtypeLine()

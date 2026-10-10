@@ -11832,6 +11832,11 @@
        "token": "Rally:",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "☀",
+       "sprite": "faith",
+       "why": "☀ 金太阳 = **信仰**（修女会）。逐张核过 7 张：Sister Novitiate / Blade of Faith / Sacred Rose / Paragon Warsuit / Preacher / Miraculous Feat / Daemonbreaker 同一张图；数字写在图标**外面左侧**"
       }
      ]
     },
@@ -12192,6 +12197,11 @@
        "token": "[Attack]",
        "sprite": "Melee",
        "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      },
+      {
+       "token": "☀",
+       "sprite": "faith",
+       "why": "☀ 金太阳 = **信仰**（修女会）。逐张核过 7 张：Sister Novitiate / Blade of Faith / Sacred Rose / Paragon Warsuit / Preacher / Miraculous Feat / Daemonbreaker 同一张图；数字写在图标**外面左侧**"
       }
      ]
     },
@@ -12272,6 +12282,11 @@
        "token": "Rally:",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "☀",
+       "sprite": "faith",
+       "why": "☀ 金太阳 = **信仰**（修女会）。逐张核过 7 张：Sister Novitiate / Blade of Faith / Sacred Rose / Paragon Warsuit / Preacher / Miraculous Feat / Daemonbreaker 同一张图；数字写在图标**外面左侧**"
       }
      ]
     },
@@ -12511,6 +12526,16 @@
    "id": "SOR23",
    "fields": [
     {
+     "name": "desc",
+     "items": [
+      {
+       "token": "☀",
+       "sprite": "faith",
+       "why": "☀ 金太阳 = **信仰**（修女会）。逐张核过 7 张：Sister Novitiate / Blade of Faith / Sacred Rose / Paragon Warsuit / Preacher / Miraculous Feat / Daemonbreaker 同一张图；数字写在图标**外面左侧**"
+      }
+     ]
+    },
+    {
      "name": "descZh",
      "items": [
       {
@@ -12612,6 +12637,11 @@
        "token": "[Ranged]",
        "sprite": "Ranged",
        "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      },
+      {
+       "token": "☀",
+       "sprite": "faith",
+       "why": "☀ 金太阳 = **信仰**（修女会）。逐张核过 7 张：Sister Novitiate / Blade of Faith / Sacred Rose / Paragon Warsuit / Preacher / Miraculous Feat / Daemonbreaker 同一张图；数字写在图标**外面左侧**"
       }
      ]
     },
@@ -12937,6 +12967,11 @@
        "token": "[Ranged]",
        "sprite": "Ranged",
        "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      },
+      {
+       "token": "☀",
+       "sprite": "faith",
+       "why": "☀ 金太阳 = **信仰**（修女会）。逐张核过 7 张：Sister Novitiate / Blade of Faith / Sacred Rose / Paragon Warsuit / Preacher / Miraculous Feat / Daemonbreaker 同一张图；数字写在图标**外面左侧**"
       }
      ]
     },
@@ -13025,6 +13060,16 @@
   {
    "id": "SOR43",
    "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "☀",
+       "sprite": "faith",
+       "why": "☀ 金太阳 = **信仰**（修女会）。逐张核过 7 张：Sister Novitiate / Blade of Faith / Sacred Rose / Paragon Warsuit / Preacher / Miraculous Feat / Daemonbreaker 同一张图；数字写在图标**外面左侧**"
+      }
+     ]
+    },
     {
      "name": "descZh",
      "items": [
@@ -13215,6 +13260,16 @@
   {
    "id": "SOR59",
    "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "☀",
+       "sprite": "faith",
+       "why": "☀ 金太阳 = **信仰**（修女会）。逐张核过 7 张：Sister Novitiate / Blade of Faith / Sacred Rose / Paragon Warsuit / Preacher / Miraculous Feat / Daemonbreaker 同一张图；数字写在图标**外面左侧**"
+      }
+     ]
+    },
     {
      "name": "descZh",
      "items": [
@@ -13480,6 +13535,16 @@
   {
    "id": "SOR49",
    "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "☀",
+       "sprite": "faith",
+       "why": "☀ 金太阳 = **信仰**（修女会）。逐张核过 7 张：Sister Novitiate / Blade of Faith / Sacred Rose / Paragon Warsuit / Preacher / Miraculous Feat / Daemonbreaker 同一张图；数字写在图标**外面左侧**"
+      }
+     ]
+    },
     {
      "name": "descZh",
      "items": [
@@ -17776,6 +17841,16 @@
    "id": "UM80",
    "fields": [
     {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Oath 4:",
+       "sprite": "oath",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    },
+    {
      "name": "descZh",
      "items": [
       {
@@ -18076,6 +18151,16 @@
    "id": "UM81",
    "fields": [
     {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Oath 3:",
+       "sprite": "oath",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    },
+    {
      "name": "descZh",
      "items": [
       {
@@ -18250,6 +18335,16 @@
   {
    "id": "UM_Scout_Sniper",
    "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Oath 1:",
+       "sprite": "oath",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    },
     {
      "name": "descZh",
      "items": [
@@ -19480,6 +19575,21 @@
      "items": [
       {
        "token": "誓言 2：",
+       "sprite": "oath",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM74",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Oath 3:",
        "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }

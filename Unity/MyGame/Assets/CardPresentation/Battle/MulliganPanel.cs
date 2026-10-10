@@ -204,7 +204,24 @@ namespace CardPresentation
         /// `Label.Create(…, Color.white, …)`；判据 = `MonoBehaviour_3731.json` / `MonoBehaviour_3856.json`
         /// 的 `m_fontColor32 = 4294967295`）。断言在 `Editor/BattleScene` 里那条断 `m_fontColor32` 的检查。</summary>
         const float TurnCx = 966.03f, TurnCy = 156.5f, TurnW = 1307.06f, TurnH = 54.17f, TurnPx = 55f;
-        const float BarCx = 1611.45f, BarCy = 980.25f, BarW = 577.5f, BarH = 63.8f;
+        /// <summary>「完成换牌」那颗钮（原版 `MulliganContinueButton/Button`）的中心与框：
+        /// `BarCx/BarCy` = 原版那颗的框中心（`RT_2659` 的绝对矩形 1322.7–1900.2 × 948.3–1012.2 ⇒
+        /// (1611.45, 980.25)，与 `工具/menu_dump.py bundle_scenes_scenes_battlearena1 "Mulligan"`
+        /// 那行逐位相同）；`BarW × BarH` = 它的 `m_SizeDelta`。
+        /// 🔴 **2026-10-19（A1301③）**：`BarH` 从 `63.8f` 改成 **`63.84f`** —— 它同时是那颗钮的
+        /// **框高**与**画出来的高**（原版那颗 `Image` 是 `m_PreserveAspect = 0` ⇒ 画出来的 = 框），
+        /// 而原版 `m_SizeDelta.y` 逐位是 **63.84000015258789**
+        /// （`bundle_scenes_scenes_battlearena1/RectTransform/RectTransform_2659.json`）。
+        /// 原来那个 `63.8` 是四舍五入写下来的（差 0.04 px，`Editor/BattleScene.cs` 那条容差 1.5 的断言
+        /// 放过它了）⇒ 现在一个数同时管「画多大」与「命中框多大」（⛔ 别再拆成两个近似值）。</summary>
+        const float BarCx = 1611.45f, BarCy = 980.25f, BarW = 577.5f, BarH = 63.84f;
+        /// <summary>🔴 **2026-10-19（A1301③）**：原版那颗 `Button` 的 **`m_RaycastPadding`**
+        /// （分量序 **L,B,R,T**；**负值 = 外扩**）= **(0, −40, 0, −40)** ⇒ 命中框 **577.5 × 143.84**
+        /// （上下各外扩 40、横向不动）。实据 =
+        /// `bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_5292.json`（`m_RaycastTarget = 1`）。
+        /// ⚠️ 同一个 pad 在 `MB_4202`（`BattleContinueButton` / `Generic Multi Card Display Combat`，
+        /// 见 `Battle/MultiCardDisplay.cs`，A1061 已收）上还有一份 —— 两处**同值**，判据只此一份。</summary>
+        const float DonePadL = 0f, DonePadB = -40f, DonePadR = 0f, DonePadT = -40f;
         const float PlayCx = 1763.45f, PlayCy = 980.25f, PlayH = 79.6f;
         const float DoneCx = 1525.05f, DoneCy = 981.05f, DoneW = 368.9f, DoneH = 62.2f;
         const float EyeCx = 184.45f, EyeCy = 908.5f, EyeH = 79.6f;
@@ -421,13 +438,47 @@ namespace CardPresentation
             return -1;
         }
 
-        /// <summary>指针在「完成换牌」上吗（底条或圆钮都算）</summary>
+        /// <summary>指针在「完成换牌」上吗。
+        /// <para>🔴 **2026-10-19（A1301③）就地更正**：上一版是「`_bar` / `_play` 的 `Contains` ＋
+        /// 以 `DoneWorldPos` 为心、半径 `DoneW/2`(184.45px) 的那个圆」，三样都**不是原版的判据**：
+        ///  · `_bar`/`_play` 走 `ImageQuad.Contains` = 量**画出来多大**（原版的判据是那颗节点自己的框）；
+        ///  · 那个圆是**我们自己加的**，它**纵向**探出原版框 113 px（多认）；
+        ///  · 而原版框上下那 40 px（`m_RaycastPadding`）**一点都没过**（漏认）。</para>
+        /// <para>原版判据 = `Mulligan/ButtonsGroup/MulliganContinueButton/Button` 自己的 `rect`
+        /// **577.5 × 63.84**（中心 = `BarCx/BarCy`）按 `DonePad*` 外扩 ⇒ **577.5 × 143.84**（中心不变）。
+        /// 它**顺带**把同父的另两颗也包住了（`工具/menu_dump.py … "Mulligan"` 逐条核过）：
+        /// `CircleButton`（80.47×79.64 @1763.45, 980.25）与 `Text`（368.93×62.24 @1525.05, 981.05）
+        /// **都在框内**（x 1322.7–1900.2 · y 908.33–1052.17）⇒ **并集就是这一块**，不必再单独判它们
+        /// （三颗子件的 `m_RaycastTarget` 都是 1 ⇒ 点它们照样冒泡到那颗钮）。</para>
+        /// <para>🔴 算式**只此一份** —— 转发 `MenuDraw.PaddedHitRect`。⛔ 本件一个字都不写 `±pad`。
+        /// ⚠️ 世界 → 设计 px 走 `LayoutSpace.ToDesignPixel`（= `At()` 的**真逆**；⛔ 不是 `PxX`，
+        /// 那个 x 写死 108、非 16:9 下与 `At` 不互逆）。</para></summary>
         public bool HitDone(Vector3 world)
         {
-            if (_bar != null && _bar.Contains(world)) return true;
-            if (_play != null && _play.Contains(world)) return true;
-            var t = DoneWorldPos;
-            return (world - t).sqrMagnitude < (U(DoneW * 0.5f)) * (U(DoneW * 0.5f));
+            var p = LayoutSpace.ToDesignPixel(world);     // 设计 px、左上原点（与下面那个框同帧）
+            var hit = MenuDraw.PaddedHitRect(
+                new PxRect(BarCx - BarW * 0.5f, BarCy - BarH * 0.5f,
+                           BarCx + BarW * 0.5f, BarCy + BarH * 0.5f),
+                new Vector4(DonePadL, DonePadB, DonePadR, DonePadT));
+            return p.x >= hit.x1 && p.x <= hit.x2 && p.y >= hit.y1 && p.y <= hit.y2;
+        }
+
+        /// <summary>🆕 **2026-10-19（A1301③）自检用**：「完成换牌」那颗钮的**世界坐标**
+        /// （= 原版那颗 `Button` 的**框中心** —— 与 `_bar` 画在哪无关，没取到图也照样给得出）。
+        /// ⚠️ 同族的 `DoneWorldPos` 是那颗 **`Text` 子件**的中心（1525.05, 981.05），**两者不是同一个点**
+        /// （`DoneWorldPos` 是驱动层喂点击用的、在框内 ⇒ 两条路都对，⛔ 别互相顶替）。</summary>
+        public Vector3 BarWorldPos { get { return At(BarCx, BarCy) + new Vector3(0f, 0f, Z); } }
+
+        /// <summary>🆕 **2026-10-19（A1301③）自检用**：那颗钮的**原版命中框**尺寸（**设计 px**）
+        /// = 577.5 × 63.84 四边按 `DonePad*` 外扩 ⇒ **577.5 × 143.84**（算式 = 唯一一份 `PaddedRect`）。</summary>
+        public static Vector2 DoneHitPx
+        {
+            get
+            {
+                var r = MenuDraw.PaddedRect(new PxRect(0f, 0f, BarW, BarH),
+                                            new Vector4(DonePadL, DonePadB, DonePadR, DonePadT));
+                return new Vector2(r.W, r.H);
+            }
         }
 
         public bool HitEye(Vector3 world) { return _eye != null && _eye.Contains(world); }

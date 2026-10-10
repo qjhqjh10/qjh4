@@ -496,19 +496,31 @@ namespace CardPresentation
             if (string.IsNullOrEmpty(key)) return null;
             LoadTips();
 
-            // 标题：中文名（我们自己的表）优先，英文名兜底。**两个都拿不到就没得显示。**
-            string zh = CardText.KeywordZh(key);
-            string en = CardText.KeywordEn(key);
-            string title = !string.IsNullOrEmpty(zh) ? zh : en;
+            // 标题：显示名优先，英文名兜底。**两个都拿不到就没得显示。**
+            // 🔴 **2026-10-10（`A1084` 第二步 · 原 `A1086③`）就地修一处同族缺陷**：原来写的是
+            //   `title = CardText.KeywordZh(key)`（**没有语言闸** ⇒ 恒中文）+ `title += "（" + en + "）"`
+            //   （**裸全角括号字面量**）⇒ **英文档下关键词 tooltip 的标题仍是中文**，
+            //   而且括注会印成 `护甲（Armour）` 这种中英混排。
+            //   ⇒ ① 显示名改走 `CardText.KeywordDisplay`（**跟语档**：中文档中文名、英文档英文名）；
+            //     ② 那对括号落成词条 `Tips/Trait/TitleWithEn`（形状 `{0}（{1}）` / `{0} ({1})`）。
+            // ⚠️ **查规则书文案表的索引键仍然是 `zhKey`（恒中文）** —— 那张表（`Resources/trait_tips.json`）
+            //    是按**中文名**索引的（`LoadTips` 里 `_tips[e.zh] = e`），⛔ 别换成显示名。
+            string zhKey = CardText.KeywordZh(key);          // 表索引：**恒中文**（⛔ 不跟语档）
+            string disp  = CardText.KeywordDisplay(key);     // 显示名：**跟语档**
+            string en    = CardText.KeywordEn(key);          // 英文名：恒英文（只用来补那条括注）
+            string title = !string.IsNullOrEmpty(disp) ? disp : en;
             if (string.IsNullOrEmpty(title)) return null;
-            if (!string.IsNullOrEmpty(zh) && !string.IsNullOrEmpty(en)) title += "（" + en + "）";
+            // 两端名字**相同**（= 英文档，显示名本来就是英文名）⇒ **不套括注**（否则印成 `Armour (Armour)`）
+            if (!string.IsNullOrEmpty(disp) && !string.IsNullOrEmpty(en) &&
+                !string.Equals(disp, en, System.StringComparison.Ordinal))
+                title = Loc.T("Tips/Trait/TitleWithEn").Replace("{0}", disp).Replace("{1}", en);
 
             // 图标：与卡面/徽标**同一份判据**（`Badges.SpriteOf`），认不出就**不画**、不猜
             string sprite = Badges.SpriteOf(key);
             string icon = string.IsNullOrEmpty(sprite) ? "" : "<sprite name=\"" + sprite + "\">";
 
             TraitTipRow t = null;
-            if (!string.IsNullOrEmpty(zh)) _tips.TryGetValue(zh, out t);
+            if (!string.IsNullOrEmpty(zhKey)) _tips.TryGetValue(zhKey, out t);
 
             if (t == null)
             {

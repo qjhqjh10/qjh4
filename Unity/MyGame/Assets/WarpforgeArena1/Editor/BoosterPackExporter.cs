@@ -684,7 +684,12 @@ public static class BoosterPackExporter
         // ⚠️ 路径固定 + `SaveAsPrefabAsset` **原地覆盖**（有就覆盖、没有才新建）——
         //    **别用 `GenerateUniqueAssetPath` / 别每次先删光**：那会每跑一次换一批 guid，
         //    而效果库（`WarpforgeEffectLibrary.asset`）记的是 prefab 引用 ⇒ 全断（CLAUDE.md §三 那条）。
-        PrefabUtility.SaveAsPrefabAsset(inst, path);
+        // 🆕 2026-10-10（A1298/A1299）：这一行**取代了**原来的 `PrefabUtility.SaveAsPrefabAsset(inst, path);`
+        //   —— 同一个病在特效那条路上也有 51 条（`CardPrefab` 49 · `HuntMark_IdleEffect` 1 ·
+        //   `MarkerlightIdle` 1），所以修法**两份导出器共用一份**（两腿的设计见
+        //   `EffectExporter.SavePrefabAndRepairScripts` 头部那段；它内部已经调了 `SaveAsPrefabAsset`，
+        //   ⛔ 别在这里再调一次）。
+        var sfx = EffectExporter.SavePrefabAndRepairScripts(inst, path);
         UnityEngine.Object.DestroyImmediate(inst);
 
         return $"材质定义{defs.Count}个 · 渲染器槽{slots.Count}个 · 原 shader: {string.Join(", ", usedShaders.OrderBy(x => x))}"
@@ -693,7 +698,11 @@ public static class BoosterPackExporter
              // 🆕 A1109：uGUI 与 TMP 那两跳的记账（`截` = 没接上、留空）
              + $" · uGUI 图{uiSpriteOk}/截{uiSpriteMiss} · uGUI 材{uiMatOk}/截{uiMatMiss}"
              + $" · TMP 字{tmpFontOk}/截{tmpFontMiss} · TMP 材{tmpMatOk}/截{tmpMatMiss}"
-             + $" · 脚本未解析{nUnresolved}";
+             + $" · 脚本未解析{nUnresolved}"
+             // 🆕 2026-10-10（A1298/A1299）：`脚本未解析` 那一格是**内存里**的数 —— **不能当结论**
+             //   （实测它就是 0，而同一份 prefab 盘上有 24 条 guid0）。这两格才是产物上的数。
+             + (sfx.fixedInMemory > 0 ? $" · m_Script接回{sfx.fixedInMemory}" : "")
+             + (sfx.zeroOnDisk > 0 ? $" · **落盘guid0 {sfx.zeroOnDisk}→改回{sfx.repaired}→剩{sfx.left}**" : "");
     }
 
     /// <summary>数一遍「保存成 prefab 之后会变成 `Missing (Mono Script)`」的组件，并把前几个点名。
@@ -711,17 +720,30 @@ public static class BoosterPackExporter
         int n = 0;
         foreach (var c in go.GetComponentsInChildren<Component>(true))
         {
+            if (c == null) continue;                       // 🆕 A1299：缺失脚本的组件在数组里是 **null 条目**
             if (c is Transform) continue;
-            var ms = SerializedFieldRef(c, "m_Script") as MonoScript;
-            if (ms == null) continue;                 // 非 MonoBehaviour，或本来就没脚本
-            if (AssetDatabase.Contains(ms)) continue; // 工程脚本 ⇒ 落得下来
+            bool hasField = false;
+            var ms = SerializedFieldRef(c, "m_Script", out hasField) as MonoScript;
+            // 🔴 **A1299：判「这个组件有没有脚本」有【两个】口，缺一个就自己静默。**
+            //   ① `m_Script` 字段在（哪怕值是 null）；② 它在运行期是个 `MonoBehaviour`（类型解析出来了）。
+            //   原来只认 ①，而 ① 在「脚本解析不了」那一格**恰恰读不出** ⇒ `continue` ⇒ 不计入
+            //   ⇒ 报告印「脚本未解析 0」而盘上 24 条 guid0（**一笔按设计把静默变成出声的守卫，自己静默了**）。
+            if (!hasField && !(c is MonoBehaviour)) continue;   // 真·非脚本组件（Renderer/CanvasRenderer…）
+            if (ms == null)
+            {
+                n++;
+                if (detail.Count < 8)
+                    detail.Add($"{c.gameObject.name}({c.GetType().Name}；`m_Script` 读出来是 **null**)");
+                continue;
+            }
+            if (AssetDatabase.Contains(ms)) continue;      // 工程脚本 ⇒ 落得下来
             n++;
             if (detail.Count < 8) detail.Add($"{c.gameObject.name}({c.GetType().Name})");
         }
         return n;
     }
 
-    /// <summary>精确读一个**序列化字段**里的对象引用（返回 `null` = 该字段本来就没接）。
+    /// <summary>精确读一个**序列化字段**里的对象引用（返回 `null` = 该字段本来就没接、或读不出来）。
     ///
     /// 为什么要一个助手、而不直接用组件的公开属性：**uGUI 那几个 getter 带回落** ——
     ///   · `Image.material` 在 `m_Material == null` 时返回**内建默认材质**（`Graphic.defaultMaterial`），
@@ -731,9 +753,22 @@ public static class BoosterPackExporter
     /// 工程副本 —— `m_Material` 由空变非空 = **静默改了原始数据**。
     ///
     /// TMP 的 `font` / `fontSharedMaterial` 本身是非回落的公开属性，本可以直用；这里也走字段名，
-    /// 是为了**与普查用的是同一批字段名**（`m_fontAsset` / `m_sharedMaterial`）—— 一处口径，别两套。</summary>
+    /// 是为了**与普查用的是同一批字段名**（`m_fontAsset` / `m_sharedMaterial`）—— 一处口径，别两套。
+    ///
+    /// 🆕 **A1299：加了 `fieldExists` 这个出参** —— 原来的三条出口（字段不存在 / 不是对象引用 / 读失败）
+    /// 与「字段在、但值是 null」**混在同一个 `null` 里**，调用方**分不出**「这不是脚本组件」和
+    /// 「这就是那个解析不了的脚本」⇒ 守卫只能整条 `continue`，于是**自己的洞自己看不见**。
+    /// `fieldExists = true` 只在「字段在、且是对象引用」时；**值为 null 时它照样是 true**。
+    /// ⚠️ 这是**加一个重载**、老调用点（uGUI / TMP 那几支）**一个字都不用改**。</summary>
     static UnityEngine.Object SerializedFieldRef(UnityEngine.Object comp, string field)
     {
+        bool _;
+        return SerializedFieldRef(comp, field, out _);
+    }
+
+    static UnityEngine.Object SerializedFieldRef(UnityEngine.Object comp, string field, out bool fieldExists)
+    {
+        fieldExists = false;
         try
         {
             using (var so = new SerializedObject(comp))
@@ -741,6 +776,7 @@ public static class BoosterPackExporter
                 var p = so.FindProperty(field);
                 if (p == null) return null;
                 if (p.propertyType != SerializedPropertyType.ObjectReference) return null;
+                fieldExists = true;      // 🆕 A1299：**字段在**（值为 null 时也照样是 true）—— 与「没有这个字段」区分开
                 return p.objectReferenceValue;
             }
         }

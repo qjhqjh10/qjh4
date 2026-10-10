@@ -247,8 +247,15 @@ namespace CardPresentation
         /// 🔴 **判据是我们定的**（原版的筛选器没被反编译，见文件头）：**凡是查得到图标的都显示**。
         /// 也就是说「引擎当前认为这个单位身上有什么，卡上就画什么」—— 加/减益、光环给的、
         /// 限时增益到期收回，全都会跟着变，因为喂进来的是 <see cref="UnitState"/> 的**当前**表。
-        /// 认不出图标的（`Talent` / `Secret` / `Lord Commander` 这类没有图的）**跳过并计数**，
-        /// 由自检盯着，不静默吞掉。
+        /// 认不出图标的**跳过并计数**，由自检盯着，不静默吞掉。
+        /// 🔴 **2026-10-21 更正（`A1361` · 铁律 5）**：这一句原来举的例子是「（`Talent` / `Secret` /
+        ///   `Lord Commander` 这类**没有图的**）」—— **`Talent` 那半个例子不成立**：
+        ///   `Resources/Art/traits/talent.png` 在（9070 B）、`Resources/Fonts/Warpforge Trait TextSprites.asset`
+        ///   里有字形 `m_Name: talent`，`资料/关键词图标_现状与总表.md:146`（第 54 行 `Talent`）标的就是 ✓
+        ///   ⇒ 它**不是**「没有图的」。⚠️ 同句剩下的 `Secret` / `Lord Commander` **另论、本批没动**：
+        ///   `Secret` 在卡池里是 **`subtype`、不是关键词**（5 张）；`Lord Commander` 是卡名
+        ///   （`AM_Lord_Commander`）＋ `AM3` 的一条 `desc` 文本 ⇒ 「它们算不算关键词」是**另一笔账**。
+        ///   （本句只改文案 —— 判据、逻辑、去重规则一个字节没动。）
         /// </summary>
         public static List<Badge> For(IEnumerable<KeyValuePair<string, int>> keywords, string orderHint = null,
                                       IReadOnlyCollection<string> numericKeys = null,
@@ -314,6 +321,15 @@ namespace CardPresentation
         /// ② **引擎当前值 ≥ 2** —— 已经被 modifier 抬上去的（原版这时也会画）。
         /// ③ **规则书「带数值?」那一列**（下面那张表）—— 留给**运行时授予**、卡面上本来不印数字的
         ///    （`Hunt Mark` / `Markerlight` / `Vulnerable` 这一族，出现在效果文字而不是关键词行）。
+        ///
+        /// 🔴 **两个调用点的实参不同 —— 就写在这里**（2026-10-11 · `A1332` 收口）：
+        ///   · **徽标那一档**（`Badges.For:288`）传 `(kv.Key, kv.Value, numericKeys)` ⇒ **①②③ 三档全接**
+        ///     （喂进来的是单位**当前**的关键词表，光环/授予抬起来的词走 ②）；
+        ///   · **卡面关键词行那一档**（`CardText.KeywordSegment`，现读 `:241`）传 `(key, kv.Value, null)` ⇒
+        ///     **只接 ②③**（① 那一档要 `CardDef.NumericKeywords`，那条路的签名里没有它）。
+        ///   ✅ 两处**共用这一个函数体**，今天**逐张等价**（全池 1126 张：① = ② = 9 键、③ = 12 键，
+        ///     `①∖③ = ∅`、`②∖③ = ∅` ⇒ 0 处不同）—— **但别以为改这里两处会一起变**：
+        ///     卡面那条路少 ① 这一档，只有「卡池出现带数字、又不在 ③ 表里的词」时才现形（`A1332`）。
         ///
         /// ⚠️ **原来这条注释里举的反例（`SpiritStone_1..5` / `questPoints1..3`「原版画角标、我们不画」）
         ///    2026-09-29 查实是【误记】**：那两个是 **HUD 的阵营资源计数**，不是场上徽标 ——

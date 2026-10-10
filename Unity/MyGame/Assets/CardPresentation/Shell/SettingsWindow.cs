@@ -1426,7 +1426,7 @@ namespace CardPresentation
         ///   只是「传进去的那个数」（`_worldH` / `_worldH × _aspect`），**本来就不含父链缩放**；所以「渲出来仍是 75.0」
         ///   量的是**代码值**，不是渲染。**真正的渲染**走 Unity 的层级世界矩阵 —— 同一个矩阵既然把位置挪了 0.9
         ///   （本注后半句自己观察到了），就**也**会把网格乘 0.9（网格是**局部空间**的：`RebuildMesh` 写的顶点是 ±WorldW/2）。
-        ///   **旁证（本仓自己的代码就靠这条）**：`Battle/WfSlider.cs` 里那句 `_fillRoot.transform.localScale = …` 的填充条宽度 = 给根设 `localScale.x`；
+        ///   **旁证（本仓自己的代码就靠这条）**：`Battle/WfSlider.cs` 里**两处**都在给 `localScale` —— 主路径是 `LayoutFill` → `FillPlace` 给**填条那三块子 quad** 设 `localScale.x`，后备路才是原来那句 `_fillRoot.transform.localScale = …`（现读 `:428`）（🔴 **2026-10-21 更正（`A1365` · 铁律 5）**：这里原来**只引了根那一处** —— `A1359` 把填条改成原版的「改锚点」之后，**根那一处已从常规路径退成后备路**（`Layout` 的 `_fillAnchorMode == false` 那一支，只在那三块子 quad 没按名字取到时才走，那一刻 `Create` 已经出声 + `LogWarning`）⇒ 它**不是空指针，但已不是常规路径**，单引它容易被读成「填条还是靠根缩放」。**论断（`localScale` 会缩渲染网格）本身仍然成立**）；
         ///   `Battle/SkillPanel.cs:248` 直接写 `q.transform.localScale = W01(宽) / q.WorldW`（= 「让这颗 quad 的世界宽 = 目标」）；
         ///   `Battle/AttackSelector.cs` 里那句 `_icons[i].transform.localScale = …` 的图标也是 `localScale = s`。
         ///   ⇒ **结论（烘进矩形、根保持 1）仍然照做**，但换一条站得住的理由：**我们的量测与命中都活在「scale = 1」那一帧**

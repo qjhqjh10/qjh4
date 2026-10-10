@@ -39,8 +39,10 @@
 
 用法：
     python menu_rect.py <bundle目录> <根 GameObject 的 pid 或名字> [--depth N] [--active-only]
+    python menu_rect.py <bundle目录> --rt <RectTransform pid>  [--depth N]     # A1261：与 menu_dump.py 同一个口
 例：
     python menu_rect.py bundles/bundle_menus_assets_all "Missions Tab" --depth 4
+    python menu_rect.py bundle_scenes_scenes_battlearena1 --rt 2684 --depth 2
 """
 import argparse
 import io
@@ -80,6 +82,13 @@ BUNDLES = 'd:/2/新解包资源/assets_full'
 #     见 `rect_of` 的 ①–⑥ 与 `parent_rect_of`）；本函数只管**这一件自己那一级**。
 SCL_EPS = 1e-6        # 逐行「这一件自带缩放」的门槛（`menu_dump` 两种模式 + 本文件同门槛）
 SCL_WARN_EPS = 1e-3   # 汇成末尾清单的门槛：视觉框与布局框差 **0.1%** 以上才算「看得出来」
+# 🔴 **A1259（2026-10-10）：「这一级的框被压成 0」的门槛 —— 全域只此一份。**
+#    `parent_rect_of`（下面的出声）与 `menu_dump` 的表尾③（「其中 N 处的祖先缩放≈0」）
+#    **必须同一个门槛**：两处各写一个数 = 迟早不一致（本仓红线）。
+#    口径（(0,0) 帧算不算数）见 `parent_rect_of` 的 docstring —— 结论是「**算数，但那是
+#    「不可判」的真值**」：⚠️ 凡 `|ls| < 本门槛` 的级，它下面的一切框都是 0/极小，
+#    **不代表这件没有尺寸**。
+SCL_COLLAPSE_EPS = 1e-3
 SCL_WARN_MAX = 12     # 末尾清单最多列几行（其余只报数）
 
 
@@ -579,12 +588,37 @@ def parent_rect_of(b, rtpid, screen_rect, keep_scales=True):
          在父链带缩放时**本身就是错的**（与 `rect_of` 之前那个死参是同一个错，只是位置不同）。
       返回值 = `(父矩形, 父名字, lossyScale(父))`；
       被查节点自己就是根时 = `(screen_rect, None, (1,1))`（根的父 = 画布，缩放 1）。
+
+    🔴🔴 **A1259（2026-10-10 定案）：「父链上遇到坏帧」的口径 —— 两类，处置不同。**
+    起因：`--rt <pid>` 跨文件时会**静默**退回「整屏 + 缩放 1」，而「(0,0) 帧算不算数」一直没定。
+    实测那条链（`bundle_scenes_scenes_battlearena1`，`--rt 2684`）：
+    ```
+    1395（纯 `Transform`、**没有 RT**；`Transform_1395.json` 的 m_LocalScale = (1,1,1)）
+      → 2759 'Canvas'（有 RT，但 aMin=aMax=sd=(0,0)、`m_LocalScale = (0,0,0)`）
+        → 2684 'BackCanvas'（ls = 1）→ …
+    ```
+      · **① 没有 `RectTransform` 的那一级 ⇒ 「算不出来」。** `rect_of` 的契约要求父级给得出框，
+        给不出 ⇒ **只能**退到「整屏 + 缩放 1」并**出声**（就是下面那一支）。
+        ⛔ **不许改成 `continue` 续爬**：实测**整表塌成 0**（连根都报 `0.00×0.00`），
+        因为断点下面那一级 `2759 Canvas` 的序列化缩放就是 `(0,0,0)` ⇒ 整棵子树被乘上 0，
+        **比原来的读数更坏**。也⛔不许「当缩放 1 硬算」——那会给出**看似合理、实际凭空**的框。
+      · **② 有 RT、但 `|m_LocalScale| < SCL_COLLAPSE_EPS` 的那一级 ⇒ 「算得出来，答案是 0」。**
+        它**算数**（那就是序列化真值，读数就该是 0×0）—— 但它的含义是
+        **「这条链以下不可判」**，⛔ 不是「这件没有尺寸」：
+        原版 UI **不会**以 0 缩放渲染，这类帧是 prefab 里存的**动画/隐藏态 / 运行期才会赋值的残值**
+        （同族实据：本仓 `--no-ancestor-scale` 的 help 已记「本包 390 个 RT 是 `(0,0)`、
+        1476 个是 `(0.01,0.01)`」，`Canvas` 自己的 RT 更是**由 Canvas 系统在运行期驱动**的）。
+        ⇒ 处置 = **数字一个字不改**（改数就是拿一个凭空的值去顶一个明确的 0），
+        但**必须出声**点名那一级（`SCL_COLLAPSE_EPS` 那一支），否则读表的人会把 `0.00×0.00`
+        当版面数据抄走 —— 那正是「静默失败」。
+      ⚠️ **两类都会让「位置」项一起不可判**（框塌成一点），不只是宽高。
     """
     chain = chain_up(b, rtpid)
     if len(chain) <= 1:
         return screen_rect, None, (1.0, 1.0)     # 被查节点自己就是根（没有父）
     rect = screen_rect
     sc = (1.0, 1.0)                              # 根那一级的父（画布）缩放 = 1
+    _collapse_reported = False                   # A1259：第 ② 类只报第一次（再往下只会一直是 0）
     for p in chain[:-1]:                         # 走到「被查节点的父」为止
         rt = b.rt.get(str(p))
         if rt is None:
@@ -597,8 +631,10 @@ def parent_rect_of(b, rtpid, screen_rect, keep_scales=True):
             #       连根 `BackCanvas` 都报 0.00×0.00 —— **比原来的读数更坏**。
             #    ⇒ 这一支的处置 = **只出声、不改行为**（退化成「整屏当父 + 缩放 1」）。
             #      「拿不到那一级的框与缩放」是**真实的信息缺口**：静态导出里 RestRT 没有、
-            #      `Transform_1395.json` 只是个 3D 节点；要真修得先定「(0,0) 帧算不算数」的口径，
-            #      那是另一笔账（⛔ 别在这一支里自己发明口径）。
+            #      `Transform_1395.json` 只是个 3D 节点。
+            #    ✅ **2026-10-10（A1259）：「(0,0) 帧算不算数」的口径已定案** —— 见本函数的
+            #      docstring 最后那一块（结论：**算数，但那是「不可判」的真值** ⇒ 数字不改、出声；
+            #      「无 RT」那一类才走这里的兜底）。⛔ 别在这一支里另立一套口径。
             #    ⚠️ 代价（读表的人必须知道）：`--rt 3568` 这类**目标下面的节点**会拿到
             #      「整屏 + `sd` 裸值」（实测 `EnemyNameText` = **1482.88×781.08**，比整屏还大），
             #      **不能当判据**；要按名/按根查（`--rt 2684`：那一支退到整屏恰好就是对的，
@@ -622,6 +658,27 @@ def parent_rect_of(b, rtpid, screen_rect, keep_scales=True):
             rect = screen_box(rect, rt['m_Pivot'],
                               abs(s.get('x', 1.0)), abs(s.get('y', 1.0)))
         sc = (sc[0] * s.get('x', 1.0), sc[1] * s.get('y', 1.0)) if keep_scales else (1.0, 1.0)
+        # 🔴🔴 **A1259（2026-10-10）：口径第 ② 类 —— `(0,0)` 帧【算数】，但必须出声。**
+        #    它原来是**完全静默**的：链上有一个 `|ls| ≈ 0` 的级 ⇒ 这一级以下每个框都是 0/极小，
+        #    表面上看就是一张正常的表（满屏 `0.00×0.00`），而**没有一个字**解释那是「不可判」。
+        #    ⛔ **不改数**（0 就是序列化真值；拿一个凭空的值去顶它更坏），也⛔ **不续爬**
+        #    （没有 0 的问题 —— 但把它当 1 硬算同样是发明口径）。⇒ 只出声，只报**第一次**塌陷的那一级。
+        if keep_scales and not _collapse_reported \
+                and (abs(sc[0]) < SCL_COLLAPSE_EPS or abs(sc[1]) < SCL_COLLAPSE_EPS):
+            _collapse_reported = True
+            sys.stderr.write(
+                f'🔴 被查节点 `{rtpid}` 的父链上，`{b.go_name_of_rt(p) or f"<RT {p}>"}`（{p}）这一级'
+                f'的 `m_LocalScale` = {s.get("x", 1.0)},{s.get("y", 1.0)}'
+                f' ⇒ `lossyScale(父)` 被压成 {sc[0]:.6g},{sc[1]:.6g}'
+                f'（门槛 `SCL_COLLAPSE_EPS` = {SCL_COLLAPSE_EPS}）。\n'
+                f'    ⇒ 本表从被查节点起、**整棵子树都被压成 0 / 极小** —— 那是'
+                f'**「这一级不可判」**、⛔ **不是「这件没有尺寸」**：原版 UI 不会以 0 缩放渲染，'
+                f'这类帧是 prefab 里存的**动画/隐藏态 / 运行期才会赋值的残值**'
+                f'（同族实据：本仓 `--no-ancestor-scale` 的 help 已记「本包 390 个 RT 是 `(0,0)`、'
+                f'1476 个是 `(0.01,0.01)`」；`Canvas` 自己的 RT 更是由 Canvas 系统在运行期驱动的）。\n'
+                f'    ⇒ ⛔ **别把这批数当版面数据抄进 `.cs`**；要看这一族**设计上**的版面请改用 '
+                f'`--no-ancestor-scale`（口径 = 当所有 ls = 1）。口径全文见 '
+                f'`menu_rect.parent_rect_of` 的 docstring（A1259）。\n')
     f = b.rt.get(str(chain[-2]))
     # 🔴 **2026-10-14（同一族 · 顺手多改的这一处，只有这一行）**：父名字原来走
     #    `b.go_name(b.go_of_rt(chain[-2]))` —— 那两步都是**按 GO pid 认**（`go_of_rt` = 拿这颗 RT 的
@@ -865,7 +922,17 @@ def walk(b, rtpid, rect, scale, depth, maxdepth, out, indent=0, force_root_rect=
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('bundle')
-    ap.add_argument('root')
+    ap.add_argument('root', nargs='?')
+    # 🔴 **A1261（2026-10-10）**：本工具原来**没有 `--rt`**，而 `menu_dump.py` **有** ⇒
+    #    同一个 pid 在一边能跑、在另一边报「找不到 GameObject」。后果不是「少个功能」：
+    #    同一批文档里两种写法混着出现 ⇒ 容易把「**用法不对**」误记成「**本地没有**」
+    #    （⚠️ 本仓铁律 5 点名的那个坑的变体：「没找到」被写成「不存在」）。
+    #    ⇒ 加这一个口，**与 `menu_dump.py --rt <pid>` 同一个口、同一套 pid**：
+    #      `python menu_rect.py <bundle> --rt <RectTransform pid>`（根的位置参数就省掉）。
+    ap.add_argument('--rt', default=None,
+                    help='**直接给一个 `RectTransform` 的 pid**（重名、或手上只有 RT pid 时用）—— '
+                         '与 `menu_dump.py --rt <pid>` **同一个口、同一套 pid**'
+                         '（⛔ 别在一边能跑、另一边报「找不到 GameObject」）')
     ap.add_argument('--depth', type=int, default=3)
     ap.add_argument('--active-only', action='store_true',
                     help='只列 **`m_IsActive=1`（= `activeSelf`，只管自己那一格）** 的节点 —— '
@@ -896,6 +963,11 @@ def main():
                          '配 `UguiRect.Child` 用 —— 省掉手工誊抄几十个五元组（誊错一个就是一个静默的版面 bug）')
     args = ap.parse_args()
 
+    if not args.root and args.rt is None:
+        # A1261：两个口都行，但**必须给一个** —— 报错文案里把两个口都写出来（别让人以为「只能按名字」）。
+        ap.error('要 `bundle` + `root`（名字 / GO pid），或 `--rt <RectTransform pid>`'
+                 ' —— `--rt` 与 `menu_dump.py --rt <pid>` 是同一个口')
+
     path = args.bundle
     if not os.path.isdir(path):
         path = os.path.join(BUNDLES, args.bundle)
@@ -907,10 +979,29 @@ def main():
 
     # 🔴 **A499 追加：`find_rt`**（不是 `find_go` + `rt_of_go`）—— pid 撞车时**另一份 GO 不在
     #    `self.go` 那张索引里** ⇒ 按名字找会整个找不到（实例 `Resource Counter Item`）。
-    rtpid = b.find_rt(args.root)
+    # 🔴 **A1261（2026-10-10）**：`--rt` 那一支直接认 **RT pid**（与 `menu_dump.py` 同口径）——
+    #    ⛔ 它**不走 `find_rt`**（那条路认的是「名字 / GO pid」）⇒ 两个口的分工要写在报错里。
+    if args.rt is not None:
+        rtpid = str(args.rt)
+        if rtpid not in b.rt:
+            sys.exit(f'找不到 RectTransform {rtpid}（在 {path}）—— '
+                     f'⚠️ pid 是**分包 / 分内层 CAB 局部**的 ⇒ 同一个号在别的包/别的 CAB 里'
+                     f'可能是【另一件】（⛔ 别把「用法不对」记成「本地没有」）。'
+                     f'要用「名字 / GO pid」那一支就把 pid 传成位置参数 `root`。')
+    else:
+        rtpid = b.find_rt(args.root)
     if rtpid is None:
         # 根自己可能就是被当容器用：直接用场景尺寸
-        sys.exit(f'找不到 GameObject「{args.root}」（pid 或名字）—— 或它没有 RectTransform')
+        sys.exit(f'找不到 GameObject「{args.root}」（pid 或名字）—— 或它没有 RectTransform。'
+                 f'⚠️ 若手上那个号本来是 **`RectTransform` 的 pid**（`menu_dump.py --rt` 认的那一支），'
+                 f'本工具要用 `--rt <pid>`（A1261）—— ⛔ 别把「用法不对」记成「本地没有」。')
+    # A1261：表头 / `--cs` 那一行要能看出**是哪个口**进来的（`--rt` 时 `args.root` 是 None）。
+    root_label = args.root if args.root is not None else f'--rt {args.rt}'
+    if args.rt is not None and not args.cs:
+        # ⚠️ `--cs` 那一支**不打这一行**：它的 stdout 是要贴进 `.cs` 的（`#` 开头不是合法 C#），
+        #    而那个口已经有 `// {root_label}` 一行能看出是 `--rt` 进来的（⛔ 别再加债）。
+        print(f'# `--rt {args.rt}` ⇒ 根节点 = `{b.go_name_of_rt(rtpid) or f"<RT {rtpid}>"}`'
+              f'（rtpid {rtpid}；⛔ 与 `menu_dump.py --rt` 同一个口）')
 
     sw, sh = (float(x) for x in args.size.lower().split('x'))
     root_rect = (0.0, 0.0, sw, sh)
@@ -948,7 +1039,7 @@ def main():
 
     if args.cs:
         # 吐 C# 数据表：`N(缩进, "名字", aMinX,aMinY, aMaxX,aMaxY, pivX,pivY, posX,posY, szX,szY),`
-        print(f'// {args.root} —— 锚点五元组（**prefab JSON 里的原值**；本工具【不跑】布局；缩进 = 层级）')
+        print(f'// {root_label} —— 锚点五元组（**prefab JSON 里的原值**；本工具【不跑】布局；缩进 = 层级）')
         print(f'// 出处 {path}')
         print(f'// ⚠️ 带 `⚠️localScale` 注释的行：**那一件的 `m_LocalScale ≠ 1`** —— 这几个五元组是'
               f'**布局框**，画出来还要 × 那个倍数（`UguiRect.Child` 算完的框不是屏幕框）。')
@@ -987,7 +1078,7 @@ def main():
         stats_warning(st, stream=sys.stderr)
         return 0
 
-    print(f'# {args.root}  ' + ('相对根左上角' if args.relative else '绝对矩形')
+    print(f'# {root_label}  ' + ('相对根左上角' if args.relative else '绝对矩形')
           + '（1920×1080 · 左上原点 · y 向下）')
     print(f'# 出处 {path}')
     print(f'# 🔴 「宽」「高」与四个坐标 = **布局框**（= 设计值）；画出来的是【视觉框 = 布局框 × '

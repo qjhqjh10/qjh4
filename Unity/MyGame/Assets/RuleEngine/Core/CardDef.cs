@@ -1996,6 +1996,209 @@ namespace RuleEngine
         ///    落在 `UnitState.SyncKeywordState`，见那里的注释。
         /// </summary>
         public const string Blind = "blind";
+
+        // ---- 🆕 2026-10-11（第十三会话 · `A1159` / `A1218②` / `A1168`）：**伤害模型上的
+        //      「第二条命」与「毒」那四个关键词** ------------------------------------------
+        // 这四个词原来**连 `Prefixes` 都不在** ⇒ `Normalize` 返回 null ⇒ 卡数据 / 卡面正文里
+        // 写它们会被 `CardDef` 构造函数**静默丢掉**（`NoteDropped` 那条），正是本工程
+        // 「不许静默失败」的红线（与 `noncombatant` / `unstunnable` / `dodge` 当年同形）。
+        //
+        // 🔴 **为什么是【关键词】而不是 `UnitState` 上的新字段**：原版这四个全是
+        //    **`DefinedTrait`**，读法一律走 `EntityScript.GetCurrentTraitValueWithModifiers` ——
+        //      · `survivor`  → `EntityScript__get_CurrentSurvivor.c:5`（trait `0x1ae` = 430）
+        //      · `bastion`   → `EntityScript__get_CurrentBastion.c:5`（trait `0x352` = 850）
+        //      · `poisoned`  → `OnTurnEnd` 直接 `HasCurrentTrait(card, 200)`
+        //      · `resistant` → 同上（trait `600`）
+        //    我们的 `UnitState.KwValue` 就是那个读法（`_keywords` 一份表示）⇒ 再立一个字段 =
+        //    **同一条规则的第二个表示**，那正是 `A1116` 当年把 `stun` / `blind` 从布尔字段
+        //    改成派生属性时铲掉的东西（`UnitState.RemoveAll` 的注释点过名）。⛔ 别加字段。
+
+        /// <summary>
+        /// **幸存者 X**（`Survivor X`）—— 原版 `DefinedTrait.survivor = 430`
+        /// （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/DefinedTrait.cs:42`；反编译里写作 `0x1ae`）。
+        ///
+        /// **语义**：**第二条命**。这一击会把它打到 ≤ 0 时，改为「消耗掉 `survivor`、
+        /// 把生命设成 `Min(X, 最大生命)`、留在场上」—— 既不进坟场、也不翻面。
+        /// 判据 = `CardScript__CheckIfDead.c:111-165`（`CurrentSurvivor >= 1` 那一支：
+        /// `:158-165` 打日志 + `CardScript__UseSurvivor`）；消耗口 = `CardScript__UseSurvivor.c:29-42`
+        /// （`Min(CurrentSurvivor, CurrentMaxHealthProcessed)` 写回生命，
+        /// `RemoveBuffedTrait(0x1ae)` + `RemoveTrait(0x1ae)`，随后 `AddTraitSilently(0x1b8 /*survivorSpent*/)`）。
+        ///
+        /// **我们这边的落点**：`UnitState.UseSurvivor()`（消耗）·
+        /// `RuleCore.CleanupDeaths` 的第一条支路（**只走伤害路** —— ⛔ 见那里的注释）·
+        /// `RuleCore.EnoughPendingDamageToDie`（= 原版那道判死闸）·
+        /// `RuleCore.WouldKillByEntries`（预览那一半）。
+        ///
+        /// ⚠️ **全池今天 0 张卡带它**（`RuleEngine/Resources/cards_engine.json` 1126 张逐张扫
+        ///    `keywords` + 整条记录文本，`survivor` / `幸存` / `存活者` **0 命中**）——
+        ///    补的是「原版有、我们缺」这一层，不是在修一个今天会犯的错。
+        ///    ⛔ **不许因为「今天没卡用」就记成「不做」**（铁律 11）。
+        ///    ⚠️ 残留不确定性如实标着：原版那条 ability **资产在远端 CCD**、本地读不到
+        ///    ⇒ 这是**卡面口径**的结论，不是逐资产核过的。
+        /// </summary>
+        public const string Survivor = "survivor";
+
+        /// <summary>
+        /// **幸存者已消耗**（`survivorSpent`）—— 原版 `DefinedTrait.survivorSpent = 440`
+        /// （`DefinedTrait.cs:43`；反编译里写作 `0x1b8`）。
+        ///
+        /// 原版 `CardScript__UseSurvivor.c:71` 在消耗幸存者之后**悄悄加上它**
+        /// （`AddTraitSilently`，`AddTraitSilently(param_1, 0x1b8, …)`）。
+        ///
+        /// 🔴 **2026-10-11（第十三会话 · `W4` · 铁律 5 就地订正）：本段原来写着
+        ///    「它同时也是**触发 id**（`_ResolveAttack…:379` 与 `OnTurnStart.c:266` 各发一次
+        ///    `OnTrigger(0x1b8, …)`）」—— 【错】**。那两处的 `0x1b8` 是 **`AbilityTrigger.Landing = 440`**
+        ///    （`dump.cs` 的 `AbilityTrigger` 枚举），与 `DefinedTrait.survivorSpent = 440`
+        ///    **只是两个不同枚举里数值相同**。实据：
+        ///      · `_ResolveAttack…:359-379` = `RemoveDropPod(card, 0)` 之后紧接着
+        ///        `HasDefaultTrait(0x302)` 与 `CancelAttack`/`ClearPendingDamage` ⇒ 是「空投舱打开、
+        ///        单位**落地**」那条；
+        ///      · `OnTurnStart.c:102` `bVar3 = false` → `:108` **只在 `RemoveDropPod(param_1, 0)`
+        ///        那一格**置 `true` → `:263-266` `if (bVar3) OnTrigger(0x1b8, …)` ⇒ 同上。
+        ///    ⇒ `survivorSpent` **作为触发 id** 的那一半**在原版里根本不存在**：
+        ///      `AbilityTrigger.SurvivorSpent = 422 = 0x1a6`，全量反编译里 `grep "0x1a6,"` = **0 命中**。
+        ///    ⇒ **本笔不再为它留「触发时机没做」的欠账**（那是照一个假象记的账）。
+        ///    ⚠️ 而**真的**那条 survivor 触发是 `UseSurvivor.c:73`
+        ///      `OnTrigger(raw, 0x1a4 /* = `AbilityTrigger.Survivor = 420` */, …)`
+        ///      （同一文件 `:49` 的 `LogActivatedTrigger(…, 0x1a4)` 可作旁证）——
+        ///      由 <see cref="Survivor"/> 那一条落点（`RuleCore.CleanupDeaths`）接线。
+        /// ⚠️ **它不进 `Prefixes`**（与上面那三个词不同）：它是**引擎运行时授予**的词，
+        ///    **不是卡面词** —— 卡面写 `Survivor Spent` 也会被 `survivor` 那条前缀先吃满，
+        ///    登记进前缀表只是多一条永远命中不到的条目。
+        /// ⛔ **不进 `Implemented`** —— 它不是卡面词，登记了会让「未实现关键词」那张单多出一条噪声。
+        /// </summary>
+        public const string SurvivorSpent = "survivorspent";
+
+        /// <summary>
+        /// **堡垒 X**（`Bastion X`）—— 原版 `DefinedTrait.bastion = 850`
+        /// （`DefinedTrait.cs:83`；反编译里写作 `0x352`）。
+        ///
+        /// **原版怎么用**（两处，形状**不一样**，别混）：
+        ///   · **预览 / 判死**（`CardScript__EnoughPendingDamageToDieWithDamageValues.c:177/222/241/248`）：
+        ///     当作**额外血量**与生命相加（`health + CurrentBastion`）。
+        ///   · **结算**（`CardScript._ReceiveDamage_d__381__MoveNext.c:62-160`）：堡垒 ≥ 1 时走
+        ///     `CardScript__RemoveBastionDamage.c` 那条支路 —— **整份伤害被堡垒吃掉**、
+        ///     存量按伤害量扣减（扣到 0 就整个摘掉）。
+        ///
+        /// 🔴 **2026-10-11（`W4`）：结算那一半做掉了** —— 落点 = `RuleCore.ApplyDamage`
+        ///    （dodge / 无敌 / 护盾挡下之后、扣血之前那一段）。形状照
+        ///    `CardScript__RemoveBastionDamage.c`：
+        ///      · 堡垒 ≥ 1 时**整份伤害进堡垒**、生命**一点不动**（`_ReceiveDamage…:126-156`）；
+        ///      · 堡垒的存量按伤害量扣减，**打穿了才把溢出量打到生命**
+        ///        （`RemoveBastionDamage` 返回**扣减之后**的 `CurrentBastion`，可为负 =
+        ///        溢出量；`:131-153` 就是 `health + 那个负数`）。
+        ///    ⚠️ **两条如实标着的、没做的细节**（都在 `ApplyDamage` 那一段的注释里重复了一遍）：
+        ///      ① 原版 `:63` 的守卫是 `bastion < 1 \|\| deathType == combatAttacker(10)` ——
+        ///        **攻击方挨的那一下反击不吃堡垒**。我们的 `deathType` 是**靠调用点映射**的
+        ///        （见 `RuleCore.TryCreditKill` 的注释），本笔只把那**一处**（反击，
+        ///        `RuleCore` 里 `Hurt(ctx, attacker, counterAtk, …)`）接上；
+        ///      ② 原版这两条支路**在护甲扣减之外**（`:64-98` 整段在 `bastion < 1` 那一支里）
+        ///        ⇒ 我们照它用**原始伤害**；而**易伤**在我们的模型里是折进一个数的
+        ///        （`DamageAfterReduction`），原版是**另一次伤害**、且被 `bVar17` 抑制
+        ///        ⇒ 「堡垒没被打穿」那一档两边一致，「打穿且血还 > 0」那一档原版会补一次易伤、
+        ///        我们**没补**（如实标着）。
+        /// ⚠️ **全池今天 0 张卡带它**（`cards_engine.json` 1126 张现读 0 命中）。
+        ///
+        /// ✅ **2026-10-11（`W4`）已进 `Implemented`** —— 预览侧与结算侧都有了机制；
+        ///    （原来「⛔ 不进」的理由是「结算侧没有机制」，那条理由现在不成立。）
+        /// </summary>
+        public const string Bastion = "bastion";
+
+        /// <summary>
+        /// **献祭**（`sacrifice`）—— 原版 `DefinedTrait.sacrifice = 470`
+        /// （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/DefinedTrait.cs:47`；反编译里写作 `0x1d6`）。
+        ///
+        /// **语义**：**被幸存者救回来的那一瞬间**多挂一条触发 —— 原版 `CardScript__CheckIfDead.c`：
+        ///   · `:108-112` `health < 1` ∧ `cardState ∈ {2,0xf,3,0x11}`（`IsInPlay`）∧ **`CurrentSurvivor >= 1`**
+        ///     （`if (iVar3 < 1)` 那个**为假**的分支 —— 即「这一击本来要打死它，但幸存者把它救回来」）；
+        ///   · `:152-158` `HasCurrentTrait(0x1d6)` ∧ `BattleManager.IsPlayerTurn(bm) == card.isPlayer`
+        ///     （= **是本方回合**）⇒ `CardScript.TriggerSacrifice(card)`；
+        ///   · `:160-165` 紧接着才 `LogWarning` + `CardScript.UseSurvivor`。
+        ///   ⚠️ **位置**：它在 `:151` 那个 `}`（= `if (CurrentSurvivor < 1)` 的收尾）**之后**
+        ///      ⇒ 与「真死 / 变残骸」那两支**互斥**，⛔ 别读成「谁死了谁献祭」。
+        ///
+        /// `TriggerSacrifice`（`CardScript__TriggerSacrifice.c`）本体三件事：
+        ///   · `:19` `BattleCardUI.DisplayTriggerAnim(ui, 0x1d6, 1)`（表现：状态框，见下）；
+        ///   · `:37-39` `SoundAssetCollection.activateSacrifice` 那条 cue（⚠️ **原版那格是空引用**，见下）；
+        ///   · `:41-43` `RawCardScript.OnTrigger(raw, 0xdc /* = `AbilityTrigger.Sacrifice = 220` */, …)`
+        ///     ⇒ **这才是「触发 id」那一半**，随后 `:45` `BattleManager.BroadcastSacrificeResolved`
+        ///     → `BattleManagerSupport__BroadcastUnitUsedSacrifice.c` 对**场上所有卡 + 两手牌**
+        ///     （除被献祭那张自己）各发一次 `OnTrigger(0xe1 /* OtherCardSacrifice = 225 */)`。
+        ///
+        /// **我们的落点**：`RuleCore.CleanupDeaths` 的幸存者支路（`TriggerSacrifice` 那一跳，
+        /// 逐句注释写在那里）。⚠️ `OtherCardSacrifice`（225）那条**广播**我们**没有**独立实现 ——
+        /// 如实记在报告里（今天全池 0 张卡能碰到它）。
+        ///
+        /// ⚠️ **原版那格音效是空引用**：`素材/Warpforge原版/游戏数据/去重定义/MonoBehaviour/
+        ///    SoundAssetCollection.json` 的 `activateSacrifice` = `{m_AssetGUID: ""}`（同表里
+        ///    `activateSurvivor` 有 GUID `f5b94c43ec9a188449541c6f6057f649`）⇒ **原版本身就没有这条音效**
+        ///    ⇒ 按铁律 11「原版本身判据是空的」那一档，这条不做、理由留档。
+        ///
+        /// **可达性**：全池 1126 张**0 张**带它（`cards_engine.json` 整条记录文本扫
+        /// `sacrific` / 献祭 **0 命中**；`TAU65 Valued Sacrifice` 只是卡名里带这个词）。
+        /// 补的是「原版有、我们缺」这一层（铁律 11），不是在修一个今天会犯的错。
+        /// </summary>
+        public const string Sacrifice = "sacrifice";
+
+        /// <summary>
+        /// **空投舱**（`dropPod`）—— 原版 `DefinedTrait.dropPod = 230`
+        /// （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/DefinedTrait.cs:22`；反编译里写作 `0xe6`）。
+        ///
+        /// **语义（本笔做的那一半）：一个独立的血池** ——
+        ///   · `CardScript._ReceiveDamage_d__381__MoveNext.c:60-61`：**有 `dropPod` 就走它**（优先于堡垒）；
+        ///   · `:159-183`：`lVar2 + 0xcc..0xdc`（= `EntityScript.currentDropPodHealth`，见
+        ///     `EntityScript__get_currentDropPodHealth.c:8-12`）**减掉这一击的伤害**，
+        ///     **生命（`+0x68..0x78`）一点不动**；
+        ///   · `CardScript__CheckIfDead.c:76-96`：`HasCurrentTrait(0xe6)` ∧ 在场上 ∧ **池 < 1**
+        ///     ⇒ `CardScript__RemoveDropPod(card, 1)` 然后 `return`（**这一下不会死**）。
+        ///   `CardScript__RemoveDropPod.c:7-8` = `RemoveBuffedTrait(0xe6)` + `RemoveTrait(0xe6)`
+        ///   （再加镜头抖 + `BattleCardUI.RemoveStatusAnim(0xe6)` + `UpdateFigures`）。
+        ///   ⚠️ **池的初值不在 trait 值上**：`CardScript__ActivateTraitsOnSummonOrEnchantment.c:105-120`
+        ///   把 `+0xcc..0xdc` 写成 `GameStaticData` 的**一个全局常量**（`+0x1fc`）——
+        ///   我们引擎里没有那份全局表 ⇒ 池的**初值取卡面写的那个数字**
+        ///   （`KwValue(DropPod)`），如实标着（这是我们的口径，不是原版证的）。
+        ///
+        /// ⚠️ **没有做的两半**（如实记，⛔ 别当它做完了）：
+        ///   ① **`Landing` 触发**（`AbilityTrigger.Landing = 440`）—— 原版只在**另外两处**发它：
+        ///      `BattleManager._ResolveAttack…:359-379`（本单位出手 → `RemoveDropPod` → `Landing`）与
+        ///      `CardScript__OnTurnStart.c:102/108/263-266`（**本方回合开始**开舱 → `Landing`）。
+        ///      ⚠️ **池被打空那一条路（`CheckIfDead.c:94`）不发 `Landing`**。
+        ///   ② 「**回合开始自动开舱** / **攻击后自动开舱**」那两条时机（同上两处）。
+        ///   两条都记在 `资料/普查产出_第十三会话/W4_A1335A1336.md` 的「顺手发现」里，⛔ 由调度台分流。
+        ///
+        /// **可达性**：全池 1126 张 **0 张**带它（`SW31 Fenrisian Drop Pod` 只是卡名里带 `Drop Pod`，
+        /// 它的 `keywords` 是 `Flying` / `Armour 1`）⇒ 同上，铁律 11 补课。
+        /// </summary>
+        public const string DropPod = "droppod";
+
+        /// <summary>
+        /// **中毒**（`poisoned`）—— 原版 `DefinedTrait.poisoned = 200`
+        /// （`DefinedTrait.cs:20`；反编译里写作 `0xc8`）。
+        ///
+        /// **语义**：带它的单位在**它自己这一方的回合结束**时被**摧毁**
+        /// （`deathType = poison(40)`、`actingCard` = 施加毒的那张牌），
+        /// 而 <see cref="Resistant"/> 是它的**豁免**。
+        /// 判据 = `CardScript__OnTurnEnd.c:110-113`（三道守卫 = `poisoned != 0` ∧ 本回合就是它那一方 ∧
+        /// `resistant == 0`）+ `:229-262`（扫 `activeEffects` 里 `buffType == addTrait(3)` 且
+        /// `trait == 200` 那一条，取 `enchantingCard` ⇒ `BattleManager.DestroyUnit(那张, 它, 1, 40)`）。
+        /// ⚠️ 那三道守卫**不跳** `ShouldRemnantDestroyOnTurnEnd` / 摘闸门那两块 ——
+        /// 机器码里毒支是**直落**到标签的（`R3_A1168与A1312查证.md` §`A1168` 的三条机器码证据）。
+        /// **我们的落点** = `RuleCore.EndTurn`（再生段之后、残骸摧毁之前，照原版次序）。
+        ///
+        /// ⚠️ **全池今天 0 张卡带它**（1126 张逐张扫过；提到 `poison` 的只有 `GSC14 Biophagus`
+        /// 与 `GSC15 Poisoned Supplies` 两张，且都在**卡名 / 文案**里）。
+        /// </summary>
+        public const string Poisoned = "poisoned";
+
+        /// <summary>
+        /// **抗毒**（`resistant`）—— 原版 `DefinedTrait.resistant = 600`
+        /// （`DefinedTrait.cs:59`；反编译里写作 `0x258`）。
+        ///
+        /// **语义**：`poisoned` 那条回合末摧毁的**豁免**（<see cref="Poisoned"/> 的注释里那三道守卫之一）。
+        /// ⚠️ 它**只**豁免毒 —— 别把它当成通用的「免疫 debuff」。
+        /// </summary>
+        public const string Resistant = "resistant";
+
         public const string CantAttack = "cantattack";
         public const string LongRange = "longrange";
         /// <summary>黑暗契约：可带变体（`of blood` / `of excess` / `of fate` / `of resilience`），
@@ -2399,6 +2602,23 @@ namespace RuleEngine
             //    出处 `rule_core.gd:4136-4147`（**旁证、非判据**；与 Vanguard 同构）。
             //    ⚠️ **不是** `WouldKill`（旧注释写「判据已现成」是错的）。
             Destroyer,
+            // 🆕 2026-10-11（第十三会话）：**伤害模型上的三个 trait**
+            //   —— 判据是「代码在那个时机真的读了/做了那件事」：
+            //   · `Survivor`  → `RuleCore.EnoughPendingDamageToDie`（判死闸）·
+            //     `RuleCore.CleanupDeaths` 的幸存者支路（消耗、留场、不进坟场）·
+            //     `RuleCore.WouldKillByEntries`（预览）。判据全文见常量 doc。
+            //   · `Poisoned`  → `RuleCore.EndTurn` 的毒支（自己这方回合末被摧毁）。
+            //   · `Resistant` → 上面那条毒支的豁免（**只豁免毒**）。
+            //   🔴 **2026-10-11（`W4`）`Bastion` 补进来了** —— 结算侧（`RuleCore.ApplyDamage`
+            //     里「堡垒整份吃掉伤害 + 溢出打到生命」那一段）已落地 ⇒ 原来那句
+            //     「⛔ 它不在这里：结算侧没做」的理由**不成立**了。判据与两条如实标着的细节
+            //     （`deathType == combatAttacker` 的绕过、易伤那一份）见 <see cref="Bastion"/> 的 doc。
+            //   · `Sacrifice` → `RuleCore.CleanupDeaths` 的幸存者支路（`TriggerSacrifice` 那一跳）。
+            //   · `DropPod`   → `RuleCore.ApplyDamage` 的独立血池那一段。
+            //     ⚠️ 后两个词的 **0xe6 / 470 两个 trait 今天全池 0 张卡带**（现扫）；
+            //        登记依据 = 「那个时机真的有人读它」（铁律：`Implemented` 不是承诺书，
+            //        是「有没有代码会读它」）—— 两个词**各自都有一条上面的落点**。
+            Survivor, Poisoned, Resistant, Bastion, Sacrifice, DropPod,
             // ✅ **破坏（2026-09-14 登记，用户点名要求）**：机制**早就在跑**，只是判据走的是
             //    `subtype` 那一列（`CreatePool.MatchesKind(c,"sabotage")` + `ResolveAtTurn`），
             //    不是 `keywords`。⚠️ **登记依据 = subtype 那一列在那个时机真的被读了**，
@@ -2673,6 +2893,30 @@ namespace RuleEngine
             //    ⚠️ 今天全池 **0 张卡**带它（`RuleEngine/Resources/cards_engine.json` 1126 张现读命中 0）
             //    ⇒ 补的是「将来写得出」这一层；⚠️ 也一并进了 `Implemented`（机制已由 `A1134` 建起来）。
             new[] { "unstunnable", RuleCore.Unstunnable },
+            // 🆕 2026-10-11（第十三会话 · `A1159` / `A1218②` / `A1168`）：**伤害模型上那四个 trait**。
+            //    不登记 ⇒ `Normalize` 返回 null ⇒ `CardDef` 构造函数**静默丢弃**
+            //    （与 `noncombatant` / `unstunnable` / `dodge` 当年同形，踩「不许静默失败」红线）。
+            //    语义、判据、我们这边的落点 → 各自常量的 doc（别在这里抄第二份）。
+            //    ⚠️ **前缀撞车已核**：`Prefixes` 里**没有任何**以 `s`/`b`/`p`/`r` 开头会抢先吃掉
+            //    这四个词的条目（`survivor` / `survivorspent` 不冲突是因为后者根本没进这张表；
+            //    `stun`/`shield`/`stealth`/`stomp`/`swarm`/`sniper`/`strike`/`syphon` 都以
+            //    `su`/`sh`/`st`/`sw`/`sn` 开头，与 `survivor` 的第一个音节就分开了）。
+            //    ⚠️ 全池今天 **0 张卡**带这四个词 ⇒ 加它们**不改动任何现有解析结果**。
+            new[] { "poisoned", Poisoned },
+            new[] { "resistant", Resistant },
+            new[] { "survivor", Survivor },
+            new[] { "bastion", Bastion },
+            // 🆕 2026-10-11（第十三会话 · `W4` · `A1336①` / `A1335`）：`sacrifice`（trait 470）与
+            //    `dropPod`（trait `0xe6` = 230）。不登记 ⇒ `Normalize` 返回 null ⇒ 构造函数
+            //    **静默丢弃**（同上面那四个，踩「不许静默失败」红线）。
+            //    ⚠️ **前缀撞车已现核**（`Normalize` 是 `StartsWith` + **先到先得**，见它的实现）：
+            //      · `"sacrifice".StartsWith("sabotage") == false`（`s-a-b` vs `s-a-c`）⇒ 不会被它抢先；
+            //      · `"droppod".StartsWith("dodge") == false`（`d-o-p` vs `d-o-d`）⇒ 同上。
+            //      反向（新词抢先吃掉老词）也不成立：`Prefixes` 里没有任何以 `sacrifice` / `droppod`
+            //      开头的既有条目。⇒ **加这两个词不改动任何现有解析结果**。
+            //    ⚠️ 全池今天 0 张卡带它们（1126 张现扫）。
+            new[] { "sacrifice", Sacrifice },
+            new[] { "droppod", DropPod },
             // 🔴 2026-09-13 补（派子代理做「关键词三列对账」时查出）：这三个词**根本不在表里**，
             //    于是 `Normalize` 返回 null → `Parse`/构造函数**双双丢弃**
             //    ⇒ 它们既不出现在 `UnimplementedKeywords()` 单上，**卡面也不打 `*`**
@@ -2736,9 +2980,7 @@ namespace RuleEngine
             if (string.IsNullOrEmpty(item)) return null;
 
             // 1) 按 ':' 切，只取前半段（后半段是效果文本，不是关键词）
-            string s = item;
-            int colon = s.IndexOf(':');
-            if (colon >= 0) s = s.Substring(0, colon);
+            string s = HeadOf(item);
             s = s.Trim().ToLowerInvariant();
             if (s.Length == 0) return null;
 
@@ -2747,6 +2989,14 @@ namespace RuleEngine
                 if (s.StartsWith(pair[0])) { matchedLength = pair[0].Length; return pair[1]; }
 
             return null;
+        }
+
+        /// <summary>`':'` **前面**那半段（关键词名与它的数字，例 `"Oath 4"`）。没有 `':'` 就整串返回。</summary>
+        public static string HeadOf(string item)
+        {
+            if (string.IsNullOrEmpty(item)) return item;
+            int colon = item.IndexOf(':');
+            return colon >= 0 ? item.Substring(0, colon) : item;
         }
 
         /// <summary>`':'` **后面**那半段（效果原文，例 `"Damage 2 EnemyUnit"`）。没有或为空返回 null。</summary>
@@ -2768,11 +3018,17 @@ namespace RuleEngine
                 string name = Normalize(item);
                 if (name == null) continue;
 
-                // 值 = 整串里第一个数字；没有就是 1
-                // ⚠️ 找的是**原始串**里的第一个数字，不是切完 ':' 之后的 —— 我们上一版 Godot 复刻
-                //    就是这么做的（`rule_core`，**旁证、非判据**；⚠️ 2026-10-18 更正：原句直接写
-                //    「rule_core 就是这么做的」，容易被读成「它这么做 = 对」）
-                kws[name] = FirstNumber(item);
+                // 值 = **`':'` 之前**那半段里第一个数字；没有就是 1（兜底 1 是红线，见 `HasNumber`）
+                //
+                // 🔴 **2026-10-11（第十三会话 · `A1342`）就地更正**：原来取的是**整串（含冒号后的
+                //    效果正文）**里第一个数字，理由写的是「我们上一版 Godot 复刻就是这么做的」
+                //    —— 那条**旁证不成立**（同级另有 `Normalize` / `HasNumber` 都只认 `':'` 之前那半段，
+                //    三处口径本就不一致）。形是危险的：任一张卡把关键词项写成
+                //    `Rally: Deal 2 damage to an enemy` ⇒ `kv.Value = 2` ⇒ 卡面会印
+                //    **`Rally 2`**（那个 2 是正文里的伤害值，根本不是 `Rally` 的参数）。
+                //    ⚠️ 当时**全池 0 张受影响**（5 个候选项第一个数字恰好都是 1）⇒ 改前/改后逐
+                //    (卡,键) 同值 —— 这是**收口**，不是行为改动。
+                kws[name] = FirstNumber(HeadOf(item));
             }
             return kws;
         }
@@ -2812,9 +3068,7 @@ namespace RuleEngine
         public static bool HasNumber(string item)
         {
             if (string.IsNullOrEmpty(item)) return false;
-            int colon = item.IndexOf(':');
-            string s = colon >= 0 ? item.Substring(0, colon) : item;
-            foreach (char c in s) if (char.IsDigit(c)) return true;
+            foreach (char c in HeadOf(item)) if (char.IsDigit(c)) return true;
             return false;
         }
     }

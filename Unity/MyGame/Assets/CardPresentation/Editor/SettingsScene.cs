@@ -3339,9 +3339,13 @@ public static class SettingsScene
                     //   `Handle Slide Area` 那一档高）⇒ **两层必须同高**。
                     //   量法照 Background 那一条：取该层九宫格子 quad 的**并集高**（`ImageQuad.WorldH`），
                     //   ⛔ 不是把参数念一遍；期望值写**字面量 `11.7f`**（同上，⛔ 别引用窗自己的常量）。
-                    // ⚠️ 靠**层名**找节点（`slider_fill` = `WfSlider.Create` 建它时用的 `name:`）——
-                    //   那一层在 `WfSlider` 上**没有对外访问器**，而 `Battle/WfSlider.cs` 不在本件白名单
-                    //   ⇒ 不改它，用名字取（这也是本仓库既有的量法，见 `Editor/CollectionScene.cs` 量 `Unlock`）。
+                    // ⚠️ 靠**层名**找节点（`slider_fill` = `WfSlider.Create` 建它时用的 `name:`）。
+                    //   🔴 **2026-10-21 更正（`A1365` · 铁律 5）**：这里原来写「那一层在 `WfSlider` 上
+                    //   **没有对外访问器**，而 `Battle/WfSlider.cs` 不在本件白名单 ⇒ 不改它，用名字取」
+                    //   —— **前提已不成立**：`A1359` / `A1351`② 起那三个读口就在（`FillWorldW` /
+                    //   `FillWorldLeftX` / `FillCapWorldW`）。⚠️ **但本条仍按层名取** —— 这里量的是
+                    //   `Fill` 层的**并集高**（`ImageQuad.WorldH`），那三个读口**全是横向量**、都不报高。
+                    //   （「用名字取节点」这个量法本身仍是本仓库既有的，见 `Editor/CollectionScene.cs` 量 `Unlock`。）
                     var fillN = FindChild(FindChild(root, auNames[i] + " Container"), "slider_fill");
                     if (fillN == null)
                         CheckTrue(false, $"第 {i + 1} 根滑块的 `Fill` 那一层在（`slider_fill`）"
@@ -3441,13 +3445,30 @@ public static class SettingsScene
                                   $"{who} 轨道九宫格的**端帽**宽 = 原版 `m_Border 184 ÷ ppuMul 2` = 92 设计 px × 0.9 ⇒ **82.8**"
                                 + $"（实得 {capBg:F2}；改坏法：端帽传 184（= A169 前的做法）⇒ 184；只除以 2 没过 0.9 ⇒ 92 ⇒ 都红）");
                         float handleV0 = s.Value;
+                        // 🔴 **2026-10-21 更正（`A1365` · 铁律 5）**：这一句 `SetValue(1f, false)` 原来
+                        //   标注的理由是「值拉到 1 ⇒ 填条不缩放的那一帧」（下面那条消息里也这么写）
+                        //   —— **那个理由与 `capFl` 无关，已就地删掉**：`capFl` 读的是子件自己的 `WorldW`，
+                        //   而 `WorldW` **从来不含**任何缩放（`A1359` 前后都一样，`A1359` 把横向缩放打在
+                        //   三块子 quad 的 `localScale.x` 上）⇒ 摆哪个值都读出同一个数。
+                        //   ⚠️ **这一句本身【不能删】** —— 它是**载荷**：下面 `hx0`（值 1 那一帧的手柄中心）
+                        //   靠它摆出来，行程那条断言（`CheckNear(hx0 - hxAt0, 606.78f, 0.4f)`）要的正是它。
                         s.SetValue(1f, false);          // ⚠️ `fire: false` —— 自检**不许**改总线/存档（只摆值）
                         float capFl = 0f;
                         foreach (var q in flL.GetComponentsInChildren<ImageQuad>(true))
                             if (q != null && q.WorldW * 108f < 200f) capFl = Mathf.Max(capFl, q.WorldW * 108f);
+                        // ⚠️ 上面那个 `WorldW * 108f < 200f` 是**按宽筛出九宫格两端端帽**的启发式
+                        //   （本窗中段的**建件宽** ≈ 615.77 − 2×13.5 = 588.77，远超 200 ⇒ 被筛掉在外）。
+                        //   🔴 **它本身与缩放无关**（`WorldW` 不含缩放）⇒ 它上面那句「值拉到 1」**不是**
+                        //   它成立的条件（理由句已删，见上）。
+                        //   ⚠️ 那个 200 是个**隐藏耦合**：只有「中段建件宽 ≫ 200」时才成立 —— 若哪天轨道
+                        //   宽缩到 200 + 27 以下，中段会漏进这个 `max`、这条就量错对象。✅ 换成
+                        //   `s.FillCapWorldW`（直接报端帽那块**画出来**的宽）能去掉这个耦合 ——
+                        //   那是**行为改动**（自检宿主），本批**只订正注释、表达式一个字节没动**，
+                        //   换法已写进 `A1365` 的报告交调度台裁（铁律 11：要做，只是先后问题）。
                         CheckNear(capFl, 13.5f, 1.5f,
                                   $"{who} 填条的**端帽**宽 = 原版 `30 ÷ ppuMul 2` = 15 设计 px × 0.9 ⇒ **13.5**"
-                                + $"（实得 {capFl:F2}，值拉到 1 ⇒ 填条不缩放的那一帧；改坏法：传 30 ⇒ 30；只除 2 ⇒ 15 ⇒ 都红）");
+                                + $"（实得 {capFl:F2}；这一格读的是子件自己的 `WorldW`、**不含任何缩放** ⇒ "
+                                + "与上面那句 `SetValue(1f,false)` 无关；改坏法：传 30 ⇒ 30；只除 2 ⇒ 15 ⇒ 都红）");
 
                         // ③ 手柄：**实画边长** = **运行时框短边 × 0.9**。
                         //    🔴 **2026-10-07（波 8 · A197）**：原版那个 22.406 是手柄的**序列化**

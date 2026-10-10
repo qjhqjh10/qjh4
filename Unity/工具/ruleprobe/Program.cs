@@ -71,7 +71,9 @@ class Program
         return @"D:/4/Unity/MyGame/Assets";   // 兜底：找不到就按标准盘符（找不到时 caller 会出声，⛔ 不静默）
     }
 
-    static void LoadPool()
+    /// <summary>装载卡池并**建卡名索引** —— 探针的**唯一**卡池入口（`Scan` / `Dump` 也都要经过它）。
+    /// 🔴 2026-10-10 `A1339`：它原来**不建索引** ⇒ 见下面 `CreatePool.BuildNameIndex` 那段注释。</summary>
+    public static void LoadPool()
     {
         if (Pool != null) return;
         if (!File.Exists(PoolPath)) { Console.Error.WriteLine("!! 找不到卡池：" + PoolPath); Environment.Exit(2); }
@@ -89,10 +91,25 @@ class Program
                                  S("nameZh"), S("descZh"), true, S("subtype")));
         }
         Pool = list;
+        // 🔴 **2026-10-10 `A1339`：探针必须与引擎【同口径】—— 就是缺了这一句。**
+        //   引擎侧：`Data/CardDatabase.cs:113` 在读完卡表之后调 `CreatePool.BuildNameIndex(list)`；
+        //   探针原来两边都不建 ⇒ `CreatePool.MatchCardName` 恒返回 null（`CreatePool.cs:613` 明写
+        //   「没建索引时一律返回 null ⇒ 解析行为与从前完全一致」）⇒ 凡「目标靠**卡名**指」的句子，
+        //   探针一律报 `target=[]` ＋ 落 `partial` 列。**它已经产出过两次假证据**：
+        //   ① `A1334` 的前提（`UM_Angels_of_Death` 的 `Target == null`）
+        //   ② `A1311` 的「它是 3 参重载唯一的真卡用户」（引擎里它 `Side=own`、走 4 参）。
+        //   ⇒ 修法见 `资料/普查产出_第十三会话/D_A1334诊断.md` 顺手发现 2。
+        // ⚠️ 建在**全池**上（含 `desc` 为空那几张卡）—— 与引擎一致：那几张照样能被别的卡的文本指到。
+        // ⚠️ 它同时建**两张**表（英文 `_nameIndex` ＋ 中文 `_nameIndexCjk`），别只当英文那张看。
+        CreatePool.BuildNameIndex(list);
     }
 
     static void Dump(string line, string tag = "SEG")
     {
+        // 🔴 **2026-10-10 `A1339`**：`seg` 这条入口原来**也不建卡名索引**（它只调 `EffectText.Parse`，
+        //   不经过任何装池动作）⇒ 手搓一句含**卡名**的卡面原文时会静默报 `target=[]`，
+        //   和 `card`/`scan`/`check` 一样是**与引擎不同口径**。⇒ 统一走这一道闸（`LoadPool` 幂等）。
+        LoadPool();
         var ops = EffectText.Parse(line, out var unparsed, out var partial, false);
         Console.WriteLine(tag + " = [" + line + "]");
         Console.WriteLine("  unparsed=" + (unparsed == null ? "-" : string.Join(" | ", unparsed))
@@ -106,10 +123,23 @@ class Program
                 + " target=[" + (op.Target == null ? "" : op.Target.Raw) + "]"
                 + " tail=[" + (op.Tail ?? "") + "]"
                 + " cost=" + op.Cost + " ck=" + op.CostKind
+                // 🔴 **2026-10-10 `A1368`**：这三样原来也不打 ⇒ 「付费怎么分账 / 条件认成什么 /
+                //   `for each` 数谁」在**手搓一句**时同样看不见。与 `scan` 那四列**同一批**，
+                //   两个入口打印的是**同一个值**（`CountRefText` 是唯一渲染口）。
+                + " shared=" + (op.CostShared ? "1" : "0")
+                + " condKind=[" + (op.ConditionKind ?? "") + "]"
+                + " countRef=[" + CountRefText(op) + "]"
                 + " chooseSrc=" + op.ChooseSrc + " what=[" + op.ChooseWhat + "] act=[" + op.ChooseAct + "]"
                 + " deadScope=" + op.ChooseDeadScope);
         }
     }
+
+    /// <summary>🔴 `A1368`：`EffectOp.CountRef` 在 dump 里的**唯一**渲染口（`Scan` 的 ops 列与
+    /// `Dump` 共用 —— 本仓红线「两处写同一条规则 = 迟早不一致」）。
+    /// **原样返回**（只把 `null` 归一成空串）：`board` 族的取值自带两个 `|`（`enemy|troop|all`），
+    /// ⛔ **不许转义/替换** —— 那会让 dump 的值与引擎字段不同，下一个人照 dump 抄进断言就抄错了。
+    /// `scan` 那边靠「只认前两个 `|`」的 `CheckMain` 兜住（见 `Scan.cs` 文件头）。</summary>
+    public static string CountRefText(EffectOp op) { return op.CountRef ?? ""; }
 
     static void Card(string name)
     {

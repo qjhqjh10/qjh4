@@ -993,19 +993,20 @@ public static class MainMenuScene
             //    ⇒ 量不了 `.rect`，只能把 9 个块的渲染框并起来（这也更接近「玩家看到的」）。
             System.Func<Transform, Vector4?> quadUnion = t =>
             {
-                if (t == null) return null;
-                float X1 = float.MaxValue, Y1 = float.MaxValue, X2 = float.MinValue, Y2 = float.MinValue;
-                bool any = false;
-                foreach (var q in t.GetComponentsInChildren<ImageQuad>())
-                {
-                    if (q == null) continue;
-                    float w = q.WorldW * 108f, h = q.WorldH * 108f;
-                    float cx = LayoutSpace.PxX(q.transform.position.x), cy = LayoutSpace.PxY(q.transform.position.y);
-                    X1 = Mathf.Min(X1, cx - w * 0.5f); X2 = Mathf.Max(X2, cx + w * 0.5f);
-                    Y1 = Mathf.Min(Y1, cy - h * 0.5f); Y2 = Mathf.Max(Y2, cy + h * 0.5f);
-                    any = true;
-                }
-                return any ? new Vector4(X1, Y1, X2, Y2) : (Vector4?)null;
+                // 🆕 **2026-10-10（A1330）**：并集收口到 `MenuDraw.UnionQuadRectPx`（与本文件 `UnionQuadRect`
+                //    同一份口径 —— 铁律「两处写同一条规则 = 迟早不一致」）。
+                // 🔴 **两项原样保留**：**激活闸 = `QuadGate.None`（完全不过滤）** · **`searchInactive = false`**
+                //    （原来用的就是 `GetComponentsInChildren<ImageQuad>()` **缺省**那一档 ⇒ 只找激活链上的块）。
+                //    ⚠️ 别忘了 `false` —— 传 `true` 会把被关掉的块也算进来（`Nine` 的「整块在框外」那一档）。
+                // ⚠️ 改前是**甲式**（`LayoutSpace.PxX/PxY` + 硬写 `108f`）；`MenuDraw` 那份是**乙式**
+                //    （位置项先 `PosInDesignSpace` 除回父级缩放、再走 `PixelOfDesign` = A298/A1004 那一半）。
+                //    ⇒ **本宿主父链单位缩放**（本文件既有前提，见 `:2461-2464` 那条注释）**且相机 aspect
+                //    钉成 `DesignAspect`**（`:570`）时两式差 **≤2.5e-4 px**（同 `HitQuadRect` `:437-438`
+                //    那条 A1003 先例）；父链真带缩放时**乙式才是对的**（它除的正是 `Local` 除过的那一级）。
+                if (!MenuDraw.UnionQuadRectPx(t, MenuDraw.QuadGate.None, false,
+                                              out float ux1, out float uy1, out float ux2, out float uy2))
+                    return null;
+                return new Vector4(ux1, uy1, ux2, uy2);
             };
 
             // ---- 纯函数那条：文案（原版那两行 `String.Format`）----
@@ -1039,7 +1040,9 @@ public static class MainMenuScene
                 {
                     var pu0 = quadUnion(FindChild(rc0.GetChild(i), "Resource Bar Background"));
                     if (!pu0.HasValue) continue;
-                    // ⚠️ `quadUnion` 返的是**设计 px**（它内部用 `PxX/PxY` 折算过）；**字段序 = `(X1, Y1, X2, Y2)`**
+                    // ⚠️ `quadUnion` 返的是**设计 px**（它走 `MenuDraw.UnionQuadRectPx` —— 🆕 2026-10-10 A1330
+                    //    收口前是甲式 `PxX/PxY`，两式在单位缩放 + `DesignAspect` 下差 ≤2.5e-4 px）；
+                    //    **字段序 = `(X1, Y1, X2, Y2)`**
                     //    （那个 lambda 的末句）⇒ **宽 = `.z − .x`**。🔴 **2026-10-14（#28）订正**：这里原来写的是
                     //    `.w − .x` —— `.w` 是**下沿**，量出来的是 `Y2 − X1`（恒负）。反证 = 同一次运行里断**上沿**
                     //    （`.y`）的那条全绿 ⇒ `.y` 确实是 `Y1` ⇒ `.w` 只能是 `Y2`。
@@ -1169,7 +1172,9 @@ public static class MainMenuScene
                     var pu = quadUnion(pill);
                     CheckTrue(pu.HasValue, $"（前提）第 {i + 1} 格那颗药丸建出来了（公共件 `MenuDraw.Nine`）");
                     if (!pu.HasValue) { sumW += iw; continue; }
-                    // ⚠️ `quadUnion` 那一支返的是**设计 px**（内部 `PxX/PxY` 折过），而 `irt.rect.*` 是**世界单位**
+                    // ⚠️ `quadUnion` 那一支返的是**设计 px**（🆕 2026-10-10 A1330 起走 `MenuDraw.UnionQuadRectPx`；
+                    //    收口前是甲式 `PxX/PxY`，两式在单位缩放 + `DesignAspect` 下差 ≤2.5e-4 px），
+                    //    而 `irt.rect.*` 是**世界单位**
                     //    ⇒ 这两条要混着比时必须显式 ×108（⛔ 别拿 `LayoutSpace.Px` 去比 px，那是反的）。
                     // 🔴 **2026-10-14（#29–#36）订正**：`quadUnion` 的字段序是 **`(X1, Y1, X2, Y2)`**（那个 lambda
                     //    的末句；`.y` = **上沿**、`.w` = **下沿**）⇒ 宽必须写 **`.z − .x`**；原来两处都写成
@@ -4537,17 +4542,27 @@ public static class MainMenuScene
                                     float bltBgTop = float.MaxValue, bltBgBot = float.MinValue;
                                     int bltLive = 0, bltHide = 0;
                                     if (bltBg != null)
-                                        foreach (var bk in bltBg.GetComponentsInChildren<ImageQuad>(true))
-                                        {
-                                            if (bk == null) continue;
-                                            // ⚠️ **先判 `activeSelf`、再量矩形** —— 整块在框外的那几块是被**关掉**的
-                                            //    （节点还在、`transform` 也没动），连它们一起量会把已经裁掉的那条边算回来（假绿）。
-                                            if (!bk.gameObject.activeSelf) { bltHide++; continue; }
-                                            float kx1, ky1, kx2, ky2;
-                                            if (!RenderedRect(bk.transform, out kx1, out ky1, out kx2, out ky2)) continue;
-                                            bltLive++;
-                                            bltBgTop = Mathf.Min(bltBgTop, ky1); bltBgBot = Mathf.Max(bltBgBot, ky2);
+                                    {
+                                        // 🆕 **2026-10-10（A1330）**：上下两沿的并集 + 块数收口到 `MenuDraw.UnionQuadRectPx`。
+                                        // 🔴 **两项原样保留**：**激活闸 = `QuadGate.Self`**（只看块自己 `activeSelf`
+                                        //    —— 整块在框外的那几块是被**关掉**的，连它们一起量会把已经裁掉的那条边
+                                        //    算回来 = 假绿）· **`searchInactive = true`**（原来就是带 `true` 的）。
+                                        // ⚠️ 改前是**甲式**（`RenderedRect`：`PxX/PxY` + 硬写 `108f`）；`MenuDraw`
+                                        //    那份是**乙式**（`PosInDesignSpace` 除回父级缩放 + `PixelOfDesign`）
+                                        //    ⇒ 本宿主父链**单位缩放**下两式差 ≤2.5e-4 px（`RenderedRect` 的
+                                        //    「先找 `Label`」那一支在这里到不了 —— 九宫格子块底下没有 `Label`，
+                                        //    见 `MenuDraw.Nine` / `ApplySoftEdges` 建的件）。
+                                        // ⚠️ **块数照旧**：`quads` = 「还在画」的块数（= 原来逐个 `activeSelf`
+                                        //    数出来的 `bltLive`）；关掉的 = 总数 − 还在画的（逐块等价）。
+                                        int bltTot = bltBg.GetComponentsInChildren<ImageQuad>(true).Length;
+                                        if (MenuDraw.UnionQuadRectPx(bltBg, MenuDraw.QuadGate.Self, true,
+                                                out _, out bltBgTop, out _, out bltBgBot, out bltLive))
+                                            bltHide = bltTot - bltLive;
+                                        else
+                                        {   // 一块都没量到 ⇒ 与原来**逐字一致**：两沿留在哨兵值、块数照记
+                                            bltBgTop = float.MaxValue; bltBgBot = float.MinValue; bltHide = bltTot;
                                         }
+                                    }
                                     CheckTrue(bltLive > 0 && bltHide > 0,
                                               $"★ A833（档案窗宿主）：压边行的行底九宫格 —— **部分块被截、部分块被 `SetActive(false)` 关掉**"
                                               + $"（还在画 {bltLive} 块 / 关掉的 {bltHide} 块）"
@@ -4563,13 +4578,16 @@ public static class MainMenuScene
                                     float bltRBot = float.MinValue;
                                     var bltBgR = bltRf != null ? FindChild(bltRf, "Background") : null;
                                     if (bltBgR != null)
-                                        foreach (var bk in bltBgR.GetComponentsInChildren<ImageQuad>(true))
-                                        {
-                                            if (bk == null || !bk.gameObject.activeSelf) continue;
-                                            float kx1, ky1, kx2, ky2;
-                                            if (RenderedRect(bk.transform, out kx1, out ky1, out kx2, out ky2))
-                                                bltRBot = Mathf.Max(bltRBot, ky2);
-                                        }
+                                    {
+                                        // 🆕 **2026-10-10（A1330）**：下沿收口到 `MenuDraw.UnionQuadRectPx`
+                                        //（这一处只用到 `y2`；闸 = `Self` · `searchInactive = true` —— 与上面
+                                        //  压边行那一处**同一判据**，两处成对才说明是「按框裁」而不是「一刀切」）。
+                                        // ⚠️ 量不到时 `bltRBot` **留在哨兵 `MinValue`**（原来也是这个契约：
+                                        //   `> 0f` 那一条照样红，不会假绿）。
+                                        if (MenuDraw.UnionQuadRectPx(bltBgR, MenuDraw.QuadGate.Self, true,
+                                                out _, out _, out _, out float rbBot))
+                                            bltRBot = rbBot;
+                                    }
                                     CheckTrue(bltRBot > 0f && bltRBot < BltVpBot - 20f,
                                               $"…参照行（整颗在视口内）的行底九宫格**一下都没被截**（它最低边 {bltRBot:F2} < "
                                               + $"{BltVpBot:F2} − 20）—— 与上面那条成对（否则「按框裁」与「一刀切削到某个高度」分不开）");
@@ -6148,10 +6166,23 @@ public static class MainMenuScene
                     if (!bk.gameObject.activeSelf) { nHidden++; continue; }   // 整块在框外 ⇒ 被关掉（节点还在）
                     float kx1, ky1, kx2, ky2;
                     if (!RenderedRect(bk.transform, out kx1, out ky1, out kx2, out ky2)) continue;
-                    bTop = Mathf.Min(bTop, ky1); bBot = Mathf.Max(bBot, ky2);
-                    bL = Mathf.Min(bL, kx1); bR = Mathf.Max(bR, kx2);
+                    // 🔴 **这一条是【逐块】判据、不是并集**（说的是「**每一块**都落在视口内」——
+                    //    并集量不出「每块」）⇒ **不属 `A1330`**，原样留着（同族的退化旁支见
+                    //    `A1330` 的 #16/#17）。⚠️ 它仍走 `RenderedRect`（甲式）—— 与下面那四沿**不同口**，
+                    //    但两者都只用来判「是否越界 / 落在哪」，本宿主单位缩放下差 ≤2.5e-4 px ⇒ 不互相打架。
                     if (ky1 < 288.59f - 0.5f || ky2 > 937.83f + 0.5f
                         || kx1 < 248.99f - 0.5f || kx2 > 1671.01f + 0.5f) nOutB++;
+                }
+                {
+                    // 🆕 **2026-10-10（A1330）**：**四沿并集**收口到 `MenuDraw.UnionQuadRectPx`
+                    //    （本处**最像**目标形态 —— 四边全量）。🔴 **两项原样保留**：
+                    //    **激活闸 = `QuadGate.Self`** · **`searchInactive = true`**；块数这里不用。
+                    // ⚠️ 改前是**甲式** `RenderedRect`（`PxX/PxY` + 硬写 `108f`）；`MenuDraw` 那份是**乙式**
+                    //    ⇒ 本宿主父链单位缩放下两式差 ≤2.5e-4 px（同 `HitQuadRect` `:437-438` 的 A1003 先例）。
+                    // ⚠️ 量不到时四沿**留在哨兵值**（原来是 `MaxValue/MinValue`）—— 与原来逐个累加**同契约**。
+                    if (bq != null && MenuDraw.UnionQuadRectPx(bq, MenuDraw.QuadGate.Self, true,
+                            out float ubx1, out float uby1, out float ubx2, out float uby2))
+                    { bL = ubx1; bTop = uby1; bR = ubx2; bBot = uby2; }
                 }
                 CheckTrue(nOutB == 0,
                           $"每一块都落在视口 248.99..1671.01 × 288.59..937.83 内（越界 {nOutB} 块；"
@@ -6498,17 +6529,24 @@ public static class MainMenuScene
                         float bgTop = float.MaxValue, bgBot = float.MinValue;
                         int nOn = 0, nOff = 0;
                         if (a833Bg != null)
-                            foreach (var bk in a833Bg.GetComponentsInChildren<ImageQuad>(true))
-                            {
-                                if (bk == null) continue;
-                                // ⚠️ **先判 `activeSelf`、再量矩形** —— 整块在框外的那几块是被 `SetActive(false)` **关掉**的
-                                //    （节点还在、`transform` 也没动），连它们一起量会把已经裁掉的那条边算回来（假绿）。
-                                if (!bk.gameObject.activeSelf) { nOff++; continue; }
-                                float kx1, ky1, kx2, ky2;
-                                if (!RenderedRect(bk.transform, out kx1, out ky1, out kx2, out ky2)) continue;
-                                nOn++;
-                                bgTop = Mathf.Min(bgTop, ky1); bgBot = Mathf.Max(bgBot, ky2);
+                        {
+                            // 🆕 **2026-10-10（A1330）**：上下两沿的并集 + 块数收口到 `MenuDraw.UnionQuadRectPx`。
+                            // 🔴 **两项原样保留**：**激活闸 = `QuadGate.Self`**（整块在框外的那几块是被
+                            //    `SetActive(false)` **关掉**的，连它们一起量会把已经裁掉的那条边算回来 = 假绿）
+                            //    · **`searchInactive = true`**。
+                            // ⚠️ 改前是**甲式** `RenderedRect`；`MenuDraw` 那份是**乙式** ⇒ 本宿主父链单位
+                            //    缩放下两式差 ≤2.5e-4 px（同 `HitQuadRect` `:437-438` 的 A1003 先例）。
+                            // ⚠️ **块数照旧**：`quads` = 原来逐个 `activeSelf` 数出来的 `nOn`；
+                            //    关掉的 = 总数 − 还在画的（逐块等价）。
+                            int a833Tot = a833Bg.GetComponentsInChildren<ImageQuad>(true).Length;
+                            if (MenuDraw.UnionQuadRectPx(a833Bg, MenuDraw.QuadGate.Self, true,
+                                    out _, out bgTop, out _, out bgBot, out nOn))
+                                nOff = a833Tot - nOn;
+                            else
+                            {   // 一块都没量到 ⇒ 与原来**逐字一致**：两沿留在哨兵值、块数照记
+                                bgTop = float.MaxValue; bgBot = float.MinValue; nOff = a833Tot;
                             }
+                        }
                         CheckTrue(nOn > 0 && nOff > 0,
                                   $"★ A833：压边行的行底九宫格 —— **部分块被截、部分块被 `SetActive(false)` 关掉**"
                                   + $"（还在画 {nOn} 块 / 关掉的 {nOff} 块）—— 与上面 `BackgroundHighlight` 那一节"
@@ -6527,13 +6565,14 @@ public static class MainMenuScene
                         float rBgBot = float.MinValue;
                         var a833BgR = a833Ref != null ? FindChild(a833Ref, "Background") : null;
                         if (a833BgR != null)
-                            foreach (var bk in a833BgR.GetComponentsInChildren<ImageQuad>(true))
-                            {
-                                if (bk == null || !bk.gameObject.activeSelf) continue;
-                                float kx1, ky1, kx2, ky2;
-                                if (RenderedRect(bk.transform, out kx1, out ky1, out kx2, out ky2))
-                                    rBgBot = Mathf.Max(rBgBot, ky2);
-                            }
+                        {
+                            // 🆕 **2026-10-10（A1330）**：下沿收口到 `MenuDraw.UnionQuadRectPx`（只用到 `y2`；
+                            //  闸 = `Self` · `searchInactive = true` —— 与上面压边行那一处**同一判据**）。
+                            // ⚠️ 量不到时 `rBgBot` 留在哨兵 `MinValue`（原来也是这个契约：`> 0f` 照样红）。
+                            if (MenuDraw.UnionQuadRectPx(a833BgR, MenuDraw.QuadGate.Self, true,
+                                    out _, out _, out _, out float a833RBot))
+                                rBgBot = a833RBot;
+                        }
                         CheckTrue(rBgBot > 0f && rBgBot < VpBot - 20f,
                                   $"…参照行（整颗在视口内）的行底九宫格**一下都没被截**（它最低边 {rBgBot:F2} < "
                                   + $"{VpBot:F2} − 20，也**没有哪块被关掉**）—— 与上面那条成对");
@@ -9189,18 +9228,22 @@ public static class MainMenuScene
                                             //    而它比 `Fill` 的右端还探出 5.7px（`pivot (1,0.5)` + `pos 5.7`）
                                             //    ⇒ 算进来会把宽度撑到 256.2（量错了东西，不是实现错）。
                                             var endNode = pFill2 != null ? FindChild(pFill2, "end") : null;
-                                            if (pFill2 != null)
-                                                foreach (var q in pFill2.GetComponentsInChildren<ImageQuad>(true))
-                                                {
-                                                    if (q == null) continue;
-                                                    if (endNode != null && q.transform.IsChildOf(endNode)) continue;
-                                                    float qcx = LayoutSpace.PxX(q.transform.position.x);
-                                                    float qw = q.WorldW * 108f;
-                                                    fx1 = Mathf.Min(fx1, qcx - qw * 0.5f);
-                                                    fx2 = Mathf.Max(fx2, qcx + qw * 0.5f);
-                                                }
-                                            CheckTrue(fx1 < float.MaxValue, "★ `Fill` 真的有 quad 了（下面两条量的就是它）");
-                                            if (fx1 < float.MaxValue)
+                                            // 🆕 **2026-10-10（A1330）**：左右两沿收口到 `MenuDraw.UnionQuadRectPx`。
+                                            // 🔴 **两项原样保留**：**激活闸 = `QuadGate.None`（完全不过滤）** ·
+                                            //    **`searchInactive = true`**。**排除 `end` 子树**那一条改由共用件新加的
+                                            //    **过滤谓词形参**表达 —— `Transform.IsChildOf` **含它自己**（下面那条
+                                            //    `CheckAtWorld(FindChild(pFill2,"end"), …)` 正是靠这一点才量得到端帽）
+                                            //    ⇒ 与原句 `q.transform.IsChildOf(endNode)` **逐字同判据**。
+                                            //    ⚠️ 那个过滤谓词是 `A1330` 收口时**为这一处**加的（见 `MenuDraw` 的 doc）。
+                                            // ⚠️ 改前是**甲式**（`PxX` + 硬写 `108f`）；`MenuDraw` 那份是**乙式**
+                                            //    ⇒ 本宿主父链单位缩放下两式差 ≤2.5e-4 px（`Fill` 是 `MenuDraw.Nine`
+                                            //    建的**九宫格根**、它自己不带 `localScale`；同 `HitQuadRect` `:437-438` 先例）。
+                                            bool fGot = pFill2 != null
+                                                && MenuDraw.UnionQuadRectPx(pFill2, MenuDraw.QuadGate.None, true,
+                                                       q => endNode == null || !q.transform.IsChildOf(endNode),
+                                                       out fx1, out _, out fx2, out _);
+                                            CheckTrue(fGot, "★ `Fill` 真的有 quad 了（下面两条量的就是它）");
+                                            if (fGot)
                                             {
                                                 CheckNear(fx2 - fx1, 250.5f, 1.0f,
                                                           "★ `Fill` 的宽 = `Fill Area` 宽 501 × 5/10 = **250.5px**"
@@ -10324,17 +10367,23 @@ public static class MainMenuScene
                             float mTop2 = float.MaxValue, mBot2 = float.MinValue;
                             int mLive = 0, mHide = 0;
                             if (mBg != null)
-                                foreach (var bk in mBg.GetComponentsInChildren<ImageQuad>(true))
-                                {
-                                    if (bk == null) continue;
-                                    // ⚠️ **先判 `activeSelf`、再量矩形** —— 整块在框外的那几块是被**关掉**的（节点还在、
-                                    //    `transform` 也没动），连它们一起量会把已经裁掉的那条边算回来（假绿）。
-                                    if (!bk.gameObject.activeSelf) { mHide++; continue; }
-                                    float kx1, ky1, kx2, ky2;
-                                    if (!RenderedRect(bk.transform, out kx1, out ky1, out kx2, out ky2)) continue;
-                                    mLive++;
-                                    mTop2 = Mathf.Min(mTop2, ky1); mBot2 = Mathf.Max(mBot2, ky2);
+                            {
+                                // 🆕 **2026-10-10（A1330）**：上下两沿的并集 + 块数收口到 `MenuDraw.UnionQuadRectPx`。
+                                // 🔴 **两项原样保留**：**激活闸 = `QuadGate.Self`**（整块在框外的那几块是被**关掉**
+                                //    的，连它们一起量会把已经裁掉的那条边算回来 = 假绿）· **`searchInactive = true`**。
+                                // ⚠️ 改前是**甲式** `RenderedRect`；`MenuDraw` 那份是**乙式** ⇒ 本宿主父链单位
+                                //    缩放下两式差 ≤2.5e-4 px（同 `HitQuadRect` `:437-438` 的 A1003 先例）。
+                                // ⚠️ **块数照旧**：`quads` = 原来逐个 `activeSelf` 数出来的 `mLive`；
+                                //    关掉的 = 总数 − 还在画的（逐块等价）。
+                                int mTot = mBg.GetComponentsInChildren<ImageQuad>(true).Length;
+                                if (MenuDraw.UnionQuadRectPx(mBg, MenuDraw.QuadGate.Self, true,
+                                        out _, out mTop2, out _, out mBot2, out mLive))
+                                    mHide = mTot - mLive;
+                                else
+                                {   // 一块都没量到 ⇒ 与原来**逐字一致**：两沿留在哨兵值、块数照记
+                                    mTop2 = float.MaxValue; mBot2 = float.MinValue; mHide = mTot;
                                 }
+                            }
                             CheckTrue(mLive > 0 && mHide > 0,
                                       $"★ A833：压边行的行底九宫格 —— **部分块被截、部分块被 `SetActive(false)` 关掉**"
                                       + $"（还在画 {mLive} 块 / 关掉的 {mHide} 块）"
@@ -10350,13 +10399,14 @@ public static class MainMenuScene
                             float rBgBot = float.MinValue;
                             var mBgR = mRf != null ? FindChild(mRf, "Background") : null;
                             if (mBgR != null)
-                                foreach (var bk in mBgR.GetComponentsInChildren<ImageQuad>(true))
-                                {
-                                    if (bk == null || !bk.gameObject.activeSelf) continue;
-                                    float kx1, ky1, kx2, ky2;
-                                    if (RenderedRect(bk.transform, out kx1, out ky1, out kx2, out ky2))
-                                        rBgBot = Mathf.Max(rBgBot, ky2);
-                                }
+                            {
+                                // 🆕 **2026-10-10（A1330）**：下沿收口到 `MenuDraw.UnionQuadRectPx`（只用到 `y2`；
+                                //  闸 = `Self` · `searchInactive = true` —— 与上面压边行那一处**同一判据**）。
+                                // ⚠️ 量不到时 `rBgBot` 留在哨兵 `MinValue`（原来也是这个契约：`> 0f` 照样红）。
+                                if (MenuDraw.UnionQuadRectPx(mBgR, MenuDraw.QuadGate.Self, true,
+                                        out _, out _, out _, out float mRBot))
+                                    rBgBot = mRBot;
+                            }
                             CheckTrue(rBgBot > 0f && rBgBot < MBot - 20f,
                                       $"…参照行（整颗在视口内）的行底九宫格**一下都没被截**（它最低边 {rBgBot:F2} < "
                                       + $"{MBot:F2} − 20）—— 与上面那条成对（否则「按框裁」与「一刀切削到某个高度」分不开）");
@@ -12161,17 +12211,25 @@ public static class MainMenuScene
     //    「四个自检各自一套辅助函数」是本工程的一笔明账）。这里照 `CollectionScene` 那一份的语义抄。
 
     /// <summary>一个 `ImageQuad` **渲出来**的像素矩形（1920×1080 画布 · 左上原点 · y 向下）。
-    /// ⚠️ 只用**这个组件自己**的 `transform.position` + `WorldW/H` —— 量切出来的每一块必须逐块量。</summary>
+    /// ⚠️ 只用**这个组件自己**的 `transform.position` + `WorldW/H` —— 量切出来的每一块必须逐块量。
+    ///
+    /// <para>🔴 **2026-10-10（`A1350` 第 ① 步）：本体从「甲式读口」改成【一行转调 `MenuDraw.QuadRectPx`】。**
+    /// 改前写的是 `PxX(position.x)`（= **已缩放的视觉世界坐标**）＋ 尺寸项**硬写 `108f`**；乙式那条
+    /// （`Shell/MenuDraw.cs` 的 `QuadRectPx`，`A1003` 起 `public`）写的是
+    /// `PixelOfDesign(PosInDesignSpace(q.transform))`（**先除回设计帧**）＋ `WorldW × K`。
+    /// ⇒ 两处**独立**的差：**(a) 父链缩放**（`:638-645` 那条恒等式的条件就是「`q.parent` 不带 `localScale`」）；
+    /// **(b) x 斜率**（只在该宿主 aspect == `DesignAspect` 时重合）。本宿主父链**单位缩放**、
+    /// 自检又把 `cam.aspect` 钉在 16:9 ⇒ 两式**今天不可观测**：`y` 中心项**逐位相同**、
+    /// `x` 中心项差 **≤ 2.5e-4 px**（`PxPerWorldX` 实得 107.99999，判据 = 第十三会话
+    /// `资料/普查产出_第十三会话/R6_A1344到A1351查证.md` 的 `A1350` 一节）。
+    /// ⚠️ 是**潜伏差**、不是「有断言挡着」—— 量法口径只此一份（判据 = `CLAUDE.md` §三
+    /// 「两处写同一条规则 = 迟早不一致」）⇒ ⛔ 别把这行改回手写式子。</para>
+    ///
+    /// <para>⚠️ 同文件的 `RenderedRect`（`:244`）**不是**本函数的同形副本、**本次没动它**：
+    /// 它多一条「先找 `Label`」的分支（另一条口径，`A796′` 那轮定的）⇒ 要不要管 `Label`
+    /// 得先由调度台裁，**35 个调用点**在等那个裁断（同 `R6` 的 `A1350` 第 ③ 步）。</para></summary>
     static bool QuadPxRect(ImageQuad q, out float x1, out float y1, out float x2, out float y2)
-    {
-        x1 = y1 = x2 = y2 = 0f;
-        if (q == null) return false;
-        float w = q.WorldW * 108f, h = q.WorldH * 108f;
-        float cx = LayoutSpace.PxX(q.transform.position.x), cy = LayoutSpace.PxY(q.transform.position.y);
-        x1 = cx - w * 0.5f; x2 = cx + w * 0.5f;
-        y1 = cy - h * 0.5f; y2 = cy + h * 0.5f;
-        return true;
-    }
+        => MenuDraw.QuadRectPx(q, out x1, out y1, out x2, out y2);
 
     /// <summary>🆕 2026-10-05：量一个**格子节点**（`Army_i` / `DeckRow_i`）的**渲染矩形**（px）。
     /// 走它下面 `Hit` 里那个 `ImageQuad`（每个格都有 —— `HitOn` 建的）——

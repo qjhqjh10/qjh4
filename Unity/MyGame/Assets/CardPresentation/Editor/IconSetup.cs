@@ -265,8 +265,15 @@ public static class IconSetup
         //   而 `[Armor]` / `[Armour]` 这个写法**当前卡池 1126 张里一处都没有**
         //   （2026-10-20 实扫 `cards_engine.json` 的 `desc` + `descZh`：**0 处**）。
         //   这条断言要卡面上**同时**出现 Melee 与 Ranged 两枚图标 ⇒ 它测的是一个
-        //   **已经不存在的 token**（`工具/gen_icon_plan.py:187` 那条 `("DA44","[Armor]")`
-        //   因此**匹配不上任何 token**）⇒ **夹具过时**，不是实现缺陷。
+        //   **已经不存在的 token** ⇒ **夹具过时**，不是实现缺陷。
+        //   🔴 **2026-10-21 更正（`A1361` · 铁律 5）**：这一句原来还引着「`工具/gen_icon_plan.py:187`
+        //     那条 `("DA44","[Armor]")` 因此**匹配不上任何 token**」—— **那个行号与键名都已失效**：
+        //     逐卡表现读 `gen_icon_plan.py:194` = **`("DA44","[Ranged]")`**（该行自己的注释写着
+        //     「键 2026-10-18 由 `[Armor]` 订正过来」）；全脚本**再无** `("DA44","[Armor]")` 这条
+        //     （`[Armor]` 只剩文件头 `:10` 那段描述旧 OCR 数据的老注释里还提得到）。
+        //     ⚠️ **连带「匹配不上任何 token」这个论断也翻了**：`DA44` 的 `desc` 现读 =
+        //     `Give +3 [Attack], +3 [Ranged] or +3 Health to a friendly troop`（第二枚是**带方括号的**
+        //     `[Ranged]`、不是裸词），计划表那份也逐字对得上 ⇒ 那条 `("DA44","[Ranged]")` 今天**匹配得到**。
         //   ⚠️ 所以**不能只改期望值**（那只会把一条空转的断言刷绿）—— **夹具要跟着数据走**
         //      （照 ②i 的写法：拿 `CardDatabase.Load()` 里的真文本，不再另抄一份）。
         //
@@ -280,18 +287,22 @@ public static class IconSetup
         Check(CountOf(da44, "<sprite name=\"Melee\">") == 1
               && CardPresentation.CardIcons.StripTags(da44).IndexOf("[Attack]", System.StringComparison.Ordinal) < 0,
               "②c 方括号记号换掉（DA44 **真文本**，`[Attack]` → 拳图标）：" + da44, ref bad);
-        // ★ **已知缺口 · 不是回归**：卡图上是**两枚**图标（拳 + 枪），我们只画了拳。
+        // ★ **A980-c：这一段原来是「已知缺口 · 不是回归」**（卡图上是**两枚**图标、我们当时只画了拳）。
         //   亲读 `D:/2/Warpforge部队卡片/Dark Angels/4计策/Warpforge_44_Ancient-Reliquary.png`：
-        //   `Give +3〔粉圈拳〕, +3〔紫圈枪〕 or +3 Health to a friendly troop` ——
-        //   **卡面上没有 `Ranged` 这个词**；而我们的 `desc` 那个位置写的正是**裸词 `Ranged`**、
-        //   计划表里也没有对应项 ⇒ 卡面印出来是 `+3 Ranged`（少一枚枪图标）。
+        //   `Give +3〔粉圈拳〕, +3〔紫圈枪〕 or +3 Health to a friendly troop` —— **两处都只印图、不印词**；
         //   判据 = 铁律 7（`[Armor]`/`[Armour]` 在 **`+N Attack … +N Armour` 这个固定搭配**里
-        //   就是**枪（远程）**）+ 上面那张成品卡图；**缺口在 `工具/gen_icon_plan.py`，不在本文件**。
-        //   ⚠️ **这一条现在就是红的**（红到那条表项被补上为止）—— 它是**如实上报**，别当新坏的东西。
+        //   就是**枪（远程）**）+ 上面那张成品卡图。缺口那一侧在 `工具/gen_icon_plan.py`，不在本文件。
+        //   🔴 **2026-10-21 更正（`A1361` · 铁律 5）**：本段原来写「我们的 `desc` 那个位置写的正是
+        //     **裸词 `Ranged`**、计划表里也没有对应项 ⇒ 卡面印成 `+3 Ranged`」「**这一条现在就是红的**」
+        //     —— **两条前提都已不成立**：`desc` 现读是**带方括号的** `[Ranged]`、计划表 `DA44/desc`
+        //     现读有 `[Ranged] → Ranged` 这一条，而 `CardIcons` 对方括号那一支发的正是
+        //     `<sprite name="{sprite}">`（`Core/CardIcons.cs:238`）⇒ **这条今天应当绿**。
+        //   ⚠️ **本批禁 Unity、没有实跑读数** ⇒ 绿没绿以收口时 `-executeMethod IconSetup.Verify` 为准；
+        //     若它仍红，那是**另一条判据**在起作用，⛔ 别照本段旧话去改 `desc`。
         Check(CountOf(da44, "<sprite name=\"Ranged\">") == 1,
-              "★ ②c【已知缺口 A980-c】DA44 卡图上是**两枚**图标（拳 + 枪）、我们只画了一枚："
-              + "`desc` 里那个位置是**裸词 `Ranged`**、计划表无对应项 ⇒ 卡面印成 `+3 Ranged` —— "
-              + "要修的是 `工具/gen_icon_plan.py`。实得：" + da44, ref bad);
+              "★ ②c【A980-c】DA44 的 `desc` 应换出**两枚**图标（拳 + 枪）—— 卡图那两处都只印图、不印词；"
+              + "改坏法：删掉计划表里 `DA44` 那两条逐卡条目、或把 token 改回裸词 `Ranged` ⇒ 少一枚 ⇒ 红。"
+              + "实得：" + da44, ref bad);
         string ash = CardPresentation.CardIcons.Rewrite(
             "ASH_Autarch", "desc", "1 [Spirit Stone]: Give +1 melee, +1 ranged and +1 Health to all your troops");
         // 🔴 **2026-10-20 修：这条守卫原来【空转】（改坏了照样绿）。**

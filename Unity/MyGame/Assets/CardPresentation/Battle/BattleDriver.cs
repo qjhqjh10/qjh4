@@ -524,6 +524,10 @@ namespace CardPresentation
                     foeName = _net != null ? NetMatchmaking.FoeName : "",
                 },
             };
+            // 🆕 2026-10-11（A985⑬ / A1295）：录像**头**落一条【只落盘】的结果记录。
+            //   ⛔ 不进 `MsgAction`、**不上网** —— 那个结构同时是网络上那个结构，加字段 = 把码送上网（与原版相反）。
+            //   开局这一刻还没有结果 ⇒ `Undefined`、`seat` 不写；这条同时充当「这份录像是从头记的」记号。
+            ReplayStore.WriteResultHead(_rec, BattleResult.Undefined, -1);
         }
 
         /// <summary>记一条 `AiAction`（玩家与 AI 共用）。`actor` 是**绝对座位**。</summary>
@@ -617,6 +621,12 @@ namespace CardPresentation
                         : Ctx.Winner == _me + 1 ? (int)BattleLogData.Outcome.Victory
                         : (int)BattleLogData.Outcome.Defeat;
             _rec.finalHash = NetProtocol.StateHash(Ctx);      // 回放时拿它验「演的是不是同一局」
+            // 🆕 2026-10-11（A985⑬ / A1295）：**落盘之前**把这一局的结束理由码写进**尾**那条记录。
+            //   码只活在 `ctx.Events` 里那一行（`[BattleResult] …`）、**不在 `ctx` 的任何字段上**
+            //   ⇒ 必须从事件表里取（`LastResultFromEvents`），⛔ 别给 `ctx` 加字段
+            //   （那会进 `Fingerprint` 的 `Events.Count`，把回放自证弄坏）。
+            var resultCode = ReplayStore.LastResultFromEvents(Ctx.Events, out int resultSeat);
+            ReplayStore.WriteResultTail(_rec, resultCode, resultSeat);
             LastReplayFile = ReplayStore.Save(_rec);
             var keep = _rec; _rec = null;
             Debug.Log($"[Replay] 这一局录了 {keep.actions.Count} 条动作 · 终局指纹 {keep.finalHash}");
@@ -688,21 +698,23 @@ namespace CardPresentation
                 //    清掉的唯一入口 = 开新一局（`Begin`）。
                 _replaySession = true;
                 _replayDivergence = -1;      // 🆕 审查（§9·3）：回放前清零 —— 这一格是**断言用的失败位**
+                // 🆕 2026-10-11（A985⑬ / A1295）：这一局的结束理由码从**录像尾**那条【只落盘】记录里读。
+                //   ⚠️ 老录像没有那两条记录 ⇒ 读出 `Undefined` ⇒ 行为**逐字不变**。
+                var replayResultCode = ReplayStore.ReadResultCode(rec);
                 for (int i = 0; i < rec.actions.Count; i++)
                 {
                     var m = rec.actions[i];
                     if (m == null) continue;
                     if (m.kind == RecKindForfeit)
                     {
-                        // 🆕 2026-10-18（A913）：**理由码在录像里没有记** ⇒ 显式传 `Undefined`，
-                        //   让日志如实说「未指定」，⛔ **不拿 `Forfeit`(2) 顶替**（那会在重放时
-                        //   静默说错一句话：把「掉线判弃权」演成「投降」）。
-                        //   为什么不记：码**不过网**（原版 `SendForfeit` 发空参数表），而录像那条
-                        //   `RecRaw` 写的是 `MsgAction` —— 它同时是**网络上**那个结构
-                        //   （`NetKind.Action`/`Applied` 发整个 `MsgAction`）⇒ 往里加字段 = 把码送上网，
-                        //   与原版相反。而且码**不影响任何状态**（只进 `ctx.Events` 日志）
-                        //   ⇒ 回放的**局面哈希**照样逐位相同，不需要它。
-                        RuleCore.Forfeit(Ctx, m.actor, BattleResult.Undefined);
+                        // 🆕 2026-10-18（A913）：**不拿 `Forfeit`(2) 顶替** —— 那会在重放时
+                        //   静默说错一句话：把「掉线判弃权」演成「投降」。
+                        // 🔴 **2026-10-11 就地订正（A985⑬ / A1295）：上面原来那句「理由码在录像里
+                        //   没有记」【已经不成立】** —— 码现在记在录像**头 / 尾**两条【只落盘】的
+                        //   `[BattleResult]` 记录里（⛔ 不进 `MsgAction`、不上网：那个结构同时是
+                        //   **网络上**那个结构，加字段 = 把码送上网，与原版相反）。老录像没有那两条
+                        //   ⇒ `replayResultCode` 读出 `Undefined` ⇒ **行为逐字不变**。
+                        RuleCore.Forfeit(Ctx, m.actor, replayResultCode);
                         continue;
                     }
                     // 🆕 2026-10-18（A938）：脚本那两条**伪 kind**（`DrawCard` / `ChangeTo*`）——
@@ -3221,7 +3233,11 @@ namespace CardPresentation
             //    本钮出厂就亮着、全仓没有关它的路径 ⇒ **是隐患、不是活缺陷**；但 A964 的探针
             //    （`HudButtonActiveForTest` / `SetHudButtonActiveForTest`）能把它摆成关着 ⇒ 那时本行会**认账**。
             //    ⛔ 别顺手补守卫：那会改行为，而现有断言里没有这一条（要改另开一件、另配断言）。
-            if (!_settingsBtn.Contains(WorldPointer())) return false;
+            // 🆕 **2026-10-19（A964②）**：命中区改成**原版那个** —— `rect` 63.874² 按 `m_RaycastPadding`
+            //   (−23.13,−38.6,−26.9,−25.81) **四边外扩** ⇒ **113.90×128.28 px**（判据与算式只此一份 →
+            //   `HitPaddedRect` / `SettingsBtnHit`）。⛔ 原来那句 `_settingsBtn.Contains(...)` 量的是
+            //   **画出来**的 63.87² ⇒ 原版真正可点的那四边全是「看着在钮外、却点得动」的区域，我们全是死区。
+            if (!SettingsBtnHit(WorldPointer())) return false;
             // 🔴 A462：抬起（原版 `BattleHud.settingsButton` = `EverguildButton`，
             //    `BattleHud__Awake.c:48-55` 把它绑在 `m_OnClick` 上）。
             if (ReleasedThisFrame()) _settingsPanel.Show();
@@ -3535,6 +3551,137 @@ namespace CardPresentation
         //  rect / 「它为什么没有贴图」/ 命中区那三条判据 → `BuildHudExtras` 里建它那一段（只此一份）。
         // ==================================================================
 
+        // ==================================================================
+        //  🆕 2026-10-19（A964②）：**HUD 那几颗 uGUI `Image` 钮的命中矩形** = 原版 `rect` 按 `m_RaycastPadding` 收/放
+        //
+        //  判据一律 = 解包资源，**13 个战场逐场核过、逐位相同**：
+        //   · `rect` = `bundle_scenes_scenes_battlearena1/RectTransform/RectTransform_<pid>.json` 的 `m_SizeDelta`
+        //   · `pad`  = 同场景 `MonoBehaviour/MonoBehaviour_<pid>.json` 的 `m_RaycastPadding`（分量序 **L,B,R,T**）
+        //   · 符号   = **负值【外扩】/ 正值【内缩】**，且命中基准是**节点自己的 `RectTransform.rect`**
+        //              （**不是**画出来的网格）。三条**本地** uGUI 源码判据（`com.unity.ugui` 内置包，
+        //              路径前缀 `D:/Unity/Hub/Editor/6000.3.23f1/Editor/Data/Resources/PackageManager/BuiltInPackages/`）：
+        //              ① `Runtime/UGUI/UI/Core/GraphicRaycaster.cs:327` ——
+        //                 `RectTransformUtility.RectangleContainsScreenPoint(graphic.rectTransform, …, graphic.raycastPadding)`
+        //              ② `Runtime/UGUI/UI/Core/Graphic.cs:188-196` —— `raycastPadding` 的 doc：
+        //                 **X = Left / Y = Bottom / Z = Right / W = Top**（本文件的 `padL,padB,padR,padT` 就是这个序）
+        //              ③ `Tests/Runtime/UGUI/EventSystem/GraphicRaycasterTests.cs:83-101`
+        //                 （`GraphicRaycasterUsesGraphicPadding`）：`raycastPadding = (−50,−50,−50,−50)` 之后，
+        //                 把指针放到 rect **外面 60 px** ⇒ 断言「**必须命中**」⇒ **负 = 外扩**（铁证）。
+        //              同族先例 → `CameraResetButtonHit`（那一颗 2026-10-18 就是这么改的）
+        //  🔴 **该场景 739 个带 `m_RaycastPadding` 的 Graphic 里【只有 17 个非零】**，且**13 个战场包
+        //     逐包核过：每包都是 17 个、逐节点逐位相同**（现读可复现：按 `m_RaycastPadding` 非零筛
+        //     `MonoBehaviour/`、再用 `m_GameObject` 反查节点名）—— 本文件用到的 4 颗都在那 17 个里；
+        //     其余 13 个的处置（在谁名下、归哪件账、哪些是别的文件的欠账）→
+        //     `资料/普查产出_第十二会话/V2_A964命中区.md` §一/§四。
+        //  ⛔ **别拿 `ImageQuad.Contains` 顶替** —— 那个量的是**画出来多大**（PA=1 时是内接的那个矩形），
+        //     与「点哪儿算中」不是同两个矩形（同上那条先例的注释）。
+        // ==================================================================
+
+        /// <summary>原版 uGUI `Image` 的**命中矩形**判据（**只此一份**）：`world` 落在
+        /// 「节点自己的 rect 按 `m_RaycastPadding` 收/放」那个矩形里吗。
+        /// <para>🔴 **算式不在这里** —— 转发全工程那唯一一份 `MenuDraw.PaddedHitRect`
+        /// （它自己再转发 `PaddedRect`；**符号口径与「pad 比框还大」的退化守卫都在那一边**）。
+        /// ⛔ 别在这里再抄一遍 `x1 + pad.x / x2 − pad.z` —— CLAUDE.md §三：两处写同一条规则 = 迟早不一致。</para>
+        /// <para>`pad*` 分量序 **L,B,R,T**、**负值外扩**（判据见上面那段）；px 一律**画布像素**。
+        /// ⚠️ 坐标系要跳一下：`PxRect` 是**左上原点、y 向下**，而 quad 的局部 y 向上。</para>
+        /// <para>⚠️ **本函数不含 `activeSelf` 守卫** —— 那是各调用点自己的语义
+        /// （`HandleSettings` 那一颗**故意**不判，A964 的 `E4` 白名单台账正盯着它），⛔ 别在这里一刀切。</para></summary>
+        static bool HitPaddedRect(ImageQuad q, Vector3 world, float rectWpx, float rectHpx,
+                                  float padL, float padB, float padR, float padT)
+        {
+            if (q == null) return false;
+            var l = q.transform.InverseTransformPoint(world);   // 世界 → 本件局部（原点在中心，同 `ImageQuad.Contains`）
+            float ppu = 1f / Px(1f);                           // = 108：取 `Px` 的倒数 ⇒ 不写第二份 108
+            float lx = l.x * ppu, ly = -l.y * ppu;             // 本件局部 px（**左上原点、y 向下**，与 `PxRect` 同帧）
+            var hit = MenuDraw.PaddedHitRect(
+                new PxRect(-rectWpx * 0.5f, -rectHpx * 0.5f, rectWpx * 0.5f, rectHpx * 0.5f),
+                new Vector4(padL, padB, padR, padT));
+            return lx >= hit.x1 && lx <= hit.x2 && ly >= hit.y1 && ly <= hit.y2;
+        }
+
+        // ---- ① 设置钮 `RightArea/SettingsBtn`（`MonoBehaviour_4012` · `RectTransform_2585`）----
+        //  四个 padding 分量**互不相同**（原版就长这样）⇒ 命中框 113.90×128.28，且它**不居中**在
+        //  那颗 quad 上（相对中心偏右 1.885 / 偏下 6.395 px）—— 这是 `PaddedRect` 的**自然结果**，
+        //  ⛔ 不是我们另外加的一个偏移项（所以这里也没有第二个算式可抄错）。
+        const float SettingsBtnRectW = 63.874f, SettingsBtnRectH = 63.874f;
+        const float SettingsBtnPadL = -23.13f, SettingsBtnPadB = -38.6f,
+                    SettingsBtnPadR = -26.9f, SettingsBtnPadT = -25.81f;
+        /// <summary>自检用：设置钮**命中矩形**的 px 尺寸（= rect 按 padding 收/放 ⇒ 原版 **113.90×128.28**；
+        /// ⛔ 不是画出来那个 63.87²）。</summary>
+        public static Vector2 SettingsBtnHitPx
+        {
+            get { return new Vector2(SettingsBtnRectW - SettingsBtnPadL - SettingsBtnPadR,
+                                     SettingsBtnRectH - SettingsBtnPadB - SettingsBtnPadT); }
+        }
+        /// <summary>自检用：那颗钮命中框中心相对 quad 中心偏多少 px（x 右 / y 上）。
+        /// ⛔ 别当成「恒 0」—— 四边 padding 不等宽时它不为零（本颗 **(+1.885, −6.395)**）。</summary>
+        public static Vector2 SettingsBtnHitOffsetPx
+        {
+            get { return new Vector2((SettingsBtnPadL - SettingsBtnPadR) * 0.5f,
+                                     (SettingsBtnPadB - SettingsBtnPadT) * 0.5f); }
+        }
+        /// <summary>设置钮的命中了没有（真实输入 → `HandleSettings`）。
+        /// ⚠️ **不判 `null` / `activeSelf`** —— 调用点自己先判过（那颗钮**故意**没有 `activeSelf` 守卫）。</summary>
+        public bool SettingsBtnHit(Vector3 w)
+        {
+            return HitPaddedRect(_settingsBtn, w, SettingsBtnRectW, SettingsBtnRectH,
+                                 SettingsBtnPadL, SettingsBtnPadB, SettingsBtnPadR, SettingsBtnPadT);
+        }
+
+        // ---- ② 聊天（语音条）钮 `PlayerInfo/ChatButton`（`MonoBehaviour_5007` · `RectTransform_2984`）----
+        const float ChatBtnRectW = 64.443f, ChatBtnRectH = 61.846f;
+        const float ChatBtnPadL = -8f, ChatBtnPadB = -8f, ChatBtnPadR = -8f, ChatBtnPadT = -8f;
+        /// <summary>自检用：聊天钮**命中矩形**的 px 尺寸（四边各外扩 8 ⇒ **80.443×77.846**）；
+        /// ⚠️ 画出来的是 128² 贴图 `PA=1` **内接**的 61.846 正方 —— 两个数**不相等**，⛔ 别混。</summary>
+        public static Vector2 ChatBtnHitPx
+        {
+            get { return new Vector2(ChatBtnRectW - ChatBtnPadL - ChatBtnPadR,
+                                     ChatBtnRectH - ChatBtnPadB - ChatBtnPadT); }
+        }
+        /// <summary>聊天钮的命中了没有（真实输入 → `HandleChatPopup` 的关着那一半）。</summary>
+        public bool ChatBtnHit(Vector3 w)
+        {
+            return HitPaddedRect(_chatBtn, w, ChatBtnRectW, ChatBtnRectH,
+                                 ChatBtnPadL, ChatBtnPadB, ChatBtnPadR, ChatBtnPadT);
+        }
+
+        // ---- ③ 战斗日志（墓地）钮 `EnemyInfo/ShowCemeteryBtn`（`MonoBehaviour_4020` · `RectTransform_2586`）----
+        const float CemeteryBtnRectW = 64.478f, CemeteryBtnRectH = 64.17f;
+        const float CemeteryBtnPadL = -8f, CemeteryBtnPadB = -8f, CemeteryBtnPadR = -8f, CemeteryBtnPadT = -8f;
+        /// <summary>自检用：日志钮**命中矩形**的 px 尺寸（四边各外扩 8 ⇒ **80.478×80.170**）。</summary>
+        public static Vector2 CemeteryBtnHitPx
+        {
+            get { return new Vector2(CemeteryBtnRectW - CemeteryBtnPadL - CemeteryBtnPadR,
+                                     CemeteryBtnRectH - CemeteryBtnPadB - CemeteryBtnPadT); }
+        }
+        /// <summary>日志钮的命中了没有（真实输入 → `HandleBattleLog` 的关着那一半）。</summary>
+        public bool CemeteryBtnHit(Vector3 w)
+        {
+            return HitPaddedRect(_cemeteryBtn, w, CemeteryBtnRectW, CemeteryBtnRectH,
+                                 CemeteryBtnPadL, CemeteryBtnPadB, CemeteryBtnPadR, CemeteryBtnPadT);
+        }
+
+        // ---- ④ 结束回合钮 `Clock/TurnBtn`（`MonoBehaviour_4543` · `RectTransform_2913`）----
+        //  ⚠️ 原版那颗的**子件** `TurnBtn/TurnText` 是 `m_RaycastTarget = 0` ⇒ **收不到射线**
+        //     ⇒ 命中区**只**由底图这颗定（`HitEndTurn` 里那半句「按文字判」是我们美术缺图时的兜底，
+        //     原版没有那条路，见那里的注释）。
+        const float EndTurnBtnRectW = 130.702f, EndTurnBtnRectH = 80.432f;
+        const float EndTurnBtnPadL = -14.19f, EndTurnBtnPadB = -30.3f,
+                    EndTurnBtnPadR = -26.19f, EndTurnBtnPadT = -18.4f;
+        /// <summary>自检用：结束回合钮**命中矩形**的 px 尺寸（⇒ **171.082×129.132**，
+        /// 比画出来那个 130.7×80.4 大不少）。</summary>
+        public static Vector2 EndTurnBtnHitPx
+        {
+            get { return new Vector2(EndTurnBtnRectW - EndTurnBtnPadL - EndTurnBtnPadR,
+                                     EndTurnBtnRectH - EndTurnBtnPadB - EndTurnBtnPadT); }
+        }
+        /// <summary>自检用：那颗钮命中框中心相对 quad 中心偏多少 px（x 右 / y 上）⇒ 本颗 **(+6.0, −5.95)**。</summary>
+        public static Vector2 EndTurnBtnHitOffsetPx
+        {
+            get { return new Vector2((EndTurnBtnPadL - EndTurnBtnPadR) * 0.5f,
+                                     (EndTurnBtnPadB - EndTurnBtnPadT) * 0.5f); }
+        }
+
         /// <summary>那颗钮的 rect（px · 左上原点 · 1920×1080）= `EnemyInfo` 的五元组
         /// （判据 = `RectTransform_2687.json`，13 场逐位相同）。</summary>
         const float AllianceBtnXPx = 50f, AllianceBtnYPx = 28f;
@@ -3692,8 +3839,10 @@ namespace CardPresentation
             //   被 `SetActive(false)` 之后**收不到点击**（`TutorialSetup.c:52-60` 就是 `SetActive`）；
             //   我们这是 `ImageQuad`，**不渲染 ≠ 不响应** ⇒ 这里必须显式判 activeSelf，
             //   否则教程局里那颗钮**看不见却还点得开**（静默、而且看起来像「点了没反应」的反面）。
+            // 🆕 **2026-10-19（A964②）**：命中区 = 原版 `rect` 64.443×61.846 按 `m_RaycastPadding`
+            //   (−8,−8,−8,−8) 四边外扩 ⇒ **80.443×77.846**（原来 `Contains` 量的是 PA=1 内接的 61.846 正方）。
             if (_chatBtn == null || !_chatBtn.gameObject.activeSelf
-                || !_chatBtn.Contains(WorldPointer())) return false;
+                || !ChatBtnHit(WorldPointer())) return false;
             // 🔴 A462：**抬起**（原版那颗 `ChatButton` 也是 `EverguildButton` ⇒ `m_OnClick`）。
             if (!ReleasedThisFrame()) return false;
             if (_chatCooldown > 0f)
@@ -4082,7 +4231,9 @@ namespace CardPresentation
             // 🆕 2026-10-18（A940）：同那颗聊天钮 —— **藏起来的钮不许还能点**
             //   （教程局里它被 `TutorialSetup` 无条件藏；不判 activeSelf 的话**看不见还点得开**）。
             if (!_cemeteryBtn.gameObject.activeSelf) return false;
-            if (!_cemeteryBtn.Contains(WorldPointer())) return false;
+            // 🆕 **2026-10-19（A964②）**：命中区 = 原版 `rect` 64.478×64.170 按 `m_RaycastPadding`
+            //   (−8,−8,−8,−8) 四边外扩 ⇒ **80.478×80.170**（原来 `Contains` 量的是画出来的 64.5²）。
+            if (!CemeteryBtnHit(WorldPointer())) return false;
             // 🔴 A462：**抬起**（原版 `GameObject/ShowCemeteryBtn.json` 上 `EverguildButton` 的
             //    `m_OnClick.m_Calls[0].m_MethodName = "ShowCemeteryLogBtn"`；那条全反编译里零调用点
             //    —— 因为它只活在序列化事件里）。
@@ -6844,11 +6995,19 @@ namespace CardPresentation
         /// <summary>
         /// **「结束回合」那一块被点到了没有**（原版 `Clock/TurnBtn`）。
         /// 🔴 **判据只此一处** —— `Update` 松手那一路与自检**都问它**（⛔ 别在各调用点再拼一遍）。
-        /// 有原版按钮底图就按它判，没有（美术目录被删）就退回按文字判。
+        /// 有原版按钮底图就按它判，没有（美术目录被删）就退回按文字判 ——
+        /// ⚠️ **只有前一档有原版判据**：原版那颗 `Clock/TurnBtn/TurnText` 是 **`m_RaycastTarget = 0`**
+        /// （`MonoBehaviour_3971.json`）⇒ 它**收不到射线**，命中区**只**由底图那颗 `Image` 定。
+        /// 🆕 **2026-10-19（A964②）**：底图那一档的命中区改成**原版那个** = `rect` 130.702×80.432 按
+        /// `m_RaycastPadding` (−14.19,−30.3,−26.19,−18.4) 收/放 ⇒ **171.082×129.132 px**
+        /// （算式只此一份 → `HitPaddedRect`）；⛔ 原来 `Contains` 量的是画出来的 130.7×80.4、
+        /// 原版真正可点的那四边全成了死区。文字那一档**故意保持原样**（原版没有这条路，见上面那条）。
         /// </summary>
         public bool HitEndTurn(Vector3 world)
         {
-            if (_endTurnBg != null) return _endTurnBg.Contains(world);
+            if (_endTurnBg != null)
+                return HitPaddedRect(_endTurnBg, world, EndTurnBtnRectW, EndTurnBtnRectH,
+                                     EndTurnBtnPadL, EndTurnBtnPadB, EndTurnBtnPadR, EndTurnBtnPadT);
             return _endTurnLabel != null && _endTurnLabel.Contains(world);
         }
 

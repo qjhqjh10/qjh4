@@ -3046,19 +3046,53 @@ def verify_layout():
     snap18 = json.dumps(egkids, sort_keys=True)
     base18, _p18, sc18 = MR.parent_rect_of(b18, egpid, (0.0, 0.0, 1920.0, 1080.0)) if egpid else (None, None, None)
     r18 = MR.rect_of(b18.rt[str(egpid)], base18, sc18)[0] if egpid else None
-    est18, cls18, _mq18, _a18 = apply_layout_to_children(b18, m18, egpid, r18, sc18, egkids)
+    # 🔴🔴 **A1260（2026-10-10）：这一段原来是「布局框当父屏幕框」缺陷的【第 4 处】**（前三处在
+    #    `menu_rect.parent_rect_of` / `menu_rect.walk` / `menu_dump.walk`，2026-10-10 已修）。
+    #    本处的错法**一模一样**，而且**还多错一样**：`sc18` 是**组的父**的 `lossyScale`，
+    #    而子件的 `lossyScale(父)` 应该是 **组的** = `sc18 × 组自己的 ls`。
+    #    ⇒ 三处一起纠正（⛔ 每一处都必须与三处调用点同形，见 `MR.screen_box` 的 docstring）：
+    #      ① 子件的父屏幕框 = **组自己的屏幕框** `sr18`（不是 `r18` 那个布局框）；
+    #      ② 子件的 `lossyScale(父)` = `ksc18` = `sc18 × |组的 ls|`；
+    #      ③ 交给 `apply_layout_to_children` 的必须是 **组的【父】框** `base18`（它的契约：
+    #         函数体里只用它做 `MR.local_size(组的 rt, …)` —— 那要的就是「组的父屏幕框 +
+    #         `lossyScale(父)`」；原来传 `r18` 是拿组自己的框当父框）。
+    #    ⚠️ **本包实测 3 个 `EverguildLayoutGroup` 的 `ls` 与其父链全是 1** ⇒ 这三条纠正
+    #       在本包**逐位恒等**（`--verify-layout` 那行字**逐字节不变**，见 ⑤g 那条注）——
+    #       也就是说**这一档今天潜伏**，靠本包的数据**咬不住它**；能咬住的是下面这三条的**形状**
+    #       （在 `ls ≠ 1` 的包上才会现形）。⇒ 判据 = uGUI 语义，不是本包的读数。
+    #    ⚠️ 顺带把**量纲**理顺（原来混了两种单位，只因 `sc18 == 1` 才不现形）：
+    #       · `sp18` 是**局部量**（要和序列化的 `m_Spacing` 比 ⇒ 必须局部）⇒ 从 `local_size` 取；
+    #       · 子件的布局框宽/高 = `70 × ksc18`（子件是 `ad = 0 / sd = (70,70)`）。
+    egrt18 = b18.rt[str(egpid)] if egpid else None
+
+    def _kids_frame(_b, _pid, _r, _sc):
+        """**子件那一对的帧** = `(本件的屏幕框, 含本件 ls 的 lossyScale)` —— A1260 的唯一实现处。
+
+        🔴 这一对**只许写一份**（本仓红线「两处写同一条规则 = 迟早不一致」）：⑱b 与 ⑱e 都调它。
+        ⛔ 别改回 `(_r, _sc)` —— 那是「拿本件的**布局框**当子件的父屏幕框、且漏乘本件的 ls」
+           （就是 A1260 修掉的那个错形状，第 4/5 处；前 3 处在 `MR.parent_rect_of` / 两个 `walk`）。
+        """
+        _s = (_b.rt[str(_pid)].get('m_LocalScale') or {}) if _pid else {}
+        _lx, _ly = abs(_s.get('x', 1.0)), abs(_s.get('y', 1.0))
+        return (MR.screen_box(_r, _b.rt[str(_pid)]['m_Pivot'], _lx, _ly) if _r else None,
+                ((_sc[0] * _lx, _sc[1] * _ly) if _sc else None))
+
+    sr18, ksc18 = _kids_frame(b18, egpid, r18, sc18)
+    kw18 = 70.0 * ksc18[0] if ksc18 else 0.0        # 子件在**布局框**空间的宽（= 局部 70 × ksc18）
+    kh18 = 70.0 * ksc18[1] if ksc18 else 0.0
+    est18, cls18, _mq18, _a18 = apply_layout_to_children(b18, m18, egpid, base18, sc18, egkids)
     moved18 = (json.dumps(egkids, sort_keys=True) != snap18)          # 「排了」= 真的动过
-    W18 = (r18[2] - r18[0]) if r18 else 0.0
-    H18 = (r18[3] - r18[1]) if r18 else 0.0
-    sp18 = (W18 - 4 * 70.0) / 3.0                                     # 手推
-    xs18 = [MR.rect_of(k, r18, sc18)[0][0] for k in egkids] if r18 and len(egkids) == 4 else []
-    ys18 = [[MR.rect_of(k, r18, sc18)[0][1], MR.rect_of(k, r18, sc18)[0][3]] for k in egkids] \
-        if r18 and len(egkids) == 4 else []
+    H18s = (sr18[3] - sr18[1]) if sr18 else 0.0
+    _lsz18 = MR.local_size(egrt18, base18, sc18) if (egrt18 and base18) else None
+    sp18 = ((_lsz18[0] - 4 * 70.0) / 3.0) if _lsz18 else float('nan')   # 手推（**局部**单位）
+    xs18 = [MR.rect_of(k, sr18, ksc18)[0][0] for k in egkids] if sr18 and len(egkids) == 4 else []
+    ys18 = [[MR.rect_of(k, sr18, ksc18)[0][1], MR.rect_of(k, sr18, ksc18)[0][3]] for k in egkids] \
+        if sr18 and len(egkids) == 4 else []
     ok18b = bool(egkids) and len(egkids) == 4 and est18 == 'ok' and cls18 == 'EverguildLayoutGroup' \
         and moved18 \
-        and all(abs((xs18[i + 1] - xs18[i]) - (70.0 + sp18)) < 0.01 for i in range(3)) \
-        and abs(xs18[0] - r18[0]) < 0.01 and abs((xs18[3] + 70.0) - r18[2]) < 0.01 \
-        and all(abs(y[0] - (r18[1] + (H18 - 70.0) * 0.5)) < 0.01 for y in ys18) \
+        and all(abs((xs18[i + 1] - xs18[i]) - (70.0 + sp18) * ksc18[0]) < 0.01 for i in range(3)) \
+        and abs(xs18[0] - sr18[0]) < 0.01 and abs((xs18[3] + kw18) - sr18[2]) < 0.01 \
+        and all(abs(y[0] - (sr18[1] + (H18s - kh18) * 0.5)) < 0.01 for y in ys18) \
         and abs(sp18 - egmb.get('m_Spacing', 0)) < 0.001
     o18 = []
     if egpid:
@@ -3068,8 +3102,10 @@ def verify_layout():
     gkids = [b18.rt[str(_c18)] for _c18 in b18.children(gridpid)] if gridpid else []
     gbase18, _gp18, gsc18 = MR.parent_rect_of(
         b18, gridpid, (0.0, 0.0, 1920.0, 1080.0)) if gridpid else (None, None, None)
-    gr18 = MR.rect_of(b18.rt[str(gridpid)], gbase18, gsc18)[0] if gridpid else None
-    gest18 = apply_layout_to_children(b18, m18, gridpid, gr18, gsc18, gkids)[0] if gridpid else None
+    # 🔴 **A1260**：同一个错法的第 5 处 —— `apply_layout_to_children()` 要的是**组的父框**
+    #    （函数体只用它做 `MR.local_size(组的 rt, …)`），原来传的是组自己的布局框 `gr18`。
+    #    `gbase18`（组自己的父框）才是对的；本包 `ls` 与 `sd` 让两种写法逐位同值（见上面那一段）。
+    gest18 = apply_layout_to_children(b18, m18, gridpid, gbase18, gsc18, gkids)[0] if gridpid else None
     cnt18 = {k: len(v) for k, v in hits18.items()}
     g18 = (cnt18 == {'EverguildLayoutGroup': 3, 'FlexibleGridLayout': 3, 'EverguildGridLayoutGroup': 1}
            and ok18b and egmb.get(EG_FLAG) == 1
@@ -3081,9 +3117,10 @@ def verify_layout():
           f'⇒ `apply_layout_to_children` = **{est18}**（要 `ok` = **排了**）· '
           f'子件真的动过 = {moved18}（要 True —— 改前这里断的是「**没**动」）· '
           f'手推 `spacing` = {sp18:.7f}（要与序列化 `m_Spacing` {egmb.get("m_Spacing", 0):.7f} '
-          f'相等 —— 本件恰好相等，见注释里的那条坑）· 四子左缘 = '
-          f'{["%.2f" % x for x in xs18]}（要等距 {70.0 + sp18:.2f}、首 = 组左缘 {r18[0]:.2f}、'
-          f'末右缘 = 组右缘 {r18[2]:.2f}）· 走树那一行的 est = '
+          f'相等 —— 本件恰好相等，见注释里的那条坑；⚠️ 它是**局部量**）· 四子左缘 = '
+          f'{["%.2f" % x for x in xs18]}（要等距 {(70.0 + sp18) * (ksc18[0] if ksc18 else 1.0):.2f}、'
+          f'首 = 组屏幕框左缘 {sr18[0]:.2f}、'
+          f'末右缘 = 组屏幕框右缘 {sr18[2]:.2f}）· 走树那一行的 est = '
           f'{o18[0]["est"] if o18 else None} · `EverguildGridLayoutGroup` ⇒ {gest18}（要 `grid?`）')
 
     # ---- ⑱c **`everguild_spacing` 的纯函数**（A150）----
@@ -3132,13 +3169,46 @@ def verify_layout():
     # 用**真节点**、只把 `kids` 截成 1 个（`apply_layout_to_children` 的 `kids` 是入参 ⇒ 不用打桩）。
     # ⚠️ 必须在 ⑱b **之后**跑（那时子件已经是布局位）—— 正好也验「第二次进来不会把已排的位再动一次」。
     snap18d = json.dumps(egkids[:1], sort_keys=True)
-    est18d = apply_layout_to_children(b18, m18, egpid, r18, sc18, egkids[:1])[0] if egpid else None
+    # 🔴 **A1260**：同一处（`apply_layout_to_children` 的第一个矩形参数是**组的父框**，不是组自己的框）。
+    est18d = apply_layout_to_children(b18, m18, egpid, base18, sc18, egkids[:1])[0] if egpid else None
     still18d = (json.dumps(egkids[:1], sort_keys=True) == snap18d)
     g18d = (est18d == 'sp?' and still18d)
     ok = ok and g18d
     print(f'  {"✅" if g18d else "❌"} ⑱d `n == 1` 那一档（A150）· 把 `steps` 的 `kids` 截成 1 个 ⇒ '
           f'est = **{est18d}**（要 `sp?` = 没排；原版这里是 `x / 0`）· 那一颗子件 JSON '
           f'**逐字节未变** = {still18d}（要 True —— 一个字都不许写）')
+
+    # ---- ⑱e 组的 `ls ≠ 1` 那一档：子件的帧必须「× 组自己的 `ls`」（A1260）----
+    # 🔴 **为什么单开这一条**：本包 3 个 `EverguildLayoutGroup` 的 `ls` 与其父链**全是 1**
+    #    ⇒ 上面 ⑱b 那三条断言**咬不住** A1260 修的那一处（新旧写法逐位同值 —— 这也是
+    #    `P-L` 判它「今天潜伏」的原因）。这里把组的 `ls` **在内存里临时改成 1.2**
+    #    （只改这一份解析出来的 JSON、**不动盘上任何文件**）再算一次：
+    #    子件左缘的**步进**必须变成 `(70 + sp18) × 1.2`。
+    #    判据（手推）：四颗子件的锚点/pivot 相同、布局写回的是 `anchoredPosition`
+    #    ⇒ 参考点项与宽度项在**差**里都抵消，只剩 `pos × lossyScale` 那一项 ⇒ 线性放大 1.2。
+    #    ★ **改坏法（这条锚咬谁）**：把 `_kids_frame()` 的返回改回 `(_r, _sc)`
+    #    （= A1260 之前的形状：拿组自己的**布局框**当子件的父屏幕框、且漏乘组自己的 `ls`）
+    #    ⇒ 第 3 格红（它给的是 `_st1` = 没放大，而 1.2 伏在那份 `ls` 里）。
+    _egs18 = egrt18.get('m_LocalScale') if egrt18 else None
+    if egrt18:
+        egrt18['m_LocalScale'] = {'x': 1.2, 'y': 1.2, 'z': 1.0}     # 临时打桩（下面 finally 还原）
+    try:
+        _sr12, _ks12 = _kids_frame(b18, egpid, r18, sc18)
+        _xs12 = [MR.rect_of(k, _sr12, _ks12)[0][0] for k in egkids] \
+            if (_sr12 and len(egkids) == 4) else []
+    finally:
+        if egrt18:
+            egrt18['m_LocalScale'] = _egs18
+    _st1 = (xs18[1] - xs18[0]) if len(xs18) == 4 else 0.0            # `ls = 1`（= ⑱b 那一帧）
+    _st2 = (_xs12[1] - _xs12[0]) if len(_xs12) == 4 else 0.0         # `ls` 临时 = 1.2
+    _st2w = (70.0 + sp18) * 1.2                                      # 手推
+    g18e = (len(_xs12) == 4 and abs(_st1 - (70.0 + sp18)) < 0.01
+            and abs(_st2 - _st2w) < 0.01 and abs(_st2 - _st1 * 1.2) < 0.01)
+    ok = ok and g18e
+    print(f'  {"✅" if g18e else "❌"} ⑱e 组的 `ls ≠ 1`（A1260 · 打桩：把组的 `m_LocalScale` '
+          f'临时改成 `1.2`，不动盘上文件）· 子件左缘步进 `ls=1` ⇒ {_st1:.4f}（要 {70.0 + sp18:.4f}）· '
+          f'`ls=1.2` ⇒ {_st2:.4f}（要 {_st2w:.4f} = ×1.2）· 旧形状（拿组自己的**布局框**当子件父框 '
+          f'+ 漏乘组的 `ls`）给的是 **{_st1:.4f}**（差 1.2 倍 ⇒ 本锚咬得住）')
 
     # ---- ⑲ 布局组【跳过出厂 `F` 的子件】—— 与「组自己跑不跑」**无关**（A487）----
     # 判据 = uGUI `LayoutGroup.CalculateLayoutInputHorizontal`（**本机那份**
@@ -3515,7 +3585,8 @@ def main():
     #    逐行标 `⇲ls=`，这里再单列一块 —— 因为**这一批数字与 2026-10-05 之前不可直接比**。
     lsn = [e for e in shown if not _scl_is_one(*e['lossy'])]
     if lsn:
-        zer = [e for e in lsn if abs(e['lossy'][0]) < 1e-3 or abs(e['lossy'][1]) < 1e-3]
+        zer = [e for e in lsn if abs(e['lossy'][0]) < MR.SCL_COLLAPSE_EPS
+               or abs(e['lossy'][1]) < MR.SCL_COLLAPSE_EPS]
         print(f'\n⇲ **{len(lsn)} 处的父链上有 `m_LocalScale`（逐行标了 `⇲ls=`）** —— '
               f'这些行的「绝对矩形」「宽×高」是**按 `lossyScale(父)` 换算成的屏幕像素**，'
               f'与 2026-10-05 之前的读数**不可直接比**。')

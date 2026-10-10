@@ -3345,14 +3345,19 @@ public static class CollectionScene
                         //    九宫格是 9 颗子块**正好铺满**目标矩形 ⇒ 量子块的**并集**就是底图那四沿。
                         float ux1 = float.MaxValue, uy1 = float.MaxValue;
                         float ux2 = float.MinValue, uy2 = float.MinValue;
-                        foreach (var q2 in bg.GetComponentsInChildren<ImageQuad>())
-                        {
-                            if (q2 == null) continue;
-                            var p2 = LayoutSpace.ToPixel(q2.transform.position);
-                            float hw = q2.WorldW * 108f * 0.5f, hh = q2.WorldH * 108f * 0.5f;
-                            ux1 = Mathf.Min(ux1, p2.x - hw); uy1 = Mathf.Min(uy1, p2.y - hh);
-                            ux2 = Mathf.Max(ux2, p2.x + hw); uy2 = Mathf.Max(uy2, p2.y + hh);
-                        }
+                        // 🆕 **2026-10-10（A1330）**：四沿并集收口到 `MenuDraw.UnionQuadRectPx`
+                        //    （九宫格 9 块**无缝铺满**目标矩形 ⇒ 量子块的**并集**就是底图那四沿）。
+                        // 🔴 **两项原样保留**：**激活闸 = `QuadGate.None`（完全不过滤）** ·
+                        //    **`searchInactive = false`** —— 原来用的就是 `GetComponentsInChildren<ImageQuad>()`
+                        //    **缺省**那一档（只找激活链上的块；传 `true` 会把关掉的块也算进来）。
+                        // ⚠️ 改前是**甲式**（`LayoutSpace.ToPixel` + 硬写 `108f`）；`MenuDraw` 那份是**乙式**
+                        //    （位置项先 `PosInDesignSpace` 除回父级缩放、再走 `PixelOfDesign` = A298/A1004）
+                        //    ⇒ 本宿主父链单位缩放下两式差 ≤2.5e-4 px（同本文件 `QuadRectOf` `:606-609`
+                        //    那条 A1003 先例）；父链真带缩放时**乙式才是对的**。
+                        // ⚠️ 量不到时四沿**留在哨兵值**（原来是 `MaxValue/MinValue`）—— 与原来逐个累加**同契约**。
+                        if (MenuDraw.UnionQuadRectPx(bg, MenuDraw.QuadGate.None, false,
+                                out float ubx1, out float uby1, out float ubx2, out float uby2))
+                        { ux1 = ubx1; uy1 = uby1; ux2 = ubx2; uy2 = uby2; }
                         CheckNear(ux1, 69.42f, 1.5f, "★ 底图**左沿** = 原版那一格");
                         CheckNear(uy1, 182.18f, 1.5f,
                                   "★ 底图**上沿** = **182.18**（⚠️ **不是** `Viewport` 的 149.07 —— 差 33.11，"

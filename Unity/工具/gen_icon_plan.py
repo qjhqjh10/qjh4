@@ -438,6 +438,18 @@ BARE_TOKEN_BY_CARD = {
     ("UM_Vico_Therbeus", "誓言能力"): ("oath", "同上（中文写法；`descZh` = `友方部队的誓言能力可在后续回合激活。`）"),
 }
 
+# 🔴 2026-10-11（`A1347`）—— **这四张不要在这儿补条目**：`UM80` / `UM81` / `UM_Scout_Sniper` / `UM74`。
+#    `A1331` 把它们的 `desc` 段首补回 `Oath ` 之后（=`Oath 4:` / `Oath 3:` / `Oath 1:` / `Oath 3:`），
+#    这几个位置落进**句首关键词**那一支：`KEYWORD_SCAN` 扫得到「词 + 数字 + 冒号」、
+#    `KEYWORD_PREFIX` 按名字查得到 `Art/traits/oath.png` ⇒ **重新 `--write` 一次就自动出条目**
+#    （实测逐字段对账：新增恰好这 4 个 `desc` 字段、旧字段 0 处改动）。
+#    ⇒ ⛔ **别再给它们写 `TOKEN_BY_CARD` / `BARE_TOKEN_BY_CARD`** ——
+#      `TOKEN_BY_CARD` 的键是**方括号 token**（裸 token 写进去永远不命中）；
+#      `BARE_TOKEN_BY_CARD` 那一支有 `_btok in got ⇒ continue` 的守卫 ⇒ 写了也是**整条跳过的冗余条目**。
+#    徽记位置也**与原版一致**（紧贴在 `Oath N:` 前、词留着）：判据 = 成品卡图亲读
+#    `Ultramarines/3部队/Warpforge_16_Devastator-Marine.png` 的 `Blast 2. 〔徽记〕Oath 4: Deal 5 …`
+#    （另三张同目录 `_17_Phobos-Librarian` / `_11_Scout-Sniper` / `_10_Firestrike-Servo-Turret` 同形）。
+
 # 认得出、但**盘上没有这张图**的记号（真缺口，如实列出来，别静默跳过）
 # ── **按卡**的已知缺口（认得出位置、但没有可用的图）────────────────────────────
 # ⚠️ 2026-09-15 更正：这里原来挂着 `("DA8","[Shield]")` 与 `("DA15","[shield]")` 两条，

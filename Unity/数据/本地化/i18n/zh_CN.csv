@@ -72,7 +72,7 @@ Cards per pack: 5\nGuaranteed Legendary within 200 packs\nDrawing a Legendary re
 Cemetery,~,墓地
 Chat - Welcome to Warpforge,~,聊天 - 欢迎来到 Warpforge
 Choose a card,~,选择一张卡牌
-Choose cards to replace in first hand,~,选择首局替换的卡牌
+Choose cards to replace in first hand,~,选择要在首轮替换的牌
 Claim,~,领取
 Claimed,~,已领取
 Click to continue,~,点击继续
@@ -195,7 +195,7 @@ Where to get cards,~,卡牌获取途径
 Will get: +%d,~,获得: +%d
 Will get: +350,~,获得: +350
 You can only have one Warlord,~,只能有一名战将
-You go second,~,你后手
+You go second,~,你是第二个行动
 You have collected all the available Special Items,~,你已收集所有可用特殊物品
 You need a deck with at least %d cards to play this mode,~,需要至少 %d 张卡的卡组才能玩此模式
 Your Team: %s,~,你的阵营: %s

@@ -11,6 +11,27 @@ using RuleEngine;
 /// 输出格式：`id|name|unparsed|partial|op;op;...`
 ///   · 第 1 列 `id|name` = **键**（比较时只有它变 ⇒ 算「改名」）
 ///   · 第 2 列往后 = **定义**（变了 ⇒ 算「解析差异」，那才是引擎真动了）
+///   · 每条 op = `verb/chooseSrc/chooseWhat/chooseAct/amount/payload` **＋ 末尾四列**
+///     `cost/shared/condKind/countRef`（🆕 2026-10-10 `A1368`，见下）
+///
+/// 🔴 **2026-10-10 `A1368`：op 列尾部追加四列** —— 原来这四样**一个字都不打**，
+///   而它们正是「付费 / 条件 / 计数」三族改动的**全部可观测面** ⇒ 凡改这四样的活，
+///   `check` 都给不出信号（台账 `A1368`；第十三会话 `W6b` 被这个坑撞过一次 ——
+///   它写的一个回归让 **28 张**卡的 `cost` 全变 0，`check` 全绿，是它另建的一次性副本才看出来的）。
+///   四列分别是：
+///     · `cost`      ← `EffectOp.Cost`（付费激活的代价，0 = 不付费）
+///     · `shared`    ← `EffectOp.CostShared`（`1` = 这份代价是**同一前缀组**里别人付的，
+///                       本 op 不再收钱；`0` = 本 op 就是付钱那条）—— 输出 `1`/`0`，⛔ 不是 `True`/`False`
+///     · `condKind`  ← `EffectOp.ConditionKind`（条件的**规范名**，空 = 没有条件或认不出）
+///     · `countRef`  ← `EffectOp.CountRef`（`for each …` 的计数对象，空 = 不计数）
+///   ⚠️ **只追加、⛔ 不许插在中间**：前 6 列必须保持逐字节不变（基线的 diff 才只表现为
+///      「行尾变长、老内容一字不动」—— 这是本笔唯一能自证「没顺手改坏老列」的形状）。
+///   ⚠️ **`countRef` 原样打、不做转义**：`board` 族的取值自带两个 `|`（`enemy|troop|all`），
+///      于是那一行的 `|` 数会 >4。**这是既有的形状**，不是格式坏了 ——
+///      `chooseone` 的 `chooseWhat` 早就这样了（旧基线里 19 行是 5~6 个 `|`），
+///      而 `CheckMain` 只认**前两个** `|`（`KeyOf`/`DefOf`）⇒ 不受影响。
+///      🔴 **不做 `|`→`,` 的替换**：那会让 dump 里的值与引擎字段**不同**，
+///      下一个人照 dump 抄进断言就抄错了 —— 正是本笔要治的「静默」那一族。
 /// ⚠️ 2026-10-18 收编时修了两处（原来那份在 D:/tmp/wf_b14_probe）：
 ///   ① 参数名 `kind` 其实是 `unparsed`（EffectText.Parse 的第二个 out）—— 名字叫反了，正名。
 ///   ② 原来写 `.Append(kind)` ⇒ 命中 `StringBuilder.Append(object)` ⇒ **每张卡都打成字面量
@@ -25,6 +46,14 @@ class Scan
         string outp = args.Length > 0 ? args[0] : "scan.txt";
         string poolPath = Program.PoolPath;
         if (!File.Exists(poolPath)) { Console.Error.WriteLine("!! 找不到卡池：" + poolPath); Environment.Exit(2); }
+        // 🔴 **2026-10-10 `A1339`：这条入口【不走 `LoadPool`】**（它自己再读一遍 JSON、直接调 `EffectText.Parse`）
+        //   ⇒ 光修 `Program.LoadPool` **救不了 `scan`/`check`**，必须在这里显式过一遍那道闸，
+        //   否则就是「只补一处 = 静默偏一半」。索引建成后 `CreatePool.MatchCardName` 才认得出
+        //   卡面文本里写的卡名 ⇒ `unparsed`/`partial` 两列才与引擎同口径（`scan` 的输出**不含** `Target` 列，
+        //   但目标解析成功与否会改变这两列与 ops 列 —— 这正是基线会动的原因）。
+        // ⚠️ `LoadPool` 幂等（`Pool != null` 就返回）；它建的是**全池**索引，与本函数 `continue` 掉
+        //   `desc` 为空那几张**不冲突**（那几张照样该能被别的卡指到，引擎就是这么建的）。
+        Program.LoadPool();
         var doc = JsonDocument.Parse(File.ReadAllText(poolPath));
         var sb = new StringBuilder();
         foreach (var c in doc.RootElement.GetProperty("cards").EnumerateArray())
@@ -40,7 +69,13 @@ class Scan
                 foreach (var op in ops)
                     sb.Append(op.Verb).Append("/").Append(op.ChooseSrc).Append("/").Append(op.ChooseWhat)
                       .Append("/").Append(op.ChooseAct).Append("/")
-                      .Append(op.Amount).Append("/").Append(op.Payload).Append(";");
+                      .Append(op.Amount).Append("/").Append(op.Payload)
+                      // 🔴 **2026-10-10 `A1368`：末尾追加这四列**（前 6 列一字不动 —— 见文件头）。
+                      .Append("/").Append(op.Cost)
+                      .Append("/").Append(op.CostShared ? "1" : "0")
+                      .Append("/").Append(op.ConditionKind ?? "")
+                      .Append("/").Append(Program.CountRefText(op))
+                      .Append(";");
             sb.Append("\n");
         }
         var dir = Path.GetDirectoryName(Path.GetFullPath(outp));

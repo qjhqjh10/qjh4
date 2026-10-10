@@ -174,6 +174,26 @@ namespace CardPresentation
         const float PanelW = 743.2f, PanelH = 758.6f;
         const float ClosePx = 75f;
 
+        /// <summary>🔴 **2026-10-19（A1301②）**：那颗叉图（原版 `BattleSettingsPanel/Generic Close Button/
+        /// Close Button`）自己的 `m_SizeDelta`（**设计 px**）—— 出处
+        /// `bundle_scenes_scenes_battlearena1/RectTransform/RectTransform_3460.json`：stretch 锚
+        /// `x 0.12663→0.87337` / `y 0.13672→0.86328` × 父件 `Generic Close Button` 的 75×75，
+        /// 再加它自己的 `m_SizeDelta (0.364, 0.008)` ⇒ **56.37 × 54.50**
+        /// （`工具/menu_dump.py bundle_scenes_scenes_battlearena1 "BattleSettingsPanel"` 的 `Close Button`
+        /// 那行逐位相同）。
+        /// ⚠️ 我们**画出来**的那颗叉是 `ClosePx × 0.42` = 31.5 的正方（`ImageQuad` 按贴图比例）——
+        /// 比原版的框小，所以命中框**不能**拿它当基准（那是 `A964②` §四·5 那一族：实绘 ≠ 框），
+        /// 一律用**原版框**这一对字面量。</summary>
+        const float CloseIconRectW = 56.37f, CloseIconRectH = 54.5f;
+
+        /// <summary>🔴 **2026-10-19（A1301②）**：同一颗的 **`m_RaycastPadding`**（分量序 **L,B,R,T**；
+        /// **负值 = 外扩**）。实据 = `bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_5056.json`
+        /// （`m_RaycastTarget = 1`、四分量全是 **−20**）⇒ 原版命中框 **96.37 × 94.50**。
+        /// <para>🔴 **圆底那颗不算**：`Generic Close Button` 自己的 `Image`（`MB_4346`）**`m_RaycastTarget = 0`**
+        /// ⇒ 原版整颗钮的命中区**只由这颗叉图定**（我们那条 `_close.Contains` 是多的 —— 但它那块 75² 被
+        /// 96.37×94.50 完全包住，「多的」不改变结果；`HitClose` 里两个半支都留着，见那里的注释）。</para></summary>
+        const float CloseIconPadPx = -20f;
+
         /// <summary>本面板的**渲染队列**。这一族件原来一次都没显式设过队列 = `Sprites/Default` 的默认档
         /// （**3000**，同 `WaitBanner.BattleQChrome` / `CardDisplayWindow.QChrome`）。
         /// 🔴 走 `MenuDraw.Nine` 的地方**必须显式传**这个数 —— 那个助手会写队列，
@@ -1209,7 +1229,9 @@ namespace CardPresentation
                 if (s != null && s.Contains(world))
                 {
                     _dragSlider = s;
-                    s.SetFromPointer(world);       // **按下即定位**（原版 `m_TargetGraphic` 只认手柄，这条是我们挑的）
+                    s.SetFromPointer(world);       // **按下即定位**（🔴 **照原版** —— `Slider.OnPointerDown` 的
+                                                   // else 支就是 `UpdateDrag`；原来这里写「`m_TargetGraphic` 只认手柄、
+                                                   // 这条是我们挑的」= 读错了对象，订正见 `Battle/WfSlider.cs` 文件头）
                     return true;
                 }
             return false;
@@ -1432,13 +1454,47 @@ namespace CardPresentation
             return RectContains(_skipBtn.transform, world, U(SkipWPx), U(SkipHPx));
         }
 
-        /// <summary>这一下点在「关闭」上吗</summary>
+        /// <summary>这一下点在「关闭」上吗。
+        /// <para>① 圆底那颗（`_close`，75²）—— ⚠️ 原版那颗 **`m_RaycastTarget = 0`**（收不到射线），
+        /// 这是**我们多的**一档；结果无害（它被 ② 那块完全包住），留着当「叉图取不到」时的兜底。</para>
+        /// <para>② 🔴 **2026-10-19（A1301②）**：叉图那颗**改走原版命中框** —— `rect` 56.37×54.50 按
+        /// `m_RaycastPadding(−20,−20,−20,−20)` **外扩** ⇒ **96.37×94.50**（原来走 `_closeIcon.Contains`，
+        /// 量的是**画出来那个 31.5 的正方** ⇒ 原版那一圈**全丢**）。</para></summary>
         public bool HitClose(Vector3 world)
         {
             if (!Visible) return false;
             if (_close != null && _close.Contains(world)) return true;
-            if (_closeIcon != null && _closeIcon.Contains(world)) return true;
-            return false;
+            return CloseIconHit(world);
+        }
+
+        /// <summary>🆕 **2026-10-19（A1301②）**：叉图那颗 `Image` 的**原版命中框**里吗。
+        /// <para>🔴 算式**只此一份** —— 转发 `MenuDraw.PaddedHitRect`（它再转发 `PaddedRect`；
+        /// 符号口径与退化守卫都在那一边）。⛔ 本件一个字都不写 `±pad`。
+        /// 形状同 `BattleDriver.HitPaddedRect`（那一颗是 A964② 的先例）。</para>
+        /// <para>⚠️ 坐标系要跳一下：quad 局部 **y 向上**，`PxRect` 是**左上原点、y 向下**。</para></summary>
+        bool CloseIconHit(Vector3 world)
+        {
+            if (_closeIcon == null) return false;
+            var l = _closeIcon.transform.InverseTransformPoint(world);
+            float ppu = 1f / U(1f);                   // = 108：取本件唯一那个换算的倒数 ⇒ 不写第二份换算
+            var hit = MenuDraw.PaddedHitRect(
+                new PxRect(-CloseIconRectW * 0.5f, -CloseIconRectH * 0.5f,
+                            CloseIconRectW * 0.5f,  CloseIconRectH * 0.5f),
+                new Vector4(CloseIconPadPx, CloseIconPadPx, CloseIconPadPx, CloseIconPadPx));
+            float px = l.x * ppu, py = -l.y * ppu;    // 本件局部 px（左上原点、y 向下）
+            return px >= hit.x1 && px <= hit.x2 && py >= hit.y1 && py <= hit.y2;
+        }
+
+        /// <summary>🆕 **2026-10-19（A1301②）自检用**：叉图那颗的**原版命中框**尺寸（**画布 px**）
+        /// = 56.37×54.50 四边外扩 20 ⇒ **96.37×94.50**。算式同 `CloseIconHit`（唯一一份 `PaddedRect`）。</summary>
+        public static Vector2 CloseHitPx
+        {
+            get
+            {
+                var r = MenuDraw.PaddedRect(new PxRect(0f, 0f, CloseIconRectW, CloseIconRectH),
+                                            new Vector4(CloseIconPadPx, CloseIconPadPx, CloseIconPadPx, CloseIconPadPx));
+                return new Vector2(r.W, r.H);
+            }
         }
 
         /// <summary>这一下点在「对手难度」上吗</summary>

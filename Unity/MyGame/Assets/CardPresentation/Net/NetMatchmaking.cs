@@ -71,6 +71,20 @@ namespace CardPresentation.Net
             ClearMatch();
             s.Send(NetKind.MatchCancel, new MsgMatchCancel { reason = reason });
             Debug.Log("[Net] 已发出「取消匹配」—— 这一局不打了（对面也会退回大厅）");
+            // 🆕 2026-10-10（`A985⑫` · 判据 = `项目任务.md` 第 373 行 + §四·15「走【最小形态】」）：
+            //   **理由码**照引擎那套 token 形态记一条。原版那一刻（`CancelMatch.c:29` → `DeadHero(_, BattleResult)`
+            //   的第三个实参）`BattleManager` **已经有 `MatchData`**、码进的是 `ctx`；而**我们取消匹配发生在
+            //   还没有 `ctx` 的时候** ⇒ ⛔ **不动「`ctx` 何时出生」那条架构**（裁定原话），改在**匹配层自己的日志**里记，
+            //   并且**如实标注这处差异**（`ctx.Events` 那边**一个字都没有** —— 这一条只落日志）。
+            //   🔴 **那行字只有一处拼** = `ReplayStore.ResultLine`（`Battle/ReplayStore.cs`）—— 它与
+            //   `RuleCore.Forfeit` / `CheckWinner` 那两句 `ctx.Log($"[BattleResult] {reason}({(int)reason}) seat={player}")`
+            //   **同形**，而录像头尾那两条记录走的也是它 ⇒ 「同一 token 形态」是**用出来的**、不是再抄一份
+            //   （⛔ 别在 `Net/` 里另拼一个 `"[BattleResult] Cancelled(5)"` 字面量：两份写法迟早不一致）。
+            //   ⚠️ `seat` 传 `-1` = **没有座位可报**（那一刻还没有对局、没有绝对座位）⇒ `ResultLine` 不写 `seat=`
+            //      —— 与引擎那两句的区别**只有这一处**，而且是真的（不是省了）。
+            Debug.Log(ReplayStore.ResultLine(BattleResult.Cancelled, -1)
+                    + " —— 匹配层：取消这一局的联机匹配（原版那一刻 `BattleManager` 已有 `MatchData`、"
+                    + "码进 `ctx`；我们这一刻**还没有 `ctx`** ⇒ 这一条只落日志，`ctx.Events` 里没有它）");
             return true;
         }
 
@@ -246,8 +260,14 @@ namespace CardPresentation.Net
             //   （40 个**汉字**）。提示行真正的那把尺子是 `HintLineWidth(句) > HintLineMaxWidth`
             //   （**80 个半宽字位**，中英混排按字算）—— ⛔ 别再把「40 字」当成整条提示行的预算
             //   （那是 `A1083` 换尺子**之前**的口径）。
-            //   ⇒ **英文档本来就超**（下面是 `DeferToBattle` 的 EN 列，光模板就 86 字符）——
-            //      那是**接线前就有的**、与本次改动无关；✅ **如实记着**（按半宽位算它更是远超 80）。
+            //   ⇒ 🔴 **2026-10-11 就地订正（`A1315`，铁律 5）**：本行原写「英文档本来就超（下面是
+            //      `DeferToBattle` 的 EN 列，**光模板就 86 字符**）」—— **已不成立**：`A1085` 把那几条
+            //      EN 列压短之后，**模板只剩 47 位**（`{0} — match already started, entering the arena`）
+            //      ⇒ **本来就不超**。**改后仍会超的只有夹对端 `body` 的两条**（`body` 满 40 个 ASCII
+            //      ⇒ 上界 **99 / 81** 个半宽字位）——⚠️ 那两条**与语档无关**（中文档同一格 **136 / 122 位**），
+            //      且**不是本次引入的回归**。⛔ 别再拿「86 字符」当现状。
+            //   ⚠️ 原话那个「86」与 `Loc.cs` 记的**改前 88 位**对不上（差 2）—— 本条**没有替它裁**，
+            //      按铁律 2 如实标出（出处 → `资料/普查产出_第十二会话/P5_文档与脚本小账.md` §⑤·1）。
             //   ⚠️ `body` 现在可能来自**词条键取词**（`Wire/*` 那 7~8 条，最长 ZH 13 字）
             //      ⇒ 最坏 `what` = 6 + 13 = 19 ⇒ 19 + 24 = 43 > `HintLineMaxChars`(40)（**接线前同样是 19**，
             //      因为那时对面直接发中文整句）⇒ **不是本次引入的回归**。
@@ -267,6 +287,28 @@ namespace CardPresentation.Net
                 ? "[Net] 大厅：对面不在了 ⇒ 本地这一局的账已撤（原版那一刻 `MatchMakerManager.CancelSearch`，"
                 + "那一下里还有一句 `BattleNetworkManager.CancelBattleSearch` —— 我们把状态交回 `NetSession` 自己管）"
                 : "[Net] 大厅：对面不在了 —— 本机本来就没在匹配这一局（只是那条会话断了）");
+            if (had)
+            {
+                // 🆕 2026-10-11（`A1297②`）：**这一局没了**（对面掉线 / 主动离开，两条路都走这里）⇒ 记一档理由码。
+                //   🔴 **如实标注：原版【没有这条路】，码是我们挑的。** 原版那批带码的调用点**全表**
+                //      在 `RuleEngine/Core/RuleCore.cs` 的 `BattleResult` 枚举注释里（每条都带原版
+                //      `文件:行号`）—— **一张表里没有一条**是「大厅阶段对面不在了」：原版是**服务端匹配**
+                //      ⇒ 搜索阶段根本没有「对手」这个实体挂在你这条连接上
+                //      （`BattleNetworkManager__EventPlayerDisconnected.c` 对 20/30 两档落的是
+                //       `LogError("Unhandled …")`）⇒ 这一跳是**我们自己的 P2P 口径**（见本节头部）。
+                //   ⇒ 取**语义最近**的一档 `Disconnect`(3)：本机这一局是因为**对面那条连接没了**才结束的
+                //      （不是谁点了取消 —— 那档见 `NetKind.MatchCancel` 那一支的 `A1297①`）。
+                //   ⚠️ `seat` 传 `-1` = **没有座位可报**（大厅阶段还没有对局、没有绝对座位），同 `Cancel()` 那条。
+                //   ⛔ 那行字**只有一处拼** = `ReplayStore.ResultLine`（别在这儿抄字面量）。
+                //   🔴 **只在 `had` 时记**：本机本来就没在匹配这一局（`had == false`）⇒ 没有「局」可没
+                //      ⇒ 记码就是静默说错一句话。⚠️ 这个闸**顺带**兼作去重：第一趟 `ClearMatch()`
+                //      之后 `_myDeck/_foeDeck` 都空了，同一条连接上再来一次 `OnClosed` 时 `had` 为假
+                //      ⇒ 不会为同一局记第二条码。
+                Debug.Log(ReplayStore.ResultLine(BattleResult.Disconnect, -1)
+                        + " —— 匹配层：大厅阶段对面不在了、本地这一局的账已撤（⚠️ 原版无此路：带码的调用点里"
+                        + "没有「大厅阶段对面不在了」这一档 —— 原版服务端匹配、搜索阶段没有对手这个实体 ⇒ **码是我们挑的**，"
+                        + "取语义最近的一档）");
+            }
             return had ? Loc.T("Settings/Online/Lobby/MatchRevoked") : Loc.T("Settings/Online/Lobby/NotMatchingThisGame");
         }
 
@@ -524,6 +566,21 @@ namespace CardPresentation.Net
                         {
                             ClearMatch();
                             Debug.Log($"[Net] 对面取消了这一局的匹配（理由：{mc?.reason ?? "未说明"}）⇒ 本地也复位，不开局");
+                            // 🆕 2026-10-11（`A1297①`）：**这一局没了** ⇒ 照 `Cancel()` 那一条的做法记一档理由码。
+                            //   🔴 **如实标注：原版【没有这条路】，码是我们挑的。** 全量反编译里带码的调用点
+                            //      **只有一处**是「取消匹配」这一档 —— `CancelMatch.c:29`
+                            //      （= **玩家自己**点取消那一下，已在 `Cancel()` 里记过）。「对面撤销了匹配」
+                            //      这个**事件**在原版不存在：原版是**服务端匹配**，撤单由服务端做，
+                            //      客户端之间根本没有 `match.cancel` 这种东西（同本节头部那段「我们怎么定的 · ⚠️ 不是复刻」）。
+                            //   ⇒ 我们这条 P2P 口径取**语义最近**的一档 `Cancelled`(5)（那一局确实是被「取消」掉的，
+                            //      不是掉线 —— 掉线那一档见 `RevokeMatchLocal` 里的 `A1297②`）。
+                            //   ⚠️ `seat` 传 `-1` = **没有座位可报**（那一刻还没有对局、没有绝对座位），同 `Cancel()` 那条。
+                            //   ⛔ 那行字**只有一处拼** = `ReplayStore.ResultLine`（别在这儿抄字面量，铁律「两处写同一条规则」）。
+                            //   🔴 **只在这一支记**：上面 `_started` 那一支是「**这一局照旧开**」（对面这包来晚了）
+                            //      ⇒ 那里**没有「没了」**，记码就是静默说错一句话。
+                            Debug.Log(ReplayStore.ResultLine(BattleResult.Cancelled, -1)
+                                    + " —— 匹配层：对面撤了这局匹配（⚠️ 原版无此路：带码的调用点只有 `CancelMatch.c:29` 一处、"
+                                    + "那是玩家自己撤；「对面撤」在服务端匹配的原版里不存在 ⇒ **码是我们挑的**，取语义最近的一档）");
                             NetRuntime.Notice(Loc.T("Settings/Online/Lobby/PeerCancelled"));
                         }
                         break;

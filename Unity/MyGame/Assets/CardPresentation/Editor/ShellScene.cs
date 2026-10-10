@@ -4148,6 +4148,106 @@ public static class ShellScene
             Loc.RestoreForTest(lang0);                              // 收尾：语言放回原值（⛔ 全程不写 `PlayerPrefs`）
         }
 
+        // ---------------- ⑤·y 🆕 **2026-10-10（`A1085` + `A1103`）：两条「与尺子 / 与原版实况对过账」的词条**
+        //
+        //  **① `A1085`：提示行的【英文列】原来整条超过那把尺子。** 尺子 = `SearchingMatchPopup.HintLineWidth(句)`
+        //    `> HintLineMaxWidth`（**80 个半宽字位**，`A1083` 定的）—— 而它**只对中文列算过**：
+        //    英文档那几条路径改前实测 91 / 105 / 106 / 110~124 / 140 位 ⇒ **一条都装不进 80** ⇒ 英文档下每次
+        //    `ShowHint` 都喊。本笔按「二选一」里的**改英文列的文案长度**收口：
+        //    ⛔ 不改布局（那行字的框 700×148 与自适应 4~50px 是**照原版 prefab 读的**）· ⛔ 不截断
+        //    （整句就是「告诉玩家刚才发生了什么」，截了就是把该玩家看的话吃掉）。
+        //    ✅ 改后逐条：65 / 59 / 70 / 76 / 41 / 77 位 **全部 ≤ 80**，而且 **EN 列宽度已 ≈ ZH 列**。
+        //    ⚠️ **仍超的两格如实留着**：夹着**对端原样文本**（`body`，协议钳到 40 字符）的那两条上界 = 99 / 81
+        //      —— 那是协议层的钳、**与语档无关**（中文档同一格也一样超），不在本笔白名单里改（详见 `Loc.cs`）。
+        //
+        //  **② `A1103`：换牌那两句照【原版运行期真渲】的中文。** 判据 = 现存**唯一**一份原版真渲中文的记录
+        //    （2026-09-14 运行期 dump：`资料/原版参照图/Unity参照管线_0825/data/panel_0914b/p3_mulligan_tree.tsv`
+        //     的 `:15` / `:13`）。🔴 **本笔先核清了性质**：`数据/本地化/i18n/zh_CN.csv` **不是原版中文表**
+        //    （它首行 `keys,type,zh_CN`、按**英文源串**索引；原版 I2 导出会按 `mTerm` 索引。旁证：原版客户端
+        //     根本没有中文表，I2 词条在远端 CCD —— `资料/全量反编译复核_靠推断的清单.md` §2.2 那格）
+        //    ⇒ **改的是我们自己的译文**，不是「改回原版词条」。
+        //
+        //  🧨 **各带判别式（灭自证）** —— 见下面每一条的说明（期望值**全是字面量**，⛔ 不拿 `Loc.T` 当期望）。
+        Section("★ A1085 + A1103：提示行的英文预算（≤ 80 位）+ 换牌那两句照原版真渲的中文");
+        {
+            // ============================================================ ① A1085 · 提示行英文列
+            const int Budget = 80;   // ⛔ 字面量（⛔ 不用 `HintLineMaxWidth` —— 那会「改常量两边一起绿」）
+            Check(SearchingMatchPopup.HintLineMaxWidth, Budget,
+                  "★ 前提：实现那把尺子仍是 80 个半宽字位"
+                + " —— 🧨 靠把阈值改大来「消掉」告警 ⇒ 本条立刻红");
+
+            const string KB = "Settings/Online/Lobby/";
+            string[] need =
+            {
+                "DeferToBattle", "PeerLostHint", "PeerLeftHint", "PeerLostFrag", "PeerLeftFrag",
+                "MatchRevoked", "NotMatchingThisGame", "LobbyRestored",
+            };
+            int missKey = 0;
+            foreach (var n in need) if (!Loc.HasEntry(KB + n)) missKey++;
+            CheckTrue(missKey == 0,
+                      $"（前提）这一族 {need.Length} 条词条都在表里（缺 {missKey} 条）"
+                    + " —— 缺了下面取值会是 null（本块不拿 null 去 Replace）");
+            if (missKey == 0)
+            {
+                string d = Loc.EnOf(KB + "DeferToBattle"), pl = Loc.EnOf(KB + "PeerLostHint");
+                string ll = Loc.EnOf(KB + "PeerLeftHint"), lf = Loc.EnOf(KB + "PeerLostFrag");
+                string le = Loc.EnOf(KB + "PeerLeftFrag"), rev = Loc.EnOf(KB + "MatchRevoked");
+                string nm = Loc.EnOf(KB + "NotMatchingThisGame"), bk = Loc.EnOf(KB + "LobbyRestored");
+                string body = new string('x', 20);   // 对端转述那一段（典型长度；协议上界 = 40 字符，见报告）
+
+                void Row(string name, string s)
+                {
+                    int w = SearchingMatchPopup.HintLineWidth(s);
+                    CheckTrue(w <= Budget, $"英文档提示行「{name}」占 {w} 位 ≤ {Budget} —— 整句「{s}」");
+                }
+                // 逐条按 `NetMatchmaking` 的拼法复现（`SetHint` 是私有 ⇒ 拼句在它内部；这里是同一形状）
+                Row("_started·掉线  DeferToBattle{PeerLostFrag}",       d.Replace("{0}", lf));
+                Row("_started·离开  DeferToBattle{PeerLeftFrag+body}",  d.Replace("{0}", le + body));
+                Row("未开局·掉线 A  PeerLostHint{MatchRevoked}",        pl.Replace("{0}", rev));
+                Row("未开局·掉线 B  PeerLostHint{NotMatchingThisGame}", pl.Replace("{0}", nm));
+                Row("未开局·离开    PeerLeftHint{body,tail}",           ll.Replace("{0}", body).Replace("{1}", nm));
+                Row("对面回来       LobbyRestored",                     bk);
+
+                // 🧨 判别式：**改前那两句（逐字）必须超** —— 证明上面那几条有牙（不是「怎么改都绿」）
+                const string OldDefer = "{0} — the match has already started, entering the arena (the battle layer will continue)";
+                const string OldLost = "Opponent disconnected, {0} (both of you press Battle! again after they return)";
+                CheckTrue(SearchingMatchPopup.HintLineWidth(OldDefer.Replace("{0}", lf)) > Budget,
+                          "🧨 判别式：**改前**那版 `DeferToBattle` 英文列确实超 80（把它改回去 ⇒ 上面那条红）");
+                CheckTrue(SearchingMatchPopup.HintLineWidth(OldLost.Replace("{0}", nm)) > Budget,
+                          "🧨 判别式：**改前**那版 `PeerLostHint` 英文列确实超 80（同上）");
+
+                // 中文列**一个字没动**（本笔只压英文列）—— 拿字面量钉住
+                Check(Loc.ZhOf(KB + "PeerLostHint"), "对面掉线了，{0}（两边回来各点一次 `Battle!`）",
+                      "★ 中文列**逐字未改**（本笔只动英文列）⇒ 中文档的长度账一条都没变");
+                Check(Loc.ZhOf(KB + "LobbyRestored"), "对面回来了 —— 联机已恢复。要开这一局，两边重新各点一次 `Battle!`",
+                      "★ 同上（`LobbyRestored`）");
+            }
+
+            // ============================================================ ② A1103 · 换牌那两句
+            var langB = Loc.Current;
+            Loc.RestoreForTest(AvailableLanguages.Chinese);          // ⛔ 只改内存（不写 `PlayerPrefs`）
+            try
+            {
+                CheckTrue(Loc.HasEntry("Battle/Mulligan/secondTurn") && Loc.HasEntry("Battle/Mulligan/Instructions"),
+                          "（前提）换牌那两条词条在表里");
+                Check(Loc.T("Battle/Mulligan/secondTurn"), "你是第二个行动",
+                      "★ 换牌「谁先手」那行 = **原版运行期真渲**那句（原版节点 `MulliganText/TurnText`）");
+                Check(Loc.T("Battle/Mulligan/Instructions"), "选择要在首轮替换的牌",
+                      "★ …提示行 = **原版运行期真渲**那句（原版节点 `MulliganText/Text`）");
+                // 🧨 判别式：我们自己那版译法**必须已经不在这两条键上**（两边一起改回去 ⇒ 上面两条红）
+                CheckTrue(Loc.T("Battle/Mulligan/secondTurn") != "你后手"
+                       && Loc.T("Battle/Mulligan/Instructions") != "选择首局替换的卡牌",
+                          "🧨 判别式：`你后手` / `选择首局替换的卡牌`（我们自己译的）**已不在这两条键上**");
+                // ✅ 同族第三条本来就 = 原版真渲的 `继续` ⇒ 留住这一条，防「顺手把整片一起改掉」
+                Check(Loc.T("Battle/Mulligan/ButtonDone"), "继续",
+                      "★ 同族第三条（`Battle/Mulligan/ButtonDone`）本来就 = 原版真渲的 `继续`，**没被牵连**");
+            }
+            finally { Loc.RestoreForTest(langB); }                   // 收尾：语言放回原值
+            // 英文列 = 原版 prefab 那颗 TMP 的原文，**逐字未改**
+            Check(Loc.EnOf("Battle/Mulligan/secondTurn"), "You go second", "★ 英文列 = 原版 TMP 原文，未改");
+            Check(Loc.EnOf("Battle/Mulligan/Instructions"), "Choose cards to replace in first hand", "★ 同上");
+        }
+
         // ---------------- ⑤·z 🆕 **2026-10-13（A435 阶段 2 · 丙）**：裁切状态长在【视口节点】上（丙块那几处）
         //
         // 判据 = `Shell/ViewportClip.cs` 文件头 + A435 迁移表

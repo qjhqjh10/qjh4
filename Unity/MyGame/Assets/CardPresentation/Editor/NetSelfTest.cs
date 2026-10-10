@@ -56,7 +56,9 @@ public static class NetSelfTest
             TestPasswordFrozen(FreePort());
             TestSeatAndWire();
             TestNotices();
-            TestMatchCancel(FreePort());   // 🆕 2026-10-03：取消这一局的匹配（A1）
+            TestMatchCancel(FreePort());   // 🆕 2026-10-03：取消这一局的匹配（A1）· 🆕 2026-10-10 加了 A985⑫ 那条理由码
+            TestReplayResultCodeA985();    // 🆕 2026-10-10（A985⑬）：录像头尾两条只落盘的 `[BattleResult]` 记录
+            TestResultCodeBlackBoxA1296(); // 🆕 2026-10-11（A1296）：两张表（`ctx.Events` vs `ActionLog`）与黑匣子
             TestLobbyPeerGone(FreePort()); // 🆕 2026-10-17：大厅阶段对面掉线 / 离开（A902）
             TestHintLine(FreePort());      // 🆕 2026-10-17（B27）：提示行那行字的消费方（A925）
             TestStatePublishA943(FreePort()); // 🆕 2026-10-18（A943）：连接位与计数**由同一次写发布**
@@ -662,19 +664,68 @@ public static class NetSelfTest
                "L③ 主机点 `Battle!` ⇒ 联机接管这一局");
             Ok(NetMatchmaking.Waiting, "L④ 主机在等对面交卡组（`Waiting`）");
 
-            Ok(NetMatchmaking.Cancel("自检：大厅阶段取消", out string w1),
-               "L⑤ ★ **大厅阶段取消得了**（原来只关窗、对面照样把你拉进战场）");
-            Ok(w1 == null && NetMatchmaking.ICancelled, "L⑥ 本机记着「我取消过」（`ICancelled`）");
+            // 🆕 2026-10-10（`A985⑫`）：取消那一刻那条 `[BattleResult] Cancelled(5)` 记录 ——
+            //   🔴 **抓的是日志流**（`Application.logMessageReceived`，本文件 §Q 已是这个抓法）⇒
+            //   谁把那一句 `Debug.Log` 删掉，下面两条立刻红（不是读一个「实现自己会写的镜像变量」）。
+            var cancelLogs = new List<string>();
+            Application.LogCallback hCancel = (string m, string st, LogType ty) => cancelLogs.Add(m);
+            bool cancelled;
+            string w0;                       // ⚠️ 声明在 `try` **外面**（L⑥ 还要读它 —— `try` 里声明的出不来）
+            Application.logMessageReceived += hCancel;
+            try { cancelled = NetMatchmaking.Cancel("自检：大厅阶段取消", out w0); }
+            finally { Application.logMessageReceived -= hCancel; }
+            Ok(cancelled, "L⑤ ★ **大厅阶段取消得了**（原来只关窗、对面照样把你拉进战场）");
+            Ok(cancelLogs.Exists(m => m != null && m.Contains("[BattleResult] Cancelled(5)")),
+               "L⑤-b ★★ 取消那一刻记下了**理由码**（`[BattleResult] Cancelled(5)` —— 原版 `CancelMatch.c:29` 那一档）"
+             + $"（实得 {cancelLogs.Count} 条，末条「{(cancelLogs.Count > 0 ? cancelLogs[cancelLogs.Count - 1] : "")}」）"
+             + " —— 🧨 改坏法：把 `NetMatchmaking.Cancel` 里那句 `Debug.Log(ReplayStore.ResultLine(…))` 删掉 ⇒ 红"
+             + "（**静默时必红**，⛔ 不是同义反复）");
+            Ok(cancelLogs.Exists(m =>
+               {
+                   if (m == null) return false;
+                   BattleResult rr; int ss;
+                   return ReplayStore.TryParseResultLine(m, out rr, out ss)
+                       && rr == BattleResult.Cancelled && ss == -1;
+               }),
+               "L⑤-c ★ …而且那一行**能被录像侧同一个解析器读回来**（码 = `Cancelled`、座位 = `-1` = **没写**，"
+             + "那一刻还没有对局）—— 与 L⑤-b **不同源**：那条比字面，这条比「匹配层写的」与「录像层读的」是不是一套");
+            Ok(w0 == null && NetMatchmaking.ICancelled, "L⑥ 本机记着「我取消过」（`ICancelled`）");
             Ok(!NetMatchmaking.Waiting, "L⑦ 本地状态已复位（不再显示「等待对手」）");
 
             PumpBoth(host, cli, 300);
             rt.AttachForTest(cli);
-            NetMatchmaking.PumpLobby();
+            // 🆕 2026-10-11（`A1297①`）：**收到 `match.cancel` 那一支**也要记一档码（原来一个字都没有）。
+            //   抓法同 L⑤-b = `Application.logMessageReceived`（**日志流**，⛔ 不是实现顺手写的镜像变量）。
+            var foeCancelLogs = new List<string>();
+            Application.LogCallback hFoeCancel = (string m, string st, LogType ty) => foeCancelLogs.Add(m);
+            Application.logMessageReceived += hFoeCancel;
+            try { NetMatchmaking.PumpLobby(); }
+            finally { Application.logMessageReceived -= hFoeCancel; }
             Ok(NetMatchmaking.FoeCancelled, "L⑧ ★ **对面收到了「取消」**（`match.cancel` 到得了）");
             var n1 = NetRuntime.DrainNoticesForTest();
             Ok(n1.Length == 1 && n1[0] == Loc.T("Settings/Online/Lobby/PeerCancelled"),
                "L⑨ ★ 对面那边**弹出人话**（红线：不许静默）—— 逐字 = `Settings/Online/Lobby/PeerCancelled`"
              + $"（随语档；实得「{(n1.Length > 0 ? n1[0] : "")}」）");
+            // 🆕 2026-10-11（`A1297①`）：**这一局没了** ⇒ 收侧也要记一档码。
+            //   🔴 **与 L⑤-b 是两条不同的代码路径**（那条是**发侧** `Cancel()` 自己记的、这条是**收侧**
+            //   `switch (NetKind.MatchCancel)` 那支记的）⇒ 谁把哪一支删掉，只有对应那条红。
+            //   码 = `Cancelled`(5)：⚠️ **原版无此路，码是我们挑的**（带码的调用点只有 `CancelMatch.c:29`
+            //   一处、那是玩家自己撤；「对面撤」这个事件在服务端匹配的原版里不存在）。
+            Ok(foeCancelLogs.Exists(m => m != null && m.Contains("[BattleResult] Cancelled(5)")),
+               "L⑨-b ★★ **收侧也记了一档码**（`[BattleResult] Cancelled(5)`）"
+             + $"（实得 {foeCancelLogs.Count} 条日志）"
+             + " —— 🧨 改坏法：把 `NetMatchmaking` 那支 `else` 里那句 `Debug.Log(ReplayStore.ResultLine(…))` 删掉 ⇒ 红"
+             + "（**静默时必红**，⛔ 不是同义反复）");
+            Ok(foeCancelLogs.Exists(m =>
+               {
+                   if (m == null) return false;
+                   BattleResult rr; int ss;
+                   return ReplayStore.TryParseResultLine(m, out rr, out ss)
+                       && rr == BattleResult.Cancelled && ss == -1;
+               }),
+               "L⑨-c ★ …而且那一行**能被录像侧同一个解析器读回来**（码 = `Cancelled`、座位 = `-1` = **没写**）"
+             + " —— 与 L⑨-b **不同源**：那条比字面，这条比「匹配层写的那一行」与「录像层读的那一行」是不是一套"
+             + "（⛔ 别在 `Net/` 里另拼字面量 —— 那正是「两处写同一条规则」）");
 
             // ---- ② **两边重新各点一次** ⇒ 开局；**开局之后取消不了** ----
             NetMatchmaking.Reset();
@@ -687,6 +738,27 @@ public static class NetSelfTest
             rt.AttachForTest(host);
             NetMatchmaking.PumpLobby();                       // 主机收到卡组 ⇒ 开局（`_started = true`）
             Ok(NetMatchmaking.HasOpponent, "L⑫ 主机收到对面卡组 ⇒ 这一局成立了");
+
+            // ---- 🔴 反面（`A1297①` 的判别式）：**开局之后才到的** `match.cancel` ⇒ 这一局照旧开 ⇒
+            //      ⛔ **一条码都不许记**（记了就是「静默说错一句话」）。
+            //      ⚠️ 这一包**手工发**：`NetMatchmaking.Cancel()` 在 `_started` 时自己就返回 false（L⑬ 验的是它）
+            //         ⇒ 只有自己发才能把「迟到的取消」喂进对面那一支。
+            //      🔑 **为什么它是不自证**：正例（L⑨-b）与这条**结构上互斥** —— 两支都在同一个 `switch` 里，
+            //         把记码从 `else` 支提到 `case` 支外面（= 两支都记）⇒ **这条立刻红、L⑨-b 照样绿**。
+            var lateCancelLogs = new List<string>();
+            Application.LogCallback hLate = (string m, string st, LogType ty) => lateCancelLogs.Add(m);
+            cli.Send(NetKind.MatchCancel, new MsgMatchCancel { reason = "自检：迟到的取消" });
+            PumpBoth(host, cli, 300);
+            rt.AttachForTest(host);
+            Application.logMessageReceived += hLate;
+            try { NetMatchmaking.PumpLobby(); }
+            finally { Application.logMessageReceived -= hLate; }
+            Ok(!lateCancelLogs.Exists(m => m != null && m.Contains("[BattleResult]")),
+               "L⑫-b ★★ **开局之后才到的 `match.cancel` ⇒ 一条码都不许记**（那一支是「这一局照旧开」、没有「没了」）"
+             + $"（实得 {lateCancelLogs.Count} 条日志、带 token 的 "
+             + $"{lateCancelLogs.FindAll(m => m != null && m.Contains("[BattleResult]")).Count} 条）");
+            Ok(NetMatchmaking.HasOpponent, "L⑫-c …而且那一局**没有**被撤掉（`HasOpponent` 还在）");
+            NetRuntime.DrainNoticesForTest();
 
             Ok(!NetMatchmaking.Cancel("自检：开局之后", out string w2),
                "L⑬ ★ **开局之后取消不了**（**不假装取消成功** —— 原来那句「取消的只是这扇窗」就是这么来的）");
@@ -706,6 +778,211 @@ public static class NetSelfTest
             NetMatchmaking.Reset();
             NetRuntime.DrainNoticesForTest();
             host.Close(false); cli.Close(false);
+        }
+    }
+
+    // ==================================================================
+    //  S. 🆕 2026-10-10（`A985⑬`）：录像头尾两条【只落盘】的 `[BattleResult]` 记录
+    // ==================================================================
+    /// <summary>判据 = `项目任务.md` 第 373 行 `A985` 尾巴 + §四·16（**走【最小设计】**）；
+    /// 背景与「为什么不加在动作上」→ `Battle/ReplayStore.cs` 文件头那一节。
+    ///
+    /// <para>要钉住四件：① 那行字**与引擎同形**（比的是 `RuleCore.Forfeit` / `CheckWinner` 那两句
+    /// `ctx.Log($"[BattleResult] {reason}({(int)reason}) seat={player}")` 的**字面量**）；
+    /// ② **读侧**认得引擎写的那种行（拿外来字面量喂它）；③ 它**真的落在盘上**（`Save` → `Load` 一轮回来了）；
+    /// ④ 它**不在上网那个结构里**（`MsgAction` 的字段反射 —— 那正是「⛔ 别给它加字段」那条红线的牙口）。</para>
+    ///
+    /// <para>🔴 **本测试只碰临时目录**（`ReplayStore.OverrideDir`）—— ⛔ 不碰玩家的真录像
+    /// （`ReplayStore.ResetForTest` 是删文件的，⛔ 还原目录之前绝不能调它，见 `finally`）。</para>
+    ///
+    /// <para>⚠️ **本测试跑的是「存储与读写」这一层**；「`PlayReplay` 重放 `RecKindForfeit` 时真的拿它喂引擎」
+    /// 那一跳在 `BattleDriver.cs`（**本轮白名单外** ⇒ 没接、如实记在报告里）。</para></summary>
+    static void TestReplayResultCodeA985()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "wf_replay_a985");
+        var keepDir = ReplayStore.OverrideDir;
+        try
+        {
+            ReplayStore.OverrideDir = dir;
+            ReplayStore.ResetForTest();
+
+            // ---- ① 书写端：与引擎那两句 `ctx.Log` 同形（字面量由**引擎侧**抄来，不是实现自己产出的）----
+            Eq(ReplayStore.ResultLine(BattleResult.Forfeit, 1), "[BattleResult] Forfeit(2) seat=1",
+               "S① ★ 录像那条记录**与引擎同形**（`RuleCore.Forfeit` 那句 `ctx.Log` 的形状）"
+             + " —— 🧨 改坏法：把 `ResultLine` 的拼法改掉 ⇒ 红");
+            Eq(ReplayStore.ResultLine(BattleResult.Cancelled, -1), "[BattleResult] Cancelled(5)",
+               "S② ★★ …**没有座位**时**不写 `seat=`**（`seat < 0`）—— 这个字符串与 §L⑤-b 抓的那条**逐字相同**"
+             + "（⛔ 别在 `Net/` 里另拼一份：那是「两处写同一条规则」）");
+
+            // ---- ② 读端：拿**外来字面量**喂它（若用 `ResultLine` 的输出喂，就是自证）----
+            BattleResult pr; int ps;
+            Ok(ReplayStore.TryParseResultLine("[BattleResult] Disconnect(3) seat=1", out pr, out ps)
+               && pr == BattleResult.Disconnect && ps == 1,
+               "S③ ★★ 读侧认得**引擎写的那种行**（字面量直接喂；与 S①/S② 不同源：那两条看书写端、这条看解析端）");
+            Ok(ReplayStore.TryParseResultLine("[BattleResult] Forfeit(2) seat=0 —— 某人 投降 —— 对面获胜", out pr, out ps)
+               && pr == BattleResult.Forfeit && ps == 0,
+               "S④ ★ **行尾的人话不影响解析**（引擎那两句 `ctx.Log`、以及匹配层那一条，都带着人话）");
+            Ok(!ReplayStore.TryParseResultLine("这不是一条理由码记录", out pr, out ps),
+               "S⑤（对照）**不是那个 token 的行 ⇒ `false`** —— S③/S④ 不是「反正都返回 true」的假象");
+            Ok(!ReplayStore.TryParseResultLine("[BattleResult] NotARealOne(9) seat=0", out pr, out ps),
+               "S⑥ ★ 码名认不出 ⇒ **`false`**（⛔ 不猜一档 —— 铁律 2）");
+
+            // ---- ③ 真的落在盘上：写 → 存 → 读 ----
+            var rec = new ReplayRecord { myHero = "自检我", foeHero = "自检对面", savedAt = "2026-10-10 00:00:00" };
+            ReplayStore.WriteResultHead(rec, BattleResult.Undefined, -1);   // 开局那一刻：还没有结果
+            ReplayStore.WriteResultTail(rec, BattleResult.Disconnect, 1);  // 结算那一刻：掉线判弃权
+            int actsBefore = rec.actions.Count;
+            string name = ReplayStore.Save(rec);
+            var back = string.IsNullOrEmpty(name) ? null : ReplayStore.Load(name);
+            Ok(back != null && ReplayStore.ReadResultTail(back) == BattleResult.Disconnect,
+               "S⑦ ★★ 尾那条**真的落在盘上**（`Save` → `Load` 一轮回来还是 `Disconnect`(3)）"
+             + $"（实得 `{back?.resultTail ?? "<null>"}`）");
+            Ok(back != null && ReplayStore.HasResultHead(back)
+               && ReplayStore.ReadResultHead(back) == BattleResult.Undefined,
+               "S⑧ 头那条也在，而且是「**开局那一刻还没有结果**」= `Undefined(0)`（⛔ 不是没记）");
+            Ok(back != null && ReplayStore.ReadResultCode(back) == BattleResult.Disconnect,
+               "S⑨ ★ **「回放时读它」的那一个口**（`ReadResultCode`，尾优先）读出同一档");
+            Eq(back == null ? -1 : back.actions.Count, actsBefore,
+               "S⑩ ★ **理由码没有进 `actions`**（头尾两条是录像自己的两格，不是动作 —— 进了动作就是「也上网」）");
+            Ok(ReplayStore.LastResultFromEvents(
+                   new List<string> { "别的日志", "[BattleResult] Forfeit(2) seat=0", "又是一句别的日志" }, out int evSeat)
+               == BattleResult.Forfeit && evSeat == 0,
+               "S⑪ ★ **取码桥**（`LastResultFromEvents`）：从 `ctx.Events` 那样的串里**从尾往前**捞到最后一条"
+             + " —— 码不在 `ctx` 的任何字段上，结算时**只能**这么捞");
+            Ok(ReplayStore.LastResultFromEvents(new List<string> { "全是人话，没有码" }, out int evSeat2)
+               == BattleResult.Undefined && evSeat2 == -1,
+               "S⑫（对照）**一条都没有 ⇒ `Undefined` + 座位 `-1`**（如实说「未指定」，⛔ 不猜一档）");
+
+            // ---- ④ 「不上网」的牙口 ----
+            bool hasReasonField = false;
+            foreach (var f in typeof(MsgAction).GetFields())
+            {
+                string fn = f.Name.ToLowerInvariant();
+                if (fn.Contains("result") || fn.Contains("reason")) hasReasonField = true;
+            }
+            Ok(!hasReasonField,
+               "S⑬ ★★ **理由码不在上网那个结构里**（`MsgAction` 的字段名里既没有 `result` 也没有 `reason`）"
+             + " —— 🔴 这是「⛔ 不许给 `MsgAction` 加字段」那条红线的牙口（原版 `SendForfeit` 发的是空参数表、"
+             + "码从来不过网）；🧨 改坏法：往 `MsgAction` 加一格 `resultCode` ⇒ 红");
+            Ok(!NetProtocol.Pack(new MsgAction { seq = 0, kind = 0, actor = 0, marks = new int[0] })
+                 .Contains("[BattleResult]"),
+               "S⑭（对照）…而**真发出去的那一份**（`NetProtocol.Pack(MsgAction)` = `NetKind.Action` 发的东西）"
+             + "里没有那个 token");
+
+            // ---- ⑤ 老录像 / 坏行 ----
+            var oldRec = new ReplayRecord { myHero = "老", foeHero = "录" };
+            oldRec.resultHead = null; oldRec.resultTail = null;   // =「JSON 里没有那两个键」的两种落法之一
+            Ok(!ReplayStore.HasResultHead(oldRec) && !ReplayStore.HasResultTail(oldRec)
+               && ReplayStore.ReadResultCode(oldRec) == BattleResult.Undefined,
+               "S⑮ ★ 老录像（两格都没有）⇒ **`Undefined` = 「没记/未指定」**、`HasResult*` 都是假"
+             + "（⛔ 不冒充某一档 —— 那样「掉线判弃权」会被演成「投降」）");
+            oldRec.resultTail = "[BattleResult] 这不是码(99)";
+            Ok(ReplayStore.ReadResultTail(oldRec) == BattleResult.Undefined,
+               "S⑯（坏行）**记过但认不出** ⇒ 当「未指定」并**出声**（不许静默）");
+        }
+        finally
+        {
+            ReplayStore.ResetForTest();          // 🔴 必须**还在临时目录上**时清（`ResetForTest` 是删文件的）
+            ReplayStore.OverrideDir = keepDir;   // ⛔ 顺序反了 = 删掉玩家的真录像
+        }
+    }
+
+    // ==================================================================
+    //  T. 🆕 2026-10-11（`A1296`）：**两张表**（`ctx.Events` vs `ctx.ActionLog`）与录像黑匣子
+    // ==================================================================
+    /// <summary>账 `A1296`（第十二会话 `V1` 顺手查出、⛔ 当时没动手）：`ctx.Log` 写的是 `ctx.Events`，
+    /// 而 `BattleDriver.EvtTail` / `ReplayRecord.traceLogTail` 读的是 `ctx.ActionLog` —— **两个不同的表**
+    /// ⇒ 后果 = 黑匣子**永远抓不到** `[BattleResult]` 那一行（= `V1` 报告 §5 第 2 条）。
+    ///
+    /// <para>🔴 **2026-10-11 现读后判：有意设计，不是缺陷。** 三条判据（都在仓库里、逐处现读）：
+    /// ① `Battle/ReplayStore.cs:190` 把那格就定义成「每条动作落地后 **`ActionLog`** 尾那一句」；
+    /// ② `Battle/BattleDriver.cs:440` 的 `EvtTail` 摘要同样写的是 `ActionLog`，`:745` 打的那行字也叫「log 尾」；
+    /// ③ `RuleCore/Core/RuleCore.cs:6587-6589` 把两条通道的分工写死了 —— 理由码只进 `ctx.Events`
+    /// 那条（**我们自己的诊断**日志），**不是** `ctx.ActionLog` 那本**给玩家看的战斗日志**。
+    /// ⇒ 两边各按自己的用途读自己的表，「抓不到」是**它的定义**，不是漏接线。</para>
+    ///
+    /// <para>🔴 **后果无害，两条证据**：① 黑匣子的判据是 `BattleDriver.DeepHash`（**不含 `ctx.Events`**）
+    /// ⇒ 它的信号与它的读法**是同一份口径**，没有「看得见的问题说不出」这种盲区；
+    /// ② 理由码的**存档通道**是录像的**头 / 尾两条只落盘记录**（`ReadResultCode`）—— 与黑匣子无关，
+    /// 而且黑匣子**默认关**（`ReplayStore.VerboseTrace`，真打时一局 9 KB）⇒「靠黑匣子把码带出去」
+    /// 这条路**本来就不成立**（`T④`/`T④-b` 钉的就是这一条）。</para>
+    ///
+    /// <para>🔴 **这一节要堵住的是「最顺手的那种修法」**：让 `ctx.Log` 也往 `ActionLog` 里写一条，
+    /// 或把 `EvtTail` 改成读 `ctx.Events` —— 前者会**污染给玩家看的战斗日志**（那是玩法表现），
+    /// 后者会**改掉黑匣子的口径**。`T①` / `T③-b` 是把这两条退路各自堵死的**结构**断言。</para>
+    ///
+    /// <para>⚠️ **本测试一行 UI / 一局对局都不建**（`new BattleContext(seed)` 足够 —— `Log`/`Emit` 都不碰
+    /// `Players`）；只碰 `Path.GetTempPath()` 下的临时目录（`finally` 里**先清后还原** `OverrideDir`）。</para></summary>
+    static void TestResultCodeBlackBoxA1296()
+    {
+        // ---- ① 结构事实：两张表就是两张表（`ctx.Log` 只碰 `Events`）----
+        var ctx = new BattleContext(20261011);
+        int ev0 = ctx.Events.Count, al0 = ctx.ActionLog.Count;
+        ctx.Log("[BattleResult] Disconnect(3) seat=1");
+        Ok(ctx.Events.Count == ev0 + 1 && ctx.ActionLog.Count == al0,
+           "T① ★★ **`ctx.Log` 只写 `ctx.Events`**（`ActionLog` 一条都不多）—— 这就是 `A1296` 那条账的**结构前提**"
+         + $"（Events {ev0}→{ctx.Events.Count} · ActionLog {al0}→{ctx.ActionLog.Count}）"
+         + "；🧨 改坏法：让 `ctx.Log` 也往 `ActionLog` 里塞一条（= 最顺手的那种「修」）⇒ 红"
+         + "（那是**给玩家看的战斗日志**，改它 = 静默改玩法表现）");
+
+        // ---- ② 反向（对照）：引擎事件走 `ActionLog`、**不回流**进 `Events` ----
+        ctx.Emit(new BattleEvent { Kind = EvtKind.Hit, Player = 0, Slot = 2,
+                                   TargetPlayer = 1, TargetSlot = 3, CardId = "A1296_MARK" });
+        Ok(ctx.ActionLog.Count == al0 + 1 && ctx.Events.Count == ev0 + 1,
+           "T②（对照）**两条通道单向、不交叉**：引擎事件只进 `ActionLog`"
+         + $"（Events {ctx.Events.Count} · ActionLog {ctx.ActionLog.Count}）"
+         + " —— 没有这一条，T① 挡不住「两边互相抄一份」那种改法");
+
+        // ---- ③ `EvtTail`（= 黑匣子那一格的数据源）读的确实是 `ActionLog` ----
+        var mi = typeof(BattleDriver).GetMethod("EvtTail",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+        Ok(mi != null,
+           "T③ 夹具：反射拿得到 `BattleDriver.EvtTail`（拿不到 = 它改名了 ⇒ 下面是【没验到】，⛔ 不是通过）");
+        if (mi == null)
+        {
+            _warn++;
+            Debug.LogWarning("[NetSelfTest] ⚠️ T③-a/T③-b **没验到**：拿不到 `BattleDriver.EvtTail`"
+                           + "（被改名/改可见性了？）—— `A1296` 的「黑匣子读哪张表」这一格就没人看着了。");
+        }
+        else
+        {
+            string tail = mi.Invoke(null, new object[] { ctx }) as string;
+            Ok(tail != null && tail.Contains("A1296_MARK"),
+               "T③-a ★★ **黑匣子那一格读的是 `ActionLog` 尾**（解出来的正是刚发的那条引擎事件）"
+             + $"（实得「{tail}」）");
+            Ok(tail != null && !tail.Contains("[BattleResult]"),
+               "T③-b ★★ …而且**看不到** `ctx.Events` 里的东西（那行 `[BattleResult]` 在它眼里不存在）"
+             + " —— 🔴 这就是 `A1296` 记的那句「抓不到那一行」**如实钉住**（判为【有意设计、不是缺陷】："
+             + "见本方法头那三条判据）；🧨 改坏法：把 `EvtTail` 改成读 `ctx.Events` ⇒ **本条红** ——"
+             + " 那说明**口径变了**，要回头**重判这一档**并把结论一起改（⛔ 别只把这条断言改成绿的）");
+        }
+
+        // ---- ④ 码的存档通道与黑匣子**无关**（黑匣子关着也读得出码）----
+        string dir = Path.Combine(Path.GetTempPath(), "wf_replay_a1296");
+        var keepDir = ReplayStore.OverrideDir;
+        bool keepVerbose = ReplayStore.VerboseTrace;
+        try
+        {
+            ReplayStore.OverrideDir = dir;
+            ReplayStore.ResetForTest();
+            ReplayStore.VerboseTrace = false;                  // = **真打时的默认档**（自检里别继承上一条留下的值）
+            var rec = new ReplayRecord { myHero = "黑匣子我", foeHero = "黑匣子对面" };
+            ReplayStore.WriteResultTail(rec, BattleResult.Disconnect, 1);
+            string name = ReplayStore.Save(rec);
+            var back = string.IsNullOrEmpty(name) ? null : ReplayStore.Load(name);
+            Ok(back != null && (back.traceLogTail == null || back.traceLogTail.Count == 0),
+               "T④ ★ 黑匣子**关着**时那一格盘上没有任何内容"
+             + "（⚠️ 只断「空」，不断「是 `null` 还是空表」—— `JsonUtility` 对空表的落法在本机没现核过）");
+            Ok(back != null && ReplayStore.ReadResultCode(back) == BattleResult.Disconnect,
+               "T④-b ★★ …**而理由码照样读得回来**（`Disconnect`）—— 码的存档通道 = 录像**头/尾两条只落盘记录**，"
+             + "**与黑匣子无关**（黑匣子默认关 ⇒ 「靠黑匣子把码带出去」这条路本来就不成立）"
+             + "；🧨 改坏法：把码改成「只在 `traceLogTail` 里记」⇒ 红");
+        }
+        finally
+        {
+            ReplayStore.ResetForTest();          // 🔴 必须**还在临时目录上**时清（`ResetForTest` 是删文件的）
+            ReplayStore.OverrideDir = keepDir;   // ⛔ 顺序反了 = 删掉玩家的真录像
+            ReplayStore.VerboseTrace = keepVerbose;
         }
     }
 
@@ -805,8 +1082,16 @@ public static class NetSelfTest
             NetRuntime.DrainNoticesForTest();
 
             // ---- ① 对面**掉线**（心跳超时 / 连接断）⇒ 必须出声 ----
+            // 🆕 2026-10-11（`A1297②`）：**这一局没了**那一跳（`RevokeMatchLocal`）也要记一档码 ——
+            //   抓法同 §L（`Application.logMessageReceived` = **日志流**，⛔ 不是实现顺手写的镜像变量）。
+            var dropLogs = new List<string>();
+            Application.LogCallback hDrop = (string m, string st, LogType ty) => dropLogs.Add(m);
             cli.Transport.ClosePeer();
-            Ok(PumpUntil(host, cli, () => host.State == NetState.WaitingReconnect, 6000),
+            bool dropped;
+            Application.logMessageReceived += hDrop;
+            try { dropped = PumpUntil(host, cli, () => host.State == NetState.WaitingReconnect, 6000); }
+            finally { Application.logMessageReceived -= hDrop; }
+            Ok(dropped,
                $"（大厅·掉线）主机发现对面没了（实际 {host.State}）");
             var n1 = NetRuntime.DrainNoticesForTest();
             Eq(n1.Length, 1,
@@ -827,6 +1112,21 @@ public static class NetSelfTest
                "M⑨ ★ 这一局的匹配**被撤掉了**（= 原版那一刻 `MatchMakerManager.CancelSearch`：回大厅）"
              + " —— 与 M⑥ **不同源**：M⑥ 验的是「说不说」，这条验的是「局撤没撤」");
             Ok(NetMatchmaking.PeerGone, "M⑩ 「对面不在」那个边沿已置上");
+            Ok(dropLogs.Exists(m => m != null && m.Contains("[BattleResult] Disconnect(3)")),
+               "M⑩-b ★★ **掉线那一跳也记了一档码**（`[BattleResult] Disconnect(3)` —— `A1297②`）"
+             + $"（实得 {dropLogs.Count} 条日志）"
+             + " —— 🧨 改坏法：把 `RevokeMatchLocal` 里那句 `Debug.Log(ReplayStore.ResultLine(…))` 删掉 ⇒ 红"
+             + "（**静默时必红**，⛔ 不是同义反复）");
+            Ok(dropLogs.Exists(m =>
+               {
+                   if (m == null) return false;
+                   BattleResult rr; int ss;
+                   return ReplayStore.TryParseResultLine(m, out rr, out ss)
+                       && rr == BattleResult.Disconnect && ss == -1;
+               }),
+               "M⑩-c ★ …而且那一行**能被录像侧同一个解析器读回来**（码 = `Disconnect`、座位 = `-1` = **没写**）"
+             + " —— 与 M⑩-b **不同源**：那条比字面，这条比「匹配层写的那一行」与「录像层读的那一行」是不是一套；"
+             + "⚠️ 码是 `Disconnect`(3) 而【不是】`Cancelled`(5) —— 这两笔**不是同一档**（取消那一档在 §L⑨-b）");
 
             // ---- ② 对面**回来** ⇒ 撤销（撤窗 + 提示行改口）----
             int hide0 = NetRuntime.HidePopupCallsForTest;
@@ -844,20 +1144,70 @@ public static class NetSelfTest
              + $"实得「{NetMatchmaking.LastHint}」）—— 与 M⑧ 不同源："
              + "M⑧ 验的是掉线那一下说不说，这条验的是**恢复之后会不会改口**");
 
+            // ---- 🔴 ②-b **反面（`A1297②` 的判别式）**：**本机本来就没在匹配这一局**（`had == false`）
+            //      ⇒ ⛔ **一条码都不许记**（没有「局」可没 —— 记了就是静默说错一句话）。
+            //      🔑 **为什么它不自证**：与 M⑩-b **结构上互斥** —— 把记码从 `if (had)` 里提到
+            //         `RevokeMatchLocal` 顶上（= 无条件记）⇒ **这条立刻红、M⑩-b 照样绿**。
+            //      ⚠️ 这一步要一个**干净的掉线边沿**（`_peerGone` 得是清的）⇒ 先把对面接回来，
+            //         跑完再接回来一次 —— ③ 起手要的正是「两边都在 `Lobby`」（与 M⑰ 那两句同形）。
+            cli.CheckConnection(Cfg(port, ""));
+            Ok(PumpUntil(host, cli, () => host.State == NetState.Lobby && cli.State == NetState.Lobby, 6000),
+               "M⑭-b 夹具：对面先接回来（下面那条要一个干净的掉线边沿）");
+            rt.AttachForTest(host);
+            NetMatchmaking.PumpLobby();              // 吃掉「回来了」那条边沿
+            var noMatchLogs = new List<string>();
+            Application.LogCallback hNoMatch = (string m, string st, LogType ty) => noMatchLogs.Add(m);
+            cli.Transport.ClosePeer();
+            Application.logMessageReceived += hNoMatch;
+            try { PumpUntil(host, cli, () => host.State == NetState.WaitingReconnect, 6000); }
+            finally { Application.logMessageReceived -= hNoMatch; }
+            Ok(!noMatchLogs.Exists(m => m != null && m.Contains("[BattleResult]")),
+               "M⑭-c ★★ **本机没在匹配这一局时对面掉了 ⇒ 一条码都不许记**"
+             + "（没有「局」可没 —— `A1297②` 那个 `had` 闸）"
+             + $"（实得 {noMatchLogs.Count} 条日志、带 token 的 "
+             + $"{noMatchLogs.FindAll(m => m != null && m.Contains("[BattleResult]")).Count} 条）"
+             + "；⚠️ 这一格**不是空转**：下面 M⑭-d 断的是**同一跳真跑了**"
+             + "（`LastHint` 换成了 `NotMatchingThisGame` 那个 tail）⇒ 边沿确实走到了 `RevokeMatchLocal`");
+            Ok(NetMatchmaking.LastHint != null
+               && NetMatchmaking.LastHint.Contains(Loc.T("Settings/Online/Lobby/NotMatchingThisGame"))
+               && !NetMatchmaking.LastHint.Contains(Loc.T("Settings/Online/Lobby/MatchRevoked")),
+               $"M⑭-d …而且那行话如实说「本机本来就没在匹配这一局」、**不是**「这一局的匹配已经撤销」"
+             + $"（实得「{NetMatchmaking.LastHint}」）—— 与 M⑭-c **不同源**：那条看「码记没记」，"
+             + "这条看「话说得对不对」（两个 `tail` 的中文互不为子串 ⇒ 有鉴别力）");
+            NetRuntime.DrainNoticesForTest();
+            cli.CheckConnection(Cfg(port, ""));      // 接回来 —— ③ 起手要「两边都在 `Lobby`」
+            Ok(PumpUntil(host, cli, () => host.State == NetState.Lobby && cli.State == NetState.Lobby, 6000),
+               "M⑭-e 夹具：又接回来了（③ 起手的状态就摆回原样）");
+            rt.AttachForTest(host);
+            NetMatchmaking.PumpLobby();              // 吃掉「回来了」那条边沿
+
             // ---- ③ 🔴 **对局中（大厅这一半已经交权）⇒ 一句都不许说** ----
             //   这是本件 ③ 那条要求（一台会话不许弹两次）：判据 = `NetRuntime.LobbyHandled`
             //   —— `NetBattle.Attach` 那一刻把它置 false **正是在干这件事**（对局那半边接管会话）。
             NetRuntime.DrainNoticesForTest();
             NetMatchmaking.Reset();
             rt.LobbyHandled = false;                 // = 进了对局（对局那一侧的断言在 `NetBattleTest` §9/§11）
+            // 🆕 2026-10-11（`A1297②`）：**闸挡住时不光不许出声，也不许记码** —— 那一跳压根没进
+            //   `RevokeMatchLocal`（这一格同时 `had == false`：上面 `Reset()` 把这一局的账清了）
+            //   ⇒ 两条闸都该拦住，⛔ 一条 `[BattleResult]` 都不许有。
+            var inBattleLogs = new List<string>();
+            Application.LogCallback hInBattle = (string m, string st, LogType ty) => inBattleLogs.Add(m);
             cli.Transport.ClosePeer();
-            Ok(PumpUntil(host, cli, () => host.State == NetState.WaitingReconnect, 6000),
+            Application.logMessageReceived += hInBattle;
+            try { PumpUntil(host, cli, () => host.State == NetState.WaitingReconnect, 6000); }
+            finally { Application.logMessageReceived -= hInBattle; }
+            Ok(host.State == NetState.WaitingReconnect,
                $"（对局中·模拟）主机又发现对面没了（实际 {host.State}）");
             Eq(NetRuntime.DrainNoticesForTest().Length, 0,
                "M⑮ ★★ **对局中大厅这一半一个字都不说**（`LobbyHandled == false`）"
              + " —— 🧨 改坏法：把 `NetMatchmaking.LobbyOwnsSession` 那道闸去掉 ⇒ 这一条红，"
              + "而且**真机上玩家一局会被弹两次**（对局那半边还会再弹一条）");
             Ok(!NetMatchmaking.PeerGone, "M⑯ …而且也不许把那个边沿置上（没说话就没得撤）");
+            Ok(!inBattleLogs.Exists(m => m != null && m.Contains("[BattleResult]")),
+               "M⑯-b ★ **闸挡住时也一条码都不许记**（那一跳没进 `RevokeMatchLocal`）"
+             + $"（实得 {inBattleLogs.Count} 条日志、带 token 的 "
+             + $"{inBattleLogs.FindAll(m => m != null && m.Contains("[BattleResult]")).Count} 条）"
+             + " —— 🧨 改坏法：把记码从 `RevokeMatchLocal` 里挪到闸**之前** ⇒ 红");
 
             // ---- ④ 对面**主动离开**（`bye`）⇒ 也要出声，而且带着他报的理由 ----
             rt.LobbyHandled = true;
@@ -870,8 +1220,16 @@ public static class NetSelfTest
             Ok(NetMatchmaking.TryStart(d1, "Classic", "Ultramarines", out string _) && NetMatchmaking.Waiting,
                "M⑱ 主机重新点了 `Battle!`（这一局又在匹配里了）");
             NetRuntime.DrainNoticesForTest();
+            // 🆕 2026-10-11（`A1297②`）：**「主动离开」与「掉线」是两条回调**（`OnClosed` vs `OnPeerLost`）
+            //   ⇒ 两条都得各记一档码（同 §L 那种抓法：**日志流**）。
+            var byeLogs = new List<string>();
+            Application.LogCallback hBye = (string m, string st, LogType ty) => byeLogs.Add(m);
             cli.Close(true, "自检：对面离开了这一局");   // = 对面的 `NetRuntime.Reset` / 关台那条路
-            Ok(PumpUntil(host, cli, () => host.State == NetState.Closed, 6000),
+            bool closed;
+            Application.logMessageReceived += hBye;
+            try { closed = PumpUntil(host, cli, () => host.State == NetState.Closed, 6000); }
+            finally { Application.logMessageReceived -= hBye; }
+            Ok(closed,
                $"（大厅·离开）主机收到 `bye` ⇒ 会话关上（实际 {host.State}）");
             var n2 = NetRuntime.DrainNoticesForTest();
             Eq(n2.Length, 1, "M⑲ ★ **大厅阶段对面主动离开也要弹一条**（原来同样静默）"
@@ -879,6 +1237,20 @@ public static class NetSelfTest
             Ok(n2.Length >= 1 && n2[0].Contains("自检：对面离开了这一局"),
                $"M⑳ ★ 那条话里**带着对面报的理由**（实得「{(n2.Length > 0 ? n2[0] : "")}」）");
             Ok(!NetMatchmaking.Waiting, "M㉑ ★ 这一局的匹配也撤掉了（`bye` 这一路同一条落地）");
+            Ok(byeLogs.Exists(m => m != null && m.Contains("[BattleResult] Disconnect(3)")),
+               "M㉑-b ★★ **`bye`（主动离开）这一路也记了同一档码**（`[BattleResult] Disconnect(3)` —— `A1297②`）"
+             + $"（实得 {byeLogs.Count} 条日志）"
+             + " —— 🧨 改坏法：把 `RevokeMatchLocal` 里那句删掉 ⇒ 与 M⑩-b **一起红**"
+             + "（两条回调走的是同一个出口 ⇒ 一条断言就能管住两条路，别在 `HandleLobbyPeer*` 里各写一份）");
+            Ok(byeLogs.Exists(m =>
+               {
+                   if (m == null) return false;
+                   BattleResult rr; int ss;
+                   return ReplayStore.TryParseResultLine(m, out rr, out ss)
+                       && rr == BattleResult.Disconnect && ss == -1;
+               }),
+               "M㉑-c ★ …而且那一行**能被录像侧同一个解析器读回来**（码 = `Disconnect`、座位 = `-1`）"
+             + " —— 与 M㉑-b **不同源**：那条比字面，这条比「匹配层写的那一行」与「录像层读的那一行」是不是一套");
         }
         finally
         {

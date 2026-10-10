@@ -311,13 +311,41 @@ namespace RuleEngine
                          : kind == "spirit" ? ps.SpiritStones
                          : ps.Energy;
                 string shown = kind == "faith" ? "信仰" : kind == "spirit" ? "灵魂石" : "能量";
-                if (!waived && have < op.Cost)
+
+                // 🔴 **2026-10-11（第十三会话 · `A1346` ②乙 ＋ `A1358`）：同一条付费前缀【只收一次】。**
+                //
+                //    **原版判据**（一条 ability = 一个 cost ＋ 一串 logic）：
+                //      · `CardAbility.cs` = `{ AbilityTrigger trigger; …; List<AbilityLogic> abilityLogic }`；
+                //        主动付费那一档 `ActiveAbility.cs` = `{ int manaCost; …; List<AbilityLogic> activeAbilityLogic }`；
+                //      · `d:/2/tools/decomp_full/BattleManager__PayActiveAbilityCostOath.c:22` 取誓约值之后
+                //        **一次激活只调一次 `PlayerManager__UseMana`**；`BattleManager__CanUseActiveAbility.c`
+                //        也是**整条 ability 判一次**余额。
+                //    **我们原来错在哪**：解析层是「一个付费前缀 → 贴到本段每条 op」
+                //      （`EffectText.StampPaidCost` 上一版是裸 `foreach`），而一条前缀会盖住 2 条 op
+                //      （跨句承接的第二句、或 `Finish` 把 `op.Tail` 递归解出来的那一条）
+                //      ⇒ 这里**逐 op 收** ⇒ **同一次激活扣两倍**。
+                //      实据（离线探针 `工具/ruleprobe`，全池跑过）：`UM93 Fall Back`
+                //      `Oath 2: Lower its cost by 2 and give it Flank`（2 条各 `Cost=2` ⇒ 扣 4）、
+                //      `SOR6 Righteous Repugnance` 的 `4 Energy:`（2 条各 4 ⇒ 扣 8）。
+                //
+                //    **口径**：`CostShared == true` = 这一条的钱**已经由同一前缀下的第一条付掉了**
+                //      （付钱那条记在 `EffectText.StampPaidCost`，判据只此一处）⇒
+                //      **① 不查余额**（组首刚扣过，再查会把第二半句误判成「付不起」）、
+                //      **② 不再扣**、**③ 不重复广播**（下面那段 `kind == "spirit"` 的世界事件）。
+                //    ⚠️ **认不出的货币那道闸仍然逐条过**（上面那段没动）—— 一组里两条货币名相同，
+                //       但「不认识的货币」该报几条就报几条，别让它靠在组首那一条上。
+                if (op.CostShared)
+                {
+                    ctx.Log($"{by}：「{op.Source}」的 {op.Cost} 点{shown}**不再收**"
+                          + "（与上一条同属一份付费前缀 —— 一次激活只付一次）");
+                }
+                else if (!waived && have < op.Cost)
                 {
                     ctx.Log($"{by}：「{op.Source}」需要 {op.Cost} 点{shown}才激活，不够 —— **这一条没生效**");
                     unresolved.Add(op.Source + "（付费不够）");
                     return false;
                 }
-                if (!waived)
+                else if (!waived)
                 {
                     if (kind == "faith") ps.Faith -= op.Cost;
                     else if (kind == "spirit") ps.SpiritStones -= op.Cost;
@@ -347,7 +375,10 @@ namespace RuleEngine
                 //    🆕 2026-09-16：**免付费那条路也发**（上面 `waived`）—— `Cosmic Serpent` 干的就是
                 //       「触发这些能力」，卡面那句话（`When **you trigger** a Spirit Stone ability`）
                 //       说的正是这件事，按付费与否分叉反而是错的。
-                if (kind == "spirit")
+                //    🔴 **2026-10-11（`A1346` ②乙）：一组里只发一次**（`!op.CostShared`）——
+                //       卡面写的是「**当**你触发一个灵魂石能力」，一次激活 = 一次触发；
+                //       一份付费前缀盖住 2 条 op 时发两遍就成了「触发两次」的假事件。
+                if (kind == "spirit" && !op.CostShared)
                     BroadcastWhen(ctx, WhenEventKind.SpiritAbility, owner, null, null);
             }
 
@@ -2144,13 +2175,72 @@ namespace RuleEngine
                 Count = op.Amount > 0 ? op.Amount : 1, Auto = true,
             };
             var targets = ResolveTargets(ctx, owner, spec, null, chosen);
+
+            // ---- 🔴 2026-10-11（`A1224`）：**代词目标的「旧对象」要映射回棋盘上现在占位的那一个** ----
+            // 起因（判据正本 = `资料/普查产出_第十三会话/R2_A1224现核.md`）：
+            // 卡面 `Deal N damage to an enemy **and Stun it**` 里的 `it` 解析成 `Side/Kind = "prev"`,
+            // 而**上一条 op 刚刚把这个目标打死了**：
+            //   `DoDeal` → `Hurt`（本文件 `:1346`）→ `RemoveIfDead` → `CleanupDeaths` **当场**跑完，
+            //   棋盘那一格上**已经换成翻面后的残骸**（`RuleCore.CleanupDeaths` 残骸那一段新建的
+            //   **另一个 `UnitState`、同一个 `CardInstance`**），而 `ctx.LastTarget` 仍是
+            //   `ResolveTargets` 在**伤害之前**写下的**那个旧对象**（本文件 `:853`）。
+            // ⇒ `ResolveTargets` 的 `prev` 支（`:628` / `:632`）拿 `u.IsAlive` 一挡 ⇒ `targets` **空**
+            //   ⇒ 只打一行「眩晕了 0 个单位」= **静默不晕**（全池 8 张卡都走这一条，见 §六·①）。
+            // 🔴 **原版会晕**：那道闸是 `CardScript__Stun.c:44-45` 的 `cardState ∈ {2,0xf,3,0x11}`
+            //   （= `IsInPlay()`），而 `CardScript__CheckIfDead.c:141-144` 的翻面支
+            //   **不置 `waitingToDie(5)`** ⇒ 那一刻 `cardState` **仍是 2** ⇒ 闸真。
+            //   （`A1176` 已经把这套判据用在 `DeclareAttack` 的震荡那一格；本笔是**同一个缺口**
+            //    在**效果 op 那条路**上的另一半。）
+            //
+            // 修法：**代词支**筛完为空时，按 `BoardOccupantByInstance`（**只认 `Instance`**、
+            // **不按格号** —— 理由见那个方法的注释：同一批里别人真死会让连续列表内移）把
+            // `LastTarget(s)` 映射成**棋盘上现在的占位者**：
+            //   · 映射得到 ⇒ 它就是这一个 op 的目标（残骸 `IsAlive` 真，下面那道 `!t.IsAlive` 过得去）；
+            //   · 映射不到（真的死了、已经不在棋盘上）⇒ **照旧空过**，与原版一致。
+            // ⚠️ **`spec.Count == 0` 才是 `them`**（上一条效果影响到的**整批**；`ResolveTargets`
+            //    用的是同一条判据，`:624`），否则是 `it`（**一个**）。
+            // ⚠️ **不加 `ctx.Log`**：末尾那句「眩晕了 N 个单位」已经把结果如实报出来了
+            //    （N 从 0 变 1 就是这件事的观测点），而**新增 Log 会改 `ctx.Events.Count` ⇒ 动到
+            //    `NetProtocol.Fingerprint`**（本工程踩过，见 `RuleCore` 里那两条同名提醒）。
+            // ⛔ **不改 `ResolveTargets` 的 `prev` 支本身**：那是**所有动词共用的口**
+            //    （`Deal` / `Destroy` / `Give` / `Blind` … 每个动词在原版各有自己的闸）
+            //    —— 一把梭 = 拿 `Stun` 的判据去改别的动词。
+            // ⛔ **也不放开下面那句 `!t.IsAlive`**：占位者（残骸）本来就活着、过得了；
+            //    放开它反而会把**真死**的目标混进来。
+            if (targets.Count == 0 && (spec.Side == "prev" || spec.Kind == "prev"))
+            {
+                if (spec.Count == 0)
+                {
+                    foreach (var old in ctx.LastTargets)
+                    {
+                        var occ = BoardOccupantByInstance(ctx, old);
+                        if (occ != null) targets.Add(occ);
+                    }
+                }
+                else
+                {
+                    var occ = BoardOccupantByInstance(ctx, ctx.LastTarget);
+                    if (occ != null) targets.Add(occ);
+                }
+            }
+
             foreach (var t in targets)
             {
                 if (t == null || !t.IsAlive) continue;
-                // 🆕 **2026-10-09（`A1166`）**：上面这一句 `!IsAlive` 就是原版 `CardScript__Stun.c:44-45`
-                //    那道 `cardState ∈ {2, 0xf, 3, 0x11}`（= `CardScript.IsInPlay()`）闸在我们这边的落点
-                //    —— 本方法的目标一律来自 `ResolveTargets` → `AddSide`（**只遍历 `ps.Board[s]`**，
-                //    本文件 `:1296-1304`），**按构造就在棋盘上** ⇒ 那道闸恒真、**已判等价、⛔ 不另加判据**。
+                // 🆕 **2026-10-09（`A1166`）**：上面这一句 `!IsAlive` 对应原版 `CardScript__Stun.c:44-45`
+                //    那道 `cardState ∈ {2, 0xf, 3, 0x11}`（= `CardScript.IsInPlay()`）闸。
+                //    🔴 **2026-10-11（`A1224`）就地订正：这一段原来写着「已判等价、⛔ 不另加判据」——
+                //    那句话【错了一档】，别再照它判「不用改」。** 错在哪：
+                //      · 原来那句的前提是「本方法的目标一律来自 `ResolveTargets` → `AddSide`
+                //        （**只遍历 `ps.Board[s]`**，本文件 `:1296-1304`）⇒ 按构造就在棋盘上」；
+                //      · 但**代词支根本不走 `AddSide`**（`ResolveTargets` 的 `prev` 支在 `:622-634`
+                //        就 `return` 了）⇒ 那句前提对代词目标**不成立**；
+                //      · 而且 `!IsAlive`（= `Health > 0`）**比 `IsInPlay()` 收得更紧**：
+                //        「血 ≤ 0、但要**翻面成残骸**」那一档原版**在场上、会晕**，我们**不晕**。
+                //    ⇒ `A1176` 已于 2026-10-10 在 `RuleCore.cs:2766` 把「等价」那个结论推翻
+                //      （判定口 = `RuleCore.StunStillOnBoard` / `BoardOccupantByInstance`）；
+                //      上面那段**代词映射**就是这同一个结论在效果 op 这条路的上半。
+                //    ⚠️ 这一句 `!IsAlive` **留着**（理由见上面那段 `⛔ 也不放开…`）。
                 //    逐档对照（18 档 `CardStateOptions` 与我们的对应物）与判据出处
                 //    见 `RuleCore.StunBlockedByTraits` 下方那段 `A1166` 注释。
                 // 🔴 **2026-10-09（`A1134`）：`unstunnable`（原版 `HasCurrentTrait(0xfa)`）⇒ 整个施加段跳过。**
@@ -6923,14 +7013,35 @@ namespace RuleEngine
                 case "foreach": return false;     // for-each 计数层还没做
                 case "energycheck":
                 {
-                    // `If you have less than 6 Energy, gain 1 Energy for each enemy unit`
-                    // （`SOR72 Adelaide the Serene`）—— **全池就这一张**。
-                    // 🔴 **2026-09-16 修**：原来这一支是 `return false`（= 判不了）⇒ 这半句从来
+                    // `If you have less than N Energy, …`。
+                    // 🔴 **2026-09-16 修**：原来这一支是 `return false`（= 判不了）⇒ 那半句从来
                     //    不发生；而它是张**单位卡** ⇒ 卡面连 `*` 都不打（`BattleDriver` 只给战术卡打星）。
                     // ⚠️ 阈值**从条件原文里读**（别写死 6）—— 换个数字的卡迟早会有。
+                    // 🔴 **2026-10-11（`A1357`）更正**：这一支原来的注释写着「（`SOR72 Adelaide the Serene`）
+                    //    —— **全池就这一张**」—— **那句已不成立**：`SOR72` 的英文 `desc` 把**信仰**错抄成了
+                    //    `Energy`（数据侧已改回 `☀`），它现在归 `faithcheck`。今天**全池 0 张**走这一支，
+                    //    但**留着**（`less than N Energy` 是合法写法，换张卡就有；删了还会让
+                    //    `RuleEngineTest` 的 `CanJudgeCondition("energycheck")` 那条断言红）。
                     int n = ParseFirstNumber(op.Condition);
                     if (n < 0) return false;                        // 读不出阈值 ⇒ 判不了
                     holds = ctx.Players[owner].Energy < n;
+                    return true;
+                }
+                case "faithcheck":
+                {
+                    // 🆕 **2026-10-11（第十三会话 · `A1357`）**：同一条判据、**另一种资源** ——
+                    //   `Rally: If you have less than 6 ☀, gain 1 ☀ for each enemy unit`
+                    //   （`SOR72 Adelaide the Serene`，全池唯一一张；卡图与 `descZh` 都是**金太阳**）。
+                    //
+                    //   **为什么必须与 `energycheck` 分开两条 case**：判「`☀` 是哪种资源」的
+                    //   判据只此一处（`EffectText.MentionsFaith`，与 `CostKindOf` 同源）——
+                    //   让一个 case 去现认字符串就等于**第二份判据**，两处迟早不一致。
+                    //   ⚠️ 阈值同样**从条件原文里读**（别写死 6）。
+                    //   ⚠️ 读的是 `PlayerState.Faith`（**不是** `Energy`）—— 原来错判能量时，
+                    //      `SOR72` 的这半句等于「按当前能量决定给不给信仰」，静默错语义。
+                    int n = ParseFirstNumber(op.Condition);
+                    if (n < 0) return false;                        // 读不出阈值 ⇒ 判不了
+                    holds = ctx.Players[owner].Faith < n;
                     return true;
                 }
                 default: return false;

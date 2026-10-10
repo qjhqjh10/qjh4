@@ -3,6 +3,12 @@
 // 为什么需要它：本工程**从来没有构建过 player**。2026-09-16 全仓 grep 的结论 ——
 // `BuildPipeline` / `BuildPlayer` / `-buildWindowsPlayer` **0 命中**，
 // `ProjectSettings/EditorBuildSettings.asset` 里只登记了模板自带的 `SampleScene.unity`。
+// 🔴 **2026-10-11 就地订正**：上面这半句「`EditorBuildSettings.asset` 里只登记了 `SampleScene.unity`」
+//   **已过期** —— 现读**5 个场景**（`SampleScene` / `MainMenu` / `DeckEditor` / `Battle` / **`Shell`**
+//   ← 最后一个是 2026-10-11 追加的）。⚠️ 但**下面「三条设计取舍」①**（⛔ 本类不动那个文件）**仍然成立**：
+//   本类**按设计**只拿自己的 `Scenes` 数组塞进 `BuildPlayerOptions.scenes` ⇒
+//   **两个清单是两份、各服务一条路**（`EditorBuildSettings` = 真包；本类 `Scenes` = 验证构建）。
+//   2026-10-11 起两边**都**登记了 `MainMenu` + `Shell`（判据 = `资料/交接_第十一会话.md` §2·2 波 3）。
 // 而「构建后 player 验证」是 `项目任务.md` 顶部待办表的**第 1 行**（用户 2026-09-16 拍板）：
 // **三条线都欠它 —— 到现在所有绿灯都来自编辑器**，而本工程最贵的一类 bug 恰恰是
 // 「编辑器里好、进真包坏」（运行时从 bundle 加载 shader · `StreamingAssets` 路径 ·
@@ -52,6 +58,16 @@ public static class PlayerBuild
         "Assets/WarpforgeArena1/Scenes/VFXWhiteboard.unity",
         "Assets/CardPresentation/Scenes/Battle.unity",
         "Assets/CardPresentation/Scenes/DeckEditor.unity",
+        // 🆕 **2026-10-11（第十二会话）追加这两个** —— 判据 = `资料/交接_第十一会话.md` §2·2
+        //   「波 3：🔴 **重建 player**（把 `MainMenu.unity` / `Shell.unity` 加进 build list）」。
+        //   ⚠️ **为什么要加在这里、而不是只改 `EditorBuildSettings.asset`**：本类**按设计**拿它自己这个
+        //     数组塞进 `BuildPlayerOptions.scenes`（见文件头「三条设计取舍」①：⛔ 不动那个仓库文件）
+        //     ⇒ **只登记 `EditorBuildSettings` 对这个入口【没有用】**，打出来的包里压根没有那两景。
+        //   ✅ **两边都登记**（`EditorBuildSettings.asset` 也已追加 `Shell.unity`；`MainMenu` 原本就在）：
+        //     那条路给**真包**用、这条给**验证构建**用 —— 都要能走「主界面 → 外壳 → 战斗」。
+        //   ⛔ **追加在表尾、不动启动场景**（启动场景仍是白板 ⇒ `PlayerBoot` 那套参数入口逐字不变）。
+        "Assets/CardPresentation/Scenes/MainMenu.unity",
+        "Assets/CardPresentation/Scenes/Shell.unity",
     };
 
     const string ExePath = "d:/4/_tmp_view/player/WarpforgePlayer.exe";

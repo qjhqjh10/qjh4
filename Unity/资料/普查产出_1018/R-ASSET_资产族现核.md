@@ -45,6 +45,17 @@
 - 为什么非跑不可：`EditorUtility.CopySerialized` 落到**已有网格资产**上没验过；`MeshImportMethodProbe` 的 M3 那一档验的是「从**包里的**网格 copy 进 `new Mesh()`」，输入不同 ⇒ **既不能判它死、也不能判它活**（W21 §④·1(b)）。
 - 回读口现成：`MeshImportMethodProbe.ReadBackVertexRange`（`MeshImportMethodProbe.cs:56-86`，读 Force-Text 的 `.asset` YAML）。
 - ⚠️ 跑完的**副作用**：`Run()` 先 `ClearGenerated()` ⇒ 现存 1399 个 `.mat` / 250 个 `.asset` 会被带走（这是**设计**，不是意外）；随后**必须**跟一次 `BoosterPackExporter.Run`。
+  🔴🔴 **2026-10-11 就地订正（第十二会话 · 主对话自己踩了 · 铁律 5）：上面这句【漏了两步】—— 照它做【必然】红 11 条。**
+  正确顺序（`-executeMethod` 一次只能给一个，见 `PlayerBuild.cs:35`）：
+  ① `EffectExporter.Run` → ② **`EffectExporter.RunListed`** → ③ **`EffectLibraryBuilder.Run`** → ④ `BoosterPackExporter.Run` → ⑤ `python -I 工具/fix_booster_prefabs.py` → ⑥ `BattleScene.BuildAndSaveScene`。
+  **为什么漏 ② 会红**：`Run()` **只重导「效果根」**（`!childOf` ∧ 子树里有 `ParticleSystemRenderer`），
+  而 `ListedPrefabs` 那 **8 件**（`Card 3D Death Explosion` · `Vanguard Frame Animated VAT` · `Orks Environmental Condition Night` ·
+  `AmbushEffect` · `StealthEffect` · `VanguardIdleEffect` · `Necrons death explosion` · `Environmental Condition Particles Orbital`，
+  另加 `A210` 那 19 个根名）**一件都不在那份名单里** ⇒ **`ClearGenerated()` 删了不补**。
+  实测后果 = `BattleScene.Run` **3 红** + `RewardsScene.Run` **8 红**（全是「效果库里没这条 ⇒ 粒子实例 0」）。
+  **为什么漏 ③ 也会红**：`RunListed()` 自己的 `<summary>` 末尾写着「导完**必须**跟一次『生成效果库』（`EffectLibraryBuilder`），
+  否则新 prefab **进不了库**」（`EffectExporter.cs:739`）。⇒ 🔑 **判据一律以代码自己的 doc 为准**（`EffectExporter.cs:657-741`）。
+  完整账 → `项目任务.md` 的 **`A1320`**。
 
 ### 3.2 `A845(b)` —— 成立，判据这轮从「未定」推进到「有候选、但要裁」
 

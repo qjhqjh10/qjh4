@@ -505,6 +505,16 @@ public static partial class RuleEngineTest
         Step(TestA985TermKey);
 
         // ============================================================
+        //  🆕 2026-10-18 之后（第十二会话 · `A1098`）：`+0x58`（`UnitState.SummonSickness`）
+        //  的**普通部署写点** + 三条**独立读点**。
+        //  ① 写 = `CardScript._MinionPlayedIntoField_d__314__MoveNext.c:69-71`
+        //  ② 读① = `BattleManager__IsValidAttackTarget.c:199-202` + `:282-290`（召唤病 ⇒ 打不了督军）
+        //  ③ 读②③ = `AI__ScoreFromGivingCharge.c:11-14` = `AI__ScoreFromCriteria.c:297-300`（`case 0x1e`）
+        // ============================================================
+        Section("🆕 `A1098`：`+0x58` 的部署写点 + 三条独立读点（目标合法性 / AI 给冲锋打分）");
+        Step(TestA1098SummonSicknessReads);
+
+        // ============================================================
         //  🆕 2026-10-18（第三会话 · 尾账 · 引擎族）
         // ============================================================
         //  ① `A992` 遗留乙：三个代词槽写点补成与 `DoDraw` 同形（`DoDrawType` / `DoDrawRef` /
@@ -23113,6 +23123,140 @@ public static partial class RuleEngineTest
                       + LogTail(ctx, 4));
             CheckCode(RuleCore.CanAttackNow(ctx, 0, sO, false), RuleCodes.OK,
                       "★ 所以下一个回合它**能攻击了**（`oath` 单位）");
+        }
+    }
+
+    /// <summary>
+    /// 🔴 **2026-10-18 之后（第十二会话 · `A1098`）：`+0x58`（`UnitState.SummonSickness`）
+    /// 的【普通部署写点】+ 三条【独立读点】。**
+    ///
+    /// 判据（现读 `d:/2/tools/decomp_full/`）：
+    ///   · **写点** `CardScript._MinionPlayedIntoField_d__314__MoveNext.c:69-71`
+    ///     = `if (*(char *)(param_1 + 0x30) == '\0') *(undefined1 *)(lVar4 + 0x58) = 1;`
+    ///     = `CardScript.MinionPlayedIntoField(...)` 协程里的 **`if (!keepStatus) card.summonSickness = true;`**
+    ///     （字段序 `keepStatus` `+0x30`，见 `CardScript.cs:523-560`）⇒ <see cref="RuleCore.ApplyDeployTurnState"/>。
+    ///   · **读点①** `BattleManager__IsValidAttackTarget.c:199-202`（裸 `+0x58`，**只**配 `fast`，
+    ///     不带侧翼 `0x1cc`）+ `:282-290`（条件为假 ⇒ 走「不合法」那一支）⇒ `RuleCore.IsValidTarget`。
+    ///     ⚠️ 它外面还套着 `get_cardType(目标) == 10`（`CardTypeOptions.Hero`）= **督军**。
+    ///   · **读点②③** `AI__ScoreFromGivingCharge.c:11-14` 与 `AI__ScoreFromCriteria.c:297-300`
+    ///     （`case 0x1e` = `ScoringCriteria.ScoringOption.SumValueOfGivingCharge = 30`）**同形**：
+    ///     先 `CanActNow`、**为假【再】**读裸 `+0x58` ⇒ 取 `CurrentMeleeAttack`
+    ///     ⇒ `SimpleAI.ScoreGivingCharge`。
+    ///
+    /// 🔴 **灭自证的做法**：三个读点都把**同一棋盘、同一刻、只差一位**的两态并排，断言方向相反
+    ///   ⇒ 任何**常量**、或「只写 `Exhausted`、不写 `+0x58`」的旧写法都**不可能同时绿**。
+    /// </summary>
+    static void TestA1098SummonSicknessReads()
+    {
+        // ---- Ⓐ 写点：**普通部署**那一路真的写了 `+0x58` ----
+        {
+            var plain = new CardDef("A1098Plain", "A1098Plain", "unit", "",
+                                    "common", "Test", 1, 2, 5, 0, null, subtype: "Infantry");
+            var flank = new CardDef("A1098Flank", "A1098Flank", "unit", "",
+                                    "common", "Test", 1, 2, 5, 0, new[] { "flank" }, subtype: "Infantry");
+            var ctx = Battle(new[] { plain, flank }, new[] { Unit("A1098FoeA", 1, 0, 9) });
+            ToP1Turn(ctx, 1);
+            ctx.Players[0].Energy = 30;
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "A1098Plain"), 1), RuleCodes.OK,
+                      "Ⓐ 打出**普通**单位（真部署入口 `RuleCore.PlayCard`）");
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "A1098Flank"), 2), RuleCodes.OK,
+                      "Ⓐ 打出带 `flank` 的对照");
+            int sP = SlotOf(ctx, 0, "A1098Plain"), sF = SlotOf(ctx, 0, "A1098Flank");
+            CheckTrue(sP >= 0 && sF >= 0, "Ⓐ （前提）两张都在场上");
+            if (sP >= 0 && sF >= 0)
+            {
+                var pu = Board(ctx, 0, sP);
+                var fu = Board(ctx, 0, sF);
+                CheckTrue(fu.Has("flank"), "Ⓐ （前提）对照那张身上真带 `flank`（夹具没退化成普通单位）");
+                CheckTrue(pu.SummonSickness && fu.SummonSickness,
+                          "★ Ⓐ **部署当回合【两位都】写了 `+0x58`** —— 原版那个写点在"
+                        + " `MinionPlayedIntoField` 协程里是**无条件**的（`if (!keepStatus)`），"
+                        + " 与「免不免召唤病」无关"
+                        + "｜🧨 把 `RuleCore.ApplyDeployTurnState` 里那句 `u.SummonSickness = true;`"
+                        + " 删掉 ⇒ 本行红");
+                CheckTrue(pu.Exhausted && !fu.Exhausted,
+                          "★ Ⓐ 而「能不能动」**只由豁免那个谓词分开** —— 本行与上一行**不可能**被"
+                        + " 同一个常量同时满足（写成 `SummonSickness = !HasDeployExemption(u)`"
+                        + " 会在上一行红）");
+            }
+        }
+
+        // ---- Ⓑ 读点①：召唤病 × **督军**（`IsValidAttackTarget.c:199-202` + `:282-290`）----
+        {
+            var ctx = Battle(new[] { Unit("A1098FillerB", 1, 1, 1) },
+                             new[] { Unit("A1098TroopB", 1, 0, 5) });
+            ToP1Turn(ctx, 1);
+            var sick = Place(ctx, 0, 3, Unit("A1098Sick", 1, 3, 5), exhausted: false);
+            var clean = Place(ctx, 0, 5, Unit("A1098Clean", 1, 3, 5), exhausted: false);
+            var troop = Place(ctx, 1, 3, Unit("A1098Prey", 1, 0, 5), exhausted: true);
+            // 夹具走 `Place`（**绕过**部署入口）⇒ 显式摆平那一位
+            // （免得将来有人给 `UnitState` 的构造函数加初值，前提就悄悄变了）
+            sick.SummonSickness = false; clean.SummonSickness = false;
+            CheckTrue(!sick.SummonSickness && !clean.SummonSickness && troop != null,
+                      "Ⓑ （前提）两个攻击者本来都没有召唤病");
+            int W = BoardSpec.WarlordSlot;
+
+            // （前提）没有那一位时打督军合法 —— 没这条前提，下面的 `ErrTarget` 可能是别的理由
+            CheckCode(RuleCore.IsValidTarget(ctx, 0, 3, 1, W, false), RuleCodes.OK,
+                      "Ⓑ （前提）没有召唤病 ⇒ 打敌方督军合法");
+
+            sick.SummonSickness = true;
+            CheckCode(RuleCore.IsValidTarget(ctx, 0, 3, 1, W, false), RuleCodes.ErrTarget,
+                      "★ Ⓑ **召唤病在身、且不带 `fast` ⇒ 打不了敌方督军**"
+                    + "（原版 `IsValidAttackTarget.c:199-202` 那个 `else if` 只配 `fast`；"
+                    + " `:282-290` 是它的 `else` 支 = 「不合法」）"
+                    + "｜🧨 把 `RuleCore.IsValidTarget` 末尾那句 `attacker.SummonSickness …` 删掉"
+                    + " ⇒ 实得 `OK` ⇒ 红");
+            CheckCode(RuleCore.IsValidTarget(ctx, 0, 5, 1, W, false), RuleCodes.OK,
+                      "★ Ⓑ **同一棋盘、同一刻，只差这一位**的对照照旧合法"
+                    + "｜🧨 把判别式写成常量（一律拒）⇒ 本行红");
+            CheckCode(RuleCore.IsValidTarget(ctx, 0, 3, 1, 3, false), RuleCodes.OK,
+                      "★ Ⓑ 而**同一格里打敌方的「部队」照旧合法** —— 这道闸只对督军"
+                    + "（卡面口径自洽：侧翼写的是「可攻击任意敌方**部队**」，督军不是部队）"
+                    + "｜🧨 把 `target.IsWarlord` 那个合取项删掉 ⇒ 本行红");
+            sick.AddKeyword("fast", 1);
+            CheckCode(RuleCore.IsValidTarget(ctx, 0, 3, 1, W, false), RuleCodes.OK,
+                      "★ Ⓑ 给它 `fast` ⇒ 又能打督军了 —— 🔴 **原版这里只认 `fast`**"
+                    + "（`0x28`），**没有**侧翼 `0x1cc`（与 `displaySummonSickness` 不是同一个谓词）"
+                    + "｜🧨 把 `!attacker.Has(\"fast\")` 那个合取项删掉 ⇒ 本行红（一律拒）");
+            CheckCode(RuleCore.IsValidTarget(ctx, 0, 3, 1, W, false, true), RuleCodes.OK,
+                      "★ Ⓑ `allowAutoActions = true`（= 原版形参 `param_6`，`:203`）⇒ **整条豁免**"
+                    + "｜🧨 忽略这个形参 ⇒ 本行红");
+        }
+
+        // ---- Ⓒ 读点②③：AI 打点（`AI__ScoreFromGivingCharge` = `case 0x1e` 同形）----
+        {
+            var ctx = Battle(new[] { Unit("A1098FillerC", 1, 1, 1) },
+                             new[] { Unit("A1098FoeC", 1, 0, 9) });
+            ToP1Turn(ctx, 1);
+            var u = Place(ctx, 0, 3, Unit("A1098Charge", 1, 4, 5), exhausted: true);
+            u.SummonSickness = true;
+            CheckTrue(u.Exhausted && u.SummonSickness, "Ⓒ （前提）它**不能动**且带召唤病");
+            Check(SimpleAI.ScoreGivingCharge(ctx, 0, 3), 4f,
+                  "★ Ⓒ 「给它冲锋」值 **= 它当前的近战攻击力**（原版取 `get_CurrentMeleeAttack`）"
+                + "｜🧨 把 `return u.Attack;` 改成 `return 0f;`、或删掉 `!u.SummonSickness` 那个合取项 ⇒ 红");
+            u.SummonSickness = false;
+            Check(SimpleAI.ScoreGivingCharge(ctx, 0, 3), 0f,
+                  "★ Ⓒ **同一棋盘、同一刻，只差这一位** ⇒ 0 分"
+                + "｜🧨 把读点换成 `u.Exhausted`（= 不要那一位）⇒ 本行与上一行**不可能同时绿**");
+            u.SummonSickness = true; u.Exhausted = false;
+            Check(SimpleAI.ScoreGivingCharge(ctx, 0, 3), 0f,
+                  "★ Ⓒ 它**本来就能动** ⇒ 0 分 —— 原版是**先读 `CanActNow`、为假【再】**读裸 `+0x58`"
+                + "（**两位一起用**，这正是这一位必须单独存在的理由）"
+                + "｜🧨 把 `RuleCore.CanActNow` 那个早退删掉 ⇒ 本行红");
+            u.Exhausted = true;
+
+            // 接线：`give fast` 那一条 op 走 `ScoreOps` 时把这一档真的加起来
+            var withCharge = new List<EffectOp> {
+                new EffectOp { Verb = "give", Payload = "fast", Amount = 1, Source = "fixture" } };
+            var withoutCharge = new List<EffectOp> {
+                new EffectOp { Verb = "give", Payload = "flank", Amount = 1, Source = "fixture" } };
+            Check(SimpleAI.ScoreOps(ctx, withCharge, 3, slotIsTarget: true), 4f,
+                  "★ Ⓒ 接线：`give fast` 那一条 op 在 `ScoreOps` 里把这一档加上了"
+                + "｜🧨 把 `ScoreOp` 的 `give` 支里那句 `g += ScoreGivingCharge(…)` 删掉 ⇒ 红");
+            Check(SimpleAI.ScoreOps(ctx, withoutCharge, 3, slotIsTarget: true), 0f,
+                  "★ Ⓒ 对照：给的是 `flank`（不是 `fast`）⇒ 不加这一档"
+                + "｜🧨 把 `PayloadIsCharge` 改成恒真 ⇒ 本行红");
         }
     }
 

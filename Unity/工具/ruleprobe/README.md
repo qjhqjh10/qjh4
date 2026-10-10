@@ -36,6 +36,35 @@ dotnet bin/Debug/net8.0/wfprobe.dll card "<卡名>"
 dotnet bin/Debug/net8.0/wfprobe.dll scan "基线/out_baseline.txt"
 ```
 
+## dump 的列（🆕 `A1368`：op 尾部那四列，2026-10-10）
+
+一条记录 = `id|name|unparsed|partial|op;op;…`，每条 op =
+`verb/chooseSrc/chooseWhat/chooseAct/amount/payload` **＋ 尾部四列**：
+
+| 列 | 从哪来 | 形状 |
+|---|---|---|
+| `cost` | `EffectOp.Cost` | 整数，`0` = 不付费 |
+| `shared` | `EffectOp.CostShared` | **`1`/`0`**（`1` = 这份代价是同组**别人**付的，本 op 不再收钱） |
+| `condKind` | `EffectOp.ConditionKind` | 条件的**规范名**，空 = 没条件/认不出 |
+| `countRef` | `EffectOp.CountRef` | `for each …` 数谁，空 = 不计数 |
+
+🔴 **为什么加**（台账 `A1368`）：这四样原来**一个字都不打** ⇒ 凡改「付费 / 条件 / 计数」三族的活，
+`check` 都给不出信号。第十三会话 `W6b` 撞过一次：它写的一个回归让 **28 张**卡的 `cost` 全变 0，
+**`check` 全绿**，是它另建的一次性副本才看出来的。
+**构造性实测（2026-10-10）**：拿一份**仓库外**的 Core 副本、只把主分支那句 `StampPaidCost` 的费用改成 0
+（**只动 `Cost` 一列**）⇒ **旧 dump 逐字节零差异（旧 `check` 完全瞎）**；**新 dump 81 行差异（`check` 红）**。
+
+⚠️ **`countRef` 原样打、不做转义**：`board` 族的取值自带两个 `|`（`enemy|unit|all`）——
+全池 **27 个 op** 的 `countRef` 带 `|`（落在 **25 行**上）⇒ 新基线里 `|` 数 >4 的行共 **44 行**（旧基线 **19 行**）。
+⛔ **别据此判「格式坏了」**：`chooseone` 的 `chooseWhat` 早就这样（旧基线那 19 行就是它），
+而 `check` 只认**前两个** `|`（`KeyOf`/`DefOf`，`Program.cs:196-197`）⇒ 不受影响。
+⛔ **也不许把 `|` 换成 `,`** —— 那会让 dump 的值与引擎字段**不同**，下一个人照 dump 抄进断言就抄错了
+（正是本笔要治的那一族）。渲染只有一处：`Program.CountRefText`（`Program.cs:142`）。
+
+⚠️ **`CostKind`（货币名 `ck=`）仍然不在 `scan` 列里** —— `seg`/`card` 打 `ck=`，但 `check` 看不见它
+⇒ 「只改货币名（`energy`↔`faith`）」这类改动今天**还是**进不了 `check`。**建议同批补上**（一行的事），
+本条**只报没做**（见 `资料/普查产出_第十三会话/W9_A1368探针补列.md` 的「顺手发现」）。
+
 ## 基线怎么重建（**重要**）
 
 ⛔ **别拿「逐字节相同」当判据** —— 卡名是**会变的产物**（B16/B20 两批共改 6 张卡名），
@@ -48,6 +77,27 @@ dotnet bin/Debug/net8.0/wfprobe.dll scan "基线/out_baseline.txt"
 cd d:/4/Unity/工具/ruleprobe
 dotnet bin/Debug/net8.0/wfprobe.dll scan "基线/out_baseline.txt"
 ```
+
+🔴 **重生成之前先问一句：这个 diff 是「我改了解析器」还是「探针的**卡名索引**掉了」？**（`A1339`）
+基线里**只有 1 行**与卡名索引有关 —— `UM_Angels_of_Death`（全池唯一一张「目标靠**卡名**指」且会被
+`scan` 打出来的卡）：索引在 ⇒ 第 4 列（`partial`）为空；索引掉 ⇒ 第 4 列变成
+`Codex: Give +1 [Ranged] to your Primaris Intercessor`。**这一行就是那条口径的哨兵** ——
+见了它别顺手重生成基线，先去看 `Program.LoadPool` 尾部那句 `CreatePool.BuildNameIndex(list)` 还在不在。
+（判据：`CreatePool.cs:613` —— 没建索引时 `MatchCardName` **一律返回 null**，探针就会与引擎**不同口径**，
+凡「目标靠卡名指」的句子一律报 `target=[]`。这条已经产出过两次**假证据**。）
+
+### 卡名索引：探针必须与引擎同口径（`A1339`，2026-10-10）
+
+引擎侧 `Data/CardDatabase.cs:113` 在读完卡表之后调 `CreatePool.BuildNameIndex(list)`；
+探针**原来两处都不建** ⇒ `card`/`seg` 报 `target=[]`、`scan`/`check` 落 `partial` 列。现在：
+
+- `card` / `filter` / `jackal` / `b19test` … —— 由 `Program.LoadPool()` 尾部建（**唯一**卡池入口）。
+- `seg`（走 `Dump`）—— 同上，`Dump` 头部调了一次 `LoadPool()`。
+- `scan` / `check` —— ⚠️ **这两条【不走 `LoadPool`】**（`Scan.ScanMain` 自己再读一遍 JSON）
+  ⇒ 它**自己**调了一次 `Program.LoadPool()`。
+
+🔴 **往这条链上加新入口时，问一句「它过不过 `LoadPool`」** —— 不过的（像 `Scan` 那样自己读 JSON 的）
+必须自己补一次，否则就是**只补一处 = 静默偏一半**。
 
 ## 桩够不够（2026-10-18 实测口径）
 

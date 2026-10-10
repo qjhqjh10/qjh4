@@ -29,6 +29,23 @@
 //       （`BattleDriver.PlayReplay` 末了一段）；不一致就出声。教程局这条链的自检落点 =
 //       `Editor/BattleScene.cs` 的「教程局」那一段（`回放 → 比终局局面哈希`）。
 //
+// ---- 🆕 2026-10-10（`A985⑬`）：**理由码走录像自己的两条记录，⛔ 不走 `MsgAction`** ----
+//   背景：`BattleDriver.PlayReplay` 重放 `RecKindForfeit` 那一条时**拿不到理由码**（只能传
+//   `BattleResult.Undefined`）。为什么不顺手加在动作上：`RecRaw` 写的是 `MsgAction`，而**同一结构也上网**
+//   （`NetKind.Action`/`Applied` 发整个 `MsgAction`）⇒ 给 `MsgAction` 加字段 = **把码送上网络**
+//   （原版 `BattleCommsManager.SendForfeit` 发的是 `System.Array.Empty<T>()` 空参数表、码**从来不过网**
+//    —— 见 `RuleEngine/Core/RuleCore.cs` 里 `BattleResult` 的注）。
+//   ⇒ 最小设计（判据 = `项目任务.md` 第 373 行 `A985` 尾巴 + §四·16）：**录像头尾各加一条【只落盘】的
+//      `[BattleResult]` 记录** = `ReplayRecord.resultHead` / `resultTail` 两格**字符串**（⛔ 不进 `actions`、
+//      ⛔ 不上网），**回放时读它**（`ReadResultCode`）。
+//   ⚠️ **只有一处拼那行字**：`ReplayStore.ResultLine`（`WriteResultHead` / `WriteResultTail` 都走它）。
+//      形状的唯一出处是 `RuleCore` 那两句 `ctx.Log($"[BattleResult] {reason}({(int)reason}) seat={player}")`
+//      （`Forfeit` 与 `CheckWinner`）；录像侧这一份是**孪生**，两者同形由 `Editor/NetSelfTest.cs` 的断言
+//      拿**字面量**钉住（⛔ 别在别处再拼一遍 —— 两份写法迟早不一致）。
+//   ⚠️ **两个调用点（`RecBegin` 写头 / `RecFinish` 写尾）在 `BattleDriver.cs`** —— 本文件只提供读写口。
+//      取码桥 = `LastResultFromEvents(Ctx.Events, out seat)`：码**不在 `ctx` 的任何字段上**
+//      （`BattleResult` 的注：⛔ 不写进 `ctx`、免得旧录像/旧联机局假红），它只活在 `ctx.Events` 的那一行里。
+//
 // ---- 存在哪（用户 2026-09-27 问的「专门的文件夹」）----
 // `Application.persistentDataPath/WarpforgeReplays/` —— 与 `NetConfig`（`WarpforgeNet.json`）·
 // `DeckStore` 同一套（`JsonUtility` + 一个给自检用的 `OverrideDir`）。
@@ -45,6 +62,9 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 using CardPresentation.Net;
+using RuleEngine;      // 🆕 2026-10-10（`A985⑬`）：`BattleResult`（理由码枚举）—— 同目录 / 同族的
+                      // `BattleDriver.cs` / `EndPanel.cs` 等也都 `using` 它；本文件原来不用它，是因为
+                      // 录像过去与理由码**一个字都不搭**（这账要的就是把它接上）。
 
 namespace CardPresentation
 {
@@ -132,6 +152,33 @@ namespace CardPresentation
         /// `null` = **这份录像没记**（老录像）⇒ 调用方退回老口径，⛔ **别拿 `null` 当「没有电脑」**。
         /// ⚠️ 它是**属性**（`JsonUtility` 只序列化字段 ⇒ 不进 `.json`、也不会在 `FromJson` 时被写，同 `TutorialStageIndex`）。</summary>
         public int? BotSeatForNewBattle { get { return botSeatPlus2 == 0 ? (int?)null : botSeatPlus2 - 2; } }
+
+        /// <summary>🆕 **2026-10-10（`A985⑬`）：录像【头】那一条 `[BattleResult]` 记录**（**只落盘**：
+        /// ⛔ 不进 `actions`、⛔ 不上网 —— 理由见本文件头部那一节）。
+        ///
+        /// <para>语义 = **开局那一刻**（`WriteResultHead`，调用点 `BattleDriver.RecBegin`）。那一刻**还没有结果**
+        /// ⇒ 正常是 <see cref="BattleResult.Undefined"/>(0) 那条（`ResultLine` 不写 `seat=`）。
+        /// 它同时是**「这份录像是从头开始记的」**那个记号（读 <see cref="ReplayStore.HasResultHead"/>）。</para>
+        ///
+        /// <para>🔴 **空串 / `null` 都表示「没记」**（老录像、以及还没接上写点的那条路）—— 与
+        /// <see cref="tutorialStage"/> 那条**同一条哨兵纪律**：老录像的 JSON 里**没有这个键**，而
+        /// `JsonUtility.FromJson` 会不会跑字段初始化器**本地没有判据** ⇒ 只有把「没记」同时定成
+        /// **`""`（初始化器的值）与 `null`（`string` 的 CLR 默认值）**，两条路才都安全。
+        /// ⛔ 别把「没记」改成别的写法（`"-"` 之类），也别拿空串当「未指定」那一档用
+        /// ——「未指定」有它自己的写法（`[BattleResult] Undefined(0)`）。</para>
+        /// ⚠️ **`version` 不 +1**：纯**新增**字段（同 `tutorialStage` / `botSeatPlus2`），老录像读出来是「没记」
+        /// = 它本来的行为；「改结构就 +1」那条防的是**同一格换语义**。</summary>
+        public string resultHead = "";
+        /// <summary>🆕 **2026-10-10（`A985⑬`）：录像【尾】那一条 `[BattleResult]` 记录**（**只落盘**，同上）。
+        ///
+        /// <para>语义 = **结算那一刻**（`WriteResultTail`，调用点 `BattleDriver.RecFinish`）= **这一局是「怎么」结束的**
+        /// （`Forfeit`(2) 投降 / `Disconnect`(3) 掉线 / `BattleVictory`(1) 督军倒下 / `Cancelled`(5) 取消匹配…）。
+        /// 存进去的是 <see cref="ReplayStore.ResultLine"/> 拼的那一行，**回放时用
+        /// <see cref="ReplayStore.ReadResultCode"/> 读它**（`PlayReplay` 重放 `RecKindForfeit` 时喂给引擎，
+        /// ⛔ 别再传 `Undefined`）。</para>
+        ///
+        /// <para>🔴 **空串 / `null` = 「没记」**（纪律同 <see cref="resultHead"/>）。⚠️ **`version` 不 +1**（纯新增字段）。</summary>
+        public string resultTail = "";
 
         /// <summary>动作流（含换牌那两条：`kind = 100/101`）。</summary>
         public List<MsgAction> actions = new List<MsgAction>();
@@ -242,6 +289,155 @@ namespace CardPresentation
             foreach (char c in s)
                 sb.Append(char.IsLetterOrDigit(c) ? c : '_');
             return sb.ToString();
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-10（`A985⑬`）：**头尾两条【只落盘】的 `[BattleResult]` 记录**
+        //      —— 理由码的唯一通道（⛔ 不进 `MsgAction`、⛔ 不上网）。判据与背景 → 本文件头部那一节。
+        //  ⚠️ 三个口分工，⛔ 别在别处再造一份：
+        //     · **写** = `WriteResultHead` / `WriteResultTail` → `ResultLine`（**唯一**拼那行字的地方）
+        //     · **读** = `ReadResultCode`（尾优先、退头）——「回放时读它」就是读它
+        //     · **取码桥** = `LastResultFromEvents`（结算时从 `ctx.Events` 里把码捞出来喂给写口）
+        // ==================================================================
+
+        /// <summary>理由码那条记录的 token 头 —— **与 `RuleCore.Forfeit` / `RuleCore.CheckWinner`
+        /// 那两句 `ctx.Log($"[BattleResult] {reason}({(int)reason}) seat={player}")` 同形**。
+        /// ⚠️ 形状的唯一出处是**那两句**；这里是录像侧的孪生，两者同形由 `Editor/NetSelfTest.cs` 的断言
+        /// 拿**字面量**钉住（那条断言不比本常量的输出 —— 否则就是自证）。</summary>
+        public const string ResultToken = "[BattleResult]";
+
+        /// <summary>把理由码拼成**引擎那套 token 形态**的一行。⚠️ **唯一**的书写口（见上面那张分工表）。
+        /// <para>🔴 `seat &lt; 0` ⇒ **不写 `seat=`**（⛔ 别拿 `-1` 顶替一个座位）：匹配层那一刻
+        /// **还没有 `ctx`、没有座位**（判据 = `项目任务.md` §四·15），如实不写，而不是编一个出来。
+        /// 引擎那两句**总是带着 `seat=`**（那边一定有座位）。</para>
+        /// <para>码不是 <see cref="BattleResult"/> 里定义的值时**出声**（不许静默）—— 写出来的会是数字形态，
+        /// <see cref="TryParseResultLine"/> 认不出来 ⇒ 读侧会如实报「没记」。</para></summary>
+        public static string ResultLine(BattleResult r, int seat)
+        {
+            if (!Enum.IsDefined(typeof(BattleResult), r))
+                Debug.LogWarning($"[Replay] 理由码 {(int)r} 不在 `BattleResult` 里 —— 照写，但读侧认不出（如实报「没记」）");
+            return ResultToken + " " + r + "(" + (int)r + ")" + (seat >= 0 ? " seat=" + seat : "");
+        }
+
+        /// <summary>写【录像头】那一条（**只落盘**）。调用点 = `BattleDriver.RecBegin`
+        /// （⚠️ 那一跳在 `BattleDriver.cs`，不在本文件 —— 本文件只给口）。</summary>
+        public static void WriteResultHead(ReplayRecord rec, BattleResult r, int seat)
+        {
+            if (rec == null) { Debug.LogWarning("[Replay] `WriteResultHead(null)` —— 不记"); return; }
+            rec.resultHead = ResultLine(r, seat);
+        }
+
+        /// <summary>写【录像尾】那一条（**只落盘** = 这一局是「怎么」结束的）。调用点 = `BattleDriver.RecFinish`
+        /// （⚠️ 同上，那一跳在 `BattleDriver.cs`）。码从哪来 = <see cref="LastResultFromEvents"/>。</summary>
+        public static void WriteResultTail(ReplayRecord rec, BattleResult r, int seat)
+        {
+            if (rec == null) { Debug.LogWarning("[Replay] `WriteResultTail(null)` —— 不记"); return; }
+            rec.resultTail = ResultLine(r, seat);
+        }
+
+        /// <summary>读一行 `[BattleResult] …` 记录。**行尾可以跟人话**（引擎那两句 `ctx.Log` 与
+        /// `NetMatchmaking.Cancel` 那一条都带着），只认 token 那一段。
+        /// <para>返回 `false` = **这一行不是一条理由码记录**（空串 / 认不出码名 / 根本不是这个 token）。
+        /// ⚠️ **名字认不出就返回 `false`**（⛔ 不猜一档 —— 铁律 2）；名字与括号里的数字**对不上**时
+        /// **按名字取并出声**（两个写法打架比没有更糟，但也不该因此把整条丢掉）。</para>
+        /// <para>`seat` = `-1` 表示**这一行没写座位**（不是「座位是 -1」）。</para></summary>
+        public static bool TryParseResultLine(string line, out BattleResult r, out int seat)
+        {
+            r = BattleResult.Undefined; seat = -1;
+            if (string.IsNullOrEmpty(line)) return false;
+            string s = line.TrimStart();
+            if (!s.StartsWith(ResultToken + " ", StringComparison.Ordinal)) return false;
+            s = s.Substring(ResultToken.Length + 1);
+
+            int lp = s.IndexOf('('), rp = lp < 0 ? -1 : s.IndexOf(')', lp + 1);
+            if (lp <= 0 || rp < 0) return false;
+            string name = s.Substring(0, lp).Trim();
+            string num = s.Substring(lp + 1, rp - lp - 1).Trim();
+            if (!Enum.TryParse<BattleResult>(name, false, out r) || !Enum.IsDefined(typeof(BattleResult), r)) return false;
+
+            int n;
+            if (int.TryParse(num, out n) && n != (int)r)
+                Debug.LogWarning($"[Replay] `{ResultToken}` 那一行的名字与数字对不上（{name}({num})）"
+                               + $" —— 按名字取 {(int)r}（两个写法打架 = 得修数据，别两边都信）");
+
+            int sp = s.IndexOf("seat=", rp + 1, StringComparison.Ordinal);
+            if (sp >= 0)
+            {
+                int q = sp + 5, e = q;
+                while (e < s.Length && (char.IsDigit(s[e]) || (s[e] == '-' && e == q))) e++;
+                int sv;
+                if (e > q && int.TryParse(s.Substring(q, e - q), out sv)) seat = sv;
+            }
+            return true;
+        }
+
+        /// <summary>录像【头】那一条的码。**「没记」与「认不出的坏行」都返回
+        /// <see cref="BattleResult.Undefined"/>(0)**，但坏行**会出声**（空 = 老录像，不吵）。</summary>
+        public static BattleResult ReadResultHead(ReplayRecord rec)
+        {
+            return ReadOne(rec == null ? null : rec.resultHead, "头");
+        }
+
+        /// <summary>录像【尾】那一条的码（判据同上）。</summary>
+        public static BattleResult ReadResultTail(ReplayRecord rec)
+        {
+            return ReadOne(rec == null ? null : rec.resultTail, "尾");
+        }
+
+        /// <summary>🔴 **「回放时读它」的那一个口** —— **尾优先、退头**（尾 = 这一局怎么结束的；
+        /// 头只在尾「没记」时才有意义）。⚠️ 判的是**尾记过没有**（<see cref="HasResultTail"/>），
+        /// ⛔ **不是**「尾的码是不是 `Undefined`」—— 「记过、码是 `Undefined(0)`」也是一条**如实**的记录，
+        /// 不该被头的值盖掉。读不出 ⇒ <see cref="BattleResult.Undefined"/>(0) = **「未指定」**，
+        /// ⛔ 调用方**别拿它冒充某一档**（`BattleResult` 的注：`Undefined` 有它自己的意思）。
+        /// ⚠️ 老录像两条都是空 ⇒ 这里返回 `Undefined`（= 它本来的行为，与只传 `Undefined` 逐字相同）。</summary>
+        public static BattleResult ReadResultCode(ReplayRecord rec)
+        {
+            return HasResultTail(rec) ? ReadResultTail(rec) : ReadResultHead(rec);
+        }
+
+        /// <summary>头那条**记过**吗（「这份录像是从头记的」那个记号）。⚠️ 与
+        /// <see cref="ReadResultHead"/> 不同源：那条看**码值**（`Undefined(0)` 也是一条记录），
+        /// 这条看**有没有那一格**。</summary>
+        public static bool HasResultHead(ReplayRecord rec)
+        {
+            return rec != null && !string.IsNullOrEmpty(rec.resultHead);
+        }
+
+        /// <summary>尾那条**记过**吗（`false` = 老录像 / 没接上写点 / 中途断了）。</summary>
+        public static bool HasResultTail(ReplayRecord rec)
+        {
+            return rec != null && !string.IsNullOrEmpty(rec.resultTail);
+        }
+
+        static BattleResult ReadOne(string field, string which)
+        {
+            if (string.IsNullOrEmpty(field)) return BattleResult.Undefined;      // 没记（老录像）—— 不吵
+            BattleResult r; int seat;
+            if (TryParseResultLine(field, out r, out seat)) return r;
+            // 🔴 记过、但认不出来 ⇒ **出声**（不许静默：这正是「两边写法不一致」会现形的地方）
+            Debug.LogWarning($"[Replay] 录像{which}那条 `{ResultToken}` 记录认不出来：「{field}」⇒ 当「未指定」"
+                           + "（⛔ 不猜一档；查 `ReplayStore.ResultLine` 与 `RuleCore` 那两句 `ctx.Log` 是不是同形）");
+            return BattleResult.Undefined;
+        }
+
+        /// <summary>🆕 2026-10-10（`A985⑬` 的**取码桥**）：从引擎那串 `ctx.Events` 里取**最后一条**
+        /// `[BattleResult] …`（`ctx.Log` 是只增不减的，所以要**从尾往前**找）。
+        /// <para>🔴 为什么要它：码**不在 `ctx` 的任何字段上**（`BattleResult` 的注：⛔ 不写进 `ctx`、
+        /// 免得旧录像/旧联机局假红）—— 它只以那一行的形式活在 `ctx.Events` 里
+        /// （`RuleCore.Forfeit` 与 `RuleCore.CheckWinner` 各写一条）⇒ 结算时想把它记进录像，**只能**回头读这一串。</para>
+        /// <para>一条都没有 ⇒ 返回 `Undefined` + `seat = -1`（**如实说「未指定」**，⛔ 别猜一档）。
+        /// `events` 传 `null` 也走这一支（不炸）。</para>
+        /// <para>⚠️ 调用点 = `BattleDriver.RecFinish`（在 `BattleDriver.cs`，不在本文件）。</para></summary>
+        public static BattleResult LastResultFromEvents(List<string> events, out int seat)
+        {
+            seat = -1;
+            if (events == null) return BattleResult.Undefined;
+            for (int i = events.Count - 1; i >= 0; i--)
+            {
+                BattleResult r; int s;
+                if (TryParseResultLine(events[i], out r, out s)) { seat = s; return r; }
+            }
+            return BattleResult.Undefined;
         }
 
         // ---------------------------------------------------------- 读 / 列 / 删

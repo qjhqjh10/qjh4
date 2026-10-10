@@ -59,7 +59,8 @@ public static class EffectExporter
     //       的副本（`MatCache` 只在一次运行内有效）⇒ 收工要用一次 `Resume=false` 的全量重导把副本清干净」
     //       —— `ImportMaterial` / `ImportMesh` 已改**确定路径 + 原地覆盖**，**不再长副本**，那句作废。
     //       仍然成立的两条：① 这一路的产物会被**下一次全量重导**（`Run()` 先 `ClearGenerated()`）带走；
-    //       ② 撞名不同源会出声（`MatByName`），跑完顺手 grep 一下 `撞名且内容不同`。
+    //       ② 撞名不同源会出声（`ResolveVariantPath` / `WarnCollision`），跑完顺手 grep 一下 `撞名且内容不同`；
+    //          收尾还会打一行 **A845(b)「一源一份」** 的产物断言（`ReportVariantPaths`）。
     static readonly string[] NameFilter = { };
 
     // 原版 shader 名 → 目标 shader 名。值里带 * 表示「近似替代」
@@ -172,10 +173,33 @@ public static class EffectExporter
     // ⇒ **不许静默覆盖**（铁律「不许静默失败」）：同名的**第一个**源记在这里，后来者**比内容**、不一样就出声。
     //   内容等价的**不出声** —— 实测 171 个名字 / 811 个文件正文等价，塌成一份无害。
     // 出处 → `资料/普查产出_1016/W20_mat副本根治.md` §④·1。
-    static readonly Dictionary<string, (Material src, List<string> fields)> MatByName
-        = new Dictionary<string, (Material, List<string>)>();
-    static readonly Dictionary<string, (Mesh src, List<string> fields)> MeshByName
-        = new Dictionary<string, (Mesh, List<string>)>();
+    //
+    // 🔴 **2026-10-10（`A845(b)`）：上面只做了「出声」那一半，这里补上另一半 —— 一源一份。**
+    //    原来：撞名且内容不同 ⇒ **只打告警**，两份源仍写同一个确定路径、后到的赢
+    //    ⇒ **先到的那种在工程里没有对应文件**（静默画错）。
+    //    现在：同一个 `stem` 下**每一种内容各得一份文件** ——
+    //      · 内容等价 ⇒ 塌成一份（无害；实测 171 个名字 / 811 个文件正文等价）；
+    //      · 内容不同 ⇒ **两份都带指纹**：先到的从裸名 `X.mat` **挪**到 `X__{哈希}.mat`
+    //        （`AssetDatabase.MoveAsset` **保 guid** ⇒ 已经写好的引用不会断），后到的直接落指纹名。
+    //    ⇒ 结果 = **一源一份**、且**与遍历顺序无关**（谁先到都得到同一组文件名）。
+    //    ⛔ **必须标成「这是我们挑的」**（铁律 3）：**原版没有「材质资产」这个概念**
+    //      （材质活在 bundle 里、各有自己的 pathID）⇒ 这一格**没有原版规格可照**；
+    //      能照的只有方向 ——「一源一份」比「两个源抢一个文件」更接近原版。
+    //      候选命名 `{stem}__{内容短哈希}` 出自 `资料/普查产出_1018/R-ASSET_资产族现核.md` §3.2。
+    //    ⚠️ 指纹**不含 `源名=`**（那是身份、不是内容）；哈希 = 自己实现的 FNV-1a 32 位（8 位十六进制），
+    //      ⛔ 不引新依赖、⛔ 不用 `GetHashCode()`（那个跨进程不稳定）。同一台机器上稳定即可。
+    //    ⚠️ **上一次导出留下的指纹文件是最常见的情形、不是边角** ⇒ `ResolveVariantPath` 会**先查盘上有没有
+    //      `{stem}__*` 兄弟**：有就直接落指纹名（否则「先占裸名 → 撞名 → 再挪走」会撞上上一次那份）。
+    //    ⚠️ 判据**量在产物上**：收尾 `ReportVariantPaths()` 断言「多内容的名字里没有一份占裸名、
+    //      路径互不相同、盘上都在」—— 删掉挪走那一句，第一条必红（灭自证）。
+    static readonly Dictionary<string, List<(List<string> fields, string path)>> MatVariants
+        = new Dictionary<string, List<(List<string>, string)>>();
+    static readonly Dictionary<string, List<(List<string> fields, string path)>> MeshVariants
+        = new Dictionary<string, List<(List<string>, string)>>();
+
+    // 盘上「已经有 `{stem}__*` 指纹兄弟」的基名（每目录建一次）—— 见 `ResolveVariantPath` 的 ⚠️ 那条
+    static readonly Dictionary<string, HashSet<string>> FingerprintedStems
+        = new Dictionary<string, HashSet<string>>();
 
     // ── 🆕 2026-10-01：**只被「模块字段」引用的材质**（挂在渲染器上看不见的那一批）────────────
     //
@@ -541,6 +565,7 @@ public static class EffectExporter
         SaveReport();
         Debug.Log($"=== 特效导出 结束：本片成功 {done} / 失败 {failed} / 跳过 {skipped}，" +
                   $"累计已收录 {Report.Count} / {total} ===");
+        ReportVariantPaths();          // 🆕 A845(b)：撞名分文件**量产物**的收尾断言（判据见函数头部）
     }
 
     static void LoadReport()
@@ -833,6 +858,7 @@ public static class EffectExporter
         AssetDatabase.Refresh();
         Debug.Log(EX1 + $"指定 prefab 导出完成：**{done}/{want}**"
                       + "（对不上 = 那件不在这些包里，或者加载失败 —— 上面有逐条日志）");
+        ReportVariantPaths();          // 🆕 A845(b)：撞名分文件**量产物**的收尾断言（判据见函数头部）
     }
 
     // ==================================================================
@@ -1114,6 +1140,297 @@ public static class EffectExporter
         return t;
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════════════════════
+    //  🆕 2026-10-10：**`m_Script` 那一跳**（`A1298` 持久修法 · `A1299` 守卫的洞）——
+    //  **两个导出器共用这一份**（`EffectExporter` 与 `BoosterPackExporter` 的 prefab 保存路各一行调用）。
+    //
+    //  病灶：`PrefabUtility.SaveAsPrefabAsset` 对「`m_Script` 指着**包里的** `MonoScript`（不是工程资产）」
+    //    的组件只能写成 `{fileID: <原版 pathID>, guid: 000…0, type: 0}` ⇒ 重开 prefab 那个组件是
+    //    **Missing (Mono Script)**；构建 player 时报 `Script attached to '<节点>' … is missing`
+    //    （实测那一趟 **140 条**，含 `CardPrefab.prefab` 的 `NameTextTacticBig` / `DescTextUnit` /
+    //      `Armour Text` / `Melee Attack Text` / `HealText` / `DescTacticSmall` —— 那些 TMP 在真包里是**死的**）。
+    //  受害面（2026-10-10 现读**产物**，不是内存）= `Assets/WarpforgeBooster/Prefabs/Booster Info Popup.prefab`
+    //    **24** 条 ＋ `Assets/WarpforgeVFX/Prefabs/` 963 件里 **3 件共 51 条**（`CardPrefab` 49/50 ·
+    //    `HuntMark_IdleEffect` 1 · `MarkerlightIdle` 1）。三种类（pathID 出处 =
+    //    `assets_full/bundle_Waprforge_monoscripts/MonoScript/MonoScript_<pid>.json` 的 `m_ClassName`，
+    //    2026-10-10 现读核过三种）= `Image` 11 · `TextMeshProUGUI` 24 · `TextMeshPro` 16。
+    //
+    //  🔴 **为什么必须是「两腿」**：内存里的判据**会骗人** —— 实测被引用的那 7 个 TMP 组件在内存里
+    //    是真 `TMP_Text`（`GetComponentsInChildren<TMP_Text>` 找得到、`m_fontAsset` 也读得出），
+    //    可落盘那一条还是 guid 全 0（`A1299` 那笔账：`BoosterPackExporter` 的守卫报「脚本未解析 0」，
+    //    而同一份 prefab 盘上就有 24 条 guid0）⇒ **唯一靠得住的判据是「把产物读回来数」。**
+    //  腿①  落盘前（根因修、通用）：`m_Script` 不是工程资产的组件，按它**运行期解析出来的类**
+    //       （`c.GetType()`）去工程里找 `MonoScript`（判据 = `MonoScript.GetClass() == c.GetType()`；
+    //       同名文件不止一份时靠它挑准 —— 实测 `Image.cs` 在 `com.unity.ide.visualstudio` 里也有一份）
+    //       ⇒ 写回 `m_Script`。**不认 pathID、不查类名表** ⇒ 上面三种（以及将来任何一族）同一条路。
+    //  腿②  落盘后（兜底 + 出声）：按**字节**读回刚写出的 prefab，数 `m_Script` 的 guid0 条数；
+    //       >0 就按 `KnownScriptPids` 改回来，并把**不在表里**的 pid 点名报出来（⛔ 不猜）。
+    //  ⛔ **必须标成「这是我们挑的」**（铁律 3）：原版没有「工程 prefab」这一格 ⇒ 无原版规格可照；
+    //    能照的只有方向 ——「让原版引用的那个脚本类仍然被引用」。
+    //  ⚠️ **顺序**：腿①必须在 `StripMissingScripts` **之后**（那时才会把「脚本完全找不到」的组件删掉）、
+    //    `PrefabUtility.SaveAsPrefabAsset` **之前** —— 本函数就是那个位置。
+    // ==========================================================================================
+    const string ZeroGuid = "00000000000000000000000000000000";
+
+    /// <summary>把 `Assets/…` 这种 **AssetDatabase 路径**换成**真实文件路径**（`File.*` 系列要的是后者）。
+    /// ⚠️ 本文件里既有代码是直接拿 `Assets/…` 去 `File.*` 的（`SaveReport` 的 `ReportPath`）——
+    /// 那**赌的是进程 CWD = 工程根**；新代码不赌（批处理怎么起的由不得我们）。</summary>
+    static string AbsFile(string assetPath)
+        => assetPath.StartsWith("Assets/", StringComparison.Ordinal)
+           ? Path.Combine(Application.dataPath,
+                          assetPath.Substring("Assets/".Length).Replace('/', Path.DirectorySeparatorChar))
+           : assetPath;
+
+    /// <summary>腿② 认的三种（判据 = 包内 `MonoScript.m_ClassName`，出处见上面那段）。
+    /// ⚠️ **不在表里的 pid 照样出声**（⛔ 不猜、也不静默）—— 要补就照同样的出处核一遍再加一行。</summary>
+    static readonly (long pid, string cls)[] KnownScriptPids =
+    {
+        (350208831926335389L,  "UnityEngine.UI.Image"),
+        (7477354737935883349L, "TMPro.TextMeshProUGUI"),
+        (6627610752530350053L, "TMPro.TextMeshPro"),
+    };
+
+    /// <summary>「落盘 ＋ 修 ＋ 按产物核对」的**唯一入口** —— 两个导出器的 prefab 保存路都走它（一处口径）。
+    /// 返回：(内存里接回几条, 落盘后 guid0 几条, 按表改回几条, 改完后还剩几条)。</summary>
+    public static (int fixedInMemory, int zeroOnDisk, int repaired, int left)
+        SavePrefabAndRepairScripts(GameObject inst, string path)
+    {
+        var unfixable = new List<string>();
+        int fixedInMemory = FixUnresolvedScripts(inst, unfixable);
+        PrefabUtility.SaveAsPrefabAsset(inst, path);
+        var nm = Path.GetFileNameWithoutExtension(path);
+        if (fixedInMemory > 0)
+            Debug.Log($"[EffectExporter] A1298 `{nm}`：落盘前把 **{fixedInMemory}** 条指不到工程脚本的 `m_Script` "
+                    + "接成了工程脚本（判据 = `MonoScript.GetClass() == 组件运行期类型`）");
+        if (unfixable.Count > 0)
+            Debug.LogWarning($"[EffectExporter] A1299 `{nm}` 有 {unfixable.Count} 个组件的脚本**连运行期类型都没解析出来**"
+                           + $" ⇒ 这一格接不回来（如实记、⛔ 不猜一个类顶上去）：{string.Join(" / ", unfixable)}");
+
+        var sample = new List<string>();
+        int zeroOnDisk = CountZeroGuidScripts(path, sample);
+        int repaired = 0;
+        int left = zeroOnDisk;                      // ⚠️ 只有真出事时才再读一遍（963 件 prefab × 每件上百 KB）
+        var leftSample = new List<string>();
+        if (zeroOnDisk > 0)
+        {
+            var unknown = new List<string>();
+            repaired = RepairZeroGuidScripts(path, unknown);
+            if (unknown.Count > 0)
+                Debug.LogWarning($"[EffectExporter] A1298 `{nm}` 有**不在表里**的 guid0 `m_Script` ⇒ 那几条改不回来："
+                               + string.Join(" / ", unknown));
+            left = CountZeroGuidScripts(path, leftSample);
+            Debug.LogWarning($"[EffectExporter] A1299 `{nm}`：**落盘后现读产物**有 **{zeroOnDisk}** 条 `m_Script` 是 guid0"
+                           + "（内存里的守卫报 0 也没用 —— 这一条量的是产物）；按表改回 **{repaired}** 条，"
+                           + $"改完还剩 **{left}** 条。" + $"前几条：{string.Join(" / ", sample)}"
+                           + (left > 0 ? $" ｜ 剩下的：{string.Join(" / ", leftSample)}" : ""));
+        }
+        return (fixedInMemory, zeroOnDisk, repaired, left);
+    }
+
+    /// <summary>腿①：把「`m_Script` 指不到工程脚本」的组件接成**它运行期那个类的**工程脚本。
+    /// 返回接回几条；`unfixable` 收「连运行期类型都没解析出来 / 工程里没有这个类 / 写不进去」的那些（点名）。
+    /// ⚠️ 判据用的是 `c is MonoBehaviour` ＋ `c.GetType()`：**不读 `m_Script` 的当前值**
+    ///   （那一格读出来可能是 null —— 正是 `A1299` 那个洞），所以这条路**不受它影响**。</summary>
+    public static int FixUnresolvedScripts(GameObject root, List<string> unfixable)
+    {
+        int n = 0;
+        if (root == null) return 0;
+        foreach (var c in root.GetComponentsInChildren<Component>(true))
+        {
+            if (c == null) continue;
+            if (!(c is MonoBehaviour)) continue;      // 非脚本组件（Transform/Renderer/ParticleSystem…）没有 `m_Script`
+            var cur = ScriptFieldOf(c);
+            if (cur != null && AssetDatabase.Contains(cur)) continue;   // 已经指着工程脚本 ⇒ 落得下来
+            var t = c.GetType();
+            // 先试**最便宜、最精确**的那条：组件自己的 `MonoScript`（`A1117` 那轮手工改产物时用的就是它）。
+            // 拿到的若不是工程资产（包里的 `MonoScript`）或拿不到，再按**运行期类型**找（见 `ProjectScriptFor`）。
+            MonoScript ms = null;
+            try { ms = MonoScript.FromMonoBehaviour(c as MonoBehaviour); } catch { ms = null; }
+            if (ms == null || !AssetDatabase.Contains(ms))
+                ms = t != typeof(MonoBehaviour) ? ProjectScriptFor(t) : null;
+            if (ms == null)
+            {
+                if (unfixable.Count < 8)
+                    unfixable.Add(t == typeof(MonoBehaviour)
+                        ? $"{c.gameObject.name}(连类型都没解析出来)"
+                        : $"{c.gameObject.name}({t.Name}：工程里找不到这个类的 MonoScript)");
+                continue;
+            }
+            if (SetScriptFieldOf(c, ms)) n++;
+            else if (unfixable.Count < 8) unfixable.Add($"{c.gameObject.name}({t.Name}：写 `m_Script` 失败)");
+        }
+        return n;
+    }
+
+    static UnityEngine.Object ScriptFieldOf(Component c)
+    {
+        try
+        {
+            using (var so = new SerializedObject(c))
+            {
+                var p = so.FindProperty("m_Script");
+                if (p == null || p.propertyType != SerializedPropertyType.ObjectReference) return null;
+                return p.objectReferenceValue;
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[EffectExporter] 读 `{c.GetType().Name}.m_Script` 失败（按「没接」处理）："
+                           + $"{e.GetType().Name}: {e.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>写回 `m_Script`，**写完当场回读核对**（`ApplyModifiedPropertiesWithoutUndo` 返回 true 也可能没落值）。</summary>
+    static bool SetScriptFieldOf(Component c, MonoScript ms)
+    {
+        try
+        {
+            using (var so = new SerializedObject(c))
+            {
+                var p = so.FindProperty("m_Script");
+                if (p == null || p.propertyType != SerializedPropertyType.ObjectReference) return false;
+                p.objectReferenceValue = ms;
+                if (!so.ApplyModifiedPropertiesWithoutUndo()) return false;
+            }
+            return ReferenceEquals(ScriptFieldOf(c), ms);
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[EffectExporter] 写 `{c.GetType().Name}.m_Script` = `{ms.name}` 失败："
+                           + $"{e.GetType().Name}: {e.Message}");
+            return false;
+        }
+    }
+
+    static readonly Dictionary<Type, MonoScript> ProjectScripts = new Dictionary<Type, MonoScript>();
+
+    /// <summary>工程里**那个类**的 `MonoScript`（判据 = `GetClass() == t`，⛔ 不按文件名猜）。
+    /// ⚠️ 同名脚本可能不止一份（实测 `Image.cs` 在 `com.unity.ide.visualstudio` 里也有一份）⇒ 靠 `GetClass()` 挑。
+    /// ⛔ 找不到返回 null（调用方点名出声），**绝不新建**。</summary>
+    static MonoScript ProjectScriptFor(Type t)
+    {
+        MonoScript hit;
+        if (ProjectScripts.TryGetValue(t, out hit)) return hit;
+        hit = null;
+        try
+        {
+            hit = FindProjectScript(AssetDatabase.FindAssets(t.Name + " t:MonoScript"), t);
+            if (hit == null)
+            {
+                // ⚠️ 兜底：名字过滤没命中就全库扫一遍（**很慢**、只在这一格用一次；正常一次都不会走到）
+                Debug.LogWarning($"[EffectExporter] 名字过滤 `{t.Name}` 没命中 ⇒ 全库扫 `t:MonoScript` 找 `{t.FullName}`（慢）");
+                hit = FindProjectScript(AssetDatabase.FindAssets("t:MonoScript"), t);
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[EffectExporter] 找类 `{t.FullName}` 的工程 MonoScript 失败（按「没有」处理）："
+                           + $"{e.GetType().Name}: {e.Message}");
+        }
+        ProjectScripts[t] = hit;
+        return hit;
+    }
+
+    /// <summary>在候选 `MonoScript` 资产里挑 `GetClass() == t` 的那一份（⛔ 不按文件名猜）。</summary>
+    static MonoScript FindProjectScript(string[] guids, Type t)
+    {
+        foreach (var g in guids)
+        {
+            var ms = AssetDatabase.LoadAssetAtPath<MonoScript>(AssetDatabase.GUIDToAssetPath(g));
+            if (ms != null && ms.GetClass() == t) return ms;
+        }
+        return null;
+    }
+
+    /// <summary>腿②的对照表：`"UnityEngine.UI.Image"` → `System.Type`（在本进程已加载的程序集里找）。</summary>
+    static readonly Dictionary<string, Type> TypeByName = new Dictionary<string, Type>();
+
+    static Type TypeOf(string fullName)
+    {
+        Type t;
+        if (TypeByName.TryGetValue(fullName, out t)) return t;
+        t = null;
+        foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            try { t = asm.GetType(fullName, false); } catch { t = null; }
+            if (t != null) break;
+        }
+        TypeByName[fullName] = t;
+        if (t == null) Debug.LogWarning($"[EffectExporter] 本进程的程序集里没有 `{fullName}` ⇒ 这一类改不回来");
+        return t;
+    }
+
+    /// <summary>腿②：把刚写出的 prefab 里**已知三种** pid 的 guid0 `m_Script` 改成工程脚本。
+    /// **字节级替换**（pattern 与替换串都是纯 ASCII ⇒ 不碰编码/BOM/行尾）—— 见 `ReplaceAsciiBytes`。
+    /// `unknown` 收「表里有、但工程里找不到这个类」的（点名）。</summary>
+    static int RepairZeroGuidScripts(string path, List<string> unknown)
+    {
+        int done = 0;
+        foreach (var k in KnownScriptPids)
+        {
+            var cls = TypeOf(k.cls);
+            var ms = cls != null ? ProjectScriptFor(cls) : null;
+            if (ms == null) { unknown.Add($"{k.cls}（工程里找不到这个类的 MonoScript）"); continue; }
+            var ap = AssetDatabase.GetAssetPath(ms);
+            string guid; long lid;
+            if (string.IsNullOrEmpty(ap) || !AssetDatabase.TryGetGUIDAndLocalFileIdentifier(ms, out guid, out lid))
+            { unknown.Add($"{k.cls}（取不到路径 `{ap}` 的 guid/localFileID）"); continue; }
+            var oldS = $"m_Script: {{fileID: {k.pid}, guid: {ZeroGuid}, type: 0}}";
+            var newS = $"m_Script: {{fileID: {lid}, guid: {guid}, type: 3}}";
+            int c = ReplaceAsciiBytes(path, oldS, newS);
+            if (c > 0) { done += c; Debug.Log($"[EffectExporter] A1298 落盘后改回 **{c}** 条 `m_Script` = `{k.cls}`（guid {guid}）"); }
+        }
+        if (done > 0) AssetDatabase.ImportAsset(path);   // 让 AssetDatabase 认这几次改（否则它手里还是旧文本）
+        return done;
+    }
+
+    /// <summary>在文件里做**字节级**的 ASCII 串替换（pattern / 替换串都必须纯 ASCII）。
+    /// 为什么不按文本读写：编码/BOM/行尾一律不动 —— 源码里踩过「文本模式写回翻行尾」好几次。</summary>
+    static int ReplaceAsciiBytes(string path, string oldAscii, string newAscii)
+    {
+        var b = File.ReadAllBytes(AbsFile(path));
+        var ob = System.Text.Encoding.ASCII.GetBytes(oldAscii);
+        var nb = System.Text.Encoding.ASCII.GetBytes(newAscii);
+        int n = 0;
+        var outB = new List<byte>(b.Length);
+        for (int i = 0; i < b.Length; )
+        {
+            if (i + ob.Length <= b.Length && MatchAt(b, i, ob)) { outB.AddRange(nb); i += ob.Length; n++; }
+            else { outB.Add(b[i]); i++; }
+        }
+        if (n > 0) File.WriteAllBytes(AbsFile(path), outB.ToArray());
+        return n;
+    }
+
+    static bool MatchAt(byte[] hay, int at, byte[] pat)
+    {
+        for (int i = 0; i < pat.Length; i++) if (hay[at + i] != pat[i]) return false;
+        return true;
+    }
+
+    /// <summary>🔴 **A1299 的堵法**：数刚写出的 prefab 里 `m_Script` 是 guid0 的行数 —— **量产物**。
+    /// `sample` 收前 6 行原文（点名用，日志用 UTF-8 解，只影响可读性）。</summary>
+    public static int CountZeroGuidScripts(string path, List<string> sample)
+    {
+        var b = File.ReadAllBytes(AbsFile(path));
+        var key = System.Text.Encoding.ASCII.GetBytes("m_Script:");
+        var zero = System.Text.Encoding.ASCII.GetBytes("guid: " + ZeroGuid);
+        int n = 0;
+        for (int i = 0; i + key.Length <= b.Length; i++)
+        {
+            if (!MatchAt(b, i, key)) continue;
+            int e = i;
+            while (e < b.Length && b[e] != (byte)'\n') e++;     // 这一行
+            bool hit = false;
+            for (int j = i; j + zero.Length <= e; j++) if (MatchAt(b, j, zero)) { hit = true; break; }
+            if (!hit) continue;
+            n++;
+            if (sample.Count < 6) sample.Add(System.Text.Encoding.UTF8.GetString(b, i, e - i).Trim());
+        }
+        return n;
+    }
+
     static void Export(GameObject src)
     {
         var inst = UnityEngine.Object.Instantiate(src);
@@ -1348,11 +1665,15 @@ public static class EffectExporter
         binder.animatorController = origController ?? "";
 
         var path = $"{PrefabDir}/{Sanitize(src.name)}.prefab";
-        PrefabUtility.SaveAsPrefabAsset(inst, path);
+        // 🆕 2026-10-10（A1298/A1299）：落盘前把指不到工程脚本的 `m_Script` 接成工程脚本，
+        // 落盘后**按产物**数一遍 guid0 并在需要时按表改回 —— 这三件事就这一行（判据见函数头部那段）。
+        var sfx = SavePrefabAndRepairScripts(inst, path);
         UnityEngine.Object.DestroyImmediate(inst);
 
         LastDetail = $"材质定义{defs.Count}个；原 shader: {string.Join(", ", usedShaders.OrderBy(x => x))}" +
-                     (approx > 0 ? $"；近似替代 {approx} 处" : "");
+                     (approx > 0 ? $"；近似替代 {approx} 处" : "") +
+                     (sfx.fixedInMemory > 0 ? $"；m_Script 接回 {sfx.fixedInMemory} 条" : "") +
+                     (sfx.zeroOnDisk > 0 ? $"；**m_Script 落盘guid0 {sfx.zeroOnDisk}→改回{sfx.repaired}→剩{sfx.left}**" : "");
     }
 
     /// <summary>补齐「渲染器层面」的 shader 关键字。
@@ -1704,45 +2025,181 @@ public static class EffectExporter
 
     static string ShaderOf(Material m) => m != null && m.shader != null ? m.shader.name : "<null>";
 
-    /// <summary>材质撞名守卫 —— 判据见 `MatByName` 头部那段。记的是**第一个**源；
-    /// 后来每一个**不同的**源都跟它比一次 ⇒ 18 个撞名名字会打出一串警告，**那是有意的**：
-    /// 每个「输家」都要点名（⛔ 不许静默覆盖）。</summary>
-    static void GuardMatName(string stem, Material src)
+    /// <summary>🔴 **一源一份**（`A845(b)`）：同名多源时，给每一个**内容不同**的源各定一个确定路径。
+    /// 判据与设计理由见 `MatVariants` 头部那段；材质与网格**共用这一份规则**（只传不同的表 / 后缀），
+    /// ⛔ 别在两处各写一套（`CLAUDE.md` §三「两处写同一条规则 = 迟早不一致」）。
+    /// 返回该源该落的路径；`collision` = 本次是不是「同名但内容不同」（调用方据此出声）。
+    /// `moved` 收「先到的那份被就地改名」的记账（`X.mat → X__h.mat`）。</summary>
+    static string ResolveVariantPath(Dictionary<string, List<(List<string> fields, string path)>> reg,
+                                    string dir, string ext, string stem, List<string> fields,
+                                    List<string> moved, out bool collision)
     {
-        var fields = MatFields(src);
-        if (MatByName.TryGetValue(stem, out var first))
+        collision = false;
+        List<(List<string> fields, string path)> lst;
+        if (!reg.TryGetValue(stem, out lst)) { lst = new List<(List<string>, string)>(); reg[stem] = lst; }
+
+        // ① 内容等价 ⇒ 复用已经落好的那一份（塌成一份无害，正是原来「不出声」的那种）
+        foreach (var v in lst) if (FieldDiff(v.fields, fields).Count == 0) return v.path;
+
+        string bare = $"{dir}/{stem}{ext}";
+        // ② 这个名字下的第一个内容 —— 除非**上一次导出**已经留下了指纹兄弟（那说明它撞过名）
+        if (lst.Count == 0)
         {
-            if (ReferenceEquals(first.src, src)) return;      // 同一个源对象，不是撞名
-            var diff = FieldDiff(first.fields, fields);
-            if (diff.Count == 0) return;                      // 内容等价 ⇒ 塌成一份无害，不出声
-            var shown = string.Join(" / ", diff.Take(6));
-            Debug.LogWarning($"[EffectExporter] 材质**撞名且内容不同**：`{stem}` —— "
-                           + $"先到 `{first.src.name}`（shader {ShaderOf(first.src)}）、"
-                           + $"后到 `{src.name}`（shader {ShaderOf(src)}）；"
-                           + $"确定路径写同一份 ⇒ **后到的赢，先到的那种在工程里没有对应文件**。"
-                           + $"差异 {diff.Count} 处（最多列 6）：{shown}" + (diff.Count > 6 ? " …" : ""));
-            return;
+            string p0 = HasFingerprintedSibling(dir, stem, ext) ? FingerprintPath(dir, stem, ext, fields) : bare;
+            lst.Add((fields, p0));
+            return p0;
         }
-        MatByName[stem] = (src, fields);
+
+        // ③ 又来一种不同的内容 ⇒ 先到的若还占着裸名，就地挪到**它的**指纹名（`MoveAsset` 保 guid）
+        var first = lst[0];
+        if (first.path == bare)
+        {
+            var fp = FingerprintPath(dir, stem, ext, first.fields);
+            MoveAssetKeepGuid(bare, fp);
+            lst[0] = (first.fields, fp);
+            moved.Add($"{stem}{ext} → {Path.GetFileName(fp)}");
+        }
+        collision = true;
+        var np = FingerprintPath(dir, stem, ext, fields);
+        lst.Add((fields, np));
+        return np;
     }
 
-    /// <summary>网格撞名守卫 —— 与 `GuardMatName` 同形（字段表见 `MeshFields`）。</summary>
-    static void GuardMeshName(string stem, Mesh m)
+    /// <summary>`{dir}/{stem}__{内容短哈希}{ext}` —— 撞名分文件的命名（**我们挑的**，见 `MatVariants` 头部）。</summary>
+    static string FingerprintPath(string dir, string stem, string ext, List<string> fields)
+        => $"{dir}/{stem}__{ShortHash(fields)}{ext}";
+
+    /// <summary>内容指纹：**自己实现的 FNV-1a 32 位**（8 位十六进制）。
+    /// ⛔ 不用 `GetHashCode()`（跨进程/跨运行不保证稳定）；⛔ 不引新依赖。
+    /// ⚠️ **排除 `源名=`** —— 那是「这是谁」，不是「内容是什么」：同名多源比的就是内容。
+    /// ⚠️ 字段值是 `Color.ToString()` 那类与本机 culture 有关的格式 —— **同一台机器上稳定**即可
+    ///（这个哈希只用来给同一次导出里的同内容分组，不做跨机校验）。</summary>
+    static string ShortHash(List<string> fields)
     {
-        var fields = MeshFields(m);
-        if (MeshByName.TryGetValue(stem, out var first))
+        uint h = 2166136261u;                       // FNV-1a 32 位
+        foreach (var f in fields)
         {
-            if (ReferenceEquals(first.src, m)) return;
-            var diff = FieldDiff(first.fields, fields);
-            if (diff.Count == 0) return;
-            var shown = string.Join(" / ", diff.Take(6));
-            Debug.LogWarning($"[EffectExporter] 网格**撞名且内容不同**：`{stem}` —— "
-                           + $"先到 `{first.src.name}`、后到 `{m.name}`；"
-                           + $"确定路径写同一份 ⇒ **后到的赢，先到的那种在工程里没有对应文件**。"
-                           + $"差异 {diff.Count} 处（最多列 6）：{shown}" + (diff.Count > 6 ? " …" : ""));
+            if (f.StartsWith("源名=", StringComparison.Ordinal)) continue;
+            foreach (var ch in f) { h ^= ch; h *= 16777619u; }
+            h ^= (uint)'\n'; h *= 16777619u;
+        }
+        return h.ToString("x8");
+    }
+
+    /// <summary>这个名字**在盘上**是不是已经有 `{stem}__{8位十六进制}{ext}` 的指纹兄弟了。
+    /// 为什么需要它（`A845(b)` 的顺序无关性）：`Run()` 清产物 + 逐根遍历 ⇒ 本轮第一个撞名源
+    /// 在**检测到撞名之前**就已经占了裸名。而**上一次导出留下的指纹文件是常态**（名字集合是稳定的）
+    /// ⇒ 先占裸名、再撞名、再挪走，就一定会撞上「目标已存在」。
+    /// 判据 = 只看「`__` 后面恰好是 8 位十六进制」的那些（**避开**源名自己带 `__` 的假阳性）。
+    /// ⚠️ 每个目录只扫一次（`Run()` 的 `ClearGenerated()` 在任何导入之前 ⇒ 缓存不会过期）。</summary>
+    static bool HasFingerprintedSibling(string dir, string stem, string ext)
+    {
+        HashSet<string> stems;
+        if (!FingerprintedStems.TryGetValue(dir, out stems))
+        {
+            stems = new HashSet<string>(StringComparer.Ordinal);
+            try
+            {
+                foreach (var p in Directory.GetFiles(AbsFile(dir)))
+                {
+                    var f = Path.GetFileName(p);
+                    if (!f.EndsWith(ext, StringComparison.OrdinalIgnoreCase)) continue;
+                    int i = f.IndexOf("__", StringComparison.Ordinal);
+                    while (i > 0)
+                    {
+                        var tail = f.Substring(i + 2, f.Length - i - 2 - ext.Length);
+                        if (tail.Length == 8 && tail.All(ch => (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f')))
+                            stems.Add(f.Substring(0, i));
+                        i = f.IndexOf("__", i + 1, StringComparison.Ordinal);
+                    }
+                }
+            }
+            catch (Exception e) { Debug.LogWarning($"[EffectExporter] 扫 `{dir}` 找指纹兄弟失败（当没有）：{e.Message}"); }
+            FingerprintedStems[dir] = stems;
+        }
+        return stems.Contains(stem);
+    }
+
+    /// <summary>把一份**已经在盘上**的产物挪到指纹名。`AssetDatabase.MoveAsset` **保 guid** ⇒ 引用不断。
+    /// ⚠️ 目标已存在（上一次导出留下的、同内容的指纹文件）⇒ **删掉旧的再把本次的挪过去**：
+    /// 保的是**本次**那份的 guid（它刚刚被写进本次的 prefab，是活的）；上一次那份只可能被上一次的产物
+    /// 引用，而那些产物本次会重写。⛔ 静默不许 —— 这一步一定出声。</summary>
+    static void MoveAssetKeepGuid(string from, string to)
+    {
+        if (AssetDatabase.LoadMainAssetAtPath(to) != null)
+        {
+            Debug.LogWarning($"[EffectExporter] 指纹名 `{Path.GetFileName(to)}` 已被上一次导出占着（同内容）"
+                           + " ⇒ 删掉旧的那份、把本次的挪过去（保**本次**的 guid；上一次引用旧 guid 的产物本次会重写）");
+            AssetDatabase.DeleteAsset(to);
+        }
+        var err = AssetDatabase.MoveAsset(from, to);
+        if (!string.IsNullOrEmpty(err))
+            Debug.LogError($"[EffectExporter] 挪 `{from}` → `{to}` 失败：{err} ⇒ 这个名字下会有两份内容抢一个文件名");
+    }
+
+    /// <summary>撞名出声（**内容不同才响**）。🔴 `A845(b)` 之后那句话**改了**（铁律 5：就地改掉错记录）：
+    /// 原来写的是「后到的赢，先到的那种在工程里没有对应文件」—— 现在**两份各有一份文件**。</summary>
+    static void WarnCollision(string kind, string stem, List<(List<string> fields, string path)> variants,
+                              List<string> newer, string newerName, List<string> moved)
+    {
+        var first = variants[0];
+        var diff = FieldDiff(first.fields, newer);
+        var shown = string.Join(" / ", diff.Take(6));
+        Debug.LogWarning($"[EffectExporter] {kind}**撞名且内容不同**：`{stem}` —— "
+                       + $"先到 `{NameOfVariant(first.fields)}`、后到 `{newerName}`；"
+                       + $"差异 {diff.Count} 处（最多列 6）：{shown}" + (diff.Count > 6 ? " …" : "")
+                       + $" ⇒ **一份一个源**（这是我们挑的：原版没有「{kind}资产」这个概念）："
+                       + string.Join(" · ", variants.Select(v => "`" + Path.GetFileName(v.path) + "`"))
+                       + (moved.Count > 0 ? $"；先到的那份已就地改名（`MoveAsset` **保 guid**）：{string.Join(" · ", moved)}" : ""));
+    }
+
+    /// <summary>`源名=X` 那一项里的名字（`MatFields`/`MeshFields` **约定第 0 项就是它**）。</summary>
+    static string NameOfVariant(List<string> fields)
+    {
+        var s = fields.Count > 0 ? fields[0] : "";
+        return s.StartsWith("源名=", StringComparison.Ordinal) ? s.Substring(3) : "<?>";
+    }
+
+    /// <summary>🔴 **灭自证断言**（`A845(b)`）—— **量产物、不量我们自己的表**。三条：
+    /// ① 多内容的名字里**没有任何一份占着裸名** `X.mat`（**删掉「把先到的挪走」那一句 ⇒ 这一条必红**）；
+    /// ② 各变体路径互不相同；③ 每一条路径在盘上真的存在。
+    /// 跑在 `Run()` / `RunListed()` 收尾（各一行调用）。⚠️ 它**只在本次导出的名字集合上**成立 ——
+    /// 分片续跑（`Resume`）时只有本片碰过的名字在表里，别把它读成「全库都核过了」。</summary>
+    public static void ReportVariantPaths()
+    {
+        var problems = new List<string>();
+        int names = 0, files = 0;
+        CheckVariantPaths(MatVariants, MatDir, ".mat", problems, ref names, ref files);
+        CheckVariantPaths(MeshVariants, MeshDir, ".asset", problems, ref names, ref files);
+        if (names == 0)
+        {
+            Debug.Log("[EffectExporter] A845(b) 撞名分文件：本次**没有**「同名不同内容」的源（0 个名字）");
             return;
         }
-        MeshByName[stem] = (m, fields);
+        if (problems.Count == 0)
+            Debug.Log($"[EffectExporter] A845(b) **一源一份**已达成：{names} 个名字各有 ≥2 种内容、共 {files} 份文件 —— "
+                    + "① 没有一份占着裸名 `X` ② 路径互不相同 ③ 每份在盘上都在 ✅");
+        else
+            Debug.LogError($"[EffectExporter] A845(b) **一源一份没达成**（{problems.Count} 条）："
+                         + string.Join(" / ", problems.Take(10)));
+    }
+
+    static void CheckVariantPaths(Dictionary<string, List<(List<string> fields, string path)>> reg,
+                                  string dir, string ext, List<string> problems, ref int names, ref int files)
+    {
+        foreach (var kv in reg)
+        {
+            if (kv.Value.Count < 2) continue;
+            names++;
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var v in kv.Value)
+            {
+                files++;
+                if (v.path == $"{dir}/{kv.Key}{ext}") problems.Add($"`{kv.Key}` 仍有一份占着裸名 {Path.GetFileName(v.path)}");
+                if (!seen.Add(v.path)) problems.Add($"`{kv.Key}` 两份落在同一路径 {Path.GetFileName(v.path)}");
+                if (AssetDatabase.LoadMainAssetAtPath(v.path) == null) problems.Add($"`{kv.Key}` 的 {Path.GetFileName(v.path)} 不在盘上");
+            }
+        }
     }
 
     public static Material ImportMaterial(Material src, out bool approx, out string origShader)
@@ -1864,10 +2321,13 @@ public static class EffectExporter
         // 🔴 **2026-10-16：确定路径 + 原地覆盖**（这两行原来写的是
         //    `GenerateUniqueAssetPath($"{MatDir}/{Sanitize(src.name)}.mat")` + `AssetDatabase.CreateAsset`）。
         //    病灶：**路径不确定** —— 目标被占就吐 `X 1.mat` / `X 2.mat` …，而 `CreateAsset` 每次新建、guid 换一批。
-        //    两个成因并存：**(a) 同名不同源材质**（原件就有，见 `MatByName` 那一段）+ **(b) `RunListed()`
+        //    两个成因并存：**(a) 同名不同源材质**（原件就有，见 `MatVariants` 那一段）+ **(b) `RunListed()`
         //    不清产物**（`Run()` 那条路每次先 `ClearGenerated()`，现存副本会被下一次全量重导自己带走）
         //    —— 实测 `LightningTrail_intense` 原版只有 1 个源材质、我们却有 12 份。
-        //    ⇒ 确定路径对 (b) 是**必需**的；(a) 则把「多份文件」换成「后写的赢」，由 `GuardMatName` 出声。
+        //    ⇒ 确定路径对 (b) 是**必需**的；**(a) 由 `A845(b)` 补成「一源一份」**（先到的挪到指纹名、
+        //    后到的直接带指纹；`MoveAsset` 保 guid）—— 🔴 **记录订正（2026-10-10）**：这里原来写的是
+        //    「(a) 则把『多份文件』换成『后写的赢』，由 `GuardMatName` 出声」—— 那是**只出声、没修**的
+        //    半成品，`A845(b)` 已经把它修掉了（旧写法见 `ResolveVariantPath` 头部）。
         //    🔴 **判据同时改过**：旧的「`* [0-9].mat` 清到 0」**作废** —— 原版本来就有以数字结尾的材质名
         //    （亲扫 1092 个原版 Material JSON 证实 10 个：`Lens Flare 1` · `Glow Sphere 01` · `Flare 3` ·
         //    `firewall 1` …）。新判据 = **「形如 `X N.mat` 且同目录存在 `X.mat`」**：那一族今天
@@ -1879,8 +2339,13 @@ public static class EffectExporter
         //    ⚠️ 副作用：`Run()` 下次全量重导会**换掉 Materials/ 下所有 guid**（它先 `ClearGenerated()`）
         //      ⇒ 跑完必须跟一次 `BoosterPackExporter.Run`（见本类头部 `:22`）。
         string stem = Sanitize(src.name);
-        GuardMatName(stem, src);                       // 撞名出声（内容不同才响 —— 见 `GuardMatName`）
-        string path = $"{MatDir}/{stem}.mat";
+        // 🔴 `A845(b)` **一源一份**：同名不同内容时两份各带指纹（先到的会被就地挪走，`MoveAsset` 保 guid）。
+        //    判据/理由见 `MatVariants` 头部；**网格那条路是同一个函数**（别在两处各写一套）。
+        var mFields = MatFields(src);
+        var mMoved = new List<string>();
+        bool collided;
+        string path = ResolveVariantPath(MatVariants, MatDir, ".mat", stem, mFields, mMoved, out collided);
+        if (collided) WarnCollision("材质", stem, MatVariants[stem], mFields, src.name, mMoved);
         var existing = AssetDatabase.LoadAssetAtPath<Material>(path);
         Material asst;
         if (existing != null)
@@ -2252,8 +2717,12 @@ public static class EffectExporter
         //       真出事的话退路是「把 `DeepCopyMesh` 改成往**已有资产**里 `SetVertexBufferData` 就地重灌」，
         //       而不是退回 `CreateAsset`（那会重新长出 `X N.asset`、并换 guid）。
         string stem = copy.name;
-        GuardMeshName(stem, m);                        // 撞名出声（内容不同才响 —— 见 `GuardMeshName`）
-        string path = $"{MeshDir}/{stem}.asset";
+        // 🔴 `A845(b)` **一源一份** —— 与 `ImportMaterial` 走**同一个** `ResolveVariantPath`（判据见那里）
+        var gFields = MeshFields(m);
+        var gMoved = new List<string>();
+        bool collided;
+        string path = ResolveVariantPath(MeshVariants, MeshDir, ".asset", stem, gFields, gMoved, out collided);
+        if (collided) WarnCollision("网格", stem, MeshVariants[stem], gFields, m.name, gMoved);
         var existing = AssetDatabase.LoadAssetAtPath<Mesh>(path);
         if (existing != null)
         {

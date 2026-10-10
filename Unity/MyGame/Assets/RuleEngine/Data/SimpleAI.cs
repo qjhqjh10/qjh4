@@ -838,7 +838,38 @@ namespace RuleEngine
                     return 0f;        // 弹回手牌：原版按「目标当前费用」算，我们的 op 里没有那个数 ⇒ 不猜，记 0
 
                 case "give": case "gain":
-                    return PayloadScore(op.Payload) * System.Math.Max(1, op.Amount);
+                {
+                    float g = PayloadScore(op.Payload) * System.Math.Max(1, op.Amount);
+                    // 🔴 **2026-10-18 之后·第十二会话（`A1098`）：`give fast` 另有原版专门的一档。**
+                    //   原版那条判据挂在卡资产的 `ScoringCriteria.scoringOption` 上
+                    //   （`ScoringCriteria.ScoringOption.SumValueOfGivingCharge = 30`，
+                    //   `AI__ScoreFromCriteria.c` 的 `case 0x1e`）；我们手上没有那份数据
+                    //   （在服务端）⇒ 用「载荷里给了 `fast`」当触发条件，见 `ScoreGivingCharge`。
+                    //
+                    // 🔴 **2026-10-11（`A1311`）：`slot` 是【哪一侧】棋盘上的格号 —— 由目标的侧说了算。**
+                    //   `slotIsTarget == true` 那条路（战术卡）传进来的 `slot` 是「**效果打谁**」
+                    //   （口径见 `ScoreFromPlayingCard` 上面那段），而它落在**对方**棋盘还是
+                    //   **自己**棋盘上，只有目标的侧知道 ——
+                    //   原来硬编码成 `me`（= `mineBoard`）⇒ 全池唯一带 `fast` 的战术卡
+                    //   `Telephatic Domination`（`Take control of an enemy troop this turn and
+                    //   give it Fast`）读到的是**我这边同一格号上的另一个无关单位**。
+                    //   侧从 `EffectTargetSpec.ResolvedSide` 取（判据只此一处）——
+                    //   代词那个侧是解析层 `LinkPrevAntecedent` 从**紧邻上一条 op** 抄来的
+                    //   （那一条是 `takecontrol … an enemy troop` ⇒ `enemy`）。
+                    //   ⛔ **有目标、但侧判不出来（`any` / `eventtarget` / 代词没先行词）⇒ 不给这一档分**，
+                    //      绝不回落到「就当是自己人」（那是「拿自己顶」 = 静默读错一个单位）。
+                    //   ⚠️ **`Target == null`**（解析器没给出目标规格：光环合成的那条 `give` op、
+                    //      自检夹具）走**旧口径**那条重载 —— 简报没覆盖这一格，这里**保持行为不变**、
+                    //      不新发明语义。实测：全池「战术/防御卡 + `Target == null`」的 `give`/`gain`
+                    //      只有 **1** 条（`Angels of Death` 的 `+1 ranged`），**载荷含 `fast` 的 0 条**。
+                    if (PayloadIsCharge(op.Payload) && slotIsTarget && BoardSpec.IsValid(slot))
+                    {
+                        if (op.Target == null) g += ScoreGivingCharge(ctx, me, slot);
+                        else if (op.Target.ResolvedSide != null)
+                            g += ScoreGivingCharge(ctx, me, slot, op.Target.ResolvedSide);
+                    }
+                    return g;
+                }
 
                 case "blind":
                     return 1.0f;      // 失明＝远程攻击力算 0（原版给目标的负分是 −1.5）—— 我们配的小正值
@@ -887,6 +918,72 @@ namespace RuleEngine
                 case "cost": return num * 0.5f;
                 default: return TraitScore(word);      // 关键词：整条载荷算一份（原版那张表）
             }
+        }
+
+        /// <summary>载荷里是不是给了 `fast`（= 原版 `ScoringOption.SumValueOfGivingCharge`
+        /// 认的那一档「给迅捷/冲锋」）。载荷原文形如 `fast` / `+1 attack` / `armour 2`。</summary>
+        public static bool PayloadIsCharge(string payload)
+        {
+            if (string.IsNullOrEmpty(payload)) return false;
+            string s = payload.Trim().ToLowerInvariant().Replace("+", " ").Replace("-", " ");
+            foreach (string w in s.Split(new[] { ' ', '\t' }, System.StringSplitOptions.RemoveEmptyEntries))
+                if (w == "fast") return true;
+            return false;
+        }
+
+        /// <summary>
+        /// **给一个单位「冲锋 / 迅捷」值多少分**。判据 = 原版 `AI__ScoreFromGivingCharge`
+        /// （`d:/2/tools/decomp_full/AI__ScoreFromGivingCharge.c`，现读）：
+        /// ```
+        /// cVar1 = CardScript__CanActNow(param_2);
+        /// if ((cVar1 == '\0') && (*(char *)(param_2 + 0x58) != '\0')) { … get_CurrentMeleeAttack … }
+        /// ```
+        /// ⇒ **先读 `CanActNow`、为假【再】读裸 `+0x58`** —— **两位一起用**，这正是
+        /// `UnitState.SummonSickness` 必须单独存在的理由之一：`Exhausted` 把
+        /// 「不能动，因为刚上场」与「不能动，因为已经动过」挤在同一位里，AI 就分不出
+        /// 下面这一句「给它冲锋值多少」。
+        /// `AI__ScoreFromCriteria.c:289-302`（`case 0x1e` = `SumValueOfGivingCharge`）**同形**，
+        /// 逐目标取一遍这个值 ⇒ 这里是**同一份判据的唯一入口**（两处共用，别各写一份）。
+        ///
+        /// 🔴 **`CanActNow` 走引擎那个共用口**（`RuleCore.CanActNow` = `CanAttackNow` 的近战/远程各问一次），
+        ///    ⛔ 别在这儿重写一份「`!u.Exhausted && !u.IsStunned`」（两处写同一条规则 = 迟早不一致）。
+        /// ⚠️ **取值 = 当前的近战攻击力**（`EntityScript.get_CurrentMeleeAttack`）⇒ 用 `u.Attack`
+        ///    （buff 后的值），⛔ **不是**卡模板上的那个数。
+        ///
+        /// 🔴 **2026-10-11（`A1311`）：目标在哪一侧是【参数】，不再是「施放者自己那一侧」。**
+        ///    `give` 这一档的 `slot` 是「**效果打谁**」的格号（战术卡那条路），
+        ///    它可能落在**对方**棋盘上（`Telephatic Domination` 就是）——
+        ///    原来固定读 `ctx.Players[p].Board[slot]`（`p` 恒传 `ctx.Active`）
+        ///    ⇒ 读到的是**我这边同一格号上的另一个无关单位**。
+        /// </summary>
+        /// <param name="p">**施放者**（我方）的玩家下标 —— 调用点恒传 `ctx.Active`。
+        ///   ⚠️ `A1311` 之前它的含义是「目标所在棋盘的主人」（两个含义在旧口径下同值，
+        ///   所以那三处老调用点无需改）；现在 `p` 只说「**谁在给**」。</param>
+        /// <param name="side">目标在哪一侧（<see cref="EffectTargetSpec.ResolvedSide"/>）：
+        ///   `"own"` / `"enemy"`。别的值（含 `null` = **判不出来**）⇒ 返回 `0f`
+        ///   —— ⛔ **不许回落到「自己那侧」**（工程红线：宁可认不出，也别静默读错一个单位）。</param>
+        public static float ScoreGivingCharge(BattleContext ctx, int p, int slot, string side)
+        {
+            if (ctx == null || !BoardSpec.IsValid(slot)) return 0f;
+            if (side != "own" && side != "enemy") return 0f;       // 判不出侧 ⇒ 不给分（⛔ 不猜）
+            int owner = side == "enemy" ? 1 - p : p;
+            var u = ctx.Players[owner].Board[slot];
+            if (u == null || !u.IsAlive) return 0f;
+            if (RuleCore.CanActNow(ctx, owner, slot)) return 0f;   // 原版 `CanActNow` 为真 ⇒ 不给分
+            if (!u.SummonSickness) return 0f;                      // 原版那第二个合取项（裸 `+0x58`）
+            return u.Attack;
+        }
+
+        /// <summary>**旧口径重载**（`A1311` 之前唯一的那一条）：`p` **既当施放者、也当目标所在那一侧**。
+        ///
+        /// 🔴 **只留给「这条 op 根本没有目标规格」的调用点** —— 解析器没给出目标时没有「侧」可判，
+        ///    这一支**保持行为不变**（光环合成的那条 `give` op · 自检夹具）。
+        ///    ⛔ **新调用点别用它**：有目标规格的一律走 4 参那条，侧取
+        ///    <see cref="EffectTargetSpec.ResolvedSide"/>。
+        /// </summary>
+        public static float ScoreGivingCharge(BattleContext ctx, int p, int slot)
+        {
+            return ScoreGivingCharge(ctx, p, slot, "own");
         }
 
         // ==================================================================
