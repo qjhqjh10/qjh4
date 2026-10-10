@@ -33,13 +33,12 @@ public static class DeckScene
         const float PxPerUnit = 1080f / LayoutSpace.DesignHeight;   // = 108
         const float ScreenW = 1920f, ScreenH = 1080f;
 
-        // ⚠️ 我们挑的（原版是回收滚动列表，节点树给不出一屏几列）
-        const int Cols = 4, Rows = 3;
-        const float CardScale = 0.62f;
-        // 卡格区域：侧栏占 0..350，筛选栏占 1600..1900，中间 350..1600 才是卡池的地盘。
-        // 4 列 × 260 步进、3 行 × 260 步进 —— 第一版把步进写成 330、起始 x 写成 980，
-        // 结果第 4 列压到筛选栏上、第 3 行跑到屏幕外（截图看出来的）
-        const float GridCx = 975f, GridCy = 520f, GridStepX = 250f, GridStepY = 260f;
+        // ⚠️ **2026-10-20 删件**：这里原来还有一组卡池格子的常量
+        //   （`Cols=4 / Rows=3 / CardScale=0.62` + `GridCx=975 / GridCy=520 / GridStepX=250 / GridStepY=260`）
+        //   —— **已作废**：卡格区现由运行时 `DeckRuntime.Pool` 按屏宽现算（见那族 `UiPool*Now`），
+        //   全文件**零引用**（现核：整词搜这 7 个名字，只命中声明那三行）⇒ 删掉。
+        //   ⚠️ 它当时记的那条坑**仍然成立、仍然别踩**：卡池是 **4 列 × 250 步进**，
+        //   第一版把步进写成 330、起始 x 写成 980 ⇒ 第 4 列压到筛选栏上、第 3 行跑到屏幕外（截图看出来的）。
 
         /// <summary>🆕 2026-10-18（第四会话）：断言计数器 + 输出口径**收口到共用件 `Editor/MenuCheck.cs`**
         /// （唯一实现处；本文件只剩同名的一行转发 ⇒ 5,534 个调用点一个字没动）。
@@ -501,6 +500,13 @@ public static class DeckScene
             try
             {
                 state = Build(DeckLibrary.Load(), out _root);
+                // 🆕 **2026-10-20**：**开局那一套的坐标** —— 收尾复位要用（见本 `try` 末了那一节）。
+                //   必须在这里取：**再往下就会被自检改掉** —— `UiCommitName("自检·改的名")` 那一节
+                //   真改名并落盘，两处 `UiTryImport()` 又会往库里加副本、把编辑器切过去
+                //   ⇒ 等到收尾再想读「原来叫什么 / 原来是第几套」已经读不到了。
+                string origDeckName = state.Deck != null ? state.Deck.Name : null;
+                int origLibIndex = _rt.Library.CurrentIndex;
+                int origLibCount = _rt.Library.Count;
                 // 🔴 2026-09-20：**根上必须挂着 `DeckRuntime`** —— 场景存盘后按 Play 就是靠它的
                 //    `Start()` 建界面；忘了挂组件 = Play 出来一片黑，而这条断言能挡住。
                 //    （铁律 10 第 5 条：`Build` 直调与 Play 的 `Start()` 是两个入口，**各配一条断言**。）
@@ -646,7 +652,50 @@ public static class DeckScene
                     }
                     UnityEngine.Object.DestroyImmediate(sgo);
                 }
-            }
+
+                // ============================================================
+                //  🆕 2026-10-20：**收尾复位 —— 把「当前卡组」从自检自己造的那套还回开局那套**
+                //
+                //  🔴 **为什么非有这一节**：上面几节会**真的改当前卡组**，其中两条路会
+                //    **往卡组库里塞一套新的、并把编辑器切过去**：
+                //      · `_rt.UiCommitName("自检·改的名")` 那一节 —— **真改名**，按 Done 落盘（改名落盘在库里）；
+                //      · 两处 `_rt.UiTryImport()`（分享/导入那一节 + `A547` 的控制组）走 `DeckRuntime.TryImport`：
+                //        `Library.Add(deck)` ⇒ `DeckLibrary.Add` 里 **`UniqueName()` 给重名加序号**
+                //        （`DeckLibrary.cs`，重了变「名字 2」「名字 2 3」）⇒ 紧接着 `State.LoadDeck(Library.Current)`
+                //        ⇒ **编辑器切到了自检自己造的副本上**。
+                //    ⇒ 不还回去，`Shoot("deck_editor.png")` 那张**收尾截图**的页头上印的就是自检的名字
+                //      （截图是给人当面看的 ⇒ 印着「自检·改的名 2 3」直接误导）。
+                //
+                //  🔴 **为什么写在 `finally` 【之前】**（⛔ **不能**挪到下面 `Shoot` 那两行前面）：
+                //    `finally` 会把 `DeckStore.OverridePath` 还原成 `null`，那之后
+                //    `Library.Delete()` / `CommitCurrent()` / `Save()` 落的是**玩家的真存档**
+                //    （`RuleEngine/Data/DeckStore.cs`：`Path` = `OverridePath ?? persistentDataPath`）
+                //    ⇒ 在 `finally` 之后删，**会毁掉玩家真卡组**。这里 `OverridePath` 还指着临时存档。
+                //
+                //  ⚠️ 复位只动**「当前是哪一套」+ 名字**：卡组**内容**（张数 / 督军 / 防御卡）由上面各节
+                //    自己的「（收尾）」负责还，本节不重复做。
+                //  ⚠️ 名字只能写回**开头抓下来的那一份**（`origDeckName`）—— 库里那一串在自检期间
+                //    已经被改成「自检·改的名」**并落了盘**，收尾时读库读不回真名。
+                // ============================================================
+                {
+                    Section("收尾复位：当前卡组还回开局那套（收尾截图里页头印的就是它）");
+                    var lib = _rt.Library;
+                    int extra = lib.Count - origLibCount;
+                    for (int i = lib.Count - 1; i >= origLibCount; i--) lib.Delete(i);
+                    Check(lib.Count, origLibCount,
+                          "★ 自检自己导入的那 " + extra + " 套从库里删掉了（库回到开局那 " + origLibCount + " 套）");
+                    lib.Select(origLibIndex);
+                    _rt.State.LoadDeck(lib.Current);        // ⚠️ A397：装的是**副本**
+                    _rt.State.Deck.Name = origDeckName;     // 名字被自检改过 ⇒ 就地写回
+                    CheckTrue(_rt.CommitDeck(), "★ 把开局那个名字写回库里并落盘");
+                    _rt.RefreshAll();                       // 批处理没有帧循环 ⇒ 视图要显式跟上（页头那行字）
+                    Check(_rt.State.Deck.Name, origDeckName,
+                          "★ ……复位之后编辑的这套名字 = 开局那套「" + origDeckName + "」"
+                        + "（不复位 ⇒ `Shoot` 出去那张 `deck_editor.png` 页头印的是自检的名字）");
+                    CheckTrue(!_rt.DeckDirty, "★ ……而且脏标记是干净的（复位这一下真的落了盘）");
+                }
+            }   // ← 这个大括号关的是 `try`（本节的复位必须留在 `try` 里，理由见上面那段）
+
             finally
             {
                 RuleEngine.DeckStore.OverridePath = null;
@@ -2709,6 +2758,82 @@ public static class DeckScene
             Check(_rt.UiInfoOnlyActive, 0, "Cards 页签上**一件 Deck info 的东西都不许露**（图 + 文字都算）");
             Check(_rt.UiCosmOnlyActive, 0, "Cards 页签上不许露 Cosmetics 的东西");
 
+            // ============================================================ 🆕 2026-10-20
+            // **卡组行上的两颗数**：左圆（原版 `…/Background/Cost Image/Cost`）= **费用** ·
+            //   行右缘（原版 TMP 名 `Count`）= **份数**。判据（逐条带出处；期望值一律**从卡表现算**，
+            //   ⛔ 不是从 `DeckRuntime` 的常量读回来）：
+            //   ① 左圆里印的是 `CardDef.Cost`（字段名现核：`RuleEngine/Core/CardDef.cs` 的 `Cost`）
+            //      —— ⛔ **不是份数**。**改之前两颗喂的都是份数** ⇒ **费用哪都没印**（本件要修的就是这处）。
+            //   ② 行右缘那颗 `row_x*` **只有份数 > 1 才显示**：原版 `UICardInfoItem__SetCount.c`
+            //      里那一句 `gameObject.SetActive(1 < count)`。
+            //   ③ 它的文本 = **`"x" + n`**（同函数那个 `String.Format` 的字面量 = **`x{0}`**，
+            //      小写 x、**无空格**）。
+            //   🧨 鉴别力（灭自证），两条缺一不可：
+            //     · ① **必须至少有一行「费用 ≠ 份数」** —— 两数在整副牌里恒相等的话，
+            //       一个「圆里印份数」的实现**照样全绿**（这条断言等于没断）；
+            //     · ② 的**两种态要各见一行**（份数 > 1 的、份数 = 1 的）—— 只验一种的话
+            //       「恒显示」「恒隐藏」两种实现都能混过去（督军 / 防御卡那两行天然是 1）。
+            {
+                Section("卡组行的两颗数：费用圆 = `Cost` · 行右缘 `row_x*` = 份数（>1 才显示）");
+
+                // 🧨 鉴别力那一条（在**整副牌**上算 —— 比只看一屏 11 行稳，且不改变「量的是谁的」）
+                int diffFromCopies = 0;
+                foreach (var e in _rt.DeckEntries())
+                {
+                    int en = (e.Type == "hero" || e.Type == "defence") ? 1 : state.Deck.CountOf(e.Id);
+                    if (e.Cost != en) diffFromCopies++;
+                }
+
+                int rows = 0, showN = 0, hideN = 0;
+                string badCost = null, badX = null, badHide = null;
+                for (int i = 0; i < 11; i++)            // 一屏 11 行（`DeckRuntime.RowVisible`）
+                {
+                    var d = _rt.UiDeckRowAt(i);
+                    if (d == null) break;
+                    rows++;
+                    // 督军 / 防御卡各占一格 ⇒ 份数恒 1（与 `RefreshDeckList` 里那一句同口径）
+                    int n = (d.Type == "hero" || d.Type == "defence") ? 1 : state.Deck.CountOf(d.Id);
+                    // ---- ① 费用圆里那个数 ----
+                    string costTxt = _rt.UiLabelText("row_cnt" + i);
+                    if (costTxt != d.Cost.ToString() && badCost == null)
+                        badCost = "第 " + i + " 行「" + CardText.Name(d.Name, d.NameZh) + "」左圆印的是「"
+                                + costTxt + "」，而它的 `Cost` = **" + d.Cost + "**（份数 = " + n + "）";
+                    // ---- ② ③ 行右缘那颗 ----
+                    var xGo = FindDeep(_rt.Root, "row_x" + i);
+                    var xLb = xGo != null ? xGo.GetComponent<Label>() : null;
+                    if (xLb == null)
+                    { if (badX == null) badX = "第 " + i + " 行找不到节点 `row_x" + i + "`"; continue; }
+                    if (n > 1)
+                    {
+                        if (xLb.gameObject.activeSelf && xLb.Text == "x" + n) showN++;
+                        else if (badX == null)
+                            badX = "第 " + i + " 行份数 = " + n + "（> 1）⇒ `row_x" + i
+                                 + "` 该显示并印「x" + n + "」，实得 显示=" + xLb.gameObject.activeSelf
+                                 + "、文本=「" + xLb.Text + "」";
+                    }
+                    else
+                    {
+                        if (!xLb.gameObject.activeSelf) hideN++;
+                        else if (badHide == null)
+                            badHide = "第 " + i + " 行份数 = 1 ⇒ `row_x" + i
+                                    + "` 该**不显示**（原版 `SetActive(1 < count)`），实得**显示着**";
+                    }
+                }
+                CheckTrue(rows >= 3, "（前提）一屏里量到了 " + rows + " 行（至少要 3 行才有鉴别力）");
+                CheckTrue(badCost == null,
+                          "★ ① 卡组行左圆里那个数 = 该卡的 `Cost`（**每一行**都对）"
+                        + (badCost == null ? "；⛔ 不是份数" : "；反例：**" + badCost + "**"));
+                CheckTrue(diffFromCopies > 0,
+                          "★ ①'（鉴别力）整副牌里**至少有一行「费用 ≠ 份数」**（实测 " + diffFromCopies + " 行）"
+                        + " —— 两数恒相等的话，一个「圆里印份数」的实现**照样全绿**");
+                CheckTrue(showN > 0 && badX == null,
+                          "★ ② ③ 份数 > 1 的行：`row_x*` **显示**且文本 = **`x` + 份数**（实测 " + showN + " 行对）"
+                        + (badX == null ? "" : "；反例：**" + badX + "**"));
+                CheckTrue(hideN > 0 && badHide == null,
+                          "★ ② 份数 = 1 的行：`row_x*` **不显示**（原版 `SetActive(1 < count)`；实测 " + hideN + " 行）"
+                        + (badHide == null ? "" : "；反例：**" + badHide + "**"));
+            }
+
             // 🔴🔴 **2026-10-04（A41 ④）：「藏住了」还不够 —— 藏住的东西【不许吃点击】**。
             //   真缺陷（原来 `_btns` 里的矩形不跟着显隐走）：那两片空白（`info_share` / `info_import`，
             //     · (60..131, 636..707) = `info_share` ⇒ **一次点击静默把卡组串写进剪贴板**；
@@ -2767,12 +2892,46 @@ public static class DeckScene
             // ============================================================ 🆕 2026-10-04（A24）悬停换图 + 状态换图
             // 这一整段以前**一条断言都没有** ⇒ 屏幕上「悬停什么都不发生」也全绿（普查 A24 的结论）。
             // 判据逐条 = 原 prefab 的字段；出处写在 `CheckHoverOne` 上面那一段。
-            Section("悬停换图（原版 `m_Transition=2` 的那 5 颗）");
+            // 🔴 **2026-10-20**：原版 `m_Transition=2` 的按钮**一共 5 颗**，本段现在只跑 **4 颗** ——
+            //   `hdr_clear` 那一颗退出了本段，改由紧邻下面那段断它的**隐藏态**（原因写在那里）。
+            Section("悬停换图（原版 `m_Transition=2` 的按钮；本节 4 颗，`hdr_clear` 见下）");
             {
                 CheckHoverOne("hdr_back", "hdr_back", "UI_Button_Mulligan", "UI_Button_Mulligan_hover",
                               "UI_Button_Mulligan_Pressed", "页头 `Close`（文本 'Back'）");
-                CheckHoverOne("hdr_clear", "hdr_clear", "UI_Button_Mulligan", "UI_Button_Mulligan_hover",
-                              "UI_Button_Mulligan_Pressed", "页头 `Clear filters`");
+                // 🔴🔴 **2026-10-20 改向：`hdr_clear` 不在这里走 `CheckHoverOne`** —— 它此刻**是隐藏的**。
+                //   本节跑到这里时，上面 `_rt.UiClearFilters()` 已经把筛选清空 ⇒ 按新判据这颗钮**隐藏**
+                //   （判据 = `DeckRuntime.KeyLive` 的 `case "hdr_clear": return !State.Filter.IsEmpty;`
+                //    与 `RefreshHeader` 里那两句 `SetOn(…, clearFiltersOn)`，两处**同一个谓词**）。
+                //   而 `CheckHoverOne` 第 ③ 步走的是**鼠标那条路**（`UiHoverAt` → `HitBtn` → `KeyLive`）
+                //   ⇒ 隐藏的钮打不到 ⇒ 它内部那两条（打不到 / 悬停图没换）**必红**。
+                //   ⛔ **不许**改回「hover 之前先设个筛选、量完再清」那种迁移就写法 —— 那是把判据绕过去，
+                //   「隐藏时是什么行为」一条都没验。**改断新的那条判据**（隐藏 + 吃不到输入）。
+                //
+                //   ⚠️ **隐藏态本身的判据强度（如实标注）**：原版那颗钮**不是 `SetActive` 隐藏，是平移到
+                //   `hiddenPosition = (-550, 0)`**（`CollectionFilterController<T>.Toggle`，`animationTime 0.3`；
+                //   逐实例实据见本文件上面 A67 那一节）。而**触发条件那个方法体本地缺失** ⇒
+                //   「**筛选为空时隐藏**」这六个字是**推断**、不是逐句读出来的原文 —— 记在这里，别当已证。
+                {
+                    CheckTrue(state.Filter.IsEmpty, "（前提）此刻**一个筛选都没设**（上面 `UiClearFilters()` 清过）");
+                    CheckTrue(!_rt.UiQuadActive("hdr_clear"),
+                              "★ 筛选为空 ⇒ **`Clear filters` 那颗钮不显示**"
+                            + "（原版是平移到 `hiddenPosition`；「筛选为空时隐藏」是**推断**，见本段说明）");
+                    // 命中那半边：拿**按钮自己登记的矩形**去问「这一点攒得到谁」
+                    //   （`UiTopKeyAt` → `TopKeyAt` → `HitBtn` → `KeyLive`，与点击/悬停**同一条**路）。
+                    CheckTrue(_rt.UiBtnRect("hdr_clear", out float chX, out float chY, out float chW, out float chH),
+                              "（前提）`hdr_clear` 的**点击矩形还在 `_btns` 里**（撤掉矩形也能让它打不到 —— "
+                            + "那是一种**不同的**绿，本条要验的是「矩形在、显隐闸拦住了」）");
+                    Check(_rt.UiTopKeyAt(chX + chW * 0.5f, chY + chH * 0.5f), null,
+                          "★ …而且**它那块点位吃不到输入**（藏起来了却还能点到 = 静默失败，本仓红线）"
+                        + "｜🧨 把 `KeyLive` 里 `case \"hdr_clear\"` 那一支删掉（退回 `default: return true`）⇒ 本条红");
+                    // 🧨 **反向控制**：同一条读数换到一颗**看得见**的钮上，必须**答得出 key** ——
+                    //   否则上一条可能只是因为 `UiTopKeyAt` 恒答 null（那是另一种假绿）。
+                    const float BackCx = 192.2f + 150f * 0.5f;      // `hdr_back` 正中心 = (267.2, 113.5)
+                    const float BackCy = 83.5f + 60f * 0.5f;
+                    Check(_rt.UiTopKeyAt(BackCx, BackCy), "hdr_back",
+                          "（正向控制）同一条读数打在**看得见的** `hdr_back` 正中心 ⇒ 命中到它"
+                        + "（⛔ 少了这条，「隐藏的钮打不到」可能只是「这条读数恒答 null」）");
+                }
                 CheckHoverOne("foot_done", "foot_done", "UI_Button_Mulligan", "UI_Button_Mulligan_hover",
                               "UI_Button_Mulligan_Pressed", "页脚 `Done`");
                 // 按下态（原版 `m_PressedSprite`）：按着的时候画按下图，抬起还原
@@ -5879,10 +6038,22 @@ public static class DeckScene
                 }
 
                 // ---- ⑩ D20：过滤器那颗图标 —— **原版就是 `40k_bt_icon_search`**（保持现状）----
+                // 🔴 **2026-10-20 就地订正（铁律 5）**：这里原来写着「实拍里显得空是**那张图本身很细**」
+                //   —— **与事实不符**。真因是**渲染队列反了**：按钮底 `hdr_fltbtn` 用 `QRow`（= 3007）、
+                //   图标 `hdr_flticon` 用 `QBorder`（= 3005）⇒ **按钮底压在图标上面**，而按钮底那张
+                //   `40k_menu_bt` 的**中心是不透明的** ⇒ 图标**被整块盖死**（屏上只剩一块底板色）。
+                //   `DeckRuntime` 已按本仓血规（**分层要用渲染队列、不能用 z**）把图标改成 `QText - 1`（= 3008）。
                 {
                     Check(_rt.UiQuadTex("hdr_flticon"), "40k_bt_icon_search",
-                          "★ D20：图名 = **`40k_bt_icon_search`**（原版 `Header/Filters/Icon` 挂的就是它 ——"
-                        + " 实拍里显得空是那张图本身很细，⛔ 别换成「漏斗」）");
+                          "★ D20：图名 = **`40k_bt_icon_search`**（原版 `Header/Filters/Icon` 挂的就是它"
+                        + " —— ⛔ 别换成「漏斗」）");
+                    // 🧨 **抓得住上面那个真因的断言**：比的必须是**渲染队列**、⛔ 不是 z。
+                    //   改坏法：把 `hdr_flticon` 的队列改回 `QBorder`（< 按钮底的 `QRow`）⇒ 本条红。
+                    CheckTrue(_rt.UiQueueOf("hdr_flticon") > _rt.UiQueueOf("hdr_fltbtn"),
+                              "★ D20：**图标的渲染队列 > 按钮底的渲染队列**（实测 "
+                            + _rt.UiQueueOf("hdr_flticon") + " vs " + _rt.UiQueueOf("hdr_fltbtn") + "）"
+                            + " —— 反了的话按钮底会把图标**整块盖住**（那张底图中心不透明）；"
+                            + "⛔ 判据是**渲染队列**、不是 z（透明件按到相机的 3D 距离排序，z 靠不住）");
                 }
 
                 // ---- ⑪ D43：卡背抽屉那一行 `Army` 小标题 ----

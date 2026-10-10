@@ -52,6 +52,20 @@ namespace CardPresentation
         /// `RectTransform_277.m_SizeDelta.x = 4605.01025390625` · `RectTransform_286.m_SizeDelta.x = 4569.2998046875`。
         /// 🔴 2026-10-03 之前**两条都写 4605**（照抄了下条）⇒ 上条**偏宽 35.7px**；**已按实测改成两条各自的数**。</summary>
         public const float FadeBottomW = 4605.01025f, FadeTopW = 4569.2998f;
+
+        /// <summary>压暗四条（`Smooth background fade *`）的渲染队列。
+        /// 🔴 **2026-10-11 修**（用户点名：「**两边的阴影看起来就像是最上面了，盖过了按钮**，观感有问题」）：
+        ///   原来是**写死的 `3000`**，而它**压在整套 UI 之上** —— 主菜单那一屏的梯子是
+        ///   `MainMenuRuntime.QBg 2900 … QOverlay 2930`、顶栏那条带子是 **2986–2998**、
+        ///   卡组编辑那屏是 `QAreaBg 2980 … QSep/QLowest 2999`
+        ///   ⇒ **`3000` 把上面这些全部盖住了** —— 而本仓的命中顺序是「**渲染队列大的先吃**」
+        ///   （`PointerLayer.HitButton` 挑队列最大者当赢家）⇒ **它连点击也一并吃掉**。
+        ///   改到 **2900 之下** ⇒ 阴影回到「背景压暗」该在的位置（**在全部 shell UI 之前被绘制**）。
+        /// ⚠️ **这张梯子的号是【我们自己起的】**（原版没有逐件渲染队列这套机制，它靠兄弟序 + 排序层）
+        ///   ⇒ 值由我们定，**约束只有一条：低过全部 shell UI**；
+        ///   ⛔ `0` 以下别用 —— `Editor/MainMenuScene.cs` 里那句 `if (q.RenderQueue &lt;= 0) continue;` 是**跳过口**。
+        /// </summary>
+        public const int FadeQueue = 2890;
         /// <summary>压暗层四条边的**黑→透明渐变**（原版 `Gradient2` 实测，`工具/read_gradient2_level0.py` 可复现，四条一致）：
         /// `Image.m_Color` = **白 (1,1,1,1)**（颜色**全在顶点色里**，不在 tint 上）· 色键 2 个**都是纯黑** ·
         /// alpha 三键 = **外端 1 · 中点 0.709804 · 内端 0**。
@@ -173,7 +187,19 @@ namespace CardPresentation
         {
             _built = true;
             var root = transform;
-            for (int i = root.childCount - 1; i >= 0; i--) DestroySafe(root.GetChild(i).gameObject);
+            // 🔴 2026-10-10 修（真鼠标在 player 里点不动 · 见账 `A1491`）：**别把窗口层卷进这次重建**。
+            //   Play 里 `DestroySafe` 走的是 `Destroy`（**帧末才生效**），而下面 `EnsureHost` 的判据是
+            //   `if (Instance != null) return Instance;` ⇒ 它会**返回那台正在死的**、不建新的、也不打日志；
+            //   帧末那台被销毁、`OnDestroy` 把 `Instance` 置 null ⇒ **全壳再也没有 `WindowsManager`／指针层**
+            //   ⇒ 真鼠标点击无声无息（而编辑模式走 `DestroyImmediate` ⇒ 立刻干净 ⇒ 自检全绿，
+            //   所以这个缺陷**只在 Play 里发作**）。
+            for (int i = root.childCount - 1; i >= 0; i--)
+            {
+                var ch = root.GetChild(i).gameObject;
+                if (ch.GetComponent<WindowsManager>() != null) continue;                  // 窗口管理器
+                if (ch.GetComponentInChildren<WindowHolder>(true) != null) continue;      // `Window Anchors` 那几颗
+                DestroySafe(ch);
+            }
 
             var cam = Camera.main;
             if (cam != null) LayoutSpace.Apply(cam);
@@ -214,6 +240,8 @@ namespace CardPresentation
             // ---- 三个窗口锚点 + 窗口管理器（正本 §三 第 7 条：**缺一不可**，原版取不到会 LogError）----
             // 判据只留一处：`WindowsManager.EnsureHost`（单独打开某个界面场景时也走它）
             Windows = WindowsManager.EnsureHost(root);
+            // 🩺 2026-10-11 临时诊断（`A1491` 收口前删）：建完之后这两件在不在、挂在谁下面
+            Debug.Log($"[Shell·自查] WM={(WindowsManager.Instance != null)} PL={(PointerLayer.Instance != null)} 父={(PointerLayer.Instance != null && PointerLayer.Instance.transform.parent != null ? PointerLayer.Instance.transform.parent.name : "<null>")}");
 
             // ---- 载入文案（版式实证，**文案本身是本地化词条、本地没有 ⇒ 留空并说一声**）----
             _loadingText = TextBand(root, "Loading text", LoadingY, true);
@@ -369,7 +397,7 @@ namespace CardPresentation
                 else
                     q.SetCornerColors(opaqueAtMin ? cOut : cIn, opaqueAtMin ? cOut : cIn,     // BL · BR
                                       opaqueAtMin ? cIn : cOut, opaqueAtMin ? cIn : cOut);    // TR · TL
-                q.SetRenderQueue(3000);                 // 实证：四条都是 3000（**别改这个值**）
+                q.SetRenderQueue(FadeQueue);                 // 🔴 2026-10-11：原为写死的 3000 —— **压在整套 UI 之上**，见 `FadeQueue` 的注释
                 q.gameObject.SetActive(active);         // 上下两条出厂是关的（实证）；内侧半**必须跟着同状态**
                 if (k == 0) _fadeSides[idx] = q; else _fadeInners[idx] = q;
             }
@@ -497,6 +525,7 @@ namespace CardPresentation
                 var cam = Camera.main;
                 if (cam != null) cam.enabled = false;
                 Debug.Log("[Shell] 载入主菜单场景（壳的相机已关，交棒给主菜单场景自己的相机）");
+                Debug.Log($"[Shell·自查] 切场景【前】 PL={(PointerLayer.Instance != null)} 父={(PointerLayer.Instance != null && PointerLayer.Instance.transform.parent != null ? PointerLayer.Instance.transform.parent.name : "<null>")} WM={(WindowsManager.Instance != null)}");
                 UnityEngine.SceneManagement.SceneManager.LoadScene(scene);
             }
             else

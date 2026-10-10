@@ -27,12 +27,17 @@ public static class CardFaceProbe
     /// <summary>要渲哪几张（英文名 = 卡池里的 `name`）。
     /// 2026-09-13 扩成**按稀有度/类型覆盖面**挑** —— 用户要求核对「稀有度宝石、数值的位置」与
     /// 「插图有没有白边/黑边/超出卡框」，只渲一两种看不出问题（宝石是**按稀有度取色**的，
-    /// 战术卡没有数值格，督军卡有「角色越出卡框」）。</summary>
+    /// 战术卡没有数值格）。
+    /// ⚠️ **「超出卡框」那句 2026-10-10 订正**：原来这里写「督军卡有『角色越出卡框』」——
+    ///    **与事实不符**。**原版默认不越出**（立绘在框下、由框的 alpha 剪出来），
+    ///    越出是**逐卡 opt-in**、值在服务器（`CardView.UseFrontLayer` 那段注释是判据全本）。
+    ///    我们原来自己多画了一层 `_artFront`（整条角色轮廓盖住卡框、剑尖/肩甲出拱顶），
+    ///    **2026-10-10 用户点名「最严重的还是插图超出卡框」⇒ 已改成默认关**。</summary>
     static readonly string[] Names =
     {
         "Heavy Intercessor",     // 单位卡（有兵种行、有数值）
         "Aggressor Sergeant",    // 手牌里看着碎的那张（对照它是卡本身的问题还是缩小导致的）
-        "Roboute Guilliman",     // 督军 —— **角色越出卡框**最明显的一张（对照原版成品卡）
+        "Roboute Guilliman",     // 督军 —— 拿它对照原版成品卡（⚠️ 原版**不**越出卡框，见上面那段订正）
         "Armoured Offensive",    // 战术卡（没有抠图 → 只有一层）
         "Pariah Vanguard",       // 用户点名要看的那张
         "Canoptek Scarab",       // Sautekh common 单位（小费用、有护甲？）
@@ -115,15 +120,11 @@ public static class CardFaceProbe
             // 卡的 z 都是 0 附近，相机放远一点正对着拍
             Shot(view, Path.Combine(OutDir, SafeName(name) + ".png"));
 
-            // 诊断：再渲一张**只有底层**（关掉前景抠图层）——分层看杂色到底谁带来的
-            {
-                CardView.DebugNoArtFront = true;
-                var root2 = new GameObject("probe_nofront_" + name);
-                var v2 = CardView.Create(root2.transform, data, name + "_nofront");
-                Shot(v2, Path.Combine(OutDir, SafeName(name) + "_nofront.png"));
-                Object.DestroyImmediate(root2);
-                CardView.DebugNoArtFront = false;
-            }
+            // 🔴 **2026-10-10 删掉了原来那张「只有底层」的 `_nofront`** —— 它靠 `CardView.DebugNoArtFront`
+            //    关掉前景角色抠图层，而那一层现在**出厂就不建**（`CardView.UseFrontLayer` = false，
+            //    原版默认也不越出，见它那段注释）⇒ 再渲一张只会得到与上面那张**逐像素相同**的图，
+            //    而「一个永远看不出差别」的诊断图 = 误导（本工程的「不许静默失败」）。
+            //    要看 opt-in（越出）那一档：临时把 `CardView.UseFrontLayer = true` 再跑一次。
             // 再渲一张**不可打出**态：手牌上费用不够的卡就是这个状态，
             // 用来确认「卡片四周那圈白边」到底是不是状态描边（`_rim`）
             view.SetHighlight(CardHighlightState.Unplayable);
@@ -198,7 +199,8 @@ public static class CardFaceProbe
     ///
     /// 输出：`_tmp_view/cardface_all/&lt;净化后的卡id>.png` + `_manifest.tsv`
     /// （`id / faction / name / file` —— 下游 python 拼版**只认这份清单**，不靠文件名反推）。
-    /// ⚠️ **只渲主视图**：`_tex`/`_nofront`/`_selected`/`_unplayable` 那四张是排查用的，全池跑太贵。
+    /// ⚠️ **只渲主视图**：`_tex`/`_selected`/`_unplayable` 那三张是排查用的，全池跑太贵。
+    /// （原来还有一张 `_nofront`，**2026-10-10 删** —— 理由见 `Run()` 里那段注释。）
     /// ⚠️ 走的是 `BattleDriver.ToCardData` + `CardView.Create`，**与对局同一条代码路径**。
     /// </summary>
     public static void RunAll()

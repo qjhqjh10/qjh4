@@ -231,8 +231,8 @@ public static class CardBaseDemo
         Debug.Log(P + $"  特效钩子被调用 {effectPlays} 次（本自检不驱动它，接线在 BattleScene.Run 里验）");
         Check(it.Placed.Count == 1, $"台面上只登记了**落上去的那 1 张**（实测 {it.Placed.Count}）");
 
-        // ---- 4. 卡面三件：整卡倾摆（A111）+ 破框遮罩（A112）+ 阵营行分档（2026-10-17）----
-        Debug.Log(P + "--- 卡面：整卡倾摆 + 破框挖洞 + 阵营行分档 ---");
+        // ---- 4. 卡面三件：整卡倾摆（A111）+ 立绘与卡框的层级（A112，原「破框遮罩」）+ 阵营行分档（2026-10-17）----
+        Debug.Log(P + "--- 卡面：整卡倾摆 + 立绘不超出卡框（A112）+ 阵营行分档 ---");
         AssertCardTilt(cards[0]);
         AssertFrameCutout(cam);
         AssertArmyLine();
@@ -453,10 +453,20 @@ public static class CardBaseDemo
     }
 
     /// <summary>
-    /// **破框（`FrameCutout`：卡框按立绘 alpha 挖洞、立绘只画一次）**的两条判据 + 一张并排图。
+    /// **立绘与卡框的层级口径**（原账名 `A112`「破框遮罩」，方法名沿用）——「**立绘画在框下、
+    /// 由框的 alpha 剪出来，不越出卡框**」这一条口径的判据 + 一张并排图。
+    ///
+    /// 🔴 **2026-10-10 改**：原来这里断的是「立绘两层」那条路（`UseFrontLayer = true`：前景角色抠图
+    /// 盖在卡框上 ⇒ 越出）。用户点名「最严重的还是插图超出卡框」⇒ **真因就是那一层**，已改成出厂关
+    /// （判据与出处 → `CardView.UseFrontLayer` 的注释）。**下面的断言跟着换成新口径**：
+    ///   ① 出厂**没有**前景层（`ArtFrontTexture` = null、`ArtFrontZ` = NaN）；
+    ///   ② opt-in 开关**仍然接得通**（打开时那一层真建出来、位置在卡框**之前**）——
+    ///      原版是逐卡 opt-in、值在服务器，所以「口子有没有接丢」要守。
+    /// ⚠️ 原来那条「`UseFrontLayer = false` 时卡框材质接成 `FrameCutout`」的接线判据**没有对象了**
+    ///    （那条支路已删，见 `CardView` 建层处的注释）⇒ 换成了上面两条。
     ///
     /// 用**真卡**（`Howling Banshee Exarch` / `ASH79`，工程里当尺子的那张）——
-    /// 演示场上那 12 张是 `CardData.Placeholder`，立绘没有抠图，整条路根本不会走
+    /// 演示场上那 12 张是 `CardData.Placeholder`，立绘没有抠图，那条 opt-in 路根本不会走
     /// （`CardArt.HasCutout` 为假）⇒ 拿它们断出来是空的。
     /// </summary>
     static void AssertFrameCutout(Camera cam)
@@ -465,39 +475,47 @@ public static class CardBaseDemo
         foreach (var c in RuleEngine.CardDatabase.Load()) if (c.Name == "Howling Banshee Exarch") { def = c; break; }
         if (def == null)
         {
-            Check(false, "卡池里找不到 `Howling Banshee Exarch` ⇒ 破框这一档**没验到**（不是通过）");
+            Check(false, "卡池里找不到 `Howling Banshee Exarch` ⇒ 这一档**没验到**（不是通过）");
             return;
         }
         var data = BattleDriver.ToCardData(def, def.Faction);
         Check(CardArt.HasCutout(data.artId),
-              $"`{def.Name}` 的立绘**在抠图清单里**（artId = `{data.artId}`）—— 下面两条才有意义");
+              $"`{def.Name}` 的立绘**在抠图清单里**（artId = `{data.artId}`）—— 它是 opt-in 那条路上最该走的一张");
 
-        // ① 采样对齐：卡框的 uv2 == 立绘网格在同一点上的 uv
+        // ① 出厂态：**不建前景层** ⇒ 立绘只有框下那一层（「插图不超出卡框」就是这一条）
+        Check(!CardView.UseFrontLayer,
+              "出厂 `CardView.UseFrontLayer` = **false** —— 原版默认不越出；"
+            + "改回 true 就是复现「插图超出卡框」（判据见 `CardView.UseFrontLayer` 的注释）");
         var r1 = new GameObject("cutout_probe");
         var v1 = CardView.Create(r1.transform, data, "cutout_probe");
+        Check(v1.ArtFrontTexture == null,
+              "★ 出厂那张卡上**没有 `_artFront` 前景层**（贴图取不到）—— 有它就是「插图超出卡框」又回来了");
+        Check(float.IsNaN(v1.ArtFrontZ), "……而且 `ArtFrontZ` = `float.NaN`（那一层根本没建）");
         string d1;
         Check(v1.CheckCutoutUvAlignment(out d1), $"卡框 `uv2` 与立绘 uv **对齐**（{d1}）");
         v1.SetPose(new Vector3(-1.15f, 0.55f, 0f), 0f, 0.62f);
 
-        // ② 切到「卡框挖洞」那条路，验材质接线（⚠️ 静态开关只在**建卡时**读 ⇒ 改完立刻改回来）
+        // ② opt-in 那条路（原版逐卡 opt-in、值在服务器 ⇒ 我们整卡池一起开）：**开关还接得通**
+        //    —— 打开时前景层真建出来，而且 z 比卡框(0) **更靠前**（= 角色盖住卡框）。
+        //    ⚠️ 静态开关只在**建卡时**读 ⇒ 断完立刻改回来（不还原会把后面所有卡都带上前景层）
         bool prev = CardView.UseFrontLayer;
-        CardView.UseFrontLayer = false;
-        var r2 = new GameObject("cutout_probe_cut");
-        var v2 = CardView.Create(r2.transform, data, "cutout_probe_cut");
-        string d2;
-        bool wireOk = v2.CheckCutoutWiring(out d2);
-        string d2b;
-        bool uvOk = v2.CheckCutoutUvAlignment(out d2b);
+        CardView.UseFrontLayer = true;
+        var r2 = new GameObject("cutout_probe_overdraw");
+        var v2 = CardView.Create(r2.transform, data, "cutout_probe_overdraw");
         CardView.UseFrontLayer = prev;
-        Check(wireOk, $"`UseFrontLayer = false` 时卡框材质接线正确（{d2}）");
-        Check(uvOk, $"……而且那条路上 `uv2` 仍然对齐（{d2b}）");
+        Check(v2.ArtFrontTexture != null,
+              "opt-in（`UseFrontLayer = true`）时前景层**真建出来了**、贴图接得上（接不上 = 那条路静默失效）");
+        Check(!float.IsNaN(v2.ArtFrontZ) && Mathf.Abs(v2.ArtFrontZ - (-0.008f)) < 1e-4f,
+              $"……而且 `ArtFrontZ` = **−0.008**、比卡框(0) **更靠前**（实测 {v2.ArtFrontZ.ToString("F4")}）"
+            + " —— 这就是「角色轮廓盖住卡框、剑尖/肩甲出拱顶」");
         v2.SetPose(new Vector3(1.15f, 0.55f, 0f), 0f, 0.62f);
 
-        // 并排图：左 = 立绘两层（现状），右 = 卡框挖洞（A112 这条路）
-        Debug.Log(P + "  [并排图] 07_破框并排：**左 = 立绘两层**（`UseFrontLayer=true`）· "
-                    + "**右 = 卡框挖洞**（`UseFrontLayer=false`）—— 看两件事："
-                    + "① 角色破框的轮廓**对得上**（右侧别出现一圈多挖/少挖的错位，那是 uv2 的事）"
-                    + "② 两张的角色外轮廓**没有第二层重影**");
+        // 并排图：左 = 出厂（不越出），右 = opt-in（越出 —— 原版默认不做的那件事）
+        Debug.Log(P + "  [并排图] 07_破框并排：**左 = 出厂**（`UseFrontLayer=false`：立绘在框下、"
+                    + "由框的 alpha 剪出来 ⇒ **不越出**）· **右 = opt-in**（`UseFrontLayer=true`："
+                    + "角色抠图盖在框上 ⇒ 剑尖/肩甲出拱顶）—— 看两件事："
+                    + "① 左边**没有**任何一层画到卡框之外（用户 2026-10-10 点名的那条）"
+                    + "② 右边那一层就是原版**默认不做**的那件事");
         Shot(cam, 1920, 1080, "07_破框并排");
 
         Object.DestroyImmediate(r1);

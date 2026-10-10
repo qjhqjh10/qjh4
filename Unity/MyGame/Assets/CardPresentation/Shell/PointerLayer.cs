@@ -62,6 +62,11 @@ namespace CardPresentation
                 if (_inst == null)
                 {
                     var go = new GameObject("Pointer Layer");
+                    // 🔴 2026-10-11 修（真鼠标点不动 · A1491）：**必须活过场景切换**。
+                    //   不这么做时它落在**当前场景**里，而「切主菜单」是单场景加载 ⇒ 随 Shell 场景一起被销毁，
+                    //   之后**运行期再没有任何人重建它**（全仓唯一的「惰性现建」在 `#if UNITY_EDITOR` 的自检里）
+                    //   ⇒ 真鼠标点击从此无声：无日志、无异常、无报错。
+                    Object.DontDestroyOnLoad(go);
                     _inst = go.AddComponent<PointerLayer>();
                 }
                 return _inst;
@@ -165,12 +170,16 @@ namespace CardPresentation
         void OnEnable()
         {
             if (Keyboard.current != null) Keyboard.current.onTextInput += OnText;
+            // 🩺 2026-10-11 临时诊断（`A1491` 收口前删）：指针层什么时候活起来、挂在谁下面
+            Debug.Log($"[PL] OnEnable 父={(transform.parent != null ? transform.parent.name : "<null>")} 场景={gameObject.scene.name}");
         }
 
         void OnDisable()
         {
             if (Keyboard.current != null) Keyboard.current.onTextInput -= OnText;
             if (_inst == this) _inst = null;
+            // 🩺 2026-10-11 临时诊断（`A1491` 收口前删）：**它是不是在这里死的**
+            Debug.Log($"[PL] OnDisable 场景={gameObject.scene.name} 父={(transform.parent != null ? transform.parent.name : "<null>")}");
         }
 
         void OnText(char c) { if (_editing && !char.IsControl(c)) _typed.Add(c); }
@@ -178,10 +187,21 @@ namespace CardPresentation
         /// <summary>没有就建一台。`root` 给了就当它的子节点。</summary>
         public static PointerLayer Ensure(Transform root = null)
         {
-            if (Instance != null) return Instance;
-            var go = new GameObject("Pointer Layer");
-            if (root != null) go.transform.SetParent(root, false);
-            return go.AddComponent<PointerLayer>();
+            // 🔴 2026-10-10 修（真鼠标在 player 里点不动 · 见账 `A1491`）：
+            //   **`SetParent` 那一支原来是【死代码】** —— `Instance` 的 getter 自己就会惰性现建一台
+            //   **无父**的，于是第一句 `return` 直接把它带走了，下面那句 `SetParent(root)` 永远到不了。
+            //   后果：指针层落在**当前场景**里，而「切主菜单」是**单场景加载**（`ShellRuntime.LoadMainMenu`）
+            //   ⇒ 壳场景卸载时它一起被销毁，`OnDisable` 又把 `_inst` 清掉
+            //   ⇒ **运行期再没有任何人建它**（全仓唯一的「惰性现建」调用点在 `MenuDraw` 的
+            //   `#if UNITY_EDITOR` 自检里）⇒ **真鼠标点击从此无声、无日志、无异常**。
+            // 🔴 2026-10-11 **再修 · 第一次修错了，留痕**（同账 `A1491`）：
+            //   上一次的改法是「给它 `SetParent(root)`」—— **那反而把它害死了**：
+            //   挂到壳根下之后，它就成了 `ShellRuntime.Build()` **拆除循环的直接子件**，被自己的重建循环销毁
+            //   （那个循环只跳过 `WindowsManager` 与含 `WindowHolder` 的节点）。诊断日志实测：
+            //   `切场景【前】 PL=True 父=<null> 场景=Shell` ⇒ 它既无父、又在 Shell 场景里 ⇒ **必死**。
+            //   ⇒ 正确做法 = **`DontDestroyOnLoad`**（见 `Instance` getter 里那句）：不依赖任何父节点活着、
+            //   也不进任何场景的拆除范围。`root` 参数**保留在签名里**（调用点一个都不用改），但**不再使用**。
+            return Instance;
         }
 
         /// <summary>登记一个滚动区（滚轮才会找到它）。**窗口重开时旧的要清掉**，见 `UnregisterOwnedBy`。</summary>

@@ -71,26 +71,41 @@ namespace CardPresentation
         //    [Filters 圆钮][容器：Clear filters **右对齐**][Wildcard Counter][Army Icon]。
         //    ⇒ 取 `1468.6 − 250 = 1218.6`（右对齐）。照抄 1488.6 会**压在四个稀有度计数上**（自检抓过）。
         const float HdrClearX = 1218.6f, HdrClearY = 83.5f, HdrClearW = 250f, HdrClearH = 60f;
-        // 🔴 **2026-10-17（D22）—— `Clear filters` 的显隐条件：查不到，如实标注（本轮【不改】）。**
-        //   三条已核实的事实（自己重跑过，不是转抄）：
+        // 🔴🔴 **2026-10-20 —— `Clear filters` 的显隐：原来那段 `2026-10-17（D22）`「查不到、本轮【不改】」
+        //   已经按事实就地换掉（铁律 5，不是另起一份）。**
+        //   ⚠️ **同一个 prefab 字段还管着另一件**：本文件那个**左抽屉**的两棵**也**带
+        //   `hiddenPosition = (−550, 0)` / `animationTime = 0.3`（本窗两棵树都在 menus 包那 6 个实例里，
+        //   判据 → `FltHiddenDx` 那一段）—— 那两棵走的是**原版那条「平移」**，本颗没走（理由见下面）。
+        //   **现在的判据（原版有这颗钮，但默认被【平移到画面外】）**：
+        //     `CollectionFilterController` 带三个相关字段 —— **`clearFiltersButton`**（桩 :14）·
+        //     **`hiddenPosition`**（桩 :17）· **`animationTime`**（桩 :20）
+        //     （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/CollectionFilterController.cs`，本批亲读）；
+        //     **卡组编辑窗那一份实读**（`bundle_menus_assets_all` 的 MB，逐字段读）：
+        //     **`hiddenPosition = (-550, 0)` · `animationTime = 0.3`**
+        //     ⇒ **隐藏方式是「平移」、不是 `SetActive`**（同族先例 = 本文件左抽屉那条 −385px 的行程）。
+        //   ⚠️ **触发条件仍是【推断】，不是实读**：真正干这件事的方法体**本地缺失**
+        //     （`decomp_full` 里 `CollectionFilterController` 只导出了 `ctor` + `NotifyFilterChange`
+        //      的两个 lambda，那两个 lambda 只做 `CollectionFilterToggle.ForceOff`、**没碰这颗钮**）。
+        //     旁证 = **实拍那一帧那一块是空的**（`原版参照图/用户实拍_1017/卡组编辑界面参考.png`
+        //     设计坐标 `(555..765, 60..170)` 逐个采样：只有渐变底 + 底部那条分隔线，一个像素的钮都没有），
+        //     而**那一帧没有任何筛选高亮** ⇒ **推断 = 「一个筛选都没设时隐藏」**。
+        //     ⛔ **这是推断**（要坐实还得进原版 dump 三种状态下的 `anchoredPosition`，见下）。
+        //   🔴 **我们改成 `SetActive`、没照 −550 平移**（**如实标注，这是我们的偏离**）：
+        //     我们这颗的 x（`HdrClearX = 1218.6`）是**按容器右边界推出来的绝对屏幕 px**
+        //     （见上一条注释），平移 −550 会落到 **668.6** —— 屏幕中段、压在 `Filters` 那一带，
+        //     **不会像原版那样「挪出容器」** ⇒ 平移量在我们这套坐标里**不复现「藏起来」**。
+        //     （原版那两个数是相对**它自己那个 85 宽的容器**的，搬不过来。）
+        //   🔴 **显隐与「点得到」同一条判据**（`RefreshHeader` 里那两句 + `KeyLive` 里那一支）——
+        //     藏起来却还能点到 = 静默失败（本仓红线）。
+        //   ✅ **仍然成立的两条旧事实**（留着，别丢）：
         //     ① **prefab 里它是 active 的**：`Header/Filters/Generic Simplified UI Button_updated`
         //        的 `m_IsActive = True`（全包 11 个同名件逐个读过），图 `UI_Button_Mulligan`、`interactable=1`；
         //     ② 它的**父容器 `Header/Filters`**（`GridLayoutGroup` cellSize **85×70** · spacing (5,0) ·
         //        pad 0 · `constraint=2(1)` 固定 1 列 · `align=3`(MiddleLeft) · `ContentSizeFitter h:MinSize`）
         //        **跑完布局之后**那颗钮会被压成 **85×70 @ (592.2, 78.5)** —— 不是我们画的 250×60 @1218.6；
-        //     ③ **实拍那一帧那一块是空的**（`原版参照图/用户实拍_1017/卡组编辑界面参考.png`
-        //        设计坐标 `(555..765, 60..170)` 逐个采样：全是渐变底 + 底部那条分隔线，一个像素的按钮都没有）。
-        //   ⇒ 结论：**运行期一定有人把它关掉**，但**触发时机本地查不到** ——
-        //     `CollectionFilterController<T>` 的 `clearFiltersButton` 字段在**基类桩**里
-        //     （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/CollectionFilterController.cs:19`），
-        //     而 `d:/2/tools/decomp_full/` 里该类**只导出了 ctor + `NotifyFilterChange` 的两个 lambda**
-        //     （那两个 lambda 只做 `CollectionFilterToggle.ForceOff`，**没碰这颗钮**）；
-        //     `CardCollectionFilterController` 也只导出了 ctor + `SetFiltersToDeck`（同样没碰它）。
-        //   ⇒ **本轮不改**（⛔ 不许自己发明「有筛选才显示」这种条件）。**要收这一条需要的是【实况】**：
-        //     进原版卡组编辑窗，看 `Header/Filters/Generic Simplified UI Button_updated` 的 `activeSelf`
-        //     在「没筛 / 筛了 / 清空之后」三种状态下各是什么（SceneJumpShot 能 dump activeSelf）。
-        //   ⚠️ 顺带：我们这颗的**位置**（右对齐 1218.6）是按容器右边界推的、与 ② 的**布局后矩形不符** ——
-        //     两条一起挂在这一笔账上（同一条实况一次能全查清）。
+        //        ⚠️ **这一笔账还开着**（我们的位置是按容器右边界推的、与布局后矩形不符），本轮不动它。
+        //   📌 要收剩下的「触发条件」那一半，需要的是【实况】：进原版卡组编辑窗，看那颗钮的
+        //     `anchoredPosition` 在「没筛 / 筛了 / 清空之后」三种状态下各是什么（SceneJumpShot 能 dump）。
         const float HdrSepY = 151f, HdrSepH = 10f;
         const float WcBgX = 1550f, WcBgY = 91.5f, WcBgW = 320f, WcBgH = 44f;
         // `WIldcard Counter`（注意原版拼写就是 `WIldcard`）：`Counters` 是个 HLG（pad L/R 10 · spacing 5 · UpperLeft）
@@ -151,7 +166,25 @@ namespace CardPresentation
         const float ListX = 0.4f, ListY = 366f, ListW = 325f, ListH = 644.1f;
         const float RowW = 325f, RowH = 55.7f;
         const float RowPitch = 56f;                       // ⚠️ 我们挑的（见文件头 ③）
-        const float RowCostX = 17f, RowCostS = 38f;
+        /// <summary>卡组行里那颗**费用圆**（原版 `…/Deck Selector Card Info button/Background/Cost Image`）
+        /// 的框（左上角 x + 边长）。🔴 **2026-10-20 订正（原来 = `17 / 38`）**：
+        ///   那一对是**按 dump 的 `Cost Image` 节点量**出来的，而那颗在原版 prefab 里是 **0×0 的模板位**
+        ///   （布局跑之前的位置）⇒ **拿它量不出真值**（同 `查不到` 那一族：⛔ 模板位不当权威）。
+        ///   判据只能拿**实拍**当尺子（`资料/原版参照图/用户实拍_1017/卡组编辑界面参考.png`）：
+        ///   **x `[12.1, 58.3]` · 宽 `46.2` · 中心 `35.2`** ⇒ 取左缘 **12.1**（施工单写 ≈12.2，
+        ///   与实拍区间 12.1 差 0.1 ⇒ 取区间值；`12.1 + 46.2 = 58.3` 正好落在实拍右缘上）。
+        /// ⚠️ 这一对**同时喂四处**：圆 `row_c*` 与圆里那个数 `row_cnt*` 的**建**（`BuildDeckList`）
+        ///   与**搬**（`MoveRow`）—— ⛔ 别只改一处（`MoveRow` 那两句读的就是这两个常量）。
+        /// ⚠️ 它俩**不再**用来框「份数」：份数搬去了行右缘那颗 `row_x*`（见下面那条），
+        ///   原因是原版 `UICardInfoItem` 里 `Cost Image` 框的是 **`Cost`**、而我们原来把份数印了进去。</summary>
+        const float RowCostX = 12.1f, RowCostS = 46.2f;
+        /// <summary>行右缘那颗**份数**（原版 TMP 名 `Count`）的框宽 —— 原版
+        /// `anchor (1,0)-(1,1)` + `offsetMin.x = −50` + `pivot (1, 0.5)`
+        /// ⇒ **贴行右缘的 50 宽框、竖直居中**。字号 `m_fontSize = 32`、字色 `(1,1,1,1)`。
+        /// 文本 = **`"x" + n`**（`UICardInfoItem__SetCount.c` 里那个 `String.Format` 的字面量
+        /// = **`x{0}`**，小写 x、**无空格**；同函数 `gameObject.SetActive(1 &lt; count)`
+        /// ⇒ **份数 ≤ 1（督军行 / 防御卡行）不显示**）。</summary>
+        const float RowCountW = 50f;
         const int RowVisible = 11;                        // 644.1 / 55.7 = 11.56 ⇒ 11 行整
         /// <summary>稀有度色条**只占行右侧那一段**（原版锚 `0.606 → 1.0`），不是整行。
         /// 🔴 2026-09-23（第 12 条 第 5 项 ③）：原来铺满整行 325。**两处位置（建的时候 + `MoveRow` 滚动时）
@@ -583,8 +616,15 @@ namespace CardPresentation
         readonly List<GameObject> _deckRowBg = new List<GameObject>();
         readonly List<ImageQuad> _deckRowGrad = new List<ImageQuad>();
         readonly List<GameObject> _deckRowBorder = new List<GameObject>();
-        readonly List<ImageQuad> _deckRowCntIc = new List<ImageQuad>();
+        /// <summary>行右缘那颗**份数**（原版 TMP 名 `Count`）—— 🔴 **2026-10-20 新加**：
+        /// 原版行里**只有** `Background / Rarity Gradient / Background Border / Cost Image /
+        /// banned Icon / Text fill(Card Name, Count)` 这几件，**没有**我们原来那颗
+        /// `row_k*`（拿 `40K_main_deck_card_counter` 当底的那块纯色方块 —— 原版行里根本没这个节点，
+        /// 实拍上它是块**空方块**）。⇒ 删 `row_k*`、换成这颗 TMP（节点名 `row_x{i}`）。</summary>
+        readonly List<Label> _deckRowCountX = new List<Label>();
         readonly List<Label> _deckRowName = new List<Label>();
+        /// <summary>圆里那个**费用**（原版 `…/Cost Image/Cost`）。🔴 **2026-10-20 之前喂的是「份数」**
+        /// —— 份数搬去了 `_deckRowCountX`，这一颗改成 `CardDef.Cost`（见 `RefreshDeckList`）。</summary>
         readonly List<Label> _deckRowCount = new List<Label>();
         readonly List<ImageQuad> _deckRowCost = new List<ImageQuad>();
 
@@ -617,6 +657,10 @@ namespace CardPresentation
         /// <summary>页头那颗 `Filters` 圆钮 —— 它要**按状态换图**（面板开=`40k_menu_bt_pressed`、关=`40k_menu_bt`），
         /// 见 `RefreshHeader` 里那段判据（原版 `EverguildToggle.changeSpriteOnValueChange=1`）。</summary>
         ImageQuad _hdrFltBtn;
+        /// <summary>页头那颗 `Clear filters` 的**图**与**字**（两颗一起显隐 —— 判据与「为什么走 `SetActive`
+        /// 而不是原版的 −550 平移」写在 `HdrClearX` 上面那一大段注释里）。</summary>
+        ImageQuad _hdrClear;
+        Label _hdrClearTx;
         GameObject _emptyWarnGo;
         /// <summary>🆕 **2026-10-17（D35 删件）**：最近一次 <see cref="Say"/> 吐出来的那句话。
         /// 🔴 **原来它还印在屏幕底部（`notice` 那行字）—— 原版侧栏没有那一行**（D35）⇒ 那行**已删**，
@@ -961,7 +1005,17 @@ namespace CardPresentation
             //      ⇒ 悬停**看得见**）。⚠️ `RefreshHeader` 换的是**纹理**、`WindowButton` 变的是**顶点色**
             //      ⇒ 两条路互不覆盖（这正是原版那颗 prefab 的实际行为）。
             HoverTint("hdr_filters", _hdrFltBtn != null ? _hdrFltBtn.gameObject : null);
-            Img("hdr_flticon", "40k_bt_icon_search", HdrFltIconX, HdrFltIconY, HdrFltIconS, HdrFltIconS, QBorder);
+            // 🔴 **2026-10-20 修：这一颗的队列** —— 原来用 `QBorder`（= 3005），而**按钮底**
+            //   `hdr_fltbtn` 用的是 `QRow`（= 3007）⇒ **按钮底压在图标上面**。按钮底那张
+            //   `40k_menu_bt` 的中心是**不透明的** ⇒ 图标被**整块盖死**（屏幕上那颗金框看着是空的）。
+            //   ⚠️ 图本身没错、也不用 tint：`Resources/Art/ui_deck/40k_bt_icon_search.png` 与解包侧
+            //   六个副本 **md5 全同**（`ef79fb28…`、27×27、非透明 355 px）。
+            //   改成 **`QText - 1`**（= 3008，与 `QRow + 1` 是同一个数）：**必须高过按钮底 `QRow`、
+            //   又留在 `过滤器` 那行字（`QText`）下面**。⚠️ 3008 这个号同时也是 `QTabName`，
+            //   但页签名牌在侧栏（x 5.3..104.2 · y 261..301）、本图标在 x 377.2..407.2 · y 98.5..128.5
+            //   ⇒ **两处不重叠**（同队列的「不许互相压住」那条断言不碰它）。
+            //   🔴 **本仓血规：分层用渲染队列、⛔ 不能拿 z 排**（透明队列按到相机的 3D 距离排序）。
+            Img("hdr_flticon", "40k_bt_icon_search", HdrFltIconX, HdrFltIconY, HdrFltIconS, HdrFltIconS, QText - 1);
             // 🔴 **2026-10-17（D20）—— 这颗图标查清了：原版【就是这张图】，保持现状。**
             //   施工单 D20 存疑两点：① 名字是 `search` 不是 `filter`；② 实拍那一帧那颗金框**看着是空白的**。
             //   逐字段实读（`python 工具/menu_dump.py bundle_menus_assets_all "Deck Editing Menu" --depth 4`）：
@@ -969,7 +1023,10 @@ namespace CardPresentation
             //   **`40k_bt_icon_search 27×27`** · `Simple (1,1,1,1)` · `preserveAspect` ⇒
             //   **原版这个位置挂的就是 `40k_bt_icon_search`**（那颗 `Image` 也是启用着的，行上没有任何
             //   `INACT` / `被禁` 标记）。⇒ 结论 = 「**原版就是这张图**」，我们的图名**本来就对**。
-            //   ⚠️ 实拍里显得空 = 那张图**本身很细**（27×27、笔画细）在缩略图上看不清，不是没画。
+            //   🔴 **2026-10-20 就地订正（铁律 5）**：这一行原来写「⚠️ 实拍里显得空 = 那张图**本身很细**
+            //      （27×27、笔画细）在缩略图上看不清，**不是没画**」—— **那个解释是错的**（那是我当时的猜测）。
+            //      真因 = **画序反了**：图标 `QBorder(3005)` < 按钮底 `QRow(3007)` ⇒ **按钮底把图标整块盖住**
+            //      （按钮底那张 `40k_menu_bt` 的中心不透明）—— 已修，见上面那段。⛔ 别把那条旧解释再写回来。
             //   ⛔ 别因为名字里是 `search` 就换成别的「漏斗」图 —— 那是拿印象推翻判据。
             // 🔴 **2026-10-17（D2）：文案走 `Loc.T`（中文档 = 原版实拍的中文「过滤器」）。**
             //   词条键 = **原版 prefab 上那颗 `Localize` 的 `mTerm`**，⛔ 不是自拟的：
@@ -993,9 +1050,8 @@ namespace CardPresentation
 
             // 🆕 A24：原版 `Header/Filters/Generic Simplified UI Button_updated`（文本 'Clear filters'）
             //   也是 `SpriteSwap`（`m_TargetGraphic` = 自己那层 Image，两张高亮图同上）
-            Hover("hdr_clear",
-                  Img("hdr_clear", "UI_Button_Mulligan", HdrClearX, HdrClearY, HdrClearW, HdrClearH, QRow),
-                  "UI_Button_Mulligan");
+            _hdrClear = Img("hdr_clear", "UI_Button_Mulligan", HdrClearX, HdrClearY, HdrClearW, HdrClearH, QRow);
+            Hover("hdr_clear", _hdrClear, "UI_Button_Mulligan");
             // 🔴 **2026-10-18（A891 的续）：文案走 `Loc.T`** —— 词条键 = 原版 prefab 上那颗 `Localize.mTerm`
             //   的原文 `MenuDeck/Filters/ClearFilters`（5 颗同键，节点名一律 `Button Text`；本批按 pid 亲读）。
             //   🔴 **本窗这颗的父链**（2026-10-18 第三轮整改 · 审查 P3 就地订正，铁律 5）：
@@ -1008,6 +1064,9 @@ namespace CardPresentation
             //   ⛔ 节点名 `hdr_clear_t` 不动（`Editor/DeckScene.cs` 按名找）。
             var hdrClearTx = Txt("hdr_clear_t", Loc.T("MenuDeck/Filters/ClearFilters"),
                 HdrClearX, HdrClearY, HdrClearW, HdrClearH, 2, Ink, QText);
+            // 🔴 **2026-10-20**：这一颗与上面那颗图**一起显隐**（判据 → `HdrClearX` 上面那一大段；
+            //   落点在 `RefreshHeader`，命中闸在 `KeyLive`）。
+            _hdrClearTx = hdrClearTx;
             // 🔴 **2026-10-10（A1212 · 块 1 #37）**：接上 `m_enableAutoSizing`（四格 = **10 / 42 / 12 / 0**）。
             //   判据 = `R6` §2·F #37（`…/Header/Filters/Generic Simplified UI Button_updated/Button Text`）。
             //   ⚠️ 折行 = `0` ⇒ 显式还原（同上）。
@@ -1289,7 +1348,10 @@ namespace CardPresentation
             var borderTex = Ui("40k_deck_cardlist_border");   // 11×11，原版**九宫格** 5/5/5/5（我们原来拉满）
             // ⚠️ `Card Frame Cost Icon` 的**文件名是下划线版**（`sync_battle_ui_art.py` 把空格换成 `_`）
             var costTex = Ui("Card_Frame_Cost_Icon");
-            var cntTex = Ui("40K_main_deck_card_counter");
+            // 🔴 **2026-10-20 删掉一行**：这里原来还有 `var cntTex = Ui("40K_main_deck_card_counter");`
+            //   —— 它只喂过行里那颗 `row_k*`（**原版行里没有那个节点**，已删）。
+            //   ⚠️ 这张图**没有因此变成孤儿**：卡池那条「张数」底图还在用它
+            //   （`PoolCounterSprite` = 同一个名字，`RefreshPool` 里 `poolbar_*` 那一支）。
             // 稀有度色条**只占右侧那一段**（原版锚 0.606→1.0）—— 位置常量在类级（`GradX/GradW`），
             //   **`MoveRow` 也用同一对**（别在任一处写 `ListX + RowW/2`）
 
@@ -1303,7 +1365,12 @@ namespace CardPresentation
                 _deckRowBorder.Add(NineSlice("row_b" + i, borderTex, new Vector4(5f, 5f, 5f, 5f),
                                              ListX, y, RowW, RowH, QBorder));
                 _deckRowCost.Add(Img("row_c" + i, costTex, RowCostX, y + (RowH - RowCostS) * 0.5f, RowCostS, RowCostS, QRow));
-                _deckRowCntIc.Add(Img("row_k" + i, cntTex, 258f, y + 8f, 40f, RowH - 16f, QRow));
+                // 🔴 **2026-10-20 删件**：这里原来还有一颗
+                //   `_deckRowCntIc.Add(Img("row_k" + i, cntTex, 258f, y + 8f, 40f, RowH - 16f, QRow));`
+                //   —— 拿 `40K_main_deck_card_counter` 当底、画在行右侧那块方框。
+                //   **原版卡组行里根本没有这个节点**（原版行的子件只有 `Background` / `Rarity Gradient` /
+                //   `Background Border` / `Cost Image` / `banned Icon` / `Text fill`(Card Name, Count)），
+                //   实拍上它就是**一块纯色空方块** ⇒ 删掉，份数改由下面那颗 `row_x*` 印。
                 var rowNmLb = Txt("row_n" + i, "", 62f, y, 190f, RowH, 1, Ink, QText);
                 // 🔴 **2026-10-10（A1212 · 块 1 #41）**：接上 `m_enableAutoSizing`（四格 = **2 / 38 / 27.69 / 0**）。
                 //   判据 = `R6` §2·F #41（`…/Sidebar/Deck Details/Deck List drawer/…/Background/Text fill/Card Name`）。
@@ -1322,6 +1389,19 @@ namespace CardPresentation
                 if (rowCntLb != null)
                     rowCntLb.SetAutoFitBox(U(RowCostS), U(RowCostS), 18f, 50f, 32f);
                 _deckRowCount.Add(rowCntLb);
+                // 🆕 **2026-10-20**：行右缘那颗**份数**（原版 TMP 名 `Count`）——
+                //   判据（三条，逐条）：① 文本 = `"x" + n`（原版 `UICardInfoItem__SetCount.c` 的
+                //   `String.Format(字面量, n)`，字面量 = **`x{0}`**，小写 x **无空格**）；
+                //   ② **字号 32** · **字色 `(1,1,1,1)`**（原版那颗 TMP 实读；⛔ 别用 `Ink`
+                //      = `(0.93,0.93,0.95)` —— 那不是原版这颗的数）；
+                //   ③ 框 = **贴行右缘的 50 宽、整行高**（原版 `anchor (1,0)-(1,1)` +
+                //      `offsetMin.x = −50` + `pivot (1, 0.5)`）⇒ 右缘 = `ListX + RowW` = **325.4**、
+                //      框 x `275.4..325.4`、字在框里**居中**。
+                //   ⚠️ **`n ≤ 1` 时整颗隐藏**（原版同函数那句 `gameObject.SetActive(1 < count)`）
+                //      —— 落点在 `RefreshDeckList`（**先激活再 `SetText`**，理由写在那里）。
+                var rowXLb = TxtPx("row_x" + i, "", ListX + RowW - RowCountW, y, RowCountW, RowH,
+                                   32f, Color.white, QText);
+                _deckRowCountX.Add(rowXLb);
             }
 
             // Empty Warning（原版 inactive，空卡组时才显示）
@@ -2560,7 +2640,12 @@ namespace CardPresentation
                               new PxRect(gx1, gy1, gx1 + CardGhostW, gy1 + CardGhostH),
                               new Vector4(150f, 0f, 150f, 0f), rowBg.width, rowBg.height,
                               QDragPreview, null, true, "card_ghost_bg");
-            // 三件的相对位置照卡组行那一套（`RowCostX 17` / 名字 x 62 · 字号档 1）——
+            // 三件的相对位置照卡组行那一套（名字 x 62 · 字号档 1）——
+            // ⚠️ **2026-10-20 就地订正（铁律 5）**：这一段原来写的是「（**`RowCostX 17`** / 名字 x 62 …）」，
+            //   而 `RowCostX` 当天已按实拍改成 **12.1**、边长 `RowCostS` 改成 **46.2**（判据 → 那条常数的 doc）。
+            //   拖影这一颗**没有跟着动**（仍是 `lx1 + 17` / 38）—— 它是**独立的一件**（原版
+            //   `Card Drag Controller > Deck Selector Card Info button` 那条拖影），位置「我们挑的」，
+            //   ⛔ 本轮不动它（判据不在本件范围内）；**但它与卡组行那颗圆现在不一致**，已记进报告当新账。
             // 坐标一律**相对拖影根中心**（`lx1/ly1` = 行框左上，见上面那段判据）
             float lx1 = -CardGhostW * 0.5f, ly1 = -CardGhostH * 0.5f;
             Img("card_ghost_circle", Ui("Card_Frame_Cost_Icon"),
@@ -2940,9 +3025,14 @@ namespace CardPresentation
             {
                 bool on = cards && (firstRow + i) < shown.Count;
                 SetOn(_deckRowBg[i], on); SetOn(_deckRowGrad[i], on);
-                SetOn(_deckRowBorder[i], on); SetOn(_deckRowCntIc[i], on);
+                SetOn(_deckRowBorder[i], on);
                 SetOn(_deckRowCost[i], on);
                 SetOn(_deckRowName[i], on); SetOn(_deckRowCount[i], on);
+                // 🔴 **2026-10-20**：份数那颗 `row_x*` **先关掉** —— 它开不开由下面算出来的
+                //   张数定（原版 `SetCount` 那句 `SetActive(1 < count)`），而张数只有 `on` 的行才有。
+                //   ⚠️ 不能只在 `on` 那一支里关：**这些标签不是行那一组的孩子**（都挂在 `Root` 上）
+                //   ⇒ 滚动露头那些 `!on` 的行如果不在这里关，屏上会留一颗**孤儿字**。
+                SetOn(_deckRowCountX[i], false);
                 if (!on) continue;
 
                 var def = shown[firstRow + i];
@@ -2950,7 +3040,19 @@ namespace CardPresentation
                 MoveRow(i, y);
                 _deckRowName[i].SetText(CardText.Name(def.Name, def.NameZh));
                 int n = (def.Type == "hero" || def.Type == "defence") ? 1 : State.Deck.CountOf(def.Id);
-                _deckRowCount[i].SetText(n.ToString());
+                // 🔴 **2026-10-20 换了喂进去的东西（两处一起）**：
+                //   · 圆里那颗（原版 `…/Cost Image/Cost`）= **费用**（`CardDef.Cost`，字段名现核：
+                //     `RuleEngine/Core/CardDef.cs` 的 `public int Cost { get; }`）；
+                //   · 行右缘那颗（原版 `Count`）= **份数** `"x" + n`。
+                //   ⚠️ **改之前两颗都喂的是份数**（份数印在费用圆里、而**费用哪都没印**）——
+                //     这正是本件要修的那一处（原版 `UICardInfoItem` 里 `Cost Image/Cost` 是费用、
+                //     `Count` 才是份数：`UICardInfoItem__SetCount.c` 的字面量 = `x{0}`）。
+                _deckRowCount[i].SetText(def.Cost.ToString());
+                // ⚠️ 这两句的**先后不能换**：TMP 在**没激活**的物体上量不出尺寸（`textBounds` 是垃圾）
+                //   ⇒ 先 `SetText` 再激活的话，这颗字露出来时会被按错误尺寸摆一次（`Battle/Label.cs` 那个已知坑）。
+                bool showX = n > 1;                     // 原版：`1 < count` 才显示（督军 / 防御卡行 = 1 ⇒ 藏）
+                SetOn(_deckRowCountX[i], showX);
+                if (showX) _deckRowCountX[i].SetText("x" + n);
                 // 🆕 **2026-10-17（附加条）**：行上那**两件**都按 `CardRarityColorsSO` 上色 ——
                 //   原版 `UICardInfoItem.imagesToChangeColorByRarity` 那两颗数组元素**逐颗解出来就是**
                 //   `Rarity Gradient`（= `_deckRowGrad`）与 `Background Border`（= `_deckRowBorder`）。
@@ -2992,7 +3094,10 @@ namespace CardPresentation
             Move(_deckRowGrad[i], GradX + GradW * 0.5f, cy, QGrad);   // 右对齐那一段（别写 ListX + RowW/2）
             Move(_deckRowBorder[i], ListX + RowW * 0.5f, cy, QBorder);
             Move(_deckRowCost[i], RowCostX + RowCostS * 0.5f, cy, QRow);
-            Move(_deckRowCntIc[i], 258f + 20f, y + 8f + (RowH - 16f) * 0.5f, QRow);
+            // 🔴 **2026-10-20**：这一行原来搬的是 `_deckRowCntIc[i]`（那颗 `row_k*` 方块贴图，已删）；
+            //   现在是行右缘那颗**份数**字（框 x `275.4..325.4` ⇒ 中心 `ListX + RowW − RowCountW/2`
+            //   = **300.4**，不是原来那个 `258 + 20`）。
+            MoveLabel(_deckRowCountX[i], ListX + RowW - RowCountW * 0.5f, cy, QText);
             MoveLabel(_deckRowName[i], 62f + 95f, cy, QText);
             MoveLabel(_deckRowCount[i], RowCostX + RowCostS * 0.5f, cy, QText);
         }
@@ -3210,6 +3315,20 @@ namespace CardPresentation
             //   ⚠️ 另一半（**悬停变色**）原来确实没接 —— 2026-10-05（A32②）补上了，见 `BuildHeader` 里那句 `HoverTint`。
             SetSprite(_hdrFltBtn, (_tab == 2 ? _cosmoFltOpen : _filtersOpen)
                                   ? "40k_menu_bt_pressed" : "40k_menu_bt");
+
+            // 🔴 **2026-10-20：`Clear filters` 的显隐落在这里**（判据/推断/为什么走 `SetActive`
+            //   而不是原版那个 −550 平移 → 全部写在 `HdrClearX` 上面那一大段注释里，⛔ 别在这里再抄一份）。
+            //   · 判据 = **本文件已有的那个「筛选是不是空的」读法**：`DeckFilter.IsEmpty`
+            //     （`Deck/DeckEditorState.cs`，五个筛选字段全空；**不含 `Owned` / `Upgradable`** 那两个开关）
+            //     —— ⛔ 别另造一个「有没有筛选」的概念。
+            //   · **与它自己的动作同一条判据**：`case "hdr_clear": ClearFilters()` 清的正是 `State.Filter`
+            //     那五件 ⇒ 这颗钮「管的是卡牌那一套筛选」，所以显隐也读 `State.Filter`。
+            //     ⚠️ 卡背页（`_tab == 2`）那一份 `_cosmoFilter` 算不算数 —— **判据不足**（原版只有一颗钮、
+            //     而它归哪个 controller 没读出来）⇒ 今天**只管卡牌那份**，如实标注在这里。
+            //   · 🔴 **命中闸必须跟着走**（`KeyLive` 里那一支）：藏起来却还能点到 = 静默失败（本仓红线）。
+            bool clearFiltersOn = !State.Filter.IsEmpty;
+            SetOn(_hdrClear, clearFiltersOn);
+            SetOn(_hdrClearTx, clearFiltersOn);
 
             // 🔴 2026-10-04（A24）**侧栏三页签的选中态**：原版走 UGUI `Toggle.PlayEffect` ——
             //   `graphic.CrossFadeAlpha(m_IsOn ? 1 : 0, 0.1s)`，而这三颗的 `graphic` 实测 = **子件 `Highlight`**
@@ -3484,7 +3603,13 @@ namespace CardPresentation
             for (int i = 0; i < _poolViews.Count; i++)
             {
                 var v = _poolViews[i];
-                if (!v.gameObject.activeSelf || i >= _poolIndex.Count || _poolIndex[i] < 0) continue;
+                // 🔴 2026-10-11 修（用户实测「卡组编辑里点空白处 ⇒ NullReferenceException」· 见账 `A1495`）：
+                //   `_poolViews` 里**可以合法地存在 `null` 槽** —— `RefreshPool` 是**先 `Add(null)` 再决定建不建视图**，
+                //   而这一行原来把 `v.gameObject` 排在 `||` 链的**第一个**求值 ⇒ **右边那些 `i >= …` 的保险挡不住它**。
+                //   ⚠️ **为什么偏偏只有「点空白处」会炸**：命中真卡的落点会在下面**提前 `return true`**，
+                //   **只有空白点才会把整条列表走完**、从而撞上第一个 `null` 槽 ⇒ 位置相关，正是观察到的现象。
+                //   ✅ **同族的同形循环都加了这道守卫**（`TickTooltipAt` 那一处**逐字同形**）—— 就这一处漏了。
+                if (v == null || !v.gameObject.activeSelf || i >= _poolIndex.Count || _poolIndex[i] < 0) continue;
                 if (!v.Contains(wp)) continue;
                 var def = State.VisibleAt(_poolIndex[i]);
                 if (def == null) return true;
@@ -6240,8 +6365,11 @@ namespace CardPresentation
         ///      上面那两段的**历史成因留着**（它是「为什么要有 `KeyLive` 这道闸」的判据）；
         ///      ⛔ 别据此以为那两颗钮还在。
         /// 判据 = **与显隐同一个谓词**（不许两份）：
-        ///   · `imp_*` ↔ `_importOpen`（`OpenImport`/`CloseImport`；`_modalOnly` 那批也由它开关）。
-        /// 表里没有的 key = **恒在**（`hdr_*` / `foot_done` / `name_*` / `tab_*` 都是常显件）。
+        ///   · `imp_*` ↔ `_importOpen`（`OpenImport`/`CloseImport`；`_modalOnly` 那批也由它开关）；
+        ///   · 🆕 **`hdr_clear` ↔ `!State.Filter.IsEmpty`**（2026-10-20）—— 它与 `RefreshHeader`
+        ///     里那两句 `SetOn` **是同一个谓词**（那边藏、这边挡命中）。
+        /// 表里没有的 key = **恒在**（`hdr_back` / `hdr_filters` / `foot_done` / `name_*` / `tab_*`
+        /// 都是常显件；⚠️ 2026-10-20 起 **`hdr_clear` 不再是常显件**，见上一行）。
         /// ⚠️ 加一颗**成组显隐**的按钮，必须把它的名字写进这里 —— 否则又会出现「看不见却能点」。</summary>
         bool KeyLive(string key)
         {
@@ -6268,12 +6396,17 @@ namespace CardPresentation
                 // 🔴 **2026-10-17（D35 删件）**：这里原来还有
                 //   `case "info_share": case "info_import": return InfoTab;`
                 //   —— 那两颗钮**原版没有**、连它们的分支一起删。
-                //   ⚠️ 于是本函数剩下的**唯一**一条「成组显隐」就是下面那三颗 `imp_*`。
+                //   ⚠️ 于是本函数剩下的「成组显隐」只有下面那四颗 `imp_*` 与 `hdr_clear` 那一支。
                 case "imp_input":       // 只在导入弹窗开着时存在（`_modalOnly`）
                 case "imp_ok":
                 case "imp_close":
                 case "imp_shade":       // 🆕 2026-10-17（D47）：压暗层同上
                     return false;       // 弹窗关着 ⇒ 这四颗**一律不算**（否则会在看不见的输入框上亮起来）
+                // 🆕 **2026-10-20**：`Clear filters` —— **一个筛选都没设时它被藏起来**（`RefreshHeader`
+                //   里那两句 `SetOn` 用的就是这一个谓词）⇒ 这里必须**同样**判掉，否则「藏起来了却还能点到」
+                //   （静默失败，本仓红线）。判据/推断/为什么走 `SetActive` → `HdrClearX` 上面那一大段。
+                case "hdr_clear":
+                    return !State.Filter.IsEmpty;
                 default:
                     return true;
             }

@@ -98,6 +98,14 @@ namespace CardPresentation
         public static Vector3 ScreenToWorld(Vector2 screenPos, Camera cam = null)
         {
             cam = cam != null ? cam : Cam;
+            // 🔴 2026-10-11 修（见账 `A1494`）：`Cam` 是**静态字段**，而壳的 `Main Camera` 是**场景根件**
+            //   （**不在** `Shell` 的 `DontDestroyOnLoad` 层级里 —— `ShellRuntime.Awake` 只 DDOL 了 `Shell` 自己）
+            //   ⇒ 切到主菜单（**单场景加载**）时那台相机被销毁，`Cam` 于是指向一台**已销毁**的相机
+            //   ⇒ 原来直接 `return Vector3.zero` ⇒ **每一次换算都退化成世界原点**
+            //   ⇒ `PixelOfDesign(0,0)` 恒等于画布正中 **(960, 540)** ⇒ **命中永远落在屏幕正中那一件上**
+            //   （实测：四个完全不同的屏幕位置，`click_log` 里命中都是中间那张模式卡、画布列恒为 960,540）。
+            //   ⇒ 改成**回落 `Camera.main`**，并把 `Cam` 顺手修正回来：任何「壳相机先关、再切场景」的路径都不会再退化。
+            if (cam == null) { cam = Camera.main; if (cam != null) Cam = cam; }
             if (cam == null) return Vector3.zero;
             var w = cam.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, -cam.transform.position.z));
             w.z = 0f;

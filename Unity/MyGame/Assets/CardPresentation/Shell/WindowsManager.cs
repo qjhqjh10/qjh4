@@ -759,6 +759,15 @@ namespace CardPresentation
     {
         public static WindowsManager Instance { get; private set; }
 
+        /// <summary>🔴 **统一读口：有就用、没有就现建**（`EnsureHost` 本身幂等）。
+        /// <para>**为什么必须统一**（2026-10-11 实测）：`Instance` 只有两个写点 —— `Awake` 置 this、`OnDestroy` 清 null，
+        /// 而**壳的那一台会被 `ShellRuntime.Build()` 的拆除循环拆掉**（延迟到帧末）⇒ **切到主菜单之后 `Instance` 就是 null**。
+        /// 全仓**十几处直接读 `Instance`、只有两处走 `EnsureHost()`** ⇒ 同一族两套口径 ⇒
+        /// 「**有的路能开窗、有的路报「没有 WindowsManager」**」—— 实测就是模式卡的 `OpenMode` 落在坏的那一支
+        /// （而同一跑的日志里 `EnsureHost` 神不知鬼不觉地现建了一台、窗也真的开出来了）。
+        /// ⇒ **凡是要「用」窗口层的读点一律走这里**；只做 `== null` 判空（例如自检前提）才读 `Instance`。</para></summary>
+        public static WindowsManager Get() => Instance != null ? Instance : EnsureHost();
+
         /// <summary>锚点表。原版是 `static Dictionary&lt;WindowsPlacement, Transform> anchors`。</summary>
         static readonly Dictionary<WindowsPlacement, Transform> _anchors =
             new Dictionary<WindowsPlacement, Transform>();
@@ -778,7 +787,12 @@ namespace CardPresentation
             PointerLayer.Ensure(transform.parent);
         }
 
-        void OnDestroy() { if (Instance == this) Instance = null; }
+        void OnDestroy()
+        {
+            // 🩺 2026-10-11 临时诊断 + 出声（`A1491`·②「有但已死」原来与「有且活着」在日志上长得一样 —— 红线：不许静默失败）
+            Debug.Log($"[Win] OnDestroy 场景={gameObject.scene.name} 父={(transform.parent != null ? transform.parent.name : "<null>")}");
+            if (Instance == this) Instance = null;
+        }
 
         /// <summary>
         /// **确保场景里有 `WindowsManager` 与三个锚点**（幂等）。原版这三个 Holder 在主菜单场景里

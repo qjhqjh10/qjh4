@@ -316,6 +316,16 @@ namespace CardPresentation
             for (int i = _root.childCount - 1; i >= 0; i--) DestroySafe(_root.GetChild(i).gameObject);
             MissingArt.Clear();
 
+            // 🔴 2026-10-11 修（见账 `A1494`）：**主菜单场景自己的相机要重新 `Apply` 一次**。
+            //   为什么必须：`LayoutSpace.Cam` 是**静态字段**，而壳那台 `Main Camera` 是**场景根件**
+            //   （**不在** `Shell` 的 `DontDestroyOnLoad` 层级里 —— `ShellRuntime.Awake` 只 DDOL 了 `Shell` 自己）
+            //   ⇒ 切到本场景（**单场景加载**）时它被销毁，`Cam` 指向一台**已销毁**的相机
+            //   ⇒ 屏幕→世界换算**全部退化成世界原点** ⇒ `PixelOfDesign` 恒等于画布正中 **(960, 540)**
+            //   ⇒ **命中永远落在屏幕正中那一件上**（实测：四个完全不同的位置点下去，命中都是中间那张模式卡）。
+            //   同族先例：进战场时 `BattleDriver` 也这么做；这条坑本来就记在 `资料/已知的坑.md`
+            //   （「`LayoutSpace.Cam` 是静态字段 … 场景里要有个 `Start()` 重新 `Apply(cam)`」）。
+            LayoutSpace.Apply(Camera.main);
+
             // ============================================================ 🆕 2026-10-12（A384）每日重置那一拍
             //
             // 🔴 **为什么落在这一处**：原版那一拍是**后端到点下发** —— 信号 `MissionResetSignal` 全客户端
@@ -746,7 +756,7 @@ namespace CardPresentation
         /// 本扇 `closeOnEsc = 0` ⇒ ① 那一跳不做，只做 ②。</summary>
         public bool EscPressed()
         {
-            var wm = WindowsManager.Instance;
+            var wm = WindowsManager.Get();     // 🔴 2026-10-11：走**统一读口**（原来直接读 `Instance` ⇒ 切场景后它是 null ⇒ 模式卡点不动）
             if (wm == null)
             {
                 // 出声（红线：不许静默失败）—— 「按了 ESC 没反应」必须能从日志里分辨
@@ -1332,7 +1342,7 @@ namespace CardPresentation
         /// ⚠️ 映射是**我们定的**（见 `BuildGameModes` 上方那段）；窗还没建的那两个**出声**，不静默。</summary>
         void OpenMode(string kind)
         {
-            var wm = WindowsManager.Instance;
+            var wm = WindowsManager.Get();     // 🔴 2026-10-11：走**统一读口**（原来直接读 `Instance` ⇒ 切场景后它是 null ⇒ 模式卡点不动）
             if (wm == null) { Debug.LogWarning("[Menu] 没有 `WindowsManager`，开不了模式窗：" + kind); return; }
             switch (kind)
             {

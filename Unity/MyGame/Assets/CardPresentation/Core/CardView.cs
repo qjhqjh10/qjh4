@@ -69,7 +69,8 @@ namespace CardPresentation
         /// 非空时卡面用它、**不再按 `artId` 取**（`ArtTexture`/抠图判据两处都看它）。
         /// ⚠️ 判「这张覆盖图有没有抠图 alpha」用的是**另一份清单**
         /// （`CardArt.AltArtHasCutout` ← `Art/altarts/alt_cutouts.json`），**不是** `card_cutouts.json`
-        /// —— 后者只记 `art_&lt;id>` 那批，拿它去问 `alt_*` 会恒假 ⇒ 异画会**少画一层**（角色不越出卡框）。</summary>
+        /// —— 后者只记 `art_&lt;id>` 那批，拿它去问 `alt_*` 会恒假 ⇒ 异画在 opt-in 那条路上会**少一层**
+        /// （⚠️ 出厂已经不走那条路了：前景层默认不建，见 `UseFrontLayer`）。</summary>
         public Texture2D artOverride;
 
         /// <summary>🆕 棋盘单位卡身上的 buff/debuff 徽标（原版 `BattleCardUI.boardTraitIcons`，最多 7 个）。
@@ -318,9 +319,18 @@ namespace CardPresentation
         //    **0.258 × 0.2335 @(0,−0.0055)**（相对容器），sprite 是 84×76 px（宽高比 1.105）。
         //    出处：`子代理读报_2dcard_0827.md` A2 表 `Rarity / Card Rarity Sprite`。
         //    按容器画 = 宽 1.55×、高 1.71×，还把 1.105 的比例压成了 1.0（对照图 `gems.png` 能看出来）。
-        const float RarityGemW = 0.258f, RarityGemH = 0.2335f;
-        /// <summary>宝石中心 = 容器 y −1.458 + 图自己的 −0.0055</summary>
-        const float RarityGemY = -1.4635f;
+        // 🔴 2026-10-11 修（用户点名「宝石明显错位，**超出了宝石框**」· 见账 `A1492`）：
+        //    **旧值取自 prefab 的【模板 rect】，画出来对不上卡框贴图上那个凹槽。**
+        //    凹槽实测（`Resources/Art/cards/frame_saimhann_tier3.png`，与解包件逐字节同）：
+        //    黑菱形连通域 x 478..544 / y 919..981 ⇒ 中心 (511.0, 950.0)、67×63 px；
+        //    经 `FrameUv` + `FrameQuad` 换算回卡单位 ⇒ **中心 (+0.0147, −1.5126)、尺寸 0.24620 × 0.22159**。
+        //    旧值 0.258×0.2335 @ y −1.4635 ⇒ **偏高 0.0491、宽高各超 4.8% / 5.4%** = 实拍里「超出凹槽」。
+        const float RarityGemW = 0.24620f, RarityGemH = 0.22159f;
+        /// <summary>宝石中心 y = **卡框凹槽实测中心**（判据见上）。⚠️ 旧值 −1.4635 是「容器 −1.458 + 图自己 −0.0055」的推导值，**与画出来不符**。</summary>
+        const float RarityGemY = -1.5126f;
+        /// <summary>宝石中心 x = **凹槽实测中心**。⚠️ 旧代码隐含 x=0（原版 prefab 两个节点 x 都是 0），
+        /// 但贴图里那个凹槽**并不在 x=0 上**（贴图 alpha bbox 中心 506 ≠ 凹槽 511）⇒ 代码层原来偏左 0.0147。</summary>
+        const float RarityGemX = 0.0147f;
 
         // ---- 原版立绘区（`CardImage`，A1 表）----
         // 2.7484 × 2.7484 @ (0, −0.044) 卡单位 —— **正方形、比卡本体大**，故意外溢，
@@ -382,11 +392,15 @@ namespace CardPresentation
         const float TextBgAlpha = 0.647f;          // Image `m_Color.a`，原值 0.64705884
         /// <summary>底板的 z。
         /// ⚠️ **不能照原版的「卡框之下」摆**：原版 `Front` 的子序里卡框在底板之上，
-        /// 但**原版没有「立绘抠图层」**（我们是自己加了一层 `_artFront`，z = −0.008，
-        /// 角色抠图盖在卡框上做破框）。底板要是摆在卡框之下(+0.015)，
-        /// 就被那层抠图整个盖住了 —— 实测渲出来**完全看不见**。
+        /// 但**原版没有「立绘抠图层」**，而我们有一层可选的前景抠图（`_artFront`，z = −0.008，
+        /// 由 `UseFrontLayer` 控制、**出厂已关** —— 见它那段注释）。底板要是摆在卡框之下(+0.015)，
+        /// 那层抠图**一开**就会被整个盖住 —— 实测渲出来**完全看不见**。
         /// ⇒ 取 **−0.012**：在 `_artFront`(−0.008) **之前**、在数值层 `_info`(−0.02) **之后**。
-        ///   视觉效果与原版一致（底板压住立绘、文字再压在底板上）。</summary>
+        ///   视觉效果与原版一致（底板压住立绘、文字再压在底板上）。
+        /// 🔴 **2026-10-10 备注 —— 这里是既存事实，本轮【没有改这个值】**：前景层出厂已经关了，
+        ///   但本值**仍留在 −0.012（即画在卡框【之前】）**。⚠️ **还没查清**：出厂态下这块 64.7% 的黑底
+        ///   会不会压暗卡框**自己**那一圈（按原版子序它本该画在卡框**之后**、由卡框盖住）？
+        ///   要动它得先按铁律 10 第 6 条渲一张并排图 —— 别只凭子序推断就改。</summary>
         const float TextBgZ = -0.012f;
         /// <summary>护甲盾的中心：容器 (0.899,−0.991) + 图自己的 (−0.005,−0.032)，换算成 x01/y01</summary>
         static readonly Vector2 ArmourIconAt = new Vector2(0.92721f, 0.80710f);
@@ -497,7 +511,8 @@ namespace CardPresentation
                 return t != null ? FrameUv(t) : new Rect(0f, 0f, 1f, 1f);
             }
         }
-        /// <summary>自检用：前景层（角色抠图）用的贴图 —— 没有前景层就是 null</summary>
+        /// <summary>自检用：前景层（角色抠图）用的贴图 —— **没有那一层就是 null**
+        /// （⚠️ 出厂态**恒为 null**：`UseFrontLayer` = false ⇒ 那一层根本不建，见它那段注释）</summary>
         public Texture2D ArtFrontTexture
         {
             get
@@ -515,7 +530,8 @@ namespace CardPresentation
                      ? _art.sharedMaterial.shader.name : "<无>";
             }
         }
-        /// <summary>自检用：前景层的 z（要比卡框(0)靠前、比数值层(−0.02)靠后）</summary>
+        /// <summary>自检用：前景层的 z（要比卡框(0)靠前、比数值层(−0.02)靠后）；
+        /// **没有那一层时返回 `float.NaN`**（出厂态就是这样 —— 判「它建没建出来」用它）</summary>
         public float ArtFrontZ { get { return _artFront != null ? _artFront.transform.localPosition.z : float.NaN; } }
         /// <summary>卡框那层的 z（判据用，恒为 0）</summary>
         public float FrameZ { get { return _frame != null ? _frame.transform.localPosition.z : float.NaN; } }
@@ -548,7 +564,8 @@ namespace CardPresentation
         MeshRenderer _frame;     // 原版卡框
         MeshRenderer _textBg;    // 🆕 文字底板（原版 `Front/Textbackgrounds/TextBackground * UI`）
         MeshRenderer _art;       // 立绘：**完整插图**（忽略 alpha，垫在卡框下）
-        MeshRenderer _artFront;  // 立绘：**角色抠图**（真 alpha，盖在卡框上）—— 没有抠图的卡是 null
+        MeshRenderer _artFront;  // 立绘：**角色抠图**（真 alpha，盖在卡框上 ⇒ 越出卡框）
+                                 // ⚠️ **出厂不建**（`UseFrontLayer` = false，原版默认也不越出）—— 恒为 null
         MeshRenderer _gem;       // 卡面底部那颗稀有度宝石（原版 `Rarity`）
         MeshRenderer _costBg;    // 费用底板（原版 `Cost Container/Cost Background`，图 `Card_Frame_Cost_Icon`）
         MeshRenderer _armourIcon;// 护甲盾牌底（原版 `Armour Container/Image`，图 `pedestal_icon_armor`）
@@ -1106,7 +1123,12 @@ namespace CardPresentation
             }
             if (_info != null)
             {
-                _info.sharedMaterial.mainTexture = InfoTexture(d, _faceMode == CardFace.Board);
+                // 🔴 2026-10-10 修：原来**漏了第三个实参** ⇒ `skipStats` 落回默认 `false` ⇒ 棋盘单位卡**每次
+                //    `SetData`（每刷一次棋盘都走）都把四个数字重新烘进 `_info`**，而烘的落点是【2D 卡面】坐标；
+                //    同时四个独立数值层又在**板位**（`BoardMeleeAt…`）再画一遍 ⇒ **数字画两遍**（截图里“散在卡框内”的就是多出来那一份）。
+                //    判据就在本文件：`SetFace` 那句 `InfoTexture(Data, board, SplitStats(Data))` 是写对的，
+                //    且它下一段注释**逐字**写着这个坑（「必须是同一个判据 —— 不然会把数字画两遍」）。
+                _info.sharedMaterial.mainTexture = InfoTexture(d, _faceMode == CardFace.Board, SplitStats(d));
                 if (_art != null) _art.sharedMaterial.mainTexture = ArtTexture(d);
                 // 场上那份立绘在 **3D 卡体**上（材质的 `_CardImage`），不是 `_art` 那块 quad ⇒ 单独跟一遍
                 SetCardImageTo3DBase();
@@ -1574,11 +1596,16 @@ namespace CardPresentation
                 GetComponent<MeshRenderer>().enabled = false;
                 var artTex = ArtTexture(d);
                 var artMesh = ArtMeshInFrame(artTex, FrameQuad(frameTex));
-                // ---- 立绘：原版是**画两次**的（2026-09-13 查实，用户看出来的「3DLit 立体感」）----
+                // ---- 立绘：**画在框下、由框的 alpha 剪出来**（原版默认就是这个，**不越出**）----
                 //   ① 底层「完整插图」：**忽略贴图的 alpha**（那张图的 alpha 是角色抠图，不是不透明信息），
                 //      垫在卡框下面 —— 卡框拱窗自己也是透明的（实测 alpha=0），窗里的背景就靠这一层。
-                //   ② 前景层「角色抠图」：同一张贴图 + **真 alpha**，盖在**卡框上面** ⇒ 角色越出卡框。
+                //   ⛔ **没有 ②**：原版**不**在框上再重画一层角色 ⇒ 出厂**不越出**。
+                //      我们原来自己加过一层 `_artFront`（同一张贴图 + **真 alpha**、盖在卡框上面），
+                //      **2026-10-10 改成默认关** —— 用户点名「最严重的还是插图超出卡框」，真因就是它。
+                //      判据/出处 → `UseFrontLayer` 的注释；**⛔ 别改回 true**。
                 //   判据是**清单**（`card_cutouts.json`，张数看该文件的 `count` —— ⚠️ 2026-10-06 更正：原写 665 张，实际 **668 张**）：单位卡基本都有、战术卡基本都没有；
+                //   ⚠️ 这张清单现在**只决定「要不要给这张卡开 opt-in 的前景层」**（默认关）——
+                //      对底层立绘与卡框那两层没有任何影响（那两层每张卡都照画）。
                 //   没有立绘（回退占位图）的卡不在清单里 —— 给它加前景层会把卡框整个盖住。
                 bool cut = d.artOverride != null
                            ? CardArt.AltArtHasCutout(d.artId)      // 异画走它自己那份清单（见 `CardData.artOverride`）
@@ -1615,7 +1642,12 @@ namespace CardPresentation
                     //    （**既有断言**「场上 3D 体与 2D 立绘不同时出现」当场抓到）。
                     Show(_art, false);
                 }
-                if (!board && cut && UseFrontLayer && !DebugNoArtFront)
+                // 🔴 **2026-10-10 改：默认【不建】前景层**（`UseFrontLayer` 出厂 false）——
+                //    这一层就是「插图超出卡框」的真因：它在框上**重画同一张立绘、带真 alpha**
+                //    ⇒ 整条角色轮廓盖住卡框（剑尖/肩甲出拱顶），再叠一层 `ArtCoverMargin`(1.04)。
+                //    原版默认**不**这么画（立绘在框下、由框的 alpha 剪出来）；越出是**逐卡 opt-in**、
+                //    值在服务器（`RawCardScript.useOverDraw`，我们拿不到）⇒ 判据与出处全在 `UseFrontLayer`。
+                if (!board && cut && UseFrontLayer)
                     _artFront = AddLayer("artFront", frameTex, -0.008f, artTex, artMesh);
                 if (!board) _frame = AddLayer("frame", frameTex, 0f, null);
                 // 🆕 文字底板（原版 `Front/Textbackgrounds`）—— 让卡名/效果文字在黑底上读得清。
@@ -1643,18 +1675,13 @@ namespace CardPresentation
                     Debug.LogWarning("[CardView] 文字底板图 `Card_Text_smooth_background` 取不到 —— " +
                                      "卡面少一层黑底。重建：python Unity/工具/sync_battle_ui_art.py");
                 }
-                if (!board && cut && !UseFrontLayer && artTex != null)   // ⚠️ 这条路没调通，见 `UseFrontLayer` 的注释
-                {
-                    // **破框走「卡框挖洞」那条路**（默认）：立绘照常画一次，框在角色处被挖开
-                    var fm = new Material(FrameCutoutMaterial())
-                    {
-                        mainTexture = frameTex,
-                    };
-                    fm.SetTexture("_CutMask", artTex);
-                    fm.SetFloat("_CutAmount", 1f);
-                    _frame.sharedMaterial = fm;
-                }
-                // UV 裁到卡外框；**uv2 = 立绘的 UV**（破框 shader 要用同一套坐标去采立绘的 alpha）
+                // ⛔ **2026-10-10 删掉了一条路**：原来这里还有 `!UseFrontLayer` 那一支 —— 把卡框换成
+                //    `CardPresentation/FrameCutout` shader、按立绘 alpha 给框挖洞。它是**我们自造的近似**
+                //    （原版没有这个机制：原版是 `SoftMask` + `FlipAlphaMask`，而我们已经用「立绘在框下、
+                //    框自己当遮罩」等价实现了它），而且**至今没人渲图看过** ⇒ 连同 `FrameCutoutMaterial` /
+                //    `CheckCutoutWiring` 一并不要了。要复活它：先渲一张并排图，⛔ 别只凭静态读字段。
+                // UV 裁到卡外框；**uv2 = 立绘的 UV**（破框 shader 靠它采立绘的 alpha —— 现在没有 shader
+                // 采了，但 `CheckCutoutUvAlignment` 仍在守这条对齐判据，**留着**，见那一段注释）
                 if (_frame != null) _frame.GetComponent<MeshFilter>().sharedMesh = FrameMesh(frameTex, artTex);
                 // 费用底板 / 护甲盾：原版的**两张真图**（A2 表），垫在数值底下 ——
                 // z 比 `_info`(−0.02) 远、比卡框(0) 近，所以数字盖在它们上面，和原版层级一致。
@@ -2281,8 +2308,10 @@ namespace CardPresentation
         }
         static Material _artOpaqueMat;
 
-        /// <summary>诊断开关：关掉前景层（角色抠图），单独看底层——用来分辨「杂色是底层带来的还是双层引起的」</summary>
-        public static bool DebugNoArtFront;
+        // 🔴 **2026-10-10 删掉了 `DebugNoArtFront`** —— 它原来的用途是「关掉前景层、单独看底层」
+        //    （分辨杂色是底层带来的还是双层引起的），而前景层现在**出厂就不建**（见 `UseFrontLayer`）
+        //    ⇒ 它已恒为空操作，留着只会和 `UseFrontLayer` 互相打架（**静默失效的开关**）。
+        //    要看 opt-in 那一档，直接翻 `UseFrontLayer`。
 
         /// <summary>诊断 / 自检开关：**让 <see cref="BuildBody3D"/> 直接失败** —— 即造出
         /// 「网格或 shader 取不到」那条**退回 2D 立绘**的路径。
@@ -2295,8 +2324,7 @@ namespace CardPresentation
         ///
         /// ⚠️ 它是 **`static`** ⇒ **用完必须关回去**（`CardView.DebugNoBody3D = false;`），
         ///    否则那之后新建的**每一张场上卡**都会退回 2D 立绘。默认 **false** ⇒ 产品零影响。
-        /// （同族的诊断开关见 `DebugNoArtFront`；`BuildBody3D` 那条 warning 会把「是谁开的」写进日志，
-        ///   不静默。）</summary>
+        /// （`BuildBody3D` 那条 warning 会把「是谁开的」写进日志，不静默。）</summary>
         public static bool DebugNoBody3D;
 
         // ==================================================================
@@ -4428,7 +4456,7 @@ namespace CardPresentation
             if (_gemMesh != null) return _gemMesh;
             float s = Width / CardUnitW;
             float w = RarityGemW * s * 0.5f, h = RarityGemH * s * 0.5f;
-            float cy = RarityGemY * s;
+            float cx = RarityGemX * s, cy = RarityGemY * s;
             _gemMesh = new Mesh { name = "CardRarityGemQuad" };
             _gemMesh.vertices = new[]
             {
@@ -4463,47 +4491,48 @@ namespace CardPresentation
             return CardArt.DeckUi(idx + "_40k_cardframe_rarity_" + r);
         }
 
-        /// <summary>破框走哪条路 —— **默认 true = 立绘画两层**（底层完整插图 + 前景角色抠图）。
+        /// <summary>要不要给每张卡**再画一层前景角色抠图**（盖在卡框上 ⇒ 角色**越出卡框**）。
         ///
-        /// ⚠️ false 那条（`FrameCutout`：卡框按遮罩挖洞、立绘只画一次）**静态上已经查清并修过两处**，
-        ///    但**还没有人渲图看过**（渲染验证归调度台，见 `资料/普查产出_1007/A111_A112_卡面两件.md`）：
-        ///    · 2026-09-13 记录的「遮罩采样错 → 插图碎成彩色马赛克」**根因是 uv2 的缓存键**：
-        ///      没带立绘 ⇒ 所有卡共用第一张卡的 uv2（修法就在 `FrameMesh` 那条缓存键上，**同一天已修**）。
-        ///      ⚠️ 「还没调通」那句一直留在文档里，其实是**没跟上这次修复**（铁律 5）。
-        ///    · 2026-10-07 静态复核又查出一处**真偏差**：uv2 少乘了 `ArtCoverMargin`（立绘画的是 1.04 倍大）
-        ///      ⇒ 遮罩比看得见的立绘放大约 4%（实测框边缘 u 16.1 纹素 / v 23.5 纹素）。已改成两边共用 `ArtUvAt`。
-        ///    · 2026-10-07 第三处（在 shader 里）：遮罩原先**无条件**采 `uv2`，而 `uv2` 在框的上下缘
-        ///      跑出立绘矩形外、被贴图 Clamp 收边 —— 668 张里有 **22 张**上边缘像素 alpha > 32
-        ///      ⇒ 那些卡的卡框上沿会被整条挖掉。现在矩形外 mask = 0（不挖）。
-        ///    ⇒ 两条判据都落在 `CheckCutoutUvAlignment`（自检直接断，不用出图）。
-        ///    ⚠️ 还没查清的部分：遮罩本身用的是**软 alpha**（立绘那圈 25% 的过渡），
-        ///      挖洞边缘因此是**渐隐**而不是硬边 —— 原版是怎么处理这圈过渡的**没查到**（本地没有对应代码/资产）。
+        /// 🔴 **默认 `false` = 不越出，这才是原版的做法**（**2026-10-10 改**；用户点名
+        ///    「最严重的还是插图超出卡框」⇒ 真因就是这一层）。
+        ///    原版的破框 = **立绘画在框下、由框的 alpha 剪出来** —— 我们的 `_art`（z = +0.03，在框下）
+        ///    + `_frame`（z = 0）那两层就是它，**一字不动**。
+        ///    「越出」在原版是**逐卡 opt-in、默认关**：`RawCardScript.useOverDraw`（偏移 **0x58**，
+        ///    **值在服务器**）→ `CardDisplayWindow` 调 `BasicCardUI.SetImageOverDraw(卡, 卡.useOverDraw)`
+        ///    → `CardImageController.ChangeSize() → ChangeState() → DoChange()`（把立绘 re-parent + ×1.26999998）；
+        ///    而 `currentState` 是**非序列化 private** ⇒ **出厂态 = `Small(0)` = 不溢出**。
+        ///    出处：`资料/战斗规格/战斗重建_0827/子代理读报_2dcard_0827.md:310`（D2 条）· 反编译
+        ///    `d:/2/tools/decomp_full/CardDisplayWindow__CardOverdrawHandle.c` /
+        ///    `BasicCardUI__SetImageOverDraw.c` / `CardImageController__ChangeState.c`。
+        ///    **已裁定、⛔ 别推翻**：`资料/卡面复刻_失误复盘_0919.md:95-96`（含「『一律 ×1.27 更接近原版』
+        ///    **是错的、已收回**」）· `资料/待办判据_卡面卡池与双语.md:120`（2026-09-28 已销账）。
+        ///
+        /// ⛔ **改成 `true` 就是复现那个缺陷**：那一层在框上**重画同一张立绘、带真 alpha** ⇒ 整条角色
+        ///    轮廓盖住卡框（剑尖/肩甲出拱顶），再叠一层 `ArtCoverMargin`(1.04)。
+        /// ⚠️ 口子留着只为「将来能恢复」：原版是**逐卡** opt-in、值在服务器（我们拿不到）⇒ 只能**整卡池一起开**，
+        ///    而那不是原版的做法。真要复活得**按 `card_cutouts.json` 做成每卡实参**（或等远端数据），
+        ///    ⛔ 别再整卡池默认打开。
+        ///
+        /// 📌 `false` 这一档（原来是「`FrameCutout`：卡框按遮罩挖洞」）**已随 2026-10-10 那次改动删掉**
+        ///    —— 它是我们自造的近似、非原版机制、且至今没人渲图看过（见那条建层处的注释）。
         /// </summary>
-        public static bool UseFrontLayer = true;
+        public static bool UseFrontLayer = false;
 
-        /// <summary>`CardPresentation/FrameCutout`：卡框按立绘 alpha 挖洞（见 shader 头注释）。</summary>
-        static Material FrameCutoutMaterial()
-        {
-            if (_frameCutMat == null)
-            {
-                var sh = Shader.Find("CardPresentation/FrameCutout");
-                if (sh == null)
-                {
-                    Debug.LogError("[CardView] 找不到 `CardPresentation/FrameCutout` —— 破框效果没了（卡框照常画）");
-                    return BaseMaterial();
-                }
-                _frameCutMat = new Material(sh);
-            }
-            return _frameCutMat;
-        }
-        static Material _frameCutMat;
+        // 🔴 **2026-10-10 删掉了 `FrameCutoutMaterial()` / `_frameCutMat`** —— 它们只服务于
+        //    `UseFrontLayer = false` 那条「卡框挖洞」支路，而那支路已删（理由见建层处的注释）。
+        //    `Assets/CardPresentation/Shaders/FrameCutout.shader` **本身没删**（不在本文件管辖范围）——
+        //    现在**没有任何 shader 引用它**。
 
         // ==================================================================
-        //  破框（`FrameCutout`）的自检判据 —— 不用出图就能断
+        //  卡框 `uv2` 与立绘 uv 的对齐判据 —— 不用出图就能断
         //
-        //  这条路坏过的两次（2026-09-13 缓存键 / 2026-10-07 `ArtCoverMargin`）**都是「采样对不齐」**，
+        //  这条判据坏过的两次（2026-09-13 缓存键 / 2026-10-07 `ArtCoverMargin`）**都是「采样对不齐」**，
         //  而「对不齐」在断言的层面是**可以直接算的**：卡框 mesh 的 `uv2` 必须等于
         //  **立绘 mesh 在同一点上的 uv**。把它做成一函数 ⇒ 以后任何一处改歪都会当场红。
+        //
+        //  ⚠️ **2026-10-10：现在没有任何 shader 会去采这份 `uv2` 了**（采它的 `FrameCutout` 支路已删）。
+        //     判据**留着** —— 它是「框与立绘两套坐标同一份（`ArtUvAt`）」的守卫；将来若按原版
+        //     `useOverDraw` 逐卡 opt-in 复活那条路，靠的还是这份对齐。
         // ==================================================================
 
         /// <summary>
@@ -4562,25 +4591,10 @@ namespace CardPresentation
             return du <= Tol && dv <= Tol;
         }
 
-        /// <summary>
-        /// 自检：`UseFrontLayer = false` 那条路上，卡框那一层的**材质接线**对不对 ——
-        /// shader 是 `CardPresentation/FrameCutout`、`_CutMask` 挂的**就是这张卡的立绘贴图**、
-        /// `_CutAmount` = 1。三条里任何一条断了，破框都会**静默变成一张普通卡框**。
-        /// </summary>
-        public bool CheckCutoutWiring(out string detail)
-        {
-            detail = "";
-            if (_frame == null) { detail = "这张卡没有卡框层"; return false; }
-            var m = _frame.sharedMaterial;
-            if (m == null) { detail = "卡框层没有材质"; return false; }
-            bool shaderOk = m.shader != null && m.shader.name == "CardPresentation/FrameCutout";
-            bool maskOk = m.HasProperty("_CutMask") && m.GetTexture("_CutMask") == ArtTexture(Data);
-            bool amountOk = m.HasProperty("_CutAmount") && Mathf.Approximately(m.GetFloat("_CutAmount"), 1f);
-            detail = $"shader `{(m.shader != null ? m.shader.name : "<无>")}`（要 FrameCutout）· "
-                   + $"_CutMask {(maskOk ? "= 本卡立绘贴图" : "**不是**本卡立绘贴图")} · "
-                   + $"_CutAmount {(m.HasProperty("_CutAmount") ? m.GetFloat("_CutAmount").ToString("F2") : "<无>")}（要 1.00）";
-            return shaderOk && maskOk && amountOk;
-        }
+        // 🔴 **2026-10-10 删掉了 `CheckCutoutWiring`** —— 它断的是「`UseFrontLayer = false` 那条路上
+        //    卡框材质接成了 `CardPresentation/FrameCutout` + `_CutMask`」；那条支路已删（见建层处注释），
+        //    这个判据**没有对象了**。新的判据（出厂不建前景层 / opt-in 那条路仍然接得通）落在
+        //    `Editor/CardBaseDemo.cs` 的 `AssertFrameCutout` 里。
 
         /// <summary>
         /// 卡框网格。`art` 只用来写 **uv2**（= 立绘那套 UV）—— 破框 shader 靠它采立绘的 alpha 遮罩。
