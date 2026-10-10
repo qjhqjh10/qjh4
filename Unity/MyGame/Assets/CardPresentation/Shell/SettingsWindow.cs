@@ -4996,7 +4996,14 @@ namespace CardPresentation
         /// <para>⚠️ **折行 = 0 但仍然开自适应的那些点**，自适应框的宽取的是**本格框宽**
         /// （原版那颗的宽有一批是 `HorizontalLayoutGroup` / `VerticalLayoutGroup` 排出来的 ⇒
         /// prefab 里读到的只是 `0×0` 模板位，**没有字段值可抄**）—— 这一格**不是原版字段值**，
-        /// 已逐站登记在报告里。</para></summary>
+        /// 已逐站登记在报告里。</para>
+        /// <para>🔴 **2026-10-11（`A1195` 收口）—— 本条与 `Shell/MenuWindowBase.Text`【故意不同】，⛔ 别把两边改成一个样**：
+        /// 本方法把**两个开关拆开**（`wrapPx` = **折行开关** · `autoMinPx` = **自适应开关**），
+        /// 而 `MenuWindowBase.Text` / `MenuDraw.TextCore` 那条闸是「**折行与自适应共用 `wrapPx` 一个开关**」。
+        /// **⛔ 不能统一** —— 原版**真的有「折行 = 0 且开着 autosize」那一档**（例：社交那五条 `Button Text` =
+        /// `auto[12~38]` · **折行 = 0**）；**统一 = 把那档丢掉**。
+        /// 🔴 **代价（如实登记）**：`MenuWindowBase.Text` 那一族**表达不出那个组合** ⇒ 谁要用，得直调
+        /// `MenuDraw.Text` 或走本方法这条漏斗；⚠️ **反向亦然** —— 本方法**不该**被改成 `TextCore` 那个形状。</para></summary>
         /// <param name="wrapPx">**原版那一颗的折行档**：`> 0` ⇒ 折行开（值 = 折行宽 = 本格框宽）；
         /// `0` ⇒ 原版 `NoWrap`（见上面那三段）。单位 = 原版设计 px。</param>
         /// <param name="autoMinPx">= 原版那一颗的 `m_fontSizeMin`（**设计 px**）；`<= 0` ⇒ **不接自适应**（旧路）。</param>
