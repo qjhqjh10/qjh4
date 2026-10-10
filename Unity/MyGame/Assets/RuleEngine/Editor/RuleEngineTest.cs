@@ -19089,12 +19089,28 @@ public static partial class RuleEngineTest
                                       "common", "Test", 1, 0, 2, 0,
                                       new[] { KeywordTable.Remnant }, subtype: "Infantry");
             var ctx5 = ProbeBattle(new CardDef[0], new CardDef[0]);
-            ToP1Turn(ctx5, 4);
+            // 🔴 **2026-10-10（第十一会话 · `D2` 诊断 · 铁律 5）就地订正**：原来推 **4** 个回合 ⇒
+            //   **P2 的督军被疲劳打到只剩 2 血**，而第 1 下的 `Slay: Damage 2 EnemyWarlord` **正好把它打死**
+            //   ⇒ 对局结束 ⇒ **第 2 下 `DeclareAttack` 被 `RuleCore.cs:3015` 的 `ctx.IsOver` 拒掉**
+            //   （返回 `ErrNotTurn(4)`）⇒ 下面两条红（而这**不是** `A1249` 的闸出错、也不是本会话的回归 ——
+            //   是这条断言**从写下那天起就没绿过**）。
+            //   ⚠️ **疲劳算得死**：本文件自己记过「推太远督军会被疲劳打死」（`:1249` / `:1414`「推到**第 8**
+            //   个回合会打死」）—— **第 7 回合正好卡在「剩 2 血」这档**，推 4 步就够不着。
+            //   ⇒ 推 **2** 步（P2 督军还剩 `30 − 1 − 3 = 26` 血量级）就够摆出「先打死真单位、再打残骸」。
+            ToP1Turn(ctx5, 2);
             Place(ctx5, 0, 3, Unit("FSlayerBT", 1, 3, 9,
                                    "Blood Thirst", "Slay: Damage 2 EnemyWarlord"), exhausted: false);
             Place(ctx5, 1, 3, remSlay);                      // 2 血 ⇒ 第 1 下正好打死
             var lord = ctx5.Players[1].Warlord;
             int lordHp = lord.Health;
+            // 🔴 **两条【具名前提】**（`D2` 建议补）：**不补的话**，夹具一旦再被推远，红会出现在**下面两条
+            //   断言**上、读起来像「`A1249` 的闸坏了」—— 而真因是**这一局已经结束了**。
+            CheckTrue(!ctx5.IsOver,
+                      "★（前提）这一局**还没结束** —— `A1249` 的第 2 下必须真打得出"
+                    + "（⚠️ 若本条红：先看 `ToP1Turn` 推了几步，**别去查 `A1249` 的闸**）" + LogTail(ctx5));
+            CheckTrue(lordHp > 2,
+                      "★（前提）敌方督军剩的血 **> 2** —— 否则第 1 下的 `Slay: Damage 2 EnemyWarlord`"
+                    + " 会直接结束对局、第 2 下打不出来（实得 " + lordHp + "）" + LogTail(ctx5));
 
             CheckCode(RuleCore.DeclareAttack(ctx5, 0, 3, 1, 3), RuleCodes.OK,
                       "第 1 下：打一个**真单位**");
