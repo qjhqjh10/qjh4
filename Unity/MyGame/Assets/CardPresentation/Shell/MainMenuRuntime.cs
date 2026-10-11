@@ -16,8 +16,17 @@
 //      凡祖先链上有全屏拉伸的，高度退化成 sizeDelta、y 偏 +1080）；§五 的注释里有完整判据。
 //   ② **布局组算出来的位置不是 JSON 值**：5 个导航钮（VLG sp −16.35 / padTop −5）、
 //      `InboxBtn`/`Challenge`（HLG sp 9.75）—— §五 C/B 两表里标了「按 VLG/HLG 算」，**别回头去查 JSON**。
-//   ③ **出厂 `activeSelf=False` 的一律不建**（`Feedback Button` / `Profile border` / `Tutorial highlight` …
+//   ③ **出厂 `activeSelf=False` 的一律不建**（`Profile border` / `Tutorial highlight` …
 //      —— 原版是运行时按状态开的，我们还没实现那套状态就先别摆一个常显的假件）。
+//      🔴 **2026-10-11（`A1522①` / `A1523①`）就地订正（铁律 5）：顶栏那两颗是【例外】——【建、但出厂关着】。**
+//        触发它的事实 = 同一排三颗的处理**自相矛盾**：`InboxBtn` 常显 · `Challenge button` 我们建成**常显**
+//        （原版运行期实况是**关**的）· `Feedback Button` 我们**根本不建**（原版是**建了、出厂关着**）。
+//        ⇒ 主对话裁定：**两颗统一「建出来 + `SetActive(false)`」**（结构 / 队列 / 名字照原版留全，
+//        ⛔ 不删节点 —— 删了 `Editor/{MainMenuScene,DeckScene}.cs` 里按名字找它的断言会红）。
+//        判据（逐颗）与落地 → 共用件 `Shell/TopBar.cs`（那一排建在那边）· 判据全文 →
+//        `资料/普查产出_第十七会话/P_信箱与名牌.md`。⛔ 别把这两颗退回「不建」。
+//      ⚠️ **其余那些出厂 `False` 的件（`Profile border` / `Tutorial highlight` 等）照旧不建** ——
+//        本条只给**顶栏那两颗**开口子（它们有「原版实况 = 关着」+「结构照原版留全」两条判据）。
 //
 // ⚠️ **已知缺口（本批没做，别当已完成）**：
 //   · **模式卡**（`GameModes/Content` 里那些 535×414 的卡）—— 原版出厂 **0 子**、全靠 liveop 数据灌，
@@ -491,18 +500,57 @@ namespace CardPresentation
         ///    主菜单一建出来高亮就跑到第 4 个钮上）。
         public int SelectedNav = 0;
 
-        /// <summary>换选中页（左竖导航）。**只有选中的那个画高亮**（语义同原版，见上）。</summary>
+        // ---- 🆕 **2026-10-11（`A1522④`）：换高亮【只动高亮那一颗】，⛔ 不再重建整块 `Navigation Panel`** ----
+        // 为什么非改不可（两条，都是实测）：① 原来 `SelectNav` 是「销毁整个面板 → 重新建」；
+        //   一旦它被**点击**触发（本次要接的就是这条），面板连同**正在执行 `onClick` 的那颗钮**
+        //   一起被 `DestroyImmediate` 掉（自检是批处理、`Application.isPlaying == false` ⇒ 立即销毁）；
+        //   ② 更硬的一条：自检里 `var nav = menu.Find("Navigation Panel")`（`Editor/MainMenuScene.cs:676`）
+        //   那个引用**后面还有 5 处要用**（`:1556` / `:1558` / `:10892` / `:10894` / `:10898`）——
+        //   面板一被销毁，那些断言全变成「节点不在」。⇒ 本方法**只重建高亮那一颗**。
+        readonly List<Transform> _navBtns = new List<Transform>();
+        readonly List<Vector2> _navBands = new List<Vector2>();
+
+        /// <summary>换选中页（左竖导航）。**只有选中的那个画高亮**（语义同原版，见上）。
+        /// 🔴 **2026-10-11（`A1522④`）就地改法（⛔ 别退回「销毁整块面板重建」）**：本方法只撤掉旧的高亮那一颗、
+        /// 在**新选中的按钮**底下重建一颗 —— 面板本体 / 五颗按钮 / 图标文字**一个都不动**
+        /// （理由见上面那两行；`Editor/MainMenuScene.cs:10902` 还钉着「`Selected highlight` 全树只有 1 个」）。
+        /// ⚠️ 与原版**已知的一档差异**（如实记）：原版那颗高亮由 `Toggle.graphic` + `toggleTransition = 1`
+        ///    **淡入淡出**驱动、且 5 颗**树里都在**；我们是「**建一颗 / 撤一颗**」的硬开关
+        ///    （判据 → `资料/普查产出_第十八会话/B_三条判据挖掘.md` 问题 C 第 2 / 7 条）。</summary>
         public void SelectNav(int idx)
         {
             if (idx == SelectedNav) return;
+            if (idx < 0 || idx >= _navBtns.Count)
+            {
+                // ⛔ 不许静默：越界就什么都不改，并且**说一声**（调用点写错时能一眼看出来）
+                Debug.LogWarning("[Menu] `SelectNav(" + idx + ")` —— 导航钮只有 " + _navBtns.Count
+                                 + " 颗 ⇒ **这一下不改高亮**（调用点越界了？）");
+                return;
+            }
             SelectedNav = idx;
-            var old = Find("Navigation Panel");
+            var old = Find("Selected highlight");
             if (old != null) DestroySafe(old.gameObject);
-            BuildNavigationPanel(_root);
+            RepaintNavHighlight(idx);
+        }
+
+        /// <summary>给第 <paramref name="idx"/> 颗导航钮画上选中态高亮（亮底图 × `m_Color (1,0.0805,0,1)` = 正红）。
+        /// **建树那条路与换页那条路共用这一处**（两处各写一遍 = 迟早不一致）。
+        /// ⚠️ 档位 `QNavHighlight`（= `QPanel + 1`）：原来与导航底板**同队列**（2910）⇒ 谁盖谁不确定、
+        ///   实测高亮没画出来；判据与实测读数 → `QNavHighlight` 那段注释。</summary>
+        void RepaintNavHighlight(int idx)
+        {
+            var b = _navBtns[idx];
+            if (b == null) return;                       // 面板还没建（`BuildNavigationPanel` 没跑过）
+            var band = _navBands[idx];                   // 这一颗的 (顶, 底) —— 建树时记下来的
+            Rect(b, "40k_main_bt_selected_BW", -0.3f, 164.0f, band.x, band.y, "Selected highlight",
+                 QNavHighlight, new Color(1f, 0.08054f, 0f, 1f));
         }
 
         void BuildNavigationPanel(Transform root)
         {
+            // 🆕 2026-10-11（`A1522④`）：面板要重建时（重新进主菜单）把「换高亮」那张表也清掉 ——
+            //    它就是 `SelectNav` / `RepaintNavHighlight` 的取件口（见 `_navBtns` 那段）。
+            _navBtns.Clear(); _navBands.Clear();
             // A332：原版 `Navigation Panel` = 191 × 1080（`anchor (0,0)-(0,1)` + `sizeDelta.x 191` ⇒ 整高）
             // 🔴 **2026-10-11（FX6）修**：第二实参原来写 `LayoutSpace.DesignHeight`（**世界单位** 10，不是 px 1080）
             //   ⇒ 高被除两次 108、`rect.height` 只剩 0.093。本行是干净的正对照：宽 `191f` 是 px ⇒ 那条断言本来就过。
@@ -580,13 +628,15 @@ namespace CardPresentation
         {
             const float cx0 = 82.69f;      // 键的水平中心（原版 `Highlight` 的矩形是 -0.3..164.0 ⇒ 中心 81.85）
             var b = New(parent, "Main Menu Navigation Button - " + name, NavBtnW, NavBtnH);
+            // 🆕 **2026-10-11（`A1522④`）：把「这一颗 + 它的 (顶,底)」记进表** —— `SelectNav` 换高亮时
+            //    只撤旧的那一颗、在新选中的这一颗底下重建（⛔ 面板本体不重建，理由见 `SelectNav` 的注释）。
+            while (_navBtns.Count <= idx) { _navBtns.Add(null); _navBands.Add(Vector2.zero); }
+            _navBtns[idx] = b; _navBands[idx] = new Vector2(y1, y2);
             // 选中态高亮：亮底图 × `m_Color (1,0.0805,0,1)` = **正红**（只有选中的那个画）
             // 🔴 **2026-10-11（A1521⑥）**：档位由 `QPanel` 改成 `QNavHighlight`（= `QPanel + 1`）——
             //   原来与导航底板**同队列**（2910）⇒ 谁盖谁不确定，**实测高亮没画出来**。判据与实测读数
             //   全在 `QNavHighlight` 那段注释里（原版兄弟序 + 两张图逐点量的对照 + `DeckRuntime` 的先例）。
-            if (idx == SelectedNav)
-                Rect(b, "40k_main_bt_selected_BW", -0.3f, 164.0f, y1, y2, "Selected highlight", QNavHighlight,
-                     new Color(1f, 0.08054f, 0f, 1f));
+            if (idx == SelectedNav) RepaintNavHighlight(idx);
 
             var icon = Art(art);        // 先确认图在不在（不在就别画一个空按钮）
             ImageQuad iconQ = null;     // 🆕 A222：这颗**可见**的图形要交给 `WindowButton` 当色偏目标（见下）
@@ -686,6 +736,27 @@ namespace CardPresentation
                               "原版开的是各自的窗口/场景，属阶段二后面的层");
                     break;
             }
+            // ============================================================ 🔴 **2026-10-11（`A1522④`）**
+            // **点哪一颗，选中态高亮就移到哪一颗** —— 这一句是本条账的落点。
+            //
+            // 判据（第一权威 = 反编译 + prefab 字段，落到原版上；全文 → `资料/普查产出_第十八会话/
+            //   B_三条判据挖掘.md` 问题 C）：原版那五颗挂的是 **`EverguildToggle : Toggle`**
+            //   （`bundle_scenes_scenes_mainmenuwarpforge/GameObject/Main Menu Navigation Button - Home.json`
+            //    的组件表里**没有 `Button`**；MB `2098` 的 `m_Script` `-2618094383086163561` ⇒ `EverguildToggle`），
+            //   而 `m_Group → 2616` = **`ToggleGroup`（唯一字段 `m_AllowSwitchOff = 0`）= 单选**
+            //   ⇒ **点别的钮【一定】会把高亮移过去**（组里只允许恰好一颗 `isOn`）。
+            //   点击链也证实：`OpenWindowButton__Awake.c:69-75` 判到 `m_Button` 是 `Toggle`
+            //   ⇒ 订的是 `onValueChanged`（`Button` 那一支才走 `m_OnClick`）。
+            //
+            // 🔴 **我们原来的形状（= 本条要修的真缺陷）**：`OnNavClick` **自己从不改选中态** ——
+            //   只有 `OpenCollection` / `OpenShop` / `OpenRewards` 三条**在开窗之后顺带** `SelectNav(idx)`
+            //   ⇒ **PLAY（第 0 颗）与 SOCIAL（第 4 颗）点了高亮纹丝不动**（`OpenSocial` 没有那一句）。
+            //   ⇒ 现在**统一收到这一处**：那三句 `SelectNav` 变成空转（`SelectNav` 首句 `idx == SelectedNav`
+            //   直接 return）—— 留着无害，⛔ **别顺手删**（删了「开窗入口被单独调用」时就不换高亮了）。
+            // ⚠️ 与**悬停色偏**是两回事，⛔ 别混：`EverguildToggle__OnPointerEnter.c:3` 在 `isOn == true`
+            //   时**直接 return**（已选中的那颗连 hover 都不走），`m_HighlightedColor = (0.7217,0.8152,1.0)`
+            //   是**独立的一层**（我们的 `NavHoverKey`）——「hover 亮」不等于「被选中」。
+            SelectNav(idx);
         }
 
         static string NavName(int idx)
@@ -1421,8 +1492,18 @@ namespace CardPresentation
                 BuildModeCard(content, nm, CardCol0 + col * ColStep, CardRow0Top + row * RowStep,
                               CardW, h, art, title, kind);
             };
-            Put("Base Game Mode Container 1x1 - Tutorial", "Container_Image_Tutorial",
-                Loc.T("MainMenu/GameModes/Tutorial"), CardH, "tutorial");                       // col0 / row0（1×1）
+            // 🔴 **2026-10-11（`A1522⑤`）就地改序（铁律 5）：这一列的【上下次序原来与参考图相反】。**
+            //   参考图（`C:/Users/qjh36/Desktop/warpforge参考图/主界面参考图.png`，1568×950）**右缘那张被切的卡**
+            //   放大看清了 = 两张 `1×1` 叠在一列，**上「练习」、下「教学」** —— 而**本函数上面那段「两行网格排布」
+            //   的判据记的就是这一条**，实现当时却把两者**装反了**（文档与代码打架，本条修的正是这个）。
+            //   判据 = 用户参考图实拍（原版「谁在前」由 **liveop 服务端数据**给、本地没有）⇒ **按参考图的可见次序排**：
+            //   **`Practice` 先 `Put` ⇒ first-fit 落 col0/row0（上）**；`Tutorial` 后 `Put` ⇒ 同列 row1（下）。
+            //   🧨 **改坏法**：把这两个 `Put` 换回原次序 ⇒ 画面上「教学上 / 练习下」，与参考图相反。
+            //   ⚠️ **连带**：`Editor/MainMenuScene.cs:1478`（`Tutorial` 期望 y `182.8`）与 `:1624`
+            //   （`Practice` 期望 y `617.2`）两条期望值是照**旧**次序写的 ⇒ 会红，要换成
+            //   「`Practice` `182.8` / `Tutorial` `617.2`」。那两行**不在本写手的白名单里** ⇒ 已写进报告。
+            Put("Base Game Mode Container 1x1 - Practice", "Container_Image_Practice_1x1",
+                Loc.T("MainMenu/GameModes/Practice"), CardH, "practice");                       // col0 / row0（1×1 · 上）
             Put("Draft Game Mode Container 1x2", "Container_Image_Draft",
                 "DRAFT MODE", CardHTall, "draft");                                              // col1（1×2 · 独占整列）
             // 🔴 **2026-10-17（A789 收口 · 用户拍板「按建议执行」）**：这一格原来传的是 `null` ⇒
@@ -1443,8 +1524,9 @@ namespace CardPresentation
             //    卡图按名字对：练习 = `Container Image Practice 1x1` · 排位 = `Container Image Ranked` ·
             //    遭遇战**没有专属卡图**（`Practice 1x2` 也是练习的）⇒ 用全族唯一带 Skirmish 字样的
             //    `40k_main_GameMode_Skirmish`。逐条出处见 `资料/阶段二_战斗入口_原版规格.md`。
-            Put("Base Game Mode Container 1x1 - Practice", "Container_Image_Practice_1x1",
-                Loc.T("MainMenu/GameModes/Practice"), CardH, "practice");                       // first-fit ⇒ col0 / row1（**正好填掉 Tutorial 下面那个洞**）
+            Put("Base Game Mode Container 1x1 - Tutorial", "Container_Image_Tutorial",
+                Loc.T("MainMenu/GameModes/Tutorial"), CardH, "tutorial");                       // first-fit ⇒ col0 / row1（**正好填掉 Practice 下面那个洞**）
+            // ⚠️ 它与 `Practice` 的**上下次序**见上面那条 `A1522⑤` 的注释（`Practice` 在上）—— ⛔ 别把两个 `Put` 换回去。
             // 🔴 **2026-10-11（A1521⑦）尺寸档改了：`1×1` → `1×2`**（判据 = 原版 **prefab 名**
             //   `Skirmish Ranked Game Mode Container 1x2` —— `bundle_menus_assets_all/GameObject/` 里逐字如此；
             //   并与用户参考图吻合：那上面左起第 1 张就是「小冲突」、而且是**满高**）
@@ -1798,16 +1880,40 @@ namespace CardPresentation
         //     ⇒ **本活的口径**：建 `RankedSealFallbackCount` 颗、全部按**未点亮（灰）**画，
         //        并且 `Build` 现场 `Debug.Log` **如实出声**（红线：⛔ 不许静默、⛔ 不许假装是原版数据）。
         //
-        // ⚠️ **同一父件下还有【互斥的另一支】—— 本批【没做】，别当已完成**：
-        //     `Rating` 下还有 `Global Rating`（MB `AllianceRatingDisplay`：大段位图 `Main Icon` / `Secondary Icon`、
-        //     sprite `40k_UI_icon_ranked_Skirmish`，加 `Position #` / `Position Value` / `Individual rating value`）；
-        //     原版在 `RankedMenuContainer__RefreshContentDisplay.c` 里 `SetActive(go, X == 0)` **二选一**，
-        //     而**那个 `X` 的泛型调用方法名读不到**（反编译里是 `FUN_1800021f0`）⇒ **判据只到这里**。
-        //     ⇒ 本实现按「**排位卡就显示这一排**」；⚠️ **这一条是按实拍/推断、⛔ 不是原版判据**（铁律 3：
-        //       不许把推断写成「原版就是这样」）。**只做一支 ⇒ 在「该显示 `Global Rating`」那种状态下会露馅**
-        //       （已记进报告，由调度台排）。
-        //     ⚠️ 另插一条容易踩的：`legendaryRankDivisionInfoObjects` 名字唬人，**不是这一排** ——
-        //        实读只指向 `Position #` 与 `Position Value` 两颗（那仍是 `Global Rating` 那一支）。
+        // 🔴 **同一父件下的【另一支】`Global Rating` —— 2026-10-11（`A1524`）【已建】**（原来是「只做印玺这一支」）：
+        //     `Rating` 下那两支**互斥**，门控 = 原版 `IRankedEvent.get_IsLegendaryElo()`（**运行期布尔**，
+        //     ⛔ **不是**「排名档位」推算）。判据（第一权威 = 反编译方法体，第十八会话只读代理现核）：
+        //       · `RankedMenuContainer__RefreshContentDisplay.c:16-27` —— `playEvent == null` 那一支
+        //         = `SetActive(milestonesStepDisplay, false)` + `ToggleLegendaryRankInfo(false)`
+        //         ⇒ **没有活跃 ranked 事件 ⇒ 两支都关**；
+        //       · 同文件 `:29-36` —— `X = rankedEvent.IsLegendaryElo` ⇒
+        //         `SetActive(milestonesStepDisplay, X == 0)` **＋** `ToggleLegendaryRankInfo(X)`
+        //         ⇒ **一条判据同时决定两支、而且方向相反**；
+        //       · `RankedMenuContainer__ToggleLegendaryRankInfo.c:8-24` —— 末句就是
+        //         `SetActive(ratingDisplay.gameObject, option)` ⇒ `Global Rating` 的开关落在这一句上。
+        //     `X` 的真身：账上那个「读不到名字的泛型方法」`FUN_1800021f0(3, IRankedEvent, event)` 已用
+        //       `工具/disasm_va.py` 反出来 —— 它是 **il2cpp 的接口方法调用器**（第一参 = 接口方法下标），
+        //       下标 3 = `get_IsLegendaryElo`（`dump.cs:130514-130570` 的 `IRankedEvent` 成员序；
+        //       交叉验证：下标 8 = `GetDivisionByPoints`）。
+        //     ⚠️ **两支在 prefab 里 `m_IsActive` 全是 `true`**（`bundle_menus_assets_all/GameObject/`
+        //        `Global Rating_-4564886699666007538.json` 与 `Mission Milestones Progress.json`）
+        //        ⇒ **互斥 100% 在运行时代码里** ⇒ ⛔ 序列化默认值当不了判据（铁律 5·c），**必须自建门控**（见下）。
+        //     📌 判据全文 → `资料/普查产出_第十八会话/B_三条判据挖掘.md` 问题 B。
+        //
+        // 🔴 **本地落哪一支 —— 我们的选择 + 三条理由（⛔ 不许静默）**：
+        //   原版三态 = 「传奇 ⇒ 关印玺行 / 开大段位图＋名次」·「非传奇 ⇒ 反之」·「**无活跃 ranked 事件 ⇒ 两支都关**」。
+        //   本地**永远拿不到活跃 ranked 事件**（事件数据随 PlayFab 下发），而原版 prefab 出厂两支都 active
+        //   ⇒ **严格照「无事件」那一态，本卡一支都不该显示**。**我们不取那一态**，理由：
+        //     ① **唯一能拿到的「原版在这一屏上长什么样」的实况证据是用户参考图**
+        //        （`C:/Users/qjh36/Desktop/warpforge参考图/主界面参考图.png`）—— 那张图上**排位卡带着印玺行**
+        //        （骷髅那排）⇒ 那正是「**有活跃事件 + 非传奇**」那一态；
+        //     ② 整个 `GameModes` 的内容（哪五张卡 / 谁开哪扇窗 / 尺寸档）**本来就是本地按参考图重建的**
+        //        （liveop 数据本地没有，见 `BuildGameModes` 那两段）—— 单挑这一支去「严格照无事件」并不自洽；
+        //     ③ 印玺行是 `A1521⑧` 已收口、带一整套断言的实现，把它关掉 = **可见回退**。
+        //   ⇒ **默认落「非传奇」那一态**（印玺行开 / `Global Rating` 关），并且 `ApplyRankedRatingBranch` **现场出声**。
+        //   ⚠️ 这一格是**我们定的**（原版由远端事件数据决定）—— ⛔ 别写成「原版就是这样」（铁律 3/11）。
+        // ⚠️ 另插一条容易踩的：`legendaryRankDivisionInfoObjects` 名字唬人，**不是印玺那一排** ——
+        //    实读只指向 `Position #` 与 `Position Value` 两颗（那**仍是 `Global Rating` 那一支**）。
         //
         // ⚠️ **几何复核**：六个卡内坐标用**归一化比值**验过一遍（避开「卡被竖向拉高」这个未定缩放）——
         //    参考图那排实测卡内 **0.790~0.863**，`steps` 带的设计值 **0.759~0.861** ⇒ **吻合**。
@@ -1821,22 +1927,52 @@ namespace CardPresentation
         /// 原版来自玩家进度的 `RankedDivisionV2.SealCount`（远端 / 存档），本地拿不到。</summary>
         public const int RankedSealFallbackLit = 0;
 
+        /// <summary>排位卡 `Rating` 底下那两支的**互斥门控** —— 照原版 `RankedMenuContainer.RefreshContentDisplay`
+        /// / `ToggleLegendaryRankInfo` 那两行（判据 → 本段上方那段长注释，⛔ 不在这里抄第二份）。
+        /// 三态里的 <see cref="None"/> = 原版「**没有活跃 ranked 事件**」那一态 ⇒ **两支都关**。
+        /// ⚠️ 留 <see cref="None"/> 是为了**把原版三态写全**（将来接上 `IRankedEvent` 时只改一个赋值点），
+        /// ⛔ 不是为了今天用它 —— 本地到不了那一态（我们没有事件数据，选择理由见上方）。</summary>
+        public enum RankedRatingBranch
+        {
+            /// <summary>两支都关（原版：`playEvent == null`）。</summary>
+            None = 0,
+            /// <summary>印玺行（`Mission Milestones Progress`）—— 原版 `IsLegendaryElo == false` 那一支。</summary>
+            Milestones = 1,
+            /// <summary>大段位图 + 名次（`Global Rating`）—— 原版 `IsLegendaryElo == true` 那一支。</summary>
+            GlobalRating = 2,
+        }
+
+        /// <summary>本地这一屏排位卡落哪一支。**默认 = 参考图那一态**（非传奇 ⇒ 印玺行开 / `Global Rating` 关）
+        /// —— 选择与三条理由写在上面那段长注释里，⛔ 别静默改这个默认值。
+        /// ⚠️ **实例字段，不是 `static`** —— 同 <see cref="SelectedNav"/>（static 会跨自检 / 跨场景残留）；
+        /// 自检要验另一支时：在拿到的 `MainMenuRuntime` 实例上设这个字段、再走同一条建树路（⛔ 别读它当真值断 ——
+        /// 那是同义反复，期望值该写**原版那两行判据**）。</summary>
+        public RankedRatingBranch RankedBranch = RankedRatingBranch.Milestones;
+
+        /// <summary>排位卡 `Rating` 那一格的**卡内**绝对矩形（判据 = 原版 RT 逐级套出来的「布局后绝对矩形」——
+        /// 原版 RT 原文照抄在下面那几条，便于任何人自己重推，⛔ 别只信这六个数）：
+        /// <code>
+        /// `Rating`                      a(.5,0)-(.5,0) p(.5,0) ap(0, **106.4005**) sz(**494.61 × 109.52**)
+        ///   ⇒ 底 = 848.8 − 106.4005 = 742.40 · 顶 = 742.40 − 109.52 = 632.88（卡高 848.8 = `CardHTall`）
+        /// `Mission Milestones Progress` a(0,1)-(0,1)（挂 `Rating`）p(.5,.5)
+        ///   ap(**247.3059**, **−54.7622**) sz(**494.61 × 86.51**)
+        ///   ⇒ 中 y = 632.88 + 54.7622 = 687.64 ⇒ **644.39 ~ 730.90**；x 与 `Rating` 同（20.2 ~ 514.81）
+        /// </code>
+        /// ⚠️ 两处都**不是**「直接读一个字段」——它们是从父链 `m_Father` 一级级套出来的绝对矩形。
+        /// 🔴 **提到类级**是让 `BuildRankedSealRow`（印玺那一支）与 `BuildGlobalRating`（另一支）**共用同一份**
+        /// —— ⛔ 别在两处各写一份（两处写同一条规则 = 迟早不一致）。</summary>
+        const float RatingL = 20.20f, RatingR = 514.81f, RatingT = 632.88f, RatingB = 742.40f;
+        const float MmpT = 644.39f, MmpB = 730.90f;
+
         /// <summary>排位卡上那一排「段位印玺」（原版 `Rating ▸ Mission Milestones Progress ▸ steps`）。
         /// <paramref name="x"/> / <paramref name="y"/> = 这张卡的**左上角**（本文件 `BuildModeCard` 的口径、y 向下）
         /// —— 方法里那六个数是**卡内**坐标，加上这两个才变成绝对设计 px。
         /// 判据 / 父子链 / 显隐口径 / 兜底口径 → 本方法上方那一大段（⛔ 不在这里抄第二份）。</summary>
         void BuildRankedSealRow(Transform card, float x, float y)
         {
-            // ---- 卡内绝对矩形（判据 = 原版 RT 逐级套出来的「布局后绝对矩形」；原版 RT 原文照抄在下面，
-            //      便于任何人自己重推，⛔ 别只信这六个数）----
-            //   `Rating`                        a(.5,0)-(.5,0) p(.5,0) ap(0, **106.4005**) sz(**494.61 × 109.52**)
-            //        ⇒ 底 = 848.8 − 106.4005 = 742.40 · 顶 = 742.40 − 109.52 = 632.88（卡高 848.8 = `CardHTall`）
-            //   `Mission Milestones Progress`   a(0,1)-(0,1)（挂 `Rating`）p(.5,.5)
-            //        ap(**247.3059**, **−54.7622**) sz(**494.61 × 86.51**)
-            //        ⇒ 中 y = 632.88 + 54.7622 = 687.64 ⇒ **644.39 ~ 730.90**；x 与 `Rating` 同（20.2 ~ 514.81）
-            //   ⚠️ 两处都**不是**「直接读一个字段」——它们是从父链 `m_Father` 一级级套出来的绝对矩形。
-            const float RatingL = 20.20f, RatingR = 514.81f, RatingT = 632.88f, RatingB = 742.40f;
-            const float MmpT = 644.39f, MmpB = 730.90f;
+            // ---- 卡内绝对矩形 = **类级那两条 `const`**（`RatingL/RatingR/RatingT/RatingB` · `MmpT/MmpB`）——
+            //      原版 RT 原文与逐级推导照抄在那两条的 doc 里（⛔ 别在这里抄第二份；提到类级是为了让
+            //      `BuildGlobalRating` 那一支共用同一份）。
             // 单颗几何：`steps` 上那颗 `HorizontalLayoutGroup` = spacing **3.2** · `m_ChildAlignment` **3 (MiddleLeft)**
             // · pad 0 · ctrlW/H **1** · expandW/H **0**；每颗的 `LayoutElement` preferred **100 × 100**（高被布局组
             // 压到父件高 86.51）⇒ **节距 = 100 + 3.2 = 103.2**、第 0 颗**贴左缘**。
@@ -1848,6 +1984,14 @@ namespace CardPresentation
             // 我们的 `New` 只写 `sizeDelta`、**表达不了拉伸锚点** ⇒ 这里写**真实矩形**（那一格的实际大小）。
             // ⚠️ 别把这两个数读成「原版 `steps` 的 `sizeDelta`」—— 原版那颗是 `0×0`。
             var steps = New(mmp, "steps", RatingR - RatingL, MmpB - MmpT);
+
+            // ============================================================ 🆕 **2026-10-11（`A1524`）**
+            // **`Rating` 下的【另一支】`Global Rating` + 那两支的互斥门控**。
+            // 判据 / 原版三态 / 本地落哪一支的三条理由 → 本方法上方那段长注释（⛔ 不在这里抄第二份）。
+            // 🔴 **为什么建在这里（印玺那两张图的早退【之前】）**：这一支与骷髅图无关 ——
+            //    放在早退之后的话，两张骷髅图一旦都取不到，`Global Rating` 就跟着建不出来了（那是两件事）。
+            var globalRating = BuildGlobalRating(rating, x, y);
+            ApplyRankedRatingBranch(mmp, globalRating);
 
             // 两张图（原版是**本地固定的两张切图**，各 128×128）：
             //   `Empty` = `emptyMark`（灰 `Rank Skull Empty`）· `Fill` = `checkMark`（金 `Rank Skull`）
@@ -1891,6 +2035,157 @@ namespace CardPresentation
                     + "`ConfigManager.GetConfig<>()`（**远端配置** + 玩家存档）构造 ⇒ **本地推不出来**；"
                     + "这里的 " + RankedSealFallbackCount + " / " + RankedSealFallbackLit + " 是**我们挑的兜底**"
                     + "（参考图那排是 4 颗全灰 —— ⚠️ 那是**推断**，视频压暗也可能把金色压成灰）⇒ ⛔ 不是原版数据。");
+        }
+
+        /// <summary>`Rating` 下那一支 `Global Rating`（原版 MB `AllianceRatingDisplay`：大段位图 + 名次）。
+        /// 返回**容器节点**（调用方拿它过门控 ⇒ 关 / 开整支）。
+        ///
+        /// <para>🔴 **几何从原版 RT 的【锚点 / `anchoredPosition` / `sizeDelta` / `LayoutElement`】取**，
+        /// ⛔ **不照抄「布局组跑之后」那一组 x** —— 这一支挂着一个 `HorizontalLayoutGroup`
+        /// （`spacing 0` · `m_ChildAlignment 4 (MiddleCenter)` · `ctrlW/H 1` · `expandW/H 0`），
+        /// 它会把子件**按内容整体居中**重排；而 `工具/menu_dump.py` 对它这一族的主轴**自己标了「算不准」**
+        /// （子件里有 TMP 文字 ⇒ 首选宽要字体度量；实测 `Position Value` 在工具里量出的宽就是 **0**）。
+        /// 实测命令：`python 工具/menu_dump.py bundle_menus_assets_all --rt 7063492927571073550 --depth 4 --md`
+        /// （父件 = `Ranked Game Mode Container 1x2`；卡内坐标 = 表里绝对值 − 卡左上角 `(−267.50, 655.60)`）。
+        /// ✅ **两条腿互证**（`--no-layout` 的锚点算法 vs 带布局那一次）：两个图标与 `Position #` 的 x / 宽
+        /// **逐值相同** ⇒ 它们的 `LayoutElement` preferred = `sizeDelta`（`Main Icon` 81×84 ·
+        /// `Secondary Icon` 60×57.356 · `Position #` 宽 **41**）。</para>
+        ///
+        /// <para>🔴 **「居中」是怎么落的**：原版是「内容整体居中」，而内容宽 =
+        /// `41 + 名次串宽 + 81 + 分数串宽` ⇒ **两段字串的宽运行期才知道** ⇒ 走本仓同族那一套
+        /// 「**先建、再量 `Label.WorldW`、最后摆**」（先例 = `Shell/TopBar.cs` 的 `BuildResourcesBar`，
+        /// 那里同样是「布局组 + 文本宽」这件事）。
+        /// ⚠️ **`Shell/RankedTab.cs:327` 对【同一个组件】取的是「按左对齐摆」那一档**（那里的原话是
+        /// 「居中量要用字体度量 ⇒ 我们按左对齐摆」）—— 本处取**居中**，因为量宽这条路本仓已经有现成的；
+        /// ⛔ **两处都别写成「原版是左对齐」**（原版是 `align 4` 居中），差异如实记在这两处。</para>
+        ///
+        /// <para>`Secondary Icon` 在 prefab 里 **`m_IsActive = false`**，而 uGUI 建 `rectChildren` 时
+        /// **跳过 inactive** ⇒ 它**不参与那个 HLG**、位置就是它自己的锚点值 ⇒ 不并进上面那条内容宽。
+        /// 照原版**建出来 + `SetActive(false)`**（同本文件纪律 ③ 那两颗顶栏钮的处理）。</para>
+        ///
+        /// <para>🔴 **本地拿不到那两段文字**（名次 / 单场 elo 都是玩家数据，原版由
+        /// `RankedMenuContainer.RefreshContentDisplay` 灌进去）⇒ 走**全工程唯一那个空值占位**
+        /// `RankedTab.ScoreEmpty`（同族先例 → `Shell/AllianceMemberTab.cs:896`：「⛔ 不自己发明、
+        /// 也不留一个原版没有的空白」），并且**出声**（⛔ 不静默 —— 红线）。</para></summary>
+        Transform BuildGlobalRating(Transform rating, float x, float y)
+        {
+            // 容器：与 `Rating` 同矩形（原版 `a(0,0)-(1,1)` **拉伸锚点** ⇒ 真实矩形 = 父件 494.61 × 109.52）；
+            // 我们的 `New` 只写 `sizeDelta`、表达不了拉伸锚点 ⇒ 写**真实矩形**（同 `steps` 那条处理）。
+            var gr = New(rating, "Global Rating", RatingR - RatingL, RatingB - RatingT);
+
+            // 那一竖的中线（**绝对**设计 px）：五颗里四颗的 `ap.y` 都是 **−54.7622**（`Main Icon` 是 −54.7623）
+            // ⇒ 中 y = `RatingT` + 54.7622 = 卡内 687.64。
+            float midY = y + RatingT + 54.7622f;
+            float stripL = x + RatingL, stripR = x + RatingR;             // 这一支那一带（绝对）
+            // 逐件尺寸 —— 判据 = 原版 RT / `LayoutElement`（见 doc 的「两条腿互证」），⛔ 别改成从别处量
+            const float HashW = 41f, HashPx = 66.6f;                      // `Position #`（无自适应：`fontSize == base == 66.6`）
+            const float MainW = 81f, MainH = 84f;                         // `Main Icon`
+            const float SecW = 60f, SecH = 57.356f;                       // `Secondary Icon`（出厂 F）
+            const float NumPx = 78f, NumBase = 31.38f;                    // 两段数字：字号 78 · base 31.38
+            const float RowH = MmpB - MmpT;                               // 行高（= `Mission Milestones Progress` 那一带）
+
+            // ① 两段数字**先建、后量**（临时框宽只用于量，⛔ 不是版面值）
+            var posVal = Text(gr, RankedTab.ScoreEmpty, stripL, stripR, midY - NumPx * 0.5f, midY + NumPx * 0.5f,
+                              8, Color.white, "Position Value", NumPx, QContent);
+            var indVal = Text(gr, RankedTab.ScoreEmpty, stripL, stripR, midY - NumPx * 0.5f, midY + NumPx * 0.5f,
+                              8, Color.white, "Individual rating value", NumPx, QContent);
+            float wPos = LabelW(posVal), wInd = LabelW(indVal);
+            // 内容宽 = `#` + 名次串 + `Main Icon` + 分数串（`Secondary Icon` 出厂关着 ⇒ **不进布局**）
+            float total = HashW + wPos + MainW + wInd;
+            float left = (stripL + stripR) * 0.5f - total * 0.5f;         // 内容整体居中（原版 align 4 MiddleCenter）
+            if (total <= 1f)
+            {
+                // ⛔ **不许静默**：量不出字宽（TMP 不在激活链上 / 没量到）⇒ 退回**左对齐**并说一声。
+                Debug.LogWarning("[Menu] 排位卡 `Rating ▸ Global Rating`：两段数字**量不出宽**（合计 " + total
+                               + "px）⇒ 这一行退回**左对齐**摆。⚠️ 原版是按内容**居中**（HLG `align 4`）；"
+                               + "受影响的是**位置**、不是内容（对照 → `Shell/RankedTab.cs:327` 那条左对齐档）。");
+                left = stripL;
+            }
+
+            // ② `Position #` —— 原版 `m_HorizontalAlignment = Center` / `m_VerticalAlignment = Midline`
+            //    ⇒ **居中摆是对的**（不是左对齐）；无自适应 ⇒ 只给字号、不给 autofit 框。
+            Text(gr, "#", left, left + HashW, midY - HashPx * 0.5f, midY + HashPx * 0.5f, 8, Color.white,
+                 "Position #", HashPx, QContent);
+
+            // ③ 大段位图（`Main Icon`）—— 与 `Secondary Icon` 同一张 `40k_UI_icon_ranked_Skirmish`（128²）
+            var rankTex = Art("40k_UI_icon_ranked_Skirmish");
+            if (rankTex == null)
+                Debug.LogWarning("[Menu] 排位卡 `Rating ▸ Global Rating`：`40k_UI_icon_ranked_Skirmish` 取不到 ⇒ "
+                               + "**大段位图与 `Secondary Icon` 都不画**（⛔ 不拿别的图顶替）；两段数字照画。");
+            float iconL = left + HashW + wPos;
+            if (rankTex != null)
+                RectTex(gr, rankTex, iconL, iconL + MainW, midY - MainH * 0.5f, midY + MainH * 0.5f,
+                        "Main Icon", QContent, true);                 // 原版 `m_PreserveAspect = 1`（128² 内接进 81×84）
+
+            // ④ 名次串 / ⑤ 分数串 —— 原版两颗都是 `m_HorizontalAlignment = Left` + **折行 1** + 自适应：
+            //    `Position Value` `auto[18 ~ 78]` · `Individual rating value` `auto[20 ~ 78]`，
+            //    两颗 `m_fontSizeBase` 都是 **31.38**（实读）。
+            //    ⚠️ 顺序**必须**是 `SetAutoFitBox` → `MenuDraw.AlignLeft`（`AlignLeft` 是「整块平移」，
+            //    而 autofit 会重排、重排后宽度才定 —— 本仓踩过「autofit 排在 AlignLeft 前 ⇒ 对齐被抹掉」）。
+            if (posVal != null)
+            {
+                posVal.SetAutoFitBox(wPos / 108f, RowH / 108f, 18f, NumPx, NumBase);
+                MenuDraw.AlignLeft(posVal, new PxRect(left + HashW, midY - RowH * 0.5f,
+                                                      left + HashW + wPos, midY + RowH * 0.5f));
+            }
+            if (indVal != null)
+            {
+                indVal.SetAutoFitBox(wInd / 108f, RowH / 108f, 20f, NumPx, NumBase);
+                MenuDraw.AlignLeft(indVal, new PxRect(iconL + MainW, midY - RowH * 0.5f,
+                                                      iconL + MainW + wInd, midY + RowH * 0.5f));
+            }
+
+            // ⑥ `Secondary Icon` —— **出厂 `m_IsActive = false`**、且**不参与那个 HLG**（inactive 被跳过）
+            //    ⇒ 位置 = 它自己的锚点值：`a(0,1) p(0,0.5) ap(85.2704, −28.678)` ⇒ 卡内
+            //    **105.47..165.47 × 632.88..690.24**（实读互证：`--no-layout` 与带布局那两次**逐值相同**）。
+            if (rankTex != null)
+            {
+                var sec = RectTex(gr, rankTex, stripL + 85.2704f, stripL + 85.2704f + SecW,
+                                  y + RatingT, y + RatingT + SecH, "Secondary Icon", QContent, true);
+                if (sec != null) sec.gameObject.SetActive(false);
+            }
+
+            // 🔴 **出声**（红线）：这一段的数据本地一份都没有 —— 如实说，⛔ 别让画面看起来像「有数据」。
+            Debug.Log("[Menu] 排位卡 `Rating ▸ Global Rating`（原版 `AllianceRatingDisplay`）：**结构建了**，"
+                    + "但**名次 / 单场 elo 两段数据本地一份都没有**（原版由 `RankedMenuContainer.RefreshContentDisplay` 灌）"
+                    + "⇒ 两段都画**空值占位** `" + RankedTab.ScoreEmpty + "`。"
+                    + "⚠️ 这一支**默认关着**（本卡默认落「非传奇」那一态）—— 判据与选择理由 → `BuildRankedSealRow` 上方那段长注释。");
+            return gr;
+        }
+
+        /// <summary>量一颗 `Label` **画出来的**宽（设计 px）。⚠️ 先 `ForceRelayout()`（同 `TopBar.BuildResourcesBar`）。
+        /// ⚠️ **对象必须在激活链上** —— TMP 在没激活时量不出尺寸（本仓踩过：`textBounds` 会变成垃圾值，
+        /// 见 `CLAUDE.md` §三「面板画出来了、字不在」那三条）。量不到就返回 **0**，由调用方**出声**（⛔ 不静默）。</summary>
+        static float LabelW(Label lb)
+        {
+            if (lb == null) return 0f;
+            lb.ForceRelayout();
+            return lb.WorldW * 108f;
+        }
+
+        /// <summary>**两支的互斥门控** —— 照原版 `RankedMenuContainer` 那两行：
+        /// `SetActive(milestones, IsLegendaryElo == 0)` ＋ `ToggleLegendaryRankInfo(IsLegendaryElo)`
+        /// （后者末句 = `SetActive(ratingDisplay, option)`）⇒ **一条判据同时决定两支、方向相反**。
+        /// 三态（<see cref="RankedRatingBranch"/>）与本地为什么默认落「非传奇」→ `BuildRankedSealRow` 上方那段长注释。
+        /// ⚠️ **两支都建成节点再按门控关开**（⛔ 不是「只建该显示的那一支」）—— 照原版结构，
+        /// 而且 `Editor/MainMenuScene.cs` 那几条按名字找 `steps` / `RankedSealStep` 的断言**含 inactive**
+        /// （`FindChild`）⇒ 关着也找得到；自检要断「该亮哪一支」就**逐颗断 `activeSelf`**（⛔ 别只断「找得到」）。</summary>
+        void ApplyRankedRatingBranch(Transform milestones, Transform globalRating)
+        {
+            bool showMilestones = RankedBranch == RankedRatingBranch.Milestones;
+            bool showGlobal = RankedBranch == RankedRatingBranch.GlobalRating;
+            if (milestones != null && milestones.gameObject.activeSelf != showMilestones)
+                milestones.gameObject.SetActive(showMilestones);
+            if (globalRating != null && globalRating.gameObject.activeSelf != showGlobal)
+                globalRating.gameObject.SetActive(showGlobal);
+            // 🔴 **出声**：这一档是**我们定的**（原版由远端 `IRankedEvent.IsLegendaryElo` 决定），⛔ 别静默。
+            Debug.Log("[Menu] 排位卡 `Rating` 两支的门控（原版 `IRankedEvent.IsLegendaryElo`）：本地落 **"
+                    + RankedBranch + "** ⇒ `Mission Milestones Progress`（印玺行）"
+                    + (showMilestones ? "**开**" : "关") + " · `Global Rating`（大段位图＋名次）"
+                    + (showGlobal ? "**开**" : "关") + "。"
+                    + "🔴 原版三态 = 传奇 / 非传奇 / **无活跃 ranked 事件（两支都关）**；本地**永远拿不到活跃事件**"
+                    + "（数据随 PlayFab 下发）⇒ 我们按**用户参考图那一态**（有事件 + 非传奇）落，理由三条写在"
+                    + "`BuildRankedSealRow` 上方那段长注释里 —— ⛔ 这一格不是原版数据。");
         }
 
         /// <summary>原版 `MilestoneStep__Toggle.c` 那两行的**唯一一份**实现 ——

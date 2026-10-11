@@ -14,6 +14,14 @@ using WarpforgeVFX;      // `WFSoundPlayer`（特效/音效那条路唯一的播
 
 namespace CardPresentation
 {
+    /// <summary>挂在场景里的锚点节点上（主菜单三个）。`OnEnable` 自注册 —— 原版就是这个机制。
+    /// ⚠️ `[ExecuteAlways]` 是**我们加的**：建场景是在**编辑模式**下跑的，而普通 MonoBehaviour 的
+    /// `OnEnable` 在编辑模式下不触发 ⇒ 不注册就一个锚点都没有（2026-09-22 第一版自检 8 条红里有 5 条是这个根因）。
+    /// 🔴 **2026-10-11（`A1551`）**：这个属性**原本在 `Shell/WindowsManager.cs` 里、紧贴在【这个类】上面**；
+    ///   拆类时代码搬了、**属性留下了** ⇒ 它落到了 `GameWindow` 上（`SearchingOpponentWindow` 继承了它 ⇒
+    ///   编辑模式也派 `OnEnable` ⇒ `NetSelfTest` 的 `A932⑥` 翻红）。**现已搬回本类。**
+    ///   ⛔ **别再把它挪走** —— 它属于锚点，不属于窗口基类。</summary>
+    [ExecuteAlways]
     public class WindowHolder : MonoBehaviour
     {
         public WindowsPlacement placement = WindowsPlacement.None;

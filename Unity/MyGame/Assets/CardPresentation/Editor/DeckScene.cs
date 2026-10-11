@@ -260,6 +260,26 @@ public static class DeckScene
             return t != null && t.gameObject.activeInHierarchy;
         }
 
+        /// <summary>🆕 **2026-10-11（`A1514`）**：按名字取一个 `Label` 的**墨迹框**（画布 px · 左上原点）：
+        /// 左沿 / 右沿 / 中心 y。量不出来（节点不在 / 不是 `Label` / 宽度是哨兵值）⇒ `false`。
+        /// <para>⚠️ 量的是 **`Label.WorldW`（TMP 真测量）**，**不是**我们传进去的框、也不是节点名 ——
+        /// 判「左沿落在原版那个 x 上」只能用它（同 `RowNameInkPx` 的口径）。</para></summary>
+        static bool NodeInkPx(string name, out float left, out float right, out float cy)
+        {
+            left = right = cy = -9999f;
+            var root = _rt != null ? _rt.Root : _root;
+            if (root == null || string.IsNullOrEmpty(name)) return false;
+            var t = root.Find(name);
+            if (t == null) t = FindDeep(root, name);
+            var lb = t != null ? t.GetComponent<Label>() : null;
+            if (lb == null) return false;
+            float w = lb.WorldW * PxPerUnit;
+            if (!(w > 0.5f && w < 4000f)) return false;      // 空串 / 哨兵值 ⇒ 量不出来
+            var c = DeckRuntime.PxOfWorld(lb.transform.position);
+            left = c.x - w * 0.5f; right = c.x + w * 0.5f; cy = c.y;
+            return true;
+        }
+
         /// <summary>通配符计数条 10 件里现在真显示着几件（`WcBarNodes` 逐件问 `NodeShown`）。
         /// ⛔ 读的是**画面**（`activeInHierarchy`），不是 `_cardsInfoOnly` 那张表 —— 读那张表就是自证。</summary>
         static int WcBarShownCount()
@@ -1562,7 +1582,27 @@ public static class DeckScene
                     // 落点在外面 ⇒ 不投递（同 ⑤ 那条判别式的卡牌版 —— 先把它从卡组拿掉，好再挑一张能加的）
                     rt.State.TryRemove(rt.UiPoolCardAt(view));
                     rt.UiSetTab(1); rt.UiSetTab(0);            // 刷新卡池（张数变了 ⇒ 那一格的 `x N` 也变了）
-                    CheckTrue(rt.UiCardDragBeginAt(view, 900f - sx, 780f - sy), "再起一次拖");
+                    // 🔴 **2026-10-11（`A1533`）就地订正**：位移原来写 `780f - sy` —— 那是**竖向为主**的手势，
+                    //   能不能起拖**取决于这一格在第几列**（`sx` 多大）：
+                    //     第 0 列 `sx≈468.85` ⇒ 位移 `(431.15, 451.14)` ⇒ 与水平轴 **46.30°** ⇒ 不是滚动 ⇒ 起拖（绿）；
+                    //     第 1 列 `sx≈731.35` ⇒ 位移 `(168.65, 451.14)` ⇒ **69.50°** ⇒ 落进滚动闸 `(60°,120°)`
+                    //       ⇒ `Deck/DeckRuntime.cs:2847` **静默 `return false`**（那一支不弹错、不打日志）⇒ 红。
+                    //   ⇒ 这是**夹具判据不牢**，⛔ 不是实现缺陷、⛔ 也不是本批回归：
+                    //     `T`（`DeckRuntime.DeckEntries` 去重+排序，`:3095-3128`）把下面 `:1484` 移除的那张卡
+                    //     从 `Autarch` 换成了别的 ⇒ 卡池第 0 格不再过 `CanAdd` ⇒ `view` 由第 0 列挪到第 1 列。
+                    //   ⇒ 改成**纯水平位移**（`dy = 0`）：与水平轴 0° ⇒ **恒不进滚动闸、与挑到第几列无关**。
+                    //   ⚠️ 同族先例 = 本节卡背那条 `:1334`（`UiCosmeticDragBegin(cx6, cy6, DropX, cy6)`，y 两端相同）。
+                    //   ⚠️ 闸门本身**忠实照原版**（`:2758` = `Vector2.Angle(d, right) ∈ (60°,120°)`，
+                    //     判据 = `SupportMethods__IsScrollDragThreshold.c`）⇒ ⛔ **别去改闸**、⛔ 别改 `CanAdd` 的次序。
+                    //   落点 `(900, 780)` 的 x=900 仍在 `DropField`（0.25..335.56）之外 ⇒ 下面「不投递」的原意不变。
+                    bool began2 = rt.UiCardDragBeginAt(view, 900f - sx, 0f);
+                    CheckTrue(began2, "再起一次拖（**纯水平**位移 ⇒ 不被滚动闸吃掉）");
+                    // 🔴 **同一条账的另一半**：下面两条**只在「真起了拖」时才有鉴别力** —— 没起拖时
+                    //   `UiCardDragEnd` 当然返 false、拖影当然也是关的 ⇒ **两条一起空转绿**（2026-10-11 实测：
+                    //   那条 ✗ 的下一行紧跟的就是 ✓）。⇒ 补一条**正向**断言把这个洞堵死：
+                    //   起拖那一拍拖影**必须显形**（与本节第一次拖的 `:1531` 同形）——
+                    //   它**结构上不可能与「没起拖」同时为真**。
+                    CheckTrue(rt.UiCardGhostActive, "★ 第二次起拖那一拍拖影卡行**同样显形**（⛔ 别删：删了下面两条会空转）");
                     CheckTrue(!rt.UiCardDragEnd(900f, 780f), "★ **落在栏外 ⇒ 不投递**（`hovered` 上没有那个 handler）");
                     CheckTrue(!rt.UiCardGhostActive, "……拖影照样关回去");
                 }
@@ -2882,6 +2922,10 @@ public static class DeckScene
             CheckTrue(_rt.UiQuadActive("row_0"),
                       "切回 Cards → **那棵九宫格行树也真的露出来了**（A57 ① 点名受影响的 `row_*` 那一族）");
             // 🔴 「该藏的藏住了吗」——**图 + 文字一起查**（只查图会漏：`Lookup` 不认 Label）
+            // ⚠️ **`A1518③`（2026-10-11）**：这两条**只覆盖 `_infoOnly` / `_cosmOnly` 两张表** ——
+            //   2026-10-11 新加的第三张表 `_cardsInfoOnly`（通配符计数条整条）**不在任一张里**
+            //   ⇒ 它的「Cards / Cosmetics 页零泄露」那两格**各自另有断言**（下面 A1497④ 那一节里的
+            //   `UiCardsInfoOnlyActive` 两条）。⛔ 别把这两条当成「整个窗口的泄露守卫」。
             Check(_rt.UiInfoOnlyActive, 0, "Cards 页签上**一件 Deck info 的东西都不许露**（图 + 文字都算）");
             Check(_rt.UiCosmOnlyActive, 0, "Cards 页签上不许露 Cosmetics 的东西");
 
@@ -2962,6 +3006,11 @@ public static class DeckScene
                     Check(WcBarShownCount(), 0,
                           $"★ Cosmetics 页：整条通配符计数条**一件都不显示**（实测 {WcBarShownCount()}/10 件："
                         + "底板 1 + 稀有度图标 4 + 数字 4 + 阵营徽记 1）");
+                    // 🔴 **2026-10-11（`A1518③`）：上面那条读的是【画面】，这一条读【登记表】** ——
+                    //   两张都读、缺一不可（只读画面：把 `_cardsInfoOnly` 那张表整个删掉照样绿；
+                    //   只读表：表对了、树没跟着关也照样绿）。判据 → `UiCardsInfoOnlyActive` 的 doc。
+                    Check(_rt.UiCardsInfoOnlyActive, 0,
+                          "★ Cosmetics 页：登记表那一半（`_cardsInfoOnly`）也**一件都没露**（A1518③，两条腿一起断）");
                     foreach (var k in WcBarQuadNodes)
                         CheckTrue(!_rt.UiQuadActive(k),
                                   "★ Cosmetics 页：`" + k + "` **不显示**（`ImageQuad`，走 `UiQuadActive`）");
@@ -2979,6 +3028,11 @@ public static class DeckScene
                     Check(WcBarShownCount(), WcBarNodes.Length,
                           $"★ Deck info 页：整条通配符计数条 **10 件全显示**（实测 {WcBarShownCount()}/10）"
                         + "｜🧨 把 `RefreshTabVisibility` 里 `_cardsInfoOnly` 那一句改成 `_tab == 0`（或干脆不登记）⇒ 红");
+                    // 🔴 **`A1518③`**：登记表那一半与画面**同数**（10 件）—— 两条腿交叉印证。
+                    //   ⚠️ 「表里被误登记了别的件」也会在这里红（画面只数那 10 个名字，表会把多登记的算进来）。
+                    Check(_rt.UiCardsInfoOnlyActive, WcBarShownCount(),
+                          $"★ Deck info 页：登记表（`_cardsInfoOnly`，实测 {_rt.UiCardsInfoOnlyActive} 件）"
+                        + $"与画面（`WcBarShownCount()`，实测 {WcBarShownCount()} 件）**同数**（A1518③）");
                     foreach (var k in WcBarQuadNodes)
                         CheckTrue(_rt.UiQuadActive(k), "★ Deck info 页：`" + k + "` 显示着（`UiQuadActive`）");
                     for (int i = 0; i < 4; i++)
@@ -2992,6 +3046,139 @@ public static class DeckScene
                 Check(WcBarShownCount(), WcBarNodes.Length,
                       "★ 切回 Cards：通配符计数条 10 件也全在（🧨 只登记一半、或写成 `_tab == 1` ⇒ 本条红）");
                 CheckTrue(_rt.ActiveTab == 0, "（收尾）页签收回 Cards（下一节按 Cards 页在跑）");
+            }
+
+            // ============================================================ 🔴 2026-10-11（`A1514`）
+            // **卡组类型计数抽屉**（原版 `Sidebar/Deck Details/Deck Counter Drawer`，类 `DeckTypeCounterDrawer`）
+            //   —— 原版**有**、我们**没建**（缺件，铁律 11；⛔ 不是「原版没有」）。
+            // 判据（逐条；几何/文案/计数/显隐的完整叙述 → `Deck/DeckRuntime.cs` 的类级 `Tc*` 常量那一段）：
+            //   · 几何：RT `-4772579933788246236`（`anchorMin (0,1)` / `anchorMax (1,1)` / `pivot (0.5,1)` /
+            //     `anchoredPosition (0,−400)` / `sizeDelta (0,100)` / **`scale 1`**），父 = `Deck Details`
+            //     （绝对 `0.25,360.97 → 335.56,1010.03`）⇒ 抽屉绝对 **x 0.25..335.56 · y 760.97..860.97**；
+            //     上格 = `stratagemsCount`（RT `2367829158540668708`，`anchors (0,0.5)-(1,1)`）·
+            //     下格 = `troopCount`（RT `-3202665307648495836`，`anchors (0,0)-(1,0.5)`）——
+            //     两颗都是 `apos.x 12.5` + `sd.x −25` ⇒ **x 25.25..335.56（宽 310.31）· 高 50**。
+            //   · 文案 = `String.Format("{0}: {1}", 词条, 计数)`；格式串与两个词条键都是
+            //     `d:/2/tools/il2cpp_out/stringliteral.json` 现查出来的（`DAT_18426e800` / `…cfdf0` / `…cfef0`）。
+            //   · 计数 = 原版谓词 `card+0x94 == 0`（`Minion`）/ `== 0x14`（`Tactic`）
+            //     = 我们的 `"unit"` / `"tactic"`，**每一份拷贝算一张**（原版数的是 `deck.cardLibrary`）。
+            //   · 显隐：`DeckEditingPanel__ToggleDeckInfo.c` 才把它设 **1**、`__ToggleDeckList.c` /
+            //     `__ToggleCosmetics.c` 都设 **0** ⇒ **只在 Deck info 页签**。
+            // ⛔ 期望值一律**独立算**（从 `DeckEntries()` + `CountOf`、从上面这些原版读数），
+            //   ⛔ 不是从 `DeckRuntime` 的 `Tc*` 常量读回来 —— 读了就是自证。
+            {
+                Section("★ A1514：卡组类型计数抽屉（原版 `Deck Counter Drawer` = 部队 / 策略两行）");
+
+                // 期望的两个数：从**卡组**现算（督军 / 防御卡不进这两档 —— 原版谓词只认 Minion / Tactic）
+                int wantTroops = 0, wantStrat = 0;
+                foreach (var e in _rt.DeckEntries())
+                {
+                    if (e == null) continue;
+                    int cn = (e.Type == "hero" || e.Type == "defence") ? 1 : state.Deck.CountOf(e.Id);
+                    if (e.Type == "unit") wantTroops += cn;
+                    else if (e.Type == "tactic") wantStrat += cn;
+                }
+                CheckTrue(Loc.HasEntry("MenuDeck/HUD/DeckDescription/Minions")
+                          && Loc.HasEntry("MenuDeck/HUD/DeckDescription/Spells"),
+                          "（前提）两个词条键都在表里（⛔ 不在 ⇒ `Loc.T` 返回**键名本身** "
+                        + "⇒ 下面两条两边一起退化 ⇒ 假绿）");
+
+                // ---- ① Deck info 页：两行都该在；文案 / 左沿 / 纵向位置 / 字号逐条断 ----
+                _rt.UiSetTab(1);
+                {
+                    CheckTrue(NodeShown("typecnt_strat") && NodeShown("typecnt_troops"),
+                              "★ Deck info 页：两行都**显示着**"
+                            + "（原版 `DeckEditingPanel__ToggleDeckInfo.c`：`deckCounterDrawer(0x38) → 1`）");
+                    Check(_rt.UiLabelText("typecnt_troops"),
+                          Loc.T("MenuDeck/HUD/DeckDescription/Minions") + ": " + wantTroops,
+                          "★ …下行 = `词条(部队) + \": \" + 部队数`（期望值 **独立算** = " + wantTroops + "）"
+                        + "｜🧨 格式串换成别的（如只印数字）/ 把「策略」也数进「部队」⇒ 红");
+                    Check(_rt.UiLabelText("typecnt_strat"),
+                          Loc.T("MenuDeck/HUD/DeckDescription/Spells") + ": " + wantStrat,
+                          "★ …上行 = `词条(策略) + \": \" + 策略数`（独立算 = " + wantStrat + "）"
+                        + "｜🧨 两行的计数对调 ⇒ 红");
+
+                    float lS, rS, cyS, lT, rT, cyT;
+                    bool okS = NodeInkPx("typecnt_strat", out lS, out rS, out cyS);
+                    bool okT = NodeInkPx("typecnt_troops", out lT, out rT, out cyT);
+                    CheckTrue(okS && okT, "（前提）两行的**墨迹框**都量得出来（`Label.WorldW` 真测量）");
+                    if (okS && okT)
+                    {
+                        CheckNear(lS, 25.25f, 1f,
+                                  "★ 上行墨迹**左沿 = 25.25**（原版 `apos.x 12.5` + `sd.x −25` 解出来的框左沿；"
+                                + "实测 " + lS.ToString("F1") + "）｜🧨 退回居中 ⇒ 依文字长短左右漂 ⇒ 红");
+                        CheckNear(lT, 25.25f, 1f,
+                                  "★ 下行墨迹左沿同样 = **25.25**（左对齐 ⇒ 与文字长短无关；实测 "
+                                + lT.ToString("F1") + "）");
+                        CheckNear(cyS, 785.97f, 0.8f,
+                                  "★ 上行中心 y = **785.97**（= 抽屉顶 760.97 + 半格 25；实测 " + cyS.ToString("F1") + "）");
+                        CheckNear(cyT, 835.97f, 0.8f,
+                                  "★ 下行中心 y = **835.97**（= 760.97 + 50 + 25；实测 " + cyT.ToString("F1") + "）");
+                        CheckNear(cyT - cyS, 50f, 0.5f,
+                                  "★ 两行**间距 = 50**（原版两格各占抽屉一半、**无缝** —— 实测 "
+                                + (cyT - cyS).ToString("F1") + "）｜🧨 两行叠在一起 / 拉开 ⇒ 红");
+                    }
+
+                    var sT = FindDeep(_rt.Root, "typecnt_strat");
+                    var sLb = sT != null ? sT.GetComponent<Label>() : null;
+                    CheckTrue(sLb != null, "（前提）`typecnt_strat` 那颗是 `Label`");
+                    if (sLb != null)
+                    {
+                        CheckNear(sLb.FontPxNow, 36f, 0.6f,
+                                  "★ 字号 = **36**（原版那颗 TMP 的 `m_fontSize = 36`；实测 "
+                                + sLb.FontPxNow.ToString("F1") + "）");
+                        CheckTrue(!sLb.AutoSizing,
+                                  "★ 自适应**关**（原版 `m_enableAutoSizing = 0` —— 别顺手套一个 `SetAutoFitBox`）");
+                        Check(sLb.WrappingMode, 1,
+                              "★ 折行 = 原版 **`m_TextWrappingMode = 1`**（`Label` 出厂是 `NoWrap` ⇒ 要显式还原）");
+                        CheckTrue(sLb.color.r > 0.99f && sLb.color.g > 0.99f && sLb.color.b > 0.99f
+                                  && sLb.color.a > 0.99f,
+                                  "★ 字色 = **白 `(1,1,1,1)`**（原版 `m_fontColor`；实测 "
+                                + sLb.color + "）");
+                        Check(sLb.VAlignTier, Label.VAlign.Middle,
+                              "★ 垂直档 = 原版 `VA 512` = **Middle**");
+                    }
+                }
+
+                // ---- ② 另两页：一颗都不许露（原版那两个 `Toggle*` 都把它设 0）----
+                _rt.UiSetTab(0);
+                CheckTrue(!NodeShown("typecnt_strat") && !NodeShown("typecnt_troops"),
+                          "★ Cards 页：两行**都不显示**（`DeckEditingPanel__ToggleDeckList.c` 把 "
+                        + "`deckCounterDrawer(0x38) → 0`）｜🧨 把它登记进 `_cardsInfoOnly`（Cards 也显示）⇒ 红");
+                _rt.UiSetTab(2);
+                CheckTrue(!NodeShown("typecnt_strat") && !NodeShown("typecnt_troops"),
+                          "★ Cosmetics 页：同样**不显示**（`__ToggleCosmetics.c` 也是 0）");
+                _rt.UiSetTab(0);
+            }
+
+            // ============================================================ 🔴 2026-10-11（`A1515`）
+            // **卡牌那栏左抽屉也吃 `Card Display` 的页判据** —— 判据 = 原版那棵 `Card Filters` 挂在
+            //   `Card Display` **底下**（`menu_dump.py bundle_menus_assets_all "Deck Editing Menu"` 的缩进：
+            //   `2 Card Display` → `3 Card Filters`）⇒ `ToggleDisplay` 那一个入参一动整栏跟着不画
+            //   （入参 → `DeckRuntime.CardDisplayPage` 的 doc）。
+            // 改之前 `_fltSlide.PageOn` **全文件从没被赋过值**（`FilterDrawer` 的初值恒 `true`）⇒
+            //   在 Cosmetics 页上整栏照画、而且那一条竖带会把左侧 331.7px **吃掉**（该由卡背筛选接管）。
+            // 🧨 两格都断（「不画」+「不吃指针」）：只断前者会放过 `FltStripOn` 漏页判据那一半。
+            {
+                Section("★ A1515：卡牌筛选栏吃【页判据】—— Cosmetics 页整栏不画、那条竖带也不吃指针");
+                _rt.UiSetTab(0);
+                if (!_rt.FiltersOpen) _rt.UiToggleFilters();
+                CheckTrue(_rt.FiltersOpen, "（前提）Cards 页：卡牌筛选栏开着（逻辑态）");
+                CheckTrue(_rt.UiQuadActive("flt_bg"), "★ Cards 页：底板**露着**（整栏在位，与本节改前一致）");
+                CheckTrue(_rt.FilterDrawerInteractive, "★ Cards 页：那条竖带**吃指针**（`FltStripOn` 为真）");
+                _rt.UiSetTab(2);
+                CheckTrue(_rt.FiltersOpen, "（前提）切页**不翻逻辑态**（`_filtersOpen` 跨页保留，翻它的是 Filters 键）");
+                CheckTrue(!_rt.UiQuadActive("flt_bg"),
+                          "★ Cosmetics 页：卡牌筛选栏**整栏不画**（原版它挂在 `Card Display` 底下）"
+                        + "｜🧨 不给 `PageOn` 赋页判据（旧写法恒 `true`）⇒ 本条红");
+                CheckTrue(!_rt.FilterDrawerInteractive,
+                          "★ ……而且那条竖带**不吃指针**（否则 Cosmetics 页左侧那 331.7px 会被【卡牌筛选】"
+                        + "吃掉，而那一刻该接管的是卡背筛选）｜🧨 `FltStripOn` 漏页判据 ⇒ 本条红");
+                _rt.UiSetTab(0);
+                CheckTrue(_rt.UiQuadActive("flt_bg"),
+                          "★ 切回 Cards：整栏**回来**（逻辑态一直开着 ⇒ 不用再点一次 Filters）");
+                if (_rt.FiltersOpen) _rt.UiToggleFilters();       // 收尾：关回去（本节不许改后面用例的初态）
+                _rt.UiSetTab(0);
             }
 
             // ============================================================ 🆕 2026-10-20
@@ -3086,6 +3273,101 @@ public static class DeckScene
                 CheckTrue(hideN > 0 && badHide == null,
                           "★ ② 份数 = 1 的行：`row_x*` **不显示**（原版 `SetActive(1 < count)`；实测 " + hideN + " 行）"
                         + (badHide == null ? "" : "；反例：**" + badHide + "**"));
+            }
+
+            // ============================================================ 🔴 2026-10-11（`A1528`）
+            // **行右缘那颗 `Count` 的【字色 + 自适应】。**
+            // 判据 = 原版 prefab 实读，**按 RT pid 认人**（`bundle_menus_assets_all` 里名叫 `Count` 的 TMP
+            //   共 15 颗、分 3 族 —— 铁律 4：各自都对 ⇒ **按用途取**，⛔ 不投票）：
+            //   · 本窗左栏这一份属 **`Deck Selector Card Info button` 族**（`Count` RT
+            //     **`-2738939269725491420`**，父 `Text fill`）⇒ **`m_fontColor = (0.9333333969116211, …, 1)`** ·
+            //     **`m_enableAutoSizing = 1`** · `m_fontSizeMin = 2.0` · `m_fontSizeMax = 32.0` · `m_fontSizeBase = 36.0`。
+            //   · 另一族是 `Deck Selector Hero Card Info button`（**督军行**那一颗，`(1,1,1,1)` + `auto = 0`）——
+            //     原版**永远看不到它**（`UICardInfoItem__SetCount.c:41` 的 `SetActive(1 &lt; count)`，督军恒 1 张）
+            //     ⇒ 拿它那套来断就是**断错对象**（这一条账原来的批注就是这么写错的）。
+            //   出处 → `资料/普查产出_第十七会话/Z_两处悬案.md` §A ·
+            //           `资料/历史/A表已收口_第十七会话.md` 的 `A1528` 那一行。
+            //   ⛔ 下面四个期望值**写死在断言里**（原版读数），⛔ **不是**从 `DeckRuntime` 的
+            //     `RowCountTint` / `RowCountFontPx` 读回来 —— 读了就是自证。
+            //   🧨 灭自证：只断「开没开自适应」不够（把 `SetAutoFitBox` 删掉也答 false ⇒ 红）；
+            //     所以**上下限与基准逐格断**（旧实现这四格里**一格都没有**）。
+            {
+                Section("★ A1528：行右缘 `row_x*` —— 字色 `(0.93333,0.93333,0.93333,1)` + 自适应开 `[2~32]` 基准 36"
+                        + " · 墨迹右缘 317.48");
+                Label x0 = null;
+                for (int i = 0; i < 11; i++)
+                {
+                    var g = FindDeep(_rt.Root, "row_x" + i);
+                    if (g == null) continue;
+                    x0 = g.GetComponent<Label>();
+                    if (x0 != null) break;
+                }
+                CheckTrue(x0 != null, "（前提）量得到一颗 `row_x*`（11 行里至少建出一颗）");
+                if (x0 != null)
+                {
+                    CheckNear(x0.color.r, 0.93333f, 0.002f, "…字色 R = **0.93333**（原版 `m_fontColor.r`；⛔ 不是 1.0）");
+                    CheckNear(x0.color.g, 0.93333f, 0.002f, "…字色 G = **0.93333**");
+                    CheckNear(x0.color.b, 0.93333f, 0.002f,
+                              "…字色 B = **0.93333**（⛔ 不是 `Ink` 的 0.95 —— 那一颗三通道**等值**）");
+                    CheckTrue(x0.AutoSizing,
+                              "…**`m_enableAutoSizing` 开着**（原版 Card Info 族是 **1**；"
+                            + "🧨 旧的「固定 32 无自适应」实现这一格**恒红**）");
+                    CheckNear(Label.FontSizeToPx(x0.FontSizeMin), 2f, 0.2f,
+                              "…自适应**下界** = **2px**（原版 `m_fontSizeMin = 2.0` 按同一套比例折出来）");
+                    CheckNear(Label.FontSizeToPx(x0.FontSizeMax), 32f, 0.2f,
+                              "…自适应**上界** = **32px**（原版 `m_fontSizeMax = 32.0`）");
+                    CheckNear(Label.FontSizeToPx(x0.FontSizeBase), 36f, 0.2f,
+                              "…自适应**基准** = **36px**（原版 `m_fontSizeBase = 36.0`）"
+                            + "｜🧨 只开自适应、不给 base（缺省 = 标称 32）⇒ 本条红");
+                }
+
+                // ---- 🆕 第二轮（`A1528`）：**位置**那一半（框沿 + 对齐档）----
+                // 判据 = **原版 prefab 字段 + 布局式子**（逐条可复跑，完整推导 → `DeckRuntime.RowCountRightInset`）：
+                //   · 行节点宽 309（抽屉 `Content` 的 `VerticalLayoutGroup` `pad 8,8`）·
+                //     `Background`（`Text fill` 的父）行内 17.255..309.00 ·
+                //     `Text fill` 行内 **55.182..301.083** ⇒ **右沿 = 行右缘 − 7.917**；
+                //   · `Count` 是 `Text fill` 的**最后一个**子件 + `m_HorizontalAlignment = 4(Right)`
+                //     + `m_ChildForceExpandWidth = 1` ⇒ **墨迹右缘 = 行右缘 − 7.917**。
+                //   套到**我们自己的行**（`ListX..ListX+RowW` = 0.4..325.4）⇒ **317.48**。
+                //   **参考图**（本代理 2026-10-11 在图上逐像素重量过，k = 1.21442）：
+                //   `x2` 墨迹右缘 ≈ ref **255** px ⇒ 画布 **309.7**，**行底板右缘** = ref **261** px ⇒ **317.0**。
+                //   ⇒ **行相对那一半两条一致**（图上墨迹离底板右缘 ≈ 7.3 画布 px vs prefab 的 7.917）；
+                //   ⚠️ **绝对值不一致**（309.7 / 309.48 vs 我们的 317.48）—— 差的 8px **全部来自
+                //      「我们的行底板比原版宽 8px（右缘 325.4 vs 317.4）」那条【另账】**，
+                //      ⛔ 不属本条；改行宽时**必须回来一起改**（`RowCountRight` 是「行右缘 − 7.917」）。
+                //   🔴 **订正一条账文**：原来写的「`x2` 墨迹右缘 实测 参考图 **261** px ⇒ 画布 317.0」
+                //      —— **261 是行底板右缘、不是墨迹**（墨迹在它左边 6 ref px）。系数 1.21442 仍然对
+                //      （261↔317.4 与 255↔309.48 两条同时成立）。
+                //   ⛔ 317.48 是**写死的绝对数**（原版规则 + 我们的行右缘），⛔ 不是从
+                //      `DeckRuntime.RowCountRight` 读回来 —— 读了就是自证。
+                //   ⚠️ **鉴别力（如实登记）**：旧写法（50 宽贴行右缘 + 框内居中）对**两字**文本
+                //      **恰好**落在 **≈317.9** ⇒ 本条只分得出 **0.4px**；它真正咬得住的是
+                //      「**只改对齐、不改框右沿**」（那样会顶到行右缘 **325.4** ⇒ 红 **7.9px**）。
+                {
+                    int xi = -1;
+                    for (int i = 0; i < 11; i++)
+                    {
+                        var d = _rt.UiDeckRowAt(i);
+                        if (d == null || d.Type == "hero" || d.Type == "defence") continue;
+                        if (state.Deck.CountOf(d.Id) <= 1) continue;      // 份数 ≤ 1 ⇒ 那颗藏着（没有右沿可量）
+                        var t = FindDeep(_rt.Root, "row_x" + i);
+                        if (t != null && t.gameObject.activeInHierarchy) { xi = i; break; }
+                    }
+                    CheckTrue(xi >= 0, "（前提）找到一行**份数 > 1 且 `row_x*` 显示着**的行");
+                    if (xi >= 0)
+                    {
+                        float lx, rx, cyy;
+                        CheckTrue(NodeInkPx("row_x" + xi, out lx, out rx, out cyy),
+                                  "（前提）第 " + xi + " 行那颗的**墨迹框**量得出来");
+                        CheckNear(rx, 317.48f, 0.4f,
+                                  "★ 墨迹**右缘 = 317.48**（原版规则「行右缘 − 7.917」套到我们的行 325.4 上；"
+                                + "参考图核过的是**行相对**那一半 ≈7.3 画布 px，一致；"
+                                + "⚠️ 绝对真值 309.48/309.7 —— 差的 8px 属「我们行底板宽 8px」那条另账；"
+                                + "实测 " + rx.ToString("F2") + "）"
+                                + "｜🧨 **只改对齐、不改框右沿** ⇒ 顶到行右缘 325.4 ⇒ 红 7.9px"
+                                + "｜🧨 退回「框内居中」⇒ 偏移随文字宽度漂（今天两字 ≈317.9 ⇒ 本条只分 0.4px，已如实登记）");
+                    }
+                }
             }
 
             // ============================================================ 🆕 2026-10-21（`A1527` + `A1525`）

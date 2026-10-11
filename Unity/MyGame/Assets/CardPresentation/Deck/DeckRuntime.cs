@@ -178,13 +178,82 @@ namespace CardPresentation
         /// ⚠️ 它俩**不再**用来框「份数」：份数搬去了行右缘那颗 `row_x*`（见下面那条），
         ///   原因是原版 `UICardInfoItem` 里 `Cost Image` 框的是 **`Cost`**、而我们原来把份数印了进去。</summary>
         const float RowCostX = 12.1f, RowCostS = 46.2f;
-        /// <summary>行右缘那颗**份数**（原版 TMP 名 `Count`）的框宽 —— 原版
-        /// `anchor (1,0)-(1,1)` + `offsetMin.x = −50` + `pivot (1, 0.5)`
-        /// ⇒ **贴行右缘的 50 宽框、竖直居中**。字号 `m_fontSize = 32`、字色 `(1,1,1,1)`。
+        /// <summary>行右缘那颗**份数**（原版 TMP 名 `Count`）的**框宽**（px）—— 见下面 `RowCountX`
+        /// 那一段（**它只喂 `SetAutoFitBox` 的框与自动缩字**；**真正钉住画面的是【框的右沿】**）。
         /// 文本 = **`"x" + n`**（`UICardInfoItem__SetCount.c` 里那个 `String.Format` 的字面量
         /// = **`x{0}`**，小写 x、**无空格**；同函数 `gameObject.SetActive(1 &lt; count)`
-        /// ⇒ **份数 ≤ 1（督军行 / 防御卡行）不显示**）。</summary>
+        /// ⇒ **份数 ≤ 1（督军行 / 防御卡行）不显示**）。
+        /// <para>🔴 **2026-10-11（`A1528`）：字号 / 字色 / 自适应三项就地订正（铁律 5）。**
+        /// 这一段原来写「`anchor (1,0)-(1,1)` + `offsetMin.x = −50` + `pivot (1, 0.5)` ·
+        /// 字号 32 · **字色 `(1,1,1,1)`**」——**那三条全是【另一族】读数**
+        /// （`Deck Selector Hero Card Info button` = 督军行那一颗，原版**永远看不到**：
+        /// `UICardInfoItem__SetCount.c:41` 的 `SetActive(1 &lt; count)`，督军恒 1 张）。
+        /// **本窗左栏这一份属 `Deck Selector Card Info button` 族**（`Count` RT
+        /// **`-2738939269725491420`**，父 `Text fill`）⇒ 实读：
+        /// **`m_fontColor = (0.9333333969116211, 0.9333333969116211, 0.9333333969116211, 1.0)`** ·
+        /// `m_fontSize = 32.0` · **`m_enableAutoSizing = 1`** · `m_fontSizeMin = 2.0` ·
+        /// `m_fontSizeMax = 32.0` · `m_fontSizeBase = 36.0` · `H=4(Right)` / `V=4096(Midline)`。
+        /// 裁定（按 RT pid 认人，15 个同名 TMP 分 3 族，铁律 4 按用途取 ⛔ 不投票）→
+        /// `资料/普查产出_第十七会话/Z_两处悬案.md` §A ·
+        /// 留痕 → `资料/历史/A表已收口_第十七会话.md` 的 `A1528` 那一行。</para>
+        /// <para>⚠️ **这个 50 是【框宽】，不是几何真值**：Card Info 族那颗 `Count` 的框是
+        /// **内容自适应**（`LayoutElement.m_MinWidth = **22.87**` · `m_PreferredWidth = 0` ·
+        /// `m_FlexibleWidth = **−1**`），没有固定宽 —— `50` 的出处是 **Hero 族**。
+        /// 本工程留 50 只为了给 `SetAutoFitBox` 一个**够宽的框**（框太窄 ⇒ 自适应会把字缩下去）；
+        /// 画面由 **`RowCountX` / `RowCountRight`（右沿）** 决定，见那两段。</para></summary>
         const float RowCountW = 50f;
+        /// <summary>🔴 **2026-10-11（`A1528` 第二轮）：`Count` 框的【右沿】相对**行节点右缘**的内缩**（画布 px）。
+        /// <para>**判据（原版 prefab 字段 + 布局式子，逐条可复跑）**：
+        /// · 行节点宽 = **309**（`Deck List drawer` 325 − 抽屉 `Content` 的 `VerticalLayoutGroup`
+        ///   `m_Padding (8,8,0,0)` · `m_ChildControlWidth = 1` ⇒ 子件宽 = 325−16 = 309）；
+        /// · `Background` RT `-2197820584482115804`（`Text fill` 的 `m_Father`，现读）：
+        ///   `m_AnchorMin (0.055841296911239624, 0)` · `m_AnchorMax (1,1)` ⇒ 行内 **17.255..309.00**；
+        /// · `Text fill` RT `-9081848734182936796`：`m_AnchorMin (0.13, 0.07)` · `m_AnchorMax (0.99, 0.93)` ·
+        ///   `m_Pivot (0.5,0.5)` · `m_AnchoredPosition (-2.5, 0)` · `m_SizeDelta (-5, 0)`
+        ///   ⇒ 行内 **55.182..301.083**（= `工具/menu_rect.py` 的 `rect_of` 锚点式子，与
+        ///   `menu_dump.py "Deck List drawer" --depth 6` 印的 `63.6..309.5`（绝对，行在 8.4）**逐位吻合**）；
+        /// ⇒ **`Text fill` 右沿 = 行右缘 − 7.917**。
+        /// · **`Count` 的框右沿 = `Text fill` 右沿**：`Text fill` 的 `m_Children` 序 = `[Card Name, Count]`
+        ///   （**`Count` 是最后一个**）；`Count` 的 `LayoutElement` 是 `m_FlexibleWidth = −1`，
+        ///   而 `Text fill` 的 `HorizontalLayoutGroup` 是 **`m_ChildForceExpandWidth = 1`** ——
+        ///   uGUI 的 `GetChildSizes` 是 `if (childForceExpand) flexible = Mathf.Max(flexible, 1)`
+        ///   ⇒ **两个子件都拿 flexible ≥ 1** ⇒ 最后一个子件的**框右沿 = 容器右沿**。
+        ///   ⛔ 别用「`Count` 的框宽」推位置 —— 它是内容自适应的（见 `RowCountW` 那段）。</para>
+        /// <para>⚠️ **换算到我们自己的行**：我们的 `row_*` = `ListX..ListX+RowW` = **0.4..325.4**；
+        /// 原版的 `Background` 是 **25.65..317.4**（291.75 宽）—— **那一层差异不属本条**（我们的行底板
+        /// 左边多 25.25、右边多 8 ⇒ 宽 33.25，见下面的「新账」）。把原版那条**行相对**规则套上
+        /// ⇒ 右沿 = `325.4 − 7.917` = **317.48**。</para>
+        /// <para>🔴 **参考图（`用户实拍_1017/卡组编辑界面参考.png`，1581×887）本代理 2026-10-11 逐像素重量过**
+        /// （`k = 1920/1581 = 1.21442`）：
+        /// · `x2` 的**墨迹右缘** ≈ **ref 255 px** ⇒ 画布 **309.7**；
+        /// · **行底板右缘**（那颗边缘高光） = **ref 261 px** ⇒ 画布 **317.0**。
+        /// ⇒ 与 prefab **逐位吻合**（墨迹 309.7 vs **309.48**；底板右缘 317.0 vs **317.4**）。
+        /// 🔴 **订正一条账文（铁律 5）**：原来这里（以及 `RowNameX` 那段）写的是
+        /// 「`x2` 的**墨迹右缘** 实测 参考图 **261** px ⇒ 画布 **317.0**」—— **261 那一颗量的不是墨迹，
+        /// 是【行底板右缘】**（它在图上是一条贯穿整行的边缘高光，比两个字的墨迹**更显眼**，所以被挑中了）。
+        /// 墨迹在它**左边 6 ref px**（≈ 7.3 画布 px）—— 与 prefab 的 **7.917** 同量级 ⇒ **规则本身是对的**，
+        /// 错的是**当时把哪个像素当成了墨迹**。</para>
+        /// <para>🔴 **新账（不属 A1528，报给调度台）**：我们的 `row_*` 底板比原版 `Background`
+        /// **宽 33.25px**（左 −25.25 / 右 +8）—— 根因 = `ListX/RowW` 取的是**抽屉**的 0.4..325.4，
+        /// 而原版那一层是「抽屉 `Content` 的 `VerticalLayoutGroup` 先 `pad (8,8)` ⇒ 行节点 309，
+        /// 行底 `Background` 再按锚点 `0.05584..1.0` 内缩到 291.75」。⇒ **改行宽不在本活范围**，
+        /// 但**改了行宽就必须回来改这里**（`RowCountRight` 是「行右缘 − 7.917」，它跟着行走）。</para></summary>
+        const float RowCountRightInset = 7.92f;
+        /// <summary>那颗 `Count` 的**框右沿**（画布 px）= 行右缘 − <see cref="RowCountRightInset"/> = **317.48**。
+        /// 这是**唯一钉住画面**的数（`RefreshDeckList` 里那句 `AlignRightOn` 就用它）。</summary>
+        static readonly float RowCountRight = ListX + RowW - RowCountRightInset;
+        /// <summary>那颗 `Count` 的**框左沿** = 右沿 − 框宽 = **267.48**（`275.4` 那个旧值是错的：
+        /// 它让框顶到行右缘 325.4，而原版那颗离行右缘还有 7.92）。</summary>
+        static readonly float RowCountX = RowCountRight - RowCountW;
+        /// <summary>行右缘那颗**份数**的字号（原版 `m_fontSize = 32`）—— 画在屏幕绝对 px 上，直接给。
+        /// 🔴 **2026-10-11（`A1528`）**：同一个 `Count` TMP 的自适应四格 = **2 / 32 / 36 / 1**
+        /// （`min 2` · `max 32` · `base 36` · 自适应开）⇒ 建的时候要跟一句
+        /// `SetAutoFitBox`（落点见 `BuildDeckList`）。</summary>
+        const float RowCountFontPx = 32f;
+        /// <summary>行右缘那颗**份数**的字色 —— 原版 `m_fontColor = **(0.9333333969116211, 0.9333333969116211,
+        /// 0.9333333969116211, 1.0)**`（RT `-2738939269725491420` 实读；见 `RowCountW` 那段判据）。
+        /// ⚠️ **它不是 `Ink`**：`Ink` 的第三通道是 **0.95**（偏蓝），这一颗三通道**等值** 0.9333。</summary>
+        static readonly Color RowCountTint = new Color(0.93333f, 0.93333f, 0.93333f, 1f);
         /// <summary>行名（原版 `…/Content/Text fill/Card Name`）的**框左沿 / 框宽**（画布 px）。
         /// <para>🔴 **2026-10-20 新增**：「行名原版左对齐、我们居中」那一条要用的两个数。</para>
         /// <para>判据一（**对齐档**，原版 prefab 实读）：`python 工具/menu_dump.py bundle_menus_assets_all
@@ -192,15 +261,28 @@ namespace CardPresentation
         /// 色=(0.934,0.934,0.934,1)`（同一行的 `Count …… 对齐=Right/Midline`）。
         /// ⚠️ 我们原来是**居中**（`TmpFont.NewText` 把每颗 TMP 统一建成 `Center`）。</para>
         /// <para>判据二（**左沿**，**用户参考图**）：`资料/原版参照图/用户实拍_1017/卡组编辑界面参考.png`
-        /// （1581×887 ⇒ 画布 px = 参考图 px × **1920/1581 = 1.21442**；这个系数拿**我们自己的实拍**校过：
-        /// 行右缘那颗 `x2` 的墨迹右缘 实测 参考图 261 px ⇒ 画布 **317.0**，而我们 `row_x*` 框
-        /// `275.4…325.4` 里居中的 `x2` 右缘 ≈ 318 ⇒ **差 1.5px**）。
+        /// （1581×887 ⇒ 画布 px = 参考图 px × **1920/1581 = 1.21442**）。
+        /// 🔴 **2026-10-11（`A1528` 第二轮）就地订正（铁律 5）**：这个系数原来是拿
+        /// 「行右缘那颗 `x2` 的**墨迹右缘**实测 参考图 **261** px ⇒ 画布 317.0」校的 ——
+        /// **261 那一颗不是墨迹、是【行底板右缘】**（本代理在图上逐像素重量过：墨迹右缘在
+        /// **ref ≈255**，而 261 是那条贯穿整行的边缘高光）。**巧合的是这个系数仍然对**
+        /// —— `261 × 1.21442 = 317.0` 正好等于原版 prefab 的行底右缘 **317.4**（差 0.4px），
+        /// 而 `255 × 1.21442 = 309.7` 又正好等于 prefab 的 `Count` 墨迹右缘 **309.48**。
+        /// ⇒ **两条独立读数互相印证，系数 1.21442 保留**（⛔ 别因为它「校错了对象」就丢掉它）。
         /// 10 行卡名的**墨迹左缘**实测 = 参考图 px **56…61** ⇒ **画布 68.0…74.1**
         /// （阈值 150/180/210 三档都落在这个区间）⇒ **取左界 68**。</para>
-        /// <para>🔴 **原版 prefab 给不出这个 x**：`Deck Selector … button` 那一族的矩形**宽 = 0.00**
-        /// （同一次 dump 里 行 / `Content` / `Background` / `Text fill` 四行全是 `0.00` 宽，
-        /// `Text fill` 还被标了 `⚠️unk`）⇒ **横向全是模板位**（铁律 3：模板位不当权威），
-        /// 只能拿**实拍**当尺子。⚠️ 旧值 `62f` 是**没有出处的**（全库 grep 零命中）。</para>
+        /// <para>🔴 **2026-10-11（`A1528` 第二轮）再订正一句（铁律 5）**：下面原来写
+        /// 「**原版 prefab 给不出这个 x** …… 横向全是模板位」——**那句话不成立**：
+        /// 那一族 dump 出来 `0.00` 宽，是因为**没给行节点宽度**（模板位，铁律 3 的那个坑）。
+        /// **一旦把行节点的真宽 309 喂进去**（`menu_dump.py … "Deck List drawer" --depth 6`
+        /// 或 `--root-size 309x55.70`），prefab **给得出来**：
+        /// `Text fill` = 行内 **55.182..301.083** ⇒ 卡名框左沿 = 行左 + 55.182
+        /// ⇒ **绝对 63.58**（行节点在 8.4）。拿参考图核：墨迹左缘 68.0 − CJK 左留白（≈1~2px）
+        /// = 框左 ≈ **66** ⇒ 与 63.58 同量级（差 ~2.4px，在参考图那条 6px 的读数带里）。
+        /// ⚠️ **但本轮【没动】`RowNameX = 68`** —— 它属 `A1525③` 那条账，而且它踩的是
+        /// **同一类错**（把**墨迹**左缘当成了**框**左沿，没减留白）⇒ **单开一条账报给调度台**，
+        /// ⛔ 别在 A1528 里顺手改（`Editor/DeckScene.cs` 有一条断言正钉着 68）。
+        /// （⚠️ 历史读数：`RowNameX` 更早那个 `62f` 是**没有出处的** —— 全库 grep 零命中。）</para>
         /// <para>⚠️ 框宽 190 保持不动：它只影响 `SetAutoFitBox` 的缩放上下限与换行宽，
         /// 而原版 `Card Name` 的宽度**同样是模板位**（那个 `HorizontalLayoutGroup` 工具量不出来）。</para></summary>
         const float RowNameX = 68f, RowNameW = 190f;
@@ -297,6 +379,76 @@ namespace CardPresentation
         const float CurveBgX = 50.8753f, CurveBgY = 410.97f;
         const float CurveBgW = 158.15f * CurveScale, CurveBgH = 199.06f * CurveScale;
         static readonly Color CurveBgTint = new Color(0.12264151f, 0.12264151f, 0.12264151f, 1f);
+
+        // ---- 🆕 卡组类型计数抽屉（原版 `Sidebar/Deck Details/Deck Counter Drawer`）------------
+        // 🔴 **`A1514`（2026-10-11）：原版**有**、我们**没建**（缺件，铁律 11 —— ⛔ 不是「原版没有」）。
+        // 判据（逐条带出处，`bundle_menus_assets_all` 实读）：
+        //   · 节点 = `Deck Counter Drawer`，类 **`DeckTypeCounterDrawer`**，序列化字段
+        //     **`troopCount` @ 0x20** · **`stratagemsCount` @ 0x28**（`d:/2/tools/il2cpp_out/dump.cs`
+        //     的 `DeckTypeCounterDrawer` 那段；字段名↔偏移现核）。
+        //   · RT **`-4772579933788246236`**（GO 文件 `GameObject/Deck Counter Drawer.json` 的第一颗组件）：
+        //     `m_AnchorMin (0,1)` · `m_AnchorMax (1,1)` · `m_Pivot (0.5,1)` · `m_AnchoredPosition (0,−400)` ·
+        //     `m_SizeDelta (0,100)` · **`m_LocalScale = 1`**（⚠️ 与费用曲线那颗 `1.48` **不同档** ——
+        //     铁律 5·c：同一族的件在不同窗里是不同档，别把曲线那个系数搬过来）。
+        //     父 = `Deck Details`（绝对 `0.25,360.97 → 335.56,1010.03`）⇒ 这颗绝对
+        //     **x 0.25..335.56 · y 760.97..860.97**（`menu_dump.py … "Deck Counter Drawer"` 印的是
+        //     四舍五入后的 `(0.3,761)-(335.6,861) = 335.31×100`）。
+        //   · 两个子件（各自 RT 的 anchors/`sizeDelta` 决定它的半格）：
+        //     `Text (TMP) (1)`（**`stratagemsCount`**，RT `2367829158540668708`，anchors (0,0.5)-(1,1)
+        //       ⇒ **上半格** y 760.97..810.97）· `Text (TMP)`（**`troopCount`**，RT `-3202665307648495836`，
+        //       anchors (0,0)-(1,0.5) ⇒ **下半格** y 810.97..860.97）；
+        //     两颗都是 `m_AnchoredPosition.x = 12.5` + `m_SizeDelta.x = −25` ⇒
+        //     **x 25.25..335.56（宽 310.31）· 高 50**（dump 相对根印 `25.0..335.3`）。
+        //   · 两颗 TMP 的样式（逐份实读）：`m_fontSize = 36` · `m_fontSizeBase = 36` ·
+        //     **`m_enableAutoSizing = 0`** · `m_fontColor = (1,1,1,1)` ·
+        //     `m_HorizontalAlignment = 1(Left)` / `m_VerticalAlignment = 512(Middle)` ·
+        //     `m_TextWrappingMode = 1(Normal)`。字体资产挂 `Localize`：
+        //     `troopCount` → **`MenuDeck/HUD/DeckDescription/Minions`** ·
+        //     `stratagemsCount` → **`MenuDeck/HUD/DeckDescription/Spells`**
+        //     （`GO 2822477237084221220` / `7686141386449022756` 那两颗 `Localize.mTerm`）。
+        //   · **写什么字**（第一权威 = 反编译方法体，`DeckTypeCounterDrawer__Initialize.c` 逐句）：
+        //     `String.Format("{0}: {1}", GetTermTranslation(键), Count(deck.cardLibrary, 谓词))` ——
+        //     格式串 = `DAT_18426e800` ⇒ 查 `d:/2/tools/il2cpp_out/stringliteral.json` = **`"{0}: {1}"`**；
+        //     词条键 = `DAT_1842cfdf0` / `DAT_1842cfef0` ⇒ 同上现查 =
+        //     **`MenuDeck/HUD/DeckDescription/Minions`** / **`…/Spells`**。
+        //     ⛔ **不能按 TMP 的 `m_text`（`Troops` / `Stratagems`）印** —— 那是 prefab 的占位原文，
+        //     运行期被 `Initialize` 覆写成「词条: 数字」（与 `Empty Warning` 那次同一族）。
+        //   · **数什么**（同文件的谓词，`DeckTypeCounterDrawer.<>c.<Initialize>b__2_0/1.c` 逐句）：
+        //     `*(int*)(card+0x94) == 0` ⇒ **`CardTypeOptions.Minion = 0`**；
+        //     `== 0x14` ⇒ **`CardTypeOptions.Tactic = 20`**（枚举出处
+        //     `d:/2/Warpforge_code/Scripts/Assembly-CSharp/CardTypeOptions.cs`：
+        //     `Minion 0 / Hero 10 / Tactic 20 / Whispers 40`）⇒ 我们的 `CardDef.Type`
+        //     **`"unit"` / `"tactic"`** 两档（督军 hero 与防御卡 defence **都不计**）。
+        //     ⚠️ 数的是 **`deck.cardLibrary`（一份拷贝一条）**，不是「有几个不同的 id」——
+        //     `DeckListDrawer` 靠 `stackCopies=1` 把同名牌折成一行正说明那里有重复项 ⇒
+        //     我们按 **`State.Deck.CardIds`（含重复）** 数。
+        //   · **什么时候露**（`DeckEditingPanel__Toggle{DeckList,DeckInfo,Cosmetics}.c` 逐句，
+        //     字段↔偏移按 `dump.cs` 的 `DeckEditingPanel` 段现核）：
+        //     `ToggleDeckInfo` → `deckCounterDrawer(0x38) → 1`（同一次调用里 `deckList(0x28) → 0` ·
+        //     `deckCostDrawer(0x40) → 1` · `deckCosmeticDrawer(0x30) → 0`）；
+        //     `ToggleDeckList` → **`deckCounterDrawer → 0`**（Cards 页**不显示**）；
+        //     `ToggleCosmetics` → 也是 0。⇒ **只在 Deck info 页签显示** ⇒ 与费用曲线一样进 `_infoOnly`。
+        //     ⚠️ **订正一处账文**（铁律 5）：`A1514` 的正文把两颗写反了
+        //     （「`deckCounterDrawer(0x40)` / `deckCostDrawer(0x38)`」）—— 上面是按 `dump.cs` 的字段偏移
+        //     现核的**正确对应**（`deckCounterDrawer` @ **0x38** = `DeckTypeCounterDrawer`，
+        //     `deckCostDrawer` @ **0x40** = `DeckEnergyCostDrawer`）。结论（两颗都 → 1）不受影响。
+        // 🔴 **一次刷新两个数**（`DeckEditingPanel__UpdateDrawers.c` 逐句）：它**无条件**依次调
+        //   `DeckTypeCounterDrawer.Initialize(editingDeck)` → `DeckEnergyCostDrawer.Initialize(…)` →
+        //   `DeckCosmeticDrawer.Initialize(…)` ⇒ 卡组一变（加/删卡）两个抽屉**同时重算** ——
+        //   我们的落点 = `RefreshHeader`（`MarkDeckDirty` 的出口、与费用曲线同一个刷新一拍）。
+        const float TcX = 25.25f, TcW = 310.31f, TcH = 50f;
+        /// <summary>上半格 —— 原版 `Text (TMP) (1)` = `stratagemsCount`（策略数）。</summary>
+        const float TcStratY = 760.97f;
+        /// <summary>下半格 —— 原版 `Text (TMP)` = `troopCount`（部队数）。</summary>
+        const float TcTroopY = 810.97f;
+        /// <summary>两颗 TMP 的 `m_fontSize`（原版 36；自适应**关**）。</summary>
+        const float TcFontPx = 36f;
+        /// <summary>词条键（原版 prefab 上那两颗 `Localize.mTerm` 的原文）。</summary>
+        const string TcTermTroops = "MenuDeck/HUD/DeckDescription/Minions";
+        const string TcTermStratagems = "MenuDeck/HUD/DeckDescription/Spells";
+        /// <summary>原版 `DeckTypeCounterDrawer.Initialize` 里那个 `String.Format` 的**格式串**
+        /// （`DAT_18426e800` ⇒ `stringliteral.json` = `"{0}: {1}"`）—— 词条译名 + 空格冒号 + 数字。</summary>
+        const string TcFormat = "{0}: {1}";
 
         // ---- Footer（R:159-166）----
         const float DoneX = 13f, DoneY = 1020.5f, DoneW = 188.5f, DoneH = 50.2f;
@@ -665,6 +817,10 @@ namespace CardPresentation
         readonly List<ImageQuad> _curveBar = new List<ImageQuad>();
         readonly List<GameObject> _infoOnly = new List<GameObject>();   // 只在 Deck info 页签显示的东西
 
+        /// <summary>🆕 **`A1514`**：卡组类型计数抽屉那两颗 TMP（原版 `DeckTypeCounterDrawer` 的
+        /// `troopCount` / `stratagemsCount`）。判据与几何 → 类级 `Tc*` 常量那一段；两件都进 `_infoOnly`。</summary>
+        Label _tcTroops, _tcStratagems;
+
         /// <summary>🔴 **2026-10-11（`A1497④`）**：**Cards 页 + Deck info 页才显示**的那批件
         /// （= 原版 `DeckEditingWindow.wildcards` 那一整条 `WIldcard Counter`：底板 + 4 图标 + 4 数字 + 阵营徽记）。
         /// 判据/为什么 → `CardDisplayPage` 那个属性。显隐落在 `RefreshTabVisibility`（与 `_infoOnly` 同处）。
@@ -848,6 +1004,7 @@ namespace CardPresentation
             BuildSidebar();
             BuildDeckList();
             BuildCurve();
+            BuildTypeCounter();      // 🆕 A1514：原版 `Deck Counter Drawer`（同为 Deck info 页签那一批）
             // 🔴 **2026-10-17（D35）**：原来这里还有一句 `BuildInfoActions();` —— **已删**
             //   （分享 / 导入那两颗圆钮是「我们多画的」，见那一节的注释与 D35）。
             BuildFooter();
@@ -1448,15 +1605,53 @@ namespace CardPresentation
                 // 🆕 **2026-10-20**：行右缘那颗**份数**（原版 TMP 名 `Count`）——
                 //   判据（三条，逐条）：① 文本 = `"x" + n`（原版 `UICardInfoItem__SetCount.c` 的
                 //   `String.Format(字面量, n)`，字面量 = **`x{0}`**，小写 x **无空格**）；
-                //   ② **字号 32** · **字色 `(1,1,1,1)`**（原版那颗 TMP 实读；⛔ 别用 `Ink`
-                //      = `(0.93,0.93,0.95)` —— 那不是原版这颗的数）；
-                //   ③ 框 = **贴行右缘的 50 宽、整行高**（原版 `anchor (1,0)-(1,1)` +
-                //      `offsetMin.x = −50` + `pivot (1, 0.5)`）⇒ 右缘 = `ListX + RowW` = **325.4**、
-                //      框 x `275.4..325.4`、字在框里**居中**。
+                //   ② **字号 32 · 字色 `(0.9333,0.9333,0.9333,1)` · 自适应【开】`min 2 / max 32 / base 36`**；
+                //   ③ 框 = **50 宽、整行高**，**右沿 = `RowCountRight` = 317.48**（= 行右缘 325.4 − 7.92；
+                //      判据 → `RowCountRightInset` 那段）⇒ 框 x `267.48..317.48`。
                 //   ⚠️ **`n ≤ 1` 时整颗隐藏**（原版同函数那句 `gameObject.SetActive(1 < count)`）
                 //      —— 落点在 `RefreshDeckList`（**先激活再 `SetText`**，理由写在那里）。
-                var rowXLb = TxtPx("row_x" + i, "", ListX + RowW - RowCountW, y, RowCountW, RowH,
-                                   32f, Color.white, QText);
+                //   🆕 **2026-10-11（`A1528` 第二轮）：位置那一半也收口了。**
+                //      框的右沿由 `RowCountRight` 定，**墨迹右缘**再由 `RefreshDeckList` 里那句
+                //      `AlignRightOn(RowCountRight)` 钉死（原版 `Count` 的 `m_HorizontalAlignment = 4(Right)`）。
+                //      🔴 **「对齐档」与「挪位置」在此只能做后半条**：`Battle/Label.cs` **只有
+                //      `SetAlignLeft()`、没有 `SetAlignRight()`**（那两条 `SetAlign*` 只管「真折行时每行
+                //      在块内怎么排」，而本颗**单行不折行** ⇒ 那一档在画面上是空转）⇒ 真正挪位置的是
+                //      `AlignRightOn`。⚠️ **这一处与本仓其它「两个口一对」的件不同，如实标注**；
+                //      ⚠️ 也别为了对称去动 `Battle/Label.cs`（共用件，不在本活范围内）。
+                //   🔴 **2026-10-11（`A1528`，铁律 5 订正）**：上面③原来抄的是 `(1,1,1,1)` + 字色白，
+                //      **那是【另一族】的数**。裁定人 = 代理 `Z`（按 RT pid 认人，15 个同名 TMP 分 3 族）：
+                //      · **本窗左栏这一份 = `Deck Selector Card Info button` 族**（`Count` RT
+                //        **`-2738939269725491420`**，父 `Text fill`）⇒ `m_fontColor = (0.9333333969116211,…)`
+                //        · `m_enableAutoSizing = 1` · `m_fontSizeMin = 2.0` · `m_fontSizeMax = 32.0` ·
+                //        `m_fontSizeBase = 36.0` · `m_fontSize = 32.0` · `H=4(Right)` / `V=4096(Midline)`。
+                //      · 甲那份 `(1,1,1,1)` + `anchor(1,0)-(1,1)` + `sizeDelta.x=50` **整条来自
+                //        `Deck Selector Hero Card Info button`（督军行）** —— 那一颗原版**永远看不到**
+                //        （`UICardInfoItem__SetCount.c:41` 的 `SetActive(1 < count)`，督军恒 1 张）。
+                //      ⇒ 取 Card Info 那套对**全部可见情形**成立（铁律 4：按用途取，⛔ 不投票）。
+                //      出处 → `资料/普查产出_第十七会话/Z_两处悬案.md` §A；
+                //      裁定留痕 → `资料/历史/A表已收口_第十七会话.md` 的 `A1528` 那一行。
+                //   🆕 **2026-10-11（`A1528` 第二轮）：原来那两条「没动的」都收了**（第二轮量完判据后一起改）：
+                //      · **框宽 `50` 的出处确实是 Hero 族** —— Card Info 族那颗是**内容自适应**
+                //        （`LayoutElement.m_MinWidth = **22.87**` · `m_PreferredWidth = 0` ·
+                //        `m_FlexibleWidth = **−1**`）⇒ 本工程留 `50` 只为给 `SetAutoFitBox` 一个够宽的框，
+                //        **它不再是几何真值**（真值是右沿，见 `RowCountRightInset`）；
+                //      · **位置/对齐**：框右沿改 `RowCountRight`（**317.48** = 我们行右缘 325.4 − 7.917）
+                //        ＋`RefreshDeckList` 里 `AlignRightOn` 钉墨迹右缘。
+                //        ⚠️ 参考图核过的是**行相对**那一半：图上墨迹右缘离**行底板右缘**约
+                //        **7.3 画布 px**（原版规则是 7.917）⇒ 一致；⚠️ **绝对值不一样**
+                //        （prefab + 参考图都指向 **309.48/309.7**，我们这里是 317.48）——
+                //        差的 8px **全部来自「我们的行底板比原版宽 8px」那条另账**（见 `RowCountRightInset`）。
+                //        ⚠️ 旧写法（50 宽贴行右缘 + 框内居中）对**两字**文本**恰好**落在 ≈317.9
+                //        ⇒ 本轮这一改**在今天的卡池上只挪 0.4px**（如实登记）；它的价值在**结构**：
+                //        右沿**不再随文字宽度漂**（旧的居中写法遇到更长的串会往右跑出框）。
+                var rowXLb = TxtPx("row_x" + i, "", RowCountX, y, RowCountW, RowH,
+                                   RowCountFontPx, RowCountTint, QText);
+                // 🔴 **2026-10-11（`A1528`）**：接上 `m_enableAutoSizing`（四格 = **2 / 32 / 36 / 1**）。
+                //   判据 = 上面那段（`Deck Selector Card Info button` 族的 `Count` 实读）。
+                //   ⚠️ 常见情况（`"x" + n`，`n ≤ 3`）渲染下来仍是 **32px** —— 只有框真挤了才缩。
+                //   ⚠️ 折行那一档（`m_TextWrappingMode`）**只覆盖 Card Info 这一族**的读数、本轮没单独设：
+                //     `SetAutoFitBox` 内部会把折行置成 `Normal`（`Battle/Label.cs` 的 `SetWrapWidth`）。
+                if (rowXLb != null) rowXLb.SetAutoFitBox(U(RowCountW), U(RowH), 2f, 32f, 36f);
                 _deckRowCountX.Add(rowXLb);
             }
 
@@ -1543,6 +1738,64 @@ namespace CardPresentation
                 _infoOnly.Add(lb != null ? lb.gameObject : null);
                 _infoOnly.Add(num != null ? num.gameObject : null);
             }
+        }
+
+        // ------------------------------------------------------------ 卡组类型计数（Deck info 页签）
+
+        /// <summary>🆕 **`A1514`（2026-10-11）**：建原版那颗 **`Deck Counter Drawer`**
+        /// （= `DeckTypeCounterDrawer`：两行「词条: 数字」，策略在上、部队在下）。
+        /// 几何 / 文案 / 数什么 / 什么时候露 —— **全在类级 `Tc*` 常量那一段**（逐条带出处）。
+        /// <para>⚠️ 两件都进 **`_infoOnly`** —— 原版 `DeckEditingPanel__ToggleDeckList.c` 明写
+        /// Card 页把 `deckCounterDrawer(0x38)` 设 **0**（⛔ 不是 `_cardsInfoOnly` 那张两页表）。</para>
+        /// <para>⚠️ **「左对齐」是两个口一对**（`row_n*` 那一段同款）：`SetAlignLeft()` 只管
+        /// 「真折行时每行在块内怎么排」（在**这里**调，排在「定版面」那三条之前），
+        /// 把**整块**挪到原版左沿的是 `AlignLeftOn`（在 `RefreshTypeCounter` 里、排在 `SetText` **之后**）。</para></summary>
+        void BuildTypeCounter()
+        {
+            _tcStratagems = TxtPx("typecnt_strat", "", TcX, TcStratY, TcW, TcH, TcFontPx, Color.white, QText);
+            _tcTroops = TxtPx("typecnt_troops", "", TcX, TcTroopY, TcW, TcH, TcFontPx, Color.white, QText);
+            // 原版两颗都是 `H=1(Left)` / `V=512(Middle)`；`Label` 出厂是 **Center/Middle**
+            // ⇒ 左对齐得自己设（只管「真折行时每行怎么排」，移块那半在 `AlignLeftOn`）。
+            if (_tcStratagems != null) _tcStratagems.SetAlignLeft();
+            if (_tcTroops != null) _tcTroops.SetAlignLeft();
+            // 原版 `m_TextWrappingMode = 1(Normal)`；`Label.BuildTmp` 出厂是 **NoWrap** ⇒ 还原成原版那一档。
+            if (_tcStratagems != null) _tcStratagems.SetWrappingMode(1);
+            if (_tcTroops != null) _tcTroops.SetWrappingMode(1);
+            // ⚠️ 原版 **`m_enableAutoSizing = 0`** ⇒ **不调** `SetAutoFitBox`（那会把折行也一起改）。
+            _infoOnly.Add(_tcStratagems != null ? _tcStratagems.gameObject : null);
+            _infoOnly.Add(_tcTroops != null ? _tcTroops.gameObject : null);
+        }
+
+        /// <summary>🆕 **`A1514`**：把两个数写进那两颗 TMP（原版 `DeckTypeCounterDrawer.Initialize`）。
+        /// 文案 = **`string.Format("{0}: {1}", 词条译名, 计数)`**（格式串与词条键都是反编译里
+        /// 现查出来的字面量，见 `TcFormat` / `TcTerm*` 那几行）。
+        /// <para>⚠️ **只在它真露着的时候写**：未激活的 TMP 上量不出尺寸（`Battle/Label.cs` 那条已知坑，
+        /// 同 `RefreshDeckList` 对 `row_n*` 的 `if (!on) continue;`）。三个调用点（`RefreshHeader`）
+        /// 都排在 `RefreshDeckList` → `RefreshTabVisibility` **之后** ⇒ 这里读到的就是当前页的状态。</para></summary>
+        void RefreshTypeCounter()
+        {
+            if (_tcTroops == null || !_tcTroops.gameObject.activeInHierarchy) return;   // Cosmetics 页：不写（见 doc）
+            int troops = 0, stratagems = 0;
+            // ⚠️ 数的是 **`CardIds` 的每一条**（含重复 = 一份拷贝算一张）—— 原版数的是
+            //   `deck.cardLibrary`，那里面一份拷贝一条（`DeckListDrawer` 靠 `stackCopies` 折行正说明如此）。
+            foreach (var id in State.Deck.CardIds)
+            {
+                var d = State.Find(id);
+                if (d == null) continue;
+                if (d.Type == "unit") troops++;          // 原版 `cardType == 0`（`CardTypeOptions.Minion`）
+                else if (d.Type == "tactic") stratagems++;   // 原版 `cardType == 0x14`（`Tactic`）
+            }
+            SetTypeCounter(_tcTroops, TcTermTroops, troops);
+            SetTypeCounter(_tcStratagems, TcTermStratagems, stratagems);
+        }
+
+        void SetTypeCounter(Label lb, string term, int n)
+        {
+            if (lb == null) return;
+            lb.SetText(string.Format(TcFormat, Loc.T(term), n));
+            // ⚠️ 左沿的落点**必须排在 `SetText` 之后**（它要现量 `WorldW`），且**每次刷新都要调**
+            //   —— `SetText` 会重排、把 x 写回块心（同 `RefreshHeader` 里 `_deckNameText` 那一句）。
+            lb.AlignLeftOn(LayoutSpace.FromPixel(TcX, 0f).x);
         }
 
         // ------------------------------------------------------------ Footer
@@ -1825,11 +2078,22 @@ namespace CardPresentation
 
         // 🔴 **左抽屉那一条竖带吃不吃指针 —— 唯一出处**（`HoverTargetUnder` / `HandlePointer` /
         //   `UiClickPx` / `HandleScroll` 四处都读这两个属性，别各写一遍 `_filtersOpen`）。
-        //   判据 = 逻辑态开着 **且** 已经完全到位（`Interactive`）—— 位移期间不吃（A67）。
+        //   判据 = **它所属的那一页在**（`PageOn`）× **逻辑态开着** × **已经完全到位**（`Interactive`）
+        //   —— 位移期间不吃（A67）。
         //   批处理下面板总是「一步到位」⇒ 这两个属性与 `_filtersOpen` / `_cosmoFltOpen` **同值**，
         //   既有断言（点得到 / 点不到）一条都不变。
-        bool FltStripOn { get { return _filtersOpen && _fltSlide != null && _fltSlide.Interactive; } }
-        bool CosmoFltStripOn { get { return _cosmoFltOpen && _cosmoFltSlide != null && _cosmoFltSlide.Interactive; } }
+        //   🔴 **2026-10-11（`A1515`）：补上页判据**（原来只有「开着 × 到位」两档）。
+        //   判据 = 原版把那棵抽屉**挂在 `Card Display` 底下**（`menu_dump.py … "Deck Editing Menu"`
+        //   的缩进 `2 Card Display` → `3 Card Filters`）⇒ `deckDisplay.SetActive(param)` 一动，
+        //   **整棵 `Card Filters` 跟着不画**（`DeckEditingWindow__ToggleDisplay.c` 那个入参；
+        //   见 `CardDisplayPage` 那段）。⚠️ 我们把它建在 `Root` 下（没有那格父容器）⇒
+        //   页判据只能**自己补**在 `PageOn` 上（同一件事的两个落点：`ApplyDrawerSlide` 的显隐 + 这里）。
+        //   ⚠️ `PageOn` 由 `SyncFilterDrawerPage()` **一处**写（⛔ 别在别处再赋一次）。
+        //   ⚠️ `_fltSlide.PageOn` 这一项**看着冗余**（`Interactive` 里已经 `&& d.PageOn`）——
+        //     **故意留着**：`Interactive` 只在 `ApplyDrawerSlide` 跑过之后才反映 `PageOn`，
+        //     而这条带是**四个派发口**的共用判据 ⇒ 让它**自包含**、不依赖「谁先跑了一次同步」。
+        bool FltStripOn { get { return _filtersOpen && _fltSlide != null && _fltSlide.PageOn && _fltSlide.Interactive; } }
+        bool CosmoFltStripOn { get { return _cosmoFltOpen && _cosmoFltSlide != null && _cosmoFltSlide.PageOn && _cosmoFltSlide.Interactive; } }
 
         /// <summary>把容器摆回**原位**（位移 0）—— **建格子之前**调一次。
         /// 🔴 为什么必须：格子里的小字走 `Label.AlignLeftOn/AlignRightOn`，那两个口减的是
@@ -3129,7 +3393,7 @@ namespace CardPresentation
 
         void RefreshDeckList()
         {
-            bool cards = _tab == 0, info = _tab == 1;
+            bool cards = DeckListPage, info = InfoTab;
             var shown = DeckEntries();
 
             float maxScroll = Mathf.Max(0f, shown.Count * RowPitch - ListH);
@@ -3206,7 +3470,19 @@ namespace CardPresentation
                 //   ⇒ 先 `SetText` 再激活的话，这颗字露出来时会被按错误尺寸摆一次（`Battle/Label.cs` 那个已知坑）。
                 bool showX = n > 1;                     // 原版：`1 < count` 才显示（督军 / 防御卡行 = 1 ⇒ 藏）
                 SetOn(_deckRowCountX[i], showX);
-                if (showX) _deckRowCountX[i].SetText("x" + n);
+                if (showX)
+                {
+                    _deckRowCountX[i].SetText("x" + n);
+                    // 🔴 **2026-10-11（`A1528` 第二轮）：**墨迹右缘**由**这一句**钉死**（= `RowCountRight` = 317.48）。
+                    //   判据 = 原版 `Count` 的 `m_HorizontalAlignment = **4(Right)**` + 它是 `Text fill`
+                    //   （`HorizontalLayoutGroup`）的**最后一个**子件 ⇒ 框右沿 = `Text fill` 右沿
+                    //   = 行右缘 − 7.917（完整判据 → `RowCountRightInset` 那段）。
+                    //   ⚠️ **必须排在 `SetText` 之后**（它要现量 `WorldW`），且**每次刷新都要调** ——
+                    //   `SetText` 会重排、把 x 写回块心（同 `_deckRowName[i].AlignLeftOn` 那一句）。
+                    //   ⚠️ 原版那一档叫「右对齐」，我们这里用的是**挪整块**的口（`AlignRightOn`）——
+                    //   为什么不是 `SetAlignRight`（`Battle/Label.cs` 没这个口）→ 见 `BuildDeckList` 那段。
+                    _deckRowCountX[i].AlignRightOn(LayoutSpace.FromPixel(RowCountRight, 0f).x);
+                }
                 // 🆕 **2026-10-17（附加条）**：行上那**两件**都按 `CardRarityColorsSO` 上色 ——
                 //   原版 `UICardInfoItem.imagesToChangeColorByRarity` 那两颗数组元素**逐颗解出来就是**
                 //   `Rarity Gradient`（= `_deckRowGrad`）与 `Background Border`（= `_deckRowBorder`）。
@@ -3259,9 +3535,11 @@ namespace CardPresentation
             Move(_deckRowBorder[i], ListX + RowW * 0.5f, cy, QBorder);
             Move(_deckRowCost[i], RowCostX + RowCostS * 0.5f, cy, QRow);
             // 🔴 **2026-10-20**：这一行原来搬的是 `_deckRowCntIc[i]`（那颗 `row_k*` 方块贴图，已删）；
-            //   现在是行右缘那颗**份数**字（框 x `275.4..325.4` ⇒ 中心 `ListX + RowW − RowCountW/2`
-            //   = **300.4**，不是原来那个 `258 + 20`）。
-            MoveLabel(_deckRowCountX[i], ListX + RowW - RowCountW * 0.5f, cy, QText);
+            //   现在是行右缘那颗**份数**字。🆕 **2026-10-11（`A1528` 第二轮）**：喂的是
+            //   **框中心**（`RowCountX + RowCountW/2` = **292.48**），而**真正的 x 随后会被
+            //   `RefreshDeckList` 里那句 `AlignRightOn` 覆盖**（右沿钉在 `RowCountRight` = 317.48）——
+            //   这一句现在只负责 **y 与渲染队列**（与下一行行名同一个口径）。
+            MoveLabel(_deckRowCountX[i], RowCountX + RowCountW * 0.5f, cy, QText);
             // 🔴 2026-10-20：这一句只管 **y 与渲染队列**（喂的是框心）——
             //   **x 随后会被 `RefreshDeckList` 里那句 `AlignLeftOn` 覆盖**（行名现在是左对齐）。
             MoveLabel(_deckRowName[i], RowNameX + RowNameW * 0.5f, cy, QText);
@@ -3305,7 +3583,7 @@ namespace CardPresentation
         /// （其余情况下那几行要么不显示、要么被模态挡着）。</summary>
         int RowUnder(Vector2 px)
         {
-            if (_tab != 0 || _dragging || _importOpen) return -1;
+            if (!DeckListPage || _dragging || _importOpen) return -1;
             if (px.x < ListX || px.x > ListX + RowW) return -1;
             for (int i = 0; i < _deckRowBg.Count; i++)
             {
@@ -3540,6 +3818,10 @@ namespace CardPresentation
             //   我们原来算的是 `卡数 + 督军(1) + 防御卡(1)` / `MaxDeckCount + 2` ⇒ 满编时印 **32/32**，**多 2**。
             //   判据出处：`资料/历史/五张参考图_逐件核对_0922.md` 第 10 条（那条挂着「要核」，2026-09-28 核完并改）。
             _counterTxt.SetText(State.DeckCount + "/" + State.MaxDeckCount);
+            // 🆕 **`A1514`**：类型计数抽屉（部队 / 策略）与上面那颗**同一拍**重算 ——
+            //   判据 = 原版 `DeckEditingPanel__UpdateDrawers.c`（它无条件依次 `Initialize` 三个抽屉，
+            //   其中就有 `DeckTypeCounterDrawer`；见类级 `Tc*` 常量那一段）。
+            RefreshTypeCounter();
             // ⚠️ `err` 在**本函数第一句**就算好了（A365 起：`Validate()` 有「补空名字」那个副作用，
             //    名字文本得排它后面）—— ⛔ 别在这里再调一次 `State.Validate()`。
             // 🔴 **2026-10-17（D35/D10 删件）**：这里原来还有两行 ——
@@ -3794,7 +4076,7 @@ namespace CardPresentation
         /// <summary>卡组条目：**左键放大**（原版**不是删除**）；按住拖出侧栏 = 删除。</summary>
         bool HandleDeckRowClick(Vector3 wp, Vector2 px, bool left)
         {
-            if (_tab != 0) return false;
+            if (!DeckListPage) return false;
             if (px.x > ListX + RowW || px.y < ListY || px.y > ListY + ListH) return false;
             for (int i = 0; i < _deckRowBg.Count; i++)
             {
@@ -4571,6 +4853,15 @@ namespace CardPresentation
         /// —— 那正是 A41 ④「看不见却能点」的来源（两处写同一条规则 = 迟早不一致）。</summary>
         bool InfoTab { get { return _tab == 1; } }
 
+        /// <summary>🆕 **2026-10-11（`A1516`）**：**卡组列表那一页**（= Cards）—— 原版 `Deck List drawer`
+        /// 只在 Cards 页签下（`DeckEditingPanel__ToggleDeckInfo.c` 的 `deckList(0x28).SetActive(0)`；
+        /// 字段名↔偏移按 `d:/2/tools/il2cpp_out/dump.cs` 的 `DeckEditingPanel` 实读：
+        /// **`deckList` @ 0x28** · `deckCosmeticDrawer` @ 0x30 · **`deckCounterDrawer` @ 0x38** ·
+        /// `deckCostDrawer` @ 0x40）。
+        /// <para>它是**卡组行那一整套**（画 / 命中 / 悬停 / 滚轮）的页判据 —— 与 `InfoTab` 同一个形状。
+        /// ⛔ **别在别处再写一遍 `_tab == 0` / `_tab != 0`**（铁律：两处写同一条规则 = 迟早不一致）。</para></summary>
+        bool DeckListPage { get { return _tab == 0; } }
+
         /// <summary>🔴 **2026-10-11（`A1497④`）**：**原版 `DeckEditingWindow.ToggleDisplay(param)` 的那个入参**
         /// （= 「`Content Area/Card Display` 这一整页在不在」）—— **Cards 页与 Deck info 页都真、只有 Cosmetics 页假**。
         ///
@@ -4584,11 +4875,45 @@ namespace CardPresentation
         ///
         /// <para>⚠️ **`Card Display` 那一整棵子树都吃这一个入参** —— 里面除卡池（`Scroll View`）之外还有
         /// `Card Filters` 与 `Card Drag Controller`（父链现核：`Card Drag Controller` 的父**就是** `Card Display`）。
-        /// 本属性今天只被 **① 卡池显隐**（`RefreshPool`）与 **② 通配符计数条整条**（`RefreshTabVisibility`
-        /// 经 `_cardsInfoOnly`）读；**`Card Filters` 那一份还没接**（如实标注，见本轮报告）。</para>
+        /// 本属性今天被 **① 卡池显隐**（`RefreshPool`）· **② 通配符计数条整条**（`RefreshTabVisibility`
+        /// 经 `_cardsInfoOnly`）· **③ `Card Filters` 左抽屉**（`SyncFilterDrawerPage` →
+        /// `_fltSlide.PageOn`，2026-10-11 补，`A1515`）读。
+        /// ⚠️ 仍然没接的是 **`Card Drag Controller`**（我们挂在 `Root` 下 —— 行为等价，因为
+        /// 卡池与卡组行都在别的页关着、起不了拖；如实登记，见 `DeckRuntime` 里 `BuildCardDrag` 的注释）。</para>
         ///
         /// <para>⛔ **别在别处再写一遍 `_tab != 2` / `_tab == 0`** —— 两处写同一条规则 = 迟早不一致。</para></summary>
         bool CardDisplayPage { get { return _tab != 2; } }
+
+        /// <summary>🔴 **2026-10-11（`A1515`）：`Card Filters` 左抽屉的页判据 —— 唯一出处。**
+        ///
+        /// <para>**原来错在哪**：`_fltSlide.PageOn` **全文件从没被赋过值**（`FilterDrawer` 的字段初值是
+        /// `true`）⇒ `_filtersOpen == true` 时切到 Cosmetics 页，**原版整页不画、我们照画**；
+        /// 连带 `FltStripOn` 那一档也漏判（左侧那条竖带会被**卡牌筛选**吃掉，而那一刻该吃的是卡背筛选）。
+        /// 卡背那半早就接了（`RefreshCosmoFilters` 里的 `_cosmoFltSlide.PageOn = (_tab == 2)`）。</para>
+        ///
+        /// <para>**判据**（同 `CardDisplayPage` 那段，原版是**一个** `SetActive(param)`）：
+        /// `d:/2/tools/decomp_full/DeckEditingWindow__ToggleDisplay.c` 的 `cardDisplay(0x78)` —— 那棵
+        /// `Card Display` 底下就挂着 `Card Filters`（`menu_dump.py bundle_menus_assets_all
+        /// "Deck Editing Menu"` 的缩进：`2 Card Display` → `3 Card Filters`）⇒ 页一关，整栏跟着不画。
+        /// ⚠️ 我们把它建在 `Root` 下（**没有**那格父容器）⇒ 页判据只能自己补在 `PageOn` 上。</para>
+        ///
+        /// <para>**为什么要单独一个函数**：`PageOn` 只在**一处**赋值；两个调用点
+        /// （切页签 `RefreshTabVisibility` / 抽屉内容重建 `RefreshFilters`）都走它，⛔ 别各写一遍。</para></summary>
+        void SyncFilterDrawerPage()
+        {
+            // ⚠️ 建之前（`BuildFilters` 排在 `Build()` 后段）会被调到 ⇒ 按「出声、不静默」处理
+            //    （同 `RefreshFilters` / `RefreshCosmoFilters` 那两条同款守卫）。
+            if (_fltSlide == null || _fltSlide.Node == null)
+            {
+                Debug.LogWarning("[Deck] `SyncFilterDrawerPage` 在 `BuildFilters` 之前被调了 —— 这一次忽略"
+                                 + "（抽屉容器还没建，`Build()` 里的顺序别动）");
+                return;
+            }
+            _fltSlide.PageOn = CardDisplayPage;
+            // 页判据是**瞬时**的（照原版「整页 `SetActive`」）：推一次滑动引擎 ⇒ 显隐 / 命中一起对齐
+            // （`ApplyDrawerSlide` 里 `live = (…滑过…) && d.PageOn`、`Interactive = … && d.PageOn`）。
+            ApplyDrawerSlide(_fltSlide, _fltSlide.Slide);
+        }
 
         /// <summary>页签决定「侧栏那三组东西谁显示」：卡组行(Cards) / 费用曲线+动作钮(Deck info) / 饰品页(Cosmetics)。</summary>
         void RefreshTabVisibility()
@@ -4603,6 +4928,9 @@ namespace CardPresentation
             foreach (var go in _cardsInfoOnly) if (go != null) go.SetActive(CardDisplayPage);
             ApplyCosmCellVisibility();          // 卡背格（同一个判据的第二个消费者，见那个方法）
             RefreshCosmoFilters();              // 🆕 2026-10-01：卡背那个抽屉（同样的判据：只在 Cosmetics 页露）
+            // 🆕 **2026-10-11（`A1515`）**：**卡牌那栏左抽屉也吃同一个页判据** —— 原版它挂在
+            //   `Card Display` 底下，页一关整栏跟着不画（判据 → `SyncFilterDrawerPage` 的 doc）。
+            SyncFilterDrawerPage();
             // `Empty Collection Warning`（原版判据：**过滤后为空**）——
             // ⚠️ 2026-10-01 更新：这一页**已经有筛选抽屉了**（`Cosmetic FIlter`），但 13 个阵营每个都有卡背
             //    （生成脚本实测分布 **9~20 张**）⇒ 仍然**永远非空** ⇒ 实际上不显示（与原版「没筛就不空」一致）。
@@ -4717,7 +5045,7 @@ namespace CardPresentation
         /// <summary>卡组列表第 i 行现在**显示**的是哪张卡（那一行不可见就给 null —— 页签不对也算不可见）。</summary>
         public CardDef UiDeckRowAt(int i)
         {
-            if (_tab != 0) return null;
+            if (!DeckListPage) return null;
             var shown = DeckEntries();
             int idx = Mathf.FloorToInt(_deckScroll / RowPitch) + i;
             return (i >= 0 && i < RowVisible && idx >= 0 && idx < shown.Count) ? shown[idx] : null;
@@ -4911,11 +5239,19 @@ namespace CardPresentation
         /// <summary>通配符计数条第 `i` 个**数字**的渲染矩形（自检用）。
         /// 判据 = `Label.WorldW/WorldH`（TMP **真测量**，不是我们传进去的框）。
         /// ⚠️ 原版那条 TMP 是 `VerticalAlignment = Capline` ⇒ 数字相对几何中心**略偏上**，
-        /// 所以自检要按**渲染矩形**比、别按几何中心比（正本 §③ 末条）。</summary>
+        /// 所以自检要按**渲染矩形**比、别按几何中心比（正本 §③ 末条）。
+        /// <para>🔴 **2026-10-11（`A1518②`）：补上「它现在露没露」—— 不显示时答 `false`。**
+        /// 本条原来**只管量尺**（读 `_wcTxt[i].WorldW/WorldH`），**不看 `activeSelf`** ⇒ 拿它断
+        /// 「Cosmetics 页上这 4 个数字**不显示**」**恒绿**（藏起来了照样量得出尺寸）—— 正是本仓最怕的
+        /// 那族假读数。⚠️ 判据用 **`activeInHierarchy`**（不是 `activeSelf`）：4 颗数字的开关落在
+        /// **它们自己**身上（`RefreshTabVisibility` 的 `_cardsInfoOnly` 逐件 `SetActive`）——
+        /// 用 `activeInHierarchy` 是**更严**的那一档，将来若改成关父容器也照样成立
+        /// （同 `UiQuadActive` 那条的理由）。</para></summary>
         public bool UiWcCounterRect(int i, out float cx, out float cy, out float w, out float h)
         {
             cx = cy = w = h = 0f;
             if (i < 0 || i >= 4 || _wcTxt[i] == null) return false;
+            if (!_wcTxt[i].gameObject.activeInHierarchy) return false;   // 🆕 A1518②：藏着的量不出「渲染矩形」
             var p = ToPx(_wcTxt[i].transform.localPosition);
             cx = p.x; cy = p.y; w = _wcTxt[i].WorldW * PxPerUnit; h = _wcTxt[i].WorldH * PxPerUnit;
             return true;
@@ -5254,8 +5590,26 @@ namespace CardPresentation
 
         /// <summary>🔴 **「该藏的东西藏住了吗」的通用守卫**（图 + 文字都算）。
         /// 为什么单开一条：`Lookup()` 只认 `ImageQuad` ⇒ 只验图的话**文字会漏**，
-        /// 而漏了文字的表现是「别的页签上飘着一行字」—— 2026-09-20 就是这么漏的。</summary>
+        /// 而漏了文字的表现是「别的页签上飘着一行字」—— 2026-09-20 就是这么漏的。
+        /// <para>⚠️ 三张表各自一个读数（`_infoOnly` / `_cosmOnly` / `_cardsInfoOnly`）—— **一个都不能少**：
+        /// 挑错表写断言 = 「该藏的那批**一件都没数**」⇒ 断言**恒绿**。判据是**哪一批**进哪张表
+        /// （单页 / 单页 / 两页），见各表的 doc。</para></summary>
         public int UiInfoOnlyActive { get { int n = 0; foreach (var g in _infoOnly) if (g != null && g.activeSelf) n++; return n; } }
+        /// <summary>🆕 **2026-10-11（`A1518③`）**：**`_cardsInfoOnly` 那一批**的通用守卫
+        /// （= 通配符计数条整条，Cards 页 + Deck info 页都该显示、Cosmetics 页该整条关）。
+        ///
+        /// <para>**为什么必须补**：原来的通用守卫**只有两张表**（`UiInfoOnlyActive` 数 `_infoOnly`、
+        /// `UiCosmOnlyActive` 数 `_cosmOnly`），而 2026-10-11 新加的 `_cardsInfoOnly` **不在这两张里**
+        /// ⇒ 拿 `UiInfoOnlyActive == 0` 去断「Cards 页 / Cosmetics 页零泄露」时，
+        /// **通配符计数条那 10 件一件都没被数到** ⇒ 那一半**恒绿**（本仓最怕的那族假读数）。</para>
+        ///
+        /// <para>⚠️ 与它**成对**的那一条是**读画面**的（`Editor/DeckScene.cs` 的 `WcBarShownCount()`，
+        /// 按节点名读 `activeInHierarchy`）—— 两条腿都要有：本条读**登记表**（「该登记的登记了吗」），
+        /// 那条读**画面**（「真的关/开了吗」）。只留本条 = 自证（表对了、树没动照样绿）。</para></summary>
+        public int UiCardsInfoOnlyActive
+        {
+            get { int n = 0; foreach (var g in _cardsInfoOnly) if (g != null && g.activeSelf) n++; return n; }
+        }
         public int UiCosmOnlyActive
         {
             get
@@ -5376,7 +5730,19 @@ namespace CardPresentation
                 // —— 但滚轮要**吃掉**，别穿透到后面的卡背网格上。
             }
             else if (_tab == 2) { _cosmScroll = Mathf.Max(0f, _cosmScroll - step); RefreshCosmetics(); }
-            else if (px.x < SideBgX + SideBgW) { _deckScroll = Mathf.Max(0f, _deckScroll - step); RefreshDeckList(); }
+            // 🔴 **2026-10-11（`A1516`）**：侧栏那一带原来**不含页判据**（只判 x 落在 335px 里）
+            //   ⇒ 在 **Deck info 页**（和 Cosmetics 页）上把滚轮放在侧栏那一条上，滚的是**那个不显示的
+            //   卡组列表**（原版那一刻 `deckList(0x28).SetActive(0)` ⇒ 那台 `ScrollRect` **根本不激活**）。
+            //   后果**不可见**（滚的是藏起来的件、`_deckScroll` 又不影响别的）⇒ 惰性缺陷，但**与原版不符**。
+            //   ⚠️ **不是「让给卡池」**：原版这一带在别的页上**一台激活的 `ScrollRect` 都没有**
+            //   （卡池那台的视口从 **330.2** 起，而侧栏到 **335.6** ⇒ 中间 5.4px 的重叠带按「侧栏在上」算）
+            //   ⇒ 滚轮**什么都不做**（穿过底下去滚卡池同样不是原版行为）。
+            //   判据 = `DeckEditingPanel__Toggle{DeckList,Info,Cosmetics}.c` 那三句 `SetActive`
+            //   （见 `DeckListPage` / `CardDisplayPage` 的 doc）。
+            else if (px.x < SideBgX + SideBgW)
+            {
+                if (DeckListPage) { _deckScroll = Mathf.Max(0f, _deckScroll - step); RefreshDeckList(); }
+            }
             else { _poolScroll = Mathf.Max(0f, _poolScroll - step); RefreshPool(); RefreshHeader(); }
         }
 
@@ -5683,6 +6049,9 @@ namespace CardPresentation
             }
             // 🆕 2026-10-04（A67）：**显隐不再由这里逐层 `SetOn`** —— 唯一出处是 `ApplyDrawerSlide`
             //   （跟着滑动走：滑出去了才关、在滑的途中要活着）。这里只负责重建内容 + 登记命中区。
+            // 🔴 **2026-10-11（`A1515`）**：页判据（`PageOn`）**只由 `SyncFilterDrawerPage` 一处写** ——
+            //   本函数每次重建内容都要重推一次（否则「窗口是带着 Cosmetics 页建的」那种路径会漏）。
+            SyncFilterDrawerPage();
             _fltSlide.Open = _filtersOpen;         // 逻辑态（滑动目标由 `StartDrawerSlide` 设）
             DrawerHome(_fltSlide);                 // 建之前把容器摆回原位（`Label.AlignLeftOn` 减的是父级世界 x）
             PrepareDrawerForBuild(_fltSlide);      // 建之前容器必须是活的（TMP 在非激活对象上量不出尺寸）

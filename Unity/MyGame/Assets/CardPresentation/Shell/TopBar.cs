@@ -45,6 +45,11 @@
 //          `Initialize()` 按 `challengeManager.challenges.Count > 0` 显隐、`OnButtonClick()` 弹一个
 //          「`Demo/FriendsMenu/ReceiveChallenge` + 模式名」的 OK/Cancel 确认框然后**把自己隐藏**
 //          （`decomp_full/ChallengeButton__Initialize.c` / `__OnButtonClick.c`；三个词条串已解出）。
+//       ⑤ 🆕 **2026-10-11（`A1522①` / `A1523①`）：那两颗「出厂关着」的钮（`Feedback Button` /
+//          `Challenge button`）统一按【建、但出厂 `SetActive(false)`】** —— 判据与理由写在各调用点上方
+//          （原版那一排**三颗**：`InboxBtn` 常显 · `Challenge button` 出厂 `True` 但运行期被
+//          `ChallengeButton.Initialize()` 关掉（服务端条件）· `Feedback Button` prefab 里 `m_IsActive = false`）。
+//          ⛔ 别再退回「出厂 `False` ⇒ 不建」（`MainMenuRuntime` 文件头纪律 ③ 已就地订正）。
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -156,7 +161,36 @@ namespace CardPresentation
                  QBarBadge, MainMenuRuntime.BadgeAlpha(DailyData.InboxHasBadge), false, onMissing);
             var challenge = Rect(btns, "40K_icon_duel", 490.1f, 537.6f, 11.8f, 59.2f, "Challenge button",
                                  QBarContent, null, false, onMissing);
-            // `Feedback Button`（565.4..615.4, 10.5..60.5）出厂 `activeSelf=False` ⇒ **不建**（同 `MainMenuRuntime` 纪律 ③）
+            // 🔴 **2026-10-11（`A1523①`）：这一颗【建出来、但出厂 `SetActive(false)`】。**
+            //   原版**运行期实况就是关着的**（两条互相独立的判据）：
+            //     ① 运行期 dump（真·原版）`资料/原版实拍/menu_topbar_0927/runtime_ui_dump_MainMenu_Warpforge.tsv:76`
+            //        = `activeSelf False` / `activeInHierarchy False`；
+            //     ② 1920×1080 原生实拍该格（x 490.1..537.6）**亮度 max 30** = 条底色 ⇒ 那里**是空的**。
+            //   谁关的 = `ChallengeButton.Initialize()`：按**服务端** `challengeManager.challenges.Count > 0`
+            //   决定显隐（第一权威 = `d:/2/tools/decomp_full/ChallengeButton__Initialize.c`）——
+            //   挑战来自 PlayFab，**本地没有挑战源** ⇒ **恒关**。
+            //   判据全文 → `资料/普查产出_第十七会话/P_信箱与名牌.md`（顺手发现 ①·状态→参数表）。
+            //   ⚠️ 我们原来把它建成**常显** —— 与同一排「`Feedback Button` 出厂 `False` ⇒ 不建」**自相矛盾**。
+            //   主对话 2026-10-11 裁定：**两颗统一按「建、但出厂关着」**（结构与接线照原版留着，
+            //   ⛔ 不删节点 —— 删了 `Editor/{MainMenuScene,DeckScene}.cs` 里按名字找它的断言会红）。
+            if (challenge != null) challenge.gameObject.SetActive(false);
+            // `Feedback Button`（`565.44..615.44 × 10.50..60.50` = **50×50** · sprite `40K_icon_feedback`）
+            // 🔴 **2026-10-11（`A1522①`）：原版是【建了、但出厂关着】⇒ 照原版建、出厂关着**（同上面那一颗）。
+            //   判据两条：① 表 `资料/主菜单_原版规格.md:96` 那一行的最后一格 = **出厂 `False`**（表 `:327`
+            //   记它的矩形 `565.4..615.4, 10.5..60.5`）；② 实况 `GameObject/Feedback Button.json` 的
+            //   **`"m_IsActive": false`**（同包，逐字节实读）。
+            //   ⚠️ ⛔ **不接线**：原版那一颗的 `Button` / `EverguildButton` 上挂着一条**持久调用**
+            //   （`MonoBehaviour_2530.json` 的 `m_OnClick.m_PersistentCalls` = `BattleManager.ClickSettings`，
+            //   而且 `m_Target` 是 **null**）—— 看着是 prefab 里的**复制粘贴残留**，而它**整颗不激活**
+            //   ⇒ **永远不派发** ⇒ 我们**不替它编一个动作**（本工程红线：⛔ 不把猜测写成「原版就是这样」）。
+            //   📌 这一颗「原版到底干什么」= **没查清**（它恒关，无从验证）—— 如实记在此，别当成已复刻。
+            //   ⚠️ 原版它**不参加 `TopBarButtons` 的 HLG**（`m_IsActive = 0` ⇒ uGUI 建 `rectChildren` 时跳过）
+            //   ⇒ 它那格是**手写死值 `565.44`**：条内一重排它就与 `Challenge` 对不上了
+            //   （判据 → `P_信箱与名牌.md` §「谁被 LayoutGroup 托管」那张表）。
+            //   我们的实现在本件里**本来就全部写绝对坐标** ⇒ 这一点自动成立，⛔ 别改成跟着 `InboxBtn` 算。
+            var feedback = Rect(btns, "40K_icon_feedback", 565.44f, 615.44f, 10.5f, 60.5f, "Feedback Button",
+                                QBarContent, null, false, onMissing);
+            if (feedback != null) feedback.gameObject.SetActive(false);
 
             BuildPlayerProfile(bar, parts, onMissing);
             BuildResourcesBar(bar, onMissing);

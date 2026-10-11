@@ -456,13 +456,36 @@ namespace CardPresentation
         const float SelTexW = 1f, SelTexH = 1f;
 
         /// <summary>卡列表列数 = `floor((526.10 − 22 + 22) ÷ (231 + 22))` = **2**
-        /// （照原版 `GridLayoutGroup`：`constraint=0/Flexible` ⇒ 按宽度算，pad 左 22 右 0）。</summary>
+        /// （照原版 `GridLayoutGroup`：`constraint=0/Flexible` ⇒ 按宽度算，pad 左 22 右 0）。
+        /// <para>🔴 **2026-10-12（A1531⑧）钉一句**：这个数 = uGUI 的 **`cellCountX`**，只决定 `Content`
+        /// 的 preferred 宽；原版 **`m_StartAxis = 1(Vertical)`** ⇒ 真决定填充的是**行容量**
+        /// （见 <see cref="ListRowCap"/>）。⛔ 别拿它当「每行几格」摆位。</para></summary>
         public static int ListCols
         {
             get
             {
                 float usable = (DlContentR - DlContentL) - DlPadL;
                 return Mathf.Max(1, Mathf.FloorToInt((usable + DlGapX) / (DlCellW + DlGapX)));
+            }
+        }
+
+        /// <summary>🆕 **2026-10-12（A1531⑧）**：一列放得下几行 —— 这**才是**本窗卡列表的填充单位。
+        /// <para>判据 = 解包实读 `Practice Mode Menu ◂ Deck info ◂ Deck List Drawer ◂ Content` 的
+        /// `GridLayoutGroup`（`工具/_probe_deckinfo.py bundle_menus_assets_all "Deck List Drawer"
+        /// --pid -3777783439481286852` 亲读）：`m_CellSize 231×27.88` · `m_Spacing (22, 3.6)` ·
+        /// `m_Padding = {L22, R0, T4, B0}` · `m_ChildAlignment/m_StartCorner = 0(UpperLeft)` ·
+        /// **`m_StartAxis = 1(Vertical)`** · `m_Constraint = 0(Flexible)`。</para>
+        /// <para>uGUI（`GridLayoutGroup.cs:265-267` + `:350-351`）：
+        /// `cellCountY = floor((高 − padV + spacing.y + 0.001) ÷ (cellH + spacing.y))`
+        /// = `floor((475.45 − 4 + 3.6 + 0.001) ÷ 31.48)` = **15**；
+        /// **`positionX = i / cellCountY` · `positionY = i % cellCountY`**（先填满一列再换列）。
+        /// （`DlContentB − DlContentT` = `793.87 − 318.42` = **475.45**；padV = `DlPadT(4) + 0`。）</para></summary>
+        public static int ListRowCap
+        {
+            get
+            {
+                return Mathf.Max(1, Mathf.FloorToInt((DlContentB - DlContentT - DlPadT + DlGapY + 0.001f)
+                                                     / (DlCellH + DlGapY)));
             }
         }
 
@@ -1409,19 +1432,64 @@ namespace CardPresentation
             // `Local3(_cardHolder, …)` 会自己换算（这是本工程画图小工具的约定）。
             var deck = CollectionData.Raw(DeckIndex);
             if (deck == null) return;
-            var order = new List<string>();
-            if (!string.IsNullOrEmpty(deck.WarlordId)) order.Add(deck.WarlordId);
+
+            // 🔴 **2026-10-12（A1531⑧）这一支照 `DeckListDrawer` 修**（本窗挂的就是那个类；判据 =
+            //    `Practice Mode Menu ◂ Deck info ◂ Deck List Drawer` 的组件字段，`工具/_probe_deckinfo.py`
+            //    按 GO pid `-3777783439481286852` 亲读：**`showWarlord = 0` · `stackCopies = 0`** ·
+            //    `checkOwnership = 0` · `defensiveCardInfoItem = null`）：
+            //      · **没有督军行** —— `DeckListDrawer__Initialize.c:77-93` 在 `showWarlord = 0` 时套
+            //        `Where(*(int*)(card + 0x94) != 10)`（卡种 ≠ 督军）⇒ 原来 `order.Add(deck.WarlordId)`
+            //        那一行是**多的**。
+            //      · **`stackCopies = 0` ⇒ 每份一行、不合并**（`Initialize.c:154` 那一支直接
+            //        `SpawnCardInfo` 建新行）—— 与卡组编辑窗（`stackCopies = 1`：同名合并成一行 + `xN`）
+            //        **相反** ⇒ 这里**不按 id 去重**，`CardIds` 有几条就几行（同名几张就是几行、也没有 `xN`）。
+            //      · **排序 = 费用升序 → 本地化卡名**（`DeckListDrawer__Reorder.c:33-40`，`Initialize.c:112`
+            //        建完行**无条件**调）—— 与 `Shell/DeckInfoPopup.BuildDeckList` ② **同一把尺**。
+            //        ⚠️ 这段 lambda 现在**两处各一份**（本文件 + `DeckInfoPopup`）——
+            //        建议下一轮收口成共用件（报告 §第二轮·给主对话），⛔ 别只改一处。
+            //      · **防御卡**：原版这里也是**两件事**（同 `DeckInfoPopup.BuildDeckList §⑤`，判据不再抄第二份）：
+            //        **(甲) 进列表** = `GetLibraryInFull.c:29-42` 把 `deck.defensiveCard`(`+0x48`)
+            //        `Insert(0)` 进卡表（那条 `Where` 只滤督军 ⇒ 它留下）；
+            //        **(乙) 钉第 0 格** = `Reorder.c:82-89` 认的是**卡身上的两截判据**
+            //        `cardType == 0x14`(**`CardTypeOptions.Tactic`** —— ⚠️ 不是「防御卡」！) **且**
+            //        `spellType == 0xd2`(**`SpellType.DefensiveCard = 210`**)；不满足就**不钉**、按费用参与排序。
+            //        ⚠️ `defensiveCardInfoItem = null` **不等于「不画」**：`SpawnCardInfo.c:40-51` 判空后
+            //        **兜底**用通用 `cardInfoItem`（`param_1 + 0x20`）⇒ 照样 `Instantiate` 建行。
+            //        🔴 数据缺口（`spellType` 我们没这一列）与近似写法 → `DeckInfoPopup.IsDefensiveRow` 的 doc。
+            var cards = new List<CardDef>();
             if (deck.CardIds != null)
                 foreach (var id in deck.CardIds)
-                    if (!string.IsNullOrEmpty(id) && !order.Contains(id)) order.Add(id);
+                {
+                    if (string.IsNullOrEmpty(id)) continue;
+                    var c = CollectionData.Card(id);
+                    if (c != null) cards.Add(c);      // ⛔ 不去重（`stackCopies = 0`）
+                }
+            // ⑤（甲） **防御卡一定在列表里**（原版 `GetLibraryInFull.c:29-42` 把卡组那个槽的卡 `Insert(0)`）
+            //    —— 两截判据**不成立**时它照样在列表里、只是**不被钉**（见下），所以先并进【待排】这一支。
+            //    ⚠️ 我们这份数据上「在槽里」蕴涵「是防御卡」⇒ 这一支**不可达**，照原版形状留着（⛔ 别删）。
+            var defensive = string.IsNullOrEmpty(deck.DefensiveId) ? null : CollectionData.Card(deck.DefensiveId);
+            if (defensive != null && !DeckInfoPopup.IsDefensiveRow(defensive)) cards.Add(defensive);
+            cards.Sort((a, b) =>
+            {
+                int c = a.Cost.CompareTo(b.Cost);
+                if (c != 0) return c;
+                c = string.CompareOrdinal(CardText.Name(a.Name, a.NameZh),
+                                          CardText.Name(b.Name, b.NameZh));
+                if (c != 0) return c;
+                return string.CompareOrdinal(a.Id, b.Id);
+            });
+            var order = new List<CardDef>();
+            if (defensive != null && DeckInfoPopup.IsDefensiveRow(defensive)) order.Add(defensive);  // (乙) 钉第 0 格
+            order.AddRange(cards);
 
             float oL = DlContentL + DlPadL, oT = DlContentT + DlPadT;
-            int cols = ListCols;
+            // 🔴 **逐列填充**（原版 `m_StartAxis = 1(Vertical)`，算式见 `ListRowCap`）——
+            //    原来写 `i % cols, i / cols` 是 `Horizontal` 那一档（逐行）。
+            int rowCap = ListRowCap;
             for (int i = 0; i < order.Count; i++)
             {
-                var card = CollectionData.Card(order[i]);
-                if (card == null) continue;
-                int c = i % cols, rr = i / cols;
+                var card = order[i];
+                int c = i / rowCap, rr = i % rowCap;
                 float x1 = oL + c * (DlCellW + DlGapX);
                 float y1 = oT + rr * (DlCellH + DlGapY);
                 var cell = new GameObject("CardRow_" + i, typeof(RectTransform));
@@ -1432,7 +1500,7 @@ namespace CardPresentation
                 //    `Editor/MainMenuScene.cs` §A218「`CardRow_<i>` 的 rect = 卡格格矩形」红。
                 MenuDraw.SetPxSize(cell.transform, DlCellW, DlCellH);
                 cell.transform.localPosition = Local3(_cardHolder, x1, y1, x1 + DlCellW, y1 + DlCellH);
-                var nm = Txt(cell.transform, card.Name, x1, x1 + DlCellW, y1, y1 + DlCellH, 20f, Align.Left,
+                var nm = Txt(cell.transform, CardText.Name(card.Name, card.NameZh), x1, x1 + DlCellW, y1, y1 + DlCellH, 20f, Align.Left,
                              "Name", QPrText);
                 // ⚠️ 卡名会超过 **231px** 的格宽（实测 "Death Spinner Warp Spider" 会撞进右边那一列）
                 //    ⇒ 照原版那套开**自适应字号**把它缩进格子里。

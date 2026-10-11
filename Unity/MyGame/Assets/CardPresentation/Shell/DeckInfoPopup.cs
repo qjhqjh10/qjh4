@@ -221,7 +221,21 @@ namespace CardPresentation
         /// （`Editor/CollectionScene.cs` 里「子件矩形中心 vs `Bg` 中心」那两条会红）。</para></summary>
         const float OptInL = 8.151f, OptInR = 9.371f, OptInT = 7.978f, OptInB = 9.498f;
         public const float PanelL = 659f, PanelT = 218.10f, PanelR = 1799f, PanelB = 868.10f;
-        public const float RowL = PanelL + 15f, RowT = PanelT, RowW = 360f, RowH = 58f, RowGapX = 11f, RowGapY = 4.5f;
+        /// <summary>`Deck List/Content` 那个 `GridLayoutGroup` 的四条内边距 —— **原版序列化字段**，
+        /// 出处 = `工具/_probe_deckinfo.py bundle_menus_assets_all "Deck List"`（2026-10-12 亲读）
+        /// ⇒ `m_Padding = {m_Left:15, m_Right:0, m_Top:15, m_Bottom:0}`。
+        ///
+        /// <para>🔴 **2026-10-12（A1531⑥）：`RowT` 原来写 `PanelT`（= 漏了 `m_Top`）。**
+        /// uGUI `LayoutGroup.GetStartOffset`（本机 `LayoutGroup.cs:193-202`）= `padding.left/top + surplus×align`，
+        /// 而本组 `m_ChildAlignment = 0(UpperLeft)` ⇒ `GetAlignmentOnAxis = 0` ⇒ 起点 =
+        /// **`Content` 左上 + `(15, 15)`**；`GridLayoutGroup.cs:350-351` 再把
+        /// `SetChildAlongAxis(child, 1, startOffset.y + …, cellH)` 落到**子件顶边**。
+        /// ⇒ 第一格顶边 = `218.10 + 15 = **233.1**`（原来 218.10 ⇒ **整块偏上 15px**、行心 247.1 → 262.1）。
+        /// ⚠️ **x 那一侧原来就是对的**（`RowL` 本来就 `+15`）—— 只有 y 漏了；
+        ///   同族 `Shell/PracticeModePopup.cs` 的 `DlPadL = 22 / DlPadT = 4` **两侧都加了**（那边的正确写法）。</para></summary>
+        public const float RowPadL = 15f, RowPadR = 0f, RowPadT = 15f, RowPadB = 0f;
+        public const float RowL = PanelL + RowPadL, RowT = PanelT + RowPadT, RowW = 360f, RowH = 58f,
+                           RowGapX = 11f, RowGapY = 4.5f;
         public const float CloseL = 1782.81f, CloseT = 63.20f, CloseR = 1857.19f, CloseB = 138.80f;
 
         /// <summary>🆕 **2026-10-11（A180）**：关窗钮的 **`Graphic.m_RaycastPadding`** —— 原版那颗按钮
@@ -333,10 +347,44 @@ namespace CardPresentation
         /// <summary>`Deck Info` 抽屉那 9 行的读数（自检用）。</summary>
         public readonly List<int> CostRowCounts = new List<int>();
 
-        /// <summary>卡组列表列数 = `floor((1140 − 15 − 15 + 11) ÷ (360 + 11))` = **3**（照 GridLayoutGroup 那套算）。</summary>
+        /// <summary>卡组列表列数 = `floor((1140 − 15 − 15 + 11) ÷ (360 + 11))` = **3**（照 GridLayoutGroup 那套算）。
+        /// <para>🔴 **2026-10-12（A1531）钉一句**：这三个数 = uGUI `GridLayoutGroup` 的
+        /// **`cellCountX`**（`GridLayoutGroup.cs:262` 的 `Flexible` 档）—— 它只决定 `Content` 的
+        /// **preferred 宽**，**不决定填充**：原版 `m_StartAxis = 1(Vertical)` ⇒ 主力轴是**行容量**
+        /// （见 <see cref="ListRowCap"/>）。⛔ 别拿它当「每行几格」去摆位（那正是 A1531 的偏离③）。</para>
+        /// <para>⚠️ 那两句 `− 15 − 15` 是**取巧**：原版 `m_Padding` 是 `(L15, R0, T15, B0)`
+        /// （见 <see cref="RowPadL"/>），uGUI 要的是 `padding.horizontal = 15 + 0`。
+        /// 两种写法今天**同为 3**（`floor(1121/371)` = `floor(1136/371)` = 3）⇒ 没动它，
+        /// ⛔ 但别把这句当「padding 是 30」的证据。</para></summary>
         public static int ListCols
         {
             get { return Mathf.Max(1, Mathf.FloorToInt((PanelR - PanelL - 30f + RowGapX) / (RowW + RowGapX))); }
+        }
+
+        /// <summary>🆕 **2026-10-12（A1531）**：一列放得下几行 —— 这**才是**原版卡组列表的填充单位。
+        ///
+        /// <para>判据 = 解包实读 `bundle_menus_assets_all ◂ Deck info Popup ◂ Info Panel ◂ Deck List ◂ Content`
+        /// 的 `GridLayoutGroup`（`工具/_probe_deckinfo.py bundle_menus_assets_all "Deck List"` 亲读）：
+        /// `m_CellSize 360×58` · `m_Spacing (11, 4.5)` · `m_Padding = {L15, R0, **T15**, B0}` ·
+        /// `m_ChildAlignment = 0(UpperLeft)` · `m_StartCorner = 0(UpperLeft)` ·
+        /// **`m_StartAxis = 1(Vertical)`** · `m_Constraint = 0(Flexible)`；
+        /// `Content` 框 = **1140 × 650**（`659, 218.1 → 1799, 868.1`，与 `Info Panel` 同框）。</para>
+        ///
+        /// <para>uGUI 那一档（`Library/PackageCache/.../GridLayoutGroup.cs:265-267`）：
+        /// `Flexible` + `Vertical` ⇒ `cellCountY = floor((height − padV + spacing.y + 0.001) ÷ (cellSize.y + spacing.y))`
+        /// = `floor((650 − 15 + 4.5 + 0.001) ÷ 62.5)` = **10**；位置算式在 `:350-351`
+        /// （`positionX = i / cellCountY` · `positionY = i % cellCountY`）⇒ **先往下填满一列再换列**。
+        /// ⇒ 列数 = `ceil(张数 ÷ 10)`：**30 张才恰好 3 列**，≤10 张时是 **1 列**。</para>
+        /// <para>⚠️ **只覆盖这一种情况**（铁律 5·c）：这三个字段是 prefab 常量、本窗的 `DeckListOptions`
+        /// 只有三个 bool（不含布局），运行时没人改它们。</para></summary>
+        public static int ListRowCap
+        {
+            get
+            {
+                // `padV = m_Top + m_Bottom` = `RowPadT + RowPadB`（原版字段，见 `RowPadL` 那条）
+                return Mathf.Max(1, Mathf.FloorToInt((PanelB - PanelT - (RowPadT + RowPadB) + RowGapY + 0.001f)
+                                                     / (RowH + RowGapY)));
+            }
         }
 
         /// <summary>🆕 **2026-10-05（A81）**：压暗层的**命中区**节点（「点窗外关窗」）—— 自检用
@@ -390,6 +438,22 @@ namespace CardPresentation
         /// <summary>原版 `Initialize(…, bool isPlayerDeck)` 的第 4 个实参（语义见上面那段）。
         /// 我们三处调用点都是「玩家自己的卡组」⇒ 恒 true（**如实标：我们没有库存系统**）。</summary>
         public bool IsPlayerDeck = true;
+
+        /// <summary>🆕 **2026-10-12（A1531⑦）**：原版 `DeckInfoContext.CheckOwnership`
+        /// （`DeckInfoContext.cs:22` 那个 `public bool CheckOwnership { get; private set; }`，
+        /// **构造函数默认 `= true`**，见 `DeckInfoContext.cs:28`）——
+        /// `DeckInfoPopup__Open.c:79-82` 把它当 `DeckListOptions.CheckOwnership`（`+0x12`）传给
+        /// `DeckListDrawer__Initialize`（本窗这一个开关是**传的**，另两个 `StackCopies`/`ShowWarlord`
+        /// 都取 prefab 字段值）。
+        /// <para>它管什么 = **卡组列表里每一行要不要按「拥有数」压暗** —— 原版机制在
+        /// `UICardInfoItem__SetCount.c:42-56`：`checkOwnership` 为真时问
+        /// `InventoryManager.GetOwnedCount(卡)`，**`count <= owned` ⇒ `CanvasGroup.alpha = 1.0`**、
+        /// **否则 ⇒ `0.5`**（两个常量从 `GameAssembly.dll` 读 4 字节：RVA `0x34B2BB8` = `0x3F800000`、
+        /// RVA `0x34B2BB4` = `0x3F000000`；换算法见 `资料/战斗规则与数值_出处.md` §三）。
+        /// ⚠️ **本地恒不触发**：我们的 `CardProgress.Owned` 是「给足」口径（≥ 卡组上限 + 9，
+        /// 见它的 doc）⇒ `count > owned` 恒假 ⇒ **恒走 1.0 那一支**。
+        /// 这道闸是**照原版补的**（铁律 11），⛔ 不是「我们这里有用」才写的。</para></summary>
+        public bool CheckOwnership = true;
 
         // ============================================================ 🆕 2026-10-04（§三第29条 A65④）
         // **原版 `DeckInfoControls.Initialize` 末尾那三条「接线层」**（都不属于显隐）——
@@ -1076,31 +1140,110 @@ namespace CardPresentation
             ApplyControlStates();
         }
 
-        /// <summary>`Deck List`：卡组里的每一张（**同名合并成 `xN`**）摆成 3 列 × 360×58 的格。</summary>
+        /// <summary>`Deck List`：卡组里的每一张（**同名合并成 `xN`**）摆成 360×58 的格。
+        ///
+        /// <para>🔴 **2026-10-12（A1531）照 `DeckListDrawer` 修一批** —— 本窗 `Deck List` 上挂的组件
+        /// **就是卡组编辑窗左栏那一个类**（MB `-2787211753060071000` vs 左栏 `6974456956866981668`，
+        /// 字段表逐字相同）⇒ 「一张卡一行 + 份数 / 排序 / 没有督军行 / 有防御卡 / 逐列填充 / 起点带内边距 /
+        /// 份数只在 >1 时印 / `checkOwnership`」**与左栏同一条规则**。
+        /// 逐条判据写在下面每一处（①–⑦）。</para></summary>
         void BuildDeckList(Transform root)
-        {            var deck = CollectionData.Raw(DeckIndex);
+        {
+            var deck = CollectionData.Raw(DeckIndex);
             if (deck == null) return;
 
-            var order = new List<string>();
+            // ① **一张卡一行 + 份数**。原版 `DeckListDrawer__Initialize.c:154-172`：遍历卡表时先问
+            //    `Any(行 ⇒ 行.RawCard == 这张)`，命中就 `UICardInfoItem__SetCount(行, 行.Count + 1)`，
+            //    没命中才 `SpawnCardInfo` 建新行。我们按 `CardDef.Id` 认同一张卡
+            //    （与左栏 `DeckRuntime.DeckEntries` 同一把尺 —— 「哪些行」只许有一处定义）。
             var count = new Dictionary<string, int>();
+            var cards = new List<CardDef>();
             if (deck.CardIds != null)
                 foreach (var id in deck.CardIds)
                 {
                     if (string.IsNullOrEmpty(id)) continue;
-                    if (!count.ContainsKey(id)) { count[id] = 0; order.Add(id); }
-                    count[id]++;
+                    var c = CollectionData.Card(id);
+                    if (c == null) continue;          // 卡表里查不到 ⇒ 不画（原版卡表里不会有这一档）
+                    if (!count.ContainsKey(c.Id)) { count[c.Id] = 0; cards.Add(c); }
+                    count[c.Id]++;
                 }
-            if (!string.IsNullOrEmpty(deck.WarlordId)) { count[deck.WarlordId] = 1; order.Insert(0, deck.WarlordId); }
+            // 🔴 **督军不进来**（A1531 偏离②）：本窗 `showWarlord = 0` ⇒ 原版 `DeckListDrawer__Initialize.c:77-93`
+            //    拿它套 `Where(卡种 != 10 /*督军*/)` ⇒ **列表里没有督军行**。
+            //    判据链：`DeckInfoPopup__Open.c:79-82` 只把 `CheckOwnership` 塞进 options（本窗 `showWarlord`
+            //    取 prefab 字段值 **0**）；`Initialize.c:36-50` 只在「options 那一格有值」时才覆盖它。
+            //    ⚠️ 原来这里写 `if (!string.IsNullOrEmpty(deck.WarlordId)) { count[…] = 1; order.Insert(0, …); }`
+            //      ⇒ 多出一行督军（而且它还占着第 0 格）。
 
+            // ⑤（甲） **防御卡一定在列表里**：`CardDeck__GetLibraryInFull.c:29-42` 把**卡组那个槽**
+            //    （`deck + 0x48`）的卡 `List.Insert(0, …)` 进卡表 ⇒ 它**不是**从 `CardIds` 来的，
+            //    本窗这份卡表**不等于** `CardIds` ⇒ 这里先把它并进**待排**列表（原版排在哪儿它就排在哪儿）。
+            //    🔴 钉第 0 格那件事是**另一截**（卡身上的两截判据），见 §⑤ 后半。
+            var defensive = string.IsNullOrEmpty(deck.DefensiveId) ? null : CollectionData.Card(deck.DefensiveId);
+            if (defensive != null && !IsDefensiveRow(defensive)) cards.Add(defensive);
+
+            // ② **排序 = 费用升序 → 本地化卡名**。原版 `DeckListDrawer__Reorder.c:33-40` =
+            //    `OrderBy(键1).ThenBy(键2)`；`Initialize.c:112` 摆完所有行之后**无条件**调它、
+            //    `AddCardToList.c:46` 也调（⇒ 什么时候都在排，没有「只在某态排」这一档）。
+            //      · **键1 = 费用**：匿名函数 `b__22_0` 读 `*(int*)(card + 0x78)`，而
+            //        `UICardInfoItem__SetCost.c` 拿**同一个** `card+0x78` 印费用文本并按其符号位开关费用圆
+            //        ⇒ **字节码直读 = `CardDef.Cost`**。
+            //      · **键2 = `RawCardScript.GetLocalizedCardName(card)` = 本地化卡名**
+            //        ⇒ 我们喂 `CardText.Name(Name, NameZh)`，与左栏 `DeckRuntime.cs:3119` **逐字同一句**。
+            //    ⚠️ 末档 `Id` 只为**全序**：`List.Sort` **不稳定**，没有它、同费用同名的两张会随实现抖动
+            //      （`CardDef` 按 `Id` 建 ⇒ 这一档恒定）。
+            //    🔴 **原来这一路完全没有排序**（`order` = `deck.CardIds` 的出现序 —— 观感上「像按英文名排」，
+            //      其实是数据本身就存成英文名序）。
+            cards.Sort((a, b) =>
+            {
+                int c = a.Cost.CompareTo(b.Cost);
+                if (c != 0) return c;
+                c = string.CompareOrdinal(CardText.Name(a.Name, a.NameZh),
+                                          CardText.Name(b.Name, b.NameZh));
+                if (c != 0) return c;
+                return string.CompareOrdinal(a.Id, b.Id);
+            });
+            // ⑤（乙） **防御卡被钉在第 0 格** —— 这一步判的是**卡身上的两截判据**（(甲) 在上面、已把它
+            //    并进待排列表了）：
+            //      · `DeckListDrawer__Reorder.c:82-89` 认出 `cardType == 0x14`（**`CardTypeOptions.Tactic`**）
+            //        **且** `spellType == 0xd2`（**`SpellType.DefensiveCard = 210`**）的那一件；
+            //      · 排完之后 `:135` 把它 `SetSiblingIndex(督军在否 ? 1 : 0)`，本窗 `showWarlord = 0`
+            //        ⇒ **取 0**（= 钉到表首）。
+            //    ⚠️ **不满足这两截的卡照样在列表里**，只是**不被钉**、按费用/卡名落在它自己该在的位置
+            //      ⇒ 这就是上面 (甲) 那句「并进待排列表」与这里「钉」分开写的原因。
+            //    ⚠️ 顺带更正一条我写过的错话：`0x14` 是 **`CardTypeOptions.Tactic`（计策）**、
+            //      **不是**「防御卡」；「防御卡」是 **`SpellType.DefensiveCard = 210`** 那一截
+            //      （两截的字段名读法 + 数据缺口 → `IsDefensiveRow` 的 doc）。
+            //    🔴 **在我们这份数据上两条判据【恒同义】**（`IsDefensiveRow` = `Type == "defence"`，而
+            //      `DeckEditorState.cs:282` 只把 `Type == "defence"` 的卡写进 `DefensiveId` 槽
+            //      ⇒ 「在槽里」蕴涵「是防御卡」），所以 (甲) 里那个 `!IsDefensiveRow` 分支**当前不可达** ——
+            //      照原版的形状留着，⛔ 别删（数据换了就是它挡着）。
+            // ⑤（丙） `DeckListDrawer__SpawnCardInfo.c:40-51`：本窗 `defensiveCardInfoItem = null`
+            //    （亲读）**不影响**「画不画」—— 判空后**兜底**用通用 `cardInfoItem`(`param_1 + 0x20`)
+            //    ⇒ **照样 `Instantiate` 建行**。（我们本来就只有一个行模板 = 兜底那一支。）
+            var shown = new List<CardDef>();
+            if (defensive != null && IsDefensiveRow(defensive)) shown.Add(defensive);
+            shown.AddRange(cards);
             var holder = new GameObject("Deck List");
             holder.transform.SetParent(root, false);
             _listDrawer = holder.transform;
-            int cols = ListCols;
-            for (int i = 0; i < order.Count; i++)
+
+            // ⑥ **逐列填充**。原版 `Content` 的 `GridLayoutGroup`（解包实读，见 `ListRowCap` 的 doc）：
+            //    `m_StartAxis = 1(Vertical)` + `m_Constraint = 0(Flexible)` ⇒ uGUI
+            //    `GridLayoutGroup.cs:265-267` 取 `cellCountY`、`:350-351` 用
+            //    **`positionX = i / cellCountY` · `positionY = i % cellCountY`**
+            //    ⇒ **先往下填满一列（10 行）再换下一列**。
+            //    🔴 **列数不是由宽度定死的 3**：`Flexible` 档的主力轴 = 行容量（`ListRowCap`），
+            //      列数 = `ceil(张数 ÷ 行容量)` —— 30 张才恰好 3 列，≤10 张时是 1 列。
+            //    🔴 原来写 `int c = i % cols, rr = i / cols` = `m_StartAxis = Horizontal` 那一档（**逐行**）。
+            //    🔴 **2026-10-12（A1531⑥）起点也修了**：`RowT` 原来漏了 `Content` 的 `m_Padding.m_Top`
+            //      （见 `RowPadL` 那条）⇒ 整块偏上 15px。
+            int rowCap = ListRowCap;
+            for (int i = 0; i < shown.Count; i++)
             {
-                var card = CollectionData.Card(order[i]);
-                if (card == null) continue;
-                int c = i % cols, rr = i / cols;
+                var card = shown[i];
+                int n;
+                if (!count.TryGetValue(card.Id, out n)) n = 1;   // 防御卡不在 `CardIds` 里 ⇒ 恒 1 张
+                int c = i / rowCap, rr = i % rowCap;
                 float x1 = RowL + c * (RowW + RowGapX);
                 float y1 = RowT + rr * (RowH + RowGapY);
                 var node = new GameObject("Row_" + i);
@@ -1121,11 +1264,79 @@ namespace CardPresentation
                 //    prefab 里读到的是模板位 ⇒ **这一格不是原版字段值**（同 `Shell/SettingsWindow.cs:4717` 那条登记）。
                 Txt(node.transform, node.transform, card.Cost.ToString(), x1 + 6f, y1 + 9f, x1 + 46f, y1 + 49f, 26f, Align.Center,
                     "Cost Text", QDIText, wrapPx: 40f, autoMinPx: 18f, autoMaxPx: 50f, autoBasePx: 32f);
-                Txt(node.transform, node.transform, card.Name, x1 + 52f, y1, x1 + RowW - 52f, y1 + RowH, 26f, Align.Left,
+                // ④ **卡名 = 本地化名**：原版那一栏喂的就是 `GetLocalizedCardName`（见 ② 的键2），
+                //    而左栏 `DeckRuntime.cs:3189` 用的是 `CardText.Name(def.Name, def.NameZh)`。
+                //    🔴 原来写 `card.Name`（英文）⇒ **同一副牌弹窗英文、编辑窗中文**。
+                Txt(node.transform, node.transform, CardText.Name(card.Name, card.NameZh), x1 + 52f, y1, x1 + RowW - 52f, y1 + RowH, 26f, Align.Left,
                     "Name", QDIText, autoMinPx: 2f, autoMaxPx: 38f, autoBasePx: 27.69f);
-                Txt(node.transform, node.transform, "x" + count[order[i]], x1 + RowW - 52f, y1, x1 + RowW - 8f, y1 + RowH, 26f,
-                    Align.Right, "Count", QDIText, autoMinPx: 2f, autoMaxPx: 32f, autoBasePx: 36f);
+                // ⑥ **份数那颗只在 >1 张时才建**（A1531⑥ 同族第二条）：原版
+                //    `UICardInfoItem__SetCount.c:34` = `SetActive(countLabel, 1 < count)`，
+                //    而 `SpawnCardInfo.c:76` 建行时喂的 count 恒 **1** ⇒ **单张的行不印 `x1`**。
+                //    左栏已按同一条规则做（`DeckRuntime.cs:3207` `bool showX = n > 1;`）——
+                //    ⚠️ 那边是「建了再 `SetOn`」（它有一排复用的标签池）；本窗每次 `Build` 重画、
+                //      没有池 ⇒ **不建** 与 `SetActive(false)` 等价。**规则同一条，机制不同**。
+                if (n > 1)
+                    Txt(node.transform, node.transform, "x" + n, x1 + RowW - 52f, y1, x1 + RowW - 8f, y1 + RowH, 26f,
+                        Align.Right, "Count", QDIText, autoMinPx: 2f, autoMaxPx: 32f, autoBasePx: 36f);
+                // ⑦ **`checkOwnership` 那道闸**（见 `CheckOwnership` 的 doc；本地恒不触发）
+                if (CheckOwnership && n > CardProgress.Owned(card.Id, card.Rarity))
+                    DimRow(node.transform, OwnershipDimAlpha);
                 Rows.Add(node.transform);
+            }
+        }
+
+        /// <summary>「这张卡是不是**防御卡**」—— 原版是**两截**判据（两处逐字相同）：
+        /// **① `card + 0x94 == 0x14`**（= `CardTypeOptions.**Tactic** = 20` —— ⛔ **不是**「防御卡」，
+        /// 是**计策**这一大类的卡种）**且 ② `card + 0x90 == 0xd2`**（= `SpellType.**DefensiveCard** = 210`）。
+        /// 出处 = `DeckListDrawer__SpawnCardInfo.c:40`（选哪套行模板）·
+        /// `DeckListDrawer__Reorder.c:82-89`（谁被 `SetSiblingIndex` 钉到第 0 格）。
+        ///
+        /// <para>🔴 **两个偏移对应的字段名（2026-10-12 读出来的）**：`RawCardScript`
+        /// （签名桩 `d:/2/Warpforge_code/Scripts/Assembly-CSharp/RawCardScript.cs`）按**声明序**布局 ——
+        /// 从**已知锚点** `manaCost`(**+0x78**，`UICardInfoItem__SetCost.c` 亲读) 往下顺着数：
+        /// `questTimes(4)` → `alternateArts(8，数组引用)` → `currentAlternateArt(8，引用)` →
+        /// **`spellType(4) = +0x90`** → **`cardType(4) = +0x94`** —— 落点与**另一个已知锚点**
+        /// `+0x94 == 10`（`CardTypeOptions.Hero`，`Initialize.c:77` 的 `Where` 亲读）**逐个自洽**
+        /// （`0x94 − 0x78 = 28 = 4+4+8+8+4`）。
+        /// 两个枚举逐值亲读：`CardTypeOptions.Tactic = 20`、`SpellType.DefensiveCard = 210`。</para>
+        ///
+        /// <para>⚠️ **数据缺口（如实标，⛔ 不许当「已复刻」）**：我们的 `cards_engine.json`
+        /// （键 = attack/cost/desc/descZh/faction/health/id/keywords/name/nameZh/ranged/rarity/subtype/type）
+        /// **没有 `spellType` 这一列** ⇒ **②那半截落不了地**，这里退回 `CardDef.Type == "defence"`。
+        /// 它是**我们自己的合并标签**（`工具/gen_cards_engine.py` 原样搬源数据那个串），
+        /// 但**与权威侧数目吻合**：39 张 = PnP 成品图 `d:/2/Warpforge部队卡片/*/5防御卡/` 13 阵营 × 3
+        /// ⇒ 指同一个集合（⚠️ 这是**另一次分类**、⛔ **不是**字节读出来的原版字段）。
+        /// ⚠️ **`Subtype == "Defence"` 不能用**：那一列是**卡面橙字**（展示串），只有 **36** 张 ——
+        /// 少 `Divination Menhir`[Stratagem] / `Halls of Legend`[Spell] / `Watch Tower`[Structure] 三张。
+        /// ⇒ **拿到远端 `allcards`（含 `spellType`）之后，这一支要换成 `spellType == 210`**；
+        /// 在换之前，「钉第 0 格」这件事在我们的数据上**恒与 `Type == "defence"` 同义**，已足够。</para>
+        /// <para>用途只有一处：`BuildDeckList` 用它决定那张防御卡**钉不钉第 0 格**
+        /// （`Shell/PracticeModePopup.cs` 的卡列表也转调这一支 —— **判据不抄第二份**）。</para></summary>
+        public static bool IsDefensiveRow(CardDef c) { return c != null && c.Type == "defence"; }
+
+        /// <summary>原版 `UICardInfoItem__SetCount.c:42-56` 用来压暗整行的那个 alpha
+        /// （`GameAssembly.dll` RVA `0x34B2BB4` 读 4 字节 = `0x3F000000`）；够数那一档是 RVA `0x34B2BB8`
+        /// = `0x3F800000`（= 1.0，即不压）。</summary>
+        public const float OwnershipDimAlpha = 0.5f;
+
+        /// <summary>把一行整体乘上 alpha `a`。
+        /// <para>⚠️ **机制与原版不同、数相同（如实记）**：原版落在 item 的 `CanvasGroup.alpha`
+        /// （`UICardInfoItem__SetCount.c:43` 那个字段）；我们这侧 `Battle/ImageQuad.cs` / `Battle/Label.cs`
+        /// 都是**世界空间 `MeshRenderer`**（ImageQuad 文件头：没有 uGUI）⇒ `CanvasGroup` 传不下去
+        /// ⇒ 用本工程既有的着色口（`ImageQuad.SetTint` / `Label.SetColor`）把同一个数落下去。
+        /// ⚠️ `Label` 的**点阵后端** `SetColor` 只重烘贴图（`Battle/Label.cs:173-182`）——
+        /// 那条路上 alpha 会不会真变**没验过**（本闸本地恒不触发 ⇒ 没有触发的画面可看）。如实记，不吹。</para></summary>
+        static void DimRow(Transform t, float a)
+        {
+            foreach (var q in t.GetComponentsInChildren<ImageQuad>(true))
+            {
+                var c = q.Tint;
+                q.SetTint(new Color(c.r, c.g, c.b, c.a * a));
+            }
+            foreach (var lb in t.GetComponentsInChildren<Label>(true))
+            {
+                var c = lb.color;
+                lb.SetColor(new Color(c.r, c.g, c.b, c.a * a));
             }
         }
 

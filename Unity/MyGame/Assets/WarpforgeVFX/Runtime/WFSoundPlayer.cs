@@ -39,6 +39,18 @@ namespace WarpforgeVFX
             if (_root == null)
             {
                 _root = new GameObject("WFSoundPlayer");
+                // 🔴 **2026-10-11（`A1534`）**：`hideFlags = DontSave` —— **这一句是给【批处理自检】兜底的**。
+                //   自检宿主走 `-executeMethod`（**编辑模式**）⇒ 这里 `new GameObject` 建出来的东西
+                //   **落在当时打开的那个场景里**，收尾 `SaveScene()` 会把它**连同音源池一起烘进 `.unity`**。
+                //   实测（`DeckEditor.unity`）：跑一趟 `DeckScene.Run` ⇒ 场景里多一个 `WFSoundPlayer` 节点，
+                //   它名下 `AudioSource` 的**颗数 = 那一趟真租过几颗**（HEAD 5 颗 → 某趟 6 颗；`PoolSize = 24` 封顶）。
+                //   批处理下没有帧循环 ⇒ `isPlaying` 永不转 false ⇒ 每多播一条就多租一颗 ⇒
+                //   **场景文件的内容成了「那趟跑过什么」的函数**（跨趟不可复现）。
+                //   ⇒ `DontSave` =「我是运行时对象、**任何场景 / 构建都别持久化我**」（也含 `DontSaveInEditor`）。
+                //   ⚠️ 另一条路是自检侧开 `Enabled = false`（那个开关本注释就写着「批处理自检用」）——
+                //     **本仓 8 个自检宿主一个都没开**（只有老的 `WarpforgeArena1/Editor/AnimFXCheck.cs:342` 开过）。
+                //     那条路是「别做这件事」，这一句是「做了也别留痕」；**根因是后者**，故修在这里。
+                _root.hideFlags = HideFlags.DontSave;
                 if (Application.isPlaying) Object.DontDestroyOnLoad(_root);
                 _pool = new AudioSource[PoolSize];
             }

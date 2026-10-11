@@ -2741,15 +2741,45 @@ public static class BattleScene
                 //    **inactive** 实例的坐标（`EnemyInfo (157,108)` / `PlayerInfo (32,977)`），
                 //    不是 `LeftArea` 下 HUD 那一份 → 我方偏右 44 px / 偏高 37 px、敌方偏右 ~168 px。
                 //    顺带把「骷髅压住名字」也治好了（名牌下移 37 px 之后骷髅正好在文字上方）。
+                // 🔴 **2026-10-19（A1512）**：两个 `x01` 又一次改 —— 见下面那一段。
                 var mp = drv.MyPlatePos01;
                 var ep = drv.EnemyPlatePos01;
-                Check(Mathf.Abs(mp.x - (-0.005938f)) < 0.002f && Mathf.Abs(mp.y - 0.060602f) < 0.002f,
-                      $"我方名牌左缘中点 x01 {mp.x:F6} / y01 {mp.y:F6}（原版 −0.005938 / 0.060602 —— 贴屏幕左缘、出血 11 px）");
-                Check(Mathf.Abs(ep.x - (-0.005833f)) < 0.002f && Mathf.Abs(ep.y - 0.927083f) < 0.002f,
-                      $"敌方名牌左缘中点 x01 {ep.x:F6} / y01 {ep.y:F6}（原版 −0.005833 / 0.927083）");
+                // 🔴 **2026-10-19（A1512）两个 `x01` 换成【乘过父链 0.8】之后的真值**（原来是**未乘**的那一版，
+                //    所以名牌左缘被算到屏幕外 −11.4 px）。左缘 = 名牌中心 − 实绘宽/2：
+                //    · `NameBackground` 实绘宽 **305.8882 px**（= 裸 `m_SizeDelta` 435.7 × 父链 `0.8`，再按 442/146 PA 高受限）
+                //    · 中心 x = **179.700195（我）/ 180.0（敌）**（`menu_dump` 绝对框的中心）
+                //    ⇒ 左缘 **26.7561（我）/ 27.0559（敌）** px。判据 = `RT_3384.json` / `RT_3276.json` 的 `m_LocalScale = 0.8`。
+                //    ⚠️ `y01` 是「中心」那一维、**与 0.8 无关** ⇒ 两个都没动。
+                Check(Mathf.Abs(mp.x - (26.7561f / 1920f)) < 0.002f && Mathf.Abs(mp.y - 0.060602f) < 0.002f,
+                      $"我方名牌左缘中点 x01 {mp.x:F6} / y01 {mp.y:F6}（原版 26.7561/1920 = 0.013935 / 0.060602）");
+                Check(Mathf.Abs(ep.x - (27.0559f / 1920f)) < 0.002f && Mathf.Abs(ep.y - 0.927083f) < 0.002f,
+                      $"敌方名牌左缘中点 x01 {ep.x:F6} / y01 {ep.y:F6}（原版 27.0559/1920 = 0.014092 / 0.927083）");
                 Check(drv.SkullBottomY01 - drv.MyPlateTextCenterY01 > 0.005f,
                       $"里程碑骷髅在名牌文字的**上方**、不压字（下沿 {drv.SkullBottomY01:F5} − 文字中心 "
                     + $"{drv.MyPlateTextCenterY01:F5} = {drv.SkullBottomY01 - drv.MyPlateTextCenterY01:F5} > 0.005）");
+
+                // 🔴 **2026-10-19（A1512）：名牌那一族的【绝对尺寸/中心】**（⛔ 期望值一律写**原版绝对 px**，
+                //    **不由** `BattleDriver.HudPlateScale` 推出来 —— 否则就是「拿实现证明实现」，改回 `1f` 也不会红）。
+                //    为什么单开这一节：A1512 之前，这一族 **一条绝对尺寸断言都没有** ——
+                //    把 `HudPlateScale` 改回 `1f`（或把那几个常量改回未乘 0.8）时，
+                //    只有 §⑤ 那两条 x01 会红，**名牌大小 / 文字中心没人管**。
+                //    出处 = `python 工具/menu_dump.py bundle_scenes_scenes_battlearena2 --rt 3042 --depth 6 --no-sprite`
+                //      · `NameBackground` 行 `348.56001 x 101.04000`（视觉框 = 布局框，自己缩放 1）
+                //      · `..NameBackground` 贴图 `UI_Player_Frame` 442×146 ⇒ 实绘宽 = 101.04 × 442/146 = 305.8882
+                //      · `PlayerNameText` / `EnemyNameText` 两行的绝对框（敌侧再扣 TMP `m_margin` 43.256/70.577）
+                void AbsPx(string what, float gotPx, float wantPx, string src)
+                {
+                    Check(Mathf.Abs(gotPx - wantPx) < 0.05f,
+                          $"★ A1512 {what} = **原版 {wantPx} px**（{src}）—— 实测 {gotPx:F4} px");
+                }
+                AbsPx("我方名牌实绘高", drv.MyPlateWorldH * 108f, 101.04f, "menu_dump：`NameBackground` 126.3 × 父链 0.8");
+                AbsPx("敌方名牌实绘高", drv.EnemyPlateWorldH * 108f, 101.04f, "同上");
+                AbsPx("我方名牌实绘宽", drv.MyPlateWorldW * 108f, 305.8882f, "101.04 × 442/146（PA 高受限）");
+                AbsPx("敌方名牌实绘宽", drv.EnemyPlateWorldW * 108f, 305.8882f, "同上");
+                AbsPx("我方名牌文字中心 x", drv.PlateTextPosPx(true).x, 225.74343f, "`PlayerNameText` 框心（已乘 0.8）");
+                AbsPx("我方名牌文字中心 y", drv.PlateTextPosPx(true).y, 1002.47582f, "同上");
+                AbsPx("敌方名牌文字中心 x", drv.PlateTextPosPx(false).x, 228.17147f, "`EnemyNameText` 框心 239.0996 − margin 偏移 10.928");
+                AbsPx("敌方名牌文字中心 y", drv.PlateTextPosPx(false).y, 66.88264f, "同上");
                 // ⑥ 牌堆上的回合灯 —— 2026-09-13 更正：原来只按锚点矩形折算、**漏了 `anchoredPosition (7.9,65.8)`**，
                 //    灯被摆到牌堆右下角（偏低 66 px / 偏左 8 px）。原版绝对中心 (1813.46, 985.2)。
                 var lp = drv.MyDeckLightPos01;
@@ -11851,14 +11881,23 @@ public static class BattleScene
                     Check(Mathf.Abs(p.x - wantX) < 1.5f && Mathf.Abs(p.y - wantY) < 1.5f,
                           $"{name} 中心 ({p.x:F1},{p.y:F1}) ≈ 资料 ({wantX},{wantY})");
                 }
-                At("TitleBackground_Me", 209.7f, 1049.5f);      // 我 x[54.2,365.2] y[1028.5,1070.5]
-                At("TitleBackground_Foe", 210.0f, 113.8f);      // 敌 x[54.5,365.5] y[92.8,134.8]
-                // 🔴 2026-09-24 改：这两件原来钉的是**错值**（容器中心 58.15,997.65 ⇒ 偏高 11.9 px），
-                //    而且只钉了我方。真判据（见 `BattleDriver.BuildHudExtras` 那一大段注释）：
-                //    `Border` 自己的 rect 我 y[960.0,1059.1] / 敌 y[24.5,123.6]，
-                //    再 ×`m_LocalScale 1.25`（绕 pivot 中心，中心不变）、按 256×286 等比 ⇒ 实绘 110.88×123.88。
-                At("AvatarItemSmall_Me", 57.15f, 1009.55f);     // 中心 (57.15,1009.55) · 实绘 110.88×123.88
-                At("AvatarItemSmall_Foe", 58.45f, 74.05f);      // 中心 (58.45,74.05) —— **敌方那个原来没建**
+                // 🔴🔴 **2026-10-19（A1512）：这四行原来是【未乘父链 0.8】的值，全部作废重写。**
+                //    量纲错误：`EnemyName`/`PlayerName` 各带 `m_LocalScale = 0.8`（`RT_3276.json` / `RT_3384.json`），
+                //    它同时压**尺寸**和**离名牌中心的偏移**，而当年照抄的 0827 `chain_rect` 列**不累计父链缩放**。
+                //    真值取自 `menu_dump` 的绝对框（行末打 `⇲ls=0.8,0.8`）：
+                //      · `TitleBackground` 视觉框 我 x[79.30019,328.10020] y[1025.70515,1059.30515] ⇒ 中心 **(203.700195, 1042.50515)**
+                //        · 敌 x[79.6,328.4] y[89.95257,123.55257] ⇒ 中心 **(204.0, 106.75257)**
+                //      · `Border`（`Avatar Item Small/Image Container` 里那面金框，自己要 ×1.25）视觉框
+                //        · 我 x[3.84099,159.48099] y[960.96465,1060.08985] ⇒ 中心 **(81.660990, 1010.52725)**
+                //        · 敌 x[4.94079,160.58080] y[25.45207,124.57726] ⇒ 中心 **(82.760795, 75.014665)**
+                //        （尺寸也从 110.88×123.88 变成 **88.7274×99.1252** —— 那一条在下面 §16·b ② 另行钉死）
+                At("TitleBackground_Me", 203.700195f, 1042.50515f);   // `…/PlayerName/TitleBackground` 视觉框中心
+                At("TitleBackground_Foe", 204.0f, 106.75257f);        // `…/EnemyName/TitleBackground` 视觉框中心
+                // ⚠️ 2026-09-24 那条历史仍然成立（这两件**原来钉的是错值**：容器中心 58.15,997.65 ⇒ 偏高 11.9 px），
+                //    且只钉了我方 —— 那是**未乘 0.8** 之前的另一回事，本轮再把量纲补齐。
+                //    `Border` 自己的 rect × `m_LocalScale 1.25`（绕 pivot 中心、中心不变）、按 256×286 等比。
+                At("AvatarItemSmall_Me", 81.660990f, 1010.52725f);    // 中心（`Border` 视觉框）
+                At("AvatarItemSmall_Foe", 82.760795f, 75.014665f);    // 中心 —— **敌方那个原来没建**
                 At("ChatButton", 83.15f, 911.1f);               // x[50.9,115.4] y[880.2,942.0]
                 At("CenterCameraButton", 50.15f, 599.1f);       // x[17.9,82.4] y[568.2,630.0]
                 At("OffensiveButton", 54.5f, 500.35f);          // x[0,109] y[446.9,553.8]
@@ -11921,10 +11960,16 @@ public static class BattleScene
                         + $" —— 实得偏 ({dEx.x:F4}, {dEx.y:F4}) 世界单位（阈值 1e-4 世界单位 ≈ 0.011 px；"
                         + "同一件在上面还有一条粗口径 1.5 px 的）");
                 }
-                AtExact("TitleBackground_Me",     209.7001953125f,   1049.5051536560059f);
-                AtExact("TitleBackground_Foe",    210.0f,            113.75257110595703f);
-                AtExact("AvatarItemSmall_Me",     57.15119171142578f, 1009.5327754654946f);
-                AtExact("AvatarItemSmall_Foe",    58.45099639892578f, 74.08019215250636f);
+                // 🔴🔴 **2026-10-19（A1512）：前四条又是【未乘父链 0.8】的那一版，全部作废重写。**
+                //    新值 = `menu_dump` 的**绝对框**中心（出处逐条写在上面 `At(...)` 那一段）：
+                //    `TitleBackground` 我 (203.700195, 1042.50515) / 敌 (204.0, 106.75257) ·
+                //    `Border`（金框）我 (81.660990, 1010.52725) / 敌 (82.760795, 75.014665)。
+                // ⚠️ 后四条（`OffensiveButton` / `EnergyAccumulation_*` / `OvertimeIndicator`）**不在**
+                //    名牌子树下（缩放 1）⇒ **一个数都没动**。
+                AtExact("TitleBackground_Me",     203.700195f,       1042.50515f);
+                AtExact("TitleBackground_Foe",    204.0f,            106.75257f);
+                AtExact("AvatarItemSmall_Me",     81.660990f,        1010.527250f);
+                AtExact("AvatarItemSmall_Foe",    82.760795f,        75.014665f);
                 AtExact("OffensiveButton",        54.50400161743164f, 500.32849979400635f);
                 AtExact("EnergyAccumulation_Foe", 1785.550192279f,   287.961250148f);
                 AtExact("EnergyAccumulation_Me",  1787.457517193f,   555.596562371f);
@@ -12027,9 +12072,13 @@ public static class BattleScene
                             187.40f, 36.84f, 2f, 35f, 36f, 0);
                 drv.SetTitle(null, null);                    // 复位（后面的截图要的是原版实况那副样子）
                 var tpM = drv.TitlePosPx(true); var tpF = drv.TitlePosPx(false);
-                Check(Mathf.Abs(tpM.x - 227.1f) < 1.5f && Mathf.Abs(tpM.y - 1044.05f) < 1.5f
-                      && Mathf.Abs(tpF.x - 227.4f) < 1.5f && Mathf.Abs(tpF.y - 108.3f) < 1.5f,
-                      $"称号文字中心 我({tpM.x:F1},{tpM.y:F1}) 敌({tpF.x:F1},{tpF.y:F1}) ≈ 原版 (227.1,1044.05)/(227.4,108.3)");
+                // 🔴 **2026-10-19（A1512）作废重写**：这四个期望值原来是**未乘父链 0.8** 的那一版
+                //    （0827 `chain_rect` 的中心 227.1089589 / 227.4087636）。真值 = `menu_dump` 的绝对框中心
+                //    （`EnemyTitle` 我 x[123.92926,311.32516] y[1019.73654,1056.57392] / 敌 x[124.22906,311.62496] y[83.98395,120.82134]）
+                //    ⇒ 我 **(217.62721, 1038.15523)** · 敌 **(217.92701, 102.402645)**（= 名牌中心 + 0.8×47.409 / 0.8×29.57）。
+                Check(Mathf.Abs(tpM.x - 217.62721f) < 1.5f && Mathf.Abs(tpM.y - 1038.15523f) < 1.5f
+                      && Mathf.Abs(tpF.x - 217.92701f) < 1.5f && Mathf.Abs(tpF.y - 102.402645f) < 1.5f,
+                      $"称号文字中心 我({tpM.x:F1},{tpM.y:F1}) 敌({tpF.x:F1},{tpF.y:F1}) ≈ 原版 (217.627,1038.155)/(217.927,102.403)");
 
                 // ==================================================================
                 //  🆕 2026-10-10（`A1213①` 的**断言覆盖**那一半）：HUD 16 颗的「框 + 四格」
@@ -12689,33 +12738,66 @@ public static class BattleScene
                         + (bad != null ? $" —— **{bad}**" : ""));
                 }
 
-                // ---- ② 尺寸 = 那一面 `Border` 的 **1.6 倍** ----
-                //  换算（原版直读）：容器高 99.125 × `Image.m_LocalScale 2.0` = 198.25（PA 内接后仍是
-                //  198.25×198.25）；而 `Border` 内接后实绘高 123.9064904… ⇒ 198.2503846…/123.9064904… = **1.6**。
-                //  🔴 这里比的是**比值**，⛔ 不是绝对值 —— 绝对值会跟着另一笔 `A1512`（`LeftArea`
-                //     整条父链那个还没乘的 `0.8`）一起变；比值对 `0.8` 免疫。
-                //  🧨 改坏法：把 `BuildHudExtras` 里那两句的 `HudAvatarW/H` 换成 `Border` 的那两个常量
-                //     （或把 `HudAvatarSize` 写死成 `99.125…`）⇒ 比值变 0.5/0.8 ⇒ 两条一起红。
+                // ---- ② 尺寸 = 那一面 `Border` 的 **1.6 倍**，且**两件的绝对尺寸 = 原版 px** ----
+                //  换算（原版直读）：容器高 99.1251923 × `Image.m_LocalScale 2.0` = 198.2503846，**再 × 父链 0.8**
+                //  = **158.6003077**（PA 内接后仍是正方）；而 `Border` = 99.1251923（自己 ×1.25、按 256/286 内接）
+                //  ⇒ 158.6003077 / 99.1251923 = **1.6**。
+                //  🔴 **2026-10-19（A1512）**：原来这里**只断比值**，理由是「绝对值会跟着那个还没乘的 0.8 一起变
+                //     ⇒ 比值对它免疫」。**0.8 现在补上了，绝对值可以（也应该）钉死** ——
+                //     只断比值的话：「两件一起改回未乘 0.8 的那一版」（198.25 / 123.906）比值**又回到 1.6 ⇒ 绿**。
+                //     ⇒ 下面**逐件再钉一次原版绝对 px**（⛔ 期望值是原版字面量，**不由** `HudPlateScale` 推出来）。
+                //  🧨 改坏法：`HudAvatarSize` 去掉 `× HudPlateScale`、或 `Border` 改回 110.909×123.906 ⇒ 红。
                 foreach (var pr in new[] { new[] { "AvatarImage_Me", "AvatarItemSmall_Me" },
                                            new[] { "AvatarImage_Foe", "AvatarItemSmall_Foe" } })
                 {
                     float ah = QH(pr[0]), bh = QH(pr[1]);
                     Check(bh > 1e-3f && Mathf.Abs(ah / bh - 1.6f) < 1e-3f,
                           $"★ A1502② `{pr[0]}` 实绘高 = `{pr[1]}` 的 **1.6 倍**（原版 `m_LocalScale 2.0` ×"
-                        + $" 容器高 99.125 = 198.25，除以 `Border` 的 123.906 ⇒ 1.6）—— 实测 {ah:F4} / {bh:F4}"
-                        + $" = {(bh > 1e-3f ? ah / bh : 0f):F5}（比的是**比值**，对 `A1512` 那个 0.8 免疫）");
+                        + $" 容器高 99.1251923 = 198.2503846，再 × 父链 0.8 = 158.6003077；除以 `Border` 的"
+                        + $" 99.1251923 ⇒ 1.6）—— 实测 {ah:F4} / {bh:F4} = {(bh > 1e-3f ? ah / bh : 0f):F5}");
+                }
+                // 🔴 **2026-10-19（A1512）：这两对的【绝对尺寸】**（出处 = `menu_dump` 的 `视觉框` 列）
+                //    · `Avatar Item Small/Image Container/Border`（自己 `m_LocalScale 1.25`）：
+                //      布局框 124.512×79.30016 ⇒ 视觉 155.64×99.12519，再 PA 内接（256/286、**高受限**）⇒ **88.7274449×99.1251923**
+                //    · `…/Image`（自己 `m_LocalScale 2.0`）：布局框 124.512×79.30016 ⇒ 视觉 249.024×158.60031，
+                //      贴图 512×512（PA）⇒ **158.6003077**（高；宽 = 高 × 贴图比例）
+                //  ⚠️ **金框**那张图是固定的 256×286 ⇒ 宽高**都**钉死；
+                //  ⚠️ **立绘**只钉**高** —— 见下面那一段的说明（`Art/avatars/` 里有非正方图）。
+                foreach (var (nm, wPx, hPx) in new[] { ("AvatarItemSmall_Me",  88.7274449f, 99.1251923f),
+                                                       ("AvatarItemSmall_Foe", 88.7274449f, 99.1251923f) })
+                {
+                    var q = Quad(nm);
+                    float gw = q != null ? q.WorldW * 108f : -1f, gh = q != null ? q.WorldH * 108f : -1f;
+                    Check(Mathf.Abs(gw - wPx) < 0.05f && Mathf.Abs(gh - hPx) < 0.05f,
+                          $"★ A1512 `{nm}` 实绘 = **原版 {wPx}×{hPx} px**（`menu_dump` 视觉框，父链 0.8 已含）"
+                        + $" —— 实测 {gw:F4}×{gh:F4} px（改前是未乘 0.8 的那一版）");
+                }
+                // ⚠️ **立绘只钉高**：宽 = 高 × 贴图比例（`ImageQuad.WorldW = _worldH × 贴图宽高比`，PA 就是这么内接的），
+                //    而 `Resources/Art/avatars/` 里 **472 张有 2 张不是正方**
+                //    （`Avatar_SAU_Deathmark.png` / `Avatar_SAU_Vargard Obyron.png`，**437×441**）
+                //    ⇒ 它们那两局的真值就是 **157.1615**，钉死 158.6003 会**冤枉**它。
+                //    `HudAvatarSize`（= `HudPlateScale` 唯一的使用点）**整个落在「高」上** ⇒ 钉高就够挡「改回 1f」。
+                foreach (string nm in new[] { "AvatarImage_Me", "AvatarImage_Foe" })
+                {
+                    var q = Quad(nm);
+                    float gh = q != null ? q.WorldH * 108f : -1f;
+                    Check(Mathf.Abs(gh - 158.6003077f) < 0.05f,
+                          $"★ A1512 `{nm}` 实绘**高** = **原版 158.6003077 px**（布局框 124.512×79.30016 × 自己 2.0"
+                        + $" × 父链 0.8，见 `menu_dump` 的 `视觉框=×2 → 249.02×158.60`）—— 实测 {gh:F4} px"
+                        + $"（宽由贴图比例定、**故意不钉**：非正方的头像有 2 张）");
                 }
 
                 // ---- ③ 中心 = 框中心 + 偏移（我 右 0.8 / 上 11.690 px · 敌 右 0 / 上 11.930 px）----
                 //  出处：原版那几个 `m_AnchoredPosition`（我 (0, 2.70) / 敌 (0, 2.15) 那一对，见
                 //  `BattleDriver` 里 `HudAvatarH` 上面那段注释）算出来是**容器局部单位**，再乘父链那一级
                 //  0.8 ⇒ px 就是 14.6125×0.8 = 11.690（我）/ 14.9125×0.8 = 11.930（敌）；x 那一侧是 1.0×0.8 = 0.8 / 0。
-                //  🔴 **期望值按 `k` 缩放**（`k` = 那面框的实绘高 ÷ 原版框实绘高 `123.90649041742475px` 折成的
-                //     世界高）：`A1512`（`LeftArea` 没乘的 0.8）一修，本件那四个 px 常量**要跟着一起 ×0.8**
-                //     ⇒ 偏移与框尺寸**同步缩**，`k` 恰好把这个变化吸收掉 ⇒ `A1512` 前后这条都成立
-                //     （今天 `k == 1`，退化成上面那两个原版字面量）。⛔ 所以**不写死 px 绝对值**。
+                //  🔴 **2026-10-19（A1512）**：`SpecBorderHpx` 从 **123.90649041742475** 改成 **99.1251923339398**
+                //     （= 原版 `Border` 的**真实绘高**，父链 0.8 已经含在里面）。理由：`k` 的口径是
+                //     「**我们那面框 ÷ 原版框架**」，0.8 补上之后原版框架本来就该是 99.1251923 ⇒ `k == 1`
+                //     ⇒ 下面那两个 `0.8 / 11.690` 就是**原版 px 绝对值**（⛔ 不是 `× HudPlateScale` 推出来的）。
+                //     改前 `k = 0.8`、期望值被缩成 0.64 / 9.352 ⇒ 与真值差 0.16 / 2.34 px ⇒ **必红**。
                 //  🧨 改坏法：把那两个 `x/y` 写成 `Border` 那两个（= 立绘与框完全重合）⇒ 偏移变 (0, 0) ⇒ 红。
-                const float SpecBorderHpx = 123.90649041742475f;
+                const float SpecBorderHpx = 99.1251923339398f;
                 {
                     float kMe = QH("AvatarItemSmall_Me") / (SpecBorderHpx / 108f);
                     Vector2 pa = drv.HudExtraPosPx("AvatarImage_Me"), pb = drv.HudExtraPosPx("AvatarItemSmall_Me");
@@ -12723,18 +12805,20 @@ public static class BattleScene
                     Check(kMe > 0f
                        && Mathf.Abs((pa.x - pb.x) - 0.8f * kMe) < tolMe
                        && Mathf.Abs((pa.y - pb.y) + 11.6900153867151f * kMe) < tolMe,
-                          $"★ A1502② 我方立绘中心 = 框中心 **右 0.8 / 上 11.690 px**（× k={kMe:F4}）"
+                          $"★ A1502② 我方立绘中心 = 框中心 **右 0.8 / 上 11.690 px**"
+                        + $"（原版绝对 px；`k` 只是哨兵，现在应为 1.0000，实得 {kMe:F4}）"
                         + $" —— 实得 (Δx, Δy) = ({pa.x - pb.x:F4}, {pa.y - pb.y:F4})（坐标 y 从上 ⇒ 上移是负）"
-                        + $"；期望 ({(0.8f * kMe):F4}, {(-11.6900153867151f * kMe):F4})，容差 {tolMe:F4} px");
+                        + $"；期望 ({0.8f * kMe:F4}, {-11.6900153867151f * kMe:F4})，容差 {tolMe:F4} px");
 
                     float kFo = QH("AvatarItemSmall_Foe") / (SpecBorderHpx / 108f);
                     Vector2 fa = drv.HudExtraPosPx("AvatarImage_Foe"), fb = drv.HudExtraPosPx("AvatarItemSmall_Foe");
                     float tolFo = 0.05f * kFo;
                     Check(kFo > 0f && Mathf.Abs(fa.x - fb.x) < tolFo
                        && Mathf.Abs((fa.y - fb.y) + 11.9300153867152f * kFo) < tolFo,
-                          $"★ A1502② 敌方立绘中心 = 框中心 **右 0 / 上 11.930 px**（× k={kFo:F4}）"
+                          $"★ A1502② 敌方立绘中心 = 框中心 **右 0 / 上 11.930 px**"
+                        + $"（原版绝对 px；`k` 只是哨兵，现在应为 1.0000，实得 {kFo:F4}）"
                         + $" —— 实得 (Δx, Δy) = ({fa.x - fb.x:F4}, {fa.y - fb.y:F4})"
-                        + $"；期望 (0, {(-11.9300153867152f * kFo):F4})，容差 {tolFo:F4} px");
+                        + $"；期望 (0, {-11.9300153867152f * kFo:F4})，容差 {tolFo:F4} px");
                 }
 
                 // ---- ④ 灭自证：**一行同时钉住两件事** ----

@@ -11907,33 +11907,57 @@ namespace CardPresentation
             //     文字中心 (237.25, 999.45)；`EnemyNameText` x[72,435.7] y[40.9,86.9]（左右 margin 43.26/70.58）
             //     → 有效文字中心 (240.19, 63.9)。所以文字**要按中心摆**，不是左对齐。
             var dim = new Color(0.86f, 0.88f, 0.93f);
-            // 名牌尺寸：原版 `NameBackground` 435.7×126.3，贴图 `UI_Player_Frame` 是 442×146（比例 3.027），
-            // PreserveAspect 后实际绘 **382.3×126.3** → worldHeight = 126.3/108 = 1.1694。
-            // ⚠️ 原来给的是 0.75（= 81 px 高），比原版**小 36%**。
-            _enemyPlate = HudImage(root, "UI_Player_Frame", -0.005833f, 0.927083f,
-                                   new Vector2(0f, 0.5f), 126.3f / 108f, "EnemyPlate");
+            // 名牌尺寸：原版 `NameBackground` 的**屏幕框 = 348.56×101.04**（= 裸 `m_SizeDelta` 435.7×126.3
+            // × 父 `EnemyName`/`PlayerName` 的 `m_LocalScale` **0.8**，见 `HudPlateScale`）。
+            // 🔴 **2026-10-19（A1512 + A1254 同批）**：这里原来写 `435.7×126.3` —— 那是**裸 `m_SizeDelta`、
+            //    整条父链的 0.8 一次都没乘** ⇒ **名牌大 25%**（`A1254`；`A1512` 是它的整条子树的版本）。
+            //    真值出处 = `工具/menu_dump.py bundle_scenes_scenes_battlearena2 --rt 3042`：
+            //      敌 `NameBackground` x[5.71999,354.28001] y[28.23257,129.27257] · 我 x[5.42019,353.98020] y[963.98515,1065.02516]
+            // 贴图 `UI_Player_Frame` 是 442×146（比例 3.0274），框比例 348.56/101.04 = 3.45 > 3.0274
+            // ⇒ PreserveAspect 按**高**受限 ⇒ **实绘 305.8882×101.04** → worldHeight = 101.04/108。
+            // ⚠️ 中心**没变**（`m_AnchoredPosition = (0,0)` + 锚 (0.5,0.5) ⇒ 就在名牌中心）：敌 (180.0, 78.75) ·
+            //    我 (179.70, 1014.5) —— 变的只是**尺寸**。`HudImage` 的锚是 `(0,0.5)` ⇒ 这里传的是**左缘**：
+            //    敌 180 − 305.8882/2 = 27.0559 · 我 179.700195 − 152.9441 = 26.7561。
+            _enemyPlate = HudImage(root, "UI_Player_Frame", 27.0559f / 1920f, 0.927083f,
+                                   new Vector2(0f, 0.5f), 101.04f / 108f, "EnemyPlate");
             // 🔴 **2026-10-10（A1213①）**：框/四格 ← 原版 `LeftArea/EnemyInfo/EnemyName/EnemyNameText`
             //    （`RectTransform/RectTransform_3568.json`；框 290.94×36.84 是**解算后**的屏幕矩形
             //     —— 那颗的父 `EnemyName`（`RectTransform_3083.json`）自带 `m_LocalScale = 0.8`，
             //     见 `Hud` 的 doc 那张表）。
-            _enemyText = Hud(root, "", 0.125099f, 0.940833f, 3, dim, new Vector2(0.5f, 0.5f), "EnemyPlateText",
+            // 🔴 **2026-10-19（A1512）：框早就乘过 0.8 了，可【中心】没有** —— 原来那个 `0.125099`
+            //    = 240.19 px 是 **0827 报告里「没乘 0.8」的文本框中心**（x[72.0,435.7] 的 margin 修正值），
+            //    它离名牌中心 60.19 px、真值只该离 **48.15**（×0.8）⇒ 文字整体**偏右 ~12 px**。
+            //    真值（`menu_dump` 绝对框）：框 x[93.63085,384.56834] y[48.46395,85.30133]、框心 **(239.099595, 66.88264)**；
+            //    再扣 TMP 的左右 margin（`MonoBehaviour_4031.json` 的 `m_margin = (43.25634765625, 0, 70.57666015625, 0)`，
+            //    画布 px 值 = ×0.8）⇒ **文字实际居中于 239.099595 − 0.8×13.66015625 = 228.17147**。
+            //    ⚠️ 我们自己那版 `Label` 不实现 TMP margin，所以要把**中心**摆到「文字实际居中」那一处。
+            _enemyText = Hud(root, "", 228.17147f / 1920f, 1f - 66.88264f / 1080f, 3, dim, new Vector2(0.5f, 0.5f), "EnemyPlateText",
                              290.94f, 36.84f, 2f, 35f, 36f, 0);
-            _myPlate = HudImage(root, "UI_Player_Frame", -0.005938f, 0.060602f,
-                                new Vector2(0f, 0.5f), 126.3f / 108f, "PlayerPlate");
+            // 我方那块底（`NameBackground`，与敌方同一贴图/尺寸，中心压在 `PlayerInfo` 正中）：
+            // 🔴 **2026-10-19（A1512 + A1254 同批）**：见 `_enemyPlate` 那一段 —— 尺寸 435.7×126.3 → **348.56×101.04**
+            //    （实绘 305.8882×101.04），左缘 179.700195 − 152.9441 = **26.7561**；中心不变。
+            _myPlate = HudImage(root, "UI_Player_Frame", 26.7561f / 1920f, 0.060602f,
+                                new Vector2(0f, 0.5f), 101.04f / 108f, "PlayerPlate");
             // 框/四格 ← 原版 `LeftArea/PlayerInfo/PlayerName/PlayerNameText`
             // （`RectTransform/RectTransform_3016.json`；框 199.38×35.93 同为**解算后**的屏幕矩形，
             //  父 `PlayerName` 也带 `m_LocalScale = 0.8`）
-            _myText = Hud(root, "", 0.123568f, 0.074583f, 3, dim, new Vector2(0.5f, 0.5f), "PlayerPlateText",
+            // 🔴 **2026-10-19（A1512）：同样「框对了、中心没乘 0.8」** —— 原来的 `0.123568` = 237.25 px
+            //    来自 0827 的 x[112.6,361.9]（未乘 0.8），真值 = `menu_dump` 的框心 **(225.74343, 1002.47582)**
+            //    （`MonoBehaviour_3944.json` 的 `m_margin` 是全 0 ⇒ 不用像敌侧那样再扣 margin）。
+            _myText = Hud(root, "", 225.74343f / 1920f, 1f - 1002.47582f / 1080f, 3, dim, new Vector2(0.5f, 0.5f), "PlayerPlateText",
                           199.38f, 35.93f, 2f, 35f, 36f, 0);
 
             // ---- 我方名牌上的**里程碑**：原版 `LeftArea/PlayerInfo/Milestones` = `BattleScoreUiManager` ----
             // 一个骷髅 + `x N`（`MatchSkulls Icon` / `MatchSkulls Score`）。原版还有 tooltip
             // （`Tips/Hud/Skulls`，`MonoBehaviour_4941.json`）—— 我们没做 tooltip。
             // 位置用**原版绝对坐标**（不是挂在我们的名牌上算的）：见上面 `SkullIconX01` 那组常量的注释。
-            // ⚠️ 顺带查出来的偏差（**没动它**）：我们的名牌比原版高 37 px、右 44 px ——
-            //    原版 `NameBackground` 是以 `PlayerInfo` 为**中心**摆的（渲染宽 382.4 → 左缘 −11.5、
-            //    中心 y 从下 65.5），我们把它按 `PlayerInfo` 的**左缘**(x=32) + 中心 y=102.6 摆了。
-            //    要改的话改 `_myPlate`/`_myText` 那两行；里程碑按绝对值摆，将来对齐了也不用动。
+            // ⚠️ 旧注释（**2026-10-19 核过、已不成立**）：原来这里写着「我们的名牌比原版高 37 px、右 44 px ——
+            //    原版 `NameBackground` 是以 `PlayerInfo` 为**中心**摆的，我们按它的**左缘**(x=32) 摆了；
+            //    要改的话改 `_myPlate`/`_myText` 那两行」。**那是更早一版的位置**（x01 被写成贴着左缘那阵）。
+            //    实测（`_myPlate` 的 `x01 = −0.005938` ⇒ 左缘 −11.4、实绘宽 382.32 ⇒ **中心 179.76**）——
+            //    中心**早就是对的**（原版 179.700195）；真正差的是**尺寸**（126.3 vs 101.04），已按 A1512 修掉。
+            //    ⇒ ⛔ 别照那句去「挪名牌」，`_myPlate`/`_myText` 的位置不需要再动。
+            //    里程碑按绝对值摆，不受影响。
             // ⚠️ 骷髅要给一个**比 HUD 图更近的 z** —— 它跟名牌（`_myPlate`）几乎重叠，
             //    同 z 就是同一个透明队列、距离也一样，谁压谁由渲染顺序决定。第一版就这么被名牌整个盖住了
             //    （截图放大才看出来：`x0` 在、骷髅没了）。见 `HudImageZ` 的注释。
@@ -12425,17 +12449,17 @@ namespace CardPresentation
         //   · `Image`（我 `RT_2835`/MB 4621 · 敌 `RT_3488`/MB 5067）：`anchor (0,0)-(1,1)`、`sizeDelta (0,0)`
         //     ⇒ 与容器同框；`m_AnchoredPosition (0, 2.70)` · **`m_LocalScale = 2.0`** · `m_PreserveAspect = 1`。
         //     贴图 512×512（`Art/avatars/*`）⇒ 框 155.64×99.125 先 ×2 = 311.28×198.25，再等比内接 ⇒
-        //     **实绘 198.25×198.25**（`198.25 = 容器高 99.125 × 2`）。
+        //     **实绘 198.25×198.25**（`198.25 = 容器高 99.125 × 2`）。⚠️ 那是**未乘父链 0.8** 的版本，
+        //     见 `HudAvatarSize`：真值 **158.60031 正方**（`menu_dump` 的 `视觉框=×2 → 249.02×158.60`）。
         //   · 中心：`Image` 的中心比 `Border` 的中心**右 1.0 / 上 14.61**（我）·**右 0 / 上 14.91**（敌）
         //     （容器局部单位，来自上面两个 `m_AnchoredPosition`）；再乘父链那一级的 **`0.8`**
-        //     （`PlayerName`/`EnemyName` 的 `m_LocalScale` —— 与 A1254 那条同一个 0.8）。
-        //   ⚠️ **传进去的 `w`/`h` 是「内接之后的实绘尺寸」（198.25）**，不是容器那 311.28×198.25、
+        //     （`PlayerName`/`EnemyName` 的 `m_LocalScale` —— 见 `HudPlateScale`）。
+        //   ⚠️ **传进去的 `w`/`h` 是「内接之后的实绘尺寸」**，不是容器那 311.28×198.25、
         //      也**不是** `Border` 那两个常量 ×2 —— `ImageQuad.Create` 按**贴图原比例**定宽（不做内接），
         //      所以传 `h` 就等于「画面上那个 quad 的高」，直接传内接值即可。
-        //      （`Border` 的那两个常量 110.909/123.906 **本来就是内接之后的实绘值**，可直接照抄。）
-        //   ⚠️🔴 **本件的 `x/y`/尺寸与 `Border` 那一对是同一个口径**（都出自 0827/A531 那一套解算）。
-        //      而 `LeftArea` 整条父链上那个 **0.8 我们还没乘**（A1254 记的就是这条，名牌那边差 25%）
-        //      ⇒ 将来修 A1254 时，**本件要跟着一起乘 0.8**（⛔ 别只改名牌那一对，两边一起改才对）。
+        //      （`Border` 的那两个常量 110.909/123.906 —— ▶ **2026-10-19（A1512）已作废**，真值 88.72744/99.12519。）
+        //   🔴 **2026-10-19（A1512）：`0.8` 这一批一起补上了** —— 原来写的是「本件要跟着一起乘 0.8」的**待办**，
+        //      现在 `HudAvatarSize` 里就带着 `× HudPlateScale`，`x/y` 也换成 `menu_dump` 那个绝对框。
         //
         // ---- 画的是**谁**的头像 ----
         //   · 我方 = `ProfileData.AvatarArt`（玩家在档案窗选的那张；原版对应 `matchData+0x40`）。
@@ -12444,8 +12468,28 @@ namespace CardPresentation
         //     （`ConfigManager.GetConfig<AIBotsConfig>()`，**远端**）—— 本地没有那份清单（**查不到**，不编）。
         //     ⇒ 「从本地 469 张里挑」是我们的近似，⛔ 别当成原版行为。
         //     ⚠️ **绝不动 `Ctx.Rng`** —— 那是引擎的随机流，动它同一种子就复现不了（CLAUDE.md §三「对局必须可复现」）。
-        /// <summary>立绘 quad 的实绘尺寸（原版 PA 内接后的值）：容器高 `99.125` × `Image` 的 `m_LocalScale` 2.0。</summary>
-        const float HudAvatarSize = 99.1251923339398f * 2f;
+        /// <summary>🔴🔴 **原版名牌那一级的 `m_LocalScale`** —— `LeftArea/EnemyInfo/EnemyName` 与
+        /// `LeftArea/PlayerInfo/PlayerName` **各带一个 `(0.8, 0.8, 0.8)`**。
+        /// <para>**判据（直读 JSON + 工具复核）**：
+        /// `bundle_scenes_scenes_battlearena2/RectTransform/RectTransform_3276.json`（敌，挂 GO `EnemyName`）
+        /// 与 `_3384.json`（我，挂 GO `PlayerName`）的 `m_LocalScale`。同一份数据在 `工具/menu_dump.py` 的表里
+        /// 表现为行末的 `⇲ls=0.8,0.8`（它把父链缩放**算进**「绝对矩形」那一列）。</para>
+        /// <para>**它管哪几件**（整条名牌子树，13 个战场同构）：名牌底 `NameBackground` · 头衔底条 `TitleBackground`
+        /// · 头衔文字 `EnemyTitle` · 头像块 `Avatar Item Small`（框 `Border` **和**立绘 `Image`）· 名字文本
+        /// `EnemyNameText`/`PlayerNameText`。
+        /// ⛔ **它不管**：`EnemyInfo`/`PlayerInfo`（父级，缩放 1）、`Milestones`（0.99997）、`ChatButton`（1）、
+        /// `ShowCemeteryBtn`（1）、`CardsPlayedInTurnHolder`（1）—— 这几件挂在 `LeftArea` 的**别的**分支上。</para>
+        /// <para>⛔ **别只看「这件自己的 `m_LocalScale` 是不是 1」**：`NameBackground`/`Avatar Item Small` 自己都是 1，
+        /// 0.8 全在**父级那条链**上。这正是 `A1512` 的成因 —— 当年那批常量照
+        /// `资料/战斗规格/战斗重建_0827/子代理读报_back左区_0827.md` 的 `chain_rect` 列抄，而那一列
+        /// **没有累计父链缩放**（它把 `NameBackground` 写成 435.7×126.3，真值是 348.56×101.04）。</para></summary>
+        const float HudPlateScale = 0.8f;
+
+        /// <summary>立绘 quad 的实绘尺寸（原版 PA 内接后的值）：容器高 `99.125` × `Image` 的 `m_LocalScale` 2.0
+        /// **× 父链那一级的 <see cref="HudPlateScale"/>（0.8）**。
+        /// 判据 = `menu_dump` 的 `Image` 行：`视觉框=×2 → 视觉 249.02×158.60`（布局框 124.512×79.30016 × 自己那 2.0，
+        /// **父链的 0.8 已经算在里面**）；贴图 512×512（`Art/avatars/*`）⇒ PA 内接后 **实绘 158.60031×158.60031**。</summary>
+        const float HudAvatarSize = 99.1251923339398f * 2f * HudPlateScale;
         const float HudAvatarW = HudAvatarSize;
         const float HudAvatarH = HudAvatarSize;
         /// <summary>头像那一层的 z —— 比它自己那面 `Border`（`HudImageZ - 0.05f`）**更靠前**。
@@ -12525,9 +12569,16 @@ namespace CardPresentation
             //    实拍（`桌面/战斗截图参考.png`）也是这个样：称号那根条压在名牌下半截上。
             //    ⛔ 旧注释写的「它就是名牌的底、要压在名牌下面」**没有出处**，已按同级顺序推翻。
             //    （原来那次的真实事故是「和名牌同 z ⇒ 谁压谁不确定」，不是「原版在下面」。）
-            _titleBgMe = HudAbs(root, "UI_PlayerFrame_TitleBackground", 54.2001953125f, 1028.5051536560059f, 311f, 42f,
+            // 🔴 **2026-10-19（A1512）：上面那条「未取整」修的是**尾数**，**量纲**还是错的** —— 那两组 px
+            //    是 0827 报告的 `chain_rect`，而**它没累计父链缩放**（`EnemyName`/`PlayerName` 的 0.8）。
+            //    0.8 同时压**尺寸**和**离名牌中心的偏移**，两样都要乘：
+            //      · 尺寸 311×42 → **248.80×33.60**（`menu_dump` 的 `视觉框` 列；贴图 311×42 原生 1:1 ⇒ 实绘同值）
+            //      · 中心：中心 = 名牌中心 + 0.8×(旧偏移) ⇒ 我 (179.700195+24, 1014.5+28) = **(203.700195, 1042.50515)**
+            //        · 敌 (180+24, 78.75+28) = **(204.0, 106.75)**；`HudAbs` 吃左上角 ⇒ 我 (79.300195, 1025.70515)
+            //        · 敌 (79.6, 89.95257)（与 `menu_dump` 的绝对框逐位一致）。
+            _titleBgMe = HudAbs(root, "UI_PlayerFrame_TitleBackground", 79.300195f, 1025.70515f, 248.8f, 33.6f,
                                  "TitleBackground_Me", HudImageZ - 0.02f);
-            _titleBgFoe = HudAbs(root, "UI_PlayerFrame_TitleBackground", 54.5f, 92.75257110595703f, 311f, 42f,
+            _titleBgFoe = HudAbs(root, "UI_PlayerFrame_TitleBackground", 79.6f, 89.95257f, 248.8f, 33.6f,
                                  "TitleBackground_Foe", HudImageZ - 0.02f);
 
             // ---- 称号文字（原版 GO 名也叫 `EnemyTitle`，两侧同参数）----
@@ -12553,10 +12604,16 @@ namespace CardPresentation
             //     框 **187.40×36.84**、`auto[2~35] base36`、**折行 0**）。
             //    ⚠️ 原版这两颗的 `m_fontSize = 30.55` **< `m_fontSizeMax = 35`** ⇒ 原版当时**是被框压下来的**
             //    （收敛值不是上限）—— 我们这一侧同样会往 35 涨、由框高决定落点（见 `Hud` 的 doc）。
-            _titleMe = Hud(root, "", 227.10895892232656f / 1920f, 1f - 1044.0677461922169f / 1080f, 3, titleOrange,
+            // 🔴 **2026-10-19（A1512）：同样是「框对了、中心没乘 0.8」** —— A1213 已把**框**定成 187.40×36.84
+            //    （= 250×46.5 × 0.8 的解算值），可**中心**还是 0827 `chain_rect` 的 227.1089589 / 227.4087636
+            //    （= 名牌中心 + **未乘 0.8** 的 47.409 偏移）。真值（`menu_dump` 绝对框）：
+            //      · 我 x[123.92926,311.32516] y[1019.73654,1056.57392] ⇒ **中心 (217.62721, 1038.15523)**
+            //      · 敌 x[124.22906,311.62496] y[83.98395,120.82134] ⇒ **中心 (217.92701, 102.402645)**
+            //    （= 名牌中心 + 0.8×47.409 / 0.8×29.57，逐位对得上）。`m_margin` 是 (0.114,4.541,0.186,4.087) ⇒ 忽略。
+            _titleMe = Hud(root, "", 217.62721f / 1920f, 1f - 1038.15523f / 1080f, 3, titleOrange,
                            new Vector2(0.5f, 0.5f), "TitleText_Me",
                            187.40f, 36.84f, 2f, 35f, 36f, 0);
-            _titleFoe = Hud(root, "", 227.40876360982656f / 1920f, 1f - 108.31516364216805f / 1080f, 3, titleOrange,
+            _titleFoe = Hud(root, "", 217.92701f / 1920f, 1f - 102.402645f / 1080f, 3, titleOrange,
                             new Vector2(0.5f, 0.5f), "TitleText_Foe",
                             187.40f, 36.84f, 2f, 35f, 36f, 0);
             if (_titleMe != null) _titleMe.SetGlyphHeight(TitleFontPx / 108f);
@@ -12591,9 +12648,9 @@ namespace CardPresentation
             //        `资料/原版参照图/Unity参照管线_0825/shots_ui/menu_full_0825.png` 里量到盾形框宽 **≈111 px**
             //        （不缩放只有 91.5 px、×1.25 是 116 px）⇒ **缩放是活的**。
             //   · ③ 等比适配那个 rect（sprite `Player Profile Border` 256×286 ⇒ 比例 0.8951）
-            //        ⇒ **实绘 110.88 × 123.88**（= 110.9×123.9）。
-            //   中心 = `Border` rect 的中心：**我 (57.15,1009.55)** · **敌 (58.45,74.05)**；
-            //   实绘左上角 = 中心 − 实绘/2：**我 (1.71,947.61)** · **敌 (3.01,12.11)**。
+            //        ⇒ **实绘 110.88 × 123.88**（= 110.9×123.9）。⚠️ 数字见下面 A1512 那一块，**已作废**。
+            //   中心 = `Border` rect 的中心：**我 (57.15,1009.55)** · **敌 (58.45,74.05)**；⚠️ **已作废**。
+            //   实绘左上角 = 中心 − 实绘/2：**我 (1.71,947.61)** · **敌 (3.01,12.11)**。⚠️ **已作废**。
             //   ⛔ 作废：用容器中心 (58.15,997.65)（**偏高 11.9 px**）· 只建我方（**原版敌我各一个**）。
             // 🔴 **2026-10-14（A531）上面那六个数一律换成未取整值**（同 A513 那一档的口径）——
             //   这一件**不是「照抄原版 rect」**（`Border` 自己的 rect 是 155.64×99.125，直接拿它画会矮 24.8 px），
@@ -12610,13 +12667,29 @@ namespace CardPresentation
             //     实绘高 123.88 → **123.9064904**（+0.0265）；中心 我 (57.15,1009.55) → **(57.15119171, 1009.53277547)**、
             //     敌 (58.45,74.05) → **(58.45099640, 74.08019215)**（旧值都是 0827 报告里取整到 0.1 的数）。
             //   ⚠️ `m_LocalScale 1.25` 绕 pivot(0.5,0.5) 缩 ⇒ **中心不变**（这就是「中心不变」那一句的依据）。
+            // 🔴🔴 **2026-10-19（A1512）：上面整段（含 ① ② ③ 与 A531 那一轮）**量纲**都是错的** ——
+            //   它走的是 0827 报告的 `chain_rect`，而**那一列没有累计父链缩放**：
+            //   名牌子树整条还挂在 `EnemyName`/`PlayerName` 的 `m_LocalScale = 0.8` 底下（见 `HudPlateScale`）。
+            //   ⇒ 尺寸与「离名牌中心的偏移」**都要再乘 0.8**。逐条订正（权威 = `menu_dump` 的**绝对框**，
+            //   `python 工具/menu_dump.py bundle_scenes_scenes_battlearena2 --rt 3042 --depth 6 --no-sprite`）：
+            //     · `Image Container` 的实绘高：**99.12519**（= 136.4929962158203 − 37.367801666259766 再 ×0.8；
+            //       上面写的「容器实绘 155.64×99.1」是**未乘 0.8** 的版本）
+            //     · `Border` 的实绘 rect：`menu_dump` 逐字给 **155.64×99.12519**（= 自己的 `1.25` × 布局框
+            //       124.512×79.30016）；再按 256/286 等比（**高受限**）⇒ **实绘 88.72744×99.12519**
+            //       （⛔ 原来写的 110.909×123.906 = 这次的 **1.25 倍**）
+            //     · 中心（`menu_dump` 的 `Border` 行取中点）：
+            //       我 x[3.84099,159.48099] y[960.96465,1060.08985] ⇒ **(81.66099, 1010.52725)**
+            //       敌 x[4.94079,160.58080] y[25.45207,124.57726] ⇒ **(82.760795, 75.014665)**
+            //     ⇒ 左上角（`HudAbs` 吃左上角）：**我 (37.297268, 960.964654)** · **敌 (38.397073, 25.452069)**。
+            //   ⚠️ 这同时解释了 `A1502②` 那两块黑框里「我们比原版大 25%」—— 实测我们渲出的黑心宽 110.6 设计 px
+            //      ≈ 上面那个 110.909（没乘 0.8），原版应是 88.73。
             // ⚠️ 原版场景态里 `avatarImage`（头像立绘）是 **m_Enabled=0** —— 所以**只摆框、不摆立绘**
             //    （那本来由 `ItemDrawer` 按玩家资料运行时灌，单机没有资料）。这一件因此和名牌自带的
             //    盾形**几乎重合**（同一个位置、同一个造型）—— 但它是**独立节点**，原版有、我们原来没有。
             //   ⛔ `w` 在这里经 `HudAbs` **只参与算中心**（实绘宽由贴图比例定）—— 别把它读成「裁剪框」。
-            HudAbs(root, "Player_Profile_Border", 1.6965386574734538f, 947.5795302567823f, 110.90930610790465f, 123.90649041742475f,
+            HudAbs(root, "Player_Profile_Border", 37.297268f, 960.964654f, 88.7274449f, 99.1251923f,
                    "AvatarItemSmall_Me", HudImageZ - 0.05f);
-            HudAbs(root, "Player_Profile_Border", 2.9963433449734396f, 12.126946943793968f, 110.90930610790468f, 123.90649041742478f,
+            HudAbs(root, "Player_Profile_Border", 38.397073f, 25.452069f, 88.7274449f, 99.1251923f,
                    "AvatarItemSmall_Foe", HudImageZ - 0.05f);
 
             // ---- 头像立绘 `Avatar Item Small/Image Container/Image`（2026-10-19 · A1502② 补）----
@@ -12626,11 +12699,16 @@ namespace CardPresentation
             var foeAvatars = ProfileData.Avatars;
             string foeArt = (foeAvatars != null && foeAvatars.Count > 0) ? foeAvatars[BotAvatarIndex()].Art : null;
             // `x/y` = 「中心 − 半宽/半高」，中心由 `Border` 的中心 + 上面那条偏移算出来（见 `HudAvatarSize` 那一段）
+            // 🔴 **2026-10-19（A1512）：这两个数随 `HudAvatarSize` 一起乘了 0.8** ——
+            //    `menu_dump` 的 `Image` 行给的是绝对框 **x[20.20499,144.71699]（我）/ [20.50479,145.01680]（敌）**，
+            //    中心 (82.46099, 998.837235)（我）/ (82.760795, 63.084650)（敌），`视觉框 ×2 → 249.024×158.60031`；
+            //    贴图 512×512 ⇒ PA 内接后 **158.60031 正方**（高/宽都取它，见 `HudAvatarSize`）
+            //    ⇒ 左上角 = 中心 − 79.300154：**我 (3.160836, 919.537081)** · **敌 (3.460641, −16.215504)**。
             _hudAvatarMe = HudAbsTex(root, AvatarTex(ProfileData.AvatarArt, "我方"),
-                                     -41.17400062251361f, 898.7175677448397f, HudAvatarW, HudAvatarH,
+                                     3.1608361f, 919.5370811f, HudAvatarW, HudAvatarH,
                                      "AvatarImage_Me", HudAvatarZ);
             _hudAvatarFoe = HudAbsTex(root, AvatarTex(foeArt, "对手"),
-                                      -40.67419593501402f, -36.97501556814864f, HudAvatarW, HudAvatarH,
+                                      3.4606411f, -16.2155039f, HudAvatarW, HudAvatarH,
                                       "AvatarImage_Foe", HudAvatarZ);
             // 记下「已经画的是哪一张」，免得 `UpdateHud` 下一帧又白换一次
             _hudAvatarMeIdx = ProfileData.AvatarIndex;
@@ -13372,8 +13450,13 @@ namespace CardPresentation
         {
             get { return _handPlate != null ? LayoutSpace.ToNormalized(_handPlate.transform.localPosition) : Vector2.zero; }
         }
-        /// <summary>自检用：两块名牌的**左缘中点**（归一化）。原版是 −0.005938 / −0.005833
-        /// （两边都贴着屏幕左缘、实绘左缘 −11.4 px）—— 2026-09-13 之前用的是另一份实例的坐标，偏右 44 / 168 px</summary>
+        /// <summary>自检用：两块名牌的**左缘中点**（归一化）。
+        /// 🔴 **2026-10-19（A1512）订正**：这里原来写「原版是 −0.005938 / −0.005833（两边都贴着屏幕左缘、
+        /// 实绘左缘 −11.4 px）」—— 那两个数是**我们没乘父链 0.8** 时的那一版（照 0827 的 `chain_rect` 解算）。
+        /// 真值 = **26.7561 / 1920（我）· 27.0559 / 1920（敌）**（= 名牌中心 179.700195 / 180.0 减实绘宽
+        /// 305.8882 的一半；`EnemyName`/`PlayerName` 的 `m_LocalScale = 0.8`，见 `HudPlateScale`）
+        /// ⇒ **不再是「贴着屏幕左缘、出血 11 px」**，而是离左缘 26.76 / 27.06 px。
+        /// （2026-09-13 之前用的又是另一份实例的坐标，偏右 44 / 168 px —— 那条历史仍然成立。）</summary>
         public Vector2 MyPlatePos01
         {
             get { return _myPlate != null ? LayoutSpace.ToNormalized(_myPlate.transform.localPosition) : Vector2.zero; }
@@ -13381,6 +13464,24 @@ namespace CardPresentation
         public Vector2 EnemyPlatePos01
         {
             get { return _enemyPlate != null ? LayoutSpace.ToNormalized(_enemyPlate.transform.localPosition) : Vector2.zero; }
+        }
+        /// <summary>自检用：名牌那面 `NameBackground` 的**实绘高/宽**（世界单位）。
+        /// 原版（`menu_dump` 的 `视觉框`）：**101.04 × 305.8882 px**
+        /// （= 裸 `m_SizeDelta` 435.7×126.3 × 父链 `0.8`，再按贴图 442/146 的 PA 内接 —— 框比例 3.45 > 3.0274 ⇒ 高受限）。
+        /// ⚠️ 这是**绝对尺寸**断言用的口（`A1512` 之前一件都没有 —— 那时把 0.8 改回去只有位置会红）。</summary>
+        public float MyPlateWorldH { get { return _myPlate != null ? _myPlate.WorldH : 0f; } }
+        public float EnemyPlateWorldH { get { return _enemyPlate != null ? _enemyPlate.WorldH : 0f; } }
+        public float MyPlateWorldW { get { return _myPlate != null ? _myPlate.WorldW : 0f; } }
+        public float EnemyPlateWorldW { get { return _enemyPlate != null ? _enemyPlate.WorldW : 0f; } }
+        /// <summary>自检用：名牌上那行字的**中心**（原版 1920×1080 绝对 px，y 从上；口径同 `TitlePosPx`）。
+        /// 原版（`menu_dump` 绝对框 + TMP `m_margin`）：我 **(225.74343, 1002.47582)** ·
+        /// 敌 **(228.17147, 66.88264)**（敌侧 = 框心 239.099595 再扣 `m_margin` 左右 43.256/70.577 的 ×0.8）。</summary>
+        public Vector2 PlateTextPosPx(bool mine)
+        {
+            var l = mine ? _myText : _enemyText;
+            if (l == null) return new Vector2(-1f, -1f);
+            var n = LayoutSpace.ToNormalized(l.transform.localPosition);
+            return new Vector2(n.x * 1920f, (1f - n.y) * 1080f);
         }
         /// <summary>自检用：里程碑骷髅的**下沿**（归一化 y，从下往上算）</summary>
         public float SkullBottomY01 { get { return SkullIconY01 - (SkullIconPx * 0.5f) / 1080f; } }

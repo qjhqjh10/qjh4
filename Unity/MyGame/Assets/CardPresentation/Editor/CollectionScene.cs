@@ -971,6 +971,11 @@ public static class CollectionScene
                 //    ⛔ 这不是「读实现当期望值」—— 方向正好相反。**为什么非要有它**：**英文档下**
                 //    `Loc.T(键)` 与 `spec.Label` 是**同一个串** ⇒ 下面那条文案断言**咬不住**「实现不再走词条」
                 //    （把 `Buttons[i].Term` 删掉，屏上改画 `Label`，文案一字不变）⇒ 只有本条会红。
+                //    🔴 **2026-10-11（`A1517`）补**：上面那个「只在中文档下咬得住」的缺口**已经补上了** ——
+                //    **本文件收尾处**（`int total = …` 之前）有一段**语档无关**的真鉴别式：它只在那
+                //    一小段里换语档 + `win.Build()` 重建，断「**四颗键的串跟着语档变**」+ 两趟分别
+                //    等于中/英列。⇒ ⛔ 别在跑批前钉全局语档（实测会把 §空态/§Import/§Create 那一批
+                //    按现行语档取期望值的断言一起弄成**假红**）。
                 string gotTerm = i < CollectionWindow.Buttons.Length ? CollectionWindow.Buttons[i].Term : "<实现表短了>";
                 CheckTrue(string.Equals(gotTerm, term, System.StringComparison.Ordinal),
                           $"★（A1498）左栏第 {i + 1} 键的**词条键名** = `{term}`"
@@ -2020,8 +2025,141 @@ public static class CollectionScene
                     var r0 = pop.Rows.Count > 0 ? pop.Rows[0] : null;
                     CheckNear(r0 != null ? PxOf(r0.position.x) : -1f, 854f, 1f,
                               "第 1 行中心 x = **854**（Info Panel 左 659 + pad 15 + 180）");
-                    CheckNear(r0 != null ? PxYOf(r0.position.y) : -1f, 247.10f, 1f,
-                              "第 1 行中心 y = **247.10**（218.10 + 58/2）");
+                    // 🔴 **2026-10-12（`A1531⑥` 连带 · 本会话按铁律 5 就地改期望值）**：这一条原来是 **`247.10`**
+                    //   （= `218.10 + 58/2`）—— 那一档**漏了 `Content` 的 `m_Padding.m_Top`**。
+                    //   原版字段实读（`工具/_probe_deckinfo.py bundle_menus_assets_all "Deck List"` 亲读）
+                    //   = `m_Padding = {L15, R0, **T15**, B0}`；uGUI 那一档判据 = `LayoutGroup.GetStartOffset`
+                    //   （本机 `LayoutGroup.cs:193-202`）+ `GridLayoutGroup.cs:350-351`
+                    //   —— 本组 `m_ChildAlignment = 0(UpperLeft)` ⇒ 起点 = `Content` 左上 + `(15, 15)`。
+                    //   旁证：同族 `Shell/PracticeModePopup.cs` 的 `DlPadL = 22 / DlPadT = 4` **两侧都加了**。
+                    //   ⇒ 第一格顶边 = `218.10 + 15 = 233.1`、行心 = `233.1 + 29` = **262.10**（原来 247.1、整块**偏上 15px**）。
+                    //   ⚠️ **x 那一侧本来就加了 15**（`RowL = PanelL + RowPadL`）—— **只有 y 漏了**，
+                    //      所以上面那条 x = 854 **一个字不用改**。
+                    //   🧨 **改坏法**：把 `Shell/DeckInfoPopup.cs` 的 `RowT` 改回 `PanelT`（= 漏 `m_Top`）⇒ 本条红。
+                    CheckNear(r0 != null ? PxYOf(r0.position.y) : -1f, 262.10f, 1f,
+                              "第 1 行中心 y = **262.10**（`218.10` + 原版 `m_Padding.m_Top` **15** + `58/2`）"
+                            + "｜🧨 `RowT` 改回 `PanelT`（漏掉 `m_Top` 那半截）⇒ 本条红（整块偏上 15px）");
+
+                    // ============================================================ 🆕 **2026-10-12（`A1531③①④` 的判别式）**
+                    //   两条**靠上面 x/宽/高断不出来**的：**逐列填充** 与 **排序**。
+                    //   判据一律读 `Shell/DeckInfoPopup.cs` 的 `BuildList`（⛔ 不读它的常量当期望值）：
+                    //     · **填充**：原版 `Content` 的 `GridLayoutGroup` 是 **`m_StartAxis = 1(Vertical)`**
+                    //       + `m_Constraint = 0(Flexible)` ⇒ uGUI `GridLayoutGroup.cs:350-351` =
+                    //       `positionX = i / cellCountY` · `positionY = i % cellCountY`，`cellCountY` = 一列的行容量 **10**
+                    //       ⇒ **先往下填满一列（10 行）再换下一列**。
+                    //     · **排序**：原版 `DeckListDrawer__Reorder.c:33-40` = `OrderBy(键1).ThenBy(键2)`，
+                    //       键1 = `card+0x78` = **费用** · 键2 = `GetLocalizedCardName` = **本地化卡名**。
+                    {
+                        const int k10 = 10;                       // 一列 10 行（`Shell/DeckInfoPopup.cs` 的 `ListRowCap`）
+                        // ③-a **逐列填充**：下标 10 = **第 2 列第 1 格**
+                        //   —— 期望 x = 第 1 行的 x + (格宽 360 + 间距 11) = `854 + 371` = **1225**；
+                        //     期望 y = 与第 1 行**同高**（= 262.10）。
+                        //   🔴 **判别力在 y 上**：`Horizontal` 那一档（`i % 3, i / 3`）算出来的 x **也是 1225**，
+                        //     但 y = `262.10 + 3×(58+4.5)` = **449.60** ⇒ **只断 x 抓不到**，必须连 y 一起断。
+                        CheckTrue(pop.Rows.Count > k10,
+                                  $"（前提）行数 > {k10}（实测 {pop.Rows.Count}）—— 否则下面那条空转");
+                        if (pop.Rows.Count > k10)
+                        {
+                            var r10 = pop.Rows[k10];
+                            CheckNear(r10 != null ? PxOf(r10.position.x) : -1f, 1225f, 1f,
+                                      "★ A1531③ 第 11 行（下标 10）落**第 2 列**：中心 x = **1225**（第 1 行 854 + 格宽 360 + 间距 11）");
+                            CheckNear(r10 != null ? PxYOf(r10.position.y) : -1f, 262.10f, 1f,
+                                      "★ …而且落在**那一列最上面那一格**（y = 262.10 = 与第 1 行同高）"
+                                    + " —— 原版 `m_StartAxis = Vertical` ⇒ **逐列**"
+                                    + "｜🧨 把 `int c = i / rowCap, rr = i % rowCap` 改回 `i % cols, i / cols`（逐行）"
+                                    + "⇒ **x 仍是 1225**、**y 变 449.60** ⇒ 本条红（只断 x 的那一版抓不到）");
+                        }
+
+                        // ③-b **排序**：逐行费用**单调不减**
+                        //   前提① = 夹具那副的**原始次序本来就不是费用序**（否则「排没排」根本断不出来）
+                        //     —— 2026-10-12 现算（`RuleEngine/Resources/cards_engine.json` 逐张过一遍夹具那段挑选）：
+                        //        30 张 unit 的原始费用序 = `6,6,5,4,5,8,2,7,6,5,9,2,6,4,6,7,5,6,3,7,8,2,3,4,4,6,1,3,6,1`，
+                        //        **逆序对 237 个** ⇒ 判别力成立。
+                        //   前提② = 防御卡被原版**钉在第 0 格**（`Reorder.c:135`）⇒ 它那一行**不属于排序段**，
+                        //     断单调时要**跳过**（夹具那副今天没有防御卡，两个分支都写全是为了换数据不静默）。
+                        var deck0 = CollectionData.Raw(0);
+                        var rawCosts = new List<int>();
+                        if (deck0 != null)
+                            foreach (var id in deck0.CardIds)
+                            {
+                                var cd = CollectionData.Card(id);
+                                if (cd != null) rawCosts.Add(cd.Cost);
+                            }
+                        bool rawInv = false;
+                        for (int a = 0; a < rawCosts.Count && !rawInv; a++)
+                            for (int b = a + 1; b < rawCosts.Count; b++)
+                                if (rawCosts[a] > rawCosts[b]) { rawInv = true; break; }
+                        CheckTrue(rawInv,
+                                  "（前提·本条的判别力）夹具那副牌的**原始次序不是费用序** —— 是的话「排没排」断不出来"
+                                + $"（实测原始费用序 {rawCosts.Count} 张）");
+
+                        var defC = deck0 != null && !string.IsNullOrEmpty(deck0.DefensiveId)
+                                 ? CollectionData.Card(deck0.DefensiveId) : null;
+                        bool defPinned = defC != null && DeckInfoPopup.IsDefensiveRow(defC);
+                        // 夹具那副**有没有**防御卡决定排序段从第几行起：
+                        //   有 ⇒ 原版把它钉在第 0 格（`Reorder.c:135` 的 `SetSiblingIndex`），**那一行不属于排序段**；
+                        //   没有 ⇒ 排序段 = 全部行（今天就是这一支，两个分支都写全 = 换数据不静默）。
+                        int sortFrom = defPinned ? 1 : 0;
+
+                        var gotCost = new List<int>();
+                        var gotName = new List<string>();
+                        int parseFail = 0;
+                        for (int i = sortFrom; i < pop.Rows.Count; i++)
+                        {
+                            var ct = FindChild(pop.Rows[i], "Cost Text");
+                            string cs = ct != null ? TextOf(ct) : null;
+                            int v;
+                            if (!int.TryParse(cs, out v)) { parseFail++; v = -1; }
+                            gotCost.Add(v);
+                            gotName.Add(TextOf(FindChild(pop.Rows[i], "Name")));
+                        }
+                        Check(parseFail, 0,
+                              $"（前提）排序段 {gotCost.Count} 行的 `Cost Text` 都读得出整数（读不出 {parseFail} 行）");
+                        int badOrder = 0; string firstBad = null;
+                        for (int i = 1; i < gotCost.Count; i++)
+                            if (gotCost[i] < gotCost[i - 1])
+                            {
+                                badOrder++;
+                                if (firstBad == null) firstBad = $"{i}: {gotCost[i - 1]}→{gotCost[i]}";
+                            }
+                        Check(badOrder, 0,
+                              "★ A1531① **逐行费用单调不减**（原版 `Reorder.c:33-40` 的键1 = `card+0x78` = 费用；"
+                            + "实测 " + string.Join(",", gotCost.ConvertAll(x => x.ToString()).ToArray()) + "）"
+                            + "｜🧨 删掉 `Shell/DeckInfoPopup.cs` 的 `cards.Sort(...)` ⇒ 回到原始次序"
+                            + "（**逆序对 237 个**）⇒ 本条红"
+                            + (firstBad == null ? "" : "｜首个逆序 " + firstBad));
+
+                        // ③-c **行名 = 本地化卡名**（原版键2 = `GetLocalizedCardName`）：
+                        //   期望值**从卡表现算**（`CardText.Name(cd.Name, cd.NameZh)`，与左栏 `DeckRuntime` 逐字同句），
+                        //   ⛔ 不读实现传进去的那个串。**按多重集合比**（两边各自排序后逐位比）⇒ 与行序无关、
+                        //   也就**没有把排序规则抄第二份**（铁律「两处写同一条规则 = 迟早不一致」）。
+                        //   🔴 **鉴别力依赖跑批语档 = 中文档**（`CardText.Name` 里有 `Zh` 那道闸 —— 英文档下
+                        //      「印英文名」与「走本地化」是同一个串）⇒ 本机出厂默认中文，今天有鉴别力；
+                        //      ⚠️ 这与账 `A1517` 是**同一族限制**，本批**不**在断言里钉语档（那会弄出假红）。
+                        var wantNames = new List<string>();
+                        if (deck0 != null)
+                            foreach (var id in deck0.CardIds)
+                            {
+                                var cd = CollectionData.Card(id);
+                                if (cd != null) wantNames.Add(CardText.Name(cd.Name, cd.NameZh));
+                            }
+                        if (defPinned) wantNames.Add(CardText.Name(defC.Name, defC.NameZh));
+                        gotName.Sort(); wantNames.Sort();
+                        Check(gotName.Count, wantNames.Count,
+                              $"★ A1531④ 排序段画了 {wantNames.Count} 行（= 卡组张数）");
+                        int nameBad = 0; string nameDiag = "";
+                        for (int i = 0; i < gotName.Count && i < wantNames.Count; i++)
+                            if (!string.Equals(gotName[i], wantNames[i], System.StringComparison.Ordinal))
+                            {
+                                nameBad++;
+                                if (nameDiag.Length < 160)
+                                    nameDiag += $" 实得「{gotName[i]}」≠ 期望「{wantNames[i]}」;";
+                            }
+                        Check(nameBad, 0,
+                              "★ A1531④ **行名逐字 = 本地化卡名**（`CardText.Name(Name, NameZh)`，与左栏 `DeckRuntime` 同句）"
+                            + "｜🧨 把 `Shell/DeckInfoPopup.cs` 那一句改回 `card.Name`（英文）⇒ 顺序会错、本条红"
+                            + "（⚠️ 鉴别力靠「跑批语档 = 中文」那一档，见上面那条注）" + nameDiag);
+                    }
 
                     // ---------------- 🆕 2026-10-03（§三第29条 A10）补的四件 + 两处订正 ----------------
                     //   逐值 = `python 工具/menu_dump.py bundle_menus_assets_all "Deck info Popup" --depth 8`
@@ -5412,7 +5550,10 @@ public static class CollectionScene
                           + "本轮卡池里 " + facs5.Count + " 个阵营：" + string.Join(",", facs5.ToArray()));
             }
             // ============================================================ 🆕 **2026-10-11（第十七会话 · `A1525⑤`）：
-            //   卡组格那两枚徽章（`Faction` 左下圆徽 / `Game Mode Icon` 右下模式徽）的**渲染队列夹层** + 可见性**
+            //   卡组格那两枚徽章（`Faction Icon` 左下圆徽 / `Game Mode Icon` 右下模式徽）的**渲染队列夹层** + 可见性**
+            // 🔴 **2026-10-11（`A1530②`）**：节点名 `Faction` → **`Faction Icon`**（原版 prefab 原样名；
+            //   同族的 `Game Mode Icon` / `DificultyLevel` 都照抄了原版拼写，只有这一颗被改短）。
+            //   ⇒ 本文件按名字取件的这一处跟着改（建节点处 = `Shell/MenuDraw.cs` `DeckCell`）。
             // 判据（两条，全文 → `Shell/MenuDraw.cs` `DeckCell` 的 `A1525⑤` 那一段）：
             //   ① **原版 prefab 的子件序**（`menu_dump.py bundle_menus_assets_all -2024334647938937812 --depth 4`
             //      `Deck` 下**底→顶**）= `Highlight` → `Deck Image(mask)` → `Deck Image` → `Frame` →
@@ -5447,7 +5588,7 @@ public static class CollectionScene
                     var cell5 = FindChild(dpg5, "CollectionDeck_" + i);
                     if (cell5 == null) continue;       // 视口外的格子根本不建（`DeckScroll.Intersects`）
                     built5++;
-                    var ft5 = FindChild(cell5, "Faction");
+                    var ft5 = FindChild(cell5, "Faction Icon");
                     var mt5 = FindChild(cell5, "Game Mode Icon");
                     if (ft5 != null)
                     {
@@ -5491,7 +5632,7 @@ public static class CollectionScene
                 }
                 CheckTrue(built5 > 0, "（前提）Deck 页建出了 " + built5 + " 格 —— 否则下面几条全空转（假绿）");
                 CheckTrue(both5 > 0,
-                          "（前提）至少有一格**两枚徽章都建出来了**（本轮实测：建 " + built5 + " 格 · `Faction` "
+                          "（前提）至少有一格**两枚徽章都建出来了**（本轮实测：建 " + built5 + " 格 · `Faction Icon` "
                         + fac5 + " 格 · `Game Mode Icon` " + mode5 + " 格 · 两枚齐 " + both5 + " 格）"
                         + " —— ⛔ 0 格 ⇒ 下面的夹层断言等于没验");
                 CheckTrue(want5 > 0,
@@ -5504,7 +5645,7 @@ public static class CollectionScene
                 Check(facQ5, 0, "★ …两枚徽章的队列都 **== `CollectionWindow.QPageOverlay`**（阵营徽那一半）");
                 Check(modeQ5, 0, "★ …模式徽那一半");
                 Check(facOff5, 0,
-                      "★ A1525⑤ `Faction` 徽章**逐格 `activeSelf == true`**（⚠️ `FindChild` 含未激活件 ⇒ "
+                      "★ A1525⑤ `Faction Icon` 徽章**逐格 `activeSelf == true`**（⚠️ `FindChild` 含未激活件 ⇒ "
                     + "只断「找得到」测不出「关着」；「建了却看不见」这一族本仓栽过 4 次）");
                 Check(modeOff5, 0, "★ …`Game Mode Icon` 同理");
                 Check(miss5, 0,
@@ -8652,6 +8793,83 @@ public static class CollectionScene
                 CheckTrue(Loc.EntryCount >= 429,
                           $"★（A1025）表基线：`Loc.EntryCount` = {Loc.EntryCount} ≥ **429**（开工前实测）"
                         + "｜🧨 把键删掉、断言也一起删 ⇒ 这条红");
+            }
+
+            // ============================================================ 🆕 **2026-10-11（`A1517`）：
+            //   左栏四颗键文案断言的【真鉴别式】—— **语档无关**的那一种。**
+            //
+            // 🔴 **要治的病**：上面那条 `CheckText(TextOf(键上那颗 Text), wantLabels[i])` 里的
+            //   `wantLabels[i] = Loc.T(term).ToUpperInvariant()` **按当前语档取列**，而本宿主
+            //   **全程不设语档**（`Loc.Current` 第一次读时从 `PlayerPrefs["Language"]` 载入）——
+            //   那四个键的**英文列逐字等于 `TabBtnSpec.Label`（= 原版 `m_text`）** ⇒ 本机若被设成
+            //   English，把实现改回「直接画 `spec.Label`」**四条照样全绿**（屏上字一模一样、看不出区别）。
+            //   今天跑批有鉴别力，只是因为出厂默认是 Chinese（`Loc.Default`）。
+            //
+            // ⛔ **不是**「在跑批前钉一次中文档」：本文件实测过 —— 一旦把语档钉成中文并**保持**，
+            //   那些同样「按 `Loc.T` 现取期望值」的断言（`:1275` 空态那行 / `:1342` `Import Deck` /
+            //   `:1344` `Create Deck` / `:1667` `Warlord Name` …）**会一起红**（期望值按钉住的档取，
+            //   而屏上的字是建窗那一刻那一档画上去的）⇒ 那是**假红**，⛔ 别走那条路。
+            //
+            // ✅ **本段的做法 = 断「切语档之后那颗字的串**跟着变**」**：
+            //   · 语档**只在这一小段里**改，走内存态 `Loc.RestoreForTest`（⛔ 一个字节都不写
+            //     `PlayerPrefs`），收尾**还回本机原语档**；
+            //   · 每次改完把窗**原地重建**一次（`CollectionWindow.Build()` 是 `public`，它首句
+            //     `BuildShell` → `DestroyChildren(root)` —— 本来就是「清空再建」的形状）；
+            //   · ⇒ 结论与**跑批机器是什么语言**无关。
+            // 🔴 **为什么必须重建**：字是**建窗时**画的（`Shell/MenuWindowBase.cs` 的 `BuildTabButton`
+            //   里那句 `Loc.T(spec.Term)`），换语档**不会**改已经画上去的字（本窗没有 `RefreshTexts`）
+            //   ⇒ 不重建就量不出「跟着变」。
+            // 🧨 **改坏法**：把 `Shell/MenuWindowBase.cs` 的 `BuildTabButton` 里那句 `Loc.T(spec.Term)`
+            //   改回 `spec.Label` ⇒ **中文档那一趟**印的仍是英文 ⇒ 「两趟一样」⇒ 对应那条立刻红。
+            // ⚠️ 本段排在**全文件收尾**（下面只剩 `total` 与收尾日志）：重建会把这扇窗的孩子整棵换掉，
+            //   ⛔ 别把它往前挪 —— 前面每一节都还攥着节点引用（`keys` 那张表就是）。
+            {
+                var p4LangWas = Loc.Current;
+                var p4Zh = new string[4];
+                var p4En = new string[4];
+                // 前提（本条自己的闸）：四颗键**中英两列都在、而且不同** —— 两列相同时这一问没有鉴别力
+                string p4Bad = null;
+                for (int i = 0; i < 4; i++)
+                {
+                    string a = Loc.ZhOf(tabTerms[i]), b = Loc.EnOf(tabTerms[i]);
+                    if (string.IsNullOrEmpty(a) || string.IsNullOrEmpty(b) || a == b)
+                        p4Bad = (p4Bad == null ? "" : p4Bad + " ") + tabTerms[i];
+                }
+                CheckTrue(p4Bad == null,
+                          "★（A1517 前提）左栏四颗键的**中文列与英文列都存在且不同**"
+                        + "（⛔ 两列一样 ⇒ 下面「串跟着语档变」没有鉴别力；坏：" + (p4Bad ?? "无") + "）");
+
+                for (int pass = 0; pass < 2; pass++)
+                {
+                    Loc.RestoreForTest(pass == 0 ? AvailableLanguages.Chinese : AvailableLanguages.English);
+                    win.Build();                     // 原地重建：字按**当前**语档重画（⛔ 不是改已画出的字）
+                    var bar7 = FindChild(win.transform, "Tab Buttons");
+                    var dst = pass == 0 ? p4Zh : p4En;
+                    for (int i = 0; i < 4; i++)
+                    {
+                        var kb7 = FindChild(bar7, "CollectionTabButton_" + i);
+                        dst[i] = TextOf(FindChild(kb7, "Text"));
+                    }
+                }
+                Loc.RestoreForTest(p4LangWas);       // ⛔ 只改内存、不写 `PlayerPrefs`
+                win.Build();                         // 收尾：把窗建回**本机原语档**那一版
+
+                for (int i = 0; i < 4; i++)
+                {
+                    CheckTrue(p4Zh[i] != null && p4En[i] != null && p4Zh[i] != p4En[i],
+                              $"★ A1517 真鉴别式：左栏第 {i + 1} 键 `CollectionTabButton_{i}` 的串"
+                            + $"**跟着语档变** —— 中文档印「{(p4Zh[i] ?? "<取不到>")}」、"
+                            + $"英文档印「{(p4En[i] ?? "<取不到>")}」"
+                            + $"（⛔ 两趟一样 ⇒ 那颗字**不是从 `Loc.T` 来的**）｜键 `{tabTerms[i]}`"
+                            + "｜🧨 改坏法：`Shell/MenuWindowBase.cs` 的 `BuildTabButton` 里那句"
+                            + " `Loc.T(spec.Term)` 改回 `spec.Label` ⇒ 本条红"
+                            + "（**语档无关**，不再依赖跑批机器是中文档）");
+                    CheckText(p4Zh[i], Loc.ZhOf(tabTerms[i]).ToUpperInvariant(),
+                              $"…而且**中文档那一趟**印的就是那条词条的**中文列**（大写那一档 —— "
+                            + "原版 `m_fontStyle = UpperCase` 已由基类 `ToUpperInvariant` 实现）");
+                    CheckText(p4En[i], Loc.EnOf(tabTerms[i]).ToUpperInvariant(),
+                              "…**英文档那一趟**印的是**英文列**（同上）");
+                }
             }
 
             int total = _sink.Pass + _sink.Fail;

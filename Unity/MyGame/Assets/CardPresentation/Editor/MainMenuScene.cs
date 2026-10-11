@@ -1011,14 +1011,32 @@ public static class MainMenuScene
         //   （`InboxBtn` 信封 · `Challenge button` 双剑 · **`Feedback Button`** 反馈），而第三颗
         //   **原版是「建了、但出厂关着」**—— `m_IsActive = False`（表 `资料/主菜单_原版规格.md:96`
         //   那一行的最后一格；同表 `:327` 记它的矩形 `565.4..615.4, 10.5..60.5`）。
-        //   **我们这一档是「【不建】」**（`Shell/TopBar.cs:159` 那一行注释：照 `MainMenuRuntime` 纪律 ③），
-        //   所以本条断的是**「不建」**。
-        //   🧨 **改坏法**：在 `Shell/TopBar.cs` 里把 `Feedback Button` 建出来（且亮着）⇒ 本条红。
-        //   ⛔ **别把它改成断「找得到且 `activeSelf == false`」** —— 我们**没建那颗**，那样写等于给自己加要求；
-        //      将来真要显示它时，**先建、再把本条翻成 `activeSelf` 口径**（那时才该断「建了但关着」）。
-        CheckTrue(FindChild(bar, "Feedback Button") == null,
-                  "`Feedback Button` **没建**（原版是**建了但出厂关着** `m_IsActive = False`；"
-                + "我们这一档是「不建」—— 这一档差异如实记在此，⚠️ 将来要显示时再建）");
+        //   🔴🔴 **2026-10-11（写手 W4 的 `A1522①` 落地后 · 本会话按铁律 5 就地翻口径）**：
+        //     **本段原来写的「我们这一档是【不建】」已不成立** —— `Shell/TopBar.cs:191-193` 现在
+        //     **把它建出来了**（`40K_icon_feedback` · `565.44..615.44 × 10.50..60.50` · 队列 `QBarContent`）
+        //     且**出厂 `SetActive(false)`**，与同一排的 `Challenge button` **统一口径**
+        //     （`TopBar.cs:174-176`：主对话 2026-10-11 裁定「两颗统一按『建、但出厂关着』」，⛔ 不删节点）。
+        //   🔑 **翻口径这件事本来就是本条自己写好的条件**（原文：「⛔ 别把它改成断『找得到且
+        //     `activeSelf == false`』—— 我们**没建那颗**…**将来真要显示它时，先建、再把本条翻成
+        //     `activeSelf` 口径**」）⇒ **条件已到**，翻。
+        //   🔴 **为什么不能只把 `FindChild(...) == null` 取反**：`FindChild`（`MenuCheck`）=
+        //     `GetComponentsInChildren<Transform>(true)` ⇒ **含未激活件** ⇒ 「节点不在」与「节点在但关着」
+        //     **两种情形会给同一个绿**（本仓三个代理各撞过一次，三次都是真缺陷）。
+        //     ⇒ 必须**两截都断**：先断「**建了**」，再断「**那一颗自己 `activeSelf == false`**」。
+        //   🧨 **改坏法**：① 删掉 `Shell/TopBar.cs:193` 那句 `SetActive(false)`（= 出厂亮着）⇒ 第 2 条红；
+        //     ② 把那两句整段删掉（= 退回「不建」）⇒ 第 1 条红。
+        {
+            var fbBtn = FindChild(bar, "Feedback Button");
+            CheckTrue(fbBtn != null,
+                      "★（`A1522①`）`Feedback Button` **建了**（原版 `TopBarButtons` 底下就是 3 颗 —— "
+                    + "信封 / 双剑 / 反馈；`A1522①` 之前我们这一档是「不建」，本轮已照原版补齐）");
+            CheckTrue(fbBtn != null && !fbBtn.gameObject.activeSelf,
+                      "★（`A1522①`）…而且**出厂关着**（那一颗自己的 `activeSelf == false`）—— "
+                    + "判据两条：① 表 `资料/主菜单_原版规格.md:96` 那一行末格 = 出厂 `False`；"
+                    + "② 实况 `GameObject/Feedback Button.json` 的 `\"m_IsActive\": false`。"
+                    + "⚠️ 这里断的是**该关着**，所以是「**建了** + `!activeSelf`」两截，⛔ **不是**"
+                    + "「`FindChild(...) == null`」取反（`FindChild` 含未激活件 ⇒ 那样写两种情形同一个绿）");
+        }
         var resBar = FindChild(bar, "Resources Bar");
         // 🔴 **2026-10-13（A374）就地改口径（铁律 5）**：原来这条断的是
         //    `resBar.GetComponentInChildren<ImageQuad>() == null`（**整棵子树**里一张 quad 都没有）——
@@ -1475,7 +1493,15 @@ public static class MainMenuScene
         CheckTrue(modes != null, "`GameModes` 容器建了");
         var content = FindChild(modes, "Content");
         CheckTrue(content != null, "`Viewport/Content` 建了（原版出厂 0 子，靠 liveop 数据灌）");
-        CheckCard(menu, "Base Game Mode Container 1x1 - Tutorial", 205f, 535f, 414.4f, "Tutorial（1x1 · col0/row0）", 182.8f);
+        // 🔴 **2026-10-11（`A1522⑤` 连带 · 铁律 5）就地改期望值**：`Shell/MainMenuRuntime.cs` 的
+        //   `BuildGameModes` 把 `Practice` / `Tutorial` 两个 `Put` 的**次序**改成了
+        //   「**`Practice` 先（col0/row0 = 上）**」（判据 = 用户参考图 `warpforge参考图/主界面参考图.png`
+        //   右缘那一列「**练习在上、教学在下**」，那条判据本来就写在 `BuildGameModes` 上面那段注释里）。
+        //   ⇒ `Tutorial` 现在落 **col0 / row1**，行顶 = `182.8 + 414.4 + 20` = **617.2**。
+        //   ⚠️ 本条与下面 `CheckCard(… Practice …)` 那条是**一对**：改一条必须改另一条
+        //   （上一轮 `1x1 → 1x2` 改名只改一半、第一趟 7 条假红，就是这一族）。
+        CheckCard(menu, "Base Game Mode Container 1x1 - Tutorial", 205f, 535f, 414.4f,
+                  "Tutorial（1x1 · col0/**row1** —— `Practice` 下面那一格）", 617.2f);
         CheckCard(menu, "Draft Game Mode Container 1x2", 760f, 535f, 848.8f, "Draft（1x2 · col1 独占整列）", 182.8f);
 
         // ============================================================ 🆕 2026-10-17（A789 收口 · 用户拍板「按建议执行」）
@@ -1613,21 +1639,27 @@ public static class MainMenuScene
         //    🔴 原版这张「模式 → 卡图 → 窗」的映射在 **liveop 服务端**（本地查不到、正本也写着「别自己编」）
         //    ⇒ **这三张 + 它们点开哪扇窗，都是我们定的**（逐条记在 `资料/阶段二_战斗入口_原版规格.md` §〇/§五）。
         Section("战斗入口：三张模式卡（**入口是我们定的**，见 `资料/阶段二_战斗入口_原版规格.md`）");
-        // 🔴 **2026-10-11（界面复刻）**：下面这三条的**列号改了** —— 两张 1×1 现在**叠在同一列**
-        //   （`Practice` 上 / `Skirmish` 下），`Ranked` 跟着挪到第 4 列（205+555×3）。
+        // 🔴 **2026-10-11（界面复刻）**：下面这几条的**列号改了** —— 两张 1×1 现在**叠在同一列**（col0）：
+        //   **`Practice` 在上（row0）· `Tutorial` 在下（row1）**，`Draft` = col1，`Skirmish` / `Ranked` = col2 / col3。
         //   判据 = 参考图右缘那一列（两张 1×1 上下叠着、中间留 20px 缝）；详见 `BuildGameModes` 那段注释。
         //   ⚠️ 期望值里 `182.8 / 617.2` 是**抄** `MainMenuRuntime.CardRow0Top`（`182.8`）与其 +`414.4+20`；
         //   那个常量是 `private`、宿主读不到 ⇒ 抄一份并把算式写在这里（改常量时这里会红，是**故意的**）。
         // 🔴 **2026-10-11（A1521⑦）就地改期望值**（改前三条红的是**断言过期**、不是实现错）：
-        //   排布从「手写死列/行号」改成 **first-fit 不留洞** ⇒ Practice 挪到 col0/row1（填掉 Tutorial 下面那个洞）、
+        //   排布从「手写死列/行号」改成 **first-fit 不留洞** ⇒ 两张 1×1 自动叠进 col0（谁先 `Put` 谁在 row0）、
         //   Skirmish / Ranked 的尺寸档按原版 prefab 名改成 **1×2**（`Skirmish Ranked Game Mode Container 1x2`）。
-        CheckCard(menu, "Base Game Mode Container 1x1 - Practice", 205f, 535f, 414.4f, "Practice（1x1 · col0/row1 —— 填掉 Tutorial 下面的洞）", 617.2f);
+        //   🔴 **2026-10-11（`A1522⑤` 连带 · 铁律 5）再改一次**：实现把两个 `Put` 的**次序**换成了
+        //   「`Practice` 先」⇒ 落在 row0 的**由 `Tutorial` 变成 `Practice`** ⇒ 两条期望值**互换**：
+        //   **`Practice` = 182.8（row0）· `Tutorial` = 617.2（row1）**（`Tutorial` 那条在上面 §五 E 那一节）。
+        CheckCard(menu, "Base Game Mode Container 1x1 - Practice", 205f, 535f, 414.4f,
+                  "Practice（1x1 · col0/**row0** —— 与 `Tutorial` 同列、它在**上**）", 182.8f);
         CheckCard(menu, "Base Game Mode Container 1x2 - Skirmish", 205f + 2 * 555f, 535f, 848.8f, "Skirmish（1x2 · col2 · 独占整列）", 182.8f);
         CheckCard(menu, "Base Game Mode Container 1x2 - Ranked", 205f + 3 * 555f, 535f, 848.8f, "Ranked（1x2 · col3 · 独占整列）", 182.8f);
 
         // ============================================================ 🔴 **2026-10-11（A1521⑦）· 正反成对**
         // **① 「零洞」**（结构）：按 `(col,row)` 扫一遍 —— **不许有「上半格有卡、下半格空着」的列**（反过来也不许）。
-        //   🧨 **把 `Practice` 挪回 col2（= 改回老排布「手写死列/行号」）⇒ col0 的下半格空着 ⇒ 本条红。**
+        //   🧨 **把两张 1×1 拆到两列上（= 改回老排布「手写死列/行号」的那种）⇒ 总格数变 8、两行网格里必然留洞 ⇒ 本条红。**
+        //   （⚠️ 本条**与两张 1×1 谁在上无关** —— 2026-10-11 `A1522⑤` 把 `Practice`/`Tutorial` 的上下换了，
+        //     本条一个字不用改；会红的是上面那两条 `CheckCard` 的行顶期望值。）
         // **② 「尺寸档 ↔ 节点名 ↔ 实测高」三方一致**（这是**反面**，防「为了不留洞把两张 1×1 也拉满」）：
         //   名字里写 `1x1` ⇒ 实测高必须是 **414.4**；写 `1x2` ⇒ **848.8**
         //   （判据 = 原版 **prefab 名** `… Game Mode Container 1x1/1x2`；`848.8 = 2 × 414.4 + 20` 那道缝，
@@ -1685,15 +1717,16 @@ public static class MainMenuScene
             CheckTrue(!gmOut, "（前提）五张卡都落在第 0..3 列（列左 = 205 + 555c）—— 有卡跑到列外，下面几条就不必看了");
             int gmCols = 0; for (int c = 0; c < 4; c++) if (gmColSeen[c]) gmCols++;
             Check(gmCols, 4, "★ 模式卡用满 **4 列**"
-                           + "（`col0 = Tutorial/Practice · col1 = Draft · col2 = Skirmish · col3 = Ranked`）");
+                           + "（`col0 = Practice(上)/Tutorial(下) · col1 = Draft · col2 = Skirmish · col3 = Ranked`）");
             for (int c = 0; c < 4; c++)
             {
                 if (!gmColSeen[c]) continue;
                 CheckTrue(gmTopHit[c] && gmBotHit[c],
                           $"★ 第 {c} 列**零洞**（上半格与下半格都有卡；实测 上半「{(gmTopHit[c] ? "有" : "空着")}」· "
                         + $"下半「{(gmBotHit[c] ? "有" : "空着")}」）"
-                        + "—— 🧨 把 `Practice` 挪回 col2（= 老排布）⇒ 本列红；"
-                        + "改拿「把某张拉长」来凑 ⇒ 列内重叠那条红");
+                        + "—— 🧨 把两张 1×1 拆到两列（= 老排布「手写死列/行号」那种）⇒ 总格数变 8、必然留洞 ⇒ 本列红；"
+                        + "改拿「把某张拉长」来凑 ⇒ 列内重叠那条红"
+                        + "｜⚠️ 本条**与两张 1×1 谁在上无关**（`A1522⑤` 换过上下，本条不用改）");
             }
             // 同一列里两张卡**不许重叠**（「把某张拉长去填洞」会在这里现形）
             for (int a = 0; a < gmName.Count; a++)
@@ -1925,6 +1958,11 @@ public static class MainMenuScene
                     //   ⚠️ **判别力只在「有自己文案的语档」下成立**：英文档的 `Loc.T(键)` 就是英文那一列
                     //      = 原版 `m_text` 原文 ⇒ 那条等式**不具鉴别力**（本文件同形另四处亦然）。
                     //      跑批走的是出厂默认 `Loc.Default = Chinese`（`Core/Loc.cs`）—— 中文档下有鉴别力。
+                    //   🔴 **2026-10-11（`A1517`）补**：上面这条「只在中文档下成立」的缺口**已经补上了** ——
+                    //      **本窗收尾处**（`if (pw != null)` 块最后那一段）有一段**语档无关**的真鉴别式：
+                    //      它**只在这一小段里**换语档 + `pw.Open()` 重建，断「**那颗字的串跟着语档变**」
+                    //      + 两趟分别等于中/英列。⇒ **别再把「本机得是中文档」当成这条断言的唯一保障**，
+                    //      ⛔ 也别在跑批前钉全局语档（会动到本宿主另外几十条断言与 stdout 基线）。
                     //   ⚠️ **基线**：本条跑在**开窗后的出厂态**里（`Deck info ▸ General container` 开着 ——
                     //      见下面 `ShowingGeneralInfo` 那组互斥断言），无需额外摆回。
                     //      ⛔ 别把它挪到 `pw.ToggleDeckInfo()` **之后**：那一格会把 `General container` 关掉，
@@ -1948,6 +1986,26 @@ public static class MainMenuScene
                     //    🧨 鉴别式：实现改回直接画资产里的 `m_text` ⇒ 中文档读到英文 ≠ `Loc.T(键)` ⇒ 红。
                     CheckText(TextOf(FindChild(gen0, "Deck Information Cost/balance text")), Loc.T("Demo/CardCostBalance"),
                               "…文案 = 原版的 `Card / Energy cost`");
+                    // 🔴 **2026-10-11（`A1517` 同族另一笔）：断言【该显示】必须断 `activeSelf`。**
+                    //   上面那两条 `CheckText` 取件走的是 `FindChild`（= `GetComponentsInChildren(true)`，
+                    //   **含未激活件**）⇒ 只断「找得到、字也在」**测不出「关着」**（本仓三个代理各撞过一次，
+                    //   三次都是真缺陷）。
+                    //   本窗六处文案里**只有这两颗真会被关**：它们的父链是 `Deck info ▸ General container`
+                    //   （= `PracticeModePopup._general`），而 `Toggle(bool)` / `ToggleDeckInfo()` 会
+                    //   `_general.gameObject.SetActive(generalInfo)`（`Shell/PracticeModePopup.cs` 的 `Toggle`）
+                    //   —— 切到「卡列表」抽屉时这两颗**一起消失**。
+                    //   ⇒ **必须断在【出厂态】这一格**（出厂 = 总览显示；与下面 `ShowingGeneralInfo` 那组
+                    //     互斥断言同一态）—— ⛔ 别挪到 `pw.ToggleDeckInfo()` **之后**，那一格会把
+                    //     `General container` 关掉，这两条就变成「本来就该假」的假红。
+                    //   ⚠️ 另外四处（`Back Text` / `Battle Text` / `tooltip` / `Toggle Label`）挂在**窗根**上、
+                    //     原版不会关 ⇒ **不补**（补了是摆设，见账 `A1517`）。
+                    CheckTrue(FindChild(gen0, "Deck Information Cost/balance text") != null
+                              && FindChild(gen0, "Deck Information Cost/balance text").gameObject.activeSelf,
+                              "★（A1517）`Deck Information Cost/balance text` **出厂态 `activeSelf = true`**"
+                            + "（⚠️ `FindChild` 含未激活件 ⇒ 只断「找得到」抓不到「关着」；"
+                            + "父链 `General container` = `_general`，切抽屉时会被 `SetActive(false)`）");
+                    CheckTrue(chgT != null && chgT.gameObject.activeSelf,
+                              "★（A1517）`Change Deck Text` **出厂态 `activeSelf = true`**（同上）");
                     Check(pw.CostRows.Count, 9, "费用曲线 **9 行**（费用 0..8）");
                     int csum = 0; for (int k2 = 0; k2 < pw.CostRows.Count; k2++) csum += pw.CostRows[k2];
                     CheckTrue(csum >= 0, $"…读数：{CostCurveDrawer.Dump(pw.CostRows.ToArray())}");
@@ -1987,7 +2045,10 @@ public static class MainMenuScene
                 //   🧨 **鉴别式**：把实现改回**直接画资产里的 `m_text`**（原版那颗 TMP 印的是 `Back`）⇒
                 //      **中文档**下读到英文 `Back` ≠ `Loc.T(键)`（= `返回`）⇒ 下面这条 `CheckText` 变红。
                 //   ⛔ **键名写死在此处**，**不读** `PracticeModePopup` 的任何常量/表（读了 = 自证）。
-                //   ⚠️ 与本文件另五处同形：**中文档下才有鉴别力**（英文档 `Loc.T(键)` = 原版 `m_text` 原文）。
+                //   ⚠️ 与本文件另五处同形：**中文档下才有鉴别力**（英文档 `Loc.T(键)` = 原版 `m_text` 原文）
+                //      —— 🔴 **2026-10-11（`A1517`）**：这个缺口已由**本窗收尾处**那段
+                //      **语档无关**的真鉴别式补上（换语档 + `pw.Open()` 重建，断「串跟着语档变」），
+                //      见那一大段的注释。
                 //   ⚠️ 这一颗是**窗根的直接子件**（不是 `Deck info` 那棵子树里的）⇒ 用 `FindChild(pw.transform, …)`，
                 //      与 `Battle Text` / `tooltip` / `Toggle Label` 那三颗同一个取法。
                 CheckTrue(Loc.HasEntry("MainMenu/MainButtons/ButtonLabel/Back"),
@@ -3413,16 +3474,82 @@ public static class MainMenuScene
 
                             // ---- ⑥b 格子上的三层图标：阵营（**左下**）· 模式 · 难度角标 ----
                             var c0 = ds2.Cells.Count > 0 ? ds2.Cells[0] : null;
-                            var facI = c0 != null ? FindChild(c0, "Faction") : null;
-                            CheckTrue(facI != null, "格子上**画了阵营图标**");
-                            if (facI != null)
+                            // 🔴 **2026-10-11（`A1530②/③`）本节两处一并改（判据 → `资料/任务_卡组卡牌任务.md` 的 `A1530`）**：
+                            //   ② **节点名 `Faction` → `Faction Icon`**（原版 prefab 的**原样**名；同族的
+                            //      `Game Mode Icon` / `DificultyLevel` 都照抄了原版拼写，**只有这一颗被改短**）。
+                            //      建节点处 = `Shell/MenuDraw.cs` 的 `DeckCell`（本批三处一起改，⛔ 别再留短名）。
+                            //   ③ **判据从【粗判】收紧成 rect 断言**：原来断的是 `fx < 500 && fy > 450`
+                            //      （= 「只要落在左下那一大块里就算对」，不是 rect 断言）—— 现在按原版中心
+                            //      **收紧到 ±2px**。
+                            //   🔴🔴 **2026-10-11（本会话第四轮 · 诊断代理 `D4` 判 (α) 断言自己错 · 铁律 5）：
+                            //      上面那版期望值的算式【量纲错了】—— 它把 `CellW/2 = 112.5`（**已经是显示 px**）
+                            //      又塞进乘 `K` 的括号里 ⇒ **多乘了 0.9**。铁证 = 残差恰好
+                            //      `((CellW/2)(1−K), (CellH/2)(1−K))` = **(11.25, 18.225)**，与自检实报的
+                            //      `差 (11.25, 18.23)` **逐位吻合**；而 `Shell/MenuDraw.cs` 与
+                            //      `Shell/DeckSelectionPopup.cs` 两侧的 `DcFac*` / 几何**一个字都没动**
+                            //      （本批只改了**姓名字符串**）⇒ (β) 实现缺陷 / (γ) 本批回归 / (δ) 夹具前提
+                            //      **三条全不成立** ⇒ **只改断言、⛔ 不许动实现**。
+                            //   **期望值怎么算（⛔ 全部锚到【原版字面量】，不读 `MenuDraw.DcFac*` /
+                            //      `DeckSelectionPopup.CellW` —— 读了就是「实现与检测器同一个口」= 自证）**：
+                            //     · 原版 `Faction Icon` 在**格作者系 250×405** 里的矩形 =
+                            //       **`[-10.5, 273.7] + 84.5×85.7`** ⇒ 中心 **(31.75, 316.55)**。
+                            //       出处：`资料/说明书/04_界面UI/卡组界面说明书.md:56`「`Faction Icon [-10,274 85x86]`
+                            //       ← 左下阵营图标」；四个精确数 = `资料/普查产出_0923/A2_Deck页.md:123`
+                            //       （`工具/menu_rect.py` 现读）。
+                            //     · 原版格 = **作者 `250×405`**，RSR（原版字段 `_cellWidth/_cellHeight`）缩到
+                            //       **显示 `225×364.5`**（出处 = `Shell/MenuDraw.cs` 那一节的自述
+                            //       「作者尺寸 **250×405**，RSR 把它们缩到 **225×364.5**」）。
+                            //     · 🔑 **`K`（`MenuDraw.DeckCellK`）该不该出现在这个算式里 —— 该，但它的量纲
+                            //       是「作者系 → 显示 px 的**比例**」**（0.9 = 225/250 = 364.5/405，**两个宽高比
+                            //       独立同值** ⇒ 不是挑出来的数）。它的出处就是上面那两条原版尺寸；
+                            //       ⛔ 所以这里**不读那个常量**，改用 `225f / 250f` 把这份比例**从原版数字现算**
+                            //       （读了常量 = 实现改常量这边跟着改 = 又是恒等式）。
+                            //       上一版错在**把这个比例乘到了「已经是显示 px 的那半格」上**。
+                            //     · 那一格的**中心**取**实测** `c0.position`（`MenuDraw.Node` 把节点写在矩形中心）
+                            //       ⇒ 对滚动 / 它是第几格**免疫**。
+                            //   ⇒ **期望中心 = 格中心 + [ (31.75, 316.55) − 格作者系中心 (125, 202.5) ] × SC**。
+                            //   🔑 **为什么这一版是真断言（⛔ 不再是恒等式）**：右边那七个数
+                            //      （`-10.5 / 273.7 / 84.5 / 85.7` · `250 / 405` · `225`）**全部写死在断言里**，
+                            //      **一个都不经过 `MenuDraw.DcFac*` / `DeckSelectionPopup.CellW`** ⇒
+                            //      把实现侧 `DeckCell` 的 `DcFacX/DcFacY` 改回**右上**那套时，
+                            //      **实现会动、期望不动** ⇒ 本条**真红**。
+                            //      ⚠️ **上一版恰恰踩在这个坑上**：那时两侧共用同一组 `DcFac*` 常量 ⇒
+                            //      报告里那句「改坏法」**改前改后都永远不成立** = 一条**摆设**。
+                            //      ⛔ 别再把它们读回来。
+                            //   🧨 **改坏法**：把 `Shell/MenuDraw.cs` `DeckCell` 的 `DcFacX/DcFacY` 改回**右上**
+                            //      那套（2026-09-26 之前那版）⇒ 本条红；⛔ **别退回** `fx < 500 && fy > 450`
+                            //      （那是「落在左下那一大块里就算对」，不是 rect 断言）。
+                            var facI = c0 != null ? FindChild(c0, "Faction Icon") : null;
+                            CheckTrue(facI != null, "格子上**画了阵营图标**（节点名 = 原版的 `Faction Icon`）");
+                            CheckTrue(c0 != null, "（前提）取得到那一格的**格节点**（下面按「格中心 + 原版偏移」比 rect）");
+                            if (facI != null && c0 != null)
                             {
+                                CheckNear(c0.lossyScale.x, 1f, 1e-3f,
+                                          "（前提）那一格的父链是**单位缩放** —— 下面那条「世界坐标差 × 108 = 画布 px」靠它成立");
                                 // 世界坐标 → 画布 px（同 `CollectionScene` 的 `PxOf/PxYOf`）
                                 float fx = facI.position.x * 108f + 960f, fy = 540f - facI.position.y * 108f;
-                                CheckTrue(fx < 500f && fy > 450f,
-                                          "阵营图标在**左下**（原版 `Faction Icon [-10.5,273.7]`，`资料/说明书/04_界面UI/卡组界面说明书.md:56` 原话「左下阵营图标」）" +
-                                          " —— 实得中心 (" + fx.ToString("F1") + ", " + fy.ToString("F1") + ")；" +
-                                          "🔴 原来我们画在**右上**且无断言，2026-09-26 更正");
+                                float cx0 = c0.position.x * 108f + 960f, cy0 = 540f - c0.position.y * 108f;
+                                // ---- 原版字面量（⛔ 一处都不从实现那一侧读）----
+                                const float OA_FacX = -10.5f, OA_FacY = 273.7f;      // 格作者系 250×405
+                                const float OA_FacW = 84.5f, OA_FacH = 85.7f;
+                                const float OA_CellW = 250f, OA_CellH = 405f;        // 原版格（作者系）
+                                const float SC = 225f / 250f;                        // 作者系 → 显示 px（= 364.5/405，同值 0.9）
+                                float ex = cx0 + (OA_FacX + OA_FacW * 0.5f - OA_CellW * 0.5f) * SC;
+                                float ey = cy0 + (OA_FacY + OA_FacH * 0.5f - OA_CellH * 0.5f) * SC;
+                                CheckTrue(Mathf.Abs(fx - ex) <= 2f && Mathf.Abs(fy - ey) <= 2f,
+                                          "★ 阵营图标在**左下**、且中心 = 格中心 + **由原版字面量现算**的偏移"
+                                        + "（原版 `Faction Icon` = 格作者系 `[-10.5, 273.7] + 84.5×85.7`"
+                                        + " ⇒ 作者系中心 **(31.75, 316.55)**；格 = 作者 `250×405` ⇒ 显示 `225×364.5`、比例 **0.9**；"
+                                        + "`资料/说明书/04_界面UI/卡组界面说明书.md:56` 原话「左下阵营图标」）"
+                                        + " —— 实得中心 (" + fx.ToString("F1") + ", " + fy.ToString("F1") + ")、"
+                                        + "期望 (" + ex.ToString("F1") + ", " + ey.ToString("F1") + ")、"
+                                        + "差 (" + Mathf.Abs(fx - ex).ToString("F2") + ", " + Mathf.Abs(fy - ey).ToString("F2") + ")px"
+                                        + "｜🔴 期望值那七个数（`-10.5/273.7/84.5/85.7` · `250/405` · `225`）**全部写死在断言里**，"
+                                        + "⛔ 不读 `MenuDraw.DcFac*` / `DeckSelectionPopup.CellW`（读了就与实现同一个口 = **恒等式**）"
+                                        + " ⇒ 把 `Shell/MenuDraw.cs` `DeckCell` 的 `DcFacX/DcFacY` 改回**右上** ⇒ 本条**真红**"
+                                        + "｜⚠️ 上一版算式把**已经是显示 px** 的 `CellW/2` 又乘了一次 0.9（残差 (11.25, 18.23)、量纲错），"
+                                        + "2026-10-11 第四轮已订正 —— 实现侧一个字没动；"
+                                        + "本条原先是**粗判** `fx<500 && fy>450`，同日收紧到 ±2px");
                             }
                             var gmI = c0 != null ? FindChild(c0, "Game Mode Icon") : null;
                             var gq = gmI != null ? gmI.GetComponent<ImageQuad>() : null;
@@ -3563,6 +3690,96 @@ public static class MainMenuScene
                 CheckTrue(pw.TryOpen(), "（A796 现场）把练习窗开回来 —— 下面那条要在**开着**的窗上点");
                 MenuDraw.CheckShadeClickRule(CheckTrue, "练习窗", pw.transform, FindChild(pw.transform, "BackdropHit"),
                                              () => pw.CurrentState);
+
+                // ============================================================ 🆕 **2026-10-11（`A1517`）：
+                //   本窗那六条文案断言的【真鉴别式】—— **语档无关**的那一种。**
+                //
+                // 🔴 **要治的病**：上面那六条一律是 `TextOf(那颗 TMP) == Loc.T(键)`，而 `Loc.T` 按
+                //   **当前语档**取列（`Core/Loc.cs` 的 `T`），而 `MainMenuScene.Run()` **全程不设语档**
+                //   （`Loc.Current` 第一次读时从 `PlayerPrefs["Language"]` 载入）——
+                //   **这六个键的英文列逐字等于原版 `m_text`** ⇒ 本机若被设成 English，
+                //   把实现改回「直接画资产里的 `m_text`」**六条照样全绿**（屏上字一模一样、看不出区别）。
+                //   今天跑批有鉴别力，只是因为出厂默认是 Chinese（`Loc.Default`）。
+                //
+                // ⛔ **不是**「在跑批前钉一次中文档」—— 那只是让今天这一档有鉴别力，而且**改全局语档会
+                //   动到本宿主另外几十条断言与 stdout 基线**（`Editor/CollectionScene.cs` 那边实测过：
+                //   钉住之后 `:1275` / `:1342` / `:1344` 那一批一起红 ⇒ 那是**假红**，⛔ 别走那条路）。
+                //
+                // ✅ **本段的做法 = 断「切语档之后那颗字的串**跟着变**」**：
+                //   · 语档**只在这一小段里**被改，走内存态 `Loc.RestoreForTest`（⛔ 一个字节都不写
+                //     `PlayerPrefs`），收尾**还回本机原语档**；
+                //   · 每次改完**重建一次窗**：`pw.Open()` = 本类的 `Build()`，它首句
+                //     `PointerLayer.UnregisterOwnedBy` + 清子件，本来就是为「同窗再开重建」写的
+                //     （`Shell/PracticeModePopup.cs` 的 `Build` 文件头）⇒ **不开第二扇窗、不动窗实例**；
+                //   · ⇒ 结论与**跑批机器是什么语言**无关。
+                // 🔴 **为什么要重建**：字是**建窗时**画的（`Txt(_, Loc.T(键), …)`），换语档**不会**改已画出的字
+                //   —— 本窗没有 `RefreshTexts()`（只有两个设置窗有）⇒ 不重建就量不出「跟着变」。
+                // 🧨 **改坏法**：把 `Shell/PracticeModePopup.cs` 那六处 `Txt(_, Loc.T(键), …)` 里**任何一处**
+                //   改回直接画英文原文 ⇒ **中文档那一趟**印的仍是英文 ⇒ 「两趟一样」⇒ 对应那一条立刻红。
+                // ⚠️ 本段排在**收尾之后**（窗的状态不再被后面用）；收尾那句 `pw.Open()` 把它建回**原语档**那一版。
+                {
+                    var p7LangWas = Loc.Current;
+                    // 🔴 上面那条 `CheckShadeClickRule` **把窗点关了**（它最后一步就是「点压暗层 ⇒ 窗关掉」）
+                    //   ⇒ 先开回来再重建：`Label` 的取字本身不要求激活，但**别让本段跑在关着的窗上**
+                    //   （而且这扇窗的 `Open()` 才是「与生产同一条」的建树口）。
+                    pw.TryOpen();
+                    var p7Keys = new[]
+                    {
+                        "MainMenu/RankedWindow/ChangeDeck", "Demo/CardCostBalance",
+                        "MainMenu/MainButtons/ButtonLabel/Back", "Demo/ToBattle",
+                        "Demo/DeckSelectionDemo/SelectDeck", "Event_Description/Generic/GameMode",
+                    };
+                    // 六处取件的**父链**（判据 = 上面那六条断言各自的取法，两棵子树）
+                    var p7InGeneral = new[] { true, true, false, false, false, false };
+                    var p7Node = new[] { "Change Deck Text", "Deck Information Cost/balance text",
+                                         "Back Text", "Battle Text", "tooltip", "Toggle Label" };
+                    var p7Zh = new string[p7Keys.Length];
+                    var p7En = new string[p7Keys.Length];
+
+                    // 前提（本条自己的闸）：六个键**中英两列都在、而且不同** ——
+                    //   两列一样时「串跟着变」这一问**没有鉴别力**（那时两边本来就同串）。
+                    string p7Bad = null;
+                    for (int i = 0; i < p7Keys.Length; i++)
+                    {
+                        string a = Loc.ZhOf(p7Keys[i]), b = Loc.EnOf(p7Keys[i]);
+                        if (string.IsNullOrEmpty(a) || string.IsNullOrEmpty(b) || a == b)
+                            p7Bad = (p7Bad == null ? "" : p7Bad + " ") + p7Keys[i];
+                    }
+                    CheckTrue(p7Bad == null,
+                              "★（A1517 前提）这 " + p7Keys.Length + " 个键的**中文列与英文列都存在且不同**"
+                            + "（⛔ 两列一样 ⇒ 下面「串跟着语档变」没有鉴别力；坏：" + (p7Bad ?? "无") + "）");
+
+                    // 同一扇窗、只换语档 + 重建：中文一趟 / 英文一趟
+                    for (int pass = 0; pass < 2; pass++)
+                    {
+                        Loc.RestoreForTest(pass == 0 ? AvailableLanguages.Chinese : AvailableLanguages.English);
+                        pw.Open();                     // 原地重建：字按**当前**语档重画（⛔ 不是改已画出的字）
+                        var dst = pass == 0 ? p7Zh : p7En;
+                        var ginfo = FindChild(pw.transform, "Deck info");
+                        for (int i = 0; i < p7Keys.Length; i++)
+                        {
+                            var nd = p7InGeneral[i] ? FindChild(ginfo, p7Node[i])
+                                                    : FindChild(pw.transform, p7Node[i]);
+                            dst[i] = TextOf(nd);
+                        }
+                    }
+                    Loc.RestoreForTest(p7LangWas);     // ⛔ 只改内存、不写 `PlayerPrefs`
+                    pw.Open();                         // 收尾：把窗建回**本机原语档**那一版
+
+                    for (int i = 0; i < p7Keys.Length; i++)
+                    {
+                        CheckTrue(p7Zh[i] != null && p7En[i] != null && p7Zh[i] != p7En[i],
+                                  "★ A1517 真鉴别式：`" + p7Node[i] + "` 的串**跟着语档变** —— 中文档印「"
+                                + (p7Zh[i] ?? "<取不到>") + "」、英文档印「" + (p7En[i] ?? "<取不到>") + "」"
+                                + "（⛔ 两趟一样 ⇒ 那颗字**不是从 `Loc.T` 来的**）｜键 `" + p7Keys[i] + "`"
+                                + "｜🧨 改坏法：`Shell/PracticeModePopup.cs` 那一处 `Txt(_, Loc.T(键), …)`"
+                                + " 改回直接画英文原文 ⇒ 本条红（**语档无关**，不再依赖跑批机器是中文档）");
+                        CheckText(p7Zh[i], Loc.ZhOf(p7Keys[i]),
+                                  "…而且**中文档那一趟**印的就是那条词条的**中文列**（键 `" + p7Keys[i] + "`）");
+                        CheckText(p7En[i], Loc.EnOf(p7Keys[i]),
+                                  "…**英文档那一趟**印的是**英文列**（键 `" + p7Keys[i] + "`）");
+                    }
+                }
             }
         }
 

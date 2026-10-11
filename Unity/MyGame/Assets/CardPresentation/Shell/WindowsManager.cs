@@ -63,10 +63,16 @@ namespace CardPresentation
     /// 的动画名）⇒ 删掉它是**零行为变化**，且本文件下面新加的 `IsOpen()` 才与那个 `1` 对得上。</para></summary>
     public enum WindowState { Closed = 0, Open = 1, Background = 2 }
 
-    /// <summary>挂在场景里的锚点节点上（主菜单三个）。`OnEnable` 自注册 —— 原版就是这个机制。
-    /// ⚠️ `[ExecuteAlways]` 是**我们加的**：建场景是在**编辑模式**下跑的，而普通 MonoBehaviour 的
-    /// `OnEnable` 在编辑模式下不触发 ⇒ 不注册就一个锚点都没有（2026-09-22 第一版自检 8 条红里有 5 条是这个根因）。</summary>
-    [ExecuteAlways]
+    // 🔴 **2026-10-11 就地订正（`A1551` · 铁律 5）：这里原来挂着一句 `[ExecuteAlways]` 及它的注释 ——
+    //   那个属性是【锚点类 `WindowHolder`】的，不是 `GameWindow` 的。** 2026-10-11 把 `WindowHolder`
+    //   拆去独立文件时**【类搬走了、类前面那个属性没搬】**（`git diff a04b76b HEAD -- WindowsManager.cs`
+    //   = 0 增 / 13 删）⇒ 属性落到 `GameWindow` 上，而 **`SearchingOpponentWindow : GameWindow` 继承了它**
+    //   ⇒ **编辑模式也派 `OnEnable`** ⇒ `NetSelfTest` 的 `A932⑥` 翻红（`OnHint` 订阅者 0→1）。
+    //   🔑 **判别式**：形状完全相同的**孪生断言 `N⑤` 仍然绿** —— 因为 `SearchingMatchPopup : MonoBehaviour`
+    //   （**不是**本类子类）⇒ 一对孪生只翻一条 =「属性只落在 `GameWindow` 上」的签名。
+    //   ✅ **属性已搬回 `Shell/WindowHolder.cs`**（它才是"挂在锚点节点上、`OnEnable` 自注册"的那个类）。
+    //   ⛔ **别再加回本类** —— 加了等于让**整族窗口在编辑模式**跑 `Awake`/`OnEnable`/`OnDisable`/`Update`。
+    //   ⚠️ **教训**：拆类的脚本**必须把「类前面挂着的属性」一起搬**（那批拆的 8 个类里只有它带属性）。
 
     /// <summary>所有菜单窗口的基类。子类重写 <see cref="Open"/> 做自己的铺数据/播动画。</summary>
     public class GameWindow : MonoBehaviour

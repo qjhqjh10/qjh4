@@ -2815,13 +2815,16 @@ namespace CardPresentation
         public const float DeckCellK = 0.9f;
         /// <summary>原版 `Frame 40K_bt_deck` 在作者系里的矩形（246×368 @ (2,17)）。</summary>
         public const float DcFrameX = 2f, DcFrameY = 17f, DcFrameW = 246f, DcFrameH = 368f;
-        /// <summary>卡背图（`Deck Image`，228×306 @ (11,26.1)）。</summary>
+        /// <summary>🔴 **2026-10-11（`A1530①`）就地订正**：这一格**不是** `Deck Image` 自己，而是
+        /// 原版 `Deck Image(mask)`（`RectMask2D`）那一格 —— `228×306 @ (11,26.1)`。
+        /// 卡格主图（`Deck Image`）**拉伸画在 `347.7×346.4 @ (−49.4,6.2)`**（= `DcImgX/Y/W/H`）再被它裁 ⇒
+        /// 可见 = 大方框正中的这一块。调用处照这个等价复现（见 `DeckCell` 里那段）。</summary>
         public const float DcBackX = 11f, DcBackY = 26.1f, DcBackW = 228f, DcBackH = 306f;
         /// <summary>🔴 **2026-10-11（A1507）**：卡格主图（原版叫 `Deck Image`）**没被遮罩裁之前**的尺寸
         /// —— **347.7×346.4 @ (−49.4, 6.2)**，被 `Deck Image(mask)` 的 `RectMask2D` 裁到上面那 228×305.97。
         /// ⇒ 我们画的时候**只取图正中 `DcBackW/DcImgW × DcBackH/DcImgH` 那一块**（等价复现，同模式卡那条 UV 路）。
         /// 出处 = 只读代理 2026-10-11 现读 `bundle_menus_assets_all` 的卡组格 prefab（`A2_Deck页.md` §2·2 同值）。</summary>
-        public const float DcImgW = 347.7f, DcImgH = 346.4f;
+        public const float DcImgX = -49.4f, DcImgY = 6.2f, DcImgW = 347.7f, DcImgH = 346.4f;
         /// <summary>「取不到督军立绘、退回画卡背」那条警告**限流**用的计数（不是缺陷计数）。</summary>
         static int NoWarlordArtLog;
         /// <summary>`Deck Name`（fs32 · 基准30 · auto[8~32] · 居中 · Capline · 字距 −2，@ (20,344.2) 宽 210）。
@@ -2832,7 +2835,10 @@ namespace CardPresentation
         /// 🔴 **2026-09-26 就地更正**：原来写「贴右上内缩 8」、并拿 `r.x2` 当基准 —— **那是错的**，原版在**左下**：
         /// `资料/说明书/04_界面UI/卡组界面说明书.md:56` 原文「`Faction Icon [-10,274 85x86]` ← **左下阵营图标**」；
         /// `资料/普查产出_0923/A2_Deck页.md:123` 给的是 `-10.5,273.7,84.5,85.7`（`工具/menu_rect.py` 实读同值）。
-        /// 这一处**从来没有任何断言盯过** ⇒ 错到现在才被发现。</summary>
+        /// 这一处**从来没有任何断言盯过** ⇒ 错到现在才被发现。
+        /// 🔴 **2026-10-11（`A1530②`）**：原版 prefab 里这一颗的名字是 **`Faction Icon`**（不是 `Faction`）——
+        /// 同族的 `Game Mode Icon` / `DificultyLevel` 都照抄了原版拼写，只有这一颗原来被改短；
+        /// 建节点处已改名，按名字取件的断言跟着改（⛔ 别再留短名）。</summary>
         public const float DcFacX = -10.5f, DcFacY = 273.7f, DcFacW = 84.5f, DcFacH = 85.7f;
         /// <summary>难度角标 `DificultyLevel`（**原版拼错了**）**84.93×84.01** @ **(159.19, 15.74)**（作者系，**右上**）。
         /// 出厂 `INACT` —— 由 `DeckCollectionDisplay.displayDifficultyLabel` 运行时打开（**预组页 = 1 · 我的卡组页 = 0**）。</summary>
@@ -3000,21 +3006,38 @@ namespace CardPresentation
             var front = CardArt.Portrait(info.WarlordId);       // `Portrait(cardId)` —— 全仓取立绘的通用口
             if (front != null)
             {
-                // ⚠️ **别用 `SetUvRect` 复现那份裁剪**（2026-10-11 实测过一次：整格只剩左边一小条，
-                //   原因没查清 —— 而模式卡那条路同样的写法是好的）⇒ 改用**公共件自己的语义**：
-                //   第 8 个实参 `keepAspect: true` = 原版 `Image.m_PreserveAspect` 的「**等比放进框、居中**」。
-                //   我们的立绘是 **671×1024**（比例 0.655），框 228×306 ⇒ **按高定宽 = 200×306**；
-                //   而原版画在 347.7×346.4 的方框里再被遮罩裁 ⇒ 可见 **227×306**。
-                //   两者只差**画宽 200 vs 227**（12%），画面同形；要逐像素一样得再加一条「先按方框算、再裁」的路，
-                //   ⚠️ **今天不做**、如实标在这里（`A1507` 的尾巴）。
-                var fq = Rect(cell, front,
-                     new PxRect(r.x1 + DcBackX * K, r.y1 + DcBackY * K,
-                                r.x1 + (DcBackX + DcBackW) * K, r.y1 + (DcBackY + DcBackH) * K),
-                     "Deck Image", q, null, true, clipR);
-                // 🔴 **必须换成「忽略贴图 alpha」那一档** —— 见 `CardView.MakeOpaqueQuad` 的注释：
-                //   原版 668 张卡的立绘是**抠图**（全透明 > 5%），普通 `Sprites/Default` 会把它们画成
-                //   「一个淡淡的人影 + 近乎空的格子」（2026-10-11 实测），而**卡面**一直是按忽略 alpha 画的。
-                CardView.MakeOpaqueQuad(fq);
+                // 🔴🔴 **2026-10-11（`A1530①` · 第十七会话代理 `X` 现读 prefab · 本会话落盘）：原版这一颗
+                //   【没有 `preserveAspect`】，我们原来传的是 `keepAspect: true`。**
+                //   判据（`工具/menu_dump.py bundle_menus_assets_all -2024334647938937812 --depth 4` 现读）：
+                //     `Deck Image` 那一行 **不带 `preserveAspect`**（同表里 `Faction Icon` / `Game Mode Icon`
+                //     都**带**；`Frame` 也不带但我们早就传了 `false` ✓）⇒ **只有这一颗传错**。
+                //   原版真正的画法（同一份 prefab）：
+                //     `Deck Image(mask)`（`11,26.1 → 239,332.1` · 挂 **`RectMask2D`**）
+                //       └ `Deck Image` —— **拉伸**画在 **`347.70×346.35 @ (−49.4, 6.2)`**（= `DcImgW/H` / `DcImgX/Y`）
+                //   ⇒ 可见区 = 那个大方框**正中**的 228×306 那一块（**不是**「等比缩到 200 宽」）。
+                //   🔴 **等价复现（不引入遮罩机制）**：把**大方框**交给 `Rect(…, clip: 遮罩格 ∩ 视口)` ——
+                //     `Rect` 自己那条 uv 算式（本文件 `:1578`）算出来的正好是「大方框里被遮罩框住的那一块」，
+                //     而**几何矩形仍然是 `遮罩格 ∩ 视口`**（与改前**逐位相同** ⇒ 位置/尺寸不受本次改动影响）。
+                //   ⛔ **别退回 `keepAspect: true`**（那是原版没有的一档；旧注释里「画宽 200 vs 227、差 12%」
+                //      那句话就是在记这个偏离）。
+                //   ⛔ **也别在 `Rect` 之后自己补一句 `SetUvRect`** —— 那会**盖掉** `Rect` 按视口裁切算好的
+                //      uv（部分滚出视口的格子会画错）；2026-10-11 有一版就是那么写的，症状 = 「整格只剩
+                //      左边一小条」，⛔ 别再走一遍（唯一正确的做法就是上面把**大方框**当 `r` 交给 `Rect`）。
+                var maskCell = new PxRect(r.x1 + DcBackX * K, r.y1 + DcBackY * K,
+                                          r.x1 + (DcBackX + DcBackW) * K, r.y1 + (DcBackY + DcBackH) * K);
+                PxRect visMask;
+                // 整块（遮罩格）在视口外 ⇒ 原版 `RectMask2D` **一个像素都不画** ⇒ 不建这颗（同 `Rect` 的语义）
+                if (ClipRect(maskCell, clipR, out visMask))
+                {
+                    var fq = Rect(cell, front,
+                         new PxRect(r.x1 + DcImgX * K, r.y1 + DcImgY * K,
+                                    r.x1 + (DcImgX + DcImgW) * K, r.y1 + (DcImgY + DcImgH) * K),
+                         "Deck Image", q, null, false, visMask);
+                    // 🔴 **必须换成「忽略贴图 alpha」那一档** —— 见 `CardView.MakeOpaqueQuad` 的注释：
+                    //   原版 668 张卡的立绘是**抠图**（全透明 > 5%），普通 `Sprites/Default` 会把它们画成
+                    //   「一个淡淡的人影 + 近乎空的格子」（2026-10-11 实测），而**卡面**一直是按忽略 alpha 画的。
+                    CardView.MakeOpaqueQuad(fq);
+                }
             }
             else
             {
@@ -3068,10 +3091,16 @@ namespace CardPresentation
             if (!string.IsNullOrEmpty(info.Faction))
                 // ⚠️ 走 `CardArt.MenuUi`（三级兜底 `ui_menu/ → ui_deck/ → ui/`）—— 与收藏窗那边原来那条路一致
                 // 🔴 位置 = **左下**（作者系 `-10.5, 273.7`），**别再改回右上**（2026-09-26 更正，见 `DcFacX` 注释）
+                // 🔴 **2026-10-11（`A1530②`）：节点名 = `Faction Icon`（原版 prefab 的**原样**名）。**
+                //   改前我们建的是短名 `Faction`（同族的 `Game Mode Icon` / `DificultyLevel` 都照抄了原版拼写
+                //   ⇒ **只有这一颗被改短**）。判据 = `menu_dump.py bundle_menus_assets_all -2024334647938937812`
+                //   现读的子件序 `… → Deck Name → Faction Icon → Game Mode Icon → DificultyLevel`。
+                //   ⚠️ 改名牵动 `Editor/CollectionScene.cs` 与 `Editor/MainMenuScene.cs` 里**按名字取件**的断言
+                //   （本批三处一起改），⛔ 别再留短名。
                 Rect(cell, CardArt.MenuUi(DeckRuntime.FactionIcon(info.Faction)),
                      new PxRect(r.x1 + DcFacX * K, r.y1 + DcFacY * K,
                                 r.x1 + (DcFacX + DcFacW) * K, r.y1 + (DcFacY + DcFacH) * K),
-                     "Faction", qOverlay, null, true, clipR);
+                     "Faction Icon", qOverlay, null, true, clipR);
 
             // 🆕 **模式图标**（作者系 `170.5, 273.68`，右下）—— 原版 `enabled = (icon != null)`：
             //    图取不到就**整层不建**（`Rect` 遇 null 直接 return null，天然满足）
