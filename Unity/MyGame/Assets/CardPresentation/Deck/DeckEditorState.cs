@@ -442,12 +442,36 @@ namespace CardPresentation
         }
 
         /// <summary>卡池里出现过的阵营（给筛选下拉用），按出现顺序。</summary>
+        /// <summary>🔴 **2026-10-11（A1503 ⑤）：军种筛选格的**排列顺序** = 原版那 13 个 option 的【序号】。**
+        /// <para>判据（只读代理 2026-10-11 现读 `bundle_menus_assets_all` 的 `CardArmyFilter`：
+        /// 13 个 option 的 `value` 从 **10 → 130** 逐个解 `background` PPtr，得到的就是这个序）：
+        /// `Ultramarines · Goff · SaimHann · Sautekh · BlackLegion · Leviathan · TauEmpire · Sororitas ·
+        /// Genestealers · AstraMilitarum · DarkAngels · EmperorsChildren · SpaceWolves`。
+        /// ⚠️ **与 `ForgeData.Armies` 的序【不是同一个序】** —— 那个是锻造厂/战役页用的（我们自定），
+        /// 这一条只管**筛选栏那一行**，⛔ 别去改 `ForgeData.Armies`（会牵动另外两页）。</para>
+        /// <para>🔴 **我们原来是 `seen.Sort(StringComparer.Ordinal)` = 字母序**
+        /// （`AstraMilitarum, BlackLegion, DarkAngels, EmperorsChildren, …`）——
+        /// 与参考图（`收藏—张牌的界面参考图（打开过滤器按钮后）.png` 左栏那一列）逐格对不上。</para></summary>
+        public static readonly string[] ArmyOrder =
+        {
+            "Ultramarines", "Goff", "SaimHann", "Sautekh", "BlackLegion", "Leviathan", "TauEmpire",
+            "Sororitas", "Genestealers", "AstraMilitarum", "DarkAngels", "EmperorsChildren", "SpaceWolves",
+        };
+
         public List<string> Factions()
         {
             var seen = new List<string>();
             foreach (var c in _pool)
                 if (!string.IsNullOrEmpty(c.Faction) && !seen.Contains(c.Faction)) seen.Add(c.Faction);
-            seen.Sort(StringComparer.Ordinal);
+            // 🔴 按**原版 option 序号**排（见 `ArmyOrder`）；**不在表里的**（将来新增的阵营）排到最后、
+            //    内部再按字母 ⇒ **稳定**（同一批牌两次跑出同一个序，自检才不会闪）。
+            seen.Sort((a, b) =>
+            {
+                int ia = System.Array.IndexOf(ArmyOrder, a), ib = System.Array.IndexOf(ArmyOrder, b);
+                if (ia < 0) ia = int.MaxValue;
+                if (ib < 0) ib = int.MaxValue;
+                return ia != ib ? ia.CompareTo(ib) : string.CompareOrdinal(a, b);
+            });
             return seen;
         }
 

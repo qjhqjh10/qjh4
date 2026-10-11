@@ -672,6 +672,18 @@ unset ELECTRON_RUN_AS_NODE && "$UNITY" -batchmode -quit \
 它是**挂在壳的三个锚点上的窗口**，不该有自己的场景，要真看就从 `Shell` 里点 REWARDS 进去）/
 `VfxPicker.Run` / `ArtBaker.BakeFromCLI` / `DistortProbe.Run`
 
+🔴🔴 **跑任何「会存盘的自检宿主」之前，先留一份场景副本；跑完立刻 `git diff --numstat` 对一眼。**（2026-10-11 实测）
+**为什么**：那些宿主一律是 **`EditorSceneManager.NewScene(EmptyScene)` 建场 → 收尾 `SaveScene()`**
+（`DeckScene.cs:6575`→`:711` · `CollectionScene.cs:776`→`:7023` · `MainMenuScene.cs:586` · `CardBaseDemo.cs:73` · `BattleScene.cs:143`）
+⇒ **跑一次就把对应场景整个重建后覆盖存盘**。**实测代价**：跑一次 `DeckScene.Run`，
+`CardPresentation/Scenes/DeckEditor.unity` 被重写（diff **107,212 / 110,536 行**），
+并且里面**冒出 5 个 `MonoScript`（`!u!115`）存根** —— 而提交那一版是 **0 个** ⇒
+**第十五会话那份「只存在于盘上的手工崩溃修复」被改了回去**。
+✅ **兜底**：`Scenes/` 已入 git ⇒ `git checkout -- <场景>` 能还原（当天还原过一次）；`_tmp_view/scene_bak/` 另留副本。
+🔴 **根治 = 改生成器**（别往 level 里烘 `MonoScript` 存根）—— **还没做**（`A1506`）。
+⛔ **别在没看 diff 的情况下连跑多个宿主**（每个都会重写自己那份场景）。
+⚠️ 同族：`CollectionCheck.unity`（68 MB）是**纯自检产物**，已从 git 取消跟踪（判据 → `.gitignore`）。
+
 🔴 **复跑要攒批，别改一条跑一遍（铁律 12）** —— **一批改动做完**，**按覆盖面跑对应的那几条**
 （⛔ **别一上来就 `_run_8_checks.sh`**；判据 = 铁律 12 的三条：**只动一个宿主就只跑那一条** / 共用件先 `grep` / **纯工具纯文档零条**）：
 `RuleEngineTest.Run`（规则/卡组）、`BattleScene.Run`（对战）、

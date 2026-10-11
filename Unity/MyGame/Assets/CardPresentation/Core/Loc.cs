@@ -319,6 +319,43 @@ namespace CardPresentation
             //   本条取**第一颗** `MenuDeck/MenuButtons/Done`；第二颗 `MenuLogin/Login/DoneButton` 是登录页共用的）-------------
             { "MenuDeck/MenuButtons/Done",                    new Entry("完成",     "Done") },
 
+            // ============================================================ 🆕 **2026-10-11（界面复刻·主菜单）：
+            //   左竖导航那五颗的文案。**
+            // 键名 = 原版那颗 `Localize.mTerm` 的**原文**（只读判据代理 2026-10-11 现读
+            //   `bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/` 的 MB2500/2564/2563/2562/2565 逐颗实读）：
+            //   `MainMenu/NavigationPanel/**HomeButton**` · `…/Collection` · `…/Shop` · `…/Rewards` ·
+            //   `…/**Friends**`（⚠️ **第五颗的键名是 `Friends`、不是 `Social`** —— 屏上英文才是 `SOCIAL`）
+            // 英文列 = 那五颗 TMP 自己的 `m_text`（`PLAY`/`COLLECTION`/`SHOP`/`REWARDS`/`SOCIAL`）。
+            // 🔴 **中文列的出处分两档，别混**：
+            //   · `游玩` / `收藏` = **官方词条表** `d:/4/Unity/数据/本地化/i18n/zh_CN.csv:2,3`
+            //     （`PLAY,~,游玩` / `COLLECTION,~,收藏`）—— 这是**第一档判据**。
+            //   · `商店` / `奖励` / `社交` = **本地词条表里没有这三条**（全表 6424 行已 grep，零命中）
+            //     ⇒ 取**用户给的原版客户端实拍** `C:/Users/qjh36/Desktop/warpforge参考图/主界面参考图.png`
+            //     左竖导航上逐字读到的三个词（仓库副本 `资料/原版参照图/用户实拍_1017/` 里**没有**这张，
+            //     它是 2026-10-10 才加进去的）—— 这是**第二档判据**，已在卡片行标注。
+            // 消费侧 = `Shell/MainMenuRuntime.cs` 的 `NavButton`（原来硬编码英文）。
+            // ------------- E1 主菜单左竖导航五颗 -------------
+            { "MainMenu/NavigationPanel/HomeButton",          new Entry("游玩",     "PLAY") },        // 中文 = zh_CN.csv:2
+            { "MainMenu/NavigationPanel/Collection",          new Entry("收藏",     "COLLECTION") },  // 中文 = zh_CN.csv:3
+            { "MainMenu/NavigationPanel/Shop",                new Entry("商店",     "SHOP") },        // 中文 = 用户实拍（表里没有）
+            { "MainMenu/NavigationPanel/Rewards",             new Entry("奖励",     "REWARDS") },     // 中文 = 用户实拍（表里没有）
+            { "MainMenu/NavigationPanel/Friends",             new Entry("社交",     "SOCIAL") },      // 中文 = 用户实拍（表里没有）
+
+            // ============================================================ 🆕 **2026-10-11（界面复刻·模式卡标题）**
+            // 🔴 **先说清这三条不是「原版词条」**：原版模式卡那颗 `Event Title` 的字是
+            //   `LiveOpsAssetUtility.GetLabel(event)` 灌的（= **liveop 事件自己的 label**，服务端数据），
+            //   本地**查不到**（`资料/主菜单_原版规格.md` §9·3）。⇒ 我们这五张卡的标题本来就是**自定的**。
+            // 中文列的出处 **只有一个**：**用户给的原版客户端实拍**
+            //   `C:/Users/qjh36/Desktop/warpforge参考图/主界面参考图.png` 上逐字读到的三个
+            //   （教学 / 练习 / 小冲突）。✅ **用户 2026-10-11 拍板**：「把那三个改成中文」。
+            // ⚠️ **另外两张（Draft / Ranked）参考图上没有** ⇒ ⛔ **不自己译**，调用点直接传英文原文
+            //   （`BuildModeCard(..., "DRAFT MODE"/"RANKED", ...)`），**故意不在这里留空条目**。
+            // 消费侧 = `Shell/MainMenuRuntime.cs` 的 `BuildGameModes` 三个调用点。
+            // ------------- E2 模式卡标题（三个有实拍出处的）------------
+            { "MainMenu/GameModes/Tutorial",                  new Entry("教学",     "TUTORIAL") },    // 中文 = 参考图「教学」
+            { "MainMenu/GameModes/Practice",                  new Entry("练习",     "PRACTICE") },    // 中文 = 参考图「练习」
+            { "MainMenu/GameModes/Skirmish",                  new Entry("小冲突",   "SKIRMISH") },    // 中文 = 参考图「小冲突」
+
             // ------------- 🆕 2026-10-17（F2 · 补 D6 漏填的词条）：选卡组弹窗的**标题** -------------
             // 节点 = `Deck Selection Popup with Tabs/Generic Window Red Background Big/Deck Display/Header/
             //   Instructions 2`。键名 = 那颗 `Localize` 的 `mTerm` 原文（**2026-10-17 F2 实读**：

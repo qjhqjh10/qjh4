@@ -2290,6 +2290,28 @@ namespace CardPresentation
             return mr;
         }
 
+        /// <summary>🆕 **2026-10-11（A1507）**：把一颗**外面建的** quad 的材质换成「**只取 RGB、忽略贴图 alpha**」
+        /// 那一档（= 立绘底层用的 `CardPresentation/ArtOpaque`，见下面 `OpaqueMaterial`）。
+        /// <para>**为什么要有这个口**：原版 1126 张卡的立绘里有 **668 张**是「角色抠图 alpha」
+        /// （`Resources/Art/cards/card_cutouts.json` 的清单；判据 = 全透明像素 > 5%）。
+        /// **卡面**一直是按「忽略 alpha」画的（`AddLayer(..., opaque: true)`）⇒ 看着是完整插图；
+        /// 而**卡格**（`MenuDraw.DeckCell` 拿同一张图当整格图）走的是普通 `Sprites/Default` ⇒
+        /// 抠图卡只剩一个淡淡的人影、整格近乎空的（2026-10-11 实测就是这样）。
+        /// ⇒ 卡格共用同一份材质，两边才一致。</para>
+        /// <para>⚠️ **会保住原来的渲染队列**（`SetRenderQueue` 设过的那一档）——
+        /// 新建材质会把它清零，而卡格是靠队列分层的。</para></summary>
+        public static void MakeOpaqueQuad(ImageQuad q)
+        {
+            if (q == null) return;
+            var mr = q.GetComponent<MeshRenderer>();
+            if (mr == null) return;
+            int oldQ = mr.sharedMaterial != null ? mr.sharedMaterial.renderQueue : 0;
+            var m = new Material(OpaqueMaterial());
+            m.mainTexture = q.Texture;
+            if (oldQ != 0) m.renderQueue = oldQ;
+            mr.sharedMaterial = m;
+        }
+
         /// <summary>`CardPresentation/ArtOpaque`：只取 RGB、把 alpha 当 1 —— 立绘底层用它（见 `AddLayer`）。</summary>
         static Material OpaqueMaterial()
         {

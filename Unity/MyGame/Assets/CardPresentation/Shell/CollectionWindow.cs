@@ -795,6 +795,12 @@ namespace CardPresentation
         public static readonly PxRect DeckViewport = new PxRect(330.9f, 155.9f, 1920f, 1080f);
         /// <summary>卡组格 **225 × 364.5**（prefab 根 250×405 的 **0.9 倍**）· 横向 spacing **20** · pad **L10** ⇒ **6 列**。</summary>
         public const float DeckCellW = 225f, DeckCellH = 364.5f, DeckSpacingX = 20f, DeckPadL = 10f;
+        /// <summary>🔴 **2026-10-11（A1503 ⑥）：行距的【纵向】间距 —— 原版是 `0`，我们原来【错写成横向那个 20】。**
+        /// 判据（只读代理 2026-10-11 现读）：`Content` 上那颗 `GridLayoutGroup` 的 `m_Enabled = 0`
+        /// ⇒ 真正说话的是 `RSR` 的 `_spacingX/**20**` / `_spacingY/**0**` / `_cellHeight 364.5`。
+        /// ⇒ **行距 = `DeckCellH + DeckSpacingY` = 364.5**（我们原来拿横向那个 20 当行距 ⇒ **每行多 20px**）。
+        /// ⚠️ **三处一起改**（格子落位 / 两处内容高），改一处等于没改。</summary>
+        public const float DeckSpacingY = 0f;
         public const float DeckCellScale = 0.9f;
         /// <summary>列数 = `floor(1589.1 ÷ (225+20))` = **6**（原版是运行时算的，A2 §四·1 说算法读不到）。</summary>
         public const int DeckCols = 6;
@@ -803,7 +809,7 @@ namespace CardPresentation
         {
             int r = i / DeckCols, c = i % DeckCols;
             float x = DeckViewport.x1 + DeckPadL + c * (DeckCellW + DeckSpacingX);
-            float y = DeckViewport.y1 + r * (DeckCellH + DeckSpacingX);
+            float y = DeckViewport.y1 + r * (DeckCellH + DeckSpacingY);
             return new PxRect(x, y, x + DeckCellW, y + DeckCellH);
         }
 
@@ -1248,7 +1254,8 @@ namespace CardPresentation
             if (_cosmoDrawer == null || _fltCosmo == null) return;
             _fltCosmo.Open = !_fltCosmo.Open;                 // 🆕 A11：与 Cards/Styles 同一套（逻辑态 + 滑动）
             StartDrawerSlide(_fltCosmo);
-            RefreshFilterToggles();                           // 🆕 2026-10-05：页头那颗圆钮按**逻辑态**换图
+            RefreshFilterToggles();
+            RefreshClearFilters();                           // 🆕 2026-10-05：页头那颗圆钮按**逻辑态**换图
             Debug.Log("[Collection] 卡背页的筛选抽屉 " + (CosmoFiltersOpen ? "打开" : "收起")
                       + "（进度 = " + _fltSlideDesc(_fltCosmo) + "）");
         }
@@ -1748,7 +1755,8 @@ namespace CardPresentation
         {
             _fltOpen = !_fltOpen;                      // 逻辑态**立即**翻转（UI/自检读的都是它）
             StartDrawerSlide(_flt);                    // 🆕 A11：视觉走滑动（Play）/ 直接到位（批处理）
-            RefreshFilterToggles();                    // 🆕 2026-10-05：页头那颗圆钮按**逻辑态**换图
+            RefreshFilterToggles();
+            RefreshClearFilters();                    // 🆕 2026-10-05：页头那颗圆钮按**逻辑态**换图
             Debug.Log("[Collection] 筛选栏 " + (_fltOpen ? "打开" : "收起")
                       + "（原版**滑进滑出**：`hiddenPosition.x = -550` · `originalAnchorPosition.x = -165`"
                       + " ⇒ **行程 -385px**；`animationTime = 0.3` ⇒ 我们也是位移 + 0.3 秒，进度 = "
@@ -1778,6 +1786,7 @@ namespace CardPresentation
             f.Upgradable = FltState.Filter.Upgradable;
             FltState.SetFilter(f);
             _flt.OnChanged();                       // 各页自己决定重画什么（Cards：卡池 + 计数条；Styles：异画格）
+            RefreshClearFilters();   // 🆕 A1496：`Clear filters` 的显隐跟着筛选走（四页一起刷，幂等）
             Debug.Log("[Collection] 已清空筛选");
         }
 
@@ -1792,6 +1801,7 @@ namespace CardPresentation
         public void UiSetCardFilter(DeckFilter f)
         {
             Scope(_fltCards, () => { FltState.SetFilter(f); _flt.OnChanged(); });
+            RefreshClearFilters();   // 🆕 A1496：`Clear filters` 的显隐跟着筛选走（四页一起刷，幂等）
         }
 
         /// <summary>点了一格筛选（`$name` / `$fac:x` / `$rar:x` / `$cost:i` / `$type:x`）。</summary>
@@ -1822,6 +1832,7 @@ namespace CardPresentation
                 Debug.Log("[Collection] Upgradable only：" + (FltState.Filter.Upgradable
                     ? "只列可升级 —— **单机版没有升级系统 ⇒ 必然筛成空**（预期行为）" : "已关"));
             _flt.OnChanged();
+            RefreshClearFilters();   // 🆕 A1496：`Clear filters` 的显隐跟着筛选走（四页一起刷，幂等）
         }
 
         /// <summary>**Cards 页**改完筛选：重画卡池（回到顶部）+ 重刷筛选栏选中态 + 重算计数条。</summary>
@@ -2408,15 +2419,26 @@ namespace CardPresentation
                 clrLab.SetRenderQueue(QPageText);
                 clrLab.SetWrappingMode(0);      // 原版 `m_TextWrappingMode = 0`
             }
+            Transform clrHit = null;
             if (onClear != null)
                 // A17：原版 `…>Clear Filter Button` 是 SpriteSwap（普查 §块 3 第 4 行；我们 1 颗盖原版 3 颗）
-                AddHit(page, "ClearFiltersHit",
+                clrHit = AddHit(page, "ClearFiltersHit",
                        new PxRect(ClearFltX, ClearFltY, ClearFltX + ClearFltW, ClearFltY + ClearFltH), QPageRow, onClear,
                        clrQ2, "UI_Button_Mulligan");
+
+            // 🆕 **2026-10-11（A1496）**：三件存下来，交给 `RefreshClearFilter` 按「这一页的筛选空不空」开关
+            //   （判据 / 为什么走 `SetActive` 而不是原版的 −550 平移 / 命中闸为什么必须同时翻 → 那三个数组上面那段）。
+            if (pageNo >= 0 && pageNo < 4)
+            {
+                _hdrClearQ[pageNo] = clrQ2;
+                _hdrClearTx[pageNo] = clrLab;
+                _hdrClearHit[pageNo] = clrHit;
+            }
 
             // 建的时候抽屉大多还没建（`_fltCards` 在 `BuildCardsPage` 更靠后那几行才赋值）
             // ⇒ 这一下只把「出厂态」摆正；真正的兜底在 `Build()` 尾巴那次 `RefreshFilterToggles()`。
             RefreshFilterToggle(pageNo);
+            RefreshClearFilter(pageNo);      // 🆕 2026-10-11（A1496）：同上，出厂态先摆正一次
         }
 
         /// <summary>点了还没做的件 —— **出声**（红线：不许静默失败）。</summary>
@@ -2464,6 +2486,40 @@ namespace CardPresentation
         /// 🔴 2026-10-05 之前：这颗 quad 的返回值**被丢弃**（没有引用）、三条开合路径一处都不碰它
         /// ⇒ 「开着也不换图」（与 `DeckRuntime` 那颗 `hdr_fltbtn` 当年同一个毛病，那边 A76② 已修）。</summary>
         readonly ImageQuad[] _hdrFltBtn = new ImageQuad[4];
+
+        // ============================================================ 🆕 **2026-10-11（A1496）：`Clear filters` 的显隐**
+        // 存下页头那三件（底图 / 字 / 命中区），好按「这一页的筛选是不是空的」整组开关。
+        // 🔴 **判据（原版）**：`CollectionFilterController` 带 `clearFiltersButton` / `hiddenPosition` /
+        //   `animationTime` 三个字段，**隐藏方式是【平移】到 `hiddenPosition = (−550, 0)`**（不是 `SetActive`），
+        //   卡组编辑窗那一份实例逐字段实读得到这组值。
+        // ⚠️ **触发条件仍是【推断】**（= 一个筛选都没设时藏）：真正干这件事的方法体**本地缺失**
+        //   （`decomp_full` 里 `CollectionFilterController` 只导出 `ctor` + 两个 lambda，都不碰这颗钮）；
+        //   旁证 = 用户实拍参考图 `收藏—张组的参考图.png` / `收藏—张牌的界面参考图（打开过滤器按钮后）.png`
+        //   那一帧上**这颗钮根本不在**（空筛选）。
+        // 🔴 **我们走 `SetActive` 而不是原版那条平移**（与卡组编辑窗 `DeckRuntime` 同一口径、同一句如实标注）：
+        //   理由是**命中区**——我们的命中是**静态 `PxRect`**、不跟着节点走，平移了但没关闸就是
+        //   「藏起来却还点得到」= 静默失败（本仓红线）。⇒ **显隐与命中闸必须同一条判据一起翻**。
+        readonly ImageQuad[] _hdrClearQ = new ImageQuad[4];
+        readonly Label[] _hdrClearTx = new Label[4];
+        readonly Transform[] _hdrClearHit = new Transform[4];
+
+        /// <summary>这一页的 `Clear filters` 该不该在（= **这一页的筛选不是空的**）。
+        /// ⚠️ 口径与卡组编辑窗**逐字相同**：只读 <c>State.Filter.IsEmpty</c>（五个筛选字段），
+        /// **不含** `Owned` / `Upgradable` 那两个开关 —— 因为 `Clear filters` 清的正是那五件
+        /// （`ClearFiltersNow` 里显式把 `Owned`/`Upgradable` 抄回去，见那里的注释）。</summary>
+        public void RefreshClearFilter(int page)
+        {
+            if (page < 0 || page >= 4) return;
+            var d = PageDrawer(page);
+            bool on = d != null && d.State != null && !d.State.Filter.IsEmpty;
+            var q = _hdrClearQ[page]; var tx = _hdrClearTx[page]; var hit = _hdrClearHit[page];
+            if (q != null && q.gameObject.activeSelf != on) q.gameObject.SetActive(on);
+            if (tx != null && tx.gameObject.activeSelf != on) tx.gameObject.SetActive(on);
+            if (hit != null && hit.gameObject.activeSelf != on) hit.gameObject.SetActive(on);
+        }
+
+        /// <summary>四页一起刷（便宜且幂等 —— 同 <see cref="RefreshFilterToggles"/> 那条口径）。</summary>
+        void RefreshClearFilters() { for (int i = 0; i < 4; i++) RefreshClearFilter(i); }
 
         /// <summary>**窗口页号** → 那一页的抽屉（0=Deck · 1=Cards · 2=Cosmetics · 3=Styles）。
         /// ⚠️ 与 <see cref="DrawerByPage"/> 的**抽屉页号**（0=Cards · 1=Styles · 2=Cosmetics · 3=Deck）
@@ -2641,6 +2697,7 @@ namespace CardPresentation
             //   它起手会画成常态图」—— **那个前提是错的**（四页起手一律收起，见 `BuildStylesPage` 那段更正）。
             //   ⛔ 但这一行照旧要留：它的作用在**重建**那条路上，不在首建。
             RefreshFilterToggles();
+            RefreshClearFilters();
         }
 
         // ============================================================ Deck 页的内容（由 `CollectionTabPage` 调）
@@ -2789,7 +2846,9 @@ namespace CardPresentation
             var deckVp = ViewportClip.Hang(holder, "Viewport", DeckViewport, Vector4.zero, Vector2Int.zero);
             int n = CollectionData.DeckCount();
             int rows = Mathf.Max(1, Mathf.CeilToInt(n / (float)DeckCols));
-            float contentH = rows * (DeckCellH + DeckSpacingX) - DeckSpacingX;
+            // ⚠️ **尾巴那一项也是纵向的**（原来写的是横向的 `- DeckSpacingX`）—— 2026-10-11 改的时候漏了它，
+            //   内容高少 20 ⇒ 「滚到底 ⇒ 最后一格完整落进视口」那条断言当场红（实测 max=149.4 而不是 169.4）。
+            float contentH = rows * (DeckCellH + DeckSpacingY) - DeckSpacingY;
             DeckScroll = MenuScroll.TopAligned(DeckViewport, contentH);
             DeckScroll.Owner = gameObject;
             DeckScroll.ClipNode = deckVp;               // 🔴 A465（同上）
@@ -2934,7 +2993,10 @@ namespace CardPresentation
                            //   折行 = `1` ⇒ 与漏斗那一档同档，不必还原。
                            wrapPx: DTitleW, autoMinPx: 10f, autoMaxPx: 36f, autoBasePx: 32f);
             if (ttl != null) ttl.SetRenderQueue(QFltText);
-            var armies = CampaignData.Armies;
+            // 🔴 **2026-10-11（A1503 ⑤）**：改用**原版 option 序号**那一份（`DeckEditorState.ArmyOrder`）——
+            //   原来这里取 `CampaignData.Armies`（= 锻造厂/战役页用的**我们自定序**）⇒ 与参考图逐格对不上。
+            //   两处（建格 / 刷选中色）**必须同一份**，否则格子与名字错位。
+            var armies = DeckEditorState.ArmyOrder;
             for (int i = 0; i < armies.Length; i++)
             {
                 string fac = armies[i];
@@ -2983,7 +3045,8 @@ namespace CardPresentation
             _deckFltSlide.Open = on;
             StartDrawerSlide(_deckFltSlide);
             if (on && _deckFltNameTx != null) _deckFltNameTx.SetText(DeckNameFilterText());
-            RefreshFilterToggles();                        // 🆕 2026-10-05：页头那颗圆钮按**逻辑态**换图
+            RefreshFilterToggles();
+            RefreshClearFilters();                        // 🆕 2026-10-05：页头那颗圆钮按**逻辑态**换图
             Debug.Log("[Collection] Deck 页筛选栏 " + (on ? "打开" : "收起") + "（原版 `Deck Filters`）"
                       + " · 进度 = " + _fltSlideDesc(_deckFltSlide));
         }
@@ -3023,7 +3086,10 @@ namespace CardPresentation
         void RebuildDeckFilterCells()
         {
             if (_deckFltPanel == null) return;
-            var armies = CampaignData.Armies;
+            // 🔴 **2026-10-11（A1503 ⑤）**：改用**原版 option 序号**那一份（`DeckEditorState.ArmyOrder`）——
+            //   原来这里取 `CampaignData.Armies`（= 锻造厂/战役页用的**我们自定序**）⇒ 与参考图逐格对不上。
+            //   两处（建格 / 刷选中色）**必须同一份**，否则格子与名字错位。
+            var armies = DeckEditorState.ArmyOrder;
             for (int i = 0; i < armies.Length; i++)
             {
                 var cell = FindDeep(_deckFltPanel, "Cell_fac_" + armies[i]);
@@ -3054,7 +3120,9 @@ namespace CardPresentation
         {
             int cnt = FilteredDeckIndices().Count;
             int rows = Mathf.Max(1, Mathf.CeilToInt(cnt / (float)DeckCols));
-            float contentH = rows * (DeckCellH + DeckSpacingX) - DeckSpacingX;
+            // ⚠️ **尾巴那一项也是纵向的**（原来写的是横向的 `- DeckSpacingX`）—— 2026-10-11 改的时候漏了它，
+            //   内容高少 20 ⇒ 「滚到底 ⇒ 最后一格完整落进视口」那条断言当场红（实测 max=149.4 而不是 169.4）。
+            float contentH = rows * (DeckCellH + DeckSpacingY) - DeckSpacingY;
             if (DeckScroll != null)
             {
                 // ⚠️ `MenuScroll` 没有「改内容尺寸」的 API ⇒ 直接写它那两个**公开字段**
@@ -3130,10 +3198,22 @@ namespace CardPresentation
         Transform BuildDeckCell(Transform parent, int i, PxRect r)
         {
             int idx = i;                                   // ⚠️ 闭包别捕 `i`（循环变量）
-            return MenuDraw.DeckCell(this, parent, "CollectionDeck_" + i, r, CollectionData.DeckAt(i),
+            var info = CollectionData.DeckAt(i);
+            // 🆕 **2026-10-11（A1503 ①）：把 `gameMode` 传下去 —— 右下那颗【绿色双箭头】原来整层没建。**
+            //   判据（只读代理 2026-10-11 现读 `bundle_menus_assets_all` 的卡组格 prefab）：
+            //     `Game Mode Icon` **84.5×85.75 @作者系 (170.5, 273.7)**（= 同一份几何里 `Faction Icon`
+            //     是左下那个红圆、这一颗是右下），`enabled = (icon != null)`；
+            //     遭遇 = `40k_gamemode_icon_skirmish`（**青绿双箭头圆徽**）· 经典 = `40k_gamemode_icon_classic`（红枪）。
+            //   🔴 **为什么现在才接**：`MenuDraw.DeckCell` 那一支**早就写好了**（`if (gameMode.HasValue) Rect(… "Game Mode Icon")`），
+            //     只是**本调用点从来没传**（形参默认 `null` ⇒ 那一层静默不画）。**字段也早就有了**
+            //     （`Shell/CollectionData.cs:53` 的 `DeckInfo.GameMode` ← `:113` 抄自 `PlayerDeck.GameMode`）。
+            //   ⚠️ `0` 是**有意义的值**（`GameMode.Classic`），不是「没设」—— 映射表在
+            //     `MenuDraw.GameModeIconFile`（0→classic · 13→skirmish · 其余→null ⇒ 整层不建，与原版同）。
+            return MenuDraw.DeckCell(this, parent, "CollectionDeck_" + i, r, info,
                                      i == CollectionData.CurrentIndex(),
                                      QPageRow, QPageText, QPageOverlay, QPageRow,
-                                     () => SelectDeck(idx));
+                                     () => SelectDeck(idx),
+                                     gameMode: info.GameMode);   // `DeckInfo` 是 **struct** ⇒ 没有 null 那一档
         }
 
         /// <summary>点一格卡组：**选中 + 开 `Deck info Popup`**（2026-09-23 起 —— 那扇窗建好了）。

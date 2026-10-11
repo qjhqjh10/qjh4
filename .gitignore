@@ -138,6 +138,21 @@
 #    `DeckEditor.unity` 26 MB）。⇒ 自检/重建**会重写这些文件** ⇒ 每次重存会产生大 diff。
 #    见 `资料/交接_第十六会话.md` 坑 4。
 # 原登记（保留痕迹）：/Unity/MyGame/Assets/CardPresentation/Scenes/
+#
+# 🔴 **2026-10-11（当天第二次调整 · 用户拍板「只拿 CollectionCheck.unity」）：单独把这一份再挡回去。**
+#    判据（现核三条）：① 它是**自检产物** —— 全仓**只有** `Editor/CollectionScene.cs:8374` 一处提到它
+#      （就是自检宿主写它的路径），**不在 `EditorBuildSettings.asset` 里** ⇒ 不随包发布；
+#      ② **可重建**：`CollectionScene.Run` 一跑就重新生成；
+#      ③ **它每次自检都被整篇重写** —— 实测一次 `CollectionScene.Run` 产生 **765,676 / 766,024 行**的 diff，
+#      把任何提交里的真改动全淹掉；而它的 blob 是 **67.7 MB**（GitHub 单文件 >50 MB 就告警、**>100 MB 拒收**，
+#      已经报过一次 `GH001`）⇒ 每提交一次历史里就再压一份、**不可逆**。
+#    ⛔ **上面那条「纳入 git」的理由对【这一份】不成立** —— 那份手工崩溃修复在 `Shell.unity` / `DeckEditor.unity`
+#      （提交 `a04b76b` 的信息原话：「本会话的崩溃修复就在这两份里，仅存在于盘上」），**与本文件无关**。
+#    ✅ **`.meta` 照旧跟踪**（GUID 要稳，否则引用会断）—— 只挡 `.unity` 本体。
+#    ⚠️ **已经推上去的那一份留在历史里**：本条只**止住以后的膨胀**，不会让 `.git` 变瘦
+#      （要回收得重写历史 + 强推，那是另一个量级的操作、**没做**）。
+#    ⚠️ 本地文件**照旧在盘上**（`git rm --cached` 只取消跟踪），打开 Unity 看那一幕不受影响。
+/Unity/MyGame/Assets/CardPresentation/Scenes/CollectionCheck.unity
 
 # ---------- Unity 安装包（8.8 GB）----------
 /Unity/安装Unity相关内容/

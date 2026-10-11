@@ -2817,8 +2817,17 @@ namespace CardPresentation
         public const float DcFrameX = 2f, DcFrameY = 17f, DcFrameW = 246f, DcFrameH = 368f;
         /// <summary>卡背图（`Deck Image`，228×306 @ (11,26.1)）。</summary>
         public const float DcBackX = 11f, DcBackY = 26.1f, DcBackW = 228f, DcBackH = 306f;
-        /// <summary>`Deck Name`（fs32，@ (20,344.2) 宽 210）。</summary>
-        public const float DcNameX = 20f, DcNameY = 344.2f, DcNameW = 210f, DcNameH = 35.8f, DcNamePx = 32f;
+        /// <summary>🔴 **2026-10-11（A1507）**：卡格主图（原版叫 `Deck Image`）**没被遮罩裁之前**的尺寸
+        /// —— **347.7×346.4 @ (−49.4, 6.2)**，被 `Deck Image(mask)` 的 `RectMask2D` 裁到上面那 228×305.97。
+        /// ⇒ 我们画的时候**只取图正中 `DcBackW/DcImgW × DcBackH/DcImgH` 那一块**（等价复现，同模式卡那条 UV 路）。
+        /// 出处 = 只读代理 2026-10-11 现读 `bundle_menus_assets_all` 的卡组格 prefab（`A2_Deck页.md` §2·2 同值）。</summary>
+        public const float DcImgW = 347.7f, DcImgH = 346.4f;
+        /// <summary>「取不到督军立绘、退回画卡背」那条警告**限流**用的计数（不是缺陷计数）。</summary>
+        static int NoWarlordArtLog;
+        /// <summary>`Deck Name`（fs32 · 基准30 · auto[8~32] · 居中 · Capline · 字距 −2，@ (20,344.2) 宽 210）。
+        /// 🔴 **2026-10-11（A1503 ②）就地订正**：高原来写 **35.8** —— 原版 prefab 实读是 **39.69**
+        /// （只读代理 2026-10-11 现读 `bundle_menus_assets_all`；同批还查到 auto/字距 两样我们没接，已在调用处补上）。</summary>
+        public const float DcNameX = 20f, DcNameY = 344.2f, DcNameW = 210f, DcNameH = 39.69f, DcNamePx = 32f;
         /// <summary>阵营图标 **84.5×85.7** @ **(-10.5, 273.7)**（作者系 250×405 下的值）。
         /// 🔴 **2026-09-26 就地更正**：原来写「贴右上内缩 8」、并拿 `r.x2` 当基准 —— **那是错的**，原版在**左下**：
         /// `资料/说明书/04_界面UI/卡组界面说明书.md:56` 原文「`Faction Icon [-10,274 85x86]` ← **左下阵营图标**」；
@@ -2948,21 +2957,64 @@ namespace CardPresentation
             maskPad = _st.Pad;
             var cell = Node(parent, name, r);
 
+            // 🔴🔴 **2026-10-11（A1503 ③）：卡背改到 `Frame`【之前】画。**
+            //   判据（只读代理 2026-10-11 现读 `bundle_menus_assets_all` 的卡组格 prefab，
+            //   `menu_dump -2024334647938937812 --depth 3` 的子件序）：`Deck/` 下**底→顶**是
+            //     `Highlight` → **`Deck Image(mask)` → `Deck Image`** → **`Frame`** → `Deck Name` →
+            //     `Faction Icon` → `Game Mode Icon` → `DificultyLevel`
+            //   ⇒ **卡框压在卡背之上**（我们原来是反的：先 `Frame` 后 `CardBack` ⇒ 卡背把卡框盖住）。
+            //   ⚠️ 这一处**从来没有任何断言盯过**（同族先例：`Faction Icon` 画错边那笔也是「没人盯」）。
+            // 🔴🔴 **2026-10-11（A1507）：卡格那张图 = 【督军的卡图】，不是卡背 —— 我们画错了。**
+            //   **判据（反编译逐句，`d:/2/tools/decomp_full/CollectionDeck__Config.c`）**：真身是
+            //     `CollectionDeck.Config(CardDeck)` —— 第 69-74 行：
+            //       `lVar8 = *(*(param_2 + 0x40) + 0x50)`（= `CardDeck.deckHero` 的 `cardImageReference`）
+            //       → `Everguild.Addressables.AssetReferenceTyped.Load(lVar8, …)` → `Image.set_sprite(lVar9 /*+0x50*/)`
+            //     ⇒ 卡格主图 = **`deckHero` 那张卡的立绘资源**。
+            //   同一函数**顺带印证了另外两颗**（同族已做）：`+0x58 ← ArmyIconsSO.GetArmyIcon(deck+0x50)`
+            //     （阵营图标）· `+0x88 ← GetGameModeIcon(CardDeck.GameMode)`（模式图标，见 `A1503①`）。
+            //   🔴 **我们原来画的是 `CardArt.DeckCardback(...)`（卡背）** —— 旧注释拿
+            //     `CardDeck.GetDeckCardback()` 当判据，**那一位是卡片背面的来源，不是这一格的主图**。
+            //   用户给的参考图 `收藏—卡组的参考图.png` 也是**一幅督军立绘**（四格四张不同角色）⇒ 两边一致。
+            //   ⚠️ 几何照原版：图**画在 347.7×346.4**（比遮罩大）再被 `RectMask2D` 裁到 **228×305.97 @(11,26.1)**
+            //     ⇒ 等价复现 = 画在遮罩那一格、**只取图正中的 `228/347.7 × 305.97/346.4`**（同模式卡那条 UV 路的做法）。
+            var front = CardArt.Portrait(info.WarlordId);       // `Portrait(cardId)` —— 全仓取立绘的通用口
+            if (front != null)
+            {
+                // ⚠️ **别用 `SetUvRect` 复现那份裁剪**（2026-10-11 实测过一次：整格只剩左边一小条，
+                //   原因没查清 —— 而模式卡那条路同样的写法是好的）⇒ 改用**公共件自己的语义**：
+                //   第 8 个实参 `keepAspect: true` = 原版 `Image.m_PreserveAspect` 的「**等比放进框、居中**」。
+                //   我们的立绘是 **671×1024**（比例 0.655），框 228×306 ⇒ **按高定宽 = 200×306**；
+                //   而原版画在 347.7×346.4 的方框里再被遮罩裁 ⇒ 可见 **227×306**。
+                //   两者只差**画宽 200 vs 227**（12%），画面同形；要逐像素一样得再加一条「先按方框算、再裁」的路，
+                //   ⚠️ **今天不做**、如实标在这里（`A1507` 的尾巴）。
+                var fq = Rect(cell, front,
+                     new PxRect(r.x1 + DcBackX * K, r.y1 + DcBackY * K,
+                                r.x1 + (DcBackX + DcBackW) * K, r.y1 + (DcBackY + DcBackH) * K),
+                     "Deck Image", q, null, true, clipR);
+                // 🔴 **必须换成「忽略贴图 alpha」那一档** —— 见 `CardView.MakeOpaqueQuad` 的注释：
+                //   原版 668 张卡的立绘是**抠图**（全透明 > 5%），普通 `Sprites/Default` 会把它们画成
+                //   「一个淡淡的人影 + 近乎空的格子」（2026-10-11 实测），而**卡面**一直是按忽略 alpha 画的。
+                CardView.MakeOpaqueQuad(fq);
+            }
+            else
+            {
+                // 取不到督军立绘（这副牌没督军 / 图没导出）⇒ **退回卡背**，并且**出声**（红线的「不许静默」）。
+                var back = CardArt.DeckCardback(info.CardbackId, info.Faction);
+                if (back != null)
+                    Rect(cell, back,
+                         new PxRect(r.x1 + DcBackX * K, r.y1 + DcBackY * K,
+                                    r.x1 + (DcBackX + DcBackW) * K, r.y1 + (DcBackY + DcBackH) * K),
+                         "CardBack", q, null, false, clipR);
+                if (NoWarlordArtLog++ < 3)
+                    Debug.LogWarning("[MenuDraw] 卡格 `" + name + "` 取不到督军立绘（`WarlordId`=\""
+                                     + info.WarlordId + "\"）⇒ **退回画卡背**。"
+                                     + "⚠️ 原版这一格画的是 `deckHero.cardImageReference`（`CollectionDeck__Config.c:69-74`）");
+            }
+
             Rect(cell, CardArt.MenuUi("40K_bt_deck"),
                  new PxRect(r.x1 + DcFrameX * K, r.y1 + DcFrameY * K,
                             r.x1 + (DcFrameX + DcFrameW) * K, r.y1 + (DcFrameY + DcFrameH) * K),
                  "Frame", q, null, false, clipR);
-
-            // ✅ **2026-09-24 起这里画的是「玩家选的卡背」**（`PlayerDeck.CardbackId`，
-            //    在卡组编辑的 Cosmetics 页里右键选）；**没选过**的卡组退回该阵营的默认卡背 ——
-            //    与原版一致（`CardDeck.GetDeckCardback()`：`cardbackId` 空 ⇒ `GetDefaultCardback(army)`）。
-            //    原来那句「我们挑的 / 没有数据源」已随第 46 行做完而作废。
-            var back = CardArt.DeckCardback(info.CardbackId, info.Faction);
-            if (back != null)
-                Rect(cell, back,
-                     new PxRect(r.x1 + DcBackX * K, r.y1 + DcBackY * K,
-                                r.x1 + (DcBackX + DcBackW) * K, r.y1 + (DcBackY + DcBackH) * K),
-                     "CardBack", q, null, false, clipR);
 
             // 卡名：⚠️ 文字没法像图那样截 uv ⇒ **按原版 `RectMask2D` 切成半个字**（`ClipText`）
             //（🆕 2026-10-04：此前只做「**整块**在视口外就不建」、压在视口边上的字照画出去 —— 那条缺口已补）
@@ -2970,7 +3022,14 @@ namespace CardPresentation
                                    r.x1 + (DcNameX + DcNameW) * K, r.y1 + (DcNameY + DcNameH) * K);
             if (Visible(nameR, clipR))
             {
-                var nl = Text(cell, nameR, info.Name, Color.white, "Deck Name", DcNamePx * K, qText);
+                // 🔴 **2026-10-11（A1503 ②）：接上原版那颗 TMP 的【auto + 字距】。**
+                //   判据（只读代理现读 prefab）：`Deck Name` **210×39.69** · fs **32** · **基准 30** ·
+                //   **`auto[8~32]`** · 居中 · **Capline** · 白 · **字距 `m_characterSpacing = −2`**。
+                //   ⚠️ 我们原来：**高写成 35.8**（`DcNameH`）、**不传 auto、不传字距**
+                //   —— 而 `MenuDraw.Text` 本来就有 auto 那三个口、`Label.SetCharSpacing` 也早就有 ⇒ **只是没接**。
+                var nl = Text(cell, nameR, info.Name, Color.white, "Deck Name", DcNamePx * K, qText,
+                              autoMinPx: 8f * K, autoMaxPx: DcNamePx * K, autoBasePx: 30f * K);
+                if (nl != null) nl.SetCharSpacing(-2f);      // 原版 `m_characterSpacing = −2`
                 if (clipR.HasValue) ClipText(nl, clipR, Vector2.zero);   // 「整块在框外」也由 `ClipText` 兜底（切到 0 宽）
             }
 

@@ -66,7 +66,21 @@ namespace CardPresentation
                     //   不这么做时它落在**当前场景**里，而「切主菜单」是单场景加载 ⇒ 随 Shell 场景一起被销毁，
                     //   之后**运行期再没有任何人重建它**（全仓唯一的「惰性现建」在 `#if UNITY_EDITOR` 的自检里）
                     //   ⇒ 真鼠标点击从此无声：无日志、无异常、无报错。
-                    Object.DontDestroyOnLoad(go);
+                    //
+                    // 🔴🔴 **2026-10-11 就地补修（铁律 5）—— 上面那一句【必须加 `isPlaying` 闸】。**
+                    //   **症状**：加完之后 `MainMenuScene.Run` **整条崩**（`InvalidOperationException: The following
+                    //   game object is invoking the DontDestroyOnLoad method: Pointer Layer. Notice that
+                    //   DontDestroyOnLoad can only be used in play mode and, as such, cannot be part of an editor
+                    //   script.`，栈 = `TopBar.OpenSettings → WindowsManager.OpenByRef → EnsureHost →
+                    //   PointerLayer.Ensure → get_Instance`）。**实测日志** → `_tmp_view/ui_1019/menu_run.log`。
+                    //   **错因**：编辑器宿主（`MainMenuScene.Run` 一族）**不在 Play 模式**下跑，
+                    //   而 `EnsureHost` 会走这条 getter ⇒ 只要有哪条自检开一次窗就抛。
+                    //   🔑 **本仓早就记过这个坑**：`Battle/RemnantSfx.cs:160` 写着「**绝不要 `DontDestroyOnLoad`
+                    //   —— 它在编辑器 / 批处理里会直接抛**」，正解写法在 `Net/NetRuntime.cs:34`：
+                    //   `if (Application.isPlaying && …) Object.DontDestroyOnLoad(go);`
+                    //   ⚠️ 这个坑**第十五会话没被发现**，因为那一会话按口径「一条自检都没跑」——
+                    //   正好是「player 里修好了、批处理里全崩」的反向版本（`A1504`）。
+                    if (Application.isPlaying) Object.DontDestroyOnLoad(go);
                     _inst = go.AddComponent<PointerLayer>();
                 }
                 return _inst;

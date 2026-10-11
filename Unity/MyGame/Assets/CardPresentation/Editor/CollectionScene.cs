@@ -1446,7 +1446,12 @@ public static class CollectionScene
                     var lastCell = FindChild(tabsRoot, "CollectionDeck_" + last);
                     CheckTrue(lastCell != null
                               && PxYOf(lastCell.position.y) + DeckCellHpx() / 2f <= 1080.5f,
-                              "**滚到底 ⇒ 最后一格完整落进视口**（这是「够不着」那个缺口的判据）");
+                              "**滚到底 ⇒ 最后一格完整落进视口**（这是「够不着」那个缺口的判据）"
+                              + "【实测：max=" + max.ToString("F1") + " · 末格=" + last + " · 取到=" + (lastCell != null)
+                              + " · 末格中心 y=" + (lastCell != null ? PxYOf(lastCell.position.y).ToString("F1") : "-")
+                              + " · 格高=" + DeckCellHpx().ToString("F1")
+                              + " · 底边=" + (lastCell != null ? (PxYOf(lastCell.position.y) + DeckCellHpx() / 2f).ToString("F1") : "-")
+                              + "】");
                     win.DeckScroll.ScrollBy(-max);
                 }
             }
@@ -5205,6 +5210,152 @@ public static class CollectionScene
             CheckText(TextOf(FindChild(cpage, "Clear filters Text")), Loc.T("MenuDeck/Filters/ClearFilters"),
                       "页头 `Clear filters` 文案在（键 `MenuDeck/Filters/ClearFilters`，随语档；"
                       + "原版 **fs33** auto 10-33）");
+            // ============================================================ 🆕 **2026-10-11（A1496）：
+            //   `Clear filters` 的【显隐】** —— 原版空筛选时这颗钮**不在画面上**。
+            //   判据：`CollectionFilterController` 的 `hiddenPosition = (−550, 0)`（卡组编辑窗那一份实例逐字段实读），
+            //   隐藏方式是**平移**；用户实拍参考图那两帧上它也确实不在。✅ **用户 2026-10-11 点名要做**。
+            //   ⚠️ **我们走 `SetActive`、不走原版那条平移**（同卡组编辑窗口径）：我们的命中是**静态 `PxRect`**、
+            //   不跟着节点走 ⇒ 平移了但不关闸 = 「藏起来却还点得到」= 静默失败（本仓红线）。
+            //   🔴 **这里是【Cards 页】**（`PageRoot(1)` + `UiSetCardFilter`）；`cpage` 是**卡背页**，
+            //   它的抽屉只有 Army/Owned 两行、没有 `UiSetCosmoFilter` 这个口 ⇒ 不拿它断。
+            {
+                var cardPage = win.PageRoot(1);
+                var cfQ = FindChild(cardPage, "Clear filters");
+                var cfT = FindChild(cardPage, "Clear filters Text");
+                var cfH = FindChild(cardPage, "ClearFiltersHit");
+                CheckTrue(cfQ != null && cfT != null && cfH != null,
+                          "（前提）Cards 页 `Clear filters` **三件**（底图 / 字 / 命中区）都建了");
+                // ① 出厂态（一个筛选都没设）⇒ 三件**全不激活**（`FindChild` 收未激活件 ⇒ 取得到、只是关着）
+                CheckTrue(!cfQ.gameObject.activeSelf && !cfT.gameObject.activeSelf && !cfH.gameObject.activeSelf,
+                          "★ A1496 空筛选 ⇒ `Clear filters` **底图 / 字 / 命中区三件全关**（原版是平移到 −550）");
+                // ② **灭自证**：只断「都关着」的话，把两边**一起改成永远关**也全绿
+                //    ⇒ 必须再断一次「设了筛选之后三件一起开」。
+                var f1 = DeckFilter.None; f1.Faction = "saimhann";
+                win.UiSetCardFilter(f1);
+                CheckTrue(cfQ.gameObject.activeSelf && cfT.gameObject.activeSelf && cfH.gameObject.activeSelf,
+                          "★ A1496 设了筛选 ⇒ **三件一起打开**（灭自证：两边永远关 / 两边永远开都会红一条）");
+                // ③ 摆回基线（本仓规矩：每一格先摆回基线，别把状态漏给后面那些断言）
+                win.ClearCardFilters();
+                CheckTrue(!cfQ.gameObject.activeSelf && !cfH.gameObject.activeSelf,
+                          "★ A1496 清空筛选 ⇒ **又关回去**（判据跟着数据走，不是一次性摆的）");
+            }
+            // ============================================================ 🆕 **2026-10-11（A1503 ①）：
+            //   卡组格右下那颗 `Game Mode Icon`（**绿色双箭头** / 经典的红枪）**
+            // 判据（原版 prefab 实读）：`Game Mode Icon` 84.5×85.75 @作者系 (170.5, 273.7)，
+            //   `enabled = (icon != null)`；遭遇 = `40k_gamemode_icon_skirmish` · 经典 = `40k_gamemode_icon_classic`。
+            // 🔴 **它原来整层没建** —— `MenuDraw.DeckCell` 那一支早写好了，只是 `CollectionWindow.BuildDeckCell`
+            //   **从来没传 `gameMode`**（形参默认 null ⇒ 静默不画）。所以这条断言断的正是「**接上了没有**」：
+            //   逐格按 `GameModeIconFile` 反查「该有图的格子是不是真有那颗节点」。
+            // ⚠️ 「至少有一套该有图」是**前提**（否则整条空转 = 假绿）；本轮实测那批测试卡组里有模式非 0 的。
+            {
+                var deckPage = win.PageRoot(0);
+                int built = 0, want = 0, miss = 0;
+                for (int i = 0; i < CollectionData.DeckCount(); i++)
+                {
+                    // ⚠️ **只在【建出来了的那几格】上断** —— `RebuildDeckCells` 有一句
+                    //   `if (DeckScroll != null && !DeckScroll.Intersects(r)) continue;`（视口外的格子根本不建），
+                    //   拿没建的格子去数「缺图」会数出一串假账（第一版就这么错的：16 该有 / 4 报缺）。
+                    var cell = FindChild(deckPage, "CollectionDeck_" + i);
+                    if (cell == null) continue;
+                    built++;
+                    var di = CollectionData.DeckAt(i);   // ⚠️ `DeckInfo` 是 **struct** ⇒ 判不了 null
+                    if (MenuDraw.GameModeIconFile(di.GameMode) == null) continue;
+                    // ⚠️ **视口把下半截裁掉的那几格不参与** —— 我们引擎的裁切是「框外的层**不建节点**」
+                    //    （`Rect(..., clipR)` 直接跳过）。
+                    //    🔑 探针用 **`Deck Name`**（作者系 y **344.2**，比模式图标那排 y 273.7 **更低**）
+                    //      —— 名字画得出来 ⇒ 上面那排图标一定在框内（**严格一档的闸**）。
+                    //    ⚠️ 第一版没写闸：第 12–15 号（第 3 行、只露一半）被算成「缺图」= **4 条假账**；
+                    //      第二版拿 `Faction` 当闸 ⇒ 只剩 1 格（测试卡组大多没有督军 ⇒ 左下那颗本来就不建），
+                    //      **闸太松 = 断言快空转** ⇒ 换成名字这一档。
+                    if (FindChild(cell, "Deck Name") == null) continue;
+                    want++;
+                    if (FindChild(cell, "Game Mode Icon") == null) miss++;
+                }
+                CheckTrue(want > 0,
+                          "（前提）**屏幕上建出来的**格子里至少有一格该有图标（⛔ 0 格 ⇒ 下一条空转 = 假绿）");
+                if (miss > 0)
+                {
+                    var sb = new System.Text.StringBuilder("[Collection]    【诊断】缺 `Game Mode Icon` 的格子：");
+                    for (int i = 0; i < CollectionData.DeckCount(); i++)
+                    {
+                        var cell = FindChild(deckPage, "CollectionDeck_" + i);
+                        if (cell == null) continue;
+                        var di = CollectionData.DeckAt(i);
+                        if (MenuDraw.GameModeIconFile(di.GameMode) == null) continue;
+                        if (FindChild(cell, "Deck Name") == null) continue;     // 与上面同一道闸
+                        if (FindChild(cell, "Game Mode Icon") != null) continue;
+                        sb.Append(" #").Append(i).Append("(mode=").Append(di.GameMode)
+                          .Append(",art=").Append(MenuDraw.GameModeIconFile(di.GameMode))
+                          .Append(",active=").Append(cell.gameObject.activeSelf).Append(")");
+                    }
+                    Debug.Log(sb.ToString());
+                }
+                Check(miss, 0, "★ A1503① 每一格卡组右下都有 `Game Mode Icon`（原版 `enabled = icon != null`；"
+                               + "本轮实测：建出来 " + built + " 格、其中该有图标的 " + want + " 格）");
+            }
+            // ============================================================ 🆕 **2026-10-11（A1503 ②③⑤⑥）**
+            //   ② `Deck Name` 框高 39.69（原来 35.8）+ auto[8~32] + 字距 −2
+            //   ③ 卡背画在 `Frame` **之前**（原版子件序 = `Deck Image` → `Frame`；我们原来是反的）
+            //   ⑤ 军种格的**排列顺序** = 原版 option 序号（原来按字母序）
+            //   ⑥ Deck 页**行距** = 364.5（原版 `RSR._spacingY = 0`；我们原来拿横向的 20 当行距 = 384.5）
+            {
+                var dpg = win.PageRoot(0);
+                var c0 = FindChild(dpg, "CollectionDeck_0");
+                if (c0 == null) { CheckTrue(false, "（前提）第 0 格卡组建出来了 —— 下面四条的前提"); }
+                else
+                {
+                    // 🔴 **2026-10-11（A1507）改了节点名**：卡格主图现在是 **`Deck Image`**（督军立绘），
+                    //   只有「取不到督军立绘」才退回 `CardBack` ⇒ 两个名字都要认（缺一就漏检）。
+                    var cb = FindChild(c0, "Deck Image") ?? FindChild(c0, "CardBack");
+                    var fr = FindChild(c0, "Frame");
+                    int bi = cb != null ? cb.GetSiblingIndex() : -1;
+                    int fi = fr != null ? fr.GetSiblingIndex() : -1;
+                    CheckTrue(fi >= 0 && (bi < 0 || bi < fi),
+                              "★ A1503③ 卡背/立绘画在 `Frame` **之前**（原版子件序 `Deck Image` → `Frame`；"
+                              + "实得 主图=" + (cb != null ? cb.name : "<无>") + " 兄弟序=" + bi + " / Frame=" + fi + "）");
+                    // ★ A1507：卡格主图必须是**督军的立绘**（原版 `CollectionDeck.Config` 的
+                    //   `deckHero.cardImageReference`），不是卡背。判据 = 节点的贴图名含督军卡 id 的立绘。
+                    var di0 = CollectionData.DeckAt(0);
+                    var wantTex = CardArt.Portrait(di0.WarlordId);
+                    var gotQ = cb != null ? cb.GetComponentInChildren<ImageQuad>() : null;
+                    if (wantTex != null && gotQ != null)
+                        CheckTrue(gotQ.Texture != null && gotQ.Texture.name == wantTex.name,
+                                  "★ A1507 卡格主图 = **督军立绘** `" + wantTex.name + "`（原版 `deckHero.cardImageReference`；"
+                                  + "实得 " + (gotQ.Texture != null ? gotQ.Texture.name : "<null>") + "）");
+                    else CheckTrue(false, "（前提）第 0 格取得到督军立绘与主图 quad —— 上面那条的前提"
+                                          + "（warlord=" + di0.WarlordId + "）");
+                    var nt = FindChild(c0, "Deck Name");
+                    var nl2 = nt != null ? nt.GetComponent<Label>() : null;
+                    CheckTrue(nl2 != null, "（前提）`Deck Name` 那颗 `Label` 取得到");
+                    // ⚠️ **量的口径**：`Label.WorldH` 是 **TMP【渲染】出来的高**（`_tmpH`），**不是框高**
+                    //   —— 第一版拿它比「框高 39.69×0.9」当场红了（实测 43.66）。**框高在这套里量不到**，
+                    //   所以这一条断**常量本身**：期望值 **39.69** = 原版 prefab 的读数（`MenuDraw.DcNameH` 的注释）。
+                    CheckNear(MenuDraw.DcNameH, 39.69f, 0.01f,
+                              "★ A1503② `Deck Name` 框高 = **39.69**（原版 prefab 实读；我们原来写 35.8）");
+                    if (nl2 != null)
+                        Debug.Log(P + $"  【量】`Deck Name` 的 TMP 渲染高 = {nl2.WorldH * 108f:F2}px（**仅记录**，不作断言）");
+                }
+                // ⑥ 行距：同一列、上下相邻两格（列数 6 ⇒ 下标差 6）的 y 差 = 364.5
+                var r0 = FindChild(dpg, "CollectionDeck_0");
+                var r1 = FindChild(dpg, "CollectionDeck_6");
+                if (r0 != null && r1 != null)
+                    CheckNear(Mathf.Abs(PxOf(r0.position.y) - PxOf(r1.position.y)), 364.5f, 1.5f,
+                              "★ A1503⑥ Deck 页**行距 = 364.5**（原版 `RSR._spacingY = 0`；我们原来拿横向那个 20 当行距 ⇒ 每行多 20）");
+                else CheckTrue(false, "（前提）第 0 格与第 6 格（下一行）都在视口内 —— 上面那条的前提");
+                // ⑤ 军种格顺序：按原版 option 序号**单调**
+                var facs5 = CollectionWindow.CardsState.Factions();
+                int lastK = -1; bool mono = true;
+                foreach (var f5 in facs5)
+                {
+                    int k5 = System.Array.IndexOf(DeckEditorState.ArmyOrder, f5);
+                    if (k5 < 0) k5 = int.MaxValue;
+                    if (k5 < lastK) mono = false;
+                    lastK = k5;
+                }
+                CheckTrue(mono && facs5.Count >= 2,
+                          "★ A1503⑤ 军种格顺序 = **原版 option 序号**（`DeckEditorState.ArmyOrder`）且单调 —— "
+                          + "本轮卡池里 " + facs5.Count + " 个阵营：" + string.Join(",", facs5.ToArray()));
+            }
             // 🔴 **实拍抓的一条**：第一版照抄了 dump 的 `1405`（= **布局组跑之前的模板位**，
             //    父容器 `Header/Filters` 是 425..1385 的 VLG）⇒ **它和右对齐到 1821 的标题叠在一起**。
             //    ⇒ 现在断「按钮在容器内」**并且**「标题与按钮不叠」—— 这类错**矩形断言量不到**，

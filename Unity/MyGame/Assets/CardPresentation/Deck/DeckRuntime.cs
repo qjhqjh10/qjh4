@@ -638,6 +638,10 @@ namespace CardPresentation
         readonly List<ImageQuad> _tabIcon = new List<ImageQuad>();
 
         readonly List<ImageQuad> _curveFill = new List<ImageQuad>();
+        /// <summary>🆕 **2026-10-11（A1497 ③）**：每根填充柱**建的时候**的 `localPosition.x` ——
+        /// 它是「宽度还是 1px 时」的中心（= 槽左 + 0.5）。`SetQuadWidth` 只改宽度、**围绕锚点(0.5)往两边长**
+        /// ⇒ 每帧要按它把中心摆回「槽左 + 宽/2」，否则柱子会**向左跑出槽外**（实拍里白药丸从 x≈0 起）。</summary>
+        readonly List<float> _curveFillX0 = new List<float>();
         readonly List<Label> _curveLabel = new List<Label>();
         readonly List<ImageQuad> _curveBar = new List<ImageQuad>();
         readonly List<GameObject> _infoOnly = new List<GameObject>();   // 只在 Deck info 页签显示的东西
@@ -1474,6 +1478,12 @@ namespace CardPresentation
                 var lb = TxtPx("curve_l" + c, CurveCostText(c), CurveLbX, y, CurveLbW, CurveRowH, CurveFontPx, CurveLbTint, QText);
                 var bar = Img("curve_b" + c, barBg, CurveBarX, y + CurveBarDy, CurveBarW, CurveBarH, QPanel);
                 var fill = Img("curve_f" + c, barFill, CurveBarX, y + CurveFillDy, 1f, CurveFillH, QRow);
+                // 🔴 **2026-10-11（A1497 ②）**：填充图 **`40k_CardAmount_bar_fill` 是【白色蒙版】**
+                //   （实拍两张图量的：bg 是深灰 (40,40,40)、fill 是白 (220,220,220)）
+                //   ⇒ **必须靠运行时 tint 才是金色**。我们原来**没上 tint** ⇒ 屏上是一排白药丸。
+                //   金色值 = `Core/CostCurveDrawer.cs` 的 `FillTint`（原版 `Image.m_Color` 实读）。
+                if (fill != null) fill.SetTint(CostCurveDrawer.FillTint);
+                _curveFillX0.Add(fill != null ? fill.transform.localPosition.x : 0f);
                 var num = TxtPx("curve_n" + c, "0", CurveNumX, y, CurveNumW, CurveRowH, CurveFontPx, CurveNumTint, QText);
                 _curveBar.Add(bar); _curveFill.Add(fill); _curveLabel.Add(lb); _curveLabel.Add(num);
                 _infoOnly.Add(bar != null ? bar.gameObject : null);
@@ -3075,7 +3085,17 @@ namespace CardPresentation
                 //   只印 `8+` 却不并计数 ⇒ 那行数字比实际少（静默）。
                 if (c == CurveLastBucket)
                     for (int j = c + 1; j < curve.Length; j++) n += curve[j];
-                SetQuadWidth(_curveFill[c], Mathf.Clamp01(n / 10f) * CurveBarW);   // 原版按 10 张归一化
+                float fw = Mathf.Clamp01(n / 10f) * CurveBarW;                   // 原版按 10 张归一化
+                SetQuadWidth(_curveFill[c], fw);
+                // 🔴 **2026-10-11（A1497 ③）**：宽度是**围绕锚点(0.5)往两边长**的 ⇒ 只调宽度会让柱子
+                //   左边跑到槽外。每帧把中心摆回「槽左 + 宽/2」（基线 = 建的时候那个 x，= 槽左 + 0.5）。
+                var fq = _curveFill[c];
+                if (fq != null && c < _curveFillX0.Count)
+                {
+                    var lp = fq.transform.localPosition;
+                    lp.x = _curveFillX0[c] + LayoutSpace.Px(fw * 0.5f - 0.5f);
+                    fq.transform.localPosition = lp;
+                }
                 // 🔴 左列（`Card Cost`）的字**也在这里写**（原来只在建的时候写过一次）——
                 //   两列从此**同一个出处**（`CurveCostText`），`+` 那半边才测得到。
                 if (_curveLabel[c * 2] != null) _curveLabel[c * 2].SetText(CurveCostText(c));

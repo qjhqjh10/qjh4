@@ -514,13 +514,18 @@ namespace CardPresentation
             //    ⚠️ `Collection` 那颗（298.4）**本来就是对的** —— 错只错在 `Shop` 往后那三颗，
             //    即「同一份表里前两颗照原版、后三颗 +10」。
             //    判据全文 → `资料/普查产出_1010/D1_十二条红诊断.md` §B-1。
-            NavButton(holder, 0, "Home",       "40k_main_bt_play",       143.4f, 313.1f, "PLAY",       137.435f, 4.6f, 160.9f, 146.4f, 33f);
-            NavButton(holder, 1, "Collection", "40k_main_bt_collection", 296.7f, 466.4f, "COLLECTION", 140.0f, 12.8f, 152.8f, 298.4f, 33f);
+            // 🔴 **2026-10-11（界面复刻）：第 7 个实参【不再传英文原文，改传 Loc 键名】** ——
+            //   原版这五颗 GO 上各挂一颗 I2 `Localize`（`mTerm` 见下），屏上的字是**运行时查表**得到的；
+            //   我们原来直接把资产里的英文 `m_text` 写死 ⇒ 中文档永远出不来英文（`A1493②` 那条）。
+            //   键名与中文出处逐条记在 `Core/Loc.cs` 的 E1 那一节（⛔ 别在这里再抄一份）。
+            NavButton(holder, 0, "Home",       "40k_main_bt_play",       143.4f, 313.1f, "MainMenu/NavigationPanel/HomeButton", 137.435f, 4.6f, 160.9f, 146.4f, 33f);
+            NavButton(holder, 1, "Collection", "40k_main_bt_collection", 296.7f, 466.4f, "MainMenu/NavigationPanel/Collection", 140.0f, 12.8f, 152.8f, 298.4f, 33f);
             // ⚠️ `COLLECTION` 传的是 **max 33**（不是原版存下来的 30.45）—— 那个 30.45 是**自适应之后的结果**，
             //    让 autosize 自己缩出来才和原版同一条路（它框里放不下，会自己缩小）。
-            NavButton(holder, 2, "Shop",       "40k_main_bt_shop",       450.1f, 619.8f, "SHOP",       140.0f, 12.8f, 152.8f, 451.8f, 33f);
-            NavButton(holder, 3, "Rewards",    "40k_main_bt_rewards",    603.4f, 773.1f, "REWARDS",    140.0f, 12.8f, 152.8f, 605.1f, 33f);
-            NavButton(holder, 4, "Social",     "40k_main_bt_friends",    756.7f, 926.4f, "SOCIAL",     140.0f, 12.8f, 152.8f, 758.4f, 33f);
+            NavButton(holder, 2, "Shop",       "40k_main_bt_shop",       450.1f, 619.8f, "MainMenu/NavigationPanel/Shop",       140.0f, 12.8f, 152.8f, 451.8f, 33f);
+            NavButton(holder, 3, "Rewards",    "40k_main_bt_rewards",    603.4f, 773.1f, "MainMenu/NavigationPanel/Rewards",    140.0f, 12.8f, 152.8f, 605.1f, 33f);
+            // ⚠️ 第五颗：**键名是 `…/Friends`**（原版 `mTerm` 原文，⛔ 不是 `…/Social`）—— 屏上英文才是 `SOCIAL`。
+            NavButton(holder, 4, "Social",     "40k_main_bt_friends",    756.7f, 926.4f, "MainMenu/NavigationPanel/Friends",    140.0f, 12.8f, 152.8f, 758.4f, 33f);
         }
 
         /// <param name="idx">第几个按钮（用来判「选中态」）。</param>
@@ -535,7 +540,7 @@ namespace CardPresentation
         /// 钮顶按父 VLG 算 —— 见调用点那段。⚠️ **2026-10-11（F2）**：原来写「都来自 §五 C 表」，
         /// 而那份表把 `Shop`/`Rewards`/`Social` 三颗**各写高 10** ⇒ 已改成照 RT 现推，别再回头引那张表）。</param>
         /// <param name="fontPx">原版 TMP 的 `m_fontSize`（画布像素）。</param>
-        void NavButton(Transform parent, int idx, string name, string art, float y1, float y2, string label,
+        void NavButton(Transform parent, int idx, string name, string art, float y1, float y2, string locKey,
                        float ih, float ix1, float ix2, float iy1, float fontPx)
         {
             const float cx0 = 82.69f;      // 键的水平中心（原版 `Highlight` 的矩形是 -0.3..164.0 ⇒ 中心 81.85）
@@ -557,11 +562,13 @@ namespace CardPresentation
 
             // `Text Background`(nametag) 的 y 偏移实证 = **+118.3**、`Badge` = **+91.7**（§五 C 表，五个按钮一致）
             Rect(b, "40k_main_bt_nametag", 9.3f, 156.2f, y1 + 118.3f, y1 + 157.7f, "Text Background", QContent);
-            // ⚠️ 文案：原版 `m_text` 就是英文（`PLAY`/`COLLECTION`/…），运行时才被**本地化**替换。
-            //    本地没有语言表 ⇒ **先用资产里的英文原文，不自己译**（`项目任务.md` §三 第 8 条那条口径）。
+            // 🔴 **2026-10-11（界面复刻 · A1493②）：文案走 `Loc.T(locKey)`** —— 原版这五颗 GO 上各挂一颗 I2
+            //   `Localize`，屏上的字是**运行时查表**得到的；我们原来直接把资产里的英文 `m_text`（`PLAY`/…）
+            //   写死 ⇒ **中文档永远出英文**。键名与中文出处逐条记在 `Core/Loc.cs` 的 **E1** 那一节。
+            //   ⚠️ `Loc.T` 缺键时返回的是**键名本身**（不是空串）⇒ 界面上一眼能看出是「查不到」，不会静默。
             // 🔴 原版这行 TMP 带 **`enableAutoSizing`（18→33）**，框只有 146.9px 宽 ⇒ `COLLECTION` 是**缩出来的**
             //    （实测原版它的在场字号就是 **30.45**）—— 不缩会画出框外被裁。
-            var navText = Text(b, label, 9.3f, 156.2f, y1 + 118.3f, y1 + 157.7f, 6,
+            var navText = Text(b, Loc.T(locKey), 9.3f, 156.2f, y1 + 118.3f, y1 + 157.7f, 6,
                                new Color(0.9961f, 0.9294f, 0.7098f), "Text", fontPx);
             // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版这一颗的 `m_fontSizeBase` **原文**。
             //    判据（本轮自己扫的原版场景 `bundle_scenes_scenes_mainmenuwarpforge`，逐颗现读）：
@@ -1279,6 +1286,19 @@ namespace CardPresentation
         // ---- §五 E + §九：模式卡区 ----
         /// <summary>格子的列起点与步进（§二·4 实证：`itemSize` 535×414.4 · `spacing` (20,20) · `pad L38`）⇒ **列 c 左 = 205 + 555c**。</summary>
         const float CardCol0 = 205f, CardColStep = 555f, CardW = 535f, CardH = 414.4f;
+        /// <summary>**1×2 档**的卡高 = `2 × 414.4 + 20`（两行 + 一行间距）= **848.8**（判据 = §二·4 的
+        /// `FlexibleGridLayout rows=2 columns=20 itemSize 535×414.4 spacing (20,20)` ⇒ 1×2 跨两行）。
+        /// 🔴 **2026-10-11（界面复刻）**：**五张模式卡一律用这一档。** 理由两条 ——
+        ///   ① **用户 2026-10-11 点名的缺陷原话**：「原版是**满高大立绘卡、三张等大对齐**；我们是灰底板 +
+        ///      中间一小块图，且**尺寸基线不齐**、中间那张下坠、第四张被切」；
+        ///   ② **参考图实测**（`C:/Users/qjh36/Desktop/warpforge参考图/主界面参考图.png`，1568×950）：
+        ///      三张可见的卡 y `150..880`（**730/950 × 1080 = 830**）、宽 `420/1568 × 1920 = 514`
+        ///      ⇒ **514×830 ≈ 535×848.8 = 1×2** ✓，且第四张在右缘被切（**原版就是横滚、切是对的**）。
+        /// ⚠️ **原版「哪个模式用 1×1 / 哪个用 1×2」是 liveop 服务端数据**（本地查不到，§九 9·3 明写
+        ///    「别自己编一套映射」）⇒ 我们这五张选哪一档**本来就是我们自己定的**；选 1×2 是为了与实拍同形。
+        /// ⛔ `CardH`（1×1）**别删** —— 原版那一档真实存在（`Reward Event Container 1x1` / `1x1 Claim`），
+        /// `BuildModeCard` 两条路都留着，将来接 liveop 数据时要按数据选档。</summary>
+        const float CardHTall = 848.8f;
         /// <summary>🔴 **行 y 是我们挑的**：原版由 `FlexibleGridLayout` + `AdaptFlexibleGridLayoutByAspectRatio` 运行时算，
         /// JSON 里取不到绝对值（§五 E 的 `?（运行时）`，两个候选 = 内容高 945.6 时 row0 top **182.8** / 压成自然高 848.8 时 **134.4**）。
         /// 我们取 **182.8**（居中那一种）。**这一格没有原版出处，别当成复刻**。</summary>
@@ -1308,10 +1328,27 @@ namespace CardPresentation
             //    （用户 2026-10-17 拍板走 A：接 `"tutorial"` ⇒ 开那扇窗，⛔ 不是只弹一句「暂无服务器」。）
             //    ⚠️ 教程事件那份数据**本地任何形态都没有**（随 PlayFab userInfo 下发）⇒ 原版关服时这张卡
             //    根本不存在；受影响的两处（标题栏文案 / 各关的副标题与描述）在 `TutorialModePopup` 里逐条标了。
-            BuildModeCard(content, "Base Game Mode Container 1x1 - Tutorial", CardCol0, CardRow0Top, CardW, CardH,
-                          "Container_Image_Tutorial", "TUTORIAL", "tutorial");
-            BuildModeCard(content, "Draft Game Mode Container 1x2", CardCol0 + CardColStep, CardRow0Top, CardW, 848.8f,
-                          "Container_Image_Draft", "DRAFT MODE", "draft");
+            // ============================================================ 🆕 **2026-10-11（界面复刻）：
+            //   【两行网格排布】—— 原来五张卡**一律摆在 `CardRow0Top` 那一行**上，`rows=2` 的第 2 行永远空着。
+            // 🔴 **判据（参考图放大实测，不是推断）**：`C:/Users/qjh36/Desktop/warpforge参考图/主界面参考图.png`
+            //   （1503×883）**右缘那张被切的卡**放大看清了 —— 那是**两张 1×1 上下叠在一列**（上「练习」、下「教学」，
+            //   两张之间有一条 20px 的缝）⇒ **原版就是 `FlexibleGridLayout rows=2` 的两行排布**：
+            //   **1×2 独占一整列；1×1 一列放两张**（上 = row0、下 = row1）。
+            //   ⇒ 与 §二·4 那条 `rows=2 columns=20 itemSize 535×414.4 spacing (20,20)` 完全自洽
+            //     （`848.8 = 2×414.4 + 20` 也正好是「两行 + 一道缝」）。
+            // ⚠️ **别再退回「一律 1×2」** —— 我 2026-10-11 先试过那一版（以为参考图三张等大 ⇒ 全 1×2），
+            //   **被参考图自己推翻**：那张图里 **1×2 与「两张叠起来的 1×1」是同时存在的**。
+            //   ⇒ `CardH`（1×1）这一档**必须留着**，两张都走。
+            // 排布规则照 uGUI `FlexibleGridLayout`：**逐张填格子**；1×2 吃完一整列并复位到 row0。
+            // ⚠️ 我们这五张**哪张是 1×1 / 哪张是 1×2 仍然是我们定的**（原版由 liveop 服务端数据决定，
+            //   本地查不到 ⇒ §九 9·3 明写「别自己编一套映射」，但本地入口本来也只能我们自己定，
+            //   见下面那两段老注释）。**只有 `Draft` 那一条有原版出处**：原版 prefab 就叫
+            //   `Draft Game Mode Container **1x2**`。
+            const float ColStep = CardColStep, RowStep = CardH + 20f;   // 行距 = 卡高 + `spacing (20,20)` 的 20
+            BuildModeCard(content, "Base Game Mode Container 1x1 - Tutorial", CardCol0 + 0f * ColStep, CardRow0Top,
+                          CardW, CardH, "Container_Image_Tutorial", Loc.T("MainMenu/GameModes/Tutorial"), "tutorial");          // col0 / row0
+            BuildModeCard(content, "Draft Game Mode Container 1x2", CardCol0 + 1f * ColStep, CardRow0Top,
+                          CardW, CardHTall, "Container_Image_Draft", "DRAFT MODE", "draft");           // col1（独占整列）
             // 🔴 **2026-10-17（A789 收口 · 用户拍板「按建议执行」）**：这一格原来传的是 `null` ⇒
             //    `BuildModeCard` 的第六步**不建 `Hit`**（命中区只在 `modeKind` 非空时建）⇒ **这张卡点不动**，
             //    而 2026-09-22 裁决（`资料/阶段二外壳_待裁决清单_0922.md:29`，选项 (b)）要的正是
@@ -1330,12 +1367,12 @@ namespace CardPresentation
             //    卡图按名字对：练习 = `Container Image Practice 1x1` · 排位 = `Container Image Ranked` ·
             //    遭遇战**没有专属卡图**（`Practice 1x2` 也是练习的）⇒ 用全族唯一带 Skirmish 字样的
             //    `40k_main_GameMode_Skirmish`。逐条出处见 `资料/阶段二_战斗入口_原版规格.md`。
-            BuildModeCard(content, "Base Game Mode Container 1x1 - Practice", CardCol0 + 2 * CardColStep, CardRow0Top,
-                          CardW, CardH, "Container_Image_Practice_1x1", "PRACTICE", "practice");
-            BuildModeCard(content, "Base Game Mode Container 1x1 - Skirmish", CardCol0 + 3 * CardColStep, CardRow0Top,
-                          CardW, CardH, "40k_main_GameMode_Skirmish", "SKIRMISH", "skirmish");
-            BuildModeCard(content, "Base Game Mode Container 1x1 - Ranked", CardCol0 + 4 * CardColStep, CardRow0Top,
-                          CardW, CardH, "Container_Image_Ranked", "RANKED", "ranked");
+            BuildModeCard(content, "Base Game Mode Container 1x1 - Practice", CardCol0 + 2f * ColStep, CardRow0Top,
+                          CardW, CardH, "Container_Image_Practice_1x1", Loc.T("MainMenu/GameModes/Practice"), "practice");        // col2 / row0
+            BuildModeCard(content, "Base Game Mode Container 1x1 - Skirmish", CardCol0 + 2f * ColStep, CardRow0Top + RowStep,
+                          CardW, CardH, "40k_main_GameMode_Skirmish", Loc.T("MainMenu/GameModes/Skirmish"), "skirmish");            // col2 / row1（叠在 Practice 下面，与参考图右缘那一列同形）
+            BuildModeCard(content, "Base Game Mode Container 1x1 - Ranked", CardCol0 + 3f * ColStep, CardRow0Top,
+                          CardW, CardH, "Container_Image_Ranked", "RANKED", "ranked");                    // col3 / row0
         }
 
         /// <summary>模式卡点下去 = **进对应模式的界面**（用户 2026-09-24 拍板的那条路）。
@@ -1454,6 +1491,16 @@ namespace CardPresentation
             //    （`MonoBehaviour_-1926919290004399602.json` 等）；V7 §二·3 #31 记的是全库那族
             //    （258 个，36.0×240 / 32.0×8 / …）⇒ 本条以**这一族自己**的实读为准。
             if (ti != null) ti.SetAutoFitBox(513.6959f / 108f, 55.708f / 108f, 18f, 72f, 36f);   // 原版 autosize 18→72
+            // 🔴 **2026-10-11（界面复刻）：标题改成【左对齐】** —— 原版那颗 `Event Title` 的 TMP 是
+            //   **`m_HorizontalAlignment = 1 (Left)`**（只读判据代理 2026-10-11 现读 MB 实测；
+            //   ⚠️ **`资料/主菜单_原版规格.md:554` 写它「居中」是错的**，同族的
+            //   `m_VerticalAlignment` 那一族值也不是「Top=0/Middle=1」——原版实际用
+            //   `Top=256 / Middle=512 / Bottom=1024 / Baseline=2048 / Geometry=4096 / Capline=8192`）。
+            //   我们原来没设 ⇒ `Label` 出厂把它**居中**摆 ⇒ 与参考图（`主界面参考图.png` 里模式名贴着
+            //   卡的左缘）对不上。⚠️ **必须排在 `SetAutoFitBox` 之后**（`AlignLeft` 是「整块平移」，
+            //   而 autofit 会重排、重排后宽度才定）—— 本仓踩过「`SetAutoFitBox` 排在 `AlignLeft` 前
+            //   ⇒ 对齐被抹掉」那条坑（见 `d4-work-rules` 的 10-13 收口三条）。
+            MenuDraw.AlignLeft(ti, new PxRect(x + 13f, titleTop, x + 13f + 513.6959f, titleTop + 55.708f));
 
             // ④ `Border`：`40k_square_border` —— 原版 **Type 1 Sliced · `m_PixelsPerUnitMultiplier` 5 · `m_FillCenter` 0**，灰 **0.33962**。
             //    `m_Border` = **(13,13,13,13)**（图 64²，出自 `bundle_atlasindividual_assets_0_mainmenu/Sprite/40k_square_border.json`）
@@ -1478,12 +1525,24 @@ namespace CardPresentation
                 //    ② **尺寸** = `w / 108f` 与 `LayoutSpace.Px(w)` **同值**（`DesignHeight` = 10 ⇒ `Px` ⇒ `px/108`）。
                 //    ③ **队列 = `QOverlay`** · **tint = (0.33962, 0.33962, 0.33962, 1)**（旧代码建完逐块设的就是这两样，
                 //       公共件会替我们设；`GetComponentsInChildren<ImageQuad>()` 两边都不含未激活件 ⇒ 同一批子块、同一先后）
-                //       · **`fillCenter = false`**（边框不填中间）· `borderOutPx = (65,65,65,65)` 原样透传 · `clip` 一律 `null`。
+                //       · **`fillCenter = false`**（边框不填中间）· `clip` 一律 `null`。
                 //   ⇒ 原来那圈 `foreach` **删掉了**：它设的两个值与公共件内部设的**同值**，
                 //     留着就是「同一条规则写两处」（将来改一处、另一处静默不动）。
+                // 🔴🔴 **2026-10-11 就地订正（铁律 5）—— `borderOutPx` 原来写的是 `13 × 5 = 65`，方向反了。**
+                //   `m_PixelsPerUnitMultiplier` 的语义是**除**（**越大边越细**，Unity 文档：A higher value
+                //   makes the borders appear smaller）⇒ 画出来的角块 = **`m_Border ÷ ppuMul = 13 ÷ 5 = 2.6 px`**。
+                //   同一个口径的正例在 `资料` 里记着（左栏 `Highlight`：`30 ÷ 0.92 = 32.61`）。
+                //   🔴 **实测症状（2026-10-11 真机实拍，量出来的）**：卡面本身是 **535×414.4 ✓ 正确**、
+                //   卡图也是满卡的，但一圈 **65px 厚的灰边**把外圈全盖住了 —— 可见的画心 =
+                //   `535−2×65 = 405` × `414.4−2×65 = 284.4`，与实拍量到的「卡图 409×289」**逐值吻合**
+                //   （`_tmp_view/ui_1019/00_crop_card.png`；方差扫描 bbox = 545×385 截图 px）。
+                //   ⇒ 看起来就是「灰底板 + 中间一小块图」，而原版是**满幅立绘 + 一条 hairline 灰边**。
+                //   判据 → `bundle_menus_assets_all` 的 `Base Game Mode Container 1x1` 的 `Border` 那一颗
+                //   （`40k_square_border` · `m_Border (13,13,13,13)` · `m_PixelsPerUnitMultiplier 5` ·
+                //     `m_FillCenter 0` · 色 `0.33962`）。
                 MenuDraw.Nine(card, borderTex, new PxRect(x, y, x + w, y + h), new Vector4(13, 13, 13, 13),
                               64f, 64f, QOverlay, new Color(0.33962f, 0.33962f, 0.33962f, 1f), false, "Border",
-                              new Vector4(65, 65, 65, 65));
+                              new Vector4(13f / 5f, 13f / 5f, 13f / 5f, 13f / 5f));   // = 2.6px（13 ÷ ppuMul 5）
             }
 
             // ⑤ 倒计时那一行（`Starts in:` + 时钟 + 剩余时间）**本批不画** —— 它是 liveop 的活动倒计时，本地没有数据源。

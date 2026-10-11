@@ -1394,8 +1394,8 @@ public static class MainMenuScene
         CheckTrue(modes != null, "`GameModes` 容器建了");
         var content = FindChild(modes, "Content");
         CheckTrue(content != null, "`Viewport/Content` 建了（原版出厂 0 子，靠 liveop 数据灌）");
-        CheckCard(menu, "Base Game Mode Container 1x1 - Tutorial", 205f, 535f, 414.4f, "Tutorial（1x1）");
-        CheckCard(menu, "Draft Game Mode Container 1x2", 760f, 535f, 848.8f, "Draft（1x2）");
+        CheckCard(menu, "Base Game Mode Container 1x1 - Tutorial", 205f, 535f, 414.4f, "Tutorial（1x1 · col0/row0）", 182.8f);
+        CheckCard(menu, "Draft Game Mode Container 1x2", 760f, 535f, 848.8f, "Draft（1x2 · col1 独占整列）", 182.8f);
 
         // ============================================================ 🆕 2026-10-17（A789 收口 · 用户拍板「按建议执行」）
         // 模式卡的**命中区** —— 「卡建出来了」≠「点得动」。
@@ -1532,9 +1532,14 @@ public static class MainMenuScene
         //    🔴 原版这张「模式 → 卡图 → 窗」的映射在 **liveop 服务端**（本地查不到、正本也写着「别自己编」）
         //    ⇒ **这三张 + 它们点开哪扇窗，都是我们定的**（逐条记在 `资料/阶段二_战斗入口_原版规格.md` §〇/§五）。
         Section("战斗入口：三张模式卡（**入口是我们定的**，见 `资料/阶段二_战斗入口_原版规格.md`）");
-        CheckCard(menu, "Base Game Mode Container 1x1 - Practice", 205f + 2 * 555f, 535f, 414.4f, "Practice（1x1）");
-        CheckCard(menu, "Base Game Mode Container 1x1 - Skirmish", 205f + 3 * 555f, 535f, 414.4f, "Skirmish（1x1）");
-        CheckCard(menu, "Base Game Mode Container 1x1 - Ranked", 205f + 4 * 555f, 535f, 414.4f, "Ranked（1x1）");
+        // 🔴 **2026-10-11（界面复刻）**：下面这三条的**列号改了** —— 两张 1×1 现在**叠在同一列**
+        //   （`Practice` 上 / `Skirmish` 下），`Ranked` 跟着挪到第 4 列（205+555×3）。
+        //   判据 = 参考图右缘那一列（两张 1×1 上下叠着、中间留 20px 缝）；详见 `BuildGameModes` 那段注释。
+        //   ⚠️ 期望值里 `182.8 / 617.2` 是**抄** `MainMenuRuntime.CardRow0Top`（`182.8`）与其 +`414.4+20`；
+        //   那个常量是 `private`、宿主读不到 ⇒ 抄一份并把算式写在这里（改常量时这里会红，是**故意的**）。
+        CheckCard(menu, "Base Game Mode Container 1x1 - Practice", 205f + 2 * 555f, 535f, 414.4f, "Practice（1x1 · col2/row0）", 182.8f);
+        CheckCard(menu, "Base Game Mode Container 1x1 - Skirmish", 205f + 2 * 555f, 535f, 414.4f, "Skirmish（1x1 · col2/row1 —— 叠在 Practice 下面）", 617.2f);
+        CheckCard(menu, "Base Game Mode Container 1x1 - Ranked", 205f + 3 * 555f, 535f, 414.4f, "Ranked（1x1 · col3/row0）", 182.8f);
         {
             var pc = menu.Find("Base Game Mode Container 1x1 - Practice");
             var ph = FindChild(pc, "Hit");
@@ -10679,9 +10684,14 @@ public static class MainMenuScene
         MeasureText(FindChild(prof, "Player Name"), "Player Name", 32f);
         MeasureText(FindChild(chat, "Message Preview"), "Player Name: Message", 18f);
         MeasureText(FindChild(menu.Find("Base Game Mode Container 1x1 - Tutorial"), "Event Title"),
-                    "TUTORIAL", 58.8f);
-        MeasureText(FindChild(menu.Find("Main Menu Navigation Button - Home"), "Text"), "PLAY", 33f);
-        MeasureText(FindChild(menu.Find("Main Menu Navigation Button - Collection"), "Text"), "COLLECTION", 30.45f);
+                    "教学", 58.8f);   // 🔴 2026-10-11：模式卡标题改走 `Loc.T`（中文档 = 参考图实拍的「教学」）
+        // 🔴 **2026-10-11（界面复刻 · A1493②）**：这两条的**标注串改了** —— 导航文案不再写死英文，
+        //   改走 `Loc.T`（键名与中文出处 = `Core/Loc.cs` 的 E1 那一节）⇒ 屏上是 **游玩 / 收藏**。
+        //   ⚠️ `MeasureText` **只打日志、不断言**（见它的实现），所以这里改的只是「量的是谁」。
+        //   ⚠️ 期望 em 两处都给 **33**：原来 `COLLECTION` 那个 30.45 是**拉丁字母被 autofit 缩出来**的结果，
+        //   换成两个汉字后放得下、不会缩（⛔ 别再按 30.45 去核汉字）。
+        MeasureText(FindChild(menu.Find("Main Menu Navigation Button - Home"), "Text"), "游玩", 33f);
+        MeasureText(FindChild(menu.Find("Main Menu Navigation Button - Collection"), "Text"), "收藏", 33f);
 
         // ============================================================ §A92 节点类型（2026-10-07 新增）
         //
@@ -12762,7 +12772,8 @@ public static class MainMenuScene
     /// 一张模式卡：**只断言有原版出处的三项** —— 列的左边界（`205 + 555c`，§二·4 实证）、宽高（`itemSize` 535×414.4 实证）。
     /// 🔴 **行 y 不断言** —— 它是运行时算的、本地取不到（§五 E 的 `?`），我们取的值**没有原版出处**，断言它就等于自证。
     /// </summary>
-    static void CheckCard(MainMenuRuntime menu, string name, float colLeft, float w, float h, string what)
+    static void CheckCard(MainMenuRuntime menu, string name, float colLeft, float w, float h, string what,
+                          float rowTop = -1f)
     {
         var card = menu.Find(name);
         if (card == null) { CheckTrue(false, $"模式卡 {what} 建了"); return; }
@@ -12773,11 +12784,29 @@ public static class MainMenuScene
         CheckNear(q.WorldH, h / 108f, 0.01f, $"{what} 卡高 = {h}px（`itemSize.y` 实证）");
         var wantX = MainMenuRuntime.Center(colLeft, colLeft + w, 0f, 0f).x;
         CheckNear(q.transform.localPosition.x, wantX, 0.01f, $"{what} 在第 {colLeft}px 起的那一列（列左 = 205+555c 实证）");
+        // 🆕 **2026-10-11（界面复刻 · 两行网格）**：`rowTop ≥ 0` 时**顺带断行位** ——
+        //   1×2 独占整列、1×1 一列放两张（上 row0 / 下 row1），判据 = 参考图右缘那一列
+        //   （两张 1×1 上下叠着、中间留 20px 缝）。理由：**只断 x/宽/高 是断不出「排布对不对」的**
+        //   —— 改回「一律摆在第 0 行」时上面三条全绿、画面却是错的（本轮就是这么被抓出来的）。
+        if (rowTop >= 0f)
+        {
+            var wantY = MainMenuRuntime.Center(0f, 0f, rowTop, rowTop + h).y;
+            CheckNear(q.transform.localPosition.y, wantY, 0.01f,
+                      $"{what} 的行顶 = {rowTop}px（row0 = `CardRow0Top` · row1 = 卡高 + 20）");
+        }
 
         // 🔴 2026-09-24 探针：模式卡的卡图**实拍看着小于卡面**（§三 第 15 条 第 45 行）。
         //    已知：quad 的 `WorldW/WorldH` **是对的**（上面那两条），`SetUvRect` **不改尺寸**（读过源码），
         //    贴图 1024² 全不透明、裁的那块里也几乎没有 (86,86,86) 的平灰。
         //    ⇒ 那就把**这一格子树里每一层**的名字 / 渲出矩形 / 图 / 队列 / 染色打出来，别再靠肉眼猜。
+        // ============================================================ ✅ **2026-10-11：这条查清了（铁律 5 就地结案）**
+        //   **病根 = 那一圈 `Border` 的 `borderOutPx` 写成了 `13 × 5 = 65`（方向反了）。**
+        //   `m_PixelsPerUnitMultiplier` 的语义是**除** ⇒ 角块 = `13 ÷ 5 = 2.6px`；写成 65px 之后
+        //   一圈 65px 的灰边把卡图**外圈整个盖住** ⇒ 可见画心 = `535−130 × 414.4−130` = **405×284.4**，
+        //   与实拍量到的「卡图 409×289」逐值吻合 —— **卡图本身一直是满卡的、量出来的 WorldW/WorldH 也没错**，
+        //   被盖住的观感骗了三个会话。**判据/实拍** → `Shell/MainMenuRuntime.cs` 的 `Border` 那一段。
+        //   ⚠️ **下面这段探针保留**：它当初没找出病根，是因为它只打「quad 自己的尺寸」、
+        //   **打不出「谁盖在谁上面」** —— 下次遇到同类「看着小」，先把**同格每一层的 rect + 队列**排出来比。
         {
             var cardT = menu.Find(name);
             var sb = new System.Text.StringBuilder();
