@@ -928,7 +928,11 @@ public static class CollectionScene
             var keys = new List<Transform>();
             foreach (var t in root.GetComponentsInChildren<Transform>(true))
                 if (t.name.StartsWith("CollectionTabButton_")) keys.Add(t);
-            Check(keys.Count, 4, $"左栏**四个键**（实测 {keys.Count}）");
+            // ⚠️ **本条是弱判据** —— `GetComponentsInChildren(true)` **含 inactive** ⇒ 某颗键被
+            //    `TabButtons.Initialize` 关掉时，这里**照样数到 4**（「全绿而画面上少一个键」的来源）。
+            //    ⇒ 「四颗**真在画面上**」那四条在下面 `Section("四页签：…")` 里逐颗另断
+            //      （2026-10-11 · `A1498` 同根因补断言）。
+            Check(keys.Count, 4, $"左栏**四个键**（实测 {keys.Count}；⚠️ **含 inactive** —— 只证「建出来了」，不证「看得见」）");
 
             // 🔴 左栏第一个键的顶边 = **188.64**（条从 158.64 起 + VLG padTop 30）
             //    —— 这是本窗与奖励窗/商店**唯一的外壳差别**（那两个是 70.94 + 120 = 190.94）
@@ -943,11 +947,62 @@ public static class CollectionScene
 
             // ---------------- 四页签：**卡面文案不是页节点名** ----------------
             Section("四页签：文案 / 切页（正本 §二；A1 表 `:17-22`）");
-            string[] wantLabels = { "DECKS", "CARDS", "COSMETICS", "STYLES" };
-            for (int i = 0; i < 4 && i < keys.Count; i++)
+            // 🔴 **2026-10-11（`A1498`）就地改口径**：四键文案**从写死的英文改成 `Loc.T(键)`** ——
+            //    键名 = 原版 `Localize.mTerm` 原文，**实现那一侧的出处 = `Shell/CollectionWindow.Buttons[i].Term`**。
+            //    ⚠️ 不改这条 ⇒ 本批一跑必红 4 条，而且**红的是【断言过期】、不是实现错**（实现那边已随语档出中文）。
+            // 🔴 **2026-10-11（`A1498` 同根因 · 本批）就地再改一次（铁律 5 续写）**：上一句原文写的是
+            //    「**唯一出处** = `CollectionWindow.Buttons[i].Term`」—— 那是**实现那一侧**的出处；
+            //    **断言这一侧必须把四颗键名【写死】**（下面这张 `tabTerms`）。**理由**：两边都从 `Buttons[i].Term`
+            //    读 ⇒ **检测器与被测实现同一个口** ⇒ 把实现表里那条 `term:` 删掉时**两边一起变绿**（自证）。
+            //    ⛔ **别把 `tabTerms` 改回 `CollectionWindow.Buttons[i].Term`。**
+            //    四个串与原表逐位相同，只是**独立写出**（原版 `TabButtonLabel ▸ Localize.mTerm` 原文）。
+            var tabTerms = new[]
             {
+                "MainMenu/MainButtons/ButtonLabel/Deck",
+                "MenuShop/ShopItemType/Cards",
+                "MenuShop/ShopItemType/Cosmetics",
+                "MenuShop/AlternateArtStyle",
+            };
+            var wantLabels = new string[4];
+            for (int i = 0; i < 4; i++)
+            {
+                string term = tabTerms[i];
+                // 🧨 **灭自证（原版字面量 vs 实现那张表）**：**期望值 = 上面写死的串**，被测的是实现表。
+                //    ⛔ 这不是「读实现当期望值」—— 方向正好相反。**为什么非要有它**：**英文档下**
+                //    `Loc.T(键)` 与 `spec.Label` 是**同一个串** ⇒ 下面那条文案断言**咬不住**「实现不再走词条」
+                //    （把 `Buttons[i].Term` 删掉，屏上改画 `Label`，文案一字不变）⇒ 只有本条会红。
+                string gotTerm = i < CollectionWindow.Buttons.Length ? CollectionWindow.Buttons[i].Term : "<实现表短了>";
+                CheckTrue(string.Equals(gotTerm, term, System.StringComparison.Ordinal),
+                          $"★（A1498）左栏第 {i + 1} 键的**词条键名** = `{term}`"
+                        + $"（原版 `Localize.mTerm` 原文；实现表 `CollectionWindow.Buttons[{i}].Term` 实测 `{gotTerm}`）");
+                CheckTrue(Loc.HasEntry(term),
+                          $"（前提）左栏第 {i + 1} 键的词条 `{term}` 在表里（⛔ 不在 ⇒ 实现与断言两边一起退化成键名）");
+                wantLabels[i] = Loc.T(term).ToUpperInvariant();
+            }
+            // 🔴🔴 **2026-10-11（`A1498` 同根因 · 本批的主要交付）**：四颗键**逐颗**先断「**真在画面上**」。
+            //    **为什么单开一档**：本文件上面那句 `Check(keys.Count, 4, …)`（以及 `FindChild` 自己）走的是
+            //    `GetComponentsInChildren<Transform>(true)` —— **含 inactive** ⇒ 第 4 颗（`…_3`）被
+            //    `TabButtons.Initialize` 关掉时**照样找得到、照样数到 4** ⇒ **全绿而画面上少一个键**。
+            //    这正是「16k+ 断言全绿、实拍里只剩 3 个键」的来源（**凡断「该显示」的，都要同时断 `activeSelf`**）。
+            //    **判据**（原版本窗 `TabButtons.tabButtonPrefab` = `m_PathID 0` ⇒ 末项**不是**母版、四颗全是真页签）
+            //    → `Shell/MenuWindowBase.cs` 的 `BuildBar` doc（⛔ 不在本文件再抄第二份，铁律 6）。
+            //    🧨 **鉴别式**：把 `Shell/CollectionWindow.cs` 的 `BuildShell(…, lastIsMaster: false)` 那个实参
+            //    删掉（= 回旧写法、末项当母版）⇒ **`…_3` 那条立刻红**（`activeSelf = false`）。
+            //    ⚠️ **摆回基线**：本档只读**构建期**的 `SetActive`，与「当前选哪一页 / 高亮在哪」无关
+            //    （`SetHighlight` 切的是 `Highlight` 子件，不是键本身）⇒ 本档紧跟建窗跑、进来时页签就是出厂态
+            //    （`CollectionWindow.Build` 末尾 `tabButtons.Click(0)`）；后面那些切页小节的残留**不会漏到这里**。
+            //    ⛔ **别退化成「数一数有几颗是激活的」** —— 那是弱判据（本仓踩过），要**逐颗按名字**钉。
+            for (int i = 0; i < 4; i++)
+            {
+                // ⛔ **按【名字】取，不按 `keys[i]` 的遍历次序** —— 名字才能把「第几颗」钉死。
+                var kb = FindChild(bar, "CollectionTabButton_" + i);
+                CheckTrue(kb != null, $"（前提）左栏第 {i + 1} 键 `CollectionTabButton_{i}` 建出来了");
+                CheckTrue(kb != null && kb.gameObject.activeSelf,
+                          $"★ 左栏第 {i + 1} 键 `CollectionTabButton_{i}` **真在画面上**（`activeSelf = true`）"
+                        + " —— 原版本窗 `TabButtons.tabButtonPrefab` 是 **null** ⇒ 末项**不是**母版、⛔ 别被关掉"
+                        + "（`FindChild` / `GetComponentsInChildren(true)` **含 inactive** ⇒ 只数个数挡不住这个缺陷）");
                 // ⚠️ 键上的字是 `Text`；**原版 `m_fontStyle = UpperCase`**（基类已 `ToUpperInvariant`）
-                var lab = FindChild(keys[i], "Text");
+                var lab = FindChild(kb, "Text");
                 CheckText(TextOf(lab), wantLabels[i],
                           $"左栏第 {i + 1} 键的文案 = **{wantLabels[i]}**"
                           + (i == 2 ? "（⚠️ 页节点叫 `Cardback Tab`，**卡面印的是 Cosmetics**）" : "")
@@ -5356,6 +5411,185 @@ public static class CollectionScene
                           "★ A1503⑤ 军种格顺序 = **原版 option 序号**（`DeckEditorState.ArmyOrder`）且单调 —— "
                           + "本轮卡池里 " + facs5.Count + " 个阵营：" + string.Join(",", facs5.ToArray()));
             }
+            // ============================================================ 🆕 **2026-10-11（第十七会话 · `A1525⑤`）：
+            //   卡组格那两枚徽章（`Faction` 左下圆徽 / `Game Mode Icon` 右下模式徽）的**渲染队列夹层** + 可见性**
+            // 判据（两条，全文 → `Shell/MenuDraw.cs` `DeckCell` 的 `A1525⑤` 那一段）：
+            //   ① **原版 prefab 的子件序**（`menu_dump.py bundle_menus_assets_all -2024334647938937812 --depth 4`
+            //      `Deck` 下**底→顶**）= `Highlight` → `Deck Image(mask)` → `Deck Image` → `Frame` →
+            //      `Deck Name` → **`Faction Icon`** → **`Game Mode Icon`** → `DificultyLevel`
+            //      ⇒ 两枚徽章排在 `Frame` **之后** = 画在它**之上**；
+            //   ② **两张用户实拍**（`收藏—卡组的参考图.png` 4 格 · `更换卡组的参考.png` 12 格）里
+            //      每一格底部**都看得见**这两枚徽章（压在金框与名牌之上）。
+            // 🔴 **为什么必须有断言**：改前两枚徽章与 `Frame` **共用队列 `q`** —— 而 `ImageQuad` 全是透明队列、
+            //   同队列内按「到相机的 3D 距离」排序（CLAUDE.md §三）⇒ **大而居中的卡框盖住了靠边角的小徽章**
+            //   （改前实拍里红枪徽**只剩左上一个月牙**）。⚠️ 这一族**眼睛看不出来**（节点在、图对、队列不对）
+            //   ⇒ 只能量队列，量不到「看得见」。
+            Section("A1525⑤：卡组格两枚徽章的**队列夹层** + 可见性（「件建了、画面上却没有」那一族）");
+            {
+                // 先钉**这条梯子本身**：期望值 = 现读 `Shell/CollectionWindow.cs:128` 那一行常量
+                //   （`QPagePanel/QPageSdf/QPageRow/QPageText/QPageOverlay` = 3030/3031/3032/3033/3034）。
+                //   🧨 谁把整条梯子抬/降一档（徽章与 `Frame` 一起漂）⇒ 下面那三条红（夹层那条抓不住）。
+                Check(CollectionWindow.QPageOverlay, 3034,
+                      "梯子顶档 `QPageOverlay` = **3034**（现读 `Shell/CollectionWindow.cs` 那行常量）");
+                Check(CollectionWindow.QPageText, 3033, "…`QPageText` = **3033**");
+                Check(CollectionWindow.QPageRow, 3032, "…`QPageRow` = **3032**");
+                CheckTrue(CollectionWindow.QPageOverlay > CollectionWindow.QPageText
+                          && CollectionWindow.QPageText > CollectionWindow.QPageRow,
+                          "★ 梯子**单调**：`QPageOverlay` > `QPageText` > `QPageRow` —— 两枚徽章落在"
+                        + "「**名字之上**」那一档（= 原版子件序里它们在 `Deck Name` 之后）");
+
+                var dpg5 = win.PageRoot(0);
+                int built5 = 0, fac5 = 0, mode5 = 0, both5 = 0, want5 = 0, miss5 = 0;
+                int facOff5 = 0, modeOff5 = 0, facQ5 = 0, modeQ5 = 0, layer5 = 0;
+                string diag5 = "";
+                for (int i = 0; i < CollectionData.DeckCount(); i++)
+                {
+                    var cell5 = FindChild(dpg5, "CollectionDeck_" + i);
+                    if (cell5 == null) continue;       // 视口外的格子根本不建（`DeckScroll.Intersects`）
+                    built5++;
+                    var ft5 = FindChild(cell5, "Faction");
+                    var mt5 = FindChild(cell5, "Game Mode Icon");
+                    if (ft5 != null)
+                    {
+                        fac5++;
+                        if (!ft5.gameObject.activeSelf) facOff5++;   // ⚠️ `FindChild` **含未激活件** ⇒ 只断「找得到」测不出「关着」
+                        var qq5 = ft5.GetComponent<ImageQuad>();
+                        if (qq5 == null || qq5.RenderQueue != CollectionWindow.QPageOverlay) facQ5++;
+                    }
+                    if (mt5 != null)
+                    {
+                        mode5++;
+                        if (!mt5.gameObject.activeSelf) modeOff5++;
+                        var qq5 = mt5.GetComponent<ImageQuad>();
+                        if (qq5 == null || qq5.RenderQueue != CollectionWindow.QPageOverlay) modeQ5++;
+                    }
+                    // 「该有阵营徽」的**存在性**：数据侧该有 + **图确实在**（不在则那一层本来就不建：`Rect` 遇 null 直接 return）
+                    //   + **底部没被视口切掉**（同一道闸，见上面 `A1503①` 那段：探针用 `Deck Name` ——
+                    //   它在作者系 y **344.2**、比徽章那排的底 **359.4** 更靠上 ⇒ 名字画得出来 ⇒ 徽章一定在框内）。
+                    var di5 = CollectionData.DeckAt(i);
+                    if (!string.IsNullOrEmpty(di5.Faction) && FindChild(cell5, "Deck Name") != null
+                        && CardArt.MenuUi(DeckRuntime.FactionIcon(di5.Faction)) != null)
+                    {
+                        want5++;
+                        if (ft5 == null) miss5++;
+                    }
+                    if (ft5 == null || mt5 == null) continue;
+                    both5++;
+                    var fq5 = ft5.GetComponent<ImageQuad>();
+                    var mq5 = mt5.GetComponent<ImageQuad>();
+                    var frt5 = FindChild(cell5, "Frame");
+                    var frq5 = frt5 != null ? frt5.GetComponent<ImageQuad>() : null;
+                    if (frq5 == null || fq5 == null || mq5 == null
+                        || !(frq5.RenderQueue < fq5.RenderQueue && frq5.RenderQueue < mq5.RenderQueue))
+                    {
+                        layer5++;
+                        if (diag5.Length < 200)
+                            diag5 += " #" + i + "(Frame=" + (frq5 != null ? frq5.RenderQueue.ToString() : "<无quad>")
+                                   + " 徽=" + (fq5 != null ? fq5.RenderQueue.ToString() : "<无quad>") + "/"
+                                   + (mq5 != null ? mq5.RenderQueue.ToString() : "<无quad>") + ")";
+                    }
+                }
+                CheckTrue(built5 > 0, "（前提）Deck 页建出了 " + built5 + " 格 —— 否则下面几条全空转（假绿）");
+                CheckTrue(both5 > 0,
+                          "（前提）至少有一格**两枚徽章都建出来了**（本轮实测：建 " + built5 + " 格 · `Faction` "
+                        + fac5 + " 格 · `Game Mode Icon` " + mode5 + " 格 · 两枚齐 " + both5 + " 格）"
+                        + " —— ⛔ 0 格 ⇒ 下面的夹层断言等于没验");
+                CheckTrue(want5 > 0,
+                          "（前提）有 " + want5 + " 格**数据侧该有阵营徽**（`Faction` 非空 + 图在 + 底部没被切）"
+                        + " —— ⛔ 0 格 ⇒ 下面那条存在性断言空转");
+                Check(layer5, 0,
+                      "★★ A1525⑤ `Frame` 的渲染队列**严格小于**两枚徽章的（夹层 —— 判据 = 原版子件序 + 两张实拍）"
+                    + "｜🧨 改坏法：把 `Shell/MenuDraw.cs` `DeckCell` 里两枚徽章那两个 `qOverlay` 改回 `q`"
+                    + "（= 与 `Frame` 同队列 ⇒ 被卡框压住，改前那版）⇒ 本条必红" + diag5);
+                Check(facQ5, 0, "★ …两枚徽章的队列都 **== `CollectionWindow.QPageOverlay`**（阵营徽那一半）");
+                Check(modeQ5, 0, "★ …模式徽那一半");
+                Check(facOff5, 0,
+                      "★ A1525⑤ `Faction` 徽章**逐格 `activeSelf == true`**（⚠️ `FindChild` 含未激活件 ⇒ "
+                    + "只断「找得到」测不出「关着」；「建了却看不见」这一族本仓栽过 4 次）");
+                Check(modeOff5, 0, "★ …`Game Mode Icon` 同理");
+                Check(miss5, 0,
+                      "★ A1525⑤ 该有阵营徽的 " + want5 + " 格**都真有那一颗**｜"
+                    + "🧨 改坏法：把那句 `if (!string.IsNullOrEmpty(info.Faction))` 去掉（整层不画）⇒ 本条红");
+            }
+            // ============================================================ 🆕 **2026-10-11（第十七会话 · `A1525⑥`）：
+            //   收藏窗的卡组格**不该有金框**（`Highlight Rounded Square`）**
+            // 判据（机器码级两关，全文 → `Shell/CollectionWindow.cs` `BuildDeckCell` 那一大段）：
+            //   ① 唯一的调用点 = `CollectionItem<T>.Config` 那句
+            //      **`if (useSelectedHighlight) SelectedHighlight(isSelected)`**
+            //      （`script.json` 的 `CollectionItem<object>$$Config` @ RVA **`0x15F1B10`**）；
+            //   ② 两个变体的这个字段不一样：**`Collection Deck`（收藏窗用的那份）= 0** ·
+            //      `Collection Deck With Highlight`（弹窗那份）= 1 ⇒ **本页永远不调 `SelectedHighlight`**。
+            //   旁证：两张用户实拍（`收藏—卡组的参考图.png` 4 格 · `更换卡组的参考.png` 12 格）**没有一格是金的**。
+            Section("A1525⑥：收藏窗卡组格**没有**金框（原版这一页本来就不画）");
+            {
+                var dpg6 = win.PageRoot(0);
+                int built6 = 0, hl6 = 0;
+                string diag6 = "";
+                for (int i = 0; i < CollectionData.DeckCount(); i++)
+                {
+                    var cell6 = FindChild(dpg6, "CollectionDeck_" + i);
+                    if (cell6 == null) continue;
+                    built6++;
+                    // ⚠️ `FindChild` **含未激活件** —— 这一次要的正是「**压根没有**」：关着的金框也算有。
+                    if (FindChild(cell6, "Highlight Rounded Square") != null)
+                    { hl6++; if (diag6.Length < 120) diag6 += " #" + i; }
+                }
+                CheckTrue(built6 > 0, "（前提）Deck 页建出了 " + built6 + " 格");
+                Check(hl6, 0,
+                      "★ A1525⑥ 收藏窗**逐格**都没有 `Highlight Rounded Square`｜"
+                    + "🧨 改坏法：把 `Shell/CollectionWindow.cs` `BuildDeckCell` 那个实参从 `false` 改回 "
+                    + "`i == CollectionData.CurrentIndex()` ⇒ 本条必红" + diag6);
+                int cur6 = CollectionData.CurrentIndex();
+                var ccell6 = FindChild(dpg6, "CollectionDeck_" + cur6);
+                if (ccell6 != null)
+                    CheckTrue(FindChild(ccell6, "Highlight Rounded Square") == null,
+                              "★★ …**当前那一格也没有**（# " + cur6 + " = `CollectionData.CurrentIndex()`）—— "
+                            + "上面那条逐格断言的**判别式**：改回 `i == CurrentIndex()` 时它抓的就是这一格"
+                            + "（那一格若恰在视口外，逐格那份量不到）");
+                else
+                    Debug.LogWarning(P + "   【限额·**不是通过**】当前卡组 #" + cur6
+                                       + " 那一格没建出来（视口外）⇒ 「当前那一格也没有金框」本次没验到；"
+                                       + "上面那条**逐格**断言照样成立。");
+            }
+            // ============================================================ 🆕 **灭自证对**（与上面那条**结构上不可能同时满足**）：
+            //   选卡组弹窗那一份变体（`Collection Deck With Highlight`，`useSelectedHighlight = 1`）
+            //   选中那一格**必须真画金框**。
+            // ⚠️ 弹窗那份的 `sel` 是**真值**（`Shell/DeckSelectionPopup.cs:731` 的 `pick.OwnIndex == DeckIndex`）
+            //   ⇒ **别顺手把它也改成 `false`**（那是另一棵树）。本段自开一扇窗，**末尾关掉并清场**
+            //   （照本文件 `A1035①` 那一节的收尾三句）。
+            {
+                var psel = DeckSelectionPopup.Create(win.Manager);
+                CheckTrue(psel != null, "（前提）自开一扇 `Deck Selection Popup`（验「弹窗那一份**有**金框」）");
+                if (psel != null)
+                {
+                    psel.TryOpen(null);
+                    psel.SwitchTab(true);        // 「我的卡组」页（`SwitchTab` 会把 `DeckIndex` 清成 −1）
+                    var shown6 = psel.Shown();
+                    CheckTrue(shown6.Count > 0,
+                              "（前提）「我的卡组」页列出 " + shown6.Count + " 副 —— 否则下面那条空转（假绿）");
+                    if (shown6.Count > 0)
+                    {
+                        int pk6 = shown6[0].OwnIndex;
+                        psel.DeckIndex = pk6;    // 把「选中」显式落在**确实在这一页里**的那一副上
+                        psel.RebuildListNow();
+                        var sc6 = FindChild(psel.transform, "DeckSel_" + pk6);
+                        CheckTrue(sc6 != null, "（前提）弹窗里 `DeckSel_" + pk6 + "` 建出来了");
+                        var hl6b = sc6 != null ? FindChild(sc6, "Highlight Rounded Square") : null;
+                        CheckTrue(hl6b != null && hl6b.gameObject.activeSelf,
+                                  "★★ 灭自证对：**弹窗**里选中的那一格**有** `Highlight Rounded Square` 且**开着**"
+                                + "（原版 `Collection Deck With Highlight` 的 `useSelectedHighlight = 1`；"
+                                + "⚠️ `activeSelf` 一起断 —— `FindChild` 含未激活件）—— "
+                                + "与上面「收藏窗逐格没有金框」**结构上不可能同时满足**");
+                        if (hl6b != null)
+                            CheckTint(hl6b, new Color(1f, 0.773f, 0f, 1f),
+                                      "★★ …而且那颗的染色 = 原版 `Highlight Rounded Square` 的 **(1, 0.773, 0)**（金）");
+                    }
+                    DeckSelectionPopup.LastOpened = null;             // 不留状态给后段
+                    PointerLayer.UnregisterOwnedBy(psel.gameObject);  // 自开的窗自己把滚动登记撤掉（A867 那条不变量）
+                    psel.Close();
+                    Object.DestroyImmediate(psel.gameObject);
+                }
+            }
             // 🔴 **实拍抓的一条**：第一版照抄了 dump 的 `1405`（= **布局组跑之前的模板位**，
             //    父容器 `Header/Filters` 是 425..1385 的 VLG）⇒ **它和右对齐到 1821 的标题叠在一起**。
             //    ⇒ 现在断「按钮在容器内」**并且**「标题与按钮不叠」—— 这类错**矩形断言量不到**，
@@ -8441,6 +8675,7 @@ public static class CollectionScene
             // 收藏窗是**挂在壳锚点上的窗口**，不该有自己的场景 ⇒ 这里只存一张自检场景供人工看
             var path = "Assets/CardPresentation/Scenes/CollectionCheck.unity";
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene(), path);
+            SceneStubAudit.Run(path);   // 🆕 A1506：存盘后自证「不许有 !u!115 存根」（干净时零输出）
             Debug.Log(P + $"  自检场景 → {path}");
         }
 }

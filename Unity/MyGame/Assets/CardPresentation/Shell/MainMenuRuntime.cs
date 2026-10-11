@@ -236,6 +236,36 @@ namespace CardPresentation
         /// 这一档只有那面盾用（`ProfileTab` / `RankedTab` 那边是各自一套 `L_*` 梯子，互不相干）。</summary>
         const int QAvatarFrame = QContent - 1;
 
+        /// <summary>左竖导航的**选中态高亮**（`Selected highlight`）单独一档 = `QPanel + 1`。
+        ///
+        /// <para>🔴 **2026-10-11（A1521⑥）：为什么必须单开一档 —— 它原来是【同队列】，而实测没画出来。**
+        /// 档位原来传的是 `QPanel`，**与导航底板 `Navigation Panel/Background` 同一个数（2910）**
+        /// （底板在 `BuildNavigationPanel` 里就是 `QPanel`）⇒ 同队列 + 两件 z 都是 0
+        /// ⇒ **谁盖谁完全不确定**（本文件 `QBg` 那段 2026-09-22 的实测结论；`Editor/MainMenuScene.cs:6312`
+        /// 也写着同一条：「同队列时谁盖谁由『到相机的距离』定」）。</para>
+        ///
+        /// <para>🔴 **实测（逐像素量的，不是目测）**：拿真机实拍 `_tmp_view/play17/S1_menu.png`
+        /// 与用户参考图 `C:/Users/qjh36/Desktop/warpforge参考图/主界面参考图.png` 并排量**选中那颗（PLAY）**
+        /// 与**未选中四颗**的同位置条带 ——
+        /// 我们：左缘条带 `(97,29,6)` vs `(95,25,8)`（**逐点几乎相同**）· 右缘条带 `(129,42,30)` vs `(119,13,3)`
+        /// （后者那点差是**图标**：PLAY 的图标 156.3 宽、比其余四颗的 140 宽）；
+        /// 原版：`(116,14,2)` vs `(46,9,8)`（**2.5 倍**）。
+        /// 再拿高亮本该有的颜色 `40k_main_bt_selected_BW`（71²，灰 148、alpha 145–255）× tint `(1,0.0805,0,1)`
+        /// ≈ `(148,44,0)` 全图扫一遍：PLAY 那颗整块里**只命中 47 个像素（0.1%）**、且都聚在图标刀身上
+        /// ⇒ **高亮一个矩形都没画出来**（等价于原版那一格 `en=0`）。</para>
+        ///
+        /// <para>**档位判据 = 原版兄弟序**（`Navigation Panel` 的子件序：`Background`(1) → `Panel Shadow`(2)
+        /// → `Separators L/R`(3,4) → `Buttons Container`(5)；而 `Selected highlight` 是**按钮的第 1 颗子件**）
+        /// ⇒ 高亮必须在**底板 / 阴影 / 分隔线之上**，在按钮自己的 `Image` / `Text Background` /
+        /// `Badge Highlight`（`QContent` 2920）与文字（`QText` 2921）**之下**
+        /// ⇒ `QPanel + 1`（2911）是这一段里唯一的空档。</para>
+        ///
+        /// <para>⚠️ **工程里同一件事有先例**：`DeckRuntime` 的页签高亮（**同一张图**）也是单开一档压在侧栏底板之上
+        /// —— `QPanel 3004 &gt; QSide 3000`（`Deck/DeckRuntime.cs:1223`）。
+        /// ⚠️ **诚实标注**：改这一档是照「兄弟序 + 同队列不确定」推的，**改完没有跑过 Unity、没法当场验收**
+        /// （执行代理不许跑批处理）—— 请把这条记成「已改、待实拍复核」。</para></summary>
+        const int QNavHighlight = QPanel + 1;
+
         // ============================================================ 顶栏那一档（2026-10-11：降回**窗口之下**）
         // 🔴 **用户 2026-10-11 裁定：照原版 ⇒ 顶栏整条降到【所有窗 / 弹窗之下】**。
         //    这条**推翻了 2026-09-28 那次拍板**（那次照的是一张**二手实拍**：顶栏盖在窗上）。
@@ -304,6 +334,11 @@ namespace CardPresentation
         //    → `Player Level` ⇒ **盾在名字条【之后】= 画在它上面**。用户实拍的同一处吻合
         //    （`资料/原版参照图/用户实拍_1017/卡组编辑界面参考.png`：盾完整，那块暗紫名字板**从盾的右边**
         //    才露出来、没有横穿盾面）⇒ 现取 **2990 名字条（C）· 2991 盾框（E）**。
+        // 🔴 **2026-10-11 就地订正（铁律 5 · `A1521②` · 代理 `P` 四条独立判据）**：上面那句「参考图上那块暗紫名字板」
+        //   **记错了** —— 现在主对话拿 `卡组编辑界面参考.png` 放大重看过：**那一处是灰白花边条**（`40k_main_player frame`），
+        //   **没有暗紫板**。原版那块板（`Planer Name Background`）的父件 `Background Mask` **出厂 `m_IsActive = 0`** ⇒
+        //   **原版一个像素都不画它**（四条判据 → `Shell/TopBar.cs` 的 `BuildPlayerProfile` 那段，⛔ 不在这里抄第二份）。
+        //   ⇒ **我们不建它**（同日已删）⇒ 上面那对 2990/2991 的**次序**从此只是**冗余的常量**，留着无害、⛔ 别再往上挂件。
         public const int QBarPanel = 2986, QBarContent = 2987, QBarAvatarFrame = 2991,
                          QBarText = 2997, QBarOverlay = 2998;
 
@@ -546,8 +581,11 @@ namespace CardPresentation
             const float cx0 = 82.69f;      // 键的水平中心（原版 `Highlight` 的矩形是 -0.3..164.0 ⇒ 中心 81.85）
             var b = New(parent, "Main Menu Navigation Button - " + name, NavBtnW, NavBtnH);
             // 选中态高亮：亮底图 × `m_Color (1,0.0805,0,1)` = **正红**（只有选中的那个画）
+            // 🔴 **2026-10-11（A1521⑥）**：档位由 `QPanel` 改成 `QNavHighlight`（= `QPanel + 1`）——
+            //   原来与导航底板**同队列**（2910）⇒ 谁盖谁不确定，**实测高亮没画出来**。判据与实测读数
+            //   全在 `QNavHighlight` 那段注释里（原版兄弟序 + 两张图逐点量的对照 + `DeckRuntime` 的先例）。
             if (idx == SelectedNav)
-                Rect(b, "40k_main_bt_selected_BW", -0.3f, 164.0f, y1, y2, "Selected highlight", QPanel,
+                Rect(b, "40k_main_bt_selected_BW", -0.3f, 164.0f, y1, y2, "Selected highlight", QNavHighlight,
                      new Color(1f, 0.08054f, 0f, 1f));
 
             var icon = Art(art);        // 先确认图在不在（不在就别画一个空按钮）
@@ -1340,15 +1378,53 @@ namespace CardPresentation
             //   **被参考图自己推翻**：那张图里 **1×2 与「两张叠起来的 1×1」是同时存在的**。
             //   ⇒ `CardH`（1×1）这一档**必须留着**，两张都走。
             // 排布规则照 uGUI `FlexibleGridLayout`：**逐张填格子**；1×2 吃完一整列并复位到 row0。
-            // ⚠️ 我们这五张**哪张是 1×1 / 哪张是 1×2 仍然是我们定的**（原版由 liveop 服务端数据决定，
+            // ⚠️ 我们这五张**哪张是 1×1 / 哪张是 1×2**【部分】是我们定的**（原版由 liveop 服务端数据决定，
             //   本地查不到 ⇒ §九 9·3 明写「别自己编一套映射」，但本地入口本来也只能我们自己定，
-            //   见下面那两段老注释）。**只有 `Draft` 那一条有原版出处**：原版 prefab 就叫
-            //   `Draft Game Mode Container **1x2**`。
+            //   见下面那两段老注释）。**有三条有原版出处（prefab 名）**：`Draft Game Mode Container **1x2**` ·
+            //   `Ranked Game Mode Container **1x2**` · `Skirmish Ranked Game Mode Container **1x2**`
+            //   （🔴 **2026-10-11（A1521⑦）就地订正**：这一段原来写「只有 `Draft` 那一条有原版出处」——
+            //   现读 `bundle_menus_assets_all/GameObject/` 三个名字逐字如此 ⇒ 那句话已过期）；
+            //   剩下 `Tutorial` / `Practice` 两张 `1×1` 是我们按 `Base Game Mode Container 1x1` 那一族取的。
+            // ---- 排布：**逐张填格子（first-fit）· 不留洞** ----
             const float ColStep = CardColStep, RowStep = CardH + 20f;   // 行距 = 卡高 + `spacing (20,20)` 的 20
-            BuildModeCard(content, "Base Game Mode Container 1x1 - Tutorial", CardCol0 + 0f * ColStep, CardRow0Top,
-                          CardW, CardH, "Container_Image_Tutorial", Loc.T("MainMenu/GameModes/Tutorial"), "tutorial");          // col0 / row0
-            BuildModeCard(content, "Draft Game Mode Container 1x2", CardCol0 + 1f * ColStep, CardRow0Top,
-                          CardW, CardHTall, "Container_Image_Draft", "DRAFT MODE", "draft");           // col1（独占整列）
+            const int MaxCols = 8;                                      // 本菜单最多摆 8 列（现在用满 4 列）
+            var used = new bool[MaxCols, 2];                            // [列, 行] 这一格占没占
+            // 🔴 **2026-10-11（A1521⑦）排布从「手写死列/行号」改成【按卡片顺序 first-fit】**：
+            //   `1×2` 找**整列都空的**列（一次占满上下两格）· `1×1` 找**还有空格的**列（同列内先 row0 后 row1）；
+            //   **已有列遍历完才开新列** ⇒ **不会留洞**。
+            //   🧨 **改坏法（就是这一轮的起因）**：把某个 `1×1` 手写到一个新列上 ⇒ 前一列下半格空着
+            //   （`Tutorial` 那一列原来就是：它独占 col0/row0、**row1 永远是空的**，
+            //   而用户参考图 `C:/Users/qjh36/Desktop/warpforge参考图/主界面参考图.png` 里**看不出这种洞**）。
+            //   ⚠️ **原版真正的换列规则【没读到】**（原版 `GameModes/Content` 出厂 0 子、卡由 **liveop 事件数据**
+            //   在运行时实例化；`FlexibleGridLayout` 本地只拿到 `rows=2 columns=20 itemSize 535×414.4 spacing (20,20)`
+            //   这一组字段）⇒ **这一条是照用户参考图排的**（那上面看不出洞），**⛔ 别写成「原版就是这样」**。
+            //   ⚠️ 而且五张卡**各自的尺寸档是「这次活动的配置」、不是模式的固有属性** —— 旁证：同一个 `Practice`
+            //   的 `Base Game Mode Container 1x1` 与 `Base Game Mode Container 1x2` **两个 prefab 都在**
+            //   （`bundle_menus_assets_all/GameObject/`）⇒ ⛔ 别把「某个模式 = 某个尺寸」写进任何表。
+            System.Action<string, string, string, float, string> Put = (nm, art, title, h, kind) =>
+            {
+                bool tall = h > CardH + 1f;                  // `1×2` = `CardHTall`（848.8）· `1×1` = `CardH`（414.4）
+                int col = -1, row = 0;
+                for (int i = 0; i < MaxCols && col < 0; i++)
+                {
+                    if (tall) { if (!used[i, 0] && !used[i, 1]) { col = i; row = 0; } }
+                    else if (!used[i, 0]) { col = i; row = 0; }
+                    else if (!used[i, 1]) { col = i; row = 1; }
+                }
+                if (col < 0)                                 // 排不下就**出声**（红线：不许静默）
+                {
+                    Debug.LogWarning("[Menu] 模式卡 `" + nm + "` 在这张网格里排不下（最多 " + MaxCols + " 列）");
+                    return;
+                }
+                used[col, row] = true;
+                if (tall) used[col, 1] = true;
+                BuildModeCard(content, nm, CardCol0 + col * ColStep, CardRow0Top + row * RowStep,
+                              CardW, h, art, title, kind);
+            };
+            Put("Base Game Mode Container 1x1 - Tutorial", "Container_Image_Tutorial",
+                Loc.T("MainMenu/GameModes/Tutorial"), CardH, "tutorial");                       // col0 / row0（1×1）
+            Put("Draft Game Mode Container 1x2", "Container_Image_Draft",
+                "DRAFT MODE", CardHTall, "draft");                                              // col1（1×2 · 独占整列）
             // 🔴 **2026-10-17（A789 收口 · 用户拍板「按建议执行」）**：这一格原来传的是 `null` ⇒
             //    `BuildModeCard` 的第六步**不建 `Hit`**（命中区只在 `modeKind` 非空时建）⇒ **这张卡点不动**，
             //    而 2026-09-22 裁决（`资料/阶段二外壳_待裁决清单_0922.md:29`，选项 (b)）要的正是
@@ -1367,12 +1443,26 @@ namespace CardPresentation
             //    卡图按名字对：练习 = `Container Image Practice 1x1` · 排位 = `Container Image Ranked` ·
             //    遭遇战**没有专属卡图**（`Practice 1x2` 也是练习的）⇒ 用全族唯一带 Skirmish 字样的
             //    `40k_main_GameMode_Skirmish`。逐条出处见 `资料/阶段二_战斗入口_原版规格.md`。
-            BuildModeCard(content, "Base Game Mode Container 1x1 - Practice", CardCol0 + 2f * ColStep, CardRow0Top,
-                          CardW, CardH, "Container_Image_Practice_1x1", Loc.T("MainMenu/GameModes/Practice"), "practice");        // col2 / row0
-            BuildModeCard(content, "Base Game Mode Container 1x1 - Skirmish", CardCol0 + 2f * ColStep, CardRow0Top + RowStep,
-                          CardW, CardH, "40k_main_GameMode_Skirmish", Loc.T("MainMenu/GameModes/Skirmish"), "skirmish");            // col2 / row1（叠在 Practice 下面，与参考图右缘那一列同形）
-            BuildModeCard(content, "Base Game Mode Container 1x1 - Ranked", CardCol0 + 3f * ColStep, CardRow0Top,
-                          CardW, CardH, "Container_Image_Ranked", "RANKED", "ranked");                    // col3 / row0
+            Put("Base Game Mode Container 1x1 - Practice", "Container_Image_Practice_1x1",
+                Loc.T("MainMenu/GameModes/Practice"), CardH, "practice");                       // first-fit ⇒ col0 / row1（**正好填掉 Tutorial 下面那个洞**）
+            // 🔴 **2026-10-11（A1521⑦）尺寸档改了：`1×1` → `1×2`**（判据 = 原版 **prefab 名**
+            //   `Skirmish Ranked Game Mode Container 1x2` —— `bundle_menus_assets_all/GameObject/` 里逐字如此；
+            //   并与用户参考图吻合：那上面左起第 1 张就是「小冲突」、而且是**满高**）
+            //   ⇒ 它现在 first-fit 到 col2、**独占一整列**。
+            //   ✅ **2026-10-11 调度台已把节点名一起改齐**（`1x1 → 1x2`）：本文件这一处 +
+            //   `Editor/MainMenuScene.cs` 的**四处**（名字表 `:1419`/`:1420` · `CheckCard` `:1541`/`:1542` ·
+            //   `modeCases` `:1572`/`:1575` —— 那处从「拼 `1x1 - ` 前缀」改成**逐条给全名**）。
+            //   ⚠️ 这是**改名**、不是改尺寸：尺寸那一行的 `CardHTall` 由 M 那一批落的。
+            Put("Base Game Mode Container 1x2 - Skirmish", "40k_main_GameMode_Skirmish",
+                Loc.T("MainMenu/GameModes/Skirmish"), CardHTall, "skirmish");                   // col2（1×2 · 独占整列）
+            // 🔴 **2026-10-11（A1521⑦）尺寸档同样改了：`1×1` → `1×2`**（判据 = 原版 **prefab 名**
+            //   `Ranked Game Mode Container 1x2`，同上目录逐字如此；同族还有 `Base Game Mode Container 1x2`）。
+            //   **第二条独立理由（结构上的）**：本轮同时要求「不留洞」，而卡片 5 张、其中 `1×1` 有 2 张 ⇒
+            //   若 `Ranked` 仍是 `1×1`，总格数 = 1+2+1+2+1 = **7（奇数）**，两行网格里**必然留一个洞**
+            //   ⇒ 「尺寸档照 prefab 名」与「不留洞」两条判据**同时指向 `1×2`**。
+            //   ✅ 节点名同 `Skirmish`：调度台已一起改成 `1x2`。
+            Put("Base Game Mode Container 1x2 - Ranked", "Container_Image_Ranked",
+                "RANKED", CardHTall, "ranked");                                                 // col3（1×2 · 独占整列）
         }
 
         /// <summary>模式卡点下去 = **进对应模式的界面**（用户 2026-09-24 拍板的那条路）。
@@ -1435,6 +1525,72 @@ namespace CardPresentation
             }
         }
 
+        // ============================================================ 🆕 **2026-10-19（`A1493④`）：模式卡图那条
+        //   【常驻位置视差】 —— 原版 `UIParallaxImage` 的复刻。**
+        //
+        // ---- 原版是什么（逐条有出处，本轮自己查的）----
+        //  ① 组件 = **`UIParallaxImage : Image`**（`Assembly-CSharp` 里独立一个类，
+        //     `d:/2/tools/decomp_full/UIParallaxImage__{ctor,OnEnable,Update,UpdateParallax,get_materialForRendering}.c`）。
+        //     **它只有一个自己的序列化字段** `useParallax`（bool，ctor 里出厂写 1；字段偏移 0x120），
+        //     另两个私有字段是运行时造的：`Material`（0x128）与那个属性的 **id**（0x130）。
+        //  ② `OnEnable`：把 `Image.material` 复制一份当自己的实例材质；
+        //     `Update`：`useParallax` 为真且 `Graphic.canvas` 非空时调 `UpdateParallax`。
+        //  ③ `UpdateParallax`（逐句照字节码）：
+        //       `cam = canvas.worldCamera` → `p = transform.position` →
+        //       `sp = RectTransformUtility.WorldToScreenPoint(cam, p)` →
+        //       `material.SetVector(id, (sp.x / Screen.width, sp.y / Screen.height, 0, 0))`
+        //     ⇒ 写进去的是**这件在屏幕上的归一化位置**。
+        //  ④ 那个属性 id 来自 `Shader.PropertyToID("<字面量>")`；`Shader Graphs/UI Container Main Menu`
+        //     （本件用的材质 = **`Main Menu Container Parallax`**，`bundle_menus_assets_all/Material/Material_3583370424645672959.json`）
+        //     的 `m_PropInfo` **只有三个**（`_MainTex` · `_Parallax` · `_ScreenPosition`）⇒ 那个字面量是
+        //     `_ScreenPosition`（`_Parallax` 在材质里有非零存量 `(0.2,0,0,0)` ⇒ 它是**常数**、不是被写的那个）。
+        //  ⑤ **算式（本轮解出来了）**：原版 HLSL 源码被剥了，但**编译字节码在**（`Shader.compressedBlob`），
+        //     用本机 `D3DCompiler_47.dll` 的 `D3DDisassemble` 反汇编之后，**四个顶点程序逐字相同**的最后两行是：
+        //       `add r0.xy,  cb2[1].zwzz, l(-0.5, -0.5, 0, 0)`      ← cb2 = `UnityPerMaterial`
+        //       `mad o5.xy,  cb2[1].xyxx, r0.xyxx, v3.xyxx`          ← o5 = 传给像素着色器的 `_MainTex` UV；v3 = 网格 UV
+        //     而**四个像素程序一个字的视差都没有**（只 `sample_b t0, v5.xy`）⇒ **整条视差在顶点着色器里**，即
+        //       **`uv' = uv + _Parallax.xy * (_ScreenPosition.xy - 0.5)`**。
+        //     · `cb2` 声明为 **2 个寄存器**、只有 `[1]` 被读，且 `.xy` 与 `.zw` **分别**取用 ⇒ 那两个属性是
+        //       **两个 Vector2 打包进同一个寄存器**（`.xy = _Parallax`、`.zw = _ScreenPosition`；
+        //       材质里 `_Parallax = (0.2, 0, 0, 0)` 正好是「x 有强度、y = 0」的 Vector2）。
+        //     ⚠️ **这一条是【推断】，不是读出来的字段**（没有 RDEF 反射块可读；`m_PropInfo` 只给类型不给宽度）。
+        //       反证两条：若 `.xy` 是 `_ScreenPosition`，则 `_Parallax`（0.2,0,0,0）**整条用不上**、
+        //       而位移会变成 `-0.5 × 屏幕位置`（最大 ~0.5 UV ≫ 可见窗 0.715 宽，画面会整块跑掉）；
+        //       若 `cb2[1]` 整个是其中某一个，另一个属性同样用不上、而 `UIParallaxImage` 存在就没意义。
+        //       ⇒ 只有「两个 Vector2 打包」这一读法**两个属性都用得上、量级也合理**。
+        //  ⑥ **`_Parallax = (0.2f, 0f)`** ⇒ **只有水平位移、垂直恒为 0**（判据 = 那个材质里存的值）。
+        //
+        // ---- 我们怎么落 ----
+        //   🔴 **我们这一层不引 shader**（原版那条靠「每帧往材质里 `SetVector`」；`ImageQuad` 的 UV 是**烘进网格**的，
+        //     而**盘子里的模式卡不动**、`_ScreenPosition` 只跟「这件在屏幕上的位置」有关 ⇒
+        //     **建卡时算一次、把位移加进 UV 矩形，与原版逐位等价**）。
+        //   ⚠️ 位移**不会**把 UV 顶出 [0,1]：可见窗是 `[0.1425, 0.8575]`（宽 0.715），
+        //     五张卡的 `du ∈ [-0.066, +0.098]` ⇒ 最坏 `[0.0765, 0.9555]` 仍在图内 ⇒ 不会踩到贴图的 wrap 模式。
+        //   ⚠️ **`Screen.width` 那一格我们直接取设计宽**：本工程是 `CanvasScaler` 式的 1920×1080 设计空间
+        //     （`LayoutSpace.DesignPxW/DesignPxH`）⇒ `屏幕x / 屏宽` 恒等于 `设计x / 1920`，与真实分辨率无关。
+        //   ⚠️ **垂直那一半恒为 0**（判据 = `_Parallax.y = 0`），所以「Unity 屏幕 y 自下而上、我们自上而下」这件事
+        //     在本条上**不产生任何差别**。
+        //   ✅ **验收法（铁律 10 第 6 条）**：把 `00_主菜单_无弹窗.png` 与用户参考图 `主界面参考图.png` 的
+        //     **同一张模式卡并排渲一次**看卡图有没有横向错开 —— 断言量不出「像不像」。
+        //     **改坏法**：把这个 `du` 去掉 ⇒ 五张卡又回到「卡图正中」，与参考图逐张错开的那一档不同。
+
+        /// <summary>原版 `Main Menu Container Parallax` 材质里 `_Parallax` 的 **x** 分量（`_Parallax = (0.2, 0, 0, 0)`，
+        /// `bundle_menus_assets_all/Material/Material_3583370424645672959.json` 的 `m_SavedProperties.m_Colors`）。
+        /// ⚠️ 同一份里 `m_Floats` 也有一条 `_Parallax = 0.005` —— 那是**内置 Standard shader 的残留死值**
+        /// （本 shader 的属性表里 `_Parallax` 是 **Vector**，见 `Shader_5261144965713594700.json` 的 `m_PropInfo`）
+        /// ⇒ ⛔ **别拿 0.005 那个数**（CLAUDE.md §三「原版材质上带着内置 Standard shader 的残留值」那条）。</summary>
+        public const float ModeCardParallaxX = 0.2f;
+
+        /// <summary>模式卡图那条视差在 **U** 上要加多少（原版 `uv' = uv + _Parallax.xy * (_ScreenPosition.xy - 0.5)`
+        /// 里的 `_Parallax.x * (_ScreenPosition.x - 0.5)`）。
+        /// <paramref name="cardCenterPx"/> = 这张卡**中心的设计像素 x**（= 传给 `BuildModeCard` 的 `x + w/2`，
+        /// 也就是原版 `Background Image` 那颗 RT 的屏幕位置；原版取的是它的 `transform.position`）。
+        /// ⚠️ 与真实分辨率无关（`屏幕x / Screen.width` ≡ `设计x / 1920`，见上）。</summary>
+        static float ModeCardParallaxDu(float cardCenterPx)
+        {
+            return ModeCardParallaxX * (cardCenterPx / LayoutSpace.DesignPxW - 0.5f);
+        }
+
         /// <summary>按 §九 9·4 的「最小清单」建一张卡（1x1 与 1x2 共用；1x2 只是更高）。
         /// <paramref name="modeKind"/> 非空 ⇒ 这张卡**可点**（点它进对应模式的界面；见 `OpenMode`）。</summary>
         void BuildModeCard(Transform parent, string name, float x, float y, float w, float h, string art, string title,
@@ -1454,12 +1610,15 @@ namespace CardPresentation
             {
                 float side = h + 334.3256f;
                 float u0 = (side - w) * 0.5f / side, v0 = (side - h) * 0.5f / side;
+                // 🆕 **2026-10-19（`A1493④`）**：这一格再叠上原版那条**常驻位置视差**（判据与算式 → 上面
+                //   `ModeCardParallaxDu` 那一整段）。⚠️ 只挪**采样窗**，窗**宽**（`1 - 2*u0`）一个字没动。
+                float du = ModeCardParallaxDu(x + w * 0.5f);
                 cardArtQ = ImageQuad.Create(card, tex, Center(x, x + w, y, y + h), h / 108f,
                                             new Vector2(0.5f, 0.5f), "Background Image");
                 if (cardArtQ != null)
                 {
                     cardArtQ.SetAspect(w / h);
-                    cardArtQ.SetUvRect(new Rect(u0, v0, 1f - 2f * u0, 1f - 2f * v0));
+                    cardArtQ.SetUvRect(new Rect(u0 + du, v0, 1f - 2f * u0, 1f - 2f * v0));
                     cardArtQ.SetRenderQueue(QCardArt);   // ⚠️ **不能和整屏渐变同队列**（否则谁盖谁不确定，见上面那行注释）
                 }
             }
@@ -1545,6 +1704,13 @@ namespace CardPresentation
                               new Vector4(13f / 5f, 13f / 5f, 13f / 5f, 13f / 5f));   // = 2.6px（13 ÷ ppuMul 5）
             }
 
+            // ④·b 排位卡那一排「段位印玺」（原版 `Rating ▸ Mission Milestones Progress ▸ steps ▸ RankedSealStep ×N`）。
+            //    ⛔ **只给排位卡** —— 通用卡树（`Base Game Mode Container 1x1`/`1x2`/`No Timer`/`Claim`…）
+            //       里**没有这一排**，`Skirmish` 那棵 `Skirmish Ranked Game Mode Container 1x2` 里**也没有**
+            //       （逐档 dump 核过）⇒ 闸口就是 `modeKind == "ranked"`，**别按「像不像」扩散到别的卡**。
+            //    判据 / 父子链 / 显隐口径 / 颗数兜底口径 → `BuildRankedSealRow` 上方那一大段（⛔ 不在这里抄第二份）。
+            if (modeKind == "ranked") BuildRankedSealRow(card, x, y);
+
             // ⑤ 倒计时那一行（`Starts in:` + 时钟 + 剩余时间）**本批不画** —— 它是 liveop 的活动倒计时，本地没有数据源。
             //    不静默：说一声。
             Debug.Log($"[Menu] 模式卡 `{name}`：倒计时那一行**没画**（`Starts in:` + 时钟 + 剩余时间 —— 原版是 liveop 活动数据，本地没有）");
@@ -1581,7 +1747,178 @@ namespace CardPresentation
                 //      ⇒ **这三张卡不用覆盖 `HighlightKey`**（与导航钮那五颗不同，逐条实读）。
                 //    判据全文 → `资料/普查产出_1009/查证V3_口径三件.md` §二。
                 if (cardArtQ != null) wb.TintOn(cardArtQ);
+                // 🆕 **2026-10-19（`A1493④`）：这一格【不再改任何东西】—— 原版那一次悬停动态已经在手上。**
+                //   本会话把原版那颗 `EverguildButton` 的四个 `m_Colors` 与 `m_FadeDuration` 逐值对过一遍：
+                //     · `m_HighlightedColor / m_SelectedColor = 0.9607843` · `m_PressedColor = 0.7843137` · `m_NormalColor = 白`
+                //       —— 正是 `WindowButton.HighlightK / SelectedK / PressedK` 的那三个**缺省值**，
+                //       而本处**没有**覆盖 `HighlightKey`（只有主菜单那 5 个导航钮覆盖成浅蓝）⇒ **默认即正确**。
+                //     · `m_FadeDuration = 0.1` —— 正是 `WindowButton.FadeSeconds`。
+                //   ⇒ **色偏那一半：判据齐、实现齐，一个字都不用改**（改坏法：把 `wb.TintOn(cardArtQ)` 删掉 ⇒
+                //     色偏落回那颗透明 `Hit` 上、画面上没有任何变化）。**本条 `A1493④` 真正的缺口只剩下面那条视差**
+                //     （见 `ModeCardParallaxDu`）—— 另一条查证结论同时成立：**没有位移 / 缩放 / 换图 / Animator**
+                //     （`m_Transition` 就是 `1`(ColorTint)，`m_SpriteState` 那几格不参与；卡上也没有 `Animator`）。
             }
+        }
+
+        // ============================================================ 🆕 2026-10-11：排位卡那一排「段位印玺」
+        //
+        // 🔴 **判据**（`资料/普查产出_第十七会话/Q_卡底小圆图标.md` —— 只读代理逐 pid 直读
+        //    `bundle_menus_assets_all` 的 GO/RT/MB + `d:/2/tools/decomp_full/` 反编译 + 参考图逐像素量；
+        //    ⚠️ 本轮**没有**重查、**没有**跑 Unity）：
+        //
+        //   **父子链**（只有排位族的两棵 `1x2` 树有这一排）：
+        //     `Ranked Game Mode Container 1x2` → `Rating` → `Mission Milestones Progress` → `steps`
+        //       → `RankedSealStep ×N` ─┬ `Empty`（Image · sprite `Rank Skull Empty` · 128² · preserveAspect）= `emptyMark`
+        //                               └ `Fill` （Image · sprite `Rank Skull`       · 128² · preserveAspect）= `checkMark`
+        //   ⛔ **通用树里没有** —— `Base Game Mode Container 1x1` / `1x2` / `1x2 No Timer` / `1x1 Claim` /
+        //      `1x1 Claim AutoCollect` / `1x2 Raid or Army Release` / `Reward Event 1x1` 逐档 dump 过、一条都没有。
+        //   ⛔ **`Skirmish` 那张卡也不加** —— `Skirmish Ranked Game Mode Container 1x2` 的
+        //      `RankedMenuContainer` **字段表与排位卡逐字相同**，但**这一排不在它的树里**（已逐档 dump 核过）。
+        //   ⛔ **别和 `Draft` 卡上那颗 `Victory Counter Icon` 搞混** —— 它 sprite **也是** `Rank Skull`，
+        //      但在 `Draft Game Mode Container 1x2` 的 `State` 子件下、是**单颗**胜场计数，不是这一排。
+        //
+        // 🔴 **显隐：原版走的是【组件级 `Behaviour.set_enabled`】，⛔ 不是 `GameObject.SetActive`**
+        //    （赋值点 = `MilestoneStep__Toggle.c`）：
+        //      `checkMark.enabled = on` · `emptyMark.enabled = on ? alwaysShowEmptyMark : true`
+        //    本卡 prefab 里 **`alwaysShowEmptyMark = 0`** ⇒ **达成的只画金色、未达成的只画灰色**。
+        //    ⚠️ 原版**两个子件的 GO `m_IsActive` 恒为 True**，改的只是那两个 `Image` 组件的 `enabled`；
+        //       而我们的 `ImageQuad` **没有 `enabled` 这一档**（它只在 `Create` 里铺一次 mesh、没有 `Update`
+        //       ⇒ 禁组件在画面上等于什么都没做）⇒ **我们的显隐口只能落在 GO 上**（见 `SealToggle`）。
+        //       **这是有意不同、不是抄漏**：效果等价（「只画一颗」），代价 = 子件 GO 的 `activeSelf` 与原版相反
+        //       ⇒ **自检要查它，必须用 `GetComponentsInChildren<…>(true)`（含 inactive）取件，
+        //          而且「该亮的那颗」要【同时】断 `activeSelf == true`**（本仓最贵的那一课：
+        //          含 inactive 的查找 ⇒ 找得到 ≠ 显示得出来）。
+        //
+        // 🔴 **颗数与点亮数在【远端】—— 建这一排时拿不到真值（本活的难点）**：
+        //     颗数 = `RankedDivisionV2.TotalSeals`（0x54）· 点亮数 = `RankedDivisionV2.SealCount`（0x50），
+        //     由 `RankedFastMode__GetDivisionByPoints.c` 用 `ConfigManager.GetConfig<>()`（**远端配置**）
+        //     构造 ⇒ **本地推不出参考图里那个「4」**。
+        //     ⚠️ 参考图那排是 **4 颗、全灰** ⇒ **推断** `TotalSeals = 4` / `SealCount = 0`
+        //        （**也不能排除**视频压暗把金色压成灰 —— 这一条是推断、**不是判据**，如实标在这里）。
+        //     ⇒ **本活的口径**：建 `RankedSealFallbackCount` 颗、全部按**未点亮（灰）**画，
+        //        并且 `Build` 现场 `Debug.Log` **如实出声**（红线：⛔ 不许静默、⛔ 不许假装是原版数据）。
+        //
+        // ⚠️ **同一父件下还有【互斥的另一支】—— 本批【没做】，别当已完成**：
+        //     `Rating` 下还有 `Global Rating`（MB `AllianceRatingDisplay`：大段位图 `Main Icon` / `Secondary Icon`、
+        //     sprite `40k_UI_icon_ranked_Skirmish`，加 `Position #` / `Position Value` / `Individual rating value`）；
+        //     原版在 `RankedMenuContainer__RefreshContentDisplay.c` 里 `SetActive(go, X == 0)` **二选一**，
+        //     而**那个 `X` 的泛型调用方法名读不到**（反编译里是 `FUN_1800021f0`）⇒ **判据只到这里**。
+        //     ⇒ 本实现按「**排位卡就显示这一排**」；⚠️ **这一条是按实拍/推断、⛔ 不是原版判据**（铁律 3：
+        //       不许把推断写成「原版就是这样」）。**只做一支 ⇒ 在「该显示 `Global Rating`」那种状态下会露馅**
+        //       （已记进报告，由调度台排）。
+        //     ⚠️ 另插一条容易踩的：`legendaryRankDivisionInfoObjects` 名字唬人，**不是这一排** ——
+        //        实读只指向 `Position #` 与 `Position Value` 两颗（那仍是 `Global Rating` 那一支）。
+        //
+        // ⚠️ **几何复核**：六个卡内坐标用**归一化比值**验过一遍（避开「卡被竖向拉高」这个未定缩放）——
+        //    参考图那排实测卡内 **0.790~0.863**，`steps` 带的设计值 **0.759~0.861** ⇒ **吻合**。
+
+        /// <summary>那一排的**兜底颗数**。🔴 **这不是原版常数** —— 原版来自远端 `RankedDivisionV2.TotalSeals`
+        /// （由 `ConfigManager.GetConfig<>()` 构造），本地拿不到（判据 → 本段上方）。
+        /// ⚠️ **自检别拿这个常量当期望值**（那是同式自证）—— 期望值写死 `4` 并把上面那条判据引上。</summary>
+        public const int RankedSealFallbackCount = 4;
+
+        /// <summary>兜底点亮数（参考图那 4 颗**全灰** ⇒ 0）。🔴 同样是**我们挑的兜底** ——
+        /// 原版来自玩家进度的 `RankedDivisionV2.SealCount`（远端 / 存档），本地拿不到。</summary>
+        public const int RankedSealFallbackLit = 0;
+
+        /// <summary>排位卡上那一排「段位印玺」（原版 `Rating ▸ Mission Milestones Progress ▸ steps`）。
+        /// <paramref name="x"/> / <paramref name="y"/> = 这张卡的**左上角**（本文件 `BuildModeCard` 的口径、y 向下）
+        /// —— 方法里那六个数是**卡内**坐标，加上这两个才变成绝对设计 px。
+        /// 判据 / 父子链 / 显隐口径 / 兜底口径 → 本方法上方那一大段（⛔ 不在这里抄第二份）。</summary>
+        void BuildRankedSealRow(Transform card, float x, float y)
+        {
+            // ---- 卡内绝对矩形（判据 = 原版 RT 逐级套出来的「布局后绝对矩形」；原版 RT 原文照抄在下面，
+            //      便于任何人自己重推，⛔ 别只信这六个数）----
+            //   `Rating`                        a(.5,0)-(.5,0) p(.5,0) ap(0, **106.4005**) sz(**494.61 × 109.52**)
+            //        ⇒ 底 = 848.8 − 106.4005 = 742.40 · 顶 = 742.40 − 109.52 = 632.88（卡高 848.8 = `CardHTall`）
+            //   `Mission Milestones Progress`   a(0,1)-(0,1)（挂 `Rating`）p(.5,.5)
+            //        ap(**247.3059**, **−54.7622**) sz(**494.61 × 86.51**)
+            //        ⇒ 中 y = 632.88 + 54.7622 = 687.64 ⇒ **644.39 ~ 730.90**；x 与 `Rating` 同（20.2 ~ 514.81）
+            //   ⚠️ 两处都**不是**「直接读一个字段」——它们是从父链 `m_Father` 一级级套出来的绝对矩形。
+            const float RatingL = 20.20f, RatingR = 514.81f, RatingT = 632.88f, RatingB = 742.40f;
+            const float MmpT = 644.39f, MmpB = 730.90f;
+            // 单颗几何：`steps` 上那颗 `HorizontalLayoutGroup` = spacing **3.2** · `m_ChildAlignment` **3 (MiddleLeft)**
+            // · pad 0 · ctrlW/H **1** · expandW/H **0**；每颗的 `LayoutElement` preferred **100 × 100**（高被布局组
+            // 压到父件高 86.51）⇒ **节距 = 100 + 3.2 = 103.2**、第 0 颗**贴左缘**。
+            const float StepW = 100f, StepGap = 3.2f, StepPitch = StepW + StepGap;
+
+            var rating = New(card, "Rating", RatingR - RatingL, RatingB - RatingT);                 // 494.61 × 109.52
+            var mmp = New(rating, "Mission Milestones Progress", RatingR - RatingL, MmpB - MmpT);   // 494.61 × 86.51
+            // `steps`（原版 `a(0,0)-(1,1)` + `sz(0×0)` = **全拉伸锚点**、真实矩形 = 父件 494.61 × 86.51）；
+            // 我们的 `New` 只写 `sizeDelta`、**表达不了拉伸锚点** ⇒ 这里写**真实矩形**（那一格的实际大小）。
+            // ⚠️ 别把这两个数读成「原版 `steps` 的 `sizeDelta`」—— 原版那颗是 `0×0`。
+            var steps = New(mmp, "steps", RatingR - RatingL, MmpB - MmpT);
+
+            // 两张图（原版是**本地固定的两张切图**，各 128×128）：
+            //   `Empty` = `emptyMark`（灰 `Rank Skull Empty`）· `Fill` = `checkMark`（金 `Rank Skull`）
+            var texEmpty = Art("Rank_Skull_Empty");
+            var texFill = Art("Rank_Skull");
+            // 🔴 取不到就**出声**、并且那一颗**不画**（红线：⛔ 不许静默、⛔ 不许拿别的图顶替）。
+            if (texEmpty == null)
+                Debug.LogWarning("[Menu] 排位卡那排「段位印玺」：`Rank_Skull_Empty` 取不到 ⇒ **未达成（灰）的印玺一颗都不画**"
+                               + "（应在 `Resources/Art/ui_menu/Rank_Skull_Empty.png`；⛔ 不拿别的图顶替）");
+            if (texFill == null)
+                Debug.LogWarning("[Menu] 排位卡那排「段位印玺」：`Rank_Skull` 取不到 ⇒ **已达成（金）的印玺一颗都不画**"
+                               + "（应在 `Resources/Art/ui_menu/Rank_Skull.png`；⛔ 不拿别的图顶替）");
+            if (texEmpty == null && texFill == null) return;      // 两张都没有 ⇒ 这一排建不出来，别往下建一排空节点
+
+            for (int i = 0; i < RankedSealFallbackCount; i++)
+            {
+                float sx1 = x + RatingL + i * StepPitch;
+                // 节点名 `RankedSealStep <i>` —— ⚠️ **这个名字是我们定的**：原版出厂只有**一个模板**
+                // `RankedSealStep Animation Disabled`，运行时是 `Instantiate` 出来的克隆（名字带 `(Clone)`）
+                // ⇒ **原版没有「`RankedSealStep 0`」这个名字**，我们的编号只为可读 / 可定位。
+                var step = New(steps, "RankedSealStep " + i, StepW, MmpB - MmpT);
+                // `Empty` / `Fill` 铺满那一颗（原版 `a(0,0)-(1,1)` + `preserveAspect`）；128² 的方图**内接**
+                // 进 100 × 86.51 的格 ⇒ **实绘 86.51 × 86.51、水平居中**（走 `RectTex` 的 `keepAspect` 那条路）。
+                // ⚠️ 队列 `QContent`（2920）：夹在卡图（`QCardArt` 2905）与边框（`QOverlay` 2930）之间；
+                //    它和 `TextDarkening`（也是 `QContent`）**矩形不相交**（印玺行卡内 644.39~730.90 vs 暗带
+                //    740.33~846.20）⇒ 同档**不会**产生「谁盖谁」的不确定；`Empty`/`Fill` 两颗**互斥**
+                //    （`SealToggle` 保证**恰好一颗亮**）⇒ 同档也不冲突。
+                var empty = texEmpty != null
+                    ? RectTex(step, texEmpty, sx1, sx1 + StepW, y + MmpT, y + MmpB, "Empty", QContent, true) : null;
+                var fill = texFill != null
+                    ? RectTex(step, texFill, sx1, sx1 + StepW, y + MmpT, y + MmpB, "Fill", QContent, true) : null;
+                // 逐颗点亮（原版 `MilestonesStepDisplay__Initialize.c`：
+                // `DestroyAllChildren(stepsHolder)` → 逐颗 `Instantiate` → `MilestoneStep.Toggle(step, i < 已完成数, …)`）
+                SealToggle(empty, fill, i < RankedSealFallbackLit);
+            }
+
+            // 🔴 **出声**（红线）：这一排的颗数 / 点亮数**原版来自远端**，本地的 4 / 0 是**我们挑的兜底**。
+            Debug.Log("[Menu] 排位卡那一排「段位印玺」（原版 `Rating ▸ Mission Milestones Progress ▸ steps`）："
+                    + "建了 " + RankedSealFallbackCount + " 颗 · 点亮 " + RankedSealFallbackLit + " 颗。"
+                    + "🔴 原版的**颗数 = `RankedDivisionV2.TotalSeals`、点亮数 = `SealCount`**，由"
+                    + "`ConfigManager.GetConfig<>()`（**远端配置** + 玩家存档）构造 ⇒ **本地推不出来**；"
+                    + "这里的 " + RankedSealFallbackCount + " / " + RankedSealFallbackLit + " 是**我们挑的兜底**"
+                    + "（参考图那排是 4 颗全灰 —— ⚠️ 那是**推断**，视频压暗也可能把金色压成灰）⇒ ⛔ 不是原版数据。");
+        }
+
+        /// <summary>原版 `MilestoneStep__Toggle.c` 那两行的**唯一一份**实现 ——
+        /// `checkMark.enabled = on` · `emptyMark.enabled = on ? alwaysShowEmptyMark : true`
+        /// （本卡 prefab 的 `alwaysShowEmptyMark = 0` ⇒ **达成只画金色、未达成只画灰色**）。
+        /// 🔴 `public static` 是**有意**的：将来接上远端 `RankedDivisionV2` 的 `TotalSeals` / `SealCount` 时，
+        /// 「按进度点亮」这一头**只该有这一个口**（两处各写一遍 = 迟早不一致，CLAUDE.md §三）。
+        ///
+        /// <para>⚠️ **与原版唯一的不同 = 显隐落在哪一层**：原版改的是那两个 `Image` **组件的 `enabled`**
+        /// （两个子件 GO 恒 active），我们改的是这两个 `ImageQuad` 的 **GO `activeSelf`**
+        /// —— 因为我们的 `ImageQuad` 没有 `enabled` 那一档（禁组件在画面上什么都不做，见本段上方那段）。
+        /// ⇒ **自检要查它，必须把这颗 GO 找得到**（`GetComponentsInChildren<…>(true)`，含 inactive）
+        /// **并且【同时】断 `activeSelf`** —— 只断「找得到 / 有 `ImageQuad`」在两种状态下都会绿。</para>
+        ///
+        /// <para>⚠️ 出厂两颗**同时在 `activeSelf = true` 上**（照原版「两个子件 GO 恒 active」）——
+        /// 所以第 ① 步「未达成就把灰的点亮」不是多余的：**没 `Toggle` 过的那一颗照原版是亮着的**。</para></summary>
+        public static void SealToggle(ImageQuad empty, ImageQuad fill, bool lit)
+        {
+            const bool alwaysShowEmptyMark = false;                  // 判据 = 本卡 prefab 的 `alwaysShowEmptyMark = 0`
+            SetQuadVisible(fill, lit);                               // `checkMark.enabled = on`
+            SetQuadVisible(empty, lit ? alwaysShowEmptyMark : true); // `emptyMark.enabled = on ? alwaysShowEmptyMark : true`
+        }
+
+        /// <summary>`ImageQuad` 的显隐口 —— **只能落在 GO 上**（`ImageQuad` 自己没有 `enabled` 这一档）。
+        /// ⚠️ 先比 `activeSelf` 再 `SetActive`（与 `Shell/CollectionWindow.cs` 那几条同形，省一次无谓的 `SetActive`）。</summary>
+        static void SetQuadVisible(ImageQuad q, bool on)
+        {
+            if (q != null && q.gameObject.activeSelf != on) q.gameObject.SetActive(on);
         }
 
         // ============================================================ 诊断

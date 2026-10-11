@@ -188,6 +188,87 @@ public static class DeckScene
             return null;
         }
 
+        // ============================================================ 🆕 2026-10-11（A1497④）
+        // **卡池 / 通配符计数条在哪些页签上出现** —— 判据（第一权威 = 反编译方法体）
+        // = `d:/2/tools/decomp_full/DeckEditingWindow__ToggleDisplay.c`：**一个入参管三件** ——
+        // `cardDisplay(0x78).SetActive(param)` · `cosmeticDisplay(0x80).SetActive(param ^ 1)` ·
+        // `wildcards(0xd0).SetActive(param)`；而 `DeckEditingStateController__ToggleDeckInfo.c` /
+        // `__ToggleDeckList.c` 传 **1**、`__ToggleDeckCosmetic.c` 传 **0**
+        // ⇒ **Cards 页与 Deck info 页都显示卡池与整条通配符计数条、只有 Cosmetics 页关**（通配符与卡池同相）。
+        //
+        // 🔴 **为什么下面非三页都断不可**：只断「Cosmetics 页关着」的话，**旧的 `_tab == 0` 写法照样全绿**
+        //    （它 Cosmetics 页也关）—— 那是**假绿**，抓不到本次要修的那一半（Info 页被误关）。
+        //    ⚠️ 本宿主里**不许用 `UiQuadActive("pool_" + i)`** 量卡池格（理由见 `PoolCellGo` 的 doc）。
+
+        /// <summary>卡池第 `i` 屏位那格**视图根**（`DeckRuntime.RefreshPool` 里名字 = `"pool_" + vi`、父 = `Root`）。
+        /// <para>🔴 **⛔ 别拿 `UiQuadActive("pool_" + i)` 量这一格** —— `CardView` 的卡面每一层都是
+        /// `MeshRenderer`（`CardView.AddLayer` 建的是 `MeshFilter + MeshRenderer`，**不是** `ImageQuad`），
+        /// 全树唯一的 `ImageQuad` 是 `SetTargetGem` 那条路建的 `glow_melee` / `glow_ranged`
+        /// （出厂 `SetActive(false)`，而且卡池的卡**永远不**调 `SetTargetGem`）
+        /// ⇒ `UiQuadActive("pool_N")` 对卡池格**恒答 false**（拿它断「露着」= **恒红**，本仓最怕的那一族假读数）。</para>
+        /// <para>本格用 `activeInHierarchy` —— `RefreshPool` 里 `!on` 那一支 `SetActive(false)` 的就是这个 GO。</para></summary>
+        static GameObject PoolCellGo(int i)
+        {
+            var root = _rt != null ? _rt.Root : _root;
+            if (root == null || i < 0) return null;
+            var t = root.Find("pool_" + i);
+            if (t == null) t = FindDeep(root, "pool_" + i);
+            return t != null ? t.gameObject : null;
+        }
+
+        /// <summary>卡池现在**真显示着**几格：数 `Root` 下 `pool_*` **直接子件**里 `activeInHierarchy` 的那些。
+        /// <para>⛔ 与 `UiPoolCardAt` 是**两条腿**、**都要有**：那条读 `_poolIndex`（状态），本条读视图（画面）
+        /// —— 只更新状态忘了重新 `SetActive`（或反过来）时，单看一条**照样绿**。</para>
+        /// <para>⚠️ 只认 `Root` 的**直接**子件（`CardView.Create(Root, …)` 就挂在那儿）——
+        /// 顺带把 `poolcnt_*`（张数条，名字前缀 `poolc`）排除掉了，它们**不**吃这条判据。</para></summary>
+        static int PoolCellsShown()
+        {
+            var root = _rt != null ? _rt.Root : _root;
+            if (root == null) return 0;
+            int n = 0;
+            foreach (var t in root.GetComponentsInChildren<Transform>(true))
+            {
+                if (t.parent != root) continue;
+                if (!t.name.StartsWith("pool_", StringComparison.Ordinal)) continue;
+                if (t.gameObject.activeInHierarchy) n++;
+            }
+            return n;
+        }
+
+        /// <summary>通配符计数条那 **10 件**的节点名（底板 1 + 稀有度图标 4 + 数字 4 + 阵营徽记 1）——
+        /// 原版父链全在**同一个 GO**（`DeckEditingWindow.wildcards` 指的 `Content Area/Header/WIldcard Counter`）
+        /// 底下：`…/WIldcard Counter/{Background, Counters/*, Army Icon}` ⇒ 一件都不能漏。</summary>
+        static readonly string[] WcBarNodes = {
+            "hdr_wcbg", "hdr_wc0", "hdr_wc1", "hdr_wc2", "hdr_wc3",
+            "hdr_wct0", "hdr_wct1", "hdr_wct2", "hdr_wct3", "hdr_army" };
+
+        /// <summary>上面那 10 件里属于 `ImageQuad` 的 **6 件**（`hdr_wcbg` / 4 图标 / `hdr_army`）——
+        /// 这 6 件 `Img()` 建的时候登记进了 `_named` ⇒ `UiQuadActive` 量得到它们。
+        /// ⚠️ 另 4 件（`hdr_wct*`）是 `Label`（`TxtPx` 建）—— `_named` **只装 `ImageQuad`**
+        /// ⇒ `UiQuadActive` 对它们**恒答 false**（拿它断「露着」= 恒红），只能按名字取 GO 读 `activeInHierarchy`。</summary>
+        static readonly string[] WcBarQuadNodes = {
+            "hdr_wcbg", "hdr_wc0", "hdr_wc1", "hdr_wc2", "hdr_wc3", "hdr_army" };
+
+        /// <summary>按名字取节点（`Root` 直接子件优先、再深查找）看它**现在显示着没有**。
+        /// 与 `UiQuadActive` 的分工：那个只认 `ImageQuad`（`Label` 答不出、答就答 false），本条两种都认。</summary>
+        static bool NodeShown(string name)
+        {
+            var root = _rt != null ? _rt.Root : _root;
+            if (root == null || string.IsNullOrEmpty(name)) return false;
+            var t = root.Find(name);
+            if (t == null) t = FindDeep(root, name);
+            return t != null && t.gameObject.activeInHierarchy;
+        }
+
+        /// <summary>通配符计数条 10 件里现在真显示着几件（`WcBarNodes` 逐件问 `NodeShown`）。
+        /// ⛔ 读的是**画面**（`activeInHierarchy`），不是 `_cardsInfoOnly` 那张表 —— 读那张表就是自证。</summary>
+        static int WcBarShownCount()
+        {
+            int n = 0;
+            foreach (var k in WcBarNodes) if (NodeShown(k)) n++;
+            return n;
+        }
+
         /// <summary>🆕 **2026-10-18（A891 的续 · 续做 A）**：筛选栏一行小标题**该印什么字**（随语档）。
         /// <para>🔴 键**逐条写死在这里**，⛔ **不从 `FilterPanelModel.TitleText` / 产物读回来** ——
         /// 那是自证（实现与检测器用同一个口 ⇒ 两边一起改回去照样绿）。键本身 = 原版那颗 `Localize.mTerm`
@@ -467,6 +548,43 @@ public static class DeckScene
             foreach (var q in _root.GetComponentsInChildren<ImageQuad>(true))
                 if (q != null && q.name == "flt_cell") n++;
             return n;
+        }
+
+        // ============================================================ 🆕 2026-10-21（A1527 / A1525 的断言看门）
+        //
+        // 名单上这一批（`Deck/DeckRuntime.cs` 里刚做完、此前**一条断言都没有**）：
+        //   ① `A1527` 督军行**不印费用圆** —— `SetOn(_deckRowCost[i], on && !heroRow)`
+        //      与 `SetOn(_deckRowCount[i], on && !heroRow)`（**两颗一起**，本工程它们是两颗独立物体）；
+        //   ② `A1525` 卡组列表三件 —— 按 `Id` 去重 / `Cost → 显示名(序数)` 排序 / 行名左对齐到 **68**。
+        // 判据（⛔ 一律**不是我们自己的常量**）：
+        //   · **行名左沿 68** = 参考图（`桌面/warpforge参考图/卡组编辑界面参考.png`）量出来的 ——
+        //     参考图 px 56…61 × 1.21442（= 1920/1581）= 画布 **68.0…74.1**；
+        //     ⛔ 不许写 `DeckRuntime.RowNameX`（那是被测实现里的数，改坏它断言跟着变 = 自证）；
+        //   · 督军行那两颗的判据 = `资料/说明书/04_界面UI/菜单全树.md:9321-9329`（Hero 族**没有** `Cost Image`）
+        //     与 `:9337` / `:9348`（Defensive / Card Info 两族**都有**）
+        //     + `UICardInfoItem__Initialize.c:76`（值闸 `Coin >= 0`）；
+        //   · 排序第二把键 = `DeckListDrawer__Reorder.c` 的 `OrderBy(键1).ThenBy(键2)`，
+        //     第二把键的方法体本地读不到 ⇒ 拿参考图三组逐张对码点反推出「显示名序数比较」
+        //     （详情 → `DeckRuntime.DeckEntries()` 的 doc 与 `资料/普查产出_第十七会话/T_卡组列表.md`）。
+
+        /// <summary>卡组行名（`row_n{i}`）**渲出来的墨迹左右缘**（画布 px · 左上原点）。
+        /// <para>量的东西：`Label.WorldW`（TMP `textBounds` 的**真测量**，不是 `sizeDelta`）± 节点世界 x ——
+        /// `RefreshBounds` 把 TMP 子节点摆在 `−anchor.x·WorldW − bounds.min.x`（`Battle/Label.cs` 里那一句）
+        /// ⇒ 墨迹左缘恒 = 节点 x − `WorldW/2`，与本文件既有的 `TitleLeftPx` **同一条算式、同一份量纲**。</para>
+        /// <para>量不出来（节点不在 / 没量出宽度 —— 空串与「没生成过版面」都答 4.29e9 那个哨兵）⇒ 返回 **false**，
+        /// 调用点**必红**（不静默放过）。</para></summary>
+        static bool RowNameInkPx(int i, out float left, out float right)
+        {
+            left = right = -9999f;
+            var root = _rt != null ? _rt.Root : _root;
+            var t = FindDeep(root, "row_n" + i);
+            var lb = t != null ? t.GetComponent<Label>() : null;
+            if (lb == null) return false;
+            float w = lb.WorldW * PxPerUnit;
+            if (!(w > 10f && w < 2000f)) return false;      // 空串 / 哨兵值 ⇒ 量不出来
+            float cx = DeckRuntime.PxOfWorld(lb.transform.position).x;
+            left = cx - w * 0.5f; right = cx + w * 0.5f;
+            return true;
         }
 
         // ============================================================ 自检
@@ -1637,6 +1755,15 @@ public static class DeckScene
                 {
                     var A = quads[i]; var B = quads[j];
                     if (A.RenderQueue != B.RenderQueue) continue;
+                    // 🔴 **2026-10-11（`A1521③` · 代理 `N`/`O` 的判据）**：**货币条那两颗【原版就是重叠的】** ——
+                    //   药丸格内 x `[20, 20+药丸宽]`、图标格内 x `[−8.5, 51.5]` ⇒ **重叠 31.5 px**，
+                    //   而药丸的九宫 `pad(L29,…)` 那条左内衬**正是给图标留的位**（原版那颗 `Icon` 带
+                    //   `LayoutElement.m_IgnoreLayout = 1`、**不进布局**）。⇒ 这一对**按原版就是压着的**，
+                    //   ⛔ 不是版面错。实测差 = `−31.0001`，与算式吻合 ⇒ 加这条白名单。
+                    //   🧨 **白名单只放这一对**（具名 + 前缀匹配）：别的任何同层重叠照旧报红。
+                    bool byDesign = (A.name == "Image" || B.name == "Image")
+                                 && (A.name.StartsWith("Resource Bar Background") || B.name.StartsWith("Resource Bar Background"));
+                    if (byDesign) continue;
                     // 🔴 用**世界坐标**（`PxOfWorld`）而不是 `localPosition` ——
                     //    九宫格的 9 块是**根的子物体**，它们的 localPosition 都在根附近
                     //    ⇒ 用 local 会把每一行的块都判成「同一处」，660 处假重叠（2026-09-23 踩）。
@@ -2758,6 +2885,115 @@ public static class DeckScene
             Check(_rt.UiInfoOnlyActive, 0, "Cards 页签上**一件 Deck info 的东西都不许露**（图 + 文字都算）");
             Check(_rt.UiCosmOnlyActive, 0, "Cards 页签上不许露 Cosmetics 的东西");
 
+            // ============================================================ 🆕 2026-10-11（A1497④）
+            // **卡池 + 通配符计数条：Cards / Deck info 两页**都显示**，只有 Cosmetics 页关。**
+            // 判据（第一权威 = 反编译方法体，逐行现核）= `d:/2/tools/decomp_full/DeckEditingWindow__ToggleDisplay.c`：
+            //   一个入参管三件 —— `cardDisplay.SetActive(param)` · `cosmeticDisplay.SetActive(param ^ 1)` ·
+            //   `wildcards.SetActive(param)`；而 `DeckEditingStateController__ToggleDeckInfo.c` /
+            //   `__ToggleDeckList.c` 传 **1**、`__ToggleDeckCosmetic.c` 传 **0**
+            //   ⇒ **卡池与整条通配符计数条是同相的两件**（Cards / Info 都开、Cosmetics 关）。
+            // 🔴 **三页都得断**：只断「Cosmetics 页关着」的话，**旧的 `_tab == 0` 写法照样全绿** —— 那是**假绿**，
+            //   本件要抓的正是「Deck info 页被误关」那一半（改之前那一页右侧整块是空的）。
+            // 🧨 **每格摆回基线**：每一小格开头都 `UiSetTab(0)`（上一格切到 Cosmetics 的残留会漏到下一格）。
+            // ⚠️ 「露着没有」一律读 **`activeInHierarchy`**（含父链）；⛔ **不许拿 `UiQuadActive("pool_" + i)` 量卡池格**
+            //   —— 卡面层是 `MeshRenderer` 不是 `ImageQuad` ⇒ 那口对卡池格**恒答 false**（理由见 `PoolCellGo` 的 doc）。
+            {
+                Section("★ A1497④：卡池 + 通配符计数条 —— Cards / Info 两页都显示、只有 Cosmetics 页关");
+                int nPool = 0;
+                float bx = 0f, by = 0f, bw = 0f, bh = 0f;
+
+                // ---- ① Cards 页（基线）----
+                _rt.UiSetTab(0);
+                {
+                    var c0 = PoolCellGo(0);
+                    CheckTrue(c0 != null, "（前提）卡池第 0 格的视图根 `pool_0` 在（`CardView.Create(Root, …)` 建的）");
+                    CheckTrue(c0 != null && c0.gameObject.activeInHierarchy,
+                              "★ Cards 页：`pool_0` **真画着**（视图根 `activeInHierarchy`；"
+                            + "⛔ 不是 `UiQuadActive` —— 那一口对卡池格恒答 false）");
+                    CheckTrue(_rt.UiPoolCardAt(0) != null, "★ ……状态里那一格也指着真卡（`_poolIndex[0] >= 0`）");
+                    nPool = PoolCellsShown();
+                    CheckTrue(nPool > 0, $"★ Cards 页卡池画出来 **{nPool}** 格（0 格 ⇒ 下面那几条全成空谈）");
+                    CheckTrue(_rt.UiPoolCellRect(0, out bx, out by, out bw, out bh),
+                              "★ ……以及那一格的矩形（② 要拿它比「Info 页摆的是不是同一处」）");
+                }
+
+                // ---- ② Deck info 页：**本次改动落在的这一格** ----
+                //  改之前 `RefreshPool` 的判据是 `_tab == 0` ⇒ 这一页右侧整块是空的（`_poolIndex` 全 −1、
+                //  视图全 `SetActive(false)`）；原版这一页**照样是卡池**（`Card Display` 那一棵与 Cards 页同一棵）。
+                _rt.UiSetTab(1);
+                {
+                    var c0 = PoolCellGo(0);
+                    CheckTrue(c0 != null && c0.gameObject.activeInHierarchy,
+                              "★ Deck info 页：`pool_0` **也画着**（原版 `ToggleDisplay(1)` ⇒ `cardDisplay.SetActive(1)`）"
+                            + "｜🧨 改回 `_tab == 0` ⇒ 本条红（这一页右侧整块空白）");
+                    CheckTrue(_rt.UiPoolCardAt(0) != null,
+                              "★ ……状态里那一格也指着真卡｜🧨 旧写法 `_poolIndex[0] == -1` ⇒ 本条红");
+                    Check(PoolCellsShown(), nPool,
+                          $"★ Deck info 页画出来的卡池格数 = **{nPool}**（= Cards 页那个数 —— 不是「恰好第 0 格活着」）"
+                        + "｜🧨 旧写法这里是 **0** ⇒ 红");
+                    float qx, qy, qw, qh;
+                    CheckTrue(_rt.UiPoolCellRect(0, out qx, out qy, out qw, out qh),
+                              "★ ……而且那一格的**矩形**量得出来（`UiPoolCellRect` 要求视图 `activeSelf` —— 旧写法恒 false）"
+                            + $"（实测 {qx:F0},{qy:F0} {qw:F0}×{qh:F0}）");
+                    // 「画出来了」还要「摆在**同一处**」—— 这三条（视图 active ✚ `_poolIndex[0] >= 0` ✚ 矩形同值）
+                    // 正是 `HandlePoolClick` 命中这一格的前提（它拿**同一颗** `pool_0` transform 做 `Contains`）。
+                    // 🔴 ⚠️ 「真点一下」那一步在批处理里**驱动不了**（`HandlePoolClick` 只从 `HandlePointer` 进、
+                    //   而批处理没有鼠标 ⇒ `Mouse.current == null`），如实标注 —— 见本轮报告「没做到的」。
+                    CheckTrue(Mathf.Abs(qx - bx) < 0.5f && Mathf.Abs(qy - by) < 0.5f
+                              && Mathf.Abs(qw - bw) < 0.5f && Mathf.Abs(qh - bh) < 0.5f,
+                              $"★ ……而且与 Cards 页摆的是**同一处**（{qx:F1},{qy:F1} {qw:F1}×{qh:F1} "
+                            + $"vs {bx:F1},{by:F1} {bw:F1}×{bh:F1}）—— 命中这一格的三个前提由此齐了");
+                }
+
+                // ---- ③ Cosmetics 页：卡池 + **整条**通配符计数条一起关 ----
+                _rt.UiSetTab(2);
+                {
+                    Check(PoolCellsShown(), 0,
+                          "★ Cosmetics 页：卡池**一格都不显示**（原版 `cardDisplay.SetActive(0)`）"
+                        + "｜🧨 把判据写成恒真（或把 `_tab != 2` 弄丢）⇒ 本条红");
+                    CheckTrue(_rt.UiPoolCardAt(0) == null, "★ ……状态里那一格也空了（两条腿一起断）");
+                    var c0 = PoolCellGo(0);
+                    CheckTrue(c0 == null || !c0.gameObject.activeInHierarchy,
+                              "★ ……`pool_0` 也在关着（同一条判据的第三个口）");
+
+                    // 通配符计数条**整条**（底板 + 4 稀有度图标 + 4 数字 + 阵营徽记）——
+                    // `wildcards.SetActive(param)` 与卡池是**同一次调用里的同相两件**，一件都不能漏
+                    // （漏了就是「一条规则两种结果」）。
+                    Check(WcBarShownCount(), 0,
+                          $"★ Cosmetics 页：整条通配符计数条**一件都不显示**（实测 {WcBarShownCount()}/10 件："
+                        + "底板 1 + 稀有度图标 4 + 数字 4 + 阵营徽记 1）");
+                    foreach (var k in WcBarQuadNodes)
+                        CheckTrue(!_rt.UiQuadActive(k),
+                                  "★ Cosmetics 页：`" + k + "` **不显示**（`ImageQuad`，走 `UiQuadActive`）");
+                    for (int i = 0; i < 4; i++)
+                        CheckTrue(!NodeShown("hdr_wct" + i),
+                                  "★ Cosmetics 页：数字 `hdr_wct" + i + "` 也不显示（它是 `Label` —— "
+                                + "`UiQuadActive` 对它**恒答 false**、量不到，只能按名字取 GO 读 `activeInHierarchy`）");
+                }
+
+                // ---- ④ 回到 Deck info 页：**逐件反向再断一次** ----
+                //  只断「Cosmetics 页关着」会放过「Info 页也误关」（= 把 `_cardsInfoOnly` 那处写成 `_tab == 0`）
+                //  ⇒ 这一格与 ① 那一格合起来才把「两页判据」钉死（Cards ✚ Info 都开、Cosmetics 关）。
+                _rt.UiSetTab(1);
+                {
+                    Check(WcBarShownCount(), WcBarNodes.Length,
+                          $"★ Deck info 页：整条通配符计数条 **10 件全显示**（实测 {WcBarShownCount()}/10）"
+                        + "｜🧨 把 `RefreshTabVisibility` 里 `_cardsInfoOnly` 那一句改成 `_tab == 0`（或干脆不登记）⇒ 红");
+                    foreach (var k in WcBarQuadNodes)
+                        CheckTrue(_rt.UiQuadActive(k), "★ Deck info 页：`" + k + "` 显示着（`UiQuadActive`）");
+                    for (int i = 0; i < 4; i++)
+                        CheckTrue(NodeShown("hdr_wct" + i),
+                                  "★ Deck info 页：数字 `hdr_wct" + i + "` 也显示着（同上：它是 `Label`）");
+                }
+
+                // ---- ⑤ 切回 Cards：全部回来（收尾；= 下一节的初态）----
+                _rt.UiSetTab(0);
+                Check(PoolCellsShown(), nPool, "★ 切回 Cards：卡池格数回到基线");
+                Check(WcBarShownCount(), WcBarNodes.Length,
+                      "★ 切回 Cards：通配符计数条 10 件也全在（🧨 只登记一半、或写成 `_tab == 1` ⇒ 本条红）");
+                CheckTrue(_rt.ActiveTab == 0, "（收尾）页签收回 Cards（下一节按 Cards 页在跑）");
+            }
+
             // ============================================================ 🆕 2026-10-20
             // **卡组行上的两颗数**：左圆（原版 `…/Background/Cost Image/Cost`）= **费用** ·
             //   行右缘（原版 TMP 名 `Count`）= **份数**。判据（逐条带出处；期望值一律**从卡表现算**，
@@ -2786,6 +3022,7 @@ public static class DeckScene
 
                 int rows = 0, showN = 0, hideN = 0;
                 string badCost = null, badX = null, badHide = null;
+                string badCntVis = null;               // 🆕 2026-10-21：`row_cnt*` 的**可见性**反例（原来整片空白）
                 for (int i = 0; i < 11; i++)            // 一屏 11 行（`DeckRuntime.RowVisible`）
                 {
                     var d = _rt.UiDeckRowAt(i);
@@ -2798,6 +3035,17 @@ public static class DeckScene
                     if (costTxt != d.Cost.ToString() && badCost == null)
                         badCost = "第 " + i + " 行「" + CardText.Name(d.Name, d.NameZh) + "」左圆印的是「"
                                 + costTxt + "」，而它的 `Cost` = **" + d.Cost + "**（份数 = " + n + "）";
+                    // ⚠️ **2026-10-21 补（铁律 5·b）**：上一条**只验文案** ——
+                    //   `Deck/DeckRuntime.cs` 的 `UiLabelText` **不看 `activeSelf`**
+                    //   ⇒ 「督军行那颗 `0` 该藏没藏」**整片是空白、改前改后都绿**。
+                    //   现在同一格顺手把**可见性**也断上：行可见时，`row_cnt*` 只该在**非督军行**上显示
+                    //   （判据 = `RefreshDeckList` 里 `heroRow` 那两句；这里读的是 **`activeSelf`**、不是文案）。
+                    var cntGo = FindDeep(_rt.Root, "row_cnt" + i);
+                    bool cntShown = cntGo != null && cntGo.gameObject.activeSelf;
+                    bool cntWant = d.Type != "hero";
+                    if (cntShown != cntWant && badCntVis == null)
+                        badCntVis = "第 " + i + " 行（`Type=" + d.Type + "`）该" + (cntWant ? "显示" : "不显示")
+                                  + "，实得 " + (cntShown ? "显示着" : "藏着");
                     // ---- ② ③ 行右缘那颗 ----
                     var xGo = FindDeep(_rt.Root, "row_x" + i);
                     var xLb = xGo != null ? xGo.GetComponent<Label>() : null;
@@ -2823,6 +3071,12 @@ public static class DeckScene
                 CheckTrue(badCost == null,
                           "★ ① 卡组行左圆里那个数 = 该卡的 `Cost`（**每一行**都对）"
                         + (badCost == null ? "；⛔ 不是份数" : "；反例：**" + badCost + "**"));
+                CheckTrue(badCntVis == null,
+                          "★ ①b 每一行 `row_cnt*` 的**可见性** = 「这一行不是督军行」"
+                        + "（督军行不印费用圆、也不印圆里那个数）"
+                        + "（⛔ 本条必须读 **`activeSelf`** —— 上一条走的 `UiLabelText` 只读 `Label.Text`、"
+                        + "不看可见性）"
+                        + (badCntVis == null ? "" : "；反例：**" + badCntVis + "**"));
                 CheckTrue(diffFromCopies > 0,
                           "★ ①'（鉴别力）整副牌里**至少有一行「费用 ≠ 份数」**（实测 " + diffFromCopies + " 行）"
                         + " —— 两数恒相等的话，一个「圆里印份数」的实现**照样全绿**");
@@ -2832,6 +3086,253 @@ public static class DeckScene
                 CheckTrue(hideN > 0 && badHide == null,
                           "★ ② 份数 = 1 的行：`row_x*` **不显示**（原版 `SetActive(1 < count)`；实测 " + hideN + " 行）"
                         + (badHide == null ? "" : "；反例：**" + badHide + "**"));
+            }
+
+            // ============================================================ 🆕 2026-10-21（`A1527` + `A1525`）
+            // 判据逐条列在 `RowNameInkPx` 上面那一段（⛔ 不在这里再写第二份）。
+            // 🔴 本节**全部读「画面」或「刚量出来的数」**，不读 `DeckRuntime` 里那几个常量
+            //   （`RowNameX` 那一类）也不读它自己的排序函数 —— 读了就是自证。
+            {
+                Section("★ A1527 / A1525：卡组列表 —— 督军行无费用圆 · 一卡一行 · 费用→显示名 序 · 行名左对齐 68");
+                _rt.UiSetTab(0);
+                _rt.UiScrollDeck(-9999f);          // 摆回基线：列表滚回顶（上一节量悬浮 / 页签，可能动过滚动）
+
+                // ---- ① A1527：督军行**两颗一起**都不显示（圆 + 圆里的数）----
+                {
+                    var heroD = _rt.UiDeckRowAt(0);
+                    CheckTrue(heroD != null && heroD.Type == "hero",
+                              "（前提）列表第 0 行 = 督军（"
+                            + (heroD == null ? "<空>" : CardText.Name(heroD.Name, heroD.NameZh)) + "）");
+                    CheckTrue(_rt.UiHasQuad("row_c0"),
+                              "（前提）`row_c0`（费用圆那颗）**真建出来了** —— 不然下面那条「不显示」是拿"
+                            + "「件不存在」蒙的（`UiQuadActive` 对不存在的 key 恒答 false）");
+                    CheckTrue(!_rt.UiQuadActive("row_c0"),
+                              "★ **督军行没有费用圆**（`row_c0` 不显示）—— 判据 = Hero 族预制体**没有** `Cost Image` 子件"
+                            + "（`菜单全树.md:9321-9329`）+ 参考图第 0 行无圆、无 `x2`"
+                            + "（⛔ 不是「费用 < 0」那条 —— 我们表里督军 `cost` 恒 0、那一条在本数据上恒真）"
+                            + "｜🧨 把 `RefreshDeckList` 的 `on && !heroRow` 改回 `on` ⇒ 本条红");
+                    var cnt0 = FindDeep(_rt.Root, "row_cnt0");
+                    CheckTrue(cnt0 != null && !cnt0.gameObject.activeSelf,
+                              "★ ……**圆里那个数也不显示**（`row_cnt0`）—— 本工程这俩是**两颗独立物体**"
+                            + "（`DeckRuntime` 里 `Img(\"row_c\"+i, …)` 与 `Txt(\"row_cnt\"+i, …)` 各建一颗）"
+                            + "｜🧨 只把 `row_c*` 那句改回 `on`、`row_cnt*` 留着 ⇒ 督军行会留一颗**飘着的 `0`** ⇒ 本条红"
+                            + "｜⚠️ 本条必须读 `activeSelf` —— `UiLabelText` **不看 `activeSelf`**，上面那块原来只验文案");
+                }
+
+                // ---- ② A1527 反向（鉴别力）：防御卡那一行**照样印** ----
+                //  🔴 防御卡与督军**走两条不同的机制**：督军靠**预制体结构**（Hero 族压根没这件子件），
+                //    防御卡靠**运行期值闸**（Defensive 族**有** `Cost Image`，开关是 `Coin >= 0`，
+                //    而它费用是真值 `0/1/2/3` —— 卡面上真有蓝色六边形）⇒ 一起藏 = 造一条**新**偏离。
+                {
+                    int defRow = -1; CardDef defDef = null;
+                    for (int i = 0; i < 11; i++)
+                    {
+                        var d = _rt.UiDeckRowAt(i);
+                        if (d != null && d.Type == "defence") { defRow = i; defDef = d; break; }
+                    }
+                    CheckTrue(defRow >= 0, "（前提）一屏里量得到**防御卡那一行**（没有它 ⇒ 下面两条是空转）");
+                    if (defRow >= 0)
+                    {
+                        CheckTrue(_rt.UiQuadActive("row_c" + defRow),
+                                  "★ **防御卡行照样印费用圆**（第 " + defRow + " 行「" + CardText.Name(defDef.Name, defDef.NameZh)
+                                + "」`cost=" + defDef.Cost + "`）—— 判据 = Defensive 族**有** `Cost Image`（`菜单全树.md:9337`）"
+                                + "+ 卡面右上真有蓝色六边形（`Aeldari/5防御卡/Warpforge_67_Aspect-Shrine.png` = `1`）"
+                                + "｜🧨 顺手连防御卡一起藏（`!(heroRow || rowDefence)`）⇒ 本条红");
+                        var cntD = FindDeep(_rt.Root, "row_cnt" + defRow);
+                        CheckTrue(cntD != null && cntD.gameObject.activeSelf,
+                                  "★ ……圆里那个数也在（`row_cnt" + defRow + "`）⇒ 两颗同源，不是「圆在、数没了」");
+                    }
+                }
+
+                var entries = _rt.DeckEntries();
+
+                // ---- ③ A1525①：一卡一行（按 `Id` 去重）----
+                {
+                    var seenIds = new HashSet<string>();
+                    string dupId = null;
+                    foreach (var e in entries)
+                        if (e != null && !seenIds.Add(e.Id)) { dupId = e.Id; break; }
+                    CheckTrue(dupId == null,
+                              "★ **一卡一行**：`DeckEntries()`（" + entries.Count + " 行）里 `Id` **两两不同**"
+                            + "（↔ 判据 = `DeckListDrawer__Initialize.c` 遍历卡表时先 `Any(行.CurrentCard == 这张)`，"
+                            + "命中就 `SetCount(行, 份数+1)`、**不建新行**）"
+                            + "｜🧨 摘掉 `if (… || !seen.Add(id)) continue;` 里的 `!seen.Add(id)` ⇒ 同名卡各占一行 ⇒ 红"
+                            + (dupId == null ? "" : "｜实得重复：" + dupId));
+                }
+
+                // ---- ④ A1525①：**一屏内**同名只出现一次 + 那一行的份数 = `CountOf` ----
+                //  ⛔ 读的是**画面上那行字**（`row_n{i}` 的 `Label.Text`）—— 与 ③ 的状态腿是**两条腿**。
+                {
+                    var firstRowOfName = new Dictionary<string, int>();
+                    string dupName = null; int dupA = -1, dupB = -1;
+                    int cntRow = -1, cntWant = 0; string cntGot = "<没量到>";
+                    for (int i = 0; i < 11; i++)
+                    {
+                        var d = _rt.UiDeckRowAt(i);
+                        if (d == null) continue;                     // 行不可见（页签不对 / 滚出屏幕）⇒ 不算
+                        var t = FindDeep(_rt.Root, "row_n" + i);
+                        var lb = t != null ? t.GetComponent<Label>() : null;
+                        string nm = lb != null ? lb.Text : null;
+                        if (string.IsNullOrEmpty(nm)) continue;      // 没写过字的行（空槽）不算
+                        int at;
+                        if (firstRowOfName.TryGetValue(nm, out at)) { dupName = nm; dupA = at; dupB = i; }
+                        else firstRowOfName[nm] = i;
+                        if (cntRow < 0 && d.Type != "hero" && d.Type != "defence" && state.Deck.CountOf(d.Id) > 1)
+                        {
+                            cntRow = i; cntWant = state.Deck.CountOf(d.Id);
+                            var xgo = FindDeep(_rt.Root, "row_x" + i);
+                            var xlb = xgo != null ? xgo.GetComponent<Label>() : null;
+                            cntGot = (xlb != null && xlb.gameObject.activeSelf) ? xlb.Text : "<没显示>";
+                        }
+                    }
+                    CheckTrue(firstRowOfName.Count >= 5, "（前提）一屏量到 ≥5 个行名（实测 " + firstRowOfName.Count + "）");
+                    CheckTrue(dupName == null,
+                              "★ **一屏内同名只出现一次**（判据同 ③；这里量的是**画面**，不是状态）"
+                            + "｜🧨 改回「逐条 `CardIds` 展开」⇒ 同一张卡占两行 ⇒ 红"
+                            + (dupName == null ? "" : "｜实得「" + dupName + "」出现在第 " + dupA + " / " + dupB + " 行"));
+                    CheckTrue(cntRow >= 0 && cntGot == "x" + cntWant,
+                              "★ 份数 > 1 的那一行（第 " + cntRow + " 行）行右缘那颗 = **`x` + 份数**"
+                            + "（该是 `x" + cntWant + "`，实得 `" + cntGot + "`）"
+                            + "｜⚠️ 挑的是**份数 > 1** 的卡 —— 一屏里恒 `x1` 的话，「每行都藏」也蒙得过去"
+                            + "｜🧨 去重那一刀被摘掉 ⇒ 份数印两遍 / 错位 ⇒ 红");
+                }
+
+                // ---- ⑤ A1525②：普通卡那一段**费用单调不减** ----
+                int seg = 2;   // 前两行 = 督军 / 防御卡（与费用无关、钉在最前）⇒ 不进这一段
+                {
+                    string bad = null;
+                    for (int i = seg + 1; i < entries.Count; i++)
+                    {
+                        if (entries[i] == null || entries[i - 1] == null) continue;
+                        if (entries[i].Cost < entries[i - 1].Cost)
+                        {
+                            bad = "第 " + (i - 1) + " 行「" + CardText.Name(entries[i - 1].Name, entries[i - 1].NameZh)
+                                + "」费用 " + entries[i - 1].Cost + " > 第 " + i + " 行「"
+                                + CardText.Name(entries[i].Name, entries[i].NameZh) + "」费用 " + entries[i].Cost;
+                            break;
+                        }
+                    }
+                    CheckTrue(entries.Count > seg + 1, "（前提）排序段（第 2 行起）至少 2 行（实测 " + (entries.Count - seg) + "）");
+                    CheckTrue(bad == null,
+                              "★ 普通卡那一段**费用单调不减**（" + (entries.Count - seg) + " 行）—— 判据 = 参考图 10 行 `2,2,3,3,3,4,4,4,4,5`"
+                            + "｜🧨 摘掉 `cards.Sort(…)` ⇒ 顺序退回 `CardIds`（开工前那副牌实测 `6,6,1,1,6,6,4,4,3…`）⇒ 红"
+                            + (bad == null ? "" : "｜实得：" + bad));
+                }
+
+                // ---- ⑥ A1525②：**同费用按显示名码点升序** + 一条钉死的期望值 ----
+                {
+                    string bad = null; int costPairs = 0;
+                    for (int i = seg; i + 1 < entries.Count; i++)
+                    {
+                        if (entries[i] == null || entries[i + 1] == null) continue;
+                        if (entries[i].Cost != entries[i + 1].Cost) continue;
+                        costPairs++;
+                        string a = CardText.Name(entries[i].Name, entries[i].NameZh);
+                        string b = CardText.Name(entries[i + 1].Name, entries[i + 1].NameZh);
+                        if (string.CompareOrdinal(a, b) > 0 && bad == null)
+                            bad = "「" + a + "」(U+" + ((int)a[0]).ToString("X4") + ") 排在了「" + b
+                                + "」(U+" + ((int)b[0]).ToString("X4") + ") 前面";
+                    }
+                    CheckTrue(costPairs > 0, "（鉴别力）排序段里**同费用的相邻对 ≥ 1**（实测 " + costPairs + "对）"
+                                       + " —— 一副牌里没有同费用对 ⇒ 下面那条是空转");
+                    CheckTrue(bad == null,
+                              "★ 同费用内按**显示名（码点序）**升序 —— 判据 = `DeckListDrawer__Reorder.c` 的 `OrderBy(键1).ThenBy(键2)`，"
+                            + "第二把键拿参考图三组逐张对码点反推（费用 2 `游 U+6E38 < 驭 U+9A6D` · "
+                            + "费用 3 `女 U+5973 < 帷 U+5E37 < 突 U+7A81` · 费用 4 `努 U+52AA < 灵 U+7075 < 狂 U+72C2 < 邪 U+90AA`）"
+                            + "｜🧨 `ThenBy` 换成**英文名**或 `Id` ⇒ 红"
+                            + (bad == null ? "" : "｜实得：" + bad));
+
+                    // 🔴 **一条钉死的期望值**（⛔ 不是从实现读回来的）：演示牌里费用 6 那五张的**显示名码点序** ——
+                    //   俯冲猎鹰长老 U+4FEF · 复仇者长老 U+590D · 总督 U+603B · 火龙 U+706B · 灵先知·奎莱纳里斯 U+7075。
+                    //   此举的用处 = 给上一条**加固**：三条候选键在这一组上**互相分得开** ——
+                    //     · 英文名序：`Autarch < Dire Avenger Exarch < Fire Dragon < Spiritseer Qelenaris < Swooping Hawk Exarch`（总督打头）
+                    //     · `Id` 序：`ASH32 < ASH34 < ASH35 < ASH80 < ASH_Autarch`（复仇者长老打头）
+                    //   两条都与下面这个序**不同** ⇒ 任一把键换错都红（而上一条只能管「不升序」）。
+                    string[] want6 = { "ASH80", "ASH32", "ASH_Autarch", "ASH34", "ASH35" };
+                    var got6 = new List<string>();
+                    for (int i = seg; i < entries.Count; i++)
+                        if (entries[i] != null && entries[i].Cost == 6) got6.Add(entries[i].Id);
+                    bool same6 = got6.Count == want6.Length;
+                    for (int i = 0; same6 && i < want6.Length; i++) same6 = got6[i] == want6[i];
+                    CheckTrue(same6,
+                              "★ 费用 6 那一组**逐张对得上**：俯冲猎鹰长老 → 复仇者长老 → 总督 → 火龙 → 灵先知·奎莱纳里斯"
+                            + "（码点 U+4FEF < U+590D < U+603B < U+706B < U+7075）"
+                            + "｜🧨 英文名序（总督打头）/ `Id` 序（复仇者长老打头）⇒ 红"
+                            + "｜实得：" + string.Join(", ", got6.ToArray()));
+                }
+
+                // ---- ⑦ A1525③：行名**左对齐**（左沿 = 68 · 与名字长短无关）----
+                {
+                    float minL = 1e9f, maxL = -1e9f, minW = 1e9f, maxW = -1e9f; int n = 0;
+                    for (int i = 0; i < 11; i++)
+                    {
+                        if (_rt.UiDeckRowAt(i) == null) continue;
+                        float l, r;
+                        if (!RowNameInkPx(i, out l, out r)) continue;
+                        n++;
+                        if (l < minL) minL = l;
+                        if (l > maxL) maxL = l;
+                        if (r - l < minW) minW = r - l;
+                        if (r - l > maxW) maxW = r - l;
+                    }
+                    CheckTrue(n >= 8, "（前提）一屏量到 ≥8 行行名的墨迹（实测 " + n + " 行）");
+                    CheckNear(maxL, 68f, 1f,
+                              "★ **每一行的墨迹左缘都落在 68**（实测最右的左缘 " + maxL.ToString("F1") + " px）"
+                            + " —— 期望值 = **参考图**量出来的（px 56…61 × 1.21442 = 画布 68.0…74.1），"
+                            + "⛔ **不是** `DeckRuntime.RowNameX`（那是被测实现里的数）"
+                            + "｜🧨 只调 `SetAlignLeft()`、不调 `AlignLeftOn` ⇒ 整块还停在框心（第 0 行 ≈ 163 − 宽/2）⇒ 红"
+                            + "｜🧨 `RowNameX` 改回 62 ⇒ 左缘恒 62 ⇒ 红");
+                    CheckTrue(maxL - minL < 1f,
+                              "★ 各行墨迹**左缘相等**（最左 " + minL.ToString("F1") + " · 最右 " + maxL.ToString("F1")
+                            + "，差 " + (maxL - minL).ToString("F2") + " px）—— 这就是「左对齐」的定义（与名字长短无关）"
+                            + "｜🧨 退回居中 ⇒ 名字长的行左缘小、短的左缘大（差几十 px）⇒ 红");
+                    CheckTrue(maxW - minW > 20f,
+                              "★ ……而各行**宽度不等**（最窄 " + minW.ToString("F1") + " · 最宽 " + maxW.ToString("F1")
+                            + " px）—— 长短名并存，上一条才不是「所有行一样宽」蒙出来的");
+                    CheckTrue(minW < 170f,
+                              "★ 至少有一行的墨迹**明显窄于框 190**（最窄 " + minW.ToString("F1") + " px）—— 居中的话这一行的左缘"
+                            + "会比 68 大 (190−宽度)/2 > 10 px ⇒ 上两条才有鉴别力（⛔ 本条若红 = 夹具变了，先看这一条）");
+                }
+
+                // ---- ⑧ 督军 / 防御卡**钉在最前**、与费用无关 ----
+                //  判据（三条）：① 参考图第 0 行 = 督军行（无费用圆、无 `x2`、字更大）② prefab `Content` 子件序
+                //  Hero → Defensive → 一串 Card Info（`菜单全树.md:9320-9343`）③ `DeckListDrawer__Reorder.c` 排完序
+                //  **又显式钉回去**：`SetSiblingIndex(hero,0)` / `(…,1)` / `(defensive,2 或 1)`。
+                //  🔴 **为什么这一格要造局面**：拿今天这副演示牌**直断前两行是什么，鉴别力是 0** ——
+                //    督军费用 0（最小）、防御卡 `支派圣殿` 费用 1 且名字「支 U+652F」在费用 1 那一组里**也排第一**
+                //    ⇒ 「把这两行也丢进 `cards.Sort`」这个**错法**照样能让前两行是 hero / defence，**绿**。
+                //    所以白盒把两张**贵**的卡摆进这两个位（督军位放费用 6 的 `ASH_Autarch`、防御位放费用 3 的 `DA66`）
+                //    —— 钉住的话前两行仍是他俩（且与后面的费用序**反着**），丢进排序的话他们会被排到费用 3 / 6 各自那一段去 ⇒ 前两行立刻变。
+                //  ⚠️ `ASH_Autarch` 与开局督军**同阵营**（SaimHann）⇒ 卡池 / 页头那两条筛选不受影响；
+                //     刷新**只走 `UiScrollDeck`**（它只调 `RefreshDeckList`），⛔ 不走 `RefreshAll`。
+                {
+                    string wlProbe = state.Deck.WarlordId, dfProbe = state.Deck.DefensiveId;
+                    state.Deck.WarlordId = "ASH_Autarch";      // 费用 6 · SaimHann
+                    state.Deck.DefensiveId = "DA66";           // 费用 3 · `Plasma Generator`
+                    _rt.UiScrollDeck(-9999f);
+                    var pr = _rt.DeckEntries();
+                    string p0 = (pr.Count > 0 && pr[0] != null) ? pr[0].Id : "<空>";
+                    string p1 = (pr.Count > 1 && pr[1] != null) ? pr[1].Id : "<空>";
+                    Check(p0, "ASH_Autarch",
+                          "★ 探针：**督军位那张（费用 6）钉在第 0 行**（`DeckEntries` 前两行按 `WarlordId` / `DefensiveId` 取卡、不进排序）"
+                        + "｜🧨 把它也丢进 `cards.Sort` ⇒ 它按费用 6 被排到后面去 ⇒ 红");
+                    Check(p1, "DA66",
+                          "★ 探针：**防御位那张（费用 3）钉在第 1 行**｜🧨 同上 ⇒ 红");
+                    bool tail = pr.Count > 2 && pr[2] != null;
+                    int c2 = tail ? pr[2].Cost : -1;
+                    CheckTrue(tail && pr[0] != null && pr[1] != null && pr[0].Cost == 6 && pr[1].Cost == 3 && c2 < 3,
+                              "★ ……而且第 2 行起**费用又从小开始**（第 2 行费用 " + c2 + " < 3 < 6）"
+                            + "—— 这一段**反着**的费用序只可能来自「前两行被钉住」"
+                            + "｜🧨 排序把三行一起吃掉 ⇒ 整列单调 ⇒ 红");
+                    // 还原（后面的节都按开局那副牌在跑）
+                    state.Deck.WarlordId = wlProbe; state.Deck.DefensiveId = dfProbe;
+                    _rt.UiScrollDeck(-9999f);
+                    var bk = _rt.DeckEntries();
+                    CheckTrue(bk.Count > 1 && bk[0] != null && bk[1] != null && bk[0].Id == wlProbe && bk[1].Id == dfProbe,
+                              "（收尾）督军 / 防御卡**放回原样**（" + wlProbe + " / " + dfProbe + "）—— 后面的节按开局那副牌在跑");
+                    CheckTrue(bk.Count > 1 && bk[0] != null && bk[1] != null && bk[0].Type == "hero" && bk[1].Type == "defence",
+                              "★ 放回后**前两行 = 督军 → 防御卡**（参考图第 0 行是督军行 · prefab `Content` 子件序 Hero→Defensive→…）");
+                }
             }
 
             // 🔴🔴 **2026-10-04（A41 ④）：「藏住了」还不够 —— 藏住的东西【不许吃点击】**。
@@ -6655,6 +7156,7 @@ public static class DeckScene
         {
             Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene(), ScenePath);
+            SceneStubAudit.Run(ScenePath);   // 🆕 A1506：存盘后自证「不许有 !u!115 存根」（干净时零输出）
             Debug.Log(P + $"  场景 {ScenePath}");
         }
 

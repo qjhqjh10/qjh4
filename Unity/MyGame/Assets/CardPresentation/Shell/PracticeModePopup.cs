@@ -605,7 +605,9 @@ namespace CardPresentation
             //      （CLAUDE.md §三：两处写同一条规则 = 迟早不一致）。
             // 🆕 **A1205 接上**（`R5` §2·H #49：原版 `Deck info ▸ General container ▸
             //    Deck Information Cost/balance text` = `auto[1~34] · base 22.3 · 折行 1`）
-            Txt(_general, "Card / Energy cost", CostTxtL, CostTxtR, CostTxtT, CostTxtB, 34f, Align.Center,
+            // 🔴 **2026-10-19（`A1501`）：文案改走 `Loc.T`** —— 那颗 TMP 的
+            //    `mTerm = Demo/CardCostBalance`、`m_text = 'Card / Energy cost'`（本轮现读）。
+            Txt(_general, Loc.T("Demo/CardCostBalance"), CostTxtL, CostTxtR, CostTxtT, CostTxtB, 34f, Align.Center,
                 "Deck Information Cost/balance text", QPrText,
                 wrapPx: CostTxtR - CostTxtL, autoMinPx: 1f, autoMaxPx: 34f, autoBasePx: 22.3f);
             {
@@ -634,7 +636,9 @@ namespace CardPresentation
             // 🆕 **A1205 接上**（`R5` §2·H #50：原版 `General container ▸ Generic Simplified UI Button ▸
             //    Button Text` = `auto[10~45] · base 12 · **折行 0**`）—— 本方法 8 处里**唯一**折行 0 的一处
             //    ⇒ `wrapPx` 缺省 0（漏斗内部会 `SetWrapping(false)` 把 `SetWrapWidth` 开的 `Normal` 还原）。
-            Txt(_general, "Change Deck", ChgL, ChgR, ChgT, ChgB, 45f, Align.Center, "Change Deck Text", QPrText,
+            // 🔴 **2026-10-19（`A1501`）：文案改走 `Loc.T`** —— 那颗 `Button Text` 的
+            //    `mTerm = MainMenu/RankedWindow/ChangeDeck`、`m_text = 'Change Deck'`（本轮现读）。
+            Txt(_general, Loc.T("MainMenu/RankedWindow/ChangeDeck"), ChgL, ChgR, ChgT, ChgB, 45f, Align.Center, "Change Deck Text", QPrText,
                 autoMinPx: 10f, autoMaxPx: 45f, autoBasePx: 12f);
             // ✅ 原版这条就是 `DeckGeneralInfoDemo.ChangePlayerDeckButton`
             //    → `WindowsManager.OpenWindow(new DeckSelectionContext(...))`（`…__ChangePlayerDeckButton.c`）。
@@ -792,7 +796,12 @@ namespace CardPresentation
             Img(root, "UI_Button_Round_background", BackL, BackT, BackR, BackB, "Back Bg", QPrRow, true);
             var backIc = Img(root, "40k_UI_bt_back", BackIcL, BackIcT, BackIcR, BackIcB, "Back Icon", QPrRow, true);
             // 🆕 **A1205 接上**（`R5` §2·H #51：原版 `Back button ▸ Text` = `auto[1~45] · base 31.9 · 折行 1`）
-            Txt(root, "Back", BackTxL, BackTxR, BackT, BackB, 45f, Align.Left, "Back Text", QPrText,
+            // 🔴 **2026-10-19（`A1501`）：文案改走 `Loc.T`** —— 原版那颗 TMP 上挂着一颗 I2 `Localize`，
+            //    `mTerm = MainMenu/MainButtons/ButtonLabel/Back`（本轮现读：把 `Practice Mode Menu` 整棵
+            //    129 个节点逐颗打印 `mTerm` / `m_text` 得到；该键**表里已有** ⇒ 不再新增）。
+            //    原来直接画资产里的 `m_text`（`Back`）⇒ 中文档永远出英文。
+            //    ⚠️ 键名⛔ 不许自拟（否则查不到 ⇒ 界面上印键名，见 `Core/Loc.cs` 的 `T` doc）。
+            Txt(root, Loc.T("MainMenu/MainButtons/ButtonLabel/Back"), BackTxL, BackTxR, BackT, BackB, 45f, Align.Left, "Back Text", QPrText,
                 wrapPx: BackTxR - BackTxL, autoMinPx: 1f, autoMaxPx: 45f, autoBasePx: 31.9f);
             // 🆕 A17：原版 `Practice Mode Menu` 的 `Back button` 是 SpriteSwap（普查 §块 5 第 21 行）
             var backHit = Hit(root, root, "BackHit", new PxRect(BackL, BackT, BackR, BackB), () => Close());
@@ -810,7 +819,9 @@ namespace CardPresentation
             MenuDraw.Absorb(root, "AbsorbHit", new PxRect(DbtnL, DbtnT, DbtnR, DbtnB), QPr, QPrHit);
             // 🆕 **A1205 接上**（`R5` §2·H #52：原版 `Deck Selector ▸ Deck Buttons ▸ tooltip`
             //    = `auto[1~38] · base 23.2 · 折行 1`）
-            Txt(root, "Select deck to play", TipL, TipR, TipT, TipB, 38f, Align.Center, "tooltip", QPrText,
+            // 🔴 **2026-10-19（`A1501`）：文案改走 `Loc.T`** —— `tooltip` 那颗 TMP 的
+            //    `mTerm = Demo/DeckSelectionDemo/SelectDeck`、`m_text = 'Select deck to play'`（本轮现读）。
+            Txt(root, Loc.T("Demo/DeckSelectionDemo/SelectDeck"), TipL, TipR, TipT, TipB, 38f, Align.Center, "tooltip", QPrText,
                 wrapPx: TipR - TipL, autoMinPx: 1f, autoMaxPx: 38f, autoBasePx: 23.2f);
             BuildArmySelector(root);
             BuildDeckRows(root);
@@ -821,7 +832,10 @@ namespace CardPresentation
 
             // 5) 底下那一条：`Game mode` 开关 + `Battle!`
             Img(root, "40_main_bt_toggle_off", TogL, TogT, TogR, TogB, "Toggle Bg", QPrRow, true);
-            Txt(root, "Game mode", TogL, TogR, TogT, TogB, 36f, Align.Center, "Toggle Label", QPrText);
+            // 🔴 **2026-10-19（`A1501`）：`Label` 改走 `Loc.T`** —— `Toggle ▸ Label` 那颗 TMP 的
+            //    `mTerm = Event_Description/Generic/GameMode`、`m_text = 'Game mode'`（本轮现读）。
+            //    ⚠️ 下面那颗开关本身**照样没建**（判据见紧跟的 `NotBuilt`，一个字没变）。
+            Txt(root, Loc.T("Event_Description/Generic/GameMode"), TogL, TogR, TogT, TogB, 36f, Align.Center, "Toggle Label", QPrText);
             HitOn(root, root, "ToggleHit", new PxRect(TogL, TogT, TogR, TogB), () =>
                 NotBuilt("`Game mode` 开关（原版切 Classic/Skirmish 两种赛制；本地只有一个卡池口径）"));
 
@@ -829,7 +843,9 @@ namespace CardPresentation
                 new Color(0.369f, 0.894f, 0.587f, 1f));
             // 🆕 **A1205 接上**（`R5` §2·H #54：原版 `DeckSelectionContinueButton ▸ Text`
             //    = `auto[18~45] · base 36 · 折行 1`）
-            Txt(root, "Battle!", BtTxL, BtTxR, BtTxT, BtTxB, 45f, Align.Right, "Battle Text", QPrText,
+            // 🔴 **2026-10-19（`A1501`）：文案改走 `Loc.T`** —— 那颗 TMP 的
+            //    `mTerm = Demo/ToBattle`、`m_text = 'Battle!'`（本轮现读：节点 = `DeckSelectionContinueButton ▸ Text`）。
+            Txt(root, Loc.T("Demo/ToBattle"), BtTxL, BtTxR, BtTxT, BtTxB, 45f, Align.Right, "Battle Text", QPrText,
                 wrapPx: BtTxR - BtTxL, autoMinPx: 18f, autoMaxPx: 45f, autoBasePx: 36f);
             Img(root, "40k_UI_bt_play", CircL, CircT, CircR, CircB, "CircleButton", QPrRow, true);
             HitOn(root, root, "BattleHit", new PxRect(ContL, ContT, CircR, CircB), () => StartBattle(),

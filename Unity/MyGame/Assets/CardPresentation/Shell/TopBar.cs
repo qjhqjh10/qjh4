@@ -246,10 +246,20 @@ namespace CardPresentation
             // 玩家框（B）：`40k_main_player_frame` 那一层（原版 `Player Profile/Background`，子件第 1 颗）
             Rect(p, "40k_main_player_frame", 23.0f, 411.0f, 11.6f, 135.6f, "Background", QBarPlayerFrame,
                  null, false, onMissing);
-            // 名字条底：亮图 × `m_Color (0.396,0.1925,0.3095)` = 暗紫红（`m_Type = 1 Sliced`）
-            // ⚠️ 它挂在原版的 `Background Mask` 下（`Player Profile` 子件第 2 颗）⇒ **在玩家框之上、盾框之下**
-            Rect(p, "40k_topmarquee_currency_display_BW", 25.6f, 472.1f, 14.9f, 60.5f,
-                 "Planer Name Background", QBarNamePlate, new Color(0.39623f, 0.19251f, 0.30954f, 1f), false, onMissing);
+            // 🔴 **2026-10-11（`A1521②` · 代理 `P` 现核）：这一块【不建】—— 原版 prefab 里它是【废件】。**
+        //   **四条独立判据**：① prefab `Background Mask` 的 **`m_IsActive = 0`**；
+        //   ② **原版运行期 dump 5 份 / 4 个状态全都 `False`**（`资料/原版实拍/menu_topbar_0927/…` + `menu_forge_1016/` 四份）；
+        //   ③ **1920×1080 原生实拍逐像素**：该处 x 432..473 是信封的亮灰，而板的 `m_Color` g=0.1925
+        //      ⇒ 若画了那里必然 g>0，实测 **x 412..426 的 g 通道恒为 0** ⇒ 那里没有板；
+        //   ④ **全包 1134 个 MB 里指向它的 PPtr 一个都没有** · 全量反编译 26,282 份里 `"Background Mask"` 字符串 **0 命中** ·
+        //      `PlayerProfileUIController` 的 8 个字段里**没有底板那一格**。
+        //   ⇒ **它是原版 prefab 里的废件**（作者做了但没启用、也没人打开）⇒ **我们不建**。
+        //   🔴 **删它的直接理由**：它 x `25.6..472.1` × y `14.9..60.5`，而 `InboxBtn`（信封）是 `425.30..480.30 × 15.50..55.50`
+        //      ⇒ **重叠 85.09%**（`(46.80×40)/(55×40)`），实拍上信封只剩 ~11% ⇒ 用户参考图上「信封完整可见」而我们的只剩一条窄条。
+        //   ⚠️ **原版可见的「名牌底」是【另一颗】**：`Player Profile/Background`（图 `40k_main_player frame`，右沿 **411**、与信封左沿 425.30 净空 **14.30**）
+        //      —— 那一颗我们**已经有**（本函数上面那句 `Rect(p, "40k_main_player_frame", …)`）。
+        //   🧨 **鉴别式**：把下面这句 `Rect(..., "Planer Name Background", …)` **加回来** ⇒ `Editor/MainMenuScene.cs` 那条反向断言立刻红。
+        //   （留痕：`QBarNamePlate` 常量留着不删 —— 它只是队列号，留着无副作用；⛔ 但**别再往它上面挂件**。）
             // 玩家名：`fontSize 32` · `auto[10~32]` · `m_fontColor (0.9686,0.9137,0.7137)` · **不折行**
             // （文案 = `ProfileData.PlayerName`，**全工程唯一一份** —— 档案窗改名窗写的就是它）
             var pn = Text(p, ProfileData.PlayerName, 136.9f, 401.9f, 13.7f, 61.7f, 8,
@@ -340,6 +350,25 @@ namespace CardPresentation
         const float PillH = 38f, PillPadL = 29f, PillPadR = 9f;
         static readonly Color PillTint = new Color(0.33019f, 0.26010f, 0.31567f, 1f);
         const float IconW = 60f, IconH = 59f;
+
+        /// <summary>图标**左沿**相对【格左沿】的偏移 —— 原版 `Icon` 的 `m_AnchoredPosition.x = -8.5`
+        /// （`RectTransform/RectTransform_371.json`：`m_AnchoredPosition (-8.5, 0)` · `m_Pivot (0, 0.5)` ·
+        /// `m_AnchorMin/Max (0, 0.5)` ⇒ **锚在【格左沿】的竖直中点**）
+        /// ⇒ 图标左沿落在格原点**左边 8.5px**（与药丸左端**重叠**）、**竖直居中于格**。
+        /// <para>🔴 **为什么它是负数、为什么格宽里【没有】图标那 60px** —— 原版 `Icon` 上挂着
+        /// `LayoutElement.m_IgnoreLayout = 1`：（`MonoBehaviour/MonoBehaviour_545.json` 的
+        /// `"m_IgnoreLayout": 1`；同一件 `GameObject/Icon_238.json` 的组件表 = `[RT 371 · … · Image 399 · LayoutElement 545]`，
+        /// 而 `GameObject/Resource Counter Item.json` 的组件表 = `[RT 359 · … · HorizontalLayoutGroup 206 ·
+        /// ContentSizeFitter 529 · LayoutGroupContentFixer 516]` ⇒ 545 与 206 **同挂在父子两件上**、
+        /// 545 挂的是子件 `Icon`）。
+        /// ⇒ **uGUI 建 `rectChildren` 时会跳过它** ⇒ 它 ①**不进**格的 preferred 宽（格的宽由
+        /// `ContentSizeFitter.m_HorizontalFit = 2 (PreferredSize)` 驱动 ⇒ 格宽 = `pad.L20 + 药丸宽 + pad.R1`，
+        /// **不含 60**），②**不被**布局摆位（`-8.5` 根本不是布局排得出来的值：布局若排它，只会给出
+        /// `pad.L20 + 药丸宽 = 161.51`）。⇒ **两件事都源自同一条**，⛔ 别只改一半（把格宽改对、却仍把图标
+        /// 当布局子件摆在药丸右侧 = 本轮要修的那个错）。
+        /// <para>同一条语义的先例（本仓已收口）→ `资料/已知的坑.md:2085-2090`；
+        /// 同族先例 → `资料/历史/阶段2第3层_逐件记录.md:47`（`Clear filters`）。</para></summary>
+        const float IconOffsetL = -8.5f;
         const float QtyFontPx = 42f, QtyFontBase = 36f, QtyFontMin = 10f, QtyCharSpacing = -1f;
         const float QtyWMin = 103.51f, QtyWMax = 153f;
         const float PillTexW = 44f, PillTexH = 39f;
@@ -385,7 +414,15 @@ namespace CardPresentation
                 float textW = Mathf.Clamp(nat, QtyWMin, QtyWMax);
                 float pw = PillPadL + textW + PillPadR;
                 labels.Add(lb); items.Add(item); textWl.Add(textW); pillWl.Add(pw);
-                itemW.Add(ItemPadL + pw + IconW + ItemPadR);
+                // 🔴 格宽 = **原版布局组算出来的** = `pad.L(20) + 药丸宽 + pad.R(1)` —— **不含图标那 60px**
+                //    （原版 `Icon` 带 `LayoutElement.m_IgnoreLayout = 1` ⇒ uGUI 不长它；格的宽由
+                //     `ContentSizeFitter.m_HorizontalFit = 2 (PreferredSize)` 驱动。判据与出处 →
+                //     `IconOffsetL` 那条注释，⛔ 别在这儿重抄第二份）。
+                //    ⚠️ 实测对齐：`RectTransform_359.json` 的 `m_SizeDelta.y = 38.066` = 我们的 `ItemH`；
+                //    出厂那一档药丸宽 `RT_372` = 141.51 ⇒ 格宽 = 20 + 141.51 + 1 = **162.51**。
+                //    改坏法：把 `IconW` 加回来 ⇒ **每格宽多 60、四条共多 240** ⇒ 容器右对齐，
+                //    整条往左顶 240px（第一条药丸左沿从 1015.5 掉到 775.5 —— 自检夹具那一档持有数下）。
+                itemW.Add(ItemPadL + pw + ItemPadR);
             }
             float totalW = ResPadR + (shown.Count > 0 ? ResSpacing * (shown.Count - 1) : 0f);
             for (int i = 0; i < itemW.Count; i++) totalW += itemW[i];
@@ -415,9 +452,21 @@ namespace CardPresentation
                     lb.SetWrapping(false);
                     MenuDraw.SetVAlign(lb, Label.VAlign.Midline, new PxRect(pL + PillPadL, iT, pR - PillPadR, iT + PillH));
                 }
+                // 🔴 图标在药丸的【左】边 —— 而且它**不参与布局**，所以位置**由 `IconOffsetL` 直接给**
+                //    （⛔ 不是 `pR`、不是 `pL`）：格内 x = `[IconOffsetL, IconOffsetL + IconW]` = **[-8.5, 51.5]**
+                //    （左沿在格原点**左边** 8.5px、与药丸左端**重叠**），
+                //    y = **居中于格**（59 高 vs 格高 38.066 ⇒ **上下各溢出 10.467px**）。
+                //    原版实读（第一权威）：`RectTransform/RectTransform_371.json` —— `m_AnchoredPosition (-8.5, 0)` ·
+                //    `m_Pivot (0, 0.5)` · `m_SizeDelta (60, 59)` · `m_AnchorMin/Max (0, 0.5)`（锚在格左沿的竖直中点）。
+                //    ⚠️ `keepAspect = true` 是**对的**：同件 `Image`（`MonoBehaviour_399.json`）`m_PreserveAspect = 1`。
+                //    改坏法：摆回 `[pR, pR + IconW]`（药丸**右**边）⇒ 图标跑到药丸外侧，与原版左右相反。
                 var icon = New(itemT, "Icon", IconW, IconH);
                 if (!string.IsNullOrEmpty(spec.Icon))
-                    Rect(icon, spec.Icon, pR, pR + IconW, iT, iT + IconH, "Image", QBarContent, null, true, onMissing);
+                {
+                    float iconL = x + IconOffsetL, iconTop = iT + (ItemH - IconH) * 0.5f;
+                    Rect(icon, spec.Icon, iconL, iconL + IconW, iconTop, iconTop + IconH,
+                         "Image", QBarContent, null, true, onMissing);
+                }
                 x += itemW[i] + ResSpacing;
             }
 

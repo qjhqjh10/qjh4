@@ -300,7 +300,9 @@ namespace CardPresentation
         /// —— 商店那件要写同一个壳，两处写会迟早不一致。**几何与层次一字未改**（265 条断言守着）。</summary>
         public void Build()
         {
-            var res = BuildShell(transform, Buttons, "RewardsTabButton_", "Tabs");
+            // 🔴 **2026-10-11（`A1498`）显式表态**：原版 `Rewards Base Submenu Variant` 的
+            //   `tabButtons.tabButtonPrefab` = MB `638825230631048959` 的 `m_PathID`（**非 0**）⇒ **末项【是】母版**。
+            var res = BuildShell(transform, Buttons, "RewardsTabButton_", "Tabs", lastIsMaster: true);
             tabButtons = res.buttons;
             _btnRoot = res.roots;
             _btnHighlight = res.highlight;

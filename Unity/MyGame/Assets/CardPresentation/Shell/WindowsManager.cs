@@ -67,19 +67,6 @@ namespace CardPresentation
     /// ⚠️ `[ExecuteAlways]` 是**我们加的**：建场景是在**编辑模式**下跑的，而普通 MonoBehaviour 的
     /// `OnEnable` 在编辑模式下不触发 ⇒ 不注册就一个锚点都没有（2026-09-22 第一版自检 8 条红里有 5 条是这个根因）。</summary>
     [ExecuteAlways]
-    public class WindowHolder : MonoBehaviour
-    {
-        public WindowsPlacement placement = WindowsPlacement.None;
-
-        void OnEnable() { RegisterNow(); }
-        void OnDisable() { WindowsManager.UnregisterAnchor(placement, transform); }
-
-        /// <summary>🔴 **必须由建场景的代码在「赋完 placement 之后」显式调一次** ——
-        /// `AddComponent` 的那一刻 `OnEnable` 就跑掉了，而 `placement` 是**下一行**才赋值的
-        /// ⇒ 光靠 `OnEnable` 会拿 `None` 去注册（2026-09-22 第一版就这么白跑一轮，日志里那条
-        /// 「placement = None」的报错就是它）。同一个节点重复注册是幂等的（`RegisterAnchor` 会直接返回）。</summary>
-        public void RegisterNow() { WindowsManager.RegisterAnchor(placement, transform); }
-    }
 
     /// <summary>所有菜单窗口的基类。子类重写 <see cref="Open"/> 做自己的铺数据/播动画。</summary>
     public class GameWindow : MonoBehaviour

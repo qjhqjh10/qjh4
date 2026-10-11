@@ -185,6 +185,25 @@ namespace CardPresentation
         /// = **`x{0}`**，小写 x、**无空格**；同函数 `gameObject.SetActive(1 &lt; count)`
         /// ⇒ **份数 ≤ 1（督军行 / 防御卡行）不显示**）。</summary>
         const float RowCountW = 50f;
+        /// <summary>行名（原版 `…/Content/Text fill/Card Name`）的**框左沿 / 框宽**（画布 px）。
+        /// <para>🔴 **2026-10-20 新增**：「行名原版左对齐、我们居中」那一条要用的两个数。</para>
+        /// <para>判据一（**对齐档**，原版 prefab 实读）：`python 工具/menu_dump.py bundle_menus_assets_all
+        /// "Deck Selector Card Info button"` → `Card Name …… 对齐=**Left/Capline**
+        /// 色=(0.934,0.934,0.934,1)`（同一行的 `Count …… 对齐=Right/Midline`）。
+        /// ⚠️ 我们原来是**居中**（`TmpFont.NewText` 把每颗 TMP 统一建成 `Center`）。</para>
+        /// <para>判据二（**左沿**，**用户参考图**）：`资料/原版参照图/用户实拍_1017/卡组编辑界面参考.png`
+        /// （1581×887 ⇒ 画布 px = 参考图 px × **1920/1581 = 1.21442**；这个系数拿**我们自己的实拍**校过：
+        /// 行右缘那颗 `x2` 的墨迹右缘 实测 参考图 261 px ⇒ 画布 **317.0**，而我们 `row_x*` 框
+        /// `275.4…325.4` 里居中的 `x2` 右缘 ≈ 318 ⇒ **差 1.5px**）。
+        /// 10 行卡名的**墨迹左缘**实测 = 参考图 px **56…61** ⇒ **画布 68.0…74.1**
+        /// （阈值 150/180/210 三档都落在这个区间）⇒ **取左界 68**。</para>
+        /// <para>🔴 **原版 prefab 给不出这个 x**：`Deck Selector … button` 那一族的矩形**宽 = 0.00**
+        /// （同一次 dump 里 行 / `Content` / `Background` / `Text fill` 四行全是 `0.00` 宽，
+        /// `Text fill` 还被标了 `⚠️unk`）⇒ **横向全是模板位**（铁律 3：模板位不当权威），
+        /// 只能拿**实拍**当尺子。⚠️ 旧值 `62f` 是**没有出处的**（全库 grep 零命中）。</para>
+        /// <para>⚠️ 框宽 190 保持不动：它只影响 `SetAutoFitBox` 的缩放上下限与换行宽，
+        /// 而原版 `Card Name` 的宽度**同样是模板位**（那个 `HorizontalLayoutGroup` 工具量不出来）。</para></summary>
+        const float RowNameX = 68f, RowNameW = 190f;
         const int RowVisible = 11;                        // 644.1 / 55.7 = 11.56 ⇒ 11 行整
         /// <summary>稀有度色条**只占行右侧那一段**（原版锚 `0.606 → 1.0`），不是整行。
         /// 🔴 2026-09-23（第 12 条 第 5 项 ③）：原来铺满整行 325。**两处位置（建的时候 + `MoveRow` 滚动时）
@@ -646,6 +665,12 @@ namespace CardPresentation
         readonly List<ImageQuad> _curveBar = new List<ImageQuad>();
         readonly List<GameObject> _infoOnly = new List<GameObject>();   // 只在 Deck info 页签显示的东西
 
+        /// <summary>🔴 **2026-10-11（`A1497④`）**：**Cards 页 + Deck info 页才显示**的那批件
+        /// （= 原版 `DeckEditingWindow.wildcards` 那一整条 `WIldcard Counter`：底板 + 4 图标 + 4 数字 + 阵营徽记）。
+        /// 判据/为什么 → `CardDisplayPage` 那个属性。显隐落在 `RefreshTabVisibility`（与 `_infoOnly` 同处）。
+        /// ⚠️ **卡池不在这张表里** —— 它是**按格**建的，显隐在 `RefreshPool` 里按**同一个** `CardDisplayPage` 判。</summary>
+        readonly List<GameObject> _cardsInfoOnly = new List<GameObject>();
+
         /// <summary>可点的矩形（px 坐标）。命中判定一律走它 —— 比拿 quad 反推尺寸稳。</summary>
         struct Btn { public string Key; public float X, Y, W, H; }
         readonly List<Btn> _btns = new List<Btn>();
@@ -831,7 +856,8 @@ namespace CardPresentation
             BuildCosmeticsPage();
             // 🆕 2026-10-17：**两条拖拽链**（原版两个 `DraggableController<T>` 实例）——
             //   卡背那一支挂在 `Cosmetic Display` 那一页上、卡牌那一支跟 `Card Display` 同级
-            //   （原版：`Content Area > Card Drag Controller` 是 `Card Display` 的**兄弟**，不是它的孩子）。
+            // 🔴 **2026-10-11 就地订正（铁律 5 · 代理 `E` 现读）**：原来这里写「原版 `Card Drag Controller` 是 `Card Display` 的**兄弟**」—— **错，它是【孩子】**。
+            //   判据：`bundle_menus_assets_all/GameObject/Card Drag Controller.json` 的 RT `-3300583987145543900` 的 `m_Father` = `5543959332` → GO `Card Display`；`menu_dump` 缩进也是 `2 Card Display` → `3 Card Drag Controller`（本包同名只有 1 个实例）。⚠️ 行为等价（别的页起不了拖），但注释要按事实写。
             BuildCosmeticDrag();
             BuildCardDrag();
             BuildImportPopup();
@@ -1082,7 +1108,17 @@ namespace CardPresentation
             Btn_("hdr_clear", HdrClearX, HdrClearY, HdrClearW, HdrClearH);
 
             // Wildcard Counter：底板 + 四个稀有度图标（30×44）+ 各自的数量
-            Img("hdr_wcbg", "40k_topmarquee_currency_display_BW", WcBgX, WcBgY, WcBgW, WcBgH, QPanel);
+            // 🔴 **2026-10-11（`A1497④`）：整条通配符计数条吃【同一个页判据】**（`CardDisplayPage`）。
+            //   判据 = `DeckEditingWindow__ToggleDisplay.c` 里 `wildcards(0xd0).SetActive(param)` 与
+            //   `cardDisplay(0x78).SetActive(param)` 是**同一次调用里的同相两件**（`param = 0` 只在
+            //   `DeckEditingStateController__ToggleDeckCosmetic.c` 那一支）⇒ **Cosmetics 页上这一整条
+            //   （底板 + 4 图标 + 4 数字 + 阵营徽记）都要关掉**，Cards / Deck info 两页都显示。
+            //   ⚠️ 原版这四个 key 的父链都在 **同一个 GO** 底下（`DeckEditingWindow.wildcards` 指向它）：
+            //   `Content Area/Header/WIldcard Counter/{Background, Counters/*, Army Icon}`
+            //   ⇒ **一件都不能漏**（漏了就是「一条规则两种结果」）。
+            //   我们的外层没有那格容器，只能逐个登记进 `_cardsInfoOnly`（显隐在 `RefreshTabVisibility`）。
+            var wcBg = Img("hdr_wcbg", "40k_topmarquee_currency_display_BW", WcBgX, WcBgY, WcBgW, WcBgH, QPanel);
+            if (wcBg != null) _cardsInfoOnly.Add(wcBg.gameObject);
             string[] wcIc = { "40k_general_wildcard_common_small", "40k_general_wildcard_rare_small",
                               "40k_general_wildcard_epic_small", "40k_general_wildcard_legendary_small" };
             for (int i = 0; i < 4; i++)
@@ -1090,7 +1126,8 @@ namespace CardPresentation
                 // 🔴 2026-09-27（PA 普查）：原版这 4 个 `.../WIldcard Counter/Counters/*/Icon` 是 PA=1 + Simple，
                 //   贴图 42×51 / 41×51 塞进 30×44 ⇒ 原版实绘 **30×36.4（37.3）**，我们原来拉伸成 30×44（高 ×1.18~1.21）。
                 //   ⚠️ 同一件在收藏窗（`CollectionWindow.cs` 里那处 `keepAspect` 补）与卡片详情窗（`CardDetailPopup.cs` 里那处 `keepAspect` 补）也是同一错，三处一起修。
-                Img("hdr_wc" + i, wcIc[i], WcIconX[i], WcIconY, WcIconW, WcIconH, QRow, true);
+                var wcIco = Img("hdr_wc" + i, wcIc[i], WcIconX[i], WcIconY, WcIconW, WcIconH, QRow, true);
+                if (wcIco != null) _cardsInfoOnly.Add(wcIco.gameObject);   // 同上：整条一起显隐
                 // `Counter` 在图标**右侧同一水平带**（41×44 · 字号 32.6 · 白 · 居中 · NoWrap）
                 // 🔴 **2026-10-17（B10）**：出厂字面量原来写的是 `"0"`，靠 `RefreshHeader()` 里那句
                 //   改成 `99`（用户 2026-09-28 拍板：恒定 `99`）—— 中间有一个瞬间它**真的是 `0`**
@@ -1104,7 +1141,10 @@ namespace CardPresentation
                 //   见那条常数的注释），本句只补「框 + 自适应区间 + base」。
                 //   ⚠️ 折行 = `1`（= `Normal`）⇒ 与 `SetAutoFitBox` 内部设定的那一档**同档**，不必还原。
                 if (_wcTxt[i] != null)
+                {
                     _wcTxt[i].SetAutoFitBox(U(WcCntW), U(WcIconH), 10f, 38f, 45f);
+                    _cardsInfoOnly.Add(_wcTxt[i].gameObject);              // 同上：整条一起显隐
+                }
                 // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版这 4 颗
                 //   `…/WIldcard Counter/Counters/{Common,Rare,Epic,Legendary}/Counter`
                 //   = `m_VerticalAlignment = **Capline**`（判据 = `WA712_垂直对齐普查.md` §2·5 的归属表
@@ -1147,7 +1187,9 @@ namespace CardPresentation
       //   源图 256×256 正方 ⇒ 原版实绘 **80×80**（框 80×85 里居中），我们原来拉伸成 80×85。
       //   同一位置那颗**收藏窗**的 `Army Icon` 走的是 `MenuDraw.Rect(…, keepAspect: true)`
       //   （`Shell/CollectionWindow` 里那处）⇒ 顺手把这两处也拉齐（其余 PA=1 的件见 `资料/普查产出_0927/PA普查_五块汇总.md`）。
-            Img("hdr_army", DeckArmyIcon(State), ArmyIconX, ArmyIconY, ArmyIconW, ArmyIconH, QRow, true);
+            // 同上：这颗是 `WIldcard Counter` 的第三个孩子 `Army Icon` —— 与那三个 key 同一个 `SetActive(param)`。
+            var wcArmy = Img("hdr_army", DeckArmyIcon(State), ArmyIconX, ArmyIconY, ArmyIconW, ArmyIconH, QRow, true);
+            if (wcArmy != null) _cardsInfoOnly.Add(wcArmy.gameObject);
         }
 
         // ------------------------------------------------------------ Sidebar
@@ -1375,14 +1417,24 @@ namespace CardPresentation
                 //   **原版卡组行里根本没有这个节点**（原版行的子件只有 `Background` / `Rarity Gradient` /
                 //   `Background Border` / `Cost Image` / `banned Icon` / `Text fill`(Card Name, Count)），
                 //   实拍上它就是**一块纯色空方块** ⇒ 删掉，份数改由下面那颗 `row_x*` 印。
-                var rowNmLb = Txt("row_n" + i, "", 62f, y, 190f, RowH, 1, Ink, QText);
+                var rowNmLb = Txt("row_n" + i, "", RowNameX, y, RowNameW, RowH, 1, Ink, QText);
                 // 🔴 **2026-10-10（A1212 · 块 1 #41）**：接上 `m_enableAutoSizing`（四格 = **2 / 38 / 27.69 / 0**）。
                 //   判据 = `R6` §2·F #41（`…/Sidebar/Deck Details/Deck List drawer/…/Background/Text fill/Card Name`）。
                 //   ⚠️ `base = 27.69` 是原版原文（**不是笔误**，原版那两颗 `Card Name` / `cardsin deck` 都是它）。
                 //   ⚠️ 折行 = `0` ⇒ 还原（同 `hdr_back_t`）。
                 if (rowNmLb != null)
                 {
-                    rowNmLb.SetAutoFitBox(U(190f), U(RowH), 2f, 38f, 27.69f);
+                    // 🔴 **2026-10-20（行名左对齐）**：`SetAlignLeft()` 必须排在
+                    //   **`SetAutoFitBox` 之前** —— 它自己的 doc 写着「要在『定版面』那三条之前调」，
+                    //   排在之后只会给 `AlignAfterLayoutCount` 多记一笔（`A546②` 会红）。
+                    //   判据（对齐档）= 原版 prefab `Card Name …… 对齐=Left/Capline`
+                    //   （出处同 `RowNameX` 那段 doc）。
+                    //   ⚠️ **光调它还不够 —— 它不挪位置**：`Label.RefreshBounds` 恒把文字块
+                    //   **居中**摆在锚点上（与 `alignment` 无关），真正把左沿挪到位的**另有一口**
+                    //   = `AlignLeftOn`，落点在 `RefreshDeckList`（`SetText` 之后）。
+                    //   两条是**一对**，⛔ 别只做一条（只调对齐 = 不动；只挪位置 = 多行时每行仍居中）。
+                    rowNmLb.SetAlignLeft();
+                    rowNmLb.SetAutoFitBox(U(RowNameW), U(RowH), 2f, 38f, 27.69f);
                     rowNmLb.SetWrappingMode(0);
                 }
                 _deckRowName.Add(rowNmLb);
@@ -1924,10 +1976,15 @@ namespace CardPresentation
             {
                 int r = vi / cols, c = vi % cols;
                 int idx = (firstRow + r) * cols + c;
-                // 🔴 **卡池只在 Cards 页签出现**（原版 `DeckEditingPanel.ToggleCards/ToggleCosmetics` 会
-                //    关掉 `Card Display`）—— 2026-09-24 加：原来切到 Deck info / Cosmetics 页时
-                //    **卡池还画在那儿**（只是被那一页自己的底板盖住了，靠叠层遮丑，不是真关）。
-                bool on = _tab == 0 && idx < all.Count;
+                // 🔴 **卡池在 Cards 页与 Deck info 页【都出现】，只有 Cosmetics 页才关掉** ——
+                //    判据 = `CardDisplayPage`（**唯一出处**；原版 `DeckEditingWindow__ToggleDisplay`
+                //    的**一个入参**同时管 `cardDisplay` / `cosmeticDisplay` / `wildcards`，见那个属性的 doc）。
+                //    🔴 **2026-10-11（`A1497④`）改**：这一格原来是 `_tab == 0` ⇒ **Deck info 页右侧整块是空的**；
+                //    而原版这一页**照样是卡池**（`Content Area/Card Display` 1752.83×1009.06、出厂 active，
+                //    `Card Display > Scroll View` 视口 (330.2,156)-(1920,1080)，与 Cards 页**同一棵**）。
+                //    ⚠️ 上面那条 2026-09-24 的旧记录（「切到 Info / Cosmetics 时卡池还画在那儿、靠叠层遮丑」）
+                //    **已作废**：按这条判据，Info 页本来就该画，真关的只有 Cosmetics 页。
+                bool on = CardDisplayPage && idx < all.Count;
                 _poolIndex.Add(on ? idx : -1);
                 while (_poolViews.Count <= vi) { _poolViews.Add(null); _poolViewIds.Add(null); }
 
@@ -3010,13 +3067,62 @@ namespace CardPresentation
             RefreshFilters();
         }
 
-        /// <summary>卡组里那些条目（督军 / 防御卡 / 普通卡，顺序照原版 `DeckEditingPanel` 的三个槽）。</summary>
+        /// <summary>卡组里那些条目（督军 / 防御卡 / 普通卡……）。
+        /// <para>🔴 **2026-10-20 改正两处**（与用户参考图《卡组编辑界面参考》并排比出来的）：</para>
+        /// <para>**① 一张卡只占一行**。原来这一路把 `Deck.CardIds` **逐条**摆上去 ⇒
+        /// N 张同名牌摆 N 行，而 `RefreshDeckList` 每行又印 `CountOf(id)`
+        /// ⇒ **一张卡印两行、份数还印两遍**（我们那 11 行里有 4 对同名、每对都写 `x2`；
+        /// 参考图 10 行**零重名**）。<br/>
+        /// 原版做法（现读反编译）：`DeckListDrawer__Initialize.c` 遍历卡表时先问
+        /// `_list.Any(行 ⇒ 行.CurrentCard == 这张)`，命中就 `UICardInfoItem__SetCount(行, 行.Count + 1)`
+        /// （**把份数加在同一行上**），没命中才 `SpawnCardInfo` 建新行。</para>
+        /// <para>**② 卡按「费用 → 显示名」排序**。原版 `DeckListDrawer__Reorder.c` 是
+        /// `list.OrderBy(键1).ThenBy(键2)`（两把键 = `<>9` 缓存委托那一格的 `+0x10` / `+0x18`），
+        /// 但**两个匿名函数的方法体没反编译出来** ⇒ 键只能拿**用户参考图**反推：<br/>
+        /// · 第一把 = **费用**：参考图 10 行 = `2,2,3,3,3,4,4,4,4,5`（**单调不减**）。<br/>
+        /// · 第二把 = **显示名（本地化名）的序数比较**：同费用内逐组按**中文字的码点**升序 ——
+        /// 费用 2 组 `游 U+6E38 &lt; 驭 U+9A6D`；费用 3 组 `女 U+5973 &lt; 帷 U+5E37 &lt; 突 U+7A81`；
+        /// 费用 4 组 `努 U+52AA &lt; 灵 U+7075 &lt; 狂 U+72C2 &lt; 邪 U+90AA`（三组共 9 张逐张对过码点）。<br/>
+        /// ⚠️ **英文名序数不成立**：费用 4 组按英文该是 `Howling Banshee` 打头，实拍不是
+        /// ⇒ 这一把**不是猜的**。（我们自己的中文若与原版不同，同一副牌的可见顺序会跟着不同 ——
+        /// 那是**译文数据**差，不是排序规则差。）</para>
+        /// <para>🔴 **督军 / 防御卡不进排序**：原版 `Reorder` 排完之后**又显式钉回去** ——
+        /// `SetSiblingIndex(hero, 0)` · `SetSiblingIndex(?, 1)` · `SetSiblingIndex(defensive, 2 或 1)`
+        /// ⇒ 这两行**恒在最前**，与费用无关（参考图第 0 行就是督军行：
+        /// **无费用圆、无份数条、字更大**）。</para>
+        /// <para>⚠️ **本函数是「卡组行」唯一的数据源**（画 / 命中 / 拖拽 / 悬停 / 滚动全长在它上面）
+        /// ⇒ 去重与排序**只能放这里**；放在 `RefreshDeckList` 里会让**命中与画面对不上**。</para></summary>
         public List<CardDef> DeckEntries()
         {
             var shown = new List<CardDef>();
             if (State.Deck.WarlordId != null) shown.Add(State.Find(State.Deck.WarlordId));
             if (State.Deck.DefensiveId != null) shown.Add(State.Find(State.Deck.DefensiveId));
-            foreach (var id in State.Deck.CardIds) shown.Add(State.Find(id));
+
+            // ① 按卡去重 —— 同一张卡只留一行（份数照旧由 `RefreshDeckList` 印 `CountOf`）。
+            //   按 `Id` 认同一张卡（与 `State.Deck.CountOf` / `TryRemove` 同一把尺）。
+            var seen = new HashSet<string>();
+            var cards = new List<CardDef>();
+            foreach (var id in State.Deck.CardIds)
+            {
+                if (string.IsNullOrEmpty(id) || !seen.Add(id)) continue;
+                var d = State.Find(id);
+                if (d != null) cards.Add(d);
+            }
+
+            // ② 费用升序 → 显示名（序数）→ `Id`。
+            //   最后那一档 `Id` 是为了**全序**：`List.Sort` 是**不稳定**排序，
+            //   没有它，同费用同名的两张会随实现抖动（`CardDef` 按 `Id` 建 ⇒ 这一档恒真）。
+            cards.Sort((a, b) =>
+            {
+                int c = a.Cost.CompareTo(b.Cost);
+                if (c != 0) return c;
+                c = string.CompareOrdinal(CardText.Name(a.Name, a.NameZh),
+                                          CardText.Name(b.Name, b.NameZh));
+                if (c != 0) return c;
+                return string.CompareOrdinal(a.Id, b.Id);
+            });
+
+            shown.AddRange(cards);
             shown.RemoveAll(x => x == null);
             return shown;
         }
@@ -3034,10 +3140,42 @@ namespace CardPresentation
             for (int i = 0; i < RowVisible; i++)
             {
                 bool on = cards && (firstRow + i) < shown.Count;
+                // 🔴 **2026-10-20（A1527）**：**督军行不印费用圆** —— 这一颗原来只按
+                //   「这一行显不显示」开（`SetOn(_deckRowCost[i], on)`）⇒ 督军行也印了一颗 `0`
+                //   （实拍 `_tmp_view/play17/D2_deck.png` 第 0 行）。**三条独立判据**：
+                //   ① **参考图第 0 行没有费用圆**（`桌面/warpforge参考图/卡组编辑界面参考.png`：
+                //      第 0 行 = 督军 —— 只有名字、字更大、无圆、无 `x2`）。
+                //   ② **prefab 分三族，只有督军那一族没有这一颗** —— 原版按卡种选预制体：
+                //      `DeckListDrawer__SpawnCardInfo.c:29 / :40 / :51`（`card+0x94 == 10` ⇒ Hero 族 ·
+                //      `card+0x94 == 0x14 && card+0x90 == 0xd2` ⇒ Defensive 族 · 否则 Card Info 族）；
+                //      而 `Deck Selector Hero Card Info button/Content` **根本没有 `Cost Image` 子件**
+                //      （`资料/说明书/04_界面UI/菜单全树.md:9321-9329`），
+                //      Defensive（`:9337`）与 Card Info（`:9348`）两族**都有**。
+                //   ③ 原版那颗的开关 = `UICardInfoItem__Initialize.c:76` 的
+                //      `SetActive(coin, (uint)*(int*)(card + 0x78) >> 31 ^ 1)`（= **`manaCost >= 0`**；
+                //      `card+0x78` 就是 `RawCardScript.manaCost` —— `资料/AI_原版反编译_0917.md:42`）。
+                //   ⚠️ **为什么不能只照抄 `Coin >= 0` 这一条**：我们表里**督军 `cost` 恒 `0`**，
+                //      那是**填值、不是原版值**（`工具/gen_cards_engine.py:314-333`：13 阵营
+                //      56 张督军卡图**逐张**核过，56/56 右上**没有**蓝色费用六边形，费用才填 `0`）
+                //      ⇒ 在我们这份数据上 `cost >= 0` **恒真、一颗都藏不住**；
+                //      真正能分辨的仍是 **② 的卡种族**（原版那三族预制体就是按它选的）。
+                //   🔴 **防御卡必须【与督军分开判】**：防御卡**卡面上真有费用六边形**
+                //      （`d:/2/Warpforge部队卡片/Aeldari/5防御卡/Warpforge_65_Inspiring-Legacy.png` = `0` ·
+                //      `Warpforge_67_Aspect-Shrine.png` = `1`，逐张开图核过），它的 `cost` 是**真值**、
+                //      且 `>= 0` ⇒ 原版 **Defensive 那一族（有 `Cost Image`）是印出来的**
+                //      ⇒ ⛔ 别顺手连防御卡一起藏（那会造出一条新的偏离）。
+                //      ⚠️ 若将来真查到「原版 Defensive 族那颗也是负的」，改法只有**一处** ——
+                //      把下面那两句的 `!heroRow` 换成 `!(heroRow || rowDefence)`（两处同时改）。
+                //   🔴 **两颗一起藏**：我们这一行是**一个模板复用**（原版是三套预制体），
+                //      所以「`Cost Image` 那一族没有」这件事**要落成两句** ——
+                //      `row_c*`（蓝六边形 = 原版 `Cost Image`）与 `row_cnt*`（圆里那个数 = 原版 `Cost`）
+                //      **是两颗独立物体**（`:1413` / `:1441`），只关一颗会在督军行上留一颗**飘着的数字**。
+                bool heroRow = on && shown[firstRow + i].Type == "hero";
                 SetOn(_deckRowBg[i], on); SetOn(_deckRowGrad[i], on);
                 SetOn(_deckRowBorder[i], on);
-                SetOn(_deckRowCost[i], on);
-                SetOn(_deckRowName[i], on); SetOn(_deckRowCount[i], on);
+                SetOn(_deckRowCost[i], on && !heroRow);
+                SetOn(_deckRowName[i], on);
+                SetOn(_deckRowCount[i], on && !heroRow);
                 // 🔴 **2026-10-20**：份数那颗 `row_x*` **先关掉** —— 它开不开由下面算出来的
                 //   张数定（原版 `SetCount` 那句 `SetActive(1 < count)`），而张数只有 `on` 的行才有。
                 //   ⚠️ 不能只在 `on` 那一支里关：**这些标签不是行那一组的孩子**（都挂在 `Root` 上）
@@ -3049,6 +3187,12 @@ namespace CardPresentation
                 float y = ListY + i * RowPitch - off;
                 MoveRow(i, y);
                 _deckRowName[i].SetText(CardText.Name(def.Name, def.NameZh));
+                // 🔴 **2026-10-20（行名左对齐）**：**左沿的落点在这里** —— `SetAlignLeft()`
+                //   只管「真折行时每行在块内怎么排」，把**整块**挪到左沿的是 `AlignLeftOn`
+                //   （两个口的分工 → `Battle/Label.cs` 那两段 doc）。
+                //   ⚠️ 必须排在 `SetText` **之后**（它要现量 `WorldW`），且**每次刷新都要调**：
+                //   `SetText` 会重排、把 x 写回块心（同 `RefreshHeader` 里那一句的理由）。
+                _deckRowName[i].AlignLeftOn(LayoutSpace.FromPixel(RowNameX, 0f).x);
                 int n = (def.Type == "hero" || def.Type == "defence") ? 1 : State.Deck.CountOf(def.Id);
                 // 🔴 **2026-10-20 换了喂进去的东西（两处一起）**：
                 //   · 圆里那颗（原版 `…/Cost Image/Cost`）= **费用**（`CardDef.Cost`，字段名现核：
@@ -3118,7 +3262,9 @@ namespace CardPresentation
             //   现在是行右缘那颗**份数**字（框 x `275.4..325.4` ⇒ 中心 `ListX + RowW − RowCountW/2`
             //   = **300.4**，不是原来那个 `258 + 20`）。
             MoveLabel(_deckRowCountX[i], ListX + RowW - RowCountW * 0.5f, cy, QText);
-            MoveLabel(_deckRowName[i], 62f + 95f, cy, QText);
+            // 🔴 2026-10-20：这一句只管 **y 与渲染队列**（喂的是框心）——
+            //   **x 随后会被 `RefreshDeckList` 里那句 `AlignLeftOn` 覆盖**（行名现在是左对齐）。
+            MoveLabel(_deckRowName[i], RowNameX + RowNameW * 0.5f, cy, QText);
             MoveLabel(_deckRowCount[i], RowCostX + RowCostS * 0.5f, cy, QText);
         }
 
@@ -4425,12 +4571,36 @@ namespace CardPresentation
         /// —— 那正是 A41 ④「看不见却能点」的来源（两处写同一条规则 = 迟早不一致）。</summary>
         bool InfoTab { get { return _tab == 1; } }
 
+        /// <summary>🔴 **2026-10-11（`A1497④`）**：**原版 `DeckEditingWindow.ToggleDisplay(param)` 的那个入参**
+        /// （= 「`Content Area/Card Display` 这一整页在不在」）—— **Cards 页与 Deck info 页都真、只有 Cosmetics 页假**。
+        ///
+        /// <para>**判据**（第一权威 = 反编译方法体，2026-10-11 主对话逐行现核）：
+        /// `d:/2/tools/decomp_full/DeckEditingWindow__ToggleDisplay.c` —— 一个入参管三件：
+        /// `cardDisplay(0x78).SetActive(param)` · `cosmeticDisplay(0x80).SetActive(param ^ 1)` ·
+        /// `wildcards(0xd0).SetActive(param)`；三个调用点里 `DeckEditingStateController__ToggleDeckInfo.c`
+        /// 与 `__ToggleDeckList.c` 传 **1**、`__ToggleDeckCosmetic.c` 传 **0**。
+        /// 字段名↔偏移按 `_probe_deckinfo.py` 实读钉死（`cardDisplay`→GO「Card Display」·
+        /// `cosmeticDisplay`→GO「Cosmetic Display」· `wildcards`→GO「WIldcard Counter」）。</para>
+        ///
+        /// <para>⚠️ **`Card Display` 那一整棵子树都吃这一个入参** —— 里面除卡池（`Scroll View`）之外还有
+        /// `Card Filters` 与 `Card Drag Controller`（父链现核：`Card Drag Controller` 的父**就是** `Card Display`）。
+        /// 本属性今天只被 **① 卡池显隐**（`RefreshPool`）与 **② 通配符计数条整条**（`RefreshTabVisibility`
+        /// 经 `_cardsInfoOnly`）读；**`Card Filters` 那一份还没接**（如实标注，见本轮报告）。</para>
+        ///
+        /// <para>⛔ **别在别处再写一遍 `_tab != 2` / `_tab == 0`** —— 两处写同一条规则 = 迟早不一致。</para></summary>
+        bool CardDisplayPage { get { return _tab != 2; } }
+
         /// <summary>页签决定「侧栏那三组东西谁显示」：卡组行(Cards) / 费用曲线+动作钮(Deck info) / 饰品页(Cosmetics)。</summary>
         void RefreshTabVisibility()
         {
             bool info = InfoTab, cosm = _tab == 2;
             foreach (var go in _infoOnly) if (go != null) go.SetActive(info);
             foreach (var go in _cosmOnly) if (go != null) go.SetActive(cosm);
+            // 🆕 **2026-10-11（`A1497④`）**：**Cards 页 + Deck info 页**那一批（= 通配符计数条整条）——
+            //   与卡池**同一个判据**（`CardDisplayPage`，原版同一个 `SetActive(param)`）。
+            //   ⚠️ 它**不**进 `_infoOnly` / `_cosmOnly`：那两张表都是「单页」判据（`_tab == 1` / `_tab == 2`），
+            //     本件是**两页**判据 —— 塞进去必错一页。
+            foreach (var go in _cardsInfoOnly) if (go != null) go.SetActive(CardDisplayPage);
             ApplyCosmCellVisibility();          // 卡背格（同一个判据的第二个消费者，见那个方法）
             RefreshCosmoFilters();              // 🆕 2026-10-01：卡背那个抽屉（同样的判据：只在 Cosmetics 页露）
             // `Empty Collection Warning`（原版判据：**过滤后为空**）——

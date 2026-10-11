@@ -356,6 +356,52 @@ namespace CardPresentation
             { "MainMenu/GameModes/Practice",                  new Entry("练习",     "PRACTICE") },    // 中文 = 参考图「练习」
             { "MainMenu/GameModes/Skirmish",                  new Entry("小冲突",   "SKIRMISH") },    // 中文 = 参考图「小冲突」
 
+            // ============================================================ 🆕 **2026-10-19（第十七会话 · `A1498`）：
+            //   收藏窗（`Collection Menu Variant`）左栏四颗页签的文案。**
+            //
+            // 键名 = 原版那四颗 `TabButtonLabel` 上 `Localize.mTerm` 的**原文**（本轮现读
+            //   `bundle_menus_assets_all`，四颗都是 `…/Tab Buttons/{Deck,Cards,CardBacks,Alternate Art}/Label/TabButtonLabel`；
+            //   逐颗的 MB 出处写在每行括号里）；英文列 = 那四颗 TMP 的 `m_text` **原文逐字符照抄**
+            //   （含第一颗的**单数** `Deck` —— 它不是 `Decks`，屏上是 `m_fontStyle = 16`(UpperCase) 画出来的 `DECK`）。
+            // 🔴 中文列 = **原版中文客户端实拍**（**不是我们译的**）：用户 2026-10-10 的截图
+            //   `C:/Users/qjh36/Desktop/warpforge参考图/收藏—卡组的参考图.png`
+            //   左栏自上而下逐字读到 **卡组 / 张牌 / 美容品 / 风格** 四个词（本行即那四个）。
+            //   ⇒ 与 `d:/4/Unity/数据/本地化/i18n/zh_CN.csv` 的通用词条**互证**：该表 `Deck`→`卡组`、`Styles`→`风格`；
+            //     而 `Cards` 那一栏该表给的是「卡牌」、`Cosmetics` 是「装饰」——
+            //     ★ **按实拍取「张牌 / 美容品」**（实拍是第一档判据，见文件头的判据优先级）。
+            // ⚠️ **`Cards` / `Cosmetics` 两条【不再重复添加】** —— 原版这两颗页签挂的就是
+            //   `MenuShop/ShopItemType/*`（**与卡组编辑窗左栏那两颗共用同一条词条**），
+            //   表里已有（本文件 D3 那一节，中文取自用户 2026-10-17 的卡组编辑实拍）
+            //   ⇒ ⛔ 别为了「看着整齐」另起一条 —— 两条同义键 = 迟早不一致。
+            // 消费侧 = `Shell/CollectionWindow.cs` 的 `Buttons` 表（新增的 `TabBtnSpec.Term` 那一格）
+            //   经 `Shell/MenuWindowBase.cs` 的 `BuildTabButton` 取词（全族唯一一份取词口）。
+            // ------------- F1 收藏窗左栏四颗页签 -------------
+            { "MainMenu/MainButtons/ButtonLabel/Deck",        new Entry("卡组",     "Deck") },        // TMP 'Deck'（MB 6937732152595899093）· 中文 = 实拍
+            // `MenuShop/ShopItemType/Cards` / `…/Cosmetics` —— **见本文件 D3 那一节**（共用，不重复）
+            { "MenuShop/AlternateArtStyle",                   new Entry("风格",     "Styles") },      // TMP 'Styles'（MB 8988648794445374165）· 中文 = 实拍
+
+            // ============================================================ 🆕 **2026-10-19（第十七会话 · `A1501`）：
+            //   练习窗（`Practice Mode Menu` = `PracticeModePopup`）那六段字的词条。**
+            //
+            // 键名 = 原版那六颗 TMP 上 `Localize.mTerm` 的**原文**（本轮现读：把 `Practice Mode Menu` 整棵
+            //   129 个节点走了一遍、逐颗打印 `mTerm` 与 `m_text`；节点路径写在每行后面）。
+            // 英文列 = 同一次实读的那颗 TMP 的 `m_text` **原文逐字符照抄**。
+            // 🔴 中文列**不是实拍**（原版中文在远端 I2 表里，见文件头）⇒ 取
+            //   `d:/4/Unity/数据/本地化/i18n/zh_CN.csv` 的**精确英文键**（该表是本文件的第一档中文来源）：
+            //   `Battle!`→`开战！` · `Select deck to play`→`选择卡组开始游戏` · `Card / Energy cost`→`卡牌 / 能量费用`
+            //   · `Change Deck`→`更换卡组` · `Game mode`→`游戏模式`。
+            //   ⚠️ 表里给的是「开战！」不是任务清单上写的「战斗！」—— **以本表为准**（那是精确英文键命中的那一行）。
+            // ⚠️ `Back` 那一颗**已有**（`MainMenu/MainButtons/ButtonLabel/Back`，中文 `返回`）—— 见本文件
+            //   `MainMenu/MainButtons/` 那一族，⛔ 不重复添加。
+            // 消费侧 = `Shell/PracticeModePopup.cs` 的六处 `Txt(...)` 调用点。
+            // ------------- F2 练习窗 -------------
+            // `Back button ▸ Text`（TMP 'Back'）→ 见上面的 `MainMenu/MainButtons/ButtonLabel/Back`（共用）
+            { "Demo/ToBattle",                                new Entry("开战！",         "Battle!") },              // `DeckSelectionContinueButton ▸ Text`
+            { "Demo/DeckSelectionDemo/SelectDeck",            new Entry("选择卡组开始游戏", "Select deck to play") },   // `Deck Selector ▸ tooltip`
+            { "Demo/CardCostBalance",                         new Entry("卡牌 / 能量费用", "Card / Energy cost") },     // `Deck info ▸ General container ▸ Deck Information Cost/balance text`
+            { "MainMenu/RankedWindow/ChangeDeck",             new Entry("更换卡组",       "Change Deck") },           // `… ▸ General container ▸ Generic Simplified UI Button ▸ Button Text`
+            { "Event_Description/Generic/GameMode",           new Entry("游戏模式",       "Game mode") },            // `Toggle ▸ Label`
+
             // ------------- 🆕 2026-10-17（F2 · 补 D6 漏填的词条）：选卡组弹窗的**标题** -------------
             // 节点 = `Deck Selection Popup with Tabs/Generic Window Red Background Big/Deck Display/Header/
             //   Instructions 2`。键名 = 那颗 `Localize` 的 `mTerm` 原文（**2026-10-17 F2 实读**：

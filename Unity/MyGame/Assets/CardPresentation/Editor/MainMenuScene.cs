@@ -689,6 +689,53 @@ public static class MainMenuScene
         CheckAt(FindChild(menu.Find("Main Menu Navigation Button - Home"), "Selected highlight"),
                 -0.3f, 164.0f, 143.4f, 313.1f, "**选中态高亮**在 `Home` 的整按钮矩形上（原版 5 个出厂都 active）");
 
+        // ============================================================ 🔴 **2026-10-11（A1521⑥）· 灭自证那一条**
+        // ① **选中态高亮那一档的渲染队列必须【严格夹在】底板与图标之间**（`hl > bg && hl < icon`）。
+        //    **三个数全部当场量**（⛔ 不读 `MainMenuRuntime` 的队列常量 —— 读了就是「实现与检测器同一个口」= 自证）。
+        //    为什么要盯它：这一档原来传的是 `QPanel`，与导航底板 `Navigation Panel/Background` **同一个数**
+        //    （两件 z 又都是 0）⇒ **谁盖谁完全不确定**（本仓自己记过「同队列 + z=0 ⇒ 谁盖谁不定」）；
+        //    实拍逐像素量过：`PLAY` 那颗整块里只命中 47 个像素（0.1%）⇒ **高亮一个矩形都没画出来**
+        //    （判据全文 → `Shell/MainMenuRuntime.cs` 的 `QNavHighlight` 那段）。
+        //    🧨 **改回 `QPanel` ⇒ 本条必红**（那时 `hl == bg`，「严格大于」不成立）。
+        // ② 同批配一条 `activeSelf`：**只有当前页那一颗该亮**（原版实拍：选中那颗整块亮红、其余四颗暗底）。
+        //    ⚠️ `FindChild` / `GetComponentsInChildren(true)` **含 inactive** ⇒ 只断「找得到」抓不到「关着」
+        //      （本会话已经四次「件建了、断言绿、画面上却没有」）⇒ 这里**逐颗断 `activeSelf`**。
+        //    ⚠️ 我们这一版**只给选中那颗建** `Selected highlight`（语义同原版，见 `SelectedNav` 的注释）
+        //      ⇒ 另外四颗底下**没有这颗节点**也算「不亮」；⛔ 但**别反过来**把它写成「必须找得到且关着」——
+        //      那是给我们自己加要求（原版是「5 个都建、出厂都 active、靠 `Toggle` 驱动」，这一档差异如实记在此）。
+        {
+            var navHlQ = QuadOfInactiveToo(FindChild(menu.Find("Main Menu Navigation Button - Home"), "Selected highlight"));
+            var navBgQ = QuadOfInactiveToo(FindChild(nav, "Background"));
+            var navIcQ = QuadOfInactiveToo(FindChild(menu.Find("Main Menu Navigation Button - Home"), "Image"));
+            CheckTrue(navHlQ != null && navBgQ != null && navIcQ != null,
+                      "（前提·不静默）高亮 / 导航底板 / 图标 三颗 quad 都取到了（取不到 ⇒ 下面那条队列判据等于没查）");
+            if (navHlQ != null && navBgQ != null && navIcQ != null)
+            {
+                int rqHl = navHlQ.RenderQueue, rqBg = navBgQ.RenderQueue, rqIc = navIcQ.RenderQueue;
+                CheckTrue(rqHl > rqBg && rqHl < rqIc,
+                          "★ 高亮那一档的渲染队列**严格夹在**底板与图标之间"
+                        + $"（实测 底板 {rqBg} < 高亮 {rqHl} < 图标 {rqIc}，三个数都是当场量的）"
+                        + "—— 判据 = 原版兄弟序（`Background` → … → 按钮自己的 `Image`）；"
+                        + "🧨 改回与底板同档（`QPanel`）⇒ 本条红：同队列 + 两件 z 都是 0 ⇒ 谁盖谁不定，"
+                        + "实拍就是「高亮整块没画出来」");
+            }
+            // 当前页 = `Home`（出厂 `SelectedNav = 0`，本行之前没有任何点击改过它）
+            var navOrder = new[] { "Home", "Collection", "Shop", "Rewards", "Social" };
+            int litN = 0;
+            for (int i = 0; i < navOrder.Length; i++)
+            {
+                var hlI = FindChild(menu.Find("Main Menu Navigation Button - " + navOrder[i]), "Selected highlight");
+                bool lit = hlI != null && hlI.gameObject.activeSelf;
+                if (lit) litN++;
+                CheckTrue(lit == (i == 0),
+                          $"★ 导航 `{navOrder[i]}` 的选中高亮 `activeSelf` = **{(i == 0 ? "true" : "false")}**"
+                        + $"（当前页 = `Home`；实测「{(hlI == null ? "节点没建" : (lit ? "亮着" : "关着"))}」）"
+                        + " —— 原版实拍：选中那颗整块亮红、其余四颗暗底");
+            }
+            Check(litN, 1, "★ 五颗里**恰好一颗**的选中高亮是亮的"
+                         + "（⛔ 不是零颗、也不是五颗一起亮 —— 五颗全亮是原版的【出厂】态，不是运行期该有的样子）");
+        }
+
         // ============================================================ 🆕 2026-10-10（A284 + A222）
         // ① **图标那一格的矩形**：原版五颗里**只有 `Home` 不是正方形** ——
         //    `Home` = **156.349 × 137.435**（`RT 1111` · `apos (83.095, −71.70)` · `anchor (0,1)`
@@ -742,9 +789,16 @@ public static class MainMenuScene
             //     **5/5 都在这颗 `Selectable` 自己的子树里**，一次也没打到「另建的命中区」上）。
             //    🔴 **改坏法**：`MainMenuRuntime.NavButton` 里删掉 `wb.TintOn(iconQ)` ⇒ 色偏只落在那颗
             //       **透明**命中区 quad 上（`(0,0,0,0)`），可见图形**纹丝不动** ⇒ 下面两条红。
-            CheckHoverTint(NavHitButton(menu, "Home"), NavIconQuad(menu, "Home"), MainMenuRuntime.NavHoverKey,
+            // 🔴 **2026-10-11（代理 `W` 顺手查出 · 就地订正 · 铁律 5）**：下面两条原来把期望值写成
+            //   `MainMenuRuntime.NavHoverKey` —— **那是【自证】**：期望值直接读**被测实现自己的常量**
+            //   （该常量就是生产代码用的那一份：`Shell/MainMenuRuntime.cs:485` 声明 · `:657 wb.HighlightKey = NavHoverKey` 消费）
+            //   ⇒ **把它改成任何颜色（例如 `Color.red`），这两条照样绿**。
+            //   ✅ 正解 = **写字面量**（就是上面那段注释里的原版值）= **浅蓝 `(0.7216981, 0.8151793, 1)`**。
+            //   （同节对照：模式卡那三条用的是字面量 `0.9607843`，写法本来是对的。）
+            var navHover = new Color(0.7216981f, 0.8151793f, 1f, 1f);   // 原版 `m_Colors.m_HighlightedColor`，五颗逐值相同
+            CheckHoverTint(NavHitButton(menu, "Home"), NavIconQuad(menu, "Home"), navHover,
                            "★ `Home` 悬停");
-            CheckHoverTint(NavHitButton(menu, "Social"), NavIconQuad(menu, "Social"), MainMenuRuntime.NavHoverKey,
+            CheckHoverTint(NavHitButton(menu, "Social"), NavIconQuad(menu, "Social"), navHover,
                            "★ `Social` 悬停（第二颗对照 —— 五颗共用同一套判据）");
         }
 
@@ -953,8 +1007,18 @@ public static class MainMenuScene
                           "★ B25①（**判别式**）：四颗钮的 `onClick` **互不相同**（不是全挂同一个空壳）");
         }
 
+        // 🔴 **2026-10-11（`A1522①`）把这一档差异如实记全**：原版 `TopBarButtons` 底下有 **3 颗**
+        //   （`InboxBtn` 信封 · `Challenge button` 双剑 · **`Feedback Button`** 反馈），而第三颗
+        //   **原版是「建了、但出厂关着」**—— `m_IsActive = False`（表 `资料/主菜单_原版规格.md:96`
+        //   那一行的最后一格；同表 `:327` 记它的矩形 `565.4..615.4, 10.5..60.5`）。
+        //   **我们这一档是「【不建】」**（`Shell/TopBar.cs:159` 那一行注释：照 `MainMenuRuntime` 纪律 ③），
+        //   所以本条断的是**「不建」**。
+        //   🧨 **改坏法**：在 `Shell/TopBar.cs` 里把 `Feedback Button` 建出来（且亮着）⇒ 本条红。
+        //   ⛔ **别把它改成断「找得到且 `activeSelf == false`」** —— 我们**没建那颗**，那样写等于给自己加要求；
+        //      将来真要显示它时，**先建、再把本条翻成 `activeSelf` 口径**（那时才该断「建了但关着」）。
         CheckTrue(FindChild(bar, "Feedback Button") == null,
-                  "`Feedback Button` **没建**（原版出厂 `activeSelf=False`，§二 表 #10）");
+                  "`Feedback Button` **没建**（原版是**建了但出厂关着** `m_IsActive = False`；"
+                + "我们这一档是「不建」—— 这一档差异如实记在此，⚠️ 将来要显示时再建）");
         var resBar = FindChild(bar, "Resources Bar");
         // 🔴 **2026-10-13（A374）就地改口径（铁律 5）**：原来这条断的是
         //    `resBar.GetComponentInChildren<ImageQuad>() == null`（**整棵子树**里一张 quad 都没有）——
@@ -1212,8 +1276,14 @@ public static class MainMenuScene
                     CheckNear(pu.Value.z - pu.Value.x, 141.51f, 1.5f,
                               $"★ 第 {i + 1} 格药丸**画出来的宽 = 141.51px**（原版 `RT_372` 的 `m_SizeDelta.x`"
                             + " —— 那正是出厂占位串 `'-----'` 量出来的那一档，也是 `MB_544` 的 `widthMin` = 103.51 那一档的落点）");
-                    CheckNear(pu.Value.z - pu.Value.x, irt.rect.width * 108f - 81f, 1.5f,
-                              $"★ …而且 = **格宽 − 20 − 60 − 1**（原版那一格 HLG 的 `pad (L20,R1)` + `Icon` 60 宽 + spacing 0）");
+                    // 🔴 **2026-10-11（A1521③）就地订正（铁律 5 · 代理 `O` 现核）**：本式原来写 `- 81f`、文案写
+                    //   「格宽 − 20 − **60** − 1」—— **那 60 是错的**：原版那颗 `Icon` 挂着 **`LayoutElement.m_IgnoreLayout = 1`**
+                    //   （`MMC/MonoBehaviour/MonoBehaviour_545.json:12`）⇒ uGUI 建布局时**跳过它**，
+                    //   **格宽 = `pad.L20 + 药丸宽 + pad.R1`（不含图标）** ⇒ 该式应是 `- 21f`。
+                    //   （上面 `:1212` 那条断 `141.51` 是**对的**，别顺手动。）
+                    CheckNear(pu.Value.z - pu.Value.x, irt.rect.width * 108f - 21f, 1.5f,
+                              $"★ …而且 = **格宽 − 20 − 1**（原版那一格 HLG 的 `pad (L20,R1)`；`Icon` 60 宽**不进布局**" 
+                            + " —— 它带 `LayoutElement.m_IgnoreLayout = 1`、被 uGUI 跳过）");
                     CheckNear(pu.Value.y, 16.467f, 1.5f,
                               "★ 药丸**上沿**贴在那一格的顶边（原版 HLG `m_ChildAlignment = 0` = UpperLeft"
                             + " ⇒ 交叉轴取 Upper；节的顶 = 容器顶 + (71.165 − 38.066)/2）");
@@ -1311,7 +1381,18 @@ public static class MainMenuScene
         var prof = FindChild(bar, "Player Profile");
         CheckAt(FindChild(prof, "Background"), 23.0f, 411.0f, 11.6f, 135.6f, "玩家信息块底（`40k_main_player frame`）");
         CheckAt(FindChild(prof, "Player Name"), 136.9f, 401.9f, 13.7f, 61.7f, "`Player Name` 文字位");
-        CheckAt(FindChild(prof, "Planer Name Background"), 25.6f, 472.1f, 14.9f, 60.5f, "名字条底");
+        // 🔴 **2026-10-11（`A1521②` · 代理 `P` 四条独立判据）**：这一格**原版根本不画** ⇒ 我们的**不建**才是对的。
+        //   **四条独立判据**：① prefab `Background Mask` 的 **`m_IsActive = 0`**；
+        //   ② **原版运行期 dump 5 份 / 4 个状态全都 `False`**（`资料/原版实拍/menu_topbar_0927/…` + `menu_forge_1016/` 四份）；
+        //   ③ **1920×1080 原生实拍逐像素**：该处 x 432..473 是信封的亮灰，而板的 `m_Color` g=0.1925
+        //      ⇒ 若画了那里必然 g>0，实测 **x 412..426 的 g 通道恒为 0** ⇒ 那里没有板；
+        //   ④ **全包 1134 个 MB 里指向它的 PPtr 一个都没有** · 全量反编译 26,282 份里 `"Background Mask"` 字符串 **0 命中** ·
+        //      `PlayerProfileUIController` 的 8 个字段里**没有底板那一格**。
+        //   ⇒ **它是原版 prefab 里的废件**（作者做了但没启用、也没人打开）⇒ **我们不建**。
+        //   🧨 **鉴别式**：`Shell/TopBar.cs` 把那句 `Rect(..., "Planer Name Background", …)` 加回来 ⇒ 本条立刻红。
+        CheckTrue(FindChild(prof, "Planer Name Background") == null,
+                  "名字条底 `Planer Name Background` **不建**（原版父件 `Background Mask` 出厂 `m_IsActive=0` ⇒ 一个像素都不画；"
+                + "它是原版 prefab 里的废件）—— 建了就会以 **85.09%** 盖住 `InboxBtn`（信封）");
         // 🆕 **2026-10-11（A219①）**：等级那一格原来建的节点名是 **`"Icon/Player Level"`** —— 那是**一个带
         //   斜杠的【字面】节点名**（Unity 里那**不是**一个名字、是**路径分隔符**：`transform.Find("Icon/Player Level")`
         //   会按两层路径走 ⇒ 永远取不到；而逐字比名字的 `FindChild` 又只在**整串相等**时才命中）。
@@ -1416,8 +1497,8 @@ public static class MainMenuScene
             "Draft Game Mode Container 1x2",
             "Base Game Mode Container 1x1 - Tutorial",     // 🆕 2026-10-17（A853）
             "Base Game Mode Container 1x1 - Practice",
-            "Base Game Mode Container 1x1 - Skirmish",
-            "Base Game Mode Container 1x1 - Ranked",
+            "Base Game Mode Container 1x2 - Skirmish",     // 🔴 2026-10-11（A1521⑦）：尺寸档 1×1→1×2，名同步
+            "Base Game Mode Container 1x2 - Ranked",       // 🔴 同上（判据 = 原版 prefab 名 `Ranked Game Mode Container 1x2`）
         };
         foreach (var nm in modeCardsWithAction)
         {
@@ -1537,9 +1618,159 @@ public static class MainMenuScene
         //   判据 = 参考图右缘那一列（两张 1×1 上下叠着、中间留 20px 缝）；详见 `BuildGameModes` 那段注释。
         //   ⚠️ 期望值里 `182.8 / 617.2` 是**抄** `MainMenuRuntime.CardRow0Top`（`182.8`）与其 +`414.4+20`；
         //   那个常量是 `private`、宿主读不到 ⇒ 抄一份并把算式写在这里（改常量时这里会红，是**故意的**）。
-        CheckCard(menu, "Base Game Mode Container 1x1 - Practice", 205f + 2 * 555f, 535f, 414.4f, "Practice（1x1 · col2/row0）", 182.8f);
-        CheckCard(menu, "Base Game Mode Container 1x1 - Skirmish", 205f + 2 * 555f, 535f, 414.4f, "Skirmish（1x1 · col2/row1 —— 叠在 Practice 下面）", 617.2f);
-        CheckCard(menu, "Base Game Mode Container 1x1 - Ranked", 205f + 3 * 555f, 535f, 414.4f, "Ranked（1x1 · col3/row0）", 182.8f);
+        // 🔴 **2026-10-11（A1521⑦）就地改期望值**（改前三条红的是**断言过期**、不是实现错）：
+        //   排布从「手写死列/行号」改成 **first-fit 不留洞** ⇒ Practice 挪到 col0/row1（填掉 Tutorial 下面那个洞）、
+        //   Skirmish / Ranked 的尺寸档按原版 prefab 名改成 **1×2**（`Skirmish Ranked Game Mode Container 1x2`）。
+        CheckCard(menu, "Base Game Mode Container 1x1 - Practice", 205f, 535f, 414.4f, "Practice（1x1 · col0/row1 —— 填掉 Tutorial 下面的洞）", 617.2f);
+        CheckCard(menu, "Base Game Mode Container 1x2 - Skirmish", 205f + 2 * 555f, 535f, 848.8f, "Skirmish（1x2 · col2 · 独占整列）", 182.8f);
+        CheckCard(menu, "Base Game Mode Container 1x2 - Ranked", 205f + 3 * 555f, 535f, 848.8f, "Ranked（1x2 · col3 · 独占整列）", 182.8f);
+
+        // ============================================================ 🔴 **2026-10-11（A1521⑦）· 正反成对**
+        // **① 「零洞」**（结构）：按 `(col,row)` 扫一遍 —— **不许有「上半格有卡、下半格空着」的列**（反过来也不许）。
+        //   🧨 **把 `Practice` 挪回 col2（= 改回老排布「手写死列/行号」）⇒ col0 的下半格空着 ⇒ 本条红。**
+        // **② 「尺寸档 ↔ 节点名 ↔ 实测高」三方一致**（这是**反面**，防「为了不留洞把两张 1×1 也拉满」）：
+        //   名字里写 `1x1` ⇒ 实测高必须是 **414.4**；写 `1x2` ⇒ **848.8**
+        //   （判据 = 原版 **prefab 名** `… Game Mode Container 1x1/1x2`；`848.8 = 2 × 414.4 + 20` 那道缝，
+        //    20 出自原版 `FlexibleGridLayout` 的 `spacing (20,20)`）。
+        //   🧨 把 `Tutorial` / `Practice` 改成 848.8 去「填洞」⇒ 本条红；把 `Skirmish` / `Ranked` 改回 414.4
+        //   ⇒ 本条红、且 ① 也红 ⇒ **正反两边一起改回去不可能同时绿**。
+        // ⚠️ 量的全是**渲染矩形**（`QuadPxRect`，⛔ 不读承载节点的 `localPosition` —— 被裁时那个位置不动）。
+        // ⚠️ 尺寸档的判据缺一半、如实标在这里：**只有 `Draft` / `Ranked` / `Skirmish` 三张有原版出处**
+        //   （那三个 prefab 名逐字如此）；`Tutorial` / `Practice` 两张 `1×1` 是**我们按
+        //   `Base Game Mode Container 1x1` 那一族取的**（原版由 liveop 服务端数据决定、本地查不到）
+        //   —— 见 `Shell/MainMenuRuntime.cs` 的 `BuildGameModes` 那段。
+        {
+            var gmRoot = menu.Find("GameModes");
+            var gmCards = new List<Transform>();
+            if (gmRoot != null)
+                foreach (var gmTr in gmRoot.GetComponentsInChildren<Transform>(true))
+                    if (gmTr.name.Contains("Game Mode Container")) gmCards.Add(gmTr);
+            Check(gmCards.Count, 5, "（前提）`GameModes` 子树里**恰好 5 张**模式卡容器（下面「零洞」那几条的前提）");
+            var gmCol = new List<int>();
+            var gmTop = new List<float>();
+            var gmBot = new List<float>();
+            var gmName = new List<string>();
+            for (int i = 0; i < gmCards.Count; i++)
+            {
+                string nm = gmCards[i].name;
+                bool isTall = nm.Contains("1x2"), isShort = nm.Contains("1x1");
+                CheckTrue(isTall ^ isShort, $"模式卡 `{nm}` 的名字里带**且只带一个**尺寸档（`1x1` / `1x2`）"
+                                          + "（判据 = 原版 prefab 名；名字读不出档位 ⇒ 下面那条尺寸断言没查成）");
+                var gq = QuadOfInactiveToo(FindChild(gmCards[i], "Background Image"));
+                float x1, y1, x2, y2;
+                if (gq == null || !QuadPxRect(gq, out x1, out y1, out x2, out y2))
+                { CheckTrue(false, $"模式卡 `{nm}` 量不到渲染矩形（节点不在 / 底下没有 `ImageQuad`）"); continue; }
+                if (isTall)
+                    CheckNear(Mathf.Abs(y2 - y1), 848.8f, 0.5f,
+                              $"★ 尺寸档（**反面·灭自证**）`{nm}` 实测高 = **848.8**（`1x2` = 满高一整列；"
+                            + "⛔ 改回 414.4 ⇒ 本条红，而且上面那条「零洞」也会红）");
+                else if (isShort)
+                    CheckNear(Mathf.Abs(y2 - y1), 414.4f, 0.5f,
+                              $"★ 尺寸档（**反面·灭自证**）`{nm}` 实测高 = **414.4**（`1x1`；"
+                            + "🧨 为了「不留洞」把它拉满 848.8 ⇒ 本条红）");
+                gmCol.Add(Mathf.RoundToInt((x1 - 205f) / 555f));
+                gmTop.Add(y1); gmBot.Add(y2); gmName.Add(nm);
+            }
+            // 半格分界 = 内容区中线（内容高 = 两行 414.4 + 一道 20 的缝 = **848.8** ⇒ 中线 607.2）
+            float gmMid = 182.8f + 848.8f * 0.5f;
+            var gmTopHit = new bool[4]; var gmBotHit = new bool[4]; var gmColSeen = new bool[4];
+            bool gmOut = false;
+            for (int i = 0; i < gmName.Count; i++)
+            {
+                if (gmCol[i] < 0 || gmCol[i] > 3) { gmOut = true; continue; }
+                gmColSeen[gmCol[i]] = true;
+                if (gmTop[i] < gmMid) gmTopHit[gmCol[i]] = true;
+                if (gmBot[i] > gmMid) gmBotHit[gmCol[i]] = true;
+            }
+            CheckTrue(!gmOut, "（前提）五张卡都落在第 0..3 列（列左 = 205 + 555c）—— 有卡跑到列外，下面几条就不必看了");
+            int gmCols = 0; for (int c = 0; c < 4; c++) if (gmColSeen[c]) gmCols++;
+            Check(gmCols, 4, "★ 模式卡用满 **4 列**"
+                           + "（`col0 = Tutorial/Practice · col1 = Draft · col2 = Skirmish · col3 = Ranked`）");
+            for (int c = 0; c < 4; c++)
+            {
+                if (!gmColSeen[c]) continue;
+                CheckTrue(gmTopHit[c] && gmBotHit[c],
+                          $"★ 第 {c} 列**零洞**（上半格与下半格都有卡；实测 上半「{(gmTopHit[c] ? "有" : "空着")}」· "
+                        + $"下半「{(gmBotHit[c] ? "有" : "空着")}」）"
+                        + "—— 🧨 把 `Practice` 挪回 col2（= 老排布）⇒ 本列红；"
+                        + "改拿「把某张拉长」来凑 ⇒ 列内重叠那条红");
+            }
+            // 同一列里两张卡**不许重叠**（「把某张拉长去填洞」会在这里现形）
+            for (int a = 0; a < gmName.Count; a++)
+                for (int b = a + 1; b < gmName.Count; b++)
+                    if (gmCol[a] == gmCol[b])
+                        CheckTrue(!(gmTop[a] < gmBot[b] - 0.5f && gmTop[b] < gmBot[a] - 0.5f),
+                                  $"★ `{gmName[a]}` 与 `{gmName[b]}` 同列但**不重叠**"
+                                + $"（实测 {gmTop[a]:F1}..{gmBot[a]:F1} vs {gmTop[b]:F1}..{gmBot[b]:F1}）");
+        }
+        // ============================================================ 排位卡的「段位印玺」行（`A1521⑧`）
+        // 判据 = `资料/普查产出_第十七会话/S_排位卡印玺条.md`
+        //   原版父子链：`Ranked Game Mode Container 1x2` ▸ `Rating` ▸ `Mission Milestones Progress` ▸ `steps` ▸ `RankedSealStep ×N`
+        //   每颗 = 两个**互斥**的 Image：`Empty`（`Rank Skull Empty`，灰）/ `Fill`（`Rank Skull`，金）。
+        // 🔴 **三条纪律（本仓连着栽过 4 次的那一族）**：
+        //   ① **取件必须用 `QuadOfInactiveToo`** —— 缺省那种不含 inactive，而 `Fill` 平时是**关着**的
+        //      ⇒ 用普通取法 `Fill` 恒 `null`，于是「`Fill == null` 就是对的」会**两种状态都绿**；
+        //   ② **断的必须是 `activeSelf`** —— `FindChild` 含 inactive ⇒ 只断「找得到」抓不到「关着」；
+        //   ③ **反面也要断**（非排位卡的子树里**不许**有 `Rating`）⇒ 闸口改成无条件就红。
+        Section("排位卡的段位印玺行（A1521⑧ · 判据见 S 的报告）");
+        var rankCard = menu.Find("Base Game Mode Container 1x2 - Ranked");
+        CheckTrue(rankCard != null, "前提：`RANKED` 卡在（`Base Game Mode Container 1x2 - Ranked`）");
+        if (rankCard != null)
+        {
+            var rating = FindChild(rankCard, "Rating");
+            var mmp = rating != null ? FindChild(rating, "Mission Milestones Progress") : null;
+            var steps = mmp != null ? FindChild(mmp, "steps") : null;
+            CheckTrue(rating != null && mmp != null && steps != null,
+                      "前提：`Rating` ▸ `Mission Milestones Progress` ▸ `steps` 三层都在"
+                    + "（原版那三层的 rect：`Rating` 494.61×109.52 · `MMP` 494.61×86.51）");
+            if (steps != null)
+            {
+                int sealN = 0;
+                for (int i = 0; i < 32; i++) if (FindChild(steps, "RankedSealStep " + i) != null) sealN++;
+                Check(sealN, 4, "印玺颗数 = **4**（🔴 原版那个数来自远端 `RankedDivisionV2.TotalSeals`；"
+                              + "**我们这份 4 是挑的兜底** —— 见 `MainMenuRuntime.RankedSealFallbackCount` 的注释）");
+                for (int i = 0; i < sealN; i++)
+                {
+                    var step = FindChild(steps, "RankedSealStep " + i);
+                    var eq = QuadOfInactiveToo(FindChild(step, "Empty"));
+                    var fq = QuadOfInactiveToo(FindChild(step, "Fill"));
+                    CheckTrue(eq != null && fq != null,
+                              $"第 {i + 1} 颗的 `Empty` / `Fill` 两个子件**都建了**"
+                            + "（⚠️ 这里用的是 `QuadOfInactiveToo` —— `Fill` 平时关着，普通取法拿不到）");
+                    if (eq == null || fq == null) continue;
+                    var et = eq.Texture != null ? eq.Texture.name : "<没贴图>";
+                    var ft = fq.Texture != null ? fq.Texture.name : "<没贴图>";
+                    CheckTrue(et == "Rank_Skull_Empty", $"第 {i + 1} 颗 `Empty` 的图 = `Rank_Skull_Empty`（实得 `{et}`）");
+                    CheckTrue(ft == "Rank_Skull", $"第 {i + 1} 颗 `Fill` 的图 = `Rank_Skull`（实得 `{ft}`）");
+                    CheckTrue(eq.gameObject.activeSelf && !fq.gameObject.activeSelf,
+                              $"第 {i + 1} 颗**只画灰的那颗**（未点亮：`Empty` 亮 / `Fill` 藏）"
+                            + "（点亮数 0 也是我们挑的兜底；🧨 `SealToggle` 两行对调 ⇒ 本条红）");
+                    CheckTrue(eq.gameObject.activeSelf != fq.gameObject.activeSelf,
+                              $"第 {i + 1} 颗的两颗**互斥**（挡「两颗一起亮 / 一起灭」）");
+                }
+                if (sealN >= 2)   // 节距 = 单颗 100 + `steps` 的 HLG `spacing 3.2`
+                {
+                    var e0 = QuadOfInactiveToo(FindChild(FindChild(steps, "RankedSealStep 0"), "Empty"));
+                    var e1 = QuadOfInactiveToo(FindChild(FindChild(steps, "RankedSealStep 1"), "Empty"));
+                    float ax1, ay1, ax2, ay2, bx1, by1, bx2, by2;
+                    if (e0 != null && e1 != null && QuadPxRect(e0, out ax1, out ay1, out ax2, out ay2)
+                                               && QuadPxRect(e1, out bx1, out by1, out bx2, out by2))
+                        CheckNear(bx1 - ax1, 103.2f, 0.5f,
+                                  "★ 相邻两颗的**节距 = 103.2**（单颗 100 + `spacing 3.2`）"
+                                + $"（实测 {bx1 - ax1:F2}）");
+                    else
+                        CheckTrue(false, "印玺前两颗量不到渲染矩形（节点不在 / 底下没有 `ImageQuad`）");
+                }
+            }
+            // 🔴 **反面**：非排位卡的子树里**不许**有 `Rating`（原版那几棵树本来就没有这一排）
+            foreach (var nm in new[] { "Base Game Mode Container 1x2 - Skirmish", "Draft Game Mode Container 1x2",
+                                       "Base Game Mode Container 1x1 - Tutorial", "Base Game Mode Container 1x1 - Practice" })
+            {
+                var other = menu.Find(nm);
+                CheckTrue(other == null || FindChild(other, "Rating") == null,
+                          $"★ `{nm}` 子树里**没有** `Rating`（🧨 把闸口 `modeKind == \"ranked\"` 改成无条件 ⇒ 本条红）");
+            }
+        }
         {
             var pc = menu.Find("Base Game Mode Container 1x1 - Practice");
             var ph = FindChild(pc, "Hit");
@@ -1569,10 +1800,15 @@ public static class MainMenuScene
             //    卡图纹丝不动 ⇒ 下面三条红。
             //    改断成「另建的某颗图形」也不行：量的是 `Background Image` 这一颗（原版指的就是它）。
             {
-                var modeCases = new[] { "Practice", "Skirmish", "Ranked" };
+                // 🔴 **2026-10-11（A1521⑦）**：`Skirmish`/`Ranked` 改名成 `1x2` 之后，这里**逐条给全名** ——
+                //   ⛔ **别再拿 `"…1x1 - "` 去拼前缀**：拼错 ⇒ `menu.Find` 返回 `null` ⇒ 下面 `FindChild(null,…)` 静默返回 null，
+                //   **三条断言会「看着像过」**（本仓「找不到就静默」的老账，已收过三次：`A57①`/`A190`/`A77⑭`）。
+                var modeCases = new[] { "Base Game Mode Container 1x1 - Practice",
+                                        "Base Game Mode Container 1x2 - Skirmish",
+                                        "Base Game Mode Container 1x2 - Ranked" };
                 for (int mi = 0; mi < modeCases.Length; mi++)
                 {
-                    var card = menu.Find("Base Game Mode Container 1x1 - " + modeCases[mi]);
+                    var card = menu.Find(modeCases[mi]);
                     var artN = FindChild(card, "Background Image");
                     var hitN = FindChild(card, "Hit");
                     var mwb = hitN != null ? hitN.GetComponent<WindowButton>() : null;
@@ -1677,13 +1913,40 @@ public static class MainMenuScene
                     CheckTrue(chgT != null && gen0 != null && chgT.parent == gen0,
                               "`Change Deck` 挂在 **`General container`** 下（不是 `Background Info`）");
 
+                    // 🔴 **2026-10-11（`A1501` 同批 · 练习窗六处文案走词条 · 第 5 处 `Change Deck Text`）**
+                    //   实现那一侧：`Shell/PracticeModePopup.cs` 的
+                    //   `Txt(_general, Loc.T("MainMenu/RankedWindow/ChangeDeck"), …, "Change Deck Text", …)`。
+                    //   🧨 **鉴别式（这就是这批断言存在的理由）**：把实现改回**直接画资产里的 `m_text`**
+                    //      （原版那颗 TMP 印的是 `Change Deck`）⇒ **中文档**下读到英文 `Change Deck`
+                    //      ≠ `Loc.T(键)`（= `更换卡组`）⇒ 下面这条 `CheckText` 变红。
+                    //   ⇒ 钉的是「**这颗 TMP 的字确实来自原版 `mTerm`**」，不是「某个位置上恰好写着那串字」。
+                    //   ⛔ **键名写死在此处**，**不读** `PracticeModePopup` 的任何常量/表 ——
+                    //      读了就是**实现与检测器同一个口**（常量一改这条跟着改）= 自证。
+                    //   ⚠️ **判别力只在「有自己文案的语档」下成立**：英文档的 `Loc.T(键)` 就是英文那一列
+                    //      = 原版 `m_text` 原文 ⇒ 那条等式**不具鉴别力**（本文件同形另四处亦然）。
+                    //      跑批走的是出厂默认 `Loc.Default = Chinese`（`Core/Loc.cs`）—— 中文档下有鉴别力。
+                    //   ⚠️ **基线**：本条跑在**开窗后的出厂态**里（`Deck info ▸ General container` 开着 ——
+                    //      见下面 `ShowingGeneralInfo` 那组互斥断言），无需额外摆回。
+                    //      ⛔ 别把它挪到 `pw.ToggleDeckInfo()` **之后**：那一格会把 `General container` 关掉，
+                    //      而 `FindChild` **含 inactive**（`Editor/MenuCheck.cs` 的 `GetComponentsInChildren(true)`）
+                    //      ⇒ 会「找得到、字也在」、看着仍绿 = 假绿。
+                    CheckTrue(Loc.HasEntry("MainMenu/RankedWindow/ChangeDeck"),
+                              "（前提）词条 `MainMenu/RankedWindow/ChangeDeck` 在表里"
+                            + "（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
+                    CheckText(TextOf(chgT), Loc.T("MainMenu/RankedWindow/ChangeDeck"),
+                              "`Change Deck` 文案 = 原版那颗 TMP 的 `mTerm`（`MainMenu/RankedWindow/ChangeDeck`；"
+                            + "原来这里是**写死的英文** `Change Deck`）");
+
                     // 🆕 2026-10-03（§三第29条 A14）：费用曲线那两件**补上了**
                     //   判据 → `资料/阶段二_战斗入口_原版规格.md` §二 A 那张表；画法与 `Deck info Popup` 共用 `CostCurveDrawer`
                     // ⚠️ 必须用 `CheckAtWorld` —— `Cost/balance text` 挂在 `General container` 下（不是窗口根的直接子件），
                     //    而 `CheckAt` 比的是 **`localPosition`**（只对直接子件成立）⇒ 第一版差 565.73px。
                     CheckAtWorld(FindChild(gen0, "Deck Information Cost/balance text"),
                                  1276.27f, 1540.27f, 326.95f, 381.27f, "`Cost/balance text`（fs34 auto[1-34] · 居中）");
-                    CheckText(TextOf(FindChild(gen0, "Deck Information Cost/balance text")), "Card / Energy cost",
+                    CheckTrue(Loc.HasEntry("Demo/CardCostBalance"), "（前提）词条 `Demo/CardCostBalance` 在表里");
+                    // 🔴 **2026-10-11（`A1501`）**：期望值改成 `Loc.T(原版 mTerm)`（原来写死英文）。
+                    //    🧨 鉴别式：实现改回直接画资产里的 `m_text` ⇒ 中文档读到英文 ≠ `Loc.T(键)` ⇒ 红。
+                    CheckText(TextOf(FindChild(gen0, "Deck Information Cost/balance text")), Loc.T("Demo/CardCostBalance"),
                               "…文案 = 原版的 `Card / Energy cost`");
                     Check(pw.CostRows.Count, 9, "费用曲线 **9 行**（费用 0..8）");
                     int csum = 0; for (int k2 = 0; k2 < pw.CostRows.Count; k2++) csum += pw.CostRows[k2];
@@ -1718,9 +1981,30 @@ public static class MainMenuScene
                 CheckAt(FindChild(pw.transform, "Decks Scroll view"), 261.28f, 634.88f, 262.64f, 803.43f,
                         "`Decks Scroll view`");
                 CheckAt(FindChild(pw.transform, "Back Bg"), 215.76f, 280f, 892.86f, 956.10f, "`Back` 圆钮");
-                CheckText(TextOf(FindChild(pw.transform, "Battle Text")), "Battle!", "开战钮文案 = `Battle!`");
-                CheckText(TextOf(FindChild(pw.transform, "tooltip")), "Select deck to play", "`tooltip` 文案");
-                CheckText(TextOf(FindChild(pw.transform, "Toggle Label")), "Game mode", "`Game mode` 开关文案");
+                // 🔴 **2026-10-11（`A1501` 同批 · 练习窗六处文案走词条 · 第 6 处 `Back Text`）**
+                //   实现那一侧：`Shell/PracticeModePopup.cs` 的
+                //   `Txt(root, Loc.T("MainMenu/MainButtons/ButtonLabel/Back"), …, "Back Text", …)`。
+                //   🧨 **鉴别式**：把实现改回**直接画资产里的 `m_text`**（原版那颗 TMP 印的是 `Back`）⇒
+                //      **中文档**下读到英文 `Back` ≠ `Loc.T(键)`（= `返回`）⇒ 下面这条 `CheckText` 变红。
+                //   ⛔ **键名写死在此处**，**不读** `PracticeModePopup` 的任何常量/表（读了 = 自证）。
+                //   ⚠️ 与本文件另五处同形：**中文档下才有鉴别力**（英文档 `Loc.T(键)` = 原版 `m_text` 原文）。
+                //   ⚠️ 这一颗是**窗根的直接子件**（不是 `Deck info` 那棵子树里的）⇒ 用 `FindChild(pw.transform, …)`，
+                //      与 `Battle Text` / `tooltip` / `Toggle Label` 那三颗同一个取法。
+                CheckTrue(Loc.HasEntry("MainMenu/MainButtons/ButtonLabel/Back"),
+                          "（前提）词条 `MainMenu/MainButtons/ButtonLabel/Back` 在表里"
+                        + "（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
+                CheckText(TextOf(FindChild(pw.transform, "Back Text")), Loc.T("MainMenu/MainButtons/ButtonLabel/Back"),
+                          "`Back Text` 文案 = 原版那颗 TMP 的 `mTerm`（`MainMenu/MainButtons/ButtonLabel/Back`；"
+                        + "原来这里是**写死的英文** `Back`）");
+                CheckTrue(Loc.HasEntry("Demo/ToBattle"), "（前提）词条 `Demo/ToBattle` 在表里");
+                CheckText(TextOf(FindChild(pw.transform, "Battle Text")), Loc.T("Demo/ToBattle"),
+                          "开战钮文案 = 原版那颗 TMP 的 `mTerm`（`Demo/ToBattle`；原来这里是写死的 `Battle!`）");
+                CheckTrue(Loc.HasEntry("Demo/DeckSelectionDemo/SelectDeck"), "（前提）词条 `Demo/DeckSelectionDemo/SelectDeck` 在表里");
+                CheckText(TextOf(FindChild(pw.transform, "tooltip")), Loc.T("Demo/DeckSelectionDemo/SelectDeck"),
+                          "`tooltip` 文案 = 原版 `mTerm`（`Demo/DeckSelectionDemo/SelectDeck`）");
+                CheckTrue(Loc.HasEntry("Event_Description/Generic/GameMode"), "（前提）词条 `Event_Description/Generic/GameMode` 在表里");
+                CheckText(TextOf(FindChild(pw.transform, "Toggle Label")), Loc.T("Event_Description/Generic/GameMode"),
+                          "`Toggle Label` 文案 = 原版 `mTerm`（`Event_Description/Generic/GameMode`）");
                 CheckTrue(pw.DeckRows.Count > 0, $"卡组列表画了 {pw.DeckRows.Count} 格（原版是**两列**网格）");
                 CheckTrue(pw.ArmyCells.Count > 0, $"阵营列画了 {pw.ArmyCells.Count} 格（13 个阵营，可纵向滚）");
 
@@ -5044,7 +5328,10 @@ public static class MainMenuScene
         // 正本 `资料/阶段二_战斗入口_原版规格.md` §二 B/C；几何 2026-09-24 又从根实读复核过一遍。
         Section("遭遇战 `SkirmishModeEventWindow`（正本 §二 B）");
         {
-            var sc = menu.Find("Base Game Mode Container 1x1 - Skirmish");
+            // 🔴 **2026-10-11 就地订正（铁律 5）**：这里的节点名原来写 `1x1` —— 本会话按原版 prefab 名
+            //   （`Skirmish Ranked Game Mode Container 1x2`）把尺寸档改成 **1×2** 时**改名漏了这一处**，
+            //   于是 `menu.Find` 返回 null ⇒ 下面「有点击区 / 点得开窗」**一串假红**。
+            var sc = menu.Find("Base Game Mode Container 1x2 - Skirmish");
             var sh = FindChild(sc, "Hit");
             var swb = sh != null ? sh.GetComponent<WindowButton>() : null;
             CheckTrue(swb != null, "遭遇战卡有点击区");
@@ -5688,7 +5975,8 @@ public static class MainMenuScene
 
         Section("排位 `RankedEventWindowV2`（正本 §二 C · **与遭遇战逐格相同的那一半靠继承**）");
         {
-            var rc = menu.Find("Base Game Mode Container 1x1 - Ranked");
+            // 🔴 同上：`1x1` → `1x2`（改名漏改，见 `:5331` 那段）
+            var rc = menu.Find("Base Game Mode Container 1x2 - Ranked");
             var rh = FindChild(rc, "Hit");
             var rwb = rh != null ? rh.GetComponent<WindowButton>() : null;
             CheckTrue(rwb != null, "排位卡有点击区");
@@ -5912,7 +6200,8 @@ public static class MainMenuScene
         // 🔴 断的全是「原版参数」，不是我们自己的常量（§10·3 第 3 层）。
         Section("排行榜 ①：入口 —— 排位窗那颗 `LeaderboardButton` 按 `playMode` 二选一（**复刻，不是我们挑的**）");
         {
-            var rc = menu.Find("Base Game Mode Container 1x1 - Ranked");
+            // 🔴 同上：`1x1` → `1x2`
+            var rc = menu.Find("Base Game Mode Container 1x2 - Ranked");
             var rh = rc != null ? FindChild(rc, "Hit") : null;
             var rwb = rh != null ? rh.GetComponent<WindowButton>() : null;
             CheckTrue(rwb != null, "排位卡还点得开（上一节刚把它关掉）");
@@ -7118,7 +7407,8 @@ public static class MainMenuScene
 
         Section("段位信息块 `Ranked Division Info/Content`（**实例 ③** —— `RankedEventWindowV2` 下那个）");
         {
-            var rc = menu.Find("Base Game Mode Container 1x1 - Ranked");
+            // 🔴 同上：`1x1` → `1x2`（本会话改名时漏改的最后一处）
+            var rc = menu.Find("Base Game Mode Container 1x2 - Ranked");
             var rh = rc != null ? FindChild(rc, "Hit") : null;
             var rwb = rh != null ? rh.GetComponent<WindowButton>() : null;
             if (rwb != null) rwb.Click();
@@ -7223,6 +7513,12 @@ public static class MainMenuScene
                         float top = 70.94f + 120f + 180f * i, bot = top + 180f;
                         var br = FindChild(bar2, "SocialTabButton_" + i);
                         CheckAtWorld(br, 167.17f, 332.17f, top, bot, $"左栏第 {i + 1} 键（165×180）");
+// 🔴 **2026-10-11（`A1498` 同根因补断言）**：上面那条 `CheckAtWorld` **含 inactive 也找得到** ⇒
+//   抓不到「末项被当母版关掉」这个缺陷。原版两扇窗（本窗 + 收藏窗）的 `tabButtonPrefab` 是 **null**
+//   ⇒ 两颗键**都该在画面上**。🧨 鉴别式：把 `Shell/SocialWindow.cs` 的 `lastIsMaster: false` 删掉 ⇒ 本行红。
+                        CheckTrue(br != null && br.gameObject.activeSelf,
+                                  $"左栏第 {i + 1} 键**真在画面上**（原版 `tabButtonPrefab = null` ⇒ 末项不是母版，⛔ 别被关掉）"
+                                + "（`CheckAtWorld` 含 inactive 也找得到，所以必须有这一条）");
                         CheckTrue(i < socialTabTerms.Length && Loc.HasEntry(socialTabTerms[i]),
                                   $"（前提）左栏第 {i + 1} 键的词条 `{socialTabTerms[i]}` 在表里"
                                 + "（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
@@ -10597,8 +10893,8 @@ public static class MainMenuScene
                   "`Panel Shadow` 染成半透明纯黑（`m_Color (0,0,0,0.4667)`）");
         var sep = FindChild(nav, "Separators Left");
         CheckTint(sep, new Color(0.64706f, 0.38039f, 0.26275f, 1f), 0.002f, "分隔线染成古铜色");
-        CheckTint(FindChild(prof, "Planer Name Background"), new Color(0.39623f, 0.19251f, 0.30954f, 1f), 0.002f,
-                  "名字条底染成暗紫红");
+        // 🔴 **2026-10-11（`A1521②`）**：这一条的染色断言**已随那一件一起删**（原版根本不画那块板）；
+        //   「不建」这条改在**上面那一处**断（带 `CheckTrue(FindChild(…) == null)`），⛔ 别在这里再断一次。
         var shadowInner = FindChild(nav, "Background");
         var navQuad = shadowInner != null ? shadowInner.GetComponentInChildren<ImageQuad>() : null;
         CheckTrue(navQuad != null && !IsAllWhiteVerts(navQuad),
@@ -12857,6 +13153,7 @@ public static class MainMenuScene
 
         Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
         EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene(), ScenePath);
+        SceneStubAudit.Run(ScenePath);   // 🆕 A1506：存盘后自证「不许有 !u!115 存根」（干净时零输出）
         Debug.Log(P + $"  场景 {ScenePath}");
 
         AddToBuildSettings(ScenePath);

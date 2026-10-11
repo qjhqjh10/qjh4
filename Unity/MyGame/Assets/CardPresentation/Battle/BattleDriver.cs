@@ -8262,6 +8262,22 @@ namespace CardPresentation
         void SetHint(string s)
         {
             if (_hintLabel == null) return;
+            // 🔴 **2026-10-19（A1502①）：换牌阶段这一行整行不画。**
+            //   这一行钉在**屏幕正中**（`_hintLabel` 建在 `(0.5, 0.507)`，见 `BuildHud`），
+            //   而**正中一直是两张督军卡**（我 / 敌各一张 —— 原版实拍 `资料/原版参照图/用户实拍_1017/`
+            //   `战斗截图参考.png` 里那两张也在正中）⇒ 实测 `_tmp_view/ui_1019/17_battle.png`：
+            //   这一行被督军卡**从中间盖掉一截**（左半「本局用你编的…」看得见，右半没了）。
+            //   ⚠️ **换牌阶段这一格本来就有原版自己的一句话** —— `MulliganText`（中心 `(967, 106.5)`，
+            //     我们照原版摆在屏幕顶端、写的是词条 `Battle/Mulligan/Instructions`）
+            //     ⇒ 这一格让给它最干净，也与原版「这一阶段只有顶端那一行」一致。
+            //   ⚠️ **只是「不画」，不是「丢了」**：`Ctx.MulliganOpen` 一落就恢复
+            //     （单机在 `OnMulliganDone` 末尾那次 `SetHint`；联机在 `:294` 那次）。
+            //   ⚠️ 同族先例：`_waitBanner` 也是按 `!InMulligan` 关的（`UpdateHud` 里那一句）。
+            //   ⚠️ **本件整个是「我们加的」**（本方法 doc 上一段就写着「原版没有这一行」）⇒ 位置也是我们挑的。
+            //      ⛔ **本笔没做的那一半**：换牌结束之后这一行**仍然**被督军卡盖着 —— 那是「这一行该摆哪儿」
+            //      的位置问题，而原版**没有这一件**、没有判据可照 ⇒ **不自己挑一个新位置**（铁律 3），
+            //      已如实记进 `资料/普查产出_第十七会话/C_换牌阶段版面.md`。
+            if (InMulligan) { _hintLabel.SetText(""); return; }
             _hintLabel.SetText(string.IsNullOrEmpty(s) ? _deckNotice : s);
         }
 
@@ -12335,6 +12351,13 @@ namespace CardPresentation
         // ---- 玩家信息块那两层：头衔底条 + 称号文字（2026-09-24）----
         // 显隐**同一个判据**（原版 `PlayerProfileUIController.SetProfileTitle`），见 `SetTitle`。
         ImageQuad _titleBgMe, _titleBgFoe;
+
+        // ---- 名牌上的**头像立绘**那一层（原版 `Avatar Item Small/Image Container/Image`）
+        //      —— 2026-10-19（A1502②）补。判据与几何换算全文 → 下面 `HudAvatarW` 那一段。
+        ImageQuad _hudAvatarMe, _hudAvatarFoe;
+        /// <summary>**已经画上去的是哪一张**（只在它变了的时候才换贴图 —— 每帧比几个 int，别造事件机制，
+        /// 手法与 `Shell/TopBar.RefreshTopAvatarIfChanged` 同一条）。</summary>
+        int _hudAvatarMeIdx = int.MinValue, _hudAvatarFoeIdx = int.MinValue, _hudAvatarSeed = int.MinValue;
         Label _titleMe, _titleFoe;
         string _titleMeText = "", _titleFoeText = "";
 
@@ -12363,13 +12386,123 @@ namespace CardPresentation
         /// </summary>
         ImageQuad HudAbs(Transform root, string artName, float x, float y, float w, float h,
                          string name, float z = HudImageZ)
+            => HudAbsTex(root, CardArt.Ui(artName), x, y, w, h, name, z);
+
+        /// <summary>同上，但**直接吃一张贴图**（不走 `CardArt.Ui`）—— 2026-10-19（A1502②）加，
+        /// 给**装饰品头像**那一层用（那批图在 `Art/avatars/`，不在 `Art/ui/`）。
+        /// 换算与 `HudAbs` 是**同一个式子**（`x`/`w` 只用来算中心、`h` 定画面高）——⛔ 别各写一份。</summary>
+        ImageQuad HudAbsTex(Transform root, Texture2D tex, float x, float y, float w, float h,
+                            string name, float z = HudImageZ)
         {
             float cx = (x + w * 0.5f) / 1920f;
             float cy = 1f - (y + h * 0.5f) / 1080f;
-            var q = HudImageTex(root, CardArt.Ui(artName), cx, cy, new Vector2(0.5f, 0.5f), h / 108f, name, z);
+            var q = HudImageTex(root, tex, cx, cy, new Vector2(0.5f, 0.5f), h / 108f, name, z);
             if (q != null) _hudExtras.Add(q);
             return q;
         }
+
+        // ============================================================ 头像立绘（A1502②）
+        //
+        // **为什么有它**：原版 `Avatar Item Small/Image Container` 底下有**两件** ——
+        //   `Border`（图 `Player Profile Border`）与 `Image`（**头像立绘那一层**）。
+        //   我们原来只建了 `Border`，而那张图的**中心是不透明黑** ⇒ 画面上就是那两块「空黑框」。
+        //   当初不建 `Image` 的判据是「原版场景态里它 `m_Enabled = 0`、`m_Sprite = null`」——
+        //   **那条只说了出厂态，没说运行态**：运行期会被填起来并**打开**。逐条判据（`d:/2/tools/decomp_full/`）：
+        //   · `BattleHud__SetProfileInfo.c` —— `matchData+0x40` → `PlayerAvatarDataManager.GetItemWithId`
+        //     → **`PlayerProfileUIController.SetProfileAvatar`**（`+0x48` 是**头像边框**，另一件）。
+        //   · `PlayerProfileUIController__SetProfileAvatar.c` —— 传进来是 null 时**回落**
+        //     `PlayerAvatarDataManager.get_DefaultAvatarItem()` ⇒ 原版这一层**永远有图**。
+        //   · `AvatarDisplay__ChangeAvatar.c` —— `avatarImage.sprite = CosmeticItem.get_Image(item)`，
+        //     紧跟着 `Behaviour.set_enabled(avatarImage, sprite != null)` ⇒ **有图就开**（`m_Enabled=0` 只是出厂态）。
+        //   · **单机对局的对手（bot）也有**：`MatchData__SetBotDeckRandomCosmetics.c` 给 bot 配
+        //     `+0x40` 头像（`AIBotsConfig.GetRandomAvatar`）/`+0x50` 称号/`+0x58` 卡背。
+        //   · 实拍旁证：`资料/原版参照图/用户实拍_1017/战斗截图参考.png` 两侧都画着头像。
+        //   ⇒ 这是**欠做**，不是「原版没有」。
+        //
+        // ---- 几何：全部由原版序列化字段推导（`bundle_scenes_scenes_battlearena1` 直读）----
+        //   · `Image Container`（我 `RT_2680` / 敌 `RT_3253`）：stretch、`sizeDelta (0, −37.37)`
+        //     ⇒ 框 = 父 155.64×136.49 减掉那 37.37 ⇒ **155.64×99.125**。
+        //   · `Image`（我 `RT_2835`/MB 4621 · 敌 `RT_3488`/MB 5067）：`anchor (0,0)-(1,1)`、`sizeDelta (0,0)`
+        //     ⇒ 与容器同框；`m_AnchoredPosition (0, 2.70)` · **`m_LocalScale = 2.0`** · `m_PreserveAspect = 1`。
+        //     贴图 512×512（`Art/avatars/*`）⇒ 框 155.64×99.125 先 ×2 = 311.28×198.25，再等比内接 ⇒
+        //     **实绘 198.25×198.25**（`198.25 = 容器高 99.125 × 2`）。
+        //   · 中心：`Image` 的中心比 `Border` 的中心**右 1.0 / 上 14.61**（我）·**右 0 / 上 14.91**（敌）
+        //     （容器局部单位，来自上面两个 `m_AnchoredPosition`）；再乘父链那一级的 **`0.8`**
+        //     （`PlayerName`/`EnemyName` 的 `m_LocalScale` —— 与 A1254 那条同一个 0.8）。
+        //   ⚠️ **传进去的 `w`/`h` 是「内接之后的实绘尺寸」（198.25）**，不是容器那 311.28×198.25、
+        //      也**不是** `Border` 那两个常量 ×2 —— `ImageQuad.Create` 按**贴图原比例**定宽（不做内接），
+        //      所以传 `h` 就等于「画面上那个 quad 的高」，直接传内接值即可。
+        //      （`Border` 的那两个常量 110.909/123.906 **本来就是内接之后的实绘值**，可直接照抄。）
+        //   ⚠️🔴 **本件的 `x/y`/尺寸与 `Border` 那一对是同一个口径**（都出自 0827/A531 那一套解算）。
+        //      而 `LeftArea` 整条父链上那个 **0.8 我们还没乘**（A1254 记的就是这条，名牌那边差 25%）
+        //      ⇒ 将来修 A1254 时，**本件要跟着一起乘 0.8**（⛔ 别只改名牌那一对，两边一起改才对）。
+        //
+        // ---- 画的是**谁**的头像 ----
+        //   · 我方 = `ProfileData.AvatarArt`（玩家在档案窗选的那张；原版对应 `matchData+0x40`）。
+        //   · 对手 = **按本局种子确定性地从同一份清单里挑一张**。
+        //     ⚠️ **这是我们挑的**：原版那一支是 `AIBotsConfig.GetRandomAvatar`，而它吃的**允许清单是 LiveOps 配置**
+        //     （`ConfigManager.GetConfig<AIBotsConfig>()`，**远端**）—— 本地没有那份清单（**查不到**，不编）。
+        //     ⇒ 「从本地 469 张里挑」是我们的近似，⛔ 别当成原版行为。
+        //     ⚠️ **绝不动 `Ctx.Rng`** —— 那是引擎的随机流，动它同一种子就复现不了（CLAUDE.md §三「对局必须可复现」）。
+        /// <summary>立绘 quad 的实绘尺寸（原版 PA 内接后的值）：容器高 `99.125` × `Image` 的 `m_LocalScale` 2.0。</summary>
+        const float HudAvatarSize = 99.1251923339398f * 2f;
+        const float HudAvatarW = HudAvatarSize;
+        const float HudAvatarH = HudAvatarSize;
+        /// <summary>头像那一层的 z —— 比它自己那面 `Border`（`HudImageZ - 0.05f`）**更靠前**。
+        /// 🔴 反了就是**一块黑**：`Player Profile Border` 那张图的**中心是不透明黑**
+        /// （本仓四处独立记过：`Shell/TopBar.cs` · `Shell/MainMenuRuntime.cs` · `Shell/ProfileTab.cs` · `Shell/RankedTab.cs`），
+        /// 立绘必须画在它**之上**；原版同级序也是这个（`Image Container.m_Children` = `[Border, Image]`）。</summary>
+        const float HudAvatarZ = HudImageZ - 0.055f;
+
+        /// <summary>头像立绘那批图（`Resources/Art/avatars/`）。取不到 ⇒ **出声**（不静默留一块黑）。</summary>
+        Texture2D AvatarTex(string art, string who)
+        {
+            if (string.IsNullOrEmpty(art)) return null;
+            var t = CardArt.Cosmetics(art);
+            if (t == null)
+                Debug.LogWarning($"[Battle] {who}头像立绘取不到：`{art}`（`Resources/Art/avatars/`）—— 这一层不画");
+            return t;
+        }
+
+        /// <summary>对手（bot）头像在本局清单里的下标 —— 只用本局种子做一次位混合，**不碰 `Ctx.Rng`**
+        /// （理由见 `HudAvatarW` 那一段）。</summary>
+        int BotAvatarIndex()
+        {
+            var list = ProfileData.Avatars;
+            if (list == null || list.Count == 0) return 0;
+            uint h = unchecked((uint)_seed) * 2654435761u;
+            h ^= h >> 15; h *= 2246822519u; h ^= h >> 13;
+            return (int)(h % (uint)list.Count);
+        }
+
+        /// <summary>换贴图（**只在下标/种子变了的时候**才动 —— 手法同 `Shell/TopBar.RefreshTopAvatarIfChanged`）。
+        /// 玩家在档案窗改头像、或按 R 重开一局换了种子，都会在这里跟上。</summary>
+        void RefreshHudAvatars()
+        {
+            if (_hudAvatarMe == null && _hudAvatarFoe == null) return;
+            int meIdx = ProfileData.AvatarIndex;
+            if (_hudAvatarMe != null && meIdx != _hudAvatarMeIdx)
+            {
+                _hudAvatarMeIdx = meIdx;
+                var t = AvatarTex(ProfileData.AvatarArt, "我方");
+                if (t != null) _hudAvatarMe.SetTexture(t);
+            }
+            if (_hudAvatarFoe != null)
+            {
+                int foeIdx = BotAvatarIndex();
+                if (_seed != _hudAvatarSeed || foeIdx != _hudAvatarFoeIdx)
+                {
+                    _hudAvatarSeed = _seed; _hudAvatarFoeIdx = foeIdx;
+                    var list = ProfileData.Avatars;
+                    var t = (list != null && list.Count > 0) ? AvatarTex(list[foeIdx].Art, "对手") : null;
+                    if (t != null) _hudAvatarFoe.SetTexture(t);
+                }
+            }
+        }
+
+        /// <summary>自检用：这一局画上去的两张头像图名（取不到时是 null）。</summary>
+        public string HudAvatarMeArt { get { return _hudAvatarMe != null && _hudAvatarMe.Texture != null ? _hudAvatarMe.Texture.name : null; } }
+        public string HudAvatarFoeArt { get { return _hudAvatarFoe != null && _hudAvatarFoe.Texture != null ? _hudAvatarFoe.Texture.name : null; } }
 
         void BuildHudExtras(Transform root)
         {
@@ -12486,6 +12619,24 @@ namespace CardPresentation
             HudAbs(root, "Player_Profile_Border", 2.9963433449734396f, 12.126946943793968f, 110.90930610790468f, 123.90649041742478f,
                    "AvatarItemSmall_Foe", HudImageZ - 0.05f);
 
+            // ---- 头像立绘 `Avatar Item Small/Image Container/Image`（2026-10-19 · A1502② 补）----
+            // 判据 / 几何换算 / 「画谁的头像」全文 → 上面 `HudAvatarW` 那一段。
+            // ⚠️ 两个 `x/y` 是**原版算出来的框左上角**（与上面那两行同一个坐标口径），
+            //    `HudAbsTex` 只拿 `x + w/2` 当中心 ⇒ 别拿它们当「渲染出来的左上角」用。
+            var foeAvatars = ProfileData.Avatars;
+            string foeArt = (foeAvatars != null && foeAvatars.Count > 0) ? foeAvatars[BotAvatarIndex()].Art : null;
+            // `x/y` = 「中心 − 半宽/半高」，中心由 `Border` 的中心 + 上面那条偏移算出来（见 `HudAvatarSize` 那一段）
+            _hudAvatarMe = HudAbsTex(root, AvatarTex(ProfileData.AvatarArt, "我方"),
+                                     -41.17400062251361f, 898.7175677448397f, HudAvatarW, HudAvatarH,
+                                     "AvatarImage_Me", HudAvatarZ);
+            _hudAvatarFoe = HudAbsTex(root, AvatarTex(foeArt, "对手"),
+                                      -40.67419593501402f, -36.97501556814864f, HudAvatarW, HudAvatarH,
+                                      "AvatarImage_Foe", HudAvatarZ);
+            // 记下「已经画的是哪一张」，免得 `UpdateHud` 下一帧又白换一次
+            _hudAvatarMeIdx = ProfileData.AvatarIndex;
+            _hudAvatarFoeIdx = BotAvatarIndex();
+            _hudAvatarSeed = _seed;
+
             // ---- 三个边角按钮（图都在；`m_OnClick` 原版也是空的）----
             // `ChatButton`（玩家名牌下）：**64.443×61.846 @x[50.9202,115.3632] y[880.154,942.0]**；
             //   图 `40k_UI_bt_voicelines` 128×128 → 实绘 0.50×（`子代理读报_back左区_0827.md:59`）。
@@ -12515,7 +12666,17 @@ namespace CardPresentation
             //   ⚠️ 这里的 `64.443f` / `61.846f` 与那份 JSON 的 double **逐位对上**（float32 恰好等值），
             //      但与 A423 那颗 `CenterCameraButton` 的 `64.4429931640625 / 61.84600830078125`
             //      **不是同一串**（同族两条断言各钉各的，⛔ 别把两串并成一个常量）。
-            _chatBtn = HudAbs(root, "40k_UI_bt_voicelines", 50.9201953125f, 880.15399932861328f, 64.443f, 61.846f, "ChatButton");
+            // 🔴 **2026-10-19（A1502②）**：z 从默认的 `HudImageZ`（0.3）改到 **`HudImageZ - 0.065f`（0.235）**。
+            //   理由：上面新补的那层**头像立绘**（`HudAvatarZ = 0.245`）与这颗钮的**框是重叠的**
+            //   （立绘框 x[−41.2,157.1] y[898.7,1097.0] · 这颗钮 x[50.9,115.4] y[880.2,942.0]，
+            //    而 512² 贴图那一圈透明边距里**头部正好落在重叠区**）⇒ 不改就是把这颗钮盖掉一截。
+            //   z 该往哪边挪的**判据 = 原版同级兄弟序**（`PlayerInfo.m_Children` 实读，
+            //   `资料/原版参照图/Unity参照管线_0825/data/runtime_ui_dump_drive_0912.tsv:118,130,133` ——
+            //   深度优先遍历序 = 兄弟序）= `[PlayerName(头像挂在它里面), Milestones, ChatButton]`
+            //   ⇒ **UGUI 后出现的兄弟画在上面** ⇒ 头像**和**骷髅都在这颗钮底下。
+            //   （`Milestones` 那张骷髅在 `HudImageZ - 0.05f` = 0.25，本来就比钮远，不用动。）
+            _chatBtn = HudAbs(root, "40k_UI_bt_voicelines", 50.9201953125f, 880.15399932861328f, 64.443f, 61.846f,
+                              "ChatButton", HudImageZ - 0.065f);
             // `CenterCameraButton` **64.443×61.846** @x[17.9293,82.3723] y[568.174,630.020]；图 237×237 → 0.27×（`:94`）
             // 🆕 **2026-10-12（A423）**：把**行为**接上（原来只摆了图：不可点、也一直亮着）。
             //   原版那条链的三处调用点、显隐条件、点击效果与常量出处，全在 `ToggleCameraResetButton` 的判据表里。
@@ -13652,6 +13813,10 @@ namespace CardPresentation
             _myText.SetText(ProfileData.PlayerName + "   " + CardText.Faction(_myFaction));
             _enemyText.SetText((_net != null && !string.IsNullOrEmpty(NetMatchmaking.FoeName)
                                 ? NetMatchmaking.FoeName + "   " : "") + CardText.Faction(_foeFaction));
+            // 🆕 **2026-10-19（A1502②）**：名牌上那层**头像立绘**跟着「选中的头像 / 本局种子」走
+            //   （quad 是 `BuildHudExtras` 建的那两个，这里只换贴图 —— 与顶栏 `RefreshTopAvatarIfChanged` 同一手法；
+            //    换没换过拿两三个 int 比，别造事件机制）。
+            RefreshHudAvatars();
             // 记「降到过的最低生命」—— 两边各记一份（我方那份只给对局历史用，见字段注释）
             if (foe.Warlord.Health < _foeWarlordMinHp) _foeWarlordMinHp = foe.Warlord.Health;
             if (me.Warlord.Health < _myWarlordMinHp) _myWarlordMinHp = me.Warlord.Health;

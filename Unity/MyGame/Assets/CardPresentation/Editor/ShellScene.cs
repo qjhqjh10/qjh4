@@ -7033,6 +7033,7 @@ public static class ShellScene
         Build(out var root);
         Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
         EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene(), ScenePath);
+        SceneStubAudit.Run(ScenePath);   // 🆕 A1506：存盘后自证「不许有 !u!115 存根」（干净时零输出）
         AddToBuildSettings(ScenePath);
         AddToBuildSettings("Assets/CardPresentation/Scenes/MainMenu.unity");
 
@@ -7076,6 +7077,7 @@ public static class ShellScene
 
         Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
         EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene(), ScenePath);
+        SceneStubAudit.Run(ScenePath);   // 🆕 A1506：存盘后自证「不许有 !u!115 存根」（干净时零输出）
         Debug.Log(P + $"  场景 {ScenePath}");
         // ⚠️ 同上：这一张拍在 `Build` 之后、开场刚起 —— 画面上确实什么都没有
         Shoot("00_外壳.png", allowBlank: true);

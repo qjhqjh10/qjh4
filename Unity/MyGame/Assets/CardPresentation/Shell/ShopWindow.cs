@@ -129,7 +129,9 @@ namespace CardPresentation
 
         public void Build()
         {
-            var res = BuildShell(transform, Buttons, "ShopTabButton_", "Tabs");
+            // 🔴 **2026-10-11（`A1498`）显式表态**：原版 `Shop Menu Variant` 的
+            //   `tabButtons.tabButtonPrefab` = MB `764348890710493308` 的 `m_PathID`（**非 0**）⇒ **末项【是】母版**。
+            var res = BuildShell(transform, Buttons, "ShopTabButton_", "Tabs", lastIsMaster: true);
             tabButtons = res.buttons;
             _btnRoot = res.roots;
             _btnHighlight = res.highlight;

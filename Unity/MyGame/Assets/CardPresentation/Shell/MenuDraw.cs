@@ -2917,6 +2917,26 @@ namespace CardPresentation
 
         /// <summary>画**一格卡组**（`r` = 已按缩放算好的显示矩形）。
         /// <paramref name="selected"/> = 画金框（原版 `Highlight Rounded Square`，色 (1,.773,0)）。
+        /// 🔴🔴 **2026-10-11（第十七会话 · `A1525⑥`）：这一支的 `selected` = 「调用点那一份 prefab 变体允不允许高亮」，
+        /// ⛔ **不是**「这一格是不是当前卡组」** —— 判据（机器码级，两关都过）：
+        ///   ① **`CollectionItem&lt;T&gt;.Config` 是唯一的调用点**，而它是 **`if (useSelectedHighlight) SelectedHighlight(isSelected)`**
+        ///      （`d:/2/tools/il2cpp_out/script.json` 的 `CollectionItem&lt;object&gt;$$Config` @ RVA `0x15F1B10`，
+        ///       `cmp byte ptr [rbx+0x30],0` → `call [rax+0x228]`；`+0x30` = 基类那个 `protected bool useSelectedHighlight`）。
+        ///   ② **两个变体的这个字段不一样**（`bundle_menus_assets_all/MonoBehaviour/` 现读）：
+        ///      `Collection Deck`（`m_GameObject` = `-2024334647938937812`，**收藏窗 `Select Deck Tab` 用的那一份**）
+        ///      = **`useSelectedHighlight 0`**；`Collection Deck With Highlight`（`m_GameObject` = `-7515975617742763446`，
+        ///      **选卡组弹窗那一份**）= **`1`**。
+        ///      ⇒ **收藏窗的卡组格永远不会高亮**（`SelectedHighlight` 根本不会被调）；两张用户实拍
+        ///      （`收藏—卡组的参考图.png` 里 4 格、`更换卡组的参考.png` 里 12 格）**没有一格是金的**，与该判据一致。
+        ///   ⚠️ 与此同时：`CollectionDeck.SelectedHighlight` **自己**还多一道闸 `if (!sortMode)`
+        ///      （`CollectionDeck__SelectedHighlight.c`）—— 就算 `useSelectedHighlight=1`，排序列模式下也不画。
+        /// 🔴 **还开着的那一半（⛔ 别当成已修）**：原版 `Highlight` 是 `Deck` 的 **child[0]**（**最底**一层，
+        ///   出厂 `INACT`），我们却排在 `qOverlay`（**最顶**）⇒ 选中那一格的金环糊在卡面上（原版只从卡的
+        ///   四边**露出光圈**）。要修得给本函数加**第 4 档队列**（`q` 之下、窗面板之上）并由
+        ///   `Shell/DeckSelectionPopup.cs:731` 那个调用点传进来 —— **不在本轮两个文件的改动范围内**，
+        ///   账记在 `资料/普查产出_第十七会话/U_收藏卡组格.md`。
+        /// ⚠️ 同族的另一条：`Highlight Rounded Square` 的矩形原版是 **`-19.8,-10.9 → 270.0,416.3`**
+        ///   （`289.75×427.27`），我们的 `DcHiOff = -1.4`（x/y 同值）**两轴都不对** —— 同上，一并留给那一笔。
         /// <para>🆕 **2026-09-26：补上原版 `&lt;Deck>` 下本来就有、我们此前漏画的两层** ——
         /// **难度角标**（`showDifficulty` 为真才画，对应原版 `DeckCollectionDisplay.displayDifficultyLabel`）
         /// 与**模式图标**（`gameMode` 给了才画；图取不到就整层不建 = 原版那句 `enabled = (icon != null)`）。
@@ -3033,13 +3053,25 @@ namespace CardPresentation
                 if (clipR.HasValue) ClipText(nl, clipR, Vector2.zero);   // 「整块在框外」也由 `ClipText` 兜底（切到 0 宽）
             }
 
+            // 🔴🔴 **2026-10-11（第十七会话 · `A1525⑤`）：下面两枚徽章原来跟 `Frame` 共用队列 `q` ⇒ 被卡框盖住。**
+            //   判据①（原版 **prefab 子件序**，`工具/menu_dump.py bundle_menus_assets_all -2024334647938937812 --depth 4`
+            //     `Deck` 下**底→顶**）= `Highlight` → `Deck Image(mask)`(→`Deck Image`) → `Frame` → `Deck Name`
+            //     → **`Faction Icon`** → **`Game Mode Icon`** → `DificultyLevel` ⇒ 两枚徽章**排在 `Frame` 与
+            //     `Deck Name` 之后** = 画在它们**之上**。
+            //   判据②（**两张用户实拍**，`Desktop/warpforge参考图/收藏—卡组的参考图.png` 与 `更换卡组的参考.png`）：
+            //     每一格底部**都看得见**左下圆徽 + 右下模式徽（压在金框与名牌之上）。
+            //   🔴 **为什么原样会「建了但看不见」**：`ImageQuad` **全是透明队列**，同一队列内按「到相机的
+            //     3D 距离」排序（CLAUDE.md §三）⇒ 大而居中的 `Frame` 盖住了靠近格子边角的小徽章。
+            //   ⇒ **抬到 `qOverlay`**（这条队列梯子上**唯一**高于 `qText` 的一档 = 「名字之上」，与原版序一致）。
+            //   ⚠️ `qOverlay` 同时装 `DificultyLevel`（原版它排在两枚徽章**之后**）—— 两者区域**不重叠**
+            //     （难度在右上 `159.19,15.74`，徽章在底部 `273.7..359.4`）⇒ 同档无可见差异。
             if (!string.IsNullOrEmpty(info.Faction))
                 // ⚠️ 走 `CardArt.MenuUi`（三级兜底 `ui_menu/ → ui_deck/ → ui/`）—— 与收藏窗那边原来那条路一致
                 // 🔴 位置 = **左下**（作者系 `-10.5, 273.7`），**别再改回右上**（2026-09-26 更正，见 `DcFacX` 注释）
                 Rect(cell, CardArt.MenuUi(DeckRuntime.FactionIcon(info.Faction)),
                      new PxRect(r.x1 + DcFacX * K, r.y1 + DcFacY * K,
                                 r.x1 + (DcFacX + DcFacW) * K, r.y1 + (DcFacY + DcFacH) * K),
-                     "Faction", q, null, true, clipR);
+                     "Faction", qOverlay, null, true, clipR);
 
             // 🆕 **模式图标**（作者系 `170.5, 273.68`，右下）—— 原版 `enabled = (icon != null)`：
             //    图取不到就**整层不建**（`Rect` 遇 null 直接 return null，天然满足）
@@ -3047,7 +3079,7 @@ namespace CardPresentation
                 Rect(cell, CardArt.MenuUi(GameModeIconFile(gameMode.Value)),
                      new PxRect(r.x1 + DcModeX * K, r.y1 + DcModeY * K,
                                 r.x1 + (DcModeX + DcModeW) * K, r.y1 + (DcModeY + DcModeH) * K),
-                     "Game Mode Icon", q, null, true, clipR);
+                     "Game Mode Icon", qOverlay, null, true, clipR);
 
             // 🆕 **难度角标**（作者系 `159.19, 15.74`，右上）—— 四档三张图（`0/5 一条杠 · 10 两条 · 15 三条`）。
             //    ⚠️ 原版节点名叫 `DificultyLevel`（**拼错了**，照抄别改，断言要按这个名字找）

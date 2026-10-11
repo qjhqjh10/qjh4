@@ -152,6 +152,7 @@ public static class BattleScene
         if (driver != null) driver.mulliganEnabled = true;
         Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
         EditorSceneManager.SaveScene(scene, ScenePath);
+        SceneStubAudit.Run(ScenePath);   // 🆕 A1506：存盘后自证「不许有 !u!115 存根」（干净时零输出）
         EnsureInBuildSettings(ScenePath);
         AssetDatabase.Refresh();
         Debug.Log(P + $"对战场景已存：{ScenePath} —— 打开按 Play 就能玩");
@@ -11834,9 +11835,13 @@ public static class BattleScene
                 drv.Begin("Ultramarines", "Goff", 20260916);
                 Step(0.3f);
 
-                Check(drv.HudExtraCount == 10, $"补摆的图 {drv.HudExtraCount} 件（应有 10：头衔底条×2 / 头像块×2 / 三个按钮 / 能量累积×2 / 加时标记）");
+                // 🔴 2026-10-19（A1502②）：**10 → 12** —— 新补的那两层头像立绘（`AvatarImage_Me` /
+                //    `AvatarImage_Foe`）走的是同一个 `HudAbsTex`（后者里那一句 `_hudExtras.Add`）
+                //    ⇒ 同样计进 `_hudExtras`。⛔ 这不是「放宽断言」，是跟着实现改计数；
+                //    下面第二节（16·b）会把这两件单独再钉一遍（真的画出来了 / 尺寸 / z / 图名）。
+                Check(drv.HudExtraCount == 12, $"补摆的图 {drv.HudExtraCount} 件（应有 12：头衔底条×2 / 头像块×2 / **头像立绘×2** / 三个按钮 / 能量累积×2 / 加时标记）");
                 // ⚠️ 这条是「不许静默失败」：图名字写错、资源没同步进来，都会在这里红
-                Check(drv.HudExtrasMissingArt() == 0, $"这 10 件的贴图**都取到了**（缺图 {drv.HudExtrasMissingArt()} 件）");
+                Check(drv.HudExtrasMissingArt() == 0, $"这 12 件的贴图**都取到了**（缺图 {drv.HudExtrasMissingArt()} 件）");
                 Debug.Log(P + "   补摆清单：\n" + drv.HudExtraReport());
 
                 // 位置：和资料里的绝对矩形**中心**比（每件都在 1.5 px 内）
@@ -12613,6 +12618,267 @@ public static class BattleScene
                             + "（`Battle/Tips/*` 本地无 value ⇒ 今天实际走的就是这一档）");
                     }
                 }
+            }
+        }
+
+        // ---- 16·b. 🆕 2026-10-19（A1502②）：**名牌上那层头像立绘**（`Avatar Item Small/Image Container/Image`）----
+        //  生产代码 = `Battle/BattleDriver.cs` 的 `HudAbsTex` / `AvatarTex` / `BotAvatarIndex` /
+        //  `RefreshHudAvatars` ＋ `BuildHudExtras` 里建 `AvatarImage_Me` / `AvatarImage_Foe` 那两句。
+        //
+        //  🔴 **为什么单开这一批**：本仓刚查实一条**恒绿断言** —— `Core/CardView.cs:1017` 的
+        //     `TextBgVisible` **只看 `activeSelf`**，而场景里 `m_IsActive` 恰好是 1
+        //     ⇒ 16k+ 条断言全绿、**那一层一个像素都没画**。⚠️ 同族陷阱：`FindChild` /
+        //     `GetComponentsInChildren(true)` **含 inactive** ⇒ 「找得到」推不出「画得出来」。
+        //     ⇒ 本节每一条「该显示」都**同时**断三样：`active`（含父链）+ **真有图** + **真有尺寸**。
+        //
+        //  🔴 判据（原版三条，已查实，⛔ 别重复查）：
+        //   · `PlayerProfileUIController__SetProfileAvatar.c` —— 传进来 null 会**回落**
+        //     `DefaultAvatarItem()`；紧随其后的 `AvatarDisplay__ChangeAvatar.c` 是
+        //     `set_enabled(avatarImage, sprite != null)` ⇒ 原版这一层**永远有图**
+        //     （我们当初不建它的那条判据「场景态 `m_Enabled = 0`、`m_Sprite = null`」**只说了出厂态**）；
+        //   · `MatchData__SetBotDeckRandomCosmetics.c` ⇒ **单机对局的 bot 也有**头像；
+        //   · `Player Profile Border` 那张图的**中心是不透明黑** ⇒ 立绘的 z 必须**更小**（= 更靠前），
+        //     否则画面上就是 A1502② 一开始看到的那两块「空黑框」。
+        Debug.Log(P + "--- A1502②：名牌上的头像立绘（两层）---");
+        {
+            var drv = Object.FindObjectOfType<BattleDriver>();
+            if (drv == null) Check(false, "找不到 BattleDriver");
+            else
+            {
+                // 读法：这两个 quad 挂在 `hudRoot` 的**直接子件**上（`HudAbsTex` → `HudImageTex`
+                // → `ImageQuad.Create(root, …)`）⇒ `Transform.Find`（不递归）正好够用。
+                ImageQuad Quad(string nm)
+                {
+                    var t = drv.hudRoot != null ? drv.hudRoot.Find(nm) : null;
+                    return t != null ? t.GetComponent<ImageQuad>() : null;
+                }
+                // 「这一层真的画出来了」—— **三样一起断**；返回 null = 没问题，否则是「为什么没画」。
+                string IsDrawn(string nm)
+                {
+                    var q = Quad(nm);
+                    if (q == null) return "节点或 `ImageQuad` 不在";
+                    if (!q.gameObject.activeSelf || !q.gameObject.activeInHierarchy) return "`active` 是关的";
+                    if (q.Texture == null) return "`Texture == null`（有壳没图 —— 正是那条恒绿断言的病）";
+                    if (!(q.WorldH > 0.5f) || !(q.WorldW > 0.5f)) return $"尺寸退化（{q.WorldW:F3}×{q.WorldH:F3}）";
+                    return null;
+                }
+                float QZ(string nm) { var q = Quad(nm); return q != null ? q.transform.localPosition.z : float.NaN; }
+                float QH(string nm) { var q = Quad(nm); return q != null ? q.WorldH : 0f; }
+
+                // 🔴 摆回基线：本节每一格**开始前都先回到这一态**（上一格的残留会漏到下一格）。
+                bool savedMullAv = drv.mulliganEnabled;
+                bool savedOffAv = drv.offensivePhaseEnabled;
+                int savedIdxAv = ProfileData.AvatarIndex;
+                drv.mulliganEnabled = true;
+                drv.offensivePhaseEnabled = false;
+                drv.Begin("Ultramarines", "Goff", 20260916);
+                drv.RefreshAll();
+
+                // ---- ① 两层都在，而且**真的画出来了**（三样一起断）----
+                //  🧨 改坏法：把那两句 `HudAbsTex` 整句删掉（= 回到「只有 Border」的旧写法）⇒ 两条红。
+                foreach (string nm in new[] { "AvatarImage_Me", "AvatarImage_Foe" })
+                {
+                    string bad = IsDrawn(nm);
+                    var q = Quad(nm);
+                    string desc = q == null ? "（节点不在）"
+                                : $"图「{(q.Texture != null ? q.Texture.name : "<无图>")}」· "
+                                + $"{q.WorldW:F3}×{q.WorldH:F3} 世界单位 · z {q.transform.localPosition.z:F3} · "
+                                + $"activeSelf={q.gameObject.activeSelf}/inHierarchy={q.gameObject.activeInHierarchy}";
+                    Check(bad == null,
+                          $"★ A1502② `{nm}` **真的画出来了**：{desc}"
+                        + (bad != null ? $" —— **{bad}**" : ""));
+                }
+
+                // ---- ② 尺寸 = 那一面 `Border` 的 **1.6 倍** ----
+                //  换算（原版直读）：容器高 99.125 × `Image.m_LocalScale 2.0` = 198.25（PA 内接后仍是
+                //  198.25×198.25）；而 `Border` 内接后实绘高 123.9064904… ⇒ 198.2503846…/123.9064904… = **1.6**。
+                //  🔴 这里比的是**比值**，⛔ 不是绝对值 —— 绝对值会跟着另一笔 `A1512`（`LeftArea`
+                //     整条父链那个还没乘的 `0.8`）一起变；比值对 `0.8` 免疫。
+                //  🧨 改坏法：把 `BuildHudExtras` 里那两句的 `HudAvatarW/H` 换成 `Border` 的那两个常量
+                //     （或把 `HudAvatarSize` 写死成 `99.125…`）⇒ 比值变 0.5/0.8 ⇒ 两条一起红。
+                foreach (var pr in new[] { new[] { "AvatarImage_Me", "AvatarItemSmall_Me" },
+                                           new[] { "AvatarImage_Foe", "AvatarItemSmall_Foe" } })
+                {
+                    float ah = QH(pr[0]), bh = QH(pr[1]);
+                    Check(bh > 1e-3f && Mathf.Abs(ah / bh - 1.6f) < 1e-3f,
+                          $"★ A1502② `{pr[0]}` 实绘高 = `{pr[1]}` 的 **1.6 倍**（原版 `m_LocalScale 2.0` ×"
+                        + $" 容器高 99.125 = 198.25，除以 `Border` 的 123.906 ⇒ 1.6）—— 实测 {ah:F4} / {bh:F4}"
+                        + $" = {(bh > 1e-3f ? ah / bh : 0f):F5}（比的是**比值**，对 `A1512` 那个 0.8 免疫）");
+                }
+
+                // ---- ③ 中心 = 框中心 + 偏移（我 右 0.8 / 上 11.690 px · 敌 右 0 / 上 11.930 px）----
+                //  出处：原版那几个 `m_AnchoredPosition`（我 (0, 2.70) / 敌 (0, 2.15) 那一对，见
+                //  `BattleDriver` 里 `HudAvatarH` 上面那段注释）算出来是**容器局部单位**，再乘父链那一级
+                //  0.8 ⇒ px 就是 14.6125×0.8 = 11.690（我）/ 14.9125×0.8 = 11.930（敌）；x 那一侧是 1.0×0.8 = 0.8 / 0。
+                //  🔴 **期望值按 `k` 缩放**（`k` = 那面框的实绘高 ÷ 原版框实绘高 `123.90649041742475px` 折成的
+                //     世界高）：`A1512`（`LeftArea` 没乘的 0.8）一修，本件那四个 px 常量**要跟着一起 ×0.8**
+                //     ⇒ 偏移与框尺寸**同步缩**，`k` 恰好把这个变化吸收掉 ⇒ `A1512` 前后这条都成立
+                //     （今天 `k == 1`，退化成上面那两个原版字面量）。⛔ 所以**不写死 px 绝对值**。
+                //  🧨 改坏法：把那两个 `x/y` 写成 `Border` 那两个（= 立绘与框完全重合）⇒ 偏移变 (0, 0) ⇒ 红。
+                const float SpecBorderHpx = 123.90649041742475f;
+                {
+                    float kMe = QH("AvatarItemSmall_Me") / (SpecBorderHpx / 108f);
+                    Vector2 pa = drv.HudExtraPosPx("AvatarImage_Me"), pb = drv.HudExtraPosPx("AvatarItemSmall_Me");
+                    float tolMe = 0.05f * kMe;
+                    Check(kMe > 0f
+                       && Mathf.Abs((pa.x - pb.x) - 0.8f * kMe) < tolMe
+                       && Mathf.Abs((pa.y - pb.y) + 11.6900153867151f * kMe) < tolMe,
+                          $"★ A1502② 我方立绘中心 = 框中心 **右 0.8 / 上 11.690 px**（× k={kMe:F4}）"
+                        + $" —— 实得 (Δx, Δy) = ({pa.x - pb.x:F4}, {pa.y - pb.y:F4})（坐标 y 从上 ⇒ 上移是负）"
+                        + $"；期望 ({(0.8f * kMe):F4}, {(-11.6900153867151f * kMe):F4})，容差 {tolMe:F4} px");
+
+                    float kFo = QH("AvatarItemSmall_Foe") / (SpecBorderHpx / 108f);
+                    Vector2 fa = drv.HudExtraPosPx("AvatarImage_Foe"), fb = drv.HudExtraPosPx("AvatarItemSmall_Foe");
+                    float tolFo = 0.05f * kFo;
+                    Check(kFo > 0f && Mathf.Abs(fa.x - fb.x) < tolFo
+                       && Mathf.Abs((fa.y - fb.y) + 11.9300153867152f * kFo) < tolFo,
+                          $"★ A1502② 敌方立绘中心 = 框中心 **右 0 / 上 11.930 px**（× k={kFo:F4}）"
+                        + $" —— 实得 (Δx, Δy) = ({fa.x - fb.x:F4}, {fa.y - fb.y:F4})"
+                        + $"；期望 (0, {(-11.9300153867152f * kFo):F4})，容差 {tolFo:F4} px");
+                }
+
+                // ---- ④ 灭自证：**一行同时钉住两件事** ----
+                //  语义（本文件 `HudImageTex` 那句「相机看 +Z，z 越大越远」）：**z 越小越靠前**。
+                //   · 立绘必须在它那面 `Border` **之前** —— 那张图中心是不透明黑，反了就是**一块黑**；
+                //   · `ChatButton` 必须在立绘**之前** —— 这一笔把它的 z 从默认 `HudImageZ`(0.3) 挪到 0.235
+                //     就是为了这个（判据 = 原版同级兄弟序 `[PlayerName(头像挂在里面), Milestones, ChatButton]`
+                //     ⇒ 后出现的兄弟画在上面）。
+                //  ⚠️ 简报里给的那条写成 `avatarZ < frameZ && avatarZ < chatZ`，**与实现/判据不符**
+                //     （实现是 `chatZ(0.235) < avatarZ(0.245) < frameZ(0.25)`）—— 这里按**实现与判据**写。
+                //  🧨 改坏法（一行里两件事各有一条坏法）：
+                //     · `HudAvatarZ` 改回 `HudImageZ`（或改到 `HudImageZ - 0.05f` 之后）⇒ 前半假 ⇒ 红；
+                //     · `ChatButton` 那句的 z 改回默认（`HudImageZ`）⇒ 后半假 ⇒ 红。
+                {
+                    float azMe = QZ("AvatarImage_Me"), bzMe = QZ("AvatarItemSmall_Me"), cz = QZ("ChatButton");
+                    Check(azMe < bzMe && cz < azMe,
+                          $"★ A1502② z 序：`ChatButton`({cz:F3}) < 立绘我({azMe:F3}) < `Border`我({bzMe:F3})"
+                        + "（z 越小越靠前）—— 立绘反到 `Border` 后面就是**一块黑**；"
+                        + "`ChatButton` 退回 0.3 就会被立绘盖掉一截");
+                    float azFo = QZ("AvatarImage_Foe"), bzFo = QZ("AvatarItemSmall_Foe");
+                    Check(azFo < bzFo,
+                          $"★ A1502② ……敌方那一对同样（立绘 {azFo:F3} < 框 {bzFo:F3}）");
+                }
+
+                // ---- ⑤ 换牌阶段提示行**整行不画**；换牌一结束**必须又能写**（两半都断）----
+                //  实现 = `SetHint` 里新加的那一句 `if (InMulligan) { _hintLabel.SetText(""); return; }`。
+                //  `NetSay` 是 `SetHint` 唯一的公开口（走的是同一条路）⇒ 拿它当探针。
+                //  🔴 **两半都断**：只断「换牌时是空的」的话，「**永远空着**」也能过。
+                //  🧨 改坏法：删掉那一句 `if (InMulligan) …` ⇒ 前半红；把它写成无条件（或让它连
+                //     `InMulligan == false` 也挡）⇒ 后半红。
+                {
+                    drv.mulliganEnabled = true;
+                    drv.offensivePhaseEnabled = false;      // ⛔ 不关的话换牌一完就停在「选进攻卡」那一步
+                    drv.Begin("Ultramarines", "Goff", 20260920);
+                    Check(drv.InMulligan, "★ A1502①（前提）这一局进了换牌阶段 —— 不成立时下面四条等于没验");
+                    if (drv.InMulligan)
+                    {
+                        drv.NetSay("__A1502①_probe__");
+                        Check(drv.HintText == "",
+                              "★ A1502① **换牌阶段提示行整行不画**（往那条路写 `__A1502①_probe__` 之后仍是"
+                            + $"「{drv.HintText ?? "(null)"}」）");
+                        Check(drv.SimulateMulliganToggle(0),
+                              "★ A1502①（前提）点第 1 张牌的「换」被面板收下（下面要它真的换出 1 张）");
+                        Check(drv.SimulateMulliganDone(), "★ A1502①（前提）点「完成换牌」");
+                        Check(!drv.InMulligan, "★ A1502① ……换牌阶段真的结束了（`Ctx.MulliganOpen` 落了）");
+                        string hintAfter = drv.HintText;      // 先记下来（下面那句探针会把它覆盖掉）
+                        drv.NetSay("__A1502①_after__");
+                        Check(drv.HintText == "__A1502①_after__",
+                              "★ A1502① ……**换牌结束之后同一条路又写得进去了**（那一句只挡换牌阶段）"
+                            + $" —— 实得「{drv.HintText ?? "(null)"}」");
+                        Check(!string.IsNullOrEmpty(hintAfter),
+                              $"★ A1502① ……而且换牌一结束它**自己就不是空的**（结算时那一句是「{hintAfter ?? "(null)"}」）");
+                    }
+                }
+
+                // ---- ⑥ bot 头像**跟 seed 走**（同 seed 相同 / 换 seed **不恒同**）----
+                //  实现 = `BotAvatarIndex()`：拿本局 `_seed` 做一次位混合再 `% list.Count` —— **确定性**。
+                //  🔴 **只有「同 seed 相同」这半条是没有判别力的**（返回常量也满足它）⇒ 必须配第二半。
+                //  🧨 改坏法：把 `BotAvatarIndex()` 改成返回常量（或改读 `Ctx.Rng`）⇒ 第一半仍绿、**第二半红**。
+                {
+                    drv.mulliganEnabled = false;     // 这一格只关心头像 ⇒ 把换牌那条支路关掉，少一层噪声
+                    var avSeeds = new[] { 20260911, 20260912, 1, 7, 1000, 999983, 123456789, 424242 };
+                    var avArts = new List<string>();
+                    foreach (int sd in avSeeds) { drv.Begin("Ultramarines", "Goff", sd); avArts.Add(drv.HudAvatarFoeArt); }
+                    drv.Begin("Ultramarines", "Goff", avSeeds[0]);
+                    string avAgain = drv.HudAvatarFoeArt;
+                    Check(avArts[0] != null && avAgain == avArts[0],
+                          $"★ A1502② **同一个 seed ⇒ 同一张 bot 头像**（seed {avSeeds[0]}：「{avArts[0]}」==「{avAgain}」）");
+                    var avUniq = new HashSet<string>();
+                    foreach (var a in avArts) avUniq.Add(a);
+                    Check(avUniq.Count >= 2,
+                          $"★ A1502② ……换 seed ⇒ **不是恒同一张**（{avSeeds.Length} 个 seed 出了 {avUniq.Count} 张不同头像）");
+                    Check(avArts.TrueForAll(a => a != null && a.StartsWith("Avatar_")),
+                          "★ A1502② bot 那层取到的都是 `Art/avatars/` 里的真图（都形如 `Avatar_*`）"
+                        + $" —— 实得 {string.Join(" / ", avArts.ToArray())}");
+                }
+
+                // ---- ⑦ 玩家换头像 ⇒ 战斗里这一层跟着换 · ⑧ 头像**不扰动引擎随机流** ----
+                int nAv = ProfileData.Avatars != null ? ProfileData.Avatars.Count : 0;
+                Check(nAv > 1, $"★（前提）头像清单读进来了（`Resources/profile_cosmetics.json`，{nAv} 张）"
+                             + " —— 不成立时下面这一组等于没验");
+                if (nAv > 1)
+                {
+                    int idxA = 0, idxB = nAv / 2;
+
+                    // ⑦ **两条一起断**：「跟着选的那张走」+「判别式：真的换了」。
+                    //  🧨 改坏法：把 `AvatarTex(ProfileData.AvatarArt, …)` 换成写死某一张图 ⇒ 两条一起红。
+                    ProfileData.AvatarIndex = idxA;
+                    drv.Begin("Ultramarines", "Goff", 20260916);
+                    string avArtA = drv.HudAvatarMeArt;
+                    ProfileData.AvatarIndex = idxB;
+                    drv.RefreshAll();          // `RefreshHudAvatars` 就在 `UpdateHud` 里（`Begin` 那次也会刷）
+                    string avArtB = drv.HudAvatarMeArt;
+                    Check(avArtA == ProfileData.Avatars[idxA].Art && avArtB == ProfileData.Avatars[idxB].Art,
+                          $"★ A1502② 我方立绘 = **档案窗选的那张**（索引 {idxA} →「{avArtA}」· 索引 {idxB} →「{avArtB}」）");
+                    Check(avArtA != null && avArtB != null && avArtA != avArtB,
+                          $"★ A1502② ……**判别式**：换一个索引这一层**真的换了**（「{avArtA}」≠「{avArtB}」）");
+
+                    // ⑧ **同 seed 的引擎输出逐字相同**，且 `Ctx.Rng` **一个数都没被花掉**。
+                    //  A、B 两遍除了「头像输入」与「刷新次数」之外**完全一样**：
+                    //   · A：`AvatarIndex = idxA`，`Begin` 之后刷 **1** 次；
+                    //   · B：`AvatarIndex = idxB`，`Begin` 之后在**静置**状态下刷 **61** 次
+                    //     （`RefreshAll` → `UpdateHud` → `RefreshHudAvatars`，每刷一次都走一遍立绘那条路）。
+                    //  ⇒ 立绘那条路若动了 `Ctx.Rng`（例如把 `BotAvatarIndex` 改成从 Rng 里挑），B 那 60 次
+                    //    多余的刷新会把随机流**挪位**，下面两条立刻红。
+                    //  🔴 B 那一遍**全程静置**（不发任何引擎动作）⇒ 除了「每帧都跑的表现层」之外没有别的
+                    //     消耗源，这正是这一条要量的东西（`CardPresentation/` 里 `Ctx.Rng` 的**代码**消费点
+                    //     只有 `BattleDriver` 那两处自动挑牌，不在 `RefreshAll` 这条路上）。
+                    //  🧨 改坏法：`BotAvatarIndex()` 里写 `return Ctx.Rng.Next(list.Count);` ⇒ 第二条红。
+                    drv.mulliganEnabled = false;
+                    const int seedRng = 20260921;
+                    ProfileData.AvatarIndex = idxA;
+                    drv.Begin("Ultramarines", "Goff", seedRng);
+                    drv.RefreshAll();
+                    int avHashA = NetProtocol.StateHash(drv.Ctx);
+                    int avRngA1 = drv.Ctx.Rng.Next(), avRngA2 = drv.Ctx.Rng.Next(), avRngA3 = drv.Ctx.Rng.Next();
+                    string avRngArtA = drv.HudAvatarMeArt;
+
+                    ProfileData.AvatarIndex = idxB;
+                    drv.Begin("Ultramarines", "Goff", seedRng);
+                    for (int i = 0; i < 60; i++) drv.RefreshAll();
+                    int avHashB = NetProtocol.StateHash(drv.Ctx);
+                    int avRngB1 = drv.Ctx.Rng.Next(), avRngB2 = drv.Ctx.Rng.Next(), avRngB3 = drv.Ctx.Rng.Next();
+                    string avRngArtB = drv.HudAvatarMeArt;
+
+                    // 🔴 **见证**：两遍的**头像输入真的不同** —— 否则下面两条是拿同一个东西比自己，等于没验。
+                    Check(avRngArtA != null && avRngArtB != null && avRngArtA != avRngArtB,
+                          $"★ A1502②（见证）两遍的立绘输入**真的不同**（「{avRngArtA}」vs「{avRngArtB}」）");
+                    Check(avHashA == avHashB,
+                          $"★ A1502② 同 seed ⇒ **局面哈希逐字相同**（{avHashA} vs {avHashB}）"
+                        + " —— 多刷 60 次立绘，一点引擎状态都没带进去");
+                    Check(avRngA1 == avRngB1 && avRngA2 == avRngB2 && avRngA3 == avRngB3,
+                          $"★ A1502② ……**而且 `Ctx.Rng` 的下一串数逐位相同**"
+                        + $"（({avRngA1},{avRngA2},{avRngA3}) vs ({avRngB1},{avRngB2},{avRngB3})）"
+                        + " ⇒ 立绘那条路**一个 `Ctx.Rng` 都没花**（它走 `BotAvatarIndex()` 那套自算位混合）");
+                }
+
+                // 🔴 **摆回基线**（本仓踩过：上一格的残留会漏到下一格）——
+                //    `ProfileData` 是全局静态、那两个 `*Enabled` 是驱动级开关，都得还原。
+                ProfileData.AvatarIndex = savedIdxAv;
+                drv.mulliganEnabled = savedMullAv;
+                drv.offensivePhaseEnabled = savedOffAv;
+                drv.Begin("Ultramarines", "Goff", 20260916);
+                Step(0.3f);
             }
         }
 

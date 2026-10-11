@@ -221,6 +221,7 @@ public static class CardBaseDemo
         // ---- 存场景 ----
         Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
         EditorSceneManager.SaveScene(scene, ScenePath);
+        SceneStubAudit.Run(ScenePath);   // 🆕 A1506：存盘后自证「不许有 !u!115 存根」（干净时零输出）
         AssetDatabase.Refresh();
 
         Debug.Log(P + $"=== 图在 {OutDir}/，场景 {ScenePath} ===");
@@ -244,10 +245,12 @@ public static class CardBaseDemo
         AssertCardTextTablesInLoc();      // 🔴 2026-10-10（A1084）：那几族中文**已搬进 `Core/Loc.cs`**（键族 + 齐全 + 值 + 语料 + 别名 + 不复用近邻）
         AssertTitleMidline();             // 🔴 2026-10-18：`A848` —— 卡名那层 = 原版的 `Midline`
         AssertCreatedBy();                // 🔴 2026-10-18：`A985④` —— 卡面第五层「由谁造出来的」（原版 `CreatedByText`）
+        AssertTextBg(cam);               // 🔵 2026-10-19（A1500② 的断言侧）：文字底板 —— 含**渲图像素**判据
 
         // ---- 5. 手牌布局四件（B1 批 2026-10-17）----
         Debug.Log(P + "--- 手牌布局：小屏档触发 · 最近空位 · 选中让位 · 层序 ---");
         AssertHandLayout(cam);
+        ProbeTextBg(cam);                 // 🔍 诊断（`WF_TEXTBG_PROBE=1` 才跑；不设 = 零输出）
 
         Debug.Log(P + $"=== 合计：{_pass} 通过 / {_fail} 失败 ===");
         if (Application.isBatchMode) EditorApplication.Exit(_fail == 0 ? 0 : 1);
@@ -831,6 +834,375 @@ public static class CardBaseDemo
             Loc.PersistOverride = false;
             Object.DestroyImmediate(root);
         }
+    }
+
+    // ==================================================================
+    //  卡面第六件：**文字底板**（原版 `Front/Textbackgrounds/TextBackground {Big,Small} UI`）
+    //  —— 2026-10-19 补（账 `A1500②` 的断言侧）。判据 = **原版那两条 `m_AnchoredPosition`**，
+    //  本轮由主对话逐字段现读（`d:/2/新解包资源/assets_full/bundle_scenes_scenes_battlearena1/`
+    //  的 `GameObject/TextBackground Big UI_213.json` / `...Small UI_470.json` → `m_Component`
+    //  → `RectTransform_2621` / `RectTransform_3192`）：
+    //    · `TextBackground Big UI`   sizeDelta **1.7766 × 1.55**  · apos **(−0.001, −0.65000)**
+    //    · `TextBackground Small UI` sizeDelta **1.8635 × 0.9621** · apos **(0, −1.02000)**
+    //    · 两块走**同一条父链**：`Textbackgrounds`（纯 `Transform`，lpos 0,0,0）→ `Front`
+    //      （**apos y = +0.08000**）→ `2DCard`（apos 0,0）—— 所以两块只能**一起**平移。
+    //    · Image（两块同款）：sprite `Card Text smooth background`(32×32)、`m_Color=(0,0,0,0.647)`
+    //
+    //  🔴 `Front` 那个 `+0.08` 是**整套卡面都没折进去**的那一跳（同父的 `CardImage`(−0.044) /
+    //     `CardFrame`(−0.03) / `NameTextUnit`（−0.7745 + 0.501 = −0.2735）也都是原值直接用）⇒
+    //     我们的卡面**整体**比原版低 0.08，那是整体平移、不影响任何层间关系（账还开着，⛔ 不在本轮）。
+    //     ⇒ 本方法量的就是**不含 +0.08 的那一套**：`Big = −0.65` · `Small = −1.02`，
+    //       两块**必须差 0.37 卡单位**（= 1.02 − 0.65）。⛔ **别把 `Front` 的 0.08 只折给其中一块**
+    //       —— 那正是本轮落地时 `TextBgSmallAt` 走过的路（见 ① 的 🧨，本条今天应当红）。
+    //
+    //  🔴 **为什么必须有【渲图像素】那一条**：`Core/CardView.cs` 的 `TextBgVisible` **只看
+    //     `activeSelf`**，而场景里 `m_IsActive` 就是 1 ⇒ **底板一个像素都没画，它照样返回 true**。
+    //     2026-10-19 实测：**16k+ 条断言全绿**，扫全部 130 张 `_tmp_view/cardface/*.png` 底板 **0 命中**
+    //     ⇒「层建了 + 开着 + 网格对 + 材质对」四条一起绿，仍然**推不出**「画出来了」。
+    //
+    //  ⚠️ 本块自带那几个渲染小工具（`LayerPxRect` / `RenderPixels` / `MeanLum`）就放在这里，
+    //     ⛔ 没挪到 `Shot` 旁边 —— 少一处改动少一处风险。
+    // ==================================================================
+    static void AssertTextBg(Camera cam)
+    {
+        const float BigY = -0.65f, SmallY = -1.02f, Gap = 0.37f;
+        const float BigW = 1.7766f, BigH = 1.55f, SmallW = 1.8635f, SmallH = 0.9621f;
+        const float BgAlpha = 0.647f;
+        const float NameGapUnit = 0.3765f, NameGapTactic = 0.1890f;
+
+        var root = new GameObject("textbg_probe");
+        try
+        {
+            // 两档：`CardData.Placeholder(i)` 的 `keywords` = (i % 3 == 0) ? "VANGUARD" : ""
+            var dBig = CardData.Placeholder(0);        // 有描述 ⇒ `TextBackground Big UI`
+            var dSmall = CardData.Placeholder(1);      // 无描述 ⇒ `TextBackground Small UI`
+            Check(!string.IsNullOrEmpty(dBig.keywords) && string.IsNullOrEmpty(dSmall.keywords),
+                  "★ 前提：两份夹具的 `keywords` **一有一无**（`Placeholder(0)` = \"VANGUARD\" / "
+                + "`Placeholder(1)` = \"\"）—— 否则下面「按有没有描述分档」那一格是空跑");
+            var vBig = CardView.Create(root.transform, dBig, "textbg_big");
+            var vSmall = CardView.Create(root.transform, dSmall, "textbg_small");
+            var rBig = LayerMesh(vBig.transform, "textBg");
+            var rSmall = LayerMesh(vSmall.transform, "textBg");
+            Check(rBig != null && rSmall != null,
+                  "★ 前提：两张卡都建出了 `textBg` 层（底板图取不到就**整块不建** —— 那是 `CardView` 里"
+                + "明写的降级）｜没建出来 = 这一档**没验到**，不是通过");
+            if (rBig == null || rSmall == null) return;
+
+            // ---- ① 板心**绝对值** = 原版那两条 `m_AnchoredPosition` ----
+            //  灭自证：期望值来自**原版字段**，不是我们的常量 ⇒「把常量连实现一起改回去」满足不了。
+            float yBig = LayerCenterY(vBig, rBig), ySmall = LayerCenterY(vSmall, rSmall);
+            Check(Mathf.Abs(yBig - BigY) < 1e-3f,
+                  $"① 有描述 ⇒ `TextBackground Big UI` 的板心 y = **{BigY:F2} 卡单位**（实测 {yBig:F4}；"
+                + "出处 = `RectTransform_2621.m_AnchoredPosition.y` = −0.65）"
+                + "｜🧨 把 `CardView.TextBgAt.y` 改回 0.67111（板心 −0.57）⇒ 本条红");
+            Check(Mathf.Abs(ySmall - SmallY) < 1e-3f,
+                  $"① 无描述 ⇒ `TextBackground Small UI` 的板心 y = **{SmallY:F2} 卡单位**（实测 {ySmall:F4}；"
+                + "出处 = `RectTransform_3192.m_AnchoredPosition.y` = −1.02）"
+                + "｜🧨 把 `CardView.TextBgSmallAt.y` 改成 0.78217（板心 −0.94）⇒ 本条红"
+                + "（−0.94 = 原版 apos −1.02 **又折了一次 `Front` 的 +0.08** ⇒ 与上面那块**不同口径**）");
+            Check(Mathf.Abs((yBig - ySmall) - Gap) < 1e-3f,
+                  $"①·b 两块板心**必须差 {Gap:F2} 卡单位**（= 1.02 − 0.65；两条 `apos` 同父同层，"
+                + $"只能一起平移），实测 {yBig - ySmall:F4}"
+                + "｜🧨 只挪其中一块（今天就是这样）⇒ 本条红，而别处全绿");
+
+            // ---- ② 与**卡上那一行字**的实测关系（与 ① 结构上不可能同时满足）----
+            //  ① 锚的是**原版那一对 apos 原值**，② 锚的是**我们卡上那层 TMP 的实测行心** ——
+            //  两个来源不可能被同一次改动一起满足（例：把底板与 `UnitNameAt` 一起下移 0.08
+            //  ⇒ ① 红、② 仍绿；只挪底板 ⇒ 两条都红）。
+            //  ⚠️ 容差取 0.02 卡单位：`PlaceAt` 摆的是 `Middle` 的行盒、随后才改成 `Midline`
+            //     ⇒ 实测行心与「目标点」差一个 `c_G`（`CardView` 注释里记的 ≈1.25 px ≈ 0.01 卡单位）。
+            //     0.02 既盖得住它，又比要抓的那个 0.08 小 4 倍。
+            var tBig = LayerTmp(vBig.transform, "title");
+            bool tOk = tBig != null;
+            if (tOk) { tBig.ForceMeshUpdate(); tOk = tBig.textBounds.size.y > 0.01f; }
+            Check(tOk, "★ 前提：卡名那层 TMP 建出来了、**行盒非空**"
+                     + "（空盒会让「行心」退化成垃圾值 ⇒ 下面那条假绿）");
+            if (tOk)
+            {
+                float rowBig = TmpRowCenterY(vBig, tBig);
+                Check(Mathf.Abs(yBig - (rowBig - NameGapUnit)) < 0.02f,
+                      $"② 板心 = **单位**卡名行心 − {NameGapUnit:F4} 卡单位"
+                    + $"（板心 {yBig:F4}，卡名行心 {rowBig:F4}，差 {rowBig - yBig:F4}）"
+                    + "｜🧨 把底板与 `UnitNameAt` 一起平移 ⇒ ① 红、本条仍绿（这就是两条的分工）");
+            }
+            var dTac = CardData.Placeholder(0);
+            dTac.isUnit = false;                       // 战术卡走 `TacticNameAt` 那一套
+            var vTac = CardView.Create(root.transform, dTac, "textbg_tactic");
+            var rTac = LayerMesh(vTac.transform, "textBg");
+            var tTac = LayerTmp(vTac.transform, "title");
+            bool tTacOk = rTac != null && tTac != null;
+            if (tTacOk) { tTac.ForceMeshUpdate(); tTacOk = tTac.textBounds.size.y > 0.01f; }
+            Check(tTacOk, "★ 前提：**战术卡**那一份的 `textBg` + 卡名层都建出来了");
+            if (tTacOk)
+            {
+                float yTac = LayerCenterY(vTac, rTac), rowTac = TmpRowCenterY(vTac, tTac);
+                Check(Mathf.Abs(yTac - (rowTac - NameGapTactic)) < 0.02f,
+                      $"② 板心 = **战术**卡名行心 − {NameGapTactic:F4} 卡单位"
+                    + $"（板心 {yTac:F4}，卡名行心 {rowTac:F4}，差 {rowTac - yTac:F4}）"
+                    + "｜🧨 把单位/战术两套卡名位置写成一个（不分档）⇒ 本条红");
+            }
+
+            // ---- ③ 两档**都断**（铁律 5·c）：尺寸也跟着分档 ----
+            Vector2 sBig = LayerSizeCardUnits(vBig, rBig);
+            Vector2 sSmall = LayerSizeCardUnits(vSmall, rSmall);
+            Check(Mathf.Abs(sBig.x - BigW) < 1e-3f && Mathf.Abs(sBig.y - BigH) < 1e-3f,
+                  $"③ 有描述那块 quad = **{BigW:F4} × {BigH:F2} 卡单位**（实测 {sBig.x:F4} × {sBig.y:F4}）");
+            Check(Mathf.Abs(sSmall.x - SmallW) < 1e-3f && Mathf.Abs(sSmall.y - SmallH) < 1e-3f,
+                  $"③ 无描述那块 quad = **{SmallW:F4} × {SmallH:F4} 卡单位**（实测 {sSmall.x:F4} × {sSmall.y:F4}）"
+                + "｜🧨 两档共用一个尺寸（不分档）⇒ 本条红");
+
+            // ---- ④ 防「活着但不出像素」----
+            var mfBig = rBig.GetComponent<MeshFilter>();
+            var meshBig = mfBig != null ? mfBig.sharedMesh : null;
+            Check(meshBig != null && meshBig.vertexCount == 4,
+                  $"④·0 底板的网格 = **4 顶点**、不是 null（实测 {(meshBig == null ? "null" : meshBig.vertexCount.ToString())}）"
+                + " —— 静态缓存网格（`SpriteQuad`）被 `UnloadUnusedAssets` 收走时 `sharedMesh` 变 null，"
+                + "那一层会**静默不画**");
+            var matBig = rBig.sharedMaterial;
+            Check(matBig != null && Mathf.Abs(matBig.color.r) < 1e-4f && Mathf.Abs(matBig.color.g) < 1e-4f
+                  && Mathf.Abs(matBig.color.b) < 1e-4f && Mathf.Abs(matBig.color.a - BgAlpha) < 2e-3f,
+                  $"④·0 材质 = 原版那张 Image 的 `m_Color` **纯黑 α {BgAlpha:F3}**"
+                + $"（实测 {(matBig == null ? "null" : matBig.color.ToString())}）"
+                + "｜⚠️ 这一条**单独不算数**：2026-10-19 实测它逐字吻合、而像素一个都没画");
+
+            // 把探针卡摆到**画面上半部那块空地**（我方手牌在 y≈−3.8、台面在 y≈−1.56 ⇒ 上半屏是空的）
+            vBig.SetPose(new Vector3(0f, 1.6f, 0f), 0f, 1f);
+            const int PW = 1920, PH = 1080;
+            cam.aspect = (float)PW / PH;               // ⚠️ `WorldToScreenPoint` 也吃它，先设死再量
+            var pxIn = LayerPxRect(cam, rBig);
+            var pxUp = new Rect(pxIn.x, pxIn.yMax, pxIn.width, pxIn.height * 0.5f);
+            bool inView = pxIn.width > 8f && pxIn.height > 8f
+                       && pxIn.xMin >= 0f && pxIn.yMin >= 0f && pxIn.xMax <= PW && pxIn.yMax <= PH
+                       && pxUp.yMax <= PH;
+            Check(inView,
+                  $"★ 前提：底板那 {BigW:F4} × {BigH:F2} 卡单位**整块落在 {PW}×{PH} 画面内**"
+                + $"（实测像素矩形 x {pxIn.x:F0} y {pxIn.y:F0} w {pxIn.width:F0} h {pxIn.height:F0}）");
+            if (inView)
+            {
+                // 同一个画面渲两次、**只翻这一层的 `activeSelf`** —— 其它一切（背景/立绘/卡框/文字）
+                // 逐像素相同 ⇒ 两帧之差**只可能**来自这一层。这就是本条对「背后画的什么」免疫的原因。
+                float lumOn = MeanLum(RenderPixels(cam, PW, PH, pxIn));
+                rBig.gameObject.SetActive(false);
+                float lumOff = MeanLum(RenderPixels(cam, PW, PH, pxIn));
+                rBig.gameObject.SetActive(true);
+                float lumUp = MeanLum(RenderPixels(cam, PW, PH, pxUp));
+                float drop = lumOff > 1f ? (lumOff - lumOn) / lumOff : 0f;
+                float ratio = lumUp > 1f ? lumOn / lumUp : 0f;
+                Check(drop >= 0.25f,
+                      $"④ ★ **底板真的画出了像素**：把它关掉再渲同一块矩形，平均亮度 {lumOff:F1} → {lumOn:F1}"
+                    + $"（掉 {drop * 100f:F1}%，要 ≥ 25%）—— 原版 `m_Color` 的 α 0.647 按混合反推该掉 ≈ 65%"
+                    + "｜🧨 2026-10-19 实测 **0.0%**（一个像素都没画，而 `TextBgVisible` 照样 true）⇒ 本条红");
+                Check(lumUp > 1f && ratio < 0.8f,
+                      $"④·b 底板矩形内 / **紧邻上方那一条**（同宽、半高）的行均亮度比 = {ratio:F3}（要 < 0.8）"
+                    + $"（内 {lumOn:F1} / 上 {lumUp:F1}）"
+                    + "｜这条是**旁证**，4·a 才是灭自证的那条"
+                    + (lumUp <= 1f ? "；⚠️ 上方那条读数是 0 ⇒ **这一格没验到**" : ""));
+            }
+
+            // ---- ⑤ 同类风险：别让那几块**静态缓存网格**被收成 null ----
+            var dArm = CardData.Placeholder(0);
+            dArm.armor = 2;                            // 有护甲才会建盾那一层
+            var vArm = CardView.Create(root.transform, dArm, "textbg_armour");
+            var names = new[] { "textBg", "costBg", "armourIcon", "gem" };
+            int built = 0; string missing = "", broken = "";
+            foreach (var nm in names)
+            {
+                var rr = LayerMesh(vArm.transform, nm);
+                if (rr == null) { missing += " " + nm; continue; }
+                built++;
+                var mf = rr.GetComponent<MeshFilter>();
+                var m = mf != null ? mf.sharedMesh : null;
+                if (m == null) broken += " " + nm + "=**null**";
+                else if (m.vertexCount != 4) broken += " " + nm + "=" + m.vertexCount + " 顶点";
+            }
+            Check(built == names.Length,
+                  $"⑤·★ 前提：`SpriteQuad` / `GemMesh` 那四层**都建出来了**（缺{missing} —— 缺 = 那几张图"
+                + "取不到，是资源问题不是网格问题，这条**如实红**）");
+            Check(broken.Length == 0,
+                  $"⑤ 建出来的那几层 `sharedMesh` 都还在、且都是 **4 顶点**（坏：{broken}）"
+                + "｜🧨 `UnloadUnusedAssets` 把静态缓存网格收走 ⇒ `sharedMesh` 变 null、那几层静默不画");
+        }
+        finally { Object.DestroyImmediate(root); }
+    }
+
+    // ==================================================================
+    //  🔍 运行时探针（**诊断，不是断言**）—— 文字底板「建了、开着、却画不出像素」的根因
+    //
+    //  **门 = 环境变量 `WF_TEXTBG_PROBE=1`；不设 ⇒ 直接 return、一个字节都不打**
+    //  （本仓自检的回归判据是「stdout 逐字节相同」，探针不能常开）。
+    //  跑法（cmd）：`set WF_TEXTBG_PROBE=1` 之后再照 `Run` 那条命令行跑，
+    //  输出筛 `^CBD ` 找 `[探针·文字底板]`；图存 `_tmp_view/cardbase/cardbase_probe_textbg_only.png`。
+    //
+    //  打**四样读数**（渲染器 / 网格 / 材质 / 位置），再**只渲这一层**存一帧，
+    //  最后给出同一块矩形的两个平均亮度：全卡（底板开）/ 全卡（底板关）——
+    //  两者之差就是这一层**真实贡献的像素量**，≈0 就是「活着不出像素」。
+    // ==================================================================
+    static void ProbeTextBg(Camera cam)
+    {
+        if (System.Environment.GetEnvironmentVariable("WF_TEXTBG_PROBE") != "1") return;
+        const string Q = P + "  [探针·文字底板] ";
+        var root = new GameObject("textbg_probe_diag");
+        var reenable = new List<MeshRenderer>();
+        const int PW = 1920, PH = 1080;
+        try
+        {
+            var v = CardView.Create(root.transform, CardData.Placeholder(0), "textbg_diag");
+            v.SetPose(new Vector3(0f, 1.6f, 0f), 0f, 1f);
+            var r = LayerMesh(v.transform, "textBg");
+            Debug.Log(Q + $"层 = {(r == null ? "**没建出来**（底板图取不到就不建）" : r.gameObject.name)}"
+                        + $"　`TextBgVisible`（= 只看 `activeSelf`）= {v.TextBgVisible}");
+            cam.aspect = (float)PW / PH;
+            if (r == null) return;
+
+            // 「只渲这一层」：把同卡其余**所有** `MeshRenderer`（立绘 / 卡框 / 数值层 / TMP）全关掉
+            foreach (var rr in v.transform.GetComponentsInChildren<MeshRenderer>(true))
+                if (rr != r && rr.enabled) { rr.enabled = false; reenable.Add(rr); }
+            var px = LayerPxRect(cam, r);
+            Shot(cam, PW, PH, "probe_textbg_only");
+            float lumOnly = MeanLum(RenderPixels(cam, PW, PH, px));
+            Debug.Log(Q + $"「只留这一层」渲了一帧（关掉同卡 {reenable.Count} 个 `MeshRenderer`）"
+                        + $" → `cardbase_probe_textbg_only.png`；那块矩形 {px.width:F0}×{px.height:F0} "
+                        + $"的平均亮度 = {lumOnly:F2}");
+
+            // ---- 四样读数 ----
+            var mf = r.GetComponent<MeshFilter>();
+            var m = mf != null ? mf.sharedMesh : null;
+            var mat = r.sharedMaterial;
+            int bit = 1 << r.gameObject.layer;
+            Debug.Log(Q + $"[渲染器] enabled={r.enabled}  activeSelf={r.gameObject.activeSelf}"
+                        + $"  activeInHierarchy={r.gameObject.activeInHierarchy}"
+                        + $"  forceRenderingOff={r.forceRenderingOff}  isVisible={r.isVisible}"
+                        + $"  shadowCasting={r.shadowCastingMode}  layer={r.gameObject.layer}"
+                        + $"（相机 cullingMask 含它 = {(cam.cullingMask & bit) != 0}）");
+            Debug.Log(Q + $"[网格] sharedMesh={(m == null ? "**null**" : m.name)}"
+                        + $"  vertexCount={(m == null ? 0 : m.vertexCount)}"
+                        + $"  bounds.center={(m == null ? "—" : m.bounds.center.ToString())}"
+                        + $"  bounds.size={(m == null ? "—" : m.bounds.size.ToString())}"
+                        + $"  层 localPosition={r.transform.localPosition}");
+            Debug.Log(Q + $"[材质] {(mat == null ? "**null**" : mat.name)}"
+                        + $"  shader={(mat == null ? "—" : mat.shader.name)}"
+                        + $"  _Color={(mat == null ? "—" : mat.color.ToString())}"
+                        + $"  renderQueue={(mat == null ? -1 : mat.renderQueue)}"
+                        + $"  mainTexture={(mat == null || mat.mainTexture == null ? "**null**" : mat.mainTexture.name)}");
+            Debug.Log(Q + $"[位置] world={r.transform.position}  lossyScale={r.transform.lossyScale}"
+                        + $"  到相机 {(cam.transform.position - r.transform.position).magnitude:F3}"
+                        + $"  像素矩形 x{px.x:F0} y{px.y:F0} w{px.width:F0} h{px.height:F0}");
+
+            // ---- 这一层**真实贡献了多少像素** ----
+            foreach (var rr in reenable) if (rr != null) rr.enabled = true;
+            reenable.Clear();
+            float lumOn = MeanLum(RenderPixels(cam, PW, PH, px));
+            r.gameObject.SetActive(false);
+            float lumOff = MeanLum(RenderPixels(cam, PW, PH, px));
+            r.gameObject.SetActive(true);
+            Debug.Log(Q + $"[像素] 同一块矩形：全卡（底板**开**）={lumOn:F2} · 全卡（底板**关**）={lumOff:F2}"
+                        + $"　⇒ **这一层的贡献 = {lumOn - lumOff:F2}**"
+                        + (Mathf.Abs(lumOn - lumOff) < 0.5f
+                           ? "　⇒ **≈0：一个像素都没画**" : "　（有贡献）"));
+        }
+        finally
+        {
+            foreach (var rr in reenable) if (rr != null) rr.enabled = true;
+            Object.DestroyImmediate(root);
+        }
+    }
+
+    /// <summary>在卡的子树里按**节点名**找一层 `MeshRenderer`（`textBg` / `costBg` / `armourIcon` / `gem` …）
+    /// —— 与下面 `LayerTmp` 同一套扫法（`includeInactive: true`：关着的那层也要找得到）。</summary>
+    static MeshRenderer LayerMesh(Transform card, string layerName)
+    {
+        foreach (var r in card.GetComponentsInChildren<MeshRenderer>(true))
+            if (r.name == layerName) return r;
+        return null;
+    }
+
+    /// <summary>一层 quad 的**中心 y**（卡单位：0 = 卡心、向上为正）。
+    /// 网格顶点烘在层自己的局部系里（`CardView.AddLayer` 只给 z 偏移、不给旋转缩放）⇒ 先换到
+    /// **卡根坐标系**，再按 `PlaceAt` 那套量纲折成卡单位（1 卡单位 = `Height / CardUnitH` 个局部单位，
+    /// 今天 = 1 —— `Width`/`Height` 与 `CardUnitW`/`CardUnitH` 是同一对字面量）。
+    /// ⚠️ 用 `InverseTransformPoint`、⛔ 不读 `localPosition`：位置**烘在网格顶点里**、不在 `transform` 上，
+    ///    而且卡根自己带缩放与扇形角。</summary>
+    static float LayerCenterY(CardView card, MeshRenderer r)
+    {
+        var mf = r.GetComponent<MeshFilter>();
+        if (mf == null || mf.sharedMesh == null) return float.NaN;
+        Vector3 w = r.transform.TransformPoint(mf.sharedMesh.bounds.center);
+        return card.transform.InverseTransformPoint(w).y * (CardView.CardUnitH / CardView.Height);
+    }
+
+    /// <summary>一层 quad 的**尺寸**（卡单位）。量的是网格顶点 —— 那才是真正被画出来的矩形。</summary>
+    static Vector2 LayerSizeCardUnits(CardView card, MeshRenderer r)
+    {
+        var mf = r.GetComponent<MeshFilter>();
+        if (mf == null || mf.sharedMesh == null) return Vector2.zero;
+        var m = mf.sharedMesh;
+        Vector3 a = card.transform.InverseTransformPoint(r.transform.TransformPoint(m.bounds.min));
+        Vector3 b = card.transform.InverseTransformPoint(r.transform.TransformPoint(m.bounds.max));
+        return new Vector2(Mathf.Abs(b.x - a.x) * (CardView.CardUnitW / CardView.Width),
+                           Mathf.Abs(b.y - a.y) * (CardView.CardUnitH / CardView.Height));
+    }
+
+    /// <summary>一层 TMP 的**行盒中心 y**（卡单位）。`PlaceAt` 摆的就是 `textBounds.center`
+    /// ⇒ `局部位置 + textBounds.center` 才是这一行的视觉中心（⛔ 只读 `localPosition` 会差半个行盒）。
+    /// ⚠️ `textBounds.center` 在 TMP 自己的局部系里，而 TMP 相对父级没有缩放/旋转 ⇒ 可直接相加。</summary>
+    static float TmpRowCenterY(CardView card, TMPro.TextMeshPro t)
+    {
+        if (t == null) return float.NaN;
+        t.ForceMeshUpdate();
+        var parent = t.rectTransform.parent;
+        Vector3 local = t.rectTransform.localPosition + t.textBounds.center;
+        Vector3 w = parent != null ? parent.TransformPoint(local) : local;
+        return card.transform.InverseTransformPoint(w).y * (CardView.CardUnitH / CardView.Height);
+    }
+
+    /// <summary>一层 quad 在**屏幕像素**里的外接矩形（原点左下，与 `ReadPixels` / `WorldToScreenPoint`
+    /// 同一套）。用网格顶点算，⛔ 不用 `rectTransform.rect` —— 顶点才是真正被画出来的那四角。</summary>
+    static Rect LayerPxRect(Camera cam, MeshRenderer r)
+    {
+        var mf = r.GetComponent<MeshFilter>();
+        if (mf == null || mf.sharedMesh == null) return new Rect(0f, 0f, 0f, 0f);
+        float x1 = float.MaxValue, y1 = float.MaxValue, x2 = float.MinValue, y2 = float.MinValue;
+        foreach (var v in mf.sharedMesh.vertices)
+        {
+            Vector3 sp = cam.WorldToScreenPoint(r.transform.TransformPoint(v));
+            x1 = Mathf.Min(x1, sp.x); x2 = Mathf.Max(x2, sp.x);
+            y1 = Mathf.Min(y1, sp.y); y2 = Mathf.Max(y2, sp.y);
+        }
+        return new Rect(x1, y1, x2 - x1, y2 - y1);
+    }
+
+    /// <summary>渲一帧、只把那块像素读回来（`px` 原点在**左下**）。
+    /// ⚠️ 与 `Shot` 同一条：`cam.aspect` 必须**在 `Render` 之前**设死。</summary>
+    static Color32[] RenderPixels(Camera cam, int w, int h, Rect px)
+    {
+        cam.aspect = (float)w / h;
+        int rw = Mathf.Max(1, Mathf.RoundToInt(px.width));
+        int rh = Mathf.Max(1, Mathf.RoundToInt(px.height));
+        int rx = Mathf.Clamp(Mathf.RoundToInt(px.x), 0, Mathf.Max(0, w - rw));
+        int ry = Mathf.Clamp(Mathf.RoundToInt(px.y), 0, Mathf.Max(0, h - rh));
+        var rt = RenderTexture.GetTemporary(w, h, 24, RenderTextureFormat.ARGB32);
+        cam.targetTexture = rt;
+        var prev = RenderTexture.active;
+        RenderTexture.active = rt;
+        cam.Render();
+        var tex = new Texture2D(rw, rh, TextureFormat.RGB24, false);
+        tex.ReadPixels(new Rect(rx, ry, rw, rh), 0, 0);
+        tex.Apply();
+        var got = tex.GetPixels32();
+        RenderTexture.active = prev;
+        cam.targetTexture = null;
+        RenderTexture.ReleaseTemporary(rt);
+        Object.DestroyImmediate(tex);
+        return got;
+    }
+
+    /// <summary>平均亮度（Rec.709 权重，0..255）。</summary>
+    static float MeanLum(Color32[] p)
+    {
+        if (p == null || p.Length == 0) return 0f;
+        double s = 0;
+        for (int i = 0; i < p.Length; i++) s += 0.2126 * p[i].r + 0.7152 * p[i].g + 0.0722 * p[i].b;
+        return (float)(s / p.Length);
     }
 
     /// <summary>在卡的子树里按**节点名**找一层 TMP（`title` / `army` / `createdBy` …）——

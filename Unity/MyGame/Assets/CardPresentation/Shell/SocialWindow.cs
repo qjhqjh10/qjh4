@@ -167,7 +167,15 @@ namespace CardPresentation
             // 🔴 **2026-10-18（第七轮）**：传 `LocalizedButtons()`（建窗时把两颗页签的**文案**换成词条），
             //   ⛔ **不是**静态那份 `Buttons`（静态初始化早于任何语言设置，见 `LocalizedButtons` 的 doc）。
             //   节点名（`SocialTabButton_{i}`）与图标/字号/角标那些字段**一个字没变**。
-            var res = BuildShell(transform, LocalizedButtons(), "SocialTabButton_", "Tabs");
+// 🔴 **2026-10-11（`A1498` 同根因 · 第二扇窗）**：补 `lastIsMaster: false`。
+//   判据（原版 prefab 现读 `bundle_menus_assets_all` 该窗的 `TabbedWindowComponents.tabButtons`）：
+//   **它的 `tabButtonPrefab = {m_FileID:0, m_PathID:0}`（null）** ⇒ 左栏末项**不是母版**，
+//   而基类原来无条件把末项当母版 `SetActive(false)` ⇒ **`Friends` 那颗根本不画**（屏上只剩 `Alliances`）。
+//   ✅ 正例对照：`Rewards Base Submenu Variant`(TabButtons MB `638825230631048959`) 与
+//      `Shop Menu Variant`(MB `764348890710493308`) 的 `tabButtonPrefab` **都非 0** ⇒ 那两扇窗必须走缺省。
+//   ⚠️ 症状**静默**：末项照建、只是被关掉，而断言走 `FindChild`（含 inactive）照样找得到它 ——
+//      所以本行下面对应的那条 `activeSelf` 断言是**成对**的，⛔ 别只留一条。
+            var res = BuildShell(transform, LocalizedButtons(), "SocialTabButton_", "Tabs", lastIsMaster: false);
             tabButtons = res.buttons;
             _btnRoot = res.roots;
             _btnHighlight = res.highlight;

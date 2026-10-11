@@ -83,13 +83,36 @@ namespace CardPresentation
     {
         // ============================================================ 页签
 
-        /// <summary>左栏四个键。文案是**卡面文案**（`Cosmetics`/`Styles`），不是页节点名。出处 A1 表 `:17-22`。</summary>
+        /// <summary>左栏四个键。文案是**卡面文案**（`Cosmetics`/`Styles`），不是页节点名。出处 A1 表 `:17-22`。
+        /// <para>🔴 **2026-10-19（`A1498`）三处就地订正（铁律 5）**：
+        /// <list type="number">
+        /// <item><b>第 1 键的 `Label` 由 `Decks` 改成 <c>Deck</c>（单数）</b> —— 判据 = 原版那颗 TMP
+        /// （`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_6937732152595899093.json`）的
+        /// **`m_text = 'Deck'`**、`m_fontStyle = 16`(UpperCase)、`m_fontSize 36`、`m_TextWrappingMode 0`
+        /// ⇒ 屏上是 **`DECK`**。**错因**：`Decks` 是照页节点名（`DeckCollectionTab` 那一族的复数叫法）写的，
+        /// 没回 prefab 读那串 `m_text`。⚠️ `Editor/CollectionScene.cs` 的 `wantLabels[0]` 也是 `"DECKS"`
+        /// ⇒ **那一条要跟着改**（`Editor/` 不在本件白名单，已记进报告）。</item>
+        /// <item><b>四颗都补上 <c>term</c></b>（= 原版 `TabButtonLabel ▸ Localize.mTerm` 原文，本轮现读
+        /// `…/Tab Buttons/{Deck,Cards,CardBacks,Alternate Art}/Label/TabButtonLabel`）——
+        /// 屏上的字从此走 `Loc.T`（`Shell/MenuWindowBase.cs` 的 `BuildTabButton`），中文档下是
+        /// **卡组 / 张牌 / 美容品 / 风格**（出处 → `Core/Loc.cs` 的 **F1** 一节，含那两条**与卡组编辑窗共用**的键）。
+        /// **错因**：原来直接画资产里的英文 ⇒ 中文档永远出英文（与 `A1493②` 左竖导航、`A1501` 练习窗同一根因）。</item>
+        /// <item>⚠️ <b>本表【四项全是真页签、没有母版】</b> —— 见 `Build()` 里 `BuildShell(..., lastIsMaster: false)`
+        /// 与 `Shell/MenuWindowBase.cs` 的 `BuildBar` doc（判据 = 原版本窗 `TabButtons.tabButtonPrefab` 是 `null`）。
+        /// **本项与 `Label`/`term` 无关，但同一笔账**：这三条是同一个会话里一起查出来的。</item>
+        /// </list></para>
+        /// <para>⚠️ `Label` 从此只是「原版 TMP 的英文原文」那份记录（`Term` 非空 ⇒ 屏上不画它）；
+        /// ⛔ 别把 `Decks` 改回去 —— 那会与 prefab 对不上（自检/对账读的就是这一格）。</para></summary>
         public static readonly TabBtnSpec[] Buttons =
         {
-            new TabBtnSpec("40k_collection_bt_decks",     "Decks",     36f, 5f, 36f, "DecksTabButton",     47.9f),
-            new TabBtnSpec("40k_collection_bt_cards",     "Cards",     36f, 5f, 36f, "CardsTabButton",     47.9f),
-            new TabBtnSpec("40k_collection_bt_cosmetics", "Cosmetics", 36f, 5f, 36f, "CardBacksTabButton", 47.9f),
-            new TabBtnSpec("40k_collection_bt_style",     "Styles",    36f, 5f, 36f, "AltArtTabButton",    47.9f),
+            new TabBtnSpec("40k_collection_bt_decks",     "Deck",      36f, 5f, 36f, "DecksTabButton",     47.9f,
+                           term: "MainMenu/MainButtons/ButtonLabel/Deck"),
+            new TabBtnSpec("40k_collection_bt_cards",     "Cards",     36f, 5f, 36f, "CardsTabButton",     47.9f,
+                           term: "MenuShop/ShopItemType/Cards"),
+            new TabBtnSpec("40k_collection_bt_cosmetics", "Cosmetics", 36f, 5f, 36f, "CardBacksTabButton", 47.9f,
+                           term: "MenuShop/ShopItemType/Cosmetics"),
+            new TabBtnSpec("40k_collection_bt_style",     "Styles",    36f, 5f, 36f, "AltArtTabButton",    47.9f,
+                           term: "MenuShop/AlternateArtStyle"),
         };
 
         /// <summary>左栏第一个键的顶边（原版 188.64）− `Content Area` 顶边（70.94）= **117.7**。
@@ -2559,7 +2582,16 @@ namespace CardPresentation
 
         public void Build()
         {
-            var res = BuildShell(transform, Buttons, "CollectionTabButton_", "Tabs");
+            // 🔴 **2026-10-19（`A1498`）：`lastIsMaster: false`** —— 本窗左栏**四项全是真页签**。
+            //   判据（原版 prefab 本轮现读，逐级解父链）：`Collection Menu Variant` 根 →
+            //   `TabbedWindowComponents`（MB `2277236495604703957`）→ `tabButtons` = MB `1756822263936377557`
+            //   → 它的 **`tabButtonPrefab` = `m_PathID 0`（null）**；而 `Content Area/Tab Buttons` 的四个孩子
+            //   `Deck` / `Cards` / `CardBacks` / `Alternate Art` 全是 `EverguildToggle`（**没有** `Menu Navigation Panel Button`
+            //   那种母版）。⚠️ `Shadow` 是第 5 个孩子，但它不是键（我们走 `BarShadowW` 单独建）。
+            //   改法 = `Shell/MenuWindowBase.cs` 的 `BuildBar` 新增的 `lastIsMaster` 形参（判据 / 四窗逐条实读 → 它的 doc）。
+            //   ⚠️ 缺省 `true` 那一支**逐位等于旧行为** ⇒ 奖励窗/商店一个字没变。
+            //   **改坏法**：删掉这个实参 ⇒ 第 4 颗（`Styles`）被当母版关掉 ⇒ 实拍又是「`COSMETICS` 下面整片空」。
+            var res = BuildShell(transform, Buttons, "CollectionTabButton_", "Tabs", lastIsMaster: false);
             tabButtons = res.buttons;
             _btnHighlight = res.highlight;
             _btnRes = res;
@@ -3209,8 +3241,22 @@ namespace CardPresentation
             //     （`Shell/CollectionData.cs:53` 的 `DeckInfo.GameMode` ← `:113` 抄自 `PlayerDeck.GameMode`）。
             //   ⚠️ `0` 是**有意义的值**（`GameMode.Classic`），不是「没设」—— 映射表在
             //     `MenuDraw.GameModeIconFile`（0→classic · 13→skirmish · 其余→null ⇒ 整层不建，与原版同）。
+            // 🔴🔴 **2026-10-11（第十七会话 · `A1525⑥`）：`selected` 恒传 `false` —— 收藏窗的卡组格原版【不画】金高亮。**
+            //   判据（机器码级两关）：① 唯一的调用点是 `CollectionItem<T>.Config` 里那句
+            //     **`if (useSelectedHighlight) SelectedHighlight(isSelected)`**（`script.json` 的
+            //     `CollectionItem<object>$$Config` @ RVA `0x15F1B10`：`cmp byte ptr [rbx+0x30],0` → `call [rax+0x228]`，
+            //     `+0x30` = 基类 `protected bool useSelectedHighlight`）；
+            //   ② **本窗用的那一份 prefab 变体这个字段 = 0** —— `bundle_menus_assets_all` 里 `Collection Deck`
+            //     （`m_GameObject` = `-2024334647938937812`，本页 `Deck Scroll View/Viewport/Content` 那一支用的就是它）
+            //     的 `useSelectedHighlight` = **0**，而弹窗那一份 `Collection Deck With Highlight` = **1**
+            //     ⇒ **本窗永远不会调 `SelectedHighlight`** ⇒ 那一格**本来就没有金框**。
+            //   旁证：两张用户实拍（`收藏—卡组的参考图.png` 4 格 · `更换卡组的参考.png` 12 格）**没有一格是金的**。
+            //   🔴 原来这里传的是 `i == CollectionData.CurrentIndex()`（**自加的**：原版 `SelectedHighlight` 只在
+            //     `useSelectedHighlight=1` 的变体上才有效）⇒ 实拍里当前那一套被一整片金环糊住（`A1525⑥` 的现象）。
+            //   ⚠️ 「当前是哪一套」这件事在**本页没有别处用到**（只有这里喂过 `selected`；`CollectionData.Select`
+            //     那条链照旧）；高亮那一支**照旧留给弹窗**（`Shell/DeckSelectionPopup.cs:731` 传的才是真值）。
             return MenuDraw.DeckCell(this, parent, "CollectionDeck_" + i, r, info,
-                                     i == CollectionData.CurrentIndex(),
+                                     false,
                                      QPageRow, QPageText, QPageOverlay, QPageRow,
                                      () => SelectDeck(idx),
                                      gameMode: info.GameMode);   // `DeckInfo` 是 **struct** ⇒ 没有 null 那一档

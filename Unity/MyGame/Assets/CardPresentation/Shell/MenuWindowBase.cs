@@ -87,6 +87,16 @@ namespace CardPresentation
         public struct TabBtnSpec
         {
             public readonly string Art, Label, InstId;
+            /// <summary>🆕 **2026-10-19（`A1498`）**：这一颗页签在原版 prefab 上那颗 `Localize` 的 **`mTerm` 原文**
+            /// （= I2 词条键）。**非空 ⇒ 屏上的字走 `Loc.T(Term)`**（随语档变），`Label` 退成「原版 TMP 的英文原文」
+            /// 那份记录（自检文案 / 对角色的说明用）；**空 ⇒ 照旧直接画 `Label`**（今天 `SocialWindow` 那条路：
+            /// 它在建窗时把 `Label` 换成译文、不传这个键）。
+            /// <para>🔴 **为什么存【键】而不是存译文**：<see cref="TabBtnSpec"/> 是 `struct`、四扇窗的键表都是
+            /// `static readonly`，**静态初始化早于任何语言设置**（`Shell/SocialWindow.cs` 的
+            /// `LocalizedButtons()` doc 写着同一件事）⇒ 存译文会「只在类首次加载时求值一次、之后换语言不变」。
+            /// 存键名则每个建窗时刻都能按当时的语档取词。</para>
+            /// <para>⛔ 键名不许自拟：照原版 `Localize.mTerm` 原文（逐条出处 → `Core/Loc.cs` 的 F1 / F2 两节）。</para></summary>
+            public readonly string Term;
             public readonly float FontPx, AutoMin, AutoMax;
             /// <summary>红点相对键中心的 y 偏置（原版 `Badge Highlight` 的 `pos.y` 取负）。
             /// 日常那四个键里**第 4 键是 `+47.9`、其余是 `−27.2`** —— 逐键不同 ⇒ 放进规格里，别在循环里写死 `idx == 3`。</summary>
@@ -107,9 +117,9 @@ namespace CardPresentation
             /// **不印 base**（V7 §六·1）⇒ 本节的值是扫 `assets_full/*/MonoBehaviour/*.json` 的 `m_fontSizeBase` 得到的。</para></summary>
             public readonly float AutoBase;
             public TabBtnSpec(string art, string label, float fontPx, float autoMin, float autoMax, string instId,
-                              float badgeDy = -27.2f, float autoBase = 23f)
+                              float badgeDy = -27.2f, float autoBase = 23f, string term = null)
             { Art = art; Label = label; FontPx = fontPx; AutoMin = autoMin; AutoMax = autoMax;
-              InstId = instId; BadgeDy = badgeDy; AutoBase = autoBase; }
+              InstId = instId; BadgeDy = badgeDy; AutoBase = autoBase; Term = term; }
         }
 
         public readonly List<string> MissingArt = new List<string>();
@@ -373,8 +383,11 @@ namespace CardPresentation
         // ============================================================ 外壳：Content Area + 左栏 + Tabs
 
         /// <summary>建 `Content Area`（+ 双色渐变 `Background`）、左栏、`Tabs` 三层。
-        /// 子类在 `Build()` 里调它一次，然后往返回的 `tabs` 里塞自己的页。</summary>
-        protected BarResult BuildShell(Transform root, TabBtnSpec[] specs, string btnPrefix, string contentTag)
+        /// 子类在 `Build()` 里调它一次，然后往返回的 `tabs` 里塞自己的页。
+        /// <para>🔴 **2026-10-19（`A1498`）新增 <paramref name="lastIsMaster"/>** —— 见 <see cref="BuildBar"/> 上那段判据
+        /// （原版只有**奖励窗 / 商店**的 `Tab Buttons` 里有那颗母版；**收藏窗与社交窗的 `tabButtonPrefab` 是 `null`**）。</para></summary>
+        protected BarResult BuildShell(Transform root, TabBtnSpec[] specs, string btnPrefix, string contentTag,
+                                       bool lastIsMaster)      // 🔴 2026-10-11：**没有缺省值**（理由见 `BuildBar` 上那段）
         {
             DestroyChildren(root);
             MissingArt.Clear();
@@ -397,7 +410,7 @@ namespace CardPresentation
             }
 
             var res = new BarResult();
-            res.bar = BuildBar(area, specs, res, btnPrefix);
+            res.bar = BuildBar(area, specs, res, btnPrefix, lastIsMaster);
 
             // ---- 页签页容器（`Tabs` 与 `Content Area` 同矩形，实证）----
             var tabsRect = new PxRect(ContentL, ContentT, ContentR, ContentB);
@@ -414,8 +427,31 @@ namespace CardPresentation
         /// 🔴 2026-09-27：实现挪到 `MenuDraw.ClearChildren`（聊天窗不是本类的子类也要用），这里**转调**。</summary>
         public void DestroyChildren(Transform root) { MenuDraw.ClearChildren(root); }
 
-        /// <summary>左栏：底图 + 阴影 + 每个键（`Highlight` / `Icon` / 名字条 + 文案 / `Badge`）。</summary>
-        Transform BuildBar(Transform area, TabBtnSpec[] specs, BarResult res, string btnPrefix)        {
+        /// <summary>左栏：底图 + 阴影 + 每个键（`Highlight` / `Icon` / 名字条 + 文案 / `Badge`）。
+        /// <para>🔴 **2026-10-19（`A1498`）新增 <paramref name="lastIsMaster"/>** —— 判据（原版 prefab 本轮现读，
+        /// `bundle_menus_assets_all` 逐窗解父链拿到各自的 `TabbedWindowComponents.tabButtons` 再读那个组件的
+        /// `tabButtonPrefab`）：
+        /// <list type="bullet">
+        /// <item>`Rewards Base Submenu Variant`：TabButtons `638825230631048959` → `tabButtonPrefab` = **非 null**
+        /// （= `Tab Buttons` 的第 4 个孩子 `Menu Navigation Panel Button`）⇒ **末项是母版**。</item>
+        /// <item>`Shop Menu Variant`：TabButtons `764348890710493308` → `tabButtonPrefab` = **非 null**（= `Shop Icon`）⇒ 末项是母版。</item>
+        /// <item>`Collection Menu Variant`：TabButtons `1756822263936377557` → `tabButtonPrefab` = **`m_PathID 0`（null）**，
+        /// 而 `Tab Buttons` 的四个孩子 `Deck` / `Cards` / `CardBacks` / `Alternate Art` **全是真页签**
+        /// ⇒ ⛔ 末项**不是**母版。</item>
+        /// <item>`Social Submenu Variant`：TabButtons `-5311503351116210013` → `tabButtonPrefab` = **`0`（null）**，
+        /// 两个孩子 `Alliances` / `Friends` 都是真页签 ⇒ 末项也**不是**母版。
+        /// 🔴 **2026-10-11 就地订正（铁律 5 · 代理 `G` 现核）**：本行原写「`Shell/SocialWindow.cs` 那一扇**今天还在按旧口径建**
+        /// （传缺省 `true`）」—— **已不成立**：`Shell/SocialWindow.cs:178` 当天已改成 `lastIsMaster: false`（同批 `A1498`）。
+        /// 一并改掉的是上面那句「缺省 `true` 逐位保留」：**缺省值已删**（见下）。</item>
+        /// </list>
+        /// 🔴 **2026-10-11（`A1498` 收口 · 代理 `G` 的建议 ③ 已采纳）：`lastIsMaster` 【没有缺省值】。**
+        ///   **为什么删缺省**：原版四扇窗里**只有奖励窗 / 商店**该传 `true`（它们的 `tabButtonPrefab` 非 null），
+        ///   收藏窗 / 社交窗该传 `false`；而 `true` 恰好是「**忘了传 = 静默少画一个键**」的那一档
+        ///   —— 那不是假设：`A1498` 与 `A1510` 这两个真缺陷就是它造成的（社交窗今天只画出 1 个键）。
+        ///   ⇒ 删掉缺省，**每个调用点被编译器逼着表态**（⛔ 宁可编不过，也不要静默少一个键）。</para></summary>
+        Transform BuildBar(Transform area, TabBtnSpec[] specs, BarResult res, string btnPrefix,
+                           bool lastIsMaster)
+        {
             var barRect = new PxRect(ContentL, ContentT, ContentL + BarW, ContentB);
             var bar = Node(area, "Tab Buttons", barRect);
             Rect(bar, ArtBarBg, barRect.x1, barRect.x2, barRect.y1, barRect.y2, "Background", QPanel);
@@ -448,7 +484,15 @@ namespace CardPresentation
             // 🔴 **照原版：最后一个键是母版，`Initialize` 一进来就关掉**（见 `TabButtons.Initialize` 的注释）。
             //    ⇒ **左栏运行期比键表少一个**（日常那页：4 个键里第 4 个是母版 ⇒ 只见 3 个）。
             //    它照建不误（以后加活动页签要克隆它），只是不显示。
-            tb.tabButtonPrefab = res.roots[specs.Length - 1].gameObject;
+            // 🔴 **2026-10-19（`A1498`）就地订正（铁律 5）—— 这一句原来是无条件的。**
+            //    **「末项是母版」只是【奖励窗 / 商店】那一档的原版事实**（逐窗实读见 `BuildBar` 的 doc），
+            //    **不是四扇窗的通则**：`Collection Menu Variant` 与 `Social Submenu Variant` 的
+            //    `TabButtons.tabButtonPrefab` 原版就是 **null** ⇒ 末项也是**真页签**。
+            //    **错因**：这一句是照奖励窗那一份写的（它当时只有奖励窗一扇有左栏），后来商店/收藏/社交
+            //    各自的键表越长越满，这一句**从没回头核过**；症状是**静默**的（末项照建、只是被关掉，
+            //    断言走 `GetComponentsInChildren(true)` 照样数得到它）⇒ 收藏窗实拍里只剩 3 个键、社交窗只剩 1 个。
+            //    ⇒ 现在按 `lastIsMaster` 走；`true` 那一支**逐位等于旧行为**。
+            tb.tabButtonPrefab = lastIsMaster ? res.roots[specs.Length - 1].gameObject : null;
             tb.Initialize(this);
             return bar;
         }
@@ -510,11 +554,19 @@ namespace CardPresentation
             Rect(b, ArtNametag, cx - labW * 0.5f, cx + labW * 0.5f, lb - labH, lb, "Text Background", QContent);
 
             // 文案：TMP 字号 = 原版 `m_fontSize`（画布像素）；色 **#F4E1AC**；`m_fontStyle=UpperCase`
+            // 🔴 **2026-10-19（`A1498`）就地改口径：屏上的字改走 `Loc.T(spec.Term)`**（原版这四颗页签的
+            //    `TabButtonLabel` 上各挂一颗 I2 `Localize` ⇒ 屏上的字是**运行时查表**得到的；我们原来直接画
+            //    资产里的英文 `m_text`（`Deck`/`Cards`/`Cosmetics`/`Styles` 那一列）⇒ **中文档永远出英文**）。
+            //    键名与中文出处逐条记在 `Core/Loc.cs` 的 **F1** 那一节（⛔ 别在这里再抄一份）。
+            //    ⚠️ `spec.Term` 为**空**时**不调 `Loc.T`**（那会把 `Label` 当键名去查 ⇒ 查不到就返回它自己
+            //    **外加一条 `[Loc]` 缺键警告**，白白刷日志）—— 空即「这一颗今天还是写死的英文」，逐位等于旧行为。
+            //    ⚠️ `Loc.T` 缺键时返回的是**键名本身**（不是空串）⇒ 界面上一眼能看出「查不到」，不静默。
+            string tabLabel = string.IsNullOrEmpty(spec.Term) ? (spec.Label ?? "") : Loc.T(spec.Term);
             // 🔴 **2026-10-09（A1173）**：autosize 那四个数收进 `Text` 的形参（原来是「先 `Text`、
             //    再手工 `SetAutoFitBox`」—— 两份写法并存 = 迟早不一致）。
             //    ⚠️ 框 = 底下那块 `Label` 底 (`labW`×`labH`)，与本行那对 `cx ± labW*0.5f` / `lb-labH..lb`
             //    **同一个矩形**；`autoBasePx` = 原版 `m_fontSizeBase`（23），见 `TabBtnSpec.AutoBase`。
-            var txt = Text(b, (spec.Label ?? "").ToUpperInvariant(), cx - labW * 0.5f, cx + labW * 0.5f,
+            var txt = Text(b, tabLabel.ToUpperInvariant(), cx - labW * 0.5f, cx + labW * 0.5f,
                            lb - labH, lb, 6, new Color(0.9569f, 0.8824f, 0.6745f), "Text", spec.FontPx,
                            wrapPx: labW, autoMinPx: spec.AutoMin, autoMaxPx: spec.AutoMax,
                            autoBasePx: spec.AutoBase);
