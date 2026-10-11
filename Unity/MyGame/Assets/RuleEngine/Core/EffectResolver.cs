@@ -230,10 +230,51 @@ namespace RuleEngine
                 }
             }
 
+            // ---- 🔴 2026-10-11（第十四会话 · `A1413` ②）：**付钱那条付不起 ⇒ 同组其余 op 一并跳过** ----
+            //
+            // **改前怎么错的**：「同一条前缀只收一次钱」那条口径（`A1346` ②乙）让组内**非首条**
+            //   （`CostShared == true`）**不查余额就照常结算**（那是对的 —— 组首刚查过，再查会把
+            //   第二半句误判成「付不起」）。可**组首自己付不起**时那个前提就不成立了：
+            //   组首如实报「付费不够、没生效」，**后半句却照常落地** ⇒ **白给**。
+            //   实测形状（`A1413` 记的那两张，改前就是这个样子）：`UM93 Fall Back` / `SOR6`。
+            //
+            // **判据（为什么该整组一起不结算）**：原版收费在 **ability 层** ——
+            //   一条 ability = 一个 `manaCost` ＋ 一串 `AbilityLogic`，而
+            //   `d:/2/tools/decomp_full/BattleManager__CanUseActiveAbility.c` **整条 ability 判一次**余额、
+            //   `BattleManager__PayActiveAbilityCostOath.c:22` 一次激活只调一次 `PlayerManager__UseMana`
+            //   ⇒ **付不起 = 整条 ability 不激活**（那一串 logic 一条都不跑），
+            //   反过来「激活了」也是一整串一起跑。
+            //
+            // ⚠️ **判据只此一处**：付得起付不起问 `CostPrefixPayable`（`ResolveOneCore` 的付费闸
+            //    读的是同一份），⛔ 别在这里另写一遍余额比较。
+            // ⚠️ **只跳「同组」** —— 分界标记与上面 `pays[]` 顺延用的是同一个
+            //    （`Cost > 0 && CostShared`，⛔ 不另立第二份「哪几条算一组」的判据）。
+            // ⚠️ **必须排在 `pays[]` 顺延【之后】**：顺延会把「谁付钱」改到组内另一条上，
+            //    要判的是**最终**那个付款人。
+            // ⚠️ 付钱那条**自己不跳** —— 让它照原样走 `ResolveOneCore`，由它自己打那行
+            //    「付费不够 —— 这一条没生效」（日志口径不变）。
+            var groupUnpaid = new bool[ops.Count];
+            for (int i = 0; i < ops.Count; i++)
+            {
+                if (!pays[i] || ops[i] == null) continue;            // 一组只判「付钱那条」
+                if (CostPrefixPayable(ctx, owner, ops[i], EffectText.CostKindOf(ops[i].CostKind)))
+                    continue;
+                int j = i + 1;
+                while (j < ops.Count && ops[j] != null && ops[j].Cost > 0 && ops[j].CostShared)
+                {
+                    groupUnpaid[j] = true;
+                    j++;
+                }
+                if (j > i + 1)
+                    ctx.Log($"{by}：「{ops[i].Source}」这份付费前缀**付不了**（余额不够 / 货币认不出）"
+                          + " ⇒ 同属它的其余效果**一并跳过**（原版一条 ability 付不起就整条不激活，"
+                          + "⛔ 不是白给后半句）");
+            }
+
             int done = 0;
             for (int i = 0; i < ops.Count; i++)
             {
-                if (skip[i]) continue;
+                if (skip[i] || groupUnpaid[i]) continue;
                 var op = ops[i];
 
                 // ---- 数值 = 某个阵营资源：`Refill Energy equal to your Faith`（2026-09-13 第三十三轮）----
@@ -340,10 +381,24 @@ namespace RuleEngine
                 //
                 // ⚠️ 第 2 遍起递的是**副本**（`op.Clone()`）—— `CostShared` 写回解析产物会被**永久固化**
                 //    （同一张卡第二次打出时是同一份对象，见上面 `op.Amount` 那条注释）。
-                // ⚠️ **`repeats == 0` 时一遍都不跑 ⇒ 也不收钱** —— 这一格与「原版按 ability 收、
-                //    N=0 也照收」**仍有偏离**，如实留在报告里（`A1369` 的判据只管「不重复收」）。
+                // ✅ **2026-10-11（第十四会话 · `A1413` ①）：`repeats == 0` 那一格已补上 —— 照收一次。**
+                //    改前：`repeats == 0` ⇒ 循环一遍都不跑 ⇒ **连钱也不收**（离线实测 Δ=0），
+                //    而原版收费在 **ability 层**：一条 ability = 一个 `manaCost` ＋ 一串
+                //    `AbilityLogic`（`ActiveAbility.cs`），**激活了就收**
+                //    （`d:/2/tools/decomp_full/BattleManager__PayActiveAbilityCostOath.c:22`
+                //    一次激活只调一次 `PlayerManager__UseMana`），**与那条 logic 有没有东西可做无关**
+                //    ⇒ N=0 也照收（那一格原记在 `A1369` 报告的 §四·2，按铁律 11 补做）。
+                //    ⚠️ 走的是 `ResolveOne(..., payOnly: true)` —— **只过付费支**
+                //       （查余额 / 扣 / 日志 / 灵魂石广播**一份判据、一处落点**，⛔ 没有第二份收钱算法）。
                 var firstOp = RoutePay(op, pays[i]);
                 bool ok = false;
+                if (repeats <= 0 && pays[i])
+                {
+                    // ⚠️ `pays[i]` 才收 —— 组内非首条（`CostShared`）由组首付过，这里一个字不动。
+                    // ⚠️ `ok` **不因「收了钱」而置真**：这一刻效果**没落地**（N=0），
+                    //    与改前一样不计进 `done`（只多收钱、不改「这条结算了没有」的口径）。
+                    ResolveOne(ctx, owner, source, by, firstOp, chosen, unresolved, payOnly: true);
+                }
                 for (int k = 0; k < repeats; k++)
                 {
                     var useOp = firstOp;
@@ -383,8 +438,49 @@ namespace RuleEngine
             return c;
         }
 
+        /// <summary>
+        /// 🔴 **2026-10-11（第十四会话 · `A1413` ②）：`CostKindOf` 归一之后的货币名，本版认不认得。**
+        ///
+        /// 判据**原来内联在 `ResolveOneCore` 的付费支里**（那一长串 `kind != "energy" &amp;&amp; …`）——
+        /// 提出来是为了让「同组要不要一起跳过」那一处（`ResolveOps` 的 `groupUnpaid[]`）
+        /// 读**同一份**，⛔ 别在别处再写一遍这个货币名清单。
+        /// </summary>
+        static bool CostKindKnown(string kind)
+            => kind == "" || kind == "energy" || kind == "faith" || kind == "spirit" || kind == "oath";
+
+        /// <summary>
+        /// 🔴 **2026-10-11（第十四会话 · `A1413` ②）：这一条 op 的付费前缀【现在付得起吗】。**
+        ///
+        /// `ResolveOneCore` 的付费闸（原 `!waived &amp;&amp; have &lt; op.Cost`）与 `ResolveOps` 的
+        /// 「付钱那条付不起 ⇒ 同组一并跳过」**共用这一份** —— **判据只此一处**，
+        /// ⛔ 别在别处再写一遍余额比较 / 货币池映射。
+        ///
+        /// **三种「付不了」**：① 货币名认不出（`CostKindKnown` 为假）；
+        /// ② 余额不够；③ ——（`waived` = `ctx.SuppressCostDepth &gt; 0`，触发式激活**免付**，算付得起）。
+        /// ⚠️ **本方法只回答「能不能」，不改任何状态、不写日志** —— 扣钱与那两行日志留在
+        ///    `ResolveOneCore` 的付费支里（一处落点）。
+        /// </summary>
+        static bool CostPrefixPayable(BattleContext ctx, int owner, EffectOp op, string kind)
+        {
+            if (!CostKindKnown(kind)) return false;             // ① 货币认不出 ⇒ 整条不结算
+            if (ctx.SuppressCostDepth > 0) return true;         // ③ 触发式激活：免付
+            var ps = ctx.Players[owner];
+            int have = kind == "faith" ? ps.Faith                // ② 余额（池映射与扣钱那一支同源）
+                     : kind == "spirit" ? ps.SpiritStones
+                     : ps.Energy;
+            return have >= op.Cost;
+        }
+
+        /// <summary>
+        /// 转调 <see cref="ResolveOneCore"/>（见那里的 `payOnly` 参数）。
+        /// </summary>
+        /// <param name="payOnly">🆕 2026-10-11（`A1413` ①）：**只走付费支、不结算效果**
+        /// （`for each` 的 `repeats == 0` 那一格要用 —— 原版「激活了就收钱」，
+        /// 与「那条 logic 有没有东西可做」无关）。缺省 `false` ⇒ 其余调用点一字不变。
+        /// 判据见 `ResolveOneCore` 里 `if (payOnly)` 那一段的注释。</param>
         static bool ResolveOne(BattleContext ctx, int owner, UnitState source, string by,
-                               EffectOp op, UnitState chosen, List<string> unresolved)
+                               EffectOp op, UnitState chosen, List<string> unresolved,
+                               bool payOnly = false)
         {
             // 「相邻」的 `Self` 锚点要知道**是谁在施放**（见 `ResolveAdjacentAnchor`）。
             // 它收在**上下文**里而不是给结算函数加参数：结算函数是一张**统一签名的表**
@@ -393,12 +489,13 @@ namespace RuleEngine
             // 不恢复的话外层后半段会拿到内层的施放者。
             var prevActing = ctx.ActingUnit;
             ctx.ActingUnit = source;
-            try { return ResolveOneCore(ctx, owner, source, by, op, chosen, unresolved); }
+            try { return ResolveOneCore(ctx, owner, source, by, op, chosen, unresolved, payOnly); }
             finally { ctx.ActingUnit = prevActing; }
         }
 
         static bool ResolveOneCore(BattleContext ctx, int owner, UnitState source, string by,
-                                   EffectOp op, UnitState chosen, List<string> unresolved)
+                                   EffectOp op, UnitState chosen, List<string> unresolved,
+                                   bool payOnly = false)
         {
             // ---- 付费激活：付不起就**整段不结算**（我们自己的 `rule_core.gd:2529`（旁证、非权威））----
             // ⚠️ **2026-09-13 第三十三轮修了一条真 bug**：这里原来**只扣能量、完全不看 `CostKind`**。
@@ -409,7 +506,7 @@ namespace RuleEngine
             {
                 var ps = ctx.Players[owner];
                 string kind = EffectText.CostKindOf(op.CostKind);
-                if (kind != "" && kind != "energy" && kind != "faith" && kind != "spirit" && kind != "oath")
+                if (!CostKindKnown(kind))
                 {
                     // 认不出的货币（`might` / `attack` / `icon` …）**明说不支持**，别默默扣能量
                     ctx.Log($"{by}：「{op.Source}」要付 {op.Cost} 点「{op.CostKind}」，"
@@ -422,9 +519,8 @@ namespace RuleEngine
                 // `BattleContext.SuppressCostDepth` 的注释里（原版触发路径不查余额、不扣石）。
                 // ⚠️ **仍然照旧判货币名**（上面那段）—— 免的是**付费**，不是「认不认识这个货币」。
                 bool waived = ctx.SuppressCostDepth > 0;
-                int have = kind == "faith" ? ps.Faith
-                         : kind == "spirit" ? ps.SpiritStones
-                         : ps.Energy;
+                // ⚠️ **余额那一格不再在这里现算** —— 转调 `CostPrefixPayable`（判据只此一处，
+                //    `ResolveOps` 判「付钱那条付不起 ⇒ 同组一并跳过」读的是同一份，见 `A1413` ②）。
                 string shown = kind == "faith" ? "信仰" : kind == "spirit" ? "灵魂石" : "能量";
 
                 // 🔴 **2026-10-11（第十三会话 · `A1346` ②乙 ＋ `A1358`）：同一条付费前缀【只收一次】。**
@@ -454,7 +550,7 @@ namespace RuleEngine
                     ctx.Log($"{by}：「{op.Source}」的 {op.Cost} 点{shown}**不再收**"
                           + "（与上一条同属一份付费前缀 —— 一次激活只付一次）");
                 }
-                else if (!waived && have < op.Cost)
+                else if (!CostPrefixPayable(ctx, owner, op, kind))
                 {
                     ctx.Log($"{by}：「{op.Source}」需要 {op.Cost} 点{shown}才激活，不够 —— **这一条没生效**");
                     unresolved.Add(op.Source + "（付费不够）");
@@ -496,6 +592,21 @@ namespace RuleEngine
                 if (kind == "spirit" && !op.CostShared)
                     BroadcastWhen(ctx, WhenEventKind.SpiritAbility, owner, null, null);
             }
+
+            // 🔴 **2026-10-11（第十四会话 · `A1413` ①）：`payOnly` —— 只收钱、不结算。**
+            //
+            // **为什么需要它**：`for each` 那条 op 的重复次数 `repeats == 0` 时（例如
+            //   `4 Energy: Deal 1 damage to an enemy for each friendly troop` 而场上 0 个部队），
+            //   原来**一遍都不跑 ⇒ 一分钱也不收**。而原版收费在 **ability 层**
+            //   （一条 ability = 一个 `manaCost` ＋ 一串 `AbilityLogic`，
+            //   `d:/2/tools/decomp_full/BattleManager__PayActiveAbilityCostOath.c:22`），
+            //   **激活了就收**，与「那条 logic 有没有东西可做」无关 ⇒ N=0 也照收。
+            //   ⇒ `ResolveOps` 在那一格用 `payOnly` 把这条 op 送进来**只走付费支**。
+            // ⚠️ **放在付费支【之后】** —— 这样收钱那一整套（查余额 / 扣 / 日志 / 灵魂石广播）
+            //    **一份判据、一处落点**，⛔ 没有第二份「谁付多少」的算法。
+            // ⚠️ **条件闸与 handler 都不走**：`Condition` 判的是「这条 logic 做不做」，
+            //    与「这条 ability 激活了没有」是两件事（原版条件在 logic 内部判、钱已经付了）。
+            if (payOnly) return op.Cost > 0;      // 没价 ⇒ 没有可收的钱，如实返回「没结算」
 
             // ---- 条件：判不了就**不结算**，并如实报出来 ----
             if (!string.IsNullOrEmpty(op.Condition))
@@ -7287,8 +7398,20 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// **结算层真的实现了的动词** —— 解析得出来但 `EffectDispatch` 里没登记的动词
-        /// （现在只剩 `repeat` / `lowercost` / `reanimate`），效果是**打出去什么都不发生**。
+        /// **结算层真的实现了的动词** —— 解析得出来但 `EffectDispatch` 里没登记的动词，
+        /// 效果是**打出去什么都不发生**。
+        ///
+        /// 🔴 **2026-10-11 就地订正（铁律 5 · `A1464`）**：这一行原来写着
+        ///    「（现在只剩 `repeat` / `lowercost` / `reanimate`）」—— **那三个早就在表里**
+        ///    （`repeat` `:600` · `lowercost` `:599` · `reanimate` `:601`），
+        ///    而下面那行说明本集合是**从表派生**的 ⇒ 那句括注**自相矛盾**。
+        ///    **错因**：那是手写清单的残留（同一段自己也写着「以前这里是手写的第二份清单」），
+        ///    改成派生之后**忘了删括注**。
+        ///    ✅ **现算的答案是空集**：解析侧 `EffectText.cs` 里 `Verb = "…"` 的字面量共 **41** 个，
+        ///    减掉 `EffectDispatch.Keys` ⇒ **0 个没登记**（2026-10-11 静态算过；`EffectText` /
+        ///    `CardDef` / 本文件里**没有动态拼动词名**的写法）。
+        ///    ⛔ **别再往这里写「只剩哪几个」这种清单**（它会烂）—— 要问「谁没登记」，
+        ///    现算「`EffectText` 的动词集合 − `EffectDispatch.Keys`」这个差集。
         ///
         /// 给 `EffectText.Coverage` 在**解析阶段**报「能解析但没机制」用 ——
         /// 不然它们会躺在「载荷有机制」那一栏里冒充能跑（第 ③ 栏要防的就是这种静默失效）。
@@ -7879,7 +8002,9 @@ namespace RuleEngine
         static bool DoReanimate(BattleContext ctx, int owner, string by, EffectOp op, List<string> unresolved)
         {
             var ps = ctx.Players[owner];
-            bool all = op.Target == null || op.Target.Count == 0;   // `Reanimate all friendly Remnants`
+            // 🔴 **2026-10-11（`A1465`）：单复数**不再由「目标解不解得出来」推 ——
+            //    判据改成**卡面原文**，见 `ReanimatesAll` 的 doc。
+            bool all = ReanimatesAll(ctx, by, op);   // `Reanimate all friendly Remnants`
 
             // ---- 候选 ① = **自己场上的残骸**（2026-09-13 A2 起走这条）----
             // 规则书 `:203` 的「翻面」：残骸**留在场上**（原版场上是一个 3D 体，
@@ -7977,6 +8102,54 @@ namespace RuleEngine
                 done++;
             }
             return done > 0;
+        }
+
+        /// <summary>
+        /// 🔴 **2026-10-11（第十四会话 · `A1465`）：这条 `reanimate` 该翻【一个】还是【全部】残骸。**
+        ///
+        /// **原来怎么错的**：`DoReanimate` 开头原来是
+        ///   `bool all = op.Target == null || op.Target.Count == 0;`
+        ///   —— 而 `ParseTarget("a friendly remnant")` 与 `ParseTarget("all friendly remnants")`
+        ///   **都返回 `null`**（`EffectText.cs` 那条「不认识的词 → **不猜**」的守卫：
+        ///   `remnant` 既不是 kind 词、也不是池里某张卡的名字）⇒ **`Target == null` 分不出单复数**，
+        ///   于是**单数卡面被当成「全体」**：`Reanimate a friendly Remnant` 会把场上**全部**残骸翻回来。
+        ///   ⇒ 这是**静默放宽**（解不出 ⇒ 放大），不是「没查到」。
+        ///
+        /// **判据 = 卡面原文**（`op.Source`；铁律 7「拿不准就看卡面」）。全池 `desc`/`descZh`
+        ///   提到 `reanimate` 的共 **16 张**（`cards_engine.json` 逐张扫过），其中**只有 1 张**写复数：
+        ///     · `SAU52 Resurrection Orb` = `Reanimate all friendly Remnants`（**唯一**「全体」）
+        ///     · 其余 15 张一律 `Reanimate a friendly Remnant` / `a random friendly Remnant`
+        ///       （`SAU26` · `SAU46` · `SAU67` · `SAU49` · `SAU25` · `SAU27` · `SAU16` …）
+        ///   ⚠️ **只在 `reanimat… → remnant` 这一截里找 `all`** —— ⛔ 别拿整句 `Contains("all")`：
+        ///      尾句（如 `… and deal 1 damage to all enemies`）里的 `all` 会被误认成**目标**。
+        ///   ⚠️ **认不出时按【单数】**（`Target` 解不出、或 `Source` 里根本没有这一段）：
+        ///      卡面 16 张里 15 张是单数，而「解不出就放宽成全体」**正是本笔要治的病**；
+        ///      这两格**都打日志出声**（本工程红线：不许静默失败）。
+        ///
+        /// ⚠️ **`Target != null` 时照旧按 `Count == 0` 判**（那条「全部单位」的写法走的是它），
+        ///   本方法**只在 `Target == null` 这一支上改了行为**。
+        /// </summary>
+        static bool ReanimatesAll(BattleContext ctx, string by, EffectOp op)
+        {
+            if (op.Target != null) return op.Target.Count == 0;     // 解析得出来 ⇒ 照旧，一字不变
+            if (string.IsNullOrEmpty(op.Source))
+            {
+                ctx.Log($"{by}：这条「复活残骸」**没有目标、正文也不在手上** —— 按卡面"
+                      + "（单数，一个残骸）处理，**不放大成「全体」**");
+                return false;
+            }
+            var m = System.Text.RegularExpressions.Regex.Match(
+                op.Source, @"reanimates?\s+(.*?remnants?)\b",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (!m.Success)
+            {
+                ctx.Log($"{by}：「{op.Source}」里认不出「reanimate … Remnant」这个目标段 —— "
+                      + "按卡面（单数，一个残骸）处理，**不放大成「全体」**");
+                return false;
+            }
+            return System.Text.RegularExpressions.Regex.IsMatch(
+                m.Groups[1].Value, @"\ball\b",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         }
 
         static bool DoRepeat(BattleContext ctx, int owner, string by, EffectOp op,

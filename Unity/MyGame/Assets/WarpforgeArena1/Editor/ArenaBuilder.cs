@@ -363,6 +363,70 @@ public static class ArenaBuilder
         public CurveData startSizeY, startSizeZ;
         public float[] shapePos, shapeRot, shapeScale;     // ShapeModule 的 localspace 位置/欧拉角/缩放
         public float shapeRadiusThickness = 1f;
+
+        // 🆕 **2026-10-11（A1552）：原版 `ParticleSystemRenderer.m_Pivot`** —— 原来是**从来没抽过**的字段。
+        //    判据（原版 prefab，`d:/2/解包整理/07_场景/<场>/` 按 PathID 解外链）· 由
+        //    `工具/gen_arena_particlepivot.py` 逐颗灌进清单（**13 场 578 颗里 151 颗非零、90 颗 Y>0**）。
+        //    **为什么它重要**：`renderAlignment`（默认 View）下公告板**以粒子位置为中心**画；
+        //    而「贴地/贴面」的效果（`Fire` / `Flames` / `TinyFlames` / `WildFire` / `CandleFlame_*` /
+        //    `Embers` / `Fume Burst` / `RisingSteam` …）**整族**的 pivot Y 都是 **+0.1 ~ +0.85**
+        //    （= 把整张抬上去，让火苗**站**在发射点上）。不套 ⇒ 下半张落到地板以下、被不透明地板
+        //    深度剔除（材质 `ZWrite=0` 但 `ZTest LEqual`），**只剩最淡的上半截**。
+        //    **实测症状**（battlearena1 `Barrels` 旁那团火，`TinyFlames` 位置 y=0.0098 = 正好贴地）：
+        //    逐像素比原版弱一个数量级 —— `R-B>140` 的像素 **原版 539 / 我们 16**、`R-B>100` **1290 / 519**。
+        //    ⚠️ 原版值域**两个方向都有**（`Lightning barrel` 是 `-0.81`、`Door Open Up` 是 `-0.21`）
+        //      ⇒ **照抄，别只取正值**。
+        public float[] pivot;
+
+        // 🆕 **2026-10-11（A1557）：原版 `ParticleSystemRenderer.m_UseCustomVertexStreams` + `m_VertexStreams`**
+        //    —— 与 `pivot` 同一类（**从来没抽过、也没消费过**），由 `工具/gen_arena_particle_streams.py`
+        //    逐颗灌进清单。判据 = 原版 prefab 的这两个字段（`d:/2/解包整理/07_场景/<场>/`，按 PathID 解外链）。
+        //    原版实测（13 场 578 颗）：`m_UseCustomVertexStreams` **True 179 / False 399**；
+        //    `m_VertexStreams` 共 11 种取值（`[0,1,3,4]` = Unity 默认，362 颗）；我们**一律是默认**。
+        //    🔴 **序数 → 名字**（唯一判据 = **游戏自己的 IL2CPP dump** `d:/2/tools/il2cpp_out/dump.cs:1089677`
+        //      的 `UnityEngine.ParticleSystemVertexStream`）：`0 Position · 1 Normal · 2 Tangent · 3 Color ·
+        //      4 UV · 5 UV2 · 6 UV3 · 7 UV4 · 8 AnimBlend · 9 AnimFrame · 10 Center · 11 VertexID …
+        //      23 StableRandomX … 31 Custom1X · 32 Custom1XY`。
+        //      ⚠️ **别用 `ParticleSystemVertexStreams`（复数）那张表** —— 那是**位标志**
+        //      （`UV2BlendAndFrame=32 · Custom1=2048`…，同 dump `:1089794`），与这里的**小序数不是一套编号**。
+        //      ✅ **可移植性已核**：本工程目标 Unity（6000.3.23f1）的同一张枚举**序数逐条相同**
+        //      （用 Roslyn 读 `UnityEngine.ParticleSystemModule.dll` 的 Constant 表逐条比过）⇒ 直接按序数搬。
+        public bool useCustomVertexStreams;
+        public int[] vertexStreams;
+
+        // 🆕 **2026-10-11（A1557·第②项）：原版 `ParticleSystemRenderer.m_ApplyActiveColorSpace`**
+        //    —— 与 `pivot` / `vertexStreams` 同一类（**从来没抽过、也没消费过**），由
+        //    `工具/gen_arena_particle_colorspace.py` 逐颗灌进清单。判据 = 原版 prefab 的这个字段
+        //    （`d:/2/解包整理/07_场景/<场>/` 那一套，按 PathID 解外链；本脚本逐颗重读）。
+        //    原版实测（13 场 578 颗）：**True 401 / False 177**（`battlearena1` 6 True / 28 False）；
+        //    我们**一律 `True`**（Unity 新建 `ParticleSystemRenderer` 的默认值）
+        //    ⇒ 13 件 prefab 的 **469 个 PSR 全是 `m_ApplyActiveColorSpace: 1`**。
+        //
+        //    🔴 **语义（判据 = 本机那一版 Unity 自己发的字串，不是我推的）**：
+        //      · `UnityEngine.ParticleSystemModule.xml`（6000.3.23f1）
+        //        `P:UnityEngine.ParticleSystemRenderer.applyActiveColorSpace`：
+        //        「Set whether colors will be converted appropriately before being passed to the GPU
+        //          when using Linear Rendering.」
+        //      · 同一版编辑器的**复选框 tooltip**（`UnityEditor.CoreModule.dll` 里的 UTF-16 串，
+        //        与 `TrailRenderer` / `LineRenderer` **共用同一句**）：
+        //        「When using Linear Rendering, colors will be converted appropriately before being
+        //          passed to the GPU.」
+        //      · 三个组件（ParticleSystemRenderer / TrailRenderer / LineRenderer）**都是「CPU 侧生成
+        //        顶点色」的那一类**；而 URP 的粒子着色器**不做这个换算**
+        //        （`ShaderLibrary/Particles.hlsl:172 GetParticleColor` 原样返回 `input.color`）
+        //        ⇒ 换算发生在**送 GPU 之前**，判据就在这个开关上。
+        //      ⚠️ **方向（sRGB→Linear 还是反过来）本地读不到** —— 实现在 native，Unity 只写
+        //        「appropriately」。按 Unity 色彩空间惯例是**把作者在检视器里挑的颜色换算到当前色彩空间**，
+        //        **标为未直接查实**，别在别处写成定论。
+        //      ✅ **本工程和原版都是 Linear**（我们 `ProjectSettings.asset:50 m_ActiveColorSpace: 1`；
+        //        原版由 `资料/普查产出_0920/场景光照与后处理_原版规格.md:130-131` 的实况 probe 反证）
+        //        ⇒ **这个开关在原版和在我们这里都是活的**，不是死值。
+        //
+        //    🔴 **为什么必须单独判「清单里有没有这个键」**（见 `_manifestHasApplyColorSpace`）：
+        //      `JsonUtility` 对**缺键的 `bool`** 给 `false`，而 Unity 的默认是 `true`
+        //      ⇒ 不判的话，老清单（没跑过旁挂脚本）会被**静默**整片设成 `false`（578 颗全变），
+        //      而「看着很有依据」（有字段、有赋值）。**这条是本工程踩过的那一类坑**。
+        public bool applyActiveColorSpace;
     }
 
     /// <summary>🆕 2026-09-21：`MinMaxCurve` 的**统一形状**（生成器 `mm()` 的产物）。
@@ -487,12 +551,116 @@ public static class ArenaBuilder
     {
         Directory.CreateDirectory(PrefabDir);
         int ok = 0, bad = 0;
+        _nCustomStreamsTotal = 0;
+        _nColorSpaceFalseTotal = 0;
         foreach (var s in AllArenas)
             if (BuildOneArenaPrefab(s)) ok++; else bad++;
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
         Debug.Log($"[Arena] §27 战场 prefab：建好 **{ok}** 件" + (bad > 0 ? $"、**失败 {bad} 件**" : "")
                 + $" → `{PrefabDir}/`");
+        VerifyPrefabVertexStreams();
+        VerifyPrefabColorSpace();
+    }
+
+    /// <summary>🆕 2026-10-11（A1557）：**产物自检** —— 自定义顶点流到底进没进 `.prefab`。
+    ///
+    /// 🔴 **为什么要单独读一遍盘**：`rend.SetActiveVertexStreams(...)` 只证明「调过了」，
+    ///    它可能① 只改了运行期状态、没落盘，② 落到了一个我们不认识的字段上。
+    ///    判据只能看**产物文本**：原版 `m_UseCustomVertexStreams` / `m_VertexStreams` 是**普通序列化字段**，
+    ///    Unity 6 照旧写它们（实读我们已有的 `battlearena1.prefab`：`m_UseCustomVertexStreams: 0`
+    ///    + `m_VertexStreams: 00010304`）⇒ 直接数文件里出现几次 `m_UseCustomVertexStreams: 1`，
+    ///    与**建场时真设过的颗数**（`_nCustomStreamsTotal`）比。**两者必须相等**。
+    ///    ⚠️ **不能拿清单里的 179 当期望**：清单 578 颗里有一部分**根本没建**
+    ///      （无贴图 / 原版关着 / `renderMode=None`）⇒ 13 件 prefab 一共只有 **469** 个 PSR。
+    ///
+    /// ⚠️ 这是**唯一不依赖 Unity 运行**就能复算的读数（主对话跑完 `BuildArenaPrefabs` 直接读日志即可；
+    ///    也可以自己 `grep -c "m_UseCustomVertexStreams: 1" Resources/ArenaPrefabs/<场>.prefab`）。</summary>
+    static void VerifyPrefabVertexStreams()
+    {
+        int got = 0, files = 0;
+        var perArena = new System.Text.StringBuilder();
+        foreach (var s in AllArenas)
+        {
+            string path = ArenaPrefabPath(s);
+            if (!File.Exists(path)) { perArena.Append(s).Append("=缺 "); continue; }
+            string txt = null;
+            try { txt = File.ReadAllText(path); } catch (System.Exception e)
+            { Debug.LogWarning($"[Arena] 顶点流自检：读不了 `{path}`（{e.GetType().Name}）⇒ 这一场没数到"); continue; }
+            files++;
+            int n = CountSub(txt, "m_UseCustomVertexStreams: 1");
+            got += n;
+            perArena.Append(s.Replace("battlearena", "")).Append('=').Append(n).Append(' ');
+        }
+        // 期望值 = **建场时真调了 `SetActiveVertexStreams` 的颗数**（`BuildContent` 逐场累加），
+        // ⚠️ 不是清单里 `useCustomVertexStreams=true` 的 179 —— 清单 578 颗里有一部分没建
+        //   （无贴图 / 原版关着 / renderMode=None）⇒ 我们的 13 件 prefab 一共只有 469 个 PSR。
+        Debug.Log($"[Arena] 顶点流自检（读 {files} 件 prefab 的产物文本）：建场时设过 `SetActiveVertexStreams` "
+                + $"**{_nCustomStreamsTotal}** 颗 vs prefab 里 `m_UseCustomVertexStreams: 1` **{got}** 处 —— "
+                + (got == _nCustomStreamsTotal ? "**相等 ✅**" : "**不等 🔴**：设了但没落进 prefab，"
+                                               + "这一条**没做完**，别当它生效了")
+                + $"\n[Arena] 顶点流自检 逐场（`m_UseCustomVertexStreams: 1` 的处数）：{perArena}");
+    }
+
+    /// <summary>🆕 **2026-10-11（A1557·第②项）**：**产物自检** —— `applyActiveColorSpace`
+    /// 到底进没进 `.prefab`。
+    ///
+    /// 🔴 与顶点流那条**同一个理由**：`rend.applyActiveColorSpace = ...` 只证明「赋过值」，
+    ///    证明不了它落盘了。原版 `m_ApplyActiveColorSpace` 是**普通序列化字段**，Unity 6 照旧写它
+    ///    （实读我们已有的 13 件 `.prefab`：`m_ApplyActiveColorSpace: 1` **469/469**）
+    ///    ⇒ 数产物文本里的 `: 0` / `: 1`，与建场时真设过的颗数（`_nColorSpaceFalseTotal`）比。
+    ///
+    /// ⚠️ **两个期望值（都可复算）**：
+    ///   · `m_ApplyActiveColorSpace: 0` **161** 处 · `: 1` **308** 处 · 合计 **469**（= PSR 总数）；
+    ///   · 逐场（0 的处数）—— 1→**28** · 2→**41** · 3→**7** · aeldari→**11** · astramilitarum→**4** ·
+    ///     blacklegion→**15** · darkangels→**0** · emperorschildren→**0** · genestealers→**6** ·
+    ///     leviathan→**33** · sororitas→**0** · spacewolves→**0** · tauviorla→**16**。
+    ///   出处：`工具/` 那两个旁挂脚本之外、由**现成的 `.prefab` 产物**反查 —— prefab 里刻着
+    ///   `WarpforgeVFX.ArenaParticleIndex.index`（= 清单下标，`ArenaBuilder.cs` 建场时刻上），
+    ///   拿它就能把「原版逐颗值」按**真正建出来的那 469 颗**对齐。**同一套反查对
+    ///   `m_UseCustomVertexStreams: 1` 算出来的逐场数（27/29/24/13/4/10/2/0/8/29/2/0/19）、
+    ///   合计 167，与上一轮 `A1557-F2` 跑 Unity 得到的 167==167 逐场全等** ⇒ 这套对齐已被实测校验过。
+    ///
+    /// ⚠️ **键不在时（`_manifestHasApplyColorSpace == false`）不报数**：那时 `RenderPreview` 前的
+    ///    产物照旧全是 `: 1`，报「不等」是噪音 —— 缺键的告警已经在 `LoadManifest` 里出过声了。</summary>
+    static void VerifyPrefabColorSpace()
+    {
+        if (!_manifestHasApplyColorSpace)
+        {
+            Debug.LogWarning("[Arena] 色彩空间自检：**清单里没有 `applyActiveColorSpace` 键** ⇒ "
+                           + "13 件 prefab 全部照 Unity 默认（`: 1`），**这一项没接**。"
+                           + "跑 `工具/gen_arena_particle_colorspace.py` 之后再重建。");
+            return;
+        }
+        int zero = 0, one = 0, files = 0;
+        var perArena = new System.Text.StringBuilder();
+        foreach (var s in AllArenas)
+        {
+            string path = ArenaPrefabPath(s);
+            if (!File.Exists(path)) { perArena.Append(s.Replace("battlearena", "")).Append("=缺 "); continue; }
+            string txt = null;
+            try { txt = File.ReadAllText(path); } catch (System.Exception e)
+            { Debug.LogWarning($"[Arena] 色彩空间自检：读不了 `{path}`（{e.GetType().Name}）⇒ 这一场没数到"); continue; }
+            files++;
+            int z = CountSub(txt, "m_ApplyActiveColorSpace: 0");
+            int o = CountSub(txt, "m_ApplyActiveColorSpace: 1");
+            zero += z; one += o;
+            perArena.Append(s.Replace("battlearena", "")).Append('=').Append(z).Append(' ');
+        }
+        Debug.Log($"[Arena] 色彩空间自检（读 {files} 件 prefab 的产物文本）：建场时设成 `false` 的 "
+                + $"**{_nColorSpaceFalseTotal}** 颗 vs prefab 里 `m_ApplyActiveColorSpace: 0` **{zero}** 处 —— "
+                + (zero == _nColorSpaceFalseTotal ? "**相等 ✅**" : "**不等 🔴**：设了但没落进 prefab，"
+                                                   + "这一条**没做完**，别当它生效了")
+                + $"；另 `: 1` **{one}** 处（两者合计应 = 13 件 prefab 的 PSR 总数 **469**）"
+                + $"\n[Arena] 色彩空间自检 逐场（`: 0` 的处数；预期见 `VerifyPrefabColorSpace` 头注）：{perArena}");
+    }
+
+    /// <summary>数 `needle` 在 `hay` 里出现几次（不引 `Regex`，够用）。</summary>
+    static int CountSub(string hay, string needle)
+    {
+        int n = 0, i = 0;
+        while ((i = hay.IndexOf(needle, i, System.StringComparison.Ordinal)) >= 0) { n++; i += needle.Length; }
+        return n;
     }
 
     static bool BuildOneArenaPrefab(string sceneName)
@@ -1858,6 +2026,8 @@ public static class ArenaBuilder
         // 🆕 2026-09-21 下半场：VFX 那几个模块建了多少个（自检要按它比）
         int nVel = 0, nClamp = 0, nNoise = 0, nRot = 0, nSubLinked = 0;
         _emissionDropped = 0;
+        _nCustomStreams = 0;   // 🆕 2026-10-11（A1557）：真正设上自定义顶点流的粒子数
+        _nColorSpaceFalse = 0; // 🆕 2026-10-11（A1557·②）：真正被设成 applyActiveColorSpace=false 的粒子数
         // 子发射器引用的是**别的 ParticleSystem** ⇒ 全部建完才能连，先攒着
         var pendingSub = new System.Collections.Generic.List<(string go, SubEmitterData[] subs)>();
         var byName = new System.Collections.Generic.Dictionary<string, ParticleSystem>();
@@ -2442,6 +2612,111 @@ public static class ArenaBuilder
                 if (p.minParticleSize > 0f) rend.minParticleSize = p.minParticleSize;
                 if (p.lengthScale > 0f)     rend.lengthScale = p.lengthScale;
                 if (p.sortingFudge != 0f)   rend.sortingFudge = p.sortingFudge;
+                // 🆕 **2026-10-11（A1552）：`ParticleSystemRenderer.pivot`** —— 原来**从来没接过**。
+                //    判据 = 原版 prefab 的 `m_Pivot`（`工具/gen_arena_particlepivot.py` 逐颗灌进清单）。
+                //    13 场 **578 颗里 151 颗非零**，而且**「火」那一整族全是 Y>0**：
+                //    `Fire (0,0.39,0)`（sororitas 一场就 11 颗）· `CandleFlame_* (0,0.2,0)` ·
+                //    `Flames (0,0.1,0)` · `TinyFlames (-0.1,0.48,0)` · `WildFire (0,0.4,0)` ·
+                //    `RisingSteam (0,0.5,0)` · `Fume Burst (0,0.85,0)` · `Green Vapours (0,0.5,0)` …
+                //    **语义** = 把整张贴片沿该方向挪 `pivot × 尺寸`（`renderAlignment=View` 时
+                //    公告板本来以粒子位置为中心）⇒ **`Y=+0.4` 就是「让火苗站在发射点上」**。
+                //    **不接的后果（实测）**：贴地火焰的下半张落到地板以下，被不透明地板
+                //    深度剔除（材质 `ZWrite=0`，但 `ZTest` 仍是 `LEqual`）⇒ 只剩最淡的上半截。
+                //    `battlearena1` `Barrels` 旁那团火（`TinyFlames`，位置 y=0.0098 正好贴地）：
+                //    逐像素比原版弱一个数量级（`R-B>140` 像素 **原版 539 / 我们 16**）。
+                //    ⚠️ **照抄、不取绝对值** —— 原版也有负的（`Lightning barrel -0.81` ·
+                //      `Door Open Up -0.21`），负号是「往下挪」，语义不同。
+                if (p.pivot != null && p.pivot.Length >= 3)
+                    rend.pivot = ToVec3(p.pivot, Vector3.zero);
+                else if (!_warnedNoPivot)
+                {
+                    _warnedNoPivot = true;
+                    Debug.LogWarning($"[Arena] {mf.scene}：清单的 `particles[]` **没有 `pivot` 键**"
+                                   + " ⇒ 全部按 `(0,0,0)`（Unity 默认）画 —— **贴地的火焰会少半截**"
+                                   + "（13 场 578 颗里 151 颗原版非零）。跑 `工具/gen_arena_particlepivot.py` 补上。");
+                }
+                // 🆕 **2026-10-11（A1557）：自定义顶点流** —— 原来**从来没接过**（一律吃 Unity 默认）。
+                //    判据 = 原版 prefab 的 `m_UseCustomVertexStreams` + `m_VertexStreams`
+                //    （`工具/gen_arena_particle_streams.py` 逐颗灌进清单）。
+                //
+                //    🔴 **为什么用 `SetActiveVertexStreams` 而不是 `vertexStreams` 属性**：
+                //      **Unity 6（6000.3.x）已经把那两个公开属性删了** —— 本工程装的那份
+                //      `UnityEngine.ParticleSystemModule.dll` 里 `ParticleSystemRenderer` **没有**
+                //      `useCustomVertexStreams` / `vertexStreams`（逐条列过成员），只有
+                //      `SetActiveVertexStreams(List<ParticleSystemVertexStream>)` /
+                //      `GetActiveVertexStreams(...)` / `activeVertexStreamsCount`。
+                //      而 **Unity 6 自己的 `StandardParticlesShaderGUI.DoVertexStreamsArea`**
+                //      （`UnityEditor.CoreModule.dll`，反编译逐条读过）就是拿这两个方法读写
+                //      「Custom Vertex Streams」那一栏的 ⇒ **这就是 Unity 6 的正路**。
+                //      （原版 Unity 版本里那两个属性还在，但**序数编号两版相同**，所以按序数搬是安全的。）
+                //
+                //    🔴 **语义（机制）**：`TinyFlames`/`WildFire` 原版是 `[0,3,4,5,8]`
+                //      = `Position, Color, UV, UV2, AnimBlend`；其中 **`UV2(5)` 写 `TEXCOORD0.zw`、
+                //      `AnimBlend(8)` 写 `TEXCOORD1.x`** —— 正是 URP `Particles/Unlit` 在
+                //      `_FLIPBOOKBLENDING_ON` 下读的那两个量（`ShaderLibrary/Particles.hlsl` 的
+                //      `GetParticleTexcoords` 非实例化支：`outputTexcoord2AndBlend.xy = inputTexcoords.zw;
+                //      …z = inputBlend;` ⇒ `SampleAlbedo` 里 `lerp(color, color2, blendUv.z)`）。
+                //      原版 `TinyFlame` / `LargeFlame02` 材质**开着这个关键字**，原版流里**正好带 5+8**
+                //      （13 场「材质带 `_FLIPBOOKBLENDING_ON` 且 `ucs=True`」的 **53/53 全带**）。
+                //      ⚠️ **但注意**：帧 UV 本身在 stream 4（`UV`）里、**默认就有**得发
+                //      ⇒ 缺 5/8 丢的是**帧间交叉淡入**，**不是整张图集糊上去**
+                //      （依据 = `Particles.hlsl` 的实例化支才做 `inputTexcoords.xy * animScale + offset`，
+                //       非实例化支**原样透传** ⇒ 那条路上的 UV 由 CPU 烘好）。**如实记，别夸大。**
+                //
+                //    ⚠️ **只在原版 `m_UseCustomVertexStreams=True` 时才设**（179/578）——
+                //      原版为 `False` 的 362 颗走 Unity 默认，**不去改**（其中有 36 颗虽然
+                //      `m_VertexStreams` 里留着 5，但开关是关的，Unity 按默认发流 ⇒ 照旧不动）。
+                if (p.useCustomVertexStreams && p.vertexStreams != null && p.vertexStreams.Length > 0)
+                {
+                    _psStreamsWant.Clear();
+                    bool badOrdinal = false;
+                    foreach (int v in p.vertexStreams)
+                    {
+                        if (v < 0 || v > (int)ParticleSystemVertexStream.TrailWidth) { badOrdinal = true; break; }
+                        _psStreamsWant.Add((ParticleSystemVertexStream)v);
+                    }
+                    if (badOrdinal)
+                        Debug.LogWarning($"[Arena] {mf.scene}/{p.go}：清单 `vertexStreams` 里有越界序数 ⇒ "
+                                       + "**整个不设**（宁可吃默认，也不许写坏顶点布局）。");
+                    else
+                    {
+                        rend.SetActiveVertexStreams(_psStreamsWant);
+                        _nCustomStreams++;
+                        // 🔴 **不许静默**：设完当场回读一次，对不上就报（不然「设了等于没设」看不出来）。
+                        //   ⚠️ 措辞只报**事实**（回读 ≠ 设定），不替 Unity 下结论 ——
+                        //     mesh 模式（`renderMode=4`）下 Unity 可能自己补/删几条必需的流
+                        //     （Unity 6 `StandardParticlesShaderGUI` 就是按
+                        //      `renderMode==Mesh && supportsMeshInstancing` 走**两个不同的流表**），
+                        //     那种「不一致」不等于失败 ⇒ **最终判据在产物文本**（见 `VerifyPrefabVertexStreams`）。
+                        _psStreamsGot.Clear();
+                        rend.GetActiveVertexStreams(_psStreamsGot);
+                        if (!SameStreamSet(_psStreamsWant, _psStreamsGot))
+                            Debug.LogWarning($"[Arena] {mf.scene}/{p.go}：`SetActiveVertexStreams` "
+                                           + $"设 {DumpStreams(_psStreamsWant)}，回读是 {DumpStreams(_psStreamsGot)}"
+                                           + " —— **两者不一致**（可能 Unity 按渲染模式补/删了必需的流，"
+                                           + "也可能真没设上）。判据以产物为准："
+                                           + "`grep -c \"m_UseCustomVertexStreams: 1\" Resources/ArenaPrefabs/<场>.prefab`。");
+                    }
+                }
+                // ⚠️ 判「键在不在」只能看 `== null`：`JsonUtility` 对**缺键**给 `null`、对**空数组**给长度 0
+                //   （原版这 179 颗**没有一颗是空数组**，实测最少 3 项）。
+                else if (p.useCustomVertexStreams && p.vertexStreams == null && !_warnedNoStreams)
+                {
+                    _warnedNoStreams = true;
+                    Debug.LogWarning($"[Arena] {mf.scene}：清单的 `particles[]` **没有 `vertexStreams` 键**"
+                                   + "（但 `useCustomVertexStreams=true`）⇒ 全部按 Unity 默认发流"
+                                   + "（13 场 578 颗里 179 颗原版是自定义）。跑 `工具/gen_arena_particle_streams.py` 补上。");
+                }
+                // 🆕 **2026-10-11（A1557·第②项）：`ParticleSystemRenderer.applyActiveColorSpace`**
+                //    —— 判据/语义/为什么单独判「键在不在」全部写在 `ParticleEntry.applyActiveColorSpace`
+                //    与 `_manifestHasApplyColorSpace` 的头注里，这里只说落地这一句。
+                //    🔴 **只改这一个变量**：`maxParticleSize` 照旧不动（2026-09-21 实测设了会退步）、
+                //      `enableGPUInstancing` 照旧不动（两边材质都关着 ⇒ 死值）。
+                if (_manifestHasApplyColorSpace)
+                {
+                    rend.applyActiveColorSpace = p.applyActiveColorSpace;
+                    if (!p.applyActiveColorSpace) _nColorSpaceFalse++;
+                }
                 rend.material   = GetOrCreateParticleMaterial(mf.scene, p);
                 rend.shadowCastingMode = ShadowCastingMode.Off;
                 rend.receiveShadows = false;
@@ -2593,6 +2868,25 @@ public static class ArenaBuilder
                            + "（原版 `UnlitAmbient Emissive Flickker` 用的是 `_EmissiveColor`）。"
                            + "**这是已知缺口**，不是「做完了」：要还原得让这些材质走一个带自发光项的 shader。");
         _emissionDropped = 0;
+        // 🆕 2026-10-11（A1557）：自定义顶点流设上了几颗 —— **这一行就是本条的读数**（可复算）。
+        //    期望值 = 该场清单里 `useCustomVertexStreams=true` **且真建出来了**的颗数
+        //    （`battlearena1` 清单 27/34；明细见上面那条「内容：…粒子 N 个（另跳过…）」）。
+        //    不等 ⇒ `SetActiveVertexStreams` 没生效，上面每颗都配了一句告警（不许静默）。
+        Debug.Log($"[Arena] 顶点流：{mf.scene} 设上自定义顶点流的粒子 **{_nCustomStreams}** 颗"
+                + $"（期望 = 该场清单里 `useCustomVertexStreams=true` 且**真建出来了**的颗数；"
+                + "清单里没建的（无贴图 / 原版关着 / renderMode=None）不在此列）");
+        _nCustomStreamsTotal += _nCustomStreams;   // 13 场的合计，给 `BuildArenaPrefabs` 的产物自检当期望值
+        _nCustomStreams = 0;
+        // 🆕 **2026-10-11（A1557·第②项）**：`applyActiveColorSpace` 的逐场读数 —— **这一行就是本条的判据**。
+        //    期望值 = 该场清单里 `applyActiveColorSpace=false` **且真建出来了**的颗数
+        //    （`battlearena1` 清单 28/34；明细见上面那条「内容：…粒子 N 个（另跳过…）」）。
+        //    与 `_nColorSpaceFalseTotal` 一起被 `VerifyPrefabColorSpace()` 拿去做产物自检。
+        if (_manifestHasApplyColorSpace)
+            Debug.Log($"[Arena] 色彩空间：{mf.scene} 把 `applyActiveColorSpace` 设成 **False** 的粒子 "
+                    + $"**{_nColorSpaceFalse}** 颗（其余吃原版 True）；"
+                    + "期望 = 该场清单里 `applyActiveColorSpace=false` 且**真建出来了**的颗数");
+        _nColorSpaceFalseTotal += _nColorSpaceFalse;
+        _nColorSpaceFalse = 0;
 
         // ---- 太阳耀斑（原版 `Sun flare`：URP `LensFlareComponentSRP`）----
         // 🔴 **2026-09-21 才建**：13 场里有 **6 场**挂着这个对象（arena1/2/aeldari/astramilitarum/
@@ -3425,8 +3719,20 @@ public static class ArenaBuilder
             Debug.LogError($"[Arena] 清单不存在：{path}（先跑 gen_unity_arena_manifest.py --arena {sceneName}）");
             return null;
         }
-        var mf = JsonUtility.FromJson<Manifest>(File.ReadAllText(path));
+        var txt = File.ReadAllText(path);
+        var mf = JsonUtility.FromJson<Manifest>(txt);
         if (mf == null) Debug.LogError($"[Arena] 清单解析失败：{path}");
+        // 🆕 **2026-10-11（A1557·第②项）**：**「`applyActiveColorSpace` 键在不在」只能数清单文本**
+        //    —— 不能看反序列化后的字段（`JsonUtility` 对缺键的 `bool` 给 `false`，而 Unity 的默认是
+        //    `true`，两者不可区分）。不判的话老清单会被**静默**整片设成 `false`。
+        //    详细理由见 `_manifestHasApplyColorSpace` 的头注。
+        int nPs = (mf != null && mf.particles != null) ? mf.particles.Length : 0;
+        _manifestHasApplyColorSpace = nPs > 0 && CountSub(txt, "\"applyActiveColorSpace\"") >= nPs;
+        if (!_manifestHasApplyColorSpace && nPs > 0 && _warnedNoColorSpace.Add(sceneName))
+            Debug.LogWarning($"[Arena] {sceneName}：清单 `particles[]` **没有 `applyActiveColorSpace` 键** "
+                           + $"（{nPs} 颗一颗都没有）⇒ 这一场**一个字都不改**、全部照 Unity 默认（`true`）画 "
+                           + "—— **这一项没接**，不是「做完了」。"
+                           + "跑 `工具/gen_arena_particle_colorspace.py` 补上（原版 578 颗里 177 颗是 `False`）。");
         ApplyCameraSidecar(sceneName, mf);
         ApplyNegScaleSidecar(sceneName, mf);
         ApplyShadowSidecar(sceneName, mf);          // 🆕 2026-09-30（①-l）：逐对象的投/收阴影标志
@@ -3640,6 +3946,74 @@ public static class ArenaBuilder
     /// <summary>🆕 2026-09-21：**自发光设不上去的材质个数** —— URP/Unlit 没有 `_EmissionColor`，
     /// 原版那批（如 sororitas 的 24 个烛光）的自发光会被丢掉。**不许静默**：建完在 `BuildContent` 里报一句。</summary>
     static int _emissionDropped;
+
+    /// <summary>🆕 2026-10-11（A1552）：清单里**没有 `pivot` 键**的告警只报一次 —— 见 `rend.pivot` 那一段。
+    /// 老清单（未跑 `工具/gen_arena_particlepivot.py`）才会命中；**不许静默**按 `(0,0,0)` 画。</summary>
+    static bool _warnedNoPivot;
+
+    /// <summary>🆕 2026-10-11（A1557）：自定义顶点流那一段用的四个静态件。
+    /// · `_psStreamsWant` / `_psStreamsGot` = 复用 list（578 颗别每颗 new 一次；**只在本方法里单线程用**）；
+    /// · `_warnedNoStreams` = 「清单没有 `vertexStreams` 键」的告警只报一次（老清单才会命中）；
+    /// · `_nCustomStreams` = 本场**真正调了 `SetActiveVertexStreams`** 的颗数
+    ///   （`BuildContent` 开头清零、结尾报出；应等于该场清单里 `useCustomVertexStreams=true` 的颗数）；
+    /// · `_nCustomStreamsTotal` = 13 场合计 —— `BuildArenaPrefabs` 的产物自检拿它当期望值
+    ///   （⚠️ **不能拿清单里的 179 当期望**：清单 578 颗里有一部分**根本没建** ——
+    ///    无贴图 / 原版关着 / `renderMode=None` ⇒ 我们的 13 件 prefab 一共只有 **469** 个 PSR，
+    ///    直接比 179 会**假红**）。</summary>
+    static readonly List<ParticleSystemVertexStream> _psStreamsWant = new List<ParticleSystemVertexStream>(8);
+    static readonly List<ParticleSystemVertexStream> _psStreamsGot  = new List<ParticleSystemVertexStream>(8);
+    static bool _warnedNoStreams;
+    static int _nCustomStreams;
+    static int _nCustomStreamsTotal;
+
+    /// <summary>🆕 **2026-10-11（A1557·第②项）**：本清单里 `particles[]` **有没有
+    /// `applyActiveColorSpace` 这个键**（由 `LoadManifest` 数一次，`BuildContent` 消费）。
+    ///
+    /// 🔴 **为什么要单独判它**：`JsonUtility` 对**缺键的 `bool`** 给 `false`，而 Unity 新建
+    ///   `ParticleSystemRenderer` 的默认是 `true` ⇒ **分不清「键不在」和「原版就是 false」**
+    ///   的话，老清单会被**静默**整片设成 `false`（578 颗全变、且「看着很有依据」）。
+    ///   判据只能看**清单文本**（`grep -c '"applyActiveColorSpace"'`），不能看反序列化后的字段 ——
+    ///   与本项目 `vertexStreams == null` 那条（`JsonUtility` 对**空数组**给长度 0、对**缺键**
+    ///   给 null）是同一个路子，**这一条是它的 `bool` 版：没有 null 可用，只能数文本**。
+    /// ⚠️ 键不在时**一个字都不改**（保持 Unity 默认 `true`）+ 出声，见 `LoadManifest`。</summary>
+    static bool _manifestHasApplyColorSpace;
+
+    /// <summary>🆕 **2026-10-11（A1557·第②项）**：「键不在」的告警只报一次（13 场逐场会各报一遍，
+    /// 这里只挡住「同一场重复 load」造成的重复刷屏）。</summary>
+    static readonly System.Collections.Generic.HashSet<string> _warnedNoColorSpace =
+        new System.Collections.Generic.HashSet<string>();
+
+    /// <summary>🆕 **2026-10-11（A1557·第②项）**：本场**真正被设成 `false`** 的粒子数
+    /// （= 原版 `m_ApplyActiveColorSpace = False` 且**建出来了**的那些）。
+    /// `BuildContent` 开头清零、结尾报出；`_nColorSpaceFalseTotal` = 13 场合计，
+    /// 给 `BuildArenaPrefabs` 的产物自检当期望值。
+    /// ⚠️ **不能拿清单里的 177 当期望** —— 578 颗里有一部分没建（无贴图 / 原版关着 /
+    ///   renderMode=None / 画质档不建）⇒ 我们的 13 件 prefab 一共只有 **469** 个 PSR。
+    ///   **实测预期 = 161**（逐场：1→28 · 2→41 · 3→7 · aeldari→11 · astramilitarum→4 ·
+    ///   blacklegion→15 · darkangels→0 · emperorschildren→0 · genestealers→6 ·
+    ///   leviathan→33 · sororitas→0 · spacewolves→0 · tauviorla→16）。</summary>
+    static int _nColorSpaceFalse;
+    static int _nColorSpaceFalseTotal;
+
+    /// <summary>🆕 2026-10-11（A1557）：两组顶点流**是不是同一套**（按序数排序后逐个比；
+    /// 顺序不保证一致，所以**不能直接比 list**）。</summary>
+    static bool SameStreamSet(List<ParticleSystemVertexStream> a, List<ParticleSystemVertexStream> b)
+    {
+        if (a.Count != b.Count) return false;
+        var x = new List<int>(a.Count); foreach (var v in a) x.Add((int)v);
+        var y = new List<int>(b.Count); foreach (var v in b) y.Add((int)v);
+        x.Sort(); y.Sort();
+        for (int i = 0; i < x.Count; i++) if (x[i] != y[i]) return false;
+        return true;
+    }
+
+    /// <summary>🆕 2026-10-11（A1557）：把一串顶点流打成 `[0,3,4,5,8]` 好读的样子（只给日志用）。</summary>
+    static string DumpStreams(List<ParticleSystemVertexStream> a)
+    {
+        var sb = new System.Text.StringBuilder("[");
+        for (int i = 0; i < a.Count; i++) { if (i > 0) sb.Append(','); sb.Append((int)a[i]); }
+        return sb.Append(']').ToString();
+    }
 
     /// <summary>把材质存成资产 —— **路径确定（`Materials/&lt;名字>.mat`）、已有就原地覆盖**。
     ///
@@ -4079,6 +4453,37 @@ public static class ArenaBuilder
         c.cull = cull; c.srcBlend = srcBlend; c.dstBlend = dstBlend;
         c.transparent = transparent; c.alphaClip = alphaClip; c.blendAuthoritative = blendAuthoritative;
         c.queue = queue;                 // 🆕 2026-09-22 晚：原版写死的 renderQueue（透明物体的绘制顺序）
+        // 🔴 **2026-10-11（F4）：挂上去之前先把队列补成真值。**
+        //   清单的 `queue` 在**跨包材质**上恒为 `-1`（成因 = 生成器 `unity_scene_to_godot.py:552
+        //   mat_data()` 那个重建 dict 漏带 `m_CustomRenderQueue`，`d:/2` 不在白名单、改不了）
+        //   ⇒ 原来一律落到 3000，而 `battlearena1` 的 `TinyFlames` 真值是 **3005**、烘焙光斑
+        //   `Barrels Light FX` 是 **3002** ⇒ **火画在光斑之前、被暖橙盖住**（消融实验坐实）。
+        //   这里补一次 = **场景/prefab 里序列化的 `queue` 就是真值**（`grep` 得到，见 F4 报告）；
+        //   公式**不写在这儿**，调 `ResolveQueue`（判据只此一处）。
+        //   ⚠️ **只在 `transparent` 这一档补**：不透明那颗的 `-1` 是「用 shader 的 tag」，
+        //   补成 3000 会把它从 `AlphaTest`(2450) 挪进透明段（实测 44 颗不透明粒子 + 55 个
+        //   不透明网格子材质槽都是 `-1`）。
+        //   ✅ **为什么这是纯改进**：13 场 578 颗粒子 + 736 个网格子材质槽**逐条复算**过 ——
+        //   除 `资料/普查产出_第十九会话/F4_粒子renderqueue.md` §二 列出的 **18 颗**外**一条都不变**（不透明的走不到这一支；透明的 `-1` 那颗
+        //   `_QueueOffset` 全是 0 ⇒ 算出来还是 3000，与 `ApplyRenderState` 里那句兜底同值）。
+        //   🔴 **不许静默**：真补了值的**逐颗报一行** —— 这就是「这一批到底改了几颗」的可复算读数
+        //   （期望：全 13 场 **18 行** · `WF_ARENA=battlearena1` **2 行** · battlearena2 **6 行** ·
+        //    blacklegion **8 行** · battlearena3 / leviathan 各 **1 行** · 其余 8 场 **0 行**）。
+        //   ⚠️ **闸门必须是「`queue < 0` 且算出来不是 3000」**：
+        //     · `queue >= 0` 的（网格那 416 条、`Flame03` 的 3005、两颗光斑的 3002…）**上面那行已经设过**，
+        //       这里再动就是白刷 400+ 条日志；
+        //     · `queue < 0` 但 `_QueueOffset` 是 0 的（13 场共 465 颗）算出来就是 3000，
+        //       与 `ApplyRenderState` 那句兜底同值 ⇒ **保持 `-1` 不动**（改它只会把日志淹掉）。
+        if (transparent && queue < 0)
+        {
+            int rq = WarpforgeVFX.ArenaOriginalMaterial.ResolveQueue(props, queue);
+            if (rq != (int)UnityEngine.Rendering.RenderQueue.Transparent)
+            {
+                Debug.Log($"[Arena/OS] 队列补真值：`{r.name}`（原版 shader `{shaderName}`）清单 queue={queue}"
+                        + $" ⇒ **{rq}**（判据 `3000 + _QueueOffset`，见 `ResolveQueue`）。");
+                c.queue = rq;
+            }
+        }
         c.applyAmbientColor = HasAmbientColorProp(props);
         // 🆕 2026-09-25：**非主贴图槽**（`_NoiseTex1` / `_MinTex` / `_SecondaryTex` / `_MatCap` …）——
         //    必须带到这里（**不能只在建场期贴**：那时材质还是 `URP/Unlit` 兜底、没有这些槽，
@@ -4725,11 +5130,16 @@ public static class ArenaBuilder
         //   网格那条对，正是因为场景材质大多在本包内。
         //   ⇒ 这里改从 `matProps` 取 `_QueueOffset`（那份**按 pathID 解外链**，拿得到真值）；
         //   **两个来源打架就出声**（不许静默）。⚠️ 生成器那条根因**仍在**，它只影响 `matQueue` 这一列。
+        // 🆕 2026-10-11（F4）：公式**不再写在这一行**，改用 `ArenaOriginalMaterial.ResolveQueue`
+        //   （**判据只此一处**）—— 运行时重建 (`ArenaOriginalMaterial.Rebuild`) 那条路原来只认清单的
+        //   `queue` 字段，而它在跨包材质上是 `-1` ⇒ 一律落 3000 ⇒ 粒子与「烘焙光斑」画反了。
+        //   生成器那条根因**仍在**（`unity_scene_to_godot.py:552 mat_data()` 的 dict 漏带
+        //   `m_CustomRenderQueue`，`d:/2` 不在白名单）⇒ 这里改为**从 `matProps` 现算**，与运行时同源。
         int qoff = 0; bool hasQoff = false;
         if (p.matProps != null)
             foreach (var pr in p.matProps)
                 if (pr != null && pr.k == "_QueueOffset") { qoff = (int)pr.f; hasQoff = true; break; }
-        int wantQueue = 3000 + qoff;
+        int wantQueue = WarpforgeVFX.ArenaOriginalMaterial.ResolveQueue(p.matProps, -1);
         if (p.matQueue >= 0 && p.matQueue != wantQueue)
             Debug.LogWarning($"[Arena/PM] {sceneName}/{p.go}：材质 `{p.matName}` 的**队列两个来源打架** —— "
                            + $"生成器 `matQueue={p.matQueue}` vs `3000+_QueueOffset`={wantQueue}"

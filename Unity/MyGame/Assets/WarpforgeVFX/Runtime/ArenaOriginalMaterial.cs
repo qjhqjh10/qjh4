@@ -150,8 +150,12 @@ namespace WarpforgeVFX
             }
             _ok++;
             ApplyProps(mat, props);
+            // 🆕 2026-10-11（F4）：**必须把 `props` 传进去** —— `queue` 取不到时靠它算
+            //   `3000 + _QueueOffset`（见 `ResolveQueue`）。这就是「粒子运行时队列掉到 3000」
+            //   那条缺陷的**唯一落地处**：`Rebuild()` 是预览（`ArenaBuilder.RenderPreview` 显式调）
+            //   与真机（`Awake`）**两条路共用的同一个口**。
             ApplyRenderState(mat, cull, srcBlend, dstBlend, transparent, alphaClip,
-                             blendAuthoritative, applyAmbientColor, queue);
+                             blendAuthoritative, applyAmbientColor, queue, props);
             // 🆕 2026-09-28 诊断开关：`WF_MESHKEYWORDS=_SOFT[,<kw>…]` —— 把原版材质的**关键字**补到网格材质上。
             //
             // 🔴 **为什么要有它**：清单的 `meshes[]` **不带 `matKeywords`**（只有 `particles[]` 带），
@@ -430,6 +434,53 @@ namespace WarpforgeVFX
             else               { m.DisableKeyword("_SURFACE_TYPE_TRANSPARENT"); m.renderQueue = -1; }
         }
 
+        /// <summary>材质的**队列真值**（原版 `m_CustomRenderQueue`）。**判据只此一处** ——
+        /// 建场那条路（`ArenaBuilder.GetOrCreateParticleMaterial`）与运行时重建（`Rebuild` → `ApplyRenderState`）共用。
+        ///
+        /// 规则：`matQueue` **有值（`&gt;= 0`）就用它**；取不到才现算 **`3000 + _QueueOffset`**。
+        ///
+        /// 🔴 **为什么要它能兜底（2026-10-11 查实，F4）**：清单的 `matQueue` 这一列**在跨包材质上恒为 −1** ——
+        ///   生成器解析材质有两条路：**本包内**那份 `raw` 直接读（`unity_scene_to_godot.py:879 self.MAT.get(pid)`，
+        ///   带 `m_CustomRenderQueue`）；**跨包**那份走 `unity_scene_to_godot.py:536 mat_data()`，
+        ///   而它重建出来的那个 dict **只有 `m_Name` / `m_ValidKeywords` / `m_SavedProperties` / `m_Shader`**
+        ///   —— **`m_CustomRenderQueue` 被丢掉了** ⇒ `parse_mat` 的 `raw.get('m_CustomRenderQueue')` = `None`
+        ///   ⇒ 落 `-1`（生成器 `gen_unity_arena_manifest.py:1495` 那条 `else -1`）。
+        ///   **对照实验（同一个解析器、同一个字段，只差材质在不在本包）**：
+        ///     · `battlearena2` 的 `Flame03` 材质在 `bundle_scenes_scenes_battlearena2/Material/Material_18.json`
+        ///       ⇒ **本包** ⇒ 清单 `matQueue = 3005` **正确**；
+        ///     · `battlearena1` 的 `TinyFlame` 材质在 `bundle_battlesharedresources_assets_all/Material/
+        ///       Material_6863891194852548491.json` ⇒ **跨包** ⇒ 清单 `matQueue = -1`；
+        ///     · 736 个网格子材质槽里，本包内解出来的 **416 条全部正确（0 处不符）**。
+        ///   ⇒ **不是「清单陈旧」，也不是「这个字段没人填」**，是**跨包那条兜底路漏带了这一个字段**。
+        ///   ⚠️ **`_QueueOffset` 不受影响** —— 它在 `m_SavedProperties.m_Floats` 里，跨包那份 dict **带得住**
+        ///   （实测 `TinyFlame` 的 `matProps` 里就有 `_QueueOffset = 5`）⇒ 用它现算能把真值拿回来。
+        ///
+        /// **判据（逐颗实读原版 `assets_full/**/Material/*.json`，11/11 全中）**：
+        ///   `m_CustomRenderQueue` = **`3000 + _QueueOffset`**（3000 = 这批 shader 的 `Queue` tag = Transparent）
+        ///   —— `TinyFlame` 5→3005 · `SmokeySteam No Color` / `SmokeySteam Black` 3→3003 ·
+        ///      `Embers Circle` / `Glow Additive Soft` 4→3004 · `wispySmoke Black` 1→3001 ·
+        ///      **`Smoke02` −5→2995**（负号也对上）· `SandParticle` 0→3000 · `Embers 1` 0→3000 ·
+        ///      `Glow Additive` 0→3000 · `Flame03` 5→3005。
+        ///
+        /// ⚠️ **为什么不能用 `数据/游戏数据/mat_renderqueue.tsv` 的「按材质名查表」替代它**：
+        ///   那份表是**以材质名做键**的，而原版有**同名不同材质** —— 实测 `SandParticle` 有两个：
+        ///   `bundle_battleprefabs_vfxandmisc_assets_all/Material/Material_406942044651542579`
+        ///   是 **3000 / `_QueueOffset` 0**，而 `bundle_battlesharedresources_assets_all/Material/
+        ///   Material_6754647309651436631` 是 **3001 / `_QueueOffset` 1**；那份 tsv 自己的 `_conflicts`
+        ///   里就写着 `{"SandParticle": [3000, 3001]}`，它取了 3000 ⇒ **照它修会把 battlearena2 的
+        ///   `SandParticles` 修错一格**。用 `_QueueOffset` 现算**天然分得开**（那颗的 `_QueueOffset` 是 1）。
+        /// </summary>
+        public static int ResolveQueue(MatProp[] props, int matQueue)
+        {
+            if (matQueue >= 0) return matQueue;
+            int off = 0;
+            if (props != null)
+                foreach (var pr in props)
+                    if (pr != null && pr.k == "_QueueOffset") { off = (int)pr.f; break; }
+            // 3000 = `RenderQueue.Transparent`，也就是这批 shader 的 `Queue` tag。
+            return (int)RenderQueue.Transparent + off;
+        }
+
         /// <summary>
         /// 原版 shader 的渲染状态。**判据只此一处** —— 建场那条路（`ArenaBuilder`）与运行时重建共用。
         ///
@@ -439,7 +490,8 @@ namespace WarpforgeVFX
         /// </summary>
         public static void ApplyRenderState(Material mat, int cull, int srcBlend, int dstBlend,
                                             bool transparent, bool alphaClip, bool blendAuthoritative,
-                                            bool applyAmbientColor, int queue = -1)
+                                            bool applyAmbientColor, int queue = -1,
+                                            MatProp[] props = null)
         {
             if (mat == null) return;
             if (mat.HasProperty("_Surface")) mat.SetFloat("_Surface", transparent ? 1f : 0f);
@@ -468,7 +520,17 @@ namespace WarpforgeVFX
             }
             // 🆕 2026-09-22 晚：**原版写死的队列优先**（`-1` = 没写，用上面那条兜底）。
             //   判据在 `数据/游戏数据/mat_renderqueue.tsv`：arena1 那族是 2450 / 3000 / **3002**。
+            // 🆕 2026-10-11（F4）：`queue` 取不到（`-1`）时**不再一律停在 3000**，改走 `ResolveQueue`
+            //   （= `3000 + 原版 _QueueOffset`）。起因是 `battlearena1` 的 `TinyFlames`：
+            //   原版队列 **3005**、我们 **3000** ⇒ 火画在烘焙光斑 `Barrels Light FX`（**3002**）**之前**
+            //   ⇒ 那块暖橙盖在火上，把亮黄芯压掉、把暗根部抬起来（消融实验：关掉光斑后火区均值
+            //   96.6 → 73.5，而原版是 71.7 —— 几乎逐值相等）。
+            //   🔴 **只在 `transparent` 这一档动**：不透明那颗的 `-1` 意思是「用 shader 的 tag」
+            //   （这批多为 `AlphaTest` 2450）—— 给它算成 3000 会把它挪进透明段。
+            //   实测这条闸门值是必要的：13 场共有 **44 颗不透明粒子**的 `matQueue = -1`（它们的
+            //   `_QueueOffset` 恰好都是 0 ⇒ 一算就是 3000），另有 55 个不透明网格子材质槽同形。
             if (queue > 0) mat.renderQueue = queue;
+            else if (transparent) mat.renderQueue = ResolveQueue(props, queue);
             if (applyAmbientColor) mat.EnableKeyword("_APPLYAMBIENTCOLOR");
             else                   mat.DisableKeyword("_APPLYAMBIENTCOLOR");
         }

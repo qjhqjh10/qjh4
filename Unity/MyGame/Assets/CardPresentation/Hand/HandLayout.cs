@@ -239,6 +239,34 @@ namespace CardPresentation
         [Tooltip("重排走补间（拖拽让位才不跳）。批处理自检里关掉 —— 位置要当场精确")]
         public bool animateRelayout = false;
 
+        // ------------------------------------------------------------------
+        //  🔴 2026-10-11（`A1540`）：最近一趟 `Refresh` 给每张牌算出的**位姿**
+        // ------------------------------------------------------------------
+        // 为什么要有它：`Place` 在 `animateRelayout == true` 时**只开一条 0.2 s 补间、不当场落位**
+        // （见下面 `Place` 那一支），而 `CardFeel.DealIn` 恰恰是**读当时的位置**当落点
+        // （`Core/CardFeel.cs:1142` 的 `Vector3 to = tr.position;`）—— 同一帧里那个位置**还是父级原点**
+        // （= 画布正中 960,540）⇒ 刚抽到的牌从牌堆飞进画布正中并停住，而 `MulliganPanel` 同帧按
+        // `c.transform.position` 建的「换」钮**全都落到牌堆上**（实拍 `_tmp_view/ui_1019/17_battle.png`）。
+        // ⇒ 调用方（`BattleDriver.SyncHand`）在读落点**之前**先用本表把新牌落实。
+        // ⚠️ 每趟 `Refresh` **重填**（不留上一趟的）—— 它只保证「最近一次排布的结果」。
+        // ⚠️ 世界坐标，与 `SlotPosition` / `CardTween.ToPose`（`DOMove`）同一套。
+        struct HandPose { public Vector3 pos; public float angle; public float scale; }
+        readonly Dictionary<CardView, HandPose> _lastPose = new Dictionary<CardView, HandPose>();
+
+        /// <summary>最近一趟 `Refresh` 给这张牌算的位姿。没排过 ⇒ `false`。
+        /// `A1540`：发牌入场要在读落点之前用它先把牌落实（见 `_lastPose` 的注释）。</summary>
+        public bool TryLastPose(CardView c, out Vector3 pos, out float angle, out float scale)
+        {
+            HandPose p;
+            if (c != null && _lastPose.TryGetValue(c, out p))
+            {
+                pos = p.pos; angle = p.angle; scale = p.scale;
+                return true;
+            }
+            pos = Vector3.zero; angle = 0f; scale = 1f;
+            return false;
+        }
+
         // ==================================================================
         //  敌方手牌那一份（原版 `CardsHorizontalLayout` MB **4053**）
         // ==================================================================
@@ -527,6 +555,7 @@ namespace CardPresentation
         /// </summary>
         public void Refresh(IReadOnlyList<CardView> cards, int hoveredIndex = -1, int insertIndex = -1)
         {
+            _lastPose.Clear();          // 只保证「最近一趟」的结果（见 `_lastPose` 的注释）
             if (cards == null) return;
             int n = cards.Count;
             if (n == 0) return;
@@ -588,6 +617,8 @@ namespace CardPresentation
 
         void Place(CardView c, Vector3 pos, float angle, float scale)
         {
+            // 记下这一趟算出来的位姿（`A1540`：发牌入场读落点前要靠它先落实，见 `_lastPose` 的注释）
+            _lastPose[c] = new HandPose { pos = pos, angle = angle, scale = scale };
             if (!animateRelayout) { c.SetPose(pos, angle, scale); return; }
             // 只有真的会动的地方才补间（拖拽让位每帧都可能重排，别把补间叠起来）
             c.transform.DOKill();

@@ -923,12 +923,46 @@ namespace RuleEngine
             if (!string.IsNullOrEmpty(NameFilter)) sb.Append(" 名为").Append(NameFilter);
             return sb.ToString();
         }
+
+        /// <summary>
+        /// 🆕 **2026-10-11（`A1428`）**：一份**浅拷贝**（`MemberwiseClone`，与
+        /// <see cref="EffectOp.Clone"/> 同一个做法）。
+        ///
+        /// **为什么需要**：`Parse` 里那条「`instead` 承接被替换那条的目标」要把一份目标规格
+        /// **复制**到另一条 op 上 —— ⛔ **不能直接把同一个对象挂两处**：`EffectOp` 列表是
+        /// **解析产物、会被复用**（同一张卡第二次打出时是同一份对象，见 `EffectResolver.ResolveOps`
+        /// 里那条注释），共享一份 spec 之后**谁改了它两边一起变**，而那是**静默**的。
+        ///
+        /// ⚠️ **浅**：**唯一的引用型字段**是 <see cref="PrevAntecedent"/>（`CardCriteria`），
+        ///    它仍然**共享同一个对象** —— 与 `EffectOp.Clone` 的既有口径一致（那条也是
+        ///    `MemberwiseClone`）。其余引用型字段全是 `string`（不可变），共享无害。
+        ///    要动 `PrevAntecedent` 就得改成深拷，改之前先看谁会改它。
+        /// </summary>
+        public EffectTargetSpec Clone()
+        {
+            return (EffectTargetSpec)MemberwiseClone();
+        }
     }
 
     // ==================================================================
     //  解析器
     // ==================================================================
 
+    /// <summary>
+    /// **卡面效果文字的解析器**（`Core/`，⛔ 不引 `UnityEngine`）。
+    ///
+    /// 这是全工程**唯一**的「英文卡面 → `EffectOp`」文法（战术卡、单位卡正文、`Oath:` / `Ability:`
+    /// 那一族**共用同一个口**，见 `CardDef` 的 `CollectTriggerOps`）。
+    ///
+    /// 入口三件，别混：
+    ///   · <see cref="Split"/> —— 按 `.` 切句（照原版朴素切法，**别「改良」**）；
+    ///   · <see cref="Parse"/> —— 整条 `desc` → op 列表（**对外的正门**）；
+    ///   · <see cref="ParseSegment"/> —— 单句 → <see cref="SegResult"/>（加 handler 改这里）。
+    ///
+    /// 🔴 **加 handler 之前先看 <see cref="TextCoverage"/> 那张报表的量法** ——
+    /// 「认了」和「有机制 / 打得准」是**三档**，只把句子认出来会让报表虚高
+    /// （「看起来能跑、实际少打一半」是本文件最容易犯的错）。
+    /// </summary>
     public static class EffectText
     {
         /// <summary>一条分句的解析结果</summary>
@@ -1071,8 +1105,15 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// 解析整条 `desc`。
+        /// 解析整条 `desc`：先 <see cref="Split"/> 分句，再逐句 <see cref="ParseSegment"/>，
+        /// 最后把跨句的东西补齐（相邻锚点 `FillAdjacentAnchors` / 付费前缀跨句承接 / 组内付一次钱）。
+        ///
+        /// ⚠️ **同一个 `desc` 调两次得到的是两份不同的对象**（`EffectOp` 列表不进缓存的引用会被比错）——
+        /// 要按内容比，别按引用比。
+        /// ⚠️ **只看「认没认出来」不够**：「认了、但载荷没机制」与「打得比卡面宽」是另外两档，
+        /// 判据在 <see cref="OpHasMechanism"/>，账在 <see cref="TextCoverage"/>。
         /// </summary>
+        /// <param name="desc">卡面效果原文（`CardDef.Desc`）。**整条**，不是一句 —— 句内怎么切由本方法负责。</param>
         /// <param name="unparsed">认不出来的分句（原文），按出现顺序</param>
         /// <param name="partial">句型认了、但目标/载荷词表里没有的分句（原文）</param>
         /// <param name="eventHasTarget">
@@ -1152,6 +1193,74 @@ namespace RuleEngine
                             op.CostShared = true;      // 付钱的是上一段那条
                         }
                 }
+            }
+
+            // ---- 🔴 2026-10-11（`A1428`）`instead` 那条的【目标承接】 ----
+            //
+            // **要治的形状**（唯一一条，全池实测）：`SOR6 Righteous Repugnance`
+            //   `Give +1 [Attack] and +1 [Ranged] to your units this turn.`
+            //   `4 Energy: Give +2 [Attack] and +2 [Ranged] instead and Heal them 1`
+            // 第二段那句 **卡面没写给谁**（`Give +2 …` 后面直接接 `and Heal …`）⇒ `TryGive` 的
+            // ④ 支把它的 `Target` 标成 `Subjectless`。它**靠上一句的 `to your units` 承接**，
+            // 而逐段解析时**看不到上一句** ⇒ 今天它**打对是靠「己方全体」那条兜底**
+            //   （战术卡的 `Subjectless` 落到己方全体 —— 见 `EffectTargetSpec.Subjectless` 的 doc）。
+            // 那是**来源含糊**：上一句的目标一旦比「己方全体」窄（例如 `to a friendly troop`），
+            // 这一支就会**静默打宽**。⇒ 照原版把「承接」显式写出来。
+            //
+            // **原版判据（反编译，第一权威）—— 原版【真的】有这一档**：
+            //   · `TargetsAffected.previousAbilityTargets = 140` / `previousAbilityFiltered = 150`
+            //     （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/TargetsAffected.cs`）；
+            //   · 它**唯一的** resolver `d:/2/tools/decomp_full/AbilityLogic__GetTargets.c:849`
+            //     `if (iVar6 == 0x8c /*140*/)` ⇒ `AddRange(结果, 静态 pooledPossibleTargets)`
+            //     —— **结果就是「上一条 ability 存下来的那批目标」**（`:867` 的 150 同形，
+            //     差别只是 150 之后还要再过一遍筛选）；
+            //   · 那批目标是**上一条 logic 自己存进去的**：`AbilityLogic__SetPreviousAbilityTargets.c`
+            //     （清空静态缓冲 + `AddRange(传进来的 targets)`），调用点 `AbilityLogic__PlayAbility.c:2745`。
+            //   ⇒ 原版这一档 = **把上一条 logic 存下的目标整批拿过来用**，**与「没有目标」是两回事**。
+            //
+            // **我们照哪一支**：照原版那一支 —— 在**解析期**把「被替换的那条」的目标**复制**一份贴上去
+            //   （结算层不新增模式：`EffectTargetSpec.Subjectless` 那条兜底**原样不动**，
+            //    所以**没有施放者的卡不会再被这一笔改到**）。
+            //
+            // **配对判据与 `EffectResolver.ResolveOps` 的那一段【同一份】**（`Core/EffectResolver.cs` 的
+            //   `insteadBase` 循环）—— 四条逐字相同：① 从 `i-1` 往前找 ② **碰到另一条 `Instead` 就停**
+            //   ③ **跳过得带 `Condition` 的** ④ **动词要相同**。⛔ **别在这儿另立一套配对**。
+            //   （那一份在**运行时**还会按「条件判不判得了 / 要不要数 `for each`」放弃配对；
+            //     本趟**只看结构**、不做那两档判断 —— 放弃配对时两条都会结算，
+            //     而「同一效果的两种数值」本来就该打同一批目标，所以两种情形下这里都对。）
+            //
+            // ⚠️ **闸门收得紧（宁可不动，也别猜）**：
+            //   · 只治 `op.Target.Subjectless` 那一条（卡面**明写**了目标的 `instead` 一个字不碰 ——
+            //     `Give it Armour 2 instead` / `destroy it instead` 那一族走的是 `prev`，本来就对）；
+            //   · 被替换那条**自己也 `Subjectless`** 或没有目标 ⇒ **不动**（承接不到东西就别造）。
+            // 🔴 **误伤面（全池实测，`D:/tmp/wf_e5/` 离线探针 · 1126 张的 `desc` ＋全部 `keywords`
+            //   原文与冒号后正文）**：全池 `Instead` op 一共 **12 条**，逐条分类：
+            //   · **6 条**是 `… damage instead`（`ASH31` / `ASH36` / `AM40` / `DA37` / `GSC54` / `GOF94`）
+            //     —— 它们的目标是 `TryDeal` 那条「按原版规则自动选敌方生命最低的单位」的补底
+            //     （`Auto = true`、**不是** `Subjectless`）⇒ 被下面第一道闸挡掉；
+            //   · **5 条**目标明写（`it` / `them`）或**没有同动词前驱**（`GOF100` / `SOR49` /
+            //     `SW55` / `TAU53` / `DA37` 的 `gain`）⇒ 挡在「不是 `Subjectless`」或「前驱找不到」；
+            //   ⇒ **吃到这一趟的只有 `SOR6` 那 1 条**（改前 → 改后的目标规格见本笔报告 §3）。
+            for (int i = 0; i < ops.Count; i++)
+            {
+                var op = ops[i];
+                if (op == null || !op.Instead || op.Target == null || !op.Target.Subjectless) continue;
+
+                int baseIdx = -1;
+                for (int j = i - 1; j >= 0; j--)
+                {
+                    var b = ops[j];
+                    if (b == null) continue;
+                    if (b.Instead) break;                              // 不跨过另一条替换
+                    if (!string.IsNullOrEmpty(b.Condition)) continue;  // 只替换无条件的
+                    if (b.Verb != op.Verb) continue;                   // 同动词
+                    baseIdx = j; break;
+                }
+                if (baseIdx < 0) continue;
+
+                var bt = ops[baseIdx].Target;
+                if (bt == null || bt.Subjectless) continue;            // 前驱自己也说不清 ⇒ 不猜
+                op.Target = bt.Clone();                                // ⛔ 不是同一个对象（见 `Clone` 的 doc）
             }
 
             // 🆕 2026-09-16 **「它本回合内死了，就把这条效果转给另一个」的跨句回填**
@@ -1373,9 +1482,34 @@ namespace RuleEngine
             }
         }
 
+        /// <summary>
+        /// **一句**（一个 `Split` 出来的分句）的解析产物。
+        ///
+        /// 除了 <see cref="Ops"/>，它还捎带两条**跨句才用得上**的信道：
+        /// <see cref="PaidCost"/>/<see cref="PaidKind"/>（本段自带的付费前缀 —— `Parse` 里那个
+        /// `carry` 靠它决定「下一句要不要接着付钱」）与 <see cref="HasTriggerHead"/>
+        /// （本段开了**另一条 ability** ⇒ `carry` 必须在这里清零）。
+        /// 🔴 加字段之前先想清楚：**它是 per-段 的，不是 per-卡 的**。
+        /// </summary>
         public class SegResult
         {
+            /// <summary>
+            /// **这一段（一「句」）解析的判定**，四种取值见 <see cref="SegKind"/>。
+            ///
+            /// ⚠️ 它是**逐段**的，不是整张卡的 —— 一张卡打不打 `*` 看的是「有没有
+            /// <see cref="SegKind.Unknown"/> / <see cref="SegKind.Partial"/> 的段」，
+            /// 那个账由 <see cref="TextCoverage"/> 收（`SegTotal` / `SegOk` / `SegPartial` / `SegUnknown`）。
+            ///
+            /// 🔴 **默认值是 <see cref="SegKind.Unknown"/>** —— 任何一条新增的「提前返回」分支
+            /// 如果忘了写 `Kind`，那一段就会**静默地被记成「认不出」**（报表虚低、卡面多打一个 `*`），
+            /// 而不是报错。⇒ 加分支时**顺手把 `Kind` 写上**。
+            /// </summary>
             public SegKind Kind = SegKind.Unknown;
+
+            /// <summary>
+            /// 这一段产出的 op（**可能为 null 或空表**：纯关键词声明、或整段认不出都是这样）。
+            /// ⚠️ 调用方**必须判 null** —— 认不出的段没有一个「空列表」给你遍历。
+            /// </summary>
             public List<EffectOp> Ops;
 
             /// <summary>
@@ -1466,6 +1600,9 @@ namespace RuleEngine
         /// </summary>
         public class TextCoverage
         {
+            /// <summary>**量进来多少张卡**（筛掉 `type` 不匹配的之后）。
+            /// ⚠️ 算比率时注意：手牌陷阱那几张**不做文本解析、直接记进 <see cref="Full"/>** 就跳过了
+            /// （见 `Coverage` 里 `IsHandTrap` 那一支）⇒ 它们也在本分母里。</summary>
             public int Cards;
             /// <summary>整条 desc 都解析干净了的卡数（**这才是「能打」的口径**）</summary>
             public int Full;
@@ -1491,15 +1628,31 @@ namespace RuleEngine
             /// ⚠️ 和「没机制」是**两回事**，措辞别混：这些卡**会生效**，只是**打多/打错人**。
             /// </summary>
             public readonly List<string> ImpreciseCards = new List<string>();
+            /// <summary>「打宽」的**原因** → 出现次数（键 = `OpHasMechanism` 的 `why` 串，
+            /// 与 <see cref="NoMechFreq"/> 同形、同一处累加、按 `imprecise` 那个出参分家）。
+            /// 用途 = 按频次排「先补哪个兵种/条件过滤」。</summary>
             public readonly Dictionary<string, int> ImpreciseFreq = new Dictionary<string, int>();
 
+            /// <summary>**分句级**的账（`SegTotal` = 总句数，其余四种 = 各 <see cref="SegKind"/> 的句数）。
+            /// ⚠️ 它和上面那组**卡级**的数（`Cards` / `Full` / `Partial` / `None`）**不是同一层**：
+            /// 一张卡有好几句，卡级判「整张卡干净不干净」，这里判「一句一句认成了什么样」。
+            /// `SegKeyword` 单列（纯关键词声明**不算失败**，但也不产出 op）。</summary>
             public int SegTotal, SegKeyword, SegOk, SegPartial, SegUnknown;
 
+            /// <summary>**认不出的**分句样例，元素形如 ``卡名 · 分句``。⚠️ **上限 40 条、且去重**
+            /// （去重是**按分句**、且跨卡共享一个 `seenUnknown`）⇒ 拿它数「一共多少种」会少算，
+            /// 真正的频次看 <see cref="UnknownFreq"/>。</summary>
             public readonly List<string> UnknownExamples = new List<string>();
+
+            /// <summary>**半懂的**分句样例，元素形如 ``卡名 · 分句``。
+            /// ⚠️ **上限 25 条、且【不去重】** —— 与 <see cref="UnknownExamples"/> 的口径不同，
+            /// 别把两者当同一种表用。</summary>
             public readonly List<string> PartialExamples = new List<string>();
             /// <summary>分句 → 出现次数（**按频次排**才知道下一个该实现哪个 handler，
             /// 比「前 40 个不认识的」有用得多）</summary>
             public readonly Dictionary<string, int> UnknownFreq = new Dictionary<string, int>();
+            /// <summary>**半懂**的分句 → 出现次数（与 <see cref="UnknownFreq"/> 同形、无上限）。
+            /// 与「不认」分开报的理由见 <see cref="TextCoverage"/> 的类头 —— 半懂比不认更危险。</summary>
             public readonly Dictionary<string, int> PartialFreq = new Dictionary<string, int>();
             /// <summary>完全解析不了的卡名（卡面该打 `*`）</summary>
             public readonly List<string> NoneCards = new List<string>();
@@ -1705,6 +1858,9 @@ namespace RuleEngine
         ///    单位卡/督军卡那份账**不该看这个函数** —— 它量的是主解析器，
         ///    而单位卡走的是事件层（见 `WillRunOps` 的注释）。
         /// </summary>
+        /// <param name="cards">**要量的那批卡**（全池或某一类）。`null` ⇒ 返回全零的账（不抛）。</param>
+        /// <param name="type">只量**这一类卡**（按 `CardDef.Type` 判，`unit` / `tactic` / `hero` / `defence`）；
+        /// 传 `null` ⇒ 不筛、全部量。</param>
         /// <param name="createPool">
         /// **全卡池** —— 用来验「造牌」那一条的候选池算不算得出来（`CreatePool.Resolve`）。
         /// 不传就**不验造牌**（造牌仍算「有机制」，只是没人核过池子）。
@@ -1950,7 +2106,11 @@ namespace RuleEngine
             // ---- 🆕 可路由的**触发前缀**（`Rally: …` / `Strike: …` / `Slay: …` …）----
             // 🔴 单位卡的触发正文**在引擎里不是按整句解析的** —— 走的是 `CardDef.AddTriggerOp`：
             //    冒号后那段**单独**送进 `EffectText.Parse(body)`（`CardDef.ReTriggerHead`，判据是
-            //    `CardDef.RoutableTriggers` 那 8 个）。所以这里也照那条路走。
+            //    **`CardDef.RoutableTriggers` 那一份 —— 以它为准**）。所以这里也照那条路走。
+            //    ⚠️ **那句话里别写个数**（⚠️ 2026-10-11 `A1408` 就地订正：本行原来写「那 **8** 个」，
+            //       而实测当天已经是 **22** 个 —— 那张表是**活表**，`survivor` / `sacrifice`
+            //       那两笔加进来之后这句话就烂了）。要看现值 = `CardDef.RoutableTriggers.Length`，
+            //       本句只负责指过去。）
             //
             // 为什么必须剥（2026-09-13 候选 F 顺手修）：不剥的话整句
             // `Rally: Deal 3 damage to an enemy` 会**从中间的动词开始被匹配**（那时 `ReDeal`
@@ -6445,6 +6605,23 @@ namespace RuleEngine
         ///   宽松匹配会吃掉正常句子 —— 例如 `Draw **5 cards**` 里的 `5 cards`、
         ///   `Deploy 3 Grot` 的 `3 Grot`。判据是「数字后面那个词**是动词**」，别的一律不认。
         ///   全池仿真（2026-09-13）：这条规则只多吃 11 条句子，**全是合法写法**。
+        ///
+        /// 🔴🔴 **2026-10-11（`A1472`）全池实测：无冒号的付费段 = 【2 条 / 2 张】，要数这一族
+        ///    【必须走本方法】** —— 出处 = 本笔离线探针（`D:/tmp/wf_e5/`，逐张跑
+        ///    `EffectText.Split` + `ParseSegment`，1126 张）：
+        ///      · `SOR72 Adelaide the Serene` 的 `6 ☀ Gain Flank and Shield`（`paidCost=6 ck=faith`）
+        ///      · `SOR74` 的 `6 [icon] Give them Flank`（`paidCost=6 ck=faith`）
+        ///    ⇒ **`SOR72` 与「`N ☀:` / `N [Energy]:` 那 11 条 / 9 张」是【同族】**（`ck` 一样是
+        ///      `faith`、解析路径一样是本方法），**只是卡面写法不同**（印得下就不印冒号）。
+        ///
+        /// ⚠️ **`ruleprobe willrun` 的「付费段」那一档【结构上永远看不见】这两条** ——
+        ///    那一档的判据是「**冒号前面的头**」（`工具/ruleprobe/WillRun.cs` 的 `Classify` ②，
+        ///    `b.Head` 来自 `AddFaceBody` 的 `s.Substring(0, s.IndexOf(':'))`）⇒ 没有冒号的段
+        ///    **进不了那一档**，会被 ⑤「无头」档收走（`SOR72` 就落在 `A1458` 那张
+        ///    「无消费点」名单里，**那不是同一件事**）。
+        ///    ⇒ 两件事**分开记**：① **要数「付费段」有几条** ⇒ 用 `ParseSegment`（本方法）；
+        ///      ② **探针那一档看不见无冒号写法** 是探针侧的缝（`A1472` 已报，**不在本文件里**）。
+        ///    ⛔ **别按 `seg.Contains(':')` 去数付费段** —— 那会静默漏掉上面这两张（漏 2 条）。
         /// </summary>
         static readonly Regex RePaidBare = new Regex(
             @"^(?:\((?<nParen>\d+)\)|(?<n>\d+))\s+" +
@@ -6462,9 +6639,32 @@ namespace RuleEngine
             + @"|choose|put|add|repeat|refill|spend|increase|reload|shuffle|make|double|target|attack";
 
         /// <summary>
+        /// 这段话里写的是不是**信仰**（`faith` 那个词 / `☀` 那枚太阳）。
+        ///
+        /// 🔴 **与 <see cref="CostKindOf"/> 同源、只此一处**：`☀` = **信仰**（不是能量，
+        ///    能量是绿圈）—— 卡图实据与那条判据早就定死了。
+        /// ⚠️ 两个**粒度**：`CostKindOf` 吃的是**一个货币词**，这里吃的是**一整句**
+        ///    （条件句里 `☀` 夹在中间）—— 但**判据是同一份**，`CostKindOf` 直接调本方法。
+        /// 🔴 **2026-10-11 就地订正（铁律 5）**：本句原来写「所以它那边 `☀` 要**整词相等**」——
+        ///    **那句今天不成立**：`CostKindOf` 现在就是 `if (MentionsFaith(s)) return "faith";`，
+        ///    两处**都是 `Contains`**（历史上 `CostKindOf` 确实写过 `s == "☀"`，所以这句话当年不算错）。
+        ///    ⇒ 判据**只有这一份**，⛔ 别在 `CostKindOf` 里再写一遍 `Contains("☀")`。
+        /// 🔴 `public`：`EffectCondition`（本文件里**另一个顶层类**，`:7704`）与 `CostKindOf`
+        ///    两处都读它 —— 判据**只有这一份**，别在那边再写一遍 `Contains("☀")`。
+        /// </summary>
+        public static bool MentionsFaith(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return false;
+            return s.Contains("faith") || s.Contains("☀");
+        }
+
+        /// <summary>
         /// 付费前缀里的「货币名」→ **规范取值**。**判据只此一处**（解析与结算都问它）。
         ///
-        /// 规范取值：`energy` / `faith` / `spirit` / `oath` / `"""`（空 = 没写货币，按能量算）。
+        /// 规范取值：`energy` / `faith` / `spirit` / `oath` / `""`（空 = 没写货币，按能量算）。
+        /// ⚠️ 认得出形状、但不属于上面几档的**原样返回小写词本身**（`might` / `attack` / `health` …）——
+        /// 那**不是**「认不出」，是「结算层按未知货币处理」（⛔ 别把它当成「没穿货币 ⇒ 扣能量」：
+        /// 空腹只有在**原串本来就空**的时候才返回 `""`）。
         ///
         /// 🔴 **2026-09-14：这张词表和上面两条正则的「货币词」必须同步 —— 它们是两个地方，**
         ///   **而不同步的表现是静默的。** 实测踩到：`RePaid` 原来只写 `spirit stones?`，
@@ -6484,23 +6684,12 @@ namespace RuleEngine
         ///   卡图实据：`Sister Novitiate` / `Sacred Rose` 那两处印的都是**太阳**（修女会的信仰）⇒ 判成 `faith`。
         ///   ⚠️ **这是「按证据收窄」不是通例**：哪天出现**非修女会**的 `[icon]`，这条映射要重核
         ///      （别的阵营的绿色圆框就是能量）。
-        /// </summary>
-        /// <summary>
-        /// 这段话里写的是不是**信仰**（`faith` 那个词 / `☀` 那枚太阳）。
         ///
-        /// 🔴 **与 <see cref="CostKindOf"/> 同源、只此一处**：`☀` = **信仰**（不是能量，
-        ///    能量是绿圈）—— 卡图实据与那条判据早就定死了。
-        /// ⚠️ 两个**粒度**：`CostKindOf` 吃的是**一个货币词**（所以它那边 `☀` 要整词相等），
-        ///    这里吃的是**一整句**（条件句里 `☀` 夹在中间）⇒ 所以用 `Contains`。
-        /// 🔴 `public`：`EffectCondition`（本文件里**另一个顶层类**，`:7704`）与 `CostKindOf`
-        ///    两处都读它 —— 判据**只有这一份**，别在那边再写一遍 `Contains("☀")`。
+        /// ⚠️ 进来之前已 `Trim().ToLowerInvariant().Replace("]", "")` ⇒ `[Energy]` / `Energy` 走同一条；
+        ///    `☀` 那一支**转调 <see cref="MentionsFaith"/>**（判据只那一份，见那里的订正说明）。
         /// </summary>
-        public static bool MentionsFaith(string s)
-        {
-            if (string.IsNullOrEmpty(s)) return false;
-            return s.Contains("faith") || s.Contains("☀");
-        }
-
+        /// <param name="raw">**一个货币词**（来自 `RePaid` 的 `curB`/`curW` 捕获组，或 `EffectOp.CostKind`）。</param>
+        /// <returns>规范货币名（`energy` / `faith` / `spirit` / `oath` / `""`），或原样的小写词。</returns>
         public static string CostKindOf(string raw)
         {
             if (string.IsNullOrEmpty(raw)) return "";

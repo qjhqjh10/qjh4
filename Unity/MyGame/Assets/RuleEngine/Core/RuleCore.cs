@@ -1104,7 +1104,7 @@ namespace RuleEngine
             //       而原版落在 `OnTurnStart` 的那批触发在时间轴上被**整体前移**。
             //    🔴 **同批一起搬过来的还有三件**（原版都属 `OnTurnStart`）：
             //       · **解疲劳**（原版 `CardScript.OnTurnStart` 里的 `ActivateMinion`）
-            //       · **Stealth 到期**（`CardScript__OnTurnStart.c:112-118` —— 那一节的注释**本来就写着**它属于这个相位）
+            //       · **Stealth 到期**（`CardScript__OnTurnStart.c:110-118` —— 那一节的注释**本来就写着**它属于这个相位）
             //       · **天赋**（`CardScript__OnTurnStart.c:160`）
             //    内容是：当前行动方**手牌里的陷阱卡** + 他登记的**常驻效果**。
             ResolveAtTurn(ctx, "turn_start");
@@ -1115,30 +1115,33 @@ namespace RuleEngine
             // **两层独立证据**（2026-09-14 核过）：
             //   · 规则书中文版 `:211`：「**潜行（Stealth）** | **一回合内或本单位攻击前**，
             //     不能被任何方式选中」（英文原版同）
-            //   · 反编译 `CardScript__OnTurnStart.c:112-118`：`HasCurrentTrait(0x46)`（`0x46 = 70 =
+            //   · 反编译 `CardScript__OnTurnStart.c:110-118`：`HasCurrentTrait(0x46)`（`0x46 = 70 =
             //     DefinedTrait.stealth`）**且「这一回合属于这张卡的拥有者」** ⇒
             //     `RemoveTraitAndEffects(0x46)` + `BroadcastUnitLoseStealth`
             //     （所以扫的是**当前行动方的**单位，不是两边都扫）
             //
             // 🔴 **不补这一条的后果是真实的行为偏差**：我们原来只有「**攻击后**失去」
             //    （`DeclareAttack` 里那一段）⇒ **不攻击的潜行单位会永久隐身、永久不可被选中**。
-            // ⚠️ **位置在光环重算之前**：万一有光环给 `Stealth`，重算会把它重新挂上（那是要的）；
-            //    反过来的话，光环刚挂上的 Stealth 会被这一段立刻摘掉。
-            {
-                int lostStealth = 0;
-                for (int s = 0; s < BoardSpec.Size; s++)
-                {
-                    var su = p.Board[s];
-                    if (su == null || !su.Has(KeywordTable.Stealth)) continue;
-                    su.RemoveAll(KeywordTable.Stealth);     // 原版是 `RemoveTraitAndEffects`：**整条**摘
-                    // 和「攻击后现身」发同一种事件 —— 卡面写 `When a friendly unit loses Stealth, …`
-                    // 的那几张**必须**收到它，否则那半句在「到期」这条路上就是死的。
-                    BroadcastKeywordEvent(ctx, WhenEventKind.LosesStealth, su);
-                    lostStealth++;
-                }
-                if (lostStealth > 0)
-                    ctx.Log($"（{lostStealth} 个单位的 Stealth 到一回合、失效 —— 规则书 :211）");
-            }
+            //
+            // 🔴 **2026-10-11（`A1397②`）：整段搬进下面那一圈【逐卡】循环、排在 `OpenDropPod` 之后。**
+            //    原版是**逐卡**跑 `OnTurnStart`，一张卡的次序是
+            //      `:99 ActivateMinion`（解疲劳）→ **`:102-109` 开舱** → **`:110-118` stealth 到期**
+            //      → `:118 ActivateMinion` → `:119-126` stun/blind 闸门
+            //    ⇒ **开舱先于 stealth 到期**。改前我们把 stealth 那一整段**单独提到循环之外**、
+            //      排在开舱之前 ⇒ **相对次序与原版相反**（账上 `A1397②` 记的就是这一格）。
+            //    今天**0 张**卡同时带 `stealth` 与 `dropPod` ⇒ 改前改后都不可观测；
+            //    但「照原版」要求次序对齐（铁律 11：可观测与否只决定**先后**，不决定**做不做**）。
+            //    ⚠️ **搬迁的副作用（如实标着）**：`Auras.Recompose` 现在排在 stealth 到期**之前**
+            //      （原来是之后）。本节原文那句「光环重算会把光环给的 Stealth 重新挂上（那是要的）」
+            //      因此**不再成立**；换成现在这个次序之后，我们与 `Recompose` 的相对次序
+            //      **反而更贴原版** —— 原版 `RemoveTraitAndEffects(0x46)` 是把当前那条 trait
+            //      **整条**摘掉、不看来源。全池 **0 张**卡用光环授予 `Stealth`
+            //      （`cards_engine.json` 1126 张扫 `have Stealth` / `gain Stealth`：只有一次性的
+            //       `Give Stealth`，没有「友方单位都有」那种）⇒ 今天不可观测。
+            //      ⛔ 别为了「保住」这条副作用把整段挪回去：那正是 `A1397②` 要修的东西。
+            //    ⚠️ **另一条已知近似（未变）**：原版 stealth 到期在本卡的**逐卡**序列里，
+            //      而 `stealth` 那个词本身不带触发 ⇒ 我们把它放在**同一圈循环**里紧挨着开舱，
+            //      相对位置已经逐格对上。
 
             // ---- 🆕 A7：**光环重算**（回合开始）----
             // 为什么必须在这一刻做：`during your turn` 那一族（`Fyrri Askar` 的
@@ -1148,6 +1151,8 @@ namespace RuleEngine
             //    光环要基于**改完之后**的棋盘重算（顺序反了会把到期的那份又加回去）。
             Auras.Recompose(ctx);
             // 己方单位解疲劳（对方的不动）
+            // ⚠️ `lostStealth` 在循环**外**声明（原版那一段的汇总日志）：逐卡摘、末尾报一次。
+            int lostStealth = 0;
             for (int s = 0; s < BoardSpec.Size; s++)
             {
                 var u = p.Board[s];
@@ -1168,10 +1173,31 @@ namespace RuleEngine
                 //     这个状态」的闸门（`:119-126`）**之前** —— 正好就是这里。
                 //     ⚠️ 我们这一圈天然只跑 `p.Board` ⇒ 原版那条 `param_2 == card.isPlayer`
                 //      （本卡的拥有者正是当前行动方）**不需要另写**（同 `A1121` 那处同一个理由）。
-                //  ⚠️ **一处如实标着的次序近似**：原版 stealth 到期（`:110-118`）排在开舱**之后**，
-                //     我们这边 stealth 到期在**上面**（本函数更早那一段）⇒ 这一格相对次序与原版相反；
-                //     今天 0 张卡同时带这两个词 ⇒ 不可观测（与 `A1121` 那条「已知近似」同一族）。
+                //  ✅ **2026-10-11（`A1397②`）：原来这里标着「stealth 到期排在开舱之前、与原版相反」——
+                //     那一条**已经修掉**：stealth 到期现在就在下面（`OpenDropPod` 之后），
+                //     与本卡序列 `:99 解疲劳 → :102-109 开舱 → :110-118 stealth 到期 → :119-126 闸门`
+                //     逐格对上。⛔ 别再把它挪到循环外面去。
                 OpenDropPod(ctx, ctx.Active, s, u);
+
+                // ---- 🔴 2026-10-11（`A1397②`）：**Stealth 到期** —— 位置 = 开舱【之后】 ----
+                //  判据 = `CardScript__OnTurnStart.c:110-118`（**紧接在开舱 `:102-109` 之后**）：
+                //    `HasCurrentTrait(0x46 /* = 70 = DefinedTrait.stealth */)`
+                //    ∧ `param_2 == *(char*)(card + 0x40)`（**这一回合属于这张卡的拥有者**）
+                //    ⇒ `RemoveTraitAndEffects(0x46)`（`:114`）+ `BroadcastUnitLoseStealth`（`:116`）。
+                //  ⚠️ **`param_2 == card.isPlayer` 那一条不需要另写**：这一圈只跑 `p.Board`
+                //     （= 当前行动方自己的单位），同 `A1121` / `A1354` 那两处同一个理由。
+                //  ⚠️ **`RemoveTraitAndEffects` 是【整条】摘**（不是减一层）⇒ 我们用 `RemoveAll`。
+                //  ⚠️ **广播那一跳两条路共用**：卡面写 `When a friendly unit loses Stealth, …`
+                //     的那几张（`ASH_Orian_Laratharjos` 等）**必须**在「到期」这条路上也收到它，
+                //     否则那半句只会在「攻击后现身」那一半亮 —— 静默的半死。
+                //  搬迁前后（`A1397②`）的差异与副作用写在上面「一回合到期那一族」那一段的注释里。
+                if (u.Has(KeywordTable.Stealth))
+                {
+                    u.RemoveAll(KeywordTable.Stealth);
+                    BroadcastKeywordEvent(ctx, WhenEventKind.LosesStealth, u);
+                    lostStealth++;
+                }
+
                 // 🆕 2026-10-09（`A1121`）：「**回合开始时就在这个状态**」的两个闸门 —— 置 1。
                 //   **判据（含次序，照抄第一权威 `d:/2/tools/decomp_full/`）**：
                 //   `CardScript__OnTurnStart.c:119-126` —— `ActivateMinion`（= 我们上面那句解疲劳）
@@ -1191,6 +1217,9 @@ namespace RuleEngine
                 if (u.IsStunned) u.StunnedAtStartOfTurn = true;
                 if (u.IsBlind) u.BlindedAtStartOfTurn = true;
             }
+            if (lostStealth > 0)
+                ctx.Log($"（{lostStealth} 个单位的 Stealth 到一回合、失效 —— 规则书 :211"
+                      + $"；原版 `CardScript__OnTurnStart.c:110-118`）");
 
             // ---- 天赋（Talent）：**回合开始时**往手牌塞一张同名战术卡（规则书 `:218`）----
             // 🔴 **2026-10-17 就地订正（铁律 5）**：原写「放在**抽牌之后**：回合开始段的先后（能量 → 解疲劳 →
@@ -3725,6 +3754,8 @@ namespace RuleEngine
         ///    **`forced: true` 时跳过替身重定向**，其余（疲劳 / 合法性 / 反击 / 事件 / 击杀）**一律照旧**
         ///    （原版 `AllowResolveAttack` 对 `forceAttack` 并没有短路，走的还是常规那一套 —— 见 `P-K` §10·1）。
         ///    ⚠️ 只有 `EffectResolver.TryAttackOnce` 那一个调用点传它；⛔ 别给玩家点击那条路也传。
+        ///    🆕 **2026-10-11（`A1258`）：第 ① 条取消通道（`AboutToAttack`）也吃同一个 `forced` 闸**
+        ///    —— 理由同上面那句「全库只有 `_ResolveAttack` 调它」。
         /// </summary>
         public static int DeclareAttack(BattleContext ctx, int p, int atkSlot,
                                         int tgtP, int tgtSlot, bool ranged = false,
@@ -3742,6 +3773,22 @@ namespace RuleEngine
 
             int code = IsValidTarget(ctx, p, atkSlot, tgtP, tgtSlot, ranged);
             if (code != RuleCodes.OK) return code;
+
+            // ---- 🆕 2026-10-11（`A1258`）：**「取消攻击」的第 ① 条通道** ----
+            //  原版 `BattleManager._ResolveAttack_d__438__MoveNext.c:1310`
+            //  → `CheckIfAbilityCancelsAttack.c:7` → `HasCancelAttackEffect(攻方, 攻方, 原目标)`
+            //  ⇒ 命中就 `:1313-1368` 取消这一记、**一个伤害点都不出**（判据全文写在
+            //    `TryCancelAttackByOwnAboutToAttack` 的 doc 里，包括它扫的到底是哪张表）。
+            //  **位置**：`IsValidTarget` **之后**（攻击合法才谈得上「取消」，且原版的取消发生在
+            //    目标已定之后）、**消耗攻击那两行之前**（取消 = 这件事没发生 ⇒ 不吃配额）。
+            //  ⚠️ `forced`（强制攻击）时不走：`CheckIfAbilityCancelsAttack` 全库**只有
+            //    `_ResolveAttack` 一个调用者**（`_ResolveForceAttack_d__504` 那条路不经过它）
+            //    —— 与下面替身那道闸同一条判据（`A1256`）。
+            //  ⚠️ 今天卡池 **0 张**卡有这条能力 ⇒ 这一支**恒假**、逐字节跳过（见
+            //    `AboutToAttackKeyword` 的 doc）；等 `CardDef.cs` 登记了这个词，它自动开始生效。
+            if (!forced && TryCancelAttackByOwnAboutToAttack(
+                    ctx, p, atkSlot, attacker, ctx.Players[tgtP].Board[tgtSlot]))
+                return RuleCodes.OK;
 
             // 攻击者消耗：**达到配额上限才疲劳** —— 我们自己的 `rule_core.gd:4255`（旁证、非权威）：
             // `attacks_turn += 1; if attacks_turn >= atk_limit: exhausted = true`
@@ -4602,6 +4649,110 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// **`abouttoattack`（「即将攻击」那一刻触发的那条能力）** —— 原版
+        /// `AbilityTrigger.AboutToAttack = 280`（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/AbilityTrigger.cs:44`；
+        /// 反编译里写作 `0x118`）。
+        ///
+        /// ⚠️ **它本该住在 <see cref="KeywordTable"/>（`CardDef.cs`）** —— 同 <see cref="LandingKeyword"/>
+        ///    那一条：本笔白名单里**没有那个文件** ⇒ 暂住在 `RuleCore` 这一处。
+        ///    **全仓只此一个定义**，⛔ 别在别处再写 `"abouttoattack"` 字面量。
+        ///    接手 `CardDef.cs` 的那一笔请把它挪成 `KeywordTable.AboutToAttack`，并按需要登记
+        ///    `Prefixes` / `RoutableTriggers` —— ⚠️ 今天**没登记**，所以：
+        ///      · 卡面写 `About To Attack: &lt;正文&gt;` 的那一天，`Normalize` 会返回 null ⇒ 词被**静默丢掉**；
+        ///      · 今天卡池 **0 张**卡提到它（`cards_engine.json` 1126 张整条记录文本扫
+        ///        `about to attack` / `before` + `attack` / `cancel`：**0 命中**）。
+        /// </summary>
+        const string AboutToAttackKeyword = "abouttoattack";
+
+        /// <summary>
+        /// **原版「取消攻击」的【第 ① 条通道】**（`A1258`）—— 攻方自己身上那条
+        /// `AboutToAttack(280)` 的能力，**命中就不打这一下**。
+        ///
+        /// ## 原版两条通道（别再混成一条）
+        /// 原版有**两条独立**的「这一记攻击被取消」通道，共用**同一个 trigger id `280`**，
+        /// 区别只在**扫谁**：
+        ///   · **① 本方** —— `BattleManager._ResolveAttack_d__438__MoveNext.c:1310`
+        ///     调 `BattleManager__CheckIfAbilityCancelsAttack.c:7` → `CardScript__HasCancelAttackEffect(攻方, 攻方, 原目标)`。
+        ///     ⇒ 命中后 `_ResolveAttack…:1313-1368`：`CardScript__CancelAttack(攻方)`（`:1314`）
+        ///       + `ClearPendingDamage(攻方)`（`:1316`）+ `ClearPendingDamage(原目标)`（`:1318`）
+        ///       + `RegisterPlayerActionCancelled`（`:1365`）+ `CardScript__ResolveCancelAttack`（`:1368`），
+        ///       随后 `return`（**伤害一个字都不出**）。
+        ///   · **② 全场** —— `_ResolveAttack…:528-533` → `BattleManager__CheckUnitsCancellingAttack.c:33-66`
+        ///     （扫 `bm + 0x470` = 场上每张牌）。本仓已落地的**替身**走的就是这一条
+        ///     （见 <see cref="TryRedirectAttackToBodyguard"/>）。
+        ///
+        /// 🔴 **2026-10-11（`A1258`）就地订正账上的一处实据（铁律 5）**：账上写
+        ///    「`HasCancelAttackEffect` 扫 `card + 0x110`（`List&lt;CardAbility&gt;`）」——
+        ///    **`+0x110` 不是能力表**：`dump.cs:22027` 的 `EntityScript.activeEnchantments`
+        ///    是 `List&lt;ActiveEnchantment&gt;`，而 `ActiveEnchantment.enchantmentCard`（`+0x10`）
+        ///    才是那个 `RawCardScript`（`dump.cs:118929`）；真正的能力表是
+        ///    **`RawCardScript.cardAbilities`（`+0x290`）**（`dump.cs` `RawCardScript` 段）。
+        ///    逐句读 `CardScript__HasCancelAttackEffect.c`：
+        ///      `:18` 取 `card.activeEnchantments` → `:31 HasAbilityType(enchantmentCard, 0x118)`
+        ///      → `:36-50` 在 `enchantmentCard.cardAbilities` 里逐条
+        ///      `CardAbility__CanTriggerAbility(ability, 0x118, bm, 本卡, 攻方, 原目标)`。
+        ///    ⇒ **① 扫的是「攻方身上的【附魔卡】」那一族**（`TriggerEnchantment = 500` 是同一层的另一个入口）。
+        ///    而 `CardScript__HasCancelAttackAbility.c:16-49` = **① 加上** 攻方自己的原生
+        ///    `rawCardData.cardAbilities(+0x290)` 里 trigger == 0x118 的那条 ——
+        ///    **②（扫全场）用的正是这个更宽的口子**。两者别混。
+        ///
+        /// ## 我们这边为什么落成「关键词路由」这一形状（如实标着，不是原版形状）
+        /// 🔴 **我们引擎里【没有「附魔」这一层】**（`Core/BattleEvent.cs:180-183` 自己写着
+        ///    「`RuleEngine` 里根本没有『战将身上的附魔』这一层」）⇒ ① 在原版里的那个**载体不存在**。
+        ///    我们在本文件里能落的、**语义等价**的那一半是「**攻方自己身上有一条
+        ///    `AboutToAttack(280)` 的能力 ⇒ 这一记不打**」—— 判据转调
+        ///    `u.FxOps(kw)` / `u.Effect(kw)`（= 卡面原生正文 **或** 运行时挂上去的那份，
+        ///    后者正是我们最接近「附魔」的容器）。
+        ///    ⚠️ 今天**0 张**卡能命中（见 `AboutToAttackKeyword`）⇒ **本支恒假、逐字节不动**
+        ///      —— 这是「原版有、我们缺」的补课（铁律 11：**要做**，不因为今天不可达就不做）。
+        ///
+        /// ## 我们做不到的三步（如实标着，⛔ 别当成已做）
+        ///   · `CardScript__CancelAttack`（`:1314`）+ 两次 `ClearPendingDamage`（`:1316` / `:1318`）：
+        ///     原版取消的是**已经声明、还没结算**的攻击，那两下清的是 `pendingDamage` 台账。
+        ///     **我们引擎没有 `pendingDamage` 队列**（伤害逐段现结）⇒ **无对应物**，
+        ///     等价的写法就是「在出口之前 `return`、一个字节都不落」。
+        ///   · `BattleManager__RegisterPlayerActionCancelled`（`:1365`）：它只把
+        ///     `bm + 0x3bc` 那个 `ObscuredInt` **自减 1**（`BattleManager__RegisterPlayerActionCancelled.c:28-34`
+        ///     —— `op_Decrement` 后写回），看名字是「这一条动作不算数」。
+        ///     ⚠️ **那个计数器管的是哪一格、以及「攻击配额 / 已行动标记要不要回退」，本笔【没查清】**
+        ///     （账上 `A1258` 的「⚠️ 没查清」就是这一条）⇒ 本函数**故意不碰**
+        ///     `AttacksThisTurn` / `Exhausted`：调用点排在消耗那两行**之前**，天然就是「没消耗」，
+        ///     这正是「取消 = 这件事没发生」那一侧。将来查清了再定。
+        ///   · `CardScript__ResolveCancelAttack`（`:1368`）→ `RawCardScript__OnTrigger(0x118, …)`
+        ///     （`CardScript__ResolveCancelAttack.c:12-14`）= **把那条能力放出来**。
+        ///     我们落在 <see cref="FireTriggerAt"/> 上（与 `landing` 同一条口径）：
+        ///     它发 `EvtKind.Trigger` + 结算正文 + `When … triggers abouttoattack` 广播。
+        ///     ⚠️ 原版那一下传进去的 `actingCard` 是**同一条能力**、`targetCard` = 原目标
+        ///     （`:1368` 的实参是 `(攻方, 攻方, 原目标)`）⇒ 我们把 `chosen` 传成原目标。
+        ///
+        /// ## 与 `forced`（强制攻击）的关系
+        /// `CheckIfAbilityCancelsAttack` 全库**只有 `_ResolveAttack` 一个调用者**
+        /// （`_ResolveForceAttack_d__504` 那条路不经过它）⇒ 调用点与替身那道闸同口径：
+        /// **`forced` 时不走**（判据同 `A1256` 那条）。
+        /// </summary>
+        /// <returns>真 = 这一记攻击被取消（调用方必须**直接返回、不出任何伤害**）。</returns>
+        static bool TryCancelAttackByOwnAboutToAttack(BattleContext ctx, int p, int slot,
+                                                      UnitState attacker, UnitState target)
+        {
+            if (ctx == null || attacker == null) return false;
+            // 判据 = 原版 `CardScript__HasCancelAttackEffect.c` 的「这条能力在不在」那一半。
+            // ⚠️ 走 `FxOps` / `Effect` 这一对口（全仓唯一一份「卡上原生正文 **或** 运行时挂上去的那份」），
+            //    ⛔ 别另写 `Card.TriggerOps(...)`（那只看卡面那一份）。
+            if (attacker.FxOps(AboutToAttackKeyword) == null && attacker.Effect(AboutToAttackKeyword) == null)
+                return false;
+
+            string tgtName = target != null ? target.Name : "原目标";
+            ctx.Log($"{attacker.Name} 身上的 `AboutToAttack` 能力先发作 —— "
+                  + $"对{tgtName}的这一记攻击被**取消**"
+                  + "（原版 `_ResolveAttack…:1310-1368` 的第 ① 条通道）");
+            // 原版 `:1368 CardScript__ResolveCancelAttack(攻方, 攻方, 原目标)`
+            //   → `RawCardScript.OnTrigger(0x118, bm, 攻方, 攻方, 原目标, 0, ...)`
+            // 我们这一跳只**结算它自己那条正文**；伤害一个字都不发（取消 = 这一记不存在）。
+            FireTriggerAt(ctx, attacker, AboutToAttackKeyword, p, slot, chosen: target);
+            return true;
+        }
+
+        /// <summary>
         /// **普通攻击**这一下打在 <paramref name="tgtP"/>/<paramref name="tgtSlot"/> 那个单位上的
         /// **全部伤害条目** —— 次序 = **真实结算的次序**：
         /// **[0] 攻方的星镖 → [1] 主伤害 → [2] 被打方的标记光**（三段各自独立，护甲各扣一次）。
@@ -4874,15 +5025,50 @@ namespace RuleEngine
             //     ⇒ 堡垒路与空投舱路**都不减护甲**。（我们这边 `DamageAfterReduction` 把
             //     易伤 + 护甲折成了一个数 ⇒ 这里刻意回到 `dmg`。⛔ 别改成 `actual`：
             //     那会让护甲去保护堡垒，方向与原版相反。）
-            //  ⚠️ **如实标着的、没做的两处**（全池今天 0 张卡带这两个词 ⇒ 不可观测；
-            //     补的是「原版有、我们缺」，铁律 11）：
-            //     ① **易伤**在原版是**另一次伤害**（`:188-257` 的 `DealMultiDamage`，量 = `CurrentVulnerable`）。
-            //        堡垒路被 `bVar17`（= 堡垒把这一击**整份**吃下了）抑制 ⇒ 「没打穿」那一档
-            //        两边一致；「打穿、扣完溢出血还 > 0」那一档原版会补一次易伤、我们**没补**。
-            //        空投舱那一档原版会补、且那一次**仍然落进空投舱池** ⇒ 我们**少算**那一份。
-            //        （两处都不做，是因为我们的模型把易伤折进了 `DamageAfterReduction` 一个数，
-            //         要在这里「补一次」等于给它开第二条结算路 —— 结果只会比现在更难核。）
-            //     ② 原版 `:63` 的守卫含 `deathType == combatAttacker(10)` —— 见 `ignoreBastion`。
+            //  🔴 **2026-10-11（`A1335`）本会话把这一格的三条判据【全部读清了】，记账如下**：
+            //     ① **易伤那一份**（`_ReceiveDamage…:188-257`）—— **判据已读全，但仍【没做】**，
+            //        而且**这次明确判成「要动别的文件」，⛔ 不做半抄**（理由见下面 ①②③ 三条）：
+            //        · 原版那一次是**另一条独立的 `ReceiveDamage`**（`:252-254 DealMultiDamage`，
+            //          `DamageInfo(量 = CurrentVulnerable, 类型 = 7/8)`），不是把值并进本条伤害 ⇒
+            //          它**自己再走一遍** dodge/shield/invuln → 堡垒 → 空投舱 → **护甲** 整条管线：
+            //          · **空投舱那一档**：那次伤害**落进池子**（`HasCurrentTrait(0xe6)` 在嵌套调用里
+            //            仍为真 ⇒ 走 `:159-183`）⇒ **不减护甲**、生命一点不动；
+            //          · **堡垒被打穿那一档**：堡垒已钳到 0 ⇒ 嵌套调用走普通路 ⇒
+            //            `Math.Max(1, 易伤值 − 护甲)`（`:89-93`、预览侧同一式 `…WithDamageValues.c:203`）。
+            //        · 触发闸（`:189-191`）：`易伤 > 0` ∧ `!dodge(0xf0)` ∧ `!shield(0x50)`
+            //          ∧ `!invulnerable(0x136)` ∧ **`!bVar17`**（`bVar17` = 堡垒把这一击**整份**吃下
+            //          —— 即「没打穿」那一档）∧ 进伤 > 0（`:200`）∧ **血还 > 0**（`:211`）
+            //          ∧ **不是残骸**（`+0x65`）。
+            //        · `IsVulnerableDamage`（`:197`）= `(uint)(type - 7) < 2`（`GameStaticData__IsVulnerableDamage.c`）
+            //          ⇒ **只挡「易伤伤害自己再生一份」这一格**；我们引擎不携带伤害类型、且这里
+            //          直接算而不递归 ⇒ **结构上恒满足**。
+            //        🔴 **为什么不做（三条，⛔ 不是「影响小 / 成本高」）**：
+            //          ⓐ 我们的模型把易伤**折进** `DamageAfterReduction` **一个数**
+            //             （`max(1, 伤害 + 易伤 − 护甲)`），与原版的
+            //             `max(1, 伤害 − 护甲) + max(1, 易伤 − 护甲)` **在普通档就不等价**；
+            //             只补堡垒/空投舱那两档 ⇒ **同一份规则出现第三个算式**，比现在更难核
+            //             （这正是账上那句「半抄会做出更没法核的东西」）。
+            //          ⓑ 要**拉开**（unfurl）就必须动 `DamageAfterReduction` —— 而它**被现有断言钉着**：
+            //             `RuleEngine/Editor/RuleEngineTest_S14.cs:633`
+            //             `Check(RuleCore.DamageAfterReduction(t, 3), 5, "（前提）易伤 2 确实折进了伤害公式（3 + 2 = 5）")`
+            //             ⇒ 一动就红，而**那个文件不在本笔白名单**（铁律 13·3：一个文件一个写手）。
+            //          ⓒ 它还会牵动**预览侧**（`DamageAfterReductionOne` / `WouldKillByEntries`）——
+            //             预览与结算必须同式，否则就是我们一直在防的「预览与结算不一致」。
+            //        ⇒ **结论：本笔【不落半抄】，把上面这份判据交回调度台**（要拉开模型就得
+            //          连同 `RuleEngineTest_S14.cs` 一起动 = 单开一笔）。如实挂账，⛔ 不许把
+            //          「打穿之后会少算」写成任何断言的期望值。
+            //     ② 原版 `:63` 的守卫含 `deathType == combatAttacker(10)` —— **已做**，见 `ignoreBastion`
+            //        （全仓只有反击那一处传 `true`；将来**新增伤害点**要照 `TryCreditKill` 的口径再判）。
+            //     ③ 🆕 **「被堡垒整份吃下」算不算「受到伤害」—— 判据本会话读清了：算。**
+            //        · 广播点 = `BattleManager__ResolveAttackDamage.c:30`
+            //          `BattleManager.BroadcastUnitDamaged(bm, 被打者, adjustedDamageInfo, isCombat)`
+            //          —— 它在函数里**无条件**执行（`:19-31` 一路下来没有任何 `if` 挡它）。
+            //        · `CardScript__GetAdjustedDamage.c:52-60` 只是**在 `isCombat` 时**把
+            //          「堡垒 ≥ 这一击」折进 `DamageInfo` 的**「挡下」位**（`uVar3 = 1`，与
+            //          `0xe6`/`0xf0`/`0x136`/`0x50` 那四个**同一个位**，`:39-50`）——
+            //          它**不影响广播发不发**，只影响听众读到的那个「挡没挡下」标记。
+            //        ⇒ **原版照样广播**；我们这一支（堡垒整份吃下 ⇒ `EmitHit(ctx, u, 0)` + `return 0`）
+            //          与盾 / 无敌 / 空投舱**同一个口径** ⇒ **两边一致，不需要改**。
 
             // ---- 空投舱（`dropPod`）：**另开一个血池，生命一点不动** ----
             // 判据 = `_ReceiveDamage…:60-61`（有 `dropPod` **优先于堡垒**）+ `:159-183`
@@ -5312,11 +5498,44 @@ namespace RuleEngine
                     //      ⇒ 新 Kind 要么**没有短语 = 死代码**，要么与现有短语**撞车 = 一次牺牲叫醒两遍**。
                     //      而卡池**今天 0 张**卡提到 `sacrifice`（`cards_engine.json` 1126 张整条记录
                     //      文本扫 `sacrific`：只有卡名 `TAU65 Valued Sacrifice`）⇒ 新短语**没有判据可核**。
-                    //    ⚠️ **如实标着的一处未核**：原版 `TriggerOtherCard*` 那一族里，
-                    //      棋盘/手牌那两跳对「被献祭那张自己」的排除**不一致**
-                    //      （`CardScript__TriggerOtherCardLanding/Mob/Codex` 有 `op_Inequality(self)`
-                    //       自排除，而 `ReactToUnitUsedSacrifice` 的棋盘跳传的是**空**、没有自排除）
-                    //      ⇒ 我们这边“自己会不会被自己叫醒”是否与原版一致，**没核**（0 张卡可达）。
+                    // 🔴 **2026-10-11（`A1399` + `A1397①`）就地订正（铁律 5）**：本段原来写着
+                    //    「原版 `TriggerOtherCard*` 那一族里，棋盘/手牌那两跳对「被献祭那张自己」的
+                    //      排除**不一致** —— `Landing/Mob/Codex` 有 `op_Inequality(self)` 自排除，
+                    //      而 `ReactToUnitUsedSacrifice` 的棋盘跳传的是**空**、没有自排除；
+                    //      我们这边「自己会不会被自己叫醒」是否与原版一致，**没核**」
+                    //    —— 🔴 **「原版自身不一致」那句是【错的】**；而我们这边**确实与原版不同**。
+                    //
+                    //    **① 原版这一族【统一都自排除】**（本会话回机器码逐条核的）：
+                    //      · `BattleManagerSupport__BroadcastUnitUsedSacrifice.c` 的**三跳**
+                    //        （棋盘 `:29-34` / 当前回合方手牌 `:45-50` / 另一方手牌 `:64-70`）
+                    //        都是同一个形状：先 `op_Inequality(卡, param_2)` 判「这张卡 ≠ 被献祭那张」，
+                    //        再 `CardScript__ReactToUnitUsedSacrifice(卡, param_2)`。
+                    //      · `.c` 里那两跳**看着像只传了 1 个实参**（Ghidra 把 `rdx` 掉了）——
+                    //        **机器码里没有掉**：VA `0x1809BA625-0x1809BA62B` 与 `0x1809BA64E-0x1809BA657`
+                    //        各有一条 `mov rdx, rsi`（`rsi` = 入口 `mov rsi, rdx` 存下的 `param_2`
+                    //        = 被献祭那张卡），随后才是 `call`。
+                    //        ⇒ 账上那句「棋盘那一跳没有自排除」是**反编译渲染的假象**，不是原版行为。
+                    //      · 同族的 `CardScript__TriggerOtherCardLanding.c:14` / `Mob.c:14` / `Codex.c:14`
+                    //        / `SpiritStone.c:14` / `Requiem.c:14` / `Regiment.c:14` 里那句
+                    //        `op_Inequality(param_2, param_1)`（`other != self`）与上面**同一条语义**；
+                    //        调用侧也把触发源传进去了（`BroadcastUnitLanded` 棋盘跳：
+                    //        `mov rdx, rbp`（=入口 `mov rbp, rdx`），VA `0x1809B82E1`）。
+                    //      ⇒ **结论：原版这一族【统一】「被触发那张卡自己不被叫醒」**，
+                    //        `ReactToUnitUsedSacrifice` 那个函数体里**没有**这条守卫，只是因为
+                    //        **守卫写在调用方**（见上）。
+                    //    **② 我们这边【统一不自排除】**：`FireTriggerAlways` → `BroadcastWhen`
+                    //      → `WhenEvents.Matches`，那里**没有任何**「监听者 ≠ 事件主体」这一关
+                    //      （只有 opt-in 的反向开关 `WhenEvent.SelfOnly`：要求监听者**就是**主体）。
+                    //      ⇒ 卡面写 `When another unit uses Sacrifice, …` 的牌，**它自己献祭时会叫醒自己**。
+                    //        今天卡池 **0 张**卡能走到这条链（`sacrific` 全池只有卡名一处）⇒ 不可观测。
+                    //    **③ 改法的落点不在本文件**：唯一判据口是 `Core/WhenEvent.cs` 的
+                    //      `WhenEvents.Matches`（该文件头写着「判据只在本函数里」）—— 要加的是
+                    //      「`triggers:<kw>` 这一族里，**没有** `SelfOnly` 的监听器不许 `ReferenceEquals`
+                    //      事件主体」那一句（原版正是用它把「自己」与「别人」分成两个 trigger id：
+                    //      `Mob = 300` 给自己、`OtherCardMob = 645` 给别人）。
+                    //      ⛔ **本文件改不了它**（`WhenEvent.cs` 此刻不归本笔）⇒ 已如实写进报告，
+                    //      等拿到那个文件的写手一次收口。⛔ 别在 `RuleCore` 里另写一份广播来绕过它
+                    //      （那就是「两处写同一条规则」）。
                     FireTriggerAlways(ctx, u, KeywordTable.Sacrifice, p, slot);
 
                 // ---- ② 消耗幸存者（原版 `:160-165`）----

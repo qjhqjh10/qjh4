@@ -13,7 +13,8 @@ using RuleEngine;
 ///   · 第 2 列往后 = **定义**（变了 ⇒ 算「解析差异」，那才是引擎真动了）
 ///   · 每条 op = `verb/chooseSrc/chooseWhat/chooseAct/amount/payload` **＋ 末尾七列**
 ///     `cost/shared/condKind/countRef`（🆕 2026-10-10 `A1368`）
-///     `costKind/countScope/condition`（🆕 2026-10-10 `A1374`）—— 见下两段
+///     `costKind/countScope/condition`（🆕 2026-10-10 `A1374`）
+///     **＋ 末尾目标块** `/{T:…}`（🆕 2026-10-11 `A1477`）—— 见下三段
 ///
 /// 🔴 **2026-10-10 `A1368`：op 列尾部追加四列** —— 原来这四样**一个字都不打**，
 ///   而它们正是「付费 / 条件 / 计数」三族改动的**全部可观测面** ⇒ 凡改这四样的活，
@@ -54,6 +55,22 @@ using RuleEngine;
 ///   ⚠️ **`condition` 也是原样打、不做转义**（同 `countRef` 那条取舍）：它可能自带 `|`，
 ///      让那一行的 `|` 数再变多。`CheckMain` 只认**前两个** `|` ⇒ 不受影响；
 ///      而「原样」保证 dump 的值与引擎字段**逐字相同**（照 dump 抄进断言不会错）。
+///
+/// 🔴 **2026-10-11 `A1477`：同「只追加」的形状，末尾再补一个【目标块】**
+///   —— `/{T:Raw=…|Side=…|…}`（`Target == null` ⇒ `/{T:null}`），`Target` 非空且
+///   `EffectOp.DeathWatchTarget != null` 时再跟一个 `/{DW:…}`。
+///   病灶：**dump 原来一个字都不打 `Target`** —— 只有 `verb/chooseSrc/chooseWhat/chooseAct/amount/payload`
+///   ＋ 上面那七列。而 `A1467` 改的**正是「目标怎么解」**（`All enemies lose …` 句首那个 `All `
+///   被正则吃掉 ⇒ `T=[enemies]…n=1` 变成 `T=[all enemies]…n=0`）⇒ **`check` 一行都没多**、
+///   「解析差异 0 行」照旧 ⇒ **凡改目标解析的笔都会静默过关**（`A1467` 写手只能自建一份签名 dump 才拿到读数）。
+///   ⚠️ 与 `A1459`（`willrun` 补「无头」档）、`A1466`（`ruleprobe.sh` 拿旧 dll 跑）**同一条链**
+///   ——「**探针看不见哪一类改动**」这件事本身还有缝。
+///   · 块里打哪几个字段 = `Program.TargetCols`（28 个，顺序写死 ⇒ 基线稳定）；
+///     它与 `EffectTargetSpec` 一致与否由 `Sentinel` 第 ④ 条**每次 `check` 现算**（加字段没跟进 = 出声）。
+///   · 格式与 `|`/`/` 两条取舍同上：**原样打、不转义**（照 dump 抄进断言的值必须与引擎字段逐字相同）。
+///   · 🔴 **块前面那个 `/` 是必须的** —— `Sentinel.Legacy` 就是靠 `/{T:` 这个起点把 legacy 段切出来，
+///     再从后往前数尾部七列的（块里 `Raw` 是卡面原文、**可以含 `/`** ⇒ 不切就会静默拿错列）。
+///
 /// ⚠️ 2026-10-18 收编时修了两处（原来那份在 D:/tmp/wf_b14_probe）：
 ///   ① 参数名 `kind` 其实是 `unparsed`（EffectText.Parse 的第二个 out）—— 名字叫反了，正名。
 ///   ② 原来写 `.Append(kind)` ⇒ 命中 `StringBuilder.Append(object)` ⇒ **每张卡都打成字面量
@@ -103,6 +120,12 @@ class Scan
                       .Append("/").Append(op.CostKind ?? "")
                       .Append("/").Append(op.CountScope ?? "")
                       .Append("/").Append(op.Condition ?? "")
+                      // 🔴 **2026-10-11 `A1477`：末尾再追加【目标块】**（同上：前 13 列一字不动）。
+                      //    `/{T:Raw=…|Side=…|…}`（`Target == null` ⇒ `/{T:null}`）＋ `Target` 非空时
+                      //    再跟一个 `/{DW:…}`（`EffectOp.DeathWatchTarget`）。
+                      //    ⚠️ 渲染在 `Program.TargetBlock`（唯一口，`Dump` 打的是同一批值）；
+                      //       取尾部列前必须先 `Sentinel.Legacy()` 摘掉它（块里是卡面原文、可含 `/`）。
+                      .Append(Program.TargetBlock(op))
                       .Append(";");
             sb.Append("\n");
         }

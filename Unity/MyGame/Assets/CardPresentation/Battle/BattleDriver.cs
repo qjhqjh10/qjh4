@@ -3180,6 +3180,13 @@ namespace CardPresentation
             {
                 RefreshAll();                  // 手牌要先摆好 —— 换牌按钮是贴着卡摆的，得知道卡在哪
                 OpenMulligan();
+                // 🔴 **2026-10-11（`A1540`）**：发牌入场**必须排在这里**，⛔ 不能留在 `RefreshAll` 里面。
+                //   上面那句「换牌按钮是贴着卡摆的」正是问题所在 —— 它读的是卡**当时**的世界位，
+                //   而发牌那一刻会把卡先挪到牌堆 ⇒ 钮全落到牌堆上。
+                //   ⇒ `SyncHand` 在换牌阶段**不发牌**，等面板建好（钮按真牌位贴好）之后再放这一下：
+                //     牌从牌堆飞进手里，钮留在牌位上（牌落位后与钮对齐）。
+                //   ⚠️ 顺带解决了「钮建在牌堆上之后没人再管它」——原版 `SetupMulliganButton` 也只调一次。
+                PlayDealAnimation();
                 UpdateHud();
                 SetHint(_deckNotice);
                 return;
@@ -4483,22 +4490,95 @@ namespace CardPresentation
         ///   ⇒ 后面 `BeginOffensiveRevealOrApply` 也跟着整段不跑（**环境永远不换**，静默）。
         bool _offensivePhaseDone;
 
-        /// <summary>要不要跑「选进攻卡」那一段（原版 `SetupEnviromentalEffectPhase`）。
+        /// <summary>🔴 2026-10-11（`A1541`）：进攻卡 / 防御卡面板里**调用方现建**的那几张卡视图。
+        ///
+        /// 为什么**不**复用 `_chooseViews`：那个列表是「选牌 / 选一 / 选效果」那条路专用的，
+        /// `NextAsk` 会调 `ClearChooseViews()` 清空它 —— 两条路**生命周期不同**（进攻卡这两支
+        /// 根本不走 ask），共用一个列表会让先收场的那一方把另一方的卡提前杀掉。
+        ///
+        /// ⚠️ **建了就必须有人清**：`CardChoicePanel.Close()` 只藏**面板自己的**件
+        /// （`ClearCardDecor()` 清的是它自己的钮与字、`SetVisible(false)` 只 SetActive 它自己的
+        /// `_shade/_bar/_play/_eye/_title/_confirm/…`），**调用方建的卡它一件都不碰**
+        /// ⇒ 不清的话这几张卡**永远留在屏幕正中，且既点不动也关不掉**（诊断全文 →
+        /// `资料/普查产出_第十八会话/D1_开局换牌与进攻卡.md` 问题 B）。
+        ///
+        /// 原版两件都做 —— `ChooseCardMenu__ProcessChooseDone.c`：先
+        /// `ShowChooseCardElements(this, false)`（内含 `ShowChooseCards(false)`，逐张 `SetActive(false)`），
+        /// 再遍历 `ChooseCardMenuAnchor` 的子节点 `UnityEngine.Object.Destroy(gameObject)`。
+        /// ⚠️ 我们只做「销毁」那一半：`Kill` 之后对象就没了，不必再单独隐藏。</summary>
+        readonly List<CardView> _envPickViews = new List<CardView>();
+
+        /// <summary>清掉进攻卡 / 防御卡面板里调用方建的那批卡视图（`A1541`）。
+        /// 写法与 `ClearChooseViews` 同一套 —— 用 `Kill` 而不是 `Destroy`
+        /// （批处理下 `Object.Destroy` 不生效，见 `CLAUDE.md` §三）。</summary>
+        void ClearEnvPickViews()
+        {
+            for (int i = 0; i < _envPickViews.Count; i++)
+                if (_envPickViews[i] != null) Kill(_envPickViews[i].gameObject);
+            _envPickViews.Clear();
+        }
+
+        /// <summary>自检用：**进攻/防御卡面板那棵子树里还活着的 `CardView` 张数**（`A1541` 的判据，期望 0）。
+        ///
+        /// ⚠️ 是**按树数**、不是查 `_envPickViews` 那个列表 —— 这正是本条要防的形状：
+        ///   病灶就是「列表出了作用域、没人再引用它，而卡还在树上画着」。
+        ///   查列表等于**让被测对象自己证明自己**（列表空 ≠ 屏幕干净）。
+        /// ⚠️ 参数 `activeOnly`：`true` = 只数 `activeInHierarchy` 的（「还看得见」）；
+        ///   `false` = 数全部（含 inactive，用来验「销毁没销毁」而不是「藏没藏」）。
+        /// ⚠️ 这棵树里同时住着「选牌 / 选一 / 选效果」那条路的卡（它们也叫 `_choosePanel.transform` 的子件）
+        ///   ⇒ 调用前先确认那一路是收着的（`_choosePanel.Visible == false` 且不在 ask 中途）。</summary>
+        public int PanelCardViewsAlive(bool activeOnly = true)
+        {
+            if (_choosePanel == null) return 0;
+            int n = 0;
+            var all = _choosePanel.GetComponentsInChildren<CardView>(true);
+            for (int i = 0; i < all.Length; i++)
+                if (all[i] != null && (!activeOnly || all[i].gameObject.activeInHierarchy)) n++;
+            return n;
+        }
+
+        /// <summary>要不要跑「选进攻卡 / 选防御卡」那一段（原版 `SetupEnviromentalEffectPhase`）。
         /// 默认 **true**（真机走这条路）；**批处理自检里关掉** —— 与 `mulliganEnabled` 同一条规矩：
         /// 那一段会**弹面板并停住**（等玩家点「继续」），自检要的是「回合状态当场精确」
         /// （2026-09-29 实测：不停住的话 `BeginTurn` 不跑 ⇒ 「这时才发能量 / 抽第 1 张」两条会假红）。
-        /// 自检要验这一段时用两个钩子：`RuleCore.ChooseOffensiveCard` + `SimulateApplyOffensiveEnv`。</summary>
+        /// 自检要验这一段时用两个钩子：`RuleCore.ChooseOffensiveCard` + `SimulateApplyOffensiveEnv`。
+        /// ⚠️ **这是「整段开不开」的总闸**；只关**进攻卡**那一半用 `offensiveCardEnabled`。</summary>
         public bool offensivePhaseEnabled = true;
+
+        /// <summary>🔴 **2026-10-11 用户拍板：进攻卡暂时不要（防御卡照旧要）** —— 默认 `false`。
+        ///
+        /// 用户两次原话（第二次是**纠正**）：「**面板/功能都暂时不要了，做这些地方太耗精力，暂时去掉，
+        /// 留着备份，以后可能在使用。先把场景复刻好**」→ 我按「整段都关」做了一版 → 用户当场订正：
+        /// 「**防御卡需要，不要的是进攻卡。**」
+        /// ⇒ **只关进攻卡**：本机是先手时**不弹**「选择进攻卡」面板、AI 是先手时也**不替它挑**
+        ///   （⇒ 没人选进攻卡 ⇒ **战场停在默认环境**，正是用户要的「只用 13 个默认场景的默认环境」）；
+        ///   **本机是后手时那扇「选择防御卡」面板照旧弹、AI 是后手时照旧替它挑**（`PickDefensiveForAi`）。
+        ///
+        /// 🗄 **这是「暂时去掉」不是「删除」** —— 进攻卡那套代码**一行没删、原样留着当备份**：
+        ///   `OffensiveCards` / `OffensiveCardData` / `OnOffensiveDone` / `PickOffensiveForAi` /
+        ///   `EnvSOFor` / `ApplyOffensiveEnvOnce` / `_envPickViews` 全在。
+        ///   ✅ **要恢复：把这个字段改回 `true` 即可**（没有别的地方需要动）。
+        ///   ✅ `A1541` 那两条断言**仍然开着**（`Editor/BattleScene.cs` 第 17·1 节显式把它与
+        ///     `offensivePhaseEnabled` 一起置 `true` 再跑）⇒ 备份里的代码不会烂掉
+        ///     （铁律 11 例外②：用户明确拍板不做，但东西留着）。</summary>
+        public bool offensiveCardEnabled = false;
 
         /// <summary>要不要开「选进攻卡」那个面板。返回 true = 面板开了（流程在 `OnOffensiveDone` 里接着走）。</summary>
         bool BeginOffensivePhaseIfAny()
         {
+            // 🔴 `A1541`：先把**上一局可能留下的**那批进攻/防御卡视图清掉。
+            //   为什么要在这儿也清一遍：面板**没开**的那几条路（原版：`list.Count < 2` 直接取 `list[0]`、
+            //   后手那一支卡池里 0 张防御卡）**不会**走到 `OnOffensiveDone` ⇒ 建卡那两处的清理够不着它们；
+            //   上一局若是在「面板开着」的状态下被打断（重开一局），卡就会跨局留在画布正中。
+            ClearEnvPickViews();
             if (_offensivePhaseDone) return false;
             // 🔴 **2026-10-09（`A1128`）订正**：闩原来排在闸**之前** ⇒ 自检里「关掉这一段」的调用
             //   **照样把闩闩上**（同族泄漏的温床）。改成**闸之后**：关掉就**不闩**。
             if (!offensivePhaseEnabled) return false;    // 自检关掉它（见那个字段的注释）
             _offensivePhaseDone = true;                  // 一局只来一次
-            if (!OffensiveCards.Available) return false;
+            // 🔴 2026-10-11：这条闸原来**无条件**拦（不管进攻卡开不开）⇒ 进攻卡数据取不到时，
+            //   **防御卡那扇面板也跟着不弹**。用户口径是「进攻卡不要、防御卡要」⇒ 改成只拦进攻卡那一半。
+            if (offensiveCardEnabled && !OffensiveCards.Available) return false;
 
             // 🆕 2026-09-30：**联机局不再整段跳过** —— 原来这里 `return false` 并出声（那时同步链还没做）。
             //   现在走 `NetActionKind.OffensivePick` / `DefensivePick` 那两条（**我们自己设计的**：
@@ -4508,7 +4588,9 @@ namespace CardPresentation
             if (_net == null)
             {
                 // ① **AI 那一侧先定**（原版 `AI.GetAiEnvEffectCard`：均匀随机，可能抽到空卡）
-                if (Ctx.FirstSeat != _me) PickOffensiveForAi(Ctx.FirstSeat);
+                // 🔴 2026-10-11：**只有进攻卡那一半受 `offensiveCardEnabled` 管** ——
+                //   AI 是先手时不替它挑进攻卡（⇒ 环境不变），AI 是后手时照旧替它挑防御卡。
+                if (offensiveCardEnabled && Ctx.FirstSeat != _me) PickOffensiveForAi(Ctx.FirstSeat);
                 if (Ctx.SecondSeat != _me) PickDefensiveForAi(Ctx.SecondSeat);
             }
 
@@ -4525,16 +4607,25 @@ namespace CardPresentation
             // ② 本机是**先手**：弹「选进攻卡」（`[空卡, 3 张]`，标题词条 `offensive`）
             if (Ctx.FirstSeat == _me)
             {
+                // 🔴 **2026-10-11 用户拍板：进攻卡暂时不要**（防御卡照旧要，见 `offensiveCardEnabled` 的注释）
+                //   ⇒ 不弹面板、不选卡，直接 `return false` 让流程接着走到开打 —— 战场停在**默认环境**。
+                //   ⚠️ 上面那笔「AI 是后手 ⇒ 替它挑防御卡」**已经做完了**（在 `_net == null` 那一段），
+                //      所以这里早退不会漏掉它。
+                if (!offensiveCardEnabled) return false;
                 var list = OffensiveCards.Choices(poolFaction);
                 if (list.Count < 2) return false;         // 原版：列表 <2 张时**不弹菜单**，直接取 list[0]
-                var views = new List<CardView>();
+                // 🔴 `A1541`：这批卡收进**字段** `_envPickViews`（原来是局部 `views`，出了作用域就没人引用
+                //   ⇒ `OnOffensiveDone` 里没有任何一句能清它 ⇒ 面板关掉后 4 张卡永远留在屏幕正中）。
+                ClearEnvPickViews();                      // 防重入 / 防上一局残留
                 for (int i = 0; i < list.Count; i++)
-                    views.Add(CardView.Create(_choosePanel.transform, OffensiveCardData(list[i], poolFaction),
-                                              "Offensive_" + i));
+                    _envPickViews.Add(CardView.Create(_choosePanel.transform, OffensiveCardData(list[i], poolFaction),
+                                                      "Offensive_" + i));
                 _choosePanel.OnDone = OnOffensiveDone;
                 // `uniqueId = "offensive"` —— 原版就是拿它拼词条 key（`Battle/ChooseCard/Instructions-offensive`）。
                 // ⚠️ 文案仍是**我们的**（原版词条在远端本地化表，本地一张都没有 ⇒ 查表必然落空、走这里的兜底）。
-                _choosePanel.Open(views, "选择进攻卡", "offensive");
+                // ⚠️ 传的是我们那个字段本身 —— `CardChoicePanel.LayOutCards` 会**拷进它自己的 `_cards`**
+                //    （`Battle/CardChoicePanel.cs:230`），所以 `Close()` 清它的列表**不会**动我们这份。
+                _choosePanel.Open(_envPickViews, "选择进攻卡", "offensive");
                 SetHint("选择进攻卡（先手）—— 选完点「继续」");
                 return true;
             }
@@ -4550,12 +4641,13 @@ namespace CardPresentation
                 return false;
             }
             {
-                var views = new List<CardView>();
+                // 🔴 `A1541`：同进攻那一支 —— 这批卡也必须收进字段、也必须有人清（原来同样是局部 `views`）。
+                ClearEnvPickViews();
                 for (int i = 0; i < defs.Count; i++)
-                    views.Add(CardView.Create(_choosePanel.transform, ToCardData(defs[i], _myFaction),
-                                              "Defensive_" + i));
+                    _envPickViews.Add(CardView.Create(_choosePanel.transform, ToCardData(defs[i], _myFaction),
+                                                      "Defensive_" + i));
                 _choosePanel.OnDone = OnDefensiveDone;
-                _choosePanel.Open(views, "选择防御卡", "defensive");
+                _choosePanel.Open(_envPickViews, "选择防御卡", "defensive");
                 SetHint("选择防御卡（后手）—— 选完点「继续」");
                 return true;
             }
@@ -4609,6 +4701,10 @@ namespace CardPresentation
             RuleCore.ChooseOffensiveCard(Ctx, _me, c.idx, EnvSOFor(c, FactionOf(Ctx.SecondSeat)));
             LogAndSendEnvPick(NetActionKind.OffensivePick, _me, c.idx, EnvSOFor(c, FactionOf(Ctx.SecondSeat)), null);
             _choosePanel.Close();
+            // 🔴 `A1541`：**这一句原来没有** ⇒ 面板关掉了、那 4 张卡还挂在 `_choosePanel` 子树里画着，
+            //   而且它们不在任何命中链里 ⇒ 点它、按 ESC 都没反应（用户点名的症状）。
+            //   原版这一下是「隐藏 + 销毁」两件都做（`ChooseCardMenu__ProcessChooseDone.c`）。
+            ClearEnvPickViews();
             BeginBattleAfterSetup();
             SetHint("");
         }
@@ -4640,6 +4736,10 @@ namespace CardPresentation
             LogAndSendEnvPick(NetActionKind.DefensivePick, _me, i,
                               null, defs.Count > 0 ? defs[i].Id : null);
             _choosePanel.Close();
+            // 🔴 `A1541`（同 `OnOffensiveDone`）：这一支原来同样一句都没有。
+            //   ⚠️ `A1487②`「选择防御卡面板疑似每回合重弹」很可能就是它 —— 面板关了、卡面还在，
+            //      看起来像又弹了一次（诊断报告 §问题 B 的「顺手该修的同族」那一格）。
+            ClearEnvPickViews();
             BeginBattleAfterSetup();
             SetHint("");
         }
@@ -11342,13 +11442,84 @@ namespace CardPresentation
 
             RefreshHandPlayable();
 
-            // **发牌入场**（`CardFeel.DealIn`）：新抽到的牌从**牌堆**飞进手里。
-            // ⚠️ 必须排在 `SetCards` 之后 —— 那一步才把牌摆到手牌的位置上，
-            //    在这之前读到的「目标位置」是卡自己的原点（原点在屏幕中心，会飞错方向）。
-            if (animateFeel && _dealt.Count > 0)
+            // 🔴 `A1540`：**先把新牌的位姿当场落实** —— 这一步与「发不发牌」无关，**无条件**做：
+            //    换牌阶段那一帧不发牌，但牌也必须已经在**真牌位**上（`OpenMulligan()` 建的「换」钮
+            //    是贴卡读位置的）。详见 `CommitDealtPoses`。
+            CommitDealtPoses();
+            // **发牌入场** —— 见 `PlayDealAnimation`（含 `A1540` 的全部判据）。
+            // 🔴 换牌阶段这一帧**先不发**：`OpenMulligan()` 排在 `RefreshAll()` **之后**，而它建的「换」钮
+            //    是**贴卡读位置**的（`MulliganPanel.Open` 里的 `c.transform.position`）——
+            //    发牌会把卡先挪到牌堆，钮就全落到牌堆上（实拍 `_tmp_view/ui_1019/17_battle.png` 右下角那颗）。
+            //    ⇒ 交给 `Begin` 的换牌分支，在 `OpenMulligan()` **之后**再放。
+            if (!Ctx.MulliganOpen) PlayDealAnimation();
+        }
+
+        /// <summary>把这一轮新进手牌的牌（`_dealt`）按 `HandLayout` 刚算出来的位姿**当场落实**。
+        ///
+        /// 🔴 **2026-10-11（`A1540`）**：`HandLayout.Place` 在 `animateRelayout == true` 时
+        /// **只开一条 0.2 s 补间、不当场落位**（`Hand/HandLayout.cs` 的 `Place`）⇒ 不落实的话，
+        /// 这一帧读到的 `transform.position` 还是**父级原点**（画布正中 960,540）。
+        /// ⚠️ 手牌那一档**只有存盘场景里 `animateRelayout == 1`**（批处理出厂 `false`）
+        /// ⇒ 这个 bug **在自检里结构上复现不出来**（夹具要显式打开，见 `Editor/BattleScene.cs` 第 17 节）。
+        ///
+        /// 落实 = ① 掐掉那条重排补间（免得它与后面的发牌补间抢同一批属性）
+        ///       ② `SetPose` 按真位姿当场落位。
+        /// </summary>
+        void CommitDealtPoses()
+        {
+            var hl = interaction != null ? interaction.hand : null;
+            if (hl == null) return;
+            for (int i = 0; i < _dealt.Count; i++)
             {
-                var deck = LayoutSpace.ToWorld(MyDeckX01, MyDeckY01);
-                foreach (var v in _dealt) if (v != null) CardFeel.DealIn(v, deck);
+                var v = _dealt[i];
+                if (v == null) continue;
+                Vector3 p; float ang, sc;
+                if (!hl.TryLastPose(v, out p, out ang, out sc)) continue;
+                v.transform.DOKill();
+                v.SetPose(p, ang, sc);
+            }
+        }
+
+        /// <summary>
+        /// 发牌入场：这一轮新进手牌的牌（`_dealt`）从**牌堆**飞进手里。
+        ///
+        /// 🔴 **2026-10-11（`A1540`）** —— 这一整段原来是内联在 `SyncHand` 末尾的一行
+        /// （`foreach (var v in _dealt) CardFeel.DealIn(v, deck);`），实测两个症状：
+        ///   ① 起手牌**堆在画布正中**（= 父级原点 (0,0,0)）；
+        ///   ② 「换」钮全落在**牌堆**上。
+        /// 根因（诊断正本 → `资料/普查产出_第十八会话/D1_开局换牌与进攻卡.md` 问题 A）：
+        ///   `HandLayout.Place` 在 `animateRelayout == true` 时**只开补间、不当场落位**，
+        ///   而老写法是「**读当时的位置**当落点」（`CardFeel.DealIn` 里的 `Vector3 to = tr.position;`）
+        ///   ⇒ 补间还没跑过一帧，读到的是父级原点。
+        /// 修法两半（对应两个症状）：
+        ///   · **落点** —— 用 `HandLayout.TryLastPose` 取真位姿（`CommitDealtPoses` 已落实），
+        ///     再把它**显式**交给 `CardFeel.DealInPose`；
+        ///   · **时机** —— 换牌阶段整段**推后**到 `OpenMulligan()` 之后（见 `Begin` 的换牌分支）。
+        ///
+        /// ⚠️ `animateFeel` 关着时**什么都不做**（批处理自检靠它拿当场精确的坐标）。
+        /// </summary>
+        void PlayDealAnimation()
+        {
+            if (!animateFeel || _dealt.Count == 0) return;
+            var deck = LayoutSpace.ToWorld(MyDeckX01, MyDeckY01);
+            var hl = interaction != null ? interaction.hand : null;
+            for (int i = 0; i < _dealt.Count; i++)
+            {
+                var v = _dealt[i];
+                if (v == null) continue;
+                Vector3 p; float ang, sc;
+                if (hl != null && hl.TryLastPose(v, out p, out ang, out sc))
+                {
+                    // ⛔ 不能退回 `CardFeel.DealIn`：它把 rot 收 0、scale 收 1，牌会停在**原尺寸**
+                    //   （226 设计 px，手牌档应是 165 —— 实拍 `_tmp_view/ui_1019/17_battle.png` 量得）。
+                    CardFeel.DealInPose(v, deck, p, ang, sc);
+                }
+                else
+                {
+                    // 排布表里没有它（理论上到不了）—— 退回老写法，并**出声**（⛔ 别静默）
+                    Debug.LogWarning("[SyncHand] 新牌不在 HandLayout 最近一趟的排布表里，发牌落点退回读当时位置");
+                    CardFeel.DealIn(v, deck);
+                }
             }
         }
 

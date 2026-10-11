@@ -1135,6 +1135,40 @@ namespace CardPresentation
             return CardTween.Use(t, Ease.OutQuad, card.transform).SetDelay(delay);
         }
 
+        /// <summary>
+        /// 发牌入场 —— **落点由调用方显式给出**的那一版（`DealIn` 读的是卡**当时**的位置）。
+        ///
+        /// 🔴 🆕 2026-10-11（`A1540`）为什么要有它：`HandLayout.Place` 在 `animateRelayout == true` 时
+        ///   **只开一条补间、不当场落位**（`Hand/HandLayout.cs` 的 `Place`），而 `DealIn` 是「**读当时位置**当落点」
+        ///   ⇒ 同一帧里读到的是**父级原点**（= 画布正中 960,540）。手牌那一档**只有存盘场景里
+        ///   `animateRelayout == 1`**（批处理里出厂 `false`）⇒ **自检结构上复现不出来**。
+        ///   ⇒ 调用方先 `SetPose` 落实、再把真位姿传进来（`BattleDriver.SyncHand`）。
+        ///
+        /// ⚠️ `to` 是**世界坐标**（与 `DOMove` / `DealIn` 同一套）。
+        /// ⚠️ `rotZ` / `scale` 也取**落点那一套**，⛔ 不是 `DealIn` 的「一律 0 / 1」——
+        ///   实测（`_tmp_view/ui_1019/17_battle.png`）按 0 / 1 收尾时，牌会停在**原尺寸**
+        ///   （226 设计 px，而手牌档应是 165）且不倾斜。
+        /// </summary>
+        public static Tween DealInPose(CardView card, Vector3 from, Vector3 to,
+                                       float rotZ, float scale, float delay = 0f)
+        {
+            if (card == null) return null;
+            var tr = card.transform;
+            tr.position = from;
+            // ⚠️ alpha 要**当场**置 0（同 `DealIn`：DOTween 的 `To(getter, setter, …)` 第一次被推进时才调 setter）
+            card.SetAlpha(0f);
+
+            var seq = DOTween.Sequence();
+            seq.Append(tr.DOMove(to, DealDuration).SetEase(Ease.OutCubic));
+            seq.Join(tr.DORotate(new Vector3(0f, 0f, rotZ), DealDuration).SetEase(Ease.OutCubic));
+            seq.Join(tr.DOScale(Vector3.one * scale, DealDuration).SetEase(Ease.OutCubic));
+            seq.Join(DOTween.To(() => 0f, a => card.SetAlpha(a), 1f, DealDuration * 0.5f));
+            var t = CardTween.Use(seq, Ease.Linear, tr).SetDelay(delay);
+            // ⚠️ **被打断时要把 alpha 补回 1**（同 `DealIn`：`Place` 会 `DOKill()` 这张卡身上的补间）
+            t.OnKill(() => { if (card != null) card.SetAlpha(1f); });
+            return t;
+        }
+
         public static Tween DealIn(CardView card, Vector3 from, float delay = 0f)
         {
             if (card == null) return null;

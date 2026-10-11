@@ -1200,6 +1200,31 @@ namespace RuleEngine
                 if (!ReferenceEquals(listenerUnit, subject)) return false;
             }
 
+            // ---- 🔴 **关键词触发族·自排除**（`When another unit uses Sacrifice, …`）----
+            // 2026-10-11（`A1399` + `A1397①`）。**判据 = 原版广播的机器码**，不是 `.c` 里数实参
+            // （`.c` 里 `op_Inequality` 那条常被 Ghidra 掉成 1 个实参 —— 见 §② 那两处 `mov rdx, rsi`）。
+            // 逐条数 `UnityEngine.Object.op_Inequality`（`0x182FFB920`）在**函数体内**的调用次数
+            // （`D:/2/unity_run_ref/GameAssembly.dll`，base `0x180000000`）：
+            //   · `BroadcastUnitUsedSacrifice`（RVA `0x9BA580`）**3 条**（棋盘 + 两跳手牌）；
+            //   · `BroadcastUnitMob`（`0x9B8570`）棋盘跳 **1** 条 + 接收方 `TriggerOtherCardMob`
+            //     体内 1 条（`TriggerOtherCard{Landing,Codex,SpiritStone,Requiem,Regiment}` 同形）
+            //     ⇒ **`OtherCard*` 这一族统一自排除**；
+            //   · `BroadcastUnitFerocity`（`0x9B7C50`）/ `…Duty`（`0x9B7A60`）/ `…Synapse`（`0x9BA390`）
+            //     **各 0 条** —— 三跳都**原样**把触发源传给接收方，接收方
+            //     `CardScript.TriggeredFerocity/Duty/Synapse` 体内也没有
+            //     ⇒ **这一族【不】自排除**（详见 <see cref="SelfExcludesOnKeywordTrigger"/>）。
+            // ⇒ 卡自己用 `Ferocity` 时自己的监听器**要**响（`Bjorn the Fell-Handed` 的
+            //    `Ferocity: …` + `When a friendly unit uses Ferocity, it stays in play`
+            //    正是靠它把自己留在场上）；而 `sacrifice` 那一族**不许**响。
+            // ⛔ **拿不到事实时放行**（`subject` / `listenerUnit` 缺一个就不排除）—— 与上面
+            //    `SelfOnly` 正好相反：那条「拿不到就判不触发」（它负责**放行**，宁可收不到），
+            //    本条只负责**收窄**，没有事实就不该收窄。
+            if (!ev.SelfOnly && SelfExcludesOnKeywordTrigger(ev.Kind))
+            {
+                if (listenerUnit != null && subject != null
+                    && ReferenceEquals(listenerUnit, subject)) return false;
+            }
+
             // ---- 做者自指：这件事必须是**监听者自己干的**（`When this unit kills an enemy, …`）----
             // ⚠️ 和 `SelfOnly` 是**两个方向**，别合并（见 `WhenEvent.ActorSelf` 的注释）：
             //    这条判「谁干的」（`actor`），那条判「落在谁身上」（`subject`）。
@@ -1296,6 +1321,78 @@ namespace RuleEngine
 
             return true;
         }
+
+        // ==================================================================
+        //  ②·一 关键词触发族的**自排除**（`A1399` + `A1397①`）
+        // ==================================================================
+
+        /// <summary>
+        /// `triggers:&lt;kw&gt;` 这一族里，**用这个关键词的那张卡会不会被自己的触发叫醒**。
+        /// 返回 `false` 的关键词**不做**自排除（= 自己响）；不是 `triggers:*` 的 `Kind` 一律返回 `false`
+        /// （本守卫**只管** `triggers:*` 这一族，别的 `Kind` 一格都不动）。
+        ///
+        /// 🔴 **原版这一族【本来就分两半】，不是一个口径** —— 判据 = 各广播函数机器码里的
+        /// <c>UnityEngine.Object.op_Inequality</c>（`0x182FFB920`）调用**条数**
+        /// （`D:/2/unity_run_ref/GameAssembly.dll`，base `0x180000000`，2026-10-11 逐条数过）：
+        ///
+        /// | 广播函数 | RVA | `op_Inequality` 条数 | 自排除 |
+        /// |---|---|---|---|
+        /// | `BattleManagerSupport.BroadcastUnitUsedSacrifice` | `0x9BA580` | **3**（棋盘 + 两跳手牌） | ✅ |
+        /// | `…BroadcastUnitMob` | `0x9B8570` | 棋盘跳 **1** + 接收方体内 1 | ✅ |
+        /// | `…BroadcastUnitSwarm` | `0x9BA150` | 棋盘跳 **1** | ⚠️ 见下 |
+        /// | `…BroadcastUnitFerocity` | `0x9B7C50` | **0** | ❌ |
+        /// | `…BroadcastUnitDuty` | `0x9B7A60` | **0** | ❌ |
+        /// | `…BroadcastUnitSynapse` | `0x9BA390` | **0** | ❌ |
+        ///
+        /// · **`OtherCard*` 那一族**（`TriggerOtherCard{Landing,Mob,Codex,SpiritStone,Requiem,Regiment}`）
+        ///   接收方体内自己带 `op_Inequality(param_2, param_1)`（`param_1` = 接收者自己、
+        ///   `param_2` = 触发源）⇒ **「别的卡才算」**。
+        /// · **`Triggered*` 那一族**（`TriggeredFerocity = 726` / `TriggeredDuty = 661` /
+        ///   `TriggeredSynapse = 630` —— 见 `AbilityTrigger.cs`）体内**没有**这道守卫，
+        ///   而对应的广播（`Ferocity`/`Duty`/`Synapse`）**也没有** ⇒ **自己会被自己叫醒**。
+        ///   这不是我们推的：`Bjorn the Fell-Handed`（kw `Ferocity`）的
+        ///   `When a friendly unit uses Ferocity, it stays in play` 就是靠它把自己留在场上。
+        /// · ⚠️ **`swarm` 归在「不自排除」那一边，但理由不同**：`BroadcastUnitSwarm` 的棋盘跳
+        ///   **确实**有那条守卫，比的是 `param_2` = **被并掉那张**（`AddExecuteSwarm` 的 `self`，
+        ///   广播前刚 `DestroyUnitSilent` ⇒ 已经不在场上）；而我们这边
+        ///   `RuleCore.TrySwarmMerge` 的 `FireTriggerAlways(ctx, host, …)` 传的 `subject` 是
+        ///   **留下那张** ⇒ 照抄原版那条会把留下那张**误挡**。
+        ///
+        /// ⇒ **本表默认「自排除」，只有上面核过的这几个词例外。** 加新关键词时
+        /// 回机器码核一遍（`工具/rva_of_method.py` → `BattleManagerSupport$$BroadcastUnit&lt;词&gt;`
+        /// → `工具/disasm_va.py` 数 `0x182ffb920`）。⛔ **别按「凡 `triggers:*` 一律自排除」推广** ——
+        /// 那会把 `Bjorn the Fell-Handed` / `Zoanthrope` 两张**真卡**改错，而今天卡池里
+        /// 能走到 `sacrifice` 这条链的**一张都没有**（`cards_engine.json` 1126 张扫 `sacrific`
+        /// 只命中卡名 `TAU65 Valued Sacrifice`）⇒ 推广版**只会错、不会对**。
+        /// </summary>
+        public static bool SelfExcludesOnKeywordTrigger(string kind)
+        {
+            if (kind == null) return false;
+            if (!kind.StartsWith(WhenEventKind.TriggersPrefix, System.StringComparison.Ordinal))
+                return false;                                   // 不是这一族 ⇒ 本守卫不适用
+            string kw = kind.Substring(WhenEventKind.TriggersPrefix.Length);
+            return !KeywordTriggerIncludesSelf.Contains(kw);
+        }
+
+        /// <summary>
+        /// **原版广播【不】自排除**的那几个关键词 —— 用它们的卡，自己的监听器会响。
+        ///
+        /// ⛔ 名单只放**回机器码核过**的词（判据与出处全写在
+        /// <see cref="SelfExcludesOnKeywordTrigger"/> 的表格里）。卡池实测（`cards_engine.json` 1126 张，
+        /// 2026-10-11 现扫）：卡面带 `triggers/uses &lt;词&gt;` 的共 **12 处**，其中我们的解析器
+        /// **收得下 10 处**（另 2 处尾巴还挂着东西 ⇒ 认不出：`Bjorn's Shrine` 的
+        /// `uses Ferocity this turn`、`Big Choppa Nob` 效果句里的 `triggers an additional time`）：
+        /// `ferocity` 3（`Deathwolf Scout` / `Raid Tactics` / `Bjorn the Fell-Handed`）·
+        /// `synapse` 3（`Broodlord` / `Zoanthrope` / `Norn Emissary`）·
+        /// `swarm` 2（`Termagant Brood` / `Tyranid Prime`）· `duty` 1（`Commissar`）· `mob` 1（`Big Choppa Nob`）。
+        /// 而**卡自己带同一个词**的有四个：`Bjorn the Fell-Handed`（`Ferocity`）·
+        /// `Zoanthrope`（`Synapse`）· `Termagant Brood`（`Swarm`）· `Broodlord`（`Synapse`，
+        /// 但它写的是 `When this unit triggers Synapse` ⇒ <see cref="WhenEvent.SelfOnly"/>，本守卫不适用）
+        /// —— 也就是说：**今天唯一可观测到的三处，全都在「不自排除」这一边**。
+        /// </summary>
+        static readonly HashSet<string> KeywordTriggerIncludesSelf =
+            new HashSet<string>(System.StringComparer.Ordinal)
+            { "ferocity", "duty", "synapse", "swarm" };
 
         // ==================================================================
         //  ③ 主语短语 → CardCriteria

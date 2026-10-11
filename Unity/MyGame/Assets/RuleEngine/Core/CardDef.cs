@@ -33,11 +33,43 @@ namespace RuleEngine
     public class CardDef : ICardProvider
     {
         // 用只读自动属性而不是字段 —— 接口成员是属性，字段实现不了（会报 CS0535）
+
+        /// <summary>
+        /// **牌的身份**（<see cref="ICardProvider.Id"/>）。牌组 / 存档 / 联机 / 卡面缓存全部按它认牌。
+        ///
+        /// ⚠️ **它不是卡名**（现核 `cards_engine.json`：**0 / 1126 张**的 `id` 等于 `name`，
+        /// 形如 `ASH_Autarch` / `ASH32`），而且**卡名会重**（现核 3 个重名：`Terminator Champion` /
+        /// `Maulerfiend` / `Terminator`）⇒ **别拿 `Name` 当键**。
+        /// </summary>
         public string Id { get; }
+        /// <summary>英文卡名（卡面标题行）。**重名是真的**（见 <see cref="Id"/>）⇒ 键一律用 `Id`。</summary>
         public string Name { get; }
-        public string Type { get; }        // unit / tactic / hero / defence
+        /// <summary>
+        /// 卡类：`unit` / `tactic` / `hero` / `defence`（现核卡池 586 / 445 / 56 / 39）。
+        /// 🔴 **它决定的是「谁走路」**，不是「谁强」：`unit`+`hero` 才上棋盘
+        /// （<see cref="IsUnit"/>）、才收事件监听（<see cref="CanListenForEvents"/>）；
+        /// `tactic`/`defence` 走另一条路（打出即结算 / 手牌陷阱）。
+        /// ⚠️ 多处按**字符串相等**判卡类（`c.Type != "tactic"`），**改这里的取值会静默改变卡池分组**。
+        /// </summary>
+        public string Type { get; }
+        /// <summary>
+        /// 卡面效果原文（英文）。`EffectText` 的**唯一输入**（`<see cref="EffectText.Split"/>` 按 `.` 切句）。
+        ///
+        /// ⚠️ 注意它的含义**随卡类变**：原版卡（<see cref="FromOriginalPool"/>）这一格就是效果原文；
+        /// 我们自己设计的那 26 张，这一格是**风味文字**（效果在 `keywords` 里，见那个属性的注释）。
+        /// </summary>
         public string Desc { get; }
+        /// <summary>
+        /// 稀有度（现核卡池取值只有五种：`common` / `rare` / `epic` / `legendary` / `special`）。
+        /// **它决定「能带几张」** —— 卡组合法性与收藏的「x1 / x2」都读 `DeckRules.CopyLimit(Rarity)`；
+        /// 卡框的四档也按它取。⛔ 别把它当成「卡有多强」的数值判据。
+        /// </summary>
         public string Rarity { get; }
+        /// <summary>
+        /// 阵营（**英文枚举名**：`Ultramarines` / `Goff` / `SaimHann` / …，另有 `Neutral`）。
+        /// 与表现侧的卡背表 `CardbackTable` 的 `army` 字段**逐字同名**（那一边按它取卡背 / 取框色）。
+        /// ⚠️ 造牌类效果（`Create …`）的候选池也按它筛，见 `CreatePool.Resolve`。
+        /// </summary>
         public string Faction { get; }
 
         /// <summary>中文卡名。**空串 = 这张卡没有翻译** —— 卡面回英文名（不静默）。
@@ -70,8 +102,23 @@ namespace RuleEngine
         /// （`卡面.png` 上就是那段字，见 `Desc`），而我们自设计的卡卡面写的是
         /// **引擎结算得到的关键词**（`Desc` 对我们那 26 张是风味文字，不是效果）。</para></summary>
         public bool FromOriginalPool { get; }
+        /// <summary>
+        /// 费用（能量）。**这是印在卡上的基准值** —— 真正要付多少要看降费/加费那几族
+        /// （`CardDef.CostWhens` / `CostIfControls` / `ctx.CostMods`），判据只有 `RuleCore.CostOf` 一处。
+        /// ⚠️ 别在别处直接读它算「打得起吗」。
+        /// </summary>
         public int Cost { get; }
+        /// <summary>
+        /// **近战**攻击力（卡面左圆红剑）。⚠️ 近战与远程是**两套独立数值**、不共用一格
+        /// （远程在 <see cref="RangedAttack"/>）—— 卡面上那个「一个攻击值」的直觉在这里不成立。
+        /// 「这一次算近战还是远程」的**兼容判据只此一处**（`SimpleAI.UseRanged`，表现侧
+        /// `BattleDriver.UseRanged` 是同一份规则的转发）—— ⛔ 别在别处另写一份。
+        /// </summary>
         public int Attack { get; }
+        /// <summary>
+        /// 生命（卡面最右绿框）。⚠️ **它与护甲不是一回事** —— 护甲是关键词 `armour`
+        /// （见 `KeywordTable.Armour`，按数值减伤），卡面右起第二个银盾画的是**护甲**不是生命。
+        /// </summary>
         public int Health { get; }
         /// <summary>卡面左下紫圆（子弹图标）。注意：JSON 里的 `armor` 字段经核实实为远程攻击，已迁移到这个名字下</summary>
         public int RangedAttack { get; }
@@ -178,7 +225,14 @@ namespace RuleEngine
         /// 🔴🔴 **2026-10-10（第十四会话 · `A1398`）：本表的【入表判据】—— 普查 47 词后定案。**
         ///
         /// 🔴 **<see cref="Implemented"/> 不是入表依据，两张表本来就不同**（实测
-        ///    `Implemented` 68 词 − 本表 23 词 = **47 词**）。入表要**同时**满足三条，缺一条都不进：
+        ///    `Implemented` 68 词 − **两表共有的 21 词** = **47 词**）。
+        ///    ⚠️ **2026-10-11 就地订正（铁律 5）**：这句原来写「− 本表 **23** 词 = 47 词」，
+        ///    **那个 23 是错的、算法也不对**（`68 − 23 = 45`，与 47 对不上）。**现核**（数得出来的）：
+        ///    `Implemented` = **68** 条 · `RoutableTriggers` = **22** 条 ·
+        ///    两者共有 = **21** 条（差的那一条是 `spiritstone` —— 它在表内、**不在** `Implemented` 里，
+        ///    理由见本表那一格的注释）⇒ `68 − 21 = 47`，**47 这个数是验过的**。
+        ///    （`47` 的逐词清单就在下面那三段，数一遍是 44 + 3 = 47 ⇒ 自洽。）
+        ///    入表要**同时**满足三条，缺一条都不进：
         ///    ① **卡面上真有 `&lt;词&gt;[ N]: &lt;正文&gt;` 这种写法** —— 判据 = PnP 成品卡图
         ///       （`资料/卡表核对_卡图提取/_还原效果文字.md`，1118 行逐行扫）＋ 卡池
         ///       `cards_engine.json`（1126 张的 `desc` / `keywords`，含中文列）；
@@ -314,8 +368,17 @@ namespace RuleEngine
         /// ⚠️ 卡图核对（铁律 7，2026-09-14 派子代理逐张读过）：
         ///    `Emperor_s Children/3部队/Warpforge_22_Terminator.png` 印 `Ecstasy 2:` ·
         ///    `Warpforge_31_Chaos-Rhino.png` 印 `Ecstasy 5:` ·
-        ///    `Warpforge_39_Maulerfiend.png` 印 `Ecstasy 5:`（而 `Maulerfiend` 的 `keywords`
-        ///    里**根本没有 Ecstasy** —— 它的正文写在 `desc` 里，由 `CollectBareKeywordBody` 收）。
+        ///    `Warpforge_39_Maulerfiend.png` 印 `Ecstasy 5:`。
+        ///    ⚠️ **2026-10-11 就地订正（铁律 5）**：这句原来接着写「（而 `Maulerfiend` 的 `keywords`
+        ///    里**根本没有 Ecstasy** —— 它的正文写在 `desc` 里，由 `CollectBareKeywordBody` 收）」
+        ///    —— **两句都不成立**（现核 `cards_engine.json`）：`EC39 Maulerfiend` 的
+        ///    `keywords` 现读 **`['Ecstasy 5']`**（有它）；而它的正文（`desc` =
+        ///    `Ecstasy 5: Double this troop's [Melee] and [Ranged].`）走的是 **`AddTriggerOp`**
+        ///    那条路（头 `ecstasy 5` → `StripParamSuffix` → `ecstasy`），**不是**裸写路。
+        ///    ⛔ 拿 `CollectBareKeywordBody` 去查它一定会找不到 —— 那条路对它早就 `return` 了。
+        ///    ⚠️ **裸写路今天真正收的是 `EC31 Chaos Rhino`**（`keywords = ['Ecstasy 5']`，
+        ///    而 `desc` = `Deploy a random Emperor's Children Infantry that costs 3 or less`
+        ///    —— `desc` 里**没有** `Ecstasy:` 头）⇒ 本表收「裸写」那一半的说法对它才成立。
         /// </summary>
         public int EcstasyX
         {
@@ -441,6 +504,22 @@ namespace RuleEngine
 
         /// <summary>触发关键词 → 正文原文（日志与卡面用）</summary>
         readonly Dictionary<string, string> _triggerText = new Dictionary<string, string>();
+
+        /// <summary>
+        /// 这个触发关键词的**正文原文**（`Rally: Stun an enemy` 里冒号后面那段）。
+        ///
+        /// 🔴 **它和 <see cref="TriggerOps"/> 是两件事，而且可能对不上**：
+        /// `TriggerOps` 是**解析出来的 op**（真的会结算），本方法是**卡面/日志要显示的那串字**。
+        /// 正文**收下来了、op 解析失败**的时候（卡面标 `*`）—— 一边有、另一边没有。
+        /// ⇒ 用它的地方（`RuleCore` 的战斗日志、`BattleDriver` 的行动记录）拿到的是**玩家看到的字**；
+        ///    **别拿它当「这条触发会不会生效」的判据**，那个要看 `TriggerOps` / `Effects`。
+        ///
+        /// **没有返回 null**（不是空串）—— 和 <see cref="TriggerOps"/> 同一口径，调用方必须判。
+        ///
+        /// ⚠️ 值的来源见 <see cref="CollectTriggerOps"/>：`Desc` 优先，`keywords` 里带触发前缀的条目兜底。
+        /// `TriggerTexts` 是同一份字典的公开面（全表，`EffectText` / `CardProbe` / 自检读它）。
+        /// </summary>
+        /// <param name="keyword">规范化后的触发关键词（`KeywordTable.Rally` 这一族，**小写**）。</param>
         public string TriggerText(string keyword)
         {
             string v;
@@ -588,11 +667,14 @@ namespace RuleEngine
             // ⚠️ 判据要走 `EffectText.NormalizeIconPrefix`：`[Codex] …` 那种**图标写法**
             //    语义等于 `Codex:`（`Death from Above`），不归一就看不见它 ⇒
             //    会把整条 desc（含不属于 Codex 的正文）当成 Codex 的正文（实测撞到过）。
+            // 🔴 **2026-10-11（`A1469`）：判据从 `IsBodyKeyword` 换成 `IsBodyKeywordHead`** ——
+            //    前者是**整词精确等值**，看不见 `Ecstasy N:` 这种**带参数的头**
+            //    （逐条依据与「兜住它的是不是巧合」见 `IsBodyKeywordHead` 的注释）。
             foreach (string seg in EffectText.Split(Desc))
             {
                 string s = EffectText.NormalizeIconPrefix(seg);
                 int c = s.IndexOf(':');
-                if (c > 0 && IsBodyKeyword(s.Substring(0, c).Trim().ToLowerInvariant())) return;
+                if (c > 0 && IsBodyKeywordHead(s.Substring(0, c))) return;
             }
 
             // ①-bis 🆕 2026-09-16：**引号里的 `"<关键词>: 正文"` 是「授予**别人**的」**，
@@ -610,7 +692,7 @@ namespace RuleEngine
                 {
                     string inner = qm.Groups[1].Value.Trim();
                     int cc = inner.IndexOf(':');
-                    if (cc > 0 && IsBodyKeyword(inner.Substring(0, cc).Trim().ToLowerInvariant())) return;
+                    if (cc > 0 && IsBodyKeywordHead(inner.Substring(0, cc))) return;
                 }
 
             // ② 带正文的关键词**唯一**才敢认
@@ -719,6 +801,60 @@ namespace RuleEngine
             return false;
         }
 
+        /// <summary>触发头 → **剥掉数值后缀之后的规范名**（`Ecstasy 2` → `ecstasy`；`Rally` → `rally`）。
+        /// `num` = 剥下来的那个数字（没剥 = `null`）。
+        ///
+        /// 🔑 **判据只此一处**（2026-10-11 · `A1469`）：`AddTriggerOp`（**登记**那一步）与三处
+        /// 「这一段是不是**另一件事的开头**」的守卫（<see cref="IsBodyKeywordHead"/> 的调用点）都转调它。
+        /// 原来登记侧自己剥数字、守卫侧各自写「整词精确等值」⇒ **两侧口径不一致**，
+        /// 守卫**看不见带参数的触发头**。后果见 <see cref="IsBodyKeywordHead"/> 的注释。
+        /// ⚠️ **只剥「本来就带参数」的触发词**（<see cref="IsParamTrigger"/>，今天只有 `ecstasy`）——
+        /// 放开会让 `Rally 2:` 这种**不该有参数**的写法被静默收下（那是在掩盖数据问题）。
+        /// </summary>
+        static string StripParamSuffix(string head, out string num)
+        {
+            num = null;
+            string h = (head ?? "").Trim().ToLowerInvariant();
+            if (h.Length == 0) return h;
+            var m = ReTriggerHead.Match(h);
+            if (m.Success && IsParamTrigger(m.Groups[1].Value))
+            {
+                num = m.Groups[2].Value;
+                return m.Groups[1].Value;
+            }
+            return h;
+        }
+
+        /// <summary>这个头是不是「某个 **带正文的关键词** 的头」——**带参数的头也算**
+        /// （`Ecstasy 2:` 算，`ecstasy` 的整词精确等值口径认不出它）。
+        ///
+        /// 🔴 **为什么要有它**（2026-10-11 · `A1469` + 同一根因的 `EC28`）：
+        /// `CollectBareKeywordBody` 的门 ①（「正文里已经有 `X:` 前缀了 ⇒ 不归裸写那条管」）、
+        /// 门 ①-bis（引号里那种）与 <see cref="StartsAnotherThing"/> 的 ①（断句）
+        /// 原来都直接问 <see cref="IsBodyKeyword"/>，而那个口径**明写是整词精确等值**
+        /// （`ecstasy` 是、`ecstasy 5` 不是）⇒ **`Ecstasy N:` 这种带数字的头一律看不见**。
+        /// · 门 ① 漏 ⇒ 那 5 张（`EC12` / `EC14` / `EC22` / `EC23` / `EC39`）**走到了裸写路的门口**，
+        ///   今天全靠 <see cref="CollectBareKeywordBody"/> 里那句 `_triggerOps.ContainsKey(only)`
+        ///   （**先到先得**，在 `BareBodyText()` 之前）兜住 —— **是结构性兜住、不是巧合**
+        ///   （`AddTriggerOp` 认得到 `Ecstasy N:`，一定先登记），
+        ///   但守卫本身是坏的：**只要那张卡的正文解析不出来**（`_triggerOps` 里没有它），
+        ///   裸写路就会把**整条 `desc`** 当成它 `keywords` 里那个唯一关键词的正文（静默、错时机）。
+        /// · 断句那处漏 ⇒ **`EC28 Flawless Blade Champion` 当场中招**：卡面印的是两条独立能力
+        ///   （`Slay: Give +1 [Might] to all friendly troops` ⏎ `Ecstasy 3: Attack a random enemy`，
+        ///   成品卡图 `d:/2/Warpforge部队卡片/Emperor_s Children/3部队/Warpforge_28_Flawless-Blade-Champion.png`），
+        ///   而 `StartsAnotherThing` 不停句 ⇒ `Ecstasy 3:` 那半被**并进 `Slay` 的正文**
+        ///   （`Slay` 一杀人就白打一次随机攻击）。
+        ///
+        /// ⚠️ **不动 <see cref="IsBodyKeyword"/> 本身** —— 它被表现层
+        /// （`CardPresentation/Core/CardText.cs` 的 `KeywordSegment`，判「收尾符印 `.` 还是 `:`」）
+        /// 按「整词精确等值」调用，放宽它会让卡面那半跟着变（那是另一件事，也不在本笔范围）。
+        /// </summary>
+        static bool IsBodyKeywordHead(string head)
+        {
+            string ignored;
+            return IsBodyKeyword(StripParamSuffix(head, out ignored));
+        }
+
         /// <summary>
         /// **伴生部队的名字** —— `Companion 2: Missile Drone` 里的 `Missile Drone`。
         /// 没有 = null。
@@ -778,6 +914,13 @@ namespace RuleEngine
         /// **同族先例**（照抄它的做法）：`CollectBareKeywordBody` 里给 `Ecstasy` 补的那一条
         /// （`Maulerfiend` 的 `keywords` 数组里也没有 `Ecstasy`，而 `desc` 就是
         /// `Ecstasy 5: …` ⇒ `Has("ecstasy")` 恒假、机制静默不跑）。
+        /// ⚠️ **2026-10-11 就地订正（铁律 5）**：括号里那句说的是**写下它当时**的卡表；
+        /// **现核 `cards_engine.json`：`EC39 Maulerfiend` 的 `keywords` 是 `['Ecstasy 5']`**
+        /// —— 它今天**有** `Ecstasy`，上面那个「`Has` 恒假」的场景不再成立
+        /// （⚠️ **它是什么时候变的不清楚**，没查到 —— 别当成「一直有」）。
+        /// **先例本身仍然有效**（「`desc` 里写了 `词 N: 正文`、`keywords` 里漏了那个词 ⇒
+        /// 机制静默不跑」这条形状没变），今天仍拿得到实例的是 `Companion` 那三张
+        /// （`TAU38` / `TAU28` / `TAU13`，见上面）。
         ///
         /// **只补「认得出 + 值对」这一层**：`N` 取 `desc` 里 `Companion` **冒号前**那个数字；
         /// 冒号前没数字（`Companion: DS8 Support Turret`）⇒ **记 1** —— 那时
@@ -1121,6 +1264,20 @@ namespace RuleEngine
         void CollectSpiritOps()
         {
             if (string.IsNullOrWhiteSpace(Desc)) return;
+            // 🔴 **2026-10-11（`A1439`）：这一路收下来的 op，`EffectOp.Source` 与别处【逐字不同】。**
+            //    · 本条走的是 `EffectText.Parse(Desc)`，挑 `CostKind == "spirit"` 的 op；
+            //    · `1 [Spirit Stone]: Give +1 [Melee], …` 在 `ParseSegment` 里命中的是
+            //      **付费前缀**那一支（`EffectText.cs` 的 `RePaid`），那一条把 `s` 换成
+            //      **剥掉前缀之后的小写正文**（`s = low`）⇒ `Source` = `give +1 melee, …`
+            //      （**小写**、无前缀、方括号已剥）。
+            //    · `AddTriggerOp` 那一类（`Rally:` / `Slay:` …）走的是 `Parse(body)`，
+            //      `Source` **保留原文大小写**（只剥方括号）。
+            //    ⚠️ **2026-10-11 就地订正（铁律 5）**：账上原来写「本路 `Source` = **整句**
+            //      （`1 [Spirit Stone]: Give +1 …`）」—— **按代码读不成立**：前缀在
+            //      `ParseSegment` 里就被剥掉了，`Source` 里**没有**那段头。两条路真正不一致的
+            //      是**大小写/归一化**（见上）。⚠️ 本条**没跑仪器复核**（本笔不跑），记成「按代码读」。
+            //    ⇒ 不变的那条结论：**`Source` 不是身份键**，对账要比语义四样
+            //      （先例 `工具/ruleprobe/WillRun.cs` 的 `Sig()`）。
             var ops = EffectText.Parse(Desc, out _, out _);
             if (ops == null || ops.Count == 0) return;
             foreach (var op in ops)
@@ -1373,7 +1530,52 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// 这一句是不是「**另一件事的开头**」—— 触发正文到它为止（判据只此一处，见 <see cref="TriggerBodyAt"/>）。
+        /// `When &lt;事件&gt;, &lt;正文&gt;` 那条路的**跨句并接** —— 第 <paramref name="i"/> 段连同它的
+        /// **后继分句**拼成一条正文（不是 `When …` 开头就**原样返回**，与从前一字不差）。
+        ///
+        /// 🔑 **为什么要跨句**（2026-10-11 · `A1471`）：卡面把一条能力**印成两句**，判据 = 成品卡图
+        /// （铁律 7）：`DA25 Techmarine` 的
+        ///   `When a friendly Vehicle attacks, gain 1 [Quest Point]. If it survives, heal 3 to it`
+        /// （`d:/2/Warpforge部队卡片/Dark Angels/3部队/Warpforge_25_Techmarine.png`，逐字核过）
+        /// —— 那个 `If it survives, heal 3 to it` 是**同一条 `When` 的尾句**，不是另一件事。
+        /// 原来这里**一段一段单独送**进 `AddWhenTrigger` ⇒ 尾句落进 ② 的降费句式就 `return`
+        /// ⇒ `DA25` 的 `heal 3`（`condKind=targetsurvives`）**一条 op 都没进卡表**
+        /// （卡面印着、机制静默不发生 = 本工程红线）。
+        /// ⚠️ **同族的先例**：`TriggerBodyAt`（带正文关键词那条路）**早就**这么并句，
+        /// 本方法只是把**同一份停句判据**（<see cref="StartsAnotherThing"/>）搬到 `When` 这条路上，
+        /// ⛔ 不另写一套「哪一句属于上一条」的规则。
+        ///
+        /// ⚠️ **实测面（静态扫全池 1126 张）**：会因此多并到一句的**只有 `DA25` 一张**
+        /// （`Desc` 里 `When …` 段之后还有没被 <see cref="StartsAnotherThing"/> 拦下的段的卡，
+        /// 全池就这一张）⇒ 本改动**动不到别的卡**。
+        /// ⚠️ **只在 `Desc` 那一侧并**（`keywords` 数组里的条目是「一条一条」的，照旧单独送）。
+        /// </summary>
+        static string WhenBodyAt(List<string> segs, int i)
+        {
+            string first = segs[i];
+            if (first == null) return null;
+            string s = first.Trim();
+            // 不是 `When …` / `Whenever …` 就**原样交回**（别的段的行为与改动前完全相同）
+            if (!s.StartsWith("When ", System.StringComparison.OrdinalIgnoreCase)
+                && !s.StartsWith("Whenever ", System.StringComparison.OrdinalIgnoreCase)) return s;
+
+            var sb = new System.Text.StringBuilder(s);
+            for (int j = i + 1; j < segs.Count; j++)
+            {
+                string nx = (segs[j] ?? "").Trim();
+                if (nx.Length == 0) continue;
+                // 停句判据**转调** `StartsAnotherThing`（`TriggerBodyAt` 用的是同一份）
+                if (StartsAnotherThing(nx)) break;
+                // ⚠️ 分隔符要补回来：`EffectText.Split` 是**吃掉句号**的（与 `TriggerBodyAt` 同一个坑、
+                //    同一个拼法 `. `），用空格拼会把两句**粘成一句连写**、解析结果整个变样。
+                sb.Append(". ").Append(nx);
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// 这一句是不是「**另一件事的开头**」—— 触发正文到它为止（判据只此一处，
+        /// 见 <see cref="TriggerBodyAt"/> **与** <see cref="WhenBodyAt"/>）。
         ///
         /// 停的六种情形，每一种都有实测卡当依据：
         ///   ① **另一个触发前缀**（`Rally:` / `Strike:` …）—— `Incursor` 的 `Rally: … . Oath 2: …`
@@ -1394,7 +1596,11 @@ namespace RuleEngine
             if (c > 0)
             {
                 string head = t.Substring(0, c).Trim();
-                if (IsBodyKeyword(head)) return true;
+                // 🔴 **2026-10-11（`A1469` 同一根因）：改用 `IsBodyKeywordHead`** ——
+                //    `IsBodyKeyword` 是整词精确等值、**看不见带参数的头**（`Ecstasy N:`），
+                //    于是 `Slay: … . Ecstasy 3: …` 那种卡面（`EC28`，照成品卡图核过）
+                //    会把 `Ecstasy` 那半**并进 `Slay` 的正文**。
+                if (IsBodyKeywordHead(head)) return true;
                 // ② 付费激活：`oath 2` / `2` / `6☀` / `(1)`
                 if (head.StartsWith("oath ")) return true;
                 if (head.Length > 0 && (char.IsDigit(head[0]) || head[0] == '(')) return true;
@@ -1442,24 +1648,17 @@ namespace RuleEngine
 
             // ⚠️ 这里**只小写后直接比**，不借 `KeywordTable.Normalize` ——
             //    那个是**前缀匹配**，`Pray: …` 会被它当地图炮；而且我们要的是「整词就是触发名」。
-            string head = seg.Substring(0, c).Trim().ToLowerInvariant();
-
+            //
             // 🆕 2026-09-14：**带数值后缀的触发名**（`Ecstasy 2:` / `Ecstasy 5:`）。
             //   原来这里是**整词严格相等**，`"ecstasy 2"` 对不上 `"ecstasy"`
             //   ⇒ 卡面上那 9 条 `Ecstasy N:` 的正文**一条都收不到**（而卡面照旧打 `*`，静默）。
             //   ⇒ 尾巴上的数字**剥掉再比**。
-            //   ⚠️ **只对「本来就带参数」的触发词剥**（`ParamTriggers`）—— 放开会让
-            //      `Rally 2:` 这种**不该有参数**的写法也被收下，那是在掩盖数据问题。
-            string headNum = null;
-            if (!IsRoutableTrigger(head))
-            {
-                var mh = ReTriggerHead.Match(head);
-                if (mh.Success && IsParamTrigger(mh.Groups[1].Value))
-                {
-                    headNum = mh.Groups[2].Value;
-                    head = mh.Groups[1].Value;
-                }
-            }
+            // 🔴 **2026-10-11（`A1469`）：那两行抽成了 `StripParamSuffix`（判据只此一份）** ——
+            //   三处「这一段是不是**另一件事的开头**」的守卫原来各写一份「整词精确等值」，
+            //   于是**守卫那一方**看不见 `Ecstasy N:`（后果见 `IsBodyKeywordHead` 的注释）。
+            //   本处行为**一字不变**（`num` = 剥下来的那个数，没剥 = null）。
+            string headNum;
+            string head = StripParamSuffix(seg.Substring(0, c), out headNum);
             if (!IsRoutableTrigger(head)) return;
             if (_triggerOps.ContainsKey(head)) return;      // 先到先得（① 在 ② 前面）
 
@@ -1473,6 +1672,10 @@ namespace RuleEngine
                 //    而它的 `desc` 就是 `Ecstasy 5: Double this troop's …` ⇒
                 //    `Has("ecstasy")` 恒为假 ⇒ **机制静默不跑**。
                 //    收下正文的同时登记关键词，别让结算层再去各判各的。
+                //    ⚠️ **2026-10-11 就地订正（铁律 5）**：这句说的是**写它当时**的卡表 ——
+                //    现核 `cards_engine.json`，`EC39 Maulerfiend` 的 `keywords` 是 `['Ecstasy 5']`
+                //    （**有** `Ecstasy`）⇒ 那个「恒假」的场景今天不复现。
+                //    这一行**照旧保留**（它是「输入侧缺词」的兜底，不是只为那一张写的）。
                 if (!_keywords.ContainsKey(head)) _keywords[head] = _ecstasyN > 0 ? _ecstasyN : 1;
             }
 
@@ -1480,6 +1683,24 @@ namespace RuleEngine
             if (body.Length == 0) return;
 
             // 正文交给**战术卡那个解析器**；解析不出来就**不收**（保持「卡面标 *」的诚实）
+            //
+            // 🔴 **2026-10-11（`A1439`）：`EffectOp.Source` 的**口径**在这里写明（别拿它当身份键）**
+            //    —— 本路存的是 `Parse(body)`，而 `body` = **冒号后那半句**（触发头不在里面）；
+            //    `ParseSegment` 还会**把方括号剥掉、大小写照原文留**
+            //    （`EffectText.ParseSegment` 里 `s = s0.Replace("[","").Replace("]","")`）。
+            //    同族另一路（`CollectSpiritOps`）的 `Source` **不是同一个字符串**：那张卡走的是
+            //    **付费前缀**分支，而那一条会把整串**转成小写**（同函数里 `s = low`）。
+            //    ⇒ **同一个 `EffectOp` 概念，两条路的 `Source` 逐字对不上**。
+            //    ⚠️ **2026-10-11 就地订正（铁律 5）**：账上原来写「本路 `Source` = 正文半句、
+            //    `CollectSpiritOps` 那路 = **整句**（`1 [Spirit Stone]: Give +1 …`）」——
+            //    **后半句按代码读不成立**（那一路也把前缀剥掉了，见 `CollectSpiritOps` 的同名注释），
+            //    两条路真正**逐字不同**的是**大小写/归一化**（本路留原文大小写、那一路被转成小写）。
+            //    ⚠️ **本条的实测复核还没做**（要跑探针；本笔不跑仪器）⇒ 记成「按代码读」，
+            //    ⛔ 别当成「跑出来的」。**结论不变**：`Source` 不能当身份键。
+            //    ⇒ 拿 `Source` 逐字对账的探针一定会误报「收漏」：**先例**
+            //    `工具/ruleprobe/WillRun.cs:97-104` 的 `Sig()` 就**故意不把 `Source` 算进 op 身份**
+            //    （只比 `verb / amount / payload / target`）。
+            //    ⛔ 新写对账工具照它办，别自己发明第三种口径。
             var ops = EffectText.Parse(body, out _, out _);
             if (ops == null || ops.Count == 0) return;
 
@@ -1487,7 +1708,9 @@ namespace RuleEngine
             _triggerText[head] = body;
         }
 
-        /// <summary>本卡**收到正文**的触发（自检与卡面用）</summary>
+        /// <summary>本卡**收到正文**的触发（自检与卡面用）——
+        /// 全表就是 <see cref="TriggerText"/> 读的那份字典（键 = 触发关键词，值 = 正文原文）。
+        /// 用途 = 逐条对账（`EffectText` 的覆盖报表、`CardProbe`、自检的「触发头收漏了没有」）。</summary>
         public IReadOnlyDictionary<string, string> TriggerTexts { get { return _triggerText; } }
 
         // ==================================================================
@@ -1538,14 +1761,19 @@ namespace RuleEngine
         /// </summary>
         public class CostWhen
         {
+            /// <summary>监听哪个事件（判据同 <see cref="WhenTrigger.Ev"/>，靠 `WhenEvents.Matches` 逐条比）。</summary>
             public WhenEvent Ev;
             /// <summary>降多少（卡面 `Lower cost by N` 的 N）</summary>
             public int Delta;
+            /// <summary>卡面的触发子句原文（`when &lt;事件&gt;` 那半句，对账/日志用）。</summary>
             public string Body;
             public override string ToString() { return Ev + " → 费用 " + Delta; }
         }
 
         readonly List<CostWhen> _costWhens = new List<CostWhen>();
+        /// <summary>本卡登记的**事件触发式降费**（`Lower cost by N when &lt;事件&gt;`）。
+        /// 消费点是 <see cref="FireCostWhen"/>（由 `EffectResolver` 在事件发生时调）；
+        /// ⚠️ 与常驻条件降费的 <see cref="CostIfControls"/> **不是一件事**，别合并。</summary>
         public IReadOnlyList<CostWhen> CostWhens { get { return _costWhens; } }
 
         /// <summary>
@@ -1565,6 +1793,9 @@ namespace RuleEngine
         ///    这个真的**结算效果**，所以是两个列表不是一个。
         /// </summary>
         readonly List<WhenTrigger> _handTrapWhens = new List<WhenTrigger>();
+        /// <summary>本卡的**事件型手牌陷阱**（非单位卡 + 整句 `When &lt;事件&gt;, &lt;正文&gt;`）。
+        /// 消费点是 <see cref="FireHandTrapWhen"/>（由 `EffectResolver.BroadcastHandTrapWhen` 扫双方手牌时调）。
+        /// ⚠️ **不要拿 <see cref="WhenTriggers"/> 判它** —— 那一族只扫棋盘上的单位，这一族根本不在棋盘上。</summary>
         public IReadOnlyList<WhenTrigger> HandTrapWhens { get { return _handTrapWhens; } }
 
         /// <summary>
@@ -1633,11 +1864,16 @@ namespace RuleEngine
             public int Delta;
             /// <summary>要控制的关键词（`stealth`）</summary>
             public string Keyword;
+            /// <summary>**整句**原文（`This costs N less if you control a unit with X`，对账/日志用 ——
+            /// 注意不是只留 `if` 那半句）。</summary>
             public string Body;
             public override string ToString() { return "控制 " + Keyword + " → 费用 " + Delta; }
         }
 
         readonly List<CostIfControl> _costIfControls = new List<CostIfControl>();
+        /// <summary>本卡的**常驻条件降费**（`This costs N less if you control a unit with &lt;关键词&gt;`）。
+        /// ⚠️ 它**不登记在 `ctx.CostMods` 里**（那里是「一次性、可过期」的语义）——
+        /// 真正的判据是 <see cref="RuleCore.CostOf"/> **每次现算**（场上没那样的单位了，价自己就回去了）。</summary>
         public IReadOnlyList<CostIfControl> CostIfControls { get { return _costIfControls; } }
 
         /// <summary>
@@ -1677,7 +1913,13 @@ namespace RuleEngine
             //    `keywords` 的条目也可能是多句拼在一起的
             //    （实测 `Jain Zar`：`"… Talent: Storm of Silence"`），
             //    整条送进去会因为**最后一个逗号**在别处而切出错误的「事件短语」。
-            foreach (string seg in EffectText.Split(Desc)) AddWhenTrigger(seg);
+            // 🔴 **2026-10-11（`A1471`）：`Desc` 那一路要先过 `WhenBodyAt` 跨句并接** ——
+            //    `When <事件>, <正文>` 的**尾句**（`DA25` 的 `If it survives, heal 3 to it`）
+            //    原来**单独成段**送进来 ⇒ 落进 ② 的降费句式就 `return` ⇒ 整句静默丢掉。
+            //    判据与实测面（全池只有这一张）见 <see cref="WhenBodyAt"/>。
+            //    ⚠️ `keywords` 那一路**照旧一段一段送**（条目本来就是「一条一条」的）。
+            var whenSegs = EffectText.Split(Desc);
+            for (int k = 0; k < whenSegs.Count; k++) AddWhenTrigger(WhenBodyAt(whenSegs, k));
             if (keywords != null)
                 foreach (string item in keywords)
                     foreach (string seg in EffectText.Split(item)) AddWhenTrigger(seg);
@@ -2005,7 +2247,18 @@ namespace RuleEngine
         }
 
         // ---- ICardProvider ----
+        /// <summary>**显示名** —— 就是 <see cref="Name"/> 的别名（`ICardProvider.Title` 那一格）。
+        /// ⚠️ 中文名在 <see cref="NameZh"/>（可能为空串），要不要回退到英文由表现层决定。</summary>
         public string Title { get { return Name; } }
+
+        /// <summary>`unit` 或 `hero`（督军）—— **会作为 <see cref="UnitState"/> 出现在棋盘上**的那两类。
+        ///
+        /// 🔴 **打字的分流口就是它**（现核全仓 31 处读它），典型几处：
+        /// `RuleCore.PlayCard` 开头那句 `if (!card.IsUnit) return CanPlayTactic(…)` ·
+        /// `EffectResolver.PlayTactic` 反过来的那句守卫 · `CreatePool` 造牌候选池的 `unitsOnly` ·
+        /// `EffectText.SplitHandTrapWhen` 用 `c.IsUnit` 把单位卡挡在手牌陷阱之外。
+        /// ⇒ 改 `Type` 的取值 / 改本属性 = **成片改行为**，且是静默的。
+        /// </summary>
         public bool IsUnit { get { return Type == "unit" || Type == "hero"; } }
 
         /// <summary>
@@ -2033,6 +2286,15 @@ namespace RuleEngine
         ///   这是**结构性**的修，不是一个会随时间失效的白名单。
         /// </summary>
         public bool CanListenForEvents { get { return IsUnit; } }
+        /// <summary>
+        /// 规范化后的**关键词 → X 值**（`ICardProvider.Keywords`）。键是小写规范名
+        /// （`"flying"` / `"armour"`），值是 `KeywordTable.Parse` 算出来的数。
+        ///
+        /// 🔴 **值 `1` 不等于「卡面印了 1」** —— 没写数字的词由 `KeywordTable.FirstNumber` **兜底成 1**
+        /// （「存在即真」）。「卡面到底有没有印数字」是**另一个集合**：<see cref="NumericKeywords"/>。
+        /// ⚠️ 所以：**判「有没有这个词」用 <see cref="Has"/>，取数用 <see cref="KwValue"/>，
+        /// 判「要不要画角标」用 `NumericKeywords`/`KeywordTable.HasNumber`** —— 三件事，别混用。
+        /// </summary>
         public IReadOnlyDictionary<string, int> Keywords { get { return _keywords; } }
 
         /// <summary>
@@ -2051,6 +2313,14 @@ namespace RuleEngine
         /// <summary>带了效果文字但**解析不出来**的那些（卡面标 `*`，别装作能跑）</summary>
         public IReadOnlyList<string> UnparsedEffects { get { return _unparsed; } }
 
+        /// <summary>
+        /// 这张卡有没有**解析成功的主动技能**（`Ability: &lt;正文&gt;` 那一条，见 <see cref="Ability"/>）。
+        ///
+        /// ⚠️ 判据是 `Ability != null`，**不是「卡面上写没写 `Ability:`」**：
+        /// 写了但 <see cref="EffectSpec.Parse"/> 解不出来的，那条会进
+        /// <see cref="UnparsedEffects"/>（卡面打 `*`），这里**仍然是 false**。
+        /// ⇒ 拿它当「这张卡没有主动技能」用之前，先看 `UnparsedEffects` 有没有那一条。
+        /// </summary>
         public bool HasAbility { get { return Ability != null; } }
 
         /// <summary>这个关键词对应的效果。没有返回 null —— 调用方必须判</summary>
@@ -2060,6 +2330,25 @@ namespace RuleEngine
             return (keyword != null && _effects.TryGetValue(keyword, out s)) ? s : null;
         }
 
+        /// <summary>
+        /// **这张卡上有没有这个关键词** —— 判据就是**规范化后的键在不在 <see cref="_keywords"/> 里**。
+        ///
+        /// 🔴 **改它 / 用它之前必须知道的三件事**（三条都踩过）：
+        ///   ① **它是 [静态的卡面事实]，不是 [场上的实时状态]**。牌离场/被 `gain`/`lose` 关键词那类效果
+        ///      改过之后，正确答案在 **<see cref="UnitState.Has"/>**（同一形状的另一份）。
+        ///      对局中判「它现在还有没有 Stealth」用的是后者 —— **别拿本方法去顶**。
+        ///   ② **它说不出「有没有机制」**。`Has("waystone") == true` 只说明**卡面写了这个词**；
+        ///      「这一版引擎会不会结算它」在 `KeywordTable.Implemented` —— **另一张表**
+        ///      （它的注释写着「其余关键词会被解析出来但并不参与结算」）。两个问题分开问，
+        ///      ⛔ 别拿本方法当「已实现」的判据（`RoutableTriggers` 上面那段实测反证过一次）。
+        ///   ③ **认不出的词根本不在这里**。`KeywordTable.Parse` 对 `Normalize` 认不出的词是
+        ///      `continue` 丢掉的（**静默失败**，靠 `KeywordTable.NoteDropped` 留痕）⇒
+        ///      卡面明明写了、`Has` 却是 false。加卡表之后自检里出现「丢弃」那一行就是它。
+        ///
+        /// ⚠️ 键是**小写规范名**（`"flying"` / `"cantattack"`）—— `Has("Flying")` 恒 false。
+        /// 常量都在 `KeywordTable` 里，**别手打字符串**。
+        /// </summary>
+        /// <param name="keyword">规范化后的关键词名（`KeywordTable` 里那些常量，小写）。</param>
         public bool Has(string keyword)
         {
             return _keywords.ContainsKey(keyword);
@@ -2127,9 +2416,45 @@ namespace RuleEngine
 
         /// <summary>规范化名。哪些算「已实现」见 <see cref="Implemented"/>。</summary>
         public const string Vanguard = "vanguard";
+
+        /// <summary>
+        /// **隐身**。三条机制，**判据都在 `RuleCore`，别在别处另写一份**：
+        ///   ① **不可被攻击**（攻击校验里直接拒 `ErrTarget`；给单位选目标的主动技能也拒）；
+        ///   ② **自己发起攻击时「揭示」** —— 摘掉这个词，并广播 `LosesStealth`
+        ///      （卡面写 `When a friendly unit loses Stealth, …` 的那几张靠它）；
+        ///   ③ **回合开始到期** —— 摘掉 + 同一跳广播（判据 = 原版 `CardScript__OnTurnStart.c:110-118`，
+        ///      位置紧接在开舱之后；⛔ 别把它挪出那一圈循环）。
+        /// ⚠️ 判「场上某个单位现在还有没有隐身」要用 `UnitState.Has`（运行时那份，会随 ②③ 变），
+        /// 不是本类的 `Has`（那是**卡面印的**静态事实）。
+        /// </summary>
         public const string Stealth = "stealth";
+
+        /// <summary>
+        /// **飞行**。机制**只有一条**：**近战打不到它** —— `RuleCore` 的攻击校验里
+        /// 「目标带 `flying` 且攻击者不带 `flying`」⇒ 拒（`ErrTarget`）。
+        /// ⚠️ 反向**不**成立（飞行单位可以近战打地面），这是原版的方向，别「对偶地」补一条。
+        /// </summary>
         public const string Flying = "flying";
+
+        /// <summary>
+        /// **护甲**（卡面右起第二个银盾 —— ⚠️ 银盾画的是它，**不是生命**）。
+        ///
+        /// 值 = **按点数减伤**（`RuleCore.DamageAfterReduction` 那一族读它）。
+        /// ⚠️ 它有一份**镜像字段** `UnitState.Armor`，只在三个关键词改动点同步
+        /// （`UnitState.SyncKeywordState` 加值 / `UnitState.RemoveAll` 清零 / 光环收回时减值）——
+        /// **别在别处直接改 `Armor`**（「同一条判据两处写」正是当年 `HasShield` 脱节的成因）。
+        /// 数据侧的坑见 <see cref="RangedAttack"/>：JSON 里的 `armor` 字段**是远程攻击**，不是它。
+        /// </summary>
         public const string Armour = "armour";
+
+        /// <summary>
+        /// **护盾**（挡下**一次**伤害）。
+        ///
+        /// 消费方式 = **摘关键词**（`RuleCore` 结算伤害时 `RemoveAll(Shield)`），不是写布尔字段。
+        /// 🔴 **`UnitState.HasShield` 是从本关键词派生的只读属性** —— 全仓禁止再写第二份同步
+        /// （2026-10-09 `A1106` 修的就是「字段与关键词脱节」：盾用掉了关键词还在，
+        /// AI 仍把它当带盾）。**改这里之前先读 `UnitState.HasShield` 的注释。**
+        /// </summary>
         public const string Shield = "shield";
         /// <summary>
         /// **闪避**（`Dodge`）—— 原版 `DefinedTrait.dodge = 240`
@@ -2391,7 +2716,21 @@ namespace RuleEngine
         /// </summary>
         public const string Resistant = "resistant";
 
+        /// <summary>
+        /// **不能攻击**。判据 = `RuleCore.AttackBannedByTraits`（**那一处同时管 `noncombatant`** ——
+        /// 两个词在这里是**同一道闸门**，改一个别忘了另一个）；命中 ⇒ 攻击请求直接拒 `ErrNoAttack`。
+        /// ⚠️ 它**不是**「攻击力为 0」：值照旧印在卡上，只是不许打。
+        /// ⚠️ 卡面写法很脏（`Can't Attack` / `Cant Attack` ……），认它靠 `KeywordTable.Prefixes` 的
+        /// **前缀表**，往表里加词会**整池**改变解析结果。
+        /// </summary>
         public const string CantAttack = "cantattack";
+
+        /// <summary>
+        /// **远程射击不受反击**。判据 = 攻击结算里 `ranged &amp;&amp; attacker.Has(LongRange)`
+        /// ⇒ 这一次**免掉目标的反击**（近战时**不生效** —— 它只对远程那一档说话）。
+        /// ⚠️ 与它并列的另一道免反击闸是 `sniper`（目标被这一击打死时），**两个是独立的**，
+        /// 别合并成一条。
+        /// </summary>
         public const string LongRange = "longrange";
         /// <summary>黑暗契约：可带变体（`of blood` / `of excess` / `of fate` / `of resilience`），
         /// 四种效果不同 —— 变体记在载荷里，见 <see cref="GivePayload"/> 的 `Variant`</summary>
@@ -2400,11 +2739,34 @@ namespace RuleEngine
         // ---- 2026-09-12 新增：触发类 + 主动技能（都靠 `EffectSpec` 那个封闭文法结算）----
         //
         // 时机全部照抄规则书 :161 那张 61 关键词表（`资料/规则书/…_中文翻译.md`）：
-        public const string Rally = "rally";              // 集结：从手牌部署后触发
-        public const string Strike = "strike";            // 猛击：攻击后触发（本单位存活）
-        public const string Slay = "slay";                // 斩杀：攻击并摧毁单位后触发（本单位存活）
-        public const string Backlash = "backlash";        // 反噬：单位死亡时触发
-        public const string Penitence = "penitence";      // 忏悔：受到伤害但未死亡时触发
+        /// <summary>**集结** —— **从手牌部署到场上之后**触发（不是「打出时」）。
+        /// 触发点在 `RuleCore` 的部署链里，位置在 `ResolveSpiritAbility` **之后**
+        /// ⇒ 正文里的 `Self` 指向的已经是场上那个单位，而且看得见刚给出的关键词。
+        /// 出处：规则书 `:200`。⚠️ 那一跳的**先后是我们挑的**（原版无据可查，如实标着）。</summary>
+        public const string Rally = "rally";
+
+        /// <summary>**猛击** —— **攻击结算之后**触发，**打没打死都算**。
+        /// 闸门 = 攻击者没被打死、且仍站在原格（原版 `!EnoughPendingDamageToDie(attacker)`）。
+        /// ⚠️ 与它只差一个字的 `Mob` 是「**近战**攻击后触发」（远程不算），别把两者当同一个。</summary>
+        public const string Strike = "strike";
+
+        /// <summary>**斩杀** —— 攻击**并摧毁**了单位之后触发（本单位存活那一档由调用点把关）。
+        /// 卡面 `When this unit kills an enemy, …` 是**同一件事的另一种写法**，
+        /// 两者共用 `RuleCore` 里**同一个发射口**（原版也只有一个 `AbilityTrigger.Slay`）。
+        /// ⚠️ 传参时 `subject` = **被击杀的那个**（正文里的 `it` 指它）、`actor` = **凶手** —— 两个槽别混。</summary>
+        public const string Slay = "slay";
+
+        /// <summary>**反噬** —— 这个单位**被摧毁时**触发。
+        /// ⚠️ 触发时它**已经不在棋盘上**了，所以调用点必须**显式把格位传进去**
+        /// （格位既是特效位置，也是「这张卡死在哪」的唯一记录）。
+        /// 出处：规则书 `:169`（「被摧毁时的触发效果立即结算」）。</summary>
+        public const string Backlash = "backlash";
+
+        /// <summary>**忏悔** —— **受到伤害但没死**时触发。
+        /// 判据 = **真掉了血**（`dealt > 0`）**且**扣完之后还活着：护盾全挡 = 没受伤 ⇒ **不触发**；
+        /// ⚠️ 别把它放宽成「只要掉血就触发」—— 那样**被这一下打死的也会触发**（多算）。
+        /// 出处：规则书 `:196`。</summary>
+        public const string Penitence = "penitence";
         /// <summary>
         /// **群体**（兽人 Goff 一族，2026-09-13 第三十四轮）：**本单位执行近战攻击后**触发。
         ///
@@ -3201,6 +3563,30 @@ namespace RuleEngine
             return s.Length == 0 ? null : s;
         }
 
+        /// <summary>
+        /// 卡表 `keywords` 那一列 → **规范化字典**。这是关键词进引擎的**唯一入口**
+        /// （<see cref="CardDef"/> 构造函数调的，结果就是 `CardDef._keywords` ⇒
+        /// `Has` / `KwValue` / `Keywords` 读的那一份）。
+        ///
+        /// **输入**：原始卡面串的列表 —— **很脏**，元素形如
+        /// `"Waystone"` / `"Shuriken 1"` / `"Rally: 效果文字"` / `"Can't Attack"` / `"Armour 2."`
+        /// （同一张卡的写法在 1126 张里就没统一过）。逐项按 `Normalize(item)` 的头半段
+        /// （`':'` 之前）认名字、`FirstNumber` 取数。
+        ///
+        /// **输出 / 谁在用**：`键(小写规范名) → 值`。`null` 入参**返回空表**（不是 null）。
+        ///
+        /// 🔴 **坏输入是【静默跳过】的** —— `Normalize` 返回 null 就 `continue`，
+        /// **本方法自己不报**（留痕归调用方：`CardDef` 构造函数另有一个循环调
+        /// `KeywordTable.NoteDropped`）。⇒ **别在别处直接调它当「解析得干净」的证据**：
+        /// 走这条路会**绕过丢弃留痕**，丢掉多少词都不会有人知道。
+        ///
+        /// 🔴 **同名多次出现时不是「相加」**：① **印了数字的那一条压过没印数字的**（判据复用
+        /// `HasNumber`，2026-10-11 `A1387` 那笔 —— 否则 `Survivor 3` 会被 `Survivor: …` 冲成 1）；
+        /// ② 两条都印了（或都没印）⇒ **后写覆盖**。原版是「一条 trait 一个 value、Find 第一条」，
+        /// 本来就没有累加这回事。
+        /// </summary>
+        /// <param name="raw">卡表里的原始关键词串。`null` / 空表都合法（返回空表）。</param>
+        /// <returns>规范化键 → 值（**认不出的项被丢掉，不在返回表里**）。</returns>
         public static Dictionary<string, int> Parse(IEnumerable<string> raw)
         {
             var kws = new Dictionary<string, int>();

@@ -580,7 +580,7 @@ class WillRun
         //    🔴 它**不是触发头**，`WillRunOps` 的 unit/hero 那一支也不看它
         //    （六个来源：`WhenTriggers` / `TriggerTexts` / `SpiritOps` / `OathOps` / `AttackedOps` / `AuraSpecs`）
         //    ⇒ 这是**覆盖面**的洞，不是「表里缺词」。
-        if (System.Text.RegularExpressions.Regex.IsMatch(b.Head, @"^\d+\s*[\[\(]?\s*[a-z☀]"))
+        if (IsPaidHead(b.Head))
         {
             b.Kind = KPaid;
             b.Why = "付费能力段（`N ☀:` / `N [Energy]:` 形状）—— `WillRunOps` 的 unit/hero 支不收这类段";
@@ -591,6 +591,28 @@ class WillRun
         b.Kind = KMiss;
         b.Why = "触发头 `" + b.Head + ":` 没进本卡的 `TriggerTexts`"
               + "（`AddTriggerOp` 要求它在 `CardDef.RoutableTriggers` 里）";
+    }
+
+    /// <summary>🔴 **`N ☀:` / `N [Energy]:` / `N [Spirit Stone]:` 形状的「付费能力段」头** —— 判据**只此一处**
+    /// （`Classify` 的 ② 与 `PlayProbe.Bucket` 的「这一句是不是部署时该发生」**共用**；
+    /// 本仓红线：两处写同一条规则 = 迟早不一致）。
+    /// ⚠️ 这类段是**付费能力**（`WillRunOps` 的 unit/hero 支不收、`PlayProbe` 不该把它当「部署时该发生」）。</summary>
+    public static bool IsPaidHead(string head)
+    {
+        return !string.IsNullOrEmpty(head)
+            && System.Text.RegularExpressions.Regex.IsMatch(head, @"^\d+\s*[\[\(]?\s*[a-z☀]");
+    }
+
+    /// <summary>这段正文**落在哪个触发头下面**（问引擎自己的 `CardDef.TriggerTexts`）。</summary>
+    public static string HeadOfBody(CardDef c, string body)
+    {
+        var tt = c.TriggerTexts;
+        if (tt == null) return null;
+        string want = EffectText.StripLeadingIcons((body ?? "").Trim());
+        foreach (var kv in tt)
+            if (string.Equals(EffectText.StripLeadingIcons((kv.Value ?? "").Trim()), want,
+                              StringComparison.OrdinalIgnoreCase)) return kv.Key;
+        return null;
     }
 
     static string Pad(string s, int w)

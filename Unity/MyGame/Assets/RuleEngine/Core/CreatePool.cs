@@ -692,7 +692,7 @@ namespace RuleEngine
         //   ② **先把 `Talent:` 那一段去掉** —— 那一段**天生含一个卡名**（`Talent: Author of the Codex`），
         //      不去掉会把「天赋名」当成「正文点名」；
         //      🆕 **2026-10-18（`A1078`）第二半：前缀被数据管线剥掉的「裸写」那一段也要去掉** ——
-        //      全池 3 张（`Azrael` / `Aun'Va` / `Abaddon the Despoiler`），见 `StripBareTalentSegment`；
+        //      全池 3 张（`Azrael` / `Aun'Va` / `Abaddon the Despoiler`），见 `TalentCutAt`；
         //   ③ **词边界** —— 不然短名字会命中一整天词内子串；
         //   ④ **跳过它自己**。
         //
@@ -722,9 +722,29 @@ namespace RuleEngine
         ///     （`RuleEngineTest.TestMentionedCards` 那 10 个期望数仍然对得上）。
         ///   · ⚠️ **中文这一趟天生比英文松，这是已知的、量化过的**：英文靠**空白切词**自带词边界
         ///     （规则③），中文没有词边界 ⇒ 只能「逐位置取**最长**的一个中文卡名」。
-        ///     全池实测唯一一处可见差：`复生`（= `Reanimate`，**只有 2 个字**）把中文的
-        ///     `被复生时…` 也算进来了，而英文的 `Reanimated` 被词边界挡在外面
-        ///     ⇒ 全池 **+4** 处命中（128 → 132）。**这是「松」，不是漏，也不是 bug** ——
+        ///     🔴 **2026-10-18 `A1424` 就地订正（铁律 5）—— 原来这里那句里两个数都过期了，
+        ///     而且「唯一一处可见差」也不成立**。原话是
+        ///     「全池实测**唯一一处可见差**：`复生`…⇒ 全池 **+4** 处命中（**128** → 132）」。
+        ///     **用【真编译出来的引擎代码】重算过**（`RuleEngine/Core/*.cs` 只读编进一个 net8 控制台，
+        ///     全池 1126 张 × `desc`/`descZh` 两趟，口径逐字照 `RuleEngineTest.TestMentionedCards` ⑤：
+        ///     `self` = 该卡、`max = 999`）：
+        ///       · **英文侧现在是 `125 / 64`（处数 / 卡数），不是 128 / 67** —— 128 是 `A1078`
+        ///         （补上规则② 的「裸写天赋名」半段）**之前**的值，那半段当天就落地、英文侧 −3
+        ///         （`Azrael` / `Aun'Va` / `Abaddon the Despoiler` 各少一处假命中）。
+        ///         **复算办法**：把 `StripTalentSegments` 的裸写那一半停掉重编一次 ⇒ 实测**退回
+        ///         `128 / 67`**，与 `RuleEngineTest:17337` 记的 `128/67 → 125/64` 逐字吻合
+        ///         ⇒ **是过期，不是错**（也⛔ 不是「复算不出来」）。
+        ///       · **差值是 `+7`，不是 `+4`**（`125 → 132`）。逐张 dump 出来是 **4 族 7 张**：
+        ///         `复生` 那族 **+4**（`SAU9` / `SAU10` / `SAU29` / `SAU72`，见下面那句），
+        ///         外加 `BL1 Abaddon the Despoiler`（中文 `四神宠儿` **没有** `天赋：` 前缀 ⇒
+        ///         它仍命中 `Chosen of the Four`）· `GOF17 Burna Boy`（中文多识出 `Ork Spanner`）·
+        ///         `SAU65 Awakened Obelisk`（`Extermination Protocols`）各 **+1**。
+        ///         ⚠️ **`A1078` 之前那三族是「互相抵消」的**（`Azrael` / `Aun'Va` 各 −1，
+        ///         正好抵掉 `Burna Boy` / `Awakened Obelisk` 的 +1）⇒ 当时看着像「只有 `复生` 一处」，
+        ///         这就是那句话的来源。
+        ///     `复生`（= `Reanimate`，**只有 2 个字**）把中文的 `被复生时…` 也算进来了，
+        ///     而英文的 `Reanimated` 被词边界挡在外面 ⇒ 那 **+4** 处就是它。
+        ///     **这是「松」，不是漏，也不是 bug** ——
         ///     中文里那个关键词与那张卡共用同一个词，判据层面分不开。⛔ 别为此改成 3 个字起
         ///     （会掉 21 处，见 `MinCjkNameChars`）。</summary>
         public static List<CardDef> MentionedCards(IReadOnlyList<CardDef> pool, CardDef self,
@@ -827,77 +847,117 @@ namespace RuleEngine
             hitDefs.Insert(k, c);
         }
 
-        /// <summary>把 `Talent: …`（含中文 `天赋：`）那**一段**挖掉（规则②）。
-        /// ⚠️ **只挖 `Talent:` 这一段** —— 别的关键词段（`Duty:` / `Mob:` / `Oath:`…）**正文里可能真的点到
-        /// 卡名**，一起挖掉反而漏。段尾 = 下一个句号（`.` / `。`），没有句号就挖到结尾
-        /// （`Talent: A random Black Legion Psychic Power` 这种整条都是它）。
+        /// <summary>把**本卡的天赋段**从文本里挖掉（规则②）—— 两种写法**共用这一个判据**。
         ///
-        /// 🆕 **2026-10-18（`A1078`）：规则② 有第二半 —— 裸写的那一段也要挖**（见
-        /// <see cref="StripBareTalentSegment"/>）。加了它才知道 `self` 是谁。</summary>
+        /// <para>**为什么要挖**：天赋那一段**天生含一个卡名**（`Talent: Author of the Codex`），
+        /// 不挖就会被当成「正文点名」= **假命中**。两种写法都要挖：
+        ///  · **带前缀** `Talent: &lt;名&gt;` / 中文 `天赋：&lt;名&gt;`；
+        ///  · **裸写**那一段（**2026-10-18 `A1078` 补的第二半**）—— 数据管线把 `Talent:` 前缀连着
+        ///    天赋图标**一起剥掉了**（照成品卡图核过，铁律 7），全池正好 3 张
+        ///    （`Azrael` / `Aun'Va` / `Abaddon the Despoiler`），见 <see cref="TalentCutAt"/>。</para>
+        ///
+        /// <para>🔴 **2026-10-18 `A1470`：原来的【两个方法】收口成【一个方法 + 一个判据】。**
+        /// 原来这里是 `StripTalentSegments`（管前缀，`IndexOf` 到下一个句号）＋
+        /// `StripBareTalentSegment`（管裸写，逐段扫），后者由前者转调 ——
+        /// 两者是**同一条规则**（「这一段归天赋那一层 ⇒ 不算正文点名」）的两次落笔，
+        /// 下一个人改口径要同时看两处（正是本仓那条「两处写同一条规则 = 迟早不一致」）。</para>
+        ///
+        /// <para>⚠️ **判据里那两个抽取函数在 `CardDef` 里，别在本文件再写一份**：
+        /// `CardDef.ExtractBareTalentName` 与 `CardDef.HandledByOtherLayer:1944`
+        /// （覆盖率报表那一支）用的是**同一个函数 + 同一道 `== TalentName` 闸**。
+        /// 本文件的判据有**两处刻意的差别**（照抄那一边会错）：
+        /// ① **多认中文 `天赋：`** —— 那边的主语是英文卡面（`ExtractTalent` 只认 `Talent:`）；
+        ///    本文件两趟跑，中文档同样要挖。
+        /// ② **不认 `[Talent]:` 方括号写法**（`ExtractTalent` 会先归一，本文件不归）——
+        ///    2026-10-18 `S13` 按 `V-OATH` 把全池**唯一**那一处（`UM84`）改成裸 `Talent:` 之后，
+        ///    现扫 `cards_engine.json` 两列方括号写法 **0 处**（那次 −1 的成因 → `RuleEngineTest:17529`）。
+        /// ⛔ **别顺手把 `HandledByOtherLayer` 整个拿来当判据** —— 它连伴生 / 光环 / 事件 /
+        ///    开局上手一起认，按它挖会把 `Companion 1: &lt;卡名&gt;` 里那个正经点名一起挖掉。</para>
+        ///
+        /// <para>**为什么收口后与从前的切口逐字等价**（⛔ 不是「看起来等价」）：
+        /// ① 写法一从前的切口 = token 位置 → **下一个 `.` / `。`**；段扫的切口 = token 位置 →
+        ///    **本段末尾**。两者只在「那个句号之后、本段之内还有内容」时不同 —— 而段尾字符
+        ///    **就是**第一个 `.` / `。` / 换行 ⇒ 段内不会有第二个句号 ⇒ **切口落在同一处**。
+        /// ② 写法二从前**本来就是**逐段扫（`.` / `。` / 换行），口径一字未动。</para>
+        ///
+        /// <para>实测（2026-10-18 `A1470` 现扫全池 `desc` + `descZh`）：`Talent:` / `天赋：`
+        /// 共 **177 处**、每条文本最多 **1** 处、**落在非段首的 0 处**、**切口跨换行的 0 处**
+        /// （⛔ 这三个数只是数据事实、**不承担等价性** —— 等价性靠上面那条结构论证）。
+        /// 🔑 **判据 = 收口前后各跑一次全池逐张 dump，输出逐字节相同**（1126 张 × 英文/中文两趟，
+        /// 含每张的命中清单与顺序）。</para>
+        ///
+        /// <para>🔴 **收口后唯一一处【故意】的行为差**（实测 · 真池 **0 处**命中 · ⛔ 不是静默改的）：
+        /// 从前前缀那一支的段尾**只认句号**（`.` / `。`），而裸写那一支认**换行**——
+        /// 于是 `Talent: X` 后面跟换行、换行后还有正文的文本，从前会**连下一行一起挖掉**
+        /// （把下一行里正经点名的卡名吃掉 = 少算一处）。收口后段尾统一认换行
+        /// （= 裸写那一支从前的口径，也是 `EffectText.Split` 的口径）⇒ 只挖天赋那一段、下一行照收。
+        /// **为什么可以这么定**：两个写法本来就是**同一条规则**，「段」的定义只能留一份 ——
+        /// 留的那份与 `CardDef` 的 `EffectText.Split` 同口径。
+        /// ⚠️ **今天真池里 `0 处`**这种文本（见上面那三行实测）⇒ 真池行为**逐字节不变**；
+        /// 差别只在合成夹具上看得见：`"Talent: Secret Technique\nDeploy a Shock Trooper."`
+        /// —— 从前 hits=**0**、现在 hits=**1**（`Shock Trooper`，即从前被误吃的那个）。</para>
+        ///
+        /// <para>⚠️ **只挖天赋段** —— 别的关键词段（`Duty:` / `Mob:` / `Oath:`…）**正文里可能真的点到
+        /// 卡名**，一起挖掉反而漏。
+        /// ⚠️ **`self` 为 null / 本卡没有天赋名 ⇒ 裸写那一支一字不动**（只走前缀那一支）——
+        ///    全池绝大多数卡走这一支。</para>
+        /// </summary>
         static string StripTalentSegments(string text, CardDef self)
         {
             if (string.IsNullOrEmpty(text)) return text ?? "";
-            string s = text;
-            for (int guard = 0; guard < 8; guard++)
-            {
-                int at = s.IndexOf("Talent:", StringComparison.OrdinalIgnoreCase);
-                int zh = s.IndexOf("天赋：", StringComparison.Ordinal);
-                if (zh >= 0 && (at < 0 || zh < at)) at = zh;
-                if (at < 0) break;
-                int end = s.IndexOf('.', at);
-                int endZh = s.IndexOf('。', at);
-                if (endZh >= 0 && (end < 0 || endZh < end)) end = endZh;
-                s = end < 0 ? s.Substring(0, at) : s.Remove(at, end - at + 1);
-            }
-            return StripBareTalentSegment(s, self);
-        }
-
-        /// <summary>🆕 **裸写天赋名那一段**也要挖掉 —— 规则② 的第二半（2026-10-18 · `A1078`）。
-        ///
-        /// <para>**为什么需要**：规则② 原来只认 `Talent:` 前缀，而**有 3 张卡的数据里那个前缀被剥掉了**
-        /// （卡面印的是 `[Talent 图标] Talent: &lt;名&gt;`，数据管线把图标和前缀一起去了 —— 照成品卡图核过，
-        /// 铁律 7）。前缀一没，规则② 就**挡不住**，那一段里的天赋名被当成了「正文点名」
-        /// ⇒ 英文那一趟出**假命中**。全池就这 3 张（`CardDef.cs` 的 `ExtractBareTalentName` 注释里
-        /// 与 `HandledByOtherLayer` 里那条实测名单都是同一批）：
-        ///  · `Azrael`（`DA3`）—— `… put it at the top of your deck. **Supreme Grand Master**`（第二段才是名字）
-        ///  · `Aun'Va`（`TAU1`）—— 整条 desc 就是 `**Ethereal Supreme**`
-        ///  · `Abaddon the Despoiler`（`BL1`）—— 整条 desc 就是 `**Chosen of the Four**`（名字是从 `keywords` 里抽的）</para>
-        ///
-        /// <para>**判据不是这里新发明的，是转调两处现成的**（`CardDef.HandledByOtherLayer` 里那条 `ExtractBareTalentName(seg) == c.TalentName` 逐字同款）：
-        /// ① `CardDef.ExtractBareTalentName(seg)` —— 「这一段像不像一个裸写的天赋名」；
-        /// ② 它**恰好等于**本卡已抽出来的 <see cref="CardDef.TalentName"/> —— 第二道闸：
-        ///    「像名字」还不够，得是**本卡的**那个名字。
-        /// ⇒ 两道闸都在，不会把效果正文误判成名字（`RuleCoreTest` 之外，
-        ///    `CardDef.IsKnownSegment` 那条同款判据 2026-09-14 起就在跑）。</para>
-        ///
-        /// ⚠️ **只挖那一段**，段尾照 `EffectText.Split` 的口径（`.` / 换行）外加 `。`（与上面 `天赋：` 那条同款）。
-        /// ⚠️ **`self` 为 null 或本卡没有天赋名 ⇒ 一字不动** —— 全池绝大多数卡走这一支。
-        /// ⚠️ **中文档不受影响**：这一段判据要求段首**大写字母**，中文段一律不过（`Aun'Va` / `Azrael` 的
-        ///    `descZh` 里那两处本来就是 `天赋：` 写法，由上面那一支剥）。
-        /// ⚠️ **别改成「凡像名字就挖」** —— 去掉 `== self.TalentName` 这道闸会把
-        ///    `Deploy a Shock Trooper` 之类的正文段也挖掉（静默少算一整批相关卡）。</summary>
-        static string StripBareTalentSegment(string s, CardDef self)
-        {
             string tn = self == null ? null : self.TalentName;
-            if (string.IsNullOrEmpty(tn) || string.IsNullOrEmpty(s)) return s;
+            var sb = new System.Text.StringBuilder(text.Length);
             int from = 0;
-            while (from < s.Length)
+            while (true)
             {
+                // 段口径 = `.` / `。` / 换行（与从前的裸写那一支**逐字相同**）
                 int end = -1;
-                for (int k = from; k < s.Length; k++)
-                    if (s[k] == '.' || s[k] == '。' || s[k] == '\n' || s[k] == '\r') { end = k; break; }
-                int stop = end < 0 ? s.Length : end;
-                string seg = s.Substring(from, stop - from).Trim();
-                if (seg.Length > 0 && CardDef.ExtractBareTalentName(seg) == tn)
-                {
-                    int cutTo = end < 0 ? s.Length : end + 1;
-                    s = s.Remove(from, cutTo - from);
-                    continue;      // ⚠️ **不推进 `from`**：下一段已经顶到原位，接着从原地看
-                }
+                for (int k = from; k < text.Length; k++)
+                    if (text[k] == '.' || text[k] == '。' || text[k] == '\n' || text[k] == '\r')
+                    { end = k; break; }
+                int stop = end < 0 ? text.Length : end;
+                string seg = text.Substring(from, stop - from);
+                int cut = TalentCutAt(seg, tn);            // -1 = 整段都不是天赋段
+                if (cut < 0) sb.Append(seg);
+                else if (cut > 0) sb.Append(seg, 0, cut);  // 段首那些正经正文**照留**
                 if (end < 0) break;
+                sb.Append(text[end]);        // 段尾那个字符照留（它是分隔符，不属于段）
                 from = end + 1;
             }
-            return s;
+            return sb.ToString();
+        }
+
+        /// <summary>本段里**天赋那一截从哪个下标开始**（`-1` = **整段都不是天赋段**）——
+        /// 规则② 的**唯一判据**（两种写法共用；2026-10-18 `A1470` 由两份收口成这一份，
+        /// 出处与两处刻意差别 → <see cref="StripTalentSegments"/>）。
+        ///
+        /// <para><paramref name="talentName"/> = 本卡已抽出来的 <see cref="CardDef.TalentName"/>
+        /// （null / 空 ⇒ **不认裸写那一支**，只有前缀那一支还成立）。</para>
+        ///
+        /// <para>**写法一（带前缀）**用 `IndexOf`、**从 token 本身起挖** —— 与从前那条
+        /// 「`IndexOf("Talent:")` 然后挖到下一个句号」**同一个口径**（`ExtractTalent` 用的也是
+        /// `IndexOf`，不是 `StartsWith`）。段中间偶然出现 `Talent:` 时只挖掉它后面那半，
+        /// **段首的正经正文照留**（⛔ 别改成「整段一起挖」—— 那会吃掉段首那些真点名的卡名）。</para>
+        ///
+        /// <para>**写法二（裸写）**那两道闸（`CardDef.HandledByOtherLayer:1944` 逐字同款）：
+        /// ① <see cref="CardDef.ExtractBareTalentName"/> 判「这一段像不像一个裸写的天赋名」；
+        /// ② 它**恰好等于**本卡的天赋名 ——「像名字」还不够，得是**本卡的**那个。
+        /// 两道闸都在，不会把效果正文误判成名字（`CardDef.IsKnownSegment` 那条同款判据
+        /// 2026-09-14 起就在跑）。它要求「**整段**恰好是那个名字」⇒ 从段首（下标 0）起挖。
+        /// ⚠️ **中文档那一支不受影响**：它要求段首**大写字母**，中文段一律不过
+        /// （`Aun'Va` / `Azrael` 的 `descZh` 里那两处本来就是 `天赋：` 写法，由写法一剥）。</para>
+        ///
+        /// <para>⚠️ **别改成「凡像名字就挖」** —— 去掉 `== talentName` 那道闸会把
+        /// `Deploy a Shock Trooper` 之类的正文段也挖掉（静默少算一整批相关卡）。</para>
+        /// </summary>
+        static int TalentCutAt(string seg, string talentName)
+        {
+            if (string.IsNullOrEmpty(seg)) return -1;
+            int a = seg.IndexOf("Talent:", StringComparison.OrdinalIgnoreCase);
+            int z = seg.IndexOf("天赋：", StringComparison.Ordinal);
+            int i = a < 0 ? z : (z < 0 ? a : Math.Min(a, z));   // 两个前缀谁在前按谁（与从前 `min` 同款）
+            if (i >= 0) return i;
+            return !string.IsNullOrEmpty(talentName) && CardDef.ExtractBareTalentName(seg) == talentName ? 0 : -1;
         }
 
         /// <summary>按名字回卡池取实体：**跳过自己**、**优先同阵营**（同名 4 组）。

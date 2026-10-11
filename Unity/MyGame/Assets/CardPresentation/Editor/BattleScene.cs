@@ -12991,6 +12991,168 @@ public static class BattleScene
                     return string.Join(",", l.ToArray());
                 }
 
+                // ---- 17·0 🔴 **A1540**：换牌阶段的手牌必须**停在真牌位**上（发牌入场不许把牌留在父级原点）----
+                // 🧨 **为什么单开一格、还要自己开关一次**：手牌那一档**只有存盘场景里 `animateRelayout == 1`**
+                //    （`Scenes/Battle.unity`），批处理里出厂是 `false`；而 `animateFeel` 在批处理里默认也关
+                //    ⇒ **老写法在这套自检里结构上复现不出来**（诊断 → `普查产出_第十八会话/D1_开局换牌与进攻卡.md`
+                //    §问题 A 第 4 条明写）。夹具必须**显式**把这两个开关打开才走得到那条路 —— 这就是本格存在的理由。
+                // 判据：原版换牌阶段**不动手牌位置**（`MulliganManager__ActivateMulligan.c` 只做 SetActive +
+                //    改两条词条 + 遍历一个列表调 `SetupMulliganButton`），而那颗钮是**读那张卡当时的世界位**
+                //    摆的（`MulliganManager__SetupMulliganButton.c:26-32`）⇒ 牌在牌位上、钮才贴着卡。
+                // 🧨 改坏法：删掉 `BattleDriver.CommitDealtPoses()`（或把 `DealInPose` 退回 `DealIn`）⇒ 下面全红。
+                {
+                    var hl0 = drv.hand;
+                    if (hl0 == null) Check(false, "★ A1540（前提）取得到 HandLayout");
+                    else
+                    {
+                        bool savedAF = drv.animateFeel, savedAR = hl0.animateRelayout;
+                        bool savedMul0 = drv.mulliganEnabled, savedOff0 = drv.offensivePhaseEnabled;
+                        drv.animateFeel = true;
+                        hl0.animateRelayout = true;      // 🔴 存盘场景里我方手牌那一份就是 1
+                        drv.mulliganEnabled = true;      // 🔴 本格的前提：要有换牌阶段（下面第 17 节那段才置 true）
+                        drv.offensivePhaseEnabled = false;   // ⛔ 不关的话换牌一完就停在「选进攻卡」那一步
+                        drv.Begin("Ultramarines", "Goff", 20260917);
+                        Check(drv.InMulligan, "★ A1540（前提）这一局进了换牌阶段 —— 不成立时下面几条等于没验");
+                        if (drv.InMulligan)
+                        {
+                            var origin = drv.transform.position;   // 父级原点 = 老写法让牌停住的地方（画布正中）
+                            int hn = drv.HandCount;
+                            var preScale = new float[hn];
+                            var prePos = new Vector3[hn];
+                            for (int i = 0; i < hn; i++)
+                            {
+                                var v = drv.HandViewAt(i);
+                                prePos[i] = v != null ? v.transform.position : origin;
+                                preScale[i] = v != null ? v.transform.localScale.x : 0f;
+                            }
+
+                            // 把发牌补间推到底（`DealDuration` = 0.3 s；只泵补间、不推自检自己的时钟，
+                            // 见同文件 `CardTween.Advance` 那条注释的用法）
+                            for (int k = 0; k < 24; k++) CardTween.Advance(1f / 60f);   // 0.4 s > 0.3 s
+
+                            int atPose = 0, atOrigin = 0, scaleOk = 0, onBtn = 0;
+                            float worstGap = 0f;
+                            for (int i = 0; i < hn; i++)
+                            {
+                                var v = drv.HandViewAt(i);
+                                if (v == null) continue;
+                                var p = v.transform.position;
+                                if (Vector3.Distance(p, origin) > 0.1f) atPose++;
+                                else atOrigin++;
+                                // 发牌入场结束时它该**回到**「换」钮所在那一列（钮是**贴着卡**摆的）
+                                var bp = drv.Mulligan != null ? drv.Mulligan.CardBtnWorldPos(i) : Vector3.zero;
+                                float gap = Mathf.Abs(bp.x - p.x);
+                                if (gap > worstGap) worstGap = gap;
+                                if (gap < 1.5f) onBtn++;
+                                // 落点那一套 rotZ / scale（⛔ 不是 `DealIn` 的「一律 0 / 1」）
+                                if (Mathf.Abs(v.transform.localScale.x - preScale[i]) < 0.02f) scaleOk++;
+                            }
+                            Check(atOrigin == 0 && atPose == hn,
+                                  $"★ A1540：{hn} 张起手牌发牌结束后**都在真牌位上**（在牌位 {atPose} · 停在父级原点 {atOrigin}）"
+                                + "｜🧨 改坏法：退回 `CardFeel.DealIn`（它读当时位置，而 `Place` 只开了补间没落位）"
+                                + " ⇒ 牌停在画布正中 (960,540)");
+                            // 🔴 **灭自证**：上面那条只断「不在原点」，若把「父级原点」也算成牌位就一起绿了 ——
+                            //    这条把牌位钉在**另一处独立读数**上（「换」钮的位置，它是**另一个类**按原版
+                            //    `SetupMulliganButton` 的读法摆的）。
+                            Check(onBtn == hn && worstGap < 1.5f,
+                                  $"★ A1540（**灭自证**）：每张牌都回到它自己那颗「换」钮的列上（{onBtn}/{hn}，最大偏差 {worstGap:F2} 世界）"
+                                + "｜🧨 改坏法：牌停在父级原点 ⇒ 与钮（在牌堆/牌位）差 ≈7 世界单位 ⇒ 红");
+                            Check(scaleOk == hn,
+                                  $"★ A1540：落点是**布局算出来的那一套 scale**、不是 `DealIn` 的 1（{scaleOk}/{hn}；首张 {preScale[0]:F3}）"
+                                + "｜🧨 判据 = 实测实拍：按 scale 1 收尾时牌会停在**原尺寸**（226 设计 px，手牌档应 165）");
+                        }
+                        drv.animateFeel = savedAF;
+                        hl0.animateRelayout = savedAR;
+                        drv.mulliganEnabled = savedMul0;
+                        drv.offensivePhaseEnabled = savedOff0;
+                    }
+                }
+
+                // ---- 17·1 🔴 **A1541**：选完进攻卡 / 防御卡之后，面板里那批**调用方现建**的卡必须被销毁 ----
+                // 现场：`OnOffensiveDone` / `OnDefensiveDone` 只调 `_choosePanel.Close()`，而那 3~4 张卡视图
+                //   原先是**局部变量 `views`**（出了作用域就没人引用）⇒ 面板关掉后卡**永远留在屏幕正中**，
+                //   而且它们不在任何命中链里 ⇒ 点它、按 ESC 都没反应（用户 2026-10-11 真机点名的那一条）。
+                // 判据（**原版两件都做**）：`ChooseCardMenu__ProcessChooseDone.c` 先
+                //   `ShowChooseCardElements(this,false)`（内含 `ShowChooseCards(false)`，逐张 `SetActive(false)`），
+                //   再遍历 `ChooseCardMenuAnchor` 的子节点 `UnityEngine.Object.Destroy(gameObject)`。
+                // 🧨 改坏法：把 `OnOffensiveDone` / `OnDefensiveDone` 里的 `ClearEnvPickViews()` 删掉 ⇒ 本格两条红。
+                // ⚠️ 判据**按树数**（`PanelCardViewsAlive`），⛔ 不是查我们那个列表 —— 病灶恰恰是
+                //    「列表没人引用、卡还在树上」，查列表等于让被测实现自己证明自己。
+                {
+                    bool savedOff1 = drv.offensivePhaseEnabled, savedMul1 = drv.mulliganEnabled;
+                    bool savedCard1 = drv.offensiveCardEnabled;
+                    drv.mulliganEnabled = true;
+                    drv.offensivePhaseEnabled = true;    // 这一格**要**走「选进攻卡」那一段
+                    drv.offensiveCardEnabled = true;     // 🔴 2026-10-11 用户只关进攻卡（`false` 是默认值）⇒
+                                                         //    这一格验的是**备份里的那套代码**，必须显式打开
+                    drv.Begin("Ultramarines", "Goff", 20260917);
+                    if (drv.InMulligan) drv.SimulateMulliganDone();
+                    var cp1 = drv.Choose;
+                    Check(cp1 != null && cp1.Visible, "★ A1541（前提）换牌完成后「选进攻卡/防御卡」面板开着");
+                    if (cp1 != null && cp1.Visible)
+                    {
+                        int cardsIn = drv.PanelCardViewsAlive();
+                        Check(cardsIn > 0,
+                              $"★ A1541（前提）面板里**真的摆了卡**（{cardsIn} 张）—— 一张都没有时下面那条等于没验");
+                        drv.SimulateChoosePick(0);
+                        drv.SimulateChooseDone();
+                        Check(!cp1.Visible, "★ A1541：点「继续」之后面板关了");
+                        int left = drv.PanelCardViewsAlive();
+                        Check(left == 0,
+                              $"★ A1541：面板里那批卡视图**一张都不剩**（现存活的 {left} 张）"
+                            + "｜🧨 改坏法：删掉 `ClearEnvPickViews()` ⇒ 卡永远留在屏幕正中、点不动也关不掉");
+                        int leftAll = drv.PanelCardViewsAlive(false);
+                        Check(leftAll == 0,
+                              $"★ A1541：连**藏起来的**也没有（含 inactive 共 {leftAll} 张）—— 原版是**销毁**、不是只隐藏");
+                    }
+                    drv.offensivePhaseEnabled = savedOff1;
+                    drv.mulliganEnabled = savedMul1;
+                    drv.offensiveCardEnabled = savedCard1;
+                }
+
+                // ---- 17·2 🔴 **2026-10-11 用户口径**：进攻卡暂时不要、**防御卡照旧要** ----
+                // 用户两次原话（第二次是**纠正**）：「面板/功能都暂时不要了……先把场景复刻好」→
+                //   我按「整段都关」做了一版 → 用户当场订正「**防御卡需要，不要的是进攻卡。**」
+                // ⇒ 判据（**必须是两半都断**，只断一半就是本条要治的病）：
+                //   · 本机**先手** ⇒ **不弹**「选择进攻卡」面板，也没人替我们选进攻卡
+                //     ⇒ HUD 那颗进攻卡钮**不亮**、**战场停在默认环境**（用户要的「只用 13 个默认场景的默认环境」）；
+                //   · 本机**后手** ⇒ 「选择防御卡」面板**照旧弹**。
+                // 🧨 改坏法：把 `offensiveCardEnabled` 那两句判据删掉（退回「整段一起关」）⇒ 后手那半红；
+                //   把 `offensivePhaseEnabled` 直接改成 `false` ⇒ 后手那半也红。
+                {
+                    bool savedOff2 = drv.offensivePhaseEnabled, savedCard2 = drv.offensiveCardEnabled;
+                    bool savedMul2 = drv.mulliganEnabled;
+                    drv.mulliganEnabled = true;
+                    drv.offensivePhaseEnabled = true;      // 整段开着
+                    drv.offensiveCardEnabled = false;      // 只关进攻卡（这也正是出厂默认值）
+
+                    // (a) 本机是**先手** ⇒ 进攻卡那扇面板不弹
+                    drv.Begin("Ultramarines", "Goff", 20260917, firstSeatOverride: drv.MyIndex);
+                    Check(drv.Ctx.FirstSeat == drv.MyIndex, "★ 用户口径（前提）本局本机是先手");
+                    if (drv.InMulligan) drv.SimulateMulliganDone();
+                    Check(drv.Choose == null || !drv.Choose.Visible,
+                          "★ 用户口径：本机**先手**时**不弹**「选择进攻卡」面板（进攻卡暂时不要）"
+                        + "｜🧨 改坏法：删掉 `BeginOffensivePhaseIfAny` 里那句 `if (!offensiveCardEnabled) return false;` ⇒ 红");
+                    Check(!drv.OffensiveButtonVisible,
+                          "★ 用户口径：没人选进攻卡 ⇒ HUD 那颗进攻卡钮**不亮**（战场停在默认环境）"
+                        + "｜🧨 判据 = 原版只在「选定卡 ≠ 空卡」时才 `SetActive(true)`");
+
+                    // (b) 本机是**后手** ⇒ 防御卡那扇面板**照旧弹**
+                    drv.Begin("Ultramarines", "Goff", 20260917, firstSeatOverride: 1 - drv.MyIndex);
+                    Check(drv.Ctx.FirstSeat != drv.MyIndex, "★ 用户口径（前提）本局本机是后手");
+                    if (drv.InMulligan) drv.SimulateMulliganDone();
+                    int defsN = drv.DefensiveChoicesForTest(drv.MyFactionForTest).Count;
+                    if (defsN == 0) Check(false, "★ 用户口径（前提）本阵营卡池里**有**防御卡 —— 没有的话下面那条验不了");
+                    else Check(drv.Choose != null && drv.Choose.Visible,
+                               $"★ 用户口径：本机**后手**时「选择防御卡」面板**照旧弹**（本阵营 {defsN} 张）"
+                             + "｜🧨 改坏法：把 `offensivePhaseEnabled` 退回 `false`（整段一起关）⇒ 红");
+                    if (drv.Choose != null && drv.Choose.Visible) drv.SimulateChooseDone();
+
+                    drv.offensivePhaseEnabled = savedOff2;
+                    drv.offensiveCardEnabled = savedCard2;
+                    drv.mulliganEnabled = savedMul2;
+                }
+
                 bool saved = drv.mulliganEnabled;
                 drv.mulliganEnabled = true;
                 // 🆕 2026-09-29（§25）：**这一段也要把「选进攻卡」关掉** —— 换牌一完成，原版就会弹
