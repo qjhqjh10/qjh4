@@ -344,7 +344,28 @@ namespace RuleEngine
             //    `Rally: … . Survivor: …` 那种多 ability 卡面，`Survivor:` 那段会被**并进
             //    `Rally` 的正文**（`TriggerBodyAt` 靠 `StartsAnotherThing` → `IsBodyKeyword` 断句）
             //    —— 实测量到的读数写在那一份的注释里。
-            KeywordTable.Survivor, KeywordTable.Sacrifice };
+            KeywordTable.Survivor, KeywordTable.Sacrifice,
+            // 🆕 2026-10-21（账 `A1566` ≡ `A1395①`）：**`landing` / `abouttoattack`** ——
+            //   1×1 对照 §上面那三条入表判据（`A1398` 那份 doc 里逐条写着）：
+            //     ① **卡面确有 `<词>:` 写法** —— 两个词都是 **`AbilityTrigger`** 的成员
+            //        （`Landing = 440` / `AboutToAttack = 280`），而 ability 是**带正文**的
+            //        ⇒ 卡面写 `Landing: <正文>` / `About To Attack: <正文>`，
+            //        body 就是**效果文本**（判据 ③ 也成立）。
+            //     ② **原版里有触发时机** —— 由本表决定的正是「引擎会不会在某个时机调它的正文」：
+            //        · `landing`  → `RuleCore.OpenDropPod` 那一跳（`FireTriggerAlways`）；
+            //        · `abouttoattack` → `RuleCore.DeclareAttack` 的「取消这一记」那一支
+            //          （`FireTriggerAt`，见 `A1258`）。
+            //   🔴 **不入表的实测后果**（与 `survivor` / `sacrifice` 当年**逐字同形**）：
+            //      `Card.TriggerOps("landing")` 返回 `null` ⇒ 卡面印着的那段正文
+            //      **永远收不下来**，`FireTriggerAlways` 必走「没有正文」那一支
+            //      ⇒ 只发 `EvtKind.Trigger`、不结算任何效果（**静默**）。
+            //   ⚠️ 全池今天 **0 张卡**带这两个词（现扫 `landing` / `abouttoattack` /
+            //      `about to attack` 各 0 命中）⇒ **不可观测、也不改动任何现有解析**；
+            //      一有卡就会被静默吞掉，所以先接上（铁律 11）。
+            //   ⚠️ **`AboutToAttackSpaced` 那一格是【另一种拼法】、不是第三个词** ——
+            //      理由写在它自己的 doc 里（`AddTriggerOp` 的 head 不走 `Normalize`）。
+            KeywordTable.Landing,
+            KeywordTable.AboutToAttack, KeywordTable.AboutToAttackSpaced };
 
         // ==================================================================
         //  狂喜 X 的**阈值 X**（2026-09-14）
@@ -476,6 +497,15 @@ namespace RuleEngine
             //    `survivor` 的正文」。**这是本表所有成员共有的既有取舍**（`Ecstasy` 同理），
             //    今天池里 0 张卡命中；真要收紧得改那道闸本身，⛔ 不在本笔范围。
             KeywordTable.Survivor, KeywordTable.Sacrifice,
+            // 🆕 2026-10-21（账 `A1566` ≡ `A1395①`）：**`landing` / `abouttoattack`**
+            //   —— 与 `survivor` / `sacrifice` 同族（**触发 id ＋ 可选的 `词: 正文`** 两用词）
+            //   ⇒ 两个名单都要进。判据、原版出处、两种拼法 → 各自常量的 doc，别在这里抄第二份。
+            //   🔴 **不进本表的实测后果**：`Rally: … . Landing: …` 那种多 ability 卡面，
+            //      `Landing:` 那段会被 **`Rally` 静默吞并**（`TriggerBodyAt` 往后并句时靠
+            //      `StartsAnotherThing` → `IsBodyKeywordHead` 决定在哪停）。
+            //   ⚠️ 全池今天 0 张卡带它们（现扫 0 命中）⇒ 不改动任何现有解析结果。
+            KeywordTable.Landing,
+            KeywordTable.AboutToAttack, KeywordTable.AboutToAttackSpaced,
         };
 
         /// <summary>
@@ -587,6 +617,10 @@ namespace RuleEngine
             //    见 <see cref="OathOps"/>：与灵魂石同一形状（解析得出、要有人来激活），
             //    但**激活方式不同** —— 它是玩家/AI 主动激活的一次行动（`RuleCore.UseOathAbility`）。
             CollectOathOps();
+            // ⑬ 🆕 **信仰能力**（`N ☀: …` / `N [Faith]: …`，Sororitas 一族）—— 2026-10-11（`A1452`）。
+            //    见 <see cref="FaithOps"/>：**与灵魂石同一形状**（打出/入场那一步自动结算），
+            //    但 N 是**【阈值】不是开销**（`A1453`）—— 判据全写在那个属性的 doc 里。
+            CollectFaithOps();
         }
 
         /// <summary>
@@ -1330,6 +1364,72 @@ namespace RuleEngine
                 if (op.Cost > OathCost) OathCost = op.Cost;
         }
 
+        // ==================================================================
+        //  🆕 2026-10-11 **信仰能力**（`N ☀: …` / `N [Faith]: …`）—— `A1452` ＋ `A1453`
+        //
+        //  卡面形如 `2 ☀: Gain Armour 1` / `8 [faith]: Deal 5 damage to all enemies`
+        //  （Sororitas 一族）。`EffectText` 早就把它认成**付费前缀**
+        //  （`RePaid` / `RePaidBare`，`PaidKind = "faith"`），**战术卡**那一支也照旧结算
+        //  —— **唯独单位卡收不到正文**：正文靠 `AddTriggerOp` 按**触发名**登记，
+        //  而 `☀` / `[faith]` 既不在 `RoutableTriggers` 也不在 `BodyKeywords`
+        //  ⇒ `TriggerOps("faith")` 恒为 null、这批能力**一直是死的**
+        //    （不报错、卡面也不打 `*` —— 静默）。
+        //  这里照 `CollectSpiritOps` / `CollectOathOps` 的形状补上收集，**结算那一步**在
+        //  `RuleCore.PlayCard` → `EffectResolver.ResolveFaithAbility`。
+        // ==================================================================
+
+        readonly List<EffectOp> _faithOps = new List<EffectOp>();
+
+        /// <summary>
+        /// 本卡「信仰达到 N 就能发动」的那几条 op（**没有就是空表**）。
+        ///
+        /// 🔴 **N 在 `EffectOp.Cost` 上是【阈值】，不是开销**（`A1453`）：结算层**一分信仰都不扣**
+        /// （判据见 `EffectResolver.ResolveOneCore` 的 `kind == "faith"` 那一支）。
+        ///
+        /// 🔴 **为什么没有 `FaithCost` 这种「一个数」的属性**（对比 <see cref="OathCost"/> /
+        ///    <see cref="SpiritCost"/>）：**一张卡可以有两条门槛不同的信仰段** ——
+        ///    实测 `SOR27 Canoness` 是 `2 ☀:` ＋ `4 ☀:`、`SOR68 Sacred Rose Sister` 是 `2 ☀:` ＋ `4 ☀:`。
+        ///    合成一个数（不管取 max 还是 min）都会**静默答错另一半**，所以这一族只有**逐条**的
+        ///    `EffectOp.Cost`，谁要问门槛就问具体那一条。原版也是这个形状
+        ///    （`CardAbility.triggerValue` 是**每条 ability 一个**，见下面那段判据）。
+        ///
+        /// **发起源（原版反编译，2026-10-11 逐条核过）** —— `AbilityTrigger.UseFaith = 605`
+        /// 在全量反编译里只有**两处**被 `RawCardScript.TriggerAbilities` 发起：
+        ///   · `RawCardScript__OnCardPlayedWithTarget.c:73` —— **打出一张卡时**，
+        ///     且**只对 `cardType == 20 /*Tactic*/` 或 `== 40 /*Whispers*/`** 发（同处 `:66` 的
+        ///     600 就在旁边，两者相邻 ⇒ 同族同形）；
+        ///   · `CardScript__ResolveUnitSummoned.c:51` —— **一个部队入场时**，
+        ///     且只对 `cardType == 0 /*Minion*/`、且「被召唤的就是这张卡自己」发。
+        ///   ⇒ **它和灵魂石能力是同一形状**（打出/入场那一步自动结算，玩家不点按钮）。
+        ///
+        /// **门槛怎么判（原版）**：`CardAbility__CanTriggerAbility.c` 的 605 支 ——
+        /// `iVar2 = PlayerManager__GetCurrentFaith(pm)`，再 `if (iVar2 < 1) return 0;`
+        /// `if (iVar2 < *(int *)(ability + 0x20)) return 0;`（`+0x20` = `CardAbility.triggerValue`
+        /// = 卡面那个 N，字段序 `trigger@0x10 / abilityContext@0x14 / priority@0x18 /
+        /// playIcon@0x1c / triggerValue@0x20`，与 `CardAbility.cs` 的字段顺序逐一吻合）。
+        /// ⇒ **`faith &gt;= N` 的阈值判定**，**没有任何扣除点**（`A1453`：`AddFaithMana` 全库
+        /// 两个调用点全是「加」；`HasEnoughMana` 的四个池是 `0x4C/0x74/0x88/0x9C`，信仰在 `0xB0`
+        /// 不在池里；`CardScript` 上**没有** `CanUseFaith` / 与 `CanUseSpiritStone` 对应的那一半）。
+        ///
+        /// ⚠️ **没有「本回合部署」「每回合 1 次」这两条限制** —— 那是 `CanUseOathAbility`
+        /// （`CardScript__CanUseOathAbility.c:8` / `:16-20`）**誓约专属**的东西，604/605 那条路上没有。
+        /// </summary>
+        public IReadOnlyList<EffectOp> FaithOps { get { return _faithOps; } }
+
+        void CollectFaithOps()
+        {
+            if (string.IsNullOrWhiteSpace(Desc)) return;
+            var ops = EffectText.Parse(Desc, out _, out _);
+            if (ops == null || ops.Count == 0) return;
+            foreach (var op in ops)
+            {
+                if (op.Cost <= 0) continue;
+                // 判据**转** `EffectText.CostKindOf`（全仓唯一的货币名判据）—— 和灵魂石/誓约那两段同一份
+                if (EffectText.CostKindOf(op.CostKind) != "faith") continue;
+                _faithOps.Add(op);
+            }
+        }
+
         /// <summary>
         /// **开局上手** —— 卡面 `Start the game with &lt;卡名&gt; in hand.`（2026-09-14 A5 批 4）。
         ///
@@ -1660,10 +1760,26 @@ namespace RuleEngine
             string headNum;
             string head = StripParamSuffix(seg.Substring(0, c), out headNum);
             if (!IsRoutableTrigger(head)) return;
-            if (_triggerOps.ContainsKey(head)) return;      // 先到先得（① 在 ② 前面）
+            // 🔴🆕 **2026-10-21（账 `A1566`）：存进 `_triggerOps` 的键必须是【规范键】。**
+            //    `head` 是**卡面原文**（小写），而本表**所有读点**传的都是**规范键**：
+            //    `TriggerOps(kw)` / `TriggerText(kw)` / `FireTriggerAt(ctx, u, KeywordTable.X, …)` /
+            //    `WhenEvent` / `UnitState.FxOps` / `SceneSig(EvtKind.Trigger, "landing")` 那一族。
+            //    ⇒ 卡面用**第二种拼法**时（`About To Attack: …` vs 连写 `AboutToAttack: …`）
+            //    键对不上 ⇒ 正文**收下来了却读不到** —— `TriggerOps` 返回 null、`FxOps` 恒 null，
+            //    **静默**（正是本工程红线那一类：卡面印着、机制不发生）。
+            //    🔑 **判据复用 `KeywordTable.Normalize`（《前缀表》那一份，⛔ 别在这儿再写一张拼法表）**，
+            //    但**只用来算键、不用来判「这算不算一个可路由触发」** —— 后者仍是上面那句
+            //    `IsRoutableTrigger(head)` 的**整词精确等值**（`Normalize` 是**前缀匹配**，
+            //    `Rally 2:` 那种会被它放行 ⇒ 拿它当路由判据会把不该收的收下来）。
+            //    ⚠️ **影响面已量**：对**今天每一个单词路由词**它都是**恒等**
+            //    （`Normalize("rally") == "rally"` … 逐条列在报告里），只有
+            //    `about to attack` 这种**多词变体**才真的换键 ⇒ **对现有卡池零影响**
+            //    （`cards_engine.json` 1126 张里 `about to attack` 出现 **0** 次）。
+            string key = KeywordTable.Normalize(head) ?? head;
+            if (_triggerOps.ContainsKey(key)) return;      // 先到先得（① 在 ② 前面）
 
             // 剥下来的那个数交给 `EcstasyX` 当**第二档**来源（第一档是正文里的正则）
-            if (headNum != null && head == KeywordTable.Ecstasy)
+            if (headNum != null && key == KeywordTable.Ecstasy)
             {
                 int n0;
                 if (int.TryParse(headNum, out n0) && n0 > 0 && _ecstasyN <= 0) _ecstasyN = n0;
@@ -1676,7 +1792,7 @@ namespace RuleEngine
                 //    现核 `cards_engine.json`，`EC39 Maulerfiend` 的 `keywords` 是 `['Ecstasy 5']`
                 //    （**有** `Ecstasy`）⇒ 那个「恒假」的场景今天不复现。
                 //    这一行**照旧保留**（它是「输入侧缺词」的兜底，不是只为那一张写的）。
-                if (!_keywords.ContainsKey(head)) _keywords[head] = _ecstasyN > 0 ? _ecstasyN : 1;
+                if (!_keywords.ContainsKey(key)) _keywords[key] = _ecstasyN > 0 ? _ecstasyN : 1;
             }
 
             string body = seg.Substring(c + 1).Trim();
@@ -1704,8 +1820,8 @@ namespace RuleEngine
             var ops = EffectText.Parse(body, out _, out _);
             if (ops == null || ops.Count == 0) return;
 
-            _triggerOps[head] = ops;
-            _triggerText[head] = body;
+            _triggerOps[key] = ops;      // 🆕 `A1566`：**规范键**（见上面那一段），不是 `head`
+            _triggerText[key] = body;
         }
 
         /// <summary>本卡**收到正文**的触发（自检与卡面用）——
@@ -3110,6 +3226,97 @@ namespace RuleEngine
         /// </summary>
         public const string Remnant = "remnant";
 
+        // ==================================================================
+        //  🆕 2026-10-21（账 `A1566` ≡ `A1395①`）：**两个「触发 id」关键词搬进本表**
+        // ==================================================================
+        //  这两件原来**暂住在 `RuleCore`**（写手当时拿不到本文件）⇒ 本笔按 `A1395` 的
+        //  hand-off「整笔一次做完，⛔ 别只挪一半（会留下两份定义，铁律 6）」搬过来：
+        //    · `RuleCore.LandingKeyword`（`const string = "landing"`）—— **已删**；
+        //    · `RuleCore.AboutToAttackKeyword`（`const string = "abouttoattack"`）—— **已删**。
+        //  所有读点（`RuleCore.OpenDropPod` / `TryCancelAttackByOwnAboutToAttack` /
+        //  `DeclareAttack`）现在一律引用本表的常量。
+
+        /// <summary>
+        /// **`landing`（空投舱「开舱」）** —— **原版是【两个】东西，数值也不同，⛔ 别混**：
+        ///   · **触发 id** = `AbilityTrigger.Landing = 440`
+        ///     （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/AbilityTrigger.cs:55`；反编译里写作 `0x1b8`）；
+        ///   · **trait** = `DefinedTrait.landing = 770`
+        ///     （`DefinedTrait.cs:77`；反编译里写作 `0x302`）—— 卡面印的那个**裸词**。
+        ///   我们引擎里**只有一份表示**（`UnitState` 的 `_keywords`）⇒ 两者共用这一个常量。
+        ///
+        /// **原版在哪读它**（`BattleManager._ResolveAttack_d__438__MoveNext.c:339-379`，VA 逐条读过）：
+        ///   出手之后 `RemoveDropPod(card, 0)`，然后 **`HasDefaultTrait(0x302)`**：
+        ///     · **不带** `landing` ⇒ 协程挂起一帧（等开舱动画）后**照常打**；
+        ///     · **带** `landing` ⇒ `CancelAttack` + 两次 `ClearPendingDamage`（双方）
+        ///       + `OnTrigger(0x1b8)` ⇒ `FinishResolvingAction`，**这一下不打**。
+        ///   另一处 = `CardScript__OnTurnStart.c:102/108/263-266`（本方回合开始开舱）。
+        ///
+        /// **我们这边的落点**：<see cref="RuleCore.OpenDropPod"/> —— 它摘掉 `DropPod` 之后
+        ///   调 `FireTriggerAlways(…, Landing, …)`（原版 `OnTrigger(0x1b8)` 是**直接调**的，
+        ///   「这张卡有没有那条 ability」不影响它被发出来）。
+        ///   ⚠️ **仍然没做的那一半**（如实标着，⛔ 别当它做完了）：上面「**带 `landing`
+        ///   ⇒ 取消这一记**」—— 账 `A1395②` 记着它「要先定『同步模型下怎么表达』」
+        ///   （原版那一下发生在**协程 `yield` 之后**，我们的 `DeclareAttack` 是同步一把跑完的）。
+        ///   判据全文与两条理由写在 `RuleCore.DeclareAttack` 里 `OpenDropPod` 那一段的注释里。
+        ///
+        /// **为什么必须登记进 `Prefixes` / `RoutableTriggers` / `BodyKeywords` / `Implemented`**：
+        ///   · `Prefixes` 没有 ⇒ `Normalize` 返回 null ⇒ `CardDef` 构造函数**静默丢弃**
+        ///     卡面写的 `Landing`（本工程「不许静默失败」红线）；
+        ///   · `RoutableTriggers` 没有 ⇒ `AddTriggerOp` 拒收 ⇒ `Landing: &lt;正文&gt;` 的正文
+        ///     **一条都收不到**，`FireTriggerAlways` **必走「没正文」那一支**；
+        ///   · `BodyKeywords` 没有 ⇒ `StartsAnotherThing` 不停句 ⇒
+        ///     `Rally: … . Landing: …` 那种卡面会被 `Rally` **静默吞并**；
+        ///   · `Implemented` 没有 ⇒ `When a friendly unit triggers Landing, …` 这类
+        ///     **监听卡注册不上**（`Core/WhenEvent.cs` 那道 Requires-`Implemented` 闸）
+        ///     —— 那正是 `A1395` 追加要求的那一条。
+        /// ⚠️ **可达性**：全池 1126 张 **0 张**卡提到它（`cards_engine.json` 整条记录文本扫
+        ///   `landing` **0 命中**，2026-10-21 现读）⇒ 补的是「原版有、我们缺」这一层（铁律 11）。
+        /// </summary>
+        public const string Landing = "landing";
+
+        /// <summary>
+        /// **`abouttoattack`（「即将攻击」那一刻触发的那条能力）** —— 原版
+        /// `AbilityTrigger.AboutToAttack = 280`
+        /// （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/AbilityTrigger.cs:44`；反编译里写作 `0x118`）。
+        ///
+        /// **原版在哪读它**：`BattleManager._ResolveAttack_d__438__MoveNext.c:1310`
+        ///   → `CheckIfAbilityCancelsAttack.c:7` → `HasCancelAttackEffect(攻方, 攻方, 原目标)`
+        ///   ⇒ 命中就 `:1313-1368` 取消这一记、**一个伤害点都不出**。
+        ///   ⚠️ **原版那一族真正的载体是「攻方身上的【附魔卡】」**，而我们引擎**没有附魔层**
+        ///   ⇒ 我们落的是**语义等价的那一半**（攻方自己的 `AboutToAttack` 能力 ⇒ 取消），
+        ///   如实标着（全文 → <see cref="RuleCore.TryCancelAttackByOwnAboutToAttack"/>）。
+        ///
+        /// **我们这边的落点**：`RuleCore.DeclareAttack` 里那句
+        ///   `if (!forced &amp;&amp; TryCancelAttackByOwnAboutToAttack(…)) return RuleCodes.OK;`
+        ///   （位置 = `IsValidTarget` 之后、**消耗攻击那两行之前**）。
+        ///
+        /// ⚠️ **卡面有【两种拼法】，两个都要登记**（漏一个 ⇒ 那一种写法被静默丢掉）：
+        ///   · 连写 `AboutToAttack: &lt;正文&gt;` —— **本常量**；
+        ///   · 带空格 `About To Attack: &lt;正文&gt;` —— <see cref="AboutToAttackSpaced"/>。
+        ///   `Normalize`（前缀匹配）把两种都归到本常量（`Prefixes` 两条），
+        ///   而 `AddTriggerOp` 的 head 是**原文**、`IsBodyKeywordHead` 也**不归一**
+        ///   ⇒ `RoutableTriggers` / `BodyKeywords` 里**两种拼法都得列**。
+        /// ⚠️ **可达性**：全池 1126 张 **0 张**卡提到它（扫 `abouttoattack` / `about to attack`
+        ///   各 **0 命中**，2026-10-21 现读）⇒ 同 <see cref="Landing"/>，补的是缺的那一层。
+        /// </summary>
+        public const string AboutToAttack = "abouttoattack";
+
+        /// <summary>
+        /// **`abouttoattack` 的另一种拼法** —— 卡面那种**带空格**的写法
+        /// （`About To Attack: &lt;正文&gt;`，见 <see cref="AboutToAttack"/> 的 doc）。
+        ///
+        /// 🔴 **它不是一个独立关键词**，只是同一个词的第二种拼法 —— `Normalize` 会把它
+        ///   归并到 <see cref="AboutToAttack"/>（`Prefixes` 里那两条指向同一个常量）。
+        ///   它**必须也出现在 `RoutableTriggers` / `BodyKeywords`** 的原因：
+        ///   `CardDef.AddTriggerOp` 拿的是**原文小写**的 head（不走 `Normalize`），
+        ///   `IsBodyKeywordHead` 也是**整词精确等值** ⇒ 只登记连写那一种的话，
+        ///   带空格的卡面**收不到正文、也不会断句**（两条都是静默的）。
+        /// ⚠️ **不进 `Implemented`**：`Implemented` 那一栏存的是 `Normalize` 出来的
+        ///   **规范键**（`_keywords` 的键），两种拼法到那一层都已经是
+        ///   <see cref="AboutToAttack"/> ⇒ 多列一个只会让「未实现关键词」那张单多出噪声。
+        /// </summary>
+        public const string AboutToAttackSpaced = "about to attack";
+
         /// <summary>本版**真正生效**的关键词。其余关键词会被解析出来但并不参与结算 —— 见 <see cref="RuleCore.UnimplementedKeywords"/>。</summary>
         public static readonly HashSet<string> Implemented = new HashSet<string>
         {
@@ -3214,6 +3421,19 @@ namespace RuleEngine
             // `reanimate` 从**场上的残骸**翻回来。落点：`RuleCore.CleanupDeaths`（翻面 / 被摧毁）·
             // `RuleCore.DestroyRemnants`（回合结束）· `EffectResolver.DoReanimate`（翻回来）。
             Remnant,
+            // 🆕 2026-10-21（账 `A1566` ≡ `A1395①`）：**两个「触发 id」关键词** ——
+            //   登记依据 = 「代码在那个时机真的读了/做了那件事」（与 `Sacrifice` / `DropPod`
+            //   同一把尺子，⛔ 不是承诺书）：
+            //     · `Landing`       → `RuleCore.OpenDropPod` 真的发那一跳（`FireTriggerAlways`）
+            //                          + 它同时是 `DefinedTrait.landing = 770` 那个**卡面词**；
+            //     · `AboutToAttack` → `RuleCore.TryCancelAttackByOwnAboutToAttack` 真的读它
+            //                          （`DeclareAttack` 里那一句早就在跑，见 `A1258`）。
+            //   ⚠️ **不进这一栏的代价**：`When a friendly unit triggers <词>, …` 这类监听卡
+            //      **注册不上**（`WhenEvent.cs` 那道 `Implemented.Contains` 闸）——
+            //      那是 `A1395` 追加要求的那一条。判据全文 → 两个常量的 doc。
+            //   ⚠️ 全池今天 **0 张卡**带这两个词 ⇒ **不改动任何现有解析结果**（现读 0 命中）；
+            //      ⛔ 别因为「今天没卡用」把它删掉（铁律 11）。
+            Landing, AboutToAttack,
             // 传送（2026-09-13 A2）：**当回合从牌库抽到的**那张，打出来时触发自己那条 `Teleport:` 正文。
             // 判据 = `PlayerState.DrawnThisTurn`（`Draw` 记账、`PlayCard` 扣一份、`BeginTurn` 清零）。
             // ⚠️ 卡面**两种写法都有**：带前缀（`Teleport: Gain Vanguard and attack by itself`）和
@@ -3471,6 +3691,27 @@ namespace RuleEngine
             //    ⚠️ 全池今天 0 张卡带它们（1126 张现扫）。
             new[] { "sacrifice", Sacrifice },
             new[] { "droppod", DropPod },
+            // 🆕 2026-10-21（账 `A1566` ≡ `A1395①`）：**`landing` / `abouttoattack`** ——
+            //    不登记 ⇒ `Normalize` 返回 null ⇒ `Parse` / 构造函数**双双丢弃**
+            //    （与 `noncombatant` / `unstunnable` / `dodge` 当年同形，
+            //     踩本工程「不许静默失败」红线）。
+            //    ⚠️ **`about to attack` 那一条是【第二种拼法】，不是第三个词** ——
+            //       `Normalize` 是**前缀匹配**、只认**逐字**的写法 ⇒ 卡面印带空格那种
+            //       （`About To Attack: …`）时，连写那条**吃不到**它。两条指向**同一个常量**，
+            //       所以进 `_keywords` 的键是**同一个**（`abouttoattack`）。
+            //    ⚠️ **前缀撞车已现核**（`Normalize` = `StartsWith` + **先到先得**）：
+            //      · 以 `l` 开头的既有条目只有 `long range` / `longrange` ——
+            //        `"landing".StartsWith("long range") == false`（`l-a` vs `l-o`）⇒ 互不抢先；
+            //      · 以 `a` 开头的既有条目是 `armour` / `armor` / `ambush` / `artifice` /
+            //        `agenda` / `ability` —— `"about to attack"` 与它们**第二个字母就分开**；
+            //      · 反向（新词抢先吃掉老词）也不成立：既有条目里**没有任何**以
+            //        `landing` / `about` 开头的。
+            //    ⚠️ 全池今天 **0 张卡**带它们（`cards_engine.json` 整条记录文本扫
+            //      `landing` / `about to attack` / `abouttoattack` 各 **0 命中**，2026-10-21 现读）
+            //      ⇒ **加这三条不改动任何现有解析结果**。
+            new[] { "landing", Landing },
+            new[] { "about to attack", AboutToAttack },
+            new[] { "abouttoattack", AboutToAttack },
             // 🔴 2026-09-13 补（派子代理做「关键词三列对账」时查出）：这三个词**根本不在表里**，
             //    于是 `Normalize` 返回 null → `Parse`/构造函数**双双丢弃**
             //    ⇒ 它们既不出现在 `UnimplementedKeywords()` 单上，**卡面也不打 `*`**

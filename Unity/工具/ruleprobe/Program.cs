@@ -70,11 +70,28 @@ class Program
     // ==================================================================================
 
     /// <summary>钉住的卡池内容指纹（`MyGame/Assets/RuleEngine/Resources/cards_engine.json` 的 md5，**按字节**）。</summary>
-    public const string PinnedPoolMd5 = "cfc13db1e5b96fa231a106d1de1ead6a";
+    // 🔴 2026-10-11（第二十会话 · 写手 `E2`）**有意重钉**：旧值 `cfc13db1…`（= `HEAD` 里那一版卡池）。
+    //    重钉理由：**卡池文件本身被改了**（本轮现算 `b2ae84b2…`，同一个会话里 `C1` 在改 `数据/`）
+    //    ⇒ 上面那段判据里「**解析器的输入没变**」这一半不成立，`check` 一路走的是
+    //    「⚠️ 卡池 md5 与钉住的不同 ⇒ 本哨兵此时不判」那一支（那是**出声**、不是绿）。
+    //    ⇒ 按本文件上面写的流程把**两个**指纹一起重钉到现值（卡池 ＋ 基线，见下）。
+    //    ⚠️ 卡池还在别人手里改（同会话并行写手）⇒ 它一变，这一条**又会**回到「此时不判」那一支；
+    //      那是本哨兵**已知的**限制（判据原文见上面那段长注释），⛔ 不是失败。
+    public const string PinnedPoolMd5 = "b2ae84b262ce1710e893c09498cb5495";
 
     /// <summary>钉住的基线内容指纹（`工具/ruleprobe/基线/out_baseline.txt` 的 md5，**按字节**）。
     /// 与上面那个配对使用 —— 判据见上面那段长注释。</summary>
-    public const string PinnedBaselineMd5 = "22ea1cde5e3990615eb6a63becd86e94";
+    // 🔴 2026-10-11（第二十会话 · 写手 `E2`）**有意重钉（第二次）**：旧值 `5b0f961d…`。
+    //    重钉理由：`A1462` 给 dump **补了第二目标块** `/{T2:…}`（见 `TargetBlock` / `NestedText` 的头注），
+    //    那是**探针输出格式的有意改动**、不是引擎解析变化 —— 全池 **8 行**变化，逐行核过：
+    //      · 8 行**全部**是 `forceattack` 一族（`Target2 != null` 的那几张）；
+    //      · 判据（自证「只追加」）= **把新行里的 `/{T2:…}` 块删掉之后与旧行【逐字节】相同** ——
+    //        实测 8/8 成立（脚本 `re.sub(r'/\{T2:[^;]*', '', 新行) == 旧行`）；
+    //      · 其余 **1112 行逐字节没变**（`新增键 0 · 消失键 0`）。
+    //    ⚠️ 本轮**同时**把 `PinnedPoolMd5` 也重钉了（同会话里卡池文件被并行写手 `C1` 改过）——
+    //      两条一起钉，上面那段判据的「输入没变 ＋ 基线变了」这一对才配得上。
+    //    ⛔ **不是**为了抹平红（本轮没有解析差异；红的只有哨兵 ⑥ `A1462`，它**不读基线**）。
+    public const string PinnedBaselineMd5 = "d827137eff1562fa65dea9563ff7639d";
 
     /// <summary>一个文件的 md5（按字节；读不到返回 `null` —— ⛔ 不静默当成空串）。</summary>
     public static string Md5File(string path)
@@ -103,8 +120,8 @@ class Program
         if (args.Length == 0)
         {
             Console.WriteLine("usage: seg <text...> | card <name> | scan <out> | check [baseline] | filter <kw> | "
-                              + "willrun [dump <out>] | play <id|卡名> | play all [dump <out>] | "
-                              + "jackal | emergency | suppressor | played | b19test");
+                              + "willrun [dump <out>] | faith [dump <out>] | play <id|卡名> | play all [dump <out>] | "
+                              + "nonkw | jackal | emergency | suppressor | played | b19test");
             Environment.Exit(1);
         }
         if (args[0] == "scan")
@@ -137,6 +154,24 @@ class Program
                     }
                     break;
                 case "check": Environment.Exit(CheckMain.Run(args.Length > 1 ? args[1] : null)); break;
+                // 🆕 **`nonkw`**（`A1462`，2026-10-11）：**`non <关键词>` 的目标筛选**的专用探针。
+                //    这条账的原文是「疑似整个丢了 · ⛔ 未坐实」，而**判不了**的原因有两条，
+                //    都在本探针这边（⛔ 不是引擎）：① dump 不打 `Target2`；② `atturn` 的目标在
+                //    **嵌套 op** 里。两处都已补上（`TargetBlock` / `NestedText`），
+                //    本子命令再把「谁写了 · 什么写法 · 承载在哪个字段 · 真打会怎样」逐条摆出来。
+                case "nonkw": Environment.Exit(NonKwProbe.Run(PoolList, PoolRawKeywords)); break;
+                // 🆕 **`faith`**（`A1452` / `A1453` / `A1565`）：**信仰付费段的【两把尺子】对账**。
+                //    同一个池上「信仰付费段有几条」有两个数（解析层 19 条/17 张 vs 探针④ 11 条/9 张），
+                //    而且两边**都是同一份源码跑出来的** ⇒ 单开一条把它们摆到一起、**指名差因**，
+                //    并给出**收集层（`CardDef.FaithOps`）的真实覆盖**（那才是「射程」）。
+                //    ⚠️ 退出码可信：自检不一致 / 差因解释不了 / 收集层漏 ⇒ rc=1。
+                case "faith":
+                    {
+                        string fDump = null;
+                        if (args.Length > i + 2 && args[i + 1] == "dump") fDump = args[i + 2];
+                        Environment.Exit(FaithProbe.Run(PoolList, PoolRawKeywords, fDump));
+                    }
+                    break;
                 // 🆕 **`play`**（`A1431`，2026-10-11）：**逐卡真打** —— 「这张卡打出去，数字对不对」。
                 //    在本子命令之前，本仓 **9 类**检查手段**全部只回答「这句英文今天解析成什么样」**，
                 //    没有一条回答「这张卡打出去数字对不对」⇒「**解析过、结算错**」这一整类
@@ -248,6 +283,13 @@ class Program
                 //   这里追加的是**整块**（含 `Raw`/`Count`/`Side`/`Kind`/相邻/滤镜/代词… 见 `TargetCols`）。
                 + " T=" + TargetText(op.Target)
                 + (op.DeathWatchTarget == null ? "" : " DW=" + TargetText(op.DeathWatchTarget, "DW"))
+                // 🔴 **2026-10-11（`A1462`）**：第二目标（`Target2`）与**嵌套 op** 也补上 ——
+                //   上面 `T=` 打的是 `op.Target`，而 `forceattack` 那一族**被打的那个**在 `Target2`；
+                //   `atturn`（`At the start of each turn …`）那一族则把正文解析在 `AtTurnOps` 里，
+                //   两个入口原来**一个字都不打** ⇒ 「`non <关键词>` 的目标筛有没有被承载」看不出来。
+                //   ⚠️ 与 `scan` 那边**共用** `TargetBlock` / `TargetText`（本仓红线：同一条规则只写一处）。
+                + (op.Target2 == null ? "" : " T2=" + TargetText(op.Target2, "T2"))
+                + NestedText(op)
                 + " chooseSrc=" + op.ChooseSrc + " what=[" + op.ChooseWhat + "] act=[" + op.ChooseAct + "]"
                 + " deadScope=" + op.ChooseDeadScope);
         }
@@ -319,13 +361,65 @@ class Program
         return "{" + tag + ":" + sb.ToString() + "}";
     }
 
-    /// <summary>要追加到 op 尾部的**整块**：`/` ＋ `{T:…}`（＋ `DeathWatchTarget` 非空时的 `/{DW:…}`）。
+    /// <summary>要追加到 op 尾部的**整块**：`/` ＋ `{T:…}`（＋ `DeathWatchTarget` 非空时的 `/{DW:…}`
+    /// ＋ `Target2` 非空时的 `/{T2:…}`）。
     /// `Sentinel.Legacy` 按其中的 `/{T:` 把 legacy 那一段切出来。</summary>
     public static string TargetBlock(EffectOp op)
     {
         var s = "/" + TargetText(op.Target);
         if (op.DeathWatchTarget != null) s += "/" + TargetText(op.DeathWatchTarget, "DW");
+        // 🔴 **2026-10-11（第二十会话 · `A1462`）：第二目标（`EffectOp.Target2`）也补上。**
+        //   病灶：「`non <关键词>` 的目标筛选**疑似整个丢了**」这条账**判不了**，
+        //   原因就是**这一栏一个字都不打** —— `A1477`（同一天）补的是 `op.Target`，
+        //   而 `forceattack` 那一族把**被打的那个**放在 `Target2` 里（`Target` 是攻击者，可为空）
+        //   ⇒ `SW12 Hunting Wolf` 的 `Ferocity: Attack a random non Flying enemy troop`
+        //   在 dump 里**看起来**是 `T={T:null}`（探针把它整个藏起来了）。
+        //   ⚠️ **块名必须是 `/{T2:`**：`Sentinel.Legacy` 靠 `LastIndexOf("/{T:")` 找起点，
+        //      `/{T2:` 里**不含** `/{T:`（`T` 后面那一颗是 `2` 不是 `:`）⇒ 切点不会挪。
+        //   ⚠️ **只在非空时打**（与 `DW` 同一条取舍）—— 这样「只追加」这条自证形状还在。
+        //      🔴 **自证判据要写准**（⛔ 别写成「旧行是新行的前缀」—— 块是插在 op 分隔符 `;` **之前**的，
+        //      所以 `;` 的位置会往后挪）：**把新行里的 `/{T2:…}` 块删掉之后，必须与旧行【逐字节】相同**。
+        //      本轮实测：扫描前后 8 个变化行**全部**满足（脚本：`re.sub(r'/\{T2:[^;]*', '', 新行) == 旧行`）。
+        if (op.Target2 != null) s += "/" + TargetText(op.Target2, "T2");
         return s;
+    }
+
+    /// <summary>🔴 **2026-10-11（第二十会话 · `A1462`）：嵌套 op 的唯一渲染口** ——
+    /// `atturn` 的 `AtTurnOps` · `repeat` 的 `RepeatOps` · `paidmod` 的 `BaseOps`。
+    ///
+    /// **为什么必须有**：`At the start of each turn attack a random non Flying enemy`（`GOF85`）
+    /// 这句话的**目标规格不在顶层 op 上** —— 顶层只有一条 `atturn`（`Target = null`），
+    /// 真正的正文解析在 `AtTurnOps[0].Target2` 里 ⇒ 顶层那几栏**看不出目标被解析成什么**
+    /// （`A1462` 那条账「判不了」的第二个原因）。
+    ///
+    /// ⚠️ 只打**一层**（嵌套的嵌套不再展开）—— 本池实测没有第二层；
+    ///   要真出现，下面会如实打出 `(还有嵌套)` 而不是静默截断。
+    /// ⚠️ 与 `TargetBlock` 一样：**只追加、不打转义**（照 dump 抄进断言的值必须与引擎字段逐字相同）。</summary>
+    static string NestedText(EffectOp op)
+    {
+        var sb = new System.Text.StringBuilder();
+        Append("atTurn(" + op.AtTurnPhase + ")", op.AtTurnOps, sb);
+        Append("repeat", op.RepeatOps, sb);
+        Append("base", op.BaseOps, sb);
+        return sb.ToString();
+
+        void Append(string label, List<EffectOp> list, System.Text.StringBuilder outSb)
+        {
+            if (list == null || list.Count == 0) return;
+            outSb.Append(" ").Append(label).Append("=[");
+            for (int i = 0; i < list.Count; i++)
+            {
+                var o = list[i];
+                if (i > 0) outSb.Append(" ｜ ");
+                outSb.Append(o.Verb)
+                     .Append(o.Amount != 0 ? " n=" + o.Amount : "")
+                     .Append(string.IsNullOrEmpty(o.Payload) ? "" : " [" + o.Payload + "]")
+                     .Append(" T=").Append(TargetText(o.Target));
+                if (o.Target2 != null) outSb.Append(" T2=").Append(TargetText(o.Target2, "T2"));
+                if (o.AtTurnOps != null && o.AtTurnOps.Count > 0) outSb.Append("(还有嵌套)");
+            }
+            outSb.Append("]");
+        }
     }
 
     /// <summary>取一个字段的值。`null` → `-`（与「空串」区分开：`EffectTargetSpec` 里
@@ -571,6 +665,40 @@ class Sentinel
         }
         else
             Console.WriteLine("  ✓ [目标列] 目标块与 `EffectTargetSpec` 一致（" + Program.TargetCols.Length + " 个字段全在 dump 里）");
+
+        // ---------------------------------------------------------------- ⑥ `non <关键词>` 的排除（`A1462`）
+        // 🔴 **2026-10-11（第二十会话）：这一条【现在就是红的】** —— 它是一条**已知缺陷**的钉子，
+        //    ⛔ **不是本工具坏了**（判据与逐条读数 ⇒ 跑 `nonkw`；原版权威 ⇒ `FilterMethods__MeetsTraitCriteria.c`）。
+        //    · 判据（**外部**，⛔ 不拿我们自己的实现反填）：卡面（PnP 成品卡图逐张亲读）
+        //      `… attack a random non 〔Flying〕 Flying enemy` ⇒ 那个目标规格**必须排除飞行单位**；
+        //      我方承载「排除」的**唯一**字段 = `EffectTargetSpec.NotKeyword`
+        //      （消费点 `RuleCore.ApplyTargetFilters`）。
+        //    · **它判的不是「与基线比」** —— 重生成基线抹不掉它（判据写在这里、读的是现解析结果）。
+        //    · **修好之后它会自己变绿** ⇒ 那时把这条哨兵的说明当成「已修」记一笔即可（⛔ 别删它：
+        //      删了就没人盯着这一类再犯）。⚠️ 新增同类卡面（又出现一处 `non X`）也会让它重新出声。
+        //    · 为什么**必须计入 rc**：这一类缺口是**静默**的（句子报 OK、卡面不打 `*`），
+        //      `check` 是唯一会天天跑到的地方；不计入 rc 就等于「记在报告里、没人看」。
+        var nonkw = NonKwProbe.Measure(Program.PoolList, Program.PoolRawKeywords);
+        if (nonkw.Lost > 0)
+        {
+            fail++;
+            Console.WriteLine("  ✗ [non 排除] 卡面写 `non <关键词>` 而目标规格**没承载**的：**"
+                              + nonkw.Lost + " 处**（共扫到 " + nonkw.Hits.Count + " 处）——");
+            foreach (var h in nonkw.Hits.Where(x => !x.Carried))
+                Console.WriteLine("              · `" + h.Card.Id + "` " + h.Card.Name + " · " + h.Path
+                                  + "（" + h.Verb + "）卡面 `non " + h.Word + "` ⇒ `NotKeyword` 为空");
+            Console.WriteLine("             🔴 **这是已知缺陷 `A1462`（不是本工具坏了）** —— 丢在【解析层】："
+                              + "`RuleEngine/Core/EffectText.cs` 的 `ParseTarget` 里**没有** `non <词>` 这一支"
+                              + "（它只认 `with <词>` ⇒ `ReTargetWith` → `KeywordFilter`）"
+                              + "⇒ 那两个词整段丢掉，而句子照旧报 OK（静默）。");
+            Console.WriteLine("             · 后果已量过（`nonkw` 的 §③）：随机挑中飞行单位 ⇒ 那一发**空过**"
+                              + "（实得 0，而场上明明有可打的非飞行敌人）。");
+            Console.WriteLine("             · 结算层**是好的**：把 `NotKeyword` 补上，候选里就没有飞行单位（`nonkw` §③(a)）。");
+            Console.WriteLine("             ⇒ 修法 = 解析层加那一支；**修好这条哨兵会自动变绿**。");
+        }
+        else
+            Console.WriteLine("  ✓ [non 排除] 卡面写了 `non <关键词>` 的 " + nonkw.Hits.Count
+                              + " 处目标规格**都承载**了排除（`NotKeyword` 非空）");
 
         // ---------------------------------------------------------------- ⑤ 基线指纹（`A1382`）
         // 🔴 这一条治的是「**任何**真回归 ＋ 重生成基线 ⇒ 静默变绿」那条**一般情形**的洞 ——

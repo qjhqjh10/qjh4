@@ -1339,7 +1339,7 @@ namespace RuleEngine
         /// |---|---|---|---|
         /// | `BattleManagerSupport.BroadcastUnitUsedSacrifice` | `0x9BA580` | **3**（棋盘 + 两跳手牌） | ✅ |
         /// | `…BroadcastUnitMob` | `0x9B8570` | 棋盘跳 **1** + 接收方体内 1 | ✅ |
-        /// | `…BroadcastUnitSwarm` | `0x9BA150` | 棋盘跳 **1** | ⚠️ 见下 |
+        /// | `…BroadcastUnitSwarm` | `0x9BA150` | 棋盘跳 **1** | ✅（比的是**被并掉那张**） |
         /// | `…BroadcastUnitFerocity` | `0x9B7C50` | **0** | ❌ |
         /// | `…BroadcastUnitDuty` | `0x9B7A60` | **0** | ❌ |
         /// | `…BroadcastUnitSynapse` | `0x9BA390` | **0** | ❌ |
@@ -1352,11 +1352,17 @@ namespace RuleEngine
         ///   而对应的广播（`Ferocity`/`Duty`/`Synapse`）**也没有** ⇒ **自己会被自己叫醒**。
         ///   这不是我们推的：`Bjorn the Fell-Handed`（kw `Ferocity`）的
         ///   `When a friendly unit uses Ferocity, it stays in play` 就是靠它把自己留在场上。
-        /// · ⚠️ **`swarm` 归在「不自排除」那一边，但理由不同**：`BroadcastUnitSwarm` 的棋盘跳
-        ///   **确实**有那条守卫，比的是 `param_2` = **被并掉那张**（`AddExecuteSwarm` 的 `self`，
-        ///   广播前刚 `DestroyUnitSilent` ⇒ 已经不在场上）；而我们这边
-        ///   `RuleCore.TrySwarmMerge` 的 `FireTriggerAlways(ctx, host, …)` 传的 `subject` 是
-        ///   **留下那张** ⇒ 照抄原版那条会把留下那张**误挡**。
+        /// · 🔴 **`swarm` 也自排除 —— 2026-10-11（`W5` · `A1574`）就地订正（铁律 5）**：
+        ///   本节原写「`swarm` 归在**不自排除**那一边，比的是 `param_2` = 被并掉那张，
+        ///   而我们传的 `subject` 是**留下那张** ⇒ 照抄原版那条会把留下那张误挡」
+        ///   —— **那句「所以不能自排除」是拿我们自己的旧 bug 当判据**（典型的自证）。
+        ///   现在 `RuleCore.TrySwarmMerge` 的 `subject` 已经改成**被并掉那张**
+        ///   （判据 = `CardScript.<>c__DisplayClass401_0.<ExecuteSwarm>b__0.c:45/51/54`：
+        ///    `+0x18` 收数值抽屉、`+0x10` 先 `DestroyUnitSilent` 再当广播的 `param_2`；
+        ///    形参名出处 `RawCardScript.cs:373` 的 `actingCard` / `targetCard`）
+        ///   ⇒ 守卫与 `param_2` 两边**比的是同一个单位**，**如实照抄即可**。
+        ///   ⚠️ 今天**不可观测**：`just` 在广播前就已 `BoardSlots.RemoveAt` 出场
+        ///   ⇒ 它本来也不在 `BroadcastWhen` 的快照里；本条是**口径对齐**，不是行为变更。
         ///
         /// ⇒ **本表默认「自排除」，只有上面核过的这几个词例外。** 加新关键词时
         /// 回机器码核一遍（`工具/rva_of_method.py` → `BattleManagerSupport$$BroadcastUnit&lt;词&gt;`
@@ -1388,11 +1394,18 @@ namespace RuleEngine
         /// 而**卡自己带同一个词**的有四个：`Bjorn the Fell-Handed`（`Ferocity`）·
         /// `Zoanthrope`（`Synapse`）· `Termagant Brood`（`Swarm`）· `Broodlord`（`Synapse`，
         /// 但它写的是 `When this unit triggers Synapse` ⇒ <see cref="WhenEvent.SelfOnly"/>，本守卫不适用）
-        /// —— 也就是说：**今天唯一可观测到的三处，全都在「不自排除」这一边**。
+        /// —— 🔴 **2026-10-11（`W5` · `A1574`）订正**：本句原写「**今天唯一可观测到的三处，
+        /// 全都在「不自排除」这一边**」，那是**旧的**（当时 `swarm` 在这张名单里）。
+        /// 现在 `swarm` 按机器码归回「自排除」⇒ 可观测的变成 **两处不在名单里**
+        /// （`Bjorn the Fell-Handed` / `Zoanthrope`）＋ **`Termagant Brood` 那处走本守卫**。
+        /// ⚠️ 但 `swarm` 那一处**今天仍不可观测**：自排除比的是「监听者 == 触发源」，
+        ///    而 `A1574` 之后触发源是**已经离开棋盘**的被并掉那张（见
+        ///    `SelfExcludesOnKeywordTrigger` 那一节末条）⇒ 它从来不在监听者快照里。
+        ///    换句话说：**这次把 `swarm` 移出名单，改的是口径、不是行为**。
         /// </summary>
         static readonly HashSet<string> KeywordTriggerIncludesSelf =
             new HashSet<string>(System.StringComparer.Ordinal)
-            { "ferocity", "duty", "synapse", "swarm" };
+            { "ferocity", "duty", "synapse" };
 
         // ==================================================================
         //  ③ 主语短语 → CardCriteria

@@ -1,0 +1,14 @@
+arena	mean_diff	n_blobs	top1_score	top1_center	top1_dir
+battlearena1	4.39	3	45553	(0.08,0.68)	+
+battlearena2	4.27	3	51481	(0.80,0.32)	+
+battlearena3	4.12	3	39771	(0.82,0.57)	+
+battlearenaaeldari	5.70	3	35687	(0.11,0.35)	-
+battlearenaastramilitarum	3.36	3	62548	(0.03,0.85)	+
+battlearenablacklegion	4.10	3	55212	(0.70,0.14)	-
+battlearenadarkangels	3.85	3	8457	(0.07,0.23)	+
+battlearenaemperorschildren	4.05	3	20889	(0.59,0.02)	-
+battlearenagenestealers	4.76	3	34409	(0.47,0.90)	+
+battlearenaleviathan	6.09	3	45221	(0.24,0.74)	+
+battlearenasororitas	3.83	3	27374	(0.06,0.41)	-
+battlearenaspacewolves	4.68	3	53410	(0.95,0.85)	+
+battlearenatauviorla	6.37	3	64131	(0.06,0.56)	+

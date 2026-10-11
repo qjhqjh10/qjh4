@@ -620,6 +620,11 @@ public static partial class RuleEngineTest
     ///   「打穿、且扣完溢出血还 &gt; 0」那一档会**另补一次易伤伤害**（`:188-257 DealMultiDamage`），
     ///   我们**没补** ⇒ ⛔ **别把「打穿之后会少算」写成期望**（那会把我方缺口固化成断言）。
     ///   本格取的是「没打穿」那一档：堡垒整份吃下 ⇒ 易伤那一次被 `bVar17` 抑制 ⇒ 两边一致。
+    /// 🔴 **2026-10-21（账 `A1563`）补一句**：「易伤是另一次伤害」这条**口径**已经落地了
+    ///   （`RuleCore.VulnerableDamagePart` —— 普通档不再折进一个数），但上面这一档
+    ///   （**堡垒被打穿**）**仍然少补**：那一支用 `actual = −remaining` 覆盖掉算好的值。
+    ///   余下三档（空投舱 / 堡垒打穿 / `:211` 血&gt;0 那道闸）逐条记在
+    ///   `RuleCore.VulnerableDamagePart` 的 doc 里，**不是「不做」、是「还没做」**（铁律 11）。
     /// </summary>
     static void TestS14VulnerableWithBastion()
     {
@@ -631,7 +636,12 @@ public static partial class RuleEngineTest
         int hp0 = t.Health;
         Check(t.Bastion, 3, "（前提）堡垒 3");
         Check(RuleCore.DamageAfterReduction(t, 3), 5,
-              "（前提）易伤 2 确实折进了伤害公式（3 + 2 = 5）—— 所以下面「血没动」不是「伤害本来就是 0」");
+              "（前提）这一下确实不是 0：**护甲 0 ⇒ `max(1, 3)` ＋ 易伤的 `max(1, 2)` = 5**"
+            + " —— 所以下面「血没动」不是「伤害本来就是 0」"
+            + "｜🔴 2026-10-21（`A1563`）**就地订正这句话**：原文写「易伤 2 确实**折进**了伤害公式"
+            + "（3 + 2 = 5）」—— **那个「折进」的口径已经废了**（现在是两份**各自**取 `max(1, …)`）。"
+            + " ⚠️ 本格的**数值 5 两种口径下相同**（护甲 0 时 `max(1,3)+max(1,2)` == `max(1,3+2)`）"
+            + " ⇒ 它**不是** `A1563` 的判别式，判别式在 `TestA1563VulnerableDamageSplit` 那一组");
 
         int ret = RuleCore.ApplyDamage(ctx, t, 3, "自检");
         Check(ret, 0, "★ 堡垒整份吃下 ⇒ 返回 0");
@@ -1643,24 +1653,28 @@ public static partial class RuleEngineTest
     }
 
     // ==================================================================
-    //  #55 / #56 —— `☀` 付费前缀的货币是 `faith`，而且**扣的是 `ps.Faith`**
+    //  #55 / #56 —— `☀` 付费前缀的货币是 `faith`，而且它**不扣** `ps.Faith`
+    //  （2026-10-11 `A1453`：信仰是**阈值**、不是开销 —— 见 `EffectResolver.ResolveOneCore`）
     // ==================================================================
 
     /// <summary>
     /// **`#55`** 4 张修女会卡（`SOR11`/`SOR23`/`SOR24`/`SOR72`）的付费前缀解析后
-    /// `CostKindOf` 给 **`'faith'`**（改前是 `''`），**且扣的是 `ps.Faith` 而不是 `ps.Energy`**。
+    /// `CostKindOf` 给 **`'faith'`**（改前是 `''`），**且门槛过了也**不扣 `ps.Faith`
+    /// **也不扣 `ps.Energy`**。
     /// **`#56`** 5 张（`SOR28`/`SOR43`/`SOR44`/`SOR49`/`SOR59`）的 `2 ☀:` / `4 ☀:` / `7 ☀:` 段
     /// 解析出 **`kind == 'faith'`**；**全池逐 op 归一后 `kind == ''` 从 6 → 0**。
     ///
     /// 判据 = `EffectText.CostKindOf` → `MentionsFaith`（`Contains("faith") || Contains("☀")`）
-    ///   ⇒ `"faith"`；结算层 `EffectResolver.ResolveOneCore` 的
-    ///   `if (kind == "faith") ps.Faith -= op.Cost;`。
+    ///   ⇒ `"faith"`；结算层 `EffectResolver.ResolveOneCore` 的**阈值支**（原先那里有一句
+    ///   `if (kind == "faith") ps.Faith -= op.Cost;`，`A1453` 已删；闸门在 `CostPrefixPayable`）。
     ///   ⚠️ `A1357` 的原话是「静态链已验、**运行期无证据**」—— 下面 `SOR43` 那一格
     ///   **就是那条运行期证据**（它是**计策**，`Draw a troop. 2 ☀: Draw an additional troop`，
-    ///   可以真打出去看扣的是哪个字段）。
+    ///   可以真打出去看**哪个字段都没被扣**、而效果**真的**激活了）。
     ///
-    /// 🔴 **灭自证**：`SOR43` 那一格**同时**断「信仰掉了 2」与「能量只掉了卡费 1」——
-    ///   只断一侧的话，「两个字段一起扣」或「扣错了字段但恰好也有信仰」都蒙得过去。
+    /// 🔴 **灭自证（两支）**：`SOR43` 那一格**同时**断「信仰一分不动」与「能量只掉卡费 1」
+    ///   ＋「日志里点名了那半句**真的激活**」：
+    ///   · 只断「信仰没动」⇒ **把整条信仰结算删掉**照样绿（都不动）；
+    ///   · 只断「能量只掉卡费」⇒ **扣错池子**（拿去扣 `ps.Faith`）照样绿（能量确实只掉 1）。
     /// </summary>
     static void TestS14FaithCostKind()
     {
@@ -1753,7 +1767,7 @@ public static partial class RuleEngineTest
                 + "｜🧨 少接一种货币名（例如把 `☀` 那一支去掉）⇒ 本行立刻红");
         }
 
-        // ---- #55 运行期：真打一张 `☀` 计策，看扣的是哪个字段 ----
+        // ---- #55 运行期：真打一张 `☀` 计策，看**哪个字段都没被扣**、而效果真的激活了 ----
         {
             var sor43 = new CardDef("SOR43", "Devout Warriors", "tactic",
                                     "Draw a troop. 2 ☀: Draw an additional troop",
@@ -1764,24 +1778,33 @@ public static partial class RuleEngineTest
             ctx.Players[0].Energy = 10;
             CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Devout Warriors"), -1), RuleCodes.OK,
                       "打出 `Draw a troop. 2 ☀: Draw an additional troop`");
-            Check(ctx.Players[0].Faith, 8,
-                  "★ `#55` **扣的是 `ps.Faith`**（10 → 8，`2 ☀` 那份）—— 这就是规格表说缺的那条**运行期证据**"
-                + "｜🧨 把 `ResolveOneCore` 的 `if (kind == \"faith\") ps.Faith -= op.Cost;` 改回 `ps.Energy` ⇒ 本行红");
+            Check(ctx.Players[0].Faith, 10,
+                  "★ `#55` **信仰是阈值、不是开销**（10 ≥ 2 门槛过了，而 `Faith` 一颗都没少：10 → 10）"
+                + "｜🧨 把 `ResolveOneCore` 里删掉的那句 `if (kind == \"faith\") ps.Faith -= op.Cost;`"
+                + " 加回去 ⇒ 本行实得 8 ⇒ 红");
+            CheckTrue(S14Log(ctx, "阈值判定通过"),
+                      "★★ **而且那半句真的激活了**（战斗日志里点名「阈值判定通过」，"
+                    + "出处 = `EffectResolver.ResolveOneCore` 的信仰支）—— 与上一行**合起来**才是判别式："
+                    + "只断「信仰没动」的话，**把整条信仰结算删掉**同样一动不动、那一半照样绿"
+                    + "｜🧨 删掉 `WillRunOps` 里 `FaithOps` 那一条（或 `PlayCard`/`DeployFree` 里的"
+                    + " `ResolveFaithAbility`）⇒ 本行红");
             Check(ctx.Players[0].Energy, 9,
-                  "★ **而能量只掉了卡费那 1 点**（10 → 9）—— 与上一行**合起来**才是判别式："
-                + "只断「信仰掉了 2」的话，「两个字段一起扣」照样绿"
+                  "★ **而能量只掉了卡费那 1 点**（10 → 9）—— 与上面两行**合起来**才是判别式："
+                + "只断「信仰没动」的话，**扣错池子**（拿去扣 `ps.Energy`）照样绿"
                 + $"｜🧨 同上 ⇒ 本行实得 6（1 + 2 + …）{LogTail(ctx, 6)}");
 
-            // 反向：信仰不够 ⇒ 那半句**不生效**（且如实报出来）
+            // 反向：信仰不够 ⇒ 那半句**不激活**（且如实报出来）
             var ctx2 = ProbeBattle(new[] { sor43 }, new[] { Unit("S14_Foe2", 1, 0, 9) });
             ToP1Turn(ctx2, 2);
             ctx2.Players[0].Faith = 0;
             ctx2.Players[0].Energy = 10;
             CheckCode(RuleCore.PlayTactic(ctx2, 0, HandIdx(ctx2, 0, "Devout Warriors"), -1), RuleCodes.OK,
                       "信仰 0 时照样打得出去（裸 `Draw a troop` 那半不需要付费）");
-            Check(ctx2.Players[0].Faith, 0, "★ 信仰一点没扣（不够 ⇒ 整条**不激活**）");
+            Check(ctx2.Players[0].Faith, 0,
+                  "★ 信仰仍是 0（门槛 0 < 2 ⇒ 那半句**不激活**；⚠️ 这一条本身**判别力弱** ——"
+                + "阈值语义下本来就不扣，是靠**下一行**那条日志才分得清「没激活」和「激活了但没扣」）");
             CheckTrue(S14Log(ctx2, "没生效") || S14Log(ctx2, "不够"),
-                      "★ 而且**如实报出来**了（原版 = 付不起就整段不激活，不是「付了效果减半」；"
+                      "★ 而且**如实报出来**了（原版 = 门槛不够就整段不激活，不是「付了效果减半」；"
                     + "本工程红线 = 不许静默失败）");
         }
     }

@@ -173,7 +173,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -781,7 +781,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -1479,7 +1479,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -2177,7 +2177,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
-          "queue": -1,
+          "queue": 2450,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -2825,7 +2825,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -3503,7 +3503,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Unlit UV scroll",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "Vector3_65160a41016e4bb0ad3f5043d258b214",
@@ -4461,7 +4461,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -5159,7 +5159,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -5857,7 +5857,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -6465,7 +6465,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
-          "queue": -1,
+          "queue": 2000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -7113,7 +7113,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -7811,7 +7811,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -8509,7 +8509,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
-          "queue": -1,
+          "queue": 2450,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -9157,7 +9157,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Universal Render Pipeline/Unlit",
-          "queue": -1,
+          "queue": 2450,
           "props": [
             {
               "k": "_AddPrecomputedVelocity",
@@ -10354,7 +10354,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -11650,7 +11650,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
-          "queue": -1,
+          "queue": 2450,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -12298,7 +12298,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -12976,7 +12976,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -14212,7 +14212,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
-          "queue": -1,
+          "queue": 2000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -16534,7 +16534,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -17232,7 +17232,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
-          "queue": -1,
+          "queue": 2000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -18488,7 +18488,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -19186,7 +19186,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -19884,7 +19884,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Unlit UV scroll",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "Vector3_65160a41016e4bb0ad3f5043d258b214",
@@ -20842,7 +20842,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -23802,7 +23802,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -24480,7 +24480,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -25158,7 +25158,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -26334,7 +26334,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
-          "queue": -1,
+          "queue": 2450,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -27540,7 +27540,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
-          "queue": -1,
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -28751,9 +28751,20 @@
       ],
       "tex": "smokeysteam",
       "texFile": "smokeysteam.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 1, 3, 4, 5, 8],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4,
+        5,
+        8
+      ],
       "applyActiveColorSpace": false,
       "duration": 6.0,
       "looping": true,
@@ -29330,7 +29341,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -29363,9 +29374,20 @@
       ],
       "tex": "smokeysteam",
       "texFile": "smokeysteam.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 1, 3, 4, 5, 8],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4,
+        5,
+        8
+      ],
       "applyActiveColorSpace": false,
       "duration": 6.0,
       "looping": true,
@@ -29903,7 +29925,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -29936,9 +29958,17 @@
       ],
       "tex": "Glow",
       "texFile": "Glow.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 3, 4],
+      "vertexStreams": [
+        0,
+        3,
+        4
+      ],
       "applyActiveColorSpace": false,
       "duration": 10.0,
       "looping": true,
@@ -30524,7 +30554,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 1,
       "bursts": [],
       "uvEnabled": false,
@@ -30557,9 +30587,19 @@
       ],
       "tex": "wispySmoke",
       "texFile": "wispySmoke.png",
-      "pivot": [0.0, 0.5, 0.0],
+      "pivot": [
+        0.0,
+        0.5,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 3, 4, 5, 8],
+      "vertexStreams": [
+        0,
+        3,
+        4,
+        5,
+        8
+      ],
       "applyActiveColorSpace": false,
       "duration": 10.0,
       "looping": true,
@@ -31081,7 +31121,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -31114,9 +31154,19 @@
       ],
       "tex": "wispySmoke",
       "texFile": "wispySmoke.png",
-      "pivot": [0.0, 0.5, 0.0],
+      "pivot": [
+        0.0,
+        0.5,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 3, 4, 5, 8],
+      "vertexStreams": [
+        0,
+        3,
+        4,
+        5,
+        8
+      ],
       "applyActiveColorSpace": false,
       "duration": 10.0,
       "looping": true,
@@ -31638,7 +31688,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -31671,9 +31721,19 @@
       ],
       "tex": "wispySmoke",
       "texFile": "wispySmoke.png",
-      "pivot": [0.0, 0.5, 0.0],
+      "pivot": [
+        0.0,
+        0.5,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 3, 4, 5, 8],
+      "vertexStreams": [
+        0,
+        3,
+        4,
+        5,
+        8
+      ],
       "applyActiveColorSpace": false,
       "duration": 10.0,
       "looping": true,
@@ -32197,7 +32257,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -32230,9 +32290,18 @@
       ],
       "tex": "Smoke Sprite Sheet",
       "texFile": "Smoke Sprite Sheet.png",
-      "pivot": [0.0, -0.21, 0.0],
+      "pivot": [
+        0.0,
+        -0.21,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 1.0,
       "looping": false,
@@ -32712,7 +32781,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -32745,9 +32814,20 @@
       ],
       "tex": "smokeysteam",
       "texFile": "smokeysteam.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 1, 3, 4, 5, 8],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4,
+        5,
+        8
+      ],
       "applyActiveColorSpace": false,
       "duration": 10.0,
       "looping": true,
@@ -33289,7 +33369,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -33322,9 +33402,20 @@
       ],
       "tex": "smokeysteam",
       "texFile": "smokeysteam.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 1, 3, 4, 5, 8],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4,
+        5,
+        8
+      ],
       "applyActiveColorSpace": false,
       "duration": 15.0,
       "looping": true,
@@ -33870,7 +33961,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -33903,9 +33994,18 @@
       ],
       "tex": "Smoke Sprite Sheet",
       "texFile": "Smoke Sprite Sheet.png",
-      "pivot": [0.0, -0.21, 0.0],
+      "pivot": [
+        0.0,
+        -0.21,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 3.0,
       "looping": false,
@@ -34385,7 +34485,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -34418,9 +34518,21 @@
       ],
       "tex": "Shimmers01",
       "texFile": "Shimmers01.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 1, 3, 4, 2, 5, 8],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4,
+        2,
+        5,
+        8
+      ],
       "applyActiveColorSpace": false,
       "duration": 2.0,
       "looping": true,
@@ -34881,7 +34993,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 1,
       "bursts": [
         {
@@ -34922,9 +35034,18 @@
       ],
       "tex": "Smoke Sprite Sheet",
       "texFile": "Smoke Sprite Sheet.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 1.0,
       "looping": false,
@@ -35404,7 +35525,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -35445,9 +35566,17 @@
       ],
       "tex": "FireBallEmission",
       "texFile": "FireBallEmission.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 3, 4],
+      "vertexStreams": [
+        0,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -35994,7 +36123,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -36027,9 +36156,19 @@
       ],
       "tex": "Smoke Cloud",
       "texFile": "Smoke Cloud.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 3, 4, 5, 8],
+      "vertexStreams": [
+        0,
+        3,
+        4,
+        5,
+        8
+      ],
       "applyActiveColorSpace": false,
       "duration": 10.0,
       "looping": true,
@@ -36616,7 +36755,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": false,
@@ -36649,9 +36788,20 @@
       ],
       "tex": "smokeysteam",
       "texFile": "smokeysteam.png",
-      "pivot": [0.0, 0.85, 0.0],
+      "pivot": [
+        0.0,
+        0.85,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 1, 3, 4, 5, 8],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4,
+        5,
+        8
+      ],
       "applyActiveColorSpace": false,
       "duration": 10.0,
       "looping": true,
@@ -37171,7 +37321,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -37204,9 +37354,20 @@
       ],
       "tex": "smokeysteam",
       "texFile": "smokeysteam.png",
-      "pivot": [0.0, 0.85, 0.0],
+      "pivot": [
+        0.0,
+        0.85,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 1, 3, 4, 5, 8],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4,
+        5,
+        8
+      ],
       "applyActiveColorSpace": false,
       "duration": 15.0,
       "looping": true,
@@ -37730,7 +37891,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -37763,9 +37924,19 @@
       ],
       "tex": "Smoke Sprite Sheet",
       "texFile": "Smoke Sprite Sheet.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 3, 4, 5, 8],
+      "vertexStreams": [
+        0,
+        3,
+        4,
+        5,
+        8
+      ],
       "applyActiveColorSpace": false,
       "duration": 10.0,
       "looping": true,
@@ -38309,7 +38480,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 1,
       "bursts": [],
       "uvEnabled": true,
@@ -38342,9 +38513,17 @@
       ],
       "tex": "Glow",
       "texFile": "Glow.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 3, 4],
+      "vertexStreams": [
+        0,
+        3,
+        4
+      ],
       "applyActiveColorSpace": false,
       "duration": 10.0,
       "looping": true,
@@ -38961,7 +39140,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 1,
       "bursts": [],
       "uvEnabled": false,
@@ -38994,9 +39173,17 @@
       ],
       "tex": "FireBallEmission",
       "texFile": "FireBallEmission.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 3, 4],
+      "vertexStreams": [
+        0,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -39549,7 +39736,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -39582,9 +39769,18 @@
       ],
       "tex": "Glow Rays",
       "texFile": "Glow Rays.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 1.0,
       "looping": false,
@@ -40119,7 +40315,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -40160,9 +40356,21 @@
       ],
       "tex": "Shimmers01",
       "texFile": "Shimmers01.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 1, 3, 4, 2, 5, 8],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4,
+        2,
+        5,
+        8
+      ],
       "applyActiveColorSpace": false,
       "duration": 2.0,
       "looping": true,
@@ -40623,7 +40831,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 1,
       "bursts": [
         {
@@ -40664,9 +40872,19 @@
       ],
       "tex": "Splash01",
       "texFile": "Splash01.png",
-      "pivot": [0.0, 0.51, 0.0],
+      "pivot": [
+        0.0,
+        0.51,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 3, 4, 5, 8],
+      "vertexStreams": [
+        0,
+        3,
+        4,
+        5,
+        8
+      ],
       "applyActiveColorSpace": false,
       "duration": 4.5,
       "looping": true,
@@ -41064,7 +41282,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -41097,9 +41315,19 @@
       ],
       "tex": "Glow",
       "texFile": "Glow.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4, 5],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4,
+        5
+      ],
       "applyActiveColorSpace": false,
       "duration": 5.0,
       "looping": true,
@@ -41585,7 +41813,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": false,
@@ -41618,9 +41846,20 @@
       ],
       "tex": "smokeysteam",
       "texFile": "smokeysteam.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 1, 3, 4, 5, 8],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4,
+        5,
+        8
+      ],
       "applyActiveColorSpace": false,
       "duration": 6.0,
       "looping": true,
@@ -42158,7 +42397,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -42191,9 +42430,19 @@
       ],
       "tex": "wispySmoke",
       "texFile": "wispySmoke.png",
-      "pivot": [0.0, 0.5, 0.0],
+      "pivot": [
+        0.0,
+        0.5,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 3, 4, 5, 8],
+      "vertexStreams": [
+        0,
+        3,
+        4,
+        5,
+        8
+      ],
       "applyActiveColorSpace": false,
       "duration": 10.0,
       "looping": true,
@@ -42715,7 +42964,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -42748,9 +42997,19 @@
       ],
       "tex": "LargeFlame02",
       "texFile": "LargeFlame02.png",
-      "pivot": [0.0, 0.1, 0.0],
+      "pivot": [
+        0.0,
+        0.1,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 3, 4, 5, 8],
+      "vertexStreams": [
+        0,
+        3,
+        4,
+        5,
+        8
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -43286,7 +43545,7 @@
           "f": 1.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -43319,9 +43578,19 @@
       ],
       "tex": "Smoke Cloud",
       "texFile": "Smoke Cloud.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 3, 4, 5, 8],
+      "vertexStreams": [
+        0,
+        3,
+        4,
+        5,
+        8
+      ],
       "applyActiveColorSpace": false,
       "duration": 10.0,
       "looping": true,
@@ -43908,7 +44177,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": false,
@@ -43941,9 +44210,19 @@
       ],
       "tex": "Spark",
       "texFile": "Spark.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4, 5],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4,
+        5
+      ],
       "applyActiveColorSpace": false,
       "duration": 2.0,
       "looping": false,
@@ -44569,7 +44848,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -44610,9 +44889,19 @@
       ],
       "tex": "Glow",
       "texFile": "Glow.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4, 5],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4,
+        5
+      ],
       "applyActiveColorSpace": false,
       "duration": 5.0,
       "looping": true,
@@ -45098,7 +45387,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": false,
@@ -45131,9 +45420,19 @@
       ],
       "tex": "wispySmoke",
       "texFile": "wispySmoke.png",
-      "pivot": [0.0, 0.5, 0.0],
+      "pivot": [
+        0.0,
+        0.5,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 3, 4, 5, 8],
+      "vertexStreams": [
+        0,
+        3,
+        4,
+        5,
+        8
+      ],
       "applyActiveColorSpace": false,
       "duration": 10.0,
       "looping": true,
@@ -45655,7 +45954,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -45688,9 +45987,18 @@
       ],
       "tex": "Glow",
       "texFile": "Glow.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 1.0,
       "looping": true,
@@ -46170,7 +46478,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -46211,9 +46519,20 @@
       ],
       "tex": "smokeysteam",
       "texFile": "smokeysteam.png",
-      "pivot": [0.0, 0.85, 0.0],
+      "pivot": [
+        0.0,
+        0.85,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 1, 3, 4, 5, 8],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4,
+        5,
+        8
+      ],
       "applyActiveColorSpace": false,
       "duration": 15.0,
       "looping": true,
@@ -46733,7 +47052,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -46766,9 +47085,20 @@
       ],
       "tex": "smokeysteam",
       "texFile": "smokeysteam.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 1, 3, 4, 5, 8],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4,
+        5,
+        8
+      ],
       "applyActiveColorSpace": false,
       "duration": 15.0,
       "looping": true,
@@ -47310,7 +47640,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -47343,9 +47673,19 @@
       ],
       "tex": "Spark",
       "texFile": "Spark.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4, 5],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4,
+        5
+      ],
       "applyActiveColorSpace": false,
       "duration": 2.0,
       "looping": false,
@@ -47971,7 +48311,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -48012,9 +48352,18 @@
       ],
       "tex": "Glow",
       "texFile": "Glow.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 1.0,
       "looping": true,
@@ -48494,7 +48843,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -48535,9 +48884,18 @@
       ],
       "tex": "Glow",
       "texFile": "Glow.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 1.0,
       "looping": true,
@@ -49017,7 +49375,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -49058,9 +49416,19 @@
       ],
       "tex": "Spark",
       "texFile": "Spark.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4, 5],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4,
+        5
+      ],
       "applyActiveColorSpace": false,
       "duration": 2.0,
       "looping": false,
@@ -49686,7 +50054,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -49727,9 +50095,19 @@
       ],
       "tex": "Splash01",
       "texFile": "Splash01.png",
-      "pivot": [0.0, 0.51, 0.0],
+      "pivot": [
+        0.0,
+        0.51,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 3, 4, 5, 8],
+      "vertexStreams": [
+        0,
+        3,
+        4,
+        5,
+        8
+      ],
       "applyActiveColorSpace": false,
       "duration": 6.5,
       "looping": true,
@@ -50132,7 +50510,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -50180,9 +50558,21 @@
       ],
       "tex": "Embers",
       "texFile": "Embers.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 1, 3, 4, 2, 5, 8],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4,
+        2,
+        5,
+        8
+      ],
       "applyActiveColorSpace": false,
       "duration": 2.0,
       "looping": true,
@@ -50663,7 +51053,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 1,
       "bursts": [
         {
@@ -50704,9 +51094,17 @@
       ],
       "tex": "Flame01",
       "texFile": "Flame01.png",
-      "pivot": [0.0, 0.1, 0.0],
+      "pivot": [
+        0.0,
+        0.1,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 3, 4],
+      "vertexStreams": [
+        0,
+        3,
+        4
+      ],
       "applyActiveColorSpace": false,
       "duration": 5.0,
       "looping": true,
@@ -51155,7 +51553,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 1,
       "bursts": [],
       "uvEnabled": true,
@@ -51188,9 +51586,20 @@
       ],
       "tex": "SmokeLoop",
       "texFile": "SmokeLoop.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 1, 3, 4, 5, 8],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4,
+        5,
+        8
+      ],
       "applyActiveColorSpace": false,
       "duration": 16.6,
       "looping": true,
@@ -51651,7 +52060,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 2995,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -51699,9 +52108,19 @@
       ],
       "tex": "Default-Particle",
       "texFile": "Default-Particle.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4, 5],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4,
+        5
+      ],
       "applyActiveColorSpace": false,
       "duration": 2.0,
       "looping": true,
@@ -52211,7 +52630,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -52252,9 +52671,20 @@
       ],
       "tex": "Smoke Sprite Sheet",
       "texFile": "Smoke Sprite Sheet.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 1, 3, 4, 5, 8],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4,
+        5,
+        8
+      ],
       "applyActiveColorSpace": false,
       "duration": 1.0,
       "looping": true,
@@ -52822,7 +53252,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -52855,9 +53285,18 @@
       ],
       "tex": "Glow",
       "texFile": "Glow.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 1.0,
       "looping": true,
@@ -53337,7 +53776,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -53378,9 +53817,19 @@
       ],
       "tex": "Spark",
       "texFile": "Spark.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4, 5],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4,
+        5
+      ],
       "applyActiveColorSpace": false,
       "duration": 2.0,
       "looping": false,
@@ -54006,7 +54455,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {

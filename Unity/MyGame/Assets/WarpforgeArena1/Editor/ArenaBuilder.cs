@@ -563,6 +563,28 @@ public static class ArenaBuilder
         VerifyPrefabColorSpace();
     }
 
+    /// <summary>🆕 2026-10-11（第二十会话）：**只建 `WF_ARENA` 那一场的 prefab**。
+    ///
+    /// **为什么要它**（用户 2026-10-11 点名）：「**最好是一个场景一个场景的对比进行复刻**」——
+    ///   而改一场清单却把 13 场重打一遍**很贵**。补一个**单场入口**，与既有的
+    ///   `BuildFromCLI`（**场景**，单场）／`RenderPreviewFromCLI`（**渲图**，单场）配套，
+    ///   这样「改一场 → 建一场 → 渲一场 → 比一场」全程不碰另外 12 场。
+    ///
+    /// ⚠️ **本入口【不跑】`VerifyPrefabVertexStreams` / `VerifyPrefabColorSpace`** ——
+    ///   那两条比的是 **13 件 prefab 的合计**（`_nCustomStreamsTotal` etc.），
+    ///   只重建一场时合计必然对不上，**那不是缺陷**。要那两条自检就跑 `BuildArenaPrefabs()`（13 场）。
+    ///
+    /// 用法：`WF_ARENA=battlearenastramilitarum ... -executeMethod ArenaBuilder.BuildPrefabFromCLI`</summary>
+    public static void BuildPrefabFromCLI()
+    {
+        var s = ArenaFromEnv();
+        Directory.CreateDirectory(PrefabDir);
+        bool ok = BuildOneArenaPrefab(s);
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+        Debug.Log($"[Arena] §27 **单场** prefab：{s} {(ok ? "✅ 建好" : "❌ 失败")} → `{ArenaPrefabPath(s)}`");
+    }
+
     /// <summary>🆕 2026-10-11（A1557）：**产物自检** —— 自定义顶点流到底进没进 `.prefab`。
     ///
     /// 🔴 **为什么要单独读一遍盘**：`rend.SetActiveVertexStreams(...)` 只证明「调过了」，
@@ -3695,7 +3717,22 @@ public static class ArenaBuilder
             var camGo = new GameObject(string.IsNullOrEmpty(mf.camera.name) ? "BoardCamera" : mf.camera.name);
             camGo.tag = "MainCamera";
             var cam = camGo.AddComponent<Camera>();
-            ConfigureBoardCamera(cam, mf.camera, BattleScene.BoardLensShiftY());
+            // 🆕 2026-10-11（第二十会话 · 账 `A1601`）：**诊断用的取景覆盖** ——
+            //   `WF_LENSSHIFT=<float>` 直接指定 `lensShift.y`（**只在设了这个环境变量时才生效**，默认走下面那条）。
+            //   为什么要它：我们的预览与**原版实拍**逐像素比时发现**整体竖直平移 ≈ +6px（1080p）**、
+            //   13 场完全一致 ⇒ 是**一处系统性取景差**。已知的两个候选值：
+            //     · 我们现算的 `BattleScene.BoardLensShiftY()`（= `LensShiftY(16/9, 1)`）
+            //     · 原版**场景里序列化**的 `m_LensShift.y = -0.20499999821186066`（清单 `camera.lensShiftY` 存的就是它）
+            //   本开关就是用来把这两个值各渲一张、量哪一个与原版实拍对得上的。⛔ 不是生产参数。
+            float lensY = BattleScene.BoardLensShiftY();
+            var lensOv = System.Environment.GetEnvironmentVariable("WF_LENSSHIFT");
+            if (!string.IsNullOrEmpty(lensOv) && float.TryParse(lensOv, System.Globalization.NumberStyles.Float,
+                                                              System.Globalization.CultureInfo.InvariantCulture, out var lv))
+            {
+                lensY = lv;
+                Debug.Log($"[Arena] WF_LENSSHIFT 覆盖：lensShift.y = {lv}（默认 = BoardLensShiftY() = {BattleScene.BoardLensShiftY()}）");
+            }
+            ConfigureBoardCamera(cam, mf.camera, lensY);
             ApplyTransform(camGo.transform, mf.camera.pos, mf.camera.rot, new float[] { 1, 1, 1 });
             camGo.AddComponent<AudioListener>();
         }
@@ -5133,8 +5170,12 @@ public static class ArenaBuilder
         // 🆕 2026-10-11（F4）：公式**不再写在这一行**，改用 `ArenaOriginalMaterial.ResolveQueue`
         //   （**判据只此一处**）—— 运行时重建 (`ArenaOriginalMaterial.Rebuild`) 那条路原来只认清单的
         //   `queue` 字段，而它在跨包材质上是 `-1` ⇒ 一律落 3000 ⇒ 粒子与「烘焙光斑」画反了。
-        //   生成器那条根因**仍在**（`unity_scene_to_godot.py:552 mat_data()` 的 dict 漏带
-        //   `m_CustomRenderQueue`，`d:/2` 不在白名单）⇒ 这里改为**从 `matProps` 现算**，与运行时同源。
+        //   🔴 **2026-10-11（第二十会话）就地订正（铁律 5）：上面那句「生成器那条根因仍在」【已不成立】** ——
+        //   真身 `d:/4/Unity/工具/scripts快照/unity_scene_to_godot.py` 的 `mat_data()` 已补上
+        //   `m_CustomRenderQueue`，现读清单与本节那张 9/9 表**逐条吻合**（`TinyFlame` = 3005 ·
+        //   `wispySmoke Black` = 3001 · `SmokeySteam Black` = 3003）。⇒ `p.matQueue` 现在与
+        //   `3000 + _QueueOffset` **同源**，下面那条「两个来源打架就出声」由【恒不触发】变成【真能触发】。
+        //   ⚠️ 但**本处仍然从 `matProps` 现算** —— 那是对**旧清单**的兜底（清单可能是上一版生成的），⛔ 别改回去。
         int qoff = 0; bool hasQoff = false;
         if (p.matProps != null)
             foreach (var pr in p.matProps)

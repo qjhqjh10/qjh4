@@ -629,7 +629,10 @@ def load_zh():
             e["descZh"] = dzh
         if e:
             out[name] = e
-    print(f"中文表       {len(out)} 条（源 {doc.get('count')}，冲突 {len(doc.get('conflicts') or [])} 处）")
+    # 🔴 `A1445`（2026-10-11）：源表 `zh_cards.json` 的顶层 `count` 字段**已删** ——
+    #    那是个会烂的死数（实测写着 1196、而 `cards` 里 1198 条）。这里**现算**条目数，
+    #    ⛔ 别再回去读源表里任何「总数」字段（生成器只读 `cards` / `conflicts` 两处内容）。
+    print(f"中文表       {len(out)} 条（源条目 {len(doc.get('cards') or {})} · 冲突 {len(doc.get('conflicts') or [])} 处）")
     return out
 
 

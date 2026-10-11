@@ -920,6 +920,9 @@ namespace RuleEngine
             if (Each) sb.Append(" 每个");
             if (Deployed) sb.Append(" 刚部署的");
             if (!string.IsNullOrEmpty(KeywordFilter)) sb.Append(" 带").Append(KeywordFilter);
+            // 🆕 2026-10-21（账 `A1462`）：**排除**那一格也要打出来 —— 否则「收了没收到」
+            //   在日志/报告里看不出来（这条字段原来是**只写不显示**的）。
+            if (!string.IsNullOrEmpty(NotKeyword)) sb.Append(" 排除").Append(NotKeyword);
             if (!string.IsNullOrEmpty(NameFilter)) sb.Append(" 名为").Append(NameFilter);
             return sb.ToString();
         }
@@ -1776,7 +1779,7 @@ namespace RuleEngine
         /// 🔴 为什么要按类型分（2026-09-16，正本 `资料/普查产出_0916/静默桩家族_0916.md`）：
         ///   · `tactic` / `defence` 走**主解析器** —— 它们的 `desc` **就是**结算内容
         ///     （`RuleCore.PlayTactic` 打出去时 `Parse(desc)`）；
-        ///   · `unit` / `hero` 走**事件层 / 触发层 / 灵魂石 / 誓约** —— 它们的 `desc` 里带
+        ///   · `unit` / `hero` 走**事件层 / 触发层 / 灵魂石 / 誓约 / 信仰** —— 它们的 `desc` 里带
         ///     `Rally:` / `When &lt;事件>,` / `Strike:` 这些**前缀**，而正文早就被
         ///     `CardDef.AddWhenTrigger` / `AddTriggerOp` 分走了 ⇒
         ///     **主解析器解出来的东西是没人执行的残渣**。
@@ -1818,6 +1821,14 @@ namespace RuleEngine
                 }
             if (c.SpiritOps != null) foreach (var o in c.SpiritOps) AddWithNested(list, o);
             if (c.OathOps != null) foreach (var o in c.OathOps) AddWithNested(list, o);
+            // 🆕 **2026-10-11（`A1452`）：信仰能力（`N ☀: …`）** —— 第七个来源。
+            //   与灵魂石同一形状：**持有即会执行**（打出/入场那一步自动结算，`RuleCore.PlayCard` →
+            //   `EffectResolver.ResolveFaithAbility`），所以它属于**执行层**、必须在这里露面。
+            //   ⚠️ **不加这一条 `WillRunOps` 就漏掉它** ⇒ `willrun` 的 ④「付费段」档永远报
+            //   11 条 / 9 张、rc 恒 1（`A1452` 的「不做这条永远 rc=1」）。
+            //   ⚠️ N 是**阈值**不是开销（`A1453`），但「收不收线索」与「N 怎么算」是两件事 ——
+            //   这里只负责把 op 收进执行层。
+            if (c.FaithOps != null) foreach (var o in c.FaithOps) AddWithNested(list, o);
             if (c.AttackedOps != null) foreach (var o in c.AttackedOps) AddWithNested(list, o);
 
             // 🆕 **2026-09-16：光环（`AuraSpecs`）也要收进来。**
@@ -4223,6 +4234,11 @@ namespace RuleEngine
         /// <summary>`a troop with Destroyer` 里的 `with &lt;关键词>` —— 1=关键词。</summary>
         static readonly Regex ReTargetWith = new Regex(
             @"\s+with\s+([a-z][a-z' ]*)$", RegexOptions.Compiled);
+
+        /// <summary>卡面 `a random **non Flying** enemy troop` 的**排除**那一截（账 `A1462`）。
+        /// 组 1 = 那个词（**单个词**，见 `ParseTarget` 里那条守卫与它的边界说明）。</summary>
+        static readonly Regex ReTargetNon = new Regex(
+            @"\s+non\s+([a-z][a-z']*)", RegexOptions.Compiled);
 
         /// <summary>`Your Warlord gains: "…"` —— 1=引号里的效果原文。</summary>
         static readonly Regex ReWarlordGains = new Regex(
@@ -7750,6 +7766,45 @@ namespace RuleEngine
                 spec.PickMost = (mHi.Groups[1].Value == "highest" ? "+" : "-") + mHi.Groups[2].Value;
                 t = t.Substring(0, mHi.Index).Trim();
                 if (t.Length == 0) t = "units";
+            }
+
+            // ---- 🆕 `a random **non Flying** enemy troop` —— **排除**带某个关键词的 ----
+            //   （2026-10-21 · 账 `A1462`，写手 `E2` 用探针坐实「真的丢了」之后转本写手修）
+            //
+            //   **卡面亲读**（铁律 7）：
+            //     · `d:/2/Warpforge部队卡片/Orks/3部队/Warpforge_11_Unleashed-Tramplasquig.png`
+            //     · `d:/2/Warpforge部队卡片/Space Wolves/3部队/Warpforge_12_Hunting-Wolf.png`
+            //     —— **两张都印着** `non 〔Flying〕 Flying`（`〔…〕` 是图标字形）。
+            //   **原版判据** = `TargetCriteria.excludeTrait`
+            //     （`d:/2/tools/decomp_full/FilterMethods__MeetsTraitCriteria.c`：
+            //      `bVar2 = (param_3 ^ 1) & bVar2` ⇒ 这一位为假就把命中者**排除**）。
+            //   **我们这边的落点** = `EffectTargetSpec.NotKeyword`（全仓唯一承载「排除」的字段，
+            //     消费点 = `EffectResolver.ApplyTargetFilters` ⇒ `pool.RemoveAll(u => u.Has(NotKeyword))`）
+            //     ⇒ **判定层已经是对的**，缺的只有这一截**解析**。
+            //   ⚠️ **改前**：本函数只认 `with <词>`（下面那一支）⇒ `non flying` 那截**被当噪声留在
+            //     `t` 里**，`NotKeyword` 恒空 ⇒ 后果不是报错，而是
+            //     **随机挑中一个飞行单位 ⇒ 近战打不到 ⇒ 整个空过**（`E2` 实测：真路径 8 次抽样里 **1 次**）。
+            //   🔴 **必须在 `ReTargetWith` 之前**、且**只收「那个词真的是一个关键词」的**：
+            //     判据 = `KeywordTable.Normalize` 认得出（`flying` → `flying`）——
+            //     否则 `non` 出现在别的语境里会被**静默**当成筛选（宁可留着标半懂，也别收错）。
+            //   ⚠️ **如实标着的边界（本笔只做卡面那一种写法）**：
+            //     · **只认单个词**（`non flying`）—— `non Hunt Mark` 这种**多词关键词**今天收不到
+            //       （正则只吃一个词；放宽成「贪婪多吃一个词」会把 `non flying enemy troop` 里的
+            //       `enemy` 也吃进去 ⇒ 目标整个变样，**比不收更糟**）。今天全池 `non <词>` **只有 2 处**，
+            //       两处都是单词（`GOF85` / `SW12`，现读 `cards_engine.json`）。
+            //     · **只认空白分隔的 `non X`**；`non-flying`（连字符）那种今天池里 0 处，**没收**。
+            {
+                var mn = ReTargetNon.Match(t);
+                if (mn.Success)
+                {
+                    string canon = KeywordTable.Normalize(mn.Groups[1].Value);
+                    if (canon != null)
+                    {
+                        spec.NotKeyword = canon;
+                        t = Regex.Replace(t.Substring(0, mn.Index) + " " + t.Substring(mn.Index + mn.Length),
+                                          @"\s{2,}", " ").Trim();
+                    }
+                }
             }
 
             // ---- `a troop with Destroyer` —— **关键词**筛选（原版 `TargetCriteria.traitsFilter`）----

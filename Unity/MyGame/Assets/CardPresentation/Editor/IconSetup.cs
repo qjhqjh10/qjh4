@@ -217,11 +217,14 @@ public static class IconSetup
     // ─────────────────────────── 自检 ───────────────────────────
 
     /// <summary>
-    /// 六组：① 资产在 ② 计划表里每个 sprite 名都能在 asset 里查到 ③ 真渲一张图
+    /// 七组：① 资产在 ② 计划表里每个 sprite 名都能在 asset 里查到 ③ 真渲一张图
     /// ④ **徽记链的通用护栏**（英文卡面画的每一枚徽记，中文卡面也要画；含灭自证，`A1409`）
     ///    ＋ **`KnownZhGaps`「只许变短」的机械保证**（表条数 === 显式常量，`A1423`）
     /// ⑤ **素材盘 ↔ 计划表 的对账**（盘上有图却没被用上的要出声，`A1370`）
-    /// ⑥ **两份 `card_icon_plan.json` 的 `cards` 数组逐字节对账**（含灭自证，`A1421`）。
+    /// ⑥ **两份 `card_icon_plan.json` 的 `cards` 数组逐字节对账**（含灭自证，`A1421`；
+    ///    🔴 `A1425` 起是**逐字节**、`File.ReadAllBytes`）。
+    /// ⑦ **生产那一行真在传 `c.NumericKeywords`**（`A1417`）—— 钉的是
+    ///    `BattleDriver.FaceTextFull` 那个**调用点**，⛔ 不是 `Badges.CarriesValue` 自己那一侧（那一侧早有断言）。
     /// ③ 是给人看的 —— 断言测不出「渲出来是空方块」。
     /// </summary>
     [MenuItem("Warpforge/图标自检")]
@@ -712,6 +715,10 @@ public static class IconSetup
         //   文件 **666037 / 665985** 字符（UTF-8 字节分别是 **902181 / 902117**）、
         //   **头部 133 / 81 字符**（那 52 个字符就是全部差异）、
         //   `cards` 体 **各 665904 字符且逐字节相同**（FNV-1a64 都是 `a4580070c903191b`）。
+        //   🔴 **2026-10-11（`A1425`）就地订正：上面那组读数是【字符】口径，本条已改成【字节】**
+        //     （`File.ReadAllBytes`）⇒ **长度与指纹都不再可比**，别拿旧数当基线；
+        //     `A1425` 的缘由：判据原文写「**逐字节**相同」而实现走 `File.ReadAllText`（**吃 BOM**）
+        //     ⇒ 「其中一份被加了 BOM」这件事**看不见**（今天两份都无 BOM、所以今天不假）。
         //
         // 🧨 **灭自证（⑥b）**：这条判据有两个**天然恒绿**的写法 ——
         //   ① 两条路径常量抄成**同一个文件**（那比的就是「自己跟自己」）；
@@ -720,9 +727,17 @@ public static class IconSetup
         //   （中间翻一位 · 截掉 100 **字符**（= `.Length` 那个单位）⇒ 必须**不同**；两边都取不到 ⇒ 必须**不同**，⛔ 不是相同）。
         //   「恒绿」与「认得出这些变体」**结构上不可能同时成立**。
         {
-            string rawA = File.Exists(DataPlanFileAbs) ? File.ReadAllText(DataPlanFileAbs) : null;
-            string rawB = File.Exists(PlanFileAbs) ? File.ReadAllText(PlanFileAbs) : null;
-            string bodyA = CardsBody(rawA), bodyB = CardsBody(rawB);
+            // 🔴 **2026-10-11（`A1425` · 铁律 5/11）：判据从「字符」改成「**字节**」** ——
+            //   `A1421` 的判据原文写的就是「两份的 `cards` 数组**逐字节**相同」，
+            //   而实现走的是 `File.ReadAllText`（**会把 BOM 吃掉**）⇒ **「某一份哪天被加了 BOM」
+            //   这件事它看不见**（BOM 是可见字符之外的三个字节）。今天两份都**无 BOM**
+            //   （二进制头就是 `{`）⇒ 字符相同 ⇔ 字节相同，所以**今天不假**，但**判据与实现要同口径**。
+            //   ⇒ 全套换 `File.ReadAllBytes` + 逐字节比 + 按字节报长度/指纹/首个不同处。
+            //   ⚠️ **FNV-1a 的乘法基数不变**，但喂进去的单位从 `char`（UTF-16 码元）变成 `byte`
+            //     ⇒ **指纹值与改前不可比**（读数那行是给自己对比用的，别跨版本比）。
+            byte[] rawA = File.Exists(DataPlanFileAbs) ? File.ReadAllBytes(DataPlanFileAbs) : null;
+            byte[] rawB = File.Exists(PlanFileAbs) ? File.ReadAllBytes(PlanFileAbs) : null;
+            byte[] bodyA = CardsBody(rawA), bodyB = CardsBody(rawB);
 
             Check(rawA != null && bodyA != null,
                   "⑥ 读得到 `数据/游戏数据/` 那份计划表、且里面有 `\"cards\"` 键（" + DataPlanFileAbs + "）", ref bad);
@@ -732,25 +747,23 @@ public static class IconSetup
             int fd = FirstDiff(bodyA, bodyB);
             Check(SameCardsBody(bodyA, bodyB),
                   "★ ⑥a **两份 `card_icon_plan.json` 的 `cards` 数组逐字节相同**（`" +
-                  (bodyA == null ? "?" : bodyA.Length.ToString()) + "` / `" +
-                  (bodyB == null ? "?" : bodyB.Length.ToString()) + "` 字符" +
-                  (fd < 0 ? "" : "；**首个不同处在第 " + fd + " 个字符**") +
+                  Blen(bodyA) + "` / `" + Blen(bodyB) + "` 字节" +
+                  (fd < 0 ? "" : "；**首个不同处在第 " + fd + " 个字节**") +
                   "）。⛔ 头部**不参与**比 —— 两份的 `note` 本来就不同" +
                   "（`Resources` 那份写着「运行时那一份」）。" +
                   "改坏法：只重写其中一份 / 手工改其中一份 ⇒ 红。" +
                   "出处：`工具/gen_icon_plan.py` 是两份一起写，但**那是它的自觉、原来没有断言钉住**（`A1421`）。",
                   ref bad);
-            Log("⑥ 读数：`cards` 体 " + (bodyA == null ? "?" : bodyA.Length.ToString()) + " / " +
-                (bodyB == null ? "?" : bodyB.Length.ToString()) + " 字符；指纹 FNV-1a64 = " +
+            Log("⑥ 读数：`cards` 体 " + Blen(bodyA) + " / " + Blen(bodyB) + " **字节**；指纹 FNV-1a64（按字节） = " +
                 BodyHash(bodyA) + " / " + BodyHash(bodyB) + "；头部 " +
                 (rawA == null || bodyA == null ? "?" : (rawA.Length - bodyA.Length).ToString()) + " / " +
                 (rawB == null || bodyB == null ? "?" : (rawB.Length - bodyB.Length).ToString()) +
-                " 字符（**本来就不同**，别拿它当信号）");
+                " 字节（**本来就不同**，别拿它当信号）");
 
             // ⑥b【灭自证】
             bool pathDistinct = !string.Equals(DataPlanFileAbs, PlanFileAbs, System.StringComparison.OrdinalIgnoreCase);
-            string flip = MidFlip(bodyA);
-            string cut = (bodyA == null || bodyA.Length <= 100) ? null : bodyA.Substring(0, bodyA.Length - 100);
+            byte[] flip = MidFlip(bodyA);
+            byte[] cut = (bodyA == null || bodyA.Length <= 100) ? null : Slice(bodyA, 0, bodyA.Length - 100);
             Check(pathDistinct
                   && SameCardsBody(bodyA, bodyA)
                   && !SameCardsBody(bodyA, flip)
@@ -760,9 +773,84 @@ public static class IconSetup
                   "两条路径确实不同=" + pathDistinct +
                   "（抄成同一条 ⇒ 比的是自己跟自己）；同一份内容 ⇒ **相同**=" + SameCardsBody(bodyA, bodyA) +
                   "（⛔ 若恒「不同」⇒ 这里红）；中间翻一位 ⇒ **不同**=" + !SameCardsBody(bodyA, flip) +
-                  "；截掉 100 字符 ⇒ **不同**=" + !SameCardsBody(bodyA, cut) +
+                  "；截掉 100 **字节** ⇒ **不同**=" + !SameCardsBody(bodyA, cut) +
                   "；**两边都取不到 ⇒ 必须「不同」**=" + !SameCardsBody(null, null) +
                   "（这条挡的是 `null == null` **恒真**那个洞 —— 取不到键时别当成「相同」）。", ref bad);
+        }
+
+        // ⑦ 生产那一行真在传 `c.NumericKeywords`（`A1417`）
+        // ═══════════════════════════════════════════════════════════════════
+        //
+        // 🔴 **为什么单开这一条**（判据原文 → `项目任务.md` §29·b 的 `A1417`，出自 `A1341` 那批的顺手发现）：
+        //   `CardText.KeywordSegment` 的 `numericKeys` 那一档**全仓只有生产那一处在传**
+        //   （`BattleDriver.FaceTextFull`），另 5 个自检调用点**全吃默认 `null`**；
+        //   而 `A1332` 报告建议的第 4 条断言（`CarriesValue("Foo", 1, new[]{"foo"}) == true`）
+        //   **只钉住 `Badges` 那一侧** ⇒ **生产这一行没有任何断言**：谁把那行实参删掉 / 改成 `null`，
+        //   全仓**不会有一条红**，而卡面会**静默少印数字**（那一档正好是 `A1341` 补上的第①档）。
+        //
+        // **夹具**：一张**合成卡**（不进卡池）。它的关键词**带数字、又不在 `Badges.CarriesValue`
+        //   的 ③ 表里、值又是 1** ⇒ 三档里**只有第 ① 档能说话**（`Armour 1` 那种不行：
+        //   `armour` 在 ③ 表里 ⇒ 删掉 `numericKeys` 照样印数字，**钉不住**）。
+        //   取 `Vanguard`：`Card_Trait/vanguard` 在表里（有显示名 ⇒ 判据②过得去），
+        //   而 `vanguard` **不在** ③ 那 12 个键里（现读 `Core/Badges.cs` 的 `CarriesValue`）。
+        //
+        // **判据（两条一起看才叫钉住）**：
+        //   (a) 带数字那张 ⇒ 卡面那段**必须出现那个数字**（`numericKeys` 没传 ⇒ 这里红）；
+        //   (b) 不带数字的对照张 ⇒ **不许**多印一个数字（挡「恒给所有词加数字」那种退化写法）。
+        //   ⇒ (a) 恒绿与 (b) 恒绿**结构上不可能同时成立**（这正是 `A1417` 要的「灭自证」那一半）。
+        //
+        // ⚠️ **落点说明（如实记）**：这段更自然的位置是**卡面宿主**（`CardPresentation/Editor/BattleScene.cs`
+        //   那几条盯 `KeywordSegment` 的断言旁边）；本轮白名单只到「图标工具 + `CardPresentation/Core/**`」，
+        //   所以放在**图标链的自检宿主**里 —— 它钉的是同一行（走 `BattleDriver.FaceTextFull`，
+        //   ⛔ 不是绕过它直调 `KeywordSegment`），**效力一样**。
+        {
+            var probe = new RuleEngine.CardDef(
+                id: "Z_PROBE_NUMKEY", name: "Z Probe Numkey", type: "unit",
+                desc: "", rarity: "common", faction: "Ultramarines",
+                cost: 1, attack: 1, health: 1, rangedAttack: 0,
+                keywords: new[] { "Vanguard 1" },
+                nameZh: "数档探针", descZh: "", fromOriginalPool: true, subtype: "Infantry");
+            var ctrl = new RuleEngine.CardDef(
+                id: "Z_PROBE_NONUM", name: "Z Probe Nonum", type: "unit",
+                desc: "", rarity: "common", faction: "Ultramarines",
+                cost: 1, attack: 1, health: 1, rangedAttack: 0,
+                keywords: new[] { "Vanguard" },
+                nameZh: "无数档探针", descZh: "", fromOriginalPool: true, subtype: "Infantry");
+
+            string got = CardPresentation.BattleDriver.FaceTextFull(probe).body ?? "";
+            string gotCtrl = CardPresentation.BattleDriver.FaceTextFull(ctrl).body ?? "";
+            bool num = got.Contains("Vanguard 1") || got.Contains("先锋 1");
+            bool noNum = gotCtrl.Contains("Vanguard 1") || gotCtrl.Contains("先锋 1");
+            Check(num && !noNum,
+                  "★ ⑦ **生产那一行真在传 `c.NumericKeywords`**（`A1417`）：合成卡 `Vanguard 1` 的卡面段" +
+                  "**必须印出那个数字**（= `" + num + "`，走 `BattleDriver.FaceTextFull` ⇒ `CardText.KeywordSegment`）" +
+                  "；而**不带数字**的对照张**不许**多印（= `" + !noNum + "`）。" +
+                  "🔴 **这一条只可能在两种情形下红**：① `BattleDriver.FaceTextFull` 那一行的第 4 个实参" +
+                  "被删/被改成 `null`（⇒ 第①档静默失效、卡面少印数字）；② `CarriesValue` 的第①档坏了。" +
+                  "⚠️ 为什么夹具是 `Vanguard`：它**不在** ③ 表里、值又是 1 ⇒ **三档里只有第①档能说话**" +
+                  "（用 `Armour 1` 钉不住 —— 它在 ③ 表里，删掉实参照样印数字）。" +
+                  "实测：`probe=`" + got + "` / `ctrl=`" + gotCtrl + "`", ref bad);
+
+            // ⑦b 🔴 **2026-10-11（`A1406`）：钉住「关键词段的次序 = 卡表 `keywords` 数组的先后」**
+            //    —— `CardText.KeywordSegment` 现在**按 `CardDef.Keywords` 的枚举顺序输出**
+            //    （那 = `KeywordTable.Parse` 的插入序 = 数组序；.NET `Dictionary` 无删除时枚举序 = 插入序）。
+            //    🔑 **夹具为什么要挑这一对**：`["Vanguard","Shield"]` 的**字母序是反的**
+            //    （`Shield` < `Vanguard`）⇒ 谁把那个 `Sort` 加回去、或枚举序哪天变了，**这里必红**。
+            //    判据出处：卡面声明行的次序实测（69 张可比卡：数组序对 67、字母序只对 21）。
+            var orderProbe = new RuleEngine.CardDef(
+                id: "Z_PROBE_ORDER", name: "Z Probe Order", type: "unit",
+                desc: "", rarity: "common", faction: "Ultramarines",
+                cost: 1, attack: 1, health: 1, rangedAttack: 0,
+                keywords: new[] { "Vanguard", "Shield" },
+                nameZh: "次序探针", descZh: "", fromOriginalPool: true, subtype: "Infantry");
+            string orderGot = CardPresentation.BattleDriver.FaceTextFull(orderProbe).body ?? "";
+            int iV = orderGot.IndexOf("Vanguard", System.StringComparison.Ordinal);
+            int iS = orderGot.IndexOf("Shield", System.StringComparison.Ordinal);
+            Check(iV >= 0 && iS >= 0 && iV < iS,
+                  "★ ⑦b **关键词段次序 = 卡表 `keywords` 数组的先后**（`A1406`）：合成卡 " +
+                  "`[\"Vanguard\",\"Shield\"]` 必须印成 `Vanguard` 在前、`Shield` 在后" +
+                  "（字母序是反的 ⇒ 谁把 `KeywordSegment` 里那个 `Sort` 加回去，这里必红）。" +
+                  "实测输出 = `" + orderGot + "`", ref bad);
         }
 
         // ③ 真渲一张：一行字 + 三种图标
@@ -1017,34 +1105,63 @@ public static class IconSetup
     /// ⑥ 的**取体**：从 **`"cards"` 这一键**起、截到文件尾。
     /// ⛔ **不是整个文件** —— 两份的 `note` 头**本来就不同**（`Resources` 那份自己写着「运行时那一份」）。
     /// 🔴 取不到这个键 ⇒ 返回 `null`；**`null` 不许冒充「相同」**（`SameCardsBody` 里钉着）。
+    /// 🔴 **2026-10-11（`A1425`）：入参与出参都是 `byte[]`**（改前是 `string`，走 `File.ReadAllText`
+    /// —— 那条路**会把 BOM 吃掉** ⇒ 判据原文那句「逐字节相同」**落不了地**）。
     /// </summary>
-    static string CardsBody(string raw)
+    static byte[] CardsBody(byte[] raw)
     {
-        if (string.IsNullOrEmpty(raw)) return null;
-        int i = raw.IndexOf("\"cards\"", System.StringComparison.Ordinal);
-        return i < 0 ? null : raw.Substring(i);
+        if (raw == null || raw.Length == 0) return null;
+        int i = IndexOfAscii(raw, "\"cards\"");
+        return i < 0 ? null : Slice(raw, i, raw.Length - i);
+    }
+
+    /// <summary>`byte[]` 里找一段**纯 ASCII** 子串（`"cards"` 这个键名就是）—— 朴素查找，够用。</summary>
+    static int IndexOfAscii(byte[] hay, string needle)
+    {
+        if (hay == null || needle == null || needle.Length == 0) return -1;
+        for (int i = 0; i + needle.Length <= hay.Length; i++)
+        {
+            int j = 0;
+            while (j < needle.Length && hay[i + j] == (byte)needle[j]) j++;
+            if (j == needle.Length) return i;
+        }
+        return -1;
+    }
+
+    /// <summary>`byte[]` 切片（`Array.Copy`；⛔ 别拿 `Span` —— 本仓的 csc 版本不必冒这个险）。</summary>
+    static byte[] Slice(byte[] src, int start, int len)
+    {
+        var outb = new byte[len];
+        System.Array.Copy(src, start, outb, 0, len);
+        return outb;
     }
 
     /// <summary>
     /// ⑥ 的**比较器本体**（纯函数 ⇒ ⑥b 拿它跑变体）。
     /// 🔴 `null` **不算「相同」** —— 这就是 `null == null` 恒真那个洞（两边都取不到键时，
     /// 若拿 `==` 直接比，断言会**恒绿**）。
+    /// 🔴 **2026-10-11（`A1425`）：逐字节比**（`SequenceEqual` 的等价写法）—— 判据原文就是这个。
     /// </summary>
-    static bool SameCardsBody(string a, string b)
+    static bool SameCardsBody(byte[] a, byte[] b)
     {
-        return a != null && b != null && string.Equals(a, b, System.StringComparison.Ordinal);
+        if (a == null || b == null) return false;
+        if (a.Length != b.Length) return false;
+        for (int i = 0; i < a.Length; i++) if (a[i] != b[i]) return false;
+        return true;
     }
 
     /// <summary>⑥b 变体一：把**正中间那一位**翻掉（**长度不变** ⇒ 挡「只比长度」那种退化比较器）</summary>
-    static string MidFlip(string s)
+    static byte[] MidFlip(byte[] s)
     {
-        if (string.IsNullOrEmpty(s)) return s;
-        int i = s.Length / 2;
-        return s.Substring(0, i) + (char)(s[i] ^ 1) + s.Substring(i + 1);
+        if (s == null || s.Length == 0) return s;
+        var c = (byte[])s.Clone();
+        int i = c.Length / 2;
+        c[i] = (byte)(c[i] ^ 1);
+        return c;
     }
 
     /// <summary>⑥ 报错时用：**第一处不同**的下标（两边完全一样 ⇒ -1）—— 给人一个可复核的坐标，不是只报「不等」</summary>
-    static int FirstDiff(string a, string b)
+    static int FirstDiff(byte[] a, byte[] b)
     {
         if (a == null || b == null) return -1;
         int n = System.Math.Min(a.Length, b.Length);
@@ -1053,16 +1170,20 @@ public static class IconSetup
     }
 
     /// <summary>
-    /// ⑥ 的读数用：FNV-1a 64 位指纹（`cards` 体 90 万字符用；**给人一个能在外面对着算的指纹**）。
+    /// ⑥ 的读数用：FNV-1a 64 位指纹（`cards` 体 90 万**字节**用；**给人一个能在外面对着算的指纹**）。
     /// 不引 `System.Security.Cryptography` 的 sha256 —— 这里只当「读数」，不当判据。
+    /// ⚠️ `A1425` 把喂进来的单位从 `char` 换成 `byte` ⇒ **指纹值与改前不可比**（别跨版本对）。
     /// </summary>
-    static string BodyHash(string s)
+    static string BodyHash(byte[] s)
     {
         if (s == null) return "-";
         ulong h = 14695981039346656037UL;
-        foreach (char c in s) { h ^= c; h *= 1099511628211UL; }
+        foreach (byte c in s) { h ^= c; h *= 1099511628211UL; }
         return h.ToString("x16");
     }
+
+    /// <summary>⑥ 报长度用：`byte[]` ⇒ 字符串（`null` ⇒ `"?"`，⛔ 别抛）。</summary>
+    static string Blen(byte[] s) { return s == null ? "?" : s.Length.ToString(); }
 
     // JsonUtility 用的扁平结构（④ 读计划表；只声明用得上的字段，`why` 不读）
     [System.Serializable] class PlanDoc { public int version; public PlanCard[] cards; }

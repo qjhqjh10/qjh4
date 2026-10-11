@@ -32191,6 +32191,674 @@
       "active": true
     },
     {
+      "go": "Generator ",
+      "subMesh": null,
+      "worldBaked": false,
+      "obj": "Generator 1",
+      "objFile": "Generator 1.obj",
+      "builtinMesh": null,
+      "subFiles": null,
+      "pos": [
+        102.580299,
+        0.677755,
+        -9.894377
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "Battle Arena Astra Militarum Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Astra Militarum Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Astra Militarum Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Astra Militarum Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
+          "props": [
+            {
+              "k": "_APPLYAMBIENTCOLOR",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_AlphaClip",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_AlphaToMask",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_BaseColor",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "k": "_Blend",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_BlendModePreserveSpecular",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_BumpScale",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_CastShadows",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_ClearCoatMask",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_ClearCoatSmoothness",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_ClipThreshold",
+              "t": "f",
+              "f": 0.5
+            },
+            {
+              "k": "_Color",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "k": "_Cull",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_Cutoff",
+              "t": "f",
+              "f": 0.5
+            },
+            {
+              "k": "_DetailAlbedoMapScale",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_DetailNormalMapScale",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_DistortSpeed_XY_Scale_ZW",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "k": "_DistortStrength",
+              "t": "f",
+              "f": 0.009999999776482582
+            },
+            {
+              "k": "_DistortionStrength",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_DistortionStrength_1",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_DstBlend",
+              "t": "f",
+              "f": 10.0
+            },
+            {
+              "k": "_DstBlendAlpha",
+              "t": "f",
+              "f": 10.0
+            },
+            {
+              "k": "_ENABLEMATCAP",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_EmissionColor",
+              "t": "c",
+              "c": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ]
+            },
+            {
+              "k": "_EnvironmentReflections",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_ExtraAmbientColor",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                1.0,
+                0.0
+              ]
+            },
+            {
+              "k": "_FogContribution",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_GlossMapScale",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_Glossiness",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_GlossyReflections",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_MatcapIntensity",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_Metallic",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_OcclusionStrength",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_Parallax",
+              "t": "f",
+              "f": 0.004999999888241291
+            },
+            {
+              "k": "_QueueControl",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_QueueOffset",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_ROTATEUVS",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_ReceiveShadows",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_RotationSpeed",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_Smoothness",
+              "t": "f",
+              "f": 0.5
+            },
+            {
+              "k": "_SmoothnessTextureChannel",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_SpecColor",
+              "t": "c",
+              "c": [
+                0.20000000298023224,
+                0.20000000298023224,
+                0.20000000298023224,
+                1.0
+              ]
+            },
+            {
+              "k": "_SpecularHighlights",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_SrcBlend",
+              "t": "f",
+              "f": 5.0
+            },
+            {
+              "k": "_SrcBlendAlpha",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_Surface",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_USEDISTORT",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_UVSpeed",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                0.0,
+                0.0
+              ]
+            },
+            {
+              "k": "_WorkflowMode",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_ZTest",
+              "t": "f",
+              "f": 4.0
+            },
+            {
+              "k": "_ZWrite",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_ZWriteControl",
+              "t": "f",
+              "f": 1.0
+            }
+          ]
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
+      "props": [
+        {
+          "k": "_APPLYAMBIENTCOLOR",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_AlphaClip",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_AlphaToMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BaseColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_Blend",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BlendModePreserveSpecular",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_BumpScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CastShadows",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatSmoothness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClipThreshold",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_Color",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_Cull",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Cutoff",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_DetailAlbedoMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DetailNormalMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortSpeed_XY_Scale_ZW",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_DistortStrength",
+          "t": "f",
+          "f": 0.009999999776482582
+        },
+        {
+          "k": "_DistortionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionStrength_1",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DstBlend",
+          "t": "f",
+          "f": 10.0
+        },
+        {
+          "k": "_DstBlendAlpha",
+          "t": "f",
+          "f": 10.0
+        },
+        {
+          "k": "_ENABLEMATCAP",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_EmissionColor",
+          "t": "c",
+          "c": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_EnvironmentReflections",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ExtraAmbientColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_FogContribution",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_GlossMapScale",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Glossiness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossyReflections",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_MatcapIntensity",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Metallic",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_OcclusionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Parallax",
+          "t": "f",
+          "f": 0.004999999888241291
+        },
+        {
+          "k": "_QueueControl",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_QueueOffset",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ROTATEUVS",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ReceiveShadows",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_RotationSpeed",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Smoothness",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_SmoothnessTextureChannel",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SpecColor",
+          "t": "c",
+          "c": [
+            0.20000000298023224,
+            0.20000000298023224,
+            0.20000000298023224,
+            1.0
+          ]
+        },
+        {
+          "k": "_SpecularHighlights",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SrcBlend",
+          "t": "f",
+          "f": 5.0
+        },
+        {
+          "k": "_SrcBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Surface",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_USEDISTORT",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_UVSpeed",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_WorkflowMode",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ZTest",
+          "t": "f",
+          "f": 4.0
+        },
+        {
+          "k": "_ZWrite",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ZWriteControl",
+          "t": "f",
+          "f": 1.0
+        }
+      ],
+      "texOpaquePct": 42.8,
+      "texClearPct": 55.0,
+      "active": true
+    },
+    {
       "go": "Crates 15",
       "subMesh": null,
       "worldBaked": false,
@@ -48023,6 +48691,674 @@
       "active": true
     },
     {
+      "go": "Bunker Gun ",
+      "subMesh": null,
+      "worldBaked": false,
+      "obj": "Bunker Gun 1",
+      "objFile": "Bunker Gun 1.obj",
+      "builtinMesh": null,
+      "subFiles": null,
+      "pos": [
+        70.454385,
+        21.988466,
+        69.849413
+      ],
+      "rot": [
+        -0.701377,
+        0.089832,
+        0.089832,
+        0.701377
+      ],
+      "scale": [
+        174.862946,
+        174.862969,
+        174.862959
+      ],
+      "tex": "Battle Arena Astra Militarum Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Astra Militarum Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Astra Militarum Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Astra Militarum Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
+          "props": [
+            {
+              "k": "_APPLYAMBIENTCOLOR",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_AlphaClip",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_AlphaToMask",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_BaseColor",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "k": "_Blend",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_BlendModePreserveSpecular",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_BumpScale",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_CastShadows",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_ClearCoatMask",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_ClearCoatSmoothness",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_ClipThreshold",
+              "t": "f",
+              "f": 0.5
+            },
+            {
+              "k": "_Color",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "k": "_Cull",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_Cutoff",
+              "t": "f",
+              "f": 0.5
+            },
+            {
+              "k": "_DetailAlbedoMapScale",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_DetailNormalMapScale",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_DistortSpeed_XY_Scale_ZW",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "k": "_DistortStrength",
+              "t": "f",
+              "f": 0.009999999776482582
+            },
+            {
+              "k": "_DistortionStrength",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_DistortionStrength_1",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_DstBlend",
+              "t": "f",
+              "f": 10.0
+            },
+            {
+              "k": "_DstBlendAlpha",
+              "t": "f",
+              "f": 10.0
+            },
+            {
+              "k": "_ENABLEMATCAP",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_EmissionColor",
+              "t": "c",
+              "c": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ]
+            },
+            {
+              "k": "_EnvironmentReflections",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_ExtraAmbientColor",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                1.0,
+                0.0
+              ]
+            },
+            {
+              "k": "_FogContribution",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_GlossMapScale",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_Glossiness",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_GlossyReflections",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_MatcapIntensity",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_Metallic",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_OcclusionStrength",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_Parallax",
+              "t": "f",
+              "f": 0.004999999888241291
+            },
+            {
+              "k": "_QueueControl",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_QueueOffset",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_ROTATEUVS",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_ReceiveShadows",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_RotationSpeed",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_Smoothness",
+              "t": "f",
+              "f": 0.5
+            },
+            {
+              "k": "_SmoothnessTextureChannel",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_SpecColor",
+              "t": "c",
+              "c": [
+                0.20000000298023224,
+                0.20000000298023224,
+                0.20000000298023224,
+                1.0
+              ]
+            },
+            {
+              "k": "_SpecularHighlights",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_SrcBlend",
+              "t": "f",
+              "f": 5.0
+            },
+            {
+              "k": "_SrcBlendAlpha",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_Surface",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_USEDISTORT",
+              "t": "f",
+              "f": 0.0
+            },
+            {
+              "k": "_UVSpeed",
+              "t": "c",
+              "c": [
+                1.0,
+                1.0,
+                0.0,
+                0.0
+              ]
+            },
+            {
+              "k": "_WorkflowMode",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_ZTest",
+              "t": "f",
+              "f": 4.0
+            },
+            {
+              "k": "_ZWrite",
+              "t": "f",
+              "f": 1.0
+            },
+            {
+              "k": "_ZWriteControl",
+              "t": "f",
+              "f": 1.0
+            }
+          ]
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
+      "props": [
+        {
+          "k": "_APPLYAMBIENTCOLOR",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_AlphaClip",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_AlphaToMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BaseColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_Blend",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BlendModePreserveSpecular",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_BumpScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CastShadows",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatSmoothness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClipThreshold",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_Color",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_Cull",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Cutoff",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_DetailAlbedoMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DetailNormalMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortSpeed_XY_Scale_ZW",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_DistortStrength",
+          "t": "f",
+          "f": 0.009999999776482582
+        },
+        {
+          "k": "_DistortionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionStrength_1",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DstBlend",
+          "t": "f",
+          "f": 10.0
+        },
+        {
+          "k": "_DstBlendAlpha",
+          "t": "f",
+          "f": 10.0
+        },
+        {
+          "k": "_ENABLEMATCAP",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_EmissionColor",
+          "t": "c",
+          "c": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_EnvironmentReflections",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ExtraAmbientColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_FogContribution",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_GlossMapScale",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Glossiness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossyReflections",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_MatcapIntensity",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Metallic",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_OcclusionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Parallax",
+          "t": "f",
+          "f": 0.004999999888241291
+        },
+        {
+          "k": "_QueueControl",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_QueueOffset",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ROTATEUVS",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ReceiveShadows",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_RotationSpeed",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Smoothness",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_SmoothnessTextureChannel",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SpecColor",
+          "t": "c",
+          "c": [
+            0.20000000298023224,
+            0.20000000298023224,
+            0.20000000298023224,
+            1.0
+          ]
+        },
+        {
+          "k": "_SpecularHighlights",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SrcBlend",
+          "t": "f",
+          "f": 5.0
+        },
+        {
+          "k": "_SrcBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Surface",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_USEDISTORT",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_UVSpeed",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_WorkflowMode",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ZTest",
+          "t": "f",
+          "f": 4.0
+        },
+        {
+          "k": "_ZWrite",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ZWriteControl",
+          "t": "f",
+          "f": 1.0
+        }
+      ],
+      "texOpaquePct": 42.8,
+      "texClearPct": 55.0,
+      "active": true
+    },
+    {
       "go": "Bunker Gun Huge",
       "subMesh": null,
       "worldBaked": false,
@@ -53489,9 +54825,18 @@
       ],
       "tex": "Glow",
       "texFile": "Glow.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 4.0,
       "looping": true,
@@ -53970,7 +55315,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -54011,9 +55356,18 @@
       ],
       "tex": "Glow",
       "texFile": "Glow.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 3.0,
       "looping": true,
@@ -54534,9 +55888,18 @@
       ],
       "tex": "Glow",
       "texFile": "Glow.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 2.0,
       "looping": true,
@@ -55019,7 +56382,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -55060,9 +56423,18 @@
       ],
       "tex": "Glow",
       "texFile": "Glow.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 4.0,
       "looping": true,
@@ -55541,7 +56913,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -55582,9 +56954,18 @@
       ],
       "tex": "Smoke Sprite Sheet",
       "texFile": "Smoke Sprite Sheet.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 10.0,
       "looping": true,
@@ -56110,7 +57491,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -56143,9 +57524,18 @@
       ],
       "tex": "Glow",
       "texFile": "Glow.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 3.5,
       "looping": true,
@@ -56628,7 +58018,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -56669,9 +58059,18 @@
       ],
       "tex": "Smoke Cloud",
       "texFile": "Smoke Cloud.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 5.0,
       "looping": true,
@@ -57184,7 +58583,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": false,
@@ -57217,9 +58616,18 @@
       ],
       "tex": "Glow",
       "texFile": "Glow.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 2.0,
       "looping": true,
@@ -57698,7 +59106,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -57739,9 +59147,18 @@
       ],
       "tex": "Glow",
       "texFile": "Glow.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 2.0,
       "looping": true,
@@ -58224,7 +59641,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -58265,9 +59682,18 @@
       ],
       "tex": "Glow",
       "texFile": "Glow.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 10.0,
       "looping": true,
@@ -58795,9 +60221,18 @@
       ],
       "tex": "Glow",
       "texFile": "Glow.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 3.0,
       "looping": true,
@@ -59318,9 +60753,18 @@
       ],
       "tex": "Glow",
       "texFile": "Glow.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 4.0,
       "looping": true,
@@ -59799,7 +61243,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -59840,9 +61284,18 @@
       ],
       "tex": "Glow",
       "texFile": "Glow.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 3.0,
       "looping": true,
@@ -60363,9 +61816,18 @@
       ],
       "tex": "Glow",
       "texFile": "Glow.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 3.0,
       "looping": true,
@@ -60886,9 +62348,20 @@
       ],
       "tex": "smokeysteam",
       "texFile": "smokeysteam.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 1, 3, 4, 5, 8],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4,
+        5,
+        8
+      ],
       "applyActiveColorSpace": false,
       "duration": 5.0,
       "looping": true,
@@ -61422,7 +62895,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 1,
       "bursts": [],
       "uvEnabled": true,
@@ -61455,9 +62928,20 @@
       ],
       "tex": "Smoke Sprite Sheet",
       "texFile": "Smoke Sprite Sheet.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 1, 3, 4, 5, 8],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4,
+        5,
+        8
+      ],
       "applyActiveColorSpace": false,
       "duration": 5.0,
       "looping": true,
@@ -62004,7 +63488,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 1,
       "bursts": [],
       "uvEnabled": true,
@@ -62037,9 +63521,20 @@
       ],
       "tex": "Smoke Sprite Sheet",
       "texFile": "Smoke Sprite Sheet.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 1, 3, 4, 5, 8],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4,
+        5,
+        8
+      ],
       "applyActiveColorSpace": false,
       "duration": 5.0,
       "looping": true,
@@ -62586,7 +64081,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 1,
       "bursts": [],
       "uvEnabled": true,
@@ -62619,9 +64114,20 @@
       ],
       "tex": "smokeysteam",
       "texFile": "smokeysteam.png",
-      "pivot": [0.0, 0.0, 0.0],
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": true,
-      "vertexStreams": [0, 1, 3, 4, 5, 8],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4,
+        5,
+        8
+      ],
       "applyActiveColorSpace": false,
       "duration": 5.0,
       "looping": true,
@@ -63155,7 +64661,7 @@
           "f": 0.0
         }
       ],
-      "matQueue": -1,
+      "matQueue": 3000,
       "simulationSpace": 1,
       "bursts": [],
       "uvEnabled": true,
@@ -63188,9 +64694,18 @@
       ],
       "tex": "Trail_fading",
       "texFile": "Trail_fading.png",
-      "pivot": [0.5, 0.0, 0.0],
+      "pivot": [
+        0.5,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 4.0,
       "looping": true,
@@ -63570,9 +65085,18 @@
       ],
       "tex": "Trail_fading",
       "texFile": "Trail_fading.png",
-      "pivot": [0.5, 0.0, 0.0],
+      "pivot": [
+        0.5,
+        0.0,
+        0.0
+      ],
       "useCustomVertexStreams": false,
-      "vertexStreams": [0, 1, 3, 4],
+      "vertexStreams": [
+        0,
+        1,
+        3,
+        4
+      ],
       "applyActiveColorSpace": true,
       "duration": 4.0,
       "looping": true,

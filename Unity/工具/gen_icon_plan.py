@@ -79,7 +79,12 @@ SYMBOLS = {
     SHIELD: ("shield", "🛡 = 护盾（卡面就是「🛡护盾」= 图标 + 词）"),
     BOLT:  ("rally", "⚡ = **集结**触发前缀（rally.png 就是暗金圆底 + 米白闪电）"),
     SNOW:  ("markOfSlaanesh", "❄ = 暗黑契约·纵欲（Noise Marine「gain a ❄ Dark Pact of Excess」）。"
-                              "⚠️ 五张 markOf* 切片**逐字节相同**，认不出是哪位邪神，只能按名字选"),
+                              "⚠️ **渲染上认不出是哪位邪神，只能按名字选** —— ⚪ 2026-10-11（`A1476`）"
+                              "就地订正：原来这里写「五张 markOf* 切片**逐字节相同**」，**不准确**："
+                              "逐字节相同的是 `markOfChaos`/`markOfKhorne`/`markOfNurgle` **三张**；"
+                              "`markOfSlaanesh` 只差 **15 个 `alpha=0` 像素**的 RGB（`markOfTzeentch` 差 6）"
+                              "⇒ **画面完全一样**，结论（按名字选）不变。出处 → `资料/普查产出_第二十会话/"
+                              "C1_卡表数据与文本订正.md` §`A1476` 那段的「顺手小订正」"),
 }
 
 # ── 方括号 token：**按卡**给答案 ───────────────────────────────────────────────
@@ -509,6 +514,22 @@ BARE_TOKEN_BY_CARD = {
 #      本批作者**亲读** `d:/2/Warpforge部队卡片/Dark Angels/6秘密/IMG_3696.jpg`
 #      = `Destroy an enemy troop.〔金棕圆底 + 白色同心螺旋〕Stun adjacent units`
 #      （同一枚徽记的旁证：`DarkAngels__3.md:18` 记它「金/棕圈内的白色螺旋纹（旋涡）」，与 `stun.png` 同图）。
+#      🔴 **2026-10-11（`A1377` 按族收口）：那不是孤例，是【一族 9 张】**：
+#         `D:/2/Warpforge部队卡片/Dark Angels/6秘密/` 下 **IMG_3695..3699.jpg**（全 `.jpg` 手机翻拍，
+#         非 900×1200 PnP PNG）= `Convoke the Circle`(3695) · **`None Must Know`(3696 =
+#         我们的 `DA_None_Must_Know`)** · `Obscure Ritual`(3697) · `Rites of Penance`(3698) ·
+#         `Smothering Decree`(3699)；另有 `Genestealer Cult/6破坏卡/` 的 **IMG_3817..3820.jpg**
+#         = `Jammed Communications` / `Poisoned Supplies` / `Improvised Barricade` / `Cult Propaganda`
+#         （同一族，`2026-09-16` 补的两份批次文件 `DarkAngels__3.md` / `GenestealerCult__3.md`）。
+#         抄录与「非 PnP」的标注在那两份批次文件的表头（`DarkAngels__3.md:1-3`）里。
+#         ⇒ **按名搜不到 PnP 成品图时，先想是不是这一族**（`A1366`/`A1400` 各撞过一次）。
+#      🔴 **2026-10-12 就地订正（`A1610①` · 铁律 5）：上面这条原来还写着「`_还原效果文字.md` 里**没有**」
+#         —— 那句**当时是对的、现在不成立**，已删。真因不是「转录表不覆盖 `.jpg`」，而是
+#         **转录表比它的源旧**：`_合并总表.md` 在 `2026-09-16`（`fbbd569`）从 **1118 张 / 29 份批次**
+#         长到 **1127 张 / 31 份批次**（就是补进来的这 9 张），而 `restore_card_icons.py --write`
+#         **那一轮没跟着重跑** ⇒ 转录表停在 `2026-09-13` 的快照上（文件 mtime 可证）。
+#         ✅ **已重跑生成器** ⇒ 这 9 行现在**在表里**（`IMG_3695.jpg` 等 9 行，逐行带 `⚠️`），
+#         本文件这 117 处 `_还原效果文字.md:NN` 引用也一并按新表**重算过**（+5 / +9 两档）。
 # ③ **误伤面（实测 = 0）**：全池 `\bStun\b` 命中 **30 张**（`desc`）· `眩晕` 命中 **30 张**（`descZh`），
 #    **两个集合完全相同**；每题**恰好 1 处**（max = 1）；全池**没有**更长的词含它
 #    （`Stunned` / `stuns` 等 **0 处**、`keywords` 里 **0 处**、`[Stun]` 记号 **0 处**）
@@ -537,31 +558,31 @@ _STUN_CARDS = [
     ("DA39", "`资料/卡表核对_卡图提取/_还原效果文字.md:316`", "Warpforge_39_Dark-Talon.png"),
     ("DA_None_Must_Know", "`资料/卡表核对_卡图提取/DarkAngels__3.md:9` **＋** 同文件 `:18`（形状存疑条）",
      "Dark Angels/6秘密/IMG_3696.jpg"),
-    ("EC17", "`资料/卡表核对_卡图提取/_还原效果文字.md:359`",
+    ("EC17", "`资料/卡表核对_卡图提取/_还原效果文字.md:364`",
      "Warpforge_17_Sonic-Blaster-Noise-Marine.png"),
-    ("GOF39", "`资料/卡表核对_卡图提取/_还原效果文字.md:660`", "Warpforge_39_Stompa.png"),
-    ("GOF40", "`资料/卡表核对_卡图提取/_还原效果文字.md:667`", "Warpforge_40_Attack-Squig.png"),
-    ("GOF62", "`资料/卡表核对_卡图提取/_还原效果文字.md:689`", "Warpforge_62_Toxic-Bonfire.png"),
-    ("GOF77", "`资料/卡表核对_卡图提取/_还原效果文字.md:585`", "Warpforge_03_Snakebite-Grot.png"),
-    ("GOF96", "`资料/卡表核对_卡图提取/_还原效果文字.md:640`",
+    ("GOF39", "`资料/卡表核对_卡图提取/_还原效果文字.md:669`", "Warpforge_39_Stompa.png"),
+    ("GOF40", "`资料/卡表核对_卡图提取/_还原效果文字.md:676`", "Warpforge_40_Attack-Squig.png"),
+    ("GOF62", "`资料/卡表核对_卡图提取/_还原效果文字.md:698`", "Warpforge_62_Toxic-Bonfire.png"),
+    ("GOF77", "`资料/卡表核对_卡图提取/_还原效果文字.md:594`", "Warpforge_03_Snakebite-Grot.png"),
+    ("GOF96", "`资料/卡表核对_卡图提取/_还原效果文字.md:649`",
      "Warpforge_22_Gargantuan-Squiggoth.png"),
-    ("GOF_Stikkbomb_Boy", "`资料/卡表核对_卡图提取/_还原效果文字.md:581`",
+    ("GOF_Stikkbomb_Boy", "`资料/卡表核对_卡图提取/_还原效果文字.md:590`",
      "Warpforge_02_Stikkbomb-Boy.png"),
-    ("GSC17", "`资料/卡表核对_卡图提取/_还原效果文字.md:437`", "Warpforge_17_Locus.png"),
-    ("GSC28", "`资料/卡表核对_卡图提取/_还原效果文字.md:448`", "Warpforge_28_Clamavus.png"),
-    ("GSC35", "`资料/卡表核对_卡图提取/_还原效果文字.md:455`",
+    ("GSC17", "`资料/卡表核对_卡图提取/_还原效果文字.md:442`", "Warpforge_17_Locus.png"),
+    ("GSC28", "`资料/卡表核对_卡图提取/_还原效果文字.md:453`", "Warpforge_28_Clamavus.png"),
+    ("GSC35", "`资料/卡表核对_卡图提取/_还原效果文字.md:460`",
      "Warpforge_35_Hulking-Aberrant.png"),
-    ("GSC78", "`资料/卡表核对_卡图提取/_还原效果文字.md:460`",
+    ("GSC78", "`资料/卡表核对_卡图提取/_还原效果文字.md:465`",
      "Warpforge_13_Roaming-Outriders.png"),
-    ("SAU23", "`资料/卡表核对_卡图提取/_还原效果文字.md:516`", "Warpforge_23_Psychomancer.png"),
-    ("SOR59", "`资料/卡表核对_卡图提取/_还原效果文字.md:760`", "Warpforge_59_Imperial-Creed.png"),
-    ("TAU57", "`资料/卡表核对_卡图提取/_还原效果文字.md:902`", "Warpforge_57_Recon-Sweep.png"),
-    ("TL26", "`资料/卡表核对_卡图提取/_还原效果文字.md:935`", "Warpforge_26_Deathleaper.png"),
-    ("TL84", "`资料/卡表核对_卡图提取/_还原效果文字.md:961`",
+    ("SAU23", "`资料/卡表核对_卡图提取/_还原效果文字.md:525`", "Warpforge_23_Psychomancer.png"),
+    ("SOR59", "`资料/卡表核对_卡图提取/_还原效果文字.md:769`", "Warpforge_59_Imperial-Creed.png"),
+    ("TAU57", "`资料/卡表核对_卡图提取/_还原效果文字.md:911`", "Warpforge_57_Recon-Sweep.png"),
+    ("TL26", "`资料/卡表核对_卡图提取/_还原效果文字.md:944`", "Warpforge_26_Deathleaper.png"),
+    ("TL84", "`资料/卡表核对_卡图提取/_还原效果文字.md:970`",
      "Warpforge_11_Toxic-Entanglement.png"),
-    ("UM32", "`资料/卡表核对_卡图提取/_还原效果文字.md:1058`",
+    ("UM32", "`资料/卡表核对_卡图提取/_还原效果文字.md:1067`",
      "Warpforge_32_Primaris-Judiciar.png"),
-    ("UM71", "`资料/卡表核对_卡图提取/_还原效果文字.md:1016`", "Warpforge_07_Incursor.png"),
+    ("UM71", "`资料/卡表核对_卡图提取/_还原效果文字.md:1025`", "Warpforge_07_Incursor.png"),
 ]
 # 英文 + 中文**两半一次生成**（只写英文那半 = 中文卡面照旧少一枚；见上面 ⑥）。
 # token 就是那个词本身（`Stun` / `眩晕`）；运行时走 `CardIcons.Rewrite` 的**裸关键词那一支**
@@ -677,137 +698,137 @@ _FAMILY8 = [
     ("DA86", "Vulnerable", "脆弱", "vulnerable",
      "`资料/卡表核对_卡图提取/_还原效果文字.md:312`", "Warpforge_12_Hunters-of-Heretics.png"),
     ("EC4", "Vulnerable", "脆弱", "vulnerable",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:346`", "Warpforge_04_Duelists-Hubris.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:351`", "Warpforge_04_Duelists-Hubris.png"),
     # ⚠️ 中文 token 是 **`易伤`** —— 全池 14 张里**只有这一张**这么写（其余 13 张写 `脆弱`），
     #    本批逐卡核过 `descZh`；⛔ 别按「统一成 `脆弱`」去改（改了就与卡面对不上、还会变死条目）。
     ("SAU54", "Vulnerable", "易伤", "vulnerable",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:554`", "Warpforge_54_Curse-of-the-Phaeron.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:563`", "Warpforge_54_Curse-of-the-Phaeron.png"),
     ("TL40", "Vulnerable", "脆弱", "vulnerable",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:953`", "Warpforge_40_Exocrine.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:962`", "Warpforge_40_Exocrine.png"),
     ("TL84", "Vulnerable", "脆弱", "vulnerable",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:961`", "Warpforge_11_Toxic-Entanglement.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:970`", "Warpforge_11_Toxic-Entanglement.png"),
     # ---- `huntMark`（22 张）----
     ("SW14", "Hunt Mark", "猎杀标记", "huntMark",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:780`", "Warpforge_14_Blood-Claw-Pack-Leader.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:789`", "Warpforge_14_Blood-Claw-Pack-Leader.png"),
     ("SW16", "Hunt Mark", "猎杀标记", "huntMark",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:782`", "Warpforge_16_Fenrisian-Wolf.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:791`", "Warpforge_16_Fenrisian-Wolf.png"),
     ("SW17", "Hunt Mark", "猎杀标记", "huntMark",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:783`", "Warpforge_17_Grey-Hunter.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:792`", "Warpforge_17_Grey-Hunter.png"),
     ("SW20", "Hunt Mark", "猎杀标记", "huntMark",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:786`", "Warpforge_20_Thunderwolf-Cavalry.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:795`", "Warpforge_20_Thunderwolf-Cavalry.png"),
     ("SW22", "Hunt Mark", "猎杀标记", "huntMark",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:788`", "Warpforge_22_Wolf-Priest.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:797`", "Warpforge_22_Wolf-Priest.png"),
     ("SW25", "Hunt Mark", "猎杀标记", "huntMark",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:791`", "Warpforge_25_Long-Fang.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:800`", "Warpforge_25_Long-Fang.png"),
     ("SW26", "Hunt Mark", "猎杀标记", "huntMark",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:792`", "Warpforge_26_Thunderwolf-Cavalry-Pack-Leader.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:801`", "Warpforge_26_Thunderwolf-Cavalry-Pack-Leader.png"),
     ("SW29", "Hunt Mark", "猎杀标记", "huntMark",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:795`", "Warpforge_29_Arjac-Rockfist.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:804`", "Warpforge_29_Arjac-Rockfist.png"),
     ("SW30", "Hunt Mark", "猎杀标记", "huntMark",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:796`", "Warpforge_30_Blackmane-Inceptor.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:805`", "Warpforge_30_Blackmane-Inceptor.png"),
     ("SW36", "Hunt Mark", "猎杀标记", "huntMark",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:802`", "Warpforge_36_Sons-of-Morkai-Eliminator.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:811`", "Warpforge_36_Sons-of-Morkai-Eliminator.png"),
     ("SW37", "Hunt Mark", "猎杀标记", "huntMark",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:803`", "Warpforge_37_Terminator-Rune-Priest.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:812`", "Warpforge_37_Terminator-Rune-Priest.png"),
     ("SW40", "Hunt Mark", "猎杀标记", "huntMark",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:806`", "Warpforge_40_Stormwolf.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:815`", "Warpforge_40_Stormwolf.png"),
     ("SW41", "Hunt Mark", "猎杀标记", "huntMark",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:807`", "Warpforge_41_Vindicator.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:816`", "Warpforge_41_Vindicator.png"),
     ("SW43", "Hunt Mark", "猎杀标记", "huntMark",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:809`", "Warpforge_43_Venerable-Dreadnought.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:818`", "Warpforge_43_Venerable-Dreadnought.png"),
     ("SW48", "Hunt Mark", "猎杀标记", "huntMark",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:814`", "Warpforge_48_Death-Shun.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:823`", "Warpforge_48_Death-Shun.png"),
     ("SW55", "Hunt Mark", "猎杀标记", "huntMark",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:821`", "Warpforge_55_Embers-of-Prospero.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:830`", "Warpforge_55_Embers-of-Prospero.png"),
     ("SW57", "Hunt Mark", "猎杀标记", "huntMark",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:823`", "Warpforge_57_Hunters-Guile.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:832`", "Warpforge_57_Hunters-Guile.png"),
     ("SW60", "Hunt Mark", "猎杀标记", "huntMark",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:826`", "Warpforge_60_Fenrisian-Monstrosities.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:835`", "Warpforge_60_Fenrisian-Monstrosities.png"),
     ("SW61", "Hunt Mark", "猎杀标记", "huntMark",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:827`", "Warpforge_61_Hordeslayer.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:836`", "Warpforge_61_Hordeslayer.png"),
     ("SW65", "Hunt Mark", "猎杀标记", "huntMark",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:831`", "Warpforge_65_Fenrisian-Wolfpack.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:840`", "Warpforge_65_Fenrisian-Wolfpack.png"),
     ("SW67", "Hunt Mark", "猎杀标记", "huntMark",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:833`", "Warpforge_67_Orbital-Defences.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:842`", "Warpforge_67_Orbital-Defences.png"),
     ("SW10", "Hunt Mark", "猎杀标记", "huntMark",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:776`", "Warpforge_10_War-Howl.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:785`", "Warpforge_10_War-Howl.png"),
     # ---- `sabotage`（14 张）----
     ("GSC10", "Sabotage", "破坏", "sabotage",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:431`", "Warpforge_10_Neophyte-Hybrid.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:436`", "Warpforge_10_Neophyte-Hybrid.png"),
     ("GSC11", "Sabotage", "破坏", "sabotage",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:432`", "Warpforge_11_Neophyte-Specialist.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:437`", "Warpforge_11_Neophyte-Specialist.png"),
     ("GSC21", "Sabotage", "破坏", "sabotage",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:441`", "Warpforge_21_Acolyte-Heavy.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:446`", "Warpforge_21_Acolyte-Heavy.png"),
     ("GSC23", "Sabotage", "破坏", "sabotage",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:443`", "Warpforge_23_Acolyte-Specialist.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:448`", "Warpforge_23_Acolyte-Specialist.png"),
     ("GSC29", "Sabotage", "破坏", "sabotage",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:449`", "Warpforge_29_Vox-Hacker.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:454`", "Warpforge_29_Vox-Hacker.png"),
     ("GSC34", "Sabotage", "破坏", "sabotage",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:454`", "Warpforge_34_Achilles-Ridgerunner.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:459`", "Warpforge_34_Achilles-Ridgerunner.png"),
     ("GSC48", "Sabotage", "破坏", "sabotage",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:471`", "Warpforge_48_Backstab.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:476`", "Warpforge_48_Backstab.png"),
     ("GSC49", "Sabotage", "破坏", "sabotage",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:472`", "Warpforge_49_Clandestine-Operation.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:477`", "Warpforge_49_Clandestine-Operation.png"),
     ("GSC60", "Sabotage", "破坏", "sabotage",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:483`", "Warpforge_60_Underground-Network.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:488`", "Warpforge_60_Underground-Network.png"),
     ("GSC61", "Sabotage", "破坏", "sabotage",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:484`", "Warpforge_61_A-Trap-Sprung.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:489`", "Warpforge_61_A-Trap-Sprung.png"),
     ("GSC67", "Sabotage", "破坏", "sabotage",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:490`", "Warpforge_67_Pilfered-Supplies.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:495`", "Warpforge_67_Pilfered-Supplies.png"),
     ("GSC69", "Sabotage", "破坏", "sabotage",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:419`", "Warpforge_04_Atalan-Jackal.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:424`", "Warpforge_04_Atalan-Jackal.png"),
     ("GSC72", "Sabotage", "破坏", "sabotage",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:426`", "Warpforge_07_Jackal-Specialist.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:431`", "Warpforge_07_Jackal-Specialist.png"),
     ("GSC_Master_Outrider", "Sabotage", "破坏", "sabotage",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:415`", "Warpforge_02_Master-Outrider.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:420`", "Warpforge_02_Master-Outrider.png"),
     # ---- `sniper`（5 张）----
     ("ASH9", "Sniper", "狙击", "sniper",
      "`资料/卡表核对_卡图提取/_还原效果文字.md:91`", "Warpforge_9_Ranger.png"),
     ("ASH14", "Sniper", "狙击", "sniper",
      "`资料/卡表核对_卡图提取/_还原效果文字.md:24`", "Warpforge_14_Shroud-Runner.png"),
     ("UM17", "Sniper", "狙击", "sniper",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:1044`", "Warpforge_17_Eliminator.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:1053`", "Warpforge_17_Eliminator.png"),
     ("GSC_Master_Outrider", "Sniper", "狙击", "sniper",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:415`", "Warpforge_02_Master-Outrider.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:420`", "Warpforge_02_Master-Outrider.png"),
     ("ASH_Bright_Lance_Vyper", "Sniper", None, "sniper",
      "`资料/卡表核对_卡图提取/_还原效果文字.md:97`", "Zrzut ekranu 2026-04-16 o 18.54.28.png"),
     # ---- `bloodThirst`（7 张）----
     ("AM21", "Blood Thirst", "嗜血", "bloodThirst",
      "`资料/卡表核对_卡图提取/_还原效果文字.md:132`", "Warpforge_21_Attilan-Rough-Rider.png"),
     ("EC18", "Blood Thirst", "嗜血", "bloodThirst",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:360`", "Warpforge_18_Threnodic-Noise-Marine.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:365`", "Warpforge_18_Threnodic-Noise-Marine.png"),
     ("GOF_Dead_Choppy", "Blood Thirst", "嗜血", "bloodThirst",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:618`", "Warpforge_09_Dead-Choppy.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:627`", "Warpforge_09_Dead-Choppy.png"),
     ("GOF48", "Blood Thirst", "嗜血", "bloodThirst",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:675`", "Warpforge_48_Proper-Killy.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:684`", "Warpforge_48_Proper-Killy.png"),
     ("SW39", "Blood Thirst", "嗜血", "bloodThirst",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:805`", "Warpforge_39_Murderfang.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:814`", "Warpforge_39_Murderfang.png"),
     ("SW58", "Blood Thirst", "嗜血", "bloodThirst",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:824`", "Warpforge_58_Proper-Hunt.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:833`", "Warpforge_58_Proper-Hunt.png"),
     ("TL59", "Blood Thirst", "嗜血", "bloodThirst",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:979`", "Warpforge_59_Ravenous-Hunter.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:988`", "Warpforge_59_Ravenous-Hunter.png"),
     # ---- `blind`（5 张）----
     ("GOF43", "Blind", "失明", "blind",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:670`", "Warpforge_43_Cloud-of-Smoke.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:679`", "Warpforge_43_Cloud-of-Smoke.png"),
     ("SW56", "Blind", "失明", "blind",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:822`", "Warpforge_56_Fenrisian-Blizzard.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:831`", "Warpforge_56_Fenrisian-Blizzard.png"),
     ("TL58", "Blind", "失明", "blind",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:978`", "Warpforge_58_Toxic-Miasma.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:987`", "Warpforge_58_Toxic-Miasma.png"),
     ("UM10", "Blind", "失明", "blind",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:1022`", "Warpforge_10_Octavio-Infiltrator.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:1031`", "Warpforge_10_Octavio-Infiltrator.png"),
     ("UM28", "Blind", "失明", "blind",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:1056`", "Warpforge_28_Sergeant-Allectius.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:1065`", "Warpforge_28_Sergeant-Allectius.png"),
     # ---- `fast`（5 张）----
     ("ASH78", "Fast", "迅捷", "fast",
      "`资料/卡表核对_卡图提取/_还原效果文字.md:15`", "Warpforge_05_Hornet.png"),
     ("DA36", "Fast", "迅捷", "fast",
      "`资料/卡表核对_卡图提取/_还原效果文字.md:313`", "Warpforge_36_Deathwing-Champion.png"),
     ("GSC64", "Fast", "迅捷", "fast",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:487`", "Warpforge_64_Telepathic-Domination.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:492`", "Warpforge_64_Telepathic-Domination.png"),
     ("SAU9", "Fast", "迅捷", "fast",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:570`", "Warpforge_9_Flayed-One.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:579`", "Warpforge_9_Flayed-One.png"),
     ("GOF15", "Fast", "迅捷", "fast",
-     "`资料/卡表核对_卡图提取/_还原效果文字.md:625`", "Warpforge_15_Warbiker.png"),
+     "`资料/卡表核对_卡图提取/_还原效果文字.md:634`", "Warpforge_15_Warbiker.png"),
 ]
 
 
@@ -905,23 +926,23 @@ _INVULNERABLE = [
      "Chaos/4计策/Warpforge_60_Daemonic-Pact.png"),
     ("DA82", "`资料/卡表核对_卡图提取/_还原效果文字.md:280`",
      "Dark Angels/3部队/Warpforge_08_Chaplain-Gabutheron.png"),
-    ("GSC47", "`资料/卡表核对_卡图提取/_还原效果文字.md:470`",
+    ("GSC47", "`资料/卡表核对_卡图提取/_还原效果文字.md:475`",
      "Genestealer Cult/4计策/Warpforge_47_Perfect-Ambush.png"),
-    ("GSC58", "`资料/卡表核对_卡图提取/_还原效果文字.md:481`",
+    ("GSC58", "`资料/卡表核对_卡图提取/_还原效果文字.md:486`",
      "Genestealer Cult/4计策/Warpforge_58_Open-Insurrection.png"),
-    ("SOR38", "`资料/卡表核对_卡图提取/_还原效果文字.md:739`",
+    ("SOR38", "`资料/卡表核对_卡图提取/_还原效果文字.md:748`",
      "Sorotitas/3部队/Warpforge_38_Saint-Celestine.png"),
-    ("SW18", "`资料/卡表核对_卡图提取/_还原效果文字.md:784`",
+    ("SW18", "`资料/卡表核对_卡图提取/_还原效果文字.md:793`",
      "Space Wolves/3部队/Warpforge_18_Fyrri-Askar.png"),
-    ("SW29", "`资料/卡表核对_卡图提取/_还原效果文字.md:795`",
+    ("SW29", "`资料/卡表核对_卡图提取/_还原效果文字.md:804`",
      "Space Wolves/3部队/Warpforge_29_Arjac-Rockfist.png"),
-    ("TL61", "`资料/卡表核对_卡图提取/_还原效果文字.md:982`",
+    ("TL61", "`资料/卡表核对_卡图提取/_还原效果文字.md:991`",
      "Tyranid/4计策/Warpforge_61_Apex-Predator.png"),
-    ("UM88", "`资料/卡表核对_卡图提取/_还原效果文字.md:1052`",
+    ("UM88", "`资料/卡表核对_卡图提取/_还原效果文字.md:1061`",
      "Ultramarines/3部队/Warpforge_24_Terminator-Captain.png"),
-    ("UM96", "`资料/卡表核对_卡图提取/_还原效果文字.md:1092`",
+    ("UM96", "`资料/卡表核对_卡图提取/_还原效果文字.md:1101`",
      "Ultramarines/4计策/Warpforge_32_Shall-Know-No-Fear.png"),
-    ("UM52", "`资料/卡表核对_卡图提取/_还原效果文字.md:1102`",
+    ("UM52", "`资料/卡表核对_卡图提取/_还原效果文字.md:1111`",
      "Ultramarines/4计策/Warpforge_52_Humanitys-Shield.png"),
     # ⚠️ 第 14 张**不在** `_还原效果文字.md` 里（它来自 `6秘密/` 的 5 张**手机翻拍**，
     #    同 `DA_None_Must_Know`）⇒ 判据 = 本批作者**亲读** `IMG_3698.jpg`（见 ②）。
@@ -982,6 +1003,52 @@ for _inv_cid, _inv_src, _inv_png in _INVULNERABLE:
 #    `ASH_Bright_Lance_Vyper` 的 `descZh` 里**没有「狙击」**，是中文数据缺口、**另记**）。
 BARE_TOKEN_BY_RULE = [
     # (裸 token, sprite, 判据 / 实测读数)
+    # 🔴 **2026-10-11（第十七会话 · `A1422` 的第一族）：`Stealth` / `潜行` 各加一条**
+    #    —— 判据来自 `资料/卡表核对_卡图提取/_还原效果文字.md` 的**逐卡转录**（那 29 个子代理
+    #    逐张看卡图抄的，**徽记位置写成 `Word Word` 双写**），逐张读数：
+    #    · 「英文文本里有 `Stealth`」而**计划表原来一枚都没画**的 **26 张**，逐张点过
+    #      `Stealth` 在 `desc` 里的**出现次数** vs 卡面转录里的**双写次数** ⇒ **28/30 处一一对上**
+    #      （30 = 那 26 张的合计处数；`DA30`/`GSC74`/`TL20` 各 2 处，其余 1 处）。
+    #      只有两处对不上：`TL24 Von Ryans Leaper`（正文 1 处 / 双写 0）与
+    #      `UM_Tyrannic_War_Veteran`（同）—— 那两张**计划表要么本来就没画、要么早已画着**
+    #      （`TL24` 有逐卡条目 ⇒ 守卫②跳过），**规则不会多画**。
+    #    · 中文侧同理：那批卡的 `descZh`「潜行」与卡面转录的双写**逐处对应**。
+    #    ⛔ **这条与 `资料/普查产出_第十四会话/W_中文徽记缺口批.md` §四·3 的结论【打架】**
+    #      （那份说「desc 侧会新画的 26 张…那些绝大多数是句中『提及』，而原版卡面那些位置**不印徽记**」）
+    #      ⇒ **按铁律 5 以现读为准**：那份当时**没有逐张对转录表**，只做了「加规则会多画多少张」的
+    #      计数；本次逐卡对齐了**处数** ⇒ 「不印徽记」那半句**不成立**（先例：`SAU55 Solar Pulse`
+    #      的卡面 `…they lose 〔眼〕Stealth and 〔迷彩〕Camouflage`，`W_图标族8词.md` 早已亲读）。
+    #    ⚠️ **已知的一处中文多写**：`GSC25` 的 `descZh` 里有「潜行」而英文 `desc` 里没有对应处
+    #      （中文是我们自己译的 ⇒ 原版没有中文卡面可核）—— 那一处**会多画一枚**，如实记在这里。
+    ("Stealth", "stealth",
+     "**卡面逐处双写 28/30**（26 张「正文里有 `Stealth` 而计划表没画」的卡，逐张核 `_还原效果文字.md`；"
+     "`DA30`/`GSC74`/`TL20` 各 2 处）—— 出处与两处对不上的（`TL24` / `UM_Tyrannic_War_Veteran`）见本表上方那段。"),
+    ("潜行", "stealth",
+     "同英文那条（`descZh` 的写法，与英文那批**逐处对应**）；⚠️ `GSC25` 是中文多写的那一处（见上方那段）。"),
+    # 🔴 **2026-10-11（第十七会话 · `A1381` 的「真因」那一笔）：`Shuriken` / `星镖` 各加一条**
+    #    —— 触发事实：`ASH65 Inspiring Legacy` 的 `desc` 里那枚记号被 OCR 写成了 `<i>…</i>`
+    #    （`数据/游戏数据/card_stats.json` 的 `desc` 就是 `Give <i>Shuriken</i> 2 …`，
+    #     它的 `ocrSrc` 指向 PnP 原图 ⇒ **`<i>` 是 OCR 的产物**）。**亲读卡面**：
+    #     `d:/2/Warpforge部队卡片/Aeldari/5防御卡/Warpforge_65_Inspiring-Legacy.png`
+    #     = `Give 〔旋刃徽记〕Shuriken 2 to a friendly unit this turn` ⇒ **那个位置是一枚图标**、
+    #     词是**正体**（不是斜体）⇒ **我们卡面少画了那一枚**（`ASH65` 原来**整张不在计划表里**）。
+    #    **判据（逐卡对齐，`_还原效果文字.md` 的转录双写）**：正文里带 `Shuriken`/`星镖`、
+    #    而计划表**一枚都没画**的卡 **10 张**，逐张点「出现次数 vs 卡面双写次数」⇒
+    #    **9 张 1:1 全对上**（`ASH_Orian_Laratharjos` / `ASH57` / `ASH58` / `ASH_Flickerjump` /
+    #    `ASH65` / `ASH4` / `ASH54` / `ASH77` / `ASH76`）。
+    #    🔴 **2026-10-12 就地订正（`A1610①` · 铁律 5）**：本行原来写着「第 10 张
+    #    `ASH_Ahnakh_Yth_Shrine` **转录表里没有这一行**（只报「没核」）」—— **那句话是错的**，
+    #    实测那行**一直在表里**（`_还原效果文字.md` 的 `Ahnakh-Yth Shrine.png` 那行，
+    #    双写 `ShurikenShuriken` **1 处**，与 `desc` 里 `Shuriken` 的 1 处 **1:1**）
+    #    ⇒ 这一张**是核过的**、结论同另外 9 张。错因大概是当时按**卡 id** 去表里找（表里只有卡名/文件名）。
+    #    ⇒ 现在是 **10/10 全对上**。
+    #    ⚠️ 出生在那 20 张里的另外 10 张本来就走**句首**那一支（`Waystone. Shuriken 2`）⇒ 守卫③跳过。
+    ("Shuriken", "shuriken",
+     "**卡面逐处双写 10/10**（10 张「正文里有 `Shuriken` 而计划表没画」的卡，逐张核 `_还原效果文字.md`；"
+     "`ASH_Ahnakh_Yth_Shrine` 那一行 2026-10-12 补核 —— 见本表上方那段订正）——"
+     "出处与亲读卡面见本表上方那段。"),
+    ("星镖", "shuriken",
+     "同英文那条（`descZh` 的写法，出现次数与英文那批**逐处对应**）。"),
     ("Stun", "stun",
      "**恒带 30/30**（英文 30 张 30 处 · 中文 `眩晕` 同一集合 30 张 30 处 · 无更长词含它 · 方括号记号 0 处）"
      "—— 逐张判据见上面 `_STUN_CARDS`（含 `DA_None_Must_Know` 那张手机翻拍）。"),
@@ -1013,6 +1080,149 @@ BARE_TOKEN_BY_RULE = [
      "—— ⚠️ 它**不是**「每题 1 处」那一档，但两侧**逐处对齐**，且 `Hunt` ⊂ `Hunter(s)` **不适用**"
      "（token 是 `Hunt Mark` 两个词）。逐张判据见 `_FAMILY8`。"),
     ("猎杀标记", "huntMark", "同上（`descZh` 的写法）。"),
+    # ══════════════════════════════════════════════════════════════════════════
+    # 🆕 **2026-10-12（`A1613①`）**：把 `A1422` 没做完的**其余词**按同一套口径补齐 ——
+    #    `A1422` 只做了 `Stealth` / `潜行` 一族（另加 `A1381` 的 `Shuriken` / `星镖`）。
+    #
+    # 🔴 **判据 = 卡面逐张转录的「双写」**（`资料/卡表核对_卡图提取/_还原效果文字.md`：
+    #    29 个子代理逐张看卡图抄的；原版卡面写「图标 + 词」⇒ 转录里就是 `Word Word` / `WordWord`）。
+    #    逐词读数 = 「该词在 `desc` 里的出现处数」vs「转录里双写的处数」**逐卡对**：
+    #    下面这些词**每一张都对得上**（双写 ≥ 出现），且**没有一张**是「我们提了、卡面没印」。
+    #    ⚠️ 中文那半**不是**「原版中文卡面核过」—— 原版没有中文表（中文是我们自己译的），
+    #       判据只能到「英文那枚在图前、中文逐处对应」。
+    #
+    # ⚠️ **三道守卫照旧**（`main()` 里那 9 行，见上面那段）：
+    #    ① 本卡文本里有 `[该词]` 方括号记号 ⇒ 整卡跳过（图标已由方括号那一支画）；
+    #    ② 本卡已有同 sprite 的**逐卡**裸 token ⇒ 规则不覆盖（判据更细）；
+    #    ③ 该词落在**本字段已注定要画**的某条 token 里面 ⇒ 跳过（防「一条是另一条的子串」双画）。
+    #
+    # 🔴 **逐词读数（2026-10-12 全池实测）**：
+    #    · `Flank`/侧翼 → `flank`：66 卡 66 处 · 计划表原画 19 卡 · **卡面双写 67 处** ⇒ 缺 47 卡
+    #    · `Shield`/护盾 → `shield`：33 卡 37 处 · 原画 11 卡 · 双写 34 处 ⇒ 缺 23 卡
+    #    · `Vanguard`/先锋 → `vanguard`：48 卡 49 处 · 原画 26 卡 · 双写 48 处 ⇒ 缺 22 卡
+    #    · `Camouflage`/伪装 → `camouflage`：20 卡 20 处 · 原画 8 卡 · 双写 20 处 ⇒ 缺 12 卡
+    #    · `Markerlight`/标记光 → `markerlight`：15 卡 17 处 · 原画 1 卡 · 双写 16 处 ⇒ 缺 14 卡
+    #    · `Blast`/爆裂 → `blast`：41 卡 41 处 · 原画 24 卡 · 双写 42 处 ⇒ 缺 17 卡
+    #    · `爆破`（中文别名） → `blast`：同上（中文别名写法，`A1418` 起就在词表里）
+    #    · `Slay`/斩杀 → `slay`：20 卡 21 处 · 原画 14 卡 · 双写 20 处 ⇒ 缺 6 卡
+    #    · `Ferocity`/狂暴 → `ferocity`：10 卡 11 处 · 原画 6 卡 · 双写 11 处 ⇒ 缺 5 卡
+    #    · `Backlash`/反噬 → `backlash`：8 卡 8 处 · 原画 4 卡 · 双写 8 处 ⇒ 缺 4 卡
+    #    · `Duty`/职责 → `duty`：22 卡 22 处 · 原画 18 卡 · 双写 22 处 ⇒ 缺 4 卡
+    #    · `Pack`/兽群 → `pack`：7 卡 8 处 · 原画 4 卡 · 双写 10 处 ⇒ 缺 4 卡
+    #    · `Regeneration`/再生 → `regeneration`：9 卡 9 处 · 原画 5 卡 · 双写 9 处 ⇒ 缺 4 卡
+    #    · `Sentry`/哨戒 → `sentry`：5 卡 6 处 · 原画 2 卡 · 双写 7 处 ⇒ 缺 4 卡
+    #    · `Swarm`/虫群 → `swarm`：11 卡 11 处 · 原画 8 卡 · 双写 12 处 ⇒ 缺 3 卡
+    #    · `Synapse`/突触 → `synapse`：10 卡 11 处 · 原画 8 卡 · 双写 12 处 ⇒ 缺 3 卡
+    #    · `Mob`/群体 → `mob`：13 卡 14 处 · 原画 11 卡 · 双写 13 处 ⇒ 缺 2 卡
+    #    · `Teleport`/传送 → `teleport`：9 卡 9 处 · 原画 7 卡 · 双写 9 处 ⇒ 缺 2 卡
+    #    · `Flying`/飞行 → `flying`：42 卡 42 处 · 原画 27 卡 · 双写 46 处 ⇒ 缺 15 卡；中文 44 张（多 `TAU14`/`TAU20`：卡面确实印着那枚，是我们 `desc` 漏了那个词）。
+    #    · `Long Range`/远射 → `longrange`：10 卡 10 处 · 原画 7 卡 · 双写 11 处 ⇒ 缺 3 卡；中文 11 张（多 `TAU42`，同上）。
+    #    · `Uprising`/起义 → `uprising`：6 卡 6 处 · 原画 5 卡 · 双写 6 处 ⇒ 缺 1 卡
+    #    · `Rally`/集结 → `rally`：85 卡 85 处 · 原画 84 卡 · 双写 84 处 ⇒ 缺 1 卡
+    #    · `Stomp`/践踏 → `stomp`：7 卡 10 处 · 原画 9 处 · 双写 8 处 ⇒ 缺 1 卡
+    #    · `Tide`/潮涌 → `tide`：19 卡 19 处 · 原画 18 卡 · 双写 19 处 ⇒ 缺 1 卡；中文 20 张（多 `TL79`，同上）。
+    #
+    # 🔴 **本批刻意没走按词、改走逐卡表（`_A1613_GAP`）的词**（每一条都有实测读数，逐个说明见那张表上方）：
+    #    `Armour` · `Codex` · `Remnant` · `Strike` · `Ambush` · `Talent` · `Destroyer` ·
+    #    `Pray` · `Regiment` · `Ephemeral` · `Penitence` —— 卡面上至少有一处「我们提了、卡面没印」，
+    #    或该词是更长词 / 卡名的子串。
+    # ⏭ **仍未做、已记读数**：`Dark Pact`（37 卡 39 处，**sprite 随邪神变**：`markOfChaos`/
+    #    `markOfSlaanesh`/…，`BL19` 那条两来源打架 ⇒ 先要人判画哪一枚）· `Quest Point`（已由
+    #    `QUEST_WORD` 那条老规则管，读数见报告）。
+    ("Flank", "flank",
+     "**恒带**（66 卡 66 处 · 计划表原画 19 卡 · **卡面双写 67 处** ⇒ 缺 47 卡）—— 逐处判据 = `_还原效果文字.md` 的**双写**。"),
+    ("侧翼", "flank",
+     "同英文那条（`descZh` 的写法，与英文那批**逐处对应**）。"),
+    ("Shield", "shield",
+     "**恒带**（33 卡 37 处 · 原画 11 卡 · 双写 34 处 ⇒ 缺 23 卡）—— 逐处判据 = `_还原效果文字.md` 的**双写**。"),
+    ("护盾", "shield",
+     "同英文那条（`descZh` 的写法，与英文那批**逐处对应**）。"),
+    ("Vanguard", "vanguard",
+     "**恒带**（48 卡 49 处 · 原画 26 卡 · 双写 48 处 ⇒ 缺 22 卡）—— 逐处判据 = `_还原效果文字.md` 的**双写**。"),
+    ("先锋", "vanguard",
+     "同英文那条（`descZh` 的写法，与英文那批**逐处对应**）。"),
+    ("Camouflage", "camouflage",
+     "**恒带**（20 卡 20 处 · 原画 8 卡 · 双写 20 处 ⇒ 缺 12 卡）—— 逐处判据 = `_还原效果文字.md` 的**双写**。"),
+    ("伪装", "camouflage",
+     "同英文那条（`descZh` 的写法，与英文那批**逐处对应**）。"),
+    ("Markerlight", "markerlight",
+     "**恒带**（15 卡 17 处 · 原画 1 卡 · 双写 16 处 ⇒ 缺 14 卡）—— 逐处判据 = `_还原效果文字.md` 的**双写**。"),
+    ("标记光", "markerlight",
+     "同英文那条（`descZh` 的写法，与英文那批**逐处对应**）。"),
+    ("Blast", "blast",
+     "**恒带**（41 卡 41 处 · 原画 24 卡 · 双写 42 处 ⇒ 缺 17 卡）—— 逐处判据 = `_还原效果文字.md` 的**双写**。"),
+    ("爆裂", "blast",
+     "同英文那条（`descZh` 的写法，与英文那批**逐处对应**）。"),
+    ("爆破", "blast",
+     "**恒带**（同上（中文别名写法，`A1418` 起就在词表里））—— 逐处判据 = `_还原效果文字.md` 的**双写**。"),
+    ("Slay", "slay",
+     "**恒带**（20 卡 21 处 · 原画 14 卡 · 双写 20 处 ⇒ 缺 6 卡）—— 逐处判据 = `_还原效果文字.md` 的**双写**。"),
+    ("斩杀", "slay",
+     "同英文那条（`descZh` 的写法，与英文那批**逐处对应**）。"),
+    ("Ferocity", "ferocity",
+     "**恒带**（10 卡 11 处 · 原画 6 卡 · 双写 11 处 ⇒ 缺 5 卡）—— 逐处判据 = `_还原效果文字.md` 的**双写**。"),
+    ("狂暴", "ferocity",
+     "同英文那条（`descZh` 的写法，与英文那批**逐处对应**）。"),
+    ("Backlash", "backlash",
+     "**恒带**（8 卡 8 处 · 原画 4 卡 · 双写 8 处 ⇒ 缺 4 卡）—— 逐处判据 = `_还原效果文字.md` 的**双写**。"),
+    ("反噬", "backlash",
+     "同英文那条（`descZh` 的写法，与英文那批**逐处对应**）。"),
+    ("Duty", "duty",
+     "**恒带**（22 卡 22 处 · 原画 18 卡 · 双写 22 处 ⇒ 缺 4 卡）—— 逐处判据 = `_还原效果文字.md` 的**双写**。"),
+    ("职责", "duty",
+     "同英文那条（`descZh` 的写法，与英文那批**逐处对应**）。"),
+    ("Pack", "pack",
+     "**恒带**（7 卡 8 处 · 原画 4 卡 · 双写 10 处 ⇒ 缺 4 卡）—— 逐处判据 = `_还原效果文字.md` 的**双写**。"),
+    ("兽群", "pack",
+     "同英文那条（`descZh` 的写法，与英文那批**逐处对应**）。"),
+    ("Regeneration", "regeneration",
+     "**恒带**（9 卡 9 处 · 原画 5 卡 · 双写 9 处 ⇒ 缺 4 卡）—— 逐处判据 = `_还原效果文字.md` 的**双写**。"),
+    ("再生", "regeneration",
+     "同英文那条（`descZh` 的写法，与英文那批**逐处对应**）。"),
+    ("Sentry", "sentry",
+     "**恒带**（5 卡 6 处 · 原画 2 卡 · 双写 7 处 ⇒ 缺 4 卡）—— 逐处判据 = `_还原效果文字.md` 的**双写**。"),
+    ("哨戒", "sentry",
+     "同英文那条（`descZh` 的写法，与英文那批**逐处对应**）。"),
+    ("Swarm", "swarm",
+     "**恒带**（11 卡 11 处 · 原画 8 卡 · 双写 12 处 ⇒ 缺 3 卡）—— 逐处判据 = `_还原效果文字.md` 的**双写**。"),
+    ("虫群", "swarm",
+     "同英文那条（`descZh` 的写法，与英文那批**逐处对应**）。"),
+    ("Synapse", "synapse",
+     "**恒带**（10 卡 11 处 · 原画 8 卡 · 双写 12 处 ⇒ 缺 3 卡）—— 逐处判据 = `_还原效果文字.md` 的**双写**。"),
+    ("突触", "synapse",
+     "同英文那条（`descZh` 的写法，与英文那批**逐处对应**）。"),
+    ("Mob", "mob",
+     "**恒带**（13 卡 14 处 · 原画 11 卡 · 双写 13 处 ⇒ 缺 2 卡）—— 逐处判据 = `_还原效果文字.md` 的**双写**。"),
+    ("群体", "mob",
+     "同英文那条（`descZh` 的写法，与英文那批**逐处对应**）。"),
+    ("Teleport", "teleport",
+     "**恒带**（9 卡 9 处 · 原画 7 卡 · 双写 9 处 ⇒ 缺 2 卡）—— 逐处判据 = `_还原效果文字.md` 的**双写**。"),
+    ("传送", "teleport",
+     "同英文那条（`descZh` 的写法，与英文那批**逐处对应**）。"),
+    ("Flying", "flying",
+     "**恒带**（42 卡 42 处 · 原画 27 卡 · 双写 46 处 ⇒ 缺 15 卡）—— 逐处判据 = `_还原效果文字.md` 的**双写**。中文 44 张（多 `TAU14`/`TAU20`：卡面确实印着那枚，是我们 `desc` 漏了那个词）。"),
+    ("飞行", "flying",
+     "同英文那条（`descZh` 的写法，与英文那批**逐处对应**）。"),
+    ("Long Range", "longrange",
+     "**恒带**（10 卡 10 处 · 原画 7 卡 · 双写 11 处 ⇒ 缺 3 卡）—— 逐处判据 = `_还原效果文字.md` 的**双写**。中文 11 张（多 `TAU42`，同上）。"),
+    ("远射", "longrange",
+     "同英文那条（`descZh` 的写法，与英文那批**逐处对应**）。"),
+    ("Uprising", "uprising",
+     "**恒带**（6 卡 6 处 · 原画 5 卡 · 双写 6 处 ⇒ 缺 1 卡）—— 逐处判据 = `_还原效果文字.md` 的**双写**。"),
+    ("起义", "uprising",
+     "同英文那条（`descZh` 的写法，与英文那批**逐处对应**）。"),
+    ("Rally", "rally",
+     "**恒带**（85 卡 85 处 · 原画 84 卡 · 双写 84 处 ⇒ 缺 1 卡）—— 逐处判据 = `_还原效果文字.md` 的**双写**。"),
+    ("集结", "rally",
+     "同英文那条（`descZh` 的写法，与英文那批**逐处对应**）。"),
+    ("Stomp", "stomp",
+     "**恒带**（7 卡 10 处 · 原画 9 处 · 双写 8 处 ⇒ 缺 1 卡）—— 逐处判据 = `_还原效果文字.md` 的**双写**。"),
+    ("践踏", "stomp",
+     "同英文那条（`descZh` 的写法，与英文那批**逐处对应**）。"),
+    ("Tide", "tide",
+     "**恒带**（19 卡 19 处 · 原画 18 卡 · 双写 19 处 ⇒ 缺 1 卡）—— 逐处判据 = `_还原效果文字.md` 的**双写**。中文 20 张（多 `TL79`，同上）。"),
+    ("潮涌", "tide",
+     "同英文那条（`descZh` 的写法，与英文那批**逐处对应**）。"),
 ]
 
 # 认得出、但**盘上没有这张图**的记号（真缺口，如实列出来，别静默跳过）
@@ -1023,6 +1233,235 @@ BARE_TOKEN_BY_RULE = [
 #    当时的错因：只有「暗色圆徽 / 螺旋」这种**形状描述**、没有并排比对图；实测形状名不能当键
 #    （78 张图被起过 180 个形状名）。**结论：卡面图标对不上时，直接裁下来跟 78 张图并排比，
 #    别靠文字描述转述。**
+# ── 🆕 2026-10-12（`A1613①`）：**逐卡**补 —— 上面按词规则**覆盖不到**的那几个词 ──────────
+# 🔴 **为什么这几个词不能走按词规则**（每一种都实测过，读数在下面的注释里）：
+#    · `Armour`     —— 108 张里 **2 张**卡面**没印**（`DA37`：我们 `desc` 写 `gain 1 Armour`、
+#                      而卡面那处是 `gain 〔任务点〕instead`（**我们的 desc 错了**，数据侧另账）；
+#                      `UM_Honour_Guard`：`Adjacent units have Armour 1`，卡面**就是纯文字**）。
+#    · `Codex`      —— `UM_Avenging_Zeal` 的记号写作 `[Codex icon]`（守卫①只认 `[Codex]`⇒盖不住）、
+#                      `UM_Roboute_Guilliman` 的第二次出现落在**天赋名** `Author of the Codex` 里。
+#    · `Remnant`    —— `SAU61` 卡面那处没印；且 `Remnant` ⊂ `Remnants`（本表按卡，不受影响）。
+#    · `Strike`/`Ambush` —— 卡面那处落在**卡名/天赋名**里（`Euphoric Strike` / `Empyric Ambush`）⇒ 按词会把图标画进名字。
+#    · `Talent`     —— `SAU57` 例外。
+#    · `Destroyer`/`Pray`/`Regiment`/`Ephemeral` —— 词是**更长词的子串**（`Destroyers` / `Prays` /
+#                      中文「团」(⊂ 兵团/军团/…) / `临时路障`）⇒ **按词规则会画到词中间**，只能按卡。
+#    ⇒ 这几族一律走**逐卡**（判据更细，正是 `_FAMILY8` 那条路）；每一行的出处 = 转录表里
+#      **双写**的那一行（`资料/卡表核对_卡图提取/_还原效果文字.md:NN`）+ 卡图文件名。
+#    ⚠️ 本表用到的英文/中文 token **逐卡挑过**（中文有时是「护甲」、有时是「装甲」，按该卡的
+#      `descZh` 实际写法取；取不到就写 `None`、只做英文那半）。
+# ── 🆕 2026-10-12（`A1613①`）：**逐卡**补 —— 上面按词规则**覆盖不到**的那几个词 ──────────
+# 🔴 **为什么这几个词不能走按词规则**（每一种都实测过）：
+#    · `Armour`     —— 108 张里 **2 张**卡面**没印**（`DA37`：我们 `desc` 写 `gain 1 Armour`、
+#                      而卡面那处是 `gain 〔任务点〕instead`（**我们的 desc 错了**，已另记数据侧）；
+#                      `UM_Honour_Guard`：`Adjacent units have Armour 1`，卡面**就是纯文字、没有徽记**）。
+#    · `Codex`      —— `UM_Avenging_Zeal` 的记号写作 `[Codex icon]`（守卫①只认 `[Codex]`⇒盖不住）、
+#                      `UM_Roboute_Guilliman` 第二次出现落在**天赋名** `Author of the Codex` 里。
+#    · `Remnant`    —— `SAU61` 卡面那处没印（且 `Remnant` ⊂ `Remnants`）。
+#    · `Strike`/`Ambush` —— 卡面那处落在**卡名/天赋名**里（`Euphoric Strike` / `Empyric Ambush`）
+#                      ⇒ 按词会把图标画进名字里。
+#    · `Talent`     —— `SAU57` 例外。
+#    · `Destroyer`/`Pray`/`Regiment`/`Ephemeral`/`Penitence` —— 词是**更长词的子串**
+#                      （`Destroyers` / `Prays` / 中文「团」(⊂ 兵团/军团/…) / `临时路障` / `忏悔大师`）
+#                      ⇒ 按词规则会画到词中间，只能按卡。
+#    ⇒ 这几族一律走**逐卡**（判据更细，正是 `_FAMILY8` 那条路）。每一行的出处 = 转录表里
+#      **双写**的那一行 + 卡图文件名。
+#
+# 🔴 **token 逐条挑过，不是一律用那个词本身**（这一步是必须的）：
+#    `CardIcons.Rewrite` 是 `s.Replace(token, tag)`（**纯子串、全局**，且**先换长的**）⇒
+#    同一个字段里**两条 token 互相包含**（`Armour` ⊂ `Armour 1.`）时，长那条插进去的标签
+#    **里面就含短那条**，再换短那条 ⇒ **同一个位置画两枚**（静默）。
+#    ⇒ 本表的 token **按卡按字段现挑**：从词本身开始**向右延长**（只能向右 —— 裸 token 那一支
+#      把图标插在 token **起点**，向左延长会把图标插到前一个词前面），直到与本字段**所有**既有
+#      token 都不构成包含关系为止（新加的也逐条并进去一起判）。挑不出来的**如实丢掉**、不硬塞：
+#      ⛔ 本批丢了 **1 条**（`GSC38 Abominant` 的 `desc`：句首那条是 `Armour 1.`、第二处在词尾
+#      写 `Armour 1`，右延长到尽头仍 ⊂ `Armour 1.`）—— 那张卡**只补了中文那半**。
+_A1613_GAP = [
+    # (卡 id, 要画的 token, 字段, sprite, 转录行号, 卡图文件名, 词名)
+    # ---- `Ambush` → `ambush` ----
+    ("GSC68", "Ambush", "desc", "ambush", 496, "Warpforge_68_Rusted-Vent.png", "Ambush"),
+    ("GSC68", "伏击", "descZh", "ambush", 496, "Warpforge_68_Rusted-Vent.png", "Ambush"),
+    ("GSC71", "Ambush", "desc", "ambush", 428, "Warpforge_06_Atalan-Leader.png", "Ambush"),
+    ("GSC71", "伏击", "descZh", "ambush", 428, "Warpforge_06_Atalan-Leader.png", "Ambush"),
+    # ---- `Armour` → `armour` ----
+    ("AM23", "Armour", "desc", "armour", 134, "Warpforge_23_Commissar.png", "Armour"),
+    ("AM23", "装甲", "descZh", "armour", 134, "Warpforge_23_Commissar.png", "Armour"),
+    ("AM32", "Armour", "desc", "armour", 143, "Warpforge_32_Chimera.png", "Armour"),
+    ("AM32", "装甲", "descZh", "armour", 143, "Warpforge_32_Chimera.png", "Armour"),
+    ("AM40", "Armour,", "desc", "armour", 154, "Warpforge_40_Leman-Russ-Vanquisher.png", "Armour"),
+    ("AM40", "装甲，", "descZh", "armour", 154, "Warpforge_40_Leman-Russ-Vanquisher.png", "Armour"),
+    ("AM43", "Armour 1", "desc", "armour", 157, "Warpforge_43_Baneblade-Tank.png", "Armour"),
+    ("AM43", "装甲 1", "descZh", "armour", 157, "Warpforge_43_Baneblade-Tank.png", "Armour"),
+    ("AM54", "Armour", "desc", "armour", 168, "Warpforge_54_Thermal-Weaponry.png", "Armour"),
+    ("AM54", "装甲", "descZh", "armour", 168, "Warpforge_54_Thermal-Weaponry.png", "Armour"),
+    ("AM77", "Armour", "desc", "armour", 150, "Warpforge_12_Armoured-Lightning.png", "Armour"),
+    ("AM77", "装甲", "descZh", "armour", 150, "Warpforge_12_Armoured-Lightning.png", "Armour"),
+    ("ASH18", "Armour", "desc", "armour", 28, "Warpforge_18_Wraithblade.png", "Armour"),
+    ("ASH18", "护甲", "descZh", "armour", 28, "Warpforge_18_Wraithblade.png", "Armour"),
+    ("ASH28", "Armour", "desc", "armour", 39, "Warpforge_28_Vengeful-Wraithblade.png", "Armour"),
+    ("ASH28", "护甲", "descZh", "armour", 39, "Warpforge_28_Vengeful-Wraithblade.png", "Armour"),
+    ("ASH36", "Armour", "desc", "armour", 61, "Warpforge_36_Fire-Prism.png", "Armour"),
+    ("ASH36", "护甲", "descZh", "armour", 61, "Warpforge_36_Fire-Prism.png", "Armour"),
+    ("BL50", "Armour", "desc", "armour", 238, "Warpforge_50_Hideous-Mutation.png", "Armour"),
+    ("BL50", "护甲", "descZh", "armour", 238, "Warpforge_50_Hideous-Mutation.png", "Armour"),
+    ("BL55", "Armour", "desc", "armour", 243, "Warpforge_55_Disgustingly-Resilient.png", "Armour"),
+    ("BL55", "护甲", "descZh", "armour", 243, "Warpforge_55_Disgustingly-Resilient.png", "Armour"),
+    ("DA26", "Armour 2", "desc", "armour", 299, "Warpforge_26_Bladeguard-Veteran.png", "Armour"),
+    ("DA26", "护甲 2", "descZh", "armour", 299, "Warpforge_26_Bladeguard-Veteran.png", "Armour"),
+    ("DA58", "Armour", "desc", "armour", 334, "Warpforge_58_Steadfast-Warriors.png", "Armour"),
+    ("DA58", "护甲", "descZh", "armour", 334, "Warpforge_58_Steadfast-Warriors.png", "Armour"),
+    ("DA6", "Armour", "desc", "armour", 275, "Warpforge_06_Master-of-the-Deathwing.png", "Armour"),
+    ("DA6", "护甲", "descZh", "armour", 275, "Warpforge_06_Master-of-the-Deathwing.png", "Armour"),
+    ("EC19", "Armour", "desc", "armour", 366, "Warpforge_19_Blastmaster-Noise-Marine.png", "Armour"),
+    ("EC19", "护甲", "descZh", "armour", 366, "Warpforge_19_Blastmaster-Noise-Marine.png", "Armour"),
+    ("EC75", "Armour", "desc", "armour", 415, "Warpforge_75_Shivversplint.png", "Armour"),
+    ("EC75", "护甲", "descZh", "armour", 415, "Warpforge_75_Shivversplint.png", "Armour"),
+    ("GOF44", "Armour", "desc", "armour", 680, "Warpforge_44_Ork-Encampment.png", "Armour"),
+    ("GOF44", "护甲", "descZh", "armour", 680, "Warpforge_44_Ork-Encampment.png", "Armour"),
+    ("GOF94", "Armour", "desc", "armour", 644, "Warpforge_20_Kill-Rig.png", "Armour"),
+    ("GOF94", "护甲", "descZh", "armour", 644, "Warpforge_20_Kill-Rig.png", "Armour"),
+    ("GOF_Grizzled_Skarboy", "Armour", "desc", "armour", 628, "Warpforge_10_Grizzled-Skarboy.png", "Armour"),
+    ("GOF_Grizzled_Skarboy", "护甲", "descZh", "armour", 628, "Warpforge_10_Grizzled-Skarboy.png", "Armour"),
+    ("GOF_Krumpaklaw", "Armour", "desc", "armour", 604, "Warpforge_07A_Krumpaklaw.png", "Armour"),
+    ("GOF_Krumpaklaw", "护甲", "descZh", "armour", 604, "Warpforge_07A_Krumpaklaw.png", "Armour"),
+    ("GOF_Worst_Temper", "Armour", "desc", "armour", 587, "Warpforge_02B_Worst-Temper.png", "Armour"),
+    ("GOF_Worst_Temper", "护甲", "descZh", "armour", 587, "Warpforge_02B_Worst-Temper.png", "Armour"),
+    ("GSC52", "Armour", "desc", "armour", 480, "Warpforge_52_Enhanced-Resilience.png", "Armour"),
+    ("GSC52", "护甲", "descZh", "armour", 480, "Warpforge_52_Enhanced-Resilience.png", "Armour"),
+    ("GSC54", "Armour", "desc", "armour", 482, "Warpforge_54_Bore-Through.png", "Armour"),
+    ("GSC54", "护甲", "descZh", "armour", 482, "Warpforge_54_Bore-Through.png", "Armour"),
+    ("SAU57", "Armour", "desc", "armour", 566, "Warpforge_57_Immortal-Pride.png", "Armour"),
+    ("SAU57", "装甲", "descZh", "armour", 566, "Warpforge_57_Immortal-Pride.png", "Armour"),
+    ("SAU_Hardwired_Destruction", "Armour", "desc", "armour", 503, "Warpforge_02_Hardwired-Destruction.png", "Armour"),
+    ("SAU_Hardwired_Destruction", "装甲", "descZh", "armour", 503, "Warpforge_02_Hardwired-Destruction.png", "Armour"),
+    ("SOR11", "Armour", "desc", "armour", 718, "Warpforge_11_Crusader.png", "Armour"),
+    ("SOR11", "护甲", "descZh", "armour", 718, "Warpforge_11_Crusader.png", "Armour"),
+    ("SOR27", "Armour", "desc", "armour", 734, "Warpforge_27_Canoness.png", "Armour"),
+    ("SOR27", "护甲", "descZh", "armour", 734, "Warpforge_27_Canoness.png", "Armour"),
+    ("SOR49", "Armour", "desc", "armour", 759, "Warpforge_49_Trial-of-Suffering.png", "Armour"),
+    ("SOR49", "护甲", "descZh", "armour", 759, "Warpforge_49_Trial-of-Suffering.png", "Armour"),
+    ("SOR51", "Armour", "desc", "armour", 761, "Warpforge_51_Conviction-of-Faith.png", "Armour"),
+    ("SOR51", "护甲", "descZh", "armour", 761, "Warpforge_51_Conviction-of-Faith.png", "Armour"),
+    ("SOR_Triumph_of_Saint_Katherine", "Armour 1", "desc", "armour", 751, "Warpforge_41_Triumph-of-St.-Katherine.png", "Armour"),
+    ("SOR_Triumph_of_Saint_Katherine", "护甲 1", "descZh", "armour", 751, "Warpforge_41_Triumph-of-St.-Katherine.png", "Armour"),
+    ("SW51", "Armour", "desc", "armour", 826, "Warpforge_51_Anvil-of-Endurance.png", "Armour"),
+    ("SW51", "护甲", "descZh", "armour", 826, "Warpforge_51_Anvil-of-Endurance.png", "Armour"),
+    ("SW64", "Armour", "desc", "armour", 839, "Warpforge_64_Birth-of-a-Saga.png", "Armour"),
+    ("SW64", "护甲", "descZh", "armour", 839, "Warpforge_64_Birth-of-a-Saga.png", "Armour"),
+    ("TAU50", "Armour", "desc", "armour", 904, "Warpforge_50_For-The-Greater-Good.png", "Armour"),
+    ("TAU50", "护甲", "descZh", "armour", 904, "Warpforge_50_For-The-Greater-Good.png", "Armour"),
+    ("TAU52", "Armour", "desc", "armour", 906, "Warpforge_52_Sense-of-Stone.png", "Armour"),
+    ("TAU52", "护甲", "descZh", "armour", 906, "Warpforge_52_Sense-of-Stone.png", "Armour"),
+    ("TL25", "Armour", "desc", "armour", 943, "Warpforge_25_Carnifex.png", "Armour"),
+    ("TL25", "护甲", "descZh", "armour", 943, "Warpforge_25_Carnifex.png", "Armour"),
+    ("TL55", "Armour", "desc", "armour", 984, "Warpforge_55_Hardened-Biology.png", "Armour"),
+    ("TL55", "护甲", "descZh", "armour", 984, "Warpforge_55_Hardened-Biology.png", "Armour"),
+    ("UM2", "Armour", "desc", "armour", 1040, "Warpforge_2_Master-Tactician-2.png", "Armour"),
+    ("UM2", "护甲", "descZh", "armour", 1040, "Warpforge_2_Master-Tactician-2.png", "Armour"),
+    ("UM23", "Armour", "desc", "armour", 1039, "Warpforge_23_Spear-of-Macragge.png", "Armour"),
+    ("UM23", "护甲", "descZh", "armour", 1039, "Warpforge_23_Spear-of-Macragge.png", "Armour"),
+    ("UM39", "Armour", "desc", "armour", 1070, "Warpforge_39_Devastator-Centurion.png", "Armour"),
+    ("UM39", "护甲", "descZh", "armour", 1070, "Warpforge_39_Devastator-Centurion.png", "Armour"),
+    ("UM59", "Armour", "desc", "armour", 1114, "Warpforge_59_Armoured-Support.png", "Armour"),
+    ("UM59", "护甲", "descZh", "armour", 1114, "Warpforge_59_Armoured-Support.png", "Armour"),
+    ("UM69", "Armour", "desc", "armour", 1022, "Warpforge_05_Supreme-Strategist.png", "Armour"),
+    ("UM69", "护甲", "descZh", "armour", 1022, "Warpforge_05_Supreme-Strategist.png", "Armour"),
+    ("UM78", "Armour", "desc", "armour", 1049, "Warpforge_14_Chapter-Champion.png", "Armour"),
+    ("UM78", "护甲 1 ", "descZh", "armour", 1049, "Warpforge_14_Chapter-Champion.png", "Armour"),
+    ("UM82", "Armour", "desc", "armour", 1056, "Warpforge_18_Terminator.png", "Armour"),
+    ("UM82", "护甲", "descZh", "armour", 1056, "Warpforge_18_Terminator.png", "Armour"),
+    ("UM87", "Armour", "desc", "armour", 1060, "Warpforge_23_Bladeguard-Ancient.png", "Armour"),
+    ("UM87", "护甲", "descZh", "armour", 1060, "Warpforge_23_Bladeguard-Ancient.png", "Armour"),
+    ("UM_Angel_s_Wrath", "Armour", "desc", "armour", 1023, "Warpforge_06B_Angels-Wrath.png", "Armour"),
+    ("UM_Angel_s_Wrath", "护甲", "descZh", "armour", 1023, "Warpforge_06B_Angels-Wrath.png", "Armour"),
+    ("UM_Assault_Doctrine", "Armour", "desc", "armour", 1120, "assault doctrine.png", "Armour"),
+    ("UM_Assault_Doctrine", "护甲", "descZh", "armour", 1120, "assault doctrine.png", "Armour"),
+    ("UM_Light_Cover", "Armour", "desc", "armour", 1123, "cover.png", "Armour"),
+    ("UM_Light_Cover", "护甲", "descZh", "armour", 1123, "cover.png", "Armour"),
+    ("UM_Primaris_Eradicator", "Armour.", "desc", "armour", 1018, "Warpforge_03_Primaris-Eradicator-2.png", "Armour"),
+    ("UM_Primaris_Eradicator", "护甲的", "descZh", "armour", 1018, "Warpforge_03_Primaris-Eradicator-2.png", "Armour"),
+    ("UM_Primaris_Techmarine", "Armour", "desc", "armour", 1007, "UPDATED_primaris techmarine.png", "Armour"),
+    ("UM_Primaris_Techmarine", "护甲", "descZh", "armour", 1007, "UPDATED_primaris techmarine.png", "Armour"),
+    # ---- `Codex` → `codex` ----
+    ("UM95", "Codex", "desc", "codex", 1100, "Warpforge_31_Dutys-End.png", "Codex"),
+    ("UM95", "典籍", "descZh", "codex", 1100, "Warpforge_31_Dutys-End.png", "Codex"),
+    ("UM_Author_of_the_Codex", "Codex", "desc", "codex", 1014, "Warpforge_02_Author-of-the-Codex.png", "Codex"),
+    ("UM_Author_of_the_Codex", "典籍", "descZh", "codex", 1014, "Warpforge_02_Author-of-the-Codex.png", "Codex"),
+    ("UM_Codex_Discipline", "Codex", "desc", "codex", 1122, "codex.png", "Codex"),
+    ("UM_Codex_Discipline", "典籍", "descZh", "codex", 1122, "codex.png", "Codex"),
+    ("UM_Oath_of_Moment", "Codex", "desc", "codex", 1128, "oath of moment.png", "Codex"),
+    ("UM_Oath_of_Moment", "典籍", "descZh", "codex", 1128, "oath of moment.png", "Codex"),
+    # ---- `Destroyer` → `frenzied` ----
+    ("SAU51", "Destroyer", "desc", "frenzied", 560, "Warpforge_51_Disruption-Blades.png", "Destroyer"),
+    ("SAU51", "毁灭者", "descZh", "frenzied", 560, "Warpforge_51_Disruption-Blades.png", "Destroyer"),
+    ("SAU8", "Destroyer", "desc", "frenzied", 578, "Warpforge_8_Canoptek-Plasmacyte.png", "Destroyer"),
+    ("SAU8", "毁灭者", "descZh", "frenzied", 578, "Warpforge_8_Canoptek-Plasmacyte.png", "Destroyer"),
+    # ---- `Ephemeral` → `ephemeral` ----
+    ("TL82", "Ephemeral", "desc", "ephemeral", 1002, "Warpforge_9_Neurotyrant.png", "Ephemeral"),
+    ("TL82", "临时", "descZh", "ephemeral", 1002, "Warpforge_9_Neurotyrant.png", "Ephemeral"),
+    # ---- `Penitence` → `rage` ----
+    ("SOR56", "Penitence", "desc", "rage", 766, "Warpforge_56_Hallowed-Martyrs.png", "Penitence"),
+    ("SOR56", "忏悔", "descZh", "rage", 766, "Warpforge_56_Hallowed-Martyrs.png", "Penitence"),
+    # ---- `Pray` → `pray` ----
+    ("SOR48", "Pray", "desc", "pray", 758, "Warpforge_48_Prayer.png", "Pray"),
+    ("SOR48", "祈祷", "descZh", "pray", 758, "Warpforge_48_Prayer.png", "Pray"),
+    # ---- `Regiment` → `regiment` ----
+    ("AM52", "Regiment", "desc", "regiment", 166, "Warpforge_52_Regimental-Doctrine.png", "Regiment"),
+    ("AM52", "团", "descZh", "regiment", 166, "Warpforge_52_Regimental-Doctrine.png", "Regiment"),
+    # ---- `Remnant` → `remnant` ----
+    ("SAU16", "Remnant", "desc", "remnant", 517, "Warpforge_16_Technomancer.png", "Remnant"),
+    ("SAU16", "残骸", "descZh", "remnant", 517, "Warpforge_16_Technomancer.png", "Remnant"),
+    ("SAU25", "Remnant", "desc", "remnant", 527, "Warpforge_25_Canoptek-Reanimator.png", "Remnant"),
+    ("SAU25", "残骸", "descZh", "remnant", 527, "Warpforge_25_Canoptek-Reanimator.png", "Remnant"),
+    ("SAU26", "Remnant", "desc", "remnant", 549, "Warpforge_26_Reanimate.png", "Remnant"),
+    ("SAU26", "残骸", "descZh", "remnant", 549, "Warpforge_26_Reanimate.png", "Remnant"),
+    ("SAU27", "Remnant", "desc", "remnant", 528, "Warpforge_27_Chronomancer.png", "Remnant"),
+    ("SAU27", "残骸", "descZh", "remnant", 528, "Warpforge_27_Chronomancer.png", "Remnant"),
+    ("SAU46", "Remnant", "desc", "remnant", 555, "Warpforge_46_Reanimation-Protocol.png", "Remnant"),
+    ("SAU46", "残骸", "descZh", "remnant", 555, "Warpforge_46_Reanimation-Protocol.png", "Remnant"),
+    ("SAU49", "Remnant", "desc", "remnant", 558, "Warpforge_49_Protection-Protocol.png", "Remnant"),
+    ("SAU49", "残骸", "descZh", "remnant", 558, "Warpforge_49_Protection-Protocol.png", "Remnant"),
+    ("SAU5", "Remnant", "desc", "remnant", 544, "Warpforge_5_Orikan-the-Diviner.png", "Remnant"),
+    ("SAU5", "残骸", "descZh", "remnant", 544, "Warpforge_5_Orikan-the-Diviner.png", "Remnant"),
+    ("SAU67", "Remnant", "desc", "remnant", 576, "Warpforge_67_Resurrection-Vault.png", "Remnant"),
+    ("SAU67", "残骸", "descZh", "remnant", 576, "Warpforge_67_Resurrection-Vault.png", "Remnant"),
+    # ---- `Strike` → `strike` ----
+    ("GSC50", "Strike", "desc", "strike", 478, "Warpforge_50_Enhanced-Aggression.png", "Strike"),
+    ("GSC50", "猛击", "descZh", "strike", 478, "Warpforge_50_Enhanced-Aggression.png", "Strike"),
+    ("GSC56", "Strike", "desc", "strike", 484, "Warpforge_56_Living-Icon.png", "Strike"),
+    ("GSC56", "猛击", "descZh", "strike", 484, "Warpforge_56_Living-Icon.png", "Strike"),
+    ("UM_Oath_of_Moment", "Strike", "desc", "strike", 1128, "oath of moment.png", "Strike"),
+    ("UM_Oath_of_Moment", "猛击", "descZh", "strike", 1128, "oath of moment.png", "Strike"),
+    # ---- `Talent` → `talent` ----
+    ("UM_Antaro_Chronus", "Talent", "desc", "talent", 1080, "chronus.png", "Talent"),
+
+    # ---- 2026-10-12 追加：**同卡同字段的第二处**（段首那枚已由句首关键词画，
+    #      守卫③ 是**整字段**级 ⇒ 规则不补第二处；这里逐卡给**带上下文**的 token，
+    #      既避开与段首 token 互相包含、又能对上第二处。见报告「残缺口」那一节）----
+    ("AM29", "Shield to", "desc", "shield", 140, "Warpforge_29_Primaris-Psyker.png", "Shield"),
+    ("SW42", "Ferocity,", "desc", "ferocity", 817, "Warpforge_42_Bjorn-the-Fell-Handed.png", "Ferocity"),
+    ("SW42", "狂暴时", "descZh", "ferocity", 817, "Warpforge_42_Bjorn-the-Fell-Handed.png", "Ferocity"),
+    ("UM90", "Sentry 2", "desc", "sentry", 1063, "Warpforge_26_Whirlwind.png", "Sentry"),
+    ("UM90", "哨戒 2", "descZh", "sentry", 1063, "Warpforge_26_Whirlwind.png", "Sentry"),
+    ("TL29", "Synapse,", "desc", "synapse", 947, "Warpforge_29_Zoanthrope.png", "Synapse"),
+    ("TL29", "突触时", "descZh", "synapse", 947, "Warpforge_29_Zoanthrope.png", "Synapse"),
+    ("ASH_Orian_Laratharjos", "Stealth,", "desc", "stealth", 98, "Zrzut ekranu 2026-04-16 o 18.55.24.png", "Stealth"),
+    ("ASH_Orian_Laratharjos", "潜行时", "descZh", "stealth", 98, "Zrzut ekranu 2026-04-16 o 18.55.24.png", "Stealth"),
+    ("TAU16", "Stealth to", "desc", "stealth", 859, "Warpforge_16_Darkstrider.png", "Stealth"),
+]
+_A1613_MARK = {
+    "armour": "「盾牌」", "codex": "「典籍」", "remnant": "「残骸」", "strike": "「猛击」",
+    "ambush": "「伏击」", "talent": "「卷轴」", "frenzied": "「毁灭者」（图集里没有 `destroyer.png`）",
+    "pray": "「祈祷」", "regiment": "「团」", "ephemeral": "「临时」", "rage": "「忏悔」（图集里没有 `penitence.png`）",
+}
+for _g_cid, _g_tok, _g_field, _g_sprite, _g_line, _g_png, _g_word in _A1613_GAP:
+    # ⚠️ 形状名**只在对得上时**才写形状（`_A1613_MARK`）；没核过的一律退回中性的「图标」——
+    #    凭印象写形状 = 把猜测写成判据（本工程红线，见 `资料/卡表核对_卡图提取/_还原效果文字.md` 头部的旧教训）。
+    _g_why = (f"卡面 `{_g_word}` **前面**那枚{_A1613_MARK.get(_g_sprite, '图标')}（= "
+              f"`Resources/Art/traits/{_g_sprite}.png`）—— 逐张判据："
+              f"`资料/卡表核对_卡图提取/_还原效果文字.md:{_g_line}`（`{_g_png}`）。")
+    BARE_TOKEN_BY_CARD[(_g_cid, _g_tok)] = (_g_sprite, _g_why)
+
+
 GAP_BY_CARD = {}
 
 # 同一类：token 认得出、但**图集里根本没有同名的那张图**。
@@ -1167,8 +1606,23 @@ RESOURCE_WHY = ("不带方括号的**资源词**：`Quest Point(s)` 卡面画的
                 "所以本规则**只做任务点**。")
 
 # 句首：行首 / `. ` / `; ` 之后 → 1~3 个大写词 → 可选数字 → `:` 或 `.`
+#
+# 🔴 **2026-10-11（`A1476` · 收尾符放宽到「或文末」）** —— 改前这里写死 `([:.])`，
+#    **要求关键词后面紧跟 `:` 或 `.`**；而卡面**句尾那一段是不印句号的**（印刷约定，
+#    `A1444` 那批裁块放大亲读 5 张 + `C1` 再一次亲读 3 张坐实：
+#    `ASH81` `… 〔紫爆炸〕Blast 3` · `AM37` `〔准星〕Long Range. 〔紫爆炸〕Blast 3` ·
+#    `AM28` `… 〔紫爆炸〕Blast 2`）⇒ 全池 `desc` 以**裸 `Blast N` 收尾的 17 张**
+#    那枚徽记**一枚都画不出来**。
+#    🔑 **最干净的对照（`AM37 Basilisk`，同一张卡中英两侧互为镜子）**：
+#    计划表英文侧只有 `Long Range.`、中文侧却有 `爆破 3。` —— 差的**只是中文那个 `。`**
+#    撞上了收尾符要求 ⇒ 这是「真因在扫描器」的**直接读数**，不是推测。
+#    ⇒ 改成 `(?:([:.])|(?=$))`：**收尾符照旧要**，但**文末那一种不要求**。
+#    ⚠️ **只放宽「文末」这一种**，⛔ 不许把收尾符写成 `?`（那会让 `Blast 3 to a friendly troop`
+#       里的 `Blast 3` 也命中 = 凭空多画一枚）。
+#    ⚠️ **收尾符不参与时 `group(3)` 是 `None`** ⇒ 取匹配段右端一律走 `keyword_scan_end(m)`
+#       （⛔ 别写 `m.end(3)` —— 那是 `-1`，会把最后一个字符切掉）。
 KEYWORD_SCAN = re.compile(
-    r"(?:^|[.;]\s+)([A-Z][A-Za-z'\-]*(?:\s+(?:of\s+)?[A-Z][A-Za-z'\-]*){0,2})(?:\s+(\d+))?\s*([:.])")
+    r"(?:^|[.;]\s+)([A-Z][A-Za-z'\-]*(?:\s+(?:of\s+)?[A-Z][A-Za-z'\-]*){0,2})(?:\s+(\d+))?\s*(?:([:.])|(?=$))")
 # 中文版：行首 / `。` / `；` / `，` 之后 → **1~8** 个汉字 → 可选数字 → `：` 或 `。`
 # 🔴 2026-10-08 修：下界原来是 **2**，而 `资料/关键词图标/_规则书关键词表.md` 里
 #    **`团` → `Regiment` 是单字关键词** ⇒ 那一句永远扫不到、卡面**漏画 `regiment` 徽记**。
@@ -1181,7 +1635,20 @@ KEYWORD_SCAN = re.compile(
 #    ⚠️ **下界改成 1 不会误伤**：`([一-龥]{1,8})` 是**贪婪**的，长的先试（`团结一致：` 仍先试
 #    `团结一致`、词表里没有 ⇒ 不命中）；而 `zh_en.get(raw)` 那道闸只放行词表里的词，
 #    词表里**只有 `团` 一个字是单字**。实测：改完 `--write` 只多出下面那几条，其余一字未动。
-KEYWORD_SCAN_ZH = re.compile(r"(?:^|[。；,，]\s*)([一-龥]{1,8})(?:\s*(\d+))?\s*([：。])")
+KEYWORD_SCAN_ZH = re.compile(r"(?:^|[。；,，]\s*)([一-龥]{1,8})(?:\s*(\d+))?\s*(?:([：。])|(?=$))")
+
+
+# 🔴 **2026-10-11（`A1476`）**：上面两条正则的收尾符改成「**照旧要 `:`/`.`/`：`/`。`，
+#    但【文末那一种】不要求**」—— 理由（卡面句尾不印句号）与全池读数写在前一条的注释里。
+#    ⚠️ **收尾符不参与时 `group(3)` 是 `None`** ⇒ 右端一律走本函数：
+#       写 `m.end(3)` 会拿到 **`-1`**，把匹配段的最后一个字符**静默切掉**
+#       （token 就是运行时 `s.Replace(token, tag)` 的键 ⇒ 切掉尾巴 = 那个位置**一个图标都不画**）。
+def keyword_scan_end(m):
+    """匹配段的**右端**（= token 的结束下标）。收尾符可省 ⇒ 逐级回退到有参与的那一组。"""
+    for g in (3, 2, 1):
+        if m.group(g) is not None:
+            return m.end(g)
+    return m.end(1)
 
 
 # 🔴 2026-09-21 修 —— **用户从卡面图上抓到的真 bug：连续句首关键词漏画第 2、4…个**
@@ -1197,6 +1664,11 @@ def scan_chained(scan, text):
     """句首关键词的逐句扫描 —— **分隔符不消费**（前一句的收尾符同时是后一句的前导符）。
 
     每轮至少前进 1 字符（`pos + 1`），不会死循环；`group(3)` 是收尾的 `:` / `.` / `：` / `。`。
+    ⚠️ **`A1476` 起收尾符可以【不参与】**（文末那一种，`group(3) is None`）—— 但**推进游标**的
+    判据**不许**换成 `keyword_scan_end(m)`：那条规矩是「**回退到收尾符本身**」（收尾符要留给
+    下一句当前导符），换成「匹配段右端」= **把收尾符吃掉** ⇒ 下一句的句首关键词**静默漏画**
+    （2026-10-11 实测：换成它之后 `关键词前缀` 从 **1355 → 1193**，正是这条）。
+    写法 = 收尾符有参与就用 `m.start(3)`，不参与（文末）才退回 `keyword_scan_end(m)`。
     """
     pos = 0
     while pos <= len(text):
@@ -1204,7 +1676,7 @@ def scan_chained(scan, text):
         if m is None:
             return
         yield m
-        pos = max(m.start(3), pos + 1)
+        pos = max(m.start(3) if m.group(3) is not None else keyword_scan_end(m), pos + 1)
 
 KEYWORD_WHY = ("卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 "
                "`_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / "
@@ -1262,7 +1734,7 @@ def keyword_prefixes(text, idx_en, zh_en, taken):
             sprite = KEYWORD_PREFIX[en] if en in KEYWORD_PREFIX else idx_en.get(norm_name(en))
             if sprite is not None and sprite in KEYWORD_PREFIX_SKIP:
                 continue
-            token = text[m.start(1):m.end(3)]
+            token = text[m.start(1):keyword_scan_end(m)]
             if not sprite:
                 out.append((token, "", "缺口：" + KEYWORD_WHY))
                 continue
@@ -1441,6 +1913,9 @@ def main():
 
     TOK = re.compile(r"\[([^\[\]]{1,24})\]")
     plan, stat, unresolved, disagree, auto = {}, collections.Counter(), [], [], []
+    # 🆕 2026-10-11（`A1476`）：**同一个 token 被两条来源画到、而 sprite 不一致**（真分歧）——
+    #   今天应为 0 条；非 0 就是「按名字那条」和「逐卡证据那条」打架 ⇒ 要人判，⛔ 别静默。
+    why_conflict = []
     # `A1378` 按词裸 token 规则的逐词读数（token → 分档 → 卡 id 集合），最后打出来
     rule_audit = collections.defaultdict(lambda: collections.defaultdict(set))
     # `A1411`：③「中文走英文对家（`ZH2EN`）」那一支**真被查到**的键 —— 它们**不是死条目**
@@ -1486,6 +1961,10 @@ def main():
             #    逐卡表在前（判据更细、赢），规则在后（只补逐卡表没覆盖的）—— 两道守卫见那张表。
             #    ⚠️ 守恒带词的每一处都已在逐卡表里 ⇒ 本表**今天的池子上一条都不新增**（这是预期）。
             _have_sp = {_sp for _t, _sp, _w, _k in btok if _sp}
+            # 守卫③ 用的名单 = **本字段已经注定要画的那几条 token**（句首关键词 / 资源词 / 逐卡裸 token）：
+            #   裸词规则给的词只要落在其中任何一条**里面**，就是「一条是另一条的子串」那个形状。
+            _pre_tokens = ([_x for _x, _s, _w in kws] + [_x for _x, _s, _w in res] +
+                           [_x for _x, _s, _w, _k in btok])
             for _t, _sp, _why in BARE_TOKEN_BY_RULE:
                 if _t not in text:
                     continue
@@ -1495,6 +1974,17 @@ def main():
                     continue
                 if ("[" + _t + "]") in text:         # 守卫①：图标已由方括号那一支画
                     rule_audit[_t]["方括号守卫"].add(cid)
+                    continue
+                # 🆕 **守卫③（2026-10-11 · `A1476` 收尾符放宽之后新增）：别和「句首关键词」那一支重叠。**
+                #   `A1476` 把收尾符放宽到「或文末」之后，`Sniper.` 这类**带收尾符**的 token 开始被
+                #   句首那一支画出来；而同一条裸词规则给的 token 是 `Sniper` —— 它是 `Sniper.` 的**子串**。
+                #   🔴 **运行时的替换是全局的**（`CardIcons.Rewrite` 的 `s.Replace(token, tag)`）⇒
+                #   先换长的 `Sniper.`（本函数头那条「长的先换」），再换短的 `Sniper` 时，
+                #   它会命中**刚插进去的那段标签里的词**（`…<sprite name="sniper">Sniper.</nobr>`）
+                #   ⇒ **同一个图标画两枚、`<link>` 套两层**（静默）。
+                #   实测：放宽当天 `ASH81` / `SW36` 的 `desc`+`descZh` 共 **4 条**，全池其余 0 条。
+                if any(_t in _x for _x in _pre_tokens):
+                    rule_audit[_t]["已由句首关键词画"].add(cid)
                     continue
                 rule_audit[_t]["规则命中"].add(cid)
                 btok.append((_t, _sp, _why, "按词规则"))
@@ -1564,6 +2054,16 @@ def main():
             # 名单在进本字段时就算好了（`btok`，见上面那段 —— 它同时是那道 `continue` 的判据之一）。
             for _btok, _bsp, _bwhy, _bkind in btok:
                 if _btok in got:
+                    # 🆕 **2026-10-11（`A1476`）**：同一个 token 已经被**句首关键词**那一支画过时，
+                    #   它的 `why` 是那条**按名字**的通用话术；而逐卡表 / 裸 token 那两条
+                    #   **判据更细**（带 `_还原效果文字.md:NN` + 卡图文件名）⇒ **把 `why` 换成更细的那条**。
+                    #   ⚠️ **只在 sprite 一致时换**（渲染结果一个字节都不变，只改证据链）——
+                    #   **不一致就是真分歧**：那种情形**不静默**，记进下面的冲突段（`why_conflict`）。
+                    _cur = got[_btok]
+                    if len(_cur) == 1 and _cur[0][0] == _bsp:
+                        got[_btok] = [(_bsp, _bwhy)]
+                    elif len(_cur) == 1 and _bsp:
+                        why_conflict.append((cid, field, _btok, _cur[0][0], _bsp, _bkind))
                     continue
                 got[_btok] = [(_bsp, _bwhy)]
                 stat[_bkind] += 1
@@ -1593,6 +2093,32 @@ def main():
     print(f"=== 没认出来的（{len(unresolved)} 处，**不猜**）===")
     for cid, name, field, key, text, why in unresolved:
         print(f"  {cid} {name} [{field}] {key} —— {why}  |  {text[:100]}")
+
+    # ── 🆕 2026-10-11（`A1476`）：**同字段内「一条 token 是另一条的子串」自检** ──────────────
+    #  判据：`CardIcons.Rewrite` 的替换是**全局** `s.Replace(token, tag)`，而它只保证
+    #  「**同一条内**长的先换」—— **管不了跨条**。长短两条一旦有包含关系，先换长的那条之后，
+    #  短的还会命中**刚插进去的那段标签里的那个词**（`…<nobr><sprite …>Sniper.</nobr>`）
+    #  ⇒ **同一个图标画两枚、`<link>` 套两层**，而且**不报任何错**。
+    #  🔴 这条自检是 `A1476` 放宽收尾符那天**踩出来的**（`Sniper` ⊂ `Sniper.`，`ASH81`/`SW36`
+    #     的中英两侧共 4 条）⇒ 加进来让它**以后不可能静默**：今天必须是 **0 处**。
+    #  ⚠️ 判据只看**不含 `[` 的键** —— 方括号记号那一支换完**词是不留的**（`[Mob]`），
+    #     它和其他条不可能互为子串而不被发现；真出现也会在这里报出来。
+    conflicts = []
+    for _cid, _fields in plan.items():
+        for _fname, _got in _fields.items():
+            _keys = [k for k in _got.keys() if not k.startswith("[")]
+            for _a in _keys:
+                for _b in _keys:
+                    if _a != _b and _a in _b:
+                        conflicts.append((_cid, _fname, _a, _b))
+    print("")
+    print(f"=== 🔴 同字段内 token 互相包含（{len(conflicts)} 处；**运行时会画两枚**）===")
+    for _cid, _fname, _a, _b in conflicts:
+        print(f"  {_cid} [{_fname}] {_a!r} ⊂ {_b!r}")
+    print("")
+    print(f"=== 🔴 同一个 token 两条来源 sprite 不一致（{len(why_conflict)} 处；要人判）===")
+    for _cid, _fname, _t, _a, _b, _k in why_conflict:
+        print(f"  {_cid} [{_fname}] {_t!r}：句首关键词={_a} / {_k}={_b}")
 
     # ── 死条目（2026-09-16 加）──────────────────────────────────────────────
     #  `TOKEN_BY_CARD` 是 (卡, token) → sprite 的**逐卡**表。**改了某张卡的 token 名之后，
@@ -1626,6 +2152,7 @@ def main():
         _flag = "　🔴 全池 0 命中（token 写错了？）" if not _a["全池出现"] else ""
         print(f"  {_t} → {_sp}：规则命中 {len(_a['规则命中'])} 卡 · 逐卡表已覆盖 "
               f"{len(_a['逐卡表已覆盖'])} 卡 · 方括号守卫 {len(_a['方括号守卫'])} 卡 · "
+              f"已由句首关键词画 {len(_a['已由句首关键词画'])} 卡 · "
               f"全池出现 {len(_a['全池出现'])} 卡{_flag}")
 
     if WRITE:
@@ -1642,7 +2169,9 @@ def main():
         print("")
         print(f"落盘 {OUT_JSON}")
         print(f"      {OUT_RES}（运行时那份）")
-    return 1 if (missing or unresolved) else 0
+    # 🔴 **2026-10-11（`A1476`）**：`conflicts` / `why_conflict` **也算失败**（退出码非 0）——
+    #    它们是「运行时会画两枚」「两条来源打架」，都属于**不许静默**那一类（改前只打日志）。
+    return 1 if (missing or unresolved or conflicts or why_conflict) else 0
 
 
 if __name__ == "__main__":

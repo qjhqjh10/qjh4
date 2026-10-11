@@ -20,6 +20,8 @@ bash d:/4/Unity/工具/ruleprobe.sh b19test    # 45 条 B19 断言
 bash d:/4/Unity/工具/ruleprobe.sh willrun    # 🆕 「卡面正文收到没有」全池读数（见下节）
 bash d:/4/Unity/工具/ruleprobe.sh play SOR6  # 🆕 逐卡真打：这张卡打出去，局面的数字动了没有（见下节）
 bash d:/4/Unity/工具/ruleprobe.sh play all dump /tmp/play.tsv   # 全池逐卡真打
+bash d:/4/Unity/工具/ruleprobe.sh faith      # 🆕 信仰付费段的【两把尺子】对账 + 真打（见下节）
+bash d:/4/Unity/工具/ruleprobe.sh nonkw      # 🆕 `non <关键词>` 的目标筛选专用探针（见下节）
 ```
 
 判据 = **看那行 `=== 全池 … 解析差异 N 行 … ===`**：
@@ -83,6 +85,27 @@ dotnet bin/Debug/net8.0/wfprobe.dll scan "基线/out_baseline.txt"
 | `countScope` | `EffectOp.CountScope` | 计数**从哪儿来**（`board` / `draw` / `died` / `played` / `spiritspent` / `darkpact` / 空）🆕 `A1374` |
 | `condition` | `EffectOp.Condition` | 条件的**原文**（`you have less than 6 ☀`），空 = 真的没条件 🆕 `A1374` |
 | 🆕 **目标块** `/{T:…}` | `EffectOp.Target`（整个 `EffectTargetSpec`） | `{T:Raw=all enemies\|Side=enemy\|Kind=any\|Count=0\|…}`；`Target == null` ⇒ `{T:null}`。`EffectOp.DeathWatchTarget` 非空时再跟一个 `/{DW:…}` 🆕 `A1477` |
+| 🆕 **第二目标块** `/{T2:…}` | `EffectOp.Target2`（同一个类） | 同上那份字段，`Target2 == null` 时**整块不打**（⛔ 不是「打空块」） 🆕 `A1462` |
+
+🔴 **`A1462` 为什么还要补【第二目标块】**（同一族、第四条缝，2026-10-11）：
+
+`forceattack`（强制攻击）那一族把**「谁去打」与「打谁」分成两栏**：`Target` = 攻击者（**可空**）、
+`Target2` = 被打的那个。而 dump 原来只打 `Target`。症状是最坏的一种 —— **看起来像「没有目标」**：
+`SW12 Hunting Wolf` 卡面 `Ferocity: Attack a random non Flying enemy troop` 在 dump 里
+**只**显示 `T={T:null}`（`Target` 真的是 null），`Target2` 一个字都不打。
+`A1462`（「`non <关键词>` 的目标筛选**疑似整个丢了**」）当时**判不了**，原因就是这条缝；
+同一天 `A1477` 补的只是 `Target` 那一栏。
+
+⚠️ **块名必须是 `/{T2:`**（`T` 后面那一颗是 `2`、不是 `:`）—— `Sentinel.Legacy` 靠
+`LastIndexOf("/{T:")` 找起点，两者**不互相包含** ⇒ 切点不会挪。
+⚠️ **只在非空时打**（与 `/{DW:` 同一条取舍）。**自证判据**（⛔ 别写成「旧行是新行的前缀」——
+块是插在 op 分隔符 `;` **之前**的，`;` 会往后挪）：**把新行里的 `/{T2:…}` 块删掉之后必须与旧行逐字节相同**。
+本轮实测：扫描前后 **8 行**变化（全是 `forceattack` 那一族），**8/8** 满足；其余 1112 行逐字节没变。
+
+⚠️ **`seg` / `card` 那两个入口还会多打一段【嵌套 op】**（`NestedText`，同一个 `A1462`）——
+`atturn`（`At the start of each turn …`）把正文解析在 `AtTurnOps` 里，顶层 op 的 `Target`/`Target2`
+**都是空的**，只看顶层那两栏会得出「这句话没有目标」的错结论（`GOF85` 就是这种）。
+`scan` / `check` 那条路**不打**嵌套（怕基线噪声）—— 要看嵌套用 `nonkw` 或 `seg`。
 
 🔴 **为什么加**（台账 `A1368`）：前四样原来**一个字都不打** ⇒ 凡改「付费 / 条件 / 计数」三族的活，
 `check` 都给不出信号。第十三会话 `W6b` 撞过一次：它写的一个回归让 **28 张**卡的 `cost` 全变 0，
@@ -186,12 +209,43 @@ foreach (var op in ops)          // ← ops 是空表时，这个循环一次都
 | 档 | 判据 | 计入 rc |
 |---|---|---|
 | **`收漏`** | 触发头没进本卡的 `TriggerTexts`（`AddTriggerOp:1320` 要求头在 `CardDef.RoutableTriggers` 里）—— **`A1386` 是这一族** | **是** |
-| **`付费段`** | `N ☀:` / `N [Energy]:` / `N [Spirit Stone]:` 形状的**付费能力段** —— `WillRunOps` 的 unit/hero 支**压根不看这类段** | **是**（⚠️ 另一族病灶：**覆盖面**，不是「表里缺词」） |
+| **`付费段`** | **付费能力段**（判据 = **引擎自己那次 `ParseSegment` 的 `PaidCost > 0`**，覆盖 `N <货币>:` **与** `Oath N:` 两种写法）—— **它自己那条通道**没收到它 | **是**（⚠️ 另一族病灶：**覆盖面**，不是「表里缺词」） |
 | **`同头两写`** | 同一个头**注册过**，但 `desc` 与 `keywords` 两份正文**不一样**、后者被「先到先得」丢掉 | 否（⚠️ **数据不一致**，另行处置） |
 
-**判据**：**② 收漏了 = 0 张**、且段级 `收漏` / `付费段` 都为 0、**且 ⑤「无消费点」= 0 条** ⇒ `rc=0`；
-否则 `rc=1`（⛔ 不许静默绿）。
+🔴 **`A1593`（2026-10-11）：段级对账那道「腿 A 收没收到」的闸已改成【按通道比】**
+（`WillRun.ClaimChannel`）—— 原来是「**全卡** `op` 签名并集里有没有同签名的」（`Sig()` **不带**
+「属于哪条 ability」那一维）⇒ 同一张卡**别的** ability 里出现过的同签名 `op` 会把这**一段**
+顶成「已收到」。**影响所有拿 ④ 当射程的账**，不止信仰。两条规则（判据全转调引擎公开面）：
+
+| 这一段长什么样 | 认它的**通道** |
+|---|---|
+| **自带付费前缀**（`PaidCost > 0`） | 只认同货币那条：`faith` → `CardDef.FaithOps` · `spirit` → `CardDef.SpiritOps` · `oath` → `CardDef.OathOps`；**别的货币（`energy` / `might` …）在 `WillRunOps` 的 unit/hero 支里没有通道 ⇒ 这一段收不到**（④ 该点的名） |
+| 其余 | 只认**本段那个触发头自己的通道**（`TriggerTexts[头]` → `TriggerOps(头)`）；头不在字典里 ⇒ 没有通道 |
+
+⚠️ **无头段（⑤）【不】走这条规则**（没有头 ⇒ 没有通道，按通道比会让 ⑤ **整族误报**）——
+它继续用全卡并集，**只是下界**。⇒ **⑤ 与 ④ 的严格程度不同**，⛔ 别把两者的条数放一起比。
+
+**判据**：**② 收漏了 = 0 张**、且段级 `收漏` / `付费段` 都为 0、**且 ⑤「无消费点」= 0 条**、
+**且 ⑦ 判据自检（`A1593`）= 0 条红** ⇒ `rc=0`；否则 `rc=1`（⛔ 不许静默绿）。
 它每次都会**同时**打一行「老口径」供对照 —— 两行并排就是「空转 ⇒ 全绿」的现场。
+
+### 🔴 ⑦ ④ 档那道闸的判据自检（🆕 `A1593`，2026-10-11）—— **含一条「旧口径必红」的断言**
+
+**为什么单开一栏**：④ 的第三道闸原来按全卡签名并集比（见上表下面那段），而**已查实的两个实例**
+（`SOR28 Dominion Superior` = `Rally: Deal 1 damage. 2 ☀: Deal 1 additional damage` ——
+`deal` 撞上同一张卡的 `Rally:`；`SOR36 Celestian Superior` = `Pray: Deploy a Celestian. 6☀: Deploy a Celestian`
+—— 两段正文**逐字相同**）**从没进过 ④ 的名单**。⇒ 台账 `A1452` 的「11 条 / 9 张」是**低报**，
+形状口径 = **13 条 / 11 张**。
+
+**三条断言**（夹具卡在内存里现造，⛔ 不进卡池）：
+
+| # | 断言 | 为什么它非有不可 |
+|---|---|---|
+| **A** | 形状**逐字照抄**上面两个实例、**只把付费货币换成没有通道的那一种**（`2 [Might]:` / `6 [Might]:`）⇒ 付费那一段**必须**被报成孤儿 | 🔴 **旧口径必红**：它按全卡并集比，`deal` / `deploy` 撞上 `Rally:` / `Pray:` ⇒ 判成「收到了」⇒ 报 **0 条**。**这一条在旧口径下结构上不可能绿** |
+| **B** | 池里的 `SOR28` / `SOR36`：付费段**必须由【信仰通道】认领**（不是被 `Rally:` / `Pray:` 顶上） | 旧口径**没有「通道」这一维** ⇒ 它连「是哪条 ability 收的」都答不出；这条钉的就是**答得出** |
+| **C** | 夹具 `Rally: Deal 1 damage. Rally: Deal 3 damage` ⇒ 第二条必须报 `同头两写` | 挡住「只要头注册了就一律算收到」那种改法 |
+
+⚠️ **它计入 rc** —— 那条闸一旦退回「全卡并集比」，A 立刻红。⛔ 别把这三条断言删了换成一个数。
 
 ### 🔴 ⑤「无头正文」逐句报账 —— 四档**全部以 `Head:` 为锚**，这一档治的就是那道缝（🆕 `A1459`，2026-10-10）
 
@@ -326,7 +380,7 @@ bash d:/4/Unity/工具/ruleprobe.sh play all dump <out.tsv>   # 附带逐卡 TSV
 | 垫牌 | 30 张：**兵种轮着来**（步/载具/兽/无人机）＋ 每 5 张有一张**战术卡** —— `Draw a Beast` / `The next Vehicle` / `Draw a Stratagem` 那族才找得到东西 |
 | 能量 | 起始 **20** / 上限 **30**（上限比起始高 ⇒ `Refill all your Energy` 看得见；全池最高卡费现读 14） |
 | 预扣血 | 摆完场后**我方三张部队 ＋ 督军**各扣 **2**（走引擎 `RuleCore.ApplyDamage`）⇒ `Heal …` 那族才看得见 |
-| 补手牌 | 🔴 被测卡**没活到这一手**时按引擎形状补进手牌（`NewInstance`→`Hand.Add`→`SetupCardInHand`，≡ `RuleCore.SetDefensiveCard`）。**不补会漏掉 137 张**：**临时卡 98 张**（`EndTurn:1340` 的 `SweepEphemeral` 会在回合末把手牌里的临时卡弃掉 —— 这是引擎**对的**行为）＋ **防御卡 39 张**（`BuildPlayer` 把它从牌库分流出去、只发给后手） |
+| 补手牌 | 🔴 被测卡**没活到这一手**时按引擎形状补进手牌（`NewInstance`→`Hand.Add`→`SetupCardInHand`，≡ `RuleCore.SetDefensiveCard`）。**不补会漏掉 137 张**：**临时卡 98 张**（`EndTurn:1341` 的 `SweepEphemeral` 会在回合末把手牌里的临时卡**移出游戏** —— 这是引擎**对的**行为）＋ **防御卡 39 张**（`BuildPlayer` 把它从牌库分流出去、只发给后手）。⇒ **两族 = 本夹具【结构上不适用】的那两族**，可执行的过滤口径与逐条读数见下面「本夹具【结构上不适用】的两族」（`A1572`）那一节；TSV 里标在 `fixtureFit` / `injected` 两列 |
 | 随机性 | `seed=0`、`shuffle:false`、换牌关 ⇒ 同一张卡每次读数逐字一致 |
 
 **量的是什么**：把被测卡**真打一发**（单位卡 `PlayCard`、战术/防御卡 `PlayTactic`），
@@ -379,6 +433,11 @@ bash d:/4/Unity/工具/ruleprobe.sh play all dump <out.tsv>   # 附带逐卡 TSV
 
 ### 真池读数（2026-10-11 首跑 · 1126 张 · 不跑 Unity）
 
+> ⚠️ **这几个数【随卡池变】** —— 它们是「**那一刻**的卡池」跑出来的快照。
+> 实测同一天里就动过：并行写手改了一次 `cards_engine.json` ⇒ 候选 **411 → 410**
+> （`C 部署时该发生` 96 → 94、`B 等事件/等主动用` 274 → 275；`A` 档 41 没动）。
+> ⇒ 要**现值**就跑一次 `play all`（≈5 秒），⛔ 别拿下面这几行当判据。
+
 ```text
 === play all · 逐卡真打 · 池 1126 张 ===        （整趟 ≈ 5 秒）
   真打成功（rc=0）        1115 张
@@ -413,6 +472,182 @@ bash d:/4/Unity/工具/ruleprobe.sh play all dump <out.tsv>   # 附带逐卡 TSV
    **要靠跨句承接的**（`A1428` 那族）—— 都会落进候选，但**是量具盲区，不是证据**。
 4. **费用之外的手牌外区域**（牌库顶顺序那类）只按 id 多重集比 ⇒ 只看得出「换了哪几张」。
 
+### 本夹具【结构上不适用】的两族 —— 两条**可执行的过滤口径**（🆕 `A1572`，2026-10-11）
+
+🔴 **为什么单列**：`other == 0` 问的是「打出去之后局面动没动」，而这两族**在本夹具里到不了「打出去」那一步**
+（不是卡的毛病、也不是引擎的毛病，是**夹具的形状**决定的）⇒ 和自然上手那批混读会**误报一整族**。
+
+| 口径 | 可执行的谓词 | 为什么（引擎侧的判据） |
+|---|---|---|
+| **① 临时卡** | `CardDef.Has("ephemeral")`（与 `BattleContext.IsEphemeral` 的前半同一处语义，`RuleCore.cs:1171`） | `RuleCore.EndTurn` 会调 `SweepEphemeral`（`RuleCore.cs:1341`）：回合结束时把**该方手牌**里的临时卡**移出游戏**（规则书 `:229`「非弃置」）⇒ 凡「先摆牌库、等它自然上手」的夹具，跨一个来回之后它**必然不在手里**（实测 **98 张全部如此**） |
+| **② 防御卡** | `CardDef.Type == "defence"` | `RuleCore.BuildPlayer`（`RuleCore.cs:506/553`）把 `defence` 从**牌库**里**分流**出去（`defenceCardOut`），发牌由调用方按**座位**做、只发给**后手**（`GrantDefenceCard`/`SetDefensiveCard`）⇒ 本夹具的 **P0 是先手**，手里永远没有它（实测 **39 张全部如此**）。⚠️ 补进来之后还有一层不等价：**它被测量时站在先手这一侧**，而原版只会出现在后手手里 |
+
+**现行读数（实测 · 池 1126 张 · 候选 410 —— ⚠️ 这几个数**随池变**，现值跑 `play all`）**：两族共 **137 张**（98 ＋ 39），
+**137/137 都靠【按引擎形状补手牌】才测到**（TSV 的 `injected=1` 那一列就是这么来的）——
+两族与 `injected=1` 的行**互为同一集合**（`play all` 的 ③ 节每次现算并打出来；哪天不再相等，
+说明补牌/分流的形状改了，**回来重读这一节**，⛔ 不是自动豁免）。
+
+🔴 **⛔ 但这两族【不整族从候选里删除】** —— `A1572` 的账文原写「必须从候选里排除」，
+**实测与本夹具的实际形状不符**：落进候选的只有 **7 张**（3 临时 ＋ 4 防御），
+而它们**各有别的原因**，其中 **3 张是【真缺陷】**：
+
+| 卡 | 族 | 引擎自己那句话 | 性质 |
+|---|---|---|---|
+| `TAU27` Homing Beacon | ephemeral | `Deploy a Crisis Battlesuit` 部署不了 —— 按兵种「crisis」在卡池里一张都没筛到 | 🔴 **真缺陷**（`Crisis Battlesuit`=`TAU15` **在池里**） |
+| `TAU67` Tidewall Droneport | defence | `Deploy a Guardian Drone` —— 按兵种「guardian」一张都没筛到 | 🔴 **真缺陷**（`Guardian Drone`=`TAU8` **在池里**） |
+| `GSC68` Rusted Vents | defence | `Create a random troop with Ambush in your hand` 造不出牌 | 🔴 **真缺陷**（同族；池里有 11 张带 `ambush`） |
+| `SAU6` Master Chronomancer | ephemeral | 从牌库选了一张 → 放到牌库顶 | ⚪ 量具盲区（牌库**顺序**不在指纹里，见上面第 4 条） |
+| `GOF60` Extractor Rig | defence | 「vehicle」里的手牌与牌库每张 -2 费，登记 6 张 | ⚪ 量具盲区（**牌库逐张费用**不在指纹里） |
+| `SAU26` Reanimate · `SAU67` Resurrection Vault | ephemeral · defence | 「要翻残骸，但场上没有残骸、墓地里也没有单位」 | ⚪ 夹具没有残骸/墓地单位 |
+
+⇒ **整族删除会把那 3 张真缺陷一起盖掉**（本仓红线「不许静默失败」＋ 铁律 11「全部都要做」）。
+**可执行的用法**：按 TSV 的 `fixtureFit` 列**标注**这两族、把它们的 `other=0` **单列出来逐条看原因**
+（`play all` 的 ③ 节就是干这个的：逐条附上**引擎自己**那句最能解释「为什么没变化」的话），
+而不是把它们从候选里抹掉。
+
+**TSV 新增两列**（**只加在末尾**，前面的列一个字没动）：
+
+| 列 | 值 | 含义 |
+|---|---|---|
+| `fixtureFit` | 空 / `ephemeral` / `defence` / `ephemeral+defence` | 本夹具对它**结构上不适用**（空 = 适用）。纯 ASCII，好 `grep` |
+| `injected` | `1` / `0` | 这一张是**夹具补进手牌**才测到的（`1` = 量具干预过）⇒ 与自然上手那批**不等价** |
+
+```bash
+bash d:/4/Unity/工具/ruleprobe.sh play all dump /tmp/play.tsv
+grep -P '\tephemeral|\tdefence' /tmp/play.tsv        # 只看这两族
+grep -P '\t1$'                 /tmp/play.tsv        # 只看「补手牌才测到」的那 137 张
+```
+
+## `nonkw` —— `non <关键词>` 的目标筛选**专用探针**（🆕 `A1462`，2026-10-11）
+
+```bash
+bash d:/4/Unity/工具/ruleprobe.sh nonkw    # 四节读数 + rc（有「没承载」的 ⇒ rc=1）
+```
+
+**它治的是什么**：`A1462` 那条账原文是「`non <关键词>` 的目标筛选**疑似整个丢了** · ⛔ 未坐实」——
+而它**判不了**的原因有两条，**都在探针这一侧**（⛔ 不是引擎）：① dump 不打 `Target2`；
+② `atturn` 的目标解析在**嵌套 op**（`AtTurnOps`）里。两条都已在同一天补上
+（`/{T2:…}` 块 ＋ `NestedText`），本子命令再把「谁写了 · 承载在哪个字段 · 真打会怎样」逐条摆出来。
+
+**四节**：① **全池普查**（扫 `desc` ＋ `keywords` 原文，递归进 `AtTurnOps`/`RepeatOps`/`BaseOps`）
+· ② **判据与承载字段** · ③ **行为对照**（判定层 + 真路径） · ④ **结论**（`Lost > 0` ⇒ `rc=1`）。
+
+**判据（三层，全部是外部的，⛔ 不拿我们自己的实现反填）**：
+
+| 层 | 内容 |
+|---|---|
+| **卡面**（铁律 7：PnP 成品卡图） | `Orks/3部队/Warpforge_11_Unleashed-Tramplasquig.png` = `〔Stomp〕 Stomp. At the start of each turn attack a random non 〔Flying〕 Flying enemy`；`Space Wolves/3部队/Warpforge_12_Hunting-Wolf.png` = `Ferocity: Attack a random non 〔Flying〕 Flying enemy troop`（两张都**亲读**过） |
+| **原版**（`d:/2/tools/decomp_full/`） | `TargetCriteria.cs` 有 `traitsFilter` ＋ `excludeTrait`（`True => without trait`）；消费点 `FilterMethods__MeetsTraitCriteria.c`：`bVar2 = (param_3 ^ 1) & bVar2` ⇒ **取反真的会生效** |
+| **我们这一侧** | 承载「排除」的**唯一**字段 = `EffectTargetSpec.NotKeyword`（消费点 `RuleCore.ApplyTargetFilters`）⇒ 判据 = 「卡面写了 `non X` ⇒ `NotKeyword` 必须是 `x`」 |
+
+**现行读数（2026-10-11 · 池 1126 张 · 本文件写下的那一刻）**：目标短语里写了 `non X` 的 **2 处**
+（`GOF85` · `SW12`），**两处的 `NotKeyword` 都是空的** ⇒ 🔴 **丢了**，而且**丢在解析层**：
+`EffectText.ParseTarget` 里**没有** `non <词>` 这一支（它只认 `with <词>` ⇒ `ReTargetWith` → `KeywordFilter`）
+⇒ `non flying` 两个词**整段丢掉**，`Raw` 留着原文（`Raw` 只是排查用字符串、**不参与筛选**），
+而 `Side`/`Kind`/`Count` 照常解出来 ⇒ **句子报 OK、卡面不打 `*`**（静默）。
+⚠️ 同池另有 **4 处 `non X` 不在目标短语里**（`ChooseWhat`：4 张 `Choose a non-Legendary …`）——
+本子命令**单列**它们、⛔ 不混进上面那一栏（那是**另一条**路，`B19Test` 有断言看着）。
+⚠️ **`non-` 在别处【有】实现**（⛔ 别把它读成「全仓没有」）：**卡筛选**那一路
+（`CreatePool.FilterChoose`）认死两个前缀 `non-legendary` / `non-ephemeral`（`CreatePool.cs:303/305`）——
+缺的**只有目标短语**这一路（`EffectText.ParseTarget`）。
+
+🔴 **后果已量过（§③ 真路径）**：`GOF85` 走真实触发（`EndTurn`→`BeginTurn`），
+8 次抽样里 **1 次空过** —— 随机挑中了飞行单位（`Count=1` ＋ `Random` ⇒ `TryAttackOnce` 只拿到**那一个**候选，
+近战打不到飞行、**没有别的候选可退**），而场上**明明有**可打的非飞行敌人。
+§③(a) 还给了判定层的对照：**把 `NotKeyword` 补上，候选里就没有飞行单位** ⇒
+**结算层是好的**，⛔ 别去改 `ApplyTargetFilters`，修在**解析层**。
+
+🔴 **`check` 的哨兵 ⑥ 就是钉这一条的**（`Sentinel`，**计入 rc**）：它**现在就是红的**、
+且**修好之后会自动变绿**。⛔ 看到它红**不是**「探针坏了」—— 读那句 `✗` 的正文，
+它逐条列出「哪张卡 · 哪个 op 栏 · 卡面写了什么」并指名修法。
+
+⚠️ **顺手量出来的另一条（与 `A1462` 无关，别混）**：`§③` 的**原样**跑法 **8/8 全落 `ErrExhausted`**
+—— `BeginTurn` 里 `ResolveAtTurn("turn_start")`（`RuleCore.cs:1110`）**排在【解疲劳】
+`u.RefreshForNewTurn()`（`:1161`）之前**，而原版是**先解疲劳再触发**
+（`CardScript__OnTurnStart.c`：`ActivateMinion` 在 `:99`/`:118`，`RawCardScript__OnTrigger` 在 `:137+`）
+⇒ **回合开始触发的强制攻击在我们这儿永远打不出去**。探针要量 `A1462` 只能在跑法②里
+**替它先调一次引擎自己的【解疲劳】**（如实标明是量具干预）。
+
+## `faith` —— 信仰付费段的【两把尺子】对账（🆕 `A1452` / `A1453` / `A1565`，2026-10-11）
+
+```bash
+bash d:/4/Unity/工具/ruleprobe.sh faith                      # 六节读数 + rc
+bash d:/4/Unity/工具/ruleprobe.sh faith dump /tmp/faith.tsv  # 附带逐段 TSV
+```
+
+**它治的是什么**：同一个池上，「信仰（`N ☀:`）付费段有几条」**有两个数**，
+而两边**都是同一份源码跑出来的**、都「看着有依据」：
+
+| 尺子 | 判据 | 卡型范围 | 段要有冒号 | 正文要解得开 | 别的层没认领 |
+|---|---|---|---|---|---|
+| **P（解析层）** | 逐段 `EffectText.ParseSegment`，取 `PaidCost > 0 && CostKindOf(PaidKind) == "faith"` | **全池四种卡型** | ❌ 不要求 | ❌ 不要求 | ❌ 不要求 |
+| **Q（探针 ④「付费段」档）** | `WillRun.AddFaceBody` + `Classify` ② | **只 unit/hero** | ✅ 要求 | ✅ 要求 | ✅ 要求 |
+
+⇒ **Q ⊂ P 按构造成立**，两把尺子**不是「打架」，是「问的不是同一个问题」**。
+`faith` 子命令把两边逐条摆出来、**给每条差集指名差因**，并回答**真正那个问题**：
+
+- **射程 = 收集层 `CardDef.FaithOps` 到底收到几条**（§④，逐卡比 **cost 多重集**）；
+- **④「付费段」那一档必须被关掉**（§⑤，收进 `WillRunOps` 之后 ④ 应为 **0 条**）。
+
+### 现行读数（2026-10-11，池 1126 张）
+
+| 项 | 值 |
+|---|---|
+| 尺子 P（解析层，逐段） | **25 条 / 22 张** |
+| 尺子 Q（探针 ④ 形状） | **13 条 / 11 张** |
+| P − Q | **12 条**：11 条是 `tactic`（④ 只对 unit/hero）＋ `SOR72`（**段里没有冒号**） |
+| Q − P | **0 条**（Q ⊂ P） |
+| 收集层覆盖（`FaithOps` vs P，逐卡 cost 多重集） | **22 / 22 张全中**，`漏` 0 |
+| `willrun` ④「付费段」（**货币 = `faith`** 的那些） | **0 条**（改动前 11 条；`A1593` 起 ④ 也会收别的货币 ⇒ §⑤ 只比 `faith` 这一档） |
+| `willrun` ⑤「无消费点」 | **12 条**（改动前 13 —— `SOR72` 那一条被收集层吃掉了） |
+
+🔴 **两条必须记住的口径**：
+
+1. ✅ **④ 那一档「少报」的那道闸已经修掉（`A1593`，2026-10-11）** —— 它原来多一道「腿 A 一条都没收到」
+   的闸，而那道闸**按 op 签名比、不认是哪条 ability** ⇒ 同一段正文在**别的** ability 里出现过
+   就会被判成「收到了」。实测两例：`SOR28 Dominion Superior`（`Rally: Deal 1 damage` 与
+   `2 ☀: Deal 1 additional damage` 的 `deal` 签名撞上）· `SOR36 Celestian Superior`
+   （`Pray:` 与 `6☀:` 两段正文**逐字相同**）。
+   ⇒ 台账里 `A1452` 的「11 条 / 9 张」**偏低**，形状口径实为 **13 条 / 11 张**。
+   🔴 **现在按【通道】比**（`WillRun.ClaimChannel`，判据与自检见 `willrun` 那两节）——
+   那两个实例**仍然不在 ④ 的名单里，但理由变了**：`CardDef.FaithOps` 已接进 `WillRunOps`
+   ⇒ 它们的**信仰通道确实收到了它们**（自检 = `willrun` ⑦ 断言 B）。
+   ⇒ 本子命令的 ⑤ 因此是**子集检查**（`PaidSegments ⊆ Q`，且只比**货币 = `faith`** 的那些），
+   **不是相等检查** —— 写成相等会把「④ 与 Q 覆盖的货币不同」误判成本命令写歪了。
+   ⚠️ 这也是**为什么本文件重写了一遍 `AddFaceBody` 的判据**（`FaceBody` 是 `WillRun` 的私有嵌套类型）——
+   所以 ⑤ 那条子集检查就是它的自检，**不通过就整份读数作废**（rc=1，⛔ 不许静默）。
+
+2. 🔴 **别拿旧探针的 `19 条 / 17 张` 当第二个口径** —— 那是**探针工装**的产物，不是解析器的：
+   `D:/tmp/wf_e5/texts.tsv`（`E5` 那笔的输入）把**多行 `desc` 按真换行**写进了 TSV
+   ⇒ `File.ReadAllLines` 之后，**第一行之后的部分变成了独立行**、被 `Split('\t')` 判成「字段不足」丢掉
+   ⇒ 全池 **24 张卡**的 `desc` 被截断（`SOR2` / `SOR4` / `SOR40` / `SOR44` / `SOR59` …）。
+   同一份源码喂**真 `desc`** 得到的是 **25 条 / 22 张**（本仓 `faith` 子命令直接读 `cards_engine.json`，
+   **不经 TSV**，就是为了不再吃这一口）。
+   ⚠️ 教训：**探针的【输入工装】和探针的【判据】是两件事** —— 输入错了，读数照样「看着有依据」。
+
+### 输出六节
+
+| 节 | 内容 |
+|---|---|
+| ① | 尺子 P 逐条（卡 / 卡型 / 段 / cost / ops / 谁认领） |
+| ② | 尺子 Q 逐条 |
+| ③ | 差集 + **每条的差因**（卡型 / 没冒号 / 正文解不开 / 别层认领 / 头形状） |
+| ④ | **收集层覆盖**（`FaithOps` vs P，逐卡 cost 多重集）—— **这一栏才是射程** |
+| ⑤ | 与 `willrun` ④ 档的关系（子集检查，**只比货币 = `faith` 的那些** + **④ 里 faith 那部分必须 0 条**） |
+| ⑥ | **真打**：门槛过不过 + **信仰前后必须相等** |
+
+✅ **退出码可信**：`rc=0` 的判据 = ③ 每条差集都有差因 · ④ 无 `漏` · ⑤ 子集成立且 ④（**`faith` 那一档**）为 0 · ⑥ 真打全对。
+
+### 🧨 ⑥ 那一栏为什么必须存在（改哪两处会一起变绿）
+
+§①②③④⑤ 量的全是**文本 / 收集**，**没有一条**回答「打出去之后按不按阈值算、信仰有没有被扣掉」。
+而 `A1453` 要的恰恰是后者（`N` 是**阈值**不是开销 —— 我们原来在扣 `ps.Faith`）。
+只断「效果落地了」是不够的：**把扣款那一行加回去，效果照样落地** ⇒ 那一半仍然绿。
+⇒ ⑥ 的判别式是 **`信仰 前后相等`**（`SOR27` 0/2/6 · `SOR11` 2/3 · `SOR68` 4 · `SOR12` 4/5 ·
+`SOR72` 6 · `SOR40` 6 共 10 格）。
+
+---
+
 ## 基线怎么重建（**重要**）
 
 ⛔ **别拿「逐字节相同」当判据** —— 卡名是**会变的产物**（B16/B20 两批共改 6 张卡名），
@@ -444,6 +679,15 @@ dotnet bin/Debug/net8.0/wfprobe.dll scan "基线/out_baseline.txt"
 🔴 **2026-10-10 `A1348` 起，这一段不再只靠文档** —— `check` 每次会跑一组**与基线无关的哨兵**
 （见下节），索引掉没掉它自己会报 `✗`、并且**算进退出码**。所以「顺手重生成基线」这条捷径**堵死了**。
 
+🔴 **改【探针自己输出的格式】时**（例：`A1462` 给 dump 补 `/{T2:…}` 块）—— **要走三步，缺一不可**：
+① 重生成基线（上面那条命令）；② **同时重钉两个常量**
+（`Program.PinnedPoolMd5` ＋ `Program.PinnedBaselineMd5` —— 只钉一个会让哨兵 ⑤ 掉回「此时不判」那一支，
+也就是说**那条「基线被静默改写」的守卫会失效**）；③ **在源码里写清「有意重钉」的理由** ——
+重钉只能**手改源码**（那才是显式动作、才会出现在 `git diff` 里），⛔ 没有「一条命令自动重钉」的口子。
+**自证判据（格式改动专属）**：变化行必须**只是「多了一段尾部块」** —— 把新块删掉之后与旧行**逐字节相同**
+（`A1462` 实测：8 行变化、8/8 满足、其余 1112 行逐字节没变）。
+⛔ 别用 `sed -i` 改这些常量（会把文件行尾翻掉）—— 用编辑器改。
+
 ## `check` 的哨兵：与**基线无关**的机器级自证（🆕 `A1348`，2026-10-10）
 
 🔴 **堵的是哪条洞**：`check` 的判据本来是「拿当前输出与**基线**比」，而**基线同一个工具就能重写**
@@ -460,6 +704,7 @@ dotnet bin/Debug/net8.0/wfprobe.dll scan "基线/out_baseline.txt"
 | 货币名 | `SOR72` 付费那条 op = `cost=6` `ck=faith` —— 卡图 `Sorotitas/3部队/Warpforge_08_Adelaide-the-Serene.png` 上是**金太阳**（`☀`=信仰，`EffectText.cs:7802-7812`） |
 | 🆕 **目标列**（`A1477`） | `Program.TargetCols`（dump 目标块打哪 28 个字段）与 `EffectTargetSpec` 的公开实例成员**一致** —— 对不上就说明「**类里加了字段、dump 没跟上**」= `A1477` 那条缝又开了（或清单过期、那几列恒打 `?`）。判据在**源码**里，重生成基线抹不掉 |
 | 🆕 **基线指纹**（`A1382`，2026-10-11） | **卡池 md5 与基线 md5 配对**：`现算卡池 md5 == PinnedPoolMd5`（输入没变）**且** `现算基线 md5 != PinnedBaselineMd5`（基线被改写）⇒ 🔴 出声并计入 rc。参照物 = **卡池文件**（作者是 `工具/gen_cards_engine.py`，本探针**只读**）—— 这就是 `A1382` 要的「**不在本工具写权限内的参照物**」 |
+| 🆕 **`non 排除`**（`A1462`，2026-10-11） | 卡面写了 `non <关键词>` 的目标规格 ⇒ `NotKeyword` 必须承载它。**现在【就是红的】**（`GOF85` / `SW12`，共 2 处）—— 那是**已知缺陷的钉子**，⛔ **不是探针坏了**；**修好之后这条会自己变绿**（⛔ 别删它）。判据 = 卡面（PnP 卡图亲读）＋ 原版 `TargetCriteria.excludeTrait`（`FilterMethods__MeetsTraitCriteria.c`）；逐条读数 ⇒ `nonkw` |
 
 ### 🔴 `A1382`：`check` 的「真回归 ＋ 重生成基线 ⇒ 静默变绿」（2026-10-11 修）
 

@@ -80,6 +80,11 @@ class PlayProbe
         public bool FaceHasOps;              // 卡面（`desc` 或注册层）上有没有可执行正文
         public string Before = "", After = "";   // 局面指纹（两行）
         public bool HeroMode;                // 督军走「对照局」那条路（见 <see cref="MeasureHero"/>）
+        /// <summary>🆕 `A1572`：这一张是**夹具补进手牌**的（不是走自然上手那条路）——
+        /// 两种卡**天然**到不了本夹具那一步：临时卡（`ephemeral`）会被回合末的 `SweepEphemeral` 移出游戏、
+        /// 防御卡（`defence`）由 `BuildPlayer` 分流给**后手**（而本夹具的 P0 是先手）。
+        /// ⚠️ 它是个**读数标记**：这一格为真的行 = 「量具干预过」，判读时与自然上手那批**不等价**。</summary>
+        public bool Injected;
         public List<string> ControlChanges = new List<string>();   // 督军专用：空督军对照局的变化
         public string Bucket = "";           // 扫描时算的「档」（见 <see cref="Bucket"/>）
         public int EnergyDelta;              // 能量净变动（读数用）
@@ -207,11 +212,15 @@ class PlayProbe
     /// 这样「相邻」族与「督军旁边的」族都有活目标。</summary>
     static readonly int[] DeploySlots = { 3, 6, 7 };
 
-    /// <summary>建一局夹具对战。`warlordOverride` 非 null 时用它当 P0 督军（督军档的对照局用）。</summary>
-    static BattleContext BuildFixture(List<CardDef> pool, CardDef target, CardDef warlordOverride, out int handIdx)
+    /// <summary>建一局夹具对战。`warlordOverride` 非 null 时用它当 P0 督军（督军档的对照局用）。
+    /// 🔴 `injected`（`A1572`）：被测卡**是**靠补手牌才进得了手牌的那种（= 量具干预过）——
+    ///    两族：临时卡 / 防御卡，见下面那一段注释。</summary>
+    static BattleContext BuildFixture(List<CardDef> pool, CardDef target, CardDef warlordOverride,
+                                      out int handIdx, out bool injected)
     {
         var vars = GameplayVariables.Classic.Clone();
         vars.startingHand = FixtureHand;      // ⚠️ 只改「发几张」—— 别的一律照 `Classic`
+        injected = false;                     // 见函数头：只有真走补手牌那一步才置真
 
         // 兵种**故意分散**（Infantry / Vehicle / Beast）—— 卡面上 `a friendly Vehicle` /
         // `your Beasts` 那一族才找得到目标（⛔ 全用 `Infantry` 会把整族误列成「没目标」）。
@@ -275,6 +284,7 @@ class PlayProbe
             ctx.Players[0].Hand.Add(late);
             RuleCore.SetupCardInHand(ctx, 0, late);
             handIdx = HandIdx(ctx, 0, target);
+            injected = true;
         }
         return ctx;
     }
@@ -305,7 +315,9 @@ class PlayProbe
     static void MeasurePlay(List<CardDef> pool, CardDef card, Reading r)
     {
         int handIdx;
-        var ctx = BuildFixture(pool, card, null, out handIdx);
+        bool injected;
+        var ctx = BuildFixture(pool, card, null, out handIdx, out injected);
+        r.Injected = injected;
         if (handIdx < 0)
         {
             // 🔴 **夹具没接住要出声、而且要说清手里有什么** —— ⛔ 不静默（本仓红线）。
@@ -455,7 +467,8 @@ class PlayProbe
     static (List<string> Changes, Snap End) HeroPass(List<CardDef> pool, CardDef card)
     {
         int handIdx;
-        var ctx = BuildFixture(pool, null, card ?? HeroOf("FIXWarlord_P0", "Fixture"), out handIdx);
+        bool injected;      // 督军档不用它（这条路上根本没有「补手牌」这一步）
+        var ctx = BuildFixture(pool, null, card ?? HeroOf("FIXWarlord_P0", "Fixture"), out handIdx, out injected);
         var before = Capture(ctx);
         RuleCore.EndTurn(ctx); RuleCore.BeginTurn(ctx);      // → P1
         SetEnergy(ctx, 1);
@@ -702,6 +715,64 @@ class PlayProbe
     }
 
     // ==================================================================
+    //  `A1572`：本夹具【结构上不适用】的两族 —— 可执行的过滤口径
+    // ==================================================================
+    //
+    // 🔴 **为什么要有这一层**：`other == 0` 这个判据问的是「打出去之后局面动没动」，
+    //   而**有两族卡在本夹具里压根到不了「打出去」那一步**（不是卡的问题、也不是引擎的问题，
+    //   是**夹具的形状**决定的）⇒ 把它们与自然上手那批**混在一起读**就会误报一整族。
+    //
+    // 两条口径（判据**全部转调引擎的公开面**，⛔ 探针里不另写一份表）：
+    //   ① **临时卡（`ephemeral`）** —— 判据 = `CardDef.Has("ephemeral")`（与
+    //      `BattleContext.IsEphemeral` 的前半同一处语义，见 `RuleCore.cs:1171`）。
+    //      **为什么**：`RuleCore.EndTurn`（`RuleCore.cs:1341`）会调 `SweepEphemeral(ctx, ctx.Active)`
+    //      —— 回合结束时把**该方手牌**里的临时卡**移出游戏**（规则书 `:229`「非弃置」）。
+    //      本夹具是「**先摆牌库、过两个回合、再对准它打一发**」⇒ 对被测的那张卡来说，
+    //      它在**回合 0 结束时就已经不在手牌里了**（实测：98 张全部落在这一档）。
+    //      ⇒ 只有「夹具按引擎自己的形状**补手牌**」这条路能接住它。
+    //   ② **防御卡（`type == "defence"`）** —— 判据 = `CardDef.Type == "defence"`。
+    //      **为什么**：`RuleCore.BuildPlayer`（`RuleCore.cs:506/553`）把 `defence` 从**牌库**里
+    //      **分流**出去（`defenceCardOut`），发牌由调用方按**座位**做 —— 只发给**后手**
+    //      （`RuleCore.GrantDefenceCard` / `SetDefensiveCard`，见 `RuleCore.cs:448-473` 的说明）。
+    //      本夹具的 P0 是**先手** ⇒ 手里永远不会有它（实测：39 张全部落在这一档）。
+    //      ⚠️ **补进来之后还有一层不等价**：它被测量时站在**先手**这一侧，
+    //         而原版里它只会出现在**后手**手里 ⇒ 这一批的读数「**座位与原版不同**」。
+    //
+    // 🔴 **这两条口径的用法 = 【标注 ＋ 单列】，⛔ 不是【整族从候选里删掉】** ——
+    //    实测（2026-10-11，池 1126 张 · 411 张候选）落在候选里的只有 **3 张临时卡 ＋ 4 张防御卡**，
+    //    而逐条看引擎日志，那 7 张**各有别的原因**（3 张是**真缺陷**：`Deploy <二词具名>` 被当兵种筛
+    //    ⇒ 一张都筛不到；4 张是**量具盲区**：牌库顶换序 / 牌库减费不在指纹里 / 要「残骸」而夹具没有）。
+    //    ⇒ **整族删除会把那 3 张真缺陷一起盖掉**（本仓红线「不许静默失败」＋ 铁律 11「全部都要做」）。
+    static string NotApplicable(CardDef c)
+    {
+        var why = new List<string>();
+        if (c.Has("ephemeral")) why.Add("临时卡（`ephemeral`）");
+        if (c.Type == "defence") why.Add("防御卡（`defence`，原版只发给后手）");
+        return why.Count == 0 ? "" : string.Join(" ＋ ", why);
+    }
+
+    /// <summary>`fixtureFit` 列的值（TSV 用，纯 ASCII 好 grep）：空 = 适用 ·
+    /// `ephemeral` / `defence` / `ephemeral+defence` = 本夹具对它结构上不适用（见 <see cref="NotApplicable"/>）。</summary>
+    static string FitTag(CardDef c)
+    {
+        var t = new List<string>();
+        if (c.Has("ephemeral")) t.Add("ephemeral");
+        if (c.Type == "defence") t.Add("defence");
+        return string.Join("+", t);
+    }
+
+    /// <summary>从引擎自己的事件日志里挑出**最能解释「为什么没变化」**的那一行
+    /// （优先「**没生效**」/「空过」/「没有合法目标」/「打不了」—— 引擎自己会说话，⛔ 不用我们猜）。</summary>
+    static string WhyLine(Reading r)
+    {
+        string[] keys = { "没生效", "空过", "没有合法目标", "打不了", "造不出" };
+        foreach (var k in keys)
+            foreach (var l in r.LogTail)
+                if (l.Contains(k)) return l;
+        return r.LogTail.Count > 0 ? r.LogTail[r.LogTail.Count - 1] : "（引擎日志里没有说明）";
+    }
+
+    // ==================================================================
     //  打印
     // ==================================================================
 
@@ -719,6 +790,11 @@ class PlayProbe
         Console.WriteLine("  怎么打的    : " + r.How);
         Console.WriteLine("  档          : " + r.Bucket + "（见 `play all` 的分档说明；"
                           + "决定 `other=0` 时**该不该当缺陷看**）");
+        // 🆕 `A1572`：这一张在本夹具里**结构上适不适用** —— 两族（临时卡 / 防御卡）天然到不了本夹具那一步
+        string na = NotApplicable(c);
+        Console.WriteLine("  夹具适用性  : " + (na.Length == 0 ? "适用"
+                          : "**结构上不适用** —— " + na + "（见 `play all` 的 ③ 节；"
+                            + "`other=0` 不能单独当缺陷）"));
         Console.WriteLine();
         if (r.Crash != null)
         {
@@ -753,6 +829,10 @@ class PlayProbe
         Console.WriteLine("    卡面有没有可执行正文（`desc` 或注册层）: " + (r.FaceHasOps ? "**有**" : "没有"));
         Console.WriteLine("    打出去了吗: " + (r.Played ? "是（rc=0 OK）" : "**否** —— " + r.Note)
                           + (r.Played && r.ExpectedPay >= 0 ? "   （照卡面应付 **" + r.ExpectedPay + "** 能）" : ""));
+        // 🆕 `A1572`：这一张是**补进手牌**才测到的 ⇒ 读数带「量具干预」标记（判读时要看得见）
+        if (r.Injected)
+            Console.WriteLine("    ⚠️ 这一张是**夹具补进手牌**的（不是自然上手）—— 见 `play all` 的 ③ 节："
+                              + "临时卡会被回合末的 `SweepEphemeral` 移出游戏、防御卡本来就只发给后手。");
         Console.WriteLine("    实得变化（**除付费 · 出牌本身 · 自身落场**）: " + r.Other + " 条"
                           + (r.Played && r.FaceHasOps && r.Other == 0
                              ? "   ← 🔴 **卡面写着正文、打出去了、局面一个数字都没动** = `A1431` 那一类【结算层失明】的第一候选"
@@ -775,12 +855,16 @@ class PlayProbe
     {
         var sb = new StringBuilder();
         sb.Append("id\tname\ttype\tbucket\twarlord\tplayRc\trcName\tplayed\tfaceOps\tselfPlace\tmech\tother\t"
-                  + "expectedPay\tenergyDelta\thandCostDelta\tdmg\tchanges\tcrash\tnote\n");
+                  + "expectedPay\tenergyDelta\thandCostDelta\tdmg\tchanges\tcrash\tnote\t"
+                  // 🆕 `A1572` 两列（**只加在末尾** —— 前面的列一个字没动）
+                  + "fixtureFit\tinjected\n");
 
         int played = 0, cand = 0, crash = 0, unimpl = 0, cantPlay = 0, heroCnt = 0;
+        int naTotal = 0, naInjected = 0;                 // `A1572`：结构上不适用的两族 / 其中靠补手牌的
         var buckets = new Dictionary<string, int>();
         var cands = new List<Reading>();
         var crashes = new List<Reading>();
+        var naCands = new List<Reading>();               // 两族里**落进候选**的那些（要单列，⛔ 不静默）
 
         foreach (var c in pool)
         {
@@ -796,7 +880,17 @@ class PlayProbe
                 buckets[k] = (buckets.TryGetValue(k, out var n) ? n : 0) + 1;
                 if (r.Rc == RuleCodes.ErrUnimplemented) unimpl++;
             }
-            if (r.Played && r.FaceHasOps && r.Other == 0 && c.Type != "hero") { cand++; cands.Add(r); }
+            if (r.Played && r.FaceHasOps && r.Other == 0 && c.Type != "hero")
+            {
+                cand++; cands.Add(r);
+                // `A1572`：落在候选里的那两族**单列**（见 `NotApplicable` 的那段长注释）
+                if (FitTag(c).Length > 0) naCands.Add(r);
+            }
+            if (FitTag(c).Length > 0)
+            {
+                naTotal++;
+                if (r.Injected) naInjected++;
+            }
 
             sb.Append(c.Id).Append('\t').Append(c.Name).Append('\t').Append(c.Type)
               .Append('\t').Append(r.Bucket)
@@ -815,6 +909,10 @@ class PlayProbe
               .Append('\t').Append(r.Changes.Count)
               .Append('\t').Append(r.Crash == null ? "" : r.Crash.Replace('\t', ' ').Replace('\n', ' '))
               .Append('\t').Append(r.Note.Replace('\t', ' ').Replace('\n', ' '))
+              // 🆕 `A1572`：本夹具对它**结构上不适用**吗（空 = 适用；`ephemeral` / `defence` / 两者）
+              //    + 这一张是不是**补进手牌**才测到的（`1` = 量具干预过）。⛔ 只加列、不改前面的列。
+              .Append('\t').Append(FitTag(c))
+              .Append('\t').Append(r.Injected ? "1" : "0")
               .Append('\n');
         }
 
@@ -868,10 +966,50 @@ class PlayProbe
                           + "① 需要专属事件的（档 B 已分开）；② 只改**后续回合**的（`For the rest of this battle, at the start of your turn …`）；"
                           + "③ 需要**特定兵种/关键词**才成立的（本夹具只有 步/载具/兽 三兵种、`Infantry` 无关键词）；"
                           + "④ 需要**上一句承接**的（`A1428` 跨句承接那族）。⇒ **逐张对着卡面看**，判决归调度台/引擎侧。");
+
+        // ------------------------------------------------------------------
+        //  `A1572`：本夹具**结构上不适用**的两族 —— 可执行的过滤口径 ＋ 它们里落进候选的逐条
+        // ------------------------------------------------------------------
+        Console.WriteLine();
+        Console.WriteLine("  --- ③ 本夹具【结构上不适用】的两族（`A1572`：**量具口径**，⛔ 不是引擎缺陷）---");
+        Console.WriteLine("     口径 ① 临时卡（`ephemeral`，判据 `CardDef.Has(\"ephemeral\")`）："
+                          + "`RuleCore.EndTurn` 的 `SweepEphemeral`（`RuleCore.cs:1341`）会在回合末把"
+                          + "**该方手牌**里的临时卡**移出游戏**（规则书 `:229`「非弃置」）"
+                          + "⇒ 任何「先摆牌库、等它自然上手」的夹具对它天然无效。");
+        Console.WriteLine("     口径 ② 防御卡（`type == \"defence\"`，判据 `CardDef.Type`）："
+                          + "`RuleCore.BuildPlayer`（`RuleCore.cs:506/553`）把 `defence` 从**牌库**分流出去、"
+                          + "只发给**后手** ⇒ 本夹具的 P0（先手）手里永远不会有它。");
+        Console.WriteLine("     ⇒ 读法：这两族的行，`other == 0` **不能单独当缺陷**；"
+                          + "本夹具靠【按引擎形状补手牌】接住它们（`injected=1` 那一列就是这么来的）。");
+        Console.WriteLine("     🔴 **⛔ 但这两族【不整族删除】**（`A1572` 的账文原写「必须从候选里排除」——"
+                          + "实测那句**与本夹具的实际形状不符**）：落在候选里的只有下面这 "
+                          + naCands.Count + " 张，而它们**各有别的原因**（多为量具盲区，也有**真缺陷**）"
+                          + "⇒ 整族删除会连真缺陷一起盖掉（本仓红线「不许静默失败」＋ 铁律 11）。");
+        Console.WriteLine("     对照口径（实测）：两族共 " + naTotal + " 张 · 其中 **" + naInjected
+                          + " 张**是靠补手牌才测到的（余下 " + (naTotal - naInjected)
+                          + " 张是自然上手/落场，不是这一层的问题）");
+        Console.WriteLine("     口径自证：两族的行与 `injected=1` 的行**互为同一集合**（今天实测 "
+                          + naTotal + " = " + naInjected + "）—— 哪天不再相等，说明引擎的补牌/分流"
+                          + "改了形状（该回来重读这一节，⛔ 不是自动豁免）。");
+        if (naCands.Count == 0)
+            Console.WriteLine("     ✅ 两族**没有一张**落进候选 —— 本夹具对它们已经够用（⛔ 不是「免检」："
+                              + "它们仍然只是**结构上不适用**的那一层提示）。");
+        else
+        {
+            Console.WriteLine("     ── 两族里**落进候选**的 " + naCands.Count
+                              + " 张（逐条列出 · 附引擎自己那句最能解释「为什么没变化」的话）──");
+            foreach (var r in naCands)
+                Console.WriteLine("       " + Pad(r.C.Id, 24) + Pad(r.C.Name, 30) + "[" + FitTag(r.C) + "]  "
+                                  + "`" + Clip(r.C.Desc, 54) + "`\n"
+                                  + "          ⇒ " + Clip(WhyLine(r), 150));
+        }
+        Console.WriteLine("     ⚠️ 这一节是**提示**、不是判决：真要销掉某一张，判据仍在**卡面**上"
+                          + "（`desc`/`descZh`/PnP 成品卡图），⛔ 别拿本节当「已解释、可跳过」。");
+
         if (crash > 0)
         {
             Console.WriteLine();
-            Console.WriteLine("  --- ③ 🔴 引擎抛异常（" + crash + " 张）---");
+            Console.WriteLine("  --- ④ 🔴 引擎抛异常（" + crash + " 张）---");
             foreach (var r in crashes.Take(60))
                 Console.WriteLine("       " + r.C.Id + "  " + r.C.Name + "  [" + r.C.Type + "]  " + r.Crash);
         }

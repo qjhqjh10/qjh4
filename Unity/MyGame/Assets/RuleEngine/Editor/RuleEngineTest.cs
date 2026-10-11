@@ -120,6 +120,9 @@ public static partial class RuleEngineTest
         Section("誓约能力（`Oath N: …`，单位卡那一支）+ 三条修饰句（2026-09-16）");
         Step(TestOathAbility);
 
+        Section("信仰能力（`N ☀: …` / `N [faith]: …`，索罗丽塔斯那一族）：门槛是**阈值**、信仰**不扣除**（2026-10-11）");
+        Step(TestFaithAbility);
+
         Section("2026-09-16 那批剩下那几张卡（残骸广播 / 宇宙巨蛇 / 诺恩降费 / 督军 0 费）");
         Step(TestBatch0916);
 
@@ -621,6 +624,29 @@ public static partial class RuleEngineTest
         Section("🆕 第十九会话 断言批：`WhenEvent` 关键词触发族的自排除（`A1562`）");
         Step(TestA1562KeywordTriggerSelfExclusion);   // A1562 ①②③④（②-bis = 承重反例）
         Step(TestA1562SelfExclusionNullPair);         // A1562 ⑤ 两个判空
+
+        // ============================================================
+        //  🆕 2026-10-11（第二十会话 · 写手 `W5`，由 `W4` 从离线夹具搬进工程）
+        //     `A1574`（`TrySwarmMerge` 传的 `subject` = 被并掉那张）·
+        //     `A1576`（献祭广播排在 `UseSurvivor` 之前 —— ⛔ 没改代码，断的是现状）
+        //  📄 `资料/普查产出_第二十会话/W5_swarm与触发次序.md` §一·三 / §二·三
+        // ============================================================
+        Section("🆕 第二十会话 断言批：`A1574` 虫群 subject ＋ `A1576` 献祭次序（`W5`）");
+        Step(TestA1574SwarmSubject);                  // A1574
+        Step(TestA1576SacrificeOrder);                // A1576
+
+        // ============================================================
+        //  🆕 2026-10-21（第二十会话 · 写手 `E1` · 账 `A1563` / `A1566`）
+        //     `A1563` = `A1335①`（**整条易伤口径**：易伤是【另一份】伤害，不是折进一个数）；
+        //     `A1566` = `A1395①`（`landing` / `abouttoattack` 两个关键词的**登记**）。
+        //  📄 `资料/普查产出_第二十会话/E1_易伤口径与关键词登记.md` §二
+        //  ⚠️ 本节**只照实现落断言**；期望值全部是**手算的原版式**（写在断言文案里「= …」），
+        //     ⛔ 不拿被测函数反推。
+        // ============================================================
+        Section("🆕 第二十会话 断言批：易伤口径拆分（`A1563`）＋ 两个触发关键词登记（`A1566`）＋ `non <关键词>` 目标筛选（`A1462`）");
+        Step(TestA1563VulnerableDamageSplit);                     // A1563
+        Step(TestA1566LandingAndAboutToAttackRegistration);       // A1566
+        Step(TestA1462NonKeywordTargetFilter);                    // A1462
 
         // ---- 汇总 ----
         int total = _pass + _fail;
@@ -2873,7 +2899,11 @@ public static partial class RuleEngineTest
     /// 数值口径是**用户 2026-09-12 亲口定的**（见 `PlayerState.Faith/SpiritStones` 的注释）：
     /// **两样都没有上限、没有初始值、没有每回合增长**；信仰**不是货币**（阈值用），
     /// 灵魂石**是**货币（`Spend all`）。⇒ 这几条断言的重点是「**没有上限**」和
-    /// 「**付费扣的是对应资源、不是能量**」—— 后者原来是一条**真 bug**（结算层只扣能量）。
+    /// 「**信仰过门槛不扣自己、灵魂石扣的是对应资源而不是能量**」——
+    /// ⚠️ **2026-10-11 就地订正（铁律 5）**：原文写「付费扣的是对应资源、不是能量」，那是
+    /// **信仰还算开销时的口径**；`A1453` 查实**信仰是阈值**（`EffectResolver.ResolveOneCore`
+    /// 里那个 `ps.Faith -= op.Cost;` 已删，判据见 ③ 的注释）⇒ **信仰那一半改成断「一分不动」**。
+    /// 灵魂石那一半不变（它真是货币，扣的是 `SpiritStones` 不是 `Energy`）。
     /// </summary>
     static void TestFactionResources()
     {
@@ -2921,7 +2951,13 @@ public static partial class RuleEngineTest
             Check(ctx.Players[0].Faith, 102, "信仰**没有上限**（99 + 3 = 102，没被 Min(上限,…) 夹住）");
         }
 
-        // ---- ③ 付费：**扣的是对应资源，不是能量**（原 bug 就在这里）----
+        // ---- ③ 信仰门槛：**过门槛不扣信仰**（2026-10-11 `A1453` 改的口径 —— 原来断的是「扣了 3」）----
+        //   🔴 判据（第一权威，全量反编译 `d:/2/tools/decomp_full/`）：**没有任何扣除信仰的点** ——
+        //      `PlayerManager.AddFaithMana`（`faithMana@0xB0 += n`）两个调用点全是「加」；
+        //      `HasEnoughMana` 的四个池 `0x4C/0x74/0x88/0x9C` 里没有 `0xB0`；
+        //      真的那一支是 `CardAbility__CanTriggerAbility.c` 的 605 支：`faith >= ability.triggerValue`
+        //      （`+0x20` = 卡面那个 N）⇒ **阈值判定**。出处与全过程见
+        //      `资料/普查产出_第二十会话/W1_信仰阈值落地.md` §① ＋ `EffectResolver.ResolveOneCore` 那一格。
         {
             var pay = Tactic("T_PayFaith", 0, "3 [Faith]: Gain 1 Energy");
             var ctx = Battle(new[] { pay }, new[] { Unit("X", 1, 1, 5) });
@@ -2931,18 +2967,31 @@ public static partial class RuleEngineTest
             ps.MaxEnergy = 6;                       // 白盒：让 `Gain 1 Energy` 不会被上限吃掉
             int energyBefore = ps.Energy;
             CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_PayFaith"), -1), RuleCodes.OK,
-                      "付得起 3 点信仰 → 打得出去");
-            Check(ps.Faith, 2, "**信仰**扣了 3（5 → 2）");
+                      "门槛够（信仰 5 ≥ 3）→ 打得出去");
+            Check(ps.Faith, 5,
+                  "★★ **信仰是阈值、不是开销** —— 门槛过了（5 ≥ 3）而 `Faith` **一分没动**（5 → 5）"
+                + "｜🧨 把 `ResolveOneCore` 里那句 `if (kind == \"faith\") ps.Faith -= op.Cost;` 加回去"
+                + "⇒ 本行实得 2 ⇒ 红（把它挪去扣 `ps.Energy` 则由**下一行**接住）");
             Check(ps.Energy, energyBefore + 1,
-                  $"**能量没被当成信仰扣**（{energyBefore} → {ps.Energy}，只受了 `Gain 1 Energy` 的影响）");
+                  $"★ **而且那半句真的激活了**（能量 {energyBefore} → {ps.Energy}，正好是那一条 `Gain 1 Energy`）"
+                + " —— 与上一行**合起来**才是判别式，两边各接住一种改坏法："
+                + "只断「信仰没动」那半边的话，**把整条信仰结算删掉**同样一动不动、那半边照样绿（**本行**接住）；"
+                + "只断「能量涨了」那半边的话，**扣错池子**（拿去扣 `ps.Energy`）照样绿（**上一行**接住）");
 
-            // 付不起 → 整段不激活，**而且一点信仰都不扣**
+            // 门槛不够 → 整段**不激活**（**不是**「付了效果减半」），而且信仰照旧不动
             var pay2 = Tactic("T_PayFaith2", 0, "9 [Faith]: Gain 1 Energy");
             var c2 = Battle(new[] { pay2 }, new[] { Unit("X", 1, 1, 5) });
             ToP1Turn(c2, 1);
             c2.Players[0].Faith = 4;
+            c2.Players[0].MaxEnergy = 6;                 // 白盒：同上一格，让「没激活」这件事可观测
+            int energyBefore2 = c2.Players[0].Energy;
             RuleCore.PlayTactic(c2, 0, HandIdx(c2, 0, "T_PayFaith2"), -1);
-            Check(c2.Players[0].Faith, 4, "付不起时**一点信仰都不扣**（整段不激活，照我们上一版复刻 `rule_core.gd:2529`，旁证）");
+            Check(c2.Players[0].Faith, 4,
+                  "信仰 4 < 门槛 9 ⇒ 信仰一点不动（阈值语义下本来就不扣，见上一格）");
+            Check(c2.Players[0].Energy, energyBefore2,
+                  "★ 而且那半句**真的没激活**（能量没涨）—— 只断「信仰没动」这一条在**任何**实现下都恒真"
+                + "（它本来就不扣），所以「门槛没到也照样激活」那种回归只能靠**本行**照出来"
+                + "｜🧨 把 `CostPrefixPayable` 的门槛判据（`have >= op.Cost`）去掉 ⇒ 本行红");
         }
 
         // ---- ④ 路标石：死亡 → 留一具残骸 → **点了才 +1**（2026-09-25 改成原版两段式）----
@@ -4163,13 +4212,25 @@ public static partial class RuleEngineTest
         Check(RuleCore.ApplyDamage(ctx, inv, 5, "自检"), 0, "无敌单位受到 0 点伤害");
         Check(inv.Health, 3, "血量一点没掉");
 
-        // ③ 易伤 X：**多加 X 点**（⚠️ 名字容易看反 —— 是加伤，我们上一版复刻 `:4418`，旁证）
+        // ③ 易伤 X：**多加 X 点**（⚠️ 名字容易看反 —— 是加伤）
         var vul = Place(ctx, 0, 2, Unit("Vul", 1, 1, 9, "Vulnerable 2"));
-        Check(RuleCore.ApplyDamage(ctx, vul, 3, "自检"), 5, "易伤 2 → 吃 3 点掉 5 点");
+        Check(RuleCore.ApplyDamage(ctx, vul, 3, "自检"), 5,
+              "易伤 2 → 吃 3 点掉 5 点（护甲 0 ⇒ `max(1, 3)` ＋ `max(1, 2)` = 5，两种口径同值）");
 
-        // ④ 易伤与护甲的**先后**：先加伤、再减甲（我们上一版复刻 `_damage_unit` 的函数头写着这个顺序，旁证）
+        // ④ 🔴 **易伤与护甲是【两次独立的减伤】，不是一次**（2026-10-21 · 账 `A1563` 就地订正本格）
+        //    **原版判据** = `CardScript._ReceiveDamage_d__381__MoveNext.c:188-257`：那一份易伤是
+        //    **另一条** `DealMultiDamage`（自己再走一遍护甲）；预览侧同一式 =
+        //    `CardScript__EnoughPendingDamageToDieWithDamageValues.c:183-205`
+        //    （`iVar7 = Math.Max(1, CurrentVulnerable − armour)`）
+        //    ⇒ `max(1, 3−1)` + `max(1, 2−1)` = 2 + 1 = **3**。
+        //    ⚠️ **改前是 4**，而那一行的依据是「我们上一版复刻 `_damage_unit` 的函数头写着这个顺序」
+        //    —— `rule_core.gd` 是**我们自己的复刻、只是一份旁证，不是原版** ⇒ 那个「先加伤、
+        //    再减甲」的**折进口径已被证伪**（两种口径**普通档就不等价**，例 伤害 5/易伤 2/护甲 1 ⇒ 6 vs 5）。
+        //    判别式全文与「还没做的三档」→ `RuleCore.VulnerableDamagePart` 的 doc。
         var both = Place(ctx, 0, 3, Unit("Both", 1, 1, 9, "Vulnerable 2", "Armour 1"));
-        Check(RuleCore.ApplyDamage(ctx, both, 3, "自检"), 4, "易伤2 + 护甲1 吃 3 点 → 掉 4 点（3+2−1）");
+        Check(RuleCore.ApplyDamage(ctx, both, 3, "自检"), 3,
+              "★ 易伤2 + 护甲1 吃 3 点 → 掉 **3** 点 = `max(1, 3−1)` + `max(1, 2−1)`"
+            + "｜🧨 退回旧的「折进一个数」（`max(1, 3+2−1)` = 4）⇒ 本行实得 **4**");
     }
 
     /// <summary>
@@ -9017,7 +9078,7 @@ public static partial class RuleEngineTest
         sb.AppendLine();
         sb.AppendLine($"- 🔴 **{WRHeadNone}** —— 三道闸全空 ⇒ **全仓没有任何一层会执行这句**： **{headNone}** 条（{headNoneCards} 张卡）");
         sb.AppendLine($"- ⚠️ **{WRHeadAtTurn}** —— `EffectText.AtTurnClauses` 认领（`ResolveAtTurn:4792` 直接扫 `u.Card.Desc`）： {headAtTurn} 条");
-        sb.AppendLine($"- ⚠️ **{WRHeadCostWhen}** —— `CardDef.CostWhens` 认领（`FireCostWhen` 消费；`WillRunOps` 的六个来源里没有它）： {headCostWhen} 条");
+        sb.AppendLine($"- ⚠️ **{WRHeadCostWhen}** —— `CardDef.CostWhens` 认领（`FireCostWhen` 消费；`WillRunOps` 的七个来源里没有它）： {headCostWhen} 条");
         foreach (var kv in headOther)
             sb.AppendLine($"- ⚠️ **{kv.Key}** —— `CardDef.HandledByOtherLayer` 认领（判据转调引擎那一处，⛔ 不另写一套）： {kv.Value} 条");
         sb.AppendLine();
@@ -9355,7 +9416,7 @@ public static partial class RuleEngineTest
     ///       ⚠️ **不加这道闸会把这一族整整 19 条误报成「无消费点」**（探针实测：本档最容易误报的一处）；
     ///    3. `CardDef.CostWhens` 的 `Body` —— **降费触发器**（`Lower cost by N every time …`，
     ///       `TL83 Norn Emissary`）：`_costWhens` **不经过 `WillRunOps`**（那个方法只收
-    ///       `WhenTriggers`/`TriggerTexts`/`SpiritOps`/`OathOps`/`AttackedOps`/`AuraSpecs` 六个来源）
+    ///       `WhenTriggers`/`TriggerTexts`/`SpiritOps`/`OathOps`/`FaithOps`/`AttackedOps`/`AuraSpecs` 七个来源）
     ///       ⇒ 同样会「无头 + 解得开 + 腿 A = 0」，**而 `FireCostWhen` 在吃它**。⚠️ 不加会误报 `TL83`。
     ///
     /// 三道闸都没认领 ⇒ <see cref="WRHeadNone"/>：**这句卡面正文【没有任何一层会执行】**（不是「查不到」，
@@ -9384,7 +9445,7 @@ public static partial class RuleEngineTest
                 {
                     b.Kind = WRHeadCostWhen;
                     b.Why = "降费触发器（`CardDef.CostWhens`，由 `FireCostWhen` 消费）"
-                          + " —— `WillRunOps` 的六个来源里**没有** `_costWhens`";
+                          + " —— `WillRunOps` 的七个来源里**没有** `_costWhens`";
                     return;
                 }
         b.Kind = WRHeadNone;
@@ -9411,7 +9472,7 @@ public static partial class RuleEngineTest
 
         // ② `N ☀:` / `N [Energy]:` / `N [Spirit Stone]:` 形状 —— 「付 N 点换这个效果」的**付费能力段**。
         //    🔴 它**不是触发头**，`WillRunOps` 的 unit/hero 那一支也不看它
-        //    （六个来源：`WhenTriggers` / `TriggerTexts` / `SpiritOps` / `OathOps` / `AttackedOps` / `AuraSpecs`）
+        //    （七个来源：`WhenTriggers` / `TriggerTexts` / `SpiritOps` / `OathOps` / `FaithOps` / `AttackedOps` / `AuraSpecs`）
         //    ⇒ 这是**覆盖面**的洞，不是「表里缺词」。
         //    ⚠️ 那个 `☀`（U+2600）用转义写，免得这份源码的编码把判据悄悄改掉（`\u2600` 就是它）。
         if (System.Text.RegularExpressions.Regex.IsMatch(b.Head, "^\\d+\\s*[\\[\\(]?\\s*[a-z\\u2600]"))
@@ -14925,6 +14986,223 @@ public static partial class RuleEngineTest
                       "战术卡的 `Oath N:` 照旧打得出去");
             Check(foe.Health, 7, "……而且誓约那半句**真的结算了**（9 → 7）");
             Check(ctx.Players[0].Energy, 6, "……照旧付的是 (2 卡费 + 1 誓约费)");
+        }
+    }
+
+    /// <summary>
+    /// **信仰能力**（卡面 `N ☀: 正文` / `N [faith]: 正文`）—— 索罗丽塔斯那一族，2026-10-11
+    /// （台账 `A1452` ＝「收进来 + 接上触发点」；`A1453` ＝「**N 是阈值、不是开销**」）。
+    ///
+    /// **为什么单开一节**：这一族原来是**死的** —— `EffectText` 早就把 `N ☀:` 认成付费前缀，
+    /// 但单位卡的正文靠 `AddTriggerOp` 按**触发名**登记，而 `☀` 既不在 `RoutableTriggers`
+    /// 也不在 `BodyKeywords` ⇒ `TriggerOps("faith")` 恒 null ⇒ 那 22 张卡的信仰段
+    /// **既不报错、卡面也不打 `*`**（标准静默失败）。而**同时**，战术卡那条路一直在
+    /// **真扣 `ps.Faith`** —— 与原版的机制**根本不是同一种**。
+    ///
+    /// **原版判据（反编译，第一权威）**：
+    ///   · 发起源只有两处：`RawCardScript__OnCardPlayedWithTarget.c:73`（打出 Tactic/Whispers 时）·
+    ///     `CardScript__ResolveUnitSummoned.c:51`（Minion **入场**时）—— ⇒ **自动触发，玩家不点按钮**；
+    ///   · 闸门 = `CardAbility__CanTriggerAbility.c` 的 605 支：`faith >= 1` 且
+    ///     `faith >= ability.triggerValue`（`+0x20`，就是卡面那个 N）—— ⇒ **阈值**；
+    ///   · **全库没有任何扣除信仰的点**（`PlayerManager.AddFaithMana` 两个调用点全是「加」；
+    ///     `HasEnoughMana` 的四个池 `0x4C/0x74/0x88/0x9C` 里没有 `0xB0` 那个信仰）。
+    ///
+    /// 分四层钉（照 `TestSpiritStone` / `TestOathAbility` 的规矩：光「解析得出」不算数）：
+    ///   ① 收集层：`FaithOps` **逐条**收下，且门槛是**每条一个数**（不是「一个 `FaithCost`」）；
+    ///   ② 结算层：**门槛过了才生效、没过就不生效**，而且**一分信仰都不扣**；
+    ///   ③ **两条入口都接上**（正门 `PlayCard` · 效果免费部署 `DeployFree`）；
+    ///   ④ 反面对照：它**不是**誓约那一档（没有「本回合部署 / 每回合 N 次」的次数闸）。
+    ///
+    /// 🔴 **本节的判别式（改哪两处会一起变绿）**：`把扣款那一行加回去` ——
+    ///    「效果落地了」那一半**照样绿**（那正是我们原来那套「自洽」的样子），
+    ///    只有 `信仰 前后相等` 那几条会红。⇒ 两个方向都必须断。
+    /// </summary>
+    static void TestFaithAbility()
+    {
+        var pool = CardDatabase.Load();
+
+        // ---------- ① 收集层：逐条、门槛逐条的 ----------
+        {
+            var canoness = PoolCard(pool, "Canoness");
+            Check(canoness.FaithOps.Count, 2,
+                  "★ `Canoness` 卡面两段 `N ☀:`（`2 ☀: Gain Armour 1` / `4 ☀: Gain +2 [Attack] and +2 [Ranged]`）"
+                  + " ⇒ `FaithOps` 收 2 条");
+            var costs = new List<int>();
+            foreach (var o in canoness.FaithOps) costs.Add(o.Cost);
+            costs.Sort();
+            CheckTrue(costs.Count == 2 && costs[0] == 2 && costs[1] == 4,
+                      "★ 两条门槛各是 2 / 4 —— **逐条**记（`CardDef.FaithOps` 故意**没有** `FaithCost` 那种"
+                      + "「一个数」的属性：合成一个数会静默答错另一半）");
+            foreach (var o in canoness.FaithOps)
+                Check(EffectText.CostKindOf(o.CostKind), "faith",
+                      "……货币判成 **faith**（判错会静默扣错池子）");
+
+            var sister = PoolCard(pool, "Sacred Rose Sister");
+            Check(sister.FaithOps.Count, 2, "★ `Sacred Rose Sister` 也是两段（2 / 4），另一张两段的卡");
+
+            var crusader = PoolCard(pool, "Crusader");
+            Check(crusader.FaithOps.Count, 1, "★ `Crusader` 一段");
+            Check(crusader.FaithOps.Count > 0 ? crusader.FaithOps[0].Cost : -1, 3,
+                  "……门槛 = 3（`3 ☀: Gain +1 [Attack] and Armour 2`）");
+
+            // 🔴 **无冒号写法**（`A1472` 实测 2 条 / 2 张）—— 卡面印得下就不印冒号，解析路径**同一条**。
+            //    判据 = 亲读 PnP 成品图（铁律 7）：`Sorotitas/3部队/…Adelaide-the-Serene.png` 印的就是
+            //    `6 ☀ Gain ⤴Flank and 👁Shield.`（无冒号）。⛔ 别按 `seg.Contains(':')` 去数这一族。
+            var adelaide = PoolCard(pool, "Adelaide the Serene");
+            Check(adelaide.FaithOps.Count, 1, "★ `Adelaide the Serene` 的**无冒号**写法 `6 ☀ Gain Flank and Shield` 也收得到");
+            Check(adelaide.FaithOps.Count > 0 ? adelaide.FaithOps[0].Cost : -1, 6, "……门槛 = 6");
+
+            // 反例 ①：`Rally:` 那半句**不能**被收成信仰段（它没有付费前缀）
+            var dominion = PoolCard(pool, "Dominion Superior");
+            Check(dominion.FaithOps.Count, 1,
+                  "★ 反例：`Dominion Superior` = `Rally: Deal 1 damage. 2 ☀: Deal 1 additional damage`"
+                  + " ⇒ 只收 ☀ 那一段（`Rally:` 那半句没有付费前缀）");
+
+            // 反例 ②：灵魂石段**不是**信仰段（两种货币不许互串）
+            var wraithblade = PoolCard(pool, "Wraithblade");
+            Check(wraithblade.FaithOps.Count, 0,
+                  "★ 反例：`Wraithblade` 的 `1 [Spirit Stone]: …` **一条都不进** `FaithOps`（货币判据只有 `CostKindOf` 一份）");
+        }
+
+        // ---------- ② 门槛 + **不扣信仰**（真打，走正门 `PlayCard`） ----------
+        {
+            // 门槛 = 2 时：2 那条生效、4 那条不生效
+            var ctx = Battle(new[] { PoolCard(pool, "Canoness") }, new CardDef[0]);
+            ToP1Turn(ctx, 3);
+            ctx.Players[0].Energy = 30;
+            ctx.Players[0].Faith = 2;
+            int idx = HandIdx(ctx, 0, "Canoness");
+            CheckTrue(idx >= 0, "前提：`Canoness` 在手里");
+            CheckCode(RuleCore.PlayCard(ctx, 0, idx, 3), RuleCodes.OK, "打出 `Canoness`（信仰 2）");
+            var u = ctx.Players[0].Board[3];
+            CheckTrue(u != null, "前提：它落场了");
+            Check(u.Armor, 1, "★ 门槛 2 那一段生效（护甲 0 → 1）");
+            Check(u.Attack, 5, "★ 门槛 4 那一段**没**生效（近战仍是 5）");
+            Check(u.RangedAttack, 4, "……远程也没动（仍是 4）");
+            Check(ctx.Players[0].Faith, 2,
+                  "★★ **信仰一分都没扣**（2 → 2）—— `A1453` 的判别式：把 `ps.Faith -= op.Cost` 加回去，这一格红");
+        }
+        {
+            // 门槛 = 6 时：两条都生效
+            var ctx = Battle(new[] { PoolCard(pool, "Canoness") }, new CardDef[0]);
+            ToP1Turn(ctx, 3);
+            ctx.Players[0].Energy = 30;
+            ctx.Players[0].Faith = 6;
+            RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Canoness"), 3);
+            var u = ctx.Players[0].Board[3];
+            Check(u.Armor, 1, "★ 信仰 6：门槛 2 那条生效");
+            Check(u.Attack, 7, "★ 门槛 4 那条**也**生效（5 → 7）");
+            Check(u.RangedAttack, 6, "……远程 4 → 6");
+            Check(ctx.Players[0].Faith, 6, "★★ 信仰仍然一分没扣（6 → 6）");
+        }
+        {
+            // 信仰 = 0（常态）：两条都不生效，而且**不许静默**（`unresolved` 里要留痕）
+            var ctx = Battle(new[] { PoolCard(pool, "Canoness") }, new CardDef[0]);
+            ToP1Turn(ctx, 3);
+            ctx.Players[0].Energy = 30;
+            ctx.Players[0].Faith = 0;
+            RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Canoness"), 3);
+            var u = ctx.Players[0].Board[3];
+            Check(u.Armor, 0, "★ 信仰 0 ⇒ 门槛 2 那条不生效（护甲仍是 0）");
+            Check(u.Attack, 5, "……门槛 4 那条也不生效");
+            Check(ctx.Players[0].Faith, 0, "……信仰也没被扣成负数");
+            CheckTrue(HasLog(ctx, "信仰不足 2") && HasLog(ctx, "信仰不足 4"),
+                      "★ **如实报出来**（战斗日志里那两条「信仰不足 N」）—— 静默失败是本工程的红线"
+                      + "（`unresolved` 那两行由 `ResolveOneCore` 写，末尾 `ReportUnresolved` 汇总）");
+        }
+        {
+            // 🔴 门槛是 `>=` 不是 `>`：`Crusader` 的 `3 ☀:` 在信仰**正好 3** 时必须生效
+            var ctxA = Battle(new[] { PoolCard(pool, "Crusader") }, new CardDef[0]);
+            ToP1Turn(ctxA, 3);
+            ctxA.Players[0].Energy = 30;
+            ctxA.Players[0].Faith = 3;
+            RuleCore.PlayCard(ctxA, 0, HandIdx(ctxA, 0, "Crusader"), 3);
+            var ua = ctxA.Players[0].Board[3];
+            Check(ua.Armor, 2, "★ 信仰**正好等于**门槛（3 ≥ 3）⇒ `Gain +1 [Attack] and Armour 2` 生效");
+            Check(ua.Attack, 4, "……近战 3 → 4");
+            Check(ctxA.Players[0].Faith, 3, "……信仰仍是 3");
+
+            var ctxB = Battle(new[] { PoolCard(pool, "Crusader") }, new CardDef[0]);
+            ToP1Turn(ctxB, 3);
+            ctxB.Players[0].Energy = 30;
+            ctxB.Players[0].Faith = 2;                       // 差 1 点
+            RuleCore.PlayCard(ctxB, 0, HandIdx(ctxB, 0, "Crusader"), 3);
+            var ub = ctxB.Players[0].Board[3];
+            Check(ub.Armor, 0, "★ 反例：信仰 2（差 1 点）⇒ **不生效**（不是「差一点也给了」）");
+        }
+        {
+            // 🔴 「阈值不是开销」的第二面：**信仰不会被打光** —— 同一副牌连打两张、两张都生效
+            //    （若按「开销」算，第一张扣掉 4 点之后第二张就没了）
+            var ctx = Battle(new[] { PoolCard(pool, "Canoness"), PoolCard(pool, "Canoness") }, new CardDef[0]);
+            ToP1Turn(ctx, 3);
+            ctx.Players[0].Energy = 60;
+            ctx.Players[0].Faith = 4;
+            // ⚠️ **落格走「连续无洞」模型**（`Core/BoardSlots.cs`）：上一条入口传的**请求格**
+            //    不等于**落点** —— `BoardSlots.Resolve` 把「超出当前人数」的请求 `index > count`
+            //    夹到**该侧最外那一格**（`AdjustedSlot` 的 `:81-96`）。空盘上两侧人数都是 0
+            //    ⇒ 请求 2 / 6 会被夹到 **3 / 5**（贴督军那两格），`Board[2]` / `Board[6]` 是**空的**。
+            //    （原来这里就是照请求格去读、`Board[2]` 是 null ⇒ 整条 `TestFaithAbility`
+            //      在这里 NRE 中断，后面 ④ 那一批一格都没跑到。）
+            RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Canoness"), 3);
+            RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Canoness"), 5);
+            var two1 = ctx.Players[0].Board[3];
+            var two2 = ctx.Players[0].Board[5];
+            CheckTrue(two1 != null && two2 != null,
+                      "前提：两张都落场了（空盘上它们落在 3 / 5 号格 —— 上一条注释那件事）");
+            Check(two1 != null ? two1.Armor : -1, 1, "★ 第 1 张：两条门槛（2 / 4）都过");
+            Check(two2 != null ? two2.Armor : -1, 1, "★ 第 2 张：**照样两条都过**（信仰没被打光）");
+            Check(two2 != null ? two2.Attack : -1, 7, "……第 2 张的近战 5 → 7");
+            Check(ctx.Players[0].Faith, 4,
+                  "★★ **打完两张，信仰仍是 4** —— 判据与上一格同源，这一格管的是「不是一次性池子」");
+        }
+
+        // ---------- ③ 两条入口：正门 + 效果免费部署 ----------
+        {
+            // 正门 = 上面 ② 那一堆；这里补**第二条入口**（`RuleCore.DeployFree`）。
+            // 原版判据：605 的发起源之一是 `CardScript__ResolveUnitSummoned.c:51`（**入场**那件事），
+            // **不问它是怎么进来的** ⇒ 效果免费部署这条路也要点火。
+            // ⚠️ 对照：`Rally` **不管**这条路（规则书 `:200` 写的是「**从手牌**部署后」）——
+            //    两条路的差别是原版就有的，别改齐（见 `DeployFree` 的注释）。
+            var crusader = PoolCard(pool, "Crusader");
+            var ctx = Battle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx, 3);
+            ctx.Players[0].Faith = 3;
+            int slot;
+            CheckTrue(RuleCore.DeployFree(ctx, 0, ctx.NewInstance(crusader), out slot),
+                      "免费部署一张 `Crusader`（效果那条入口）");
+            Check(ctx.Players[0].Board[slot].Armor, 2,
+                  "★ 信仰段在**第二条入口**上也生效（护甲 0 → 2）—— 少接一条 = 效果召唤出来的那批全静默");
+            Check(ctx.Players[0].Faith, 3, "……信仰没扣");
+        }
+
+        // ---------- ④ 反面对照：它**不是**誓约那一档 ----------
+        {
+            // `CanUseFaithAbility` 的码：门槛够 → OK · 不够 → `ErrCost` · 卡上没信仰段 → `ErrNoAbility`
+            var crusader = PoolCard(pool, "Crusader");
+            var filler = Unit("T_FillerNoFaith", 1, 1, 1);
+            var ctx = Battle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx, 3);
+            Place(ctx, 0, 2, crusader, exhausted: true);
+            Place(ctx, 0, 3, filler, exhausted: true);
+
+            ctx.Players[0].Faith = 2;
+            CheckCode(RuleCore.CanUseFaithAbility(ctx, 0, 2), RuleCodes.ErrCost,
+                      "信仰 2 < 门槛 3 ⇒ 不发");
+            ctx.Players[0].Faith = 3;
+            CheckCode(RuleCore.CanUseFaithAbility(ctx, 0, 2), RuleCodes.OK, "信仰 3 ≥ 门槛 3 ⇒ 发得起来");
+            CheckCode(RuleCore.CanUseFaithAbility(ctx, 0, 3), RuleCodes.ErrNoAbility,
+                      "★ 反例：卡上没有信仰段 ⇒ `ErrNoAbility`（不是「信仰不够」）");
+
+            // 🔴 **⚠️ 这一格钉的是【诊断口】的设计**（原版**没有**玩家主动发动信仰能力这件事 ——
+            //    `CardScript` 上根本没有与 `CanUseSpiritStone` 对应的那一半）。
+            //    它要防的是「有人照着 `CanUseOathAbility` 把誓约那套次数闸抄到信仰上」——
+            //    那两条闸（本回合部署 / 每回合 N 次）在 604/605 那条路上**不存在**。
+            ctx.Players[0].Faith = 9;
+            CheckCode(RuleCore.UseFaithAbility(ctx, 0, 2), RuleCodes.OK, "第 1 次（诊断口）");
+            CheckCode(RuleCore.UseFaithAbility(ctx, 0, 2), RuleCodes.OK,
+                      "★ 第 2 次**照样 OK** —— 信仰**没有**誓约那种「每回合 N 次」的次数闸");
+            Check(ctx.Players[0].Board[2].Armor, 4, "……两次各 +2 护甲（0 → 4）");
+            Check(ctx.Players[0].Faith, 9, "★★ 两次之后信仰仍是 9（阈值、不是开销）");
         }
     }
 
@@ -25514,6 +25792,375 @@ public static partial class RuleEngineTest
         }
     }
 
+    // ==================================================================
+    //  🆕 2026-10-21（第二十会话 · 账 `A1563` = `A1335①`）：**易伤口径 —— 它是【另一份】伤害**
+    // ==================================================================
+    //  规格 → `资料/普查产出_第二十会话/引擎线_文件所有权表.md` §一 `A1563` 那一行；
+    //  判据全文（含「还没做的三档」）→ `RuleCore.VulnerableDamagePart` 的 doc。
+    //
+    //  🔴 **判别式一句话**：`max(1, 伤 − 甲) + max(1, 易 − 甲)` 与 `max(1, 伤 + 易 − 甲)`
+    //     **普通档就不等价** ⇒ 下面**每一组都取「两种口径给不同答案」的输入**，
+    //     ⛔ 没有一组是「两种口径同值」的（那种断言抓不到本笔要治的东西 —— `S14` 的 `#20`
+    //     就是那种：护甲 0 ⇒ 两种口径都是 5）。
+    static void TestA1563VulnerableDamageSplit()
+    {
+        // ---- ① 账上那个判别式：伤害 5 / 易伤 2 / 护甲 1 ⇒ **5**（⛔ 不是 6）----
+        {
+            UnitState a, b;
+            var ctx = Duel(Unit("A1563_Peer", 1, 1, 9),
+                           Unit("A1563_Def", 1, 0, 9, "Armour 1"), out a, out b);
+            var t = Board(ctx, 1, 3);
+            t.AddKeyword("vulnerable", 2);
+            Check(t.Armor, 1, "（前提）护甲 1");
+            Check(t.KwValue("vulnerable"), 2, "（前提）易伤 2");
+            Check(RuleCore.VulnerableDamagePart(t), 1, "★ 易伤那一份 = `max(1, 2 − 1)` = **1**");
+            Check(RuleCore.DamageAfterReduction(t, 5), 5,
+                  "★★【`A1563` 主判别式】伤害 5 / 易伤 2 / 护甲 1 ⇒ "
+                + "`max(1, 5−1)` + `max(1, 2−1)` = 4 + 1 = **5**"
+                + "｜🧨 退回旧式 `max(1, 5 + 2 − 1)` ⇒ 本行实得 **6**");
+            int hp0 = t.Health;
+            Check(RuleCore.ApplyDamage(ctx, t, 5, "自检"), 5,
+                  "★ 结算侧同一个数（`ApplyDamage` 的返回值 = 实际扣血量）");
+            Check(t.Health, hp0 - 5, "★ ……而且真扣 **5** 血（⛔ 不是 6）");
+        }
+
+        // ---- ② 【反向】伤害 2 / 易伤 1 / 护甲 3 ⇒ **2**（旧式只给 1）----
+        //  与 ① 方向相反（① 旧式**多算**、② 旧式**少算**）⇒
+        //  **任何单一算式**的错实现都不可能同时满足这两格 —— 这就是「灭自证」那一格。
+        {
+            UnitState a, b;
+            var ctx = Duel(Unit("A1563_Peer2", 1, 1, 9),
+                           Unit("A1563_Def2", 1, 0, 9, "Armour 3"), out a, out b);
+            var t = Board(ctx, 1, 3);
+            t.AddKeyword("vulnerable", 1);
+            Check(RuleCore.VulnerableDamagePart(t), 1,
+                  "★ 易伤那一份 = `max(1, 1 − 3)` = **1** —— 下限是 **1**（原版那句没有 `armour > 0` 守卫）");
+            Check(RuleCore.DamageAfterReduction(t, 2), 2,
+                  "★ 伤害 2 / 易伤 1 / 护甲 3 ⇒ `max(1, 2−3)` + `max(1, 1−3)` = 1 + 1 = **2**"
+                + "｜🧨 退回旧式 `max(1, 2 + 1 − 3)` ⇒ 本行实得 **1**"
+                + "（与 ① 方向相反 ⇒ 两格结构上不可能被同一个错实现一起满足）");
+        }
+
+        // ---- ③ 回归：没有易伤 ⇒ 与改前**逐字节相同**；被盾 / 闪避挡下 ⇒ 整份 0（那一份也不加）----
+        {
+            UnitState a, b;
+            var ctx = Duel(Unit("A1563_Peer3", 1, 1, 9),
+                           Unit("A1563_Def3", 1, 0, 9, "Armour 2"), out a, out b);
+            var t = Board(ctx, 1, 3);
+            Check(RuleCore.VulnerableDamagePart(t), 0, "★ 没带易伤 ⇒ 那一份 = 0");
+            Check(RuleCore.DamageAfterReduction(t, 5), 3,
+                  "★ 没带易伤 ⇒ `max(1, 5 − 2)` = **3**（与改前逐字节相同）");
+            t.AddKeyword("vulnerable", 4);
+            Check(RuleCore.VulnerableDamagePart(t), 2, "★ 易伤 4 / 护甲 2 ⇒ 那一份 = `max(1, 4 − 2)` = 2");
+            Check(RuleCore.DamageAfterReduction(t, 5), 5, "★ `max(1, 5 − 2)` + 2 = **5**");
+            t.AddKeyword(KeywordTable.Shield, 1);
+            Check(RuleCore.VulnerableDamagePart(t), 2,
+                  "（前提）那一份**仍然算得出来**（它只回答「这一份有多大」，挡不挡是调用方的事）");
+            Check(RuleCore.DamageAfterReduction(t, 5), 0,
+                  "★ 带盾 ⇒ 整份 **0**（原版 `:189-191` 那道闸把 dodge / shield / invulnerable 都挡在外面）"
+                + " ⇒ 易伤那一份**也不许被加进去**"
+                + "｜🧨 把 `actual += VulnerableDamagePart(u)` 挪到那三条 `return 0` **之前** ⇒ 本行实得 2");
+            t.RemoveAll(KeywordTable.Shield);
+            t.AddKeyword(KeywordTable.Dodge, 1);
+            Check(RuleCore.DamageAfterReduction(t, 5), 0,
+                  "★ 闪避同理（与盾**同一条分支**）"
+                + "｜🧨 把易伤那一行挪到 `Dodge` 那条 `return 0` 之前 ⇒ 本行实得 1（另一条腿）");
+        }
+
+        // ---- ④ 预览侧【逐条】：**每一条各加一次**易伤（原版 `…WithDamageValues.c:183-205`）----
+        {
+            UnitState a, b;
+            var ctx = Duel(Unit("A1563_Peer4", 1, 1, 9),
+                           Unit("A1563_Def4", 1, 0, 9, "Armour 1"), out a, out b);
+            var t = Board(ctx, 1, 3);
+            t.AddKeyword("vulnerable", 2);
+            Check(RuleCore.DamageAfterReductionOne(t, 5, 0), 5,
+                  "★ 单条目版 = `max(1, 5−1)` + `max(1, 2−1)` = **5**（与合计版同一个数）");
+            var two = new List<int> { 3, 3 };
+            Check(RuleCore.DamageAfterReductionOne(t, 3, 0), 3,
+                  "★ 逐条第 0 条 = `max(1, 3−1)` + `max(1, 2−1)` = 2 + 1 = **3**");
+            Check(RuleCore.DamageAfterReductionOne(t, 3, 1), 3,
+                  "★ 逐条第 1 条**同上** —— 「每一条各加一次」正是原版那一句在循环里的意思");
+            Check(RuleCore.DamageAfterReductionList(t, two), 6,
+                  "★ 逐条合计 = **6**"
+                + "｜🧨 退回旧的「并进一条」⇒ 每条 `max(1, 3+2−1)` = 4、合计实得 **8**");
+        }
+
+        // ---- ⑤【灭自证】预览合计必须 == 真打一局的实际掉血 ----
+        //  🔴 这是 `A1107`（2026-10-09）起的那条口径：预览与结算**共用同一个数**。
+        //     本笔把两边**同时**改（只改一边 ⇒ 下面两行必有一行红）。
+        {
+            UnitState a, b;
+            var atk = Unit("A1563_ShuProbe", 1, 3, 9, "Shuriken 3");
+            var ctx = Duel(atk, Unit("A1563_Def5", 1, 0, 9, "Armour 1"), out a, out b);
+            var t = Board(ctx, 1, 3);
+            t.AddKeyword("vulnerable", 2);
+            var entries = RuleCore.AttackDamageEntries(ctx, 0, 3, 1, 3, false);
+            Check(entries.Count, 2, "（前提）攻击条目 2 条 = **[星镖 3, 主伤害 3]**");
+            Check(RuleCore.DamageAfterReductionList(t, entries), 6,
+                  "★ 预览合计 = 3 + 3 = **6**（每条 `max(1,3−1)+max(1,2−1)`）");
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3), RuleCodes.OK, "（前提）攻击声明成功");
+            Check(t.Health, 3,
+                  "★【灭自证】真打一局 = 9 − 6 = **3** ⇒ **与预览合计相等**"
+                + "（旧口径下这一格是 9 − 8 = 1）"
+                + "｜🧨 只改预览不改结算（或反过来）⇒ 本条或上一条红");
+        }
+
+        // ---- ⑥ 判死预览用**同一个数**：生的那一侧也要钉（⛔ 只钉「会死」挡不住恒真实现）----
+        {
+            UnitState a, b;
+            var ctx = Duel(Unit("A1563_Peer6", 1, 1, 9),
+                           Unit("A1563_Def6", 1, 0, 9, "Armour 1"), out a, out b);
+            var t = Board(ctx, 1, 3);
+            t.AddKeyword("vulnerable", 2);
+            var two = new List<int> { 3, 3 };            // 逐条合计 6
+            t.Health = 5;
+            CheckTrue(RuleCore.WouldKillByEntries(t, two), "★ 6 点打 5 血 ⇒ **会死**");
+            t.Health = 7;
+            CheckTrue(!RuleCore.WouldKillByEntries(t, two),
+                      "★ 6 点打 7 血 ⇒ **不会死**"
+                    + "｜🧨 退回旧口径（每条 4、合计 8）⇒ 本行实得 true"
+                    + "（这一格同时挡住「预览恒 true」那种错实现）");
+            t.Health = 6;
+            CheckTrue(RuleCore.WouldKillByEntries(t, two), "★ 边界：正好 6 打 6 血 ⇒ 会死（判据是 `<=`）");
+        }
+
+        // ---- ⑦ 【易伤那一份的**位置**】原版把它排在「第一层（生命 + 堡垒）清零」**之后** ----
+        //  夹具（`survivor` 给了第二条命 ⇒「第一层」不止是血）：生命 3 + 幸存者 1 + 易伤 2、条目 [3]。
+        //    原版：3 先打穿生命那一层（清零）→ **再**补易伤 2 → `2 >= 幸存者 1` ⇒ **判死**。
+        //  🧨 把易伤并回第 ① 步（先加成 5、再清零）⇒ 本行实得 **false**
+        //     —— 这一格就是那一行代码**位置**的判别式（数值总和两边一样，位置不一样）。
+        {
+            UnitState a, b;
+            var ctx = Duel(Unit("A1563_Peer7", 1, 1, 9), Unit("A1563_Def7", 1, 0, 9), out a, out b);
+            var t = Board(ctx, 1, 3);
+            t.AddKeyword("vulnerable", 2);
+            t.AddKeyword(KeywordTable.Survivor, 1);
+            t.Health = 3;
+            Check(t.Armor, 0, "（前提）这一组护甲 0（只看位置）");
+            Check(t.Survivor, 1, "（前提）幸存者 1 = 第二条命");
+            CheckTrue(RuleCore.WouldKillByEntries(t, new List<int> { 3 }),
+                      "★ 3 + 易伤 2 = 5 ≥ 生命 3 + 幸存者 1 ⇒ **判死**"
+                    + "｜🧨 把 `acc += VulnerableDamagePart(u)` 挪到 `DamageAfterArmourOne` 那一步"
+                    + "（= 并回第一条）⇒ 本行实得 **false**");
+        }
+    }
+
+    // ==================================================================
+    //  🆕 2026-10-21（第二十会话 · 账 `A1566` ≡ `A1395①`）：
+    //     **`landing` / `abouttoattack` 两个关键词的【登记】**
+    // ==================================================================
+    //  规格 → `资料/普查产出_第二十会话/引擎线_文件所有权表.md` §一 `A1566` 那一行 ·
+    //  判据全文 → `KeywordTable.Landing` / `KeywordTable.AboutToAttack` 两个常量的 doc。
+    //  🔴 本组的判别式是**四张表各一格**（`Prefixes` / `RoutableTriggers` / `BodyKeywords` /
+    //     `Implemented`）＋ 一条**运行时**的（登记之后那个机制真的会跑起来）。
+    //     ⛔ 不登记**不会报错**（`Normalize` 判 null → 静默丢弃）—— 所以每格都得自己会响。
+    static void TestA1566LandingAndAboutToAttackRegistration()
+    {
+        // ---- ① `Prefixes`：认得出（不登记 ⇒ `Normalize` 返回 null ⇒ 词被静默丢掉）----
+        Check(KeywordTable.Normalize("Landing"), KeywordTable.Landing,
+              "★ `Landing` 认得出（= `landing`）"
+            + "｜🧨 从 `KeywordTable.Prefixes` 去掉那一行 ⇒ 本行实得 null");
+        Check(KeywordTable.Normalize("AboutToAttack"), KeywordTable.AboutToAttack,
+              "★ 卡面**连写**那种拼法：`AboutToAttack` ⇒ `abouttoattack`");
+        Check(KeywordTable.Normalize("About To Attack: Gain +1 Attack"), KeywordTable.AboutToAttack,
+              "★ 卡面**带空格**那种拼法也认得出（归并到**同一个**规范键）"
+            + "｜🧨 去掉 `Prefixes` 里 `about to attack` 那一行 ⇒ 本行实得 null（连写那行吃不到它）");
+
+        {
+            var c = new CardDef("A1566_Card", "A1566_Card", "unit", "", "common", "Test", 1, 1, 5, 0,
+                                new[] { "Landing", "About To Attack: Gain +1 Attack" });
+            CheckTrue(c.Has(KeywordTable.Landing), "★ 卡数据里写 `Landing` ⇒ `Has(landing)` 为真");
+            CheckTrue(c.Has(KeywordTable.AboutToAttack),
+                      "★ 卡数据里写 `About To Attack: …` ⇒ `Has(abouttoattack)` 为真");
+            CheckTrue(!KeywordTable.Dropped.Contains("Landing")
+                   && !KeywordTable.Dropped.Contains("About To Attack: Gain +1 Attack"),
+                      "★ 两个词都**没有**进「认不出、被静默丢弃」那份名单（`KeywordTable.Dropped`）");
+        }
+
+        // ---- ② `RoutableTriggers`：正文收得下来（不登记 ⇒ `TriggerOps` **恒为 null**）----
+        {
+            var lz = new CardDef("A1566_LZ", "A1566_LZ", "unit", "Landing: Gain +2 Attack",
+                                 "common", "Test", 1, 1, 5, 0, new[] { "Landing" });
+            CheckTrue(lz.TriggerOps(KeywordTable.Landing) != null
+                   && lz.TriggerOps(KeywordTable.Landing).Count == 1,
+                      "★ `Landing: <正文>` 收得下来（1 条 op）"
+                    + "｜🧨 从 `RoutableTriggers` 去掉 `landing` ⇒ `FireTriggerAlways` 必走"
+                    + "「没有正文」那一支（只发事件、正文静默不结算）");
+            var aa = new CardDef("A1566_AA", "A1566_AA", "unit",
+                                 "About To Attack: Gain +1 Attack",
+                                 "common", "Test", 1, 1, 5, 0, null);
+            CheckTrue(aa.TriggerOps(KeywordTable.AboutToAttack) != null
+                   && aa.TriggerOps(KeywordTable.AboutToAttack).Count == 1,
+                      "★ **带空格**那种拼法也收得下来，**而且是从【规范键】读得到的**"
+                    + "｜🧨 两种改坏法各让本行实得 null："
+                    + "① 从 `RoutableTriggers` 去掉 `KeywordTable.AboutToAttackSpaced`"
+                    + "（头那一关就过不了）；"
+                    + "② 把 `AddTriggerOp` 末尾那句 `_triggerOps[key] = ops` 改回 `_triggerOps[head] = ops`"
+                    + "（键是卡面原文 `about to attack`、而所有读点传的都是 `abouttoattack` —— "
+                    + "**正文收下来了却读不到**，静默）");
+        }
+
+        // ---- ③ `BodyKeywords`：断句（不登记 ⇒ 前一条**静默吞掉**后一条）----
+        {
+            var sp = new CardDef("A1566_Split", "A1566_Split", "unit",
+                                 "Rally: Deal 3 damage to an enemy. Landing: Gain +2 Attack",
+                                 "common", "Test", 1, 1, 5, 0, new[] { "Rally", "Landing" });
+            var rally = sp.TriggerOps(KeywordTable.Rally);
+            var land = sp.TriggerOps(KeywordTable.Landing);
+            CheckTrue(rally != null && rally.Count == 1, "（前提）`Rally:` 那半句收下来了（1 条）");
+            CheckTrue(land != null && land.Count == 1,
+                      "★ `Landing:` 那半句**自己也收到了**（没被 `Rally` 吞掉）");
+            CheckTrue(sp.TriggerText(KeywordTable.Rally) != null
+                   && sp.TriggerText(KeywordTable.Rally).IndexOf("Landing", StringComparison.Ordinal) < 0,
+                      "★ ……而且 `Rally` 的**正文原文**里没有 `Landing:` 那半句"
+                    + "｜🧨 从 `BodyKeywords` 去掉 `landing` ⇒ 本行实得含 `Landing: Gain +2 Attack`"
+                    + "（`TriggerBodyAt` 靠 `StartsAnotherThing` → `IsBodyKeywordHead` 断句）");
+        }
+
+        // ---- ④ `Implemented`：`When … triggers <词>` 那族监听卡**注册得上** ----
+        //  判据 = `Core/WhenEvent.cs` 里那道 `KeywordTable.Implemented.Contains(kwName)` 闸
+        //  （不登记 ⇒ 那条短语认不出 ⇒ 卡面打 `*`、监听器一条都不响）。
+        CheckTrue(KeywordTable.Implemented.Contains(KeywordTable.Landing),
+              "★ `landing` 在 `KeywordTable.Implemented` 里（`A1395` 追加要求的那一条）"
+            + "｜🧨 删掉它 ⇒ 下面那个监听器**注册不上**（恒不响）");
+        CheckTrue(KeywordTable.Implemented.Contains(KeywordTable.AboutToAttack),
+              "★ `abouttoattack` 也在 `Implemented` 里（否则 `When … triggers About To Attack` 认不出）");
+        {
+            var watcher = new CardDef("A1566_Watch", "A1566_Watch", "unit",
+                                      "When a friendly unit triggers Landing, gain +2 Attack",
+                                      "common", "Test", 1, 1, 9, 0, null, subtype: "Infantry");
+            var ctx = ProbeBattle(new[] { Unit("A1566_FoeA", 1, 1, 5) },
+                                  new[] { Unit("A1566_FoeB", 1, 1, 5) });
+            int me = ctx.Active;
+            var watch = Place(ctx, me, 3, watcher, exhausted: true);
+            var pod = Place(ctx, me, 2, Unit("A1566_Pod", 1, 1, 5), exhausted: true);
+            pod.AddKeyword(KeywordTable.DropPod, 3);
+            Check(watch.Attack, 1, "（前提）监听者一开始 1 攻");
+            ctx.ClearSignals();
+            RuleCore.BeginTurn(ctx);
+            CheckTrue(!pod.Has(KeywordTable.DropPod), "（前提）本方回合开始 ⇒ 舱开了（那一跳发了）");
+            Check(watch.Attack, 3,
+                  "★ **`When a friendly unit triggers Landing` 真的响了**（1 → 3 攻）"
+                + "｜🧨 从 `Implemented` 去掉 `landing` ⇒ 本行实得 1（监听器根本没注册上；"
+                + "⚠️ 舱照开、`EvtKind.Trigger` 照发 —— 所以这一格**只能**靠这条断言盯）");
+        }
+
+        // ---- ⑤ 运行时：登记之后那条**机制**真的接线了（卡面写法，不用 `GrantOps`）----
+        //  这就是 `A1258` 那条「取消攻击」的**卡面路**：登记之前只有 `GrantOps` 立得起夹具。
+        {
+            var ata = new CardDef("A1566_ATA", "A1566_ATA", "unit", "",
+                                  "common", "Test", 1, 3, 9, 0,
+                                  new[] { "About To Attack: Gain +1 Attack" });
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx, 2);
+            int p = ctx.Active, q = 1 - p;
+            var atk = Place(ctx, p, 3, ata, exhausted: false);
+            var def = Place(ctx, q, 3, Unit("A1566_DefAta", 1, 0, 9), exhausted: true);
+            CheckTrue(atk.FxOps(KeywordTable.AboutToAttack) != null,
+                      "（前提）攻方身上那条能力**在**（这一步改前必须手写 `GrantOps`）");
+            Check(atk.Attack, 3, "（前提）一开始 3 攻");
+            int hp0 = def.Health;
+            ctx.ClearSignals();
+            CheckCode(RuleCore.DeclareAttack(ctx, p, 3, q, 3), RuleCodes.OK,
+                      "★ 带那条能力 ⇒ 这一记**被取消**（返回 OK，不是错误）");
+            Check(def.Health, hp0,
+                  "★ 被打那个**一点血都不掉**"
+                + "｜🧨 从 `Prefixes` / `RoutableTriggers` 去掉这两个拼法 ⇒ 本行实得 hp0 − 3"
+                + "（`FxOps` 恒 null ⇒ `TryCancelAttackByOwnAboutToAttack` 直接 return false）");
+            Check(atk.Attack, 4,
+                  "★ 而且那条能力**真的跑起来了**（`Gain +1 Attack`：3 → 4）"
+                + " —— 这一格把「取消」与「悄悄早退、什么都没做」分开");
+        }
+    }
+
+    // ==================================================================
+    //  🆕 2026-10-21（第二十会话 · 账 `A1462`）：**`non <关键词>` 的目标筛选**
+    // ==================================================================
+    //  判据（写手 `E2` 已做齐三层，本笔不重查）：
+    //   ① **卡面亲读**（铁律 7）：`d:/2/Warpforge部队卡片/Orks/3部队/Warpforge_11_Unleashed-Tramplasquig.png`
+    //      与 `d:/2/Warpforge部队卡片/Space Wolves/3部队/Warpforge_12_Hunting-Wolf.png`
+    //      —— **都印着** `non 〔Flying〕 Flying`（`〔…〕` 是图标字形）。
+    //   ② **原版** `TargetCriteria.excludeTrait`（`FilterMethods__MeetsTraitCriteria.c`：
+    //      `bVar2 = (param_3 ^ 1) & bVar2` ⇒ 这一位为假就把命中者排除）。
+    //   ③ **我们唯一承载「排除」的字段 = `EffectTargetSpec.NotKeyword`**
+    //      （消费点 `EffectResolver.ApplyTargetFilters` ⇒ `pool.RemoveAll(u => u.Has(NotKeyword))`）。
+    //  🔴 **改前**：`EffectText.ParseTarget` **只认 `with <词>`**、没有 `non <词>` 这一支 ⇒
+    //     `NotKeyword` 恒空 —— 后果是「随机挑中一个飞行单位 ⇒ 近战打不到 ⇒ 整个空过」（静默）。
+    //  🔴 **判别式**：① 解析层「收没收」是**两向**的（要收 `non <真词>`、**不许收** `non <生词>`）；
+    //     ② 判定层是**候选池里有没有那个飞行单位**（⛔ 不是「语句解得出来」—— 改前也解得出）。
+    static void TestA1462NonKeywordTargetFilter()
+    {
+        // ---- ① 解析层：卡面那两种写法 ----
+        {
+            var sp = EffectText.ParseTarget("a random non flying enemy troop");
+            CheckTrue(sp != null, "（前提）`a random non flying enemy troop` 解得出来");
+            Check(sp.NotKeyword, "flying",
+                  "★★【`A1462` 主判别式】`non flying` ⇒ `NotKeyword = \"flying\"`"
+                + "｜🧨 去掉 `ParseTarget` 里 `ReTargetNon` 那一段 ⇒ 本行实得 null"
+                + "（改前就是这样：那一截被当噪声留在短语里）");
+            Check(sp.Side, "enemy", "★ …而且那一截被**摘干净**了（`enemy` 照旧认得出）");
+            Check(sp.Kind, "troop", "★ …`troop` 照旧认得出");
+            Check(sp.Count, 1, "★ …`a …` = 1 个");
+            CheckTrue(sp.Random, "★ …`random` 照旧");
+        }
+
+        // ---- ② 反向沙包（两格，⛔ 缺一不可）----
+        {
+            var plain = EffectText.ParseTarget("a random enemy troop");
+            CheckTrue(plain != null && string.IsNullOrEmpty(plain.NotKeyword),
+                      "★ 反例①：**没有** `non` ⇒ `NotKeyword` 仍然为空（不是「一律排除」）");
+            var bogus = EffectText.ParseTarget("a random non bogusword enemy troop");
+            CheckTrue(bogus != null && string.IsNullOrEmpty(bogus.NotKeyword),
+                      "★ 反例②：`non bogusword` —— 那个词**不是一个关键词** ⇒ `NotKeyword` **为空**"
+                    + "｜🧨 去掉 `KeywordTable.Normalize` 那道守卫 ⇒ 本行实得 \"bogusword\""
+                    + "（`non` 出现在别的语境里会被**静默**当成筛选）");
+        }
+
+        // ---- ③ 真卡那两张（卡面亲读的那两张；`SW16` 是探针 §① 现读出来的第三处）----
+        {
+            var pool = CardDatabase.Load();
+            foreach (string nm in new[] { "Hunting Wolf", "Fenrisian Wolf" })
+            {
+                var c = CardDatabase.Find(pool, nm);
+                CheckTrue(c != null, $"（前提）卡池里找得到 `{nm}`");
+                if (c == null) continue;
+                var ops = c.TriggerOps(KeywordTable.Ferocity);
+                int opN = (ops == null) ? 0 : ops.Count;
+                CheckTrue(ops != null && ops.Count >= 1,
+                          $"（前提）`{nm}` 的 `Ferocity:` 正文收下来了（" + opN + " 条 op）");
+                if (ops == null || ops.Count == 0) continue;
+                var t = ops[0].Target2 ?? ops[0].Target;
+                CheckTrue(t != null, $"（前提）`{nm}` 那条 `forceattack` 有目标规格");
+                Check(t == null ? null : t.NotKeyword, "flying",
+                      $"★ 真卡 `{nm}` 的攻击目标带着 `NotKeyword = \"flying\"`"
+                    + "（卡面 `Attack a non Flying enemy troop`）"
+                    + "｜🧨 去掉那一支 ⇒ 本行实得 null");
+            }
+        }
+
+        // ---- ④ 判定层：候选池真的**不含飞行单位**（原版 `excludeTrait` 的语义）----
+        {
+            UnitState a, b;
+            var ctx = Duel(Unit("A1462_Peer", 1, 1, 9),
+                           Unit("A1462_Target", 1, 0, 9), out a, out b);
+            var flyer = Place(ctx, 1, 2, Unit("A1462_Flyer", 1, 0, 6, "Flying"), exhausted: true);
+            var plain = Place(ctx, 1, 6, Unit("A1462_Plain", 1, 0, 6), exhausted: true);
+            CheckTrue(flyer.Has("flying"), "（前提）槽 2 那个带 `flying`");
+            CheckTrue(!plain.Has("flying"), "（前提）槽 6 那个不带");
+            var spec = EffectText.ParseTarget("a random non flying enemy troop");
+            Check(spec == null ? null : spec.NotKeyword, "flying", "（前提）规格里带着排除条件");
+            if (spec != null) spec.Count = 0;    // 枚举整池（探针 §③(a) 同法），别的字段一个不动
+            var got = RuleCore.ResolveTargets(ctx, 0, spec, null, null);
+            CheckTrue(got.Contains(plain),
+                      "★ 候选里有**不带 flying** 的那个（槽 6）");
+            CheckTrue(!got.Contains(flyer),
+                      "★★【`A1462` 判定层】候选里**没有**带 `flying` 的那个（槽 2）"
+                    + "｜🧨 把 `ApplyTargetFilters` 里 `NotKeyword` 那一段删掉 ⇒ 本行红"
+                    + "（⚠️「语句解得出来」**测不出**这一格：改前也解得出来）");
+        }
+    }
+
     /// <summary>
     /// **`A1397②` —— `BeginTurn` 里 stealth 到期必须排在【开舱之后】**。
     ///
@@ -25765,14 +26412,48 @@ public static partial class RuleEngineTest
     //     这个行为（`FireWhen` 的返回值不外露），日志只是它**唯一**的观测口 —— ⛔ 不是在断文案。
     // ==================================================================
 
-    /// <summary>`ctx.Events`（引擎日志）里含 <paramref name="needle"/> 的行数。只给 `A1562` 用。
-    /// 口径与边界见本节头顶那段 ⚠️。</summary>
-    static int A1562LogCount(BattleContext ctx, string needle)
+    /// <summary>`ctx.Events`（引擎日志）里含 <paramref name="needle"/> 的行数。</summary>
+    /// <remarks>
+    /// 🔴 **2026-10-11（`W4`）：这一个口原来叫 `A1562LogCount`，只给 `A1562` 用** ——
+    ///    `W5` 离线验收 `A1574` / `A1576` 时**又写了一份一模一样的**（`D:/tmp/wf_w5/verify/W5Tests.cs`）
+    ///    ⇒ 本工程的红线「两处写同一条规则 = 迟早不一致」。这里**提成通用口**并把它那 7 个调用点
+    ///    一起改过来（⛔ 不留别名、不留第二份）。
+    /// 口径与边界见本节头顶那段 ⚠️（数的是「监听器有没有被叫醒」，日志是它**唯一**的观测口，
+    /// ⛔ 不是在断文案）。
+    /// </remarks>
+    static int LogCount(BattleContext ctx, string needle)
     {
         int n = 0;
         foreach (var e in ctx.Events)
             if (!string.IsNullOrEmpty(e) && e.IndexOf(needle, StringComparison.Ordinal) >= 0) n++;
         return n;
+    }
+
+    /// <summary>`ctx.Events`（引擎日志）里**第一条**含 <paramref name="needle"/> 的行号；没有 ⇒ `-1`。
+    /// ⚠️ 只在「谁先谁后」这件事上没有别的观测口时才用它（两条行必须来自**互相独立**的打印点，
+    /// ⛔ 别拿同一处打印两遍当次序证据）。</summary>
+    static int LogIdx(BattleContext ctx, string needle)
+    {
+        for (int i = 0; i < ctx.Events.Count; i++)
+            if (!string.IsNullOrEmpty(ctx.Events[i])
+                && ctx.Events[i].IndexOf(needle, StringComparison.Ordinal) >= 0) return i;
+        return -1;
+    }
+
+    /// <summary>`ctx.Signals` 里**第一条**满足条件的下标；没有 ⇒ `-1`。
+    /// <paramref name="keyword"/> 传 `null` = 不看关键词；<paramref name="healOnly"/> = 只要治疗事件
+    /// （`Hit` 且 `Amount &lt; 0` —— 负数才是治疗，见 `EvtKind.Hit` 的口径）。</summary>
+    static int SignalIdx(BattleContext ctx, EvtKind kind, string keyword, bool healOnly = false)
+    {
+        for (int i = 0; i < ctx.Signals.Count; i++)
+        {
+            var s = ctx.Signals[i];
+            if (s.Kind != kind) continue;
+            if (keyword != null && s.Keyword != keyword) continue;
+            if (healOnly && s.Amount >= 0) continue;
+            return i;
+        }
+        return -1;
     }
 
     /// <summary>
@@ -25817,12 +26498,12 @@ public static partial class RuleEngineTest
         CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "A1562_HitOwn"), 2), RuleCodes.OK,
                   "自己打自己 5 伤 ⇒ 走得进「幸存者 + 献祭」那一支");
 
-        Check(A1562LogCount(ctx, "「A1562_SacOther」的监听器"), 1,
+        Check(LogCount(ctx, "「A1562_SacOther」的监听器"), 1,
               "★ A1562-①【正例·端到端】`A1562_SacOther`（**不带** `sacrifice`）的监听器**响了一次** —— "
             + "广播那一跳真的把事件送到了「别人」那里"
             + "｜🧨 删掉 `FireTriggerAt` 尾部那句 `BroadcastWhen(ctx, WhenEventKind.Triggers(keyword), …)` ⇒ 本行实得 0");
 
-        Check(A1562LogCount(ctx, "「A1562_SacSelf」的监听器"), 0,
+        Check(LogCount(ctx, "「A1562_SacSelf」的监听器"), 0,
               "★ A1562-②【反例·端到端】`A1562_SacSelf`（**带** `sacrifice` 的那张）**自己一次都不响**"
             + "｜⚠️ **本行单独判别力不足（本笔实测）**：把守卫整段删掉它**照样是 0** —— "
             + "触发源那张此刻生命 −3，`BroadcastWhen` 的快照先按 `u.IsAlive` 把它筛掉了"
@@ -25862,10 +26543,10 @@ public static partial class RuleEngineTest
             ctx2.ClearSignals();
             CheckCode(RuleCore.DeclareAttack(ctx2, 0, 2, 1, 3), RuleCodes.OK, "己方**近战**打一下");
 
-            Check(A1562LogCount(ctx2, "「A1562_MobOther」的监听器"), 1,
+            Check(LogCount(ctx2, "「A1562_MobOther」的监听器"), 1,
                   "★ A1562-①-bis【正例·同族】`mob` 这一族的广播照旧送到「别人」那里"
                 + "｜🧨 删掉 `FireTriggerAt` 尾部那句广播 ⇒ 本行实得 0");
-            Check(A1562LogCount(ctx2, "「A1562_MobSelf」的监听器"), 0,
+            Check(LogCount(ctx2, "「A1562_MobSelf」的监听器"), 0,
                   "★ A1562-②-bis【反例·**承重**】带 `Mob:` 的那张卡**自己一次都不响**"
                 + "｜🔑 这一格与 `sacrifice` 那格的区别：**触发源此刻还活着**（不走 `Survivor` 那一支）"
                 + "⇒ 守卫真的在起作用、而不是被 `IsAlive` 顶替"
@@ -25887,7 +26568,7 @@ public static partial class RuleEngineTest
             ctx3.ClearSignals();
             CheckCode(RuleCore.UseAlternative(ctx3, 0, 3, "ferocity"), RuleCodes.OK,
                       "用一次狂暴（走 `FireTriggerAt` 那一跳）");
-            Check(A1562LogCount(ctx3, "「A1562_FerSelf」的监听器"), 1,
+            Check(LogCount(ctx3, "「A1562_FerSelf」的监听器"), 1,
                   "★ A1562-③【灭自证·反向沙包】带 `Ferocity` 的卡**自己用狂暴时自己的监听器【要】响** —— "
                 + "原版 `BroadcastUnitFerocity` 的三跳**都没有**自排除（`Bjorn the Fell-Handed` 靠它留场）"
                 + "｜🧨 把 `\"ferocity\"` 从 `KeywordTriggerIncludesSelf` 里删掉（= 退回 blanket 版）"
@@ -25922,7 +26603,7 @@ public static partial class RuleEngineTest
             Place(ctx4, 1, 3, Unit("A1562_Foe4b", 1, 0, 9), exhausted: true);
             ctx4.ClearSignals();
             CheckCode(RuleCore.DeclareAttack(ctx4, 0, 2, 1, 3), RuleCodes.OK, "己方**近战**打一下");
-            Check(A1562LogCount(ctx4, "「A1562_MobSelfOnly」的监听器"), 1,
+            Check(LogCount(ctx4, "「A1562_MobSelfOnly」的监听器"), 1,
                   "★ A1562-④ 带 `Mob:`＋ **`SelfOnly`** 的监听器：自己触发时**自己【要】响** —— "
                 + "自排除那条守卫只管**非** `SelfOnly` 的那一半"
                 + "｜🧨 把守卫那句里的 `!ev.SelfOnly &&` 删掉 ⇒ 本行实得 0（而 ②-bis 仍绿）");
@@ -25976,10 +26657,171 @@ public static partial class RuleEngineTest
         ctx.ClearSignals();
         CheckCode(RuleCore.DeclareAttack(ctx, 0, 2, 1, 3), RuleCodes.OK,
                   "己方近战打一下 ⇒ 触发 `mob` 那一半");
-        Check(A1562LogCount(ctx, "「A1562_HandCheap」在手里监听"), 1,
+        Check(LogCount(ctx, "「A1562_HandCheap」在手里监听"), 1,
               "★ A1562-⑤【端到端】手里那条降费监听器**照样被叫醒**（`BroadcastCostWhen` → `FireCostWhen` "
             + "把 `listenerUnit` 与 `subject` **都**留成 `null`）"
             + "｜🧨 删掉那两个判空 ⇒ `ReferenceEquals(null, null)` 成立 ⇒ 本行实得 0"
             + "（**手里的降费监听器被静默挡掉**，而 ②-bis 仍绿）");
+    }
+
+    // ==================================================================
+    //  🆕 2026-10-11（第二十会话 · 写手 `W5`）—— 两条断言**由 `W4` 从离线夹具搬进工程**
+    //
+    //  `W5` 动手时白名单**禁 `RuleEngine/Editor/**`**（那时 `W4` 正在改），它按铁律 13·3
+    //  「白名单优先」把断言落成**离线可跑**的一份：`D:/tmp/wf_w5/verify/W5Tests.cs`
+    //  （`dotnet`，只 `Compile Include` 工程的 `Core/*.cs`）。下面两个方法**逐字**来自那份，
+    //  只有三处**非判据**的搬运用改动，如实列着：
+    //    · `Console.WriteLine` → `Debug.Log(P + …)`（离线那份靠控制台，工程里靠 Unity 日志）；
+    //    · 删掉离线夹具自己的 `Main2()` / 计数器 / `Environment.Exit`（那是它的宿主）；
+    //    · 三个日志/信号小口（`LogCount` / `LogIdx` / `SignalIdx`）**没有**再抄一份 ——
+    //      直接复用本节上面提出的那三个通用口（工程红线：两处写同一条规则 = 迟早不一致）。
+    //  📄 报告：`资料/普查产出_第二十会话/W5_swarm与触发次序.md` §一·三 / §二·三。
+    // ==================================================================
+
+    // ------------------------------------------------------------------------
+    //  ★ `A1574`：虫群合并那一跳广播的 `subject` = **被并掉那张**（不是留下那张）
+    //
+    //  判据（原版反编译，逐跳核过）：
+    //    `CardScript.<>c__DisplayClass401_0.<ExecuteSwarm>b__0.c:45/51/54`
+    //      —— `+0x18` 收数值抽屉（留下那张）· `+0x10` 先 `DestroyUnitSilent` 再当
+    //         `BroadcastUnitSwarm` 的 `param_2`（被并掉那张）
+    //    `BattleManagerSupport__BroadcastUnitSwarm.c:44` → `TriggeredSwarm(卡, param_2, param_3)`
+    //    `CardScript__TriggeredSwarm.c:7` → `OnTrigger(…, actingCard = param_2, targetCard = param_3)`
+    //    「it」↔ `actingCard`（成对证据 = `ResolveUnitAttacked` 的
+    //      `Doomstalker`「it」= 攻方 vs `Valtus`「the target of the attack」= 被打者）
+    // ------------------------------------------------------------------------
+    static void TestA1574SwarmSubject()
+    {
+        const string SwarmListen = "When a friendly unit triggers Swarm, give it +1 attack";
+        CardDef SwarmGuy(string n, int atk, int hp)
+        {
+            return new CardDef(n, n, "unit", "", "common", "Test", 1, atk, hp, 0,
+                               new[] { KeywordTable.Swarm }, subtype: "Infantry");
+        }
+
+        var swarmerA = SwarmGuy("W5Swarmer", 2, 3);          // 场上那张（合并后留下）
+        var swarmerB = SwarmGuy("W5Swarmer", 2, 3);          // 手里那张（打出去 ⇒ 被并掉）
+        var listener = new CardDef("W5Prime", "W5Prime", "unit", SwarmListen, "common", "Test",
+                                   1, 0, 20, 0, null, subtype: "Infantry");
+
+        CheckTrue(listener.WhenTriggers.Count > 0,
+                  "（前提）`W5Prime` 的 `When a friendly unit triggers Swarm, …` 注册上了");
+        CheckTrue(listener.Has(KeywordTable.Swarm) == false,
+                  "（前提）监听者自己**不带** `Swarm`（免得被自排除那条挡住）");
+
+        var ctx = ProbeBattle(new[] { swarmerB }, new[] { Unit("W5Foe", 1, 0, 9) });
+        ToP1Turn(ctx, 2);
+        var host = Place(ctx, 0, 3, swarmerA, exhausted: true);     // 右边那格（留下的）
+        var sub = Place(ctx, 0, 1, listener, exhausted: true);      // 监听者（不参与合并）
+        Check(host.Attack, 2, "（前提）留下的那张攻击 = 2");
+        CheckTrue(HandIdx(ctx, 0, "W5Swarmer") >= 0, "（前提）手里那张虫群在");
+
+        ctx.ClearSignals();
+        CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "W5Swarmer"), 2), RuleCodes.OK,
+                  "把同名的虫群部队打到它**左边** ⇒ 走合并那一支");
+
+        CheckTrue(host.SwarmUnder.Count == 1, "（前提）真的合并了（`SwarmUnder` 里 1 张）");
+        Check(LogCount(ctx, "「W5Prime」的监听器"), 1,
+              "（前提）监听者被叫醒了**一次** —— 广播那一跳真的把事件送到了「别人」那里"
+            + "｜🧨 删掉 `FireTriggerAlways` 里那一句 `BroadcastWhen(...)` ⇒ 本行实得 0");
+        Check(host.Attack, 4,
+              "★ A1574：**那个「it」不是留下那张**（留下那张 = 2 + 2 = 4，**没有**再多 1 点）"
+            + "｜🧨 把 `TrySwarmMerge` 尾部那句 `FireTriggerAlways(…, just)` 改回 `…`（不传 subject）"
+            + " ⇒ 本行实得 **5**");
+
+        // ---- 单元级·判据口直判：`swarm` 这一族**自排除**（`A1574` 之后口径才对齐）----
+        //  判据 = `BattleManagerSupport__BroadcastUnitSwarm.c` 棋盘跳那条 `op_Inequality(卡, param_2)`
+        //  （VA `0x1809BA26C mov rdx, rbp`），而 `param_2` = `A1574` 之后我们传的 `subject`。
+        var evSwarm = WhenEvents.Parse("a friendly unit triggers Swarm");
+        CheckTrue(evSwarm != null && evSwarm.Kind == WhenEventKind.Triggers("swarm"),
+                  "（前提）`a friendly unit triggers Swarm` 的 `Kind = triggers:swarm`");
+        CheckTrue(evSwarm != null && !WhenEvents.Matches(evSwarm, 0, 0, swarmerA, host, host),
+                  "★ A1574 附带：**监听者就是触发源**时 `Matches` 必须 false（这一族自排除）"
+                + "｜🧨 把 `\"swarm\"` 加回 `WhenEvent.KeywordTriggerIncludesSelf` ⇒ 本行实得 true");
+        CheckTrue(evSwarm != null && WhenEvents.Matches(evSwarm, 0, 0, swarmerA, sub, host),
+                  "★ A1574 附带·同源对照：同一个 `WhenEvent`，只把 `listenerUnit` 换成**另一张卡** ⇒ true"
+                + "｜🔑 与上一行**结构上不可能同时满足**（除非真按「监听者 == 触发源」判）");
+
+        // 日志尾巴：把这一跳到底把 +1 加到了谁身上打出来（**只打印、不断** —— 见报告 §一·五）
+        foreach (var e in ctx.Events)
+            if (!string.IsNullOrEmpty(e) && e.IndexOf("swarm", StringComparison.OrdinalIgnoreCase) >= 0)
+                Debug.Log(P + "    [log] " + e);
+        Debug.Log(P + $"    [state] host.Attack={host.Attack} host.Health={host.Health} "
+                    + $"host.SwarmUnder={host.SwarmUnder.Count} listenerSlot={SlotOf(ctx, 0, "W5Prime")}");
+    }
+
+    // ------------------------------------------------------------------------
+    //  ★ `A1576`：献祭广播**排在** `UseSurvivor` 之前 —— 次序与**原版一致**
+    //
+    //  判据（原版 `CardScript__CheckIfDead.c`）：
+    //    `:152-158` `HasCurrentTrait(0x1d6 = sacrifice)` ∧ 是本方回合 ⇒ `TriggerSacrifice(card)`
+    //              → `CardScript__TriggerSacrifice.c:19` `DisplayTriggerAnim` ·
+    //                `:41-43` `OnTrigger(0xdc, …, self, self, self)` ·
+    //                `:45` `BroadcastSacrificeResolved` → `BroadcastUnitUsedSacrifice`
+    //    `:165` `UseSurvivor(card)` —— **在献祭之后**
+    //              → `CardScript__UseSurvivor.c:73-75` `OnTrigger(0x1a4 = Survivor)` ·
+    //                `:87` `BroadcastUnitHealed`
+    //  ⇒ 事件次序必须是 **`Trigger(sacrifice)` → `Trigger(survivor)` → `Hit(负数=治疗)`**。
+    //
+    //  ⚠️ `A1576` **没有改任何代码**（`W5` 查实原版次序与我们逐行相同）⇒ 这一组断的是**现状**，
+    //     钉的是「以后别有人把次序调过来」。⛔ 别为它造改动。
+    // ------------------------------------------------------------------------
+    static void TestA1576SacrificeOrder()
+    {
+        var sac = new CardDef("W5SacOrder", "W5SacOrder", "unit",
+                              "When a friendly unit uses Sacrifice, gain +2 Attack",
+                              "common", "Test", 1, 2, 9, 0,
+                              new[] { "survivor 3", "Sacrifice: Gain +1 Attack" },
+                              subtype: "Infantry");
+        var hitOwn = Tactic("W5_HitOwn", 0, "Deal 5 damage to a friendly unit");
+
+        var ctx = ProbeBattle(new[] { hitOwn }, new[] { Unit("W5FoeO", 1, 0, 9) });
+        ToP1Turn(ctx, 2);
+        var a = Place(ctx, 0, 2, sac, exhausted: true);
+        a.Health = 2;
+        CheckTrue(a.Has(KeywordTable.Sacrifice) && a.Survivor >= 1,
+                  "（前提）带 `sacrifice` 且身上有 `survivor`");
+        Check(ctx.Active, 0, "（前提）是这张卡主人的回合");
+
+        ctx.ClearSignals();
+        CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "W5_HitOwn"), 2), RuleCodes.OK,
+                  "自己打自己 5 伤 ⇒ 走进「幸存者 + 献祭」那一支");
+
+        int iSac = SignalIdx(ctx, EvtKind.Trigger, KeywordTable.Sacrifice);
+        int iSur = SignalIdx(ctx, EvtKind.Trigger, KeywordTable.Survivor);
+        int iHeal = SignalIdx(ctx, EvtKind.Hit, null, healOnly: true);
+
+        CheckTrue(iSac >= 0, "（前提）发了一条 `Trigger(sacrifice)` 事件");
+        CheckTrue(iSur >= 0, "（前提）发了一条 `Trigger(survivor)` 事件");
+        CheckTrue(iHeal >= 0, "（前提）发了一条治疗事件（`Hit` 且 `Amount < 0`）");
+        CheckTrue(iSac >= 0 && iSur >= 0 && iSac < iSur,
+                  "★ A1576（原版 `CheckIfDead.c:157` vs `:165`）：**献祭的触发排在幸存者的触发之前**"
+                + "｜🧨 把 `RuleCore.CleanupDeaths` 里 `FireTriggerAlways(…, Sacrifice, …)` 那一句"
+                + "挪到 `u.UseSurvivor()` **之后** ⇒ 本行红");
+        CheckTrue(iSur >= 0 && iHeal >= 0 && iSur < iHeal,
+                  "★ A1576：**治疗那一条事件排在 `Trigger(survivor)` 之后**"
+                + "（原版 `UseSurvivor.c:73-75` 先 `OnTrigger(0x1a4)`、`:87` 才 `BroadcastUnitHealed`）"
+                + "｜🧨 把 `EmitUnit(ctx, EvtKind.Hit, u, -healed)` 提到 `FireTriggerAlways(…, Survivor, …)` 之前 ⇒ 本行红");
+        CheckTrue(a.Health > 0, "（前提）那张卡真的被 `survivor` 救回来了");
+
+        // ---- ★★ **本笔真正的次序钉子**：献祭那一跳的**广播发生在治疗之前** ----
+        //  ⚠️ 观测口 = 两条**互相独立**的日志行（不是同一处打印两遍）：
+        //     · 前一行来自 `FireTriggerAt`（献祭那一跳的广播自己打的，`RuleCore.cs` 7190 一带）；
+        //     · 后一行来自 `CleanupDeaths` 的幸存者段（`u.UseSurvivor()` 之后那句 `ctx.Log`）。
+        //  ⛔ **不是**在断文案 —— 断的是「这两件事谁先发生」（`FireWhen` 的返回值/`UseSurvivor`
+        //     的执行都不可从 `ctx.Signals` 分辨，日志是唯一能看出「谁先」的口）。
+        int lSac = LogIdx(ctx, "触发 SACRIFICE");
+        int lSur = LogIdx(ctx, "Survivor");
+        CheckTrue(lSac >= 0, "（前提）日志里能找到献祭那一跳的广播行");
+        CheckTrue(lSur >= 0, "（前提）日志里能找到幸存者生效那一行");
+        CheckTrue(lSac >= 0 && lSur >= 0 && lSac < lSur,
+                  "★ A1576【次序钉子】献祭的**广播**排在 `UseSurvivor`（治疗）**之前** —— "
+                + "原版 `CardScript__CheckIfDead.c:152-158`（`TriggerSacrifice` → `BroadcastSacrificeResolved`）"
+                + " 在 `:165`（`UseSurvivor`）**之前**，我们这一支逐行同序"
+                + "｜🧨 把 `RuleCore.CleanupDeaths` 里那句 `FireTriggerAlways(…, Sacrifice, …)` 挪到"
+                + " `u.UseSurvivor()` 之后 ⇒ 本行红（实得 lSac=" + lSac + " > lSur=" + lSur + "）");
+
+        Debug.Log(P + $"    [order] iSac={iSac} iSur={iSur} iHeal={iHeal} "
+                    + $"lSac={lSac} lSur={lSur} signals={ctx.Signals.Count} health={a.Health}");
     }
 }

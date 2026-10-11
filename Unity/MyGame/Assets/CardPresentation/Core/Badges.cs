@@ -16,14 +16,47 @@
 //     （7 份）—— 父链 `TraitIconContainer ← TraitIcons ← 3DBody ← Board Elements ← CardPrefab`。
 //
 // 🔴 **本地查不到、因而是「我们挑的」**（按项目红线必须写明）：
-//  · **哪些关键词进这 7 个位** —— 原版筛选器 `CardTraitCollection.GetTraitInPlayListForIcons`
-//    的**方法体没被反编译**，`CardTrait` 资产本体（带 `_traitIcon` 的那份）也没解出来
-//    ⇒ 「blast / vulnerable 到底进不进位」**本地无确证**。我们的判据见 `For(...)`。
+//  · **哪些关键词进这 7 个位** —— 我们的判据见 `For(...)`（= 「凡是查得到图标的都显示」）。
+//    🔴 **2026-10-11（`A1362`）就地订正（铁律 5）：本行原来写「原版的筛选器
+//    `CardTraitCollection.GetTraitInPlayListForIcons` 的**方法体没被反编译**」—— 那句【不成立】。**
+//    现读：`d:/2/tools/decomp_full/CardTraitCollection__GetTraitInPlayListForIcons.c`（**202 行，全的**），
+//    调用点也核了（`BattleCardUI__UpdateTraitIcons.c:59` 调它，链是
+//    `CardScript.UpdateTraitIcons` → `BattleCardUI.UpdateTraitIcons`）。
+//    **原版判据（从那份方法体读出来的）** = 一个 trait 进这 7 个位要**同时**满足：
+//      ① `CardTrait._hasIcon`（偏移 `0x21`）—— getter `CardTrait__get_HasIcon.c` 实测就是读它；
+//      ② `CardTrait._isInPlayIcon`（偏移 `0x22`）—— `CardTrait__get_IsInPlayIcon.c` 同；
+//      ③ `CardTrait._traitIcon != null`（偏移 `0x18`，`UnityEngine_Object__op_Inequality` 那一步）；
+//      ④ （第一支循环另加）**这张卡的 `CardTraitData._hide == false`**（偏移 `0x20` = `CardTraitData._hide`，
+//         见 `CardTraitData.cs`；`CardTrait.GetNewTrait(`, bool hideTrait = true`)` 那个参数）。
+//    另有一条**同族但不同用途**的筛选器：`CardTraitCollection__GetTraitListForCardIcons.c`（100 行）
+//    —— 那条**只要求 ① + ③**（不要求 `_isInPlayIcon`）⇒ 两者差的那一族 = 「有图标、但不算**场上**图标」。
+//    🔴 **仍然取不到的是那两个开关的【逐 trait 取值】**：`CardTrait` 的**资产本体本地没有**。
+//    实据（2026-10-11 现搜，⛔ 不是「没找到」而是「确实不在」）：`可读的 exports = 24.7 万文件`，
+//    按字段名全盘搜 `_traitIcon` / `_hasIcon` / `_isInPlayIcon` / `_traitEffects` / `customObject`
+//    **全 0 命中**（同一条 grep 对 `m_Name` 命中 12.8 万 ⇒ 仪器有牙）；`CardTrait` 的 MonoScript
+//    **在**（`assets_full/globalgamemanagers/MonoScript/MonoScript_1795.json`，`m_ClassName: "CardTrait"`），
+//    但**一个实例都没有**；`assets_full/resources/MonoBehaviour/` 是**空目录**
+//    （`resources.assets` 2039 个对象里 **616 个导出失败**）⇒ 它多半在没解出来的那一桶 / 远端包里。
+//    ⇒ **`For(...)` 今天只能拿「查得到图标」当那两条开关的**替身**，这条如实标着。**
+//    ⛔ **别再把「查不到」写成「没反编译」**（那是两种不同的缺口：一个缺数据、一个缺口径）。
 //  · **底板怎么画** —— 原版那个 sprite（PathID 2729514481590049735）在解包里**找不到本体**，
 //    我们按工程里现成的 `Art/ui/Base3d_Trait_Background.png` 画（按自身比例 fit 进格子）。
 //  · **手牌上显不显示** —— 原版手牌与棋盘**是同一个 prefab**（7 个位物理上都在手牌上），
 //    但有没有被隐藏**没找到判据**（`ToggleTraitIcons`/`FadeAllTraitsIcons` 在已反编译集合里无调用者）
 //    ⇒ 我们**只在棋盘（场上）显示**，手牌不显示。
+//  · 🔴 **7 个位的【次序】**（2026-10-12 · `A1613②` 现读反编译坐实；此前一直没查、只当「我们挑的」）：
+//    **原版没有任何排序** —— `CardTraitCollection__GetTraitInPlayListForIcons.c`（202 行）是
+//    **按 `List` 的索引序**走两层（外层 `param_1+0x110`、内层 `*(elem+0x10)+0x290`）、逐条 `Add`；
+//    唯一的「顺序规则」是**去重**：`System_Predicate<b__0>` 比较的是 **trait id**（`(a+0x10)+0x18 == b+0x18`），
+//    `List.Find` 命中就 `continue` ⇒ **先出现者赢**。消费侧 `BattleCardUI__UpdateTraitIcons.c`（132 行）
+//    同样是**按索引序**把列表逐个写进那 7 个槽（没有 sort、没有倒序）。
+//    ⇒ **原版次序 = 该卡 trait 列表的【数据作者序】**（`CardTraitCollection.TraitCollection`
+//      这份 ScriptableObject 资产里的排列），**既不是字母序、也不是「效果文字里首现序」**。
+//    ⚠️ **那份资产本地取不到**（`A1613②` 现搜：`assets_full` 全盘按名搜 `TraitCollection` / `CardTrait`
+//      **只有 1 个 MonoScript 命中、零资产**；与上面那条「`CardTrait` 零实例」同一件事）
+//      ⇒ **逐卡的原版次序今天判不了**（这是「判据不可及」，不是「没找」）。
+//    ⇒ 我们 `For(...)` 用的「`orderHint` 里首现序 → 规范键字典序」是**替身**，并且**与上面两条都不同**；
+//      **判据可取到的那一天要按资产列表序替换它**（先取哪一份资产，见 `For(...)` 上方那段）。
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -176,10 +209,29 @@ namespace CardPresentation
             { "rage", "penitence" },         // 反向：图 `rage` = 关键词 `Penitence`
             { "markOfChaos", "darkpact" },   // 反向：图 `markOfChaos` = 关键词 `Dark Pacts`
             { "concussive", "concussion" },  // 反向：图 `concussive` = 关键词 `Concussion`（规则书拼法）
+            // 🔴 **2026-10-11（`A1379`）补**：另外四张 `markOf*` 切片**只有这一张会出现在计划表里**
+            //    （`BL19` 的 `❄ Dark Pact of Excess` → `markOfSlaanesh`；另三张 `markOfKhorne`/
+            //     `markOfNurgle`/`markOfTzeentch` 全池**计划表一条都没用**）。
+            //    不登记它 ⇒ `KeyOf` 落到「小写化图名」= `markofslaanesh`，而
+            //    `Loc` 里**没有**这个键 ⇒ 那枚图标的 tooltip 只剩名字、没有解释
+            //    （**规则书上「黑暗契约」那一条是 `darkpact`**，判据 → `Core/Loc.cs` 的 `Card_Trait/darkpact`）。
+            //    ⚠️ 这一条**只改 `<link>` 的 id**，不改画哪一枚图（画哪一枚是 `Alias` 那一侧的事，
+            //    而 `A1420` 那笔「BL19 该画哪一枚」的裁定与本条无关、别并起来看）。
+            { "markOfSlaanesh", "darkpact" },
         };
 
         /// <summary>🆕 2026-09-21：图名 → 规范键（见 `SpriteKey`）。认不出就返回**小写化的图名**
-        /// ——至少还能当个名字显示（`TipText.Trait` 那边会如实说「规则书里没有这个词的条目」）。</summary>
+        /// ——至少还能当个名字显示（`TipText.Trait` 那边会如实说「规则书里没有这个词的条目」）。
+        /// <para>🔴 **2026-10-11（`A1379`）查证收口**：那条「认不出就返回小写图名」的兜底
+        /// **对绝大多数图是正确的**（图集文件名就是关键词名 ⇒ 小写化恰好等于规范键），
+        /// 实测样本 `"stun"`：`KeyOf("stun") = "stun"`，而 `stun` **就是**规范键
+        /// （`CardDef.cs` 的 `Prefixes` 里 `new[] { "stun", "stun" }`）⇒ 运行时那枚图标外套的
+        /// `&lt;link=stun&gt;` **查得到东西**，不是「指向一个空键」：
+        /// `Loc` 有 `Card_Trait/stun`（`{"眩晕","Stun"}`）⇒ tooltip 有图标 + 标题；
+        /// `Resources/trait_tips.json` 里 `眩晕` **在**那 61 条里 ⇒ 连规则书正文都有。
+        /// ⇒ **本条不是缺陷**（原来只有「没核」这一句挂着，现在核完了）。
+        /// ⚠️ 需要登记进 `SpriteKey` 的只有「**图名 ≠ 规范键**」的那几个（含 `A1379` 新补的
+        /// `markOfSlaanesh`）—— ⛔ 别把 78 张图逐个登记一遍，那只会多出一张要同步维护的表。</para></summary>
         public static string KeyOf(string sprite)
         {
             if (string.IsNullOrEmpty(sprite)) return null;
@@ -244,10 +296,15 @@ namespace CardPresentation
         /// <summary>
         /// 从**单位当前的关键词表**挑出要显示的那几个（最多 7 个，顺序稳定 ⇒ 对局可复现）。
         ///
-        /// 🔴 **判据是我们定的**（原版的筛选器没被反编译，见文件头）：**凡是查得到图标的都显示**。
+        /// 🔴 **判据**：**凡是查得到图标的都显示**（= 我们的**替身**，见下面那条更正与文件头）。
         /// 也就是说「引擎当前认为这个单位身上有什么，卡上就画什么」—— 加/减益、光环给的、
         /// 限时增益到期收回，全都会跟着变，因为喂进来的是 <see cref="UnitState"/> 的**当前**表。
         /// 认不出图标的**跳过并计数**，由自检盯着，不静默吞掉。
+        /// <para>🔴 **2026-10-11（`A1362`）**：**原版那条判据已经读到了**（文件头有全文）——
+        /// 它要 `HasIcon && IsInPlayIcon && TraitIcon != null`（外加 `CardTraitData._hide == false`），
+        /// 而**那两条开关的逐 trait 取值本地取不到**（文件头写了实据）⇒ 本方法**今天做不到逐条对齐**。
+        /// ⛔ **别把「取不到开关」当成「不用管」**：能取到的那一天，要按 `HasIcon && IsInPlayIcon`
+        /// 收窄这里（**先做哪些**：先补这两个开关的读取口，再谈收窄）。</para>
         /// 🔴 **2026-10-21 更正（`A1361` · 铁律 5）**：这一句原来举的例子是「（`Talent` / `Secret` /
         ///   `Lord Commander` 这类**没有图的**）」—— **`Talent` 那半个例子不成立**：
         ///   `Resources/Art/traits/talent.png` 在（9070 B）、`Resources/Fonts/Warpforge Trait TextSprites.asset`
@@ -266,6 +323,15 @@ namespace CardPresentation
 
             // 顺序：**卡面效果文字里先出现的排前面**（和玩家在卡上读到的词序一致），
             // 文字里没有的（后面加上来的增益）按名字排 —— 全程确定 ⇒ 对局可复现。
+            //
+            // 🔴 **这是替身，不是原版次序**（2026-10-12 · `A1613②` 现读反编译坐实，全文见文件头第 4 条）：
+            //    原版 `CardTraitCollection.GetTraitInPlayListForIcons` **一条排序都没有** —— 它按
+            //    `TraitCollection` 那个 `List` 的**索引序**逐条 `Add`（唯一的「次序规则」是**按 trait id 去重**、
+            //    先出现者赢），`BattleCardUI.UpdateTraitIcons` 也按索引序把它写进那 7 个槽
+            //    ⇒ **原版次序 = 卡的数据作者序**，不是文本序、也不是字典序。
+            //    ⚠️ 那份资产（`CardTraitCollection.TraitCollection`）**本地没有**（只有 MonoScript、零实例）
+            //    ⇒ 今天**判不出**逐卡原版次序；这段排序是**在那之前最接近玩家阅读顺序的替身**。
+            //    ⚠️ `A1406` 那次只动了**卡面关键词段**（`CardText.KeywordSegment`）、**没动这里**。
             var ordered = new List<KeyValuePair<string, int>>();
             foreach (var kv in keywords) ordered.Add(kv);
             string hint = (orderHint ?? "").ToLowerInvariant();

@@ -1236,6 +1236,9 @@ def read_default_environment(scene, warn):
 def build_manifest(a, include_all_particles=False):
     warn = {'obj_missing': [], 'tex_missing': [], 'tex_fallback': [], 'ps_defaults': {},
             'burst_count_missing': [], 'default_env': [],
+            # 🔴 2026-10-11（`A1555②`）：**「GameObject 本身没解析出来」**与「它没有网格」
+            #   是两件事，原来都走同一个静默 `continue`（见下面 `mesh_name` 那一处）。
+            'go_unresolved': [],
             # 🔴 2026-10-12（A433）：**材质解出来了、但这一格的贴图名是空的** —— 见 `note_tex_ref_missing`。
             'tex_ref_missing': [],
             # 🔴 2026-10-08：**内置网格**（`Library/unity default resources`，见 `builtin_mesh_map`）
@@ -1392,6 +1395,15 @@ def build_manifest(a, include_all_particles=False):
         if not mesh_name:
             builtin = builtin_map.get(gopid)
             if not builtin:
+                # 🔴 2026-10-11（`A1555②`）：这里原来是**静默 `continue`** —— 实测它会让一整件对象
+                #   在清单 / OBJ / 场景 / prefab **四处同时消失**，而构建日志一声不响。
+                #   13 场 + 主菜单实测丢 5 件，**名字末尾都带一个空格**：
+                #     `Generator ` / `Bunker Gun `（astra）· `Battle Arena Aeldari `（aeldari）·
+                #     `Railgun Turret 1 Target `（tau）· `Sparks R `（mainmenuwarpforge）。
+                #   判据：`gopid` **不在** `a.GO` 里 = **那件 GameObject 本身没被解析出来**
+                #   （≠「它没有网格」，后者是正常的、不该报）。
+                if gopid and gopid not in a.GO:
+                    warn['go_unresolved'].append({'gopid': gopid, 'tf': t})
                 continue
             mesh_name = builtin          # 审计用（`obj` 字段写它的名字）
         gname = go_name_of(a, t)
@@ -1674,6 +1686,13 @@ def build_manifest(a, include_all_particles=False):
 
         arc_deg = shape_dim(shp.get('arc'), DEF_SHAPE_ARC_DEG)
         psr = psr_of(a, gopid) or {}
+        # 🔴 2026-10-11：下面这几个 `ParticleSystemRenderer` 字段**原版每颗都有**
+        #   （实测 578 颗：`m_UseCustomVertexStreams` True 179 / False 399；
+        #    `m_ApplyActiveColorSpace` True 401 / False 177）。缺字段就出声，⛔ 不静默。
+        if 'm_UseCustomVertexStreams' not in psr:
+            note_default('m_UseCustomVertexStreams')
+        if 'm_ApplyActiveColorSpace' not in psr:
+            note_default('m_ApplyActiveColorSpace')
         col_mod = ps.get('ColorModule') or {}
         # 🔴 2026-09-22：这五个模块先取出来，**「在不在」要一起写进清单** ——
         #    C# 侧任何 `!= null` 判断都失效（`JsonUtility` 把 `null` 整棵子树物化），
@@ -1691,6 +1710,21 @@ def build_manifest(a, include_all_particles=False):
             'pos': p, 'rot': q, 'scale': s,
             'tex': tex_name,
             'texFile': tex_file,
+            # 🔴 2026-10-11：**这四项原来是「旁挂」在清单上的** —— 由
+            #   `工具/gen_arena_particle{pivot,streams,colorspace}.py` 三个脚本按序打补丁，
+            #   而上游生成器（本文件）从来没教过它们 ⇒ **重跑本生成器会把它们全冲掉**
+            #   （冲掉后 `ArenaBuilder` 只**告警**、不静默，但仍然回退）。现在由生成器直出，
+            #   那三个脚本退化成**幂等兜底**。
+            #   判据 = `ParticleSystemRenderer` 的这几个字段（原版值逐颗读出来，⛔ 不猜）：
+            #     · `m_Pivot` —— 578 颗里 151 颗非零（`Fire (0,0.39,0)` / `RisingSteam (0,0.5,0)`…）；
+            #       `renderAlignment=View` 下不套它 ⇒ 贴地火焰下半截被地板 `ZTest LEqual` 吃掉。
+            #     · `m_UseCustomVertexStreams` / `m_VertexStreams` —— `TinyFlames = [0,3,4,5,8]`
+            #       （`UV2` + `AnimBlend` 正是 URP `Particles/Unlit` 在 `_FLIPBOOKBLENDING_ON` 下读的）。
+            #     · `m_ApplyActiveColorSpace` —— 原版 False 177 / True 401。
+            'pivot': v3(psr.get('m_Pivot')),
+            'useCustomVertexStreams': bool(psr.get('m_UseCustomVertexStreams')),
+            'vertexStreams': [int(v) for v in (psr.get('m_VertexStreams') or [])],
+            'applyActiveColorSpace': bool(psr.get('m_ApplyActiveColorSpace')),
             'duration': r6(_f(ps.get('lengthInSec'), DEF_DURATION)),
             'looping': bool(ps.get('looping', DEF_LOOPING)),
             'prewarm': bool(ps.get('prewarm', DEF_PREWARM)),
@@ -2028,6 +2062,11 @@ def run_one(arena, args):
         li.append('  [obj 对不上] %d 条:' % len(warn['obj_missing']))
         for m in warn['obj_missing']:
             li.append('      %s -> %s.obj (不存在)' % (m['go'], m['obj']))
+    if warn['go_unresolved']:
+        li.append('  🔴 [GameObject 根本没解析出来 → 整件被丢] %d 条:' % len(warn['go_unresolved']))
+        for m in warn['go_unresolved']:
+            li.append('      Transform %s 的 GameObject PathID %s 不在本次 dump 里'
+                      % (m['tf'], m['gopid']))
     if warn['tex_fallback']:
         dirs = {}
         for m in warn['tex_fallback']:

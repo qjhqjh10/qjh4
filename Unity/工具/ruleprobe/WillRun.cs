@@ -64,11 +64,31 @@ class WillRun
         public List<EffectOp> Ops;
         public string Kind = "";  // 没收下来时：`收漏` / `付费段` / `同头两写`
         public string Why = "";   // 上面那一档的人话
+        /// <summary>🆕 `A1593`：这一段**自带付费前缀**吗？判据 = **引擎自己那一次
+        /// <see cref="EffectText.ParseSegment"/>**（`SegResult.PaidCost` / `PaidKind`）。
+        ///   · `Cost > 0` = 这一段自带付费前缀（`PaidKind` = 引擎给的货币原文）；
+        ///   · `Cost = 0` = 不是付费段（⇒ 走触发头那条通道）。
+        /// 🔴 **⛔ 不拿 <see cref="IsPaidHead"/> 当这一处的判据**：那条正则只覆盖 `N &lt;货币&gt;:`
+        ///   那一半，**漏掉引擎同样认的 `Oath N:`** —— 实测代价：`UM*` 那 **18 张**
+        ///   `Oath N: …` 全被误判成「触发头没收下来」（`A1593` 落地当时跑出来的）。
+        ///   这里用引擎的 `PaidKind` 还顺带拿到**货币**，`faith` / `spirit` / `oath`
+        ///   正好就是三条付费通道的名字。</summary>
+        public int PaidCost;
+        /// <summary>引擎给的付费货币原文（`☀` / `faith` / `oath` / `might` …），`""` = 不是付费段。</summary>
+        public string PaidKind = "";
+        /// <summary>`EffectText.CostKindOf(PaidKind)` 的规范值（`faith` / `spirit` / `oath` / …）。</summary>
+        public string Currency = "";
+        /// <summary>🆕 `A1593`：这一段归**哪条通道（= 哪条 ability）**管 —— 由
+        /// <see cref="ClaimChannel"/> 算出来（人话 + 出处）。`""` = 没算（无头段/腿 B 没跑）。</summary>
+        public string Channel = "";
+        /// <summary>🆕 `A1593`：**旧口径**（全卡 `op` 并集，`Sig()` 不带「属于哪条 ability」那一维）
+        ///   认不认它。它**只用来诊断**「旧口径会漏掉的那几条」，⛔ 不参与判决。</summary>
+        public bool GlobalHit;
     }
 
     /// <summary>收漏的三档（判据见 <see cref="Classify"/>）。</summary>
     const string KMiss = "收漏";         // 🔴 触发头没收下来 —— `A1386` 是这一族。**计入 rc**
-    const string KPaid = "付费段";       // 🔴 `N ☀:` / `N [Energy]:` 形状的付费能力段没收下来。**计入 rc**
+    const string KPaid = "付费段";       // 🔴 `N <货币>:` / `Oath N:` 形状的付费能力段没收下来。**计入 rc**
     const string KTwice = "同头两写";    // ⚠️ 头注册了、但正文与这一段不同（`desc` / `keywords` 两份数据不一致）。**不计入 rc**
 
     /// <summary>🆕 **无头档**（`A1459`）的三档 —— 判据见 <see cref="ClassifyHeadless"/>。
@@ -87,6 +107,11 @@ class WillRun
         public bool OldPass;                                   // 老口径（空表算通）
         public List<FaceBody> Bodies = new List<FaceBody>();   // 腿 B：卡面上带正文的段（只 unit/hero）
         public List<FaceBody> Orphans = new List<FaceBody>();  // 其中没被收到的
+        /// <summary>🆕 `A1593`：**旧口径会误判成「已收到」**的那些段 —— 它们的 `op` 签名在
+        /// 同一张卡的**别的 ability** 里也出现过（`Rally:` / `Pray:` 顶上付费段就是这一族）。
+        /// ⚠️ 它们**已经**在 <see cref="Orphans"/> 里（新口径按通道比）⇒ 这一栏是**诊断**，
+        /// ⛔ 别拿它去加总 ④ 的条数（会数两遍）。</summary>
+        public List<FaceBody> MaskedByOtherAbility = new List<FaceBody>();
         /// <summary>🆕 `A1459` **无头档**：卡面**没有 `Head:`**、而主解析器解得出 op、**且腿 A 一条都没收到**的段。
         ///   ⚠️ 含「已被别的层认领」的那些（<see cref="FaceBody.Kind"/> 记着是哪个层）——
         ///   它们**只是计数**，不进账；只有 <see cref="KHNone"/> 那一批才是这一档要点的名。</summary>
@@ -215,9 +240,31 @@ class WillRun
         Console.WriteLine("      · **" + KMiss + "**（触发头没进 `TriggerTexts` —— `AddTriggerOp` 要求头在 "
                           + "`CardDef.RoutableTriggers` 里）  " + nMiss + " 条 ← `A1386` 是这一族。**计入 rc**");
         Console.WriteLine("      · **" + KPaid + "**（`N ☀:` / `N [Energy]:` 形状的付费能力段 —— "
-                          + "`WillRunOps` 的 unit/hero 支**压根不看这类段**）  " + nPaid + " 条 ← **计入 rc**");
+                          + "**它自己那条通道没收到**）  " + nPaid + " 条 ← **计入 rc**");
         Console.WriteLine("      · **" + KTwice + "**（同一个头注册了、但 `desc` 与 `keywords` 两份正文**不一样**，"
                           + "后者被「先到先得」丢掉）  " + nTwice + " 条 ← ⚠️ **数据不一致**，⛔ 不计入 rc");
+        // 🆕 `A1593`：**按通道比**（不是全卡 op 并集比）之后，把「旧口径会漏掉的那几条」标出来。
+        var maskedAll = rows.SelectMany(r => r.MaskedByOtherAbility).ToList();
+        Console.WriteLine("    🔴 🆕 **`A1593` 旧口径会漏掉的那几条 = " + maskedAll.Count + " 条**"
+                          + "（`Sig()` **不带「属于哪条 ability」那一维** ⇒ 同签名 `op` 出现在同一张卡的"
+                          + "**别的** ability 里时，这一段被顶成「已收到」）");
+        Console.WriteLine("       ⚠️ 它们**已经**在下面/上面的 ④ 名单里（新口径按**通道**比）——"
+                          + "这一栏是**诊断**，⛔ 别拿它去加总 ④ 的条数（会数两遍）。");
+        if (maskedAll.Count > 0)
+        {
+            int pm = 0;
+            foreach (var r in rows)
+            {
+                if (pm >= 40) break;
+                foreach (var b in r.MaskedByOtherAbility)
+                {
+                    if (pm >= 40) break;
+                    pm++;
+                    Console.WriteLine("       " + Pad(b.Kind, 7) + r.C.Id + "  " + r.C.Name + "  [" + r.C.Type
+                                      + "]  `" + Clip(b.Raw, 56) + "`  (" + b.Where + ")  ·  本段通道 = " + b.Channel);
+                }
+            }
+        }
         if (missed.Count != orphCards)
             Console.WriteLine("    （「整张卡一条都没收到」= 上面 ② 那 " + missed.Count + " 张；其余是**半漏**）");
         if (orphAll.Count > 0)
@@ -232,7 +279,8 @@ class WillRun
                     if (printed >= 60) break;
                     printed++;
                     Console.WriteLine("       " + Pad(b.Kind, 7) + r.C.Id + "  " + r.C.Name + "  [" + r.C.Type
-                                      + "]  `" + Clip(b.Raw, 64) + "`  (" + b.Where + ")  ← " + b.Why);
+                                      + "]  `" + Clip(b.Raw, 64) + "`  (" + b.Where + ")  ← " + b.Why
+                                      + "  ·  本段通道 = " + b.Channel);
                 }
             }
         }
@@ -341,6 +389,10 @@ class WillRun
         catch (Exception e) { Console.WriteLine("    (d) 未实现关键词：读不到（" + e.GetType().Name + "）"); }
         Console.WriteLine();
 
+        // ---------------------------------------------------------------- ⑦ 🆕 `A1593` ④ 档判据自检
+        int scFail = SelfCheck(pool);
+        Console.WriteLine();
+
         // ---------------------------------------------------------------- dump
         if (!string.IsNullOrEmpty(dumpPath))
         {
@@ -366,10 +418,144 @@ class WillRun
         }
 
         Console.WriteLine("  判据：**②「收漏了」= 0 张**、段级 **" + KMiss + " / " + KPaid
-                          + " 都为 0**、且 **⑤「" + KHNone + "」= 0 条** ⇒ rc=0；否则 rc=1（⛔ 不许静默绿）。");
+                          + " 都为 0**、**⑤「" + KHNone + "」= 0 条**、且 **⑦ 判据自检（`A1593`）= 0 条红**"
+                          + " ⇒ rc=0；否则 rc=1（⛔ 不许静默绿）。");
         Console.WriteLine("  ⚠️「本来没正文」「未归因」「" + KTwice + "」「" + KHAtTurn + "」「" + KHCostWhen
                           + "」**不算失败**，但它们**也绝不混进「全通」**。");
-        return (missed.Count > 0 || nMiss > 0 || nPaid > 0 || headNone.Count > 0) ? 1 : 0;
+        return (missed.Count > 0 || nMiss > 0 || nPaid > 0 || headNone.Count > 0 || scFail > 0) ? 1 : 0;
+    }
+
+    // ==================================================================
+    //  ⑦ 🆕 `A1593`：④ 档那道闸的判据自检
+    // ==================================================================
+
+    /// <summary>🆕 **`A1593`：④ 档「腿 A 收没收到」那道闸**的判据自检（返回**红的条数**）。
+    ///
+    /// 🔴 **为什么非要有它**：那道闸原来问的是「**全卡**的 `op` 里有没有同签名的那一条」，
+    ///   而 <see cref="Sig"/> **不带「属于哪条 ability」那一维** ⇒ 同一张卡**别的** ability 里
+    ///   出现过的同签名 `op`，会把这一段顶成「已收到」。**两个已查实的实例**
+    ///   （出处 `资料/普查产出_第二十会话/W1_信仰阈值落地.md` §1·4）：
+    ///     · `SOR28 Dominion Superior` = `Rally: Deal 1 damage. 2 ☀: Deal 1 additional damage`；
+    ///     · `SOR36 Celestian Superior` = `Pray: Deploy a Celestian. 6☀: Deploy a Celestian`。
+    ///
+    /// **断言 A —— 会红的那一条（`A1593` 的正面对照）**
+    ///   拿**两张夹具卡**，形状**逐字照抄**上面那两个实例，**只把付费货币换成没有通道的那一种**
+    ///   （`2 [Might]:` / `6 [Might]:` —— `CostKindOf("might")` 不是 faith/spirit/oath
+    ///   ⇒ `WillRunOps` 的 unit/hero 支里**根本没有这条通道**）：
+    ///   ⇒ 付费那一段**必须**被报成「付费段」孤儿。
+    ///   🔴 **旧口径必红**：它按全卡并集比，`deal 1` / `deploy` 撞上同一张卡 `Rally:` / `Pray:`
+    ///      那一条 ⇒ 判成「收到了」⇒ 报 **0 条**。**这一条断言在旧口径下结构上不可能绿**。
+    /// **断言 B —— 两个实例的正面归属**
+    ///   池里的 `SOR28` / `SOR36`：那两条付费段**必须由【信仰通道】认领**（不是被
+    ///   `Rally:` / `Pray:` 顶上）。⚠️ 这一步在**旧口径里根本无从表达**（它没有「通道」这一维）
+    ///   ⇒ 它钉的是「新口径**认得出是哪条 ability**」，而 `GlobalHit`（旧口径的答案）
+    ///   同时为真正好说明**旧口径的「收到」与巧合无法区分**。
+    /// **断言 C —— 反面对照**
+    ///   夹具 `Rally: Deal 1 damage. Rally: Deal 3 damage`：第二条**必须**报成「同头两写」
+    ///   （头注册过、正文不一样）—— 挡住「只要头注册了就一律算收到」那种改法。
+    ///
+    /// ⚠️ **夹具卡在内存里现造**（`new CardDef(...)`，⛔ 不进卡池、⛔ 不碰 `MyGame/Assets/**`）——
+    ///   它们是**判据的对照**，不是「池里有第四张卡」。
+    /// </summary>
+    static int SelfCheck(List<CardDef> pool)
+    {
+        Console.WriteLine("  --- ⑦ 🔴 ④ 档「腿 A 收没收到」判据自检（`A1593`：**按通道比**，不按全卡 `op` 并集比）---");
+        int fail = 0;
+        Func<string, string, CardDef> fx = (id, desc) =>
+            new CardDef(id, id, "unit", desc, "common", "Fixture", 1, 1, 1, 0, null, subtype: "Troop");
+
+        // ---- 断言 A：形状照 SOR28 / SOR36，货币换成「没有通道」的那一种 ----
+        var a1 = fx("FX-A1", "Rally: Deal 1 damage. 2 [Might]: Deal 1 additional damage");
+        var a2 = fx("FX-A2", "Pray: Deploy a Celestian. 6 [Might]: Deploy a Celestian");
+        foreach (var f in new[] { a1, a2 })
+        {
+            var row = Measure(f, null, pool);
+            var paid = row.Orphans.Where(b => b.Kind == KPaid).ToList();
+            // 🔴 **旧口径给的答案** = 「全卡 `op` 并集里有没有同签名」（`Measure` 顺着算在
+            //    `FaceBody.GlobalHit` 上）⇒ 旧口径的孤儿 = `GlobalHit == false` 的那些。
+            //    把它**并排打出来**，这条断言就**不是靠嘴说「旧口径必红」**，而是机器量出来的。
+            int oldOrphans = row.Bodies.Count(b => !b.GlobalHit);
+            bool ok = paid.Count == 1 && oldOrphans == 0;
+            Console.WriteLine("    " + (ok ? "✅" : "🔴") + " A 「" + f.Id + "」`" + f.Desc + "`");
+            Console.WriteLine("        期望：付费那一段被报成「" + KPaid + "」孤儿 **1 条**；实得 **" + paid.Count + " 条**"
+                              + "（本卡段数 " + row.Bodies.Count + " / 孤儿 " + row.Orphans.Count + "）");
+            Console.WriteLine("        🔴 **旧口径（全卡 `op` 签名并集）报的孤儿 = " + oldOrphans + " 条**"
+                              + "（必须 **0** —— 旧口径把这一段认成「收到了」，所以它在旧口径下永远不出现）；"
+                              + "本段通道 = " + (row.Bodies.Count > 1 ? row.Bodies[1].Channel : "?"));
+            if (!ok)
+            {
+                fail++;
+                Console.WriteLine("        🔴 **旧口径必红的那一条** —— 若 `paid` 报 0，就是又按全卡 `op` 并集比了"
+                                  + "（`A1593`：`Sig()` 不带「属于哪条 ability」那一维）。");
+            }
+        }
+
+        // ---- 断言 B：池里那两个实例 —— 付费段必须由【信仰通道】认领 ----
+        foreach (var id in new[] { "SOR28", "SOR36" })
+        {
+            var c = pool.FirstOrDefault(x => x != null && x.Id == id);
+            if (c == null) { fail++; Console.WriteLine("    🔴 B 池里没有 `" + id + "` —— 断言无从判"); continue; }
+            var row = Measure(c, null, pool);
+            var paid = row.Bodies.Where(b => b.PaidCost > 0).ToList();
+            bool ok = paid.Count > 0 && paid.All(b => b.Channel.StartsWith("信仰通道", StringComparison.Ordinal))
+                      && paid.All(b => b.GlobalHit);
+            Console.WriteLine("    " + (ok ? "✅" : "🔴") + " B `" + id + "` `" + c.Desc + "`");
+            Console.WriteLine("        本卡 `TriggerTexts`（**兄弟 ability 的通道**）："
+                              + string.Join(" · ", c.TriggerTexts.Select(kv => "`" + kv.Key + "` = `" + Clip(kv.Value, 48) + "`")));
+            foreach (var b in paid)
+                Console.WriteLine("        `" + Clip(b.Raw, 52) + "`  ·  通道 = " + b.Channel
+                                  + "  ·  旧口径（全卡并集）= " + (b.GlobalHit ? "也说「收到」" : "说「没收到」")
+                                  + "  ·  新口径 = " + (row.Orphans.Contains(b) ? "**孤儿**" : "收到"));
+            if (!ok)
+            {
+                fail++;
+                Console.WriteLine("        🔴 期望：该卡的付费段**全部**由信仰通道认领（`A1593` 要的就是"
+                                  + "「认得出是哪条 ability」）；实得上面那几行的「通道」栏。");
+            }
+        }
+
+        // ---- 断言 C：反面对照 —— 头注册过、但正文不一样 ⇒ 同头两写（⛔ 不是「收到」）----
+        var c1 = fx("FX-C1", "Rally: Deal 1 damage. Rally: Deal 3 damage");
+        {
+            var row = Measure(c1, null, pool);
+            var tw = row.Orphans.Where(b => b.Kind == KTwice).ToList();
+            bool ok = tw.Count == 1;
+            Console.WriteLine("    " + (ok ? "✅" : "🔴") + " C 「" + c1.Id + "」`" + c1.Desc + "`");
+            Console.WriteLine("        期望：第二条报「" + KTwice + "」 **1 条**；实得 **" + tw.Count + " 条**"
+                              + "（孤儿 " + row.Orphans.Count + "）");
+            if (!ok) fail++;
+        }
+        Console.WriteLine("    ⇒ 自检 **" + (fail == 0 ? "全过 ✅" : "红 " + fail + " 条 🔴") + "**"
+                          + "（⛔ 它计入 rc —— 那条闸一旦退回「全卡并集比」，这里立刻红）");
+        return fail;
+    }
+
+    /// <summary>④「付费段」档**逐条**读数（`卡id` · 段原文 · 所在处 · **货币**）—— `FaithProbe` 用它做
+    /// 「两把尺子」的自检。
+    ///
+    /// 🔴 **判据只此一处**：本方法**重跑一遍 `Measure`**（和上面 `Run` 里 `orphAll` **同一个方法、
+    ///    同一批闸**），⛔ 不在外面另写一份「什么叫付费段」。外面重写一份迟早写歪 ——
+    ///    而写歪的后果是「两个数看着都在、其实尺子已经不同了」（正是 `A1565` 那道题）。
+    /// ⚠️ 代价 = 全池再算一遍（`< 1 秒`）；只有 `faith` 那个内环会调它，`willrun` 本身不走这里。
+    ///
+    /// 🆕 **`A1593` 加了第 4 项（货币）**：④ 的名单**不再只有信仰** —— 按通道比之后，
+    ///    「付费货币没有对应通道」的那些（`N [Energy]:` / `N [Might]:` …）也会进来。
+    ///    `FaithProbe` §⑤ 拿 ④ 与**信仰形状**（`Q`）比，少了这一维就会把**别的货币**误判成
+    ///    「本命令写歪了」⇒ 它得能按货币筛。
+    /// </summary>
+    public static List<Tuple<string, string, string, string>> PaidSegments(List<CardDef> pool, List<List<string>> poolRawKw)
+    {
+        var outp = new List<Tuple<string, string, string, string>>();
+        if (pool == null) return outp;
+        for (int i = 0; i < pool.Count; i++)
+        {
+            var row = Measure(pool[i], (poolRawKw != null && i < poolRawKw.Count) ? poolRawKw[i] : null, pool);
+            foreach (var b in row.Orphans)
+                if (b.Kind == KPaid)
+                    outp.Add(Tuple.Create(row.C.Id, b.Raw, b.Where,
+                                          b.Currency.Length == 0 ? "?" : b.Currency));
+        }
+        return outp;
     }
 
     // ==================================================================
@@ -402,13 +588,30 @@ class WillRun
                 AddFaceBody(row.Bodies, c, kw[i], "keywords[" + i + "]");
 
             // ---- 对账：卡面段里哪些**没被**执行层收到 ----
-            var got = new HashSet<string>(row.RunOps.Select(Sig));
+            //
+            // 🔴 **`A1593`（2026-10-11）：按【通道】比，⛔ 不再按「全卡 `op` 并集」比。**
+            //   旧口径把 `row.RunOps` **全卡**并成一个签名集合 ⇒ 同一张卡**别的 ability** 里
+            //   出现过的同签名 `op`，会把这一段顶成「已收到」——`Sig()` 本来就**不带**
+            //   「属于哪条 ability」那一维（见 `Sig` 的注释：它连 `Source` 都故意不算）。
+            //   **两个已查实的实例**（出处 `资料/普查产出_第二十会话/W1_信仰阈值落地.md` §1·4）：
+            //     · `SOR28 Dominion Superior` = `Rally: Deal 1 damage. 2 ☀: Deal 1 additional damage`
+            //       —— ☀ 那半句的 `deal 1` 撞上**同一张卡** `Rally:` 那一条；
+            //     · `SOR36 Celestian Superior` = `Pray: Deploy a Celestian. 6☀: Deploy a Celestian`
+            //       —— 两段正文**逐字相同** ⇒ 签名必然相同。
+            //   ⇒ 那两张的付费段**从没进过 ④ 的名单**（`A1452` 台账里「11 条 / 9 张」就是这个低报）。
+            //   ⚠️ **影响面不止信仰**：④ 档的名单被拿去当「射程」的账都会少算。
+            //
+            //   `rawGot`（全卡并集）**留着只为诊断** —— 它标出 <see cref="Row.MaskedByOtherAbility"/>。
+            var rawGot = new HashSet<string>(row.RunOps.Select(Sig));
             foreach (var b in row.Bodies)
             {
-                bool hit = false;
-                foreach (var o in b.Ops) if (got.Contains(Sig(o))) { hit = true; break; }
-                if (hit) continue;
+                var ch = ClaimChannel(c, b);
+                b.Channel = ch.Name;
+                b.GlobalHit = BodySigHit(b, rawGot);                    // 旧口径的答案（诊断用）
+                if (ch.Ops != null && BodySigHit(b, new HashSet<string>(ch.Ops.Select(Sig))))
+                    continue;                                            // 本段自己那条通道收到了
                 Classify(c, b);
+                if (b.GlobalHit) row.MaskedByOtherAbility.Add(b);        // 🆕 旧口径会把它顶成「已收到」
                 row.Orphans.Add(b);
             }
 
@@ -418,6 +621,11 @@ class WillRun
             //   ② 主解析器对它解得出一批 op
             //   ③ 那批 op **一条都不在腿 A 里**（按 <see cref="Sig"/> 比，与腿 B 同一把尺子）
             //   ④ **没有任何别的层认领它**（`HandledByOtherLayer` / `AtTurnClauses` / `CostWhens`）
+            //   🔴 **`A1593` 本笔【有意不动这一档】**：无头段**没有触发头** ⇒ 它连「归哪条
+            //      ability 管」都无从谈起（<see cref="ClaimChannel"/> 的输入就是头），
+            //      按通道比会让**整族**无头段一律落进「没有通道」⇒ ⑤ 那一档**全体误报**。
+            //      ⇒ 它继续用**全卡并集**（`rawGot`），并且**只是下界**（同签名在别处出现过就算
+            //      「收到了」）。⚠️ 也就是说 **⑤ 与 ④ 的严格程度不同**，别把两者的条数放在一起比。
             var segsAll = EffectText.Split(c.Desc);
             for (int i = 0; i < segsAll.Count; i++)
                 AddHeadless(row.Headless, c, segsAll[i], "desc 第" + (i + 1) + "句");
@@ -427,9 +635,7 @@ class WillRun
             var kept = new List<FaceBody>();
             foreach (var b in row.Headless)
             {
-                bool hit = false;
-                foreach (var o in b.Ops) if (got.Contains(Sig(o))) { hit = true; break; }
-                if (hit) continue;                 // 腿 A 已经收到这一句 ⇒ 不归本档（那是「收到了」）
+                if (BodySigHit(b, rawGot)) continue;   // 腿 A 已经收到这一句 ⇒ 不归本档（那是「收到了」）
                 ClassifyHeadless(c, b);
                 kept.Add(b);
             }
@@ -478,7 +684,17 @@ class WillRun
         //    ⛔ 去重键**不含 `where`**：段落在哪儿印的不改变它是一条正文这件事。
         string key = head + "\u0001" + body;
         foreach (var x in into) if (x.Head + "\u0001" + x.Text == key) return;
-        into.Add(new FaceBody { Head = head, Text = body, Raw = s, Where = where, Ops = ops });
+        // 🆕 `A1593`：这一段**自带付费前缀**吗 —— 判据是**引擎自己那一次 `ParseSegment`**
+        //   （⛔ 不是探针自己写一条付费头正则：`IsPaidHead` 漏掉引擎同样认的 `Oath N:`，实测 18 张）。
+        int paidCost = 0; string paidKind = "";
+        var segr = EffectText.ParseSegment(s);
+        if (segr != null && segr.PaidCost > 0) { paidCost = segr.PaidCost; paidKind = segr.PaidKind ?? ""; }
+        into.Add(new FaceBody
+        {
+            Head = head, Text = body, Raw = s, Where = where, Ops = ops,
+            PaidCost = paidCost, PaidKind = paidKind,
+            Currency = paidCost > 0 ? EffectText.CostKindOf(paidKind) : "",
+        });
     }
 
     /// <summary>🆕 **`A1459`：收一条「无头段」** —— 卡面**没有 `Head:`**、而**主解析器**解得出一批 op 的段。
@@ -508,6 +724,102 @@ class WillRun
         if (ops == null || ops.Count == 0) return;         // 解不出来的段不是「可执行正文」
         foreach (var x in into) if (x.Raw == s) return;    // 按段原文去重
         into.Add(new FaceBody { Head = "", Text = s, Raw = s, Where = where, Ops = ops });
+    }
+
+    /// <summary>🆕 **`A1593`：一段卡面正文归【哪条通道（= 哪条 ability）】管。**
+    ///
+    /// 🔴 **为什么要有它**：④「付费段」档的第三道闸原来问的是「**全卡**的 `op` 里有没有同签名的
+    ///   那一条」，而 <see cref="Sig"/> **不带「属于哪条 ability」那一维** ⇒ 同一张卡**别的**
+    ///   ability 里出现过的同签名 `op`，会把这一段顶成「已收到」。两个已查实的实例
+    ///   （`SOR28` / `SOR36`，逐条见 `Measure` 里那段注释）就**从没进过 ④ 的名单**。
+    ///
+    /// **两条规则**（判据**全部转调引擎的公开面**，探针里**一行新文法都不写**）：
+    ///   ① 这一段**自带付费前缀**（<see cref="FaceBody.PaidCost"/> &gt; 0，= **引擎** `ParseSegment`
+    ///      认出来的）⇒ 只认**同货币**的那条付费通道：
+    ///      `faith` → `CardDef.FaithOps` · `spirit` → `CardDef.SpiritOps` · `oath` → `CardDef.OathOps`
+    ///      （货币名 = `EffectText.CostKindOf(PaidKind)`，全仓唯一那一份判据）。
+    ///      **其余货币（`energy` / `might` / …）在 `WillRunOps` 的 unit/hero 支里根本没有通道**
+    ///      ⇒ 这一段**不可能**被腿 A 收到（这正是 ④ 档今天还该点的名）。
+    ///   ② 其余 ⇒ 只认**本段那个触发头自己的通道**（`TriggerTexts[头]` → `TriggerOps(头)`，
+    ///      正是 `WillRunOps` 收它的那一处；`AddTriggerOp` 就是写进那本字典的）。
+    ///      头不在 `TriggerTexts` 里 ⇒ **没有通道**（⇒ 这一段收不到，`Classify` 会按 ①/③ 定档）。
+    ///
+    /// ⚠️ **头 → 通道键**的解析（<see cref="ResolveTriggerKey"/>）：精确等值；带参数的触发头
+    ///   （`Ecstasy 5:`）按 `CardDef.StripParamSuffix` 的**形状**退回那个键 —— 那个方法是**私有**的，
+    ///   而**不认它会把 `EC39 Maulerfiend` 误报**（它的 `ecstasy 5` 头对不上字典里的 `ecstasy`）。
+    ///   ⛔ **只差这一处形状**，别再放宽（放宽 = 「假收到」）。
+    /// ⚠️ **无头段不走这里**（没有头 ⇒ 没有通道，见 `Measure` 里那段说明）。
+    /// </summary>
+    static Channel ClaimChannel(CardDef c, FaceBody b)
+    {
+        if (b.PaidCost > 0)                                   // ① 付费段：只认同货币那条通道
+        {
+            string kind = b.Currency;
+            if (kind == "faith")
+                return new Channel { Name = "信仰通道 `CardDef.FaithOps`", Ops = AsOps(c.FaithOps) };
+            if (kind == "spirit")
+                return new Channel { Name = "灵魂石通道 `CardDef.SpiritOps`", Ops = AsOps(c.SpiritOps) };
+            if (kind == "oath")
+                return new Channel { Name = "誓约通道 `CardDef.OathOps`", Ops = AsOps(c.OathOps) };
+            return new Channel
+            {
+                Name = "**没有这条通道**（付费货币 = `" + (kind.Length == 0 ? "空" : kind) + "`，"
+                     + "`WillRunOps` 的 unit/hero 支不收这类段）",
+                Ops = null,
+            };
+        }
+        string key = ResolveTriggerKey(c, b.Head);            // ② 触发头：只认本段那个头的通道
+        if (key == null)
+            return new Channel
+            {
+                Name = "**没有这条通道**（`TriggerTexts` 里没有头 `" + b.Head + "`）",
+                Ops = null,
+            };
+        return new Channel { Name = "触发通道 `TriggerTexts[\"" + key + "\"]`", Ops = AsOps(c.TriggerOps(key)) };
+    }
+
+    /// <summary>卡面那个触发头 → **`TriggerTexts` 的键**（不在字典里 = `null`）。
+    ///
+    /// ⚠️ 形状照 `CardDef.StripParamSuffix`（**判据只在引擎那一份**，这里是探针侧必要的近似）：
+    ///   它把 `Ecstasy 5` 剥成 `ecstasy` 再登记，那个方法**是私有的** ⇒ 这里只做
+    ///   「**尾部是纯数字、且前半截正好是字典里的键**」这一种（今天是 `ecstasy` 一族）。
+    ///   ⛔ 别放宽成「前缀匹配」—— 那会让 `Rally 2:` 这种**引擎根本不认**的头也拿到通道（假收到）。
+    /// </summary>
+    static string ResolveTriggerKey(CardDef c, string head)
+    {
+        var tt = c.TriggerTexts;
+        if (tt == null || string.IsNullOrEmpty(head)) return null;
+        if (tt.ContainsKey(head)) return head;
+        int sp = head.LastIndexOf(' ');
+        if (sp <= 0) return null;
+        string tail = head.Substring(sp + 1).Trim();
+        if (tail.Length == 0) return null;
+        foreach (char ch in tail) if (ch < '0' || ch > '9') return null;
+        string baseHead = head.Substring(0, sp).Trim();
+        return (baseHead.Length > 0 && tt.ContainsKey(baseHead)) ? baseHead : null;
+    }
+
+    /// <summary>一条卡面段的 `op` 里，有没有哪一条的签名落在这个集合里。</summary>
+    static bool BodySigHit(FaceBody b, HashSet<string> got)
+    {
+        if (b == null || b.Ops == null) return false;
+        foreach (var o in b.Ops) if (got.Contains(Sig(o))) return true;
+        return false;
+    }
+
+    /// <summary>`IReadOnlyList` → `List`（`null` ⇒ **空表**，调用方按「通道是空的」处理）。</summary>
+    static List<EffectOp> AsOps(IReadOnlyList<EffectOp> l)
+    {
+        var outp = new List<EffectOp>();
+        if (l != null) foreach (var o in l) if (o != null) outp.Add(o);
+        return outp;
+    }
+
+    /// <summary>一条通道（= 一条 ability 的 `op` 出处）。<see cref="Ops"/> = `null` ⇒ **这条通道不存在**。</summary>
+    class Channel
+    {
+        public string Name = "";
+        public List<EffectOp> Ops;
     }
 
     /// <summary>给一条「无头段」定性（**先问「有没有别人认领」，再问「解不解得出 op」**）。
@@ -576,14 +888,22 @@ class WillRun
             return;
         }
 
-        // ② `N ☀:` / `N [Energy]:` / `N [Spirit Stone]:` 形状 —— 「付 N 点换这个效果」的**付费能力段**。
-        //    🔴 它**不是触发头**，`WillRunOps` 的 unit/hero 那一支也不看它
-        //    （六个来源：`WhenTriggers` / `TriggerTexts` / `SpiritOps` / `OathOps` / `AttackedOps` / `AuraSpecs`）
-        //    ⇒ 这是**覆盖面**的洞，不是「表里缺词」。
-        if (IsPaidHead(b.Head))
+        // ② `N ☀:` / `N [Energy]:` / `Oath N:` … —— 「付 N 点换这个效果」的**付费能力段**。
+        //    🔴 它**不是触发头**，`WillRunOps` 的 unit/hero 那一支只认**自己那条货币通道**
+        //    （`SpiritOps` / `OathOps` / `FaithOps`）⇒ 货币没有通道（`energy` / `might` …）、
+        //    或那条通道没收到这一段时，就是**覆盖面**的洞，不是「表里缺词」。
+        //    ⚠️ **判据 = 引擎自己那次 `ParseSegment`**（`FaceBody.PaidCost`），⛔ 不是探针写的头正则 ——
+        //       `IsPaidHead` 只覆盖 `N <货币>:` 那一半、**漏掉引擎同样认的 `Oath N:`**
+        //       （`A1593` 落地当时实测：漏认会让 `UM*` 那 18 张 `Oath N:` 全被误报成「收漏」）。
+        if (b.PaidCost > 0)
         {
             b.Kind = KPaid;
-            b.Why = "付费能力段（`N ☀:` / `N [Energy]:` 形状）—— `WillRunOps` 的 unit/hero 支不收这类段";
+            b.Why = "付费能力段（引擎认的付费前缀 `N <货币>:` / `Oath N:`，货币 = `"
+                  + (b.Currency.Length == 0 ? b.PaidKind : b.Currency) + "`）—— "
+                  + "它自己那条通道（" + (b.Currency == "faith" ? "`CardDef.FaithOps`"
+                                            : b.Currency == "spirit" ? "`CardDef.SpiritOps`"
+                                            : b.Currency == "oath" ? "`CardDef.OathOps`"
+                                            : "**不存在**") + "）没收到它";
             return;
         }
 
@@ -593,10 +913,18 @@ class WillRun
               + "（`AddTriggerOp` 要求它在 `CardDef.RoutableTriggers` 里）";
     }
 
-    /// <summary>🔴 **`N ☀:` / `N [Energy]:` / `N [Spirit Stone]:` 形状的「付费能力段」头** —— 判据**只此一处**
-    /// （`Classify` 的 ② 与 `PlayProbe.Bucket` 的「这一句是不是部署时该发生」**共用**；
-    /// 本仓红线：两处写同一条规则 = 迟早不一致）。
-    /// ⚠️ 这类段是**付费能力**（`WillRunOps` 的 unit/hero 支不收、`PlayProbe` 不该把它当「部署时该发生」）。</summary>
+    /// <summary>🔴 **`N ☀:` / `N [Energy]:` / `N [Spirit Stone]:` 形状的「付费能力段」头**。
+    ///
+    /// 🔴 **2026-10-11（`A1593`）就地订正（铁律 5）**：本方法的 doc 原来写着
+    ///    「判据**只此一处**（`Classify` 的 ② 与 `PlayProbe.Bucket` 共用）」—— **那半句今天不成立**：
+    ///    `WillRun.Classify` ② 已经**改判据**，用的是**引擎自己那次 `ParseSegment`** 的
+    ///    `PaidCost &gt; 0` + `PaidKind`（见 `Classify` ② 与 `ClaimChannel` 的注释）。
+    ///    为什么非改不可：**这条正则漏掉引擎同样认的 `Oath N:`** ⇒ 拿它当判据时
+    ///    `UM*` 那 **18 张** `Oath N: …` 全被误判成「触发头没收下来」（落地当时跑出来的）。
+    ///    ⇒ 现在**只剩 `PlayProbe.Bucket` 一个调用点**（它的用途是「这一句是不是部署时该发生」，
+    ///      要的是**形状**判断、不看引擎的付费语义）。
+    /// ⚠️ 这类段是**付费能力**（`PlayProbe` 不该把它当「部署时该发生」）。
+    /// ⚠️ **要判「这一段是不是付费段」别用它** —— 去问引擎的 `EffectText.ParseSegment`。</summary>
     public static bool IsPaidHead(string head)
     {
         return !string.IsNullOrEmpty(head)

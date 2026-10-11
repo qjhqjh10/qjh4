@@ -87,6 +87,7 @@ def load_go_dir(d):
     if not os.path.isdir(d):
         return known, plain
     changed = 0
+    clash = {}
     for fn in os.listdir(d):
         if not fn.endswith('.json'):
             continue
@@ -102,12 +103,31 @@ def load_go_dir(d):
         # 误读成「stem=Scrap、pid=5」，**抢占 GO 5**，而 **GO 5 正是 arena2/leviathan 那盏
         # `Directional Light`** ⇒ 那两场**完全找不到灯**（`go_name_of` 回 `'?'`、世界坐标 None），
         # 其余 11 场正常。修法已验证：13 场全部还原出与 bundle 逐位一致的灯名 + 世界坐标。
-        if m and m.group(1) == nm:
-            known[int(m.group(2))] = data
+        # 🔴 2026-10-11（`A1555①`）：判据放成 `stem == nm` **或** `stem == nm.strip()` ——
+        #   原版有些 GameObject 的 `m_Name` **末尾带一个空格**（`Generator ` / `Bunker Gun ` /
+        #   `Battle Arena Aeldari ` / `Railgun Turret 1 Target ` / `Sparks R ` —— 13 场 + 主菜单实测 5 件），
+        #   而**导出文件名里那个空格被吃掉了** ⇒ 老判据判它「不是 pathID」⇒ `known[pid]` 从来没建
+        #   ⇒ `GO[pid]` 回默认空壳 ⇒ 那件对象在清单 / OBJ / 场景 / prefab **四处同时消失**（静默）。
+        #   ⚠️ 别担心 `Scrap_5` / `Pipes_1` / `BG_Building_3` 那一族（**纯名文件**）：它们的
+        #   `stem != nm` **且** `stem != nm.strip()`，照旧落 `plain`（那是**有意为之**，见上面 2026-09-20 那段）。
+        if m and (m.group(1) == nm or (nm.strip() and m.group(1) == nm.strip())):
+            pid = int(m.group(2))
+            # 🔴 同一条账的 ②：**同一个 pid 被两个文件同时认领** = 后写的静默盖掉先写的。
+            #   实测 13 个战场 **0 例**；`mainmenuwarpforge` **127 例**（全是**纯名文件**，
+            #   例 `AlreadyOwned_276.json` 与 `Trails_276.json` —— 两边在**老判据下也成立**）
+            #   ⇒ 那是**既有现象、不是本条引入的** ⇒ ⚠️ **只出声、不抛错**
+            #   （抛错会把 mainmenuwarpforge 那条链直接打断）。
+            if pid in known:
+                clash.setdefault(pid, []).append(nm)
+            known[pid] = data
         else:
             if m:
                 changed += 1        # 「看着像带 pid、其实不是」的那些（如 Scrap_5.json）
             plain.setdefault(nm, []).append(data)
+    if clash:
+        print('[load_go_dir] %s: ⚠️ %d 个 pid 被多个文件同时认领（后写的静默盖掉先写的）—— 例：%s'
+              % (os.path.basename(os.path.dirname(d) or d), len(clash),
+                 '; '.join('pid %d=%s' % (k, '/'.join(v)) for k, v in list(clash.items())[:5])))
     if changed:
         print('[load_go_dir] %s: %d 个纯名文件被 PID_RE 误匹配，已按「stem==m_Name」判为非 pathID'
               % (os.path.basename(os.path.dirname(d) or d), changed))
@@ -549,9 +569,23 @@ class BundleResolver:
             sp = getattr(obj, 'm_SavedProperties', None)
             if sp is None:
                 return None
+            # 🔴 2026-10-11（`A1581`）：**跨包材质也要带出 `m_CustomRenderQueue`**。
+            #   凡「材质本体不在本场包里」的都走这条 `mat_data()` 兜底；而这个 dict 原来只重建了
+            #   `m_Name` / `m_ValidKeywords` / `m_SavedProperties`（+ 下面的 `m_Shader`）
+            #   ⇒ **这一个标量被丢** ⇒ 下游 `custom_q = -1` ⇒ 粒子材质的运行时 render queue
+            #   落到 3000，而原版 `TinyFlame` 是 **3005** ⇒ 火被自己的暖橙光斑盖住。
+            #   实测对照：`battlearena2` 的 `Flame03`（材质在**本包**）本来就对；
+            #   `battlearena1` 的 `TinyFlame`（材质在 `bundle_battlesharedresources`）= -1 ❌。
+            #   ⚠️ 缺失时给 **-1**（=「没有 override」），与下游判据 `cq > -1` 一致。
+            _cq_raw = getattr(obj, 'm_CustomRenderQueue', None)
+            try:
+                _cq = int(_cq_raw) if _cq_raw is not None else -1
+            except (TypeError, ValueError):
+                _cq = -1
             d = {'m_Name': getattr(obj, 'm_Name', '') or 'ext_mat',
                  'm_ValidKeywords': list(getattr(obj, 'm_ValidKeywords', []) or []),
-                 'm_SavedProperties': _saved_props_dict(sp)}
+                 'm_SavedProperties': _saved_props_dict(sp),
+                 'm_CustomRenderQueue': _cq}
             # 2026-09-20：把 shader 引用带出来 —— 判「材质上的 _SrcBlend 算不算数」要用它。
             # （原先这里丢掉了 m_Shader ⇒ bundle 兜底读到的材质查不到 shader 属性表，
             #   sororitas 的 `Sororitas Ground` 正走这条路 ⇒ 上轮「根因未坐实」卡在这。）

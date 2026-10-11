@@ -459,13 +459,20 @@ namespace RuleEngine
         /// ② 余额不够；③ ——（`waived` = `ctx.SuppressCostDepth &gt; 0`，触发式激活**免付**，算付得起）。
         /// ⚠️ **本方法只回答「能不能」，不改任何状态、不写日志** —— 扣钱与那两行日志留在
         ///    `ResolveOneCore` 的付费支里（一处落点）。
+        ///
+        /// 🔴 **2026-10-11（`A1453`）：`faith` 这一格的语义是【阈值】、不是余额。**
+        ///    判据见 `ResolveOneCore` 付费支里那段长注释 —— 原版是 `faith &gt;= triggerValue`
+        ///    的**门槛**，**没有任何扣除点**。本方法的**表达式一字不改**（`have &gt;= op.Cost`
+        ///    正是 `faith &gt;= N`），改的只是「通过的后果」：信仰通过之后**不扣**。
+        ///    ⇒ 谁要加第四种货币，**先想清楚它是余额还是阈值**，⛔ 别默认按余额做。
         /// </summary>
         static bool CostPrefixPayable(BattleContext ctx, int owner, EffectOp op, string kind)
         {
             if (!CostKindKnown(kind)) return false;             // ① 货币认不出 ⇒ 整条不结算
             if (ctx.SuppressCostDepth > 0) return true;         // ③ 触发式激活：免付
             var ps = ctx.Players[owner];
-            int have = kind == "faith" ? ps.Faith                // ② 余额（池映射与扣钱那一支同源）
+            // ⚠️ `faith` 这一格读的是**阈值对照值**（不是「余额」）—— 语义差别见上面那两行。
+            int have = kind == "faith" ? ps.Faith
                      : kind == "spirit" ? ps.SpiritStones
                      : ps.Energy;
             return have >= op.Cost;
@@ -547,21 +554,64 @@ namespace RuleEngine
                 //       但「不认识的货币」该报几条就报几条，别让它靠在组首那一条上。
                 if (op.CostShared)
                 {
-                    ctx.Log($"{by}：「{op.Source}」的 {op.Cost} 点{shown}**不再收**"
-                          + "（与上一条同属一份付费前缀 —— 一次激活只付一次）");
+                    // ⚠️ **`faith` 那一档措辞要换**：它是**阈值**不是钱（`A1453`）——
+                    //    「不再收」这句话对信仰是**假的**（本来就没收过）。
+                    ctx.Log(kind == "faith"
+                          ? $"{by}：「{op.Source}」的信仰门槛 {op.Cost} **不再判一次**"
+                            + "（与上一条同属一份信仰前缀 —— 一次激活只判一次）"
+                          : $"{by}：「{op.Source}」的 {op.Cost} 点{shown}**不再收**"
+                            + "（与上一条同属一份付费前缀 —— 一次激活只付一次）");
                 }
                 else if (!CostPrefixPayable(ctx, owner, op, kind))
                 {
-                    ctx.Log($"{by}：「{op.Source}」需要 {op.Cost} 点{shown}才激活，不够 —— **这一条没生效**");
-                    unresolved.Add(op.Source + "（付费不够）");
+                    // 🔴 `faith` 的措辞**必须是「阈值不够」**（`A1453`）—— 说成「付不起」会把机制讲错，
+                    //    玩家/下个会话会以为它是可以攒钱去付的开销。
+                    if (kind == "faith")
+                    {
+                        ctx.Log($"{by}：「{op.Source}」要信仰达到 {op.Cost}（阈值），"
+                              + $"现在只有 {ps.Faith} —— **这一条没生效**（信仰**不扣除**）");
+                        unresolved.Add(op.Source + "（信仰不足 " + op.Cost + "）");
+                    }
+                    else
+                    {
+                        ctx.Log($"{by}：「{op.Source}」需要 {op.Cost} 点{shown}才激活，不够 —— **这一条没生效**");
+                        unresolved.Add(op.Source + "（付费不够）");
+                    }
                     return false;
                 }
                 else if (!waived)
                 {
-                    if (kind == "faith") ps.Faith -= op.Cost;
-                    else if (kind == "spirit") ps.SpiritStones -= op.Cost;
-                    else ps.Energy -= op.Cost;
-                    ctx.Log($"{by} 付了 {op.Cost} 点{shown}激活「{op.Source}」");
+                    // 🔴 **2026-10-11（第十四会话 · `A1453`）：信仰（`faith`）是【阈值】，一分都不扣。**
+                    //
+                    //   **原版判据（反编译，逐条核过）**：
+                    //     · 全量反编译里 **没有**任何扣除信仰的点 —— `PlayerManager.AddFaithMana`
+                    //       （`faithMana@0xB0 += n`）**两个调用点全是「加」**；
+                    //       `HasEnoughMana` 的四个池是 `0x4C/0x74/0x88/0x9C`，`faith` 在 `0xB0`
+                    //       **不在池里**；`ManaType` 只有 `Normal` / `SpiritStone`；
+                    //       `CardScript` 上**没有**与 `CanUseSpiritStone` 对应的 `CanUseFaith`。
+                    //     · 「付费」那一读法（`N ☀:` = 花 N 点信仰）**唯一的收费点**在这个 build 里
+                    //       读不出来：`get_currentAbilityCost` 的 RVA `0x4BD440` 从 DLL 读出的原始字节
+                    //       = `33 C0 C3`（`xor eax,eax; ret`，ICF 死值化）⇒ `HasEnoughMana` 恒真。
+                    //     · 真的那一支在 `CardAbility__CanTriggerAbility.c` 的 605 支：
+                    //       `faith >= 1` **且** `faith >= ability.triggerValue`（`+0x20`，即卡面那个 N）
+                    //       ⇒ **阈值判定**。（604/605 由 `TriggerAbilities` 在
+                    //       `RawCardScript__OnCardPlayedWithTarget.c:73`（Tactic/Whispers 打出时）与
+                    //       `CardScript__ResolveUnitSummoned.c:51`（Minion 入场时）发起。）
+                    //   ⇒ **闸门（够不够）留在上面那句 `CostPrefixPayable` 里不动**（它判的
+                    //      `have >= op.Cost` 正是 `faith >= N`），**只把这一个「扣」删掉**。
+                    //   ⚠️ 扣不得的实证代价：`A1436` 的夹具直调里 6 张卡的信仰 20→14/17/15/19/17/12 ——
+                    //      那是我们自洽、但与原版不是同一种机制（`A1453` 的「反向对照证据」）。
+                    if (kind == "faith")
+                    {
+                        ctx.Log($"{by}：信仰 {ps.Faith} ≥ {op.Cost}（阈值判定通过），激活「{op.Source}」"
+                              + " —— **不扣除信仰**（信仰是阈值、不是开销）");
+                    }
+                    else
+                    {
+                        if (kind == "spirit") ps.SpiritStones -= op.Cost;
+                        else ps.Energy -= op.Cost;
+                        ctx.Log($"{by} 付了 {op.Cost} 点{shown}激活「{op.Source}」");
+                    }
                 }
                 else
                 {
@@ -5091,6 +5141,51 @@ namespace RuleEngine
             if (!paid)
                 ctx.Log($"{unit.Name} 的誓约能力**没有生效**（见上面那行原因）——次数不消耗");
             return paid;
+        }
+
+        /// <summary>
+        /// **结算信仰能力**（卡面 `N ☀: 正文` / `N [faith]: 正文`）—— 🆕 2026-10-11（`A1452` ＋ `A1453`）。
+        ///
+        /// 与 <see cref="ResolveSpiritAbility"/> **同形**（同一套 `ResolveOps`、同一处 `EffectChain`
+        /// 记账、同一条 `Auras.Recompose` 收尾），正文来自 <see cref="CardDef.FaithOps"/>。
+        ///
+        /// 🔴 **与灵魂石那一支的两处差别**：
+        ///   · **N 不在这个函数里判** —— 门槛（`faith &gt;= N`）由 `ResolveOneCore` 的付费支
+        ///     借 `CostPrefixPayable` 判（判据**只此一处**，⛔ 别在这儿再写一遍余额比较）；
+        ///     够的那几条照常结算、不够的那几条**各自**打一行日志并不结算（不是静默）。
+        ///   · **一分信仰都不扣**（`A1453`）—— 理由与全部反编译出处写在 `ResolveOneCore`
+        ///     付费支那段注释里。
+        ///
+        /// **谁调它**（两处，都是「一张牌进场上」那一刻）：
+        ///   · `RuleCore.PlayCard` 的部队入场那一段（**从手牌打出**，和 `ResolveSpiritAbility` 相邻）；
+        ///   · `RuleCore.DeployFree`（**效果免费部署 / 召唤 / 再造**）。
+        ///   原版的发起源是 `CardScript__ResolveUnitSummoned.c:51` —— 它盯的是**入场**这件事、
+        ///   **不管是哪种方式进来的** ⇒ 两条入口都要点火。逐条见 <see cref="CardDef.FaithOps"/> 的 doc。
+        ///   ⚠️ **对照 `Rally` / 灵魂石**：那两条**只在「从手牌打出」那条路上**发
+        ///   （`ResolveUnitSummoned` 里**没有** 600）⇒ `DeployFree` **只加信仰、不加它们**（故意的）。
+        ///
+        /// ⚠️ **没有「本回合部署」「每回合 1 次」这类次数限制** —— 那是 `CanUseOathAbility`
+        ///    （`CardScript__CanUseOathAbility.c:8` / `:16-20`）**誓约专属**的闸，604/605 那条路没有。
+        /// ⚠️ **一次部署只走一次**（本单位带着它上场的那一刻）—— 不是每回合重复触发。
+        /// </summary>
+        public static void ResolveFaithAbility(BattleContext ctx, int owner, UnitState unit)
+        {
+            if (ctx == null || unit == null || unit.Card == null || ctx.IsOver) return;
+            var ops = unit.Card.FaithOps;
+            if (ops == null || ops.Count == 0) return;
+            if (ctx.EffectChain >= BattleContext.MaxEffectChain)
+            {
+                ctx.Log($"效果链已达 {BattleContext.MaxEffectChain} 层，{unit.Name} 的信仰能力不再结算");
+                return;
+            }
+            ctx.EffectChain++;
+            // `seed = unit`：正文里的 `this troop` / `it` 指的就是这张牌自己（同誓约那一支）
+            ResolveOps(ctx, owner, unit, ops, "信仰能力", unit);
+            ctx.EffectChain--;
+            if (ctx.IsOver) return;
+            // 这一族里 `Deploy a …` / `Create a copy …` 会**改棋盘** ⇒ 光环要重算
+            // （和别处 9 个棋盘写入点同一条纪律，见 `Core/Aura.cs` 的 `Recompose` 注释）
+            Auras.Recompose(ctx);
         }
 
         /// <summary>

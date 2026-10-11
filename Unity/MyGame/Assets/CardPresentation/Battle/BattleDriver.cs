@@ -5368,6 +5368,7 @@ namespace CardPresentation
         //   |---|---|---|
         //   | `play`（卡面正文 / `Rally:` / `Deploy:` …） | `RuleCore.PlayCard` | 出牌前（**同一动作内**，差半拍 —— 如实标着） |
         //   | `spirit`（`N [Spirit Stone]:`） | `PlayCard` → `ResolveSpiritAbility` | 同上，**且只在这次付得起时问**（原版那道闸就是 `CanUseSpiritStone`） |
+        //   | 🆕 `faith`（`N ☀:` / `N [faith]:`，`A1452`） | `PlayCard` / `DeployFree` → `ResolveFaithAbility` | **与 `spirit` 同档**（同一次出牌、同一刻判定），**门槛换成 `faith >= N`**（信仰是**阈值**、不扣，`A1453`） |
         //   | `oath`（`Oath N:`） | `UseOathAbility` | 玩家点那格技能时（**与触发同拍**） |
         //   | `alt:<关键词>`（`Duty`/`Pray`/`Ferocity`/`Agenda`） | `UseAlternative` | 同上 |
         //
@@ -5439,6 +5440,17 @@ namespace CardPresentation
             var who = new Dictionary<string, string>();
             AddQuota(quota, who, card.SpiritOps, "spirit");
             AddQuota(quota, who, card.OathOps, "oath");
+            // 🆕 **2026-10-11（`A1452`）信仰能力（`N ☀:`）也进这张名额表。**
+            //    🔴 它和灵魂石**同一档**（都是「打出/入场那一步自动结算」），
+            //      理由与上面那张分档表里 `spirit` 那一行**逐字相同**：
+            //      · 能力正文里的 ask 点在**这次出牌**这一刻才可能被问到；
+            //      · 而它**只在门槛过了才真的发动** ⇒ 不够的话问了也没人取，
+            //        那一格答案会**被下一个 ask 点吃掉**（下面 `PlayAsks` 里那条
+            //        「问了没人取 ⇒ 此后每一处选择全部错位」的病灶）。
+            //    ⚠️ **它不是誓约那一档** —— 信仰**不用玩家点技能按钮**（原版发起源只有
+            //      `OnCardPlayedWithTarget.c:73` / `ResolveUnitSummoned.c:51` 两处自动触发），
+            //      ⇒ ⛔ **别把它归成 `"oath"`**（那会把 ask 推迟到一次根本不会发生的点击上）。
+            AddQuota(quota, who, card.FaithOps, "faith");
             foreach (string k in RuleCore.AlternativeActions)          // duty / pray / ferocity / agenda
                 AddQuota(quota, who, card.TriggerOps(k), "alt:" + k);
             if (quota.Count == 0) return owners;
@@ -5476,6 +5488,7 @@ namespace CardPresentation
         {
             if (tag == null) return "?";
             if (tag == "spirit") return "灵魂石能力（`N [Spirit Stone]:`）";
+            if (tag == "faith") return "信仰能力（`N ☀:`）";
             if (tag == "oath") return "誓约能力（`Oath N:`）";
             if (tag.StartsWith("alt:", System.StringComparison.Ordinal))
                 return "替代行动（`" + tag.Substring(4) + "`）";
@@ -5517,6 +5530,22 @@ namespace CardPresentation
                     if (have >= all[i].Cost) { outp.Add(all[i]); continue; }
                     Ctx.Log($"（选牌面板：「{name}」的灵魂石能力要 {all[i].Cost} 点灵魂石、"
                           + $"现在只有 {have} 点 —— **这次不会发动**，这一处不问）");
+                    continue;
+                }
+
+                // ---- 🆕 信仰能力：**同灵魂石那一档**（都属于「这一次出牌」，都在入场那一刻判定）
+                //      🔴 **判据与引擎同一句**（`EffectResolver` 的 `CostPrefixPayable`：
+                //         `faith >= op.Cost`）—— 只是这一档**不扣**（`A1453`：信仰是阈值不是开销）。
+                //      ⚠️ 这是**和灵魂石同样性质的「明知故犯地重复一条引擎判据」**，理由三句同上面那一段
+                //         （一行、语义就是卡面那几个字、判错有 `ReportUnaskedChoices` 兜底）。
+                //      ⚠️ **不能写成 `o == "spirit"` 一起判** —— 两者读的池不同
+                //         （`SpiritStones` vs `Faith`），合并就会**拿石头去判信仰**。
+                if (o == "faith")
+                {
+                    int faith = Ctx != null ? Ctx.Players[_me].Faith : 0;
+                    if (faith >= all[i].Cost) { outp.Add(all[i]); continue; }
+                    Ctx.Log($"（选牌面板：「{name}」的信仰能力要信仰达到 {all[i].Cost}、"
+                          + $"现在是 {faith} —— **这次不会发动**，这一处不问）");
                     continue;
                 }
 

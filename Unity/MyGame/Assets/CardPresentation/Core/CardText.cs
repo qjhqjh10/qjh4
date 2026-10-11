@@ -174,7 +174,10 @@ namespace CardPresentation
         /// （`UnitState.Keywords` 或 `CardDef.Keywords`），`body` = 效果正文（用来判「哪些已经印过了」）。
         ///
         /// 三条判据（**只在这一处**）：
-        /// ① **只补 `body` 里没出现过的** —— `Lychguard` 那种 `desc` 本身就等于关键词列表的，一个字都不补；
+        /// ① 🔴 **只补 `body` 里没【声明】过的** —— `Lychguard` 那种 `desc` 本身就等于关键词列表的，一个字都不补；
+        ///    ⚠️ **2026-10-21（`A1345`）：「出现过」已收成「声明过」** —— 改前是「正文里**随便哪儿**出现过这个词就跳过」，
+        ///    于是效果的**宾语**也被当成了声明（`UM74` 的 `Gain Sentry 2` 把 `Sentry 2.` 整项压掉）
+        ///    ⇒ 判据搬进 <see cref="DeclaredInBody"/> / <see cref="IsDeclarationAt"/>（三种形状 + 量与残差都写在那儿）；
         /// ② **只补有显示名的**（`KeywordZh`/`KeywordEn` 查得到）—— `lord commander` 这类表外词**不补**；
         /// ③ 数值**只有带数值的关键词才印** —— 走**徽标那同一个入口** `Badges.CarriesValue`
         ///    （出处规则书「带数值」列）。
@@ -222,10 +225,11 @@ namespace CardPresentation
         ///    ⚠️ 判据只有**这一处**（`IsBodyKeyword` + 本方法）；⛔ 别在 `CardView`/`CardIcons` 那边
         ///       另判一次「这个词要不要冒号」（两处写同一条规则 = 迟早不一致）。
         ///
-        /// ⚠️ 顺序按 **canonical 键排序**：引擎里关键词是 `Dictionary`、枚举顺序不稳；
-        ///    卡面本来该按卡自己的顺序印，但**数据里没有那个顺序** ⇒ 这是我们挑的，标明在此。
-        ///    ⚠️ 排序键用**不加图标的那个词**：加了 `&lt;sprite …>` 前缀之后 Ordinal 会比到
-        ///       **图名**上去（中文模式下会按英文图名排，顺序莫名其妙地变）。
+        /// ⚠️ 🔴 **2026-10-11（`A1406`）就地订正（铁律 5）：原来这里写「顺序按 canonical 键排序；
+        ///    卡面本来该按卡自己的顺序印，但**数据里没有那个顺序** ⇒ 这是我们挑的」——
+        ///    后半句【不成立】：那个顺序**就在卡表 `keywords` 数组的先后**里，实测 69 张可比卡上
+        ///    数组序对 **67** 张、字母序只对 **21** 张（**零退步**）。⇒ **本方法现在按枚举顺序输出**
+        ///    （= 数组序），⚠️ **别再加 `Sort`**；实据与那条依赖说明写在下面 `parts` 收尾那一段。
         /// </summary>
         public static string KeywordSegment(IEnumerable<KeyValuePair<string, int>> keywords,
                                             bool zh, string body,
@@ -241,11 +245,10 @@ namespace CardPresentation
                 if (string.IsNullOrEmpty(key)) continue;
                 string word = zh ? KeywordZh(key) : KeywordEn(key);   // ②
                 if (string.IsNullOrEmpty(word)) continue;
-                if (hay.IndexOf(word, System.StringComparison.OrdinalIgnoreCase) >= 0) continue;   // ①
+                if (DeclaredInBody(hay, word)) continue;   // ①
                 // 中文卡面里 `Flying` 也可能写成英文（数据里两种都有）—— 两个写法都判一次
                 string other = zh ? KeywordEn(key) : KeywordZh(key);
-                if (!string.IsNullOrEmpty(other) &&
-                    hay.IndexOf(other, System.StringComparison.OrdinalIgnoreCase) >= 0) continue;
+                if (!string.IsNullOrEmpty(other) && DeclaredInBody(hay, other)) continue;
                 // ⚠️ 我们的中文数据里**同一个词有两种写法**（`护甲` / `装甲` 都有，
                 //    见 `Lychguard` 的「装甲 2」与 `Heavy Intercessor` 的「护甲 1」）——
                 //    只按一种判会在另一种写法上**补出重复的一段**。这里补一张**同义写法**表。
@@ -291,12 +294,32 @@ namespace CardPresentation
                 parts.Add(new KeyValuePair<string, string>(word, item));
             }
             if (parts.Count == 0) return "";
-            parts.Sort((a, b) => string.CompareOrdinal(a.Key, b.Key));
+            // 🔴 **2026-10-11（`A1406`）：这里原来按【规范键字母序】排 —— 那是错的，已删。**
+            //
+            //  **判据（现读实测，逐卡拿卡面转录比对）**：卡面**声明行**的次序 = 卡表 `keywords`
+            //  **数组的先后**。实测口径：全池「卡面声明行 ≥2 项、我们也印 ≥2 项」的卡 **69 张**，
+            //   · **字母序**与卡面对得上的只有 **21 张**（**48 张错**）；
+            //   · **`keywords` 数组序**对得上的 **67 张**（那 2 张「对不上」是**我们自己核对脚本的口径差**：
+            //     `ASH82` 卡面印 `Concussive` 而我们规范键是 `Concussion`；`SAU73` 卡面转录漏了
+            //     `Regeneration 2` 那一项 —— 两处**次序本身都是对的**）；
+            //   · 🔴 **没有任何一张卡是「字母序对、数组序错」** ⇒ **这个改法零退步**。
+            //  ⚠️ **卡面出处**：`资料/卡表核对_卡图提取/_还原效果文字.md`（29 个子代理逐张看卡图抄的，
+            //     徽记处写成 `Word Word` 双写 ⇒ 次序就在串里）。典型反例：`ASH20 Howling Banshee`
+            //     卡面 `Waystone. Flank. Rally: …` 而我们印 `Flank. Waystone. `。
+            //
+            //  🔑 **「那个顺序」在哪 —— 就是 `keywords` 数组的先后，别再写「数据里没有那个顺序」**
+            //     （这句老话在 `A1406` 之前一直挂在下面那段注释里，**已被证伪**）。
+            //     它经 `KeywordTable.Parse` 变成 `CardDef._keywords`（`kws[name] = value`，**从不删键**），
+            //     而 .NET `Dictionary` 的**枚举顺序 = 条目数组的索引序 = 插入顺序**（无删除时）
+            //     ⇒ 这里**按枚举顺序输出**就是数组序。
+            //     ⚠️ **这条依赖要钉住**（`IconSetup.Verify` 的 ⑦b：合成卡 `["Vanguard","Shield"]`
+            //        —— 字母序会是 `Shield` 在前、数组序才是 `Vanguard` 在前）。
+            //     ⛔ **别再往这里加 `Sort`** —— 那正是本笔删掉的那行。
             var outParts = new List<string>(parts.Count);
             foreach (var p in parts) outParts.Add(p.Value);
             // 🔴 **每一项自己带收尾符**、不再由这里统一补 `. `（`A1375`）——
-            //    因为次序是**排过的**（上一行 `Sort` 按规范词），**带正文的那个词不一定排在最后**：
-            //    `AM41 Maelon Dhrost` 的规范键序是 `duty` < `regiment`，而卡面印的是
+            //    因为次序是**卡面自己的**（上面那一段），**带正文的那个词不一定排在最后**：
+            //    `AM41 Maelon Dhrost` 卡面印的是
             //    `RegimentRegiment: Draw a Stratagem. DutyDuty: Lower the cost …`
             //    （`资料/卡表核对_卡图提取/AstraMilitarum__2.md:13`）⇒ 照改前那种「末尾统一补 `. `」
             //    的写法，`Regiment` 会被印成 `Regiment.`（冒号落在没正文的 `Duty` 上 = 印反）。
@@ -305,6 +328,90 @@ namespace CardPresentation
             return zh ? string.Join("", outParts.ToArray())
                       : string.Join(" ", outParts.ToArray()) + " ";
         }
+
+        // ==================================================================
+        //  🔴 **2026-10-21（`A1345`）：判据① 从「正文里出现过这个词」收成「正文里【声明】过这个词」**
+        //
+        //  **病灶**（`A1345` 拆出来的）：`UM74 Firestrike Servo Turret` 的卡面是
+        //  `〔远射徽〕Long Range. 〔哨戒徽〕Sentry 2. 〔誓约徽〕Oath 3: Gain 〔哨戒徽〕Sentry 2`
+        //  —— 而我们的 `desc` 只有效果句 `Oath 3: Gain Sentry 2`（**声明行整行没进 `desc`**，
+        //  见 `资料/普查产出_第十三会话/W5a_A1331修Oath前缀.md`）。
+        //  改前判据①拿**整条 `desc`** 比词 `Sentry`，而 `Gain Sentry 2` **恰好含它**
+        //  ⇒ 判「正文提过了」⇒ **`Sentry 2.` 整项印不出来**（那是效果的**宾语**、不是声明）。
+        //  ⚠️ 同族被误压的**实测 20 张卡**（逐张拿成品卡图核过，清单见报告）：
+        //  `ASH31`（`Flying.` 整项没印）· `TAU20`（少了 `Long Range.`）· `UM78`（少了 `Armour 1.`）…
+        //  ⇒ 卡面那一段**少印一个关键词**，是「与原版不符」，按铁律 11 要做。
+        //
+        //  **改法**：判据① 改为问「**正文里已经【声明】过这个词吗**」——
+        //  这正是**引擎自己那一份口径**（`CardDef.CollectBareKeywordBody` 的门 ①/①-bis
+        //  判的就是「正文里有没有 `X:` 声明头」「引号里那种算不算」），
+        //  也是**图标链**那一份口径（`工具/gen_icon_plan.py` 的 `KEYWORD_SCAN` / `KEYWORD_SCAN_ZH`
+        //  要求「段首 + 可选数字 + `:`/`.`」）。⇒ 三处**同一个概念**，⛔ 别再各写一份。
+        //
+        //  **三条「算声明」的形状**（`IsDeclarationAt`，逐条都有出处）：
+        //    (a) **包在 `[…]` 里** —— 那是**图标记号**（`EffectText.NormalizeIconPrefix` 同一口径，
+        //        `[Codex] …` 语义等于 `Codex:`）⇒ 例 `UM_Death_from_Above` / `GOF_Stomp_Em`（`[Mob]`）。
+        //    (b) **落在成对引号里** —— 那是「**授予别人的**能力」，不是本卡的声明
+        //        （`CardDef.CollectBareKeywordBody` 门 ①-bis 同一口径）⇒ 例 `BL4 Helspear Assault`
+        //        的 `Your Warlord gains "Blast 2 and Slay: …"`（`Slay:` 是给战帅的）。
+        //        ⚠️ 引号集合 = 引擎那份 `["']` **加**全角 `“`/`”`（我们中文那半用的是全角，
+        //        例 `BL4.descZh` = `…获得“爆裂 2 与斩杀：…”`）—— 不加就漏掉中文那一半。
+        //    (c) **段首** —— 前导只有空白、且前面是开头或句读符（`. 。 ; ； , ，` 与换行）
+        //        ⇒ 例 `Oath 3:` / `Long Range.` / `护甲 1。`。
+        //
+        //  **量过的面**（离线复算全池 1126 张 × 2 语档，脚本 `D:/tmp/c2a1345/diff.py`）：
+        //  改前会补的 (卡,键) 对 **770 → 810**；**真正变的只有 36 个 (卡,语档) / 20 张卡**
+        //  ⇒ 逐张拿 `资料/卡表核对_卡图提取/_还原效果文字.md`（**卡面逐张转录、徽记处是双写**）
+        //  对过：**17 张是「改前少印了声明行里的词」、改后与卡面逐项吻合**。
+        //  🔴 **3 张是残差、已在账里记明**（⛔ 别当成已解）：`SOR72 Adelaide the Serene`（把句中授予的
+        //  `Flank.`/`Shield.` 提到了段首）· `UM78 Chapter Champion`（`Vanguard.` 同）·
+        //  `AM54 Thermal Weaponry`（`Armour 1.`/`Blast 3.` 同，它是一张**战术卡**、卡面根本没有声明行）。
+        //  **根因** = 我们的数据里**没有「哪些词属于声明行」这一列**（`keywords` 那一列是从 OCR 来源表来的、
+        //  **同时收了句中出现的记号**，见 `工具/gen_cards_engine.py` 的注释）⇒ 这 3 张要另找判据。
+        //  ⚠️ **安全方向**：这三条只会让**该印的词提到段首**（图标是卡面上有的那一枚），**不会给错图标**。
+        // ==================================================================
+        /// <summary>这个词是不是**已经在正文里声明过**（⇒ 不用再补一遍）。
+        /// <para>判据 = <see cref="IsDeclarationAt"/>，⛔ 不是「正文里随便哪儿出现过这个词」——
+        /// 那正是 `A1345` 的病（效果的**宾语**被当成了声明）。</para>
+        /// <para>⚠️ 同时传 `word` 与 `other`（中英两个写法）时各调一次，与改前同一个调用形状。</para></summary>
+        static bool DeclaredInBody(string hay, string word)
+        {
+            if (string.IsNullOrEmpty(hay) || string.IsNullOrEmpty(word)) return false;
+            int i = 0;
+            while (i <= hay.Length - word.Length)
+            {
+                int p = hay.IndexOf(word, i, System.StringComparison.OrdinalIgnoreCase);
+                if (p < 0) return false;
+                if (IsDeclarationAt(hay, p, word.Length)) return true;
+                i = p + 1;
+            }
+            return false;
+        }
+
+        /// <summary>`hay[pos .. pos+len)` 这一处算不算「关键词声明」。三种形状见上面那一大段的 (a)(b)(c)。
+        /// ⚠️ 匹配口径是**区分大小写的 Ordinal** 查引号（引号是标点、与词的大小写无关），
+        /// 词本身的比对在 <see cref="DeclaredInBody"/> 里已经是 `OrdinalIgnoreCase`。</summary>
+        static bool IsDeclarationAt(string hay, int pos, int len)
+        {
+            // (a) 包在 `[...]` 里 = 图标记号声明
+            if (pos > 0 && hay[pos - 1] == '[' && pos + len < hay.Length && hay[pos + len] == ']')
+                return true;
+            // (b) 落在成对引号里 = 「授予别人的能力」（引擎门 ①-bis 的口径 + 全角引号）
+            foreach (System.Text.RegularExpressions.Match m in QuotedSpan.Matches(hay))
+                if (m.Groups[1].Index <= pos && pos + len <= m.Groups[1].Index + m.Groups[1].Length)
+                    return true;
+            // (c) 段首（前导只有空白，前一个字符是句读符或就是开头）
+            int k = pos - 1;
+            while (k >= 0 && (hay[k] == ' ' || hay[k] == '\t')) k--;
+            if (k < 0) return true;
+            return hay[k] == '.' || hay[k] == '。' || hay[k] == '．' || hay[k] == ';' ||
+                   hay[k] == '；' || hay[k] == ',' || hay[k] == '，' || hay[k] == '\n' || hay[k] == '\r';
+        }
+
+        /// <summary>成对引号里那段（**含**全角 `“”` —— 我们中文那半用的是全角）。
+        /// 形状照 `CardDef.CollectBareKeywordBody` 门 ①-bis 那条 `["']([^"']+)["']`，只多收一对全角引号。</summary>
+        static readonly System.Text.RegularExpressions.Regex QuotedSpan =
+            new System.Text.RegularExpressions.Regex("[\"“']([^\"”']+)[\"”']");
 
         /// <summary>这个（**规范键**）是不是**带正文**的触发关键词 —— 判据表 = `CardDef.BodyKeywords`
         /// （**只此一份**，⛔ 别在本文件另写一张词表；表改这里跟着改）。

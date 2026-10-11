@@ -15,6 +15,11 @@
   "_": "数值修正走 gen_cards_engine.py 的 STAT_FIXES（不是这张表）—— 那边已经带了 7 处，见那个脚本的注释与 _裁定_*.md。"
  },
  "_manual_desc_note": {
+  "_2026-10-11_A1608_SW16丢句": "2026-10-11（第二十会话 C1 · `A1608`）。**`SW16 Fenrisian Wolf` 的英文 `desc` 丢了一整句 ⇒ 它的 `Ferocity` 根本不会攻击。** 旧值 `If it has a Hunt Mark, gain +1 [Attack]`（只有后半句）→ 新值 **`Tide 1. Ferocity: Attack a non Flying enemy troop. If it has a Hunt Mark, gain +1 [Attack]`**。 **判据 = 本笔开 PnP 成品卡图亲读**（铁律 7，`d:/2/Warpforge部队卡片/Space Wolves/3部队/Warpforge_16_Fenrisian-Wolf.png`，900×1200 整卡）：`〔骷髅堆〕Tide 1. 〔獠牙〕Ferocity: Attack a non 〔翅膀〕Flying enemy troop. If it has a 〔金圆纹〕Hunt Mark, gain +1〔粉圈白拳〕`；卡面数值 `费 2 · 3/0/—/3 · 橙字 Beast · 紫宝石 epic` 与引擎逐项吻合（`subtype`/`rarity` 早已是对的）。旁证（另两路独立抄录、同值）：`资料/卡表核对_卡图提取/_合并总表.md:788`（`Tide 1. 〔獠牙〕Ferocity: Attack a non 〔翅膀〕Flying enemy troop…`）· `_还原效果文字.md:782`（`…gain +1 Melee` ⇒ 那枚是**近战**）。🔴 **为什么这一句丢了会让效果静默不发生**：`Ferocity` 是**唯一**的带正文关键词（`Tide` 不在 `CardDef.BodyKeywords` 里）⇒ 旧 `desc` 里没有 `Ferocity:` 头 ⇒ 走 `CardDef.CollectBareKeywordBody`（`CardDef.cs:729-740`）把**整条 `desc`** 当成 Ferocity 的正文 ⇒ 收到的 op 只有 `gain +1 attack`，**「攻击一个非飞行敌方部队」那一半从来不存在**（卡面也不打 `*`）。补上 `Ferocity:` 头后由 `AddTriggerOp` 按触发名登记，正文跨句收全（同 `DA43 Repulsor` 那种跨句式）。⚠️ **中文侧是完整的、所以只看中文看不出来**（`descZh` 一直是 `攻击 1 个非飞行敌方部队。若其带猎杀标记…`）—— 但这**正是本文件 `note` 里 2026-10-11 新定的那条「两份中文不能打架」的反面教材**：英文丢了一半、中文没丢，两处**不等**。✅ 本笔按那条口径**两处一起补**（`desc` ＋ `descZh`），顺带把中文缺的段首 `潮涌 1。狂暴：` 也补上（否则 `desc` 的 sprite 集合 ⊄ `descZh` 的 ⇒ `IconSetup.Verify` ④a 会多出两条新缺口）。写法逐条照池内既有卡：`Tide 1. <关键词>: …` 见 `GOF8 Slugga Boy`（`desc` = `Tide 1. Rally: Gain +1 [Attack] …`，中文 = `潮涌 1。集结：…`）· `non Flying` 见 `SW12 Hunting Wolf` / `GOF85`（全池 `non-Flying` **0 处**）· `+1 [Attack]`（粉圈白拳）与旧值一致、**没动**。⚠️ **配套（下游，不在本笔白名单）**：`desc` 里新出现 `Tide 1.` / `Ferocity:` 两种 token 写法 ⇒ 卡面那两枚徽记改为由 `CardIcons.Rewrite` ＋ `card_icon_plan.json` 画，**要重跑 `工具/gen_icon_plan.py`**（两种写法在别的卡上早有条目：`GOF9` 的 `Tide 1.→tide` · `SW12` 的 `Ferocity:→ferocity`，都在句首扫描器的射程内）。",
+  "_2026-10-11_A1403_A1474_段首关键词补回": "2026-10-11（第二十会话 C1，`A1403` ＋ `A1474`）。**卡面段首那段关键词被 OCR 从 `desc` 里吃掉了**，逐张开 PnP 成品卡图亲读（铁律 7），三张：① `AM41 Maelon Dhrost` —— 卡面 `〔圆徽〕Regiment: Draw a Stratagem. 〔圆徽〕Duty: Lower the cost of Stratagems in your hand by 4`（`d:/2/Warpforge部队卡片/Astra Militarum/3部队/Warpforge_41_Maelon-Dhrost.png`），旧值 `Draw a Stratagem. Lower the cost of Stratagems in your hand by 4` ⇒ 两个头都丢了；② `SW36 Morkai Eliminator` —— 卡面 `〔准星〕Sniper. 〔闪电〕Rally: Give 〔金圆纹〕Hunt Mark to a random enemy troop. 〔獠牙〕Ferocity: Attack a random enemy with 〔金圆纹〕Hunt Mark`（`Space Wolves/3部队/Warpforge_36_Sons-of-Morkai-Eliminator.png`），旧值两段正文粘在一起、两个头与首句 `Sniper.` 全丢；③ `ASH81 Night Spinner` —— 卡面 `〔翅膀〕Flying. 〔准星〕Sniper. 〔爆炸〕Blast 3`（`Aeldari/3部队/Warpforge_08_Night-Spinner.png`），旧值只剩 `Blast 3`。旁证（第二份、非独立，但同值）：`资料/卡表核对_卡图提取/_合并总表.md:152/:808/:15` 与 `_还原效果文字.md:155/:802/:18`（后者逐行双写 = 徽记 + 词）。🔴 **为什么必须补 `desc`、不能只靠表现层**（`CardText.KeywordSegment` 那一支）：① **引擎** —— `CardDef.CollectTriggerOps` 收正文只认 `X:` 前缀；没前缀时走 `CollectBareKeywordBody` 的「带正文关键词**唯一**才敢认」那道闸，而 `Maelon Dhrost`（`Regiment`+`Duty`）与 `Morkai Eliminator`（`Rally`+`Ferocity`）**两个带正文关键词** ⇒ 判歧义 ⇒ **两条正文一条都没登记**（效果静默不发生）；② **次序** —— `KeywordSegment` 按**显示词字母序**排（`CardText.cs:294` 的 `parts.Sort`），补在表现层会印成 `Duty: … Regiment: …` / `Ferocity: … Rally: … Sniper.`，**与卡面印的次序相反**（`A1375` 那条注释里点名的例子就是 `AM41 Maelon Dhrost`）。⚠️ **配套（下游，不在本笔白名单）**：这次 `desc` 多了 `Regiment:` / `Duty:` / `Sniper.` / `Rally:` / `Ferocity:` / `Flying.` 六种 token 写法，而卡面正文里的图标走 `CardIcons.Rewrite` + `CardPresentation/Resources/card_icon_plan.json` ⇒ **必须重跑 `工具/gen_icon_plan.py`**，否则这几枚徽记**一枚都不画**（补 `desc` 前它们由 `KeywordSegment` 那条路画）。⚠️ 中文侧同步改了 `descZh`（见 `_manual_descZh_note` 同批那条）—— 只改英文不补中文会让 `IconSetup.Verify` 的 ④a（`desc` 的 sprite 集合 ⊆ `descZh` 的）多出 6 条新缺口（`A1444` 那批实测过同一件事）。",
+  "_2026-10-11_A1475_desc口径": "2026-10-11（第二十会话 C1，`A1475`）。**「`desc` 改不改」这条口径查清了，写法照做、例外只此一类。** ① `CardPresentation/Core/CardText.cs:90-94` 那条「补在表现层、不去改 `desc`」**已经实现了**（`KeywordSegment`，判据 `:244` ①：正文里出现过就不补）⇒ 那 306 张的**显示**早就补上了；② 🔴 **但表现层代替不了 `desc` 修复，两处硬限制**：（a）**次序** —— `KeywordSegment` 末了 `parts.Sort` 按**显示词字母序**排（`:294`），还原不了卡面自己的次序（`AM41` 就是反例，见上面那条）；（b）**引擎** —— 带正文关键词的**正文**只有 `desc` 里写了 `X:` 才收得到，否则走 `CollectBareKeywordBody` 的「唯一才敢认」闸（`CardDef.cs:702-710`），两个以上就是**整条不登记**。③ ⇒ **本笔的裁定（可执行版）**：**静态关键词**（`Vanguard`/`Armour 1`/`Blast 2` 这类，不是 `CardDef.BodyKeywords`）缺在 `desc` 里 ⇒ 补 `desc`（解析对照已测无回归，`A1444` 那份注释里的三条读数）；**带正文关键词**缺在 `desc` 里 ⇒ **也必须**补 `desc`（否则效果静默不发生）；**卡面只有关键词行、正文一个字不缺**的 ⇒ 表现层已覆盖，不动。⇒ **那 306 张【不需要】一律办**（原 A 表把两条路当成非此即彼，实际是按「静态词 / 带正文词」分档）。⚠️ `A1444`（`AM28`）的 `desc` 那行**保留**（`Vanguard. Armour 1. Blast 2`），理由是 ③ 的第一档 + 它的计划表当时已重跑过（`_2026-10-10_A1444_AM28段首被OCR丢掉` 里那三条读数）。⚠️ 本笔**一个字都没改数据**（纯口径查证）。",
+  "_2026-10-11_A1476_撤句尾那半笔": "2026-10-11（第二十会话 C1，`A1476`）。**撤 `A1444` 的「句尾少一个 `.`」那半笔账 —— 判据不成立（铁律 5 就地订正）。** 本文件 `_2026-10-10_A1444_AM28段首被OCR丢掉` 那条注释里已经写着实测结论「五张成品卡图（`AM28` · `AM37` · `ASH81` · `GSC41` · `TAU12`）句尾一律不印句号」，本轮**再次亲读三张**复核（`ASH81 Night Spinner` = `〔翅膀〕Flying. 〔准星〕Sniper. 〔爆炸〕Blast 3`、`AM41` 以 `by 4` 收尾、`SOR42` 以 `enemies` 收尾）⇒ **句尾不印句号是印刷约定**，**不是数据缺口** ⇒ **那半笔账撤销**，`desc` 里已有的句尾句号**不加也不删**。🔑 **真因另列（仍要做，但不在本笔白名单）**：英文侧画不出句尾那枚徽记的真因是扫描器 `工具/gen_icon_plan.py` 的 `KEYWORD_SCAN`（`:1170`）**要求收尾 `:` 或 `.`** ⇒ `Flying. Sniper. Blast 3` 尾巴上那个 `Blast 3` **扫不到**（`ASH33 Falcon` 的 `Flying. Shuriken 3` 同形）。同批小订正：`gen_icon_plan.py:81` 的 `why` 写「五张（`markOf*`）逐字节相同」**不准确** —— 逐字节相同的是 `markOfChaos`/`markOfKhorne`/`markOfNurgle`，`markOfSlaanesh` 只差 **15 个 `alpha=0` 像素**的 RGB（见 `_2026-10-10_A1420_BL19图标` 那段）。**两处都在 `工具/gen_icon_plan.py`，本笔黑名单 ⇒ 如实交回调度台。**",
+  "_2026-10-11_A1456_Exorcist前缀已核": "2026-10-11（第二十会话 C1，`A1456`）。**`SOR42 Exorcist` 的 `8 [faith]:` 前缀【不是】我们自己发明的 —— 卡面确实印着它，保留。** 亲读 PnP 成品卡图（`d:/2/Warpforge部队卡片/Sorotitas/3部队/Warpforge_42_Exorcist.png`）：效果区两行 = `〔银盾〕Armour 1. 〔紫爆炸〕Blast 4.` / `8 〔金太阳〕: Deal 5 damage to all enemies`。那枚 **金太阳 = 信仰**（不是能量 —— 能量是绿圈、费用是右上蓝六边形；判据表见 `_2026-10-11_A1344_A1357_信仰太阳记号` 那段）。⚠️ **但「写法」那一侧要留意**：卡面印的是**图标**，`[faith]` 是**我们的规范 token**（`EffectText.CostKindOf` → `MentionsFaith` 把 `faith` / `☀` / `icon` 三条都归一成 `faith` ⇒ 写法不同、引擎行为相同）。⚠️ 顺手记（**本笔没动**）：全池同一个「信仰费用前缀」现在有 **5 种写法** —— `☀`（24 张）· `[faith]`（`SOR12` / `SOR42`）· `[Faith]`（`SOR4`）· `[Faith Icon]`（`SOR40`）· `[Icon]`（`SOR7`）。统一它要连 `gen_icon_plan.py` 的逐卡键一起动（换写法会让旧键变死条目）⇒ **另立账**，别在这儿顺手改。⚠️ 另一处**读数订正**：`资料/卡表核对_卡图提取/_还原效果文字.md:743` 把这一处记成 `8 Energy:` —— **那是图标名认错**（它自己上一列 `_合并总表.md:749` 记的是 `【图标:太阳】`，两处打架）⇒ 以卡图为准，是**信仰**。",
   "_2026-10-10_A1444_与CardText口径的冲突需裁": "🔴 **`A1444` 的英文 `desc` 那一半与引擎侧一条【既定的、量过的】决定口径相反 —— 如实上报、等调度台裁。** 出处 = `CardPresentation/Core/CardText.cs:91-94`（2026-09-15 写）：「原版卡面把关键词**印在效果文字前面**，而我们的 `desc` 是 OCR 来的、**常常只剩后半段** —— **实测 1130 张里 306 张**的关键词在 `desc` 里一个字都没有（`资料/PnP卡图_逐张对账_0915.md` §四·E）。补在**表现层**，**不去改 `desc`**：`desc` 是引擎解析效果用的原文，动它会改结算。」而 `A1444` 让我「照 PnP 卡图补全 `desc`」⇒ **两说打架**。**本笔选了照 `A1444` 做**，三条理由：① PnP 卡面（铁律 7 的最终真相）逐字就是 `Vanguard. Armour 1. Blast 2`；② **实测无害**（`工具/ruleprobe.sh scan` 全池 1120 行 **逐行 diff = 0**；`EffectText.Parse` 对旧/新两种写法都是 **0 条 op**；计划表只有 3 个键变）；③ `desc` 本来就是「卡图 OCR」的产物，补回它 = 补回 OCR 丢掉的那一段。⚠️ **若调度台按 `CardText.cs` 那条口径裁「`desc` 不动」** ⇒ 本笔 `desc` 那一行应回滚（`descZh` 那一行与它无关 —— 中文补段首是 `A1360`/`A1419` 就在做的既有做法，可留）。⚠️ **同时提醒：照 `A1444` 的逻辑一律办，就是那 306 张的事** —— 那是另一个量级的决定，⛔ 别悄悄只改这一张就当成口径统一了。",
   "_2026-10-10_A1444_AM28段首被OCR丢掉": "2026-10-10 · `A1444`（`AM28` Bullgryn Bone’ead 的 `desc` **整段丢了**）。本笔是**新键**（该卡在 `desc` 列原来没有条目）：`Blast 2` → `Vanguard. Armour 1. Blast 2`。判据 = PnP 成品卡图**裁块放大亲读**（`d:/2/Warpforge部队卡片/Astra Militarum/3部队/Warpforge_28_Bullgryn-Boneead.png`：`〔红骷髅盾〕Vanguard. 〔银盾〕Armour 1. 〔紫爆炸〕Blast 2`），与我方开图抄录 `资料/卡表核对_卡图提取/_还原效果文字.md:139`（`Vanguard Vanguard. Armour Armour 1. Blast Blast 2`）· `_合并总表.md:136` 三处同值。**根因** = `desc` 是**卡图 OCR** 的（`card_stats.json` 该条的 `ocrSrc`/`face` 都指着那张 PNG）⇒ OCR 把这一整段丢了。⚠️ **没改的两样，各有判据：**（1）`AM37 Basilisk` 的 `desc` = `Long Range. Blast 3` **与卡面逐字相同**、不缺任何东西（`_合并总表.md:148`；卡图亲读同值）⇒ **一个字没动**（A 表把它写成同族另一半，实测它没病）。（2）**句尾的 `.` 不加** —— A 表原写「`AM28`/`AM37` 英文 `desc` 句尾少一个 `.`」，实测**五张成品卡图**（`AM28` · `AM37` · `ASH81` Night Spinner · `GSC41` Goliath Rockgrinder · `TAU12` Missile Drone）**句尾一律不印句号**，是**印刷约定**、不是数据缺口（全池 `desc` 以裸 `Blast N` 收尾的 **29 张**、其中 **17 张**恰好落在句尾）。⚠️ 英文侧画不出那枚 `blast` 的真正原因是**扫描器**：`工具/gen_icon_plan.py` 的 `KEYWORD_SCAN` 要求收尾 `:`/`.` —— 那是 `.py` 侧、本笔黑名单，已如实交回调度台。",
   "_": "效果文字修正（2026-09-13 第三十三轮）。**只修「图标被 OCR 丢掉」这一类**：卡面写 `Gain ☀2`、我们只剩 `Gain 2`。依据是逐张开成品卡图（`D:/2/Warpforge部队卡片/<阵营>/<分类>/Warpforge_NN_<卡名>.png`）抄回来的原文，派了 3 个子代理分块做。⚠️ 图标含义（2026-09-13 实测）：☀=信仰 Faith · 锯齿圆环+数字=任务点 Quest Point · 蓝色石头=灵魂石 · 拳头=近战 Attack · 枪=远程 Ranged Attack · 盾=护甲 Armour。**写入的是我们能解析的规范写法**（`Gain 2 ☀` / `Gain 1 Quest Point` / `Gain +1 Attack`），不是卡面图标的字形。⚠️ 另有几张是**图标读错**（我们的 desc 写 [Armor] 而卡面是拳头）—— 一并在这一列修掉。证据见 资料/卡表核对_卡图提取/_裁定_图标丢失.md。",
@@ -43,6 +48,9 @@
  "_2026-09-16_引号丢失": "2026-09-16 **卡面那半句是带引号的，OCR 抄录时把引号丢了** ⇒ 引号里那项「嵌入效果」整段没被认出来（`GivePayload` 的 ①b 分支**要求带引号**）。两张：`Litany of Despair`（`Ephemeral. Give Vulnerable 2 to an enemy troop and \"Backlash: Give a Dark Pact to a random enemy troop\"`）· `Beastboss on Squigosaur`（`Friendly Beasts cost 1 less and have \"Slay: Gain Blood Thirst this turn\"`）。**逐字依据 = 我们自己的开图抄录** `资料/卡表核对_卡图提取/_还原效果文字.md:201` / `:628`（两处都带引号；成品图在 `d:/2/Warpforge部队卡片/`）。⚠️ **引号是承重的**：没有引号时 `backlash: …` 会被当成一个**目标**（或整段并进载荷），两种都错；Litany 还会被吞从句里的 `a random enemy troop` 把**主目标误标成「随机」** ⇒ 不让玩家选目标、结算随机抽一个。",
  "_2026-10-08_A977_A981_中文资源符号与裸属性": "2026-10-08（卡面数据批）。**只改 descZh（显示层）**，desc（引擎解析原文）一字未动。三类，判据一律 = 逐张开 PnP 成品卡图亲读（铁律 7）+ 对照卡池 desc：① **A977 · 4 张「发动费用前缀」的中文卡面原来一枚图标都没有**：`UM80 Devastator Marine` / `UM81 Phobos Librarian` / `UM_Scout_Sniper Scout Sniper` —— 卡图 `Ultramarines/3部队/Warpforge_16_Devastator-Marine.png` 等三张首行都是 `〔蓝圆盘+白袍人形〕Oath 4: …`，中文原来只有 `4：…`、`3：…`、`1：…` ⇒ 补成 `誓言 N：`（与全池既有 `誓言 1..8：` 写法一致，计划表自会画 oath 徽记）；`SOR72 Adelaide the Serene` —— 卡图 `Sorotitas/3部队/Warpforge_08_Adelaide-the-Serene.png` 上那个前缀是**金太阳**（`6☀：…若你的少于 6☀，每有 1 个敌方单位便获得 1☀`）= **信仰**，中文原来写成「能量」⇒ 改成 `6 ☀：` + 「信仰」。② **A981 · 13 张「中文把图标整个漏掉、只剩裸数字」**：英文 desc 这几张**早就补好了**（`+1 Attack` / `+3 Attack` / `+1 Ranged`，见 `_manual_desc_note`），中文一条都没跟（`获得 +1` / `给予 +3`）。逐张开图核过属性（`Astra Militarum/3部队/Warpforge_12_Autocannon-Squad.png` 是 gun、`Emperor_s Children/4计策/Warpforge_58_Exquisite-Swordsmanship.png` 是拳…），中文按英文的规范写法补词：`+N 攻击` / `+1 远程攻击`。🔴 `DA86 Hunters of Heretics`（`Dark Angels/4计策/Warpforge_12_Hunters-of-Heretics.png`）是**写错**那一档：卡面是**锯齿环里烘着 2** = 任务点，中文原来写「2 个骷髅头」（骷髅是 `Backlash:` 那枚前缀图标）⇒ 改 `2 点任务`（顺带对上计划表的 `N 点任务` → `questPointsN`）。⚠️ 这批**不覆盖**同族的另两类：`+N 近战/远程攻击` 那 124 张的**属性图标**（要换掉词、机制上要单独定，见 `项目任务.md`）、以及中文漏印了整句关键词的（`GSC25 Nexos` 的 `Artifice:`）。",
  "desc": {
+  "Maelon Dhrost": "Regiment: Draw a Stratagem. Duty: Lower the cost of Stratagems in your hand by 4",
+  "Morkai Eliminator": "Sniper. Rally: Give Hunt Mark to a random enemy troop. Ferocity: Attack a random enemy with Hunt Mark.",
+  "Night Spinner": "Flying. Sniper. Blast 3",
   "Howling Banshee Exarch": "Waystone. Camouflage. Strike: Give +1 [Attack] to your units",
   "Deathwing Knight Master": "Armour 2. Teleport: Deal 3 damage to all enemies and give +2 [Attack] to all friendly units.",
   "Sacred Standard": "Give +1 [Attack] and Blast 1 to all friendly units this turn",
@@ -109,14 +117,14 @@
   "Malgarash the Adamant": "Armour 1. Ecstasy 2: Heal 2. Stimulation: Gain +1 [Ranged]",
   "Xarahan Daemon Prince": "Ecstasy 15: Gain +1 [Attack]. Talent: Excessive Vigour",
   "Terminator": "Armour 1. Ecstasy 2: Gain +2 [Attack]",
-  "Nexos": "Artifice: Your units gain +1 [Attack] until your next turn",
+  "Nexos": "Stealth. Artifice: Your units gain +1 [Attack] until your next turn",
   "Power of the Waaagh!": "Your Warlord gains \"Mob: Gain +1 [Attack] until your next turn\"",
   "Skarboy Nob": "Mob: Gain +1 [Attack]",
   "Psychophage": "Rally: Gain +2 [Attack], +2 [Ranged] and +1 Health for each damaged enemy",
   "Heavy Intercessor": "Armour 1. Codex: Gain +1 [Ranged] this turn",
   "Outrider": "Flank. Codex: Gain +1 [Attack] and +1 [Ranged]",
   "Chapter Champion": "Codex: Gain +2 [Attack]. Oath 2: Gain Armour 1 and Vanguard",
-  "Fenrisian Wolf": "If it has a Hunt Mark, gain +1 [Attack]",
+  "Fenrisian Wolf": "Tide 1. Ferocity: Attack a non Flying enemy troop. If it has a Hunt Mark, gain +1 [Attack]",
   "Termagant Brood": "When a friendly unit triggers Swarm, gain +1 [Ranged]",
   "Bright Lance Vyper": "When you trigger a Spirit Stone ability, gain Sniper and +1 [Ranged].",
   "Cadian Honour": "Give +1 [Ranged] to your troops and reload their Duty abilities",
@@ -296,7 +304,8 @@
   "Devout Warriors": "Draw a troop. 2 ☀: Draw an additional troop",
   "Trial of Suffering": "Deal 1 damage to a friendly troop and give it Armour 1. 2 ☀: Give it Armour 2 instead",
   "Imperial Creed": "Stun three random enemies.\n4 ☀: Refill 3 Energy",
-  "Bullgryn Bone’ead": "Vanguard. Armour 1. Blast 2"
+  "Bullgryn Bone’ead": "Vanguard. Armour 1. Blast 2",
+  "Inspiring Legacy": "Give Shuriken 2 to a friendly unit this turn"
  },
  "_manual_subtype": {
   "_": "手工覆盖 `subtype`（脚本原样保留、最后应用，手工赢过算出来的）。加条目前先读上面那份说明。",
@@ -311,6 +320,15 @@
   "Obscure Ritual": "Secret"
  },
  "_manual_keywords": {
+  "Howling Banshee Exarch": [
+   "Waystone",
+   "Camouflage",
+   "Strike: Give +1 [Attack] to your units"
+  ],
+  "Ravenwing Bikes": [
+   "Flank",
+   "Agenda: Gain 1 Quest Point"
+  ],
   "_": "手工覆盖 `keywords`（脚本原样保留、最后应用，手工赢过算出来的）。⚠️ 加条目要**写全**该卡的整份关键词表，不是增量。🆕 2026-09-15 PnP 逐张对账批（见 `资料/PnP卡图_逐张对账_0915.md` §四）：**同名跨阵营的卡用 `\"<阵营>/<卡名>\"` 键**（`gen_cards_engine.py` 的 `load_cardface_fixes` 支持），例如 `\"Ultramarines/Terminator\"` —— 原来只按卡名查，改一张会连带改到另一阵营那张。 🆕 2026-09-15 PnP 对账加的那条 `Ultramarines/2nd Company Terminator`（`UM83`）：四个洞一起补 —— `ranged=0`/`rarity` 空/`subtype` 空/关键词掉数字（卡面 `Armour 1. Blast 3. Oath 2: Deal 3 damage`）。🔴 **2026-10-17 订正**：当时顺手把它改名叫 `1st Company Terminator`（**只核了 PnP 一侧**）—— B20 复核后**卡名已撤回 `2nd Company Terminator`**（游戏侧四族证据一致：卡图资产名 / 语音 / 头像 / 头像 `nameTextReference`；详见 `资料/普查产出_1017/W_B20_同族四张卡名.md`），本键名跟着回改。🆕 2026-09-16：`Beast Snagga Nob`（`GOF81`）补 `Stomp` —— 卡面逐张开图核过（`d:/2/Warpforge部队卡片/Orks/3部队/Warpforge_07_Beast-Snagga-Nob.png`）：`[爪]Stomp. At the end of your turn, give +1[拳] to all Beasts in your hand`，而引擎里那张 `keywords` 是**空的**（描述文字与卡面其余部分逐字一致，只少了 `Stomp.`）。",
   "_2026-09-18_Stun误抽": "OCR（2026-08-16 视觉模型那趟）把效果句里的内联图标词 `Stun` 记成了本卡关键词。5 张逐张开原图核过：卡面**都没有关键词行**。覆盖值里保留正文真有的 Duty/Talent/Tide 1。根因不在本仓（抽取器在 d:/warpforge/tools/ocr_cards.py），详见 `资料/普查产出_0918/孤儿待办_五条查证.md` §四。",
   "_2026-09-19_Ferocity误抽": "OCR 把效果句里的**内联图标词** `Ferocity` 记成了本卡关键词（与上一条 `Stun` 同一趟、同一根因；由「从句级尺子」进自检后第一次跑出来，见 `资料/普查产出_0919/从句级尺子_进自检.md`）。`Njal Stormcaller`（`SW4` 督军）卡面逐张开图核过（`d:/2/Warpforge部队卡片/Space Wolves/1督军/Warpforge_04_Njal-Stormcaller.png`）：效果文字是 `When you trigger ⟨獠牙⟩Ferocity, High Rune Priest costs 1 less this turn. ⟨白牌⟩Talent: High Rune Priest` —— 这里的 Ferocity 是**句子里的引用**，不是 `Ferocity: <正文>` 那种**关键词授予**（对照：`Blood Claw` 卡面 `⟨獠牙⟩Ferocity: Deal 3 damage to an enemy`、督军 `Junith Eruita` 卡面 `⟨圣徽⟩Pray: Heal 1 to a friendly unit` —— 真有那个能力的卡都带**冒号 + 正文**）。同阵营另两张督军（Logan Grimnar / Ragnar Blackmane）**都没有** Ferocity。⚠️ **同一形状的还没清**：`Raid Tactics`（`SW59` 战术）· `Bjorn's Shrine`（`SW46` 战术）卡面同样只有引用（`…when a friendly troop uses ⟨獠牙⟩Ferocity, …`），keywords 里却挂着 `Ferocity` —— 那是**一族待查项**（可能还包括只在 `When …` 里提到某个关键词的卡），**别当成只此一张**。",
@@ -383,12 +401,8 @@
    "Unstable",
    "Mob: Gain +1 Attack this turn"
   ],
-  "AstraMilitarum/Thermal Weaponry": [
-   "Blast 3",
-   "Armour 1"
-  ],
+  "AstraMilitarum/Thermal Weaponry": [],
   "Ultramarines/Chapter Champion": [
-   "Vanguard",
    "Armour 1",
    "Codex"
   ],
@@ -723,14 +737,23 @@
   "_2026-09-21_普通关键词误抽": "OCR 把**效果句里被授予/被引用的普通关键词**也记成了本卡自己的关键词（前几批清的是「带正文关键词」那一族 —— `_2026-09-18_Stun误抽` / `_2026-09-19_Ferocity误抽` / `_2026-09-19_句中引用误抽_13张`，本批是那一族**没做的另一半**，见 `资料/关键词图标_现状与总表.md`）。**114 条 / 104 张卡**，由 **6 路子代理逐张开 PnP 成品卡图核对**（卡面原文逐条抄进报告，主对话另行复核了仲裁项：`Grukk Face-Rippa` 本人开图、`Jackal Outrider` 本人开图）。⚠️ **2026-09-21 晚更正：原写「111 条 / 96 张卡」，实际那批是 111 条 / 101 张卡**（96 是错的，与本脚本实跑打印的 `命中 N 张卡` 不符），本次再 +3 条 ⇒ **114 / 104**。判据（唯一）：卡面上该词**独立成项**（图标 + 词 + `:`/`.`，或与别的关键词并列）⇒ 保留；**只出现在句子里**（被 `Give`/`Gain`/`give it`/`has`/`with`/`an enemy with` 领着，或夹在 and/逗号之间）⇒ 误抽。🔴 **影响玩法**：引擎真的读这一列（`RuleCore` 的 `UnitState.Has(...)` —— `flank`/`fast` 决定打出的当回合能不能攻击（`UnitState.cs:226`）、`stealth` 不可被选中、`vanguard` 强制先打、`invulnerable` 免伤…）⇒ 不删 = **静默给卡加一个它没有的能力**。⚠️ **不动的 5 条（核过是真关键词）**：`SOR72 Adelaide the Serene` flank/shield（`Gain ⌾Flank and ⌾Shield.` 自获且带句号独立成项）·`UM_Honour_Guard` vanguard（卡面单独一行 `⌾Vanguard`）· `TAU36 Enforcer Battlesuit` armour（盾徽值，卡面效果区没印字）·`SAU70 Lokhust Destroyer` 的 `Remnant.`/`Destroyer.`（独立成项）。🔴 **2026-09-21 晚更正（本条原来把它当成「不动」的第 5 项，是错的）**：`GSC15 Poisoned Supplies` / `GSC_Cult_Propaganda` / `GSC_Improvised_Barricade` 的 `Sabotage` **已改成删** ——**错因 = 把「卡面下方那行橙字」当成了关键词的证据**，而**橙字那一行就是兵种行（`subtype`）**，不是关键词（卡面版式见 `CLAUDE.md` §七：卡名白 / 阵营橙 / 效果米白 / **兵种橙**）。一张一张开图 + 逐行像素扫描复核：三张卡**全卡面 `Sabotage` 只出现一次**，就是效果区下方那行橙字，效果区原文里没有这个词（也没有带图标的独立关键词项）。**独立佐证**：原版 `BattleCardUI.ChangeToHighlightColor`（`d:/2/tools/decomp_full/`）判破坏高亮走的是**卡类** `spellType == 0xe6(=230)`（`SpellType.Sabotage = 230`），**不是** trait/keyword ⇒ 破坏在数据上本来就该只落在 `subtype`。⚠️ **不动的 4 条「带正文关键词」**：`GOF24 Killa Kan` 的 `Mob: …` · `ASH32` 的 `Rally: …` · `ASH79` 的 `Strike: …` · `DA28` 的 `Teleport: …`。⚠️ 顺带核过：库里本来就有的**畸形值**（如 `Armour 2.` / `Remnant.` / `Destroyer.` 带尾点、`Sentry` 丢数字）本批**没动**。",
   "Poisoned Supplies": [],
   "Cult Propaganda": [],
-  "Improvised Barricade": []
+  "Improvised Barricade": [],
+  "Deathmark": [
+   "Remnant",
+   "Sniper",
+   "Rally"
+  ],
+  "_2026-10-12_误抽清洗被旧阵营键静默覆盖": "2026-10-12（写手 C3 · `A1611`）。🔴 **`_2026-09-21_普通关键词误抽` 那一批清洗有 3 个词【一个字都没生效】，根因是键的优先级 —— 不是判据有问题。**① 该批（2026-09-21，六路子代理逐张开 PnP 成品卡图核过）把结果写进**裸卡名**键（`工具/_apply_kw_misextract.py` 的 `key = c['name'] if 唯一 else 阵营/卡名`）；② 而 `Chapter Champion` / `Thermal Weaponry` 这两张卡在本文件里**另有一条 2026-09-15 的`阵营/卡名` 键**（`d8d7def` 那一轮加的「同名卡」写法）带着**清洗前**的值；③ `gen_cards_engine.py` 合并时是 `_ff = dict(bare); _ff.update(fac)` ⇒ **阵营键赢** ⇒ 裸键上那份清洗被静默盖掉（脚本自己照样打印「命中」，卡表里一个字没变）。**干跑实测（2026-10-12 现读）**：`_apply_kw_misextract.py` 报 114 条请求，其中 **111 条「该卡 keywords 里没有这个词（可能已被别批清掉）」= 真已落上**；**剩下 3 条恰好就是这两张卡的**（`UM78|vanguard` · `AM54|armour` · `AM54|blast`）。⇒ **本笔把这 3 个词按那份清洗做掉**，两列（`keywords` / `_manual_keywords`）**一起写成同一个值**，让两个键**不再打架**：`Ultramarines/Chapter Champion` = `['Armour 1','Codex']` · `AstraMilitarum/Thermal Weaponry` = `[]`（与它们各自的裸卡名键**逐字相同**）。**本笔另亲读 PnP 成品图复核（铁律 7）**：`d:/2/Warpforge部队卡片/Ultramarines/3部队/Warpforge_14_Chapter-Champion.png` = `〔盾〕Armour 1. 〔星〕Codex: Gain +2 〔拳〕. ``〔兜帽〕Oath 2: Gain 〔盾〕Armour 1 and 〔骷髅〕Vanguard`（`Vanguard` 在**句中**）；`Astra Militarum/4计策/Warpforge_54_Thermal-Weaponry.png` = `Give 〔爆炸〕Blast 3 to a friendly troop. If it is a Vehicle, give it 〔盾〕Armour 1 as well`（**整卡没有声明行**）。两处与 `资料/卡表核对_卡图提取/_还原效果文字.md:1040` / `:168` 的**双写转录**逐字吻合。⚠️ **副作用（有意为之、方向正确）**：`RuleCore` 的 `UnitState.Has(...)` 真的读这一列 （`vanguard` 强制敌方只能打它）⇒ 原来 `Chapter Champion` **开局自带 Vanguard**，而卡面是 `Oath 2:` 触发才给 ⇒ 改后与卡面一致。⚠️ **同一批还有个没做完的**：`A1611` 的另一半是**渲染侧**（`SOR72` 的段首多出 `Flank.`/`Shield.`）—— 那两个词是本文件 `_2026-09-21_普通关键词误抽` 里**特意保留**的真关键词，动它在 `CardPresentation/Core/CardText.cs`（不在本笔白名单），已如实交回。"
  },
  "descZh": {
+  "Maelon Dhrost": "团：抽一张战术。职责：你手牌中的战术费用减少 4 点。",
+  "Morkai Eliminator": "狙击。集结：给予 1 个随机敌方部队猎杀标记。狂暴：攻击 1 个带猎杀标记的随机敌人。",
+  "Night Spinner": "飞行。狙击。爆裂 3",
   "Apothecary": "当我方单位获得任务点时，其治疗 2 点。集结：为一个我方单位治疗 2 点",
   "Company Veteran": "当你获得任务点时，治疗 2 点",
   "Ultramarines/Terminator": "誓言 1：获得护甲 1",
   "BlackLegion/Maulerfiend": "每有一个我方部队身上的黑暗契约，对所有敌人造成 1 点伤害。",
-  "Fenrisian Wolf": "攻击 1 个非飞行敌方部队。若其带猎杀标记，获得 +1 [攻击]。",
+  "Fenrisian Wolf": "潮涌 1。狂暴：攻击 1 个非飞行敌方部队。若其带猎杀标记，获得 +1 [攻击]。",
   "Killa Kan": "群体：本回合获得 +1 [攻击]。",
   "Tactical Marine": "誓言 3：获得 +3 [攻击]、+3 [远程]和 +3 生命。",
   "Forward Deployment": "给予 1 个友方部队侧翼、+1 [攻击]和 +1 [远程]。",
@@ -970,6 +993,7 @@
  "_2026-09-16_Shrineworld段首写错": "🔴 **2026-09-16 更正：`desc.Shrineworld` 的段首原来写成了 `Destroy an enemy unit.` —— 那一整句是错的，卡面印的是 `Draw 3 cards.`。** 这一列本来的用途只是「**把被 OCR 丢掉的图标补回来**」（见 `_manual_desc_note`），而这一条**把一整句话换成了另一个效果** ⇒ `Shrineworld`（`SOR62` · 6 费）在引擎里**打出去会消灭一个敌方单位**，而卡面写的是抽 3 张牌。**静默**：探针报「认了 · 0 · 0」，卡面不打 `*`，日志也不报。\n**逐字依据 = 开成品卡图**（铁律 7）：`d:/2/Warpforge部队卡片/Sorotitas/4计策/Warpforge_62_Shrineworld.png` 印 `Draw 3 cards. For each Troop drawn, gain 1 ☀`；`数据/游戏数据/card_stats.json` 的原始转录也是对的（`Draw 3 cards. For each Troop drawn, gain 1.`，只少了图标词）。**错因**：这一条把「补图标」写成了「改句子」，而这一列的覆盖优先级**高于** `card_stats.json`（`工具/gen_cards_engine.py` 的 `load_cardface_fixes`）。\n**查出经过**：2026-09-16 的「中文结构对账」普查（`_tmp_view/zh_crosscheck_0916.md`）—— 中文卡面写「抽 3 张牌」，spec 却是 `destroy`。",
  "_2026-09-16_two_bare_icon_tokens": "🔴 **2026-09-16：两处 `±N` 后面的属性 token 名是错的**（铁律 7：主对话**逐张亲读成品卡图**之后改的）。① `Hidden Hunters`（`TAU74`）原写 `Give +1 [Power] and Stealth to your Infantry troops`，卡面（`Tau/4计策/Warpforge_10_Hidden-Hunters.png`）是 **`+1【粉圈白拳】` = 近战**；而 `power` 不在 `GivePayload.ReAttr` 的词表里 ⇒ 整段判「不认识」⇒ 改成 `Attack`。② `Inner Circle Companion`（`DA21`）原写 `Gain Vanguard and 2`，卡面（`Dark Angels/3部队/Warpforge_21_Inner-Circle-Companion.png`）是 `👁Stealth. 🌿Agenda: Gain 🛡Vanguard and ⌾2` —— 最后那个是**锯齿圆环+数字 = 任务点**（同 `The Rock` 的 `Gain 2 任务点`）⇒ 补成 `2 Quest Points`。⚠️ 两处都走**这一列**（不是去放宽 `GivePayload` 的属性词表）—— 同 `[Armor]`/`[Armour]` 在 `+N Attack … +N Armour` 里也是枪那条先例：那是**数据侧**的错，放宽词表会同时打到别的卡。",
  "_manual_descZh_note": {
+  "_2026-10-11_A1403_A1474_中文段首同步": "2026-10-11（第二十会话 C1）。**与英文 `desc` 同步补段首/触发头**（`A1403` / `A1474` 的中文那一半）。写法一律照池内已有的规范中文词（判据 = `CardPresentation/Core/Loc.cs` 的 `Card_Trait/*` 条目与 `资料/关键词图标/_规则书关键词表.md`）：`Regiment`=团 · `Duty`=职责 · `Rally`=集结 · `Ferocity`=狂暴（**不是「凶猛」**，`Loc.cs:2182`）· `Sniper`=狙击 · `Flying`=飞行。逐条：`Maelon Dhrost` `抽一张战术。你手牌中的战术费用减少 4 点。` → `团：抽一张战术。职责：你手牌中的战术费用减少 4 点。`（写法照同阵营 `AM25 Tech-Priest Enginseer`）；`Morkai Eliminator` `给予 1 个随机敌方部队猎杀标记。攻击 1 个带猎杀标记的随机敌人。` → `狙击。集结：给予 1 个随机敌方部队猎杀标记。狂暴：攻击 1 个带猎杀标记的随机敌人。`；`Night Spinner` `爆裂 3` → `飞行。狙击。爆裂 3`。🔴 **为什么必须跟英文一起改**：`Editor/IconSetup.cs` 的 ④a 判据是「`desc` 的 sprite 集合 ⊆ `descZh` 的」—— 只补英文会让它把这 6 条当成**新缺口**（`A1444` 那批实测：只改英文时 `ZhGaps` 由 0 变 2）。⚠️ 中文那半**不是原版判据**（原版客户端根本没有中文表）—— 这里推的是「英文卡面那个位置有什么记号、中文就在同一位置写那个词的规范中文名」（同 `A1360` / `A1419` 的解释）。",
   "_2026-10-10_A1444_AM28中文段首": "2026-10-10 · `A1444` 的另一半（`AM28` **中文侧**）。**新键**：`爆破 2。` → `先锋。护甲 1。爆破 2。`（该卡 `descZh` 列原来没有条目，中文来自 `数据/卡牌翻译/zh_cards.json` 的 `d` —— 而那份**同样是 OCR 截断的**）。🔴 **为什么必须一起改**：`A1444` 若只把英文 `desc` 补成 `Vanguard. Armour 1. Blast 2`，英文侧会多出 `vanguard`/`armour` 两枚徽记、中文侧没有 ⇒ `IconSetup.Verify` 的 **④a（`desc` 的 sprite 集合 ⊆ `descZh` 的）会把这**两条当成**新缺口**（实测：只改英文时 `ZhGaps` 由 0 变 2：`AM28|vanguard` · `AM28|armour`）。补上中文段首后 **`ZhGaps` = 0**。写法照同族既有卡：`SW38`/`TL28`/`UM_Assault_Centurion` 三张的 `Vanguard. Armour N` 中文一律 `先锋。护甲 N`（`数据/本地化/i18n/zh_CN.csv:2549` 那条通用词条也是「先锋。护甲 1」）；段尾 `。` 照 `GSC41`（`护甲 1。爆裂 4。`）。⚠️ `爆裂`/`爆破` 两个中文写法全池都在用，本笔**不动原有的「爆破」**。⚠️ **`数据/卡牌翻译/zh_cards.json` 的 `d` 没有同步**（本笔白名单只允许它为 `A1420` 的分支甲改动）⇒ 与 `A1410` 同一类隐患：谁按 `zh_cards.json` 重生成就会把截断值带回来（**产物不受影响** —— `descZh` 覆盖在最后说话）。",
   "_2026-10-10_A1420_BL19图标": "2026-10-10 · `A1420`（`BL19` Noise Marine **中文侧那枚徽记印错了**）。**只改 token、不改词**：旧 `获得一个 [黑暗契约]纵欲黑暗契约` → 新 `获得一个 ❄纵欲黑暗契约`。**核出的分支 = 「中文侧自己不对」**，既不是「原版中文表译错」也不是「我们故意换图标」：① 那句的英文原文（串表键）本来就带 `❄`（`数据/本地化/i18n/zh_CN.csv:2675` = `When your Warlord receives damage, gain a ❄ Dark Pact of Excess`），而**我们那句中文从一开始就没译出任何图标**（同一条 `:2675` 的值 = `当你的战将受到伤害时，获得一个纵欲黑暗契约`）；② 2026-10-18 那批给中文补图标时**补成了通用 token** `[黑暗契约]` —— 它在生成器的 `ZH2EN` 里对应的英文对家是 `[Dark Pact]`/`[Chaos]`（`工具/gen_icon_plan.py:1390`；逐卡表 `:238`）⇒ 落到 `markOfChaos`；而英文那半边是**纵欲专有**的 `❄`（`SYMBOLS` → `markOfSlaanesh`，`:81`）。③ 语义旁证：`资料/关键词图标/_规则书关键词表.md:99-102` 写着五张 `markOf*` 与混沌四神对位（**纵欲 = Slaanesh**，⚠️ 该文件自己标了「推测、非原文」）。🔴 **两张图其实【渲染上完全一样】**：`markOfSlaanesh.png` 与 `markOfChaos.png` 只差 **15 个 alpha=0** 像素的 RGB 值（`markOfKhorne`/`markOfNurgle` 与 `markOfChaos` 逐字节相同、`markOfTzeentch` 差 6 个 alpha=0 像素）⇒ 本笔修的是**名字级一致性**（`IconSetup.Verify` 的 ④a 判据比的是 sprite **名**集合），**画面不因此改变**。⚠️ **已知副作用（如实）**：`[黑暗契约]` 从 `BL19` 文本里消失后，`工具/gen_icon_plan.py:239` 那条 `(BL19, [黑暗契约])` 变成**死条目 1 条**（生成器会报出来）—— 删它只能改 `.py`（本笔黑名单），留给 `.py` 的写手。判据出处 = 英文卡面亲读（`d:/2/Warpforge部队卡片/Chaos/3部队/Warpforge_19_Noise-Marine.png`：`gain a 〔暗红八芒星〕Dark Pact of Excess`）。　🔴 **收口时【必红】，要另一个写手改 `.cs`**（`Editor/IconSetup.cs` 是黑名单、本笔没做）：本笔把 `ZhGaps(今天的计划表)` 由 1 条清零 ⇒ `Verify()` 的 **④d**（判据 = `KnownZhGaps ⊆ ZhGaps(今天)`，`IconSetup.cs:606-613`）会报 `BL19|markOfSlaanesh` 是一条**陈旧条目** —— 那**是故意的副作用**（`IconSetup.cs:900` 的注释原话：「每修好一条也会红一次，那是故意的」）。要同步三处：① 删 `KnownZhGaps` 表里那**唯一的 1 行**（`IconSetup.cs:874` 起，含它上方那段 `///` 现读注释 `:905-906` 写着的「表 1 条 / `ZhGaps` 也 1 条」）；② `const int KnownZhGapsCount = 1;`（`:908`）→ **`0`**（④c）；③ 🔴 **`WithoutLast`（`:930` 附近）在表变空时会炸** —— 它写的是 `new string[t.Length - 1]`，`t.Length == 0` 时是 `new string[-1]` ⇒ `④c-b` 那一格会抛异常、整个 `Verify()` 挂掉 ⇒ **必须一并加守卫**（或在表非空之前别清空）。⛔ **别把 ④c/④d 降成软告警**（`:900` 明写「退回只有注释在挡」正是它要治的病）。⚠️ `RevertControl`（19 条）**不受影响**（实测表里没有 `BL19|markOfSlaanesh`）。",
   "_": "效果文字（中文）的卡面修正。`descZh` 与 `_manual_descZh_note` 都是**手工维护**的，`gen_cardface_fixes.py` 原样保留（⚠️ 2026-09-15 前它漏在保留名单外、一跑就把整列删掉，已修）。**应用点必须在中文表写入之后**（见 `gen_cards_engine.py` 里那段注释），否则会被 `zh_cards.json` 盖回去。",
@@ -1043,6 +1067,15 @@
   "Obscure Ritual": "Secret"
  },
  "keywords": {
+  "Howling Banshee Exarch": [
+   "Waystone",
+   "Camouflage",
+   "Strike: Give +1 [Attack] to your units"
+  ],
+  "Ravenwing Bikes": [
+   "Flank",
+   "Agenda: Gain 1 Quest Point"
+  ],
   "Night Spinner": [
    "Flying",
    "Sniper",
@@ -1382,12 +1415,8 @@
    "Unstable",
    "Mob: Gain +1 Attack this turn"
   ],
-  "AstraMilitarum/Thermal Weaponry": [
-   "Blast 3",
-   "Armour 1"
-  ],
+  "AstraMilitarum/Thermal Weaponry": [],
   "Ultramarines/Chapter Champion": [
-   "Vanguard",
    "Armour 1",
    "Codex"
   ],
@@ -1677,6 +1706,11 @@
   "Master of Arms": [],
   "Poisoned Supplies": [],
   "Cult Propaganda": [],
-  "Improvised Barricade": []
+  "Improvised Barricade": [],
+  "Deathmark": [
+   "Remnant",
+   "Sniper",
+   "Rally"
+  ]
  }
 }
