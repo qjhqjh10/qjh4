@@ -10,6 +10,10 @@
 ⚠️ 我们自造的那个词（`ability`）**不在规则书 61 条里** ⇒ 表里没有它，查不到就如实返回 null
 （`TipText.Trait` 会回退成「只有名字、没有解释」），**不编一句话**。
 
+🔴 **2026-10-12（`A1660`）**：产物里**不再有 `line`（出处行号）字段**（原来是 `"line": "167"` 这种）——
+原版 tooltip 只有「**标题 + 描述**」两段，出处是我们自加的（判据 →
+`资料/普查产出_第二十二会话/DIAG_tooltip出处行.md`）。源表第 4 列**照旧保留**（内部判据、不上屏）。
+
 用法：
   PYTHONIOENCODING=utf-8 python 工具/gen_trait_tips.py            # 干跑，只报告
   PYTHONIOENCODING=utf-8 python 工具/gen_trait_tips.py --write    # 落盘
@@ -99,7 +103,15 @@ def main():
                 "原版词条表在远端 CCD，见 资料/tooltip_原版规格与实现.md §二。"
                 "⚠️ 形状是**数组**不是字典 —— `JsonUtility` 读不了字典（同 `card_icon_plan.json`）。",
         "source": "资料/关键词图标/_规则书关键词表.md",
-        "entries": [{"zh": k, "en": v["en"], "body": v["body"], "line": v["line"]}
+        # 🔴 **2026-10-12（`A1660`）：不再输出 `line`（规则书出处行号）** —— 它是我们自加的**出处**，
+        #   而原版 tooltip 只有「**标题 + 描述**」两段（反编译 `TextTooltipController__GetTraitTooltip.c`；
+        #   解包预制体 `Trait Tooltip` 的正文节点只有 `Description`）。用户真机看到「多印一段」后
+        #   要求「**只写该词条的效果就行，不要多余的出处**」⇒ 运行时的 `TipText.Trait` 里那一跳、
+        #   `Core/Loc.cs` 的键 `Tips/Trait/RulebookLine` 也一起删了（**三处一起清**）。
+        #   判据与依赖顺序 → `资料/普查产出_第二十二会话/DIAG_tooltip出处行.md`。
+        #   ⚠️ **上面那段 `no_line` 警告保留** —— 它仍是「源表缺第 4 列」的健康检查；
+        #      第 4 列（出处行号）是**内部判据**，`资料/关键词图标/_规则书关键词表.md` 里一个字不动。
+        "entries": [{"zh": k, "en": v["en"], "body": v["body"]}
                     for k, v in tips.items()],
     }
     os.makedirs(os.path.dirname(OUT), exist_ok=True)

@@ -191,6 +191,35 @@ namespace RuleEngine
         /// <summary>**获得护盾**。卡面：`When you gain [Shield], …`（`Company Veteran`）·
         /// `When a friendly unit obtains [Shield], …`（`Apothecary`）。发生点同上（`AddKeyword("shield")`）。</summary>
         public const string GetsShield = "getsshield";
+        /// <summary>**某个单位被给予标记光**（`A1461` / `A1575`，2026-10-12）。卡面：`Gains Long Range
+        /// when an **enemy gains Markerlight**`（`TAU20 Sniper Drone`，全池**唯一**一句 ——
+        /// 逐卡池实测：`desc` 里出现 `gains markerlight` 这个形状的只有它）。
+        ///
+        /// ✅ **为什么它可以收**：`A1575` 明确要求「三层一起做」——只补 `WhenEvent` 这半层 =
+        ///    注册一条**永远不响**的监听器（本工程红线）。三层是：
+        ///      ① **解析层** —— `EffectText.TryWhenSuffix`（把句子切成「效果 / 事件」两半）
+        ///         ＋ `EffectText.TryWhenSuffixStub`（挡住 `TryGain` 的错解）；
+        ///      ② **注册层** —— `CardDef.AddWhenTrigger` 的 ①-c 支（挂进 `WhenTriggers`）；
+        ///      ③ **授予点 + 事件层** —— `EffectResolver.ApplyOneGain` 那条广播 ＋ 本常量
+        ///         ＋ `ParsePredicate` 里那条短语。
+        ///    ⚠️ **授予点就是那一条**：全仓给 `markerlight` 的唯一路径是 `GivePayload` → `ApplyOneGain`
+        ///       （`RuleCore.DeclareAttack` 那几处是**读**它、算完 `RemoveAll`）⇒ 只此一处要广播。
+        /// 发生点：同 <see cref="GetsHuntMark"/>（`EffectResolver.ApplyOneGain` 的 `AddKeyword`）。
+        ///
+        /// 🔴 **原版侧逐条核过（2026-10-12，`d:/2/tools/decomp_full/`）—— 不是「照先例」**：
+        ///   · **授予点** ＝ `CardScript__AddEffect.c:635`（`:637` 调）
+        ///     `BattleManager.BroadcastMarkerlightResolved(manager, thisCard)`。
+        ///     ⚠️ **它正下方 `:639-643` 就是猎杀标记那一条**（id `0x4ec` →
+        ///     `BroadcastHuntMarkResolved`）⇒ 原版里这两件事**从同一个口、
+        ///     紧邻两条 `if` 广播出去**，与我们 `ApplyOneGain` 里那两条 `else if` **同形**。
+        ///   · **四跳** ＝ `BattleManagerSupport__BroadcastUnitObtainedMarkerlight.c`：
+        ///     `:20` **自己** → `:22-33` **场上每张牌**（`manager + 0x470`）→
+        ///     `:36-52` **当前回合方手牌**（`GetCardsInHandRef(IsPlayerTurn())`）→
+        ///     `:53-78` **另一方手牌**。接收端 `CardScript__ReactToUnitMarkerlight.c:5`
+        ///     发 `RawCardScript__OnTrigger(…, 0x203, …)`（触发 id `0x203` = 515）。
+        ///     ⇒ 这正是我们 `EffectResolver.BroadcastWhen` 的四跳（自己 / 棋盘 / 手牌两跳）。
+        /// </summary>
+        public const string GetsMarkerlight = "getsmarkerlight";
         /// <summary>**被眩晕**。卡面：`When an enemy receives a Stun, …`（`Jain Zar`）·
         /// `When an enemy receives stun, …`（`Yrlla the Huntress`）。
         /// 发生点：`EffectResolver.DoStun` 与 `Concussion`（`RuleCore.DeclareAttack` 里那句）。</summary>
@@ -361,6 +390,7 @@ namespace RuleEngine
         public const string GetsDarkPact = WhenEvent.GetsDarkPact;
         public const string GetsHuntMark = WhenEvent.GetsHuntMark;
         public const string GetsShield = WhenEvent.GetsShield;
+        public const string GetsMarkerlight = WhenEvent.GetsMarkerlight;
         public const string GetsStun = WhenEvent.GetsStun;
         public const string LosesStealth = WhenEvent.LosesStealth;
         public const string BecomesRemnant = WhenEvent.BecomesRemnant;   // 🆕 2026-09-16
@@ -861,6 +891,20 @@ namespace RuleEngine
                                        " receives hunt mark", " receives a hunt mark"))
             {
                 ev.Kind = WhenEvent.GetsHuntMark; SetWho(subj, ev); return;
+            }
+
+            // `When an enemy gains Markerlight, …` → `enemy gains markerlight`（`A1461` / `A1575`）
+            // 🔴 **词形只收 `gains` / `gain` / `receives` / `gets` 四条**（和上一条 hunt mark 同形）——
+            //    卡池实测只有 `TAU20` 一句、写的是 `gains Markerlight`；多认的词形**没有对应卡面**，
+            //    加进来只会把「以后可能出现的形状」当已支持（⛔ 别加 `is given`/`is marked` 这类推测写法）。
+            // ⚠️ **不带 ` a ` 那几种写法** —— `Clean` 已经把冠词去掉了（`gains a markerlight` 到这儿
+            //    已经是 `gains markerlight`），列出来是死条目。相邻那条 hunt mark 也列了，属历史冗余。
+            // ⚠️ **`StripFirst` 是串尾匹配** ⇒ 尾巴上还挂着别的东西（`gains markerlight this turn`）
+            //    一律不收 —— 与 `TryParseKeywordTrigger` 那条「宁可认不出，也别把半截当关键词」同一条纪律。
+            if (StripFirst(s, out subj, " gains markerlight", " gain markerlight",
+                                       " receives markerlight", " gets markerlight"))
+            {
+                ev.Kind = WhenEvent.GetsMarkerlight; SetWho(subj, ev); return;
             }
 
             // `When you gain [Shield], …` —— `Clean` 去掉方括号、剥掉 `you ` 之后是 `gain shield`，

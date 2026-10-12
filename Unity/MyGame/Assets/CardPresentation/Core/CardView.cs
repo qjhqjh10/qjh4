@@ -413,18 +413,24 @@ namespace CardPresentation
         const float TextBgW = 1.7766f, TextBgH = 1.55f;
         const float TextBgSmallW = 1.8635f, TextBgSmallH = 0.9621f;
         const float TextBgAlpha = 0.647f;          // Image `m_Color.a`，原值 0.64705884
-        /// <summary>底板的 z。
-        /// ⚠️ **不能照原版的「卡框之下」摆**：原版 `Front` 的子序里卡框在底板之上，
-        /// 但**原版没有「立绘抠图层」**，而我们有一层可选的前景抠图（`_artFront`，z = −0.008，
-        /// 由 `UseFrontLayer` 控制、**出厂已关** —— 见它那段注释）。底板要是摆在卡框之下(+0.015)，
-        /// 那层抠图**一开**就会被整个盖住 —— 实测渲出来**完全看不见**。
-        /// ⇒ 取 **−0.012**：在 `_artFront`(−0.008) **之前**、在数值层 `_info`(−0.02) **之后**。
-        ///   视觉效果与原版一致（底板压住立绘、文字再压在底板上）。
-        /// 🔴 **2026-10-10 备注 —— 这里是既存事实，本轮【没有改这个值】**：前景层出厂已经关了，
-        ///   但本值**仍留在 −0.012（即画在卡框【之前】）**。⚠️ **还没查清**：出厂态下这块 64.7% 的黑底
-        ///   会不会压暗卡框**自己**那一圈（按原版子序它本该画在卡框**之后**、由卡框盖住）？
-        ///   要动它得先按铁律 10 第 6 条渲一张并排图 —— 别只凭子序推断就改。</summary>
-        const float TextBgZ = -0.012f;
+        /// <summary>底板的 z。**比卡框(0)大 ⇒ 画在卡框【之后】**（`CardView.cs:379-382` 记的原版子序
+        /// `CardImage → Textbackgrounds → CardFrame → Card Info` 要的就是这个）。
+        ///
+        /// 🔴 **2026-10-12 就地更正（`A1658`，用户报「这块黑色半透明底板压在卡框之上」）—— 值由 `−0.012` 改成 `+0.015`。**
+        ///   **改前为什么是缺陷**：本仓 z 约定「**z 越小 = 离相机越近 = 画在上面**」（`_art`+0.03 → `frame`0
+        ///   → `_info`−0.02 → 文字−0.03）⇒ `−0.012` 落在卡框的**靠前侧**，那块 64.7% 的黑底**盖住卡框自己那一圈**。
+        ///   **改后的层表**（`FaceRoot` 局部 z，由远到近）：`shadow +0.06` → `art +0.03` → **`textBg +0.015`**
+        ///   → `frame 0` → `info −0.02` → 文字 `−0.03` ⇒ 立绘 →（底板）→ 卡框 → 数值 → 文字，与原版子序逐层吻合。
+        ///
+        /// ⚠️ **原来那段「不能摆 +0.015，否则 `_artFront` 一开就被整个盖住」的担心【不成立】**（本次现核）：
+        ///   `_artFront` 的 z = **−0.008**，比新底板 **+0.015 更靠相机**（更小）⇒ opt-in 那层抠图
+        ///   **仍然画在底板之上**，被盖住的是底板、不是它。当年那条大概是按「+0.015 比 −0.008 大 ⇒ 更靠前」
+        ///   读反了方向（本仓是**越小越靠前**）。
+        ///   ⇒ 现在两条并存且自洽：**出厂**（`_artFront` 不建）= 原版子序；**opt-in 开** = 抠图在最前。
+        /// ⚠️ **`_artFront` 出厂仍是关的**（`UseFrontLayer == false`）⇒ 这条差异今天不可观测；
+        ///   要开它时按铁律 10 第 6 条**并排渲一张**核一眼（命令见 `Editor/CardFaceProbe.cs` 文件头）。
+        /// ⚠️ 顺序判据只此一处（`TextBgLayer` / `TextBgZ` 两个 accessor 给自检读）—— 别在别处再写一份。</summary>
+        const float TextBgZ = 0.015f;
         /// <summary>护甲盾的中心：容器 (0.899,−0.991) + 图自己的 (−0.005,−0.032)，换算成 x01/y01</summary>
         static readonly Vector2 ArmourIconAt = new Vector2(0.92721f, 0.80710f);
 
@@ -558,6 +564,28 @@ namespace CardPresentation
         public float ArtFrontZ { get { return _artFront != null ? _artFront.transform.localPosition.z : float.NaN; } }
         /// <summary>卡框那层的 z（判据用，恒为 0）</summary>
         public float FrameZ { get { return _frame != null ? _frame.transform.localPosition.z : float.NaN; } }
+        /// <summary>立绘底层那层的 z（判据用，+0.03）</summary>
+        public float ArtZ { get { return _art != null ? _art.transform.localPosition.z : float.NaN; } }
+        /// <summary>数值层（原版 `Card Info`）那层的 z（判据用，−0.02）。
+        /// ⚠️ 名字带 `Layer` 是为了避开**同名的私有常量** `InfoZ`（那个是建层用的值，不公开）。</summary>
+        public float InfoLayerZ { get { return _info != null ? _info.transform.localPosition.z : float.NaN; } }
+        /// <summary>🆕 2026-10-12（`A1658`）效果文字底板那层的 z（判据用）。
+        /// 判据 = 原版 `Front` 子序 `CardImage → Textbackgrounds → CardFrame → Card Info`
+        /// ⇒ **必须比 `FrameZ` 大**（本仓 z 越小越靠前）、**比 `ArtZ` 小**。取不到那一层时 `NaN`。
+        /// ⚠️ 名字带 `Layer` 是为了避开**同名的私有常量** `TextBgZ`（那个是建层用的值，不公开）。</summary>
+        public float TextBgLayerZ { get { return _textBg != null ? _textBg.transform.localPosition.z : float.NaN; } }
+        /// <summary>🆕 2026-10-12（`A1659`）效果文字底板那层的渲染器（判据用；没有那一层时 `null`）</summary>
+        public MeshRenderer TextBgLayer { get { return _textBg; } }
+        /// <summary>🆕 2026-10-12（`A1659`）卡框那层的渲染器（判据用）</summary>
+        public MeshRenderer FrameLayer { get { return _frame; } }
+        /// <summary>🆕 2026-10-12（`A1659`）效果文字那层 TMP（判据用：**它必须挂在 `FaceLayerRoot` 下**，
+        /// 否则倾摆非零时它与底板/卡框分成两个平面 —— 那是用户报的「图标与文字不在一个层面上」的真因）</summary>
+        public TextMeshPro KeywordsText { get { return _keywords; } }
+        /// <summary>🆕 2026-10-12（`A1659`）卡名那层 TMP（判据同 `KeywordsText`）</summary>
+        public TextMeshPro TitleText { get { return _title; } }
+        /// <summary>🆕 2026-10-12（`A1659`）卡面各层的父节点 = 原版 `2DCard`（倾摆所在的那一层）。
+        /// 自检拿它断「文字层挂对了父节点没有」。⚠️ `Build` 之前退回卡根。</summary>
+        public Transform FaceLayerRoot { get { return FaceRoot; } }
 
         /// <summary>立绘那一层**实际画出来多大**（世界单位）</summary>
         public Vector2 ArtDrawSize
@@ -630,6 +658,95 @@ namespace CardPresentation
         static Material _quadMat;
 
         readonly List<MeshRenderer> _layers = new List<MeshRenderer>();
+
+        // ==================================================================
+        //  🆕 2026-10-12（`A1665`）**每张卡一段渲染队列** —— 卡与卡之间的前后关系
+        // ==================================================================
+        //
+        // **为什么必须有它**：卡面**每一层**原本都拿 `new Material(Sprites/Default)`（Transparent 队列
+        // **3000**）⇒ 两张卡叠在一起时，「谁盖谁」只剩「**到相机的 3D 距离**」在排 —— 而本仓明令
+        // 禁止拿它当分层手段（透明队列里同队列按距离排；手牌的步长 `HandLayout.zOrderStep = 0.08`
+        // 甚至**小于卡内真实 z 跨度 0.09**（`shadow +0.06` … 文字 `−0.03`））⇒ **后面那张卡的
+        // 卡面文字会穿到前面那张卡上面**（用户 2026-09-12 报过一次、2026-10-12 又报了一次）。
+        //
+        // **做法**（与 `Core/CardFan.cs` 的 `SetCardQueue` 同一套，**判据只此一处**）：
+        //   · **一张卡 = 一段队列**：这张卡**所有**层（含 TMP、含后建的数值/徽标层）共用同一个号；
+        //   · **卡内层序仍靠 z**（只在一张卡的范围内排序，跨度 0.09、各层几乎同屏 ⇒ 可靠）；
+        //   · **卡间**由布局（`HandLayout` / 未来的 `BoardLayout`）给**不同的号**。
+        // ⇒ 只要「前卡整段 > 后卡整段」，前卡**任何**一层都压得住后卡**任何**一层 —— 这条是
+        //   `Editor/CardFaceProbe.cs` 的 `CheckLayers` 里那条**必红**断言（退回「全 3000」就红）。
+        //
+        // 🔴 **号段约束**：`QCard = 3000` 是**上限**，不是随便挑的 —— 全仓有几处按「卡 ≤ 3000」写死：
+        //   `Board/BoardLayout.cs:111`（`MarkerQ = 3100` **必须大于卡的 3000**）·
+        //   `Core/CardWinBox.cs:83`（`QEffect = 3020` 画在卡之上）·
+        //   `Battle/CardDisplayWindow.cs:83`（`QChrome = 3000` 遮罩，靠 z=−2 压住手牌）。
+        //   ⇒ 手牌那一段是**从 3000 往下**排的（见 `HandLayout.queueTop`），不是往上。
+        /// <summary>卡面各层的**默认**渲染队列（= `Sprites/Default` 的 `Transparent` 队列）。
+        /// 也是**卡这张卡自己的号段上限** —— 见上面那段「号段约束」。</summary>
+        public const int QCard = 3000;
+
+        int _queue = QCard;
+
+        /// <summary>这张卡现在那一整段的队列号（布局给的；没被布局摆过就是 `QCard`）。
+        /// 自检拿它断「卡与卡的号不重复 / 前卡整段大于后卡整段」。</summary>
+        public int Queue { get { return _queue; } }
+
+        /// <summary>**把这张卡的每一层都设成同一个队列号**（= 给这张卡一段队列）。
+        /// <para>🔴 **本工程「每张卡一段队列」的唯一实现** —— `CardFan.SetCardQueue` 只是转发到这儿
+        /// （⛔ 别在任何地方再写第二份；两处写同一条规则 = 迟早不一致）。</para>
+        /// <para>⚠️ **一律走 `.material`（不是 `.sharedMaterial`）**：文字那层的 `sharedMaterial`
+        /// 就是**字体资产里那一份**（TMP 的 MeshRenderer），直接写 `sharedMaterial` 会把
+        /// `Resources/Fonts/Warpforge Trait TextSprites.asset` 的 `m_CustomRenderQueue` 写脏并**落盘**、
+        /// 还会连累所有用同一字体的文字（2026-09-27 实测踩过）。`.material` 会先为这个渲染器
+        /// **实例化一份**，写回 `sharedMaterial` ⇒ 只改这一张卡。</para>
+        /// <para>⚠️ 点阵后端（`Label` 自己挂 MeshRenderer）走 `Label.SetRenderQueue`（它也会先实例化）。</para>
+        /// <para>⚠️ 它**扫整棵子树**，所以「后建的层」（数值层 `BuildStatLayers` / 徽标 / 重建的 TMP）
+        /// 只要下一次 `SetQueue` 时已经存在就会被带上；建层那几处另有 `StampQueue` 兜当场那一次。</para></summary>
+        public void SetQueue(int q)
+        {
+            _queue = q;
+            foreach (var mr in GetComponentsInChildren<MeshRenderer>(true))
+            {
+                if (mr.GetComponent<Label>() != null) continue;   // 点阵文字：走下面那个（它自己实例化）
+                StampQueue(mr);
+            }
+            foreach (var lb in GetComponentsInChildren<Label>(true)) lb.SetRenderQueue(q);
+        }
+
+        /// <summary>把**这一层**的队列设成这张卡当前那一段（建层当场调一次 —— 免得「建出来之后
+        /// 还没被布局摆过」的那段时间里它是默认 3000）。
+        /// <para>🔴 **值已经对了就一个字节都不写**：`.material` 会**实例化**共享材质，而 TMP 那几层的
+        /// `sharedMaterial` 是**字体资产里那一份**（全卡共用 ⇒ 能合批）⇒ 无脑写会把每张卡的每层文字
+        /// 都拆成独立材质（多出几十个 draw call），而且是**白拆**（默认 3000 == 卡片队列段的默认号）。
+        /// 只有布局真给了别的号（`≠ QCard`）时才需要实例化 —— 那时不合批是应该的。</para></summary>
+        void StampQueue(MeshRenderer mr)
+        {
+            if (mr == null || mr.sharedMaterial == null) return;
+            if (mr.sharedMaterial.renderQueue == _queue) return;   // 无操作就别拆材质（见 doc）
+            mr.material.renderQueue = _queue;      // `.material`：共享材质会就地克隆 ⇒ 绝不写到别人的材质上
+        }
+
+        /// <summary>一颗 TMP 的**全部**渲染器（主网格 + 它的 `TMP_SubMesh`，行内 `&lt;sprite&gt;` 图标
+        /// 在子网格上、**自带一个 MeshRenderer** ⇒ 「图标与文字同面/同队列」靠它一起刷）。
+        /// ⚠️ 子网格是**文本里出现 `&lt;sprite&gt;` 之后**才建的 ⇒ 建层当场刷一次、`Fill` 收尾再刷一次
+        /// （`SetQueue` 扫整棵子树是最后一道兜底）。</summary>
+        void StampTmpQueue(TextMeshPro t)
+        {
+            if (t == null) return;
+            foreach (var mr in t.GetComponentsInChildren<MeshRenderer>(true)) StampQueue(mr);
+        }
+
+        /// <summary>🆕 自检用：这张卡**子树里所有渲染器**的队列号（含 TMP 与其 sprite 子网格、含 `Label`）。
+        /// 「前卡整段 &gt; 后卡整段」那条断言用的是它的 `Min`/`Max` —— 用集合而不是单个号，
+        /// 是为了**将来哪天卡内层改成 `q + 偏移`** 时那条断言仍然成立（现在就写死成「一个号」会锁住实现）。</summary>
+        public int[] SubtreeQueues()
+        {
+            var all = GetComponentsInChildren<MeshRenderer>(true);
+            var list = new List<int>(all.Length);
+            foreach (var mr in all)
+                if (mr.sharedMaterial != null) list.Add(mr.sharedMaterial.renderQueue);
+            return list.ToArray();
+        }
 
         // ---- 卡面那一层「内层节点」+ 整卡倾摆（原版 `2DCard` / `AutoCardRotation`）----
         // 原版是**两层节点**：外层 `CardUI Reference`（布局摆位、写扇形角）→ 内层 `2DCard`
@@ -1354,6 +1471,41 @@ namespace CardPresentation
             return m != null && m.HasProperty("_GreyScale") && m.GetFloat("_GreyScale") > 0.5f;
         }
 
+        /// <summary>🆕 自检用（`A1661`）：第 i 个位底板**网格**里全部顶点的 x（**卡单位**，去重后升序）。
+        /// 判「是不是原版那种 Sliced」就看它**有几条竖线**：整图一个 quad = **2** 条，
+        /// 原版那样切一刀 = **3** 条（左片外缘 / 那条竖切线 / 右片内缘）。
+        /// <para>⚠️ 从**网格顶点**读（不是记一个数）—— 记数的话「改法」和「断言」会一起错（自证）。
+        /// 这一位没建（缺图 / 没给徽标）返回 `null`。</para></summary>
+        public float[] BadgePlateVertexXs(int i)
+        {
+            if (i < 0 || i >= _badgePlates.Count || _badgePlates[i] == null) return null;
+            var mf = _badgePlates[i].GetComponent<MeshFilter>();
+            if (mf == null || mf.sharedMesh == null) return null;
+            float k = CardUnitW / Width;                 // 世界 → 卡单位（今天 = 1，别写死）
+            var xs = new List<float>();
+            foreach (var v in mf.sharedMesh.vertices)
+            {
+                float x = v.x * k;
+                bool dup = false;
+                for (int j = 0; j < xs.Count; j++)
+                    if (Mathf.Abs(xs[j] - x) < 1e-3f) { dup = true; break; }
+                if (!dup) xs.Add(x);
+            }
+            xs.Sort();
+            return xs.ToArray();
+        }
+
+        /// <summary>🆕 自检用（`A1661`）：第 i 个位底板的材质色（原版 = <see cref="BadgePlateInk"/> 那个深灰）。
+        /// ⚠️ 材质不在 / 没有 `_Color` 时返回 `Color.clear`（**不是白**）—— 好让断言能分辨
+        /// 「没上色」和「上成别的色」两件事。</summary>
+        public Color BadgePlateColor(int i)
+        {
+            if (i < 0 || i >= _badgePlates.Count || _badgePlates[i] == null) return Color.clear;
+            var m = _badgePlates[i].sharedMaterial;
+            if (m == null || !m.HasProperty("_Color")) return Color.clear;
+            return m.color;
+        }
+
         /// <summary>卡单位坐标 → `SpriteQuad` 要的 0..1（左上原点）。</summary>
         static Vector2 ToAt01(Vector2 cardUnit)
         {
@@ -1369,17 +1521,52 @@ namespace CardPresentation
             return ToAt01(new Vector2(at.x + (at.x < 0f ? -Badges.IconOutward : Badges.IconOutward), at.y));
         }
 
-        const float BadgePlateZ = -0.095f;    // 在数值层**之前**（见下面那条 z 的说明）
-        const float BadgeIconZ = -0.10f;
-        const float BadgeCounterZ = -0.105f;
-        // 🔴 **2026-09-20：徽标/数值的 z 必须「在 3D 卡体的正面之前」**。
-        //    卡体的网格是一块薄板：正面在 **card 空间 z ≈ −0.08**（mesh 正面 z≈+0.09 × 0.88586，
-        //    再被 `Card 3D` 的 yaw 180° 翻到 −z）。原来这几个层在 −0.02…−0.055 ⇒ **整块被卡体挡住**
-        //    （症状：场卡上数字/徽标**直接看不见**，而三色彩钮还在）。原版也是这个相对关系：
-        //    那几个文本节点挂在 `3DBody` 的 z ≈ **−0.06…−0.08**（就是贴在卡面上）。
-        //    ⚠️ 这几个层**只在场上出现**，所以直接改常量；手牌那个 2D 卡面不受影响。
-        const float BoardInfoZ = -0.09f;      // 场上的数值层（`_info`）
-        const float BoardArmourIconZ = -0.088f; // 场上的护甲盾（在数值层**之后**、卡体正面之前）
+        // ==================================================================
+        //  场上那一叠覆盖层的 z（**一整套，必须整体一起看**）
+        // ==================================================================
+        //
+        // 🔴 **2026-09-20 起的原则**：这些层必须落在 **3D 卡体正面之前**
+        //    （原来在 −0.02…−0.055 ⇒ 整块被卡体挡住，症状 = 场卡上的数字/徽标**直接看不见**，
+        //     而卡体自带的三色彩钮还在）。⚠️ 这几个层**只在场上出现**，手牌那个 2D 卡面不受影响
+        //    （2D 那一套是 `InfoZ`/`ArmourIconZ`，见下面两行）。
+        //
+        // 🔴 **2026-10-12（用户真机报「场上的战将和部队没有近战/远程/血量数值」）—— 两处改动**：
+        //
+        // ① **把整叠一起往相机方向挪，留出【明确】的间隙。** 原来数字在 **−0.09**，而卡体正面
+        //    实测在 **−0.0115…−0.079**（见 `Body3DFrontZ`）⇒ 最薄处只剩 **0.011 卡单位**，
+        //    和深度缓冲的量化步长同量级 ⇒ **逐格、逐帧地翻**（这正是「同一张卡有的格有、有的格没有，
+        //    而且和卡/阵营/稀有度都无关」那种症状的来源）。
+        //    ⚠️ **原版只给了相对关系**（数值贴在卡面上、在徽标**之前**），**绝对值是我们挑的**
+        //       —— 铁律 3 / 铁律 10 第 3 条：这里明确写成「我们挑的」，别当成原版值。
+        //    新间隙：数字离卡体最靠前的那个面 **≥ 0.07 卡单位**（实测 0.0714，比原来大 6 倍）。
+        //
+        // ② **数值挪到徽标那一组【之前】**（原来徽标底板 −0.095 比数字 −0.09 **更靠前**）。
+        //    右列第 4 行的底板 rect（x 0.236…0.788 · y −0.978…−0.277，见 `Badges.SlotAt`）正好罩住
+        //    护甲格 (0.678, −0.894) ⇒ **7 个关键词的单位，护甲数会被底板压掉**。
+        //    原版也是「数值在前」：`TraitIcons` 挂在 3DBody **z=−0.014**，而那四个数值文本节点在
+        //    **z=−0.063…−0.080**（`资料/3DBody_原版场上卡体规格.md:187-190`）。
+        //
+        // ⇒ **一整套的次序**（越靠前越负；断这条的是 `Editor/BattleScene.cs` 里那条 z 序断言）：
+        //      卡体正面(`Body3DFrontZ` −0.079)  →  徽标底板  →  徽标图标  →  徽标角标
+        //      →  护甲盾  →  **四个数值**（最靠前）
+        /// <summary>徽标**底板**的 z（场上）。⚠️ 在数值层**之后**（见上面那一整段）。</summary>
+        public const float BadgePlateZ = -0.118f;
+        /// <summary>徽标**图标**的 z（场上）。</summary>
+        public const float BadgeIconZ = -0.124f;
+        /// <summary>徽标**角标数字**的 z（场上）。</summary>
+        public const float BadgeCounterZ = -0.130f;
+        /// <summary>场上的**护甲盾**（数值的背景）—— 在数值**之后**、徽标**之前**。</summary>
+        public const float BoardArmourIconZ = -0.140f;
+        /// <summary>场上的数值层（`_info` 与四个独立数值格共用这一个 z）。最靠前的一层。</summary>
+        public const float BoardInfoZ = -0.150f;
+        /// <summary>**3D 卡体正面在卡根空间里最靠前的那一点** —— 场上一叠覆盖层的「底线」。
+        /// <para>⚠️ 这个数是**从网格实读算出来的**，不是任何一个序列化字段：把
+        /// `bundle_battleprefabs_vfxandmisc_assets_all/Mesh/Card 3D WH40k.obj` 的 833 个面
+        /// 按 XY 投影插值，取四个数值格那块矩形（±0.17 卡单位）里**最靠前**的表面，得
+        /// **−0.0786**（≈ −0.079）⇒ 四个数值格都坐在**凸起的计数器面板**上。
+        /// 卡面中段那片平面在 **−0.0115**；滚圆的底边（mesh |z|>0.5，卡 y ≤ −1.51）够不到数值格，已排除。</para>
+        /// <para>数值层与它之间必须留 ≥ 0.05（现在是 0.071）—— 这就是上面 ①。</para></summary>
+        public const float Body3DFrontZ = -0.079f;
         const float InfoZ = -0.02f;           // 2D 卡面的数值层 z（原来写死在 `AddLayer` 那一行）
         const float ArmourIconZ = -0.015f;    // 2D 卡面的护甲盾 z
         /// <summary>徽标角标的字色 —— **原版 = 暖白 (1.0, 0.9729, 0.9104)**。
@@ -1403,11 +1590,22 @@ namespace CardPresentation
             var at = Badges.SlotAt(i);
             // 底板 = 容器位置 + 往卡外 `PlateOutward`、再下移 `PlateDy`（原版 `IconBackground` 的局部值
             // × 容器 scale 0.750）。⚠️ 图标在**另一个**位置（`BadgeIconAt01`，见它的注释）。
+            // ⚠️ **这个点是板的【外缘】**（不是中心）—— 原版 sprite 的 `m_Pivot` 在左边缘，
+            //    所以两列都是「从这个点往卡内铺」；居中是错的（见 `BadgePlateQuad`）。
             var plateAt = ToAt01(new Vector2(at.x + (at.x < 0f ? -Badges.PlateOutward : Badges.PlateOutward),
                                              at.y + Badges.PlateDy));
 
-            _badgePlates.Add(AddLayer("badgePlate" + i, plate, BadgePlateZ, plate,
-                                      FitQuad("badgePlate" + i, plateAt, Badges.PlateW, Badges.PlateH, plate)));
+            // 🔴 **2026-10-12（`A1661`）**：原来这里是
+            //    `FitQuad("badgePlate"+i, plateAt, PlateW, PlateH, plate)`（**整图按自身比例内接成一个
+            //    【居中】quad、且不上色**）—— 三处与原版不符，用户真机上报的「**卡框外的白色斜方块**」就是它：
+            //      ① **没上色**：原版乘 `m_Color`（0.3230/0.3431/0.3585 的深灰），我们画的是奶油原色；
+            //      ② **居中**：可见板整体往卡外挪 0.172 卡单位（左列可见板左边 −0.9601，卡左边才 −1.0463）；
+            //      ③ **整图内接**：可见板只有 0.2064 宽（还把透明边与右下投影一起画了进去），
+            //         原版 Sliced 出来是 **0.3312**。
+            var plateMr = AddLayer("badgePlate" + i, plate, BadgePlateZ, plate,
+                                   BadgePlateQuad("badgePlate" + i, plateAt, at.x < 0f));
+            SetBadgePlateInk(plateMr, _alpha);
+            _badgePlates.Add(plateMr);
             // 图标层走**自建灰化 shader**（原版 `disabledMaterial` = `Sprite Greyscale`，见 `TraitDisabled.shader`）：
             // 徽标的「未激活态」**不是换图、也不是缩小**，而是**同一张图换材质**（`BoardTraitIcon.Initialize`）。
             // ⇒ 一个 shader 两态共存，激活不激活只差 `_GreyScale`（0 / 1），重建视图时不用换层。
@@ -1417,7 +1615,11 @@ namespace CardPresentation
             // 🔴 **2026-09-17 更正**：这里原来写「角标数字**用深色**……原版那个计数器用的什么颜色
             //    本地查不到 ⇒ **这一条是我们挑的**」—— **错的**：原版查得到（见 `BadgeCounterInk` 的注释），
             //    是**暖白 + Bold**，已经改回。压在浅色底板上读不出来那件事，原版就是这么印的。
-            var t = TmpFont.NewText(transform, "badgeCounter" + i, "", BadgeCounterFontSize, BadgeCounterInk);
+            // 🔴 **2026-10-12（`A1659`）：父节点由 `transform`（卡根）改成 `FaceRoot`（`2DCard`）** ——
+            //    理由与 `Fill` 里那段逐字相同（倾摆挂在 `2DCard` 上，挂错父节点 ⇒ 角标数字与徽标底板
+            //    在位移中分成两个平面）。徽标底板/图标本来就在 `FaceRoot` 下。
+            var t = TmpFont.NewText(FaceRoot, "badgeCounter" + i, "", BadgeCounterFontSize, BadgeCounterInk);
+            StampTmpQueue(t);   // 🆕 A1665：角标数字也是这张卡的一层
             // 🔴 **2026-10-18（`A848` 的补齐件 · `A994③` 同一轮）**：角标数字那层的纵向对齐 =
             //   原版 **`TraitCounter`** 的 **`Midline`(4096)** —— 现读
             //   `d:/2/新解包资源/assets_full/bundle_battleprefabs_vfxandmisc_assets_all/`：
@@ -1471,6 +1673,7 @@ namespace CardPresentation
             mr.sharedMaterial = m;
             mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             mr.receiveShadows = false;
+            StampQueue(mr);          // 🆕 A1665：徽标也是这张卡的一层
             _layers.Add(mr);
             SetBadgeGrey(mr, active);
             return mr;
@@ -1570,6 +1773,7 @@ namespace CardPresentation
         /// <summary>
         /// 按**贴图自身比例**装进 (w × h) 的格子 —— 和卡框那条规矩一样（别把图拉变形）。
         /// ⚠️ 网格按「名字 + 实绘尺寸」缓存：`SpriteQuad` 只按名字缓存，同一位换了比例会拿到旧网格。
+        /// ⚠️ **徽标底板不走这条**（原版那层是 **Sliced**，⛔ 不是「整图按自身比例内接」）—— 见 `BadgePlateQuad`。
         /// </summary>
         static Mesh FitQuad(string name, Vector2 at01, float w, float h, Texture2D tex)
         {
@@ -1577,6 +1781,80 @@ namespace CardPresentation
             float bw = w, bh = h;
             if (a < w / h) bw = h * a; else bh = w / a;
             return SpriteQuad($"{name}_{bw:F3}x{bh:F3}", at01, bw, bh);
+        }
+
+        // ── 徽标底板（原版 `IconBackground`：一个 **Sliced** 的 `SpriteRenderer`）────────────────
+        // 原版出处（`bundle_battleprefabs_vfxandmisc_assets_all/GameObject/IconBackground*.json`
+        // 7 份逐份实读、同值；判据全文 = `资料/普查产出_第二十二会话/DIAG_徽标底板图.md` §二）：
+        //   · sprite = `Base3d Trait Background`（PathID 2729514481590049735）—— **本地有**，我们画的就是它
+        //     （`Art/ui/Base3d_Trait_Background.png` 与原版**逐字节相同**）
+        //     `m_Rect = 105×214` px · `m_PixelsToUnits = 200` · **`m_Pivot = (0, 0.5)`（左边缘！）**
+        //     `m_Border = (0, 0, 96, 0)` —— 左/下/上都是 0 ⇒ **只有一条竖切线**
+        //   · renderer：**`m_DrawMode = 1 (Sliced)`** · `m_Size = (0.85, 0.874)` ·
+        //     `m_Color = (0.32298, 0.34305, 0.35849)`（**深灰**，见 `BadgePlateInk`）· `m_SortingOrder = 0`
+        //   · `localScale = (±0.8656, 1.0692)`（**右列 x 为负 = 镜像**）× 容器 0.7502 = `Badges.PlateW/H`
+        /// <summary>原版底板 sprite 的宽度（px，`m_Rect.x`）</summary>
+        public const float PlateSpriteW = 105f;
+        /// <summary>原版底板 sprite 的**右**边界（px，`m_Border.z`）；左/下/上都是 0。</summary>
+        public const float PlateSpriteRightBorder = 96f;
+        /// <summary>贴图里**不透明板区**的右端（px）：x `0..62` 是不透明的板，`63..94` 是右边的柔和投影。
+        /// 出处：`Art/ui/Base3d_Trait_Background.png`（105×214）**逐像素实测**（alpha ≥ 128 的列范围）。</summary>
+        public const float PlateSpriteInkRight = 63f;
+        /// <summary>九宫格那条竖切线的位置（占整块 quad 宽的比例）= `(105−96)/105` = **9/105**。</summary>
+        public static float PlateSliceFrac { get { return (PlateSpriteW - PlateSpriteRightBorder) / PlateSpriteW; } }
+        /// <summary>**可见**（不透明）板区占整块 quad 宽的比例 = `63/105` = **0.6**
+        /// ⇒ 可见板宽 = `Badges.PlateW × 它` = **0.3312** 卡单位（我们原来「整图内接」只有 0.2064 = 0.62 倍）。</summary>
+        public static float PlateInkFrac { get { return PlateSpriteInkRight / PlateSpriteW; } }
+
+        static readonly Dictionary<string, Mesh> _badgePlateQuads = new Dictionary<string, Mesh>();
+
+        /// <summary>徽标底板的 **Sliced 九宫格**网格（原版 `m_DrawMode = 1`）。
+        /// 原版左/下/上边界都是 0 ⇒ 只有**两片**：左 `u∈[0, 9/105]`、右 `u∈[9/105, 1]`。
+        /// <para>🔴 **锚点 = `at01` 的横向【外缘】**：原版 sprite 的 `m_Pivot = (0, 0.5)` 在**左边缘**，
+        /// 右列靠 `localScale.x = −0.8656` 镜像 ⇒ 两列都**从外缘往卡内铺**。
+        /// ⛔ **不是居中** —— 居中会让整块板往卡外伸半个板宽（`A1661`：用户 2026-10-12 在真机上看到的
+        /// 「卡框外的白色斜方块」，就是「居中 + 整图内接 + 不上色」这三件事一起造成的）。</para>
+        /// <para>`leftColumn`：位子在**左列**（板往 **+x** 铺、x 是负的）传 `true`；右列（往 **−x**）传 `false`。
+        /// ⚠️ 名字里带位子（`badgePlate0..6`）—— 网格烘的是**绝对**坐标（和 `SpriteQuad` 同一套做法）。</para></summary>
+        static Mesh BadgePlateQuad(string name, Vector2 at01, bool leftColumn)
+        {
+            Mesh m;
+            if (_badgePlateQuads.TryGetValue(name, out m) && m != null) return m;
+
+            float s = Width / CardUnitW;                            // 卡单位 → 世界
+            float w = Badges.PlateW * s, h = Badges.PlateH * s;
+            float ax = (at01.x - 0.5f) * Width;                     // 锚点 = 板的**外缘**
+            float cy = (0.5f - at01.y) * Height;                    // 纵向仍是**居中**（原版 pivot y = 0.5）
+            float y0 = cy - h * 0.5f, y1 = cy + h * 0.5f;
+            int dir = leftColumn ? 1 : -1;
+            float cut = ax + dir * w * PlateSliceFrac;              // 那条竖切线
+
+            var verts = new Vector3[8];
+            var uvs = new Vector2[8];
+            var tris = new int[12];
+            AddSlice(0, ax, cut, 0f, PlateSliceFrac, 0);            // 左片（贴图 x 0..9）
+            AddSlice(4, cut, ax + dir * w, PlateSliceFrac, 1f, 6);  // 右片（贴图 x 9..105）
+
+            void AddSlice(int o, float xa, float xb, float ua, float ub, int t)
+            {
+                float xlo = Mathf.Min(xa, xb), xhi = Mathf.Max(xa, xb);
+                float ulo = xa <= xb ? ua : ub, uhi = xa <= xb ? ub : ua;   // 右列 x 反向 ⇒ u 也跟着反
+                verts[o + 0] = new Vector3(xlo, y0, 0f); uvs[o + 0] = new Vector2(ulo, 0f);
+                verts[o + 1] = new Vector3(xhi, y0, 0f); uvs[o + 1] = new Vector2(uhi, 0f);
+                verts[o + 2] = new Vector3(xhi, y1, 0f); uvs[o + 2] = new Vector2(uhi, 1f);
+                verts[o + 3] = new Vector3(xlo, y1, 0f); uvs[o + 3] = new Vector2(ulo, 1f);
+                // 绕序与 `SpriteQuad` 一致（⛔ 别按 u 的方向决定绕序 —— 右列是镜像的）
+                tris[t + 0] = o + 0; tris[t + 1] = o + 2; tris[t + 2] = o + 1;
+                tris[t + 3] = o + 0; tris[t + 4] = o + 3; tris[t + 5] = o + 2;
+            }
+
+            m = new Mesh { name = "BadgePlateQuad_" + name };
+            m.vertices = verts;
+            m.uv = uvs;
+            m.triangles = tris;
+            m.RecalculateBounds();
+            _badgePlateQuads[name] = m;
+            return m;
         }
 
         void Build(CardData d)
@@ -1716,15 +1994,32 @@ namespace CardPresentation
                 //    （对照 `D:/2/Warpforge部队卡片/…/4计策/*.png` —— 战术卡只有费用和稀有度）
                 var armourTex = d.isUnit && d.armor > 0 ? CardArt.DeckUi("pedestal_icon_armor") : null;
                 if (armourTex != null)
-                    _armourIcon = AddLayer("armourIcon", armourTex, ArmourIconZ, armourTex,
-                                           SpriteQuad("armourIcon", ArmourIconAt, ArmourIconW, ArmourIconH));
+                    // 🔴 **2026-10-12：z 与位置要按形态取**（原来无条件写 2D 那一档）。
+                    //    `Build` 是**出生入口**、`SetFace` 是**换形态入口**（铁律 10 第 5 条：两个入口
+                    //    都要显式设一次）—— 而 `SetFace` 在「出生就在场上」（`Create(face: Board)`）
+                    //    这条路上**根本不会被调用**（它开头那句 `if (_faceMode == f) return;` 直接返回）
+                    //    ⇒ 出生在场上的卡（督军 / AI 出的兵）的护甲盾一直停在 **−0.015**：
+                    //    比徽标那一叠（−0.118…−0.130）还**远** ⇒ 徽标一压就把盾盖掉，
+                    //    而**从手牌打出去**的同类卡是 −0.140（在徽标之前）。同一个形态两套值。
+                    //    （位置同理：`SetFace` 那边换的是 `armourIconBoard` 那块 mesh，这里也得换，
+                    //      否则出生在场的卡盾牌停在 2D 卡面的坐标上。）
+                    _armourIcon = AddLayer("armourIcon", armourTex,
+                                           board ? BoardArmourIconZ : ArmourIconZ, armourTex,
+                                           SpriteQuad(board ? "armourIconBoard" : "armourIcon",
+                                                      board ? BoardArmourAt : ArmourIconAt,
+                                                      ArmourIconW, ArmourIconH));
                 // ⚠️ 数值层：场上传 `statsOnly` —— **费用/卡名/效果文字都不烘进去**
                 //    （原版场上那些层整棵关掉；只有攻/血/甲留着）
                 // 🆕 2026-09-29：**场上那四个数字改由四个独立图层画**（`BuildStatLayers`）——
                 //    原版「受击时那一个数值变色 + bump」是按 counter 做的，烘在一张图里动不了单个。
                 //    ⇒ 这一张 `_info` 在场上就**只剩底**（`skipStats`），拆不出来时（字形表不在）
                 //    照旧走老路把数字烘进来。
-                _info = AddLayer("info", frameTex, InfoZ, InfoTexture(d, board, SplitStats(d)));
+                // 🔴 **2026-10-12：z 同样按形态取**（理由与上面 `armourIcon` 那句一字不差 ——
+                //    出生在场的卡原来拿的是 2D 的 −0.02）。⚠️ 场上这张 `_info` 是**全卡大小的一张
+                //    quad**，而场上它烘出来的是**全透明**（`skipStats` 那两条跳过）⇒ 挪不挪都不改变
+                //    画面；这里跟着挪只为「两个入口同一个值」+ 免得它与四个数值层**同 z 共面**。
+                _info = AddLayer("info", frameTex, board ? BoardInfoZ : InfoZ,
+                                 InfoTexture(d, board, SplitStats(d)));
                 if (SplitStats(d)) { BuildStatLayers(); SyncStatLayers(); }
                 // 稀有度宝石：叠在卡框那颗**暗色凹槽**上（原版 `Rarity` 节点）。
                 // 卡框分档改的是框的形制，**光靠它看不出稀有度** —— 颜色在这颗宝石上。
@@ -1765,6 +2060,7 @@ namespace CardPresentation
                 //    （连同它保留 `renderQueue` 的修）就只服务这条支路。
                 _face = GetComponent<MeshRenderer>();
                 _face.sharedMaterial = FaceMaterial(d);
+                StampQueue(_face);       // 🆕 A1665：占位卡面那一层也跟着这张卡的队列段走
                 _layers.Add(_face);
                 var wellArt = ArtTexture(d);
                 _art = AddLayer("art", null, 0.03f, wellArt, ArtMeshInWell(wellArt, WellW, WellH, WellY));
@@ -1784,6 +2080,7 @@ namespace CardPresentation
             rimGo.AddComponent<MeshFilter>().sharedMesh = Quad();
             _rim = rimGo.AddComponent<MeshRenderer>();
             _rim.sharedMaterial = RimMaterial();
+            StampQueue(_rim);            // 🆕 A1665：状态环也是这张卡的一层（`RimMaterial()` 每次都新建一份 ⇒ 安全）
             _rim.enabled = false;
 
             // 卡名/关键词走 TMP（拿不到字体资产时它自己会跳过，字仍旧烘在 _info 里）
@@ -2156,9 +2453,19 @@ namespace CardPresentation
 
             if (t == null)
             {
-                t = TmpFont.NewText(transform, name, "", fontSize, baseColor);
+                // 🔴 **2026-10-12 就地更正（`A1659`，用户报「图标与文字不在一个层面上」）——
+                //  父节点原来是 `transform`（卡根），改成 `FaceRoot`（= 子节点 `2DCard`，**倾摆挂它身上**）。**
+                //  **改前为什么是缺陷**：**所有 quad 层都挂 `FaceRoot`**（`AddLayer` / 徽标 / 环 / 四个数值层
+                //  —— 见 `AddLayer` 那句 `SetParent(FaceRoot)`），而文字层与角标文字挂的是**卡根**
+                //  ⇒ 位移中 `AutoCardRotation` 把 `2DCard` 转到 ≤±10°、**文字/图标不跟着转**
+                //  ⇒ 字面意义上的「文字/图标与底板、卡框**分成两个平面**」。静止时 `2DCard` 是 identity，
+                //  位置逐位不变（所以只看截图看不出来）。
+                // ⚠️ **图标本身（`<sprite>` 行内字形）不用单独处理**：它在**同一条 TMP 网格**里
+                //  （`TMP_SubMesh` 与主网格同父、同 z、同队列）⇒ 父节点修完它自然跟着文字同面。
+                t = TmpFont.NewText(FaceRoot, name, "", fontSize, baseColor);
                 // 图标 sprite asset 由 `TmpFont.NewText` 统一挂上（全工程只那一处设）。
                 // 原地更新的那条路上它已经在 TMP 里了，不用重设。
+                StampTmpQueue(t);      // 🆕 A1665：TMP 也是这张卡的一层（含它的 sprite 子网格）
             }
 
             t.text = text;
@@ -2175,6 +2482,7 @@ namespace CardPresentation
 
             if (bottomAlign) PlaceBottomAt(t, at, TextZ);
             else PlaceAt(t, at, TextZ);
+            StampTmpQueue(t);   // 🆕 A1665：文本定下来之后再刷一次（`<sprite>` 子网格是这时候才有的）
             return t;
         }
 
@@ -2309,6 +2617,7 @@ namespace CardPresentation
             mr.sharedMaterial = m;
             mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             mr.receiveShadows = false;
+            StampQueue(mr);          // 🆕 A1665：这一层跟着这张卡的队列段走（见 `SetQueue`）
             _layers.Add(mr);
             return mr;
         }
@@ -3193,6 +3502,29 @@ namespace CardPresentation
             m.SetFloat("_GreyScale", active ? 0f : 1f);
         }
 
+        /// <summary>徽标底板的底色 —— 原版 `IconBackground` 那个 `SpriteRenderer` 的
+        /// `m_Color = (0.32298, 0.34305, 0.35849)`（**深灰**，7 份实例逐份同值）。
+        /// 🔴 **别让 `_tint` 刷它**：原版这个颜色是**写死的**（挂在它上面的 `NestedFadeGroup`
+        /// 只动 alpha、不改色），而 `ApplyTint()` 的 `_layers` 循环会把它当成普通图层刷成状态色
+        /// （平时 = **白**）—— 那正是用户 2026-10-12 看到的「**白色方块**」的直接来源
+        /// ⇒ `ApplyTint` 末尾要**单独刷回来**（同 `_textBg`、`_shadowLayer` 那两族）。</summary>
+        public static readonly Color BadgePlateInk = new Color(0.32298f, 0.34305f, 0.35849f, 1f);
+
+        /// <summary>把底板刷成原版那个深灰。`alpha` = 卡的整卡淡出（`_alpha`）；
+        /// **整组徽标**自己的 `_badgeAlpha` 由 `ApplyBadgeAlpha()` 在这之后**再乘一次** —— 次序别反。</summary>
+        static void SetBadgePlateInk(MeshRenderer plate, float alpha)
+        {
+            if (plate == null || plate.sharedMaterial == null) return;
+            if (!plate.sharedMaterial.HasProperty("_Color"))
+            {
+                Debug.LogWarning("[CardView] 徽标底板的材质没有 `_Color` —— 它会画成原色（偏白），"
+                               + "而原版 `IconBackground.m_Color` 是深灰 (0.3230, 0.3431, 0.3585)");
+                return;
+            }
+            plate.sharedMaterial.color = new Color(BadgePlateInk.r, BadgePlateInk.g, BadgePlateInk.b,
+                                                   BadgePlateInk.a * alpha);
+        }
+
         /// <summary>当前的状态色。`SetData` 原地重建 TMP 文字时要把它乘回去</summary>
         Color _tint = Color.white;
 
@@ -3239,6 +3571,12 @@ namespace CardPresentation
             //    ⇒ 刷完统一色之后**单独把它刷回去**（只乘卡的整体淡出 `_alpha`，不乘 tint 的 RGB）。
             if (_textBg != null && _textBg.sharedMaterial != null)
                 _textBg.sharedMaterial.color = new Color(0f, 0f, 0f, TextBgAlpha * _alpha);
+
+            // 🔴 **徽标底板同理（2026-10-12 · `A1661`）**：原版 `IconBackground.m_Color` 是**写死的深灰**
+            //    （见 `BadgePlateInk`），上面那个 foreach 会把它刷成 `_tint`（平时 = **白**）——
+            //    而底板比图标大、位置又贴着卡框左缘，**白底板**在真机上就是用户报的那个白方块。
+            //    ⚠️ 位置放在 `ApplyBadgeAlpha()` 之前：那一步会在这个底色上**再乘** `_badgeAlpha`。
+            for (int i = 0; i < _badgePlates.Count; i++) SetBadgePlateInk(_badgePlates[i], _alpha);
 
             // 🔴 **同理（2026-09-19）**：软光/影那层的颜色**是它自己说了算**的
             //    （原版 shader 用的是 `_ShadowColor` / `_Outline`，没有 `_Color`）——
@@ -3635,7 +3973,12 @@ namespace CardPresentation
         /// <summary>底光直径 ÷ 卡宽。算式见 `SetTargetGem`</summary>
         const float GlowOfCard = 1.13f / 2.09f;      // ≈ 0.54
 
-        /// <summary>底光的 z：夹在卡框（0）和数值层（-0.02）之间 —— 即**画在数字后面**</summary>
+        /// <summary>底光的 z。判据 = **画在数字后面**（原版 `Highlight.SortingOrder` 比数值小）。
+        /// <para>⚠️ 两个形态用的是**同一套覆盖层 z**（`GlowZ` 一手牌/2D 卡面；场上也是它）：
+        /// 场上四个数值在 **`BoardInfoZ`(−0.150)** ⇒ 底光（−0.01）比它们**远 0.14**，
+        /// 同队列下先画 ⇒ 数字盖在底光上（这就是要的效果）。
+        /// 🔴 **但队号必须与本卡那一段相同**（`MakeGlow` 里那句 `SetRenderQueue(Queue)`）——
+        /// 只靠 z 不够：底光原来是 3000、比整张卡的 2962..2979 **大** ⇒ 队列优先，z 再远也压在最上面。</para></summary>
         const float GlowZ = -0.01f;
 
         ImageQuad _glowMelee, _glowRanged;
@@ -3678,8 +4021,15 @@ namespace CardPresentation
             if (_glowTried) return;
             _glowTried = true;
             float dia = Width * GlowOfCard;
-            _glowMelee = MakeGlow("40K_melee_glow", MeleeAt, dia, "glow_melee");
-            _glowRanged = MakeGlow("40K_ranged_glow", RangedAt, dia, "glow_ranged");
+            // 🔴 **2026-10-12：位置按形态取** —— 底光的锚点是「在卡体那颗攻击数值格上、**与数字同点同心**」
+            //    （四条独立证据见 `SetTargetGem` 的注释），而**同一个数值格在两种形态下位置不同**：
+            //    场上是 `BoardMeleeAt/BoardRangedAt`、2D 卡面是 `MeleeAt/RangedAt`。
+            //    原来无条件用 2D 那一套 ⇒ **场卡上的底光偏了 (0.156, 0.264) 卡单位**（约半径的 30%）。
+            //    ⚠️ 底光只在**场上**点亮：唯一的调用点 `BattleDriver.HighlightTargets` 只遍历
+            //       `_myUnits` / `_foeUnits`（场卡视图）⇒ 按形态取即可，不必再跟 `SetFace` 同步。
+            bool board = _faceMode == CardFace.Board;
+            _glowMelee = MakeGlow("40K_melee_glow", board ? BoardMeleeAt : MeleeAt, dia, "glow_melee");
+            _glowRanged = MakeGlow("40K_ranged_glow", board ? BoardRangedAt : RangedAt, dia, "glow_ranged");
         }
 
         ImageQuad MakeGlow(string artName, Vector2 at, float dia, string name)
@@ -3689,6 +4039,22 @@ namespace CardPresentation
             if (q == null) return null;
             // `at` 是卡面归一化坐标（x 从左、y 从**顶部**），换成卡的局部坐标
             q.transform.localPosition = new Vector3((at.x - 0.5f) * Width, (0.5f - at.y) * Height, GlowZ);
+            // 🔴 **2026-10-12（用户真机报「场上没有近战/远程/血量数值」）：底光必须【当场】盖上
+            //    这张卡当前的队列号。** 这是 `A1665`「一张卡 = 一段队列」里**唯一漏网的一层** ——
+            //    别的每一层建完都紧跟一次 `StampQueue`/`Label.SetRenderQueue`，只有它没有 ⇒
+            //    `ImageQuad.Create` 给的是 `Sprites/Default` 的 `Transparent` = **3000**，
+            //    而场上那一段由 `BoardLayout.QueueOf` 给的是 **2962..2979**
+            //    ⇒ **底光整张画在这张卡的所有层之上**；而这两张 sprite 的**中心是不透明的**
+            //    （`Art/原版/battleatlasui/40K_{melee,ranged}_glow.png` 亲读：亮盘/准星圈 + 不透明内芯）
+            //    ⇒ **正好把它盖住的那一格数值涂掉**（实拍里「亮红盘 / 紫圈里没有数」就是它）。
+            //
+            // ⚠️ **号必须取 `Queue`（本卡那一段）** —— `SetQueue` 是「每张卡一段队列」的唯一实现，
+            //    ⛔ 别在这儿另发明一个号、也别去动 `BoardLayout` 那套号段（见 `QCard` 那段约束）。
+            // ⚠️ **只盖上号、不动 z**：同号之后卡内层序仍靠 z，而 `GlowZ`(−0.01) 比四个数值
+            //    (−0.150) **远** ⇒ 底光仍画在数字**后面**，与原版 `Highlight.SortingOrder 比数字小` 同义。
+            // ⚠️ 底光是**懒建**的（`SetTargetGem`→`EnsureGlow`），调用点在最后一次 `SyncBoard` 的
+            //    `SetQueue` **之后** ⇒ 不在这里补一次，下一次 `SetQueue` 之前它就一直是 3000。
+            q.SetRenderQueue(Queue);
             q.gameObject.SetActive(false);
             return q;
         }
@@ -5063,6 +5429,7 @@ namespace CardPresentation
                 mr.sharedMaterial = new Material(BaseMaterial());
                 mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 mr.receiveShadows = false;
+                StampQueue(mr);          // 🆕 A1665：四个数值层也是这张卡的一层（晚建 ⇒ 必须当场补号）
                 _layers.Add(mr);
                 _stats[s] = mr;
             }
@@ -5126,11 +5493,57 @@ namespace CardPresentation
         /// <summary>自检用：第 `s` 个数值现在是什么色（`CardFeel.StatUpColor` / `StatDownColor` / 白）。</summary>
         public Color StatFlash(int s) { return _statFlash[s]; }
 
-        /// <summary>自检用：第 `s` 个数值现在画着哪个数（没画返回 -1）。</summary>
+        /// <summary>自检用：第 `s` 个数值现在画着哪个数（没画返回 -1）。
+        /// <para>🔴 **这一条读的是 `activeSelf`，读不到「屏幕上有没有」** —— 2026-10-12 用户真机报的
+        /// 「场上的战将/部队没有近战·远程·血量数值」里，同一次确定性渲染场卡只画出了一个数，
+        /// 而它一路全绿。⇒ 它管**行为**（该显示的格是不是活的、画的哪个数），
+        /// 「真画在屏幕上没有」由 `Editor/BattleScene.cs` 里那条**渲图数像素**的断言盯（两条都要留）。</para></summary>
         public int StatShown(int s)
         {
             var mr = _stats[s];
             return (mr != null && mr.gameObject.activeSelf) ? StatValue(Data, s) : -1;
+        }
+
+        /// <summary>自检用：第 `s` 个数值层的**世界坐标**（测「画在屏幕上没有」时要把它投到屏幕）。
+        /// 层还没建时退回「按形态算出来的那个位置」（这样断言照样能跑，不会因为没建而静默跳过）。</summary>
+        public Vector3 StatLayerWorldPos(int s)
+        {
+            var mr = _stats[s];
+            if (mr != null) return mr.transform.position;
+            var at = StatAt01(s, _faceMode == CardFace.Board);
+            return transform.TransformPoint(new Vector3((at.x - 0.5f) * Width, (0.5f - at.y) * Height,
+                                                        _faceMode == CardFace.Board ? BoardInfoZ : InfoZ));
+        }
+
+        /// <summary>自检用：第 `s` 个数值层的 z（**卡根空间**；层没建就用该形态该用的常量）。
+        /// 断「数值在徽标/卡体正面**之前**」用它。</summary>
+        public float StatLayerZ(int s)
+        {
+            var mr = _stats[s];
+            if (mr != null) return mr.transform.localPosition.z;
+            return _faceMode == CardFace.Board ? BoardInfoZ : InfoZ;
+        }
+
+        /// <summary>自检用：合法目标底光那两层**在卡根空间的 z**。断「底光画在数值后面」用它
+        /// （同队列时靠 z 定序，见 `MakeGlow` 的注释）。</summary>
+        public float TargetGlowZ
+        {
+            get
+            {
+                var q = _glowMelee != null ? _glowMelee : _glowRanged;
+                return q != null ? q.transform.localPosition.z : 0f;
+            }
+        }
+
+        /// <summary>自检用：底光那两层的**渲染队列号**（还没建出来返回 −1）。
+        /// 断「底光也在本卡那一段队列里」用它 —— 它原来是唯一没有盖号的一层（固定 3000）。</summary>
+        public int TargetGlowQueue
+        {
+            get
+            {
+                var q = _glowMelee != null ? _glowMelee : _glowRanged;
+                return q != null ? q.RenderQueue : -1;
+            }
         }
 
         /// <summary>四个数值的闪现色全部刷回白（原版那条「`old == new` 就回原色」）。</summary>

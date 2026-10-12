@@ -16,7 +16,8 @@
 //     （7 份）—— 父链 `TraitIconContainer ← TraitIcons ← 3DBody ← Board Elements ← CardPrefab`。
 //
 // 🔴 **本地查不到、因而是「我们挑的」**（按项目红线必须写明）：
-//  · **哪些关键词进这 7 个位** —— 我们的判据见 `For(...)`（= 「凡是查得到图标的都显示」）。
+//  · **哪些关键词进这 7 个位** —— 我们的判据见 `For(...)`（= 「凡是查得到图标的都显示」，
+//    **再减掉黑名单 `NotInBoardBadges`** —— 那一条的判据是**用户 2026-10-12 口径**、⛔ 不是原版读数）。
 //    🔴 **2026-10-11（`A1362`）就地订正（铁律 5）：本行原来写「原版的筛选器
 //    `CardTraitCollection.GetTraitInPlayListForIcons` 的**方法体没被反编译**」—— 那句【不成立】。**
 //    现读：`d:/2/tools/decomp_full/CardTraitCollection__GetTraitInPlayListForIcons.c`（**202 行，全的**），
@@ -39,8 +40,19 @@
 //    （`resources.assets` 2039 个对象里 **616 个导出失败**）⇒ 它多半在没解出来的那一桶 / 远端包里。
 //    ⇒ **`For(...)` 今天只能拿「查得到图标」当那两条开关的**替身**，这条如实标着。**
 //    ⛔ **别再把「查不到」写成「没反编译」**（那是两种不同的缺口：一个缺数据、一个缺口径）。
-//  · **底板怎么画** —— 原版那个 sprite（PathID 2729514481590049735）在解包里**找不到本体**，
-//    我们按工程里现成的 `Art/ui/Base3d_Trait_Background.png` 画（按自身比例 fit 进格子）。
+//  · **底板怎么画** —— 🔴 **2026-10-12 就地订正（铁律 5，`A1661`）**：本行原来写
+//    「原版那个 sprite（PathID 2729514481590049735）在解包里**找不到本体**，我们按工程里现成的
+//    `Art/ui/Base3d_Trait_Background.png` 画（按自身比例 fit 进格子）」—— **两条都不成立**：
+//    ① **找得到**：它 = `Base3d Trait Background`（`bundle_atlasindividual_assets_battleatlasui/`
+//       `Sprite/Base3d Trait Background_2729514481590049735.json`），而且**我们画的就是它**
+//       （`Resources/Art/ui/Base3d_Trait_Background.png` 与原版 **逐字节相同**，md5 `75a79401371f`）。
+//       **错因**：按**对象名** `IconBackground` 去找 **Sprite**（全库没有这个名的 sprite）⇒ 判成「没有」。
+//       **名字对不上 ≠ 资源不存在**（本仓栽在这上面好几次了）。
+//    ② **不是「按自身比例 fit 进格子」**。原版 `IconBackground` 是个 **Sliced** 的 `SpriteRenderer`：
+//       **`m_Pivot = (0, 0.5)`（左边缘 ⇒ 从外缘往卡内铺）** · `m_Border = (0, 0, 96, 0)` ·
+//       `m_Color = (0.32298, 0.34305, 0.35849)`（深灰）· `m_DrawMode = 1`。
+//       ⇒ **画法只有一处**：`CardView.BadgePlateQuad`（含那条竖切线、可见板宽 0.3312）；
+//       判据全文 = `资料/普查产出_第二十二会话/DIAG_徽标底板图.md`。
 //  · **手牌上显不显示** —— 原版手牌与棋盘**是同一个 prefab**（7 个位物理上都在手牌上），
 //    但有没有被隐藏**没找到判据**（`ToggleTraitIcons`/`FadeAllTraitsIcons` 在已反编译集合里无调用者）
 //    ⇒ 我们**只在棋盘（场上）显示**，手牌不显示。
@@ -130,9 +142,17 @@ namespace CardPresentation
         //     ⇒ **位置、大小都不变，只灰化**。
         //   · `localScale 0.49` 那一个是**另一个独立渲染器** `Trait Not Active`
         //     （`traitNotActiveIcons[]`，`BoardTraitIcon.cs` 桩里 `SpriteRenderer[] traitNotActiveIcons // 0x28`），
-        //     它的贴图是**预制体里写死的**、四个实例共用同一个 sprite PathID，而且
-        //     **那张贴图在解包全库（24 万个文件）里找不到**（既不在 `bundle_atlasindividual_assets_40ktraiticonatlas`，
-        //     也不在那份预制体包里）⇒ **我们不知道它长什么样，按红线就不画**（如实标注，不猜）。
+        //     它的贴图是**预制体里写死的**、四个实例共用同一个 sprite PathID。
+        //     🔴 **2026-10-12 就地订正（铁律 5，`A1661`）**：这里原来写「**那张贴图在解包全库
+        //        （24 万个文件）里找不到**（既不在 `bundle_atlasindividual_assets_40ktraiticonatlas`，
+        //        也不在那份预制体包里）⇒ 我们不知道它长什么样」—— **「找不到」不成立**：
+        //        它 = **`40k_Combat_Icon_Cross`**（PathID `4627540309930320646`，
+        //        出在 `bundle_atlasindividual_assets_battleatlasui/Sprite/`），
+        //        `素材/Warpforge原版/UI图集/图集/battleatlasui/sliced/`、`d:/2/Warpforge_tools/data/ui_extract/`
+        //        与**我们工程的 `Resources/Art/ui/`** 三处都有；工程那份与原版逐字节相同。
+        //        ⇒ **「今天不画」的理由从「找不到」换成「还没做」**（⛔ 别再拿「找不到」当理由）。
+        //        ⚠️ 要画它得先定口径：`Trait Not Active` 这个独立渲染器与 `disabledMaterial`（灰化）
+        //        **是两条并存的通道**（见上面那条更正）—— **另立一条账**，别在这儿顺手补。
         //   ⚠️ 所以 `IconSizeInactive` **已无用处**（原来也是死代码，全工程无引用）—— 留个 0 值的占位会误导，直接删。
         /// <summary>原版那层「未激活」用的材质名 —— `BoardTraitIcon.disabledMaterial` 指向的资源
         /// （`bundle_battleprefabs_vfxandmisc_assets_all/Material/Material_-1344813161239158161.json`，
@@ -294,6 +314,28 @@ namespace CardPresentation
         }
 
         /// <summary>
+        /// 🔴 **不进【场上徽标】的那几个关键词**（黑名单）。**判据 = 用户 2026-10-12 真机口径**，
+        /// ⛔ **不是「原版读数」** —— 原版那条判据是 `HasIcon && IsInPlayIcon && TraitIcon != null`
+        /// （`CardTraitCollection__GetTraitInPlayListForIcons.c`，202 行，全文见文件头），而
+        /// **那两个逐 trait 开关的取值本地取不到**（实据见文件头）⇒ 这条**只能按用户口径**。
+        ///
+        /// · **`talent`（天赋）** —— 用户原话：「战将和部队卡面上有 7 格图标位，什么词条放什么图标。
+        ///   **但是天赋这个图标不要放。你现在放了**」。
+        ///   我们原来画它的**原因**是「它有图」（`Resources/Art/traits/talent.png` 9070 B、
+        ///   `Resources/Fonts/Warpforge Trait TextSprites.asset` 里有字形 `talent`、
+        ///   `资料/关键词图标_现状与总表.md:146` 标 ✓）—— ⚠️ **「有图」不等于「该进徽标」**，两件事。
+        ///   原版那边它大概率是 **`IsInPlayIcon == false`**（同族的 `GetTraitListForCardIcons` 只要
+        /// `HasIcon && TraitIcon != null` ⇒ 两者差的那一族就是「有图标、但不算**场上**图标」），
+        /// 但那**是推断，不是读数** ⇒ 本条**如实标成用户口径**。
+        ///
+        /// ⚠️ **只管【场上徽标】这一处**：卡面效果文字里的**行内图标**走的是另一条路
+        /// （`CardIcons`/`CardText.KeywordSegment` 的 `&lt;sprite name="talent"&gt;` —— 原版卡面
+        /// 确实印 `〔纸卷〕Talent: …`，见 `工具/_fix_a7_talent.py` 与 `Editor/IconSetup.cs:480`）
+        /// ⇒ ⛔ **两处别一起关**（关掉那一条会让 `BattleScene` 里 `SpriteOf("Talent: …")` 那族断言与卡面一起红）。
+        /// </summary>
+        static readonly HashSet<string> NotInBoardBadges = new HashSet<string> { "talent" };
+
+        /// <summary>
         /// 从**单位当前的关键词表**挑出要显示的那几个（最多 7 个，顺序稳定 ⇒ 对局可复现）。
         ///
         /// 🔴 **判据**：**凡是查得到图标的都显示**（= 我们的**替身**，见下面那条更正与文件头）。
@@ -350,6 +392,10 @@ namespace CardPresentation
                 if (list.Count >= MaxSlots) break;
                 string spr = SpriteOf(kv.Key);
                 if (spr == null) continue;
+                // 🔴 **黑名单：认得出图也不上场的那些**（`talent`；判据 = 用户 2026-10-12 口径，
+                //    全文与「为什么不是原版读数」见 `NotInBoardBadges`）。放在 `SpriteOf` 之后：
+                //    这位仍然算「认得出图」⇒ **不会**被当成「认不出图标」计进那条诊断。
+                if (NotInBoardBadges.Contains(Key(kv.Key))) continue;
                 // 角标（2026-09-29 改口径，见 `CarriesValue`）；
                 // 激活态（原版 `BoardTraitIcon.Initialize` 的第 4 个参数）由调用方给 ——
                 // 原版只有 `Duty` / `Oath` 两个子类覆写了 `IsActive`，其余恒 true。

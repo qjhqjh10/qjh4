@@ -247,6 +247,14 @@ public static class CardBaseDemo
         AssertCreatedBy();                // 🔴 2026-10-18：`A985④` —— 卡面第五层「由谁造出来的」（原版 `CreatedByText`）
         AssertTextBg(cam);               // 🔵 2026-10-19（A1500② 的断言侧）：文字底板 —— 含**渲图像素**判据
 
+        // ---- 4c. 🆕 2026-10-12（`A1658` / `A1659` / `A1665`）：**卡面层级三项**的断言 ----
+        //   为什么挂这儿：那三条全是「**层与层之间的关系**」（用户 2026-10-12 真机上报的三件），
+        //   而 `CardFaceProbe.CheckLayers` 那个入口**不在 `工具/_run_8_checks.sh` 的 12 条里**
+        //   ⇒ **从本宿主**（在 12 条里）调一次，它们才真的会被跑到（⛔ 别只留在探针里当摆设）。
+        //   判据全文 / 逐条改坏法 → `Editor/CardFaceProbe.cs` 的 `CheckLayers` 那一段注释。
+        Debug.Log(P + "--- 卡面层级三项（A1658 底板在卡框下 · A1659 文字挂 `2DCard` · A1665 一卡一段队列）---");
+        CardFaceProbe.CheckLayers();
+
         // ---- 5. 手牌布局四件（B1 批 2026-10-17）----
         Debug.Log(P + "--- 手牌布局：小屏档触发 · 最近空位 · 选中让位 · 层序 ---");
         AssertHandLayout(cam);

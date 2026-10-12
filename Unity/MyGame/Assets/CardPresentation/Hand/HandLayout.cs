@@ -208,12 +208,49 @@ namespace CardPresentation
 
         [Tooltip("原版 useZOrder=1：「Left card Z < right card Z」= **左边的压在上面**。"
                + "所以露出来的是每张牌的右半边 —— 卡面上的费用（右上）和生命（右下）正好在那儿，对得上")]
-        // ⚠️ **必须大于「一张卡内部各层的 z 跨度」**（`CardView` 里 立绘 +0.03 … 文字 −0.03 = 0.06）。
-        //    原来是 0.004，比跨度还小 —— 于是**后面那张卡的卡面文字会穿到前面那张卡上面**
-        //    （文字层在自己的卡里最靠前，就跑到邻牌前面去了）。2026-09-12 把效果文字放大到原版字号后
-        //    这个毛病变得很明显（截图里能看到「字横穿别人的卡」），所以把步长提到 0.08。
+        // 🔴 **2026-10-12（`A1665`）就地订正：z 步长【不再是】卡与卡之间的分层手段** —— 那个活交给了
+        //    `queueTop` 那一段渲染队列（见下面 `queueTop` 与 `Refresh` 里那三句）。
+        //    ⇒ 「**必须大于一张卡内部各层的 z 跨度**」这条隐含契约**作废**：只要每张卡一段队列，
+        //    前卡**任何**一层都压得住后卡**任何**一层，卡内 z 跨度多大都不影响卡间。
+        //    本值保留 0.08（它现在只管**几何纵深**观感，且改了会动已有截图/断言），但**别再往里塞判据**。
+        // 历史（留着是因为它证过「同一个症状报过两次」）：原来是 0.004、比卡内跨度还小，于是
+        //   **后面那张卡的卡面文字会穿到前面那张卡上面**（2026-09-12 把步长提到 0.08 止血）；
+        //   而卡内真实跨度是 **0.09**（`shadow +0.06` … 文字 `−0.03`，`0.06` 那条注释漏算了 `shadow` 层）
+        //   ⇒ 0.08 其实**仍然小于跨度**，**用户 2026-10-12 又报了一次同一个症状**。
+        //   ⇒ 这次上队列（根治），不再调步长。
         public float zOrderStep = 0.08f;
-        // 🔴 **2026-10-17 查证：这一条【不适用】，而且现在有确凿判据了 —— 不再只是「大概是」。**
+
+        /// <summary>🆕 2026-10-12（`A1665`）**手牌队列段的顶号** —— 第 `top` 靠前的那张拿 `queueTop − top`。
+        ///
+        /// <para>**为什么必须走队列**：卡面每一层原本都是 `Sprites/Default`（Transparent **3000**），
+        /// 「谁盖谁」只剩「到相机的 3D 距离」在排 —— 而手牌的 z 步长小于卡内 z 跨度（见 `zOrderStep`）
+        /// ⇒ 邻牌的文字横穿（2026-09-12、2026-10-12 同一症状报过两次）。队列是**唯一**能保证
+        /// 「前卡整段 &gt; 后卡整段」的手段（原版用嵌套 Canvas 的 `sortingOrder`，见下面那段）。</para>
+        ///
+        /// 🔴 **为什么是「往下排」而不是「往上排」**（号段约束，别改方向）：
+        ///   `CardView.QCard = 3000` 是**全仓的卡上限** —— `Board/BoardLayout.cs:111`（`MarkerQ = 3100`
+        ///   「**必须大于卡的 3000**」）、`Core/CardWinBox.cs:83`（`QEffect = 3020` 画在卡之上）、
+        ///   `Battle/CardDisplayWindow.cs:83`（遮罩 `QChrome = 3000`，靠 `z = −2` 压住手牌）。
+        ///   ⇒ 手牌只能 ≤ 3000。顶号取 3000、序号往下减，**上面那三条假设全部继续成立**。
+        /// </summary>
+        [Tooltip("手牌队列段的顶号（最靠前那张拿它）。⚠️ 别改到 3000 以上 —— 见上面那段号段约束")]
+        public int queueTop = CardView.QCard;
+
+        /// <summary>手牌队列段的**下限**（纯防守）。战斗场景里 3000 以下是空的（只有 `BattleDriver` 那两块
+        /// `QFiller = 2999` 的屏外黑边），再往下（≤2980）就跨到**外壳**那些窗的号段了
+        /// （`Deck/DeckRuntime.cs` 的 `QAreaBg = 2980` 那一段 —— **不同场景、今天不共存**）。
+        /// ⚠️ 10 张手牌 + 一个洞 = 11 槽 ⇒ 最低 3000−11 = **2989**，正常**碰不到**这个下限。
+        /// 真碰到时**钳住 + `LogError`**（不静默失败）：钳住的那几张会退回按 z 排，
+        /// 也就是**可能重新出现「邻牌文字横穿」**—— 那时要抬号段或减手牌上限。</summary>
+        public const int QueueFloor = 2980;
+        static bool _queueFloorWarned;
+        static bool _queueTopBad;
+
+        /// <summary>上一趟 `Refresh` 看到的那几张 —— **只为「被拖起来的那张」那一条**（见 `Refresh` 里那段）。</summary>
+        readonly List<CardView> _lastSeen = new List<CardView>();
+        readonly HashSet<CardView> _nowSet = new HashSet<CardView>();
+
+        // 🔴 **2026-10-17 查证：原版那个 `useZOrder` 的加量【不适用】，而且现在有确凿判据了。**
         //
         //   ① 原版那个 `useZOrder` 的加量 = **0.001 世界单位 ≈ 0.015 px**
         //      （`CardsHorizontalLayout..cctor` 的 `Z_OFFSET_BY_POSITION_INDEX = 0x3a83126f`，即 0.001f；
@@ -230,11 +267,12 @@ namespace CardPresentation
         //        （z 越小越靠前、i 越大越靠后）**语义完全一致**，只是载体不同。
         //
         //   ③ 我们是**世界空间的 2D 四边面**（`ImageQuad`），**没有 canvas 排序** ⇒
-        //      `z` 是**唯一**的排序手段 ⇒ **不能照抄 0.001**（照抄 = 全部牌同一层，
-        //      卡面文字会横穿邻牌）。⚠️ **这一格是「原版没有等价物、我们用另一种手段顶上」**，
-        //      照铁律 3 标注：**不是原版的做法**。
-        //      ⚠️ 真要换成原版那种手段，得让每张卡的**所有图层**共用一段 render queue
-        //      （`ImageQuad.SetRenderQueue`）—— 那要动 `CardView` 的分层，**不在本批白名单里**。
+        //      **不能照抄 0.001**（照抄 = 全部牌同一层，卡面文字会横穿邻牌）。
+        //      ⚠️ **这一格是「原版没有等价物、我们用另一种手段顶上」**，照铁律 3 标注：**不是原版的做法**。
+        //      ✅ **2026-10-12（`A1665`）已换成原版那种手段**：每张卡的**所有图层**共用一段 render queue
+        //      （`CardView.SetQueue`，手牌那一段由 `queueTop` 给）—— 等价于原版「一张卡一个 `sortingOrder`」。
+        //      ⇒ 序号越大 ⇒ 队列越小 ⇒ **左边的压在上面**，与上面 ② 的语义逐字一致，只是载体不同。
+        //      （原来这里写着「那要动 `CardView` 的分层，**不在本批白名单里**」—— 本轮动了。）
 
         [Tooltip("重排走补间（拖拽让位才不跳）。批处理自检里关掉 —— 位置要当场精确")]
         public bool animateRelayout = false;
@@ -558,10 +596,50 @@ namespace CardPresentation
             _lastPose.Clear();          // 只保证「最近一趟」的结果（见 `_lastPose` 的注释）
             if (cards == null) return;
             int n = cards.Count;
-            if (n == 0) return;
+            if (n == 0) { _lastSeen.Clear(); return; }   // 空手牌也要清 —— 否则下一趟会拿旧名单判「谁被拿起来了」
 
             bool hole = insertIndex >= 0;
             int slots = hole ? n + 1 : n;
+
+            // 出厂值就是 `CardView.QCard`，但**新加的公字段**在老场景的反序列化里可能落成 0
+            // （0 会让整把手牌排到所有东西**之下** ⇒ 手牌看不见，而且「≤ 上限」那条断言照样绿）⇒ 不静默。
+            if (queueTop <= 0)
+            {
+                if (!_queueTopBad)
+                {
+                    _queueTopBad = true;
+                    Debug.LogError($"[HandLayout] `queueTop` = {queueTop}（<= 0）—— 序列化丢了？"
+                                 + $"已按 {CardView.QCard} 处理（手牌每张一段队列，顶号必须是正数）。");
+                }
+                queueTop = CardView.QCard;
+            }
+
+            // 🆕 2026-10-12（`A1665`）**拖起来的那张恒拿顶号** —— 为什么必须有这一块：
+            //   `CardInteraction` 拖拽时把被拖那张**从传给本布局的名单里摘掉**
+            //   （`Hand/CardInteraction.cs:579` 的 `VisibleCards()` 排除 `_dragging`），
+            //   而它把那张卡抬到最前靠的**只是 z**（`:232` 的 `−dragLiftZ = −0.6`）。
+            //   队列是**上一次**给它的那个号 ⇒ 不补这一步，被拖的牌会被**它左边那几张压住**
+            //   （原来是「全 3000 + z 抬 0.6」⇒ 它自然在最前；换了队列之后这个副作用就没了）。
+            //   判据 = **「这一趟带洞（`hole`，`CardInteraction.Relayout` 只在拖拽时传洞）
+            //           且上一趟见过、这一趟不在名单里」的那张**。
+            //   ⚠️ 这是**必需的补位**、不是新口径：层次的正主仍然是「布局给每张一个号」。
+            //   ⚠️ 别的「从手牌离开」的路径（打出去 / 弃掉 / 洗回）也会命中这一条 ⇒ 它们拿到 3000
+            //      （= 手牌段顶号）—— 它们随即被搬走/丢掉，**影响有界**（场上那一路在 3D 下压根不在
+            //      这台相机上；2D 下场上卡本来也是 3000）。⛔ 别为此把这一块改成「按卡名猜」。
+            //   🔧 **哪天 `CardInteraction` 自己调 `SetQueue`**，把这一块删掉（它才是知道「谁被拿起来」的那一层）。
+            if (hole)
+            {
+                _nowSet.Clear();
+                for (int i = 0; i < n; i++) if (cards[i] != null) _nowSet.Add(cards[i]);
+                for (int i = 0; i < _lastSeen.Count; i++)
+                {
+                    var prev = _lastSeen[i];
+                    if (prev == null || _nowSet.Contains(prev)) continue;   // `prev == null` 也吃掉「已销毁」
+                    prev.SetQueue(queueTop);
+                }
+            }
+            _lastSeen.Clear();
+            for (int i = 0; i < n; i++) if (cards[i] != null) _lastSeen.Add(cards[i]);
 
             // 被选中/展示的那一张**在槽位空间里**是第几号 —— 原版比的是同一个索引空间里的两个序号
             // （`GetPosition(cardIndex, total, selectedCardIndex)`），带着空位时 `slot` 会整体错开 1。
@@ -610,6 +688,29 @@ namespace CardPresentation
                 // 层序：相机在 -Z 看 +Z，**z 越小越靠前**。原版「左卡 z < 右卡 z」= 左边压上面。
                 float z = i * zOrderStep - (i == hoveredIndex ? frontZ : 0f);
                 pos.z += z;
+
+                // ---- 🆕 2026-10-12（`A1665`）：**卡与卡之间的层级** ----
+                // 🔴 **这一句才是「谁盖谁」的判据**（上面那个 z 步长只管几何纵深，见 `zOrderStep` 的注释）。
+                //    一张卡 = 一段队列 ⇒ 前卡**任何**一层都压得住后卡**任何**一层。
+                //    `top` = 「在这把手牌里的靠前序」：**悬停那张恒最靠前(=0)**，其余按槽号
+                //    （槽号小 = 靠左 = 靠前）—— 与上面 `z` 的方向**一致**（z 小 ⇔ 队号大）。
+                //    判据/号段约束见 `queueTop` 那一段。⚠️ 非悬停用 `slot + 1`（不是 `slot`）：
+                //    给悬停那张留 0 号，这样「悬停是唯一的顶号」在**有洞/无洞**两态都成立。
+                int top = (i == hoveredIndex) ? 0 : (slot + 1);
+                int q = queueTop - top;
+                if (q < QueueFloor)     // 防守：不许静默失败（见 `QueueFloor`）
+                {
+                    if (!_queueFloorWarned)
+                    {
+                        _queueFloorWarned = true;
+                        Debug.LogError($"[HandLayout] 手牌 {n} 张（{slots} 槽）把队列号压到 {q}，"
+                                     + $"低于本段下限 {QueueFloor} ⇒ **钳到 {QueueFloor}**"
+                                     + "（那几张退回按 z 排 ⇒ 可能重新出现「邻牌文字横穿」）。"
+                                     + "要么抬 `queueTop` 的号段、要么减手牌上限。");
+                    }
+                    q = QueueFloor;
+                }
+                c.SetQueue(q);
 
                 Place(c, pos, angle, scale);
             }

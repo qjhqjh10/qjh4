@@ -12,6 +12,7 @@
 //
 // ⚠️ 卡面数据走 `BattleDriver.ToCardData` / `FaceText`（**探针不另写一份**，否则两边迟早不一致）。
 // ============================================================================
+using System.Collections.Generic;   // 🆕 2026-10-12：`CheckLayers` 用 `List<CardView>`
 using System.IO;
 using UnityEngine;
 using TMPro;
@@ -93,8 +94,345 @@ public static class CardFaceProbe
         "Imperial Creed",        // `SOR59` —— `W7`⑤ 卡面：`⟨螺旋⟩Stun three random enemies.` ／ `4 ⟨金太阳⟩: Refill 3 Energy`
     };
 
+    // ==================================================================
+    //  🆕 2026-10-12（`A1658` / `A1659` / `A1665`）：**卡面层级三项**的断言
+    // ==================================================================
+    //
+    // **为什么落在这儿**：这三条全是「**层与层之间的关系**」，截图看不出来（用户 2026-10-12 是在真机上
+    // 肉眼发现「黑色底板压在卡框上」「图标与文字不在一个层面上」「几张牌的文本互相透出」的）。
+    // ⚠️ 本文件**原来全文件零断言**（`InkCenterY` 那段的注释自陈过）⇒ 「红了」这条路本来不存在，这里补上。
+    //
+    // ⚠️ **本入口不在 `工具/_run_8_checks.sh` 的 12 条里** ⇒ 调度台要么把它加进那个脚本、
+    //    要么把这一段搬进 `Editor/CardBaseDemo.cs`（那个在）。✅ 但 `Run()` 开头会调它
+    //    ⇒ **今天跑本探针（`CardFaceProbe.Run`）就等于跑它**。
+    //
+    // 判据全文 = `资料/普查产出_第二十二会话/DIAG_卡面层级三项.md`；
+    // 修法报告 = 同目录 `W1_卡面层级修复.md`。
+    static int _pass, _fail;
+    static void Check(bool ok, string msg)
+    {
+        if (ok) { _pass++; Debug.Log("[cardface-chk]   ✓ " + msg); }
+        else { _fail++; Debug.LogError("[cardface-chk]   ✗ " + msg); }
+    }
+
+    static int MinOf(int[] a)
+    {
+        int m = int.MaxValue;
+        for (int i = 0; i < a.Length; i++) if (a[i] < m) m = a[i];
+        return m;
+    }
+    static int MaxOf(int[] a)
+    {
+        int m = int.MinValue;
+        for (int i = 0; i < a.Length; i++) if (a[i] > m) m = a[i];
+        return m;
+    }
+
+    /// <summary>卡面层级三项的断言（不渲图、很快）。逐条都写明了「怎么才能红」。
+    /// ⚠️ 外面套一层 `try` 是**为了不把本文件的另一半职责（渲图）一起炸掉** ——
+    /// 抛异常时**大声报**（`LogError` + 计一次失败），**不静默**。</summary>
+    public static void CheckLayers()
+    {
+        try { CheckLayersBody(); }
+        catch (System.Exception e)
+        {
+            _fail++;
+            Debug.LogError($"[cardface-chk]   ✗ 这一段抛异常了（**没跑完，别读成通过**）："
+                         + $"{e.GetType().Name}: {e.Message}");
+            Debug.Log($"[cardface-chk] === 合计：{_pass} 通过 / {_fail} 失败 ===");
+        }
+    }
+
+    static void CheckLayersBody()
+    {
+        _pass = 0; _fail = 0;
+        Debug.Log("[cardface-chk] === 卡面层级三项 开始（A1658 / A1659 / A1665）===");
+
+        var pool = CardDatabase.Load();
+        var def = FindByName(pool, "Heavy Intercessor");
+        if (def == null)
+        {
+            Debug.LogError("[cardface-chk] 卡池里没有 `Heavy Intercessor` ⇒ 这一段**什么都没验到**"
+                         + "（别把它读成「通过」）");
+            return;
+        }
+        var data = BattleDriver.ToCardData(def, def.Faction);
+
+        // ---------------------------------------------------------------- A1658
+        // 原版卡面 `Front` 的子序（底→顶）：`Card Highlight And Shadow → CardImage → Textbackgrounds
+        // → CardFrame → Card Info`（`资料/战斗规格/战斗重建_0827/子代理读报_2dcard_0827.md:273,308`）。
+        // 本仓 z 约定「**越小越靠前**」⇒ 底板必须 **比卡框大**（画在它之后）、**比立绘小**（压住它）。
+        {
+            var root = new GameObject("chk_a1658");
+            var v = CardView.Create(root.transform, data, "chk_a1658");
+            Check(!float.IsNaN(v.TextBgLayerZ) && !float.IsNaN(v.FrameZ) && !float.IsNaN(v.ArtZ),
+                  "A1658 前提：底板 / 卡框 / 立绘三层都建出来了（缺一层下面几条不算验过）");
+            // 🧨 **改坏法**：把 `CardView.TextBgZ` 改回 `−0.012`（原来那个值）⇒ 本条**必红**。
+            Check(v.TextBgLayerZ > v.FrameZ,
+                  $"A1658 效果文字底板在卡框**之后**（原版子序 Textbackgrounds < CardFrame）"
+                + $" textBg.z={v.TextBgLayerZ:F4} > frame.z={v.FrameZ:F4}");
+            Check(v.TextBgLayerZ < v.ArtZ,
+                  $"A1658 底板仍压在立绘**之上** textBg.z={v.TextBgLayerZ:F4} < art.z={v.ArtZ:F4}");
+            Check(!float.IsNaN(v.InfoLayerZ) && v.InfoLayerZ < v.FrameZ,
+                  $"A1658 数值层（原版 `Card Info`）在卡框**之前** info.z={v.InfoLayerZ:F4} < frame.z={v.FrameZ:F4}");
+            Object.DestroyImmediate(root);
+        }
+
+        // ---------------------------------------------------------------- A1659
+        // 卡面**所有** quad 层都挂 `2DCard`（`AddLayer` 那句 `SetParent(FaceRoot)`），而倾摆
+        // `AutoCardRotation` 就挂在 `2DCard` 上 ⇒ 文字层必须也挂它，否则位移中与底板/卡框分成两个平面。
+        {
+            var root = new GameObject("chk_a1659");
+            var v = CardView.Create(root.transform, data, "chk_a1659");
+            Check(TmpFont.Available,
+                  "A1659 前提：字体资产在（不在 ⇒ 下面几条**没验到**，别读成通过）");
+            Check(v.FaceLayerRoot != v.transform,
+                  "A1659 前提：`2DCard` 那一层真的建出来了（倾摆挂在它身上）");
+            if (v.KeywordsText != null)
+                Check(v.KeywordsText.transform.parent == v.FaceLayerRoot,
+                      $"A1659 效果文字挂 `2DCard` 下（不是卡根）实际父件 = "
+                    + (v.KeywordsText.transform.parent != null ? v.KeywordsText.transform.parent.name : "<null>"));
+            else Check(!TmpFont.Available, "A1659 效果文字那层没建出来（只有「没字体资产」才允许）");
+            if (v.TitleText != null)
+                Check(v.TitleText.transform.parent == v.FaceLayerRoot, "A1659 卡名也挂 `2DCard` 下");
+
+            // 🔴 **灭自证（结构上不可能同时满足）**：把 `2DCard` 转 10°（= `AutoCardRotation.maxYAngle`），
+            //    断「文字层与底板层的**相对距离**不变」。两块都在 `2DCard` 下 ⇒ 一起刚性旋转 ⇒ 不变；
+            //    文字若挂回卡根 ⇒ 它不转、底板转 ⇒ 相对距离变 ~0.1 世界单位 ⇒ **必红**。
+            //    （只要「挂错父节点」成立，这条就红；只要这条绿，「挂错父节点」就不成立。）
+            if (v.KeywordsText != null && v.TextBgLayer != null)
+            {
+                Vector3 d0 = v.KeywordsText.transform.position - v.TextBgLayer.transform.position;
+                v.FaceLayerRoot.localRotation = Quaternion.Euler(0f, 10f, 0f);
+                Vector3 d1 = v.KeywordsText.transform.position - v.TextBgLayer.transform.position;
+                v.FaceLayerRoot.localRotation = Quaternion.identity;
+                Check(Mathf.Abs(d1.magnitude - d0.magnitude) < 0.02f,
+                      $"A1659 倾摆 10° 时文字与底板**仍同面**（相对距离 {d0.magnitude:F4} → {d1.magnitude:F4}）");
+            }
+            Object.DestroyImmediate(root);
+        }
+
+        // ---------------------------------------------------------------- A1665
+        // 「一张卡 = 一段队列」+ 布局给每张不同的号。**卡内层序仍靠 z**，所以判据用
+        // `SubtreeQueues()` 的 min/max（前卡整段 > 后卡整段），别写死「一个号」。
+        {
+            const int N = 5;
+            var root = new GameObject("chk_a1665");
+            var handGo = new GameObject("chk_a1665_hand");
+            handGo.transform.SetParent(root.transform, false);
+            var hand = handGo.AddComponent<HandLayout>();
+            var cards = new List<CardView>(N);
+            for (int i = 0; i < N; i++)
+                cards.Add(CardView.Create(root.transform, data, "chk_card" + i, CardFace.Hand));
+            hand.Refresh(cards, -1, -1);
+
+            var qs = new int[N];
+            for (int i = 0; i < N; i++) qs[i] = cards[i].Queue;
+
+            bool distinct = true;
+            for (int i = 0; i < N && distinct; i++)
+                for (int j = i + 1; j < N; j++) if (qs[i] == qs[j]) { distinct = false; break; }
+            // 🧨 **改坏法**：删掉 `HandLayout.Refresh` 里那句 `c.SetQueue(...)` ⇒ 全部退回 3000 ⇒ 必红。
+            Check(distinct, $"A1665 手牌每张卡一个独立队列号 [{string.Join(",", qs)}]");
+
+            // 🔴 **本条的牙齿**：前卡**任何**一层都压得住后卡**任何**一层。
+            bool sep = true; int badA = -1, badB = -1;
+            for (int i = 0; i + 1 < N && sep; i++)
+            {
+                int minA = MinOf(cards[i].SubtreeQueues()), maxB = MaxOf(cards[i + 1].SubtreeQueues());
+                if (!(minA > maxB)) { sep = false; badA = minA; badB = maxB; }
+            }
+            Check(sep, "A1665 相邻两张卡：前卡**所有层**的队列都大于后卡**所有层**"
+                     + (sep ? "" : $"（实际 {badA} ≤ {badB} ⇒ 后卡的层会穿到前卡上面）"));
+
+            bool dirOk = true;
+            for (int i = 0; i + 1 < N; i++)
+                if (!(cards[i].transform.localPosition.z < cards[i + 1].transform.localPosition.z
+                      && qs[i] > qs[i + 1])) dirOk = false;
+            Check(dirOk, "A1665 「左边的压在上面」：z 小的那张队号大（与 z 同向，⛔ 别写反）");
+
+            int maxQ = MaxOf(qs);
+            // 全仓有几处按「卡 ≤ 3000」写死：`BoardLayout.MarkerQ = 3100`（必须大于卡的 3000）、
+            // `CardWinBox.QEffect = 3020`、`CardDisplayWindow.QChrome = 3000`（遮罩靠 z 压住手牌）。
+            Check(maxQ <= CardView.QCard,
+                  $"A1665 手牌队列不越过卡的上限 {CardView.QCard}（实际最高 {maxQ}）—— "
+                + "越了就踩上面那三处写死的假设");
+
+            // 悬停那张恒是顶号（原版 `ShowCardInHand` 的「亮出来」态）
+            hand.Refresh(cards, 2, -1);
+            int topQ = cards[2].Queue;
+            bool hoverTop = topQ <= CardView.QCard;
+            for (int i = 0; i < N; i++) if (i != 2 && !(topQ > cards[i].Queue)) hoverTop = false;
+            Check(hoverTop, $"A1665 悬停那张拿到顶号 {topQ}（其余都在它之下）");
+
+            // 拖起来的那张：`CardInteraction` 把它从名单里摘掉、只抬 z（`−dragLiftZ`）
+            // ⇒ 布局必须补一个顶号给它，否则它会被左边那几张压住（见 `HandLayout.Refresh` 里那段）。
+            var four = new List<CardView> { cards[0], cards[1], cards[2], cards[3] };   // 少了 cards[4]
+            hand.Refresh(four, -1, 0);        // **带洞** = 正在拖（`CardInteraction.Relayout` 只在拖拽时传洞）
+            Check(cards[4].Queue == CardView.QCard,
+                  $"A1665 被拖起来（离开名单）的那张拿顶号：实际 {cards[4].Queue}，应为 {CardView.QCard}");
+
+            // 机制自检：`SetQueue` 必须扫到**子树里每一层**，且**不许写到共享材质上**
+            // （2026-09-27 踩过：把字体资产的 `m_CustomRenderQueue` 写脏并落盘）。
+            var vr = cards[0];
+            var spriteMat = CardIcons.Available ? CardIcons.SpriteAsset.material : null;
+            int sharedBefore = spriteMat != null ? spriteMat.renderQueue : -999;
+            vr.SetQueue(4444);
+            int miss = 0;
+            foreach (var mr in vr.GetComponentsInChildren<MeshRenderer>(true))
+                if (mr.sharedMaterial != null && mr.sharedMaterial.renderQueue != 4444) miss++;
+            Check(miss == 0, $"A1665 `SetQueue` 覆盖到子树里每一层（未覆盖 {miss} 层）");
+            int sharedAfter = spriteMat != null ? spriteMat.renderQueue : -999;
+            Check(sharedBefore == sharedAfter,
+                  $"A1665 `SetQueue` 没写到共享 sprite 材质上（{sharedBefore} → {sharedAfter}）");
+
+            Object.DestroyImmediate(root);
+        }
+
+        // ---------------------------------------------------------------- A1661
+        // 徽标底板 = 原版 `IconBackground`（一个 **Sliced** 的 `SpriteRenderer`）。三条判据**锚在三个
+        // 不同来源**上，所以**没有哪一处「改回去」能让三条一起变绿**（灭自证）：
+        //   ① 色  ← 原版 `m_Color` = (0.32298, 0.34305, 0.35849)（深灰）
+        //   ② 锚点 ← 原版 `m_Pivot = (0, 0.5)`（左边缘）+ 几何常量 `Badges.SlotAt/PlateOutward`
+        //   ③ 形状/宽 ← 贴图 `Base3d_Trait_Background.png`（105×214）**逐像素实测**的不透明区 x `0..62`
+        // 判据全文 = `资料/普查产出_第二十二会话/DIAG_徽标底板图.md`。
+        {
+            var root = new GameObject("chk_a1661");
+            var bd = CardData.Simple("BadgePlateProbe", 3, 3, 4);
+            bd.badges = new List<Badge>          // 7 位**全给**（左 3 + 右 4）—— ⑥ 要逐格量外接矩形
+            {
+                new Badge { sprite = "armour",     counter = 2, active = true },   // 位 0（**左列**首行）
+                new Badge { sprite = "blast",      counter = 0, active = true },
+                new Badge { sprite = "flying",     counter = 0, active = true },
+                new Badge { sprite = "huntMark",   counter = 1, active = true },   // 位 3（**右列**首行）
+                new Badge { sprite = "camouflage", counter = 0, active = true },
+                new Badge { sprite = "longrange",  counter = 0, active = true },
+                new Badge { sprite = "ferocity",   counter = 0, active = true },
+            };
+            var bv = CardView.Create(root.transform, bd, "chk_a1661_card");
+            Check(bv.BadgesShown == 7, $"A1661 前提：7 枚徽标都建出来了（实际 {bv.BadgesShown}）"
+                                     + "—— 建不出来下面几条**没验到**，别读成通过");
+
+            // ① 「不是白方块」：底板色 = 原版 `IconBackground.m_Color` 那个深灰。
+            //    🧨 改坏法：删掉 `CardView.ApplyTint` 末尾那句 `SetBadgePlateInk(...)`（或建层时不刷）
+            //       ⇒ 底板回到 `_tint` = **白** ⇒ 本条必红。**这正是用户 2026-10-12 报的那个白方块。**
+            var pc = bv.BadgePlateColor(0);
+            Check(Mathf.Abs(pc.r - 0.32298f) < 0.02f && Mathf.Abs(pc.g - 0.34305f) < 0.02f
+                  && Mathf.Abs(pc.b - 0.35849f) < 0.02f,
+                  $"A1661 ① 底板 = 原版那个**深灰** `m_Color`（不是白）"
+                + $"实际 ({pc.r:F4}, {pc.g:F4}, {pc.b:F4})");
+
+            // ② 锚点：原版 sprite 的 `m_Pivot = (0, 0.5)` 在**左边缘**，两列都**从外缘往卡内铺**
+            //    ⇒ 板的外缘 = `SlotAt(i).x ∓ PlateOutward`（几何常量与原版逐值吻合，本次没动）。
+            //    🧨 改坏法：把 `BadgePlateQuad` 的锚点改回**居中**（`ax ∓ w*0.5f`）⇒ 外缘偏出 0.276
+            //       卡单位（正好半个板宽，可见板左边界从 −0.7881 变 −0.9601、伸到卡外）⇒ 本条必红。
+            var xsL = bv.BadgePlateVertexXs(0);
+            var xsR = bv.BadgePlateVertexXs(3);
+            float outerL = Badges.SlotAt(0).x - Badges.PlateOutward;    // −0.788
+            float outerR = Badges.SlotAt(3).x + Badges.PlateOutward;    // +0.788
+            float gotL = xsL != null && xsL.Length > 0 ? xsL[0] : float.NaN;
+            float gotR = xsR != null && xsR.Length > 0 ? xsR[xsR.Length - 1] : float.NaN;
+            Check(Mathf.Abs(gotL - outerL) < 0.01f,
+                  $"A1661 ② 左列底板**外缘**落在位子往外 `PlateOutward` 处（{outerL:F4}），实际 {gotL:F4}");
+            Check(Mathf.Abs(gotR - outerR) < 0.01f,
+                  $"A1661 ② 右列**镜像**：外缘在最右（{outerR:F4}），实际 {gotR:F4}");
+
+            // ③ 形状 = Sliced（原版 `m_DrawMode = 1`）：**3 条竖线**（左片外缘 / 那条竖切线 / 右片内缘）
+            //    —— 整图一个 quad 只有 2 条。竖切线在 `PlateSliceFrac` = 9/105 处。
+            //    🧨 改坏法：把 `BadgePlateQuad` 换回 `FitQuad(...)`（整图按自身比例内接）⇒ 只剩 2 条 ⇒ 必红；
+            //       只把 `PlateSliceFrac` 改错 ⇒ 「3 条」那条仍绿、切线位置那条红（两条各管一件事）。
+            bool three = xsL != null && xsL.Length == 3;
+            Check(three, $"A1661 ③ 底板是 Sliced **两片**（3 条竖线），实际 {xsL?.Length ?? -1} 条");
+            if (three)
+            {
+                float cutWant = outerL + Badges.PlateW * CardView.PlateSliceFrac;   // = −0.7407
+                Check(Mathf.Abs(xsL[1] - cutWant) < 0.005f,
+                      $"A1661 ③ 那条竖切线在 9/105 处（{cutWant:F4}），实际 {xsL[1]:F4}");
+                // ④ 宽：贴图里**不透明**的只有 x 0..62（63/105）⇒ 可见板宽 = `PlateW × 0.6` = **0.3312**。
+                //    另外两个刻度供对照：我们原来「整图内接」只有 **0.2064**（0.62 倍）；若还原成
+                //    「按贴图自身比例的内接宽度」= 0.344（quad 宽），也不是这个数。
+                //    🧨 改坏法：把 `PlateInkFrac` 改错、或把板宽改成别的一档 ⇒ 必红。
+                float visW = (xsL[xsL.Length - 1] - xsL[0]) * CardView.PlateInkFrac;
+                Check(Mathf.Abs(visW - 0.3312f) < 0.003f,
+                      $"A1661 ④ 可见板宽 ≈ 0.3312 卡单位（`PlateW × 63/105`），实际 {visW:F4}");
+            }
+
+            // ⑤ `talent`（天赋）**不进场上徽标** —— 判据 = **用户 2026-10-12 真机口径**
+            //    （⛔ 不是原版读数：`HasIcon && IsInPlayIcon` 那两个开关本地取不到，见 `Badges.NotInBoardBadges`）。
+            //    🧨 改坏法：把 `Badges.NotInBoardBadges` 里那一条删掉 ⇒ 必红。
+            //    🔴 **灭自证**：同表里**别的关键词必须照画** —— 少了这一半，「整个表都不画」也算绿。
+            var kwT = new Dictionary<string, int> { { "Talent", 1 }, { "Armour", 2 } };
+            var bl = Badges.For(kwT);
+            bool hasTalent = false, hasArmour = false;
+            for (int i = 0; i < bl.Count; i++)
+            {
+                if (Badges.Norm(bl[i].key) == "talent") hasTalent = true;
+                if (Badges.Norm(bl[i].key) == "armour") hasArmour = true;
+            }
+            Check(!hasTalent, "A1661 ⑤ `talent`（天赋）**不画**成场上徽标（判据 = 用户 2026-10-12 口径）");
+            Check(hasArmour && bl.Count == 1,
+                  $"A1661 ⑤ 同一张表里别的关键词**照画**（`armour` 在、整表 {bl.Count} 条 —— "
+                + "不然「整个表都不画」也绿）");
+
+            // ⑥ **7 个位（含图标本体，不只是底板）都不许越出卡面** —— 判据 = **卡本体矩形**（卡单位，
+            //    `±CardUnitW/2 × ±CardUnitH/2` = ±1.04635 / ±1.66565；卡面每一层共用这套坐标）。
+            //    ⚠️ **口径写死在这里**：若把「卡面」读成**屏幕上那块 3D 网格体**
+            //    （`Card 3D WH40k` 2.0901 宽 × 它自己那个 `localScale 0.88586` ⇒ 半宽 **0.9286**，
+            //     见 `资料/3DBody_原版场上卡体规格.md:31,40`），那 7 个图标**都**会超出去 **0.0777** ——
+            //    而**原版那 7 个 `TraitIconContainer` 活在同一套【未缩放】空间里、超得一样多**
+            //    ⇒ 那一档**不是本笔改出来的**、也不是徽标线能定的（**另立一条账**，见报告 §五）。
+            //    🧨 改坏法：`Badges.IconOutward` / `IconSize` 调大一档 ⇒ 必红（并且下面那条会点名是哪一位）。
+            {
+                float k = CardView.CardUnitW / CardView.Width;            // 世界 → 卡单位（今天 = 1，别写死）
+                float hw = CardView.CardUnitW * 0.5f, hh = CardView.CardUnitH * 0.5f;
+                float minClear = float.MaxValue, over = 0f;
+                string tight = "", worst = "";
+
+                void Fit(string what, int i, float x0, float y0, float x1, float y1)
+                {
+                    float o = Mathf.Max(0f, Mathf.Max(-x0 - hw, x1 - hw, -y0 - hh, y1 - hh));
+                    if (o > 0f) { over = Mathf.Max(over, o); worst += $"〔位{i} {what} 越界 {o:F4}〕"; }
+                    float c = Mathf.Min(hw - Mathf.Max(-x0, x1), hh - Mathf.Max(-y0, y1));
+                    if (c < minClear) { minClear = c; tight = $"位{i} {what}"; }
+                }
+
+                for (int i = 0; i < Badges.MaxSlots; i++)
+                {
+                    var pt = bv.FaceLayerRoot.Find("badgePlate" + i);
+                    var ic = bv.FaceLayerRoot.Find("badgeIcon" + i);
+                    var xsv = bv.BadgePlateVertexXs(i);
+                    if (pt == null || ic == null || xsv == null || xsv.Length < 2)
+                    {
+                        Check(false, $"A1661 ⑥ 第 {i} 位的层没建出来 ⇒ 这一格**没验到**（别读成通过）");
+                        continue;
+                    }
+                    // 底板网格烘的是**绝对**坐标（`BadgePlateQuad`）；图标网格**以原点为中心**（`CenteredQuad`）
+                    var pb = pt.GetComponent<MeshFilter>().sharedMesh.bounds;
+                    var ib = ic.GetComponent<MeshFilter>().sharedMesh.bounds;
+                    Fit("底板", i, pb.min.x * k, pb.min.y * k, pb.max.x * k, pb.max.y * k);
+                    Fit("图标", i, (ic.localPosition.x - ib.extents.x) * k, (ic.localPosition.y - ib.extents.y) * k,
+                                 (ic.localPosition.x + ib.extents.x) * k, (ic.localPosition.y + ib.extents.y) * k);
+                }
+                Check(over <= 0f,
+                      $"A1661 ⑥ 7 个位（**图标本体 + 底板**）都在卡面矩形内（±{hw:F4} / ±{hh:F4}）"
+                    + $"；最紧的一处 = {tight} 余 {minClear:F4}" + (over > 0f ? " ⚠️ " + worst : ""));
+
+                // 再钉一条**原版几何**的：左右两列**图标外缘**距卡边 = `halfW − (|SlotAt.x| + IconOutward + IconSize/2)`
+                // = 1.04635 − 1.00625 = **0.0401**（原版那 7 个 `TraitIconContainer` 就在这儿）。
+                // 🧨 改坏法：`IconOutward` / `IconSize` 改大一档 ⇒ 必红（与上面那条**互相印证**）。
+                float pinned = hw - (Mathf.Abs(Badges.SlotAt(0).x) + Badges.IconOutward + Badges.IconSize * 0.5f);
+                Check(Mathf.Abs(pinned - 0.0401f) < 0.005f,
+                      $"A1661 ⑥ 图标外缘距卡边 0.0401 卡单位（原版那套几何常量定的），实际 {pinned:F4}");
+            }
+            Object.DestroyImmediate(root);
+        }
+
+        Debug.Log($"[cardface-chk] === 合计：{_pass} 通过 / {_fail} 失败 ===");
+    }
+
     public static void Run()
     {
+        CheckLayers();      // 🆕 2026-10-12：跑探针顺带把层级三项的断言跑掉（本入口不在 12 条自检里）
         Directory.CreateDirectory(OutDir);
         var pool = CardDatabase.Load();
         Debug.Log($"[cardface] 卡池 {pool.Count} 张，开始渲染 {Names.Length} 张 → {OutDir}");
@@ -185,6 +523,18 @@ public static class CardFaceProbe
                     v3.SetPose(Vector3.zero, 0f, 0.6071f);
                     Shot(v3, Path.Combine(OutDir, SafeName(name) + "_inplay.png"));
                     Object.DestroyImmediate(r3);
+                }
+
+                // 🆕 2026-10-12（`A1659`）：**倾摆态**那一张 —— 判据（DIAG 四·b）要求
+                //    「倾摆非零时文字/图标与底板/卡框仍同面」时**并排渲一张**（铁律 10 第 6 条）。
+                //    `AutoCardRotation` 静止时是 identity，所以这里直接把 `2DCard` 转它的上限角
+                //    （`maxYAngle = 10`）再拍 —— 修好之后文字该跟着一起歪、和底板卡框连成一张卡。
+                {
+                    var r4 = new GameObject("probe_tilt");
+                    var v4 = CardView.Create(r4.transform, data, name + "_tilt", CardFace.Hand);
+                    v4.FaceLayerRoot.localRotation = Quaternion.Euler(0f, 10f, 0f);
+                    Shot(v4, Path.Combine(OutDir, SafeName(name) + "_tilt.png"));
+                    Object.DestroyImmediate(r4);
                 }
             }
         }

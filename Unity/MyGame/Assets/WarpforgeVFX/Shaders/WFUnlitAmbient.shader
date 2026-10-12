@@ -44,19 +44,62 @@
 //    上一版把这一行写成 `lerp(tex.rgb, IN.color.rgb, IN.color.w)` ⇒ **12 个材质里凡用它渲天空的，
 //    整片渲成纯白**，`EffectCompare` 实测 `|exp|/|orig| = 1.766`。判据两条（详见 `frag` 里的注释）：
 //    ① 有一支 VS 变体的 Input signature **没有 `COLOR`**，`v2 = float4(cb0[61].xyz, **0**)` ⇒ lerp 是空操作；
-//    ② **原版网格没有顶点色**（`m_Channels` 里颜色通道 `dimension = 0`），
+//    ② **原版那些天空网格没有顶点色**（`Background Sky` 一族的 `m_Channels` 里颜色通道 `dimension = 0`），
 //       而我们读 `IN.color` 渲出纯白 ⇒ 默认值是 `(1,1,1,1)` ⇒ 原版若走顶点色那支也会白 —— 它不是。
+//       ⚠️ **2026-10-12 更正：那是【那一族】的情况，不是全称** —— Flickker 的烛光网格**有** ch3
+//       （`Candles 213`：dim=4）；判据与后果 → `frag` 里那条「2026-10-12 就地订正」。
 //    改后 `1.766 → 0.971 / 1.013`。
 //
-// ⚠️ **还没做的（判据已齐，按铁律 11 都要做，只有先后）**：
-//    · `Emissive Flickker` 那整支（ramp 采样 + `[min,max]` 重映射；我们声明了
-//      `_EmissiveColor/_FlickerSpeed/_FlickerMinMaxRange` 却在 HLSL 里**一个都没用**——
-//      ⚠️ **现在有反射这条路，这一支的槽位能直接读出来了，别再拿「读不出槽位」当理由**
-//      （它原来那句「顶点色 lerp（含 `_APPLYAMBIENTCOLOR` 那支的乘性系数 …）」**已做完，销账**）。
-//    · 第二张图（`_SampleTexture2D_…_Texture2D` 声明了但**从没采样**）· 手写 derivative 的 alpha-to-coverage。
-//    · ⚠️ **一支带 `COLOR` 的 VS 变体**：本 shader **确实有**（段 0/1/2，`mov o2.xyzw, v4.xyzw`），
-//      我们这 12 个材质不是那一支。**将来碰到真有顶点色的网格要回来重判那一行。**
-//    ⇒ 详细判据：`资料/特效还原_进度与交接.md` §十四 + `项目任务.md` §三 第 4 条。
+// ✅ **2026-10-12：下面那三条「还没做的」全做完了**（判据 = 原版 DXBC + Unity 序列化反射，逐条在下面）。
+//    🔑 **谁该有、谁不该有 —— 先看这张表**（用 `dump_shader_blob.blob_of()` 把**两份 shader 的 blob 分开**数：
+//      按名字子串 `disasm_dxbc.py` 会把两份都命中，**分不开**，所以这一轮是自己写脚本按 blob 数的）：
+//      · `Everguild/UnlitAmbient Emissive Flickker`：**32 段 · 4 段带第二张图（`sampler s1`）· 3 段有闪烁块 · 0 段有 derivative**
+//      · `Everguild/UnlitAmbient`                ：**336 段 · 0 段有闪烁块 · 12 段有 derivative**
+//    ⇒ **闪烁只在 Flickker 那份；alpha-to-coverage 只在基础那份。** 两份共用我们这一个自建 shader
+//      ⇒ **闪烁必须闸起来**（见 `_EmissiveFlickerOn`）；alpha-to-coverage 不用闸。
+//
+// ① `Emissive Flickker` 整支（判据 = `_tmp_view/dxbc/Everguild_UnlitAmbient_ps.txt` 段 0/1，逐字）：
+//      log/mul/exp/mad/ge/mul/movc  →  r0 = LinearToSrgb(cb1[6])          ; cb1[6] = `_EmissiveColor`
+//      mul  r0.xyz, r0.xyzx, v2.xyzx                                      ; × 顶点色（v2）
+//      div  r0.w, cb0[19].x, cb1[7].x                                     ; t / `_FlickerSpeed`
+//      sample_b r1.xyzw, r0.wwww, t0.xyzw, s0                             ; 噪声图，UV = float2(t,t)/speed
+//      add  r0.w, -cb1[7].y, cb1[7].z                                     ; (max - min)
+//      mad  r0.w, r1.x, r0.w, cb1[7].y                                    ; k = lerp(min, max, n)
+//      … 主图那一路 …  `mad o0.xyz, r0.wwww, r0.xyzx, r1.xyzx`             ; 🔴 **加法项、最后一条**（不是乘、不是 lerp）
+//    **槽位铁证**（`progFragment.m_CommonParameters.m_ConstantBuffers`，2026-10-12 实读；字节偏移 `slot = off/16`）：
+//      `_Color` off=80 → cb1[5] · `_EmissiveColor` off=96 → cb1[6] ·
+//      `_FlickerSpeed` off=112 (dim=1) → **cb1[7].x** · `_FlickerMinMaxRange` off=116 (dim=2) → **cb1[7].yz**
+//      ⇒ 与指令里的 `cb1[5]` / `cb1[6]` / `cb1[7].x` / `cb1[7].yz` **逐一吻合**。
+//      （`cb1` 的 N 号即 `m_ConstantBufferBindings` 的 index；此处 = `UnityPerMaterial`，size 192。）
+//    ⚠️ `_FlickerMinMaxRange` 是**只用了两个分量**的 Vector ⇒ **它的 `.x` = min、`.y` = max**
+//      （在寄存器里落在 `.y`/`.z`，所以汇编是 `-cb1[7].y + cb1[7].z`）。材质实值 `(0,1,0,0)`／`(0,0.8,0,0)` ⇒ k ∈ [0,1]。
+//    ⚠️ `cb0[19].x` = `_TimeParameters.x`（`$Globals` 槽位表 → `资料/特效还原_进度与交接.md` §十）。
+//    ⚠️ **原版这一支不是 keyword 门控的**（那 4 个前向变体逐字都有它）—— 隔离靠**我们自己的闸**
+//      `_EmissiveFlickerOn`（原版没有这个 uniform；由 `WarpforgeEffectBinder` 按**原版 shader 名**灌）。
+// ② 第二张图 = **与 ① 同一支**：`_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D`
+//    就是那张闪烁噪声图。原版材质里**确实赋了值**（判据：`d:/2/解包整理/07_场景/battlearenasororitas/Material/Material_4.json`
+//    的 `m_TexEnvs` 里有这个名字）—— 原来「声明了但从没采样」说的是我们这份。
+//    ⚠️ 原版的寄存器顺序与基础那份**相反**：Flickker 里 **t0 = 噪声 · t1 = `_BaseMap`**
+//      （我们按**名字**取，不受寄存器号影响）。
+//    ✅ **噪声图 = `Noise Combined`**（128²·Repeat·无 mip·`m_ColorSpace: 0` 线性数据贴图）；
+//    ⚠️ 工程里那张同名 png 现导入成 **sRGB** ⇒ 采样值偏亮（`资料/战场13场_逐场对账_0920.md` §8 已记）。
+//    🔴 **战场清单只记了 `_BaseMap`** ⇒ 战场那条路**绑不上噪声图**（`n` = 1 ⇒ `k` 恒为 max = 「只亮不闪」）。
+//       ⛔ 修它要动 `gen_arena_*.py`（**另一条线、本轮白名单外**）⇒ 只记不改。
+// ③ 手写 derivative 的 alpha-to-coverage（判据 = **URP 自己的实现**，不是猜的）：
+//    `…/com.unity.render-pipelines.universal/ShaderLibrary/ShaderVariablesFunctions.hlsl:181-216` 的
+//    `IsAlphaToMaskAvailable()` / `SharpenAlphaStrict()` / `AlphaClip()` —— 与原版段 23/24 的**每条指令逐一吻合**：
+//      `SharpenAlphaStrict = saturate(((alpha - cutoff - 0.5*fwidth(alpha)) / max(fwidth(alpha), 0.0001)) + 1)`
+//      `clipVal = (a2c && cutoff > 0) ? (a2cAlpha - 0.0001) : (alpha - cutoff)`
+//      `outputAlpha = a2c ? a2cAlpha : alpha`   ← 段 24 就是这一版（段 23 的 else 支被折成了 `l(1.0)`，另一支变体）
+//    ⇒ 直接调 `AlphaDiscard(alpha, _ClipThreshold)`，**别再手写**（原来那句 `clip(tex.a*_Color.a - _ClipThreshold)`
+//      在 `_AlphaToMaskAvailable == 0` 时与它**逐位相同** ⇒ 这次改动对现状是**恒等的**）。
+//
+// ⚠️ **仍然如实记着（别当已查清）**：
+//    · **一支带 `COLOR` 的 VS 变体**：本 shader **确实有**（VS 段 0/1/2：`mov o2.xyzw, v4.xyzw` + `mov o3.xyz, cb0[61].xyzx`）。
+//      ⇒ ① 里那个 `v2.xyz` 就是**顶点色**（无 COLOR 时换成 `(cb0[61].xyz, 0)`；`cb0[61]` 按 `$Globals` 槽位表推 = `unity_FogColor`，
+//      **未坐实**）。原版那些烛光网格 `m_Channels` 里**有** ch3（4 维颜色）⇒ 走的是 COLOR 那支。
+//      ⛔ **我们的 OBJ 导出链把颜色通道丢了** ⇒ `IN.color` 落到 (1,1,1,1)（详见报告「顺手发现」）。
+//    · `_EmissiveColor` 的**原版声明默认值 = (2.113019, 2.297397, 0, 0)**（`dump_shader.py` 实读，**HDR**）。
 Shader "WarpforgeVFX/UnlitAmbient"
 {
     Properties
@@ -65,8 +108,19 @@ Shader "WarpforgeVFX/UnlitAmbient"
         _BaseMap("BaseMap", 2D) = "white" {}
         _ClipThreshold("ClipThreshold", Range(0, 1)) = 0.5
 
-        _EmissiveColor("EmissiveColor", Color) = (0,0,0,1)
-        _FlickerSpeed("FlickerSpeed", Float) = 1
+        // 🔴 2026-10-12 更正（铁律 5）：原来写 `(0,0,0,1)`；**原版声明的默认值是 `(2.113019, 2.297397, 0, 0)`**
+        //   （`dump_shader.py "UnlitAmbient"` 实读，**HDR**）。只在「材质没显式设过它」时可见 ——
+        //   而**只有 `Emissive Flickker` 那份原版的材质**会走到这条支（见下面 `_EmissiveFlickerOn`）。
+        _EmissiveColor("EmissiveColor", Color) = (2.113019, 2.297397, 0, 0)
+        // 原版声明默认值 = **5.0**（实读），原来写 1。
+        _FlickerSpeed("FlickerSpeed", Float) = 5
+        // 🔴 **2026-10-12 新加的闸（原版没有这个 uniform）**：原版 `…Emissive Flickker` 的闪烁那一支
+        //   **不是 keyword 门控的**（4 个前向变体逐字都有），而基础那份 `Everguild/UnlitAmbient` **一条都没有**
+        //   ⇒ 两份原版共用我们这一个 shader，只能按**原版 shader 名**把它闸掉。
+        //   灌它的地方 = `WarpforgeVFX/Runtime/WarpforgeEffectBinder.cs`（那一处有全部理由）。
+        //   ⚠️ **用浮点、不用 keyword**：keyword 在 player 构建里可能被剥掉变体，而这个 keyword
+        //      **没有材质数据能替它保活**（`_APPLYAMBIENTCOLOR` 那批是原版材质自己带的）。
+        [HideInInspector] _EmissiveFlickerOn("EmissiveFlickerOn (ours, not original)", Float) = 0
         // 🔴 2026-09-30 更正：原版属性表里是 **`(0,1,0,0)`**（min=0），我们原来写成 `(0.8,1,0,0)`
         //   ⇒ 闪烁的下限被抬到 0.8、摆幅只有原版的三分之一。（判据 → `项目任务.md` §三 第 30 条 散件 C。）
         //   ⚠️ 这条**只影响兜底/自建这条路**：战场网格在运行时是用**原版 shader** 重建的
@@ -148,6 +202,7 @@ Shader "WarpforgeVFX/UnlitAmbient"
                 float4 _ExtraAmbientColor;
                 float  _ClipThreshold;
                 float  _FlickerSpeed;
+                float  _EmissiveFlickerOn;   // 🔴 2026-10-12：我们加的闸（原版没有它）
                 float  _FogContribution;
                 float  _Cutoff;
                 float  _Surface; float _Blend;
@@ -176,6 +231,12 @@ Shader "WarpforgeVFX/UnlitAmbient"
 
             TEXTURE2D(_BaseMap);
             SAMPLER(sampler_BaseMap);
+
+            // 🔴 2026-10-12：原版 Flickker 那份的**第二张图 = 闪烁噪声图**（原版 PS 的 `t0`；我们原来只声明、从没采样）。
+            //    属性名逐字是原版的（ShaderGraph 自动生成）—— 我们的 Properties 里也一直是它。
+            //    ⚠️ 采样器名 = `sampler` + 属性名（两种拼读法在这里得到同一个串：`sampler_SampleTexture2D_…`）。
+            TEXTURE2D(_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D);
+            SAMPLER(sampler_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D);
 
             struct Attributes
             {
@@ -240,6 +301,20 @@ Shader "WarpforgeVFX/UnlitAmbient"
                 //       **将来碰到真有顶点色的网格（例如战场那些网格）要回来重判这一行。**
                 //    ⚠️ `cb0[61]` **是什么名字没坐实** —— 但这里**不影响**：`v2.w = 0` 时 lerp 恒等于 `tex`，
                 //       取值多少都一样（按 §十 的办法能算出来，要真用到时再算）。
+                //    🔴 **2026-10-12 就地订正（铁律 5）**：上面那句「**我们这 12 个材质不是那一支**」**只对了一半**。
+                //       现核（`battlesharedresources_assets_all.bundle` 实读 `m_VertexData.m_Channels`）：
+                //       · `Background Sky` / `Background_sky1` 那一族 —— 颜色通道 `dimension = 0` ⇒ **确实没有顶点色** ✓ 原结论成立；
+                //       · 🔴 **但 Flickker 的烛光网格有**（`Candles 213`：ch1 = 法线 · **ch3 dim=4 = 颜色** · ch4 = UV0）
+                //         ⇒ 那些网格走的是**带 `COLOR` 的那支 VS**。
+                //       **错因**：当时只读了天空那一族就下了全称结论。**后果与处置**（别只看这半句）：
+                //       · Flickker 的 PS 里那个 lerp 用的是 **`v3`**，而 COLOR 那支 VS 把 `o3` 写成
+                //         `(cb0[61].xyz, 0)`（`o3.w = 0`）⇒ **对 Flickker 仍然是空操作** ✓ 本行不改；
+                //       · 但**基础那份** `Everguild/UnlitAmbient` 的 PS 用的是 **`v2`**，COLOR 那支 VS 把 `o2` 写成
+                //         **真正的顶点色**（`mov o2.xyzw, v4.xyzw`）⇒ 那种网格上 `lerp(tex, 顶点色, 顶点色.a)` **不是空操作**
+                //         ⇒ **本行对「基础 shader + 带顶点色的网格」是取近似**。⚠️ **还没查清**（要查：那 8 个基础材质
+                //         落在哪些网格上、那些网格的颜色通道是什么）⇒ 记成新账，**本轮不擅自改**。
+                //       · 🔴 另一条并列发现：**我们的 OBJ 导出链把颜色通道整个丢了**（烛光那个 OBJ 只有 3 个 float/顶点）
+                //         ⇒ 本 shader 拿到的 `IN.color` 是 (1,1,1,1) ⇒ ① 那条自发光会乘上白色而不是真顶点色。
                 half3 col = tex.rgb * _Color.rgb;
 
                 // ✅ **2026-10-02 修（原来是加法 `col += SampleSH(normalWS) * _ExtraAmbientColor.rgb`）**：
@@ -262,22 +337,32 @@ Shader "WarpforgeVFX/UnlitAmbient"
 
                 col = MixFog(col, IN.fogFactor * _FogContribution);
 
-                // 🔴 2026-10-02 修 **①**：这里原来是个 `#ifdef _ALPHATEST_ON / #else clip(...)` 的**双分支**，
-                //    而本 shader **从来没声明过 `_ALPHATEST_ON` 这个 pragma** ⇒ 那个 `#ifdef` **恒假**、
-                //    永远走 `#else` ⇒ **每一帧都按 alpha 裁一次**（原版基础变体里**一条 discard 都没有**，
-                //    见文件头）。现在改成：**只在 `_ALPHATEST_ON` 真被打开时才裁**，并补上那条 pragma。
-                #ifdef _ALPHATEST_ON
-                    clip(tex.a * _Color.a - _ClipThreshold);
-                #endif
+                // ================= ① `Emissive Flickker` 整支 ＋ ② 第二张图（2026-10-12 新做）=================
+                // 判据逐条 → 文件头「2026-10-12」那一节（原版 PS 段 0/1 的指令 + Unity 反射实读的槽位）。
+                // 🔴 **加法项、最后一条** —— 原版是 `mad o0.xyz, r0.w, r0.xyzx, r1.xyzx`（k·em + col），
+                //    位置在 `× _Color` 与 `_RECEIVESHADOWS` **之后**，而且**不吃雾**
+                //    （所以这里摆在 `MixFog` 之后，与原版「最后一条」一致）。
+                // ⚠️ 闸 `_EmissiveFlickerOn` 是我们加的（原版没有）—— 原版这一支**不是 keyword 门控的**，
+                //    而基础那份 `Everguild/UnlitAmbient` 里一条都没有 ⇒ 只能按原版 shader 名闸。
+                if (_EmissiveFlickerOn > 0.5)
+                {
+                    float  t   = _TimeParameters.x;                       // cb0[19].x（$Globals 槽位表）
+                    float2 nuv = float2(t, t) / max(_FlickerSpeed, 1e-4); // div r0.w, cb0[19].x, cb1[7].x
+                    half   n   = SAMPLE_TEXTURE2D(
+                                     _SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D,
+                                     sampler_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D,
+                                     nuv).x;                              // 只取 **.x**（原版 `r1.x`）
+                    half   k   = lerp(_FlickerMinMaxRange.x, _FlickerMinMaxRange.y, n); // = n*(max-min)+min
+                    col += k * LinearToSrgb(_EmissiveColor.rgb) * IN.color.rgb;
+                }
 
-                // 🔴 2026-10-02 修 **②**：去掉末尾的 `* IN.color.a`。
-                //    判据：反汇编**全文件**里 `o0.w` 只有四种写法 —— `l(0)` / `l(1)` /
-                //    「主图.w × cb1[5].w」/ `movc`；**顶点 alpha 一次都没进过 alpha 通道**。
-                //    ⚠️ 原版**基础**变体是 `mov o0.w, l(1.000000)`（恒 1）。我们保留「主图.a × _Color.a」
-                //    是因为实测**这些材质 10/12 带 `_SURFACE_TYPE_TRANSPARENT`**（带 alpha 的那支变体
-                //    算的就是「主图.a × 一个材质的 alpha」）—— **这是取近似，不是原版基础变体**，
-                //    如实标在这里（要坐实得先把 cb1[5] 是谁读出来，见文件头）。
-                return half4(col, tex.a * _Color.a);
+                // 🔴 2026-10-12 修 **③**：原来那句是 `#ifdef _ALPHATEST_ON clip(tex.a*_Color.a - _ClipThreshold);`
+                //    —— **手写 derivative 的 alpha-to-coverage 那一支没做**。现在改成调 URP 自己的
+                //    `AlphaDiscard`（判据 = `ShaderVariablesFunctions.hlsl:181-216`，与原版段 23/24 逐条吻合）。
+                //    · `_ALPHATEST_ON` 由 `AlphaDiscard` **内部判**（关着时返回入参、不裁）⇒ 这里不用再包 `#ifdef`。
+                //    · `_AlphaToMaskAvailable == 0`（没开 MSAA/alpha-to-mask）时 `clipVal = alpha - cutoff`
+                //      ⇒ **与改动前逐位相同**（改动对现状是恒等的；见文件头 ③）。
+                return half4(col, AlphaDiscard(tex.a * _Color.a, _ClipThreshold));
             }
             ENDHLSL
         }
@@ -298,7 +383,10 @@ Shader "WarpforgeVFX/UnlitAmbient"
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _Color; float4 _BaseMap_ST; float4 _EmissiveColor; float4 _FlickerMinMaxRange;
-                float4 _ExtraAmbientColor; float _ClipThreshold; float _FlickerSpeed; float _FogContribution;
+                float4 _ExtraAmbientColor; float _ClipThreshold; float _FlickerSpeed;
+                // ⚠️ 这一份 CBUFFER 必须与 pass 0 **逐字段同序**（SRP Batcher 兼容要求；顺序不一致 = 同一个属性在
+                //    两个 pass 里落在不同偏移 ⇒ 静默退回旧批处理，而且影子 pass 会读到隔壁字段的值）
+                float _EmissiveFlickerOn; float _FogContribution;
                 float _Cutoff; float _Surface; float _Blend; float _SrcBlend; float _DstBlend;
                 float _SrcBlendAlpha; float _DstBlendAlpha; float _ZWrite; float _ZWriteControl;
                 float _ZTest; float _Cull; float _AlphaClip; float _AlphaToMask;

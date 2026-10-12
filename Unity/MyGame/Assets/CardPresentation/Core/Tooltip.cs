@@ -363,7 +363,9 @@ namespace CardPresentation
     /// 🔴 **这是我们写的，不是原版文案** —— 原版走 I2 本地化 key（`Tips/MeleeAttackTip` 那一族），
     ///    而**词条表在远端 CCD**：本地只有 key、一个 value 都没有（`assets_full` 全量扫过：
     ///    `I2Languages` 零命中、`*.csv/*.tsv` 零命中、`LanguageSourceData` 的序列化字段零命中）。
-    /// ⇒ 这里的每一句都**照规则书**写（行号见各条注释），**不是**照原版 tooltip 抄的。
+    /// ⇒ 这里的每一句都**照规则书**写（**判据行号**留在内部正本 `资料/关键词图标/_规则书关键词表.md` 的
+    ///    「出处行号」列）—— 🔴 **那个行号【不上屏】**：我们一度把它拼进 tooltip（数值那五条 +
+    ///    关键词那条），**2026-10-12（`A1660`）已整条删掉**（原版只凑**标题 + 描述**两段、零出处节点）。
     /// **拿到原版词条表之后，把这张表整个换掉即可**（接口不变）。
     ///
     /// 🆕 **2026-10-08（第六会话 · `Core双语-第一步`）：键已收进 `Core/Loc.cs`** ——
@@ -428,7 +430,11 @@ namespace CardPresentation
         //
         //  **图标**：`Badges.SpriteOf(key)` —— 与卡面/徽标**同一份判据**，别另写一张表。
 
-        [System.Serializable] class TraitTipRow { public string zh; public string en; public string body; public string line; }
+        // 🔴 **2026-10-12（`A1660`）**：原来还有一个 `public string line`（规则书出处行号）——
+        //   生成物 `trait_tips.json` **已不再输出这个字段**（`工具/gen_trait_tips.py` 同步改了）
+        //   ⇒ 字段一起删掉（`JsonUtility` 对多余的 json key 不报错，但留着就是个**死字段**：
+        //   没人读、却让人以为正文里还有出处）。判据 → `资料/普查产出_第二十二会话/DIAG_tooltip出处行.md`。
+        [System.Serializable] class TraitTipRow { public string zh; public string en; public string body; }
         [System.Serializable] class TraitTipTable { public TraitTipRow[] entries; }
 
         static Dictionary<string, TraitTipRow> _tips;
@@ -484,7 +490,10 @@ namespace CardPresentation
         }
 
         /// <summary>
-        /// 一个关键词的 tooltip 正文：**图标 + 标题（中文名 + 英文名）+ 规则书原文 + 出处行号**。
+        /// 一个关键词的 tooltip 正文：**图标 + 标题（中文名 + 英文名）+ 规则书原文**。
+        /// <para>🔴 **2026-10-12（`A1660`）**：原来末尾还贴一句「（规则书 :NNN）」—— **已整条删除**
+        /// （那是我们自加的，原版 `TextTooltipController__GetTraitTooltip` 只凑**标题 + 描述**两段）。
+        /// 用户真机的原话是「**只写该词条的效果就行，不要多余的出处**」。</para>
         ///
         /// 🔴 **规则书 61 条里没有这个词时，只出「图标 + 名字」，并**明写**「（规则书里没有这个词的条目）」**
         /// —— **不编一句解释**（自造词 `ability` 就是这一种）。
@@ -535,10 +544,16 @@ namespace CardPresentation
                               + Loc.T("Tips/Trait/NoRulebookEntry");
             }
 
-            // 🔴 这一句同样**是我们自己加的**（原版没有「规则书行号」这种东西 —— 那是**我们的**判据行）
-            //    ⇒ 键 `Tips/Trait/RulebookLine` **自拟**；`{0}` = `t.line`（规则书上的行号）。
-            string line = string.IsNullOrEmpty(t.line) ? "" : Loc.T("Tips/Trait/RulebookLine").Replace("{0}", t.line);
-            return "<b>" + icon + title + "</b>\n" + t.body + line;
+            // 🔴 **2026-10-12（`A1660`）：这里原来拼「（规则书 :NNN）」贴正文尾 —— 已【整条链路】删掉。**
+            //   判据（原版**没有**这一行）：① 反编译 `TextTooltipController__GetTraitTooltip.c` 只凑
+            //   **两段** —— `TraitNameToStringNoImage(...)`（标题）+ `GetTraitDesc(...)`（描述），没有第三段；
+            //   ② 解包预制体 `Trait Tooltip`（`bundle_duplicateassetisolation_assets_all/GameObject/`）
+            //   的子节点里 `Line` 与 `Background`/`TraitImage` **组件数相同** = 纯 `Image` 分隔线，
+            //   **正文节点只有 `Description` 一处** ⇒ 零出处节点。
+            //   ⇒ 三处一起清（⛔ 不是只在渲染处 `if` 掉）：键 `Tips/Trait/RulebookLine`（`Core/Loc.cs`）、
+            //     生成物的 `line` 字段（`工具/gen_trait_tips.py` → `Resources/trait_tips.json`）、本句。
+            //   ⇒ 正文 = **标题行 + 规则书原文**，与原版同形。回归见 `Editor/BattleScene.cs` §15c。
+            return "<b>" + icon + title + "</b>\n" + t.body;
         }
     }
 }

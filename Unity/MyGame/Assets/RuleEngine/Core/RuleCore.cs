@@ -1918,6 +1918,12 @@ namespace RuleEngine
         /// <summary>
         /// 只判不执行 —— 表现层拖拽过程中要**实时**知道这张牌能不能打，不能等松手才发现。
         /// 和 <see cref="PlayCard"/> 共用这一份判据，不是另写一份。
+        ///
+        /// 🔴 **2026-10-12（`A1597`）：`slot` 是【请求格】，本方法**只答「能不能」、
+        ///    **一个落点都不给出**。落点由 `BoardSlots.Insert` 在 <see cref="PlayCard"/> 里回填
+        ///    （空盘：请求 `0/1/2` ⇒ 落 `3`、请求 `6/7/8` ⇒ 落 `5`；请求 `4`/越界 ⇒ 退化路；
+        ///    请求那侧满 ⇒ 换对侧最外）⇒ **要落点用 `PlayCard(…, out int landedSlot)`**，
+        ///    ⛔ 别拿这里的 `slot` 当落点（那正是 2026-10-11 三条红与 `A1597` 的病灶）。
         /// </summary>
         public static int CanPlayCard(BattleContext ctx, int p, int handIdx, int slot)
         {
@@ -2221,9 +2227,36 @@ namespace RuleEngine
         ///
         /// ⚠️ **战术卡走同一个入口、不同的分支**：它不落格位，`slot` 的含义变成「效果打谁」，
         ///    交给 `EffectResolver.PlayTactic`（扣费 → 结算 → 弃牌堆）。表现层不用分两条路调。
+        ///
+        /// 🔴 **2026-10-12（`A1597`）：`slot` 是【请求格】，不是【落点】—— 这个入口只回状态码。**
+        ///    落点由 `BoardSlots.Insert` 算（`= 原版 `MinionManager.InsertMinion` 的插入语义`）：
+        ///      · **空盘**：请求 `0/1/2` 一律落 **3**、请求 `6/7/8` 一律落 **5**
+        ///        （下标超出该侧人数 ⇒ **夹到贴督军那格**，`AdjustedSlot.c:81-96`）；
+        ///      · 请求 `4`（督军格）或越界 ⇒ 退化路：**挑人数少的一侧、平手走右**的最外一格
+        ///        （`AdjustedSlot.c:45-61`）；
+        ///      · 那一侧满了 ⇒ **换到对侧最外那一格**（`AdjustedSlot.c:64-72 / :104-107`）。
+        ///    ⇒ **要落点就调下面那个带 `out landedSlot` 的重载**（自检夹具尤其需要：拿请求格去
+        ///    断言落点是错的 —— 2026-10-11 因此红过 3 条，见 `资料/历史/A表已收口_第二十会话.md` §八）。
+        ///    ⚠️ 同一个坑的另一半见 <see cref="CanPlayCard"/>：它**只答「能不能」**，也不给落点。
         /// </summary>
         public static int PlayCard(BattleContext ctx, int p, int handIdx, int slot)
         {
+            int landed;
+            return PlayCard(ctx, p, handIdx, slot, out landed);
+        }
+
+        /// <summary>
+        /// 同上，但把**回填后的落点**报出来（`A1597`）。
+        /// <paramref name="landedSlot"/> = 单位**真正落下**的格号；**没落场时恒为 `-1`**
+        /// （打不出去 / `ctx` 或手牌越界 / 是**战术卡** ⇒ 它不落格位，`slot` 那个参数在那边
+        /// 是「效果打谁」的意思）。
+        /// ⚠️ 判据仍然只有一处：落点由 `BoardSlots.Insert` 算（它 `return landed`），
+        ///    这里只是**把它接住**、⛔ 不另算一遍。
+        /// </summary>
+        public static int PlayCard(BattleContext ctx, int p, int handIdx, int slot, out int landedSlot)
+        {
+            landedSlot = -1;      // 没走到 `Insert` 那一跳（战术卡 / 打不出去）⇒ 保持这个值
+
             // 单位卡的判据在下面；战术卡先分流（判据共用 `CanPlayTactic`，不在这儿重写一份）
             if (p >= 0 && p < 2 && handIdx >= 0 && handIdx < ctx.Players[p].Hand.Count
                 && !ctx.Players[p].Hand[handIdx].Card.IsUnit)
@@ -2277,6 +2310,10 @@ namespace RuleEngine
             //    （`Deploy` 事件、日志、`FireTriggerAt` 的格位…），表现层才摆得对人。
             //    ⚠️ `HasRoomFor` 已经在 `CanPlayCard` 里判过 ⇒ 这里 `Insert` 不会失败。
             slot = BoardSlots.Insert(ps, unit, slot);
+            // 🔴 **2026-10-12（`A1597`）**：把 `Insert` 回填的落点接住报给调用方（它 `return landed`，
+            //    原来是**丢掉的**）—— 自检夹具要断言「落在哪一格」，只能从这里拿，
+            //    ⛔ 别拿**请求格**去断言（空盘上请求 `2` 实际落 `3`；见本方法的 doc）。
+            landedSlot = slot;
             ctx.TroopsPlayed[p]++;   // 🆕 2026-09-23 战果：本局打出的部队卡张数（督军不走这条路）
             // 🆕 2026-10-17（B19）：**记一笔「本局打出过的牌」**（候选域 `played` 的唯一来源）。
             //    ⚠️ **战术卡不在这里写** —— 它们在函数开头就分流进 `PlayTactic` 了，

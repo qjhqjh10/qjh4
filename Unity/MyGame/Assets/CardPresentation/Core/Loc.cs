@@ -965,15 +965,22 @@ namespace CardPresentation
             //     里程碑计数 ⇒ ⛔ 别硬造一条对面键。
             // ------------------------------------------------------------------------------------------
             // 卡面四个数值 + 费用那条（`TipText.{Melee,Ranged,Armour,Health,Cost}`）
-            { "Tips/MeleeAttackTip",               new Entry("近战攻击力（规则书 :78）", "Melee Attack (rulebook :78)") },   // 键名 = 原版（152 颗触发器）· 值两列自拟
-            { "Tips/RangedAttackTip",              new Entry("远程攻击力（规则书 :78）", "Ranged Attack (rulebook :78)") }, // 键名 = 原版（152 颗）· 值两列自拟
-            { "Tips/HealthTip",                    new Entry("扣完护甲后扣生命，归零进弃牌堆（:147）", "Health is lost after armour; at zero the card goes to the discard pile (:147)") }, // 键名 = 原版（152 颗）· 值两列自拟
-            { "Tips/CostTip",                      new Entry("打出去要花的能量（规则书 :78）", "Energy you must spend to play this card (rulebook :78)") }, // 键名 = 原版（305 颗）· 值两列自拟
+            //  🔴 **2026-10-12（`A1660`）**：这几条的**值**原来在末尾带出处（「（规则书 :78）」「（:147）」），
+            //    与我们自加的**关键词 tooltip 出处行同族**、原版没有 ⇒ **值里的出处一并删掉**。
+            //    用户口径：「**只写该词条的效果就行，不要多余的出处**」。
+            //    ⚠️ **只改值、不删键** —— 这几个键是数值 tooltip 的**正文**（`BattleDriver.TickTooltipAt`
+            //       与 `DeckRuntime` 的 TickTooltip 都取它），删键会整条丢正文（`Loc.T` 回键名本身）。
+            //    ⚠️ 用途不止 tooltip：`TipText.ByLink` 还把近战/远程那两条用于**效果正文里的行内图标**。
+            //    判据 → `资料/普查产出_第二十二会话/DIAG_tooltip出处行.md`；回归见 `BattleScene.cs` §15c。
+            { "Tips/MeleeAttackTip",               new Entry("近战攻击力", "Melee Attack") },   // 键名 = 原版（152 颗触发器）· 值两列自拟
+            { "Tips/RangedAttackTip",              new Entry("远程攻击力", "Ranged Attack") }, // 键名 = 原版（152 颗）· 值两列自拟
+            { "Tips/HealthTip",                    new Entry("扣完护甲后扣生命，归零进弃牌堆", "Health is lost after armour; at zero the card goes to the discard pile") }, // 键名 = 原版（152 颗）· 值两列自拟
+            { "Tips/CostTip",                      new Entry("打出去要花的能量", "Energy you must spend to play this card") }, // 键名 = 原版（305 颗）· 值两列自拟
             // 🔴 这一条**键名自拟**（原版无护甲 tooltip，见本节开头那条）+ **我们这边零消费点**
             //   （`BattleDriver.TickTooltipAt` 明确不挂它、`Editor/BattleScene.cs` 还有一条
             //   「**护甲上没有 tooltip**（原版那个容器就没有触发器）」的断言）—— 保留它只为
             //   「同一族五条形状一致」+ 谁哪天要挂的时候不会印出键名。⛔ **别拿它当「原版有」的证据**。
-            { "Tips/ArmourTip",                    new Entry("受任何来源的伤害都减这么多，最低减到 1（:167）", "Reduces damage from any source by this much, to a minimum of 1 (:167)") }, // 键名 + 值**全自拟**（原版无）
+            { "Tips/ArmourTip",                    new Entry("受任何来源的伤害都减这么多，最低减到 1", "Reduces damage from any source by this much, to a minimum of 1") }, // 键名 + 值**全自拟**（原版无）
             // HUD 计数那条（`TipText.{Energy,Skulls,QuestPoints,Faith,SpiritStone}`）
             { "Tips/Hud/Skulls",                   new Entry("本局拿到的战功骷髅数", "Skulls earned in this match") }, // 键名 = 原版（13 颗 · `Milestones`）· 值两列自拟
             { "Tips/Hud/PlayerEnergyCount",        new Entry("每回合恢复，用来打出手牌", "Refills every turn; spend it to play cards from your hand") }, // 键名 = 原版（13 颗）· 值两列自拟
@@ -988,15 +995,19 @@ namespace CardPresentation
             { "Tips/Hud/OpponentQPCount",          new Entry("对面暗黑天使的任务点进度（0/3）", "Your opponent's Dark Angels quest point progress (0/3)") }, // 键名 = 原版（13 颗）· 值两列自拟
             { "Tips/Hud/OpponentFaithCount",       new Entry("对面战斗修女的阵营资源", "Your opponent's Battle Sisters faction resource") }, // 键名 = 原版（13 颗）· 值两列自拟
             { "Tips/Hud/OpponentSpiritStoneCount", new Entry("对面灵族的阵营资源；在场也算单位（1 血）", "Your opponent's Aeldari faction resource; it also counts as a unit (1 health) on the board") }, // 键名 = 原版（13 颗）· 值两列自拟
-            // ---- `Tips/Trait/*`：🔴 **两条都是【我们自己加的】、原版没有**（`Core/Tooltip.cs` 的 `TipText.Trait`）----
+            // ---- `Tips/Trait/*`：🔴 **我们自加的、原版没有**（`Core/Tooltip.cs` 的 `TipText.Trait`）----
             //   原版查不到描述时**就只有「图标 + 标题」、没有正文**（`EverguildTraitTooltipItem`，
-            //   见 `资料/tooltip_原版规格与实现.md` §五）；这两句是我们替它补的**如实说明**：
-            //     · `NoRulebookEntry`：规则书 61 条（`:161-225`）里没有这个词 ⇒ 明写「没有条目」、**不编解释**；
-            //     · `RulebookLine`：`{0}` = 规则书行号（**那是我们自己的判据行，原版没有**）。
-            //   🔴 两列**全自拟**（原版没有这两句）。🚨 它们**会上屏**：`Editor/BattleScene.cs` 的两条断言
-            //     断的就是这两句（`:11007` 的 `arm.Contains(":167")` 与「没有这个词的条目」那条）。
+            //   见 `资料/tooltip_原版规格与实现.md` §五）；这一句是我们替它补的**如实说明**：
+            //     · `NoRulebookEntry`：规则书 61 条（`:161-225`）里没有这个词 ⇒ 明写「没有条目」、**不编解释**。
+            //   🔴 两列**全自拟**（原版没有这句）。🚨 它**会上屏**：`Editor/BattleScene.cs` §15c 那条断言
+            //     断的就是它（「没有这个词的条目」；⛔ 旧注释写的 `:11007` 是**过期行号**，已按现读订正）。
+            //   🔴 **2026-10-12（`A1660`）删掉同族的键 `Tips/Trait/RulebookLine`（原值「（规则书 :{0}）」）** ——
+            //     它是我们自加的**出处行**、原版没有（判据：反编译 `TextTooltipController__GetTraitTooltip.c`
+            //     只凑标题 + 描述两段；解包预制体 `Trait Tooltip` 的正文只有 `Description` 一个节点，
+            //     `Line` 是纯 Image 分隔线）⇒ 用户真机看到「多印一段」后要求「只写该词条的效果」。
+            //     **键 / 生成物的 `line` 字段 / 渲染那一句三处一起删**，⛔ 不是只在渲染处 `if` 掉。
+            //     判据与依赖顺序 → `资料/普查产出_第二十二会话/DIAG_tooltip出处行.md`。
             { "Tips/Trait/NoRulebookEntry",        new Entry("（规则书里没有这个词的条目）", "(no entry for this term in the rulebook)") }, // ⚠️ 我们加的，不许当成原版
-            { "Tips/Trait/RulebookLine",           new Entry("（规则书 :{0}）", "(rulebook :{0})") }, // ⚠️ 我们加的；`{0}` = 规则书行号（我们自己的判据行）
             //   🆕 **2026-10-10（`A1084` 第二步 · 原 `A1086③`）`Tips/Trait/TitleWithEn`**：关键词 tooltip 的
             //   **标题那一行** = 「中文名（英文名）」。🔴 **这是我们加的**（原版 `EverguildTraitTooltipItem`
             //   的标题只有**一条** I2 词条、本地取不到值）⇒ 两列全自拟。

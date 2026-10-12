@@ -140,10 +140,15 @@ namespace RuleEngine
         /// 第二条 op）⇒ 一条前缀会同时盖住 2 条 op，而 `EffectResolver.ResolveOneCore` 的付费支
         /// 是**逐 op 收**的 ⇒ **扣两倍**（`UM93 Fall Back` / `SOR6 Righteous Repugnance` 实测）。
         ///
-        /// **判据（谁付）**：**组里第一条**（`CostShared == false`）付 —— 付费发生在
-        /// `ResolveOneCore` 里条件判定的**之前**，所以按序第一条一定会走到。
-        /// 后面的（`CostShared == true`）**不查余额、不再扣**，也**不再重复广播**
+        /// **判据（谁付）**：**组里第一条**（`CostShared == false`）= **付钱那条**，
+        /// 它后面的一串（`CostShared == true`）**不查余额、不再扣**，也**不再重复广播**
         /// （灵魂石那支「触发一个灵魂石能力」的事件只该发一次）。
+        /// 🔴 **2026-10-12（`A1412`）：这个标记的【消费方式】变了 —— 它现在是「组分界」的唯一判据，
+        /// 结算层拿它在 `ResolveOps` **顶端按组收一次钱**（`EffectResolver.ChargePaidGroups`），
+        /// 而**执行那一段**里每条 op 都被递成「已经付过」（`EffectResolver.Prepaid`，**含付钱那条
+        /// 自己**）。改前是靠「**执行次序**」推谁付钱（付款那条一定第一个执行到）＋ 两处补丁
+        /// （`for each` 第 2 遍起、`instead` 顺延），那几个前提一换形状就静默漏 —— 抬到能力层
+        /// 之后只认**批次结构**。
         ///
         /// ⚠️ **`Cost` 照旧留在每条 op 上**（不是只留第一条）—— `CardDef.CollectOathOps` /
         /// `CollectSpiritOps` 靠「`Cost &gt; 0` 且货币对上」把整条 ability 的 op **都**收进去；
@@ -2687,6 +2692,21 @@ namespace RuleEngine
             //        但结算时它**什么都不用做** —— 降费在牌还在手上时就登记好了。
             //      ⚠️ 结算时**打一行日志说明**（红线：不许静默），别让它看起来像"没实现"。
             op = TryCostWhenStub(low, src);
+            if (op != null) { r.Ops.Add(op); r.Kind = SegKind.Ok; return r; }
+
+            // ---- 8c-bis) 🔴 `<效果> when <事件>`（**后缀形**，`A1461` / `A1575`，2026-10-12）----
+            //   出处：`TAU20 Sniper Drone` 的 `Gains Long Range when an enemy gains Markerlight`
+            //   （卡面亲读 → `d:/2/Warpforge部队卡片/Tau/3部队/Warpforge_20_Sniper-Drone.png`；
+            //    抄录表 → `资料/卡表核对_卡图提取/Tau__1.md:36`）。
+            //   🔴 **必须先于 `TryGive`/`TryGain`**（它们在这段**后面**，见下面 7x/9x 那几支）：
+            //     不拦的话 `TryGain` 的 `^(.+?)\s+(?:gains?|gets?|becomes?)\s+(.+)$` 会拿
+            //     **最后一个** `gains` 当动词 ⇒ 解出 `payload=[markerlight]`
+            //     `target=[gains long range when an enemy]` —— 那就是**给敌人发一份标记光**，
+            //     而卡面一个字都没这么说（实测读数见 `W10_引擎TAU20.md`）。
+            //   ⚠️ 和 8c 同一条纪律：机制在**事件层**（`CardDef.AddWhenTrigger` 的 ③ 支注册监听器，
+            //      事件真发生时由 `EffectResolver.BroadcastWhen` 结算）；这里只放一个**标记 op**，
+            //      目的是让整句「解析得出」并**挡住错解**。结算时**打一行日志说明**（不许静默）。
+            op = TryWhenSuffixStub(low, src);
             if (op != null) { r.Ops.Add(op); r.Kind = SegKind.Ok; return r; }
 
             // ---- 8d) `This costs N less if you control a unit with <关键词>`（**静态条件降费**，2026-09-13 A4 批 1）----
@@ -6759,6 +6779,89 @@ namespace RuleEngine
                                 RegexOptions.IgnoreCase);
             if (!m.Success) return null;
             return new EffectOp { Verb = "costwhen", Source = src, Amount = int.Parse(m.Groups[1].Value) };
+        }
+
+        /// <summary>
+        /// `&lt;效果&gt; when &lt;事件&gt;`（**后缀形**）→ 把这一句切成「效果正文 / 事件短语」两半，
+        /// 并把**效果那半**解析成 op。**切不出来返回 `false`**（⛔ 不猜切点）。
+        ///
+        /// 🆕 2026-10-12（`A1461` / `A1575`）。**为什么需要它**：卡面
+        /// `Gains Long Range when an enemy gains Markerlight`（`TAU20 Sniper Drone`，
+        /// 亲读 `d:/2/Warpforge部队卡片/Tau/3部队/Warpforge_20_Sniper-Drone.png`；
+        /// 抄录 `资料/卡表核对_卡图提取/Tau__1.md:36`）是「**效果在前、事件在后**」的写法，
+        /// 而主解析器只认过事件在前的 `When …, …` ⇒ `TryGain` 的
+        /// `^(.+?)\s+(?:gains?|gets?|becomes?)\s+(.+)$` 拿**最后一个** `gains` 当动词，
+        /// 解出 `payload=[markerlight] target=[gains long range when an enemy]`
+        /// （**目标段把从句整个吞了**；改前实测见 `资料/普查产出_第二十二会话/W10_引擎TAU20.md` §四）。
+        ///
+        /// 🔴 **判据只此一处**：本函数被**两个**调用方转调 ——
+        ///   · `CardDef.AddWhenTrigger` 的 ③ 支（**注册**监听器，事件层的上半截）；
+        ///   · `TryWhenSuffixStub`（**解析层**把这句话认下来，免得被 `TryGain` 抱走）。
+        ///   写两份的话会出现「解析器认了、卡面不生效」或反过来（本工程反复强调那条）。
+        ///
+        /// **切不动就认不出**（与 `WhenEvent.cs` 文件头 ⚠️① 同一条纪律）：三道闸全过才算：
+        ///   ① `" when "` **取最后一个**（事件短语自己可能带 `when`）；两半都非空；
+        ///      **效果那半里不许再有 `" when "`** —— 否则切点会挪，而且递归没底。
+        ///   ② **效果那半必须解析得出 op**。这一条自动挡掉另外两族（两族都**实测**过，
+        ///      用 `ruleprobe.sh seg "<半句>"` 亲读 —— `Lower cost by 1` 与 `For the rest of this battle,`
+        ///      都**解不出 op**）：
+        ///        · `Lower cost by 1 when an enemy dies`（降费族）⇒ 归 `CardDef.AddWhenTrigger` ② 支；
+        ///          ⛔ 别在这儿抢 —— 抢了就是「同一条规则两处登记」；
+        ///        · `For the rest of this battle, when …`（常驻族）⇒ 归常驻层（`TryPersistent`）。
+        ///   ③ **事件短语必须解析得出**（`WhenEvents.ParseAll`）—— 与 `SplitHandTrapWhen` 条件②同形；
+        ///      认不出的短语一律不收（注册一条**永远不响**的监听器 = 本工程红线）。
+        ///      `This troop can ignore enemy units with Vanguard when attacking` 正是靠这条被挡下
+        ///      （尾巴 `attacking` 不是事件短语）。
+        ///
+        /// ⚠️ **入口处统一剥方括号**：两个调用方拿到的文本一份带 `[...]`
+        ///    （`CardDef` 从 `EffectText.Split(Desc)` 取）、一份已经被 `ParseSegment` 剥过
+        ///    （`Dispatch` 的 `src`）⇒ 不归一的话**同一句话在两处会得到不同结论**。
+        /// </summary>
+        /// <param name="evPhrase">事件短语（调用方再交给 `WhenEvents.ParseAll`）</param>
+        /// <param name="body">效果那半的**原文**（`WhenTrigger.Body` / 日志用）</param>
+        /// <param name="ops">效果那半解析出来的 op（**已经是可执行的**：`ResolveOps(…, source: 监听者自己, …)`）</param>
+        public static bool TryWhenSuffix(string seg, out string evPhrase, out string body,
+                                        out List<EffectOp> ops)
+        {
+            evPhrase = null; body = null; ops = null;
+            if (string.IsNullOrEmpty(seg)) return false;
+
+            string s = seg.Replace("[", "").Replace("]", "").Trim();
+            string low = s.ToLowerInvariant();
+            const string sep = " when ";
+            int w = low.LastIndexOf(sep, System.StringComparison.Ordinal);
+            if (w <= 0) return false;                       // ① 切点（`<=0` = 没找到 / 效果那半是空的）
+
+            string head = s.Substring(0, w).Trim();
+            string tail = s.Substring(w + sep.Length).Trim();
+            if (head.Length == 0 || tail.Length == 0) return false;
+            if (head.ToLowerInvariant().IndexOf(sep, System.StringComparison.Ordinal) >= 0) return false;
+
+            var headOps = Parse(head, out _, out _);
+            if (headOps == null || headOps.Count == 0) return false;   // ② 效果那半要解析得出
+            if (WhenEvents.ParseAll(tail).Count == 0) return false;    // ③ 事件短语要解析得出
+
+            evPhrase = tail; body = head; ops = headOps;
+            return true;
+        }
+
+        /// <summary>
+        /// `&lt;效果&gt; when &lt;事件&gt;`（**后缀形**）的**标记 op**（`A1461` / `A1575`）。
+        ///
+        /// 和 <see cref="TryCostWhenStub"/> 同一条纪律：这句话**没有可结算的东西** ——
+        /// 真正干活的是**事件层**（`CardDef.WhenTriggers` 里那条监听器，
+        /// 事件真的发生时由 `EffectResolver.BroadcastWhen` → `FireWhen` → `ResolveOps` 结算）。
+        /// 它在这里的唯一目的是：① 让整句**解析得出来**（`IsFullyParsed` 三处共用：能不能打 /
+        /// 能不能进卡组 / 卡面打不打 `*`）；② **挡住 `TryGain` 的错解**（见 `TryWhenSuffix`）。
+        ///
+        /// ⚠️ 判据与注册侧**同形**（两边都转调 `TryWhenSuffix`）—— 改一处必须想另一处
+        ///    （同 `costwhen` 那条注释的告诫）。
+        /// </summary>
+        static EffectOp TryWhenSuffixStub(string low, string src)
+        {
+            string ev, body; List<EffectOp> ops;
+            if (!TryWhenSuffix(src, out ev, out body, out ops)) return null;
+            return new EffectOp { Verb = "whenclause", Source = src, Payload = body };
         }
 
         /// <summary>

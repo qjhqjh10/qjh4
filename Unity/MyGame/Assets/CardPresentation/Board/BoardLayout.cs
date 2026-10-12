@@ -80,6 +80,74 @@ namespace CardPresentation
 
         public bool IsWarlord(int slot) { return slot == WarlordSlot; }
 
+        // ==================================================================
+        //  「一张卡 = 一段渲染队列」的【场上号段】（🆕 2026-10-12 · `A1672`）
+        // ==================================================================
+        // 机制（把**这张卡的每一层**盖成同一个号）在 `Core/CardView.cs` 的 `SetQueue` —— **判据只此一处**；
+        // 本文件只回答「**哪一格给哪个号**」，与 `Hand/HandLayout.queueTop` 是同一套分工
+        // （手牌：`queueTop − top`；场上：本类的 `QueueOf`）。⛔ 别在别处再算一遍号。
+        // 调用点只一个 = `Battle/BattleDriver.cs` 的 `SyncBoard`（落位那一刻，排在**这一格所有动作之后**）。
+        //
+        // 🔴 **整段 ≤ `CardView.QCard`(3000)，而且要压在【手牌段】之下**（`HandLayout.queueTop = 3000`
+        //    往下排、下限 `HandLayout.QueueFloor = 2980`）⇒ 顶号取 **2979**：两段不留缝、也不撞号，
+        //    于是「从手里拖一张牌掠过场上」时那张牌（手牌段）**恒压在场上的卡之上**。
+        //    全仓另有几处按「卡 ≤ 3000」写死（别往上排）：`MarkerQ = 3100`（注释明写「必须大于卡的 3000」）·
+        //    `CardWinBox.QEffect = 3020` · `Battle/CardDisplayWindow.QChrome = 3000`（遮罩靠 z 压住手牌）。
+        //
+        // 🔴 **方向** —— **号大的画在上面**（Transparent 队列里号大的后画、ZWrite 关 ⇒ 压住先画的）：
+        //   ① **行**：`mirror == false`（我方那一行 —— 画面下方、离相机近）**整行压住**敌方那一行。
+        //      与透视相机里的真实远近同向：`ArenaSlots.PlayerZ = −6.655` 比 `EnemyZ = 1.043` 近。
+        //   ② **行内**：越靠**中间**（督军位）越靠前。3D 那条路一行各格 **z 相同**
+        //      （`ArenaSlots.Position` 只有 x 随格号变），到相机的距离只差 `|x|`，而相机在正中
+        //      （`NxOf(WarlordSlot) = 0.5` = 屏幕中心）⇒「中间那张最近」。督军位另有
+        //      `heroExtraOffset` 的 z 偏移（我 −0.42 / 敌 −0.75）**方向也是更近** ⇒ 不冲突。
+        //      ⚠️ **原版场上卡不按格号排序**（`CardScript.SetUnitInPlayLayer` 给场上所有卡**同一个**
+        //      order 10、把次序交给**距离**）⇒ 我们这条就是把那个次序**写成确定的号**、逐对同向。
+        //
+        // ⚠️ **静止时本来不可观测**：2D 那条路九格 `z` 恒 0（全共面，距离排序退化成不确定），
+        //    而格距 149.3 px > 卡宽 137.2 px（按设计不重叠）⇒ 这条的价值在**重叠期**
+        //    （出牌飞行 / 让位滑动 / 阵亡演出）让「谁压谁」有定义，以及**场上卡身上漏盖章的层
+        //    （停在默认 3000）不再随距离乱穿**（那正是 `A1665` 那个「多张卡的文本互相透出」的症状）。
+        //    照铁律 11 做，⛔ 别拿「看着没差」当理由。
+
+        /// <summary>场上队列段的**顶号**（= 我方那一行正中间那一格）—— `HandLayout.QueueFloor − 1`
+        /// （与手牌那一段**不留缝也不撞号**）。改它要同时看 <see cref="QBoardFloor"/> 与手牌那两个常量；
+        /// `Editor/BattleScene.cs` 里有一条交叉断言盯着「场上整段 &lt; 手牌段下限」。</summary>
+        public const int QBoardTop = 2979;
+
+        /// <summary>场上队列段的**底号**（= 敌方那一行最外侧那一格）= 顶号 −（2 行 × 9 格 − 1）= 2962。</summary>
+        public const int QBoardFloor = QBoardTop - (SlotCount * 2 - 1);
+
+        /// <summary>行内名次（0 = 最靠前、画在最上面）：离督军位越远越靠后，**取值 0..8 且不重**。
+        /// 对称的那两格（如槽 3 与槽 5）到相机的距离**完全相等**（相机在正中、两格 ±同一个 x）
+        /// ⇒ 3D 那种排序在那两格之间本来就是**平局**、没有判据 ⇒ 这里定一条**纯次序用**的分先后
+        /// （左的在前）。它唯一的作用是让 9 格号互不相同：同号的「谁压谁」又变回不确定，正是这条要治的病。
+        /// ⚠️ 名次必须**连续**（0..8）：<see cref="QBoardFloor"/> 是按「9 格连续」算出来的。</summary>
+        public static int RankInRow(int slot)
+        {
+            if (slot == WarlordSlot) return 0;
+            int k = Mathf.Abs(slot - WarlordSlot);
+            return k * 2 - (slot < WarlordSlot ? 1 : 0);
+        }
+
+        /// <summary>**这一格上那张卡的渲染队列段号**（`A1672` 唯一的号源）。
+        /// `mirror == true` ⇒ 敌方那一行（整行排在我方之下，见上面那段）。</summary>
+        public int QueueOf(int slot)
+        {
+            if (slot < 0 || slot >= SlotCount)      // 不静默失败（铁律：没实现/越界要出声）
+            {
+                if (!_queueBad)
+                {
+                    _queueBad = true;
+                    Debug.LogError($"[BoardLayout] QueueOf({slot}) 越界（合法 0..{SlotCount - 1}）"
+                                 + $" ⇒ 退回顶号 {QBoardTop}。查调用点（`BattleDriver.SyncBoard`）传的格号。");
+                }
+                return QBoardTop;
+            }
+            return QBoardTop - ((mirror ? SlotCount : 0) + RankInRow(slot));
+        }
+        static bool _queueBad;
+
         // ---- 格位底片（给玩家看「能往哪儿放」）----
         // 底片由这里创建而不是场景里摆 —— 它得跟着 LayoutSpace 的分辨率缩放走，
         // 而且拖拽时要整体变色，放在一处最省事。

@@ -206,6 +206,44 @@ public static class BattleScene
         return c;
     }
 
+    /// <summary>把**已经挂好 `targetTexture`** 的相机渲一遍、把那张 RT 读回 CPU（自检专用）。
+    /// 🔴 「画在屏幕上没有」这类判据只能数像素 —— 只读 `activeSelf`／只比字号都证明不了它
+    /// （2026-09-22 那条 `AutoFitBox` 的教训：字号对而溢出，断言照样全绿）。</summary>
+    static Texture2D RenderToTex(Camera c, RenderTexture rt, int W, int H)
+    {
+        c.Render();
+        var prev = RenderTexture.active;
+        RenderTexture.active = rt;
+        var tex = new Texture2D(W, H, TextureFormat.RGBA32, false);
+        tex.ReadPixels(new Rect(0, 0, W, H), 0, 0);
+        tex.Apply();
+        RenderTexture.active = prev;
+        return tex;
+    }
+
+    /// <summary>`t` 的像素数组（**row 0 在底部**，与 `ReadPixels` / `WorldToScreenPoint` 同一套坐标）。</summary>
+    static Color32[] ReadPx(Texture2D t) { return t.GetPixels32(); }
+
+    /// <summary>两张同尺寸图在 `p` 周围半径 `half` 的**方窗**里有多少像素不一样（自检专用）。
+    /// ⚠️ 窗口夹进图内 —— 卡被摆到画面边缘时越界会读到错的像素（静默）。</summary>
+    static int CountDiffIn(Color32[] a, Color32[] b, int W, int H, Vector2 p, int half, float thr)
+    {
+        int x0 = Mathf.Clamp(Mathf.RoundToInt(p.x) - half, 0, W - 1);
+        int x1 = Mathf.Clamp(Mathf.RoundToInt(p.x) + half, 0, W - 1);
+        int y0 = Mathf.Clamp(Mathf.RoundToInt(p.y) - half, 0, H - 1);
+        int y1 = Mathf.Clamp(Mathf.RoundToInt(p.y) + half, 0, H - 1);
+        int n = 0;
+        for (int y = y0; y <= y1; y++)
+            for (int x = x0; x <= x1; x++)
+            {
+                var ca = a[y * W + x]; var cb = b[y * W + x];
+                // ⚠️ `Color32` 是 0..255 的字节，阈值要跟着放大（`thr` 按 0..1 写）
+                int d = Mathf.Abs(ca.r - cb.r) + Mathf.Abs(ca.g - cb.g) + Mathf.Abs(ca.b - cb.b);
+                if (d > thr * 255f) n++;
+            }
+        return n;
+    }
+
     /// <summary>`m` 的每个通道是否都落在 `a`/`b` 之间（容差 <paramref name="eps"/>）。
     /// 🔴 用「区间」而不是「逐值相等」是因为 RT 上可能有一次 sRGB 写转换，而**单调**变换
     /// 保区间、不保值 —— 逐值比会假红。</summary>
@@ -1033,6 +1071,13 @@ public static class BattleScene
                 Check(sv.StatFlash(CardView.StatMelee) == CardFeel.StatUpColor, "涨 ⇒ 涨色");
                 Object.DestroyImmediate(sv.gameObject);
             }
+
+            // ⑤·b2 🆕 2026-10-12（用户真机报「场上的战将和部队没有近战/远程/血量数值」）：
+            //      **底光的队列** + **整叠覆盖层的 z 序** + **四个数值真的画在屏幕上（数像素）**。
+            //      三件事都落在 `CheckBoardStatStack` 里（判据/出处/「改坏就红」都写在那上面）。
+            //      ⚠️ 那三条**都要留**：`StatShown` 那几条测的是**行为**（该显示的格是不是活的、画的哪个数），
+            //         「真画在屏幕上没有」只有数像素才测得到 —— 用户报的就是「读数全绿、卡上只有一个数」。
+            CheckBoardStatStack(Check, driver);
 
             // ⑤·c 🆕 2026-10-05（A90②）：**换卡面材质不许把显式分好的渲染队列抹掉**
             //      （= A85 那条工程级不变量的**漏网处**：`Core/CardView.cs:969-975` 的修 2026-10-03 就落了，
@@ -9519,11 +9564,15 @@ public static class BattleScene
                         "Battle/Tips/DragToTarget", "Battle/Tips/UnitNotReady",
                         "Battle/Effect/ChangeMeleeAttackOneTurn", "Battle/Effect/ChangeRangedAttackOneTurn",
                         "Battle/Effect/ChangeHealthOneTurn", "Battle/Effect/ChangeArmourOneTurn",
-                        // ---- 🆕 2026-10-09（`A1086④`）：`Tips/Trait/` 那两条（**已上屏**，原来漏扫）----
-                        //  判据 → `Core/Loc.cs` 那一节（🔴 **两条都是我们自拟的、原版没有**，见那两条的注释）；
-                        //  消费点 = `Core/Tooltip.cs` 的 `TipText.Trait`（tooltip **正文**那两处 ——
-                        //  「规则书里没这条」/「（规则书 :行号）」）⇒ 缺键时 tooltip 正文明晃晃印**键名**。
-                        "Tips/Trait/NoRulebookEntry", "Tips/Trait/RulebookLine",
+                        // ---- 🆕 2026-10-09（`A1086④`）：`Tips/Trait/NoRulebookEntry`（**已上屏**，原来漏扫）----
+                        //  判据 → `Core/Loc.cs` 那一节（🔴 **是我们自拟的、原版没有**，见那条的注释）；
+                        //  消费点 = `Core/Tooltip.cs` 的 `TipText.Trait`（**规则书里没这个词时那句如实说明**）
+                        //  ⇒ 缺键时 tooltip 正文明晃晃印**键名**。
+                        //  🔴 **2026-10-12（`A1660`）**：同族的 **`Tips/Trait/RulebookLine`（「（规则书 :{0}）」）
+                        //  已【整条删除】** —— 那是我们自加的**出处行**、原版没有（判据 →
+                        //  `资料/普查产出_第二十二会话/DIAG_tooltip出处行.md`）⇒ 从本数组拿走。
+                        //  ⛔ 键、生成物的 `line` 字段、`TipText.Trait` 里拼那一句，**三处一起清**才是「删干净」。
+                        "Tips/Trait/NoRulebookEntry",
                     };
                     var w6LangWas = Loc.Current;
                     foreach (var k in w6Keys)
@@ -10097,6 +10146,150 @@ public static class BattleScene
                     foreach (var t in v.GetComponentsInChildren<TMPro.TextMeshPro>(true))
                         if (t.gameObject.activeInHierarchy && !string.IsNullOrEmpty(t.text)) strayText++;
                 Check(strayText == 0, $"★ 场上卡上没有多余的文字层（实测 {strayText} 处 —— 名字/技能/兵种行都该关着）");
+
+                // ---- 13d-2. 场上卡各占一段渲染队列（🆕 2026-10-12 · `A1672`）----
+                // 与手牌那半**同一套机制**（`CardView.SetQueue`；手牌那一段在 `HandLayout.queueTop`），
+                // 本件只把**号源**接上 = `BattleDriver.SyncBoard` 末尾那句 `v.SetQueue(layout.QueueOf(s))`
+                // （唯一的调用点；⛔ 全仓「每张卡一段队列」的实现在 `CardView` 一处、号的规则在
+                // `BoardLayout.QueueOf` 一处）。
+                // 🔴 **这里故意【不】再写一组「两张卡配对 min>max」**（那条判据归 `CardView.SubtreeQueues`
+                //    的文件头与手牌那条断言）—— 场上改断**逐卡对账**：这一格上的卡拿到的号必须
+                //    == `BoardLayout.QueueOf(格号)`，且**它自己每一层**都落在这一段里。
+                {
+                    Check(drv.playerBoard != null && drv.enemyBoard != null,
+                          "（前提）棋盘两边的 `BoardLayout` 都在（`A1672` 的号源，也是 `SyncBoard` 用的那两个实例）");
+                    var blMe = drv.playerBoard;
+                    var blFoe = drv.enemyBoard;
+                    if (blMe != null && blFoe != null)
+                    {
+                        // ① 号源本身（纯算术，不依赖场上此刻有几张卡）：18 格号互不相同、在带内、
+                        //    不越卡的 3000、整段压在【手牌段下限】之下。
+                        var q18 = new List<int>(BoardLayout.SlotCount * 2);
+                        for (int s = 0; s < BoardLayout.SlotCount; s++)
+                        {
+                            q18.Add(blMe.QueueOf(s));
+                            q18.Add(blFoe.QueueOf(s));
+                        }
+                        int qLo = int.MaxValue, qHi = int.MinValue;
+                        foreach (int q in q18) { qLo = Mathf.Min(qLo, q); qHi = Mathf.Max(qHi, q); }
+                        bool qDistinct = true;
+                        for (int i = 0; i < q18.Count && qDistinct; i++)
+                            for (int j = i + 1; j < q18.Count; j++)
+                                if (q18[i] == q18[j]) { qDistinct = false; break; }
+                        // 🧨 **改坏法**：`QueueOf` 改成返回常数 / 忘了减格号 ⇒ 必红。
+                        Check(qDistinct, $"A1672 场上 18 格号**互不相同**（实际 [{qLo}..{qHi}]）"
+                                       + " —— 同号 = 「谁压谁」又变回不确定，正是这条要治的病");
+                        // 🧨 **改坏法**：`QBoardTop` 抬到 3000 以上 ⇒ 越上限 ⇒ 红。
+                        Check(qLo > 0 && qHi <= CardView.QCard,
+                              $"A1672 场上整段落在 (0, {CardView.QCard}] 里（实际 [{qLo}..{qHi}]）"
+                            + " —— 越上限就踩 `BoardLayout.MarkerQ 3100` / `CardWinBox.QEffect 3020` / "
+                            + "`CardDisplayWindow.QChrome 3000` 那三处按「卡 ≤ 3000」写死的假设");
+                        // 🧨 **改坏法**：`QBoardTop` 排进手牌段 ⇒ 从手里拖一张牌掠过场上会被场上的卡压住 ⇒ 红。
+                        Check(qHi < HandLayout.QueueFloor,
+                              $"A1672 场上整段**在手牌段之下**（场上最高 {qHi} < 手牌下限 {HandLayout.QueueFloor}；"
+                            + $"手牌顶号 {CardView.QCard}）—— 拖拽/悬停那张走的就是手牌段");
+
+                        // ② 方向 —— **锚在独立判据（`ArenaSlots` 的原版值）上**，不是锚在我们自己的常量上：
+                        //    a) 一行里各格 **z 相同**（`ArenaSlots.Position` 只改 x）⇒ 到相机的远近只差 |x|
+                        //       ⇒ **中间那张最近**；b) 我方那一行整行比敌方那一行近
+                        //       （`PlayerZ −6.655` < `EnemyZ 1.043`）。
+                        // 🧨 **改坏法**：把 `mirror` 那两个分支/行内名次写反 ⇒ 必红（「近的压在远的下面」）。
+                        // 🔴 **督军那一格【本来就不共面】—— 判「行内共面」必须把它排除**
+                        //    （2026-10-12 首跑实测：`ArenaSlots.Position` 对督军位另加
+                        //     `heroExtraOffset` 的 z（我方 `PlayerHeroExtraZ` / 敌 `EnemyHeroExtraZ`，
+                        //     见 `ArenaSlots.cs:102`）⇒ 不排除时本条**恒红**，而它打印出来的号**全是对的**
+                        //     ⇒ 是**断言自己的前提错**，不是实现错。行内次序的真正判据是 |x|（离屏幕中心），
+                        //     不是 z —— 见下一条。）
+                        bool rowSameZ = true;
+                        for (int s = 1; s < BoardLayout.SlotCount; s++)
+                        {
+                            if (s == BoardLayout.WarlordSlot) continue;      // ← 督军位另有 z 偏移，排除
+                            if (Mathf.Abs(ArenaSlots.Position(s, false).z - ArenaSlots.Position(0, false).z) > 1e-4f)
+                                rowSameZ = false;
+                        }
+                        int wc = BoardLayout.WarlordSlot;
+                        Check(rowSameZ
+                              && blMe.QueueOf(wc) > blMe.QueueOf(wc - 1)
+                              && blMe.QueueOf(wc) > blMe.QueueOf(wc + 1)
+                              && blMe.QueueOf(wc) == BoardLayout.QBoardTop
+                              && blFoe.QueueOf(BoardLayout.SlotCount - 1) == BoardLayout.QBoardFloor,
+                              $"A1672 行内「越靠中间越靠前」（同 z ⇒ 只差 |x|）：我槽{wc} {blMe.QueueOf(wc)} > "
+                            + $"槽{wc - 1} {blMe.QueueOf(wc - 1)} / 槽{wc + 1} {blMe.QueueOf(wc + 1)}"
+                            + $"；顶号 {blMe.QueueOf(wc)} 应为 {BoardLayout.QBoardTop}、"
+                            + $"底号 {blFoe.QueueOf(BoardLayout.SlotCount - 1)} 应为 {BoardLayout.QBoardFloor}");
+                        Check(ArenaSlots.PlayerZ < ArenaSlots.EnemyZ
+                              && blMe.QueueOf(wc) > blFoe.QueueOf(wc),
+                              $"A1672 行间次序与**真实远近**同向：我方那一行离相机更近"
+                            + $"（PlayerZ {ArenaSlots.PlayerZ} < EnemyZ {ArenaSlots.EnemyZ}）"
+                            + $"⇒ 它的号也必须更大（实际 我 {blMe.QueueOf(wc)} / 敌 {blFoe.QueueOf(wc)}）");
+
+                        // ③ **本件的主断言**：逐卡对账 + 「一张卡 = 一段」。
+                        // 🧨 **改坏法**：删掉 `BattleDriver.SyncBoard` 里那句 `v.SetQueue(...)` ⇒ 全退回 3000
+                        //    ⇒ 第一条必红（那是**唯一**的调用点，删了没有别的东西会补上）。
+                        int nCardQ = 0, badNumQ = 0, badSegQ = 0;
+                        string firstNumQ = "", firstSegQ = "";
+                        for (int e = 0; e < 2; e++)
+                        {
+                            bool foeQ = e == 1;
+                            var bl = foeQ ? blFoe : blMe;
+                            for (int s = 0; s < BoardLayout.SlotCount; s++)
+                            {
+                                var v = drv.BoardViewAt(s, !foeQ);
+                                if (v == null) continue;
+                                nCardQ++;
+                                int want = bl.QueueOf(s);
+                                if (v.Queue != want)
+                                {
+                                    badNumQ++;
+                                    if (firstNumQ.Length == 0) firstNumQ = $"{(foeQ ? "敌" : "我")}槽{s} 实际 {v.Queue} / 应 {want}";
+                                }
+                                int mn = MinOf(v.SubtreeQueues()), mx = MaxOf(v.SubtreeQueues());
+                                if (mn != want || mx != want)
+                                {
+                                    badSegQ++;
+                                    if (firstSegQ.Length == 0) firstSegQ = $"{(foeQ ? "敌" : "我")}槽{s} 实际 [{mn}..{mx}] / 应 {want}";
+                                }
+                            }
+                        }
+                        Check(nCardQ > 0 && badNumQ == 0,
+                              $"A1672 场上每张卡的队列段 == `BoardLayout.QueueOf(格号)`（{nCardQ} 张，不符 {badNumQ} 张"
+                            + (badNumQ > 0 ? "，头一个 " + firstNumQ : "") + "）");
+                        Check(badSegQ == 0,
+                              $"A1672 场上每张卡的**每一层**都在它自己那一段里（不符 {badSegQ} 张"
+                            + (badSegQ > 0 ? "，头一个 " + firstSegQ : "")
+                            + "）—— 不符 = 有层没盖章、停在默认 3000，那一层会穿到邻居卡上面");
+
+                        // ④ 共享材质不许被写脏（2026-09-27 那个坑：`.sharedMaterial` 会把**字体资产**的
+                        //    `m_CustomRenderQueue` 写脏并落盘，连累所有用同一字体的文字）；
+                        //    卡底那枚**全卡共用一份**的软阴影材质同理（它不在 `MeshRenderer` 遍历里，
+                        //    见 `Core/BlobShadow.cs` 的文件头）。
+                        if (nCardQ > 0)
+                        {
+                            var sprMat = CardIcons.Available ? CardIcons.SpriteAsset.material : null;
+                            var blobMat = CardView.BlobShadowMaterial();
+                            int sprB = sprMat != null ? sprMat.renderQueue : -999;
+                            int blbB = blobMat != null ? blobMat.renderQueue : -999;
+                            var v0 = (CardView)null;
+                            for (int e = 0; e < 2 && v0 == null; e++)
+                                for (int s = 0; s < BoardLayout.SlotCount && v0 == null; s++)
+                                    v0 = drv.BoardViewAt(s, e == 0);
+                            int q0 = v0 != null ? v0.Queue : -1;
+                            if (v0 != null)
+                            {
+                                v0.SetQueue(q0 - 1);     // 真的写一遍（值变了 ⇒ 每条路都得走 `.material`）
+                                v0.SetQueue(q0);         // 还原成生产给的那个号（后面几节还要读它）
+                            }
+                            Check(sprMat == null || sprMat.renderQueue == sprB,
+                                  $"A1672 `SetQueue` 没写到**共享 sprite 材质**上（{sprB} → "
+                                + (sprMat != null ? sprMat.renderQueue : -999)
+                                + "）—— 写脏它 = 所有卡的文字/图标队列一起被改");
+                            Check(blobMat == null || blobMat.renderQueue == blbB,
+                                  $"A1672 `SetQueue` 没写到**共享软阴影材质**上（{blbB} → "
+                                + (blobMat != null ? blobMat.renderQueue : -999)
+                                + "）—— 那是**全卡共用一份**（`CardView.BlobShadowMaterial`），写脏 = 所有卡的影子同号");
+                        }
+                    }
+                }
 
                 // 🔴 **2026-09-20 新加：场上的卡在不在真 3D 那一层、落点对不对**（第 12 行 B 段）。
                 //    逐值判据 = `ArenaSlots`（原版 `MinionManager`）。
@@ -11731,10 +11924,77 @@ public static class BattleScene
             Check(TipText.TraitCount == 61,
                   $"trait 文案表 61 条（实际 {TipText.TraitCount}）—— 规则书 :161-225 就是 61 个关键词");
             string arm = TipText.Trait("armour");
-            Check(!string.IsNullOrEmpty(arm) && arm.Contains("护甲") && arm.Contains(":167"),
-                  "★ `armour` 的 tooltip = 标题（护甲/Armour）+ 规则书原文 + 出处 :167 —— 实得「" + arm + "」");
+            // 🔴 **2026-10-12（`A1660`）这条【反过来了】**：原来断的是 `arm.Contains(":167")`
+            //   （正文尾那句**「（规则书 :167）」**）—— 那是**我们自己加的、原版没有**（判据：
+            //   反编译 `TextTooltipController__GetTraitTooltip.c` 只凑标题 + 描述两段；解包预制体
+            //   `Trait Tooltip` 的正文节点只有 `Description`）⇒ 用户真机看到「多印一段」后**整条链路删掉**
+            //   （键 `Tips/Trait/RulebookLine` + 生成物的 `line` 字段 + 渲染那一句三处一起清）。
+            //   判据与依赖顺序 → `资料/普查产出_第二十二会话/DIAG_tooltip出处行.md`。
+            //   🔴 **两个方向缺一不可**（只断一边都会「删过头」或「删漏」还全绿）：
+            //      · 只断 `!Contains("规则书")` ⇒ **正文被整段删掉**（只剩标题行）也照样绿；
+            //      · 只断 `Contains("护甲")` + 正文半句 ⇒ **出处加回来**也照样绿（那就是原来那条的毛病）。
+            //   **红法**：① `TipText.Trait` 里把 `Loc.T("Tips/Trait/RulebookLine")` 那一跳加回去；
+            //            ② 生成物 `trait_tips.json` 的正文空了（`gen_trait_tips.py` 取错列）；
+            //            ③ 规则书原文那一句被改写（`资料/关键词图标/_规则书关键词表.md` 那行改了）。
+            Check(!string.IsNullOrEmpty(arm) && arm.Contains("护甲")
+                  && arm.Contains("所受任何来源伤害减少")
+                  && !arm.Contains("规则书") && !arm.Contains("167"),
+                  "★ `armour` 的 tooltip = 标题（护甲/Armour）+ 规则书原文、**尾上不再贴「（规则书 :167）」**"
+                  + "（`A1660`：那一行是我们自加的、原版没有）—— 实得「" + arm + "」");
             Check(arm != null && arm.Contains("<sprite name=\"armour\">"),
                   "★ 标题行**带图标**（原版 `EverguildTraitTooltipItem` 比基础版多的就是图标 + 标题）");
+            // ---- 🆕 2026-10-12（`A1660`）：**「出处行」撤掉的回归**（两条，都与上面那条**不同源**）----
+            // 🔴 为什么必须另写：上面那条 `arm`、下面那五条 `ShownBody == TipText.X`（`:11670` 一带）
+            //   **两边都取自 `Loc`/`TipText`** ⇒ **把出处加回去照样全绿**（灭自证要治的正是这种）。
+            // ① **数值 tooltip 那五条的【值】里也不许带出处**（原来写的是
+            //   「近战攻击力（规则书 :78）」/「…最低减到 1（:167）」）。**中英两列都看**。
+            //   红法：任一条的值里重新出现 `（规则书 :78）`/`（:147）`/`rulebook :`/`(:167)`；或键被删
+            //        （`Loc.T` 回**键名本身** ⇒ 值等于键名，本条也红）。
+            {
+                var numTips = new[] {
+                    new KeyValuePair<string, string>("Tips/MeleeAttackTip",  TipText.Melee),
+                    new KeyValuePair<string, string>("Tips/RangedAttackTip", TipText.Ranged),
+                    new KeyValuePair<string, string>("Tips/HealthTip",       TipText.Health),
+                    new KeyValuePair<string, string>("Tips/CostTip",         TipText.Cost),
+                    new KeyValuePair<string, string>("Tips/ArmourTip",       TipText.Armour),
+                };
+                int badNum = 0; string firstNum = null;
+                foreach (var kv in numTips)
+                {
+                    foreach (var v in new[] { kv.Value, Loc.EnOf(kv.Key) })
+                    {
+                        string s = v ?? "";
+                        bool clean = s.Length > 0 && s != kv.Key
+                                     && s.IndexOf("规则书", System.StringComparison.Ordinal) < 0
+                                     && s.IndexOf("rulebook", System.StringComparison.Ordinal) < 0
+                                     && s.IndexOf("（:", System.StringComparison.Ordinal) < 0
+                                     && s.IndexOf("(:", System.StringComparison.Ordinal) < 0;
+                        if (!clean) { badNum++; if (firstNum == null) firstNum = kv.Key + " = 「" + s + "」"; }
+                    }
+                }
+                Check(badNum == 0,
+                      "★（`A1660`）数值 tooltip 五条的**值**（中英两列）里**不再带出处行**"
+                      + $"—— 实得 {badNum} 条不合规，首条 {firstNum}");
+            }
+            // ② **整张 `Loc` 的中文列**里都不许再带出处标记（数值五条 + 关键词那条都在这张表里）。
+            //   ⚠️ 只看**中文列**（`CardText.AllChinese()` 就是它）；英文列的出处已随值逐条删掉，
+            //      由上面那五条**点名**断言钉住（英文列没有「按列全枚举」的公开口）。
+            //   红法：任何一条中文值里重新出现 `规则书 :78` / `（:147）`。
+            //   ⛔ **不是**「不许出现『规则书』三个字」—— `Tips/Trait/NoRulebookEntry`
+            //      （「（规则书里没有这个词的条目）」）**保留**、它没有冒号，不算出处。
+            {
+                int withRef = 0; string firstRef = null;
+                foreach (var s in CardText.AllChinese())
+                {
+                    if (string.IsNullOrEmpty(s)) continue;
+                    if (s.IndexOf("规则书 :", System.StringComparison.Ordinal) >= 0
+                        || s.IndexOf("（:", System.StringComparison.Ordinal) >= 0)
+                    { withRef++; if (firstRef == null) firstRef = s; }
+                }
+                Check(withRef == 0,
+                      "★（`A1660`）`Loc` **中文列里没有任何一条带出处行**（`（规则书 :N）`/`（:N）`）"
+                      + $"—— 实得 {withRef} 条，首条「{firstRef}」");
+            }
             // 反例：规则书 61 条里没有的词 —— **只出名字 + 如实说明「没有解释」**，**不编一句解释**
             string ab = TipText.Trait("ability");
             // 🔴 **2026-10-08（第六会话 · `Core双语-第一步`）就地改（铁律 5）**：期望值**从表里取**、
@@ -13081,14 +13341,22 @@ public static class BattleScene
                 {
                     bool savedOff1 = drv.offensivePhaseEnabled, savedMul1 = drv.mulliganEnabled;
                     bool savedCard1 = drv.offensiveCardEnabled;
+                    bool savedDef1 = drv.defensiveCardPanelEnabled;
                     drv.mulliganEnabled = true;
                     drv.offensivePhaseEnabled = true;    // 这一格**要**走「选进攻卡」那一段
                     drv.offensiveCardEnabled = true;     // 🔴 2026-10-11 用户只关进攻卡（`false` 是默认值）⇒
                                                          //    这一格验的是**备份里的那套代码**，必须显式打开
+                    // 🔴 **2026-10-12（`A1664`）**：**防御卡那半也显式打开** —— 本格验的是
+                    //   「`ClearEnvPickViews()` 被调了吗」（`OnOffensiveDone` / `OnDefensiveDone` 各一份），
+                    //   **哪扇面板开都算**（本机是先手 ⇒ 进攻卡那扇；是后手 ⇒ 防御卡那扇）。
+                    //   ⛔ 不开的话：本机若是后手，本格会**因为「防御卡面板不弹」而假红**
+                    //   —— 那是 `A1664` 的**预期行为**，不是缺陷。
+                    drv.defensiveCardPanelEnabled = true;
                     drv.Begin("Ultramarines", "Goff", 20260917);
                     if (drv.InMulligan) drv.SimulateMulliganDone();
                     var cp1 = drv.Choose;
-                    Check(cp1 != null && cp1.Visible, "★ A1541（前提）换牌完成后「选进攻卡/防御卡」面板开着");
+                    Check(cp1 != null && cp1.Visible,
+                          "★ A1541（前提）换牌完成后「选进攻卡/防御卡」面板开着（两个开关都显式打开）");
                     if (cp1 != null && cp1.Visible)
                     {
                         int cardsIn = drv.PanelCardViewsAlive();
@@ -13108,6 +13376,7 @@ public static class BattleScene
                     drv.offensivePhaseEnabled = savedOff1;
                     drv.mulliganEnabled = savedMul1;
                     drv.offensiveCardEnabled = savedCard1;
+                    drv.defensiveCardPanelEnabled = savedDef1;
                 }
 
                 // ---- 17·2 🔴 **2026-10-11 用户口径**：进攻卡暂时不要、**防御卡照旧要** ----
@@ -13116,9 +13385,13 @@ public static class BattleScene
                 // ⇒ 判据（**必须是两半都断**，只断一半就是本条要治的病）：
                 //   · 本机**先手** ⇒ **不弹**「选择进攻卡」面板，也没人替我们选进攻卡
                 //     ⇒ HUD 那颗进攻卡钮**不亮**、**战场停在默认环境**（用户要的「只用 13 个默认场景的默认环境」）；
-                //   · 本机**后手** ⇒ 「选择防御卡」面板**照旧弹**。
-                // 🧨 改坏法：把 `offensiveCardEnabled` 那两句判据删掉（退回「整段一起关」）⇒ 后手那半红；
-                //   把 `offensivePhaseEnabled` 直接改成 `false` ⇒ 后手那半也红。
+                //   · 本机**后手** ⇒ 防御卡**直接进手牌、不经面板**。
+                //     🔴 **2026-10-12（`A1664`）就地订正（铁律 5）**：这一行原来写「「选择防御卡」面板**照旧弹**」
+                //        —— **已不成立**：原版 `ShouldUseEnviromentalEffects()` **恒 `false`**（反汇编实证）
+                //        ⇒ 面板永不弹，后手那张卡由 `RuleCore.GrantDefenceCard` 直接发（判据 → (b)(c) 那两格）。
+                //        ⚠️ 用户口径**没变**：防御卡照旧要（照旧发进手牌），被关掉的是「**选**」这一步。
+                // 🧨 改坏法：把 `offensiveCardEnabled` 那两句判据删掉（退回「整段一起关」）⇒ 先手那半红；
+                //   把 `offensivePhaseEnabled` 直接改成 `false` ⇒ 先手那半也红（面板会在那儿假弹）。
                 {
                     bool savedOff2 = drv.offensivePhaseEnabled, savedCard2 = drv.offensiveCardEnabled;
                     bool savedMul2 = drv.mulliganEnabled;
@@ -13137,17 +13410,53 @@ public static class BattleScene
                           "★ 用户口径：没人选进攻卡 ⇒ HUD 那颗进攻卡钮**不亮**（战场停在默认环境）"
                         + "｜🧨 判据 = 原版只在「选定卡 ≠ 空卡」时才 `SetActive(true)`");
 
-                    // (b) 本机是**后手** ⇒ 防御卡那扇面板**照旧弹**
+                    // (b) 本机是**后手** ⇒ 防御卡**不经面板**、直接进手牌
+                    //   🔴 **2026-10-12（`A1664`，用户真机点名「为什么可以选择防御卡，防御卡是放在卡组，
+                    //     后手的时候直接在手卡，这个是给后手玩家的补偿」）**：原版那扇门
+                    //     `BattleManager.ShouldUseEnviromentalEffects()` **恒 `false`**
+                    //     （反汇编 `VA 0x1806FB110` 的字节 = `32 c0 c3` = `xor al,al; ret`；`dump.cs` /
+                    //     `script.json` 的 RVA 都是 `0x6FB110`）⇒ 面板**永不弹**；后手那张卡由
+                    //     `RuleCore.GrantDefenceCard`（`EndMulligan` 那条）**直接进手牌**（= 原版
+                    //     `StartBattlePhase` → `AddGoesSecondCardToDeck` → `AddNewCardToHand`）。
+                    //   ⚠️ 本格**同时把 `offensivePhaseEnabled` 开着**（`savedOff2` 那一对）—— 这样
+                    //     「本机后手不弹防御面板」就**不是**因为「整段关了」而假绿。
+                    //   🧨 改坏法：把 `defensiveCardPanelEnabled` 默认值改回 `true`（或删掉分支③那句闸）⇒ 第一条红；
+                    //     把发卡那一步弄丢 ⇒ 第二条红（手里没那张卡）。
+                    bool savedDef2 = drv.defensiveCardPanelEnabled;
+                    drv.defensiveCardPanelEnabled = false;         // = 出厂默认值（这里显式写出来）
                     drv.Begin("Ultramarines", "Goff", 20260917, firstSeatOverride: 1 - drv.MyIndex);
-                    Check(drv.Ctx.FirstSeat != drv.MyIndex, "★ 用户口径（前提）本局本机是后手");
+                    Check(drv.Ctx.FirstSeat != drv.MyIndex, "★ A1664（前提）本局本机是后手");
                     if (drv.InMulligan) drv.SimulateMulliganDone();
-                    int defsN = drv.DefensiveChoicesForTest(drv.MyFactionForTest).Count;
-                    if (defsN == 0) Check(false, "★ 用户口径（前提）本阵营卡池里**有**防御卡 —— 没有的话下面那条验不了");
-                    else Check(drv.Choose != null && drv.Choose.Visible,
-                               $"★ 用户口径：本机**后手**时「选择防御卡」面板**照旧弹**（本阵营 {defsN} 张）"
-                             + "｜🧨 改坏法：把 `offensivePhaseEnabled` 退回 `false`（整段一起关）⇒ 红");
-                    if (drv.Choose != null && drv.Choose.Visible) drv.SimulateChooseDone();
+                    int defsN2 = drv.DefensiveChoicesForTest(drv.MyFactionForTest).Count;
+                    if (defsN2 == 0) Check(false, "★ A1664（前提）本阵营卡池里**有**防御卡 —— 没有的话下面那条验不了");
+                    Check(drv.Choose == null || !drv.Choose.Visible,
+                          "★ A1664：本机**后手**时**不弹**「选择防御卡」面板（原版那扇门恒 `false` ⇒ 没有这一步）"
+                        + "｜🧨 改坏法：`defensiveCardPanelEnabled` 改回 `true` 或删掉分支③那句 `return false` ⇒ 红");
+                    int defInHand2 = 0; CardDef lastDef2 = null;
+                    foreach (var h in drv.Ctx.Players[drv.MyIndex].Hand)
+                        if (h != null && h.Card != null && h.Card.Type == "defence") { defInHand2++; lastDef2 = h.Card; }
+                    Check(defInHand2 == 1,
+                          $"★ A1664：……后手那张防御卡**照旧发进手牌**（手里 {defInHand2} 张，"
+                        + $"「{lastDef2?.Name ?? "<无>"}」）—— 关掉的只是「**选**」这一步"
+                        + "｜判据 = `RuleCore.GrantDefenceCard`（`EndMulligan`）"
+                        + "｜🧨 改坏法：把它当成「防御卡不要了」一起关掉 ⇒ 红");
 
+                    // (c) 🗄 **备份路径不许烂**（铁律 11 例外②）：开关打开 ⇒ 那扇面板**照旧弹**、选完**换进手牌**
+                    //   （`OnDefensiveDone` / `SetDefensiveCard` / `DefensiveChoices` 一行没删，得有人跑它）。
+                    drv.defensiveCardPanelEnabled = true;
+                    drv.Begin("Ultramarines", "Goff", 20260917, firstSeatOverride: 1 - drv.MyIndex);
+                    if (drv.InMulligan) drv.SimulateMulliganDone();
+                    Check(drv.Choose != null && drv.Choose.Visible,
+                          "★ A1664（备份路径）：开关置 `true` ⇒ 「选择防御卡」面板**照旧弹**（代码一行没删）");
+                    if (drv.Choose != null && drv.Choose.Visible) drv.SimulateChooseDone();
+                    int defInHand3 = 0;
+                    foreach (var h in drv.Ctx.Players[drv.MyIndex].Hand)
+                        if (h != null && h.Card != null && h.Card.Type == "defence") defInHand3++;
+                    Check(defInHand3 == 1,
+                          $"★ A1664（备份路径）：选完**换进手牌**、而且手里**只有 1 张**（实得 {defInHand3} 张）"
+                        + " —— 判据 = `SetDefensiveCard` 会**先把原来那张摘掉**再加新的（否则手里两张）");
+
+                    drv.defensiveCardPanelEnabled = savedDef2;
                     drv.offensivePhaseEnabled = savedOff2;
                     drv.offensiveCardEnabled = savedCard2;
                     drv.mulliganEnabled = savedMul2;
@@ -13203,6 +13512,53 @@ public static class BattleScene
                     mp.ToggleMark(0);      // 还原（来回一次 = 两档都走到过）
                     Check(mp.IsMarked(0) == markedBeforeU && mp.CardBtnWordAt(0) == Loc.T(MulliganPanel.ReplaceTerm),
                           $"★ 取消标记后复原（标记 {mp.IsMarked(0)}，钮上「{mp.CardBtnWordAt(0)}」）");
+                }
+
+                // ---- 17·3 🔴 **A1663**：点手牌本身 = **看牌**（不是标记）----
+                // 用户 2026-10-12 真机点名：「战斗开始前替换手牌的阶段，你搞错了，**不是点击手卡替换**」。
+                // 判据（原版，唯一一处）= `CardScript__OnTouchUpAsButton.c:52-58`：换牌期
+                //   `cardState ∈ {0xD,0xE}` 这一段只做「置 `displayingCardFlag(+0x24a)` →
+                //   `BattleManager.DisplayCard(bm, this, 1, 1)`」（第 4 参 = 强制展示）；指针移开由
+                //   `OnTouchExit.c:15-16` 收。**标记只走每张卡上那颗「换」钮**（`ClickMulliganSelected`）。
+                //   ⇒ 我们原来那条「点卡也能标记」是**自己加的**（`MulliganPanel.HandleClick` 里，
+                //     注释自己招过「点卡这条路是我们加的」）—— 它把原版这条路整个盖住了，所以**一条断言都没有**、
+                //     这个偏离一路活到今天。本轮删掉那条路、把 `OnCardSeen` 回调接回 `OnCardTapped`。
+                // 🧨 改坏法：把 `HandleClick` 里那句 `OnCardSeen` 回调删掉（或把卡命中的分支写回
+                //   `ToggleMark`）⇒ 下面**成对**的两条里**必有一条红**（这正是灭自证的用意）。
+                {
+                    var hvA = drv.HandViewAt(0);
+                    Check(hvA != null, "★ A1663（前提）取得到第 1 张手牌的视图");
+                    Check(mp.CardButtonCount > 1, "★ A1663（前提）起手至少 2 张（下面灭自证那条要点第 2 张）");
+                    Check(drv.CardDisplay != null, "★ A1663（前提）卡牌展示窗那一套在位");
+                    if (hvA != null && mp.CardButtonCount > 1 && drv.CardDisplay != null)
+                    {
+                        drv.CardDisplay.Hide();                     // 从「窗关着」这一档起（两态都走到）
+                        int marksBefore = mp.Marked.Count;
+                        string wordBefore = mp.CardBtnWordAt(0);
+                        string title0 = hvA.Data.title;
+                        bool tapTaken = drv.SimulateMulliganCardTap(0);
+                        Check(tapTaken, "★ A1663（前提）这一下点**被面板收下**了（没收下就不能怪下面两条）");
+                        Check(mp.Marked.Count == marksBefore && !mp.IsMarked(0) && mp.CardBtnWordAt(0) == wordBefore,
+                              $"★ A1663：点手牌本身**不产生标记**（标记 {marksBefore} → {mp.Marked.Count}；"
+                            + $"那颗钮上仍是「{mp.CardBtnWordAt(0)}」）"
+                            + "｜🧨 改坏法：把点卡那条写回 `ToggleMark`（= 原来那条我们加的路）⇒ 红");
+                        Check(drv.CardDisplay.Visible && drv.CardDisplay.ShownTitle == title0,
+                              $"★ A1663：点手牌本身 = **把这张牌放大展示**（现展示「{drv.CardDisplay.ShownTitle}」，"
+                            + $"手牌第 1 张是「{title0}」）｜判据 = `CardScript.OnTouchUpAsButton` → "
+                            + "`BattleManager.DisplayCard(card,1,1)`｜🧨 改坏法：不接 `OnCardSeen` 回调 ⇒ 窗不开 ⇒ 红");
+                        drv.CardDisplay.Hide();
+
+                        // 🔴 **灭自证（这一对是结构上互斥的，必须两条都断）**：
+                        //   点那张牌的「换」**钮** ⇒ 标记 + **不开**展示窗；
+                        //   点**卡**（上面那条）⇒ 开窗 + **不标记**。
+                        //   只断其中一条的话，「点卡 = 标记 + 不开窗」（改回旧写法）照样能全绿。
+                        Check(drv.SimulateMulliganToggle(1) && mp.IsMarked(1) && !drv.CardDisplay.Visible,
+                              "★ A1663（**灭自证**）：点那张牌的「换」**钮** ⇒ 标记上了，而展示窗**不开**"
+                            + "（原版两条路是分开的：钮 = `ClickMulliganSelected`、卡 = `DisplayCard`）");
+                        drv.SimulateMulliganToggle(1);          // 还原（后面几节还要用这块面板）
+                        Check(!mp.IsMarked(1) && mp.Marked.Count == marksBefore,
+                              $"★ A1663（收尾）标记复原（现在 {mp.Marked.Count} 个，进来时 {marksBefore} 个）");
+                    }
                 }
                 // 🔴 **A245：这条原来没有判别力** —— `PromptText` 在 `_prompt == null` 时返 `"<无>"`
                 //    （**非空串**）⇒ 「提示行压根没建出来」那一档**照样通过**（两态分不开 = 等于没查）。
@@ -21233,6 +21589,164 @@ public static class BattleScene
         RenderTexture.ReleaseTemporary(rt);
     }
 
+    /// <summary>
+    /// 🆕 **2026-10-12**（用户真机报的缺陷：「场上的战将和部队（一些战将和部队没有），没有近战、
+    /// 远程、血量等数值」）。施工图 = `资料/普查产出_第二十二会话/DIAG_场上缺数值.md`，三件一起盯：
+    ///
+    /// ① **底光也在这张卡的队列段里** —— `MakeGlow` 原来是「一张卡 = 一段队列」里**唯一漏网的一层**：
+    ///    建出来就是 `Sprites/Default` 的 `Transparent` = **3000**，而场上那一段是 **2962..2979**
+    ///    ⇒ 底光**整张画在这张卡的所有层之上**，而它中心不透明 ⇒ 正好把它盖住的那一格数值涂掉
+    ///    （实拍里「亮红盘 / 紫圈里没有数」就是它）。
+    /// ② **整叠覆盖层的 z 序**（数值在徽标**之前**、且离卡体正面留出明确间隙）。
+    /// ③ 🔴 **四个数值真的画在屏幕上** —— 原来那条只读 `StatShown`（= `activeSelf`）⇒ **永远绿**，
+    ///    而同一次确定性渲染里场卡只画出了一个数。这里改成**数像素**：改那一格的值 ⇒ 那一格
+    ///    那个方窗里的像素必须变；一个都不变 = 它根本没画出来。
+    ///
+    /// 🔴 **改坏就红**：① 删掉 `MakeGlow` 里那句 `q.SetRenderQueue(Queue)`（或写死一个号）⇒ 红；
+    ///    ② 把 `BoardInfoZ` 调回 −0.09 / `BadgePlateZ` 调回 −0.095 ⇒ 红；
+    ///    ③ 把四个数值层挪到卡体正面之后 ⇒ 窗里像素一个都不变 ⇒ 红。
+    /// </summary>
+    static void CheckBoardStatStack(System.Action<bool, string> check, BattleDriver driver)
+    {
+        var wd = CardData.Simple("BoardStatProbe", 3, 4, 5);
+        wd.melee = 3; wd.ranged = 2; wd.armor = 1; wd.health = 5; wd.isUnit = true;
+        wd.artId = "UM_Heavy_Intercessor";
+        var place = new Vector3(-1.5f, 0.86f, -0.5f);
+
+        // ── ① 底光在不在本卡的队列段里 ──────────────────────────────────────────
+        //  ⚠️ **两张卡、两个号**（而不是一张卡改两次号）：底光是**懒建**的，
+        //    同一张卡第二次 `SetQueue` 会顺手把它重新盖上号 ⇒ 那样测不出「写死一个号」。
+        foreach (int q in new[] { 2962, 2977 })
+        {
+            var qv = CardView.Create(driver.transform, wd, "GlowQueueProbe", CardFace.Board);
+            qv.transform.localPosition = place;
+            qv.transform.localScale = Vector3.one * 1.9f;
+            qv.SetQueue(q);                                  // 实况里 `SyncBoard` 那一步
+            qv.SetTargetGem(TargetGem.Melee);        // 之后才点亮底光（`HighlightTargets` 那一步）
+            check(qv.TargetGlowQueue == q,
+                  $"★ 点亮底光之后它落在**本卡那一段队列**里（底光原来是唯一没盖章的一层：固定 3000，"
+                + $"比场上那一段大 ⇒ 整张压在数值之上）—— 要求 {q}，实测 {qv.TargetGlowQueue}"
+                + (qv.TargetGlowQueue < 0
+                     ? "（<0 = 底光那两层根本没建出来：`CardArt.Ui(\"40K_*_glow\")` 取不到图，"
+                     + "多半是删了 `Resources/Art/` —— 那是另一档配置，不是本条要测的东西）" : "")
+                + $" · 本卡队列 {qv.Queue} · 子树队列集合 [{string.Join(",", qv.SubtreeQueues())}]");
+            qv.SetTargetGem(TargetGem.None);
+            check(qv.TargetGlowQueue >= 0 && qv.TargetGlowZ > qv.StatLayerZ(CardView.StatMelee),
+                  $"★ 底光画在数值**后面**（原版 `Highlight.SortingOrder` 比数值小；同队列时靠 z 定序）"
+                + $" —— 底光 z={qv.TargetGlowZ:F3}、数值 z={qv.StatLayerZ(CardView.StatMelee):F3}"
+                + (qv.TargetGlowQueue < 0 ? "（底光没建出来 ⇒ 这一条没有意义，见上一条）" : ""));
+            Object.DestroyImmediate(qv.gameObject);
+        }
+
+        // ── ② 整叠覆盖层的 z 序（越靠前越负）────────────────────────────────────
+        float front = CardView.Body3DFrontZ;
+        check(CardView.BoardInfoZ < CardView.BoardArmourIconZ
+              && CardView.BoardArmourIconZ < CardView.BadgeCounterZ
+              && CardView.BadgeCounterZ < CardView.BadgeIconZ
+              && CardView.BadgeIconZ < CardView.BadgePlateZ
+              && CardView.BadgePlateZ < front,
+              "★ 场上一叠覆盖层的 z 序：数值 → 护甲盾 → 徽标角标 → 徽标图标 → 徽标底板 → 卡体正面"
+            + $" —— 实测 {CardView.BoardInfoZ:F3} < {CardView.BoardArmourIconZ:F3}"
+            + $" < {CardView.BadgeCounterZ:F3} < {CardView.BadgeIconZ:F3}"
+            + $" < {CardView.BadgePlateZ:F3} < {front:F3}");
+        check(front - CardView.BoardInfoZ >= 0.05f,
+              "★ 数值层离**卡体最靠前的那个面**留出明确间隙（原版只给相对关系 ⇒ 这个绝对值是【我们挑的】，"
+            + "见 `CardView.Body3DFrontZ` 的出处）"
+            + $" —— 实测 {front - CardView.BoardInfoZ:F4}，要求 ≥ 0.05"
+            + "（原来是 0.011，与深度量化同量级 ⇒ 逐格、逐帧地翻）");
+        check(CardView.BoardInfoZ <= CardView.BadgeCounterZ - 0.01f,
+              "★ 数值压在**徽标**之前（底板原来 −0.095 比数值的 −0.09 更靠前 ⇒ 7 个关键词时"
+            + "右列第 4 行底板正好罩住护甲格）"
+            + $" —— 实测间隙 {CardView.BadgeCounterZ - CardView.BoardInfoZ:F4}");
+
+        // ── ③ 四个数值**真的画在屏幕上**（数像素）──────────────────────────────
+        var pv = CardView.Create(driver.transform, wd, "StatInkProbe", CardFace.Board);
+        pv.transform.localPosition = place;
+        pv.transform.localScale = Vector3.one * 1.9f;
+        var bc = FindBoardCamera();
+        if (bc == null)
+            check(false, "★ 数值「画没画在屏幕上」这条断言的前置：**战场相机**要在（取不到就量不了像素）");
+        else
+        {
+            const int PW = 1920, PH = 1080;
+            float WidthHalf = CardView.Width * 0.5f;      // 卡本体半宽（卡单位），量「卡在屏上有多宽」用
+            float savedAspect = bc.aspect;
+            var rt = RenderTexture.GetTemporary(PW, PH, 24, RenderTextureFormat.ARGB32);
+            try
+            {
+                bc.aspect = (float)PW / PH;
+                // ⚠️ 屏幕坐标必须**在 `targetTexture` 挂着的时候**算 —— `WorldToScreenPoint` 用的是
+                //    相机**当前的 pixelRect**，挂上 RT 之后它才等于 RT 的尺寸。
+                bc.targetTexture = rt;
+                var pt = new Vector2[5];
+                for (int s = CardView.StatMelee; s <= CardView.StatHealth; s++)
+                    pt[s] = (Vector2)bc.WorldToScreenPoint(pv.StatLayerWorldPos(s));
+                // 窗口半径**按卡在屏幕上的宽度折算**（别写死像素 —— 换分辨率/换取景就全错）：
+                // 一个数值格 = 卡宽的 1/4，取它的 0.4 倍作半径 ⇒ 窗略小于格，不会串到隔壁那格。
+                float cardPx = ((Vector2)bc.WorldToScreenPoint(
+                                    pv.transform.TransformPoint(new Vector3(-WidthHalf, 0f, 0f)))
+                              - (Vector2)bc.WorldToScreenPoint(
+                                    pv.transform.TransformPoint(new Vector3(+WidthHalf, 0f, 0f)))).magnitude;
+                int half = Mathf.Clamp(Mathf.RoundToInt(cardPx * 0.10f), 8, 120);
+
+                // 前置：四格都得在画面里 —— 否则窗口落在背景上，diff 恒 0 会**假红**（比漏测更误导）
+                string off = "";
+                for (int s = CardView.StatMelee; s <= CardView.StatHealth; s++)
+                    if (pt[s].x < half || pt[s].x > PW - half || pt[s].y < half || pt[s].y > PH - half)
+                        off += $" [stat{s}@({pt[s].x:F0},{pt[s].y:F0})]";
+                check(off.Length == 0,
+                      $"★ 数值渲图断言的前置：探针卡那四格都落在 {PW}×{PH} 画面里（卡在屏外就量不出像素）"
+                    + $" —— 屏外的格：{(off.Length == 0 ? "无" : off)} · 卡在屏上宽 {cardPx:F0}px · 窗 ±{half}px");
+
+                var baseTex = RenderToTex(bc, rt, PW, PH);
+                var basePx = ReadPx(baseTex);
+                Object.DestroyImmediate(baseTex);
+
+                string bad = ""; int measured = 0;
+                for (int s = CardView.StatMelee; s <= CardView.StatHealth; s++)
+                {
+                    if (pv.StatShown(s) < 0) { bad += $" [stat{s}:层是关的]"; continue; }
+                    var v2 = wd;                       // struct：拷一份改，别动 `wd`
+                    switch (s)
+                    {
+                        case CardView.StatMelee:  v2.melee  = 8; break;
+                        case CardView.StatRanged: v2.ranged = 8; break;
+                        case CardView.StatArmour: v2.armor  = 8; break;
+                        default:                  v2.health = 8; break;
+                    }
+                    pv.SetData(v2);
+                    var t2 = RenderToTex(bc, rt, PW, PH);
+                    int diff = CountDiffIn(basePx, ReadPx(t2), PW, PH, pt[s], half, 0.05f);
+                    Object.DestroyImmediate(t2);
+                    measured++;
+                    if (diff < 12) bad += $" [stat{s}:{diff}px]";
+                    pv.SetData(wd);                    // 复原，免得影响后面几句
+                }
+                check(bad.Length == 0 && measured == 4,
+                      "★ 场上四个数值**真的画在屏幕上**（改那一格的值 ⇒ 那一格那个方窗里的像素必须变；"
+                    + "一个都不变 = 它根本没画出来 —— 用户报的正是「读数全绿、卡上只有一个数」）"
+                    + $" —— 差异不足的格：{(bad.Length == 0 ? "无" : bad)}"
+                    + $"（量到 {measured}/4 格 · {PW}×{PH} · 卡宽 {cardPx:F0}px · 窗 ±{half}px）");
+            }
+            finally
+            {
+                bc.targetTexture = null;
+                bc.aspect = savedAspect;
+                RenderTexture.ReleaseTemporary(rt);
+            }
+        }
+        // 给调度台留一对**并排图**（人工比一眼：底光在不在那一格数值**上**、数字还在不在。
+        // ⚠️ 断言管行为，像不像只有并排看才管 —— 这两张就是这个用途，不是断言）
+        if (bc != null)
+        {
+            Shot(bc, "W8_数值_无底光");
+            pv.SetTargetGem(TargetGem.Melee);
+            Shot(bc, "W8_数值_带底光");
+            pv.SetTargetGem(TargetGem.None);
+        }
+        Object.DestroyImmediate(pv.gameObject);
+    }
+
     static void Shot(Camera cam, string name)
     {
         const int W = 1920, H = 1080;
@@ -21691,6 +22205,26 @@ public static class BattleScene
         foreach (var mr in v.GetComponentsInChildren<MeshRenderer>(true))
             if (mr.sharedMaterial != null) q = Mathf.Min(q, mr.sharedMaterial.renderQueue);
         return q == int.MaxValue ? -1 : q;
+    }
+
+    /// <summary>`A1672` 断言用：一张卡**整段**队列号里的最小 / 最大。
+    /// 🔴 判据必须是**整段**的 min/max，⛔ 不能写死「每层一个号」—— 卡内层序仍旧靠 z
+    /// （见 `CardView.SubtreeQueues()` 的注释）。空集合返回 −1（调用方自己判）。</summary>
+    static int MinOf(int[] a)
+    {
+        if (a == null || a.Length == 0) return -1;
+        int m = int.MaxValue;
+        foreach (int q in a) m = Mathf.Min(m, q);
+        return m;
+    }
+
+    /// <summary>见 <see cref="MinOf"/>。</summary>
+    static int MaxOf(int[] a)
+    {
+        if (a == null || a.Length == 0) return -1;
+        int m = int.MinValue;
+        foreach (int q in a) m = Mathf.Max(m, q);
+        return m;
     }
 
     /// <summary>

@@ -2034,6 +2034,61 @@ public static partial class RuleEngineTest
         // 🔴 上面那一条只守住**一个方向**（「卡池里出现过的词必须在 `Implemented` 里」）。
         //    反方向 —— **把没做的词登记成已做** —— 它**一条都不会红**（那个词卡池里没人带）。
         //    ⇒ 反方向那半条在 `TestImplementedKeywordSites`（`A1337`，2026-10-11 第十九会话）。
+
+        // ==================================================================
+        //  🔴 **`A1340`：卡名索引必须建在造 `CardDef`【之前】**（第二十二会话补的钉子）
+        // ==================================================================
+        //
+        //  **病灶**（不是「一个字段没填」，而是**对局不可复现** —— 本仓红线）：
+        //    `CardDef` 的**构造函数**里就跑 `CollectTriggerOps` ⇒ `EffectText.Parse` ⇒ 目标解析
+        //    ⇒ `CreatePool.MatchCardName` —— **它读的正是这张索引**。索引若建在构造**之后**，
+        //    构造期看到的就是「**上一趟**留下的那一份」：
+        //      · 本进程**第一次** `Load()` ⇒ 索引**空** ⇒ 卡面写卡名的目标**一个都认不出**；
+        //      · 之后每一次 `Load()` ⇒ 是上一趟那份（内容一样 ⇒ **看不出来**）。
+        //    ⇒ 同一份卡表、同一张卡，**第一次装载**与**第二次装载**解析出**不同的 op**。
+        //    判据与实测（差 1 张，`UM_Angels_of_Death`）→ `CreatePool.BuildNameIndexFromNames` 的 doc。
+        //
+        //  **本格怎么才能红**（三条，任一被推翻就红）：
+        //    ① 把 `CardDatabase.Parse` 里那句 `BuildNameIndexFromNames(...)` 挪回
+        //       「所有 `CardDef` 造完之后」（= `A1340` 修之前的样子）⇒ 下面实得 `(目标 = null)`；
+        //    ② 把那句删掉 ⇒ 同上；
+        //    ③ 改成「先造 `CardDef`、再补索引」的两段式而**不重解析** ⇒ 同上。
+        //  ⚠️ **前提那两条**也要盯：`MatchCardName` 必须先真的返回 null（否则「清空」这步没生效，
+        //     本格会**假绿**）；`CardDatabase.Load()` 必须真把池子装回来。
+        //  ⚠️ 期望值来源 = **卡面字面**：`UM_Angels_of_Death` 的 `desc` 印着
+        //     `… to your Primaris Intercessor`，而池里**真有一张卡叫这个名字**
+        //     （`CardCriteria.Name` 那条纪律：认不认它**只看池里有没有**）——
+        //     ⛔ 不是从实现里现算的。
+        {
+            var none = new List<KeyValuePair<string, string>>();
+            CreatePool.BuildNameIndexFromNames(none);      // 摆回「本进程第一次装载」那个状态
+            CheckTrue(CreatePool.MatchCardName("Primaris Intercessor") == null,
+                      "（前提）索引已清空 —— `MatchCardName` 返回 null"
+                      + "（判据 = `CreatePool` 那条「没建索引时一律返回 null」）");
+
+            var fresh = CardDatabase.Load();               // ← 真入口：装载（索引该在构造之前建好）
+            CheckTrue(fresh.Count >= 1000, $"（前提）重新装载拿到 {fresh.Count} 张");
+            CardDef aod = null;
+            foreach (var c in fresh) if (c != null && c.Id == "UM_Angels_of_Death") { aod = c; break; }
+            CheckTrue(aod != null, "（前提）新装的那一份里有 `UM_Angels_of_Death`");
+            if (aod != null)
+            {
+                var cop = aod.TriggerOps("codex");
+                CheckTrue(cop != null && cop.Count == 1,
+                          "（前提）`Angels of Death` 的 `Codex:` 正文收下来了"
+                          + $"（实得 {(cop == null ? "(null)" : cop.Count + " 条")}）");
+                string got = (cop != null && cop.Count > 0 && cop[0].Target != null)
+                             ? cop[0].Target.NameFilter : "(目标 = null)";
+                Check(got, "Primaris Intercessor",
+                      "★ **索引建在构造之前**：空索引起手**装载**，卡面那句"
+                      + " `Codex: Give +1 [Ranged] to your Primaris Intercessor` 的卡名目标仍在"
+                      + "（卡面字面 ⇒ 期望 `Primaris Intercessor`）"
+                      + " —— 🧨 把那句 `BuildNameIndexFromNames(...)` 挪到构造之后／删掉 ⇒ "
+                      + "这里实得 `(目标 = null)`；⚠️ 本格**只有**「清空索引 + 走真装载入口」"
+                      + "才检得出来（索引已建好时它恒绿）");
+            }
+            CreatePool.BuildNameIndex(pool);               // 🔴 **还原真池索引**（换 — 用 — 还）
+        }
     }
 
     // ==================================================================
@@ -2862,15 +2917,36 @@ public static partial class RuleEngineTest
                       "……翻回来之后**从墓地拿走**了（不然还能无限翻）");
 
             // 🔴 **反例**：翻回来的是 W5，旁观那张（W5b）**一次都不该响**。
-            //    ⚠️ 尺子用 `WhenFired`（数日志里「这张卡的监听器响了」几行），
-            //       **不用 `Has("fast")`** —— `gain Fast` 是**无目标**的正文，
-            //       在 `DoGive` 里会落到**己方全体**（`RuleEngine/Core/RuleCore.cs` 的 `DoGive` 里「无目标 = 落到己方全体」那一支，照我们上一版复刻 `rule_core.gd:3137`，旁证），
-            //       于是旁观那张**照样**会拿到 Fast，数值上分不出「是谁的监听器响的」。
-            //       这个坑在自指那一格（⑥）也踩过一次，两处长得一模一样。
+            //    ⚠️ 尺子用 `WhenFired`（数日志里「这张卡的监听器响了」几行）—— 它数的是
+            //       **监听器响没响**；「数值动没动」是**另一面**，由下面新加的
+            //       `!idleU.Has("fast")` 管，两条合起来才钉住「响的是谁 ∧ 落在谁身上」。
+            //    🔴 **第二十二会话（`A1340①` 就地订正 · 铁律 5）：本段原来那句理由【已过期】。**
+            //       原写「`gain Fast` 是**无目标**的正文，在 `DoGive` 里会落到**己方全体**，
+            //       于是旁观那张照样会拿到 Fast，数值上分不出是谁响的」——
+            //       **真值**（`ruleprobe seg "gain Fast"` 现读 ＋ 离线探针 `D:/tmp/wf_w6` 现跑）：
+            //         · 它解析出来的**不是** `Target == null`，而是 `Subjectless=1`
+            //           （`Raw` = 「未写主语：有施放者就是施放者自己，否则己方全体」）；
+            //         · 触发层走 `ResolveOps(…, source = 监听者自己)`（`EffectResolver` 里
+            //           `BroadcastWhen` 那一跳）⇒ `Subjectless` 那一支取的是**施放者自己**
+            //           （判据 = `ResolveTargets` 的 `spec.Subjectless` 分支）；
+            //         · 实测：施放者 `Has("fast") = true`、**旁观那张 `Has("fast") = false`**。
+            //       「落回己方全体」只在**没有施放者**时发生（战术卡那条 `ResolveOps(ctx, p, null, …)`）。
+            //       ⇒ 下面那两条断言的**结论没变**（尺子仍是 `WhenFired`），**理由换了**
+            //         —— 而且顺带补上「数值面」那条原来没人钉的断言（见下）。
             Check(WhenFired(ctx, "W5"), 1, "★ **W5 自己的监听器响了恰一次**（它被翻回来）");
             Check(WhenFired(ctx, "W5b"), 0,
                   "★ **旁观那张一次都没响** —— 收成「任何单位被再造」的话这里会是 1"
                   + "（第三十四轮之前就是这个行为：派子代理逐条核 `When` 时才翻出来）");
+            // 🔴 **第二十二会话（`A1340①`）补的【数值面】钉子** —— 上面两格只管「响没响」。
+            //    **怎么才能红**：把 `Subjectless` 那一档改回「落回己方全体」
+            //    （`ResolveTargets` 里 `if (spec.Subjectless)` 那段的 `source` 那一档去掉，
+            //     或把 `gain Fast` 解析成 `Target == null`）⇒ 旁观那张会拿到 Fast ⇒ 本格红。
+            //    ⚠️ 期望值来源 = **离线探针实测**（`D:/tmp/wf_w6` 场景①：施放者 `true` / 旁观 `false`），
+            //       不是从实现里读回来的。
+            CheckTrue(!idleU.Has("fast"),
+                      "★ **旁观那张【没有】Fast** —— `gain Fast` 是 `Subjectless`"
+                      + "（有施放者就是施放者自己）⇒ 落在**被翻回来那张自己**身上，"
+                      + "⛔ **不洒给己方全体**（`A1340①` 订正掉的那句旧注释说的正是反过来的事）");
         }
 
         // ---- ⑥ `When a friendly unit prays, …` ----
@@ -17108,6 +17184,62 @@ public static partial class RuleEngineTest
             CheckTrue(pLs != null, "`a friendly unit loses Stealth` 认得出");
             if (pLs != null) Check(pLs.Kind, WhenEventKind.LosesStealth, "事件种类 = losestealth");
 
+            // ---- ⑧-bis 🆕 `<效果> when <事件>` 的**从句切分**（`A1461` / `A1575`，2026-10-12）----
+            //   出处：`TAU20 Sniper Drone` 卡面 `Flying. Long Range. Gains Long Range
+            //   when an enemy gains Markerlight`（**亲读成品卡图**
+            //   `d:/2/Warpforge部队卡片/Tau/3部队/Warpforge_20_Sniper-Drone.png`；
+            //   抄录 `资料/卡表核对_卡图提取/Tau__1.md:36`）。
+            //   🔴 **改前**这一句被 `TryGain` 的 `^(.+?)\s+(?:gains?|gets?|becomes?)\s+(.+)$`
+            //   拿**最后一个** `gains` 当动词，解成
+            //   `verb=gain payload=[markerlight] target=[gains long range when an enemy]`
+            //   —— 打出去会**给敌人发一份标记光**，而卡面一个字都没这么说
+            //   （改前/改后读数 → `资料/普查产出_第二十二会话/W10_引擎TAU20.md` §四）。
+            {
+                var pMl = WhenEvents.Parse("an enemy gains Markerlight");
+                CheckTrue(pMl != null, "`an enemy gains Markerlight` 认得出（`A1461` 新加的词形）");
+                if (pMl != null)
+                {
+                    Check(pMl.Kind, WhenEventKind.GetsMarkerlight, "事件种类 = getsmarkerlight");
+                    // 🔴 **极性**：写反 = 监听者**自己那一方**拿到标记光时也响（整档反着触发且不报错）。
+                    Check(pMl.OwnerIs, WhenEvent.RelEnemy, "★ 极性 = **敌方**");
+                }
+                // ⚠️ **反例**：尾巴上还挂着别的东西 ⇒ **不许收**（`StripFirst` 是**串尾**匹配；
+                //    收半截 = 注册一条语义不对的监听器）。
+                CheckTrue(WhenEvents.Parse("an enemy gains Markerlight this turn") == null,
+                          "★ `… gains Markerlight **this turn**` **仍然认不出**（尾巴不许挂着东西）");
+
+                string wSufEv; string wSufBody; List<EffectOp> wSufOps;
+                bool split = EffectText.TryWhenSuffix("Gains Long Range when an enemy gains Markerlight",
+                                                      out wSufEv, out wSufBody, out wSufOps);
+                CheckTrue(split, "★ **切得开**：效果那半 + 事件那半都成立");
+                if (split)
+                {
+                    Check(wSufBody, "Gains Long Range", "★ 效果那半 = `Gains Long Range`");
+                    Check(wSufEv, "an enemy gains Markerlight", "★ 事件那半 = `an enemy gains Markerlight`");
+                    // 🔴 **灭自证的那一条**：改前那半句被解成 `payload=[markerlight]`
+                    //    （**目标段把从句整个吞了**）⇒ 这里量**载荷**、不量「有没有 op」——
+                    //    只量「解得出 op」的话改前改后都绿（改前它也解得出，只是解错了）。
+                    Check(wSufOps.Count, 1, "★ 效果那半只有一条 op");
+                    Check(wSufOps[0].Verb + "/" + wSufOps[0].Payload, "gain/long range",
+                          "★ **载荷是 `long range`、不是 `markerlight`** —— 改前这里实得 `gain/markerlight`");
+                }
+
+                // ⚠️ 另两族**不许被它抢走**（两族都各实测过一次，见 `EffectText.TryWhenSuffix` 的注释）：
+                //    抢走的后果是「同一条规则两处登记」（降费）或「常驻层收不到」（`For the rest…`）。
+                string e2; string b2; List<EffectOp> o2;
+                CheckTrue(!EffectText.TryWhenSuffix("Lower cost by 1 when an enemy dies",
+                                                    out e2, out b2, out o2),
+                          "★ 降费族（`Lower cost by 1 when …`）**不归它** ⇒ 归 `CardDef.AddWhenTrigger` ②");
+                CheckTrue(!EffectText.TryWhenSuffix(
+                              "For the rest of this battle, when an enemy dies, gain 1 Quest Point",
+                              out e2, out b2, out o2),
+                          "★ 常驻族（`For the rest of this battle, when …`）**不归它**");
+                CheckTrue(!EffectText.TryWhenSuffix(
+                              "This troop can ignore enemy units with Vanguard when attacking",
+                              out e2, out b2, out o2),
+                          "★ 尾巴不是事件短语的（`when attacking`）**认不出**");
+            }
+
             // ⚠️ **反例**：别顺手把「关键词被**触发**」那族也收进来 ——
             //    只有**真有触发时机**的词才该收（收了 = 注册一条没人消费的监听器，红线）。
             //    ⚠️ 2026-09-14：`destroyer` **已经实现**了（目标选择限制），但它
@@ -17202,6 +17334,55 @@ public static partial class RuleEngineTest
                 CheckTrue(w.HasShield, "盾确实上去了");
                 Check(WhenFired(ctx, "FixtureShieldWatch"), 1,
                       "★ **`gain [Shield]` 广播出来了**");
+            }
+
+            // ⑤ 🆕 被给予**标记光**（`A1461` / `A1575` 第三层，2026-10-12）——
+            //    发生点：`EffectResolver.ApplyOneGain` 的 `AddKeyword("markerlight")`
+            //    （**全仓给 `markerlight` 的唯一一条路**：`GivePayload` → `ApplyOneGain`）。
+            {
+                var watch = new CardDef("FixtureMlWatch", "FixtureMlWatch", "unit",
+                                        "When an enemy gains Markerlight, gain +1 Attack",
+                                        "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+                var mlTac = Tactic("T_ML", 0, "Give Markerlight 1 to an enemy troop");
+                var ctx = ProbeBattle(new[] { watch, mlTac }, new[] { Unit("EFoe", 1, 1, 9) });
+                ToP1Turn(ctx, 2);
+                var w = Place(ctx, 0, 3, watch, exhausted: true);
+                var prey = Place(ctx, 1, 3, Unit("FixtureMlPrey", 1, 0, 9), exhausted: true);
+                CheckTrue(!prey.Has("markerlight"), "动手之前它没有标记光");
+                Check(w.Card.WhenTriggers.Count, 1, "（前提）监听器**注册上了** ——"
+                      + "没注册的话下面两条会一起假绿");
+                int before = w.Attack;
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_ML"), 3), RuleCodes.OK,
+                          "给敌方上标记光");
+                CheckTrue(prey.Has("markerlight"), "标记光确实上去了");
+                Check(WhenFired(ctx, "FixtureMlWatch"), 1,
+                      "★ **`gains markerlight` 广播出来了** —— 授予点原来没广播（第三层原来缺的就是这一行）");
+                // 🔴 **量局面、不只量日志**：监听器响 ≠ 局面变了（本文件的一贯纪律）。
+                //    ⚠️ 期望值 +1 而不是 +2：`watch` 在**手里也有一份**，它的监听器**也会响**
+                //    （`BroadcastHandWhen`），但**没写主语的 `gain` 落在那一份手牌实例自己身上**
+                //    （`EffectTargetSpec.Subjectless`，`A887` 的续）⇒ **棋盘上只多 1 点**。
+                Check(w.Attack, before + 1,
+                      "★ **局面真的变了**（攻击 +1）—— 只量日志的话「注册了但没人消费」也全绿");
+            }
+
+            // ⑤-bis **反例**：同一条路给的是**别的东西** ⇒ 不许响（灭自证）。
+            //    ⚠️ 这一条挡的是「把广播写宽成**任何**关键词被给予」那种实现 ——
+            //    只钉正例的话，写成 `BroadcastKeywordEvent(ctx, GetsMarkerlight, u)` 无条件调用照样全绿。
+            {
+                var watch = new CardDef("FixtureMlWatch", "FixtureMlWatch", "unit",
+                                        "When an enemy gains Markerlight, gain +1 Attack",
+                                        "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+                var hmTac = Tactic("T_ML_HM", 0, "Give Hunt Mark to an enemy troop");
+                var ctx = ProbeBattle(new[] { watch, hmTac }, new[] { Unit("EFoe", 1, 1, 9) });
+                ToP1Turn(ctx, 2);
+                var w = Place(ctx, 0, 3, watch, exhausted: true);
+                var prey = Place(ctx, 1, 3, Unit("FixtureMlPrey2", 1, 0, 9), exhausted: true);
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_ML_HM"), 3), RuleCodes.OK,
+                          "这次给的是**猎杀标记**、不是标记光");
+                CheckTrue(prey.Has("huntmark"), "（前提）猎杀标记确实上去了");
+                Check(w.Attack, 2,
+                      "★ **给别的东西就不响** —— 广播写宽成「任何关键词被给予」的话这里会是 3");
+                Check(WhenFired(ctx, "FixtureMlWatch"), 0, "★ 同上：日志里一次都没有");
             }
         }
 

@@ -118,22 +118,22 @@ namespace CardPresentation
 
         /// <summary>把**整格卡**的所有层搬到同一个队列 `q`。
         ///
-        /// 🔴 **一律走 `.material`（不是 `.sharedMaterial`）** —— Unity 的 `.material` getter
-        ///    会**为这个渲染器实例化一份**，所以**绝不会写到共享材质上**。
-        ///    2026-09-27 实测踩过：文字那层的 `sharedMaterial` **就是字体资产里那份材质**
-        ///    （TMP 的 MeshRenderer 挂在 `Label` 的**子物体**上），直接写它会把
-        ///    `Resources/Fonts/Warpforge Trait TextSprites.asset` 的 `m_CustomRenderQueue` 写成 `3009`
-        ///    并**落盘**（`git status` 里挂出来）—— 而且**改共享材质等于改所有用同一字体的文字**。
-        /// ⚠️ 点阵后端（`Label` 自己挂 MeshRenderer）交给 `Label.SetRenderQueue`（它也会先实例化）。</summary>
+        /// 🔴 **2026-10-12（`A1665`）：本方法已收口成 `CardView.SetQueue` 的转发** —— 实现只有那一处
+        ///    （⛔ 别在这儿再写第二份：两处写同一条规则 = 迟早不一致）。
+        ///    原来它自己遍历 `GetComponentsInChildren` 并 `mr.material.renderQueue = q`，那段逻辑
+        ///    **逐字搬进了 `CardView.SetQueue`** —— 行为对本方法的 4 个调用点（战斗「点卡看详情」
+        ///    `Battle/CardDisplayWindow.cs` · 菜单详情窗 `Shell/CardDetailPopup.cs` ·
+        ///    `Shell/BoosterPackOpenWindow.cs` · 日志悬停卡 `Battle/BattleDriver.cs`）**逐位不变**。
+        ///
+        /// ⚠️ 但**语义**上两边现在是同一套：一张卡 = 一段队列，卡间由布局给不同的号
+        ///    （手牌那一段见 `HandLayout.queueTop`）。所以 `QueueFor` 那条 **stride = 1** 仍然成立
+        ///    —— 「一张卡一个号」两边一致，不会互相踩。
+        /// 🔴 `.material` 那条坑（写共享材质会把 `Resources/Fonts/Warpforge Trait TextSprites.asset`
+        ///    的 `m_CustomRenderQueue` 写脏并落盘）的解释也随实现搬进了 `CardView.SetQueue`。</summary>
         public static void SetCardQueue(CardView v, int q)
         {
             if (v == null) return;
-            foreach (var mr in v.GetComponentsInChildren<MeshRenderer>(true))
-            {
-                if (mr.GetComponent<Label>() != null) continue;   // 点阵文字：走下面那个（它自己实例化）
-                if (mr.sharedMaterial != null) mr.material.renderQueue = q;
-            }
-            foreach (var lb in v.GetComponentsInChildren<Label>(true)) lb.SetRenderQueue(q);
+            v.SetQueue(q);      // 唯一的那一份实现在 `CardView.SetQueue`
         }
 
         /// <summary>第 `i` 格的渲染队列（**前台最高**）。`baseQ` = 这叠卡的起始号

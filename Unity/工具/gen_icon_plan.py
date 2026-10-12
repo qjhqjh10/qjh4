@@ -129,12 +129,18 @@ TOKEN_BY_CARD = {
     #    ⇒ 没有可换的键，只能删（删前实测：本卡的 `plan` 条目一字未变）。
     ("EC39", "[Melee]"): ("Melee", "卡图 + NCC 0.599"),
     ("EC39", "[Ranged]"): ("Ranged", "卡图 + NCC 0.578"),
-    ("SOR40", "[Faith Icon]"): ("faith", "卡图 + NCC 0.900"),
-    ("SOR7", "[Icon]"): ("faith", "卡图：深棕方底 + 金太阳（与 faith.png 同图）"),
-    ("SOR50", "[Icon]"): ("faith", "卡图 + NCC 0.917"),
-    ("SOR74", "[icon]"): ("faith", "卡图 + NCC 0.964"),
-    ("SOR12", "[faith]"): ("faith", "卡图 Preacher：同一张金太阳"),
-    ("SOR4", "[Faith]"): ("faith", "卡面 `8 ☀:` = 信仰付费前缀"),
+    # ⚪ 2026-10-12（`A1605`）：**下面 6 条信仰前缀的逐卡键已删** —— 那 6 张卡的文本已统一写成 `☀`
+    #     （判据 = 成品卡图逐张亲读，见 `数据/游戏数据/cardface_fixes.json` 的
+    #      `_2026-10-12_A1605_信仰前缀统一`）⇒ 那 6 个键**再也不会命中**（一场生成会报 6 条死条目）。
+    #     ⛔ **删它们不丢图标**：`☀ → faith` 是 `SYMBOLS` 那条**全局**规则给的，而且它那条证据逐张点名的
+    #     正是这几张（Sister Novitiate / Blade of Faith / Sacred Rose / Paragon Warsuit / Preacher）。
+    #     删前实测：本批 13 个（卡, 字段）的 `faith` 枚数**一枚都没变**（71 枚 / 37 张，改前改后相同）。
+    #     旧键（保留痕迹，别照抄回去）：
+    #        ("SOR40", "[Faith Icon]") · ("SOR7", "[Icon]") · ("SOR50", "[Icon]") ·
+    #        ("SOR74", "[icon]") · ("SOR12", "[faith]") · ("SOR4", "[Faith]")
+    #     另：`TOKEN_BY_RULE` 的 `("[Energy]", None, "faith", …)` 那条**今天是死规则**（池里再无 `[Energy]`）——
+    #     它不在死条目自检的覆盖面里（本文件只查两张**逐卡**表的死键），**如实留在这里**、不删，
+    #     下次谁再写 `[Energy]` 时它仍然是对的（`资料/卡面图标_现状与缺口.md:257` 判过「数据 token 错」）。
     ("TAU47", "[Markerlight]"): ("markerlight", "卡面：图标 + 词 `Markerlight 2`"),
     ("TAU65", "[Vanguard]"): ("vanguard", "卡面：图标 + 词 `Vanguard`"),
     ("TAU49", "[Shield]"): ("shield", "卡面：图标 + 词 `Shield`"),
@@ -1684,7 +1690,94 @@ FACE_ICON_COUNT = [
     ("AM54", "desc", 2, "卡面 `Astra Militarum/4计策/Warpforge_54_Thermal-Weaponry.png` 亲读 2 枚（转录 `:168`，"
                         "**无声明行** ⇒ `keywords` 为空、`KeywordSegment` 一枚都不补）"),
     ("AM54", "descZh", 2, "中文同英文逐处对应"),
+    # 🆕 2026-10-12（`A1683`）：这一行**改前是 4 ≠ 3**（多出来的那一枚是 `faith`）。
+    ("ASH75", "desc", 3, "卡面 `Aeldari/2天赋/Warpforge_02_Storm-of-Silence.png` 亲读 **4** 枚 = 正文 3 枚"
+                         "（`+2`〔粉拳〕/ `〔绿圈·1〕` 灵魂石 / `Stun` 前那枚〔橙金螺旋〕）+ **段首 `Ephemeral` 1 枚**"
+                         "（由 `KeywordSegment` 补 ⇒ `desc` 正文里不补那个词）。🔴 **正文这 3 枚里【没有金太阳】"
+                         "—— `ASH75` 是 SaimHann，跟修女会的信仰无关**"),
+    ("ASH75", "descZh", 3, "中文同英文逐处对应（`[攻击]`/`①`/`眩晕`）⇒ **3 枚、一枚信仰都不许有**。"
+                           "⚠️ **改前这条是 4 ≠ 3**（多出 `[能量]`→`faith`，见 `ASH75_FAITH_TOKENS` 那一节）"
+                           "—— 本表就是抓住它的那条判据（`A1683`）"),
 ]
+
+
+# ── 🆕 2026-10-12（`A1605`）：**信仰前缀写法统一**（一律 `☀`）──────────────────────────────
+# 🔴 **卡面上「信仰」那一枚永远是同一张金太阳**（修女会）。而池里的**数据写法**曾经有 7 种：
+#    `☀` · `[faith]` · `[Faith]` · `[Faith Icon]` · `[Icon]` · `[icon]` · `[Energy]` / `[能量]` ——
+#    后六种**不是原版数据**，是**卡图 OCR 认不出那枚图**时按词形乱起的名字
+#    （同 `_2026-09-16_two_bare_icon_tokens` 那一族；`资料/卡面图标_现状与缺口.md:257` 对它判过「数据 token 错」）。
+# ⇒ 2026-10-12 统一成 **`☀`**。判据三条（写全在 `数据/游戏数据/cardface_fixes.json` 的
+#    `_2026-10-12_A1605_信仰前缀统一` 里）：① **成品卡图卡面亲读**（本笔读了 5 张，见下表逐条出处；
+#    另两张由 `SYMBOLS[SUN]` 那条证据承接 —— 它已经「逐张核过 7 张」，点名的正是这几张）；
+#    ② `资料/卡表核对_卡图提取/_还原效果文字.md`（29 个子代理逐张看卡图抄的）那 40 多行一律写 `Faith`；
+#    ③ **`descZh` 那一半本来就全写 `☀`**（玩家看到的就是它，`BattleDriver.FaceTextFull` 优先中文）。
+#    ⚠️ **引擎中性**（改前实测）：`EffectText` 那条付费前缀正则**本来就同时认 `☀` 与那几个词**
+#       （`EffectText.cs:6613` 的带冒号那条 · `:6618` 的不带冒号那条）⇒ `PayloadOp.Cost`/`CostKind`
+#       逐字节相同 —— 本笔**只换 token**，标点/空格/数字一个字没动。
+#
+# 🔴 **下面两道就是那条决定的【机械保证】**（谁把旧写法写回来 ⇒ 当场 rc 非 0、两份 json 都不落盘）。
+LEGACY_FAITH_PREFIX = re.compile(
+    r"[0-9]\s*\[(?:faith|Faith|Faith Icon|Icon|icon|Energy|能量)\]")
+# ⚠️ **别把判据写成「池里不许出现 `[Icon]`」** —— 池里另有 `[Codex icon]` / `[eye icon]` 两个**别的**图标，
+#    写宽松了会误报。这里要的是**「数字 + 那串方括号」这个前缀形状**（`[icon]` 那个是子串关系，
+#    只有整串 + 前面的数字一起匹配才准）。
+# ⚠️ **`[能量]` 照样进这条正则** —— 它在 `ASH75` 上写的是**灵魂石**（`①[能量]：`，英文 `1 [Spirit Stone]:`），
+#    但那个 `①`(U+2460) **不是 `[0-9]`**（`No` 类不是 `Nd`，实测 `re.match(r"\d", "①")` 为 `None`）
+#    ⇒ 本条**不会**把它误判。`ASH75` 那笔是**另一笔账**（如实报在 `A1605` 的报告 §五），本笔**没动它**。
+#    🔴 **改前实测**：这条正则在**统一之前**的数据上命中 **13 处**（正是本笔要改的那 13 个字段）
+#       ⇒ **它今天绿、是改出来的，不是恒绿**。
+
+# **统一过的 13 个（卡, 字段）** —— 每个都必须**仍然画 `☀`**（`sprite == "faith"`）且枚数不变。
+# 列 = (卡 id, 字段, 本字段 `☀` 的**出现次数**, 卡面判据 / 那几枚是什么)
+# ⚠️ 枚数 = `text.count("☀")`（`Rewrite` 是**全局**替换 ⇒ 一个 token 画 N 枚）——
+#    本笔**改前/改后逐字段相同**（改前每个字段恰好 1 枚，只是那一枚由旧写法画）。
+FAITH_PREFIX_UNIFIED = [
+    ("SOR4",  "desc",   1, "卡面 `Sorotitas/2天赋/Warpforge_04_Lead-the-Righteous.png` 亲读 `8 〔金太阳〕: Deploy an additional Battle Sister`（原 `[Faith]`）"),
+    ("SOR7",  "desc",   1, "卡面 `Sorotitas/3部队/Warpforge_07_Sister-Novitiate.png`（原 `[Icon]`）"),
+    ("SOR12", "desc",   1, "卡面 `Sorotitas/3部队/Warpforge_12_Preacher.png`（原 `[faith]`；`SYMBOLS[SUN]` 那条证据点名了它）"),
+    ("SOR40", "desc",   1, "卡面 `Sorotitas/3部队/Warpforge_40_Paragon-Warsuit.png` 亲读 `6 〔金太阳〕 : Gain 〔先锋〕Vanguard`（原 `[Faith Icon]`）"),
+    ("SOR42", "desc",   1, "卡面 `Sorotitas/3部队/Warpforge_42_Exorcist.png`（原 `[faith]`）"),
+    ("SOR50", "desc",   1, "卡面 `Sorotitas/4计策/Warpforge_50_Blade-of-Faith.png`（原 `[Icon]`）"),
+    ("SOR74", "desc",   1, "卡面 `Sorotitas/4计策/Warpforge_10_Sacred-Rose.png` 亲读 `6 〔金太阳〕 Give them 〔侧翼〕Flank`（**卡面本来就没有冒号**，原 `[icon]`）"),
+    ("SOR52", "desc",   1, "卡面 `Sorotitas/4计策/Warpforge_52_Miraculous-Feat.png` 亲读 `6 〔金太阳〕 : Extend effect until your next turn`（原 `[Energy]` —— **它就是信仰、不是能量**）"),
+    ("SOR55", "desc",   1, "卡面 `Sorotitas/4计策/Warpforge_55_Fiery-Conviction.png`（原 `[Energy]`；还原表 `_还原效果文字.md:765` = `4 Faith:`）"),
+    ("SOR66", "desc",   1, "卡面 `Sorotitas/2天赋/Warpforge_02_Daemonbreaker.png` 亲读 `8 〔金太阳〕 : Give it permanently`（原 `[Energy]`）"),
+    ("SOR52", "descZh", 1, "中文同英文逐处对应（原来写的是「能量」，本次只改成 `☀`、词与标点一字未动）"),
+    ("SOR55", "descZh", 1, "中文同英文逐处对应（原写 `[能量]`）"),
+    ("SOR66", "descZh", 1, "中文同英文逐处对应（原写 `[能量]`）"),
+]
+
+
+# ── 🆕 2026-10-12（`A1683`）：`ASH75` 的中文把「灵魂石」画成了「信仰」────────────────────────
+# 🔴 **缺陷**（`W9` 做 `A1605` 时顺手查出、本笔修）：`ASH75 Storm of Silence`（**SaimHann**）的
+#    `descZh` 原来写 `你的战将本回合获得 +2 [攻击]。①[能量]：眩晕 1 个随机敌方部队` ——
+#    `①` → `SpiritStone_1`（**对**）而 `[能量]` → `faith`（**错**，`TOKEN_BY_RULE` 那条）⇒
+#    **同一处画两枚、其中一枚是错的**（那 `[能量]` 是 `A1605` 统一信仰写法时**故意留下的**
+#    —— 它当时判「这是另一笔账」，见 `数据/游戏数据/cardface_fixes.json` 的
+#    `_2026-10-12_A1605_信仰前缀统一` 末句）。
+#    ⚠️ **英文那半一直是对的**：`desc` = `… 1 [Spirit Stone]: Stun a random enemy troop`
+#    （一条 `[Spirit Stone]`、**一个信仰记号都没有**）⇒ 缺陷**只在中文这一半**。
+#
+# **判据 = 成品卡图亲读**（铁律 7，第一权威）：
+#    `d:/2/Warpforge部队卡片/Aeldari/2天赋/Warpforge_02_Storm-of-Silence.png` —— 第 2 行印
+#    `〔绿圈·数字 1〕〔橙金螺旋〕Stun a random enemy troop`，**没有金太阳**；
+#    第 1 行 `+2〔粉拳〕`、段首 `〔Ephemeral〕`。⇒ 正文共 3 枚，**信仰一枚都不该有**。
+#    （旁证：`ASH75` 的 `faction` = `SaimHann`，修女会那枚金太阳与它无关。）
+#
+# **修法**：改 `数据/游戏数据/cardface_fixes.json` 的 `descZh` 列（删掉 `[能量]`，
+#    其余一字未动）→ 重跑 `工具/gen_cards_engine.py` → 重跑本脚本 `--write`。
+#    ⚠️ **别改 `数据/卡牌翻译/zh_cards.json`**（那份自称「不要手改」，且应用顺序在 `descZh` **之前**）。
+#
+# 🔴 **`LEGACY_FAITH_PREFIX` 抓不到这一处**（`W9` 已声明）：它的判据是「**数字** + 信仰词」这个前缀形状，
+#    而这里前面那个是 `①`(U+2460) —— `re.match(r"\d", "①")` 为 `None` ⇒ **那条正则在改前也是绿的**。
+#    ⇒ 本节的判据**另起**（形状不同：这里要的是「**这个字段里一枚信仰都不许有**」）。
+#
+# 🔴 **下面两道就是这个决定的机械保证**（谁把信仰记号写回 `ASH75` 的中文 ⇒ 当场 rc 非 0、两份 json 都不落盘）：
+#   ① `ASH75_FAITH_TOKENS` 一个都不许出现在 `descZh` 里，**且**计划表里不许有 `faith` 条目；
+#   ② `①`→`SpiritStone_1` **必须还在**（判「不许画信仰」时别把灵魂石一起删了 —— 那是**另一种**静默错）。
+#      ⚠️ 反向的错（**删过头**）由 `FACE_ICON_COUNT` 的 `("ASH75","descZh",3,…)` 那一行兜住。
+ASH75_FAITH_TOKENS = ("[能量]", "[Energy]", "[faith]", "[Faith]", "[Faith Icon]",
+                      "[Icon]", "[icon]", "☀")
 
 
 # ── 🆕 2026-10-12（`A1623`）：`Dark Pact` 一族（`BARE_TOKEN_BY_RULE` 末尾那两条）─────────────
@@ -2576,6 +2669,93 @@ def main():
             face_bad.append((_c, _f, _want, _n))
         print(f"  {'✅' if _ok else '🔴'} {_c} [{_f}] 画 {_n} 枚 / 应画 {_want} 枚 —— {_why}")
 
+    # ── 🆕 2026-10-12（`A1605`）：**信仰前缀写法统一**的两道自检（见 `LEGACY_FAITH_PREFIX` 那段）────
+    #  ① **旧写法必须清零** —— 判据是「数字 + 那串方括号」这个**前缀形状**，全池扫 `desc`/`descZh`。
+    #     改前在真数据上命中 **13 处**（就是本笔要改的那 13 个字段）⇒ **它绿是改出来的、不是恒绿**。
+    #  ② **图标一枚都没丢** —— `FAITH_PREFIX_UNIFIED` 那 13 行逐行核：本字段 `☀→faith` 真的在计划里，
+    #     且枚数 === 期望值。⚠️ 期望值**不是**从我们的实现里算的：改前/改后都是 1 枚（同一处、同一张图），
+    #     出处见每行的卡图。
+    #  ③ **灭自证**：把 `☀` 那条记号从计划里**抽掉**造一份合成表 ⇒ **13 行必须全部变红**
+    #     （谓词若写成「恒等于期望值」这种自引用写法，这一格必红 —— 与 `A1623` 那一族同一形状）。
+    _legacy = []
+    for _c in cards:
+        for _f in ("desc", "descZh"):
+            _t = _c.get(_f) or ""
+            for _m in LEGACY_FAITH_PREFIX.finditer(_t):
+                _legacy.append((_c["id"], _f, _m.group(0), _t[:70]))
+    print("")
+    print(f"=== 信仰前缀写法统一（`A1605`；`☀` 之外的写法应为 0 处）===")
+    if _legacy:
+        for _cid, _f, _p, _t in _legacy:
+            print(f"  🔴 {_cid} [{_f}] 旧写法 {_p!r} —— {_t}")
+    else:
+        print("  ✅ 0 处（`[faith]` / `[Faith]` / `[Faith Icon]` / `[Icon]` / `[icon]` / `[Energy]` / `[能量]`"
+              " 一个都没有了）")
+
+    def _fp_ok(_c, _f, _want, _plans):
+        _e = _plans.get(_c, {}).get(_f, {}).get(SUN)
+        if not _e or _e[0][0] != "faith":
+            return False
+        return (_texts.get(_c, {}).get(_f, "") or "").count(SUN) == _want
+
+    _fp_stripped = {c_: {f_: {t: sp for t, sp in items.items() if t != SUN}
+                         for f_, items in fs_.items()}
+                    for c_, fs_ in plan.items()}
+    _fp_bad, _fp_ctrl_missed = [], []
+    print("")
+    print(f"=== 统一过的（卡, 字段）仍画 `☀`→`faith`（`A1605`，{len(FAITH_PREFIX_UNIFIED)} 行）===")
+    for _c, _f, _want, _why in FAITH_PREFIX_UNIFIED:
+        _ok = _fp_ok(_c, _f, _want, plan)
+        if not _ok:
+            _fp_bad.append((_c, _f, _want,
+                            (_texts.get(_c, {}).get(_f, "") or "").count(SUN),
+                            (plan.get(_c, {}).get(_f, {}).get(SUN) or [("", "")])[0][0]))
+        if _fp_ok(_c, _f, _want, _fp_stripped):
+            _fp_ctrl_missed.append((_c, _f))
+        print(f"  {'✅' if _ok else '🔴'} {_c:6s} [{_f}] 画 `☀`→"
+              f"{(plan.get(_c, {}).get(_f, {}).get(SUN) or [('缺', '')])[0][0]}"
+              f" × {(_texts.get(_c, {}).get(_f, '') or '').count(SUN)} 枚 / 应 {_want} 枚 —— {_why}")
+    print(f"  ★ 灭自证：把计划里的 `☀` 那条记号**抽掉**之后再判 —— 应当**每一行都变红**："
+          f"{len(FAITH_PREFIX_UNIFIED) - len(_fp_ctrl_missed)}/{len(FAITH_PREFIX_UNIFIED)} 行变红"
+          + ("（✅ 无漏）" if not _fp_ctrl_missed else f"；🔴 **漏掉** {_fp_ctrl_missed}"))
+
+    # ── 🆕 2026-10-12（`A1683`）：`ASH75` 的中文**一枚信仰都不许有**（见 `ASH75_FAITH_TOKENS` 那段）──
+    #  ① 判据形状与 `LEGACY_FAITH_PREFIX` **不同**：那条要的是「数字 + 信仰词」的前缀形状（`①` 不是数字
+    #     ⇒ 它抓不到 `ASH75`，改前就是绿的）；本条要的是「**这个字段里一枚信仰都不许有**」。
+    #  ② **不许删过头**：`①`→`SpiritStone_1` 必须还在（症状会是「灵魂石那枚也没了」= 另一种静默错）。
+    #  ③ **灭自证**：把 `①` 那条记号从计划里**抽掉** ⇒ 这一格必须变红（谓词写成自引用时它必红）。
+    _a75_txt = _texts.get("ASH75", {}).get("descZh", "") or ""
+    _a75_pl = plan.get("ASH75", {}).get("descZh", {})
+    _a75_faith = sorted(t for t, v in _a75_pl.items() if (v[0][0] or "") == "faith")
+    _a75_tok = sorted(t for t in ASH75_FAITH_TOKENS if t in _a75_txt)
+    _a75_ss = (_a75_pl.get("①") or [("", "")])[0][0]
+    _a75_miss = [w for w, ok in (("画了信仰", not _a75_faith),
+                                 ("文本里有信仰记号", not _a75_tok),
+                                 ("`①`→SpiritStone_1", _a75_ss == "SpiritStone_1")) if not ok]
+
+    def _a75_ok(_plans, _txt):
+        _e = _plans.get("ASH75", {}).get("descZh", {})
+        if any((v[0][0] or "") == "faith" for v in _e.values()):
+            return False
+        if any(t in _txt for t in ASH75_FAITH_TOKENS):
+            return False
+        return (_e.get("①") or [("", "")])[0][0] == "SpiritStone_1" and _txt.count("①") == 1
+
+    _a75_stripped = {c_: {f_: {t: sp for t, sp in items.items() if c_ != "ASH75" or t != "①"}
+                          for f_, items in fs_.items()}
+                     for c_, fs_ in plan.items()}
+    _a75_ctrl = _a75_ok(_a75_stripped, _a75_txt)
+    print("")
+    print("=== `A1683`：`ASH75 Storm of Silence` 的中文**不许出现信仰**（那处是**灵魂石**）===")
+    print(f"  {'✅' if not _a75_miss else '🔴'} `ASH75` [descZh] 画 faith {len(_a75_faith)} 枚"
+          f"（{_a75_faith if _a75_faith else '无'}）· 文本里信仰记号 "
+          f"{_a75_tok if _a75_tok else '0 处'} · `①`→{_a75_ss} × {_a75_txt.count('①')} 枚"
+          + ("" if not _a75_miss else f" —— 🔴 {'、'.join(_a75_miss)}"))
+    print(f"  ★ 灭自证：把计划里的 `①` 那条记号**抽掉**之后再判 —— 应当**变红**："
+          + ("🔴 **没变红**（谓词是自引用的）" if _a75_ctrl else "✅ 变红（无漏）"))
+    print("  判据 = 成品卡图亲读 `d:/2/Warpforge部队卡片/Aeldari/2天赋/"
+          "Warpforge_02_Storm-of-Silence.png`（第 2 行 `〔绿圈·1〕〔橙金螺旋〕Stun …`，**没有金太阳**）")
+
     # ── 🆕 2026-10-12（`A1623`）：`Dark Pact` 一族的两道自检 ────────────────────────────────
     #  ① **例外表**（`DARKPACT_ALREADY`）—— 判据与自检**逐条照 `_PREFIX_ABSORB_ROWS` 那一族**：
     #     · 表里的每一行必须**真被用到**（`_dp_already_seen`）—— 不然它是「看起来在干活」的死条目；
@@ -2658,6 +2838,8 @@ def main():
     # 🔴 **退出码先算、再决定落不落盘**（`A1626`）——「非 0」必须等于「没写文件」。
     bad = (missing or unresolved or conflicts or why_conflict
            or _abs_dead or _abs_lost or face_bad
+           or _legacy or _fp_bad or _fp_ctrl_missed
+           or _a75_miss or _a75_ctrl
            or _dp_dead or _dp_lost or _dp_bad or _dp_ctrl_missed or _dp_mixed)
     if WRITE and bad:
         print("")
@@ -2677,6 +2859,22 @@ def main():
         if face_bad:
             print(f"   · 卡面枚数对不上 {len(face_bad)} 行："
                   + "；".join(f"{_c}[{_f}] {_n}≠{_want}" for _c, _f, _want, _n in face_bad))
+        if _legacy:
+            print(f"   · 信仰前缀又冒出旧写法 {len(_legacy)} 处（`A1605`：一律写 `☀`）："
+                  + "；".join(f"{_c}[{_f}] {_p!r}" for _c, _f, _p, _t in _legacy))
+        if _fp_bad:
+            print(f"   · 统一过的（卡, 字段）没画成 `☀`→`faith` {len(_fp_bad)} 行："
+                  + "；".join(f"{_c}[{_f}] 画 {_n} 枚/应 {_want}（sprite={_s!r}）"
+                              for _c, _f, _want, _n, _s in _fp_bad))
+        if _fp_ctrl_missed:
+            print(f"   · 信仰前缀【灭自证】漏掉的（卡, 字段）{len(_fp_ctrl_missed)} 行"
+                  f"（抽掉 `☀` 之后没变红）：" + "、".join(f"{_c}[{_f}]" for _c, _f in _fp_ctrl_missed))
+        if _a75_miss:
+            print(f"   · `A1683`：`ASH75` 的中文又画了信仰 / 或把灵魂石画丢了 —— {'、'.join(_a75_miss)}"
+                  f"（画 faith {len(_a75_faith)} 枚 {_a75_faith} · 文本记号 {_a75_tok} · `①`→{_a75_ss}）"
+                  "；判据 = `Aeldari/2天赋/Warpforge_02_Storm-of-Silence.png` 亲读")
+        if _a75_ctrl:
+            print("   · `A1683`【灭自证】把 `①` 从计划里抽掉之后**没变红**（谓词写成自引用了）")
         if _dp_dead:
             print(f"   · `DARKPACT_ALREADY` 死条目 {len(_dp_dead)} 条（本字段今天没有可让位的记号）")
         if _dp_lost:

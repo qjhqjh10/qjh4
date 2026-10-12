@@ -40,17 +40,35 @@ namespace WarpforgeVFX
 
         void Awake() { Apply(); }
 
+        /// <summary>🔎 **诊断开关（`WF_NOSOFT=1`）：把 `_SOFTPARTICLES_ON` 从"要启用的关键字"里摘掉。**
+        /// 用途 = `资料/普查产出_第二十二会话/DIAG_arena1蒸汽.md` §七·2 那个 **2 分钟 A/B**：
+        /// 贴地那族（`Dust Floor`）亮 ≈2.4×、而离地 1.9–2.9 的同材质 `SmokeSteam01` 已对齐到 2%
+        /// ⇒ 系统差别只有**离地高度**，与「按场景深度淡出」自洽 ⇒ 判「软粒子淡出在我们这边是不是死的」。
+        /// ⛔ **只在诊断时用**（关掉再渲一次 → 画面**一点不变**即成立）；⛔ **不动原版字段值**
+        /// （`_SoftParticleFadeParams` / `_CameraFadeParams` 一个字都不改）。</summary>
+        static bool DropSoft => System.Environment.GetEnvironmentVariable("WF_NOSOFT") == "1";
+
+        static bool SkipKw(string k) => DropSoft && k == "_SOFTPARTICLES_ON";
+
+        string[] EffectiveKeywords()
+        {
+            if (!DropSoft || keywords == null) return keywords;
+            var l = new System.Collections.Generic.List<string>();
+            foreach (var k in keywords) if (!SkipKw(k)) l.Add(k);
+            return l.ToArray();
+        }
+
         void SetOn(Material m)
         {
             if (additive)
             {
                 if (keywords == null) return;
-                foreach (var k in keywords) if (!string.IsNullOrEmpty(k)) m.EnableKeyword(k);
+                foreach (var k in keywords) { if (!string.IsNullOrEmpty(k) && !SkipKw(k)) m.EnableKeyword(k); }
             }
             else
             {
                 // ⚠️ 数组口是**整体替换**：原版没开的关键字自然就是关（正是要的「照原版」）。
-                m.shaderKeywords = keywords;
+                m.shaderKeywords = EffectiveKeywords();
             }
         }
 
@@ -84,7 +102,7 @@ namespace WarpforgeVFX
             // ⚠️ 这条是**防御性**的，不是「已坐实的 bug」：拷完再把源材质已有的关键字补回来，
             //   保证「并集」语义在任何情况下都成立。**没单独测过「不补会怎样」**
             //   （2026-09-30 那次探针是在已经补上的版本上跑的，分辨不出来）。
-            foreach (var k in src.shaderKeywords) if (!string.IsNullOrEmpty(k)) m.EnableKeyword(k);
+            foreach (var k in src.shaderKeywords) { if (!string.IsNullOrEmpty(k) && !SkipKw(k)) m.EnableKeyword(k); }
             SetOn(m);
             // 🔎 诊断（`WF_KWPROBE=1`）：**只读**，用来判「拷贝这一步到底丢了什么」——
             //   2026-09-30 实测：只要挂上这个组件，`sororitas` 就从 1.026 变 **1.060**（画面下部整片变亮），

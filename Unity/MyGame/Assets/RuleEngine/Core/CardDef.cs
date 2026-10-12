@@ -2286,6 +2286,36 @@ namespace RuleEngine
                 }
             }
 
+            // ---- ①-c 🆕 `<效果> when <事件>`（**后缀形**，`A1461` / `A1575`，2026-10-12）----
+            //   真卡 **1 张**：`TAU20 Sniper Drone` 的
+            //   `Gains Long Range when an enemy gains Markerlight`（卡面亲读 → 见
+            //   `资料/普查产出_第二十二会话/W10_引擎TAU20.md` §一）。
+            //   语义 = **这张卡自己**在某件事发生之后得到效果 ⇒ 和 ① 是同一层
+            //   （`_whenTriggers` + `BroadcastWhen`），只是卡面把**效果写在前面**。
+            //   ⚠️ **判据转调 `EffectText.TryWhenSuffix`，绝不在这儿另写一套切分** ——
+            //      解析层（`EffectText.TryWhenSuffixStub`）转调的是**同一个函数**；
+            //      写两份就会出现「解析器认了、卡面不生效」（`costwhen` 那条注释点名的老坑）。
+            //   ⚠️ **位置必须在 ② 之前**：② 支对任何含 `" when "` 的句子都 `return`
+            //      （它的正则不匹配也 return），排在它后面等于这段死代码。
+            //      抢占是安全的：降费族那半句（`Lower cost by 1`）**解析不出 op** ⇒
+            //      `TryWhenSuffix` 第 ② 道闸自己挡住，② 支照旧收得到。
+            if (CanListenForEvents)
+            {
+                string wSufEv; string wSufBody; List<EffectOp> wSufOps;
+                if (EffectText.TryWhenSuffix(s, out wSufEv, out wSufBody, out wSufOps))
+                {
+                    // ⚠️ 用 `ParseAll` 不用 `Parse`（同 ① 支）：只接半边 = 打得比卡面窄，而且不报错。
+                    var wSufEvs = WhenEvents.ParseAll(wSufEv);
+                    if (wSufEvs.Count > 0)
+                    {
+                        foreach (var o in wSufOps) if (o.Source == null) o.Source = Name + "：" + wSufBody;
+                        foreach (var e in wSufEvs)
+                            _whenTriggers.Add(new WhenTrigger { Ev = e, Ops = wSufOps, Body = s });
+                        return;
+                    }
+                }
+            }
+
             // ---- ② `… Lower cost by N when <事件>`（句尾）----
             //    ⚠️ 用 `LastIndexOf` 而不是 `IndexOf`：事件短语自己可能带 `when`
             //       （`When you play a Stratagem, …` 那种不会走到这里，但万一以后有嵌套）。
@@ -2460,6 +2490,12 @@ namespace RuleEngine
                 //    同一层（`WhenTriggers`），只是卡面把事件写成介词短语。判据转调同一个抽取函数。
                 WhenEvent dpEv; string dpBody; List<EffectOp> dpOps;
                 if (TryParseAfterDarkPact(seg, out dpEv, out dpBody, out dpOps)) return "事件层（WhenTriggers）";
+                // 🆕 `<效果> when <事件>`（**后缀形**，`A1461` / `A1575`，2026-10-12）—— 同一层
+                //    （`AddWhenTrigger` 的 ①-c 支），只是卡面把效果写在前面。
+                //    判据**转调注册侧用的那一个函数**，不在报表里另写一份切分。
+                string wSufEv; string wSufBody; List<EffectOp> wSufOps;
+                if (EffectText.TryWhenSuffix(seg, out wSufEv, out wSufBody, out wSufOps))
+                    return "事件层（WhenTriggers）";
             }
             if (ExtractTalent(seg) != null) return "天赋（TalentName）";
             // 🆕 2026-09-14 A5 批 4：**天赋的裸名写法** —— 卡面印的是 `[Talent 图标] Talent: <名>`，
@@ -3020,13 +3056,23 @@ namespace RuleEngine
         ///   我们引擎里没有那份全局表 ⇒ 池的**初值取卡面写的那个数字**
         ///   （`KwValue(DropPod)`），如实标着（这是我们的口径，不是原版证的）。
         ///
-        /// ⚠️ **没有做的两半**（如实记，⛔ 别当它做完了）：
-        ///   ① **`Landing` 触发**（`AbilityTrigger.Landing = 440`）—— 原版只在**另外两处**发它：
-        ///      `BattleManager._ResolveAttack…:359-379`（本单位出手 → `RemoveDropPod` → `Landing`）与
-        ///      `CardScript__OnTurnStart.c:102/108/263-266`（**本方回合开始**开舱 → `Landing`）。
-        ///      ⚠️ **池被打空那一条路（`CheckIfDead.c:94`）不发 `Landing`**。
-        ///   ② 「**回合开始自动开舱** / **攻击后自动开舱**」那两条时机（同上两处）。
-        ///   两条都记在 `资料/普查产出_第十三会话/W4_A1335A1336.md` 的「顺手发现」里，⛔ 由调度台分流。
+        /// ✅ **那「两半」都做了**（第二十二会话 · `A1395` 就地订正 · 铁律 5 —— 本段原来写着
+        ///   「**没有做的两半**」，**已过期**，⛔ 别再照着它判「没做」）：
+        ///   ① **`Landing` 触发**（`AbilityTrigger.Landing = 440`）—— 落点 = `RuleCore.OpenDropPod`；
+        ///   ② 「**回合开始自动开舱** / **攻击后自动开舱**」那两条时机 —— 同一个 `OpenDropPod` 的
+        ///      两个调用点（`BeginTurn` / `DeclareAttack`，`A1354`，已收口）。
+        ///   ⚠️ 池被打空那一条路（`CardScript__CheckIfDead.c:94`）**不发 `Landing`** —— 这条照旧。
+        ///
+        /// 🔴 **仍然没做的只剩一条**（如实记）：出手那一处**带 `landing`（`DefinedTrait.landing = 770`）
+        ///   这个 trait ⇒ 取消这一记**那一支 —— 已另立 `A1395②` / `A1617`，**等调度台裁**
+        ///   （原版那一下在**协程 `yield` 之后**，而我们的 `DeclareAttack` 是同步一把跑完的 ⇒
+        ///   要先定「位置」与「取消的确切含义」）。判据全文 → `KeywordTable.Landing` 的 doc。
+        ///
+        /// ⚠️ **出手那一处的次序也要一起读**（本段原来没写，容易读成「开舱就一定会打」）：
+        ///   `BattleManager._ResolveAttack…:359-379` = `RemoveDropPod(card, 0)` → 判
+        ///   `HasDefaultTrait(0x302)`（= `landing`）：**不带** ⇒ 协程挂起一帧（等开舱动画）后
+        ///   **照常打**；**带** ⇒ `CancelAttack` ＋ 两次 `ClearPendingDamage`（双方）＋
+        ///   `OnTrigger(0x1b8)`（= `AbilityTrigger.Landing = 440`）⇒ **这一下不打**。
         ///
         /// **可达性**：全池 1126 张 **0 张**带它（`SW31 Fenrisian Drop Pod` 只是卡名里带 `Drop Pod`，
         /// 它的 `keywords` 是 `Flying` / `Armour 1`）⇒ 同上，铁律 11 补课。
@@ -3636,8 +3682,15 @@ namespace RuleEngine
             // 虫群（2026-09-13 A2）：**打出在右侧同名部队旁边时合并**（攻击生命相加、新来的压在下面）。
             // 时机点在 `RuleCore.PlayCard` 末尾（召唤触发之后 —— 照原版同一函数里的先后）。
             // ⚠️ 它**没有卡面正文**（卡上只印裸关键词），所以不进 `RoutableTriggers`；
-            //    但会广播 `When a friendly unit triggers Swarm`（那一族卡要它）——
-            //    广播走 `BroadcastKeywordEvent`（体无正文也能发），不是 `FireTriggerAt`。
+            //    但会广播 `When a friendly unit triggers Swarm`（那一族卡要它）。
+            // 🔴 **第二十二会话（`A1395` 顺手订正 · 铁律 5）**：本句原来写着
+            //    「广播走 `BroadcastKeywordEvent`（体无正文也能发），**不是** `FireTriggerAt`」——
+            //    **已过期**。真值（现读 `RuleCore.TrySwarmMerge` 尾部那一段）：那一跳现在只调
+            //    **一次** `RuleCore.FireTriggerAlways(Swarm)`，两支都在那一个口里 ——
+            //    **没正文** ⇒ 发 `EvtKind.Trigger` ＋ `BroadcastWhen(Triggers(kw))`；
+            //    **有正文** ⇒ 转发 `FireTriggerAt`（它有正文时**两件事都做**）。
+            //    ⇒ **「不是 `FireTriggerAt`」这半句不成立**；「会广播」那一半**照旧成立**
+            //    （那正是 `FireTriggerAlways` 存在的理由，判据 → 它的 doc，出处 `A1356`）。
             Swarm,
             // 突触（2026-09-13 A2）：**被友方战术选中时，对相邻单位把那张战术再跑一遍**。
             // 时机点在 `EffectResolver.PlayTactic`（效果之后、进弃牌堆之前 —— 照原版同一函数里的先后）。

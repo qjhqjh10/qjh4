@@ -675,7 +675,13 @@ class PlayProbe
     //     `Ecstasy`/`When …` …）⇒ **本夹具产生不了那个事件**，`other == 0` 是**预期的**、
     //     ⛔ 不是缺陷（要测它得另写「打一发 / 让它死 / 让它抽到」那种专属夹具）。
     //   · **H 督军档** —— 另法测（见 <see cref="MeasureHero"/>）。
-    static string Bucket(CardDef c)
+    //   ⚠️ **付费能力段（`N <货币>:` / `Oath N:`）一律不算「该发生」** —— 它是**主动用**。
+    //      判据 = **引擎自己那次 `ParseSegment`**（见 `IsPaidSegment` / ⑥ 自检，`A1599`）。
+    //
+    // `oldPaidRule` 🆕 `A1599`：**只给自检用** —— `true` = 用**旧那条半截正则**
+    //   （`WillRun.IsPaidHead`，只认 `N <货币>:`）重算一遍，好让「旧口径必红」是**机器量出来的**
+    //   而不是靠嘴说。⛔ **生产路径一律取缺省 `false`**（判据 = 引擎自己那次 `ParseSegment`）。
+    static string Bucket(CardDef c, bool oldPaidRule = false)
     {
         if (c.Type == "hero") return "H 督军档";
         if (c.Type == "tactic" || c.Type == "defence") return "A 打出即结算";
@@ -713,11 +719,31 @@ class PlayProbe
             }
             if (head == "rally") { unguarded = true; continue; } // `Rally:` = 部署时触发
             if (Array.IndexOf(CardDef.RoutableTriggers, head) >= 0) continue;   // 别的时机
-            if (WillRun.IsPaidHead(head)) continue;             // `N ☀:` / `N [Spirit Stone]:` 付费能力 = 主动用
+            // 🔴 **`A1599`（2026-10-12）**：付费前缀的判据**转调引擎自己那一次 `ParseSegment`**
+            //    （<see cref="IsPaidSegment"/>，与 `WillRun.AddFaceBody` / `WillRun.Classify` ② 同一处）。
+            //    改前用的是 `WillRun.IsPaidHead` —— 那条正则只认 `N <货币>:` 那**半截**，
+            //    **漏掉引擎同样认的 `Oath N:`**（`EffectText.ReOathPaid`）⇒ 那些段落到「认不出的头」
+            //    那一支 ⇒ **整张卡被归进 C 档**（`oldPaidRule` 那一支就是那时的行为，自检里并排量出来）。
+            //    ⛔ **别把它读成「誓约能力没收下来」** —— 它们收得到（`CardDef.OathOps`）；
+            //       这一处只决定**档位**（C 还是 B），与「收到没有」是两条腿。
+            if (oldPaidRule ? WillRun.IsPaidHead(head) : IsPaidSegment(s)) continue;  // 付费能力 = 主动用
             if (CardDef.HandledByOtherLayer(c, raw) != null) continue;          // 别的层接手
             unguarded = true;   // 认不出的头 ⇒ ⛔ 不替它豁免（宁可列进可疑档，不静默放过）
         }
         return unguarded ? "C 部署时该发生" : "B 等事件/等主动用";
+    }
+
+    /// <summary>🆕 **`A1599`：这一段是不是「引擎认的付费前缀段」**（`N &lt;货币&gt;:` / `Oath N:` …）。
+    ///
+    /// 🔴 **判据 = 引擎自己那一次 `ParseSegment`**（`SegResult.PaidCost &gt; 0`），
+    ///    ⛔ 不是探针自己写一条头正则 —— 付费用**两条**语法（`EffectText.RePaid` / `ReOathPaid`），
+    ///    任何一条手写正则迟早漏掉其中一条（`WillRun.IsPaidHead` 就漏了 `Oath N:`，实测）。
+    ///    ⚠️ 传的是**整段原文**（含 `Head:`），与 `WillRun.AddFaceBody` 里那一处逐字同形。
+    /// </summary>
+    static bool IsPaidSegment(string seg)
+    {
+        var segr = EffectText.ParseSegment(seg);
+        return segr != null && segr.PaidCost > 0;
     }
 
     // ==================================================================
@@ -1059,7 +1085,124 @@ class PlayProbe
         Console.WriteLine("  判据：**抛异常 = 0 张** ⇒ rc=0；否则 rc=1。");
         Console.WriteLine("  ⚠️「候选」与「打不出去」**都不计入 rc** —— 它们要**对着卡面**逐张判，"
                           + "本工具不代替判决（⛔ 也不许静默：两栏都在上面逐条打了出来）。");
-        return crash > 0 ? 1 : 0;
+
+        // ------------------------------------------------------------------
+        //  🆕 `A1599`：`Bucket` 的【付费前缀判据】自检（**计入 rc**）
+        // ------------------------------------------------------------------
+        Console.WriteLine();
+        int bucketFail = BucketSelfCheck(pool);
+        Console.WriteLine("  ⇒ 判据自检（`A1599`）" + (bucketFail == 0 ? "全过 ✅" : "红 " + bucketFail + " 条 🔴")
+                          + " —— 它也计入 rc。");
+        return (crash > 0 || bucketFail > 0) ? 1 : 0;
+    }
+
+    // ==================================================================
+    //  🆕 `A1599`：`Bucket` 付费前缀判据的自检
+    // ==================================================================
+
+    /// <summary>🆕 **`A1599`**：`Bucket` 的付费前缀判据自检（返回**红的条数**）。
+    ///
+    /// 🔴 **为什么非要有它**：`Bucket` 原来用 `WillRun.IsPaidHead`（正则 `^\d+\s*[\[\(]?\s*[a-z☀]`）
+    ///   当「这段是不是付费能力」的判据，而**引擎认的付费前缀有两条**（`EffectText.RePaid` /
+    ///   `ReOathPaid`）⇒ 那条正则**漏掉 `Oath N:`**（`oath 2` 以字母开头，第一位 `\d` 就不匹配）
+    ///   ⇒ 这些段落进「认不出的头」那一支 ⇒ **整张卡被归进 C 档**（=「部署那一拍就该有变化」）。
+    ///   ⚠️ **它不是「誓约能力没收下来」** —— 那 28 张（池侧现读）的 `Oath N:` 收得到
+    ///   （`CardDef.OathOps`）；这一条只治**档位**（C 还是 B），⛔ 别混成那 18/28 张的假警报。
+    ///
+    /// **断言 A —— 旧口径必红的那一条**
+    ///   夹具 `Oath 2: …`（**一个字都不改**，只让头是引擎认的 `Oath N:`）：
+    ///   新口径 ⇒ **B**（付费能力 = 主动用，本夹具产生不了）；旧口径 ⇒ **C**（认不出这个头）。
+    ///   ⇒ **旧口径下这条断言结构上不可能绿。**
+    /// **断言 B —— 反面对照（覆盖面没丢）**
+    ///   `2 ☀: …` / `2 [Spirit Stone]: …`：**新旧两个口径都必须给 B** ——
+    ///   挡住「把付费判定整个删掉」那种改法（那种改法会让 A 变绿、B 变红）。
+    /// **断言 C —— 池侧（钉子）**
+    ///   ① 池里**存在**「引擎认付费、旧正则认不出」的段（= 这条断言今天不是空话）；
+    ///   ② **新旧口径给出不同档位的卡 ≥ 1**（= 改动真的改了读数；⛔ 一旦有人把它改回去，这里立刻 0 条 ⇒ 红）；
+    ///   ③ 每一张「档位变了」的卡，**都**含至少一条这样的段（= 变化**由这一处引起**，不是别的原因顺带红）。
+    ///
+    /// ⚠️ 夹具卡**在内存里现造**（`new CardDef(...)`，⛔ 不进卡池、⛔ 不碰 `MyGame/Assets/**`）。
+    /// </summary>
+    static int BucketSelfCheck(List<CardDef> pool)
+    {
+        Console.WriteLine("  --- ⑥ 🔴 `Bucket` 付费前缀判据自检（`A1599`：判据 = **引擎自己那次 `ParseSegment`**）---");
+        int fail = 0;
+        Func<string, string, CardDef> fx = (id, desc) =>
+            new CardDef(id, id, "unit", desc, "common", "Fixture", 1, 1, 1, 0, null, subtype: "Troop");
+
+        // ---- 断言 A：`Oath N:` —— 引擎认、旧正则认不出 ⇒ 新 B / 旧 C ----
+        foreach (var desc in new[] { "Oath 2: Deal 3 damage to an enemy troop",
+                                     "Oath 1: Give Armour 1 to a friendly troop" })
+        {
+            var f = fx("FX-P1", desc);
+            string nw = Bucket(f, false), od = Bucket(f, true);
+            int paid = IsPaidSegment(desc) ? 1 : 0;
+            bool oldSays = WillRun.IsPaidHead(desc.Substring(0, desc.IndexOf(':')).Trim().ToLowerInvariant());
+            bool ok = nw == "B 等事件/等主动用" && od == "C 部署时该发生";
+            Console.WriteLine("    " + (ok ? "✅" : "🔴") + " A 「" + desc + "」");
+            Console.WriteLine("        新口径（引擎 `ParseSegment`）⇒ **" + nw + "**  ·  旧口径（`IsPaidHead`）⇒ **" + od + "**");
+            Console.WriteLine("        引擎说的：`ParseSegment.PaidCost` = " + paid + "（>0 = 付费前缀段）"
+                              + "  ·  `WillRun.IsPaidHead(\"" + desc.Substring(0, desc.IndexOf(':')).Trim()
+                              + "\")` = " + (oldSays ? "true" : "**false**（← 那条正则漏掉了它）"));
+            if (!ok)
+            {
+                fail++;
+                Console.WriteLine("        🔴 期望 **新 = B / 旧 = C** —— 旧口径下这里只能给 C（元凶 = 那条半截正则）；"
+                                  + "若新口径也给 C，说明 `Bucket` 又拿形状正则当付费判据了。");
+            }
+        }
+
+        // ---- 断言 B：反面 —— 老的两条写法【两个口径都必须给 B】（⛔ 覆盖面不许丢）----
+        foreach (var desc in new[] { "2 ☀: Deal 3 damage to an enemy troop",
+                                     "2 [Spirit Stone]: Deal 3 damage to an enemy troop" })
+        {
+            var f = fx("FX-P2", desc);
+            string nw = Bucket(f, false), od = Bucket(f, true);
+            bool ok = nw == "B 等事件/等主动用" && od == "B 等事件/等主动用";
+            Console.WriteLine("    " + (ok ? "✅" : "🔴") + " B 「" + desc + "」⇒ 新 **" + nw + "** / 旧 **" + od
+                              + "**（**两个口径都必须是 B**）");
+            if (!ok) fail++;
+        }
+
+        // ---- 断言 C：池侧 —— ① 这类段真的存在 ② 档位真的变了 ③ 变化由它引起 ----
+        var changed = new List<string>();
+        int segFailingOld = 0;
+        foreach (var c in pool)
+        {
+            if (c == null) continue;
+            bool hasSuchSeg = false;
+            foreach (var raw in EffectText.Split(c.Desc))
+            {
+                if (string.IsNullOrEmpty(raw)) continue;
+                string s = EffectText.StripLeadingIcons(raw.Trim());
+                if (string.IsNullOrEmpty(s)) continue;
+                int col = s.IndexOf(':');
+                if (col <= 0) continue;
+                string head = s.Substring(0, col).Trim().ToLowerInvariant();
+                if (IsPaidSegment(s) && !WillRun.IsPaidHead(head)) { hasSuchSeg = true; break; }
+            }
+            if (hasSuchSeg) segFailingOld++;
+            string nw = Bucket(c, false), od = Bucket(c, true);
+            if (nw != od)
+                changed.Add(c.Id + " [" + c.Type + "] " + od + " → " + nw + (hasSuchSeg ? "" : "  ← 🔴 无此类段"));
+        }
+        bool okC = segFailingOld > 0 && changed.Count > 0 && !changed.Any(x => x.Contains("← 🔴 无此类段"));
+        Console.WriteLine("    " + (okC ? "✅" : "🔴") + " C 池侧（" + pool.Count + " 张）：");
+        Console.WriteLine("        ① 含「引擎认付费、`IsPaidHead` 认不出」的段的卡 = **" + segFailingOld
+                          + " 张**（必须 > 0：否则本断言是空话）");
+        Console.WriteLine("        ② 新旧口径**档位不同**的卡 = **" + changed.Count
+                          + " 张**（必须 > 0：⛔ 一旦有人把判据改回那条半截正则，这里就是 0 ⇒ 红）");
+        Console.WriteLine("        ③ 每一张都**含**这样的段（否则「档位变了」另有原因，要回来重读）");
+        foreach (var x in changed.Take(40)) Console.WriteLine("           · " + x);
+        if (changed.Count > 40) Console.WriteLine("           …（还有 " + (changed.Count - 40) + " 张）");
+        if (!okC)
+        {
+            fail++;
+            Console.WriteLine("        🔴 期望三条同时成立（见上）。最要紧的一条：⚠️ **别把 `Oath N:` 那批读成"
+                              + "「誓约能力没收下来」** —— 它们收得到（`CardDef.OathOps`），这里只关**档位**。");
+        }
+        Console.WriteLine("    ⇒ 自检 **" + (fail == 0 ? "全过 ✅" : "红 " + fail + " 条 🔴") + "**");
+        return fail;
     }
 
     // ==================================================================

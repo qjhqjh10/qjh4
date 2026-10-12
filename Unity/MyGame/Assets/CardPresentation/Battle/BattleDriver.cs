@@ -4379,6 +4379,22 @@ namespace CardPresentation
             return true;      // 换牌阶段：这一帧的输入全归它，不往下传
         }
 
+        /// <summary>🔴 **2026-10-12（`A1663`，用户真机点名「不是点击手卡替换」）**：
+        /// 换牌期点了**手牌本身** ⇒ **把这张牌放大展示**。
+        ///
+        /// 判据（原版，唯一一处）= `CardScript__OnTouchUpAsButton.c:52-58`：换牌期
+        /// `cardState ∈ {0xD,0xE}` 这一段只做「置 `displayingCardFlag(+0x24a)` →
+        /// `BattleManager.DisplayCard(bm, this, 1, 1)`」（第 4 参 = **强制展示**、绕开战斗阶段门控）；
+        /// 指针移开由 `OnTouchExit.c:15-16` 收（我们那半 = `TickCardWinPointerExit`）。
+        /// ⚠️ 换牌期卡碰撞体是**开着且原始尺寸**的（`CardCollider2D__SetColliderNotInHand.c:11-24`）
+        ///   —— 那张牌原版就是**给点着看的**。
+        /// ⚠️ **只接「轻点」这一条**：`interaction.enabled` 换牌期**照旧是 `false`**
+        ///   （`OpenMulligan` 里那句）⇒ 拖牌 / 悬停**一点都没放出来**（原版换牌期也不走拖牌）。
+        ///   面板只负责命中与回调（`MulliganPanel.OnCardSeen`），「这一下做什么」在驱动层这一处。
+        /// ⚠️ 转发到 `OnCardTapped` —— 手牌轻点那条**现有**链（它顺带把提示行收回，见它的注释）；
+        ///   ⛔ 别在这儿另写一份展示窗逻辑（那就成了两条路）。</summary>
+        void OnMulliganCardSeen(CardView card) { OnCardTapped(card); }
+
         void OpenMulligan()
         {
             if (_mulligan == null) return;
@@ -4406,6 +4422,12 @@ namespace CardPresentation
                 RecRaw(NetActionKind.Mulligan, 1 - _me, aiMarks != null ? aiMarks.ToArray() : new int[0]);
             }
             _mulligan.OnDone = OnMulliganDone;
+            // 🔴 **2026-10-12（`A1663`，用户真机点名）**：点**手牌本身** = 「看牌」，不是标记 ——
+            //   原版 `CardScript__OnTouchUpAsButton.c:52-58`（换牌期 `cardState ∈ {0xD,0xE}` 那一段）
+            //   只做「置 `displayingCardFlag` + `BattleManager.DisplayCard(card,1,1)`」。
+            //   标记只走每张卡上那颗「换」钮（`ClickMulliganSelected`）—— 我们原来多了一条
+            //   「点卡也能标记」（`MulliganPanel.HandleClick` 里，已删，见 `OnMulliganCardSeen`）。
+            _mulligan.OnCardSeen = OnMulliganCardSeen;
             _mulligan.SetDoneText(MulliganPanel.DoneLabel);   // 开面板时按钮字复原（上一局可能停在秒数上）
             // 🆕 2026-09-26：**把「你先手 / 你后手」写进面板** —— 原版唯一一处「先手/后手」的表现
             //   （`MulliganManager.ActivateMulligan` 按 `playerGoesFirst` 二选一词条；原版**没有硬币动画**）。
@@ -4415,7 +4437,20 @@ namespace CardPresentation
             _mulliganLeft = mulliganSeconds;                  // 倒计时从总秒数起（原版 `globalVars+0x28`）
             _mulliganShownSec = -1;
             interaction.enabled = false;      // 换牌阶段不让拖牌/悬停/轻点（卡要待在原地，别动来动去）
-            SetHint("换牌中：点牌上的「换」标记要替换的牌，然后点「完成换牌」");
+            // 🔴 **2026-10-12（`A1663`）**：上面那句把 `CardInteraction` 整个关了 ⇒ **拖牌 / 悬停**照旧全关
+            //   （原版换牌期也不走拖牌）—— 但**「点手牌看牌」这一条必须另接回来**（原版那一下是
+            //   `CardScript.OnTouchUpAsButton` → `DisplayCard`，卡的碰撞体开着）。
+            //   接法 = 面板回调 `OnCardSeen` → `OnMulliganCardSeen` → `OnCardTapped`（不放开 `interaction`），
+            //   所以这里**不动** `interaction.enabled`。⛔ 别为了「点卡」把它整个设回 true
+            //   （那会顺带放出拖牌/悬停，原版换牌期没有）。
+            // ⚠️ **这一句在换牌期根本不会显示**（`SetHint` 开头 `if (InMulligan) { _hintLabel.SetText(""); return; }`，
+            //   A1502① 的判据）⇒ 下面这句只是「换牌一结束那条路的兜底值」，**不是**给玩家看的换牌说明。
+            //   🔴 口径（`A1663`）：**点牌上的「换」= 标记要换的牌；点牌本身 = 看牌**（原版
+            //   `ClickMulliganSelected` / `OnTouchUpAsButton` 两条路）—— 别把「点卡也能标记」注释加回来。
+            //   ✅ 2026-10-12（`A1669`）：**已收成走词条** —— 原来这里是**同值字面量**、`Core/Loc.cs` 里
+            //   另有同值的 `Battle/Hint/MulliganPick`（带 EN 列）⇒ **英文档下会露中文**；`W3` 那趟
+            //   `Loc.cs` 正处于冻结、只能记成顺手发现。现在两处收成一处。
+            SetHint(Loc.T("Battle/Hint/MulliganPick"));
         }
 
         void OnMulliganDone(List<int> marks)
@@ -4553,6 +4588,9 @@ namespace CardPresentation
         /// ⇒ **只关进攻卡**：本机是先手时**不弹**「选择进攻卡」面板、AI 是先手时也**不替它挑**
         ///   （⇒ 没人选进攻卡 ⇒ **战场停在默认环境**，正是用户要的「只用 13 个默认场景的默认环境」）；
         ///   **本机是后手时那扇「选择防御卡」面板照旧弹、AI 是后手时照旧替它挑**（`PickDefensiveForAi`）。
+        ///   ⚠️ **2026-10-12（`A1664`）起这句的【防御卡那半】已作废**：那扇面板现在由
+        ///     `defensiveCardPanelEnabled` 管（默认 **`false`** = 不弹，照原版 —— 原版那扇门恒 `false`）。
+        ///     本字段仍然**只**管进攻卡那一半。
         ///
         /// 🗄 **这是「暂时去掉」不是「删除」** —— 进攻卡那套代码**一行没删、原样留着当备份**：
         ///   `OffensiveCards` / `OffensiveCardData` / `OnOffensiveDone` / `PickOffensiveForAi` /
@@ -4562,6 +4600,33 @@ namespace CardPresentation
         ///     `offensivePhaseEnabled` 一起置 `true` 再跑）⇒ 备份里的代码不会烂掉
         ///     （铁律 11 例外②：用户明确拍板不做，但东西留着）。</summary>
         public bool offensiveCardEnabled = false;
+
+        /// <summary>🔴 **2026-10-12（`A1664`，用户真机点名「为什么可以选择防御卡，防御卡是放在卡组，
+        /// 后手的时候直接在手卡，这个是给后手玩家的补偿」）**：要不要弹「**选**防御卡」那扇面板。
+        /// 默认 **`false`** = **不弹**（照原版**本 build** 的实证）。
+        ///
+        /// **判据（反汇编实证，正本 → `资料/普查产出_第二十二会话/DIAG_防御卡语义.md` §二·2）**：
+        /// 原版那扇面板（`SetupEnviromentalEffectPhase` → `ChooseCardMenu` + 标题字面量 `defensive`）
+        /// 与「把防御卡塞进手牌」那一支（`ApplyOffensiveAndDefensiveEffects`）**都被
+        /// `BattleManager.ShouldUseEnviromentalEffects()` 挡着，而它恒返回 `false`**
+        /// （VA `0x1806FB110` 的字节 = `32 c0 c3` = `xor al,al; ret`；`dump.cs` 与 `script.json` 的 RVA
+        /// 都是 `0x6FB110`）⇒ **原版根本没有「选防御卡」这一步**，后手那张卡由
+        /// `StartBattlePhase` → `AddGoesSecondCardToDeck` → `AddNewCardToHand` **直接进手牌**。
+        ///
+        /// ⇒ **本开关只关「选」这一步，不关「发卡」**：`RuleCore.GrantDefenceCard`
+        ///   （`EndMulligan` 那条，`RuleCore.cs:397-409`）照旧把那张卡发进后手方手牌
+        ///   —— 玩家体验与原版一致（后手开局手里多一张防御卡）。⛔ **别把它理解成「防御卡不要了」**：
+        ///   用户 2026-10-11 的口径「**进攻卡暂时不要、防御卡照旧要**」仍然成立，这里关掉的是
+        ///   「**多出来的那一次交互**」（它还会把卡组里那张**换掉**，见 `SetDefensiveCard`）。
+        ///
+        /// 🗄 **「暂时关掉」不是「删除」**（铁律 11 例外②）：`OnDefensiveDone` / `PickDefensiveForAi` /
+        ///   `SetDefensiveCard` / `DefensiveChoices` **一行没删、原样留着当备份**。
+        ///   ✅ **要恢复：把这个字段改回 `true` 即可**（没有别的地方需要动）。
+        ///   ✅ `Editor/BattleScene.cs` 17·2(c) 那格会**显式置 `true`** 再跑一次 ⇒ 备份里的代码不会烂掉。
+        /// ⚠️ **本 build 之外不确定**：本地只有一份 `GameAssembly.dll`（两份副本 md5 相同）⇒
+        ///   无法比对别的版本；用户 2026-09-29 说过线上版选进攻卡时背景特效会变 ⇒ **线上版可能是 `true`**
+        ///   —— 所以**开关才是正确的形状**（⛔ 不要删代码）。</summary>
+        public bool defensiveCardPanelEnabled = false;
 
         /// <summary>要不要开「选进攻卡」那个面板。返回 true = 面板开了（流程在 `OnOffensiveDone` 里接着走）。</summary>
         bool BeginOffensivePhaseIfAny()
@@ -4591,7 +4656,10 @@ namespace CardPresentation
                 // 🔴 2026-10-11：**只有进攻卡那一半受 `offensiveCardEnabled` 管** ——
                 //   AI 是先手时不替它挑进攻卡（⇒ 环境不变），AI 是后手时照旧替它挑防御卡。
                 if (offensiveCardEnabled && Ctx.FirstSeat != _me) PickOffensiveForAi(Ctx.FirstSeat);
-                if (Ctx.SecondSeat != _me) PickDefensiveForAi(Ctx.SecondSeat);
+                // 🔴 **2026-10-12（`A1664`）**：防御卡这半也关进同一个开关 —— 否则 AI 那侧仍走
+                //   「面板语义」（随机挑一张并 `SetDefensiveCard` **换掉**卡组那张），而玩家侧已经不选了
+                //   ⇒ 两端语义不一致。关掉之后 AI 手里那张 = `RuleCore.GrantDefenceCard` 发的那张。
+                if (defensiveCardPanelEnabled && Ctx.SecondSeat != _me) PickDefensiveForAi(Ctx.SecondSeat);
             }
 
             // 🔴 **两家共用的那份列表 = 【后手那一方】的阵营**（2026-10-01 查实，原来我们用的是 `_myFaction`）
@@ -4609,8 +4677,9 @@ namespace CardPresentation
             {
                 // 🔴 **2026-10-11 用户拍板：进攻卡暂时不要**（防御卡照旧要，见 `offensiveCardEnabled` 的注释）
                 //   ⇒ 不弹面板、不选卡，直接 `return false` 让流程接着走到开打 —— 战场停在**默认环境**。
-                //   ⚠️ 上面那笔「AI 是后手 ⇒ 替它挑防御卡」**已经做完了**（在 `_net == null` 那一段），
-                //      所以这里早退不会漏掉它。
+                //   🔴 2026-10-12（`A1664`）：上面那笔「AI 是后手 ⇒ 替它挑防御卡」现在**也受开关管**
+                //      （`defensiveCardPanelEnabled`，默认关 ⇒ AI 侧不挑、用 `GrantDefenceCard` 发的那张），
+                //      所以这里早退**不会**漏掉它，也不会造成「玩家不选、AI 却换了张」的两端不一致。
                 if (!offensiveCardEnabled) return false;
                 var list = OffensiveCards.Choices(poolFaction);
                 if (list.Count < 2) return false;         // 原版：列表 <2 张时**不弹菜单**，直接取 list[0]
@@ -4634,6 +4703,12 @@ namespace CardPresentation
             //   ✅ 2026-10-01 补上（原来只出声跳过）。判据 → `资料/普查产出_0930/进攻防御卡_面板语义.md` §【1】【3】。
             //   ⚠️ 列表 = **本阵营**的防御卡（本机就是后手方那一边 ⇒ 与「恒取后手方阵营」是同一件事）。
             //   ⚠️ 卡面用 `ToCardData(CardDef,…)` —— 防御卡**本来就在我们卡池里**（39 张，照片/数值/效果文字齐全）。
+            //   🔴🔴 **2026-10-12（`A1664`，用户真机点名）**：这一支**默认不走了** —— 原版那扇门
+            //     （`ShouldUseEnviromentalEffects()`）**恒 `false`**（反汇编实证，判据全文 →
+            //     `defensiveCardPanelEnabled` 的 doc）⇒ **原版根本没有「选防御卡」这一步**；
+            //     后手那张卡由 `RuleCore.GrantDefenceCard`（`EndMulligan`）**直接进手牌**，这里不选、也不换。
+            //   ⛔ **别把这一支删掉**（开关置 `true` 就能回来；`BattleScene` 17·2(c) 那格会显式打开它跑一遍）。
+            if (!defensiveCardPanelEnabled) return false;
             var defs = DefensiveChoices(_myFaction);
             if (defs.Count == 0)
             {
@@ -5150,6 +5225,23 @@ namespace CardPresentation
         {
             if (_mulligan == null || !_mulligan.Visible) return false;
             return _mulligan.HandleClick(_mulligan.CardBtnWorldPos(i));
+        }
+
+        /// <summary>🔴🆕 **2026-10-12（`A1663`）自检用**：走**和真实点击同一条路**点第
+        /// <paramref name="i"/> 张**手牌本身**（⛔ 不是那颗「换」钮）。
+        /// 返回「这一次点被面板收下了吗」—— ⛔ **不是**「现在标着没有」（那要用 `Mulligan.IsMarked`）。
+        ///
+        /// 判据（原版）：这一下 = **把这张牌放大展示**（`CardScript__OnTouchUpAsButton.c:52-58` →
+        /// `BattleManager.DisplayCard(card,1,1)`），**不是标记**（标记只走 `ClickMulliganSelected`）。
+        /// 点的是**卡自己的世界位**（卡心）—— 与真人把手放在那张牌上是同一件事。
+        /// ⚠️ 卡心一定落在**它自己**的矩形里 ⇒ 面板那段「按下标从小到大扫、第一个命中的就是它」
+        ///   在第 0 张上**无歧义**（重叠区取哪一张见 `MulliganPanel.CardAt` 的注释）。</summary>
+        public bool SimulateMulliganCardTap(int i)
+        {
+            if (_mulligan == null || !_mulligan.Visible) return false;
+            var v = HandViewAt(i);
+            if (v == null) return false;
+            return _mulligan.HandleClick(v.transform.position);
         }
 
         /// <summary>自检用：点「完成换牌」（真实路径：走面板的命中判定）</summary>
@@ -11260,6 +11352,20 @@ namespace CardPresentation
                 //   ⚠️ 挂在这里（`SyncBoard`）是因为**每一个改动棋盘/回合的地方最后都会走到它**
                 //      —— 和光环那 9 个写入点 + `BeginTurn` 是同一条纪律。
                 v.SetCanAct(RuleCore.CanActNow(Ctx, owner, s));
+
+                // 🆕 2026-10-12（`A1672`）：**这一格上的卡占一段渲染队列**。
+                //   号源 = `BoardLayout.QueueOf(格号)`（⛔ 别在这儿另算一套号），机制 = `CardView.SetQueue`
+                //   （与**手牌那半同一套**：`HandLayout.Refresh` 里 `c.SetQueue(queueTop − top)`）。
+                // 🔴 **排在这一格所有动作的【最后】**：上面那几件（`TraitFrames.Attach` / `SetRemnantBody` /
+                //   `SetCanAct`）都会往这张卡下面**新挂子物体**，而 `SetQueue` 扫的是**整棵子树**
+                //   ⇒ 排在最后才能把它们一起盖章。（再往后懒建的层由 `CardView` 建层当场按 `_queue` 自盖 ——
+                //   `AddLayer` / 徽标 / 数值层 / TMP 那几处都有 `StampQueue`，见 `CardView.cs`。）
+                // ⚠️ **漏盖章的层会停在默认 3000** —— 那比场上任何一格的号都大 ⇒ 它会**穿过**邻居的卡，
+                //   正是 `A1665` 报的「多张卡堆叠时上面的文本互相透出」。所以这一句不能少。
+                // ⚠️ **两条路都要盖**（`use3DBoard` 与否）：2D 那条路九格 z 恒 0（全共面、距离排序退化成
+                //   不确定），3D 那条路虽然靠距离已经确定性排好，但**演出期卡会离开格位**（出牌飞行 /
+                //   让位滑动 / 阵亡），那时也是真重叠 ⇒ 两边都用同一段号把次序写死。
+                v.SetQueue(layout.QueueOf(s));
             }
         }
 

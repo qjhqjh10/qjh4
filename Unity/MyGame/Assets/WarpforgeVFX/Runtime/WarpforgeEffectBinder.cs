@@ -276,6 +276,21 @@ namespace WarpforgeVFX
                 var cu = WarpforgeShaderMap.InferCull(d.shader);
                 if (cu.HasValue && m.HasProperty("_Cull")) m.SetFloat("_Cull", cu.Value);
             }
+            // 🔴 2026-10-12 新加：`Everguild/UnlitAmbient Emissive Flickker` 的「自发光闪烁」那一支。
+            //
+            // 为什么需要这一处：原版**两份** shader（`Everguild/UnlitAmbient` 与 `… Emissive Flickker`）
+            // 在我们这边都映射到同一个自建 shader（本文件 `Replacements` 的那三行）。而闪烁那一支
+            // **只在 Flickker 那份里** —— 把两份 shader 的 DXBC blob 分开数：Flickker 32 段里 3 段带闪烁块，
+            // 基础那份 336 段里 **0 段**（逐条指令与槽位实读 → `Shaders/WFUnlitAmbient.shader` 文件头「2026-10-12」）。
+            // 而且它在原版里**不是 keyword 门控的**（4 个前向变体逐字都有它）⇒ **没有现成的材质数据可依**，
+            // 只能按【原版 shader 名】开。
+            //
+            // 🔑 **为什么用浮点开关、不用 keyword**：keyword 在 player 构建里可能被剥掉变体，而这个 keyword
+            //    **没有材质数据能替它保活**（`_APPLYAMBIENTCOLOR` / `_ALPHATEST_ON` 那批是**原版材质自己带的**，
+            //    这一条不是 —— 原版根本没有这个关键字）。浮点开关同样能单变量 A/B，且不增变体数。
+            if (m.HasProperty("_EmissiveFlickerOn"))
+                m.SetFloat("_EmissiveFlickerOn",
+                    d.shader == "Everguild/UnlitAmbient Emissive Flickker" ? 1f : 0f);
 
             foreach (var k in d.keywords)
                 if (!string.IsNullOrEmpty(k)) m.EnableKeyword(k);

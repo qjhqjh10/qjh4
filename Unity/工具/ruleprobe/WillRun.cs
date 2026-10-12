@@ -393,6 +393,10 @@ class WillRun
         int scFail = SelfCheck(pool);
         Console.WriteLine();
 
+        // ---------------------------------------------------------------- ⑧ 🆕 `A1598②` 头→通道键近似自检
+        int tkFail = TriggerKeySelfCheck(pool);
+        Console.WriteLine();
+
         // ---------------------------------------------------------------- dump
         if (!string.IsNullOrEmpty(dumpPath))
         {
@@ -418,11 +422,12 @@ class WillRun
         }
 
         Console.WriteLine("  判据：**②「收漏了」= 0 张**、段级 **" + KMiss + " / " + KPaid
-                          + " 都为 0**、**⑤「" + KHNone + "」= 0 条**、且 **⑦ 判据自检（`A1593`）= 0 条红**"
+                          + " 都为 0**、**⑤「" + KHNone + "」= 0 条**、且 **⑦ 判据自检（`A1593`）= 0 条红**、"
+                          + "**⑧ 头→通道键近似自检（`A1598②`）= 0 条红**"
                           + " ⇒ rc=0；否则 rc=1（⛔ 不许静默绿）。");
         Console.WriteLine("  ⚠️「本来没正文」「未归因」「" + KTwice + "」「" + KHAtTurn + "」「" + KHCostWhen
                           + "」**不算失败**，但它们**也绝不混进「全通」**。");
-        return (missed.Count > 0 || nMiss > 0 || nPaid > 0 || headNone.Count > 0 || scFail > 0) ? 1 : 0;
+        return (missed.Count > 0 || nMiss > 0 || nPaid > 0 || headNone.Count > 0 || scFail > 0 || tkFail > 0) ? 1 : 0;
     }
 
     // ==================================================================
@@ -527,6 +532,138 @@ class WillRun
         }
         Console.WriteLine("    ⇒ 自检 **" + (fail == 0 ? "全过 ✅" : "红 " + fail + " 条 🔴") + "**"
                           + "（⛔ 它计入 rc —— 那条闸一旦退回「全卡并集比」，这里立刻红）");
+        return fail;
+    }
+
+    // ==================================================================
+    //  ⑧ 🆕 `A1598②`：`ResolveTriggerKey` 是引擎私有 `StripParamSuffix` 的近似
+    // ==================================================================
+
+    /// <summary>🆕 **`A1598②`**：头 → 通道键 那道近似的自检（返回**红的条数**）。
+    ///
+    /// 🔴 **为什么要它**（`A1598②` 的账文，写手 `W6` 自陈）：<see cref="ResolveTriggerKey"/> 是
+    ///   对**私有** `CardDef.StripParamSuffix` 的**近似**，而它**没有任何断言** ——
+    ///    引擎以后给别的触发词加参数时，这一处的宽度会**悄悄变**，谁都不会知道。
+    ///
+    /// **断言 A —— 逐形状对拍（期望值是【手写】的，⛔ 不是拿引擎现算值反填）**
+    ///   六个形状，`探针` 与 `引擎真值`（**反射**读私有 `StripParamSuffix`）都必须等于那一列：
+    ///     `ecstasy 5`→`ecstasy` · `ecstasy`→`ecstasy` · `rally 2`→**null** ·
+    ///     `rally`→`rally` · `strike 3`→**null** · `ecstasy x`→**null**。
+    ///   🔴 `rally 2 → null` 那一条**在 `A1598②` 之前结构上必红**：旧实现只问「尾部是数字 + 前半截是键」
+    ///     ⇒ `rally` 在 `TriggerTexts` 里 ⇒ 它会返回 `rally`（对引擎**根本没登记**的头假收到）。
+    ///   ⚠️ 两侧**同时**打出来 ⇒ 引擎哪天把参数触发词白名单改了（`IsParamTrigger`），**这里立刻红**，
+    ///     那个红正是「回来重读这一处口径」的信号（⛔ 不是自动跟着改 —— 期望值是手写的）。
+    ///
+    /// **断言 B —— 池侧（钉子）**：把池里**真正走这条近似**的头摆出来。
+    ///   今天**只能**是 `ecstasy` 一族（`EC*`）—— 那是这一处唯一的真实用例。
+    ///   ① 这个集合**必须非空**（否则本断言是空话）；② 出现的**基词**只能是 `{ecstasy}`；
+    ///   ③ 同时把「有尾数字但**不**该被认」的那几族（`oath N` / `companion N`）并排打出来，作为反面对照。
+    ///   ⇒ 引擎以后给别的触发词加参数（卡面就会出现 `Duty 2:` 之类）⇒ ② 立刻红。
+    ///
+    /// ⚠️ 夹具卡**在内存里现造**（⛔ 不进卡池、⛔ 不碰 `MyGame/Assets/**`）。
+    /// </summary>
+    static int TriggerKeySelfCheck(List<CardDef> pool)
+    {
+        Console.WriteLine("  --- ⑧ 🔴 头→通道键 那道近似（`A1598②`：探针侧 vs 引擎私有 `StripParamSuffix`）---");
+        int fail = 0;
+        var fx = new CardDef("FX-T1", "FX-T1", "unit",
+                             "Rally: Deal 1 damage. Ecstasy 2: Deal 1 damage.",
+                             "common", "Fixture", 1, 1, 1, 0, null, subtype: "Troop");
+
+        // 引擎真值：**反射**读私有静态 `CardDef.StripParamSuffix(head, out num)`（它就是 `AddTriggerOp` 用的那一份）。
+        System.Reflection.MethodInfo mi = null;
+        try
+        {
+            mi = typeof(CardDef).GetMethod("StripParamSuffix",
+                     System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        }
+        catch (Exception e) { Console.WriteLine("    🔴 反射读 `StripParamSuffix` 失败：" + e.GetType().Name); }
+        Func<string, string> engineKey = h =>
+        {
+            if (mi == null) return null;                       // 判据拿不到 ⇒ 下面逐条报红（⛔ 不静默）
+            var args = new object[] { h, null };
+            string norm = (string)mi.Invoke(null, args);
+            return (norm != null && fx.TriggerTexts != null && fx.TriggerTexts.ContainsKey(norm)) ? norm : null;
+        };
+
+        // ---- 断言 A：逐形状对拍（期望值手写）----
+        var shapes = new[]
+        {
+            new[] { "ecstasy 5", "ecstasy" },   // 引擎唯一的参数触发词 —— 剥
+            new[] { "ecstasy",   "ecstasy" },   // 整词等值
+            new[] { "rally 2",   null },        // 🔴 引擎不认（`IsParamTrigger("rally")` = false）⇒ 必须 null
+            new[] { "rally",     "rally" },
+            new[] { "strike 3",  null },
+            new[] { "ecstasy x", null },        // 尾部不是纯数字
+        };
+        foreach (var s in shapes)
+        {
+            string want = s[1], probe = ResolveTriggerKey(fx, s[0]), eng = engineKey(s[0]);
+            bool ok = probe == want && eng == want;
+            Console.WriteLine("    " + (ok ? "✅" : "🔴") + " A 头 `" + s[0] + "`  期望 = "
+                              + (want == null ? "**null**" : "`" + want + "`")
+                              + "  ·  探针 = " + (probe == null ? "null" : "`" + probe + "`")
+                              + "  ·  引擎真值 = " + (eng == null ? "null" : "`" + eng + "`"));
+            if (!ok)
+            {
+                fail++;
+                if (mi == null) Console.WriteLine("        ⚠️ 引擎真值这一列**判不了**（反射拿不到 `StripParamSuffix`）⇒ 先修判据再读。");
+                else if (probe != want) Console.WriteLine("        🔴 探针这一侧偏了（`A1598②` 治的就是它）。");
+                else Console.WriteLine("        🔴 **引擎那一侧**改了形状（`IsParamTrigger` / `ReTriggerHead`）"
+                                       + "⇒ 回来重读这一处口径，然后**手改期望值**（⛔ 别让它自动跟随）。");
+            }
+        }
+
+        // ---- 断言 B：池侧 —— 真正走这条近似的头 ----
+        var used = new List<string>();          // `id · 头 → 键`
+        var bases = new SortedSet<string>(StringComparer.Ordinal);
+        var notResolved = new SortedSet<string>(StringComparer.Ordinal);   // 有尾数字、但**不该**被认的（反面对照）
+        foreach (var c in pool)
+        {
+            if (c == null) continue;
+            var tt = c.TriggerTexts;
+            foreach (var raw in EffectText.Split(c.Desc))
+            {
+                if (string.IsNullOrEmpty(raw)) continue;
+                string s = EffectText.StripLeadingIcons(raw.Trim());
+                if (string.IsNullOrEmpty(s)) continue;
+                int col = s.IndexOf(':');
+                if (col <= 0) continue;
+                string head = s.Substring(0, col).Trim().ToLowerInvariant();
+                if (head.Length == 0) continue;
+                bool tailDigits = false;
+                int sp = head.LastIndexOf(' ');
+                if (sp > 0)
+                {
+                    string t = head.Substring(sp + 1);
+                    tailDigits = t.Length > 0;
+                    foreach (char ch in t) if (ch < '0' || ch > '9') { tailDigits = false; break; }
+                }
+                if (!tailDigits) continue;
+                if (tt != null && tt.ContainsKey(head)) continue;          // 整词就是键 ⇒ 不走近似
+                string k = ResolveTriggerKey(c, head);
+                if (k != null) { used.Add(c.Id + " · `" + head + "` → `" + k + "`"); bases.Add(k); }
+                else if (!head.StartsWith("companion", StringComparison.Ordinal))
+                    notResolved.Add("`" + head + "`（" + c.Id + "）");
+            }
+        }
+        bool okB = used.Count > 0 && bases.Count == 1 && bases.Contains("ecstasy");
+        Console.WriteLine("    " + (okB ? "✅" : "🔴") + " B 池侧（" + pool.Count + " 张）走这条近似的头 = **"
+                          + used.Count + " 处** · 基词 = {" + string.Join(" · ", bases) + "}"
+                          + "（期望：非空，且**只能**是 `ecstasy`）");
+        foreach (var x in used.Take(12)) Console.WriteLine("         · " + x);
+        if (used.Count > 12) Console.WriteLine("         …（还有 " + (used.Count - 12) + " 处）");
+        if (notResolved.Count > 0)
+            Console.WriteLine("       反面对照（有尾数字但**不认** —— 对的）："
+                              + string.Join(" · ", notResolved.Take(8))
+                              + (notResolved.Count > 8 ? " …共 " + notResolved.Count + " 种" : ""));
+        if (!okB)
+        {
+            fail++;
+            Console.WriteLine("        🔴 期望「非空且基词只有 `ecstasy`」。基词多出来 = 引擎给别的触发词加了参数"
+                              + "（卡面已出现那种写法）⇒ 回来核这一处的宽度，并**手改**期望值。");
+        }
+        Console.WriteLine("    ⇒ 自检 **" + (fail == 0 ? "全过 ✅" : "红 " + fail + " 条 🔴") + "**");
         return fail;
     }
 
@@ -784,6 +921,16 @@ class WillRun
     ///   它把 `Ecstasy 5` 剥成 `ecstasy` 再登记，那个方法**是私有的** ⇒ 这里只做
     ///   「**尾部是纯数字、且前半截正好是字典里的键**」这一种（今天是 `ecstasy` 一族）。
     ///   ⛔ 别放宽成「前缀匹配」—— 那会让 `Rally 2:` 这种**引擎根本不认**的头也拿到通道（假收到）。
+    ///
+    /// 🔴 **`A1598②`（2026-10-12）**：上面那两行只说了一半 —— 引擎剥参数**还有第二道闸**
+    ///   （`CardDef.StripParamSuffix` = `ReTriggerHead` **且** `CardDef.IsParamTrigger(组1)`，
+    ///   白名单今天只有 `ecstasy`）⇒ 光有「尾部是数字 + 前半截是键」这个形状**比引擎宽**：
+    ///   卡面若真写 `Rally 2:`，这里会给它 `TriggerTexts["rally"]` 的通道，而引擎
+    ///   `StripParamSuffix("rally 2")` 原样返回 ⇒ `IsRoutableTrigger("rally 2")` = false ⇒ **根本没登记**
+    ///   ⇒ 探针这就是一次**假收到**。池侧今天没有这种写法（⑧ 逐形状盯住），所以它一直没露出来
+    ///   —— 那正是「**悄悄变宽**」的含义。⇒ 补上 `IsParamTrigger` 那道闸（公开面，⛔ 不复制它的表）。
+    ///   ⚠️ 引擎以后给别的触发词加参数（改 `IsParamTrigger`）⇒ 这里**自动跟上**，不用改；
+    ///      而 **⑧ 的形状表会红**（它拿手写的期望值钉住这一处口径，⛔ 不是拿引擎的规定反证引擎）。
     /// </summary>
     static string ResolveTriggerKey(CardDef c, string head)
     {
@@ -796,7 +943,11 @@ class WillRun
         if (tail.Length == 0) return null;
         foreach (char ch in tail) if (ch < '0' || ch > '9') return null;
         string baseHead = head.Substring(0, sp).Trim();
-        return (baseHead.Length > 0 && tt.ContainsKey(baseHead)) ? baseHead : null;
+        if (baseHead.Length == 0) return null;
+        // 🔴 `A1598②`：**第二道闸** —— 只有引擎自己那份「本来就带数值参数的触发词」才剥
+        //   （`CardDef.IsParamTrigger`，⛔ 别在这里另抄一张表）。
+        if (!CardDef.IsParamTrigger(baseHead)) return null;
+        return tt.ContainsKey(baseHead) ? baseHead : null;
     }
 
     /// <summary>一条卡面段的 `op` 里，有没有哪一条的签名落在这个集合里。</summary>
@@ -921,8 +1072,11 @@ class WillRun
     ///    `PaidCost &gt; 0` + `PaidKind`（见 `Classify` ② 与 `ClaimChannel` 的注释）。
     ///    为什么非改不可：**这条正则漏掉引擎同样认的 `Oath N:`** ⇒ 拿它当判据时
     ///    `UM*` 那 **18 张** `Oath N: …` 全被误判成「触发头没收下来」（落地当时跑出来的）。
-    ///    ⇒ 现在**只剩 `PlayProbe.Bucket` 一个调用点**（它的用途是「这一句是不是部署时该发生」，
-    ///      要的是**形状**判断、不看引擎的付费语义）。
+    ///    ⇒ 现在**它已经不是任何「判据」**了：调用它的只剩两处**对照用**的地方 ——
+    ///      `PlayProbe` 的 ⑥ 自检（`BucketSelfCheck`，并排量出「旧口径给 C、新口径给 B」）
+    ///      与 `FaithProbe` 的「两把尺子」（那边量的是**信仰**那一路）。
+    ///      ⛔ **都不许拿它当付费判据** —— `PlayProbe.Bucket` 已于 `A1599`（2026-10-12）
+    ///      改判据为引擎的 `ParseSegment`（见 `PlayProbe.IsPaidSegment`）。
     /// ⚠️ 这类段是**付费能力**（`PlayProbe` 不该把它当「部署时该发生」）。
     /// ⚠️ **要判「这一段是不是付费段」别用它** —— 去问引擎的 `EffectText.ParseSegment`。</summary>
     public static bool IsPaidHead(string head)

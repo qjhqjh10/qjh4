@@ -18,10 +18,26 @@
 // ---- ⚠️ 哪些是我们的 ----
 //  · **每张牌的「换」按钮**（原版 `MulliganFrame.changeCardButton`）：它是**运行时按卡生成的**，
 //    dump 是静态树、**没有它** → **位置和大小是我们排的**（贴在每张手牌的下缘、宽 = 卡宽，
-//    图用原版三态 `UI_Button_Mulligan` 410×124）。文案「换」也是我们起的（原版是 I2 本地化键）。
+//    图用原版三态 `UI_Button_Mulligan` 410×124）。钮上的字原来是写死的中文「换」，
+//    **2026-10-18 起改成原版词条** `Battle/Mulligan/Replace` ⇄ `Undo`（判据 → `CardBtnWord`）。
+//  · 🔴 **点手牌本身 = 「看牌」，不是标记**（`CardScript__OnTouchUpAsButton.c:52-58`：换牌期
+//    `cardState ∈ {0xD,0xE}` 这一段只做「置 `displayingCardFlag(+0x24a)` → `BattleManager.DisplayCard(bm, this, 1, 1)`」，
+//    第 4 参 = 强制展示；指针移开由 `OnTouchExit.c:15-16` 收）。换牌期卡的碰撞体是**开着且原始尺寸**
+//    （`CardCollider2D__SetColliderNotInHand.c:11-24`）—— 那张牌就是**给点着看的**。
+//    **标记只走每张卡上那颗「换」钮**（`MulliganFrame__ChangeCardButtonOnClick.c:5` →
+//    `CardScript.ClickMulliganSelected`，闸 = `UIstate==0xb` + `isPlayer` + `mulliganOption != 0x1e`，
+//    在 `0xD ⇄ 0xE` 之间翻转 + 高亮 + 音效）。
+//    🔴 **2026-10-12（`A1663`，用户真机点名「不是点击手卡替换」）**：本文件原来**多了一条**
+//    「点卡本身也能标记/取消」（注释自己招过「点卡这条路是我们加的」）⇒ 把原版「点卡 = 放大展示」
+//    整段盖住了。**已删**；点卡现在只回调 `OnCardSeen`、由驱动层转发原版那条展示链
+//    （`BattleDriver.HandleMulligan` → `OnMulliganCardSeen` → `OnCardTapped`）。
+//    ⛔ **别再加回来**（`Editor/BattleScene.cs` 17·3 那两条**成对**的断言就是防它的）。
 //  · **遮罩**：原版这一阶段有 `Shade.SwitchShade`（`_SetupMulliganPhase` 里调的），
 //    但**颜色/透明度没查到** → 用了和战斗日志面板同款的一层压暗，**这是我们挑的**。
-//  · **提示行文案**：「选择要换掉的牌」是我们起的（原版 `mulliganTextLocalize` 的 I2 词条本地没有）。
+//  · **提示行文案**：⚠️ **2026-10-12 就地订正（铁律 5）**：原来这里写「「选择要换掉的牌」是我们起的
+//    （原版 `mulliganTextLocalize` 的 I2 词条本地没有）」—— **已不成立**：2026-10-18（W6）起提示行走
+//    **原版词条** `Battle/Mulligan/Instructions`（TMP 原文 `Choose cards to replace in first hand`，
+//    判据 → `Core/Loc.cs` 那条键）。
 //  · **倒计时**：🔴 **2026-09-17 变更** —— 原版在**离线练习局（matchType 0x32）会整段跳过**倒计时
 //    （`BattleManager.<MulliganCountdown>` 开头对 `0x32` 直接 return；另一个 `MulliganFallbackCountdown`
 //    是**联网掉包**兜底，与离线无关）。我们原来据此**不做**。
@@ -160,6 +176,15 @@ namespace CardPresentation
 
         /// <summary>点「完成换牌」→ 回调「要换掉的手牌下标」（可能为空 = 不换）</summary>
         public Action<List<int>> OnDone;
+
+        /// <summary>🔴 **2026-10-12（`A1663`）**：点了**手牌本身**（不是那颗「换」钮）→ 回调那张卡。
+        ///
+        /// 判据（原版，唯一一处）= `CardScript__OnTouchUpAsButton.c:52-58`：换牌期
+        /// `cardState ∈ {0xD,0xE}` 就只做「置 `displayingCardFlag` → `BattleManager.DisplayCard(card,1,1)`」
+        /// ⇒ **这一下是「看牌」，不是标记**。本面板**不知道**展示窗是谁（分层：面板只负责命中与回调），
+        /// 由驱动层接着做（`BattleDriver.OnMulliganCardSeen` → `OnCardTapped`）。
+        /// ⛔ 原来这里那条「点卡也能标记」是**我们自己加的**，已删 —— 别再加回来。</summary>
+        public Action<CardView> OnCardSeen;
 
         ImageQuad _shade;
         ImageQuad _bar, _play, _eye;      // Continue 的底 / 圆形播放钮 / 眼睛
@@ -389,7 +414,16 @@ namespace CardPresentation
 
                 var q = ImageQuad.Create(transform, CardArt.Ui("UI_Button_Mulligan"), pos, btnH,
                                          new Vector2(0.5f, 0.5f), "MulliganBtn_" + i);
-                if (q == null) continue;                             // 没图就只靠「点卡」那条路，不静默失败
+                // 🔴 **2026-10-12（`A1663`）**：这句原来是「没图就只靠『点卡』那条路，不静默失败」——
+                //    **那个兜底已经不成立**（点卡那条路是**我们加的**、原版没有它，已删）⇒ 改成**出声**。
+                //    ⛔ 不许退回「点卡也能标记」：那会把原版「点卡 = 看牌」整段盖掉（就是本次要修的偏离）。
+                if (q == null)
+                {
+                    Debug.LogWarning($"[Battle] 换牌面板：第 {i} 张牌那颗「换」钮没取到图 `UI_Button_Mulligan`"
+                                   + " ⇒ **这一张标记不了、钮上的字也画不出来**"
+                                   + "（那张图应该在 `Resources/` 里；跑一次素材导入。⛔ 不退回「点卡标记」那条路）");
+                    continue;
+                }
                 q.SetAspect(410f / 124f);                            // 图是 410×124 的横条
                 _cardBtns.Add(q);
 
@@ -436,6 +470,20 @@ namespace CardPresentation
             for (int i = 0; i < _cardBtns.Count; i++)
                 if (_cardBtns[i] != null && _cardBtns[i].Contains(world)) return i;
             return -1;
+        }
+
+        /// <summary>指针下的**那张手牌**（没有 ⇒ null）。
+        /// 🔴 **「点到了哪张卡」的判据只此一处** —— 原版是每张卡自己的 `Collider2D`（换牌期开着），
+        ///   我们这里是 `CardView.Contains` 逐张扫（**删掉的那条标记分支原来就是这段扫描**，本轮只换了
+        ///   命中之后**做什么**：原来 `ToggleMark`，现在回调 `OnCardSeen`）。
+        /// ⚠️ **「重叠处取【下标最小】的那张」是原有的扫描顺序**，本轮**没动它** —— 它与手牌那套
+        ///   `CardInteraction.HitTest`（取 **z 最小** = 最前面那张）**不是同一条规则**：扇形手牌在重叠区
+        ///   可能点到「被压住的那张」。**已记进 `W2_开局链两处.md`，⛔ 未擅自改**（判据是原版、不是我的设计）。</summary>
+        public CardView CardAt(Vector3 world)
+        {
+            for (int i = 0; i < _cards.Count; i++)
+                if (_cards[i] != null && _cards[i].Contains(world)) return _cards[i];
+            return null;
         }
 
         /// <summary>指针在「完成换牌」上吗。
@@ -490,7 +538,11 @@ namespace CardPresentation
                                                                           : Vector3.zero;
         }
 
-        /// <summary>标记/取消一张牌。点了哪张就把它记进「要换掉的」里</summary>
+        /// <summary>标记/取消一张牌。点了哪张就把它记进「要换掉的」里。
+        /// 🔴 **入口只该有两处**：真人点那张牌上的「换」钮（`HandleClick` 的 `ButtonIndexAt` 分支）
+        /// 与自检（`BattleDriver.SimulateMulliganToggle` / 直接调）。
+        /// ⛔ **点手牌本身不进这里** —— 那一下是「看牌」（原版 `CardScript.OnTouchUpAsButton` →
+        /// `DisplayCard`），2026-10-12（`A1663`）已把那条我们加的路删掉。</summary>
         public void ToggleMark(int i)
         {
             if (i < 0 || i >= _cards.Count) return;
@@ -527,6 +579,10 @@ namespace CardPresentation
         /// <summary>
         /// 处理一次点击。返回 true = 这次点击被面板吃掉了（别再传给棋盘/手牌）。
         /// ⚠️ 和设置/日志面板一样：**面板开着时点哪儿都先经过这里**。
+        /// 🔴 **2026-10-12（`A1663`，用户真机点名「不是点击手卡替换」）**：这里原来**还**有一条
+        ///    「点卡本身也能标记/取消」（注释自己招着「点卡这条路是我们加的」）—— **已删**。
+        ///    现在点手牌走原版那条路（`CardScript.OnTouchUpAsButton` → `BattleManager.DisplayCard`）：
+        ///    本方法只把「点到了哪张卡」回调出去（`OnCardSeen`），**做什么由驱动层决定**。
         /// </summary>
         public bool HandleClick(Vector3 world)
         {
@@ -560,9 +616,11 @@ namespace CardPresentation
             int hit = ButtonIndexAt(world);
             if (hit >= 0) { ToggleMark(hit); return true; }
 
-            // 点卡本身也能标记/取消（原版是卡片上的按钮；我们两条路都留着，**点卡这条路是我们加的**）
-            for (int i = 0; i < _cards.Count; i++)
-                if (_cards[i] != null && _cards[i].Contains(world)) { ToggleMark(i); return true; }
+            // 🔴 点手牌本身 = **把这张牌放大展示**（原版 `CardScript__OnTouchUpAsButton.c:52-58`：
+            //    换牌期只做「置 `displayingCardFlag` + `DisplayCard(card,1,1)`」）。
+            // ⛔ **不再标记** —— 标记只走上面那颗「换」钮（原版 `ClickMulliganSelected`）。
+            var seen = CardAt(world);
+            if (seen != null) { if (OnCardSeen != null) OnCardSeen(seen); return true; }
 
             return true;      // 面板开着 → 点其它地方也吃掉（原版 `Shade.SwitchShade` 就是这个意思）
         }
