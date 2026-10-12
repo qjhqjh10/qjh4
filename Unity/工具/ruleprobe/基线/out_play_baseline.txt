@@ -608,7 +608,7 @@ GSC9	unit	0	0	1	1	1	3	0	2	-2	-2	0	5		C 部署时该发生		0	⚙ 能量 P0 20 �
 GSC_Cult_Propaganda	tactic	0	0	1	1	0	3	0	2	-2	-2	0	4		A 打出即结算		0	⚙ 能量 P0 20 → 18（-2）;✋ 手牌 P0 -「GSC_Cult_Propaganda」×1;🗑 弃牌 P0 +「GSC_Cult_Propaganda」×1;💰 手牌总价 P0 4 → 2（-2）
 GSC_Improvised_Barricade	tactic	0	0	1	1	0	3	0	3	-3	-3	0	4		A 打出即结算		0	⚙ 能量 P0 20 → 17（-3）;✋ 手牌 P0 -「GSC_Improvised_Barricade」×1;🗑 弃牌 P0 +「GSC_Improvised_Barricade」×1;💰 手牌总价 P0 5 → 2（-3）
 GSC_Jackal_Scout	unit	0	0	1	1	1	3	1	1	-1	-1	0	6		C 部署时该发生		0	⚙ 能量 P0 20 → 19（-1）;✚ 落场/生成 P0[2] . → GSC_Jackal_Scout 1/1/0/2 {rally1};✋ 手牌 P0 -「GSC_Jackal_Scout」×1;💰 手牌总价 P0 3 → 2（-1）;🎖 出兵数 P0 3 → 4;💰 手牌总价 P1 3 → 4（1）
-GSC_Jammed_Communications	tactic	0	0	1	0	0	3	0	2	-2	-2	0	4		A 打出即结算		0	⚙ 能量 P0 20 → 18（-2）;✋ 手牌 P0 -「GSC_Jammed_Communications」×1;🗑 弃牌 P0 +「GSC_Jammed_Communications」×1;💰 手牌总价 P0 4 → 2（-2）
+GSC_Jammed_Communications	tactic	0	0	1	1	0	3	0	2	-2	-2	0	4		A 打出即结算		0	⚙ 能量 P0 20 → 18（-2）;✋ 手牌 P0 -「GSC_Jammed_Communications」×1;🗑 弃牌 P0 +「GSC_Jammed_Communications」×1;💰 手牌总价 P0 4 → 2（-2）
 GSC_Lhaska_Szenari	hero	1	-1	1	0	0	0	2	-1	0	0	0	2		H 督军档		0	★ 督军格（本卡在场）WARLORD 2/2/0/33 {talent1}  ‖ 对照局（空督军）WARLORD 2/0/0/28;💰 手牌总价 P0 5 → 7（2）
 GSC_Master_Outrider	tactic	0	0	1	1	0	3	1	2	-2	-2	0	5		A 打出即结算	ephemeral	1	⚙ 能量 P0 20 → 18（-2）;✎ 改动 P0[4] WARLORD 2/0/0/28 → WARLORD 2/0/0/28 {slay1, sniper1};✋ 手牌 P0 -「GSC_Master_Outrider」×1;🗑 弃牌 P0 +「GSC_Master_Outrider」×1;💰 手牌总价 P0 4 → 2（-2）
 SAU1	hero	1	-1	1	0	0	0	2	-1	0	0	0	2		H 督军档		0	★ 督军格（本卡在场）WARLORD 2/2/0/38  ‖ 对照局（空督军）WARLORD 2/0/0/28;💰 手牌总价 P0 5 → 7（2）
@@ -736,10 +736,10 @@ SOR49	tactic	0	0	1	1	0	3	3	3	-1	-1	0	6		A 打出即结算		0	⚙ 能量 P0 20 �
 SOR5	hero	1	-1	1	1	0	0	2	-1	0	0	0	2		H 督军档		0	★ 督军格（本卡在场）WARLORD 2/2/0/38  ‖ 对照局（空督军）WARLORD 2/0/0/28;💰 手牌总价 P0 5 → 7（2）
 SOR50	tactic	0	0	1	1	0	3	3	7	-3	-3	3	6		A 打出即结算		0	⚙ 能量 P0 20 → 17（-3）   ⇒ **照卡面应付 7 · 除付费外净 +4**;✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/3;✋ 手牌 P0 -「SOR50」×1;🗑 弃牌 P0 +「SOR50」×1;💰 手牌总价 P0 5 → 2（-3）;☠ 伤害累计 P0 0 → 3
 SOR51	tactic	0	0	1	1	0	3	4	3	-3	-3	0	8		A 打出即结算		0	⚙ 能量 P0 20 → 17（-3）;✎ 改动 P0[3] FIX_A 2/0/0/2 → FIX_A 2/0/2/4 {armour2};✎ 改动 P0[4] WARLORD 2/0/0/28 → WARLORD 2/0/2/30 {armour2};✎ 改动 P0[5] FIX_B 3/0/0/3 → FIX_B 3/0/2/5 {armour2};✎ 改动 P0[6] FIX_C 1/0/0/2 → FIX_C 1/0/2/4 {armour2};✋ 手牌 P0 -「SOR51」×1;🗑 弃牌 P0 +「SOR51」×1;💰 手牌总价 P0 5 → 2（-3）
-SOR52	tactic	0	0	1	1	0	3	1	9	-9	-3	0	5		A 打出即结算		0	⚙ 能量 P0 20 → 11（-9）;✎ 改动 P0[3] FIX_A 2/0/0/2 → FIX_A 2/0/0/2 {invulnerable1};✋ 手牌 P0 -「SOR52」×1;🗑 弃牌 P0 +「SOR52」×1;💰 手牌总价 P0 5 → 2（-3）
+SOR52	tactic	0	0	1	1	0	3	2	9	-3	-3	0	5		A 打出即结算		0	⚙ 能量 P0 20 → 17（-3）   ⇒ **照卡面应付 9 · 除付费外净 +6**;✎ 改动 P0[3] FIX_A 2/0/0/2 → FIX_A 2/0/0/2 {invulnerable1};✋ 手牌 P0 -「SOR52」×1;🗑 弃牌 P0 +「SOR52」×1;💰 手牌总价 P0 5 → 2（-3）
 SOR53	tactic	0	0	1	1	0	3	0	3	-3	-3	0	4		A 打出即结算		0	⚙ 能量 P0 20 → 17（-3）;✋ 手牌 P0 -「SOR53」×1;🗑 弃牌 P0 +「SOR53」×1;💰 手牌总价 P0 5 → 2（-3）
 SOR54	tactic	0	0	1	1	0	3	3	4	-4	-4	6	7		A 打出即结算		0	⚙ 能量 P0 20 → 16（-4）;✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/3;✎ 改动 P1[4] WARLORD 2/0/0/30 → WARLORD 2/0/0/27;✋ 手牌 P0 -「SOR54」×1;🗑 弃牌 P0 +「SOR54」×1;💰 手牌总价 P0 6 → 2（-4）;☠ 伤害累计 P0 0 → 6
-SOR55	tactic	0	0	1	1	0	3	4	8	-8	-4	0	8		A 打出即结算		0	⚙ 能量 P0 20 → 12（-8）;✎ 改动 P0[3] FIX_A 2/0/0/2 → FIX_A 5/0/0/2;✎ 改动 P0[4] WARLORD 2/0/0/28 → WARLORD 5/0/0/28;✎ 改动 P0[5] FIX_B 3/0/0/3 → FIX_B 6/0/0/3;✎ 改动 P0[6] FIX_C 1/0/0/2 → FIX_C 4/0/0/2;✋ 手牌 P0 -「SOR55」×1;🗑 弃牌 P0 +「SOR55」×1;💰 手牌总价 P0 6 → 2（-4）
+SOR55	tactic	0	0	1	1	0	3	5	8	-4	-4	0	8		A 打出即结算		0	⚙ 能量 P0 20 → 16（-4）   ⇒ **照卡面应付 8 · 除付费外净 +4**;✎ 改动 P0[3] FIX_A 2/0/0/2 → FIX_A 4/0/0/2;✎ 改动 P0[4] WARLORD 2/0/0/28 → WARLORD 4/0/0/28;✎ 改动 P0[5] FIX_B 3/0/0/3 → FIX_B 5/0/0/3;✎ 改动 P0[6] FIX_C 1/0/0/2 → FIX_C 3/0/0/2;✋ 手牌 P0 -「SOR55」×1;🗑 弃牌 P0 +「SOR55」×1;💰 手牌总价 P0 6 → 2（-4）
 SOR56	tactic	0	0	1	1	0	3	1	5	-5	-5	0	5		A 打出即结算		0	⚙ 能量 P0 20 → 15（-5）;✎ 改动 P0[4] WARLORD 2/0/0/28 → WARLORD 2/0/0/28 {penitence1};✋ 手牌 P0 -「SOR56」×1;🗑 弃牌 P0 +「SOR56」×1;💰 手牌总价 P0 7 → 2（-5）
 SOR57	tactic	0	0	1	1	0	3	10	4	-4	-4	4	14		A 打出即结算		0	⚙ 能量 P0 20 → 16（-4）;✎ 改动 P0[3] FIX_A 2/0/0/2 → FIX_A 2/0/0/1;✎ 改动 P0[4] WARLORD 2/0/0/28 → WARLORD 2/0/0/27;✎ 改动 P0[5] FIX_B 3/0/0/3 → FIX_B 3/0/0/2;✎ 改动 P0[6] FIX_C 1/0/0/2 → FIX_C 1/0/0/1;✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/5;✎ 改动 P1[4] WARLORD 2/0/0/30 → WARLORD 2/0/0/29;✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/5;✎ 改动 P1[6] FIX_E3 1/0/0/6 → FIX_E3 1/0/0/5;✋ 手牌 P0 -「SOR57」×1;🗑 弃牌 P0 +「SOR57」×1;💰 手牌总价 P0 6 → 2（-4）;☠ 伤害累计 P0 0 → 4;☠ 伤害累计 P1 8 → 12
 SOR58	tactic	0	0	1	1	0	3	3	13	-5	-5	0	6		A 打出即结算		0	⚙ 能量 P0 20 → 15（-5）   ⇒ **照卡面应付 13 · 除付费外净 +8**;☠ 离场 P1[3] FIX_E1 2/0/0/6 → .;✋ 手牌 P0 -「SOR58」×1;🗑 弃牌 P0 +「SOR58」×1;💰 手牌总价 P0 7 → 2（-5）;🗑 弃牌 P1 +「FIX_E1」×1
@@ -750,7 +750,7 @@ SOR62	tactic	0	0	1	1	0	2	8	6	-6	-3	0	11		A 打出即结算		0	⚙ 能量 P0 20 �
 SOR63	defence	0	0	1	1	0	2	1	0	0	-1	0	3		A 打出即结算	defence	1	✋ 手牌 P0 -「SOR63」×1;🗑 弃牌 P0 +「SOR63」×1;💰 手牌总价 P0 3 → 2（-1）   ⇒ **除出牌本身外净 -1**
 SOR64	defence	0	0	1	1	0	2	3	0	0	0	0	5		A 打出即结算	defence	1	✎ 改动 P0[3] FIX_A 2/0/0/2 → FIX_A 3/0/0/2;✎ 改动 P0[4] WARLORD 2/0/0/28 → WARLORD 4/0/0/28;✋ 手牌 P0 -「SOR64」×1;🗑 弃牌 P0 +「SOR64」×1;🔮 信仰 P0 0 → 1
 SOR65	defence	0	0	1	1	0	3	2	1	-1	-1	0	6		A 打出即结算	defence	1	⚙ 能量 P0 20 → 19（-1）;✎ 改动 P0[3] FIX_A 2/0/0/2 → FIX_A 2/0/0/2 {shield1};✋ 手牌 P0 -「SOR65」×1;🗑 弃牌 P0 +「SOR65」×1;💰 手牌总价 P0 4 → 3（-1）;🔮 信仰 P0 0 → 1
-SOR66	tactic	0	0	1	1	0	3	1	10	-10	-2	0	5		A 打出即结算		0	⚙ 能量 P0 20 → 10（-10）;✎ 改动 P0[4] WARLORD 2/0/0/28 → WARLORD 3/0/0/28 {blast1, shield1};✋ 手牌 P0 -「SOR66」×1;🗑 弃牌 P0 +「SOR66」×1;💰 手牌总价 P0 4 → 2（-2）
+SOR66	tactic	0	0	1	1	0	3	2	10	-2	-2	0	5		A 打出即结算		0	⚙ 能量 P0 20 → 18（-2）   ⇒ **照卡面应付 10 · 除付费外净 +8**;✎ 改动 P0[4] WARLORD 2/0/0/28 → WARLORD 3/0/0/28 {blast1, shield1};✋ 手牌 P0 -「SOR66」×1;🗑 弃牌 P0 +「SOR66」×1;💰 手牌总价 P0 4 → 2（-2）
 SOR67	unit	0	0	1	1	0	3	1	1	-1	-1	0	5		C 部署时该发生		0	⚙ 能量 P0 20 → 19（-1）;✚ 落场/生成 P0[2] . → SOR67 1/2/0/2 {flying1, rally1}   ⇒ **落地时它自己身上与印的数不同**（印的：`SOR67 1/0/0/2 {flying1, rally1}`）;✋ 手牌 P0 -「SOR67」×1;💰 手牌总价 P0 3 → 2（-1）;🎖 出兵数 P0 3 → 4
 SOR68	unit	0	0	1	1	1	3	0	2	-2	-2	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 18（-2）;✚ 落场/生成 P0[2] . → SOR68 1/2/0/3 {pray1};✋ 手牌 P0 -「SOR68」×1;💰 手牌总价 P0 4 → 2（-2）;🎖 出兵数 P0 3 → 4
 SOR69	unit	0	0	1	1	1	3	0	3	-3	-3	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 17（-3）;✚ 落场/生成 P0[2] . → SOR69 3/3/0/4 {pray1};✋ 手牌 P0 -「SOR69」×1;💰 手牌总价 P0 5 → 2（-3）;🎖 出兵数 P0 3 → 4
@@ -847,7 +847,7 @@ TAU17	tactic	0	0	1	1	0	3	1	3	-3	-3	0	5		A 打出即结算	ephemeral	1	⚙ 能量
 TAU18	unit	0	0	1	1	1	3	0	3	-3	-3	0	5		C 部署时该发生		0	⚙ 能量 P0 20 → 17（-3）;✚ 落场/生成 P0[2] . → TAU18 0/2/0/5;✋ 手牌 P0 -「TAU18」×1;💰 手牌总价 P0 5 → 2（-3）;🎖 出兵数 P0 3 → 4
 TAU19	unit	0	0	1	0	1	3	0	3	-3	-3	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 17（-3）;✚ 落场/生成 P0[2] . → TAU19 3/3/0/4 {vanguard1};✋ 手牌 P0 -「TAU19」×1;💰 手牌总价 P0 5 → 2（-3）;🎖 出兵数 P0 3 → 4
 TAU2	tactic	0	0	1	1	0	2	3	1	-1	1	0	6		A 打出即结算	ephemeral	1	⚙ 能量 P0 20 → 19（-1）;✎ 改动 P0[4] WARLORD 2/0/0/28 → WARLORD 2/0/0/29;✋ 手牌 P0 -「TAU2」×1;✋ 手牌 P0 +「TAU3」×1;🗑 弃牌 P0 +「TAU2」×1;💰 手牌总价 P0 3 → 4（1）   ⇒ **除出牌本身外净 +2**
-TAU20	unit	0	0	1	1	1	3	0	3	-3	-3	0	5		C 部署时该发生		0	⚙ 能量 P0 20 → 17（-3）;✚ 落场/生成 P0[2] . → TAU20 1/3/0/3 {flying1, longrange1};✋ 手牌 P0 -「TAU20」×1;💰 手牌总价 P0 5 → 2（-3）;🎖 出兵数 P0 3 → 4
+TAU20	unit	0	0	1	1	1	3	0	3	-3	-3	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 17（-3）;✚ 落场/生成 P0[2] . → TAU20 1/3/0/3 {flying1, longrange1};✋ 手牌 P0 -「TAU20」×1;💰 手牌总价 P0 5 → 2（-3）;🎖 出兵数 P0 3 → 4
 TAU21	unit	0	0	1	0	1	3	0	3	-3	-3	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 17（-3）;✚ 落场/生成 P0[2] . → TAU21 2/3/1/3 {armour1, flank1, flying1};✋ 手牌 P0 -「TAU21」×1;💰 手牌总价 P0 5 → 2（-3）;🎖 出兵数 P0 3 → 4
 TAU22	unit	0	0	1	0	1	3	0	4	-4	-4	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 16（-4）;✚ 落场/生成 P0[2] . → TAU22 3/4/0/4 {shield1, vanguard1};✋ 手牌 P0 -「TAU22」×1;💰 手牌总价 P0 6 → 2（-4）;🎖 出兵数 P0 3 → 4
 TAU23	unit	0	0	1	1	1	3	0	4	-4	-4	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 16（-4）;✚ 落场/生成 P0[2] . → TAU23 2/5/0/5 {longrange1, strike1};✋ 手牌 P0 -「TAU23」×1;💰 手牌总价 P0 6 → 2（-4）;🎖 出兵数 P0 3 → 4
@@ -1040,26 +1040,26 @@ UM7	tactic	0	0	1	1	0	3	1	2	-2	-2	0	5		A 打出即结算	ephemeral	1	⚙ 能量 P
 UM70	hero	1	-1	1	1	0	0	2	-1	0	0	0	2		H 督军档		0	★ 督军格（本卡在场）WARLORD 2/2/0/23 {flying1, talent1}  ‖ 对照局（空督军）WARLORD 2/0/0/28;💰 手牌总价 P0 4 → 6（2）
 UM71	unit	0	0	1	1	1	3	2	1	-1	-1	1	7		C 部署时该发生		0	⚙ 能量 P0 20 → 19（-1）;✚ 落场/生成 P0[2] . → UM71 1/2/0/2 {oath1, rally1};✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/5;✋ 手牌 P0 -「UM71」×1;💰 手牌总价 P0 3 → 2（-1）;☠ 伤害累计 P0 0 → 1;🎖 出兵数 P0 3 → 4
 UM72	unit	0	0	1	1	1	3	0	6	-6	-6	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 14（-6）;✚ 落场/生成 P0[2] . → UM72 2/5/0/5 {codex1, flying1};✋ 手牌 P0 -「UM72」×1;💰 手牌总价 P0 8 → 2（-6）;🎖 出兵数 P0 3 → 4
-UM73	unit	0	0	1	1	1	3	0	2	-2	-2	0	5		C 部署时该发生		0	⚙ 能量 P0 20 → 18（-2）;✚ 落场/生成 P0[2] . → UM73 2/2/0/3;✋ 手牌 P0 -「UM73」×1;💰 手牌总价 P0 4 → 2（-2）;🎖 出兵数 P0 3 → 4
-UM74	unit	0	0	1	1	1	3	0	3	-3	-3	0	5		C 部署时该发生		0	⚙ 能量 P0 20 → 17（-3）;✚ 落场/生成 P0[2] . → UM74 1/4/0/3 {longrange1, oath3, sentry2};✋ 手牌 P0 -「UM74」×1;💰 手牌总价 P0 5 → 2（-3）;🎖 出兵数 P0 3 → 4
+UM73	unit	0	0	1	1	1	3	0	2	-2	-2	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 18（-2）;✚ 落场/生成 P0[2] . → UM73 2/2/0/3;✋ 手牌 P0 -「UM73」×1;💰 手牌总价 P0 4 → 2（-2）;🎖 出兵数 P0 3 → 4
+UM74	unit	0	0	1	1	1	3	0	3	-3	-3	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 17（-3）;✚ 落场/生成 P0[2] . → UM74 1/4/0/3 {longrange1, oath3, sentry2};✋ 手牌 P0 -「UM74」×1;💰 手牌总价 P0 5 → 2（-3）;🎖 出兵数 P0 3 → 4
 UM75	tactic	0	0	1	1	0	2	1	3	-3	-4	0	4		A 打出即结算		0	⚙ 能量 P0 20 → 17（-3）;✋ 手牌 P0 -「UM75」×1;🗑 弃牌 P0 +「UM75」×1;💰 手牌总价 P0 5 → 1（-4）   ⇒ **除出牌本身外净 -1**
 UM76	tactic	0	0	1	1	0	2	4	5	-5	10	0	7		A 打出即结算		0	⚙ 能量 P0 20 → 15（-5）;✋ 手牌 P0 +「UM72」×1;✋ 手牌 P0 -「UM76」×1;✋ 手牌 P0 +「UM_Repulsor_Executioner」×1;✋ 手牌 P0 +「UM_Scout_bike」×1;🗑 弃牌 P0 +「UM76」×1;💰 手牌总价 P0 7 → 17（10）   ⇒ **除出牌本身外净 +15**
-UM77	unit	0	0	1	1	1	3	0	4	-4	-4	0	5		C 部署时该发生		0	⚙ 能量 P0 20 → 16（-4）;✚ 落场/生成 P0[2] . → UM77 3/5/0/5;✋ 手牌 P0 -「UM77」×1;💰 手牌总价 P0 6 → 2（-4）;🎖 出兵数 P0 3 → 4
-UM78	unit	0	0	1	1	1	3	0	4	-4	-4	0	5		C 部署时该发生		0	⚙ 能量 P0 20 → 16（-4）;✚ 落场/生成 P0[2] . → UM78 3/2/1/5 {armour1, codex1};✋ 手牌 P0 -「UM78」×1;💰 手牌总价 P0 6 → 2（-4）;🎖 出兵数 P0 3 → 4
+UM77	unit	0	0	1	1	1	3	0	4	-4	-4	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 16（-4）;✚ 落场/生成 P0[2] . → UM77 3/5/0/5;✋ 手牌 P0 -「UM77」×1;💰 手牌总价 P0 6 → 2（-4）;🎖 出兵数 P0 3 → 4
+UM78	unit	0	0	1	1	1	3	0	4	-4	-4	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 16（-4）;✚ 落场/生成 P0[2] . → UM78 3/2/1/5 {armour1, codex1};✋ 手牌 P0 -「UM78」×1;💰 手牌总价 P0 6 → 2（-4）;🎖 出兵数 P0 3 → 4
 UM79	unit	0	0	1	1	1	3	0	6	-6	-6	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 14（-6）;✚ 落场/生成 P0[2] . → UM79 2/5/0/5 {sniper1, stealth1};✋ 手牌 P0 -「UM79」×1;💰 手牌总价 P0 8 → 2（-6）;🎖 出兵数 P0 3 → 4
-UM80	unit	0	0	1	1	1	3	0	5	-5	-5	0	5		C 部署时该发生		0	⚙ 能量 P0 20 → 15（-5）;✚ 落场/生成 P0[2] . → UM80 4/6/0/6 {blast2, oath1};✋ 手牌 P0 -「UM80」×1;💰 手牌总价 P0 7 → 2（-5）;🎖 出兵数 P0 3 → 4
+UM80	unit	0	0	1	1	1	3	0	5	-5	-5	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 15（-5）;✚ 落场/生成 P0[2] . → UM80 4/6/0/6 {blast2, oath1};✋ 手牌 P0 -「UM80」×1;💰 手牌总价 P0 7 → 2（-5）;🎖 出兵数 P0 3 → 4
 UM81	unit	0	0	1	1	1	3	0	5	-5	-5	0	5		C 部署时该发生		0	⚙ 能量 P0 20 → 15（-5）;✚ 落场/生成 P0[2] . → UM81 6/4/0/6 {camouflage1, oath1};✋ 手牌 P0 -「UM81」×1;💰 手牌总价 P0 7 → 2（-5）;🎖 出兵数 P0 3 → 4
-UM82	unit	0	0	1	1	1	3	0	5	-5	-5	0	5		C 部署时该发生		0	⚙ 能量 P0 20 → 15（-5）;✚ 落场/生成 P0[2] . → UM82 6/6/0/6 {oath1};✋ 手牌 P0 -「UM82」×1;💰 手牌总价 P0 7 → 2（-5）;🎖 出兵数 P0 3 → 4
-UM83	unit	0	0	1	1	1	3	0	6	-6	-6	0	5		C 部署时该发生		0	⚙ 能量 P0 20 → 14（-6）;✚ 落场/生成 P0[2] . → UM83 5/6/1/6 {armour1, blast3, oath1};✋ 手牌 P0 -「UM83」×1;💰 手牌总价 P0 8 → 2（-6）;🎖 出兵数 P0 3 → 4
+UM82	unit	0	0	1	1	1	3	0	5	-5	-5	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 15（-5）;✚ 落场/生成 P0[2] . → UM82 6/6/0/6 {oath1};✋ 手牌 P0 -「UM82」×1;💰 手牌总价 P0 7 → 2（-5）;🎖 出兵数 P0 3 → 4
+UM83	unit	0	0	1	1	1	3	0	6	-6	-6	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 14（-6）;✚ 落场/生成 P0[2] . → UM83 5/6/1/6 {armour1, blast3, oath1};✋ 手牌 P0 -「UM83」×1;💰 手牌总价 P0 8 → 2（-6）;🎖 出兵数 P0 3 → 4
 UM84	unit	0	0	1	0	1	3	0	6	-6	-6	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 14（-6）;✚ 落场/生成 P0[2] . → UM84 4/4/0/7;✋ 手牌 P0 -「UM84」×1;💰 手牌总价 P0 8 → 2（-6）;🎖 出兵数 P0 3 → 4
 UM85	tactic	0	0	1	1	0	2	1	3	-3	0	0	4		A 打出即结算	ephemeral	1	⚙ 能量 P0 20 → 17（-3）;✎ 改动 P0[4] WARLORD 2/0/0/28 → WARLORD 6/0/0/28;✋ 手牌 P0 -「UM85」×1;🗑 弃牌 P0 +「UM85」×1
-UM86	unit	0	0	1	1	1	3	0	6	-6	-6	0	5		C 部署时该发生		0	⚙ 能量 P0 20 → 14（-6）;✚ 落场/生成 P0[2] . → UM86 4/7/0/7;✋ 手牌 P0 -「UM86」×1;💰 手牌总价 P0 8 → 2（-6）;🎖 出兵数 P0 3 → 4
-UM87	unit	0	0	1	1	1	3	4	7	-7	-7	0	9		C 部署时该发生		0	⚙ 能量 P0 20 → 13（-7）;✚ 落场/生成 P0[2] . → UM87 7/5/0/7 {oath1};✎ 改动 P0[3] FIX_A 2/0/0/2 → FIX_A 4/0/0/2;✎ 改动 P0[4] WARLORD 2/0/0/28 → WARLORD 4/0/0/28;✎ 改动 P0[5] FIX_B 3/0/0/3 → FIX_B 5/0/0/3;✎ 改动 P0[6] FIX_C 1/0/0/2 → FIX_C 3/0/0/2;✋ 手牌 P0 -「UM87」×1;💰 手牌总价 P0 9 → 2（-7）;🎖 出兵数 P0 3 → 4
-UM88	unit	0	0	1	1	1	3	0	7	-7	-7	0	5		C 部署时该发生		0	⚙ 能量 P0 20 → 13（-7）;✚ 落场/生成 P0[2] . → UM88 6/6/2/7 {armour2, oath1};✋ 手牌 P0 -「UM88」×1;💰 手牌总价 P0 9 → 2（-7）;🎖 出兵数 P0 3 → 4
-UM89	unit	0	0	1	1	1	3	0	8	-8	-8	0	5		C 部署时该发生		0	⚙ 能量 P0 20 → 12（-8）;✚ 落场/生成 P0[2] . → UM89 9/9/0/9 {oath1};✋ 手牌 P0 -「UM89」×1;💰 手牌总价 P0 10 → 2（-8）;🎖 出兵数 P0 3 → 4
+UM86	unit	0	0	1	1	1	3	0	6	-6	-6	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 14（-6）;✚ 落场/生成 P0[2] . → UM86 4/7/0/7;✋ 手牌 P0 -「UM86」×1;💰 手牌总价 P0 8 → 2（-6）;🎖 出兵数 P0 3 → 4
+UM87	unit	0	0	1	1	1	3	4	7	-7	-7	0	9		B 等事件/等主动用		0	⚙ 能量 P0 20 → 13（-7）;✚ 落场/生成 P0[2] . → UM87 7/5/0/7 {oath1};✎ 改动 P0[3] FIX_A 2/0/0/2 → FIX_A 4/0/0/2;✎ 改动 P0[4] WARLORD 2/0/0/28 → WARLORD 4/0/0/28;✎ 改动 P0[5] FIX_B 3/0/0/3 → FIX_B 5/0/0/3;✎ 改动 P0[6] FIX_C 1/0/0/2 → FIX_C 3/0/0/2;✋ 手牌 P0 -「UM87」×1;💰 手牌总价 P0 9 → 2（-7）;🎖 出兵数 P0 3 → 4
+UM88	unit	0	0	1	1	1	3	0	7	-7	-7	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 13（-7）;✚ 落场/生成 P0[2] . → UM88 6/6/2/7 {armour2, oath1};✋ 手牌 P0 -「UM88」×1;💰 手牌总价 P0 9 → 2（-7）;🎖 出兵数 P0 3 → 4
+UM89	unit	0	0	1	1	1	3	0	8	-8	-8	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 12（-8）;✚ 落场/生成 P0[2] . → UM89 9/9/0/9 {oath1};✋ 手牌 P0 -「UM89」×1;💰 手牌总价 P0 10 → 2（-8）;🎖 出兵数 P0 3 → 4
 UM9	tactic	0	0	1	1	0	3	2	1	-1	-1	3	6		A 打出即结算	ephemeral	1	⚙ 能量 P0 20 → 19（-1）;✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/3;✋ 手牌 P0 -「UM9」×1;🗑 弃牌 P0 +「UM9」×1;💰 手牌总价 P0 3 → 2（-1）;☠ 伤害累计 P0 0 → 3
 UM90	unit	0	0	1	1	1	3	4	8	-8	-8	0	9		B 等事件/等主动用		0	⚙ 能量 P0 20 → 12（-8）;✚ 落场/生成 P0[2] . → UM90 3/6/0/8 {sentry4};✎ 改动 P0[3] FIX_A 2/0/0/2 → FIX_A 2/0/0/2 {sentry2};✎ 改动 P0[4] WARLORD 2/0/0/28 → WARLORD 2/0/0/28 {sentry2};✎ 改动 P0[5] FIX_B 3/0/0/3 → FIX_B 3/0/0/3 {sentry2};✎ 改动 P0[6] FIX_C 1/0/0/2 → FIX_C 1/0/0/2 {sentry2};✋ 手牌 P0 -「UM90」×1;💰 手牌总价 P0 10 → 2（-8）;🎖 出兵数 P0 3 → 4
-UM91	unit	0	0	1	1	1	3	0	9	-9	-9	0	5		C 部署时该发生		0	⚙ 能量 P0 20 → 11（-9）;✚ 落场/生成 P0[2] . → UM91 10/6/0/10 {oath1};✋ 手牌 P0 -「UM91」×1;💰 手牌总价 P0 11 → 2（-9）;🎖 出兵数 P0 3 → 4
+UM91	unit	0	0	1	1	1	3	0	9	-9	-9	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 11（-9）;✚ 落场/生成 P0[2] . → UM91 10/6/0/10 {oath1};✋ 手牌 P0 -「UM91」×1;💰 手牌总价 P0 11 → 2（-9）;🎖 出兵数 P0 3 → 4
 UM92	tactic	0	0	1	1	0	3	3	2	-2	-1	0	7		A 打出即结算		0	⚙ 能量 P0 20 → 18（-2）;✎ 改动 P0[3] FIX_A 2/0/0/2 → FIX_A 3/0/0/3;✎ 改动 P0[5] FIX_B 3/0/0/3 → FIX_B 4/0/0/4;✎ 改动 P0[6] FIX_C 1/0/0/2 → FIX_C 2/0/0/3;✋ 手牌 P0 -「UM92」×1;🗑 弃牌 P0 +「UM92」×1;💰 手牌总价 P0 3 → 2（-1）
 UM93	tactic	0	0	1	1	0	3	2	3	-3	-1	0	6		A 打出即结算		0	⚙ 能量 P0 20 → 17（-3）;☠ 离场 P0[3] FIX_A 2/0/0/2 → .;✋ 手牌 P0 +「FIX_A」×1;✋ 手牌 P0 -「UM93」×1;🗑 弃牌 P0 +「UM93」×1;💰 手牌总价 P0 3 → 2（-1）
 UM94	tactic	0	0	1	1	0	3	4	6	-6	-2	0	8		A 打出即结算		0	⚙ 能量 P0 20 → 14（-6）;✎ 改动 P0[3] FIX_A 2/0/0/2 → FIX_A 2/0/0/7;✎ 改动 P0[4] WARLORD 2/0/0/28 → WARLORD 2/0/0/33;✎ 改动 P0[5] FIX_B 3/0/0/3 → FIX_B 3/0/0/8;✎ 改动 P0[6] FIX_C 1/0/0/2 → FIX_C 1/0/0/7;✋ 手牌 P0 -「UM94」×1;🗑 弃牌 P0 +「UM94」×1;💰 手牌总价 P0 4 → 2（-2）
@@ -1102,7 +1102,7 @@ UM_Oath_of_Moment	tactic	0	0	1	1	0	3	1	1	-1	-1	0	5		A 打出即结算		0	⚙ 能
 UM_Outrider	unit	0	0	1	1	1	3	0	3	-3	-3	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 17（-3）;✚ 落场/生成 P0[2] . → UM_Outrider 3/2/0/3 {codex1, flank1};✋ 手牌 P0 -「UM_Outrider」×1;💰 手牌总价 P0 5 → 2（-3）;🎖 出兵数 P0 3 → 4
 UM_Paragon_of_Ultramar	tactic	0	0	1	1	0	2	3	0	0	0	0	5		A 打出即结算		0	✎ 改动 P0[3] FIX_A 2/0/0/2 → FIX_A 3/1/0/2;✎ 改动 P0[5] FIX_B 3/0/0/3 → FIX_B 4/1/0/3;✎ 改动 P0[6] FIX_C 1/0/0/2 → FIX_C 2/1/0/2;✋ 手牌 P0 -「UM_Paragon_of_Ultramar」×1;🗑 弃牌 P0 +「UM_Paragon_of_Ultramar」×1
 UM_Pariah_Vanguard	tactic	0	0	1	1	0	3	1	1	-1	-1	0	5		A 打出即结算		0	⚙ 能量 P0 20 → 19（-1）;✎ 改动 P0[3] FIX_A 2/0/0/2 → FIX_A 4/0/0/2 {vanguard1};✋ 手牌 P0 -「UM_Pariah_Vanguard」×1;🗑 弃牌 P0 +「UM_Pariah_Vanguard」×1;💰 手牌总价 P0 3 → 2（-1）
-UM_Phobos_Lieutenant	unit	0	0	1	1	1	3	0	2	-2	-2	0	5		C 部署时该发生		0	⚙ 能量 P0 20 → 18（-2）;✚ 落场/生成 P0[2] . → UM_Phobos_Lieutenant 1/3/0/3 {longrange1, oath1};✋ 手牌 P0 -「UM_Phobos_Lieutenant」×1;💰 手牌总价 P0 4 → 2（-2）;🎖 出兵数 P0 3 → 4
+UM_Phobos_Lieutenant	unit	0	0	1	1	1	3	0	2	-2	-2	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 18（-2）;✚ 落场/生成 P0[2] . → UM_Phobos_Lieutenant 1/3/0/3 {longrange1, oath1};✋ 手牌 P0 -「UM_Phobos_Lieutenant」×1;💰 手牌总价 P0 4 → 2（-2）;🎖 出兵数 P0 3 → 4
 UM_Predator_Annihilator	unit	0	0	1	1	1	3	0	7	-7	-7	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 13（-7）;✚ 落场/生成 P0[2] . → UM_Predator_Annihilator 5/7/0/8 {codex1};✋ 手牌 P0 -「UM_Predator_Annihilator」×1;💰 手牌总价 P0 9 → 2（-7）;🎖 出兵数 P0 3 → 4
 UM_Primarch_of_the_XIII	tactic	0	0	1	1	0	3	1	1	-1	-1	0	5		A 打出即结算	ephemeral	1	⚙ 能量 P0 20 → 19（-1）;✎ 改动 P0[3] FIX_A 2/0/0/2 → FIX_A 3/1/0/2;✋ 手牌 P0 -「UM_Primarch_of_the_XIII」×1;🗑 弃牌 P0 +「UM_Primarch_of_the_XIII」×1;💰 手牌总价 P0 3 → 2（-1）
 UM_Primaris_Chaplain	unit	0	0	1	1	1	3	0	4	-4	-4	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 16（-4）;✚ 落场/生成 P0[2] . → UM_Primaris_Chaplain 4/4/0/4 {codex1};✋ 手牌 P0 -「UM_Primaris_Chaplain」×1;💰 手牌总价 P0 6 → 2（-4）;🎖 出兵数 P0 3 → 4
@@ -1116,15 +1116,15 @@ UM_Redemptor_Dreadnought	unit	0	0	1	1	1	3	0	8	-8	-8	0	5		B 等事件/等主动�
 UM_Repulsor_Executioner	unit	0	0	1	1	1	3	3	10	-10	-10	8	8		C 部署时该发生		0	⚙ 能量 P0 20 → 10（-10）;✚ 落场/生成 P0[2] . → UM_Repulsor_Executioner 6/10/0/12 {blast4, rally1};☠ 离场 P1[3] FIX_E1 2/0/0/6 → .;✋ 手牌 P0 -「UM_Repulsor_Executioner」×1;💰 手牌总价 P0 12 → 2（-10）;☠ 伤害累计 P0 0 → 8;🎖 出兵数 P0 3 → 4;🗑 弃牌 P1 +「FIX_E1」×1
 UM_Righteous_Fury	tactic	0	0	1	1	0	2	1	0	0	0	0	3		A 打出即结算		0	✎ 改动 P0[4] WARLORD 2/0/0/28 → WARLORD 3/0/0/29;✋ 手牌 P0 -「UM_Righteous_Fury」×1;🗑 弃牌 P0 +「UM_Righteous_Fury」×1
 UM_Roboute_Guilliman	hero	1	-1	1	1	0	0	2	-1	0	0	0	2		H 督军档		0	★ 督军格（本卡在场）WARLORD 2/2/0/38 {codex1}  ‖ 对照局（空督军）WARLORD 2/0/0/28;💰 手牌总价 P0 5 → 7（2）
-UM_Scout_Sniper	unit	0	0	1	1	1	3	0	3	-3	-3	0	5		C 部署时该发生		0	⚙ 能量 P0 20 → 17（-3）;✚ 落场/生成 P0[2] . → UM_Scout_Sniper 2/4/0/3 {camouflage1, oath1, sniper1};✋ 手牌 P0 -「UM_Scout_Sniper」×1;💰 手牌总价 P0 5 → 2（-3）;🎖 出兵数 P0 3 → 4
+UM_Scout_Sniper	unit	0	0	1	1	1	3	0	3	-3	-3	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 17（-3）;✚ 落场/生成 P0[2] . → UM_Scout_Sniper 2/4/0/3 {camouflage1, oath1, sniper1};✋ 手牌 P0 -「UM_Scout_Sniper」×1;💰 手牌总价 P0 5 → 2（-3）;🎖 出兵数 P0 3 → 4
 UM_Scout_bike	unit	0	0	1	1	1	3	0	2	-2	-2	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 18（-2）;✚ 落场/生成 P0[2] . → UM_Scout_bike 1/2/0/3 {camouflage1};✋ 手牌 P0 -「UM_Scout_bike」×1;💰 手牌总价 P0 4 → 2（-2）;🎖 出兵数 P0 3 → 4
 UM_Scryer_s_Gaze	tactic	0	0	1	1	0	2	2	1	-1	0	0	5		A 打出即结算	ephemeral	1	⚙ 能量 P0 20 → 19（-1）;✋ 手牌 P0 -「UM_Scryer_s_Gaze」×1;✋ 手牌 P0 +「filler24」×1;🂠 牌库 P0 -「filler24」×1;🗑 弃牌 P0 +「UM_Scryer_s_Gaze」×1
 UM_Sergeant_Gadriel	unit	0	0	1	1	1	3	0	7	-7	-7	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 13（-7）;✚ 落场/生成 P0[2] . → UM_Sergeant_Gadriel 7/6/0/7 {codex1, flying1};✋ 手牌 P0 -「UM_Sergeant_Gadriel」×1;💰 手牌总价 P0 9 → 2（-7）;🎖 出兵数 P0 3 → 4
 UM_Sergeant_Telion	unit	0	0	1	1	1	3	0	5	-5	-5	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 15（-5）;✚ 落场/生成 P0[2] . → UM_Sergeant_Telion 3/6/0/6 {camouflage1, codex1, sniper1};✋ 手牌 P0 -「UM_Sergeant_Telion」×1;💰 手牌总价 P0 7 → 2（-5）;🎖 出兵数 P0 3 → 4
 UM_Sternguard_Sergeant	unit	0	0	1	1	1	3	0	3	-3	-3	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 17（-3）;✚ 落场/生成 P0[2] . → UM_Sternguard_Sergeant 3/3/0/3 {codex1};✋ 手牌 P0 -「UM_Sternguard_Sergeant」×1;💰 手牌总价 P0 5 → 2（-3）;🎖 出兵数 P0 3 → 4
-UM_Suppressor	unit	0	0	1	1	1	3	0	4	-4	-4	0	5		C 部署时该发生		0	⚙ 能量 P0 20 → 16（-4）;✚ 落场/生成 P0[2] . → UM_Suppressor 2/4/0/4 {flying1, oath1, sentry1};✋ 手牌 P0 -「UM_Suppressor」×1;💰 手牌总价 P0 6 → 2（-4）;🎖 出兵数 P0 3 → 4
+UM_Suppressor	unit	0	0	1	1	1	3	0	4	-4	-4	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 16（-4）;✚ 落场/生成 P0[2] . → UM_Suppressor 2/4/0/4 {flying1, oath1, sentry1};✋ 手牌 P0 -「UM_Suppressor」×1;💰 手牌总价 P0 6 → 2（-4）;🎖 出兵数 P0 3 → 4
 UM_Tactical_Doctrine	tactic	0	0	1	1	0	3	4	5	-5	-5	0	8		A 打出即结算		0	⚙ 能量 P0 20 → 15（-5）;✎ 改动 P0[3] FIX_A 2/0/0/2 → FIX_A 2/3/0/2;✎ 改动 P0[4] WARLORD 2/0/0/28 → WARLORD 2/3/0/28;✎ 改动 P0[5] FIX_B 3/0/0/3 → FIX_B 3/3/0/3;✎ 改动 P0[6] FIX_C 1/0/0/2 → FIX_C 1/3/0/2;✋ 手牌 P0 -「UM_Tactical_Doctrine」×1;🗑 弃牌 P0 +「UM_Tactical_Doctrine」×1;💰 手牌总价 P0 7 → 2（-5）
 UM_The_Chapter_s_Due	tactic	0	0	1	1	0	2	2	1	-1	0	0	5		A 打出即结算		0	⚙ 能量 P0 20 → 19（-1）;✋ 手牌 P0 -「UM_The_Chapter_s_Due」×1;✋ 手牌 P0 +「filler27」×1;🂠 牌库 P0 -「filler27」×1;🗑 弃牌 P0 +「UM_The_Chapter_s_Due」×1
 UM_Tyrannic_War_Veteran	unit	0	0	1	1	1	3	0	3	-3	-3	0	5		C 部署时该发生		0	⚙ 能量 P0 20 → 17（-3）;✚ 落场/生成 P0[2] . → UM_Tyrannic_War_Veteran 3/3/0/4 {rally1};✋ 手牌 P0 -「UM_Tyrannic_War_Veteran」×1;💰 手牌总价 P0 5 → 2（-3）;🎖 出兵数 P0 3 → 4
 UM_Valtus	unit	0	0	1	1	1	3	0	9	-9	-9	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 11（-9）;✚ 落场/生成 P0[2] . → UM_Valtus 9/9/1/9 {armour1};✋ 手牌 P0 -「UM_Valtus」×1;💰 手牌总价 P0 11 → 2（-9）;🎖 出兵数 P0 3 → 4
-UM_Vico_Therbeus	unit	0	0	1	1	1	3	0	3	-3	-3	0	5		C 部署时该发生		0	⚙ 能量 P0 20 → 17（-3）;✚ 落场/生成 P0[2] . → UM_Vico_Therbeus 3/4/0/4 {oath1, stealth1};✋ 手牌 P0 -「UM_Vico_Therbeus」×1;💰 手牌总价 P0 5 → 2（-3）;🎖 出兵数 P0 3 → 4
+UM_Vico_Therbeus	unit	0	0	1	1	1	3	0	3	-3	-3	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 17（-3）;✚ 落场/生成 P0[2] . → UM_Vico_Therbeus 3/4/0/4 {oath1, stealth1};✋ 手牌 P0 -「UM_Vico_Therbeus」×1;💰 手牌总价 P0 5 → 2（-3）;🎖 出兵数 P0 3 → 4

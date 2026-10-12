@@ -358,19 +358,45 @@ namespace WarpforgeVFX
         /// </code>
         /// ⚠️ 这几条的 `cull` 里 `name` 都是 **`&lt;noninit>`**（= 不是属性引用）⇒ **值是被烘死的**，
         ///   材质上那份 `_Cull` 是死值 ⇒ 覆盖它是对的。**反过来**：`Everguild/*` 那批 dump 出来是
-        ///   `name='_Cull'`（**属性驱动**）⇒ 那种一律**不许覆盖**（所以这里按名字白名单给，不做通配）。
-        /// ⚠️ `colMask=14`（= RGB，不写 A）那两条**还没建模** —— 只影响 alpha 通道，RGB 度量看不出，
-        ///   按铁律 11 **记着要做**（要做得给那两个 Legacy shader 加 `ColorMask RGB`）。</summary>
+        ///   `name='_Cull'`（**属性驱动**）⇒ 那种一律**不许覆盖**。
+        /// 🆕 **2026-10-12：这一格改成【查实读表】** —— `OriginalShaderBlendTable.CullMap`（现读 79 条，
+        ///   由 `工具/gen_shader_blend.py` 从原版 pass 状态读、**只收「烘死」那一档**）⇒ 不再按名字猜。
+        ///   ⚠️ 包清单原来缺 `Warpforge_unitybuiltinassets.bundle` ⇒ `Mobile/Particles/*` 那一族**表里查不到**
+        ///   （与 `工具/disasm_dxbc.py` 文件头那条「第一次只读了一个包 ⇒ 误报没有」**同形**）；补包后 cull 表 79 条、
+        ///   生成器末尾自检「5 个必有名必须命中」**5/5 通过**。
+        ///   ⚠️ 同批读进表的另外两格（`zTest` / `colMask`）见下面那条。
+        /// ✅ **`colMask=14`（= RGB，不写 A）那两条 2026-10-12 已建模** —— 实读表确认
+        ///   `Legacy Shaders/Particles/{Additive,Alpha Blended}` 的 colMask=14（其余全是 15），已在 `WFLegacyParticlesAdditive.shader` / `WFLegacyParticlesAlphaBlended.shader` 里各加一行 `ColorMask RGB`。
+        /// ⚠️ `zTest` 那一格**仍没有消费者**（表里读到了、代码里没人查）—— 按铁律 11 仍开着。</summary>
         public static float? InferCull(string originalName)
         {
             if (string.IsNullOrEmpty(originalName)) return null;
+
+            // 🆕 **2026-10-12（特效线 §十四 第 4 条「表驱动收口」）：改成【查实读表】优先。**
+            //   表 = `OriginalShaderBlendTable.CullMap`，由 `工具/gen_shader_blend.py` 从**原版 pass 状态**读出来
+            //   （`cull` 那一格 `name` 不以 `_` 开头 = **烘死**，才收进表）。**表里没有 = 属性驱动 ⇒ 不覆盖。**
+            int cull;
+            if (OriginalShaderBlendTable.TryGetCull(originalName, out cull))
+                return cull;                                        // 实读值（0=Off · 1=Front · 2=Back）
+
+            // 兜底 = 原来那条**按名字猜**的白名单。**它今天正常走不到** ——
+            //   `gen_shader_blend.py` 末尾有一条自检：这 5 个名字必须在 cull 表里，缺一个就**非 0 退出**。
+            //   留着它是为了「表被重生成坏 / 表文件丢了」时**不静默退回「全都不覆盖」**（那正是 2026-10-02 D 那条缺陷）。
+            //   ⚠️ 新覆盖到的两条（原来这条名字规则**漏了**）：`Shader Graphs/Eclipse Tau` · `UI/Additive`
+            //     —— 它们的原版 cull 也是烘死的 Off，而我们的默认是 2(Back)。
+            //   🔴 **注意生效范围：这两条（以及这一族几乎全部）都在 `UseOriginal` 里** ⇒ **正常态走原件、
+            //      `InferCull` 根本轮不到**；它只在【兜底路】生效（原件包不在场 ⇒ `TryResolve` 落到 `Replacements`）。
+            //      `Mobile/Particles/Additive` 那一族的 `_Cull` 修（2026-10-02 D）**也是兜底路的修** —— 别当成正常态缺陷。
+            //   ⚠️ `Particles/Standard Unlit` 的 cull **不是烘死的**（现核：它的 `pass0` 是 `gpuProgramID = -1` 的
+            //      **空 pass**，真正的渲染 pass 是 `pass2`、`cull` 读的是 `_Cull`）⇒ 表里**故意没有它**，
+            //      走下面兜底那支（仍返回 0，**行为与改前一致**）。
             string n = originalName.ToLowerInvariant();
-            // 这一族的 cull 全部烘死成 Cull Off（判据见上面的实读表）
             if (n.Contains("mobile/particles") || n.Contains("legacy shaders/particles")
                 || n == "particles/additive" || n == "particles/standard unlit")
                 return 0f;                                          // 0 = Off
             return null;
         }
+        
 
         /// <summary>已被自建 shader 覆盖的原版 shader 名单</summary>
         public static IEnumerable<string> Covered { get { return Replacements.Keys; } }

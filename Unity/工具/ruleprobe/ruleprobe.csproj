@@ -28,9 +28,26 @@
     <Compile Include="../../MyGame/Assets/RuleEngine/Core/*.cs" />
   </ItemGroup>
   <!-- 🔴 不要加 <DefineConstants>UNITY_5_3_OR_NEWER</DefineConstants>。
-       ⚠️ 2026-10-18 更新（`A941` 之后）：Core 里**已经没有任何 Unity 类型**了
-       —— 原来 `TutorialScript.cs` 那圈 `#if` 装载支已整段搬进 `Data/TutorialDatabase.cs`
-       （用「半个 partial 方法」换乘：无实现 ⇒ 编译器把调用点一起抹掉 ⇒ 探针自动落回兜底）。
-       ⇒ 定义它**今天已不再有影响**，但**仍然别定义** —— 探针要的就是「**Core 能单独编**」这条边界；
-       定义符号会让这条边界悄悄失效、下次有人往 Core 里加 Unity 调用时不会被发现。 -->
+       ⚠️ 2026-10-18 更新（`A941` 之后）：`TutorialScript.cs` 那圈 `#if` 装载支已整段搬进
+       `Data/TutorialDatabase.cs`（用「半个 partial 方法」换乘：无实现 ⇒ 编译器把调用点一起抹掉
+       ⇒ 探针自动落回兜底）。
+       🔴 2026-10-12 更正（`A1478` · 现核）：**原来这里写的是「Core 里已经没有任何 Unity 类型了」
+       —— 今天不成立。** `Core/*.cs` 里仍然**裸用 `UnityEngine.Debug`**：把 `Stub.cs` 从编译项
+       拿掉，`dotnet build` 实测 **18 个 `CS0103`（当前上下文中不存在名称"UnityEngine"）落在 6 个文件**：
+         · `BattleContext.cs:771` `:1538` · `BoardSlots.cs:163` · `CardInstance.cs:208`
+         · `GameplayVariables.cs:76` · `RuleCore.cs:558` `:668` `:681` `:714` `:722`
+         · `TutorialScript.cs:436` `:832` `:1019` `:1031` `:1049` `:1283` `:1292` `:1332`
+       （`grep -n "UnityEngine\." Core/*.cs` 的其余命中**全在注释里**，不参与编译。）
+       ⇒ **探针能单独编 `Core`，靠的是下面那份 `Stub.cs` 桩**（`Debug`/`Random`/`Resources`/
+       `JsonUtility`/`TextAsset` 五个成员），⛔ **不是**「Core 已经干净」。
+       🔴 **谁把 `Stub.cs` 从编译项里拿掉，就会看到上面那 18 个错** —— 那不是引擎坏了，是桩没了。
+       ⚠️ **错因**：写上面那条注释时只核了「`#if` 装载支搬走了」（真），把它当成了「Unity 类型没了」（假）；
+       而 `Data/TutorialDatabase.cs` 那一跳只解释了 `Resources`/`JsonUtility`，**没有**、也管不到
+       `UnityEngine.Debug`。
+       ⇒ 定义 `UNITY_5_3_OR_NEWER` **今天确实不再有任何影响**（现测：加上它仍 **0 错 0 告警**
+       —— `Core/*.cs` 里现在一个 `#if` 都不剩）。**仍然别定义**的理由不是「怕它今天出事」，
+       而是：`Core/` 里**写回 `#if UNITY_5_3_OR_NEWER` 双分支**这件事本身就是本仓红线
+       （`TutorialScript.cs:384` 写着「⛔ 不许在 `Core/` 里写回 `Resources`/`JsonUtility`/`TextAsset`，
+       哪怕又包一层 `#if`」）—— 探针**故意一个符号都不定义**（Unity 侧 `_wfcheck.csproj` 定义了 300+ 个），
+       谁再往 `Core/` 里写回一条 `#if`，探针就会**走兜底那半**、当场看得出，而不是被一个符号盖过去。 -->
 </Project>

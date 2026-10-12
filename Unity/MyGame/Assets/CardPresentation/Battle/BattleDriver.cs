@@ -11956,7 +11956,17 @@ namespace CardPresentation
             bool zh = CardText.Zh && !string.IsNullOrEmpty(c.DescZh);
             string body = zh ? c.DescZh : c.Desc;
             string notes = string.Join(" ", UnimplementedNotes(c).ToArray());
-            if (string.IsNullOrEmpty(body)) return new FaceBody(notes, "desc");
+            // 🔴 **2026-10-12（第二十三会话新立 `A1687`）：关键词段必须在【空正文早退】之前算。**
+            //   原来这一行排在上面 ⇒ **正文为空的卡整段关键词行被吞掉**（`KeywordSegment` 在它下面）。
+            //   **原版卡面确实有这种卡**：`GOF12 Hornhelmz Boy`（`desc`/`descZh` 双空、`keywords:["Tide 2"]`；
+            //   卡面**主对话 2026-10-12 亲读**（`d:/2/Warpforge部队卡片/Orks/3部队/Warpforge_12_Hornhelmz-Boy.png`，900×1200）：效果区**只有 `〔骷髅〕Tide 2`**、没有别的效果文字
+            //   （⚠️ 那张印刷卡把卡名印成 `Hornhelmz' Boy`、带撇号 —— **不改我们的卡名**：授权键表 `数据/本地化/i18n/zh_CN.csv:1693` 写的是 `Hornhelmz Boy`，先例见 `资料/卡牌数据源对账_0912.md` 那条「PnP 是印刷品」。）
+            //   现扫全池 1126 张：`desc`/`descZh` 双空 **6 张**（`ASH12` `BL11` `BL43` `GOF12` `TL12` `UM14`），
+            //   **只有 `GOF12` 带关键词** ⇒ 今天影响面 = 1 张，但形状是坏的（铁律 11 要做）。
+            //   ⚠️ **其余 1125 张输出一字不变**：关键词为空的卡 `seg == ""` ⇒ 与改前逐字相同；
+            //     而且 `KeywordSegment` 自己吃得下空正文（`hay = body ?? ""`、`DeclaredInBody("")` 恒假）。
+            string seg = CardText.KeywordSegment(c.Keywords, zh, body, c.NumericKeywords);
+            if (string.IsNullOrEmpty(body)) return new FaceBody(seg + notes, "desc");
 
             // 🔴 **图标就在这一处换掉**（`card_icon_plan.json` 按**稳定 id + 字段名**查）。
             //    查不到 / 计划表里记的是缺口 ⇒ **原样返回**（红线：宁可难看，不给错图标）。
@@ -11972,7 +11982,6 @@ namespace CardPresentation
             //       `c.NumericKeywords`** —— 不传（吃默认的 `null`）⇒ 那一档**静默失效**、
             //       与徽标（`Badges.For`）那一路裂开。⛔ 只改 `KeywordSegment` 的签名而不改这一行
             //       = 静默偏一半（`A1332` 立的账，`A1341` 两处同批改）。
-            string seg = CardText.KeywordSegment(c.Keywords, zh, body, c.NumericKeywords);
             return new FaceBody(seg + core, zh ? "descZh" : "desc");
         }
 

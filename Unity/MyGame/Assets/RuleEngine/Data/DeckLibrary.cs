@@ -169,6 +169,48 @@ namespace RuleEngine
             return d;
         }
 
+        /// <summary>造一副**空卡组，但【不登记进库】** —— 原版 `CardDeck.GetEmptyDeck()` 那一跳
+        /// （`SelectDecksTab__CreateDeck.c:17` 在开编辑器**之前**唯一做的事；`CardDeck__GetEmptyDeck.c:28-32`
+        /// 逐字段：督军 `+0x40 = 0` · 防御 `+0x48 = 0` · 模式 `+0x50 = 0`）。
+        ///
+        /// <para>🔴 **2026-10-12（`A1697`）新开这个口，为的是「新建卡组不入库」那条原版链**
+        /// （用户 2026-10-12 点名：「没选战将的卡组…这按照原版复刻」）——
+        /// 原版「新建」**从不入库**：`SelectDecksTab__CreateDeck.c` 造完空卡组**直接开编辑窗**
+        /// （`:28` 那句 `WindowsManager__OpenWindow&lt;DeckEditingWindow&gt;(…)`），入库的唯一路径是
+        /// `DeckEditingWindow__TrySaveDeck.c:100 UploadDeck`（**先 `:80 ValidateDeck`**，不合法 `:81-98`
+        /// 弹错误窗后 `return`、绝不走到 `:100`）⇒ 原版「新建 → 不选战将 → 退出」**什么都不剩**。</para>
+        ///
+        /// <para>⚠️ **与 `Create` 的分工**：那个口是「造 + 入库 + 落盘」三合一（今天只剩演示卡组 /
+        /// 自检夹具在走）；本口**只造**，入库走 `Insert`（由卡组编辑窗 `Done` 那一拍调）。
+        /// ⛔ **别把本口写成「`Create` 去掉 `Save` 再共用一个实现」** —— 那样两个口的语义会互相牵制
+        /// （旧 `Create` 的调用点要的恰恰是「建完就在库里」）。</para></summary>
+        public PlayerDeck NewUnsaved(string name, int gameMode = 0)
+        {
+            // ⚠️ 重名去重**仍然走 `UniqueName`**（它只读 `_decks`、不写）—— 这样「不入库的新卡组」
+            //    与库里已有的同名卡组**当场就区分开**（否则入库那一刻会平白多一个「 2」）。
+            return new PlayerDeck(UniqueName(string.IsNullOrEmpty(name) ? "新卡组" : name),
+                                  null, null, null, gameMode);
+        }
+
+        /// <summary>把一副**还没入库**的卡组登记进库并落盘 —— 入库的唯一入口，照原版
+        /// `DeckEditingWindow__UploadDeck.c`（`:63 CardDeck__CopyDeck` 之后 `:74 PlayerDataManager__UploadUnsyncedDeck`）。
+        ///
+        /// <para>🔴 **2026-10-12（`A1697`）**：与 `Create` 的差别只有一处 —— **对象是外面造好递进来的**
+        /// （= 编辑器 `Done` 那一刻正在编辑的那一副）⇒ 本方法**不造对象**，只做「加进 `_decks` +
+        /// 把 `_current` 指到它 + 落盘」。名字的重名去重由调用方保证（`NewUnsaved` 已经过 `UniqueName`）。</para>
+        ///
+        /// <para>⚠️ **落盘失败时【不】把它摘出去**（与 `Create` / `Duplicate` 一致：内存里留着、
+        /// `LastError` 说得出原因、返回 `false`）—— A503 那条口径就是「说没成比说成功诚实」。
+        /// ⚠️ 调用方**别把 `false` 当成「没入库」再插一遍**（`DeckRuntime.CommitDeck` 那一侧
+        /// **无论成败都会结束「未入库」状态**，理由写在那边）。</para></summary>
+        public bool Insert(PlayerDeck deck)
+        {
+            if (deck == null) return false;
+            _decks.Add(deck);
+            _current = _decks.Count - 1;
+            return Save();               // 照 `Rename` / `Delete` / `CommitCurrent` 的先例：**不吞**落盘结果
+        }
+
         /// <summary>改名。空名字不接受（免得 UI 上出现一行看不见的东西）。
         /// ⚠️ **2026-10-12（A365）注**：这条**不是编辑窗那条路** —— 编辑窗改的是
         /// `DeckEditorState.SetDeckName`（照原版 `DeckEditingPanel__ChangeName`，**空名照收**，

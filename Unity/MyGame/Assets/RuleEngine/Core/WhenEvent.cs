@@ -453,9 +453,19 @@ namespace RuleEngine
         /// `"a friendly troop dies"` / `"you deploy a Vehicle"` / `"an enemy with Hunt Mark dies"`。
         /// （切法见 <see cref="CardDef.AddTriggerOp"/> —— 它按第一个 `,` 切。）
         /// </summary>
-        public static WhenEvent Parse(string phrase)
+        /// <param name="recordUnknown">
+        /// 🆕 2026-10-12（`F1` · 账「`played` 被灌进全局桶」）**要不要把认不出的短语记进
+        /// <see cref="UnknownPhrases"/>**。
+        /// 🔴 **只有「真的在登记监听器」的那些调用点才该传 `true`（缺省就是它，行为不变）**；
+        /// **试探性**的调用（解析层问一句「这句话认不认得」）**必须传 `false`** ——
+        /// 试探不是判定，**判据函数不许有副作用**（本仓红线：不许静默改全局状态）。
+        /// 入口 = `CardDef.TryParseWhenSentence`（逐层透传，最终由
+        /// `EffectText.TryWhenPrefixStub` 传 `false`）；注册层（`AddWhenTrigger` /
+        /// `CollectHandTrapWhens`）**保持缺省 `true`**（那里才是真的登记）。
+        /// </param>
+        public static WhenEvent Parse(string phrase, bool recordUnknown = true)
         {
-            var all = ParseAll(phrase);
+            var all = ParseAll(phrase, recordUnknown);
             return all.Count > 0 ? all[0] : null;
         }
 
@@ -473,7 +483,12 @@ namespace RuleEngine
         ///
         /// ⚠️ 调用方**别用 <see cref="Parse"/> 收卡面**（它只回第一条）—— 用本函数。
         /// </summary>
-        public static List<WhenEvent> ParseAll(string phrase)
+        /// <param name="recordUnknown">
+        /// 🆕 2026-10-12（`F1`）：认不出时**要不要**写 <see cref="UnknownPhrases"/>。
+        /// 缺省 `true` = 老行为（**注册层**照旧）；**试探性调用必须传 `false`** ——
+        /// 见 <see cref="Parse"/> 的同名参数说明。
+        /// </param>
+        public static List<WhenEvent> ParseAll(string phrase, bool recordUnknown = true)
         {
             var list = new List<WhenEvent>();
             if (string.IsNullOrEmpty(phrase)) return list;
@@ -484,7 +499,7 @@ namespace RuleEngine
             var two = TrySplitAlternative(phrase);
             if (two != null) return two;
 
-            UnknownPhrases.Add(Clean(phrase));
+            if (recordUnknown) UnknownPhrases.Add(Clean(phrase));
             return list;
         }
 

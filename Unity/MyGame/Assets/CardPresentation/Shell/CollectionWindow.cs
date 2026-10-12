@@ -3507,7 +3507,8 @@ namespace CardPresentation
         {
             CollectionData.PendingEditDeck = i;
             // 🆕 2026-10-18（A855）：**这条来路的回程意图** —— 「按来路回」（用户 2026-10-18 拍板）：
-            //   全仓仅有两处 `LoadScene("DeckEditor")`，这是**第一处** ⇒ 来源写在这里、
+            //   🔴 **2026-10-12（`A1697`）就地订正（铁律 5）**：本行原写「全仓仅有两处，这是**第一处**」
+            //     —— **现在是三处**（第三处 = 同文件下面的 `GoNewDeck`）。本处仍是最先执行的那一处 ⇒ 来源写在这里、
             //   ⛔ **不由离场方式决定**（`DeckRuntime.BackToMenu` 那三处调用点都只是「关闭这条路上的编辑器」）。
             //   ⚠️ 写在批处理闸**之前**：批处理不切场景，自检只能靠这个意图观测（同上面那个下标）。
             CollectionData.SetReturnIntent(DeckExitSource.Collection, WindowTabType.CollectionDecks);
@@ -3517,22 +3518,58 @@ namespace CardPresentation
             UnityEngine.SceneManagement.SceneManager.LoadScene("DeckEditor");
         }
 
-        /// <summary>点 `New Deck` 那颗钮：建一套空卡组 + 重建卡组列表。
-        /// 🔴 **2026-10-14（A549①）**：`CollectionData.CreateDeck` 自 A503 起**失败时返回空串**
-        /// ⇒ 原来那句日志会打成「新建卡组**「」**」—— 既认不出是谁、也看不出「没写进存档」。
-        /// ⚠️ **功能本来就没错**（那一套确实在内存里、列表也确实该重建 ⇒ 上面那次重建**照旧无条件跑**）
-        /// ⇒ 本件**只把那一支的措辞改对**：⛔ 不改流程、不加阻拦（同 A609 的裁定）。</summary>
+        /// <summary>「新建卡组 → 进编辑」的**唯一实现**（收藏窗那颗 `Create` 走它）——
+        /// 与 `GoEdit` 是**两条路**：那条交接的是**库里某一套的下标**，这条交接的是
+        /// **一份还没入库的新卡组**（`CollectionData.PendingNewDeck`，由 `CollectionData.CreateDeck` 写好）。
+        ///
+        /// <para>🔴 **2026-10-12（`A1697`）新开**，修的是诊断 §六 的第二处偏离：我们那颗 `Create`
+        /// **建完不进编辑器**（只重建列表），而原版 `SelectDecksTab__CreateDeck.c:28` 是**直接开窗**
+        /// （`WindowsManager__OpenWindow&lt;DeckEditingWindow&gt;(…)`）⇒ 本口把那一步补回来。</para>
+        ///
+        /// <para>⚠️ **本口不写 `PendingEditDeck`** —— 新卡组在库里没有下标；而 `CollectionData.CreateDeck`
+        /// 那一拍**已经把它清成 `-1`**（两个交接口互斥，判据 → 那个字段的 doc）。</para>
+        ///
+        /// <para>⚠️ **批处理下不切场景**（自检要靠同一个进程跑完）⇒ 自检验的就是「交接那份卡组在不在」；
+        /// 同 `GoEdit`：回程意图写在 `isBatchMode` 那道闸**之前**。</para></summary>
+        public static void GoNewDeck()
+        {
+            // 🆕 2026-10-18（A855）：这条来路的回程意图 —— 与 `GoEdit` 同一口径（「按来路回」）。
+            //   ⚠️ 全仓 `LoadScene("DeckEditor")` 原为**两处**，本口是**第三处**（同在收藏窗那一条来路里）。
+            CollectionData.SetReturnIntent(DeckExitSource.Collection, WindowTabType.CollectionDecks);
+            if (Application.isBatchMode)
+            {
+                Debug.Log("[Collection] （批处理：不切场景，只交接那份**未入库**的新卡组）");
+                return;
+            }
+            UnityEngine.SceneManagement.SceneManager.LoadScene("DeckEditor");
+        }
+
+        /// <summary>点 `Create` 那颗钮：**造一副不入库的空卡组 → 直接进卡组编辑**（照原版
+        /// `SelectDecksTab__CreateDeck`，判据逐行 → `CollectionData.CreateDeck` 的注释）。
+        ///
+        /// <para>🔴 **2026-10-12（`A1697`）改向（铁律 5：原文留痕）**：本方法原来做的是
+        /// 「建一套空卡组（**当场入库并落盘**）+ 重建卡组列表」，还带一条 A549① 加的空串警告分支。
+        /// 现在照原版改成**两件事**：① `CollectionData.CreateDeck()` **只造不入库**（库里此刻**一套都没多**）；
+        /// ② **紧接着进编辑器**（原版 `SelectDecksTab__CreateDeck.c:28` 那一句开窗）。
+        /// ⇒ 那句空串警告的**成因已经换了**：不再是「没写进存档」（本口一个字节都不写盘），
+        /// 而是「压根没造出来」（今天不可达 —— 判据 → `CollectionData.CreateDeck` 那条订正）。
+        /// ⛔ 那条分支**留着**（红线「不许静默失败」：万一将来重名/词条那一跳出问题，控制台要看得见）。</para>
+        ///
+        /// <para>⚠️ **`RebuildDeckCells` 这一跳没有了**：原来重建是因为「库里刚多了一套」；
+        /// 现在库里没变（Done 那一刻才入库）⇒ 重建是空做。回程时那一跳由 `MainMenuRuntime.Build`
+        /// 作废库缓存后重开本窗来做（A855 那条链）。</para></summary>
         public void CreateDeck()
         {
             string name = CollectionData.CreateDeck();
-            var pr = PageRoot(0);
-            var holder = pr != null ? pr.Find("Deck Scroll View") : null;
-            if (holder != null) RebuildDeckCells(holder);
             if (string.IsNullOrEmpty(name))
-                Debug.LogWarning("[Collection] 新建卡组**没写进存档**（内存里那套还在、列表已重建；重启就没了"
-                                 + " —— 原因见上一条 `[CollectionData]` 警告，⛔ 别在这里另写一套原因）");
-            else
-                Debug.Log("[Collection] 新建卡组「" + name + "」（原版走 `Deck Editing Menu`，本轮只建卡组）");
+            {
+                Debug.LogWarning("[Collection] 新建卡组**没造出来**（⛔ 库里一套都没多、也没进编辑器）"
+                                 + " —— 原因见上一条 `[CollectionData]` 警告，⛔ 别在这里另写一套原因");
+                return;
+            }
+            Debug.Log("[Collection] 新建卡组「" + name + "」—— 照原版 `SelectDecksTab__CreateDeck.c:28`："
+                      + "**不入库**、直接开卡组编辑（`Done` 过了校验才入库）");
+            GoNewDeck();
         }
 
         public string Dump()

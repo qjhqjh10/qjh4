@@ -2053,6 +2053,17 @@ namespace RuleEngine
             public int Delta;
             /// <summary>卡面的触发子句原文（`when &lt;事件&gt;` 那半句，对账/日志用）。</summary>
             public string Body;
+            /// <summary>
+            /// 🆕 **2026-10-12（`A1446`）：卡面句尾有没有那个 ` instead`**（`Lower cost by 2 when
+            /// &lt;事件&gt; instead`）。**摘下来如实记着，⛔ 不替它发明结算** —— 登记出来的降价仍按
+            /// <see cref="Delta"/> 原样生效。
+            ///
+            /// ⚠️ **它的原版语义【判据空缺】**（铁律 2 / 3）：全池 1126 张 `desc`/`descZh` **0 张**
+            /// 是这个形状；原版 `CardEffect` / `HandEffect` / `ChooseValueOptions` 里**没有**
+            /// 「替换 / instead」这一栏；全量反编译 26,282 个方法体里**没有 `instead` 这个字面**
+            /// （卡面文字在远端 CCD）。复现步骤与出处 → `EffectText.TryCostWhen` 的 doc。
+            /// </summary>
+            public bool Instead;
             public override string ToString() { return Ev + " → 费用 " + Delta; }
         }
 
@@ -2317,36 +2328,35 @@ namespace RuleEngine
             }
 
             // ---- ② `… Lower cost by N when <事件>`（句尾）----
-            //    ⚠️ 用 `LastIndexOf` 而不是 `IndexOf`：事件短语自己可能带 `when`
-            //       （`When you play a Stratagem, …` 那种不会走到这里，但万一以后有嵌套）。
             //    🆕 2026-09-16：`every time` 与 `when` **同义**，一起收 —— 卡面只有一种写法用它：
             //       `TL83 Norn Emissary` 的 `Lower cost by 2 every time a friendly unit triggers Synapse`
             //       （中文「每当一个友方单位触发突触时，费用降低 2」）。原来只认 `when` ⇒
             //       这句**整条收不进来**，而它是**单位卡**、不走 `IsFullyParsed` 那三道闸
             //       ⇒ 既不拒打也不报错，是**静默不生效**型（自检里挂在「单位卡 ① 栏」）。
-            //    ⚠️ 两处判据必须同形：这里 + `EffectText.TryCostWhenStub`（它把同一句从
-            //       「不认识的句子」里豁免掉）；**只改一处就会出现「解析器认了、卡面不生效」**。
-            string low = s.ToLowerInvariant();
-            int w = low.LastIndexOf(" when ");
-            int mark = w >= 0 ? " when ".Length : -1;
-            int w2 = low.LastIndexOf(" every time ");
-            if (w2 > w) { w = w2; mark = " every time ".Length; }
-            if (w < 0) return;
-            string head = s.Substring(0, w).Trim();
-            string evTail = s.Substring(w + mark).Trim();
+            //    🔴 **2026-10-12（`A1446`）：这一支的【抽取】转调 `EffectText.TryCostWhen`** ——
+            //       **判据只此一处**，解析层 `EffectText.TryCostWhenStub` 转调的是**同一个函数**。
+            //       改前这里自己写了一份（`LastIndexOf(" when ")` ＋ 它自己的头正则），
+            //       于是两半对 `… when <事件> instead` 给出**不同结论**：解析层那条 `(.+)$`
+            //       把 `instead` 一起吃下去 ⇒ 报「认了」；而这里把 `instead` 当成事件短语的尾巴
+            //       ⇒ `WhenEvents.ParsePredicate`（**串尾匹配**）认不出 ⇒ **监听器一条都没挂**
+            //       （`CostWhens.Count` = 0）、卡面还不打 `*` —— 正是上面那句注释点名的老坑。
+            //       ⇒ 现在两半都先走**同一个剥离口**（`EffectText.PeelInstead`），实测 `Count` 0 → 1。
+            //       ⚠️ 对**不带 `instead`** 的写法**行为逐字不变**（真池 5 张全走这条：
+            //          `AM60` / `AM61` / `TAU66` / `TL83` / `UM_Avenging_Zeal`）。
+            //       ⚠️ 入口顺带**剥方括号**（`TryCostWhen` 内做）—— 对下游**行为不变**：
+            //          `WhenEvents.Clean` 本来就剥 `[` `]`（`UM_Avenging_Zeal` 的 `[Codex icon]`）。
+            //       ⚠️ `instead` 的**结算语义【判据空缺】**（全池 0 张卡、原版无该字段/字面）
+            //          ⇒ 只记进 `CostWhen.Instead`，**不据此改结算**（口径与出处 → `EffectText.TryCostWhen` 的 doc）。
+            int costWhenAmount; string costWhenEv; bool costWhenInstead;
+            if (!EffectText.TryCostWhen(s, out costWhenAmount, out costWhenEv, out costWhenInstead)) return;
 
-            // 前缀必须是降费句式（`Lower cost by 1` / `Costs 1 less` 那些在别处解析，这里只管卡面这一种）
-            var m = System.Text.RegularExpressions.Regex.Match(
-                head, @"lower\s+cost\s+by\s+(\d+)\s*$",
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-            if (!m.Success) return;
-
-            var cwev = WhenEvents.Parse(evTail);
+            var cwev = WhenEvents.Parse(costWhenEv);
             if (cwev == null) return;   // 事件认不出 → 不收（同 ⚠️①）
             _costWhens.Add(new CostWhen
             {
                 Ev = cwev,
-                Delta = int.Parse(m.Groups[1].Value),
+                Delta = costWhenAmount,
+                Instead = costWhenInstead,
                 Body = s,
             });
         }
@@ -2361,9 +2371,26 @@ namespace RuleEngine
         /// ⚠️ 与 <see cref="AddWhenTrigger"/> 的调用方约定一致：
         /// **事件认不出（`evs` 空）或正文解析不出（`ops` 为 null/空）都算没收** ——
         /// 理由见 `WhenEvent.cs` 文件头 ⚠️①：注册一条永远不会被消费（或认错时机）的效果 = 骗玩家。
+        ///
+        /// 🔴 **2026-10-12（`A1686`）：可见性从 `private` 放到 `internal`** —— **解析层**
+        ///    （`EffectText.TryWhenPrefixStub`，`Dispatch` 的 8c-ter）要**转调这一份**，
+        ///    好让前缀形 `When &lt;事件&gt;, &lt;效果&gt;` 与后缀形落在**同一条路**上
+        ///    （⛔ 不许在 `EffectText` 里另写一套切句 —— 那样迟早两处不一致，工程红线）。
+        ///    ⛔ 不放到 `public`：`internal` 足了（`RuleEngine/Core/` 无 asmdef ⇒ 同一程序集）。
+        ///
+        /// 🆕 **2026-10-12（`F1`）多一个 `recordUnknown`** —— 「认不出的**事件短语**要不要写
+        ///    `WhenEvents.UnknownPhrases`」：
+        ///    · **注册层**（`AddWhenTrigger` / `CollectHandTrapWhens`）**缺省 `true`**：那是真的在
+        ///      登记监听器，认不出就该报出来（行为一字不变）。
+        ///    · **解析层**（`EffectText.TryWhenPrefixStub`，8c-ter 的标记 op）**必须传 `false`**：
+        ///      它只是问一句「这句话认不认得」，**判据函数不许有副作用**（本仓红线）。
+        ///      不传的后果**实测**过：战术卡 `DA47 Reconnaissance Mission` 的 `When played`
+        ///      ⇒ `played` 灌进全局桶 ⇒ 报表把「**按卡面文字不分卡类地数**」那条错路又开了回来
+        ///      （`RuleEngineTest.TestListenerCardType` 红）。
         /// </summary>
-        static bool TryParseWhenSentence(string seg, out List<WhenEvent> evs,
-                                         out string body, out List<EffectOp> ops)
+        internal static bool TryParseWhenSentence(string seg, out List<WhenEvent> evs,
+                                         out string body, out List<EffectOp> ops,
+                                         bool recordUnknown = true)
         {
             evs = null; body = null; ops = null;
             if (string.IsNullOrEmpty(seg)) return false;
@@ -2382,7 +2409,7 @@ namespace RuleEngine
             int comma = s.IndexOf(',');
             if (comma > off)
                 return FinishWhenSentence(s.Substring(off, comma - off), s.Substring(comma + 1).Trim(),
-                                          out evs, out body, out ops);
+                                          out evs, out body, out ops, recordUnknown);
 
             // ---- ② 🆕 **缺逗号**的形状（2026-09-14 A5 批 2）----
             // 全池只有 1 条：`Eliminator Sergeant` 的 `When you deploy an Eliminator give it Stealth`
@@ -2395,7 +2422,7 @@ namespace RuleEngine
             {
                 if (s[i] != ' ') continue;
                 if (FinishWhenSentence(s.Substring(off, i - off), s.Substring(i + 1).Trim(),
-                                       out evs, out body, out ops)) return true;
+                                       out evs, out body, out ops, recordUnknown)) return true;
             }
             evs = null; body = null; ops = null;
             return false;
@@ -2407,13 +2434,19 @@ namespace RuleEngine
         /// 两条路要**共用同一份判据**（写两份必然漂移）。
         /// </summary>
         static bool FinishWhenSentence(string evPhrase, string bodyText,
-                                       out List<WhenEvent> evs, out string body, out List<EffectOp> ops)
+                                       out List<WhenEvent> evs, out string body, out List<EffectOp> ops,
+                                       bool recordUnknown = true)
         {
             evs = null; body = null; ops = null;
             body = bodyText;
             // ⚠️ **用 `ParseAll`，不用 `Parse`**：卡面有一句话点名两件事的写法
             //    （`When you create **or play** a Secret, …`），`Parse` 只回第一条 ⇒ 只接半边。
-            evs = WhenEvents.ParseAll(evPhrase);
+            // 🔴 **`recordUnknown` 一路透传**（2026-10-12 `F1`）：注册层缺省 `true`，
+            //    解析层的**试探**（`EffectText.TryWhenPrefixStub`）传 `false` ——
+            //    否则「认不出」会**从卡类盲的解析层灌进全局桶**（实据：战术卡 `DA47` 的
+            //    `When played` 把 `played` 灌进 `WhenEvents.UnknownPhrases`，
+            //    而改前它只从卡类感知的注册层调、根本到不了这里）。
+            evs = WhenEvents.ParseAll(evPhrase, recordUnknown);
             if (evs == null) { body = null; return false; }
             // 🆕 2026-09-13 A3：事件**带宾语**时告诉解析器一句 —— 正文里**裸写的 `adjacent`**
             //    锚点要定成**那个宾语**（`Long Fang` 的 `deal 3 damage to adjacent enemies`），
@@ -3063,10 +3096,11 @@ namespace RuleEngine
         ///      两个调用点（`BeginTurn` / `DeclareAttack`，`A1354`，已收口）。
         ///   ⚠️ 池被打空那一条路（`CardScript__CheckIfDead.c:94`）**不发 `Landing`** —— 这条照旧。
         ///
-        /// 🔴 **仍然没做的只剩一条**（如实记）：出手那一处**带 `landing`（`DefinedTrait.landing = 770`）
-        ///   这个 trait ⇒ 取消这一记**那一支 —— 已另立 `A1395②` / `A1617`，**等调度台裁**
-        ///   （原版那一下在**协程 `yield` 之后**，而我们的 `DeclareAttack` 是同步一把跑完的 ⇒
-        ///   要先定「位置」与「取消的确切含义」）。判据全文 → `KeywordTable.Landing` 的 doc。
+        /// ✅ **2026-10-12（账 `A1617`）：出手那一处「带 `landing` ⇒ 取消这一记」也已做完** ——
+        ///   位置 = **开舱之后** · 闸 = **这一次真的开了舱**（`OpenDropPod` 返回 `bool`，
+        ///   原版那两跳在同一个 `has dropPod` 分支里）· 「取消」= **最小档**
+        ///   （`return OK`、不落伤害、**不撤事件 / 不撤替身** —— **这是我们挑的**）。
+        ///   判据全文 → `KeywordTable.Landing` 的 doc 与 `RuleCore.DeclareAttack`。
         ///
         /// ⚠️ **出手那一处的次序也要一起读**（本段原来没写，容易读成「开舱就一定会打」）：
         ///   `BattleManager._ResolveAttack…:359-379` = `RemoveDropPod(card, 0)` → 判
@@ -3529,10 +3563,17 @@ namespace RuleEngine
         /// **我们这边的落点**：<see cref="RuleCore.OpenDropPod"/> —— 它摘掉 `DropPod` 之后
         ///   调 `FireTriggerAlways(…, Landing, …)`（原版 `OnTrigger(0x1b8)` 是**直接调**的，
         ///   「这张卡有没有那条 ability」不影响它被发出来）。
-        ///   ⚠️ **仍然没做的那一半**（如实标着，⛔ 别当它做完了）：上面「**带 `landing`
-        ///   ⇒ 取消这一记**」—— 账 `A1395②` 记着它「要先定『同步模型下怎么表达』」
-        ///   （原版那一下发生在**协程 `yield` 之后**，我们的 `DeclareAttack` 是同步一把跑完的）。
-        ///   判据全文与两条理由写在 `RuleCore.DeclareAttack` 里 `OpenDropPod` 那一段的注释里。
+        ///   ✅ **2026-10-12（账 `A1617`）「取消这一记」也做完了**（`W2` 落地 · `RuleEngineTest.Run` 5246/5246 全绿）：
+        ///   · **位置** = **扣配额 / 现身 / 失去伪装之后**（原版那一跳在协程 `yield` 之后 ⇒
+        ///     与 `abouttoabouttoattack` 那条**相反**）；
+        ///   · **闸 = 「这一次真的开了舱没有」**（`RuleCore.OpenDropPod` 改返回 `bool`）——
+        ///     原版那两跳在**同一个 `has dropPod` 分支**里 ⇒ **只带 `landing`、不带 `dropPod` 的卡照常打**；
+        ///   · **「取消」= 最小档**：`return RuleCodes.OK`、**不落任何伤害**，
+        ///     **⛔ 不撤 `EvtKind.Attack` / 不撤替身重定向**（同族先例 `TryCancelAttackByOwnAboutToAttack`
+        ///     已定过这一档；撤事件会同时动**日志 / 录像 / AI** 三处，而**判据为空**
+        ///     ⇒ **这是我们挑的，不是原版的做法** —— 铁律 3）。
+        ///   落点 = `RuleCore.DeclareAttack` 里 `openedPod` 那一段（判据全文在那儿）；
+        ///   ⚠️ 今天全池 **0 张**卡带 `landing` ⇒ 不可观测（铁律 11：不是「不做」）。
         ///
         /// **为什么必须登记进 `Prefixes` / `RoutableTriggers` / `BodyKeywords` / `Implemented`**：
         ///   · `Prefixes` 没有 ⇒ `Normalize` 返回 null ⇒ `CardDef` 构造函数**静默丢弃**

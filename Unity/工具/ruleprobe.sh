@@ -51,6 +51,17 @@ if [ "$build_rc" -ne 0 ]; then
   tail -n 40 "$BUILD_LOG"
   echo '   ⚠️ 先看那些 error 落在【哪个文件】：若是**别人正在写的**源码（本工程多写手并行），那不是你的问题；'
   echo '      但它一律算「本次读数不可信」—— 等构建通过再跑。'
+  # 🔴 **2026-10-12 补（`A1478`）：失败现场点名一个【最容易被误读】的错因。**
+  #   症状：`error CS0103: 当前上下文中不存在名称"UnityEngine"` **全落在 `RuleEngine/Core/*.cs`**。
+  #   那不是引擎坏了，是**桩没了** —— `ruleprobe.csproj` 的编译项里少了 `Stub.cs`
+  #   （`Core/` 里至今仍有 **18 处**裸用 `UnityEngine.Debug`，分布在 **6 个文件**；
+  #   实测拿掉桩就是那 18 个错。逐处清单与订正痕 → `ruleprobe.csproj` 末尾那段注释）。
+  #   ⚠️ 只是**多打一句提示**（这一支本来就已经 `exit 1` 了）⇒ 不改语义、不新增失败面；
+  #      ⛔ 也**不许**在这里「自动帮人把 Stub.cs 加回去」（那会把「有人动了编译项」这件事静默吞掉）。
+  echo '   ℹ️ 若那些 error 是 `CS0103 …名称"UnityEngine"` 且**全落在 `RuleEngine/Core/*.cs`** ——'
+  echo '      那不是引擎坏了，是 `ruleprobe.csproj` 的编译项里**少了 `Stub.cs`**（离屏桩）：'
+  echo '      `Core/` 里至今仍有 18 处裸用 `UnityEngine.Debug`（6 个文件）⇒ 没有桩就编不过。'
+  echo '      逐处清单/判据 → `ruleprobe.csproj` 末尾那段注释（`A1478`）。'
   rm -f "$BUILD_LOG"
   exit 1
 fi

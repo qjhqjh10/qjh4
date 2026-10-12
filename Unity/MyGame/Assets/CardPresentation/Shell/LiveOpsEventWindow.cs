@@ -1120,36 +1120,25 @@ namespace CardPresentation
         {
             int mode = DeckGameMode;
             string name = CollectionData.CreateDeck(mode);
-            // 空串 = **没写进存档**（A503 的口径；原因已由 `CollectionData` 自己 `LogWarning` 过一次）
-            // ⇒ 这一支里 `IndexOf("")` 恒 −1。两个失败（**没建出来** / **建出来了没选中**）要分开说，
-            //   不能都塞进 `Select` 的返回值 —— 那会把「压根没建」报成「选中失败」（W-Small3 §六·1 点名的抄法）。
+            // 🔴 **2026-10-12（`A1697`）改向（铁律 5：原文留痕）**：这里原来还有一整段「下标交接」逻辑
+            //   （`IndexOf(name)` → `Select(idx)` → `PendingEditDeck = idx`，外加「没选中 / 没写进存档」两条警告，
+            //   出处见 `资料/普查产出_第二十三会话/R1_没选战将的卡组.md` §二）。
+            //   **它随着原版那条链一起作废了**：`CollectionData.CreateDeck` 自 A1697 起**不入库**
+            //   （照原版 `SelectDecksTab__CreateDeck.c:17,26,28`）⇒ 新卡组在库里**没有下标**、`IndexOf(name)` 恒 −1，
+            //   照旧写下去会让编辑器**跳进别的卡组**（= 静默开错牌）。现在交接的是**那份对象本身**
+            //   （`CollectionData.PendingNewDeck`，由 `CreateDeck` 写好）—— 本口**一个字段都不用再写**。
             bool created = !string.IsNullOrEmpty(name);
-            int idx = created ? CollectionData.IndexOf(name) : -1;
-            if (created)
-            {
-                // 新卡组即选中（`DeckLibrary.Create` 本来就把它置成 current）；返回值照 A600 的口径**要读**
-                if (!CollectionData.Select(idx))
-                    Debug.LogWarning("[Event] 新建的卡组「" + name + "」**没选中**：" + CollectionData.LastSelectError
-                                     + "（⚠️ 进编辑器后打开的**不是**这一副）");
-                CollectionData.PendingEditDeck = idx;
-            }
-            else
-            {
-                // 「新建失败」这一支**行为是良性的**（W-E4 §六·4 静态核过、W-Small3 §六·1 复核：
-                // `DeckLibrary.Create` 已经把 `_current` 置成刚建那套 ⇒ 不吃交接就落 `Library.Current` = **同一副**）
-                // ⇒ **不改玩家可见流程**（照旧进编辑器、不拦；同 A609 的裁定），但**要出声**（红线：不许静默失败）。
-                // ⚠️ `PendingEditDeck` 照旧**显式清成 −1**：⛔ 别省这一步 —— 留着上一次的旧下标会跳进**别的**卡组。
-                CollectionData.PendingEditDeck = -1;
-                Debug.LogWarning("[Event] 新建卡组**没写进存档**（内存里那套还在、进编辑器后打开的**就是它**；"
-                                 + "重启就没了）⇒ 照旧进编辑器，但**不交接下标**"
-                                 + "（`DeckRuntime` 落 `Library.Current` = 刚建那套，与交接同一副）");
-            }
+            CollectionData.PendingEditDeck = -1;   // ⛔ 显式清：留着上一次的旧下标会跳进**别的**卡组
+            if (!created)
+                Debug.LogWarning("[Event] 新建卡组**没造出来**（⛔ 库里一套都没多、编辑器也拿不到它）"
+                                 + " —— 见上一条 `[CollectionData]` 警告，⛔ 别在这里另写一套原因");
             Debug.Log("[Event] 新建卡组" + (created ? "「" + name + "」" : "（⚠️ 名字拿不到、见上一条警告）") + "· 模式 "
                       + (mode == (int)GameMode.Skirmish ? "遭遇 Skirmish（12 张）" : "经典 Classic（30 张）")
                       + "（照原版 `SelectDecksTab.CreateDeck`：**建组这一刻定模式**，之后没有改的路径）"
-                      + " ⇒ 进卡组编辑（交接下标 " + idx + "）");
-            // 🆕 2026-10-18（A855）：**这条来路的回程意图**（全仓仅有两处 `LoadScene("DeckEditor")`，
-            //   这是**第二处**）—— 「来源由入口决定、不由离场方式决定」⇒ 写在**进编辑器**这一刻，
+                      + " ⇒ 进卡组编辑（交接的是那份**未入库**的新卡组：**Done 过了校验才入库**）");
+            // 🆕 2026-10-18（A855）：**这条来路的回程意图**
+            //   （🔴 **2026-10-12（`A1697`）就地订正（铁律 5）**：原文写「全仓仅有两处 `LoadScene("DeckEditor")`，
+            //    这是**第二处**」—— **现在是三处**，第三处 = `Shell/CollectionWindow.GoNewDeck`；本处仍是第二处）—— 「来源由入口决定、不由离场方式决定」⇒ 写在**进编辑器**这一刻，
             //   ⛔ 别挪到 `DeckRuntime.BackToMenu` 去；⚠️ 写在批处理闸**之前**（批处理不切场景，
             //   自检只能靠这个意图观测）。⚠️ 回程**今天开不了这扇窗** —— 本地没有事件数据
             //   （理由逐条 → `MainMenuRuntime.Build` 里那一段）⇒ 只记来源，那一跳还开着。

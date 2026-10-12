@@ -981,7 +981,21 @@ namespace CardPresentation
             // 🔴 **「从收藏进编辑」的交接**（2026-09-23）：收藏窗点「编辑」时把下标写进
             //    `CollectionData.PendingEditDeck`，这里**开局就读掉并清掉** ⇒ 编辑器直接打开那一套。
             //    （原版在同一扇窗里换页、不需要交接；我们是两个场景 —— 见 `资料/阶段二_卡组线_原版规格.md` §七。）
-            if (CollectionData.PendingEditDeck >= 0)
+            //
+            // 🔵 **2026-10-12（`A1697`）多了一条交接口（`PendingNewDeck`）**：**新建卡组不进库**
+            //    （照原版 `SelectDecksTab__CreateDeck.c:17,26,28` ⇒ 库里**没有下标**）⇒ 那条路交接的是
+            //    **一份还没入库的卡组对象**。两条口**互斥**（写新那条的一拍会把旧下标清成 −1）。
+            //    ⚠️ **先读新的那条**：`_newDeck` 本身就是「这一扇窗编辑的是一份**尚未入库**的东西」这一状态
+            //    —— 下面 `CommitDeck()` 靠它决定走「**入库**」还是「写回当前选中那一套」。
+            var freshDeck = CollectionData.TakePendingNewDeck();
+            _newDeck = freshDeck;
+            if (freshDeck != null)
+            {
+                Debug.Log("[Deck] 新建卡组进来 ⇒ 打开**尚未入库**的那一副「" + freshDeck.Name + "」"
+                          + "（模式 " + freshDeck.GameMode + "）—— 照原版：`Done` 过了校验才入库");
+                CollectionData.PendingEditDeck = -1;   // ⛔ 防呆：两个交接口不许同时生效
+            }
+            else if (CollectionData.PendingEditDeck >= 0)
             {
                 int want = CollectionData.PendingEditDeck;
                 CollectionData.PendingEditDeck = -1;
@@ -996,7 +1010,8 @@ namespace CardPresentation
             // 🔴 **A397（2026-10-13）**：`LoadDeck` 装的是**副本**（原版 `DeckEditingWindow__TryOpen.c:41-45`
             //    的 `new CardDeck` + 拷贝构造）⇒ 从这里往下，编辑器改的**都不是** `Library.Current` 那个对象；
             //    库里那份只在 `CommitDeck()`（= `Done`/`ESC`）那一拍被整份拷回去。
-            State.LoadDeck(Library.Current);
+            // 🔴 **A1697**：新建那一路装的是 `PendingNewDeck`（还没入库的那一副）—— 同一个「装副本」语义。
+            State.LoadDeck(freshDeck != null ? freshDeck : Library.Current);
 
             BuildAreaBackground();
             BuildTopBar();
@@ -4100,7 +4115,9 @@ namespace CardPresentation
         /// 🔴 **2026-10-12（A399）**：本方法**只离场、不保存**（原来这里写「『返回』= **存盘之后**离场」——
         /// 关闭钮按原版改成 `TryClose` 之后**不再保存**，见 <see cref="TryClose"/>）。
         /// 🔴 **2026-10-18（A855）「按来路回」**：来路（= 从哪扇窗进的编辑器）由**入口**写进
-        /// `CollectionData.SetReturnIntent` —— 全仓**仅有**的两处 `LoadScene("DeckEditor")` 就是那两个入口
+        /// `CollectionData.SetReturnIntent` —— 🔴 **2026-10-12（`A1697`）就地订正（铁律 5）**：下面这句原来写
+        /// 「全仓**仅有**的两处 `LoadScene("DeckEditor")`」—— **现在是三处**（`A1697` 新开的
+        /// `CollectionWindow.GoNewDeck` 是第三处，同样写 `Collection`）。
         /// （`CollectionWindow.GoEdit` 写 `Collection` · `LiveOpsEventWindow.CreateDeckInMode` 写 `LiveOpsEvent`）。
         /// ⛔ **不由离场方式决定**：下面那三处调用点（① 关闭钮干净那一支 ②「丢弃改动」那颗左钮
         /// ③ `A364` 那扇不合法窗的左钮）都只是「**关闭这条路上的编辑器**」，它们分不出来路。
@@ -4477,7 +4494,11 @@ namespace CardPresentation
         /// （A364 ⑥ 那三条 + A399 ③ 那两条）红。</para></summary>
         void RollBackEditingCopy()
         {
-            State.LoadDeck(Library.Current);     // 逐格拷库里那份（= A397 起编辑器的「装机」那条路）
+            // 🔴 **2026-10-12（`A1697`）**：新建那一路**库里没有对应的一套** ⇒ 回滚的目标是 `_newDeck`
+            //    （= 原版开窗时传进来那一副、窗的 `+0x40`）。⚠️ **不能回退成 `Library.Current`** ——
+            //    那会把**别的一套**（当前选中）当成「这一副的原样」贴进编辑器。
+            //    ⚠️ **不清 `_newDeck`**：清了之后再按 `Done` 会走 `CommitCurrent` → 把内容写进库里**当前选中**那一套（别人的卡组）。
+            State.LoadDeck(_newDeck != null ? _newDeck : Library.Current);
             DeckDirty = false;                   // 内容与库逐字节相同 ⇒ 不脏（与 `CommitDeck` 成功那一支同义）
             RefreshAll();                        // 批处理没有帧循环 ⇒ 视图要显式跟上
         }
@@ -4779,6 +4800,17 @@ namespace CardPresentation
             // 🆕 **A547**：`Add` 的落盘**是可能失败的**（A398 起它走 `SaveOrWarn`）⇒ 结果**只在这里读一次**，
             //    下面两处都看这一个布尔（⛔ 别在第二处再读一遍 `LastError`：中间任何一次落盘都会把它重写）。
             bool persisted = Library.LastError == null;
+            // 🔴 **2026-10-12（`A1697`）**：导入会把编辑对象**换成库里那一副**（下一句 `LoadDeck(Library.Current)`）
+            //    ⇒ 那份「还没入库的新卡组」**就此放弃**。⛔ 不清它的话：`State.Deck` 已经是导入的那副，
+            //    而 `CommitDeck` 会照着 `_newDeck` 把**导入的那副内容**插进库（名字还是新卡组那个）—— 一次 `Done` 出两套。
+            //    ⚠️ **出声**（红线：不许静默失败）：原版导入入口在**选卡组页**（`SelectDecksTab__ImportDeck`）、
+            //    不在编辑窗里（本窗这个导入标是我们多画的）⇒ 没有现成的界面位可占，只落日志。
+            if (_newDeck != null)
+            {
+                Debug.LogWarning("[Deck] 导入卡组 ⇒ **放弃**那份还没入库的新卡组「" + _newDeck.Name + "」"
+                                 + "（编辑对象换成刚导入的那一副；那份新卡组**一个字节都没进过存档/库**）");
+                _newDeck = null;
+            }
             State.LoadDeck(Library.Current);
             // 🆕 A363 + A547：脏标记跟着换对象 —— 刚落过盘 ⇒ 清；**没落盘 ⇒ 留着**（下次 `Done` 再写一次）
             DeckDirty = !persisted;
@@ -5654,10 +5686,51 @@ namespace CardPresentation
             EndDrag(rowGo.transform.position.x);       // 没动过 ⇒ 走「点击」那一支
             return true;
         }
-        /// <summary>放大窗现在开着没有（`UiClickDeckRow` / 池卡左键都会开它）。</summary>
-        public bool UiCardWindowVisible { get { return _cardWindow != null && _cardWindow.Visible; } }
-        public string UiCardWindowTitle { get { return _cardWindow != null ? _cardWindow.ShownTitle : null; } }
-        public void UiCloseCardWindow() { if (_cardWindow != null) _cardWindow.Hide(); }
+        /// <summary>放大窗现在开着没有（`UiClickDeckRow` / 池卡左键都会开它）。
+        /// 🔴 **2026-10-12（`A1698`）换口**：原来读的是战斗版那扇自己的 `Visible`（`CardDisplayWindow`）；
+        /// 现在那扇换成了菜单版 `Shell/CardDetailPopup`（= `GameWindow`）⇒ 改读它的 `CurrentState`
+        /// （`Closed` = 没开；`Open` / `Background` 都算「在场」—— 同原版 `Hide()` 把它藏起来时也只是不在最上面）。
+        /// ⛔ 不要改成 `gameObject.activeSelf`：`Hide()` 与 `Close()` 都会同时写 state 与激活态，但那是**实现细节**，
+        /// 而 `CurrentState` 才是这扇窗**对外承诺的状态**。</summary>
+        public bool UiCardWindowVisible { get { return _cardWindow != null && _cardWindow.CurrentState != WindowState.Closed; } }
+
+        /// <summary>放大窗里现在展的是哪一张（卡面上印的那个名字，同 `CardText` 那一条口径）。
+        /// 🔴 **2026-10-12（`A1698`）换口**：原来读的是 `CardDisplayWindow.ShownTitle`（那扇自己算好存起来的）。</summary>
+        public string UiCardWindowTitle
+        {
+            get
+            {
+                var c = _cardWindow != null ? _cardWindow.Card : null;
+                return c != null ? CardText.Name(c.Name, c.NameZh) : null;
+            }
+        }
+
+        /// <summary>🔴 **2026-10-12（`A1698`）新开**：菜单版详情窗**右侧那一列**现在建出来了几件
+        /// （数的是这三个节点：`Card Counter` / `Wildcard Count 0` / `AltArt Title`）。
+        ///
+        /// <para>**为什么靠它断「开的是哪一版」**：原版两处摆放共用**同一个脚本**，差别就在 `options`
+        /// 这一棵子树——菜单版非 null、竞技场 13/13 全 null（我们这边 = `Battle/CardDisplayWindow.cs:16-22`）
+        /// ⇒ **战斗版摆放那扇恒 0**。判据全文 → `资料/普查产出_第二十三会话/R4_详情窗右侧与异画.md` §三。
+        /// ⚠️ **按节点名数、不看 `activeSelf`**：异画面板在「这张卡没有异画」时是**建了但关着**（原版 `AlternateArtPanel__Initialize.c:33`）。</para></summary>
+        public int UiCardWindowRightColumn
+        {
+            get
+            {
+                if (_cardWindow == null) return 0;
+                int n = 0;
+                foreach (var t in _cardWindow.GetComponentsInChildren<Transform>(true))
+                    if (t.name == "Card Counter" || t.name == "Wildcard Count 0" || t.name == "AltArt Title") n++;
+                return n;
+            }
+        }
+
+        /// <summary>关掉放大窗（同玩家点压暗层 / 按 ESC）。
+        /// 🔴 **2026-10-12（`A1698`）换口**：原来是 `_cardWindow.Hide()`（那扇不是 `GameWindow`、不在
+        /// `WindowsManager.openWindows` 里）；现在这扇**是** `WindowsManager` 的窗 ⇒ 必须走 `Close()`。
+        /// ⚠️ **别换回 `Hide()`**：`Hide()` **不摎表**（同 `HideAllWindows` 的语义）⇒ 它留在 `openWindows` 里，
+        /// 后面任何一次 `ShowPreviousWindow`（关掉别的窗时发生）都会**把它又叫回来**（实测：
+        /// `Editor/DeckScene.cs` 的 B25 那一节开/关一扇设置窗 ⇒ 已关的详情窗弹回来）。</summary>
+        public void UiCloseCardWindow() { if (_cardWindow != null) _cardWindow.Close(); }
 
         void ToggleFilters()
         {
@@ -6850,24 +6923,85 @@ namespace CardPresentation
         /// **按下标提交** —— 那是比这笔账大得多的一次改向。
         /// ⚠️ **这条裁定会过期**：谁将来真在编辑器生命周期里调了 `Library.Select`（或别的会挪 `_current`
         /// 的口），就按原版改成「写回开窗那一副」（守卫或按下标提交），⛔ 别当成「已经不用管了」。</para>
+        ///
+        /// <para>🔴 **2026-10-12（`A1697`）就地订正（铁律 5）：上面那条 A566 裁定【已作废】。**
+        /// **错因 / 废止理由**：那条裁定的前提是「**新建卡组也走 `_current`**」—— 它把「写回哪一副」这件事
+        /// 简化成「编辑期间 `_current` 不变」，于是「按下标提交」看着可以不做。而**原版根本不是那样**：
+        /// 新建的卡组**压根不在库里**（`SelectDecksTab__CreateDeck.c` 从不入库，下标从头到尾没有过），
+        /// `Done` 那一拍走的是**入库**（`__TrySaveDeck.c:100 UploadDeck` → `UploadUnsyncedDeck`）、**不是**「写回当前选中」。
+        /// ⇒ 用户 2026-10-12 拍板**按原版复刻** ⇒ 本条裁定**作废**，`DeckLibrary` 这一笔**照改**
+        /// （加了 `NewUnsaved` / `Insert` 两个口）；而写回的那一副由 `_newDeck` **显式钉住**（= 原版 `window + 0x40` 那一副），
+        /// ⛔ 不再依赖「`_current` 恰好没变」这个巧合。
+        /// ⚠️ **旧裁定里仍然成立的那半**：「编辑期间 `_current` 不变 ⇒ `CommitCurrent` 写的就是开窗那一副」
+        /// —— 那一半**照旧成立**（`DeckRuntime` 仍然只在 `Build` / `TryImport` 里动 `Library.Select`），
+        /// 只是它现在**只覆盖「编辑库里已有的卡组」那一条路**。</para>
         /// </summary>
         public bool CommitDeck()
         {
+            // 🔴 **2026-10-12（`A1697`）**：新建那一路（`_newDeck != null`）走的是**入库**，
+            //    照原版 `DeckEditingWindow__UploadDeck.c`（`:63 CardDeck__CopyDeck` → `:74 UploadUnsyncedDeck`）
+            //    —— ⛔ **不是** `CommitCurrent`（那会把内容写进**当前选中**那一套；全新的卡组压根没有下标记得自己）。
+            if (_newDeck != null)
+            {
+                bool ins = Library.Insert(State.Deck);
+                // ⛔ **无论落盘成败都要翻篇**：`Insert` 已经把它加进 `_decks` 了（同 `Create` 的语义：
+                //    内存里留着 + `LastError` 说得出原因）⇒ 不清 `_newDeck` 的话下一次 `Done` 会**再插一遍**
+                //    （库里两套同名，静默）。
+                _newDeck = null;
+                // ⚠️ 换回「副本」形态（保住 A397 那条不变式：`State.Deck` 与库里那一份是**两个对象**）
+                //    —— 否则从这一刻起编辑器改的就是**库里那个对象本身**，任何库级 `Save()` 都会把未 `Done` 的改动顺手写盘。
+                State.LoadDeck(Library.Current);
+                DeckDirty = !ins;        // 没落盘 ⇒ 仍然算脏（下次 `Done` 还会再试一次，同 A547 的口径）
+                RefreshAll();            // 批处理没有帧循环 ⇒ 视图要显式跟上
+                RefreshHeader();
+                return ins;
+            }
             bool ok = Library.CommitCurrent(State.Deck);
             if (ok) DeckDirty = false;
             RefreshHeader();
             return ok;
         }
 
-        CardDisplayWindow _cardWindow;
+        /// <summary>🔴 **2026-10-12（`A1697`）**：这一扇窗编辑的是哪一副？
+        /// `null` = 编辑库里已有的那一套（`CommitDeck` → `CommitCurrent`）；
+        /// **非 null** = 一副**还没入库**的新卡组（→ `CommitDeck` 走 **`Insert`** = 原版 `UploadUnsyncedDeck`）。
+        /// 判据 → `SelectDecksTab__CreateDeck.c:17,26,28`（新建**不入库**）与 `CommitDeck` 里那段。</summary>
+        PlayerDeck _newDeck;
+
+        /// <summary>卡组编辑里点一张卡开的详情窗。
+        ///
+        /// <para>🔴 **2026-10-12（`A1698`）改向（铁律 5：原文留痕）** —— 这里原来写的是
+        /// 「复用**对战**的放大窗（查证：原版放大窗与战斗里那个是同一套 `CardDisplayWindow`）」。
+        /// **那句话只对了一半，而且正是这次踩坑的源头**：原版确实是**同一个脚本**，
+        /// 但**两处摆放的 `options` 不同** —— 菜单版那扇的 `options` 非 null，而竞技场里 13/13 全是 `null`
+        /// （我们这边 = `Battle/CardDisplayWindow.cs:16-22`）。原版卡组编辑**硬编码**要走**有 options 的菜单版**：
+        /// `DeckEditingWindow__OpenCardInformation.c:56-58` 那句
+        /// `CardDisplayWindow__ShowCard(win, card, tier, **1**(= showOptions), 0, …)`；
+        /// 而 `CardDisplayWindow__ShowCard.c:159` 的守卫是 `options != null && card.field_0x4c == 0`
+        /// ⇒ `:163 GameObject.SetActive(1)` + `:165 CardDisplayOptions__Initialize`（那一列 = 创建副本 / 升级 /
+        /// 异画 / 计数 / 通配符）。⇒ **用户看到「右边那里没有了」的直接原因就在这一句**。
+        /// 诊断全文 → `资料/普查产出_第二十三会话/R4_详情窗右侧与异画.md` §二(b)。</para>
+        ///
+        /// <para>⚠️ **改成调 `Shell/CardDetailPopup`**（= 我们的菜单版那一扇，收藏窗点卡走的也是它，
+        /// 判据 → `Shell/CollectionWindow.OpenCardDetail`）—— 它是 `WindowsManager` 的一扇窗，所以要走
+        /// `EnsureHost()` + `OpenWindow`（同 `ShowDiscardChangesPopUp` 那条先例；⛔ 别把它建到 `_root` 底下
+        /// —— 同那里的理由：会被「所有可见 quad 都在可见区内」那类断言扫进去）。
+        /// ⛔ **不改 `CardDetailPopup` 一个字节**（另有一个写手在改它）—— 只调它**既有的公开入口**。</para></summary>
+        CardDetailPopup _cardWindow;
+        WindowsManager _cardWinHost;
 
         void OpenCardWindow(CardDef def)
         {
             if (def == null) return;
-            // 复用对战的放大窗（查证：原版放大窗与战斗里那个是同一套 `CardDisplayWindow`）
-            if (_cardWindow == null) _cardWindow = CardDisplayWindow.Create(Root);
-            // 🆕 2026-09-28：**把卡表项一起传进去** —— 相关卡那一叠要按它算（判据 → `RelatedCards`）
-            _cardWindow.Show(BattleDriver.ToCardData(def, def.Faction), def);
+            if (_cardWinHost == null) _cardWinHost = WindowsManager.EnsureHost();
+            if (_cardWindow == null)
+            {
+                _cardWindow = CardDetailPopup.Create(_cardWinHost);
+                _cardWinHost.OpenWindow(_cardWindow);
+            }
+            // 🆕 2026-09-28：**把卡表项一起传进去** —— 相关卡那一叠要按它算（判据 → `RelatedCards`）。
+            //    ⚠️ 换卡靠 `ShowCard` 里那句**显式 `Build()`**（同窗再开不会重建内容）—— 判据 → 它的 doc。
+            _cardWindow.ShowCard(def);
         }
 
         // ============================================================ 命中判定

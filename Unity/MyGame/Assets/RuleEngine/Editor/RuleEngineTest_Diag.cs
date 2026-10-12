@@ -74,7 +74,8 @@ public static partial class RuleEngineTest
         "TestA1564AboutToAttackCancel", "TestA1564StealthExpiryAfterDropPod", "TestA1564BastionFullAbsorbBroadcasts", "TestA1564InsteadTargetCarry", "TestA1562KeywordTriggerSelfExclusion", "TestA1562SelfExclusionNullPair",
         "TestA1574SwarmSubject", "TestA1576SacrificeOrder", "TestA1563VulnerableDamageSplit", "TestA1566LandingAndAboutToAttackRegistration", "TestA1462NonKeywordTargetFilter", "TestA1606TurnStartForceAttack",
         "TestA1631HalfUnderstoodTriggerBody", "TestA1632EachTurnAttackOnOpponentTurn", "TestA1455DeployNamedTroop", "TestA1600SelfFatalHitHeard", "TestA1468BatchAllEnemiesHitsStealth", "TestA1600DyingListenerExcluded",
-        "TestA1468SingleTargetStealthGate",
+        "TestA1468SingleTargetStealthGate", "TestS23ParseWhenPrefix", "TestS23ParseCostWhenInstead", "TestS23AssertImplementedReadSites", "TestS23AssertA1413PayGroup", "TestS23ResolveDeployCopyOfThisTroop",
+        "TestS23ResolveInsteadOnAbilityLayer", "TestS23ResolveInsteadConditionalNotPairedOnAbilityLayer", "TestS23ResolveLandingCancelsAttack",
     };
 
     // 本次诊断真正跑过的用例（顺序同 `RunCaseNames`）—— 只给对账用
@@ -448,6 +449,14 @@ public static partial class RuleEngineTest
         Safe("TestA1468BatchAllEnemiesHitsStealth", () => TestA1468BatchAllEnemiesHitsStealth());
         Safe("TestA1600DyingListenerExcluded", () => TestA1600DyingListenerExcluded());
         Safe("TestA1468SingleTargetStealthGate", () => TestA1468SingleTargetStealthGate());
+        Safe("TestS23ParseWhenPrefix", () => TestS23ParseWhenPrefix());
+        Safe("TestS23ParseCostWhenInstead", () => TestS23ParseCostWhenInstead());
+        Safe("TestS23AssertImplementedReadSites", () => TestS23AssertImplementedReadSites());
+        Safe("TestS23AssertA1413PayGroup", () => TestS23AssertA1413PayGroup());
+        Safe("TestS23ResolveDeployCopyOfThisTroop", () => TestS23ResolveDeployCopyOfThisTroop());
+        Safe("TestS23ResolveInsteadOnAbilityLayer", () => TestS23ResolveInsteadOnAbilityLayer());
+        Safe("TestS23ResolveInsteadConditionalNotPairedOnAbilityLayer", () => TestS23ResolveInsteadConditionalNotPairedOnAbilityLayer());
+        Safe("TestS23ResolveLandingCancelsAttack", () => TestS23ResolveLandingCancelsAttack());
 
         VerifyDiagCoverage();
 

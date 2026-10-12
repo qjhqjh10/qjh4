@@ -645,7 +645,12 @@ namespace CardPresentation
         /// （值照原版），⛔ 别再写一张 `switch`。</para></summary>
         public static void SetNavToggle(NavigationPanelToggleType type)
         {
-            var rt = Instance;
+            // 🔴 **2026-10-12（第二十三会话 `D-M1` 诊断）：改走 `InstanceOrFind()`**（原来直读 `Instance`）。
+            //   为什么：`Instance` 唯一赋值点在 `Awake`，而本类**没有 `[ExecuteAlways]`** ⇒ **编辑模式（自检）里恒 null**
+            //   ⇒ `SetNavToggle` 第一句就 `return` ⇒ 自检那条「恰好某一颗亮」永远红的（且是**假红**：实现没坏、是取不到实例）。
+            //   同文件 `EscapePressed`（`:1041` 附近）**早就走 `InstanceOrFind()`**，这里当时漏了 ⇒ 两处写法不一致。
+            //   ⚠️ **运行期零可观测差异**：没有主菜单的场景里 `FindFirstObjectByType` 照样返回 null ⇒ 仍「无事可做」。
+            var rt = InstanceOrFind();
             if (rt == null) return;                  // 不在主菜单场景 ⇒ 没有左竖导航可点（正常，不是失败）
             rt.LightNavToggle(type);
         }
@@ -1044,8 +1049,10 @@ namespace CardPresentation
         /// <summary>`Instance` 没有就现找一台。
         /// 🔴 **编辑模式下 `Awake` 不跑**（只对 `[ExecuteAlways]` 的脚本跑，本类不是）
         /// ⇒ 自检里 `Instance` 可能是 null（本类原来只有 `Awake` 那一处赋值）。
-        /// 写法与 `PointerLayer.Instance` 同一条：**惰性取用、不依赖任何生命周期回调**。</summary>
-        static MainMenuRuntime InstanceOrFind()
+        /// 写法与 `PointerLayer.Instance` 同一条：**惰性取用、不依赖任何生命周期回调**。
+        /// 🆕 **2026-10-12 改成 `public`**：自检（`Editor/MainMenuScene.cs`）要拿它断「解析到的是本台」——
+        ///   ⛔ 别再让调用方各自写一遍 `Instance ?? FindFirstObjectByType`（两处写同一条规则 = 迟早不一致）。</summary>
+        public static MainMenuRuntime InstanceOrFind()
         {
             if (Instance != null) return Instance;
             return Object.FindFirstObjectByType<MainMenuRuntime>();

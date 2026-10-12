@@ -92,6 +92,12 @@ public static class CardFaceProbe
         "Beacon of Faith",       // `SOR44` —— `W7`③ 卡面：`4 ⟨金太阳⟩: …`（**图标与冒号之间没有空格**）／ `7 ⟨金太阳⟩ : …`（**有空格、句尾无句号**）
         "Trial of Suffering",    // `SOR49` —— `W7`④ 卡面：`2 ⟨金太阳⟩: Give it ⟨银盾⟩Armour 2 instead`
         "Imperial Creed",        // `SOR59` —— `W7`⑤ 卡面：`⟨螺旋⟩Stun three random enemies.` ／ `4 ⟨金太阳⟩: Refill 3 Energy`
+        // ── 🆕 2026-10-12（第二十三会话 · `A1687`）加：**「正文为空、只有关键词」那一格** ──
+        //    来由：`BattleDriver.FaceTextFull` 原来在【正文为空】时**提前 return**，把关键词段整段吞掉。
+        //    原版卡面确实有这种卡 —— 现扫全池 1126 张只有 `GOF12 Hornhelmz Boy` 是这样
+        //    （`desc`/`descZh` 双空、`keywords:["Tide 2"]`）。PnP 成品卡 `Orks/3部队/Warpforge_12_Hornhelmz-Boy.png`
+        //    的效果区**只有 `Tide 2` + 图标** ⇒ 这张就是「关键词段有没有画出来」的尺子（与 `Howling Banshee` 同一类）。
+        "Hornhelmz Boy",         // `GOF12` —— 修前卡面效果区**整片空白**；修后应画出 `Tide 2`
     };
 
     // ==================================================================

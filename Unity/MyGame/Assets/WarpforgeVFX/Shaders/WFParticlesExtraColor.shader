@@ -162,11 +162,28 @@ Shader "WarpforgeVFX/Particles/Extra Color"
                 //      → 改后 `…_1002h.tsv`）**：`>0.10` **15 → 126** · `>0.30` **1 → 49** ·
                 //      最差一批从 0.000 直接跳到 0.44–0.61（`BulletImpact_AcidSpit` · `Psychic_Lightning_*` ·
                 //      `Relentless Fusillade` · `Buff_Tau_Kroot_FriendlyBoard` · `CreateCard EC Elixir` …）。
-                //    · ⇒ **2026-09-19 那个「`_Color` 不参与颜色、要去掉」的结论是对的**，
-                //      这一版留原样（**不乘 `_Color`**）。
-                //    ⚠️ **仍未查清**：既然 VS 里那条乘法真实存在，**那 `cb2[1]` 就一定不是喂给最终颜色的那一份**，
-                //      或者 PS 乘的**不是** o2 那个插值器。要坐实得把 `Extra Color` 的 PS 也逐条读出来
-                //      —— **记成待办，别照「看着像」再改一次**。
+                //    · ⚠️ 当时记的「**2026-09-19 那个『`_Color` 不参与颜色、要去掉』的结论是对的**」
+                //      与「**仍未查清**：`cb2[1]` 一定不是喂最终颜色的那一份」——
+                //      🔴🔴 **2026-10-12 就地订正（铁律 5 · 第二十三会话把 PS 也逐条读完了）：
+                //      那两句都反了。** 实读判据三条（全文 → `资料/普查产出_第二十三会话/V23_特效ExtraColor的PS读数.md`）：
+                //        ① Unity 序列化反射：VS 的 `UnityPerMaterial` 绑在 **`cb2`**、其 `slot[1]`（off=16）
+                //           的名字索引 4 → **`_Color`**（与 `cb1`=UnityPerDraw · `cb0`=$Globals 逐槽对上）；
+                //        ② **32/32 个 VS 变体**都写 `o2 = LinearToSRGB(cb2[1]) × vcol`（`o2.w = vcol.w × _Color.w`）；
+                //        ③ **Universal Forward 的 12 个 PS 变体**（去重 3 种形状）**全都**把 `v2`（= `o2`）乘进最终色：
+                //           `mul o0.xyz, r0.xyz, v2.xyz` / `mul o0.xyzw, r0.xyzw, v2.xyzw` / 软粒子那支 `r1 = tex*v2`。
+                //      ⇒ **最终色 = `tex × LinearToSRGB(_Color) × vcol`，这一条是坐实的。**
+                //    · 🔴 **但「乘回去 ⇒ A/B 退步」那条实测也不假** —— 它测的**不是这件事**：
+                //      本 shader 在 `WarpforgeShaderMap.Replacements` 里**同时顶了 8 个原版 shader**
+                //      （`Everguild/FX/Extra Color` 741 处 + `Mobile/Particles/{Additive,Alpha Blended}` 582 处
+                //       + `Particles/Standard Unlit` 等），**`_Color` 只对前一族有意义**，
+                //       **对内置族是死值**（那些 shader 认 `_TintColor`）⇒ 乘一次 = 修好一族、弄坏一族。
+                //      而那次用的尺子 `|ln(自建 ÷ 白名单)|` 只对**白名单里的名字**有分辨力，
+                //      `Everguild/FX/Extra Color`（`WarpforgeShaderMap.cs:200-201` 明写「暂缓」）**不在白名单**
+                //      ⇒ 两侧都落到本 shader，那把尺子**看不见这一族的对错**。
+                //    · ⇒ **这一版仍不乘 `_Color`**（保持与内置族一致；单独乘一次正是把内置族弄坏的那一手），
+                //      **但正确的做法已记成待办**：把 `Everguild/FX/Extra Color` 整条**改走原件**
+                //      （原件带字节码、就在随包 `wf_shaders.bundle` 里）或**单开一份自建** ——
+                //      两种做法与判据见上面那份报告 §四。⛔ **别再往这一份 shader 里单独加 `_Color`。**
                 OUT.color      = IN.color;
                 OUT.eyeDepth   = p.positionWS.z;   // 视图空间深度（负值）
                 return OUT;
@@ -208,9 +225,19 @@ Shader "WarpforgeVFX/Particles/Extra Color"
                 //      `mul r1.xyzw, r1.xyzw, v2.xyzw`  /  `mov o0.w, l(1.000000)`
                 //    ⇒ **只乘顶点色 `v2`**；`_Color`（常量缓冲 `cb0[4].x`）**只出现在 `sample_b` 的
                 //    mip-LOD 位置上**，**从不参与颜色计算** ⇒ 我们多乘的那一份就是白加的。
+                //    🔴 **2026-10-12 就地订正（铁律 5）：这一句把两只 cbuffer 认成了一只。**
+                //      PS 里的 `cb0[4].x` 确实是 `sample_b` 的 mip-LOD —— 但它**不是 `_Color`**：
+                //      反射实读 PS 的 `cb0` 是 **`$Globals`**、`slot[4]` = **`_GlobalMipBias`**
+                //      （槽位表逐条 → 上面那份报告 §二·1）。
+                //      **`_Color` 在 VS 的 `cb2[1]`**，它经 `o2`/`v2` **确实喂给最终颜色**。
+                //      ⇒ 那句「从不参与颜色计算」**只对 PS 那一只 cbuffer 成立**，不能推给 `_Color`。
+                //      （正因为这一句，才有了 2026-10-02 那次「不是喂最终颜色的那一份」的误判 ——
+                //        完整订正与三条实读判据 → `资料/普查产出_第二十三会话/V23_特效ExtraColor的PS读数.md`。）
                 //    **它有多大**：741 个材质里 **499 个 `_Color` 是白**（去掉无影响），
                 //    其余 100+ 个是 **2–767 倍**（盘上有 `{r: 766.9961,…}` 的）——
                 //    `Glow Additive Extra Color Soft` 就是 `(4,4,4,1)`。
+                //    ⚠️ **这两个数说的是【材质盘上的值】，不是「原版就用它乘」** ——
+                //      原版乘的是 `LinearToSRGB(_Color)`（2 → 1.276 · 4 → 1.851 · 767 → 16.74）。
                 //    **实测**：逐渲染器隔离（`WFCMP_ISO=all`）显示 `Buff_Tau_Kroot_FriendlyBoard`
                 //    多出来的亮度 100% 来自用这个材质的两个渲染器、且 **9 倍**
                 //    （原版增量 14926 / 我们 132969）。

@@ -692,6 +692,27 @@ public static partial class RuleEngineTest
         Step(TestA1600DyingListenerExcluded);                     // A1600 · 守卫
         Step(TestA1468SingleTargetStealthGate);                   // A1468 · 守卫
 
+        // ============================================================
+        //  🆕 2026-10-12（第二十三会话 · S23 断言）
+        // ============================================================
+        //  三个写手各建了一个 partial 文件（`RuleEngineTest_S23_{Parse,Resolve,Assert}.cs`），
+        //  **一个文件一个写手**（本仓并行规矩）⇒ `Run()` 的挂载由调度台统一做。
+        //  ⚠️ 期望值一律「先查原版反编译 → 再用 `ruleprobe` 实测 → 才写进断言」，
+        //     逐格的读数与红法在各写手报告里（`资料/普查产出_第二十三会话/W{1,2,5}_*.md`）。
+        Section("S23 · 解析层（A1686 前缀形 when 从句 / A1446 `instead` 降费）");
+        Step(TestS23ParseWhenPrefix);
+        Step(TestS23ParseCostWhenInstead);
+
+        Section("S23 · 引擎断言（A1337 `Implemented` 判据落点 / A1590① 付费组行为）");
+        Step(TestS23AssertImplementedReadSites);
+        Step(TestS23AssertA1413PayGroup);
+
+        Section("S23 · 结算层（A1682 `deploy a copy of this troop` / A1685 能力层 `instead` / A1617 `landing`）");
+        Step(TestS23ResolveDeployCopyOfThisTroop);
+        Step(TestS23ResolveInsteadOnAbilityLayer);
+        Step(TestS23ResolveInsteadConditionalNotPairedOnAbilityLayer);
+        Step(TestS23ResolveLandingCancelsAttack);
+
         // ---- 汇总 ----
         int total = _pass + _fail;
         if (_fail == 0)
@@ -7779,12 +7800,41 @@ public static partial class RuleEngineTest
             Check(trap.AtTurnOps[0].Target.Count, 0,
                   "**全体**（`your troops **take**` 是复数动词 —— 单复数从动词看，不靠猜名词）");
         }
-        // ⚠️ 上一条 `When you play a Stratagem, …` 必须**判不认识**：
-        //    不挡的话 `(.+?)` 会把「什么时候」的从句吃成目标，然后在**任何**时候都结算。
+        // 🔴 **2026-10-12（第二十三会话 `F2`）本格：从「判 `Unknown`」改成「钉 `whenclause` 标记 op 的形状」。**
+        //    （⛔ **不是放松判据**；裁定原文 = `资料/普查产出_第二十三会话/DIAG_五条红.md` §二·红 3。）
+        //    **本格原来的写法**（留住原意）：
+        //        「上一条 `When you play a Stratagem, …` 必须**判不认识**：不挡的话 `(.+?)`
+        //          会把「什么时候」的从句吃成目标，然后在**任何**时候都结算。」
+        //    8c-ter（`A1686`）落地之后这一句产出的是一条**标记 op** ——
+        //    `EffectResolver.cs:850` 的 `"whenclause" → DoWhenClauseStub` **只打一行日志**
+        //    ⇒ **没有任何「无条件结算」的路**，上面那条理由已经作废。
+        //    ⇒ 原意改用**可验证的形式**保住：**`Target == null`**（下面那半句）——
+        //       没有目标 ⇒ 就不可能「任何时候都结算」。⛔ 别把这一格改成「反正只打日志就放行」。
+        //    ⚠️ **改前那条路才是坏的那条**：HEAD 对这句产出 **0 条 op**
+        //      （`ruleprobe seg` 实测 `unparsed = 整句`）⇒ `RuleCore.PlayTactic` 拿到空 op 表
+        //      = **扣了费什么都不发生**（本仓红线点名的最难查的一类）。改后至少有 `whenclause` 出声。
+        //    ⚠️ **这一句是真卡**：`GSC_Jammed_Communications`（`Jammed Communications` · tactic ·
+        //      Genestealers 的**破坏卡**，卡面橙字 `Sabotage`）。「判据必须在知道卡类的地方」
+        //      这条原则**没被破坏** —— 它由另外三处继续承载，而且三处都绿：
+        //        · `CardDef.IsHandTrap(CardDef)`（`CardDef.cs:4209`，该卡 = `true`）
+        //        · 本文件反例 ②（搜 `反例：非单位卡的`，现读 `:12720-12723`：
+        //          `HandledByOtherLayer` 对这张卡**返回 null**）
+        //        · `EffectText.Coverage` 的 `IsHandTrap` 短路（`EffectText.cs:1912`）
+        //    🧨 **红法**：把 8c-ter 那条支撤掉（或让它对被挡住的句子仍返回 null）⇒ `Kind` 回到
+        //       `Unknown` ⇒ 本格必红；把 `TryWhenPrefixStub` 的 `Target` 填上（例如退回
+        //       「事件从句当目标」那条老路）⇒ 最后一格 `Target == null` 必红。
         {
-            Check(EffectText.ParseSegment("When you play a Stratagem, your Warlord takes 1 damage").Kind,
-                  EffectText.SegKind.Unknown,
-                  "带条件从句的 `X takes N damage` **判不认识**（不许把条件当主语）");
+            var r = EffectText.ParseSegment("When you play a Stratagem, your Warlord takes 1 damage");
+            Check(r.Kind, EffectText.SegKind.Ok,
+                  "带条件从句的 `X takes N damage` 现在由 **`whenclause` 标记 op** 收下"
+                + "（改前 = 判 `Unknown`、**0 条 op** ⇒ 打出去扣了费什么都不发生）");
+            CheckTrue(r.Ops != null && r.Ops.Count == 1, "……而且收下**恰一条** op（是标记 op，不是真效果）");
+            var mark = (r.Ops != null && r.Ops.Count > 0) ? r.Ops[0] : null;
+            Check(mark == null ? "(无 op)" : (mark.Verb ?? "(空)"), "whenclause",
+                  "……它是【标记 op】、⛔ 不改结算（`DoWhenClauseStub` 只打日志，不许静默）");
+            CheckTrue(mark != null && mark.Target == null,
+                  "★ **原意保留**：条件从句**没有被当成主语** —— `Target == null`"
+                + " ⇒ 不存在「解出一个目标 ⇒ 任何时候都结算」那条路");
             // 但「主语写全」的那种要认 —— 单数动词 = 只打一个
             var one = OneOp("your Warlord takes 2 damage");
             Check(one.Amount, 2, "`your Warlord takes 2 damage` → 2 点");
@@ -8644,16 +8694,42 @@ public static partial class RuleEngineTest
 
         // ---- ① 解析层 ----
         {
-            var ops = EffectText.Parse(desc, out _, out _);
+            // 🔴 **2026-10-12（第二十三会话 `F2`）：`copy` 的输入从【裸解析】换成【事件层】。**
+            //    为什么换：`When <事件>, <正文>` 的切分发生在 `CardDef.AddWhenTrigger`，
+            //    **引擎真正跑的就是那条路** —— 本用例 `:8741-8750` 那段注释早就写明了这一点，
+            //    只是上一版**只把这句话写进了注释、没落到输入上**。
+            //    · 改前输入 = `EffectText.Parse(desc, …)`（**裸解析**）：8c-ter（`A1686`）落地之后，
+            //      它对这一句只产出一条**标记 op** —— `verb=whenclause /
+            //      payload=[this troop gains it as well] / target=[]`
+            //      （实据：`bash 工具/ruleprobe.sh card "Accursed Helbrute"`）
+            //      ⇒ 把**整条正文**当载荷喂给 `GivePayload.Parse` 必然返回 null ⇒ `copy` 恒 `false`。
+            //    · 改后输入 = `card.WhenTriggers[0].Ops`（事件层那一路）：`gain / [it as well] /
+            //      target=[this troop] Subjectless=1`（实据：
+            //      `bash 工具/ruleprobe.sh seg "this troop gains it as well"`）。
+            //    ⚠️ **判据一个字没放松**：要断的仍然是「`it as well` 这个载荷被 `GivePayload`
+            //       认成 `CopyEventPact`」—— 变的只是**输入取对了层**。上一版拿错了层，
+            //       等于把「事件从句切错了」的产物当成了「切对了」。
+            //    🧨 **红法**：`GivePayload.ParseInto` 的 ②-c 支（`GivePayload.cs:495`
+            //       `if (low == "it as well")`）一被删/被放宽成 `Contains` ⇒ `copy` 必红；
+            //       `CardDef.AddWhenTrigger` ① 支不再登记 ⇒ 上面那条 `WhenTriggers` 非空 + `copy` 双红。
+            var card = new CardDef("FxHelbrute", "FxHelbrute", "unit", desc, "rare", "BlackLegion",
+                                   8, 9, 7, 9, null);
+            CheckTrue(card.WhenTriggers.Count > 0, "★ 那一句收进了**事件层**（`WhenTriggers` 非空）");
+            var eventOps = card.WhenTriggers.Count > 0 ? card.WhenTriggers[0].Ops : null;
             bool copy = false;
+            foreach (var o in eventOps ?? new List<EffectOp>())
+            {
+                if (string.IsNullOrEmpty(o.Payload)) continue;
+                var ps = GivePayload.Parse(o.Payload);
+                if (ps != null) foreach (var p in ps) if (p.CopyEventPact) copy = true;
+            }
+
+            // ⚠️ 下面 `ops` / `seen` **现在只喂末尾那条诊断**（把裸解析的形状留成证据），
+            //    ⛔ 别再拿它的 `Payload` 去判 `copy` —— 那正是本格改掉的那件事。
+            var ops = EffectText.Parse(desc, out _, out _);
             var seen = new List<string>();
             foreach (var o in ops)
             {
-                if (!string.IsNullOrEmpty(o.Payload))
-                {
-                    var ps = GivePayload.Parse(o.Payload);
-                    if (ps != null) foreach (var p in ps) if (p.CopyEventPact) copy = true;
-                }
                 seen.Add((o.Verb ?? "?") + "「" + (o.Payload ?? "") + "」→ "
                          + (o.Target == null
                             ? "(无目标)"
@@ -8664,10 +8740,15 @@ public static partial class RuleEngineTest
             CheckTrue(copy, "★ 载荷 `it as well` 认出来了（改之前五条判据一条都不命中 ⇒ 整条 op 空过）");
 
             // ⚠️ **别拿 `EffectText.Parse(整条 desc)` 的结果去验 `this troop` 的指代** ——
-            //    那是**裸解析**，`When <事件>, <正文>` 的切分发生在 `CardDef.AddWhenTrigger`，
-            //    裸解析下整条事件从句会**漏进目标短语**（实测 raw「when a friendly troop receives
-            //    a dark pact, this troop」）。引擎真正跑的是**事件层**那条路。
-            //    所以这里**直接钉 `ParseTarget` 本身**（那是这次改的那个函数）。
+            //    那是**裸解析**，`When <事件>, <正文>` 的切分发生在 `CardDef.AddWhenTrigger`。
+            //    引擎真正跑的是**事件层**那条路。所以这里**直接钉 `ParseTarget` 本身**
+            //    （那是这次改的那个函数）。
+            //    🔴 **2026-10-12（`F2`）更正这条的读数**：下面这句「裸解析下整条事件从句会
+            //       **漏进目标短语**（实测 raw「when a friendly troop receives a dark pact,
+            //       this troop」）」是 **8c-ter（`A1686`）落地之前**的形状；落地之后裸解析产出的是
+            //       一条**标记 op**（`whenclause` / 正文整条进 `Payload` / `Target == null`，
+            //       实据见上面 ① 那一段）⇒ **「⛔ 别拿裸解析当判据」这个结论不变，变的是理由**：
+            //       不是「切进了目标短语」，而是「正文整条被当成了 `Payload`、`Target` 全空」。
             var direct = EffectText.ParseTarget("this troop");
             CheckTrue(direct != null && direct.Subjectless,
                       "★ `ParseTarget(\"this troop\")` = `Subjectless`（有施放者就是它自己），不再是 `prev`");

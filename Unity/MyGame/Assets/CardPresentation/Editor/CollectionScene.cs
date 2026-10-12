@@ -1355,9 +1355,20 @@ public static class CollectionScene
             CheckTrue(createBtn != null, "`Create` 钮有点击区");
             if (createBtn != null)
             {
+                // 🔴 **2026-10-12（`A1697`）改判：`Create` 不再入卡组库** —— 照原版
+                //   `SelectDecksTab__CreateDeck.c:19,26,28`（`GetEmptyDeck` → 直接开编辑窗，**全链零入库**）。
+                //   用户可见：点「新建卡组」**不再在列表里多出一格「卡背 + 新卡组」**，而是直接进编辑器；
+                //   没选战将就退出 ⇒ **什么都不剩**。
                 int n0 = CollectionData.DeckCount();
                 createBtn.Click();
-                Check(CollectionData.DeckCount(), n0 + 1, "点 `Create` ⇒ 卡组数 +1（原版走 `Deck Editing Menu`，本轮只建卡组）");
+                Check(CollectionData.DeckCount(), n0,
+                      $"点 `Create` ⇒ 卡组库**不变**（仍是 {n0}）—— 建组那一刻**不入库**"
+                    + "（原版 `SelectDecksTab__CreateDeck` 全链零入库；入库唯一入口是编辑器的 `Done` 过校验之后）");
+                CheckTrue(CollectionData.PendingNewDeck != null,
+                          "……但**交接给编辑器的那一份**在（`PendingNewDeck != null`）—— 没它编辑器就开不出新卡组");
+                Check(CollectionData.PendingEditDeck, -1,
+                      "……且两个交接口**互斥**（`PendingEditDeck == -1`，⛔ 留着旧下标会跳进**别的**卡组）");
+                CollectionData.TakePendingNewDeck();     // 取走（先取后清）⇒ 别漏到后面几节
             }
             // 🔴 **实拍抓的一条**：`Clear filters` 原来摆在 1218.6（**我们推错的**）⇒ 它和 `Import` 压掉 77.6px。
             //    真值 = A2 §161 的**实测落点 612.2**（容器宽 0 + 子件 `m_IgnoreLayout=1`）。
@@ -6087,13 +6098,20 @@ public static class CollectionScene
                             }
                             CheckTrue(mrs.Length > 3, $"卡面上画了 {mrs.Length} 层网格（不是空卡位）");
                         }
-                        // 三块面板的标题 —— 🔴 **2026-09-27：创建副本 / 升级两块【都不建】**（用户拍板，见 §三 第 21 条）
-                        //   ⚠️ 原来这里断言的是这两块的**标题** —— 用户 2026-09-27 定了「不做升级、不做合成」
-                        //     ⇒ 那两条判据**没有对象了**，改成「这两块根本不在」（`TitleOf` 查不到会返回 `(无)`）。
-                        CheckText(cd.TitleOf("Crafting"), "(无)",
-                                  "「创建副本」那块**不建**（本作不做合成 —— 用户 2026-09-27 拍板）");
-                        CheckText(cd.TitleOf("Upgrade"), "(无)",
-                                  "「升级」那块**不建**（本作不做升级 —— 用户 2026-09-27 拍板）");
+                        // 三块面板的标题 —— 🔴 **2026-10-12 用户裁定：「请你恢复」**（口径 12 天内改了两次）
+                        //   ⚠️ **旧口径留痕（铁律 5）**：本节原来断的是这两块**都不建**（用户 2026-09-27
+                        //     原话「直接全部卡都是最高级别的卡框，这样就不用升级了。也不需要合成卡牌了。」）
+                        //     —— **那一条已被 2026-10-12 的裁定取代**（原话：「……还是恢复？**请你恢复**。
+                        //     我说的是不需要升级卡牌系统，**默认最高级就是不能点击升级卡牌按钮**」）。
+                        //   ⇒ 现在断「**两块都在**且标题是原版文案**」；「升级」那颗钮的**不可交互**由上面
+                        //     那一节（`升级面板那一块`）单独钉（`Interactable == false`）—— 两件事分开验。
+                        CheckTrue(cd.TitleOf("Crafting") == "Create a copy of this card",
+                                  $"★「创建副本」那一块**在**且标题是原版文案（实测「{cd.TitleOf("Crafting")}」）"
+                                + " —— 用户 2026-10-12 裁定恢复");
+                        var upTitleTxt = cd.TitleOf("Upgrade");
+                        CheckTrue(upTitleTxt != null && upTitleTxt.StartsWith("Upgrade this card"),
+                                  $"★「升级」那一块**在**（标题实测「{upTitleTxt}」）—— 恢复"
+                                + "；**钮不可交互**由上面那一节单独钉（`Interactable == false`）");
                         CheckText(cd.TitleOf("AltArt"), "Alternate art",
                                   "异画面板标题 —— ⚠️ 原版这一格印的是**升级文案**（复制粘贴 bug），**我们不抄那个 bug**（出声）");
                         // 计数条：格式 = `x{min(拥有,卡组上限)}` + `"/ "` + `{拥有−该数}`
@@ -6403,22 +6421,27 @@ public static class CollectionScene
                             CheckTrue(FindChild(cnt4, "Duplicate Counter") != null && FindChild(cnt4, "Single Counter") == null,
                                       "★ 还原后又**切回 `Duplicate Counter`**（两支来回都走得通 —— 不是只搭了个壳）");
                         }
-                        // 三块面板的动作：**创建副本 +1** / **升级 +1 级**（单机口径：不扣货币）
+                        // 三块面板的动作：🔴 2026-10-12 起 —— **创建副本只出声（不改拥有数）** · **升级那颗钮不可交互**
+                        //   判据与两条待裁候选 → 账 `A1699`；⛔ 这里不许再断「点了会 +1」那种旧行为。
                         int cap = CardProgress.DeckCap(cd.Card.Rarity);
                         int owned0 = CardProgress.Owned(cd.Card.Id, cd.Card.Rarity);
                         var ch = cd.CraftHit; var chb = ch != null ? ch.GetComponent<WindowButton>() : null;
                         if (chb != null)
                         {
                             chb.Click();
-                            Check(CardProgress.Owned(cd.Card.Id, cd.Card.Rarity), owned0 + 1,
-                                  $"点 `Craft` ⇒ 拥有数 {owned0} → **{owned0 + 1}**（单机**不扣万能卡**，出声）");
+                            Check(CardProgress.Owned(cd.Card.Id, cd.Card.Rarity), owned0,
+                                  $"点 `Craft` ⇒ 拥有数**不变**（仍是 {owned0}）—— 本版**只出声**、"
+                                  + "不实现真机制（⛔ 不许静默：出声在 `OnCraftClicked`）");
                         }
                         int lv0 = CardProgress.Level(cd.Card.Id);
                         var uh = cd.UpgradeHit; var uhb = uh != null ? uh.GetComponent<WindowButton>() : null;
                         if (uhb != null)
                         {
+                            CheckTrue(!uhb.Interactable,
+                                      "`Upgrade` 那颗钮 `Interactable == false`（默认最高级 ⇒ 点不动）");
                             uhb.Click();
-                            Check(CardProgress.Level(cd.Card.Id), lv0 + 1, $"点 `Upgrade` ⇒ 等级 {lv0} → **{lv0 + 1}**");
+                            Check(CardProgress.Level(cd.Card.Id), lv0,
+                                  $"点了 `Upgrade` ⇒ 等级**不变**（仍是 {lv0}）—— 不可交互 ⇒ `Click()` 应当什么都没做");
                         }
                         // `Show Card Text` 切效果文字条；语音钮「没有就出声」
                         var ehit = cd.EyeHit; var ehb = ehit != null ? ehit.GetComponent<WindowButton>() : null;
@@ -7573,13 +7596,15 @@ public static class CollectionScene
                 }
             }
 
-            // ---- 卡片详情窗 · 「创建副本」/「升级」两块面板**都不建**（用户 2026-09-27 拍板）----
-            // 🔴 用户原话：「直接全部卡都是最高级别的卡框，这样就不用升级了。也不需要合成卡牌了。」
-            //   · **升级**：`CardArt.TierOf` 已改成**所有卡一律最高档** ⇒ 没有可升的（而且我们这侧升级本就**不改卡面**）；
-            //   · **合成**：本作全解锁（资源 9999、卡池全开、`Owned` 直接给足）⇒ 没有要合的。
-            //   ⚠️ 上一轮还在这里验过「四档稀有度 → 四张万能卡图标」—— 面板停掉后那条判据**没有对象了**；
-            //     `CardDetailPopup.Craftable` / `WildcardIconFor` **保留不删**，恢复那块面板时直接用。
-            Section("卡片详情窗 · 「创建副本」/「升级」都不建");
+            // ---- 卡片详情窗 · 「创建副本」/「升级」两块面板 —— 🔴 2026-10-12 起【恢复】----
+            // 🔴 用户 2026-10-12 裁定（逐字）：「「创建副本 / 升级」两块面板：维持你 9-27 的停用，还是恢复？**请你恢复**。
+            //    我说的是不需要升级卡牌系统，**默认最高级就是不能点击升级卡牌按钮**。」
+            //   ⇒ ① 两块面板的 UI **照原版恢复**；② **「升级」那颗钮 = 显示但不可交互**（默认最高级 ⇒ 不是删面板，是钮点不动）；
+            //     ③ 「创建副本」那颗钮的**行为未定** ⇒ 本批**只出声**（`OnCraftClicked`），⛔ 不静默；
+            //        **判据与两条待裁候选 → 账 `A1699`**。
+            //   ⚠️ **旧口径留痕（铁律 5）**：本节原来断的是「两块面板**都不建**」（2026-09-27 用户拍板
+            //     「直接全部卡都是最高级别的卡框…也不需要合成卡牌了」）—— **那一条已被 2026-10-12 的裁定取代**。
+            Section("卡片详情窗 · 「创建副本」/「升级」两块面板已恢复（升级钮不可交互）");
             foreach (var want in new[] { "common", "rare", "epic", "legendary", "special" })
             {
                 CardDef cd = null;
@@ -7589,10 +7614,21 @@ public static class CollectionScene
                 if (cd == null) { Check(true, false, $"卡池里找不到稀有度 `{want}` 的卡"); continue; }
                 var dw = win.OpenCardDetail(cd);
                 if (dw == null) { Check(true, false, $"打不开卡片详情窗（{cd.Name}）"); continue; }
-                CheckTrue(FindChild(dw.transform, "Craft Icon") == null,
-                          $"★ `{want}` 的卡**没有**「创建副本」那一格（本作不做合成）—— 拿 `{cd.Name}` 试的");
-                CheckTrue(FindChild(dw.transform, "Upgrade Title") == null,
-                          $"★ `{want}` 的卡**没有**「升级」那一格（本作不做升级）—— 拿 `{cd.Name}` 试的");
+                // 「创建副本」那一块：**可合成的稀有度才建**（`special` 空价 ⇒ 整块不建；判据 = 原版
+                //   `CraftingPanel__CheckButtons.c`：空价 ⇒ `SetActive(0)`，**不是变灰**）
+                bool craftable = want != "special";
+                CheckTrue((FindChild(dw.transform, "Craft Icon") != null) == craftable,
+                          $"★ `{want}`：`Craft Icon` {(craftable ? "**要建**" : "**不许建**")}"
+                          + $"（本作不做合成 ⇒ `special` 那档整块不建）—— 拿 `{cd.Name}` 试的");
+                // 「升级」那一块：**一律建**（用户 2026-10-12：面板要回来）
+                CheckTrue(FindChild(dw.transform, "Upgrade Title") != null,
+                          $"★ `{want}`：`Upgrade Title` **建出来了**（面板不许再被停掉）—— 拿 `{cd.Name}` 试的");
+                // 🔴 那颗钮**不可交互**（默认最高级）—— 判据 = 用户 2026-10-12 原话；
+                //   实现落点 = `CardDetailPopup` 的 `upWb.Interactable = false`（必须排在 `Bind`/`Hit` 之后，见那个文件）
+                var upb1 = dw.UpgradeHit != null ? dw.UpgradeHit.GetComponent<WindowButton>() : null;
+                CheckTrue(upb1 != null && !upb1.Interactable,
+                          $"★ `{want}`：`Upgrade` 那颗钮**不可交互**（`Interactable == false`；"
+                          + $"默认最高级 ⇒ 点不动，⛔ 不是把面板删掉）—— 拿 `{cd.Name}` 试的");
                 // 🆕 A17：卡片详情窗的两颗圆钮（语音 / 显示卡面文字）
                 if (want == "common") CheckHoverSwap(dw.transform, "卡片详情窗");
                 dw.Close();
@@ -8066,7 +8102,8 @@ public static class CollectionScene
                 string okCopy = CollectionData.DuplicateDeck(0);
                 CheckTrue(!string.IsNullOrEmpty(okCopy), $"（控制组）……`DuplicateDeck` 回名字（「{okCopy}」）");
                 string okWhy;
-                string okImp = CollectionData.ImportDeck(DeckLibrary.ExportString(CollectionData.Raw(0)), out okWhy);
+                string goodExport = DeckLibrary.ExportString(CollectionData.Raw(0));   // 🆕 A1697：坏路径那一节要靠它把库垫起来
+                string okImp = CollectionData.ImportDeck(goodExport, out okWhy);
                 CheckTrue(!string.IsNullOrEmpty(okImp) && string.IsNullOrEmpty(okWhy),
                           $"（控制组）……`ImportDeck` 回名字（「{okImp}」）且 `why` 空（实得「{okWhy}」）");
                 int c0 = CollectionData.DeckCount();
@@ -8080,10 +8117,14 @@ public static class CollectionScene
                 CollectionData.ResetForTest();     // 丢掉缓存 ⇒ 重新 `Load()`（坏路径读不到 ⇒ 空库，**不抛异常**）
                 Check(CollectionData.DeckCount(), 0, "（前提）坏路径下起手是**空库**（「读不到」不是「读失败」）");
 
-                string badCreate = CollectionData.CreateDeck();
+                // 🔴 **2026-10-12（`A1697`）改判**：`CreateDeck` 走原版那条路（**只造、不入库、不落盘**）
+                //   ⇒ 它**不再属于「会写盘的那几个口」**，原来那两条断言（回空串 / 内存里建了 1 套）**整条作废**。
+                //   新口径已由上面那一节（点 `Create`）钉住：库不变 + `PendingNewDeck` 有值。
+                //   本节改用 `ImportDeck` 把库垫起来 —— 它**仍入库、仍会写盘** ⇒ 正好当「写盘失败」的探针。
+                string why0;
+                string badCreate = CollectionData.ImportDeck(goodExport, out why0);
                 CheckTrue(string.IsNullOrEmpty(badCreate),
-                          "★ A503：写盘失败 ⇒ `CreateDeck` 回**空串**（改坏法：把 `CollectionData.CreateDeck` 里"
-                        + " `if (Lib.LastError != null)` 那一支整段删掉、照旧 `return got;` ⇒ 这条红）");
+                          "★ A503：写盘失败 ⇒ `ImportDeck` 回**空串**（本条现在是本节的起点）");
                 Check(CollectionData.DeckCount(), 1,
                       "★ A503：……而它**真的建在内存里**了（1 套）—— 本条说的「失败」专指**没落盘**（内存建了、盘上没有）");
 
@@ -8300,9 +8341,12 @@ public static class CollectionScene
                 // ---- ②-a 控制组（好路径）：两支**成功**的日志 ----
                 //   缺了它，一个「恒报失败」的实现照样能把下面四条探针全骗绿。
                 {
-                    string tmp = CollectionData.CreateDeck();
+                    // 🔴 **2026-10-12（`A1697`）**：`CreateDeck` 现在**只造不入库** ⇒ 拿不到「库里那一套」当靶子；
+                    //   改用 `DuplicateDeck(0)` —— 那个口**仍入库**。本节要验的是「靶子那扇窗的两颗钮可点」，
+                    //   与「靶子怎么造出来的」无关。
+                    string tmp = CollectionData.DuplicateDeck(0);
                     int ti = CollectionData.IndexOf(tmp);
-                    CheckTrue(ti >= 0, $"（控制组）先建一套临时卡组当靶子（「{tmp}」@{ti}）");
+                    CheckTrue(ti >= 0, $"（控制组）先复制一套当靶子（「{tmp}」@{ti}）");
 
                     var pOk = DeckInfoPopup.Create(win.Manager, ti);
                     win.Manager.OpenWindow(pOk);

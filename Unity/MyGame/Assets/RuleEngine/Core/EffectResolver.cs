@@ -31,6 +31,121 @@ namespace RuleEngine
         // ==================================================================
 
         /// <summary>
+        /// **`instead` 的配对与裁决** —— 返回「哪几条 op **不结算**」（`skip[]`）。
+        ///
+        /// 🔴 **两个 `ResolveOps` 重载共用这一份**（`A1685`，2026-10-22）：
+        ///   · `pairConditional: true`  = **出牌 / 战术卡那条路**（那个重载有 `chosen`，
+        ///     它就是「这一下要打的那个目标」⇒ 条件判得准）；
+        ///   · `pairConditional: false` = **能力层那条路**（`IReadOnlyList` 重载：触发 /
+        ///     灵魂石 / 誓约 / 信仰 / 常驻 / 手牌陷阱 / 突触邻居 / 死亡结转…）。
+        ///   ⛔ **别把规则写第二份** —— 本工程红线：两处写同一条规则 = 迟早不一致。
+        ///
+        /// ## 配对（结构）
+        /// 从 `i-1` 往前找**被替换的那条**，四条逐字相同：① 碰到另一条 `Instead` 就停
+        /// ② 跳过得带 `Condition` 的 ③ 动词要相同 ④ 不跨过另一条替换。
+        /// （`EffectText.cs` 里那趟「被替换那条的目标复制给 `instead` 那条」用的是**同一份判据**。）
+        ///
+        /// ## 裁决（谁跳谁）
+        ///   · 条件成立   → 跳过**被替换的**那条（`skip[baseIdx]`），只结算这一条；
+        ///   · 条件不成立 → 跳过**这一条**，被替换的那条照常结算。
+        /// ⚠️ 条件判不了时不在这儿做决定，交给 `ResolveOne` 去走它那条
+        ///    「条件判不了 → 整条不生效 + 如实报出来」的路（红线：不许静默失败）。
+        ///
+        /// ⚠️ **本条要数 `for each` 时，整个替换机制让位**。
+        ///    数 `… for each Dark Pact on it` 要读 `it` 的目标，而那时 `ctx.LastTarget`
+        ///    可能还是上一张卡留下的（这类卡的「it」就是本次的目标，不是上一条效果的产物）。
+        ///    与其按一个过时的值判错，不如放弃替换：两条各自走正规流程。
+        ///    **代价是数值会叠加，如实写在这儿，不装作它是原版语义。**
+        ///
+        /// ## 🔴 `A1388`（2026-10-10）：无条件的 `instead`【一定】替换
+        /// **改前怎么错的**：对**每一条** `instead` 都调 `ConditionHolds`，而它读的是
+        ///   `op.ConditionKind`、`default:` 返 **`false` = 判不了**。
+        ///   **没有条件**的 `instead` ⇒ `ConditionKind` 是空串 ⇒ 落 `default` ⇒ `!judgeable`
+        ///   ⇒ **两条都照常走**。实测（`SOR6 Righteous Repugnance` 卡面原文）：`Give +1 [Attack]
+        ///   and +1 [Ranged] to your units this turn. 4 Energy: Give +2 [Attack] and +2 [Ranged]
+        ///   instead and Heal them 1` ⇒ 我方单位近战 **1 → 4**（**两段都加了**），
+        ///   而卡面那个 `instead` 本该**替换掉第一段**（正解 **1 → 3**）。
+        /// **判据（为什么「没有条件」= 恒成立）**：`instead` 的配对语义是「这句话替换掉前一句」，
+        ///   而**只有条件句**（`If …, … instead`）才谈得上「条件成立不成立」—— 那份条件由
+        ///   `TryIf` / `TryIfNoComma` 剥下来写在 `op.Condition` / `op.ConditionKind` 上。
+        ///   **条件字段为空 = 这句本来就没有条件可判**，不是「判不了」。同一条口径
+        ///   `ResolveOneCore` 自己也用着（它那道条件闸是 `if (!string.IsNullOrEmpty(op.Condition))`
+        ///   —— 空的时候**根本不进**）。⛔ 别改回去。
+        ///
+        /// ## 🔴 `A1685`（2026-10-22）：能力层那条路原来**一条都不消费** `Instead`
+        /// **病灶**：配对+裁决**内联在出牌那个重载里**，能力层那个重载一个字没有 ⇒
+        ///   同样的卡面在两条路上**行为不一致**（能力层「两条都跑」）。**离线实测**
+        ///   （`D:/tmp/wf_w2` 探针，合成卡 `Rally: Deal 3 damage to an enemy. Deal 6 damage
+        ///   instead`）：出牌路 = **6** 伤（对）· 能力路 = **9** 伤（`3 + 6` 都结算了，错）。
+        /// **本笔**：规则收进本函数、两条路共用 ⇒ 能力层也消费 `instead`。
+        ///
+        /// ⚠️ **能力层只配【无条件】的 `instead`（`pairConditional: false`）——
+        ///    这一档是**判据逼出来的**，不是偷懒**：
+        ///   · 能力层**没有 `chosen`** ⇒ `ConditionHolds` 只能退回 `ctx.LastTargets` / `ctx.LastTarget`
+        ///     （`Alreadyhas` / `TargetHasKw` / `TargetHasArmour` 那些支一律 `chosen ?? ctx.LastTargets`），
+        ///     而 `ResolveOps` 入口刚把那个槽种成 **`prime` = 这条能力的施放者** ⇒
+        ///     结算前判「it has Flying / it has Armour」**判的是施放者自己**，不是这一下要打的目标。
+        ///     实测后果：`ASH31 Crimson Hunter`（自带 `Flying`）的
+        ///     `Rally: Deal 3 damage to an enemy. If it has Flying, deal 6 damage instead`
+        ///     会**永远**判成立 ⇒ 打非飞行目标也从 3 变成 6。**那是把对的改错** ⇒ 不配。
+        ///   · 有条件的那一族在能力层**保持现状**（条件在 `ResolveOneCore` 的闸上判 ——
+        ///     那时前一条 op 已经结算、`ctx.LastTargets` 正是**它打中的那个目标**，referent 是对的），
+        ///     ⚠️ **但它现在只跳掉自己、跳不掉前一条** ⇒ 「条件成立」时那两条**都**结算
+        ///     （同一张卡实测：带 `Flying` 的目标会吃 `3 + 6`）。**这是一个【还没做】的真缺陷**，
+        ///     判据与「为什么只能走 `AltAmount` 折叠那条路」写在 `资料/普查产出_第二十三会话/
+        ///     W2_结算层A1682A1685A1617.md`（与 `or … if` 族同一条判据 —— 见 `AltHolds` 的 doc：
+        ///     条件说的目标**结算前还不存在**，只能在**数值被消费的地方**逐目标判）。
+        /// </summary>
+        static bool[] InsteadSkips(BattleContext ctx, int owner, IReadOnlyList<EffectOp> ops,
+                                   UnitState chosen, bool pairConditional)
+        {
+            var skip = new bool[ops.Count];
+
+            // ⚠️ 这里**只配对、不决定跳谁** —— 决定放到下面那趟做。
+            //    因为「跳谁」取决于条件，而条件可能要数 `for each`、要用**这次选好的目标**
+            //    （`chosen` 在这一步才拿得到 / 能力层根本没有），在这里判会读到上一张卡留下的
+            //    `ctx.LastTarget`。
+            var insteadBase = new int[ops.Count];
+            for (int i = 0; i < ops.Count; i++) insteadBase[i] = -1;
+            for (int i = 0; i < ops.Count; i++)
+            {
+                if (!ops[i].Instead) continue;
+                // 能力层：有条件的那一族**不配**（referent 还不存在 —— 理由见本函数 doc）
+                if (!pairConditional && !string.IsNullOrEmpty(ops[i].Condition)) continue;
+
+                for (int j = i - 1; j >= 0; j--)
+                {
+                    if (ops[j].Instead) break;                                 // 不跨过另一条替换
+                    if (!string.IsNullOrEmpty(ops[j].Condition)) continue;     // 只替换无条件的
+                    if (ops[j].Verb != ops[i].Verb) continue;
+                    insteadBase[i] = j;
+                    break;
+                }
+            }
+
+            // ---- `instead`：成对决定谁跳谁（**必须在主循环之前**）----
+            // 因为跳的可能是**前面**那条（`baseIdx < i`），主循环走到 `i` 时它早就结算完了。
+            for (int i = 0; i < ops.Count; i++)
+            {
+                if (!ops[i].Instead || insteadBase[i] < 0) continue;
+                int baseIdx = insteadBase[i];
+                bool holds, judgeable;
+                if (string.IsNullOrEmpty(ops[i].Condition))
+                {
+                    // 无条件的 `instead`（`A1388` 修的那一支）—— 没有条件可判 ⇒ 恒成立
+                    judgeable = true; holds = true;
+                }
+                else judgeable = ConditionHolds(ctx, owner, ops[i], chosen, out holds);
+                bool usesForEach = (ops[i].PerCount > 0 && !string.IsNullOrEmpty(ops[i].CountRef))
+                                   || !string.IsNullOrEmpty(ops[i].CountScope);
+                if (!judgeable || usesForEach) continue;      // 两条都照常走
+                if (holds) skip[baseIdx] = true;              // 替换成立：原来那条不结算
+                else skip[i] = true;                          // 不成立：这条不结算，原效果照常
+            }
+            return skip;
+        }
+
+        /// <summary>
         /// 结算一组效果（一张战术卡 / 一次触发 / 一个主动技能的效果部分）。
         /// </summary>
         /// <param name="chosen">表现层已选定的目标（需要选目标的战术卡才有）</param>
@@ -122,22 +237,7 @@ namespace RuleEngine
             // ⚠️ 这里**只配对、不决定跳谁** —— 决定放到主循环里做。
             //    因为「跳谁」取决于条件，而条件可能要数 `for each`、要用**这次选好的目标**
             //    （`chosen` 在这一步才拿得到），在这里判会读到上一张卡留下的 `ctx.LastTarget`。
-            var skip = new bool[ops.Count];
-            var insteadBase = new int[ops.Count];
-            for (int i = 0; i < ops.Count; i++) insteadBase[i] = -1;
-            for (int i = 0; i < ops.Count; i++)
-            {
-                if (!ops[i].Instead) continue;
-
-                for (int j = i - 1; j >= 0; j--)
-                {
-                    if (ops[j].Instead) break;                                 // 不跨过另一条替换
-                    if (!string.IsNullOrEmpty(ops[j].Condition)) continue;     // 只替换无条件的
-                    if (ops[j].Verb != ops[i].Verb) continue;
-                    insteadBase[i] = j;
-                    break;
-                }
-            }
+            var skip = InsteadSkips(ctx, owner, ops, chosen, pairConditional: true);
 
             // ---- `instead`：成对决定谁跳谁（**必须在主循环之前**）----
             // 因为跳的可能是**前面**那条（`baseIdx < i`），主循环走到 `i` 时它早就结算完了。
@@ -178,23 +278,12 @@ namespace RuleEngine
             //    那个补丁只在**本组还有下一条**时才成立 ⇒ 已随本笔删除（见 `ChargePaidGroups`）。
             //    真实形状（`A1414` 补完 `deal` / `heal` / `stun` 的贴点之后可达）：
             //    `2 ☀: Deal 1 damage. Deal 2 damage instead` ⇒ 只结算后者、**只扣 2 点**。
-            for (int i = 0; i < ops.Count; i++)
-            {
-                if (!ops[i].Instead || insteadBase[i] < 0) continue;
-                int baseIdx = insteadBase[i];
-                bool holds, judgeable;
-                if (string.IsNullOrEmpty(ops[i].Condition))
-                {
-                    // 无条件的 `instead`（`A1388` 修的那一支）—— 没有条件可判 ⇒ 恒成立
-                    judgeable = true; holds = true;
-                }
-                else judgeable = ConditionHolds(ctx, owner, ops[i], chosen, out holds);
-                bool usesForEach = (ops[i].PerCount > 0 && !string.IsNullOrEmpty(ops[i].CountRef))
-                                   || !string.IsNullOrEmpty(ops[i].CountScope);
-                if (!judgeable || usesForEach) continue;      // 两条都照常走
-                if (holds) skip[baseIdx] = true;              // 替换成立：原来那条不结算
-                else skip[i] = true;                          // 不成立：这条不结算，原效果照常
-            }
+            // ⚠️ 「谁跳谁」的裁决**不在这里** —— 已经和配对一起搬进 `InsteadSkips`
+            //    （两个重载**共用那一份**，出处与全部理由都在它的 doc 里，⛔ 别再内联回来）。
+            //    留下的这一条只是**位置约束**：配对+裁决必须排在下面 `ChargePaidGroups` 之前 ——
+            //    那一段会读 `ctx.Players[].Energy` 判条件（`SOR6` 的
+            //    `If you have less than 6 Energy, … instead`），先收钱会让它读到**扣过费之后**
+            //    的余额、把条件判反。
 
             // ---- 🔴 2026-10-12（`A1412`）：**收费抬到 `ability` 层** —— 按组收一次，与「哪条 op 会执行」彻底解耦 ----
             //
@@ -2269,6 +2358,76 @@ namespace RuleEngine
                                                          : ctx.CardPool,
                                           op.Payload, faction, unitsOnly: true,
                                           costMin: op.CostMin, costMax: op.CostMax);
+            // ---- 🆕 2026-10-22（`A1682`）：**复制「指代的那一个」**（`deploy a copy of this troop`）----
+            //  卡面（`SAU72 Immortals Phalanx`）：`When reanimated, deploy a copy of this troop`
+            //  （中文：「被复生时，部署此部队的一个复制。」）。
+            //  🔴 **改前**：`CreatePool.Resolve` **认得**这个载荷（它把 `copy of <指代>` 归成
+            //     `CopyOfPrev`），但**本函数不看那个旗标** ⇒ 一律走「从池里挑」，而复制品的
+            //     候选池**是空的** ⇒ 打「部署不了 —— （**这条没生效**）」+「有 1 条效果本版没结算」，
+            //     棋盘**一个单位都不多**（出声那一半是对的，⛔ 别改坏；见下面 `!pool.Ok` 那一支）。
+            //
+            //  **判据**（原版那条路 —— 逐条核过）：
+            //   · 卡面原文 = `cards_engine.json` 的 `SAU72`（成品卡图同）。
+            //   · 能力形态 = `AbilityEffect.summonUnit(70)` + `SummonCriteria`
+            //     （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/SummonCriteria.cs`：
+            //      `unitsToSummon` / `chooseCardInPlay` / `keepEffects` / `createAtPos` /
+            //      `shouldRemoveFromCemetery`）；
+            //   · `AbilityLogic__PlayAbility.c:733-1010`（`case 0x46/0x47/0x48/0x4b/0x4d`
+            //     = `summonUnit(70)` / `summonUnitAndSetRef(71)` / `summonUnitAndTriggerEffect(72)` /
+            //      `summonBuffedUnit(75)` / `summonUnitDelayed(77)`）→ `BattleManager__AddSummonUnit`
+            //     → `BattleManager._ResolveSummonUnit_d__510__MoveNext.c`
+            //     → **`BattleCardManager__CreateCard(cardManager, RawCardScript, …)`**：
+            //     造的是**卡模板的一份新牌**，不是把场上那个单位连状态搬过去。
+            //   ⇒ **复制品 = 原始定义那一档**（卡面数值/关键词、满血），**不是**当前受伤/buff 状态。
+            //   ⚠️ **如实标着**：`keepEffects` 那一格原版填几**读不到**（卡数据在远端 CCD，铁律 2），
+            //      我们按「原始定义」实现 —— 它同时是**唯一在本地有判据**的那一档；
+            //      而 SAU72 触发的那一刻原件本身**就是**刚满血翻回来的
+            //      （`DoReanimate` 用 `new UnitState(rem.Instance, false)`）⇒
+            //      **两档在今天的可达形状上同值**。
+            //   · 落点 = `DeployFree` → `BoardSlots.NextWithoutDisplacing`（**人少那侧最外一格**）——
+            //     与原版那条 summon 路用的 `MinionManager__GetNextSlotWithoutDisplacing()`
+            //     （`…_d__510__MoveNext.c:135`）**同一个函数**。
+            //   · 召唤病 / `Deploy` 事件 / 部署触发 / 信仰能力：全由 `DeployFree` 那**一个**入口给
+            //     （⛔ 别在这儿另写一份，见它 doc 里那几条「第二个入口」的纪律）。
+            //   · 指代 = `ctx.LastTarget`（`CreatePool` 已判过这个载荷是「复制**指代对象**」，
+            //     可指 `this troop` / `it` / `them` / `this unit`）。口径与 `DoCreate` 的
+            //     `CopyOfPrev` 那一支**取同一个槽**；能力层由 `ResolveOps` 入口种成 `prime`
+            //     （= `seed` = 被再造的那个单位），出牌那条路由 `chosen` 种。
+            //     **取不到就如实报**（⛔ 不猜一个目标）。
+            if (pool.CopyOfPrev)
+            {
+                var copysrc = ctx.LastTarget;
+                if (copysrc == null || copysrc.Card == null)
+                {
+                    ctx.Log($"{by}：「{op.Source}」要复制指代的那个单位，但**取不到它** —— **这条没生效**");
+                    unresolved.Add(op.Source + "（要复制的指代对象取不到）");
+                    return false;
+                }
+                int cn = op.Amount > 0 ? op.Amount : 1;
+                int cok = 0;
+                string cnames = "";
+                ctx.LastTargets.Clear();                    // 「刚部署的这批」= 复制品（口径同下面主循环）
+                for (int k = 0; k < cn; k++)
+                {
+                    int cslot;
+                    // ⚠️ 走 **`CardDef` 那个重载**：它内部 `ctx.NewInstance(card)` 发**一份新的牌**
+                    //    —— 复制品**是另一张牌**，⛔ 不能沿用原件那个 `CardInstance`
+                    //    （沿用会让场上两张牌共用一个实例号：回手 / 洗回牌库 / 阵亡记账会互相带跑）。
+                    if (!DeployFree(ctx, owner, copysrc.Card, out cslot)) break;  // 满场 ⇒ 停
+                    var cpy = ps.Board[cslot];
+                    if (cpy != null) ctx.LastTargets.Add(cpy);
+                    cok++;
+                    if (cnames.Length > 0) cnames += "、";
+                    cnames += copysrc.Card.Name + "→" + cslot;
+                }
+                if (ctx.LastTargets.Count > 0) ctx.LastTarget = ctx.LastTargets[0];
+                ctx.Log($"{by}：「{op.Source}」复制 {copysrc.Name} **{cok}/{cn}** 份并部署"
+                      + (cnames.Length > 0 ? $"（{cnames}）" : ""));
+                if (cok < cn)
+                    unresolved.Add(op.Source + $"（只复制部署了 {cok}/{cn} 个：场上没空格）");
+                return cok > 0;
+            }
+
             if (!pool.Ok)
             {
                 ctx.Log($"{by}：「{op.Source}」部署不了 —— {pool.Why}（**这条没生效**）");
@@ -4900,9 +5059,23 @@ namespace RuleEngine
             //    `CostShared` 标记保证「同一份前缀只收一次」。那套在执行**次序**上有个漏：
             //    付钱那条**付不起**时，同组标着 `CostShared` 的其余 op **不查余额照常结算**
             //    ⇒ 白给（`A1413` ② 那一笔只堵住了另一个重载的那条路）—— 本段一并堵上。
+            // ---- 🔴 2026-10-22（`A1685`）：**`instead` 在能力层也要消费** ----
+            //  改前这一条路**一个字都没有** ⇒ 卡面写 `…instead` 的两条 op **都**结算，与出牌那条路
+            //  行为不一致（实测 `Rally: Deal 3 damage to an enemy. Deal 6 damage instead`
+            //  ⇒ 出牌路 6 伤（对）· 能力路 **9 伤**（错））。
+            //  ⚠️ **规则只有一份** = `InsteadSkips`（⛔ 别在这儿内联一段配对的副本）。
+            //  ⚠️ **能力层只配【无条件】那一档**（`pairConditional: false`）—— 有条件的那一族
+            //     在能力层**没有 `chosen`**、结算前判的是**施放者自己**（判据全文与实测 →
+            //     `InsteadSkips` 的 doc）。⚠️ 那一档**仍然是真缺陷**（条件成立时两条都结算），
+            //     已单独立账，见同一段 doc 末尾指的那份报告。
+            //  ⚠️ **位置**：必须排在下面 `ChargePaidGroups` **之前**（同出牌那条路：先配对裁决、
+            //     再收钱 —— 收费会改 `Energy`，而已有卡的 `instead` 条件会读余额，如 `SOR6`）。
+            var skip = InsteadSkips(ctx, owner, ops, null, pairConditional: false);
+
             var paidOk = ChargePaidGroups(ctx, owner, source, by, ops, null, unresolved);
             for (int i = 0; i < ops.Count; i++)
             {
+                if (skip[i]) continue;             // 🆕 `A1685`：这条被 `instead` 替换掉了
                 if (!paidOk[i]) continue;          // 这一条所属的付费前缀**没收到钱** ⇒ 整组不结算
                 ResolveOne(ctx, owner, source, by, Prepaid(ops[i]), null, unresolved);
             }

@@ -75,7 +75,13 @@
 //     我们用英文并**记在这里**（`NewBadgeText` / `BannedText`）。
 //   · **`Card Ready for level up` 的判据是我们的替身**：原版 `CardServices.CheckForCardUpgrade` 是服务端数据
 //     ⇒ 用工程既有的 `CardProgress.CanUpgrade`（与「卡片详情窗」同一份）。⚠️ 我们的拥有数口径是**「给足」**
-//     ⇒ 这一条**恒真**、5 张卡都会亮那对箭头（原版由服务端决定）。**如实标**。
+//     ⇒ **单看拥有数这一条，它本来是恒真的**（5 张卡都亮那对箭头；原版由服务端决定）。**如实标**。
+//     🔴 **2026-10-12 就地订正（铁律 5）**：本行原来只说到「**恒真**」就完了 —— **已经变了**：
+//     用户当天裁定「**默认最高级**」⇒ `CardProgress.Level` 的缺省 **1 → `MaxLevel`**，
+//     而 `CanUpgrade` 的第一句就是 `l < MaxLevel` ⇒ **本作所有卡都判成满级、这一条现在【恒假】**
+//     （那对箭头**本版永远不亮**）。⇒ 「恒真 → 恒假」是**同一裁定的必然后果，不是新缺陷**
+//     （「默认最高级」的答案本来就是「没有卡能升级」）。⚠️ 层照建（`UpBadges[i]` 仍在），
+//     只 `SetActive(false)` —— 将来口径若回到「可升级」，这一条自己就活了，⛔ 别删层。
 //   · **`New Card Badge` 恒不显示**：判据 `GetOwnedCount(card) == 1`（这是你**第一张**）。我们的
 //     `CardProgress.Owned` 默认就给足（≥ 卡组上限 + 9）⇒ 这一条**恒假**。层照建、如实说，**不是忘了做**。
 //   · **粒子的位置/缩放是按推导来的**：原版把 `contentByRarities[i].particles` 实例化成 **卡的子物体**
@@ -609,7 +615,10 @@ namespace CardPresentation
 
         /// <summary>`BasicCardUI.ToggleCarUpgradeIfNeeded` 的判据是 `CardServices.CheckForCardUpgrade(card)`
         /// —— **服务端数据，本地没有** ⇒ 用工程既有的 `CardProgress.CanUpgrade`（与卡片详情窗同一份）。
-        /// ⚠️ 我们的拥有数口径是「给足」⇒ 这一条**恒真**（见文件头）。</summary>
+        /// ⚠️ 拥有数那一半是「给足」⇒ 单看它**恒真**；
+        /// 🔴 **但 2026-10-12 起整条【恒假】**：用户裁定「默认最高级」⇒ `CardProgress.Level` 缺省 = `MaxLevel`
+        /// ⇒ `CanUpgrade` 的第一句 `l &lt; MaxLevel` 就返回 false（**这不是新缺陷，是那一裁定的必然后果**）。
+        /// ⚠️ **改这一条之前先读文件头那一格**（含「层别删」那条）。</summary>
         public static bool ReadyForLevelUp(CardDef c)
         {
             return c != null && CardProgress.CanUpgrade(c.Id, c.Rarity);

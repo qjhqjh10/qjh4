@@ -34,6 +34,12 @@ Shader "WarpforgeVFX/Particles/LegacyAlphaBlended"
 
         Blend SrcAlpha OneMinusSrcAlpha
         Cull Off
+        // 🔴 **2026-10-12 补：原版这一族写的是 `ColorMask RGB`（实读 `colMask=14`）** ——
+        //   判据 = 新读的原版 Pass0 状态表（`工具/gen_shader_blend.py` 新增的 `colMask` 列；
+        //   这一族是**全部 shader 里唯一两个 14**，其余都是 15）。只影响 alpha 通道的写入，
+        //   **不影响 RGB、也不影响混合**（`Blend SrcAlpha One/OneMinusSrcAlpha` 照样读 src 的 alpha）
+        //   ⇒ 是「照抄原版」而不是「修某个现象」。
+        ColorMask RGB
         Lighting Off
         ZWrite Off
 

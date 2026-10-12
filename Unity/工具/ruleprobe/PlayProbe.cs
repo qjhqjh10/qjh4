@@ -1251,7 +1251,17 @@ class PlayProbe
     ///   ⛔ **不是**「当时就对」—— 那时 411 张候选**还没逐张对过卡面**。
     ///   ⛔ **不许**为了让它变绿而重跑 `play all pf` —— 那只把洞开回来。
     /// </summary>
-    public const string PinnedPlayMd5 = "7175ec95237e2f3540381f2b437460b0";
+    // 🔴 **2026-10-12 第二十三会话：有意重钉** —— 依据是逐卡差异**逐条归因完毕**，⛔ 不是把红抹平。
+    //   ① `GSC_Jammed_Communications` 的 `faceOps 0 → 1` = **本会话 `W1`（`A1686`）** 给前缀形 `When <事件>, …`
+    //      产出的 `whenclause` 标记 op（**该卡因此从「空表」变「收到一条」**，正是那笔要的）——
+    //      已由 `RuleEngineTest.Run` **5246 / 5246 全过**确认（日志 `_tmp_view/s23_ruleengine2.log`）。
+    //   ② `SOR52` / `SOR55` / `SOR66` 的 `other` / `energyDelta` / `changesFull` = **上一会话 `A1605`**
+    //      （信仰前缀 8 种写法统一成 `☀`；那三张原来的 `[Energy]` 被认成能量 ⇒ 现在按信仰计）—— 已确认的改动。
+    //   ③ `TAU20` + 16 张 `UM*` 的 `bucket C → B` = **上一会话 `A1599`（`W7`）** 改 `IsPaidSegment` 的
+    //      直接后果（它自己的报告就写着「16 张档位真变了」）。
+    //   ⚠️ **以上 21 张与本会话的 `W2` 结算改动无关** —— 它自己用 8 张逐张真打 A/B 证明过（逐字相同）。
+    //   ⚠️ 重钉只能**手改源码**（⛔ 没有自动口子），判据与纪律 → `README.md` 的「改探针输出格式三步」。
+    public const string PinnedPlayMd5 = "83655a105f8eeb8111eab9f0fa479fc7";
 
     /// <summary>`play check` 的缺省基线 —— **按名字往上找**（形状照 `Program.CheckMain.DefaultBaseline`，
     /// ⛔ 别拿「程序集目录往上 N 级」写死：换 build 配置 / 换 TFM 就漂）。</summary>

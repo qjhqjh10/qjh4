@@ -719,6 +719,87 @@ public static class DeckScene
                     UnityEngine.Object.DestroyImmediate(hgo);
                 }
 
+                // 🔴 **2026-10-12（`A1697`）：「**新建卡组不入库**」那条链**（用户 2026-10-12 点名
+                //    「没选战将的卡组…这按照原版复刻」）。判据（原版，逐行读过，全文 →
+                //    `资料/普查产出_第二十三会话/R1_没选战将的卡组.md` §三）：
+                //      · `SelectDecksTab__CreateDeck.c:17,26,28` = `CardDeck__GetEmptyDeck()` → 打模式
+                //        → **直接 `WindowsManager__OpenWindow<DeckEditingWindow>(...)`**；全链**一个入库调用都没有**；
+                //      · 入库的唯一路径 = `DeckEditingWindow__TrySaveDeck.c:100 UploadDeck`
+                //        （先 `:80 ValidateDeck`，不合法 `:81-98` 弹错误窗后 `return`）；
+                //      · `DeckUtility__ValidateDeck.c:88` 那句 `*param_2 = 2`（**没督军 = 错码 2 = 不合法**）就是它挡下来的。
+                //    ⚠️ 原版不是靠灰按钮（`DeckEditingWindow__UpdateDoneButton.c:22` 只切高亮/音效）。
+                //
+                //    ⛔ 本节用自己那一份 `DeckLibrary.Load()`（同上面 `lib2`/`lib3` 两节的写法）
+                //      —— **不碰 `_rt.Library`**（碰了会把库里多出一套带给后面所有节）。
+                {
+                    var libN = DeckLibrary.Load();
+                    int beforeN = libN.Count;
+                    string nmN = CardPresentation.CollectionData.CreateDeck(0);
+                    Check(libN.Count, beforeN,
+                          "★ A1697：`CollectionData.CreateDeck` **不入库**（库里套数不变）"
+                        + " —— 改坏法：改回 `Lib.Create(...)` ⇒ 这条红");
+                    CheckTrue(!string.IsNullOrEmpty(nmN), $"……而且照旧回一个名字（「{nmN}」）");
+                    CheckTrue(CardPresentation.CollectionData.PendingNewDeck != null,
+                              "★ A1697：交接的是**那份未入库的新卡组**（`PendingNewDeck`）"
+                            + " —— 改坏法：只回名字、不写这个对象 ⇒ 红");
+                    Check(CardPresentation.CollectionData.PendingEditDeck, -1,
+                          "……而且**不交接旧下标**（两个交接口互斥：留着旧下标会让编辑器跳进**别的**卡组）");
+
+                    var ngo = new GameObject("NewDeckHandoffSmoke");
+                    var nrt = ngo.AddComponent<DeckRuntime>();
+                    nrt.Build(libN);                       // 开局读掉交接
+                    CheckTrue(CardPresentation.CollectionData.PendingNewDeck == null,
+                              "交接**读完就清**（不清的话下次开还会再打开这一份）");
+                    CheckTrue(nrt.State != null && nrt.State.Deck != null, "编辑器把那一份装进来了");
+                    Check(nrt.State.Deck != null ? nrt.State.Deck.Name : "(null)", nmN,
+                          "★ A1697：编辑器开局打开的就是**刚建的那一副**（不是库里当前选中那一套）"
+                        + " —— 改坏法：`Build` 不读 `PendingNewDeck`（照旧落 `Library.Current`）⇒ 这条红");
+                    Check(nrt.State.Deck != null ? nrt.State.Deck.CardIds.Count : -1, 0,
+                          "★ ……而且是**空牌**（原版 `CardDeck__GetEmptyDeck.c:28-32`：督军/防御/模式都是 0）");
+                    Check(libN.Count, beforeN, "……此刻库里仍然一套都没多（**Done 之前不入库**）");
+
+                    // ① 没选战将 ⇒ `Done` 不合法 ⇒ **不入库**（= 用户报的那个症状的正面）
+                    nrt.UiPressDone();
+                    Check(libN.Count, beforeN,
+                          "★ A1697：**没选战将就按 `Done` ⇒ 不入库**（原版 `ValidateDeck` 错码 2 ⇒ `return`，"
+                        + "不走 `UploadDeck`）—— 改坏法：`CommitDeck` 不判 `_newDeck`、直接 `CommitCurrent` ⇒ 这条红");
+                    CheckTrue(nrt.ModalPopupOpen, "★ ……而且照原版弹了那扇错误窗（`__TrySaveDeck.c:81-98`）");
+                    ClickPopupButton(nrt.ModalPopup, "ButtonRight");     // 右钮 = 只 `HidePopUp()`（同 A364 节的收尾写法）
+                    CheckTrue(!nrt.ModalPopupOpen, "（收尾）把误弹出来的那扇收掉（⛔ 别留给后面的节）");
+
+                    // ② 改到一半退出 ⇒ **不留任何痕迹**
+                    nrt.BackToMenu();
+                    Check(libN.Count, beforeN,
+                          "★ A1697：**改到一半退出 ⇒ 库里一套都没多**（原版没入库 ⇒ 本来就不该留）");
+                    // ⛔ 防呆：`BackToMenu()` 会写下「回程意图」（上面那一节自己读完就清，这里照做）
+                    CardPresentation.CollectionData.TakePendingReturn();
+
+                    // ③ 合法 ⇒ `Done` **才**入库（原版 `__TrySaveDeck.c:80 → :100`）
+                    var legalN = DeckRuntime.PlayerDeckForDemo(nrt.State);   // 演示卡组 = 合法满编 30 张
+                    CheckTrue(legalN != null && legalN.CardIds.Count > 0,
+                              $"（前提）夹具攒出了一副合法牌（{legalN?.CardIds.Count} 张）");
+                    if (legalN != null)
+                    {
+                        nrt.State.Deck.WarlordId = legalN.WarlordId;
+                        nrt.State.Deck.DefensiveId = legalN.DefensiveId;
+                        nrt.State.Deck.CardIds.Clear();
+                        nrt.State.Deck.CardIds.AddRange(legalN.CardIds);
+                        nrt.UiPressDone();
+                        Check(libN.Count, beforeN + 1,
+                              "★ A1697：**合法（有督军 + 满编）⇒ `Done` 把它入库**（原版 `__TrySaveDeck.c:100 UploadDeck`）");
+                        Check(libN.Count > 0 ? libN.Decks[libN.Count - 1].Name : "(null)", nmN,
+                              "★ ……而且入库的就是这一副（名字对得上）");
+                        CheckTrue(!nrt.DeckDirty, "★ ……且落盘成功 ⇒ 脏标记清了");
+                        // ⛔ 别省这一步：`_newDeck` 不翻篇 ⇒ 第二次 `Done` **又插一遍**（库里两套同名、静默）
+                        nrt.UiPressDone();
+                        Check(libN.Count, beforeN + 1,
+                              "★ A1697（判别式）：**再按一次 `Done` 不会重复入库**（`_newDeck` 在成功那一刻已翻篇，"
+                            + "转而走 `CommitCurrent`）—— 改坏法：`CommitDeck` 里不清 `_newDeck` ⇒ 红");
+                    }
+                    UnityEngine.Object.DestroyImmediate(ngo);
+                    CardPresentation.CollectionData.PendingNewDeck = null;   // ⛔ 防呆：别把未消费的交接留给后面的节
+                }
+
                 // 🆕 2026-09-26：**遭遇模式在界面那一层也走对了**。
                 //    状态层那条（`TestSkirmishMode`）只证明「`MaxDeckCount` 会变成 12」；
                 //    这一条证明**界面上真的按模式画** —— 脚注计数画的是 `State.MaxDeckCount + 2`
@@ -5843,6 +5924,17 @@ public static class DeckScene
             CheckTrue(_rt.UiClickDeckRow(0), "模拟「点一下卡组第 0 行」");
             CheckTrue(_rt.UiCardWindowVisible, "……弹出放大窗（原版：**点卡组里的牌是弹大图、不是删除**）");
             Check(_rt.UiCardWindowTitle, CardText.Name(rowDef.Name, rowDef.NameZh), "放大窗里就是那一张");
+            // 🔴 **2026-10-12（`A1698`）**：**开的必须是【菜单版】那一扇** —— 原版卡组编辑
+            //   `DeckEditingWindow__OpenCardInformation.c:56-58` 硬编码传 `showOptions = 1`，
+            //   而 `CardDisplayWindow__ShowCard.c:159` 的守卫过后会 `:163 SetActive(1)` 那个 `options` 子树
+            //   （= 右侧那一列：创建副本 / 升级 / 异画 / 计数 / 通配符）。
+            //   ⛔ **改坏法**：把 `DeckRuntime.OpenCardWindow` 改回 `CardDisplayWindow.Create(Root)`
+            //   （战斗版摆放，`options = null`，13/13 竞技场都是）⇒ 右侧那一列一件都不建 ⇒ **这条红**。
+            //   ⚠️ 数的是这三个节点：`Card Counter` / `Wildcard Count 0` / `AltArt Title`
+            //     （前两个永远建；第三个“建了但可能关着”—— 原版 `AlternateArtPanel__Initialize.c:33`）。
+            CheckTrue(_rt.UiCardWindowRightColumn >= 3,
+                      "★ A1698：卡组编辑点卡开的是**菜单版**详情窗（原版 `showOptions=1`）⇒ 右侧那一列在"
+                    + "（实得 " + _rt.UiCardWindowRightColumn + " 件）");
             _rt.UiCloseCardWindow();
             Check(_rt.State.DeckCount, n2, "只点不开删 —— 卡组张数没变");
             // ⚠️ 行 0/1 是**督军 / 防御卡**（不占 30 张的名额）⇒ 拿行 2（第一张普通卡）验删除

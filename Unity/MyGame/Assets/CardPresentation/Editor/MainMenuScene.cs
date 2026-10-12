@@ -750,8 +750,15 @@ public static class MainMenuScene
             //    `MainMenuRewardsWindow__Open.c` 奖励 3 · `BaseParentEventWindow__Open.c` 活动 5）。
             // ⚠️ 本仓只有前 5 颗（`Main/Collection/Shop/Rewards/Social`），第 6 颗（`Event`）是
             //   原版运行期按服务端事件建的 liveop 钮 —— 本仓没有事件数据源（那一条在报告里如实记）。
-            CheckTrue(MainMenuRuntime.Instance == menu,
-                      "（前提）`MainMenuRuntime.Instance` 就是本自检这一台 —— 否则下面 `SetNavToggle` 那一族等于没查");
+            // 🔴 **2026-10-12（第二十三会话 `D-M1` 诊断）：这条前提原来断的是 `Instance`，而它在编辑宿主里【恒 null】**
+            //   （`Instance` 只在 `Awake` 赋值、本类没有 `[ExecuteAlways]` ⇒ 编辑模式不跑 `Awake`）⇒
+            //   **这条断言从写下来那天起就不可能绿**（它今天第一次真跑）。而 `SetNavToggle` 也**已经改走 `InstanceOrFind()`**
+            //   （`Shell/MainMenuRuntime.cs`，与同文件 `EscapePressed` 的既定写法一致）⇒ 前提应当断**解析得到的那个实例**。
+            CheckTrue(MainMenuRuntime.InstanceOrFind() == menu,
+                      "（前提）`SetNavToggle` **解析得到的实例**就是本自检这一台"
+                    + "（`InstanceOrFind()`：编辑模式下 `Instance` 是 null、靠 `FindFirstObjectByType` 兜底）"
+                    + " —— 否则下面 `SetNavToggle` 那一族等于没查（实测解析到 " 
+                    + (MainMenuRuntime.InstanceOrFind() == null ? "null" : MainMenuRuntime.InstanceOrFind().name) + "）");
             var navOrder2 = new[] { "Home", "Collection", "Shop", "Rewards", "Social" };
             for (int i = 0; i < navOrder2.Length; i++)
             {
@@ -6005,18 +6012,41 @@ public static class MainMenuScene
                 //    `资料/加时与冲突模式_原版规格.md` §2.7。
                 {
                     // ① 建一副遭遇卡组：照原版 `SelectDecksTab.CreateDeck`「**建组那一刻定模式**」
+                    //   🔴 **2026-10-12（`A1697`）改判**：建组那一刻**不入库**（原版那条链 `GetEmptyDeck → 直接开编辑窗`
+                    //     **全链零入库**，入库唯一入口是编辑器的 `Done` 过校验之后）⇒ 本节原来断的三条
+                    //     「库 +1 / 交接下标指向新那套 / 新卡组即选中」**全部作废**，换成下面四条。
                     int before = CollectionData.DeckCount();
+                    int cur0 = CollectionData.CurrentIndex();      // 🆕 A1697：用来断「建组那一拍没顺手改当前选中」
                     CollectionData.PendingEditDeck = -1;
                     sk.CreateDeckInMode();
-                    Check(CollectionData.DeckCount(), before + 1, "点 `Create deck` ⇒ 卡组库里多一套");
-                    var made = CollectionData.Raw(CollectionData.DeckCount() - 1);
-                    CheckTrue(made != null && made.GameMode == (int)GameMode.Skirmish,
+                    Check(CollectionData.DeckCount(), before, "点 `Create deck` ⇒ 卡组库**不变**（建组不入库，照原版）");
+                    var pending = CollectionData.PendingNewDeck;
+                    CheckTrue(pending != null && pending.GameMode == (int)GameMode.Skirmish,
                               "★ 建出来的那套 `GameMode` = **13（遭遇）**（实得 "
-                            + (made == null ? -999 : made.GameMode) + "）—— **建组那一刻定死**，之后没有改的路径");
-                    Check(CollectionData.PendingEditDeck, CollectionData.DeckCount() - 1,
-                          "★ 交接下标指向新那套（切 `DeckEditor` 时编辑器打开它 ⇒ 编辑器按**遭遇那套规则**跑：上限 12 张）");
-                    Check(CollectionData.CurrentIndex(), CollectionData.DeckCount() - 1,
-                          "新卡组即选中（照原版 `DeckLibrary.Create` 的行为）");
+                            + (pending == null ? -999 : pending.GameMode) + "）—— **建组那一刻定死**，之后没有改的路径");
+                    Check(CollectionData.PendingEditDeck, -1,
+                          "★ 两个交接口互斥 ⇒ `PendingEditDeck == -1`（新那套在库里**没有下标**，表达不了）");
+                    Check(CollectionData.CurrentIndex(), cur0,
+                          $"★ 而且**没有顺手改「当前选中」**（进来时是 {cur0}，现在还是它；"
+                        + "原版 `Create` 会顺手指过去，`A1697` 之后我们不会）");
+
+                    // ---- 夹具：②③④ 要一副**在库里**的遭遇卡组当靶子 ----
+                    //   真机上是「在编辑器里按 `Done`」把它入库（`DeckRuntime.CommitDeck` → `DeckLibrary.Insert`）；
+                    //   自检跑不到编辑器 ⇒ **在这里替它走那一拍**（用的是**同一个入库口**，不是另造一套语义）。
+                    string pendingName;
+                    {
+                        pendingName = pending != null ? pending.Name : null;
+                        CollectionData.TakePendingNewDeck();   // 取走（先取后清），别漏到后面
+                        var libF = DeckLibrary.Load();
+                        libF.Insert(pending);                  // ← 入库唯一入口（= Done 那一拍做的事）
+                        CollectionData.ResetForTest();
+                    }
+                    Check(CollectionData.DeckCount(), before + 1,
+                          "（夹具）把那一套入库 ⇒ 库里 +1（真机上由编辑器 `Done` 完成）");
+                    int madeIdx = CollectionData.IndexOf(pendingName);
+                    CheckTrue(madeIdx >= 0, $"（夹具）入库后按名字找得到它（「{pendingName}」@{madeIdx}）");
+                    Check(CollectionData.CurrentIndex(), madeIdx,
+                          "（夹具）入库那一拍把 `_current` 指过去（照原版 `UploadDeck`；`DeckLibrary.Insert` 的唯一副作用）");
 
                     // ② 模式不对的牌**开不了战、且出声**（不静默）—— 原版同款判据：
                     //    `SkirmishEventWindow.OnDeckSelected` → `RankedDeckSelector.HasValidDeckWithValidationMessage`
@@ -6070,8 +6100,10 @@ public static class MainMenuScene
                     // ③ 给新那套补个督军（`CreateDeckInMode` 建的是**空牌**；没督军 `Battle!` 照样会如实拒绝），
                     //    然后重开一次窗口 —— 它会**吸附到本窗模式下能用的那一套**（原版是列表里只剩同模式的）
                     {
+                        // 🔴 2026-10-12（`A1697`）：**不能再拿「库里最后一套」当新卡组** —— 新卡组是上面
+                        //   夹具那一步入库的，按**名字**取（`ResetForTest` 之后是另一个对象、内容相同）。
                         var libM = DeckLibrary.Load();
-                        var mine = libM.Decks[libM.Count - 1];
+                        var mine = libM.Decks[CollectionData.IndexOf(pendingName)];
                         foreach (var c in CardDatabase.Load())
                             if (c.Type == "hero") { mine.WarlordId = c.Id; break; }
                         libM.Save();

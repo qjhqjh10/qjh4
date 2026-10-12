@@ -78,7 +78,8 @@ dotnet bin/Debug/net8.0/wfprobe.dll scan "基线/out_baseline.txt"
 ## dump 的列（`A1368` 四列 ＋ `A1374` 三列，2026-10-10）
 
 一条记录 = `id|name|unparsed|partial|op;op;…`，每条 op =
-`verb/chooseSrc/chooseWhat/chooseAct/amount/payload` **＋ 尾部七列**：
+`verb/chooseSrc/chooseWhat/chooseAct/amount/payload` **＋ 尾部七列 ＋ 尾部几个 `/{X:…}` 块**
+（`{T}` / `{DW}` / `{T2}` / `{SRC}` —— 见下表末四行）：
 
 | 列 | 从哪来 | 形状 |
 |---|---|---|
@@ -91,6 +92,17 @@ dotnet bin/Debug/net8.0/wfprobe.dll scan "基线/out_baseline.txt"
 | `condition` | `EffectOp.Condition` | 条件的**原文**（`you have less than 6 ☀`），空 = 真的没条件 🆕 `A1374` |
 | 🆕 **目标块** `/{T:…}` | `EffectOp.Target`（整个 `EffectTargetSpec`） | `{T:Raw=all enemies\|Side=enemy\|Kind=any\|Count=0\|…}`；`Target == null` ⇒ `{T:null}`。`EffectOp.DeathWatchTarget` 非空时再跟一个 `/{DW:…}` 🆕 `A1477` |
 | 🆕 **第二目标块** `/{T2:…}` | `EffectOp.Target2`（同一个类） | 同上那份字段，`Target2 == null` 时**整块不打**（⛔ 不是「打空块」） 🆕 `A1462` |
+| 🆕 **`Source` 块** `/{SRC:…}` | `EffectOp.Source` | **永远打**（`null` ⇒ `/{SRC:}`），排在上面所有块**之后**（`Sentinel.Legacy` 按 `/{T:` 切 ⇒ 尾部列位置不动）。`seg`/`card` 那两个入口打成 `Source=[…]`（嵌套 op 与 `card` 的 `ASK` 行同标签；⛔ 别与 `ASK … src=`（= `ChooseSrc`）混）🆕 `A1568①` |
+
+🔴 **`A1568①`（`A1590②`）为什么还要补【`Source` 块】**（同一族、第五条缝，2026-10-12）：
+
+`EffectOp.Source` 原来 **`scan` / `seg` / `card` 三个 dump 入口一个都不打**、基线里也没有
+⇒ **凡改 `Source` 的活 `check` 一行都不多**（`A1439` 那条「两条路 `Source` 不是同一个东西」
+因此**没仪器可证**，只能按代码读）。⚠️ 它**原样打、不转义**（同 `countRef` / `condition` / `Raw`）——
+所以 `Source` 原文自带 `;` 时那一行会被**多切一刀**（`Ops()` 按 `;` 切）：全池实测
+**5 条**被截断的块 / **6 条**假 op（都是 `chooseone` 那族 —— 它的 `Source` 就是**整句**，
+选项之间本来就用 `;` 分隔）。哨兵 ⑧ 会**出声报**这两个数（⛔ 不算失败：它是「原样打」的必然代价），
+判「真 op 数」要按 `/{T:` 数（每条真 op 必有那个记号）、⛔ 别按 `Ops()` 切出来的段数。
 
 🔴 **`A1462` 为什么还要补【第二目标块】**（同一族、第四条缝，2026-10-11）：
 
@@ -169,6 +181,9 @@ dotnet bin/Debug/net8.0/wfprobe.dll scan "基线/out_baseline.txt"
 别的都是 13）⇒ 从前往后数下标会**静默拿错列**；而目标块里是**卡面原文**（`Raw`），
 它**自己也能含 `/`** ⇒ 尾部又多 28 个字段，不摘的话「从后往前数」同样会**静默拿错列**。
 `Sentinel.Legacy(op)` 按 `/{T:` 把 legacy 段切出来，`Tail` 再用 `f[f.Length - fromEnd]`。
+🆕 `/{SRC:…}`（`A1568①`）**排在 `/{T:` 之后** ⇒ 与 `{DW}`/`{T2}` 一起被摘掉，
+**尾部列的位置一个都不动**（⛔ 这也是它不能排在 `/{T:` 前面的原因：那样 `Legacy()` 会把卡面原文
+吞进 legacy 段，`Tail()` 就静默拿错列了）。
 
 ## `willrun` —— 「卡面正文**收到没有**、收到的是不是空的」（🆕 `A1432` / `A1433`，2026-10-10）
 
@@ -820,6 +835,7 @@ dotnet bin/Debug/net8.0/wfprobe.dll scan "基线/out_baseline.txt"
 | 🆕 **基线指纹**（`A1382`，2026-10-11） | **卡池 md5 与基线 md5 配对**：`现算卡池 md5 == PinnedPoolMd5`（输入没变）**且** `现算基线 md5 != PinnedBaselineMd5`（基线被改写）⇒ 🔴 出声并计入 rc。参照物 = **卡池文件**（作者是 `工具/gen_cards_engine.py`，本探针**只读**）—— 这就是 `A1382` 要的「**不在本工具写权限内的参照物**」 |
 | 🆕 **`non 排除`**（`A1462`，2026-10-11） | 卡面写了 `non <关键词>` 的目标规格 ⇒ `NotKeyword` 必须承载它。**现在【就是红的】**（`GOF85` / `SW12`，共 2 处）—— 那是**已知缺陷的钉子**，⛔ **不是探针坏了**；**修好之后这条会自己变绿**（⛔ 别删它）。判据 = 卡面（PnP 卡图亲读）＋ 原版 `TargetCriteria.excludeTrait`（`FilterMethods__MeetsTraitCriteria.c`）；逐条读数 ⇒ `nonkw` |
 | 🆕 **输出指纹**（`A1382` 的**一般情形**，2026-10-12 · 写手 `E5`） | **当次现算的 dump**（规范化：**吃掉卡名**、只留 `id` ＋ `unparsed/partial/ops`、按 id 排序）算 md5，必须 = `Program.PinnedParseMd5`。🔴 **它既不读卡池、也不读基线文件** ⇒ ① **卡池变了也照样在岗**（上面那条「基线指纹」的假阴正是它补的）② `scan` 重生成基线**动不了它**。重钉 = `check` 打出的一整行**手抄进源码**。判据 → 下面那一节 |
+| 🆕 **`Source` 列**（`A1568①` / `A1590②`，2026-10-12） | dump 的每条 op 必须带 `/{SRC:…}` 块（渲染口 = `Program.SourceText`，顶层 op 在 `TargetBlock` 末尾恒打、嵌套 op 与 `card` 的 `ASK` 行（收集层那一份）都打成 `Source=[…]`）**且真打了值** —— 两样都不成立就 ⇒ 🔴。治的是「`EffectOp.Source` **三个 dump 入口一个都不打** ⇒ 改 `Source` 的活 `check` 一行都不多」（`A1439` 那条「两条路 `Source` 不是同一个东西」因此**没仪器可证**）。判据在**源码**里，重生成基线抹不掉。⚠️ 它**不判** `Source` 内容对不对 —— 那要靠基线 diff ＋ 卡面 |
 
 ### 🔴 `A1382`：`check` 的「真回归 ＋ 重生成基线 ⇒ 静默变绿」（2026-10-11 修）
 
@@ -854,7 +870,7 @@ dotnet bin/Debug/net8.0/wfprobe.dll scan "基线/out_baseline.txt"
 🔴 **⑤ 那条【已知的假阴】不再是敞开的了**（原文留着，见上面一节末行）：
 真回归 ＋ 重生成基线 ＋ **卡池也在同一批里变了** ⇒ ⑤ **看不见**。
 而**卡池天天在变**（作者 `工具/gen_cards_engine.py`）⇒ ⑤ 常常走「**此时不判**」那一支
-（**出声、不算失败**）⇒ **那条洞在⑤这一侧是长期敞开的**（`A1619` 现读就是这个状态）。
+（**出声、不算失败**）⇒ **那条洞在⑤这一侧是长期敞开的**（⚠️ **2026-10-12 第二十三会话已重钉** —— 本页上方那张表是**重钉前**的快照；四个指纹现值与重钉依据见 `Program.cs` / `PlayProbe.cs` 各自常量上方那段注释）。
 
 ⇒ ⑦ 的判据见上面哨兵表最后一行（**不读卡池、不读基线文件**，读的是**当次现算的 dump** 与**源码常量**）。
 

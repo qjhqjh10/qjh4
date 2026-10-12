@@ -803,16 +803,38 @@ public static class IconSetup
         //   那几条盯 `KeywordSegment` 的断言旁边）；本轮白名单只到「图标工具 + `CardPresentation/Core/**`」，
         //   所以放在**图标链的自检宿主**里 —— 它钉的是同一行（走 `BattleDriver.FaceTextFull`，
         //   ⛔ 不是绕过它直调 `KeywordSegment`），**效力一样**。
+        //
+        // 🔴🔴 **2026-10-12（`A1627`）：这一段原来【从加上那天起就不可能绿】—— 判为【夹具前提错】，不是生产代码坏。**
+        //   · **实况**（收口验证实跑）：`probe=` / `ctrl=` / ⑦b 的 `orderGot` **全是空串** ⇒ ⑦ / ⑦b 两条都红。
+        //   · **根因**（现读代码，`文件:行号` 见下）：三张合成卡原来 `desc: ""`、`descZh: ""`，而
+        //     `BattleDriver.FaceTextFull` 有一条**空正文早退**
+        //     （`BattleDriver.cs:11959`：`if (string.IsNullOrEmpty(body)) return new FaceBody(notes, "desc");`
+        //      —— 那一行 2026-09-15 的 `720df56` 就在，**比这两条断言早**）
+        //     ⇒ 探针**根本走不到** `KeywordSegment`（`BattleDriver.cs:11975`）那一行
+        //     ⇒ ⑦ 自称钉的 `c.NumericKeywords`、⑦b 自称钉的「数组序」，**一条都没被覆盖过**。
+        //   · ⚠️ **不是「batchmode / 空场景拿不到卡面文本」**（那是交件时的猜测）：`FaceTextFull` 是
+        //     **纯静态函数**（只碰 `CardText` / `Badges` / `CardIcons` 那几个静态口），
+        //     **不碰 `CardView`、不要战斗场景、不要 Canvas** —— 空串是**这一条早退**造成的，实据就是 `:11959`。
+        //   · **修法（两件一起做）**：① 补一句**不含任何关键词声明**的 `desc`（下面 `ProbeBody`），
+        //     让探针真走到那一行；② 加一条**前提断言**（`⑦·前提` / `⑦b·前提`）——
+        //     前提一破就**明确报「夹具没走到 `KeywordSegment`」**，而不是像原来那样
+        //     静默取空串、只报「`Vanguard 1` 没印出来」（那条读起来像生产代码坏了）。
+        //     ⚠️ 本仓红线：**不许静默失败** ⇒ 前提必须自己有名字。
         {
+            // ⛔ 这句 `desc` **不许**出现 `Vanguard` / `Shield` / `先锋` / `盾牌` 这些词：
+            //    `CardText.KeywordSegment:248` 的 `DeclaredInBody` 会把「正文里已声明」的那一项**整段跳掉**，
+            //    `:251` 连**中文写法**也判一次（英文档下 `other` 取的就是 `KeywordZh`），
+            //    而 `IsDeclarationAt(c)` **把段首也算成声明** ⇒ 一次失手，探针的关键词段又变空。
+            const string ProbeBody = "Probe body text.";
             var probe = new RuleEngine.CardDef(
                 id: "Z_PROBE_NUMKEY", name: "Z Probe Numkey", type: "unit",
-                desc: "", rarity: "common", faction: "Ultramarines",
+                desc: ProbeBody, rarity: "common", faction: "Ultramarines",
                 cost: 1, attack: 1, health: 1, rangedAttack: 0,
                 keywords: new[] { "Vanguard 1" },
                 nameZh: "数档探针", descZh: "", fromOriginalPool: true, subtype: "Infantry");
             var ctrl = new RuleEngine.CardDef(
                 id: "Z_PROBE_NONUM", name: "Z Probe Nonum", type: "unit",
-                desc: "", rarity: "common", faction: "Ultramarines",
+                desc: ProbeBody, rarity: "common", faction: "Ultramarines",
                 cost: 1, attack: 1, health: 1, rangedAttack: 0,
                 keywords: new[] { "Vanguard" },
                 nameZh: "无数档探针", descZh: "", fromOriginalPool: true, subtype: "Infantry");
@@ -821,6 +843,22 @@ public static class IconSetup
             string gotCtrl = CardPresentation.BattleDriver.FaceTextFull(ctrl).body ?? "";
             bool num = got.Contains("Vanguard 1") || got.Contains("先锋 1");
             bool noNum = gotCtrl.Contains("Vanguard 1") || gotCtrl.Contains("先锋 1");
+
+            // 🔴 **`A1627` 前提断言（⛔ 别删。这一条就是「不许静默失败」那根红线在夹具上的落实）**：
+            //   两张探针**必须真的走到** `CardText.KeywordSegment`（`BattleDriver.cs:11975`）——
+            //   判据 = 卡面段**非空**。`FaceTextFull` 在 `:11959` 有一条**空正文早退**
+            //   （`if (string.IsNullOrEmpty(body)) return new FaceBody(notes, "desc");`）：
+            //   夹具的 `desc` 一旦被改回空串（`A1627` 修之前就是这样）⇒ **下面那条 ⑦ 会红**，
+            //   而它打的是「`Vanguard 1` 没印出来」——**读起来像生产代码坏了**（`A1417` 那笔账的假象）。
+            //   这一条把那件事**说成它自己的名字**：红的是前提，不是被钉的那一行。
+            bool premiseOk = got.Length > 0 && gotCtrl.Length > 0;
+            Check(premiseOk,
+                  "★ ⑦·前提 **夹具必须真的走到 `CardText.KeywordSegment`**（`A1627`）：两张探针的卡面段" +
+                  "**都非空**（= `" + premiseOk + "`）—— 空正文会被 `BattleDriver.FaceTextFull:11959`" +
+                  "**提前返回**、根本到不了 `:11975` 那一行（那时 ⑦ 会以「没印出数字」的形状红，**是假象**）。" +
+                  "⚠️ 要探针产出文本，`desc` 必须是**非空且不含关键词声明**的一句（见头上 `ProbeBody`）。" +
+                  "实测：`probe=`" + got + "` / `ctrl=`" + gotCtrl + "`", ref bad);
+
             Check(num && !noNum,
                   "★ ⑦ **生产那一行真在传 `c.NumericKeywords`**（`A1417`）：合成卡 `Vanguard 1` 的卡面段" +
                   "**必须印出那个数字**（= `" + num + "`，走 `BattleDriver.FaceTextFull` ⇒ `CardText.KeywordSegment`）" +
@@ -829,6 +867,8 @@ public static class IconSetup
                   "被删/被改成 `null`（⇒ 第①档静默失效、卡面少印数字）；② `CarriesValue` 的第①档坏了。" +
                   "⚠️ 为什么夹具是 `Vanguard`：它**不在** ③ 表里、值又是 1 ⇒ **三档里只有第①档能说话**" +
                   "（用 `Armour 1` 钉不住 —— 它在 ③ 表里，删掉实参照样印数字）。" +
+                  "⚠️ 「夹具到底有没有走到 `KeywordSegment`」由上面那条 `⑦·前提` **单独报**（`A1627`）——" +
+                  "本条的 `num=false` 只有在**前提成立**时才等于「生产那一行坏了」。" +
                   "实测：`probe=`" + got + "` / `ctrl=`" + gotCtrl + "`", ref bad);
 
             // ⑦b 🔴 **2026-10-11（`A1406`）：钉住「关键词段的次序 = 卡表 `keywords` 数组的先后」**
@@ -839,17 +879,28 @@ public static class IconSetup
             //    判据出处：卡面声明行的次序实测（69 张可比卡：数组序对 67、字母序只对 21）。
             var orderProbe = new RuleEngine.CardDef(
                 id: "Z_PROBE_ORDER", name: "Z Probe Order", type: "unit",
-                desc: "", rarity: "common", faction: "Ultramarines",
+                desc: ProbeBody, rarity: "common", faction: "Ultramarines",
                 cost: 1, attack: 1, health: 1, rangedAttack: 0,
                 keywords: new[] { "Vanguard", "Shield" },
                 nameZh: "次序探针", descZh: "", fromOriginalPool: true, subtype: "Infantry");
             string orderGot = CardPresentation.BattleDriver.FaceTextFull(orderProbe).body ?? "";
             int iV = orderGot.IndexOf("Vanguard", System.StringComparison.Ordinal);
             int iS = orderGot.IndexOf("Shield", System.StringComparison.Ordinal);
+
+            // 🔴 **`A1627` 前提断言（⛔ 别删）**：同 `⑦·前提` —— `Z_PROBE_ORDER` 的 `desc` 被改回空串
+            //   ⇒ 走不到 `KeywordSegment` ⇒ `orderGot` 空 ⇒ 下面那条 ⑦b 红成「`Vanguard` 不在输出里」，
+            //   而真相是**前提不成立**。
+            bool orderPremiseOk = orderGot.Length > 0;
+            Check(orderPremiseOk,
+                  "★ ⑦b·前提 **夹具必须真的走到 `CardText.KeywordSegment`**（`A1627`）：`Z_PROBE_ORDER` 的" +
+                  "卡面段**非空**（= `" + orderPremiseOk + "`）—— 空正文会被 `BattleDriver.FaceTextFull:11959`" +
+                  "**提前返回**。实测输出 = `" + orderGot + "`", ref bad);
+
             Check(iV >= 0 && iS >= 0 && iV < iS,
                   "★ ⑦b **关键词段次序 = 卡表 `keywords` 数组的先后**（`A1406`）：合成卡 " +
                   "`[\"Vanguard\",\"Shield\"]` 必须印成 `Vanguard` 在前、`Shield` 在后" +
                   "（字母序是反的 ⇒ 谁把 `KeywordSegment` 里那个 `Sort` 加回去，这里必红）。" +
+                  "⚠️ 「夹具到底有没有走到 `KeywordSegment`」由上面那条 `⑦b·前提` **单独报**（`A1627`）。" +
                   "实测输出 = `" + orderGot + "`", ref bad);
         }
 

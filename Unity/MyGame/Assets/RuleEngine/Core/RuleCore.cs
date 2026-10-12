@@ -4064,28 +4064,52 @@ namespace RuleEngine
             //    ① 出手后的开舱 = `RemoveDropPod` **无条件**（只要带 `dropPod`）；
             //    ② `Landing` **只在卡上带 `landing`（770）那个 trait 时才发**，而且那一下会
             //       **取消这次攻击**；不带的东西只是开舱 + 等一帧 + 照常打。
-            //  ⚠️ **本笔只落了 ①**（② 的两支都做不了，理由见下面那条 ⚠️）。
-            OpenDropPod(ctx, p, atkSlot, attacker);
-            //  ⚠️ **如实标着：② 那一支【本笔没做】**，理由两条、都不是「影响小」：
-            //    · ~~`landing`（`DefinedTrait.landing = 770`）这个 trait 我们引擎里根本没有~~
-            //      ✅ **2026-10-21（账 `A1566` ≡ `A1395①`）这道坎已经拆了** ——
-            //      `KeywordTable.Landing` 已登记（`Prefixes` / `RoutableTriggers` /
-            //      `BodyKeywords` / `Implemented` 四张表都进了）⇒ `u.Has(KeywordTable.Landing)`
-            //      现在**判得出来**（不再是「永远为假的死代码 + 魔法字符串」）。
-            //    · 🔴 **仍然没做的** = 「**带 `landing` ⇒ 取消这一记**」那一支本身 ——
-            //      判据 = `_ResolveAttack…:339-379`：有 `landing` 那个 trait ⇒ `CancelAttack`
-            //      + 两次 `ClearPendingDamage` + `OnTrigger(0x1b8)` ⇒ `FinishResolvingAction`
-            //      （**这一下不打**）。它**不是「做不了」**，是**口径还没定**（账 `A1395②`
-            //      挂着「要先定『同步模型下怎么表达』」，铁律 14 的「等拍板」那一档）：
-            //      原版那一下在**协程 `yield` 之后**发生，而我们的 `DeclareAttack` 是同步一把
-            //      跑完的 ⇒ 要等价表达就得回答两个问题：
-            //        ① 位置放哪 —— 必须排在**扣配额 / 现身 / 失去伪装之后**（原版那一跳在
-            //           动作已消耗之后，与 `abouttoattack` 那条**位置相反**）；
-            //        ② 「取消」在这里意味着什么 —— 只 `return RuleCodes.OK` 不落伤害，
-            //           还是连 `EvtKind.Attack` / 替身重定向那几跳也要撤。
-            //      ⛔ **本笔没有自己发明这两条口径**（铁律 13·2「卡住就停手写报告」）——
-            //      已交回调度台，判据全文在 `KeywordTable.Landing` 的 doc 里。
-            //      今天卡池 0 张卡带它 ⇒ **不可观测**（但铁律 11：不是「不做」、只是「还没做」）。
+            //  ✅ **两条结论现在都落了**：① 开舱（`A1354`，2026-10-21）· ② 「带 `landing` ⇒ 取消这一记」
+            //     （`A1617` ≡ `A1395②`，2026-10-22）—— 就在下面那一段。
+            bool openedPod = OpenDropPod(ctx, p, atkSlot, attacker);
+
+            // ---- 🆕 2026-10-22（账 `A1617` ≡ `A1395②`）：**带 `landing` ⇒ 取消这一记** ----
+            //  **判据** = `BattleManager._ResolveAttack_d__438__MoveNext.c:339-379`（VA 逐条读过，
+            //   全文与字节码出处抄在上面那一段里）：
+            //     `0x1809ad50e mov edx,0x302`（= **`DefinedTrait.landing = 770`**）→
+            //     `0x1809ad513 call`（`HasDefaultTrait`）→ `0x1809ad51a jne 0x1809ad55b`：
+            //       · **带** `landing` ⇒ `0x1809ad56d`（`CancelAttack`）+ 两次 `0x1805ea740`
+            //         （`ClearPendingDamage` 双方）+ `0x1809ad5c1 mov edx,0x1b8`
+            //         （= `AbilityTrigger.Landing = 440`）→ `0x1809ad5cb`（`OnTrigger`）
+            //         ⇒ 随后 `jmp 0x1809ad373`（`FinishResolvingAction`）⇒ **这一下不打**。
+            //  🔴 **闸 = `openedPod`，不是「有没有 `landing`」** —— 原版这两跳**在同一个
+            //     `has dropPod` 分支里**（`0x1809ad4c8 mov edx,0xe6` → `0x1809ad4d4 je 0x1809ad847`
+            //     把没有 `dropPod` 的**整个跳过**）⇒ 只带 `landing`、不带 `dropPod` 的卡
+            //     **照常打**。⛔ 别把这个闸改成只看 `landing`。
+            //  ✅ **位置** = 排在**扣配额 / 现身（失 Stealth）/ 失去伪装之后**（就是这儿）——
+            //     与 `abouttoattack` 那条（`IsValidTarget` 之后、**消耗配额之前**）**方向相反**，
+            //     因为原版这一跳在协程 `yield` **之后**（动作已消耗）。
+            //  ✅ **「取消」= 【最小档】**（调度台 2026-10-22 裁定，照做）：
+            //     `return RuleCodes.OK` + **一个伤害点都不出**；
+            //     ⛔ **不撤 `EvtKind.Attack`、不撤替身重定向** —— 同族先例
+            //     `TryCancelAttackByOwnAboutToAttack` 已定过「位置 + 取消 = `return RuleCodes.OK`」这一档，
+            //     它本身**没回答**「要不要撤事件」；而撤事件会同时动**日志 / 录像 / AI** 三处，
+            //     **没判据就不做**。⇒ 本行 `return` 落在 `ctx.Emit(EvtKind.Attack, …)` **之前**，
+            //     所以那一跳**自然不发生**（不是「撤掉」，是「还没到」）。
+            //  ⚠️ **如实标着**：原版那两跳还有 `CancelAttack` / `ClearPendingDamage` 两件事，
+            //     我们同步模型下**没有 pending damage** 可撤（伤害在本函数末尾才落）⇒
+            //     `return` 已经等价。**「撤事件」那一半没有判据、按最小档做** ——
+            //     这一段与 `KeywordTable.Landing` 的 doc 是**同一份说法**（另见下方那条 TODO：
+            //     该 doc 的补写要求落在 `CardDef.cs`，本轮由 `W1` 持有，未动）。
+            //  ⚠️ **可达性**：今天全池 **0 张**卡带 `landing` ⇒ 这一支**恒假**（铁律 11：
+            //     它是「**还没做**」变「已做」，不是「不做」）。
+            if (openedPod && attacker.Has(KeywordTable.Landing))
+            {
+                ctx.Log($"{attacker.Name} 带 `Landing` ⇒ **这一记攻击取消**"
+                      + "（原版 `_ResolveAttack` 的 `CancelAttack` 那一跳；伤害一个点都不出）");
+                return RuleCodes.OK;
+            }
+            //  📌 **账 `A1395②` 的旧注（⛔ 别再照它写）**：那一段原来写着「② 那一支**没做**、
+            //    两条口径待裁（位置 / 取消的含义）」——**2026-10-22 已按调度台裁定实现**，
+            //    两条口径的答案与判据全文抄在上面那段「🆕 2026-10-22（账 `A1617`）」
+            //    注释里（位置 = 扣配额/现身/失去伪装之后 · 取消 = **最小档**）。
+            //    ⚠️ 原来那句「今天卡池 0 张卡带它 ⇒ 不可观测」**仍然成立**，但它说明的是
+            //    「不可观测」，**不是**「不做」（铁律 11）。
 
             var target = ctx.Players[tgtP].Board[tgtSlot];
 
@@ -4987,16 +5011,24 @@ namespace RuleEngine
         ///    （它是「池子」这一格的状态，`CardDef.AuraSpecs` 那族读的是别的词）
         ///    ⇒ 光环重算这一步**没有输入变化**。⛔ 将来若真出现「某个光环读 `dropPod`」，
         ///    这里必须补一次（与「棋盘写入点必须挂钩子」同一条纪律）。
+        ///
+        /// 🔴 **2026-10-22（`A1617`）改成 `bool`** —— 返回值 = **这一次真的开舱了吗**
+        ///   （原版那个 `HasCurrentTrait(0xe6 /*dropPod*/)` 闸就落在这儿）。
+        ///   出手那一处要用它当「带 `landing` ⇒ 取消这一记」的**同一个闸**：
+        ///   原版那两跳在**同一个 `has dropPod` 分支里**（见 `DeclareAttack` 里那段 VA 判据），
+        ///   所以「带 `landing` 但没有 `dropPod`」按判据**不取消**。
+        ///   ⚠️ `BeginTurn` 那个调用点不看返回值（行为逐字不变）。
         /// </summary>
-        static void OpenDropPod(BattleContext ctx, int p, int slot, UnitState u)
+        static bool OpenDropPod(BattleContext ctx, int p, int slot, UnitState u)
         {
-            if (ctx == null || u == null) return;
-            if (!u.Has(KeywordTable.DropPod)) return;
+            if (ctx == null || u == null) return false;
+            if (!u.Has(KeywordTable.DropPod)) return false;
             int left = u.KwValue(KeywordTable.DropPod);
             u.RemoveAll(KeywordTable.DropPod);
             ctx.Log($"{u.Name} 的空投舱打开（开舱）—— 血池 {left} 撤掉"
                   + "（原版 `CardScript__RemoveDropPod`；触发 `Landing`）");
             FireTriggerAlways(ctx, u, KeywordTable.Landing, p, slot);
+            return true;
         }
 
         /// <summary>

@@ -108,7 +108,7 @@ class Program
     //    ⇒ 按本文件上面写的流程把**两个**指纹一起重钉到现值（卡池 ＋ 基线，见下）。
     //    ⚠️ 卡池还在别人手里改（同会话并行写手）⇒ 它一变，这一条**又会**回到「此时不判」那一支；
     //      那是本哨兵**已知的**限制（判据原文见上面那段长注释），⛔ 不是失败。
-    public const string PinnedPoolMd5 = "b2ae84b262ce1710e893c09498cb5495";
+    public const string PinnedPoolMd5 = "0acd13bde721a78297f11e1a35681a97";
 
     /// <summary>钉住的基线内容指纹（`工具/ruleprobe/基线/out_baseline.txt` 的 md5，**按字节**）。
     /// 与上面那个配对使用 —— 判据见上面那段长注释。</summary>
@@ -122,7 +122,7 @@ class Program
     //    ⚠️ 本轮**同时**把 `PinnedPoolMd5` 也重钉了（同会话里卡池文件被并行写手 `C1` 改过）——
     //      两条一起钉，上面那段判据的「输入没变 ＋ 基线变了」这一对才配得上。
     //    ⛔ **不是**为了抹平红（本轮没有解析差异；红的只有哨兵 ⑥ `A1462`，它**不读基线**）。
-    public const string PinnedBaselineMd5 = "d827137eff1562fa65dea9563ff7639d";
+    public const string PinnedBaselineMd5 = "bf852491965a8a55f5b7446cbc428ff8";
 
     /// <summary>🆕 **解析输出指纹**（`A1382` **一般情形**的堵法，2026-10-12 第二十一会话 · 写手 `E5`）
     /// —— 「`check` 的判据是『与**基线文件**比』，而**基线文件同一个工具就能重写**」这条洞的机器级补丁。
@@ -156,7 +156,15 @@ class Program
     ///   ⚠️ 本会话（第二十一会话）**另有 3 个写手在飞**（改 `RuleEngine/Core/*.cs`）
     ///   ⇒ 本条现在**就是红的**（他们那 8 行漂移还没被确认），**那是设计**，⛔ 不是本工具坏了。
     /// </summary>
-    public const string PinnedParseMd5 = "f350e247ba43fc3ea58938398511e476";
+    // 🔴 **2026-10-12 第二十三会话：三个指纹【有意重钉】—— 依据是下面四条，⛔ 不是为了把红抹平。
+    //   ① 本会话的解析改动（`W1` 的 `A1686` 前缀形 + `F1` 的两条回归修）**已被 `RuleEngineTest.Run` 实跑确认**：
+    //      **5246 / 5246 全过**（日志 `_tmp_view/s23_ruleengine2.log`；上一版基线是 5098）。
+    //   ② 基线重生成**只动了 1 行**（`SW25|Long Fang`，`partial` 列由空 → 整句；op 块逐字节相同）——
+    //      与 `F1` 报告的「全池 scan 逐行 diff = 1 行」**逐字吻合**，⛔ 没有夹带别人的漂移。
+    //   ③ 卡池 md5 变了是**别人改的**（`cards_engine.json` 由 `工具/gen_cards_engine.py` 生成，本探针只读）。
+    //   ④ ⚠️ **上一次重钉（`A1619`）漏了第三个指纹** —— 这次三个一起钉（否则哨兵 ⑦ 永远红）。
+    //   判据与纪律 → `README.md` 的「改探针输出格式三步」那一节；⛔ **重钉只能手改源码**（没有自动口子）。
+    public const string PinnedParseMd5 = "c40f8f2191fb53cdd3eb76880fdec235";
 
     /// <summary>一个文件的 md5（按字节；读不到返回 `null` —— ⛔ 不静默当成空串）。</summary>
     public static string Md5File(string path)
@@ -413,7 +421,14 @@ class Program
                 + (op.Target2 == null ? "" : " T2=" + TargetText(op.Target2, "T2"))
                 + NestedText(op)
                 + " chooseSrc=" + op.ChooseSrc + " what=[" + op.ChooseWhat + "] act=[" + op.ChooseAct + "]"
-                + " deadScope=" + op.ChooseDeadScope);
+                + " deadScope=" + op.ChooseDeadScope
+                // 🔴 **`A1568①`（`A1590②`）**：`Source` 原来这一条入口**一个字都不打**
+                //   （`scan` 那条路也一样）⇒ 改 `Source` 的活两个入口都看不见它。
+                //   `scan` 那边打的是**同一个值**的块形（`Program.SourceText`，`/{SRC:…}`）；
+                //   这里按本入口的标签风格打成 `Source=[…]`（`null` → 空串，与相邻 `cond=[…]` 同一规则）。
+                //   ⚠️ **标签必须是 `Source=` 而不是 `src=`** —— 本入口上面那条 `ASK …` 行的
+                //     `src=` 打的是 **`ChooseSrc`（另一个字段）**，两个同名会静默看错。
+                + " Source=[" + (op.Source ?? "") + "]");
         }
     }
 
@@ -484,8 +499,8 @@ class Program
     }
 
     /// <summary>要追加到 op 尾部的**整块**：`/` ＋ `{T:…}`（＋ `DeathWatchTarget` 非空时的 `/{DW:…}`
-    /// ＋ `Target2` 非空时的 `/{T2:…}`）。
-    /// `Sentinel.Legacy` 按其中的 `/{T:` 把 legacy 那一段切出来。</summary>
+    /// ＋ `Target2` 非空时的 `/{T2:…}` ＋ **恒有的 `/{SRC:…}`**，见 <see cref="SourceText"/>）。
+    /// `Sentinel.Legacy` 按其中的 `/{T:` 把 legacy 那一段切出来（⇒ 后面那几个块一起被摘掉）。</summary>
     public static string TargetBlock(EffectOp op)
     {
         var s = "/" + TargetText(op.Target);
@@ -503,7 +518,31 @@ class Program
         //      所以 `;` 的位置会往后挪）：**把新行里的 `/{T2:…}` 块删掉之后，必须与旧行【逐字节】相同**。
         //      本轮实测：扫描前后 8 个变化行**全部**满足（脚本：`re.sub(r'/\{T2:[^;]*', '', 新行) == 旧行`）。
         if (op.Target2 != null) s += "/" + TargetText(op.Target2, "T2");
+        // 🔴 **`A1568①`（`A1590②`）：`Source` 块【永远】打**（`Source == null` ⇒ `/{SRC:}`）。
+        //    为什么必须排在【所有块的最末尾】：`Sentinel.Legacy` 按 `/{T:` 切、`Tail()` 再**从后往前**
+        //    数尾部列 —— 排在 `/{T:` **前面**会让 `Legacy()` 把 `Source` 吞进 legacy 段，而 `Source`
+        //    是**卡面原文**（可含 `/`）⇒ `Tail()` 会**静默拿错列**（成本 / 货币名那两条哨兵当场失真）。
+        //    排在最末尾 ⇒ `Legacy()` 连同它一起摘掉，尾部列的位置**一个都不动**。
+        s += SourceText(op);
         return s;
+    }
+
+    /// <summary>🔴 **`A1568①`（`A1590②`）：`EffectOp.Source` 在 dump 里的【唯一】渲染口** ——
+    /// `/{SRC:…}`（`Source == null` ⇒ `/{SRC:}`，⛔ 不写成「不打」）。
+    ///
+    /// **病灶**（台账 `A1568①`）：`ruleprobe` 的三个 dump 入口（`scan` / `seg` / `card`）
+    ///   **一个都不打 `Source`**、基线里也没有 ⇒ **凡改 `Source` 的活 `check` 一行都不多**
+    ///   （`A1439` 那条「两条路 `Source` 不是同一个东西」**今天没仪器可证**，只能按代码读）。
+    ///   ⚠️ 与本文件里 `Target`（`A1477`）、`Target2`（`A1462`）是**同一条链**：
+    ///     「**探针看不见哪一类改动**」这件事本身还有缝。
+    /// · **原样打、不转义**（照 dump 抄进断言的值必须与引擎字段逐字相同 —— 同 `countRef` / `condition` / `Raw`）。
+    /// · ⛔ **永远打**（不像 `/{DW:}` / `/{T2:}` 那样只在非空时打）：`Source` 从「有」变「没有」
+    ///   本身就是要看的读数；而且哨兵 ⑧ 就是靠 `/{SRC:` 这个记号判「**这一列还在不在**」。
+    /// · ⚠️ `Sentinel.Legacy()` 会**连同本块一起摘掉**（它按 `/{T:` 切）⇒ `Tail()` 的行列位置不受影响。
+    /// </summary>
+    public static string SourceText(EffectOp op)
+    {
+        return "/{SRC:" + (op.Source ?? "") + "}";
     }
 
     /// <summary>🔴 **2026-10-11（第二十会话 · `A1462`）：嵌套 op 的唯一渲染口** ——
@@ -516,6 +555,8 @@ class Program
     ///
     /// ⚠️ 只打**一层**（嵌套的嵌套不再展开）—— 本池实测没有第二层；
     ///   要真出现，下面会如实打出 `(还有嵌套)` 而不是静默截断。
+    /// 🆕 **`A1568①`（`A1590②`）**：这一层里的 op 也补上了 `SRC=[…]` —— 原来「顶层打了、
+    ///   嵌在里面的没打」= 同一条缝只堵一半。⚠️ 只出现在 `seg`/`card` 两个入口（`scan` 不打嵌套）。
     /// ⚠️ 与 `TargetBlock` 一样：**只追加、不打转义**（照 dump 抄进断言的值必须与引擎字段逐字相同）。</summary>
     static string NestedText(EffectOp op)
     {
@@ -538,6 +579,9 @@ class Program
                      .Append(string.IsNullOrEmpty(o.Payload) ? "" : " [" + o.Payload + "]")
                      .Append(" T=").Append(TargetText(o.Target));
                 if (o.Target2 != null) outSb.Append(" T2=").Append(TargetText(o.Target2, "T2"));
+                // 🔴 **`A1568①`（`A1590②`）**：**嵌在里面的 op** 也有 `Source`，原来同样一个字都不打
+                //   ⇒ 上一层打了、这一层没打 = 同一条缝只堵了一半（`A1568` 的病灶）。
+                outSb.Append(" Source=[").Append(o.Source ?? "").Append("]");
                 if (o.AtTurnOps != null && o.AtTurnOps.Count > 0) outSb.Append("(还有嵌套)");
             }
             outSb.Append("]");
@@ -611,7 +655,13 @@ class Program
             var ops = PlayerChooseOpsOf(c);
             foreach (var op in ops)
                 Console.WriteLine("  ASK verb=" + op.Verb + " src=" + op.ChooseSrc + " what=[" + op.ChooseWhat
-                                  + "] act=[" + op.ChooseAct + "] payload=[" + op.Payload + "]");
+                                  + "] act=[" + op.ChooseAct + "] payload=[" + op.Payload + "]"
+                                  // 🔴 **`A1568①`（`A1590②`）**：这一行原来是**唯一**能看见
+                                  //   「**`CardDef` 收集层**那一份 op」的地方（`PlayerChooseOps` 走的是收集层，
+                                  //   ⛔ 不是 `EffectText.Parse`）—— 而它**不打 `Source`** ⇒ `A1439` 那条
+                                  //   「两条路 `Source` 不是同一个东西」**没有仪器可看**。现在补上（原样打）。
+                                  //   ⚠️ 标签是 `Source=`，⛔ 别与本行前面那个 `src=`（= `ChooseSrc`）混。
+                                  + " Source=[" + (op.Source ?? "") + "]");
             Dump(c.Desc, "  parse");
         }
     }
@@ -896,6 +946,69 @@ class Sentinel
         else
             Console.WriteLine("  ✓ [输出指纹] 当次现算的解析输出与被确认的那一版一致（" + liveMd5.Substring(0, 8)
                               + "… · 与卡池/基线文件都无关 —— 重生成基线抹不掉）");
+
+        // ---------------------------------------------------------------- ⑧ `Source` 列（`A1568①` / `A1590②`）
+        // 🔴 **判据 = 「`Source` 这一列还在不在 dump 里、且真打了值」**。
+        //    `A1568①` 的病灶：`EffectOp.Source` **三个 dump 入口一个都不打**、基线里也没有
+        //    ⇒ 凡改 `Source` 的活 `check` 一行都不多（`A1439` 那条「两条路 `Source` 不是同一个东西」
+        //    因此**今天没仪器可证**，只能按代码读）。这一条把它钉成
+        //    「**把那段渲染摘掉 ⇒ 立刻红**」（红法实测见普查产出 `W3_探针A1478A1590b.md` §四）。
+        // ⚠️ 它读**当次现算的 dump**（⛔ 一次都不读基线）⇒ `scan` 重生成基线抹不掉它。
+        // ⚠️ 它**不判** `Source` 的内容对不对（那要靠基线 diff ＋ 卡面 / 反编译）——
+        //    只判「这一列看得见」，这正是本条要治的那条缝。
+        // ⚠️ 与 ④（目标列清单）分工不同：④ 比的是**类里的字段**与清单，本条比的是
+        //    「**渲染还打不打**」—— 谁把 `Program.TargetBlock` 尾上那行 `s += SourceText(op);`
+        //    删掉（或把 `SourceText` 改成返回空串），本条立刻出声。
+        // 🔴 计数口径：`Ops()` 按 `;` 切，而**每条真 op 必带 `/{T:`**（`TargetBlock` 恒打 `/{T:…}`）
+        //    ⇒ 「不带 `/{T:` 的片段」= 被 `;` 切出来的**假 op**（`Source` 是卡面原文、本仓取
+        //    「原样打、不转义」⇒ 它自带 `;` 时那一行会被多切一刀）。真 op 数按 `opsWithT` 算。
+        int pieces = 0, opsWithT = 0, opsWithSrc = 0, srcNonEmpty = 0;
+        int srcTruncated = 0, srcMovesLegacyCut = 0;
+        foreach (var l in newLines)
+        {
+            if (l.Length == 0) continue;
+            var p = l.Split(new[] { '|' }, 5);
+            if (p.Length < 5) continue;
+            foreach (var o in Ops(p[4]))
+            {
+                pieces++;
+                if (o.IndexOf("/{T:", StringComparison.Ordinal) >= 0) opsWithT++;
+                int k = o.IndexOf("/{SRC:", StringComparison.Ordinal);
+                if (k < 0) continue;
+                opsWithSrc++;
+                var rest = o.Substring(k + 6);                       // 6 = "/{SRC:".Length
+                string src = rest.EndsWith("}") ? rest.Substring(0, rest.Length - 1) : rest;
+                if (!rest.EndsWith("}")) srcTruncated++;             // `Source` 原文自带 `;` ⇒ 这条块被切断了
+                if (src.Length != 0) srcNonEmpty++;
+                if (src.IndexOf("/{T:", StringComparison.Ordinal) >= 0) srcMovesLegacyCut++;
+            }
+        }
+        int phantom = pieces - opsWithT;
+        if (opsWithT == 0 || opsWithSrc == 0 || srcNonEmpty == 0)
+        {
+            fail++;
+            Console.WriteLine("  ✗ [Source 列] 🔴 `dump` 里**看不到 `EffectOp.Source`**（"
+                              + (opsWithSrc == 0 ? "一条 op 都没带 `/{SRC:…}` 块" : "带块但**全是空值**")
+                              + "）—— `A1568①` 那条缝又开了：改 `Source` 的活 `check` 一行都不会多"
+                              + "（`A1439` 那类「两条路 `Source` 不是同一个东西」的问题**没仪器可证**）。");
+            Console.WriteLine("             ⇒ 看 `Program.TargetBlock` 末尾那句 `s += SourceText(op);`"
+                              + " 与 `Program.SourceText` 还在不在（`scan` 那条路唯一的口）。");
+        }
+        else
+            Console.WriteLine("  ✓ [Source 列] " + opsWithT + " 条 op 带 `/{SRC:…}` 块（其中非空 "
+                              + srcNonEmpty + " 条）—— 改 `Source` 的活 `check` 现在看得见");
+        if (phantom > 0 || srcTruncated > 0 || srcMovesLegacyCut > 0)
+        {
+            // ⚠️ **不算失败**：`Source` 是**卡面原文**，本仓取的是「原样打、不转义」（同 `countRef`/`Raw`），
+            //    所以它自带 `;` / `/{T:` 时 dump 的形状会**局部失真** —— 出声说清是哪一种、有几条，
+            //    ⛔ 别让它变成一条「经常合理地红」的哨兵（那会把「红了不用管」训练成习惯）。
+            //    出处：`A1374`/`E1` 顺手发现 3（`Target.Raw` 那处同族，当时实测 0 例）。
+            Console.WriteLine("  ⚠️ [Source 列] 形状失真（`Source` 原文自带分隔符）："
+                              + "被 `;` 多切出一刀的假 op **" + phantom + "** 条 · 被截断的块 **" + srcTruncated
+                              + "** 条 · `Source` 含 `/{T:`（会挪 `Sentinel.Legacy` 的切点）**"
+                              + srcMovesLegacyCut + "** 条（真 op 数按 `/{T:` 数 = " + opsWithT + "，"
+                              + "`Ops()` 切出来 " + pieces + " 条）");
+        }
 
         Console.WriteLine("=== 哨兵合计：失败 " + fail + " 条 ===");
         return fail;

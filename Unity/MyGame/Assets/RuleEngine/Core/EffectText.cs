@@ -1492,9 +1492,69 @@ namespace RuleEngine
                         // 不是新点名的目标（拿它当锚点会把「上上条」的效果也算进来）
                         if (!t.Adjacent && t.Side != "prev" && t.Kind != "prev") segNamed = t;
                     }
+                    // ⑤·三 🆕 2026-10-12（`F1` · 账「`When … adjacent …` 冒充解析干净」）——
+                    //   **`When <事件>, <正文>` 的标记 op 也要过 ⑤**（`Verb = "whenclause"`、
+                    //   `Target == null`，`Dispatch` 的 8c-ter 产出）。
+                    //   🔴 **不补这一支的话 ⑤ 整段被绕过** —— 上面的判据全包在 `if (t != null)` 里，
+                    //      而标记 op 的 `Target` 是 `null` ⇒ 直接跳过、`adjFailed` 永不置位；
+                    //      偏偏 8c-ter 那边已经把 `r.Kind` **硬编成 `Ok`**（`Dispatch` 里
+                    //      `op = TryWhenPrefixStub(...); if (op != null) { r.Ops.Add(op); r.Kind = SegKind.Ok; … }`）
+                    //      ⇒ **半懂信号彻底丢失**、`IsFullyParsed` 由 `false` 变 `true`（冒充成功）。
+                    //      实据（`ruleprobe seg "When an enemy attacks, deal 2 damage to adjacent enemies"`，
+                    //      三棵树并排 · 报告 `F1_两条回归.md` §二）：`HEAD` ⇒ `unparsed=`**整句**；
+                    //      `W1` 后 ⇒ `unparsed=`/`partial=` **都空**（冒充满分）、op 是 `whenclause`；
+                    //      本支 ⇒ `partial=`**整句** · op 仍是 `whenclause`（`W1` 的收益一字未丢）。
+                    //      打红的断言 = `RuleEngineTest.TestAdjacent` 的
+                    //      「★ `When … adjacent …` **不算解析干净**（认不出的锚点不许冒充成功）」
+                    //      （⚠️ 行号会漂 —— `F2` 正在改那个文件，**按文案 grep**，别按行号找）。
+                    //      用例自己的注释也预先写明了这个期望（「等 `When` 短语落地后…判据 ⑤ 会把它标成认不出」）。
+                    //   ⚠️ 判据与 ⑤ 同形、与 ⑤·二**共用 `eventHasTarget` 这同一个入参**：
+                    //      事件**带宾语**时锚点定得下来（⑤·二，`Long Fang`），不带宾语才认不出。
+                    //   ⚠️ `EffectTargetSpec.AdjacentFailed` 这一支**打不了**（标记 op 没有 `Target`）
+                    //      ⇒ 只置段级的 `adjFailed`（降级那一步在 `:1449` 按段走，够用）。
+                    else if (op.Verb == "whenclause" && !eventHasTarget
+                             && HasBareAdjacent(op.Payload))
+                        adjFailed = true;
                     if (op.AtTurnOps != null) foreach (var o in op.AtTurnOps) FillOne(o);
                 }
             }
+        }
+
+        /// <summary>
+        /// 一段文本里有没有**裸写的 `adjacent`** —— 也就是「锚点**还没定**」的那种写法。
+        ///
+        /// 🔴 **判据是照抄** `ParseTarget` 里 `if (t.Contains("adjacent"))` 那一段的**五支明写锚点**：
+        /// 命中任何一支就**不算裸**（那些在 `ParseTarget` 里锚点就定完了 ——
+        /// `to the target` / `warlord` / `this …` / `and its|their|it` / `名词 + and + adjacent`）。
+        ///
+        /// **为什么要第二份（可接受的那一种重复）**：`FillAdjacentAnchors` 的 ⑤·三 手上只有
+        /// **一个字符串**（标记 op 的 `Payload`）—— 8c-ter 只把正文**原文**留下，
+        /// `ParseTarget` 当时算出来的 `EffectTargetSpec` **已经不在手上**（那批 op 被丢掉了）
+        /// ⇒ 只能按**同一把尺子**在文本上复算一遍。
+        /// ⚠️ **两边必须一起改**（`ParseTarget` 那五支若增删，这里跟着改；反之亦然）。
+        ///    不一致的后果**只是**「半懂信号认错」（多打/少打一个 `*`），**不是错打** ——
+        ///    本函数**只**用来决定降不降级，⛔ 不参与任何结算判据。
+        /// ⚠️ 只认**第一个** `adjacent`（与 `ParseTarget` 的 `IndexOf` 同口径）。
+        /// ⚠️ 这里**没有**再加一条「`low` 必须以 `when ` 开头」的卫 —— 与 ⑤ 那条不同，
+        ///    因为 `Verb == "whenclause"` **本身**就说明这句是「事件 + 正文」的形状
+        ///    （前缀形 8c-ter 与后缀形 8c-bis 都落这个动词），
+        ///    两边「锚点在事件参数里、文本层定不出来」这个理由**一模一样**。
+        /// </summary>
+        static bool HasBareAdjacent(string payload)
+        {
+            if (string.IsNullOrEmpty(payload)) return false;
+            string s = payload.ToLowerInvariant();
+            int ai = s.IndexOf("adjacent", System.StringComparison.Ordinal);
+            if (ai < 0) return false;
+            string head = s.Substring(0, ai);      // `adjacent` **之前**那半截 = 锚点候选（同 `ParseTarget`）
+            string tail = s.Substring(ai);         // `adjacent` 及之后
+            if (tail.Contains("to the target") || tail.Contains("to it")) return false;
+            if (head.Contains("warlord")) return false;
+            if (head.Contains("this ")) return false;
+            if (head.Contains(" and its ") || head.Contains(" and their ")
+                || head.Contains(" and it ")) return false;
+            if (HasTargetNoun(head)) return false;
+            return true;
         }
 
         /// <summary>
@@ -2707,6 +2767,20 @@ namespace RuleEngine
             //      事件真发生时由 `EffectResolver.BroadcastWhen` 结算）；这里只放一个**标记 op**，
             //      目的是让整句「解析得出」并**挡住错解**。结算时**打一行日志说明**（不许静默）。
             op = TryWhenSuffixStub(low, src);
+            if (op != null) { r.Ops.Add(op); r.Kind = SegKind.Ok; return r; }
+
+            // ---- 8c-ter) 🔴 `When <事件>, <效果>`（**前缀形**，`A1686`，2026-10-12 第二十三会话）----
+            //   出处：与 8c-bis 是**同一件事的另一种语序**（后缀形 `A1461` 做的那一半）。
+            //   🔴 **改前实测（不是推的）**：`ruleprobe seg "When an enemy gains Markerlight,
+            //      gain +1 Attack"` ⇒ `verb=gain payload=[markerlight, gain +1 attack]
+            //      target=[when an enemy]` —— **事件从句被当成了目标段**（`ReGain` 非贪婪主语
+            //      取整段前面的部分）。全池同类 **13 张**（判据 = `scan` dump 的 `T:Raw=when`）。
+            //   ⚠️ 和 8c / 8c-bis **同一条纪律**：机制在**事件层**（`CardDef.AddWhenTrigger` ①
+            //      注册监听器）；这里只放一个**标记 op**，目的是让整句「解析得出」
+            //      （`IsFullyParsed` 三处共用）并**挡住上面那族错解**。结算时打一行日志（不许静默）。
+            //   ⚠️ **别新造第二个机制** —— 切句判据转调 `CardDef.TryParseWhenSentence`（**只此一处**，
+            //      注册层与报表层用的是同一个函数），见 `TryWhenPrefixStub` 的 doc。
+            op = TryWhenPrefixStub(low, src);
             if (op != null) { r.Ops.Add(op); r.Kind = SegKind.Ok; return r; }
 
             // ---- 8d) `This costs N less if you control a unit with <关键词>`（**静态条件降费**，2026-09-13 A4 批 1）----
@@ -5101,8 +5175,17 @@ namespace RuleEngine
         /// ⚠️ **本条与 `A1388`（结算层）是一对**：这里只是把 `Instead` 旗标贴上去；
         ///    「**无条件的 `instead` 一定替换**」那条判定在 `EffectResolver.ResolveOps`
         ///    的配对循环里（那边原来把它当「条件判不了」而两条都跑）。
+        ///
+        /// 🔴 **2026-10-12（`A1446`）：可见性从 `private` 放到 `internal`** —— 注册侧
+        ///    `CardDef.AddWhenTrigger` 的 ② 支（降费句式）要**转调这一份**，⛔ 别在那边另写一份
+        ///    「像不像句尾 `instead`」的判据（两处写同一条规则 = 迟早不一致，工程红线；
+        ///    改前那两半就是各写各的，于是同一句话在解析层「认了」、在注册层「不认」）。
+        ///    ⚠️ 放到 `internal` 就够（`RuleEngine/Core/` 无 asmdef ⇒ 同一程序集），
+        ///       ⛔ 不外放 `public`：多一个会把句尾词吃掉的启发式入口。
+        ///    ⚠️ **两个调用方拿到的文本必须都已经是小写**（本方法按 Ordinal 比 `" instead"`）——
+        ///       `CardDef` 那边传的是 `ToLowerInvariant()` 过的那份。
         /// </summary>
-        static bool PeelInstead(ref string low)
+        internal static bool PeelInstead(ref string low)
         {
             if (low == null) return false;
             int at = low.IndexOf(" instead and ", System.StringComparison.Ordinal);
@@ -6762,6 +6845,65 @@ namespace RuleEngine
         static readonly Regex ReRefill = new Regex(@"^refill", RegexOptions.Compiled);
 
         /// <summary>
+        /// `Lower cost by N when|every time &lt;事件&gt;` → **金额 + 事件短语**（＋句尾那面 `instead` 旗标）。
+        ///
+        /// 🔴 **这一句的判据【只此一处】—— 两个调用方都转调它**（2026-10-12 · `A1446`）：
+        ///   · <see cref="TryCostWhenStub"/>（**解析层**：让整句「解析得出」，`IsFullyParsed` 才知道）；
+        ///   · `CardDef.AddWhenTrigger` 的 ② 支（**注册层**：挂 `CostWhens` 监听器，事件真发生时降价）。
+        ///   ⚠️ 改前这两半**各写各的**（解析层一条锚头正则、注册层一句 `LastIndexOf(" when ")`
+        ///      ＋它自己的头正则），于是**同一句话在两处结论不同** —— 正是 `CardDef.cs` 那条注释
+        ///      点名的老坑「**解析器认了、卡面不生效**」。现在只有本函数一份判据。
+        ///
+        /// **收两种写法**：`when <事件>` 与 `every time <事件>`（2026-09-16 起同义；
+        /// 用例 `TL83 Norn Emissary` 的 `Lower cost by 2 every time a friendly unit triggers Synapse`）。
+        ///
+        /// 🆕 **`… when &lt;事件&gt; instead` 也收**（`A1446` 的本体）：改前注册层把 `instead`
+        ///    当成事件短语的末尾词，而 `WhenEvents.ParsePredicate` 是**串尾匹配**
+        ///    （`enemy dies instead` 匹配不上 `" dies"`）⇒ 事件认不出 ⇒ **监听器一条都没挂**
+        ///    （`CardDef.CostWhens.Count` = 0），而**卡面不打 `*`、也不报错**（静默不生效）；
+        ///    解析层却因为那条 `(.+)$` 把整段吃下去而报「认了」。现在两半都先走**同一个剥离口**
+        ///    <see cref="PeelInstead"/>，实测 `Count` 由 **0 → 1**。
+        ///
+        /// ⚠️ **`instead` 的【结算语义】判据空缺 —— 如实记着，⛔ 没有替它发明一套**（铁律 2 / 3）：
+        ///   · 全池 **1126** 张的 `desc` / `descZh` 里**一张**都不是这个形状（逐条搜过）；
+        ///     `d:/4/Unity/数据/游戏数据/card_stats.json`（1213 张）同样 **0** 命中；
+        ///   · 原版数据里没有对应字段：`CardEffect`（`costChange` / `costValueOptions` / `doNotStack` …）·
+        ///     `HandEffect`（`cardEffect` / `playersAffected` / `targetCriteria` / `limitedUses`）·
+        ///     `ChooseValueOptions` 全表 —— **都没有「替换 / instead」这一栏**；
+        ///   · 全量反编译 26,282 个方法体里**没有 `instead` 这个字面**（卡面文字在远端 CCD，不在代码里）。
+        ///   ⇒ 本函数只把那个词**摘下来并如实传出去**（`instead` 出参 → `EffectOp.Instead` /
+        ///     `CardDef.CostWhen.Instead`），**不据此改结算**：登记出来的降价仍按 `Delta` 原样生效。
+        ///   出处 = `资料/普查产出_第十四会话/W_A1435十一处贴点.md` §三·1（前一位写手如实挂起那一段）。
+        ///
+        /// ⚠️ **入口统一剥方括号**：注册层拿到的是 `EffectText.Split(Desc)` 切出来的段（**带** `[...]`，
+        ///    例 `UM_Avenging_Zeal` 的 `… trigger [Codex icon] Codex`），解析层拿到的是 `ParseSegment`
+        ///    已经剥过的那一份 ⇒ 不归一的话同一句话在两处会得到不同结论（同 `TryWhenSuffix` 那条理由）。
+        ///    ⚠️ 对注册层是**行为不变**的：它下游的 `WhenEvents.Clean` 本来就剥掉 `[` `]`。
+        /// </summary>
+        /// <param name="amount">卡面 `Lower cost by N` 的 N</param>
+        /// <param name="evPhrase">事件短语（**小写、方括号已剥**，调用方交给 `WhenEvents.Parse`）</param>
+        /// <param name="instead">句尾有没有那个 ` instead`（见上面那段「判据空缺」）</param>
+        public static bool TryCostWhen(string seg, out int amount, out string evPhrase, out bool instead)
+        {
+            amount = 0; evPhrase = null; instead = false;
+            if (string.IsNullOrEmpty(seg)) return false;
+            string s = seg.Replace("[", "").Replace("]", "").Trim();
+            if (s.Length == 0) return false;
+            string low = s.ToLowerInvariant();
+            // 🔴 **先摘句尾的 ` instead`、再切 `when`/`every time`** —— 顺序反过来（改前的注册层
+            //    就是那样）它会被当成事件短语尾巴的一部分 ⇒ `WhenEvents` 串尾匹配失效 ⇒ 静默不登记。
+            instead = PeelInstead(ref low);
+            var m = Regex.Match(low, @"^lower\s+cost\s+by\s+(\d+)\s+(?:when|every\s+time)\s+(.+)$",
+                                RegexOptions.IgnoreCase);
+            if (!m.Success) return false;
+            string ev = m.Groups[2].Value.Trim();
+            if (ev.Length == 0) return false;
+            amount = int.Parse(m.Groups[1].Value);
+            evPhrase = ev;
+            return true;
+        }
+
+        /// <summary>
         /// `Lower cost by 1 when &lt;事件&gt;` —— **事件触发式降费**的那一句（2026-09-13 A4）。
         ///
         /// 这一族**卡牌在手上时就开始监听**（原版 `PlayerHand.SetupCardInHand`，
@@ -6771,14 +6913,16 @@ namespace RuleEngine
         /// </summary>
         static EffectOp TryCostWhenStub(string low, string src)
         {
-            // 判据和 `CardDef.AddWhenTrigger` 的 ② 支**同形**（那句正则）：`lower cost by N when <事件>`
-            // 🆕 2026-09-16：`when` 与 `every time` **同义**，两处一起收（另一处见 `CardDef.AddWhenTrigger`；
-            //    **只改一处就会「解析器认了、卡面不生效」**）。用例：`TL83 Norn Emissary` 的
-            //    `Lower cost by 2 every time a friendly unit triggers Synapse`。
-            var m = Regex.Match(low, @"^lower\s+cost\s+by\s+(\d+)\s+(?:when|every\s+time)\s+(.+)$",
-                                RegexOptions.IgnoreCase);
-            if (!m.Success) return null;
-            return new EffectOp { Verb = "costwhen", Source = src, Amount = int.Parse(m.Groups[1].Value) };
+            // 🔴 **判据转调 <see cref="TryCostWhen"/>（只此一处）** —— 注册侧转调的是同一个函数。
+            int amount; string ev; bool instead;
+            if (!TryCostWhen(low, out amount, out ev, out instead)) return null;
+            return new EffectOp
+            {
+                Verb = "costwhen", Source = src, Amount = amount,
+                // ⚠️ 旗标照贴（同别的 handler）—— 本 op 是**标记 op**、永不被结算，
+                //    贴它只是为了**别把那个词静默丢掉**（口径见 `TryCostWhen` 的 doc）。
+                Instead = instead,
+            };
         }
 
         /// <summary>
@@ -6861,6 +7005,56 @@ namespace RuleEngine
         {
             string ev, body; List<EffectOp> ops;
             if (!TryWhenSuffix(src, out ev, out body, out ops)) return null;
+            return new EffectOp { Verb = "whenclause", Source = src, Payload = body };
+        }
+
+        /// <summary>
+        /// `When &lt;事件&gt;, &lt;效果&gt;`（**前缀形**）的**标记 op** —— `A1686`，2026-10-12 第二十三会话。
+        ///
+        /// **和后缀形（<see cref="TryWhenSuffixStub"/>）对称**：同一件事的两种语序，
+        /// 落 **同一个动词** `whenclause`、走**同一个标记 op** 的路
+        /// （`EffectDispatch` 的 `whenclause` → `DoWhenClauseStub` 只打日志）。
+        ///
+        /// 🔴 **改前它解出的是垃圾 op**（实测读数，`ruleprobe seg`）：
+        ///   · `When an enemy gains Markerlight, gain +1 Attack`
+        ///     ⇒ `verb=gain payload=[markerlight, gain +1 attack] target=[when an enemy]`
+        ///     —— `ReGain` 的非贪婪主语把**事件从句整个当成了目标段**
+        ///     （`W10_引擎TAU20.md` §「顺手发现」，是 `A1461` 剩下的一半）。
+        ///   · 全池同类实测 **13 张**的 `Target.Raw` 就是 `when …`（判据 = `scan` dump 里
+        ///     `T:Raw=when` 那一栏；改后 0 条）。
+        ///   ⇒ 不拦的话那句话在**单位卡**上是「解出一堆没人执行的残渣」（报表口径错），
+        ///     在**战术卡**上会**真被执行**（`PlayTactic` → `Parse(Desc)`：把效果打到事件从句
+        ///     解出来的那个目标上）。
+        ///
+        /// 🔴 **判据【只此一处】：转调 `CardDef.TryParseWhenSentence`** —— 注册层
+        /// （`CardDef.AddWhenTrigger` ①）与报表层（`HandledByOtherLayer`）用的**就是同一个函数**
+        /// （同 `TryWhenSuffix` 那条纪律：切句逻辑⛔ 不许复制第二份）。
+        /// 它自带三道闸，全过才算：① 以 `When `/`Whenever ` 开头且能切成「事件短语 / 正文」两半
+        /// （缺逗号时按词边界试切点）；② 事件短语 `WhenEvents.ParseAll` 得出；③ 正文解析得出 op。
+        ///
+        /// ⚠️ **`When played, …` 天然被第 ② 道闸挡在外面**（`played` 省主语 ⇒ 认不出）——
+        ///    **那正是我们要的**：原版「打出一张牌」这条路的语义就是「**结算我自己的正文**」
+        ///    （`WhenEvent.cs` 的 `SelfOnly` 那段，2026-10-17 查实），
+        ///    ⇒ 战术卡 `DA47 Reconnaissance Mission` 的 `When played, gain 3 Quest Points`
+        ///      **必须继续由主解析器照常解成 `gainquest 3`**，⛔ 不许被这里拦掉（改前/改后 `scan`
+        ///      里那一行逐字不变就是这条的读数）。
+        ///
+        /// ⚠️ **为何排在 8c-ter（`TryCostWhenStub`/`TryWhenSuffixStub` 之后、`TryGive`/`TryGain` 之前）**：
+        ///    改前的垃圾全部由 `TryGive`/`TryGain`/`TryLose`/`TryHeal` 这一族产出，
+        ///    它们都在 8c-ter **之后** ⇒ 拦得到；实测改后全池 **0** 条 `T:Raw=when`。
+        /// </summary>
+        static EffectOp TryWhenPrefixStub(string low, string src)
+        {
+            List<WhenEvent> evs; string body; List<EffectOp> ops;
+            // 🔴 **`recordUnknown: false`**（2026-10-12 `F1`）—— 这里是**解析层的一次试探**
+            //    （「这句话认不认得」），**不是**在登记监听器 ⇒ **不许**有副作用：
+            //    认不出的事件短语**不许**被灌进全局报表桶（`WhenEvents.UnknownPhrases`）。
+            //    实测病象：战术卡 `DA47 Reconnaissance Mission` 的 `When played`（`played` 省主语、
+            //    本来就【应该】认不出）被这里灌进桶 ⇒ 报表又按「不分卡类地数卡面文字」算了一遍
+            //    （`RuleEngineTest.TestListenerCardType` 红；出处 → `资料/普查产出_第二十三会话/DIAG_五条红.md` 红 4）。
+            //    ⚠️ **注册层**（`CardDef.AddWhenTrigger` / `CollectHandTrapWhens`）**保持缺省 `true`** ——
+            //    那里才是真正挂监听器的地方，事件短语对不上就该报出来（行为一字不变）。
+            if (!CardDef.TryParseWhenSentence(src, out evs, out body, out ops, false)) return null;
             return new EffectOp { Verb = "whenclause", Source = src, Payload = body };
         }
 

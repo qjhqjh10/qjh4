@@ -18,7 +18,9 @@ namespace CardPresentation
 {
     /// <summary>🆕 **2026-10-18（A855 · 用户拍板「按来路回」）**：`DeckEditor`（卡组编辑那个**独立场景**）
     /// 是**从哪条路**进的 —— 决定「编辑完离场」时回程往哪里开。
-    /// ⚠️ 全仓**仅有**两处 `LoadScene("DeckEditor")`，就在这两个入口里各写一次
+    /// ⚠️ 🔴 **2026-10-12（`A1697`）就地订正（铁律 5）**：本行原写「全仓**仅有**两处 `LoadScene("DeckEditor")`」
+    /// —— **现在是三处**（第三处 = `Shell/CollectionWindow.GoNewDeck`，收藏窗「新建卡组 → 进编辑」那条），
+    /// 三处都各自写一次意图。
     /// （见 `CollectionData.SetReturnIntent` / `CollectionData.PendingReturn`）。</summary>
     public enum DeckExitSource
     {
@@ -289,14 +291,32 @@ namespace CardPresentation
             return deck.Name;
         }
 
-        /// <summary>新建一套卡组（原版走 `Deck Editing Menu` 的「Create」，本轮只建卡组、不进编辑）。
+        /// <summary>新建一套卡组（原版走 `SelectDecksTab.CreateDeck`：**造一副空卡组 → 直接开编辑窗**）。
         /// <paramref name="gameMode"/> = 本副卡组的模式（`0` 经典 / `13` 遭遇）——
         /// 照原版 `SelectDecksTab.CreateDeck`：**建组那一刻把当前模式打进卡组**，之后没有改的路径
         /// （判据 → `资料/加时与冲突模式_原版规格.md` §2.7）。
         ///
-        /// <para>🆕 **2026-10-13（A503）**：返回新卡组名；**写不进存档时返回空串** —— 内存里那套还在，但它迟早会丢，
-        /// 说「没成」比说「成功」诚实。调用方拿到空串时**别**再拿它往下走（尤其别拿去 `IndexOf` 再进编辑）；
-        /// 原来这里连 `LastError` 都不读，写盘失败时玩家看到的是「建好了」。</para></summary>
+        /// <para>🔴 **2026-10-12（`A1697`）改向：只造、不入库、不落盘** —— 用户 2026-10-12 点名
+        /// （「没选战将的卡组…这按照原版复刻」）⇒ 照原版那条路：
+        /// `SelectDecksTab__CreateDeck.c:17,26,28` = `CardDeck__GetEmptyDeck()` → 打上模式 →
+        /// **直接 `WindowsManager__OpenWindow&lt;DeckEditingWindow&gt;(…)`**；全链**没有一个入库调用**。
+        /// 入库的唯一路径 = `DeckEditingWindow__TrySaveDeck.c:100 UploadDeck`（先 `:80 ValidateDeck`，
+        /// 不合法就 `:81-98` 弹错误窗后 `return`，**绝不走到 `:100`**）—— 而 `DeckUtility__ValidateDeck.c:33`
+        /// 那句 `op_Equality(督军, 0)` 为真时走 `:88 *param_2 = 2; return 0;`（**没督军 = 错误码 2 = 不合法**）。
+        /// ⚠️ 原版**不是**靠灰按钮（`DeckEditingWindow__UpdateDoneButton.c:22` 只切高亮/音效、**不设 `interactable`**）。
+        /// 诊断全文 → `资料/普查产出_第二十三会话/R1_没选战将的卡组.md` §三。</para>
+        ///
+        /// <para>⚠️ **本口的返回值**：仍然是新卡组名（调用点照旧读它）；名字**已经过 `UniqueName`**，
+        /// 所以「不入库的这一副」与库里同名卡组当场就区分开。返回空串今天**不可达**（见下面那条订正）。</para>
+        ///
+        /// <para>🔴 **2026-10-12（`A1697`）就地订正（铁律 5）**：原来那条 A503 口径
+        /// 「**写不进存档时返回空串**」（🆕 2026-10-13 记的）**在本口不再成立** —— 本口自 A1697 起
+        /// **一个字节都不写盘**（照原版不入库）⇒ 根本没有「写盘失败」这一支可判，返回空串退化成一条
+        /// **今天不可达的分支**。「写不进存档」这个失败面**整条搬到了编辑器 `Done` 那一拍**
+        /// （`DeckRuntime.SaveAndSay` → `CommitDeck` → `DeckLibrary.Insert`；失败时页脚说
+        /// 「保存失败：…」、并且**不静默**，脏标记留着 ⇒ 下次 `Done` 还会再试）。
+        /// ⚠️ 因此 `Editor/CollectionScene.cs` 的 A503 那一节**有两条断言要跟着走**（在**它**那一侧改，
+        /// 本口不改 —— 它不在本笔白名单里）：见本会话报告 §四。</para></summary>
         public static string CreateDeck(int gameMode = 0)
         {
             // 默认卡组名走词条（键 **`MenuDeck/NewDeckName`** —— ⛔ **不是** `MenuDeck/HUD/NewDeckName`，
@@ -328,15 +348,18 @@ namespace CardPresentation
             //       （该文件里 `MenuDeck*` 只有 **33** 条，`DeckName` 一族只有一条前缀串 `MenuDeck/DeckName/`）。
             //    ⇒ 键名与两列**均自拟**（与 `Core/Loc.cs` ⑪ 那一节的记录一致）。
             string name = Lib.UniqueName(Loc.T("MenuDeck/NewDeckName"));
-            var d = Lib.Create(name, gameMode);   // ⛔ 别在后面再加一次 `Lib.Save()`（A398 起它自己 `SaveOrWarn`）
-            string got = d != null ? d.Name : name;
-            if (Lib.LastError != null)
-            {
-                Debug.LogWarning("[CollectionData] 新建卡组「" + got + "」：内存里**已经有了**，但**没写进存档**："
-                                 + SaveFailReason() + "（重启就没了）");
-                return "";
-            }
-            return got;
+            // 🔴 **2026-10-12（`A1697`）改向：只造、**不入库**、不落盘** —— 判据（原版，逐行读过）：
+            //   `SelectDecksTab__CreateDeck.c:17,26,28` = `CardDeck__GetEmptyDeck()` → 打上模式
+            //   → **直接 `WindowsManager__OpenWindow<DeckEditingWindow>(...)`**；全链**没有一个入库调用**。
+            //   入库的唯一路径 = `DeckEditingWindow__TrySaveDeck.c:100 UploadDeck`
+            //   （先 `:80 ValidateDeck`，不合法就 `:81-98` 弹错误窗后 `return`）⇒
+            //   原版「新建 → 不选战将 → 退出」**什么都不剩**。
+            //   ⚠️ 原版**不是**靠灰按钮（`DeckEditingWindow__UpdateDoneButton.c:22` 只切高亮/音效、
+            //   **不设 `interactable`**）。诊断全文 → `资料/普查产出_第二十三会话/R1_没选战将的卡组.md` §三。
+            PlayerDeck d = Lib.NewUnsaved(name, gameMode);   // ⛔ 不入库（= 原版 `GetEmptyDeck`）—— 入库在编辑器 `Done` 那一拍
+            PendingNewDeck = d;                       // 交接给编辑器（静态跨场景，同 `PendingEditDeck`）
+            PendingEditDeck = -1;                     // ⛔ 必须清：留着旧下标会跳进**别的**卡组
+            return d != null ? d.Name : name;
         }
 
         /// <summary>落盘失败的原因（人话）—— **上面四个口共用这一句**（两处写同一条规则 = 迟早不一致，CLAUDE.md §三）。
@@ -361,6 +384,25 @@ namespace CardPresentation
         /// （原版在同一扇窗里换页、不需要交接；我们的编辑器是独立场景，见正本 §七 的那处偏离）。
         /// ⚠️ 批处理下收藏窗**只交接、不切场景** ⇒ 自检验的就是这个下标。</summary>
         public static int PendingEditDeck = -1;
+
+        /// <summary>【未入库】的新卡组的**交接口** —— 收藏窗 / 事件窗点 `Create` 那一拍写进来，
+        /// `DeckRuntime.Build` 开局**读掉并清掉**（同 `PendingEditDeck` 那条口径）。
+        ///
+        /// <para>🔴 **2026-10-12（`A1697`）新开**：原版「新建卡组」**不入库**（判据 → `CreateDeck` 的注释）
+        /// ⇒ 它在库里**没有下标**，`PendingEditDeck` 那条口**表达不了**（它只能换一个已存在的下标）
+        /// ⇒ 改成**直接交接那一副对象**。</para>
+        ///
+        /// <para>⚠️ 两个交接口**互斥**：写 `PendingNewDeck` 的那一拍**必须**同时把 `PendingEditDeck` 清成
+        /// `-1`（否则留着上一次的旧下标会让编辑器跳进**别的**卡组）。</para></summary>
+        public static PlayerDeck PendingNewDeck;
+
+        /// <summary>**先取后清**地拿走交接的那副新卡组（同族先例 = `TakePendingReturn`）。没有时返回 `null`。</summary>
+        public static PlayerDeck TakePendingNewDeck()
+        {
+            var d = PendingNewDeck;
+            PendingNewDeck = null;
+            return d;
+        }
 
         /// <summary>🆕 **2026-10-18（A855）「编辑完卡组离场」的回程意图** —— 与上面 `PendingEditDeck` **对称**：
         /// 去程写「进哪一套」· 回程写「**从哪条路来**」。同样**静态字段跨场景存活**（`MainMenu` 也是另一个场景）、

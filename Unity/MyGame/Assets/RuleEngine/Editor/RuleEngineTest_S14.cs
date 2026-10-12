@@ -1616,10 +1616,15 @@ public static partial class RuleEngineTest
     /// 🔴 **⛔ 别拿 `EffectText.Parse(整条 desc)` 的结果去断** —— 那正是今天这条**分叉**：
     ///   实测同一句 `When Reanimated, gain Fast`，
     ///   · **事件层**（`WhenTriggers[0].Ops[0]`）：`gain` / `fast` / `Target.Subjectless == true`；
-    ///   · **`Parse(整条 desc)`**：也产出一条 `gain` / `fast`，但 **`Target == null`**，
-    ///     而且那一句被归进 **`partial`（半懂）**。
+    ///   · **`Parse(整条 desc)`**：产出一条 **`whenclause` 标记 op**（正文整条进 `Payload`），
+    ///     **`Target == null`**。
     ///   ⇒ 两条路的 op **形状不同**（一个 subjectless、一个 target 全空），
     ///     所以拿 `Parse` 那一路去断会得到一个**恰好相反**的答案（而它「看起来也在断同一句话」）。
+    ///   🔴 **2026-10-12（第二十三会话 `F2`）更正上面第二颗子弹的读数**：它原来写的是
+    ///     「也产出一条 `gain` / `fast`，但 `Target == null`，而且那一句被归进 **`partial`（半懂）**」
+    ///     —— 那是 **8c-ter（`A1686`）落地之前**的形状。落地后：动词是 `whenclause`（不是 `gain`）、
+    ///     而且**不再落进 `partial`**（全池 `partial` 10 → 1）。⇒ **「⛔ 别拿 `Parse` 那一路当判据」
+    ///     这个结论不变，变的是它长什么样**。
     ///   反过来，这条断言**钉在 `WhenTriggers` 这一层**本身就是那一半判别式：
     ///   「把 `When` 那句改回解析层」的实现会让 `WhenTriggers` 变空 ⇒ 本行立刻红。
     ///
@@ -1642,11 +1647,25 @@ public static partial class RuleEngineTest
                 + "｜🧨 拿 `EffectText.Parse(整条 desc)` 那一路去断的话，那一条的 `Target` 是 **`null`**"
                 + "（实测）—— 两条路形状不同，用错那一份会得到一个恰好相反的答案");
 
+        // 🔴 **2026-10-12（第二十三会话 `F2`）本格从「钉 `partial`」改成「钉新形状」。**
+        //    原来断的是「这一句经 `Parse(整条 desc)` 会被归进 **`partial`（半懂）**」——
+        //    那正是 **8c-ter（`A1686`）落地之前**的形态（全池 `partial` 10 → 1，本句是减掉的那几条之一）。
+        //    ⚠️ **本格原来的文案自己就写着**「如实记 …… ⛔ **别拿它当判据**」⇒ 它本来就不是判据。
+        //    新形状（实据：`bash 工具/ruleprobe.sh seg "When Reanimated, gain Fast"`
+        //    ⇒ `partial` 空 · `op: verb=whenclause payload=[gain Fast] target=[]`）：
+        //    那一句在 `Parse(整条 desc)` 那一路产出一条 **`whenclause` 标记 op**、`Target == null`。
+        //    ⇒ 「两条路产出的 op **形状不同**」这个原意，由本格 + 紧邻的下一格一起钉住
+        //      （事件层 = `gain`/`fast`/`Subjectless`；`Parse` 那一路 = `whenclause`/`Target == null`）。
+        //    🧨 **红法**：把 8c-ter 那条支撤掉 ⇒ `whole[0].Verb` 回到 `gain` ⇒ 本格必红；
+        //       让 `TryWhenPrefixStub` 带上 `Target`（退回「事件从句当目标」那条老路）⇒ 下一格必红。
         List<string> un, pa;
         var whole = EffectText.Parse(c.Desc, out un, out pa);
-        CheckTrue(pa != null && pa.Contains(c.Desc),
-                  "（如实记：同一句经 `EffectText.Parse(整条 desc)` 会被归进 **`partial`（半懂）** ——"
-                + " 这就是规格表说的那条**分叉**，⛔ 别拿它当判据）");
+        CheckTrue(pa != null && pa.Count == 0,
+                  "（改形状）同一句经 `EffectText.Parse(整条 desc)` **不再落进 `partial`** ——"
+                + " 改前它是 `partial`（8c-ter 落地后全池 `partial` 10 → 1），改后产出一条**标记 op**");
+        CheckTrue(whole.Count > 0 && whole[0].Verb == "whenclause",
+                  "（同上）`Parse(整条 desc)` 那一路产出的**首条** op 动词是 `whenclause`（不是 `gain`）"
+                + " ⇒ 两条路产出的 op **形状不同**（本笔断的是**事件层**那一份）");
         CheckTrue(whole.Count == 0 || whole[0].Target == null,
                   "（同上）`Parse(整条 desc)` 那一条的 `Target` 是 **`null`**，**不是** `Subjectless` ⇒"
                 + " 两条路产出的 op **形状不同**（本笔断的是**事件层**那一份）");
