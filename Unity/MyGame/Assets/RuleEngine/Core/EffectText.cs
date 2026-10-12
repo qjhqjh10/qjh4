@@ -19,11 +19,18 @@
 //   （`CardAbility` / `RawCardScript`，`AbilityLogic.PlayAbility` 逐条 `AddEffect`），
 //   `desc` 只是**给玩家看的展示文本**，原版从不去解析它。
 //   **搜过的路径 / 词（复现即可，⛔ 别再重复搜）**：
-//     · `grep -rln "Regex\|RegularExpressions" d:/2/tools/decomp_full/` ⇒ **33 个文件**，
+//     · `grep -rln "Regex\|RegularExpressions" d:/2/tools/decomp_full/` ⇒ **38 个文件**
+//       （⚠️ **2026-10-12（`A1618`）就地订正（铁律 5）**：这里原来写 **33** —— **现数是 38**；
+//        两种口径（不加 `--include` / 加 `--include=*.c`）**都是 38**，所以那个 33 是**旧数**，不是口径差）。
 //       逐个看过：`CardNameFilter__RemoveBetween` · `SupportMethods__RemoveAngleBracketContent` ·
 //       `SupportMethods__IsValidEmail` · `Everguild.LiveOps.CSVReader__*` · `RESTClient.*` ·
 //       `I2.Loc.*`（本地化）· `CryptoString__*` · `CardCollectionFilter*` ——
 //       **没有一个效果文本解析器**（没有 `ParseDesc` / `ParseAbilityText` / 句型分派这类东西）。
+//       🔁 **同日复验**：`ls d:/2/tools/decomp_full/ | grep -iE "parsedesc|parseability|parseeffect|effecttext"`
+//       ⇒ **一个都没有**；38 个命中里名字带 `pars` 的只有 `I2.Loc.*` 那三个「翻译结果解析」。
+//       🔑 **正面判据（比「搜不到」硬）**：`RawCardScript__GetDescAndAbilityRaw.c:8-33` ——
+//       原版把 `desc`（走 `I2_Loc_LocalizationManager.GetTranslation` 取本地化串）与
+//       「ability raw」**当两个字段拼起来**，`desc` 那一侧**只做字符串拼接、没有任何效果解析**。
 //     · `ls d:/2/tools/decomp_full/ | grep -i "text\|grammar\|parse"` ⇒ 只有本地化 / UI / 输入类。
 //     · `d:/2/tools/all_strings.txt`（带 `-a`）里搜句型模板 ⇒ 0 命中。
 //   ⇒ 本文件（以及 `GivePayload` / `Aura` 的**句子层**）的判据只能是：

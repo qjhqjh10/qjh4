@@ -369,6 +369,27 @@ namespace CardPresentation
         //  **根因** = 我们的数据里**没有「哪些词属于声明行」这一列**（`keywords` 那一列是从 OCR 来源表来的、
         //  **同时收了句中出现的记号**，见 `工具/gen_cards_engine.py` 的注释）⇒ 这 3 张要另找判据。
         //  ⚠️ **安全方向**：这三条只会让**该印的词提到段首**（图标是卡面上有的那一枚），**不会给错图标**。
+        //
+        //  🔴 **2026-10-12 就地订正（铁律 5 · 第二十一会话 · 写手 `C1`）：上面那「3 张残差」**今天只剩 `SOR72` 一张**
+        //     —— 另两张已由**数据侧**的改动消除（判据 = 现读 + PnP 成品卡图，出处
+        //     `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-12_A1621_A1625_段首词与DA37任务点`，
+        //     以及 `资料/历史/A表已收口_第二十会话.md` 的 `A1611`）：
+        //     · **`UM78 Chapter Champion`** —— 它的 `keywords` 现读是 **`['Armour 1','Codex']`**
+        //       （`Vanguard` 被清掉了；`Armour 1` 在卡面**确实是声明行那一个**：段首
+        //       `〔盾〕Armour 1. Codex: …`，本方法补它**是对的**）⇒ 段首不再多印 `Vanguard.`。
+        //       ⚠️ 句中那两枚（`Gain 〔盾〕Armour 1 and 〔旗〕Vanguard`）改由**图标计划表**画
+        //       （`工具/gen_icon_plan.py` 的 `_A1613_GAP` / `BARE_TOKEN_BY_RULE`）—— 本方法**不管**那两枚。
+        //     · **`AM54 Thermal Weaponry`** —— `keywords` 现读是 **`[]`**（无声明行）⇒ 本方法返回空串、
+        //       一枚都不补；卡面那两枚（`Give 〔爆炸〕Blast 3 … give it 〔盾〕Armour 1`）同样由计划表画。
+        //     · **`SOR72 Adelaide the Serene`**（⛔ **仍开着 = 本类唯一残差**）—— 它的 `keywords`
+        //       **必须**留着 `Flank`/`Shield`（`Flank` = 打出当回合即可攻击、`Shield` 要 `RemoveAll(Shield)`
+        //       才消耗 ⇒ **从 `keywords` 拿掉会改玩法**，见 `资料/普查产出_第二十会话/C3_卡牌尾巴_数据侧.md` §三·2）
+        //       ⇒ 本方法仍会把 `Flank.`/`Shield.` 提到段首，而卡面（`Sorotitas/3部队/Warpforge_08_Adelaide-the-Serene.png`
+        //       亲读）段首**只有 `〔翼〕Flying.`**、那两枚在**句中**（`6〔信仰〕 Gain 〔侧翼〕Flank and 〔眼〕Shield.`）。
+        //       ⇒ 修它要一个**「这个词属于声明行吗」的逐卡判据**，而**本方法拿不到卡 id**
+        //       （签名 `(keywords, zh, body, numericKeys)`、生产调用点 `BattleDriver.FaceTextFull:11869` 手上有 `c.Id`）
+        //       ⇒ 两条路都不在本批白名单里：① 加形参 + 改调用点（`BattleDriver.cs`）；② 把判据落进
+        //       `cardface_fixes.json` / `gen_cards_engine.py`（**数据侧**）。**如实记在账上**（`A1622`）。
         // ==================================================================
         /// <summary>这个词是不是**已经在正文里声明过**（⇒ 不用再补一遍）。
         /// <para>判据 = <see cref="IsDeclarationAt"/>，⛔ 不是「正文里随便哪儿出现过这个词」——

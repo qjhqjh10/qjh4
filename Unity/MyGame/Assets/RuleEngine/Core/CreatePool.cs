@@ -609,32 +609,71 @@ namespace RuleEngine
         /// ⚠️ **别顺手收紧到 3**：实测会掉 **21** 处命中（132 → 111）。</summary>
         const int MinCjkNameChars = 2;
 
-        /// <summary>建卡名索引（**两张**：英文 + 中文）。由 `CardDatabase.Parse` 在读完卡表之后调一次。
-        /// ⚠️ 没建索引时 <see cref="MatchCardName"/> 一律返回 null ⇒ 解析行为与从前**完全一致**（不静默误判）。</summary>
+        /// <summary>建卡名索引（**两张**：英文 + 中文）。由 `CardDatabase.Parse` 读卡表时调。
+        /// ⚠️ 没建索引时 <see cref="MatchCardName"/> 一律返回 null ⇒ 解析行为与从前**完全一致**（不静默误判）。
+        ///
+        /// 🔴 **必须在造 `CardDef`【之前】先建一次** —— 见 <see cref="BuildNameIndexFromNames"/>。
+        /// </summary>
         public static void BuildNameIndex(IReadOnlyList<CardDef> pool)
         {
-            var idx = new Dictionary<string, string>();
-            var idxCjk = new Dictionary<string, string>();     // 🆕 中文名那一张（`NormCjk`）
-            int cjkMax = 0;
+            var pairs = new List<KeyValuePair<string, string>>();
             if (pool != null)
                 foreach (var c in pool)
                 {
                     if (c == null) continue;
-                    bool named = !string.IsNullOrEmpty(c.Name);
+                    pairs.Add(new KeyValuePair<string, string>(c.Name, c.NameZh));
+                }
+            BuildNameIndexFromNames(pairs);
+        }
+
+        /// <summary>
+        /// 同一件事的**只给名字**的形态 —— 还没有 `CardDef` 时用（`CardDatabase.Parse` 那**两趟**）。
+        ///
+        /// 🔴 **为什么必须单开一个**（2026-10-21，第二十一会话「名字索引两趟」那一笔，跑探针实测出来的）：
+        ///   `CardDef` 的**构造函数**里就跑 `CollectTriggerOps` ⇒ `EffectText.Parse` ⇒ 目标解析
+        ///   ⇒ `TailCardName` ⇒ `CreatePool.MatchCardName` —— **它读的正是这张索引**。
+        ///   而 `CardDatabase.Parse` 原来是「**先把 1126 张 `CardDef` 全造完**、最后才
+        ///   `BuildNameIndex(list)`」⇒ **构造期索引是【上一趟留下的】**：
+        ///     · 本进程**第一次** `Load()` ⇒ 索引是**空**的 ⇒ 卡面写卡名的那种目标
+        ///       **一个都认不出**（`ParseTarget` 落回 `return null`）；
+        ///     · 之后每一次 `Load()` ⇒ 索引是**上一趟那份**（内容一样，所以看不出来）。
+        ///   ⇒ 同一张卡在**同一份卡表**上，**第一次装载**与**第二次装载**解析出**不同的 op**。
+        ///   实测（`d:/4/_tmp_n1/` 的离线探针 `idxdiff`，全池 1126 张、比
+        ///   `TriggerTexts`/`WhenTriggers`/`SpiritOps`/`OathOps`/`FaithOps`/`AuraSpecs`/`Abilities`
+        ///   的**全部 op 与目标规格**）：**差 1 张** —— `UM_Angels_of_Death`
+        ///   （`Codex: Give +1 [Ranged] to your Primaris Intercessor`）：
+        ///     空索引 ⇒ `give 载荷「+1 ranged」**目标 = null**`（卡面写的那个名字整个丢了）；
+        ///     有索引 ⇒ `own/unit ×1 · name=Primaris Intercessor`（照卡面）。
+        ///   ⇒ 那是**「第一次进游戏那一局」的静默偏差**，且**对局不再可复现**
+        ///     （同一份卡表、同一张卡，装第一次和装第二次不一样）。
+        ///   ⇒ 现在 `CardDatabase.Parse` **先**用 DTO 里的名字把索引建起来，**再**造 `CardDef`。
+        ///   ⚠️ 值仍取 `c.Name`（英文原名），中文那半的判据见 `NormCjk` / `_nameIndexCjk` 的注释。
+        /// </summary>
+        /// <param name="items">卡名 → 中文卡名（`Name` / `NameZh`；两者都可能是 null / 空串）。</param>
+        public static void BuildNameIndexFromNames(IEnumerable<KeyValuePair<string, string>> items)
+        {
+            var idx = new Dictionary<string, string>();
+            var idxCjk = new Dictionary<string, string>();     // 🆕 中文名那一张（`NormCjk`）
+            int cjkMax = 0;
+            if (items != null)
+                foreach (var it in items)
+                {
+                    string name = it.Key, nameZh = it.Value;
+                    bool named = !string.IsNullOrEmpty(name);
                     if (named)
                     {
-                        string k = Norm(c.Name);
+                        string k = Norm(name);
                         // 同名跨阵营：**先出现的赢**（筛的是名字，两个阵营都该命中）
-                        if (k.Length != 0 && !idx.ContainsKey(k)) idx[k] = c.Name;
+                        if (k.Length != 0 && !idx.ContainsKey(k)) idx[k] = name;
                     }
                     // ---- 🆕 中文名那一张 —— 判据与「为什么不能用 `Norm`」见上面 `NormCjk` 那段 ----
-                    // ⚠️ 值仍取 `c.Name`（英文原名），理由见 `_nameIndexCjk` 的注释。
-                    if (named && HasCjk(c.NameZh))
+                    // ⚠️ 值仍取英文原名，理由见 `_nameIndexCjk` 的注释。
+                    if (named && HasCjk(nameZh))
                     {
-                        string kz = NormCjk(c.NameZh);
+                        string kz = NormCjk(nameZh);
                         if (kz.Length != 0 && !idxCjk.ContainsKey(kz))
                         {
-                            idxCjk[kz] = c.Name;
+                            idxCjk[kz] = name;
                             if (kz.Length > cjkMax) cjkMax = kz.Length;
                         }
                     }

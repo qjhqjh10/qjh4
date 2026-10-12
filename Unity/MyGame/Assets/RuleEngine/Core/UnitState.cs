@@ -727,12 +727,32 @@ namespace RuleEngine
 
         readonly HashSet<string> _auraFx = new HashSet<string>();
 
-        /// <summary>带了这个关键词、且它带的效果文字解析不出来 → 卡面要标 `*`</summary>
+        /// <summary>带了这个关键词、且它带的效果文字解析不出来 → 卡面要标 `*`。
+        ///
+        /// 🔴 **2026-10-12（`A1618`）改**：判据原来问的是 `Card.Effect(keyword)`（**`EffectSpec`
+        ///   那台封闭文法**）—— 对**原版卡**那是**问错了层**，会把「正文真的会跑」判成「解析不出来」。
+        ///   实测代价：全池带 `rally`/`strike`/`slay`/`backlash`/`penitence` 的 **122 处**，
+        ///   `EffectSpec` 命中 **0/122**、而真正喂给结算器的 `TriggerOps` 命中 **122/122**
+        ///   ⇒ 那 122 处**全是假阳性**（`EffectNotes` 那一格会照它打 `RALLY*` 之类的星号）。
+        ///   ⇒ 现在统一问 <see cref="CardDef.BodyResolves"/>（**全类唯一判据，按卡的来源分流**），
+        ///   并保留「运行时挂上来的那一份也算会跑」（`FxOps` 的取法：卡上原生的优先、没有才用挂的）。
+        ///
+        /// 🔴 **2026-10-21（`A1631`）再收一格 —— 改问 <see cref="CardDef.BodyFullyResolves"/>**：
+        ///   `BodyResolves` 只说「**有没有**正文可跑」，**说不了「那整段正文全懂了没有」** ——
+        ///   同一段正文里解得出的收下、解不出的原来**不留痕**。实测：`EC8 Alluress` 的 `rally`
+        ///   第二句（`Friendly Daemonette have Flank`）整句认不出，而 `BodyResolves(rally) == true`
+        ///   ⇒ 本方法会判「解析得出来」、卡面不打 `*`（**假绿**）。
+        ///   `BodyFullyResolves` = `BodyResolves` ∧ 没有半懂账目（<see cref="CardDef.TriggerGap"/> 为空）
+        ///   ⇒ 半懂那一档也如实打 `*`（红线：不许静默失败）。
+        ///   ⚠️ **本方法今天【没有调用点】**（卡面那个 `*` 走的是 `BattleDriver.EffectNotes` /
+        ///   `EffectText.IsFullyParsed` 那两条）—— 本条改动**不动任何可见行为**，
+        ///   它管的是「以后谁来问这一格」。
+        /// </summary>
         public bool EffectUnparsed(string keyword)
         {
             if (Card == null || !Card.Has(keyword)) return HasGrantedEffect(keyword) == false;
-            if (keyword == KeywordTable.Ability) return Card.HasAbility == false;
-            return Card.Effect(keyword) == null;
+            if (Card.BodyFullyResolves(keyword)) return false;
+            return !HasGrantedEffect(keyword);
         }
 
         public int KwValue(string keyword)

@@ -30,8 +30,39 @@ class Program
     /// </summary>
     public static List<List<string>> PoolRawKeywords = new List<List<string>>();
 
-    /// <summary>卡池路径 —— 由仓库根推出来，⛔ 不写死盘符绝对路径。</summary>
-    public static string PoolPath { get { return Path.Combine(OutDir, "RuleEngine", "Resources", "cards_engine.json"); } }
+    /// <summary>🆕 **卡池路径覆盖**（环境变量 `WFPROBE_POOL`，2026-10-12 第二十一会话 · 写手 `E5`）。
+    ///
+    /// **为什么要它**：验证一条**尺子**最直接的办法是**给它一个已知的输入** —— 而本仓的卡池
+    /// （`MyGame/Assets/RuleEngine/Resources/cards_engine.json`）**归别的工具/写手**
+    /// （作者 `工具/gen_cards_engine.py`），探针⛔ **不许改它**（`A1382` 那条哨兵正是靠「探针对卡池只读」立住的）。
+    /// ⇒ 允许**指向一份副本**做**故障注入**：
+    ///   `WFPROBE_POOL=D:/4/_tmp_e5/pool_mutated.json bash d:/4/Unity/工具/ruleprobe.sh play check`
+    ///   ⇒ 当次现算的读数**真的变了** ⇒ 对拍应当**指名到卡、到列**（尺子的灵敏度实测）。
+    ///
+    /// 🔴 **它一律出声**（<see cref="LoadPool"/> 打横幅）—— ⛔ 不许静默换池：那会让「读数对不上工程现状」
+    ///   变成一桩**谜案**（本仓反复吃过的亏）。
+    /// ⚠️ 覆盖生效时：`check` 的哨兵 ⑤ 走「此时不判」（池 md5 与钉住的不同），
+    ///   而 ⑦（解析输出指纹）**会红** —— **那是对的**（你看的那份池本来就不是被确认的那一份）；
+    ///   `play check` 的哨兵 ② 只看**基线文件本身**，⛔ 不受覆盖影响。
+    /// ⛔ **不许**拿覆盖之后的读数去重钉任何常量（那是「把演示当现状」）。</summary>
+    public static string PoolOverride
+    {
+        get { try { var v = Environment.GetEnvironmentVariable("WFPROBE_POOL"); return string.IsNullOrEmpty(v) ? null : v; } catch { return null; } }
+    }
+
+    /// <summary>卡池路径 —— 由仓库根推出来，⛔ 不写死盘符绝对路径。
+    /// 🆕 环境变量 `WFPROBE_POOL` 可覆盖（见 <see cref="PoolOverride"/> —— 只为**故障注入演示**，
+    /// 它每处都会出声）。</summary>
+    public static string PoolPath
+    {
+        get
+        {
+            var o = PoolOverride;
+            return string.IsNullOrEmpty(o)
+                ? Path.Combine(OutDir, "RuleEngine", "Resources", "cards_engine.json")
+                : Path.GetFullPath(o);
+        }
+    }
 
     /// <summary>已装载的卡池（<see cref="LoadPool"/> 之后非 null）—— 新子命令取池的**唯一**出口。</summary>
     public static List<CardDef> PoolList { get { LoadPool(); return Pool; } }
@@ -93,6 +124,40 @@ class Program
     //    ⛔ **不是**为了抹平红（本轮没有解析差异；红的只有哨兵 ⑥ `A1462`，它**不读基线**）。
     public const string PinnedBaselineMd5 = "d827137eff1562fa65dea9563ff7639d";
 
+    /// <summary>🆕 **解析输出指纹**（`A1382` **一般情形**的堵法，2026-10-12 第二十一会话 · 写手 `E5`）
+    /// —— 「`check` 的判据是『与**基线文件**比』，而**基线文件同一个工具就能重写**」这条洞的机器级补丁。
+    ///
+    /// **判据（每次 `check` 现算，⛔ 一次都不读基线文件）**：把**当次现算的 dump** 规范化
+    /// （见 <see cref="CanonParseMd5"/>：**吃掉卡名**、按 `id` 排序）算 md5，与本常量比。
+    /// 不等 ⇒ 🔴 出声 ＋ **计入 rc**。参照物是**源码里的常量** ⇒ `scan` 重生成基线**动不了它**。
+    ///
+    /// **它与哨兵 ⑤ 的分工（⛔ 不是重复 —— ⑤ 那条【已知的假阴】正是它补的）**：
+    ///   · ⑤ 比的是「**基线文件** vs 钉住值」，前提是「**卡池 md5** 与钉住的一致」。
+    ///     而卡池本仓天天在变（作者是 `工具/gen_cards_engine.py` 那条链）
+    ///     ⇒ ⑤ 走「**此时不判**」那一支（**出声但不算失败**）⇒ **洞大开**（这正是 `A1619` 现读的状态）。
+    ///   · 本条**既不依赖卡池、也不依赖基线文件** ⇒ **永远在岗**。
+    ///     🔴 **实测（2026-10-12，本会话）**：卡池已被别的写手改过（现读 `3ffab02f…` ≠ 钉住值）
+    ///       ＋ 拿**当次 live 输出**当基线再 `check`（= 模拟「真回归 ＋ 重生成基线」）
+    ///       ⇒ 旧版 **`解析差异 0 行` · 哨兵 0 条失败 · `rc=0` = 全绿**（= `A1382` 当场可复现）；
+    ///       加本条之后**同一条命令** ⇒ 🔴 红。判据与逐条读数
+    ///       ⇒ `资料/普查产出_第二十一会话/E5_尺子两笔.md`。
+    ///   · **另一个区别**：本条把**卡名吃掉**（只留 `id`）⇒ 单纯改名／只重生成一次基线
+    ///     ⛔ **不会**让它红（那是 ⑤ 盯的），两条各盯一种，⛔ 别拿一条去替另一条。
+    ///
+    /// **重钉（⛔ 没有「一条命令自动重钉」—— 那等于把这条洞又开回来）**：
+    ///   `check` 会把该抄的**整行常量**打出来，**手改这一个常量** —— 那就是本哨兵要求的
+    ///   「**显式确认**」（会出现在 `git diff` 里，⛔ 不是静默动作）。
+    ///   🔴 **重钉前必须先确认这批变化是对的**（`RuleEngineTest.Run` 或真机验过）；
+    ///   为了「把红抹平」而重钉 = **正是它在抓的那件事**。
+    ///
+    /// ⚠️ **初始值 = `HEAD` 那一版基线文件的规范化指纹**（`f350e247…` = **上一次被确认的状态**），
+    ///   ⛔ **不是**「当次现读的 live」（`38f38061…`）—— 拿 live 当初始值 = **把未经确认的漂移盖成绿**，
+    ///   那正是本仓红线「不许静默失败」要治的东西。
+    ///   ⚠️ 本会话（第二十一会话）**另有 3 个写手在飞**（改 `RuleEngine/Core/*.cs`）
+    ///   ⇒ 本条现在**就是红的**（他们那 8 行漂移还没被确认），**那是设计**，⛔ 不是本工具坏了。
+    /// </summary>
+    public const string PinnedParseMd5 = "f350e247ba43fc3ea58938398511e476";
+
     /// <summary>一个文件的 md5（按字节；读不到返回 `null` —— ⛔ 不静默当成空串）。</summary>
     public static string Md5File(string path)
     {
@@ -111,6 +176,31 @@ class Program
         }
     }
 
+    /// <summary>🆕 `A1382`：把一份 dump 规范化成「**只含解析结果**」的文本，再算 md5（见
+    /// <see cref="PinnedParseMd5"/> 的判据）。规范化三步：
+    ///   ① 每行只取 **`id`**（**吃掉卡名** —— 卡名是会变的产物，本仓已改过 6 张）
+    ///      ＋ **第 3 列起**（`unparsed|partial|ops`），即 `CheckMain.DefOf` 那一段；
+    ///   ② 按 `id` **排序**（`Dictionary` 的枚举序**不可靠**，⛔ 别拿它当判据的一部分）；
+    ///   ③ 每行 `id \t 定义 \n` 连接（**含末尾换行**）。
+    /// ⚠️ 切法与 `CheckMain.Run` 逐字一致：`Split('|', 5)` 只切 4 刀 —— `ops` 列里**还可能**有 `|`
+    ///   （`countRef` 的 `board` 族 / `chooseone` 的 `chooseWhat`）。
+    /// ⚠️ 行数不等（卡被加/删）也会改变指纹 ⇒ 红，**那是想要的**（⛔ 不是噪声）。
+    /// ⚠️ 编码 = **UTF-8 字节**（照 `Md5Bytes`），⛔ 别用 `Encoding.Default`（本机是 GBK）。</summary>
+    public static string CanonParseMd5(string[] lines)
+    {
+        var map = new SortedDictionary<string, string>(StringComparer.Ordinal);
+        foreach (var l in lines)
+        {
+            if (l.Length == 0) continue;
+            var p = l.Split(new[] { '|' }, 5);
+            if (p.Length < 5) continue;
+            map[p[0]] = p[2] + "|" + p[3] + "|" + p[4];
+        }
+        var sb = new System.Text.StringBuilder();
+        foreach (var kv in map) sb.Append(kv.Key).Append('\t').Append(kv.Value).Append('\n');
+        return Md5Bytes(System.Text.Encoding.UTF8.GetBytes(sb.ToString()));
+    }
+
     static void Main(string[] args)
     {
         // 🔴 本机默认是 GBK（实测中文输出 `B8 B4 C5 DC`）⇒ 不设这个，所有中文都乱码，
@@ -120,8 +210,8 @@ class Program
         if (args.Length == 0)
         {
             Console.WriteLine("usage: seg <text...> | card <name> | scan <out> | check [baseline] | filter <kw> | "
-                              + "willrun [dump <out>] | faith [dump <out>] | play <id|卡名> | play all [dump <out>] | "
-                              + "nonkw | jackal | emergency | suppressor | played | b19test");
+                              + "willrun [dump <out>] | faith [dump <out>] | play <id|卡名> | play all [dump <out>] [pf <out>] | "
+                              + "play check [<pf.txt>] | nonkw | jackal | emergency | suppressor | played | b19test");
             Environment.Exit(1);
         }
         if (args[0] == "scan")
@@ -177,19 +267,43 @@ class Program
                 //    没有一条回答「这张卡打出去数字对不对」⇒「**解析过、结算错**」这一整类
                 //    （`A1388`/`A1407`/`A1426`/`A1428` 那一族）**任何全池尺子都照不到**。
                 //    · `play <id|卡名>` 单卡读数（卡面 + 打前/打后局面指纹 + 变化逐条）；
-                //    · `play all [dump <out.tsv>]` 全池 sweep（每张真打一发，出候选清单）。
-                //    ⚠️ 退出码：单卡 = 崩了 / `ErrUnimplemented` ⇒ rc=1；全池 = 抛异常 > 0 ⇒ rc=1。
+                //    · `play all [dump <out.tsv>] [pf <out.txt>]` 全池 sweep（每张真打一发，出候选清单
+                //      ＋ 🆕 一份**结算指纹**）；`pf` 那份就是 `play check` 要对拍的「被确认的状态」。
+                //    · 🆕 **`play check [<pf.txt>]`**（`A1431` 第二笔，2026-10-12 写手 `E5`）：**结算层对拍**
+                //      —— 逐卡比 + 「基线文件内容 vs 源码常量 `PinnedPlayMd5`」哨兵（重生成基线抹不掉）。
+                //      见 `PlayProbe` 的 `A1431 第二笔` 那一段长注释。
+                //    ⚠️ 退出码：单卡 = 崩了 / `ErrUnimplemented` ⇒ rc=1；全池 = 抛异常 > 0 ⇒ rc=1；
+                //      🆕 `play check` = **逐卡差异或哨兵红 ⇒ rc=1**。
                 //    ⛔ 它**不判对错** —— 判据在卡面上（`desc`/`descZh`/PnP 卡图），它只把实得数字摆出来。
                 case "play":
                     {
                         if (args.Length <= i + 1)
                         {
-                            Console.Error.WriteLine("!! 用法：play <id|卡名> | play all [dump <out.tsv>]");
+                            Console.Error.WriteLine("!! 用法：play <id|卡名> | play all [dump <out.tsv>] [pf <out.txt>] | play check [<pf.txt>]");
                             Environment.Exit(2);
                         }
-                        string pDump = null;
-                        if (args.Length > i + 3 && args[i + 2] == "dump") pDump = args[i + 3];
-                        Environment.Exit(PlayProbe.Run(PoolList, args[i + 1], pDump));
+                        string pKey = args[i + 1], pDump = null, pPf = null, pBase = null;
+                        // 🆕 `A1431` 第二笔：`pf <out>`（写结算指纹）· `check [<pf.txt>]`（结算层对拍）。
+                        // ⚠️ 原来这一格只认紧跟在 `all` 后面的 `dump`（`args[i+2]`），
+                        //    再加一个 option 就会**静默**把它当普通 token 丢掉 ⇒ 改成显式循环、
+                        //    认过的 option **必须**有值（⛔ 不许把 `pf` 之后那个路径漏成 null 还接着说「跑完了」）。
+                        int j = i + 2;
+                        while (j < args.Length)
+                        {
+                            if (args[j] == "dump" && j + 1 < args.Length) { pDump = args[j + 1]; j += 2; continue; }
+                            if (args[j] == "pf" && j + 1 < args.Length) { pPf = args[j + 1]; j += 2; continue; }
+                            if ((args[j] == "baseline" || args[j] == "base") && j + 1 < args.Length)
+                            { pBase = args[j + 1]; j += 2; continue; }
+                            if (pBase == null && j == i + 2 && string.Equals(pKey, "check", StringComparison.OrdinalIgnoreCase))
+                            { pBase = args[j]; j += 1; continue; }   // `play check <pf.txt>` 那种写法
+                            if (args[j] == "dump" || args[j] == "pf")
+                            {
+                                Console.Error.WriteLine("!! `" + args[j] + "` 后面缺路径（用法：play all [dump <out.tsv>] [pf <out.txt>]）");
+                                Environment.Exit(2);
+                            }
+                            break;   // 不认识的 token：不吞，留给后面的模式
+                        }
+                        Environment.Exit(PlayProbe.Run(PoolList, pKey, pDump, pPf, pBase));
                     }
                     break;
                 default: Dump(args[i]); i += 1; break;
@@ -216,6 +330,14 @@ class Program
     {
         if (Pool != null) return;
         if (!File.Exists(PoolPath)) { Console.Error.WriteLine("!! 找不到卡池：" + PoolPath); Environment.Exit(2); }
+        // 🔴 `WFPROBE_POOL` 覆盖时**一律出声**（见 `PoolOverride`）—— ⛔ 不许静默换池。
+        if (!string.IsNullOrEmpty(PoolOverride))
+        {
+            Console.WriteLine("⚠️⚠️ 卡池被环境变量 `WFPROBE_POOL` **覆盖** ⇒ " + PoolPath);
+            Console.WriteLine("     ⛔ 这**不是**工程里那一份（`MyGame/Assets/RuleEngine/Resources/cards_engine.json`）"
+                              + " ⇒ 下面的读数**只能**当「拿这份输入量出来的数」，⛔ 不能当「工程现状」，"
+                              + "⛔ 更不能拿它去重钉任何常量。");
+        }
         var doc = JsonDocument.Parse(File.ReadAllText(PoolPath));
         var list = new List<CardDef>();
         var rawKw = new List<List<string>>();      // 🆕 与 list **同序**的 `keywords` 原文（见 PoolRawKeywords）
@@ -723,8 +845,13 @@ class Sentinel
             Console.WriteLine("  ⚠️ [基线指纹] 卡池的 md5 与钉住的**不同** ⇒ 本哨兵**此时不判**"
                               + "（⛔ 不是「过了」）。");
             Console.WriteLine("             现值 卡池 md5=" + poolMd5 + " · 基线 md5=" + baseMd5);
-            Console.WriteLine("             ⇒ **两个指纹都该重钉**（改 `Program.PinnedPoolMd5` / `PinnedBaselineMd5`）"
-                              + "：卡池变了的时候，上面那条判据的「输入没变」这一半不成立。");
+            Console.WriteLine("             ⇒ **三个指纹都该重钉**（🔴 `A1619` 那次重钉就漏了第三个）："
+                              + "`PinnedPoolMd5` = 上面那个卡池现值 · `PinnedBaselineMd5` = 上面那个基线现值 ·"
+                              + " `PinnedParseMd5` = 下面 ⑦ 打出来的那一行（**整行照抄**）。");
+            // 🔴 2026-10-12（`A1382`）：这一支**曾经就是那条洞本身**（卡池天天在变 ⇒ ⑤ 天天「不判」）。
+            //    现在**不是**了 —— ⑦ 那一半（**不依赖卡池、也不依赖基线文件**）照样在岗。
+            Console.WriteLine("             🔴 这一支**不再等于「没人看」**：⑦ [输出指纹] 与本条**独立**"
+                              + "（它既不读卡池、也不读基线文件）⇒ 「卡池变了 ＋ 重生成基线」这条假阴由 ⑦ 兜住。");
         }
         else if (baseMd5 != Program.PinnedBaselineMd5)
         {
@@ -742,6 +869,33 @@ class Sentinel
         }
         else
             Console.WriteLine("  ✓ [基线指纹] 卡池与基线的指纹都与钉住的一致（基线没被静默改写）");
+
+        // ---------------------------------------------------------------- ⑦ 解析输出指纹（`A1382` 一般情形）
+        // 🔴 **⑤ 补不了的那一半**：⑤ 的判据要「卡池 md5 与钉住的一致」才成立，而卡池天天在变
+        //    ⇒ ⑤ 走「此时不判」那一支时，**这条洞是敞开的**（`A1619` 现读就是这样）。
+        //    本条读的是**当次现算的 dump** 与**源码里的常量** ⇒ ⛔ 既不依赖卡池、也不依赖基线文件。
+        //    判据/分工/重钉纪律 ⇒ `Program.PinnedParseMd5` 的注释。
+        string liveMd5 = Program.CanonParseMd5(newLines);
+        if (liveMd5 != Program.PinnedParseMd5)
+        {
+            fail++;
+            Console.WriteLine("  ✗ [输出指纹] 🔴 **当次现算的解析输出 ≠ 被确认过的那一版**（`A1382`）。");
+            Console.WriteLine("             现算=" + liveMd5 + " · 钉住=" + Program.PinnedParseMd5);
+            Console.WriteLine("             ⚠️ 这一条**一次都没读基线文件**（⛔ 所以「重生成基线」抹不掉它）——"
+                              + "它盯的是「**源码跑出来的解析结果**有没有离开被确认的那一版」。");
+            Console.WriteLine("             ⇒ 先跑 `git diff 工具/ruleprobe/基线/out_baseline.txt`"
+                              + "＋看上面那句「解析差异 N 行 / 前 N 张」：");
+            Console.WriteLine("                · **真回归**（解析器被改坏了）⇒ 去修解析器，⛔ 别改下面的常量；");
+            Console.WriteLine("                · **有意且已验过**（`RuleEngineTest.Run` 或真机；常见成因 ="
+                              + "别的写手改了卡池/解析器、或本会话的改动**还没被确认**）"
+                              + "⇒ **手改**下面这一行（那就是本哨兵要的显式确认）：");
+            Console.WriteLine("                    public const string PinnedParseMd5 = \"" + liveMd5 + "\";");
+            Console.WriteLine("             ⚠️ 「解析差异 0 行」而这一条红 = **基线已被重生成过**（正是 `A1382` 那条洞）；"
+                              + "「解析差异 > 0」而这一条也红 = 两把尺子指着同一件事（正常）。");
+        }
+        else
+            Console.WriteLine("  ✓ [输出指纹] 当次现算的解析输出与被确认的那一版一致（" + liveMd5.Substring(0, 8)
+                              + "… · 与卡池/基线文件都无关 —— 重生成基线抹不掉）");
 
         Console.WriteLine("=== 哨兵合计：失败 " + fail + " 条 ===");
         return fail;

@@ -78,6 +78,29 @@ namespace RuleEngine
                                + "`CardDef.Id` 退回**卡名**（同名卡会串）。跑一下 gen_cards_engine.py 重生成。");
 
             int noId = 0;
+
+            // 🔴 **2026-10-21：卡名索引必须【先】建 —— 在造 `CardDef` 之前。**
+            //   `CardDef` 的**构造函数**里就跑 `CollectTriggerOps` ⇒ `EffectText.Parse` ⇒
+            //   目标解析 ⇒ `TailCardName` ⇒ `CreatePool.MatchCardName` —— 它读的正是这张索引。
+            //   原来这里是「先把 1126 张 `CardDef` 全造完、最后才 `BuildNameIndex(list)`」
+            //   ⇒ **构造期索引 = 上一趟留下的那份**：
+            //     · 本进程**第一次** `Load()` ⇒ 索引**空** ⇒ 卡面写卡名的目标**一个都认不出**；
+            //     · 之后每一次 `Load()` ⇒ 索引是上一趟那份（内容一样 ⇒ 看不出来）。
+            //   ⇒ 同一份卡表，**第一次装载**与**第二次装载**解析出**不同的 op** = 对局不可复现（红线）。
+            //   实测（`d:/4/_tmp_n1/` 探针 `idxdiff`，全池 1126 张、比
+            //   `TriggerTexts`/`WhenTriggers`/`SpiritOps`/`OathOps`/`FaithOps`/`AuraSpecs`/`Ability`
+            //   的**全部 op 与目标规格**）：**差 1 张** —— `UM_Angels_of_Death`
+            //   （`Codex: Give +1 [Ranged] to your Primaris Intercessor`）：
+            //     空索引 ⇒ `give 载荷「+1 ranged」目标 = null`（卡面写的名字整个丢了）；
+            //     有索引 ⇒ `own/unit ×1 · name=Primaris Intercessor`（照卡面）。
+            //   ⚠️ 下面那句末尾的 `BuildNameIndex(list)` **照旧保留** —— 它是「同一件事的
+            //    `CardDef` 形态」（内容与这一趟逐字相同，幂等）；删了反而多一处口径分叉。
+            CreatePool.BuildNameIndexFromNames(
+                System.Linq.Enumerable.Select(
+                    System.Linq.Enumerable.Where(dto.cards,
+                        c => c != null && !string.IsNullOrEmpty(c.name)),
+                    c => new KeyValuePair<string, string>(c.name, c.nameZh)));
+
             foreach (var c in dto.cards)
             {
                 if (c == null || string.IsNullOrEmpty(c.name)) continue;

@@ -109,6 +109,14 @@ namespace CardPresentation
         public const int QBarLevel = 2993;                                   // 等级图标（G）
         public const int QBarText = MainMenuRuntime.QBarText;                // 2997 文字
 
+        /// <summary>等级徽章的**圆底图**（`A1637`）：`Player Level` 那颗 `Image` 的 `m_Sprite`
+        /// = pid `2381704724431365035` = **`UI_Button_Round_background`**（深色圆 + 一圈细亮环，237²）。
+        /// 判据三条（真包扫 pid · 场景 MB 2359 · `bundle_menus_assets_all` 里 4 份 `Player Level` 同 pid）
+        /// → 建它的那一句上面那段注释。⚠️ **与档案窗那一格是同一张**（`Shell/ProfileTab.cs` 的
+        /// `ArtRoundBtn`，值一字不差）—— 两处各有一份 `const` 是**故意的**：本工程的 `const` 不跨类转发，
+        /// 而两处都把**同一个 pid/名字**写在注释里 ⇒ 任一处被改错，注释与真值立刻对不上。</summary>
+        public const string ArtRoundBtn = "UI_Button_Round_background";
+
         /// <summary>建出来的那些件（调用方要留着它才能「头像换了跟着换」）。</summary>
         public sealed class Parts
         {
@@ -310,8 +318,42 @@ namespace CardPresentation
                  null, true, onMissing);
             BuildTopAvatar(av, parts, onMissing);
 
+            // ============================================================ 等级徽章（头像右下那颗圆牌）
+            //
+            // 🔴 **`A1637`（2026-10-12 用户真机点名）就地订正（铁律 5）** —— 原来这里用的是
+            //    **`40k_topmarquee_currency_gold`（一块金砖）**，那是**读错了文档**：
+            //      · 错记录 = `资料/主菜单_原版规格.md:111`（与 `:342`）把 `Player Level` 那一格的
+            //        `m_Sprite` 记成了 `40k_topmarquee_currency_gold`；
+            //      · **真值 = `UI_Button_Round_background`**（**深色圆 + 一圈细亮环**，237×237，图集
+            //        `0_GeneralUI Atlas`，`m_Border` 四角**全 0** ⇒ 不是九宫格）—— 与用户实拍里那颗
+            //        「圆环 + 数字」逐形吻合（`C:/Users/qjh36/Desktop/warpforge参考图/收藏—卡组的参考图.png` 左上角）。
+            //    **三条独立判据（都现核过）**：
+            //      ① 场景真值：`bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/MonoBehaviour_2359.json`
+            //         （`Player Level` 那颗 `Image`，GO pid **238**）的 `m_Sprite = {m_FileID: 6,
+            //         m_PathID: **2381704724431365035**}` —— **这个 pid 与名无关，先前的读法是把 pid 猜成了名字**；
+            //      ② 全库扫真包（`UnityPy` 扫 `D:/2/unity_run_ref/.../StandaloneWindows64/*.bundle` **84 个**）：
+            //         `path_id == 2381704724431365035` 的对象**全库只有一个** —— `Sprite/UI_Button_Round_background`
+            //         （⇒ 不是跨 CAB 撞号）；`素材/Warpforge原版/UI图集/去重资源/Sprite/UI_Button_Round_background_2381704724431365035.json`
+            //         那份**带 pid 后缀**的导出是第二条独立见证；
+            //      ③ 交叉树：`bundle_menus_assets_all` 里 **4 份** `Player Level`（档案/排位那两棵树）
+            //         的 `Image.m_Sprite` **全是同一个 pid 2381704724431365035** ⇒ 两棵树同一个圆底。
+            //    ⚠️ **`40k_topmarquee_currency_gold` 是【另一张】**（`m_Rect` 90×90、无图集、单独一张 Texture2D）
+            //       —— 它该出现在资源计数器那一排（金币格），⛔ 不该出现在头像右下。
+            //    🧨 **改坏法**：把这一行换回 `40k_topmarquee_currency_gold` ⇒ `Editor/MainMenuScene.cs`
+            //       那条「`Player Level` 用的是 `UI_Button_Round_background`」立刻红。
+            //
+            // 🔴 **数字从哪来（同一轮查实）**：原版那颗字**不是** prefab 里的值 —— prefab 写的是空态串 `-`，
+            //    运行期由 **`PlayerProfileUIController`**（那颗组件就在同一棵树上的 `Player Profile` 节点，
+            //    `MonoBehaviour_1989.json`：`showPlayerLevel = 1` · `playerLevelGO → pid 238`（= 这一颗）·
+            //    `playerLevelText → pid 2548`）写入：
+            //      · `PlayerProfileUIController__Initialize.c` 末段 ⇒ `SetPlayerLevel(PlayerDataManager.CurrentLevel)`；
+            //      · `PlayerProfileUIController__SetPlayerLevel.c` ⇒ `playerLevelText.text = level.ToString()`；
+            //      · `__OnCollectorLevelUpdate.c` ⇒ 升级信号（`CollectorLevelChangeSignal`，等级在 +0x14）里再写一次。
+            //    ⇒ **数据源 = 服务器**（`PlayerDataManager.CurrentLevel`）⇒ 本地取不到 ⇒ 我们**照 prefab 的空态串 `-`**
+            //      （与档案窗那一格 `Shell/ProfileTab.cs` 的 `PlayerLevelText` **同一份口径**）；
+            //      ⛔ **不许自己编一个数字填上**（那会把「查不到」画成「有数据」）。判据已在报告里写明。
             var lvl = New(p, "Player Level", 53.12f, 53.12f);
-            Rect(lvl, "40k_topmarquee_currency_gold", 117.5f, 170.6f, 54.3f, 107.4f, "Icon", QBarLevel,
+            Rect(lvl, ArtRoundBtn, 117.5f, 170.6f, 54.3f, 107.4f, "Icon", QBarLevel,
                  null, false, onMissing);
             var lv = Text(lvl, "-", 124.3f, 163.7f, 61.1f, 100.5f, 7, Color.white, "Player Level Text",
                           37.2f, QBarText);

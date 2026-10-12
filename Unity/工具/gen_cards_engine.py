@@ -669,6 +669,9 @@ def build():
     # ⚠️ 两张表：裸卡名 / 带阵营 —— **同名卡必须用后者**，见 `load_cardface_fixes` 的注释
     face_fixed = []                         # 被修正过的卡（跑完打出来给人看）
     used_face_fix = set()                   # 修正表里**真匹配到卡**的键 —— 抓「改名后失配」，见 `build()` 末尾
+    # 🆕 2026-10-12（`A1620`）：**同一张卡的「裸卡名」键与「阵营/卡名」键，对同一列给出了不同的值**
+    #    —— 合并时阵营键赢、裸键那一份**被静默丢掉**。见下面 `_ff_bare` / `_ff_fac` 那一支的长注释。
+    key_conflicts = []
     id_by_name = load_ids()                 # 原版 id（见 `IDS_SRC` 那段长注释）
     id_orig, id_made = [], []               # 用上原版 id 的 / 自造 id 的（跑完打出来给人看）
     cards, skipped = [], []
@@ -806,6 +809,24 @@ def build():
         _ff_fac = (face_fixes_by_fac.get(entry["faction"]) or {}).get(name) or {}
         if _ff_bare: used_face_fix.add(("bare", name))
         if _ff_fac:  used_face_fix.add(("fac", entry["faction"], name))
+        # 🔴 **2026-10-12（`A1620`）：两键对同一列不一致 ⇒ 当场记下来。** 原来这里是【静默】的：
+        #    `_ff = dict(_ff_bare); _ff.update(_ff_fac)` ⇒ **阵营键赢**，裸键那一份**无声丢掉**，
+        #    而脚本照样打印「卡面核对修正 字段 N 处 · 关键词 M 处」（那行只数「改了几处」，
+        #    ⛔ 不数「有谁被盖了」）⇒ 一份**已经查证过的**修正可以一个字都不生效、还没人知道。
+        #    🔴 **实测代价**（`A1611`，2026-10-12）：`工具/_apply_kw_misextract.py` 把六路子代理
+        #    逐张看 PnP 核过的「误抽」清洗写进**裸卡名**键，而 `Chapter Champion` / `Thermal Weaponry`
+        #    另有旧的 `阵营/卡名` 键带着**清洗前**的值 ⇒ 那 3 个词的清洗**一个字都没生效**。
+        #    ⇒ 现在有冲突就在跑完的摘要里逐条报出来（见 `main()` 那一支），与本文件末尾那条
+        #    「`orphan_face_fix` —— 改名后失配」同一族（都是「表里有、卡表里没生效」），
+        #    合起来才是完整的「不许静默失败」。
+        #    ⚠️ **判据只看「两键都有这一列且值不同」**——只在一侧出现的列不算冲突（那是正常的列互补，
+        #       例：`Ultramarines/Chapter Champion` 有 `keywords`、裸键有 `desc`）。
+        #    ⚠️ 值**相同**的两键（`Chapter Champion` / `Thermal Weaponry` 现在就是这样）也不报：那是
+        #       **冗余**不是冲突（`A1620` 的 ℹ️；两张卡在卡池里 `name_count = 1` ⇒ 阵营键本就是多余的）。
+        for _col in ("subtype", "keywords", "desc", "descZh"):
+            if _col in _ff_bare and _col in _ff_fac and _ff_bare[_col] != _ff_fac[_col]:
+                key_conflicts.append((entry["faction"], name, _col,
+                                      _ff_bare[_col], _ff_fac[_col]))
         _ff = dict(_ff_bare)
         _ff.update(_ff_fac)
         if _ff:
@@ -865,7 +886,8 @@ def build():
                 "**自造 id 形如 `AM_Some_Card`（带下划线）** —— 一眼能分出「原版有 id」和「我们补的」。",
         "count": len(cards),
         "cards": cards,
-    }, skipped, len(raw), filled, still_missing, stat_fixed, face_fixed, id_orig, id_made, orphan_face_fix
+    }, skipped, len(raw), filled, still_missing, stat_fixed, face_fixed, id_orig, id_made, orphan_face_fix, \
+       key_conflicts
 
 
 def fix_own_armour(entry):
@@ -896,7 +918,8 @@ def main():
     ap.add_argument("--check", action="store_true", help="只对账，不写文件")
     args = ap.parse_args()
 
-    doc, skipped, total, filled, still_missing, stat_fixed, face_fixed, id_orig, id_made, orphan_face_fix = build()
+    (doc, skipped, total, filled, still_missing, stat_fixed, face_fixed,
+     id_orig, id_made, orphan_face_fix, key_conflicts) = build()
 
     by_type = {}
     for c in doc["cards"]:
@@ -952,6 +975,58 @@ def main():
     else:
         print("\n卡面修正表：所有键都匹配上了 ✅")
 
+    # 🔴 **同卡两键值不一致**（`A1620`，2026-10-12）—— 与上面那条「孤立键」同一族：都是
+    #    「**表里写着的修正，卡表里其实没生效**」。区别只在失效方式：
+    #      · 孤立键 = 键**没匹配到任何卡**（多半是卡改名了）；
+    #      · 这一条 = 键匹配上了、**但同一张卡另一条键把它盖掉了**（阵营键赢）。
+    #    ⛔ **不许静默**：两键的写法都对（裸卡名 / `阵营/卡名` 都是本表合法的键），
+    #      错的是**它们对同一张卡给了不同的值** —— 这时候**必有一条是过期的**，人来判该留哪条。
+    if key_conflicts:
+        print(f"\n🔴 卡面修正表里有 {len(key_conflicts)} 处**同卡两键值不一致**"
+              f"（阵营键赢、裸键那一份【没生效】）：")
+        for _fac, _nm, _col, _bare, _facv in key_conflicts:
+            print(f"            · {_fac} / {_nm} 的 `{_col}`：")
+            print(f"                裸卡名键 {_nm!r}      → {_bare!r}")
+            print(f"                阵营键   {_fac}/{_nm!r} → {_facv!r}   ← 实际生效的是这个")
+        print("            ⇒ 这两条**必有一条过期**：卡名的键是给「所有同名卡」用的、阵营键是给这一张用的。")
+        print("              判「谁对」只能开 PnP 成品卡图逐张读（铁律 7）—— 定下来之后"
+              "**把另一条改成同一个值**（或删掉冗余的那条）。")
+    else:
+        print("\n同卡两键一致性 ✅（裸卡名键与 `阵营/卡名` 键没有对同一列给出不同的值）")
+
+    # 🔴 **裸卡名键的卡名必须在全池唯一**（`A1633`，2026-10-12）—— 与上面两条**同一族**：
+    #    「表里写着的修正，卡表里其实没生效」。那两条管**失效方式**，这条管**错位方式**。
+    #    为什么：`load_cardface_fixes` 把**不带 `/` 的键**按**卡名**查 ⇒ 一个裸键是**给所有同名卡**用的。
+    #    而卡池里本来就有**同名跨阵营**的卡（`gen_cards_engine.py` 的 `_seen_names` 就是按
+    #    `(阵营, 归一化卡名)` 判重的 ⇒ **同名不同阵营是两张不同的卡**）。
+    #    ⇒ 一个裸键只可能承载**其中一张**的值，其余同名卡就**静默套上了别人那张的效果**
+    #      （卡面不打 `*`、日志不报、脚本照样打印「命中」）。
+    #    🔴 **实测代价**（2026-10-12 修前）：`keywords['Terminator Champion']` 是 `BL44` 的
+    #    `['Armour 1']`，而 `EC33` 没有自己的阵营键 ⇒ 它**少了卡面印着的 `Cruelty`**。
+    #    同一批还有 `desc`/`keywords['Terminator']`（EC22 的值）、`keywords['Maulerfiend']`（BL46 的值）。
+    #    ⇒ 判据（**结构上不可能同时满足**）：**裸键的卡名在全池的出现次数必须是 1**；
+    #      >1 就报 🔴 并让退出码非 0（然后由人把它拆成 `阵营/卡名` 两条）。
+    #    ⚠️ **本判据红不一定是新错** —— `工具/gen_cardface_fixes.py` 的 `keywords`/`subtype` 两列是
+    #      **按裸卡名算出来的**（`fixes.setdefault(name, ...)`，先到先得）⇒ 它一重跑就会把同名卡的
+    #      裸键写回来。那时这一条变红 = **正确行为**（那两列的权威值必须先落到 `_manual_keywords`）。
+    _ff_all = load_cardface_fixes()[0]
+    _ncount = {}
+    for _c in doc["cards"]:
+        _ncount[_c["name"]] = _ncount.get(_c["name"], 0) + 1
+    bare_ambiguous = sorted(_k for _k in _ff_all if _ncount.get(_k, 0) > 1)
+    if bare_ambiguous:
+        print(f"\n🔴 卡面修正表里有 {len(bare_ambiguous)} 个**裸卡名键**用在【同名卡】上"
+              f"（一个裸键服务了多张卡 ⇒ 值只可能是其中一张的）：")
+        for _k in bare_ambiguous:
+            print(f"            · {_k!r}：全池 {_ncount[_k]} 张同名卡，"
+                  f"裸键值 = {_ff_all[_k]!r}")
+        print("            ⇒ 判据：**裸键的卡名必须在全池唯一**（同名卡一律写 `阵营/卡名`）。"
+              "判「谁的值是谁的」只能开 PnP 成品卡图逐张读（铁律 7）。")
+        print("            ⚠️ 这两列（`keywords`/`subtype`）是 `gen_cardface_fixes.py` **按裸卡名算**的 ——"
+              "权威值要同时写进 `_manual_keywords` / `_manual_subtype`（脚本最后应用、手工赢）。")
+    else:
+        print("\n裸卡名键唯一性 ✅（每个裸键的卡名在全池只出现一次）")
+
     zh_n = sum(1 for c in doc["cards"] if c.get("nameZh"))
     zh_d = sum(1 for c in doc["cards"] if c.get("descZh"))
     missing = doc["count"] - zh_n
@@ -977,13 +1052,24 @@ def main():
             for cid, nm, fac in sorted(id_made, key=lambda x: (x[2], x[1])):
                 f.write(f"{nm}\t{fac}\t{cid}\n")
 
+    # 🔴 **退出码先算、再决定落不落盘**（与 `工具/gen_icon_plan.py` 的 `A1626` 同一条口径）——
+    #    「非 0」必须等于「没写文件」。`bare_ambiguous` 是**数据侧的错**，不是提示：
+    #    这时写出去的卡表里有一张卡带着**别人那张卡的效果**，宁可让它保持旧值、由人来判。
+    _bad = bool(bare_ambiguous)
+
     if args.check:
         if os.path.exists(DST):
             old = json.load(open(DST, encoding="utf-8"))
             same = old.get("count") == doc["count"] and old.get("cards") == doc["cards"]
-            print(f"\n--check：现有 {DST} {'一致 ✅' if same else '**已过期** ❌（重跑不带 --check）'}")
-            return 0 if same else 1
+            print(f"\n--check：现有 {DST} "
+                  f"{'一致 ✅' if (same and not _bad) else '**已过期** ❌（重跑不带 --check）'}")
+            return 0 if (same and not _bad) else 1
         print(f"\n--check：{DST} 不存在")
+        return 1
+
+    if _bad:
+        print("\n🔴 退出码 1、**一个字节都不写**（上面那条「裸卡名键用在同名卡上」没解决之前"
+              "不落盘 —— 见 `A1626` 那条口径）")
         return 1
 
     os.makedirs(os.path.dirname(DST), exist_ok=True)

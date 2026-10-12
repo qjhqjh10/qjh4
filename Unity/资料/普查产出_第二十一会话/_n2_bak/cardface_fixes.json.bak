@@ -1,0 +1,1718 @@
+{
+ "_note": "卡面逐张核对（2026-09-13）算出的修正表。来源：Unity/资料/卡表核对_卡图提取/_合并总表.md（1118 张逐张看图抄的）。生成脚本：Unity/工具/gen_cardface_fixes.py。由 gen_cards_engine.py 读取。⚠️ 本文件里带 `_manual_` 前缀的说明段与 `desc` 列是**手工维护**的 —— 脚本会原样保留（见脚本里那段注释），别手删。",
+ "_manual_subtype_note": {
+  "_": "2026-09-14 A4 批 4 手工加（铁律 7：拿不准就去看成品卡图）。**这一类卡从没被逐张核对过** —— `资料/卡表核对_卡图提取/_合并总表.md` 只有 部队/计策/天赋/督军/防御/药剂 六类共 1118 行，**没有 `6破坏卡`**（那 4 张不在任何一类里）。四张的卡面**橙字兵种行都印 `Sabotage`**（`d:/2/Warpforge部队卡片/Genestealer Cult/6破坏卡/`，主对话逐张开图读过）⇒ `subtype` 一律取 `Sabotage`。⚠️ 覆盖走 `_manual_subtype` 这一列（脚本原样保留并最后应用）—— **直接往 `subtype` 列里加会被下一次 `gen_cardface_fixes.py` 重跑静默抹掉**。⚠️ `Jammed Communications` 与 `Cult Propaganda` 原来分别是 `Stratagem` / `Spell`（错值）；另两张本来就是 `Sabotage`，这里一并显式写上（幂等，便于复查）。",
+  "Jammed Communications": "2026-09-14 手工加：卡面橙字兵种行 = `Sabotage`，见 `6破坏卡/IMG_3817.jpg`（费 2）。卡面效果文字与我们的 `desc` 逐字一致（`Jammed Communications` / `Poisoned Supplies` / `Cult Propaganda` / `Improvised Barricade` 四张都核过）。",
+  "Poisoned Supplies": "2026-09-14 手工加：卡面橙字兵种行 = `Sabotage`，见 `6破坏卡/IMG_3818.jpg`（费 2）。卡面效果文字与我们的 `desc` 逐字一致（`Jammed Communications` / `Poisoned Supplies` / `Cult Propaganda` / `Improvised Barricade` 四张都核过）。",
+  "Cult Propaganda": "2026-09-14 手工加：卡面橙字兵种行 = `Sabotage`，见 `6破坏卡/IMG_3820.jpg`（费 2）。卡面效果文字与我们的 `desc` 逐字一致（`Jammed Communications` / `Poisoned Supplies` / `Cult Propaganda` / `Improvised Barricade` 四张都核过）。",
+  "Improvised Barricade": "2026-09-14 手工加：卡面橙字兵种行 = `Sabotage`，见 `6破坏卡/IMG_3819.jpg`（费 3）。卡面效果文字与我们的 `desc` 逐字一致（`Jammed Communications` / `Poisoned Supplies` / `Cult Propaganda` / `Improvised Barricade` 四张都核过）。",
+  "Bladeguard Lieutenant": "2026-09-13 手工加，2026-09-14 搬进 `_manual_subtype`（A4 批 4）。🔴 **2026-10-17 键随卡名改**：这条一直说的是 Ultramarines 那张 —— 它的**数字版卡名就是 `Bladeguard Lieutenant`**（2026-09-15 曾按 PnP 卡面误改成 `Bladeguard Veteran`、2026-10-17 已撤回；判据（五条游戏侧证据）见 `工具/gen_cards_engine.py` 的 `STAT_FIXES` 那条更正）。它的 `subtype` 源表里是空串；卡面兵种行印 `Infantry`（`Ultramarines/3部队/Warpforge_34_Bladeguard-Veteran.png`）。🔴 **搬家的理由**：它原来是直接手加在 `subtype` 列里的，而那一列是**算出来的** —— 2026-09-14 跑一次 `gen_cardface_fixes.py` 就被**静默抹掉**（引擎表里那张卡的 subtype 变回空串）。这正是本条手工列存在的意义。",
+  "Veteran Flyboy": "2026-09-15 手工加（PnP 对账第二批）。引擎 `GOF_Veteran_Flyboy` 的 `subtype` 是空串 ⇒ 兵种行不画。卡面兵种行印 `Infantry`（`Orks/3部队/Warpforge_31_Veteran-Stormboy.png`，**PnP 卡面印的是 `Veteran Stormboy`**，与引擎名差一个词；配对依据是 cost 6 + `Flying`/`Flank` 全中）。⚠️ 全池只有 2 张「unit 且 subtype 空」，这是其一（见 `资料/PnP卡图_逐张对账_0915.md` §六·五·A·③）。",
+  "Simulacrum Imperialis": "2026-09-15 手工加（PnP 对账第二批）。引擎 `SOR_Simulacrum_Imperialis` 的 `subtype` 是空串 ⇒ 兵种行不画。卡面兵种行印 `Infantry`（`Sorotitas/3部队/Warpforge_30_Simulacrum-Celestian.png`，**PnP 卡面印的是 `Simulacrum Celestian`**；配对依据是 cost 5 + `Pray`）。⚠️ 全池只有 2 张「unit 且 subtype 空」，这是其二。",
+  "Obscure Ritual": "2026-09-15 手工加（清「认不出的关键词」那轮顺带查出）。引擎 `DA_Obscure_Ritual` 的 `subtype` 是 `Spell`，而卡面底部橙字**兵种行印 `Secret`**（`Dark Angels/6秘密/IMG_3697.jpg`，手机翻拍；同目录另 4 张 Secret 卡的 subtype 本来就是 `Secret`）。证据与分类见 `资料/PnP卡图_逐张对账_0915.md` §六·五·A·⑥。⚠️ 配套：`CardView.TacticSubtypeShown` 的白名单补了 `Secret`（不然 subtype 对了、卡面也不画那一行）。"
+ },
+ "_manual_stat_note": {
+  "_": "数值修正走 gen_cards_engine.py 的 STAT_FIXES（不是这张表）—— 那边已经带了 7 处，见那个脚本的注释与 _裁定_*.md。"
+ },
+ "_manual_desc_note": {
+  "_2026-10-11_A1608_SW16丢句": "2026-10-11（第二十会话 C1 · `A1608`）。**`SW16 Fenrisian Wolf` 的英文 `desc` 丢了一整句 ⇒ 它的 `Ferocity` 根本不会攻击。** 旧值 `If it has a Hunt Mark, gain +1 [Attack]`（只有后半句）→ 新值 **`Tide 1. Ferocity: Attack a non Flying enemy troop. If it has a Hunt Mark, gain +1 [Attack]`**。 **判据 = 本笔开 PnP 成品卡图亲读**（铁律 7，`d:/2/Warpforge部队卡片/Space Wolves/3部队/Warpforge_16_Fenrisian-Wolf.png`，900×1200 整卡）：`〔骷髅堆〕Tide 1. 〔獠牙〕Ferocity: Attack a non 〔翅膀〕Flying enemy troop. If it has a 〔金圆纹〕Hunt Mark, gain +1〔粉圈白拳〕`；卡面数值 `费 2 · 3/0/—/3 · 橙字 Beast · 紫宝石 epic` 与引擎逐项吻合（`subtype`/`rarity` 早已是对的）。旁证（另两路独立抄录、同值）：`资料/卡表核对_卡图提取/_合并总表.md:788`（`Tide 1. 〔獠牙〕Ferocity: Attack a non 〔翅膀〕Flying enemy troop…`）· `_还原效果文字.md:782`（`…gain +1 Melee` ⇒ 那枚是**近战**）。🔴 **为什么这一句丢了会让效果静默不发生**：`Ferocity` 是**唯一**的带正文关键词（`Tide` 不在 `CardDef.BodyKeywords` 里）⇒ 旧 `desc` 里没有 `Ferocity:` 头 ⇒ 走 `CardDef.CollectBareKeywordBody`（`CardDef.cs:729-740`）把**整条 `desc`** 当成 Ferocity 的正文 ⇒ 收到的 op 只有 `gain +1 attack`，**「攻击一个非飞行敌方部队」那一半从来不存在**（卡面也不打 `*`）。补上 `Ferocity:` 头后由 `AddTriggerOp` 按触发名登记，正文跨句收全（同 `DA43 Repulsor` 那种跨句式）。⚠️ **中文侧是完整的、所以只看中文看不出来**（`descZh` 一直是 `攻击 1 个非飞行敌方部队。若其带猎杀标记…`）—— 但这**正是本文件 `note` 里 2026-10-11 新定的那条「两份中文不能打架」的反面教材**：英文丢了一半、中文没丢，两处**不等**。✅ 本笔按那条口径**两处一起补**（`desc` ＋ `descZh`），顺带把中文缺的段首 `潮涌 1。狂暴：` 也补上（否则 `desc` 的 sprite 集合 ⊄ `descZh` 的 ⇒ `IconSetup.Verify` ④a 会多出两条新缺口）。写法逐条照池内既有卡：`Tide 1. <关键词>: …` 见 `GOF8 Slugga Boy`（`desc` = `Tide 1. Rally: Gain +1 [Attack] …`，中文 = `潮涌 1。集结：…`）· `non Flying` 见 `SW12 Hunting Wolf` / `GOF85`（全池 `non-Flying` **0 处**）· `+1 [Attack]`（粉圈白拳）与旧值一致、**没动**。⚠️ **配套（下游，不在本笔白名单）**：`desc` 里新出现 `Tide 1.` / `Ferocity:` 两种 token 写法 ⇒ 卡面那两枚徽记改为由 `CardIcons.Rewrite` ＋ `card_icon_plan.json` 画，**要重跑 `工具/gen_icon_plan.py`**（两种写法在别的卡上早有条目：`GOF9` 的 `Tide 1.→tide` · `SW12` 的 `Ferocity:→ferocity`，都在句首扫描器的射程内）。",
+  "_2026-10-11_A1403_A1474_段首关键词补回": "2026-10-11（第二十会话 C1，`A1403` ＋ `A1474`）。**卡面段首那段关键词被 OCR 从 `desc` 里吃掉了**，逐张开 PnP 成品卡图亲读（铁律 7），三张：① `AM41 Maelon Dhrost` —— 卡面 `〔圆徽〕Regiment: Draw a Stratagem. 〔圆徽〕Duty: Lower the cost of Stratagems in your hand by 4`（`d:/2/Warpforge部队卡片/Astra Militarum/3部队/Warpforge_41_Maelon-Dhrost.png`），旧值 `Draw a Stratagem. Lower the cost of Stratagems in your hand by 4` ⇒ 两个头都丢了；② `SW36 Morkai Eliminator` —— 卡面 `〔准星〕Sniper. 〔闪电〕Rally: Give 〔金圆纹〕Hunt Mark to a random enemy troop. 〔獠牙〕Ferocity: Attack a random enemy with 〔金圆纹〕Hunt Mark`（`Space Wolves/3部队/Warpforge_36_Sons-of-Morkai-Eliminator.png`），旧值两段正文粘在一起、两个头与首句 `Sniper.` 全丢；③ `ASH81 Night Spinner` —— 卡面 `〔翅膀〕Flying. 〔准星〕Sniper. 〔爆炸〕Blast 3`（`Aeldari/3部队/Warpforge_08_Night-Spinner.png`），旧值只剩 `Blast 3`。旁证（第二份、非独立，但同值）：`资料/卡表核对_卡图提取/_合并总表.md:152/:808/:15` 与 `_还原效果文字.md:155/:802/:18`（后者逐行双写 = 徽记 + 词）。🔴 **为什么必须补 `desc`、不能只靠表现层**（`CardText.KeywordSegment` 那一支）：① **引擎** —— `CardDef.CollectTriggerOps` 收正文只认 `X:` 前缀；没前缀时走 `CollectBareKeywordBody` 的「带正文关键词**唯一**才敢认」那道闸，而 `Maelon Dhrost`（`Regiment`+`Duty`）与 `Morkai Eliminator`（`Rally`+`Ferocity`）**两个带正文关键词** ⇒ 判歧义 ⇒ **两条正文一条都没登记**（效果静默不发生）；② **次序** —— `KeywordSegment` 按**显示词字母序**排（`CardText.cs:294` 的 `parts.Sort`），补在表现层会印成 `Duty: … Regiment: …` / `Ferocity: … Rally: … Sniper.`，**与卡面印的次序相反**（`A1375` 那条注释里点名的例子就是 `AM41 Maelon Dhrost`）。⚠️ **配套（下游，不在本笔白名单）**：这次 `desc` 多了 `Regiment:` / `Duty:` / `Sniper.` / `Rally:` / `Ferocity:` / `Flying.` 六种 token 写法，而卡面正文里的图标走 `CardIcons.Rewrite` + `CardPresentation/Resources/card_icon_plan.json` ⇒ **必须重跑 `工具/gen_icon_plan.py`**，否则这几枚徽记**一枚都不画**（补 `desc` 前它们由 `KeywordSegment` 那条路画）。⚠️ 中文侧同步改了 `descZh`（见 `_manual_descZh_note` 同批那条）—— 只改英文不补中文会让 `IconSetup.Verify` 的 ④a（`desc` 的 sprite 集合 ⊆ `descZh` 的）多出 6 条新缺口（`A1444` 那批实测过同一件事）。",
+  "_2026-10-11_A1475_desc口径": "2026-10-11（第二十会话 C1，`A1475`）。**「`desc` 改不改」这条口径查清了，写法照做、例外只此一类。** ① `CardPresentation/Core/CardText.cs:90-94` 那条「补在表现层、不去改 `desc`」**已经实现了**（`KeywordSegment`，判据 `:244` ①：正文里出现过就不补）⇒ 那 306 张的**显示**早就补上了；② 🔴 **但表现层代替不了 `desc` 修复，两处硬限制**：（a）**次序** —— `KeywordSegment` 末了 `parts.Sort` 按**显示词字母序**排（`:294`），还原不了卡面自己的次序（`AM41` 就是反例，见上面那条）；（b）**引擎** —— 带正文关键词的**正文**只有 `desc` 里写了 `X:` 才收得到，否则走 `CollectBareKeywordBody` 的「唯一才敢认」闸（`CardDef.cs:702-710`），两个以上就是**整条不登记**。③ ⇒ **本笔的裁定（可执行版）**：**静态关键词**（`Vanguard`/`Armour 1`/`Blast 2` 这类，不是 `CardDef.BodyKeywords`）缺在 `desc` 里 ⇒ 补 `desc`（解析对照已测无回归，`A1444` 那份注释里的三条读数）；**带正文关键词**缺在 `desc` 里 ⇒ **也必须**补 `desc`（否则效果静默不发生）；**卡面只有关键词行、正文一个字不缺**的 ⇒ 表现层已覆盖，不动。⇒ **那 306 张【不需要】一律办**（原 A 表把两条路当成非此即彼，实际是按「静态词 / 带正文词」分档）。⚠️ `A1444`（`AM28`）的 `desc` 那行**保留**（`Vanguard. Armour 1. Blast 2`），理由是 ③ 的第一档 + 它的计划表当时已重跑过（`_2026-10-10_A1444_AM28段首被OCR丢掉` 里那三条读数）。⚠️ 本笔**一个字都没改数据**（纯口径查证）。",
+  "_2026-10-11_A1476_撤句尾那半笔": "2026-10-11（第二十会话 C1，`A1476`）。**撤 `A1444` 的「句尾少一个 `.`」那半笔账 —— 判据不成立（铁律 5 就地订正）。** 本文件 `_2026-10-10_A1444_AM28段首被OCR丢掉` 那条注释里已经写着实测结论「五张成品卡图（`AM28` · `AM37` · `ASH81` · `GSC41` · `TAU12`）句尾一律不印句号」，本轮**再次亲读三张**复核（`ASH81 Night Spinner` = `〔翅膀〕Flying. 〔准星〕Sniper. 〔爆炸〕Blast 3`、`AM41` 以 `by 4` 收尾、`SOR42` 以 `enemies` 收尾）⇒ **句尾不印句号是印刷约定**，**不是数据缺口** ⇒ **那半笔账撤销**，`desc` 里已有的句尾句号**不加也不删**。🔑 **真因另列（仍要做，但不在本笔白名单）**：英文侧画不出句尾那枚徽记的真因是扫描器 `工具/gen_icon_plan.py` 的 `KEYWORD_SCAN`（`:1170`）**要求收尾 `:` 或 `.`** ⇒ `Flying. Sniper. Blast 3` 尾巴上那个 `Blast 3` **扫不到**（`ASH33 Falcon` 的 `Flying. Shuriken 3` 同形）。同批小订正：`gen_icon_plan.py:81` 的 `why` 写「五张（`markOf*`）逐字节相同」**不准确** —— 逐字节相同的是 `markOfChaos`/`markOfKhorne`/`markOfNurgle`，`markOfSlaanesh` 只差 **15 个 `alpha=0` 像素**的 RGB（见 `_2026-10-10_A1420_BL19图标` 那段）。**两处都在 `工具/gen_icon_plan.py`，本笔黑名单 ⇒ 如实交回调度台。**",
+  "_2026-10-11_A1456_Exorcist前缀已核": "2026-10-11（第二十会话 C1，`A1456`）。**`SOR42 Exorcist` 的 `8 [faith]:` 前缀【不是】我们自己发明的 —— 卡面确实印着它，保留。** 亲读 PnP 成品卡图（`d:/2/Warpforge部队卡片/Sorotitas/3部队/Warpforge_42_Exorcist.png`）：效果区两行 = `〔银盾〕Armour 1. 〔紫爆炸〕Blast 4.` / `8 〔金太阳〕: Deal 5 damage to all enemies`。那枚 **金太阳 = 信仰**（不是能量 —— 能量是绿圈、费用是右上蓝六边形；判据表见 `_2026-10-11_A1344_A1357_信仰太阳记号` 那段）。⚠️ **但「写法」那一侧要留意**：卡面印的是**图标**，`[faith]` 是**我们的规范 token**（`EffectText.CostKindOf` → `MentionsFaith` 把 `faith` / `☀` / `icon` 三条都归一成 `faith` ⇒ 写法不同、引擎行为相同）。⚠️ 顺手记（**本笔没动**）：全池同一个「信仰费用前缀」现在有 **5 种写法** —— `☀`（24 张）· `[faith]`（`SOR12` / `SOR42`）· `[Faith]`（`SOR4`）· `[Faith Icon]`（`SOR40`）· `[Icon]`（`SOR7`）。统一它要连 `gen_icon_plan.py` 的逐卡键一起动（换写法会让旧键变死条目）⇒ **另立账**，别在这儿顺手改。⚠️ 另一处**读数订正**：`资料/卡表核对_卡图提取/_还原效果文字.md:743` 把这一处记成 `8 Energy:` —— **那是图标名认错**（它自己上一列 `_合并总表.md:749` 记的是 `【图标:太阳】`，两处打架）⇒ 以卡图为准，是**信仰**。",
+  "_2026-10-10_A1444_与CardText口径的冲突需裁": "🔴 **`A1444` 的英文 `desc` 那一半与引擎侧一条【既定的、量过的】决定口径相反 —— 如实上报、等调度台裁。** 出处 = `CardPresentation/Core/CardText.cs:91-94`（2026-09-15 写）：「原版卡面把关键词**印在效果文字前面**，而我们的 `desc` 是 OCR 来的、**常常只剩后半段** —— **实测 1130 张里 306 张**的关键词在 `desc` 里一个字都没有（`资料/PnP卡图_逐张对账_0915.md` §四·E）。补在**表现层**，**不去改 `desc`**：`desc` 是引擎解析效果用的原文，动它会改结算。」而 `A1444` 让我「照 PnP 卡图补全 `desc`」⇒ **两说打架**。**本笔选了照 `A1444` 做**，三条理由：① PnP 卡面（铁律 7 的最终真相）逐字就是 `Vanguard. Armour 1. Blast 2`；② **实测无害**（`工具/ruleprobe.sh scan` 全池 1120 行 **逐行 diff = 0**；`EffectText.Parse` 对旧/新两种写法都是 **0 条 op**；计划表只有 3 个键变）；③ `desc` 本来就是「卡图 OCR」的产物，补回它 = 补回 OCR 丢掉的那一段。⚠️ **若调度台按 `CardText.cs` 那条口径裁「`desc` 不动」** ⇒ 本笔 `desc` 那一行应回滚（`descZh` 那一行与它无关 —— 中文补段首是 `A1360`/`A1419` 就在做的既有做法，可留）。⚠️ **同时提醒：照 `A1444` 的逻辑一律办，就是那 306 张的事** —— 那是另一个量级的决定，⛔ 别悄悄只改这一张就当成口径统一了。",
+  "_2026-10-10_A1444_AM28段首被OCR丢掉": "2026-10-10 · `A1444`（`AM28` Bullgryn Bone’ead 的 `desc` **整段丢了**）。本笔是**新键**（该卡在 `desc` 列原来没有条目）：`Blast 2` → `Vanguard. Armour 1. Blast 2`。判据 = PnP 成品卡图**裁块放大亲读**（`d:/2/Warpforge部队卡片/Astra Militarum/3部队/Warpforge_28_Bullgryn-Boneead.png`：`〔红骷髅盾〕Vanguard. 〔银盾〕Armour 1. 〔紫爆炸〕Blast 2`），与我方开图抄录 `资料/卡表核对_卡图提取/_还原效果文字.md:139`（`Vanguard Vanguard. Armour Armour 1. Blast Blast 2`）· `_合并总表.md:136` 三处同值。**根因** = `desc` 是**卡图 OCR** 的（`card_stats.json` 该条的 `ocrSrc`/`face` 都指着那张 PNG）⇒ OCR 把这一整段丢了。⚠️ **没改的两样，各有判据：**（1）`AM37 Basilisk` 的 `desc` = `Long Range. Blast 3` **与卡面逐字相同**、不缺任何东西（`_合并总表.md:148`；卡图亲读同值）⇒ **一个字没动**（A 表把它写成同族另一半，实测它没病）。（2）**句尾的 `.` 不加** —— A 表原写「`AM28`/`AM37` 英文 `desc` 句尾少一个 `.`」，实测**五张成品卡图**（`AM28` · `AM37` · `ASH81` Night Spinner · `GSC41` Goliath Rockgrinder · `TAU12` Missile Drone）**句尾一律不印句号**，是**印刷约定**、不是数据缺口（全池 `desc` 以裸 `Blast N` 收尾的 **29 张**、其中 **17 张**恰好落在句尾）。⚠️ 英文侧画不出那枚 `blast` 的真正原因是**扫描器**：`工具/gen_icon_plan.py` 的 `KEYWORD_SCAN` 要求收尾 `:`/`.` —— 那是 `.py` 侧、本笔黑名单，已如实交回调度台。",
+  "_": "效果文字修正（2026-09-13 第三十三轮）。**只修「图标被 OCR 丢掉」这一类**：卡面写 `Gain ☀2`、我们只剩 `Gain 2`。依据是逐张开成品卡图（`D:/2/Warpforge部队卡片/<阵营>/<分类>/Warpforge_NN_<卡名>.png`）抄回来的原文，派了 3 个子代理分块做。⚠️ 图标含义（2026-09-13 实测）：☀=信仰 Faith · 锯齿圆环+数字=任务点 Quest Point · 蓝色石头=灵魂石 · 拳头=近战 Attack · 枪=远程 Ranged Attack · 盾=护甲 Armour。**写入的是我们能解析的规范写法**（`Gain 2 ☀` / `Gain 1 Quest Point` / `Gain +1 Attack`），不是卡面图标的字形。⚠️ 另有几张是**图标读错**（我们的 desc 写 [Armor] 而卡面是拳头）—— 一并在这一列修掉。证据见 资料/卡表核对_卡图提取/_裁定_图标丢失.md。",
+  "Bright Lance Vyper": "2026-09-13 A3 手工加（铁律 7：拿不准就去看成品卡图）。卡面原文是 `When you trigger a Spirit Stone ability, gain ⟨狙击图标⟩Sniper and +1 ⟨枪图标⟩`，从前的 desc 写成 `gain +1 Attack.` —— **图标被 OCR 猜成了单词 Attack**；按本表的图标约定（枪 = 远程 Ranged Attack）写成规范形式。实据：`d:/2/Warpforge部队卡片/Aeldari/3部队/Zrzut ekranu 2026-04-16 o 18.54.28.png`（主对话亲读）。",
+  "_2026-09-14_T2": "2026-09-14 T2（对账：`资料/卡表核对_卡图提取/_还原效果文字.md` ↔ `cards_engine.json` 逐卡比）。**只修一类**：载荷里的**裸 `+N`** —— 数字后面跟的是**远程攻击**图标（紫枪），OCR 把图标丢了，于是 `GivePayload` 的兜底（`GivePayload.cs:261-271`）一律当**近战**，这 10 张卡**静默加错了属性**（近战虚高、远程一点没加）。写法按本文件既有约定用 `+1 Attack` / `+1 Ranged Attack`（不是卡面上的 `Melee`/`Ranged` 字形）。⚠️ **另有 14 处裸 `+N` 判近战是对的，没动**（含这 6 张双增益卡的第 1 个 `+1`）。⚠️ `Armorium Cherub` 的 `Rally: Give +2 Ranged Attack …` 整段缺失**不是这一类**，**这次没修** —— `ReAtTurn` 是 `^…$` 锚在整条 desc 上（`EffectText.cs:2135`），前面加东西会把「回合开始回到手牌」直接打断 ⇒ 要修得先动解析层。⚠️ `Cadian Honour` 尾句 `and reload their Duty abilities` 被吞进目标短语里 —— **改之前就是这样**，不是本轮引入，另记。",
+  "Genestealer Familiar": "2026-09-14 A7 手工加：卡面 `Adjacent units have +1 ⟨粉圈白拳⟩.`，OCR 把图标丢了、只剩裸 `+1`。**亲读卡图**（`Genestealer Cult/3部队/Warpforge_07_Genestealer-Familiar.png`，铁律 7）⇒ **近战**。⚠️ 必须补：这张是**光环卡**（`Adjacent units have +1`），裸数字让属性**在文本层不可恢复**，而同一写法的 `Cadre Fireblade` 卡面是**远程** ⇒ 兜底猜一个 = **静默错一张**。",
+  "Cadre Fireblade": "2026-09-14 A7 手工加：卡面 `Your other Infantry and Battlesuit troops have +2 ⟨紫圈枪⟩`，OCR 把图标丢了、只剩裸 `+2`。**亲读卡图**（`Tau/3部队/Warpforge_35_Cadre-Fireblade.png`）⇒ **远程**。⚠️ 同上：和 `Genestealer Familiar` 写法一模一样但**不是同一个属性**。",
+  "_2026-09-14_灵魂石": "2026-09-14 灵魂石轮（Aeldari / Saim-Hann）。**共 29 条**，逐张开成品卡图核过（`d:/2/Warpforge部队卡片/Aeldari/<2天赋|3部队|4计策>/`，92 张全开；逐卡清单见 `资料/查证_裸写触发点_四批.md` 的 §丙 文末「附录 · 灵魂石卡逐张核」）。原版 `AbilityTrigger.UseSpiritStone = 600`：卡面「绿六边形 + 白数字」= **花 N 颗灵魂石激活它后面那一句**。我们卡表这批的前缀有**四种残缺形状**，每一种都错得不一样：① `(N)`（`Swooping Hawk` / `Reclaim the Stars` …）—— `RePaidBare` 认成**空货币 ⇒ 按能量扣**，日志还写「付了 N 点能量激活」，**看着对**；② `[N]`（`Devoted of Khaine` / `Webway Gate`）—— `CostKindOf` 返回 `\"1\"` ⇒ 走「货币认不出 ⇒ 这一条没生效」；③ `②`（`Wailing Doom` / `Cosmic Serpent` / `Eldritch Storm`）—— 不是数字，整句不认；④ **整段丢失**（`Warlock` / `Wraithblade` / `Autarch` …）。⚠️ **写法必须是 `N [Spirit Stone]: …`**：`[` `]` 在 `ParseSegment` 开头先被剥掉才进正则，而 `RePaid` 的货币词表原来只写 `spirit stones?`（光秃的 `spirit` 不在表里）⇒ 写 `1 [spirit]:` 会**整条失配**、甚至把前缀吃成载荷（`2 [spirit]: Repeat this effect` → `载荷「2 spirit:」`）。该失配已就地修掉（两条正则改成 `spirit(?:\\s+stones?)?`，改前全池 0 张匹配 ⇒ 无回归）。**判据不能只看裸数字**：同样是裸数字，`Martial Superiority`（DarkAngels）那个是**金齿轮**、`Path of the Seer` 的在**句尾**是「**获得** 1 颗」的名词而不是费用 —— 一律开图看底色与图案。顺带在这几条 desc 上修掉的（同一条 desc 上的别的缺口）：`Wraithlord` / `Forewarned` 的 `Armor` 卡面是**紫枪 = 远程**；`Storm of Silence` 的 `+2 [Health]` 卡面是**粉拳 = 近战**；`Hornet` 原来是截断的 `3 Gain`；`Shining Spear` 原来是 `1:`（无货币）；`Ahnakh-Yth Shrine` 的 `Give 1` 实为 `Shuriken 1`；`Death Spinner Warp Spider` 的 `Stealth (1)` 卡面是 `Stealth.` 无参数（那个 `(1)` 就是被误记进括号的绿圈）。⚠️ `Storm of Silence` 是**两张权威打架**的一张：原版数据 `card_stats.json` 写 `(1) [Energy]:`，而卡面是绿六边形 —— **主对话亲眼看图拼图核过**（同图对比 `Techmarine` 的深灰星芒、`Fiery Conviction` 的金色太阳，两者都不是绿六边形）⇒ 按卡面判灵魂石。⚠️ **触发点还没做**：单位卡**没有任何一层会消费这句**（`keywords` 里没有带正文的关键词 ⇒ `CardDef.CollectBareKeywordBody` 直接返回），要等「玩家主动花石激活」那个动作（原版 `BattleActionType.useWaystone = 76`）。战术卡不同 —— 它们走 `PlayTactic`，打出时就会结算。",
+  "Martial Superiority": "2026-09-14 A6 族 C 手工加（铁律 7：拿不准就去看成品卡图）。原来 desc 是 `Heal 2 to a friendly unit.\nGain (1)` —— 那个 `(1)` 是卡面上**锯齿圆环+数字**那个徽记被 OCR 掉的残留。**判据用的是上一轮定的那条权威**（不是看形状）：我们自己的中文表 `d:/warpforge/data/i18n/zh_CN.csv` 里这一整句对的是 `为一个我方单位治疗 2 点。\n获得 1 点任务。` ⇒ **任务点 Quest Point**。旁证：同阵营写着全的 `Intercessor`（`Rally: Gain 1 Quest Point`，`Dark Angels/3部队/Warpforge_07_Intercessor.png` 亲读）卡面那个徽记与它**逐像素同形**。⚠️ `_裁定_图标丢失.md` 那条教训：圆形徽记有信仰/任务点/灵魂石/议程几种，**光看形状认不出来**。",
+  "_2026-09-15_PnP对账": "2026-09-15 PnP 逐张对账批。证据：`资料/PnP卡图_逐张对账_0915.md` §四 —— 6 个子代理**开原图逐张看**（必要时裁块放大），判据一律以卡面记号为准（**拳=近战 · 紫枪=远程 · 银盾=护甲**）。同名跨阵营的卡用 `\"<阵营>/<卡名>\"` 这种键（否则会连带改到另一张，见 `gen_cards_engine.py` 的 `load_cardface_fixes`）。",
+  "_2026-09-16_验收尾巴": "2026-09-16 「逐张并排验收」尾巴批（`资料/PnP卡图_逐张对账_0915.md` §六末）。**主对话逐张亲读成品卡图**（铁律 7），不是子代理转述。两条：① `Simulacrum Imperialis` 原来写 `Give +1 Armor and +1 Attack` —— 卡面（`Sorotitas/3部队/Warpforge_30_Simulacrum-Celestian.png`）是 **`+1〔粉拳〕 and +1〔紫枪〕`**；⚠️ 这是**真改玩法**：`armor` 走 `EffectResolver` 的 `u.Armor`、`ranged` 走 `u.Ranged`，原版给的是「+1 近战 +1 远程」。**写法用 `Attack`/`Ranged`**（同本文件既有约定），**不是**去 `GivePayload.ReAttr` 放宽 `Armor` 词表 —— 那会连带打到真护甲卡。② `Diviner` 少了卡面最后一句 `Talent: Master Chronomancer`（`Necron/1督军/Warpforge_5_Orikan-the-Diviner.png` 亲读）。",
+  "_2026-09-16_验收尾巴_英文缺开头关键词": "2026-09-16。**卡面开头那段关键词被 OCR 从 `desc` 里吃掉了**（`keywords` 列与 `descZh` 都还有，只有英文 `desc` 缺）—— 逐张开 PnP 图核过（铁律 7），且 `_合并总表.md` 的独立抄录、我们的 `keywords` 列、我们自己的中文表 `zh_CN.csv` 三处一致：① `Repulsor`（`Dark Angels/3部队/Warpforge_43_Repulsor.png`）缺整段 `Armour 1. Blast 4.`，而且**句子还被截断在 `gain`**（应为 `gain 3 Quest Points`）；② `Heavy Intercessor`（`Ultramarines/3部队/Warpforge_02_Heavy-Intercessor-2.png`）缺 `Armour 1.`；③ `Outrider` 缺 `Flank.`。⚠️ 「开头关键词**同时**在 `keywords` 和 `desc` 里」是**常态**（全池 206 张）⇒ 补回去不会重复结算。⚠️ `UM_Heavy_Intercessor`/`UM_Outrider` 这两张**任务文件早就点过名**（英文 desc 那批的清单里），这一轮才动手。",
+  "_2026-09-16_验收尾巴_Repulsor断句": "2026-09-16。`Repulsor` 的 `Rally` 句**必须写成句号断句**，不能照卡面的分号照抄：分号版 `Deal 6 damage to an enemy; if the target dies, gain 3 Quest Points` 会被解析器**把条件从句吞进目标短语** ⇒ `目标[enemy/any ×3]`（= 对 **3** 个敌人各造成 6 点，**错**）；句号版解析成两条 op：`deal n=6 目标 ×1` + `gainquest n=3 条件=targetdies`（**对**）—— 探针实测两版对照过。⚠️ **这是本表既有约定**：全池已有 **18 张**同型句都写句号（如 `Grim Resolve` 的 `Deal 2 damage. If the target dies, gain 1 energy.`），见 `_manual_desc_note` 里「写入的是我们能解析的规范写法」。⚠️ 旁证：我们自己的中文表 `zh_CN.csv:2068` 的**英文键本身是截断的**（`…gain`，没有数字与 `Quest Points`）⇒ 我们原来的 `desc` 是**忠实照抄了游戏自己的残缺数据**，不是抄漏。",
+  "_2026-09-16_验收尾巴_第二批": "2026-09-16 「卡面字与数据」尾巴批。**证据一律是逐张开 PnP 成品卡图核过**（铁律 7）。四类：(1) ±N 后面的属性被 OCR 读成了 armor 家族、卡面实为紫圈枪=远程（6 张）：Ancient Reliquary / Legendary Tenacity / Moment of Grace（原文档已点名）**加** Imagifier / Celestian Sacresant Aveline / Thunderous Charge（**新查出，原文档没记**）。写法用 Ranged（同 Simulacrum Imperialis 那批的约定），**不是**去放宽 GivePayload.ReAttr 的 Armor 词表。⚠️ Ancient Reliquary 与 Legendary Tenacity 的底层 zh_cards.json 仍写「护甲/装甲」，靠本表 descZh 覆盖兜着。(2) Prayer 整句与卡面不符：卡面是 Give〔盾〕Shield to a friendly unit. If the unit has Pray gain 1 ☀，原来写成 Give +1 Attack —— **真改玩法**（Attack → Shield）。(3) ⚠️ **Primaris Chaplain 的 desc 试过补 `Codex:` 前缀、又撤掉了**（2026-09-16 自检抓的）：卡面确实印 `Codex:`，但**原版数据本来就是裸写的** —— `CardDef.cs:252` 实测口径：声明 `Codex` 的 20 张里 `desc` 无前缀的正好 10 张，引擎专门为这一族开了「裸写正文」那条路（`BodyKeywords` + `MarkCodexCondition`）。加前缀会把它从那条路挪走 ⇒ `RuleEngineTest` 的「★ 裸写 Codex 正文的 10 张全挂着 EnergyZero」立刻变红（期望 [10]、实得 [9]）。⇒ **只改显示层**（见 `_manual_descZh_note` 同批第 (4) 条），英文 `desc` 保持原样。(4) Exorcist 卡面是 8 ☀ : Deal 5 damage to all enemies，**我们的 desc 连前缀都没有**（原文档只记了中文漏印）⇒ 按池内既有写法 8 [faith]: 补回。⚠️ **这条改的是玩法**（从「不要钱」变成「付 8 信仰」），复验看四条自检与覆盖率报表。",
+  "_2026-09-16_属性图标_第二批": "2026-09-16 **「`±N` 后面的属性与卡面图标不符」批（28 张）** —— 与上一批同一族缺陷：我们 `desc` 的 token 经 `GivePayload.ReAttr` 会算成 A 属性，而卡面画的是 B 图标 ⇒ **加成静默加在错属性上**（数值看着对、另一个属性一点没加）。**证据链**：4 个子代理**逐张开 PnP 成品卡图**核过（部分还做了像素级环色+字形比对），先导是一次全池对账（`_合并总表.md` 的独立开图抄录 vs 我们的 token）。⚠️ 对账本身的**误报也吃了两张**：`Grisly Feast`（卡面确有 `+1[拳]`，抄录漏了）与 `Shall Know No Fear`（卡面确有 `+8[拳] and +8[枪]` 两个）—— **我们是对的、没动**。写法一律**裸词 `Attack`/`Ranged`**（同 `Simulacrum Imperialis` 那批的约定），**不是**去放宽 `GivePayload.ReAttr` 的 `Armor` 词表（放宽会连带打到真护甲卡）。⚠️ 顺带：`Deathwing Strikemaster`/`Neophyte Trooper`/`Acolyte Hybrid`/`Seraphim`/`Attack Bike`/`Devastator Doctrine` 这几张原来是**裸 `+N`**（`GivePayload` 兜底当近战），现在补成有词。",
+  "_2026-10-18_GOF四张图标被吃掉": "2026-10-18（`R-ASSET` 现核 → 本批落地，铁律 7/11）。**含裸 `+N` 的同族第 5 批**：`Tide of Muscle` / `Get'em ladz!` / `Da Red Waaagh` / `Krumpaklaw` 四张的载荷只剩**裸 `+N`**（图标在文本导出里丢了），卡面却印着**同一枚粉圈白拳**。**逐张开成品卡图亲读**（`d:/2/Warpforge部队卡片/Orks/4计策/Warpforge_50_Tide-of-Muscle.png` · 同目录 `Warpforge_53_Getem-ladz.png` · `Orks/2天赋/Warpforge_01B_Da-Red-Waaagh.png` · `Orks/3部队/Warpforge_07A_Krumpaklaw.png`），并把四枚图标裁块放大后与**两枚已知参照并排比**（`Genestealer Familiar` 粉拳 = 本表 `+1 Attack` / `Cadre Fireblade` 紫圈枪 = `+2 Ranged Attack`）⇒ 四张**同形同色于粉拳**、与紫枪**明显不同** ⇒ 一律按**近战 `Attack`** 写。⚠️ 写的是**规范词**（同本条 `_` 的约定与 `_2026-09-16_属性图标_第二批`），**不是**卡面图标字形。⚠️ **玩法层是幂等的**：裸 `+N` 的兜底本来就判近战（`GivePayload.cs:563-584`），`+N attack` 走 `ReAttr` 经 `NormAttr` 也归 `attack` —— `ruleprobe seg` 两版对照、op 与 payload 逐字相同 ⇒ **本批只是不再靠兜底猜**（本工程「兜底猜一个 = 静默错一张」那条线）。⚠️ `descZh` 本来就是「+1 攻击 / +2 攻击」，**没动**。⚠️ 顺手订正：`资料/PnP卡图_逐张对账_0915.md:560` 附近原来把这族记成「卡面也裸 ⇒ 不动」——**「卡面也裸」是错的**（卡面有图标，只是**文本层**没带走）。",
+  "_2026-10-18_GOF四张图标被吃掉_证据": "同批的图与读数：四张的图标区域（各 90×90）裁块 ×4 放大并排 —— 均值色四张分别 R>B（粉红），紫枪那张 B>R（蓝紫）；`ruleprobe seg` 的对照：`Draw two troops and give them +1` → payload `[+1]`，改成 `… +1 Attack` → payload `[+1 attack]`，**两条都不报 unparsed/partial**。",
+  "_2026-10-18_UM85两处裸加号": "2026-10-18（`R-ASSET` 现核 → 本批落地，铁律 7/11）。**含裸 `+N` 的同族第 6 处**：`UM85 Catechism of Death`（Ultramarines）**两处** `+N` 都是裸的 —— 原 `desc` = `Ephemeral. Give +2 to a friendly troop, or to your Warlord this turn. Oath 3: Give it an additional +2`。**亲读成品卡图**（`d:/2/Warpforge部队卡片/Ultramarines/2天赋/Warpforge_21_Catechism-of-Death.png`，本批作者裁块 ×2 放大亲看、**不是转述**）：两处 `+2` 后面各印一枚**粉圈白拳**（白圈 + 深红底 + 粉色护手/握拳），与 `Genestealer Familiar` 那枚**同形同色**、与 `Cadre Fireblade` 的紫圈白枪**明显不同** ⇒ 一律按**近战**写 `Attack`。⚠️ 写法是**规范词**（同本条 `_` 的约定与 `_2026-09-16_属性图标_第二批`），不是卡面字形。⚠️ **玩法层等价、但解析文本不等价**：改前 `Give +2` 走 `GivePayload.cs:563-584` 的**裸 `+N` 兜底**（`Attr = attack`），改后走 `:551-559` 的 `ReAttr` → `NormAttr` 也归 `attack` ⇒ **结算结果同**；但 `ruleprobe seg` 的 payload 由 `[ +2 ]` 变 `[ +2 attack ]` ⇒ 会体现在 `ruleprobe check` 的**解析差异**那一列（**这 1 行是预期变化、不是回归**）。⚠️ `descZh` 早就是「+2 近战攻击」，**没动**。⚠️ 顺带如实记（**本批没改**）：那张卡面 `Oath 3:` 前面**还印着一枚蓝色徽记**（白袍人形），我们 `desc` 里只剩光秃秃的 `Oath 3:` —— 属**另一类**「图标没带走」，不是 `±N` 属性图标这一类，语义待裁。",
+  "_2026-10-18_UM85两处裸加号_证据": "同批读数：图标区域裁块并排（`d:/tmp/wf_s11/grid_final.png`）+ 内盘 r=13 均值 RGB —— UM85 第一处 `(90,69,70)` · 第二处 `(178,141,139)`（两处 **R 最大、B≈G ⇒ 粉红系**）；参照 `Genestealer Familiar` 粉拳 `(171,135,133)`（同系）· `Cadre Fireblade` 紫枪 `(124,110,134)`（**B 最大 ⇒ 蓝紫系**）⇒ 两处都判**近战**。⚠️ 那两处是**同一张卡上的两处**（`Give +2` 与 `additional +2`），**两处都补**、⛔ 不是只补第一处。",
+  "_2026-10-18_Oath裸写": "2026-10-18（`V-OATH` 现核 → 本批落地，铁律 7/11）。**原版印的是「徽记 + 词」，而方括号写法只留徽记** —— `UM84 Chaplain Cassius` 的 desc 原来是 `Friendly [Oath] abilities apply an additional time.\\n[Talent]: Catechism of Death`，两处都写成了**方括号 token**（= 数据管线把「图标 + 那个词」压成了一个 token）⇒ `CardIcons.Rewrite`（`Core/CardIcons.cs:257`）走「**整串换掉**」那一支 ⇒ 卡面上**词 `Oath` 与 `Talent` 都没了**（只剩两枚孤零零的图标）。**亲读成品卡图**（`d:/2/Warpforge部队卡片/Ultramarines/3部队/Warpforge_20_Chaplain-Cassius.png`，本批作者亲看整卡）：`Friendly 〔蓝圆盘+白袍人形〕Oath abilities apply an additional time. 〔纸卷〕Talent: Catechism of Death` —— 徽记在**句中**、紧贴词 `Oath`（**不是**只在 `Oath N:` 那里印）；`Talent` 前那枚是**纸卷**（同一个「图标 + 词」形状）。⇒ 两处都改回**裸写**（词留在文本里，图标由 `gen_icon_plan.py` 的按卡表插到词前面）。⚠️ **引擎行为不变**（只影响显示）：`CardDef.MatchStaticBattleRule:772` 比较前本来就 `Replace(\"[\",\"\").Replace(\"]\",\"\")` ⇒ `OathDouble` 两版都 true；`CardDef.ExtractTalent:1116` 也把 `[talent]` 归一成 `Talent`（天赋名两版都是 `Catechism of Death`）。⚠️ **配套（同批、另一个文件）**：`工具/gen_icon_plan.py` 里 `(\"UM84\",\"[Oath]\")` / `(\"UM84\",\"[Talent]\")` 两条方括号键随本改动**作废**，已换成按卡裸 token 的三条（`BARE_TOKEN_BY_CARD`）；不换的话它们是**永远不命中的死条目**（脚本每次会打印死条目）。⚠️ 同族的 `UM89` / `UM_Vico_Therbeus` 首句 `Oath abilities …` 也一并补了徽记（同上那张表）。",
+  "_2026-10-11_A1331_Oath前缀": "2026-10-11 第十三会话 W5a 手工加（`A1331`）。**只修一类**：英文 `desc` **丢了段首的 `Oath ` 前缀**（段首只剩裸 `N: …`），而 `keywords` 里是裸 `Oath` ⇒ **两个症状、同一根因**：① 显示 —— `Core/CardText.cs:207` 的 `KeywordSegment` 判据 ① 拿 `body` 比 `\"Oath\"` 比不到 ⇒ 补出 `Oath` ＋ `CardDef.FirstNumber` 的兜底值 **1**（卡面印成 `Oath 1` 而不是卡面上的真值），同时正文里多一个**孤儿 `N:`**；② 🔴 功能（更重）—— `RuleEngine/Core/EffectText.cs:2955` 的 `ReOathPaid = ^oath\\s+(\\d+)\\s*:` **要求字面 `oath`** ⇒ 裸 `N:` 落 `RePaid`、`CostKindOf(\"\") = \"\"`（按能量算）⇒ `EffectText.CostKindOf(op.CostKind) != \"oath\"` ⇒ `CardDef.CollectOathOps` 收不到（`RuleEngine/Core/CardDef.cs:976-990`）⇒ **`_oathOps` 空、`OathCost = 0`** ⇒ `RuleCore.CanUseOathAbility`（`RuleCore.cs:6077`）首判 `u.Card.OathOps.Count == 0` ⇒ `ErrNoAbility` ⇒ **誓约能力激活不出来**；且 `RuleCore.cs:4521` 的「可用动作表」也因 `OathOps.Count > 0` 不成立而**根本不列这一项**。**4 张，逐张开 PnP 成品卡图亲读**（铁律 7，均在 `d:/2/Warpforge部队卡片/Ultramarines/3部队/`）：`Devastator Marine`（`Warpforge_16_Devastator-Marine.png`，卡面 `Blast 2. Oath 4: Deal 5 damage to an enemy troop`）· `Phobos Librarian`（`Warpforge_17_Phobos-Librarian.png`，`Camouflage. Oath 3: Deal 2-4 damage to an enemy. If target dies, gain Shield`）· `Scout Sniper`（`Warpforge_11_Scout-Sniper.png`，`Camouflage. Sniper. Oath 1: Deal 1 damage`）· `Firestrike Servo Turret`（`Warpforge_10_Firestrike-Servo-Turret.png`，`Long Range. Sentry 2. Oath 3: Gain Sentry 2`）。⚠️ **中文侧没这毛病**（`descZh` 段首写的是 `誓言 N：`，与 `Loc` 的 `Card_Trait/oath` 中文列逐字相同）⇒ **本条是英文档专属、只改英文**，⛔ 没动中文。⛔ **别改用 `keywords` 数组去补**（把 `Oath` 改成 `Oath 4`）—— 那会**同时**改 `OathCost` 与构筑/校验口径，且与 `card_stats.json` 的逐张对账冲突；⛔ **也别在解析层兜底**（会掩盖数据缺口）。出处：`资料/普查产出_第十三会话/R5_A1330到A1332现核.md` 的 `A1331` 一节。",
+  "_2026-10-11_A1344_A1357_信仰太阳记号": "2026-10-11 第十三会话 W6a 手工加（`A1344` ＋ `A1357`）。**同一处修法：英文 `desc` 缺/错那枚【太阳 = 信仰】记号**（⛔ 不是 `Oath`，那批见 `_2026-10-11_A1331_Oath前缀`）。\n① `A1344` 修女会 4 张**段首丢了 `☀`**（只剩裸 `N:` ⇒ `CostKindOf(\"\")` = 按**能量**结算）：`SOR11 Crusader` `3:`→`3 ☀:` · `SOR23 Retributor` `1 :`→`1 ☀:` · `SOR24 Seraphim` `3:`→`3 ☀:` · `SOR72 Adelaide the Serene` `6:`→`6 ☀`（⚠️ 卡面这一处**无冒号**，照卡图）。\n② `A1357` `SOR72` 的 Rally 句把**信仰写成能量两处**：`less than 6 Energy, gain 1 Energy` → `less than 6 ☀, gain 1 ☀`。\n判据 = 成品卡图逐张开图亲读（铁律 7）：`d:/2/Warpforge部队卡片/Sorotitas/3部队/` 下 `Warpforge_11_Crusader.png`（`Vanguard. 3 ☀ : Gain +1 <粉拳> and <盾> Armour 2`）· `Warpforge_23_Retributor.png`（`1 ☀ : Deal 3 damage to a random enemy`）· `Warpforge_24_Seraphim.png`（`Flying. Flank` / `3 ☀ : Gain +1 <紫枪> and +1 Health`）· `Warpforge_08_Adelaide-the-Serene.png`（`6 ☀ Gain <侧翼> Flank and <盾> Shield.` / `Rally: If you have less than 6 ☀ , gain 1 ☀ for each enemy unit`）—— 四张都是**金太阳**（能量是绿圈、费用是右上蓝六边形）；同阵营已在用 `2 ☀:`（`SOR27 Canoness` / `SOR68 Sacred Rose Sister`）⇒ 写法统一，⛔ 不用 `[Faith Icon]`（两套写法会分家）。\n⚠️ 卡面图标两侧的**排版空格不抄**（与 `SOR27`/`SOR68` 一致）；`Adelaide` 句尾的句号保留（卡图折行、判不了）。\n🔴 **`A1357` 只做数据侧不够**：改字后 `Core/EffectText.cs:7636` 的 `Contains(\"energy\")` 失配 ⇒ `Normalize` 回 null ⇒ `ConditionKind=\"\"` ⇒ `Core/EffectResolver.cs:353-362` 报「本版判不了」**整条不生效**（比之前「照能量判」更诚实，但仍不是修复）⇒ **引擎侧要另配一个 `faithcheck`**（判 `ctx.Players[owner].Faith`，照 `energycheck` 的形状：`EffectText.Normalize` 加一支 ＋ `EffectResolver.ConditionHolds` 的 switch 加一案）。\n出处 → `资料/普查产出_第十三会话/R6_A1344到A1351查证.md` ＋ `W6a_A1344与A1357数据侧.md`。",
+  "_2026-10-11_A1363_信仰太阳记号_非首句": "2026-10-11 第十三会话 W7 手工加（`A1363`）。**与 `_2026-10-11_A1344_A1357_信仰太阳记号` 逐字同一条口径 —— 那批的判据锚在【整条 desc 的开头】、把非首句的同族段全漏了**。本批 6 处 / 5 张补段首 `☀`（太阳 = 信仰）：`Dominion Superior`(SOR28) · `Devout Warriors`(SOR43) · `Beacon of Faith`(SOR44) **两处** · `Trial of Suffering`(SOR49) · `Imperial Creed`(SOR59)。⚠️ `Beacon of Faith` 在 `desc` 列**本来就有条目** ⇒ **原地改**（⛔ 别追加同名键 = JSON 重复键，后写的静默盖掉先写的）；其余 4 张**追加**。字面一律 = **只插入 `☀`**、其余逐字节照抄旧值；卡面图标两侧的排版空格**不抄**（写 `2 ☀:` 而非 `2 ☀ :`）。判据 = 5 张 PnP 成品卡图**逐张开图亲读**（`d:/2/Warpforge部队卡片/Sorotitas/3部队/` 与 `4计策/`）。⚠️ `subtype` / `descZh` / `keywords` **一个字没动**。",
+  "_2026-10-12_A1621_A1625_段首词与DA37任务点": "2026-10-12（第二十一会话 · 写手 `C2` · `A1621` ＋ `A1625`）。**五条，判据一律 = 逐张开 PnP 成品卡图亲读**（铁律 7；路径 `d:/2/Warpforge部队卡片/<阵营>/<分类>/Warpforge_NN_<卡名>.png`），并各有一条**第二来源**（`资料/卡表核对_卡图提取/_还原效果文字.md` 的**徽记双写**转录，行号逐条写在下面）。\n① 🔴 **`DA37 Nephilim Jetfighter` 改的是【语义】、不只是文字（本笔唯一落地的数据改动）**：旧值 `… deal 5 damage and gain 1 Armour instead`，而卡面那一枚是**锯齿环里烘着一个 `1`**，与 `DA9 Ravenwing Bikes` 的 `Agenda: Gain 〔同一枚〕` **同形**（`DA9` 的卡表写的是 `Agenda: Gain 1 Quest Point`，`RuleEngineTest.cs:9462` 也点名这一条）⇒ 那枚是**任务点**、不是护甲。**讹误源头已定位**：`card_stats.json` 那条写的是 `gain 1 [armor]`（OCR 把徽记读成了 armour），本列上一轮只是把它规范化成 `Armour`、**语义沿用了错的**。第二来源：`_还原效果文字.md:314` = `… and gain Quest Point1 instead`（徽记双写）。`descZh` 同步改（`数据/卡牌翻译/zh_cards.json` 的源句也跟着错成「获得 1 点护甲」⇒ 走本文件 `descZh` 列覆盖，⛔ 不动 `zh_cards.json`）。🔑 **引擎读数**（离线探针 `工具/ruleprobe.sh card \"Nephilim Jetfighter\"`）：改前 `op3` = `verb=gain payload=[1 armour] target=自己` → 改后 `verb=gainquest amount=1 target=(玩家任务点)`；另两条 op（`deal 3` / `deal 5` + 条件 `targethaskw`）逐字段不变。⚠️ 计划表 `DA37/desc` 目前**没有** `Quest Point` token ⇒ 那枚徽记**暂时仍按裸文字印**（`1 Armour` 之前也是这样，⇒ **不是退步**）；重跑 `工具/gen_icon_plan.py` 会由资源词那一支自动补上（见文件里 `RESOURCE_WHY`）。\n② `UM78 Chapter Champion`（`A1621`）与 ③④⑤ `TAU14 Stealth Drone` / `TAU20 Sniper Drone` / `TAU42 Riptide Battlesuit`（`A1625②`）—— **裁定：⛔ 不把段首词补进 `desc`**（`C2` 第一版曾补进去、**已回滚**）。\n🔴 **判据（为什么「不补」）**：`A1345`（2026-10-21）**已落地**在 `CardPresentation/Core/CardText.cs` —— `KeywordSegment` 的判据① 从「正文里**出现过**这个词就跳过」收成「正文里**声明**过才跳过」（新 `DeclaredInBody` / `IsDeclarationAt`，三种算声明的形状 = 方括号里 / 成对引号里 / 段首）。⇒ 这四张的**段首那一段已经被渲染侧印出来了**，而且是**带图标、按 `keywords` 数组序**：`A1345` 的报告（`资料/普查产出_第二十会话/C2_卡面渲染与图标.md:21`）**逐张点名**「`TAU20 Sniper Drone` → `Flying. Long Range. `（卡面 ✓）」与「`UM78` → `Armour 1.`（卡面 ✓）」，并实测「**17 张与卡面逐项吻合**」。`C2` 现读代码复核了这四张：`Armour 1`（`UM78`）在正文那处前导是 `Gain` 的 `n`、`Stealth`（`TAU14`）前导是 `give` 的 `e`、`Long Range`（`TAU20`）前导是 `Gains` 的 `s`、`Shield`（`TAU42`）前导是 `:` —— **四种都不在 `IsDeclarationAt` 的句读集合里 ⇒ 一律算「没声明」⇒ 一律会补**。\n ⇒ **再往 `desc` 里补一遍 = 同一件事两处做**（违反「两处写同一条规则 = 迟早不一致」），而且实测有代价：`CardIcons.Rewrite` 是 `s.Replace(token, …)`、计划表 `desc` 侧**这三张都缺一条 token**（`TAU14` 缺 `Flying` · `TAU20` 缺 `Flying` · `TAU42` 缺 `Long Range`；`UM78` 那条 `Armour` 本来就有）⇒ 补进去之后**这三张各丢一枚图标**，要等 `工具/gen_icon_plan.py` 重跑才补回来（`KEYWORD_SCAN` 认「句首词 + `.`」，重跑即自动加）。`UM78` 不丢图标，但会把 `Armour 1` 的 `<nobr>` 拆成 `<nobr>Armour</nobr> 1`（`KeywordSegment` 整项包 `Armour 1`，`Rewrite` 只包到 token `Armour`）⇒ 换行点变了。🔑 **同一条裁定的另一半**（同日另一笔）：`A1622` 明写「**『段首多印』这件事是渲染侧的决定**（`CardText.KeywordSegment`）⇒ ⛔ **不是数据侧的活**」—— `A1621` 的账文本身也要求「**跟 `A1622` 一起判**」，两笔问的是同一个「静态词显在哪一层」⇒ **答案在渲染侧**。\n🔴 **`C3` 给 `A1621` 的理由要就地订正**（铁律 5）：他写的是「补进 `desc` 会把那枚从 `KeywordSegment` 挪到计划表（**引入重跑依赖**）」—— **对 `UM78` 不成立**（计划表里本来就有 `UM78/desc` 的 `('Armour','armour')` 条目，重跑不会再加任何东西）；真理由见上（**这是渲染侧的活、不是数据侧的活**）。\n⚠️ **与 `A1475③` 第一档的关系（留给调度台裁）**：`_2026-10-11_A1475_desc口径` 写的是「**静态关键词缺在 `desc` 里 ⇒ 补 `desc`**」，本笔按 `A1622` 的分层裁定**不补** —— 两条口径在这一类卡上**打架**。`A1475③` 给的两个理由今天都不成立于此：**(a) 次序** 已被 `A1406`（同日）在源头修成「按 `keywords` 数组序」；**(b) 引擎** 只对**带正文关键词**成立（`Armour 1`/`Flying`/`Long Range`/`Shield` 都是静态词，引擎读的是 `keywords`）。⇒ 若调度台仍要照 `A1475③` 补，则**必须与 `gen_icon_plan.py` 重跑同批**（否则那三张各少一枚图标），需要的 token 是：`(\"TAU14\",\"Flying.\")→flying` · `(\"TAU20\",\"Flying.\")→flying` · `(\"TAU42\",\"Long Range\")→longrange`。\n📌 **落地读数**：`cards_engine.json` 逐字段 diff = **1 张卡 / 2 个字段**（`DA37` 的 `desc` ＋ `descZh`）；`card_stats.json` 与 `zh_cards.json` 逐字节未动；卡池 1126 张、id 995/131 与改前相同。"
+ },
+ "_2026-09-16_AvengingZeal属性": "2026-09-16 `Avenging Zeal` 的**属性 token 名是错的**：我们的 desc 写 `+2 [health icon] and +2 [attack icon]`（⇒ **+2 生命**！），而卡面是 `Give +2 **Melee** and +2 **Ranged**` —— **两处独立来源**：① 我们自己的开图抄录 `资料/卡表核对_卡图提取/_还原效果文字.md:1128`（`zeal.png` 那一行）；② 本项目 `工具/gen_icon_plan.py` 的逐卡图标表（同结论：写着 health、画的是拳）。**真改玩法**（health→attack 的差别是「多 2 点血」vs「多 2 点近战」），写法用裸词 `Attack`/`Ranged`（同 `Simulacrum Imperialis` 那批的约定），**不是**去放宽 `GivePayload.ReAttr` 的词表。",
+ "_2026-09-16_引号丢失": "2026-09-16 **卡面那半句是带引号的，OCR 抄录时把引号丢了** ⇒ 引号里那项「嵌入效果」整段没被认出来（`GivePayload` 的 ①b 分支**要求带引号**）。两张：`Litany of Despair`（`Ephemeral. Give Vulnerable 2 to an enemy troop and \"Backlash: Give a Dark Pact to a random enemy troop\"`）· `Beastboss on Squigosaur`（`Friendly Beasts cost 1 less and have \"Slay: Gain Blood Thirst this turn\"`）。**逐字依据 = 我们自己的开图抄录** `资料/卡表核对_卡图提取/_还原效果文字.md:201` / `:628`（两处都带引号；成品图在 `d:/2/Warpforge部队卡片/`）。⚠️ **引号是承重的**：没有引号时 `backlash: …` 会被当成一个**目标**（或整段并进载荷），两种都错；Litany 还会被吞从句里的 `a random enemy troop` 把**主目标误标成「随机」** ⇒ 不让玩家选目标、结算随机抽一个。",
+ "_2026-10-08_A977_A981_中文资源符号与裸属性": "2026-10-08（卡面数据批）。**只改 descZh（显示层）**，desc（引擎解析原文）一字未动。三类，判据一律 = 逐张开 PnP 成品卡图亲读（铁律 7）+ 对照卡池 desc：① **A977 · 4 张「发动费用前缀」的中文卡面原来一枚图标都没有**：`UM80 Devastator Marine` / `UM81 Phobos Librarian` / `UM_Scout_Sniper Scout Sniper` —— 卡图 `Ultramarines/3部队/Warpforge_16_Devastator-Marine.png` 等三张首行都是 `〔蓝圆盘+白袍人形〕Oath 4: …`，中文原来只有 `4：…`、`3：…`、`1：…` ⇒ 补成 `誓言 N：`（与全池既有 `誓言 1..8：` 写法一致，计划表自会画 oath 徽记）；`SOR72 Adelaide the Serene` —— 卡图 `Sorotitas/3部队/Warpforge_08_Adelaide-the-Serene.png` 上那个前缀是**金太阳**（`6☀：…若你的少于 6☀，每有 1 个敌方单位便获得 1☀`）= **信仰**，中文原来写成「能量」⇒ 改成 `6 ☀：` + 「信仰」。② **A981 · 13 张「中文把图标整个漏掉、只剩裸数字」**：英文 desc 这几张**早就补好了**（`+1 Attack` / `+3 Attack` / `+1 Ranged`，见 `_manual_desc_note`），中文一条都没跟（`获得 +1` / `给予 +3`）。逐张开图核过属性（`Astra Militarum/3部队/Warpforge_12_Autocannon-Squad.png` 是 gun、`Emperor_s Children/4计策/Warpforge_58_Exquisite-Swordsmanship.png` 是拳…），中文按英文的规范写法补词：`+N 攻击` / `+1 远程攻击`。🔴 `DA86 Hunters of Heretics`（`Dark Angels/4计策/Warpforge_12_Hunters-of-Heretics.png`）是**写错**那一档：卡面是**锯齿环里烘着 2** = 任务点，中文原来写「2 个骷髅头」（骷髅是 `Backlash:` 那枚前缀图标）⇒ 改 `2 点任务`（顺带对上计划表的 `N 点任务` → `questPointsN`）。⚠️ 这批**不覆盖**同族的另两类：`+N 近战/远程攻击` 那 124 张的**属性图标**（要换掉词、机制上要单独定，见 `项目任务.md`）、以及中文漏印了整句关键词的（`GSC25 Nexos` 的 `Artifice:`）。",
+ "desc": {
+  "Maelon Dhrost": "Regiment: Draw a Stratagem. Duty: Lower the cost of Stratagems in your hand by 4",
+  "Morkai Eliminator": "Sniper. Rally: Give Hunt Mark to a random enemy troop. Ferocity: Attack a random enemy with Hunt Mark.",
+  "Night Spinner": "Flying. Sniper. Blast 3",
+  "Howling Banshee Exarch": "Waystone. Camouflage. Strike: Give +1 [Attack] to your units",
+  "Deathwing Knight Master": "Armour 2. Teleport: Deal 3 damage to all enemies and give +2 [Attack] to all friendly units.",
+  "Sacred Standard": "Give +1 [Attack] and Blast 1 to all friendly units this turn",
+  "Lord Kaphrael": "Stimulation: Give +1 [Attack] to a random friendly troop. Talent: Euphoric Strike",
+  "Slaanesh's Spawn": "Cruelty: Gain +1 [Attack] and Flank",
+  "Exquisite Swordsmanship": "Your Warlord gains +1 [Attack] this turn. Deal damage to all enemies equal to your Warlord's Melee",
+  "Xylocil": "Give +2 [Attack] to a friendly troop",
+  "Cyber‑augmentation": "Give +1 [Attack] and Flank to a random troop in your hand",
+  "Da Bigger Dey Iz... (Mozrog's Talent)": "Ephemeral. Deal 1 damage to an enemy. If target survives, give +1 [Attack] and Stomp to your Warlord this turn",
+  "Waaagh! Energy (Weirdboy Talent)": "Ephemeral. Deal 1 damage to all friendly units and give them +2 [Attack] this turn.",
+  "Acolyte Leader": "When your opponent plays a Stratagem, give +1 [Attack] and +1 Health to your troops",
+  "Crusader": "3 ☀: Gain +1 [Attack] and Armour 2",
+  "Thunderwolf Cavalry Pack Leader": "When an enemy gets a Hunt Mark, give +1 [Attack] to your units this turn. Rally: Give Hunt Mark to an enemy troop",
+  "Krootox Rampager": "Flank. Rally: Gain +3 [Attack] this turn",
+  "Thundering Rampage": "Give +3 [Attack] to a friendly unit this turn. If it's an Infantry, give it Flank as well",
+  "Bestial Rage": "Give +4 [Attack] to all friendly troops",
+  "Angel's Wrath": "Ephemeral. Give +1 [Attack] to a friendly unit until your next turn. Oath 2: Give it Armour 2 this turn",
+  "Assault Doctrine": "Give +3 [Attack] to a friendly unit. Codex: Give it Armour 1 and heal 2 to it",
+  "Angels of Death": "Deploy 3 Primaris Intercessor and give them Flank. Codex: Give +1 [Ranged] to your Primaris Intercessor",
+  "Hunters of Heretics": "Give Vulnerable 4 and \"Backlash: Your opponent gains 2 Quest Points\" to an enemy troop",
+  "Sergeant Naaman": "Slay: Gain 1 Quest Point",
+  "Avenging Zeal": "Give +2 [Attack] and +2 [Ranged] to all your units in play and in hand. Lower cost by 1 when a friendly Troop or Stratagem trigger [Codex icon] Codex",
+  "Litany of Despair": "Ephemeral. Give Vulnerable 2 to an enemy troop and \"Backlash: Give a Dark Pact to a random enemy troop\"",
+  "Beastboss on Squigosaur": "Friendly Beasts cost 1 less and have \"Slay: Gain Blood Thirst this turn\"",
+  "Grim Effigy": "Gain 2 Quest Points",
+  "Aggressor": "Strike: Gain 1 Quest Point",
+  "Asmodai": "Agenda: Gain 1 Quest Point. Talent: Master of Repentance",
+  "Black Knight": "Flank. Slay: Gain 1 Quest Point",
+  "Darkshroud": "Give Stealth to a friendly troop. If it's a Vehicle, gain 1 Quest Point.",
+  "Deathwing Champion": "Armour 1. Teleport: Gain +1 [Attack] and Fast.",
+  "Fury of the Unforgiven": "Destroy an enemy troop. Gain 2 Quest Points.",
+  "Hunt the Fallen": "Draw two cards. For each troop drawn, gain 1 Quest Point",
+  "Intercessor": "Rally: Gain 1 Quest Point",
+  "Librarian": "Shield. Agenda: Draw the next Stratagem in your deck and gain 1 Quest Point.",
+  "March of Vengeance": "Give +1 [Attack] to a friendly unit. Gain 2 Quest Points",
+  "Master Interromancer": "Ephemeral. Deal 3-5 damage to an enemy. If the target dies, gain 2 Quest Points.",
+  "Master Lazarus": "Armour 1. Agenda: Trigger the Teleport and Slay effects of a friendly unit and gain 1 Quest Point",
+  "Master of Repentance": "Ephemeral. Deal 1 damage. If the target survives, gain 1 Quest Point.",
+  "Nephilim Jetfighter": "Rally: Deal 3 damage to an enemy. If it has Flying, deal 5 damage and gain 1 Quest Point instead",
+  "Ravenwing Bikes": "Flank. Agenda: Gain 1 Quest Point",
+  "Armoured Sentinel": "Armour 1. Regiment: Gain +1 [Ranged].",
+  "Autocannon Squad": "Regiment: Gain +1 [Ranged]",
+  "Holy Fire": "Give +2 [Attack] to your Warlord and +1 [Attack] to adjacent troops this turn. Gain 1 ☀",
+  "Armorium Cherub": "Flying. Rally: Give +2 [Ranged] to a friendly unit this turn. At the start of your turn, gain 1 ☀ and return to your hand",
+  "Hymn of Battle": "Choose one: Gain 1 ☀; Draw a card or Deploy a Crusader",
+  "Path of the Seer": "Ephemeral. Choose a card in your hand and return it to your deck. Draw a card. Gain 1 Spirit Stone",
+  "Relics of Saint Katherine": "Gain 3 ☀. 12 ☀: Draw 3 cards",
+  "Shrineworld": "Draw 3 cards. For each Troop drawn, gain 1 ☀",
+  "Hidden Hunters": "Give +1 [Attack] and Stealth to your Infantry troops",
+  "Inner Circle Companion": "Gain Vanguard and 2 Quest Points",
+  "Ephrael Stern": "Pray: Deal 3 damage to an enemy troop. If target dies, gain 1 ☀",
+  "Prayer": "Give Shield to a friendly unit. If the unit has Pray gain 1 ☀",
+  "Battle Sister": "Pray: Gain +1 [Attack] and +1 [Ranged] and heal 1",
+  "Sisters Repentia": "When this unit kills an enemy, gain 1 ☀. Penitence: Gain +2 [Attack]",
+  "Sacred Rose Sister": "2 ☀: Gain +1 [Attack] and +1 [Ranged]. 4 ☀: Gain +1 Health. Pray: Gain Shield",
+  "Canoness": "2 ☀: Gain Armour 1. 4 ☀: Gain +2 [Attack] and +2 [Ranged]",
+  "Techmarine": "When a friendly Vehicle attacks, gain 1 Quest Point. If it survives, heal 3 to it",
+  "Wages of Retribution": "For the rest of this battle, when an enemy dies, gain 1 Quest Point",
+  "Ravenwing Champion": "Rally: Gain 1 Quest Point. When you create a Secret, deal 3 damage to a random enemy",
+  "Ravenwing Speeder": "Agenda: Deal 2 damage. If the target survives, gain 1 Quest Point",
+  "Reconnaissance Mission": "Choose a card in your opponent's hand. When played, gain 3 Quest Points",
+  "Watcher in the Dark": "Choose a non-Legendary Dark Angels card and add it your hand. Gain 1 Quest Point",
+  "The Rock": "Choose one: Gain 2 Quest Points; deploy a Sergeant Taaman; heal 3 to all your units",
+  "Malgarash the Adamant": "Armour 1. Ecstasy 2: Heal 2. Stimulation: Gain +1 [Ranged]",
+  "Xarahan Daemon Prince": "Ecstasy 15: Gain +1 [Attack]. Talent: Excessive Vigour",
+  "Terminator": "Armour 1. Ecstasy 2: Gain +2 [Attack]",
+  "Nexos": "Stealth. Artifice: Your units gain +1 [Attack] until your next turn",
+  "Power of the Waaagh!": "Your Warlord gains \"Mob: Gain +1 [Attack] until your next turn\"",
+  "Skarboy Nob": "Mob: Gain +1 [Attack]",
+  "Psychophage": "Rally: Gain +2 [Attack], +2 [Ranged] and +1 Health for each damaged enemy",
+  "Heavy Intercessor": "Armour 1. Codex: Gain +1 [Ranged] this turn",
+  "Outrider": "Flank. Codex: Gain +1 [Attack] and +1 [Ranged]",
+  "Chapter Champion": "Codex: Gain +2 [Attack]. Oath 2: Gain Armour 1 and Vanguard",
+  "Fenrisian Wolf": "Tide 1. Ferocity: Attack a non Flying enemy troop. If it has a Hunt Mark, gain +1 [Attack]",
+  "Termagant Brood": "When a friendly unit triggers Swarm, gain +1 [Ranged]",
+  "Bright Lance Vyper": "When you trigger a Spirit Stone ability, gain Sniper and +1 [Ranged].",
+  "Cadian Honour": "Give +1 [Ranged] to your troops and reload their Duty abilities",
+  "Lord Commander": "Ephemeral. Give +1 [Attack] and +1 [Ranged] to your units until your next turn",
+  "Lord Exultant": "Stimulation: Give +1 [Attack] and +1 [Ranged] to all friendly troops",
+  "Slaanesh Sorcerer": "Give +1 [Attack] and +1 [Ranged] to another random friendly troop",
+  "Terrifying Crescendo": "Give -3 [Ranged] to an enemy troop. Then, if it has 0 Ranged Attack, destroy it",
+  "Neophyte Leader": "Give +1 [Attack] and +1 [Ranged] to all friendly troops",
+  "Exhortation of Rage": "Ephemeral. Give +1 [Ranged] to your troops. If you don't control any, draw a troop",
+  "Paragon of Ultramar": "Give +1 [Attack] and +1 [Ranged] to your troops this turn",
+  "Primarch of the XIII": "Give +1 [Attack] and +1 [Ranged] to a friendly unit this turn",
+  "Tactical Doctrine": "Give +3 [Ranged] to your units this turn. Codex: Draw a card",
+  "Genestealer Familiar": "Adjacent units have +1 [Attack]. Rally: Give Flank to a friendly Infantry.",
+  "Cadre Fireblade": "Your other Infantry and Battlesuit troops have +2 [Ranged]",
+  "Storm of Silence": "Your Warlord gains +2 [Attack] this turn. 1 [Spirit Stone]: Stun a random enemy troop",
+  "Witchfire": "Deal 1-3 damage.\n1 [Spirit Stone]: Repeat this effect",
+  "Wrath of Khaine": "Give +2 [Melee] and +2 [Ranged] to your units. 2 [Spirit Stone]: Repeat this effect",
+  "Shining Spear": "1 [Spirit Stone]: Gain Shuriken 2 this turn",
+  "Hornet": "3 [Spirit Stone]: Gain Fast",
+  "Warlock": "1 [Spirit Stone]: Give +1 [Ranged] and +1 Health to all your troops",
+  "Swooping Hawk": "1 [Spirit Stone]: Gain +1 [Ranged] and Flank",
+  "Wraithblade": "1 [Spirit Stone]: Gain Armour 2",
+  "Wraithguard": "1 [Spirit Stone]: Gain +2 [Ranged] and +2 Health",
+  "Spiritseer": "2 [Spirit Stone]: Deploy a Wraithguard",
+  "Vengeful Wraithblade": "2 [Spirit Stone]: Gain Armour 2 and Flank",
+  "Hemlock Wraithfighter": "3 [Spirit Stone]: Gain Blast 5",
+  "Wraithlord": "3 [Spirit Stone]: Gain +4 [Attack], +4 [Ranged] and +2 Health",
+  "Avatar of Khaine": "Armour 2. 2 [Spirit Stone]: Gain Blast 6 and Camouflage. Talent: Wrath of Khaine.",
+  "Wraithknight": "3 [Spirit Stone]: Gains [Invulnerable] Invulnerable until your next turn",
+  "Death Spinner Warp Spider": "Waystone. Stealth. 1 [Spirit Stone]: Gain Flank.",
+  "Farseer": "When you collect a Spirit Stone, gain Shield. 1 [Spirit Stone]: Choose a card from your deck and draw it",
+  "Farseer Skyrunner": "2 [Spirit Stone]: Choose a card in the enemy hand and shuffle it into their deck",
+  "Autarch": "1 [Spirit Stone]: Give +1 [Melee], +1 [Ranged] and +1 Health to all your troops",
+  "Ahnakh-Yth Shrine": "Give Shuriken 1 to a friendly troop. 1 [Spirit Stone]: Create a copy of Ahnakh-Yth Shrine in your hand",
+  "Will of Asuryan": "Give Vanguard to a friendly troop.\n1 [Spirit Stone]: Draw a card",
+  "Webway Gate": "Choose a troop from your deck and draw it. 1 [Spirit Stone]: It costs 2 less",
+  "Cosmic Serpent": "Trigger the abilities requiring Spirit Stones of all your troops. 2 [Spirit Stone]: Repeat this effect",
+  "Devoted of Khaine": "Give +1 [Melee] to your troops. 1 [Spirit Stone]: Repeat this effect",
+  "Eldritch Storm": "Deal 1-3 damage to all enemies.\n2 [Spirit Stone]: Repeat this effect",
+  "Reclaim the Stars": "Draw 5 cards. 5 [Spirit Stone]: Reduce their cost by 5",
+  "Wailing Doom": "Deal 8 damage to an enemy. 2 [Spirit Stone]: Deal 4 damage to units adjacent to the target",
+  "Forewarned": "Give +3 [Attack] and +3 [Ranged] to a friendly unit this turn. 1 [Spirit Stone]: Also give it Shield",
+  "Martial Superiority": "Heal 2 to a friendly unit.\nGain 1 Quest Point",
+  "Apothecary": "When a friendly unit obtains [Quest Point], it heals 2. Rally: Heal 2 to a friendly unit",
+  "Company Veteran": "When you gain [Quest Point], heal 2",
+  "Ultramarines/Terminator": "Oath 1: Gain Armour 1",
+  "EmperorsChildren/Maulerfiend": "Ecstasy 5: Double this troop's [Melee] and [Ranged].",
+  "Killa Kan": "Mob: Gain +1 [Attack] this turn",
+  "Tactical Marine": "Oath 3: Gain +3 [Attack], +3 [Ranged] and +3 Health",
+  "Forward Deployment": "Give Flank, +1 [Attack] and +1 [Ranged] to a friendly troop.",
+  "Shall Know No Fear": "Give Invulnerable to a friendly troop this turn. Oath 8: Give it +8 [Attack] and +8 [Ranged].",
+  "Terminator Captain": "Armour 2. Oath 4: Gain Invulnerable until your next turn",
+  "Hive Commander": "Ephemeral. Give +2 [Attack], +2 [Ranged] and +1 Health to a friendly troop",
+  "Daemonette": "Give -1 [Attack] and -1 [Ranged] to an enemy troop.",
+  "Infractor": "Cruelty: Gain +1 [Attack] and +1 [Ranged].",
+  "Veldras the Sublime": "Cruelty: Gain +1 [Attack]. Stimulation: Attack the enemy with highest attack",
+  "Rugged Disharmonist": "Enemy troops have -2 [Ranged]",
+  "Skorflense": "Give +2 [Ranged] to a friendly troop",
+  "Hardwired Destruction": "Give +1 [Attack] and +1 [Ranged] to a friendly unit until your next turn. If it is [Destroyer], give it Armour 1 until your next turn",
+  "Tormentor Obsessionist": "Ecstasy 3: Give +2 [Ranged] to all friendly troops",
+  "Nexus of Devotion": "Ephemeral. Heal 1 to your units and give them +1 [Attack] and +1 [Ranged] this turn",
+  "Hybrid Metamorph": "Blast 1. Uprising: Gain +2 [Ranged] and +1 Health",
+  "Ravenwing Ancient": "Flank. Slay: Give +1 [Attack] and +1 [Ranged] to all friendly Vehicles",
+  "Righteous Repugnance": "Give +1 [Attack] and +1 [Ranged] to your units this turn. 4 Energy: Give +2 [Attack] and +2 [Ranged] instead and Heal them 1",
+  "Simulacrum Imperialis": "Pray: Give +1 [Attack] and +1 [Ranged] to all friendly units",
+  "Orikan the Diviner": "When you reanimate a Remnant, heal 1. Talent: Master Chronomancer",
+  "Repulsor": "Armour 1. Blast 4. Rally: Deal 6 damage to an enemy. If the target dies, gain 3 Quest Points",
+  "Ancient Reliquary": "Give +3 [Attack], +3 [Ranged] or +3 Health to a friendly troop",
+  "Legendary Tenacity": "Give +4 [Attack], +4 [Ranged] and +4 Health to a friendly troop",
+  "Moment of Grace": "Give +2 [Attack] and +2 [Ranged] to a friendly unit this turn. 5 Energy: Draw a card",
+  "Imagifier": "Pray: Give +1 [Attack], +1 [Ranged] and Flank to a friendly troop.",
+  "Celestian Sacresant Aveline": "Pray: Give +1 [attack] and +1 [ranged] to a friendly troop. Talent: Daemonbreaker",
+  "Thunderous Charge": "Give +2 [attack], +2 [ranged] and Concussive to a friendly troop",
+  "Exorcist": "8 [faith]: Deal 5 damage to all enemies",
+  "Cadian Standard Bearer": "Rally: Deploy a Shock Trooper. Duty: Give +2 [Ranged] to your units this turn",
+  "Rogal Dorn Tank": "Regiment: Give +1 [Ranged] to your units this turn.",
+  "Tempestor Sergeant": "Regiment: Give +1 [Ranged] to a random friendly troop. Duty: Give +1 Health to all friendly Infantry.",
+  "Forged Killers": "Give +2 [Ranged] to a friendly troop and adjacent troops",
+  "Supreme Grand Master": "Ephemeral. Give +1 [Attack] and +1 [Ranged] to your troops. If you don't control any, create an Intercessor in your hand.",
+  "Relic Munitions": "Give +1 [Ranged] to your units this turn. Repeat for each Secret you played this game",
+  "Deathwing Assault": "Give +2 [Attack], +2 [Ranged] and +2 Health to your troops and trigger their Teleport abilities.",
+  "Deathwing Strikemaster": "Armour 1. Teleport: Give +1 [Attack], +1 [Ranged] and +1 Health to all friendly troops",
+  "Sonic Blaster Noise Marine": "Stun enemy troops attacked and give them -1 [Attack] and -1 [Ranged]",
+  "Disharmonist": "Give -2 [Attack] and -2 [Ranged] to a random enemy troop",
+  "Antrak Silk": "Deal 1 damage to a friendly unit and give it +1 [Attack] and +1 [Ranged] this turn",
+  "Alluress": "Rally: Give -2 [Attack] and -2 [Ranged] to an enemy troop. Friendly Daemonette have Flank.",
+  "Acolyte Heavy": "Ambush: Gain +2 [Attack]. Strike: Create a random Sabotage in the enemy hand",
+  "Neophyte Trooper": "Uprising: Gain Flank and +1 [Ranged]",
+  "Acolyte Hybrid": "Ambush: Gain +2 [Attack] and +2 [Ranged]",
+  "Slugga Boy": "Tide 1. Rally: Gain +1 [Attack] for each other friendly Slugga Boy",
+  "Beast Snagga Boy": "Tide 1. Stomp. Rally: If you control a Beast, gain +1 [Attack].",
+  "Nob on Smasha Squig": "Other friendly Beasts have +1 [attack] and +1 [ranged].",
+  "Gnarled and Rugged": "Give +2 Health to a friendly unit. If it's a Beast, give it +2 [Attack] as well.",
+  "Greatest Warboss": "Deploy a Grot and Give +1 [Attack] to your troops",
+  "More Dakka": "Give +2 [Ranged] and Flank to a friendly Vehicle",
+  "Tempest's Wrath": "Ephemeral. Give -2 [Ranged] to an enemy troop until your next turn.",
+  "Blackmane Reiver": "Ferocity: Draw a troop. Give it +1 [Attack], +1 [Ranged], and +1 Health.",
+  "Grey Hunter Pack Leader": "Give +3 [Attack], +3 [Ranged] and +3 Health to a friendly troop.",
+  "Wolf Guard Terminator Pack Leader": "Armour 2. Slay: Gain +1 [Attack], +1 [Ranged] and +1 Health.",
+  "Unbridled Fury": "Give +2 [Attack] and -2 [Ranged] to your Infantry until your next turn",
+  "Simulacrum Bearer": "Give +1 [Attack] to your troops, and to your Warlord this turn",
+  "Seraphim": "3 ☀: Gain +1 [Ranged] and +1 Health",
+  "Apex Predator": "Give Invulnerable and +3 [Ranged] to a friendly unit this turn",
+  "Attack Bike": "Oath 2: Gain +1 [Ranged] and Flank",
+  "Devastator Doctrine": "Give Blast 3 to a friendly unit this turn. Codex: Give it +2 [Ranged] this turn as well",
+  "Tide of Muscle": "Draw two troops and give them +1 [Attack]",
+  "Get'em ladz!": "Give +2 [Attack] to your units this turn",
+  "Da Red Waaagh": "Draw a troop and give it +1 [Attack]",
+  "Krumpaklaw": "Mob: Gain +2 [Attack] and Armour 1",
+  "Catechism of Death": "Ephemeral. Give +2 [Attack] to a friendly troop, or to your Warlord this turn. Oath 3: Give it an additional +2 [Attack]",
+  "Chaplain Cassius": "Friendly Oath abilities apply an additional time.\nTalent: Catechism of Death",
+  "Warp Spider Exarch": "When you collect a Spirit Stone, gain +1 [Melee], +1 [Ranged] and Stealth.",
+  "Winged Autarch": "Your other Flying units have +2 [Melee] and +2 [Ranged]",
+  "Nightshade Interceptors": "Give +1 [Ranged] and +2 Health to your Vehicles",
+  "Aspiring Champion": "After receiving a Dark Pact, gain +1 [Ranged] and +1 Health",
+  "Child of Torment": "When a unit receives damage, gain +1 [Ranged] this turn",
+  "Daemonic Frenzy": "Give +2 [Melee] to a friendly troop, and an additional +2 [Melee] for each Dark Pact on it",
+  "Diabolic Strength": "Give +2 [Melee] this turn and heal 1 to all friendly units",
+  "Drachnyen": "Give +4 [Melee] to a friendly unit",
+  "Legacy of Vengeance": "For each enemy in play, give +1 [Melee] to your Warlord this turn",
+  "Rites of Penance": "Give +3 [Melee], +3 [Ranged] and Invulnerable to a friendly unit until your next turn",
+  "Chaplain Gabutheron": "Armour 2. Teleport: Give +3 [Attack] and Invulnerable to your units this turn. Agenda: Heal 4 to a friendly unit and gain +1 Energy.",
+  "Vengeful Brethren Bladeguard": "Armour 1. When a friendly troop dies, gain +2 [Attack] and Armour 1.",
+  "Vengeful Brethren": "Give +1 [Attack] and +1 Health to a friendly troop. Create a copy of it at the top of your deck.",
+  "EmperorsChildren/Terminator Champion": "Armour 1. Cruelty: Deal 1 damage to another random friendly unit and gain +1 [Attack] and +1 [Ranged].",
+  "Gauss Reaper Warrior": "When Reanimated, gain +2 [Ranged] and +2 Health",
+  "Skorpekh Lord": "When an enemy dies, gain +1 [Melee] and +1 [Ranged]",
+  "Conquering Tyrant": "Heal 5 to your Warlord and give it +2 [Melee]",
+  "Triarch Stalker": "Your other units have +2 [Ranged]",
+  "Beast Snagga Nob": "At the end of your turn, give +1 [Attack] to all Beasts in your hand",
+  "Snakebite Nob": "Give +1 [Attack] and +1 Health to a random Beast in your hand",
+  "Makari the Grot": "Adjacent units have +1 [Attack]. Backlash: Returns to your hand and costs 2 more this turn.",
+  "Follower of Gork": "Give +2 [Attack] and +2 Health to a friendly troop",
+  "Grukk Face-Rippa": "Your troops with Tide have +1 [Attack]. Talent: Da Red Waaagh",
+  "Beacon of Faith": "Give +2 Health to your units.\n4 ☀: Give an additional +1 Health.\n7 ☀: Give them +1 [Attack] and +1 [Ranged] as well.",
+  "Murderous Hurricane": "Give +2 [Attack] to a friendly unit this turn.",
+  "Saga of the Bold": "Give +2 [Attack] and +2 Health to a friendly troop. If you control 3 or more troops, draw a card.",
+  "Enforcer Battlesuit": "Vanguard. Adjacent units have +1 [Ranged].\nCompanion 2: Guardian Drone",
+  "Firesight Marksman": "Stealth. When you deploy a Drone, give it +1 [Ranged].\nRally: Give Markerlight 3 to an enemy troop",
+  "Deploy Anchors": "Give +5 [Ranged] to a friendly Battlesuit or Vehicle",
+  "Grisly Feast": "Give +1 [Attack] this turn and +1 Health to your Warlord and Infantry troops",
+  "Hero of the Empire": "Give Markerlight 1 to an enemy troop or +1 [Ranged] this turn to a friendly unit",
+  "Inspired to Greatness": "Give +2 [Ranged] and +2 Health to a friendly troop",
+  "Storm of Fire": "Give +2 [Ranged] to your units this turn",
+  "Tyranid Prime": "Synapse. When a friendly unit triggers Swarm, give it +1 [Melee] and +1 Health",
+  "Carnifex": "Rally: Choose and gain a bonus (+2 [Melee], +2 [Ranged] or Armour 1)",
+  "Adrenal Surge": "Give +2 [Melee] and +2 [Ranged] to a friendly unit this turn",
+  "Alpha Warrior": "Ephemeral. Your Warlord gains Flying and +2 [Melee] this turn, plus an additional 1 for each friendly troop",
+  "Augmented Ferocity": "Heal 3 to a friendly unit and give it +2 [Melee] this turn",
+  "Synaptic Imperative": "Give +2 [Melee], +2 [Ranged] and +2 Health to a friendly troop",
+  "Company Ancient": "Your other units have +1 [Melee] and +1 [Ranged]",
+  "Firstborn": "Codex: Gain +1 [Melee], +1 [Ranged] and +1 Health",
+  "Inceptor Sergeant": "Give +1 [Ranged] to your other troops",
+  "Primaris Chaplain": "Give +1 [Melee] and +1 [Ranged] to your Infantry troops",
+  "Primaris Inceptor": "Codex: Gain +1 [Ranged] this turn.",
+  "Codex Discipline": "Give +2 [Ranged] to your troops, and trigger their Codex abilities",
+  "Knights of Macragge": "Give +1 [Melee], +1 [Ranged] and 1 Health to your troops",
+  "Pariah Vanguard": "Give +2 [Melee] and Vanguard to a friendly troop",
+  "Sacred Bolter": "Give +2 [Ranged] to a friendly troop",
+  "Primaris Invader": "Codex: Give +1 [Ranged] to all your Vehicles this turn",
+  "Dark Pact of Blood": "Give +2 [Melee] and Vanguard",
+  "Dark Pact of Excess": "Give +2 [Melee] and +2 [Ranged]",
+  "Protective Bio-structure": "Give +2 [Melee] to a friendly unit this turn",
+  "Halls of Legend": "Give [Shield] Shield to a friendly unit. Draw a card",
+  "Dark Oratory": "Give a [Dark Pact] Dark Pact to all friendly troops",
+  "Da Old Ways": "Give [Stomp] Stomp to a friendly unit. If it already has [Stomp] Stomp, give it +2 [Attack] this turn instead",
+  "Dual Screamer Kakophonist": "Rally: Give -4 [attack] and -4 [Ranged] to an enemy unit this turn",
+  "Indomitus Crusade": "Deploy an Ultramarines troop that costs 6 or more. Oath 6: Deal damage to all enemy troops equal to its [Attack]",
+  "Death from Above": "Deal 4 damage.\n[Codex] Codex: Deal 1 additional damage.",
+  "Devastator Marine": "Oath 4: Deal 5 damage to an enemy troop",
+  "Phobos Librarian": "Oath 3: Deal 2-4 damage to an enemy. If target dies, gain Shield",
+  "Scout Sniper": "Oath 1: Deal 1 damage",
+  "Firestrike Servo Turret": "Oath 3: Gain Sentry 2",
+  "Adelaide the Serene": "6 ☀ Gain Flank and Shield. Rally: If you have less than 6 ☀, gain 1 ☀ for each enemy unit.",
+  "Retributor": "1 ☀: Deal 3 damage to a random enemy",
+  "Dominion Superior": "Rally: Deal 1 damage. 2 ☀: Deal 1 additional damage",
+  "Devout Warriors": "Draw a troop. 2 ☀: Draw an additional troop",
+  "Trial of Suffering": "Deal 1 damage to a friendly troop and give it Armour 1. 2 ☀: Give it Armour 2 instead",
+  "Imperial Creed": "Stun three random enemies.\n4 ☀: Refill 3 Energy",
+  "Bullgryn Bone’ead": "Vanguard. Armour 1. Blast 2",
+  "Inspiring Legacy": "Give Shuriken 2 to a friendly unit this turn"
+ },
+ "_manual_subtype": {
+  "_": "手工覆盖 `subtype`（脚本原样保留、最后应用，手工赢过算出来的）。加条目前先读上面那份说明。",
+  "Ultramarines/Bladeguard Lieutenant": "Infantry",
+  "Jammed Communications": "Sabotage",
+  "Poisoned Supplies": "Sabotage",
+  "Cult Propaganda": "Sabotage",
+  "Improvised Barricade": "Sabotage",
+  "Ultramarines/2nd Company Terminator": "Infantry",
+  "Veteran Flyboy": "Infantry",
+  "Simulacrum Imperialis": "Infantry",
+  "Obscure Ritual": "Secret"
+ },
+ "_manual_keywords": {
+  "Howling Banshee Exarch": [
+   "Waystone",
+   "Camouflage",
+   "Strike: Give +1 [Attack] to your units"
+  ],
+  "Ravenwing Bikes": [
+   "Flank",
+   "Agenda: Gain 1 Quest Point"
+  ],
+  "_": "手工覆盖 `keywords`（脚本原样保留、最后应用，手工赢过算出来的）。⚠️ 加条目要**写全**该卡的整份关键词表，不是增量。🆕 2026-09-15 PnP 逐张对账批（见 `资料/PnP卡图_逐张对账_0915.md` §四）：**同名跨阵营的卡用 `\"<阵营>/<卡名>\"` 键**（`gen_cards_engine.py` 的 `load_cardface_fixes` 支持），例如 `\"Ultramarines/Terminator\"` —— 原来只按卡名查，改一张会连带改到另一阵营那张。 🆕 2026-09-15 PnP 对账加的那条 `Ultramarines/2nd Company Terminator`（`UM83`）：四个洞一起补 —— `ranged=0`/`rarity` 空/`subtype` 空/关键词掉数字（卡面 `Armour 1. Blast 3. Oath 2: Deal 3 damage`）。🔴 **2026-10-17 订正**：当时顺手把它改名叫 `1st Company Terminator`（**只核了 PnP 一侧**）—— B20 复核后**卡名已撤回 `2nd Company Terminator`**（游戏侧四族证据一致：卡图资产名 / 语音 / 头像 / 头像 `nameTextReference`；详见 `资料/普查产出_1017/W_B20_同族四张卡名.md`），本键名跟着回改。🆕 2026-09-16：`Beast Snagga Nob`（`GOF81`）补 `Stomp` —— 卡面逐张开图核过（`d:/2/Warpforge部队卡片/Orks/3部队/Warpforge_07_Beast-Snagga-Nob.png`）：`[爪]Stomp. At the end of your turn, give +1[拳] to all Beasts in your hand`，而引擎里那张 `keywords` 是**空的**（描述文字与卡面其余部分逐字一致，只少了 `Stomp.`）。",
+  "_2026-09-18_Stun误抽": "OCR（2026-08-16 视觉模型那趟）把效果句里的内联图标词 `Stun` 记成了本卡关键词。5 张逐张开原图核过：卡面**都没有关键词行**。覆盖值里保留正文真有的 Duty/Talent/Tide 1。根因不在本仓（抽取器在 d:/warpforge/tools/ocr_cards.py），详见 `资料/普查产出_0918/孤儿待办_五条查证.md` §四。",
+  "_2026-09-19_Ferocity误抽": "OCR 把效果句里的**内联图标词** `Ferocity` 记成了本卡关键词（与上一条 `Stun` 同一趟、同一根因；由「从句级尺子」进自检后第一次跑出来，见 `资料/普查产出_0919/从句级尺子_进自检.md`）。`Njal Stormcaller`（`SW4` 督军）卡面逐张开图核过（`d:/2/Warpforge部队卡片/Space Wolves/1督军/Warpforge_04_Njal-Stormcaller.png`）：效果文字是 `When you trigger ⟨獠牙⟩Ferocity, High Rune Priest costs 1 less this turn. ⟨白牌⟩Talent: High Rune Priest` —— 这里的 Ferocity 是**句子里的引用**，不是 `Ferocity: <正文>` 那种**关键词授予**（对照：`Blood Claw` 卡面 `⟨獠牙⟩Ferocity: Deal 3 damage to an enemy`、督军 `Junith Eruita` 卡面 `⟨圣徽⟩Pray: Heal 1 to a friendly unit` —— 真有那个能力的卡都带**冒号 + 正文**）。同阵营另两张督军（Logan Grimnar / Ragnar Blackmane）**都没有** Ferocity。⚠️ **同一形状的还没清**：`Raid Tactics`（`SW59` 战术）· `Bjorn's Shrine`（`SW46` 战术）卡面同样只有引用（`…when a friendly troop uses ⟨獠牙⟩Ferocity, …`），keywords 里却挂着 `Ferocity` —— 那是**一族待查项**（可能还包括只在 `When …` 里提到某个关键词的卡），**别当成只此一张**。",
+  "_2026-09-19_句中引用误抽_13张": "同一趟 OCR 的**第二个形状**（上一条是 `Ferocity` 单张）：效果句里**带图标的内联词**被记成了本卡关键词。判据用**卡面**：真关键词在卡面是**图标+词+`:`/`.` 独立成段**（例 `Blood Claw` 的 `⟨獠牙⟩Ferocity: Deal 3 damage` · `Big Choppa Nob` 自己的 `⟨爆炸⟩Concussive.`），而这一族的词**只出现在句子中间或引号里**（引号里的是**授予别人**的）。逐张核过卡面或 `资料/卡表核对_卡图提取/`（那份是逐张读原图抄的，带 `【图标:…】` 占位，能看出词在不在段首）：`Commissar`（原图亲读）· `Rusted Vents`（原图亲读）· `Raid Tactics`（原图亲读）为直接开图核对，其余按卡表原文逐条判。覆盖值一律写**整份**关键词表。⚠️ 同形状**可能还有**：本轮只清了「带正文关键词」那一族（`Rally/Strike/Slay/Backlash/Mob/Agenda/Ferocity/Pray/Duty/…` 18 个），**普通关键词（`Flank`/`Sniper`/`Shield` 这类）没做全量普查**；扫描脚本 `_tmp_view/scan_kw.py`。",
+  "Commissar": [],
+  "Beastboss on Squigosaur": [
+   "Stomp"
+  ],
+  "Big Choppa Nob": [
+   "Concussive"
+  ],
+  "Deathwolf Scout": [
+   "Camouflage"
+  ],
+  "Litany of Despair": [
+   "Ephemeral"
+  ],
+  "Enhanced Aggression": [],
+  "Master Outrider": [
+   "Ephemeral"
+  ],
+  "Power of the Waaagh!": [],
+  "Prayer": [],
+  "Bjorn's Shrine": [],
+  "Raid Tactics": [],
+  "Oath of Moment": [],
+  "Rusted Vents": [],
+  "Njal Stormcaller": [],
+  "Banshee Mask": [],
+  "Malicious Volleys": [],
+  "Toxic Bonfire": [],
+  "Hektor Thenmann": [
+   "Duty",
+   "Talent"
+  ],
+  "Snakebite Grot": [
+   "Tide 1"
+  ],
+  "Beast Snagga Nob": [
+   "Stomp"
+  ],
+  "Lord Exultant": [
+   "Stimulation"
+  ],
+  "Valius Paxor": [
+   "Talent"
+  ],
+  "Commander O'Maisos": [
+   "Shield",
+   "Talent: Drone Companion"
+  ],
+  "Haarken Worldclaimer": [
+   "Talent: Helspear Assault"
+  ],
+  "Ultramarines/Terminator": [
+   "Oath 1"
+  ],
+  "EmperorsChildren/Maulerfiend": [
+   "Ecstasy 5"
+  ],
+  "EmperorsChildren/Tormentor Obsessionist": [
+   "Ecstasy 3"
+  ],
+  "Armorium Cherub": [
+   "Flying",
+   "Rally"
+  ],
+  "Killa Kan": [
+   "Tide 1",
+   "Unstable",
+   "Mob: Gain +1 Attack this turn"
+  ],
+  "AstraMilitarum/Thermal Weaponry": [],
+  "Ultramarines/Chapter Champion": [
+   "Armour 1",
+   "Codex"
+  ],
+  "Ultramarines/Bladeguard Lieutenant": [
+   "Armour 1",
+   "Vanguard",
+   "Codex"
+  ],
+  "Triumph of Saint Katherine": [
+   "Armour 2",
+   "Pray"
+  ],
+  "TauEmpire/Enforcer Battlesuit": [
+   "Vanguard",
+   "Companion 2: Guardian Drone",
+   "Armour 1"
+  ],
+  "Ultramarines/2nd Company Terminator": [
+   "Armour 1",
+   "Blast 3",
+   "Oath"
+  ],
+  "_2026-09-15_关键词噪音": "2026-09-15 清「认不出的关键词」批（**25 张卡**，证据：派子代理把 25 张**逐张开 PnP 卡面看过**，结论 **19 个词全部该删、0 个该留**；分类见 `资料/PnP卡图_逐张对账_0915.md` §六·五·A·⑥）。这 19 个词 `CardDef.Normalize` 的前缀表**认不出** ⇒ 引擎早就整条丢了，但它们**混在 `keywords` 列里**、还挡着「丢弃要响一声」那一环。**四组成因**（不是偶发）：① **天赋名 9 个**（卡面是 `Talent: X` 的 X，X 在各自 `<阵营>/2天赋/` 都有同名天赋卡；`Legendary` 是 `Legendary Commandant` 被 OCR 截断的前半）② **兵种标签 3 个**（`Secret`/`Genomic Enhancement`/`Warlord` —— 卡面底部橙字**兵种行**，引擎 `subtype` 已带同一值，纯重复）③ **阵营名 5 个**（`Chaos`/`Genestealer Cults`/`Adepta Sororitas`/`Space Wolves`/`Ultramarines`）④ **数字版残留 2 个**（`Frontline`/`Deep Strike`，卡面全无、规则书 0 命中）。🔴 **根因**：`keywords` 直接抄数字版 `card_stats.json` 的同名列，**那一列本身就混装了天赋名/阵营/兵种标签**。⚠️ 下表是**整份**关键词表（不是增量）。 🔴 **2026-09-15 当场更正一件：那 19 个里 `Chosen of the Four`（`BL1 Abaddon`）和 `Hymn of Battle`（`SOR12 Preacher`）两个「天赋名」是「该留」的，全删**断了引擎的线 ——**是自检抓出来的**（`RuleEngineTest` 的「裸名天赋之三/之四」两条当场判红）。**判据**：`CardDef.TalentName` 有一条来路是**直接从 `keywords` 数组里读天赋名**（`CardDef.CollectTalent` 的「裸名写法之二」）；那 9 个天赋名里**只有这两张的 `desc` 里没有**那个名字（`Abaddon` 的 desc 就是名字本身、`Preacher` 的 desc 是 `5 [faith]: Gain Shield`），另外 7 张的 desc 里都写着 `Talent: XXX` ⇒ 关键词是**冗余**、删掉无妨。**教训：判「这个关键词是不是噪音」不能只看卡面印不印 —— 还要看引擎有没有别的层在读它**（`keywords` 在本工程里同时是**关键词表**和**天赋名的存放处**）。",
+  "Ursula Creed": [
+   "Talent",
+   "Duty"
+  ],
+  "Lord Solar Leontus": [
+   "Talent",
+   "Duty"
+  ],
+  "Abaddon the Despoiler": [
+   "Chosen of the Four"
+  ],
+  "Plague Marine": [],
+  "Convoke the Circle": [],
+  "None Must Know": [],
+  "Obscure Ritual": [],
+  "Rites of Penance": [],
+  "Smothering Decree": [],
+  "Acolyte Hybrid": [],
+  "Enhanced Musculature": [],
+  "Enhanced Resilience": [],
+  "Acolyte Iconward": [],
+  "Imotekh the Stormlord": [],
+  "Ghazghkull Thraka": [],
+  "Preacher": [
+   "Talent",
+   "Hymn of Battle"
+  ],
+  "Daemonbreaker": [],
+  "Saga of the Bold": [],
+  "Ragnar Blackmane": [],
+  "Terror of Vardenghast": [
+   "Slay"
+  ],
+  "Enhanced Organism": [],
+  "Apothecary Polixis": [
+   "Codex"
+  ],
+  "Tactical Marine": [],
+  "Forward Deployment": [],
+  "Firestrike Servo Turret": [
+   "Long Range",
+   "Sentry 2",
+   "Oath 3"
+  ],
+  "Devastator Centurion": [
+   "Codex"
+  ],
+  "Heavy Intercessor": [
+   "Armour 1",
+   "Codex"
+  ],
+  "Intercessor Sergeant": [
+   "Codex"
+  ],
+  "Lieutenant Calsius": [
+   "Codex"
+  ],
+  "Primaris Inceptor": [
+   "Flying",
+   "Flank",
+   "Codex"
+  ],
+  "Sergeant Gadriel": [
+   "Flying",
+   "Codex"
+  ],
+  "Primaris Impulsor": [
+   "Codex"
+  ],
+  "Primaris Invader": [
+   "Codex"
+  ],
+  "Roboute Guilliman": [
+   "Codex"
+  ],
+  "Vox Operator": [],
+  "Press the Attack": [],
+  "Thermal Weaponry": [],
+  "Vitus Gryf": [
+   "Flying",
+   "Strike"
+  ],
+  "Taurox Prime": [
+   "Armour 1",
+   "Duty"
+  ],
+  "Swooping Hawk": [
+   "Waystone",
+   "Flying"
+  ],
+  "Vengeful Wraithblade": [
+   "Vanguard"
+  ],
+  "Avatar of Khaine": [
+   "Armour 2",
+   "Talent"
+  ],
+  "Wraithknight": [
+   "Armour 2",
+   "Shuriken 8"
+  ],
+  "Webway Incursion": [],
+  "Will of Asuryan": [],
+  "Dance of Death": [],
+  "Hornet": [
+   "Flying",
+   "Flank"
+  ],
+  "Bright Lance Vyper": [
+   "Flying"
+  ],
+  "Empyric Ambush": [
+   "Ephemeral"
+  ],
+  "Farseer": [
+   "Waystone"
+  ],
+  "Fate Inescapable": [],
+  "Bringer of decay": [],
+  "Helspear Assault": [
+   "Ephemeral",
+   "Slay"
+  ],
+  "Helbrute": [
+   "Armour 2"
+  ],
+  "Unhallowed Gifts": [
+   "Ephemeral"
+  ],
+  "Land Speeder Vengeance": [
+   "Flying",
+   "Rally"
+  ],
+  "Master Lazarus": [
+   "Armour 1",
+   "Agenda"
+  ],
+  "Ravenwing Talonmaster": [
+   "Flying"
+  ],
+  "Deathwing Champion": [
+   "Teleport",
+   "Armour 1"
+  ],
+  "Chaplain Gabutheron": [
+   "Armour 2",
+   "Teleport",
+   "Agenda"
+  ],
+  "Icon of Excess Infractor": [
+   "Ecstasy"
+  ],
+  "Slaanesh's Spawn": [
+   "Cruelty"
+  ],
+  "Threnodic Choir Noise Marine": [],
+  "Infractor Obsessionist": [
+   "Rally",
+   "Stimulation"
+  ],
+  "Chosen of Slaanesh": [],
+  "Internal Rivalry": [],
+  "Alluress": [],
+  "Grukk Face-Rippa": [],
+  "Trukk Boy": [
+   "Rally"
+  ],
+  "Da Old Ways": [],
+  "Warbiker": [
+   "Flank",
+   "Rally"
+  ],
+  "Ork Nob": [],
+  "Scrag ’Em": [],
+  "Proper Killy": [],
+  "Da Irongob": [],
+  "Squighog Boyz": [
+   "Tide 2",
+   "Stomp",
+   "Rally"
+  ],
+  "Cyber‑augmentation": [],
+  "Dead Choppy": [],
+  "Krump da Gitz": [],
+  "Wreckin Ball": [
+   "Ephemeral"
+  ],
+  "Neophyte Specialist": [
+   "Rally"
+  ],
+  "Neophyte Trooper": [
+   "Uprising"
+  ],
+  "Aberrant": [
+   "Armour 1",
+   "Ambush"
+  ],
+  "Atalan Jackal": [
+   "Camouflage"
+  ],
+  "Jackal Outrider": [
+   "Ambush"
+  ],
+  "Spotter Ridgerunner": [
+   "Rally",
+   "Uprising"
+  ],
+  "Telephatic Domination": [],
+  "Canoptek Wraith": [
+   "Remnant"
+  ],
+  "Technomancer": [],
+  "Protection Protocol": [],
+  "Orikan the Diviner": [],
+  "Imagifier": [],
+  "Furious Reprisal": [],
+  "War Howl": [
+   "Ephemeral"
+  ],
+  "Thunderwolf Cavalry": [
+   "Rally"
+  ],
+  "Wolf Priest": [
+   "Rally"
+  ],
+  "Arjac Rockfist": [
+   "Rally"
+  ],
+  "Wolf Guard Battle Leader": [],
+  "Terminator Rune Priest": [
+   "Armour 1",
+   "Rally"
+  ],
+  "Stormwolf": [
+   "Flying"
+  ],
+  "Vindicator": [
+   "Rally"
+  ],
+  "Venerable Dreadnought": [
+   "Armour 1",
+   "Shield"
+  ],
+  "Death Shun": [],
+  "Fenrisian Blizzard": [],
+  "Proper Hunt": [],
+  "Birth of a Saga": [],
+  "Honoured Ethereal": [
+   "Shield"
+  ],
+  "Homing Beacon": [
+   "Ephemeral"
+  ],
+  "Devilfish": [
+   "Armour 1"
+  ],
+  "Technological Supremacy": [],
+  "For the Greater Good": [],
+  "Relentless Fusillade": [],
+  "Thundering Rampage": [],
+  "Hunters Instincts": [],
+  "Experimental Drone": [],
+  "Ravener": [
+   "Rally"
+  ],
+  "Tyranid Prime": [
+   "Synapse"
+  ],
+  "Ambush Predator": [],
+  "Ravenous Hunter": [],
+  "Swarming Masses": [],
+  "Alpha Warrior": [
+   "Ephemeral"
+  ],
+  "Norn Emissary": [
+   "Armour 1",
+   "Blast 3"
+  ],
+  "Octavio Infiltrator": [
+   "Rally"
+  ],
+  "No Respite": [
+   "Oath"
+  ],
+  "Captain Sicarius": [
+   "Codex",
+   "Talent"
+  ],
+  "Sheltered Location": [],
+  "Attack Bike": [],
+  "Chapter Champion": [
+   "Armour 1",
+   "Codex"
+  ],
+  "Chaplain Cassius": [],
+  "Terminator Captain": [
+   "Oath",
+   "Armour 2"
+  ],
+  "Fall Back": [
+   "Oath"
+  ],
+  "Angels of Death": [
+   "Codex"
+  ],
+  "Antaro Chronus": [],
+  "Light Cover": [],
+  "Master of Arms": [],
+  "_2026-09-21_普通关键词误抽": "OCR 把**效果句里被授予/被引用的普通关键词**也记成了本卡自己的关键词（前几批清的是「带正文关键词」那一族 —— `_2026-09-18_Stun误抽` / `_2026-09-19_Ferocity误抽` / `_2026-09-19_句中引用误抽_13张`，本批是那一族**没做的另一半**，见 `资料/关键词图标_现状与总表.md`）。**114 条 / 104 张卡**，由 **6 路子代理逐张开 PnP 成品卡图核对**（卡面原文逐条抄进报告，主对话另行复核了仲裁项：`Grukk Face-Rippa` 本人开图、`Jackal Outrider` 本人开图）。⚠️ **2026-09-21 晚更正：原写「111 条 / 96 张卡」，实际那批是 111 条 / 101 张卡**（96 是错的，与本脚本实跑打印的 `命中 N 张卡` 不符），本次再 +3 条 ⇒ **114 / 104**。判据（唯一）：卡面上该词**独立成项**（图标 + 词 + `:`/`.`，或与别的关键词并列）⇒ 保留；**只出现在句子里**（被 `Give`/`Gain`/`give it`/`has`/`with`/`an enemy with` 领着，或夹在 and/逗号之间）⇒ 误抽。🔴 **影响玩法**：引擎真的读这一列（`RuleCore` 的 `UnitState.Has(...)` —— `flank`/`fast` 决定打出的当回合能不能攻击（`UnitState.cs:226`）、`stealth` 不可被选中、`vanguard` 强制先打、`invulnerable` 免伤…）⇒ 不删 = **静默给卡加一个它没有的能力**。⚠️ **不动的 5 条（核过是真关键词）**：`SOR72 Adelaide the Serene` flank/shield（`Gain ⌾Flank and ⌾Shield.` 自获且带句号独立成项）·`UM_Honour_Guard` vanguard（卡面单独一行 `⌾Vanguard`）· `TAU36 Enforcer Battlesuit` armour（盾徽值，卡面效果区没印字）·`SAU70 Lokhust Destroyer` 的 `Remnant.`/`Destroyer.`（独立成项）。🔴 **2026-09-21 晚更正（本条原来把它当成「不动」的第 5 项，是错的）**：`GSC15 Poisoned Supplies` / `GSC_Cult_Propaganda` / `GSC_Improvised_Barricade` 的 `Sabotage` **已改成删** ——**错因 = 把「卡面下方那行橙字」当成了关键词的证据**，而**橙字那一行就是兵种行（`subtype`）**，不是关键词（卡面版式见 `CLAUDE.md` §七：卡名白 / 阵营橙 / 效果米白 / **兵种橙**）。一张一张开图 + 逐行像素扫描复核：三张卡**全卡面 `Sabotage` 只出现一次**，就是效果区下方那行橙字，效果区原文里没有这个词（也没有带图标的独立关键词项）。**独立佐证**：原版 `BattleCardUI.ChangeToHighlightColor`（`d:/2/tools/decomp_full/`）判破坏高亮走的是**卡类** `spellType == 0xe6(=230)`（`SpellType.Sabotage = 230`），**不是** trait/keyword ⇒ 破坏在数据上本来就该只落在 `subtype`。⚠️ **不动的 4 条「带正文关键词」**：`GOF24 Killa Kan` 的 `Mob: …` · `ASH32` 的 `Rally: …` · `ASH79` 的 `Strike: …` · `DA28` 的 `Teleport: …`。⚠️ 顺带核过：库里本来就有的**畸形值**（如 `Armour 2.` / `Remnant.` / `Destroyer.` 带尾点、`Sentry` 丢数字）本批**没动**。",
+  "Poisoned Supplies": [],
+  "Cult Propaganda": [],
+  "Improvised Barricade": [],
+  "Deathmark": [
+   "Remnant",
+   "Sniper",
+   "Rally"
+  ],
+  "_2026-10-12_误抽清洗被旧阵营键静默覆盖": "2026-10-12（写手 C3 · `A1611`）。🔴 **`_2026-09-21_普通关键词误抽` 那一批清洗有 3 个词【一个字都没生效】，根因是键的优先级 —— 不是判据有问题。**① 该批（2026-09-21，六路子代理逐张开 PnP 成品卡图核过）把结果写进**裸卡名**键（`工具/_apply_kw_misextract.py` 的 `key = c['name'] if 唯一 else 阵营/卡名`）；② 而 `Chapter Champion` / `Thermal Weaponry` 这两张卡在本文件里**另有一条 2026-09-15 的`阵营/卡名` 键**（`d8d7def` 那一轮加的「同名卡」写法）带着**清洗前**的值；③ `gen_cards_engine.py` 合并时是 `_ff = dict(bare); _ff.update(fac)` ⇒ **阵营键赢** ⇒ 裸键上那份清洗被静默盖掉（脚本自己照样打印「命中」，卡表里一个字没变）。**干跑实测（2026-10-12 现读）**：`_apply_kw_misextract.py` 报 114 条请求，其中 **111 条「该卡 keywords 里没有这个词（可能已被别批清掉）」= 真已落上**；**剩下 3 条恰好就是这两张卡的**（`UM78|vanguard` · `AM54|armour` · `AM54|blast`）。⇒ **本笔把这 3 个词按那份清洗做掉**，两列（`keywords` / `_manual_keywords`）**一起写成同一个值**，让两个键**不再打架**：`Ultramarines/Chapter Champion` = `['Armour 1','Codex']` · `AstraMilitarum/Thermal Weaponry` = `[]`（与它们各自的裸卡名键**逐字相同**）。**本笔另亲读 PnP 成品图复核（铁律 7）**：`d:/2/Warpforge部队卡片/Ultramarines/3部队/Warpforge_14_Chapter-Champion.png` = `〔盾〕Armour 1. 〔星〕Codex: Gain +2 〔拳〕. ``〔兜帽〕Oath 2: Gain 〔盾〕Armour 1 and 〔骷髅〕Vanguard`（`Vanguard` 在**句中**）；`Astra Militarum/4计策/Warpforge_54_Thermal-Weaponry.png` = `Give 〔爆炸〕Blast 3 to a friendly troop. If it is a Vehicle, give it 〔盾〕Armour 1 as well`（**整卡没有声明行**）。两处与 `资料/卡表核对_卡图提取/_还原效果文字.md:1040` / `:168` 的**双写转录**逐字吻合。⚠️ **副作用（有意为之、方向正确）**：`RuleCore` 的 `UnitState.Has(...)` 真的读这一列 （`vanguard` 强制敌方只能打它）⇒ 原来 `Chapter Champion` **开局自带 Vanguard**，而卡面是 `Oath 2:` 触发才给 ⇒ 改后与卡面一致。⚠️ **同一批还有个没做完的**：`A1611` 的另一半是**渲染侧**（`SOR72` 的段首多出 `Flank.`/`Shield.`）—— 那两个词是本文件 `_2026-09-21_普通关键词误抽` 里**特意保留**的真关键词，动它在 `CardPresentation/Core/CardText.cs`（不在本笔白名单），已如实交回。"
+ },
+ "descZh": {
+  "Maelon Dhrost": "团：抽一张战术。职责：你手牌中的战术费用减少 4 点。",
+  "Morkai Eliminator": "狙击。集结：给予 1 个随机敌方部队猎杀标记。狂暴：攻击 1 个带猎杀标记的随机敌人。",
+  "Night Spinner": "飞行。狙击。爆裂 3",
+  "Apothecary": "当我方单位获得任务点时，其治疗 2 点。集结：为一个我方单位治疗 2 点",
+  "Company Veteran": "当你获得任务点时，治疗 2 点",
+  "Ultramarines/Terminator": "誓言 1：获得护甲 1",
+  "BlackLegion/Maulerfiend": "每有一个我方部队身上的黑暗契约，对所有敌人造成 1 点伤害。",
+  "Fenrisian Wolf": "潮涌 1。狂暴：攻击 1 个非飞行敌方部队。若其带猎杀标记，获得 +1 [攻击]。",
+  "Killa Kan": "群体：本回合获得 +1 [攻击]。",
+  "Tactical Marine": "誓言 3：获得 +3 [攻击]、+3 [远程]和 +3 生命。",
+  "Forward Deployment": "给予 1 个友方部队侧翼、+1 [攻击]和 +1 [远程]。",
+  "Shall Know No Fear": "本回合给予 1 个友方部队无敌。誓言 8：给予它 +8 [攻击]和 +8 [远程]。",
+  "Terminator Captain": "护甲 2。誓言 4：获得无敌，持续到你的下个回合。",
+  "Hive Commander": "临时。给予 1 个友方部队 +2 [攻击]、+2 [远程]和 +1 生命",
+  "Daemonette": "给予一个敌方部队 -1 [攻击]和 -1 [远程]。",
+  "Infractor": "残忍：获得 +1 [攻击]和 +1 [远程]。",
+  "Veldras the Sublime": "残忍：获得 +1 [攻击]。激励：攻击攻击力最高的敌人。",
+  "Rugged Disharmonist": "敌方部队具有 -2 [远程]。",
+  "Skorflense": "给予一个友方部队 +2 [远程]。",
+  "Hardwired Destruction": "直到你的下个回合，给予一个友方单位 +1 [攻击] 和 +1 [远程]。若其为 [毁灭者]，则直到你的下个回合给予其装甲 1。",
+  "Tormentor Obsessionist": "狂喜 3：给予所有友方部队 +2 [远程]。",
+  "Nexus of Devotion": "临时。为你的单位治疗 1，并使其本回合获得 +1 [攻击]和 +1 [远程]。",
+  "Hybrid Metamorph": "爆裂 1。起义：获得 +2 [远程]和 +1 生命。",
+  "Ravenwing Ancient": "侧翼。斩杀：给予所有我方载具 +1 [攻击]和 +1 [远程]。",
+  "Armorium Cherub": "飞行。集结：本回合给予 1 个友方单位 +2 [远程]。在你的回合开始时，获得 1 ☀并返回你的手牌。",
+  "Righteous Repugnance": "本回合给予你的单位 +1 [攻击]和 +1 [远程]。4 能量：改为给予 +2 [攻击]和 +2 [远程]，并治疗 1 点生命",
+  "Ultramarines/Bladeguard Lieutenant": "护甲 1。先锋。典籍：治疗 3。",
+  "Get'em ladz!": "本回合给予你的单位 +2 [攻击]。",
+  "Tide of Muscle": "抽两个部队并给予它们 +1 [攻击]。",
+  "Da Red Waaagh": "抽一个部队并给予其 +1 [攻击]。",
+  "Krumpaklaw": "群体：获得 +2 [攻击]，并获得护甲 1。",
+  "Forewarned": "本回合给予 1 个友方单位 +3 [攻击]和 +3 [远程]。①同时给予它护盾",
+  "Stealth Drone": "飞行。潜行。你的回合结束时，给予 1 个相邻部队潜行",
+  "Sniper Drone": "飞行。远射。敌人获得标记光时获得远射",
+  "Riptide Battlesuit": "护盾。远射。天赋：护盾发生器",
+  "Lord Exultant": "激励：给予所有友方部队 +1 [攻击]和 +1 [远程]。",
+  "Slaanesh Sorcerer": "给予另一个随机友方部队 +1 [攻击]和 +1 [远程]。",
+  "EmperorsChildren/Terminator": "护甲 1。狂喜 2：获得 +2 [攻击]。",
+  "Terrifying Crescendo": "给予一个敌方部队 -3 [远程]。然后，若其为 0 [远程]，将其摧毁。",
+  "Acolyte Hybrid": "伏击：获得 +2 [攻击]和 +2 [远程]。",
+  "Genestealer Familiar": "相邻单位具有 +1 [攻击]。集结：给予一个友方步兵侧翼。",
+  "Neophyte Leader": "给予所有友方部队 +1 [攻击]和 +1 [远程]。",
+  "Neophyte Trooper": "起义：获得侧翼和 +1 [远程]。",
+  "Cadre Fireblade": "你的其他步兵和战斗服部队获得 +2 [远程]。",
+  "Cadian Honour": "给予你的部队 +1 [远程]，并重置其职责能力。",
+  "Armoured Sentinel": "护甲 1。团：获得 +1 [远程]。",
+  "Autocannon Squad": "团：获得 +1 [远程]。",
+  "Lord Commander": "临时。直到你的下个回合，给予你的单位 +1 [攻击]和 +1 [远程]。",
+  "Catechism of Death": "临时。给予 1 个友方部队 +2 [攻击]，或本回合给予你的战将 +2。誓言 3：额外给予它 +2 [攻击]。",
+  "Exhortation of Rage": "临时。给予你的部队 +1 [远程]。若你未控制任何部队，抽 1 个部队。",
+  "Tactical Doctrine": "本回合给予你的单位 +3 [远程]。典籍：抽 1 张卡。",
+  "Paragon of Ultramar": "本回合给予你的部队 +1 [攻击]和 +1 [远程]。",
+  "Primarch of the XIII": "本回合给予 1 个友方单位 +1 [攻击]和 +1 [远程]。",
+  "Psychophage": "天赋：进食狂潮。集结：获得 +2 [攻击]、+2 [远程]，且每有 1 个受伤的敌人获得 +1 生命",
+  "Heavy Intercessor": "护甲 1。典籍：本回合获得 +1 [远程]。",
+  "Outrider": "侧翼。典籍：获得 +1 [攻击]和 +1 [远程]。",
+  "Storm of Silence": "你的战将本回合获得 +2 [攻击]。①[能量]：眩晕 1 个随机敌方部队",
+  "Deathwing Strikemaster": "护甲 1。传送：给予所有我方部队 +1 [攻击]、+1 [远程]和 +1 生命",
+  "Ancient Reliquary": "给予一个我方部队 +3 [攻击]、+3 [远程]或 +3 生命",
+  "Sisters Repentia": "当此单位击杀 1 个敌人时，获得 1 ☀。忏悔：获得 +2 [攻击]。",
+  "Termagant Brood": "潮涌 3。友方单位触发虫群时，获得 +1 [远程]",
+  "Power of the Waaagh!": "你的战将获得“群体：直到你的下个回合获得 +1[攻击]”。",
+  "Legendary Tenacity": "给予 1 个友方部队 +4 [攻击]、+4 [远程]和 +4 生命。",
+  "Bright Lance Vyper": "当你触发灵魂石能力时，获得狙击和 +1 [远程]。",
+  "Preacher": "天赋：战斗圣歌。5 ☀：获得护盾",
+  "Aun'Va": "天赋：至尊以太",
+  "Minka Lesk": "友方步兵的费用减少 1 点。天赋：卡迪亚荣誉",
+  "Azrael": "议程：从你的卡组选择一张牌置于卡组顶部。天赋：至高大师",
+  "Simulacrum Imperialis": "祈祷：给予所有友方单位 +1 [攻击]和 +1 [远程]。",
+  "Orikan the Diviner": "每当你复生一个残骸时，治疗 1 点。天赋：时相大师",
+  "Da Bigger Dey Iz... (Mozrog's Talent)": "临时。对一个敌人造成 1 点伤害。如果目标存活，本回合给予你的战将 +1 [攻击]和践踏。",
+  "Waaagh! Energy (Weirdboy Talent)": "临时。对所有友方单位造成 1 点伤害，并本回合给予它们 +2 [攻击]。",
+  "Cyber‑augmentation": "给予你手牌中的一个随机部队 +1 [攻击]，以及侧翼。",
+  "Autarch": "①：给予你的所有部队 +1 [攻击]、+1 [远程]和 +1 生命",
+  "Warlock": "①：给予你的所有部队 +1 [远程]和 +1 生命",
+  "Wraithblade": "①：获得护甲 2",
+  "Wraithguard": "①：获得 +2 [远程]和 +2 生命",
+  "Spiritseer": "②：部署 1 个幽卫",
+  "Farseer Skyrunner": "②：选择敌方手牌中的 1 张牌并将其洗入其牌库",
+  "Wraithknight": "③：获得 [无敌] 无敌直到你的下个回合",
+  "Nightshade Interceptors": "给予你的载具 +1 [远程]和 +2 生命",
+  "Exorcist": "8 ☀：对所有敌人造成 5 点伤害",
+  "Screamer-Killer": "护甲 1。爆裂 2。",
+  "War Walker": "护甲 1。爆裂 2。",
+  "Thunderous Charge": "给予一个友方部队 +2 [攻击]、+2 [远程] 和震荡。",
+  "Primaris Chaplain": "典籍：给予你的步兵部队 +1 [攻击]和 +1 [远程]。",
+  "Cadian Standard Bearer": "集结：部署一个震荡突击兵。职责：本回合给予你的单位 +2 [远程]。",
+  "Rogal Dorn Tank": "团：本回合给予你的单位 +1 [远程]。",
+  "Tempestor Sergeant": "团：给予一个随机友方部队 +1 [远程]。职责：给予所有友方步兵 +1 生命。",
+  "Forged Killers": "给予一个友方部队及其相邻部队 +2 [远程]。",
+  "Supreme Grand Master": "临时。给予我方部队 +1 [攻击]与 +1 [远程]。若你未控制任何部队，将一张仲裁者置入手牌。",
+  "Relic Munitions": "本回合给予你的单位 +1 [远程]。本局你每打出一张隐秘牌，重复一次。",
+  "Deathwing Assault": "给予我方部队 +2 [攻击]、+2 [远程]与 +2 生命，并触发其传送能力。",
+  "Sonic Blaster Noise Marine": "被本单位攻击的敌方部队获得眩晕，并获得 -1 [攻击]和 -1 [远程]。",
+  "Disharmonist": "给予一个随机敌方部队 -2 [攻击]和 -2 [远程]。",
+  "Antrak Silk": "对一个友方单位造成 1 点伤害，并使其本回合获得 +1 [攻击]和 +1 [远程]。",
+  "Alluress": "集结：给予一个敌方部队 -2 [攻击]和 -2 [远程]。友方恶魔少女具有侧翼。",
+  "Acolyte Heavy": "伏击：获得 +2 [攻击]。猛击：在对手手牌中生成一张随机破坏卡。",
+  "Slugga Boy": "潮涌 1。集结：每有一个其他友方斯鲁格小子，获得 +1 [攻击]。",
+  "Beast Snagga Boy": "潮涌 1。践踏。集结：如果你控制一只野兽，获得 +1 [攻击]。",
+  "Nob on Smasha Squig": "其他友方野兽获得 +1[攻击] 和 +1[远程]。",
+  "Gnarled and Rugged": "给予一个友方单位 +2 生命值。如果它是野兽，同时给予其 +2 [攻击]。",
+  "Greatest Warboss": "部署一个地精，并给予你的部队 +1 [攻击]。",
+  "More Dakka": "给予一个友方载具 +2 [远程]和侧翼。",
+  "Tempest's Wrath": "临时。给予 1 个敌方部队 -2 [远程]，直到你的下个回合。",
+  "Blackmane Reiver": "狂暴：抽 1 个部队。给予其 +1 [攻击]、+1 [远程]和 +1 生命。",
+  "Grey Hunter Pack Leader": "给予 1 个友方部队 +3 [攻击]、+3 [远程]和 +3 生命。",
+  "Wolf Guard Terminator Pack Leader": "护甲 2。斩杀：获得 +1 [攻击]、+1 [远程]和 +1 生命。",
+  "Unbridled Fury": "给予你的步兵 +2 [攻击]和 -2 [远程]，直到你的下个回合。",
+  "Simulacrum Bearer": "给予你的部队 +1 [攻击]，本回合同样给予你的战将",
+  "Apex Predator": "给予 1 个友方单位本回合无敌和 +3 [远程]",
+  "Attack Bike": "誓言 2：获得 +1 [远程]和侧翼。",
+  "Devastator Doctrine": "本回合给予 1 个友方单位爆裂 3。典籍：本回合额外给予它 +2 [远程]。",
+  "Malgarash the Adamant": "护甲 1。狂喜 2：治疗 2。激励：获得 +1 [远程]。",
+  "Xarahan Daemon Prince": "狂喜 15：获得 +1 [攻击]。天赋：过度活力。",
+  "Patriarch": "伏击：给予你的所有单位 +3 [攻击]和 +3 [远程]。天赋：最致命的杀手。对手手牌中每有一张牌，其费用 -1。",
+  "Enhanced Musculature": "给予一个友方部队 +3 [攻击]。",
+  "Beacon of Faith": "给予你的单位 +2 生命。\n4 ☀：额外给予 +1 生命。\n7 ☀：同时给予它们 +1 [攻击]和 +1 [远程]。",
+  "Holy Fire": "本回合给予你的战将 +2 [攻击]，并给予相邻部队 +1 [攻击]。获得 1 ☀。",
+  "BlackLegion/Terminator Champion": "护甲 1。",
+  "EmperorsChildren/Terminator Champion": "护甲 1。残忍：对另一个随机友方单位造成 1 点伤害，并获得 +1 [攻击]和 +1 [远程]。",
+  "Devastator Marine": "誓言 4：对 1 个敌方部队造成 5 点伤害。",
+  "Phobos Librarian": "誓言 3：对 1 个敌人造成 2-4 点伤害。若目标死亡，获得护盾。",
+  "Scout Sniper": "誓言 1：造成 1 点伤害。",
+  "Adelaide the Serene": "6 ☀：获得侧翼和护盾。集结：若你的信仰少于 6 点，每有 1 个敌方单位便获得 1 ☀。",
+  "Lord Kaphrael": "激励：给予一个随机友方部队 +1 [攻击]。天赋：狂喜重击。",
+  "Slaanesh's Spawn": "残忍：获得 +1 [攻击]和侧翼。",
+  "Exquisite Swordsmanship": "你的战将本回合获得 +1 [攻击]。对所有敌人造成等同于你的战将近战的伤害。",
+  "Xylocil": "给予一个友方部队 +2 [攻击]。",
+  "Acolyte Leader": "当对手打出战术时，给予你的部队 +1 [攻击]和 +1 生命。",
+  "Thunderwolf Cavalry Pack Leader": "当 1 个敌人获得猎杀标记时，本回合你的单位获得 +1 [攻击]。集结：给予 1 个敌方部队猎杀标记。",
+  "Krootox Rampager": "侧翼。集结：本回合获得 +3 [攻击]",
+  "Thundering Rampage": "给予 1 个友方单位本回合 +3 [攻击]。若其为步兵，同时给予其侧翼",
+  "Bestial Rage": "给予所有友方部队 +4 [攻击]",
+  "Angel's Wrath": "临时。给予 1 个友方单位 +1 [攻击]，直到你的下个回合。誓言 2：本回合给予它护甲 2。",
+  "Assault Doctrine": "给予 1 个友方单位 +3 [攻击]。典籍：给予它护甲 1，并治疗其 2 点。",
+  "Angels of Death": "部署 3 个原铸仲裁者并给予它们侧翼。典籍：给予你的原铸仲裁者 +1 [远程]。",
+  "Hunters of Heretics": "给予一个敌方部队脆弱 4 与“反噬：你的对手获得 2 点任务”",
+  "Techmarine": "当我方载具攻击时，获得 1 点任务。若其存活，为其治疗 3 点",
+  "Wages of Retribution": "本场战斗持续生效：当敌人死亡时，你获得 1 点任务。",
+  "Hymn of Battle": "选择一项：获得 1 ☀；抽 1 张牌；或部署 1 个十字军战士",
+  "Howling Banshee Exarch": "路标石。伪装。猛击：给予你的单位 +1 [攻击]",
+  "Swooping Hawk": "①：获得 +1 [远程]和侧翼",
+  "Warp Spider Exarch": "当你收集灵魂石时，获得 +1 [攻击]、+1 [远程]和潜行。",
+  "Winged Autarch": "你的其他飞行单位获得 +2 [攻击]和 +2 [远程]",
+  "Devoted of Khaine": "给予你的部队 +1 [攻击]。①重复此效果",
+  "Wrath of Khaine": "给予你的单位 +2 [攻击]和 +2 [远程]。②重复此效果",
+  "Wraithlord": "③：获得 +4 [攻击]、+4 [远程]和 +2 生命",
+  "Aspiring Champion": "获得一个黑暗契约后，获得 +1 [远程]和 +1 生命",
+  "Child of Torment": "当任意单位受到伤害时，本回合获得 +1 [远程]",
+  "Noise Marine": "当你的战将受到伤害时，获得一个 ❄纵欲黑暗契约",
+  "Daemonic Frenzy": "给予一个我方部队 +2 [攻击]，其上的每个黑暗契约再额外给予 +2 [攻击]",
+  "Dark Oratory": "给予所有我方部队一个 [黑暗契约]黑暗契约",
+  "Diabolic Strength": "本回合给予所有我方单位 +2 [攻击]，并治疗所有我方单位 1 点",
+  "Drachnyen": "给予一个我方单位 +4 [攻击]",
+  "Legacy of Vengeance": "场上有多少个敌人，你的战将本回合便获得 +1 [攻击]",
+  "Deathwing Champion": "护甲 1。传送：获得 +1 [攻击]和迅捷。",
+  "Deathwing Knight Master": "护甲 2。传送：对所有敌人造成 3 点伤害，并给予所有我方单位 +2 [攻击]。",
+  "March of Vengeance": "给予一个我方单位 +1 [攻击]。获得 2 点任务",
+  "Master of the Deathwing": "本回合给予你的战将 +2 [攻击]与护甲 2",
+  "Rites of Penance": "给予一个我方单位 +3 [攻击]、+3 [远程]与无敌，持续到你的下个回合",
+  "Sacred Standard": "本回合给予所有我方单位 +1 [攻击]与爆裂 1",
+  "Stubborn Defiance": "场上有多少个敌人，本回合即给予一个我方单位 +1 [攻击]",
+  "Refuse to Yield": "临时。为一个我方单位治疗 2 点，并且本回合每有一个敌方单位，使其获得 +1 [攻击]",
+  "Chaplain Gabutheron": "护甲 2。传送：本回合给予你的单位 +3 [攻击]与无敌。议程：为一个我方单位治疗 4 点并获得 +1 能量。",
+  "Vengeful Brethren Bladeguard": "护甲 1。当我方部队死亡时，获得 +2 [攻击]与护甲 1。",
+  "Vengeful Brethren Intercessor": "当我方部队死亡时，获得 +1 [远程]。",
+  "Vengeful Brethren": "给予一个我方部队 +1 [攻击]与 +1 生命。在其卡组顶部生成一张复制。",
+  "Blissbringer": "给予所有友方恶魔 +1 [攻击]。",
+  "Winged Daemon Prince": "飞行。其他友方恶魔费用 -2，且具有 +2 [攻击]。残忍：抽一张恶魔。",
+  "Dual Screamer Kakophonist": "集结：本回合给予一个敌方单位 -4 [攻击]和 -4 [远程]。",
+  "Flawless Blade Champion": "斩杀：给予所有友方部队 +1 [攻击]。\n狂喜 3：攻击一个随机敌人。",
+  "Glittering Myriad Infractor": "激励：获得 +1 [攻击]、+1 [远程]并治疗 1。",
+  "Lord Kakophonist": "激励：直到你的下回合，给予所有敌方单位 -1 [攻击]和 -1 [远程]。",
+  "EmperorsChildren/Maulerfiend": "狂喜 5：使本部队的[攻击]和[远程]翻倍。",
+  "Hulking Aberrant": "震荡。伏击：获得 +2 [攻击]并眩晕一个随机敌人。",
+  "Metamorph Leader": "你的部队费用 -1。起义：给予所有友方部队 +1 [攻击]。",
+  "Nexos": "潜行。巧技：直到你的下回合，你的单位获得 +1 [攻击]。",
+  "Gestalt Energy": "直到你的下回合，给予你的单位 +2 [攻击]。",
+  "Gauss Reaper Warrior": "被复生时，获得 +2 [远程]和 +2 生命。",
+  "Skorpekh Lord": "当一个敌人死亡时，获得 +1 [攻击]和 +1 [远程]。",
+  "Vargard Obyron": "护甲 2。任何以你的战将为目标的攻击改为以该部队为目标。",
+  "Conquering Tyrant": "为你的战将治疗 5 点，并给予其 +2 [攻击]。",
+  "Triarch Stalker": "你的其他单位获得 +2 [远程]。",
+  "Beast Snagga Nob": "你的回合结束时，给予你手牌中的所有野兽 +1 [攻击]。",
+  "Snakebite Nob": "给予你手牌中的一个随机野兽 +1 [攻击]和 +1 生命值。",
+  "Makari the Grot": "相邻单位获得 +1 [攻击]。反噬：返回你的手牌，并且本回合费用 +2。",
+  "Follower of Gork": "给予一个友方部队 +2 [攻击]和 +2 生命值。",
+  "Grukk Face-Rippa": "你的拥有潮涌的部队获得 +1 [攻击]。天赋：红色哇战吼。",
+  "Battle Sister": "祈祷：获得 +1 [攻击]和 +1 [远程]并治疗 1 点生命",
+  "Crusader": "3 ☀：获得 +1 [攻击]和护甲 2",
+  "Imagifier": "祈祷：给予 1 个友方部队 +1 [攻击]、+1 [远程]和侧翼",
+  "Ministorum Priest": "祈祷：本回合给予 1 个友方单位 +3 [攻击]",
+  "Sacred Rose Sister": "2 ☀：获得 +1 [攻击]和 +1 [远程]。4 ☀：获得 +1 生命。祈祷：获得护盾。",
+  "Seraphim": "3 ☀：获得 +1 [远程]和 +1 生命",
+  "Celestian Sacresant Aveline": "祈祷：给予 1 个友方部队 +1 [攻击]和 +1 [远程]。天赋：破魔者",
+  "Halls of Legend": "给予 1 个友方单位 [护盾]护盾。抽 1 张卡。",
+  "Let Loose": "每个友方野兽本回合获得 +1 [攻击]，并攻击 1 个随机敌人。",
+  "Murderous Hurricane": "本回合给予 1 个友方单位 +2 [攻击]。",
+  "Pack of One": "给予 1 个友方部队 +1 [攻击]和 +1 生命。若你未控制其他部队，给予它侧翼。",
+  "Saga of the Bold": "给予 1 个友方部队 +2 [攻击]和 +2 生命。若你控制 3 个或更多部队，抽 1 张卡。",
+  "Wulfen Dreadnought": "护甲 1。兽群。集结：给予所有带兽群的友方单位 +2 [攻击]。",
+  "Enforcer Battlesuit": "先锋。相邻单位获得 +1 [远程]。\n伴生 2：守护无人机",
+  "Firesight Marksman": "潜行。当你部署无人机时，给予其 +1 [远程]。\n集结：给予 1 个敌方部队标记光 3",
+  "Deploy Anchors": "给予 1 个友方战斗服或载具 +5 [远程]",
+  "Grisly Feast": "给予你的战将和步兵部队本回合 +1 [攻击]和 +1 生命",
+  "Hero of the Empire": "给予 1 个敌方部队标记光 1，或给予 1 个友方单位本回合 +1 [远程]",
+  "Inspired to Greatness": "给予 1 个友方部队 +2 [远程]和 +2 生命",
+  "Storm of Fire": "给予你的单位本回合 +2 [远程]",
+  "Tyranid Prime": "突触。友方单位触发虫群时，给予其 +1 [攻击]和 +1 生命",
+  "Carnifex": "集结：选择并获得一项增益（+2 [攻击]、+2 [远程]或护甲 1）",
+  "Adrenal Surge": "给予 1 个友方单位本回合 +2 [攻击]和 +2 [远程]",
+  "Alpha Warrior": "临时。本回合你的战将获得飞行和 +2 [攻击]，每有 1 个友方部队再额外 +1",
+  "Augmented Ferocity": "治疗友方单位 3 点，并给予其本回合 +2 [攻击]",
+  "Synaptic Imperative": "给予 1 个友方部队 +2 [攻击]、+2 [远程]和 +2 生命",
+  "Bladeguard Ancient": "你的其他单位 +2 [攻击]。誓言 1：给予 1 个友方部队护甲 1。",
+  "Chapter Champion": "护甲 1。典籍：获得 +2 [攻击]。誓言 2：获得护甲 1 和先锋。",
+  "Company Ancient": "你的其他单位 +1 [攻击]和 +1 [远程]。",
+  "Firstborn": "典籍：获得 +1 [攻击]、+1 [远程]和 +1 生命。",
+  "Inceptor Sergeant": "给予你的其他部队 +1 [远程]。",
+  "Primaris Inceptor": "典籍：本回合获得 +1 [远程]。",
+  "Adaptive Strategy": "给予所有友方部队 +1 [攻击]。誓言 1：给予所有友方部队 +1 生命。",
+  "Avenging Zeal": "给予你场上和手牌中的所有单位 +2 [攻击]和 +2 [远程]。当 1 个友方部队或战术触发[典籍]典籍时，此卡费用 -1。",
+  "Codex Discipline": "给予你的部队 +2 [远程]，并触发它们的典籍能力。",
+  "Indomitus Crusade": "部署 1 个费用 6 或更高的极限战士部队。誓言 6：对所有敌方部队造成等同于其[攻击]的伤害。",
+  "Knights of Macragge": "给予你的部队 +1 [攻击]、+1 [远程]和 1 生命。",
+  "Master of Arms": "你的战将本回合获得 +1 [攻击]和爆裂 2。",
+  "Pariah Vanguard": "给予 1 个友方部队 +2 [攻击]和先锋。",
+  "Righteous Fury": "为你的战将治疗 1 点，并给予它 +1 [攻击]，直到你的下个回合。",
+  "Sacred Bolter": "给予 1 个友方部队 +2 [远程]。",
+  "Primaris Invader": "典籍：本回合给予你所有载具 +1 [远程]。",
+  "Dark Pact of Blood": "给予 +2 [攻击]和先锋。",
+  "Dark Pact of Excess": "给予 +2 [攻击]和 +2 [远程]。",
+  "Moment of Grace": "本回合给予 1 个友方单位 +2 [攻击]和 +2 [远程]。5 ☀：抽 1 张牌",
+  "Hellfire Torch": "给予一个我方部队一个 [黑暗契约]混沌黑暗契约",
+  "Protective Bio-structure": "给予 1 个友方单位本回合 +2 [攻击]",
+  "Firestrike Servo Turret": "誓言 3：获得哨戒 2。",
+  "Skarboy Nob": "群体：获得 +1[攻击]。",
+  "Librarian": "护盾。议程：抽取你卡组中的下一张战术并获得 1 点任务。",
+  "Death Spinner Warp Spider": "路标石。潜行。①：获得侧翼。",
+  "Avatar of Khaine": "护甲 2。②：获得爆裂 6 和伪装。天赋：凯恩之怒。",
+  "Phobos Lieutenant": "远射。誓言 1：获得。潜行。斩杀：手牌生成 1 张随机极限战士卡。",
+  "Bullgryn Bone’ead": "先锋。护甲 1。爆破 2。",
+  "Nephilim Jetfighter": "集结：对一个敌人造成 3 点伤害。若其具有飞行，改为造成 5 点伤害并获得 1 点任务"
+ },
+ "_2026-09-16_Shrineworld段首写错": "🔴 **2026-09-16 更正：`desc.Shrineworld` 的段首原来写成了 `Destroy an enemy unit.` —— 那一整句是错的，卡面印的是 `Draw 3 cards.`。** 这一列本来的用途只是「**把被 OCR 丢掉的图标补回来**」（见 `_manual_desc_note`），而这一条**把一整句话换成了另一个效果** ⇒ `Shrineworld`（`SOR62` · 6 费）在引擎里**打出去会消灭一个敌方单位**，而卡面写的是抽 3 张牌。**静默**：探针报「认了 · 0 · 0」，卡面不打 `*`，日志也不报。\n**逐字依据 = 开成品卡图**（铁律 7）：`d:/2/Warpforge部队卡片/Sorotitas/4计策/Warpforge_62_Shrineworld.png` 印 `Draw 3 cards. For each Troop drawn, gain 1 ☀`；`数据/游戏数据/card_stats.json` 的原始转录也是对的（`Draw 3 cards. For each Troop drawn, gain 1.`，只少了图标词）。**错因**：这一条把「补图标」写成了「改句子」，而这一列的覆盖优先级**高于** `card_stats.json`（`工具/gen_cards_engine.py` 的 `load_cardface_fixes`）。\n**查出经过**：2026-09-16 的「中文结构对账」普查（`_tmp_view/zh_crosscheck_0916.md`）—— 中文卡面写「抽 3 张牌」，spec 却是 `destroy`。",
+ "_2026-09-16_two_bare_icon_tokens": "🔴 **2026-09-16：两处 `±N` 后面的属性 token 名是错的**（铁律 7：主对话**逐张亲读成品卡图**之后改的）。① `Hidden Hunters`（`TAU74`）原写 `Give +1 [Power] and Stealth to your Infantry troops`，卡面（`Tau/4计策/Warpforge_10_Hidden-Hunters.png`）是 **`+1【粉圈白拳】` = 近战**；而 `power` 不在 `GivePayload.ReAttr` 的词表里 ⇒ 整段判「不认识」⇒ 改成 `Attack`。② `Inner Circle Companion`（`DA21`）原写 `Gain Vanguard and 2`，卡面（`Dark Angels/3部队/Warpforge_21_Inner-Circle-Companion.png`）是 `👁Stealth. 🌿Agenda: Gain 🛡Vanguard and ⌾2` —— 最后那个是**锯齿圆环+数字 = 任务点**（同 `The Rock` 的 `Gain 2 任务点`）⇒ 补成 `2 Quest Points`。⚠️ 两处都走**这一列**（不是去放宽 `GivePayload` 的属性词表）—— 同 `[Armor]`/`[Armour]` 在 `+N Attack … +N Armour` 里也是枪那条先例：那是**数据侧**的错，放宽词表会同时打到别的卡。",
+ "_manual_descZh_note": {
+  "_2026-10-11_A1403_A1474_中文段首同步": "2026-10-11（第二十会话 C1）。**与英文 `desc` 同步补段首/触发头**（`A1403` / `A1474` 的中文那一半）。写法一律照池内已有的规范中文词（判据 = `CardPresentation/Core/Loc.cs` 的 `Card_Trait/*` 条目与 `资料/关键词图标/_规则书关键词表.md`）：`Regiment`=团 · `Duty`=职责 · `Rally`=集结 · `Ferocity`=狂暴（**不是「凶猛」**，`Loc.cs:2182`）· `Sniper`=狙击 · `Flying`=飞行。逐条：`Maelon Dhrost` `抽一张战术。你手牌中的战术费用减少 4 点。` → `团：抽一张战术。职责：你手牌中的战术费用减少 4 点。`（写法照同阵营 `AM25 Tech-Priest Enginseer`）；`Morkai Eliminator` `给予 1 个随机敌方部队猎杀标记。攻击 1 个带猎杀标记的随机敌人。` → `狙击。集结：给予 1 个随机敌方部队猎杀标记。狂暴：攻击 1 个带猎杀标记的随机敌人。`；`Night Spinner` `爆裂 3` → `飞行。狙击。爆裂 3`。🔴 **为什么必须跟英文一起改**：`Editor/IconSetup.cs` 的 ④a 判据是「`desc` 的 sprite 集合 ⊆ `descZh` 的」—— 只补英文会让它把这 6 条当成**新缺口**（`A1444` 那批实测：只改英文时 `ZhGaps` 由 0 变 2）。⚠️ 中文那半**不是原版判据**（原版客户端根本没有中文表）—— 这里推的是「英文卡面那个位置有什么记号、中文就在同一位置写那个词的规范中文名」（同 `A1360` / `A1419` 的解释）。",
+  "_2026-10-10_A1444_AM28中文段首": "2026-10-10 · `A1444` 的另一半（`AM28` **中文侧**）。**新键**：`爆破 2。` → `先锋。护甲 1。爆破 2。`（该卡 `descZh` 列原来没有条目，中文来自 `数据/卡牌翻译/zh_cards.json` 的 `d` —— 而那份**同样是 OCR 截断的**）。🔴 **为什么必须一起改**：`A1444` 若只把英文 `desc` 补成 `Vanguard. Armour 1. Blast 2`，英文侧会多出 `vanguard`/`armour` 两枚徽记、中文侧没有 ⇒ `IconSetup.Verify` 的 **④a（`desc` 的 sprite 集合 ⊆ `descZh` 的）会把这**两条当成**新缺口**（实测：只改英文时 `ZhGaps` 由 0 变 2：`AM28|vanguard` · `AM28|armour`）。补上中文段首后 **`ZhGaps` = 0**。写法照同族既有卡：`SW38`/`TL28`/`UM_Assault_Centurion` 三张的 `Vanguard. Armour N` 中文一律 `先锋。护甲 N`（`数据/本地化/i18n/zh_CN.csv:2549` 那条通用词条也是「先锋。护甲 1」）；段尾 `。` 照 `GSC41`（`护甲 1。爆裂 4。`）。⚠️ `爆裂`/`爆破` 两个中文写法全池都在用，本笔**不动原有的「爆破」**。⚠️ **`数据/卡牌翻译/zh_cards.json` 的 `d` 没有同步**（本笔白名单只允许它为 `A1420` 的分支甲改动）⇒ 与 `A1410` 同一类隐患：谁按 `zh_cards.json` 重生成就会把截断值带回来（**产物不受影响** —— `descZh` 覆盖在最后说话）。",
+  "_2026-10-10_A1420_BL19图标": "2026-10-10 · `A1420`（`BL19` Noise Marine **中文侧那枚徽记印错了**）。**只改 token、不改词**：旧 `获得一个 [黑暗契约]纵欲黑暗契约` → 新 `获得一个 ❄纵欲黑暗契约`。**核出的分支 = 「中文侧自己不对」**，既不是「原版中文表译错」也不是「我们故意换图标」：① 那句的英文原文（串表键）本来就带 `❄`（`数据/本地化/i18n/zh_CN.csv:2675` = `When your Warlord receives damage, gain a ❄ Dark Pact of Excess`），而**我们那句中文从一开始就没译出任何图标**（同一条 `:2675` 的值 = `当你的战将受到伤害时，获得一个纵欲黑暗契约`）；② 2026-10-18 那批给中文补图标时**补成了通用 token** `[黑暗契约]` —— 它在生成器的 `ZH2EN` 里对应的英文对家是 `[Dark Pact]`/`[Chaos]`（`工具/gen_icon_plan.py:1390`；逐卡表 `:238`）⇒ 落到 `markOfChaos`；而英文那半边是**纵欲专有**的 `❄`（`SYMBOLS` → `markOfSlaanesh`，`:81`）。③ 语义旁证：`资料/关键词图标/_规则书关键词表.md:99-102` 写着五张 `markOf*` 与混沌四神对位（**纵欲 = Slaanesh**，⚠️ 该文件自己标了「推测、非原文」）。🔴 **两张图其实【渲染上完全一样】**：`markOfSlaanesh.png` 与 `markOfChaos.png` 只差 **15 个 alpha=0** 像素的 RGB 值（`markOfKhorne`/`markOfNurgle` 与 `markOfChaos` 逐字节相同、`markOfTzeentch` 差 6 个 alpha=0 像素）⇒ 本笔修的是**名字级一致性**（`IconSetup.Verify` 的 ④a 判据比的是 sprite **名**集合），**画面不因此改变**。⚠️ **已知副作用（如实）**：`[黑暗契约]` 从 `BL19` 文本里消失后，`工具/gen_icon_plan.py:239` 那条 `(BL19, [黑暗契约])` 变成**死条目 1 条**（生成器会报出来）—— 删它只能改 `.py`（本笔黑名单），留给 `.py` 的写手。判据出处 = 英文卡面亲读（`d:/2/Warpforge部队卡片/Chaos/3部队/Warpforge_19_Noise-Marine.png`：`gain a 〔暗红八芒星〕Dark Pact of Excess`）。　🔴 **收口时【必红】，要另一个写手改 `.cs`**（`Editor/IconSetup.cs` 是黑名单、本笔没做）：本笔把 `ZhGaps(今天的计划表)` 由 1 条清零 ⇒ `Verify()` 的 **④d**（判据 = `KnownZhGaps ⊆ ZhGaps(今天)`，`IconSetup.cs:606-613`）会报 `BL19|markOfSlaanesh` 是一条**陈旧条目** —— 那**是故意的副作用**（`IconSetup.cs:900` 的注释原话：「每修好一条也会红一次，那是故意的」）。要同步三处：① 删 `KnownZhGaps` 表里那**唯一的 1 行**（`IconSetup.cs:874` 起，含它上方那段 `///` 现读注释 `:905-906` 写着的「表 1 条 / `ZhGaps` 也 1 条」）；② `const int KnownZhGapsCount = 1;`（`:908`）→ **`0`**（④c）；③ 🔴 **`WithoutLast`（`:930` 附近）在表变空时会炸** —— 它写的是 `new string[t.Length - 1]`，`t.Length == 0` 时是 `new string[-1]` ⇒ `④c-b` 那一格会抛异常、整个 `Verify()` 挂掉 ⇒ **必须一并加守卫**（或在表非空之前别清空）。⛔ **别把 ④c/④d 降成软告警**（`:900` 明写「退回只有注释在挡」正是它要治的病）。⚠️ `RevertControl`（19 条）**不受影响**（实测表里没有 `BL19|markOfSlaanesh`）。",
+  "_": "效果文字（中文）的卡面修正。`descZh` 与 `_manual_descZh_note` 都是**手工维护**的，`gen_cardface_fixes.py` 原样保留（⚠️ 2026-09-15 前它漏在保留名单外、一跑就把整列删掉，已修）。**应用点必须在中文表写入之后**（见 `gen_cards_engine.py` 里那段注释），否则会被 `zh_cards.json` 盖回去。",
+  "_2026-09-15_PnP对账": "2026-09-15 PnP 逐张对账批。证据：`资料/PnP卡图_逐张对账_0915.md` §四 —— 6 个子代理**开原图逐张看**（必要时裁块放大），判据一律以卡面记号为准（**拳=近战 · 紫枪=远程 · 银盾=护甲**）。同名跨阵营的卡用 `\"<阵营>/<卡名>\"` 这种键（否则会连带改到另一张，见 `gen_cards_engine.py` 的 `load_cardface_fixes`）。",
+  "_2026-09-15_PnP逐张并排验收": "2026-09-15 「逐张并排验收（全池 1127 张）」批。**证据**：`资料/PnP卡图_逐张对账_0915.md` §六末 A/B 两张表 —— 16 个子代理按阵营逐页开原图看（看不清就裁块放大），主对话对关键条逐条复核（查引擎数据 / 读代码行 / 裁原图亲验）。本批两类：① **中文多译**（英文 `desc` 是裸 `+N`、中文多写「和 +N 生命值」）：`Get'em ladz!` `Tide of Muscle` `Da Red Waaagh` `Krumpaklaw`；② **中文错译**：`Forewarned` 的「+3 护甲」应为「+3 远程攻击」（英文是 `+3 Ranged Attack`）。⚠️ 这几条只改**显示层**的中文，`desc` 里的英文原句没动。",
+  "_2026-09-15_PnP逐张并排验收_漏印关键词段": "2026-09-15 同上批。三张**漏印了句首那段关键词**：`Stealth Drone` / `Sniper Drone` / `Riptide Battlesuit`。**根因**：`CardText.KeywordSegment` 判「这个词是不是已经印过了」用的是**全文子串**——词在正文中段出现（「给予 1 个相邻部队**潜行**」「获得**远射**」「**护盾**发生器」）就判「已印过」⇒ 句首那段不补。**修法（本批）**：在 `descZh` 里把原版印的那段**补回句首**（原版就是印的：`Flying. Stealth.` / `Shield. Long Range.`），而不是去动那条共用的判据 —— 全局改判据有回归风险（`GSC_Telephatic_Domination` 是反例：它的 `Fast` 也只在正文中段，但**原版句首并没有印它**）。🔴 **遗留**：`KeywordSegment` 那条子串判据**本身仍需一个决定**（见 `资料/PnP卡图_逐张对账_0915.md` A2）。 🔴 **2026-10-12 订正（第二十一会话 `C2` · `A1621` / `A1625`；铁律 5 就地改）**：本段末那条「`KeywordSegment` 那条子串判据本身仍需一个决定」**已经决定了、也落地了** —— 就是 `A1345`（2026-10-21）把判据① 从「正文里**出现过**」收成「正文里**声明**过」（`CardPresentation/Core/CardText.cs` 的 `DeclaredInBody` / `IsDeclarationAt`，三种算声明的形状 = 方括号里 / 成对引号里 / 段首）。⇒ 这三张的**英文**段首现在由渲染侧印出（`A1345` 的报告 `资料/普查产出_第二十会话/C2_卡面渲染与图标.md:21` 逐张点名「`TAU20 Sniper Drone` → `Flying. Long Range. `（卡面 ✓）」），与当初补进 `descZh` 的那一段**同机制**。⚠️ 所以 `A1625②` 里那句「英文 `desc` 缺段首词 ⇒ 补 `desc`」**不要再做**：补进去是同一件事两处做，还会让这三张**各丢一枚图标**（计划表 `desc` 侧缺 `Flying`/`Flying`/`Long Range` 三条 token）—— 判据与读数见 `_2026-10-12_A1621_A1625_段首词与DA37任务点`。",
+  "_2026-09-15_A6属性图标": "2026-09-15 **A6 批**：效果文字里 `±N` 后面跟的**属性名**补对（**只改 `descZh`**）。**判据**：四个子代理逐张开 PnP 成品卡、放大 3~10 倍读图标（粉拳=近战 / 紫枪=远程；**「生命」原版一律写英文 `Health`、不配图标；「护甲」从不跟在 `±N` 后面**）。证据与逐张结论文档：`资料/PnP卡图_逐张对账_0915.md` §六末 **A6**。⚠️ 这一批**同时发现英文 `desc` 也有错**（`SW62`/`DA44` 的 `[Armour]`/`[Armor]` 应为远程、`SOR48` 整句与卡面不符、`UM_Heavy_Intercessor`/`UM_Outrider` 缺关键词前缀）—— **`desc` 是引擎解析原文，改它等于改玩法**，所以这一批**没动**，另记在文档里。",
+  "_2026-09-15_A7天赋名": "2026-09-15 **A7 批**：把**天赋名**补回卡面效果文字（**只改 `descZh`**）。原版在效果文字里印整句 `Talent: <名字>`，我们原来只剩光秃秃的「天赋」——`CardText.KeywordSegment` 只补**有显示名的词**，名字本身在正文里丢了就补不回来。中文名**不自己编**，取 `数据/卡牌翻译/zh_cards.json` 里那张天赋卡自己的 `n`：战斗圣歌 / 至尊以太 / 进食狂潮 / 卡迪亚荣誉 / 至高大师。证据：`资料/PnP卡图_逐张对账_0915.md` §六末 A7。⚠️ 这 5 张的**英文 `desc` 同样缺 `Talent: X`**（`TAU1` 是连 `Talent:` 前缀都没有）——**没动**：给 `desc` 加它等于接进天赋连线（`CardDef.CollectTalent`），可能和 `keywords` 里已有的那条重复，属玩法改动，另记在文档里。",
+  "_2026-09-16_验收尾巴": "2026-09-16 「逐张并排验收」尾巴批（`资料/PnP卡图_逐张对账_0915.md` §六末）。**主对话逐张亲读成品卡图**（铁律 7）。本批是上一批①类（中文多译「和 +N 生命值」）的**漏网**，用脚本按「中文有 `+N 生命` 且英文 `desc` 无 `+N Health`」扫全池收敛到 3 张（第 3 张 `Cyber-augmentation` 另议）：① `Da Bigger Dey Iz...`（`Orks/2天赋/Warpforge_02B_Da-Bigger-Dey-Iz.png`）卡面是 `give +1〔粉拳〕 and 〔践踏图标〕 Stomp` —— 第二个图标是**践踏关键词**、不是生命值；② `Waaagh! Energy`（`Orks/2天赋/Warpforge_17B_Waaagh-Energy.png`）是 `give them +2〔粉拳〕`，只有拳。另两条是**英文 `desc` 变了所以中文跟着变**：`Simulacrum Imperialis`（护甲→远程）、`Diviner`（卡面尾句 `Talent: Master Chronomancer` 补回 ⇒ 中文补「天赋：时相大师」，译名取自 `zh_cards.json` 的 `Master Chronomancer`）。⚠️ `Diviner` 那条**正是上面 A7 段说的玩法改动**（`desc` 加 `Talent:` 会接进 `CardDef.CollectTalent`）—— 本轮**已做**：它 `keywords` 里只有 `Remnant`、不会重复，且同表其它督军（`stormlord` ↔ `Lord of the Storm`）本来就是这么连的。",
+  "_2026-09-16_验收尾巴_中文多译第3张": "2026-09-16。`Cyber‑augmentation`（`Orks/4计策/Warpforge_25_Cyber‑augmentation.png`，**卡名用的是 U+2011 不换行连字符**）：中文写「+1 攻击**和 +1 生命值**」，而卡面是 `Give +1〔粉拳〕 and〔循环箭头〕Flank …` —— **只有一个 `+1`**。⇒ 属上一批①类「中文多译」的第 3 张（英文 `desc` 本来就是对的，没动）。同批 `Outrider` 的中文**也缺句首「侧翼。」** —— 英文那次补了 `Flank.`，中文跟着补。",
+  "_2026-09-16_验收尾巴_第二批": "2026-09-16 同上批。**只改显示层中文**，逐张开 PnP 成品卡图核过（铁律 7）。四类：(1) 灵魂石/信仰费用前缀：Autarch / Warlock / Wraithblade / Wraithguard（各 ①）· Spiritseer（②）· Farseer Skyrunner（②）· Wraithknight（③）· Exorcist（8 ☀）—— 八张的英文 desc 里**本来就有**前缀（2026-09-14 灵魂石轮补的），中文这回跟上。⚠️ **数字逐张开图核过**（原文档只点了其中两张）。Nightshade Interceptors 反过来 —— 卡面**根本没有**前缀，我们多印的 ② 是把**右上角蓝色部署费用圈**当成了灵魂石，**删掉**。(2) 关键词裸词补数字：Screamer-Killer / War Walker 卡面是 Armour 1.  Blast 2，我们印成「护甲。爆裂」（根因：KeywordSegment 的全文子串判据命中了 descZh 里的裸词 ⇒ 整段不补，见 A2/A9）。⚠️ **Boomdakka Snazzwagon 的「裸词」不成立、没改** —— 开图是 Unstable. Flank. Tide，原版本来就没数字。(3) Thunderous Charge 的中文原来跟着错的英文一起写成「[装甲]」，一并改成「[远程]」。(4) Primaris Chaplain 中文补句首「典籍：」。⚠️ Wraithknight 那条里 [无敌] 之后的「无敌」两字**保留原样**（原版也是「图标 + 词」的形状），本次只加前缀。",
+  "_2026-09-16_属性图标_第二批": "2026-09-16 同上批（**只改显示层中文**）。凡是中文里写错属性的（「护甲/装甲/生命/攻击」）都跟着英文一起改成「近战攻击/远程攻击/近战/远程」。⚠️ **写法沿用该卡原本的风格**：原来用方括号 token 的（`[攻击]`）仍写成 `[远程]`，原来是词的仍写词 —— 因为 `card_icon_plan.json` 是按 token 画图标的，换风格会丢图标。⚠️ 有几张**中文本来就是对的**（`Deathwing Strikemaster`/`Neophyte Trooper`/`Acolyte Hybrid`/`Seraphim` 的中文早写「近战攻击/远程攻击」）—— 说明当初翻译时看的是卡图、错只错在英文 `desc`。",
+  "_2026-09-16_属性词直译": "2026-09-16。**中文把 `GivePayload` 的 token 名直译了** ⇒ 卡面印出「+1 武器」「+3 蛮力」「+2 力量」这种词，玩家看不出加的是近战还是远程。判据 = `GivePayload.ReAttr` 的词表：`weapon`→ranged（紫圈枪，3 张卡图核过）· `might`/`strength`/`fist`→attack（粉拳）。改成规范的「近战攻击 / 远程攻击」。⚠️ **只改不带方括号的 7 张**；带方括号的（`GOF16` 的 `[武器]` · `GOF_Ferocious_Rage` 的 `[拳头]` · `SOR55` 的 `[力量]`）由 `CardIcons.Rewrite` 换成**图标**、那几个字**根本不显示**，改了反而要连`gen_icon_plan.py` 的 `ZH2EN`/`TOKEN_BY_CARD` 键一起动 ⇒ **故意不动**。⚠️ `Terminator Champion` 在池里**有两张同名卡**（黑军团 + 帝皇之子，文本逐字相同），所以键用了 `<阵营>/<卡名>` 两条。",
+  "_A1360_中文段首关键词": "2026-10 A1360 批（5 张）：**中文 descZh 漏掉了段首关键词** ⇒ 中文卡面那枚徽记画不出来（gen_icon_plan.py 的 KEYWORD_SCAN_ZH 要求汉字打头，`3：获得哨戒 2。` 这种数字打头扫不到）。判据 = PnP 成品卡图逐张核过（`资料/卡表核对_卡图提取/_还原效果文字.md` 里的双写 = 徽记 + 词）：UM74 的 `OathOath 3:`（:1021）· GOF8 的 `RallyRally:`（:599）· GOF21 的 `Mob Mob:`（:637）· DA16 的 `AgendaAgenda:`（:289）· EC35 的 `StimulationStimulation:`（:377）。⚠️ 只补段首那一个词、其余写法一字未动。与 `_2026-09-15_PnP逐张并排验收_漏印关键词段` 同族。中文是我们自译的（原版客户端无中文表）⇒ **数字版未核**。",
+  "_A1419_中文徽记缺口": "2026-10 `A1419` 批（7 条缺口 / 6 张卡，`A1402` 是其中一条）：**中文那一段（或那个位置）漏了** ⇒ 中文卡面那枚徽记画不出来（`A1409` 的 ④a 判据 = 英文 `desc` 的 sprite 集合 ⊆ 中文 `descZh` 的）。⚠️ 与 `A1360`（漏段首词）**同族、这是第三次出现**。判据 = PnP 成品卡图上的英文原文（`资料/卡表核对_卡图提取/_还原效果文字.md` 的**双写 = 徽记 + 词**）；⚠️ **原版客户端没有中文表** ⇒ 中文那半只能推到「英文那枚在词前、位置一一对应」，**如实标注**。逐条：`Death Spinner Warp Spider` 补 `潜行。` + `①：`（中文原写 `潜行 (1)。` ⇒ 段首扫描扫不到、灵魂石那档也没有）· `Avatar of Khaine` 补 `②：` · `Librarian`（`DA16`）补段首 `护盾。` · `Slugga Boy`（`GOF8`）补段首 `潮涌 1。` · `Bright Lance Vyper` 补 `狙击`（**这条就是 `A1402`**）· `Phobos Lieutenant` 改成 `…誓言 1：获得。潜行。斩杀：…`（🔴 **那个 `。` 是必须的**：`工具/gen_icon_plan.py:1184` 的 `KEYWORD_SCAN_ZH` 前导分隔符只有 `^` / `。` / `；` / `,` / `，`，**不含 `：`** ⇒ `誓言 1：潜行。` 与 `获得潜行。` 两种写法**都扫不到**（后者还因为 `[一-龥]{1,8}` 是贪婪的、整段抓成 `获得潜行`）；只有把 `潜行` 放到 `。` 之后才画得出来。⚠️ **真正的干净修法是 `.py` 侧**：给 `BARE_TOKEN_BY_RULE` 加一条 `潜行 → stealth` —— 实测判据：英文 `Stealth`（词边界）**40 张 ⊆** 中文「潜行」**41 张**（多出的 `GSC25` 是中文多写），而它一旦成立，`获得潜行。` 也能画成 `获得〔徽〕潜行。`（与原版卡面 `Gain 〔徽〕Stealth` 逐位对齐）。**本批 `工具/**` 是黑名单 ⇒ 没做，如实记**）。⚠️ `BL19` 那一条**不在本批**（同一处两个**不同** sprite，要人判，另见 `A1420`）。⚠️ 与本列一起改的还有 `数据/卡牌翻译/zh_cards.json`（`A1410`：**两份中文不能打架**）。"
+ },
+ "_2026-09-16_codex_keyword_missing": "🔴 **2026-09-16：11 张单位卡/督军的 `Codex` 关键词漏了** —— 卡面印着它（铁律 7 逐张开图核过，例：`Ultramarines/3部队/Warpforge_18_Intercessor-Sergeant.png` 印 `[蓝齿轮图标] Codex: Deal 1 damage to a random enemy troop`），而 `keywords` 里没有 ⇒ `RuleCore.CheckCodex` 的门 `u.Has(KeywordTable.Codex)` **永远不成立** ⇒ **这 11 张的 Codex 能力一次都不会发动**（而且不报错）。\n**11 张**：`Apothecary Polixis` · `Chapter Champion` · `Devastator Centurion` · `Heavy Intercessor` · `Intercessor Sergeant` · `Lieutenant Calsius` · `Primaris Inceptor` · `Sergeant Gadriel` · `Primaris Impulsor` · `Primaris Invader` · `Roboute Guilliman`（督军）。\n⚠️ **另 3 张卡写着 `Codex:` 但不挺这一列**：`Master Tactician` / `Assault Doctrine` / `Devastator Doctrine` —— 它们是**战术卡**，那里的 `Codex:` 是付费前缀（`N Energy:` 那一类），不是要携带的关键词。判据：**只给 `type ∈ {unit, hero}` 的补**。\n查出经过：2026-09-16 中文对账那轮的追查（`_tmp_view/zh_crosscheck_0916.md`）。",
+ "_2026-09-16_descZh_cross_faction_collision": "🔴 **2026-09-16：同名跨阵营的中文串了。** `Terminator Champion` 在 `BlackLegion`（`BL44`）和 `EmperorsChildren`（`EC33`）各有一张：`EC33` 的 `desc` 是 `Armour 1. Cruelty: Deal 1 damage to another random friendly unit and gain +1 attack and +1 weapon.`，`BL44` 的只有 `Armour 1`。而两条 `descZh` **逐字相同**（都是「护甲 1。残忍：…」）⇒ **`BL44` 的中文卡面承诺了一个它没有的能力**。\n逐字依据 = 开成品卡图（铁律 7）：`d:/2/Warpforge部队卡片/Chaos/3部队/Warpforge_44_Terminator-Champion.png` 只印 `[盾] Armour 1`（7/7·盾1·血8），没有 `Cruelty`。\n错因：中文表按**卡名**索引（见 `zh_cards.json` 的 `note`）⇒ 同名卡互相覆盖。修法：走**带阵营的键**（`阵营/卡名`，`gen_cards_engine.py` 的 `load_cardface_fixes` 支持）。\n⚠️ 旧值：'护甲 1。残忍：对另一个随机友方单位造成 1 点伤害，并获得 +1 近战攻击和 +1 远程攻击。'",
+ "_2026-10-18_属性图标方括号": "2026-10-18 · 属性词 → 方括号记号（卡面属性图标那一族）。\n判据 = **成品卡图**（铁律 7）：原版在这些位置**只印图标、不印词** ——\n  · `SW62 Legendary Tenacity`：`Give +4〔粉拳〕, +4〔紫枪〕 and +4 Health`\n  · `DA44 Ancient Reliquary`：`Give +3〔粉拳〕, +3〔紫枪〕 or +3 Health`\n  · `GOF8 Slugga Boy`：`Gain +1〔粉拳〕 for each other friendly Slugga Boy`\n本批作者亲读 **32 张**成品卡图（13 个阵营分散），**只有两张**不是粉拳：\n  🔴 `UM_Inceptor_Sergeant` / `UM_Primaris_Inceptor` —— 卡面是 `Give +1〔**紫圈枪**〕` /\n     `Gain +1〔**紫圈枪**〕`，而英文原文那个词写的是 `Attack` ⇒ **中文跟着改成 `[远程]`**，\n     英文那两个字**已于 2026-10-18 第二批改掉**（`[Attack]` → `[Ranged]`）—— 属 `A2`「裸 `+N` 实为远程」\n     那一族的**漏网两张**，**只记录**，见报告「没查清 / 停手」。\n  ✅ 另 30 张的读数都是粉拳（或本次要核的其它记号），逐张见报告 §②。\n  ☑️ 其余 67 张的拳/枪由 **`资料/卡表核对_卡图提取/_还原效果文字.md`**（29 个子代理逐张看卡图抄的）\n     交叉核对：**锚点对齐 84 张 = Melee、2 张 = Ranged、13 张锚点没对上**（那 13 张按还原表原文 +\n     亲读定，全部 Melee）。**没有一张两边都判不出来**。\n反向例外（卡面**印着词**、因此**一个字都不动**）三张，也都亲读过：\n  · `EC58` `equal to your Warlord's Melee`（印词 `Melee`）\n  · `SAU35` `This troop's Melee is always equal to its Health`（印词 `Melee`）\n  · `BL67` `Double the Melee Attack and Health of a friendly troop`（印词 `Melee Attack`）\n改法：中文 `+N 近战攻击|近战|攻击` → `+N [攻击]`；`+N 远程攻击|远程` → `+N [远程]`；\n      英文 `+N Attack` → `+N [Attack]`；`+N Melee|Melee Attack` → `+N [Melee]`；\n           `+N Ranged|Ranged Attack` → `+N [Ranged]`。\n🔴 **英文记号的**名字**是**按原文那个词**定的，不是随便挑的** —— 英文 `desc` 是引擎输入，\n   `GivePayload.ReAttr`（`:203`）认的是**字面** `attack` / `melee` / `ranged`，\n   而 `EffectText.ParseSegment`（`:1625`）**只剥方括号、不剥内容** ⇒ 写 `[Attack]` 时\n   去括号后与改前**逐字节相同**（`PayloadOp.Attr` 与改前一致，引擎行为零变化）。\n   若一律写成 `[Melee]`，`Attr` 会从 `attack` 变成 `melee` —— 结算等价（`NormalizeAttr` 映射回 `attack`），\n   但 `MyGame/Assets/RuleEngine/Editor/RuleEngineTest.cs` 的 T2（`:9209-9231`，十张「裸 `+N` 实为远程」）\n   比的是**原始 `Attr` 字符串** ⇒ 会红 6 条。那个文件不在本写手的白名单里，所以选了**逐字节中性**的写法。\n   唯一例外 `EC39` 用 `[Melee]`：那句走 `EffectText.TryDouble` 的**字面** `melee and ranged` 匹配。\n⛔ **2026-10-18 第二批已补**英文里被方括号换掉的词（`Give [Shield] Shield` / `Give a [Dark Pact] Dark Pact` / `Gains [Invulnerable] Invulnerable` / `Give [Stomp] Stomp`）—— `GivePayload` 按**前缀**认词，补词后 `PayloadOp` 逐字段相同（证明见 `资料/普查产出_1018第三会话/W_卡面数据2.md`）—— 那会改动被解析的文本，\n   属另一族，见报告的「顺手发现」。\n计划表那半边（`工具/gen_icon_plan.py`）：新增 4 条**按规则**的记号 `[攻击]/[远程]/[Melee]/[Ranged]`\n（全池既有 33 处同形记号**无一例外**都指向同一个属性），给 `[Attack]` 补 **94 条逐卡**近战条目\n（那个名字拳/枪都有，**不能**按规则），并把 `(\"DA44\",\"[Armor]\")` 这条死条目换成 `(\"DA44\",\"[Ranged]\")`。",
+ "_2026-10-20_DA38honour_别删": "🔴 **`DA38`（Unforgiven Redemptor）的 `[honour]` ⛔ 别删、别改**（2026-10-20 留痕）。\n它是**一个小写的词、不是图标名**（所以看着像 OCR 垃圾）：卡面那一枚是**暗黑天使的任务点徽记**（锯齿环 + 中央纹章），OCR 把它读成了 `[honour]`。\n**它靠 `工具/gen_icon_plan.py` 的逐卡条目 `(\"DA38\", \"[honour]\") → questPoints` 才画得出来** —— 删掉 token 或把它「顺手统一」成 `[Quest Point]`，那枚徽记就**不画了**（`DA8`/`DA15` 用的是 `[Quest Point]`，**DA38 从来不是**）。\n判据出处：`工具/gen_icon_plan.py` 里那两条的 `why`（还原表 `Unforgiven Redemptor`：`When you gain Quest Point, deal 2 damage`）；中文侧 `descZh` 是「任务点」，可反证它指的就是任务点。\n⚠️ `gen_icon_plan.py` 的 `DA8` 那条注释里写着「2026-09-15 已把卡表这段文字改成 `[Quest Point]`」—— **那句说的是 `DA8`/`DA15`，不是 `DA38`**（DA38 的 `desc` 至今仍是 `[honour]`，在 `card_stats.json` 的原始行里）。⛔ 别据此把 DA38 也改掉。\n⚠️ 本键只作留痕：`gen_cards_engine.py` 只读 `subtype`/`keywords`/`desc`/`descZh` 四列，本键**不影响产物**。",
+ "subtype": {
+  "Swooping Hawk Exarch": "Infantry",
+  "Orian Laratharjos": "Infantry",
+  "Tempestus Scion": "Infantry",
+  "Tempestor Sergeant": "Infantry",
+  "Ratling": "Infantry",
+  "Throne of the Heretic": "Defence",
+  "Vengeful Brethren Intercessor": "Infantry",
+  "Vengeful Brethren Bladeguard": "Infantry",
+  "Assault Terminator": "Infantry",
+  "Chaplain Gabutheron": "Infantry",
+  "Deathwing Knight Master": "Infantry",
+  "Defensive Turrets": "Defence",
+  "Grim Effigy": "Defence",
+  "Daemonette": "Daemon",
+  "Alluress": "Daemon",
+  "Glittering Myriad Infractor": "Infantry",
+  "Tormentor": "Infantry",
+  "Threnodic Choir Noise Marine": "Infantry",
+  "Flawless Blade Champion": "Infantry",
+  "Lord Kakophonist": "Infantry",
+  "Antrak Silk": "Combat Elixir",
+  "Heliotrophos": "Combat Elixir",
+  "Shivversplint": "Combat Elixir",
+  "Skorflense": "Combat Elixir",
+  "Enhanced Musculature": "Genomic Enhancement",
+  "Enhanced Resilience": "Genomic Enhancement",
+  "Banner Nob": "Infantry",
+  "Big Krumpaz": "Infantry",
+  "Sisters Repentia": "Infantry",
+  "Canoness": "Infantry",
+  "Imagifier": "Infantry",
+  "Hunting Wolf": "Beast",
+  "Blackmane Reiver": "Infantry",
+  "Fenrisian Wolf": "Beast",
+  "Hrolf the Ironhowl": "Beast",
+  "Wolf Guard Terminator Pack Leader": "Infantry",
+  "Fire Warrior Marksman": "Infantry",
+  "Cadre Fireblade": "Infantry",
+  "Heavy Intercessor": "Infantry",
+  "Tactical Marine": "Infantry",
+  "Devastator Centurion": "Infantry",
+  "Ultramarines/Bladeguard Lieutenant": "Infantry",
+  "Jammed Communications": "Sabotage",
+  "Poisoned Supplies": "Sabotage",
+  "Cult Propaganda": "Sabotage",
+  "Improvised Barricade": "Sabotage",
+  "Ultramarines/2nd Company Terminator": "Infantry",
+  "Veteran Flyboy": "Infantry",
+  "Simulacrum Imperialis": "Infantry",
+  "Obscure Ritual": "Secret"
+ },
+ "keywords": {
+  "Howling Banshee Exarch": [
+   "Waystone",
+   "Camouflage",
+   "Strike: Give +1 [Attack] to your units"
+  ],
+  "Ravenwing Bikes": [
+   "Flank",
+   "Agenda: Gain 1 Quest Point"
+  ],
+  "Night Spinner": [
+   "Flying",
+   "Sniper",
+   "Blast 3"
+  ],
+  "Vyper": [
+   "Flying",
+   "Shuriken 3"
+  ],
+  "War Walker": [
+   "Armour 1",
+   "Blast 2"
+  ],
+  "Avatar of Khaine": [
+   "Armour 2",
+   "Talent"
+  ],
+  "Storm Guardian": [
+   "Waystone",
+   "Shuriken 1"
+  ],
+  "Taurox Prime": [
+   "Armour 1",
+   "Duty"
+  ],
+  "Flamer Trooper": [
+   "Blast 1",
+   "Duty"
+  ],
+  "Armoured Sentinel": [
+   "Armour 1",
+   "Regiment"
+  ],
+  "Bullgryn Bone’ead": [
+   "Vanguard",
+   "Armour 1",
+   "Blast 2"
+  ],
+  "Manticore": [
+   "Blast 2",
+   "Duty"
+  ],
+  "Nork Deddog": [
+   "Vanguard",
+   "Armour 1"
+  ],
+  "Leman Russ Vanquisher": [
+   "Armour 1",
+   "Duty"
+  ],
+  "Baneblade Tank": [
+   "Armour 2",
+   "Duty"
+  ],
+  "Venomcrawler": [
+   "Armour 1"
+  ],
+  "Helbrute": [
+   "Armour 2"
+  ],
+  "Terminator Champion": [
+   "Armour 1"
+  ],
+  "Maulerfiend": [
+   "Armour 1",
+   "Strike"
+  ],
+  "Meltagun Legionary": [
+   "Blast 2"
+  ],
+  "Assault Terminator": [
+   "Armour 1",
+   "Teleport"
+  ],
+  "Deathwing Terminator": [
+   "Armour 1",
+   "Teleport"
+  ],
+  "Master Lazarus": [
+   "Armour 1",
+   "Agenda"
+  ],
+  "Bladeguard Veteran": [
+   "Vanguard",
+   "Agenda",
+   "Armour 1"
+  ],
+  "Deathwing Strikemaster": [
+   "Armour 1",
+   "Teleport"
+  ],
+  "Deathwing Champion": [
+   "Teleport",
+   "Armour 1"
+  ],
+  "Unforgiven Redemptor": [
+   "Armour 1"
+  ],
+  "Deathwing Knight Master": [
+   "Armour 2",
+   "Teleport"
+  ],
+  "Terminator": [
+   "Armour 1",
+   "Ecstasy"
+  ],
+  "Veteran Noise Marine": [
+   "Blast 3"
+  ],
+  "Malgarash the Adamant": [
+   "Armour 1"
+  ],
+  "Chaos Land Raider": [
+   "Cruelty",
+   "Armour 2"
+  ],
+  "Jackal Specialist": [
+   "Blast 3",
+   "Uprising"
+  ],
+  "Aberrant": [
+   "Armour 1",
+   "Ambush"
+  ],
+  "Hulking Aberrant": [
+   "Concussive",
+   "Ambush",
+   "Armour 1"
+  ],
+  "Goliath Truck": [
+   "Armour 1",
+   "Strike"
+  ],
+  "Goliath Rockgrinder": [
+   "Armour 1",
+   "Blast 4"
+  ],
+  "Immortals Phalanx": [
+   "Remnant",
+   "Regeneration 1"
+  ],
+  "Lokhust Lord": [
+   "Remnant",
+   "Destroyer",
+   "Regeneration 2"
+  ],
+  "Ophydian Destroyer": [
+   "Remnant",
+   "Destroyer",
+   "Regeneration 2"
+  ],
+  "Canoptek Spyder": [
+   "Regeneration 1",
+   "Artifice"
+  ],
+  "Scarab Swarm": [
+   "Regeneration 3"
+  ],
+  "Snakebite Grot": [
+   "Tide 1"
+  ],
+  "Grot": [
+   "Tide 2"
+  ],
+  "Slugga Boy": [
+   "Rally",
+   "Tide 1"
+  ],
+  "Hornhelmz Boy": [
+   "Tide 2"
+  ],
+  "Squighog Boyz": [
+   "Tide 2",
+   "Stomp",
+   "Rally"
+  ],
+  "Deffkopta": [
+   "Unstable",
+   "Flying",
+   "Tide 2"
+  ],
+  "Boomdakka Snazzwagon": [
+   "Unstable",
+   "Flank",
+   "Tide 1"
+  ],
+  "Meganob Ugrak": [
+   "Blast 2",
+   "Mob"
+  ],
+  "Rukkatrukk Squigbuggy": [
+   "Armour 1",
+   "Unstable",
+   "Strike"
+  ],
+  "Tankbusta": [
+   "Blast 2"
+  ],
+  "Gorkanaut": [
+   "Blast 5",
+   "Unstable",
+   "Armour 1"
+  ],
+  "Stompa": [
+   "Concussive",
+   "Unstable",
+   "Rally",
+   "Armour 2"
+  ],
+  "Immolator": [
+   "Armour 1",
+   "Blast 2"
+  ],
+  "Paragon Warsuit": [
+   "Armour 1"
+  ],
+  "Fenrisian Drop Pod": [
+   "Flying",
+   "Armour 1"
+  ],
+  "Wolf Guard Terminator Pack Leader": [
+   "Vanguard",
+   "Armour 2"
+  ],
+  "Murderfang": [
+   "Pack",
+   "Armour 1"
+  ],
+  "Bjorn the Fell-Handed": [
+   "Ferocity",
+   "Armour 1"
+  ],
+  "Venerable Dreadnought": [
+   "Armour 1",
+   "Shield"
+  ],
+  "Wulfen Dreadnought": [
+   "Pack",
+   "Armour 1"
+  ],
+  "Devilfish": [
+   "Armour 1"
+  ],
+  "Screamer-Killer": [
+   "Armour 1",
+   "Blast 2"
+  ],
+  "Exocrine": [
+   "Blast 5",
+   "Rally"
+  ],
+  "Termagant Brood": [
+   "Swarm",
+   "Tide 3"
+  ],
+  "Heavy Intercessor": [
+   "Armour 1",
+   "Codex"
+  ],
+  "Primaris Eradicator": [
+   "Armour 1",
+   "Codex"
+  ],
+  "Terminator Captain": [
+   "Oath",
+   "Armour 2"
+  ],
+  "Whirlwind": [
+   "Sentry 4"
+  ],
+  "Repulsor Executioner": [
+   "Blast 4",
+   "Rally"
+  ],
+  "Commissar": [],
+  "Beastboss on Squigosaur": [
+   "Stomp"
+  ],
+  "Big Choppa Nob": [
+   "Concussive"
+  ],
+  "Deathwolf Scout": [
+   "Camouflage"
+  ],
+  "Litany of Despair": [
+   "Ephemeral"
+  ],
+  "Enhanced Aggression": [],
+  "Master Outrider": [
+   "Ephemeral"
+  ],
+  "Power of the Waaagh!": [],
+  "Prayer": [],
+  "Bjorn's Shrine": [],
+  "Raid Tactics": [],
+  "Oath of Moment": [],
+  "Rusted Vents": [],
+  "Njal Stormcaller": [],
+  "Banshee Mask": [],
+  "Malicious Volleys": [],
+  "Toxic Bonfire": [],
+  "Hektor Thenmann": [
+   "Duty",
+   "Talent"
+  ],
+  "Beast Snagga Nob": [
+   "Stomp"
+  ],
+  "Lord Exultant": [
+   "Stimulation"
+  ],
+  "Valius Paxor": [
+   "Talent"
+  ],
+  "Commander O'Maisos": [
+   "Shield",
+   "Talent: Drone Companion"
+  ],
+  "Haarken Worldclaimer": [
+   "Talent: Helspear Assault"
+  ],
+  "Ultramarines/Terminator": [
+   "Oath 1"
+  ],
+  "EmperorsChildren/Maulerfiend": [
+   "Ecstasy 5"
+  ],
+  "EmperorsChildren/Tormentor Obsessionist": [
+   "Ecstasy 3"
+  ],
+  "Armorium Cherub": [
+   "Flying",
+   "Rally"
+  ],
+  "Killa Kan": [
+   "Tide 1",
+   "Unstable",
+   "Mob: Gain +1 Attack this turn"
+  ],
+  "AstraMilitarum/Thermal Weaponry": [],
+  "Ultramarines/Chapter Champion": [
+   "Armour 1",
+   "Codex"
+  ],
+  "Ultramarines/Bladeguard Lieutenant": [
+   "Armour 1",
+   "Vanguard",
+   "Codex"
+  ],
+  "Triumph of Saint Katherine": [
+   "Armour 2",
+   "Pray"
+  ],
+  "TauEmpire/Enforcer Battlesuit": [
+   "Vanguard",
+   "Companion 2: Guardian Drone",
+   "Armour 1"
+  ],
+  "Ultramarines/2nd Company Terminator": [
+   "Armour 1",
+   "Blast 3",
+   "Oath"
+  ],
+  "Ursula Creed": [
+   "Talent",
+   "Duty"
+  ],
+  "Lord Solar Leontus": [
+   "Talent",
+   "Duty"
+  ],
+  "Abaddon the Despoiler": [
+   "Chosen of the Four"
+  ],
+  "Plague Marine": [],
+  "Convoke the Circle": [],
+  "None Must Know": [],
+  "Obscure Ritual": [],
+  "Rites of Penance": [],
+  "Smothering Decree": [],
+  "Acolyte Hybrid": [],
+  "Enhanced Musculature": [],
+  "Enhanced Resilience": [],
+  "Acolyte Iconward": [],
+  "Imotekh the Stormlord": [],
+  "Ghazghkull Thraka": [],
+  "Preacher": [
+   "Talent",
+   "Hymn of Battle"
+  ],
+  "Daemonbreaker": [],
+  "Saga of the Bold": [],
+  "Ragnar Blackmane": [],
+  "Terror of Vardenghast": [
+   "Slay"
+  ],
+  "Enhanced Organism": [],
+  "Apothecary Polixis": [
+   "Codex"
+  ],
+  "Tactical Marine": [],
+  "Forward Deployment": [],
+  "Firestrike Servo Turret": [
+   "Long Range",
+   "Sentry 2",
+   "Oath 3"
+  ],
+  "Devastator Centurion": [
+   "Codex"
+  ],
+  "Intercessor Sergeant": [
+   "Codex"
+  ],
+  "Lieutenant Calsius": [
+   "Codex"
+  ],
+  "Primaris Inceptor": [
+   "Flying",
+   "Flank",
+   "Codex"
+  ],
+  "Sergeant Gadriel": [
+   "Flying",
+   "Codex"
+  ],
+  "Primaris Impulsor": [
+   "Codex"
+  ],
+  "Primaris Invader": [
+   "Codex"
+  ],
+  "Roboute Guilliman": [
+   "Codex"
+  ],
+  "Vox Operator": [],
+  "Press the Attack": [],
+  "Thermal Weaponry": [],
+  "Vitus Gryf": [
+   "Flying",
+   "Strike"
+  ],
+  "Swooping Hawk": [
+   "Waystone",
+   "Flying"
+  ],
+  "Vengeful Wraithblade": [
+   "Vanguard"
+  ],
+  "Wraithknight": [
+   "Armour 2",
+   "Shuriken 8"
+  ],
+  "Webway Incursion": [],
+  "Will of Asuryan": [],
+  "Dance of Death": [],
+  "Hornet": [
+   "Flying",
+   "Flank"
+  ],
+  "Bright Lance Vyper": [
+   "Flying"
+  ],
+  "Empyric Ambush": [
+   "Ephemeral"
+  ],
+  "Farseer": [
+   "Waystone"
+  ],
+  "Fate Inescapable": [],
+  "Bringer of decay": [],
+  "Helspear Assault": [
+   "Ephemeral",
+   "Slay"
+  ],
+  "Unhallowed Gifts": [
+   "Ephemeral"
+  ],
+  "Land Speeder Vengeance": [
+   "Flying",
+   "Rally"
+  ],
+  "Ravenwing Talonmaster": [
+   "Flying"
+  ],
+  "Chaplain Gabutheron": [
+   "Armour 2",
+   "Teleport",
+   "Agenda"
+  ],
+  "Icon of Excess Infractor": [
+   "Ecstasy"
+  ],
+  "Slaanesh's Spawn": [
+   "Cruelty"
+  ],
+  "Threnodic Choir Noise Marine": [],
+  "Infractor Obsessionist": [
+   "Rally",
+   "Stimulation"
+  ],
+  "Chosen of Slaanesh": [],
+  "Internal Rivalry": [],
+  "Alluress": [],
+  "Grukk Face-Rippa": [],
+  "Trukk Boy": [
+   "Rally"
+  ],
+  "Da Old Ways": [],
+  "Warbiker": [
+   "Flank",
+   "Rally"
+  ],
+  "Ork Nob": [],
+  "Scrag ’Em": [],
+  "Proper Killy": [],
+  "Da Irongob": [],
+  "Cyber‑augmentation": [],
+  "Dead Choppy": [],
+  "Krump da Gitz": [],
+  "Wreckin Ball": [
+   "Ephemeral"
+  ],
+  "Neophyte Specialist": [
+   "Rally"
+  ],
+  "Neophyte Trooper": [
+   "Uprising"
+  ],
+  "Atalan Jackal": [
+   "Camouflage"
+  ],
+  "Jackal Outrider": [
+   "Ambush"
+  ],
+  "Spotter Ridgerunner": [
+   "Rally",
+   "Uprising"
+  ],
+  "Telephatic Domination": [],
+  "Canoptek Wraith": [
+   "Remnant"
+  ],
+  "Technomancer": [],
+  "Protection Protocol": [],
+  "Orikan the Diviner": [],
+  "Imagifier": [],
+  "Furious Reprisal": [],
+  "War Howl": [
+   "Ephemeral"
+  ],
+  "Thunderwolf Cavalry": [
+   "Rally"
+  ],
+  "Wolf Priest": [
+   "Rally"
+  ],
+  "Arjac Rockfist": [
+   "Rally"
+  ],
+  "Wolf Guard Battle Leader": [],
+  "Terminator Rune Priest": [
+   "Armour 1",
+   "Rally"
+  ],
+  "Stormwolf": [
+   "Flying"
+  ],
+  "Vindicator": [
+   "Rally"
+  ],
+  "Death Shun": [],
+  "Fenrisian Blizzard": [],
+  "Proper Hunt": [],
+  "Birth of a Saga": [],
+  "Honoured Ethereal": [
+   "Shield"
+  ],
+  "Homing Beacon": [
+   "Ephemeral"
+  ],
+  "Technological Supremacy": [],
+  "For the Greater Good": [],
+  "Relentless Fusillade": [],
+  "Thundering Rampage": [],
+  "Hunters Instincts": [],
+  "Experimental Drone": [],
+  "Ravener": [
+   "Rally"
+  ],
+  "Tyranid Prime": [
+   "Synapse"
+  ],
+  "Ambush Predator": [],
+  "Ravenous Hunter": [],
+  "Swarming Masses": [],
+  "Alpha Warrior": [
+   "Ephemeral"
+  ],
+  "Norn Emissary": [
+   "Armour 1",
+   "Blast 3"
+  ],
+  "Octavio Infiltrator": [
+   "Rally"
+  ],
+  "No Respite": [
+   "Oath"
+  ],
+  "Captain Sicarius": [
+   "Codex",
+   "Talent"
+  ],
+  "Sheltered Location": [],
+  "Attack Bike": [],
+  "Chapter Champion": [
+   "Armour 1",
+   "Codex"
+  ],
+  "Chaplain Cassius": [],
+  "Fall Back": [
+   "Oath"
+  ],
+  "Angels of Death": [
+   "Codex"
+  ],
+  "Antaro Chronus": [],
+  "Light Cover": [],
+  "Master of Arms": [],
+  "Poisoned Supplies": [],
+  "Cult Propaganda": [],
+  "Improvised Barricade": [],
+  "Deathmark": [
+   "Remnant",
+   "Sniper",
+   "Rally"
+  ]
+ }
+}

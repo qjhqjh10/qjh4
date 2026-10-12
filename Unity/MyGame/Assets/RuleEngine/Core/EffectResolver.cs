@@ -1291,9 +1291,9 @@ namespace RuleEngine
             var pool = new List<UnitState>();
             bool troopOnly = spec.Kind == "troop";
             if (spec.Side == "own" || spec.Side == "any")
-                AddSide(pool, ctx.Players[owner], false, troopOnly, -1);
+                AddSide(pool, ctx.Players[owner], false, troopOnly, -1, stealthGate: true);
             if (spec.Side == "enemy" || spec.Side == "any")
-                AddSide(pool, ctx.Players[1 - owner], true, troopOnly, owner);
+                AddSide(pool, ctx.Players[1 - owner], true, troopOnly, owner, stealthGate: true);
             // ⚠️ **必须和结算那一侧读同一份筛**（2026-09-13 A4 批 2 修）——
             //    以前只筛阵营 + 「排不排除督军」，兵种 / 已受伤 / 正在祈祷 三道筛漏在这儿
             //    ⇒ **拖拽时高亮说能选、松手打出去却空过**（那正是 `CanPlayTactic` 注释点名的毛病）。
@@ -1658,14 +1658,15 @@ namespace RuleEngine
         ///      Camouflage「不能被敌方战术与效果选中」（原版 `_effect_target_blocked`）。
         /// </summary>
         /// <param name="caster">施放者；传 -1 表示这是己方侧、不做隐身过滤</param>
-        static void AddSide(List<UnitState> into, PlayerState ps, bool isFoe, bool troopOnly, int caster)
+        static void AddSide(List<UnitState> into, PlayerState ps, bool isFoe, bool troopOnly, int caster,
+                              bool stealthGate = false)
         {
             for (int s = 0; s < BoardSpec.Size; s++)
             {
                 var u = ps.Board[s];
                 if (u == null || !u.IsAlive) continue;
                 if (troopOnly && u.IsWarlord) continue;
-                if (isFoe && caster >= 0
+                if (stealthGate && isFoe && caster >= 0
                     && (u.Has(KeywordTable.Stealth) || u.Has("camouflage"))) continue;
                 into.Add(u);
             }
@@ -5684,7 +5685,11 @@ namespace RuleEngine
                 for (int s = 0; s < BoardSpec.Size; s++)
                 {
                     var u = board[s];
-                    if (u == null || u.Card == null || !u.IsAlive) continue;
+                    if (u == null || u.Card == null) continue;
+                    // 2026-10-12（账 A1600）：原版这一跳的谓词是 `CardScript.IsInPlay()`（只看状态字、不看生命；
+                    // `CardScript__IsInPlay.c:7-14` = {inPlay 2, inPlayAttacking 3, inPlayTransforming 0xf,
+                    // inPlayAminingAttack 0x11}）。我们对应的「不在场上」= 已入将死队列（≈ waitingToDie 5）。
+                    if (ctx.IsPendingDeath(u)) continue;
                     if (u.Card.WhenTriggers.Count == 0) continue;   // 没监听器的卡直接跳过
                     listeners.Add(u);
                 }
@@ -5710,7 +5715,7 @@ namespace RuleEngine
                     foreach (var u in listeners)
                     {
                         // ⚠️ 快照之后世界可能已经变了（前一个监听器把人打死了）——再判一次
-                        if (!u.IsAlive) continue;
+                        if (ctx.IsPendingDeath(u)) continue;
 
                         int owner = OwnerOf(ctx, u);
                         if (owner < 0) continue;                             // 已经不在场上了

@@ -4582,6 +4582,11 @@
        "token": "[Ranged]",
        "sprite": "Ranged",
        "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      },
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
       }
      ]
     },
@@ -4592,6 +4597,11 @@
        "token": "[远程]",
        "sprite": "Ranged",
        "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      },
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
       }
      ]
     }
@@ -4623,6 +4633,31 @@
    ]
   },
   {
+   "id": "BL12",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "BL45",
    "fields": [
     {
@@ -4632,6 +4667,11 @@
        "token": "Rally:",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
       }
      ]
     },
@@ -4642,6 +4682,11 @@
        "token": "集结：",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
       }
      ]
     }
@@ -4657,6 +4702,11 @@
        "token": "Rally:",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
       }
      ]
     },
@@ -4667,6 +4717,11 @@
        "token": "集结：",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
       }
      ]
     }
@@ -4757,6 +4812,11 @@
        "token": "Strike:",
        "sprite": "strike",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
       }
      ]
     },
@@ -4767,6 +4827,11 @@
        "token": "猛击：",
        "sprite": "strike",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
       }
      ]
     }
@@ -4782,6 +4847,11 @@
        "token": "Rally:",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
       }
      ]
     },
@@ -4792,6 +4862,11 @@
        "token": "集结：",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
       }
      ]
     }
@@ -4817,6 +4892,31 @@
        "token": "猛击：",
        "sprite": "strike",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "BL40",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
       }
      ]
     }
@@ -4898,6 +4998,31 @@
    ]
   },
   {
+   "id": "BL32",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "BL14",
    "fields": [
     {
@@ -4923,6 +5048,31 @@
    ]
   },
   {
+   "id": "BL17",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "BL33",
    "fields": [
     {
@@ -4932,6 +5082,11 @@
        "token": "Strike:",
        "sprite": "strike",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
       }
      ]
     },
@@ -4942,6 +5097,11 @@
        "token": "猛击：",
        "sprite": "strike",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
       }
      ]
     }
@@ -4982,6 +5142,11 @@
        "token": "Blast 2.",
        "sprite": "blast",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
       }
      ]
     },
@@ -4992,6 +5157,11 @@
        "token": "爆裂 2。",
        "sprite": "blast",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
       }
      ]
     }
@@ -5023,6 +5193,56 @@
    ]
   },
   {
+   "id": "BL21",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "BL29",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "BL23",
    "fields": [
     {
@@ -5042,6 +5262,31 @@
        "token": "侧翼",
        "sprite": "flank",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "BL15",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
       }
      ]
     }
@@ -5183,6 +5428,31 @@
    ]
   },
   {
+   "id": "BL49",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "BL54",
    "fields": [
     {
@@ -5197,6 +5467,11 @@
        "token": "[Melee]",
        "sprite": "Melee",
        "why": "英文近战记号 —— **只给原文本来就写 `Melee`/`Melee Attack` 的位置**用（那些位置去括号后与改前逐字节相同）。原文写 `Attack` 的用 `[Attack]` + 逐卡条目"
+      },
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
       }
      ]
     },
@@ -5212,6 +5487,11 @@
        "token": "[攻击]",
        "sprite": "Melee",
        "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
       }
      ]
     }
@@ -5278,6 +5558,31 @@
    ]
   },
   {
+   "id": "BL61",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "BL6",
    "fields": [
     {
@@ -5312,6 +5617,11 @@
        "token": "Armour",
        "sprite": "armour",
        "why": "卡面 `Armour` **前面**那枚「盾牌」（= `Resources/Art/traits/armour.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:243`（`Warpforge_55_Disgustingly-Resilient.png`）。"
+      },
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
       }
      ]
     },
@@ -5322,6 +5632,11 @@
        "token": "护甲",
        "sprite": "armour",
        "why": "卡面 `Armour` **前面**那枚「盾牌」（= `Resources/Art/traits/armour.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:243`（`Warpforge_55_Disgustingly-Resilient.png`）。"
+      },
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
       }
      ]
     }
@@ -5347,6 +5662,31 @@
        "token": "[攻击]",
        "sprite": "Melee",
        "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "BL56",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
       }
      ]
     }
@@ -5492,6 +5832,11 @@
        "token": "Backlash",
        "sprite": "backlash",
        "why": "**恒带**（8 卡 8 处 · 原画 4 卡 · 双写 8 处 ⇒ 缺 4 卡）—— 逐处判据 = `_还原效果文字.md` 的**双写**。"
+      },
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
       }
      ]
     },
@@ -5512,6 +5857,11 @@
        "token": "反噬",
        "sprite": "backlash",
        "why": "同英文那条（`descZh` 的写法，与英文那批**逐处对应**）。"
+      },
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
       }
      ]
     }
@@ -5552,6 +5902,11 @@
        "token": "Stealth",
        "sprite": "stealth",
        "why": "**卡面逐处双写 28/30**（26 张「正文里有 `Stealth` 而计划表没画」的卡，逐张核 `_还原效果文字.md`；`DA30`/`GSC74`/`TL20` 各 2 处）—— 出处与两处对不上的（`TL24` / `UM_Tyrannic_War_Veteran`）见本表上方那段。"
+      },
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
       }
      ]
     },
@@ -5562,6 +5917,11 @@
        "token": "潜行",
        "sprite": "stealth",
        "why": "同英文那条（`descZh` 的写法，与英文那批**逐处对应**）；⚠️ `GSC25` 是中文多写的那一处（见上方那段）。"
+      },
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
       }
      ]
     }
@@ -5602,6 +5962,11 @@
        "token": "Ephemeral.",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
       }
      ]
     },
@@ -5612,6 +5977,61 @@
        "token": "临时。",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "BL66",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "BL74",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "黑暗契约时",
+       "sprite": "markOfChaos",
+       "why": "卡面 `Dark Pact` **前面**那枚「暗红盘 + 白八芒星」（= 黑暗契约徽记；五张 `markOf*` 渲染上完全一样）（= `Resources/Art/traits/markOfChaos.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:181`（`Warpforge_10_Accursed-Helbrute.png`）。"
       }
      ]
     }
@@ -5627,6 +6047,11 @@
        "token": "Armour 2.",
        "sprite": "armour",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
       }
      ]
     },
@@ -5637,6 +6062,36 @@
        "token": "护甲 2。",
        "sprite": "armour",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "BL46",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
       }
      ]
     }
@@ -6344,9 +6799,9 @@
      "name": "desc",
      "items": [
       {
-       "token": "[1]",
+       "token": "1 Quest Point",
        "sprite": "questPoints1",
-       "why": "暗黑天使任务点：卡面 `gain (①)`。见 `资料/卡表核对_卡图提取/_裁定_图标丢失.md`"
+       "why": "不带方括号的**资源词**：`Quest Point(s)` 卡面画的是 `questPointsN`（数字烘在图里 —— `Aggressor` 卡面 `Gain 〔银刺环里烘着 1〕` 逐张核过）。⚠️ 同为资源词的 `Spirit Stone` / `Faith` 写在正文里**没有图标**（卡面实测），所以本规则**只做任务点**。"
       }
      ]
     },
@@ -6706,6 +7161,31 @@
       {
        "token": "2 点任务",
        "sprite": "questPoints2",
+       "why": "不带方括号的**资源词**：`Quest Point(s)` 卡面画的是 `questPointsN`（数字烘在图里 —— `Aggressor` 卡面 `Gain 〔银刺环里烘着 1〕` 逐张核过）。⚠️ 同为资源词的 `Spirit Stone` / `Faith` 写在正文里**没有图标**（卡面实测），所以本规则**只做任务点**。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "DA48",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "1 Quest Point",
+       "sprite": "questPoints1",
+       "why": "不带方括号的**资源词**：`Quest Point(s)` 卡面画的是 `questPointsN`（数字烘在图里 —— `Aggressor` 卡面 `Gain 〔银刺环里烘着 1〕` 逐张核过）。⚠️ 同为资源词的 `Spirit Stone` / `Faith` 写在正文里**没有图标**（卡面实测），所以本规则**只做任务点**。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "1 点任务",
+       "sprite": "questPoints1",
        "why": "不带方括号的**资源词**：`Quest Point(s)` 卡面画的是 `questPointsN`（数字烘在图里 —— `Aggressor` 卡面 `Gain 〔银刺环里烘着 1〕` 逐张核过）。⚠️ 同为资源词的 `Spirit Stone` / `Faith` 写在正文里**没有图标**（卡面实测），所以本规则**只做任务点**。"
       }
      ]
@@ -7309,6 +7789,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "1 Quest Point",
+       "sprite": "questPoints1",
+       "why": "不带方括号的**资源词**：`Quest Point(s)` 卡面画的是 `questPointsN`（数字烘在图里 —— `Aggressor` 卡面 `Gain 〔银刺环里烘着 1〕` 逐张核过）。⚠️ 同为资源词的 `Spirit Stone` / `Faith` 写在正文里**没有图标**（卡面实测），所以本规则**只做任务点**。"
+      },
+      {
        "token": "Flying",
        "sprite": "flying",
        "why": "**恒带**（42 卡 42 处 · 原画 27 卡 · 双写 46 处 ⇒ 缺 15 卡）—— 逐处判据 = `_还原效果文字.md` 的**双写**。中文 44 张（多 `TAU14`/`TAU20`：卡面确实印着那枚，是我们 `desc` 漏了那个词）。"
@@ -7322,6 +7807,11 @@
        "token": "集结：",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "1 点任务",
+       "sprite": "questPoints1",
+       "why": "不带方括号的**资源词**：`Quest Point(s)` 卡面画的是 `questPointsN`（数字烘在图里 —— `Aggressor` 卡面 `Gain 〔银刺环里烘着 1〕` 逐张核过）。⚠️ 同为资源词的 `Spirit Stone` / `Faith` 写在正文里**没有图标**（卡面实测），所以本规则**只做任务点**。"
       },
       {
        "token": "飞行",
@@ -7854,6 +8344,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "1 Quest Point",
+       "sprite": "questPoints1",
+       "why": "不带方括号的**资源词**：`Quest Point(s)` 卡面画的是 `questPointsN`（数字烘在图里 —— `Aggressor` 卡面 `Gain 〔银刺环里烘着 1〕` 逐张核过）。⚠️ 同为资源词的 `Spirit Stone` / `Faith` 写在正文里**没有图标**（卡面实测），所以本规则**只做任务点**。"
+      },
+      {
        "token": "[Attack]",
        "sprite": "Melee",
        "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
@@ -7882,6 +8377,11 @@
        "token": "议程：",
        "sprite": "agenda",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "1 点任务",
+       "sprite": "questPoints1",
+       "why": "不带方括号的**资源词**：`Quest Point(s)` 卡面画的是 `questPointsN`（数字烘在图里 —— `Aggressor` 卡面 `Gain 〔银刺环里烘着 1〕` 逐张核过）。⚠️ 同为资源词的 `Spirit Stone` / `Faith` 写在正文里**没有图标**（卡面实测），所以本规则**只做任务点**。"
       },
       {
        "token": "[攻击]",
@@ -8144,9 +8644,9 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
-       "token": "[1]",
+       "token": "1 Quest Point",
        "sprite": "questPoints1",
-       "why": "同上"
+       "why": "不带方括号的**资源词**：`Quest Point(s)` 卡面画的是 `questPointsN`（数字烘在图里 —— `Aggressor` 卡面 `Gain 〔银刺环里烘着 1〕` 逐张核过）。⚠️ 同为资源词的 `Spirit Stone` / `Faith` 写在正文里**没有图标**（卡面实测），所以本规则**只做任务点**。"
       }
      ]
     },
@@ -8607,6 +9107,11 @@
        "token": "Ecstasy 2:",
        "sprite": "Ecstasy",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
       }
      ]
     },
@@ -8617,6 +9122,11 @@
        "token": "狂喜 2：",
        "sprite": "Ecstasy",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
       }
      ]
     }
@@ -9193,6 +9703,31 @@
    ]
   },
   {
+   "id": "EC34",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "EC25",
    "fields": [
     {
@@ -9212,6 +9747,31 @@
        "token": "爆裂 3。",
        "sprite": "blast",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EC42",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
       }
      ]
     }
@@ -9403,6 +9963,31 @@
    ]
   },
   {
+   "id": "EC6",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "EC58",
    "fields": [
     {
@@ -9428,6 +10013,31 @@
    ]
   },
   {
+   "id": "EC50",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "EC52",
    "fields": [
     {
@@ -9437,6 +10047,11 @@
        "token": "Slay",
        "sprite": "slay",
        "why": "**恒带**（20 卡 21 处 · 原画 14 卡 · 双写 20 处 ⇒ 缺 6 卡）—— 逐处判据 = `_还原效果文字.md` 的**双写**。"
+      },
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
       }
      ]
     },
@@ -9447,6 +10062,11 @@
        "token": "斩杀",
        "sprite": "slay",
        "why": "同英文那条（`descZh` 的写法，与英文那批**逐处对应**）。"
+      },
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
       }
      ]
     }
@@ -9829,11 +10449,6 @@
      "name": "desc",
      "items": [
       {
-       "token": "Armour 1.",
-       "sprite": "armour",
-       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
-      },
-      {
        "token": "Concussive.",
        "sprite": "concussive",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -9842,6 +10457,11 @@
        "token": "Ambush:",
        "sprite": "ambush",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Armour 1",
+       "sprite": "armour",
+       "why": "卡面 `Armour` **前面**那枚「盾牌」（= `Resources/Art/traits/armour.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:467`（`Warpforge_38_Abominant.png`）。"
       }
      ]
     },
@@ -14529,14 +15149,14 @@
      "name": "desc",
      "items": [
       {
-       "token": "Stealth.",
-       "sprite": "stealth",
-       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
-      },
-      {
        "token": "Strike:",
        "sprite": "strike",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Stealth",
+       "sprite": "stealth",
+       "why": "**卡面逐处双写 28/30**（26 张「正文里有 `Stealth` 而计划表没画」的卡，逐张核 `_还原效果文字.md`；`DA30`/`GSC74`/`TL20` 各 2 处）—— 出处与两处对不上的（`TL24` / `UM_Tyrannic_War_Veteran`）见本表上方那段。"
       }
      ]
     },
@@ -20524,11 +21144,6 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
-       "token": "兽群。",
-       "sprite": "pack",
-       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
-      },
-      {
        "token": "集结：",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -20537,6 +21152,11 @@
        "token": "[攻击]",
        "sprite": "Melee",
        "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      },
+      {
+       "token": "兽群",
+       "sprite": "pack",
+       "why": "同英文那条（`descZh` 的写法，与英文那批**逐处对应**）。"
       }
      ]
     }
@@ -21034,13 +21654,13 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
-       "token": "远射。",
-       "sprite": "longrange",
-       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
-      },
-      {
        "token": "标记光",
        "sprite": "markerlight",
+       "why": "同英文那条（`descZh` 的写法，与英文那批**逐处对应**）。"
+      },
+      {
+       "token": "远射",
+       "sprite": "longrange",
        "why": "同英文那条（`descZh` 的写法，与英文那批**逐处对应**）。"
       }
      ]
@@ -21069,9 +21689,9 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
-       "token": "潜行。",
+       "token": "潜行",
        "sprite": "stealth",
-       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+       "why": "同英文那条（`descZh` 的写法，与英文那批**逐处对应**）；⚠️ `GSC25` 是中文多写的那一处（见上方那段）。"
       }
      ]
     }
@@ -28423,6 +29043,31 @@
    ]
   },
   {
+   "id": "EC62",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "SAU61",
    "fields": [
     {
@@ -28547,6 +29192,11 @@
        "token": "Ephemeral.",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
       }
      ]
     },
@@ -28557,6 +29207,11 @@
        "token": "临时。",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
       }
      ]
     }

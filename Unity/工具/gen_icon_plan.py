@@ -30,8 +30,14 @@
 
 用法：
   PYTHONIOENCODING=utf-8 python 工具/gen_icon_plan.py            # 只报告
-  PYTHONIOENCODING=utf-8 python 工具/gen_icon_plan.py --write    # 落盘
+  PYTHONIOENCODING=utf-8 python 工具/gen_icon_plan.py --write    # 落盘（**但有任何未解决问题就不落盘**）
   PYTHONIOENCODING=utf-8 python 工具/gen_icon_doc.py             # 再铺一遍人看的文档
+
+🔴 **`A1626`（2026-10-12）**：退出码非 0 时**一个字节都不写** —— 「非 0」必须等于「没产物」。
+   触发条件 = `missing`（sprite 名盘上没有）· `unresolved`（没认出来的记号）· `conflicts`（同字段
+   token 互相包含 ⇒ 运行时会画两枚）· `why_conflict`（两条来源 sprite 打架）· `PREFIX_ABSORB` 死条目
+   / 接手 token 不在计划里 · `FACE_ICON_COUNT` 卡面枚数对不上。**改前**这一段排在 `if WRITE:` 之后
+   ⇒ 退出码 1 时**照样落盘**（实测：HEAD 版跑一个 rc=1 的输入，两份 json 都写出来了）。
 """
 import json
 import os
@@ -161,8 +167,16 @@ TOKEN_BY_CARD = {
     #    `cardface_fixes.json` 的 `desc` 列，改动说明见那张表的 `_2026-10-18_Oath裸写`），
     #    两个方括号 token 在文本里**已经不存在** ⇒ 留在本表就是**永远不命中的死条目**。
     #    同两张卡的补法见下面的 `BARE_TOKEN_BY_CARD`。
-    ("DA22", "[1]"): ("questPoints1", "暗黑天使任务点：卡面 `gain (①)`。见 `资料/卡表核对_卡图提取/_裁定_图标丢失.md`"),
-    ("DA75", "[1]"): ("questPoints1", "同上"),
+    # 🔴 **2026-10-12（第二十一会话 · 写手 `N2` · `A1634`）：`("DA22","[1]")` / `("DA75","[1]")` 两条已删。**
+    #    为什么删：那两张的 `desc` 把**任务点徽记**写成了**裸方括号数字 `[1]`**，而 `[1]` 不是任何解析器认得的 token
+    #    （旁证：`工具/ruleprobe.sh` 实测 `gain [1]` ⇒ `verb=gainenergy amount=0 payload=[1 energy]`，
+    #    **什么都不给**、`unparsed=` 还是空的）。`desc` 已按卡面改成规范写法 `1 Quest Point`
+    #    （`数据/游戏数据/cardface_fixes.json`），那枚徽记改由**按资源词的自动那一支**画
+    #    （新 token `"1 Quest Point"` → `questPoints1`，`data/游戏数据/card_icon_plan.json` 逐条可见）。
+    #    ⛔ 留着这两条就是**永远不会命中的死条目**（生成器的死条目自检会报）—— 同族先例见
+    #    `ANCHOR_NOISE` 里 `("DA8","[Shield]")` 当初换成 `[Quest Point]` 那条注释。
+    #    ⚠️ 但这两条本身是**独立的一份旁证**：`[1]` 早就被认出是**暗黑天使任务点**
+    #    （"卡面 `gain (①)`"，见 `资料/卡表核对_卡图提取/_裁定_图标丢失.md`）⇒ 与 `A1634` 的结论一致。
     # ---- 攻击/远程：还原表逐张写了 Melee / Ranged ----
     ("EC9", "[Attack]"): ("Melee", "还原表：`Gain +1 Melee, +1 Ranged`"),
     ("EC9", "[Ranged]"): ("Ranged", "同上"),
@@ -237,11 +251,19 @@ TOKEN_BY_CARD = {
     #    （注释里也一直写着「卡面第二枚 = 紫枪」，只是键名沿用了更早那版 OCR 写法）⇒ 旧键是**死条目**。
     #    本批把 `desc` 里那个**裸词 `Ranged`** 改成了记号（卡面只印枪、不印词），键跟着换。
     ("DA44", "[Ranged]"): ("Ranged", "同上：第二枚 = 紫枪（键 2026-10-18 由 `[Armor]` 订正过来）"),
-    # `BL19` 的中文侧：卡面 `gain a 〔八芒星〕Dark Pact of Excess`（本批亲读
-    # `Chaos/3部队/Warpforge_19_Noise-Marine.png`）—— 英文那份靠 `❄` 符号走 `SYMBOLS`，
-    # 中文没有那半边 ⇒ 2026-10-18 把中文改成 `[黑暗契约]纵欲黑暗契约`（图标 + 词），这张卡按卡补一条。
-    ("BL19", "[黑暗契约]"): ("markOfChaos",
-        "卡图 Noise Marine：`gain a 〔暗红八芒星〕Dark Pact of Excess`（图标在词前面）"),
+    # ⚪ 2026-10-12（`A1623` · 铁律 5 就地订正）：`("BL19", "[黑暗契约]")` **已删**（原条目：
+    #    `→ markOfChaos`，理由写着「2026-10-18 把中文改成 `[黑暗契约]纵欲黑暗契约`」）。
+    #    **那个前提早就被同一批改成不成立了**：`A1473`（2026-10-10）把 `BL19` 的 `descZh` 从
+    #    `…获得一个 [黑暗契约]纵欲黑暗契约` 改成了 `…获得一个 ❄纵欲黑暗契约`
+    #    （出处 → `MyGame/Assets/CardPresentation/Editor/IconSetup.cs` 的 `KnownZhGaps` 那一大段注释，
+    #    以及 `资料/普查产出_第十四会话/W_A1420A1444.md` §一）⇒ **`[黑暗契约]` 从此不在任何文本里**。
+    #    实测（2026-10-12 本批）：生成器的「逐卡表里的死条目」一节**只报出它这一条**
+    #    （`BL19 [黑暗契约]`），而 `BL19` 的英文与中文**两侧都靠 `❄` 走 `SYMBOLS`**（`markOfSlaanesh`）
+    #    ⇒ 删掉它**一枚图标都不丢**（删前删后逐字段对比：`BL19` 的计划条目一字未变）。
+    #    ⚠️ 这也是账 `A1420` 的收口：它记的「两个来源 sprite 不一致」里，`markOfChaos` 那个来源
+    #    **就是这条死条目**（死条目不参与渲染，所以「不一致」本来就落不到画面上；
+    #    而五张 `markOf*` 切片**渲染上完全一样**，见 `SYMBOLS` 里 `❄` 那条的说明）。
+    #    ⛔ **别把它加回来** —— 加回来就是死条目，生成器的自检会再报一次。
     ("DA4", "[Attack]"): ("Melee", "还原表 Supreme Grand Master：`Give +1Melee and +1Ranged`"),
     # 🔴 2026-10-10（`A1411`）：键 `[Armor]` **订正成 `[Ranged]`**（死键）—— 同一处的键名早就是错的
     #    （`[Armor]` 是 OCR 起的名字，答案从来是「紫枪」），卡表 2026-10-18 已写成 `[Ranged]`。答案不变。
@@ -529,7 +551,14 @@ BARE_TOKEN_BY_CARD = {
 #         长到 **1127 张 / 31 份批次**（就是补进来的这 9 张），而 `restore_card_icons.py --write`
 #         **那一轮没跟着重跑** ⇒ 转录表停在 `2026-09-13` 的快照上（文件 mtime 可证）。
 #         ✅ **已重跑生成器** ⇒ 这 9 行现在**在表里**（`IMG_3695.jpg` 等 9 行，逐行带 `⚠️`），
-#         本文件这 117 处 `_还原效果文字.md:NN` 引用也一并按新表**重算过**（+5 / +9 两档）。
+#         本文件这 115 处 `_还原效果文字.md:NN` 引用也一并按新表**重算过**（+5 / +9 两档）。
+#         🔴 **2026-10-12（第二十一会话 · 写手 `C5` · 铁律 5）就地订正**：这句原来写「**117** 处」——
+#            实测（`_还原效果文字.md(.{0,8})` 逐处分类）**带 `:NN` 行号的一共 115 处**（111 个不同的行号），
+#            另有 **49 处**只是散文里提到文件名、不带行号（合计 164 处提及）。⇒ 117 这个数是旧的/多算的。
+#         ⚠️ **表头的行数不许变**：本脚本那 115 处行号指的全是**表行**，而表行在**表头之后** ——
+#            给 `restore_card_icons.py` 的 `--write` 生成物加一行 `>` 说明，就会把这 115 处**全体指歪一行**。
+#            核法（两分钟）：扫本文件里每个 `_还原效果文字.md:NN`，取它**后面最近的一个**卡图文件名，
+#            再看还原表**第 NN 行**的首列是不是那个文件 —— 115/115 全对上才算没漂。
 # ③ **误伤面（实测 = 0）**：全池 `\bStun\b` 命中 **30 张**（`desc`）· `眩晕` 命中 **30 张**（`descZh`），
 #    **两个集合完全相同**；每题**恰好 1 处**（max = 1）；全池**没有**更长的词含它
 #    （`Stunned` / `stuns` 等 **0 处**、`keywords` 里 **0 处**、`[Stun]` 记号 **0 处**）
@@ -1126,9 +1155,9 @@ BARE_TOKEN_BY_RULE = [
     #    `Armour` · `Codex` · `Remnant` · `Strike` · `Ambush` · `Talent` · `Destroyer` ·
     #    `Pray` · `Regiment` · `Ephemeral` · `Penitence` —— 卡面上至少有一处「我们提了、卡面没印」，
     #    或该词是更长词 / 卡名的子串。
-    # ⏭ **仍未做、已记读数**：`Dark Pact`（37 卡 39 处，**sprite 随邪神变**：`markOfChaos`/
-    #    `markOfSlaanesh`/…，`BL19` 那条两来源打架 ⇒ 先要人判画哪一枚）· `Quest Point`（已由
-    #    `QUEST_WORD` 那条老规则管，读数见报告）。
+    # ✅ **2026-10-12（`A1623`）`Dark Pact` 一族已做**（原写着「仍未做、已记读数：37 卡 39 处」）——
+    #    走**按词规则**（见本表末尾那两条），读数与三处例外见那一段的注释。
+    # ⏭ **仍未做**：`Quest Point`（已由 `QUEST_WORD` 那条老规则管，读数见报告）。
     ("Flank", "flank",
      "**恒带**（66 卡 66 处 · 计划表原画 19 卡 · **卡面双写 67 处** ⇒ 缺 47 卡）—— 逐处判据 = `_还原效果文字.md` 的**双写**。"),
     ("侧翼", "flank",
@@ -1223,6 +1252,51 @@ BARE_TOKEN_BY_RULE = [
      "**恒带**（19 卡 19 处 · 原画 18 卡 · 双写 19 处 ⇒ 缺 1 卡）—— 逐处判据 = `_还原效果文字.md` 的**双写**。中文 20 张（多 `TL79`，同上）。"),
     ("潮涌", "tide",
      "同英文那条（`descZh` 的写法，与英文那批**逐处对应**）。"),
+    # ── 🆕 2026-10-12（`A1623`）：`Dark Pact` / `黑暗契约`（**37 卡 / 39 处**）────────────────
+    # 🔴 **为什么它能走按词**（`A1378` 的判据三条，逐条实测）：
+    #    ① 英文 `Dark Pact` 的**卡集** == 中文 `黑暗契约` 的**卡集**（都 37 张，逐张对过）；
+    #    ② **没有一处「卡面没印」** —— 逐张开图亲读（37 张 PnP 成品卡图，本批作者全读了一遍）
+    #       ＋ 转录表的**双写**（`Dark PactDark Pact` = 图标 + 词）：**38 处双写对 38 处**（见下）；
+    #    ③ 全池没有「更长的词含它」（`Dark Pact` 不被别的 token 包含；
+    #       `黑暗契约` 只被 `[黑暗契约]` 包含 —— 那两张卡由**守卫①**挡掉）。
+    #
+    # **读数**（改前 → 改后，同一度量）：
+    #   · `desc`：37 卡 39 处「`Dark Pact`」→ 改前**只画 3 处**（`BL19` 的 `❄`、`BL51` 的 `[Dark Pact]`、
+    #     `BL69` 的 `[Chaos]`）⇒ **漏 36 处**；改后 **38 枚**（`BL45` 那一张有 2 处 ⇒ 卡面也是 2 枚）。
+    #     ⚠️ 「39 处」比「38 枚」多的那 1 处是 `BL51` 的 `[Dark Pact] Dark Pact`：
+    #     **词出现两次、卡面只印一枚**（`Chaos/4计策/Warpforge_51_Dark-Oratory.png` 亲读）。
+    #   · `descZh`：41 处 → 改前**只画 3 处**（`BL19` 的 `❄`、`BL51` 的 `[黑暗契约]`、
+    #     `BL69` 的 `[黑暗契约]`）⇒ **漏 35 处**；改后 **38 枚**（`BL45` 2 枚）。
+    #     ⚠️ 中文侧多出来的那几处（`BL74` / `BL69` / `BL51`）都是**我们自己的译法**把词写了两遍，
+    #     卡面只有一枚 ⇒ 见下面 `BL74` 那条与两处例外。
+    #
+    # 🔴 **三处例外**（本字段的徽记**已经由另一条记号画了**）—— 见 `DARKPACT_ALREADY`：
+    #    `BL19` 两半（`❄`）、`BL69` 的 `desc`（`[Chaos]`）。
+    #    ⚠️ `BL51` 两半与 `BL69` 的 `descZh` **不列**：它们是**守卫①**（本字段含 `[Dark Pact]` /
+    #    `[黑暗契约]`）自动挡掉的 —— 那两处**token 本身就是那枚徽记**（`[Dark Pact] Dark Pact`
+    #    渲染成 `〔徽记〕Dark Pact`，与卡面逐字一致）。
+    #    ⛔ 别把守卫①那四格也抄进例外表：那会变成「表里写着、实际从没被用到」的死条目（自检会红）。
+    #
+    # 🔴 **sprite 一律 `markOfChaos`**（⛔ 别按「哪一位邪神」分四枚）—— 判据 = **原版的图集**：
+    #    五张 `markOf*`（`Chaos`/`Khorne`/`Nurgle`/`Slaanesh`/`Tzeentch`）里，
+    #    **三张逐字节相同**（`markOfChaos` == `markOfKhorne` == `markOfNurgle`，各 `9555` 字节、
+    #    同一 sha），另两张只差 **15 / 6 个 `alpha=0` 像素的 RGB**（`markOfSlaanesh` / `markOfTzeentch`）
+    #    ⇒ **渲染上一个像素都不差**（出处：`素材/Warpforge原版/UI图集/图集/40ktraiticonatlas/slices/`
+    #    与同目录 `Sprite/*.json` 的 `m_Rect` —— 五张的 rect **各不相同**（`252,0`/`840,0`/`588,84`/
+    #    `420,0`/`336,84`），即**不是**抽取时切错了同一块，是**原版自己**就这么五份近似的图）。
+    #    本批另把 6 张卡的徽记裁下来并排看过（generic / Blood / Fate / Excess / `[Chaos]` / `Chaos Lord`）
+    #    —— **同一张图**（红盘 + 白八芒星）。
+    #    ⛔ 而 `darkpact.png` **盘上不存在**，拿它当 sprite 会被本脚本的 `missing` 自检报出来；
+    #    `Badges.Alias` 那边也写着 `darkpact → markOfChaos`（**同一个口径、两处一致**）。
+    #    ✅ 附带好处：只有 `markOfChaos` / `markOfSlaanesh` 在 `Badges.SpriteKey` 里登记成
+    #    **规则书键 `darkpact`** ⇒ 走 `markOfChaos` 的图标 tooltip **有**规则书正文；
+    #    换成 `markOfKhorne` 那三张会落到「小写化图名」当键（`Loc` 里没有 ⇒ tooltip 只剩名字）。
+    ("Dark Pact", "markOfChaos",
+     "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的"
+     "**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"),
+    ("黑暗契约", "markOfChaos",
+     "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、"
+     "而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"),
 ]
 
 # 认得出、但**盘上没有这张图**的记号（真缺口，如实列出来，别静默跳过）
@@ -1325,6 +1399,15 @@ _A1613_GAP = [
     ("GOF_Krumpaklaw", "护甲", "descZh", "armour", 604, "Warpforge_07A_Krumpaklaw.png", "Armour"),
     ("GOF_Worst_Temper", "Armour", "desc", "armour", 587, "Warpforge_02B_Worst-Temper.png", "Armour"),
     ("GOF_Worst_Temper", "护甲", "descZh", "armour", 587, "Warpforge_02B_Worst-Temper.png", "Armour"),
+    # 🔴 **2026-10-12（`A1624`）：`GSC38 Abominant` —— token 取 `Armour 1`（**不是** `Armour`）**。
+    #    这张卡是 `A1613` 那一批**唯一挑不出 token** 的一张：字段里同时有段首的 `Armour 1.`（句首关键词
+    #    那一支给的）和第二处（**文末**）的 `Armour 1` ⇒ `Armour 1` ⊂ `Armour 1.`、**右延长到文本尽头仍撞**。
+    #    ⇒ 本批不再挑 token，改成**让段首那条让位**（见下面 `PREFIX_ABSORB`）：
+    #      `Armour 1` 是**全局替换**，两处一起画（本字段这个写法恰好只出现这两处）。
+    #    判据 = 卡面亲读 `d:/2/Warpforge部队卡片/Genestealer Cult/3部队/Warpforge_38_Abominant.png`
+    #    （`〔盾〕Armour 1.` / `〔黄圆准星〕Concussive.` / `〔暗红圆〕Ambush: Gain 〔盾〕Armour 1`
+    #     —— **文末那一枚真的印着**）+ 转录 `_还原效果文字.md:467`（`ArmourArmour 1. … Gain ArmourArmour 1`，双写 2 处）。
+    ("GSC38", "Armour 1", "desc", "armour", 467, "Warpforge_38_Abominant.png", "Armour"),
     ("GSC52", "Armour", "desc", "armour", 480, "Warpforge_52_Enhanced-Resilience.png", "Armour"),
     ("GSC52", "护甲", "descZh", "armour", 480, "Warpforge_52_Enhanced-Resilience.png", "Armour"),
     ("GSC54", "Armour", "desc", "armour", 482, "Warpforge_54_Bore-Through.png", "Armour"),
@@ -1447,11 +1530,26 @@ _A1613_GAP = [
     ("ASH_Orian_Laratharjos", "Stealth,", "desc", "stealth", 98, "Zrzut ekranu 2026-04-16 o 18.55.24.png", "Stealth"),
     ("ASH_Orian_Laratharjos", "潜行时", "descZh", "stealth", 98, "Zrzut ekranu 2026-04-16 o 18.55.24.png", "Stealth"),
     ("TAU16", "Stealth to", "desc", "stealth", 859, "Warpforge_16_Darkstrider.png", "Stealth"),
+    # ---- 🆕 2026-10-12（`A1623`）：`Dark Pact` / `黑暗契约`（**只有中文这一格**）----
+    # 🔴 **为什么这一格不能交给按词规则**：`BL74` 的中文是**我们自己译的**，把那个词写了**两遍**
+    #    （`当我方部队获得黑暗契约时，此部队同样获得该黑暗契约` —— 第二处是英文 `it` 的译法），
+    #    而卡面**只印一枚**徽记（转录 `:181` 双写 1 处、成品卡图
+    #    `Chaos/3部队/Warpforge_10_Accursed-Helbrute.png` 亲读 1 枚）。
+    #    按词规则是**整字段**的 ⇒ 它会在这儿画两枚（多一枚 = 卡面没有的东西 = 本工程红线）。
+    #    ⇒ 按卡给一条**更长**的 token（`黑暗契约时`）—— 裸 token 那一支把图标插在 token **起点**，
+    #    所以图标正好落在「黑暗契约」前面、与卡面那一格一致；`Rewrite` 全局替换，这一串只出现一次。
+    #    ⚠️ 英文那一半**不用列**（`desc` 里那个词只出现一次，按词规则直接画、位置也对）。
+    #    ⚠️ 有了这一条，`descZh` 的守卫②（本卡已有**同 sprite** 的逐卡裸 token）就会让按词规则
+    #    整字段跳过 ⇒ **不会**出现「两枚」。
+    ("BL74", "黑暗契约时", "descZh", "markOfChaos", 181, "Warpforge_10_Accursed-Helbrute.png", "Dark Pact"),
 ]
 _A1613_MARK = {
     "armour": "「盾牌」", "codex": "「典籍」", "remnant": "「残骸」", "strike": "「猛击」",
     "ambush": "「伏击」", "talent": "「卷轴」", "frenzied": "「毁灭者」（图集里没有 `destroyer.png`）",
     "pray": "「祈祷」", "regiment": "「团」", "ephemeral": "「临时」", "rage": "「忏悔」（图集里没有 `penitence.png`）",
+    # 🆕 2026-10-12（`A1623`）：`Dark Pact` 那枚 —— 形状**逐张开图核过**（6 张卡的徽记裁下来并排看 = 同一张图），
+    #    所以照实写形状，别退回中性的「图标」。
+    "markOfChaos": "「暗红盘 + 白八芒星」（= 黑暗契约徽记；五张 `markOf*` 渲染上完全一样）",
 }
 for _g_cid, _g_tok, _g_field, _g_sprite, _g_line, _g_png, _g_word in _A1613_GAP:
     # ⚠️ 形状名**只在对得上时**才写形状（`_A1613_MARK`）；没核过的一律退回中性的「图标」——
@@ -1460,6 +1558,231 @@ for _g_cid, _g_tok, _g_field, _g_sprite, _g_line, _g_png, _g_word in _A1613_GAP:
               f"`Resources/Art/traits/{_g_sprite}.png`）—— 逐张判据："
               f"`资料/卡表核对_卡图提取/_还原效果文字.md:{_g_line}`（`{_g_png}`）。")
     BARE_TOKEN_BY_CARD[(_g_cid, _g_tok)] = (_g_sprite, _g_why)
+
+
+# ── 🆕 2026-10-12（`A1624`）：**「句首关键词 token 让位给同词的裸 token」**表 ────────────────
+# 🔴 **它解决什么**：卡面**句尾那一段不印句号**（印刷约定，`A1476` 记过），而**段首**那个词一定带收尾符
+#    （`Armour 1.` / `Stealth.`）⇒ 同一张卡里会出现「**长的段首 token**（`Armour 1.`）⊂/⊃
+#    **短的裸 token**（`Armour 1`）覆盖不到的第二处」这个形状。
+#    而 `CardIcons.Rewrite` 是 `s.Replace(token, tag)`：**长的先换**（长度降序）⇒ 长的那条先占位、
+#    再把**词留着** ⇒ 短的裸 token 要么被生成器的「同字段 token 互相包含」自检拦下来（rc=1）、
+#    要么被**守卫③**（整字段让位）整条跳过 ⇒ **第二处静默不画**。
+#
+# **改法**：不再从 token 身上找活路（`A1613` 那一批已经试过「向右延长」—— `GSC38` 第二处**就在文末**、
+#    右延长到尽头仍撞），而是**让段首那条让位**：把 `(卡, 字段, 段首 token)` 从 `kws` 里**摘掉**，
+#    由**同词、同 sprite 的裸 token** 去画 —— 裸 token 是**全局替换**，那一处**本来就含在它里面**
+#    （段首 token = 裸 token + 纯标点尾巴）⇒ **一个 token 把两处一起画**、位置也对（图标插在词前）。
+#
+# 🔴 **每一条都必须有卡面判据**（`资料/卡表核对_卡图提取/_还原效果文字.md` 的**双写** = 图标 + 词），
+#    因为这条形状里**藏着一个真陷阱**：同词出现两次、而**第二处不是关键词用**（是**卡名 / 天赋名 /
+#    伴生单位名**）时，字符层面**分不出来**（`Gain Flank and Shield.` 与 `Gain Sentry 2` 同形）。
+#    ⇒ ⛔ **不能写成「按词」的通用规则**（那会给卡面**加**上原版没有的图标 = 工程红线）。
+#    实测的**反例三张**（本表**故意不列**，如实留在账上）：
+#      · `TAU33 Stealth Shas'ui` —— 转录 `:878` = `StealthStealth.CompanionCompanion 2: Stealth Drone`
+#        ⇒ 第二处在**伴生单位名**里、**没有双写** ⇒ 不画；
+#      · `TAU42 Riptide Battlesuit` —— 转录 `:897` = `Shield Shield. Long Range Long Range. Talent Talent: Shield Generator`
+#        ⇒ 第二颗 `Shield` 在**天赋名** `Shield Generator` 里、没有双写 ⇒ 不画；
+#      · `TL37 Hive Tyrant` —— 转录 `:957` = `SynapseSynapse. TalentTalent: Synaptic Imperative`
+#        ⇒ 中文那半 `突触律令` 同理（`突触` ⊂ 天赋名）⇒ 不画。
+#    ⚠️ 这三张**今天是对的**（计划表不画那处）⇒ **本表不列它们**，列了就是「凭空多画一枚」。
+#
+# 列 = (卡 id, 字段, **让位**的段首 token, **接手**的裸 token, 转录行号, 卡图文件名)
+# ⚠️ 本表**同时**是「让位」的判据载体与查询表 ⇒ 底下那个 `PREFIX_ABSORB` 由它生成（**一处**，别抄两份）。
+_PREFIX_ABSORB_ROWS = [
+    # ---- 2026-10-12（`A1624`）：`A1613` 收口时**只剩的两张**（+ 本批同族新查出的）----
+    ("GSC38", "desc", "Armour 1.", "Armour 1", 467, "Warpforge_38_Abominant.png"),
+    ("GOF34", "desc", "Stealth.", "Stealth", 665, "Warpforge_34_Kommando.png"),
+    # 🔴 **2026-10-12 现核（`A1621` 那一笔的裁定）**：`UM78` / `TAU14` / `TAU20` 的 **`desc` 段首词
+    #    【不进 `desc`】** —— `C2` 当天裁定：段首那一段由**渲染侧**印（`CardText.KeywordSegment`，
+    #    `A1345` 的 `DeclaredInBody` 已能印、且带图标按 `keywords` 数组序；见
+    #    `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-12_A1621_A1625_段首词与DA37任务点`）。
+    #    ⇒ 这三张的 **`desc` 字段里今天没有段首 token 可让位**，本表**不列它们**
+    #    （第一版本写进去过 ⇒ 本表自己的**死条目自检当场报出来**，那条自检就是为这种情形设的）。
+    #    ⚠️ 若哪天有人照 `A1475③` 把段首词补回 `desc`，这里要**一起**补三行
+    #    （`UM78 [desc] Armour 1.→Armour` / `TAU14 [desc] Stealth.→Stealth` / `TAU20 [desc] Long Range.→Long Range`），
+    #    否则 `UM78` 会当场报「互相包含」（rc=1、不落盘），另两张会**静默丢掉句中那一枚**
+    #    （守卫③ 整字段让位）—— 那条回归由 `FACE_ICON_COUNT` 那三行兜住。
+    # ---- 本批**同族新查出**的三张（`A1613` 的残缺口度量没覆盖到它们：度量是「按词」的，
+    #      而这几张的第二处**被守卫③整字段挡掉**、计数时看不出来）----
+    # `SW44 Wulfen Dreadnought`：转录 `:819` = `Armour Armour 1. Pack Pack. Rally Rally: Give +2 Melee
+    #   to all friendly units with Pack Pack` ⇒ **句尾那个 `Pack` 也印着徽记**（双写）。
+    #   ⚠️ **只有中文那半要让位**：英文 `desc` 句尾写的是 `with Pack.`（**带句号**）⇒ 段首那条 `Pack.`
+    #      是**全局替换**、两处都命中 ⇒ 英文那半**本来就画着**（本批现核：`count('Pack')==count('Pack.')==2`
+    #      ⇒ 不在「短 token 覆盖更多」那个判据里）；中文 `descZh` 句尾是 `带兽群的`（**没有 `。`**）⇒ 真缺口。
+    ("SW44", "descZh", "兽群。", "兽群", 819, "Warpforge_44_Wulfen-Dreadnought.png"),
+    # `TAU14 Stealth Drone`：转录 `:857` = `FlyingFlying.StealthStealth. At the end of your turn,
+    #   give StealthStealth to an adjacent troop` ⇒ 句尾 `give Stealth to` 那处**双写**。
+    #   ⚠️ **只有中文那半需要让位**：英文 `desc` 里段首词**不进 `desc`**（同上那条裁定）⇒ 句中那枚
+    #      由按词规则**直接画**（没有段首 token 挡它）；中文 `descZh` 里段首 `潜行。` 是**我们自己的
+    #      中文字**（`_2026-09-15_PnP逐张并排验收_漏印关键词段` 那批补的，卡面无中文可核）⇒ 它挡着。
+    ("TAU14", "descZh", "潜行。", "潜行", 857, "Warpforge_14_Stealth-Drone.png"),
+    # `TAU20 Sniper Drone`：转录 `:864` = `FlyingFlying.Long RangeLong Range. Gains Long RangeLong Range
+    #   when an enemy gains MarkerlightMarkerlight` ⇒ 句中的 `Long Range` **双写**（同 `TAU14` 那条的形状）。
+    ("TAU20", "descZh", "远射。", "远射", 864, "Warpforge_20_Sniper-Drone.png"),
+]
+# 查询表：`(卡 id, 字段, 让位的段首 token)` → 接手的裸 token
+PREFIX_ABSORB = {(_c, _f, _t): _k for _c, _f, _t, _k, _ln, _png in _PREFIX_ABSORB_ROWS}
+
+# 🔴 **本表的两条自检**（缺了任何一条 = 静默错，见 `main()` 里那 20 行）：
+#   ① **每条都要真的被用到** —— `(卡, 字段, 段首 token)` 必须**真的被 `kws` 产出过**
+#      （卡表一改，这条就成了「看起来在干活、实际什么都没做」的死条目 ⇒ 报出来、rc=1）；
+#   ② **接手的裸 token 必须真的落进这个字段的计划** —— 否则摘掉段首那条 = **那一枚图标整枚消失**
+#      （比改前更糟：改前至少段首那一枚是画着的）⇒ 也要 rc=1。
+#   ③ 另有 `FACE_ICON_COUNT`（下面）把「这个字段该画几枚」**按卡面**钉住 —— 它才是**能红**的那条判据。
+PREFIX_ABSORB_WHY = {
+    ("GSC38", "desc"): "第二处是**文末**的裸 `Armour 1`（本字段**只此两处**，`Armour 1` 全局替换两处一起画）",
+    ("GOF34", "desc"): "第二处是**文末**的裸 `Stealth`（`Stealth` 按词规则给的，本字段两处都画）",
+    ("SW44", "descZh"): "第二处是句尾 `带兽群` 那一处（中文 `兽群。` 那条**没有**全局命中的运气 —— 尾字是 `的`）",
+    ("TAU14", "descZh"): "第二处是句尾 `给予 1 个相邻部队潜行`；`潜行` 是**按词**规则给的",
+    ("TAU20", "descZh"): "第二处是句尾 `…时获得远射`；`远射` 是**按词**规则给的",
+}
+
+# ── 🆕 2026-10-12（`A1624` / `A1622`）：**卡面枚数抽样自检** ─────────────────────────────
+# 🔴 **期望值来自成品卡图**（本批作者逐张开图 + 转录表的**双写**），**不是**从我们自己的实现里算出来的
+#    —— 否则就是拿我们的实现证明我们的实现（本工程反复强调的那条）。
+# **量什么**：这个字段的**计划表会画几枚** = `Σ 每条 token 在原文里的出现次数`（`Rewrite` 是全局替换，
+#    每条覆盖本字段**全部**出现；token 之间**互不包含**由上面那道 `conflicts` 自检保证 ⇒ 不会重复计数）。
+#    ⚠️ 它**不含** `CardText.KeywordSegment` 补的那几枚（段首声明行）—— 那几枚单独在判据里写清。
+# **为什么要它**：上面那些坑（长 token 挡住短 token、守卫③、段首让位）**全都不在计划表上现形**
+#    （计划表看起来永远「有这一条」）⇒ 只有「**画出来几枚**」这个数能把它们抓出来。
+#    实测：本批**改前** `GSC38 desc = 3 ≠ 4`、`GOF34 desc = 2 ≠ 3`（其余行当时就对）⇒ **这条判据真会红**。
+FACE_ICON_COUNT = [
+    # (卡 id, 字段, **本字段（这份正文）**应画枚数, 判据 / 那几枚由谁画)
+    ("GSC38", "desc", 4, "卡面 `Genestealer Cult/3部队/Warpforge_38_Abominant.png` 亲读 **4 枚，全在正文里**"
+                        "（转录 `:467` 双写 4 处）—— 段首那三项 `Armour 1.`/`Concussive.`/`Ambush:` 就在 `desc` 里"
+                        "⇒ `KeywordSegment` 一枚都不补"),
+    ("GSC38", "descZh", 4, "中文卡面不存在 ⇒ 判据 = 与英文那 4 枚**逐处对应**（`护甲 1。`两条**都**在正文里）"),
+    ("GOF34", "desc", 3, "卡面 `Orks/3部队/Warpforge_34_Kommando.png` 亲读 3 枚（转录 `:665` 双写 3 处）"),
+    ("GOF34", "descZh", 3, "中文同英文逐处对应（`潜行。`+句尾 `潜行。`）"),
+    ("UM78", "desc", 5, "卡面 `Ultramarines/3部队/Warpforge_14_Chapter-Champion.png` 亲读 **6** 枚 = 正文 5 枚"
+                        "（`Codex:`/`Oath 2:`/`+2〔拳〕`/`Armour 1`/`Vanguard`）+ **段首 `Armour 1.` 1 枚**"
+                        "（由 `KeywordSegment` 补 —— `desc` 里**不补**那个词，见 `cardface_fixes.json` 的"
+                        "`_2026-10-12_A1621_A1625_段首词与DA37任务点`）"),
+    ("UM78", "descZh", 6, "中文 6 枚**全在正文里**（段首 `护甲 1。` 是我们自己的中文字，`KeywordSegment` 不再补）"),
+    ("SW44", "desc", 5, "卡面 `Space Wolves/3部队/Warpforge_44_Wulfen-Dreadnought.png`（转录 `:819` 双写 5 处，"
+                        "含句尾 `with Pack` —— 那一枚是本批补的）"),
+    ("SW44", "descZh", 5, "中文同英文逐处对应"),
+    ("TAU14", "desc", 1, "卡面 `Tau/3部队/Warpforge_14_Stealth-Drone.png`（转录 `:857` 双写 3 处）= 正文 1 枚"
+                         "（句尾 `give Stealth to`）+ **段首 `Flying.` `Stealth.` 2 枚**（`KeywordSegment` 补）"),
+    ("TAU14", "descZh", 3, "中文 3 枚全在正文里（段首 `飞行。潜行。` 是我们自己补的中文字）"),
+    ("TAU20", "desc", 2, "卡面 `Tau/3部队/Warpforge_20_Sniper-Drone.png`（转录 `:864` 双写 4 处）= 正文 2 枚"
+                         "（`Long Range`/`Markerlight`）+ **段首 `Flying.` `Long Range.` 2 枚**（`KeywordSegment` 补）"),
+    ("TAU20", "descZh", 4, "中文 4 枚全在正文里（`飞行。远射。`+句中 `远射`+`标记光`）"),
+    ("SOR72", "desc", 6, "卡面 `Sorotitas/3部队/Warpforge_08_Adelaide-the-Serene.png` 亲读 **7** 枚 = 正文 6 枚"
+                         "（`6☀`/`Gain Flank and Shield`/`Rally:`/尾句两枚 `☀`）+ **段首 `Flying.` 1 枚**"
+                         "（由 `KeywordSegment` 补）"),
+    ("SOR72", "descZh", 6, "🔴 **2026-10-12（第二十一会话 · 写手 `N2`）期望值 5 → 6**：中文那半现在与英文那 6 枚"
+                          "**逐处对应**（`6 ☀：`/`侧翼`/`护盾`/`集结：`/句中的 `6 ☀`/尾句 `1 ☀`）。"
+                          "⚠️ **改前的 5 是一条真缺陷、不是口径差**：中间那句我们写的是「**少于 6 点**」，"
+                          "英文同处是 `6 ☀`、卡面是 `6〔金太阳〕`"
+                          "（`Sorotitas/3部队/Warpforge_08_Adelaide-the-Serene.png` 亲读）⇒ 已按卡面补成 `6 ☀`"
+                          "（改在 `数据/游戏数据/cardface_fixes.json` 的 `descZh` 列，见 "
+                          "`_2026-10-12_A1633_A1634_同名卡裸键与任务点`）。"
+                          "段首 `飞行。` 另由 `KeywordSegment` 补 ⇒ 与卡面 7 枚**只差那一枚段首的**。"
+                          "⚠️ 另：`KeywordSegment` 对这一张还会把 `侧翼。`/`护盾。` 也提到段首 = 原版没有 ⇒ "
+                          "见 `Core/CardText.cs` 里 `SOR72` 那条残差注释；**与 `descZh` 文本侧这一枚是两笔**"),
+    ("AM54", "desc", 2, "卡面 `Astra Militarum/4计策/Warpforge_54_Thermal-Weaponry.png` 亲读 2 枚（转录 `:168`，"
+                        "**无声明行** ⇒ `keywords` 为空、`KeywordSegment` 一枚都不补）"),
+    ("AM54", "descZh", 2, "中文同英文逐处对应"),
+]
+
+
+# ── 🆕 2026-10-12（`A1623`）：`Dark Pact` 一族（`BARE_TOKEN_BY_RULE` 末尾那两条）─────────────
+# 🔴 **先说结论：那张「哪一位邪神用哪一枚 sprite」的映射表【不用做】—— 五张 `markOf*` 渲染上完全一样。**
+#    原版图集本身就那么五份近似图（三张**逐字节相同**、另两张只差 15 / 6 个 `alpha=0` 像素的 RGB），
+#    `m_Rect` 各不相同（`252,0` / `840,0` / `588,84` / `420,0` / `336,84`）⇒ **不是抽取时切错了同一块**。
+#    本批又把 6 张卡的徽记裁下来并排看（generic / Blood / Fate / Excess / `[Chaos]` / `Chaos Lord`）
+#    —— 同一张图。⇒ 一律 `markOfChaos`（判据与理由写全在 `BARE_TOKEN_BY_RULE` 那一段的注释里）。
+#
+# **本组记号**（`BARE_TOKEN_BY_RULE` 末尾两条产出 / 别处也画得到同一枚的）：
+DARKPACT_SPRITES = {"markOfChaos", "markOfKhorne", "markOfNurgle", "markOfSlaanesh", "markOfTzeentch"}
+DARKPACT_TOKENS = {"Dark Pact", "黑暗契约", "黑暗契约时",
+                   "[Dark Pact]", "[Chaos]", "[黑暗契约]", "❄"}
+
+# 🔴 **这一处 `Dark Pact` 的徽记【已经由另一条记号画了】** ⇒ 按词规则别插手（插了 = 同一处画两枚）。
+#    形状与自检**逐条照 `_PREFIX_ABSORB_ROWS` 那一族**（表里的行必须**真被用到**、
+#    被点名的记号必须**真在计划里** —— 两条任一不成立就 rc=1，⛔ 别让例外变成静默的丢图标）。
+#    列 = (卡 id, 字段, **已经画着那枚**的记号, 判据)
+_DARKPACT_ALREADY_ROWS = [
+    ("BL19", "desc", "❄",
+     "卡面 `Chaos/3部队/Warpforge_19_Noise-Marine.png` 亲读 = `When your Warlord receives damage, "
+     "gain a 〔红盘 + 白八芒星〕Dark Pact of Excess` —— 那枚徽记就是 `desc` 里 `❄` 占的那一格。"
+     "`❄` 走 `SYMBOLS`（`markOfSlaanesh`，渲染上与 `markOfChaos` 逐像素相同）。"),
+    ("BL19", "descZh", "❄",
+     "同上那半（中文比英文早就有 `❄`；`A1473` 2026-10-10 才把英文侧对齐过来）。"
+     "⚠️ 中文这里 `❄` 与词之间还夹着一个「纵欲」（`❄纵欲黑暗契约`）⇒ **别改成「紧邻才让位」那种判据**"
+     "（那样这一格会漏判、同一处画两枚）。"),
+    ("BL69", "desc", "[Chaos]",
+     "卡面 `Chaos/5防御卡/Warpforge_69_Hellfire-Torch.png` 亲读 = `Give a 〔同一枚红盘白八芒星〕"
+     "Dark Pact to a friendly troop` —— `[Chaos]` 那个 token **就是**这一枚（`TOKEN_BY_CARD` 里那条的"
+     "`why` 写着「卡图 + NCC 0.932（暗红盘 + 白八芒星）」），词留在后面。"),
+    # ⚠️ **故意不列的四格**（列了 = 死条目、自检会红）：`BL51` 两半 与 `BL69` 的 `descZh` ——
+    #    它们由**守卫①**（本字段含 `[Dark Pact]` / `[黑暗契约]`）整字段挡掉，而那两个 token
+    #    **本身就是那枚徽记**（渲染成 `〔徽记〕Dark Pact` / `〔徽记〕混沌黑暗契约`，与卡面逐字一致）。
+]
+DARKPACT_ALREADY = {(c, f) for c, f, _t, _w in _DARKPACT_ALREADY_ROWS}
+
+# ── `Dark Pact` 一族的**卡面枚数自检**（期望值来自**成品卡图**，⛔ 不是从我们的实现里算的）──────
+# **量什么**：这个字段里**画出的 `Dark Pact` 徽记有几枚** = `Σ 每条 `DARKPACT_TOKENS` 里的 token
+#    在原文里的出现次数`（`Rewrite` 是全局替换；`[Dark Pact]` / `[Chaos]` / `❄` 那几条
+#    各自只在 `BL51` / `BL69` / `BL19` 上出现，`[`-开头的键不计入「互相包含」自检 —— 见 `conflicts`）。
+# **为什么它必须单独有一条**：`A1623` 之前这一族**一枚都不画**，而计划表里「有没有条目」
+#    看不出来这件事（`BL19` 那种靠 `❄` 画着的更是看不出）⇒ 只有「**画出来几枚**」能把漏画抓出来。
+#     同时它也是**灭自证**那一半的载体：把这几条记号从计划里抽掉 ⇒ 每一行都必须变红（见 `main()`）。
+# **判据**：37 张 PnP 成品卡图**逐张开图亲读**（本批作者全读了一遍，见报告的逐张对照表）
+#     ＋ `资料/卡表核对_卡图提取/_还原效果文字.md` 的**双写**（`Dark PactDark Pact` = 图标 + 词）：
+#     转录表里**恰好 37 行**有双写、与这 37 张卡**一一对应**（集合相等，`ours ⊖ 转录 = ∅`）。
+#     ⇒ **每张各 1 枚**，只有 `BL45 Chaos Lord` 是 **2 枚**（卡面亲读 = `give it a random 〔徽记〕Dark Pact.`
+#     ＋ `⚡Rally: Gain a random 〔徽记〕Dark Pact`）。
+#     ⚠️ `descZh` 的枚数**与 `desc` 一样**：中文卡面不存在，判据 = **英文卡面那一半**
+#     （原版客户端没有中文表，全仓已定案）⇒ 中文那一侧只要求「与英文逐处对应」。
+#     ⚠️ 也正是这条把三处例外钉住了：`BL51`（词出现两次、卡面 1 枚）、`BL69` 的 `descZh`
+#     （`[黑暗契约]混沌黑暗契约` = 1 枚）、`BL74` 的 `descZh`（我们译成两处词、卡面 1 枚）。
+DARKPACT_FACE_COUNT = [
+    # (卡 id, `desc` 该画几枚, `descZh` 该画几枚, 卡图文件名)
+    ("BL2", 1, 1, "Warpforge_2_Chosen-of-the-Four.png"),
+    ("BL8", 1, 1, "Warpforge_8_Unhallowed-Gifts.png"),
+    ("BL12", 1, 1, "Warpforge_12_Chaos-Legionary.png"),
+    ("BL13", 1, 1, "Warpforge_13_Chaos-Sergeant.png"),
+    ("BL15", 1, 1, "Warpforge_15_Rubric-Marine.png"),
+    ("BL17", 1, 1, "Warpforge_17_Khorne-Berzerker.png"),
+    ("BL19", 1, 1, "Warpforge_19_Noise-Marine.png"),
+    ("BL21", 1, 1, "Warpforge_21_Plague-Marine.png"),
+    ("BL25", 1, 1, "Warpforge_25_Aspiring-Champion.png"),
+    ("BL26", 1, 1, "Warpforge_26_Chosen.png"),
+    ("BL29", 1, 1, "Warpforge_29_Possessed-Champion.png"),
+    ("BL32", 1, 1, "Warpforge_32_Havoc.png"),
+    ("BL33", 1, 1, "Warpforge_33_Lheorvine-Ukris.png"),
+    ("BL39", 1, 1, "Warpforge_39_Chosen-Champion.png"),
+    ("BL40", 1, 1, "Warpforge_40_Dark-Apostle.png"),
+    ("BL42", 1, 1, "Warpforge_42_Helbrute.png"),
+    ("BL45", 2, 2, "Warpforge_45_Chaos-Lord.png"),
+    ("BL46", 1, 1, "Warpforge_46_Maulerfiend.png"),
+    ("BL49", 1, 1, "Warpforge_49_Abaddons-Chosen.png"),
+    ("BL51", 1, 1, "Warpforge_51_Dark-Oratory.png"),
+    ("BL54", 1, 1, "Warpforge_54_Daemonic-Frenzy.png"),
+    ("BL55", 1, 1, "Warpforge_55_Disgustingly-Resilient.png"),
+    ("BL56", 1, 1, "Warpforge_56_Gifts-of-Chaos.png"),
+    ("BL58", 1, 1, "Warpforge_58_Skeins-of-Fate.png"),
+    ("BL61", 1, 1, "Warpforge_61_Delightful-Agonies.png"),
+    ("BL66", 1, 1, "Warpforge_66_Unholy-Smite.png"),
+    ("BL69", 1, 1, "Warpforge_69_Hellfire-Torch.png"),
+    ("BL74", 1, 1, "Warpforge_10_Accursed-Helbrute.png"),
+    ("BL_Litany_of_Despair", 1, 1, "Warpforge_2_Litany-of-Despair.png"),
+    ("BL_Meltagun_Legionary", 1, 1, "Warpforge_7_Meltagun-Legionary.png"),
+    ("EC6", 1, 1, "Warpforge_06_Excessive-Vigour.png"),
+    ("EC14", 1, 1, "Warpforge_14_Icon-of-Excess.png"),
+    ("EC34", 1, 1, "Warpforge_34_Turyan-Ghauze.png"),
+    ("EC42", 1, 1, "Warpforge_42_Chosen-of-Slaanesh.png"),
+    ("EC50", 1, 1, "Warpforge_50_Internal-Rivalry.png"),
+    ("EC52", 1, 1, "Warpforge_52_Pledge-to-the-Dark-Prince.png"),
+    ("EC62", 1, 1, "Warpforge_62_Armoury-of-Excess.png"),
+]
+
+
+def darkpact_marks(got, text):
+    """这个字段**画出来的 `Dark Pact` 徽记枚数**（纯函数 —— 灭自证那一半要拿它跑合成表）。"""
+    return sum(text.count(t) for t in got if t in DARKPACT_TOKENS)
 
 
 GAP_BY_CARD = {}
@@ -1832,7 +2155,16 @@ def find_icon_by_anchor(annotated, pre, post):
 
 # ── 还原表用的词 → 我们盘上的 sprite 名（同一个东西两种叫法，别让它变成「缺图」）────
 ALIAS = {
-    "Energy": "faith",              # 还原表的小表把「太阳」记成 Energy；卡图 = faith.png
+    # ⚪ 2026-10-12（第二十一会话 · 写手 `C5` · `A1604`）：`"Energy": "faith"` **已删**。
+    #    那条是**上游错标签的补丁** —— `工具/restore_card_icons.py` 原来把「太阳」记成 `Energy`
+    #    （真值 `Faith`；判据 = PnP 亲读 + `_图标清单.md:31` + 卡池 `[faith]`/`☀`，
+    #    见那个脚本 `STANDALONE['太阳']` 里那一整段）。上游本轮已就地订正
+    #    ⇒ 这条成了**死条目**，而且它会**掩盖**以后真的把某枚图标画成 `Energy` 的那种错
+    #    （盘上**没有** `energy.png` 这张图，本该当场报「sprite 名盘上没有」）。
+    #    ⚠️ `Energy` 仍留在 `EXTRA_VOCAB` 里 —— 那是**另一个用途**：卡面上真印着
+    #    `Refill all your Energy` / `Waaagh! Energy` 这类**词**（还原表里 5 处），跟这条别名无关。
+    #    ⚠️ `Faith` **不需要**在这张表里加一条：锚点匹配到的词经 `CANON` 归一后就是图集文件名
+    #    （`faith.png` → `faith`），直接查得到盘（实测本轮 `🔴 sprite 名盘上没有: 无`）。
     "Quest Point": "questPoints", "Quest Points": "questPoints", "Quest": "questPoints",
     "Spirit Stone": "SpiritStone_1", "Spirit Stones": "SpiritStone_1",
     "Dark Pact": "markOfChaos", "Blood Thirst": "bloodThirst", "Long Range": "longrange",
@@ -1868,12 +2200,29 @@ ZH2EN = {
 # 「图标 + 词」或更早的同形文字带偏了）。放在这里是为了让报告只剩**新出现**的不一致。
 # ⚠️ 2026-09-15：`("DA8", "[Shield]")` 那条已随 token 改名换成 `[Quest Point]`
 #    （卡表文字改过了，见 `TOKEN_BY_CARD` 里那两条的说明）—— 留着旧 token 就成了永远不会命中的死条目。
-ANCHOR_NOISE = {("DA75", "[1]"), ("GOF87", "[health]"), ("GOF_Uge_Choppa", "[Slay]"), ("DA8", "[Quest Point]"),
+# 🔴 2026-10-12（`N2`）：`("DA75","[1]")` **已摘掉** —— 那个 token 已随 `desc` 改写（`[1]` → `1 Quest Point`）
+#    从卡表里消失，留着就是永远不会命中的死条目（同族先例见本表上面那条 `("DA8","[Shield]")` 的注释）。
+ANCHOR_NOISE = {("GOF87", "[health]"), ("GOF_Uge_Choppa", "[Slay]"), ("DA8", "[Quest Point]"),
                 # 2026-09-16：`GOF87` 的 `[health]` 按卡面改名成 `[ranged]`（实为紫枪），
                 # 而**锚点对这一枚一直给 `armour`** —— 那句话里紧邻的前一个图标是 `Armour 1.` 的银盾，
                 # 锚点被它带偏了。判据是逐张开图（`Orks/3部队/Warpforge_13_Nob-on-Smasha-Squig.png`：
                 # `+1〔拳〕 and +1〔枪〕`），所以按 `TOKEN_BY_CARD` 的答案，不按锚点。
-                ("GOF87", "[ranged]")}
+                ("GOF87", "[ranged]"),
+                # 🔴 2026-10-12（第二十一会话 · 写手 `C5` · `A1604` 的下游）：`("ASH44","[Invulnerable]")`。
+                #    **卡面/卡池的答案没有疑问**：`ASH44 Wraithknight` 的 `desc` 就是
+                #    `3 [Spirit Stone]: Gains [Invulnerable] Invulnerable until your next turn`,
+                #    `[Invulnerable]` 这个记号**后面紧跟着印着那个词**（`Invulnerable`）⇒ 答案 = `invulnerable`。
+                #    锚点为什么错（本条**实测复现过**，不是推测）：`find_icon_by_anchor` 的第三条兜底
+                #    `(False, True)` 里 `p` 为空 ⇒ `j = 0` ⇒ 段是**从文本开头**切到后锚点，
+                #    然后**先认 `⟦独立图标⟧`、有就返回最后一个**：
+                #      段里 `⟦独立⟧` = `['Spirit Stone']`（`3 [❰Spirit Stone❱]` 那枚）
+                #      段里 `❨图标+词❩` = `['armour','shuriken','invulnerable']` ← **正确答案在这里**
+                #    ⇒ 被**更早的独立图标**带偏（这正是本表头那句「更早的同形文字带偏了」）。
+                #    ⚠️ 试过「把段缩到后锚点前 MAX_CONTEXT 窗口」—— **实测无效**：那枚 `Spirit Stone`
+                #    距后锚点只有 ~20 字符，缩到 38 字符的窗口它**还在**（缩到 20 才消失）。
+                #    ⇒ 真要修得改成「**离后锚点最近的那一枚**（不分 ⟦⟧/❨❩）」= 换启发式，
+                #      影响面不止这一张 ⇒ 本轮**不改**，只记进本表（账见交接）。
+                ("ASH44", "[Invulnerable]")}
 
 
 def dump_plan(plan):
@@ -1921,6 +2270,12 @@ def main():
     # `A1411`：③「中文走英文对家（`ZH2EN`）」那一支**真被查到**的键 —— 它们**不是死条目**
     # （token 不在文本里是**设计如此**：它的用途就是给 `descZh` 当桥）
     zh_bridge_used = set()
+    # 🆕 2026-10-12（`A1624`）：真的被 `PREFIX_ABSORB` 让位掉的段首 token（`(卡, 字段, token, 接手 token, sprite)`）
+    #  —— 表里写了、这里没出现的 = **死条目**（卡表改了），下面自检会报出来。
+    _absorbed = []
+    # 🆕 2026-10-12（`A1623`）：真的被 `DARKPACT_ALREADY` 挡下来的 `(卡, 字段)` —— 表里写了、这里没出现的
+    #  = **死条目**（本字段其实没有别的记号在画那一枚）⇒ rc=1。
+    _dp_already_seen = set()
 
     def anchor_answer(name, text, m):
         """锚点对齐（交叉核对 / 兜底）。返回 (sprite, 说明)。"""
@@ -1944,6 +2299,20 @@ def main():
             syms = [ch for ch in text if ch in SYMBOLS]
             # 句首「关键词 + :/.」——`desc` 是 OCR 的、这些图标没被记下来，按名字补（见 KEYWORD_PREFIX）
             kws = keyword_prefixes(text, KWIDX, ZH_KW, [(m.start(), m.end()) for m in toks])
+            # ── 🆕 2026-10-12（`A1624`）：**段首那条让位给同词的裸 token**（见 `PREFIX_ABSORB` 那段注释）。
+            #    ⚠️ **必须在这里**（`btok` / `_pre_tokens` **之前**）：
+            #      · 摘掉段首那条之后，`_pre_tokens` 里就没有它了 ⇒ **守卫③ 不再整字段挡那个词**
+            #        （`GOF34` 的 `Stealth` / `SW44` 的 `Pack` / `TAU14` 的 `Stealth` / `TAU20` 的 `Long Range`
+            #         都是靠这一步才落进计划表的）；
+            #      · 摘在 `got` 组装之后 = 那条**照样进计划表**（本表就白写了）。
+            #    ⚠️ 只摘**这一条**、不摘别条：段首那枚图标的位置由接手的裸 token 负责，**一个 token 画两处**。
+            _kws_keep = []
+            for _kt, _ksp, _kw in kws:
+                if (cid, field, _kt) in PREFIX_ABSORB:
+                    _absorbed.append((cid, field, _kt, PREFIX_ABSORB[(cid, field, _kt)], _ksp))
+                    continue
+                _kws_keep.append((_kt, _ksp, _kw))
+            kws = _kws_keep
             # 不带方括号的资源词（`Gain 1 Quest Point` / 「获得 1 点任务」）—— 见 RESOURCE_WHY
             res = resource_tokens(text, [(m.start(), m.end()) for m in toks])
             # 按卡的**裸 token**（见 `BARE_TOKEN_BY_CARD`）—— 必须在**下面那道 `continue` 之前**算出来。
@@ -1974,6 +2343,16 @@ def main():
                     continue
                 if ("[" + _t + "]") in text:         # 守卫①：图标已由方括号那一支画
                     rule_audit[_t]["方括号守卫"].add(cid)
+                    continue
+                # ── 🆕 2026-10-12（`A1623`）：**`Dark Pact` 一族的两处例外**（`DARKPACT_ALREADY`）──
+                #   本字段那一枚徽记**已经由另一条记号画了**（`BL19` 的 `❄` / `BL69` 的 `[Chaos]`）
+                #   ⇒ 规则再画一次就是**同一处两枚**。
+                #   ⚠️ **判据是「卡面那一格被谁占了」，不是位置的算术** —— 中文 `BL19` 里
+                #     `❄` 与「黑暗契约」之间**还夹着一个「纵欲」**（`❄纵欲黑暗契约`），
+                #     所以「紧邻才让位」那种写法在这一格上会漏判（本批第一版就是那么写的，当场推翻）。
+                if _t in DARKPACT_TOKENS and (cid, field) in DARKPACT_ALREADY:
+                    rule_audit[_t]["已由别的记号画"].add(cid)
+                    _dp_already_seen.add((cid, field))
                     continue
                 # 🆕 **守卫③（2026-10-11 · `A1476` 收尾符放宽之后新增）：别和「句首关键词」那一支重叠。**
                 #   `A1476` 把收尾符放宽到「或文末」之后，`Sniper.` 这类**带收尾符**的 token 开始被
@@ -2153,9 +2532,166 @@ def main():
         print(f"  {_t} → {_sp}：规则命中 {len(_a['规则命中'])} 卡 · 逐卡表已覆盖 "
               f"{len(_a['逐卡表已覆盖'])} 卡 · 方括号守卫 {len(_a['方括号守卫'])} 卡 · "
               f"已由句首关键词画 {len(_a['已由句首关键词画'])} 卡 · "
+              f"已由别的记号画 {len(_a['已由别的记号画'])} 卡 · "
               f"全池出现 {len(_a['全池出现'])} 卡{_flag}")
 
-    if WRITE:
+    # ── 🆕 2026-10-12（`A1624`）：段首让位 + 卡面枚数两道自检 ─────────────────────────────
+    _abs_seen = {(c_, f_, t_) for c_, f_, t_, _k, _sp in _absorbed}
+    _abs_dead, _abs_lost = [], []
+    for _c, _f, _t, _k, _ln, _png in _PREFIX_ABSORB_ROWS:
+        if (_c, _f, _t) not in _abs_seen:
+            # 死条目：这份字段**今天没产出**这条段首 token（卡表改了 / 收尾符变了）⇒ 表里这一行不再生效
+            _abs_dead.append((_c, _f, _t, _k))
+        elif _k not in plan.get(_c, {}).get(_f, {}):
+            # 🔴 更糟的一种：摘掉段首那条、接手的裸 token **又没落进计划** ⇒ 那一枚图标**整枚消失**
+            _abs_lost.append((_c, _f, _t, _k))
+    print("")
+    print(f"=== 段首关键词让位给同词裸 token（`A1624`，{len(_absorbed)} 处）===")
+    for _c, _f, _t, _k, _sp in _absorbed:
+        print(f"  {_c} [{_f}] 让位 {_t!r} → 接手 {_k!r}（{_sp}）"
+              f" —— {PREFIX_ABSORB_WHY.get((_c, _f), '')}")
+    if _abs_dead:
+        print(f"  🔴 死条目（{len(_abs_dead)} 条 —— 这份字段今天没产出这条段首 token，"
+              f"表要跟着卡表改）：")
+        for _c, _f, _t, _k in _abs_dead:
+            print(f"     {_c} [{_f}] {_t!r} → {_k!r}")
+    if _abs_lost:
+        print(f"  🔴 **图标丢失**（{len(_abs_lost)} 条 —— 摘了段首那条、接手的裸 token 不在计划里）：")
+        for _c, _f, _t, _k in _abs_lost:
+            print(f"     {_c} [{_f}] {_t!r} → {_k!r}")
+
+    # **卡面枚数**：期望值来自成品卡图（见 `FACE_ICON_COUNT` 的注释）。
+    # ⚠️ 数法 = `Σ 每条 token 在原文里的出现次数`（`Rewrite` 是全局替换；token 之间互不包含由上面
+    #    `conflicts` 自检保证）—— **不含** `KeywordSegment` 补的段首那几枚（那一半在判据里写明）。
+    _texts = {c_["id"]: {f_: (c_.get(f_) or "") for f_ in ("desc", "descZh")} for c_ in cards}
+    face_bad = []
+    print("")
+    print(f"=== 卡面枚数自检（`A1624`/`A1622`，{len(FACE_ICON_COUNT)} 行）===")
+    for _c, _f, _want, _why in FACE_ICON_COUNT:
+        _txt = _texts.get(_c, {}).get(_f, "")
+        _got = plan.get(_c, {}).get(_f, {})
+        _n = sum(_txt.count(_t) for _t in _got)
+        _ok = (_n == _want)
+        if not _ok:
+            face_bad.append((_c, _f, _want, _n))
+        print(f"  {'✅' if _ok else '🔴'} {_c} [{_f}] 画 {_n} 枚 / 应画 {_want} 枚 —— {_why}")
+
+    # ── 🆕 2026-10-12（`A1623`）：`Dark Pact` 一族的两道自检 ────────────────────────────────
+    #  ① **例外表**（`DARKPACT_ALREADY`）—— 判据与自检**逐条照 `_PREFIX_ABSORB_ROWS` 那一族**：
+    #     · 表里的每一行必须**真被用到**（`_dp_already_seen`）—— 不然它是「看起来在干活」的死条目；
+    #     · 它点名的那枚记号必须**真在计划里** —— 不然摘掉规则之后**那一枚整枚消失**
+    #       （比不改更糟：改前至少 `❄` / `[Chaos]` 那一枚是画着的）。
+    #  ② **卡面枚数**（`DARKPACT_FACE_COUNT`）—— 期望值来自成品卡图 / 转录表双写，**不是**从实现里算的；
+    #     数法 = `darkpact_marks()`（`Σ 每条 `DARKPACT_TOKENS` 的 token 在原文里的出现次数`）。
+    #     🔴 **灭自证**：把这几条记号从计划里**抽掉**造一份合成表 ⇒ **每一行都必须变红**
+    #     （谓词写成「恒等于期望值」这种自引用写法时，这一格必红 —— 与 `③c-b` / `④b` 同一形状）。
+    _dp_dead = [(c_, f_, t_) for c_, f_, t_, _w in _DARKPACT_ALREADY_ROWS
+                if (c_, f_) not in _dp_already_seen]
+    _dp_lost = []
+    for _c, _f, _t, _w in _DARKPACT_ALREADY_ROWS:
+        _ent = plan.get(_c, {}).get(_f, {}).get(_t)
+        _spr = _ent[0][0] if _ent else None
+        if _spr not in DARKPACT_SPRITES:
+            _dp_lost.append((_c, _f, _t, _spr))
+    print("")
+    print(f"=== `Dark Pact` 徽记的例外表（`A1623`，{len(DARKPACT_ALREADY)} 处）===")
+    for _c, _f, _t, _w in _DARKPACT_ALREADY_ROWS:
+        print(f"  {_c} [{_f}] 那一枚已由 {_t!r} 画 ⇒ 按词规则让位 —— {_w}")
+    if _dp_dead:
+        print(f"  🔴 死条目（{len(_dp_dead)} 条 —— 本字段今天没有产出可让位的记号，表要跟着卡表改）：")
+        for _c, _f, _t in _dp_dead:
+            print(f"     {_c} [{_f}] {_t!r}")
+    if _dp_lost:
+        print(f"  🔴 **徽记丢失**（{len(_dp_lost)} 条 —— 让位了、而点名的那条记号不在计划里）：")
+        for _c, _f, _t, _s in _dp_lost:
+            print(f"     {_c} [{_f}] {_t!r} → {_s!r}")
+
+    # 🆕 2026-10-12（`A1623`）：**「混写」校验** —— 同一字段里**既**落了按词规则那条 token、
+    #   **又**落了另一条画同一枚徽记的记号（`❄` / 方括号 / 逐卡 token）⇒ 那多半是
+    #   「一处由规则画、另一处由那条记号画」之外的**第三种形状：同一处两枚**（`Rewrite` 是全局替换，
+    #   两条都命中同一处就会各插一个）。**今天必须是 0 处** —— 今天那四种形状分别由
+    #   例外表 / 守卫① / 守卫② 收掉了（见 `DARKPACT_ALREADY` 那两段注释）。
+    #   为什么要有它：例外表是**按卡**的，新来一张「先一枚符号、后面还提一次这个词」的卡
+    #   不会被任何一条拦住 ⇒ 靠这条把那种形状**报出来让人判**，⛔ 不让它静默二选一。
+    _dp_mixed = []
+    for _c, _fs in plan.items():
+        for _f, _got in _fs.items():
+            _w = [t for t in _got if t in ("Dark Pact", "黑暗契约")]
+            if not _w:
+                continue
+            _other = [t for t, _lst in _got.items() if t not in _w
+                      and any(_sp in DARKPACT_SPRITES for _sp, _why in _lst)]
+            if _other:
+                _dp_mixed.append((_c, _f, _w, _other))
+    print("")
+    print(f"=== `Dark Pact` 同一字段「混写」校验（`A1623`，应为 0 处）===")
+    if _dp_mixed:
+        for _c, _f, _w, _o in _dp_mixed:
+            print(f"  🔴 {_c} [{_f}]：按词 token {_w} 与 {_o} **同在** ⇒ 可能同一处画两枚，要人判")
+    else:
+        print("  ✅ 0 处（按词 token 与别的同族记号没有共处一个字段）")
+
+    _dp_bad, _dp_ctrl_missed = [], []
+    _dp_stripped = {c_: {f_: {t: sp for t, sp in items.items() if t not in DARKPACT_TOKENS}
+                         for f_, items in fs_.items()}
+                    for c_, fs_ in plan.items()}
+    print("")
+    print(f"=== `Dark Pact` 一族卡面枚数自检（`A1623`，{len(DARKPACT_FACE_COUNT)} 行 · "
+          f"期望值来自成品卡图逐张亲读 + 转录表双写）===")
+    for _c, _we, _wz, _png in DARKPACT_FACE_COUNT:
+        _ge = darkpact_marks(plan.get(_c, {}).get("desc", {}), _texts.get(_c, {}).get("desc", ""))
+        _gz = darkpact_marks(plan.get(_c, {}).get("descZh", {}), _texts.get(_c, {}).get("descZh", ""))
+        _ok = (_ge == _we and _gz == _wz)
+        if not _ok:
+            _dp_bad.append((_c, _we, _ge, _wz, _gz))
+        # 灭自证：同一份真数据**抽掉 `Dark Pact` 那几条记号** ⇒ 这一行必须**变红**
+        _se = darkpact_marks(_dp_stripped.get(_c, {}).get("desc", {}), _texts.get(_c, {}).get("desc", ""))
+        _sz = darkpact_marks(_dp_stripped.get(_c, {}).get("descZh", {}), _texts.get(_c, {}).get("descZh", ""))
+        if _se == _we and _sz == _wz:
+            _dp_ctrl_missed.append(_c)
+        print(f"  {'✅' if _ok else '🔴'} {_c:24s} 画 {_ge}/{_gz} 枚 / 应画 {_we}/{_wz} 枚"
+              f"（`desc`/`descZh`） —— 卡图 `{_png}`")
+    print(f"  ★ 灭自证：把那几条记号**抽掉**之后再数 —— 应当**每一行都变红**："
+          f"{len(DARKPACT_FACE_COUNT) - len(_dp_ctrl_missed)}/{len(DARKPACT_FACE_COUNT)} 行变红"
+          + ("（✅ 无漏）" if not _dp_ctrl_missed else f"；🔴 **漏掉** {_dp_ctrl_missed}"))
+
+    # 🔴 **退出码先算、再决定落不落盘**（`A1626`）——「非 0」必须等于「没写文件」。
+    bad = (missing or unresolved or conflicts or why_conflict
+           or _abs_dead or _abs_lost or face_bad
+           or _dp_dead or _dp_lost or _dp_bad or _dp_ctrl_missed or _dp_mixed)
+    if WRITE and bad:
+        print("")
+        print("🔴 有未解决的问题 ⇒ **本脚本不落盘**（`--write` 被忽略，两份 json 一个字节都没动）：")
+        if missing:
+            print(f"   · sprite 名盘上没有：{missing}")
+        if unresolved:
+            print(f"   · 没认出来的记号 {len(unresolved)} 处（见上面那一节）")
+        if conflicts:
+            print(f"   · 同字段内 token 互相包含 {len(conflicts)} 处（运行时会画两枚）")
+        if why_conflict:
+            print(f"   · 同一个 token 两条来源 sprite 不一致 {len(why_conflict)} 处（要人判）")
+        if _abs_dead:
+            print(f"   · `PREFIX_ABSORB` 死条目 {len(_abs_dead)} 条（段首 token 今天不再产出）")
+        if _abs_lost:
+            print(f"   · `PREFIX_ABSORB` 接手 token 不在计划里 {len(_abs_lost)} 条（那一枚图标会消失）")
+        if face_bad:
+            print(f"   · 卡面枚数对不上 {len(face_bad)} 行："
+                  + "；".join(f"{_c}[{_f}] {_n}≠{_want}" for _c, _f, _want, _n in face_bad))
+        if _dp_dead:
+            print(f"   · `DARKPACT_ALREADY` 死条目 {len(_dp_dead)} 条（本字段今天没有可让位的记号）")
+        if _dp_lost:
+            print(f"   · `DARKPACT_ALREADY` 点名的那枚记号不在计划里 {len(_dp_lost)} 条（徽记会消失）")
+        if _dp_bad:
+            print(f"   · `Dark Pact` 卡面枚数对不上 {len(_dp_bad)} 行："
+                  + "；".join(f"{_c} {_ge}/{_gz}≠{_we}/{_wz}" for _c, _we, _ge, _wz, _gz in _dp_bad))
+        if _dp_ctrl_missed:
+            print(f"   · `Dark Pact` 【灭自证】漏掉的卡 {len(_dp_ctrl_missed)} 张（抽掉记号后没变红）："
+                  + "、".join(_dp_ctrl_missed))
+        if _dp_mixed:
+            print(f"   · `Dark Pact` 同一字段「混写」{len(_dp_mixed)} 处（按词 token 与别的同族记号共处一字段）："
+                  + "；".join(f"{_c}[{_f}]" for _c, _f, _w, _o in _dp_mixed))
+        print("   ⇒ 先把上面这些解决掉再 `--write`（⛔ 别绕过这道闸 —— 非 0 就该没有产物）。")
+    elif WRITE:
         os.makedirs(os.path.dirname(OUT_JSON), exist_ok=True)
         with open(OUT_JSON, "w", encoding="utf-8", newline="\n") as f:
             json.dump({"version": 1,
@@ -2171,7 +2707,10 @@ def main():
         print(f"      {OUT_RES}（运行时那份）")
     # 🔴 **2026-10-11（`A1476`）**：`conflicts` / `why_conflict` **也算失败**（退出码非 0）——
     #    它们是「运行时会画两枚」「两条来源打架」，都属于**不许静默**那一类（改前只打日志）。
-    return 1 if (missing or unresolved or conflicts or why_conflict) else 0
+    # 🔴 **2026-10-12（`A1626`）**：这一段**原来排在 `if WRITE:` 之后** ⇒ 退出码 1 时**照样落盘**
+    #    （「非 0」≠「没写文件」）。现在**先算退出码、再决定写不写**，与本工程那条红线对齐
+    #    （**工具失败时必须非 0 退出且不出产物**）。
+    return 1 if bad else 0
 
 
 if __name__ == "__main__":

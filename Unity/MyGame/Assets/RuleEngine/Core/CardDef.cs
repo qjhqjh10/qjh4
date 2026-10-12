@@ -27,8 +27,23 @@ namespace RuleEngine
     /// 卡牌定义（不可变）。表现层通过 <see cref="ICardProvider"/> 消费它。
     ///
     /// 除了关键词，卡上还能带**效果**：`"Rally: Damage 1 EnemyWarlord"` 这种
-    /// `关键词: 效果文字`。效果文字走 <see cref="EffectSpec"/> 那个封闭文法，
-    /// 解析不出来的会被记进 <see cref="UnparsedEffects"/> —— 卡面上标 `*`，不装作能跑。
+    /// `关键词: 效果文字`。
+    ///
+    /// 🔴🔴 **2026-10-12（`A1618`）就地订正（铁律 5）—— 本条原来写「效果文字走 `EffectSpec` 那个
+    /// 封闭文法，解析不出来的会被记进 <see cref="UnparsedEffects"/> —— 卡面上标 `*`」，
+    /// 那两句**今天都不成立**：**
+    ///   ① **不是所有效果文字都走 `EffectSpec`**：那只是**我们自己设计的那批卡**用的**极小封闭文法**
+    ///      （只认 `Damage` / `Heal` / `Draw`，见 `EffectSpec.cs` 文件头）。**原版卡的卡面正文明文**
+    ///      走的是 <see cref="TriggerOps"/> 那条路（`EffectText` —— 战术卡用的**同一台**解析器，
+    ///      判据与理由见 `CollectTriggerOps` 上方那段 2026-09-13 的注释）。把原版卡面英文喂给
+    ///      `EffectSpec` 是**问错了层**：全池实测**带那 5 个触发词的 122 处、`EffectSpec` 命中 0**
+    ///      ⇒ 那 122 处「解析不出来」**全是假阳性**（正文真的会跑）。
+    ///   ② **卡面那个 `*` 不走 `UnparsedEffects`**：真正判它的是
+    ///      `BattleDriver.UnimplementedNotes` → `EffectText.WillRunOps` + `EffectText.OpHasMechanism`
+    ///      （**按卡类型问对的层**，见那两处的注释）。
+    /// ⇒ 所以 <see cref="UnparsedEffects"/> **只对「我们自己设计的那批卡」有意义**，它对原版卡
+    ///   恒为空（下面构造函数里那道 `if (FromOriginalPool)` 就是这件事）—— ⛔ 别再把它的条数
+    ///    当成「有多少张原版卡的正文跑不了」（那个数在 `EffectText.WillRunOps` 那一路）。
     /// </summary>
     public class CardDef : ICardProvider
     {
@@ -172,21 +187,57 @@ namespace RuleEngine
                     string text = KeywordTable.EffectText(item);
                     if (text == null) continue;               // 这个关键词不带效果文字，正常
 
-                    var spec = EffectSpec.Parse(text);
-                    if (spec == null)
+                    // 🔴🔴 **2026-10-12（`A1618`）—— 这一段【只对「我们自己设计的那批卡」成立】。**
+                    //
+                    //   **问题（`A1618` 原文）**：同一句卡面正文，这里走 `EffectSpec.Parse`、
+                    //   而机制那一路（`CollectTriggerOps` → `TriggerOps`，见下）走 `EffectText.Parse`
+                    //   —— **两条解析路径对同一句给出相反的结论**（本工程点名红线：
+                    //   「两处写同一条规则 = 迟早不一致」）。
+                    //
+                    //   **哪条对（判据）**：**机制那一路对**。三条理由，实体判据都在仓里：
+                    //     ① **只有 `EffectText` 那一路喂给结算器** —— `RuleCore.FireTriggerAt`
+                    //        读的是 `UnitState.FxOps` → `CardDef.TriggerOps`；`_effects` 这一栏
+                    //        在**运行期一个读点都没有**（`Effect`/`Effects` 的调用方只有自检与
+                    //        我们自定卡的那条卡面通道）。
+                    //     ② **卡面那个 `*` 也早就换了判据** —— `BattleDriver.UnimplementedNotes`
+                    //        走 `EffectText.WillRunOps` + `OpHasMechanism`（`A1436` / 2026-09-16），
+                    //        **不是** `UnparsedEffects`。
+                    //     ③ **原版那一侧根本没有「正文 → 结构化效果」这一层**（原版的效果是
+                    //        结构化 ability 数据，`desc` 只给玩家看）⇒ 这一层怎么切本来就由
+                    //        **我们自己的架构**定：**谁的 op 会被结算，就以谁为判据**。
+                    //        判据全文与搜索路径 → `EffectText.cs` 文件头 `D26` 那一段。
+                    //
+                    //   **实测代价（改前）**：全池 1126 张 —— 带 `rally` 86 · `strike` 23 ·
+                    //     `slay` 9 · `backlash` 3 · `penitence` 1 = **122 处**，`EffectSpec` 命中
+                    //     **0 / 122**，而 `TriggerOps` 命中 **122 / 122** ⇒ 这 122 处「解析不出来」
+                    //     **全是假阳性**；另有 40 张卡被记进 `UnparsedEffects`（41 条，含
+                    //     `talent` 27 / `companion` 5 这类**本来就不是效果文本**的条目）。
+                    //
+                    //   **改法**：原版卡**不再**由 `EffectSpec` 代言 —— 它们的「正文会不会跑」
+                    //     归 `TriggerOps`（同一条路上还有 `WhenTriggers` / `SpiritOps` / `OathOps` /
+                    //     `FaithOps` / `AttackedOps` / `AuraSpecs` 各收各的，各自有账）。
+                    //     ⛔ **没有**把原版正文再喂给 `EffectSpec`（那会把封闭文法撑成一个半吊子
+                    //     自然语言解析器 —— 第二台解析器，正是本条要治的病）。
+                    //     ⛔ 也**没有**在这里另写一份「正文有没有机制」的判据 —— 那一份只在
+                    //     `EffectText.WillRunOps` / `OpHasMechanism`，共用一处。
+                    if (!FromOriginalPool)
                     {
-                        _unparsed.Add(name_ + ": " + text);
-                        continue;
-                    }
+                        var spec = EffectSpec.Parse(text);
+                        if (spec == null)
+                        {
+                            _unparsed.Add(name_ + ": " + text);
+                            continue;
+                        }
 
-                    if (name_ == KeywordTable.Ability)
-                    {
-                        if (Ability == null) Ability = spec;
-                        else _unparsed.Add(name_ + ": " + text);   // 一张卡只能有一个主动技能
-                    }
-                    else
-                    {
-                        _effects[name_] = spec;
+                        if (name_ == KeywordTable.Ability)
+                        {
+                            if (Ability == null) Ability = spec;
+                            else _unparsed.Add(name_ + ": " + text);   // 一张卡只能有一个主动技能
+                        }
+                        else
+                        {
+                            _effects[name_] = spec;
+                        }
                     }
                 }
             }
@@ -1817,11 +1868,130 @@ namespace RuleEngine
             //    `工具/ruleprobe/WillRun.cs:97-104` 的 `Sig()` 就**故意不把 `Source` 算进 op 身份**
             //    （只比 `verb / amount / payload / target`）。
             //    ⛔ 新写对账工具照它办，别自己发明第三种口径。
-            var ops = EffectText.Parse(body, out _, out _);
+            // 🔴 **2026-10-21（账 `A1631`）：这两个出参原来【两个都丢】** ——
+            //    `EffectText.Parse(body, out _, out _)` ⇒ 同一段正文里
+            //    **解得出的那几句被收下、解不出的那几句不留痕**。
+            //    后果（假绿）：任何「`TriggerOps(kw) != null` ⇒ 这条正文没问题」的判据
+            //    （含 `BodyResolves` 与 `UnitState.FxOps` / `EffectUnparsed` 那一族）
+            //    在**半懂**那一档一律报「没问题」。**实测面**（全池 `TriggerTexts` 370 条）：
+            //    `EC8 Alluress` 的 `rally` —— 正文
+            //    `Give -2 [Attack] and -2 [Ranged] to an enemy troop. Friendly Daemonette have Flank`
+            //    里第二句**整句认不出**（`un=1`），而 `BodyResolves(rally)` 照旧 `true`。
+            //    ⇒ 现在**留痕**（账目见 <see cref="TriggerBodyGap"/> / <see cref="TriggerBodyGaps"/>），
+            //    并给「这条正文**全懂**了吗」单开一个判据 <see cref="BodyFullyResolves"/>。
+            //    ⚠️ **只对「收下来了」的正文留痕**（`ops.Count > 0` 那一档）——
+            //    「整条都不懂」（`ops` 为空 ⇒ 本函数直接 return、`_triggerOps` 里没有这一格）
+            //    是**另一档**，它本来就被 `TriggerOps(...) == null` 如实反映（卡面打 `*`）。
+            List<string> unparsedSegs, partialSegs;
+            var ops = EffectText.Parse(body, out unparsedSegs, out partialSegs);
             if (ops == null || ops.Count == 0) return;
 
             _triggerOps[key] = ops;      // 🆕 `A1566`：**规范键**（见上面那一段），不是 `head`
             _triggerText[key] = body;
+            if (unparsedSegs.Count > 0 || partialSegs.Count > 0)
+                NoteTriggerBodyGap(key, body, unparsedSegs, partialSegs, ops.Count);
+        }
+
+        /// <summary>
+        /// 一条「**半懂**」的触发正文 —— 卡面那半句里**既有解得出的话、也有解不出的**
+        /// （账 `A1631`）。
+        ///
+        /// **为什么要有它**：`AddTriggerOp` 收正文时把 `EffectText.Parse` 的两个出参丢掉了，
+        /// 于是「这句里有一半我没看懂」这件事在引擎里**没有任何痕迹** ⇒
+        /// `TriggerOps(kw) != null` 被当成「这条正文没问题」（**假绿**）。
+        /// 本类就是那条痕迹：**谁读**（<see cref="CardId"/> + <see cref="Keyword"/>）·
+        /// **读到什么**（<see cref="Body"/>）· **读不懂哪几句**（<see cref="Unparsed"/> /
+        /// <see cref="Partial"/>）。
+        ///
+        /// ⚠️ **它只记「半懂」**（收下来的 op 数 > 0）：整条都不懂时正文**根本没被登记**
+        /// （`TriggerTexts` 里没有那一格、`TriggerOps` 返回 null）—— 那是另一档、
+        /// 由 `BodyResolves` 如实报 false。
+        /// </summary>
+        public class TriggerBodyGap
+        {
+            /// <summary>卡的稳定 id（`AM12` / `EC8` …；夹具卡就是它的名字）</summary>
+            public string CardId;
+            /// <summary>触发关键词的**规范键**（`_triggerOps` 那一份，见 `AddTriggerOp` 的 `key`）</summary>
+            public string Keyword;
+            /// <summary>正文原文（冒号后那半句，可能含多句）</summary>
+            public string Body;
+            /// <summary>**整句**没认出来的那几句（`EffectText.Parse` 的 `unparsed` 出参）</summary>
+            public List<string> Unparsed = new List<string>();
+            /// <summary>句型认了、**目标/载荷词表里没有**的那几句（`Parse` 的 `partial` 出参）</summary>
+            public List<string> Partial = new List<string>();
+            /// <summary>这段正文**收下来的 op 数**（> 0 —— 否则不会有这条账）</summary>
+            public int OpCount;
+
+            public override string ToString()
+            {
+                return CardId + "/" + Keyword + "  un=" + Unparsed.Count + " pa=" + Partial.Count
+                     + " ops=" + OpCount + "  body=`" + Body + "`";
+            }
+        }
+
+        /// <summary>本卡「半懂」的触发正文，键 = <see cref="AddTriggerOp"/> 里那个**规范键**。</summary>
+        readonly Dictionary<string, TriggerBodyGap> _triggerGaps =
+            new Dictionary<string, TriggerBodyGap>();
+
+        /// <summary>
+        /// **全进程的「半懂」总账**（`A1631`）—— 每收下一条半懂的触发正文就追加一条
+        /// （**同一张卡的同一个关键词只留最后一条**，防重复构造时堆重复项）。
+        ///
+        /// 用途（三件，别发明第四件）：
+        ///   ① 自检/报表**逐条对账**：「全池 `TriggerTexts` 里 Parse 出来 un/pa 非空的处数」
+        ///      必须**等于**本表条数 —— 不等就是有正文**静默半懂**（`RuleEngineTest` 那条断言）；
+        ///   ② 排查「这张卡为什么效果只发生一半」—— 先 `grep` 卡 id；
+        ///   ③ 覆盖率账（`EffectText` 的报表那一族）。
+        /// ⚠️ 它**跨卡池装载累积**（`CardDef` 一构造就记）—— 要干净读数就先
+        /// <see cref="ClearTriggerBodyGaps"/> 再装池，或者只比**条数与内容**。
+        /// </summary>
+        public static readonly List<TriggerBodyGap> TriggerBodyGaps = new List<TriggerBodyGap>();
+
+        /// <summary>清空 <see cref="TriggerBodyGaps"/>（唯一清点 —— 只有自检/诊断该调它）。</summary>
+        public static void ClearTriggerBodyGaps() { TriggerBodyGaps.Clear(); }
+
+        /// <summary>把一条「半懂」记账（`AddTriggerOp` 的唯一调用点）。</summary>
+        void NoteTriggerBodyGap(string key, string body, List<string> unparsed, List<string> partial,
+                                int opCount)
+        {
+            var g = new TriggerBodyGap
+            {
+                CardId = Id, Keyword = key, Body = body, OpCount = opCount,
+            };
+            if (unparsed != null) g.Unparsed.AddRange(unparsed);
+            if (partial != null) g.Partial.AddRange(partial);
+            _triggerGaps[key] = g;
+            // 同一个 (卡, 关键词) 只留最后一条 —— `CardDef` 在自检里会被反复构造（同一张卡多次装池）。
+            for (int i = TriggerBodyGaps.Count - 1; i >= 0; i--)
+                if (TriggerBodyGaps[i].CardId == g.CardId && TriggerBodyGaps[i].Keyword == g.Keyword)
+                    TriggerBodyGaps.RemoveAt(i);
+            TriggerBodyGaps.Add(g);
+        }
+
+        /// <summary>本卡这个关键词的正文**有没有「半懂」**；没有（含压根没有正文）返回 null。
+        /// 判据全文见 <see cref="TriggerBodyGap"/>。</summary>
+        public TriggerBodyGap TriggerGap(string keyword)
+        {
+            if (string.IsNullOrEmpty(keyword)) return null;
+            TriggerBodyGap g;
+            return _triggerGaps.TryGetValue(keyword, out g) ? g : null;
+        }
+
+        /// <summary>
+        /// **这条关键词的正文【全懂】了吗** —— `A1631` 加的判据，`BodyResolves` 的**严格版**。
+        ///
+        ///   `BodyResolves(kw)` 只回答「**有没有**正文可跑」；
+        ///   `BodyFullyResolves(kw)` 再要求「**那整段正文没有半懂**」（<see cref="TriggerGap"/> 为 null）。
+        ///
+        /// 🔴 **两个问题必须分开问，别拿前者替后者**：`TriggerOps(kw) != null` 在
+        /// `EC8/alluress` 的 `rally` 上为真，而那段正文里第二句（`Friendly Daemonette have Flank`）
+        /// **一个字都没认出来** ⇒ 拿 `BodyResolves` 当「这条正文没问题」就是**假绿**。
+        /// 要问「会不会跑」用前者，要问「跑得全不全」用本方法。
+        /// </summary>
+        public bool BodyFullyResolves(string keyword)
+        {
+            if (!BodyResolves(keyword)) return false;
+            return TriggerGap(keyword) == null;
         }
 
         /// <summary>本卡**收到正文**的触发（自检与卡面用）——
@@ -2423,10 +2593,29 @@ namespace RuleEngine
         /// </summary>
         public IReadOnlyCollection<string> NumericKeywords { get { return _numericKeywords; } }
 
-        /// <summary>关键词 → 效果（只有带效果文字、且解析成功的才有）</summary>
+        /// <summary>
+        /// 关键词 → 效果（**只有「我们自己设计的卡」那一族**才有 —— 见 `A1618` 那一段）。
+        /// 判据 = `EffectSpec.Parse`（封闭文法），**原版卡恒为空表**。
+        /// </summary>
         public IReadOnlyDictionary<string, EffectSpec> Effects { get { return _effects; } }
 
-        /// <summary>带了效果文字但**解析不出来**的那些（卡面标 `*`，别装作能跑）</summary>
+        /// <summary>
+        /// 带了效果文字但**我们自定的封闭文法解不出来**的那些（`EffectSpec.Parse` 返回 null）。
+        ///
+        /// 🔴🔴 **2026-10-12（`A1618`）就地订正（铁律 5）**：本条原来写
+        ///   「（卡面标 `*`，别装作能跑）」—— **那一句今天不成立**：
+        ///   · **原版卡的卡面 `*` 不走这里**。真正判它的是
+        ///     `BattleDriver.UnimplementedNotes` → `EffectText.WillRunOps` + `EffectText.OpHasMechanism`
+        ///     （**按卡类型问对的层**）。拿本属性去解释卡面那个 `*` 会得到一个**反的**结论：
+        ///     改前全池 **122 处**触发正文（带 `rally` 86 / `strike` 23 / `slay` 9 /
+        ///     `backlash` 3 / `penitence` 1）**这 122 处标着 `*`、而正文真的会跑**
+        ///     （`TriggerOps` 122/122 命中）。
+        ///   · **原版卡恒为空**（构造函数里那道 `if (FromOriginalPool)`）：`EffectSpec` 是
+        ///     给**我们自己设计的卡**写的极小封闭文法（只认 `Damage`/`Heal`/`Draw`），
+        ///     拿它去判原版卡面英文 = **问错了层**。原版卡的「正文会不会跑」在
+        ///     <see cref="TriggerOps"/>（机制侧）与 `EffectText.WillRunOps`（卡面/报表侧）。
+        /// ⇒ **判据只此一份、按层问**：⛔ 别再加第三台解析器，也⛔ 别把本属性当原版卡的体检表。
+        /// </summary>
         public IReadOnlyList<string> UnparsedEffects { get { return _unparsed; } }
 
         /// <summary>
@@ -2434,16 +2623,56 @@ namespace RuleEngine
         ///
         /// ⚠️ 判据是 `Ability != null`，**不是「卡面上写没写 `Ability:`」**：
         /// 写了但 <see cref="EffectSpec.Parse"/> 解不出来的，那条会进
-        /// <see cref="UnparsedEffects"/>（卡面打 `*`），这里**仍然是 false**。
+        /// <see cref="UnparsedEffects"/>，这里**仍然是 false**。
         /// ⇒ 拿它当「这张卡没有主动技能」用之前，先看 `UnparsedEffects` 有没有那一条。
+        ///
+        /// 🔴 **2026-10-12（`A1618`）实测口径**：`Ability:` 这一档是**我们自己设计的卡**用的
+        ///   （`EffectSpec` 封闭文法）。**现扫全池 1126 张：`keywords` 里带 `Ability` 的 0 张、
+        ///   `desc` 里写 `Ability:` 的也是 0 张** ⇒ 原版卡这一档恒 false，与「原版怎么表达主动能力」
+        ///   （替代行动 `Pray:`/`Duty:`… 与 `Oath N:` 各自那条路）**不冲突、也不互相代言**。
         /// </summary>
         public bool HasAbility { get { return Ability != null; } }
 
-        /// <summary>这个关键词对应的效果。没有返回 null —— 调用方必须判</summary>
+        /// <summary>这个关键词对应的效果。没有返回 null —— 调用方必须判。
+        /// ⚠️ 只覆盖**我们自己设计的卡**那一族（见 <see cref="Effects"/> 的说明）。</summary>
         public EffectSpec Effect(string keyword)
         {
             EffectSpec s;
             return (keyword != null && _effects.TryGetValue(keyword, out s)) ? s : null;
+        }
+
+        /// <summary>
+        /// 🔴 **「这条关键词的正文会不会真的跑」—— 全类【唯一】判据**（`A1618` 立的账）。
+        ///
+        /// **为什么要有它**：同一句卡面正文原来有**两条解析路径**（`EffectSpec` 与 `EffectText`），
+        /// 对同一句给出**相反的结论**（本工程点名的红线：两处写同一条规则 = 迟早不一致）。
+        /// 本方法把「哪条路径算数」按**卡的来源**一次定死，调用方只问这一处：
+        ///
+        /// | 卡的来源 | 正文由谁解析 | 「会不会跑」的判据 |
+        /// |---|---|---|
+        /// | **我们自己设计的卡**（`FromOriginalPool == false`） | `EffectSpec` 封闭文法 | `Effect(kw)` 非空 |
+        /// | **原版卡**（`FromOriginalPool == true`） | `EffectText`（`TriggerOps`） | `TriggerOps(kw)` 非空 |
+        ///
+        /// ⛔ **两条都不许「两个都试、有一个算一个」** —— 那正是原来的病：
+        ///   反过来问「`EffectSpec` 解不出就算跑不了」会把**全池 122 处真会跑**的触发正文判死。
+        ///
+        /// ⚠️ **它不管**「结算层有没有机制」（解析得出来、载荷没机制那一族）—— 那一份判据在
+        ///   `EffectText.OpHasMechanism`（卡面 `*` 与覆盖率报表共用），⛔ 别在这儿抄第二份。
+        /// 🔴 **它也不管「正文是不是【全懂】」**（`A1631`，2026-10-21 就地补的这一句）——
+        ///   `body` 里**解得出的话被收下、解不出的那几句原来不留痕** ⇒ 本方法在半懂那一档
+        ///   **照样返回 true**（假绿）。要问「跑得全不全」问 <see cref="BodyFullyResolves"/>
+        ///   （或直接看 <see cref="TriggerGap"/>）。**两个问题分开问**。
+        /// ⚠️ `Ability` 那一档两条路共用一个字段（见 <see cref="HasAbility"/>），单独问。
+        /// </summary>
+        /// <param name="keyword">规范键（小写，见 `KeywordTable`）。传 null / 空返回 false。</param>
+        public bool BodyResolves(string keyword)
+        {
+            if (string.IsNullOrEmpty(keyword)) return false;
+            if (keyword == KeywordTable.Ability) return Ability != null;
+            // 原版卡：正文在触发层那本账上（`CollectTriggerOps` 收的，结算器读的也是它）
+            if (FromOriginalPool) return TriggerOps(keyword) != null;
+            // 我们自己设计的卡：封闭文法那一栏
+            return Effect(keyword) != null;
         }
 
         /// <summary>
@@ -3340,8 +3569,17 @@ namespace RuleEngine
             //   判据与全池张数见 `RuleCore.Unstunnable` 的注释。全池今天 **0 张卡**带它。
             RuleCore.Unstunnable,
             // 触发类 + 主动技能：结算全部走 `RuleCore.FireUnitTrigger` / `UseAbility`。
-            // ⚠️ 「关键词已实现」≠「这张卡的效果能跑」—— 效果文字解析不出来的，
-            //    由 `CardDef.UnparsedEffects` 单独标出来（卡面照旧打 `*`）。
+            // ⚠️ 「关键词已实现」≠「这张卡的效果能跑」。
+            // 🔴🔴 **2026-10-12（`A1618`）就地订正（铁律 5）**：本句原来写
+            //    「效果文字解析不出来的，由 `CardDef.UnparsedEffects` 单独标出来（卡面照旧打 `*`）」
+            //    —— **两头都不成立**：
+            //      · **卡面那半**：原版卡的 `*` 走 `BattleDriver.UnimplementedNotes` →
+            //        `EffectText.WillRunOps` + `OpHasMechanism`（**按卡类型问对的层**），
+            //        **不是** `UnparsedEffects`（后者对原版卡恒为空，见它的 doc）。
+            //      · **`UnparsedEffects` 那半**：它记的是「`EffectSpec`（**我们自定卡的封闭文法**）
+            //        解不出」，拿它判原版卡 = **问错了层**（全池 122 处假阳性，见
+            //        构造函数里 `A1618` 那一段的实测）。
+            //    ⇒ 现在问「这一族关键词的正文会不会跑」用 `CardDef.BodyResolves`（唯一判据）。
             Rally, Strike, Slay, Backlash, Penitence, Ability,
             // 群体（2026-09-13 第三十四轮）：**近战攻击后**触发自己那条 `Mob:` 正文。
             // ⚠️ 原版还有「通知除攻击者外的所有卡」那一支（触发 645），**没做** —— 见 `Mob` 的注释。

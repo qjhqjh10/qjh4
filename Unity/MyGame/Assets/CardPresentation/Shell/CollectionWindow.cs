@@ -816,8 +816,26 @@ namespace CardPresentation
 
         /// <summary>`Deck Scroll View/Viewport`：**330.9, 155.9 → 1920, 1080**（1589.1 × 924.1）。</summary>
         public static readonly PxRect DeckViewport = new PxRect(330.9f, 155.9f, 1920f, 1080f);
-        /// <summary>卡组格 **225 × 364.5**（prefab 根 250×405 的 **0.9 倍**）· 横向 spacing **20** · pad **L10** ⇒ **6 列**。</summary>
-        public const float DeckCellW = 225f, DeckCellH = 364.5f, DeckSpacingX = 20f, DeckPadL = 10f;
+        /// <summary>卡组格 **225 × 364.5**（prefab 根 250×405 的 **0.9 倍**）· 横向 spacing **20** ⇒ **6 列**。
+        /// 🔴 **2026-10-12（本会话 · 现读 prefab + 反编译 + 用户实拍三方对账）就地订正（铁律 5）**：
+        /// 原文接着写的是「· pad **L10**」—— **那个 `padL=10` 【不参与落位】**，别拿它当左边距。
+        /// 判据三条（都现读，不是推的）：
+        /// ① `Content` 上那颗 `GridLayoutGroup`（`m_Enabled = 0`）里的 `m_Padding = (10,0,0,0)` 是**死值**
+        ///    —— 组件被禁 ⇒ uGUI 一个字节都不写（`menu_dump.py … "Deck Scroll View" --depth 3` 现读，
+        ///    同一行自带 `**m_Enabled=0**`）；
+        /// ② 真正落位的是 **`RecyclableScrollRect`**：`PolyAndCode.UI.VerticalRecyclingSystem__CreateCellPool.c`
+        ///    里那两行是
+        ///    `segments = floor(viewportRect.width / (cellWidth + spacingX))` ·
+        ///    `offset = ((viewportRect.width − (spacingX + cellWidth) * segments) + spacingX) * 0.5`
+        ///    （`* 0.5` 那个常量 = `DAT_1834b2bb4`，与 Cards 页那条「居中量常量」同一个）
+        ///    ⇒ **列方向的原点 = 视口左沿 + 整体居中偏移**，与 `DeckGridOffsetX` 逐位同式；
+        /// ③ **用户实拍**（`C:/Users/qjh36/Desktop/warpforge参考图/收藏—卡组的参考图.png`）量出来的第 1 格
+        ///    左沿 = **400.4 ± 3**（把实拍按卡框宽 221.4 归一后换算），而「居中」那一式给的是 **400.45**
+        ///    （原文那套 `padL 10` 给 340.9 —— 差 **59.6px**，实拍上肉眼可见，见报告里的并排图）。</summary>
+        public const float DeckCellW = 225f, DeckCellH = 364.5f, DeckSpacingX = 20f;
+        /// <summary>⚠️ **2026-10-12**：`DeckPadL = 10` 那个常量**已删**（它的语义是错的 —— 见 `DeckCellW` 的
+        /// 订正）。原版 prefab 里那个 `m_Padding.left = 10` 仍在，但**它是死值**（组件 `m_Enabled=0`）。
+        /// ⛔ 别再按「视口左沿 + 10」算首格（那是**错的**，实拍会差 59.6px）。</summary>
         /// <summary>🔴 **2026-10-11（A1503 ⑥）：行距的【纵向】间距 —— 原版是 `0`，我们原来【错写成横向那个 20】。**
         /// 判据（只读代理 2026-10-11 现读）：`Content` 上那颗 `GridLayoutGroup` 的 `m_Enabled = 0`
         /// ⇒ 真正说话的是 `RSR` 的 `_spacingX/**20**` / `_spacingY/**0**` / `_cellHeight 364.5`。
@@ -825,13 +843,28 @@ namespace CardPresentation
         /// ⚠️ **三处一起改**（格子落位 / 两处内容高），改一处等于没改。</summary>
         public const float DeckSpacingY = 0f;
         public const float DeckCellScale = 0.9f;
-        /// <summary>列数 = `floor(1589.1 ÷ (225+20))` = **6**（原版是运行时算的，A2 §四·1 说算法读不到）。</summary>
+        /// <summary>列数 = `floor(1589.1 ÷ (225+20))` = **6**
+        /// （原版是 `VerticalRecyclingSystem.ConfigureColumnNumber` 运行时按视口宽算的，
+        /// `_segments` 那个序列化值（=5）被 `_controlSegmentSize=1` 覆盖 ⇒ **别拿 `_segments` 当列数**）。</summary>
         public const int DeckCols = 6;
+
+        /// <summary>格子在**列方向**上的原点偏移 = `RecyclableScrollRect` 的**整体居中**量。
+        /// <para>判据（反编译逐句，`d:/2/tools/decomp_full/PolyAndCode.UI.VerticalRecyclingSystem__CreateCellPool.c`）：
+        /// `offset = ((viewportRect.width − (spacingX + cellWidth) * segments) + spacingX) * 0.5`
+        /// ⇒ 本式 = `(W − 6×225 − 5×20) ÷ 2` = `(1589.1 − 1450) ÷ 2` = **69.55**
+        /// ⇒ 第 1 格左沿 = `330.9 + 69.55` = **400.45**。</para>
+        /// <para>⚠️ 它与 **Cards 页 / 卡背页**那份「整体居中」是**同一条规则**（那两页 `spacing = 0`，
+        /// 所以看起来像 `(W − cols×cellW)/2`）——⛔ 别当成两种算法。
+        /// 🔴 与 `Content` 那颗 `GridLayoutGroup` 的 `m_Padding.left = 10` **无关**（组件 `m_Enabled=0` = 死值）。</para></summary>
+        public static float DeckGridOffsetX
+        {
+            get { return ((DeckViewport.W - (DeckSpacingX + DeckCellW) * DeckCols) + DeckSpacingX) * 0.5f; }
+        }
 
         public static PxRect DeckCellRect(int i)
         {
             int r = i / DeckCols, c = i % DeckCols;
-            float x = DeckViewport.x1 + DeckPadL + c * (DeckCellW + DeckSpacingX);
+            float x = DeckViewport.x1 + DeckGridOffsetX + c * (DeckCellW + DeckSpacingX);
             float y = DeckViewport.y1 + r * (DeckCellH + DeckSpacingY);
             return new PxRect(x, y, x + DeckCellW, y + DeckCellH);
         }
@@ -908,7 +941,15 @@ namespace CardPresentation
             CardsScroll.ClipNode = cardsVp;
             CardsScroll.OnChanged = () => RebuildCardsCells(holder);
             PointerLayer.RegisterScroll(CardsScroll);
+            // 🆕 2026-10-12（`A1628` 第二轮）：这一页的**逐格相位**（只在真 Play 出声；批处理零影响）。
+            // ⚠️ 只包**建页这一次**调用 —— 滚动时 `OnChanged` 也会调 `RebuildCardsCells`，
+            //   那条路逐格重建同样贵，但不该把日志刷爆（要看就把这三行搬到滚动那条路自己量）。
+            BuildWatch.CellsBegin();
             RebuildCardsCells(holder);
+            BuildWatch.CellsReport("CardsTab 卡池（只建视口内的格，自检实测 18）");
+            // 🆕 `A1628` 第二轮：再量**一次文字重排**的绝对耗时（本账最要紧的一个数；理由与
+            // 「量完把裁切补回去」那条不变量都在 `BuildWatch.TimeOneTextRelayout` 的 doc 里）。
+            if (CardsCells.Count > 0) BuildWatch.TimeOneTextRelayout(CardsCells[0]);
 
             // 左侧筛选栏（**在卡池之后建** ⇒ 兄弟序在原版里也是它靠后 = 画在卡池之上）
             // 起手收起（原版靠 `hiddenPosition` 滑出去 —— 🆕 A11 起我们也真的滑，见 `ApplyDrawerSlide`）
@@ -969,9 +1010,16 @@ namespace CardPresentation
                 var content = CardsCellRect(i);
                 var r = CardsScroll.Shift(content);
                 if (!CardsScroll.Intersects(r)) continue;
-                var v = CardView.Create(parent, BattleDriver.ToCardData(list[i], list[i].Faction), "CollectionCard_" + i);
+                BuildWatch.CellBegin();                      // 🆕 A1628 第二轮：逐格相位（只在真 Play 出声）
+                // 🔴 **`ToCardData` 只算一次** —— 原来这里算一次、下面 `SetData` 又算一次，
+                //   两个实参逐字相同（`list[i]` / `list[i].Faction`）⇒ 结果逐字段相同。
+                //   它是拼卡面文案那条路（`FaceTextFull`：中/英二选一 + `CardIcons.Rewrite` + 关键词段），
+                //   算两遍纯属浪费。⛔ 别把它挪回 `CardView.Create` 的实参里（那就又变两份）。
+                var data = BattleDriver.ToCardData(list[i], list[i].Faction);
+                var v = CardView.Create(parent, data, "CollectionCard_" + i);
                 if (v == null) continue;
                 v.gameObject.SetActive(true);
+                BuildWatch.CellPhase("① `CardView.Create`（建整张卡：各层 + TMP + `FitToBox` 二分 + `FitToWidth`）");
                 // 🔴 **2026-10-08（A181）：卡自己也要吃这道裁切** —— 窗级的裁切只到
                 //   `MenuWindowBase` 那几个绘图助手（`Rect`/`Text`/`Nine`/`AddHit`），而这张卡是
                 //   `CardView` 的**自建网格**，看不见它 ⇒ 压在视口边上的卡**整张画出去**
@@ -981,16 +1029,37 @@ namespace CardPresentation
                 //   位姿是「画布矩形 → 卡的局部系」那个换算的输入，先裁再摆 = 按旧位姿裁的一刀。
                 //   （这两句 = **一次调用**的等价物：`CardView` 自己就在 `SetPose` 之后立刻重裁。）
                 v.SetPose(Local(parent, r.x1, r.y1, r.x2, r.y2), 0f, scale);
+                BuildWatch.CellPhase("② `SetPose`（摆位姿 —— 首次无裁切 ⇒ 这一句里的重裁是空转）");
                 // 🔴 **2026-10-13（A435 辛 · A774）**：裁切边界**沿父链解析**（就是上面那颗
                 //   `holder/Viewport` 上的 `ViewportClip`）—— 原来是把 `CardsViewport` 这个**常量矩形**
                 //   当 `SetPose` 的第 4 个实参传进去 ⇒ **第二份状态源**（节点上那份框/`padding` 改了，卡不跟）。
                 //   ⛔ **别改成传 `null`**：`SetPose(…, null)` 的语义是「**不改**当前状态」，而这张卡出生时
                 //   `_clip` 本来就是 `null` ⇒ 那样**整卡一张都不裁**（静默，正是 A181 当初那个缺陷）。
                 //   ⚠️ 代价：`SetData` 会**再重裁一遍**（见 `CardView.ApplyClip` 的注释）—— 正确性优先。
+                //   🔴 **2026-10-12（`A1628` 第二轮）就地订正**：下一行那句 `v.SetData(data)` **已删**
+                //      ⇒ 本页每格真裁**从两次变一次**（原来 = 本句 + `SetData` 尾巴那次；
+                //      `SetPose` 尾巴那次本来就是空转 —— 它那道闸是 `if (Clipping)`，
+                //      而这一步时卡还没开跟随、`_clip` 也是 null，出处 `Core/CardView.cs:3820`）。
+                //      上面那句「代价」写的是删之前的情形（留着，它是本句**顺序**的理由）。
                 v.SetClipFromTree();
-                v.SetData(BattleDriver.ToCardData(list[i], list[i].Faction));
-                v.SetFace(CardFace.Full);
+                BuildWatch.CellPhase("③ `SetClipFromTree`（解析裁切 + 第一刀真裁：逐层切网格 + 逐字重排）");
+                // 🔴 **2026-10-12（`A1628` 第二轮）就把这一句 `v.SetData(data)` 删掉了** —— 它与上面
+                //   那句 `Create(parent, data, …)` **做的是同一件事**，逐条核过（`Core/CardView.cs`）：
+                //    · `Create` = `AddComponent` + `Build(d)`；`Build` 头一句就是 `Data = d`（`:1584`），
+                //      尾三句是 `BuildTextLayers(d)`（`:1791`）· `SetBadges(d.badges)`（`:1794`）·
+                //      `BuildStatLayers(); SyncStatLayers();`（`:1801-1802`）。
+                //    · `SetData(d)` 里那几段：`CaptureStatChanges` 非 `Board` 直接 `return`（`:1195`）·
+                //      `_face != null` 那支只在**没有卡框**的兜底路上才非空（真卡走 `_frame`）·
+                //      `_info` / `_art` 重新赋的是**同一个缓存键算出来的同一张贴图**·
+                //      `SetCardImageTo3DBase()` 在 `_body3D == null` 时 `return`（`:2781`）·
+                //      末尾 `if (Clipping) ApplyClip()` 与上面那句 `SetClipFromTree` 的产物同值 ⇒ **幂等**。
+                //      ⇒ 净效果只剩一件：**把 5 段 TMP 整个重排第二遍**（`BuildTextLayers`，
+                //      其中效果文字要走 `FitToBox` 的 8 步二分 ⇒ 每段最多 9 次 `ForceMeshUpdate`）。
+                //    ⛔ **不是「少建东西」**：卡面每一个件都还在，只是不再建第二遍（铁律：不许静默失败）。
+                //    ⚠️ **要退回**：把 `v.SetData(data);` 加回本行即可（`data` 就是上面那一份）。
+                v.SetFace(CardFace.Full);      // ⚠️ 空操作：`Create` 已经按 `CardFace.Full` 建（`SetFace` 首句早退）
                 v.SetHighlight(CardHighlightState.Normal);
+                BuildWatch.CellPhase("④ `SetFace` + `SetHighlight`（`SetFace` 是空操作，见本行注释）");
                 CardsCells.Add(v.transform);
                 // 🆕 2026-10-17（B10 · 账上「卡重复与升级 · 三件 UI ①」）：格子**底下那条「张数」**
                 //    （原版 `Collection Card/Content/Counter`）—— 判据 / 文案 / 几何全在 `BuildCardsCounter` 那一段。
@@ -998,6 +1067,8 @@ namespace CardPresentation
                 // ⚠️ 闭包**别捕循环变量 `i`** —— 点击发生在重建之后，那时 `i` 已经是 `list.Count`（越界）
                 var def = list[i];
                 AddHit(parent, "CardHit_" + i, r, QPageRow, () => OpenCardDetail(def));
+                BuildWatch.CellPhase("⑤ 张数条（`Rect`+`Text`）+ 命中区（`AddHit`）");
+                BuildWatch.CellEnd();
             }
         }
 
@@ -1094,7 +1165,13 @@ namespace CardPresentation
             //   （原版这一页的 `Viewport` 挂着 `RectMask2D`：`m_Softness=(0,0)`·`m_Padding=(0,0,0,0)`，
             //    实读 → `资料/普查产出_1008/波C2_A181_A212收藏窗_A214一.md`）。
             var cosmoVp = ViewportClip.Hang(holder, "Viewport", CosmoView, Vector4.zero, Vector2Int.zero);
+            // 🔴 **A1628 探针**：这一句是**整窗里唯一一处「一次把一堆图全拉起来」**——
+            //    `CardArt.CosmeticNames()` 走 `Resources.LoadAll<Texture2D>("Art/cardbacks")`。
+            //    打进包里的真值（本机 UnityPy 读 `player/WarpforgePlayer_Data/resources.assets`）：
+            //    **466 张 Texture2D · `m_CompleteImageSize` 合计 610.1 MB · `m_TextureFormat = 4`(RGBA32 未压缩)**
+            //    ⇒ 它同时是「50 秒」与「工作集 +0.9 GB」两条现象的头号嫌疑 ⇒ **必须先量它**。
             int n = CosmoTotal;
+            BuildWatch.Mark("①b2a `CosmoTotal` = `CardArt.CosmeticNames()`（`Resources.LoadAll` 466 张 / 610 MB）");
             int rows = Mathf.Max(1, Mathf.CeilToInt(n / (float)CosmoCols));
             CosmoScroll = MenuScroll.TopAligned(CosmoView, rows * CosmoCellH);
             CosmoScroll.Owner = gameObject;
@@ -1102,6 +1179,7 @@ namespace CardPresentation
             CosmoScroll.OnChanged = () => RebuildCosmoCells(holder);
             PointerLayer.RegisterScroll(CosmoScroll);
             RebuildCosmoCells(holder);
+            BuildWatch.Mark("①b2b `RebuildCosmoCells`（只建**视口内**的格；自检实测 12 格）");
 
             // `Empty Collection Warning`：**本页那一份的矩形与别页不同** —— 直读 = **170.44,70.94 → 1970.00,1080**
             // （1799.56×1009.06；出处同 Deck 页那条注释）。判据与别页同一条：**过滤后为空**。
@@ -1525,7 +1603,10 @@ namespace CardPresentation
             StyleScroll.ClipNode = styleVp;             // 🔴 A465（同卡池页那一条）
             StyleScroll.OnChanged = () => RebuildStyleCells(holder);
             PointerLayer.RegisterScroll(StyleScroll);
+            // 🆕 2026-10-12（`A1628` 第二轮）：异画页的**逐格相位**（只在真 Play 出声；理由同卡池页那三行）
+            BuildWatch.CellsBegin();
             RebuildStyleCells(holder);
+            BuildWatch.CellsReport("Alternate Art Tab 异画（只建视口内的格，自检实测 6）");
 
             // `Empty Collection Warning`：原版 `act=F`，运行期条件 = **过滤后为空**
             // （`CollectionDisplay.RefreshCollection`：`filteredCollection.Count <= 0 ⇒ SetActive`）
@@ -1669,6 +1750,7 @@ namespace CardPresentation
                 var content = StyleCellRect(i);
                 var r = StyleScroll.Shift(content);
                 if (!StyleScroll.Intersects(r)) continue;
+                BuildWatch.CellBegin();                      // 🆕 A1628 第二轮：逐格相位（只在真 Play 出声）
 
                 var d = BattleDriver.ToCardData(card, card.Faction);
                 // 🔴 **立绘换成异画**（`CardData.artOverride`）—— 卡框/数值/名字照旧用原卡
@@ -1679,6 +1761,7 @@ namespace CardPresentation
                 var v = CardView.Create(parent, d, "CollectionAltArt_" + a.CardId);
                 if (v == null) continue;
                 v.gameObject.SetActive(true);
+                BuildWatch.CellPhase("① `CardView.Create`（建整张卡：各层 + TMP + `FitToBox` 二分 + `FitToWidth`）");
                 // 🔴 **2026-10-08（A181）**：异画页同样要给卡带上裁切 —— 判据与卡池页那条逐字相同
                 //   （原版 `Alternate Art Tab/Collection Display/Scroll View/Viewport` 的 `RectMask2D`
                 //   `m_Softness=(0,0)`·`m_Padding=(0,0,0,0)`；视口 = 330.22,287.67 → 1920.01,1080）。
@@ -1686,12 +1769,22 @@ namespace CardPresentation
                 //   `holder/Viewport` 上的 `ViewportClip`），原来传的是 `StyleView` 那个常量矩形
                 //   ⇒ 第二份状态源。顺序与原由同卡池页那一处（`SetPose` 定完位姿再解析）。
                 v.SetPose(Local(parent, r.x1, r.y1, r.x2, r.y2), 0f, scale);
+                BuildWatch.CellPhase("② `SetPose`（摆位姿 —— 首次无裁切 ⇒ 这一句里的重裁是空转）");
                 v.SetClipFromTree();
-                v.SetData(d);
-                v.SetFace(CardFace.Full);
+                BuildWatch.CellPhase("③ `SetClipFromTree`（解析裁切 + 第一刀真裁：逐层切网格 + 逐字重排）");
+                // 🔴 **2026-10-12（`A1628` 第二轮）删掉了这里的 `v.SetData(d)`** —— 与卡池页那一处
+                //   **逐条同由**（`Create` → `Build(d)` 已经把 `Data` / 文字 / 徽标 / 数值层全部做完，
+                //   而 `SetData(d)` 只有「把 5 段 TMP 再排一遍」是有实质的）⇒ 完整论证与退回办法
+                //   写在 `RebuildCardsCells` 那一行上（⛔ 别在这里再抄一份理由）。
+                //   📌 这一页**多一条**：`d.artOverride` 是**在 `Create` 之前**设好的（上面那两行）
+                //   ⇒ `Build` 那次就已经按异画建过立绘，`SetData` 那次并没有额外换图。
+                v.SetFace(CardFace.Full);      // ⚠️ 空操作：`Create` 已经按 `CardFace.Full` 建（`SetFace` 首句早退）
                 v.SetHighlight(CardHighlightState.Normal);
+                BuildWatch.CellPhase("④ `SetFace` + `SetHighlight`（`SetFace` 是空操作）");
                 StyleCells.Add(v.transform);
                 AddHit(parent, "AltArtHit_" + a.CardId, r, QPageRow, () => OpenCardDetail(card));
+                BuildWatch.CellPhase("⑤ 命中区（`AddHit`；本页**没有**张数条）");
+                BuildWatch.CellEnd();
             }
         }
 
@@ -2343,8 +2436,16 @@ namespace CardPresentation
 
         public override void Open()
         {
+            // 🆕 **2026-10-12（`A1628`）计时探针** —— 真机实测「点收藏 ⇒ 整个 player 假死约 50 秒」
+            //   （点完 `Get-Process` 读到 `Responding: False`、工作集 1.8 GB，约 50 s 后回 `True`(0.9 GB)；
+            //    期间三张截图逐像素一致、**一条日志都没有**）。判据与已排除项 → `BuildWatch` 的注释。
+            //   ⚠️ **它在真 Play 里才出声**（`Application.isPlaying`）⇒ 批处理自检的日志一字不变。
+            BuildWatch.Begin();
             Build();
+            BuildWatch.Mark("① `Build()`（建壳 + 四页 + 收尾刷）");
             if (tabButtons != null) tabButtons.Click(0);       // 默认落在第一页（`GetStartingTab` 的回落）
+            BuildWatch.Mark("② `tabButtons.Click(0)`（落第一页）");
+            if (Application.isPlaying) StartCoroutine(BuildWatch.ReportAtFrameEnd("开收藏窗"));
         }
 
         // ============================================================ 四页共用的那一条页头
@@ -2361,8 +2462,12 @@ namespace CardPresentation
         //      · `Separator Line` `40k_main_line`        167.17,150.94 → 1920.01,160.94
         //      · `Filters`（GridLayoutGroup）→ `Clear Filter Button` `UI_Button_Mulligan` **250×60**
         //        ⇒ 真值 **612.17, 83.44 → 862.17, 143.44**（**四页都是这个 x**，理由见下）
-        //    ⚠️ **字号逐页不同**（原版每页是自己的实例值）：Deck 42/33 · Cards 42/42 · Cosmetics 35/33 · Styles 42/42
+        //    ⚠️ **字号逐页不同**（原版每页是自己的实例值）：**Deck 42/42 · Cards 42/42 · Cosmetics 35/33 · Styles 42/42**
         //       ⇒ **做成参数**，不许当成全局常量（`阶段二_卡组线_原版规格.md` §三 那句「别拿一个数当全部情况」）。
+        //       🔴 **2026-10-12 就地订正（铁律 5）**：原来这一行写的是 **「Deck 42/33」** —— **错**（串了页）。
+        //      判据 = 四页逐颗现读 `… ▸ {Header,Header Filters} ▸ {Filter Toggle/label, Clear Filter Button/Button Text}`
+        //      的 `m_fontSize`：Deck `42 / 42` · Cards `42 / 42` · Cosmetics `35 / 33` · Styles `42 / 42`
+        //      （那一行 `35/33` 是**卡背页**的，被误抄到本页头上）。两处消费点（`filterPx` / `clearPx`）都已订正。
         //
         // 🔴 `Clear filters` 的 x 为什么是 612.17 而不是 Cardback 页序列化里的 **1488.59**：
         //    `Header/Filters` 是 `GridLayoutGroup`(cell 85×70 · FixedRowCount 1 · MiddleLeft) + `CSF(H=Preferred)`，
@@ -2384,7 +2489,7 @@ namespace CardPresentation
         /// 印出来的 `4 Header 167.2,70.9→1920,155.9` → `5 Filter Toggle 367.2,88.4 50×50 40k_menu_bt`
         /// + `label 'Filters' fs42` + `icon detail 40k_bt_icon_search 30×30`，**与另外三页同值**）——
         /// 我们原来给 Deck 页单独写的 `BuildDeckHeader` **连那颗 `40k_menu_bt` 都没建**（只铺了 50×50 的图标）。
-        /// 四页的差别只有：① 字号（Deck 42/33）② Deck 多一条 `Control Buttons`（见 `BuildDeckHeader`）。</summary>
+        /// 四页的差别只有：① 字号（Deck/Cards/Styles 各 **42/42**、卡背页 **35/33**）② Deck 多一条 `Control Buttons`（见 `BuildDeckHeader`）。</summary>
         public void BuildFilterHeader(Transform page, int pageNo, float filterPx, float clearPx, System.Action onClear,
                                       System.Action onToggle)
         {
@@ -2400,7 +2505,10 @@ namespace CardPresentation
             //   （同一条键两种表现）。英文列 = 那颗 TMP 的 `m_text` 原文 `Filters`；中文列 = 「过滤器」
             //   （⚠️ 那一列是**原版实拍**读到的，见 `Core/Loc.cs` 里 `MenuDeck/Filters/Filters` 那条的注释）。
             //   ⛔ 节点名 `"Filters Label"`（`Editor/CollectionScene.cs` 按名找）与上面那颗底图/图标的名字都不动。
-            var fltLab = Text(page, Loc.T("MenuDeck/Filters/Filters"), 437.2f, 587.2f, FltBtnY, FltBtnY + FltBtnS, 5, PageInk,
+            // `label` 自己的矩形（= 原版 `Filter Toggle/label` 那一格）；`AlignLeft` 要用它。
+            var fltLabR = new PxRect(437.2f, FltBtnY, 587.2f, FltBtnY + FltBtnS);
+            var fltLab = Text(page, Loc.T("MenuDeck/Filters/Filters"), fltLabR.x1, fltLabR.x2, fltLabR.y1, fltLabR.y2,
+                              5, PageInk,
                               "Filters Label", filterPx,
                               // 🔴 **2026-10-10（A1212 · 块 3 #7）**：接上 `m_enableAutoSizing`（四格 = **10 / 42 / 32 / 0**）。
                               //   判据 = `R5` §2 #7（三页三颗同名：`CardsTab ▸ Header Filters` / `Cardback Tab ▸ Header` /
@@ -2413,6 +2521,20 @@ namespace CardPresentation
             {
                 fltLab.SetRenderQueue(QPageText);
                 fltLab.SetWrappingMode(0);      // 原版 `m_TextWrappingMode = 0`
+                // 🔴 **2026-10-12（本会话 · 现读 prefab + 用户实拍）新增：`label` 是【左对齐】，我们原来居中。**
+                //   判据①（原版 prefab，四页逐颗现读；`menu_dump.py bundle_menus_assets_all "<页节点>" --depth 4`）：
+                //     `Select Deck Tab ▸ Header ▸ Filter Toggle ▸ label` = `'Filters' 字号=42.0 基准=32.0
+                //      auto[10.0~42.0] **对齐=Left/Middle** 折行=0 色=(1,1,1,1)`；`CardsTab ▸ Header Filters` ·
+                //     `Cardback Tab ▸ Header` · `Alternate Art Tab ▸ Header Filters` 三处**同值**（**4/4 全是 Left**）
+                //     ⇒ 四页共用本函数，一处改到位。
+                //   判据②（用户实拍 `C:/Users/qjh36/Desktop/warpforge参考图/收藏—卡组的参考图.png`）：
+                //     实拍里「过滤器」三个字的**左缘 = 443.5**（把实拍按卡框宽 221.4 归一后换算成画布 px），
+                //     而框左沿 = 437.2 ⇒ 那是**左对齐**（CJK 在 fs42 下左留白 ~6px）；
+                //     我们居中那一版左缘落在 **462.3**（= 框心 512.2 − 文字宽一半）—— 差 **19px**，实拍上一眼可见。
+                //   ⚠️ 顺序与 `TitleRow` 那条**同一条纪律**：`Text()` → `SetRenderQueue` → `AlignLeft`
+                //     （`AlignLeftOn` → `RefreshBounds` → `ForceMeshUpdate` 会重排 mesh ⇒ 必须排在 `Text()` 之后；
+                //      本处没有 `ClipText`，左栏不在滚动视口里）。⛔ 别挪到 `Text()` 之前（那样会被重排冲掉）。
+                MenuDraw.AlignLeft(fltLab, fltLabR);
             }
             if (onToggle != null)
                 AddHit(page, "FiltersHit", new PxRect(FltBtnX, FltBtnY, FltBtnX + FltBtnS + 220f, FltBtnY + FltBtnS),
@@ -2434,7 +2556,9 @@ namespace CardPresentation
                               5, PageInk, "Clear filters Text", clearPx,
                               // 🔴 **2026-10-10（A1212 · 块 3 #8）**：接上 `m_enableAutoSizing`（四格 = **10 / 42 / 12 / 0**）。
                               //   判据 = `R5` §2 #8（三页三颗同名：`… ▸ Clear Filter Button ▸ Button Text`，
-                              //   原版 CardsTab 那颗 fs42）。`clearPx` 逐页 = 42/33/42/33 ⇒ 最小 33 > 10，闸全过。
+                              //   原版 CardsTab 那颗 fs42）。`clearPx` 逐页 = **42/42/33/42**（Deck/Cards/Cosmetics/Styles；
+                              //   🔴 2026-10-12 订正：原来写 42/33/42/33 —— 那两组数串了页，见 `BuildDeckHeader` 那条）
+                              //   ⇒ 最小 33 > 10，闸全过。
                               //   ⚠️ 折行 = `0` ⇒ 显式还原（下面那句）。
                               wrapPx: ClearFltW, autoMinPx: 10f, autoMaxPx: 42f, autoBasePx: 12f);
             if (clrLab != null)
@@ -2619,6 +2743,7 @@ namespace CardPresentation
                 t.SetHost(this, pg, p);
                 tabs.Add(t);
             }
+            BuildWatch.Mark("①a `BuildShell` + 四页节点");
 
             // 🆕 **2026-10-03 A22②：整窗原来没有关闭钮** —— 原版有 `Shared>Close Button`
             //（原版实测：`Collection Menu Variant` 的 `Shared/Close Button` = **192.17,83.44 → 342.17,143.44**（150×60）·
@@ -2718,7 +2843,12 @@ namespace CardPresentation
             if (bgNode != null)
                 foreach (var q in bgNode.GetComponentsInChildren<ImageQuad>(true)) q.SetRenderQueue(2000);
 
-            foreach (var t in tabs) t.Setup();
+            // ⚠️ 逐页分开计时（`A1628`）：四页**一次性全建**，哪一页贵必须看得出来。
+            for (int p = 0; p < tabs.Count; p++)
+            {
+                tabs[p].Setup();
+                BuildWatch.Mark("①b 页 " + p + "（`" + PageNode(p) + "`）· `Setup()`");
+            }
 
             // 🔴 **四页的 `Filter Toggle` 收尾刷一次**（2026-10-05）：四份抽屉是在上面那句 `Setup()` 里
             //   才陆续建起来的（页头比抽屉先建）⇒ `BuildFilterHeader` 末尾那次 `RefreshFilterToggle(pageNo)`
@@ -2730,6 +2860,7 @@ namespace CardPresentation
             //   ⛔ 但这一行照旧要留：它的作用在**重建**那条路上，不在首建。
             RefreshFilterToggles();
             RefreshClearFilters();
+            BuildWatch.Mark("①c 收尾刷（`RefreshFilterToggles` + `RefreshClearFilters`）");
         }
 
         // ============================================================ Deck 页的内容（由 `CollectionTabPage` 调）
@@ -2758,8 +2889,16 @@ namespace CardPresentation
         /// 判据：`python 工具/menu_dump.py bundle_menus_assets_all "Collection Menu Variant" --depth 20 --md`。</summary>
         public void BuildDeckHeader(Transform page)
         {
-            // 本页字号 = **42 / 33**（原版逐页不同）
-            BuildFilterHeader(page, 0, 42f, 33f, ClearDeckFilters, ToggleDeckFilters);
+            // 🔴 **2026-10-12（本会话 · 逐颗现读 prefab）就地订正（铁律 5）：`Clear filters` 的字号 = 42，不是 33。**
+            //   原文写「本页字号 = **42 / 33**」，而 `33` 是**「Cosmetics 页那一颗」的值**（串了页）。
+            //   判据（`menu_dump.py bundle_menus_assets_all "<页节点>" --depth 4`，四页逐颗现读
+            //   `… ▸ Clear Filter Button ▸ Button Text` 的 `m_fontSize`）：
+            //     · `Select Deck Tab`（**本页**）= **42.0**（`'Clear filters' 字号=42.0 基准=12.0 auto[10.0~42.0]`）
+            //     · `CardsTab` = 42.0 · `Alternate Art Tab` = 42.0 · `Cardback Tab` = **33.0**
+            //   ⇒ 四页里只有卡背页是 33（它连 `Filters` 那颗也是 35，见 `BuildFilterHeader` 的 `filterPx`）。
+            //   ⚠️ 这一颗**只在「这一页有筛选」时才显示**（`RefreshClearFilter`），所以默认态截图上看不出来 ——
+            //     但它是**实打实的偏离**，照原版改。
+            BuildFilterHeader(page, 0, 42f, 42f, ClearDeckFilters, ToggleDeckFilters);
 
             // 🆕 A98（2026-10-06）：**`Control Buttons` 组节点**（原来两颗钮**直接挂在页节点上**、这一层没建）。
             //    原版参数（我逐字段直读 prefab，不是转抄）：
@@ -3398,10 +3537,200 @@ namespace CardPresentation
 
         public string Dump()
         {
-            return "Collection：页 " + CurrentTab + " · 卡组 " + CollectionData.DeckCount() + " 套"
+            return "Collection：页 " + CurrentTab + " · " + CollectionData.DeckCount() + " 套"
                    + " · 当前第 " + (CollectionData.CurrentIndex() + 1) + " 套"
                    + " · 列表滚动 " + (DeckScroll != null ? DeckScroll.Offset.ToString("F0") : "-") + "px"
                    + " · 画出的格 " + DeckCells.Count;
+        }
+
+        // ============================================================ 🆕 2026-10-12（`A1628`）开窗分段计时
+
+        /// <summary>**开收藏窗的分段计时探针**（临时诊断件 —— 查到那一跳之后可以把 `Mark`/`Begin` 调用点删掉，
+        /// 但 ⛔ **删之前先把结论写进账**）。
+        ///
+        /// <para>🔴 **它要回答的问题**（用户 2026-10-12 真机实测）：**点「收藏」⇒ 整个 player 假死约 50 秒**。
+        /// 实测读数：点完 `Get-Process WarpforgePlayer` 读到 **`Responding: False`**、工作集顶到 **1.8 GB**；
+        /// **约 50 秒后**才回 `True`（0.9 GB）；期间**三张截图逐像素一致**（画面完全不动）；
+        /// **不是崩溃**（进程活着）。实拍 → `_tmp_view/s21_04_collection.png` / `s21_01_collection.png`。</para>
+        ///
+        /// <para>🔴 **已经排除的（别重复查）**：`ClickLog` 是**同帧**捕获（`Begin` → 帧末 `Driver.LateUpdate`
+        /// → `End`，`Core/ClickLog.cs`）⇒ 那一次点击记下来的 7 行日志**就是这一帧的全部日志**，
+        /// 而 `_tmp_view/click_log.txt` 里**这一条的时间戳 = `12:12:36.653` = 帧末** ——
+        /// 与「点击发生在 ~12:11:46、50 秒后画面才动」逐位吻合（截图 mtime `s21_01`~`s21_03` 都停在同一帧）
+        /// ⇒ **那 50 秒花在【点击那一帧里】，不是后续几帧**。
+        /// 最后一行为 `[CardView] 卡背 SDF：…`，它全仓只有**两个**调用点：`Battle/BattleDriver.cs:13948`（本局没打到）
+        /// 与 `Shell/CollectionWindow.cs` 的 `RebuildCosmoCells`（**卡背页第 1 格**）⇒ **那一行之后直到帧尾
+        /// 一条日志都没有**，所以嫌疑只在「卡背页循环剩下的部分 → 异画页 → 落页 → **本帧的渲染**」这段里。</para>
+        ///
+        /// <para>🔴 **两条头号嫌疑（本探针就是为分开它们而加）**：
+        /// ① `Resources.LoadAll&lt;Texture2D&gt;("Art/cardbacks")`（在 `CosmoTotal` 里，`CardArt.CosmeticNames`）——
+        ///    打进包里的真值（本机 UnityPy 现读 `player/WarpforgePlayer_Data/resources.assets`）：
+        ///    **466 张 · `m_CompleteImageSize` 合计 610.1 MB · 格式全是 `4`(RGBA32 未压缩)**；
+        /// ② **本帧第一次渲染**新建的那批材质/贴图 —— 其中 `Everguild/FX/Card Highlight And Shadow`
+        ///    是**从原版 bundle 运行时加载**的 shader（本仓已知：bundle 里的 shader 落不了工程资产、
+        ///    只能运行时加载），它在本进程里**到这一帧才第一次被画**。`WaitForEndOfFrame` 那一格量的就是它。</para>
+        ///
+        /// <para>⚠️ **只在真 Play 里出声**（`Application.isPlaying`）⇒ 批处理自检的日志一字不变
+        /// （那几条数日志条数的断言因此不受影响）。</para></summary>
+        internal static class BuildWatch
+        {
+            static readonly List<string> _marks = new List<string>();
+            static float _t0;
+            static string _title;
+
+            /// <summary>记一格：`what` 后面跟「从上一格到这一格」的毫秒数。</summary>
+            public static void Mark(string what)
+            {
+                if (!Application.isPlaying) return;
+                float now = Time.realtimeSinceStartup;
+                _marks.Add($"    {what}：**{(now - _t0) * 1000f:F1} ms**");
+                _t0 = now;
+            }
+            public static void Begin()
+            {
+                if (!Application.isPlaying) return;
+                _marks.Clear();
+                _t0 = Time.realtimeSinceStartup;
+            }
+
+            /// <summary>把「从点击到**本帧渲染完**」也记成一格 —— 这一格含 render，是 ② 号嫌疑唯一的量法。</summary>
+            public static System.Collections.IEnumerator ReportAtFrameEnd(string title)
+            {
+                yield return new WaitForEndOfFrame();
+                _title = title;
+                Mark("③ 帧尾（**含本帧渲染** —— 新建材质/贴图的首次 GPU 上传 + shader 首次编译都在这儿）");
+                Dump();
+            }
+
+            // ============================================================ 🆕 2026-10-12（`A1628` 第二轮）
+            // **逐格相位累计器** —— 上面那 8 个格子只分开了「**哪一页**」，于是第二轮实测把根因从
+            // 「整池 1126 张」改成了「**每建一张卡 ≈ 2.2 秒**」（页 1 = 18 格 41531.6ms · 页 3 = 6 格 13011.7ms；
+            // 两页**都已经**只建视口内的格，自检 `Editor/CollectionScene.cs:3883` / `:6870` 逐条断着 18 / 6）。
+            // 本器接着往下切一层：把**一格**拆成 5 段累计（18 格 × 5 段 ⇒ 压成 5 行），
+            // 下一趟真机就能指名「那 2.2 秒在 `CardView.Create` / 两次重裁 / 宿主那两件」里的哪一段。
+            // ⚠️ **与 `Mark` 共用 `Application.isPlaying` 那道闸** ⇒ 批处理自检的日志一字不变。
+            static readonly List<string> _phName = new List<string>();
+            static readonly List<double> _phMs = new List<double>();
+            static int _phCells;
+            static float _phT;
+
+            /// <summary>开始量一页的格子（清账）。</summary>
+            public static void CellsBegin()
+            {
+                if (!Application.isPlaying) return;
+                _phName.Clear(); _phMs.Clear(); _phCells = 0;
+            }
+            /// <summary>一格开量。</summary>
+            public static void CellBegin() { if (!Application.isPlaying) return; _phT = Time.realtimeSinceStartup; }
+            /// <summary>记一段：`what` 后面累加「上一段到这一段」的毫秒。</summary>
+            public static void CellPhase(string what)
+            {
+                if (!Application.isPlaying) return;
+                float now = Time.realtimeSinceStartup;
+                int i = _phName.IndexOf(what);
+                if (i < 0) { _phName.Add(what); _phMs.Add(0.0); i = _phName.Count - 1; }
+                _phMs[i] += (now - _phT) * 1000.0;
+                _phT = now;
+            }
+            public static void CellEnd() { if (!Application.isPlaying) return; _phCells++; }
+
+            /// <summary>把这一页的逐格相位打出来。**一格都没建就不出声**（页被整块裁掉 / 还没进这一页）。</summary>
+            public static void CellsReport(string title)
+            {
+                if (!Application.isPlaying) return;
+                if (_phCells <= 0) return;
+                var sb = new System.Text.StringBuilder();
+                sb.Append("[Collection·计时] `").Append(title).Append("` **逐格相位**（").Append(_phCells)
+                  .Append(" 格 · 逐段累加；单位 ms）：\n");
+                for (int i = 0; i < _phName.Count; i++)
+                    sb.Append("    ").Append(_phName[i]).Append("：**").Append(_phMs[i].ToString("F1"))
+                      .Append(" ms**（均 ").Append((_phMs[i] / _phCells).ToString("F1")).Append(" / 格）\n");
+                sb.Append(FontReadout());
+                Debug.Log(sb.ToString());
+            }
+
+            /// <summary>中文字体资产那一格读数 —— 用来判「每段 TMP 重排都在现生成字形」这条**假设**
+            /// （本仓唯一字体 `NotoSerifCJK-Regular SDF`：`m_AtlasPopulationMode = 1`(Dynamic)、
+            /// **图集是 1×1 占位** ⇒ 每个新字形都得从 TTF 现烘。出处 = `Core/TmpFont.cs:27-28`）。
+            /// 🔴 **它只是读数，不是结论** —— 读出 `1×1` **不证明**它就是那 2.2 秒（那要先量单次
+            /// `ForceMeshUpdate` 的耗时）；读不到就如实写「读不到」，⛔ 不猜。</summary>
+            /// <summary>量**一次 `ForceMeshUpdate` 有多贵** —— 本账最要紧的那个数，因为整张卡的
+            /// 2.2 秒如果按「每段文字重排 × 次数」摊开，只有这一个数能把它对上或推翻。
+            ///
+            /// <para>**为什么怀疑它**：本仓**只有一个字体**（`NotoSerifCJK-Regular SDF`），而它
+            /// `m_AtlasPopulationMode = 1`(Dynamic)、**图集是 1×1 占位**（出处 `Core/TmpFont.cs:27-28`）
+            /// ⇒ 每个字形都得从 TTF 现烘。建一张卡要走的文字重排是**几十次**
+            /// （`FitToBox` 的 8 步二分每步一次 · `FitToWidth` 两次 · `SetClipFromTree` 那次裁切逐字一次），
+            /// 若单次是 10ms 量级，2.2 秒就对上了；若单次是 0.2ms，那这条假设**当场被推翻**
+            /// （⛔ 那时别再往字体上查，改去看贴图/材质的首次加载）。</summary>
+            /// <para>⚠️ **量完必须把裁切重新贴回去**：`ForceMeshUpdate` 会把我们写进顶点的那一刀
+            /// **冲掉**（这正是 `CardView.RestoreClip` 靠它还原原件的那条性质）⇒ 不补一句
+            /// `SetClipFromTree()` 的话，被量的那张卡**文字会露出视口外**（真缺陷）。
+            /// 补那一句之后画面与「不量这一下」逐位相同。</para>
+            /// <para>⚠️ 与其余探针同闸：**只在真 Play 出声**。</para>
+            public static void TimeOneTextRelayout(Transform cardRoot)
+            {
+                if (!Application.isPlaying || cardRoot == null) return;
+                try
+                {
+                    var tmps = cardRoot.GetComponentsInChildren<TMPro.TextMeshPro>(true);
+                    if (tmps == null || tmps.Length == 0)
+                    {
+                        Debug.Log("[Collection·计时] 单次文字重排：**量不到**（这张卡下没有激活的 `TextMeshPro`）");
+                        return;
+                    }
+                    var t = tmps[0];
+                    float a = Time.realtimeSinceStartup;
+                    t.ForceMeshUpdate();
+                    float b = Time.realtimeSinceStartup;
+                    t.ForceMeshUpdate();
+                    float c = Time.realtimeSinceStartup;
+                    Debug.Log("[Collection·计时] 单次文字重排（`" + t.name + "`，第 1 张卡）：第 1 次 **"
+                              + ((b - a) * 1000f).ToString("F1") + " ms** · 第 2 次 **"
+                              + ((c - b) * 1000f).ToString("F1") + " ms**"
+                              + "（⚠️ 两次差得大 ⇒ 第 1 次含**字形现生成**；两次都小 ⇒ 「字体现烘」那条假设**不成立**，"
+                              + "别往字体上查）。⚠️ 本行之后已把那张卡的裁切补回（见本方法的 doc）。");
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogWarning("[Collection·计时] 单次文字重排量不到：" + e.GetType().Name + "：" + e.Message);
+                }
+                var cv = cardRoot.GetComponent<CardView>();
+                if (cv != null) cv.SetClipFromTree();          // 把上面那一下冲掉的裁切补回来
+            }
+
+            static string FontReadout()
+            {
+                try
+                {
+                    var f = TmpFont.Font;
+                    if (f == null) return "    · 字体资产读数：**取不到**（`TmpFont.Font == null`）\n";
+                    var at = f.atlasTextures;
+                    string atlas = (at == null || at.Length == 0 || at[0] == null)
+                                 ? "**没有图集**"
+                                 : (at[0].width + "×" + at[0].height + "（共 " + at.Length + " 页）");
+                    return "    · 字体资产读数：`" + f.name + "` · 图集 **" + atlas + "** · 模式 "
+                         + f.atlasPopulationMode
+                         + " · 已烘字形 " + (f.glyphTable != null ? f.glyphTable.Count : -1)
+                         + " / 字符 " + (f.characterTable != null ? f.characterTable.Count : -1)
+                         + "（名义 `m_AtlasWidth/Height` = " + f.atlasWidth + "×" + f.atlasHeight + "）\n";
+                }
+                catch (System.Exception e)
+                {
+                    return "    · 字体资产读数：**读不到**（" + e.GetType().Name + "）\n";
+                }
+            }
+
+            static void Dump()
+            {
+                var sb = new System.Text.StringBuilder();
+                sb.Append("[Collection·计时] `").Append(_title).Append("` 分段（真机 `A1628` 探针；单位 ms）：\n")
+                  .Append(string.Join("\n", _marks.ToArray()))
+                  .Append("\n    ⚠️ **哪一格上千毫秒，50 秒就在那一格里**；" +
+                          "若①b2a（`Resources.LoadAll` 466 张卡背）或③（帧尾/渲染）最大，" +
+                          "对应的修法分别是「卡背页别在开窗时全量 `LoadAll`」/「SDF 那族 shader 与贴图别在这一帧才第一次用」。");
+                Debug.Log(sb.ToString());
+            }
         }
     }
 

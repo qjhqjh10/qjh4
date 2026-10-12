@@ -276,6 +276,16 @@ RE_OTHER_AURA = re.compile(
 RE_OTHER_AURA_SPECIAL = re.compile(
     r"^(?:(?:has\s+)?flying\s+during\s+your\s+turn"
     r"|adjacent\s+remnants?\s+do\s+not\s+disappear\s+at\s+the\s+end\s+of\s+your\s+turn)$", re.I)
+# 🆕 `A1458`：**只有费用那半、连 `have` 都没有**的形状 ——
+# `<head> <subject> cost(s) N less`，整句到底。同步自 `Core/Aura.cs` 的 `ReCostOnly`。
+# ⚠️ `ReCostOnlyOneShot` 那半也照抄：卡面写 `next` / `this turn` /
+#    `for the rest of this battle` 的是**一次性**降费（走 `lowercost` op + `PlayTactic`），
+#    光环层**故意不收** ⇒ 这里也不能认。
+RE_OTHER_AURACOST = re.compile(
+    r"^(?:adjacent|your other|other friendly|friendly|your|enemy|enemies)\s+(.+?)\s+costs?\s+\d+\s+less$",
+    re.I)
+RE_OTHER_AURACOST_ONESHOT = re.compile(
+    r"\bnext\b|\bthis turn\b|\bfor the rest of this battle\b", re.I)
 # 静态改战斗规则：`CardDef.MatchStaticBattleRule`（`Core/CardDef.cs:632`）那 7 句，逐字
 STATIC_RULES = (
     "this troop's melee is always equal to its health",
@@ -315,6 +325,10 @@ def other_layer(seg, ctype):
     if RE_OTHER_STARTWITH.match(s):
         return "开局上手（StartWithInHand）"
     if RE_OTHER_AURA.match(s) or RE_OTHER_AURA_SPECIAL.match(s):
+        return "光环（AuraSpecs）"
+    # 🆕 `A1458`：只有费用那半那一档（`Your troops cost 1 less`）—— 一次性那一档**不算**
+    mc = RE_OTHER_AURACOST.match(s)
+    if mc and not RE_OTHER_AURACOST_ONESHOT.search(mc.group(1)):
         return "光环（AuraSpecs）"
     low = s.lower()
     for pat in STATIC_RULES:

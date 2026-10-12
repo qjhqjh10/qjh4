@@ -736,6 +736,81 @@ public static class MainMenuScene
                          + "（⛔ 不是零颗、也不是五颗一起亮 —— 五颗全亮是原版的【出厂】态，不是运行期该有的样子）");
         }
 
+        // ============================================================ 🆕 **2026-10-12：用户真机点名的三件**
+        // （`A1638` 左竖导航「点亮第 i 颗」的共用口 · `A1637` 等级徽章的图 · `A1639` 聊天预览出厂关）
+        // 🔴 **三条都断【状态】**（`activeSelf` / 贴图名 / 那个布尔口）——
+        //    ⛔ 不靠「节点找得到」：`FindChild` / `GetComponentsInChildren(true)` **含 inactive**，
+        //    只断「找得到」在两种状态下都会绿（本工程已经踩过四次）。
+        Section("★ A1638 共用口 `SetNavToggle` · A1637 `Player Level` 的图 · A1639 `ChatPreview` 出厂不可见");
+        {
+            // ---- ① A1638：**一个共用口**，四个入口都走它 --------------------------------
+            // 判据 = 原版 `NavigationPanelController.SetToggle()`（`__SetToggle.c`：找到那颗 →
+            //   `isOn == false` 时 `SetIsOnWithoutNotify(true)`）＋ 全库那**四个**调用点
+            //   （`CollectionScreen__Open.c:14` 收藏 1 · `ShopWindow__Open.c` 商店 2 ·
+            //    `MainMenuRewardsWindow__Open.c` 奖励 3 · `BaseParentEventWindow__Open.c` 活动 5）。
+            // ⚠️ 本仓只有前 5 颗（`Main/Collection/Shop/Rewards/Social`），第 6 颗（`Event`）是
+            //   原版运行期按服务端事件建的 liveop 钮 —— 本仓没有事件数据源（那一条在报告里如实记）。
+            CheckTrue(MainMenuRuntime.Instance == menu,
+                      "（前提）`MainMenuRuntime.Instance` 就是本自检这一台 —— 否则下面 `SetNavToggle` 那一族等于没查");
+            var navOrder2 = new[] { "Home", "Collection", "Shop", "Rewards", "Social" };
+            for (int i = 0; i < navOrder2.Length; i++)
+            {
+                MainMenuRuntime.SetNavToggle((MainMenuRuntime.NavigationPanelToggleType)i);
+                int litI = 0;
+                for (int j = 0; j < navOrder2.Length; j++)
+                {
+                    var hj = FindChild(menu.Find("Main Menu Navigation Button - " + navOrder2[j]), "Selected highlight");
+                    if (hj != null && hj.gameObject.activeSelf) litI++;
+                }
+                var wantHl = FindChild(menu.Find("Main Menu Navigation Button - " + navOrder2[i]), "Selected highlight");
+                CheckTrue(litI == 1 && wantHl != null && wantHl.gameObject.activeSelf,
+                          $"★ `SetNavToggle({(MainMenuRuntime.NavigationPanelToggleType)i})` ⇒ "
+                        + $"**恰好 `{navOrder2[i]}` 那一颗亮**（实测亮 {litI} 颗）"
+                        + " —— 判据 = 原版 `SetToggle`（收藏 1 / 商店 2 / 奖励 3 三条入口用的就是它）；"
+                        + "🧨 把某个入口写回裸魔数、或漏掉一颗 ⇒ 这里立刻红");
+            }
+            // 摆回基线：最后停在 `Main`（这一格之后还有别的段要读导航状态）
+            MainMenuRuntime.SetNavToggle(MainMenuRuntime.NavigationPanelToggleType.Main);
+            // 原版第 6 颗（`Event`）本仓没有 ⇒ 那一下**不许静默**、也不许乱点别的颗
+            MainMenuRuntime.SetNavToggle(MainMenuRuntime.NavigationPanelToggleType.Event);
+            var hlHome = FindChild(menu.Find("Main Menu Navigation Button - Home"), "Selected highlight");
+            CheckTrue(hlHome != null && hlHome.gameObject.activeSelf,
+                      "★ `SetNavToggle(Event)`（原版第 6 颗 = liveop 事件钮）⇒ 本仓**没建那颗钮** ⇒ "
+                    + "高亮**停在 `Main` 不动**（且日志里必须有一行 `[Menu] SetNavToggle(Event)…` 说明原因）"
+                    + " —— ⛔ 不许静默失败、也不许「越界就点第 0 颗」");
+
+            // ---- ② A1637：`Player Level` 那颗徽章画的是【圆环】，不是金砖 ------------------
+            // 判据（三条独立，见 `Shell/TopBar.cs` 建它那一句上面的长注释）：
+            //   场景 `MonoBehaviour_2359.json` 的 `m_Sprite.m_PathID = 2381704724431365035`；
+            //   全库扫 84 个真包：该 pid **唯一命中** `Sprite/UI_Button_Round_background`；
+            //   `bundle_menus_assets_all` 里 4 份 `Player Level` 同 pid。
+            var lvlIcon = FindChild(FindChild(menu.Find("Player Profile"), "Player Level"), "Icon");
+            var lvlQ = QuadOfInactiveToo(lvlIcon);
+            CheckText(lvlQ != null && lvlQ.Texture != null ? lvlQ.Texture.name : "<无图>", "UI_Button_Round_background",
+                      "★ `Player Level/Icon` 用的是 **`UI_Button_Round_background`**（深色圆 + 一圈细亮环，237²）"
+                    + " —— 用户实拍里那颗「圆环 + 数字 28」就是它；"
+                    + "🧨 换回 `40k_topmarquee_currency_gold`（一块金砖，90²、无图集）⇒ 本条红");
+
+            // ---- ③ A1639：那块「聊天预览」**出厂不可见** --------------------------------
+            // 判据（五条，全部逐句读出来的反编译） → `Shell/MainMenuRuntime.cs` 的 `BuildChatPreview` 末尾那一段：
+            //   `ChatPreview.Show()` 只在「该频道 ≥1 条消息」时才被调到（`__OnInitializationComplete` /
+            //   `__WaitAndAnimate` 两个调用点）⇒ **没有消息就永远不画**；而「读了就收」那条
+            //   （`__<OpenChat>b__10_0.c` 的 `SetActive(false)`）在本文件下面 `ChatPanel` 那一节里另有一条两态对照。
+            // 本仓没有聊天数据源（用户 2026-09-26 口径 + `Shell/ChatPanel.cs` 文件头 ⑤）⇒ 它**不该出现**。
+            CheckTrue(!menu.ChatPreviewVisible,
+                      "★ `ChatPreview`（主菜单右上那块）**出厂不可见**（原版「有消息才 `Show()`」；本仓没有聊天源）"
+                    + " —— 🧨 让它恒亮 ⇒ 本条红（那两条占位串还会压住收藏窗顶部那两颗钮，旧账 `A1553`）");
+            CheckTrue(menu.Find("ChatPreview") != null,
+                      "…但**那一棵结构仍然建着**（原版那颗 GO 是 `m_IsActive = true`、靠 scale/fill 按没的）"
+                    + " —— ⛔ 不是「把件删掉」");
+            CheckTrue(FindChild(menu.Find("ChatPreview"), "ChatHit") != null,
+                      "…那颗聊天入口钮也还在（唯一开关是 `SetChatPreviewVisible`，⛔ 不是把树砍掉）");
+            menu.SetChatPreviewVisible(true);
+            CheckTrue(menu.ChatPreviewVisible, "…`SetChatPreviewVisible(true)` 点得回来（**唯一**显隐口）");
+            menu.SetChatPreviewVisible(false);
+            CheckTrue(!menu.ChatPreviewVisible, "…再关回去 ⇒ 又是不可见（幂等）");
+        }
+
         // ============================================================ 🆕 2026-10-10（A284 + A222）
         // ① **图标那一格的矩形**：原版五颗里**只有 `Home` 不是正方形** ——
         //    `Home` = **156.349 × 137.435**（`RT 1111` · `apos (83.095, −71.70)` · `anchor (0,1)`
@@ -10296,8 +10371,44 @@ public static class MainMenuScene
                           $"「开着的窗」里社交窗只有 **1** 扇（实测 {nSw}）—— 每次新建会叠出第二扇；"
                         + "⛔ 这里数的是 `WindowsManager.openWindows`，**不是**锚点子节点（`Close()` 不销毁对象）");
 
+                // ---- ①·b 🆕 2026-10-12（A1629）：「有层级」—— **开窗那一刻主菜单那棵要藏起来** ----
+                //   用户 2026-10-12 原话：「打开别的界面的时候，主界面的那些模式卡应该看不到才对」
+                //   「很多地方的界面好像是没有层级一样，按照顺序依次打开不同地方的时候它们的界面相互重叠」。
+                //   判据 = 原版 `MainMenuWindow.ToBackground()` 末句 `gameObject.SetActive(false)`
+                //   （`d:/2/tools/decomp_full/MainMenuWindow__ToBackground.c` 逐句）+ `MainMenuWindow.Initialize`
+                //   末尾那两句 `SetBaseMenu(this)` / `OpenWindow(this)`（= 它**在窗口栈里**，所以全屏窗开时
+                //   被 `HideAllWindows()` 一起 `Hide()`）。判据全文 → `Shell/MainMenuWindow.cs` 的文件头。
+                //   🔴 **必须断 `activeSelf`**：`FindChild` / `GetComponentsInChildren(true)` **含 inactive**
+                //   ⇒ 拿它们断「藏住了」会**假绿**（`资料/已知的坑.md` 记过同族）。
+                var baseW = WindowsManager.Instance != null ? WindowsManager.Instance.BaseMenu : null;
+                CheckTrue(baseW != null,
+                          "（前提）主菜单已登记成 `WindowsManager.BaseMenu`（原版 `MainMenuWindow.Initialize` 那两句；"
+                        + "`Shell/MainMenuRuntime.RegisterMainMenuWindow` 那一跳没跑 ⇒ 这条红，下面那条会跟着红）");
+                if (baseW != null)
+                {
+                    CheckTrue(!baseW.gameObject.activeSelf,
+                              "★ 开着社交窗时，**主菜单那棵（背景 + 模式卡）的 `activeSelf == false`** —— "
+                            + "原版那一刻它是 `ToBackground()` / `Hide()` 过的；"
+                            + "主菜单不在 `WindowsManager` 窗口栈里（本笔之前那一态）⇒ 它**一直可见**、模式卡全露在窗口底下");
+                    //   ⚠️ 节点名用**我们自己的**（`GameModes`）—— 原版那一段的中间层叫 `Safe area All`
+                    //   （见 `MainMenuWindow.cs` 文件头 ③），我们没建那层，照原版名字找会**找不着⇒假红**。
+                    var modesNode = baseW.transform.Find("GameModes");
+                    CheckTrue(modesNode != null && modesNode.gameObject.activeInHierarchy == false,
+                              "★ 模式卡那一支（`MainMenu/GameModes`）也**不再出现在层级里**"
+                            + "（`activeInHierarchy == false`；找不到这一支 ⇒ 也被算红）");
+                }
+
                 // ---- ② 关掉再点 ⇒ 新建（**只有这一条区分得开「还开着才复用」与「实例还在就复用」**）----
                 firstSW.Close();
+                // 🆕 2026-10-12（A1629）：**关掉上面那扇 ⇒ 主菜单要回来** —— 原版 `ShowPreviousWindow` 里
+                //   「`openWindows` 空了 ⇒ `CurrentWindow = baseMenu` + `OpenWindow(baseMenu)`」那一跳。
+                //   🔴 这条与上面那条**成对**：少了回来那一跳，主菜单会被 `HideAllWindows` 藏成 `Closed`
+                //   之后**再也回不来**（比「一直可见」更糟）。
+                if (baseW != null)
+                    CheckTrue(baseW.gameObject.activeSelf,
+                              "★ 关掉那扇窗 ⇒ **主菜单那棵回来了**（`activeSelf == true`）—— "
+                            + "原版 `ShowPreviousWindow` 列表空那一支 `OpenWindow(baseMenu)`；"
+                            + "缺它 ⇒ 主菜单藏得掉、回不来");
                 swbN.onClick();
                 var secondSW = SocialWindow.LastOpened;
                 CheckTrue(secondSW != null && secondSW != firstSW,
@@ -10432,7 +10543,17 @@ public static class MainMenuScene
             CheckTrue(cwb != null && cwb.onClick != null, "`ChatPreview` 那颗钮**接了点击**");
             if (cwb != null && cwb.onClick != null)
             {
+                // 🆕 **A1639**（判据 = `ChatPreview__<OpenChat>b__10_0.c`）：**读了就把预览收起来** ——
+                //   原版那条 `OnComplete` 回调**第一句 `gameObject.SetActive(false)`**，然后才开聊天窗。
+                //   ⚠️ 两态对照：先把它点亮（出厂是关的，见 A1639 那一条）⇒ 点一下 ⇒ 必须**又关回去**。
+                //   ⛔ 只断「点完是关的」是弱断言 —— 出厂本来就关着，那样写**两种实现都会绿**。
+                menu.SetChatPreviewVisible(true);
+                CheckTrue(menu.ChatPreviewVisible, "（前提）把预览点亮（否则下面那条是假绿）");
                 cwb.onClick();
+                CheckTrue(!menu.ChatPreviewVisible,
+                          "★ 点它 ⇒ 那块预览**被收起来了**（原版 `ChatPreview.OpenChat` 的 `OnComplete` 第一句"
+                        + " = `gameObject.SetActive(false)`；动画那半拍本仓没有动画、只留终态）"
+                        + " —— 🧨 把它改回「点完还亮着」⇒ 本条红");
                 var chatWin = ChatPanel.LastOpened;
                 CheckTrue(chatWin != null && chatWin.CurrentState == WindowState.Open, "点它 ⇒ **真的开了聊天窗**");
                 if (chatWin != null)

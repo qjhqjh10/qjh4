@@ -120,13 +120,19 @@ class PlayProbe
     //  入口
     // ==================================================================
 
-    /// <summary>`play &lt;id|卡名&gt;` 单卡 · `play all [&lt;out.tsv&gt;]` 全池。
-    /// 返回**退出码**（判据见 <see cref="RunOne"/> 尾部与 <see cref="Sweep"/> 尾部）。</summary>
-    public static int Run(List<CardDef> pool, string key, string dumpPath)
+    /// <summary>`play &lt;id|卡名&gt;` 单卡 · `play all [dump &lt;out.tsv&gt;] [pf &lt;out.txt&gt;]` 全池 ·
+    /// 🆕 `play check [&lt;pf.txt&gt;]`（`A1431` 第二笔：**结算层对拍** —— 见 <see cref="Check"/>）。
+    /// 返回**退出码**（判据见 <see cref="RunOne"/> 尾部 · <see cref="Sweep"/> 尾部 · <see cref="Check"/> 尾部）。</summary>
+    public static int Run(List<CardDef> pool, string key, string dumpPath, string pfPath = null, string basePath = null)
     {
         if (pool == null || pool.Count == 0) { Console.Error.WriteLine("!! 卡池是空的"); return 2; }
-        if (string.IsNullOrEmpty(key)) { Console.Error.WriteLine("!! 用法：play <id|卡名> | play all [<out.tsv>]"); return 2; }
-        if (string.Equals(key, "all", StringComparison.OrdinalIgnoreCase)) return Sweep(pool, dumpPath);
+        if (string.IsNullOrEmpty(key))
+        {
+            Console.Error.WriteLine("!! 用法：play <id|卡名> | play all [dump <out.tsv>] [pf <out.txt>] | play check [<pf.txt>]");
+            return 2;
+        }
+        if (string.Equals(key, "all", StringComparison.OrdinalIgnoreCase)) return Sweep(pool, dumpPath, pfPath);
+        if (string.Equals(key, "check", StringComparison.OrdinalIgnoreCase)) return Check(pool, basePath);
 
         var hit = Find(pool, key);
         if (hit == null) return 2;
@@ -851,13 +857,14 @@ class PlayProbe
     /// ⚠️ 这是 `A1431` 那句「**全池尺子对『解析过、结算错』这一类结构性失明**」的正面回答：
     ///   本仓第一次有一条全池尺子**能看见「打出去之后局面动了没有」**。
     /// ⛔ 输出的是**候选**，判决归调度台/引擎侧（与 `willrun` 同一条纪律）。</summary>
-    static int Sweep(List<CardDef> pool, string dumpPath)
+    static int Sweep(List<CardDef> pool, string dumpPath, string pfPath = null)
     {
         var sb = new StringBuilder();
         sb.Append("id\tname\ttype\tbucket\twarlord\tplayRc\trcName\tplayed\tfaceOps\tselfPlace\tmech\tother\t"
                   + "expectedPay\tenergyDelta\thandCostDelta\tdmg\tchanges\tcrash\tnote\t"
                   // 🆕 `A1572` 两列（**只加在末尾** —— 前面的列一个字没动）
                   + "fixtureFit\tinjected\n");
+        var pfRows = new List<string>();      // 🆕 `A1431` 第二笔：**结算指纹**（逐卡一行，见 `FingerprintRow`）
 
         int played = 0, cand = 0, crash = 0, unimpl = 0, cantPlay = 0, heroCnt = 0;
         int naTotal = 0, naInjected = 0;                 // `A1572`：结构上不适用的两族 / 其中靠补手牌的
@@ -891,6 +898,8 @@ class PlayProbe
                 naTotal++;
                 if (r.Injected) naInjected++;
             }
+
+            pfRows.Add(FingerprintRow(c, r));      // 🆕 `A1431` 第二笔
 
             sb.Append(c.Id).Append('\t').Append(c.Name).Append('\t').Append(c.Type)
               .Append('\t').Append(r.Bucket)
@@ -1023,11 +1032,290 @@ class PlayProbe
             Console.WriteLine("  wrote " + dumpPath + " lines=" + (pool.Count + 1));
         }
 
+        // ------------------------------------------------------------------
+        //  🆕 `A1431` 第二笔：**结算指纹** —— 全池读数的**规范化摘要**（`play check` 对拍的那一份）
+        // ------------------------------------------------------------------
+        Console.WriteLine();
+        Console.WriteLine("  --- ⑤ 结算指纹（`A1431` 第二笔 · `play check` 拿它对拍）---");
+        Console.WriteLine("     " + FingerprintMd5(pfRows) + "   （" + pfRows.Count + " 张）");
+        Console.WriteLine("     含什么：`id|type|warlord|playRc|played|faceOps|自落场|机械|实得|应付|能量Δ|手牌价Δ|伤害|"
+                          + "变化条数|crash|档|**变化逐条全文**`。");
+        Console.WriteLine("     ⛔ 不含什么：**卡名**（改名的产物，本仓已改过 6 张）· `note`（口径散文）·"
+                          + "引擎日志（措辞会变）—— 这三样进来会**天天红**，把「红了不用管」训练成习惯。");
+        if (!string.IsNullOrEmpty(pfPath))
+        {
+            var pdir = Path.GetDirectoryName(Path.GetFullPath(pfPath));
+            if (!string.IsNullOrEmpty(pdir)) Directory.CreateDirectory(pdir);
+            File.WriteAllText(pfPath, FingerprintFileText(pfRows));
+            Console.WriteLine("     wrote " + pfPath + " lines=" + (pfRows.Count + 1));
+        }
+        else
+        {
+            Console.WriteLine("     ⚠️ 没写指纹文件 —— 要留一份「被确认的状态」⇒ `play all pf <out.txt>`"
+                              + "（写完之后**手改** `PlayProbe.PinnedPlayMd5` = 上面那串，见 `play check`）。");
+        }
+
         Console.WriteLine();
         Console.WriteLine("  判据：**抛异常 = 0 张** ⇒ rc=0；否则 rc=1。");
         Console.WriteLine("  ⚠️「候选」与「打不出去」**都不计入 rc** —— 它们要**对着卡面**逐张判，"
                           + "本工具不代替判决（⛔ 也不许静默：两栏都在上面逐条打了出来）。");
         return crash > 0 ? 1 : 0;
+    }
+
+    // ==================================================================
+    //  🆕 `A1431` 第二笔：结算层对拍（`play check`）
+    // ==================================================================
+    //
+    // 🔴 **修的是哪一条**：`A1431` 的账文 = 「全池尺子对『**解析过、结算错**』结构性失明」。
+    //   第一笔（`E8`，2026-10-11）把 `play` 立了起来 —— 它**能看见**「打出去之后局面动了没有」，
+    //   但它**只摆读数、永不红**（`rc` 只认「崩了 / `ErrUnimplemented`」）。
+    //   ⇒ 到今天仍有两条**结构性**的洞：
+    //     ① **读数不可比**：「这张卡昨天实得 3 条变化、今天实得 0 条」**没有任何东西记得住** ——
+    //        结算层的**静默漂移**（`A1388`/`A1407`/`A1426`/`A1428` 那一族**修完又坏回去**）
+    //        谁都不会知道；411 张候选逐张对着卡面看**是人的活**，机器这一侧**没有留痕**。
+    //     ② **同一个洞的第二层**：`check` 那边「**真回归 ＋ 重生成基线 ⇒ 静默变绿**」，
+    //        在**结算层**一模一样地成立（`play` 若也拿一份「基线」对拍，那份基线同样**一条命令就能重写**）。
+    //
+    // ⇒ 做法（`A1382` 那个形状，一层一层搬下来）：
+    //   · **逐卡结算指纹**（<see cref="FingerprintRow"/>）：把 `play all` 的读数压成一行**只含数值**的摘要
+    //     （含**变化逐条全文** —— 那是「数字动成什么」），全池一份 ⇒ md5。
+    //   · `play check [<pf.txt>]`：① 与**基线文件**逐卡比（出「**哪张卡、哪一格**变了」）；
+    //     ② **哨兵**：基线文件的内容 md5 必须等于**源码里的 `PinnedPlayMd5`**
+    //     ⇒ `play all pf` 重生成基线**抹不掉它**（重钉只能**手改源码** = 显式确认）。
+    //
+    // ⚠️ 与 `check` 的**已知差别（如实标着）**：结算读数**依赖卡池内容**（改一张卡的 `desc`
+    //   就会改它的读数）⇒ 卡池一改，本条**就会红**（⛔ **不像**哨兵 ⑤ 那样「此时不判」——
+    //   那正是 `A1382` 假阴的来源）。**这是有意的**：红了先跑 `play check` 看逐卡差异（全池 ≈5 秒）。
+    // ⛔ **它仍不判对错**（判据在**卡面**上）—— 它判的是「**结算结果有没有离开被确认的那一版**」。
+    // ⚠️ 它**不进任何 Unity 自检**（不跑 Unity、≈5 秒），也**不该进**（判据在卡面上，机器判不了对错）。
+    // ==================================================================
+
+    /// <summary>🆕 钉住的**结算指纹**（= 基线文件里那些**非 `#` 行**的规范化 md5，见 <see cref="FingerprintMd5"/>）。
+    ///
+    /// **为什么必须有它**（`A1431` 第二笔的②）：`play check` 的判据之一是「与**基线文件**比」，
+    /// 而基线文件**同一个工具就能重写**（`play all pf <out>`）⇒ 光靠它 = **自证**。
+    /// ⇒ 参照物取**源码里的常量** ⇒ 重生成基线**抹不掉**（与 `Program.PinnedParseMd5` 同一个形状）。
+    ///
+    /// 🔴 **重钉（⛔ 没有「一条命令重钉」）**：`play check` 会把该抄的**整行**打出来，**手改这一个常量**。
+    ///   **重钉前必须先确认这批变化是对的**（对着卡面 / 反编译 / 真机逐张看过）——
+    ///   为了「把红抹平」而重钉 = **正是它在抓的那件事**。
+    ///
+    /// ⚠️ **它现在钉的值（原样交代）**：`7175ec95…` = **2026-10-12（第二十一会话 · 写手 `E5`）当次现读**
+    ///   （池 1126 张 · 与同时写下的基线文件 `基线/out_play_baseline.txt` **逐行同源**：
+    ///   拿那份文件的非 `#` 行重算 md5 = 同一个值，已复核）。🔴 **本会话另有 3 个写手在飞**
+    ///   （改 `RuleEngine/Core/*.cs`、`数据/**`）⇒ 他们的改动一旦落地，**本条会红**，**那是设计**
+    ///   （= 「结算读数离开了被确认的那一版，请显式确认」）。⚠️ 它钉的是**当时那一版**，
+    ///   ⛔ **不是**「当时就对」—— 那时 411 张候选**还没逐张对过卡面**。
+    ///   ⛔ **不许**为了让它变绿而重跑 `play all pf` —— 那只把洞开回来。
+    /// </summary>
+    public const string PinnedPlayMd5 = "7175ec95237e2f3540381f2b437460b0";
+
+    /// <summary>`play check` 的缺省基线 —— **按名字往上找**（形状照 `Program.CheckMain.DefaultBaseline`，
+    /// ⛔ 别拿「程序集目录往上 N 级」写死：换 build 配置 / 换 TFM 就漂）。</summary>
+    static string DefaultPlayBaseline()
+    {
+        var d = new DirectoryInfo(Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location));
+        DirectoryInfo dirHit = null;
+        while (d != null)
+        {
+            var f = Path.Combine(d.FullName, "基线", "out_play_baseline.txt");
+            if (File.Exists(f)) return f;
+            if (dirHit == null && Directory.Exists(Path.Combine(d.FullName, "基线"))) dirHit = d;
+            d = d.Parent;
+        }
+        return dirHit != null
+            ? Path.Combine(dirHit.FullName, "基线", "out_play_baseline.txt")
+            : "基线/out_play_baseline.txt";
+    }
+
+    /// <summary>指纹行的**列名**（与 <see cref="FingerprintRow"/> **同序**，逐字对应 ⇒ 差异能指名到列）。</summary>
+    static readonly string[] PfCols = new[]
+    {
+        "id", "type", "warlord", "playRc", "played", "faceOps", "selfPlace", "mech", "other",
+        "expectedPay", "energyDelta", "handCostDelta", "dmg", "changes", "crash", "bucket",
+        "fixtureFit", "injected", "changesFull",
+    };
+
+    /// <summary>一张卡的**结算指纹行**（`A1431` 第二笔）。列见 <see cref="PfCols"/>。
+    /// 🔴 **⛔ 不含**：卡名（改名的产物）· `note`（口径散文）· 引擎日志（措辞会变）——
+    ///   那三样进来会**天天红**，把「红了不用管」训练成习惯（`Sentinel` 头注那条教训）。
+    /// 🔴 **含**最后一列 `changesFull` = **变化逐条全文**（「数字动成什么」）——
+    ///   少了它，「条数一样而内容变了」就照不到（同族坑：只比张数会被抵消，见 <see cref="Snap"/>）。</summary>
+    static string FingerprintRow(CardDef c, Reading r)
+    {
+        return string.Join("\t", new[]
+        {
+            c.Id, c.Type, r.HeroMode ? "1" : "0", r.Rc.ToString(),
+            r.Played ? "1" : "0", r.FaceHasOps ? "1" : "0",
+            r.SelfPlace.ToString(), r.Mech.ToString(), r.Other.ToString(), r.ExpectedPay.ToString(),
+            r.EnergyDelta.ToString(), r.HandCostDelta.ToString(), r.Dmg.ToString(),
+            r.Changes.Count.ToString(), One(r.Crash), r.Bucket,
+            One(FitTag(c)), r.Injected ? "1" : "0",
+            One(string.Join(";", r.Changes)),
+        });
+    }
+
+    /// <summary>`TAB`/换行 一律换成空格 —— 指纹文件是**逐行**读的，一格里混进换行会把行读断（静默错位）。</summary>
+    static string One(string s) { return s == null ? "" : s.Replace('\t', ' ').Replace('\n', ' ').Replace('\r', ' '); }
+
+    /// <summary>跑一遍全池，出**指纹行**（按 `id` 排序 —— ⛔ 别靠卡池顺序：`Dictionary`/池序都不是判据）。</summary>
+    static List<string> FingerprintRows(List<CardDef> pool)
+    {
+        var rows = new List<string>();
+        foreach (var c in pool)
+        {
+            var r = Measure(pool, c);
+            r.Bucket = Bucket(c);
+            rows.Add(FingerprintRow(c, r));
+        }
+        rows.Sort(StringComparer.Ordinal);
+        return rows;
+    }
+
+    /// <summary>一组指纹行的 md5（规范化：**丢掉空行、按整行字节序排序、`\n` 连接**，UTF-8）。
+    /// ⚠️ 排序在**函数内部**做 ⇒ 调用方给什么顺序都一样（⛔ 别指望调用方排好）。</summary>
+    static string FingerprintMd5(IEnumerable<string> rows)
+    {
+        var sorted = rows.Where(x => !string.IsNullOrEmpty(x)).OrderBy(x => x, StringComparer.Ordinal).ToList();
+        var sb = new StringBuilder();
+        foreach (var r in sorted) sb.Append(r).Append('\n');
+        return Md5Utf8(sb.ToString());
+    }
+
+    /// <summary>写盘用的文本（头三行是 `#` 注释 —— 读的时候**整行丢掉**，⛔ 不参与 md5）。</summary>
+    static string FingerprintFileText(IEnumerable<string> rows)
+    {
+        var sb = new StringBuilder();
+        sb.Append("# ruleprobe `play` 结算指纹（`A1431` 第二笔）—— 一行一张卡；`play all pf <out>` 生成，`play check` 拿它逐卡对拍。\n");
+        sb.Append("# 列（TAB 分隔）：" + string.Join("/", PfCols) + "\n");
+        sb.Append("# 🔴 本文件里非 `#` 行的 md5 必须等于源码常量 `PlayProbe.PinnedPlayMd5` —— 重生成它抹不掉那条哨兵。\n");
+        sb.Append("# ⛔ 本文件是【被人确认过的状态】的快照；为了把红抹平而重跑 `play all pf` = 把洞开回来。\n");
+        foreach (var r in rows.Where(x => !string.IsNullOrEmpty(x)).OrderBy(x => x, StringComparer.Ordinal))
+            sb.Append(r).Append('\n');
+        return sb.ToString();
+    }
+
+    static List<string> LoadFingerprintRows(string path)
+    {
+        var rows = new List<string>();
+        foreach (var l in File.ReadAllLines(path))
+            if (l.Length != 0 && !l.StartsWith("#", StringComparison.Ordinal)) rows.Add(l);
+        return rows;
+    }
+
+    static string Md5Utf8(string s)
+    {
+        using (var md5 = System.Security.Cryptography.MD5.Create())
+        {
+            var h = md5.ComputeHash(System.Text.Encoding.UTF8.GetBytes(s));
+            var sb = new StringBuilder(h.Length * 2);
+            foreach (var x in h) sb.Append(x.ToString("x2"));
+            return sb.ToString();
+        }
+    }
+
+    /// <summary>`play check [&lt;pf.txt&gt;]` —— **结算层对拍**（`A1431` 第二笔）。
+    /// 两件事，**两件都算进 rc**（⛔ 不许「文件变了但界面全绿」）：
+    ///   ① **逐卡比**：当次现算的指纹 vs 基线文件（出「哪张卡、哪一列、从什么变成什么」）；
+    ///   ② **哨兵**：基线文件内容的 md5 vs `PinnedPlayMd5`（源码常量 ⇒ 重生成基线抹不掉）。
+    /// 退出码：`0` = 两条都过 · `1` = 有差异或哨兵红 · `2` = 基线缺失/读不到。
+    /// ⛔ **它不判对错** —— 它判的是「结算结果有没有离开被确认的那一版」；
+    ///   「离开」可能是**真回归**、也可能是**有意改动**，判决看卡面 / 反编译 / 真机。</summary>
+    static int Check(List<CardDef> pool, string baselinePath)
+    {
+        bool wasDefault = string.IsNullOrEmpty(baselinePath);
+        if (wasDefault) baselinePath = DefaultPlayBaseline();
+        baselinePath = Path.GetFullPath(baselinePath);
+        if (!File.Exists(baselinePath))
+        {
+            Console.Error.WriteLine("!! 没有结算指纹基线：" + baselinePath
+                                    + (wasDefault ? "（缺省值 = 程序集目录往上找到的第一条 `基线/out_play_baseline.txt`）" : ""));
+            Console.Error.WriteLine("   生成办法：`play all pf <out.txt>`，逐卡对着卡面确认之后，"
+                                    + "把 `PlayProbe.PinnedPlayMd5` **手改**成打出来的那串。");
+            return 2;
+        }
+
+        var live = FingerprintRows(pool);
+        var baseRows = LoadFingerprintRows(baselinePath);
+        string liveMd5 = FingerprintMd5(live), baseMd5 = FingerprintMd5(baseRows);
+
+        string IdOf(string row) { int p = row.IndexOf('\t'); return p < 0 ? row : row.Substring(0, p); }
+        var baseMap = new Dictionary<string, string>();
+        foreach (var r in baseRows) baseMap[IdOf(r)] = r;
+        var changed = new List<string[]>();
+        int added = 0;
+        var addedIds = new List<string>();
+        foreach (var r in live)
+        {
+            var id = IdOf(r);
+            if (!baseMap.TryGetValue(id, out var b)) { added++; if (addedIds.Count < 20) addedIds.Add(id); continue; }
+            if (!string.Equals(b, r, StringComparison.Ordinal)) changed.Add(new[] { id, b, r });
+        }
+        int removed = 0;
+        var removedIds = new List<string>();
+        var liveIds = new HashSet<string>(live.Select(IdOf), StringComparer.Ordinal);
+        foreach (var kv in baseMap)
+            if (!liveIds.Contains(kv.Key)) { removed++; if (removedIds.Count < 20) removedIds.Add(kv.Key); }
+
+        Console.WriteLine("=== play check · 结算层对拍（不跑 Unity）· 池 " + pool.Count + " 张 ===");
+        Console.WriteLine("  基线 " + Path.GetFileName(baselinePath) + "（" + baseRows.Count + " 行）·"
+                          + " 当次现算 " + live.Count + " 行");
+        Console.WriteLine("  结算指纹：当次现算 = **" + liveMd5 + "** · 基线文件 = " + baseMd5
+                          + (liveMd5 == baseMd5 ? "（一致）" : "（**不同**）"));
+        Console.WriteLine();
+        Console.WriteLine("  --- ① 逐卡差异（基线 → 当次）---");
+        if (changed.Count == 0 && added == 0 && removed == 0)
+            Console.WriteLine("     ✅ 没有一张卡与基线不同（" + live.Count + " 张逐字节一致）");
+        else
+        {
+            Console.WriteLine("     🔴 **" + changed.Count + " 张卡变了** · 新增 " + added + " · 消失 " + removed
+                              + (added > 0 ? "（新增：" + string.Join(" · ", addedIds) + "）" : "")
+                              + (removed > 0 ? "（消失：" + string.Join(" · ", removedIds) + "）" : ""));
+            Console.WriteLine("     逐张（最多列 60 张；`changesFull` 截 160 字）：");
+            foreach (var t in changed.Take(60))
+            {
+                var a = t[1].Split('\t'); var b = t[2].Split('\t');
+                Console.WriteLine("       " + Pad(t[0], 24) + "（" + Math.Max(a.Length, b.Length) + " 列对拍）");
+                int n = Math.Max(a.Length, b.Length);
+                int shown = 0;
+                for (int k = 0; k < n; k++)
+                {
+                    string av = k < a.Length ? a[k] : "";
+                    string bv = k < b.Length ? b[k] : "";
+                    if (string.Equals(av, bv, StringComparison.Ordinal)) continue;
+                    if (PfCols.Length == n) Console.Write("         · " + Pad(PfCols[k], 14));
+                    else Console.Write("         · 第 " + k + " 列            ");
+                    Console.WriteLine(Clip(av, 160) + "  →  " + Clip(bv, 160));
+                    if (++shown >= 8) { Console.WriteLine("         …（这一张还有差异列，⛔ 已截断：看 `play <" + t[0] + ">`）"); break; }
+                }
+            }
+            if (changed.Count > 60) Console.WriteLine("       …（还有 " + (changed.Count - 60) + " 张）");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("  --- ② 哨兵：基线文件的内容 vs 源码常量 ---");
+        int sentFail = 0;
+        if (baseMd5 != PinnedPlayMd5)
+        {
+            sentFail = 1;
+            Console.WriteLine("     ✗ 🔴 **基线文件的内容 ≠ 被确认过的那一版**（`A1431` 第二笔的②）。");
+            Console.WriteLine("        基线文件 md5=" + baseMd5 + " · 钉住=" + PinnedPlayMd5);
+            Console.WriteLine("        ⚠️ 这一条判的是**基线文件本身**（它与当次现算是否一致见 ①）——"
+                              + "「重生成基线把一次真回归抹平」正是它抓的那个动作。");
+            Console.WriteLine("        ⇒ 判：`git diff` 那个基线文件 + 看 ① 的逐卡差异：");
+            Console.WriteLine("           · **真回归**（某张卡该结算而没结算 / 数字变了）⇒ 去修引擎，⛔ 别改常量；");
+            Console.WriteLine("           · **有意且已验过**（逐张对过卡面 / 反编译 / 真机）⇒ **手改**这一行：");
+            Console.WriteLine("               public const string PinnedPlayMd5 = \"" + baseMd5 + "\";");
+        }
+        else
+            Console.WriteLine("     ✓ 基线文件的内容与钉住的一致（" + baseMd5.Substring(0, 8) + "…）"
+                              + " —— 重生成基线抹不掉这一条");
+
+        Console.WriteLine();
+        Console.WriteLine("  判据：① 逐卡全等 且 ② 哨兵过 ⇒ rc=0；否则 rc=1"
+                          + "（**已知不适用**：这一步跑的仍是同一个夹具 ⇒ `档 B` 那 274 张"
+                          + "「等事件」的卡在这里**照样看不见**，那是**夹具盲区**，⛔ 不是「没有差异」）。");
+        return (changed.Count == 0 && added == 0 && removed == 0 && sentFail == 0) ? 0 : 1;
     }
 
     // ==================================================================

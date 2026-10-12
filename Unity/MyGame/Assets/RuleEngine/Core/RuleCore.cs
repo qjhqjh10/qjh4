@@ -1094,21 +1094,21 @@ namespace RuleEngine
             ctx.Log($"回合 {ctx.Turn} 开始：{p.Name} 能量 {p.Energy}，抽 {nDraw} 张");
             for (int i = 0; i < nDraw; i++) Draw(ctx, ctx.Active);
             // ============================================================
-            // 🔴 **`turn_start` 相位（原版 `OnTurnStart`）—— 必须在【抽牌之后】**
-            //    原版次序（`BattleManager._NextTurn_d__395__MoveNext.c:360/362/371/385`）：
-            //      能量 → **`BroadcastTurnSetup`** → **`TurnStartCardDraw`** → **`BroadcastTurnStart`** → `BroadcastTurnStarted`
-            //    ⇒ 抽牌**之前**跑 `CardScript.OnTurnSetup`（清理/到期），抽牌**之后**跑 `CardScript.OnTurnStart`（唤醒 + 触发）。
-            //    ⚠️ **2026-10-17 就地订正（铁律 5）**：这一段原来放在**抽牌之前**，依据是 `rule_core.gd` ——
-            //       🔴 **那是我们自己的 Godot 复刻、不是原版**（见 `CLAUDE.md` 铁律 2 的 2026-09-18 更正）。
-            //       放错的后果是**行为级、且静默的**：所有「回合开始时」的效果**看到的手牌比原版少一张**，
-            //       而原版落在 `OnTurnStart` 的那批触发在时间轴上被**整体前移**。
-            //    🔴 **同批一起搬过来的还有三件**（原版都属 `OnTurnStart`）：
-            //       · **解疲劳**（原版 `CardScript.OnTurnStart` 里的 `ActivateMinion`）
-            //       · **Stealth 到期**（`CardScript__OnTurnStart.c:110-118` —— 那一节的注释**本来就写着**它属于这个相位）
-            //       · **天赋**（`CardScript__OnTurnStart.c:160`）
-            //    内容是：当前行动方**手牌里的陷阱卡** + 他登记的**常驻效果**。
-            ResolveAtTurn(ctx, "turn_start");
-            if (ctx.IsOver) return;      // 触发段能打死督军（`your troops take 1 damage` 那类）
+            // 🔴 **`turn_start` 相位（原版 `OnTurnStart`）现在是【下面那一圈逐卡之后】才跑的**
+            //    —— 见 loop 之后那段注释（账 `A1606`，2026-10-12 搬迁）。
+            //    这里**只留指针**，⛔ 别把 `ResolveAtTurn(ctx, "turn_start")` 搬回来。
+            //
+            // 这一段原来的位置是「抽牌之后、解疲劳之前」，两句判据都成立但**还不够**：
+            //   · **抽牌之后** —— 原版次序
+            //     `BattleManager._NextTurn_d__395__MoveNext.c:360/362/371/385`：
+            //     能量 → `BroadcastTurnSetup` → `TurnStartCardDraw` → `BroadcastTurnStart` → `BroadcastTurnStarted`
+            //     ⇒ 抽牌**之前**跑 `CardScript.OnTurnSetup`（清理/到期）、抽牌**之后**跑
+            //       `CardScript.OnTurnStart`（唤醒 + 触发）。**这一条仍然成立**（现在更靠后了，
+            //     但仍在抽牌之后）。⚠️ **2026-10-17 就地订正（铁律 5）**：更早的版本放在
+            //     **抽牌之前**，依据是 `rule_core.gd` —— 🔴 **那是我们自己的 Godot 复刻、不是原版**
+            //     （见 `CLAUDE.md` 铁律 2 的 2026-09-18 更正）；放错的后果是**行为级、且静默的**：
+            //     所有「回合开始时」的效果**看到的手牌比原版少一张**。
+            //   · **解疲劳之前** —— 🔴 **这一条是错的，`A1606` 修的就是它**（详见 loop 之后那段）。
 
             // ---- 🆕 A7：「一回合到期」那一族 —— **Stealth 在拥有者回合开始时失效** ----
             //
@@ -1206,12 +1206,13 @@ namespace RuleEngine
                 //   `blind`（`0x3cf = 975`）同形 ⇒ `+0x56 = 1`（`:125`）。
                 //   ⚠️ **不需要另加侧别守卫**：这一圈只跑 `p.Board`（当前行动方自己的单位）
                 //      ⇒ 天然就是原版那条 `param_2 == +0x40`。
-                //   ⚠️ **已知近似（如实标着，⛔ 别当成「原版也这样」）**：原版是**逐卡**跑 `OnTurnStart`，
-                //      闸门判断排在**本卡自己的**「回合开始触发」之前；我们上面那句
-                //      `ResolveAtTurn(ctx, "turn_start")` 是**整段**跑完才置闸门 ⇒
-                //      「某个 `turn_start` 触发在**自己回合开始时**把**自己这一侧**的单位晕掉/弄瞎」
-                //      这一格，原版可能置 1、我们置 0。今天卡池里没有这种写法（`turn_start` 那族
-                //      都是打对面），如实标着。
+                //   ✅ **2026-10-12（`A1606`）就地订正（铁律 5）：下面这段「已知近似」已经不成立。**
+                //      它原来写「我们那句 `ResolveAtTurn(ctx,"turn_start")` 是**整段**跑完才置闸门
+                //      ⇒ 原版可能置 1、我们置 0」—— 搬过位置之后，`ResolveAtTurn("turn_start")`
+                //      **排在整圈逐卡之后** ⇒ 闸门**先**置、触发段在**后**，与原版
+                //      `:119-126`（闸门）→ `:137+`（`TurnStart` 触发）**同序**。
+                //      ⚠️ 剩下的近似只有「**逐卡 vs 整段**」这一条（见 `ResolveAtTurn("turn_start")`
+                //      那一段注释里的 ⚠️），与本闸门无关。
                 //   ⇒ **效果**：这一整个自己的回合它动不了，**到这个回合末**才摘（见 `EndTurn` 里
                 //      那一段）—— 也就是「眩晕/失明**只废一个回合**」。
                 if (u.IsStunned) u.StunnedAtStartOfTurn = true;
@@ -1220,6 +1221,48 @@ namespace RuleEngine
             if (lostStealth > 0)
                 ctx.Log($"（{lostStealth} 个单位的 Stealth 到一回合、失效 —— 规则书 :211"
                       + $"；原版 `CardScript__OnTurnStart.c:110-118`）");
+
+            // ============================================================
+            // 🔴 **`turn_start` 相位（原版 `OnTurnStart`）—— 位置 = 上面那一圈【逐卡】之后**
+            //    （账 `A1606`，2026-10-12 从「抽牌之后、解疲劳之前」搬到这里）
+            //
+            //  **病**：`ResolveAtTurn("turn_start")` 原来排在【解疲劳】`RefreshForNewTurn`
+            //    **之前** ⇒ 那一刻场上单位**还带着上一回合的「已行动」标记**
+            //    （或者刚部署当回合的召唤病）⇒ 凡「回合开始时**强制攻击**」那一族
+            //    （`EffectResolver` 的 `forceattack` op，真卡 `GOF85 Unleashed TramplaSquig`
+            //      `At the start of each turn attack a random non Flying enemy`）
+            //    一律 `ErrExhausted`（账上 `E2` 实测 **8/8**；本笔隔离 A/B 又量了一遍：**疲劳档 3/3 全红**、
+            //     不疲劳的控制组照旧绿）⇒ **这张卡一张都打不出去**；
+            //    连带第二个症状：打完也不会疲劳（`RefreshForNewTurn` 随后把 `AttacksThisTurn` 清 0）。
+            //
+            //  **判据（第一权威 · 逐行读过）**：`d:/2/tools/decomp_full/CardScript__OnTurnStart.c`
+            //    —— 这两步**在同一个 `OnTurnStart` 里、按卡逐个跑**，且次序是：
+            //      · `:85` 清召唤病（`+0x58 = 0`）
+            //      · **`:99` `CardScript__ActivateMinion`（解疲劳 = 把 `+0x230 canAct` / `+0x23c canAttack`
+            //        重算成真）** ← 我们这一圈 `RefreshForNewTurn` 的对应物
+            //      · `:103` 开舱 · `:110-118` Stealth 到期 · **`:118` 再一次 `ActivateMinion`**
+            //      · `:119-126` 晕/瞎闸门
+            //      · **`:137+` `RawCardScript__OnTrigger(raw, 0x1e /*AbilityTrigger.TurnStart = 30*/, …)`**
+            //        （`:144` 再发 `0x1f TurnStartPlayer`）← **「回合开始触发」在这里**
+            //      · `:166` 天赋（`0x2e`）
+            //    ⇒ **解疲劳在前、回合开始触发在后**，与我们搬过来的次序一致。
+            //    ⚠️ **仍是逐卡 vs 整段的近似**（如实标着）：原版是**卡片 A 解疲劳 → 卡片 A 的触发 →
+            //      卡片 B 解疲劳 → …**；我们把所有人解完再统一跑触发段 ⇒
+            //      「A 的回合开始触发把 B 弄晕/打死，而 B 本来会在自己那一格解疲劳」这一格
+            //      两边可能不同。今天卡池里 `turn_start` 那族都是打对面 / 打自己，**不可观测**。
+            //      ⛔ 别为了「更像」把触发段塞进那一圈循环里 —— 那要重写 `ResolveAtTurn` 的
+            //      三个触发源与它的快照语义（它**先快照再结算**，是为了「边遍历边改列表」那件事）。
+            //
+            //    ⚠️ **与 `Auras.Recompose` 的相对位置变了**：光环重算现在排在触发段**之前**
+            //      （原来在之后）。触发段里任何**改棋盘**的 op 会在自己的写入点再调一次
+            //      `Auras.Recompose`（`EffectResolver` 那 9 个写入点的同一纪律，`grep` 可核）
+            //      ⇒ 结构上是「可能多算一次、不会少算一次」。
+            //      ⚠️ **没有为这一条单跑夹具**（如实标着，⛔ 不写成「实测过」）。
+            //
+            //    ⚠️ **内容仍是那三样**（这一趟自己不变）：当前行动方**手牌里的陷阱卡**
+            //      + **双方棋盘上的 at-turn 单位** + 他登记的**常驻效果**，见 `ResolveAtTurn` 的头注。
+            ResolveAtTurn(ctx, "turn_start");
+            if (ctx.IsOver) return;      // 触发段能打死督军（`your troops take 1 damage` 那类）
 
             // ---- 天赋（Talent）：**回合开始时**往手牌塞一张同名战术卡（规则书 `:218`）----
             // 🔴 **2026-10-17 就地订正（铁律 5）**：原写「放在**抽牌之后**：回合开始段的先后（能量 → 解疲劳 →
@@ -3342,10 +3385,78 @@ namespace RuleEngine
         ///
         /// ⚠️ `ranged` 只影响**压制**那一条（`pindown` 只禁近战）——
         ///    视图要问「**至少有一种打法**能打」时，近战/远程各问一次（见 <see cref="CanActNow"/>）。
+        ///
+        /// 🔴 **`allowAutoActions` = 「这一记不是玩家点出来的」**（`A1632`，2026-10-21 加）——
+        ///    **默认 `false` ⇒ 全部既有调用点一字不变**（玩家点击 / 绿光 / AI 都照旧吃完整校验）。
+        ///    为真时**只查原版那三道创建闸**（在场 / 非 stun / 无待处理致死伤害），
+        ///    其余（回合归属 / 疲劳 / 配额 / 压制 / 攻击力 / `canAttack`）**一律跳过** ——
+        ///    理由 = 原版 `AllowResolveAttack` 对 `scriptedAttack` 的**那一个短路**（见下）。
+        ///
+        ///    **原版判据（第一权威 · 逐行读过）**：原版有**两条**攻击路，**只有一条**吃回合闸：
+        ///      · **玩家点/UI 枚举**那一条：`BattleManager__CanAttackCard.c:17-27`
+        ///        —— `param_3`（= 形参 `allowAutoActions`，见 `BattleManager.cs:7256`
+        ///        `CanAttackCard(CardScript card, bool allowAutoActions = false)`）**为假时**才读
+        ///        `bm+0x244 allowPlayerActionsFlag` / `bm+0x246 allowEnemyActionsFlag`
+        ///        （按 `card+0x40` = `isPlayer` 二选一），读到 0 ⇒ `return 0`。
+        ///        **那两个位的实参从哪来** = `BattleManager._NextTurn_d__395__MoveNext.c:380-383`：
+        ///        `*(bm+0x244) = isPlayerTurn;  *(bm+0x246) = (isPlayerTurn == 0);`
+        ///        ⇒ **一个「是不是我这一方行动」的闸门，且两侧互补**。
+        ///        `param_3 == 1`（自动/AI 那一档）时**整段跳过** —— 见
+        ///        `BattleManager__GetAvailableActions.c:60-67`（`param_3 != 0` ⇒ 不查那两个位）
+        ///        与它怎么把 `param_3` 透传给 `GetAvailableAttackActions`（`:145`）。
+        ///      · **脚本/卡面驱动**那一条（`At the start of each turn attack …` 这类）：
+        ///        `AbilityLogic__PlayAbility.c:2703` → `BattleManager__AddScriptedAttack.c:55`
+        ///        造出 `BattleAction(actionType = 0x34 = BattleActionType.scriptedAttack)`；
+        ///        它在 `BattleManager__AllowResolveAttack.c` **第 92 行直接 `return 1`**
+        ///        （`:92` `if (local_218[0] == 0x34) return 1;`；`:134` 的 `0x4a`
+        ///        = `redirectedAttack` 同形）⇒ **那一条路连 `hasAvailableActions` / 禁攻 trait
+        ///        都不查**；而同函数**全文没有任何「是不是我的回合」这一条**
+        ///        （`BattleActionType` 的取值见 `d:/2/Warpforge_code/Scripts/Assembly-CSharp/BattleActionType.cs`）。
+        ///        `forceAttack`（`0x2a = 42`）走自己那条协程 `_ResolveForceAttack_d__504`（122 行）
+        ///        —— 也**一处回合判据都没有**。
+        ///    ⇒ **结论**：原版「卡面驱动的攻击」**不受回合归属限制**；「`each turn` vs `your turn`
+        ///      的区分全在触发层」（`CardScript__OnTurnStart.c`：`:137` 的 `TurnStart`(30) 对
+        ///      **双方每一张卡**都发，`:140` 起才是 `if (param_2 != card.isPlayer) return;`
+        ///      ⇒ `TurnStartPlayer`(31) 才只发给归属方）—— 触发层放行、结算层**不**再拦。
+        ///      我们这边触发层已经对了（`EffectResolver.ResolveAtTurn` 那句
+        ///      `if (cl.View != "each" && pi != active) continue;`），**闸门在结算层多了一道**。
+        ///    ⚠️ **只有 `DeclareAttack(forced: true)` 那一个调用点传它**（= `EffectResolver.TryAttackOnce`
+        ///      ← `forceattack` 那条 op，即我们这边「非玩家点击」攻击的**唯一**入口）。
+        ///      ⛔ 别给玩家点击那条路传（那会允许玩家在对手回合出手）。
+        ///    ⚠️ **目标合法性不受影响**：`DeclareAttack` 里 `IsValidTarget` 那一段（隐身 / 先锋 /
+        ///      飞行 / 召唤病 / 毁灭者…）照旧全查 —— 本支跳过的只是**攻方自己**那一组前置校验。
+        ///    ⚠️ **「已行动」仍然会被消耗**：本支只是**不看**那个闸，`DeclareAttack` 里
+        ///      `AttacksThisTurn++` / `Exhausted = true` 那两句**照旧执行**（原版也一样 ——
+        ///      `AddScriptedAttack` 会 `SetupAttack` 并清待处理伤害）。
         /// </summary>
         /// <returns>`RuleCodes.OK` = 能打；否则是**第一处不通过的原因**（与 `DeclareAttack` 同源）。</returns>
-        public static int CanAttackNow(BattleContext ctx, int p, int atkSlot, bool ranged = false)
+        public static int CanAttackNow(BattleContext ctx, int p, int atkSlot, bool ranged = false,
+                                       bool allowAutoActions = false)
         {
+            // ---- 🔴 「**不是玩家点出来的**」那一档（`A1632`）----
+            //   原版 `BattleManager__AllowResolveAttack.c:92`：`actionType == scriptedAttack(0x34)`
+            //   ⇒ **直接 `return 1`** —— 本函数**下面那一整段**（回合归属 / 疲劳 / 眩晕 / 攻击配额 /
+            //   压制 / 攻击力 / `canAttack`）它**一条都不查**（`:134` 的 `redirectedAttack(0x4a)` 同形）。
+            //   而「造出那一记 action」的时候只有三道闸
+            //   （`BattleManager__AddScriptedAttack.c:40-51`）：
+            //     ① `IsInPlay(攻方)` —— 在不在场（`:40`）；
+            //     ② **没有待处理致死伤害**（`!EnoughPendingDamageToDie(攻方)`，`:46`）；
+            //     ③ 不是 **`stun`**（`HasCurrentTrait(攻方, 100)`，`:49` —— `100` 就是
+            //        `CardScript__Stun.c:48` `AddTraitSilently(card, 100, …)` 给「晕」加的那个 trait）。
+            //   ⇒ 本支**只查这三条**，其余一律放行 —— 这是**照原版那一个短路**，不是「放宽校验」。
+            //   ⚠️ 目标合法那一整段（`IsValidTarget`：隐身 / 先锋 / 飞行 / 召唤病…）**不在这里**
+            //      ⇒ `DeclareAttack` 照旧要过它，一样都不少。
+            if (allowAutoActions)
+            {
+                if (ctx.IsOver) return RuleCodes.ErrNotTurn;
+                if (!BoardSpec.IsValid(atkSlot)) return RuleCodes.ErrNotUnit;
+                var auto = ctx.Players[p].Board[atkSlot];
+                if (auto == null) return RuleCodes.ErrNotUnit;                     // ① 在场
+                if (EnoughPendingDamageToDie(auto)) return RuleCodes.ErrNotUnit;   // ② 待处理致死伤害
+                if (auto.IsStunned) return RuleCodes.ErrStunned;                   // ③ trait 100
+                return RuleCodes.OK;                                              // 原版 `:92` 那个短路
+            }
+
             if (ctx.IsOver || p != ctx.Active) return RuleCodes.ErrNotTurn;
             if (!BoardSpec.IsValid(atkSlot)) return RuleCodes.ErrNotUnit;
 
@@ -3820,6 +3931,12 @@ namespace RuleEngine
         ///    ⚠️ 只有 `EffectResolver.TryAttackOnce` 那一个调用点传它；⛔ 别给玩家点击那条路也传。
         ///    🆕 **2026-10-11（`A1258`）：第 ① 条取消通道（`AboutToAttack`）也吃同一个 `forced` 闸**
         ///    —— 理由同上面那句「全库只有 `_ResolveAttack` 调它」。
+        ///    🆕 **2026-10-21（`A1632`）：`forced` 还兼一个用** —— 它**同时**是
+        ///    「**这一记不是玩家点出来的**」这个事实的唯一载体，于是直接转给
+        ///    `CanAttackNow(..., allowAutoActions: forced)`：**原版那条脚本攻击路不受回合归属限制**
+        ///    （判据全文写在 `CanAttackNow` 的 `allowAutoActions` 那一段）。两件事同源
+        ///    （`scriptedAttack` / `forceAttack` 都不经过玩家那条 UI 链），所以共用一个形参，
+        ///    ⛔ 别另开第二个（两处写同一条规则 = 迟早不一致）。
         /// </summary>
         public static int DeclareAttack(BattleContext ctx, int p, int atkSlot,
                                         int tgtP, int tgtSlot, bool ranged = false,
@@ -3828,7 +3945,9 @@ namespace RuleEngine
             // 🆕 2026-09-26：开头这一整段（回合/格位/疲劳/眩晕/配额/压制/攻击力）**只写一次** ⇒
             //    搬进 `CanAttackNow`，与视图层那圈「未行动」绿光共用（见它的注释）。
             //    ⚠️ **顺序与返回码与原来逐字一致** —— 2995 条规则断言盯着它们，别顺手重排。
-            int pre = CanAttackNow(ctx, p, atkSlot, ranged);
+            //    🆕 `A1632`：`forced` 透传成 `allowAutoActions`（跳过回合闸）—— 只影响
+            //       `EffectResolver.TryAttackOnce` 那一个调用点。
+            int pre = CanAttackNow(ctx, p, atkSlot, ranged, forced);
             if (pre != RuleCodes.OK) return pre;
 
             var attacker = ctx.Players[p].Board[atkSlot];

@@ -1294,6 +1294,18 @@ namespace RuleEngine
             _pendingDeaths.Add(new PendingDeath { Player = p, Unit = u, Killer = killer, SlotAtDeath = slot });
         }
 
+        /// <summary>**这个单位是不是已进「将死」队列**（仍在棋盘上、但已判死）—— 2026-10-12 加（账 `A1600`）。
+        /// ⚠️ 判「它还在不在场上」⛔ **别拿 `TakePendingDeaths()` 代替** —— 那一口**会把队列清空**。
+        /// 口径 = 原版 `CardStateOptions.waitingToDie = 5` —— 它**不在** `CardScript.IsInPlay()` 的四档里。
+        /// </summary>
+        public bool IsPendingDeath(UnitState u)
+        {
+            if (u == null) return false;
+            for (int i = 0; i < _pendingDeaths.Count; i++)
+                if (ReferenceEquals(_pendingDeaths[i].Unit, u)) return true;
+            return false;
+        }
+
         internal List<PendingDeath> TakePendingDeaths()
         {
             var copy = new List<PendingDeath>(_pendingDeaths);

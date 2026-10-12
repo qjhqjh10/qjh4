@@ -691,7 +691,15 @@ namespace CardPresentation
         {
             var wm = WindowsManager.Instance;
             var w = wm != null ? wm.TopWindow : null;
-            if (w == null)                             // 原版：`currentWindow == null` ⇒ 直接 return
+            // 🆕 **2026-10-12（`A1629`）**：最上面那扇**就是常驻主菜单**（`WindowsManager.BaseMenu`）时，
+            //   本方法走下面那条「主菜单那一支」—— **原版那一刻 `currentWindow` 正是它**
+            //   （`MainMenuWindow` 自己在窗口栈里；判据 → `Shell/MainMenuWindow.cs` 的文件头），
+            //   而 `MainMenuWindow.ESCPressed()` 覆写成「叫出退出游戏弹窗」⇒ 与「一扇窗都没有」那一支**同一条链**。
+            //   🔴 **⛔ 不走本方法末尾那句 `Select(null)`**：原版没有那一步（那是我们为「真的关掉了一扇窗」加的），
+            //   走它会**把刚弹出来的退出窗里默认选中的那颗抹掉**（`WindowsManager.OpenWindow` 结尾那句
+            //   `PointerLayer.SelectFirstIn(win.gameObject)` 刚把它放进弹窗）—— 这正是原来那条
+            //   「别在这里清 `_sel`」的告警要挡的，现在多了一扇窗会走到这里 ⇒ 判据写在这儿。
+            if (w == null || (wm != null && w == wm.BaseMenu))   // 原版：`currentWindow` 是主菜单（或为 null）
             {
                 // 🆕 **2026-10-07（A77⑮② / A216）**：原版那一刻 `currentWindow` **不是 null** —— 它是**常驻的
                 //   `baseMenu`（`MainMenuWindow`）**，而 `MainMenuWindow.ESCPressed()` 覆写成

@@ -1145,8 +1145,16 @@ public static class CollectionScene
             if (cells.Count > 0)
             {
                 var c0 = cells[0];
-                CheckNear(PxOf(c0.position.x), 453.4f, 0.6f,
-                          "第 1 格中心 x = **453.4**（视口左边 330.9 + padL 10 + 225/2）");
+                // 🔴 **2026-10-12 就地订正（铁律 5）：第 1 格中心 x 从 `453.4` 改成 `512.95`。**
+                //   原文那 453.4 是按「视口左边 330.9 + padL 10 + 225/2」算的 —— **那个 `padL=10` 是死值**
+                //   （`Content` 的 `GridLayoutGroup` `m_Enabled=0`），真正落位的是 `RecyclableScrollRect`
+                //   的**整体居中**：`offset = ((W − (spacingX+cellW)*segments) + spacingX) * 0.5`
+                //   （`PolyAndCode.UI.VerticalRecyclingSystem__CreateCellPool.c` 逐句）
+                //   = `(1589.1 − 1470 + 20)/2` = **69.55** ⇒ 第 1 格左沿 **400.45**、中心 **512.95**。
+                //   旁证（用户实拍 `桌面/warpforge参考图/收藏—卡组的参考图.png`）：把实拍按卡框宽 221.4
+                //   归一后量到的第 1 格左沿 = **400.4 ± 3**（旧那套给 340.9，差 59.6px）。
+                CheckNear(PxOf(c0.position.x), 512.95f, 0.6f,
+                          "第 1 格中心 x = **512.95**（视口左边 330.9 + RSR 整体居中 69.55 + 225/2）");
                 CheckNear(PxYOf(c0.position.y), 338.15f, 0.6f,
                           "第 1 格中心 y = **338.15**（视口顶 155.9 + 364.5/2）");
                 var frame = FindChild(c0, "Frame");
@@ -1154,13 +1162,44 @@ public static class CollectionScene
                 CheckNear(Hpx(frame), 368f * 0.9f, 2f, "格内卡框高 = **331.2**（原版 368 × 0.9）");
                 CheckArt(frame, "40K_bt_deck", "卡框的图 = `40K_bt_deck`（原版）");
                 CheckTrue(!string.IsNullOrEmpty(TextOf(FindChild(c0, "Deck Name"))), "格上有卡组名");
-                // 6 列：第 6 格右边界 = 340.9 + 5×245 + 225 = 1790.9 ≤ 1920
+                // 🔴 **2026-10-12**：本行原来写 `340.9 + 5×245 + 225 = 1790.9`（`340.9` = 视口沿 + 死的 padL 10）
+                //   ⇒ 与上一格同一条订正。居中后的第 6 格右边界 = `400.45 + 5×245 + 225` = **1850.45**。
+                // 6 列：第 6 格右边界 = 400.45 + 5×245 + 225 = 1850.45 ≤ 1920
                 if (cells.Count >= 6)
-                    CheckNear(PxOf(cells[5].position.x) + DeckCellWpx() / 2f, 1790.9f, 0.6f,
-                              "第 **6** 格右边界 = **1790.9** ≤ 1920（**这是「6 列」的判据** —— 7 列要 2035.9）");
+                    CheckNear(PxOf(cells[5].position.x) + DeckCellWpx() / 2f, 1850.45f, 0.6f,
+                              "第 **6** 格右边界 = **1850.45** ≤ 1920（**这是「6 列」的判据** —— 7 列要 1972.95）");
             }
 
-            // ---- 左抽屉 `Deck Filters`（§三 第 15 条 **第 49 行**；2026-09-24 建）----
+            // ============================================================ 🆕 **2026-10-12（本会话 · 用户实拍逐屏比）**
+            //   —— 「收藏 → 卡组」这一页的两条**新版面判据**（改前都是偏离，见各自的注释）：
+            //   ① 网格的**列方向原点 = 整体居中**（不是 `padL 10`）；② 页头 `Filters` 文案**左对齐**（不是居中）。
+            {
+                // ① 网格居中量：判据 = 反编译 `VerticalRecyclingSystem.CreateCellPool` 那条
+                //    `offset = ((W − (spacingX+cellW)*segments) + spacingX) * 0.5` ⇒ (1589.1−1470+20)/2 = 69.55。
+                //    ⛔ 别拿 `Content` 那颗 `GridLayoutGroup.m_Padding.left = 10` 来算（组件 `m_Enabled=0` = 死值）。
+                CheckNear(CollectionWindow.DeckGridOffsetX, 69.55f, 0.1f,
+                          "★ 卡组网格的列方向原点 = **69.55**（RSR 整体居中；不是 padL 10）");
+                var dcell0 = FindChild(win.PageRoot(0), "CollectionDeck_0");
+                if (dcell0 != null)
+                    CheckNear(PxOf(dcell0.position.x) - 225f / 2f, 400.45f, 0.6f,
+                              "★ 第 1 格**左沿 = 400.45**（视口左 330.9 + 69.55；实拍实测 400.4±3，"
+                              + "旧的 `padL 10` 给 340.9 = 差 59.6px）");
+
+                // ② 页头 `Filters` 文案左对齐：判据①（prefab，四页逐颗现读）`Filter Toggle ▸ label`
+                //    的 `m_HorizontalAlignment = Left`（`menu_dump.py … "<页节点>" --depth 4` 印作 `对齐=Left/Middle`）；
+                //    判据②（用户实拍 `收藏—卡组的参考图.png`）「过滤器」三字的**左缘 = 443.5**（框左沿 437.2 +
+                //    fs42 的左留白 ~6px），而我们**居中**那一版左缘在 **462.3**（= 框心 512.2 − 文字宽一半）。
+                //    ⇒ 期望 443.5 ± 8：居中那一版差 **18.8** ⇒ 必红（不是容差内的量）。
+                var fltLbl = FindChild(win.PageRoot(0), "Filters Label");
+                float fx1, fy1, fx2, fy2;
+                if (fltLbl == null || !TmpRenderedRect(fltLbl, out fx1, out fy1, out fx2, out fy2))
+                    CheckTrue(false, "（前提·不静默）Deck 页 `Filters Label` 与它渲出来的矩形量得到 —— 上面那条的前提");
+                else
+                    CheckNear(fx1, 443.5f, 8f,
+                              "★ 页头 `Filters` 文案**左缘 = 443.5**（原版 `label` 是 `Left` 对齐；"
+                              + "我们原来是居中 ⇒ 462.3）");
+            }
+
             // 出处：`menu_rect.py bundle_menus_assets_all "Deck Filters" --depth 6`（直读）。
             {
                 var fh = FindChild(win.PageRoot(0), "FiltersHit");

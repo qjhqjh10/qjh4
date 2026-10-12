@@ -106,6 +106,22 @@ namespace CardPresentation
         public WindowsPlacement placement = UnsetPlacement;
         /// <summary>ESC 能不能关。**逐窗不同，照各自实证值填**（正本 §三 第 10 条列了 7 个实例）。</summary>
         public bool closeOnEsc = true;
+
+        /// <summary>🔴 **原版 `GameWindow.updateNavPanel`（字段偏移 `0x3A`，`d:/2/tools/il2cpp_out/dump.cs:108812`）**。
+        /// <para>**语义（唯一读点 = `GameWindow__ESCPressed.c` 的第三道门槛，逐条读出来的）**：
+        /// 按 ESC 关掉这一扇窗时，把**左竖导航回点到 `Main`（第 0 颗）** ——
+        /// 原版那一句是 `NavigationPanelController.SetMainToggle(this)`（`__ESCPressed.c` 末段）。
+        /// 观感 = 「关掉子界面、回到主菜单 ⇒ 左栏的灯回到最上面那颗」。</para>
+        /// <para>⚠️ **全库只有两个读点、都在 ESC 那一支**（`GameWindow__ESCPressed` /
+        /// `SearchingMatchWindowDemo__ESCPressed`）—— **没有任何「开窗时读它」的地方**。
+        /// ⇒ 铁律 5 就地订正：`Shell/SocialWindow.cs` 里那句「原版 `updateNavPanel = 1` ⇒ **开窗时**
+        /// 把左竖导航的 SOCIAL 键点亮」是**错口径** —— `SOCIAL` 那颗亮起来来自**导航钮自己的 `ToggleGroup`**
+        /// （点它那一下，`m_AllowSwitchOff = 0` 单选），与原版 `SetToggle` 无关、更与 `updateNavPanel` 无关
+        /// （全库**没有** `SetToggle(nav, 4)` 这个调用点）。</para>
+        /// <para>**逐窗值**（照各自 prefab 实读；本仓把这一格**赋在开窗入口**，理由见
+        /// `MainMenuRuntime.MarkUpdatesNavPanel`）：`1` = **Collection / Inbox / Shop / Social**，其余 `0`。
+        /// 缺省 `false` 与「其余全是 0」一致。</para></summary>
+        public bool updateNavPanel;
         /// <summary>小屏 UI 下的额外放大倍数（原版 `extraScaleSmallScreen`）。**逐窗实测、照各自的值填**
         /// （1.0 有 93 个；1.07 练习窗 · 1.075 玩家档案 · 1.15 决斗 · 1.2 卡包信息 …）。
         /// 🔴 **`1.0` 的含义是「不覆盖」**：此时 prefab 里烤着的 `menuScale` 原样生效 ——
@@ -740,6 +756,12 @@ namespace CardPresentation
                 return false;
             }
             Close();
+            // ③ 原版**第三道门槛**：`updateNavPanel`（0x3A）—— 见上面那一格的 doc。
+            //    原版这一句是 `NavigationPanelController.SetMainToggle(this)`（`__ESCPressed.c` 末段）。
+            //    ⚠️ 只在**这一支**（ESC 真的关掉了这扇窗）里调 —— 原版就是这一处，⛔ 别顺手挪进 `Close()`：
+            //    那样连「窗自己的返回钮 / 代码关窗」也会改灯，而原版那些路**不动灯**。
+            //    `SetNavToggle` 在没有主菜单实例（卡组编辑 / 对战 / 壳）时**什么都不做**，是正常路径。
+            if (updateNavPanel) MainMenuRuntime.SetNavToggle(MainMenuRuntime.NavigationPanelToggleType.Main);
             return true;
         }
     }
@@ -818,17 +840,34 @@ namespace CardPresentation
             //    同族先例就在本文件：`WindowHolder` 正是因此才有 `RegisterNow()`（见下面 `MakeHolder` 的注释）。
             Instance = wm;
             Debug.Log("[Win] 场景里没有 `WindowsManager` ⇒ 现建了一台 + 三个锚点（单独打开界面场景时走这条路）");
+            // 🆕 **2026-10-12（`A1629`）**：主菜单那一棵建得比这一台还早（编辑期建场时这里根本不会跑）
+            //   ⇒ 它把自己的窗挂在 `MainMenuRuntime._pendingBaseMenu` 上等这一跳来认领
+            //   （判据 / 为什么要分期 → `MainMenuRuntime.RegisterMainMenuWindow` 的 doc）。
+            //   ⚠️ **必须在 `Instance = wm` 之后**：认领那一跳会 `OpenWindow`，而那条路上有读 `Instance` 的地方。
+            MainMenuRuntime.OnWindowsManagerReady(wm);
             return wm;
         }
 
         static void MakeHolder(Transform parent, string name, WindowsPlacement p)
         {
-            var t = new GameObject(name).transform;
-            t.SetParent(parent, false);
-            var h = t.gameObject.AddComponent<WindowHolder>();
+            var go = new GameObject(name);
+            // 🔴 **2026-10-12（`A1629`）就地修（铁律 5）**：原来这里是
+            //   `SetParent → AddComponent<WindowHolder>() → h.placement = p → h.RegisterNow()`，
+            //   而 `WindowHolder` 带 **`[ExecuteAlways]`** ⇒ `AddComponent` 那一刻 `OnEnable` **立刻**跑、
+            //   拿**默认值 `None`** 去 `RegisterAnchor` ⇒ **每次 `EnsureHost` 都刷三条红色假缺陷**
+            //   （真机日志 `_tmp_view/run_shell.log:78-80` 那三条 `placement = None`；顺序也在那儿：
+            //    **三条报错排在 `[Win] 场景里没有 WindowsManager ⇒ 现建了一台` 之前** ⇒ 就是这三次 `AddComponent`）。
+            //   ⚠️ **那三条不是「场景文件坏了」**：`MainMenu.unity` 里 `WindowHolder`/`WindowsManager`/
+            //   `Window Anchors` **逐个都是 0 个**（`grep -c` 现读）⇒ `项目任务.md` 的 `A1494④` 那句
+            //   「`MainMenu.unity` 里带着 3 个 `WindowHolder` 且 `placement = None`」**与事实不符**，已写进报告。
+            //   修法 = **先关物体再加组件**（物体不活 ⇒ `OnEnable` 不跑），赋完 `placement` 再激活
+            //   ⇒ `OnEnable` 那一刻字段已经是对的，**一条假报错都不出**，注册行为逐位不变。
+            go.SetActive(false);
+            go.transform.SetParent(parent, false);
+            var h = go.AddComponent<WindowHolder>();
             h.placement = p;
-            // ⚠️ 先赋字段**再**注册（`OnEnable` 在 `AddComponent` 那一刻就跑过了，那时 placement 还是 None）
-            h.RegisterNow();
+            go.SetActive(true);                        // `OnEnable` 在这一刻跑（`placement` 已就位）
+            h.RegisterNow();                           // 照旧兜一次（`RegisterAnchor` 对同一节点是幂等的）
         }
 
         // ---------------------------------------------------------- 锚点
@@ -856,9 +895,18 @@ namespace CardPresentation
             if (_anchors.TryGetValue(p, out var cur) && cur == t) _anchors.Remove(p);
         }
 
-        /// <summary>取锚点。**取不到要报出来**（照原版 `CustomDebug.LogError`）—— 静默返回 null 会让窗口建到场景根上。</summary>
+        /// <summary>取锚点。**取不到要报出来**（照原版 `CustomDebug.LogError`）—— 静默返回 null 会让窗口建到场景根上。
+        /// <para>🔴 **2026-10-12（`A1629`）就地订正（铁律 5）：`None` 不是「缺锚点」，是原版一个【合法档位】。**
+        /// 本行原来没有 `None` 那一支 ⇒ 走到下面那句 `找不到 None 的锚点 —— 场景里缺对应的 WindowHolder`
+        /// —— **与本文件 `RegisterAnchor` 里那句报错文案自相矛盾**（那句写着「None 只用于『不挂 Holder』的窗口，
+        /// 如 MainMenuWindow」，另一半却把它当缺陷）。**判据（实读）**：主菜单那一扇的 MB
+        /// `bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/MonoBehaviour_1927.json` 的
+        /// `windowsPlacement = 0`（= `None`）—— 它**本身就是**那一棵树的父级、不归三个锚点管。
+        /// ⇒ `None` **早退返回 null、不出声**；调用点 `AttachToAnchor` 据此**不换父**（窗口留在自己原来的位置）。
+        /// ⚠️ **别把它和哨兵 `-1` 混成一档**：哨兵是「忘了赋值」（必须出声），`None` 是「显式写了不挂」（合法）。</para></summary>
         public static Transform GetWindowAnchor(WindowsPlacement p)
         {
+            if (p == WindowsPlacement.None) return null;      // 原版合法值 = 不挂 Holder（主力就是 MainMenuWindow）
             if ((int)p < 0)
             {
                 // A166：哨兵只该在 `AttachToAnchor` 里被拦下并出声（那里会带上窗口名）。走到这里 = 有人绕过了它。
@@ -1014,6 +1062,54 @@ namespace CardPresentation
             }
         }
 
+        // ---------------------------------------------------------- 常驻主菜单（原版 `baseMenu`，字段 0x48）
+
+        /// <summary>🆕 **2026-10-12（`A1629`）**：**当前这一场里那一扇「常驻主菜单」** = 原版
+        /// `WindowsManager` 的 `mainMenu` 字段（偏移 **0x48**；`SetBaseMenu` 写、`HideMainMenu`/`ShowPreviousWindow` 读；
+        /// 字段名以 `d:/2/Warpforge_code/Scripts/Assembly-CSharp/WindowsManager.cs` 的属性表为准
+        /// —— `BaseMenu` / `CurrentBaseMenu` / `ShowMainMenu` / `HideMainMenu` 都在那张 API 表里）。
+        /// <para>🔴 **它存在的意义（本笔要修的那件事）**：原版主菜单**自己是一扇窗** ——
+        /// `MainMenuWindow.Initialize()` 末尾 `SetBaseMenu(this)` + `OpenWindow(this)`
+        /// （`d:/2/tools/decomp_full/MainMenuWindow__Initialize.c`）⇒ 开别的窗时它会被
+        /// `HideAllWindows()`（全屏支）/ `ToBackground()`（弹窗支）**一起藏掉**、关掉上面那扇时又被
+        /// `ShowPreviousWindow()` 开回来。我们原来没有这一档 ⇒ **模式卡永远露在窗口底下**
+        /// （用户 2026-10-12 报的正是这一条，实拍 `_tmp_view/s21_04_collection.png` / `s21_05_practice.png`）。</para>
+        /// <para>⚠️ 取值时**照 Unity 的假 null 判**（场景卸载会把那一扇连物体一起销毁）——
+        /// 直接 `BaseMenu != null` 就够了（`UnityEngine.Object` 的 `==` 已被重载）。</para></summary>
+        public GameWindow BaseMenu { get; private set; }
+
+        /// <summary>原版 `WindowsManager.SetBaseMenu(GameWindow menu)` **逐句**（`WindowsManager__SetBaseMenu.c`）：
+        /// <list type="number">
+        /// <item>`CustomDebug.Log("...")`（原版第一句就是一句日志）；</item>
+        /// <item>字段 `0x48 = menu`；</item>
+        /// <item>**把 `openWindows`（字段 `0x50`）整个清空**（`_size = 0` + `_version++` + `Array.Clear`）
+        ///   —— ⚠️ 这一句是**真的清表**，⛔ 不是「顺手清一下」：原版那一刻场上那些引用都不该留
+        ///   （主菜单是**新一局**的起点）。</item>
+        /// </list>
+        /// <para>**谁调它**：`Shell/MainMenuRuntime.Build()`（= 原版 `MainMenuWindow.Initialize` 那一跳）。</para></summary>
+        public void SetBaseMenu(GameWindow menu)
+        {
+            Debug.Log($"[Win] `SetBaseMenu`：常驻主菜单 = {(menu != null ? "`" + menu.name + "`" : "<null>")}"
+                      + "（原版 `WindowsManager.SetBaseMenu`：写字段 0x48 + 清空 `openWindows`）");
+            BaseMenu = menu;
+            openWindows.Clear();
+            currentWindow = null;
+            popUpWindow = null;
+        }
+
+        /// <summary>原版 `WindowsManager.ShowMainMenu()` **逐句**（`WindowsManager__ShowMainMenu.c`）：
+        /// `<see cref="OpenWindow(GameWindow, object, bool)"/>(BaseMenu, closeAll: false, options: null)`
+        /// —— 且**先判 `BaseMenu` 是非 Unity 假 null**（原版那句是 `Object.op_Implicit`，判假就什么都不做）。
+        /// <para>⚠️ 原版还有一条 `private void HideMainMenu()`（`WindowsManager__HideMainMenu.c`：
+        /// 对 `0x48` 那一扇虚调一次无参方法）—— **全量反编译里一个调用点都没有**
+        /// （`grep -rl "HideMainMenu" d:/2/tools/decomp_full/` **只命中它自己的 .c**）⇒ 判为**死代码**，
+        /// 本仓**不实现**，⛔ 别照着补一个出来当「照原版」。</para></summary>
+        public void ShowMainMenu()
+        {
+            if (BaseMenu == null) return;      // 原版那句 `op_Implicit` 判假 ⇒ 直接返回
+            OpenWindow(BaseMenu);
+        }
+
         /// <summary>把窗口挂到它自己的锚点上（建场景时调一次；窗口是自己建的，锚点由 `WindowHolder` 给）。
         /// <para>🆕 **A166**：`placement` 还是哨兵（= 这扇窗**忘了显式赋值**）时**出声**
         /// （红线：不许静默失败），并照**老默认值 `Popup`** 兜底建出来 —— 画面不变、但日志里明明白白。</para>
@@ -1048,6 +1144,11 @@ namespace CardPresentation
                                "但请去那扇窗的 `Create()` 里照原版那颗 MB 补上（`0=Fullscreen` / `1=Popup`）。见 A672 / `GameWindow.UnsetType`。");
                 win.type = WindowType.Fullscreen;
             }
+            // 🔴 **2026-10-12（`A1629`）**：`placement == None` = 原版那个**合法**档位「不挂 Holder」
+            //   （主力 = 主菜单那一扇，判据 → `GetWindowAnchor` 的注释）⇒ **不换父、不出声**。
+            //   ⚠️ 必须放在两条哨兵体检**之后**：哨兵 `-1` 判的是 `!(int)p >= 0`，与这一条是两回事；
+            //      而且 `Editor/SettingsScene.cs` 的 A166 断言认 `errs[0]`（顺序动了它就去比另一条文案）。
+            if (p == WindowsPlacement.None) return;
             var anchor = GetWindowAnchor(p);
             if (anchor == null) return;
             win.transform.SetParent(anchor, false);
@@ -1082,9 +1183,15 @@ namespace CardPresentation
         ///   （predicate `b__51_1` = `*(int*)(w + 0x20) != 1`）并 `UnHide()` 它 —— 把它**重新显示出来、置于背景**。</item>
         /// <item>`CurrentWindow = 列表尾那一扇`；`列表尾.TryOpen()`（非 `Closed` 支 ⇒ 只回 `Open` + `ToFocus`）。</item>
         /// </list>
-        /// <para>🔴 **我们没有常驻 `baseMenu`（第 2 步）**：本仓的主菜单**不是** `WindowsManager` 的窗
-        /// （`Shell/MainMenuRuntime.cs` 自己那棵树、不经过窗口表）⇒ 没有可以「开回来」的对象，
-        /// 这一步**什么都不做**（主菜单本来就一直在），只把两个字段清干净。**已记账**（如实标注，铁律 3）。</para>
+        /// <para>🔴 **常驻 `baseMenu`（第 2 步）—— `2026-10-12`（`A1629`）起我们【有】了。**
+        /// 原文（留痕，铁律 5）：「本仓的主菜单**不是** `WindowsManager` 的窗 … ⇒ 没有可以「开回来」的对象，
+        /// 这一步**什么都不做**（主菜单本来就一直在）」—— **那句「主菜单本来就一直在」正是缺陷本体**：
+        /// 它既不会被 `HideAllWindows` 藏掉、也不会被开回来，于是**开任何一扇窗时模式卡/主界面全露在外面**
+        /// （用户 2026-10-12 实拍 `_tmp_view/s21_04_collection.png` · `s21_05_practice.png`）。
+        /// 现在 `Shell/MainMenuWindow.cs` 是**真的**一扇 `GameWindow`（原版同名类），
+        /// `Shell/MainMenuRuntime.Build()` 按原版 `MainMenuWindow.Initialize()` 那两句
+        /// `SetBaseMenu` + `OpenWindow` 把它登记进栈 ⇒ 本步**照原版那一跳执行**。
+        /// 判据全文（含原版 .c/.json 逐条）→ `Shell/MainMenuWindow.cs` 的文件头。</para>
         /// <para>🔴 **为什么要它**（㉑ 的裁定：三件必须一起做）：原版 `CloseWindowCO` 关掉**最上面那扇**时会调本方法
         /// ⇒ 关掉弹窗之后，底下那扇从 `Background` **回到 `Open`**。我们原来没有这一跳 ⇒ 底窗**停在 `Background`**；
         /// 又因为 `KeyCancel` 那时也没问 `IsOpen()`，ESC **照样能关它** —— 两处偏离**凑巧抵消**、看着像对的
@@ -1101,10 +1208,17 @@ namespace CardPresentation
 
             if (openWindows.Count == 0)
             {
-                // ② 原版：`CurrentWindow = baseMenu` + `OpenWindow(baseMenu)`。我们没有 baseMenu（见上面那段）
-                //    ⇒ 无可开；只把记账清干净（`NotifyClosed` 通常已经清过，这里兜一次）。
-                currentWindow = null;
+                // ② 原版：`CurrentWindow = baseMenu` + `if (baseMenu != null) OpenWindow(baseMenu)`
+                //    —— 🆕 **2026-10-12（`A1629`）起我们【有】baseMenu 了**（`Shell/MainMenuWindow.cs` +
+                //    `MainMenuRuntime.Build()` 的登记那一跳，判据 → `SetBaseMenu` 的 doc）。
+                //    ⚠️ 原文（留痕，铁律 5）：「我们没有常驻 `baseMenu` … 这一步**什么都不做**（主菜单本来就一直在）」
+                //    —— 那一句**就是本笔要修的那个缺陷本体**：主菜单「一直在」= 它永远盖不住也永远不被盖，
+                //    于是开窗时模式卡全露在外面。
+                //    🔴 **这一跳是「关掉最上面那扇之后主菜单回来」的唯一入口** ⇒ 删了它，主菜单**再也回不来**
+                //    （比一直可见更糟：`HideAllWindows` 把它藏成 `Closed` 之后没人带它回来）。
+                currentWindow = BaseMenu;          // = 原版 `set_CurrentWindow(baseMenu)`（写在判空之前）
                 popUpWindow = null;
+                if (BaseMenu != null) OpenWindow(BaseMenu);   // = 原版那一跳（判 Unity 假 null）
                 return;
             }
 

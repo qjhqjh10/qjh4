@@ -385,7 +385,16 @@ namespace CardPresentation
             //    （`DailyData.DailyResetChecks` 不涨）。
             DailyData.TryDailyReset();
 
-            BuildBackground(_root);
+            // 🔴 **2026-10-12（`A1629`）：原版 `MainMenuWindow` 那一棵 = 【背景 + 模式卡】** —— 判据（逐级解 `m_Father` 实读）
+            //   → `Shell/MainMenuWindow.cs` 的文件头 ③：`Main  Canvas` → `MainMenu`(pid 38) →
+            //   **`MainMenu`(pid 7 = 那一扇)** ├ `Background` └ `Safe area All/GameModes/…`（模式卡）；
+            //   而 `Upper bar`(顶栏) · `Navigation Panel`(左导航) · `ChatPreview` 是**兄弟**、不跟着它被藏。
+            //   ⇒ 我们照这条把「背景 + 模式卡」建进这一颗子节点，**顶栏/左栏/聊天面板仍旧挂在 `_root` 下**。
+            //   ⚠️ 多插的这一层**位置恒为零**（`New` = `SetParent(parent,false)` + 只写尺寸）——
+            //      本文件那条不变式（所有件把绝对世界坐标当 `localPosition` 用）因此逐位不变。
+            var menuWin = New(_root, "MainMenu", LayoutSpace.DesignPxW, LayoutSpace.DesignPxH);
+
+            BuildBackground(menuWin);
             BuildNavigationPanel(_root);
             // 🔴 **2026-10-17（B25）：顶栏改成调共用件 `Shell/TopBar.cs`** —— 本文件原来那份
             //    `BuildUpperBar / BuildPlayerProfile / BuildResourcesBar / BuildTopAvatar` **已删**。
@@ -397,7 +406,13 @@ namespace CardPresentation
             //    ⛔ 别把参数再写回本文件（那等于把两份漂移重新种回来）。
             _topBar = TopBar.Build(_root, NoteMissingArt);
             BuildChatPreview(_root);
-            BuildGameModes(_root);
+            BuildGameModes(menuWin);
+
+            // 🆕 **2026-10-12（`A1629`）**：把这一棵登记成**常驻主菜单**（原版 `MainMenuWindow.Initialize()` 末尾
+            //   那两句 `SetBaseMenu(this)` + `OpenWindow(this)`）—— 判据全文 → `Shell/MainMenuWindow.cs` 的文件头。
+            //   🔴 **放在 `BuildGameModes` 之后、`MissingArt` 汇总之前**：那一跳会 `OpenWindow`（= 提前台 + `Open()`），
+            //   而它的 `Open()` 是空的（内容由本函数建）⇒ 必须在**树建完之后**再登记，否则「开出来的是一棵空树」。
+            RegisterMainMenuWindow(menuWin);
 
             if (MissingArt.Count > 0)
                 Debug.LogWarning("[Menu] ⚠️ 有 " + MissingArt.Count + " 张图取不到（**这些件没画**）："
@@ -450,6 +465,93 @@ namespace CardPresentation
             }
         }
 
+        /// <summary>🆕 **2026-10-12（`A1629`）**：**常驻主菜单那一扇**（= 原版 `MainMenuWindow`）。
+        /// 本文件建它、`Shell/MainMenuWindow.cs` 定义它；`Build()` 每次重建时**换一扇新的**（旧的那一棵
+        /// 随 `Build()` 开头的清场一起没了）。自检按它读 `activeSelf`。</summary>
+        public static MainMenuWindow Window { get; private set; }
+
+        /// <summary>建好了但**还没等到 `WindowsManager`** 的那一扇 —— 见 <see cref="RegisterMainMenuWindow"/>。</summary>
+        static MainMenuWindow _pendingBaseMenu;
+        /// <summary>那一扇所属的**本棵树根**（`ApplyBaseMenu` 是静态的，判「是不是同一棵树」要用它）。</summary>
+        static Transform _pendingRoot;
+
+        /// <summary>🆕 **2026-10-12（`A1629`）**：把「背景 + 模式卡」那一棵登记成**常驻主菜单**。
+        /// <para>逐句对位原版 `MainMenuWindow.Initialize()` 末尾那两句
+        /// （`d:/2/tools/decomp_full/MainMenuWindow__Initialize.c`：`SetBaseMenu(this)` → `OpenWindow(this)`）。</para>
+        /// <para>三个字段**照那一颗 MB 的实读值**填（`bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/
+        /// MonoBehaviour_1927.json`，`m_Script.m_PathID = 6585963289051879589` = `MainMenuWindow`）：
+        /// `type = 0`(Fullscreen) · `windowsPlacement = 0`(**None** = 不挂 Holder) · `closeOnESC = 0`。
+        /// ⚠️ 三个都**必须显式赋** —— 本仓那两枚哨兵（`UnsetType` / `UnsetPlacement`）会**出声报错**
+        /// （`AttachToAnchor` 的两层体检），漏一个就在日志里多一条假缺陷。</para>
+        /// <para>⚠️ `AttachToAnchor` 在 `None` 上是**早退**（`GetWindowAnchor(None)` 返回 null、不出声）——
+        /// 这一扇**留在主菜单场景自己那棵树里**，这正是原版的样子。</para>
+        /// <para>🔴 **为什么登记要分期（这一档是【我们挑的】，如实标注铁律 3）**：原版那一刻
+        /// `WindowsManager.Instance` 一定在（那台是常驻件）。我们这边分两种情况：
+        /// ① **运行期**（真 Play / player）：实例可能已被切场景拆掉（`A1494③` 那条拆除循环）⇒ 走
+        ///    `WindowsManager.Get()`（取不到就现建一台，=`EnsureHost`，主菜单场景本来也该有它）；
+        /// ② **编辑期**（`BuildAndSaveScene` 建场 / 自检）：**⛔ 不能调 `Get()`** —— 那会把
+        ///    `WindowsManager` / `Window Anchors` / `PointerLayer` 三个物体**建进当前场景、随后被存进
+        ///    `MainMenu.unity`**（今天那个场景里这三样**逐个数出来都是 **0 个**：`grep -c WindowHolder
+        ///    Assets/CardPresentation/Scenes/MainMenu.unity` = 0、`WindowsManager` = 0、`Window Anchors` = 0；
+        ///    ⚠️ 与 `项目任务.md` 里 `A1494④` 那句「`MainMenu.unity` 里带着 3 个 `WindowHolder` 且
+        ///    `placement = None`」**不符** —— 那三条报错的真身是**我们自己在运行时 `MakeHolder` 里
+        ///    `AddComponent` 触发 `OnEnable`、那时 `placement` 还是默认 `None`**（→ `EnsureHost` 里
+        ///    「现建了一台 + 三个锚点」那句**排在三条报错之后**，顺序可证）；已记进报告，⛔ 别照那句去改场景）。
+        ///    ⇒ 编辑期先挂进 `_pendingBaseMenu`，等 `WindowsManager.EnsureHost` 真建出那台时由
+        ///    <see cref="OnWindowsManagerReady"/> 回来认领（自检里第一次 `Get()` 就是这个时刻）。</para></summary>
+        void RegisterMainMenuWindow(Transform menuWin)
+        {
+            if (menuWin == null) return;
+            var win = menuWin.gameObject.GetComponent<MainMenuWindow>();
+            if (win == null) win = menuWin.gameObject.AddComponent<MainMenuWindow>();
+            win.placement = WindowsPlacement.None;     // 原版实读 = 0（不挂 Holder）
+            win.type = WindowType.Fullscreen;          // 原版实读 = 0
+            win.closeOnEsc = false;                    // 原版实读 = 0（ESC 走覆写：叫出「退出游戏」弹窗）
+            WindowsManager.AttachToAnchor(win);
+
+            Window = win;
+            _pendingBaseMenu = win;
+            _pendingRoot = _root;
+            var wm = WindowsManager.Instance;          // ⛔ 别在这儿用 `Get()`（理由见上面 ②）
+            if (wm == null && Application.isPlaying) wm = WindowsManager.Get();
+            if (wm != null) ApplyBaseMenu(wm);
+        }
+
+        /// <summary>`WindowsManager.EnsureHost` 把那台建出来之后回来认领 —— 见
+        /// <see cref="RegisterMainMenuWindow"/> 的分期理由（**没有待认领的就什么都不做**）。</summary>
+        internal static void OnWindowsManagerReady(WindowsManager wm)
+        {
+            if (wm != null && _pendingBaseMenu != null) ApplyBaseMenu(wm);
+        }
+
+        /// <summary>真正那一跳（原版 `SetBaseMenu(this)` + `OpenWindow(this)`，**顺序不能反**）。
+        /// ⚠️ **幂等闸**（我们加的）：运行期这条链会**连着走两次** —— `RegisterMainMenuWindow` 里
+        /// `Get()` 已经触发过 `EnsureHost` 的认领，`Get()` 返回之后那一句又会认领一次。
+        /// 没有这道闸的话第二次 `SetBaseMenu` 会把刚加进去的那一条**清表**掉再重加（可观测行为相同、
+        /// 但日志会打两遍、而且中间有一瞬 `openWindows` 是空的）。</summary>
+        static void ApplyBaseMenu(WindowsManager wm)
+        {
+            if (wm == null || _pendingBaseMenu == null) return;
+            if (wm.BaseMenu == _pendingBaseMenu && wm.openWindows.Contains(_pendingBaseMenu)) return;   // 已认领
+            // 🔴 **「一山不容二虎」闸**（我们加的，如实标注铁律 3）：原版那一刻场上有**且只有**一颗
+            //   `MainMenuWindow`。本仓自检里有几处夹具会**另起一棵树**再 `Build()` 一次
+            //   （`Editor/MainMenuScene.cs` 的 A855 那三条走的就是 `new GameObject` + `AddComponent<MainMenuRuntime>()`
+            //   + `Build()`）—— 那些树**不是**当前那一棵，不该把场上的 `baseMenu` 抢过去。
+            //   判据 = 「已经在册的那一扇**是不是本棵树的后代**」：是 ⇒ 那是同一棵树的重建（`Build()` 先把旧孩子
+            //   销毁，那一刻旧的还没被真正销毁、字段也还指着它）⇒ 照旧登记；不是 ⇒ 夹具/别的树 ⇒ 让位。
+            var existing = wm.BaseMenu;
+            if (existing != null && _pendingRoot != null && !existing.transform.IsChildOf(_pendingRoot))
+            {
+                Debug.Log("[Menu] 场上已经有另一棵树的常驻主菜单（`" + existing.name + "`）⇒ 本棵**不抢** `baseMenu`"
+                          + "（自检夹具/别的树就是这一档；原版那一刻只有一颗 `MainMenuWindow`）");
+                return;
+            }
+            wm.SetBaseMenu(_pendingBaseMenu);
+            wm.OpenWindow(_pendingBaseMenu);
+            Debug.Log("[Menu] 常驻主菜单已登记：`baseMenu` = `" + _pendingBaseMenu.name + "`（`type=Fullscreen` · "
+                      + "`placement=None` · 内容 = 背景 + 模式卡 —— 原版 `MainMenuWindow.Initialize` 那两句）");
+        }
+
         static void DestroySafe(GameObject go)
         {
 #if UNITY_EDITOR
@@ -500,6 +602,71 @@ namespace CardPresentation
         ///    主菜单一建出来高亮就跑到第 4 个钮上）。
         public int SelectedNav = 0;
 
+        // ============================================================ 🔴 **`A1638`（2026-10-12）：左竖导航「点亮第 i 颗」的【唯一共用口】**
+        //
+        // 原版那一层 = `NavigationPanelController`（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/NavigationPanelController.cs`），
+        // 本仓的等价物**一直都在**（本文件的 `SelectNav`），只是以前只有裸魔数 `SelectNav(1/2/3)` 三个调用点
+        // ⇒ 现在收成一个**照原版命名的口**，四个入口都走它（两处写同一条规则 = 迟早不一致）。
+        //
+        // **原版逐点对位**（第一权威 = `d:/2/tools/decomp_full/`）：
+        //   · `NavigationPanelController.SetToggle(NavigationPanelToggleType type)`（`__SetToggle.c`）：
+        //     `GetToggle(type)` 找到那颗 `NavigationPanelToggle` → 它的 `Toggle.isOn == false` 时
+        //     `SetIsOnWithoutNotify(toggle, true)` ⇒ **语义 = 「把第 i 颗点成选中」**（幂等：已经是选中的不动）。
+        //   · **四个调用点**（全库就这四个，`grep -rl NavigationPanelController__SetToggle`）：
+        //       ① 收藏 `CollectionScreen__Open.c:14`   → `SetToggle(nav, 1)`
+        //       ② 商店 `ShopWindow__Open.c`（末段）      → `SetToggle(nav, 2)`
+        //       ③ 奖励 `MainMenuRewardsWindow__Open.c`  → `GetToggle(nav,3)` + `SetIsOnWithoutNotify(true)`（等价）
+        //       ④ 活动 `BaseParentEventWindow__Open.c`  → `SetToggle(nav, 5)`
+        //   · **`Main`(0) 与 `Social`(4) 【没有】`SetToggle` 调用点** —— 那两颗靠**导航钮自己的 `ToggleGroup`**
+        //     （`m_AllowSwitchOff = 0` = 单选）在**点击**时点亮 ⇒ 我们对位的是 `OnNavClick` 里那一句
+        //     （那是**另一条机制**，⛔ 别把它和 `SetToggle` 混成一条）。
+        //   · `SetMainToggle(GameWindow)`（`__SetMainToggle.c`）—— **只有在 `GameWindow.ESCPressed` 的
+        //     第三道门槛 `updateNavPanel` 为真时才被调到**（`__ESCPressed.c` 末段），语义 = 「关窗回主菜单
+        //     ⇒ 灯回到 `Main`」（反编译体里那个 `GameWindow` 形参**没被读到** ⇒ 语义由调用点判；如实标）。
+        //     ⇒ 本仓落在 `Shell/WindowsManager.cs` 的 `GameWindow.ESCPressed`；值的四个来源（原版 `= 1` 的窗
+        //       = Collection / Inbox / Shop / Social）写在 `updateNavPanel` 那一格。
+
+        /// <summary>原版 `NavigationPanelToggleType`（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/NavigationPanelToggleType.cs`，
+        /// **值逐条照抄**：`Main=0 · Collection=1 · Shop=2 · Rewards=3 · Social=4 · Event=5`）。
+        /// 🔴 **本仓只建了前 5 颗**（`BuildNavigationPanel` 里那五个 `NavButton(...)`）；
+        /// **`Event`（第 6 颗）本仓没有** —— 原版那是 liveop 事件钮，由
+        /// `NavigationPanelController.BuildEventButtons` 在**运行期按服务端事件**实例化
+        /// （`__BuildEventButtons.c`；我们**没有事件数据源**，见 `Shell/MainMenuRuntime.cs` 里 A855 那一段
+        /// 对 `LiveOpsEvent` 的三条理由）⇒ 枚举值**照原版留着**（将来接事件时只补一颗钮），
+        /// 今天 `SetNavToggle(Event)` 会**出声**并什么都不点（⛔ 不静默）。</summary>
+        public enum NavigationPanelToggleType { Main = 0, Collection = 1, Shop = 2, Rewards = 3, Social = 4, Event = 5 }
+
+        /// <summary>**点亮左竖导航第 i 颗** —— 本仓的 `NavigationPanelController.SetToggle`（判据见上面那一段）。
+        /// <para>**为什么是 static**：调用点散布在别的类 / 别的场景（`GameWindow.ESCPressed` 在
+        /// `Shell/WindowsManager.cs`，而卡组编辑、对战那些场景**没有** `MainMenuRuntime` 实例）——
+        /// 与 `OpenInbox` / `OpenSettings` / `OpenProfile` 那三条改成 `static` 是同一个理由。
+        /// **没有实例时是「无事可做」，不是失败**（那些场景本来就没有左竖导航）⇒ 不出声、直接返回。</para>
+        /// <para>⚠️ **不要在这里写「第几颗是什么」的映射** —— 映射就是 `NavigationPanelToggleType` 本身
+        /// （值照原版），⛔ 别再写一张 `switch`。</para></summary>
+        public static void SetNavToggle(NavigationPanelToggleType type)
+        {
+            var rt = Instance;
+            if (rt == null) return;                  // 不在主菜单场景 ⇒ 没有左竖导航可点（正常，不是失败）
+            rt.LightNavToggle(type);
+        }
+
+        /// <summary>`SetNavToggle` 的实例那半边（越界时**出声**：`Event` 那颗本仓没建）。</summary>
+        void LightNavToggle(NavigationPanelToggleType type)
+        {
+            int idx = (int)type;
+            if (idx < 0 || idx >= _navBtns.Count)
+            {
+                // ⛔ 不许静默失败：原版 `SetToggle(nav,5)` 那条（`BaseParentEventWindow__Open.c`）在本仓
+                //    落不了地 —— 本仓左竖导航只有 5 颗（没有 liveop 事件钮）⇒ **说清楚是哪一颗、为什么**。
+                Debug.LogWarning("[Menu] `SetNavToggle(" + type + ")`（= 原版的第 " + (idx + 1) + " 颗）"
+                                 + " —— 本仓左竖导航只有 " + _navBtns.Count + " 颗（`Main/Collection/Shop/Rewards/Social`）"
+                                 + "：原版第 6 颗是 **liveop 事件钮**（`NavigationPanelController.BuildEventButtons`"
+                                 + " 运行期按服务端事件建），本仓**没有事件数据源** ⇒ **这一下不点任何一颗**");
+                return;
+            }
+            SelectNav(idx);
+        }
+
         // ---- 🆕 **2026-10-11（`A1522④`）：换高亮【只动高亮那一颗】，⛔ 不再重建整块 `Navigation Panel`** ----
         // 为什么非改不可（两条，都是实测）：① 原来 `SelectNav` 是「销毁整个面板 → 重新建」；
         //   一旦它被**点击**触发（本次要接的就是这条），面板连同**正在执行 `onClick` 的那颗钮**
@@ -519,12 +686,25 @@ namespace CardPresentation
         ///    （判据 → `资料/普查产出_第十八会话/B_三条判据挖掘.md` 问题 C 第 2 / 7 条）。</summary>
         public void SelectNav(int idx)
         {
-            if (idx == SelectedNav) return;
+            // ⚠️ **两档要分开**（`A1638` 现核）：「面板还没建」(`Count == 0`) 与「调用点越界」
+            //    (`idx` 超出既有颗数) 是**两件事** —— 前者是**正常**（`Build()` 跑之前的任何调用，
+            //    例如 `WindowsManager` 那台宿主先醒），后者是**调用点写错了**。混成一档会在正常路径上刷假告警。
+            if (_navBtns.Count == 0) return;                 // 面板还没建 ⇒ 没有高亮可点（不是失败）
             if (idx < 0 || idx >= _navBtns.Count)
             {
                 // ⛔ 不许静默：越界就什么都不改，并且**说一声**（调用点写错时能一眼看出来）
                 Debug.LogWarning("[Menu] `SelectNav(" + idx + ")` —— 导航钮只有 " + _navBtns.Count
                                  + " 颗 ⇒ **这一下不改高亮**（调用点越界了？）");
+                return;
+            }
+            if (idx == SelectedNav)
+            {
+                // 🔴 **`A1638`：幂等**（原版 `SetToggle` 逐字就是幂等的 —— `m_IsOn` 为真时什么都不做）。
+                //    但**早退之前要先确认那一颗的高亮真的在**：`SelectedNav` 只是个数，
+                //    高亮是树里一颗**节点** —— 两者会脱钩（面板重建、节点被别的路 `DestroyImmediate`、
+                //    或「选中态没变但节点没了」那类静默坏法）⇒ 只比数就会**永远不补画**。
+                var cur = _navBtns[idx];
+                if (cur != null && cur.Find("Selected highlight") == null) RepaintNavHighlight(idx);
                 return;
             }
             SelectedNav = idx;
@@ -751,12 +931,15 @@ namespace CardPresentation
             // 🔴 **我们原来的形状（= 本条要修的真缺陷）**：`OnNavClick` **自己从不改选中态** ——
             //   只有 `OpenCollection` / `OpenShop` / `OpenRewards` 三条**在开窗之后顺带** `SelectNav(idx)`
             //   ⇒ **PLAY（第 0 颗）与 SOCIAL（第 4 颗）点了高亮纹丝不动**（`OpenSocial` 没有那一句）。
-            //   ⇒ 现在**统一收到这一处**：那三句 `SelectNav` 变成空转（`SelectNav` 首句 `idx == SelectedNav`
-            //   直接 return）—— 留着无害，⛔ **别顺手删**（删了「开窗入口被单独调用」时就不换高亮了）。
+            //   ⇒ 现在**统一收到这一处**：那三句改走共用口 `SetNavToggle`（`A1638` 收口），
+            //   走到这里再被 `SelectNav` 的「`idx == SelectedNav` 早退」吃掉 —— 留着无害，⛔ **别顺手删**（删了「开窗入口被单独调用」时就不换高亮了）。
             // ⚠️ 与**悬停色偏**是两回事，⛔ 别混：`EverguildToggle__OnPointerEnter.c:3` 在 `isOn == true`
             //   时**直接 return**（已选中的那颗连 hover 都不走），`m_HighlightedColor = (0.7217,0.8152,1.0)`
             //   是**独立的一层**（我们的 `NavHoverKey`）——「hover 亮」不等于「被选中」。
-            SelectNav(idx);
+            // 🔴 **`A1638`（2026-10-12）**：这一句改走**共用口** `SetNavToggle`（下面那一段的定义）
+            //   —— 本仓 `idx` 的取值与 `NavigationPanelToggleType` **逐值同序**（0..4），所以这一跳是**恒等**、
+            //   零行为变化；改它只为「四个入口都走同一个口」，⛔ 不是为了改行为。
+            SetNavToggle((NavigationPanelToggleType)idx);
         }
 
         static string NavName(int idx)
@@ -945,7 +1128,12 @@ namespace CardPresentation
         /// （C# 不允许用实例访问静态成员），语义一个字没变。
         public static InboxWindow OpenInbox()
         {
-            return OpenByRef(RefInbox, wm => InboxWindow.Create(wm));
+            var win = OpenByRef(RefInbox, wm => InboxWindow.Create(wm));
+            // 原版 `InboxWindow` 那颗 prefab 的 `updateNavPanel = 1`（`Shell/InboxWindow.cs` 文件头逐字段实读）
+            // ⇒ 从收件箱按 ESC 出来（回到主菜单）时，左竖导航的灯回到 `Main`。⚠️ 它**不点亮任何一颗**
+            //（信封是顶栏那颗钮，不是左竖导航的）。
+            MarkUpdatesNavPanel(win);
+            return win;
         }
 
         /// <summary>
@@ -999,7 +1187,13 @@ namespace CardPresentation
         /// </summary>
         public SocialWindow OpenSocial()
         {
-            return OpenByRef(RefSocial, wm => SocialWindow.Create(wm), true);
+            var win = OpenByRef(RefSocial, wm => SocialWindow.Create(wm), true);
+            // ⚠️ **这里【不】点第 5 颗** —— 原版全库**没有** `SetToggle(nav,4)` 的调用点
+            //（`grep -rl NavigationPanelController__SetToggle` 只有 4 个：收藏 1 / 商店 2 / 奖励 3 / 活动 5）
+            // ⇒ `SOCIAL` 那颗亮起来靠的是**导航钮自己的 `ToggleGroup`**（点它那一下），
+            // 对位的是本文件 `OnNavClick` 末尾那一句，⛔ 别在这儿补一句「顺手也点一下」。
+            MarkUpdatesNavPanel(win);                             // 原版这颗窗 `updateNavPanel = 1`
+            return win;
         }
 
         /// <summary>
@@ -1085,7 +1279,7 @@ namespace CardPresentation
         public RewardsWindow OpenRewards()
         {
             var win = OpenByRef(RefRewards, wm => RewardsWindow.Create(wm), true);
-            SelectNav(3);
+            SetNavToggle(NavigationPanelToggleType.Rewards);      // 原版 `MainMenuRewardsWindow__Open.c:14-16`（点亮第 3 颗 = REWARDS）
             return win;
         }
 
@@ -1099,8 +1293,23 @@ namespace CardPresentation
         public CollectionWindow OpenCollection()
         {
             var win = OpenByRef(RefCollection, wm => CollectionWindow.Create(wm), true);
-            SelectNav(1);
+            SetNavToggle(NavigationPanelToggleType.Collection);   // 原版 `CollectionScreen__Open.c:14`（点亮第 2 颗 = COLLECTION）
+            MarkUpdatesNavPanel(win);                             // 原版这颗窗 `updateNavPanel = 1`（ESC 关掉 ⇒ 灯回 Main）
             return win;
+        }
+
+        /// <summary>把原版 `GameWindow.updateNavPanel`（字段偏移 **0x3A**）那一格写上 —— 语义见
+        /// `Shell/WindowsManager.cs` 里那一格的 doc：**ESC 关掉这扇窗时把左竖导航回点到 `Main`**。
+        /// <para>🔴 **为什么由【入口】写、而不是各窗的 `Create()` 里写**（如实标注，铁律 3）：
+        /// 逐窗那一格照例是跟着 `type` / `placement` / `closeOnEsc` 一起写在**各窗的 `Create()`** 里，
+        /// 而**这一轮 `Shell/CollectionWindow.cs` 有另一个写手**（不许同时两个写手改同一个文件）
+        /// ⇒ 这一格先落在**入口**（与 `SetNavToggle` 那一句挨着，仍然是**一处定义、一处赋值**）。
+        /// ⛔ **将来收口时把这一句搬进对应窗的 `Create()`**（那时删掉本方法的所有调用点即可，语义不变）。</para>
+        /// <para>⚠️ 原版 `= 1` 的窗**四个**（逐窗实读 prefab）：`Collection` · `Inbox` · `Shop` · `Social`；
+        /// 其余全是 `0`（本仓 `GameWindow.updateNavPanel` 的缺省值就是 `false`，与之一致）。</para></summary>
+        static void MarkUpdatesNavPanel(GameWindow win)
+        {
+            if (win != null) win.updateNavPanel = true;
         }
 
         /// <summary>开商店（原版 `Shop Menu Variant`，由左竖导航的 SHOP 开）。
@@ -1113,7 +1322,8 @@ namespace CardPresentation
             //    `closeOtherMenus = 1`（`bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/MonoBehaviour_2495.json:32`），
             //    走 `WindowsManager.OpenWindow(win, data, closeAll: true)`（`OpenWindowButton__OpenWindow.c:33`）。
             var win = OpenByRef(RefShop, wm => ShopWindow.Create(wm), true);
-            SelectNav(2);
+            SetNavToggle(NavigationPanelToggleType.Shop);         // 原版 `ShopWindow__Open.c` 末段（点亮第 3 颗 = SHOP）
+            MarkUpdatesNavPanel(win);                             // 原版这颗窗 `updateNavPanel = 1`
             return win;
         }
 
@@ -1389,8 +1599,85 @@ namespace CardPresentation
             // 🆕 2026-09-27：这颗钮**原来没接点击**（红线：不许静默失败）—— 接上，开聊天窗。
             // 原版那条链：`ChatPreview.Initialize` 把 `chatButton.onClick` 挂 `OpenChat` →
             // `WindowsManager.OpenWindow(chatWindow)`（判据 → `多人界面_入口与调用.md` §②）。
-            MenuDraw.Hit(p, "ChatHit", new PxRect(1811.0f, 81.8f, 1879.0f, 148.3f), QBarOverlay, () => OpenChat());
+            MenuDraw.Hit(p, "ChatHit", new PxRect(1811.0f, 81.8f, 1879.0f, 148.3f), QBarOverlay, ChatPreviewClicked);
+            _chatPreview = p;
+            // ============================================================ 🔴 `A1639`（2026-10-12 用户真机点名）
+            // **出厂【关上】** —— 原版这一块是「**有聊天消息才画**」，既不是「永远画」、也不是「只在主菜单画」。
+            //
+            // **判据（`d:/2/tools/decomp_full/` 逐句读出来的，四条互相独立）**：
+            //   ① `ChatPreview__OnBeforeInitialization.c`：`icon.localScale = (0,0,0)` ·
+            //      `messageContainer.fillAmount = 0` · 每一条 `ChatPreviewMessage` 的正文 `set_enabled(false)`
+            //      ⇒ **出厂视觉上就是不可见的**；
+            //      ⚠️ 那颗 GO 在场景里 **`m_IsActive = true`**（`GameObject/ChatPreview.json` 实读）
+            //      —— 原版**不是**靠 `SetActive(false)` 按掉它，而是靠「缩放 0 + 填充 0」；
+            //   ② `ChatPreview__Show.c`：`SetActive(true)` + `DOScale(icon, 1).From(0)` +
+            //      `DOFillAmount(container, 1).From(0)` + `DOFade(container, 1).From(0)`
+            //      ⇒ `Show()` 的语义就是「**从看不见淡进来**」；
+            //   ③ `Show()` **全库只有两个调用点**：`__OnInitializationComplete.c`（**仅当** `receivedMessages` 已为真）
+            //      与 `__WaitAndAnimate.c`（**仅当该频道来了 ≥1 条消息**，且先 `remove_OnChatUpdate` 再 `Show`）；
+            //      而 `__UpdatePreviews.c` 里那个 `receivedMessages`（字段 `0x40`）**只在 `messages.Count >= 1`
+            //      且频道匹配时**才置 1 ⇒ **没有消息 ⇒ 永远走不到 `Show()`**；
+            //   ④ `ChatPreviewMessage__Start.c`：每条预览行**在 `Start()` 里自己 `set_enabled(false)`**（同①）；
+            //   ⑤ 🔴 **读了就收起来**：`ChatPreview__OpenChat.c` + 它那条 `OnComplete` 回调
+            //      （`ChatPreview__<OpenChat>b__10_0.c`）—— 先把预览**动画收回去**
+            //      （`DOScale(icon, 0)` / `DOFillAmount(container, 0)` / `DOFade(container, 0)`），
+            //      回调里**第一句就是 `gameObject.SetActive(false)`**，然后才 `WindowsManager.OpenWindow(chatWindow)`。
+            //   ⇒ **结论 = 「有消息才画，读了就收」**（既不是「只在主菜单画」、也不是「永远画」）。
+            //      🔑 **这一条同时解释了用户那两张实拍为什么不一样**（`主界面参考图.png` 23:30 有、
+            //      `收藏—卡组的参考图.png` 23:31 没有，**只差一分钟**）：那 1 分钟里他**点了一下**那块预览
+            //      （= 去读了那条消息）⇒ 预览自己 `SetActive(false)` 了，与「收藏窗盖住它」无关。
+            //      ⚠️ 顺带否掉一个**很自然的错觉**：「开别的窗它就没了」—— **原版没有这条逻辑**：
+            //      `ChatPreview` 是 `Safe area Only Horizontal` 的**最后一个孩子**（兄弟序在
+            //      `1 - Below Upper Bar Holder` / `2 - Canvas Holder Above upper bar` / `3 - PopUp Holder`
+            //      **三个 Holder 之后**）⇒ 结构上它**压在所有窗之上**（逐级解 `m_Father` + 兄弟序实读），
+            //      而且 `bundle_menus_assets_all` 里 8 个 `m_OverrideSorting = 1` 的 Canvas
+            //      **一个都不属于收藏窗** ⇒ 窗也盖不住它。⛔ 别照「开窗就藏它」去实现（那是我们发明的口径）。
+            //
+            // ⇒ **照原版 = 我们今天不该画它**：本仓**没有聊天数据源**（用户 2026-09-26 口径「网络聊天功能暂时不做」·
+            //   `Shell/ChatPanel.cs` 文件头 ⑤：没有服务器、也没有 `ChatGlobalManager` 的对等物）
+            //   ⇒ 「没有消息」是恒真的 ⇒ 它**永远不该出现**。而它恒亮着的时候，那两条占位串正好压住
+            //   收藏窗顶部「导入卡组 / 创建卡组」之间那道缝（旧账 `A1553`）。
+            //
+            // ⚠️ **这不是「把件删掉」**：原版那一棵**结构在、GO 也是 active 的**；我们只是照原版
+            //   「没有消息就不可见」把它按下去。**唯一差别**（如实标，铁律 3）：原版靠 `scale/fill` 那一套 tween，
+            //   本仓改用 `activeSelf` —— 理由两条：本仓没有 DOTween 那套淡入；`ImageQuad` 也没有 `enabled` 那一档
+            //   （禁组件在画面上什么都不做）。
+            // 🔴 **唯一能把它点回来的口 = `SetChatPreviewVisible(bool)`**（紧跟本方法的那一个）——
+            //   ⛔ 别在别处再写一句 `SetActive`（两处写同一条规则 = 迟早不一致）。
+            SetChatPreviewVisible(false);
         }
+
+        /// <summary>点了那块聊天预览 —— 本仓的 `ChatPreview.OpenChat()`。
+        /// <para>原版那一条分两拍（`ChatPreview__OpenChat.c` + 它的 `OnComplete` 回调
+        /// `ChatPreview__&lt;OpenChat&gt;b__10_0.c`，逐句读出来的）：
+        /// ① 把预览**动画收回去**（`DOScale(icon, 0)` / `DOFillAmount(container, 0)` / `DOFade(container, 0)`）；
+        /// ② 回调**第一句 `gameObject.SetActive(false)`**，然后 `WindowsManager.OpenWindow(chatWindow)`。</para>
+        /// <para>⚠️ 我们没有 DOTween 那条 tween ⇒ 直接落成「**先收起、再开窗**」（顺序照原版；
+        /// 第一拍那个「动画」的**终态**就是第二拍那句 `SetActive(false)`，本仓只保留终态）。</para></summary>
+        void ChatPreviewClicked()
+        {
+            SetChatPreviewVisible(false);      // = 原版 `OnComplete` 里的第一句 `SetActive(false)`
+            OpenChat();                        // = 原版 `OnComplete` 里紧接着的 `WindowsManager.OpenWindow(chatWindow)`
+        }
+
+        /// <summary>`ChatPreview`（主菜单右上那块）—— 只用来做显隐（`A1639`）。</summary>
+        Transform _chatPreview;
+
+        /// <summary>主菜单那块「聊天预览」的**唯一显隐口** = 本仓的 `ChatPreview.Show()`。
+        /// 出厂**关**，判据（四条）→ `BuildChatPreview` 末尾那一段。
+        /// <para>⚠️ 我们没有聊天消息源 ⇒ 今天**没有任何生产调用点**；留着它是因为「关」这件事必须有一个
+        /// **唯一的开关**（自检要验状态，见 `Editor/MainMenuScene.cs` 的 `A1639` 那一条），
+        /// 而不是散在各处的 `SetActive`。将来真接了聊天源，在那条「收到 ≥1 条消息」的钩子上调它即可。</para></summary>
+        public void SetChatPreviewVisible(bool on)
+        {
+            if (_chatPreview == null) return;
+            if (_chatPreview.gameObject.activeSelf != on) _chatPreview.gameObject.SetActive(on);
+        }
+
+        /// <summary>那块「聊天预览」现在**看得见没有**（自检用）。
+        /// ⚠️ ⛔ **不许拿「节点找得到」当可见** —— `Find` / `GetComponentsInChildren(true)` **含 inactive**，
+        /// 那样写两种状态下都会绿（本会话已经踩过）⇒ 判据只能是 `activeSelf`。</summary>
+        public bool ChatPreviewVisible { get { return _chatPreview != null && _chatPreview.gameObject.activeSelf; } }
 
         // ---- §五 E + §九：模式卡区 ----
         /// <summary>格子的列起点与步进（§二·4 实证：`itemSize` 535×414.4 · `spacing` (20,20) · `pad L38`）⇒ **列 c 左 = 205 + 555c**。</summary>

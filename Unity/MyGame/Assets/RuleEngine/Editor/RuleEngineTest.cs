@@ -114,6 +114,9 @@ public static partial class RuleEngineTest
         Section("光环（A7）：结算 —— 增量维护、收回、叠加、回合限定");
         Step(TestAuraSettle);
 
+        Section("「无头的持续改费」（`Your troops cost 1 less` 那一族，7 张）—— `A1458`：解析 / 真卡池 / 真入口 / 收回");
+        Step(TestA1458HeadlessCostAura);
+
         Section("灵魂石能力（灵族 `N [Spirit Stone]: …`）：代价判据 + 部署时真的付石生效");
         Step(TestSpiritStone);
 
@@ -291,6 +294,7 @@ public static partial class RuleEngineTest
         Step(TestHealAndDraw);
         Step(TestEffectChainGuard);
         Step(TestStarterCardEffects);
+        Step(TestA1618TwoParsersAgree);
         Step(TestAiUsesAbility);
 
         Section("对手 AI（SimpleAI）：斩杀线 / 攻击目标评分");
@@ -647,6 +651,46 @@ public static partial class RuleEngineTest
         Step(TestA1563VulnerableDamageSplit);                     // A1563
         Step(TestA1566LandingAndAboutToAttackRegistration);       // A1566
         Step(TestA1462NonKeywordTargetFilter);                    // A1462
+
+        // ============================================================
+        //  🆕 第二十一会话 断言批：**回合开始触发的强制攻击必须真的打出去**（`A1606`）
+        //  判据 = `d:/2/tools/decomp_full/CardScript__OnTurnStart.c`：`:99`/`:118` 的
+        //    `ActivateMinion`（解疲劳）在 `:137+` 的 `OnTrigger(0x1e /*TurnStart=30*/)` **之前**。
+        //  📄 `资料/普查产出_第二十一会话/E1_A1606.md`
+        // ============================================================
+        Section("🆕 第二十一会话：回合开始触发的强制攻击（`A1606`）");
+        Step(TestA1606TurnStartForceAttack);                      // A1606
+        // ============================================================
+        //  🆕 第二十一会话 断言批（执行代理 `N1`）：**引擎遗留三笔**
+        //   `A1631` = 触发正文的「半懂」要留痕；`A1632` = `each turn` 在对方回合也要打；
+        //   `A1455`/`AM56` = `Deploy a <卡名>` 在真池里筛得到（旧账是**空池夹具**的产物）。
+        //  📄 `资料/普查产出_第二十一会话/N1_引擎遗留三笔.md`
+        // ============================================================
+        Section("🆕 第二十一会话（N1）：引擎遗留三笔（`A1631` / `A1632` / `A1455`＋`AM56`）");
+        Step(TestA1631HalfUnderstoodTriggerBody);                 // A1631
+        Step(TestA1632EachTurnAttackOnOpponentTurn);              // A1632
+        Step(TestA1455DeployNamedTroop);                          // A1455 / AM56
+
+        // ============================================================
+        //  🆕 第二十一会话 断言批（执行代理 `E4` 查证 · `E6` 于 2026-10-12 落补丁）
+        //     `A1600` / `A1468` —— **主件 ＋ 守卫两面**（本节共 4 条）
+        //  🔴 **主件改法已落地**（2026-10-12，`E6`）—— 落点 = `Core/EffectResolver.cs`：
+        //     · `A1600` = `BroadcastWhen` 的棋盘听众筛 `!u.IsAlive` → 「在场 ∧ 未入将死队列」
+        //       （新判据 = `BattleContext.IsPendingDeath`；⛔ 不是「把筛子整句删掉」）；
+        //     · `A1468` = `AddSide` 的隐身闸收成「**只给单选**（`IsLegalPick`）用」的开关，
+        //       批量池（`ResolveTargets`）照原版**不滤**隐身/伪装。
+        //  ⚠️ 本节头顶**原来写着「主件【未落地】」—— 2026-10-12 已不成立，就地订正**
+        //     （保持那份「已核过」的痕迹，见铁律 5）。
+        //     期望值都在离线宿主上真跑过（`D:/tmp/wf_e4/`：改前 **15/15** 绿、打上改法的副本 **18/18** 绿；
+        //     `D:/tmp/wf_e6/`：补丁落在**工程里的真文件**上之后复跑那两条主件）。
+        //  📄 判据 / 改法 / 改前改后读数 → `资料/普查产出_第二十一会话/E4_A1600_A1468.md`
+        //     ⚠️ `E4` 报告头里把路径写成 `资料/普查报告_第二十一会话/`（**那个目录不存在**），实际是这个 `普查产出_…`
+        // ============================================================
+        Section("🆕 第二十一会话（`E4` 查证 / `E6` 落补丁）：`A1600`＋`A1468` —— 主件 ＋ 守卫");
+        Step(TestA1600SelfFatalHitHeard);                         // A1600 · 主件
+        Step(TestA1468BatchAllEnemiesHitsStealth);                 // A1468 · 主件
+        Step(TestA1600DyingListenerExcluded);                     // A1600 · 守卫
+        Step(TestA1468SingleTargetStealthGate);                   // A1468 · 守卫
 
         // ---- 汇总 ----
         int total = _pass + _fail;
@@ -14194,6 +14238,127 @@ public static partial class RuleEngineTest
     ///   · **费用 + 属性合体**（`Winged Daemon Prince`）
     ///   · **反例**：裸 `+N` 的两张**故意不收**（`Genestealer Familiar` / `Cadre Fireblade`）
     /// </summary>
+    /// <summary>
+    /// 🔴 **`A1458`：「无头的持续改费」那一族** —— 卡面写着 `Your troops cost 1 less` 这种
+    /// **没有触发头**的句子，`desc` 里解得出 `lowercost` op，而 `lowercost` 的唯一消费点是
+    /// `PlayTactic`（战术卡打出那一瞬）⇒ **挂在单位卡上的这句一次都不会发生**（静默不生效）。
+    ///
+    /// **原版怎么做**（判据全是反编译方法体，见 `Core/Aura.cs` 的 `ReCostOnly` 那一段）：
+    /// 做成 `AbilityTrigger.WhileInPlay = 20` 的**常驻**能力，效果是往**手牌**挂一条
+    /// `CardEffect.costChange`（`EntityScript__get_CurrentCost.c` 现算：印价 + 那批 `costChange`），
+    /// 来源离场由 `CardScript__RemoveBuffHandCostEffects.c` 整份撤
+    /// ⇒ 形状 = 我们的**光环**（`AuraSpec.CostLess` → `Recompose` ② 登记 `CostMod`
+    /// → `RuleCore.CostOf` 每次现算、来源离场在 ① 里整份撤）。
+    ///
+    /// **四段**（缺一段就有盲区）：
+    ///   ① 解析层：这句认得下（且**一次性那一档不收**）
+    ///   ② 真卡池：那 7 张真的各收下一条 `CostLess = 1`、**没有载荷**
+    ///   ③ 结算层：走**真入口**（`RuleCore.PlayCard`）把来源摆下去 ⇒ 手牌里那张 Drone **真的便宜 1**
+    ///   ④ 收回：来源被打死 ⇒ 手牌**回到印价**
+    ///
+    /// 🔴 **判别式（`3` 与 `4` 合起来才有意义）**：③ 里同时断「只有 Drone 降」——
+    ///    「人人降 1」那种写法在那一条上必红；④ 里断**回到印价**而不是「只降一次」——
+    ///    「登记成一次性 `CostMod`」的写法在 ④ 上必红。
+    /// </summary>
+    static void TestA1458HeadlessCostAura()
+    {
+        var pool = CardDatabase.Load();
+
+        // ---------- ① 解析层 ----------
+        AuraSpec a;
+        CheckTrue(Auras.TryParse("Your troops cost 1 less", out a)
+                  && a.CostLess == 1 && string.IsNullOrEmpty(a.Payload)
+                  && a.Filter != null && a.Filter.KindWord == "troops" && !a.Enemy && !a.ExcludeSelf,
+                  "★ `Your troops cost 1 less` ⇒ 光环 `CostLess=1`、**没有载荷**、筛 `troops`");
+        CheckTrue(Auras.TryParse("Friendly Infantry costs 1 less", out a)
+                  && a.CostLess == 1 && string.IsNullOrEmpty(a.Payload)
+                  && a.Filter != null && a.Filter.KindWord == "infantry",
+                  "★ `Friendly Infantry cost**s** 1 less`（**单数 `costs`**）同上");
+        CheckTrue(Auras.TryParse("Your Stratagems cost 1 less", out a)
+                  && a.CostLess == 1 && a.Filter != null && a.Filter.KindWord == "stratagems",
+                  "★ `Your Stratagems cost 1 less` ⇒ 筛 `stratagems`"
+                  + "（`CreatePool.KindWords` 把它映射成 `type ∈ {tactic, defence}`）");
+
+        // 🔴 **灭自证**：一次性降费那一档**不许**被光环层收 —— 它已经有消费点
+        //   （`EffectText.TryLowerCost` 的 ④/⑤ 支 → `lowercost` op → `PlayTactic`），
+        //   收进光环就是**同一条规则两处登记**（本仓红线）。这三条与 `ReCostOnlyOneShot` 那半
+        //   **结构上不可能同时满足**（把那个排除删掉，这三条立刻红）。
+        CheckTrue(!Auras.TryParse("Your next Stratagem costs 1 less", out a),
+                  "反例：`Your **next** Stratagem costs 1 less` **不收**（一次性 ⇒ 走 `lowercost` op）");
+        CheckTrue(!Auras.TryParse("Your next troop this turn costs 1 less", out a),
+                  "反例：`Your next troop **this turn** costs 1 less` 同上");
+        CheckTrue(!Auras.TryParse("Your Drones cost 1 less this turn", out a),
+                  "反例：`Your Drones cost 1 less **this turn**` 同上（尾上带时长 ⇒ `$` 失配）");
+
+        // ---------- ② 真卡池：那 7 张（`E3_A1458.md` 的逐条表） ----------
+        // ⚠️ 用「有没有**恰好一条** `CostLess=1` 且无载荷的光环」判，**不写死 `AuraSpecs.Count == 1`**
+        //    —— 那张卡要是将来多出一条别的光环，这条断言不该跟着红。
+        foreach (var nm in new[]
+                 {
+                     "Minka Lesk", "Piranha", "Venomcrawler", "Aunshi Ethereal",
+                     "Hrolf the Ironhowl", "Atalan Leader", "Metamorph Leader",
+                 })
+        {
+            var c = CardDatabase.Find(pool, nm);
+            int n = 0;
+            if (c != null && c.AuraSpecs != null)
+                foreach (var sp in c.AuraSpecs)
+                    if (sp != null && sp.CostLess == 1 && string.IsNullOrEmpty(sp.Payload)) n++;
+            CheckTrue(c != null && n == 1,
+                      $"★ 真卡 `{nm}`：`cost 1 less` 那句被光环层认下来了（`CostLess=1`、无载荷，实得 {n} 条）");
+        }
+
+        var piranha = CardDatabase.Find(pool, "Piranha");
+        var drone = CardDatabase.Find(pool, "Gun Drone");
+        CheckTrue(piranha != null && drone != null && piranha.Subtype == "Vehicle"
+                  && drone.Subtype == "Drone",
+                  "夹具：卡池里有 `Piranha`（来源，subtype=Vehicle）与 `Gun Drone`"
+                  + "（目标，subtype=Drone、印价 2）");
+        // ⚠️ 缺卡就**当场退出**（上面那条已经红了，不是静默）—— 硬跑下去会是 `null.Cost` 的 NRE，
+        //    那会把整条 `RuleEngineTest.Run` 打断（同 `:10795` 的先例）。
+        if (piranha == null || drone == null) return;
+
+        // ---------- ③ 结算层：走真入口部署来源 ----------
+        var ctx = BattlePool(new[] { piranha, drone }, new[] { Unit("X", 1, 1, 5) }, pool,
+                             warlordFaction: "TauEmpire");
+        ToP1Turn(ctx, 1);
+        ctx.Players[0].Energy = 12;
+        Check(RuleCore.CostOf(ctx, 0, drone), drone.Cost,
+              $"（前提）来源还在手里 ⇒ `Gun Drone` 是印价 {drone.Cost} 费");
+        Check(RuleCore.CostOf(ctx, 0, piranha), piranha.Cost,
+              "（前提）来源自己也一样（它是 Vehicle，**不是** Drone ⇒ 本来就吃不到这条）");
+
+        CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Piranha"), 3),
+                  RuleCodes.OK, "走**真入口** `RuleCore.PlayCard` 把 `Piranha` 部署下去（钩子就在那条路上）");
+        int pSlot = SlotOf(ctx, 0, "Piranha");
+        CheckTrue(pSlot >= 0, $"（前提）`Piranha` 在场上（{pSlot} 号格）");
+        Check(RuleCore.CostOf(ctx, 0, drone), System.Math.Max(0, drone.Cost - 1),
+              $"★🔴 **`Your Drones cost 1 less` 真的生效了** —— 手牌里那张 Drone 从 {drone.Cost} 费"
+              + $"降到 {System.Math.Max(0, drone.Cost - 1)} 费。**改前这句一次都不发生**（恒 = 印价），"
+              + "这正是 `A1458` 那一笔；判据 = 原版 `EntityScript__get_CurrentCost` 会把"
+              + "`CardEffect.costChange` 加到印价上（`AbilityTrigger.WhileInPlay` 挂的常驻效果）");
+        Check(RuleCore.CostOf(ctx, 0, piranha), piranha.Cost,
+              "反例（灭自证）：**只有 Drone 便宜** —— 来源自己（Vehicle）**一分没降**。"
+              + "「筛条件丢了 ⇒ 人人降 1」那种写法在这一条上必红");
+
+        // ---------- ④ 收回：来源离场 ⇒ 回到印价 ----------
+        if (pSlot >= 0)
+        {
+            var kill = Tactic("T_A1458Kill", 1, "Deal 99 damage to a friendly unit");
+            var poolK = new List<CardDef>(pool); poolK.Add(kill);
+            ctx.CardPool = poolK;
+            ctx.Players[0].Hand.Add(ctx.NewInstance(kill));
+            ctx.Players[0].Energy = 12;
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_A1458Kill"), pSlot),
+                      RuleCodes.OK, "把来源打死（真入口：`PlayTactic` → `CleanupDeaths` → 重算钩子）");
+            CheckTrue(SlotOf(ctx, 0, "Piranha") < 0, "（前提）来源**离开了棋盘**");
+            Check(RuleCore.CostOf(ctx, 0, drone), drone.Cost,
+                  $"★ **收回**：来源离场 ⇒ 手牌里那张 Drone **回到印价 {drone.Cost} 费**"
+                  + "（对照原版 `CardScript__RemoveBuffHandCostEffects` —— 那条手牌降费是**跟着来源在不在场**的，"
+                  + "⛔ 不是一次性）。「登记成一次性 `CostMod`」那种写法在这一条上必红");
+        }
+    }
+
     static void TestAuraParse()
     {
         var pool = CardDatabase.Load();
@@ -21535,6 +21700,81 @@ public static partial class RuleEngineTest
         Debug.Log(P + $"   带效果的卡：触发 {withEffect} 张 / 技能 {withAbility} 张（共 {all.Count} 张）");
     }
 
+    /// <summary>
+    /// 🔴 **`A1618`：同一句卡面正文，两条解析路径必须【结论一致】—— 且必须由「会结算的那台」说了算。**
+    ///
+    /// **改前是什么样**：`EffectSpec`（**我们自己设计的那批卡**用的极小封闭文法，只认
+    /// `Damage`/`Heal`/`Draw`）与 `EffectText`（原版卡面 + 战术卡用的那台）**对同一句给出相反的答案**，
+    /// 而**卡面那个 `*` 与 `UnparsedEffects` 听的是前者** ⇒ 全池 **122 处**触发正文
+    /// （带 `rally` 86 / `strike` 23 / `slay` 9 / `backlash` 3 / `penitence` 1）
+    /// **被标成「解析不出来」，而它们的正文真会跑**（`TriggerOps` 122/122 命中）。
+    ///
+    /// **判据（⛔ 不是「让两边一样」就算完）**：**机制那台对** —— 只有 `EffectText` 那一路
+    /// （`CardDef.TriggerOps` → `UnitState.FxOps` → `RuleCore.FireTriggerAt`）喂给结算器。
+    /// 三条实体判据写在 `CardDef.BodyResolves` 的 doc 里（含「原版根本没有正文→结构化效果这一层」
+    /// 那条搜索结论，见 `EffectText.cs` 文件头 `D26`）。⇒ 唯一判据 = `CardDef.BodyResolves`。
+    ///
+    /// **本测试钉两件事**：
+    ///   ① **我们自定的封闭文法卡**照旧走 `EffectSpec`（那一档不是「问错层」，是它本来的层）
+    ///      —— 与 `TestStarterCardEffects` 互补（那条管「我们自己的卡解析得出来」）。
+    ///   ② **原版卡**上「带触发词却判不出正文」的处数必须 = **0**。
+    ///      🔴 **这条是本来会红的断言**：`BodyResolves` 换回改前那句
+    ///      `Card.Effect(keyword) != null`（或改回「两条路由都试、有一条命中就算数」的写法，
+    ///      让原版卡走回 `EffectSpec`）⇒ 这个数立刻变 **122**。
+    ///      ⚠️ 它的「灭自证」那一半在下面第 ③ 条：**封文卡**必须仍然报 `EffectSpec` 那一档
+    ///      —— 只留 ② 的话，把 `BodyResolves` 写成「恒返回 true」也能全绿。
+    /// </summary>
+    static void TestA1618TwoParsersAgree()
+    {
+        // ③ 先钉住「封文卡那一档没被顺手改掉」—— 它测的是【同一段代码】的另一半，
+        //    与 ② 结构上不可能同时满足（`BodyResolves` 恒 true ⇒ 这里红；恒 false ⇒ ② 红）。
+        var own = new CardDef("A1618 Own", "A1618 Own", "unit", "", null, "Test", 1, 1, 5, 0,
+                              new[] { KeywordTable.Rally + ": Damage 2 EnemyUnit" });
+        CheckTrue(own.BodyResolves(KeywordTable.Rally),
+                  "我们自定的封闭文法卡：`Rally: Damage 2 EnemyUnit` 判得出正文（`EffectSpec` 那一档没被改掉）");
+        CheckTrue(own.Effect(KeywordTable.Rally) != null,
+                  "上一条靠的是 `EffectSpec`（`Effects` 那一栏真填上了）—— ⛔ 不是「恒真」蒙过去的");
+
+        var ownBad = new CardDef("A1618 OwnBad", "A1618 OwnBad", "unit", "", null, "Test", 1, 1, 5, 0,
+                                 new[] { KeywordTable.Rally + ": Gain +1 Attack" });
+        CheckTrue(!ownBad.BodyResolves(KeywordTable.Rally),
+                  "同一台封文解析器解不出的（`Gain +1 Attack`）照旧判「跑不了」—— 封文那一档没有静默放行");
+
+        // ② 真池：原版卡上「带触发词、而唯一判据说正文跑不了」的处数必须是 0（改前 = 122）
+        string[] triggers =
+        {
+            KeywordTable.Rally, KeywordTable.Strike, KeywordTable.Slay,
+            KeywordTable.Backlash, KeywordTable.Penitence,
+        };
+        var pool = CardDatabase.Load();
+        CheckTrue(pool.Count > 1000, $"真卡池装载成功（{pool.Count} 张）");
+
+        int star = 0, hasTrig = 0, specHits = 0;
+        var firstBad = "";
+        foreach (var c in pool)
+        {
+            if (c == null || !c.FromOriginalPool) continue;
+            foreach (var kw in triggers)
+            {
+                if (!c.Has(kw)) continue;
+                hasTrig++;
+                if (c.Effect(kw) != null) specHits++;     // 改前那句判据（留作读数，不是判据）
+                if (!c.BodyResolves(kw))
+                {
+                    star++;
+                    if (firstBad.Length == 0) firstBad = c.Id + "/" + kw;
+                }
+            }
+        }
+        Check(star, 0, "原版卡「带触发词却判不出正文」的处数 = 0"
+              + (star > 0 ? "（实测 " + star + " 处，首例 " + firstBad + "）" : ""));
+        CheckTrue(hasTrig > 100, $"原版池里带这 5 个触发词的处数 = {hasTrig}（基数够大，这条断言不是空转）");
+        // 🔴 下面这句是**读数**、不是断言：它就是「两条路径结论不一致」的量。
+        //    改前 `EffectSpec`（`Effect` 那一栏）在这 122 处上命中 0；`UnparsedEffects` 会记 41 条。
+        Debug.Log(P + $"   `A1618` 读数：原版卡带触发词 {hasTrig} 处 · `EffectSpec` 命中 {specHits} 处"
+                  + $" · 唯一判据判「跑不了」{star} 处 · `UnparsedEffects` {RuleCore.UnparsedEffects(pool).Count} 条");
+    }
+
     /// <summary>AI 会不会用技能 —— 不会用的话对局里永远看不到那类特效</summary>
     static void TestAiUsesAbility()
     {
@@ -26823,5 +27063,691 @@ public static partial class RuleEngineTest
 
         Debug.Log(P + $"    [order] iSac={iSac} iSur={iSur} iHeal={iHeal} "
                     + $"lSac={lSac} lSur={lSur} signals={ctx.Signals.Count} health={a.Health}");
+    }
+
+    // ==================================================================
+    //  🆕 `A1606`：**回合开始触发的【强制攻击】必须真的打出去**（2026-10-12）
+    // ==================================================================
+    /// <summary>某一方「场上总生命」（含督军一次 —— 督军就在第 4 格，⛔ 别再加一遍）。</summary>
+    static int A1606SideHp(BattleContext ctx, int p)
+    {
+        int n = 0;
+        for (int s = 0; s < BoardSpec.Size; s++)
+        {
+            var u = ctx.Players[p].Board[s];
+            if (u != null) n += u.Health;
+        }
+        return n;
+    }
+
+    /// <summary>牌库塞满 filler —— 抽空会打「疲劳」伤到督军，那会把「敌方总生命下降」
+    /// 那一格变成**假阳性**（实测过：牌库只 1 张时督军自己掉 4~6 点）。</summary>
+    static CardDef[] A1606Fill(string tag, int n)
+    {
+        var a = new CardDef[n];
+        for (int i = 0; i < n; i++) a[i] = Unit(tag + "_" + i, 1, 0, 1);
+        return a;
+    }
+
+    /// <summary>
+    /// **`A1606` —— 回合开始触发的「强制攻击」打不出去**（2026-10-12 修）。
+    ///
+    /// **病**：`BeginTurn` 的 `ResolveAtTurn(ctx,"turn_start")` 原来排在【解疲劳】
+    ///   `RefreshForNewTurn` **之前** ⇒ 那一刻攻方还带着上一回合的「已行动」标记
+    ///   ⇒ `RuleCodes.ErrExhausted` ⇒ 凡「回合开始时攻击…」那一族**一条都打不出去**
+    ///   （真卡 = `GOF85 Unleashed TramplaSquig`：`At the start of each turn attack a random non Flying enemy`）。
+    ///   连带第二个症状：**打完不疲劳**（`RefreshForNewTurn` 随后把 `AttacksThisTurn` 清 0）。
+    ///
+    /// **判据（第一权威 · 逐行读过）**= `d:/2/tools/decomp_full/CardScript__OnTurnStart.c`：
+    ///   这两步在**同一个 `OnTurnStart` 里、按卡逐个**跑，次序是
+    ///   `:99` / `:118` 的 `CardScript__ActivateMinion`（解疲劳 = 把 `+0x230 canAct` /
+    ///   `+0x23c canAttack` 重算成真）**在前**、`:137+` 的
+    ///   `RawCardScript__OnTrigger(raw, 0x1e /*AbilityTrigger.TurnStart = 30*/)`（回合开始触发）**在后**。
+    ///
+    /// **断什么**（每一格都写明「🧨 怎么才红」）：
+    ///   ① 攻方的 `EvtKind.Attack` 落在**它那一格**（改前：一条都没有）；
+    ///   ② 敌方**场上总生命**下降（伤害真的落了 —— ⛔ 判据不看文案）；
+    ///   ③ **灭自证**：打完攻方必须【疲劳】—— 挡住「把 `RefreshForNewTurn` 挪到触发段之后再跑
+    ///      一遍」那种假修法（那条路 ①② 都会绿，只有 ③ 红）；
+    ///   ④ 控制组（同一张卡、攻方摆成**不疲劳**）也打出去 ⇒ 夹具 / 目标 / 攻击路径本身是通的，
+    ///      于是夹具① 不出去时**唯一的变量**就是「疲劳」。
+    /// </summary>
+    static void TestA1606TurnStartForceAttack()
+    {
+        var cases = new List<CardDef>
+        {
+            new CardDef("FixtureA1606Each", "FixtureA1606Each", "unit",
+                        "At the start of each turn attack a random enemy", "common", "Test",
+                        1, 4, 9, 0, null, subtype: "Infantry"),
+            new CardDef("FixtureA1606You", "FixtureA1606You", "unit",
+                        "At the start of your turn attack a random enemy", "common", "Test",
+                        1, 4, 9, 0, null, subtype: "Infantry"),
+        };
+        var real = CardDatabase.Find(CardDatabase.Load(), "Unleashed TramplaSquig");
+        CheckTrue(real != null, "（前提）卡池里有真卡 `GOF85 Unleashed TramplaSquig`");
+        if (real != null) cases.Add(real);
+
+        foreach (var card in cases) A1606Run(card);
+    }
+
+    static void A1606Run(CardDef atkCard)
+    {
+        // ---- 夹具①：攻方【疲劳】（= 上一回合打过 / 刚部署当回合）----
+        {
+            var ctx = ProbeBattle(A1606Fill("A1606A", 12), A1606Fill("A1606B", 12));
+            ToP1Turn(ctx, 1);
+            var sq = Place(ctx, 0, 3, atkCard, exhausted: true);
+            Place(ctx, 1, 3, Unit("A1606Foe", 1, 0, 30), exhausted: true);
+
+            RuleCore.EndTurn(ctx);      // P0 的回合结束
+            RuleCore.BeginTurn(ctx);    // P1 的回合开始（攻方归属 P0 ⇒ 这一拍本来就打不了，`ErrNotTurn`）
+            RuleCore.EndTurn(ctx);      // P1 的回合结束 ⇒ Active 回到 P0
+
+            // 【前提】把「改前为什么打不出去」钉死：这一刻攻方确实带着「已行动」
+            CheckCode(RuleCore.CanAttackNow(ctx, 0, 3), RuleCodes.ErrExhausted,
+                      $"（前提）`{atkCard.Name}` 在拥有者回合开始**之前**处于【已行动】");
+
+            int hp0 = A1606SideHp(ctx, 1);
+            int mark = ctx.ActionLog.Count;
+            RuleCore.BeginTurn(ctx);    // ← 拥有者自己的回合开始 = 原版 `ActivateMinion` 那一拍
+
+            bool attacked = false;
+            for (int i = mark; i < ctx.ActionLog.Count; i++)
+            {
+                var e = ctx.ActionLog[i];
+                if (e.Kind == EvtKind.Attack && e.Player == 0 && e.Slot == 3) attacked = true;
+            }
+            CheckTrue(attacked,
+                      $"★ `{atkCard.Name}` 的回合开始强制攻击**真的打出去了**"
+                    + "（本拍新增的 `EvtKind.Attack` 落在 0 号玩家 3 号格）" + LogTail(ctx)
+                    + "｜🧨 把 `BeginTurn` 里的 `ResolveAtTurn(ctx,\"turn_start\")` 搬回"
+                    + " `RefreshForNewTurn` 那一圈**之前** ⇒ 本行红（改前实测 false，"
+                    + "日志是「打不了 —— 该单位本回合已行动」）");
+            CheckTrue(A1606SideHp(ctx, 1) < hp0,
+                      $"★ …而且**伤害真的落了**：敌方场上总生命 {hp0} → {A1606SideHp(ctx, 1)}"
+                    + "｜🧨 同上（改前这一格也是 0 伤害）");
+            // 🔴 **灭自证**：只断「打出去了」不够 —— 「把解疲劳挪到触发段之后再跑一遍」那条假修法
+            //    会让 ①② 都变绿。原版 `ActivateMinion` **只在自己回合开始那一拍重算一次**，
+            //    攻击消耗掉的配额不该被随后的重算抹掉 ⇒ 打完必须【疲劳】。
+            CheckTrue(sq.Exhausted,
+                      "★ 打完攻方【疲劳】（这一记消耗了本回合的攻击配额）"
+                    + "｜🧨 把 `RefreshForNewTurn` 挪到 `ResolveAtTurn(\"turn_start\")` **之后**"
+                    + "再跑一次 ⇒ ①② 照样绿、**只有本行红**");
+            CheckCode(RuleCore.CanAttackNow(ctx, 0, 3), RuleCodes.ErrExhausted,
+                      "★ 同一回合内它不能再打第二次（配额已用掉）");
+        }
+
+        // ---- 夹具②（控制组）：同一张卡、攻方【不疲劳】----
+        {
+            var ctx = ProbeBattle(A1606Fill("A1606C", 12), A1606Fill("A1606D", 12));
+            ToP1Turn(ctx, 1);
+            Place(ctx, 0, 3, atkCard, exhausted: false);
+            Place(ctx, 1, 3, Unit("A1606Foe2", 1, 0, 30), exhausted: true);
+            CheckCode(RuleCore.CanAttackNow(ctx, 0, 3), RuleCodes.OK,
+                      $"（控制组前提）`{atkCard.Name}` 此刻**能动**"
+                      + "（这一格是**控制组**：证明夹具① 的红只可能来自「疲劳」，而不是路本身不通）");
+
+            RuleCore.EndTurn(ctx);
+            RuleCore.BeginTurn(ctx);
+            RuleCore.EndTurn(ctx);
+
+            // 🔴 **2026-10-21（`A1632`）就地改这一格**：它原来就在这儿问「此刻能动吗」——
+            //    而上面那一拍 `BeginTurn`（P1 的回合开始）现在**会让带 `each turn` 的那张卡也打一次**
+            //    （原版语义：`OnTurnStart` 的 `TurnStart`(30) 对双方每一张卡都发、
+            //     脚本攻击在 `AllowResolveAttack.c:92` 无条件放行 —— 见 `TestA1632EachTurnAttackOnOpponentTurn`）
+            //    ⇒ 攻方那时已带「本回合已行动」，这一格会从 `OK` 变成 `ErrExhausted`。
+            //    控制组要证的只是「**这条攻击路本身是通的**」⇒ 移到**攻方还没出过手**的那一刻问
+            //    （就在 `Place` 之后）。
+            //     ⚠️ ⛔ 别改成「接受 `ErrExhausted`」—— 那这一格就不再是控制组了。
+
+            int hp0 = A1606SideHp(ctx, 1);
+            RuleCore.BeginTurn(ctx);
+            CheckTrue(A1606SideHp(ctx, 1) < hp0,
+                      $"（控制组）`{atkCard.Name}` 不疲劳时这一记**打得出去**"
+                    + $"（敌方总生命 {hp0} → {A1606SideHp(ctx, 1)}）"
+                    + "⇒ 夹具① 的红只可能来自「疲劳」这一格" + LogTail(ctx));
+        }
+    }
+    // ==================================================================
+    //  🆕 第二十一会话 断言批（执行代理 `N1`）：**引擎遗留三笔**
+    //   `A1631` = 触发正文的「半懂」必须留痕；`A1632` = `each turn` 在对方回合也要打；
+    //   `A1455`/`AM56` = `Deploy a <卡名>` 在真池里筛得到（旧账是**空池夹具**的产物）。
+    //  📄 `资料/普查产出_第二十一会话/N1_引擎遗留三笔.md`
+    // ==================================================================
+
+    /// <summary>
+    /// 🔴 **`A1631`：触发正文里的「半懂」必须留痕。**
+    ///
+    /// **病**：`CardDef.AddTriggerOp` 收正文时原来写的是 `EffectText.Parse(body, out _, out _)`
+    ///   —— **两个出参都丢** ⇒ 同一段正文里「解得出的话被收下、解不出的那几句不留痕」
+    ///   ⇒ 任何「`TriggerOps(kw) != null` ⇒ 这条正文没问题」的判据（含 `BodyResolves`、
+    ///   `UnitState.FxOps` / `EffectUnparsed` 那一族）在**半懂**那一档**报假绿**。
+    ///
+    /// **判据 = 卡面自己**（不依赖任何引擎常量）：把收下来的每一条正文**重新 `EffectText.Parse`
+    ///   一遍**，`un` / `pa` 非空的就是「半懂」；这些处数**必须**与账目
+    ///   （<see cref="CardDef.TriggerGap"/>）**逐条对上**（双向 0 差）。
+    ///
+    /// **断什么**（每格都写了「🧨 怎么才红」）：
+    ///   ① 合成夹具：一段「一半懂」的正文必须留痕，且账目记下了**哪一句不懂**、
+    ///      **读到的是什么**（正文原文）、**收下了几个 op**；
+    ///   ② **灭自证**：「全懂」的正文**不许**留痕（挡「无条件记账」那种改法）；
+    ///   ③ 真池对账：漏记 / 假记 / 条数不一致，**各一条断言**；
+    ///   ④ 两个判据在半懂那一档必须**分得开**：`BodyResolves` 仍为 true（正文会跑），
+    ///      `BodyFullyResolves` 必须为 false（跑得不全）。
+    /// </summary>
+    static void TestA1631HalfUnderstoodTriggerBody()
+    {
+        // ---- ① 合成夹具：一段正文里「一半懂、一半不懂」----
+        var syn = new CardDef("FixtureA1631Half", "FixtureA1631Half", "unit",
+                              "Rally: Deal 2 damage to an enemy troop. Zzz Wubble Flarn.",
+                              "common", "Test", 1, 2, 3, 0, null, subtype: "Infantry");
+        CheckTrue(syn.TriggerOps(KeywordTable.Rally) != null,
+                  "（病）这段正文**收下来了** —— `TriggerOps(rally) != null`"
+                + "（改前它就是「这条正文没问题」的假绿）");
+        var gap = syn.TriggerGap(KeywordTable.Rally);
+        CheckTrue(gap != null,
+                  "★ 「半懂」**留痕了**：`TriggerGap(rally)` 非空"
+                + "｜🧨 把 `AddTriggerOp` 里那句 `NoteTriggerBodyGap(...)` 拿掉 ⇒ 本行红（改前实测就是 null）");
+        if (gap != null)
+        {
+            Check(gap.Unparsed.Count, 1,
+                  "★ 账目记下了**到底哪一句**没懂（`un` 1 条）"
+                + "｜🧨 把 `unparsedSegs` 换成 `partialSegs` ⇒ 本行红");
+            CheckTrue(gap.Unparsed.Count > 0 && gap.Unparsed[0].Contains("Zzz Wubble Flarn"),
+                      "★ 而且那条**就是**那句（`Zzz Wubble Flarn`）—— 账目不只是「有个数」");
+            CheckTrue(gap.Body != null && gap.Body.Contains("Deal 2 damage"),
+                      "★ 账目还记下了**读到的是什么**（正文原文）｜🧨 把 `Body` 传成 `keyword` ⇒ 本行红");
+            Check(gap.OpCount, 1, "★ 记下了**收下几个 op**（`ops.Count` = 1）");
+        }
+        CheckTrue(!syn.BodyFullyResolves(KeywordTable.Rally),
+                  "★ `BodyFullyResolves(rally)` = false（严格版判据：这段正文**没全懂**）");
+
+        // ---- ② 灭自证：全懂的正文**不许**留痕 ----
+        var ok = new CardDef("FixtureA1631Ok", "FixtureA1631Ok", "unit",
+                             "Rally: Deal 2 damage to an enemy troop.",
+                             "common", "Test", 1, 2, 3, 0, null, subtype: "Infantry");
+        CheckTrue(ok.TriggerGap(KeywordTable.Rally) == null,
+                  "★ （灭自证）**全懂**的那段正文**不留痕**"
+                + "｜🧨 把 `NoteTriggerBodyGap` 调成无条件（不看 `un`/`pa` 空不空）⇒ ①②两格同时红");
+        // 🔴 2026-10-12 **就地订正（铁律 5）**：这里原来对**同一张合成夹具 `ok`** 断 `ok.BodyFullyResolves(Rally) == true`
+        //   —— **那一格恒 false、根本改不绿**（只读诊断 `D1` 查出：`ok` 是 `FromOriginalPool=false` 且 `keywords` 传 `null`，
+        //   于是 `BodyResolves` 走的是 `Effect(kw)`（`EffectSpec` 封闭文法、读 `_effects`），而 `_effects` 只在 `keywords != null`
+        //   时才有写点（`CardDef.cs:179`/`:239`）⇒ `Effect("rally")` 恒 null）。**`BodyFullyResolves` 是给【原版卡】用的判据**，
+        //   拿一张合成卡去测它不是它服务的对象。⇒ **「true 那一半」改到【真池卡】上断**，见下面 ②c 那一格。
+
+        // ---- ③ 真池对账（双向）----
+        var pool = CardDatabase.Load();
+        CheckTrue(pool.Count > 1000, $"（前提）真卡池装载成功（{pool.Count} 张）");
+
+        // ---- ②c 严格版判据的【true 那一半】—— 落在【真池卡】上（判据自洽，⛔ 不写死卡名）----
+        var fully = pool.Find(c => c.TriggerTexts.TryGetValue(KeywordTable.Rally, out var _b)
+                                   && EffectText.IsFullyParsed(_b));
+        CheckTrue(fully != null, "（前提）真池里有『Rally 正文完全解析』的卡（否则本格空转）");
+        if (fully != null)
+        {
+            CheckTrue(fully.BodyResolves(KeywordTable.Rally)
+                      && fully.TriggerGap(KeywordTable.Rally) == null
+                      && fully.BodyFullyResolves(KeywordTable.Rally),
+                      $"★ 真池卡 `{fully.Id}` 上**三格同时**成立（`BodyResolves` ∧ `TriggerGap == null` ∧ `BodyFullyResolves`）"
+                    + " —— 它与上面那张半懂的卡是**两张不同的卡**（严格版判据在两档上**不同**，不是恒 false）"
+                    + "｜🧨 把 `BodyFullyResolves` 直接 `return true` ⇒ 半懂那张卡的格红；`return false` ⇒ 本格红");
+        }
+        int entries = 0, half = 0, missing = 0, extra = 0, mismatch = 0;
+        string firstMissing = "", firstExtra = "", firstMismatch = "";
+        foreach (var c in pool)
+        {
+            if (c == null) continue;
+            foreach (var kv in c.TriggerTexts)
+            {
+                entries++;
+                List<string> un, pa;
+                EffectText.Parse(kv.Value, out un, out pa);
+                bool isHalf = un.Count > 0 || pa.Count > 0;
+                var g = c.TriggerGap(kv.Key);
+                if (isHalf) half++;
+                if (isHalf && g == null)
+                {
+                    missing++;
+                    if (firstMissing.Length == 0) firstMissing = c.Id + "/" + kv.Key;
+                }
+                if (!isHalf && g != null)
+                {
+                    extra++;
+                    if (firstExtra.Length == 0) firstExtra = c.Id + "/" + kv.Key;
+                }
+                if (isHalf && g != null && (g.Unparsed.Count != un.Count || g.Partial.Count != pa.Count))
+                {
+                    mismatch++;
+                    if (firstMismatch.Length == 0) firstMismatch = c.Id + "/" + kv.Key;
+                }
+            }
+        }
+        Check(missing, 0,
+              "★ 原版池「半懂」的触发正文**一条都没漏记**"
+            + (missing > 0 ? $"（漏 {missing} 处，首例 {firstMissing}）" : ""));
+        Check(extra, 0,
+              "★ 而且**没有假账**（全懂的正文一律不留痕）"
+            + (extra > 0 ? $"（假账 {extra} 处，首例 {firstExtra}）" : ""));
+        Check(mismatch, 0,
+              "★ 账目里的 `un`/`pa` 条数与**重新 Parse 一遍**逐条一致"
+            + (mismatch > 0 ? $"（不一致 {mismatch} 处，首例 {firstMismatch}）" : ""));
+        CheckTrue(entries > 300, $"（基数）全池 `TriggerTexts` = {entries} 条 —— ③ 那三条不是空转");
+        CheckTrue(half >= 1, $"（基数）实测面「半懂」= {half} 条（改前引擎侧一条痕迹都没有）");
+
+        // ---- ④ 两个判据在半懂那一档必须分得开 ----
+        var ec8 = pool.Find(c => c.Id == "EC8");
+        if (ec8 == null) CheckTrue(false, "（前提）池里有 `EC8 Alluress`");
+        else
+        {
+            CheckTrue(ec8.BodyResolves(KeywordTable.Rally),
+                      "★ `EC8` 的 `rally` 正文**会跑**（`BodyResolves` = true —— 这一档没被改掉）");
+            CheckTrue(!ec8.BodyFullyResolves(KeywordTable.Rally),
+                      "★ 同一处 `BodyFullyResolves` = false"
+                    + "（第二句 `Friendly Daemonette have Flank` 整句认不出 —— 卡面真的没实现它）");
+            var g8 = ec8.TriggerGap(KeywordTable.Rally);
+            CheckTrue(g8 != null && g8.Unparsed.Count == 1
+                      && g8.Unparsed[0].Contains("Friendly Daemonette"),
+                      "★ 账目逐字对得上那句原文｜🧨 改前 `TriggerGap` 恒 null ⇒ 本行红");
+        }
+    }
+
+    /// <summary>
+    /// 🔴 **`A1632`：`At the start of each turn attack …` 在【非拥有者】回合也要打。**
+    ///
+    /// **改前是什么样**：`BeginTurn` 到 P1 那一拍，归属 P0 的攻方恒 `RuleCodes.ErrNotTurn`
+    ///   ⇒ 「`each turn`」在我们这儿**实际等价于 `your turn`**。
+    ///
+    /// **判据（第一权威 · 逐行读过）**：
+    ///   · `CardScript__OnTurnStart.c:137-140` —— `TurnStart`(30) 对**双方每一张卡**都发，
+    ///     `:140` 的 `if (param_2 != card.isPlayer) return;` **之后**才是 `TurnStartPlayer`(31)
+    ///     ⇒ 「`each turn` vs `your turn`」这条区分**全在触发层**；
+    ///   · 卡面/技能驱动的攻击 = `BattleActionType.scriptedAttack`(0x34)
+    ///     （`AbilityLogic__PlayAbility.c:2703` → `BattleManager__AddScriptedAttack.c:55`），
+    ///     而 `BattleManager__AllowResolveAttack.c:92` 对它**直接 `return 1`**
+    ///     ⇒ 那一整段常规校验（**含「是不是我的回合」**）一条都不查；
+    ///     造那一记 action 只有三道闸（`AddScriptedAttack.c:40-51`：
+    ///     在场 / 无待处理致死伤害 / 非 `stun`）。
+    ///
+    /// **断什么**（每格都写了「🧨 怎么才红」）：
+    ///   ① `each turn` 那张卡在**对方回合**真的打出去（本拍新增 `EvtKind.Attack` 落在它那一格）；
+    ///   ② **灭自证**：同一形状、只把词换成 `your turn` ⇒ 对方回合**不许**有攻击事件
+    ///      （挡「把触发层那句 `view != "each"` 过滤删掉」）；
+    ///   ③ **灭自证**：这一记照旧**消耗攻击配额**（挡「把整段校验一起放开」）；
+    ///   ④ **灭自证**：`CanAttackNow` / `DeclareAttack` 的**玩家那条路**在对方回合照旧
+    ///      `ErrNotTurn`（挡「把回合那一句整个删掉」—— 那会让玩家在对手回合出手）。
+    /// </summary>
+    static void TestA1632EachTurnAttackOnOpponentTurn()
+    {
+        A1632Run(new CardDef("FixtureA1632Each", "FixtureA1632Each", "unit",
+                             "At the start of each turn attack a random enemy", "common", "Test",
+                             1, 4, 9, 0, null, subtype: "Infantry"),
+                 wantAttack: true, what: "`each turn`");
+        A1632Run(new CardDef("FixtureA1632You", "FixtureA1632You", "unit",
+                             "At the start of your turn attack a random enemy", "common", "Test",
+                             1, 4, 9, 0, null, subtype: "Infantry"),
+                 wantAttack: false, what: "`your turn`");
+
+        // ---- ④ 玩家那条路照旧不许 ----
+        var ctx = ProbeBattle(new[] { Unit("A1632Fill", 1, 0, 1) }, new[] { Unit("A1632FillB", 1, 0, 1) });
+        ToP1Turn(ctx, 1);
+        Place(ctx, 0, 3, Unit("A1632Bench", 1, 3, 9), exhausted: false);
+        Place(ctx, 1, 3, Unit("A1632FoeB", 1, 0, 9), exhausted: true);
+        RuleCore.EndTurn(ctx);
+        RuleCore.BeginTurn(ctx);                       // → P1 的回合（Active = 1）
+        CheckCode(RuleCore.CanAttackNow(ctx, 0, 3), RuleCodes.ErrNotTurn,
+                  "★ （灭自证）**玩家点击**那条路在对方回合照旧 `ErrNotTurn`"
+                + "｜🧨 把 `CanAttackNow` 头一句里的 `p != ctx.Active` 整个删掉 ⇒ 本行红"
+                + "（那会让玩家在对手回合出手）");
+        CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3), RuleCodes.ErrNotTurn,
+                  "★ `DeclareAttack` 同一条闸（不传 `forced` 时）");
+    }
+
+    /// <summary>`A1632` 的单张卡夹具：把 `atkCard` 摆在 P0 槽 3，推进到 **P1 的回合开始**，看打没打。</summary>
+    static void A1632Run(CardDef atkCard, bool wantAttack, string what)
+    {
+        var ctx = ProbeBattle(new[] { Unit("A1632Fill", 1, 0, 1) }, new[] { Unit("A1632FillB", 1, 0, 1) });
+        ToP1Turn(ctx, 1);                              // → Turn 1 / Active = 0（P0）
+        var sq = Place(ctx, 0, 3, atkCard, exhausted: false);
+        var foe = Place(ctx, 1, 3, Unit("A1632Foe", 1, 0, 30), exhausted: true);
+
+        RuleCore.EndTurn(ctx);
+        int mark = ctx.ActionLog.Count;
+        int foeHp = foe.Health;
+        RuleCore.BeginTurn(ctx);                       // ← **P1 的回合开始**（攻方归属 P0）
+        int atkEvt = 0;
+        for (int i = mark; i < ctx.ActionLog.Count; i++)
+            if (ctx.ActionLog[i].Kind == EvtKind.Attack && ctx.ActionLog[i].Player == 0
+                && ctx.ActionLog[i].Slot == 3) atkEvt++;
+
+        CheckTrue((atkEvt > 0) == wantAttack,
+                  $"★ `{what}`：**对方回合开始**这一拍 {(wantAttack ? "**打出去了**" : "**不许打**")}"
+                + $"（本拍 P0/槽 3 的 `EvtKind.Attack` = {atkEvt}）"
+                + (wantAttack
+                   ? "｜🧨 改前实测恒 0（日志是「打不了 —— 不是你的回合」）"
+                   : "｜🧨 把触发层那句 `if (cl.View != \"each\" && pi != active) continue;` 删掉 ⇒ 本行红")
+                + LogTail(ctx));
+        if (wantAttack)
+        {
+            // 🔴 2026-10-12 **就地订正（铁律 5）**：原来断的是 `foe.Health < foeHp` —— 把「伤害真的落了」**钉死在指定的那个 `foe` 上**，
+            //   而卡面写的是 `attack a **random** enemy`，同一场上**敌方督军也是合法目标** ⇒ 实测随机挑中的**正是敌方督军**
+            //   （日志原文：`近战攻击 FixtureWarlord：4 攻 → 实际 4 伤（FixtureWarlord 剩 16）`）⇒ **伤害真的落了**，只是没落在断言盯的那个单位上。
+            //   ⇒ 改成断 **【事件对】**（在 `Attack` 之后找**同目标**的 `Hit`、`Amount > 0`）—— **与「随机挑中谁」无关**，也与疲劳无关
+            //     （疲劳发生在触发段之前 ⇒ 「Hit 必须在 Attack 之后」天然把它排掉）。见只读诊断 `D1` 的方案 A。
+            int atkIdx = -1;
+            for (int i2 = mark; i2 < ctx.ActionLog.Count; i2++)
+                if (ctx.ActionLog[i2].Kind == EvtKind.Attack && ctx.ActionLog[i2].Player == 0
+                    && ctx.ActionLog[i2].Slot == 3) { atkIdx = i2; break; }
+            bool pairedHit = false;
+            if (atkIdx >= 0)
+            {
+                var ae = ctx.ActionLog[atkIdx];
+                for (int i2 = atkIdx + 1; i2 < ctx.ActionLog.Count; i2++)
+                    if (ctx.ActionLog[i2].Kind == EvtKind.Hit
+                        && ctx.ActionLog[i2].Player == ae.TargetPlayer
+                        && ctx.ActionLog[i2].Slot == ae.TargetSlot
+                        && ctx.ActionLog[i2].Amount > 0) { pairedHit = true; break; }
+            }
+            CheckTrue(pairedHit,
+                      "★ …而且**那一记真的打出了伤害**（在 `Attack` **之后**找**同目标**的 `Hit`、`Amount > 0`）"
+                    + " —— 与「随机挑中谁」无关、也与疲劳无关"
+                    + "｜🧨 只造 `Attack` 事件不打伤害，或把伤害发到别的目标上 ⇒ 本行红");
+            CheckTrue(sq.Exhausted,
+                      "★ （灭自证）这一记**照旧记「本回合已行动」**"
+                    + "（`DeclareAttack` 的 `AttacksThisTurn++` / `Exhausted = true` 没被跳过）"
+                    + "｜🧨 把配额那两句也一起跳过 ⇒ 本行红");
+        }
+    }
+
+    /// <summary>
+    /// **`A1455` / `AM56`：`Deploy a Shock Trooper` / `Deploy a Sister Novitiate` 筛不筛得到。**
+    ///
+    /// 🔴 **账本来的结论是「池里没有这张卡 ⇒ 永远不生效」，那是【假账】**：
+    ///   它取自**空卡池的夹具**（`ProbeBattle` 传的是 `cardPool: new List&lt;CardDef&gt;()`）。
+    ///   真池里两张卡**都在**（`AM10 Shock Trooper` / `SOR7 Sister Novitiate`），
+    ///   而且 `AM56` 打出去之后**真的部署**了一个（见下面 ③）。
+    /// ⇒ 本测试把三格钉住；**空池那一档**留作灭自证（`Ok = false`）。
+    /// </summary>
+    static void TestA1455DeployNamedTroop()
+    {
+        var pool = CardDatabase.Load();
+        CheckTrue(pool.Count > 1000, $"（前提）真卡池装载成功（{pool.Count} 张）");
+        A1455Resolve(pool, "shock trooper", "AM10", "Shock Trooper");
+        A1455Resolve(pool, "sister novitiate", "SOR7", "Sister Novitiate");
+
+        // 灭自证：**空池**上照旧筛不到 —— 上一批那条读数的真实来源就是它
+        var empty = CreatePool.Resolve(new List<CardDef>(), "shock trooper", "AstraMilitarum",
+                                       unitsOnly: true);
+        CheckTrue(!empty.Ok,
+                  "★ （灭自证）**空卡池**上照旧筛不出来（`Resolve` 返回 `Ok = false`）"
+                + "—— 上一批「部署不了」那条读数就是**空池夹具**的产物，不是缺陷");
+
+        // ---- ③ 端到端：`AM56 Cadia Stands` 打出去，自己回合开始真的多一个 Shock Trooper ----
+        var am56 = pool.Find(c => c.Id == "AM56");
+        if (am56 == null) { CheckTrue(false, "（前提）池里有 `AM56 Cadia Stands`"); return; }
+        var d0 = new List<CardDef> { HeroOf("A1455W0", "AstraMilitarum", 2, 30) };
+        for (int i = 0; i < 20; i++) d0.Add(Unit("A1455FillA" + i, 1, 0, 1));
+        var d1 = new List<CardDef> { HeroOf("A1455W1", "Goff", 2, 30) };
+        for (int i = 0; i < 20; i++) d1.Add(Unit("A1455FillB" + i, 1, 0, 1));
+        var ctx = RuleCore.NewBattle(d0, d1, seed: 0, shuffle: false, cardPool: pool);
+        RuleCore.BeginTurn(ctx);                                   // Turn 1 / P0
+        ctx.Players[0].Hand.Add(ctx.NewInstance(am56));
+        ctx.Players[0].Energy = 40;
+        CheckCode(RuleCore.PlayCard(ctx, 0, ctx.Players[0].Hand.Count - 1, 3), RuleCodes.OK,
+                  "打出 `AM56 Cadia Stands`"
+                + "（`For the rest of this battle, at the start of your turn, deploy a Shock Trooper`）");
+        RuleCore.EndTurn(ctx);
+        RuleCore.BeginTurn(ctx);                                   // P1 的回合（常驻效果归 P0 ⇒ 不触发）
+        int before = A1455CountOnBoard(ctx, 0, "Shock Trooper");
+        RuleCore.EndTurn(ctx);
+        RuleCore.BeginTurn(ctx);                                   // ← P0 的回合开始：常驻效果部署
+        Check(A1455CountOnBoard(ctx, 0, "Shock Trooper") - before, 1,
+              "★ 自己回合开始**真的多出 1 个** `Shock Trooper`"
+            + "｜🧨 那条账若成立（筛不到），本行实测 = 0" + LogTail(ctx));
+    }
+
+    /// <summary>`A1455`：问一次 `CreatePool.Resolve`（`unitsOnly: true` = `deploy` 那一档）。</summary>
+    static void A1455Resolve(IReadOnlyList<CardDef> pool, string payload, string wantId, string wantName)
+    {
+        var r = CreatePool.Resolve(pool, payload, null, unitsOnly: true);
+        CheckTrue(r.Ok,
+                  $"★ `Deploy a {wantName}`（载荷 `{payload}`）筛得到"
+                + (r.Ok ? "" : $"｜Why=`{r.Why}`")
+                + "｜🧨 改前那条账说它筛不到 —— 那是**空池夹具**");
+        if (r.Ok)
+            CheckTrue(r.Cards.Count == 1 && r.Cards[0].Id == wantId,
+                      $"★ 而且命中的正是 `{wantId} {wantName}`（不是别的卡顶替）");
+    }
+
+    /// <summary>数一数某一方场上同名单位有几个（`A1455` 端到端夹具用）。</summary>
+    static int A1455CountOnBoard(BattleContext ctx, int p, string name)
+    {
+        int n = 0;
+        for (int s = 0; s < BoardSpec.Size; s++)
+        {
+            var u = ctx.Players[p].Board[s];
+            if (u != null && u.Name == name) n++;
+        }
+        return n;
+    }
+
+    // ==================================================================
+    //  🆕 第二十一会话 · 执行代理 `E4`（账 `A1600`）—— **守卫半边**
+    // ==================================================================
+    //  🔴 `A1600` 的**主件**：`EffectResolver.cs:5687` / `:5713` 的棋盘听众筛写的是 `!u.IsAlive`
+    //     （`Health > 0`），而原版那一跳的谓词是 **`CardScript__IsInPlay`**
+    //     （`d:/2/tools/decomp_full/BattleManagerSupport__Broadcast{UnitSummoned,UnitSwarm,UnitCodex,
+    //      UnitDamaged}.c` 的棋盘跳：`:28` / `:33` / `:27` / `:27`）——
+    //     `CardScript__IsInPlay.c:7-14` = `cardState ∈ {inPlay 2, inPlayAttacking 3,
+    //      inPlayTransforming 0xf, inPlayAminingAttack 0x11}`，**只看状态字、不看生命**。
+    //   🔴 **已判死的单位是 `waitingToDie(5)`**，`CardScript__CheckIfDead.c:124` 当场置 5 ⇒
+    //      `IsInPlay()` **不含**它（兄弟方法 `CardScript__IsInPlayOrDying.c` 才是「那四档 + 5」）。
+    //   ⇒ 我们这边「已判死、但还在棋盘上」= **已入 `ctx` 的将死队列**（「同时伤害」批里只入队，
+    //     见 `RuleCore.CleanupDeaths` 的 `ctx.DeathsDeferred` 那一跳 / `BattleContext.PendingDeath`）
+    //     ⇒ 正确的改法是「`!u.IsAlive` → **在场上 ∧ 未入将死队列**」，
+    //     ⛔ **不是**「把筛子整句删掉」。**本用例钉的就是后半句。**
+    //   🔑 **离线读数**（`D:/tmp/wf_e4/`，改法试改在 `Core/*.cs` 的副本上）：
+    //     · 「自己那一记致命伤的广播，它自己听到几次」= 改前 **0** → 改后 **1**（= `A1600` 主件要修的那一格）；
+    //     · 本用例这两条：改前 **绿**、改后 **仍绿**。
+    // ==================================================================
+
+    /// <summary>
+    /// `A1600`：【守卫】已入「将死」队列的单位**不再充当棋盘听众** —— 原版那一档是
+    /// `waitingToDie(5)`，不在 `IsInPlay()` 的四档里（出处见本节头顶）。
+    /// ⚠️ 这一条**不是**在钉缺陷，而是**挡住这一笔的错误修法**（把 `BroadcastWhen` 的筛子删掉「反正原版不看生命」）。
+    /// </summary>
+    static void TestA1600DyingListenerExcluded()
+    {
+        const string WatchListen = "When an enemy receives damage, gain +1 Attack";
+        var watchDead = new CardDef("A1600_Dead", "A1600_Dead", "unit", WatchListen, "common", "Test",
+                                    1, 2, 2, 0, null, subtype: "Infantry");
+        var watchAlive = new CardDef("A1600_Alive", "A1600_Alive", "unit", WatchListen, "common", "Test",
+                                     1, 2, 6, 0, null, subtype: "Infantry");
+
+        var ctx = ProbeBattle(new[] { Tactic("A1600_Kill", 0, "Deal 5 damage to a friendly unit"),
+                                      Tactic("A1600_Zap",  0, "Deal 2 damage to an enemy") },
+                              new[] { Unit("A1600_Foe", 1, 0, 7) });
+        ToP1Turn(ctx, 2);
+        Check(ctx.Active, 0, "（前提）现在是 p0 的回合");
+
+        var dead = Place(ctx, 0, 2, watchDead);
+        Place(ctx, 0, 3, watchAlive);
+        Place(ctx, 1, 5, Unit("A1600_Foe", 1, 0, 7));
+
+        CheckTrue(dead.Card.WhenTriggers.Count > 0, "（前提）`A1600_Dead` 的监听器注册上了");
+        CheckTrue(ctx.Players[0].Board[3].Card.WhenTriggers.Count > 0,
+                  "（前提）`A1600_Alive` 的监听器注册上了");
+
+        using (RuleCore.SimultaneousDamage(ctx))
+        {
+            // ⚠️ 手牌下标**每次重算** —— 前一次出牌会把后面那几张的下标整体挪一位
+            //    （离线实测：写死第一次算出来的下标 ⇒ 第二次 `PlayTactic` 返回 1）。
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "A1600_Kill"), 2), RuleCodes.OK,
+                      "（前提）「同时伤害」批里先把 `A1600_Dead` 打死");
+            CheckTrue(ReferenceEquals(ctx.Players[0].Board[2], dead),
+                      "（前提）它**还在棋盘上**（这一档只入队、当场不拿走）"
+                    + "｜🧨 这条前提要是挂了，下面两条就都失去判别力");
+            Check(ctx.PendingDeathCount, 1, "（前提）它已进「将死」队列");
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "A1600_Zap"), 5), RuleCodes.OK,
+                      "（前提）批内再打敌方一下 ⇒ 发一条 `damaged` 广播");
+
+            Check(LogCount(ctx, "「A1600_Dead」的监听器"), 0,
+                  "★ A1600-①【守卫】已入「将死」队列的那个监听者**一次都不响** —— 它在棋盘上、"
+                + "但已经判死（= 原版 `waitingToDie(5)`，不在 `IsInPlay()` 的四档里）"
+                + "｜🧨 把 `EffectResolver.BroadcastWhen` 的棋盘筛整句删掉（= 这一笔的【错误修法】）"
+                + "⇒ 本行实得 1、红");
+            Check(LogCount(ctx, "「A1600_Alive」的监听器"), 1,
+                  "★ A1600-②【正对照】另一个**活着**的同款监听者响了一次 ⇒ 证明那条 `damaged` 广播"
+                + "**真的发生了**（否则 ① 的 0 可能只是「广播压根没发」的假绿）"
+                + "｜🧨 把第二张战术卡换成不造成伤害的正文 ⇒ 本行实得 0、红");
+        }
+    }
+
+    // ==================================================================
+    //  🆕 第二十一会话 · 执行代理 `E4`（账 `A1468`）—— **守卫半边**
+    // ==================================================================
+    //  🔴 `A1468` 的**主件**：`AddSide` 把「隐身/伪装不可被**敌方**效果选中」这一道闸
+    //     放进了**批量目标池**（`ResolveTargets`），而原版那道闸**只属于【单选】校验**：
+    //     · **单选**：`RawCardScript__IsValidTarget.c:37-42`（`HasCurrentTrait(候选, 0x46 /*stealth*/)`
+    //       ∧ 两边不同阵营 ⇒ 不合法）· `RawCardScript__IsValidActiveAbilityTarget.c:94-102` ·
+    //       `BattleManager__IsValidSpellTarget` / `IsValidActiveAbilityTarget`；
+    //       调用点 = 「玩家点一个目标 / UI 高亮」那一族（`_ResolvePlayCardFromHand_d__447__MoveNext.c:216-224`）。
+    //     · **批量**：`AbilityLogic__GetTargets.c:1086-1100` 那一圈筛**只调**
+    //       `FilterMethods__CheckIfMeetsCriteria`（`FilterMethods__CheckIfMeetsCriteria.c:216-320`：
+    //       阵营/英雄/部队/残骸/条件/关键词/数值…）—— **没有隐身那一条**；
+    //       池子本身（`BattleManager__GetUnitsInPlayPooledList.c:39-85`）的闸也只有
+    //       `includeHero` / `includeMinions` / `includeRemnants` / `isPlayer` / `waitingToDie`。
+    //     · **卡面旁证**：`SAU55 Solar Pulse`（`Blind all enemies, and they lose Stealth and Camouflage`）·
+    //       `AM48 Recon Operation`（`All enemies lose Stealth and Camouflage. If no enemy is affected, draw 2 cards`）·
+    //       `GOF98` / `DA30` / `TL20` —— 这几张**印出来的字**只有「批量能打到隐身单位」才成立。
+    //   ⇒ 改法 = 把 `AddSide` 那一道闸收成「**只给 `IsLegalPick`（单选）用**」的开关。
+    //   🔄 **本用例钉的是另一半**：那道闸**不许**被顺手删掉。
+    //   🔑 **离线读数**（`D:/tmp/wf_e4/`，改法试改在 `Core/*.cs` 的副本上）：
+    //     · 批量：`Deal 1 damage to all enemies` 对着「2 隐身 + 1 非隐身 + 督军」——
+    //       改前只打到 **2** 个（隐身的两个 hp 一点没掉）、改后 **4** 个全打；
+    //     · 端到端：`Blind all enemies, and they lose Stealth and Camouflage` 对着 3 个隐身敌人
+    //       —— 改前 3 个的 `Stealth` 一个都不掉、改后**三个全掉**；
+    //     · 本用例这两条：改前 **绿**、改后 **仍绿**。
+    // ==================================================================
+
+    /// <summary>
+    /// `A1468`：【守卫】隐身/伪装单位**不能被【单选】效果选中** —— 这是原版**真有**的那一半
+    /// （`RawCardScript__IsValidTarget.c:37-42`），⛔ 别把 `AddSide` 里那一行当成缺陷删掉。
+    /// </summary>
+    static void TestA1468SingleTargetStealthGate()
+    {
+        var stealth = new CardDef("A1468_FoeS", "A1468_FoeS", "unit", "", "common", "Test", 1, 2, 5, 0,
+                                  new[] { "stealth" }, subtype: "Infantry");
+        var plain = new CardDef("A1468_FoeP", "A1468_FoeP", "unit", "", "common", "Test", 1, 2, 5, 0,
+                                null, subtype: "Infantry");
+
+        var ctx = ProbeBattle(new[] { Tactic("A1468_Zap", 0, "Deal 3 damage to an enemy") },
+                              new[] { stealth, plain });
+        ToP1Turn(ctx, 2);
+
+        var s = Place(ctx, 1, 5, stealth);
+        Place(ctx, 1, 6, plain);
+        CheckTrue(s.Has(KeywordTable.Stealth), "（前提）那个敌人真的带 `stealth`");
+        int h = HandIdx(ctx, 0, "A1468_Zap");
+        CheckTrue(h >= 0, "（前提）那张「打一个敌人」的战术卡在手里");
+
+        CheckCode(RuleCore.CanPlayTactic(ctx, 0, h, 6), RuleCodes.OK,
+                  "★ A1468-①【正对照】非隐身的那个敌人**可以**当单选目标（同一张卡、同一套判据 ⇒ "
+                + "证明下面那声拒绝不是「这张卡本来就打不出去」）"
+                + "｜🧨 把 `AddSide` 里隐身那一行改成**无条件** `continue`（连己方也筛）⇒ 本行红");
+        CheckCode(RuleCore.CanPlayTactic(ctx, 0, h, 5), RuleCodes.ErrNoTargetAvailable,
+                  "★ A1468-②【守卫】带 `stealth` 的敌人**不能**当**单选**目标"
+                + "（判据 = `RawCardScript__IsValidTarget.c:37-42`：`stealth` ∧ 两边不同阵营 ⇒ 不合法）"
+                + "｜🧨 把 `AddSide` 里隐身那一行**删掉**（= `A1468` 的【错误修法】—— 它是**单选**闸，"
+                + "批量池那半边要另开一个开关）⇒ 本行实得 `OK(0)`、红");
+    }
+
+    // ==================================================================
+    //  🆕 第二十一会话 · **主件角落**（执行代理 `E4` 查证 · `E6` 于 2026-10-12 落补丁）
+    //     上面那一条 `A1600` 与那一条 `A1468` 钉的是**守卫半边**，下面这两条钉**主件那一格**。
+    // ==================================================================
+    //  🔴 **主件改法已落地**（`d:/4/Unity/MyGame/Assets/RuleEngine/Core/`）：
+    //     · `A1600`：`EffectResolver.cs` 的 `BroadcastWhen` —— 棋盘听众筛 `!u.IsAlive`
+    //       → 「在棋盘上 ∧ **未入将死队列**」，新判据 = `BattleContext.IsPendingDeath`；
+    //       ⛔ 不是「把筛子整句删掉」（那会让已判死的单位一直当听众）。
+    //     · `A1468`：`AddSide` 加一口 `stealthGate`（**只有 `IsLegalPick` 那条单选路传 `true`**），
+    //       批量池（`ResolveTargets`）照原版**不滤**隐身/伪装。
+    //  🔑 **离线读数**（`D:/tmp/wf_e4/` 改前 vs 打上改法的副本；落地后在**真文件**上又复跑过一次）：
+    //     · `A1600` 主件：自己那一记致命伤的广播，自己听到 **0 → 1**；
+    //     · `A1468` 主件：`Deal 1 damage to all enemies` 命中 **2 → 4**（2 隐身 + 1 普通 + 督军）。
+    //  📄 判据链 / 改法 → `资料/普查产出_第二十一会话/E4_A1600_A1468.md`
+    // ==================================================================
+
+    /// <summary>
+    /// `A1600`【主件】：**自己那一记致命伤害的广播，它自己也听到** —— 原版 `BroadcastUnitDamaged`
+    /// 排在 `ReceiveDamage` **之前**（`_ResolveMultiDamage_d__456__MoveNext.c:141` vs `:154`），
+    /// 所以广播那一刻它还没掉血、`IsInPlay()` 仍为真；旧谓词 `!u.IsAlive`（= `Health > 0`）把它筛掉了。
+    /// </summary>
+    static void TestA1600SelfFatalHitHeard()
+    {
+        var self = new CardDef("A1600_Self", "A1600_Self", "unit",
+                               "When a friendly unit receives damage, gain +1 Attack",
+                               "common", "Test", 1, 2, 2, 0, null, subtype: "Infantry");
+
+        var ctx = ProbeBattle(new[] { Tactic("A1600_Kill", 0, "Deal 5 damage to a friendly unit") },
+                              new[] { Unit("A1600_Foe", 1, 0, 9) });
+        ToP1Turn(ctx, 2);
+        Check(ctx.Active, 0, "（前提）现在是 p0 的回合");
+
+        var u = Place(ctx, 0, 2, self);
+        CheckTrue(u.Card.WhenTriggers.Count > 0, "（前提）`A1600_Self` 的监听器注册上了");
+
+        CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "A1600_Kill"), 2), RuleCodes.OK,
+                  "（前提）p0 用「对自己友军 5 点伤害」把它打死");
+        CheckTrue(u.Health <= 0, "（前提）它确实被打死了（`Health ≤ 0`）");
+
+        Check(LogCount(ctx, "「A1600_Self」的监听器"), 1,
+              "★ A1600-主件：**自己那一记致命伤害的广播，它自己也算听众**"
+            + "（原版 `_ResolveMultiDamage_d__456__MoveNext.c:141` 的 `BroadcastUnitDamaged` 排在"
+            + " `:154 ReceiveDamage`【之前】⇒ 广播那一刻它还没掉血、还在场）"
+            + "｜🧨 把棋盘筛改回 `!u.IsAlive` ⇒ 本行实得 0、红（改前离线实测就是 0）");
+    }
+
+    /// <summary>
+    /// `A1468`【主件】：`all enemies` 这类**批量**目标池**不许**滤掉隐身/伪装单位 ——
+    /// 判据 = 原版 `AbilityLogic__GetTargets.c:1086-1100`（那一圈只调 `FilterMethods.CheckIfMeetsCriteria`
+    /// ——`FilterMethods__CheckIfMeetsCriteria.c:216-320` 逐条对过，**没有**隐身那一条）；
+    /// 隐身闸只属于**单选**校验（`RawCardScript__IsValidTarget.c:37-42`，见上面那条守卫断言）。
+    /// </summary>
+    static void TestA1468BatchAllEnemiesHitsStealth()
+    {
+        var stealth = new CardDef("A1468_FoeS", "A1468_FoeS", "unit", "", "common", "Test", 1, 2, 5, 0,
+                                  new[] { "stealth" }, subtype: "Infantry");
+        var plain = new CardDef("A1468_FoeP", "A1468_FoeP", "unit", "", "common", "Test", 1, 2, 5, 0,
+                                null, subtype: "Infantry");
+
+        var ctx = ProbeBattle(new[] { Tactic("A1468_All", 0, "Deal 1 damage to all enemies") },
+                              new[] { stealth, stealth, plain });
+        ToP1Turn(ctx, 2);
+
+        Place(ctx, 1, 5, stealth);
+        Place(ctx, 1, 6, stealth);
+        Place(ctx, 1, 7, plain);
+        int h5 = ctx.Players[1].Board[5].Health, h6 = ctx.Players[1].Board[6].Health;
+        int h7 = ctx.Players[1].Board[7].Health;
+        CheckTrue(ctx.Players[1].Board[5].Has(KeywordTable.Stealth),
+                  "（前提）5 号格那个敌人真的带 `stealth`");
+
+        CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "A1468_All"), -1), RuleCodes.OK,
+                  "（前提）打出「对**所有**敌人 1 点伤害」");
+
+        Check(ctx.Players[1].Board[5].Health, h5 - 1,
+              "★ A1468-主件：**隐身单位也在这条「all enemies」里**（原版批量池只过"
+            + " `FilterMethods.CheckIfMeetsCriteria`，`AbilityLogic__GetTargets.c:1086-1100`，没有隐身闸）"
+            + "｜🧨 把隐身闸留在批量路上 ⇒ 本行红（改前离线实测 hp 5 → 5）");
+        Check(ctx.Players[1].Board[6].Health, h6 - 1,
+              "★ A1468-主件：**第二个**隐身单位同样掉血（同一个闸，不是它一个人运气好）");
+        Check(ctx.Players[1].Board[7].Health, h7 - 1,
+              "★ A1468【正对照】非隐身那个照旧掉血 ⇒ 证明这条 `all enemies` 真的结算了"
+            + "（否则前两行的差值可能只是「这张卡压根没打出去」的假绿）"
+            + "｜🧨 把上面那句正文改成不打伤害 ⇒ 本行红");
+        // ⚠️ **故意不断**「敌方督军有没有在这条 `all enemies` 里」—— 原版那一维是**逐卡数据**
+        //    （`TargetCriteria.includeHero`，`FilterMethods__CheckIfMeetsCriteria.c:285-287`），
+        //    而每张卡那一格本地取不到；我们「恒含」只是个近似（`E4` 报告 §`A1468`② 判据不足）
+        //    ⇒ 断言钉住它会把一个**未定案的口径**锁死（铁律：自检绿 ≠ 口径对）。
     }
 }

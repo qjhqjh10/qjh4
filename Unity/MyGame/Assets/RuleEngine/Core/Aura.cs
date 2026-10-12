@@ -126,7 +126,10 @@ namespace RuleEngine
             if (!Self && Filter != null && !Filter.IsEmpty) who += "·" + Filter;
             if (ExcludeSelf) who += "·排除自己";
             string pay = Payload;
-            if (CostLess > 0) pay = $"费用 -{CostLess} 且 " + pay;
+            // ⚠️ `A1458` 起 `CostLess` 可以**单独成立**（卡面 `Your troops cost 1 less` 没有载荷）
+            //    ⇒ 载荷为空时不能再拼那句 `费用 -N 且 `（会打印成 `费用 -1 且 `，像半句话）。
+            if (CostLess > 0)
+                pay = string.IsNullOrEmpty(pay) ? $"费用 -{CostLess}" : $"费用 -{CostLess} 且 " + pay;
             if (Duration == "duringyourturn") pay += "（只在拥有者回合）";
             return who + " 得到 " + pay;
         }
@@ -160,6 +163,55 @@ namespace RuleEngine
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         /// <summary>
+        /// 🆕 **`A1458`：只有费用那半、连 `have` 都没有**的形状 ——
+        /// `&lt;锚点> &lt;主语> cost(s) N less`，**整句到底**。
+        ///
+        /// 实测全池 **7 句 / 7 张**（全是 `unit`，⛔ 不是 12 张 —— 台账上那 12 张是旧口径，
+        /// 见 `资料/普查产出_第二十一会话/E3_A1458.md`「那一族句子今天为什么一句都不发生」）：
+        ///   `AM16 Minka Lesk`（`Friendly Infantry costs 1 less`）· `TAU25 Piranha`（`… Drones …`）·
+        ///   `BL41 Venomcrawler`（`Your Stratagems cost 1 less`）· `TAU34 Aunshi Ethereal`（`… troops …`）·
+        ///   `SW23 Hrolf the Ironhowl`（`… Beasts …`）· `GSC71 Atalan Leader`（`… Vehicles …`）·
+        ///   `GSC36 Metamorph Leader`（`Your troops cost 1 less`）。
+        ///
+        /// 🔴 **它们原来一句都不发生**：`desc` 里解得出 `lowercost` op，而 `lowercost` 唯一的消费点
+        /// 是 `PlayTactic`（战术卡打出那一瞬）⇒ **挂在单位卡上的这句没有任何一层会执行**
+        /// （`Auras.TryParse` 的另两条正则都要求 `have`）—— 这是「静默不生效」，本工程红线。
+        ///
+        /// **为什么它该走光环层**：原版把这一族做成 `AbilityTrigger.WhileInPlay = 20` 的**常驻**能力
+        /// （`RawCardScript__UpdateWhileInPlay.c` 触发 `0x14`/`0xf0`），效果是往**手牌**上挂一条
+        /// `CardEffect.costChange`（`AbilityLogic__PlayAbility.c:1412/1431` → `BattleManager.AddHandEffect`
+        /// → `PlayerHand__CheckEffectsOnNewCard.c:33` 按 `TargetCriteria` 筛），来源离场由
+        /// `CardScript__RemoveBuffHandCostEffects.c` 整份撤；而 `EntityScript__get_CurrentCost.c`
+        /// 现算 = 印价 + 那些 `costChange`。
+        /// ⇒ **形状就是我们的光环**：来源在场就有效、离场就收回（`AuraSpec.CostLess` → `Recompose` ②
+        /// 登记 `CostMod` → `RuleCore.CostOf` 每次现算）。
+        /// </summary>
+        static readonly Regex ReCostOnly = new Regex(
+            @"^(?<head>" + Heads + @")\s+(?<subject>.+?)\s+costs?\s+(?<n>\d+)\s+less$",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        /// <summary>
+        /// `ReCostOnly` 的**排除词**（判据见 <see cref="ReCostOnly"/> 那一段）——
+        /// 卡面写 `next` / `this turn` / `for the rest of this battle` 的那种是**一次性降费**，
+        /// 已经由 `EffectText.TryLowerCost` 的 ④/⑤ 支收成 `lowercost` op、`PlayTactic` 消费
+        /// ⇒ **⛔ 光环这一层不收它**（两处登记同一条规则 = 迟早不一致，本仓红线）。
+        ///
+        /// 实测全池**多命中 6 句**（`ReCostOnly` 的形状检查是**先**过的，靠这一条排除）：`defence` 5 张
+        /// —— `SAU66`（`Your next Stratagem costs 1 less`）· `GOF60`（`Your next Vehicle costs 2 less`）·
+        /// `SOR63`（`Your next Infantry costs 2 less`）· `TL64`（`Your next troop this turn costs 2 less`）·
+        /// `UM67`（`Your next card this turn costs 1 less`）—— 加 `tactic` 1 张
+        /// `TL6`（`Your next troop this turn costs 1 less`）。
+        /// ⇒ 这 6 句**一句都没被光环层收**（`Auras.TryParse` 对它们返回 false），
+        ///   仍走 `EffectText` 的 ④/⑤ 支 + `PlayTactic`（**唯一消费点**，实测有效）。
+        /// ⚠️ 另有一批（`TL57` / `GOF51` / `GSC63` / `TL62` / `TAU63` / `SAU57` …）**不以 `less` 结尾**
+        /// （尾上挂着 `this turn` / `for the rest of this battle`）⇒ `ReCostOnly` 的 `$` 本来就失配，
+        /// 走不到这一条闸。
+        /// </summary>
+        static readonly Regex ReCostOnlyOneShot = new Regex(
+            @"\bnext\b|\bthis turn\b|\bfor the rest of this battle\b",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        /// <summary>
         /// 标准形：`&lt;锚点> [主语] have|has &lt;载荷>`。
         /// ⚠️ **主语可以空** —— `Enemies have Vulnerable 1`（没有名词）。
         ///    要求「至少一个词」的正则会把这一张**整张漏掉**（2026-09-14 干跑第一版就是这么漏的）。
@@ -189,7 +241,8 @@ namespace RuleEngine
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         /// <summary>
-        /// **形状**：这一句是不是 `&lt;锚点词&gt; … have|has …`（含「费用 + 属性合体」那条）。
+        /// **形状**：这一句是不是 `&lt;锚点词&gt; … have|has …`（含「费用 + 属性合体」那条，
+        /// 以及 `A1458` 补的**只有费用那半**那条）。
         ///
         /// ⚠️ **只判形状、不判认不认得出** —— 这两件事在报表里要分开：
         /// 形状对、但载荷判不出来（卡面裸 `+N`）的句子**必须留在「不认识的句子」清单里**
@@ -200,8 +253,9 @@ namespace RuleEngine
         {
             if (string.IsNullOrEmpty(seg)) return false;
             string s = seg.Trim();
-            return ReCostCombo.IsMatch(s) || ReAura.IsMatch(s)
-                || ReRemnantStay.IsMatch(s.TrimEnd('.').Trim()) || ReSelfTurn.IsMatch(s.TrimEnd('.').Trim());
+            string t = s.TrimEnd('.').Trim();
+            return ReCostCombo.IsMatch(s) || ReAura.IsMatch(s) || ReCostOnly.IsMatch(t)
+                || ReRemnantStay.IsMatch(t) || ReSelfTurn.IsMatch(t);
         }
 
         /// <summary>
@@ -212,6 +266,9 @@ namespace RuleEngine
         ///   ② 主语解得出来（<see cref="SubjectFilters"/>）
         ///   ③ **载荷完整解释得了**（<see cref="PayloadUnderstood"/>）
         ///   ④ **没有裸 `+N` 载荷**（<see cref="BareSignedAmbiguous"/>）
+        ///
+        /// ⚠️ **`A1458` 那一档（只有费用、没有载荷）只走 ①②** —— 它连载荷都没有，
+        ///    ③④ 无从谈起（见 `costOnly` 那一支的说明）。
         /// </summary>
         public static bool TryParse(string seg, out AuraSpec spec)
         {
@@ -241,16 +298,56 @@ namespace RuleEngine
             }
 
             int costLess = 0;
+            bool costOnly = false;
             Match m = ReCostCombo.Match(s);
             if (m.Success) costLess = int.Parse(m.Groups["n"].Value);
             else
             {
-                m = ReAura.Match(s);
-                if (!m.Success) return false;
+                // ---- 🆕 `A1458`：**只有费用那半、连 `have` 都没有**的那一档 ----
+                //   `Your troops cost 1 less` —— 卡面不再往下写载荷。
+                //   🔴 **`ReCostOnlyOneShot` 是必须的**：`Your **next** Stratagem costs 1 less`
+                //      / `Your next troop **this turn** costs 2 less` 与它**只差一个词**，
+                //      而那是**一次性**降费（`EffectText.TryLowerCost` 的 ④/⑤ 支 → `lowercost` op，
+                //      `PlayTactic` 消费）⇒ 收进光环 = **同一条规则两处登记**（本仓红线）。
+                var mc = ReCostOnly.Match(s);
+                if (mc.Success && !ReCostOnlyOneShot.IsMatch(mc.Groups["subject"].Value))
+                {
+                    m = mc;
+                    costLess = int.Parse(mc.Groups["n"].Value);
+                    costOnly = true;
+                }
+                else
+                {
+                    m = ReAura.Match(s);
+                    if (!m.Success) return false;
+                }
             }
 
             string head = m.Groups["head"].Value.ToLowerInvariant();
             string subject = m.Groups["subject"].Value.Trim();
+
+            // ---- 🆕 `A1458`：只降费那一档 —— **没有载荷** ⇒ ③④ 两道闸不适用 ----
+            //   走到这儿就把 `AuraSpec` 交出去（`CostLess` 那半由 `Recompose` 的 ② 登记 `CostMod`，
+            //   筛的是**手牌**、与棋盘上的对象无关）⇒ 见 `ApplyAura` 开头那条早退。
+            //   ⚠️ **主语仍要走 ②**（`SubjectFilters`）——「降谁的费」全在这一栏上，
+            //      认不出的主语**整条不收**（宁可认不出，也别静默降错一片）。
+            if (costOnly)
+            {
+                var cs = new AuraSpec
+                {
+                    Head = head,
+                    Source = s,
+                    Adjacent = head == "adjacent",
+                    Enemy = head == "enemy" || head == "enemies",
+                    ExcludeSelf = head.Contains("other"),
+                    CostLess = costLess,
+                };
+                cs.Filter = SubjectFilters(subject, out bool sok);
+                if (!sok) return false;
+                spec = cs;
+                return true;
+            }
+
             string payload = m.Groups["payload"].Value.Trim().TrimEnd('.').Trim();
             if (payload.Length == 0) return false;
 
@@ -522,6 +619,9 @@ namespace RuleEngine
                 if (ctx.CostMods[i].Tag == GrantTag) ctx.CostMods.RemoveAt(i);
 
             // ---- ② 费用那半（`Other friendly Daemons cost 2 less`，实测 2 张）----
+            //   🆕 **2026-10-19（`A1458`）：这一栏现在还有第二个来源** —— 卡面**只有费用、没有载荷**
+            //   的那 7 张（`Your troops cost 1 less` 这一族，见 `ReCostOnly`）。它们**只在这里生效**，
+            //   下面的 ③ 迭代对它们是空跑（`ApplyAura` 开头就早退）。
             //
             // ⚠️ **一次算出「有没有符合条件的牌」是做不到的**（手牌一直在变），所以照
             //    `CostIfControls` 那条路：**登记一条筛选条件，由 `RuleCore.CostOf` 每次现算**。
@@ -650,6 +750,12 @@ namespace RuleEngine
         {
             bool added = false;
             int hits = 0;
+
+            // ---- 🆕 `A1458`：**只有费用那半、没有载荷**的那一档（`Your troops cost 1 less`）----
+            //   费用那半已经由 `Recompose` 的 ② 登记成 `CostMod`（筛的是**手牌**）⇒ 棋盘上**没有东西可挂**。
+            //   这不是失败（效果**真的生效了**，只是落在手牌上）—— 所以这里**早退**，
+            //   ⛔ 不能让它掉到下面 `GivePayload.Parse("")`，那会打出一行「**这条没生效**」的**假警报**。
+            if (a.CostLess > 0 && string.IsNullOrEmpty(a.Payload)) return false;
 
             // ---- 特殊形状：**改残骸寿命**（`Nemeser Zahndrekh`）—— 没有载荷，只置一个标记 ----
             if (a.RemnantStay)
