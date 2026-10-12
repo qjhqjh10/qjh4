@@ -153,12 +153,6 @@ namespace CardPresentation
 
         static Driver _driver;
 
-        /// <summary>帧末收尾用的小驱动（隐藏、不销毁、不画任何东西）。</summary>
-        class Driver : MonoBehaviour
-        {
-            void LateUpdate() { ClickLog.Flush(); }
-        }
-
         /// <summary>结束并落盘。</summary>
         public static void End()
         {

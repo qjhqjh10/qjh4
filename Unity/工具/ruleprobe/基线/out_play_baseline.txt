@@ -2,6 +2,11 @@
 # 列（TAB 分隔）：id/type/warlord/playRc/played/faceOps/selfPlace/mech/other/expectedPay/energyDelta/handCostDelta/dmg/changes/crash/bucket/fixtureFit/injected/changesFull
 # 🔴 本文件里非 `#` 行的 md5 必须等于源码常量 `PlayProbe.PinnedPlayMd5` —— 重生成它抹不掉那条哨兵。
 # ⛔ 本文件是【被人确认过的状态】的快照；为了把红抹平而重跑 `play all pf` = 把洞开回来。
+#
+# 🆕 `A1431` 第三笔：下面第二段是【事件电池】的行（第一列带 `E|` 前缀，只覆盖 type=unit）。
+# 列（TAB 分隔）：id/type/bucket/cand/playRc/played/ctrlPlayed/steps/raw/ctrl/net/netDmg/note/netFull
+# 它量的是「打出去**之后**，替它把别的时机的事件走一遍，局面动没动」（治「档 B」那一档的失明）。
+# --- 主档（打出去那一拍）---
 AM1	hero	1	-1	1	1	0	0	2	-1	0	0	0	2		H 督军档		0	★ 督军格（本卡在场）WARLORD 2/2/0/28 {duty1, talent1}  ‖ 对照局（空督军）WARLORD 2/0/0/28;💰 手牌总价 P0 5 → 7（2）
 AM10	unit	0	0	1	1	1	3	0	2	-2	-2	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 18（-2）;✚ 落场/生成 P0[2] . → AM10 1/2/0/3 {duty1, vanguard1};✋ 手牌 P0 -「AM10」×1;💰 手牌总价 P0 4 → 2（-2）;🎖 出兵数 P0 3 → 4
 AM11	unit	0	0	1	1	1	3	0	2	-2	-2	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 18（-2）;✚ 落场/生成 P0[2] . → AM11 2/2/0/3;✋ 手牌 P0 -「AM11」×1;💰 手牌总价 P0 4 → 2（-2）;🎖 出兵数 P0 3 → 4
@@ -1128,3 +1133,590 @@ UM_The_Chapter_s_Due	tactic	0	0	1	1	0	2	2	1	-1	0	0	5		A 打出即结算		0	⚙ �
 UM_Tyrannic_War_Veteran	unit	0	0	1	1	1	3	0	3	-3	-3	0	5		C 部署时该发生		0	⚙ 能量 P0 20 → 17（-3）;✚ 落场/生成 P0[2] . → UM_Tyrannic_War_Veteran 3/3/0/4 {rally1};✋ 手牌 P0 -「UM_Tyrannic_War_Veteran」×1;💰 手牌总价 P0 5 → 2（-3）;🎖 出兵数 P0 3 → 4
 UM_Valtus	unit	0	0	1	1	1	3	0	9	-9	-9	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 11（-9）;✚ 落场/生成 P0[2] . → UM_Valtus 9/9/1/9 {armour1};✋ 手牌 P0 -「UM_Valtus」×1;💰 手牌总价 P0 11 → 2（-9）;🎖 出兵数 P0 3 → 4
 UM_Vico_Therbeus	unit	0	0	1	1	1	3	0	3	-3	-3	0	5		B 等事件/等主动用		0	⚙ 能量 P0 20 → 17（-3）;✚ 落场/生成 P0[2] . → UM_Vico_Therbeus 3/4/0/4 {oath1, stealth1};✋ 手牌 P0 -「UM_Vico_Therbeus」×1;💰 手牌总价 P0 5 → 2（-3）;🎖 出兵数 P0 3 → 4
+# --- 事件电池（打出去之后那一段）---
+E|AM10	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(duty)=0,atkR=6,atkM2=0,kill(dmg)=999	22	25	6	-1		✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/5;☠ 伤害累计 P0 0 → 1;✎ 改动 P1[3] FIX_E1 2/0/0/5 → FIX_E1 2/0/0/4;☠ 伤害累计 P0 1 → 2;✎ 改动 P1[3] FIX_E1 2/0/0/4 → FIX_E1 2/0/0/-995;☠ 伤害累计 P0 2 → 1001
+E|AM11	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|AM12	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	2	0		✎ 改动 P0[2] AM12 1/4/0/4 → AM12 1/5/0/2;☠ 离场 P0[2] AM12 1/5/0/2 → .
+E|AM13	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(duty)=0,atkR=6,atkM2=0,kill(dmg)=999	26	27	7	8		✎ 改动 P1[4] WARLORD 2/0/0/30 → WARLORD 2/0/0/27;✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/3;✎ 改动 P1[6] FIX_E3 1/0/0/6 → FIX_E3 1/0/0/3;☠ 伤害累计 P0 0 → 12;✎ 改动 P1[4] WARLORD 2/0/0/27 → WARLORD 2/0/0/26;☠ 伤害累计 P0 12 → 15;☠ 伤害累计 P0 15 → 1014
+E|AM14	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	25	4	1		✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/5;☠ 伤害累计 P0 0 → 4;☠ 伤害累计 P0 4 → 6;☠ 伤害累计 P0 6 → 1005
+E|AM15	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	28	26	5	6		✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/3;☠ 伤害累计 P0 6 → 9;☠ 伤害累计 P0 9 → 12;✎ 改动 P1[5] FIX_E2 3/0/0/3 → FIX_E2 3/0/0/-996;☠ 伤害累计 P0 12 → 1011
+E|AM16	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	28	26	4	0		✋ 手牌 P0 +「AM17」×1;💰 手牌总价 P0 1 → 5（4）;💰 手牌总价 P0 5 → 6（1）;💰 手牌总价 P0 6 → 7（1）
+E|AM18	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	26	0	0		
+E|AM19	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(duty)=0,atkM=6,atkR2=0,kill(dmg)=999	21	26	5	-4		✚ 落场/生成 P0[7] . → AM10 1/2/0/3 {duty1, vanguard1};✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/4;☠ 伤害累计 P0 0 → 2;✎ 改动 P1[3] FIX_E1 2/0/0/4 → FIX_E1 2/0/0/-995;☠ 伤害累计 P0 2 → 1001
+E|AM20	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(duty)=0,atkM=6,atkR2=0,kill(dmg)=999	21	23	4	-2		✋ 手牌 P0 +「filler24」×1;🂠 牌库 P0 -「filler24」×1;✎ 改动 P1[3] FIX_E1 2/0/0/4 → FIX_E1 2/0/0/-995;☠ 伤害累计 P0 2 → 1001
+E|AM21	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	26	0	0		
+E|AM22	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(duty)=0,atkR=6,atkM2=0,kill(dmg)=999	26	24	11	-3		✎ 改动 P0[2] AM22 2/3/0/5 {duty1, rally1} → AM22 2/5/0/5 {duty1, rally1};✎ 改动 P0[3] FIX_A 2/0/0/2 → FIX_A 2/2/0/2;✎ 改动 P0[4] WARLORD 2/0/0/28 → WARLORD 2/2/0/28;✎ 改动 P0[5] FIX_B 3/0/0/3 → FIX_B 3/2/0/3;✎ 改动 P0[6] FIX_C 1/0/0/2 → FIX_C 1/2/0/2;✎ 改动 P0[7] AM10 1/2/0/3 {duty1, vanguard1} → AM10 1/4/0/3 {duty1, vanguard1};✎ 改动 P0[2] AM22 2/5/0/5 {duty1, rally1} → AM22 2/5/0/3 {duty1, rally1};✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/4;☠ 伤害累计 P0 0 → 2;✎ 改动 P1[3] FIX_E1 2/0/0/4 → FIX_E1 2/0/0/-995;☠ 伤害累计 P0 2 → 1001
+E|AM23	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	26	0	0		
+E|AM24	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(duty)=0,atkR=6,atkM2=0,kill(dmg)=999	25	25	9	-4		✋ 手牌 P0 +「filler23」×1;✋ 手牌 P0 +「filler24」×1;🂠 牌库 P0 -「filler23」×1;🂠 牌库 P0 -「filler24」×1;💰 手牌总价 P0 5 → 7（2）;✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/3;☠ 伤害累计 P0 0 → 3;✎ 改动 P1[3] FIX_E1 2/0/0/3 → FIX_E1 2/0/0/-996;☠ 伤害累计 P0 3 → 1002
+E|AM25	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(duty)=0,atkM=6,atkR2=0,kill(dmg)=999	22	26	6	-5		💰 手牌总价 P0 5 → 4（-1）;✎ 改动 P0[5] FIX_B 3/0/0/3 → FIX_B 3/0/0/5;✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/3;☠ 伤害累计 P0 0 → 3;✎ 改动 P1[3] FIX_E1 2/0/0/3 → FIX_E1 2/0/0/-996;☠ 伤害累计 P0 3 → 1002
+E|AM26	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	2	0		✎ 改动 P0[2] AM26 4/5/1/4 {armour1, regiment1} → AM26 4/6/1/3 {armour1, regiment1};✎ 改动 P0[2] AM26 4/6/1/3 {armour1, regiment1} → AM26 4/6/1/2 {armour1, regiment1}
+E|AM27	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(duty)=0,kill(dmg)=999	19	23	5	-6		☠ 离场 P0[2] AM27 1/5/0/5 {duty1, longrange1} → .;🗑 弃牌 P0 +「AM27」×1;☠ 伤害累计 P1 8 → 13;✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/-993;☠ 伤害累计 P0 0 → 999
+E|AM28	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	27	27	0	0		
+E|AM29	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(duty)=0,atkR=6,atkM2=0,kill(dmg)=999	20	24	6	-5		✎ 改动 P0[2] AM29 3/5/0/5 {duty1, shield1} → AM29 3/5/0/5 {duty1, shield2};✎ 改动 P0[2] AM29 3/5/0/5 {duty1, shield2} → AM29 3/5/0/5 {duty1};✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/3;☠ 伤害累计 P0 0 → 3;✎ 改动 P1[3] FIX_E1 2/0/0/3 → FIX_E1 2/0/0/-996;☠ 伤害累计 P0 3 → 1002
+E|AM30	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	25	2	0		✋ 手牌 P0 +「AM10」×1;💰 手牌总价 P0 5 → 7（2）
+E|AM31	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	0	0		
+E|AM32	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|AM33	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|AM34	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(duty)=0,atkR=6,atkM2=0,kill(dmg)=999	27	28	10	6		✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/2;✎ 改动 P1[4] WARLORD 2/0/0/30 → WARLORD 2/0/0/26;✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/2;✎ 改动 P1[6] FIX_E3 1/0/0/6 → FIX_E3 1/0/0/2;☠ 伤害累计 P0 0 → 16;☠ 离场 P1[3] FIX_E1 2/0/0/2 → .;✎ 改动 P1[4] WARLORD 2/0/0/26 → WARLORD 2/0/0/24;☠ 伤害累计 P0 16 → 20;✎ 改动 P1[5] FIX_E2 3/0/0/2 → FIX_E2 3/0/0/-997;☠ 伤害累计 P0 20 → 1019
+E|AM35	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	25	3	0		✋ 手牌 P0 +「AM36」×1;💰 手牌总价 P0 2 → 5（3）;💰 手牌总价 P0 5 → 6（1）
+E|AM37	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	26	0	0		
+E|AM38	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	28	25	8	2		✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/4;☠ 伤害累计 P0 0 → 9;✎ 改动 P1[5] FIX_E2 3/0/0/4 → FIX_E3 1/0/0/6;☠ 离场 P1[6] FIX_E3 1/0/0/6 → .;☠ 伤害累计 P0 9 → 14;🗑 弃牌 P1 +「FIX_E2」×1;✎ 改动 P1[5] FIX_E3 1/0/0/6 → FIX_E3 1/0/0/-993;☠ 伤害累计 P0 14 → 1013
+E|AM39	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|AM40	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(duty)=0,atkR=6,atkM2=0,kill(dmg)=999	23	25	2	0		✎ 改动 P0[2] AM40 5/8/1/8 {armour1, duty1} → AM40 5/8/1/6 {armour1, duty1};☠ 伤害累计 P1 8 → 10
+E|AM41	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(duty)=0,atkM=6,atkR2=0,kill(dmg)=999	25	27	6	-8		💰 手牌总价 P0 5 → 4（-1）;✋ 手牌 P0 +「filler24」×1;🂠 牌库 P0 -「filler24」×1;☠ 伤害累计 P0 0 → 6;✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/-993;☠ 伤害累计 P0 6 → 1005
+E|AM42	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	31	27	6	0		✎ 改动 P0[2] AM42 6/9/1/9 {armour1, regiment1, vanguard1} → AM42 6/10/1/8 {armour1, regiment1, vanguard1};✎ 改动 P0[3] FIX_A 2/0/0/2 → FIX_A 2/1/0/2;✎ 改动 P0[4] WARLORD 2/0/0/28 → WARLORD 2/1/0/28;✎ 改动 P0[5] FIX_B 3/0/0/3 → FIX_B 3/1/0/3;✎ 改动 P0[6] FIX_C 1/0/0/2 → FIX_C 1/1/0/2;✎ 改动 P0[2] AM42 6/10/1/8 {armour1, regiment1, vanguard1} → AM42 6/10/1/6 {armour1, regiment1, vanguard1}
+E|AM43	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(duty)=0,atkR=6,atkM2=0,kill(dmg)=999	25	27	3	-4		☠ 伤害累计 P0 0 → 8;☠ 伤害累计 P0 8 → 14;☠ 伤害累计 P0 14 → 1013
+E|AM68	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	23	5	2		✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/5;✎ 改动 P1[6] FIX_E3 1/0/0/6 → FIX_E3 1/0/0/5;☠ 伤害累计 P0 0 → 2;☠ 伤害累计 P0 2 → 3;☠ 伤害累计 P0 3 → 1002
+E|AM69	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(duty)=0,atkM=6,atkR2=0,kill(dmg)=999	22	25	3	0		✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/4 {stun1};✎ 改动 P1[3] FIX_E1 2/0/0/4 {stun1} → FIX_E1 2/0/0/2 {stun1};✎ 改动 P1[3] FIX_E1 2/0/0/2 {stun1} → FIX_E1 2/0/0/-997 {stun1}
+E|AM7	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,kill(dmg)=999	21	21	2	0		💰 手牌总价 P0 1 → 3（2）;💰 手牌总价 P0 3 → 4（1）
+E|AM70	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(duty)=0,atkR=6,atkM2=0,kill(dmg)=999	22	26	7	-4		✎ 改动 P0[2] AM70 3/4/0/4 {duty1, regiment1} → AM70 3/4/0/5 {duty1, regiment1};✎ 改动 P0[3] FIX_A 2/0/0/2 → FIX_A 2/0/0/3;✎ 改动 P0[2] AM70 3/4/0/5 {duty1, regiment1} → AM70 3/4/0/3 {duty1, regiment1};✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/3;☠ 伤害累计 P0 0 → 3;✎ 改动 P1[3] FIX_E1 2/0/0/3 → FIX_E1 2/0/0/-996;☠ 伤害累计 P0 3 → 1002
+E|AM71	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(duty)=0,atkM=6,atkR2=0,kill(dmg)=999	20	25	2	-3		✎ 改动 P1[3] FIX_E1 2/0/0/3 → FIX_E1 2/0/0/-996;☠ 伤害累计 P0 3 → 1002
+E|AM72	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	26	0	0		
+E|AM73	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	28	26	4	0		✎ 改动 P0[2] AM73 4/3/0/4 {flank1, flying1, strike1} → AM73 4/3/0/2 {flank1, flying1, strike1};✚ 落场/生成 P0[7] . → AM72 1/5/0/4 {flank1, flying1, slay1};☠ 离场 P0[2] AM73 4/3/0/2 {flank1, flying1, strike1} → .;✎ 改动 P0[7] AM72 1/5/0/4 {flank1, flying1, slay1} → AM72 1/5/0/4 {flying1, slay1}
+E|AM74	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(duty)=0,atkR=6,atkM2=0,kill(dmg)=999	22	25	6	-5		✚ 落场/生成 P0[1] . → AM69 2/2/0/3 {camouflage1, duty1, flank1};✚ 落场/生成 P0[7] . → AM69 2/2/0/3 {camouflage1, duty1, flank1};✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/3;☠ 伤害累计 P0 0 → 3;✎ 改动 P1[3] FIX_E1 2/0/0/3 → FIX_E1 2/0/0/-996;☠ 伤害累计 P0 3 → 1002
+E|AM8	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	25	1	0		✎ 改动 P0[5] FIX_B 3/0/0/3 → FIX_B 3/0/0/4
+E|AM9	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	25	4	1		✎ 改动 P1[6] FIX_E3 1/0/0/6 → FIX_E3 1/0/0/5;☠ 伤害累计 P0 0 → 4;☠ 伤害累计 P0 4 → 5;☠ 伤害累计 P0 5 → 1004
+E|ASH10	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	24	24	0	0		
+E|ASH11	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	23	23	0	0		
+E|ASH12	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	23	23	0	0		
+E|ASH13	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|ASH14	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,kill(dmg)=999	21	21	0	0		
+E|ASH15	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	26	0	0		
+E|ASH16	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	24	24	0	0		
+E|ASH17	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,kill(dmg)=999	22	26	5	-2		☠ 离场 P0[2] ASH17 4/2/0/3 {waystone1} → .;✋ 手牌 P0 +「ASH17」×1;💰 手牌总价 P0 5 → 8（3）;✎ 改动 P1[3] FIX_E1 2/0/0/2 → FIX_E1 2/0/0/-997;☠ 伤害累计 P0 4 → 1003
+E|ASH18	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	23	23	0	0		
+E|ASH19	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|ASH20	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	24	1	0		✎ 改动 P1[3] FIX_E1 2/0/0/6 {stun1} → FIX_E1 2/0/0/6
+E|ASH21	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	26	1	0		✎ 改动 P0[3] FIX_A 2/0/0/2 → FIX_A 2/0/0/2 {invulnerable1}
+E|ASH22	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	26	0	0		
+E|ASH23	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	25	1	0		✋ 手牌 P0 +「ASH24」×1
+E|ASH25	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	26	0	0		
+E|ASH26	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|ASH27	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	28	28	0	0		
+E|ASH28	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	22	22	0	0		
+E|ASH29	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	27	27	0	0		
+E|ASH30	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|ASH31	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	23	22	7	3		☠ 离场 P1[3] FIX_E1 2/0/0/3 → .;☠ 伤害累计 P0 3 → 8;🗑 弃牌 P1 +「FIX_E1」×1;✎ 改动 P0[2] ASH31 0/5/0/4 {flying1} → ASH31 0/5/0/1 {flying1};☠ 伤害累计 P1 10 → 13;✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/-993;☠ 伤害累计 P0 8 → 1007
+E|ASH32	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	0	0		
+E|ASH33	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|ASH34	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	28	28	0	0		
+E|ASH35	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	0	0		
+E|ASH36	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	4	3		☠ 离场 P1[3] FIX_E1 2/0/0/3 → .;☠ 伤害累计 P0 3 → 9;☠ 伤害累计 P0 9 → 11;☠ 伤害累计 P0 11 → 1010
+E|ASH37	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	25	3	0		✋ 手牌 P0 +「ASH38」×1;💰 手牌总价 P0 2 → 5（3）;💰 手牌总价 P0 5 → 6（1）
+E|ASH39	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	0	0		
+E|ASH40	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|ASH41	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	0	0		
+E|ASH42	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	28	27	3	0		✋ 手牌 P0 +「ASH43」×1;💰 手牌总价 P0 2 → 6（4）;💰 手牌总价 P0 6 → 7（1）
+E|ASH44	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	0	0		
+E|ASH7	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	26	0	0		
+E|ASH76	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|ASH77	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	26	7	-1		✎ 改动 P0[2] ASH77 4/3/0/4 {flank1, flying1, shuriken1} → ASH77 4/3/0/2 {flank1, flying1, shuriken1};✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/1;☠ 伤害累计 P0 0 → 5;☠ 离场 P0[2] ASH77 4/3/0/2 {flank1, flying1, shuriken1} → .;☠ 离场 P1[3] FIX_E1 2/0/0/1 → .;☠ 伤害累计 P0 5 → 6;☠ 伤害累计 P0 6 → 1005
+E|ASH78	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	26	0	0		
+E|ASH79	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	33	25	10	0		✎ 改动 P0[2] ASH79 6/3/0/6 {camouflage1, strike1, waystone1} → ASH79 7/3/0/4 {strike1, waystone1};✎ 改动 P0[3] FIX_A 2/0/0/2 → FIX_A 3/0/0/2;✎ 改动 P0[4] WARLORD 2/0/0/28 → WARLORD 3/0/0/28;✎ 改动 P0[5] FIX_B 3/0/0/3 → FIX_B 4/0/0/3;✎ 改动 P0[6] FIX_C 1/0/0/2 → FIX_C 2/0/0/2;✎ 改动 P0[2] ASH79 7/3/0/4 {strike1, waystone1} → ASH79 8/3/0/1 {strike1, waystone1};✎ 改动 P0[3] FIX_A 3/0/0/2 → FIX_A 4/0/0/2;✎ 改动 P0[4] WARLORD 3/0/0/28 → WARLORD 4/0/0/28;✎ 改动 P0[5] FIX_B 4/0/0/3 → FIX_B 5/0/0/3;✎ 改动 P0[6] FIX_C 2/0/0/2 → FIX_C 3/0/0/2
+E|ASH8	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|ASH80	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	25	1	0		✎ 改动 P0[2] ASH80 5/5/0/6 {flying1, vanguard1, waystone1} → ASH80 5/5/0/6 {flying1, waystone1}
+E|ASH81	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	26	0	0		
+E|ASH82	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	25	10	6		☠ 离场 P1[3] FIX_E1 2/0/0/6 → .;☠ 伤害累计 P0 0 → 8;✎ 改动 P0[2] ASH82 5/5/0/5 {concussion1, flying1, waystone1} → ASH82 5/5/0/2 {concussion1, flying1, waystone1};✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E3 1/0/0/6;☠ 离场 P1[6] FIX_E3 1/0/0/6 → .;☠ 伤害累计 P0 8 → 16;🗑 弃牌 P1 +「FIX_E2」×1;☠ 伤害累计 P1 10 → 13;✎ 改动 P1[5] FIX_E3 1/0/0/6 → FIX_E3 1/0/0/-993;☠ 伤害累计 P0 16 → 1015
+E|ASH9	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	24	24	0	0		
+E|ASH_Autarch	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|ASH_Bright_Lance_Vyper	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|ASH_Death_Spinner_Warp_Spider	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	24	24	0	0		
+E|ASH_Farseer	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|ASH_Farseer_Skyrunner	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|ASH_Orian_Laratharjos	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	27	26	8	0		✎ 改动 P0[2] ASH_Orian_Laratharjos 2/4/0/5 {stealth1, waystone1} → ASH_Orian_Laratharjos 2/4/0/5 {shuriken1, waystone1};✋ 手牌 P0 +「ASH_Flickerjump」×1;✎ 改动 P0[2] ASH_Orian_Laratharjos 2/4/0/5 {shuriken1, waystone1} → ASH_Orian_Laratharjos 2/4/0/3 {shuriken1, waystone1};✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/1;☠ 伤害累计 P0 0 → 5;✎ 改动 P0[2] ASH_Orian_Laratharjos 2/4/0/3 {shuriken1, waystone1} → ASH_Orian_Laratharjos 2/4/0/1 {shuriken1, waystone1};☠ 离场 P1[3] FIX_E1 2/0/0/1 → .;☠ 伤害累计 P0 5 → 6
+E|ASH_Warp_Spider_Exarch	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|BL10	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,kill(dmg)=999	23	21	2	0		✋ 手牌 P0 +「BL49」×1;💰 手牌总价 P0 5 → 6（1）
+E|BL11	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,kill(dmg)=999	21	21	0	0		
+E|BL12	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|BL13	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,kill(dmg)=999	21	21	5	2		☠ 离场 P0[2] BL13 4/3/0/2 {darkpact1, rally1} → .;✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/2;☠ 伤害累计 P0 0 → 4;✎ 改动 P1[3] FIX_E1 2/0/0/2 → FIX_E1 2/0/0/-997;☠ 伤害累计 P0 4 → 1003
+E|BL14	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|BL15	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	21	7	2		✎ 改动 P0[2] BL15 2/3/0/4 {camouflage1, darkpact1} → BL15 2/3/0/2 {darkpact1};☠ 离场 P0[2] BL15 2/3/0/2 {darkpact1} → .;✎ 改动 P1[3] FIX_E1 2/0/0/3 → FIX_E1 2/0/0/1;☠ 伤害累计 P0 3 → 5;☠ 伤害累计 P1 10 → 12;✎ 改动 P1[3] FIX_E1 2/0/0/1 → FIX_E1 2/0/0/-998;☠ 伤害累计 P0 5 → 1004
+E|BL17	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	26	0	0		
+E|BL19	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|BL21	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|BL23	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	23	23	0	0		
+E|BL24	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	26	0	0		
+E|BL25	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|BL26	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	28	26	11	4		✎ 改动 P0[2] BL26 6/6/0/4 {darkpact1, rally1} → BL26 6/6/0/2 {darkpact1, rally1};☠ 离场 P1[3] FIX_E1 2/0/0/6 → .;☠ 伤害累计 P0 0 → 6;☠ 离场 P0[2] BL26 6/6/0/2 {darkpact1, rally1} → .;✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E3 1/0/0/6;☠ 离场 P1[6] FIX_E3 1/0/0/6 → .;☠ 伤害累计 P0 6 → 12;🗑 弃牌 P1 +「FIX_E2」×1;☠ 伤害累计 P1 10 → 13;✎ 改动 P1[5] FIX_E3 1/0/0/6 → FIX_E3 1/0/0/-993;☠ 伤害累计 P0 12 → 1011
+E|BL27	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	24	25	0	0		
+E|BL28	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	25	5	10		✎ 改动 P1[4] WARLORD 2/0/0/30 → WARLORD 2/0/0/25;☠ 伤害累计 P0 0 → 10;✎ 改动 P1[4] WARLORD 2/0/0/25 → WARLORD 2/0/0/20;☠ 伤害累计 P0 10 → 18;☠ 伤害累计 P0 18 → 1017
+E|BL29	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	22	7	2		✎ 改动 P0[2] BL29 4/0/0/5 {flank1, strike1} → BL29 6/2/0/3 {darkpact1, flank1, strike1};✎ 改动 P0[2] BL29 6/2/0/3 {darkpact1, flank1, strike1} → BL29 4/0/0/2 {darkpact1, flank1, regeneration1, strike1};☠ 离场 P1[3] FIX_E1 2/0/0/2 → .;☠ 伤害累计 P0 4 → 6;🗑 弃牌 P1 +「FIX_E1」×1;✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/-993;☠ 伤害累计 P0 6 → 1005
+E|BL30	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|BL31	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	28	25	11	2		☠ 离场 P1[3] FIX_E1 2/0/0/6 {vulnerable1} → .;☠ 伤害累计 P0 0 → 6;☠ 离场 P0[2] BL31 5/4/0/3 → .;✎ 改动 P1[4] WARLORD 2/0/0/30 {vulnerable1} → WARLORD 2/0/0/30;✎ 改动 P1[5] FIX_E2 3/0/0/6 {vulnerable1} → FIX_E2 3/0/0/1;✎ 改动 P1[6] FIX_E3 1/0/0/6 {vulnerable1} → FIX_E3 1/0/0/6;🗑 弃牌 P0 +「BL31」×1;☠ 伤害累计 P0 6 → 11;☠ 伤害累计 P1 10 → 13;✎ 改动 P1[5] FIX_E2 3/0/0/1 → FIX_E2 3/0/0/-998;☠ 伤害累计 P0 11 → 1010
+E|BL32	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|BL33	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	2	0		✎ 改动 P0[2] BL33 6/5/0/6 {bloodthirst1} → BL33 8/5/0/4 {bloodthirst1, darkpact1, vanguard1};✎ 改动 P0[2] BL33 8/5/0/4 {bloodthirst1, darkpact1, vanguard1} → BL33 8/5/0/1 {bloodthirst1, darkpact1, vanguard1}
+E|BL34	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	25	3	0		✋ 手牌 P0 +「BL35」×1;💰 手牌总价 P0 2 → 6（4）;💰 手牌总价 P0 6 → 7（1）
+E|BL36	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	25	3	0		✋ 手牌 P0 +「BL8」×1;💰 手牌总价 P0 2 → 6（4）;💰 手牌总价 P0 6 → 7（1）
+E|BL37	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|BL38	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	27	25	4	0		✎ 改动 P0[2] BL38 4/9/0/7 → BL38 4/6/0/7;✎ 改动 P0[2] BL38 4/6/0/7 → BL38 4/8/0/5;✎ 改动 P0[2] BL38 4/8/0/5 → BL38 4/10/0/2;✎ 改动 P0[2] BL38 4/10/0/2 → BL38 4/11/0/2
+E|BL39	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	4	2		✎ 改动 P0[2] BL39 6/6/0/6 {strike1} → BL39 8/8/0/4 {darkpact1, strike1};✎ 改动 P0[2] BL39 8/8/0/4 {darkpact1, strike1} → BL39 6/6/0/2 {darkpact1, regeneration1, strike1};☠ 伤害累计 P0 6 → 14;☠ 伤害累计 P0 14 → 1013
+E|BL40	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|BL41	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	2	0		💰 手牌总价 P0 1 → 3（2）;💰 手牌总价 P0 3 → 4（1）
+E|BL42	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	0	0		
+E|BL43	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	27	27	0	0		
+E|BL44	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	0	0		
+E|BL45	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	29	27	4	0		✎ 改动 P0[5] FIX_B 3/0/0/4 {darkpact1, regeneration1} → FIX_B 3/0/0/6 {darkpact1, regeneration1};✎ 改动 P0[6] FIX_C 1/0/0/3 {darkpact1, regeneration1} → FIX_C 1/0/0/5 {darkpact1, regeneration1};✎ 改动 P0[2] BL45 8/7/0/11 {camouflage1, darkpact1, rally1} → BL45 8/7/0/9 {darkpact1, rally1};✎ 改动 P0[2] BL45 8/7/0/9 {darkpact1, rally1} → BL45 8/7/0/6 {darkpact1, rally1}
+E|BL46	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	31	25	11	7		✎ 改动 P1[4] WARLORD 2/0/0/30 → WARLORD 2/0/0/29;✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/5;✎ 改动 P1[6] FIX_E3 1/0/0/6 → FIX_E3 1/0/0/5;☠ 伤害累计 P0 0 → 13;✎ 改动 P1[4] WARLORD 2/0/0/29 → WARLORD 2/0/0/28;✎ 改动 P1[5] FIX_E2 3/0/0/5 → FIX_E3 1/0/0/4;☠ 离场 P1[6] FIX_E3 1/0/0/5 → .;☠ 伤害累计 P0 13 → 21;🗑 弃牌 P1 +「FIX_E2」×1;✎ 改动 P1[5] FIX_E3 1/0/0/4 → FIX_E3 1/0/0/-995;☠ 伤害累计 P0 21 → 1020
+E|BL47	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	26	0	0		
+E|BL48	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	4	5		☠ 离场 P1[3] FIX_E1 2/0/0/1 → .;☠ 伤害累计 P0 5 → 15;☠ 伤害累计 P0 15 → 23;☠ 伤害累计 P0 23 → 1022
+E|BL72	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	26	4	4		☠ 离场 P1[3] FIX_E1 2/0/0/2 → .;☠ 伤害累计 P0 4 → 10;☠ 伤害累计 P0 10 → 13;☠ 伤害累计 P0 13 → 1012
+E|BL73	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=1003	29	27	8	10		✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/6 {vulnerable2};✎ 改动 P1[6] FIX_E3 1/0/0/6 → FIX_E3 1/0/0/6 {vulnerable2};☠ 伤害累计 P0 0 → 10;✎ 改动 P1[5] FIX_E2 3/0/0/6 {vulnerable2} → FIX_E3 1/0/0/6 {vulnerable4};☠ 离场 P1[6] FIX_E3 1/0/0/6 {vulnerable2} → .;☠ 伤害累计 P0 10 → 20;✎ 改动 P1[5] FIX_E3 1/0/0/6 {vulnerable4} → FIX_E3 1/0/0/-997 {vulnerable4};☠ 伤害累计 P0 20 → 1023
+E|BL74	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	0	0		
+E|BL9	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,kill(dmg)=999	21	21	0	0		
+E|BL_Ghallaron_s_Champion	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	28	26	4	0		✋ 手牌 P0 +「BL_Bitter_Blows」×1;✋ 手牌 P0 +「BL_Zealot_Legionary」×1;💰 手牌总价 P0 2 → 11（9）;💰 手牌总价 P0 11 → 12（1）
+E|BL_Ghallaron_s_Disciple	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=1000	28	25	6	1		✎ 改动 P1[3] FIX_E1 2/0/0/5 → FIX_E1 2/0/0/4 {vulnerable1};✎ 改动 P1[4] WARLORD 2/0/0/30 → WARLORD 2/0/0/30 {vulnerable1};✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/6 {vulnerable1};✎ 改动 P1[6] FIX_E3 1/0/0/6 → FIX_E3 1/0/0/6 {vulnerable1};✎ 改动 P1[3] FIX_E1 2/0/0/4 {vulnerable1} → FIX_E1 2/0/0/-996 {vulnerable1};☠ 伤害累计 P0 2 → 1002
+E|BL_Meltagun_Legionary	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	28	28	0	0		
+E|BL_Zealot_Legionary	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	26	7	1		☠ 离场 P1[3] FIX_E1 2/0/0/5 → .;☠ 伤害累计 P0 1 → 6;✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/3;☠ 伤害累计 P0 6 → 9;☠ 伤害累计 P1 10 → 13;✎ 改动 P1[5] FIX_E2 3/0/0/3 → FIX_E2 3/0/0/-996;☠ 伤害累计 P0 9 → 1008
+E|DA10	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|DA11	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	26	0	0		
+E|DA12	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	26	1	0		🔮 任务点 P0 0 → 1
+E|DA13	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	26	0	0		
+E|DA14	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	26	6	0		✋ 手牌 P0 +「filler20」×1;✋ 手牌 P0 +「filler22」×1;🂠 牌库 P0 -「filler20」×1;🂠 牌库 P0 -「filler22」×1;✋ 手牌 P0 +「filler14」×1;🂠 牌库 P0 -「filler14」×1
+E|DA15	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	26	0	0		
+E|DA16	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(agenda)=0,atkR=6,atkM2=0,kill(dmg)=999	23	24	8	-4		✋ 手牌 P0 +「filler24」×1;🂠 牌库 P0 -「filler24」×1;💰 手牌总价 P0 5 → 6（1）;🔮 任务点 P0 0 → 1;✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/4;☠ 伤害累计 P0 0 → 2;✎ 改动 P1[3] FIX_E1 2/0/0/4 → FIX_E1 2/0/0/-995;☠ 伤害累计 P0 2 → 1001
+E|DA17	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	26	0	0		
+E|DA18	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|DA19	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	6	0		✋ 手牌 P0 +「filler20」×1;✋ 手牌 P0 +「filler22」×1;🂠 牌库 P0 -「filler20」×1;🂠 牌库 P0 -「filler22」×1;✋ 手牌 P0 +「filler14」×1;🂠 牌库 P0 -「filler14」×1
+E|DA20	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|DA21	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(agenda)=0,atkM=6,atkR2=0,kill(dmg)=999	23	26	7	-4		✎ 改动 P0[2] DA21 4/3/0/5 {agenda1} → DA21 4/3/0/5 {agenda1, vanguard1};🔮 任务点 P0 0 → 2;✎ 改动 P0[2] DA21 4/3/0/5 {agenda1, vanguard1} → DA21 4/3/0/3 {agenda1, vanguard1};✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/3;☠ 伤害累计 P0 0 → 3;✎ 改动 P1[3] FIX_E1 2/0/0/3 → FIX_E1 2/0/0/-996;☠ 伤害累计 P0 3 → 1002
+E|DA22	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	25	1	0		🔮 任务点 P0 0 → 1
+E|DA23	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	26	0	0		
+E|DA24	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(agenda)=0,atkM=6,atkR2=0,kill(dmg)=999	21	25	5	-5		🔮 任务点 P0 0 → 1;✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/3;☠ 伤害累计 P0 0 → 3;✎ 改动 P1[3] FIX_E1 2/0/0/3 → FIX_E1 2/0/0/-996;☠ 伤害累计 P0 3 → 1002
+E|DA25	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|DA26	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(agenda)=0,atkM=6,atkR2=0,kill(dmg)=999	21	25	6	-5		✎ 改动 P0[2] DA26 5/2/1/5 {agenda1, armour1, vanguard1} → DA26 5/2/3/5 {agenda1, armour3, vanguard1};✎ 改动 P0[2] DA26 5/2/3/5 {agenda1, armour3, vanguard1} → DA26 5/2/3/4 {agenda1, armour3, vanguard1};✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/4;☠ 伤害累计 P0 0 → 2;✎ 改动 P1[3] FIX_E1 2/0/0/4 → FIX_E1 2/0/0/-995;☠ 伤害累计 P0 2 → 1001
+E|DA27	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	25	4	3		✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/3;☠ 伤害累计 P0 5 → 12;✎ 改动 P1[5] FIX_E2 3/0/0/3 → FIX_E2 3/0/0/-996;☠ 伤害累计 P0 12 → 1011
+E|DA28	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	22	22	0	0		
+E|DA29	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	25	2	0		✎ 改动 P0[2] DA29 3/5/0/3 {flank1} → DA29 4/6/0/1 {flank1};✎ 改动 P0[5] FIX_B 3/0/0/3 → FIX_B 4/1/0/3
+E|DA30	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	2	0		✎ 改动 P0[2] DA30 3/5/0/5 {flank1, flying1} → DA30 3/5/0/3 {flank1, flying1};✎ 改动 P0[2] DA30 3/5/0/3 {flank1, flying1} → DA30 3/5/0/1 {flank1, flying1}
+E|DA31	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	24	25	1	0		💰 手牌总价 P0 0 → 2（2）
+E|DA32	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(agenda)=0,atkR=6,atkM2=0,kill(dmg)=999	22	25	7	-6		✎ 改动 P0[2] DA32 2/6/0/6 {agenda1, flying1} → DA32 2/6/0/6 {agenda1, flying1, stealth1};🔮 任务点 P0 0 → 1;✎ 改动 P0[2] DA32 2/6/0/6 {agenda1, flying1, stealth1} → DA32 2/6/0/4 {agenda1, flying1};✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/4;☠ 伤害累计 P0 0 → 2;✎ 改动 P1[3] FIX_E1 2/0/0/4 → FIX_E1 2/0/0/-995;☠ 伤害累计 P0 2 → 1001
+E|DA33	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|DA34	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	24	3	0		✋ 手牌 P0 +「DA35」×1;💰 手牌总价 P0 2 → 5（3）;💰 手牌总价 P0 5 → 6（1）
+E|DA36	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	23	23	0	0		
+E|DA37	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	4	3		☠ 离场 P1[3] FIX_E1 2/0/0/3 → .;☠ 伤害累计 P0 3 → 9;☠ 伤害累计 P0 9 → 10;☠ 伤害累计 P0 10 → 1009
+E|DA38	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	0	0		
+E|DA39	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	25	1	0		✎ 改动 P1[3] FIX_E1 2/0/0/6 {stun1} → FIX_E1 2/0/0/6
+E|DA40	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	32	27	7	0		✋ 手牌 P0 +「DA41」×1;💰 手牌总价 P0 2 → 5（3）;💰 手牌总价 P0 5 → 6（1）;✋ 手牌 P0 +「DA30」×1;💰 手牌总价 P0 6 → 11（5）;✋ 手牌 P0 +「DA43」×1;💰 手牌总价 P0 11 → 21（10）
+E|DA42	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	23	23	0	0		
+E|DA43	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	29	29	16	6		✋ 手牌 P0 +「filler20」×1;✋ 手牌 P0 +「filler22」×1;🂠 牌库 P0 -「filler20」×1;🂠 牌库 P0 -「filler22」×1;✋ 手牌 P0 +「filler19」×1;🂠 牌库 P0 -「filler19」×1;✎ 改动 P0[2] DA43 6/10/1/12 {armour1, blast4, rally1} → DA43 6/10/1/10 {armour1, blast4, rally1};☠ 伤害累计 P0 6 → 24;☠ 伤害累计 P1 8 → 10;✎ 改动 P0[2] DA43 6/10/1/10 {armour1, blast4, rally1} → DA43 6/10/1/9 {armour1, blast4, rally1};☠ 离场 P1[5] FIX_E3 1/0/0/2 → .;☠ 伤害累计 P0 24 → 34;🗑 弃牌 P1 +「FIX_E3」×1;☠ 伤害累计 P1 10 → 11;✎ 改动 P1[4] WARLORD 2/0/0/22 → WARLORD 2/0/0/-977;☠ 伤害累计 P0 34 → 1033
+E|DA7	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,kill(dmg)=999	21	21	0	0		
+E|DA77	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(agenda)=0,atkM=6,atkR2=0,kill(dmg)=999	22	24	5	-1		✋ 手牌 P0 +「DA37」×1;💰 手牌总价 P0 5 → 12（7）;🔮 任务点 P0 0 → 1;✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/-993;☠ 伤害累计 P0 0 → 999
+E|DA78	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|DA79	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	27	27	0	0		
+E|DA8	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|DA80	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|DA81	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	23	23	0	0		
+E|DA82	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(agenda)=0,atkM=6,atkR2=0,kill(dmg)=999	21	25	3	-5		🔮 任务点 P0 0 → 1;✎ 改动 P1[3] FIX_E1 2/0/0/1 → FIX_E1 2/0/0/-998;☠ 伤害累计 P0 5 → 1004
+E|DA83	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|DA9	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(agenda)=0,atkM=6,atkR2=0,kill(dmg)=999	21	25	5	-2		🔮 任务点 P0 0 → 1;✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/5;☠ 伤害累计 P0 0 → 1;✎ 改动 P1[3] FIX_E1 2/0/0/5 → FIX_E1 2/0/0/-994;☠ 伤害累计 P0 1 → 1000
+E|EC10	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	6	1		✎ 改动 P0[2] EC10 1/1/0/3 {cruelty1} → EC10 2/2/0/1 {cruelty1};☠ 离场 P0[2] EC10 2/2/0/1 {cruelty1} → .;✎ 改动 P1[3] FIX_E1 2/0/0/5 → FIX_E1 2/0/0/3;☠ 伤害累计 P0 1 → 3;✎ 改动 P1[3] FIX_E1 2/0/0/3 → FIX_E1 2/0/0/-996;☠ 伤害累计 P0 3 → 1002
+E|EC11	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|EC12	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	25	4	3		✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/3;☠ 伤害累计 P0 0 → 6;☠ 伤害累计 P0 6 → 7;☠ 伤害累计 P0 7 → 1006
+E|EC13	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	26	0	0		
+E|EC14	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	29	25	10	2		✎ 改动 P0[2] EC14 2/2/0/4 {ecstasy1} → EC14 4/4/0/2 {darkpact1, ecstasy1};✎ 改动 P0[3] FIX_A 2/0/0/2 → FIX_A 4/2/0/2 {darkpact1};✎ 改动 P0[5] FIX_B 3/0/0/3 → FIX_B 5/2/0/3 {darkpact1};✎ 改动 P0[6] FIX_C 1/0/0/2 → FIX_C 3/2/0/2 {darkpact1};☠ 离场 P0[2] EC14 4/4/0/2 {darkpact1, ecstasy1} → .;☠ 离场 P1[3] FIX_E1 2/0/0/4 → .;☠ 伤害累计 P0 2 → 6;🗑 弃牌 P1 +「FIX_E1」×1;✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/-993;☠ 伤害累计 P0 6 → 1005
+E|EC15	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	26	0	0		
+E|EC16	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,kill(dmg)=999	21	21	0	0		
+E|EC17	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	24	25	5	0		✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 1/-1/0/2 {stun1};✎ 改动 P0[2] EC17 1/4/0/2 → EC17 1/4/0/1;✎ 改动 P1[3] FIX_E1 1/-1/0/2 {stun1} → FIX_E1 0/-2/0/1 {stun1};☠ 伤害累计 P1 10 → 11;✎ 改动 P1[3] FIX_E1 0/-2/0/1 {stun1} → FIX_E1 0/-2/0/-998 {stun1}
+E|EC18	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	24	25	2	0		✎ 改动 P0[2] EC18 1/4/0/4 {ecstasy2} → EC18 1/4/0/3 {bloodthirst1, ecstasy2};✎ 改动 P0[2] EC18 1/4/0/3 {bloodthirst1, ecstasy2} → EC18 1/4/0/2 {bloodthirst2, ecstasy2}
+E|EC19	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	26	0	0		
+E|EC20	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	22	22	0	0		
+E|EC21	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	26	0	0		
+E|EC22	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	22	22	1	0		✎ 改动 P0[2] EC22 5/0/1/3 {armour1, ecstasy1} → EC22 7/0/1/2 {armour1, ecstasy1}
+E|EC23	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	28	25	5	0		✎ 改动 P0[2] EC23 3/4/0/5 {ecstasy3} → EC23 3/6/0/3 {ecstasy3};✎ 改动 P0[3] FIX_A 2/0/0/2 → FIX_A 2/2/0/2;✎ 改动 P0[5] FIX_B 3/0/0/3 → FIX_B 3/2/0/3;✎ 改动 P0[6] FIX_C 1/0/0/2 → FIX_C 1/2/0/2;✎ 改动 P0[2] EC23 3/6/0/3 {ecstasy3} → EC23 3/6/0/1 {ecstasy3}
+E|EC24	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	2	0		✎ 改动 P0[2] EC24 4/1/0/4 → EC24 5/1/0/2;☠ 离场 P0[2] EC24 5/1/0/2 → .
+E|EC25	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	27	27	0	0		
+E|EC26	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	22	22	2	0		✎ 改动 P0[2] EC26 5/0/0/6 {cruelty1, flank1} → EC26 6/0/0/4 {cruelty1, flank1};✎ 改动 P0[2] EC26 6/0/0/4 {cruelty1, flank1} → EC26 6/0/0/2 {cruelty1, flank1}
+E|EC27	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|EC28	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	31	25	11	7		✎ 改动 P0[2] EC28 6/1/0/6 {ecstasy3} → EC28 7/1/0/4 {ecstasy3};✎ 改动 P0[3] FIX_A 2/0/0/2 → FIX_A 3/0/0/2;✎ 改动 P0[5] FIX_B 3/0/0/3 → FIX_B 4/0/0/3;✎ 改动 P0[6] FIX_C 1/0/0/2 → FIX_C 2/0/0/2;☠ 离场 P0[2] EC28 7/1/0/4 {ecstasy3} → .;☠ 离场 P1[6] FIX_E3 1/0/0/6 → .;🗑 弃牌 P0 +「EC28」×1;☠ 伤害累计 P0 6 → 14;🗑 弃牌 P1 +「FIX_E3」×1;☠ 伤害累计 P1 10 → 14;☠ 伤害累计 P0 14 → 1013
+E|EC29	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	2	0		✎ 改动 P0[2] EC29 3/5/1/5 {armour1, ecstasy2} → EC29 3/5/1/4 {armour1, ecstasy2};✎ 改动 P0[2] EC29 3/5/1/4 {armour1, ecstasy2} → EC29 3/5/1/3 {armour1, ecstasy2}
+E|EC30	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	25	1	0		✎ 改动 P0[5] FIX_B 3/0/0/3 → FIX_B 4/1/0/3
+E|EC31	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	25	1	0		✚ 落场/生成 P0[7] . → EC17 1/4/0/4
+E|EC32	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	25	1	0		✎ 改动 P1[3] FIX_E1 -2/-4/0/6 → FIX_E1 2/0/0/6
+E|EC33	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	25	3	0		✎ 改动 P0[2] EC33 6/5/1/5 {armour1, cruelty1} → EC33 7/6/1/3 {armour1, cruelty1};✎ 改动 P0[5] FIX_B 3/0/0/3 → FIX_B 3/0/0/2;☠ 伤害累计 P1 9 → 12
+E|EC34	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	24	1	0		✎ 改动 P0[3] FIX_A 2/0/0/2 → FIX_A 4/2/0/2 {darkpact1}
+E|EC35	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	0	0		
+E|EC36	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	27	27	4	0		☠ 离场 P1[3] FIX_E1 2/-2/0/6 → .;✎ 改动 P1[5] FIX_E2 3/-2/0/6 → FIX_E3 1/-2/0/6;☠ 离场 P1[6] FIX_E3 1/-2/0/6 → .;✎ 改动 P1[5] FIX_E3 1/-2/0/6 → FIX_E3 1/-2/0/-993
+E|EC37	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	0	0		
+E|EC38	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	25	8	12		☠ 离场 P1[3] FIX_E1 2/0/0/3 → .;☠ 伤害累计 P0 12 → 19;✎ 改动 P1[5] FIX_E2 3/0/0/3 → FIX_E3 1/0/0/3;☠ 离场 P1[6] FIX_E3 1/0/0/3 → .;☠ 伤害累计 P0 19 → 24;🗑 弃牌 P1 +「FIX_E2」×1;✎ 改动 P1[5] FIX_E3 1/0/0/3 → FIX_E3 1/0/0/-996;☠ 伤害累计 P0 24 → 1023
+E|EC39	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	1	0		✎ 改动 P0[2] EC39 9/5/0/7 {ecstasy5} → EC39 18/10/0/4 {ecstasy5}
+E|EC40	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	0	0		
+E|EC41	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	25	1	0		✚ 落场/生成 P0[7] . → EC17 1/4/0/4
+E|EC7	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	23	21	6	0		✎ 改动 P0[2] EC7 2/0/0/2 {rally1} → EC7 2/0/0/1 {rally1};✎ 改动 P1[3] FIX_E1 1/-1/0/6 → FIX_E1 1/-1/0/4;☠ 伤害累计 P1 8 → 9;☠ 离场 P0[2] EC7 2/0/0/1 {rally1} → .;☠ 伤害累计 P1 9 → 10;✎ 改动 P1[3] FIX_E1 1/-1/0/4 → FIX_E1 1/-1/0/-995
+E|EC8	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	18	23	2	0		✎ 改动 P1[3] FIX_E1 0/-2/0/6 → FIX_E1 0/-2/0/3;✎ 改动 P1[3] FIX_E1 0/-2/0/3 → FIX_E1 0/-2/0/-996
+E|EC9	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|GOF10	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	2	0		✎ 改动 P0[2] GOF10 2/2/0/3 {rally1, vanguard1} → GOF10 2/2/0/1 {rally1, vanguard1};☠ 离场 P0[2] GOF10 2/2/0/1 {rally1, vanguard1} → .
+E|GOF11	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|GOF12	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	0	0		
+E|GOF13	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	27	26	4	2		✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/4;☠ 伤害累计 P0 5 → 8;✎ 改动 P1[5] FIX_E2 3/0/0/4 → FIX_E2 3/0/0/-995;☠ 伤害累计 P0 8 → 1007
+E|GOF14	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	25	1	0		✎ 改动 P0[5] FIX_B 3/0/0/3 → FIX_B 3/0/1/3
+E|GOF15	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,kill(dmg)=999	21	21	0	0		
+E|GOF16	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	26	1	0		✎ 改动 P0[3] FIX_A 3/1/0/2 → FIX_A 2/0/0/2
+E|GOF17	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	26	0	0		
+E|GOF18	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|GOF19	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	26	0	0		
+E|GOF20	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	2	0		✎ 改动 P0[2] GOF20 4/4/0/5 {flank1} → GOF20 4/4/0/3 {flank1};✎ 改动 P0[2] GOF20 4/4/0/3 {flank1} → GOF20 4/4/0/1 {flank1}
+E|GOF21	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	2	0		✎ 改动 P0[2] GOF21 3/3/0/5 {mob1} → GOF21 4/3/0/3 {mob1};✎ 改动 P0[2] GOF21 4/3/0/3 {mob1} → GOF21 4/3/0/1 {mob1}
+E|GOF22	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	26	5	3		☠ 伤害累计 P0 3 → 9;✎ 改动 P1[5] FIX_E2 3/0/0/3 → FIX_E2 3/0/0/1;☠ 伤害累计 P0 9 → 11;✎ 改动 P1[5] FIX_E2 3/0/0/1 → FIX_E2 3/0/0/-998;☠ 伤害累计 P0 11 → 1010
+E|GOF23	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	26	0	0		
+E|GOF24	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	30	30	2	0		✎ 改动 P0[2] GOF24 7/7/0/5 {mob1, tide1, unstable1} → GOF24 8/7/0/3 {mob1, tide1, unstable1};☠ 离场 P0[2] GOF24 8/7/0/3 {mob1, tide1, unstable1} → .
+E|GOF25	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	27	25	4	0		✋ 手牌 P0 +「GOF_Mekaniak」×1;💰 手牌总价 P0 2 → 6（4）;💰 手牌总价 P0 6 → 7（1）;💰 手牌总价 P0 7 → 6（-1）
+E|GOF26	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|GOF27	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	27	25	6	3		✎ 改动 P1[4] WARLORD 2/0/0/30 → WARLORD 2/0/0/29;✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/2;✎ 改动 P1[6] FIX_E3 1/0/0/6 → FIX_E3 1/0/0/5;☠ 伤害累计 P0 6 → 12;✎ 改动 P1[5] FIX_E2 3/0/0/2 → FIX_E2 3/0/0/-997;☠ 伤害累计 P0 12 → 1011
+E|GOF28	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	30	28	2	0		✋ 手牌 P0 +「GOF8」×1;💰 手牌总价 P0 5 → 7（2）
+E|GOF29	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	27	25	2	0		✚ 落场/生成 P0[7] . → GOF6 2/0/0/2 {unstable1};✚ 落场/生成 P0[1] . → GOF6 2/0/0/2 {unstable1}
+E|GOF30	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	4	4		☠ 伤害累计 P0 4 → 11;☠ 伤害累计 P0 11 → 18;✎ 改动 P1[5] FIX_E2 3/0/0/2 → FIX_E2 3/0/0/-997;☠ 伤害累计 P0 18 → 1017
+E|GOF31	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|GOF32	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	25	3	0		✋ 手牌 P0 +「GOF_Follower_of_Gork」×1;💰 手牌总价 P0 2 → 6（4）;💰 手牌总价 P0 6 → 7（1）
+E|GOF33	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	28	25	8	3		✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/3;☠ 伤害累计 P0 0 → 11;✎ 改动 P1[5] FIX_E2 3/0/0/3 → FIX_E3 1/0/0/6;☠ 离场 P1[6] FIX_E3 1/0/0/6 → .;☠ 伤害累计 P0 11 → 16;🗑 弃牌 P1 +「FIX_E2」×1;✎ 改动 P1[5] FIX_E3 1/0/0/6 → FIX_E3 1/0/0/-993;☠ 伤害累计 P0 16 → 1015
+E|GOF34	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	26	2	0		✎ 改动 P0[2] GOF34 8/4/0/7 {strike1} → GOF34 8/4/0/5 {stealth1, strike1};✎ 改动 P0[2] GOF34 8/4/0/5 {stealth1, strike1} → GOF34 8/4/0/2 {stealth1, strike1}
+E|GOF35	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	25	1	0		💰 手牌总价 P0 5 → 4（-1）
+E|GOF36	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|GOF38	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	28	28	0	0		
+E|GOF39	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	28	27	1	0		✎ 改动 P1[5] FIX_E2 3/0/0/6 {stun1} → FIX_E2 3/0/0/6
+E|GOF4	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,kill(dmg)=999	21	21	0	0		
+E|GOF5	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,kill(dmg)=999	23	21	3	0		✎ 改动 P0[3] FIX_A 3/0/0/2 → FIX_A 2/0/0/2;✋ 手牌 P0 +「GOF5」×1;💰 手牌总价 P0 5 → 8（3）
+E|GOF6	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,kill(dmg)=999	24	22	7	8		✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/2;✎ 改动 P1[4] WARLORD 2/0/0/30 → WARLORD 2/0/0/25;✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/4;✎ 改动 P1[6] FIX_E3 1/0/0/6 → FIX_E3 1/0/0/4;☠ 伤害累计 P0 0 → 13;✎ 改动 P1[3] FIX_E1 2/0/0/2 → FIX_E1 2/0/0/-997;☠ 伤害累计 P0 13 → 1012
+E|GOF7	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|GOF77	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,kill(dmg)=999	22	22	2	0		✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/4 {stun1};✎ 改动 P1[3] FIX_E1 2/0/0/4 {stun1} → FIX_E1 2/0/0/-995 {stun1}
+E|GOF78	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	8	1		✎ 改动 P0[2] GOF78 4/1/0/3 {rally1, stomp1, tide1} → GOF78 4/1/0/1 {rally1, stomp1, tide1};✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/2;☠ 伤害累计 P0 0 → 4;☠ 离场 P0[2] GOF78 4/1/0/1 {rally1, stomp1, tide1} → .;✎ 改动 P1[3] FIX_E1 2/0/0/2 → FIX_E1 2/0/0/1;☠ 伤害累计 P0 4 → 5;✎ 改动 P1[3] FIX_E1 2/0/0/1 → FIX_E1 2/0/0/-998;☠ 伤害累计 P0 5 → 1004
+E|GOF79	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,kill(dmg)=999	18	21	5	-1		✋ 手牌 P0 +「GOF79」×1;💰 手牌总价 P0 2 → 6（4）;💰 手牌总价 P0 6 → 7（1）;✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/-993;☠ 伤害累计 P0 0 → 999
+E|GOF8	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	8	1		✎ 改动 P0[2] GOF8 3/2/0/3 {rally1, tide1} → GOF8 3/2/0/1 {rally1, tide1};✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/3;☠ 伤害累计 P0 0 → 3;☠ 离场 P0[2] GOF8 3/2/0/1 {rally1, tide1} → .;✎ 改动 P1[3] FIX_E1 2/0/0/3 → FIX_E1 2/0/0/1;☠ 伤害累计 P0 3 → 5;✎ 改动 P1[3] FIX_E1 2/0/0/1 → FIX_E1 2/0/0/-998;☠ 伤害累计 P0 5 → 1004
+E|GOF80	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	25	3	1		✎ 改动 P1[4] WARLORD 2/0/0/30 → WARLORD 2/0/0/29;☠ 伤害累计 P0 3 → 5;☠ 伤害累计 P0 5 → 1004
+E|GOF81	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	26	1	0		✋ 手牌 P0 +「filler26*2」×1
+E|GOF82	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkR2=0,kill(dmg)=999	29	21	11	11		✎ 改动 P0[2] GOF82 1/2/0/2 {flank1} → GOF6 2/0/0/2 {unstable1};☠ 离场 P0[2] GOF6 2/0/0/2 {unstable1} → .;✎ 改动 P1[3] FIX_E1 2/0/0/4 → FIX_E1 2/0/0/2;✎ 改动 P1[4] WARLORD 2/0/0/30 → WARLORD 2/0/0/28;✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/1;✎ 改动 P1[6] FIX_E3 1/0/0/6 → FIX_E3 1/0/0/4;🗑 弃牌 P0 +「GOF6」×1;☠ 伤害累计 P0 2 → 13;☠ 伤害累计 P1 10 → 12;✎ 改动 P1[3] FIX_E1 2/0/0/2 → FIX_E1 2/0/0/-997;☠ 伤害累计 P0 13 → 1012
+E|GOF83	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	25	2	0		✋ 手牌 P0 +「GOF88」×1;💰 手牌总价 P0 5 → 10（5）
+E|GOF84	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	1	0		✋ 手牌 P0 +「filler26*1」×1
+E|GOF85	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=6,atkR2=0,kill(dmg)=999	24	22	10	4		✎ 改动 P0[2] GOF85 4/0/0/5 {stomp1} → GOF85 4/0/0/1 {stomp1};✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/2;✎ 改动 P1[6] FIX_E3 1/0/0/6 → FIX_E3 1/0/0/2;☠ 伤害累计 P0 0 → 8;☠ 伤害累计 P1 8 → 12;☠ 离场 P0[2] GOF85 4/0/0/1 {stomp1} → .;🗑 弃牌 P0 +「GOF85」×1;☠ 伤害累计 P1 12 → 14;✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/-993;☠ 伤害累计 P0 8 → 1007
+E|GOF86	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	26	1	0		✚ 落场/生成 P0[7] . → GOF77 1/2/0/2 {tide1}
+E|GOF87	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|GOF88	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	0	0		
+E|GOF89	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	27	25	5	4		✎ 改动 P1[6] FIX_E3 1/0/0/6 → FIX_E3 1/0/0/4;☠ 伤害累计 P0 2 → 4;☠ 伤害累计 P0 4 → 9;☠ 伤害累计 P0 9 → 11;☠ 伤害累计 P0 11 → 1010
+E|GOF9	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|GOF90	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	26	4	0		💰 手牌总价 P0 2 → 3（1）;💰 手牌总价 P0 3 → 4（1）;✎ 改动 P0[2] GOF90 7/5/0/7 {slay1, stomp1} → GOF90 7/5/0/5 {bloodthirst1, slay1, stomp1};✎ 改动 P0[2] GOF90 7/5/0/5 {bloodthirst1, slay1, stomp1} → GOF90 7/5/0/2 {bloodthirst1, slay1, stomp1}
+E|GOF91	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	24	24	0	0		
+E|GOF92	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	26	1	0		💰 手牌总价 P1 2 → 4（2）
+E|GOF93	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|GOF94	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	4	4		☠ 离场 P1[3] FIX_E1 2/0/0/2 → .;☠ 伤害累计 P0 4 → 12;☠ 伤害累计 P0 12 → 15;☠ 伤害累计 P0 15 → 1014
+E|GOF95	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	27	27	1	0		✎ 改动 P0[2] GOF95 6/9/0/9 {mob1, unstable1} → GOF95 6/9/0/6 {mob1, unstable1, vanguard1}
+E|GOF96	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=9,atkR2=9,kill(dmg)=999	16	28	2	-22		✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/-993;☠ 伤害累计 P0 0 → 999
+E|GOF_Big_Choppa_Nob	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|GOF_Boss_Nob	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	25	1	0		✎ 改动 P0[3] FIX_A 2/0/0/2 → FIX_A 2/0/0/3
+E|GOF_Krumpaklaw	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	4	0		✎ 改动 P0[2] GOF_Krumpaklaw 8/6/0/8 {mob1, unstable1} → GOF_Krumpaklaw 10/6/1/7 {armour1, mob1, unstable1};☠ 伤害累计 P1 8 → 9;✎ 改动 P0[2] GOF_Krumpaklaw 10/6/1/7 {armour1, mob1, unstable1} → GOF_Krumpaklaw 10/6/1/5 {armour1, mob1, unstable1};☠ 伤害累计 P1 9 → 11
+E|GOF_Mega_Blasta_Deffkopta	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	27	27	2	0		💰 手牌总价 P0 3 → 5（2）;💰 手牌总价 P0 5 → 6（1）
+E|GOF_Rokkit_Boy	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	27	27	0	0		
+E|GOF_Stikkbomb_Boy	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	27	27	2	0		✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/2 {stun1};☠ 离场 P1[3] FIX_E1 2/0/0/2 {stun1} → .
+E|GSC10	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|GSC11	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,kill(dmg)=999	21	21	1	0		💰 手牌总价 P1 5 → 7（2）
+E|GSC12	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|GSC13	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|GSC14	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	31	26	14	3		✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/5;✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/5;✎ 改动 P1[6] FIX_E3 1/0/0/6 → FIX_E3 1/0/0/5;✋ 手牌 P0 +「GSC16」×1;💰 手牌总价 P0 2 → 5（3）;☠ 伤害累计 P0 0 → 3;💰 手牌总价 P1 5 → 7（2）;💰 手牌总价 P0 5 → 6（1）;✎ 改动 P1[3] FIX_E1 2/0/0/5 → FIX_E1 2/0/0/3;☠ 伤害累计 P0 3 → 5;✎ 改动 P1[3] FIX_E1 2/0/0/3 → FIX_E1 2/0/0/2;☠ 伤害累计 P0 5 → 6;✎ 改动 P1[3] FIX_E1 2/0/0/2 → FIX_E1 2/0/0/-997;☠ 伤害累计 P0 6 → 1005
+E|GSC17	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	24	1	0		✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/6 {stun1}
+E|GSC18	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	28	26	6	2		✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/4;☠ 伤害累计 P0 0 → 2;☠ 伤害累计 P0 2 → 7;☠ 伤害累计 P0 7 → 8;✎ 改动 P1[5] FIX_E2 3/0/0/4 → FIX_E2 3/0/0/-995;☠ 伤害累计 P0 8 → 1007
+E|GSC19	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	29	25	4	0		✋ 手牌 P0 +「GSC8」×1;💰 手牌总价 P0 5 → 6（1）;✋ 手牌 P0 +「GSC8」×1;💰 手牌总价 P0 6 → 7（1）
+E|GSC20	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	26	0	0		
+E|GSC21	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	25	11	2		✎ 改动 P0[2] GSC21 5/2/0/5 {ambush1, strike1} → GSC21 7/2/0/5 {ambush1, strike1};✎ 改动 P0[2] GSC21 7/2/0/5 {ambush1, strike1} → GSC21 7/2/0/3 {ambush1, strike1};☠ 离场 P1[3] FIX_E1 2/0/0/6 → .;☠ 伤害累计 P0 0 → 7;☠ 离场 P0[2] GSC21 7/2/0/3 {ambush1, strike1} → .;✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/4;🗑 弃牌 P0 +「GSC21」×1;☠ 伤害累计 P0 7 → 9;☠ 伤害累计 P1 10 → 13;✎ 改动 P1[5] FIX_E2 3/0/0/4 → FIX_E2 3/0/0/-995;☠ 伤害累计 P0 9 → 1008
+E|GSC22	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	26	0	0		
+E|GSC23	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	27	27	0	0		
+E|GSC24	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	28	28	0	0		
+E|GSC25	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	27	27	0	0		
+E|GSC26	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	23	23	0	0		
+E|GSC27	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	24	23	3	0		✎ 改动 P0[2] GSC27 6/0/1/6 {ambush1, armour1} → GSC27 6/0/1/6 {ambush1, armour1, vanguard1};✎ 改动 P0[2] GSC27 6/0/1/6 {ambush1, armour1, vanguard1} → GSC27 6/0/1/5 {ambush1, armour1, vanguard1};✎ 改动 P0[2] GSC27 6/0/1/5 {ambush1, armour1, vanguard1} → GSC27 6/0/1/3 {ambush1, armour1, vanguard1}
+E|GSC28	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	25	4	0		✎ 改动 P1[3] FIX_E1 2/0/0/6 {stun1} → FIX_E1 2/0/0/6;✋ 手牌 P0 +「GSC29」×1;💰 手牌总价 P0 2 → 5（3）;💰 手牌总价 P0 5 → 6（1）
+E|GSC30	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|GSC31	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	2	0		💰 手牌总价 P0 6 → 8（2）;💰 手牌总价 P0 8 → 9（1）
+E|GSC32	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	23	2	0		☠ 离场 P1[6] FIX_E3 1/0/0/6 → .;🗑 弃牌 P1 +「FIX_E3」×1
+E|GSC33	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	22	22	0	0		
+E|GSC34	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|GSC35	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	24	5	2		✎ 改动 P0[2] GSC35 7/0/1/7 {ambush1, armour1, concussion1} → GSC35 9/0/1/7 {ambush1, armour1, concussion1};✎ 改动 P0[2] GSC35 9/0/1/7 {ambush1, armour1, concussion1} → GSC35 9/0/1/6 {ambush1, armour1, concussion1};☠ 伤害累计 P0 0 → 9;✎ 改动 P0[2] GSC35 9/0/1/6 {ambush1, armour1, concussion1} → GSC35 9/0/1/4 {ambush1, armour1, concussion1};☠ 伤害累计 P0 9 → 1008
+E|GSC36	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	23	25	0	0		
+E|GSC37	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	28	28	0	0		
+E|GSC38	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	24	4	0		✎ 改动 P0[2] GSC38 8/0/1/8 {ambush1, armour1, concussion1} → GSC38 8/0/2/8 {ambush1, armour2, concussion1};✎ 改动 P0[2] GSC38 8/0/2/8 {ambush1, armour2, concussion1} → GSC38 8/0/2/7 {ambush1, armour2, concussion1};✎ 改动 P0[2] GSC38 8/0/2/7 {ambush1, armour2, concussion1} → GSC38 8/0/2/6 {ambush1, armour2, concussion1};☠ 伤害累计 P1 9 → 10
+E|GSC39	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	26	0	0		
+E|GSC40	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	29	25	4	0		✚ 落场/生成 P0[1] . → GSC10 1/3/0/3 {ambush1};✚ 落场/生成 P0[7] . → GSC10 1/3/0/3 {ambush1};✚ 落场/生成 P0[0] . → GSC10 1/3/0/3 {ambush1};✚ 落场/生成 P0[8] . → GSC10 1/3/0/3 {ambush1}
+E|GSC41	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	29	29	0	0		
+E|GSC42	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	23	23	0	0		
+E|GSC43	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	33	27	14	6		⚙ 能量 P0 9 → 3（-6）;✎ 改动 P0[2] GSC43 10/8/0/9 {ambush1, talent1} → GSC43 13/11/0/9 {ambush1, talent1};✎ 改动 P0[3] FIX_A 2/0/0/2 → FIX_A 5/3/0/2;✎ 改动 P0[4] WARLORD 2/0/0/28 → WARLORD 5/3/0/28;✎ 改动 P0[5] FIX_B 3/0/0/3 → FIX_B 6/3/0/3;✎ 改动 P0[6] FIX_C 1/0/0/2 → FIX_C 4/3/0/2;✋ 手牌 P0 +「GSC44」×1;💰 手牌总价 P0 2 → 6（4）;💰 手牌总价 P0 6 → 7（1）;✎ 改动 P0[2] GSC43 13/11/0/9 {ambush1, talent1} → GSC43 13/11/0/7 {ambush1, talent1};☠ 伤害累计 P0 0 → 13;✎ 改动 P0[2] GSC43 13/11/0/7 {ambush1, talent1} → GSC43 13/11/0/4 {ambush1, talent1};☠ 伤害累计 P0 13 → 24;☠ 伤害累计 P0 24 → 1023
+E|GSC45	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	27	27	0	0		
+E|GSC69	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|GSC7	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,kill(dmg)=999	22	21	2	0		☠ 离场 P0[2] GSC7 1/0/0/1 {flank1, rally1} → .;✎ 改动 P0[3] FIX_A 3/0/0/2 → FIX_A 2/0/0/2
+E|GSC70	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	29	26	10	4		✎ 改动 P0[2] GSC70 2/4/0/4 {ambush1} → GSC70 2/4/0/4 {ambush1, blast2, concussion1, flank1};✎ 改动 P0[2] GSC70 2/4/0/4 {ambush1, blast2, concussion1, flank1} → GSC70 2/4/0/2 {ambush1, blast2, concussion1, flank1};✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/2 {stun1};✎ 改动 P1[4] WARLORD 2/0/0/30 → WARLORD 2/0/0/28;☠ 伤害累计 P0 0 → 6;☠ 离场 P0[2] GSC70 2/4/0/2 {ambush1, blast2, concussion1, flank1} → .;☠ 离场 P1[3] FIX_E1 2/0/0/2 {stun1} → .;✎ 改动 P1[4] WARLORD 2/0/0/28 → WARLORD 2/0/0/26;☠ 伤害累计 P0 6 → 10;☠ 伤害累计 P0 10 → 1009
+E|GSC71	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	24	25	0	0		
+E|GSC72	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	27	27	0	0		
+E|GSC73	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	4	3		☠ 离场 P1[3] FIX_E1 2/0/0/4 → .;☠ 伤害累计 P0 3 → 9;☠ 伤害累计 P0 9 → 12;☠ 伤害累计 P0 12 → 1011
+E|GSC74	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	25	1	0		✎ 改动 P1[3] FIX_E1 2/0/0/6 {vanguard1} → FIX_E1 2/0/0/6
+E|GSC8	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,kill(dmg)=999	21	21	0	0		
+E|GSC9	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,kill(dmg)=999	24	21	9	7		☠ 离场 P0[2] GSC9 5/0/0/1 {ambush1, cantattack1} → .;✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/3;✎ 改动 P1[4] WARLORD 2/0/0/30 → WARLORD 2/0/0/27;✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/3;✎ 改动 P1[6] FIX_E3 1/0/0/6 → FIX_E3 1/0/0/3;☠ 伤害累计 P0 0 → 12;☠ 伤害累计 P1 8 → 9;✎ 改动 P1[3] FIX_E1 2/0/0/3 → FIX_E1 2/0/0/-996;☠ 伤害累计 P0 12 → 1011
+E|GSC_Jackal_Scout	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,kill(dmg)=999	21	21	1	0		💰 手牌总价 P1 4 → 6（2）
+E|SAU10	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	24	24	0	0		
+E|SAU11	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	23	23	0	0		
+E|SAU12	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	26	0	0		
+E|SAU13	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|SAU14	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	24	24	0	0		
+E|SAU15	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	24	24	0	0		
+E|SAU16	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|SAU17	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	24	24	0	0		
+E|SAU18	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|SAU19	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|SAU20	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|SAU21	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|SAU22	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	26	0	0		
+E|SAU23	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	25	1	0		✎ 改动 P1[3] FIX_E1 2/0/0/6 {stun1} → FIX_E1 2/0/0/6
+E|SAU24	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	22	22	0	0		
+E|SAU25	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	24	3	0		✋ 手牌 P0 +「SAU26」×1;💰 手牌总价 P0 2 → 5（3）;💰 手牌总价 P0 5 → 6（1）
+E|SAU27	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	25	3	0		✋ 手牌 P0 +「SAU26」×1;💰 手牌总价 P0 2 → 5（3）;💰 手牌总价 P0 5 → 6（1）
+E|SAU28	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|SAU29	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|SAU31	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	25	3	0		✋ 手牌 P0 +「SAU26」×1;💰 手牌总价 P0 2 → 5（3）;💰 手牌总价 P0 5 → 6（1）
+E|SAU32	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|SAU33	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|SAU34	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	4	3		☠ 离场 P1[3] FIX_E1 2/0/0/3 → .;☠ 伤害累计 P0 3 → 9;☠ 伤害累计 P0 9 → 11;☠ 伤害累计 P0 11 → 1010
+E|SAU35	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	23	23	0	0		
+E|SAU36	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	25	3	0		✋ 手牌 P0 +「SAU26」×1;💰 手牌总价 P0 2 → 5（3）;💰 手牌总价 P0 5 → 6（1）
+E|SAU37	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	25	3	0		✋ 手牌 P0 +「SAU38」×1;💰 手牌总价 P0 2 → 5（3）;💰 手牌总价 P0 5 → 6（1）
+E|SAU39	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|SAU40	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|SAU41	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	4	1		✎ 改动 P0[2] SAU41 8/8/0/8 {destroyer1, remnant1} → SAU41 9/9/0/6 {destroyer1, remnant1};✎ 改动 P0[2] SAU41 9/9/0/6 {destroyer1, remnant1} → SAU41 10/10/0/3 {destroyer1, remnant1};☠ 伤害累计 P0 8 → 17;☠ 伤害累计 P0 17 → 1016
+E|SAU42	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|SAU43	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	28	27	3	0		✋ 手牌 P0 +「SAU44」×1;💰 手牌总价 P0 2 → 10（8）;💰 手牌总价 P0 10 → 11（1）
+E|SAU68	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	24	1	0		✎ 改动 P0[3] FIX_A 2/0/0/2 {regeneration2} → FIX_A 2/0/0/4 {regeneration2}
+E|SAU69	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	22	22	0	0		
+E|SAU7	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,kill(dmg)=999	21	21	0	0		
+E|SAU70	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	25	3	1		✎ 改动 P1[6] FIX_E3 1/0/0/6 → FIX_E3 1/0/0/5;☠ 伤害累计 P0 5 → 9;☠ 伤害累计 P0 9 → 1008
+E|SAU71	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|SAU72	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|SAU73	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|SAU74	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	28	28	0	0		
+E|SAU8	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|SAU9	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	23	23	0	0		
+E|SAU_Lychguard	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	22	22	0	0		
+E|SOR10	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|SOR11	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	23	23	0	0		
+E|SOR12	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	25	3	0		✋ 手牌 P0 +「SOR13」×1;💰 手牌总价 P0 2 → 6（4）;💰 手牌总价 P0 6 → 7（1）
+E|SOR14	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	26	0	0		
+E|SOR15	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|SOR16	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	24	23	3	2		✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/4;☠ 伤害累计 P0 0 → 5;☠ 伤害累计 P0 5 → 1004
+E|SOR17	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	28	28	0	0		
+E|SOR18	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(pray)=0,atkM=6,atkR2=0,kill(dmg)=999	25	24	8	-2		✎ 改动 P0[2] SOR18 2/2/0/5 {pray1} → SOR18 3/2/0/5 {pray1};✎ 改动 P0[3] FIX_A 2/0/0/2 → FIX_A 3/0/0/2;✎ 改动 P0[4] WARLORD 2/0/0/28 → WARLORD 3/0/0/28;✎ 改动 P0[5] FIX_B 3/0/0/3 → FIX_B 4/0/0/3;✎ 改动 P0[6] FIX_C 1/0/0/2 → FIX_C 2/0/0/2;✎ 改动 P0[2] SOR18 3/2/0/5 {pray1} → SOR18 3/2/0/3 {pray1};✎ 改动 P1[3] FIX_E1 2/0/0/4 → FIX_E1 2/0/0/-995;☠ 伤害累计 P0 2 → 1001
+E|SOR19	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	23	23	2	0		✎ 改动 P0[2] SOR19 3/0/0/4 → SOR19 5/0/0/2;☠ 离场 P0[2] SOR19 5/0/0/2 → .
+E|SOR20	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(pray)=0,atkM=6,atkR2=0,kill(dmg)=999	20	25	6	-4		✎ 改动 P0[2] SOR20 4/3/0/5 {pray1} → SOR20 4/3/0/5 {pray1, shield1};✎ 改动 P0[2] SOR20 4/3/0/5 {pray1, shield1} → SOR20 4/3/0/5 {pray1};✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/3;☠ 伤害累计 P0 0 → 3;✎ 改动 P1[3] FIX_E1 2/0/0/3 → FIX_E1 2/0/0/-996;☠ 伤害累计 P0 3 → 1002
+E|SOR21	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|SOR22	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	28	25	5	0		✋ 手牌 P0 +「SOR13」×1;💰 手牌总价 P0 2 → 6（4）;💰 手牌总价 P0 6 → 7（1）;🔮 信仰 P0 0 → 1;🔮 信仰 P0 1 → 2
+E|SOR23	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	26	0	0		
+E|SOR24	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	26	0	0		
+E|SOR25	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(pray)=0,atkM=6,atkR2=0,kill(dmg)=999	22	25	6	-3		✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/5;☠ 伤害累计 P0 0 → 1;✎ 改动 P1[3] FIX_E1 2/0/0/5 → FIX_E1 2/0/0/1;☠ 伤害累计 P0 1 → 5;✎ 改动 P1[3] FIX_E1 2/0/0/1 → FIX_E1 2/0/0/-998;☠ 伤害累计 P0 5 → 1004
+E|SOR26	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|SOR27	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|SOR28	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	26	4	1		☠ 离场 P1[3] FIX_E1 2/0/0/5 → .;☠ 伤害累计 P0 1 → 7;☠ 伤害累计 P0 7 → 11;☠ 伤害累计 P0 11 → 1010
+E|SOR29	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|SOR30	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(pray)=0,atkM=6,atkR2=0,kill(dmg)=999	25	25	8	-4		✎ 改动 P0[2] SOR30 5/4/0/6 {pray1} → SOR30 6/5/0/6 {pray1};✎ 改动 P0[3] FIX_A 2/0/0/2 → FIX_A 3/1/0/2;✎ 改动 P0[4] WARLORD 2/0/0/28 → WARLORD 3/1/0/28;✎ 改动 P0[5] FIX_B 3/0/0/3 → FIX_B 4/1/0/3;✎ 改动 P0[6] FIX_C 1/0/0/2 → FIX_C 2/1/0/2;✎ 改动 P0[2] SOR30 6/5/0/6 {pray1} → SOR30 6/5/0/4 {pray1};✎ 改动 P1[3] FIX_E1 2/0/0/1 → FIX_E1 2/0/0/-998;☠ 伤害累计 P0 5 → 1004
+E|SOR31	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|SOR32	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	4	1		☠ 离场 P1[3] FIX_E1 2/0/0/5 → .;☠ 伤害累计 P0 1 → 8;☠ 伤害累计 P0 8 → 11;☠ 伤害累计 P0 11 → 1010
+E|SOR33	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|SOR34	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	25	5	2		✎ 改动 P0[2] SOR34 4/5/0/7 → SOR34 4/5/0/5 {blast2, flank1};✎ 改动 P0[2] SOR34 4/5/0/5 {blast2, flank1} → SOR34 4/5/0/3 {blast4, flank2};✎ 改动 P1[4] WARLORD 2/0/0/30 → WARLORD 2/0/0/28;☠ 伤害累计 P0 5 → 11;☠ 伤害累计 P0 11 → 1010
+E|SOR35	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	26	0	0		
+E|SOR36	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	0	0		
+E|SOR37	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	29	27	5	4		✎ 改动 P1[4] WARLORD 2/0/0/30 → WARLORD 2/0/0/28;☠ 伤害累计 P0 0 → 8;✎ 改动 P1[4] WARLORD 2/0/0/28 → WARLORD 2/0/0/26;☠ 伤害累计 P0 8 → 16;☠ 伤害累计 P0 16 → 1015
+E|SOR38	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	28	27	1	0		✎ 改动 P0[2] SOR38 7/7/0/7 {flying1, invulnerable1, rally1, regeneration2} → SOR38 7/7/0/7 {flying1, rally1, regeneration2}
+E|SOR39	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	29	29	0	0		
+E|SOR40	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	0	0		
+E|SOR42	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	29	29	0	0		
+E|SOR67	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,kill(dmg)=999	19	21	7	-1		☠ 离场 P0[2] SOR67 1/2/0/2 {flying1, rally1} → .;✋ 手牌 P0 +「SOR67」×1;💰 手牌总价 P0 2 → 5（3）;🔮 信仰 P0 0 → 1;💰 手牌总价 P0 5 → 6（1）;✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/-993;☠ 伤害累计 P0 0 → 999
+E|SOR68	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(pray)=0,atkR=6,atkM2=0,kill(dmg)=999	20	25	6	-2		✎ 改动 P0[2] SOR68 1/2/0/3 {pray1} → SOR68 1/2/0/3 {pray1, shield1};✎ 改动 P0[2] SOR68 1/2/0/3 {pray1, shield1} → SOR68 1/2/0/3 {pray1};✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/5;☠ 伤害累计 P0 0 → 1;✎ 改动 P1[3] FIX_E1 2/0/0/5 → FIX_E1 2/0/0/-994;☠ 伤害累计 P0 1 → 1000
+E|SOR69	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(pray)=0,atkM=6,atkR2=0,kill(dmg)=999	21	26	4	-3		✎ 改动 P0[2] SOR69 3/3/0/4 {pray1} → SOR69 6/3/0/4 {pray1};✎ 改动 P0[2] SOR69 6/3/0/4 {pray1} → SOR69 6/3/0/2 {pray1};✎ 改动 P1[3] FIX_E1 2/0/0/3 → FIX_E1 2/0/0/-996;☠ 伤害累计 P0 3 → 1002
+E|SOR7	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(pray)=0,atkM=6,atkR2=0,kill(dmg)=999	22	21	5	-1		✚ 落场/生成 P0[7] . → SOR7 2/1/0/2 {pray1};✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/5;☠ 伤害累计 P0 0 → 1;✎ 改动 P1[3] FIX_E1 2/0/0/5 → FIX_E1 2/0/0/-994;☠ 伤害累计 P0 1 → 1000
+E|SOR70	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	24	24	0	0		
+E|SOR71	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|SOR72	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	24	24	0	0		
+E|SOR73	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|SOR8	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,kill(dmg)=999	28	23	13	4		☠ 离场 P0[2] SOR8 2/0/0/3 {flank1} → .;✎ 改动 P0[3] FIX_A 2/0/0/2 → FIX_A 2/0/0/1;✎ 改动 P0[4] WARLORD 2/0/0/28 → WARLORD 2/0/0/27;✎ 改动 P0[5] FIX_B 3/0/0/3 → FIX_B 3/0/0/2;✎ 改动 P0[6] FIX_C 1/0/0/2 → FIX_C 1/0/0/1;✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/3;✎ 改动 P1[4] WARLORD 2/0/0/30 → WARLORD 2/0/0/29;✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/5;✎ 改动 P1[6] FIX_E3 1/0/0/6 → FIX_E3 1/0/0/5;☠ 伤害累计 P0 0 → 6;☠ 伤害累计 P1 8 → 15;✎ 改动 P1[3] FIX_E1 2/0/0/3 → FIX_E1 2/0/0/-996;☠ 伤害累计 P0 6 → 1005
+E|SOR9	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|SOR_Triumph_of_Saint_Katherine	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(pray)=0,atkM=6,atkR2=0,kill(dmg)=999	21	25	6	-7		✎ 改动 P0[2] SOR_Triumph_of_Saint_Katherine 7/5/2/9 {armour2, pray1} → SOR_Triumph_of_Saint_Katherine 7/5/3/9 {armour3, pray1};✎ 改动 P0[2] SOR_Triumph_of_Saint_Katherine 7/5/3/9 {armour3, pray1} → SOR_Triumph_of_Saint_Katherine 7/5/3/8 {armour3, pray1};✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/1;☠ 伤害累计 P0 0 → 5;✎ 改动 P1[3] FIX_E1 2/0/0/1 → FIX_E1 2/0/0/-998;☠ 伤害累计 P0 5 → 1004
+E|SW11	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(ferocity)=0,kill(dmg)=999	20	21	5	1		✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/3;🂠 牌库 P0 +「SW11」×1;☠ 伤害累计 P0 0 → 3;✎ 改动 P1[3] FIX_E1 2/0/0/3 → FIX_E1 2/0/0/-996;☠ 伤害累计 P0 3 → 1002
+E|SW12	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(ferocity)=0,kill(dmg)=999	21	21	4	0		✎ 改动 P1[6] FIX_E3 1/0/0/6 → FIX_E3 1/0/0/4;🂠 牌库 P0 +「SW12」×1;☠ 伤害累计 P1 8 → 9;✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/-993
+E|SW13	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|SW14	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	28	28	0	0		
+E|SW15	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|SW16	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(ferocity)=0,kill(dmg)=999	21	23	2	0		☠ 离场 P0[2] SW16 3/0/0/3 {ferocity1, tide1} → .;🂠 牌库 P0 +「SW16」×1
+E|SW17	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|SW18	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	23	28	0	0		
+E|SW19	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(ferocity)=0,kill(dmg)=999	18	28	4	-14		☠ 离场 P0[2] SW19 3/3/0/4 {ferocity1, pack1} → .;🂠 牌库 P0 +「SW19」×1;✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/-993;☠ 伤害累计 P0 0 → 999
+E|SW20	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	28	26	6	1		✎ 改动 P1[3] FIX_E1 2/0/0/6 {huntmark1} → FIX_E1 2/0/0/3 {huntmark1};✎ 改动 P0[4] WARLORD 2/0/0/28 → WARLORD 2/0/0/29;☠ 离场 P1[3] FIX_E1 2/0/0/3 {huntmark1} → .;✎ 改动 P1[4] WARLORD 2/0/0/30 → WARLORD 2/0/0/29;☠ 伤害累计 P0 3 → 7;☠ 伤害累计 P0 7 → 1006
+E|SW21	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	28	28	2	0		💰 手牌总价 P0 3 → 5（2）;💰 手牌总价 P0 5 → 6（1）
+E|SW22	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	24	24	0	0		
+E|SW23	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	2	0		💰 手牌总价 P0 2 → 3（1）;💰 手牌总价 P0 3 → 4（1）
+E|SW24	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	24	7	0		✎ 改动 P0[5] FIX_B 3/0/0/3 {regeneration1} → FIX_B 3/0/0/5 {regeneration1};✋ 手牌 P0 +「filler19」×1;✋ 手牌 P0 +「filler21」×1;🂠 牌库 P0 -「filler19」×1;🂠 牌库 P0 -「filler21」×1;💰 手牌总价 P0 3 → 5（2）;💰 手牌总价 P0 5 → 6（1）
+E|SW25	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|SW26	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	32	25	11	1		✎ 改动 P0[2] SW26 5/4/0/5 {rally1} → SW26 4/4/0/5 {rally1};✎ 改动 P0[3] FIX_A 3/0/0/2 → FIX_A 2/0/0/2;✎ 改动 P0[4] WARLORD 3/0/0/28 → WARLORD 2/0/0/28;✎ 改动 P0[5] FIX_B 4/0/0/3 → FIX_B 3/0/0/3;✎ 改动 P0[6] FIX_C 2/0/0/2 → FIX_C 1/0/0/2;✎ 改动 P1[3] FIX_E1 2/0/0/6 {huntmark1} → FIX_E1 2/0/0/2 {huntmark1};✎ 改动 P0[4] WARLORD 2/0/0/28 → WARLORD 2/0/0/29;☠ 离场 P1[3] FIX_E1 2/0/0/2 {huntmark1} → .;✎ 改动 P1[4] WARLORD 2/0/0/30 → WARLORD 2/0/0/29;☠ 伤害累计 P0 4 → 9;☠ 伤害累计 P0 9 → 1008
+E|SW27	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	28	28	0	0		
+E|SW28	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(ferocity)=0,kill(dmg)=999	20	28	6	-12		☠ 离场 P0[2] SW28 4/3/0/4 {ferocity1, pack1} → .;✎ 改动 P1[6] FIX_E3 1/0/0/6 → FIX_E3 1/0/0/3;🂠 牌库 P0 +「SW28」×1;☠ 伤害累计 P0 0 → 3;✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/-993;☠ 伤害累计 P0 3 → 1002
+E|SW29	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	26	1	0		✎ 改动 P0[2] SW29 6/4/0/5 {invulnerable1, rally1} → SW29 6/4/0/5 {rally1}
+E|SW3	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	21	22	0	0		
+E|SW30	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	2	0		✎ 改动 P0[2] SW30 3/5/0/5 {flank1, flying1, strike1} → SW30 3/5/0/3 {flank1, flying1, huntmark1, strike1};✎ 改动 P0[2] SW30 3/5/0/3 {flank1, flying1, huntmark1, strike1} → SW30 3/5/0/1 {flank1, flying1, huntmark2, strike1}
+E|SW31	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	22	22	0	0		
+E|SW32	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	0	0		
+E|SW33	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|SW34	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	1	0		✎ 改动 P0[2] SW34 4/2/2/3 {armour2, vanguard1} → SW34 5/3/2/3 {armour2, vanguard1}
+E|SW35	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	2	0		✎ 改动 P0[2] SW35 5/5/0/7 {pack1, rally1} → SW35 5/5/0/5 {pack1, rally1};✎ 改动 P0[2] SW35 5/5/0/5 {pack1, rally1} → SW35 5/5/0/2 {pack1, rally1}
+E|SW36	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(ferocity)=0,kill(dmg)=999	18	23	4	-10		☠ 离场 P0[2] SW36 3/7/0/5 {ferocity1, rally1, sniper1} → .;🂠 牌库 P0 +「SW36」×1;✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/-993;☠ 伤害累计 P0 0 → 999
+E|SW37	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|SW38	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	0	0		
+E|SW39	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	2	0		✎ 改动 P0[2] SW39 8/5/1/8 {armour1, pack1} → SW39 8/5/1/8 {armour1, bloodthirst1, pack1};✎ 改动 P0[2] SW39 8/5/1/8 {armour1, bloodthirst1, pack1} → SW39 8/5/1/8 {armour1, bloodthirst2, pack1}
+E|SW40	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|SW41	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	4	3		☠ 离场 P1[3] FIX_E1 2/0/0/3 → .;☠ 伤害累计 P0 3 → 10;☠ 伤害累计 P0 10 → 17;☠ 伤害累计 P0 17 → 1016
+E|SW42	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,alt(ferocity)=0,atkM=6,atkR2=0,kill(dmg)=999	26	27	9	3		✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/3;✎ 改动 P1[4] WARLORD 2/0/0/30 → WARLORD 2/0/0/27;✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/3;✎ 改动 P1[6] FIX_E3 1/0/0/6 → FIX_E3 1/0/0/3;☠ 伤害累计 P0 0 → 12;☠ 离场 P1[3] FIX_E1 2/0/0/3 → .;☠ 伤害累计 P0 12 → 20;✎ 改动 P1[5] FIX_E2 3/0/0/3 → FIX_E2 3/0/0/-996;☠ 伤害累计 P0 20 → 1019
+E|SW43	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	26	0	0		
+E|SW44	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	5	2		✎ 改动 P0[2] SW44 12/8/1/9 {armour1, pack1} → SW44 12/8/1/8 {armour1, pack1};☠ 伤害累计 P0 0 → 16;✎ 改动 P0[2] SW44 12/8/1/8 {armour1, pack1} → SW44 12/8/1/6 {armour1, pack1};☠ 伤害累计 P0 16 → 28;☠ 伤害累计 P0 28 → 1027
+E|SW45	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	27	27	0	0		
+E|TAU10	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	23	4	4		✎ 改动 P1[6] FIX_E3 1/0/0/6 → FIX_E3 1/0/0/4;☠ 伤害累计 P0 2 → 4;☠ 伤害累计 P0 4 → 6;☠ 伤害累计 P0 6 → 1005
+E|TAU11	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	24	23	1	0		✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/6 {markerlight1}
+E|TAU12	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	26	0	0		
+E|TAU13	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	10	2		💰 手牌总价 P0 4 → 6（2）;💰 手牌总价 P0 6 → 7（1）;✎ 改动 P0[2] TAU13 1/2/0/3 {companion2, rally1} → TAU13 1/2/0/1 {companion2, rally1};✎ 改动 P1[3] FIX_E1 2/0/0/6 {markerlight2} → FIX_E1 2/0/0/2;☠ 伤害累计 P0 0 → 4;☠ 离场 P0[2] TAU13 1/2/0/1 {companion2, rally1} → .;✎ 改动 P1[3] FIX_E1 2/0/0/2 → FIX_E1 2/0/0/1;☠ 伤害累计 P0 4 → 5;✎ 改动 P1[3] FIX_E1 2/0/0/1 → FIX_E1 2/0/0/-998;☠ 伤害累计 P0 5 → 1004
+E|TAU14	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,kill(dmg)=999	22	22	0	0		
+E|TAU15	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	26	0	0		
+E|TAU16	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	28	27	3	0		✋ 手牌 P0 +「TAU17」×1;💰 手牌总价 P0 2 → 7（5）;💰 手牌总价 P0 7 → 8（1）
+E|TAU18	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	29	22	13	16		✎ 改动 P1[3] FIX_E1 2/0/0/4 → FIX_E1 2/0/0/2;✎ 改动 P1[4] WARLORD 2/0/0/28 → WARLORD 2/0/0/26;✎ 改动 P1[5] FIX_E2 3/0/0/4 → FIX_E2 3/0/0/2;✎ 改动 P1[6] FIX_E3 1/0/0/4 → FIX_E3 1/0/0/2;☠ 伤害累计 P0 8 → 16;☠ 离场 P1[3] FIX_E1 2/0/0/2 → .;☠ 伤害累计 P0 16 → 18;🗑 弃牌 P1 +「FIX_E1」×1;☠ 离场 P0[2] TAU18 0/2/0/3 → .;🗑 弃牌 P0 +「TAU18」×1;☠ 伤害累计 P1 10 → 13;✎ 改动 P1[5] FIX_E2 3/0/0/2 → FIX_E2 3/0/0/-997;☠ 伤害累计 P0 18 → 1017
+E|TAU19	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	26	0	0		
+E|TAU20	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	22	22	0	0		
+E|TAU21	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	24	24	0	0		
+E|TAU22	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	24	24	0	0		
+E|TAU23	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	24	23	2	0		✎ 改动 P0[2] TAU23 2/5/0/5 {longrange1, strike1} → TAU23 2/5/0/5 {longrange1, markerlight2, strike1};✎ 改动 P0[2] TAU23 2/5/0/5 {longrange1, markerlight2, strike1} → TAU23 2/5/0/3 {longrange1, markerlight4, strike1}
+E|TAU24	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	24	3	0		✋ 手牌 P0 +「TAU3」×1;💰 手牌总价 P0 2 → 6（4）;💰 手牌总价 P0 6 → 7（1）
+E|TAU25	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	29	26	8	2		✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/4;💰 手牌总价 P0 3 → 4（1）;☠ 伤害累计 P0 0 → 2;☠ 伤害累计 P0 2 → 6;💰 手牌总价 P0 5 → 7（2）;☠ 伤害累计 P0 6 → 8;✎ 改动 P1[5] FIX_E2 3/0/0/4 → FIX_E2 3/0/0/-995;☠ 伤害累计 P0 8 → 1007
+E|TAU26	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	27	26	3	0		✋ 手牌 P0 +「TAU27」×1;💰 手牌总价 P0 2 → 8（6）;💰 手牌总价 P0 8 → 9（1）
+E|TAU28	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	31	26	12	8		✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/4;✎ 改动 P1[4] WARLORD 2/0/0/30 → WARLORD 2/0/0/28;✎ 改动 P1[6] FIX_E3 1/0/0/6 → FIX_E3 1/0/0/4;💰 手牌总价 P0 5 → 7（2）;☠ 伤害累计 P0 0 → 8;💰 手牌总价 P0 7 → 8（1）;☠ 离场 P1[3] FIX_E1 2/0/0/4 → .;☠ 伤害累计 P0 8 → 14;✎ 改动 P1[5] FIX_E2 3/0/0/4 → FIX_E2 3/0/0/2;☠ 伤害累计 P0 14 → 16;✎ 改动 P1[5] FIX_E2 3/0/0/2 → FIX_E2 3/0/0/-997;☠ 伤害累计 P0 16 → 1015
+E|TAU29	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|TAU30	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	23	23	2	0		💰 手牌总价 P0 4 → 6（2）;💰 手牌总价 P0 6 → 7（1）
+E|TAU31	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|TAU32	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	27	26	9	3		☠ 离场 P1[3] FIX_E1 2/0/0/6 {markerlight3} → .;☠ 伤害累计 P0 0 → 8;☠ 离场 P0[2] TAU32 2/5/0/3 → .;✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/4;🗑 弃牌 P0 +「TAU32」×1;☠ 伤害累计 P0 8 → 10;☠ 伤害累计 P1 10 → 13;✎ 改动 P1[5] FIX_E2 3/0/0/4 → FIX_E2 3/0/0/-995;☠ 伤害累计 P0 10 → 1009
+E|TAU33	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	26	2	0		💰 手牌总价 P0 4 → 6（2）;💰 手牌总价 P0 6 → 7（1）
+E|TAU34	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	24	24	2	0		✋ 手牌 P0 +「TAU3」×1;💰 手牌总价 P0 1 → 3（2）
+E|TAU35	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|TAU36	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	2	0		💰 手牌总价 P0 3 → 5（2）;💰 手牌总价 P0 5 → 6（1）
+E|TAU37	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	27	23	11	2		✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/4;💰 手牌总价 P0 4 → 6（2）;☠ 伤害累计 P0 0 → 2;💰 手牌总价 P0 6 → 7（1）;☠ 伤害累计 P0 2 → 9;✎ 改动 P1[5] FIX_E2 3/0/0/4 → FIX_E3 1/0/0/6;☠ 离场 P1[6] FIX_E3 1/0/0/6 → .;☠ 伤害累计 P0 9 → 13;🗑 弃牌 P1 +「FIX_E2」×1;✎ 改动 P1[5] FIX_E3 1/0/0/6 → FIX_E3 1/0/0/-993;☠ 伤害累计 P0 13 → 1012
+E|TAU38	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	27	27	4	0		💰 手牌总价 P0 4 → 6（2）;💰 手牌总价 P0 6 → 7（1）;✎ 改动 P0[2] TAU38 6/8/1/9 {armour1, companion2, flying1} → TAU38 6/8/1/8 {armour1, companion2, flying1};✎ 改动 P0[2] TAU38 6/8/1/8 {armour1, companion2, flying1} → TAU38 6/8/1/6 {armour1, companion2, flying1}
+E|TAU39	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	4	2		☠ 离场 P1[3] FIX_E1 2/0/0/4 → .;☠ 伤害累计 P0 2 → 9;☠ 伤害累计 P0 9 → 11;☠ 伤害累计 P0 11 → 1010
+E|TAU40	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	23	23	0	0		
+E|TAU41	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	23	23	1	0		☠ 离场 P1[3] FIX_E1 2/0/0/6 {markerlight3} → .
+E|TAU42	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	23	22	1	0		✋ 手牌 P0 +「TAU43」×1
+E|TAU44	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	28	28	1	0		☠ 离场 P1[3] FIX_E1 2/0/0/6 {markerlight2} → .
+E|TAU45	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	25	3	0		✋ 手牌 P0 +「TAU46」×1;💰 手牌总价 P0 2 → 8（6）;💰 手牌总价 P0 8 → 9（1）
+E|TAU70	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	5	2		✎ 改动 P1[3] FIX_E1 2/0/0/4 → FIX_E1 2/0/0/1;☠ 伤害累计 P0 2 → 5;☠ 离场 P1[3] FIX_E1 2/0/0/1 → .;☠ 伤害累计 P0 5 → 8;☠ 伤害累计 P0 8 → 1007
+E|TAU71	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	29	25	5	0		✎ 改动 P0[2] TAU71 5/4/0/3 → TAU71 6/4/0/1;✎ 改动 P0[3] FIX_A 2/0/0/2 → FIX_A 3/0/0/2;✎ 改动 P0[4] WARLORD 2/0/0/28 → WARLORD 3/0/0/28;✎ 改动 P0[5] FIX_B 3/0/0/3 → FIX_B 4/0/0/3;✎ 改动 P0[6] FIX_C 1/0/0/2 → FIX_C 2/0/0/2
+E|TAU72	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	25	1	0		✎ 改动 P0[2] TAU72 9/2/0/6 {flank1, rally1} → TAU72 6/2/0/6 {flank1, rally1}
+E|TAU73	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	29	29	0	0		
+E|TAU8	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	23	23	0	0		
+E|TAU9	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	24	24	0	0		
+E|TAU_Kroot_Carnivore	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|TAU_Kroot_Hound	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	23	23	0	0		
+E|TAU_Trail_Shaper	unit	C 部署时该发生	0	0	1	1	play=0,end0=0,end1=0,draw=1,kill(dmg)=999	16	26	4	-6		💰 手牌总价 P0 3 → 5（2）;💰 手牌总价 P0 5 → 6（1）;✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/-993;☠ 伤害累计 P0 0 → 999
+E|TL10	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,kill(dmg)=999	21	27	3	-3		☠ 离场 P0[2] TL10 3/1/0/3 {blast2, flying1} → .;✎ 改动 P1[3] FIX_E1 2/0/0/3 → FIX_E1 2/0/0/-996;☠ 伤害累计 P0 5 → 1004
+E|TL11	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|TL12	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|TL13	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,kill(dmg)=999	22	22	0	0		
+E|TL14	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	28	25	6	6		✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/3;🗑 弃牌 P0 +「TL8」×1;☠ 伤害累计 P0 3 → 6;☠ 伤害累计 P0 6 → 9;☠ 伤害累计 P0 9 → 10;☠ 伤害累计 P0 10 → 1009
+E|TL15	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	26	0	0		
+E|TL16	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	24	3	0		✋ 手牌 P0 +「TL16」×2;💰 手牌总价 P0 5 → 13（8）;💰 手牌总价 P0 13 → 14（1）
+E|TL17	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|TL18	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	26	0	0		
+E|TL19	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	23	23	0	0		
+E|TL20	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	26	4	3		☠ 伤害累计 P0 3 → 7;☠ 伤害累计 P0 7 → 9;✎ 改动 P1[5] FIX_E2 3/0/0/3 → FIX_E2 3/0/0/-996;☠ 伤害累计 P0 9 → 1008
+E|TL21	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|TL22	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|TL23	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	24	9	-4		☠ 离场 P1[3] FIX_E1 2/0/0/6 → .;🗑 弃牌 P1 +「FIX_E1」×1;✎ 改动 P0[2] TL23 2/2/0/4 → TL23 2/2/0/1;✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E3 1/0/0/6;☠ 离场 P1[6] FIX_E3 1/0/0/6 → .;🗑 弃牌 P1 +「FIX_E2」×1;☠ 伤害累计 P1 10 → 13;✎ 改动 P1[5] FIX_E3 1/0/0/6 → FIX_E3 1/0/0/-993;☠ 伤害累计 P0 0 → 999
+E|TL24	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|TL25	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	4	0		✎ 改动 P0[2] TL25 4/4/1/6 {armour1, rally1} → TL25 4/4/1/5 {armour1, rally1};☠ 伤害累计 P1 8 → 9;✎ 改动 P0[2] TL25 4/4/1/5 {armour1, rally1} → TL25 4/4/1/4 {armour1, rally1};☠ 伤害累计 P1 9 → 10
+E|TL26	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	25	2	0		✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/6 {stun1};✎ 改动 P1[5] FIX_E2 3/0/0/6 {stun1} → FIX_E2 3/0/0/-993 {stun1}
+E|TL27	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	26	0	0		
+E|TL28	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	22	22	0	0		
+E|TL29	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|TL30	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	26	0	0		
+E|TL31	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	8	3		☠ 离场 P1[3] FIX_E1 2/0/0/3 → .;☠ 伤害累计 P0 3 → 8;✎ 改动 P0[2] TL31 5/4/0/5 {flying1, rally1} → TL31 5/4/0/2 {flying1, rally1};✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/2;☠ 伤害累计 P0 8 → 12;☠ 伤害累计 P1 10 → 13;✎ 改动 P1[5] FIX_E2 3/0/0/2 → FIX_E2 3/0/0/-997;☠ 伤害累计 P0 12 → 1011
+E|TL32	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|TL33	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	28	28	0	0		
+E|TL34	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	25	1	0		✋ 手牌 P0 +「TL35」×1
+E|TL36	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|TL37	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	28	27	3	0		✋ 手牌 P0 +「TL38」×1;💰 手牌总价 P0 2 → 6（4）;💰 手牌总价 P0 6 → 7（1）
+E|TL39	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	0	0		
+E|TL40	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	28	28	4	0		✎ 改动 P0[2] TL40 5/10/0/10 {blast5, rally1, vulnerable2} → TL40 5/10/0/6 {blast5, rally1, vulnerable2};☠ 伤害累计 P1 8 → 12;✎ 改动 P0[2] TL40 5/10/0/6 {blast5, rally1, vulnerable2} → TL40 5/10/0/1 {blast5, rally1, vulnerable2};☠ 伤害累计 P1 12 → 17
+E|TL41	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	1	0		✎ 改动 P0[2] TL41 8/2/0/6 → TL41 8/2/0/5
+E|TL42	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	1	0		💰 手牌总价 P0 1 → 4（3）
+E|TL43	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	28	25	8	2		✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/5;☠ 伤害累计 P0 0 → 11;✎ 改动 P1[5] FIX_E2 3/0/0/5 → FIX_E3 1/0/0/5;☠ 离场 P1[6] FIX_E3 1/0/0/6 → .;☠ 伤害累计 P0 11 → 17;🗑 弃牌 P1 +「FIX_E2」×1;✎ 改动 P1[5] FIX_E3 1/0/0/5 → FIX_E3 1/0/0/-994;☠ 伤害累计 P0 17 → 1016
+E|TL7	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,kill(dmg)=999	22	22	0	0		
+E|TL76	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	23	23	0	0		
+E|TL77	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,kill(dmg)=999	22	22	0	0		
+E|TL78	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	28	28	0	0		
+E|TL79	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	26	0	0		
+E|TL8	unit	C 部署时该发生	1	0	1	1	play=0,oath=4,end0=2,end1=2,draw=1,abil=4,atkM=4,atkR2=4,kill(dmg)=999	5	21	3	1		💰 手牌总价 P0 2 → 3（1）;✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/-993;☠ 伤害累计 P0 3 → 1002
+E|TL80	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	24	9	4		✎ 改动 P0[2] TL80 4/4/0/6 {rally1, talent1} → TL80 4/4/0/4 {rally1, talent1};✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/2;☠ 伤害累计 P0 0 → 4;✎ 改动 P0[2] TL80 4/4/0/4 {rally1, talent1} → TL80 4/4/0/2 {rally1, talent1};☠ 离场 P1[3] FIX_E1 2/0/0/2 → .;☠ 伤害累计 P0 4 → 8;🗑 弃牌 P1 +「FIX_E1」×1;✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/-993;☠ 伤害累计 P0 8 → 1007
+E|TL82	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|TL83	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	29	29	0	0		
+E|TL9	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	24	24	0	0		
+E|UM10	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,kill(dmg)=999	21	21	0	0		
+E|UM11	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,kill(dmg)=999	21	21	4	1		✎ 改动 P1[3] FIX_E1 2/0/0/5 → FIX_E1 2/0/0/3;☠ 伤害累计 P0 1 → 3;✎ 改动 P1[3] FIX_E1 2/0/0/3 → FIX_E1 2/0/0/-996;☠ 伤害累计 P0 3 → 1002
+E|UM12	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|UM13	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,kill(dmg)=999	21	21	0	0		
+E|UM14	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|UM16	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,kill(dmg)=999	21	21	4	2		✎ 改动 P1[3] FIX_E1 2/0/0/4 → FIX_E1 2/0/0/1;☠ 伤害累计 P0 2 → 5;✎ 改动 P1[3] FIX_E1 2/0/0/1 → FIX_E1 2/0/0/-998;☠ 伤害累计 P0 5 → 1004
+E|UM17	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	26	0	0		
+E|UM18	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	26	0	0		
+E|UM28	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	26	0	0		
+E|UM30	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|UM32	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|UM34	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|UM35	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	0	0		
+E|UM39	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|UM40	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|UM41	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|UM44	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	28	27	3	0		✋ 手牌 P0 +「UM45」×1;💰 手牌总价 P0 2 → 6（4）;💰 手牌总价 P0 6 → 7（1）
+E|UM71	unit	C 部署时该发生	0	0	1	1	play=0,oath=0,end0=0,end1=0,draw=1,abil=14,atkR=0,kill(dmg)=999	24	21	8	1		⚙ 能量 P0 19 → 17（-2）;✎ 改动 P1[3] FIX_E1 2/0/0/5 → FIX_E1 2/0/0/5 {stun1};⚙ 能量 P0 17 → 3（-14）;✎ 改动 P1[3] FIX_E1 2/0/0/5 {stun1} → FIX_E1 2/0/0/5;✎ 改动 P1[3] FIX_E1 2/0/0/5 → FIX_E1 2/0/0/3;☠ 伤害累计 P0 1 → 3;✎ 改动 P1[3] FIX_E1 2/0/0/3 → FIX_E1 2/0/0/-996;☠ 伤害累计 P0 3 → 1002
+E|UM72	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|UM73	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=0,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	25	12	6		⚙ 能量 P0 18 → 15（-3）;✎ 改动 P0[2] UM73 2/2/0/3 → UM73 5/5/0/6;⚙ 能量 P0 15 → 3（-12）;✎ 改动 P0[2] UM73 5/5/0/6 → UM73 5/5/0/4;✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/1;☠ 伤害累计 P0 0 → 5;✎ 改动 P0[2] UM73 5/5/0/4 → UM73 5/5/0/2;☠ 离场 P1[3] FIX_E1 2/0/0/1 → .;☠ 伤害累计 P0 5 → 10;🗑 弃牌 P1 +「FIX_E1」×1;✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/-993;☠ 伤害累计 P0 10 → 1009
+E|UM74	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=0,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	24	22	4	0		⚙ 能量 P0 17 → 14（-3）;✎ 改动 P0[2] UM74 1/4/0/3 {longrange1, oath3, sentry2} → UM74 1/4/0/3 {longrange1, oath3, sentry4};⚙ 能量 P0 14 → 3（-11）;✎ 改动 P0[2] UM74 1/4/0/3 {longrange1, oath3, sentry4} → UM74 1/4/0/1 {longrange1, oath3, sentry4}
+E|UM77	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=0,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	28	25	13	1		⚙ 能量 P0 16 → 14（-2）;✎ 改动 P0[2] UM77 3/5/0/5 → UM77 3/6/0/5 {flank1};⚙ 能量 P0 14 → 3（-11）;✎ 改动 P0[2] UM77 3/6/0/5 {flank1} → UM77 3/6/0/3 {flank1};☠ 离场 P1[3] FIX_E1 2/0/0/6 → .;☠ 伤害累计 P0 0 → 6;☠ 离场 P0[2] UM77 3/6/0/3 {flank1} → .;✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/3;🗑 弃牌 P0 +「UM77」×1;☠ 伤害累计 P0 6 → 9;☠ 伤害累计 P1 10 → 13;✎ 改动 P1[5] FIX_E2 3/0/0/3 → FIX_E2 3/0/0/-996;☠ 伤害累计 P0 9 → 1008
+E|UM78	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=0,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	24	5	0		⚙ 能量 P0 16 → 14（-2）;✎ 改动 P0[2] UM78 3/2/1/5 {armour1, codex1} → UM78 3/2/2/5 {armour2, codex1, vanguard1};⚙ 能量 P0 14 → 3（-11）;✎ 改动 P0[2] UM78 3/2/2/5 {armour2, codex1, vanguard1} → UM78 3/2/2/4 {armour2, codex1, vanguard1};✎ 改动 P0[2] UM78 3/2/2/4 {armour2, codex1, vanguard1} → UM78 3/2/2/3 {armour2, codex1, vanguard1}
+E|UM79	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	26	0	0		
+E|UM80	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=0,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	31	28	8	5		⚙ 能量 P0 15 → 11（-4）;✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/1;☠ 伤害累计 P0 0 → 5;⚙ 能量 P0 11 → 3（-8）;☠ 离场 P1[3] FIX_E1 2/0/0/1 → .;☠ 伤害累计 P0 5 → 13;☠ 伤害累计 P0 13 → 21;☠ 伤害累计 P0 21 → 1020
+E|UM81	unit	C 部署时该发生	1	0	1	1	play=0,oath=0,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	28	25	8	4		⚙ 能量 P0 15 → 12（-3）;✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/2;☠ 伤害累计 P0 0 → 4;⚙ 能量 P0 12 → 3（-9）;☠ 离场 P1[3] FIX_E1 2/0/0/2 → .;☠ 伤害累计 P0 4 → 10;☠ 伤害累计 P0 10 → 14;☠ 伤害累计 P0 14 → 1013
+E|UM82	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=0,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	29	27	7	0		⚙ 能量 P0 15 → 14（-1）;✎ 改动 P0[2] UM82 6/6/0/6 {oath1} → UM82 6/6/1/6 {armour1, oath1};⚙ 能量 P0 14 → 3（-11）;✎ 改动 P0[2] UM82 6/6/1/6 {armour1, oath1} → UM82 6/6/1/5 {armour1, oath1};☠ 伤害累计 P1 8 → 9;✎ 改动 P0[2] UM82 6/6/1/5 {armour1, oath1} → UM82 6/6/1/3 {armour1, oath1};☠ 伤害累计 P1 9 → 11
+E|UM83	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=0,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	31	28	8	3		⚙ 能量 P0 14 → 12（-2）;✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/3;☠ 伤害累计 P0 0 → 3;⚙ 能量 P0 12 → 3（-9）;☠ 离场 P1[3] FIX_E1 2/0/0/3 → .;☠ 伤害累计 P0 3 → 12;☠ 伤害累计 P0 12 → 23;☠ 伤害累计 P0 23 → 1022
+E|UM84	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	25	1	0		✋ 手牌 P0 +「UM85」×1
+E|UM86	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=0,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	29	25	7	0		⚙ 能量 P0 14 → 12（-2）;⚙ 能量 P0 12 → 3（-9）;✎ 改动 P0[2] UM86 4/7/0/5 → UM86 4/7/0/3;☠ 伤害累计 P1 10 → 12;☠ 离场 P0[2] UM86 4/7/0/3 → .;🗑 弃牌 P0 +「UM86」×1;☠ 伤害累计 P1 12 → 15
+E|UM87	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=0,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	25	7	0		⚙ 能量 P0 13 → 12（-1）;✎ 改动 P0[2] UM87 7/5/0/7 {oath1} → UM87 7/5/1/7 {armour1, oath1};⚙ 能量 P0 12 → 3（-9）;✎ 改动 P0[2] UM87 7/5/1/7 {armour1, oath1} → UM87 7/5/1/6 {armour1, oath1};☠ 伤害累计 P1 8 → 9;✎ 改动 P0[2] UM87 7/5/1/6 {armour1, oath1} → UM87 7/5/1/4 {armour1, oath1};☠ 伤害累计 P1 9 → 11
+E|UM88	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=0,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	30	27	4	0		⚙ 能量 P0 13 → 9（-4）;✎ 改动 P0[2] UM88 6/6/2/7 {armour2, oath1} → UM88 6/6/2/7 {armour2, invulnerable1, oath1};⚙ 能量 P0 9 → 3（-6）;✎ 改动 P0[2] UM88 6/6/2/7 {armour2, invulnerable1, oath1} → UM88 6/6/2/7 {armour2, oath1}
+E|UM89	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=0,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	30	27	8	1		⚙ 能量 P0 12 → 11（-1）;✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/5;☠ 伤害累计 P0 0 → 1;⚙ 能量 P0 11 → 3（-8）;☠ 离场 P1[3] FIX_E1 2/0/0/5 → .;☠ 伤害累计 P0 1 → 10;☠ 伤害累计 P0 10 → 19;☠ 伤害累计 P0 19 → 1018
+E|UM90	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|UM91	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=0,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	33	27	14	12		⚙ 能量 P0 11 → 9（-2）;✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/3;✎ 改动 P1[4] WARLORD 2/0/0/30 → WARLORD 2/0/0/27;✎ 改动 P1[5] FIX_E2 3/0/0/6 → FIX_E2 3/0/0/3;✎ 改动 P1[6] FIX_E3 1/0/0/6 → FIX_E3 1/0/0/3;☠ 伤害累计 P0 0 → 12;⚙ 能量 P0 9 → 3（-6）;☠ 离场 P1[3] FIX_E1 2/0/0/3 → .;☠ 伤害累计 P0 12 → 22;✎ 改动 P1[5] FIX_E2 3/0/0/3 → FIX_E3 1/0/0/3;☠ 离场 P1[6] FIX_E3 1/0/0/3 → .;☠ 伤害累计 P0 22 → 28;✎ 改动 P1[5] FIX_E3 1/0/0/3 → FIX_E3 1/0/0/-996;☠ 伤害累计 P0 28 → 1027
+E|UM_Aggressor_Sergeant	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	0	0		
+E|UM_Antaro_Chronus	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	26	25	3	0		✋ 手牌 P0 +「UM23」×1;💰 手牌总价 P0 2 → 5（3）;💰 手牌总价 P0 5 → 6（1）
+E|UM_Assault_Centurion	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|UM_Bladeguard_Sergeant	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|UM_Chairon	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	3	4		☠ 伤害累计 P0 4 → 7;☠ 伤害累计 P0 7 → 9;☠ 伤害累计 P0 9 → 1008
+E|UM_Desolation_Marine	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	28	28	0	0		
+E|UM_Heavy_Intercessor	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	24	24	0	0		
+E|UM_Hellblaster	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	27	27	0	0		
+E|UM_Honour_Guard	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|UM_Inceptor_Sergeant	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|UM_Invictor_Warsuit	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|UM_Land_Speeder	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	31	25	6	0		✋ 手牌 P0 +「filler24」×1;🂠 牌库 P0 -「filler24」×1;💰 手牌总价 P0 5 → 6（1）;✋ 手牌 P0 +「filler23」×1;🂠 牌库 P0 -「filler23」×1;💰 手牌总价 P0 6 → 7（1）
+E|UM_Lieutenant_Calsius	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|UM_Outrider	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|UM_Phobos_Lieutenant	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=0,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	22	4	0		⚙ 能量 P0 18 → 17（-1）;✎ 改动 P0[2] UM_Phobos_Lieutenant 1/3/0/3 {longrange1, oath1} → UM_Phobos_Lieutenant 1/3/0/3 {longrange1, oath1, stealth1};⚙ 能量 P0 17 → 3（-14）;✎ 改动 P0[2] UM_Phobos_Lieutenant 1/3/0/3 {longrange1, oath1, stealth1} → UM_Phobos_Lieutenant 1/3/0/3 {longrange1, oath1}
+E|UM_Predator_Annihilator	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|UM_Primaris_Chaplain	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	26	0	0		
+E|UM_Primaris_Eradicator	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|UM_Primaris_Impulsor	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|UM_Primaris_Inceptor	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|UM_Primaris_Invader	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	0	0		
+E|UM_Primaris_Reiver	unit	B 等事件/等主动用	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	25	25	0	0		
+E|UM_Primaris_Techmarine	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	26	0	0		
+E|UM_Redemptor_Dreadnought	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	27	27	0	0		
+E|UM_Repulsor_Executioner	unit	C 部署时该发生	0	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	29	29	10	8		✎ 改动 P0[2] UM_Repulsor_Executioner 6/10/0/12 {blast4, rally1} → UM_Repulsor_Executioner 6/10/0/9 {blast4, rally1};☠ 伤害累计 P0 8 → 26;☠ 伤害累计 P1 8 → 11;✎ 改动 P0[2] UM_Repulsor_Executioner 6/10/0/9 {blast4, rally1} → UM_Repulsor_Executioner 6/10/0/8 {blast4, rally1};☠ 离场 P1[5] FIX_E3 1/0/0/2 → .;☠ 伤害累计 P0 26 → 36;🗑 弃牌 P1 +「FIX_E3」×1;☠ 伤害累计 P1 11 → 12;✎ 改动 P1[4] WARLORD 2/0/0/22 → WARLORD 2/0/0/-977;☠ 伤害累计 P0 36 → 1035
+E|UM_Scout_Sniper	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=0,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	29	26	9	1		⚙ 能量 P0 17 → 16（-1）;✎ 改动 P1[3] FIX_E1 2/0/0/6 → FIX_E1 2/0/0/5;☠ 伤害累计 P0 0 → 1;⚙ 能量 P0 16 → 3（-13）;✎ 改动 P1[3] FIX_E1 2/0/0/5 → FIX_E1 2/0/0/1;☠ 伤害累计 P0 1 → 5;☠ 离场 P1[3] FIX_E1 2/0/0/1 → .;☠ 伤害累计 P0 5 → 7;☠ 伤害累计 P0 7 → 1006
+E|UM_Scout_bike	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	25	25	6	6		✎ 改动 P1[3] FIX_E1 2/0/0/4 → FIX_E1 2/0/0/2;☠ 伤害累计 P0 6 → 8;✎ 改动 P1[3] FIX_E1 2/0/0/2 → FIX_E1 2/0/0/1;☠ 伤害累计 P0 8 → 9;✎ 改动 P1[3] FIX_E1 2/0/0/1 → FIX_E1 2/0/0/-998;☠ 伤害累计 P0 9 → 1008
+E|UM_Sergeant_Gadriel	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	0	0		
+E|UM_Sergeant_Telion	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	24	24	0	0		
+E|UM_Sternguard_Sergeant	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	26	0	0		
+E|UM_Suppressor	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=0,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	27	26	2	0		⚙ 能量 P0 16 → 15（-1）;⚙ 能量 P0 15 → 3（-12）
+E|UM_Tyrannic_War_Veteran	unit	C 部署时该发生	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	26	26	0	0		
+E|UM_Valtus	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=14,end0=0,end1=0,draw=1,abil=14,atkM=0,atkR2=0,kill(dmg)=999	27	27	3	6		☠ 伤害累计 P0 0 → 12;☠ 伤害累计 P0 12 → 24;☠ 伤害累计 P0 24 → 1023
+E|UM_Vico_Therbeus	unit	B 等事件/等主动用	1	0	1	1	play=0,oath=0,end0=0,end1=0,draw=1,abil=14,atkR=0,atkM2=0,kill(dmg)=999	29	27	5	0		⚙ 能量 P0 17 → 16（-1）;✎ 改动 P0[2] UM_Vico_Therbeus 3/4/0/4 {oath1, stealth1} → UM_Vico_Therbeus 3/4/0/4 {camouflage1, oath1, stealth1};⚙ 能量 P0 16 → 3（-13）;✎ 改动 P0[2] UM_Vico_Therbeus 3/4/0/4 {camouflage1, oath1, stealth1} → UM_Vico_Therbeus 3/4/0/4 {camouflage1, oath1};✎ 改动 P0[2] UM_Vico_Therbeus 3/4/0/4 {camouflage1, oath1} → UM_Vico_Therbeus 3/4/0/2 {oath1}

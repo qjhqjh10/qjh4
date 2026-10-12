@@ -64,8 +64,11 @@ namespace CardPresentation
         /// **`[空卡, 进攻1, 进攻2, 进攻3]`**（空卡固定在**下标 0**；出处
         /// `BattleManager__GetEnvEffectCards.c:50-74` —— `shouldUseOffensive` 为真时**先** `Add(空卡)`
         /// 再 `AddRange(GetEnvCardList(...))`）。
-        /// ⚠️ 原版 `GetEnvCardList(justOwnedCards:1)` 还会把 `forgeLevel > 当前锻造等级` 的槽**直接丢掉**
-        /// （不是占位）—— **我们全解锁** ⇒ 三张都在（那是我们的落地，代码/文档都如实标）。</summary>
+        /// <para>🔴 **2026-10-13（`A1743`）订正**：原来这里写着「原版 `justOwnedCards:1` 会把 `forgeLevel`
+        /// 超档的槽直接丢掉，**我们全解锁** ⇒ 三张都在（那是我们的落地）」—— **那笔落地已经补上了**：
+        /// 闸过的那一份见 <see cref="ChoicesOwnedAt"/>（`BattleDriver.OffensiveChoicesOwned` 是它的
+        /// `ForgeData` 绑定版）。**这一份 = 原版 `justOwnedCards = 0` 那一支**（**不筛**，四个调用点里的两个：
+        /// `ClickChosenCardDone.c:59/:67` —— **AI 那张**），⛔ 别把它挂上闸。</para></summary>
         public static List<Card> Choices(string faction)
         {
             var outp = new List<Card>();
@@ -75,6 +78,42 @@ namespace CardPresentation
                                 nameFrom = "「不使用进攻卡」那张（原版 `emptyOffensiveCard`，没有 envSO）；"
                                          + "**原版把它放在下标 0**" });
             if (a.cards != null) foreach (var c in a.cards) outp.Add(c);
+            return outp;
+        }
+
+        /// <summary>🆕 2026-10-13（`A1743`）：**闸过之后的进攻池** —— 原版
+        /// `GetEnvCardList(so, useArmy, shouldUseOffensive: !=0, justOwnedCards: !=0, currentForgeLevelObtained: level)`
+        /// 的**进攻分支**（`EnviromentalEffectCardsSO__GetEnvCardList.c:87`；**防御分支同式在 `:60`** ——
+        /// 两处是**同一个函数的两条路**，语义一字不差）。
+        /// <para>三条与原版对齐的形状：① **「不使用进攻卡」那张（`idx &lt; 0`）恒在最前、恒不过闸**
+        ///   —— 原版是先 `Add(空卡)` 再 `AddRange(GetEnvCardList(...))` 两句，`justOwnedCards` **看不看它**；
+        ///   ② 门槛 = **`forgeLevel &lt;= level`**（**丢槽、不占位**，比较是 `&lt;=`）；
+        ///   ③ **认不出的卡留下 + 出声**（`forgeLevel &lt;= 0` 那一支）——「丢它」与「给它编个等级」都是猜，
+        ///   本仓红线是「认不出要说出来」。</para>
+        /// <para>⚠️ **等级那套数与防御侧【不是一套】**（⛔ 别抄 `1/20/40`）：进攻侧 SO 实读
+        ///   = **Ultramarines `4/25/40`**、**其余 12 个阵营 `4/25/45`**；防御侧才是 13 个阵营**全同** `1/20/40`。
+        ///   这些值随卡带着（`Resources/OffensiveCards.json` 的 `cards[].forgeLevel`），**已用 PathID 逐卡核过 13/13**
+        ///   与原版 SO 一模一样（含槽序）。</para>
+        /// <para>⚠️ `level` 是**形参**（不在这里读 `ForgeData`）—— 这样自检能把 4 / 25 / 40(45) 三个边界逐档钉住。</para></summary>
+        public static List<Card> ChoicesOwnedAt(string faction, int level)
+        {
+            var all = Choices(faction);
+            var outp = new List<Card>(all.Count);
+            foreach (var c in all)
+            {
+                if (c == null) continue;
+                if (IsEmpty(c)) { outp.Add(c); continue; }        // ① 空卡恒不过闸（原版两句分开写）
+                int need = c.forgeLevel;
+                if (need <= 0)                                     // ③ 认不出（原版最小档是 4 ⇒ 0/负都不是真值）
+                {
+                    Debug.LogWarning($"[OffensiveCards] 进攻卡槽 {c.idx}（{faction}·「{c.name}」）的 `forgeLevel` = {need}"
+                                   + " ⇒ **这道闸不筛它**（⛔ 不猜一个等级给它）。判据 → 原版 SO "
+                                   + "`EnvironmentalEffectCardsSO.json` 的 `offensiveCards[].forgeLevel`。");
+                    outp.Add(c);
+                    continue;
+                }
+                if (need <= level) outp.Add(c);                    // ② 原版 `:87`：`forgeLevel <= currentForgeLevelObtained`
+            }
             return outp;
         }
 

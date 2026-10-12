@@ -420,7 +420,7 @@ namespace CardPresentation
         /// 阶段 2 与夹具则断它 **&gt; 0**（只断「结果非空」不行 —— 那种断言改坏实现不会红）。
         ///
         /// <para>⚠️ **2026-10-12（A435①）：「谁调它」多了一处** —— `ClippedTextGuard` 现在**每次重裁都重新解析**
-        /// （`CurClip`，见 `MenuDraw.ClippedTextGuard` 的类注释）⇒ 一个被裁过的标签每重排一次就 +1
+        /// （`CurClip`，见 `ClippedTextGuard` 的类注释）⇒ 一个被裁过的标签每重排一次就 +1
         /// （节点态下）或 +0（旧路那几支，形参非空 ⇒ 第 1 支就返回、根本不到这里）。
         /// ✅ **今天仍然是 0**：全仓没有节点 ⇒ 每一条都落在第 1/3 支（不变量不变，`== 0` 那条断言照旧成立）。</para></summary>
         public static int NodeResolutions;

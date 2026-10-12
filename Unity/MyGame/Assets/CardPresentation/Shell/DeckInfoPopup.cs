@@ -37,10 +37,16 @@
 //       写剪贴板那份实现**全库只有一处** = `Deck/DeckRuntime.CopyDeckToClipboard`（卡组编辑那颗 `Share` 也走它）
 //       ⚠️ **卡组编辑那一侧仍没接上**（`DeckRuntime.ShareDeckString()` 走 `Say()`，屏幕上什么都不画）—— 如实标注，见 `ShareDeck` 的 doc。
 //     · `Share On Chat` = 原版**开一扇两键面板（群组 / 全局）→ 发一条聊天消息**、**不写剪贴板**；
-//       那扇面板**还没建**（账 `A1045`）⇒ 本路**如实出声**（`NotBuilt`）+ 把卡组串印出来给玩家自己抄
+//       ✅ **2026-10-12（`A1045`）接了**：真开那扇 `Generic Options Panel`（`WindowsManager.OpenGenericOptionsPanel`），
+//       **三道门一颗不少**（判据 = 原版那两个 `interactable` 表达式）+ 两颗钮的文案走 `Loc`；
+//       ⚠️ 三门的**值**走**显式状态口**（`SetChatState`，本仓没有 `AlliancesManager` / 服务器）；
+//       **唯一还缺的一跳 = 原版 `ChatGlobalManager.ShareDeck(串, 频道)`**（本仓没有聊天服务器、也没有
+//       `CreateChatEvent`/`SendChatMessage` 那条链）⇒ 点两颗钮都**如实出声**「**面板在、发送口不在**」
+//       （日志 + toast），⛔ **不写剪贴板**。判据与四跳 → `ShareOnChat` / `ShareDeckToChat`。
 //     🔴 **订正（铁律 5）**：本条原文写「原版走平台/服务端，我们**给卡组串**」—— **两半都不对**：
 //       原版既不上服务端、也没做平台分享（就是本地 `GUIUtility.systemCopyBuffer`，`DeckInfoPopup__ShareDeck.c:16`），
-//       而「我们给卡组串」现在只剩 `Share On Chat` 那一路（`Share` 已真写剪贴板）。
+//       而「把卡组串印出来给玩家自己抄」**已于 2026-10-12 取消** —— 那是面板没建时的权宜兜底、原版没有
+//       （原版那一下进的是聊天频道）；串现在只进**日志**，界面上给一句人话（见 `ShareDeckToChat`）。
 //   · `Practice Deck` —— ✅ **接了**（选中/开练习窗）。🔴 **但有一层没复刻**：原版是
 //     `SelectPracticeOpponentDeck` ⇒ 这一副当**【对手】**卡组（`enemyDeck = 刚选中的那副`，判据 →
 //     `资料/预组卡组_原版规格.md` §五之二 第 4 行）；我们的练习窗只认**玩家自己**的卡组
@@ -726,8 +732,15 @@ namespace CardPresentation
         /// ⇒ 本来在 `QDIRow`/`QDIHit` 的那几张会掉到红底（`QDI`）之下。调用点与判据链 → `ApplyControlStates` 第 ⑥ 段。
         /// <para>两层件各按它建窗时的档：**可见那一张**（`WindowButton.target` = `Bg …` / `Face …`）在 `QDIRow`、
         /// **命中区那一张**（按钮自己的子 quad `Hit`）在 `QDIHit` —— 与 `Build()` 里建它们时给的是**同一对常量**。
-        /// ⚠️ 这个「`target` + 子树」的分组**与 `PromptPopup.GrayTargets()` 是同一套**（变灰会同时换这两张）
-        /// ⇒ 两张都得钉，否则「可见的补回来了、命中区还掉着」（命中区全透明，肉眼与截图都看不出来）。</para></summary>
+        /// ⚠️ 这个「`target` + 子树」的分组 = `PromptPopup.GrayTargets()` 的**前两组那一套**
+        /// （变灰会同时换这两张）
+        /// ⇒ 两张都得钉，否则「可见的补回来了、命中区还掉着」（命中区全透明，肉眼与截图都看不出来）。
+        /// ⚠️ **2026-10-13 更正（铁律 5）**：本行原来写「**与** `PromptPopup.GrayTargets()` **是同一套**」——
+        /// **措辞不成立**：`GrayTargets()` 现读是**四组去重**（`_nine` + `target` + 本钮子树 + `TintOn` 那几颗；
+        /// 出处 `Shell/WindowButton.cs`，第三组 `A1719` 加、第四组 `A1725` 加）。
+        /// ✅ **但本窗这段不用跟着加组**：本窗这 8 颗钮的可见底走 `Img`（**单张 quad**、无 `_nine`）
+        /// 且**没有一处调 `TintOn`** ⇒ 对本窗来说**这两组就是全部**，`ReassertButtonQueues()` 一个字没改。
+        /// ⛔ 将来谁在本窗给某颗钮加了 `_nine` / `TintOn`，这里**要一起补**（否则那几组会掉到红底之下）。</para></summary>
         void ReassertButtonQueues()
         {
             foreach (var kv in _wbs)
@@ -1681,32 +1694,190 @@ namespace CardPresentation
         /// ⛔ 别因为「看着像拼错」就改成 `Successful`：那样键就变了、永远查不到。</para></summary>
         public const string ShareSuccessTerm = "MenuDeck/Share/ExportSuccesful";
 
+        // ============================================================ 🆕 2026-10-12（`A1045`）：`Share On Chat`
+        //  原版 = `DeckInfoPopup.ShareDeckOnChat(Transform optionsMountPoint)`（签名桩
+        //  `d:/2/Warpforge_code/Scripts/Assembly-CSharp/DeckInfoPopup.cs:112`）；四份证据逐句实读：
+        //   · `DeckInfoPopup__ShareDeckOnChat.c`（**建面板**：三道门 + 两颗钮 + `Context` + `OpenWindow`）
+        //   · `DeckInfoPopup___ShareDeckOnChat_b__30_1.c` = **第 0 颗（群组）**的回调
+        //     ⇒ `HandleShare(this, AlliancesManager.CurrentGroupId, 1 /*Alliance*/)`
+        //   · `DeckInfoPopup___ShareDeckOnChat_b__30_2.c` = **第 1 颗（全局）**的回调
+        //     ⇒ `HandleShare(this, <常量频道串>, 0 /*Global*/)`
+        //   · `DeckInfoPopup___ShareDeckOnChat_g__HandleShare_30_0.c` = 两颗**共用**的那四跳
+        //     （⚠️ 文件名是**三下划线**）—— 见 `ShareDeckToChat`。
+
+        /// <summary>原版 `ChatRoom`（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/ChatRoom.cs`
+        /// **逐值照抄**：`Global = 0` / `Alliance = 1`，**只有两个值**，⛔ 别加）。
+        /// <para>它在原版里有两处用途，本趟一处不差地照着做：① `PlayerDataManager.IsBannedFromChat(ChatRoom)`
+        /// （三道门里的两道）；② 两颗钮各自的「目标」（`HandleShare` 的 `room` 形参）。
+        /// ⚠️ **本仓没有这个类型**（别处只在注释里提过它：`Shell/ChatPanel.cs` 的
+        /// `Channels = { "Global", "Alliance" }` 就是按它 0/1 的顺序写的）⇒ 就近声明一份，
+        /// **不另开文件**（它只有两个值、只有一个消费者）。</para></summary>
+        public enum ChatRoom { Global = 0, Alliance = 1 }
+
+        // ---- 三道门的**显式状态口**（原版从服务器 / 联盟管理器读；本仓两件都没有）----
+        // 🔴 口径 = 本仓现成先例 `Shell/AllianceEventScorePanel.cs` 的 `SetInAlliance`
+        //   与 `Shell/AlliancesTab.cs` 的「本地恒走未入盟支」：**不假装读到了服务器**，
+        //   做成显式口 + 出厂值，并在这里写明「本仓无对等物」。⛔ 别把三个值写死进 `ShareOnChat()`。
+        /// <summary>= 原版 `AlliancesManager.IsInGroup`（**群组**那颗钮的第一道门）。出厂 `false`
+        /// （= 上面那两条先例的「本地恒走未入盟支」）。</summary>
+        bool _inChatGroup;
+        /// <summary>= 原版 `PlayerDataManager.IsBannedFromChat(ChatRoom.Global)`（**全局**那颗的门）。</summary>
+        bool _bannedGlobal;
+        /// <summary>= 原版 `PlayerDataManager.IsBannedFromChat(ChatRoom.Alliance)`（**群组**那颗的第二道门）。</summary>
+        bool _bannedAlliance;
+
+        /// <summary>三道门的**显式状态口**（拨一次、下一次开面板生效）。
+        /// <para>🔴 **本仓没有对等物**：`AlliancesManager`（要联盟服务）与 `PlayerDataManager`
+        /// （要玩家存档）**两个都没有**；出厂 = `inGroup = false` + 两个 `banned = false`。
+        /// 这是**我们挑的口**，不是从服务器读到的 —— 如实标注（同上面两条先例）。</para></summary>
+        public void SetChatState(bool inGroup, bool bannedFromGlobal, bool bannedFromAlliance)
+        {
+            _inChatGroup = inGroup;
+            _bannedGlobal = bannedFromGlobal;
+            _bannedAlliance = bannedFromAlliance;
+            Debug.Log("[DeckInfo] `Share On Chat` 三道门 → `IsInGroup = " + inGroup
+                    + "` · `IsBannedFromChat(Global) = " + bannedFromGlobal
+                    + "` · `IsBannedFromChat(Alliance) = " + bannedFromAlliance
+                    + "`（⚠️ 本仓没有 `AlliancesManager` / 服务器 ⇒ 这是显式状态口，不是读来的）。");
+        }
+
+        /// <summary>= 原版 `PlayerDataManager.IsBannedFromChat(room)`（本仓无对等物 ⇒ 读显式状态口）。</summary>
+        public bool IsBannedFromChat(ChatRoom room)
+        {
+            return room == ChatRoom.Alliance ? _bannedAlliance : _bannedGlobal;
+        }
+
+        /// <summary>= 原版 `AlliancesManager.IsInGroup`（本仓无对等物 ⇒ 读显式状态口）。</summary>
+        public bool IsInChatGroup { get { return _inChatGroup; } }
+
+        /// <summary>原版两个 lambda 里那个**频道 id 字符串**（`ChatGlobalManager.ShareDeck(串, channelId)`
+        /// 的第 2 个实参）。群组那颗传的是 `AlliancesManager.CurrentGroupId`（服务器给的组 id，
+        /// **本地拿不到**）；全局那颗传的是代码里的**常量串**（`b__30_2.c` 的 `DAT_18423a130`，
+        /// 我**没有**去解它的字面值 —— 那需要按 `CLAUDE.md` 那条「读 `_DAT_` 常量」的路走一遍 PE 节表）。
+        /// ⇒ 这一格我们**只有两个频道名**可用，来源 = 本仓现成那一份（`Shell/ChatPanel.cs` 的
+        /// `Channels`，按 `ChatRoom` 的 0/1 顺序写、`Shell/SocialData.cs` 的 `ChatMessage.Channel` 同值）
+        /// —— 复用它是为了**只有一处**这两根串（两处写同一条规则 = 迟早不一致）。**如实标注：不是原版那份 id。**</summary>
+        static string ChatChannelId(ChatRoom room) { return ChatPanel.Channels[(int)room]; }
+
         /// <summary>`Share On Chat`（原版 `DeckInfoPopup__ShareDeckOnChat.c`）—— ⛔ **不写剪贴板**（原版不写）。
-        /// <para>原版 = 开一扇 `GenericOptionsPanel`（两键：发给群组 / 发给全局）→ 选中后
-        /// `CardDeck.Serialize()` → `ChatGlobalManager.ShareDeck(串, 目标)`（= `CreateChatEvent(0x96)` +
-        /// `SendChatMessage`）。**那扇面板我们还没建**（账 `A1045`）⇒ 本路**如实出声**（`NotBuilt` 的
-        /// `LogWarning` + 一句人话弹窗），并把卡组串印出来给玩家自己选中复制。</para>
-        /// <para>🔴 **2026-10-08（`A1040`）就地订正（铁律 5）**：本处原来的正文写「**原版是平台分享**」
-        /// —— **与事实不符**（原版与平台分享无关，见上）；「发不出去」的理由原来写「原版走服务端，
-        /// 我们这条线没有网络」⇒ 现在写**准确的两条**：① 面板没建（`A1045`）② 我们**没有**
-        /// `ChatGlobalManager` 的对等发送口。</para></summary>
+        /// <para>逐句照原版（第一权威）：三道门 → 两颗 `Button`（**群组在前、全局在后**；两颗 `AutoClose = 1`）
+        /// → `Context{buttons, Title, AnchorPosition, LocalizeText = 1}` → `WindowsManager.OpenWindow(面板, ctx)`。
+        /// 选中之后那四跳见 <see cref="ShareDeckToChat"/>。</para>
+        /// <para>🔴 **2026-10-12（`A1045`）就地订正（铁律 5）**：本段原来写「**那扇面板我们还没建**（账 `A1045`）
+        /// ⇒ 本路如实出声（`NotBuilt` + 一句人话弹窗），并把卡组串印出来给玩家自己选中复制」——
+        /// **两半都过期了**：① 面板**已经建完并在自检里**（`Shell/GenericOptionsPanel.cs`，8 节点对账表 +
+        /// `Editor/ShopScene.cs` 那一节）⇒ 现在**真的把它开出来**；② 「把串印出来」是那一下的**权宜兜底**，
+        /// 原版没有（原版那条消息进聊天频道）⇒ 改成「面板在、**发送口不在**」的如实出声
+        /// （串仍进日志，方便核对；界面上只给一句人话）。</para>
+        /// <para>⚠️ **仍然如实标注的一条偏离**：原版收的是 `Transform optionsMountPoint`，它把调用方给的
+        /// 那个 `Transform` 原样塞进 `Context` 的 `AnchorPosition`（`Context___ctor` 第 3 个实参）——
+        /// **而那个 `Transform` 是谁给的，本地查不到**（那颗 `Share On Chat` 按钮的 `UnityEvent` 挂点跨 CAB）
+        /// ⇒ 我们走 `AnchorPosition == null` 那一支（保留 prefab 出厂 `(0, −96.7)`，判据 →
+        /// `Shell/GenericOptionsPanel.cs` 的 `DefPivotY`）。**这一格判据是空的**，⛔ 不是我查漏。</para></summary>
         void ShareOnChat()
         {
-            // ⛔ 别让它「什么都不发生」：`NotBuilt` = `Debug.LogWarning`（本文件现成那条出声通道）。
-            NotBuilt("Share On Chat 的【目标选择面板】（原版 DeckInfoPopup__ShareDeckOnChat.c → "
-                     + "GenericOptionsPanel 两键：群组 / 全局）—— 账 A1045，等它把面板建出来");
-            var deck = CollectionData.Raw(DeckIndex);
-            string s = deck != null ? RuleEngine.DeckLibrary.ExportString(deck) : "";
-            // ⛔ 这里【故意】调 `ExportString` 而不调 `DeckRuntime.CopyDeckToClipboard`：本条**不能**写剪贴板。
-            if (Manager != null)
-                Manager.ShowPopUp(
-                    "`Share On Chat`：原版是**另一件事** —— 开一扇两键面板（发给群组 / 发给全局）→ 发一条聊天消息；"
-                    + "那扇面板我们**还没建**（A1045），聊天线也没有跟原版 `ChatGlobalManager` 对等的发送口 "
-                    + "⇒ 这条今天**发不出去**。（这条**不会**写剪贴板 —— 原版也不写。）\n\n"
-                    + (string.IsNullOrEmpty(s) ? "（这一副的卡组串导不出来）"
-                                              : "这是这一副的卡组串，可以自己选中复制：\n" + s),
-                    Loc.T("MainMenu/General/OK"), null);
+            // 原版 `ShareDeckOnChat.c` 逐句（行号按现读那份）：
+            //   ① `IsBannedFromChat(数据, 0 /*Global*/)`  → 管**全局**那颗钮
+            //   ② `IsBannedFromChat(数据, 1 /*Alliance*/)` → 管**群组**那颗钮
+            //   ③ `AlliancesManager.IsInGroup`             → 管**群组**那颗钮
+            //   ④ 两颗 `Button___ctor(this, 键, onClick, 色覆盖 = null, interactable, AutoClose = 1, mi)`
+            //      —— 两个 `interactable` 表达式分别是 `IsInGroup && !banned(1)` / `!banned(0)`
+            //   ⑤ 兄弟序：先建 `ShareOnAlliance`（`plVar6[4]`）、后建 `ShareOnGlobal`（`plVar6[5]`）
+            //   ⑥ `Context___ctor(this, buttons, Title, AnchorPosition, LocalizeText = 1, mi)` → `OpenWindow`
+            var ctx = new GenericOptionsPanel.Context
+            {
+                // 键 = 原版**字符串常量表**实读（不是自拟）—— 见下面那三个常量的 doc。
+                Title = Loc.T(ShareChatTitleTerm),
+                LocalizeText = true,          // 原版字面量 `1`（⇒ `GenericOptionsPanel.Apply` 那条「远端 I2 取不到」照旧出声）
+                Buttons = new[]
+                {
+                    // 第 0 颗 = **群组**（原版先建它 ⇒ 界面上在上/在前）。
+                    new GenericOptionsPanel.OptButton
+                    {
+                        Text = Loc.T(ShareChatAllianceTerm),
+                        Interactable = _inChatGroup && !_bannedAlliance,      // 门 ③ ∧ ¬门 ②
+                        AutoClose = true,
+                        OnClick = () => ShareDeckToChat(ChatRoom.Alliance),
+                    },
+                    // 第 1 颗 = **全局**。
+                    new GenericOptionsPanel.OptButton
+                    {
+                        Text = Loc.T(ShareChatGlobalTerm),
+                        Interactable = !_bannedGlobal,                        // ¬门 ①
+                        AutoClose = true,
+                        OnClick = () => ShareDeckToChat(ChatRoom.Global),
+                    },
+                },
+                // 🔴 锚点 = null（原版 `Open()` 里 `AnchorPosition == null` ⇒ 不调 `SetPosition`、
+                //    保留 prefab 序列化值那一支）。理由见方法 doc 最后那段「仍然如实标注的一条偏离」。
+                AnchorPosition = null,
+            };
+            var gopWin = WindowsManager.OpenGenericOptionsPanel(ctx, null);
+            if (gopWin == null)
+                Debug.LogWarning("[DeckInfo] `Share On Chat`：两键面板**没开出来**（`WindowsManager` 没建起来？）"
+                               + " —— 这一下**什么都没发生**（出声，不静默）。");
+            else
+                Debug.Log("[DeckInfo] `Share On Chat` ⇒ 开了一扇 `Generic Options Panel`"
+                        + "（原版 `ShareDeckOnChat.c` 末跳 `WindowsManager.OpenWindow(panel, ctx)`）；"
+                        + "两颗钮 = 群组 / 全局（可用性 = 三道门，见 `SetChatState`）。");
         }
+
+        /// <summary>原版两颗钮**共用**的那个回调 = `DeckInfoPopup.<ShareDeckOnChat>g__HandleShare_30_0`
+        /// （`d:/2/tools/decomp_full/DeckInfoPopup___ShareDeckOnChat_g__HandleShare_30_0.c`，
+        /// ⚠️ **文件名是三下划线**）。四跳逐句：
+        /// ① **再查一次** `IsBannedFromChat(目标)` —— 真则**直接 return**（原版那一句之外没有别的话）；
+        /// ② `CardDeck.Serialize()` 造串；③ `ChatGlobalManager.ShareDeck(串, 频道 id)`；④ `Close()` 关面板。
+        /// <para>两个 lambda 的差别**只在** ③ 的目标：群组传 `AlliancesManager.CurrentGroupId`、
+        /// 全局传一个常量串（`b__30_1.c` / `b__30_2.c` 实读）。</para>
+        /// <para>🔴 **③ 本仓做不到 ⇒ 如实出声**（日志 + 一条 toast）：没有 `ChatGlobalManager` 的对等物
+        /// （没有聊天服务器，也没有 `CreateChatEvent(0x96)` / `SendChatMessage` 那条链）。
+        /// ⛔ **不写剪贴板** —— 写剪贴板的是隔壁那颗 `Share`（`DeckRuntime.CopyDeckToClipboard`，
+        /// 全库唯一一处；本条**故意**只调 `ExportString`）。</para>
+        /// <para>④ 那一跳由 `OptButton.AutoClose = true` 在 `GenericOptionsPanel.OnButton` 里做
+        /// （= 原版 `SetButtons` 给每颗多挂的那个 `AddListener(this.Close)`，与 `HandleShare` 里那句
+        /// `Close()` 是**同一件事的两次**）⇒ 这里**不再**自己 `Close()`。</para></summary>
+        void ShareDeckToChat(ChatRoom room)
+        {
+            // ① 原版第一跳（TOCTOU 守卫）：这一下**照旧直接 return**（原版就这一句、不打任何字），
+            //    我们补一行日志 —— 本仓这一格走显式状态口、出厂 `false` ⇒ 正常**走不到**。
+            if (IsBannedFromChat(room))
+            {
+                Debug.LogWarning("[DeckInfo] `Share On Chat`（目标 = `DeckInfoPopup.ChatRoom." + room + "`）："
+                               + "原版这一跳是**再查一次** `IsBannedFromChat(目标)`、真则**什么都不做就返回**"
+                               + "（`g__HandleShare_30_0.c` 前两句，TOCTOU 守卫）；本仓状态口出厂 `false`"
+                               + "⇒ 走到这里说明有人把它拨成了 banned。**没发消息、也没关窗**（照原版）。");
+                return;
+            }
+            // ② 原版第二跳（`CardDeck.Serialize()`）。⚠️ 【故意】调 `ExportString` 而不是
+            //    `DeckRuntime.CopyDeckToClipboard` —— 本条**不能**写剪贴板。
+            var deck = CollectionData.Raw(DeckIndex);
+            string s = deck != null ? RuleEngine.DeckLibrary.ExportString(deck) : null;
+            // ③ 原版第三跳。**本仓没有对等物** ⇒ 出声（日志给全量、界面给人话）。
+            Debug.LogWarning("[DeckInfo] `Share On Chat`：**面板在、发送口不在** —— 目标 = `ChatRoom." + room
+                           + "`（频道 id `" + ChatChannelId(room) + "`），卡组串"
+                           + (string.IsNullOrEmpty(s) ? "**这一副的导不出来**（`ExportString` 返回空）"
+                                                      : "已按原版造好（" + s.Length + " 字符）：" + s)
+                           + "。原版这一步是 `ChatGlobalManager.ShareDeck(串, 频道)`"
+                           + "—— 本仓**没有** `ChatGlobalManager` 的对等物（没有聊天服务器，也没有"
+                           + " `CreateChatEvent` / `SendChatMessage` 那条链）⇒ **这一条发不出去**。"
+                           + "⛔ **不写剪贴板**（原版这条不写；要塞进剪贴板请用隔壁那颗 `Share`）。");
+            MessageToast.Show("分享到聊天（"
+                             + Loc.T(room == ChatRoom.Alliance ? ShareChatAllianceTerm : ShareChatGlobalTerm)
+                             + "）：面板在、**发送口不在** —— 本仓没有聊天服务器，这条发不出去。"
+                             + "（要整串卡组请用 `Share`。）", false);
+        }
+
+        /// <summary>`Share On Chat` 面板的**标题**词条键 —— **原版字符串常量表实读**（不是自拟）：
+        /// `d:/2/tools/il2cpp_out/stringliteral.json` 的 `"MenuDeck/Share/Title"`（`address` `0x42D0AE0`）。
+        /// 挂点 = `DeckInfoPopup__ShareDeckOnChat.c` 里 `GenericOptionsPanel_Context___ctor` 的**第 3 个实参**
+        /// （`DAT_1842d0ae0`）⇒ 逐位对上。</summary>
+        public const string ShareChatTitleTerm = "MenuDeck/Share/Title";
+        /// <summary>**群组**那颗钮的词条键 —— 同表 `"MenuDeck/Share/ShareOnAlliance"`（`0x42D08E0`），
+        /// = `ShareDeckOnChat.c` 里**先建**那颗（第 0 颗、`plVar6[4]`）。⛔ 别与下一条对调。</summary>
+        public const string ShareChatAllianceTerm = "MenuDeck/Share/ShareOnAlliance";
+        /// <summary>**全局**那颗钮的词条键 —— 同表 `"MenuDeck/Share/ShareOnGlobal"`（`0x42D09E0`），
+        /// = **后建**那颗（第 1 颗、`plVar6[5]`）。</summary>
+        public const string ShareChatGlobalTerm = "MenuDeck/Share/ShareOnGlobal";
 
         /// <summary>红线：**不许静默失败** —— 没做的必须说出来。</summary>
         void NotBuilt(string what)

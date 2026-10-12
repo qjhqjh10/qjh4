@@ -409,8 +409,19 @@ namespace CardPresentation
         /// 同样**批处理下只交接、不切场景** ⇒ 自检验的就是这个意图。
         ///
         /// <para>🔴 **用户 2026-10-18 拍板：按来路回**（不是「一律回收藏窗」）⇒ 所以记的是**来源**，
-        /// 不是一个「回收藏窗」的布尔。写作方 = **入口**（见 <see cref="DeckExitSource"/> 那两条路）；
-        /// 读方 = `MainMenuRuntime.Build`（读走即清，再照来源开窗落页）。</para>
+        /// 不是一个「回收藏窗」的布尔。写作方 = **入口**（见 <see cref="DeckExitSource"/> 那两条路）。</para>
+        ///
+        /// <para>🔴🔴 **2026-10-14（`A1132` 第 4 步）：读方现在有【两个】，各管一条腿**（原文留痕，铁律 5 ——
+        /// 这里原来只写「读方 = `MainMenuRuntime.Build`」）：
+        /// <list type="bullet">
+        /// <item>**被窗托管那条腿**（`DeckRuntime.HostWindow != null`）⇒ 读方 = `DeckRuntime.LeaveByHostWindow`
+        ///   —— **关窗那一拍就地消费**（那一边**不换场景**，所以 `MainMenuRuntime.Build` 根本不会跑）。</item>
+        /// <item>**独立场景那条腿**（`HostWindow == null` = 直起 `-wfscene DeckEditor`）⇒ 读方仍然是
+        ///   `MainMenuRuntime.Build`（**换了场景**，只能由到达端消费）。</item>
+        /// </list>
+        /// ⇒ 两条腿**各调一次 `Take*`，先到先得**：本接口「读走即清」的语义保证**不会重复开窗**
+        /// （被托管那条先取掉之后，另一条拿到的就是 `None`）。⛔ **别在这里加「有没有被消费过」的第二个标志位** ——
+        /// `default` + 读走即清就是那个标志。</para>
         ///
         /// <para>⚠️ **`Take*` 是本仓既有的交接口径**（**读走即清**，先例：`PrebuiltDecks.TakePendingBattleDeck` ·
         /// `BattleDriver.TakePendingPlayMode` · `NetBattle.Take`）—— ⛔ 别另设一套 `Reset*` 入口。</para></summary>

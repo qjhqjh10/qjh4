@@ -58,8 +58,18 @@ namespace CardPresentation
     /// <summary>原版 `GenericOptionsPanel`（`GameWindow` 子类）——**一列按钮 + 一个标题**的通用小面板
     /// （原版那套「点了某个东西、在它旁边弹一排选项」的载体）。
     /// <para>数据由调用方给（原版是 `GenericOptionsPanel.Context`）：`Title` + `Buttons[]` + `LocalizeText`
-    /// + `AnchorPosition`。⚠️ **本地没有任何调用方**（全量反编译里 `GenericOptionsPanel` 只命中它自己的
-    /// 那 20 个 `.c`；跨 CAB 的 UnityEvent 开启点没排除）⇒ 我们**只提供「怎么开」，⛔ 不编入口**。</para>
+    /// + `AnchorPosition`。</para>
+    ///
+    /// <para>🔴 **2026-10-12（`A1045`）就地订正（铁律 5）**：本节 + `Open()` 那条日志 + `WindowsManager`
+    /// 上那两处注释原来都写「**本地没有任何调用方**（全量反编译里 `GenericOptionsPanel` 只命中它自己的
+    /// 那 20 个 `.c`；跨 CAB 的 UnityEvent 开启点没排除）⇒ 我们只提供「怎么开」」—— **前半句是错的**。
+    /// 调用方**就在全量反编译里**：`DeckInfoPopup.ShareDeckOnChat(Transform optionsMountPoint)`
+    /// （`d:/2/tools/decomp_full/DeckInfoPopup__ShareDeckOnChat.c`，逐句实读）：建两颗 `Button`
+    /// （`ShareOnAlliance` / `ShareOnGlobal`）+ 一个 `Context` → `WindowsManager.OpenWindow(panel, ctx)`。
+    /// **错因** = 当年按**文件名** `grep GenericOptionsPanel` 去找调用者，而那个文件叫
+    /// `DeckInfoPopup__ShareDeckOnChat.c`（文件名里没有 `GenericOptionsPanel`）⇒ 一次 `grep -l` 就漏了；
+    /// 判据其实一直躺在**方法体内部**（`GenericOptionsPanel_Button___ctor` / `Context___ctor` 两个调用点）。
+    /// ⇒ **首例入口已接**：`Shell/DeckInfoPopup.cs` 的 `ShareOnChat()`（两键：群组 / 全局）。</para>
     ///
     /// <para>🔴 **它不在任何一页的层带里**：自成一档 **3330–3337**（`TrophyInfoPopup` = 3310–3326 之上、
     /// 挑战弹窗 3400 之下 —— 层带不许重叠）。</para></summary>
@@ -148,9 +158,31 @@ namespace CardPresentation
         public struct OptButton
         {
             public string Text;
-            /// <summary>原版 `Interactable`。⚠️ 我们**没有 uGUI 的 interactable 那一层**（同本仓既有口径）：
-            /// 置 `false` 时**把按钮建成灰的**（原版 `m_DisabledColor = (0.784,0.784,0.784,0.502)`）并出声，
-            /// 让「点了没反应」看得出来（红线：不许静默失败）。</summary>
+            /// <summary>🔴 **2026-10-12（`A1045`）新增 = 原版 `Button.OnClick`**（那颗 `UnityAction`，
+            /// 调用方挂、`Open()` 里由 `SetButtons` 逐颗 `AddListener`）。
+            /// **缺了它 = 点了什么都不发生 = 静默失败**（本仓红线）⇒ `OnButton` 在它为空时**出声**。
+            /// <para>首例调用方 = `Shell/DeckInfoPopup.cs` 的 `ShareOnChat()`（群组 / 全局两键各挂一个）。</para></summary>
+            public System.Action OnClick;
+            /// <summary>原版 `Interactable`。
+            /// <para>✅ **2026-10-12（`A1045`）就地订正（铁律 5）**：本节原来写「置 `false` 时把按钮建成灰的
+            /// **并出声**」—— 那时**只有「建成灰的」这一半**（`RebuildButtons` 里换成
+            /// `m_DisabledColor` 那个 tint），**没有任何闸、也没有出声**：置了 `false` 的钮**照样会触发
+            /// `OnClick`**（与原版 `Selectable.OnPointerClick` 头一句相反）。本轮补上**第二道闸**。
+            /// 现行为（三半，各自有出处）：
+            /// · **视觉①** = 底图 tint 换成 `m_DisabledColor`（**实读** `(0.7843137,0.7843137,0.7843137,0.5019608)`
+            ///   —— 出处 = `Template` GO 上的 `EverguildButton` MB `-7346004311159172974` 的 `m_Colors`）；
+            /// · **视觉②** = 🆕 **A1726**：`WindowButton.Interactable = 这个值` ⇒ 九宫格那 **9 块全灰**
+            ///   （材质换原版 `Everguild/UI/Greyscale`，同 `EverguildButton.DoStateTransition(Disabled)` 那一下）
+            ///   —— 🔴 **判据确凿**：那颗钮的 `colorTintGreyOnDisable = 1`（实读 MB `-7346004311159172974`），
+            ///   而它正是 `EverguildButton.SoftDisable` / `SwitchMaterial` 的第一句守卫；
+            /// · **行为** = **两道闸**：第一道 `WindowButton.Click()` 头一句（`!Interactable ⇒ 出声 + return`，
+            ///   = 原版那句话），兜底第二道 = `OnButton` 里**动作照进来、立刻返回 + 出声** —— 与
+            ///   `Shell/DeckInfoPopup.cs` 的 `Blocked(key, interactable)` **同一口径**。
+            /// ⚠️ **原来这里写着「第一道闸本扇【故意不用】……要按原版那一条得先修 `WindowButton.GrayTargets`
+            /// 的九宫格档（不在本轮白名单）⇒ 本轮走第二道闸」** —— **已过期**（**留着更正痕**）：
+            /// `A1719`（2026-10-13）把 `GrayTargets()` 的第三组 `_nine` 补上了、`A1725` 又补了第四组
+            /// （`TintOn` 那几颗），**`WindowButton.cs` 本轮就在白名单里** ⇒ 第一道闸**已接**
+            /// （落在 `RebuildButtons` 的 `wb.Interactable = arr[i].Interactable`）。</para></summary>
             public bool Interactable;
             /// <summary>原版 `AutoClose`：这一颗被点之后**顺带把窗关掉**（`SetButtons` 里多挂一个
             /// `AddListener(this.Close)`）。我们同义：回调里 `Close()`。</summary>
@@ -242,11 +274,10 @@ namespace CardPresentation
             LastOpened = this;
             Build();                 // `Build` 里会 `Apply()`
             Debug.Log("[OptionsPanel] 开了 `Generic Options Panel`（原版 `GenericOptionsPanel`）。"
-                    + "⚠️ **本地没有任何调用方**（全量反编译里只命中它自己的 20 个 `.c`；跨 CAB 的 UnityEvent "
-                    + "开启点没排除）⇒ 这扇窗在正常路径上**开不出来**，入口由调用方自己定。"
                     + "· 标题 = prefab 出厂原文（原版走 I2 词条，词条表在远端 CCD）。"
                     + "· `Template` 照 `Start()` 建成**关着**的。"
-                    + "· 运行期几何**不含 `Template`**（uGUI 只收 active 子件，见文件头②）。");
+                    + "· 运行期几何**不含 `Template`**（uGUI 只收 active 子件，见文件头②）。"
+                    + "· 首例入口 = `Shell/DeckInfoPopup.cs` 的 `ShareOnChat()`（见类文档那条订正）。");
         }
 
         /// <summary>换一份内容（同 `BaseOfferPopup.Show` 那条先例）。`c == null` ⇒ 用**出厂值**。</summary>
@@ -405,7 +436,10 @@ namespace CardPresentation
             if (_title != null) _title.SetText(_ctx.Title ?? "");
             if (_ctx.LocalizeText)
                 Debug.LogWarning("[OptionsPanel] `Context.LocalizeText = true` —— 原版这两行字要过 I2 词条，"
-                               + "而**词条表在远端 CCD**（本地一个 value 都没有）⇒ 字串**原样用**、没过词条。");
+                               + "而**词条表在远端 CCD**（本地一个 value 都没有）⇒ 字串**原样用**、没过词条。"
+                               + "⚠️ **调用方若要中文**：本仓那两套文案在 `Core/Loc.cs`，把 `Loc.T(键)` 的结果喂进"
+                               + "`Context` 即可（首例 = `Shell/DeckInfoPopup.cs` 的 `ShareOnChat()`，"
+                               + "它传的就是 `Loc.T(\"MenuDeck/Share/…\")`）—— 本条**照旧出声**，⛔ 不压掉。");
             RebuildButtons();
             if (_ctx.AnchorPosition.HasValue)
                 Debug.Log("[OptionsPanel] `SetPosition(" + _ctx.AnchorPosition.Value.x.ToString("F2") + ","
@@ -432,6 +466,7 @@ namespace CardPresentation
                 var br = BtnRect(R, i);
                 var bn = MenuDraw.Node(_buttons, "Button " + i, br);
                 var col = arr[i].ColorOverride ?? Color.white;
+                // 视觉①（原版 `m_DisabledColor`）；视觉② = 下面那句 `wb.Interactable`（🆕 A1726，九宫格 9 块全灰）。
                 if (!arr[i].Interactable) col = new Color(0.784f, 0.784f, 0.784f, 0.502f);   // 原版 `m_DisabledColor`
                 var art = Tex(ArtBtn, "按钮底");
                 GameObject bgo = null;
@@ -460,7 +495,36 @@ namespace CardPresentation
                 if (hit != null && bgo != null)
                 {
                     var wb = hit.GetComponent<WindowButton>();
-                    if (wb != null) wb.BindNine(bgo, ArtBtn, ArtBtnHover, ArtBtnPressed);
+                    if (wb != null)
+                    {
+                        wb.BindNine(bgo, ArtBtn, ArtBtnHover, ArtBtnPressed);
+                        // 🆕 **2026-10-13（A1726）：第一道闸（`WindowButton.Interactable`）【接上了】。**
+                        //    判据 = 原版那一刻走的就是 `Selectable.set_interactable` —— **两半一起**：
+                        //      ① `DoStateTransition(4 /*Disabled*/)` ⇒ 图形件材质换 `Everguild/UI/Greyscale`
+                        //         （我们这一侧 = `RefreshGray`，见 `WindowButton` 头部那段 + `OptButton.Interactable` 的 doc）；
+                        //      ② `Selectable.OnPointerClick` 头一句 `!IsInteractable() ⇒ return`（连派发都没有）。
+                        //  🔴 **本扇那颗钮的原版字段逐值实读**（2026-10-13 · `bundle_menus_assets_all`；
+                        //    沿 `m_Children` 走完整棵 `Generic Options Panel`，GO 根 pid `-688117970605141870`）：
+                        //     `Template` GO（pid `1476224195404599442`）上的 **`EverguildButton` MB `-7346004311159172974`**
+                        //     ⇒ **`colorTintGreyOnDisable = 1`** · `colorTintGreyOnDisableAlpha = 1.0` · `softDisabled = 0` ·
+                        //     `m_Transition = 2`(SpriteSwap) · `m_DisabledColor = (0.7843137, …, a = 0.5019608)`。
+                        //     ⚠️ 这一读把**两个前提**都坐实了，⛔ 不是「看着像」：
+                        //       · `colorTintGreyOnDisable = 1` ⇒ 原版**真的会灰**（`EverguildButton.SoftDisable/ SwitchMaterial`
+                        //         的第一句就是 `if (*(char *)(this + 0x17a) != '\0')`；`DoStateTransition.c`
+                        //         的 `bVar4 = state != 4 && !softDisabled` ⇒ `SetToStateActiveOrDisabled`）；
+                        //       · `m_DisabledColor` 逐位 = 我们 `RebuildButtons` 里那个常量（**这一格原版也真采**
+                        //         —— `DoStateTransition.c` 头那句 `if (m_Transition == 1 ‖ …) goto skip` 对
+                        //         `m_Transition = 2` **不成立** ⇒ 那个按状态上色的块**会跑**，Disabled 取 `+0x94` 那一格）。
+                        //    ⚠️ **必须排在 `BindNine` 【之后】**（同 `Shell/CampaignRewardWindow.cs:844` 那条纪律）：
+                        //       `GrayTargets()` 里的 `target` 是 `Bind` 才设成 `_nine[0]` 的，排在前面的话
+                        //       头一次 `RefreshGray()` 会灰错一组、而 `GrayedForTest` 随即为真 ⇒ 后面再设也早退。
+                        //    ✅ **原来本扇「故意不接」**（那时 `GrayTargets()` 只认「命中区子树 + 一颗 `target`」
+                        //       ⇒ 九宫格只会灰 1/9）—— **`A1719` 已把那个档修好**（第三组 `_nine`）、
+                        //       **`A1725`** 又补上第四组（`TintOn` 那几颗）⇒ 现在置 `Interactable = false`
+                        //       灰的是**全部 9 块**。旧措辞的更正痕 → `OptButton.Interactable` 的 doc。
+                        //    ⚠️ 置 `true` 时是**恒等变换**（`RefreshGray` 头一句 `want == GrayedForTest ⇒ return`）⇒ 老站点零影响。
+                        wb.Interactable = arr[i].Interactable;
+                    }
                     else Debug.LogWarning("[OptionsPanel] 第 " + i + " 颗按钮的命中区上没有 `WindowButton`"
                                         + " ⇒ 悬停/按下**不换图**。");
                 }
@@ -469,15 +533,40 @@ namespace CardPresentation
             BuiltButtons = n;
         }
 
-        /// <summary>原版每颗按钮的回调：先跑 `Button.OnClick`，`AutoClose` 为真时**再**关窗。
-        /// ⚠️ 原版那颗 `UnityEvent` 是**调用方**挂的（`Button.OnClick` 字段）—— 我们这边
-        /// **没有那个委托**（`GenericOptionsPanel.Button.OnClick` 是 `UnityAction`）⇒ 只出声、不假装点了什么。</summary>
+        /// <summary>原版每颗按钮的回调：**先过 interactable 闸 → 再跑 `Button.OnClick`**，`AutoClose` 为真时
+        /// **最后**关窗（= 原版 `SetButtons` 给每颗多挂一个 `AddListener(this.Close)` 那一跳）。
+        /// <para>🔴 **2026-10-12（`A1045`）两条新闸**（本轮之前这里**只打一行日志** —— 调用方挂的动作
+        /// **根本没有地方跑**，等于「点了什么都不发生」）：
+        /// ① `Interactable == false` ⇒ **动作照进来、立刻返回**（原版那一刻连派发都没有）；② `OnClick == null`
+        /// ⇒ **出声**（缺的是原版那颗 `UnityEvent`）。两条都出声 = 本仓红线「不许静默失败」。</para>
+        /// <para>🆕 **2026-10-13（`A1726`）**：**第一道闸接上了**（`RebuildButtons` 里那颗
+        /// `wb.Interactable = arr[i].Interactable`，见 `OptButton.Interactable` 的 doc）⇒
+        /// 门关着时**先**在 `WindowButton.Click()` 头一句就 `return`（并出声）—— ① 这一条**正常走不到**了。
+        /// **保留**（口径同 `Shell/DeckInfoPopup.cs` 的 `Blocked`）：它花的是**同一份布尔**，
+        /// 万一第一道闸被别处放开，这里仍然挡得住 + 出声 —— 「两处写同一条规则」的判据是**判据只有一份**，
+        /// 不是「不许有第二道兜底」。</para></summary>
         void OnButton(OptButton b, int i)
         {
+            // ① 第二道闸（口径同 `Shell/DeckInfoPopup.cs` 的 `Blocked`）——
+            //     ⚠️ **不连 `AutoClose` 一起跑**：原版没派发 ⇒ 也就没有 `Close` 那一下。
+            if (!b.Interactable)
+            {
+                Debug.LogWarning("[OptionsPanel] 点了第 " + i + " 颗按钮 `" + (b.Text ?? "") + "`，"
+                               + "但它 `Interactable = false` ⇒ **这一下什么都不做**"
+                               + "（原版 `Selectable.OnPointerClick` 头一句就返回 ⇒ 连派发都没有）。"
+                               + "⚠️ 出声是因为玩家点了没反应 —— 红线：不许静默失败。");
+                return;
+            }
             Debug.Log("[OptionsPanel] 点了第 " + i + " 颗按钮 `" + (b.Text ?? "") + "`"
+                    + (b.OnClick != null ? "（回调跑起来了）" : "")
                     + (b.AutoClose ? "（`AutoClose = true` ⇒ 顺带关窗 —— 照原版 `SetButtons.c` 那一跳）" : "")
-                    + "。⚠️ 原版那颗按钮的动作在**调用方**挂的 `UnityEvent` 上（`Button.OnClick` 字段）；"
-                    + "我们这边没有那个委托 ⇒ **只出声**。");
+                    + "。");
+            // ② 调用方挂的那颗 `UnityEvent`（原版 `Button.OnClick`）。
+            if (b.OnClick != null) b.OnClick();
+            else
+                Debug.LogWarning("[OptionsPanel] 第 " + i + " 颗按钮 `" + (b.Text ?? "") + "` **没有挂回调**"
+                               + "（原版那颗 `UnityEvent` 是调用方挂的，见 `OptButton.OnClick`）"
+                               + "⇒ 这一下除了关窗**什么都没发生**（出声，不静默）。");
             if (b.AutoClose) Close();
         }
 

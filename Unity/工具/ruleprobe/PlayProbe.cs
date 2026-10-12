@@ -128,7 +128,8 @@ class PlayProbe
         if (pool == null || pool.Count == 0) { Console.Error.WriteLine("!! 卡池是空的"); return 2; }
         if (string.IsNullOrEmpty(key))
         {
-            Console.Error.WriteLine("!! 用法：play <id|卡名> | play all [dump <out.tsv>] [pf <out.txt>] | play check [<pf.txt>]");
+            Console.Error.WriteLine("!! 用法：play <id|卡名> | play all [dump <out.tsv>] [pf <out.txt>] | play check [<pf.txt>]"
+                                    + "（`unit` 档的单卡输出**带事件电池**那一节，见 `A1431` 第三笔）");
             return 2;
         }
         if (string.Equals(key, "all", StringComparison.OrdinalIgnoreCase)) return Sweep(pool, dumpPath, pfPath);
@@ -138,15 +139,22 @@ class PlayProbe
         if (hit == null) return 2;
         var r = Measure(pool, hit);
         Print(r);
+        // 🆕 `A1431` 第三笔：**单卡也要能看事件电池**（否则「这一张到底有没有被验到」得整池跑一遍才知道）。
+        EventReading er = null;
+        if (hit.Type == "unit") { er = MeasureEvents(pool, hit); PrintEvents(hit, er); }
         // 🔴 退出码只认**硬失败**（⛔ 不拿「候选」当失败 —— 那会把「红了不用管」训练成习惯）：
         //   · 崩了（引擎抛异常）= 缺陷，必须红；
         //   · `ErrUnimplemented` = 这张卡**根本打不出去**（`CanPlayTactic` 要求
         //     `IsFullyParsed`）⇒ 卡面上写着正文而它连打都打不出去 = 缺陷，必须红。
+        //   🆕 **电池抛异常 / 对照局没起步**同样算硬失败（`A1431` 第三笔）—— 那两样意味着
+        //     「这一张**没被验到**」，正是本笔要治的那件事，⛔ 不许静默放过。
         //   ⚠️ `ErrNoTargetAvailable`（`A985⑧` 拆出来的那一档）**不算** ——
         //     那是**夹具里没有合法目标**（本夹具只有 `Infantry` 一个兵种、没有隐秘/飞行/载具），
         //     是**量具的限制**，不是卡的缺陷。如实打在读数里，⛔ 不混进失败。
+        //   ⚠️ **净差 0 条也不算**（电池抬不到那个事件 ≠ 卡有缺陷）—— 但它**会在上面出声**。
         if (r.Crash != null) return 1;
         if (r.Rc == RuleCodes.ErrUnimplemented) return 1;
+        if (er != null && (er.Crash != null || er.Note.Length > 0)) return 1;
         return 0;
     }
 
@@ -483,6 +491,298 @@ class PlayProbe
         var ch = new List<string>();
         Diff(before, after, ch);
         return (ch, after);
+    }
+
+    // ==================================================================
+    //  🆕 `A1431` 第三笔：**事件电池** —— 治「档 B」那一档的【结构性失明】
+    // ==================================================================
+    //
+    // 🔴 **它修的是哪一条**：`play all` / `play check` 的主档量的是「**把卡打出去那一拍**」
+    //   局面的数字动没动。而 **档 B**（`Bucket` 的第 3 档）的定义就是
+    //   「卡面正文**每一句都挂在别的时机的头上**」（`Strike:` / `Mob:` / `Regiment:` / `Slay:` /
+    //   `Duty:` / `Pray:` / `Agenda:` / `Oath N:` / `Teleport:` / `Ambush:` / `Ecstasy N:` /
+    //   `At the start of your turn …` …）⇒ **本夹具产生不了那个事件**，`other == 0` 是**预期**的。
+    //   ⚠️ **于是那一档的指纹行是一个【常量】**（`other=0` · `changesFull` 空）：
+    //   它的结算**今天坏掉、明天修回来**，主档的指纹**一个字符都不会变** ⇒
+    //   `play check` 在那一档上是**看着绿、实际没验**（本仓红线「不许静默失败」）。
+    //
+    // **做法**：把卡打出去**之后**，再**替它走一段事件电池** —— ⛔ 不是我们手改状态，
+    //   每一发都走**引擎自己的公开面**：
+    //     ① 誓约（`UseOathAbility`）⇒ `Oath N:`。
+    //        🔴 **必须排在回合电池之前、同一回合里用** —— `CanUseOathAbility` 有一条
+    //        `!OathAllTurns && u.DeployedTurn != ctx.Turn ⇒ ErrExhausted` ⇒ 过了回合就再也用不了
+    //        （实测：排在后面时电池自检的 `Oath` 那一对两条净差**都是 0**）；它**不查 `Exhausted`**。
+    //     ② **两个来回**（`EndTurn` + `BeginTurn` ×2，P0→P1→P0）⇒ 驱动
+    //        `At the start of your turn` / `At the end of your turn` 那一族；
+    //        ⚠️ 顺带让 P0 的部队被**引擎自己的** `RefreshForNewTurn` 刷活
+    //        （`Core/UnitState.cs:1190`，由 `RuleCore.cs:1160` 在 `BeginTurn` 里调）
+    //        ⇒ 后面那两步才跑得动。⛔ 探针**不手改 `Exhausted` / `SummonSickness`**。
+    //     ③ 抽一张（`Draw`）⇒ `When you draw a card, …`；
+    //     ④ 主动用：`UseAbility`（自定的 `Ability:`）＋ `AvailableAlternative`+`UseAlternative`
+    //        ⇒ `Duty:` / `Pray:` / `Ferocity:` / `Agenda:` / `Talent:` / `Artifice:`；
+    //     ⑤ **攻击两发**（`DeclareAttack` ×2：一发引擎自己选的型 ＋ 一发**另一种**）⇒
+    //        `Strike:` / `Mob:` / `Regiment:` / `Ferocity:` / `Cruelty:`。
+    //        🔴 **为什么非两发**：`Mob` 只在**近战**后触发、`Regiment` 只在**远程**后触发
+    //        （`RuleCore.cs:4312` / `:4334` 那两条 `if (!ranged…)` / `if (ranged…)`）⇒
+    //        只打一发 ⇒ **挂另一个头的整族永远抬不起来**（实测：自检的 `Regiment` 那一对全红）。
+    //        第二发走 `forced: true` = 引擎自己的「**不是玩家点出来的**那一档」
+    //        （原版 `scriptedAttack(0x34)`，见 `CanAttackNow` 头注：它跳过回合/配额那一段）；
+    //        ⛔ 探针**不改 `AttacksThisTurn`**。
+    //     ⑥ 打死一个敌人（`ApplyDamage`）⇒ `Slay:` / `When … dies` / 死亡触发那一族。
+    //   ⚠️ ④⑤ 互相**不抢**：一个单位至多只有一条主动能力（`AvailableAlternative` 的注释：
+    //      全池没有任何一张同时带两个）⇒ 没有主动能力的卡在 ④ 一步都不消耗；
+    //      有主动能力的卡在 ④ 用掉行动、⑤ 第一发会返回 `ErrExhausted`，第二发（`forced`）照打。
+    //      **每一个返回码都照原样进 `steps` 列**（⛔ 不静默吞掉）。
+    //   ⛔ **电池抬不到的**（今天**如实标着**，见 ⑥ 节逐条列出的那批）：**付费段**
+    //      （`N ☀:` / `Ecstasy N:` / `Stimulation:` / `Teleport:` 那一族要**主动付费**才进得来）、
+    //      `Ambush:`（要在**面朝下**打出那一拍触发）、被动光环（`Your other … troops have +N`，
+    //      它改的是**别人**、且**不在打出去那一拍**）。那几族**仍未被电池验到** ——
+    //      `play check` 的 ①-c 会**逐条把它们的 id 列出来**，⛔ 不许只印一句「已知不适用」。
+    //
+    // 🔴 **对照局（⛔ 不是可选项）**：电池抬起来的**事件本身**（两边抽牌、能量刷新、回合计数…）
+    //   对**每一张卡**都会产生一串**与卡无关**的变化。不加对照，`net` 就是一锅噪声，
+    //   「这一张有没有被验到」这个问题**没有可测量的答案**。
+    //   ⇒ 对照 = **同一张卡、同 id、同印数、同兵种、同关键词标记，只把 `desc` 清空**的替身
+    //     （见 <see cref="Blank"/>）：两局的**印数/关键词**逐位相同 ⇒ 战斗算术那部分噪声抵消，
+    //     剩下的净差**只能来自卡面正文**。净差 = `A.Changes` 减 `B.Changes`（与 `MeasureHero`
+    //     的「空督军对照」同一个形状）。
+    //
+    // ⚠️ **本档只覆盖 `type == "unit"`**（586 张）—— **档 B / 档 C 按定义就是 `unit`**
+    //   （`Bucket`：`tactic`/`defence` 直接归 A 档；`hero` 归 H 档，另法测）。
+    //   ⛔ 不是「省事」：`tactic`/`defence` 的正文**打出即结算**、主档已经看得到，
+    //     而它们的「空正文替身」在 `PlayTactic` 那一道 `IsFullyParsed` 闸上**打不出去**
+    //     ⇒ 对照局不成立（那会让净差把**整张卡**算成效果）。
+    //
+    // ⛔ **它【不】判对错**（判据仍在卡面上）· ⛔ **不改主档一个字** —— 主档的读数、
+    //   主档的指纹行、`Sweep` 的候选分档**全部逐字不动**，本档只**在末尾追加**一批行。
+    //   这是有意的：主档那 407 张候选**已经逐张对过卡面**，重算它们等于让那批判决作废。
+
+    /// <summary>🔴 **`A1431` 第三笔：电池抬不起来的那些，按【根因】分一格**（⛔ 不是「总之没验到」）。
+    ///
+    /// 判据**全部转调引擎自己的公开访问器**（`CardDef.SpiritOps` / `FaithOps`），⛔ 不在探针里另写表：
+    ///   · **灵魂石能力**（`N [Spirit Stone]: …`）—— 收在 `CardDef.SpiritOps`、代价在 `EffectOp.Cost`；
+    ///     结算点 = **部署那一拍**（`RuleCore.PlayCard` → `EffectResolver.ResolveSpiritAbility`）。
+    ///     🔴 **根因不在电池**：本夹具**起始派系资源 = 0**（`SpiritStones` / `Faith` 都是 0，
+    ///     见 `BuildFixture` —— 它只给能量）⇒ 前缀付不起 ⇒ **主档那一拍就已经结算不了**
+    ///     （实测：临时给 P0 灌 10 颗，同一批卡里有 22 张当场变成有净差）。要治得动
+    ///     **`BuildFixture` 的起始资源** ⇒ 那会改**主档**每行的「信仰/灵魂石/任务点」三列
+    ///     ⇒ **基线整体重钉** ⇒ 是独立的一轮（`A1431` 账文那句「得单独一轮」正是这个形状）。
+    ///   · **信仰能力**（`N ☀: …`）—— 同形（`CardDef.FaithOps`，`Faith = 0` 发不起来）。
+    ///   · **其余** —— 电池**抬不到那个事件**（`steps` 列里哪一步不是 `rc=0`，或那个事件本夹具没有）。</summary>
+    static string EcCause(CardDef c)
+    {
+        if (c == null) return "?";
+        if (c.SpiritOps != null && c.SpiritOps.Count > 0) return "灵魂石能力（夹具起始资源=0）";
+        if (c.FaithOps != null && c.FaithOps.Count > 0) return "信仰能力（夹具起始资源=0）";
+        return "电池抬不到那个事件";
+    }
+
+    /// <summary>`A1431` 第三笔：事件电池走完一趟的产物。</summary>
+    class EventPass
+    {
+        public readonly List<string> Changes = new List<string>();
+        public readonly List<string> Steps = new List<string>();
+        public int PlayRc = -1;
+        public bool Played;
+        public Snap End;
+    }
+
+    /// <summary>`A1431` 第三笔：**一张卡的事件电池读数**。
+    /// 🔴 `Net` 是**净差**（电池局 − 空正文对照局）—— 它才是「这张卡的正文在别的时机上跑没跑」。</summary>
+    class EventReading
+    {
+        public CardDef C;
+        public string Bucket = "";
+        public string Steps = "";
+        public int PlayRc = -1;
+        public bool Played;
+        public bool CtrlPlayed;          // 对照局起步了吗（没起步 ⇒ 净差不可信，如实标出来）
+        public int Raw;                  // 电池局自己的变化条数（含与卡无关的事件噪声）
+        public int Ctrl;                 // 对照局的变化条数
+        /// <summary>🆕 这一张**在主档里是不是「候选」**（卡面有正文 · 打出去了 · 实得变化 0 条）。
+        /// 🔴 **必须由 `Sweep` 从主档那一份 `Reading` 传进来** —— 覆盖面那一节要的是
+        ///   「**被主档看着、却看不见**的那一批」到底被电池救回来多少，
+        ///   ⛔ 不是「整个 `unit` 档」的条数（那里面一半是**卡面根本没正文**的卡，
+        ///   它们 `other=0` 与「失明」无关 —— 混进去会把覆盖面**灌水**）。</summary>
+        public bool Cand;
+        public List<string> Net = new List<string>();
+        public int NetDmg;               // 净伤害（两边 `DamageToEnemy[0]` 之差）
+        public string Crash;
+        public string Note = "";
+    }
+
+    /// <summary>空正文替身 —— **同 id / 同卡名 / 同类型 / 同印数 / 同兵种 / 同关键词标记，
+    /// 只把 `desc`（与 `descZh`）清空**。
+    ///
+    /// 🔴 **为什么是「只清正文」而不是「造一个白单位」**（实测踩过）：电池里有**攻击**那一发，
+    ///   而攻防算术吃的是**印的数**（攻/远/甲/血/兵种）与**关键词标记**（`Armour 1` / `Flank` …）
+    ///   ⇒ 拿一个 `Fix(…, 0, 1, 0)` 当对照，两局的战斗结果**天然不同** ⇒ 整锅净差全是噪声。
+    ///   只清正文 ⇒ 那些部分**逐位相同**，净差**只剩正文**那一份。
+    /// ⚠️ 关键词**标记**照留 —— 两族理由，都实测过：
+    ///   · 它的正文在 `desc` 里（`KeywordTable.EffectText` 对 `"Rally"` 这种**没有** `':'` 的
+    ///     一律返回 null ⇒ 关键词只登记**标记**，正文全靠 `desc`）⇒ 清 `desc` 就清掉了正文；
+    ///   · **`Fast` / `Flank` 会改「部署当回合能不能动」那一档**（`HasDeployExemption`）——
+    ///     对照局丢了它就会在与被测卡**结构不同**的状态下跑电池（那一步的返回码都不同），
+    ///     净差立刻变成噪声。
+    /// ⚠️ 还原写法时用 `NumericKeywords` 判「原来印没印数字」—— 规范化字典只存值，
+    ///   分不出 `Armour 1`（印了）与 `Armour`（没印），而那一分影响卡面角标那一层。</summary>
+    static CardDef Blank(CardDef c)
+    {
+        var kw = new List<string>();
+        if (c.Keywords != null)
+            foreach (var kv in c.Keywords)
+            {
+                bool printed = c.NumericKeywords != null && c.NumericKeywords.Contains(kv.Key);
+                kw.Add(printed ? kv.Key + " " + kv.Value : kv.Key);
+            }
+        return new CardDef(c.Id, c.Name, c.Type, "", c.Rarity, c.Faction,
+                           c.Cost, c.Attack, c.Health, c.RangedAttack, kw,
+                           subtype: c.Subtype);
+    }
+
+    /// <summary>敌人那侧**有单位的**一格（先非督军格；都没有才退督军格）。⛔ 只决定「打哪一格」，
+    /// 不是判据 —— 打不打得动由引擎的返回码说了算，如实进 `steps`。</summary>
+    static int PickAnyEnemy(BattleContext ctx, int p)
+    {
+        var b = ctx.Players[1 - p].Board;
+        for (int i = 0; i < BoardSpec.Size; i++)
+            if (i != BoardSpec.WarlordSlot && b[i] != null) return i;
+        return BoardSpec.WarlordSlot;
+    }
+
+    /// <summary>走一趟事件电池（<see cref="RunEventPass"/> 的正文与取舍见本区块头注）。</summary>
+    static EventPass RunEventPass(List<CardDef> pool, CardDef card)
+    {
+        var ep = new EventPass();
+        int handIdx; bool injected;
+        var ctx = BuildFixture(pool, card, null, out handIdx, out injected);
+        if (handIdx < 0) { ep.Steps.Add("fixture=miss"); return ep; }
+
+        // ---- ⓪ 出牌（与 `MeasurePlay` 同一条路、同一个落点选择）----
+        int slot = -1;
+        ep.PlayRc = RuleCore.PlayCard(ctx, 0, handIdx, FreeSlot(ctx, 0), out slot);
+        ep.Played = ep.PlayRc == RuleCodes.OK;
+        ep.Steps.Add("play=" + ep.PlayRc);
+        if (!ep.Played) return ep;              // 打不出去 ⇒ 电池无从起步（主档已经报了这条）
+
+        // 🔴 逐段累积差异（⛔ 不是「末态减初态」）：中间态被改回去的（打伤又治好）那一种
+        //    在「末态减初态」里**会自己抵消掉** ⇒ 那一段就白测了。与主档 `Diff(before,after)` 同形。
+        var s0 = Capture(ctx);
+
+        // ---- ① 誓约（`Oath N:`）—— 🔴 **必须赶在回合电池【之前】、同一回合里用** ----
+        //   判据 = `RuleCore.CanUseOathAbility`：`if (!OathAllTurns(...) && u.DeployedTurn != ctx.Turn)
+        //   return ErrExhausted;` ⇒ **只有上场的那个回合**能用（实测：放在回合电池之后 ⇒
+        //   电池自检的 `Oath` 那一对两条净差都是 0、`steps` 里是 `oath=6`）。
+        //   ⚠️ 它**不查 `Exhausted`**（同那个方法：它查的是 `OathUsesThisTurn` 上限与 `DeployedTurn`）
+        //   ⇒ 部署当回合就能用，⛔ 不需要（也不许）手改疲劳位。
+        if (slot >= 0 && ctx.Players[0].Board[slot] != null)
+            ep.Steps.Add("oath=" + RuleCore.UseOathAbility(ctx, 0, slot));
+        var s1 = Capture(ctx);
+
+        // ---- ② 两个来回：P0 → P1 → P0（驱动「回合开始 / 回合结束」那一族）----
+        for (int k = 0; k < 2; k++)
+        {
+            ep.Steps.Add("end" + k + "=" + RuleCore.EndTurn(ctx));
+            RuleCore.BeginTurn(ctx);
+        }
+        var s2 = Capture(ctx);
+
+        // ---- ③ 抽一张 ----
+        RuleCore.Draw(ctx, 0);
+        ep.Steps.Add("draw=1");
+        var s3 = Capture(ctx);
+
+        // ---- ④ 主动用（`Duty:` / `Pray:` / `Ferocity:` / `Agenda:` / `Talent:` / `Artifice:`）----
+        int tgt = PickAnyEnemy(ctx, 0);
+        if (slot >= 0 && ctx.Players[0].Board[slot] != null)
+        {
+            ep.Steps.Add("abil=" + RuleCore.UseAbility(ctx, 0, slot, tgt));
+            var alt = RuleCore.AvailableAlternative(ctx, 0, slot);
+            if (alt != null)
+                ep.Steps.Add("alt(" + alt + ")=" + RuleCore.UseAlternative(ctx, 0, slot, alt, tgt));
+        }
+        var s4 = Capture(ctx);
+
+        // ---- ⑤ 攻击（`Strike:` / `Mob:` / `Regiment:` / `Cruelty:`）----
+        //   🔴 **打两发**（一发近战 ＋ 一发远程）—— 判据在引擎里是**分成两条**的：
+        //     `RuleCore.cs:4312` `if (!ranged && …) FireTriggerAt(… Mob …)` ·
+        //     `:4334` `if (ranged && …) FireTriggerAt(… Regiment …)`
+        //     ⇒ **只打一发**时，挂另一个头的整族**在电池里永远抬不起来**
+        //     （实测：自检的 `Regiment` 那一对两条净差**都是 0**，红的）。
+        //   第一发走引擎自己的自然选择（`CurrentAttackIsRanged`）；第二发是**另一种**，
+        //   走 `DeclareAttack(..., forced: true)` = 引擎自己的「**不是玩家点出来的**那一档」
+        //   （原版 `scriptedAttack(0x34)`，见 `CanAttackNow` 头注：它跳过回合/配额那一段）——
+        //   ⛔ 探针**不手改 `Exhausted` / `AttacksThisTurn`**。两发的返回码**都进 `steps`**。
+        if (slot >= 0 && ctx.Players[0].Board[slot] != null)
+        {
+            bool first = RuleCore.CurrentAttackIsRanged(ctx, 0, slot);
+            ep.Steps.Add((first ? "atkR" : "atkM") + "="
+                         + RuleCore.DeclareAttack(ctx, 0, slot, 1, PickAnyEnemy(ctx, 0), first));
+        }
+        var s5 = Capture(ctx);
+        if (slot >= 0 && ctx.Players[0].Board[slot] != null)
+        {
+            // ⚠️ 第二步那两格叫 `atkM2` / `atkR2`（**第二发**）—— ⛔ 别写成 `atkM!` / `atkR!`，
+            //    那会和 `!=` 撞脸，读成「atkR 不等于 0」。
+            bool second = !RuleCore.CurrentAttackIsRanged(ctx, 0, slot);
+            ep.Steps.Add((second ? "atkR2" : "atkM2") + "="
+                         + RuleCore.DeclareAttack(ctx, 0, slot, 1, PickAnyEnemy(ctx, 0), second, forced: true));
+        }
+        var s6 = Capture(ctx);
+
+        // ---- ⑥ 打死一个敌人（`Slay:` / 死亡触发那一族）----
+        int kv = PickAnyEnemy(ctx, 0);
+        var victim = ctx.Players[1].Board[kv];
+        if (victim != null)
+            // ⚠️ `kill(dmg)=` 里的值是 **`ApplyDamage` 的返回（实得伤害）**，⛔ **不是 RuleCode**
+            //    —— 别跟同一串里那些 `rc` 混着读（`999` 那个数就是这么来的）。
+            ep.Steps.Add("kill(dmg)=" + RuleCore.ApplyDamage(ctx, victim, 999, "夹具事件电池"));
+        var s7 = Capture(ctx);
+
+        Diff(s0, s1, ep.Changes);
+        Diff(s1, s2, ep.Changes);
+        Diff(s2, s3, ep.Changes);
+        Diff(s3, s4, ep.Changes);
+        Diff(s4, s5, ep.Changes);
+        Diff(s5, s6, ep.Changes);
+        Diff(s6, s7, ep.Changes);
+        ep.End = s7;
+        return ep;
+    }
+
+    /// <summary>`A1431` 第三笔：一张卡的**事件电池读数**（含对照局的净差）。</summary>
+    static EventReading MeasureEvents(List<CardDef> pool, CardDef card)
+    {
+        var r = new EventReading { C = card };
+        try
+        {
+            r.Bucket = Bucket(card);
+            var a = RunEventPass(pool, card);
+            r.Steps = string.Join(",", a.Steps);
+            r.PlayRc = a.PlayRc;
+            r.Played = a.Played;
+            r.Raw = a.Changes.Count;
+            if (!a.Played) { r.Note = "电池没起步（出牌 rc=" + CodeName(a.PlayRc) + "）"; return r; }
+            var b = RunEventPass(pool, Blank(card));
+            r.CtrlPlayed = b.Played;
+            r.Ctrl = b.Changes.Count;
+            if (!b.Played)
+            {
+                // 🔴 **对照局没起步 ⇒ 净差不可信** —— 出声，⛔ 不拿「电池局减 0 条」当净差。
+                r.Note = "**对照局没起步**（空正文替身 rc=" + CodeName(b.PlayRc) + "）⇒ 本行净差不可信";
+                r.Net = a.Changes;
+            }
+            else
+            {
+                r.Net = a.Changes.Where(x => !b.Changes.Contains(x)).ToList();
+                if (a.End != null && b.End != null) r.NetDmg = a.End.Dmg[0] - b.End.Dmg[0];
+            }
+        }
+        catch (Exception ex)
+        {
+            r.Crash = ex.GetType().Name + ": " + ex.Message;
+        }
+        return r;
     }
 
     // ==================================================================
@@ -875,10 +1175,30 @@ class PlayProbe
                           + " —— 判决要看卡面，本工具不代替判决。");
     }
 
+    /// <summary>🆕 `A1431` 第三笔：**事件电池**的单卡读数（`play &lt;id&gt;` 打在主档读数之后）。
+    /// ⛔ 与 <see cref="Print"/> 一样**只摆读数、不判对错**。</summary>
+    static void PrintEvents(CardDef c, EventReading r)
+    {
+        Console.WriteLine();
+        Console.WriteLine("=== play " + c.Id + " · 事件电池（`A1431` 第三笔 · 打出去**之后**那一段）===");
+        Console.WriteLine("  电池的步骤/返回码 : " + r.Steps);
+        Console.WriteLine("  档                : " + r.Bucket
+                          + "   · 主档候选（卡面有正文 · 打出去 · 主档实得 0 条）: " + (r.Cand ? "**是**" : "否"));
+        Console.WriteLine("  对照局（空正文替身）起步了吗 : " + (r.CtrlPlayed ? "是" : "**否** —— 净差不可信"));
+        Console.WriteLine("  电池局自己的变化条数 = " + r.Raw + " · 对照局 = " + r.Ctrl
+                          + " ⇒ **净差 = " + r.Net.Count + " 条**（净伤害 " + r.NetDmg + "）");
+        if (r.Crash != null) Console.WriteLine("  🔴 **电池抛异常**：" + r.Crash);
+        if (r.Note.Length > 0) Console.WriteLine("  🔴 " + r.Note);
+        if (r.Net.Count == 0)
+            Console.WriteLine("  ⛔ **净差 0 条 = 电池没抬起这一张的正文** ⇒ 它**仍然没被「事件的结算」验到**。"
+                              + "根因 = **" + EcCause(c) + "**（见 `play all` 的 ⑥ 节）。");
+        else
+            foreach (var ch in r.Net) Console.WriteLine("     " + ch);
+    }
+
     // ==================================================================
     //  全池 sweep
     // ==================================================================
-
     /// <summary>全池逐卡真打，出一份 TSV + 一段摘要。
     /// ⚠️ 这是 `A1431` 那句「**全池尺子对『解析过、结算错』这一类结构性失明**」的正面回答：
     ///   本仓第一次有一条全池尺子**能看见「打出去之后局面动了没有」**。
@@ -891,6 +1211,8 @@ class PlayProbe
                   // 🆕 `A1572` 两列（**只加在末尾** —— 前面的列一个字没动）
                   + "fixtureFit\tinjected\n");
         var pfRows = new List<string>();      // 🆕 `A1431` 第二笔：**结算指纹**（逐卡一行，见 `FingerprintRow`）
+        var ecRows = new List<string>();      // 🆕 `A1431` 第三笔：**事件电池**（`E|` 前缀那一套，见 `FingerprintERow`）
+        var ecReads = new List<EventReading>();   // 电池档的读数（末尾那两节要按档统计）
 
         int played = 0, cand = 0, crash = 0, unimpl = 0, cantPlay = 0, heroCnt = 0;
         int naTotal = 0, naInjected = 0;                 // `A1572`：结构上不适用的两族 / 其中靠补手牌的
@@ -926,6 +1248,15 @@ class PlayProbe
             }
 
             pfRows.Add(FingerprintRow(c, r));      // 🆕 `A1431` 第二笔
+
+            // 🆕 `A1431` 第三笔：**事件电池**（只对 `unit`，见本区块头注）
+            if (c.Type == "unit")
+            {
+                var er = MeasureEvents(pool, c);
+                er.Cand = r.Played && r.FaceHasOps && r.Other == 0;   // 见 `EventReading.Cand`
+                ecRows.Add(FingerprintERow(c, er));
+                ecReads.Add(er);
+            }
 
             sb.Append(c.Id).Append('\t').Append(c.Name).Append('\t').Append(c.Type)
               .Append('\t').Append(r.Bucket)
@@ -1063,23 +1394,67 @@ class PlayProbe
         // ------------------------------------------------------------------
         Console.WriteLine();
         Console.WriteLine("  --- ⑤ 结算指纹（`A1431` 第二笔 · `play check` 拿它对拍）---");
-        Console.WriteLine("     " + FingerprintMd5(pfRows) + "   （" + pfRows.Count + " 张）");
+        Console.WriteLine("     主档（打出去那一拍） " + FingerprintMd5(pfRows) + "   （" + pfRows.Count + " 张）");
+        Console.WriteLine("     事件电池（`E|` 那一套）" + FingerprintMd5(ecRows) + "   （" + ecRows.Count + " 张 unit）");
+        Console.WriteLine("     合起来（= 基线文件的非 `#` 行 · 哨兵钉的就是这一串） "
+                          + FingerprintMd5(pfRows.Concat(ecRows)) + "   （" + (pfRows.Count + ecRows.Count) + " 行）");
         Console.WriteLine("     含什么：`id|type|warlord|playRc|played|faceOps|自落场|机械|实得|应付|能量Δ|手牌价Δ|伤害|"
-                          + "变化条数|crash|档|**变化逐条全文**`。");
-        Console.WriteLine("     ⛔ 不含什么：**卡名**（改名的产物，本仓已改过 6 张）· `note`（口径散文）·"
+                          + "变化条数|crash|档|**变化逐条全文**`；电池档见 " + string.Join("/", PfECols) + "。");
+        Console.WriteLine("     ⛔ 不含什么：**卡名**（改名的产物，本仓已改过 6 张）· `note`（口径散文，电池档除「对照局没起步」外）·"
                           + "引擎日志（措辞会变）—— 这三样进来会**天天红**，把「红了不用管」训练成习惯。");
         if (!string.IsNullOrEmpty(pfPath))
         {
             var pdir = Path.GetDirectoryName(Path.GetFullPath(pfPath));
             if (!string.IsNullOrEmpty(pdir)) Directory.CreateDirectory(pdir);
-            File.WriteAllText(pfPath, FingerprintFileText(pfRows));
-            Console.WriteLine("     wrote " + pfPath + " lines=" + (pfRows.Count + 1));
+            File.WriteAllText(pfPath, FingerprintFileText(pfRows, ecRows));
+            Console.WriteLine("     wrote " + pfPath + " lines=" + (pfRows.Count + ecRows.Count + 1));
         }
         else
         {
             Console.WriteLine("     ⚠️ 没写指纹文件 —— 要留一份「被确认的状态」⇒ `play all pf <out.txt>`"
                               + "（写完之后**手改** `PlayProbe.PinnedPlayMd5` = 上面那串，见 `play check`）。");
         }
+
+        // ------------------------------------------------------------------
+        //  🆕 `A1431` 第三笔：**事件电池**的覆盖面 —— 「档 B」那一档今天到底被验到多少
+        // ------------------------------------------------------------------
+        Console.WriteLine();
+        Console.WriteLine("  --- ⑥ 🔴 事件电池的覆盖面（`A1431` 第三笔 · 治「档 B」的结构性失明）---");
+        Console.WriteLine("     量的是什么：打出去**之后**再走一段事件电池（两个来回 / 抽一张 / 主动用 / 攻击一发 / 打死一个），"
+                          + "读数 = **电池局 − 空正文对照局**（见 `EventReading.Net`）。");
+        Console.WriteLine("     ⛔ 它**不改**上面主档的任何一格；只把新读数**追加**在指纹文件的第二段。");
+        foreach (var bucket in new[] { "B 等事件/等主动用", "C 部署时该发生" })
+        {
+            // ⚠️ 分母 = **候选**（`Cand`：卡面有正文 · 打出去了 · 主档实得 0 条）——
+            //    那一批才是「主档看着它、却看不见」的卡；⛔ 拿整个 unit 档当分母是灌水。
+            var g = ecReads.Where(r => r.Bucket == bucket && r.Cand).ToList();
+            if (g.Count == 0) continue;
+            var cov = g.Where(r => r.Net.Count > 0).ToList();
+            Console.WriteLine("     ── " + bucket + " · **候选 " + g.Count + " 张**"
+                              + "（该档 unit 全档 " + ecReads.Count(r => r.Bucket == bucket) + " 张）· "
+                              + "**电池净差 > 0 的 " + cov.Count + " 张**"
+                              + (bucket.StartsWith("B") ? "（=「档 B」今天被事件验到的张数）" : "") + " ──");
+            var zero = g.Where(r => r.Net.Count == 0).ToList();
+            if (zero.Count > 0)
+            {
+                Console.WriteLine("        🔴 净差 = 0 的 " + zero.Count + " 张 —— 主档那一拍看不见、电池这一趟也没抬起来"
+                                  + " ⇒ **这一档里它们仍然没被「事件的结算」验过**（⛔ 不是「没有差异」，"
+                                  + "是**没验**；逐张对着卡面看）");
+                // 🔴 **按根因分**（判据 = 引擎自己的公开访问器，见 `EcCause`）——
+                //    ⛔ 不写「总之没验到」那种没信息量的话：灵魂石/信仰那两族**根因不在电池**。
+                foreach (var grp in zero.GroupBy(r => EcCause(r.C)).OrderByDescending(x => x.Count()))
+                    Console.WriteLine("          · " + Pad(grp.Key, 30) + " = " + grp.Count() + " 张");
+                foreach (var r in zero.Take(60))
+                    Console.WriteLine("          " + Pad(r.C.Id, 24) + Pad(r.C.Name, 30)
+                                      + " steps=" + Clip(r.Steps, 90));
+                if (zero.Count > 60) Console.WriteLine("          …（还有 " + (zero.Count - 60) + " 张，看指纹文件）");
+            }
+        }
+        var ecBad = ecReads.Where(r => r.Note.Length > 0 || r.Crash != null).ToList();
+        Console.WriteLine("     对照局没起步 / 电池抛异常的行 = **" + ecBad.Count + " 张**"
+                          + (ecBad.Count > 0 ? "  ← 🔴 出声（逐条）" : "（✅ 没有）"));
+        foreach (var r in ecBad.Take(30))
+            Console.WriteLine("       " + Pad(r.C.Id, 24) + " " + Clip(r.Crash ?? r.Note, 120));
 
         Console.WriteLine();
         Console.WriteLine("  判据：**抛异常 = 0 张** ⇒ rc=0；否则 rc=1。");
@@ -1093,7 +1468,20 @@ class PlayProbe
         int bucketFail = BucketSelfCheck(pool);
         Console.WriteLine("  ⇒ 判据自检（`A1599`）" + (bucketFail == 0 ? "全过 ✅" : "红 " + bucketFail + " 条 🔴")
                           + " —— 它也计入 rc。");
-        return (crash > 0 || bucketFail > 0) ? 1 : 0;
+
+        // ------------------------------------------------------------------
+        //  🆕 `A1431` 第三笔：**事件电池**的自检（**计入 rc**）—— 灭自证
+        // ------------------------------------------------------------------
+        Console.WriteLine();
+        int ebFail = EventBatterySelfCheck(pool);
+        Console.WriteLine("  ⇒ 判据自检（`A1431` 第三笔 · 事件电池）"
+                          + (ebFail == 0 ? "全过 ✅" : "红 " + ebFail + " 条 🔴") + " —— 它也计入 rc。");
+
+        // 🔴 **电池档的「出声」也计入 rc** —— 一行「对照局没起步 / 电池抛异常」= **那一张没验到**，
+        //    正是本笔要治的那件事（看着绿、实际没验）⇒ 一律红，⛔ 不许只印一行字。
+        if (ecBad.Count > 0) ebFail++;
+
+        return (crash > 0 || bucketFail > 0 || ebFail > 0) ? 1 : 0;
     }
 
     // ==================================================================
@@ -1125,7 +1513,7 @@ class PlayProbe
     /// </summary>
     static int BucketSelfCheck(List<CardDef> pool)
     {
-        Console.WriteLine("  --- ⑥ 🔴 `Bucket` 付费前缀判据自检（`A1599`：判据 = **引擎自己那次 `ParseSegment`**）---");
+        Console.WriteLine("  --- ⑦ 🔴 `Bucket` 付费前缀判据自检（`A1599`：判据 = **引擎自己那次 `ParseSegment`**）---");
         int fail = 0;
         Func<string, string, CardDef> fx = (id, desc) =>
             new CardDef(id, id, "unit", desc, "common", "Fixture", 1, 1, 1, 0, null, subtype: "Troop");
@@ -1206,6 +1594,87 @@ class PlayProbe
     }
 
     // ==================================================================
+    //  🆕 `A1431` 第三笔：**事件电池**的自检（灭自证）
+    // ==================================================================
+
+    /// <summary>🆕 **`A1431` 第三笔**：事件电池的判据自检（返回**红的条数**）。
+    ///
+    /// 🔴 **它在防的那件事**：「电池看着跑过了、其实**抬不起那个事件**」—— 那正是本笔要治的病
+    ///   （一个**看着绿、实际没验**的档）。只断「净差 > 0」**挡不住**它：
+    ///   电池里那两个来回**本来就会**产生一串与卡无关的变化（两边抽牌 / 能量刷新 / 回合计数），
+    ///   只要对照局算错一点，「净差 > 0」就能**靠噪声**成立。
+    ///
+    /// **断言 = 结构上不可能靠噪声满足的那一条**：每一对比的是**同一张夹具卡、只把一个数字改掉**
+    ///   （`5 → 9`）。若电池**真抬起了**那个事件 ⇒ 两条的净差**必然不同**（伤害/加值不一样了）；
+    ///   若电池**压根没抬起**它 ⇒ 两条都是**空的净差**、必然**相同** ⇒ 红。
+    ///   ⚠️ 噪声对两条**是一样的**（同种子、同夹具、同事件序列）⇒ 它**帮不了**这一条断言。
+    ///
+    /// **覆盖面**：每一对都指名一个**事件**（`Strike` / `Regiment` / `Duty` / `Pray` / `Oath` /
+    ///   回合开始 / 回合结束 / `Slay`）—— 这些正是「档 B」的成员挂着的那些头。
+    ///   ⇒ 哪一条红了，就等于说「**这个事件电池没抬起来**」，档 B 里挂那个头的卡**仍然没被验到**。
+    ///
+    /// ⚠️ 夹具卡**在内存里现造**（`new CardDef(...)`，⛔ 不进卡池、⛔ 不碰 `MyGame/Assets/**`）。
+    /// </summary>
+    static int EventBatterySelfCheck(List<CardDef> pool)
+    {
+        Console.WriteLine("  --- ⑧ 🔴 事件电池判据自检（`A1431` 第三笔 · **灭自证**：同卡改一个数，净差必须不同）---");
+        int fail = 0;
+        // 夹具单位：`3/2/20`（近战 3 · 远程 2 · **血 20**），费用 1（能落场、能打两下）。
+        // 🔴 **血必须够厚**（20）—— 实测踩过：血 4 的夹具在**第一发（近战）**就被反击打死
+        //    ⇒ 第二发（远程）根本没单位可打 ⇒ `Regiment:` 那一对两条净差**都是 0**（假红）。
+        Func<string, string, string[], CardDef> fx = (id, desc, kw) =>
+            new CardDef(id, id, "unit", desc, "common", "Fixture", 1, 3, 20, 2, kw, subtype: "Troop");
+
+        // 每一对 =（这一对在验哪个事件 · 真的正文 · 只把一个数改掉的正文 · 关键词）
+        var pairs = new[]
+        {
+            new object[] { "Strike（攻击那一发）",   "Strike: Deal 5 damage to an enemy troop",                 "Strike: Deal 9 damage to an enemy troop",                 new string[0] },
+            new object[] { "Regiment（攻击那一发）", "Regiment: Gain +2 [Ranged]",                              "Regiment: Gain +7 [Ranged]",                              new string[0] },
+            new object[] { "Mob（攻击那一发）",      "Mob: Gain +1 [Melee]",                                    "Mob: Gain +6 [Melee]",                                    new string[0] },
+            new object[] { "Duty（主动用）",         "Duty: Deal 3 damage to an enemy troop",                   "Duty: Deal 8 damage to an enemy troop",                   new[] { "Duty" } },
+            new object[] { "Pray（主动用）",         "Pray: Deal 3 damage to an enemy troop",                   "Pray: Deal 8 damage to an enemy troop",                   new[] { "Pray" } },
+            new object[] { "Oath（誓约）",           "Oath 2: Deal 3 damage to an enemy troop",                 "Oath 2: Deal 7 damage to an enemy troop",                 new[] { "Oath" } },
+            new object[] { "回合开始",               "At the start of your turn, deal 3 damage to an enemy troop", "At the start of your turn, deal 8 damage to an enemy troop", new string[0] },
+            new object[] { "回合结束",               "At the end of your turn, deal 3 damage to a random enemy",  "At the end of your turn, deal 8 damage to a random enemy",  new string[0] },
+        };
+
+        foreach (var p in pairs)
+        {
+            string what = (string)p[0], a = (string)p[1], b = (string)p[2];
+            var kw = (string[])p[3];
+            var ra = MeasureEvents(pool, fx("FX-EBA", a, kw));
+            var rb = MeasureEvents(pool, fx("FX-EBA", b, kw));
+            string na = Norm(ra), nb = Norm(rb);
+            bool diff = na != nb;
+            Console.WriteLine("    " + (diff ? "✅" : "🔴") + " " + Pad(what, 22)
+                              + " 净差 " + ra.Net.Count + " 条 vs " + rb.Net.Count + " 条"
+                              + (ra.Net.Count == 0 && rb.Net.Count == 0 ? "（**两条都是空的**）" : ""));
+            Console.WriteLine("        真：`" + Clip(a, 70) + "`  ⇒ " + Clip(na, 150));
+            Console.WriteLine("        改：`" + Clip(b, 70) + "`  ⇒ " + Clip(nb, 150));
+            Console.WriteLine("        steps " + Clip(ra.Steps, 110)
+                              + (ra.Note.Length > 0 ? "   ⚠️ " + ra.Note : ""));
+            if (!diff)
+            {
+                fail++;
+                Console.WriteLine("        🔴 期望两条净差**不同** —— 相同 = **电池没抬起这个事件**"
+                                  + "（要么 `steps` 里那一步返回码不是 0，要么那个头根本没被 `WillRun` 认领）"
+                                  + " ⇒ 「档 B」里挂这个头的卡**仍然没被验到**。");
+            }
+        }
+        Console.WriteLine("    ⇒ 自检 **" + (fail == 0 ? "全过 ✅" : "红 " + fail + " 条 🔴")
+                          + "**（红的每一条 = 那个事件电池没抬起来）");
+        return fail;
+    }
+
+    /// <summary>归一化净差（给自检**比两条**用）：只留**条数**与**排序后的逐条原文**，
+    /// ⛔ 不带卡 id 之类「本来就不同」的东西 —— 否则这一条断言会**恒真**（自证）。</summary>
+    static string Norm(EventReading r)
+    {
+        if (r.Crash != null) return "crash:" + r.Crash;
+        return r.Net.Count + "|" + string.Join(";", r.Net.OrderBy(x => x, StringComparer.Ordinal));
+    }
+
+    // ==================================================================
     //  🆕 `A1431` 第二笔：结算层对拍（`play check`）
     // ==================================================================
     //
@@ -1225,6 +1694,10 @@ class PlayProbe
     //   · `play check [<pf.txt>]`：① 与**基线文件**逐卡比（出「**哪张卡、哪一格**变了」）；
     //     ② **哨兵**：基线文件的内容 md5 必须等于**源码里的 `PinnedPlayMd5`**
     //     ⇒ `play all pf` 重生成基线**抹不掉它**（重钉只能**手改源码** = 显式确认）。
+    //   🆕 **`A1431` 第三笔**：对拍现在是**两套**（①-a 主档 · ①-b **事件电池**，见上面那一整块），
+    //     外加 **①-c「电池覆盖了谁」** —— 那一节把「**净差 = 0**」的候选**逐条列出并分根因**，
+    //     ⛔ 它治的就是本笔的起因：**一个看着绿、实际没验的档**（主档的 `other=0` 原来在
+    //     「档 B」上是**常量**，它坏掉也不会有任何一行变红）。
     //
     // ⚠️ 与 `check` 的**已知差别（如实标着）**：结算读数**依赖卡池内容**（改一张卡的 `desc`
     //   就会改它的读数）⇒ 卡池一改，本条**就会红**（⛔ **不像**哨兵 ⑤ 那样「此时不判」——
@@ -1243,12 +1716,14 @@ class PlayProbe
     ///   **重钉前必须先确认这批变化是对的**（对着卡面 / 反编译 / 真机逐张看过）——
     ///   为了「把红抹平」而重钉 = **正是它在抓的那件事**。
     ///
-    /// ⚠️ **它现在钉的值（原样交代）**：`7175ec95…` = **2026-10-12（第二十一会话 · 写手 `E5`）当次现读**
-    ///   （池 1126 张 · 与同时写下的基线文件 `基线/out_play_baseline.txt` **逐行同源**：
-    ///   拿那份文件的非 `#` 行重算 md5 = 同一个值，已复核）。🔴 **本会话另有 3 个写手在飞**
-    ///   （改 `RuleEngine/Core/*.cs`、`数据/**`）⇒ 他们的改动一旦落地，**本条会红**，**那是设计**
-    ///   （= 「结算读数离开了被确认的那一版，请显式确认」）。⚠️ 它钉的是**当时那一版**，
-    ///   ⛔ **不是**「当时就对」—— 那时 411 张候选**还没逐张对过卡面**。
+    /// ⚠️ **它现在钉的值** → **见下面那一行常量**（⛔ 别在这里再抄一份 —— 两处迟早不一致）。
+    /// 🔴 **2026-10-13 就地订正（铁律 5）**：本段原来写「它现在钉的值（原样交代）：`7175ec95…`
+    ///   = 2026-10-12（第二十一会话 · `E5`）当次现读 …… 那时 **411 张**候选还没逐张对过卡面」——
+    ///   **那一句已经不成立了**（常量早被第二十三会话重钉过，`411` 现读也是 **407**）。
+    ///   错因 = 重钉时**只改了常量、没回头改这段说明**（同一个坑：重写正本最容易漏「夹在里面的那半句」）。
+    ///   ⇒ 现在的规矩：**值只写在常量那一行**，本段只交代「为什么必须有它」与「重钉纪律」；
+    ///   每次重钉的**归因**写在常量上方的注释块里（那里是**历史**，允许留着）。
+    /// ⚠️ **它钉的永远是【当时那一版】，⛔ 不是「当时就对」** —— 逐卡候选要对着卡面判，机器判不了。
     ///   ⛔ **不许**为了让它变绿而重跑 `play all pf` —— 那只把洞开回来。
     /// </summary>
     // 🔴 **2026-10-12 第二十三会话：有意重钉** —— 依据是逐卡差异**逐条归因完毕**，⛔ 不是把红抹平。
@@ -1261,7 +1736,25 @@ class PlayProbe
     //      直接后果（它自己的报告就写着「16 张档位真变了」）。
     //   ⚠️ **以上 21 张与本会话的 `W2` 结算改动无关** —— 它自己用 8 张逐张真打 A/B 证明过（逐字相同）。
     //   ⚠️ 重钉只能**手改源码**（⛔ 没有自动口子），判据与纪律 → `README.md` 的「改探针输出格式三步」。
-    public const string PinnedPlayMd5 = "83655a105f8eeb8111eab9f0fa479fc7";
+    // 🔴 **2026-10-13 第二十四会话：有意重钉（`A1431` 第三笔 · 事件电池）** ——
+    //   依据是 **主档逐行【逐字节未变】**，⛔ 不是把红抹平。**机器验过的证据**：
+    //     · 重钉前 `git status`（本仓纪律，见 CLAUDE.md 铁律 13·6）：`ruleprobe/PlayProbe.cs`（**我**在改）·
+    //       `ruleprobe/WillRun.cs`（**另一路写手 `A1694` 在飞**）· `RuleEngine/Core/CardDef.cs`（**第三路**）。
+    //       后两份现读都是**纯文档/自检**改动（`git diff` 逐条看过：`CardDef.cs` 只动 XML doc
+    //       里的三个计数；`WillRun.cs` 加的是 `⑨ Source` 自检与 dump 的一列）⇒ 不改结算语义。
+    //     · **主档 md5 重钉后仍是 `83655a105f8eeb8111eab9f0fa479fc7`** = 与上一版**逐字符相同**
+    //       （旧基线 1126 行 vs 新基线 1126 行，集合差 **0 / 0**）⇒ 这两路的在飞改动**没有被烘进来**。
+    //     · 新增的只有 **586 行 `E|` 行**（`type=unit` 的事件电池）⇒ `git diff --numstat` =
+    //       **592 / 0**（592 = 586 行 ＋ 6 行 `#` 注释/分段头）—— **纯追加，一行都没改**。
+    //   ⚠️ 前面那份「`7175ec95…` / 第二十三会话重钉」的归因记录**保留在 git 历史里**，⛔ 不在这里抄第二份。
+    //   ⚠️ 它钉的仍是**当时那一版**、⛔ **不是「当时就对」**：主档那 407 张候选**还没逐张对过卡面**；
+    //     而电池那 586 行里有 **189 张候选的净差 = 0**（**没被验到**，逐条列在 `play check` 的 ①-c）。
+    //
+    // 🔴 **重钉（⛔ 没有「一条命令重钉」）**：`play check` 会把该抄的**整行**打出来，**手改这一个常量**。
+    //   **重钉前必须先确认这批变化是对的**（对着卡面 / 反编译 / 真机逐张看过）——
+    //   为了「把红抹平」而重钉 = **正是它在抓的那件事**。
+    public const string PinnedPlayMd5 = "d1fe0d96b725c6b2b12444527d94b7e4";
+
 
     /// <summary>`play check` 的缺省基线 —— **按名字往上找**（形状照 `Program.CheckMain.DefaultBaseline`，
     /// ⛔ 别拿「程序集目录往上 N 级」写死：换 build 配置 / 换 TFM 就漂）。</summary>
@@ -1311,6 +1804,89 @@ class PlayProbe
     /// <summary>`TAB`/换行 一律换成空格 —— 指纹文件是**逐行**读的，一格里混进换行会把行读断（静默错位）。</summary>
     static string One(string s) { return s == null ? "" : s.Replace('\t', ' ').Replace('\n', ' ').Replace('\r', ' '); }
 
+    // ------------------------------------------------------------------
+    //  🆕 `A1431` 第三笔：**事件电池**的指纹行
+    // ------------------------------------------------------------------
+    //
+    // 🔴 **它为什么必须【另起一套行】、⛔ 不许并进主档**：
+    //   · 主档那一批（407 张候选）**已经逐张对过卡面**；把它重算一遍 = 让那批判决全部作废
+    //     （`A1431` 账文明写着「那会改动全池所有读数 ⇒ 得单独一轮」）。
+    //   · 两档量的是**两件事**（打出去那一拍 / 打出去之后的事件），混在一格里
+    //     「哪一档红了」就分不出来了。
+    //   ⇒ 本档的行**第一列带前缀 `E|`**（见 <see cref="ECPrefix"/>），同一个文件、两套行。
+
+    /// <summary>事件电池行的**第一列前缀** —— 同一个基线文件里区分两套行的**唯一**判据。</summary>
+    public const string ECPrefix = "E|";
+
+    /// <summary>这一行是不是事件电池行（判据 = 第一列以 <see cref="ECPrefix"/> 开头）。</summary>
+    static bool IsEcRow(string row) { return row != null && row.StartsWith(ECPrefix, StringComparison.Ordinal); }
+
+    /// <summary>事件电池行的**卡 id**（去掉前缀）；非电池行返回 null。</summary>
+    static string EcIdOf(string row)
+    {
+        if (!IsEcRow(row)) return null;
+        int p = row.IndexOf('\t');
+        return row.Substring(ECPrefix.Length, (p < 0 ? row.Length : p) - ECPrefix.Length);
+    }
+
+    /// <summary>事件电池行的**列名**（与 <see cref="FingerprintERow"/> **同序**，逐字对应 ⇒ 差异能指名到列）。</summary>
+    static readonly string[] PfECols = new[]
+    {
+        "id", "type", "bucket", "cand", "playRc", "played", "ctrlPlayed", "steps", "raw", "ctrl",
+        "net", "netDmg", "note", "netFull",
+    };
+
+    /// <summary>一张卡的**事件电池指纹行**（`A1431` 第三笔）。列见 <see cref="PfECols"/>。
+    /// 🔴 **含**最后一列 `netFull` = 净差**逐条全文**（缺了它「条数一样而内容变了」照不到）。
+    /// ⛔ **不含**引擎日志（措辞会变 ⇒ 会天天红）。⚠️ `note` 是**口径散文**，但它今天只有
+    /// 「对照局没起步」那一种取值（= 出声标记），留着它比丢了强 —— 一旦出现，就是要人看的。</summary>
+    static string FingerprintERow(CardDef c, EventReading r)
+    {
+        return string.Join("\t", new[]
+        {
+            ECPrefix + c.Id, c.Type, r.Bucket, r.Cand ? "1" : "0", r.PlayRc.ToString(),
+            r.Played ? "1" : "0", r.CtrlPlayed ? "1" : "0", One(r.Steps),
+            r.Raw.ToString(), r.Ctrl.ToString(), r.Net.Count.ToString(),
+            r.NetDmg.ToString(), One(r.Note),
+            One(string.Join(";", r.Net)),
+        });
+    }
+
+    /// <summary>指纹行里**按列名取值**（⭐ 别按下标 —— 列一多，下标就会错位；
+    /// 列名找不到 / 行不是那套列 ⇒ 返回 `""`，⛔ 不猜）。</summary>
+    static string ColOf(string row, string[] cols, string name)
+    {
+        int c = Array.IndexOf(cols, name);
+        if (c < 0) return "";
+        var f = row.Split('\t');
+        return c < f.Length ? f[c] : "";
+    }
+
+    /// <summary>跑一遍全池，出**两套指纹行**：主档 ＋ 事件电池（`play check` 用）。
+    /// 🔴 **必须写在同一个循环里** —— 电池那一档的 `cand` 列要**主档那一份 `Reading`**
+    ///   （见 <see cref="EventReading.Cand"/>）；分两个循环各算一遍不但慢一倍，
+    ///   两套行还会与同一份读数**对不上**（一个写盘、一个在 `Check` 里现算 ⇒ 天天红）。
+    /// ⚠️ 与 `Sweep` 的循环**同形**（那一份要不要 TSV/摘要，所以没合并）—— 改一处要改两处。</summary>
+    static void BothFingerprintRows(List<CardDef> pool, out List<string> main, out List<string> ec)
+    {
+        main = new List<string>();
+        ec = new List<string>();
+        foreach (var c in pool)
+        {
+            var r = Measure(pool, c);
+            r.Bucket = Bucket(c);
+            main.Add(FingerprintRow(c, r));
+            if (c != null && c.Type == "unit")
+            {
+                var er = MeasureEvents(pool, c);
+                er.Cand = r.Played && r.FaceHasOps && r.Other == 0;
+                ec.Add(FingerprintERow(c, er));
+            }
+        }
+        main.Sort(StringComparer.Ordinal);
+        ec.Sort(StringComparer.Ordinal);
+    }
+
     /// <summary>跑一遍全池，出**指纹行**（按 `id` 排序 —— ⛔ 别靠卡池顺序：`Dictionary`/池序都不是判据）。</summary>
     static List<string> FingerprintRows(List<CardDef> pool)
     {
@@ -1335,16 +1911,27 @@ class PlayProbe
         return Md5Utf8(sb.ToString());
     }
 
-    /// <summary>写盘用的文本（头三行是 `#` 注释 —— 读的时候**整行丢掉**，⛔ 不参与 md5）。</summary>
-    static string FingerprintFileText(IEnumerable<string> rows)
+    /// <summary>写盘用的文本（头几行是 `#` 注释 —— 读的时候**整行丢掉**，⛔ 不参与 md5）。
+    /// 🆕 `A1431` 第三笔：**两套行**（主档 ＋ 事件电池 `E|` 前缀那一套）写进同一个文件。</summary>
+    static string FingerprintFileText(IEnumerable<string> rows, IEnumerable<string> ecRows = null)
     {
         var sb = new StringBuilder();
         sb.Append("# ruleprobe `play` 结算指纹（`A1431` 第二笔）—— 一行一张卡；`play all pf <out>` 生成，`play check` 拿它逐卡对拍。\n");
         sb.Append("# 列（TAB 分隔）：" + string.Join("/", PfCols) + "\n");
         sb.Append("# 🔴 本文件里非 `#` 行的 md5 必须等于源码常量 `PlayProbe.PinnedPlayMd5` —— 重生成它抹不掉那条哨兵。\n");
         sb.Append("# ⛔ 本文件是【被人确认过的状态】的快照；为了把红抹平而重跑 `play all pf` = 把洞开回来。\n");
+        sb.Append("#\n# 🆕 `A1431` 第三笔：下面第二段是【事件电池】的行（第一列带 `E|` 前缀，只覆盖 type=unit）。\n");
+        sb.Append("# 列（TAB 分隔）：" + string.Join("/", PfECols) + "\n");
+        sb.Append("# 它量的是「打出去**之后**，替它把别的时机的事件走一遍，局面动没动」（治「档 B」那一档的失明）。\n");
+        sb.Append("# --- 主档（打出去那一拍）---\n");
         foreach (var r in rows.Where(x => !string.IsNullOrEmpty(x)).OrderBy(x => x, StringComparer.Ordinal))
             sb.Append(r).Append('\n');
+        if (ecRows != null)
+        {
+            sb.Append("# --- 事件电池（打出去之后那一段）---\n");
+            foreach (var r in ecRows.Where(x => !string.IsNullOrEmpty(x)).OrderBy(x => x, StringComparer.Ordinal))
+                sb.Append(r).Append('\n');
+        }
         return sb.ToString();
     }
 
@@ -1388,9 +1975,14 @@ class PlayProbe
             return 2;
         }
 
-        var live = FingerprintRows(pool);
-        var baseRows = LoadFingerprintRows(baselinePath);
-        string liveMd5 = FingerprintMd5(live), baseMd5 = FingerprintMd5(baseRows);
+        List<string> live, liveE;
+        BothFingerprintRows(pool, out live, out liveE);   // 主档 ＋ 事件电池（一个循环里算，见该函数）
+        var baseRowsRaw = LoadFingerprintRows(baselinePath);
+        // 🔴 两套行**分家对拍**（判据 = 第一列的 `E|` 前缀，见 `IsEcRow`）——
+        //    混成一份会把「主档少了一张」误报成「电池多了一张」。⛔ 不靠行序/行数。
+        var baseRows = baseRowsRaw.Where(x => !IsEcRow(x)).ToList();
+        var baseE = baseRowsRaw.Where(IsEcRow).ToList();
+        string liveMd5 = FingerprintMd5(live.Concat(liveE)), baseMd5 = FingerprintMd5(baseRowsRaw);
 
         string IdOf(string row) { int p = row.IndexOf('\t'); return p < 0 ? row : row.Substring(0, p); }
         var baseMap = new Dictionary<string, string>();
@@ -1410,13 +2002,29 @@ class PlayProbe
         foreach (var kv in baseMap)
             if (!liveIds.Contains(kv.Key)) { removed++; if (removedIds.Count < 20) removedIds.Add(kv.Key); }
 
+        // ---- 🆕 事件电池那一套（同一套对拍口径，只是换了一份行）----
+        var ecBaseMap = new Dictionary<string, string>();
+        foreach (var r in baseE) ecBaseMap[IdOf(r)] = r;
+        var ecChanged = new List<string[]>();
+        int ecAdded = 0, ecRemoved = 0;
+        var ecAddedIds = new List<string>();
+        foreach (var r in liveE)
+        {
+            var id = IdOf(r);
+            if (!ecBaseMap.TryGetValue(id, out var b)) { ecAdded++; if (ecAddedIds.Count < 20) ecAddedIds.Add(id); continue; }
+            if (!string.Equals(b, r, StringComparison.Ordinal)) ecChanged.Add(new[] { id, b, r });
+        }
+        var liveEIds = new HashSet<string>(liveE.Select(IdOf), StringComparer.Ordinal);
+        foreach (var kv in ecBaseMap) if (!liveEIds.Contains(kv.Key)) ecRemoved++;
+
         Console.WriteLine("=== play check · 结算层对拍（不跑 Unity）· 池 " + pool.Count + " 张 ===");
-        Console.WriteLine("  基线 " + Path.GetFileName(baselinePath) + "（" + baseRows.Count + " 行）·"
-                          + " 当次现算 " + live.Count + " 行");
+        Console.WriteLine("  基线 " + Path.GetFileName(baselinePath) + "（主档 " + baseRows.Count
+                          + " 行 ＋ 事件电池 " + baseE.Count + " 行）· 当次现算 主档 " + live.Count
+                          + " ＋ 电池 " + liveE.Count);
         Console.WriteLine("  结算指纹：当次现算 = **" + liveMd5 + "** · 基线文件 = " + baseMd5
                           + (liveMd5 == baseMd5 ? "（一致）" : "（**不同**）"));
         Console.WriteLine();
-        Console.WriteLine("  --- ① 逐卡差异（基线 → 当次）---");
+        Console.WriteLine("  --- ①-a 逐卡差异（主档 · 打出去那一拍）---");
         if (changed.Count == 0 && added == 0 && removed == 0)
             Console.WriteLine("     ✅ 没有一张卡与基线不同（" + live.Count + " 张逐字节一致）");
         else
@@ -1445,6 +2053,80 @@ class PlayProbe
             if (changed.Count > 60) Console.WriteLine("       …（还有 " + (changed.Count - 60) + " 张）");
         }
 
+        // ------------------------------------------------------------------
+        //  🆕 `A1431` 第三笔：事件电池那一套的对拍 ＋ **覆盖面**
+        // ------------------------------------------------------------------
+        Console.WriteLine();
+        Console.WriteLine("  --- ①-b 逐卡差异（**事件电池** · 打出去**之后**那一段）---");
+        if (ecChanged.Count == 0 && ecAdded == 0 && ecRemoved == 0)
+            Console.WriteLine("     ✅ 没有一张卡与基线不同（" + liveE.Count + " 张逐字节一致）");
+        else
+        {
+            Console.WriteLine("     🔴 **" + ecChanged.Count + " 张卡变了** · 新增 " + ecAdded + " · 消失 " + ecRemoved
+                              + (ecAdded > 0 ? "（新增：" + string.Join(" · ", ecAddedIds) + "）" : ""));
+            foreach (var t in ecChanged.Take(60))
+            {
+                var a = t[1].Split('\t'); var b = t[2].Split('\t');
+                Console.WriteLine("       " + Pad(t[0].Substring(ECPrefix.Length), 24)
+                                  + "（" + Math.Max(a.Length, b.Length) + " 列对拍）");
+                int n = Math.Max(a.Length, b.Length);
+                int shown = 0;
+                for (int k = 0; k < n; k++)
+                {
+                    string av = k < a.Length ? a[k] : "";
+                    string bv = k < b.Length ? b[k] : "";
+                    if (string.Equals(av, bv, StringComparison.Ordinal)) continue;
+                    if (PfECols.Length == n) Console.Write("         · " + Pad(PfECols[k], 14));
+                    else Console.Write("         · 第 " + k + " 列            ");
+                    Console.WriteLine(Clip(av, 160) + "  →  " + Clip(bv, 160));
+                    if (++shown >= 8) break;
+                }
+            }
+            if (ecChanged.Count > 60) Console.WriteLine("       …（还有 " + (ecChanged.Count - 60) + " 张）");
+        }
+
+        // ---- 🔴 覆盖面：**这一档到底被验到了多少**（⛔ 不许只印一句「已知不适用」就完事）----
+        //   ⚠️ 统计的口径 = **主档里的候选**（`cand=1`：卡面有正文 · 打出去了 · 主档实得 0 条）
+        //      —— 那一批才是「主档看着它、却看不见」的卡。⛔ 别拿整个 `unit` 档当分母：
+        //      里面一半是**卡面根本没正文**的卡，它们 `other=0` 与失明无关，混进去就是灌水。
+        var candsE = liveE.Where(r => ColOf(r, PfECols, "cand") == "1").ToList();
+        int ecNetPos = candsE.Count(r => ColOf(r, PfECols, "net") != "0" && ColOf(r, PfECols, "net") != "");
+        Console.WriteLine();
+        Console.WriteLine("  --- ①-c 🔴 事件电池覆盖了谁（`A1431` 第三笔 · **这一档真被验到了几张**）---");
+        Console.WriteLine("     分母 = 主档里的**候选**（卡面有正文 · 打出去了 · 主档实得 0 条）= **"
+                          + candsE.Count + " 张**（电池行总数 " + liveE.Count + " 张 = `unit` 全档）");
+        Console.WriteLine("     其中**电池净差 > 0 的 = " + ecNetPos + " 张**（= 它的正文**真的被那个事件抬起来过**）· "
+                          + "净差 = 0 的 = **" + (candsE.Count - ecNetPos) + " 张**");
+        Console.WriteLine("     ⚠️ 净差 = 0 的那几张，**主档那一拍看不见、电池这一趟也没抬起来**"
+                          + " ⇒ 它们**仍然只被「读数的存在」看着、没被「事件的结算」验过**（逐条列在下面）。");
+        var zeroIds = candsE.Where(r => ColOf(r, PfECols, "net") == "0")
+                            .Select(r => IdOf(r).Substring(ECPrefix.Length)).ToList();
+        for (int i = 0; i < zeroIds.Count; i += 8)
+            Console.WriteLine("       " + string.Join(" · ", zeroIds.Skip(i).Take(8)));
+        if (zeroIds.Count == 0) Console.WriteLine("       ✅ 一张都没有 —— 主档那份候选**全部**被电池抬起来过");
+        if (zeroIds.Count > 0)
+        {
+            // 按**根因**分（判据 = 引擎自己的公开访问器，见 `EcCause`）——
+            // 卡池里按 id 找回来；找不到的（池被换过）单独记一格，⛔ 不当成「没原因」。
+            var byId = new Dictionary<string, CardDef>(StringComparer.Ordinal);
+            foreach (var c in pool) if (c != null && c.Id != null) byId[c.Id] = c;
+            var groups = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+            foreach (var id in zeroIds)
+            {
+                string k = byId.TryGetValue(id, out var cc) ? EcCause(cc) : "卡池里查不到这个 id";
+                if (!groups.TryGetValue(k, out var l)) groups[k] = l = new List<string>();
+                l.Add(id);
+            }
+            Console.WriteLine("       ⛔ **按根因分**（判据 = 引擎自己的 `CardDef.SpiritOps` / `FaithOps`）：");
+            foreach (var kv in groups.OrderByDescending(x => x.Value.Count))
+                Console.WriteLine("         · " + Pad(kv.Key, 30) + " = " + kv.Value.Count + " 张");
+            Console.WriteLine("       🔴 前两族的根因**不在电池**（夹具起始派系资源 = 0 ⇒ 主档那一拍就结算不了），"
+                              + "要治得动 `BuildFixture` 的起始资源 ⇒ **基线整体重钉** ⇒ 那是另一轮（见 `EcCause`）。");
+        }
+        int ecNote = liveE.Count(r => ColOf(r, PfECols, "note").Length > 0);
+        Console.WriteLine("     行内出声（`note` 非空 = 对照局没起步） = **" + ecNote + " 张**"
+                          + (ecNote > 0 ? "  ← 🔴 这几张的净差**不可信**" : "（✅ 没有）"));
+
         Console.WriteLine();
         Console.WriteLine("  --- ② 哨兵：基线文件的内容 vs 源码常量 ---");
         int sentFail = 0;
@@ -1465,10 +2147,16 @@ class PlayProbe
                               + " —— 重生成基线抹不掉这一条");
 
         Console.WriteLine();
-        Console.WriteLine("  判据：① 逐卡全等 且 ② 哨兵过 ⇒ rc=0；否则 rc=1"
-                          + "（**已知不适用**：这一步跑的仍是同一个夹具 ⇒ `档 B` 那 274 张"
-                          + "「等事件」的卡在这里**照样看不见**，那是**夹具盲区**，⛔ 不是「没有差异」）。");
-        return (changed.Count == 0 && added == 0 && removed == 0 && sentFail == 0) ? 0 : 1;
+        Console.WriteLine("  判据：①-a 主档逐卡全等 且 ①-b 电池逐卡全等 且 ② 哨兵过 ⇒ rc=0；否则 rc=1。");
+        Console.WriteLine("  🔴 `A1431` 第三笔（2026-10-13）**就地订正**：本行原来写着「`档 B` 那 274 张"
+                          + "「等事件」的卡在这里**照样看不见**」—— **现在不成立了**："
+                          + "事件电池（①-b）就是替那一档把**别的时机**的事件走一遍（见本文件 `RunEventPass`）。");
+        Console.WriteLine("  ⚠️ **仍如实标着的边界**：①-a 只看得见「打出去那一拍」；**电池只覆盖 `type=unit`**"
+                          + "（`tactic`/`defence` 的正文打出即结算，主档已经看得到）；"
+                          + "电池抬不到的那个事件（若 `steps` 里对应那一步不是 `rc=0`）**那一张就没被验到** ——"
+                          + "逐张的 `steps` 列就在基线文件里，⛔ 别只看「绿」就以为全档都验过了。");
+        bool ecClean = ecChanged.Count == 0 && ecAdded == 0 && ecRemoved == 0;
+        return (changed.Count == 0 && added == 0 && removed == 0 && ecClean && sentFail == 0) ? 0 : 1;
     }
 
     // ==================================================================

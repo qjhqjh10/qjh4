@@ -1631,14 +1631,6 @@ namespace CardPresentation
             { "Noise_Combined", "duplicateassetisolation_assets_all" },
         };
 
-        /// <summary>挂在 `Reward Claim` 根上：这一棵**建齐了没有**（= 5 个材质全取到）+ 建出几个材质。
-        /// （`SetVisible` 读 `Ready` 决定要不要真开；自检也可以直接读。）</summary>
-        public sealed class Built : MonoBehaviour
-        {
-            public bool Ready;
-            public int Materials;
-        }
-
         // ============================================================ 一套粒子的参数（= H29 §五 表 1/表 3 的【一列】）
         sealed class Spec
         {

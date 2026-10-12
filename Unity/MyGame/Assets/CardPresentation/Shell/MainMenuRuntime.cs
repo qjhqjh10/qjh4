@@ -421,11 +421,25 @@ namespace CardPresentation
 
             // ============================================================ 🆕 2026-10-18（A855）「编辑完卡组离场」的回程
             //
+            // 🔴🔴 **2026-10-14（`A1132` 第 4 步）本段【降级】（铁律 5：就地改口径，⛔ 不留第二份）**：
+            //    **本段现在只管【独立场景】那一条腿**（`DeckRuntime.HostWindow == null` =
+            //    直起 `-wfscene DeckEditor` / 批处理里裸建 `DeckRuntime`）—— 只有那条腿的 `BackToMenu()`
+            //    才是「切 `MainMenu` 场景」，回程才只能由**到达端**（= 本函数）做。
+            //    🔴 **被窗托管那条腿（第 3 步起那三处生产入口）【不再经过本段】**：那一边
+            //    `BackToMenu()` 走 `DeckRuntime.LeaveByHostWindow()` —— **关窗、⛔ 不切场景**，
+            //    意图与库缓存**都在关窗那一拍就地消费**（含「只 `ChangeTab`、⛔ 不再 `OpenCollection()`」
+            //    的理由 → 那个方法的 doc）。
+            //    ⇒ **两条腿各消费一次**：被托管那条先把意图 `TakePendingReturn()` 掉，
+            //    本段即便将来又被跑到，拿到的也是 `None`（`Take*` = **先取后清**）⇒ **不会重复开窗**。
+            //    ⛔ **别把本段删掉**：直起那条路仍然全靠它。
+            //
             // 🔴 **为什么落在本函数**：`DeckRuntime.BackToMenu()` 只切场景（`LoadScene("MainMenu")`），
             //    「回来之后开哪扇窗、落哪一页」必须由**到达端**做 —— 那正是本函数。
             //    ⛔ **放 `Start()` 不行**：本仓规矩「按 Play 的入口和自检**走同一条路**」，而 `AddComponent` 不触发 `Start()`。
-            // 🔴 **按来路回**（用户 2026-10-18 拍板）：来源由**入口**写（全仓**仅有**的两处 `LoadScene("DeckEditor")`：
-            //    `CollectionWindow.GoEdit` / `LiveOpsEventWindow.CreateDeckInMode`），本函数**只消费**：
+            // 🔴 **按来路回**（用户 2026-10-18 拍板）：来源由**入口**写
+            //    （🔴 **2026-10-12（`A1697`）就地订正（铁律 5）**：本行原来写「全仓**仅有**的两处」——
+            //     **现在是三处**：`CollectionWindow.GoEdit` · 同文件 `GoNewDeck` · `LiveOpsEventWindow.CreateDeckInMode`），
+            //    本函数**只消费**：
             //      · `Collection` ⇒ **开收藏窗 + 落到卡组页**（下面那一段）；
             //      · `LiveOpsEvent` ⇒ **本次复刻不了**，三条理由（铁律 11 要求「不做」必须写清为什么）：
             //        ① 原版是**同窗换页**（`SelectDecksTab.CreateDeck` 紧接着打开 `DeckEditingWindow`），

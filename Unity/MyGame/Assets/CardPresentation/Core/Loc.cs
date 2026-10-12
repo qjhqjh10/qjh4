@@ -490,6 +490,24 @@ namespace CardPresentation
             // 消费侧 = `Shell/DeckInfoPopup.cs` 的 `ShareDeck`（`ShareSuccessTerm` 那个常量上写着键的判据）。
             { "MenuDeck/Share/ExportSuccesful",               new Entry("卡组串已复制到剪贴板（{0} 字符）", "Deck code copied to your clipboard ({0} characters)") },
 
+            // ------------- 🆕 **2026-10-12（`A1045`）：`Share On Chat` 那扇两键面板的三条词条** -------------
+            // 键名 = **原版字符串常量表实读**（**不是自拟**）：`d:/2/tools/il2cpp_out/stringliteral.json` 的
+            //   `MenuDeck/Share/{ShareOnAlliance,ShareOnGlobal,Title}`，地址 `0x42D08E0 / 0x42D09E0 / 0x42D0AE0`
+            //   —— 与上面那条 `ExportSuccesful`（`0x42D07E0`）**连号**（同一族四条，见它那条注释）。
+            // 🔴 **哪条键挂在哪颗钮上 = 反编译实读**（`d:/2/tools/decomp_full/DeckInfoPopup__ShareDeckOnChat.c`）：
+            //   `DAT_1842d08e0 = ShareOnAlliance` **先建** ⇒ **第 0 颗 = 群组**；
+            //   `DAT_1842d09e0 = ShareOnGlobal` **后建** ⇒ **第 1 颗 = 全局**；
+            //   `DAT_1842d0ae0 = Title` 走 `Context___ctor` 的第 3 个实参 = 面板标题。⛔ 别把前两条对调
+            //   （对调之后界面文案仍「看着像对的」，只有拿原版那一份逐位比才看得出来）。
+            // ⚠️ **两列文案都是我们自拟的**（原版那套值在远端 I2 语言表，本地没有 —— 同本文件头那段）。
+            //   ⚠️ 而且这一族的**英文列拿不到「原版 TMP 原文」**：那扇面板的标题在 prefab 里是**出厂占位串**
+            //   `Pepito el de siempre`、两颗钮的字是**模板串** `Template`（`Shell/GenericOptionsPanel.cs` 的
+            //   `DefTitle` / `TemplateText`）⇒ 别指望从 prefab 抄英文，如实标注「我们译的」。
+            // 消费侧 = `Shell/DeckInfoPopup.cs` 的 `ShareOnChat()`（那三个 `ShareChat*Term` 常量上写着判据）。
+            { "MenuDeck/Share/Title",                         new Entry("分享卡组", "Share deck") },
+            { "MenuDeck/Share/ShareOnAlliance",               new Entry("分享给联盟", "Share with alliance") },
+            { "MenuDeck/Share/ShareOnGlobal",                 new Entry("分享给所有人", "Share with everyone") },
+
             // ------------- 🆕 **2026-10-17（A891）：导入窗那个 `Confirm` 钮的词条** -------------
             // 节点 = `Import Deck Popup/Window/Buttons/Generic UI Button/**Button Text**`（同一份 prefab）。
             // 键名 = 那颗 `Localize.mTerm` 的**原文** `MainMenu/General/Confirm`

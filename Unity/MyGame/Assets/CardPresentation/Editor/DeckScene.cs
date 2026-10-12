@@ -587,6 +587,34 @@ public static class DeckScene
         //     第二把键的方法体本地读不到 ⇒ 拿参考图三组逐张对码点反推出「显示名序数比较」
         //     （详情 → `DeckRuntime.DeckEntries()` 的 doc 与 `资料/普查产出_第十七会话/T_卡组列表.md`）。
 
+        // ============================================================ 🔴 2026-10-21（`A1145`）
+        // **「自证结构」断言 —— 普查（本文件逐族扫过一遍；这一段是【结果】，不是待办）。**
+        //
+        // 家族定义（判据只有一条）：**期望值 / 判据取自【被测实现自己】** ⇒ 把实现和它的判据一起改回旧写法，
+        //   断言照样全绿。三种形状：① 期望值 = 同一个函数/常量的输出；② 断「我们建了几颗节点」（我们的实现细节）；
+        //   ③ 断「刚写进去的东西读得回来」（同一个口进出）。
+        // ⛔ 反例（**不算**这一族）：期望值取自**另一条腿**（模型 / 参考图 / 原版 prefab 字面量），
+        //   哪怕那条腿是同一批人写的 —— 那是「判据共用一份」，是铁律要的，不是自证。
+        //
+        // 逐条去向：
+        //   ✅ **`Terms.Count == 0`**（`PopUpGameWindow.Terms` 那一节）：**2026-10-19（`A1012`）已收口**
+        //      —— 今天那里剩下的两条 `Terms.Count` 是「**前提**」（那张表还是空的）与「**收尾**」（把自检塞的
+        //      假词条删掉），而它们服务的 ③-c 那对（**选键不看 `Terms` / 取字先看 `Terms`**）是
+        //      「同一个实现不可能同时满足」的**灭自证结构** ⇒ 已不是「拿我们自己的空表证明我们自己的函数」。
+        //   ✅ **`hdr_army` 那一族**：期望值原本取自 `FactionIcon` **自己**的输出 ⇒ 只证「视图用了那条映射」、
+        //      证不了映射本身。**本轮补了一条独立腿**（卡池里出现过的每个阵营：图名非空 / 不落 `default` /
+        //      两两不同），见那一节里的 `A1145` 注释块。
+        //   ⏸ **`MenuDeckErrorKey` 那一族**（`numKey5` 那两处）：`numKey5` 由 `MenuDeckErrorKeyFmt`
+        //      + `MenuDeckErrorNumber` **两个生产函数**拼出来 ⇒ 严格说属形状①。**暂不改**：紧邻那六条用
+        //      **字面量 2/5/5/4/4/4** 已经把这两个函数钉住了；要灭自证得把 `numKey5` 写成字面量
+        //      `"MenuDeck/Error/5"`，那又与 `MenuDeckErrorKeyFmt` 的常量值**重复**（两处写同一条规则）
+        //      ⇒ 两组代价取轻，**如实登记在这里**，⛔ 不假装它不存在。
+        //   ✅ 其余扫到的期望值来源（`PxOfWorld` 作**量尺** · `FilterPanelModel.*` · `CardText.*` ·
+        //      `DeckRules.*` · `CardArt.*` · 纯字面量）：都是另一条腿，**不属这一族**。
+        //   ⚠️ **本件没扫的**：① `DeckScene.cs` 之外别的自检宿主；② **结构冒烟**那类断言
+        //      （「`name_bg`/`hdr_sep`/`tab_hi0` 建起来了」、节点名 / 层数）—— 它们**故意**钉实现细节，
+        //      换实现就该红，定位是**工具**、不是判据，**不属这一族也不该删**。
+
         /// <summary>卡组行名（`row_n{i}`）**渲出来的墨迹左右缘**（画布 px · 左上原点）。
         /// <para>量的东西：`Label.WorldW`（TMP `textBounds` 的**真测量**，不是 `sizeDelta`）± 节点世界 x ——
         /// `RefreshBounds` 把 TMP 子节点摆在 `−anchor.x·WorldW − bounds.min.x`（`Battle/Label.cs` 里那一句）
@@ -687,6 +715,13 @@ public static class DeckScene
                     CheckTrue(true, "`BackToMenu()` 在批处理下**不切场景**（切了会把后面的断言全带走）");
                     // 🆕 2026-10-18（A855）：**离场那条路的回程意图** —— 批处理不切场景 ⇒ 这是唯一可观测面
                     //    （正因如此，意图的写入在 `Application.isBatchMode` 那道闸【之前】，同 `LeaveCount`）。
+                    // 🔴 **2026-10-14（`A1132` 第 4 步）前提补记（⛔ 期望值一个字没动）**：下面的 `hrt` 是
+                    //    `new GameObject` + `AddComponent<DeckRuntime>()` 建的、**没有宿主窗** ⇒
+                    //    它走的是 `BackToMenu` 的**【独立场景】那条腿**（`HostWindow == null` ⇒
+                    //    照旧写意图 + 批处理早退，**一个字未动**）。⇒ **这 5 条今天钉的是那条兜底腿**。
+                    //    🔴 **另一条腿（有宿主窗 ⇒ 关窗、不切场景、意图当场消费）的断言在**
+                    //    `TestLayout` 里「A1132 第 4 步」那一节 —— 两条腿**结构上不可能同时满足**，
+                    //    只留一条、或把这条老腿顺手删掉，那一条必红（不是同义反复）。
                     Check((int)CardPresentation.CollectionData.PendingReturn.Source,
                           (int)CardPresentation.DeckExitSource.Collection,
                           "★ A855：离场写下了**回程意图**（来源 = 收藏）—— 回到主菜单据此重开收藏窗的卡组页。"
@@ -1976,6 +2011,39 @@ public static class DeckScene
                     Check(_rt.State.Deck.WarlordId, wlId0, "（把督军原样放回 —— 后面的断言仍按原状态跑）");
                 }
                 else CheckTrue(true, "（本池子里只有一个阵营的督军 ⇒ 跳过「换阵营跟着换图」那一条）");
+
+                // ---- 🔴 2026-10-21（`A1145`）：给那 13 条映射补一条【独立腿】----
+                // 上面三条的期望值都取自 `DeckRuntime.FactionIcon` **自己** ⇒ 它们只证明
+                // 「视图用了那条映射」，**证不了映射本身对不对**（`switch` 少一个 `case` 会**静默**掉进
+                // `default` = 卡组图标 `40k_collection_bt_decks`，而那三种情况上面一条都抓不到：
+                // 本卡组那个阵营、换过去那个阵营，恰好都不是漏的那个）。
+                // 这里断的是**结构性质**（期望值不来自实现）：卡池里出现过的每个阵营
+                //   ① 都得有**非空**的图名；② 都**不得**是那个 `default` 兜底；③ 两两**不同**。
+                // ⚠️ 如实登记：它仍**不是**「图名与阵营一一对齐」的证明（那要拿原版 13 张
+                //   `40k_DeckSelection_icon_*` 的名字逐条核，本件没做）—— 它挡的是「漏 case 静默兜底」。
+                {
+                    var seen = new System.Collections.Generic.Dictionary<string, string>();
+                    string dup = null, miss = null, fallback = null;
+                    foreach (var c in _rt.State.Pool)
+                    {
+                        if (c == null || c.Type != "hero" || string.IsNullOrEmpty(c.Faction)) continue;
+                        string ic = DeckRuntime.FactionIcon(c.Faction);
+                        if (string.IsNullOrEmpty(ic)) { if (miss == null) miss = c.Faction + " ⇒ 空"; continue; }
+                        if (ic == "40k_collection_bt_decks") { if (fallback == null) fallback = c.Faction; continue; }
+                        string prev;
+                        if (seen.TryGetValue(ic, out prev) && prev != c.Faction && dup == null) dup = prev + " / " + c.Faction + " ⇒ " + ic;
+                        seen[ic] = c.Faction;
+                    }
+                    CheckTrue(miss == null,
+                              "★ `FactionIcon`：卡池里出现过的阵营**每个都有图名**（实测 " + seen.Count + " 个）"
+                            + (miss == null ? "" : "｜🧨 " + miss));
+                    CheckTrue(fallback == null,
+                              "★ ……没有一个阵营掉进 `default`（= 卡组图标）兜底"
+                            + (fallback == null ? "" : "｜🧨 漏了 `case \"" + fallback + "\"` ⇒ 静默贴卡组图标（原版 `hdr_army` 那一格是阵营徽记）"));
+                    CheckTrue(dup == null,
+                              "★ ……不同阵营拿到的徽记**两两不同**"
+                            + (dup == null ? "" : "｜🧨 " + dup));
+                }
             }
 
             foreach (var k in new[] { "side_bg", "tab_hi0", "tab_ic0", "name_bg", "name_clear", "foot_done", "foot_ic" })
@@ -2095,6 +2163,14 @@ public static class DeckScene
             // ---- 卡组行的四层（正本 `卡组编辑界面_查证_0920.md` §① · `项目任务.md` §三 第 12 条 **第 5 项**）----
             // 🔴 这一段以前也**一条断言都没有** ⇒ 「断言全绿、画面全错」：行底用了一张**原版全透明**的图、
             //    描边 11×11 被**拉满**整行、稀有度色条**铺满整行**、层序还反了（行底盖住色条）。
+            // 🔴 **2026-10-21（`A1720`）：这一段的前提必须先摆出来** —— 下面量的 `row_0` / `row_g0` 是
+            //    **槽 0 的【督军档】那一套**，而自 `A1720` 起槽 0 有**两套件**、由「这一行装的是不是督军」二选一：
+            //    **滚过一行之后**槽 0 装的是卡行 ⇒ 这一套会被关掉、换成 `row_0c` / `row_g0c`（卡行档几何）。
+            //    ⇒ 先把滚动摆回顶（`firstRow == 0`），并把这条前提**单独断一条**（前提破时说得清是哪一半）。
+            _rt.UiSetTab(0);                     // Cards 页（`SetTab` 会把 `_deckScroll` 归 0）
+            _rt.UiScrollDeck(-9999f);            // 再显式滚回顶（`firstRow == 0`）
+            CheckTrue(_rt.UiQuadActive("row_0"),
+                      "（前提）槽 0 现在装的是**督军** ⇒ 量到的是**督军档**那一套（`row_0` 九宫格开着）");
             Check(_rt.UiTextureName("row_0"), "40k_deck_cardlist_bg",
                   "行底用的是原版那张 `40k_deck_cardlist_bg`"
                   + "（**不是** `UI_Card_name_background_normal_BW` —— 那张原版只当两处 `alpha=0` 的按钮根图）");
@@ -2114,11 +2190,150 @@ public static class DeckScene
                 CheckTrue(_rt.UiQuadRect("row_g0", out gx, out gy, out gw, out gh), "稀有度色条量得到矩形");
                 if (_rt.UiQuadRect("row_g0", out gx, out gy, out gw, out gh))
                 {
-                    Check(Mathf.Abs(gw - 128.05f) < 0.6f, true,
-                          $"色条宽 = **128.05**（原版只占右侧 0.606→1.0 —— 原来铺满整行 325）");
-                    Check(Mathf.Abs(gx - 261.38f) < 0.6f, true,
-                          $"色条中心 x = **261.38**（右对齐：197.35 + 128.05/2）");
+                    // 🔴 **2026-10-21（`A1700`）就地订正（铁律 5）**：这一对期望值原来是 **128.05 / 261.38**
+                    //   —— 那是**我们自己的两个常量**算出来的（`GradFrac 0.606 × 抽屉宽 325` 与抽屉右缘 325.4），
+                    //   **既是自证、数值也不对**（右缘多 8px、`0.606` 还把卡行那个**相对 `Background` 的锚**
+                    //   套到了抽屉宽上）。现改成**原版行 0（督军行）prefab** 的 `Rarity Gradient`：
+                    //   锚 `0.611473560` + `sd.x −0.020004` ⇒ 绝对 **197.364 .. 317.399**（宽 **120.035**、中心 **257.38**）。
+                    //   判据全文 → `DeckRuntime.RowGradHeroX` 那一段（含卡行那一档 201.927..317.400 / 宽 115.473）。
+                    Check(Mathf.Abs(gw - 120.035f) < 0.6f, true,
+                          $"色条宽 = **120.04**（原版行 0 `Rarity Gradient` 的锚算出来；"
+                        + "原来钉的 128.05 是我们自己两个常量算的 —— 自证且右缘多 8px）");
+                    Check(Mathf.Abs(gx - 257.38f) < 0.6f, true,
+                          $"色条中心 x = **257.38**（右对齐：197.364 + 120.035/2）");
+                    // 🔴 **2026-10-21（`A1700`）新加**：**卡行那一档**原来**一条断言都没有**
+                    //   （A1700 之前我们所有行共用一个矩形，根本没有「两档」这回事）。
+                    //   期望值 = 原版 `Deck Selector Card Info button` 的 `Rarity Gradient`
+                    //   （锚 `0.605750263` + `sd.x 0.4528`、父 = `Background` 291.745 宽）⇒ 绝对
+                    //   **201.927 .. 317.400**（宽 **115.473**、中心 **259.6635**）。判据全文 → `DeckRuntime.RowGradCardX`。
+                    //   ⚠️ `row_g1` 是**普通 quad**（不是九宫格）⇒ `UiQuadRect` 的语义与 `row_g0` 同一条。
+                    //   ⛔ 期望值写死（原版锚算出来的），⛔ 不从 `DeckRuntime.RowGradCardX` 读回来。
+                    float g1x, g1y, g1w, g1h;
+                    if (_rt.UiQuadRect("row_g1", out g1x, out g1y, out g1w, out g1h))
+                    {
+                        Check(Mathf.Abs(g1w - 115.473f) < 0.6f, true,
+                              $"卡行色条宽 = **115.47**（原版卡行 `Rarity Gradient` 的锚算出来；实测 {g1w:F2}）");
+                        Check(Mathf.Abs(g1x - 259.6635f) < 0.6f, true,
+                              $"卡行色条中心 x = **259.66**（201.927 + 115.473/2；实测 {g1x:F2}）");
+                    }
                 }
+            }
+
+            // ============================================================ 🔴 2026-10-21（第二十四会话）
+            // **卡组行几何四笔**（`A1722` 费用框 · `A1721` 行距 · `A1727` 视口裁切 · `A1720` 槽 0 两套件）。
+            // 判据逐条 → `Deck/DeckRuntime.cs` 的 `RowCostX` / `RowSpacing` / `RowPitch` / `RowVisible` /
+            //    `DeckListBand` / `RowBgRect` 那几段（原版 prefab 现读 + 参考图对账）。
+            // ⛔ 期望值一律是**原版算式算出来的字面量**，不从我们自己的常量读回来（那是自证）。
+            Section("卡组行几何四笔（`A1722` 费用框 · `A1721` 行距 · `A1727` 视口裁切 · `A1720` 槽 0 两套件）");
+            {
+                _rt.UiSetTab(0);                      // Cards 页（`SetTab` 顺带把 `_deckScroll` 归 0）
+                _rt.UiScrollDeck(-9999f);             // 显式滚到顶（`firstRow == 0`）—— 后面每一笔都要这个基线
+                var entries4 = _rt.DeckEntries();
+                CheckTrue(entries4.Count > _rt.DeckRowVisible + 1,
+                          $"（前提）卡组条目 {entries4.Count} 条 > 一屏槽数 {_rt.DeckRowVisible} + 1"
+                        + "（才滚得动、且量得到**被裁的那一行**）");
+
+                // ---------- ① `A1722`：费用图的【框】（不是墨迹）----------
+                //   判据 = 原版卡行 `Cost Image`：父 `Background` 25.655..317.400（291.745 宽）· 锚 0.03 ·
+                //   pos −0.1800079 · `AspectMode 2`（**高控宽**）· 高 = `RowH 55.7 + sizeDelta.y 6` = **61.7**
+                //   ⇒ 中心 x = `25.655 + 0.03×291.745 − 0.1800079` = **34.227**、见方 **61.7**。
+                //   ⛔ 不是我们那对旧常量 `12.1 / 46.2`（那是照着**实拍墨迹**量的 —— 墨迹左缘离框左缘还有
+                //   约 3px 的透明发光边；右缘两法只差 0.12px ⇒ 是「框 vs 墨迹」、不是真偏离）。
+                float c1x, c1y, c1w, c1h;
+                CheckTrue(_rt.UiQuadRect("row_c1", out c1x, out c1y, out c1w, out c1h),
+                          "（前提）行 1 的费用圆量得到矩形（它是普通 sprite，不是九宫格）");
+                CheckNear(c1w, 61.7f, 0.05f,
+                          $"★ 费用图的**框宽** = **61.7**（原版 `Cost Image` 高控宽、高 = 55.7 + 6；实测 {c1w:F2}）");
+                CheckNear(c1h, 61.7f, 0.05f, $"★ ……**框高** = **61.7**（同上；实测 {c1h:F2}）");
+                CheckNear(c1x, 34.227f, 0.05f,
+                          $"★ ……框**中心 x** = **34.227**（25.655 + 0.03×291.745 − 0.1800079；实测 {c1x:F3}）"
+                        + " —— 旧常量给的 35.2 是**墨迹**中心，框中心比它左 1px");
+
+                // ---------- ② `A1721`：行距 57.7（55.7 + 2.0）· 且滚动上限是同一条式子 ----------
+                float r0x, r0y, r0w, r0h, r1x, r1y, r1w, r1h;
+                // ⚠️ 两次调用**分开写**（别写成 `a && b`）：短路求值下编译器认不出 `out` 一定赋过值。
+                bool haveRow01 = _rt.UiRowRect(0, out r0x, out r0y, out r0w, out r0h);
+                haveRow01 &= _rt.UiRowRect(1, out r1x, out r1y, out r1w, out r1h);
+                CheckTrue(haveRow01, "（前提）前两行的**行矩形**量得到");
+                CheckNear(r1y - r0y, 57.7f, 0.01f,
+                          $"★ 行距（步长）= **57.7** = 行高 55.7 + 间距 **2.0**"
+                        + "（原版 `Content` 的 `VerticalLayoutGroup.m_Spacing`；三行打在 366/423.7/481.4；"
+                        + $"实测 {r1y - r0y:F2}）—— ⛔ 不是旧那个「我们挑的」56");
+                CheckNear(r0h, 55.7f, 0.01f, $"……行高仍是 **55.7**（实测 {r0h:F2}）");
+                // 🔴 上限那条**必须与行距一起断**：只改行距不改上限 ⇒ 多给（旧版是少给）2px，
+                //   而上面那条断的是「步长」、这条断的是「能滚多远」—— 两条并存才挡得住「只改一处」。
+                float vx1, vy1, vx2, vy2;
+                _rt.UiDeckBand(out vx1, out vy1, out vx2, out vy2);   // 视口（自检口读，别在自检里另写 366/644.1）
+                CheckNear(_rt.MaxDeckScrollPx, entries4.Count * 57.7f - 2f - (vy2 - vy1), 0.05f,
+                          $"★ 滚动上限 = **内容高 − 视口高** = `n×57.7 − 2.0 − (视口高 {vy2 - vy1:F1})`"
+                        + $"（n = {entries4.Count}；实测 {_rt.MaxDeckScrollPx:F2}）"
+                        + " —— 上限只减一个 `m_Spacing`（`n−1` 个里的那一个），⛔ 别写成 `n×57.7 − 视口高`（多 2px）");
+
+                // ---------- ③ `A1727`：一屏 12 个槽 + 视口裁切 ----------
+                //   旧值 11 是一条**用户可见的真缺陷**：① 卷到 0 时第 12 行只露 9.4px、我们不画；
+                //   ② `max scroll` 时最后一行**一个槽都没有**（`firstRow_max = Count−12`）。
+                _rt.UiScrollDeck(-9999f);
+                CheckNear(_rt.DeckRowVisible, 12f, 0.01f, "★ 一屏槽数 = **12**（`A1727` 之前是 11）");
+                float q0x, q0y, q0w, q0h, q11x, q11y, q11w, q11h;
+                CheckTrue(_rt.UiQuadRect("row_g0", out q0x, out q0y, out q0w, out q0h), "（前提）行 0 的色条量得到");
+                CheckTrue(_rt.UiQuadRect("row_g11", out q11x, out q11y, out q11w, out q11h),
+                          $"（前提）**第 12 行**（`row_g11`）量得到 —— 槽数还是 11 时这一句先红（现在是 {_rt.DeckRowVisible}）");
+                CheckNear(q0h, 55.7f, 0.05f,
+                          $"★ 滚到顶：**视口内**那一行（行 0）色条 = **整行高 55.7**（没被裁；实测 {q0h:F2}）");
+                CheckNear(q11h, 9.4f, 0.05f,
+                          $"★ 滚到顶：**视口外**那一行（行 11）被裁到**只露 9.4px**"
+                        + $"（= 视口底 {vy2:F1} − 行 11 顶 {366f + 11f * 57.7f:F1}；实测 {q11h:F2}）"
+                        + " —— 原版参考图上那颗「只高 6px 的蓝六边形」就是这一刀。"
+                        + "🔑 **两条一起断才有牙**：只改常量不接裁切 ⇒ 这里 55.7；只接裁切不加槽 ⇒ 上一句先红");
+                // 射线那一半：原版视口上那颗是 **`RectMask2D`（四边都裁：渲染走 `IClipper`、
+                // 射线走 `IsRaycastLocationValid`）**，所以我们那条命中判定也要吃同一个框。
+                // 滚 20px ⇒ 行 0 的**未裁切**矩形伸进页头 20px ⇒ 那一带必须**判不中任何行**。
+                _rt.UiScrollDeck(20f);
+                Check(_rt.UiRowHoverAt(100f, vy1 - 8f), -1,
+                      "★ 视口**外**（页头那一带）的指针对任何行都**不命中**"
+                    + "（判据 = 原版视口那颗 `RectMask2D` **也裁射线**；⛔ 删掉射线那道闸 ⇒ 这一条变 0）");
+                Check(_rt.UiRowHoverAt(100f, vy1 + 8f), 0,
+                      "★ ……而视口**内**同一列（行 0 顶带）命中**第 0 行**（两条成对 ⇒ 上一条不是「恒不命中」）");
+                _rt.UiRowHoverAt(1700f, 500f);        // 指针移开（`_hoverRow` 归 -1）
+                // 滚到底：最后那一项必须**真的画出来**（旧写法里它算出来的 y 在视口内，只是**没槽**）
+                _rt.UiScrollDeck(9999f);
+                Check(_rt.UiDeckRowAt(_rt.DeckRowVisible - 1), entries4[entries4.Count - 1],
+                      "★ 滚到底：**最后一个槽**装的是卡组**最后一项**（`A1727` 之前它一个槽都没有 —— "
+                    + "`firstRow_max = Count−12`、槽 0..10 只覆盖到 `Count−2`）");
+                CheckTrue(_rt.UiQuadRect("row_g11", out q11x, out q11y, out q11w, out q11h),
+                          "（前提）滚到底后 `row_g11` 仍量得到");
+                CheckTrue(q11y >= vy1 - 0.05f && q11y + q11h <= vy2 + 0.05f,
+                          $"★ 滚到底：最后一行**整块落在视口内**（y {q11y:F1}..{q11y + q11h:F1} ⊂ [{vy1:F1}, {vy2:F1}]）"
+                        + " —— 裁切把所有行都夹进了框里（⛔ 这一条与上面「只露 9.4px」是同一条裁切的**两个方向**）");
+                CheckNear(q11h, 55.7f, 0.05f, $"……而且它是**整行高 55.7**（没被白裁；实测 {q11h:F2}）");
+                _rt.UiScrollDeck(-9999f);             // 摆回顶（下一个前提要用）
+
+                // ---------- ④ `A1720`：槽 0 两套件（几何跟**装进去的那一项**走，不是跟槽号走）----------
+                float b0x, b0y, b0w, b0h;
+                CheckTrue(_rt.UiQuadRect("row_0", out b0x, out b0y, out b0w, out b0h), "（前提）槽 0 的底板量得到");
+                CheckNear(b0w, 309f, 0.6f,
+                          $"（前提）滚到顶 ⇒ 槽 0 装的是**督军**：底板宽 = **309**（原版 `Deck Selector Hero Card"
+                        + $" Info button` 的 `Background` 锚 `(0,0)-(1,1)`；实测 {b0w:F2}）");
+                CheckNear(b0x, 162.9f, 0.6f, $"……中心 x = **162.9**（8.400 + 309/2；实测 {b0x:F2}）");
+                _rt.UiScrollDeck(57.8f);              // 滚过一整行 ⇒ `firstRow == 1` ⇒ 槽 0 装的是**卡行**
+                CheckTrue(!_rt.UiQuadActive("row_0"),
+                          "★ `A1720`：滚过一行后**督军档那一套关掉了**"
+                        + "（按槽号取几何的旧写法里它恒开着 ⇒ 底板左缘多露 17.255px）");
+                CheckTrue(_rt.UiQuadActive("row_0c"), "★ ……而**卡行档**那一套（`row_0c`）开着");
+                float bcx, bcy, bcw, bch;
+                CheckTrue(_rt.UiQuadRect("row_0c", out bcx, out bcy, out bcw, out bch), "（前提）`row_0c` 量得到");
+                CheckNear(bcw, 291.745f, 0.6f,
+                          $"★ ……槽 0 底板这时是**卡行档**：宽 = **291.745**（原版卡行 `Background` 锚 `0.055841297`；"
+                        + $"实测 {bcw:F2}；旧写法这里仍是 309 —— 差的就是那 17.255px 左缘）");
+                CheckNear(bcx, 171.5275f, 0.6f, $"★ ……中心 x = **171.53**（25.655 + 291.745/2；实测 {bcx:F2}）");
+                float gc0x, gc0y, gc0w, gc0h;
+                if (_rt.UiQuadRect("row_g0c", out gc0x, out gc0y, out gc0w, out gc0h))
+                {
+                    CheckNear(gc0w, 115.473f, 0.6f, $"★ ……稀有度色条也换成卡行档：宽 = **115.47**（实测 {gc0w:F2}）");
+                    CheckNear(gc0x, 259.6635f, 0.6f, $"★ ……色条中心 x = **259.66**（201.927 + 115.473/2；实测 {gc0x:F2}）");
+                }
+                else CheckTrue(false, "`row_0c` 那一套里 `row_g0c`（卡行档色条）量得到");
+                _rt.UiScrollDeck(-9999f);             // 摆回顶（后面几节按「顶」来的）
             }
 
             // 卡池那一格：原版**默认那一套** = 卡位 262.5×384 · 6 列 · 间距 0 · 贴左起排
@@ -3064,6 +3279,10 @@ public static class DeckScene
                     // 正是 `HandlePoolClick` 命中这一格的前提（它拿**同一颗** `pool_0` transform 做 `Contains`）。
                     // 🔴 ⚠️ 「真点一下」那一步在批处理里**驱动不了**（`HandlePoolClick` 只从 `HandlePointer` 进、
                     //   而批处理没有鼠标 ⇒ `Mouse.current == null`），如实标注 —— 见本轮报告「没做到的」。
+                    // 🆕 **2026-10-13 就地订正（铁律 5 · A1702 ③）**：上面那半句**已不再完全成立** ——
+                    //   现在有 `DeckRuntime.UiPoolHit(px, py, right)` 这个自检口**直调** `HandlePoolClick`
+                    //   （形状同 `UiClickCosmetic` 那条先例；**生产那条完整指针链照旧跑不了**，这一点没变）。
+                    //   ⇒ 「卡池这一点吃不吃」现在验得到，见本文件 A1702③ 那一节（灭自证②/③）。
                     CheckTrue(Mathf.Abs(qx - bx) < 0.5f && Mathf.Abs(qy - by) < 0.5f
                               && Mathf.Abs(qw - bw) < 0.5f && Mathf.Abs(qh - bh) < 0.5f,
                               $"★ ……而且与 Cards 页摆的是**同一处**（{qx:F1},{qy:F1} {qw:F1}×{qh:F1} "
@@ -3291,7 +3510,9 @@ public static class DeckScene
                 int rows = 0, showN = 0, hideN = 0;
                 string badCost = null, badX = null, badHide = null;
                 string badCntVis = null;               // 🆕 2026-10-21：`row_cnt*` 的**可见性**反例（原来整片空白）
-                for (int i = 0; i < 11; i++)            // 一屏 11 行（`DeckRuntime.RowVisible`）
+                for (int i = 0; i < 11; i++)            // 只查前 11 行（一屏现在是 12 行 —— 第 12 槽单独在
+                                                        // `A1727` 那一节里断；⛔ 别把这里也写成 12：
+                                                        // 这一段的目的是「逐行核对费用/份数」，多一行不加鉴别力）
                 {
                     var d = _rt.UiDeckRowAt(i);
                     if (d == null) break;
@@ -3356,6 +3577,65 @@ public static class DeckScene
                         + (badHide == null ? "" : "；反例：**" + badHide + "**"));
             }
 
+            // ============================================================ 🆕 2026-10-21（`A1735`）
+            // **费用圆里那颗数字的 TMP 文本框** = 原版 **48.82 × 47.88**（⛔ 不是费用图那个 61.7）。
+            // 判据 = 原版 prefab 现读（`工具/menu_dump.py bundle_menus_assets_all "Deck Editing Menu"
+            //   --depth 14`）：`…/Deck Selector Card Info button/Background/Cost Image/Cost` =
+            //   **48.82 × 47.88**（`字号=50.0` · `基准=32.0` · `auto[18.0~50.0]` · `Center/Capline`），
+            //   父 `Cost Image` = **61.70 × 61.70**；督军行那一族（Hero Card Info button）逐位同值。
+            // 🔴 **为什么会漏**：我们把**图框**（`RowCostS 61.7`）直接当字框用了 —— 今天两边都停在
+            //   自适应上限 50（`row_cnt` 是 1~2 位数字，两个框都塞得下）⇒ 画面同级、一直没露；
+            //   **要缩字时我们会比原版【晚缩】**（原版框窄 12.88px）—— 那才是不符原版的那一半。
+            // 🔴 **灭自证两条腿**：① 把字框改小、顺便把**费用图**也改小（两颗混成一颗）⇒ ③ 红；
+            //   ② 只把框改小、没看**字号**（框一小自适应就可能把字压下去）⇒ ⑥ 红。
+            {
+                Section("★ A1735：费用数字的文本框 = 原版 48.82 × 47.88（费用图仍是 61.7 · 字仍停在上限）");
+                int rk = -1; GameObject cntGo = null; Label cntLb = null;
+                for (int i = 0; i < 11 && cntGo == null; i++)
+                {
+                    var g = FindDeep(_rt.Root, "row_cnt" + i);
+                    if (g != null && g.gameObject.activeSelf) { rk = i; cntGo = g.gameObject; cntLb = g.GetComponent<Label>(); }
+                }
+                CheckTrue(cntGo != null && cntLb != null,
+                          "（前提）量得到一颗**显示着**的 `row_cnt*`（= 非督军行的费用数字）");
+                if (cntGo != null && cntLb != null)
+                {
+                    var tmp = cntGo.GetComponentInChildren<TMPro.TMP_Text>(true);
+                    CheckTrue(tmp != null, "（前提）那颗 `row_cnt*` 底下有**真 TMP**（点阵后端没有框可量 ⇒ 会假绿）");
+                    if (tmp != null)
+                    {
+                        // `SetAutoFitBox` 把框写进 TMP 自己的 `sizeDelta`（**世界单位**）⇒ × `PxPerUnit` 回设计 px。
+                        // ⛔ 别拿 `Label.WorldW/WorldH` 量 —— 那是**墨迹**（字占多大），框换了它**不会变**。
+                        var box = tmp.rectTransform.sizeDelta * DeckRuntime.PxPerUnit;
+                        CheckNear(box.x, 48.82f, 0.05f,
+                                  "★ A1735①：费用数字的**文本框宽** = 原版 **48.82**"
+                                + "｜🧨 仍拿费用图那个 `RowCostS 61.7` 当字框 ⇒ 红");
+                        CheckNear(box.y, 47.88f, 0.05f, "★ A1735②：…**框高** = 原版 **47.88**");
+                        CheckTrue(_rt.UiQuadRect("row_c" + rk, out float icx, out float icy,
+                                                 out float iw, out float ih),
+                                  "（前提）同一行的费用图 `row_c" + rk + "` 量得到");
+                        CheckNear(iw, 61.7f, 0.05f,
+                                  "★ A1735③ 灭自证①：**费用图**仍是原版 **61.7**（宽与高同一颗常量）"
+                                + "｜🧨 把 `RowCostS` 一起改小 ⇒ 红（原版这两颗是**两件东西**）");
+                        CheckNear(ih, 61.7f, 0.05f, "★ A1735③b：…费用图的高也是 **61.7**");
+                        // 与费用图的关系：原版四边等距内缩（6.44 / 6.91）⇒ **框心 = 图心**
+                        // ⚠️ 读**世界坐标**（`transform.position`）—— 与 `UiQuadRect` 同一条口
+                        var bc = _rt.ToPx(cntGo.transform.position);
+                        CheckNear(bc.x - icx, 0f, 0.05f,
+                                  "★ A1735④：字框**框心**与费用图同 x（`MoveRow` 的 `MoveLabel` 每刷新搬回图心）"
+                                + "｜🧨 换尺寸却只挪左上角 ⇒ 数字整体偏 ⇒ 红");
+                        CheckNear(bc.y - icy, 0f, 0.05f, "★ A1735⑤：…同 y");
+                        // 🔴 灭自证②：**今天画面不变** —— 字仍钉在自适应的**上限**上
+                        //   （原版那颗 `m_fontSize = 50 = m_fontSizeMax`，见上面判据那行 dump）。
+                        CheckTrue(tmp.fontSizeMax > 0f && tmp.fontSize >= tmp.fontSizeMax - 0.01f,
+                                  $"★ A1735⑥ 灭自证②：字号仍停在自适应的**上限**"
+                                + $"（实得 {tmp.fontSize:F2} / 上限 {tmp.fontSizeMax:F2}）"
+                                + " —— 框换成原版尺寸**没有**把字压小 ⇒ 今天画面与原版同级"
+                                + "｜🧨 框再小一点就把字压下去 / 把上限改小 ⇒ 红");
+                    }
+                }
+            }
+
             // ============================================================ 🔴 2026-10-11（`A1528`）
             // **行右缘那颗 `Count` 的【字色 + 自适应】。**
             // 判据 = 原版 prefab 实读，**按 RT pid 认人**（`bundle_menus_assets_all` 里名叫 `Count` 的 TMP
@@ -3374,7 +3654,7 @@ public static class DeckScene
             //     所以**上下限与基准逐格断**（旧实现这四格里**一格都没有**）。
             {
                 Section("★ A1528：行右缘 `row_x*` —— 字色 `(0.93333,0.93333,0.93333,1)` + 自适应开 `[2~32]` 基准 36"
-                        + " · 墨迹右缘 317.48");
+                        + " · 墨迹右缘 309.48");
                 Label x0 = null;
                 for (int i = 0; i < 11; i++)
                 {
@@ -3409,21 +3689,19 @@ public static class DeckScene
                 //     `Text fill` 行内 **55.182..301.083** ⇒ **右沿 = 行右缘 − 7.917**；
                 //   · `Count` 是 `Text fill` 的**最后一个**子件 + `m_HorizontalAlignment = 4(Right)`
                 //     + `m_ChildForceExpandWidth = 1` ⇒ **墨迹右缘 = 行右缘 − 7.917**。
-                //   套到**我们自己的行**（`ListX..ListX+RowW` = 0.4..325.4）⇒ **317.48**。
-                //   **参考图**（本代理 2026-10-11 在图上逐像素重量过，k = 1.21442）：
+                //   套到**我们自己的行**（**行节点** = `RowNodeX..RowNodeX+RowNodeW` = 8.4..317.4）⇒ **309.48**。
+                //   **参考图**（2026-10-11 与 2026-10-21 两次在图上逐像素量过，k = 1.21442）：
                 //   `x2` 墨迹右缘 ≈ ref **255** px ⇒ 画布 **309.7**，**行底板右缘** = ref **261** px ⇒ **317.0**。
-                //   ⇒ **行相对那一半两条一致**（图上墨迹离底板右缘 ≈ 7.3 画布 px vs prefab 的 7.917）；
-                //   ⚠️ **绝对值不一致**（309.7 / 309.48 vs 我们的 317.48）—— 差的 8px **全部来自
-                //      「我们的行底板比原版宽 8px（右缘 325.4 vs 317.4）」那条【另账】**，
-                //      ⛔ 不属本条；改行宽时**必须回来一起改**（`RowCountRight` 是「行右缘 − 7.917」）。
-                //   🔴 **订正一条账文**：原来写的「`x2` 墨迹右缘 实测 参考图 **261** px ⇒ 画布 317.0」
-                //      —— **261 是行底板右缘、不是墨迹**（墨迹在它左边 6 ref px）。系数 1.21442 仍然对
-                //      （261↔317.4 与 255↔309.48 两条同时成立）。
-                //   ⛔ 317.48 是**写死的绝对数**（原版规则 + 我们的行右缘），⛔ 不是从
+                //   ⇒ **两条一致**（图上墨迹离底板右缘 ≈ 7.3 画布 px vs prefab 的 7.917；绝对值 309.7 vs 309.48）。
+                //   🔴 **2026-10-21（`A1700`）就地订正（铁律 5）**：本段原来把行右缘写成 **325.4**
+                //      （= **抽屉**右缘）⇒ 期望值写成 317.48，并把它挂成「另账」等以后处理。
+                //      **那条另账已收口**：行节点右缘 = **317.4**（抽屉各缩 8，判据 → `DeckRuntime.RowNodeW`），
+                //      ⇒ 期望值 = **309.48**，与参考图 309.7 同一个数（差 0.22 = 半个 ref px）。
+                //   ⛔ 309.48 是**写死的绝对数**（原版规则 + 行节点右缘），⛔ 不是从
                 //      `DeckRuntime.RowCountRight` 读回来 —— 读了就是自证。
                 //   ⚠️ **鉴别力（如实登记）**：旧写法（50 宽贴行右缘 + 框内居中）对**两字**文本
-                //      **恰好**落在 **≈317.9** ⇒ 本条只分得出 **0.4px**；它真正咬得住的是
-                //      「**只改对齐、不改框右沿**」（那样会顶到行右缘 **325.4** ⇒ 红 **7.9px**）。
+                //      **恰好**落在 ≈317.9 ⇒ 本条只分得出 **0.4px**；它真正咬得住的是
+                //      「**只改对齐、不改框右沿**」（A1700 之前那一版会顶到行节点右缘 **317.4** ⇒ 红 **7.9px**）。
                 {
                     int xi = -1;
                     for (int i = 0; i < 11; i++)
@@ -3440,13 +3718,12 @@ public static class DeckScene
                         float lx, rx, cyy;
                         CheckTrue(NodeInkPx("row_x" + xi, out lx, out rx, out cyy),
                                   "（前提）第 " + xi + " 行那颗的**墨迹框**量得出来");
-                        CheckNear(rx, 317.48f, 0.4f,
-                                  "★ 墨迹**右缘 = 317.48**（原版规则「行右缘 − 7.917」套到我们的行 325.4 上；"
-                                + "参考图核过的是**行相对**那一半 ≈7.3 画布 px，一致；"
-                                + "⚠️ 绝对真值 309.48/309.7 —— 差的 8px 属「我们行底板宽 8px」那条另账；"
+                        CheckNear(rx, 309.48f, 0.4f,
+                                  "★ 墨迹**右缘 = 309.48**（原版规则「行节点右缘 − 7.917」套到我们的行节点 8.4..317.4 上；"
+                                + "参考图独立核过：墨迹右缘 ref 255 ⇒ 画布 309.7，与 309.48 同一个数；"
                                 + "实测 " + rx.ToString("F2") + "）"
-                                + "｜🧨 **只改对齐、不改框右沿** ⇒ 顶到行右缘 325.4 ⇒ 红 7.9px"
-                                + "｜🧨 退回「框内居中」⇒ 偏移随文字宽度漂（今天两字 ≈317.9 ⇒ 本条只分 0.4px，已如实登记）");
+                                + "｜🧨 **只改对齐、不改框右沿** ⇒ 顶到行节点右缘 317.4 ⇒ 红 7.9px"
+                                + "｜🧨 退回「框内居中」⇒ 偏移随文字宽度漂（今天两字 ≈309.9 ⇒ 本条只分 0.4px，已如实登记）");
                     }
                 }
             }
@@ -4962,7 +5239,10 @@ public static class DeckScene
             // 卡组列表滚动：先把卡组填满（演示卡组就有 30 张 + 督军 + 防御）
             CheckTrue(_rt.MaxDeckScrollPx > 0f, $"卡组列表滚得动（{_rt.MaxDeckScrollPx:F0} px = 条目数超过一屏）");
             var row0 = _rt.UiDeckRowAt(0);
-            _rt.UiScrollDeck(56f);
+            // 🔴 **2026-10-21（`A1721`）**：这里原来是 `UiScrollDeck(56f)` —— 行距还是 56 时它**正好**
+            //   滚过一整行；行距改成原版真值 **57.7** 之后 56 < 57.7 ⇒ `firstRow` 仍是 0 ⇒
+            //   「第一行换了卡」那条会**假红**。⇒ 改成**明确大于一个行距**的 58（滚过一整行）。
+            _rt.UiScrollDeck(58f);
             CheckTrue(_rt.UiDeckRowAt(0) != row0, "卡组列表滚动后第一行换了卡");
             _rt.UiScrollDeck(-9999f);
             Check(_rt.DeckScrollPx, 0f, "卡组列表滚回顶部夹在 0");
@@ -7146,6 +7426,147 @@ public static class DeckScene
                                     + "）—— 一个恒真的实现过不了这一对（前提它就已经红了）");
                         }
 
+                        // ---- 🆕 2026-10-13（`A1132` 第 2 步）：**本窗自我豁免**（`DeckRuntime.OtherWindowUp`）----
+                        //   为什么需要它：第 3 步起卡组编辑**自己就是一扇窗**（`Shell/DeckEditingWindow.cs`）——
+                        //   开出来那一刻，**它自己就是 `wm.TopWindow`** ⇒ 上面那道「别的窗开着 ⇒ 让位」的闸
+                        //   **恒真** ⇒ `HandlePointer` 一进门就 `return` = **整个窗点不动**（`A1701` 那个症状）。
+                        //   ⇒ 豁免只能**放过自己那一扇**、对**别的窗**照旧拦。
+                        //   🔴 **宿主用真开一扇窗**（`DeckEditingWindow.OpenFrom`）而不是手搓对象：
+                        //     豁免的判据是「顶窗**是不是**我的宿主窗」，只有真走一遍开窗那一刻的状态才对得上；
+                        //     而且那句 `HostWindow` 的登记就写在 `Open()` 里，手搓会**绕过它** ⇒ 验了个假。
+                        //   🔴🔴 **灭自证（两条必须并存）**：
+                        //     · 只断「本窗自己开着 ⇒ 假」⇒ **把整条闸删掉**照样绿（恒假）；
+                        //     · 只断「别的窗开着 ⇒ 真」⇒ 「豁免写成无条件 `return null`」也绿。
+                        //     两条一起 ⇒ 闸被删 / 豁免写错 / 干脆没做豁免，各红一条，结构上不可能同时满足。
+                        {
+                            var wmSh2 = WindowsManager.Instance;
+                            CheckTrue(wmSh2 != null, "（前提）壳在（上面 `EnsureHost()` 那一句）—— 本节要读 `TopWindow`");
+                            if (wmSh2 != null)
+                            {
+                                // ⚠️ **两个交接口都存/还**：`DeckRuntime.Build` 开局就把它们**读掉并清掉**
+                                //    ⇒ 本节这一开必须**不留副作用**给后面几节（照本文件别处「夹具态复原」那条规矩）。
+                                int keepPending = CollectionData.PendingEditDeck;
+                                var keepNew = CollectionData.PendingNewDeck;
+                                var deWin2 = DeckEditingWindow.OpenFrom(wmSh2);
+                                try
+                                {
+                                    CheckTrue(deWin2 != null && deWin2.gameObject.activeSelf,
+                                              "★ A1132 第 2 步：宿主窗开出来了、物体是活的");
+                                    CheckTrue(deWin2 != null && ReferenceEquals(wmSh2.TopWindow, deWin2),
+                                              "（前提）这一刻**顶窗就是本窗自己那一扇** —— 不成立的话下面那条等于没验");
+                                    var hostRt = deWin2 != null ? deWin2.Runtime : null;
+                                    CheckTrue(hostRt != null, "（前提）宿主窗里那台 `DeckRuntime` 在（= `Open()` 建的那一台）");
+                                    if (hostRt != null)
+                                    {
+                                        CheckTrue(hostRt.HostWindow == deWin2,
+                                                  "★ A1132 第 2 步：**宿主登记对** —— `DeckRuntime.HostWindow` = 头上这一扇"
+                                                + "（**豁免判据就是它**，⛔ 不是名字：名字在 Unity 里可以重）");
+                                        CheckTrue(!hostRt.UiWindowShield,
+                                                  "★ A1132 第 2 步（**正面**）：**本窗自己开着 ⇒ 闸为假**"
+                                                + "（= 点击 / 拖拽 / ESC 不会自己给自己让位）"
+                                                + " —— 本条红就是「窗一开整个点不动」那个 bug 本身");
+                                        // 🔴 **第 2 步的必然配套**：ESC 那一半**方向相反** ——
+                                        //   宿主窗自己就是「`PointerLayer.KeyCancel` 已把 ESC 打给它、
+                                        //   它又转回 `DeckRuntime.EscPressed()`」的那一档 ⇒ 本类**必须**停手
+                                        //   （否则同一下 ESC 被处理两遍；② 那一级会从「只关导入弹窗」变成「关弹窗 + 存盘 + 退编辑器」）。
+                                        CheckTrue(hostRt.UiEscEatenByHost,
+                                                  "★ A1132 第 2 步（**配套**）：**宿主窗在顶 ⇒ ESC 已被它吃**"
+                                                + "（`HandleEscape` 第二道闸 `UiEscEatenByHost`）—— "
+                                                + "两个谓词**方向相反**（指针放行 / ESC 拦下）：本条与上面那条**同时**为真才对");
+                                        // 反面：**换一扇别的窗**压在头上 ⇒ 闸**必须**为真（⛔ 不许把整条闸删掉）
+                                        var wSh2 = MainMenuRuntime.OpenSettings();
+                                        CheckTrue(hostRt.UiWindowShield,
+                                                  "★ A1132 第 2 步（**判别式**）：**别的窗**压在头上 ⇒ 闸**为真**"
+                                                + " —— 豁免只准放过「自己那一扇」；把整条闸删掉、或豁免写成恒 `null`，本条必红");
+                                        CheckTrue(!hostRt.UiEscEatenByHost,
+                                                  "★ A1132 第 2 步（**判别式**）：那一刻 `UiEscEatenByHost` **为假**"
+                                                + " —— 拦住这一下的是**另一条**（`UiWindowShield`）"
+                                                + "（判别式：两个谓词若被合成一个，本条与上面那条必有一条红）");
+                                        if (wSh2 != null) wSh2.Close();
+                                        CheckTrue(!hostRt.UiWindowShield,
+                                                  "★ A1132 第 2 步（**判别式**）：那扇别的窗关掉 ⇒ 闸**回到假**"
+                                                + "（一个恒定实现过不了上面这一对）—— ⚠️ 若那扇窗是全屏档，"
+                                                + "它会 `HideAllWindows()` 把本窗 `Hide()`；`ShowPreviousWindow` 会把它"
+                                                + "`TryOpen` 回 `Open`（同一条豁免路径），故这里仍应为假");
+                                    }
+                                }
+                                finally
+                                {
+                                    if (deWin2 != null)
+                                    {
+                                        deWin2.Close();
+                                        UnityEngine.Object.DestroyImmediate(deWin2.gameObject);
+                                    }
+                                    CollectionData.PendingEditDeck = keepPending;   // 见上面那条 ⚠️
+                                    CollectionData.PendingNewDeck = keepNew;
+                                }
+                            }
+                        }
+
+                        // ⚠️ **反面控制**：没有宿主窗那条路（`HostWindow == null`）⇒ 新加的谓词**不因它**改变 ——
+                        //   本节这一台 `_rt` 就是那样（`DeckEditor.unity` 直起 / 批处理裸建，没人写 `HostWindow`）。
+                        CheckTrue(!_rt.UiEscEatenByHost,
+                                  "★ A1132 第 2 步（**反面控制**）：**没有宿主窗** ⇒ `UiEscEatenByHost` 恒假"
+                                + "（= 独立场景那条路与加这一格之前**逐位一致**：ESC 照旧由本类自己吃）");
+
+                        // ---- 🆕 2026-10-14（`A1132` 第 4 步）：离场的**另一条腿** = **有宿主窗** ⇒ 关窗、⛔ 不切场景 ----
+                        //   判据 = 原版 `DeckEditingWindow__Close.c:19-20`（`NavigationPanelController.Toggle(1,1,0)`
+                        //   放回导航栏 → `GameWindow.Close()`）：关掉之后底下那扇**一直开着的** `CollectionScreen`
+                        //   由 `WindowsManager.ShowPreviousWindow` 带回来。原版**没有「回程」这回事** ——
+                        //   我们这条腿的等价物（消费回程意图 + 作废库缓存）落在 `DeckRuntime.LeaveByHostWindow`。
+                        //   🔴 **与 `Run()` 开头那 5 条 A855 断言【并存】**（灭自证）：那 5 条钉的是
+                        //   `HostWindow == null` 那条兜底腿（照旧写意图 + 切场景，**一个字未动**）；
+                        //   本节钉的是被托管这条腿（关窗 + **就地消费**）。**两条腿结构上不可能同时满足**
+                        //   ⇒ 只做一条 / 把老腿顺手删掉，另一条必红。
+                        {
+                            var wm4 = WindowsManager.EnsureHost();      // 幂等（上面那节已经建过）
+                            string sceneBefore4 = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+                            int pendKeep4 = CardPresentation.CollectionData.PendingEditDeck;
+                            var newKeep4 = CardPresentation.CollectionData.PendingNewDeck;
+                            var retKeep4 = CardPresentation.CollectionData.PendingReturn;
+                            var deWin4 = DeckEditingWindow.OpenFrom(wm4);
+                            try
+                            {
+                                var hrt4 = deWin4 != null ? deWin4.Runtime : null;
+                                CheckTrue(hrt4 != null && hrt4.HostWindow == deWin4,
+                                          "（前提）这一台 `DeckRuntime` **有宿主窗**（= 被托管那条腿），下面几条才有意义");
+                                if (hrt4 != null)
+                                {
+                                    int leaveBefore = hrt4.LeaveCount;
+                                    CardPresentation.CollectionData.SetReturnIntent(
+                                        CardPresentation.DeckExitSource.Collection,
+                                        CardPresentation.WindowTabType.CollectionDecks);
+                                    hrt4.BackToMenu();
+                                    Check(hrt4.LeaveCount, leaveBefore + 1,
+                                          "★ A1132 第 4 步：离场那一下走到了 `BackToMenu`（`LeaveCount` +1）");
+                                    CheckTrue(!deWin4.gameObject.activeSelf && !deWin4.IsOpen(),
+                                              "★ A1132 第 4 步（**被托管那条腿**）：离场 ⇒ **关掉了宿主窗**"
+                                            + "（`state = Closed` **且** 物体不活 —— 两条并存）—— 判据 = 原版"
+                                            + " `DeckEditingWindow__Close.c:19-20`");
+                                    Check(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name, sceneBefore4,
+                                          "★ ……而**场景没换**（第 4 步要替掉的就是那句 `LoadScene(\"MainMenu\")`）"
+                                        + " —— ⚠️ 与 `Run()` 开头那 5 条 A855 断言**成对**：那 5 条的前提是"
+                                        + "「**没**宿主窗 ⇒ 走独立场景那条腿」，本条的前提是「**有**宿主窗」");
+                                    Check((int)CardPresentation.CollectionData.PendingReturn.Source,
+                                          (int)CardPresentation.DeckExitSource.None,
+                                          "★ ……而且回程意图**在关窗那一拍就地消费掉了**（`Take*` 读走即清）——"
+                                        + " 原来这一跳只在 `MainMenuRuntime.Build` 里，而那条**只有真的换过场景才轮得到**"
+                                        + "（判据 → `DeckRuntime.LeaveByHostWindow` 的 doc）");
+                                }
+                            }
+                            finally
+                            {
+                                if (deWin4 != null)
+                                {
+                                    deWin4.Close();      // 已经关过 ⇒ 走 `Close()` 的首句守卫、零副作用
+                                    UnityEngine.Object.DestroyImmediate(deWin4.gameObject);
+                                }
+                                CardPresentation.CollectionData.PendingEditDeck = pendKeep4;
+                                CardPresentation.CollectionData.PendingNewDeck = newKeep4;
+                                CardPresentation.CollectionData.PendingReturn = retKeep4;
+                            }
+                        }
+
                     }
                 }
 
@@ -7410,6 +7831,312 @@ public static class DeckScene
                 _rt.UiScrollPool(-100000f);
                 Check(_rt.UiPoolColsNow, 6, "（收尾）回到桌面档 6 列");
             }
+
+            // ---- 🆕 2026-10-13（A1702 ③）：卡池的**视口裁切**（渲染 + 命中区**两半一起**）----
+            //   原版：`Content Area/Card Display/Scroll View/Viewport` 上挂 **`RectMask2D`**（硬边、不内缩）
+            //     ⇒ 滚出视口的卡**既不画、也点不到**。我们原来两半都缺：
+            //       · **渲染**：`RefreshPool` 的 `SetPose` **不传第 4 参** ⇒ 部分滚出视口的卡**整张画出去**
+            //         （压在页头那条空带上）；
+            //       · **命中**：`HandlePoolClick` **只判 `px.x`**（左右）⇒ 滚到视口之外的卡**照样点得到**。
+            //   判据矩形 = 视口 **(330.2,156)-(1920,1080.1)**（出处 = `DeckRuntime` 的
+            //     `PoolX/PoolY/PoolW/PoolH` 那一段：原版 `Card Display` 视口 1589.8×924.1，R:167-170）。
+            //   🔴 **灭自证**（这一节的三条连起来才有鉴别力，单看任何一条都能被某种错法骗过）：
+            //     ① 裁切框**必须等于那个视口矩形** —— 传 `null`（不裁）/传整屏/传卡自己的框 ⇒ 红；
+            //     ② 视口**外**那一点 ⇒ **没人吃**；③ 视口**内**那一点 ⇒ **吃**
+            //     —— 只做渲染那半 ⇒ ② 红；只做命中那半 ⇒ ① 红；两半都做才全绿。
+            {
+                _rt.UiSetSmallScreenUIForTest(false);
+                _rt.UiSetTab(0);                                 // 卡池只在 Cards 页画
+                _rt.UiScrollPool(-100000f);                      // 回到池顶（下面几条要在 off = 0 处量）
+                CheckTrue(_rt.State.VisibleCards().Count >= 7,
+                          $"（前提）卡池至少 7 张（滚 300px 之后第 0 格与第 1 行第 0 格要同时在，实得 "
+                        + $"{_rt.State.VisibleCards().Count}）");
+
+                // ① **没滚的时候**：第 0 格带着那个视口矩形（`CardView.Clip` 有值）
+                bool hasClip = PoolClipOf(0, out float a1, out float b1, out float c1, out float d1);
+                CheckTrue(hasClip,
+                          "★ A1702③：`pool_0` 这张卡**带上裁切了**（`CardView.Clip` 有值）"
+                        + "｜🧨 `RefreshPool` 的 `SetPose` 不传第 4 参 ⇒ `Clip` 恒 null ⇒ 本条红"
+                        + "（= 部分滚出视口的卡整张画出去）");
+                CheckTrue(hasClip && Mathf.Abs(a1 - 330.2f) < 0.5f && Mathf.Abs(b1 - 156f) < 0.5f
+                          && Mathf.Abs(c1 - 1920f) < 0.5f && Mathf.Abs(d1 - 1080.1f) < 0.5f,
+                          $"★ A1702③ 灭自证①：裁切框 = **视口矩形** (330.2,156)-(1920,1080.1)，"
+                        + $"实得 ({a1:F1},{b1:F1})-({c1:F1},{d1:F1})"
+                        + "｜🧨 传整屏 `(0,0,1920,1080)` ⇒ `y1` 那半红；传这张卡自己的框 ⇒ 四边全红；传 null ⇒ 上一条红");
+
+                // ② 滚到 300px（= 0.78 行）：第 0 格的中心**离开视口上沿**、第 1 行第 0 格（`pool_6`）仍在视口里
+                _rt.UiScrollPool(300f);
+                bool has0 = _rt.UiPoolCellRect(0, out float z0x, out float z0y, out float z0w, out float z0h);
+                bool has6 = _rt.UiPoolCellRect(6, out float z6x, out float z6y, out float z6w, out float z6h);
+                CheckTrue(has0 && has6, "（前提）滚动 300px 之后 `pool_0` 与 `pool_6` 两格都在");
+                CheckTrue(has0 && z0y < 156f,
+                          $"★ （前提）`pool_0` 的**中心**已滚到视口上沿之外（y={z0y:F1} < 156）"
+                        + "—— 它是「部分露在视口里」的那一格（上半截压在页头空带上）");
+                CheckTrue(has6 && z6y > 156f && z6y < 1080.1f,
+                          $"★ （前提）`pool_6`（第 1 行第 0 格）的中心仍在视口里（y={z6y:F1}）");
+
+                // ③ **命中区那半** —— 与①成对，**结构上不可能同时满足**：
+                //    只把 clip 传进去（渲染那半），②/③ 这一对必红；只加视口框（命中那半）而不传 clip，① 必红。
+                CheckTrue(!_rt.UiPoolHit(z0x, z0y),
+                          $"★ A1702③ 灭自证②：点 `pool_0` 的**中心**（中心已滚到视口上沿之外，y={z0y:F1} < 156）"
+                        + " ⇒ **没人吃这一下**"
+                        + "｜🧨 `HandlePoolClick` 只判 `px.x` ⇒ 这里变 **true**（= 越界的卡照旧点得到）⇒ 红");
+                CheckTrue(_rt.UiPoolHit(z6x, z6y),
+                          $"★ A1702③ 正向控制：**同一次**点视口**内**那一格（`pool_6` 中心 {z6x:F0},{z6y:F0}）"
+                        + " ⇒ **吃**了这一下"
+                        + "｜🧨 把视口框收得比卡池还小 / 改成一律 `return false` ⇒ 本条红");
+
+                // ④ 「越界的卡**不画**」那一半再钉一次读数（与 ① 同一个口，但量的是**滚出去之后**）：
+                //    裁切框**不跟着滚动变**（它是视口的框，不是这张卡的框）—— 这正是「卡在动、框不动」的判据。
+                CheckTrue(PoolClipOf(0, out float e1, out float f1, out float g1, out float h1)
+                          && Mathf.Abs(e1 - 330.2f) < 0.5f && Mathf.Abs(f1 - 156f) < 0.5f
+                          && Mathf.Abs(g1 - 1920f) < 0.5f && Mathf.Abs(h1 - 1080.1f) < 0.5f,
+                          $"★ A1702③：滚出去之后那一格的裁切框**仍是视口矩形**（实得 ({e1:F1},{f1:F1})-({g1:F1},{h1:F1})）"
+                        + "｜🧨 把 clip 传成「这张卡自己的框」⇒ 它跟着卡一起滚 ⇒ 这一条红");
+
+                // ⑥ **裁切的结果**（与 ① 那条「读 `Clip` 字段」成对 —— 逐**顶点**量真画出来的范围）：
+                //    此刻 `pool_0` 那张卡横跨 y ∈ [−144.0, 201.7]（中心 28.9、半高 172.86）
+                //    ⇒ 裁对了的话 **没有任何一个顶点**画到视口上沿（156）以上。
+                //    ⚠️ 容差 2px：网格顶点的浮点噪声 + `ToDesignPixel` 的斜率与 108 差 1e-5 那一档。
+                bool drew0 = PoolDrawnExtentPx(0, out float v0x1, out float v0y1, out float v0x2, out float v0y2);
+                CheckTrue(drew0, "（前提）滚出视口上沿那一格**还有东西在画**（它只露出一半 —— 全裁光了就没得量）");
+                CheckTrue(drew0 && v0y1 >= 156f - 2f,
+                          $"★ A1702③ 裁切结果：`pool_0` **真画出来的**东西一个顶点都没越过视口上沿"
+                        + $"（最高顶点 y={v0y1:F1} ≥ 156；实画 ( {v0x1:F1},{v0y1:F1} )→( {v0x2:F1},{v0y2:F1} )，"
+                        + "这张卡的**完整**矩形是 y ∈ [−144.0, 201.7]）"
+                        + "｜🧨 `SetPose` 不传第 4 参（= 不裁）⇒ 这里读出 ≈ −144（整张卡画到页头空带上）⇒ 红"
+                        + "；本条量**顶点**、① 读 `Clip` **字段** —— 两条腿缺一不可（同 A198③ 的口径）");
+
+                _rt.UiScrollPool(-100000f);                      // 收尾：回池顶
+            }
+
+            // ---- 🆕 2026-10-13（A1702 ②）：卡池滚一格**只建新进来的那一行**（原来重建 24 张）----
+            //   改前：复用判据**按槽号**比（`_poolViewIds[vi] != def.Id`）。而槽 `vi` 装的是卡表里的
+            //     `(firstRow + r) × cols + c` ⇒ **`firstRow` 一进 1，24 格的 `idx` 全变** ⇒ 24 格全落重建支
+            //     （24 次 `Destroy` + 24 次 `CardView.Create`；每建一张 ≈2.2 秒的口径见账 `A1628`）。
+            //   改后：判据**按【这张卡】找视图** —— 卡还在这一屏里 ⇒ 把它原来那颗 `CardView` **实例搬过来**
+            //     （只换槽号），滚出这一屏的才销毁。**「卡变了就重建」那条语义原样保留。**
+            //   🔴 **三条连起来才有鉴别力（灭自证）**：
+            //     ① 留下来的那些格 = **同一批实例**（`==` 比 instance ID，两边都在世 ⇒ 等价引用相等）；
+            //     ② 滚出去的那些格**真被销毁**（被 `Destroy` 过的 `UnityEngine.Object` 与 `null` 相等）；
+            //     ③ 卡内容真变了的那一格**仍然是新建的实例**。
+            //   🧨 「不销毁、只 `SetData`」那种无脑复用 ⇒ ② 红（而且卡池会渲成一排空卡位）；什么都不改 ⇒ ① ③ 红。
+            {
+                Section("★ A1702②：卡池滚一格只建新进来的那一行（不再重建 24 张）＋灭自证三条");
+                _rt.UiSetSmallScreenUIForTest(false);
+                _rt.UiSetTab(0);
+                _rt.UiClearFilters();
+                _rt.UiScrollPool(-100000f);                     // 回到池顶（下面按「正好一整行」算）
+                int visN = _rt.State.VisibleCards().Count;
+                CheckTrue(visN >= 24, $"（前提）卡池至少 24 张（实得 {visN}）—— 要 24 格全在才比得出「哪几颗留下来了」");
+                CheckTrue(_rt.MaxPoolScrollPx >= 384f,
+                          $"（前提）卡池至少滚得动一整行（上限 {_rt.MaxPoolScrollPx:F0} px ≥ 384 = 桌面档一个格高）");
+
+                // 滚之前：24 格每一颗视图的**引用**（它是「还是不是同一批实例」唯一的尺子）
+                // ⚠️ 名字别叫 `before` —— 本方法前面（`UiScrollPool` 那一段）已经有一个同名局部量。
+                var poolBefore = new GameObject[24];
+                int miss = 0;
+                for (int i = 0; i < 24; i++) { poolBefore[i] = PoolCellGo(i); if (poolBefore[i] == null) miss++; }
+                Check(miss, 0, "（前提）池顶 24 格**都建出来了**（下面按 24 颗比）");
+                CheckTrue(_rt.UiPoolCardAt(0) != null && _rt.UiPoolCardAt(6) != null && _rt.UiPoolCardAt(23) != null,
+                          "（前提）第 0 / 6 / 23 格都指着真卡（下标与此同 —— 滚完第 6 与第 23 格那两颗要搬到第 0 / 17 格）");
+
+                _rt.UiScrollPool(384f);                          // **正好一整行**（桌面档格高 384）
+                Check(_rt.PoolScrollPx, 384f,
+                      "（前提）滚到 384px = 正好一整行（`firstRow` 0 → 1；没被滚动上限夹住）");
+
+                // ① / ② —— 逐颗对：还在池里的算「留下来」，被销毁过的与 `null` 相等
+                int kept = 0, destroyed = 0, orphan = 0;
+                for (int i = 0; i < 24; i++)
+                {
+                    if (poolBefore[i] == null) { destroyed++; continue; }
+                    bool inPool = false;
+                    for (int j = 0; j < 24; j++)
+                    { var g = PoolCellGo(j); if (g != null && g == poolBefore[i]) { inPool = true; break; } }
+                    if (inPool) kept++; else orphan++;
+                }
+                Check(orphan, 0, "★ A1702② 灭自证②：**没有「还活着却不在卡池里」的幽灵**"
+                               + "（滚出这一屏的必须销毁 —— 既不销毁、又没搬进新一屏 ⇒ 这一条 > 0 ⇒ 红）");
+                Check(destroyed, 6, "★ ……滚出去的是**顶上那一整行 6 颗**，真被销毁了"
+                                  + "｜🧨 「不销毁、只 `SetData`」那种无脑复用 ⇒ 这里是 **0** ⇒ 红");
+                Check(kept, 18, "★ A1702② ①：**18 颗还是原来那批实例**（滚之前第 6…23 格那 18 颗 —— 换了槽号、没重建）"
+                              + "｜🧨 照旧的「按槽号比」写法 24 格全重建 ⇒ 这里是 **0** ⇒ 红");
+                CheckTrue(poolBefore[0] == null,
+                          "★ A1702② ②（点名的这一颗）：滚之前**第 0 格**（卡表下标 0）那颗**真被销毁了**");
+                CheckTrue(poolBefore[6] != null && poolBefore[6] == PoolCellGo(0),
+                          "★ ……而滚之前**第 6 格**（下标 6）那一颗**搬到了第 0 格**（同一个实例、只换了槽号）"
+                        + "｜🧨 全重建 ⇒ 第 0 格是一颗新实例 ⇒ 红");
+                CheckTrue(poolBefore[23] != null && poolBefore[23] == PoolCellGo(17),
+                          "★ ……第 23 格（下标 23）那一颗搬到了第 17 格（同一个实例）");
+
+                // ③ **建了几张** —— 新滚进来的那一行（下标 24…29），⛔ 不是 24
+                int expectNew = Mathf.Clamp(visN - 24, 0, 6);
+                Check(_rt.UiPoolCreatedLastRefresh, expectNew,
+                      $"★ A1702② ③：滚**整整一行**只建 **{expectNew}** 张（= 新滚进来的那一行；卡池共 {visN} 张）"
+                    + "｜🧨 改前那条「按槽号比」的判据 ⇒ 这里是 **24** ⇒ 红");
+
+                // ④ 同一条式子**内部**再滚（`firstRow` 不变）⇒ **一张都不建**
+                _rt.UiScrollPool(144f);
+                Check(_rt.UiPoolCreatedLastRefresh, 0,
+                      "★ ……同一行内滚 144px（`firstRow` 仍是 1）⇒ **一张都不建**"
+                    + "｜🧨 把复用判据改成「每次刷新都重建」⇒ 24 ⇒ 红");
+
+                // ⑤ **往回滚**一整行：同样按「搬」走（只验往前搬对、往回搬错 ⇒ 这里红）
+                var atRow2 = new GameObject[6];
+                for (int i = 0; i < 6; i++) atRow2[i] = PoolCellGo(i);   // 此刻第 0…5 格装的是下标 6…11
+                _rt.UiScrollPool(-144f);
+                Check(_rt.PoolScrollPx, 384f, "（前提）先回到 384px");
+                _rt.UiScrollPool(-384f);
+                Check(_rt.PoolScrollPx, 0f, "（前提）再回到池顶（0px）");
+                Check(_rt.UiPoolCreatedLastRefresh, 6,
+                      "★ A1702② ⑤：**往回**滚一整行同样只建 **6** 张（重新露头的那一行）");
+                CheckTrue(atRow2[0] != null && atRow2[0] == PoolCellGo(6),
+                          "★ ……而且「下标 6」那一颗**搬回了第 6 格**（同一个实例）");
+
+                // ⑥ **「卡内容真的变了」那一格仍然重建**（灭自证第三条）。
+                //    造法 = 加一个**必定把第 0 格那张卡排除掉**的筛选：挑一个「稀有度/类型与它不同」的卡，
+                //    按那个值筛 ⇒ 筛出来的第一张**必定不是**原来那张 ⇒ `Id` 对不上 ⇒ 该销毁重建。
+                var allNow = _rt.State.VisibleCards();
+                string exclKey = null;
+                for (int i = 1; i < allNow.Count && exclKey == null; i++)
+                {
+                    var c2 = allNow[i];
+                    if (!string.IsNullOrEmpty(c2.Rarity)
+                        && !string.Equals(c2.Rarity, allNow[0].Rarity ?? "", StringComparison.OrdinalIgnoreCase))
+                        exclKey = "$rar:" + c2.Rarity;
+                    else if (!string.IsNullOrEmpty(c2.Type) && c2.Type != allNow[0].Type)
+                        exclKey = "$type:" + c2.Type;
+                }
+                CheckTrue(exclKey != null,
+                          $"（前提）卡池里有「另一个稀有度（或另一个类型）」的卡可以拿来筛"
+                        + $"（第 0 格 `{allNow[0].Name}` 是 `{allNow[0].Rarity}`/`{allNow[0].Type}`）");
+                if (exclKey != null)
+                {
+                    var goBefore = PoolCellGo(0);
+                    var defBefore = _rt.UiPoolCardAt(0);
+                    _rt.UiFilterRow(exclKey);
+                    var defAfter = _rt.UiPoolCardAt(0);
+                    CheckTrue(defAfter != null && defAfter != defBefore,
+                              $"★ A1702② 灭自证③（前提）：筛 `{exclKey}` 之后第 0 格**换了另一张卡**"
+                            + $"（{defBefore?.Name} → {defAfter?.Name}）—— 那个值把原来那张排除了 ⇒ 必定不同");
+                    CheckTrue(goBefore == null,
+                              "★ A1702② 灭自证③：**卡内容变了的那一格，旧实例被销毁**"
+                            + "｜🧨 「不销毁、只 `SetData`」那种无脑复用 ⇒ 它还在 ⇒ 红");
+                    CheckTrue(PoolCellGo(0) != null && PoolCellGo(0) != goBefore,
+                              "★ ……而且第 0 格现在是一颗**新建的实例**（不是原来那颗）"
+                            + "｜🧨 复用判据里把 `Id` 那一比删掉 ⇒ 还是老那颗 ⇒ 红");
+                }
+                _rt.UiClearFilters();
+                _rt.UiScrollPool(-100000f);                     // 收尾：清筛选 + 回池顶
+            }
+
+            // ============================================================ 🆕 2026-10-21（`A1739`）
+            // **换档（24 ⇄ 20）多出来的那几格 ⇒ 只关不销毁**（`A1702②` 那趟收口时被顺手改成了销毁）。
+            //   判据 = 语义不同：「**滚出这一屏** ⇒ 销毁」管的是**滚动 / 换卡**（卡表几百张 ⇒ 必须有上界）；
+            //   **换档不是滚出视口，是屏幕档位变了**（多出来的格数有上界 ≤ 4），拨回来时它们**正好又是
+            //   那一屏要的那几张卡** ⇒ 现在 park 在 `_poolViews` 尾巴上、下一趟按【它绑的卡】搬回来。
+            // 🔴 **灭自证**：④「一张都不建」与 ③「实例还活着」是**两条腿** ——
+            //   · 改回「不在新一屏就销毁」⇒ ③ 红（`g20 == null`）、④ 也红（要重建 4 张）；
+            //   · 改成「什么都不销毁、无脑复用」⇒ 上面 `A1702②` 那一节的 `destroyed == 6` 与
+            //     `灭自证③`（换卡那一格仍新建）会红，两条合起来才把语义钉成「**只销毁真滚出去的**」。
+            {
+                Section("★ A1739：换档 24 ⇄ 20 那几格**只关不销毁** —— 拨回来是【搬】、一张都不建");
+                _rt.UiSetSmallScreenUIForTest(false);
+                _rt.UiSetTab(0);
+                _rt.UiClearFilters();
+                _rt.UiScrollPool(-100000f);
+                int visN = _rt.State.VisibleCards().Count;
+                CheckTrue(visN >= 24,
+                          $"（前提）卡池 ≥ 24 张（实得 {visN}）—— 24 格全在才比得出「多出来的那 4 格」");
+                var g20 = PoolCellGo(20);
+                CheckTrue(g20 != null && _rt.UiPoolCellRect(20, out _, out _, out _, out _),
+                          "（前提）桌面档第 21 格（`pool_20`）**有视图、在画**（滚到池顶时它装的是卡表下标 20）");
+
+                _rt.UiSetSmallScreenUIForTest(true);             // 24 → 20
+                Check(_rt.UiPoolCreatedLastRefresh, 0,
+                      "★ A1739①：换到小屏档**一张都不建**（那一屏要的卡都在，是搬过去的）");
+                CheckTrue(!_rt.UiPoolCellRect(20, out _, out _, out _, out _),
+                          "★ A1739②：多出来的那一格**不画了**（`pool_20` 这个名字已让开）");
+                CheckTrue(g20 != null,
+                          "★ A1739③：…但**实例还活着**（只关不销毁）"
+                        + "｜🧨 换档时把多出来的槽销毁 ⇒ 这一条红（`g20` 与 `null` 相等）");
+
+                _rt.UiSetSmallScreenUIForTest(false);            // 20 → 24
+                Check(_rt.UiPoolCreatedLastRefresh, 0,
+                      "★ A1739④：拨回桌面档**也一张都不建**（那 4 格是 park 着的、按卡搬回来）"
+                    + "｜🧨 换档时把多出来的槽销毁 ⇒ 这里是 4 ⇒ 红");
+                CheckTrue(g20 != null && g20 == PoolCellGo(20),
+                          "★ A1739⑤：换回来那一格 = **同一个实例**（原实例、没重建；🧨 销毁过的话它已与 `null` 相等）");
+            }
+
+            // ============================================================ 🆕 2026-10-21（`A1740`）
+            // **卡池命中走 O(1) 反解格号**（原来 `HandlePoolClick` / `TickTooltipAt` 都是 **24 槽全遍历**，
+            //   后者**每帧都跑**：`Update` → `TickTooltip` → `TickTooltipAt`，`Update` 里没有闸）。
+            // 🔴 **判别式**：拿 `UiPoolCellRect(i)` 量出来的**每一格【真实的】框心**喂回反解，
+            //   必须得到 **`i` 自己**（两档都跑、再滚半行跑一遍）—— 正反两条式子漂开一格就红。
+            //   ⛔ 这里**不许**拿 `DeckRuntime` 的常量自己算期望值（那就是自证）。
+            // 🔴 **灭自证**：③ 咬的是**边界闸**（最后一列右缘之外 ⇒ 不属于任何一格）——
+            //   少了 `c < Cols` 那道闸，反解会**绕到下一行第 0 格**去命中一张不该命中的卡。
+            {
+                Section("★ A1740：卡池命中反解格号（两档逐格对 + 滚半行再对 + 边界闸）");
+                _rt.UiSetTab(0);
+                _rt.UiClearFilters();
+                for (int s = 0; s < 2; s++)
+                {
+                    bool small = s == 1;
+                    _rt.UiSetSmallScreenUIForTest(small);
+                    _rt.UiScrollPool(-100000f);                  // 回池顶（`off = 0` 那一档）
+                    int n = _rt.UiPoolColsNow * _rt.UiPoolRowsNow;
+                    int bad = 0, live = 0; string firstBad = null;
+                    for (int i = 0; i < n; i++)
+                    {
+                        if (!_rt.UiPoolCellRect(i, out float cx, out float cy, out _, out _)) continue;
+                        live++;
+                        int got = _rt.UiPoolCellAt(cx, cy);
+                        if (got != i) { bad++; if (firstBad == null) firstBad = $"格 {i} 的框心 ({cx:F1},{cy:F1}) 反解成 {got}"; }
+                    }
+                    CheckTrue(live >= 4, $"（前提）{(small ? "小屏" : "桌面")}档量到了 {live} 格（≥ 4 才有鉴别力）");
+                    Check(bad, 0,
+                          $"★ A1740①（{(small ? "小屏" : "桌面")}档 {live} 格）：每一格的**真实框心**反解回来 = **它自己**"
+                        + (bad == 0 ? "" : $"；反例：{firstBad}")
+                        + "｜🧨 正反两条式子漂开一格（列数/`PadX`/`off` 任一处）⇒ 红");
+
+                    // ③ 边界闸（咬 `c >= Cols` 与 `r < 0` 这两道）——
+                    //    ⛔ **只断 `UiPoolCellAt`**：`UiPoolHit` 那一半在这里**判别不了** ——
+                    //    少了闸时反解绕到的那张卡离这一点 **1400px 开外**，`CardView.Contains` 恒假
+                    //    ⇒ 拿它当证据就是**假绿**（本项目最怕的那种绿）。
+                    if (_rt.UiPoolCellRect(_rt.UiPoolColsNow - 1, out float lx, out float ly, out float lw, out _))
+                    {
+                        float ox = lx + lw * 0.5f + 2f;                  // 最后一列**右缘之外** 2px
+                        Check(_rt.UiPoolCellAt(ox, ly), -1,
+                              $"★ A1740③ 灭自证：最后一列**右缘之外** 2px（x={ox:F1}）**不属于任何一格**"
+                            + $"｜🧨 少了 `c ≥ Cols` 这道闸 ⇒ 反解绕到**下一行第 0 格**（= {_rt.UiPoolColsNow}）⇒ 红");
+                    }
+                    if (_rt.UiPoolCellRect(0, out float bx0, out float by0, out _, out float bh0))
+                    {
+                        Check(_rt.UiPoolCellAt(bx0, by0 - bh0), -1,
+                              $"★ A1740③b 灭自证：**第 0 行上沿再往上整整一格**（y={by0 - bh0:F1}）也不属于任何一格"
+                            + "｜🧨 少了 `r ≥ 0` 这道闸 ⇒ 反解出一个**负格号** ⇒ 红");
+                    }
+
+                    // ② 滚**半行**（`off ≠ 0`）再对一遍 —— 咬的是反解里 `off` 那一半
+                    _rt.UiScrollPool(_rt.UiPoolCellHNow * 0.5f);
+                    int bad2 = 0; string firstBad2 = null;
+                    for (int i = 0; i < n; i++)
+                    {
+                        if (!_rt.UiPoolCellRect(i, out float qx, out float qy, out _, out _)) continue;
+                        int got = _rt.UiPoolCellAt(qx, qy);
+                        if (got != i) { bad2++; if (firstBad2 == null) firstBad2 = $"格 {i} ({qx:F1},{qy:F1}) → {got}"; }
+                    }
+                    Check(bad2, 0,
+                          $"★ A1740②（{(small ? "小屏" : "桌面")}档）：滚半行（`off = 半格`）之后**仍然逐格对得上**"
+                        + (bad2 == 0 ? "" : $"；反例：{firstBad2}")
+                        + "｜🧨 反解漏掉 `off`（当成恒 0）⇒ 红");
+                }
+                _rt.UiSetSmallScreenUIForTest(false);            // 收尾：换回桌面档
+                _rt.UiScrollPool(-100000f);
+                Check(_rt.UiPoolColsNow, 6, "（收尾）回到桌面档 6 列");
+            }
         }
 
         /// <summary>比一张具名图的 px 中心/尺寸（容差 0.6px —— 坐标是我们自己换算的，不该有误差）。</summary>
@@ -7435,6 +8162,57 @@ public static class DeckScene
             return go == null ? -1f : go.localScale.x;
         }
 
+        /// <summary>🆕 2026-10-13（A1702 ③）：卡池第 `i` 格那张卡**现在的裁切框**（`CardView.Clip`，画布 px）。
+        /// `false` = **没裁**（`Clip` 为 `null`）。与 `<see cref="PoolCellGo"/>` 是同一棵树的同一颗 GO
+        /// （`CardView.Create(Root, …)` 就把 `CardView` 挂在这个 `pool_N` 上）。</summary>
+        static bool PoolClipOf(int i, out float x1, out float y1, out float x2, out float y2)
+        {
+            x1 = y1 = x2 = y2 = 0f;
+            var go = PoolCellGo(i);
+            var cv = go != null ? go.GetComponent<CardView>() : null;
+            var clip = cv != null ? cv.Clip : null;
+            if (!clip.HasValue) return false;
+            x1 = clip.Value.x1; y1 = clip.Value.y1; x2 = clip.Value.x2; y2 = clip.Value.y2;
+            return true;
+        }
+
+        /// <summary>🆕 2026-10-13（A1702 ③）：卡池第 `i` 格那张卡**真画出来的范围**（画布 px · 左上原点）——
+        /// 逐**顶点**量所有开着且在激活链上的 `MeshRenderer`。
+        /// <para>🔴 **为什么要它、而不只读 `CardView.Clip`**：那是**字段**（赋上了、网格没裁照样是那个值）
+        /// —— 同族先例 = `Editor/CollectionScene.cs` 的 A198③（原话「要断的是**裁切的结果**，
+        /// 不是那个字段的瞬时值」）与它那份逐顶点量法（A181 的判据原话：裁切这件事
+        /// **量节点位置量不出来**，只有逐顶点换算才看得见）。</para>
+        /// <para>⚠️ **跳过两类**：① `ImageQuad`（自己会 `RebuildMesh`；本窗的卡上只有一颗出厂关着的
+        /// `glow_*`）；② `TextMeshPro` 那颗（它的 `sharedMesh` 在批处理下**不一定**吃到
+        /// `ClipTmpMesh` 那一刀 —— `MenuDraw.TextClipUploadSkipped` 那条；文字那一半由收藏窗 A250 块
+        /// 那条腿验，本宿主不重复）。</para>
+        /// 返回 `false` = 一个顶点都没量到（= 整张卡被裁光了 / 那格没建）。</summary>
+        static bool PoolDrawnExtentPx(int i, out float x1, out float y1, out float x2, out float y2)
+        {
+            x1 = y1 = float.MaxValue; x2 = y2 = float.MinValue;
+            var go = PoolCellGo(i);
+            if (go == null) return false;
+            int n = 0;
+            foreach (var mr in go.GetComponentsInChildren<MeshRenderer>(true))
+            {
+                if (mr == null || !mr.enabled || !mr.gameObject.activeInHierarchy) continue;
+                if (mr.GetComponent<ImageQuad>() != null) continue;
+                if (mr.GetComponent<TMPro.TextMeshPro>() != null) continue;
+                var mf = mr.GetComponent<MeshFilter>();
+                if (mf == null || mf.sharedMesh == null) continue;
+                var vs = mf.sharedMesh.vertices;
+                if (vs == null) continue;
+                for (int k = 0; k < vs.Length; k++)
+                {
+                    var p = LayoutSpace.ToDesignPixel(mr.transform.TransformPoint(vs[k]));
+                    n++;
+                    if (p.x < x1) x1 = p.x; if (p.x > x2) x2 = p.x;
+                    if (p.y < y1) y1 = p.y; if (p.y > y2) y2 = p.y;
+                }
+            }
+            return n > 0;
+        }
+
         // ============================================================ 建场景
 
         /// <summary>自检用的临时存档路径。</summary>
@@ -7444,10 +8222,13 @@ public static class DeckScene
                 System.IO.Path.Combine(Application.dataPath, "../Temp/_deckscene_selftest.json"));
         }
 
-        /// <param name="lib">卡组库。**自检必须传临时路径上的库** —— 不能动玩家的真存档。</param>
-        static DeckEditorState Build(DeckLibrary lib, out Transform root)
+        /// <summary>🆕 **2026-10-14（`A1132` 第 6 步）**：**空场 + 那台相机** —— 本文件**两条建场路共用**
+        /// （`Run()` 那条走 `Build(...)`；`BuildAndSaveScene()` 那条走「壳 + 窗」）。
+        /// 🔴 **抽出来是为了「一份实现」**（CLAUDE.md §三）：改前这一段只存在于 `Build(...)` 里，
+        /// 第 6 步要再建一次场 ⇒ 不抽就是**两份迟早不一致**（本项目反复踩过的那个坑）。</summary>
+        static Camera NewSceneWithCamera()
         {
-            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
             var camGo = new GameObject("Main Camera");
             camGo.tag = "MainCamera";
@@ -7458,6 +8239,13 @@ public static class DeckScene
             //    批处理下相机默认 4:3，建完再改 16:9 会整片错位（踩过）
             cam.aspect = LayoutSpace.DesignAspect;
             LayoutSpace.Apply(cam);
+            return cam;
+        }
+
+        /// <param name="lib">卡组库。**自检必须传临时路径上的库** —— 不能动玩家的真存档。</param>
+        static DeckEditorState Build(DeckLibrary lib, out Transform root)
+        {
+            NewSceneWithCamera();     // 🆕 第 6 步起与 `BuildAndSaveScene` **共用一份建场**（见那个方法）
 
             // 🔴 2026-09-20：**建界面这件事只有一处实现** —— `DeckRuntime.Build()`（运行时程序集）。
             //    这里原来有 ~110 行绘制代码，和 `DeckRuntime` 那份是同一个东西的两个副本；
@@ -7534,10 +8322,14 @@ public static class DeckScene
             Debug.Log(P + $"  场景 {ScenePath}");
         }
 
-        /// <summary>建出场景存盘，给人打开按 Play 用。</summary>
-        /// <summary>把 `DeckEditor.unity` 加进 `EditorBuildSettings`（幂等）—— **收藏窗的「进编辑」靠它**
+        /// <summary>把 `DeckEditor.unity` 加进 `EditorBuildSettings`（幂等）—— **直起那条路靠它**
         /// （`SceneManager.LoadScene("DeckEditor")` 没在 Build Settings 里会抛）。照 `MainMenuScene.AddToBuildSettings`。
-        /// 可以单独跑：`-executeMethod DeckScene.AddToBuild`。</summary>
+        /// 可以单独跑：`-executeMethod DeckScene.AddToBuild`。
+        /// ⚠️ **2026-10-14（`A1132` 第 6 步）就地订正（铁律 5）**：本行原写「**收藏窗的「进编辑」靠它**」——
+        /// 第 3 步起「进编辑」**改开窗、不再切场景** ⇒ 那条 `LoadScene("DeckEditor")` 已经降级成
+        /// **没壳时**的兜底（直起 / 批处理里没建壳那几条）。**场景仍然必须留在 Build Settings 里**，
+        /// 判据 = `Core/PlayerBoot.cs` 的 `LoadSceneMatching` 按名字找场景、找不到就 `LogError`
+        /// （`-wfscene DeckEditor` 走的就是它）。⛔ **别因为「生产不再用它」就把这一跳删掉。**</summary>
         public static void AddToBuild()
         {
             const string path = "Assets/CardPresentation/Scenes/DeckEditor.unity";
@@ -7546,27 +8338,56 @@ public static class DeckScene
                 if (s.path == path) { Debug.Log(P + "  `DeckEditor.unity` 已在 Build Settings 里"); return; }
             list.Add(new EditorBuildSettingsScene(path, true));
             EditorBuildSettings.scenes = list.ToArray();
-            Debug.Log(P + "  已把 `DeckEditor.unity` 加进 Build Settings（收藏窗的「进编辑」要靠它 `LoadScene`）");
+            Debug.Log(P + "  已把 `DeckEditor.unity` 加进 Build Settings（直起 `-wfscene DeckEditor` 要靠它）");
         }
 
+        /// <summary>建出场景存盘，给人**打开按 Play** 用（`-executeMethod DeckScene.BuildAndSaveScene`）。
+        ///
+        /// <para>🔴 **2026-10-14（`A1132` 第 6 步）改的是它的【定位】**：`DeckEditor.unity` **保留**，
+        /// 从「**生产入口**」降级成「**直起 / 自检用的壳**」。
+        /// 判据（`D10` §三）：`Core/PlayerBoot.cs` 的 `LoadSceneMatching` 按**名字含子串**在 Build Settings 里
+        /// 找场景，**找不到就 `LogError`** ⇒ **删了它，`-wfscene DeckEditor`（自检与真机都走它）当场报错**。
+        /// ⇒ 本方法现在建的是「**壳根 + `WindowsManager.EnsureHost()` + 直开那扇窗**」，
+        /// 与 `Editor/CollectionScene.cs` 那条现成先例**同形**（单独打开某个界面场景 ⇒ 自己 `EnsureHost` 再开窗），
+        /// ⛔ **不是**再造一棵裸 `DeckRuntime`（那是第 3 步之前的生产形状）。</para>
+        ///
+        /// <para>⚠️ **`Run()`（自检那条腿）一个字都不变**：它仍然走 `Build(...)` 的裸 `DeckRuntime`
+        /// （= `HostWindow == null` 那条腿，第 4 步刚给它补了 5 条断言）。
+        /// ⇒ **本文件现在有两条建场路**（见 <see cref="NewSceneWithCamera"/>）：`Run()` 走 `Build`、
+        /// 本方法走「壳 + 窗」。⛔ **别把它们合并**（合了就把自检那条腿换成被托管那条，
+        /// 那 5 条「独立场景」断言的**前提**当场不成立）。</para></summary>
         public static void BuildAndSaveScene()
         {
             Directory.CreateDirectory(ShotDir);
             AddToBuild();      // 🔴 2026-09-23：`DeckEditor` **原来不在 Build Settings 里** ⇒
                                //    收藏窗「进编辑」那一步 `SceneManager.LoadScene("DeckEditor")` 会抛
-            Transform root;
-            // ⚠️ 这条路用**玩家的真存档**（打开场景按 Play 时就是要编辑自己的卡组）
-            var state = Build(DeckLibrary.Load(), out root);
-            // 🔴 2026-09-20：**场景里必须挂着 `DeckRuntime`** —— 界面现在是运行时的
-            //    `DeckRuntime.Start()` 建的（编辑器里 `Build` 只是把绘制转发过去、直接调），
+            NewSceneWithCamera();                       // 与 `Build(...)` 共用一份建场（第 6 步抽出来的）
+            // ⚠️ 这条路用**玩家的真存档**（打开场景按 Play 时就是要编辑自己的卡组）——
+            //    `DeckEditingWindow.Open()` 里面那句 `DeckLibrary.Load()` 也是读这里。
+            var wm = WindowsManager.EnsureHost();       // 三颗锚点 + 管理器 + 指针层（幂等，同 `CollectionScene` 那条先例）
+            var deWin = DeckEditingWindow.OpenFrom(wm); // 直开本窗（= 第 3 步那条生产落点）
+            var root = deWin != null ? deWin.transform : null;
+            _rt = deWin != null ? deWin.Runtime : null;
+            _root = root;
+            // 🔴 2026-09-20：**场景里必须挂着 `DeckRuntime`** —— 界面是运行时的
+            //    `DeckRuntime.Start()` 建的（编辑器里 `Open()` 只是把绘制转发过去、直接调），
             //    忘了挂组件的话**按 Play 出来是一片黑**，而自检看不见这个错
             //    （它直调 `Build`，和 Play 那条路不是同一个入口 —— 本项目踩过同形的坑）。
+            //    ⚠️ 第 6 步起 `root` = **那扇窗的窗根**（不再是场景根那颗 "DeckEditor"）——
+            //    本条的判据不变（那颗 `DeckRuntime` 挂在窗根上），但**红的话含义变了**：
+            //    先去查 `DeckEditingWindow.OpenFrom` 有没有真的开出来。
             CheckTrue(root != null && root.GetComponent<DeckRuntime>() != null,
-                      "DeckEditor.unity 的根上挂着 DeckRuntime（不然按 Play 是一片黑）");
+                      "DeckEditor.unity 的**窗根**上挂着 DeckRuntime（不然按 Play 是一片黑）");
+            CheckTrue(deWin != null && deWin.IsOpen() && deWin.Runtime != null && deWin.Runtime.HostWindow == deWin,
+                      "★ A1132 第 6 步：`DeckEditor.unity` 里那扇窗**开着、且 `DeckRuntime` 认它当宿主**"
+                    + "（= 直起 `-wfscene DeckEditor` 走的是**被窗托管**那条腿；`Run()` 那条自检腿仍是裸 `DeckRuntime`）");
             Shoot("deck_editor.png");
             SaveScene();
             Debug.Log(P + $"=== 场景已重建：{ScenePath}"
-
-                        + $"（{state.PoolCount} 张卡池，演示卡组 {state.Deck.Name}）===");
+                        // ⚠️ 第 6 步起这里读的是**窗里那台** `DeckRuntime` 的 `State`
+                        //    （改前是 `Build(...)` 的返回值；同一个语义，换了持有人）。
+                        + (_rt != null && _rt.State != null
+                           ? $"（{_rt.State.PoolCount} 张卡池，演示卡组 {_rt.State.Deck?.Name}）==="
+                           : "（⚠️ 拿不到 `DeckRuntime.State` —— 窗没开出来，见上面那条 ★ 断言）"));
         }
 }

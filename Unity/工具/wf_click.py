@@ -18,6 +18,7 @@
   python -I d:/4/Unity/工具/wf_click.py move 960 540
   python -I d:/4/Unity/工具/wf_click.py click 960 540 [left|right] [次数]
   python -I d:/4/Unity/工具/wf_click.py drag 100 200 800 600
+  python -I d:/4/Unity/工具/wf_click.py wheel 960 540 [格数]     # 🆕 正=向上滚、负=向下（一格 = 120）
   python -I d:/4/Unity/工具/wf_click.py key esc | key space | key f5 | key ctrl+s | key w:200  (w 按住 200ms)
   python -I d:/4/Unity/工具/wf_click.py cursor          # 只读当前光标位置
 输出一律 `ok ...` / `FAIL ...`（便于调用方判读）。
@@ -107,6 +108,8 @@ class INPUT(ctypes.Structure):
 MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP = 0x0002, 0x0004
 MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP = 0x0008, 0x0010
 MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP = 0x0020, 0x0040
+MOUSEEVENTF_WHEEL = 0x0800
+WHEEL_DELTA = 120                      # Windows 一格滚轮 = 120（正数 = 向远离用户方向 = 向上滚）
 KEYEVENTF_KEYUP = 0x0002
 KEYEVENTF_UNICODE = 0x0004
 
@@ -147,6 +150,24 @@ def drag(x1, y1, x2, y2, steps=24):
     time.sleep(0.08)
     mouse_event(MOUSEEVENTF_LEFTUP)
     return True
+
+
+def wheel(x, y, notches=1):
+    """在 (x,y) 上滚轮。notches > 0 = 向上滚（远离用户），< 0 = 向下。
+
+    🔴 2026-10-12 补（新账 `A1712`）：原来**没有滚轮口** ⇒ `A1701`（卡组编辑「要先滚动一下
+    才能点」）那条探针的「滚一格再点」这一步用工具做不到，而「滚动一下就恢复」恰恰是它
+    三个候选里只有候选 3（指针状态陈旧）能解释的那一半。
+    """
+    move_to(x, y)
+    ok = True
+    for _ in range(max(1, abs(int(notches)))):
+        inp = INPUT(type=0)            # INPUT_MOUSE
+        inp.u.mi = MOUSEINPUT(0, 0, WHEEL_DELTA if notches > 0 else -WHEEL_DELTA,
+                              MOUSEEVENTF_WHEEL, 0, None)
+        ok = _send(inp) and ok
+        time.sleep(0.06)
+    return ok
 
 
 VK = {"esc": 0x1B, "escape": 0x1B, "space": 0x20, "enter": 0x0D, "return": 0x0D,
@@ -224,6 +245,11 @@ def main(argv):
             click(argv[2], argv[3], btn, int(n)); print("ok click", argv[2], argv[3], btn, n); return 0
         if cmd == "drag":
             drag(int(argv[2]), int(argv[3]), int(argv[4]), int(argv[5])); print("ok drag"); return 0
+        if cmd == "wheel":
+            n = argv[4] if len(argv) > 4 else 1
+            if not wheel(int(argv[2]), int(argv[3]), int(n)):
+                print("FAIL wheel 发送失败"); return 1
+            print("ok wheel", argv[2], argv[3], n); return 0
         if cmd == "key":
             if not key(argv[2]):
                 print("FAIL 认不出这个键:", argv[2]); return 1

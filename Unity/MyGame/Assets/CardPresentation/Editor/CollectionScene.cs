@@ -1773,7 +1773,13 @@ public static class CollectionScene
                                 if (wb == null)
                                 { badq++; badqList.Append("「").Append(k).Append("」没建出 `WindowButton`；"); continue; }
                                 // 变灰碰到的就是这两组：`target`（可见底）+ 子树（全局唯一的 `Hit` 命中区）
-                                // —— 与 `PromptPopup.GrayTargets()` 同一套分组，别只量一半
+                                // —— 那是 `Shell/WindowButton.cs` 的 `GrayTargets()` 的**前两组**，别只量一半。
+                                // ⚠️ **2026-10-13 更正（铁律 5）**：本行原来写「与 `PromptPopup.GrayTargets()`
+                                // **同一套**分组」—— 措辞不成立：现读是**四组去重**（`_nine` + `target` + 本钮子树
+                                // + `TintOn` 那几颗；第三组 `A1719` 加、第四组 `A1725` 加）。
+                                // ✅ 本窗这 8 颗钮的可见底走 `Img`（**单张 quad**、无 `_nine`）且**没有一处调
+                                // `TintOn`** ⇒ **这两组就是全部**，下面 `qs` 的收法**不用改**
+                                //（与 `Shell/DeckInfoPopup.ReassertButtonQueues()` 同一条口径）。
                                 var qs = new List<ImageQuad>();
                                 if (wb.target != null) qs.Add(wb.target);
                                 foreach (var q in wb.GetComponentsInChildren<ImageQuad>(true))
@@ -2358,16 +2364,20 @@ public static class CollectionScene
                         //     写剪贴板那份实现收在**全库唯一一处** = `Deck/DeckRuntime.CopyDeckToClipboard`
                         //     （`CLAUDE.md` §三：两处写同一条规则 = 迟早不一致）。
                         //   · `Share On Chat` = 原版**开一扇两键面板（群组 / 全局）→ 发一条聊天消息**、
-                        //     **不写剪贴板**（`DeckInfoPopup__ShareDeckOnChat.c`）；那扇面板还没建（账 `A1045`）
-                        //     ⇒ 本路**如实出声**（`NotBuilt` 的 `LogWarning` + 一句人话弹窗）。
-                        //   🔴 **2026-10-18（`A1051`）就地订正（铁律 5）**：本行**原文**写
-                        //     「给卡组串（**原版走平台/服务端**）」—— **那句是过期结论**：原版既不走上服务端、
-                        //     也没做平台分享，调的就是**本地** API `GUIUtility.systemCopyBuffer`
-                        //     （判据 = `d:/2/tools/decomp_full/DeckInfoPopup__ShareDeck.c` 第 ② 句；
-                        //      `Shell/DeckInfoPopup.cs` 的 `ShareDeck` 头注与 `Deck/DeckRuntime.cs` 的
-                        //      `CopyDeckToClipboard` 头注两处都已在 2026-10-08（`A1040`）订正过 —— 只剩这一处没跟上）。
-                        //   ⛔ **别把这里读成「给卡组串方便玩家自己复制」**：那是 `Share On Chat` 今天的**兜底**，
-                        //     不是 `Share` 的语义（`Share` 走剪贴板、成功与否有断言钉着，见下面 A1051 那一节）。
+                        //     **不写剪贴板**（`DeckInfoPopup__ShareDeckOnChat.c`）。
+                        //     🔴 **2026-10-12（账 `A1045`）就地改口（铁律 5）**：本行原来写「那扇面板**还没建**
+                        //     ⇒ 本路如实出声（`NotBuilt` 的 `LogWarning` + 一句人话弹窗）」—— **已过期**：
+                        //     面板**建完了**（`Shell/GenericOptionsPanel.cs`）且 `Shell/DeckInfoPopup.cs` 的
+                        //     `ShareOnChat()` 现在**真把它开出来**；`NotBuilt` 与那句弹窗**都没有了**，
+                        //     剩下的唯一缺口 = 原版 `ChatGlobalManager.ShareDeck(串, 频道)`（本仓没有聊天服务器）
+                        //     ⇒ 点两颗钮出声「**面板在、发送口不在**」。判据与六条断言 → 下面 `A1051` 那一节。
+                        //   🔴 **2026-10-18（`A1051`）就地订正的结论仍在**（细节不再抄第二份）：本行**原文**写
+                        //     「给卡组串（**原版走平台/服务端**）」是**过期结论** —— 原版既不走上服务端、也没做
+                        //     平台分享，调的就是**本地** API `GUIUtility.systemCopyBuffer`
+                        //     （判据 = `decomp_full/DeckInfoPopup__ShareDeck.c` 第 ② 句；正本 =
+                        //      `Shell/DeckInfoPopup.cs` 的 `ShareDeck` 头注 + `Deck/DeckRuntime.cs`）。
+                        //   ⛔ **别把这里读成「给卡组串方便玩家自己复制」**：那句兜底**已于 2026-10-12 取消**
+                        //     （原版没有它）；`Share` 走剪贴板、成功与否有断言钉着，见下面 A1051 那一节。
                         var shHit = pop.Opt("Share");
                         CheckTrue(shHit != null && shHit.GetComponent<WindowButton>() != null, "`Share` 有点击区");
                         Debug.Log(P + "   卡组串自检：Share 调 `Deck/DeckRuntime.CopyDeckToClipboard`"
@@ -2631,38 +2641,287 @@ public static class CollectionScene
                                 + (plainShare == null ? "（实得：**不是合法 Base64**）" : ""));
                     }
 
-                    // ---------------------------------------------------------------- (3) `Share On Chat` 不写剪贴板
-                    // 判据 = 原版 `DeckInfoPopup__ShareDeckOnChat.c`：开一扇两键面板 → **发一条聊天消息**、
-                    // **不碰剪贴板**。那扇面板我们还没建（账 `A1045`）⇒ 本路**如实出声**（`NotBuilt`）。
-                    // ⚠️ **两半都断**：「剪贴板没动」（行为）+「抓到那条告警」（出声）——
-                    //    只断前者的话，把实现整条删掉它也绿（「靠『什么都没发生』的假断言」）。
+                    // ---------------------------------------------------------------- (3) `Share On Chat` 真开面板
+                    //  🔴 **2026-10-12（账 `A1045`）就地改写（铁律 5）**：本条原来断的是「那扇面板**还没建** ⇒
+                    //    坐实一条 `[DeckInfo] … 还没实现` 的告警」。面板**早已建完**（`Shell/GenericOptionsPanel.cs`
+                    //    的 8 节点对账表 + `Editor/ShopScene.cs` 那一节），本轮**真把它开出来了** ⇒ 那一句告警
+                    //    **已经不存在**（判据 = 原版 `DeckInfoPopup__ShareDeckOnChat.c` 末跳
+                    //    `WindowsManager.OpenWindow(panel, ctx)`）⇒ 旧期望**必须改**，⛔ **不是放宽**：
+                    //    新期望比旧的多两条（面板真开出来 + 下面 (5) 那一节逐格核内容）。
+                    //  ⚠️ 旧断言那半「抓到 `还没实现` 的告警」的**判别力没有被丢掉**：改由 (5)④ 那三条
+                    //    （两颗钮各自的目标 + 灭自证）接管 —— 哪一半不对都红。
                     var socHitA = sPop.Opt("Share On Chat");
                     var socWbA = socHitA != null ? socHitA.GetComponent<WindowButton>() : null;
                     CheckTrue(socWbA != null, "（前提）`Share On Chat` 那颗钮取得到");
+                    CheckTrue(GenericOptionsPanel.LastOpened == null,
+                              "（前提）本节之前**没有任何一扇 `Generic Options Panel` 被开过**"
+                            + " —— 否则下面 `LastOpened` 分不清「这一下开出来的」与「上一段剩下的」");
                     if (socWbA != null)
                     {
-                        var socWarns = new List<string>();
-                        Application.LogCallback hSoc = (c, st, ty) =>
-                        { if (c != null && ty == LogType.Warning) socWarns.Add(c); };
                         if (clipOk) ClipSet(ShareSentinel);
-                        // ⚠️ **点这一下不要 gate 在 `clipOk` 上** —— 下面「如实出声」那半与剪贴板无关，
-                        //    剪贴板 API 不可用时它照样该被验（那正是本窗今天唯一的可观测行为）。
-                        Application.logMessageReceived += hSoc;
                         ClipClick(socWbA);
-                        Application.logMessageReceived -= hSoc;
                         if (clipOk)
                             CheckText(ClipGet(), ShareSentinel,
                                       "★ A1051(3)：点 `Share On Chat` ⇒ 剪贴板**一个字节都没动**"
                                     + "（原版那条发的是聊天消息、⛔ 不写剪贴板）"
                                     + " —— 🧨 改坏法：把 `Shell/DeckInfoPopup.ShareDeck` 里那句"
                                     + " `if (key == \"Share On Chat\") { ShareOnChat(); return; }` 删掉 ⇒ 这一条红");
-                        int nSocWarn = 0;
-                        foreach (var lw in socWarns)
-                            if (lw.Contains("[DeckInfo]") && lw.Contains("还没实现")) nSocWarn++;
-                        CheckTrue(nSocWarn > 0,
-                                  "★ A1051(3)：……而且**如实出声**（抓到 `[DeckInfo] … 还没实现` 的 `LogWarning`）"
-                                + " —— 账 `A1045`（那扇两键面板还没建），本项目红线：⛔ 不许静默失败"
-                                + (nSocWarn == 0 ? "（实得 0 条；这一下产生的警告共 " + socWarns.Count + " 条）" : ""));
+                        CheckTrue(GenericOptionsPanel.LastOpened != null,
+                                  "★ A1045①：点 `Share On Chat` ⇒ **真开出了那扇 `Generic Options Panel`**"
+                                + "（原版 `ShareDeckOnChat.c` 末跳 `WindowsManager.OpenWindow(panel, ctx)`）"
+                                + " —— 🧨 改坏法：把 `ShareOnChat()` 退回 `NotBuilt(…)` ⇒ 这一条红");
+
+                        // ==================== 🆕 2026-10-12（账 `A1045`）：那扇面板逐格核 ====================
+                        //  判据（第一权威 = 全量反编译，逐句实读）：
+                        //   · `DeckInfoPopup__ShareDeckOnChat.c`：三道门 → 两颗 `Button_(键, onClick,
+                        //     色覆盖 = null, interactable, **AutoClose = 1**)` → `Context(buttons, Title,
+                        //     AnchorPosition, **LocalizeText = 1**)` → `OpenWindow`；**兄弟序 = 先建群组、后建全局**
+                        //   · `DeckInfoPopup___ShareDeckOnChat_b__30_1.c`（第 0 颗 / 群组）
+                        //     ⇒ `HandleShare(this, AlliancesManager.CurrentGroupId, 1)`
+                        //   · `DeckInfoPopup___ShareDeckOnChat_b__30_2.c`（第 1 颗 / 全局）
+                        //     ⇒ `HandleShare(this, <常量频道串>, 0)`
+                        //   · `DeckInfoPopup___ShareDeckOnChat_g__HandleShare_30_0.c`（⚠️ **三下划线**）= 四跳
+                        //  ⛔ **期望值一律【原版字面量】或【原版公式现算】**，⛔ 不读实现里的常量/口径（自证）。
+                        Section("A1045：`Share On Chat` 那扇两键面板（面板在、发送口不在）");
+                        {
+                            var gopA = GenericOptionsPanel.LastOpened;
+                            var gb = gopA != null ? gopA.Ctx.Buttons : null;
+                            var zbt = gopA != null ? gopA.Ctx : default(GenericOptionsPanel.Context);
+                            bool gbOk = gb != null && gb.Length == 2;
+                            CheckTrue(gbOk, "（前提）面板开出来了、而且里面正好 **2 颗**钮"
+                                          + "（破了的话 A1045①③④⑤⑥ 整批跳过 —— ⛔ 不拿 0 颗去索引，"
+                                          + "那会抛异常把本节之后几百条断言一起掐掉）");
+                            if (gbOk)
+                            {
+                                // 期望值的**三根键** = 原版**字符串常量表**实读（不是自拟）：
+                                // `d:/2/tools/il2cpp_out/stringliteral.json` 的
+                                // `MenuDeck/Share/{ShareOnAlliance,ShareOnGlobal,Title}`（地址
+                                // `0x42D08E0 / 0x42D09E0 / 0x42D0AE0`，与上面那条 `ExportSuccesful`(`0x42D07E0`) 连号）。
+                                const string zTitle = "MenuDeck/Share/Title";
+                                const string zAlli = "MenuDeck/Share/ShareOnAlliance";
+                                const string zGlob = "MenuDeck/Share/ShareOnGlobal";
+                                CheckTrue(Loc.HasEntry(zTitle) && Loc.HasEntry(zAlli) && Loc.HasEntry(zGlob),
+                                          "（前提）三条词条都在表里 —— ⛔ 缺了 ⇒ 下面几条两边一起退化成键名 = 假绿");
+
+                                // ---- ① 内容 / 兄弟序 / 标题 / 锚点档 ----
+                                Check(gopA.BuiltButtons, 2, "★ A1045①：面板里 **2 颗**钮（原版两颗 `Button___ctor`）");
+                                Check(zbt.Title, Loc.T(zTitle),
+                                      "★ A1045①：标题 = `Loc.T(\"MenuDeck/Share/Title\")`"
+                                    + "（原版 `Context___ctor` 第 3 个实参 `DAT_1842d0ae0`）"
+                                    + " —— 🧨 改坏法：换一个键名 ⇒ 与这条字面量不等 ⇒ 红");
+                                Check(gb[0].Text, Loc.T(zAlli),
+                                      "★ A1045①：**第 0 颗 = 群组**（`ShareOnAlliance`）—— 原版**先建**它"
+                                    + "（`ShareDeckOnChat.c` 的 `plVar6[4]`，键 `0x42D08E0`）"
+                                    + " —— 🧨 改坏法：把数组里两颗**对调** ⇒ 这一条与下一条一起红");
+                                Check(gb[1].Text, Loc.T(zGlob),
+                                      "★ A1045①：**第 1 颗 = 全局**（`ShareOnGlobal`，键 `0x42D09E0`）");
+                                CheckTrue(zbt.LocalizeText,
+                                          "★ A1045①：`LocalizeText = true`（原版 `Context___ctor` 那个字面量 `1`）"
+                                        + " ⇒ `Apply()` 里那条「远端 I2 取不到」**照旧出声**（⛔ 没被压掉）");
+                                CheckAt(FindChild(gopA.transform, "Name"), 782.50f, 1137.50f, 646.70f, 683.30f,
+                                        "★ A1045①：面板在**无锚点**那一支（`Name` 顶 = 636.70 + 10；636.70 = prefab 出厂"
+                                      + " `anchoredPosition.y = −96.7` 那一档）—— 原版收的是 `Transform`，"
+                                      + "**那个 `Transform` 谁给的本地查不到 ⇒ 这一格判据是空的**，"
+                                      + "我们取 prefab 出厂值（如实标注，⛔ 不是查漏）");
+
+                                // ---- ② 两颗的 `AutoClose` 与回调（「面板在、发送口不在」那两条出声靠它）----
+                                CheckTrue(gb[0].AutoClose && gb[1].AutoClose,
+                                          "★ A1045②：两颗 `AutoClose` **都是 `true`**"
+                                        + "（原版两颗 `Button___ctor` 的第 6 个实参**都是字面量 1**）");
+                                CheckTrue(gb[0].OnClick != null && gb[1].OnClick != null,
+                                          "★ A1045②：两颗**都挂了回调**（原版那颗 `UnityEvent` 由调用方挂）"
+                                        + " —— 🧨 改坏法：把两个 `OnClick = …` 删掉 ⇒ 这一条红"
+                                        + "（且 ④ 那两条也一起红）");
+
+                                // 两个小口（都只走**真点**，⛔ 不读实现的内部状态）：
+                                //  · `ReopenPanel` = 拨门 + 重开面板（`sPop` 的树可能被重建过 ⇒ 每次现取那颗钮）
+                                //  · `ClickPanelButton` = 点面板里第 `idx` 颗，返回那一下抓到的**全部日志**
+                                void ReopenPanel(bool inG, bool banG, bool banA)
+                                {
+                                    sPop.SetChatState(inG, banG, banA);
+                                    var h = sPop.Opt("Share On Chat");
+                                    var w = h != null ? h.GetComponent<WindowButton>() : null;
+                                    if (w == null)
+                                    { Debug.LogError(P + "重开面板时取不到 `Share On Chat` 那颗钮"); return; }
+                                    ClipClick(w);
+                                }
+                                List<string> ClickPanelButton(int idx)
+                                {
+                                    var got = new List<string>();
+                                    var gNow = GenericOptionsPanel.LastOpened;
+                                    var bn = gNow != null
+                                             ? FindChild(FindChild(gNow.transform, "Buttons"), "Button " + idx) : null;
+                                    var hb = bn != null ? FindChild(bn, "Hit") : null;
+                                    var wb = hb != null ? hb.GetComponent<WindowButton>() : null;
+                                    if (wb == null) { got.Add("<取不到面板第 " + idx + " 颗钮的命中区>"); return got; }
+                                    Application.LogCallback hC = (c, st, ty) => { if (c != null) got.Add(c); };
+                                    Application.logMessageReceived += hC;
+                                    try { wb.ClickForTest(); }
+                                    catch (System.Exception e)
+                                    { Debug.LogError(P + "点面板第 " + idx + " 颗抛异常：" + e.Message); }
+                                    Application.logMessageReceived -= hC;
+                                    return got;
+                                }
+                                string FirstWith(List<string> ls, string a, string b)
+                                {
+                                    foreach (var lw in ls) if (lw.Contains(a) && lw.Contains(b)) return lw;
+                                    return null;
+                                }
+
+                                // ---- ③ 三道门 → `Interactable`（**期望值按原版公式现算**）----
+                                //  原版两个 `interactable` 表达式（`ShareDeckOnChat.c`）：
+                                //    群组颗 = `AlliancesManager.IsInGroup && !IsBannedFromChat(ChatRoom.Alliance)`
+                                //    全局颗 = `!IsBannedFromChat(ChatRoom.Global)`
+                                //  ⚠️ **四种状态都拨一遍**（铁律 5·c「一个值 ≠ 全部情况」）：只断出厂那一种的话，
+                                //    把 `&&` 写成 `||`、或漏掉某个 `!` 都可能蒙过去。
+                                //  ⛔ 门的口 = `DeckInfoPopup.SetChatState`（本仓没有 `AlliancesManager`/服务器
+                                //    ⇒ **显式状态口**，出厂 `false/false/false`，理由 → 那边的 doc）。
+                                var gates = new[]
+                                {
+                                    new { In = false, BanG = false, BanA = false },
+                                    new { In = true,  BanG = false, BanA = false },
+                                    new { In = false, BanG = true,  BanA = false },
+                                    new { In = true,  BanG = true,  BanA = true  },
+                                };
+                                for (int gi = 0; gi < gates.Length; gi++)
+                                {
+                                    var gs = gates[gi];
+                                    string tr = "inGroup=" + gs.In + " / banned(Global)=" + gs.BanG
+                                              + " / banned(Alliance)=" + gs.BanA;
+                                    ReopenPanel(gs.In, gs.BanG, gs.BanA);      // `Show` 会按新的一颗 `Context` 重建
+                                    var gNow = GenericOptionsPanel.LastOpened;
+                                    var nb = gNow != null ? gNow.Ctx.Buttons : null;
+                                    bool nbOk = nb != null && nb.Length == 2;
+                                    CheckTrue(nbOk, "（前提）第 " + gi + " 档（" + tr + "）拨完读得到 2 颗钮");
+                                    if (!nbOk) continue;
+                                    bool wantAlli = gs.In && !gs.BanA;         // ⛔ 原版公式现算，不读实现
+                                    bool wantGlob = !gs.BanG;
+                                    CheckTrue(nb[0].Interactable == wantAlli,
+                                              "★ A1045③：" + tr + " ⇒ **群组**颗 `Interactable = " + wantAlli + "`"
+                                            + "（原版 = `IsInGroup && !IsBannedFromChat(Alliance)`）"
+                                            + " —— 🧨 改坏法：`&&` 写成 `||`、或漏掉 `!` ⇒ 本档必红");
+                                    CheckTrue(nb[1].Interactable == wantGlob,
+                                              "★ A1045③：" + tr + " ⇒ **全局**颗 `Interactable = " + wantGlob + "`"
+                                            + "（原版 = `!IsBannedFromChat(Global)`）");
+                                }
+
+                                // ---- ④ 灭自证：两颗钮**各自**的目标 ----
+                                //  🔴 **结构上不可能同时满足**：把两个 `OnClick` **对调** ⇒ 第 0 颗报到 `Global`、
+                                //    第 1 颗报到 `Alliance` ⇒ 下面两条互为反例、**必红**；两颗**都留空** ⇒
+                                //    一条「发送口不在」都抓不到 ⇒ **也必红**（`OnButton` 那时走「没有挂回调」那一支）。
+                                //  ⚠️ 量法 = **真点那两颗**（⛔ 不读 `OnClick.Target`）—— 读数只能证明
+                                //    「两个委托不是同一个」，证明不了「哪个是哪一颗」。
+                                ReopenPanel(true, false, false);            // 先只放开「群组」那道门
+                                var wAlli = FirstWith(ClickPanelButton(0), "[DeckInfo]", "发送口不在");
+                                ReopenPanel(false, false, false);           // 上一颗 `AutoClose` 把面板关了 ⇒ 再开一次
+                                var wGlob = FirstWith(ClickPanelButton(1), "[DeckInfo]", "发送口不在");
+                                CheckTrue(wGlob != null && wGlob.Contains("ChatRoom.Global")
+                                          && !wGlob.Contains("ChatRoom.Alliance"),
+                                          "★ A1045④ 灭自证：**第 1 颗**（全局）报的目标 = `ChatRoom.Global`"
+                                        + "（原版 `…_b__30_2.c` 传的字面量 `0`）"
+                                        + " —— 🧨 改坏法：把两颗的 `OnClick = () => ShareDeckToChat(…)` **对调**"
+                                        + " ⇒ 这一条与下一条**一起红**");
+                                CheckTrue(wAlli != null && wAlli.Contains("ChatRoom.Alliance")
+                                          && !wAlli.Contains("ChatRoom.Global"),
+                                          "★ A1045④ 灭自证：**第 0 颗**（群组）报的目标 = `ChatRoom.Alliance`"
+                                        + "（原版 `…_b__30_1.c` 传的字面量 `1`）");
+                                CheckTrue(wAlli != null && wGlob != null && wAlli != wGlob,
+                                          "★ A1045④：那两条出声**不是同一条**（两颗绑成同一个回调了？）");
+
+                                // ---- ⑤ 点完**面板自己关了**（原版两颗 `AutoClose = 1`）+ 剪贴板仍未动 ----
+                                var gClosed = GenericOptionsPanel.LastOpened;
+                                CheckTrue(gClosed != null && !gClosed.gameObject.activeSelf,
+                                          "★ A1045⑤：点完一颗之后面板**自己关了**（原版两颗 `AutoClose = 1`"
+                                        + " = `SetButtons` 给每颗多挂的那个 `AddListener(Close)`）"
+                                        + " —— 🧨 改坏法：把两颗的 `AutoClose = true` 删掉 ⇒ 这一条红");
+                                if (clipOk)
+                                    CheckText(ClipGet(), ShareSentinel,
+                                              "★ A1045⑤：那两下**也没写剪贴板**（原版这两条进的是聊天频道）");
+
+                                // ---- ⑥ 反例：**门关着**的那一颗 —— 点了**什么都不发生**（面板不关、没发送那一跳）----
+                                //  🔴 `Interactable = false` 的**三半**：
+                                //    · **视觉①** = 底图 tint 换 `m_DisabledColor`（`RebuildButtons` 里那一句）；
+                                //    · **视觉②** = 🆕 **A1726**：`wb.Interactable = false` ⇒ 九宫底 **9 块全灰**
+                                //      （材质换原版 `Everguild/UI/Greyscale` —— 同 `EverguildButton.DoStateTransition(Disabled)`）；
+                                //    · **行为** = **两道闸**：第一道 `WindowButton.Click()` 头一句
+                                //      （= 原版 `Selectable.OnPointerClick` 头一句 `!IsInteractable() ⇒ return`，
+                                //      **连派发都没有**，并出声 `[Button] … 点了不生效`）；兜底第二道 = `OnButton` 里
+                                //      动作照进来、立刻返回 + 出声（口径同 `Shell/DeckInfoPopup.cs` 的 `Blocked`）。
+                                //  ⚠️ **2026-10-13（A1726）就地订正（铁律 5）**：本条原来断的是
+                                //    「抓到 `[OptionsPanel] … Interactable = false`」（= **第二道闸**那条出声）——
+                                //    第一道闸接上之后，那一下在 `WindowButton.Click()` 里就结束了、**第二道闸走不到**
+                                //    ⇒ 那条会**假红**。**改的是「哪一道闸出声」这个前提**，⛔ **不是把断言改松**：
+                                //    声源换成**第一道闸**那条（`[Button] … 点了不生效`），并**另加两条**——
+                                //    「那颗钮自己的 `WindowButton.Interactable` **真的是 `false`**」+
+                                //    「九宫底 9 块**全灰**（视觉态）」。三条合起来 = 灭自证的那两条并存
+                                //    （只断「动作不生效」的话，把 `Interactable` 全设 true 也可能照样绿）。
+                                ReopenPanel(false, false, false);           // 「群组」那道门关着
+                                var lsOff = ClickPanelButton(0);
+                                var wOffSend = FirstWith(lsOff, "[DeckInfo]", "发送口不在");
+                                CheckTrue(wOffSend == null,
+                                          "★ A1045⑥：门关着的那一颗点了 ⇒ **没有那一条『发送口不在』**"
+                                        + "（原版那一刻不派发 ⇒ 那颗回调根本不跑）"
+                                        + " —— 🧨 改坏法：把 `OnButton` 里 `if (!b.Interactable) … return;`"
+                                        + " **与** `RebuildButtons` 里 `wb.Interactable = arr[i].Interactable;`"
+                                        + " **两道一起**删掉 ⇒ 这一条红");
+                                // 出声那条 = **第一道闸**（`WindowButton.Click()` 头一句），⛔ 不是第二道
+                                var wOffLog = FirstWith(lsOff, "[Button]", "点了不生效");
+                                CheckTrue(wOffLog != null,
+                                          "★ A1045⑥：……而且**如实出声**（抓到 `[Button] … 点了不生效`"
+                                        + " —— 第一道闸 = `WindowButton.Click()` 头一句，正是原版那一句话）"
+                                        + " —— 红线：⛔ 不许静默失败"
+                                        + (wOffLog == null ? "（实得 0 条；那一下的日志共 " + lsOff.Count + " 条）" : ""));
+                                // 🔴 **A1726 的真判据（两半并存）**：① 那颗钮自己那一位布尔**真的**是 `false`
+                                //    （⛔ 上面那条只证明「有出声」—— 第二道闸也会出声，分不出是哪一道拦的）；
+                                //    ② **看得出来被禁用**（九宫底 9 块全换灰化 shader）。
+                                var gOffNow = GenericOptionsPanel.LastOpened;
+                                var bnOff = gOffNow != null
+                                            ? FindChild(FindChild(gOffNow.transform, "Buttons"), "Button 0") : null;
+                                var hbOff = bnOff != null ? FindChild(bnOff, "Hit") : null;
+                                var wbOff = hbOff != null ? hbOff.GetComponent<WindowButton>() : null;
+                                CheckTrue(wbOff != null && !wbOff.Interactable,
+                                          "★ A1045⑥（A1726）：门关着那颗的 `WindowButton.Interactable` **真的是 `false`**"
+                                        + "（= 第一道闸接上了）"
+                                        + " —— 🧨 改坏法：把 `RebuildButtons` 里 `wb.Interactable = arr[i].Interactable;`"
+                                        + " 删掉 ⇒ 这一条红（而上面那两条「没发送口」照旧绿 —— 那正是「只断后者不够」）");
+                                int nNineOff = 0, nGreyOff = 0;
+                                // 九宫底那一颗 = `bn` 的直接子件里**图形件最多**的那一个（它就是 `MenuDraw.Nine` 建的 `Image`）
+                                // ⛔ **不按名字猜**「Image」—— 按名字找会在将来改了命名时**静默量错一颗**（量到 `Hit` 那颗透明件）。
+                                if (bnOff != null)
+                                {
+                                    Transform nineOff = null; int bestOff = 0;
+                                    foreach (Transform chOff in bnOff)
+                                    {
+                                        int cntOff = chOff.GetComponentsInChildren<ImageQuad>(true).Length;
+                                        if (cntOff > bestOff) { bestOff = cntOff; nineOff = chOff; }
+                                    }
+                                    if (nineOff != null)
+                                        foreach (var qOff in nineOff.GetComponentsInChildren<ImageQuad>(true))
+                                        {
+                                            if (qOff == null) continue;
+                                            nNineOff++;
+                                            var mrOff = qOff.GetComponent<MeshRenderer>();
+                                            var mOff = mrOff != null ? mrOff.sharedMaterial : null;
+                                            if (mOff != null && mOff.shader != null
+                                                && mOff.shader.name == "Everguild/UI/Greyscale") nGreyOff++;
+                                        }
+                                }
+                                CheckTrue(nNineOff >= 9 && nGreyOff == nNineOff,
+                                          "★ A1045⑥（A1726）：门关着那颗**看得出来被禁用** —— 九宫底 "
+                                        + nNineOff + " 块**全部**换成原版灰化 shader `Everguild/UI/Greyscale`"
+                                        + "（实得灰了 " + nGreyOff + " 块；判据 = 原版"
+                                        + " `EverguildButton.DoStateTransition(Disabled)`）"
+                                        + " —— 🧨 改坏法：把 `RebuildButtons` 里 `wb.Interactable = …` 删掉 ⇒ 这一条红"
+                                        + "（= A1719 之前那种「只灰 1/9、看着像没禁用」）");
+                                var gStill = GenericOptionsPanel.LastOpened;
+                                CheckTrue(gStill != null && gStill.gameObject.activeSelf,
+                                          "★ A1045⑥：……而且面板**没被关掉**（原版没派发 ⇒ 也就没有 `Close` 那一下）");
+
+                                // ---- 收尾：面板关掉、三道门拨回出厂（⛔ 别留一扇开着的窗给后段）----
+                                if (GenericOptionsPanel.LastOpened != null) GenericOptionsPanel.LastOpened.Close();
+                                sPop.SetChatState(false, false, false);
+                            }
+                        }
                     }
 
                     // ---------------------------------------------------------------- (4) 结构式：只有一处实现
@@ -2722,6 +2981,99 @@ public static class CollectionScene
                     MainMenuScene.CloseModalPopups();
                     sPop.Close();
                 }
+            }
+
+            // ============================================================ 🆕 2026-10-13（账 `A1725`）
+            // **「变色认得 `_tqExtra`、变灰不认」** —— `Shell/MainMenuRuntime.cs` 那两处（5 个导航钮 + 3 张模式卡）
+            // 把**可见的**那颗图形（挂在**兄弟节点**下）用 `WindowButton.TintOn(...)` 接进色偏，
+            // 而 `GrayTargets()` 改前只收「`_nine` + `target` + 本钮子树」⇒ 置灰时那颗可见件**纹丝不动**
+            // —— 与 `A1719`（九宫格只灰 1/9）是**同一族**：灰 / 亮两条路认的不是同一组图形件。
+            // 判据 = 原版 `EverguildButtonHelper.GetGraphicsInChildren(gameObject, includeInactive: 1)`
+            //   ⇒ 「按钮这一组图形件**全部**」，而 `m_TargetGraphic`（= 我们 `TintOn` 的等价物）就在那一组里
+            //   （判据 → `Shell/WindowButton.cs` 头部那段 + `TintOn` / `GrayTargets()` 的注释）。
+            // ⚠️ **今天零影响**（那两处都**没有灰站点**，见 `MainMenuRuntime.cs` 现读）⇒ 这是**潜伏**缺口，
+            //   所以造一枚探针钉住它，而不是去改那两处（它们本来就没要求变灰）。
+            Section("A1725：`TintOn` 那一族置灰（变色认得它、变灰也要认得）");
+            {
+                var tRoot = new GameObject("A1725 TintGrayProbe");
+                var tBtn = new GameObject("Btn").transform;
+                tBtn.SetParent(tRoot.transform, false);
+                // ① 可见件那一颗 —— **命中区的兄弟**（与 `MainMenuRuntime` 那两处同形）
+                var tVis = new GameObject("Visible");
+                tVis.transform.SetParent(tBtn, false);
+                var tVisQ = ImageQuad.Create(tVis.transform, CardArt.Solid(), Vector3.zero,
+                                             LayoutSpace.Px(40f), new Vector2(0.5f, 0.5f), "VisibleQuad");
+                // ② 对照件：**既不 `TintOn`、也不在命中区子树里**（证明灰的是【那一族】，不是「顺手灰光兄弟」）
+                var tCtl = new GameObject("Control");
+                tCtl.transform.SetParent(tBtn, false);
+                var tCtlQ = ImageQuad.Create(tCtl.transform, CardArt.Solid(), Vector3.zero,
+                                             LayoutSpace.Px(40f), new Vector2(0.5f, 0.5f), "ControlQuad");
+                // ③ 透明命中区（`WindowButton` 挂在它身上 —— 子树里只有这一颗）
+                var tHit = new GameObject("Hit");
+                tHit.transform.SetParent(tBtn, false);
+                var tHitQ = ImageQuad.Create(tHit.transform, CardArt.Solid(), Vector3.zero,
+                                             LayoutSpace.Px(40f), new Vector2(0.5f, 0.5f), "HitQuad");
+                var tWb = tHit.AddComponent<WindowButton>();
+                if (tVisQ != null) tWb.TintOn(tVisQ);        // ← 被测的那一跳（第四组）
+
+                // 原版那张灰 shader 的**内部名**（字面量，⛔ 不读我们的常量 —— 否则是自证）
+                const string tGrey = "Everguild/UI/Greyscale";
+                string tMatOf(ImageQuad q)
+                {
+                    if (q == null) return "<没有那颗 quad>";
+                    var mr = q.GetComponent<MeshRenderer>();
+                    var m = mr != null ? mr.sharedMaterial : null;
+                    return m != null && m.shader != null ? m.shader.name : "<没有材质>";
+                }
+
+                CheckTrue(tVisQ != null && tCtlQ != null && tHitQ != null, "（前提）探针三颗 quad 都建出来了");
+                CheckTrue(WindowButton.GrayShaderAvailable,
+                          "（前提）原版灰化 shader 取得到 —— 取不到时变灰本来就**静默失效**（`MissingGrayArt` 那条路），"
+                        + "下面几条断的就不是 A1725 这件事了");
+                if (tVisQ != null && tCtlQ != null && tHitQ != null && WindowButton.GrayShaderAvailable)
+                {
+                    var tVisMat0 = tVisQ.GetComponent<MeshRenderer>().sharedMaterial;
+                    CheckTrue(tMatOf(tVisQ) != tGrey, "（前提）出厂**不是**灰材质（实得 `" + tMatOf(tVisQ) + "`）");
+                    CheckTrue(!tWb.GrayedForTest, "（前提）出厂这一颗**没灰**");
+
+                    // ---- ① 门关上 ⇒ `TintOn` 那一族**也要**跟着灰 ----
+                    //   ⚠️ 量的是 `TintOn` 传进去的**那一颗 quad 自己的材质**（可见件在兄弟节点下、不在命中区子树里）。
+                    tWb.Interactable = false;
+                    CheckTrue(tWb.GrayedForTest, "★ A1725：`Interactable = false` ⇒ 这一颗**自称灰了**（`GrayedForTest`）");
+                    CheckTrue(tMatOf(tVisQ) == tGrey,
+                              "★ A1725：**`TintOn` 指定的那一族【也】变灰了**（可见件在兄弟节点下、不在本钮子树里）"
+                            + " —— 🧨 改坏法：把 `Shell/WindowButton.cs` 的 `GrayTargets()` 里 `_tqExtra` 那一组删掉"
+                            + " ⇒ **这一条红**（那颗可见件**一个像素都不变**，实得 `" + tMatOf(tVisQ) + "`）");
+                    var tVisMat1 = tVisQ.GetComponent<MeshRenderer>().sharedMaterial;
+                    CheckTrue(tVisMat1 != tVisMat0,
+                              "★ A1725：置灰换的是**另一份材质对象**（⛔ 不是把原材质改了个名 —— 观感真的变了）");
+                    CheckTrue(tMatOf(tHitQ) == tGrey,
+                              "★ A1725 对照：命中区**子树**那一颗照旧灰（第一组没被这条改坏，实得 `" + tMatOf(tHitQ) + "`）");
+                    CheckTrue(tMatOf(tCtlQ) != tGrey,
+                              "★ A1725 对照：**既不 `TintOn`、也不在子树里**的那一颗**没被灰**"
+                            + "（证明灰的**正是**那一族，⛔ 不是「顺手把兄弟节点下的东西全灰光」；实得 `" + tMatOf(tCtlQ) + "`）");
+
+                    // ---- ② 灭自证：还原那一路必须**逐件拿回原来那一份材质对象** ----
+                    //   只断「灰了」的话，把 `_tqExtra` 那一组删掉、再顺手让 `GrayedForTest` 恒真也未必露馅
+                    //   ⇒ 这里断的是**引用**（同一个材质对象），与 ① 那两条**结构上不可能同时满足**：
+                    //     · 压根没灰 ⇒ ① 的前两条红；· 灰完没还回去 / 还了另一份 ⇒ 下面这两条红。
+                    tWb.Interactable = true;
+                    CheckTrue(!tWb.GrayedForTest, "★ A1725：置回可交互 ⇒ 退出灰化");
+                    CheckTrue(tMatOf(tVisQ) != tGrey,
+                              "★ A1725：…`TintOn` 那一族也退出灰化（实得 `" + tMatOf(tVisQ) + "`）");
+                    var tVisMat2 = tVisQ.GetComponent<MeshRenderer>().sharedMaterial;
+                    CheckTrue(tVisMat2 == tVisMat0,
+                              "★ A1725 灭自证：还原后那一颗拿回的是**原来那一份材质对象**（引用相等）");
+                    // 第二遍：再灰一次 —— 证明这一组是**每次现算**的（`GrayTargets()` 不缓存），
+                    // 不是「第一次碰巧对了、后面全错」。
+                    tWb.Interactable = false;
+                    int tAgain = 0;
+                    if (tMatOf(tVisQ) == tGrey) tAgain++;
+                    if (tMatOf(tHitQ) == tGrey) tAgain++;
+                    tWb.Interactable = true;
+                    Check(tAgain, 2, "★ A1725：**再来一轮**仍然对（`TintOn` 那一族 + 子树那颗都灰）—— 这一组是每次现算的");
+                }
+                Object.DestroyImmediate(tRoot);
             }
 
             // ============================================================ 🆕 2026-10-18（账 `A1035`）
@@ -8955,6 +9307,208 @@ public static class CollectionScene
                 }
             }
 
+            // ---------------- 🆕 2026-10-13（`A1132` 第 3 步）：入口「改开窗」那半 ----------------
+            //
+            // 🔴 **本节怎么把「入口 → 开窗那一跳」验到**（口径 → `Shell/CollectionWindow.RouteDeckEntry` 的 doc）：
+            //    批处理里那三处入口**故意**停在 `Application.isBatchMode` 那道闸上（**有意保留的兜底**：
+            //    直起 `-wfscene DeckEditor` 也走它；而且 `DeckRuntime.Build` 开局会把交接值读掉并清掉
+            //    ⇒ 把那道闸挪到开窗之后，本文件上面「点 `Edit Deck` ⇒ 交接的下标」当场观测不到）
+            //    ⇒ 生产的**单参**调用形式**永远走不到开窗那一支**。
+            //    ⇒ 落点判定被抽成一个**可传参的纯函数** `RouteDeckEntry(batch, hasShell)`，
+            //    自检直接把那两个真值喂进去（`hasShell: true, batch: false`）⇒ **走的就是生产那个 `switch` 本体**。
+            //    ⛔ **缝只喂判定值**：开窗那一跳拿的仍是**现场的** `WindowsManager.Instance` ⇒ **伪造不出一个壳**
+            //    （传 `hasShell:true` 而真没壳时 `OpenFrom(null)` 会出声并返回 null）。
+            Section("A1132 第 3 步：进编辑 = **开窗不切场景**（`RouteDeckEntry` 表 + 入口那一跳）");
+            {
+                // ---- ① 那张表本身（三格全断：少了哪一格都说明判定被改过）----
+                Check(CollectionWindow.RouteDeckEntry(batch: false, hasShell: true).ToString(),
+                      CollectionWindow.DeckEntryRoute.OpenWindow.ToString(),
+                      "★ A1132 第 3 步：**有壳 + 非批处理 ⇒ 开窗**（第 3 步要换成的那个落点）");
+                Check(CollectionWindow.RouteDeckEntry(batch: true, hasShell: true).ToString(),
+                      CollectionWindow.DeckEntryRoute.BatchSkip.ToString(),
+                      "★ …**批处理 ⇒ 既不切场景也不开窗**（有意保留的兜底；这条红 = 有人把闸改坏了）");
+                Check(CollectionWindow.RouteDeckEntry(batch: false, hasShell: false).ToString(),
+                      CollectionWindow.DeckEntryRoute.LoadScene.ToString(),
+                      "★ …**没壳（直起 `-wfscene DeckEditor`）⇒ 切场景兜底**"
+                    + "（判据 = `Shell/PlayerBoot.LoadSceneMatching` 按名字找场景）");
+
+                var wm3 = WindowsManager.Instance;
+                CheckTrue(wm3 != null, "（前提）有壳 —— 「入口 → 开窗」那一跳要先有这个壳");
+                if (wm3 != null)
+                {
+                    System.Func<int> countDeckWin = () =>
+                    {
+                        int n = 0;
+                        foreach (var w in wm3.openWindows) if (w is DeckEditingWindow) n++;
+                        return n;
+                    };
+
+                    string sceneBefore3 = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+                    // ⚠️ 三个交接口 + 回程意图都存/还：入口会写它们，而 `DeckRuntime.Build` 开局会把交接口**读掉并清掉**。
+                    int keepPend3 = CollectionData.PendingEditDeck;
+                    var keepNew3 = CollectionData.PendingNewDeck;
+                    var keepRet3 = CollectionData.PendingReturn;
+                    DeckEditingWindow deW3 = null;
+                    try
+                    {
+                        // ---- ② 灭自证（**缝没漏到生产**）----
+                        //   🔴 判据 = 「生产调用形式（单参）实际做出来的事」**必须等于**「拿**现场两个真值**喂给判定口
+                        //   算出来的那一格」。批处理 ⇒ 那一格是 `BatchSkip` ⇒ 一扇窗都不许多出来。
+                        //   若有人把「开窗」接到生产上（或把闸删了），本条当场红。
+                        int nWinBefore = countDeckWin();
+                        CollectionWindow.GoEdit(0);                    // ← **生产调用形式**（单参重载，读现场）
+                        Check(countDeckWin(), nWinBefore,
+                              "★ A1132 第 3 步（**灭自证**）：生产调用形式 `GoEdit(i)` 在批处理里**没有**多出任何"
+                            + "卡组编辑窗 —— 判定口拿现场值算出来的那一格是 "
+                            + CollectionWindow.RouteDeckEntry(Application.isBatchMode, WindowsManager.Instance != null)
+                            + "（**缝只能用来测**：⛔ 不许在生产路径上被绕过）");
+                        Check(CollectionData.PendingEditDeck, 0,
+                              "★ ……而交接口照旧留着（`PendingEditDeck == 0`）—— **批处理那一支与改前逐位一致**"
+                            + "（本文件上面那一整条链靠的就是它）");
+
+                        // ---- ③ 缝：`hasShell:true, batch:false` ⇒ **入口**走生产那个 `switch` 的开窗支 ----
+                        CollectionWindow.GoEdit(0, hasShell: true, batch: false);
+                        foreach (var w in wm3.openWindows)
+                            if (w is DeckEditingWindow && w.CurrentState == WindowState.Open) deW3 = (DeckEditingWindow)w;
+
+                        CheckTrue(deW3 != null && deW3.gameObject.activeSelf,
+                                  "★ …**入口那一跳真开出了窗**、物体活的（⛔ 不是「没开出来也算过」）");
+                        CheckTrue(deW3 != null && deW3.IsOpen() && ReferenceEquals(wm3.TopWindow, deW3),
+                                  "★ …而且是 `WindowsManager` 认的**顶窗**（`IsOpen()` 与 `TopWindow` 两条并存 —— "
+                                + "只断一条的话，「state 说开着、物体却不活」那一档过不了另一条）");
+
+                        // ---- 🆕 顺带把「第 5 步（遮让）到底还要不要做」的**读数**当场量出来（见本批报告 ③）----
+                        //   D10 §四 说「收藏窗仍会盖住本窗 ⇒ 第 5 步的 `Hide()` 不能省」，而本窗是 `Fullscreen`
+                        //   ⇒ `OpenWindow` 的全屏支第一句 `if (openWindows.Count > 0) HideAllWindows();`
+                        //   （`Shell/WindowsManager.cs:1007`）**应当已经**把收藏窗 `Hide()` 掉了。
+                        //   ⚠️ **先断前提、再断事实**：前提不成立（收藏窗本来就已经 `Closed` / 不在表里）时
+                        //     那一句 `HideAllWindows()` 本来就不会跑到它身上 ⇒ 那**不是缺陷**，出声说明、⛔ 不硬断成红。
+                        {
+                            bool winWasOpen = wm3.openWindows.Contains(win) && win.CurrentState != WindowState.Closed;
+                            if (!winWasOpen)
+                                Debug.Log(P + "  ⚠️ A1132「第 5 步该不该做」的读数**没量到**：这一刻收藏窗不在"
+                                          + " `openWindows` 里（或已经是 `Closed`）⇒ 全屏支那句 `HideAllWindows()`"
+                                          + " 本来就不会跑到它身上（判据 `Shell/WindowsManager.cs:1007,1086` 的 predicate）");
+                            else
+                                CheckTrue(!win.gameObject.activeSelf,
+                                          "★ A1132【第 5 步该不该做】的**实测读数**：开编辑窗那一刻，收藏窗"
+                                        + "**已经被全屏支的 `HideAllWindows()` 藏了**（`activeSelf == false`）"
+                                        + " ⇒ D10 §四「收藏窗仍会盖住本窗」**不成立**；第 5 步若只做「把上一扇 `Hide()`」，"
+                                        + "在**这条来路上是多余的**（⚠️ 前提 = 那一刻 `openWindows` 里真有、且还开着的收藏窗；"
+                                        + "换一条「没有别的窗开着」的来路时那一跳不跑）");
+                        }
+
+                        Check(CollectionData.PendingEditDeck, -1,
+                              "★ …**交接链路端到端走通了**：入口写下 `PendingEditDeck = 0`（上一条断的），"
+                            + "窗里 `DeckRuntime.Build` 开局把它**读掉并清掉** ⇒ 此刻是 −1"
+                            + "（这条红 = 窗开了、但**没接上交接**，等于开了一扇别的卡组）");
+                        CheckTrue(deW3 != null && deW3.Runtime != null && deW3.Runtime.State != null
+                                  && deW3.Runtime.State.PoolCount > 1000,
+                                  "★ …而且编辑器内容**真建在窗里**（`DeckRuntime` 在 + 卡池张数 > 1000）"
+                                + " —— 只断「窗活着」的话，一个空窗也能过");
+                        CheckTrue(deW3 != null && deW3.Runtime != null && deW3.Runtime.HostWindow == deW3,
+                                  "★ …**而且第 2 步那道豁免的宿主登记也生效了**（`DeckRuntime.HostWindow` = 这一扇）"
+                                + " —— 第 2 / 3 步是**同一批**交件，本条就是把它们钉在一起的那一句");
+                        CheckTrue(deW3 != null && deW3.Runtime != null
+                                  && !deW3.Runtime.UiWindowShield && deW3.Runtime.UiEscEatenByHost,
+                                  "★ …**两个谓词方向相反、且都对着**（指针放行 `!UiWindowShield` / ESC 由宿主窗吃"
+                                + " `UiEscEatenByHost`）—— 少了任一半，「窗一开点不动」或「同一下 ESC 被处理两遍」"
+                                + "就会有一个**悄悄地**回来（⛔ 两个谓词合成一个的话本条必红）");
+                        Check(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name, sceneBefore3,
+                              "★ **场景没换**（第 3 步要替掉的就是那三处 `LoadScene(\"DeckEditor\")`；"
+                            + "批处理下这条就是「它没走切场景那条路」的判据）");
+
+                        // ---- ④ 第二条入口（`GoNewDeck`）走同一张表：交接的是**未入库**那一份 ----
+                        //   ⚠️ 上一扇要**关掉之后就销毁**（不然它会留在场景里、被本文件末尾那句 `SaveScene()`
+                        //     一起存进自检场景 —— `CollectionCheck.unity` 是自检产物，但也别往里堆垃圾）。
+                        if (deW3 != null) { deW3.Close(); UnityEngine.Object.DestroyImmediate(deW3.gameObject); deW3 = null; }
+                        CollectionData.PendingNewDeck = CollectionData.Raw(0);   // 生产里由 `CollectionData.CreateDeck()` 填
+                        int nWin2 = countDeckWin();
+                        CollectionWindow.GoNewDeck(hasShell: true, batch: false);
+                        CheckTrue(CollectionData.PendingNewDeck == null,
+                                  "★ A1132 第 3 步：`GoNewDeck` 那条入口**同样走开窗那一支** —— "
+                                + "窗里 `Build` 开头那句 `TakePendingNewDeck()` 跑过了（`PendingNewDeck == null`）");
+                        Check(countDeckWin(), nWin2 + 1,
+                              "★ ……而且**只多了一扇**卡组编辑窗（少一扇 = 没开出来；多 = 开重了）");
+                        foreach (var w in wm3.openWindows)
+                            if (w is DeckEditingWindow && w.CurrentState == WindowState.Open) deW3 = (DeckEditingWindow)w;
+                    }
+                    finally
+                    {
+                        if (deW3 != null) { deW3.Close(); UnityEngine.Object.DestroyImmediate(deW3.gameObject); }
+                        CollectionData.PendingEditDeck = keepPend3;
+                        CollectionData.PendingNewDeck = keepNew3;
+                        CollectionData.PendingReturn = keepRet3;
+                    }
+                }
+            }
+
+            // ---------------- 🆕 2026-10-14（`A1714`）：关的这扇就是 `baseMenu` ⇒ 只 `Hide()` 就 `return` ----------------
+            //
+            // 判据 = `d:/2/tools/decomp_full/WindowsManager__CloseWindowCO.c` **逐句亲读**（那段证据写在本仓
+            // `Shell/WindowsManager.cs` 的 `GameWindow.Close()` 里）：`op_Equality(param_2, *(manager + 0x48))`
+            // 为**真**那一支 = 虚调 Slot 9 `Hide()` + **`return`**（既不 `List.Remove`、也不 `ShowPreviousWindow`）；
+            // 为**假**那一支才是完整记账。
+            // 🔴 **灭自证 = 两条并存、结构上不可能同时满足**（同一句 `Close()`，只因「是不是 `baseMenu`」而落两样）：
+            //   · **关 `baseMenu` 自己** ⇒ 只 `Hide()`：`Closed` + 物体不活 **且 仍在册**（不 `Remove`）、
+            //     `TopWindow` **一个字没动**；→ 缺这一支时它会走完整记账、被 `ShowPreviousWindow` **重新开回来**
+            //     ⇒ 本半第一条必红（那正是 `A1709` 的根因那条链）。
+            //   · **关一扇不是 `baseMenu` 的窗**（且它在列表尾）⇒ 走完整记账：它**离册** + 底下那扇 `baseMenu`
+            //     被**开回来** ⇒ 把这一支写成「一律只 `Hide()`」时本半必红。
+            Section("A1714：`baseMenu` 那一支（只 `Hide()` 就 `return`）—— 与「普通窗」成对");
+            {
+                var wmV = WindowsManager.Instance;
+                CheckTrue(wmV != null, "（前提）壳在 —— 本节要读 `openWindows` / `TopWindow` / `BaseMenu`");
+                if (wmV != null)
+                {
+                    var keepBase = wmV.BaseMenu;
+                    var pA = MakeProbeWindow("A1714 probe base");     // 当 `baseMenu` 用
+                    var pB = MakeProbeWindow("A1714 probe other");    // 当「普通窗」用
+                    try
+                    {
+                        wmV.SetBaseMenu(pA);          // = 原版 `MainMenuWindow.Initialize` 那两句的前一句（顺带清表）
+                        wmV.OpenWindow(pA);
+                        CheckTrue(pA.gameObject.activeSelf && pA.CurrentState == WindowState.Open
+                                  && wmV.openWindows.Contains(pA),
+                                  "（前提）`baseMenu` 探针开好了：`Open` + 活 + 在册");
+
+                        // ---- 半 ①：关的就是 `baseMenu` ⇒ **只 `Hide()`**（不摘表、不动 `TopWindow`）----
+                        pA.Close();
+                        CheckTrue(!pA.gameObject.activeSelf,
+                                  "★ A1714：关 `baseMenu` 自己 ⇒ 它**被藏了**（`activeSelf == false`）"
+                                + " —— 判据 = 原版那一支只虚调 Slot 9 `Hide()`（`GameWindow__Hide.c` = `state=Closed`"
+                                + " + `SetActive(false)`）。⚠️ **缺这一支时**它会走完整记账、被 `ShowPreviousWindow`"
+                                + " 重新 `OpenWindow` 开回来 ⇒ 本条红");
+                        Check(pA.CurrentState, WindowState.Closed, "★ ……而且 `state` 写成了 `Closed`（= `Hide()` 的第一句）");
+                        CheckTrue(wmV.openWindows.Contains(pA),
+                                  "★ ……**但它【仍在册】**（原版那一支**不 `List.Remove`**）—— 改坏法：让它也走"
+                                + " `NotifyClosed` ⇒ 本条红（那会把 `baseMenu` 从表里摘掉）");
+                        CheckTrue(ReferenceEquals(wmV.TopWindow, pA),
+                                  "★ ……而且 `TopWindow` **一个字没动**（原版那一支**不 `ShowPreviousWindow`**、也不改 "
+                                + "`currentWindow`）—— 这一条与上面那条一起，才咬得住「只 `Hide()` 就 `return`」");
+
+                        // ---- 半 ②：关一扇**不是** `baseMenu` 的窗 ⇒ 完整记账（它离册 + `baseMenu` 被带回来）----
+                        wmV.OpenWindow(pB);           // 全屏支会 `HideAllWindows()`（此刻表里只有已 `Closed` 的 `pA` ⇒ 无事）
+                        CheckTrue(pB.gameObject.activeSelf && pB.CurrentState == WindowState.Open,
+                                  "（前提）普通窗探针开好了（此刻它是顶窗）");
+                        pB.Close();
+                        CheckTrue(!wmV.openWindows.Contains(pB),
+                                  "★ A1714（**对照半**）：关一扇**不是 `baseMenu`** 的窗 ⇒ 它**离册**"
+                                + "（= 完整记账那条 `List.Remove`）—— 与半 ① 那句「仍在册」**结构上不可能同时满足**"
+                                + "（把 A1714 那一支写成「一律只 `Hide()`」⇒ 本半红）");
+                        CheckTrue(pA.gameObject.activeSelf && pA.CurrentState == WindowState.Open,
+                                  "★ ……而且底下那扇 `baseMenu` 被 `ShowPreviousWindow` **开回来了**（`Open` + 活）"
+                                + " —— 这一跳正是 `A1709` 那条链在**普通窗**上的正确形态（⛔ 别把它一起砍了）");
+                    }
+                    finally
+                    {
+                        if (pA != null) UnityEngine.Object.DestroyImmediate(pA.gameObject);
+                        if (pB != null) UnityEngine.Object.DestroyImmediate(pB.gameObject);
+                        wmV.SetBaseMenu(keepBase);    // 复原：本宿主原来有没有 `baseMenu` 都还回去（顺带清表 + 清顶窗）
+                    }
+                }
+            }
+
             int total = _sink.Pass + _sink.Fail;
             if (_sink.Fail == 0) Debug.Log(P + $"=== 结束：{_sink.Pass}/{total} 全过 ✅ ===");
             else
@@ -8970,6 +9524,20 @@ public static class CollectionScene
 
         static float DeckCellWpx() { return CollectionWindow.DeckCellW; }
         static float DeckCellHpx() { return CollectionWindow.DeckCellH; }
+
+        /// <summary>🆕 **2026-10-14（`A1714`）那两节用的探针窗**（照 `Editor/ShellScene.cs` 的 A1709 探针写法，
+        /// 它本来也是这么造的：`new GameObject` → `AddComponent&lt;GameWindow&gt;` → 赋两个必填参数 → `AttachToAnchor`）。
+        /// ⚠️ `type` / `placement` **必须显式赋**：本仓那两枚哨兵会让 `AttachToAnchor` **出声**
+        /// （`[Win] … 没有显式赋值 …` 两条 `LogError`，见 A166 / A672）—— 探针不该给日志添脏。</summary>
+        static GameWindow MakeProbeWindow(string name)
+        {
+            var go = new GameObject(name);
+            var w = go.AddComponent<GameWindow>();
+            w.type = WindowType.Fullscreen;               // 与常驻主菜单那一扇同档（`MainMenuWindow` 实读 = 0）
+            w.placement = WindowsPlacement.Canvas;
+            WindowsManager.AttachToAnchor(w);
+            return w;
+        }
 
         static void SaveScene()
         {

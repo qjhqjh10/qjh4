@@ -1117,6 +1117,12 @@ namespace CardPresentation
         /// 就必须同时处理「新建失败」这一支** —— ⛔ 别只写 `if (!Select(idx))` 抄过去。
         /// A612 的**「要不要拦下来」**不在这里裁（那笔账在 A613 / A609 一族）。</para></summary>
         public void CreateDeckInMode()
+            => CreateDeckInMode(WindowsManager.Instance != null, Application.isBatchMode);   // ⛔ 生产只看这一行
+
+        /// <summary>🆕 **2026-10-13（`A1132` 第 3 步）**：与 `Shell/CollectionWindow.GoEdit(int, bool, bool)`
+        /// **同一个形状、同一张表**（`CollectionWindow.RouteDeckEntry`）—— 判据、「生产只走单参那一版」、
+        /// 以及「缝只能喂判定值、伪造不出一个壳」→ `GoEdit` 那一段，⛔ 别在这儿抄第二份。</summary>
+        public void CreateDeckInMode(bool hasShell, bool batch)
         {
             int mode = DeckGameMode;
             string name = CollectionData.CreateDeck(mode);
@@ -1144,6 +1150,22 @@ namespace CardPresentation
             //   （理由逐条 → `MainMenuRuntime.Build` 里那一段）⇒ 只记来源，那一跳还开着。
             CollectionData.SetReturnIntent(DeckExitSource.LiveOpsEvent, WindowTabType.None);
             if (Application.isBatchMode) { Debug.Log("[Event] （批处理：不切场景，只交接）"); return; }
+            // 🆕 **2026-10-13（`A1132` 第 3 步）**：**进编辑 = 开那扇窗**（与 `Shell/CollectionWindow.GoEdit`
+            //   同一口径、同一张落点表 `CollectionWindow.RouteDeckEntry`）。
+            //   ⚠️ 本口交接的也是 `PendingNewDeck`（**未入库**那一份，见上面 `CreateDeck(mode)`），
+            //   同样会被窗里 `Build` 开局读掉 ⇒ 与那两处同理。
+            //   ⚠️ 与另外两处**唯一的不同**：这里的上一扇是**事件窗自己**（收藏窗那条路上一扇是收藏窗）
+            //   —— 它归第 5 步的遮让去管，⛔ 本步不动。
+            //   ⛔ 生产路径只走上面那个单参重载（它读现场的 `WindowsManager.Instance` 与 `Application.isBatchMode`）；
+            //   本重载是**自检缝**（`Editor/CollectionScene.cs` 只用它断那张表）。
+            if (WindowsManager.Instance != null)
+            {
+                var deWin = DeckEditingWindow.OpenFrom(WindowsManager.Instance);
+                Debug.Log("[Event] 新建卡组 ⇒ **开出卡组编辑窗**（" + (deWin != null ? deWin.name : "<没开出来>")
+                          + "）—— 照原版 `SelectDecksTab.CreateDeck`：**叠一扇窗**，⛔ 不切场景");
+                return;
+            }
+            Debug.Log("[Event] 没有壳（`WindowsManager.Instance == null`）⇒ 退回老路：切 `DeckEditor` 场景");
             UnityEngine.SceneManagement.SceneManager.LoadScene("DeckEditor");
         }
 

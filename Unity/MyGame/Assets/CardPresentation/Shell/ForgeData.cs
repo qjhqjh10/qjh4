@@ -112,6 +112,21 @@ namespace CardPresentation
         /// <summary>已领格数（原版 `rewardsCollected`）。</summary>
         public static int LevelOf(string army) { int v; return _level.TryGetValue(army, out v) ? v : 0; }
 
+        /// <summary>自检用：把某个阵营的「已领格数」直接置成 <paramref name="level"/>。
+        /// <para>🔴 **2026-10-13（`A1088`）新增** —— 防御池那道 `forgeLevel` 闸的**右值**就是这个数
+        /// （原版 `GetEnvCardList(…, currentForgeLevelObtained)` → `ForgePersistence.rewardsCollected`），
+        /// 而初值里**没有 20 / 40**（见 `Init`）⇒ 不置一下，闸的边界**测不出来**，
+        /// 面板那条路的接线（面板到底用没用闸过那份）也**没法判别**。</para>
+        /// <para>⚠️ <see cref="ForgeData"/> 是**全局静态** ⇒ 用完**必须还原**（`SetLevelForTest(army, 原值)`
+        /// 或 <see cref="ResetForTest"/>），否则会漏到后面的自检格。</para></summary>
+        public static void SetLevelForTest(string army, int level)
+        {
+            if (string.IsNullOrEmpty(army)) return;
+            if (level < 0) level = 0;
+            if (level > MaxLevel) level = MaxLevel;
+            _level[army] = level;
+        }
+
         /// <summary>累计经验（原版 `currentPoints`）。</summary>
         public static int PointsOf(string army) { int v; return _points.TryGetValue(army, out v) ? v : 0; }
 

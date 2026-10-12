@@ -1,69 +1,69 @@
 {
  "defensive": {
   "SaimHann": [
-   "Inspiring Legacy",
-   "Webway Entrance",
-   "Aspect Shrine"
+   {"name": "Inspiring Legacy", "forgeLevel": 1},
+   {"name": "Webway Entrance", "forgeLevel": 20},
+   {"name": "Aspect Shrine", "forgeLevel": 40}
   ],
   "AstraMilitarum": [
-   "Defence Batteries",
-   "Timely Reinforcements",
-   "Munitorum Supplies"
+   {"name": "Defence Batteries", "forgeLevel": 1},
+   {"name": "Timely Reinforcements", "forgeLevel": 20},
+   {"name": "Munitorum Supplies", "forgeLevel": 40}
   ],
   "BlackLegion": [
-   "Hellfire Torch",
-   "Throne of the Heretic",
-   "Hellfire Pit"
+   {"name": "Hellfire Torch", "forgeLevel": 1},
+   {"name": "Throne of the Heretic", "forgeLevel": 20},
+   {"name": "Hellfire Pit", "forgeLevel": 40}
   ],
   "DarkAngels": [
-   "Defensive Turrets",
-   "Grim Effigy",
-   "Plasma Generator"
+   {"name": "Defensive Turrets", "forgeLevel": 1},
+   {"name": "Grim Effigy", "forgeLevel": 20},
+   {"name": "Plasma Generator", "forgeLevel": 40}
   ],
   "EmperorsChildren": [
-   "Armoury of Excess",
-   "Decadent Throne",
-   "Vial Tanks"
+   {"name": "Armoury of Excess", "forgeLevel": 1},
+   {"name": "Decadent Throne", "forgeLevel": 20},
+   {"name": "Vial Tanks", "forgeLevel": 40}
   ],
   "Genestealers": [
-   "Alien Idol",
-   "Pilfered Supplies",
-   "Rusted Vent"
+   {"name": "Alien Idol", "forgeLevel": 1},
+   {"name": "Pilfered Supplies", "forgeLevel": 20},
+   {"name": "Rusted Vent", "forgeLevel": 40}
   ],
   "Sautekh": [
-   "Awakened Obelisk",
-   "Divination Menhir",
-   "Resurrection Vault"
+   {"name": "Awakened Obelisk", "forgeLevel": 1},
+   {"name": "Divination Menhir", "forgeLevel": 20},
+   {"name": "Resurrection Vault", "forgeLevel": 40}
   ],
   "Goff": [
-   "Extractor Rig",
-   "Gretchin Tower",
-   "Toxic Bonfire"
+   {"name": "Extractor Rig", "forgeLevel": 1},
+   {"name": "Gretchin Tower", "forgeLevel": 20},
+   {"name": "Toxic Bonfire", "forgeLevel": 40}
   ],
   "Sororitas": [
-   "Guidance of the Saints",
-   "Holy Fire",
-   "Sacred Altar"
+   {"name": "Guidance of the Saints", "forgeLevel": 1},
+   {"name": "Holy Fire", "forgeLevel": 20},
+   {"name": "Sacred Altar", "forgeLevel": 40}
   ],
   "SpaceWolves": [
-   "Fenrisian Runestones",
-   "Orbital Defences",
-   "Halls of Legend"
+   {"name": "Fenrisian Runestones", "forgeLevel": 1},
+   {"name": "Orbital Defences", "forgeLevel": 20},
+   {"name": "Halls of Legend", "forgeLevel": 40}
   ],
   "TauEmpire": [
-   "Tidewall Droneport",
-   "Tidewall Gunrig",
-   "Watch Tower"
+   {"name": "Tidewall Droneport", "forgeLevel": 1},
+   {"name": "Tidewall Gunrig", "forgeLevel": 20},
+   {"name": "Watch Tower", "forgeLevel": 40}
   ],
   "Leviathan": [
-   "Digestion Pool",
-   "Protective Bio-structure",
-   "Toxic Vapours"
+   {"name": "Digestion Pool", "forgeLevel": 1},
+   {"name": "Protective Bio-structure", "forgeLevel": 20},
+   {"name": "Toxic Vapours", "forgeLevel": 40}
   ],
   "Ultramarines": [
-   "Hive Factory",
-   "Light Cover",
-   "Firestrike Turrets"
+   {"name": "Hive Factory", "forgeLevel": 1},
+   {"name": "Light Cover", "forgeLevel": 20},
+   {"name": "Firestrike Turrets", "forgeLevel": 40}
   ]
  },
  "elixir_ec": [
@@ -90,5 +90,15 @@
   "Ultramarines": "Ultramarines"
  },
  "total_defensive": 39,
- "note": "2026-08-26 gen_defensive_cards.py 生成; 名单=防御卡权威(取代宝石special判据, special=39防御+6药剂)"
+ "_forgeLevel_source": {
+  "field": "每条 = 原版 SO `EnviromentalEffectCardsSO` 的 `enviromentalEffects[<本阵营>].defensiveCards[i].forgeLevel`。读的哪一份：`d:/2/新解包资源/assets_full/bundle_duplicateassetisolationso_assets_all/MonoBehaviour/EnvironmentalEffectCardsSO.json`（13 条 `enviromentalEffects`，`army` 10/20/30/40/50/60/70/80/90/100/110/120/130）。",
+  "observed": "13 个阵营**全同**：槽 0 = 1 · 槽 1 = 20 · 槽 2 = 40。（进攻侧才分档：Ultramarines 4/25/40、其余 4/25/45。）",
+  "slot_order": "本文件的卡名**逐条保持 SO `defensiveCards` 的槽序**（槽 0 带 forgeLevel 1，槽 1 → 20，槽 2 → 40）。",
+  "slot_order_evidence": "本地**解不出**这 39 张卡的 `RawCardScript`（卡 SO 在远端 Addressables 组 `allcards`，`m_Script` 全树 0 命中 ⇒ 无法按 PathID 逐条核）。旁证两条：(a) 本表不是字母序（是重排就会是）；(b) **PnP 成品卡图的编号在 12 个阵营里逐条同序** —— `d:/2/Warpforge部队卡片/<阵营>/5防御卡/`，例：Aeldari 65_Inspiring-Legacy → 66_Webway-Entrance → 67_Aspect-Shrine、Necron 65_Awakened-Obelisk → 66_Divination-Menhir → 67_Resurrection-Vault、Orks 60_Extractor-Rig → 61_Gretchin-Tower → 62_Toxic-Bonfire。",
+  "aliases": "`Genestealers.Rusted Vent` 是 **SO 的写法**；我们卡池里同名卡写作 `Rusted Vents`（`资料/卡表核对_卡图提取/_裁定_special卡框.md` 记的「13×3 逐张对上 38/39，唯一差异是名字写法」）。接闸时两个写法都要认 —— 运行时那张别名表在 `BattleDriver.DefensiveCardAlias`。",
+  "runtime_copy": "**运行时那份在 `MyGame/Assets/CardPresentation/Battle/BattleDriver.cs`**（`DefensiveSoSlotNames` / `DefensiveSoSlotForgeLevel`）—— `数据/` 不在 `Assets/` 下、`Resources.Load` 够不着 ⇒ 只能抄一份。**改这里必须同步改那里**。",
+  "gate_semantics": "原版 `EnviromentalEffectCardsSO__GetEnvCardList.c:60`（防）/`:87`（攻）：`justOwnedCards != 0` 时只收 `forgeLevel <= currentForgeLevelObtained` 的（**丢槽、不占位**）；`justOwnedCards == 0` 时**全给、不看这个字段**。**四个调用点里只有【面板】那条**传 `true`（`_SetupEnviromentalEffectPhase_d__352__MoveNext.c:63`）⇒ ⛔ 别把 AI 那条（`ClickChosenCardDone.c:59/:67`）与开局随机发那条（`AddGoesSecondCardToDeck.c:145`）也挂上。判据全文 → `资料/普查产出_0930/进攻防御卡_面板语义.md` §3.3/§3.4/§3.5。",
+  "not_judged": "`currentForgeLevelObtained` 到底是不是 `ForgePersistence.rewardsCollected` —— 那份报告 §八(1) 自标「判不准」；我们按 `ForgeData.LevelOf`（= 已领格数 = `rewardsCollected`）落地并如实标注。§八(3) 的「阵营没有那条 Forge 记录 ⇒ 池子空」那一支原报告自标「**推断**」⇒ **本件不接**（不拿推断当判据）。"
+ },
+ "note": "2026-08-26 gen_defensive_cards.py 生成; 名单=防御卡权威(取代宝石special判据, special=39防御+6药剂)。2026-10-13(A1088): 每条加 `forgeLevel`（原版 SO 的字段，出处见 `_forgeLevel_source`）；形状由「卡名数组」改成「{name,forgeLevel} 对象数组」，与 SO 的 `{defensiveCard,forgeLevel}` 一一对应。**键序 = SO 槽序**，⛔ 与卡池(cards_engine.json)的字母序不同。"
 }

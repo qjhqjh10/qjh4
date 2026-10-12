@@ -1706,6 +1706,173 @@ public static class BattleScene
                             + "原版 `ClickChosenCardDone` 那条链就是这么落的）");
                     }
 
+                    // ---- 🆕 2026-10-13（`A1088`）：防御池那道 **`forgeLevel` 闸** ----
+                    // 判据（**原版本体，两层**；行号现读）：
+                    //   ① `EnviromentalEffectCardsSO__GetEnvCardList.c:60`（防御侧 · 进攻侧同式在 `:87`）——
+                    //      `justOwnedCards != 0` 时**只**把 `forgeLevel <= currentForgeLevelObtained` 的那条
+                    //      `Add` 进列表（**丢槽、不占位**）；`justOwnedCards == 0` 时**全加、不看这个字段**（`:47-53`）。
+                    //   ② 四个调用点里**只有【面板】那条**传 `justOwnedCards = true`
+                    //      （`BattleManager._SetupEnviromentalEffectPhase_d__352__MoveNext.c:63`）；
+                    //      另两个（`ClickChosenCardDone.c:59/:67` = **AI 那张** · `AddGoesSecondCardToDeck.c:145`
+                    //      = **开局随机发那张**）都是 `justOwnedCards = 0`（**不筛**）。
+                    //   判据全文 → `资料/普查产出_0930/进攻防御卡_面板语义.md` §3.3 / §3.4 / §3.5。
+                    // 值 = 原版 SO 的 `defensiveCards[].forgeLevel`（13 个阵营**全同** = 1/20/40，
+                    //   SO 槽序见 `数据/游戏数据/defensive_cards_39.json` 的 `_forgeLevel_source`）。
+                    // 🧨 改坏法：① 把 `need <= level` 写成 `need < level` ⇒ 「等级 1」那两条红
+                    //   （SO 里最小的 `forgeLevel` 恰好就是 1）；② 把闸接去 `PickDefensiveForAi`
+                    //   （原版 `justOwnedCards = 0` 那条路）⇒ **本格不会红**（那正是原版）—— 反向由
+                    //   「未筛的全池恒 3 张」那一句守着；③ 把闸做成一个没人调的辅助函数 ⇒
+                    //   本格不红，但 17·2(d) 那条面板格会红。
+                    {
+                        // ① **前提（原版参数，写成字面量）**：SO 那三个 `forgeLevel`。
+                        //    ⛔ 别从我们自己的表里反算期望值 —— 那是拿实现证明实现（自证）。
+                        int[] soForgeLevels = { 1, 20, 40 };
+
+                        // ② 「等级够的正常出现」＋「**未筛的全池恒 3 张**」两条并存 ⇒
+                        //    闸筛的是**列表**、不是「数据没了」（只断前者的话，「把池子清空」也照样绿）。
+                        var soAllUltra = drv.DefensiveChoicesForTest("Ultramarines");
+                        var soOwnedUltra = drv.DefensiveChoicesOwnedForTest("Ultramarines");
+                        Check(soAllUltra.Count == 3,
+                              $"★ A1088（前提）**未筛**的全池恒 3 张（Ultramarines 实得 {soAllUltra.Count}）"
+                            + " —— 原版 `justOwnedCards = 0` 那两条路（AI 那张 / 开局随机发那张）就是拿这一份");
+                        Check(soOwnedUltra.Count == 3,
+                              $"★ A1088：等级**够** ⇒ 三张都在（Ultramarines 当前 {ForgeData.LevelOf("Ultramarines")} 级"
+                            + $" ≥ 最大档 {soForgeLevels[2]}；实得 {soOwnedUltra.Count}）");
+
+                        // ③ 逐档钉住 —— SaimHann 的 **SO 槽序** = `Inspiring Legacy`(1) / `Webway Entrance`(20)
+                        //    / `Aspect Shrine`(40)。**三条断言并存**：够的在 · 不够的不在 · 活下来的**按名字**对得上。
+                        var at0 = drv.DefensiveChoicesOwnedAtForTest("SaimHann", 0);
+                        var at1 = drv.DefensiveChoicesOwnedAtForTest("SaimHann", 1);
+                        var at19 = drv.DefensiveChoicesOwnedAtForTest("SaimHann", soForgeLevels[1] - 1);
+                        var at20 = drv.DefensiveChoicesOwnedAtForTest("SaimHann", soForgeLevels[1]);
+                        var at39 = drv.DefensiveChoicesOwnedAtForTest("SaimHann", soForgeLevels[2] - 1);
+                        var at40 = drv.DefensiveChoicesOwnedAtForTest("SaimHann", soForgeLevels[2]);
+                        Check(at0.Count == 0,
+                              $"★ A1088：等级 0 ⇒ **一张都不给**（SO 里最小的 `forgeLevel` 就是 {soForgeLevels[0]}；实得 {at0.Count}）");
+                        Check(at1.Count == 1 && at1[0] != null && at1[0].Name == "Inspiring Legacy",
+                              "★ A1088：等级 1 ⇒ **只剩 SO 槽 0 那一张**（= 「`Inspiring Legacy`」）"
+                            + $"—— 实得 {at1.Count} 张「{(at1.Count > 0 && at1[0] != null ? at1[0].Name : "<无>")}」"
+                            + "｜🧨 这一条**顶住 `<=` 被写成 `<`**（1 恰好等于槽 0 的 `forgeLevel`）");
+                        Check(at19.Count == 1 && at20.Count == 2 && at39.Count == 2 && at40.Count == 3,
+                              $"★ A1088：三个档位逐档开（{soForgeLevels[1] - 1}→{at19.Count} · {soForgeLevels[1]}→{at20.Count}"
+                            + $" · {soForgeLevels[2] - 1}→{at39.Count} · {soForgeLevels[2]}→{at40.Count}）"
+                            + " —— 原版比较用 `<=`（`GetEnvCardList.c:60`）");
+                        bool has20At19 = false, has40At39 = false;
+                        foreach (var c in at19) if (c != null && c.Name == "Webway Entrance") has20At19 = true;
+                        foreach (var c in at39) if (c != null && c.Name == "Aspect Shrine") has40At39 = true;
+                        Check(!has20At19 && !has40At39,
+                              "★ A1088：**等级不够的那两张逐张不在**（等级 19 时不含 `Webway Entrance`(20) · "
+                            + "等级 39 时不含 `Aspect Shrine`(40)）—— 与「够的在」**并存** ⇒ "
+                            + "「把池子清空」「只留最后一张」这类错解**不可能同时**满足这两条");
+
+                        // ④ 13 个阵营**逐个**：未筛池恒 3 张；筛过的**全是**未筛池里的（挡「换成别的东西」）；
+                        //    并且**生产路径真的接了 `ForgeData`**（按现读等级算期望，阈值 = 上面那三个字面量）。
+                        int badSubset = 0, badLevel = 0;
+                        foreach (var f in ForgeData.Armies)
+                        {
+                            var allF = drv.DefensiveChoicesForTest(f);
+                            var ownedF = drv.DefensiveChoicesOwnedForTest(f);
+                            if (allF.Count != 3) badSubset++;
+                            foreach (var c in ownedF) if (!allF.Contains(c)) badSubset++;
+                            int lvF = ForgeData.LevelOf(f), expF = 0;
+                            foreach (var need in soForgeLevels) if (need <= lvF) expF++;
+                            if (ownedF.Count != expF) badLevel++;
+                        }
+                        Check(badSubset == 0,
+                              $"★ A1088：13 个阵营**逐个** —— 未筛池恒 3 张、且筛过的**全是**未筛池里的（异常 {badSubset} 处）");
+                        Check(badLevel == 0,
+                              $"★ A1088：13 个阵营**逐个**按 `ForgeData.LevelOf` 的**现读**等级对上（不符 {badLevel} 个）"
+                            + " —— 这条钉住生产路径**真的读了 `ForgeData`**（⛔ 不是写死一个等级、也不是照卡池下标）");
+                    }
+
+                    // ---- 🆕 2026-10-13（`A1743`）：**进攻池那道同一道闸**（对称的那一半） ----
+                    // 判据：**与防御侧是同一个函数的两条路** —— `MoveNext:63` 只有一句
+                    //   `GetEnvEffectCards(playerGoesFirst, justOwnedCards: true)`，
+                    //   `shouldUseOffensive = playerGoesFirst` 决定它走 `offensiveCards`(`+0x28`，门槛在 `:87`)
+                    //   还是 `defensiveCards`(`+0x30`，门槛在 `:60`)。**本机先手 ⇒ 闸落在进攻池上。**
+                    // 值（原版 SO 实读，**与防御侧不是一套数**）：**Ultramarines `4/25/40`**、**其余 12 个 `4/25/45`**；
+                    //   防御侧才是 13 个阵营全同 `1/20/40`。这些值随卡带着（`Resources/OffensiveCards.json`
+                    //   的 `cards[].forgeLevel`，**已用 PathID 逐卡核过 13/13 与原版 SO 同序同值**）。
+                    // 🧨 改坏法：把 `need <= level` 写成 `need < level` ⇒ 「等级 4」那两条红；
+                    //   把「空卡」也拿去筛 ⇒ 「等级 3」那条红；把闸接去 `PickOffensiveForAi`（`justOwnedCards = 0`
+                    //   那条路）⇒ **本格不会红**（那正是原版）—— 反向由「未筛的恒 4 条」守着。
+                    {
+                        // ① **前提（原版参数，字面量）**：Ultramarines 的三个档 + 其余阵营的第三档。
+                        int[] soOffLvOfUltra = { 4, 25, 40 };   // 原版 SO：Ultramarines
+                        int soOffLv3Others = 45;                // 原版 SO：其余 12 个阵营的下标 2
+
+                        // ② 逐阵营把「档位表」与那两个字面量对上（**别抄防御侧那套 1/20/40**）
+                        int lvBad = 0; bool ultra40 = false;
+                        foreach (var f in ForgeData.Armies)
+                        {
+                            var a = OffensiveCards.For(f);
+                            if (a == null || a.cards == null || a.cards.Length != 3) { lvBad++; continue; }
+                            if (a.cards[0].forgeLevel != soOffLvOfUltra[0] || a.cards[1].forgeLevel != soOffLvOfUltra[1]) lvBad++;
+                            int third = a.cards[2].forgeLevel;
+                            if (f == "Ultramarines") { if (third == soOffLvOfUltra[2]) ultra40 = true; else lvBad++; }
+                            else if (third != soOffLv3Others) lvBad++;
+                        }
+                        Check(lvBad == 0 && ultra40,
+                              $"★ A1743：进攻侧的档位**与防御侧不是一套数**（逐阵营 13 个：下标 0/1 恒 `4/25` · "
+                            + $"下标 2 = Ultramarines `{soOffLvOfUltra[2]}` / 其余 `{soOffLv3Others}`；异常 {lvBad} 个）"
+                            + "｜🧨 改坏法：照防御侧抄成 `1/20/40` ⇒ 红");
+
+                        // ③ 「未筛的全池恒 4 条（1 空卡 + 3 张）」＋「空卡恒在下标 0 且不过闸」
+                        var offAll = drv.OffensiveChoicesForTest("Ultramarines");
+                        Check(offAll.Count == 4 && offAll[0] != null && OffensiveCards.IsEmpty(offAll[0]),
+                              $"★ A1743（前提）**未筛**的进攻池恒 4 条、且下标 0 是「不使用进攻卡」那张"
+                            + $"（实得 {offAll.Count} 条 / 下标0 idx={(offAll.Count > 0 && offAll[0] != null ? offAll[0].idx : 99)}）"
+                            + " —— 原版是先 `Add(空卡)` 再 `AddRange(...)` 两句，闸看不看空卡");
+
+                        // ④ 逐档钉住（Ultramarines）。**三条并存**：空卡**恒在** · 够的**在** · 不够的**不在**，
+                        //    而且活下来的是**哪一槽**按 `idx` 断。
+                        var o0 = drv.OffensiveChoicesOwnedAtForTest("Ultramarines", 0);
+                        var o3 = drv.OffensiveChoicesOwnedAtForTest("Ultramarines", soOffLvOfUltra[0] - 1);
+                        var o4 = drv.OffensiveChoicesOwnedAtForTest("Ultramarines", soOffLvOfUltra[0]);
+                        var o24 = drv.OffensiveChoicesOwnedAtForTest("Ultramarines", soOffLvOfUltra[1] - 1);
+                        var o25 = drv.OffensiveChoicesOwnedAtForTest("Ultramarines", soOffLvOfUltra[1]);
+                        var o39 = drv.OffensiveChoicesOwnedAtForTest("Ultramarines", soOffLvOfUltra[2] - 1);
+                        var o40 = drv.OffensiveChoicesOwnedAtForTest("Ultramarines", soOffLvOfUltra[2]);
+                        Check(o3.Count == 1 && o3[0] != null && OffensiveCards.IsEmpty(o3[0]),
+                              $"★ A1743：等级 {soOffLvOfUltra[0] - 1}（比最小档还低）⇒ **只剩「不使用进攻卡」那张**"
+                            + $"（实得 {o3.Count} 条）—— 闸筛的是**那三张**，**空卡恒在**");
+                        Check(o4.Count == 2 && o4[1] != null && o4[1].idx == 0,
+                              "★ A1743：等级 4 ⇒ **空卡 + SO 槽 0** 共 2 条（实得 "
+                            + $"{o4.Count} 条 / 尾巴 idx={(o4.Count > 1 && o4[1] != null ? o4[1].idx : 99)}）"
+                            + "｜🧨 这一条**顶住 `<=` 被写成 `<`**（4 恰好等于槽 0 的 `forgeLevel`）");
+                        Check(o24.Count == 2 && o25.Count == 3 && o39.Count == 3 && o40.Count == 4,
+                              $"★ A1743：三个档位逐档开（{soOffLvOfUltra[1] - 1}→{o24.Count} · {soOffLvOfUltra[1]}→{o25.Count}"
+                            + $" · {soOffLvOfUltra[2] - 1}→{o39.Count} · {soOffLvOfUltra[2]}→{o40.Count}）"
+                            + " —— 原版比较用 `<=`（`GetEnvCardList.c:87`）");
+                        Check(o0.Count == 1 && OffensiveCards.IsEmpty(o0[0]),
+                              $"★ A1743：等级 0 ⇒ 也只剩空卡 1 条（实得 {o0.Count}）—— 与「够的在」**并存** ⇒ "
+                            + "「把池子清空（连空卡一起删）」不可能同时满足");
+                        bool has25at24 = false, has40at39 = false;
+                        foreach (var c in o24) if (c != null && c.idx == 1) has25at24 = true;
+                        foreach (var c in o39) if (c != null && c.idx == 2) has40at39 = true;
+                        Check(!has25at24 && !has40at39,
+                              "★ A1743：**等级不够的那两槽逐槽不在**（等级 24 时不含槽 1(25) · 等级 39 时不含槽 2(40)）");
+
+                        // ⑤ 13 个阵营**逐个**：未筛恒 4 条、筛过的**全是**未筛里的；
+                        //    并按 `ForgeData.LevelOf` 的**现读**等级对上（钉住生产路径真读了 `ForgeData`）。
+                        int obadSub = 0, obadLv = 0;
+                        foreach (var f in ForgeData.Armies)
+                        {
+                            var aall = drv.OffensiveChoicesForTest(f);
+                            var oown = drv.OffensiveChoicesOwnedForTest(f);
+                            if (aall.Count != 4) obadSub++;
+                            foreach (var c in oown) if (!aall.Contains(c)) obadSub++;
+                            int lvf = ForgeData.LevelOf(f), expf = 1;
+                            var af = OffensiveCards.For(f);
+                            if (af != null && af.cards != null)
+                                foreach (var c in af.cards) if (c != null && c.forgeLevel > 0 && c.forgeLevel <= lvf) expf++;
+                            if (oown.Count != expf) obadLv++;
+                        }
+                        Check(obadSub == 0 && obadLv == 0,
+                              $"★ A1743：13 个阵营**逐个** —— 未筛恒 4 条、筛过的全是未筛里的、且按现读等级对上"
+                            + $"（异常 {obadSub} / 等级不符 {obadLv}）");
+                    }
+
                     // 🆕 2026-10-01（§三 第 8 条 · 判据 `资料/全量反编译复核_靠推断的清单.md` §2.1）：
                     //   **标题那条链照原版搭好了**：`Battle/ChooseCard/Instructions-<uniqueId>` → 无后缀那条 → 调用方兜底
                     //   （原版 `ChooseCardMenu__GetTittleText(string uniqueId)`，`dump.cs:37575`）。
@@ -13352,7 +13519,18 @@ public static class BattleScene
                     //   ⛔ 不开的话：本机若是后手，本格会**因为「防御卡面板不弹」而假红**
                     //   —— 那是 `A1664` 的**预期行为**，不是缺陷。
                     drv.defensiveCardPanelEnabled = true;
-                    drv.Begin("Ultramarines", "Goff", 20260917);
+                    // 🔴 **2026-10-13（`A1088` / `A1743`）：这一行【必须锁先手方】—— 别把 `firstSeatOverride` 删掉。**
+                    //   本格要的是**「换牌完成后有一扇进攻/防御面板停在那儿」**这个场景，它**自己没锁先手方**：
+                    //   不锁 ⇒ 先手 = `ForceFirstSeat`，而默认是 **`0`（本机先手）** ⇒ 走**进攻**那扇
+                    //   ⇒ 那个池子的阵营 = **后手方**（= `Begin` 的第 2 实参 `Goff`），而 `Goff` 的锻造等级是 3
+                    //   ⇒ `OffensiveCards` 的三张最小档都是 **4** ⇒ 那道 `forgeLevel` 闸（`A1743`）把三张**全挡掉**
+                    //   ⇒ `list.Count < 2` ⇒ `BattleDriver` 照原版**不弹菜单** ⇒ 下面那条前提当场红。
+                    //   ⚠️ **那红不是缺陷**：原版同情境（池子阵营等级 < 4 且 `justOwnedCards = true`）**也不弹**
+                    //     （`…MoveNext.c` 的 `列表<2` 那一支直接 `ClickChosenCardDone(list[0])`）。
+                    //   ⇒ 锁成本机**后手**：走**防御**那扇、池子 = 本机阵营（`Ultramarines`，等级 50）⇒ 3 张 ⇒ 绿。
+                    //   （写法与同族 `17·2(b)/(c)` **同一条**：`1 - drv.MyIndex`。）
+                    //   📌 进攻那半的「面板关掉之后卡视图清干净了吗」由 **17·2(e)** 接着验（本笔新增）。
+                    drv.Begin("Ultramarines", "Goff", 20260917, firstSeatOverride: 1 - drv.MyIndex);
                     if (drv.InMulligan) drv.SimulateMulliganDone();
                     var cp1 = drv.Choose;
                     Check(cp1 != null && cp1.Visible,
@@ -13460,6 +13638,123 @@ public static class BattleScene
                     drv.offensivePhaseEnabled = savedOff2;
                     drv.offensiveCardEnabled = savedCard2;
                     drv.mulliganEnabled = savedMul2;
+                }
+
+                // ---- 🆕 2026-10-13（`A1088`）17·2(d)：**面板摆的是【闸过】的那一份**（生产路径接线） ----
+                // 为什么单开一格：上面那几条断的是**纯函数**（`DefensiveChoicesOwnedAt`）——
+                //   把闸写成一个**没人调**的辅助函数、面板照旧用未筛那份，上面全绿。
+                //   🔴 判别的做法：把本阵营的锻造等级**临时压到 3**（原版 SO 的三个 `forgeLevel` = 1/20/40
+                //   ⇒ 等级 3 **只够第 1 张**）—— 若面板用的是**未筛**那份，这里会数到 3 张 ⇒ 红。
+                // ⚠️ `ForgeData` 是全局静态 ⇒ **无论走哪条分支都要还原**（这里用 `savedLv3` 原值还原）。
+                // 🧨 改坏法：把面板那句 `DefensiveChoicesOwned` 换回 `DefensiveChoices`（或闸只写不用）⇒ 本格红。
+                {
+                    bool savedDef3 = drv.defensiveCardPanelEnabled;
+                    bool savedOff3 = drv.offensivePhaseEnabled;
+                    bool savedMul3 = drv.mulliganEnabled;
+                    // ⚠️ 阵营名用**字面量**（= 下面 `Begin` 的第一个实参）—— 面板的池子就是「本机阵营」，
+                    //   所以压等级的必须是**同一个**阵营；压错阵营 ⇒ 本格会假红。
+                    //   `MyFactionForTest == myF3` 那条就是钉死这一点的。
+                    string myF3 = "Ultramarines";
+                    int savedLv3 = ForgeData.LevelOf(myF3);
+                    drv.mulliganEnabled = true;
+                    drv.offensivePhaseEnabled = true;      // 别让「整段关了」把面板不弹说成是对的
+                    drv.defensiveCardPanelEnabled = true;
+                    ForgeData.SetLevelForTest(myF3, 3);    // 原版 SO：槽 0 = 1 级 · 槽 1 = 20 · 槽 2 = 40
+                    drv.Begin(myF3, "Goff", 20260917, firstSeatOverride: 1 - drv.MyIndex);
+                    if (drv.InMulligan) drv.SimulateMulliganDone();
+                    Check(drv.MyFactionForTest == myF3,
+                          $"★ A1088（前提）本机的阵营 = 被压等级的那个（`{myF3}`；实得「{drv.MyFactionForTest}」）"
+                        + " —— 不是同一个的话下面那条等于没验");
+                    bool panelOpen3 = drv.Choose != null && drv.Choose.Visible;
+                    Check(panelOpen3,
+                          "★ A1088（前提）锻造等级压到 3 ⇒ 那扇「选择防御卡」面板**照旧弹**"
+                        + "（闸只**少给卡**、不弹窗 —— 原版那道闸在 `GetEnvCardList` 里，不在弹窗判据里）");
+                    if (panelOpen3)
+                    {
+                        int shown3 = drv.PanelCardViewsAlive();
+                        Check(shown3 == 1,
+                              $"★ A1088：面板上**只摆 1 张**（本阵营 {myF3} 锻造等级 3 · 原版 SO 槽 1/2 要 20/40 级"
+                            + $" ⇒ 那两张被**丢掉**；实得 {shown3} 张）"
+                            + "｜🧨 改坏法：面板那句 `DefensiveChoicesOwned` 换回未筛的 `DefensiveChoices` ⇒ 数到 3");
+                        int defInHand3 = 0;
+                        foreach (var h in drv.Ctx.Players[drv.MyIndex].Hand)
+                            if (h != null && h.Card != null && h.Card.Type == "defence") defInHand3++;
+                        drv.SimulateChooseDone();          // ⚠️ 在**还压着等级**时走完（选下标 0 = 闸过那份的第 0 张）
+                        var ownedAt3 = drv.DefensiveChoicesOwnedAtForTest(myF3, 3);
+                        string want3 = (ownedAt3.Count > 0 && ownedAt3[0] != null) ? ownedAt3[0].Name : "<闸过那份是空的>";
+                        int defAfter3 = 0; CardDef lastDef3 = null;
+                        foreach (var h in drv.Ctx.Players[drv.MyIndex].Hand)
+                            if (h != null && h.Card != null && h.Card.Type == "defence") { defAfter3++; lastDef3 = h.Card; }
+                        Check(defAfter3 == 1 && lastDef3 != null && lastDef3.Name == want3,
+                              $"★ A1088：选完**换进手牌的就是面板上那一张**（「{lastDef3?.Name ?? "<无>"}」"
+                            + $" · 期望「{want3}」· 选前手里 {defInHand3} 张 → 选后 {defAfter3} 张）"
+                            + " —— 这条挡「面板按闸过的取下标、发卡却按未筛那份取」的**静默错位**");
+                    }
+                    ForgeData.SetLevelForTest(myF3, savedLv3);
+                    drv.defensiveCardPanelEnabled = savedDef3;
+                    drv.offensivePhaseEnabled = savedOff3;
+                    drv.mulliganEnabled = savedMul3;
+                }
+
+                // ---- 🆕 2026-10-13（`A1743`）17·2(e)：**进攻面板摆的也是【闸过】那份**（对称的那一半） ----
+                // 与上面 17·2(d) 是**同一道闸的两个方向**：`MoveNext:63` 那**同一句**
+                //   （`justOwnedCards = true`）在本机**先手**时落在**进攻池**上。
+                // 🔴 判别的做法：把**池子那个阵营**（本机先手时 = 后手方 = 对手）的锻造等级压到 **4**
+                //   （原版 SO：进攻侧最小档就是 4）⇒ 面板应摆 **2 张**（空卡 + SO 槽 0）；
+                //   若面板用的还是**未筛**那份 ⇒ 数到 4 ⇒ 红。
+                // ⚠️ 压的是**池子阵营**、不是本机阵营 —— 池子恒取后手那一方（§3.1 三处证据）。
+                // 🧨 改坏法：把面板那句 `OffensiveChoicesOwned` 换回 `OffensiveCards.Choices` ⇒ 本格红。
+                {
+                    bool savedCardE = drv.offensiveCardEnabled, savedPhaseE = drv.offensivePhaseEnabled;
+                    bool savedMulE = drv.mulliganEnabled, savedDefE = drv.defensiveCardPanelEnabled;
+                    // 池子阵营：本自检里 `_me == 0`、`firstSeatOverride = 本机` ⇒ 后手方 = `Begin` 的第 2 个实参
+                    //   ⇒ 就是 `"Goff"`。下面那条「池子 == Goff」的断言**钉住这个前提**（不是同一个就当场红）。
+                    string poolE = "Goff";
+                    int savedLvE = ForgeData.LevelOf(poolE);
+                    drv.mulliganEnabled = true;
+                    drv.offensivePhaseEnabled = true;
+                    drv.offensiveCardEnabled = true;          // 出厂默认 `false`（用户 2026-10-11 拍板）⇒ 显式打开
+                    drv.defensiveCardPanelEnabled = false;    // 别让防御那扇替它开
+                    ForgeData.SetLevelForTest(poolE, 4);      // 原版 SO：进攻侧最小档 = 4 ⇒ 只够槽 0
+                    drv.Begin("Ultramarines", poolE, 20260917, firstSeatOverride: drv.MyIndex);
+                    if (drv.InMulligan) drv.SimulateMulliganDone();
+                    Check(drv.Ctx.FirstSeat == drv.MyIndex, "★ A1743（前提）本局本机是**先手** ⇒ 走「选进攻卡」那扇");
+                    Check(drv.OffensivePoolFaction == poolE,
+                          $"★ A1743（前提）进攻池用的就是被压等级的那个阵营（期望 `{poolE}` · 实得 `{drv.OffensivePoolFaction}`）"
+                        + " —— 不是同一个的话下面那条等于没验");
+                    bool openE = drv.Choose != null && drv.Choose.Visible;
+                    Check(openE,
+                          $"★ A1743（前提）池子阵营（`{poolE}`）锻造等级 4 ⇒ 面板**照旧弹**（闸只**少给卡**、不弹窗）");
+                    if (openE)
+                    {
+                        int shownE = drv.PanelCardViewsAlive();
+                        Check(shownE == 2,
+                              $"★ A1743：面板上**摆了 2 张**（「不使用进攻卡」+ SO 槽 0；原版 SO 槽 1/2 要 25/45 级"
+                            + $" ⇒ 被**丢掉**；实得 {shownE} 张）"
+                            + "｜🧨 改坏法：面板那句换回未筛的 `OffensiveCards.Choices` ⇒ 数到 4");
+                        drv.SimulateChoosePick(1);            // 下标 1 = 闸过那份里的 SO 槽 0
+                        drv.SimulateChooseDone();
+                        Check(drv.Ctx.OffensiveSlotIdx == 0,
+                              $"★ A1743：面板选中的**落进记录的是 SO 槽号 0**（实得 {drv.Ctx.OffensiveSlotIdx}）"
+                            + " —— 面板下标 → `c.idx` 这条映射是通的（发出去的网络包/录像用的也是 `c.idx`）");
+                        // 🔴 **补回 17·1 丢掉的那半覆盖**：17·1 现在锁了「本机后手」（走防御那扇）⇒
+                        //   **`OnOffensiveDone` 那条 `ClearEnvPickViews()`** 不再被它跑到 ⇒ 这里接上
+                        //   （判据与 17·1 同一条：原版 `ChooseCardMenu.ProcessChooseDone` 是**隐藏 + 销毁两件都做**）。
+                        Check(!drv.Choose.Visible, "★ A1743：进攻面板点「继续」之后**关了**");
+                        int leftE = drv.PanelCardViewsAlive();
+                        Check(leftE == 0,
+                              $"★ A1743：进攻面板那批卡视图**一张都不剩**（现存活的 {leftE} 张）"
+                            + "｜🧨 改坏法：删掉 `OnOffensiveDone` 里的 `ClearEnvPickViews()` ⇒ 本格红"
+                            + "（17·1 已改锁后手 ⇒ 它不再覆盖这半，本格是**唯一**守这条的）");
+                        int leftAllE = drv.PanelCardViewsAlive(false);
+                        Check(leftAllE == 0,
+                              $"★ A1743：连**藏起来的**也没有（含 inactive 共 {leftAllE} 张）—— 原版是**销毁**、不是只隐藏");
+                    }
+                    ForgeData.SetLevelForTest(poolE, savedLvE);
+                    drv.offensiveCardEnabled = savedCardE;
+                    drv.offensivePhaseEnabled = savedPhaseE;
+                    drv.mulliganEnabled = savedMulE;
+                    drv.defensiveCardPanelEnabled = savedDefE;
                 }
 
                 bool saved = drv.mulliganEnabled;

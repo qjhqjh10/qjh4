@@ -2162,6 +2162,29 @@ namespace CardPresentation
         //    放那儿这些站点**一处也够不着**，等于再多一层皮。`MenuDraw.Hit` 才是它们**本来就在用**的公共件。
         //    ⇒ 这是把「一份」放在**能覆盖全工程**的那一层，不是另起一套。
 
+        /// <summary>这一颗命中区**当时**档不合法吗（`qShade >= qContentMin`）。
+        /// `why` = 当时那条告警的正文（原样带出来，省得断言只报一个布尔）。
+        /// ⚠️ 已销毁的节点 `node != null` 就是假 ⇒ 直接返回 false，不会去 `GetComponent`。</summary>
+        public static bool ShadeHitTierWarned(Transform node, out string why)
+        {
+            why = "";
+            if (node == null) return false;
+            var w = node.GetComponent<ShadeHitTierWarn>();
+            if (w == null) return false;
+            why = w.Why;
+            return true;
+        }
+        /// <summary>这个节点**是不是 `ShadeHit` 建的**（自检用 —— 见 `ShadeHit` 的注释）。
+        /// 🔴 **签名与语义一字未改**（5 份自检宿主各有一个包装，**2026-10-07（A77⑬⑥）起那 5 份包装已收口到
+        /// 本文件的 `MenuDraw.CheckShadeRule`** —— 唯一调用点就是它，⛔ 那 5 个旧行号**不再记**：行号天天漂，
+        /// 要看现跑 `grep -rn "CheckShadeRule" --include=*.cs .`）；
+        /// 只有**判法**从「查一张全局表」换成「看节点自己身上有没有那颗标记」。
+        /// ⚠️ 已销毁的节点 `node != null` 就是假（Unity 那一套）⇒ 直接返回 false，不会去 `GetComponent`。</summary>
+        public static bool WasShadeHit(Transform node)
+        {
+            return node != null && node.GetComponent<ShadeHitMark>() != null;
+        }
+
         /// <summary>**压暗层（「点窗外关窗」）的命中区** —— 全工程唯一一份（2026-10-04 A25⑥ 收口）。
         /// <paramref name="qShade"/> = **该窗压暗层自己那一档**（例如 `BoosterInfoPopup.QShade`），
         /// <paramref name="qContentMin"/> = **本窗内容命中区里最低的那一档**（用来现场核那条不变量）。
@@ -2180,40 +2203,11 @@ namespace CardPresentation
         /// `ShadeHitTierWarns`（**全程累积、从不复位**），而 21 条断言各自都读它 ⇒
         /// **任一窗报警会让后面每一条都红、文案却指着别的窗**（审查原话：「文案却指错窗」）。
         /// 现在记在**那颗命中区节点自己身上**（`ShadeHitTierWarn` 标记组件）⇒ 查询天然按窗、
-        /// 也没有任何跨窗/跨次的状态。⚠️ 全工程不变量不变：**每扇窗各自都必须是「没报过」**。</para></summary>
-        sealed class ShadeHitTierWarn : MonoBehaviour { public string Why; }
-
-        /// <summary>这一颗命中区**当时**档不合法吗（`qShade >= qContentMin`）。
-        /// `why` = 当时那条告警的正文（原样带出来，省得断言只报一个布尔）。
-        /// ⚠️ 已销毁的节点 `node != null` 就是假 ⇒ 直接返回 false，不会去 `GetComponent`。</summary>
-        public static bool ShadeHitTierWarned(Transform node, out string why)
-        {
-            why = "";
-            if (node == null) return false;
-            var w = node.GetComponent<ShadeHitTierWarn>();
-            if (w == null) return false;
-            why = w.Why;
-            return true;
-        }
-        /// <summary>🔴 **2026-10-05（A71④）换判法**：原来这里是一张 `static HashSet&lt;Transform&gt;`，
-        /// **只 `Add`、从不 `Clear`** ⇒ 窗口反复重建时 ① 无上限增长、② 长期持住**已销毁对象的托管壳**、
-        /// ③ `instanceID` 复用时会**假阳性**（新节点被判成「ShadeHit 建的」）。
-        /// 现在改成**挂在节点自己身上的一颗空标记**：节点跟着窗口一起销毁 ⇒ 上面三条一次都不成立
-        /// （不再需要 `Clear`，也不再有一张全局表）。
-        /// ⚠️ `ShadeHit` 的**既有行为一字未改**（那一句 `if (qShade >= qContentMin) …` 仍然那样告警；
-        /// 🔴 只有计数那一半换了载体：`ShadeHitTierWarns++` → 往同一颗节点上挂 `ShadeHitTierWarn`）。</summary>
-        sealed class ShadeHitMark : MonoBehaviour { }
-        /// <summary>这个节点**是不是 `ShadeHit` 建的**（自检用 —— 见 `ShadeHit` 的注释）。
-        /// 🔴 **签名与语义一字未改**（5 份自检宿主各有一个包装，**2026-10-07（A77⑬⑥）起那 5 份包装已收口到
-        /// 本文件的 `MenuDraw.CheckShadeRule`** —— 唯一调用点就是它，⛔ 那 5 个旧行号**不再记**：行号天天漂，
-        /// 要看现跑 `grep -rn "CheckShadeRule" --include=*.cs .`）；
-        /// 只有**判法**从「查一张全局表」换成「看节点自己身上有没有那颗标记」。
-        /// ⚠️ 已销毁的节点 `node != null` 就是假（Unity 那一套）⇒ 直接返回 false，不会去 `GetComponent`。</summary>
-        public static bool WasShadeHit(Transform node)
-        {
-            return node != null && node.GetComponent<ShadeHitMark>() != null;
-        }
-
+        /// 也没有任何跨窗/跨次的状态。⚠️ 全工程不变量不变：**每扇窗各自都必须是「没报过」**。</para>
+        /// <para>🔴 **2026-10-13 订正（A1506 拆文件那一批）**：上面这一整段 doc **原来挂错了位置** ——
+        /// 它一直贴在 `sealed class ShadeHitTierWarn` 的头上（而它通篇讲的是**本方法**的
+        /// `qShade` / `qContentMin`，不是那个标记组件）⇒ 拆文件时当场发现，**挪回本方法头上**；
+        /// `ShadeHitTierWarn` 类现在有它自己的一句。⛔ 这不是语义订正，**代码一字未改**。</para></summary>
         public static Transform ShadeHit(Transform dark, PxRect r, int qShade, int qContentMin,
                                          System.Action onClick, string name = "CloseHit", PxRect? clip = null)
         {
@@ -2260,16 +2254,6 @@ namespace CardPresentation
         //      以及 `Press()` 那条「连高亮图也没有 ⇒ 按下画面什么都不变」的告警。
         //      ⇒ 走 `WindowButton.absorbOnly`（那四个入口 + `Click` 全直接返回：零视觉、零告警）。
 
-        /// <summary>`q &lt;= qShade` 时的告警正文（**按窗记账**：挂在**那颗吸收层节点**上，照 `ShadeHitTierWarned` 的形状）。
-        /// 🔴 **2026-10-09（A221④）**：原来是一个全局累积计数器 `AbsorbTierWarns`（**从不复位**）——
-        /// 任一窗告警会让**后面每一条** `CheckAbsorbRule` 都红、文案却指着别的窗（与 A77⑬⑦ 修掉的
-        /// `ShadeHitTierWarns` 同族；那一轮只点了 `ShadeHit` 那一头，本字段当时没被点）。
-        /// 现在记在节点自己身上 ⇒ 查询天然按窗、也没有跨窗/跨次状态。
-        /// ⚠️ 全工程不变量不变：**每扇窗各自都必须是「没报过」**。
-        /// 什么算不合法：`qContentMin - 1 &lt;= qShade`（该窗**没有空档** ⇒ 吸收层会与压暗层同档/越档，
-        /// 赢家退化成枚举顺序 ⇒ 症状是「点窗内空白处**有时**会关窗」）。</summary>
-        sealed class AbsorbTierWarn : MonoBehaviour { public string Why; }
-
         /// <summary>这一颗吸收层**当时**档不合法吗（`qContentMin - 1 &lt;= qShade`）。
         /// `why` = 当时那条告警的正文（原样带出来，省得断言只报一个布尔）。
         /// ⚠️ 已销毁的节点 `node != null` 就是假 ⇒ 直接返回 false，不会去 `GetComponent`。</summary>
@@ -2282,10 +2266,6 @@ namespace CardPresentation
             why = w.Why;
             return true;
         }
-
-        /// <summary>挂在吸收层节点上的**空标记**（照 <see cref="ShadeHitMark"/> 的形状：
-        /// 节点跟着窗口一起销毁 ⇒ 不需要 `Clear`、也不会有全局表的假阳性）。</summary>
-        sealed class AbsorbMark : MonoBehaviour { }
 
         /// <summary>这个节点**是不是 `Absorb` 建的**（自检「这扇窗的面板吸收了没有」用）。
         /// ⚠️ 已销毁的节点 `node != null` 就是假（Unity 那一套）⇒ 直接返回 false。</summary>
@@ -3162,111 +3142,4 @@ namespace CardPresentation
         }
     }
 
-    /// <summary>🆕 **2026-10-04（A38②）：让「文字裁切」跟着之后的每一次重排走。**
-    ///
-    /// 🔴 **缺口是什么**：`MenuDraw.ClipText` 是**建的时候**裁一刀（TMP 逐字夹顶点 + 按同一仿射改 uv）。
-    ///    之后任何一次 `Label.SetText` / 改字号 / 自动适配带来的重排，TMP 都会**重算 mesh**
-    ///    ⇒ 我们那一刀被抹掉、压在视口边上的字**又画出去了**（**静默**：画面不对、断言也不会响）。
-    ///
-    /// 🔴 **判据（订的是 TMP 自己的事件，不是猜的）**：TMP 在**每次重排完、并且已经把新 mesh 写进 `Mesh` 之后**
-    ///    发一条 `TMPro_EventManager.ON_TEXT_CHANGED(this)`（`Library/PackageCache/com.unity.ugui@…/
-    ///    Runtime/TMP/TextMeshPro.cs:5047-5063`，源码原注释就是 *“Event indicating the text has been regenerated.”*）
-    ///    ⇒ 我们订阅它、只认自己那一个 TMP，收到就**再裁一刀**。
-    ///   ⚠️ **正因为事件是在重排【之后】发的**，重裁拿到的永远是**原始 mesh** ⇒ **不会把软边 alpha 一遍遍乘下去**。
-    ///   ⛔ 别改成「`LateUpdate` 里无脑重裁」—— 那正是会越裁越暗的写法（静默、且只在软边区现形）。
-    ///   🔴 **2026-10-08（A225-②）就地订正（铁律 5）：上面那两句「不会越裁越暗」的理由已经不必再靠它撑了** ——
-    ///     `ClipTmpMesh` 现在写的是**绝对值**（基准 = `TMP_CharacterInfo.vertex_*.color`，
-    ///     见 `BaseCornerAlpha`），**同一代 mesh 里裁几刀结果都一样**（幂等）。
-    ///     ⇒ 「无脑重裁会变暗」这条隐患**从机制上没了**；下面 `Reclip()` 正是靠它才敢随手调。
-    ///     ⛔ 但**别把幂等当许可证**去每帧重裁：那还是白跑一遍逐字循环（没有帧循环的批处理里更没意义）。
-    ///
-    /// 🔴 **2026-10-12（A435①）：本组件不再存「解析后的快照」，存的是【取状态的两个实参】。**
-    ///    裁切状态现在**可以长在视口节点上**（`ViewportClip`）⇒ 光存 `Arm` 那一刻的 `PxRect` 是**取早了**：
-    ///      · 那一格里 `MenuDraw.ClipText` 拿到的形参本来就是 `null`（= 「不显式覆盖」）⇒ 框是**当场解析**出来的，
-    ///        把它冻成快照 = 从此**只认那一刻的父链**；
-    ///      · 于是「保住快照」这条路有两个错法，**都不出声**：节点后挂/后迁 ⇒ **永远不裁**；
-    ///        节点挪了/改尺寸 ⇒ **拿旧框裁**（字被切在错误的位置上）。
-    ///     ⇒ 现在存 `_clipArg` / `_softArg`（= `ClipText` 的**调用方原样传进来**的那两份）+
-    ///       重裁时**从 `_lb` 自己重新 `ViewportClip.Resolve`**（`Resolve` 是纯函数、不返 `null`）。
-    ///     ⚠️ **不是为了「跟新框」**：框的来源**照旧只在两处**（显式形参 / 解析结果），本组件不引入第三份；
-    ///        `Resolve` 的优先级（显式形参非空 ⇒ 赢、连父链都不走）原样保留 ⇒ 旧路径重裁出来的**逐位还是旧框**。
-    ///     ⚠️ 节点态下重裁的结果**只有在节点真的动过**时才与 `Arm` 那一刻不同 —— 那正是要补的那一格。
-    ///
-    /// ⚠️ **本组件的边界（如实写）**：只覆盖 **TMP 那条后端**（`Label` 正常走的那条）。
-    ///    点阵兜底那条**没有事件可订** ⇒ 它仍然只能靠「建完别再改」（那一档只在 TMP 资源缺失时才出现）。
-    /// ⚠️ 批处理里没有帧循环 ⇒ **没有重排事件**：自检别拿它自证（要验就在 `Play` 里点一次，或直调 `MenuDraw.ClipTextNow`）。</summary>
-    public class ClippedTextGuard : MonoBehaviour
-    {
-        Label _lb;
-        TMPro.TextMeshPro _tmp;
-        /// <summary>`ClipText` 的**调用方原样那一份** `clip`（`null` = **不显式覆盖** ⇒ 重裁时解析父链）。
-        /// ⛔ 别改回「`Arm` 那一刻解析出来的 `PxRect`」—— 理由 → 类注释（A435①）。</summary>
-        PxRect? _clipArg;
-        /// <summary>同上，那份软边（解析时由 `Resolve` 决定最终值）。</summary>
-        Vector2 _softArg;
-        bool _on;
-
-        /// <summary>记下「**按什么取裁切状态**」，等下一次重排重新解析 + 重裁。重复 `Arm` 只更新参数、**不重复订阅**。
-        /// 🔴 **参数是 `ClipText` 收到的那两份原样**（`clip` 可空 = 不显式覆盖）；⛔ 别在这里先解析 —— 解析归 `CurClip`。
-        /// ⚠️ 本方法**不碰**网格：重裁与建时那一刀走的是同一个 `ClipTextNow`（幂等，见类注释）。</summary>
-        public void Arm(Label lb, PxRect? clip, Vector2 softPx)
-        {
-            _lb = lb; _clipArg = clip; _softArg = softPx;
-            _tmp = lb != null ? lb.GetComponentInChildren<TMPro.TextMeshPro>() : null;
-            if (_on) return;
-            TMPro.TMPro_EventManager.TEXT_CHANGED_EVENT.Add(OnTextChanged);
-            _on = true;
-        }
-
-        /// <summary>🔴 **按「现在」的裁切状态**算这一刀该落在哪个框里（= 重新走一遍 `ViewportClip.Resolve`）。
-        /// 实参 = `Arm` 记下的那两份（**不是** `Arm` 那一刻解析出来的框）⇒ 显式覆盖仍然覆盖、
-        /// 「不显式覆盖」那一档跟**当下的**父链（节点后挂/挪动都跟得上，见类注释 A435①）。
-        /// 返回 `false` = 这一刻**没有裁切**（没有显式形参、父链上也没有节点）⇒ 调用方**跳过**，
-        /// ⛔ 别拿一个「空矩形」顶上（`ClipTextNow` 的 `PxRect` 是非空的 ⇒ 顶上就等于**把字全裁没**）。</summary>
-        bool CurClip(out PxRect clip, out Vector2 soft)
-        {
-            clip = default(PxRect); soft = default(Vector2);
-            if (_lb == null) return false;
-            var st = ViewportClip.Resolve(_lb.transform, _clipArg, _softArg, default(Vector4));
-            if (!st.RenderClip.HasValue) return false;
-            clip = st.RenderClip.Value; soft = st.Softness;
-            return true;
-        }
-
-        /// <summary>🆕 **2026-10-08（A225-②）**：**按「现在」的位置重裁一刀**（幂等，见类注释的订正）。
-        ///
-        /// <para>🔴 **为什么光有事件不够**：那一刀要落在**文字真正被画的位置**上，而 TMP 的重排与
-        /// 「把文字摆到该在的地方」是**两件事** —— `Label.RefreshBounds()` 会在重排**之后**再挪一次
-        /// TMP 子节点。事件驱动的重裁只能发生在 `ForceMeshUpdate()` 里（= **挪之前**）
-        /// ⇒ 裁出来的渐隐带整体偏「新旧位置之差」（`资料/待办判据_1007.md` 的 A206 记的就是它），
-        /// 实测症状：练习窗卡组格的名字条**一个顶点都没被削**（`MainMenuScene.Run` 那条「卡组名也吃软边」红）。
-        /// ⇒ `Label.RefreshBounds()` 的**末句**调本函数（每一条定版面的路都从那儿收口）。</para>
-        /// <para>⚠️ 它同时是「重排之后**没收到事件**」那种情况的兜底（快照/订阅出任何岔子都不会静默）。</para></summary>
-        public void Reclip()
-        {
-            if (_lb == null) { OnDisable(); return; }      // 标签先没了 ⇒ 自己下岗（同 `OnTextChanged`）
-            // 🔴 A435①：框**当场重新解析**（`CurClip`），⛔ 不是 `Arm` 那一刻冻下来的快照。
-            PxRect c; Vector2 s;
-            if (!CurClip(out c, out s)) return;            // 这一刻没有裁切 ⇒ 没什么可重裁的
-            if (MenuDraw.ClipTextNow(_lb, c, s)) MenuDraw.TextReclipAfterPlace++;
-        }
-
-        /// <summary>摘订阅。⚠️ `DestroyImmediate` 也会走到这里（`MenuDraw.ClearChildren` 批处理下就是它）
-        /// —— 忘了摘的话，静态事件表会一直攥着这块内存（而且它已经不在场景里了）。</summary>
-        void OnDisable()
-        {
-            if (!_on) return;
-            TMPro.TMPro_EventManager.TEXT_CHANGED_EVENT.Remove(OnTextChanged);
-            _on = false;
-        }
-
-        void OnTextChanged(Object obj)
-        {
-            if (_lb == null) { OnDisable(); return; }     // 标签先没了 ⇒ 自己下岗
-            if (obj != _tmp) return;                      // 全局事件：只认自己那一个 TMP
-            PxRect c; Vector2 s;
-            if (!CurClip(out c, out s)) return;           // 🔴 A435①：同 `Reclip()` —— 框当场重解析
-            if (MenuDraw.ClipTextNow(_lb, c, s)) MenuDraw.TextClipReapplied++;
-        }
-    }
 }

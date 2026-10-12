@@ -886,10 +886,15 @@ namespace CardPresentation
             //   `if (!_interactable) { 出声; return; }`（= 原版 `Selectable.OnPointerClick` 的第一句）。
             //   同族先例（**逐字照它的两条纪律**）：`Shell/CampaignRewardWindow.cs:820-849` ——
             //     ① 存量实现只有一处（`SoftDisabled` 与 `Interactable` 共用 `RefreshGray`），我们转调它；
-            //     ② 🔴 **必须排在 `Bind` 【之后】**：`GrayTargets()` = `target` + 子树，而 `target` 是
-            //        `Bind` 才设成那颗**画出来的**底图的 —— 排在 `Bind` 之前，头一次 `RefreshGray()`
+            //     ② 🔴 **必须排在 `Bind` 【之后】**：`GrayTargets()` = **四组去重**（`_nine` + `target`
+            //        + 本钮子树 + `TintOn` 那几颗；现读出处 `Shell/WindowButton.cs` 的 `GrayTargets()`），
+            //        而 `target` 是 `Bind` 才设成那颗**画出来的**底图的 —— 排在 `Bind` 之前，头一次 `RefreshGray()`
             //        只灰到那颗**透明的命中区 quad**，而 `GrayedForTest` 随即为真 ⇒ 后面再设都早退
             //        ⇒ **画面上一像素都不变**（静默）。`Hit(...)` 内部就 `Bind`，所以这一句放在它后面即可。
+            //        ⚠️ **2026-10-13 更正（铁律 5）**：本行原来写「`GrayTargets()` = `target` + 子树」——
+            //        **不成立**：`A1719`（2026-10-13）加了第三组 `_nine`（九宫格那 9 块）、`A1725` 加了
+            //        第四组 `_tqExtra`（`TintOn` 指定的那几颗）⇒ 现读口径 = 上面那**四组**。
+            //        ⚠️ 本窗这几颗钮只走 `Bind`（**一组**）⇒ **行为一个字没变**，改的只是措辞。
             //   ✅ 顺带正确：`Shell/PointerLayer.cs` 的命中收集读的是 `WindowButton`，
             //      而 `Click()` 自己挡在派发之前 ⇒ 点上去**连派发都没有**（并出声，见 `Click()`）。
             //

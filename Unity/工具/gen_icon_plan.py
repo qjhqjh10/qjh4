@@ -36,7 +36,8 @@
 🔴 **`A1626`（2026-10-12）**：退出码非 0 时**一个字节都不写** —— 「非 0」必须等于「没产物」。
    触发条件 = `missing`（sprite 名盘上没有）· `unresolved`（没认出来的记号）· `conflicts`（同字段
    token 互相包含 ⇒ 运行时会画两枚）· `why_conflict`（两条来源 sprite 打架）· `PREFIX_ABSORB` 死条目
-   / 接手 token 不在计划里 · `FACE_ICON_COUNT` 卡面枚数对不上。**改前**这一段排在 `if WRITE:` 之后
+   / 接手 token 不在计划里 · `FACE_ICON_COUNT` 卡面枚数对不上 · `A1703` 逐词三分与冻表不一致 /
+   位置锁被破 / 【灭自证】控制臂没变红。**改前**这一段排在 `if WRITE:` 之后
    ⇒ 退出码 1 时**照样落盘**（实测：HEAD 版跑一个 rc=1 的输入，两份 json 都写出来了）。
 """
 import json
@@ -648,12 +649,16 @@ for _stun_cid, _stun_src, _stun_png in _STUN_CARDS:
 #    ⚠️ 还原表**不是唯一入口**：`GSC64` 那一张不在它里面（它把卡名写成 `Telepathic Domination`、
 #    我们数据里是 `Telephatic Domination` —— **我们那边少了一个 `a`**），本批亲读卡图定的（见 ⑥）。
 #
-# ③ 🔴 **「词在正文里、卡面却【没画】图标」的 3 张卡本批【有意不补】**
+# ③ 🔴 **「词在正文里、卡面却【没画】图标」的卡本批【有意不补】**
 #    （补了 = 给卡面加上原版根本没有的东西 = 工程红线；逐张亲读成品图定的）：
-#    · `GOF90 Beastboss on Squigosaur`（`Blood Thirst`）—— 亲读
-#      `Orks/3部队/Warpforge_16_Beastboss-on-Squigosaur.png`：卡面
-#      `〔狼头〕Stomp. Friendly Beasts cost 1 less and have "〔橙红骷髅 + 准星〕Slay: Gain Blood Thirst this turn"`，
-#      `Blood Thirst` 前面**只有 `Slay` 那一枚**、**没有嗜血徽记**（还原表 `:628` 同判、未双写）。
+#    · ~~`GOF90 Beastboss on Squigosaur`（`Blood Thirst`）~~ 🔴 **2026-10-13（`A1713`）更正：
+#      这一条【被推翻】了 —— 卡面**印了**图标** ⇒ 见下面 `_GOF90_BT_WHY` 那一段（已按卡补上）。
+#      **原记载（留痕）**：「`Blood Thirst` 前面**只有 `Slay` 那一枚**、**没有嗜血徽记**
+#      （还原表 `:628` 同判、未双写）」—— **两次亲读直接打架，按卡图判 ⇒ 本轮（2026-10-12/13 那次
+#      裁图 3× 放大）为准**：`Warpforge_16_Beastboss-on-Squigosaur.png` 卡面那一行是
+#      `have "〔橙底骷髅+准星〕Slay: Gain 〔红底银环白獠牙圆徽〕Blood Thirst this turn"`
+#      —— **`Blood Thirst` 左侧确实印着那枚獠牙圆徽**。**代价**：那一处改前我们**少画 1 枚**
+#      （真缺陷，**`A1713` 已修** —— 本段这一条现在只剩**记载**的价值）。
 #    · `SAU55 Solar Pulse`（`Blind`）—— 亲读 `Necron/4计策/Warpforge_55_Solar-Pulse.png`：卡面
 #      `Blind all enemies, and they lose 〔眼〕Stealth and 〔迷彩〕Camouflage` —— `Blind` 前**一枚图标都没有**
 #      （还原表 `:555` 同判、未双写）。
@@ -890,6 +895,33 @@ for _f8_cid, _f8_en, _f8_zh, _f8_sprite, _f8_src, _f8_png in _FAMILY8:
         BARE_TOKEN_BY_CARD[(_f8_cid, _f8_zh)] = (
             _f8_sprite, _f8_why + f"中文侧同一条（`descZh` 里写「{_f8_zh}」，位置与英文那枚一一对应）。")
 
+# ── 🆕 2026-10-13（`A1713`）：`bloodThirst` 这一族的**第 8 张** —— `GOF90 Beastboss on Squigosaur` ──
+# 🔴 **为什么它单独一条、不进 `_FAMILY8`、也不进 `BARE_TOKEN_BY_RULE`**：
+#    · `_FAMILY8` 那 7 张是**恒带**的词；`Blood Thirst` **不是恒带**（见 `BARE_TOKEN_BY_RULE` 上方
+#      那一段的实测读数），按词规则会把该词的**别的位置**也画上 ⇒ 只能按卡。
+#    · 本卡那一处落在**引号里的被授予能力**（`have "Slay: Gain Blood Thirst this turn"`）⇒ 句中、
+#      句首关键词那一支（要求行首 / `. ` / `; ` 之后）**扫不到** ⇒ 也只能按卡。
+# **判据 = 成品卡图亲读**（铁律 7，第一权威）：`d:/2/Warpforge部队卡片/Orks/3部队/
+#    Warpforge_16_Beastboss-on-Squigosaur.png`（可复查裁图 `_tmp_view/a1703_crops/MINE_GOF90_bt.png`，
+#    裁 x120-820 / y780-1000，3×）——卡面那一行是
+#    `have "〔橙底骷髅+准星徽〕Slay: Gain 〔红底银环白獠牙圆徽〕Blood Thirst this turn"`
+#    ⇒ **`Blood Thirst` 左侧确实印着那枚獠牙圆徽**（= `Resources/Art/traits/bloodThirst.png`）。
+# 🔴 **转录表在这一处是【假阴性】**：`资料/卡表核对_卡图提取/_还原效果文字.md:628` **没写双写**
+#    ⇒ `A1703` 的逐词复算把 `Blood Thirst` 算成「不是恒带、反例 = `Beastboss on Squigosaur`」——
+#    **那是转录表的读数、不是卡面的读数**（卡面上有图标）。本表以**卡面**为准（`A1703` 的冻表里
+#    那一行另有「亲读更正」标注，见 `A1703_READ_CORRECTED`）。
+# ⚠️ **改前实测**：本卡 `desc` 的计划里**只有 `Slay` 一条**、`bloodThirst` 一枚都没有 ⇒
+#    **这一条是补出来的、不是恒绿**（与 `_FAMILY8` 那批「只补表、判据一字未动」的情形不同）。
+_GOF90_BT_WHY = ("卡面 `Blood Thirst` **前面**那枚「尖牙」（= `Resources/Art/traits/bloodThirst.png`）"
+                 "—— 判据 = 成品卡图亲读 `d:/2/Warpforge部队卡片/Orks/3部队/"
+                 "Warpforge_16_Beastboss-on-Squigosaur.png`（裁图 `_tmp_view/a1703_crops/MINE_GOF90_bt.png`）："
+                 "`have \"〔橙底骷髅+准星徽〕Slay: Gain 〔红底银环白獠牙圆徽〕Blood Thirst this turn\"`。"
+                 "⚠️ 这一处在**引号里的被授予能力**（句中）⇒ 句首关键词那一支扫不到，**只能按卡**（`A1713`）。"
+                 "⚠️ 转录表 `_还原效果文字.md:628` 在这一处**漏记了图标**（假阴性）—— 本表以卡面为准。")
+BARE_TOKEN_BY_CARD[("GOF90", "Blood Thirst")] = ("bloodThirst", _GOF90_BT_WHY)
+BARE_TOKEN_BY_CARD[("GOF90", "嗜血")] = (
+    "bloodThirst", _GOF90_BT_WHY + "中文侧同一条（`descZh` 里写 `嗜血`，与英文那枚逐处对应）。")
+
 # ── 🆕 2026-10-10（`A1400`）：同类【第 9 个】词 —— `Invulnerable`（「蓝紫圆 + 白骷髅 + 横条」）──
 # 🔴 **全部读数 / 逐卡判据 / 误伤面两层验证**：`资料/普查产出_第十四会话/W_A1400_Invulnerable.md`。
 #
@@ -1017,9 +1049,20 @@ for _inv_cid, _inv_src, _inv_png in _INVULNERABLE:
 #
 # **不改按词的（如实留按卡）** —— 这三条**不是恒带**，按词会把卡面**多画一枚原版没有的图标**：
 #    · `Blood Thirst` / `嗜血` —— 8 张里 7 张带（`GOF90 Beastboss on Squigosaur` 卡面**确实没画**）
+#      🔴 **2026-10-12 就地更正（铁律 5）：上面这半句是【错的】** —— 主对话裁图亲读
+#      `d:/2/Warpforge部队卡片/Orks/3部队/Warpforge_16_Beastboss-on-Squigosaur.png`
+#      （裁 x120-820 / y780-1000，3×；可复查图 `_tmp_view/a1703_crops/MINE_GOF90_bt.png`）：
+#      卡面 `have "〔橙底骷髅+准星徽〕Slay: Gain 〔红底银环白獠牙圆徽〕Blood Thirst this turn"` ——
+#      **`Blood Thirst` 左侧确实印着图标**（红底银环白獠牙圆徽，与 `Slay:` 左那枚同款同尺寸）。
+#      **错因**：上一轮那条「确实没画」是**另一次亲读**得出的，本轮亲读把它推翻了（两次亲读直接打架，
+#      按卡图判 ⇒ 本轮为准）。⚠️ 连带：转录表
+#      `资料/卡表核对_卡图提取/_还原效果文字.md` 在那一处**也漏记了图标** ⇒ 该表**至少有这一处假阴性**。
+#      ✅ **2026-10-13（`A1713`）已按卡补上** —— `BARE_TOKEN_BY_CARD[("GOF90", "Blood Thirst")]`
+#      / `("GOF90", "嗜血")`（见 `_GOF90_BT_WHY` 那一段），**那一枚从现在起画出来了**。
+#      ⛔ 但它**仍然不进本表**（`Blood Thirst` 不是恒带 ⇒ 按词会给别的位置多画，见本段开头）。
 #    · `Blind` / `失明`         —— 6 张里 5 张带（`SAU55 Solar Pulse` 同）
 #    · `Relentless`             —— 0/1（`SAU3` 卡面上那个词是**天赋名** `Relentless March`）
-#    ⇒ 这三条仍在 `_FAMILY8` / 不建条目（判据见那个块 ③）。
+#    ⇒ 这三条仍在 `_FAMILY8` / 不建条目（判据见那个块 ③）—— ⚠️ `Blood Thirst` 那一条已改成**按卡**补。
 #
 # 🔴 **两道守卫**（`main()` 里那 9 行；两道都是"**这一枚图标已经有主**，规则别插手"）——
 #    缺了它们 = 同一处**画两枚**（静默、只在个别卡上现形）：
@@ -1698,6 +1741,20 @@ FACE_ICON_COUNT = [
     ("ASH75", "descZh", 3, "中文同英文逐处对应（`[攻击]`/`①`/`眩晕`）⇒ **3 枚、一枚信仰都不许有**。"
                            "⚠️ **改前这条是 4 ≠ 3**（多出 `[能量]`→`faith`，见 `ASH75_FAITH_TOKENS` 那一节）"
                            "—— 本表就是抓住它的那条判据（`A1683`）"),
+    # 🆕 2026-10-13（`A1707`）：这一行**改前是 2 ≠ 1**（多出来的那一枚是天赋名里的 `Shield`）。
+    ("TAU42", "desc", 1, "卡面 `Tau/3部队/Warpforge_42_Riptide-Battlesuit.png` 亲读 **3** 枚 = 段首 "
+                         "`〔盾〕Shield.` + `〔准星〕Long Range.`（2 枚，由 `KeywordSegment` 补）"
+                         "+ 正文 `〔卷轴〕Talent:` 1 枚 ⇒ **正文只有 1 枚**"
+                         "（`Shield Generator` 那里**没有盾徽**，裁图 `_tmp_view/a1703_crops/Z2_TAU42.png`）"),
+    ("TAU42", "descZh", 3, "中文 3 枚**全在正文里**（`护盾。远射。天赋：护盾发生器` —— 段首那两枚是我们自己的"
+                           "中文字、`KeywordSegment` 不再补），与英文那 1 枚逐处对应"
+                           "（`护盾发生器` 里那个「护盾」**不画**：卡面 `Shield Generator` 处没印）"),
+    # 🆕 2026-10-13（`A1713`）：这一行**改前是 1 ≠ 2**（少掉的那一枚是 `Blood Thirst`）。
+    ("GOF90", "desc", 2, "卡面 `Orks/3部队/Warpforge_16_Beastboss-on-Squigosaur.png` 亲读 **3** 枚 = "
+                         "段首 `〔狼头〕Stomp.` 1 枚（由 `KeywordSegment` 补，`Stomp` 在 `keywords` 数组里）"
+                         "+ 正文 2 枚（`〔骷髅+准星〕Slay:` / `〔獠牙圆徽〕Blood Thirst`，裁图 "
+                         "`_tmp_view/a1703_crops/MINE_GOF90_bt.png`）"),
+    ("GOF90", "descZh", 2, "中文同英文逐处对应（`斩杀：本回合获得嗜血` 两枚，段首 `践踏。` 另由 `KeywordSegment` 补）"),
 ]
 
 
@@ -1989,6 +2046,10 @@ EXTRA_VOCAB = ["Energy", "Spirit Stone", "Spirit Stones", "Quest Point", "Quest 
 #        **恒带**（N/N）：`Vulnerable` 14/14 · `Hunt Mark` 22 张 25 处/25 · `Sabotage` 14/14 ·
 #        `Sniper` 13/13 · `Fast` 5/5；
 #        **不是恒带**：`Blood Thirst` 10 张里 9 张带（`GOF90 Beastboss on Squigosaur` 卡面**确实没画**）·
+#          🔴 **2026-10-12 更正**：`GOF90` 那半句**错** —— 卡面**印了**图标（亲读证据见上面 `:1019` 那一段的更正）。
+#          ✅ **2026-10-13（`A1713`）已按卡补上**（`BARE_TOKEN_BY_CARD[("GOF90", "Blood Thirst")]`）。
+#          ⚠️ **但别把它推广成「该词恒带」** ——
+#          「10 张里 9 张带」这个分母是**卡池**，本轮只验了 `GOF90` 这一张；**其余 9 张本轮没逐张核**。
 #        `Blind` 6 张里 5 张带（`SAU55 Solar Pulse` 同）· `Relentless` 0/1（卡面那个词是**天赋名**）。
 #        ⇒ 前者按卡补、后者**如实不补**（详见那个块的 ③）。
 #        **判不了就不画** —— 宁可少画，不给错图标（工程红线）。
@@ -2334,6 +2395,316 @@ def dump_plan(plan):
     return cards
 
 
+def _A1707_IN_PROPER_NOUN(text, word):
+    """🆕 2026-10-13（`A1707`/`A1717`）：这个词在**本字段里**有哪一处**后面紧跟另一个首字母大写的词**吗？
+
+    = 它有一次是某个**多词专有名词**的一部分（`Shield Generator` / `Stealth Drone`）⇒ 卡面那一处
+    **只印词、不印徽记** ⇒ 按词规则**不许**在这个字段上画（守卫④，见 `main()` 里那一段）。
+
+    ⚠️ **判据形状 = 「同一个词后面紧跟【同一行内】另一个 `[A-Z][a-z]` 词」**（`[ \\t]+`，⛔ **不是任意空白**）——
+    全池实测（`BARE_TOKEN_BY_RULE` 的 token × 1126 张 × 2 字段）满足它的**只有 3 处**：
+    · `TAU42` `Talent: Shield Generator`（`A1707`，**改前真多画 1 枚**）
+    · `TAU33` `Companion 2: Stealth Drone`（本表 ② 那条反例，当时靠守卫③躲开）
+    · `UM_Antaro_Chronus` `give it Flank` **换行** `Talent: Spear of Macragge` —— 🔴 **这一处是【假阳性】**，
+      `Flank` 那里是**真关键词**（换行只是段界）⇒ **判据必须是 `[ \\t]+`、不能含换行**
+      （本批实测踩过：写成含换行的空白类时 `Flank` 的规则命中 47→46、**静默少画一枚**）。
+    ⚠️ **判「有任意一处」而不是「每一处」**：运行时的 `Rewrite` 是**全局** `s.Replace(token, tag)`
+    ⇒ 一个 token 会把本字段**所有**出现一起换掉，**没法只画其中的关键词那一处**。
+    真出现「同一个词这里该画、那里不该画」的卡，**要给它换成带上下文的逐卡 token** ——
+    先例 = `AM29 Primaris Psyker` 的 `Shield to`（`_A1613_GAP` 那一块），那是**本仓既定做法**。
+    ⚠️ **调用点之前没有匹配对象可用**：那条规则循环写的是 `if _t not in text`（**纯子串判据、没有 `m`**）
+    ⇒ 这里自己 `finditer`；⛔ **别拿循环外残留的 `m`** —— 那会变成「看上一轮循环绑到谁」的**静默 bug**
+    （本批实测踩过：`Shield` 那一处当场没生效，而 `Stealth` 那一处**碰巧**生效了）。
+    """
+    return any(re.match(r"[ \t]+[A-Z][a-z]", text[m.end():])
+               for m in re.finditer(re.escape(word), text))
+
+
+# ══════════════════════════════════════════════════════════════════════════════════════
+# 🆕 2026-10-13（`A1703`）：**逐词图标表（三分）+ 一条机械断言** ——「防漂移」，不是「改实现」
+# ══════════════════════════════════════════════════════════════════════════════════════
+# **它解决什么问题**
+#   原版那两个开关（`CardTrait._hasIcon` / `_isInPlayIcon`）**本地取不到**（`A1612`）⇒ 我们今天是拿
+#   「**按词规则**」顶的（`BARE_TOKEN_BY_RULE` + `KEYWORD_SCAN`；`Core/Badges.cs:318-346` 如实标注
+#   「这不是原版读数」）。而**按词规则唯一合法的形状**是：该词**恒带**图标。
+#   若某个词「有时带、有时不带」，按词规则**一定**在某个位置多画一枚。
+#
+# **判据（本表的来源，⛔ 别推翻重查）**
+#   = `资料/卡表核对_卡图提取/_还原效果文字.md`（29 个子代理 2026-09-13 逐张开原版卡图抄的）
+#     的**双写**：卡面写「图标 + 词」⇒ 转录里就是 `Word Word` / `WordWord`
+#     （`工具/restore_card_icons.py` 的占位符 → 词）。**同一个词连着出现两次 = 那一处印了图标。**
+#   ⚠️ 「双写」有**三种写法**，检出器必须都认（2026-10-13 补全；判据与实现见下面
+#      `A1703_DOUBLE` / `A1703_DOUBLE_TIGHT` / `_a1703_normalize` 那三段的注释）：
+#      ① 单 token 对折 `FlyingFlying` · ② 有空格 `Stun Stun` · ③ **无空格多词** `Dark PactDark Pact`。
+#   ⇒ 逐词算 `occ`（转录里该词出现次数）/ `ico`（落在双写区间里的次数）：
+#     `ico == occ` ⇒ **恒带**（可写成按词规则）· `ico == 0` ⇒ **从不带图标** ·
+#     其余 ⇒ **不是恒带，必须逐卡定**（每种恰好 1 张反例）。
+#
+# 🔴 **本件的定位 = 防漂移，不是「改实现」**（现状基本对）：
+#   ① **卡表 / 转录表一改** ⇒ 三分结果变 ⇒ 当场红（下面 `a1703_classify()` 现场重算，与冻表逐词比）；
+#   ② **有人把规则的触发位放宽**（例如从「句首 + 收尾符」改成「只要出现就画」）⇒ 那 11 个「不是恒带」
+#      的词会立刻在**它们不该画的位置**冒出图标 ⇒ 由 `A1703_POSITION_LOCK` 当场红。
+# ⚠️ **诚实边界**（⛔ 不许当已核过）：
+#   · 本表的判据是**第二手的转录表**，不是逐张亲读的 1375 张卡图；转录表**已被证明至少有一处假阴性**
+#     （`GOF90` 的 `Blood Thirst`，见上面 `_GOF90_BT_WHY`）⇒ **别拿本表去改卡表数据**。
+#   · 「双写」检出器**检不出独立图标**（付费前缀 `2 [Spirit Stone]`、数值圈 `①`、拳/枪徽记）——
+#     那些本来就不带词，走 `TOKEN_BY_RULE` / `BARE_TOKEN_BY_CARD`，**不在本表范围**。
+#   · 只对**英文卡面**成立（原版没有中文表 ⇒ 中文那半是我们自己译的）。
+#
+# **① 恒带（46 种）⇒ 写成【按词规则】是合法的**（小写化的词；大小写两种写法在本表合并）
+# 🔴 **2026-10-13：44 → 46** —— 检出器补上「无空格多词双写」那一支之后，下面两词**新进本类**
+#    （它们本来就在 `A1703_EXTRA_VOCAB` 里，只是 `occ` 恒 0 ⇒ 连分类都进不去）：
+#    · `dark pact` —— 转录 **38 处双写全是无空格写法** ⇒ 现算 `occ=ico=76`（76=38×2）、反例 0 张；
+#    · `can't attack` —— `Concealed Explosives` 一处 `Can't AttackCan't Attack` ⇒ 现算 `occ=ico=2`。
+#    ⚠️ **「恒带」是【转录表口径】**（转录里每次出现都在双写区间里），**不等于「卡面上没有任何例外」**：
+#    `dark pact` 在**卡面**上还有 3 处那枚徽记由别的记号画（`❄` / `[Chaos]`，见 `A1623` 的
+#    `DARKPACT_ALREADY`）—— 那是**画哪枚**的事，与本表「转录有没有标」不冲突。
+A1703_ALWAYS = {
+    "agenda", "artifice", "backlash", "blast", "camouflage", "can't attack", "concussive",
+    "cruelty", "dark pact", "destroyer", "duty", "ecstasy", "ephemeral", "fast", "ferocity",
+    "flank", "flying", "hunt mark", "invulnerable", "long range", "markerlight", "mob",
+    "oath", "pack", "penitence", "pray", "rally", "regeneration", "regiment", "sabotage",
+    "sentry", "shuriken", "slay", "sniper", "stimulation", "stomp", "stun", "swarm",
+    "synapse", "teleport", "tide", "unstable", "uprising", "vanguard", "vulnerable",
+    "waystone",
+}
+# **② 不是恒带（11 种 —— 每种恰好 1 张反例）⇒ 必须逐卡定，按词规则一定错。**
+#    值 = **卡面只印词、没印图标**的那张卡的**转录表卡名**（不是我们的卡 id —— 这一半的判据是转录表本身）。
+A1703_SOMETIMES = {
+    "ambush":       {"Lhykhis"},              # `Euphoric Ambush`… 天赋名（`ASH_Lhykhis`）
+    "armour":       {"Honour Guard"},         # `Adjacent units have Armour 1` —— 光环给别人的
+    "blind":        {"Solar Pulse"},          # `Blind all enemies` —— 动词用法
+    "blood thirst": {"Beastboss on Squigosaur"},  # 引号里的被授予能力（🔴 转录表这一处是**假阴性**）
+    "codex":        {"Roboute Guilliman"},    # 天赋名 `Author of the Codex`
+    "companion":    {"Commander O'Maisos"},   # 天赋名 `Drone Companion`
+    "remnant":      {"Undying Legions"},      # 普通名词 `becomes a Remnant`
+    "shield":       {"Riptide Battlesuit"},   # 天赋名 `Shield Generator`（= `A1707`）
+    "stealth":      {"Stealth Shas'ui"},      # 单位名 `Stealth Drone`
+    "strike":       {"Lord Kaphrael"},        # 天赋名 `Euphoric Strike`
+    "talent":       {"Immortal Pride"},       # 普通名词 `your Warlords' Talent costs 1 less`
+}
+# **③ 从不带图标（9 个键 / 6 类）** —— 卡面只印词、一次都没印过图标。
+#    ⚠️ 这 9 个键是**词形**去重后的（`Spirit Stone(s)` / `Quest Point(s)` / `Rage`+`relentless` 的大小写），
+#       对应 2026-10-12 那张表的 6 类：`Melee` · `Ranged` · `faith` · `Spirit Stone` · `Quest Point` ·
+#       `Rage`+`Relentless`。
+A1703_NEVER = {
+    "melee", "ranged", "faith", "spirit stone", "spirit stones",
+    "quest point", "quest points", "rage", "relentless",
+}
+# 🔴 **转录表已知的假阴性（亲读更正）**：这几处的模型读数**不算数**，以**成品卡图**为准。
+#    它们**仍然留在上面的三分里**（那一半比的是转录表与冻表，保持可复算）；
+#    它们「我们该不该画」由 `A1703_MUST_PAINT` / `FACE_ICON_COUNT` 那一侧管。
+A1703_READ_CORRECTED = {
+    "blood thirst": "🔴 转录表 `_还原效果文字.md:628` **漏记了图标**（没写双写）⇒ 它把 `Blood Thirst` "
+                    "算成「不是恒带、反例 = `Beastboss on Squigosaur`」。**卡面那一处其实印着**"
+                    "（亲读 `Orks/3部队/Warpforge_16_Beastboss-on-Squigosaur.png`，裁图 "
+                    "`_tmp_view/a1703_crops/MINE_GOF90_bt.png`）⇒ 我们**要画**（`A1713`，见 `A1703_MUST_PAINT`）。",
+}
+# **词表**（与 2026-10-12 那份复算脚本一致：`_tmp_view/a1703_audit4.py` 的 `EXTRA`）——
+#    另加**盘上 78 张切片的名字**、以及**转录里所有双写短语**（见 `a1703_classify()`）。
+A1703_EXTRA_VOCAB = ["Berzerk", "Frenzied", "Loot", "Rage", "Relentless", "Resolution",
+                     "Mark of Chaos", "Mark of Khorne", "Mark of Nurgle", "Mark of Slaanesh",
+                     "Mark of Tzeentch", "Can't Attack", "Dark Pact", "Dark Pacts",
+                     "Blood Thirst", "Long Range", "Hunt Mark", "Quest Point", "Quest Points",
+                     "Spirit Stone", "Spirit Stones"]
+# 双写短语里的**虚词不算关键词**（`Rally and Rally` 那种不许进词表）
+A1703_LANE = {"and", "to", "the", "a", "of", "in", "this", "it", "on", "its"}
+# 双写 = 同一个短语连着出现两次（**有空格**）→ `\1` 回引
+A1703_DOUBLE = re.compile(
+    r"([A-Za-z][A-Za-z'\-]*(?: [A-Za-z][A-Za-z'\-]*){0,2})\s+\1\b", re.I)
+# 🔴 2026-10-13 盲区修复（`A1703`）：**无空格**双写有两种，`A1703_DOUBLE` 只认有空格那一种。
+#   ① 单 token 自身对折：`FlyingFlying`；
+#   ② **多词词的对折**（本轮补的那一半）：`Dark PactDark Pact` —— 旧检出器**只做 ①**
+#      （`_a1703_split_doubled` 要求整段就是一个词、且两半逐字相同 ⇒ `PactDark` 拆不开），
+#      而 `A1703_DOUBLE` 的 `\s+` 又要求交界处有空白 ⇒ 这种写法**两种都漏**。
+#   ⇒ 实测后果（`Dark Pact`）：转录表里 **38 处全是无空格双写、有空格写法 0 处** ⇒
+#      `occ`/`ico` 恒为 0 ⇒ 该词**连分类都进不去**（`A1703_ALWAYS` 里挂着但它不在现算结果里）。
+# ⚠️ **光"覆盖"还不够、必须在交界处补一个空格**：`\bdark pact\b` 在 `Dark PactDark Pact` 里
+#    **一个匹配都没有**（第一份右边紧跟 `D`、第二份左边紧跟 `t`，两处 `\b` 都不成立）
+#    ⇒ 只有还原成 `Dark Pact Dark Pact`，左右两份才各算一次 `occ`、且都落在双写区间里。
+# 首词 `[A-Za-z][A-Za-z'\-]{2,}`（≥3 字符）是旧那个 `n >= 6` 护栏的等价物
+# （双写串长 ≥6 ⟺ 单份 ≥3；实测本池最短的真双写是 `MobMob`，首词 3）。
+# 实测坐标：`_还原效果文字.md:181` 等 `Chaos/*` 行，形如 `gain a Dark PactDark Pact of Fate`。
+A1703_DOUBLE_TIGHT = re.compile(
+    r"\b([A-Za-z][A-Za-z'\-]{2,}(?: [A-Za-z][A-Za-z'\-]*){0,2})\1", re.I)
+
+
+def _a1703_split_doubled(tok):
+    """**单 token** 无空格双写（`ArmourArmour`）→ 单份；不是双写返回 `None`。
+
+    🔴 不拆的话 `\\bArmour\\b` 在 `ArmourArmour` 里**根本匹配不到**（右边紧随的是词字符）
+    ⇒ 该词被系统性**少计**、分类直接错（原脚本 v1 就把 `Ambush` 判成了「只印词不带图标」）。
+    ⚠️ **它只管「单 token」那一种**（多词那一种由 `A1703_DOUBLE_TIGHT` 管）——
+    现在只有**灭自证那条臂**（`_a1703_normalize_legacy`）还调它，产线走 `A1703_DOUBLE_TIGHT`。
+    """
+    n = len(tok)
+    if n >= 6 and n % 2 == 0 and tok[:n // 2].lower() == tok[n // 2:].lower():
+        return tok[:n // 2]
+    return None
+
+
+def _a1703_normalize(text):
+    """把**无空格**双写还原成「词 词」（交界处补空格），剩下的交给 `A1703_DOUBLE`。
+
+    三种双写写法**都认**：
+      ① 单 token 对折 `FlyingFlying` —— 本函数补空格（`A1703_DOUBLE_TIGHT` 的 `{0}` 那支）；
+      ② 有空格 `Stun Stun` —— 本函数**不动它**，由 `A1703_DOUBLE` 认；
+      ③ 无空格多词 `Dark PactDark Pact` —— 本函数补空格（`{0,2}` 那支，2026-10-13 补的盲区）。
+    """
+    return A1703_DOUBLE_TIGHT.sub(lambda m: m.group(1) + " " + m.group(1), text)
+
+
+def _a1703_normalize_legacy(text):
+    """**2026-10-13 改前那一版**（只认「单 token 对折」）—— ⛔ 产线**不走它**。
+
+    留着只干一件事：给【灭自证】那条臂当**反例检出器** ——
+    关掉多词那一支之后重算，**必须**与冻表不同（否则冻表里新加的两个词是白挂的）。
+    """
+    return re.sub(r"[A-Za-z][A-Za-z'\-]{5,}",
+                  lambda m: (_a1703_split_doubled(m.group(0)) + " " +
+                             _a1703_split_doubled(m.group(0)))
+                  if _a1703_split_doubled(m.group(0)) else m.group(0), text)
+
+
+def a1703_classify(normalize=None):
+    """🔴 **现场重算**全池逐词三分（恒带 / 不是恒带 / 从不带）—— 返回 `{词(小写): (类, 反例卡名集合)}`。
+
+    **纯函数**（只读转录表 + 盘上切片名）⇒ 灭自证那一半可以拿它跑合成输入。
+    词表 = `A1703_EXTRA_VOCAB` ∪ `Art/traits/*.png` 的名字 ∪ 转录里所有双写短语（去掉虚词）。
+    `normalize` 缺省 = `_a1703_normalize`（三种双写写法都认）；只有【灭自证】那条臂会传
+    `_a1703_normalize_legacy`（改前那一版，用来证明新加的那两支**真的在起作用**）。
+    """
+    norm = normalize or _a1703_normalize
+    rows = []
+    with open(RESTORED, encoding="utf-8") as f:
+        for ln in f:
+            if not ln.startswith("|") or ln.startswith("| ---") or ln.startswith("| 文件名"):
+                continue
+            p = [x.strip() for x in ln.strip().strip("|").split("|")]
+            if len(p) >= 4 and p[1]:
+                rows.append((p[1], norm(p[2])))
+    vocab = set(A1703_EXTRA_VOCAB) | set(trait_names())
+    for _, text in rows:
+        for m in A1703_DOUBLE.finditer(text):
+            ph = m.group(1).strip()
+            if ph and ph.lower() not in A1703_LANE:
+                vocab.add(ph)
+    acc = {}
+    for w in sorted(vocab):
+        rx = re.compile(r"\b" + re.escape(w) + r"\b", re.I)
+        key = w.lower()
+        occ = ico = 0
+        plain = set()
+        for name, text in rows:
+            cov = set()
+            for m in A1703_DOUBLE.finditer(text):
+                cov.update(range(m.start(), m.end()))
+            for m in rx.finditer(text):
+                occ += 1
+                if m.start() in cov:
+                    ico += 1
+                else:
+                    plain.add(name)
+        if occ:
+            cur = acc.setdefault(key, [0, 0, set()])
+            cur[0] += occ
+            cur[1] += ico
+            cur[2] |= plain
+    out = {}
+    for w, (occ, ico, plain) in acc.items():
+        cls = "恒带" if ico == occ else ("从不带" if ico == 0 else "不是恒带")
+        out[w] = (cls, frozenset(plain))
+    return out
+
+
+def _a1703_cmp(got, always, sometimes, never):
+    """冻表 vs 现算 —— 返回**差异清单**（`[]` = 逐词相同）。**纯函数**（灭自证那一半要拿它跑合成表）。"""
+    diffs = []
+    ga = {w for w, (c, _p) in got.items() if c == "恒带"}
+    gn = {w for w, (c, _p) in got.items() if c == "从不带"}
+    gs = {w: set(p) for w, (c, p) in got.items() if c == "不是恒带"}
+    for w in sorted(ga - set(always)):
+        diffs.append(f"多出恒带词 {w!r}")
+    for w in sorted(set(always) - ga):
+        diffs.append(f"少了恒带词 {w!r}（现算 = {got.get(w, ('缺',))[0]}）")
+    for w in sorted(gn - set(never)):
+        diffs.append(f"多出从不带词 {w!r}")
+    for w in sorted(set(never) - gn):
+        diffs.append(f"少了从不带词 {w!r}（现算 = {got.get(w, ('缺',))[0]}）")
+    for w in sorted(set(sometimes) - set(gs)):
+        diffs.append(f"少了「不是恒带」词 {w!r}（现算 = {got.get(w, ('缺',))[0]}）")
+    for w in sorted(set(gs) - set(sometimes)):
+        diffs.append(f"多出「不是恒带」词 {w!r}")
+    for w in sorted(set(sometimes) & set(gs)):
+        if gs[w] != set(sometimes[w]):
+            diffs.append(f"{w!r} 的反例卡集变了：现算 {sorted(gs[w])} / 冻表 {sorted(sometimes[w])}")
+    return diffs
+
+
+# ── `A1703` 第二半：**位置锁** ——「这些 (卡, 字段, 裸 token) 在计划里必须【不在】/ 【在】」──────
+# 🔴 **为什么要有这一半**：上面那三分比的是**转录表与冻表**，它抓不到「有人把规则的触发位放宽」
+#    （那种改动**不碰转录表**）。这一半把**成品卡图**判过的那几个位置直接钉在**计划表**上：
+#    这 11 个「不是恒带」的词，在它们**卡面没印徽记**的那一处，计划里**一个裸 token 都不许有**。
+#    实测（改前）：**12 行里 11 行已经成立、`TAU42` 那一行真红**（= `A1707` 的缺陷）。
+#    改后 12 行全绿 ⇒ 这条锁**有判别力、不是恒绿**。
+# 列 = (卡 id, 字段, **不许**出现的裸 token, 判据)
+A1703_POSITION_LOCK = [
+    ("TAU42", "desc", "Shield", "天赋名 `Shield Generator` 里的 `Shield` —— 卡面 "
+                                "`Tau/3部队/Warpforge_42_Riptide-Battlesuit.png` 亲读："
+                                "`〔盾〕Shield. 〔准星〕Long Range. 〔卷轴〕Talent: Shield Generator`，"
+                                "**`Shield Generator` 那里没有盾徽**（`A1707`；裁图 "
+                                "`_tmp_view/a1703_crops/Z2_TAU42.png`）"),
+    ("TAU33", "desc", "Stealth", "单位名 `Stealth Drone` 里的 `Stealth`（`Companion 2: Stealth Drone`）"
+                                 "—— 卡面那处只印词（转录表也同判：反例卡 `Stealth Shas'ui`）"),
+    ("UM_Roboute_Guilliman", "desc", "Codex",
+     "天赋名 `Author of the Codex` 里的 `Codex` —— 卡面那处只印词（`A1717`）"),
+    ("SAU_Ramatekh_The_Cruel", "desc", "Destroyer",
+     "`Your other Destroyers` 里的 `Destroyers` —— 卡面那处只印词，且 `Destroyer` ⊂ `Destroyers`"
+     "（按词规则会画到词中间）（`A1717`）"),
+    ("GOF_Stomp_Em", "desc", "Mob",
+     "`[Mob] Mob abilities` 里的 `Mob` —— 卡面那一枚由 `[Mob]` 方括号记号画，后面那个 `Mob` 只印词"
+     "（守卫①挡住的；`A1717`）"),
+    ("UM_Honour_Guard", "desc", "Armour", "`Adjacent units have Armour 1` —— **光环给别人的**，不是自己的关键词"),
+    ("SAU57", "desc", "Talent", "`your Warlords' Talent costs 1 less` —— **普通名词**（同一张卡的 `Armour` 照画）"),
+    ("SAU61", "desc", "Remnant", "`when a friendly troop becomes a Remnant` —— **普通名词**（同卡的 `Shield` 照画）"),
+    ("SAU55", "desc", "Blind", "`Blind all enemies` —— **动词用法**（同卡的 `Stealth`/`Camouflage` 照画）"),
+    ("ASH_Lhykhis", "desc", "Ambush", "天赋名 `Empyric Ambush` 里的 `Ambush`"),
+    ("EC1", "desc", "Strike", "天赋名 `Euphoric Strike` 里的 `Strike`"),
+    ("TAU4", "desc", "Companion", "天赋名 `Drone Companion` 里的 `Companion`"),
+]
+# **反向锁**：这几处**必须画**（卡面印着徽记、而我们的规则/逐卡表**扫不到那个位置**）。
+# 🔴 `GOF90` 那一行就是 `A1713` 的缺陷 —— 改前它**不在**计划里（所以这条锁改前是红的）。
+A1703_MUST_PAINT = [
+    ("GOF90", "desc", "Blood Thirst",
+     "`have \"Slay: Gain Blood Thirst this turn\"` —— 引号里的被授予能力（**句中**，句首那一支扫不到），"
+     "卡面印着那枚獠牙圆徽（亲读 `Orks/3部队/Warpforge_16_Beastboss-on-Squigosaur.png`）"),
+    ("GOF90", "descZh", "嗜血", "同上那半（`descZh` 写 `嗜血`）"),
+]
+
+
+def _a1703_lock_check(tokens, texts):
+    """位置锁：`tokens = {卡: {字段: [token,…]}}`、`texts = {卡: {字段: 原文}}`。
+
+    返回差异清单（`[]` = 全过）。**纯函数**（灭自证那一半要拿**合成表**跑它）。
+    ⚠️ **先判「载体还在不在」**：卡被改名 / 那个字段被清空时，锁会**静默失效**
+    （「不许出现」那一类尤其明显 —— 字段空了什么都不会出现）⇒ 载体不在 = 红，不是绿。
+    """
+    diffs = []
+    for c_, f_, t_, why in A1703_POSITION_LOCK:
+        if not (texts.get(c_, {}).get(f_)):
+            diffs.append(f"锁的载体不在：{c_} 没有字段 {f_} 的原文（卡被改名 / 字段被清空？）")
+            continue
+        if t_ in tokens.get(c_, {}).get(f_, []):
+            diffs.append(f"🔴 {c_} [{f_}] 画了裸词 {t_!r} —— 卡面那一处**没印徽记**：{why}")
+    for c_, f_, t_, why in A1703_MUST_PAINT:
+        if not (texts.get(c_, {}).get(f_)):
+            diffs.append(f"必须画的锁载体不在：{c_} 没有字段 {f_} 的原文")
+            continue
+        if t_ not in tokens.get(c_, {}).get(f_, []):
+            diffs.append(f"🔴 {c_} [{f_}] 少了裸词 {t_!r} —— 卡面那一处**印着徽记**：{why}")
+    return diffs
+
+
 def main():
     restored = load_restored()
     vocab = sorted(set(trait_names()) | set(EXTRA_VOCAB), key=len, reverse=True)
@@ -2457,6 +2828,29 @@ def main():
                 #   实测：放宽当天 `ASH81` / `SW36` 的 `desc`+`descZh` 共 **4 条**，全池其余 0 条。
                 if any(_t in _x for _x in _pre_tokens):
                     rule_audit[_t]["已由句首关键词画"].add(cid)
+                    continue
+                # ── 🆕 2026-10-13（`A1707` / `A1717`）：**守卫④ —— 词落在【专有名词内部】⇒ 不画。** ──
+                # 🔴 **它抓的是什么**：卡面上「图标 + 关键词」那个写法只在**关键词**上出现；
+                #    而这些词**当专有名词的一部分**用时（天赋名 `Shield Generator` / 单位名
+                #    `Stealth Drone` / …），卡面**只印词、不印徽记** ⇒ 按词规则会在那里**多画一枚**。
+                #    判据形状 = **这一处裸词后面【紧跟另一个首字母大写的词】** ⇒ 它属于某个多词专有名词。
+                # ⚠️ **为什么这个形状是安全的（全池实测，不是感觉）**：把 `BARE_TOKEN_BY_RULE` 的
+                #    **全部英文 token × 全部 1126 张 × 2 字段**逐处扫了一遍 —— **756 处里只有 2 处**
+                #    后面跟着大写词，而且**两处都是已知的「卡面没印」反例**：
+                #      · `TAU42` `desc`：`Talent: Shield Generator` 里的 `Shield`（`A1707`，**改前真多画 1 枚**）
+                #      · `TAU33` `desc`：`Companion 2: Stealth Drone` 里的 `Stealth`（本表 ② 那条反例；
+                #        它**当时**是靠守卫③（`Stealth` ⊂ `Stealth.`）躲开的，不是靠规则 ⇒ 现在两条都挡得住）
+                #    ⇒ **误伤面 = 0**；中文 token 那边 0 处命中（中文词后面不会跟 `[A-Z][a-z]`）。
+                # 🔴 **它不改任何既有结论**：改前/改后**只有 `TAU42` 一张卡的 `desc` 少一条 token**
+                #    （实测 `git diff` 见报告），其余一字未动 —— 这正是「改前真缺陷、改后修掉」的读数。
+                # ⚠️ **它【不覆盖】的两种情况**（如实记，别以为它管全了）：
+                #    · `Mob abilities`（`GOF_Stomp_Em`）—— 后面跟的是**小写**名词 ⇒ 本守卫不命中；
+                #      那一处是**守卫①**（本字段含 `[Mob]`）挡住的。两者都已进 `A1703_POSITION_LOCK`。
+                #    · `Destroyers`（`SAU_Ramatekh_The_Cruel`）/ `Author of the Codex`
+                #      （`UM_Roboute_Guilliman`）—— 前者是**更长词的子串**、后者那词**根本不在
+                #      `BARE_TOKEN_BY_RULE`**（走逐卡表）⇒ 各自由守卫③ / 逐卡表兜住，也进了那条锁。
+                if _A1707_IN_PROPER_NOUN(text, _t):
+                    rule_audit[_t]["专有名词内部"].add(cid)
                     continue
                 rule_audit[_t]["规则命中"].add(cid)
                 btok.append((_t, _sp, _why, "按词规则"))
@@ -2626,6 +3020,7 @@ def main():
               f"{len(_a['逐卡表已覆盖'])} 卡 · 方括号守卫 {len(_a['方括号守卫'])} 卡 · "
               f"已由句首关键词画 {len(_a['已由句首关键词画'])} 卡 · "
               f"已由别的记号画 {len(_a['已由别的记号画'])} 卡 · "
+              f"专有名词内部 {len(_a['专有名词内部'])} 卡 · "
               f"全池出现 {len(_a['全池出现'])} 卡{_flag}")
 
     # ── 🆕 2026-10-12（`A1624`）：段首让位 + 卡面枚数两道自检 ─────────────────────────────
@@ -2835,12 +3230,95 @@ def main():
           f"{len(DARKPACT_FACE_COUNT) - len(_dp_ctrl_missed)}/{len(DARKPACT_FACE_COUNT)} 行变红"
           + ("（✅ 无漏）" if not _dp_ctrl_missed else f"；🔴 **漏掉** {_dp_ctrl_missed}"))
 
+    # ── 🆕 2026-10-13（`A1703`）：**逐词图标表（三分）+ 位置锁** 两道自检 ─────────────────────
+    #  ① **三分**：`a1703_classify()` **现场重算**（只读转录表）→ 与冻表 `A1703_ALWAYS/…` 逐词比。
+    #     它可以红在**两个方向**：转录表改了（有人"修"了它）· 盘上切片名变了（词表跟着变）。
+    #  ② **位置锁**：`A1703_POSITION_LOCK`（不许画）/ `A1703_MUST_PAINT`（必须画）逐行核**计划表**
+    #     —— 这一半才是「有人把规则触发位放宽」时**当场红**的那条。
+    #  ③ **灭自证（五条控制臂，缺一条都可能变成自引用谓词）**：
+    #     · 冻表 `A1703_ALWAYS` **删一个词** ⇒ `_a1703_cmp` 必须报差异；
+    #     · 冻表 `A1703_SOMETIMES` **把一个反例集清空** ⇒ 必须报差异（那是「② 反例集」那条臂）；
+    #     · 位置锁：往计划表里**塞一个本该被禁的 token** ⇒ `_a1703_lock_check` 必须报差异；
+    #     · 🆕 **合成输入**直接喂 `_a1703_normalize`（三种双写写法 + 两个反例）⇒ 有一条不对就红
+    #       —— 这条**不碰转录表**，所以「把检出器改回去」它**当场就红**；
+    #     · 🆕 把检出器**换成改前那一版**（`_a1703_normalize_legacy`）再重算 ⇒ 必须与冻表**不同**
+    #       —— 证明冻表里新加的 `dark pact` / `can't attack` 不是白挂的。
+    #     🔑 后两条是**2026-10-13 补盲区时一起加的**：光有前三条，**「检出器被改窄 + 冻表跟着删词」
+    #       这种**两边一起改回去**的写法看不出红** —— 合成输入那条正是为它准备的。
+    _a1703_got = a1703_classify()
+    _a1703_bad = _a1703_cmp(_a1703_got, A1703_ALWAYS, A1703_SOMETIMES, A1703_NEVER)
+    _a1703_always_mut = set(A1703_ALWAYS)
+    _a1703_always_mut.discard(sorted(_a1703_always_mut)[0])
+    _a1703_some_mut = {w: set(p) for w, p in A1703_SOMETIMES.items()}
+    _a1703_some_mut[sorted(_a1703_some_mut)[0]] = set()
+    _a1703_ctrl_missed = []
+    if not _a1703_cmp(_a1703_got, _a1703_always_mut, A1703_SOMETIMES, A1703_NEVER):
+        _a1703_ctrl_missed.append("冻表恒带集删一个词、重算**没报差异**")
+    if not _a1703_cmp(_a1703_got, A1703_ALWAYS, _a1703_some_mut, A1703_NEVER):
+        _a1703_ctrl_missed.append("冻表某个「不是恒带」词的反例集被清空、重算**没报差异**")
+    # **合成输入**（纯函数、不读转录表）：三种双写写法各一条 + **两个反例**（只出现一次的词**一个
+    # 字节都不许动** —— 否则会把普通句式误当图标）。判据 = 卡面双写的**定义**，不是我们自己的实现。
+    _a1703_norm_cases = [
+        ("Dark PactDark Pact", "Dark Pact Dark Pact", "③ 无空格多词"),
+        ("Stun Stun", "Stun Stun", "② 有空格（本函数不许动它）"),
+        ("ArmourArmour", "Armour Armour", "① 单 token 对折"),
+        ("RallyRally: Gain a Dark PactDark Pact", "Rally Rally: Gain a Dark Pact Dark Pact", "①③ 混在一句里"),
+        ("Dark Pact of Fate", "Dark Pact of Fate", "反例：只出现一次 ⇒ 不许动"),
+        ("Deal 3 damage to all enemy troops", "Deal 3 damage to all enemy troops", "反例：没有双写"),
+    ]
+    _a1703_norm_bad = [f"{_n}（{_w}）：{_i!r} → {_a1703_normalize(_i)!r}，应为 {_o!r}"
+                       for _i, _o, _n in _a1703_norm_cases
+                       if _a1703_normalize(_i) != _o]
+    if _a1703_norm_bad:
+        _a1703_ctrl_missed.append("合成输入：`_a1703_normalize` 三种双写写法/反例没过："
+                                  + "；".join(_a1703_norm_bad))
+    if not _a1703_cmp(a1703_classify(normalize=_a1703_normalize_legacy),
+                      A1703_ALWAYS, A1703_SOMETIMES, A1703_NEVER):
+        _a1703_ctrl_missed.append("换回改前那一版检出器（只认单 token 对折）、重算**没报差异**"
+                                  " ⇒ 冻表新加的 `dark pact`/`can't attack` 是白挂的")
+    print("")
+    print(f"=== `A1703` 逐词图标表（三分，冻表 {len(A1703_ALWAYS)} 恒带 / "
+          f"{len(A1703_SOMETIMES)} 不是恒带 / {len(A1703_NEVER)} 从不带）===")
+    if _a1703_bad:
+        for _d in _a1703_bad:
+            print(f"  🔴 {_d}")
+    else:
+        print("  ✅ 现场重算与冻表**逐词相同**（词集 / 三个分类 / 11 个反例卡集）")
+    print(f"  · 现算词数 {len(_a1703_got)}（转录表口径）· 判据 = "
+          "`资料/卡表核对_卡图提取/_还原效果文字.md` 的**双写**")
+    for _w in sorted(A1703_READ_CORRECTED):
+        print(f"  ⚠️ 亲读更正（转录表读数不算数）：`{_w}` —— {A1703_READ_CORRECTED[_w]}")
+
+    _a1703_tokens = {_c: {_f: list(_g.keys()) for _f, _g in _fs.items()}
+                     for _c, _fs in plan.items()}
+    _a1703_lock_bad = _a1703_lock_check(_a1703_tokens, _texts)
+    _a1703_lock_mut = {_c: {_f: list(_t) for _f, _t in _fs.items()}
+                       for _c, _fs in _a1703_tokens.items()}
+    _a1703_lock_c, _a1703_lock_f, _a1703_lock_t, _ = A1703_POSITION_LOCK[0]
+    _a1703_lock_mut.setdefault(_a1703_lock_c, {}).setdefault(_a1703_lock_f, []).append(_a1703_lock_t)
+    _a1703_lock_ctrl_missed = (not _a1703_lock_check(_a1703_lock_mut, _texts))
+    if _a1703_lock_ctrl_missed:
+        _a1703_ctrl_missed.append("位置锁：往计划里塞一个本该被禁的 token、核对**没报差异**")
+    print("")
+    print(f"=== `A1703` 位置锁（{len(A1703_POSITION_LOCK)} 不许画 + "
+          f"{len(A1703_MUST_PAINT)} 必须画；判据 = 成品卡图亲读）===")
+    if _a1703_lock_bad:
+        for _d in _a1703_lock_bad:
+            print(f"  {_d}")
+    else:
+        print(f"  ✅ 逐行核过：该**不画**的那 {len(A1703_POSITION_LOCK)} 处一个裸 token 都没有、"
+              f"该**画**的那 {len(A1703_MUST_PAINT)} 处都在")
+    print(f"  ★ 灭自证：{len(_a1703_ctrl_missed)} 条控制臂没变红"
+          + ("（✅ 五条控制臂全部变红、判据有判别力）" if not _a1703_ctrl_missed
+             else "：🔴 " + "；".join(_a1703_ctrl_missed)))
+
     # 🔴 **退出码先算、再决定落不落盘**（`A1626`）——「非 0」必须等于「没写文件」。
     bad = (missing or unresolved or conflicts or why_conflict
            or _abs_dead or _abs_lost or face_bad
            or _legacy or _fp_bad or _fp_ctrl_missed
            or _a75_miss or _a75_ctrl
-           or _dp_dead or _dp_lost or _dp_bad or _dp_ctrl_missed or _dp_mixed)
+           or _dp_dead or _dp_lost or _dp_bad or _dp_ctrl_missed or _dp_mixed
+           or _a1703_bad or _a1703_lock_bad or _a1703_ctrl_missed)
     if WRITE and bad:
         print("")
         print("🔴 有未解决的问题 ⇒ **本脚本不落盘**（`--write` 被忽略，两份 json 一个字节都没动）：")
@@ -2888,6 +3366,15 @@ def main():
         if _dp_mixed:
             print(f"   · `Dark Pact` 同一字段「混写」{len(_dp_mixed)} 处（按词 token 与别的同族记号共处一字段）："
                   + "；".join(f"{_c}[{_f}]" for _c, _f, _w, _o in _dp_mixed))
+        if _a1703_bad:
+            print(f"   · `A1703` 逐词三分与冻表不一致 {len(_a1703_bad)} 条（卡表/转录表/切片名改过？）："
+                  + "；".join(_a1703_bad))
+        if _a1703_lock_bad:
+            print(f"   · `A1703` 位置锁 {len(_a1703_lock_bad)} 条（按词规则画到了卡面没印徽记的位置？）："
+                  + "；".join(_a1703_lock_bad))
+        if _a1703_ctrl_missed:
+            print(f"   · `A1703` 【灭自证】漏掉的 {len(_a1703_ctrl_missed)} 条控制臂（改了冻表/计划却没变红）："
+                  + "；".join(_a1703_ctrl_missed))
         print("   ⇒ 先把上面这些解决掉再 `--write`（⛔ 别绕过这道闸 —— 非 0 就该没有产物）。")
     elif WRITE:
         os.makedirs(os.path.dirname(OUT_JSON), exist_ok=True)

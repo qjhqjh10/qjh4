@@ -13969,6 +13969,11 @@
      "name": "desc",
      "items": [
       {
+       "token": "Blood Thirst",
+       "sprite": "bloodThirst",
+       "why": "卡面 `Blood Thirst` **前面**那枚「尖牙」（= `Resources/Art/traits/bloodThirst.png`）—— 判据 = 成品卡图亲读 `d:/2/Warpforge部队卡片/Orks/3部队/Warpforge_16_Beastboss-on-Squigosaur.png`（裁图 `_tmp_view/a1703_crops/MINE_GOF90_bt.png`）：`have \"〔橙底骷髅+准星徽〕Slay: Gain 〔红底银环白獠牙圆徽〕Blood Thirst this turn\"`。⚠️ 这一处在**引号里的被授予能力**（句中）⇒ 句首关键词那一支扫不到，**只能按卡**（`A1713`）。⚠️ 转录表 `_还原效果文字.md:628` 在这一处**漏记了图标**（假阴性）—— 本表以卡面为准。"
+      },
+      {
        "token": "Slay",
        "sprite": "slay",
        "why": "**恒带**（20 卡 21 处 · 原画 14 卡 · 双写 20 处 ⇒ 缺 6 卡）—— 逐处判据 = `_还原效果文字.md` 的**双写**。"
@@ -13978,6 +13983,11 @@
     {
      "name": "descZh",
      "items": [
+      {
+       "token": "嗜血",
+       "sprite": "bloodThirst",
+       "why": "卡面 `Blood Thirst` **前面**那枚「尖牙」（= `Resources/Art/traits/bloodThirst.png`）—— 判据 = 成品卡图亲读 `d:/2/Warpforge部队卡片/Orks/3部队/Warpforge_16_Beastboss-on-Squigosaur.png`（裁图 `_tmp_view/a1703_crops/MINE_GOF90_bt.png`）：`have \"〔橙底骷髅+准星徽〕Slay: Gain 〔红底银环白獠牙圆徽〕Blood Thirst this turn\"`。⚠️ 这一处在**引号里的被授予能力**（句中）⇒ 句首关键词那一支扫不到，**只能按卡**（`A1713`）。⚠️ 转录表 `_还原效果文字.md:628` 在这一处**漏记了图标**（假阴性）—— 本表以卡面为准。中文侧同一条（`descZh` 里写 `嗜血`，与英文那枚逐处对应）。"
+      },
       {
        "token": "斩杀",
        "sprite": "slay",
@@ -21402,11 +21412,6 @@
        "token": "Talent:",
        "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
-      },
-      {
-       "token": "Shield",
-       "sprite": "shield",
-       "why": "**恒带**（33 卡 37 处 · 原画 11 卡 · 双写 34 处 ⇒ 缺 23 卡）—— 逐处判据 = `_还原效果文字.md` 的**双写**。"
       }
      ]
     },

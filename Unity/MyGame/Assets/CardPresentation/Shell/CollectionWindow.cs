@@ -2372,7 +2372,7 @@ namespace CardPresentation
             //   **永远不跑**（静默：压在视口边上的标题行会停在 `AlignLeft` 之前那一刀的位置上）。
             //   ⇒ 改成先走共用解析（第二参数仍传本窗 `Clip` = 旧路那一份，非空时照旧赢）。
             //   ⛔ **`ClipText` 的 `clip` 形参必须传 `null`**（别把解析结果 `st.RenderClip` 喂进去）：
-            //   那会让 `MenuDraw` 里那个 `ClippedTextGuard` 存一份**解析后的快照**、并在每次重裁时
+            //   那会让 `ClippedTextGuard` 存一份**解析后的快照**、并在每次重裁时
             //   给 `NodeShadowedByParam` +1（A484 已经把 `ClipText` 自己那一处修好了 ——
             //   传 `null` 让它**每次重裁都重新解析**，节点挪了跟得上、也不污染那个探测器）。
             var st = ViewportClip.Resolve(parent, Clip, ClipSoftness, default(Vector4));
@@ -3501,9 +3501,59 @@ namespace CardPresentation
         ///      ⚠️ **本波范围外**（简报明写「本波只做『作废缓存』那一环」）⇒ 账记在这里，别当成已经做完。</summary>
         public void EditDeck(int i) { GoEdit(i); }
 
+        /// <summary>「进编辑」的**落点**（三处入口共用一张表 —— CLAUDE.md §三「两处写同一条规则 = 迟早不一致」）。</summary>
+        public enum DeckEntryRoute
+        {
+            /// <summary>`Application.isBatchMode` ⇒ **既不切场景、也不开窗**，只把交接值留在静态口上
+            /// （自检靠它观测）。⚠️ **这是刻意保留的兜底，⛔ 不是「还没做」** ——
+            /// 见 `RouteDeckEntry` 的 doc：改它会把自检既有观测点一起动掉。</summary>
+            BatchSkip,
+            /// <summary>有壳 ⇒ **开卡组编辑窗**（第 3 步起的生产落点 = 原版 `SelectDecksTab__CreateDeck.c:28`
+            /// 的 `WindowsManager__OpenWindow&lt;DeckEditingWindow&gt;` 那一跳）。</summary>
+            OpenWindow,
+            /// <summary>没壳（直起 `-wfscene DeckEditor`）⇒ 老路：切 `DeckEditor` 场景
+            /// （`Shell/PlayerBoot.LoadSceneMatching` 按名字找它）。</summary>
+            LoadScene,
+        }
+
+        /// <summary>🆕 **2026-10-13（`A1132` 第 3 步）**：**唯一的落点判定** —— 三处入口
+        /// （`GoEdit` / `GoNewDeck` / `Shell/LiveOpsEventWindow.CreateDeckInMode`）的 `switch` 本体都只有一处。
+        ///
+        /// <para>两个入参就是生产现场那两个真值：`batch` = `Application.isBatchMode`、
+        /// `hasShell` = `WindowsManager.Instance != null`（**读它们的那两行各只有一处**，见三个入口的单参重载）。</para>
+        ///
+        /// <para>🔴 **为什么抽成一个可传参的纯函数**：批处理下那道 `Application.isBatchMode` 闸会让三个入口
+        /// **永远**停在 `BatchSkip`（= 与改前逐位一致、**有意保留**；直起 `-wfscene DeckEditor` 也走它）
+        /// ⇒「入口 → **开窗那一跳**」在自检里**永远观测不到**。抽成纯函数之后，
+        /// 「真值 → 落点」那张表可以直接断，而 **生产路径读的仍是现场那两个值**
+        /// （⛔ 没有任何缝能让它绕过 —— 见各入口单参重载那一行）。</para></summary>
+        public static DeckEntryRoute RouteDeckEntry(bool batch, bool hasShell)
+        {
+            if (batch) return DeckEntryRoute.BatchSkip;
+            return hasShell ? DeckEntryRoute.OpenWindow : DeckEntryRoute.LoadScene;
+        }
+
         /// <summary>「进编辑」的**唯一实现** —— 收藏窗那条路与 `Deck info Popup` 的 `Edit Deck` 钮**都走它**
-        /// （CLAUDE.md §三：两处写同一条规则 = 迟早不一致）。</summary>
+        /// （CLAUDE.md §三：两处写同一条规则 = 迟早不一致）。
+        ///
+        /// <para>🆕 **2026-10-13（`A1132` 第 3 步）**：落点从「一律切场景」改成**按现场判定**
+        /// （原版就**是**开窗：`SelectDecksTab__CreateDeck.c:28`）。</para></summary>
         public static void GoEdit(int i)
+            => GoEdit(i, WindowsManager.Instance != null, Application.isBatchMode);   // ⛔ 生产只看这一行：读现场那两个真值
+
+        /// <summary>🆕 **2026-10-13（`A1132` 第 3 步）**：两个入参 = 上面那一行从现场读到的两个真值。
+        ///
+        /// <para>🔴 **它是【自检缝】、⛔ 不是第二条生产路**：**生产路径**上被调用的只有单参那个重载
+        /// （`GoEdit(int)` / `GoNewDeck()` / `LiveOpsEventWindow.CreateDeckInMode()`）——
+        /// 全仓调用点 = `EditDeck` · `DeckInfoPopup` 的 `Edit Deck` · `CollectionWindow.CreateDeck` 三处，
+        /// **都走单参那一版**（可 `grep "GoEdit("` / `"GoNewDeck()"` / `"CreateDeckInMode()"` 复核）。
+        /// ⚠️ 这条缝**只喂两个判定值**，唯一用途 = 让自检能走到「批处理那道闸挡住的那一跳」。</para>
+        ///
+        /// <para>⚠️ **缝能伪造的只有「判定输进来的两个值」，⛔ 伪造不出一个壳** ——
+        /// 开窗那一跳拿的是**现场的** `WindowsManager.Instance`（见下面 `OpenWindow` 支）：
+        /// 传 `hasShell: true` 而现场真没有壳时，`DeckEditingWindow.OpenFrom(null)` 会**出声**并返回 null
+        /// （⛔ 不静默开出一扇空气窗、也不偷偷 `EnsureHost()`）。</para></summary>
+        public static void GoEdit(int i, bool hasShell, bool batch)
         {
             CollectionData.PendingEditDeck = i;
             // 🆕 2026-10-18（A855）：**这条来路的回程意图** —— 「按来路回」（用户 2026-10-18 拍板）：
@@ -3513,9 +3563,42 @@ namespace CardPresentation
             //   ⚠️ 写在批处理闸**之前**：批处理不切场景，自检只能靠这个意图观测（同上面那个下标）。
             CollectionData.SetReturnIntent(DeckExitSource.Collection, WindowTabType.CollectionDecks);
             Debug.Log("[Collection] 进编辑：「" + CollectionData.DeckAt(i).Name + "」"
-                      + "（把下标 " + i + " 交给 `DeckRuntime`；返回时回主菜单场景 → 在那里重开**收藏窗的卡组页**）");
-            if (Application.isBatchMode) { Debug.Log("[Collection] （批处理：不切场景，只交接）"); return; }
-            UnityEngine.SceneManagement.SceneManager.LoadScene("DeckEditor");
+                      + "（把下标 " + i + " 交给 `DeckRuntime`）"
+                      // 🔴 **2026-10-14（`A1132` 第 4 步）就地订正（铁律 5）**：本句原文写
+                      //   「返回时回主菜单场景 → 在那里重开**收藏窗的卡组页**」—— 那是**第 4 步之前**
+                      //   唯一的回程（切场景 + 到达端重开窗）。现在回程有**两条腿**，落点按 `HostWindow` 分：
+                      //     · 有壳（本口今天这条路）⇒ `DeckRuntime.LeaveByHostWindow`：**关本窗**、
+                      //       底下这扇收藏窗自己回来（页签**从未被切过**）；
+                      //     · 没壳（直起 `-wfscene DeckEditor`）⇒ 仍然是老的「切 `MainMenu` +
+                      //       `MainMenuRuntime.Build` 重开收藏窗的卡组页」。
+                      + "；返回时**有壳则关本窗回到这扇收藏窗** / 无壳则回主菜单场景再重开卡组页");
+            // 🔴 **落点 = 上面那张表**（`RouteDeckEntry`）。三支各自的判据：
+            //   · `BatchSkip` —— **必须排在最前**：批处理里自检点完这一下立刻要读 `PendingEditDeck`，
+            //     而 `DeckRuntime.Build` 开局就把它**读掉并清掉** ⇒ 闸若挪到开窗之后，
+            //     `Editor/CollectionScene.cs` 那条「点 `Edit Deck` ⇒ 交接的下标」当场观测不到（会红）。
+            //   · `OpenWindow` —— 第 3 步的新落点（有壳）。原版就**是**开窗：`SelectDecksTab__CreateDeck.c:28`
+            //     的 `WindowsManager__OpenWindow<DeckEditingWindow>(wm, deck, closeAll:false)`。
+            //   · `LoadScene` —— 没壳（直起 `-wfscene DeckEditor`）那条兜底：原样保留。
+            //     `Shell/PlayerBoot.LoadSceneMatching` 按名字找到 `DeckEditor` 场景才走得通。
+            switch (RouteDeckEntry(batch, hasShell))
+            {
+                case DeckEntryRoute.BatchSkip:
+                    Debug.Log("[Collection] （批处理：不切场景，只交接）");
+                    return;
+
+                case DeckEntryRoute.OpenWindow:
+                    {
+                        var deWin = DeckEditingWindow.OpenFrom(WindowsManager.Instance);
+                        Debug.Log("[Collection] 进编辑：**开出卡组编辑窗**（" + (deWin != null ? deWin.name : "<没开出来>")
+                                  + "）—— 照原版 `SelectDecksTab.CreateDeck`：**叠一扇窗**，⛔ 不切场景");
+                        return;
+                    }
+
+                default:
+                    Debug.Log("[Collection] 没有壳（`WindowsManager.Instance == null`）⇒ 退回老路：切 `DeckEditor` 场景");
+                    UnityEngine.SceneManagement.SceneManager.LoadScene("DeckEditor");
+                    return;
+            }
         }
 
         /// <summary>「新建卡组 → 进编辑」的**唯一实现**（收藏窗那颗 `Create` 走它）——
@@ -3532,16 +3615,36 @@ namespace CardPresentation
         /// <para>⚠️ **批处理下不切场景**（自检要靠同一个进程跑完）⇒ 自检验的就是「交接那份卡组在不在」；
         /// 同 `GoEdit`：回程意图写在 `isBatchMode` 那道闸**之前**。</para></summary>
         public static void GoNewDeck()
+            => GoNewDeck(WindowsManager.Instance != null, Application.isBatchMode);   // ⛔ 生产只看这一行
+
+        /// <summary>🆕 **2026-10-13（`A1132` 第 3 步）**：与 `GoEdit(int, bool, bool)` **同一个形状、同一张表**
+        /// （`RouteDeckEntry`）—— 判据、「生产只走单参那一版」、以及「缝伪造不出一个壳」
+        /// → `GoEdit` 那一段，⛔ 别在这儿抄第二份。
+        /// ⚠️ 本口交接的是 `PendingNewDeck`（**未入库**那一份），同样会被窗里 `Build` 开局读掉。</summary>
+        public static void GoNewDeck(bool hasShell, bool batch)
         {
             // 🆕 2026-10-18（A855）：这条来路的回程意图 —— 与 `GoEdit` 同一口径（「按来路回」）。
             //   ⚠️ 全仓 `LoadScene("DeckEditor")` 原为**两处**，本口是**第三处**（同在收藏窗那一条来路里）。
             CollectionData.SetReturnIntent(DeckExitSource.Collection, WindowTabType.CollectionDecks);
-            if (Application.isBatchMode)
+            switch (RouteDeckEntry(batch, hasShell))
             {
-                Debug.Log("[Collection] （批处理：不切场景，只交接那份**未入库**的新卡组）");
-                return;
+                case DeckEntryRoute.BatchSkip:
+                    Debug.Log("[Collection] （批处理：不切场景，只交接那份**未入库**的新卡组）");
+                    return;
+
+                case DeckEntryRoute.OpenWindow:
+                    {
+                        var deWin = DeckEditingWindow.OpenFrom(WindowsManager.Instance);
+                        Debug.Log("[Collection] 新建卡组 ⇒ **开出卡组编辑窗**（" + (deWin != null ? deWin.name : "<没开出来>")
+                                  + "）—— 照原版 `SelectDecksTab.CreateDeck`：**叠一扇窗**，⛔ 不切场景");
+                        return;
+                    }
+
+                default:
+                    Debug.Log("[Collection] 没有壳（`WindowsManager.Instance == null`）⇒ 退回老路：切 `DeckEditor` 场景");
+                    UnityEngine.SceneManagement.SceneManager.LoadScene("DeckEditor");
+                    return;
             }
-            UnityEngine.SceneManagement.SceneManager.LoadScene("DeckEditor");
         }
 
         /// <summary>点 `Create` 那颗钮：**造一副不入库的空卡组 → 直接进卡组编辑**（照原版
@@ -3771,51 +3874,4 @@ namespace CardPresentation
         }
     }
 
-    /// <summary>收藏窗的一页（四页共用这一个组件，按 `_page` 分）。</summary>
-    public class CollectionTabPage : WindowTabBase
-    {
-        CollectionWindow _win;
-        Transform _root;
-        int _page;
-
-        public override WindowTabType Type
-        {
-            get
-            {
-                switch (_page)
-                {
-                    case 0: return WindowTabType.CollectionDecks;
-                    case 1: return WindowTabType.CollectionCards;
-                    case 2: return WindowTabType.CollectionCosmetics;
-                    default: return WindowTabType.CollectionStyles;
-                }
-            }
-        }
-
-        public void SetHost(CollectionWindow win, Transform root, int page)
-        {
-            _win = win; _root = root; _page = page;
-        }
-
-        public override void Setup()
-        {
-            if (_win == null || _root == null) return;
-            switch (_page)
-            {
-                case 0:
-                    _win.BuildDeckHeader(_root);
-                    _win.BuildDeckList(_root);
-                    break;
-                case 1:
-                    _win.BuildCardsPage(_root);
-                    break;
-                case 2:
-                    _win.BuildCosmeticsPage(_root);        // 233 张卡背 2026-09-23 已导 ⇒ 可建了
-                    break;
-                default:
-                    _win.BuildStylesPage(_root);           // 异画页：本地 7 张督军异画（2 种风格）
-                    break;
-            }
-        }
-    }
 }

@@ -4681,7 +4681,12 @@ namespace CardPresentation
                 //      （`defensiveCardPanelEnabled`，默认关 ⇒ AI 侧不挑、用 `GrantDefenceCard` 发的那张），
                 //      所以这里早退**不会**漏掉它，也不会造成「玩家不选、AI 却换了张」的两端不一致。
                 if (!offensiveCardEnabled) return false;
-                var list = OffensiveCards.Choices(poolFaction);
+                // 🔴 **2026-10-13（`A1743`）**：与防御侧**同一道闸、同一个原版调用点** ——
+                //   `MoveNext:63` 就一句 `GetEnvEffectCards(playerGoesFirst, **true**)`，
+                //   `shouldUseOffensive = playerGoesFirst` 决定它走进攻表还是防御表
+                //   ⇒ 本机先手时这道闸落在**进攻池**上（判据 `EnviromentalEffectCardsSO__GetEnvCardList.c:87`）。
+                //   ⛔ **不是** `OffensiveCards.Choices`（那份 = `justOwnedCards = 0`；AI 那张走它）。
+                var list = OffensiveChoicesOwned(poolFaction);
                 if (list.Count < 2) return false;         // 原版：列表 <2 张时**不弹菜单**，直接取 list[0]
                 // 🔴 `A1541`：这批卡收进**字段** `_envPickViews`（原来是局部 `views`，出了作用域就没人引用
                 //   ⇒ `OnOffensiveDone` 里没有任何一句能清它 ⇒ 面板关掉后 4 张卡永远留在屏幕正中）。
@@ -4709,10 +4714,22 @@ namespace CardPresentation
             //     后手那张卡由 `RuleCore.GrantDefenceCard`（`EndMulligan`）**直接进手牌**，这里不选、也不换。
             //   ⛔ **别把这一支删掉**（开关置 `true` 就能回来；`BattleScene` 17·2(c) 那格会显式打开它跑一遍）。
             if (!defensiveCardPanelEnabled) return false;
-            var defs = DefensiveChoices(_myFaction);
+            // 🔴 **2026-10-13（`A1088`）**：这一支是**唯一**挂 `forgeLevel` 闸的地方 ——
+            //   原版四个调用点里**只有面板这条**传 `justOwnedCards = true`
+            //   （`_SetupEnviromentalEffectPhase_d__352__MoveNext.c:63`）⇒ 用 `DefensiveChoicesOwned`（**闸过**），
+            //   ⛔ **不是** `DefensiveChoices`（那份 = `justOwnedCards = 0`；AI 那张 / 开局随机发那张走它）。
+            var allDefs = DefensiveChoices(_myFaction);
+            var defs = DefensiveChoicesOwned(_myFaction);
             if (defs.Count == 0)
             {
-                Debug.LogWarning("[Battle] 本机是后手，但**卡池里没有这一阵营的防御卡** ⇒ 不弹面板（如实出声，不静默）");
+                // ⚠️ 闸完之后**空表是原版可能的结局**（`forgeLevel` 最小是 1 ⇒ 等级 0 时一张都不给）
+                //   ⇒ 出声时**必须把两种成因分开**，别把「闸挡掉了」说成「卡池里没有」。
+                int lvNow = ForgeData.LevelOf(_myFaction);
+                Debug.LogWarning("[Battle] 本机是后手，但防御池**闸过之后是空的** ⇒ 不弹面板（如实出声，不静默）："
+                               + $"卡池里这一阵营的防御卡 {allDefs.Count} 张 · `ForgeData.LevelOf(\"{_myFaction}\")` = {lvNow}"
+                               + " · 原版 SO 的三个 `forgeLevel` = 1/20/40"
+                               + (allDefs.Count == 0 ? "（⚠️ 卡池里一张都没有 —— 那是**数据**问题）"
+                                                     : "（⚠️ 卡池里有卡、被**锻造等级闸**挡掉了 —— 这是**原版行为**，不是缺陷）"));
                 return false;
             }
             {
@@ -4733,13 +4750,53 @@ namespace CardPresentation
         public string OffensivePoolFaction { get { return Ctx != null ? FactionOf(Ctx.SecondSeat) : null; } }
         /// <summary>自检用：本机自己的阵营（用来验「池子**不是**自己的」）。</summary>
         public string MyFactionForTest { get { return _myFaction; } }
-        /// <summary>自检用：某阵营的**防御卡那 3 张**（原版 `EnviromentalEffectCardsSO.defensiveCards`）。</summary>
+        /// <summary>自检用：某阵营的**防御卡那 3 张** —— **未筛**（原版 `justOwnedCards = 0`，全给）。
+        /// ⚠️ 与 <see cref="DefensiveChoicesOwnedForTest"/> **成对存在**：「未筛的恒 3 张」＋「筛过的按等级少几张」
+        /// 两条**并存**才证明闸筛的是**列表**、不是「数据没了」（`A1088` 的灭自证）。</summary>
         public List<CardDef> DefensiveChoicesForTest(string faction) { return DefensiveChoices(faction); }
+
+        /// <summary>自检用：某阵营**闸过**之后的防御池（等级取 <see cref="ForgeData.LevelOf"/>，= 面板那条路）。</summary>
+        public List<CardDef> DefensiveChoicesOwnedForTest(string faction) { return DefensiveChoicesOwned(faction); }
+
+        /// <summary>自检用：**指定等级**下闸过之后的防御池 —— 用来把原版那三个 `forgeLevel`（1/20/40）
+        /// 的边界逐档钉住（`<=` 写成 `<` 只在「等级恰好等于某个 `forgeLevel`」时才露）。</summary>
+        public List<CardDef> DefensiveChoicesOwnedAtForTest(string faction, int level)
+        { return DefensiveChoicesOwnedAt(faction, level); }
+
+        // ---- 🆕 2026-10-13（`A1743`）：**进攻侧同一道闸**的三个口（形状与上面三个**一一对应**） ----
+        /// <summary>自检用：某阵营的**进攻池** —— **未筛**（原版 `justOwnedCards = 0`；AI 那张走它）。
+        /// 与 <see cref="OffensiveChoicesOwnedForTest"/> **成对存在**（`A1743` 的灭自证）。</summary>
+        public List<OffensiveCards.Card> OffensiveChoicesForTest(string faction) { return OffensiveCards.Choices(faction); }
+
+        /// <summary>自检用：某阵营**闸过**之后的进攻池（等级取 <see cref="ForgeData.LevelOf"/>，= 面板那条路）。</summary>
+        public List<OffensiveCards.Card> OffensiveChoicesOwnedForTest(string faction) { return OffensiveChoicesOwned(faction); }
+
+        /// <summary>自检用：**指定等级**下闸过之后的进攻池（进攻侧的档位与防御侧**不是一套数** —— 见
+        /// <see cref="OffensiveCards.ChoicesOwnedAt"/>）。</summary>
+        public List<OffensiveCards.Card> OffensiveChoicesOwnedAtForTest(string faction, int level)
+        { return OffensiveCards.ChoicesOwnedAt(faction, level); }
+
+        /// <summary>闸过之后的进攻池 —— 等级取**池子那个阵营**的 <see cref="ForgeData.LevelOf"/>。
+        /// <para>🔴 **等级为什么取「池子阵营」而不是「本机阵营」**：原版 `GetEnvEffectCards` 里
+        /// `army` 恒取**后手那一方**（`playerGoesFirst ? enemyManager : playerManager` → `heroCard→rawCard→army`，
+        /// §3.1 三处证据），而 `currentForgeLevelObtained = FirstOrDefault(x =&gt; x.army == army)` 用的就是**同一个**
+        /// `army` ⇒ **本机先手时它问的是「本机自己的锻造存档里，对手那个阵营到几级」**。
+        /// 我们这边 `ForgeData` 就是「本机自己的锻造存档、逐阵营一份」⇒ `LevelOf(poolFaction)` 正是它。
+        /// ⚠️ `ForgeData` 是**我们自建**的（原版在服务端）⇒ 这一格的值不是原版的数，是**我们挑的初值**——
+        /// 但它落在原版那个**问法**上（「本机的锻造进度」）。</para></summary>
+        public List<OffensiveCards.Card> OffensiveChoicesOwned(string faction)
+        {
+            return OffensiveCards.ChoicesOwnedAt(faction, ForgeData.LevelOf(faction));
+        }
 
         /// <summary>本阵营的**防御卡那 3 张**（原版 `EnviromentalEffectCardsSO.defensiveCards` 那一族）。
         /// 🔴 **不另建数据表** —— 判据是「`数据/游戏数据/defensive_cards_39.json` 的 13×3 与我们卡池里
         /// 同阵营的 `defence` 卡**逐张对上 38/39**，唯一差异是名字写法（表里 `Rusted Vent` / 池里
-        /// `Rusted Vents`，同一张）」⇒ 直接用卡池，少一处会漂的第二份。</summary>
+        /// `Rusted Vents`，同一张）」⇒ 直接用卡池，少一处会漂的第二份。
+        /// <para>🔴 **2026-10-13（`A1088`）**：这一份 = 原版 `GetEnvCardList(justOwnedCards: 0)` 那一支
+        /// —— **不挂 `forgeLevel` 闸**（全给）。原版四个调用点里有**三处**是 `justOwnedCards = 0`：
+        /// `ClickChosenCardDone.c:59` / `:67`（**AI 那张**）· `AddGoesSecondCardToDeck.c:145`（**开局随机发那张**）。
+        /// ⛔ **别把这一份挂上闸**；要闸过的那一份见 <see cref="DefensiveChoicesOwned"/>。</para></summary>
         List<CardDef> DefensiveChoices(string faction)
         {
             var outp = new List<CardDef>();
@@ -4747,6 +4804,124 @@ namespace CardPresentation
             foreach (var c in CardDatabase.OfFaction(_pool, faction))
                 if (c != null && c.Type == "defence") outp.Add(c);
             return outp;
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-10-13（`A1088`）：原版防御池那道 **`forgeLevel` 闸**
+        // ==========================================================================================
+        //  **判据（两层，都是原版本体；行号现读）**：
+        //   ① `EnviromentalEffectCardsSO__GetEnvCardList.c:60`（防御侧；进攻侧同式在 `:87`）——
+        //      `justOwnedCards != 0` 时**只**把 `forgeLevel <= currentForgeLevelObtained` 的那条 `Add` 进列表，
+        //      否则**跳过**（不是占位）；`justOwnedCards == 0` 时**全加、不看这个字段**（`:47-53`）。
+        //      `+0x18` = `DefensiveCardReferenceData.forgeLevel`（`dump.cs` 字段表），
+        //      `param_5` = `currentForgeLevelObtained`（形参名来自 `dump.cs:5164` 一带的同族签名）。
+        //   ② **闸只挂在【面板】那一条路上** —— 四个调用点里只有
+        //      `BattleManager._SetupEnviromentalEffectPhase_d__352__MoveNext.c:63` 传 `justOwnedCards = true`。
+        //  判据全文 → `资料/普查产出_0930/进攻防御卡_面板语义.md` §3.3 / §3.4 / §3.5（那三条是「已勘清」的）。
+        //
+        //  **值 = 从原版 SO 实读**（`bundle_duplicateassetisolationso_assets_all/MonoBehaviour/
+        //  EnvironmentalEffectCardsSO.json` 的 `enviromentalEffects[].defensiveCards[].forgeLevel`）：
+        //  13 个阵营**全同** = 槽 0 → **1** · 槽 1 → **20** · 槽 2 → **40**
+        //  （进攻侧才分档：Ultramarines `4/25/40`、其余 `4/25/45`）。
+        //  正表 → `数据/游戏数据/defensive_cards_39.json` 的 `defensive`（**每条带 `forgeLevel`**，
+        //  含 `_forgeLevel_source` 记着出处）；下面这份是**运行时副本**（`数据/` 不在 `Assets/` 下，
+        //  `Resources.Load` 够不着 ⇒ 只能抄一份，**改一处要同步另一处**）。
+        //
+        //  🔴 **键是【卡名】、不是下标** —— 我们卡池（`cards_engine.json` 的顺序）里同阵营的 `defence` 卡是
+        //  **字母序**，与 SO 的槽序**不同**（例：Ultramarines 池序 `Firestrike Turrets / Hive Factory / Light Cover`，
+        //  而 SO 槽序是 `Hive Factory / Light Cover / Firestrike Turrets`）⇒ 照池下标套槽号会**静默把闸套错卡**。
+        //
+        //  ⚠️ **还没查清（如实标）**：本地**解不出**这 39 张卡的 `RawCardScript`
+        //  （`A1070`⑤：卡 SO 在远端 Addressables 组 `allcards`，`m_Script` 全树 24.7 万文件 0 命中）
+        //  ⇒ 「`defensive_cards_39.json` 的槽序 = SO 槽序」靠的是**两条旁证**，不是对 PathID 的逐条核：
+        //    (a) 本表的卡名列表**不是字母序**（若是重排就会是）；
+        //    (b) **PnP 成品卡图的编号在 12 个阵营里逐条同序**（`d:/2/Warpforge部队卡片/<阵营>/5防御卡/`
+        //        —— 如 Aeldari `65_Inspiring-Legacy → 66_Webway-Entrance → 67_Aspect-Shrine`）。
+        //  ⇒ 结论：**按这个名字表落地**，但留一条「若日后能解出 SO 槽序，要回核这两条」的尾巴。
+        // ==========================================================================================
+
+        /// <summary>原版 SO `defensiveCards` 的**槽序**（13 阵营 × 3）—— 槽 `i` 的 `forgeLevel` 见
+        /// <see cref="DefensiveSoSlotForgeLevel"/>。⚠️ **这是槽序、不是我们卡池的顺序**（见上面那段注释）。</summary>
+        static readonly Dictionary<string, string[]> DefensiveSoSlotNames = new Dictionary<string, string[]>
+        {
+            { "SaimHann",         new[] { "Inspiring Legacy",       "Webway Entrance",         "Aspect Shrine" } },
+            { "AstraMilitarum",   new[] { "Defence Batteries",      "Timely Reinforcements",   "Munitorum Supplies" } },
+            { "BlackLegion",      new[] { "Hellfire Torch",         "Throne of the Heretic",   "Hellfire Pit" } },
+            { "DarkAngels",       new[] { "Defensive Turrets",      "Grim Effigy",             "Plasma Generator" } },
+            { "EmperorsChildren", new[] { "Armoury of Excess",      "Decadent Throne",         "Vial Tanks" } },
+            { "Genestealers",     new[] { "Alien Idol",             "Pilfered Supplies",       "Rusted Vent" } },
+            { "Sautekh",          new[] { "Awakened Obelisk",       "Divination Menhir",       "Resurrection Vault" } },
+            { "Goff",             new[] { "Extractor Rig",          "Gretchin Tower",          "Toxic Bonfire" } },
+            { "Sororitas",        new[] { "Guidance of the Saints", "Holy Fire",               "Sacred Altar" } },
+            { "SpaceWolves",      new[] { "Fenrisian Runestones",   "Orbital Defences",        "Halls of Legend" } },
+            { "TauEmpire",        new[] { "Tidewall Droneport",     "Tidewall Gunrig",         "Watch Tower" } },
+            { "Leviathan",        new[] { "Digestion Pool",         "Protective Bio-structure","Toxic Vapours" } },
+            { "Ultramarines",     new[] { "Hive Factory",           "Light Cover",             "Firestrike Turrets" } },
+        };
+
+        /// <summary>槽 `i` 的 `defensiveCards[i].forgeLevel` —— **13 个阵营全同**（实读 SO 的 39 条）。
+        /// ⛔ 别按「越靠后越贵」的直觉改：这三个数是**抄下来的**，出处见上面那段注释。</summary>
+        static readonly int[] DefensiveSoSlotForgeLevel = { 1, 20, 40 };
+
+        /// <summary>SO 写法 ←→ 我们卡池写法的别名（**只有一条**，出处 = `资料/卡表核对_卡图提取/_裁定_special卡框.md`
+        /// 记的「13×3 逐张对上 38/39，唯一差异是名字写法」）。键 = 卡池写法 · 值 = SO 写法。
+        /// ⛔ **别把它扩成「模糊匹配」** —— 那会**静默**把闸套到别的卡上（宁可认不出、出声）。</summary>
+        static readonly Dictionary<string, string> DefensiveCardAlias = new Dictionary<string, string>
+        {
+            { "Rusted Vents", "Rusted Vent" },
+        };
+
+        /// <summary>这张防御卡在原版 SO 里要求的**锻造等级**（`defensiveCards[i].forgeLevel`）。
+        /// 认不出返回 **`-1`**（= 「本地判据里没有它的等级」，⛔ **不许拿 0 或别的数顶替**）。</summary>
+        public static int DefensiveForgeLevel(string faction, string cardName)
+        {
+            if (string.IsNullOrEmpty(faction) || string.IsNullOrEmpty(cardName)) return -1;
+            string[] slots;
+            if (!DefensiveSoSlotNames.TryGetValue(faction, out slots)) return -1;
+            string want;
+            if (!DefensiveCardAlias.TryGetValue(cardName, out want)) want = cardName;
+            for (int i = 0; i < slots.Length && i < DefensiveSoSlotForgeLevel.Length; i++)
+                if (string.Equals(slots[i], want, System.StringComparison.OrdinalIgnoreCase))
+                    return DefensiveSoSlotForgeLevel[i];
+            return -1;
+        }
+
+        /// <summary>**闸过之后的**防御池 —— 原版 `GetEnvCardList(justOwnedCards: true, currentForgeLevelObtained: level)`
+        /// 那一支（判据 `EnviromentalEffectCardsSO__GetEnvCardList.c:60`）。
+        /// <para>⚠️ `level` 是**形参**（不是在这里读 `ForgeData`）—— 这样自检能把 **1 / 20 / 40 三个边界**逐档钉住
+        /// （`<=` 写成 `<` 只会在「等级恰好等于某个 `forgeLevel`」时才露，而 `ForgeData` 的初值里没有 20/40）。</para>
+        /// <para>🔴 **认不出的卡：留下 + 出声，不筛它** —— 原版那道闸是「丢槽」，但**我们认不出 = 不知道它的等级**：
+        /// 丢它（静默少一张）与给它编一个等级都是**猜**。本仓红线是「认不出要说出来」⇒ **留 + `LogWarning`**。</para></summary>
+        public List<CardDef> DefensiveChoicesOwnedAt(string faction, int level)
+        {
+            var all = DefensiveChoices(faction);
+            var outp = new List<CardDef>(all.Count);
+            foreach (var c in all)
+            {
+                int need = DefensiveForgeLevel(faction, c.Name);
+                if (need < 0)
+                {
+                    Debug.LogWarning($"[Battle] 防御卡「{c.Name}」（{faction}）**在原版 SO 的 39 条里认不出**"
+                                   + " ⇒ 这道 `forgeLevel` 闸**不筛它**（⛔ 不猜一个等级给它）。"
+                                   + "判据/出处 → `数据/游戏数据/defensive_cards_39.json` 的 `_forgeLevel_source`。");
+                    outp.Add(c);
+                    continue;
+                }
+                // 原版 `:60`：`forgeLevel <= currentForgeLevelObtained` ⇒ 加；否则**跳过**（不是占位）。
+                if (need <= level) outp.Add(c);
+            }
+            return outp;
+        }
+
+        /// <summary>面板那条路（原版 `MoveNext:63` = `justOwnedCards: true`，**唯一**挂闸的调用点）用的池子：
+        /// 等级取**本阵营**的 <see cref="ForgeData.LevelOf"/>。
+        /// <para>⚠️ **原版那一格的语义有不确定性（如实标）**：`资料/普查产出_0930/进攻防御卡_面板语义.md` §八(1)
+        /// 说 `currentForgeLevelObtained` 实读在 `forge+0x20 → +0x34`（`ForgePersistence.rewardsCollected`），
+        /// 而形参名却叫「已获得的锻造**等级**」⇒ 两者是不是同一件事**判不准**。我们按 `ForgeData.LevelOf`
+        /// （= 已领格数 = `rewardsCollected`）落地 —— 它同时符合**实读的偏移**与**形参名**，是最贴合的一档。</para></summary>
+        public List<CardDef> DefensiveChoicesOwned(string faction)
+        {
+            return DefensiveChoicesOwnedAt(faction, ForgeData.LevelOf(faction));
         }
 
         /// <summary>进攻卡 → 一张「能画出来」的卡面数据。
@@ -4769,7 +4944,11 @@ namespace CardPresentation
 
         void OnOffensiveDone(List<int> picked)
         {
-            var list = OffensiveCards.Choices(FactionOf(Ctx.SecondSeat));   // 🔴 与面板同一份（后手方阵营）
+            // 🔴 **2026-10-13（`A1743`）**：必须与弹面板那处**同一个**函数（`OffensiveChoicesOwned`）——
+            //   面板摆的是**闸过**那份，这里按 `picked[0]` 取下标；两份不一致就会「选一张、发另一张」（静默）。
+            //   ⚠️ 落点用的是 `c.idx`（卡自己在 SO 里的槽号）而不是列表下标 ⇒ 即使两份错位，
+            //      发出去的网络包/录像也还是「那张卡」，不放大成主机分叉。
+            var list = OffensiveChoicesOwned(FactionOf(Ctx.SecondSeat));   // 🔴 与面板同一份（后手方阵营）
             int i = (picked != null && picked.Count > 0) ? picked[0] : 0;   // 原版：没选就按空卡（下标 0）
             if (i < 0 || i >= list.Count) i = 0;
             var c = list[i];
@@ -4803,7 +4982,10 @@ namespace CardPresentation
         /// ⇒ `RuleCore.SetDefensiveCard` 会**先把原来那张摘掉再加新的**（不然手里会有两张）。</summary>
         void OnDefensiveDone(List<int> picked)
         {
-            var defs = DefensiveChoices(_myFaction);
+            // 🔴 **2026-10-13（`A1088`）**：这里**必须与上面弹面板那处用同一个函数**（`DefensiveChoicesOwned`）
+            //   —— 面板摆的是**闸过**那份，这里按 `picked[0]` 取下标；两份不一致就会
+            //   **选的是第 0 张、发出去的是另一张**（而且**静默**，画面也对）。
+            var defs = DefensiveChoicesOwned(_myFaction);
             int i = (picked != null && picked.Count > 0) ? picked[0] : 0;   // 原版：没选就取第 0 张
             if (i < 0 || i >= defs.Count) i = 0;
             RuleCore.ChooseDefensiveCard(Ctx, _me, i);
@@ -4820,7 +5002,11 @@ namespace CardPresentation
         }
 
         /// <summary>AI 那一侧的进攻卡：**均匀随机**（原版 `AI.GetAiEnvEffectCard`，`Random` 那一路可能抽到空卡）。
-        /// ⚠️ 列表与面板**同一份**（后手方阵营 —— 见 `BeginOffensivePhaseIfAny` 里那段判据）。</summary>
+        /// ⚠️ 列表 = **后手方阵营**（见 `BeginOffensivePhaseIfAny` 里那段判据）。
+        /// 🔴 **2026-10-13（`A1743`）：这一条【故意不挂】那道 `forgeLevel` 闸** —— 原版
+        ///   `ClickChosenCardDone.c:59`（AI 那张 → `AI.GetAiEnvEffectCard`）传的是 `justOwnedCards = 0`
+        ///   （**不筛**）⇒ 走未筛的 `OffensiveCards.Choices`（与 `PickDefensiveForAi` 同一条口径）。
+        ///   ⛔ 别「顺手统一」成 `OffensiveChoicesOwned` —— 那是**原版没有的行为**，而且是静默的。</summary>
         void PickOffensiveForAi(int seat)
         {
             string f = FactionOf(Ctx.SecondSeat);
@@ -4838,6 +5024,10 @@ namespace CardPresentation
         ///   现在数据齐了（= 卡池里该阵营的 `defence` 卡，见 `DefensiveChoices`）⇒ 照原版随机取一张。</summary>
         void PickDefensiveForAi(int seat)
         {
+            // 🔴 **2026-10-13（`A1088`）：这一条【故意不挂】那道 `forgeLevel` 闸** ——
+            //   原版 `ClickChosenCardDone.c:59`（AI 那张 → `AI.GetAiEnvEffectCard`）传的是
+            //   `justOwnedCards = 0`（**不筛**，四个调用点里的两个）⇒ 走未筛的 `DefensiveChoices`。
+            //   ⛔ 别「顺手统一」成 `DefensiveChoicesOwned` —— 那是**原版没有的行为**，而且是静默的。
             var defs = DefensiveChoices(FactionOf(seat));
             if (defs.Count == 0)
             {

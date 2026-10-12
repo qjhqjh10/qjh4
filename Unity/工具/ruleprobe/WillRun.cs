@@ -121,11 +121,20 @@ class WillRun
 
     /// <summary>⚠️ **op 的身份【不含 `Source`】** —— 这一点是实测踩出来的，别加回去：
     ///   同一个正文，**不同采集点解析出来 `Source` 不同**：
-    ///   · `CardDef.AddTriggerOp:1340` 是 `Parse(body)` ⇒ `Source` 是**正文那半句**；
-    ///   · `CardDef.CollectSpiritOps:1000` 是 `Parse(Desc)` 再挑 `CostKind == spirit` 的 op
-    ///     ⇒ `Source` 是**整句**（`1 [Spirit Stone]: Give +1 …`）。
+    ///   · `CardDef.AddTriggerOp`（现读 `CardDef.cs:1779`）是 `Parse(body)` ⇒ `Source` = **冒号后那半句**、
+    ///     **保留原文大小写**（只剥方括号）；
+    ///   · `CardDef.CollectSpiritOps`（现读 `CardDef.cs:1349`）是 `Parse(Desc)` 再挑 `CostKind == spirit`
+    ///     的 op ⇒ 命中的是 `ParseSegment` 的**付费前缀**那一支，那一条把 `s` 换成
+    ///     **剥掉前缀之后的小写正文**（`s = low`）⇒ `Source` **全小写、无前缀**。
     ///   ⇒ 拿 `Source` 逐字比对，**会把 50 条已经收到的段误报成「收漏」**（实测：ASH 那一族
-    ///     灵魂石卡全中招）。⇒ 只比 `verb / amount / payload / target` 四样（语义那一半）。</summary>
+    ///     灵魂石卡全中招）。⇒ 只比 `verb / amount / payload / target` 四样（语义那一半）。
+    ///   ⚠️ **2026-10-13 就地订正（铁律 5 · `A1694`）**：本条原来写「`CollectSpiritOps` 那路
+    ///     `Source` 是**整句**（`1 [Spirit Stone]: Give +1 …`）」—— **不成立**（前缀在
+    ///     `ParseSegment` 里就被剥掉了，`Source` 里没有那段头）。两条路真正逐字不同的是
+    ///     **大小写/归一化**。这一版是**仪器量出来的**（不是按代码读）：`⑨` 那一档 + TSV 的
+    ///     `collectSrc` 列现在把两路的 `Source` 原样打出来。**结论不变**：`Source` 不能当身份键。
+    ///   🔴 **`A1694` 补的是「看得见」那一半** —— ⛔ 别因为「现在看得见 `Source` 了」
+    ///     就顺手把它并进身份：那正是本条禁止的事（并回去 ⇒ 50 条假警报原样复活）。</summary>
     static string Sig(EffectOp o)
     {
         return (o.Verb ?? "") + "\u0001" + o.Amount + "\u0001" + (o.Payload ?? "")
@@ -397,12 +406,16 @@ class WillRun
         int tkFail = TriggerKeySelfCheck(pool);
         Console.WriteLine();
 
+        // ---------------------------------------------------------------- ⑨ 🆕 `A1694` 收集层 op 的 `Source`
+        int srcFail = SourceSelfCheck(pool);
+        Console.WriteLine();
+
         // ---------------------------------------------------------------- dump
         if (!string.IsNullOrEmpty(dumpPath))
         {
             var sb = new StringBuilder();
             sb.Append("id\tname\ttype\trunOps\toldPass\tfaceBodies\torphans\temptyKind\torphanDetail\tnoMech"
-                      + "\theadless\theadlessNone\theadlessDetail\n");
+                      + "\theadless\theadlessNone\theadlessDetail\tcollectSrc\n");
             foreach (var r in rows)
                 sb.Append(r.C.Id).Append('\t').Append(r.C.Name).Append('\t').Append(r.C.Type)
                   .Append('\t').Append(r.RunOps.Count).Append('\t').Append(r.OldPass ? "1" : "0")
@@ -413,6 +426,12 @@ class WillRun
                   .Append('\t').Append(r.Headless.Count)
                   .Append('\t').Append(r.Headless.Count(b => b.Kind == KHNone))
                   .Append('\t').Append(string.Join(" ‖ ", r.Headless.Select(b => b.Kind + ":" + b.Raw)))
+                  // 🆕 `A1694`：**收集层两类来源的 `EffectOp.Source`**（`spirit/…` · `trigger[键]/…`）。
+                  //   为什么进 TSV（而不只是打屏）：`A1439` 要的是**能逐行对拍的仪器** ——
+                  //   打屏只看得到前几张，TSV 才能把「哪张卡的哪条 op 的 `Source` 长什么样」整个摊开。
+                  //   ⚠️ 它**不是** `Sig()` 的一部分（`Sig` 一个字母都没动）⇒ 这份 TSV 的
+                  //   `orphanDetail`/`headlessDetail` 那几列与基线**逐字不变**，只有新列是新的。
+                  .Append('\t').Append(string.Join(" ‖ ", CollectLayerSources(r.C)))
                   .Append('\n');
             var dir = Path.GetDirectoryName(Path.GetFullPath(dumpPath));
             if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
@@ -423,11 +442,13 @@ class WillRun
 
         Console.WriteLine("  判据：**②「收漏了」= 0 张**、段级 **" + KMiss + " / " + KPaid
                           + " 都为 0**、**⑤「" + KHNone + "」= 0 条**、且 **⑦ 判据自检（`A1593`）= 0 条红**、"
-                          + "**⑧ 头→通道键近似自检（`A1598②`）= 0 条红**"
+                          + "**⑧ 头→通道键近似自检（`A1598②`）= 0 条红**、"
+                          + "**⑨ 收集层 `Source` 自检（`A1694`）= 0 条红**"
                           + " ⇒ rc=0；否则 rc=1（⛔ 不许静默绿）。");
         Console.WriteLine("  ⚠️「本来没正文」「未归因」「" + KTwice + "」「" + KHAtTurn + "」「" + KHCostWhen
                           + "」**不算失败**，但它们**也绝不混进「全通」**。");
-        return (missed.Count > 0 || nMiss > 0 || nPaid > 0 || headNone.Count > 0 || scFail > 0 || tkFail > 0) ? 1 : 0;
+        return (missed.Count > 0 || nMiss > 0 || nPaid > 0 || headNone.Count > 0 || scFail > 0
+                || tkFail > 0 || srcFail > 0) ? 1 : 0;
     }
 
     // ==================================================================
@@ -696,6 +717,152 @@ class WillRun
     }
 
     // ==================================================================
+    //  ⑨ 🆕 `A1694`：收集层 op 的 `EffectOp.Source`（两条采集点【逐字不同】）
+    // ==================================================================
+
+    /// <summary>🆕 **`A1694`（= `A1439` 的最后一步）：把「非「问玩家」的收集层 op」的 `Source` 打出来。**
+    ///
+    /// 🔴 **为什么非要有它**：`CardDef.SpiritOps` / `TriggerOps` 是**收集层**里不弹面板的那一半，
+    ///   探针原先**一个入口都不打它们的 `Source`**（<see cref="Sig"/> 还刻意不算它）
+    ///   ⇒ `A1439` 那条「两条采集点的 `Source` **不是同一个字符串**」**只能按代码读、没仪器可证**。
+    ///
+    /// **A 夹具（同一张卡、两条采集点）** —— 期望值是**引擎的既有行为**（⛔ 不是我们挑的）：
+    ///   · 触发通道（`CardDef.AddTriggerOp` → `EffectText.Parse(body)`）⇒ `Source` **保留原文大小写**；
+    ///   · 灵魂石通道（`CardDef.CollectSpiritOps` → `Parse(Desc)` 挑 `CostKind == spirit`
+    ///     ⇒ `ParseSegment` 的付费前缀支 `s = low`）⇒ `Source` **全小写、已剥前缀**。
+    ///
+    /// **B 池侧（钉子）**：带 `SpiritOps` 的卡**必须非空**（否则这条断言是空话），
+    ///   且它们的 `Source` **必须全部全小写**；**两路都有**的卡并排打出来（那是 `A1439` 要看的现场）。
+    ///
+    /// 🔴 **灭自证（结构上不可能同时满足的那一对）**：
+    ///   ① 灵魂石路的 `Source == Source.ToLowerInvariant()`（**必须**小写）；
+    ///   ② 触发路的 `Source != Source.ToLowerInvariant()`（**必须**留着原文大写）。
+    ///   ⇒ 任何「把两条路的 `Source` 统一掉」的改法**必有一条红**（统一成小写 ⇒ ②红；统一成原样 ⇒ ①红）。
+    ///   ⚠️ 期望值**手写**，⛔ 不是拿引擎现算值反填。
+    ///
+    /// **C 渲染口自检**：<see cref="Channel.Sources"/> 必须与 <see cref="Channel.Ops"/> **同长**
+    ///   （<see cref="Ch"/> 的契约），且 `SRC[` 记号**真的打出来了**（命中 0 ⇒ 红）。
+    ///   这一条钉的是「`A1694` 补的那件仪器**还在不在**」—— 把 `SrcMark` 那一处摘掉，
+    ///   `A1439` 就又回到「没仪器可证」，**这里立刻红**。
+    ///
+    /// ⚠️ 夹具卡在内存里现造（**不进卡池、不碰 `MyGame/Assets/**`**）—— 与 ⑦/⑧ 同规矩。
+    /// </summary>
+    static int SourceSelfCheck(List<CardDef> pool)
+    {
+        Console.WriteLine("  --- ⑨ 🔴 收集层 op 的 `EffectOp.Source`（`A1694` / `A1439`：两条采集点【逐字不同】）---");
+        int fail = 0;
+
+        // ---- A：夹具（同一张卡，两条采集点）----
+        var f = new CardDef("FX-S1", "FX-S1", "unit",
+                            "Rally: Deal 1 damage. 1 [Spirit Stone]: Give +1 [Melee] to a friendly troop",
+                            "common", "Fixture", 1, 1, 1, 0, null, subtype: "Troop");
+        var sp = AsOps(f.SpiritOps);
+        var tg = AsOps(f.TriggerOps("rally"));
+        string spSrc = sp.Count > 0 ? (sp[0].Source ?? "") : null;
+        string tgSrc = tg.Count > 0 ? (tg[0].Source ?? "") : null;
+        Console.WriteLine("    A 夹具 `" + f.Id + "` `" + f.Desc + "`");
+        Console.WriteLine("      · 触发通道 `TriggerTexts[\"rally\"]`（`AddTriggerOp` → `Parse(body)`）");
+        Console.WriteLine("          " + (tgSrc == null ? "🔴 一条都没收到（夹具坏了 ⇒ 本断言无从判）" : SrcMark(tg)));
+        Console.WriteLine("      · 灵魂石通道 `CardDef.SpiritOps`（`CollectSpiritOps` → 付费前缀支 `s = low`）");
+        Console.WriteLine("          " + (spSrc == null ? "🔴 一条都没收到（夹具坏了 ⇒ 本断言无从判）" : SrcMark(sp)));
+        if (spSrc != null && tgSrc != null)
+        {
+            bool lowerOk = spSrc == spSrc.ToLowerInvariant();        // ① 灵魂石路必须全小写
+            bool keepCaseOk = tgSrc != tgSrc.ToLowerInvariant();     // ② 触发路必须保留原文
+            Console.WriteLine("      " + (lowerOk ? "✅" : "🔴") + " ① 灵魂石路的 `Source` 全小写：`"
+                              + spSrc + "`（`s = low`）");
+            Console.WriteLine("      " + (keepCaseOk ? "✅" : "🔴") + " ② 触发路的 `Source` 保留原文大小写：`"
+                              + tgSrc + "`（`Parse(body)`）");
+            Console.WriteLine("      ⇒ 两条口径**逐字不同**（这正是 `A1439` 要证的）——"
+                              + "⛔ 它**不是缺陷**：结论仍是「`Source` 不能当身份键」"
+                              + "（拿它逐字对账 = 50 条假警报）。");
+            if (!lowerOk || !keepCaseOk)
+            {
+                fail++;
+                Console.WriteLine("        🔴 **灭自证那一对**：①与②**结构上不可能同时满足**「两路统一」的改法"
+                                  + "（统一成小写 ⇒ ②红；统一成原样 ⇒ ①红）⇒ 先回来核这里，⛔ 别改期望值。");
+            }
+        }
+        else
+        {
+            fail++;
+            Console.WriteLine("        🔴 夹具没造出两条采集点（`A1694` 那一对断言失效）——"
+                              + "先核 `CardDef` 的构造/收集链，⛔ 别去改期望值。");
+        }
+
+        // ---- C 渲染口自检（摘掉本笔补的那件仪器 ⇒ 立刻红）----
+        var chFixture = Ch("夹具通道", sp);
+        bool chOk = chFixture.Sources.Count == chFixture.Ops.Count && chFixture.Sources.Count > 0;
+        int markHits = 0;
+        if (spSrc != null && SrcMark(sp).Contains("SRC[")) markHits++;
+        if (tgSrc != null && SrcMark(tg).Contains("SRC[")) markHits++;
+        Console.WriteLine("    C 渲染口（`A1694` 补的仪器还在不在）");
+        Console.WriteLine("      " + (chOk ? "✅" : "🔴") + " `Channel.Sources` 与 `Channel.Ops` **同长**"
+                          + "（`Ch()` 的契约）：" + chFixture.Sources.Count + " / " + chFixture.Ops.Count);
+        Console.WriteLine("      " + (markHits > 0 ? "✅" : "🔴") + " `SRC[` 记号命中 " + markHits
+                          + " 条（必须 > 0 —— 把 `SrcMark` 那一处摘掉 ⇒ 立刻 0 ⇒ 红）");
+        if (!chOk || markHits == 0) fail++;
+
+        // ---- B 池侧（钉子）----
+        int spiritCards = 0, spiritOps = 0, spiritLowerBad = 0;
+        int pairs = 0, pairDiffer = 0, pairFaceUpper = 0;
+        var pairLines = new List<string>();
+        foreach (var c in pool)
+        {
+            if (c == null) continue;
+            var so = AsOps(c.SpiritOps);
+            if (so.Count == 0) continue;
+            spiritCards++;
+            spiritOps += so.Count;
+            foreach (var o in so)
+            {
+                string s = o.Source ?? "";
+                if (s != s.ToLowerInvariant()) spiritLowerBad++;
+            }
+            // 🔴 **`A1439` 的现场**：同一条段、**两路各解一次** ——
+            //   卡面那一路（`AddFaceBody` → `Parse(body)`，**保留原文大小写**）
+            //   vs 收集层那一路（`CollectSpiritOps` → 付费前缀支，**小写**）。
+            //   它们**逐字不同**，而这正是「拿 `Source` 当身份键 ⇒ 误报收漏」的机理
+            //   （`Sig()` 当年不带 `Source` 才躲过去）。
+            var row = Measure(c, null, pool);
+            foreach (var b in row.Bodies)
+            {
+                if (b.PaidCost <= 0 || b.Currency != "spirit" || b.Ops == null || b.Ops.Count == 0) continue;
+                string faceSrc = b.Ops[0].Source ?? "";
+                string collSrc = so[0].Source ?? "";
+                pairs++;
+                if (faceSrc != collSrc) pairDiffer++;
+                if (faceSrc != faceSrc.ToLowerInvariant()) pairFaceUpper++;
+                if (pairLines.Count < 8)
+                    pairLines.Add("         · " + Pad(c.Id, 24) + "卡面路 SRC[" + faceSrc + "]"
+                                  + "  ·  收集层路 SRC[" + collSrc + "]"
+                                  + (faceSrc == collSrc ? "  ⚠️ **两路逐字相同**" : ""));
+            }
+        }
+        Console.WriteLine("    B 池侧（" + pool.Count + " 张）");
+        bool b1 = spiritCards > 0;
+        Console.WriteLine("      " + (b1 ? "✅" : "🔴") + " 带 `CardDef.SpiritOps` 的卡 **" + spiritCards
+                          + " 张 / " + spiritOps + " 条 op**（必须 > 0 —— 否则本断言是空话）");
+        bool b2 = spiritOps > 0 && spiritLowerBad == 0;
+        Console.WriteLine("      " + (b2 ? "✅" : "🔴") + " 它们的 `Source` **全部全小写**："
+                          + (spiritOps - spiritLowerBad) + " / " + spiritOps + " 条"
+                          + "（`CollectSpiritOps` 那一路的既有口径，⛔ 不是我们挑的）");
+        bool b3 = pairs > 0 && pairDiffer > 0 && pairFaceUpper > 0;
+        Console.WriteLine("      " + (b3 ? "✅" : "🔴") + " **`A1439` 的现场**（同一条段、两路各解一次）："
+                          + "成对 **" + pairs + " 对** · **两路 `Source` 逐字不同 " + pairDiffer + " 对**"
+                          + "（必须 > 0）· 卡面那一路**含大写** " + pairFaceUpper + " 对（必须 > 0）");
+        Console.WriteLine("         ⚠️ 成对数 **< 带 `SpiritOps` 的卡数**是**正常的**：腿 B（卡面段）"
+                          + "**只对 `unit`/`hero` 做**（见文件头），而带 `N [Spirit Stone]:` 的卡里"
+                          + "有 `tactic`（计策）那一族 —— 它们**不进腿 B**，所以没有「卡面那一路」可比。");
+        foreach (var l in pairLines) Console.WriteLine(l);
+        if (!b1 || !b2 || !b3) fail++;
+
+        Console.WriteLine("    ⇒ 自检 **" + (fail == 0 ? "全过 ✅" : "红 " + fail + " 条 🔴") + "**"
+                          + "（⛔ 计入 rc —— 仪器一旦被摘掉、或两条口径被统一掉，这里立刻红）");
+        return fail;
+    }
+
+    // ==================================================================
     //  一张卡的账
     // ==================================================================
 
@@ -886,6 +1053,14 @@ class WillRun
     ///   而**不认它会把 `EC39 Maulerfiend` 误报**（它的 `ecstasy 5` 头对不上字典里的 `ecstasy`）。
     ///   ⛔ **只差这一处形状**，别再放宽（放宽 = 「假收到」）。
     /// ⚠️ **无头段不走这里**（没有头 ⇒ 没有通道，见 `Measure` 里那段说明）。
+    ///
+    /// 🆕 **`A1694`（2026-10-13）：本方法返回的通道【带它自己那几条 op 的 `Source`】**（<see cref="Channel.Sources"/>）。
+    ///   这是探针里**唯一**能看见「非「问玩家」的收集层 op」`Source` 的地方 ——
+    ///   `A1439` 那件事（`CollectSpiritOps` 那路的 `Source` **全小写、已剥前缀**；
+    ///   `AddTriggerOp` 那路**保留原文大小写**）**在此之前只能按代码读**。
+    ///   🔴 两条口径**逐字不同是引擎的既有行为、⛔ 不是缺陷**（`A1439` 的结论就是「`Source` 不能当身份键」）
+    ///   ⇒ 本方法的产物**只用来渲染与对拍**（<see cref="SrcMark"/> / `⑨` 那一档），
+    ///   ⛔ **绝不回头并进 <see cref="Sig"/>**。
     /// </summary>
     static Channel ClaimChannel(CardDef c, FaceBody b)
     {
@@ -893,26 +1068,18 @@ class WillRun
         {
             string kind = b.Currency;
             if (kind == "faith")
-                return new Channel { Name = "信仰通道 `CardDef.FaithOps`", Ops = AsOps(c.FaithOps) };
+                return Ch("信仰通道 `CardDef.FaithOps`", AsOps(c.FaithOps));
             if (kind == "spirit")
-                return new Channel { Name = "灵魂石通道 `CardDef.SpiritOps`", Ops = AsOps(c.SpiritOps) };
+                return Ch("灵魂石通道 `CardDef.SpiritOps`", AsOps(c.SpiritOps));
             if (kind == "oath")
-                return new Channel { Name = "誓约通道 `CardDef.OathOps`", Ops = AsOps(c.OathOps) };
-            return new Channel
-            {
-                Name = "**没有这条通道**（付费货币 = `" + (kind.Length == 0 ? "空" : kind) + "`，"
-                     + "`WillRunOps` 的 unit/hero 支不收这类段）",
-                Ops = null,
-            };
+                return Ch("誓约通道 `CardDef.OathOps`", AsOps(c.OathOps));
+            return Ch("**没有这条通道**（付费货币 = `" + (kind.Length == 0 ? "空" : kind) + "`，"
+                      + "`WillRunOps` 的 unit/hero 支不收这类段）", null);
         }
         string key = ResolveTriggerKey(c, b.Head);            // ② 触发头：只认本段那个头的通道
         if (key == null)
-            return new Channel
-            {
-                Name = "**没有这条通道**（`TriggerTexts` 里没有头 `" + b.Head + "`）",
-                Ops = null,
-            };
-        return new Channel { Name = "触发通道 `TriggerTexts[\"" + key + "\"]`", Ops = AsOps(c.TriggerOps(key)) };
+            return Ch("**没有这条通道**（`TriggerTexts` 里没有头 `" + b.Head + "`）", null);
+        return Ch("触发通道 `TriggerTexts[\"" + key + "\"]`", AsOps(c.TriggerOps(key)));
     }
 
     /// <summary>卡面那个触发头 → **`TriggerTexts` 的键**（不在字典里 = `null`）。
@@ -966,11 +1133,87 @@ class WillRun
         return outp;
     }
 
+    // ==================================================================
+    //  🆕 `A1694`：收集层 op 的 `Source` —— **渲染口只此一处**
+    // ==================================================================
+
+    /// <summary>🆕 **`A1694`：`Source` 列的【唯一渲染口】。**
+    ///
+    /// 形状：`SRC[<op.Source 原样>]`，多条用 ` · ` 连。`Ops` = `null` ⇒ 空串（「这条通道不存在」那一档）。
+    ///   · 🔴 **`null` ⇒ 打空串**（与相邻 `cond=[…]` 同规则）—— ⛔ 不许悄悄跳过那一条
+    ///     （「看不见」与「没有」必须能分开，本仓红线）。
+    ///   · 🔴 **`SRC[` 那个记号是**给断言用的**：`⑨` 那一档拿它判「渲染还在不在」——
+    ///     把这一处摘掉 ⇒ 记号命中 0 ⇒ 立刻红。**别改记号本身**（改了等于把那道哨兵静默关掉）。
+    ///   · ⚠️ **不转义、不截断**（照 dump 抄进断言的值必须与引擎字段**逐字相同**；
+    ///     代价与 `Program.SourceText` 同族：`Source` 原文自带 `;` 时 `Ops()` 会多切一刀，
+    ///     本处**同样如实打**，不修饰）。</summary>
+    static string SrcMark(IReadOnlyList<EffectOp> ops)
+    {
+        if (ops == null) return "";
+        var sb = new StringBuilder();
+        foreach (var o in ops)
+        {
+            if (sb.Length > 0) sb.Append(" · ");
+            sb.Append("SRC[").Append(o == null ? "" : (o.Source ?? "")).Append(']');
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>🆕 **`A1694`**：一张卡上「**收集层**（非「问玩家」）」两类来源的 `Source` 逐条摊平 ——
+    ///   这是 `A1439`（「两条采集点的 `Source` 不是同一个字符串」）的**仪器**。
+    ///
+    /// 逐条形如 `<来源标签>/<Source 原样>`：
+    ///   · `spirit/…` —— `CardDef.SpiritOps`（**小写、已剥付费前缀**）；
+    ///   · `trigger[<键>]/…` —— `CardDef.TriggerOps(键)`（**保留原文大小写**）。
+    /// ⚠️ **键按序数排**（`OrderBy(Ordinal)`）—— 否则 Dictionary 的枚举序会让 dump **抖动**，
+    ///   而抖动的 dump 不能进基线、也不能逐行对拍。
+    /// ⚠️ 来源**只有这两条**：`FaithOps` / `OathOps` 与 `SpiritOps` 形状相同（同一段 `Parse` 代码），
+    ///   但它们**已经**有玩家入口那条线（`A1590②` 的 `card` 的 `ASK` 行）⇒ 不在这里重复列。
+    ///   ⛔ 「顺手补齐」不是理由 —— 那会让这一列的含义变宽（本笔只说「这两条来源现在看得见了」）。</summary>
+    static List<string> CollectLayerSources(CardDef c)
+    {
+        var outp = new List<string>();
+        if (c == null) return outp;
+        foreach (var o in AsOps(c.SpiritOps)) outp.Add("spirit/" + (o.Source ?? ""));
+        if (c.TriggerTexts != null)
+        {
+            var keys = new List<string>(c.TriggerTexts.Keys);
+            keys.Sort(StringComparer.Ordinal);
+            foreach (var k in keys)
+                foreach (var o in AsOps(c.TriggerOps(k)))
+                    outp.Add("trigger[" + k + "]/" + (o.Source ?? ""));
+        }
+        return outp;
+    }
+
     /// <summary>一条通道（= 一条 ability 的 `op` 出处）。<see cref="Ops"/> = `null` ⇒ **这条通道不存在**。</summary>
     class Channel
     {
         public string Name = "";
         public List<EffectOp> Ops;
+        /// <summary>🆕 **`A1694`：这条通道里每条 `op` 的 `EffectOp.Source`**（**原样**，`null` ⇒ 空串）。
+        ///
+        /// 🔴 **为什么要单把它列出来**：`CardDef.SpiritOps` / `TriggerOps` 是**收集层**里
+        ///   「**非「问玩家」**」的那一半，而 <see cref="ClaimChannel"/> 是探针里**唯一**读它们的地方。
+        ///   在此之前探针**没有任何入口打这两个来源的 `Source`**（`Sig()` 还**刻意**不算它）
+        ///   ⇒ `A1439` 那条「两条采集点的 `Source` 不是同一个字符串」**没仪器可证**（只能按代码读）。
+        ///   `A1694` 就是把这件仪器补上。
+        /// ⚠️ 它**只用于渲染/对拍**，⛔ **不许并进 <see cref="Sig"/>** —— 那正是 `A1439` 那 50 条
+        ///   假警报的成因（`Sig` 的注释里写着）。
+        /// 🔴 **只能由 <see cref="Ch"/> 填**（保证与 <see cref="Ops"/> 同生同长，见那个方法）。</summary>
+        public List<string> Sources = new List<string>();
+    }
+
+    /// <summary><see cref="Channel"/> 的**唯一构造口** —— <see cref="Channel.Sources"/> 与
+    ///   <see cref="Channel.Ops"/> 在这里一次成型（⛔ 别在别处 `new Channel{…}` 手填：
+    ///   两处分头填 = 「同一条规则写两处」，迟早不一致）。
+    ///   <paramref name="ops"/> = `null` ⇒ 源列表也是空（「这条通道不存在」那一档）。</summary>
+    static Channel Ch(string name, List<EffectOp> ops)
+    {
+        var c = new Channel { Name = name, Ops = ops };
+        if (ops != null)
+            foreach (var o in ops) c.Sources.Add(o == null ? "" : (o.Source ?? ""));
+        return c;
     }
 
     /// <summary>给一条「无头段」定性（**先问「有没有别人认领」，再问「解不解得出 op」**）。

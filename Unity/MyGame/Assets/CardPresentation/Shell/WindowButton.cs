@@ -200,6 +200,10 @@ namespace CardPresentation
         // ⇒ 改默认会让 46 处一起动。
         // ⚠️ **不传 = 空 = 今天的行为**（老站点零影响）。
         // ⚠️ 必须在**第一次悬停之前**调用（`Collect()` 只收一次，顺带把当时的 `Tint` 记成基准色）。
+        // 🔴🆕 **2026-10-13（A1725）**：这几颗**从本轮起变灰也认了**（`GrayTargets()` 的**第四组**）——
+        //    改前只有色偏认得它们，置灰时它们纹丝不动（「变色认得、变灰不认」）。
+        //    所以本方法的口径是「**这一组图形件**要一起变色 / 一起变灰」，两半同源
+        //    （判据同 `GrayTargets()`：原版 `GetGraphicsInChildren(gameObject, 1)`）。
         /// <summary>参数 = 要跟着变色的那几颗图形（原版 `m_TargetGraphic` 的等价物）。</summary>
         public void TintOn(params ImageQuad[] extra)
         {
@@ -656,7 +660,7 @@ namespace CardPresentation
 
         /// <summary>自检用：现在**真的**灰着吗（不是「想灰」—— 取不到 shader 时这里仍是 `false`）。</summary>
         public bool GrayedForTest { get; private set; }
-        /// <summary>自检用：这一颗要一起变灰的 quad 数（`target` + 子树，去重）。</summary>
+        /// <summary>自检用：这一颗要一起变灰的 quad 数（**四组去重**：`_nine` + `target` + 本钮子树 + `TintOn` 那几颗）。</summary>
         public int GrayQuadCountForTest { get { return GrayTargets().Length; } }
 
         ImageQuad[] _graySavedQ;    // 上次变灰时的那一组（顺序与 `_graySaved` / `_grayMats` 对齐）
@@ -669,14 +673,51 @@ namespace CardPresentation
         /// 本来就是按钮自己的图形件，在我们这里它常常是**兄弟**（`DeckInfoPopup.Hit` 那种「另建一个透明命中区、
         /// 真图在隔壁」的摆法）⇒ 只按子树灰会**一颗像素都不变**。⚠️ 取不到的件静默跳过（`Label` 见上面那段说明）。
         /// 🔴 **不缓存**（每次现算）：`Bind` 可能在挂上 `WindowButton` 之后再改 `target`，
-        ///    缓存下来就会「按旧的一组灰、按旧的一组还原」（静默错一组），而这里总共只在状态切换时被调到。</summary>
+        ///    缓存下来就会「按旧的一组灰、按旧的一组还原」（静默错一组），而这里总共只在状态切换时被调到。
+        ///
+        /// <para>🔴🆕 **2026-10-13（A1719）：第三组 = `_nine`（九宫格那 9 块）。** 改前这里只收
+        /// 「`target` + 本钮子树」两组 —— 而**九宫格按钮的可见底图是【兄弟】**：真实站点
+        /// （`Shell/GenericOptionsPanel.cs` 的 `bgo = MenuDraw.Nine(bn, …)` 与 `Hit(bn, "Hit", …)`；
+        /// `Shell/AllianceMemberOptionsPopup.cs` 同形：`bgo` 与 `Hit` 都是 `bn` 下的**兄弟**）里，
+        /// `WindowButton` 挂在**透明命中区**那个 `Hit` 节点上、9 块 quad 全在**隔壁** `bgo` 底下
+        /// ⇒ `GrayTargets()` 只看得到 `target` 那一块（= `qs[0]`）
+        /// ⇒ **九宫格钮一置灰，只灰九分之一，看着像没禁用**（正是 A1719 那条账）。
+        /// 而**换图那一路（`SwapTo`）认的是 `_nine` 全部 9 块** ⇒ 灰/亮两条路在同一颗钮上认的不是同一组件。
+        /// 判据仍是上面那条原版语义（`GetGraphicsInChildren(gameObject, 1)` = **按钮这一组图形件全部**）：
+        /// 九宫格在原版是**一颗** `Image`，在我们这儿被切成 9 张 ⇒ 9 块同属一组，必须一起灰、一起亮。</para>
+        ///
+        /// <para>🔴🆕 **2026-10-13（A1725）：第四组 = `_tqExtra`（`TintOn` 指定的那几颗）。**
+        /// 同一条判据（原版 `GetGraphicsInChildren(gameObject, 1)` = 按钮这一组图形件**全部**）——
+        /// 而 `TintOn` 的语义正是原版 `m_TargetGraphic`：那颗**可见件常常挂在兄弟节点下**、
+        /// 不在本钮（透明命中区）子树里（真实站点 → `TintOn` 的注释）。
+        /// **改前「变色认得它、变灰不认」**：色偏走 `Collect()`（**含** `_tqExtra`），这里却**不收**
+        /// ⇒ 那一族置灰时**纹丝不动**（一个像素都不变）。这与 **A1719**（九宫格只灰 1/9）
+        /// 是**同一族**的两半 —— 「灰 / 亮两条路在同一颗钮上认的不是同一组图形件」。详见 `TintOn`。</para>
+        ///
+        /// ⚠️ **今天零影响**：全仓 `TintOn` **只有两处**（`Shell/MainMenuRuntime.cs` 的 5 个导航钮与
+        /// 3 张模式卡），而**那两处都没有灰站点**（没有 `Interactable = false` / `SetSoftDisabled`）
+        /// ⇒ 这是**潜伏**缺口、不是正在发作的缺陷 —— 所以由 `Editor/CollectionScene.cs` 的
+        /// A1725 探针（自造一棵「可见件在兄弟、`TintOn` 接上」的小树）钉住它。</summary>
         ImageQuad[] GrayTargets()
         {
             var kids = GetComponentsInChildren<ImageQuad>(true);
-            var list = new System.Collections.Generic.List<ImageQuad>(kids.Length + 1);
-            if (target != null) list.Add(target);
-            for (int i = 0; i < kids.Length; i++)
-                if (kids[i] != null && kids[i] != target) list.Add(kids[i]);
+            int ex = _tqExtra != null ? _tqExtra.Length : 0;
+            int cap = kids.Length + 1 + (_nine != null ? _nine.Length : 0) + ex;
+            var list = new System.Collections.Generic.List<ImageQuad>(cap);
+            // 🔴 **去重**：`BindNine` 把 `target` 设成 `_nine[0]`（两边是**同一块**）⇒ 不去重就把同一块收两遍，
+            //    而 `RefreshGray` 的 `_graySaved` / `_grayMats` 是**按下标**存取的 ⇒ 同一块进两组、
+            //    还原时按错的下标还（静默错一组）。`TintOn` 传进来的**也可能就是 `target` / 某块 `_nine`**
+            //    （`MainMenuRuntime` 那两处传的是别的节点，但**本类不假设这一点**）⇒ 第四组同样过这个口。
+            void Add(ImageQuad q)
+            {
+                if (q == null) return;
+                for (int j = 0; j < list.Count; j++) if (list[j] == q) return;
+                list.Add(q);
+            }
+            if (_nine != null) for (int i = 0; i < _nine.Length; i++) Add(_nine[i]);   // 🆕 A1719：九宫格那 9 块
+            Add(target);
+            for (int i = 0; i < kids.Length; i++) Add(kids[i]);
+            for (int i = 0; i < ex; i++) Add(_tqExtra[i]);                            // 🆕 A1725：`TintOn` 那几颗
             return list.ToArray();
         }
 

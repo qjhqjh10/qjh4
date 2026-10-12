@@ -841,10 +841,15 @@ namespace CardPresentation
             //   `Selectable.OnPointerClick` 头一句直接返回）；我们这套的最小等价物 = `WindowButton.Interactable`
             //   （`Shell/PromptPopup.cs` 的 `WindowButton.Interactable`：setter 走 `RefreshGray()`、`Click()` 头一句
             //   `if (!_interactable) { 出声; return; }`）。⇒ 「该灰的时候不灰」那条症状（A 表原话）修在这一句上。
-            //   ⛔ **必须排在 `Bind` 【之后】**：`GrayTargets()` = `target` + 子树（`Shell/PromptPopup.GrayTargets()`），
-            //     而 `target` 是 `Bind` 才设成那颗**可见的**底图 `bgQ` 的 —— 排在 `Bind` 之前的话，头一次
+            //   ⛔ **必须排在 `Bind` 【之后】**：`GrayTargets()` = **四组去重**（`_nine` + `target` + 本钮子树
+            //     + `TintOn` 那几颗；现读出处 `Shell/WindowButton.cs` 的 `GrayTargets()`），其中 `target` 是
+            //     `Bind` 才设成那颗**可见的**底图 `bgQ` 的 —— 排在 `Bind` 之前的话，头一次
             //     `RefreshGray()` 只灰到那颗**透明的** `HitBox`，而 `GrayedForTest` 随即为真 ⇒ 后面再设也只会早退
             //     ⇒ **画面上一像素都不变**（`RefreshGray` 自己的注释就把「先灰过、`Bind` 之后又灰」列为踩过的坑）。
+            //     ⚠️ **2026-10-13 更正（铁律 5）**：本行原来写「`GrayTargets()` = `target` + 子树
+            //     （`Shell/PromptPopup.GrayTargets()`）」—— **不成立**：`A1719`（2026-10-13）加了第三组 `_nine`
+            //     （九宫格那 9 块）、`A1725` 加了第四组 `_tqExtra`（`TintOn` 指定的那几颗）⇒ 现读口径 = 上面那**四组**。
+            //     ⚠️ 本窗这颗钮只走 `wb.Bind`（**一组**）⇒ **行为一个字没变**，改的只是措辞。
             wb.Interactable = clickable;
             return new BtnLabels { claimed = claimed, cost = cost };
         }

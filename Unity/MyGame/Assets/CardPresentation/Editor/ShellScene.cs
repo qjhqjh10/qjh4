@@ -1702,7 +1702,7 @@ public static class ShellScene
         // ---------------- ⑤·d-3 🆕 2026-10-12（A386）：**「摆完再补那一刀」那条路**的牙口
         //
         // 🔴 **缺口**（`资料/普查产出_1012/S4_外壳共用件_开账现核.md` §二·2「顺手发现」）：`MenuDraw.TextReclipAfterPlace`
-        //    （A225-② 加的计数器，`Shell/MenuDraw.cs` 的 `TextReclipAfterPlace` 声明、`ClippedTextGuard.Reclip()` `:2289` 自增）
+        //    （A225-② 加的计数器，`Shell/MenuDraw.cs` 的 `TextReclipAfterPlace` 声明、`ClippedTextGuard.Reclip()` 自增）
         //    全仓 **0 个读者** ⇒ A206 那条「裁的那一刀要落在**文字真正被画的位置**上」的路**没有直接断言**
         //    （可见面只由 `MainMenuScene.Run` 的「卡组名也吃软边」间接守着）。
         //    ⚠️ **它与上一节（`TextClipReapplied`）是两条路，别混**：
@@ -2587,6 +2587,89 @@ public static class ShellScene
             Object.DestroyImmediate(hidGo);
 
             shell.Windows.CloseAllWindows();
+
+            // ---- ⑤·b🆕 **A1709**：`Close()` 的收尾**次序** —— 「物体置灰」必须排在「摘表 / `ShowPreviousWindow`」之前
+            //
+            // 🔴 **判据（原版，第一权威）** = `d:/2/tools/decomp_full/`：
+            //   · `GameWindow__Close.c`（Slot 8）：自己只做守卫 + 播关窗音，然后把活交给 `WindowsManager.CloseWindow`；
+            //   · `WindowsManager__CloseWindowCO.c`：**先**调 Slot 9 `Hide()`（`0x1c8`；`Hide()` 逐句
+            //     = `GameWindow__Hide.c`：守卫 → `state = Closed` → **`SetActive(false)`**）**之后才**
+            //     `List.Remove` + `ShowPreviousWindow()`。
+            //   ⇒ 原版「置灰」在**前**；我们原来写在 `NotifyClosed` **之后**（= A1709 的根因）。
+            //
+            // 🔴 **为什么这一条非有不可** —— 🔴 **2026-10-14（`A1714`）就地订正（铁律 5）：下面这半的【理由】已作废，作痕留本行**：
+            //   原文（留痕）：「关掉列表里**最后一扇**时 `ShowPreviousWindow` 会走「列表空了」那一支
+            //   （`Shell/WindowsManager.cs` = 原版 `CurrentWindow = baseMenu` + `OpenWindow(baseMenu)`）；
+            //   而当**被关的正是 `baseMenu` 自己**时（`CloseAllWindows()` 里它下标 0、**最后**被关到），
+            //   那一支把 `this` **重新 `SetActive(true)` + `state = Open`** ⇒ 老尾句再把它摁灰 ⇒
+            //   `(state = Open, activeSelf = false)`」。
+            //   🔴 **实况（`A1714` 之后）**：补上 `baseMenu` 那一支（**被关的那扇 == `Manager.BaseMenu`
+            //   ⇒ 只 `Hide()` 就 `return`**，不 `Remove`、**不 `ShowPreviousWindow`**）之后，
+            //   关 `baseMenu` **根本走不到那一支** ⇒ 「被开回来又摁灰」那条链**不存在了**。
+            //   **错因** = 我们当时缺那一支（原版 `CloseWindowCO` 里它一直都在；判据逐句 → `WindowsManager.cs` 的 `Close()`）。
+            //   ✅ **这一条【仍然成立】的那半**（⛔ 别一起删）：原版**普通窗**那一支确实还是
+            //   「先 `Hide()`（= 置灰）→ 再 `List.Remove` → 再 `ShowPreviousWindow`」⇒
+            //   **「置灰排在摘表之前」照原版必须有**（本段前两句的判据照旧），只是它今天**不再**为
+            //   「`baseMenu` 被开回来又摁灰」背书 —— 因为那件事没有了。
+            //   ⚠️ 生产路径上「关最后一扇 ⇒ 触发 `ShowPreviousWindow`」**仍然会发生**
+            //   （`MainMenuRuntime.OpenSocial/OpenRewards` 两颗导航钮带 `closeAll: true`），
+            //   只是那一刻**被关的不是 `baseMenu`**（是普通窗 ⇒ 走完整记账那一支）。
+            //   ⚠️ 本段**用探针自造**这个处境（不改生产数据），所以它不依赖 `MainMenuWindow` 那一套树。
+            //
+            // ⚠️ 本段**只**摆「常驻主菜单 + 最后一扇」这一格；端到端那一格（开社交窗 ⇒ 主菜单被藏 ⇒ 关社交窗
+            //    ⇒ 主菜单回来）在 `Editor/MainMenuScene.cs:10406-10443`（A1629 那两条）里。
+            {
+                var baseGo = new GameObject("A1709 baseMenu probe");
+                var baseW = baseGo.AddComponent<GameWindow>();
+                baseW.type = WindowType.Fullscreen;              // 与真那一扇同档（`MainMenuRuntime.cs:509` 实读 = 0）
+                baseW.placement = WindowsPlacement.Canvas;
+                WindowsManager.AttachToAnchor(baseW);
+                shell.Windows.SetBaseMenu(baseW);                // = 原版 `MainMenuWindow.Initialize` 那两句的前一句
+                shell.Windows.OpenWindow(baseW);
+                CheckTrue(baseGo.activeSelf && baseW.CurrentState == WindowState.Open && shell.Windows.openWindows.Contains(baseW),
+                          "（前提）常驻主菜单登记好了：场上只有它一扇、`Open` + active、在册");
+
+                baseW.Close();                                   // ← 关的就是**最后一扇**，且它**就是 baseMenu**
+                // 🔴 **2026-10-14（`A1714`）就地订正（铁律 5）**：下面这两条原来断的是
+                //   「关掉常驻主菜单那一拍 ⇒ 它**又被开回来了**」（`activeSelf == true` / `CurrentState == Open`）——
+                //   **那钉的是一个错行为**。原版 `WindowsManager__CloseWindowCO.c` 逐句：被关的那扇 == `baseMenu`
+                //   （`op_Equality(param_2, *(manager + 0x48))`）走的是**另一支** = 只虚调 Slot 9 `Hide()`
+                //   就 **`return`**（**不 `List.Remove`、不 `ShowPreviousWindow`**，也不 `Destroy`）
+                //   ⇒ **关 `baseMenu` 本来就不该把它开回来**（我们原来缺那一支，才让「被开回来」看着像对的）。
+                //   ⚠️ 新期望值**从原版那一支推出来**（⛔ 不是把期望值改松来迎合实现）：
+                //   `Hide()` 逐句 = `GameWindow__Hide.c` = 守卫 → `state = Closed` → `SetActive(false)`。
+                CheckTrue(!baseGo.activeSelf,
+                          "★ ⑤·b-1（**2026-10-14 `A1714` 订正**）：关掉常驻主菜单那一拍 ⇒ 它**只被 `Hide()` 掉**"
+                        + "（`activeSelf == false`）—— **不再被 `ShowPreviousWindow` 开回来**"
+                        + "（判据 = 原版 `CloseWindowCO` 的 `param_2 == baseMenu` 支：只虚调 Slot 9 `Hide()` 就 `return`）"
+                        + "｜🧨 改坏法：删掉 `GameWindow.Close()` 里那一支 ⇒ 它走完整记账、被 `OpenWindow(baseMenu)` 开回来 ⇒ 本条红");
+                Check(baseW.CurrentState, WindowState.Closed,
+                      "…而且那一支只做 `Hide()` ⇒ `state` 写的是 `Closed`（= `GameWindow__Hide.c` 的第一句）");
+                CheckTrue(baseGo.activeSelf == (baseW.CurrentState == WindowState.Open),
+                          "★★ ⑤·b-2 **结构断言（两边不可能一起满足）**：`state` 与 `activeSelf` **必须同向** —— "
+                        + "改坏法：把 `GameWindow.Close()` 的尾句 `gameObject.SetActive(false);` 挪回 `NotifyClosed` "
+                        + "**之后**（A1709 之前那一版）⇒ 那一句会把**刚被开回来的** `baseMenu` 又摁灰 ⇒ "
+                        + "`(Open, inactive)` ⇒ 本行红（⚠️ ⑤·b-1 也红：两条各管一件事，不是同义反复）");
+                CheckTrue(shell.Windows.openWindows.Contains(baseW),
+                          "…而且它**仍在册**（🔴 **2026-10-14 `A1714` 订正**：本条原写「被开回来就得**在册**"
+                        + "（原版那一跳走的是完整 `OpenWindow` ⇒ `openWindows.Add`）」—— **理由换了**："
+                        + "`baseMenu` 那一支**不 `List.Remove`** ⇒ 它**从头到尾没被摘掉**。"
+                        + "⛔ 断的值一个字没改，改的是**为什么**）；⚠️ 判据 = `CloseWindowCO` 那一支只 `Hide()` 就 `return`");
+
+                shell.Windows.CloseAllWindows();                 // ← A1709 的另一半：收尾**不许**把「开着的」摘成孤儿
+                CheckTrue(!baseGo.activeSelf || shell.Windows.openWindows.Contains(baseW),
+                          "★★ ⑤·b-3「**开着却不在册**」是非法组合：`CloseAllWindows()` 收尾只许摘**真的已 `Closed`**的"
+                        + "（`null` / `Closed`）—— 改坏法：退回**无条件** `openWindows.Clear()` ⇒ 上一步刚被开回来的"
+                        + "常驻主菜单（`Open` + active）被摘表 ⇒ 本行红。🔴 后果不是记账难看：`OpenWindow` 的全屏支是"
+                        + "`if (openWindows.Count > 0) HideAllWindows();`（`WindowsManager.cs` 照原版）⇒ 表被清空 ⇒ "
+                        + "主菜单那一棵**不会再被藏** ⇒ 一直露在新开的全屏窗底下");
+                CheckTrue(baseGo.activeSelf == (baseW.CurrentState == WindowState.Open),
+                          "★ ⑤·b-4 …而且这一拍之后 `state` / `activeSelf` **仍是同向的**"
+                        + "（两条合法结局：`Closed` + 不活 / `Open` + 活 —— 不许出现第三种）");
+
+                shell.Windows.SetBaseMenu(null);                 // 复原：本宿主原来没有 baseMenu（也顺带清表 + 清顶窗）
+                Object.DestroyImmediate(baseGo);
+            }
 
             CheckTrue(!pl.KeyCancel(),
                       "★ 一扇窗都没有时 ESC 什么都不做 —— ⚠️ **这一条钉的是【我们的处境】，不是原版的处境**："
@@ -3714,6 +3797,87 @@ public static class ShellScene
             gwb.Click();
             Check(gFired, 1, "…真的又能点了（与上面那条合起来 = 分得出「灰着」与「可用」两种状态）");
             Object.DestroyImmediate(gGo);
+
+            // 🆕 **2026-10-13（A1719）**：**九宫格按钮的「一组」要认对**（正文 → `Shell/WindowButton.cs`
+            //   的 `GrayTargets()` 那一段）。形状：可见底图被切成 9 块放在**一颗节点**上，而 `WindowButton`
+            //   挂在【另一颗】透明命中区上、两者**互为兄弟**（真实站点 = `Shell/GenericOptionsPanel.cs:462-492`：
+            //   `bgo = MenuDraw.Nine(bn, …)` 与 `Hit(bn, "Hit", …)` 都挂在 `bn` 下；`Shell/AllianceMemberOptionsPopup.cs`
+            //   同形）。改前 `GrayTargets()` = 「`target` + 本钮子树」⇒ 只看得到那 9 块里的**第 1 块**；
+            //   而换图那一路（`BindNine` 记下的 `_nine` → `SwapTo`）认的是**全部 9 块** ⇒ 灰/亮**不对称**。
+            //   判据 = 原版 `EverguildButtonHelper.GetGraphicsInChildren(gameObject, includeInactive: 1)`：
+            //   **按钮这一组图形件全部**（九宫格在原版是**一颗** `Image`，在我们这儿切成 9 张 ⇒ 同属一组）。
+            {
+                const int NineN = 9;
+                var nRoot = new GameObject("A1719 NineProbe");
+                var nBtn = new GameObject("Btn").transform;
+                nBtn.SetParent(nRoot.transform, false);
+                var nNine = new GameObject("Image");           // 可见底图那一颗（**命中区的兄弟**）
+                nNine.transform.SetParent(nBtn, false);
+                var nQs = new ImageQuad[NineN];
+                int nMade = 0;
+                for (int i = 0; i < NineN; i++)
+                {
+                    nQs[i] = ImageQuad.Create(nNine.transform, CardArt.Solid(), Vector3.zero,
+                                              LayoutSpace.Px(20f), new Vector2(0.5f, 0.5f), "p" + i);
+                    if (nQs[i] != null) nMade++;
+                }
+                var nHit = new GameObject("Hit");              // 透明命中区（`WindowButton` 挂在它身上）
+                nHit.transform.SetParent(nBtn, false);
+                ImageQuad.Create(nHit.transform, CardArt.Solid(), Vector3.zero, LayoutSpace.Px(20f),
+                                 new Vector2(0.5f, 0.5f), "Hit");
+                var nwb = nHit.AddComponent<WindowButton>();
+                // ⚠️ 图名用**真名**（`40K_button` —— 全库 10 处 `BindNine` 里有 3 处在用它）：编一个不存在的
+                //    名字会往 `WindowButton.MissingSwapArt` 那条红线表里塞一条（别的宿主断它为空）
+                //    ⇒ 这里只制造被测的那一态。
+                nwb.BindNine(nNine, "40K_button");
+                Check(nMade, NineN, "前置：九宫格那 9 块都建出来了");
+                CheckTrue(nwb.HoverTexForTest != null,
+                          "前置：`40K_button_hover` 取得到（取不到的话下面「亮那一路认下 9 块」无从谈起）");
+
+                var nOrigTex = new Texture[NineN];
+                var nOrigMat = new Material[NineN];
+                for (int i = 0; i < NineN; i++)
+                {
+                    if (nQs[i] == null) continue;
+                    nOrigTex[i] = nQs[i].Texture;
+                    var mr0 = nQs[i].GetComponent<MeshRenderer>();
+                    nOrigMat[i] = mr0 != null ? mr0.sharedMaterial : null;
+                }
+
+                // ①【亮】那一路（悬停换图）认下几块 —— `BindNine` → `SwapTo` 逐块换图
+                nwb.Enter();
+                int brightSeen = 0;
+                for (int i = 0; i < NineN; i++)
+                    if (nQs[i] != null && nQs[i].Texture != nOrigTex[i]) brightSeen++;
+                nwb.Exit();
+                Check(brightSeen, NineN, "★ 悬停那一路换的是**全部 9 块**（`BindNine` 的 `_nine`）—— 本条的基准");
+
+                // ②【灰】那一路必须认下**同一组**：改前 `GrayTargets()` 只灰得到第 1 块（= 1，不是 9）
+                nwb.Interactable = false;
+                int graySeen = 0;
+                for (int i = 0; i < NineN; i++)
+                    if (nQs[i] != null && ShaderNameOf(nQs[i]) == GreyName) graySeen++;
+                Check(graySeen, brightSeen,
+                      "★ **变灰认下的是与换图【同一组】图形件**（A1719：改前只认得到 9 块里的第 1 块）");
+                Check(graySeen, NineN,
+                      "★ …具体就是九宫格 **9 块全灰**（原版 `GetGraphicsInChildren(gameObject, 1)` = 按钮这一组全部）");
+                CheckTrue(nwb.GrayedForTest, "★ …而且它自称灰了（`GrayedForTest`）");
+
+                // ③【灭自证】还原那一路必须**逐块**把材质**原样还回去** —— 只断「都灰了」的话，
+                //    把 `GrayTargets` 改回只灰一块、再顺手把 `GrayedForTest` 置真也照样绿。
+                nwb.Interactable = true;
+                int stillGrey = 0, matBack = 0;
+                for (int i = 0; i < NineN; i++)
+                {
+                    if (nQs[i] == null) continue;
+                    if (ShaderNameOf(nQs[i]) == GreyName) stillGrey++;
+                    var mr1 = nQs[i].GetComponent<MeshRenderer>();
+                    if ((mr1 != null ? mr1.sharedMaterial : null) == nOrigMat[i]) matBack++;
+                }
+                Check(stillGrey, 0, "★ 对照：置回可交互 ⇒ 9 块**逐块**都退出灰化（不是只退出第 1 块）");
+                Check(matBack, NineN, "★ …且 9 块各自拿回**原来那一份材质对象**（逐块还原，不是只还原中心那格）");
+                Object.DestroyImmediate(nRoot);
+            }
         }
 
         // ---------------- ⑦🆕 A177：入口**收编进「按引用复用」**（`WindowsManager.OpenByRef`）----------------
@@ -7007,6 +7171,114 @@ public static class ShellScene
                 cdW.Close();
             }
             shell.Windows.CloseAllWindows();
+        }
+
+        // ---------------- 🆕 2026-10-13（`A1132` 第 1 步）：卡组编辑那一扇窗（`DeckEditingWindow`）----------------
+        //
+        // 🔴 **本步 = 纯新增窗、生产路径零调用**（那条 `grep` 证据写在验收报告里；窗是 `Shell/DeckEditingWindow.cs`）。
+        //    判据（原版真身）= `资料/普查产出_第二十四会话/D10_卡组编辑改成窗_施工件.md` **§一**：
+        //      · 类 = `DeckEditingWindow : GameWindow`（**直接子类**）
+        //      · `type = 0 (Fullscreen)` · `windowsPlacement = 10 (World)` —— **这两个值原版只有 prefab
+        //        序列化字段有、代码里没赋** ⇒ 我们显式赋（哨兵会被 `AttachToAnchor` 出声 + 兜底）
+        //      · 根 prefab 名 = `Deck Editing Menu`（248 节点那棵树**我们不重建**）
+        //      · **ESC = 保存**（原版覆写整条 `ESCPressed` ⇒ 基类那两道门槛 + `Close()` 都不跑）
+        //
+        // ⚠️ **这一节只验「窗建得起来 / 开得起来 / 关得掉」**（第 1 步的「能停」中间态）。
+        //    它**不验**入口、不验回程、不验遮让 —— 那三件是第 3/4/5 步（见 D10 §三那张表）。
+        Section("A1132 第 1 步：卡组编辑窗（`DeckEditingWindow`）—— 建窗 / `Open()` / `Close()`（纯新增、零生产调用）");
+        {
+            shell.Windows.CloseAllWindows();      // 隔离：本窗是**全屏窗** ⇒ 开它会 `HideAllWindows()` 把别的窗藏掉
+
+            // 🔴 **必须先换成临时存档**（与 `Editor/DeckScene.cs` 同一条纪律）：`Open()` → `DeckRuntime.Build`
+            //    在**空库**时会 `Library.Create(...)` + `CommitCurrent(...)`（见那个 `Build()` 开头那段）
+            //    ⇒ 不换路径就会**写玩家的真卡组**。判据 = `RuleEngine/Data/DeckStore.cs`：
+            //    `Path = OverridePath ?? persistentDataPath/WarpforgeDecks.json`。
+            string tmpDeck = System.IO.Path.GetFullPath(
+                System.IO.Path.Combine(Application.dataPath, "../Temp/_shelldeckwin_selftest.json"));
+            RuleEngine.DeckStore.OverridePath = tmpDeck;
+            RuleEngine.DeckStore.DeleteFile();
+
+            DeckEditingWindow deW = null;
+            try
+            {
+                // ---- ① 建窗：两个必填参数**是不是原版那两个值** ----
+                // 🔴 **灭自证的那一条**（本步特意设计）：`AttachToAnchor` 对哨兵 `type` 的**兜底值恰好也是**
+                //    `Fullscreen`(0) ⇒ 只断 `type == 0` **挡不住**「忘了显式赋」（哨兵会被静默兜成同一个数、
+                //    没有任何断言会红）。⇒ 另一条必须咬**出声本身**：「显式赋过的窗，建窗那一刻
+                //    **一条点到它的 LogError 都没有**」—— 兜底支必然打一条 `… `placement` 没有显式赋值…`。
+                //    （同族先例 = 本文件 A166 那条在 `Editor/SettingsScene.cs` 里的夹具，它断的是反面。）
+                var buildErrs = new List<string>();
+                Application.LogCallback hBuild = (msg, stack, type) =>
+                { if (type == LogType.Error || type == LogType.Exception) buildErrs.Add(msg); };
+                Application.logMessageReceived += hBuild;
+                try { deW = DeckEditingWindow.Create(shell.Windows); }
+                finally { Application.logMessageReceived -= hBuild; }
+
+                CheckTrue(deW != null, "（前提·不静默）窗建出来了（`Create` 返回空 ⇒ 下面全是空转）");
+                if (deW == null) { /* 上面那条已经红了；不往下走，免得一串 NRE 把「不静默」变成别的形状 */ }
+                else
+                {
+                    Check(deW.name, DeckEditingWindow.NodeName,
+                          "★ 根节点名照原版 prefab = `Deck Editing Menu`（`bundle_menus_assets_all`）");
+                    Check((int)deW.type, 0,
+                          "★ `type` = **0 (`Fullscreen`)**（原版 prefab 序列化字段实证；⛔ 不是模态那扇 `PopUpGameWindow`）");
+                    Check((int)deW.placement, 10,
+                          "★ `placement` = **10 (`World`)**（原版 prefab 序列化字段实证；兜底值 `Popup`(15) ⇒ 这条能咬住「忘赋」）");
+                    CheckTrue(deW.HasType && deW.HasPlacement,
+                              "…两个字段都是**显式赋过的**（`HasType`/`HasPlacement` 判的是「赋没赋过」，⛔ 不判值合不合法）");
+                    string named = null;
+                    for (int i = 0; i < buildErrs.Count; i++)
+                        if (buildErrs[i].IndexOf(deW.name, System.StringComparison.Ordinal) >= 0) { named = buildErrs[i]; break; }
+                    CheckTrue(named == null,
+                              "★ **建窗那一刻没有一条 LogError 点到这扇窗** —— 哨兵兜底会出声"
+                            + "（`[Win] `…` 的 `placement` 没有显式赋值…`）；这一条是「`type == 0` **不是**兜底出来的」"
+                            + "的**唯一鉴别式**（兜底值恰好也是 `Fullscreen`(0) ⇒ 上面那条挡不住）；实得 "
+                            + buildErrs.Count + " 条"
+                            + (named != null ? "，其中点到本窗的是：" + named : ""));
+                    var worldAnchor = WindowsManager.GetWindowAnchor(WindowsPlacement.World);
+                    CheckTrue(worldAnchor != null && deW.transform.parent == worldAnchor,
+                              "…而且 `AttachToAnchor` 真把它挂到了**锚点 10 (World)** 下"
+                            + "（`placement` 兜错档 = 挂到弹窗锚点 ⇒ 这条红）");
+
+                    // ---- ② `Open()`：内容由 `DeckRuntime` 建在**本窗窗根**下 ----
+                    int nodesBefore = deW.transform.GetComponentsInChildren<Transform>(true).Length - 1;
+                    Check(nodesBefore, 0,
+                          "（前提）开窗之前窗根下**一个子件都没有** —— 原版那棵 248 节点的 prefab 树我们**不重建**"
+                        + " ⇒ 下面的节点只可能来自 `Open()`（这条不成立的话，后面的「节点数 > 0」等于没验）");
+                    shell.Windows.OpenWindow(deW);        // 走生产那条开窗路（`TryOpen` → 闭→开那一档 → `Open()`）
+                    CheckTrue(deW.IsOpen(),
+                              "★ 开窗后 `IsOpen()` 为真（= 原版 `GameWindow.IsOpen()`：`CurrentState == 1`）");
+                    CheckTrue(deW.gameObject.activeSelf, "…物体是活的");
+                    int nodesAfter = deW.transform.GetComponentsInChildren<Transform>(true).Length - 1;
+                    CheckTrue(nodesAfter > 0,
+                              $"★ `Open()` 之后**子树节点数 > 0**（实得 {nodesAfter}）—— 这是「`Open()` 真的建了内容」的判据"
+                            + "（数的是**树里的节点**、含 inactive：原版全量 `Instantiate` 也不管它在不在视口里）");
+                    CheckTrue(deW.Runtime != null && deW.Runtime.Root == deW.transform,
+                              "…`DeckRuntime.Root` **就是本窗窗根**（那棵树我们不重建 ⇒ 中间少一层；"
+                            + "`Root = transform` 是 `DeckRuntime.Build` 那一句，见 D10 §二）");
+                    CheckTrue(deW.Runtime != null && deW.Runtime.State != null && deW.Runtime.State.PoolCount > 1000,
+                              "…而且卡池**真建出来了**（张数 > 1000）—— 只数节点的话，「建了一堆空壳」也能过");
+                    CheckTrue(deW.transform.Find("pool_0") != null,
+                              "…卡池第 0 屏位 `pool_0` 在窗根下（`DeckRuntime.RefreshPool` 里名字 = `pool_` + 屏位号）");
+
+                    // ---- ③ `Close()`：两条并存（`state` 与激活态）----
+                    // 🔴 **这两条是配对写的**（本步的第二个「灭自证」）：只断 `!IsOpen()`（读 `CurrentState`）
+                    //    挡不住「物体被置灰了但 state 还写着 Open」，只断 `!activeSelf` 挡不住反过来的那一半
+                    //    ⇒ **两条同时成立**才等价于「`GameWindow.Close()` 那两步都跑了」。
+                    deW.Close();
+                    CheckTrue(!deW.IsOpen(), "★ `Close()` 之后 `IsOpen()` 为假（`CurrentState` 那一步跑了）");
+                    CheckTrue(!deW.gameObject.activeSelf, "★ …**而且物体不活**（`SetActive(false)` 那一步也跑了）");
+                    CheckTrue(!shell.Windows.openWindows.Contains(deW),
+                              "…而且从 `openWindows` 里摘掉了（= 原版 `CloseWindowCO` 的 `List.Remove`）");
+                }
+            }
+            finally
+            {
+                shell.Windows.CloseAllWindows();
+                if (deW != null && deW.gameObject != null) Object.DestroyImmediate(deW.gameObject);
+                RuleEngine.DeckStore.DeleteFile();        // ⚠️ 必须在还原路径**之前**删（`Path` 读的是 `OverridePath`）
+                RuleEngine.DeckStore.OverridePath = null; // 还原成玩家目录（本节唯一的全局副作用）
+            }
         }
 
         Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");
