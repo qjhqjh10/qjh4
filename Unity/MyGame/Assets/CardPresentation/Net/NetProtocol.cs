@@ -113,7 +113,13 @@ namespace CardPresentation.Net
         /// 客机收到就只认领 `seq`、**别做第二遍**。换牌那几条是主机定序的 ⇒ 一律 `false`。</summary>
         public bool preApplied;
         /// <summary>🆕 2026-09-30：**进攻卡 / 防御卡**那两条（`kind = 102/103`）用 —— 选中的槽号。
-        /// 进攻卡 = 卡槽 `idx`（`&lt; 0` = 「不使用进攻卡」那张）；防御卡 = `DefensiveChoices` 里的下标。</summary>
+        /// 进攻卡 = 卡槽 `idx`（`&lt; 0` = 「不使用进攻卡」那张）；防御卡 = **闸过那份**
+        /// `BattleDriver.DefensiveChoicesOwned(faction)` 里的下标。
+        /// 🔴 **2026-10-13（`A1744`）就地订正**：原来这里写「防御卡 = `DefensiveChoices` 里的下标」—— **不再准确**。
+        ///   那两份列表**长度可以不同**（未筛那份恒 3 张、筛过的按等级少几张 —— 见 `BattleDriver.cs:4754` 那条成对注释），
+        ///   而发送侧已经改成用**闸过那份**（弹面板 `BattleDriver.cs:4719-4722` · 发送 `:4985-4988`）。
+        ///   ⚠️ **接收方并不拿这个下标反查卡**（`NetApply.cs:56` 只记槽号，卡走 `defId` —— 见 `:59-60`）
+        ///   ⇒ 这一格填错**不会 desync**，只会让日志 / 录像里的槽号对不上。</summary>
         public int envSlot = -1;
         /// <summary>🆕 进攻卡那一条用：选中的环境 SO 名（`RuleCore.ChooseOffensiveCard` 的第四实参）。</summary>
         public string envSO;

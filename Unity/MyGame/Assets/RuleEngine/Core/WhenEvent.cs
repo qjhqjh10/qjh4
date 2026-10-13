@@ -576,6 +576,23 @@ namespace RuleEngine
             return ev;
         }
 
+        /// <summary>🆕 **图标记号·带方括号那一形态**（`[Codex icon]` → 整块丢掉）。
+        /// 判据 = 方括号里的内容**以词 ` icon` 结尾**（`[Shield]` / `[Attack]` 那种**不**命中）。
+        /// 详见 <see cref="Clean"/> 的 ① 那一段。出账 `A1689`。</summary>
+        static readonly System.Text.RegularExpressions.Regex ReIconMarkerBracketed =
+            new System.Text.RegularExpressions.Regex(
+                @"\[\s*(?:[^\[\]]*\s)?icon\s*\]",
+                System.Text.RegularExpressions.RegexOptions.Compiled
+                | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        /// <summary>🆕 **图标记号·已脱方括号那一形态**（`codex icon` → 整块丢掉）。
+        /// ⚠️ 名字**收窄到一个词**（放宽会连主语一起吃掉），理由见 <see cref="Clean"/> 的 ② 那一段。</summary>
+        static readonly System.Text.RegularExpressions.Regex ReIconMarkerBare =
+            new System.Text.RegularExpressions.Regex(
+                @"\b\w+\s+icon\b",
+                System.Text.RegularExpressions.RegexOptions.Compiled
+                | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
         /// <summary>
         /// 归一化：小写、去方括号与撇号、收空白、**去冠词与所有格**、剥掉开头的 `you`。
         ///
@@ -585,6 +602,38 @@ namespace RuleEngine
         /// </summary>
         static string Clean(string phrase)
         {
+            // ---- ① 🆕 **图标记号整块丢掉**（`[Codex icon] Codex` → ` Codex`）----
+            //   🔴 `A1689`（2026-10-13）。改前那个字符循环只脱 `[` `]`、**把里面的字留下**
+            //      ⇒ `[Codex icon] Codex` 变成 `codex icon codex` ⇒ 关键词被归一成
+            //      `codexiconcodex` ⇒ 查 `Implemented` 必然落空（**静默认不出**）。
+            //   **正确语义**（判据**不是我们挑的**）：记号里那一截是**卡面上印的图标**，
+            //      **后面紧跟的那个词才是真关键词** ⇒ 记号**连内容一起丢**。同一件事
+            //      `GivePayload` 早就写着（`GivePayload.cs:274-288` 的 `IconNames`：
+            //      「括号里那个词指的是**卡面上印的图标**……**后面紧跟的才是真关键词**」，
+            //      它自己还带着 `GOF_Worst_Temper` 的实测：`[Wings] Flying` 里的 `Wings`
+            //      挡在前面，`Flying` 那半句**从来不生效**）；`EffectText.cs:5959`
+            //      在「触发能力」那一路也是这么做的（`\[[^\]]*\]` → `" "`）。
+            //   ⚠️ **只对「名字以词 ` icon` 结尾」的记号**（`[Codex icon]` / `[eye icon]` /
+            //      `[faith icon]` / `[icon]`）——`[Shield]` / `[Attack]` / `[Ranged]` / `[Mob]`
+            //      那些**括号里本身就是词**，照旧只脱括号、留内容（全池实测 `[X icon]` 只有
+            //      **2 处**：本卡的 `[Codex icon] Codex` 与 `UM_Phobos_Lieutenant` 的
+            //      `[eye icon] Stealth`）。
+            //   ⚠️ 判据用**结构**（内容以 ` icon` 结尾）而不是一张名字表 —— 那张表在
+            //      `GivePayload` 里、`WhenEvent` 读不到，**抄第二份 = 迟早不一致**。
+            phrase = ReIconMarkerBracketed.Replace(phrase, " ");
+
+            //   ② 🆕 **同一件事的「已脱方括号」形态**（`codex icon codex`）也要吃 ——
+            //      降费那一路（`CardDef.AddWhenTrigger` ② → `EffectText.TryCostWhen`）在进
+            //      本函数**之前**就把 `[` `]` 剥掉了（`EffectText.cs:6890` 的
+            //      `seg.Replace("[","").Replace("]","")`；探针读数 =
+            //      `Source=[Lower cost by 1 when a friendly Troop or Stratagem trigger Codex icon Codex]`）
+            //      ⇒ 送进来的是**裸的**，上面那条方括号正则救不了它。
+            //   ⚠️ 名字**收窄到一个词**（`\w+ icon`）：放宽成两个词会**连主语一起吃掉**
+            //      （实测 `friendly troop or stratagem trigger codex icon codex` 会被
+            //      `trigger codex icon` 命中 ⇒ 主语没了）。池里那几个名字
+            //      （`codex icon` / `eye icon` / `faith icon` / `icon`）都是**一个词 + `icon`**。
+            phrase = ReIconMarkerBare.Replace(phrase, " ");
+
             var sb = new System.Text.StringBuilder(phrase.Length);
             foreach (char ch in phrase)
             {
@@ -1046,6 +1095,22 @@ namespace RuleEngine
             int at = s.IndexOf(Triggers, System.StringComparison.Ordinal);
             int len = Triggers.Length;
             if (at < 0) { at = s.IndexOf(Uses, System.StringComparison.Ordinal); len = Uses.Length; }
+            // 🆕 **中缀、不带 `s` 的动词形态**（`… stratagem trigger <关键词>`，`A1689`）——
+            //   原来只认中缀 `" triggers "` / `" uses "`（**带 s**）或**行首** `trigger `/`use `，
+            //   而 `UM_Avenging_Zeal` 那句的动词**在中间、不带 s**：
+            //     `Lower cost by 1 when a friendly Troop or Stratagem trigger [Codex icon] Codex`
+            //   三个分支一个都不命中 ⇒ `return false`（卡面亲读：`d:/2/Warpforge部队卡片/
+            //   Ultramarines/4计策/zeal.png`，**印的就是 `trigger`，没有 `s`**）。
+            //   ⚠️ **同义、不是新语义**：`trigger` / `triggers` 在这族卡面里指的是同一件事
+            //     （同族能用的卡写的是带 s 的 `When a friendly troop triggers Duty`）。
+            //   ⚠️ 排在**带 s 的两条之后**（先到先得）—— 顺序反了也不会错，但保持一致更好读。
+            //   ⚠️ 全池实测**没有副作用**：`desc` 里含裸 `trigger` 的一共 8 张，其中会走到本函数的
+            //     只有本卡这一句（另 6 张是 `trigger their X abilities`，走 `EffectText` 的
+            //      `TriggerAbilityOf` 那一路；`SW4` 的 `When you trigger Ferocity` 是**行首**形态，
+            //      `Clean` 之后是 `trigger ferocity`、**前面没有空格** ⇒ 中缀匹配不到它）。
+            //      `desc` 里含裸 `use` 的 **0 张**。
+            if (at < 0) { at = s.IndexOf(" trigger ", System.StringComparison.Ordinal); len = 9; }
+            if (at < 0) { at = s.IndexOf(" use ", System.StringComparison.Ordinal); len = 5; }
 
             if (at >= 0)
             {
@@ -1514,11 +1579,61 @@ namespace RuleEngine
                 var c = new CardCriteria();
                 if (s.Length > 0)
                 {
-                    if (CreatePool.IsKindWord(s)) c.KindWord = s;   // 兵种/牌类词（唯一判据）
+                    // 🆕 **并列兵种词**（`friendly Troop or Stratagem`，`A1689`）——
+                    //   卡面那个 `or` / `and` 是**并集**（「部队**或**战术」都算），
+                    //   而 `CreatePool.IsKindWord("troop or stratagem")` 认不出 ⇒ 会退化到下面那行
+                    //   `c.Name = "troop or stratagem"`（**永远匹配不中、且不报错** ——
+                    //   正是本文件反复点名的那种静默失效）。
+                    //   ⚠️ **判据不是新写的**：`Aura.SubjectFilters` 做的是同一件事
+                    //     （`Regex.Split(subject, @"\s+and\s+")` 之后逐词走
+                    //     `CreatePool.IsKindWord` —— 「判据只此一份」），这里照它那一套形状。
+                    //     ⚠️ **它那边 `and` 是并集、同段内并列是交集**；本处主语只有一个维度
+                    //     （没有 `Infantry troops` 那种「名词头」写法需要区分），
+                    //     所以 `and` 与 `or` **同法**拆成并集。
+                    //   ⚠️ **`troop` 拆出来照样是【真筛选】**（见上面那段：它把督军排掉）——
+                    //     两个词**都要进筛选**，不许把 `troop` 当「不限」丢掉。
+                    //   ⚠️ **有一半认不出就整段退回原行为**（当卡名）—— 这样
+                    //     `When a Stormboy dies` 这类**卡名里带 `and`** 的写法逐字不变。
+                    //   ⚠️ 全池实测（1126 张）：`When` 短语的主语里出现 ` and ` / ` or ` 的
+                    //     **只有本卡这一处**（另一处 `you create or play a secret` 是**事件短语**
+                    //     层拆的 `A or B`，见 `TrySplitAlternative`，走不到这里）。
+                    var parts = SplitParallelKinds(s);
+                    if (parts != null)
+                    {
+                        c.KindWord = parts[0];                       // 兵种/牌类词（唯一判据）
+                        if (parts.Count > 1)
+                        {
+                            c.KindAnyOf = new List<string>();
+                            for (int i = 1; i < parts.Count; i++)
+                                if (!c.KindAnyOf.Contains(parts[i])) c.KindAnyOf.Add(parts[i]);
+                        }
+                    }
+                    else if (CreatePool.IsKindWord(s)) c.KindWord = s;   // 兵种/牌类词（唯一判据）
                     else c.Name = s;                                // 否则当卡名（全等匹配，见 CardCriteria.Name）
                 }
                 if (!string.IsNullOrEmpty(kw)) c.Keyword = kw;
                 return c.IsEmpty ? null : c;
+            }
+
+            /// <summary>
+            /// `A and B` / `A or B` → 各段（**全部**都得是兵种词，否则返回 `null` ⇒ 调用方退回原行为）。
+            ///
+            /// ⚠️ **只有一段时也返回它**（单兵种词的正常写法）。
+            /// ⚠️ 段内**不做**「交集」那套 —— 主语这一维没有 `Infantry troops` 那种写法，
+            ///   段里的多词（`combat elixir` 这类两词兵种）整段交给 `IsKindWord`（它自己支持两词窗口）。
+            /// </summary>
+            static List<string> SplitParallelKinds(string s)
+            {
+                string[] segs = s.Split(new[] { " and ", " or " }, System.StringSplitOptions.None);
+                if (segs.Length == 0) return null;
+                var list = new List<string>(segs.Length);
+                foreach (string seg in segs)
+                {
+                    string t = seg.Trim();
+                    if (t.Length == 0 || !CreatePool.IsKindWord(t)) return null;
+                    list.Add(t);
+                }
+                return list;
             }
         }
     }

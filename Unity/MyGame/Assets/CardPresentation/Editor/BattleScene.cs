@@ -1861,7 +1861,16 @@ public static class BattleScene
                             var aall = drv.OffensiveChoicesForTest(f);
                             var oown = drv.OffensiveChoicesOwnedForTest(f);
                             if (aall.Count != 4) obadSub++;
-                            foreach (var c in oown) if (!aall.Contains(c)) obadSub++;
+                            // ⚠️ **按 `idx` 比、⛔ 不比对象引用** —— 「不使用进攻卡」那张空卡是
+                            //    `OffensiveCards.Choices()` 里 `new Card{…}` **每次调用新建**的，
+                            //    而 `ChoicesOwnedAt` 自己又调一次 `Choices` ⇒ 两次拿到的**必然不是同一个实例**
+                            //    ⇒ 按引用比会**恒真地**判成「筛过的里有一张不在未筛里」。
+                            //    🔴 **2026-10-13 实测就是它**：13 个阵营**全中**（「异常 13 / 等级不符 0」）。
+                            //    `idx` 才是这张卡在 SO 表里的身份（空卡 = `-1`）⇒ 用它比既表达了原意
+                            //    （筛过的**全是**未筛里那些），又不会被「两次构造」骗。
+                            var allIdx = new HashSet<int>();
+                            foreach (var c in aall) if (c != null) allIdx.Add(c.idx);
+                            foreach (var c in oown) if (c != null && !allIdx.Contains(c.idx)) obadSub++;
                             int lvf = ForgeData.LevelOf(f), expf = 1;
                             var af = OffensiveCards.For(f);
                             if (af != null && af.cards != null)

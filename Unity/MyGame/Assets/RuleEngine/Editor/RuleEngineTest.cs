@@ -702,6 +702,7 @@ public static partial class RuleEngineTest
         Section("S23 · 解析层（A1686 前缀形 when 从句 / A1446 `instead` 降费）");
         Step(TestS23ParseWhenPrefix);
         Step(TestS23ParseCostWhenInstead);
+        Step(TestS23ParseCostWhenIconMarker);
 
         Section("S23 · 引擎断言（A1337 `Implemented` 判据落点 / A1590① 付费组行为）");
         Step(TestS23AssertImplementedReadSites);
@@ -9065,7 +9066,9 @@ public static partial class RuleEngineTest
     ///
     /// **段级再三档**（一张卡可以「收了一半」—— 那一半**三张表全绿**而卡面那半句就是不发生）：
     ///   `收漏`（触发头没进本卡的 `TriggerTexts`，`A1386` 是这一族）·
-    ///   `付费段`（`N ☀:` / `N [Energy]:` 形状的付费能力段 —— `WillRunOps` 的 unit/hero 支压根不看它）·
+    ///   `付费段`（引擎认的付费前缀 `N <货币>:` / `Oath N:`，而**它自己那条货币通道没收到它** ——
+    ///   `energy` / `might` 那几种货币在 `WillRunOps` 的 unit/hero 支里**根本没有通道**
+    ///   ⇒ 那一段结构上收不到；⚠️ `A1594` 之前这里写的是「头正则」，漏 `Oath N:`）·
     ///   `同头两写`（同一个头注册了，但 `desc` 与 `keywords` 两份正文**不一样**、后者被「先到先得」丢掉）。
     ///
     /// 🆕 **⑤「无头正文」逐句报账**（口径同探针的 `A1459`）：卡面**没有 `Head:`**、主解析器解得开 op、
@@ -9077,6 +9080,28 @@ public static partial class RuleEngineTest
     ///   判决（补哪个词、补哪个消费点）另派。⛔ 但它**再也不把空表算作「全通」**。
     /// ⚠️ 探针（`工具/ruleprobe`）与本法是**两条腿的两次实现**：口径必须一致，
     ///   **任何一侧改档位都要同时改另一侧**（本仓红线：两处写同一条规则 = 迟早不一致）。
+    ///
+    /// ==================================================================
+    /// 🔴🔴 **`A1594`（2026-10-13）：下面这一整段（`A1440-PURE-BEGIN` 到 `END`）是
+    ///    `工具/ruleprobe/WillRun.cs` 的【移植副本】—— 权威在那边。**
+    /// 这不是客套话，是**今天的事实**：
+    ///   · **为什么不能真的收成一份**：`工具/ruleprobe/ruleprobe.csproj` 只编
+    ///     `RuleEngine/Core/*.cs` + 它自己那几个文件（`:14-29`），而本法住在 Unity 的**编辑器程序集**里、
+    ///     并且**裸用 Unity 类型**（`Debug.Log` / `Resources.Load` / `JsonUtility`，见本方法与
+    ///     `LoadRawKeywordEntries`）⇒ **两边互相看不见**，没有任何一个 csc 能同时编到这两份实现。
+    ///     ⚠️ 真要把判据收成一份，出路是把它**搬进 `RuleEngine/Core/`**（两个工程都编那一份）——
+    ///     那要动 `Core/`（`A1594` 本轮不在白名单内）⇒ 见 `资料/普查产出_第二十五会话/W2_断言与WillRun.md`。
+    ///   · 🔴 **已经查实的【两处】分叉**（动本法之前必须先看这两处，否则两边读数各说各话）：
+    ///     ① **④ 档「这一段收到了没有」的比法**：探针自 `A1593` 起**按【通道】比**
+    ///        （`ClaimChannel`：一段正文只认同它那条 ability 的 op），本法还停在**全卡 `op` 签名并集**
+    ///        （`MeasureWillRunRow` 里的 `got`）。并集**更宽** ⇒ 本法**结构上会少报**：
+    ///        探针实测 `SOR28` / `SOR36` 两张的付费段就是被并集顶成「已收到」的（探针 §⑦ 断言 A/B）。
+    ///     ② **② 判别式（付费段）**：探针早就改成**引擎自己的 `EffectText.ParseSegment`**
+    ///        （`FaceBody.PaidCost`，`A1593`），本法原来是一条**头正则** —— 它**漏掉引擎同样认的
+    ///        `Oath N:`**（探针实测 `UM*` 那 18 张会被误判成「收漏」）。
+    ///        ⇒ **`A1594` 本次已把本法改成同一份判据**（<see cref="WillRunPaid"/>）。
+    ///   ⇒ **改动纪律**：这一段的**档位 / 比法 / 判据**，改一侧必须同时改另一侧；改完**两边都要报读数**
+    ///     （本法 = `RuleEngineTest.Run` 的 ④/⑤ 那几行 + 哨兵④；探针 = `bash 工具/ruleprobe.sh willrun`）。
     /// </summary>
     static void ReportWillRunMechanism()
     {
@@ -9211,6 +9236,22 @@ public static partial class RuleEngineTest
         Debug.Log(P + $"   ④ 段级（只 unit/hero）：卡面带正文的段 {bodies} 条 · 已收到 {bodies - orphans} 条 · "
                   + $"**没收下来 {orphans} 条**（落在 {orphCards} 张卡上）：{WRSegMiss} {nMiss} · "
                   + $"{WRSegPaid} {nPaid} · {WRSegTwice} {nTwice}");
+
+        // 🔴 `A1594`（2026-10-13）：**把这条判据行从 `Debug.Log` 变成断言** —— 原来这一整档
+        //    （含上面那句「判据：…」）**一条断言都没有** ⇒ `WillRunOps` / 卡面段归一 / 分类器哪天被改坏，
+        //    **这一档不会红**；而 ④ 的条数正是全池「射程」那本账的来源。
+        //    判据 = 本方法末尾那句 `Debug.Log` 自己写的：「② 收漏了 = 0 张 · 段级 收漏/付费段 都为 0 ·
+        //    ⑤ 无消费点 = 0 条」。⚠️ 现读（2026-10-13 · 探针 `ruleprobe.sh willrun`，**按通道比**、
+        //    比本法**更严**）：卡面带正文的段 **326** 条 · 没收下来 **0** 条 · ② 收漏 **0** 张
+        //    ⇒ 下面三条今天全绿。
+        //    ⚠️ 为什么这几条**不是空话**：并集比法比通道比法**宽**（`got` 是 `RunOps` 全体，
+        //    通道那几条本来就都在里面）⇒ **探针 0 条时本法必然是 0 条**；反过来说，
+        //    本法这几条红的时候 = 真有段收不下来（或分类器坏了）——那正是要看见的东西。
+        Check(totalMissed, 0, "★ `A1594`：②「收漏了」必须是 **0 张**"
+                            + "（卡面写着正文、执行层一条都没收到 = 缺陷，`A1386` 那一族）");
+        Check(nMiss, 0, "★ `A1594`：④ 段级 **" + WRSegMiss + "** 必须是 **0 条**（这条判据原来只有 `Debug.Log`）");
+        Check(nPaid, 0, "★ `A1594`：④ 段级 **" + WRSegPaid + "** 必须是 **0 条**"
+                      + "（⚠️ 若这张红：先读本方法头部 `A1594` 那段 —— 并集比法与通道比法有已知分叉）");
         sb.AppendLine("## ④ 段级总账（**只 unit/hero** —— 一张卡可以「收了一半」，那一半老口径照样报「全通」）");
         sb.AppendLine();
         sb.AppendLine($"卡面带正文的段 **{bodies}** 条 · 已收到 **{bodies - orphans}** 条 · **没收下来 {orphans} 条**"
@@ -9218,8 +9259,9 @@ public static partial class RuleEngineTest
         sb.AppendLine();
         sb.AppendLine($"- **{WRSegMiss}** —— 触发头没进 `TriggerTexts`（`CardDef.AddTriggerOp` 要求头在 "
                     + "`CardDef.RoutableTriggers` 里）。**`A1386` 是这一族**： " + nMiss + " 条");
-        sb.AppendLine($"- **{WRSegPaid}** —— `N ☀:` / `N [Energy]:` 形状的付费能力段"
-                    + "（`WillRunOps` 的 unit/hero 支**压根不看这类段**）。⚠️ 是**覆盖面**的洞、不是「表里缺词」： "
+        sb.AppendLine($"- **{WRSegPaid}** —— 引擎认的付费前缀（`N ☀:` / `N [Energy]:` / `Oath N:`）里"
+                    + "**它自己那条货币通道没收到**的那几段（`energy` / `might` 等货币在 `WillRunOps` 的"
+                    + "unit/hero 支里**根本没有通道** ⇒ 结构上收不到）。⚠️ 是**覆盖面**的洞、不是「表里缺词」： "
                     + nPaid + " 条");
         sb.AppendLine($"- **{WRSegTwice}** —— 同一个头注册了、但 `desc` 与 `keywords` 两份正文**不一样**，"
                     + "后者被「先到先得」丢掉（⚠️ **数据不一致**）： " + nTwice + " 条");
@@ -9268,6 +9310,12 @@ public static partial class RuleEngineTest
         Debug.Log(P + $"   ⑤ 「无头正文」：无头段 {headAll} 条 · 🔴 **{WRHeadNone} {headNone} 条（{headNoneCards} 张卡）** · "
                   + $"{WRHeadAtTurn} {headAtTurn} 条 · {WRHeadCostWhen} {headCostWhen} 条"
                   + (headNoneLines.Count > 0 ? "：" + string.Join("、", headNoneLines) : ""));
+        // 🔴 `A1594`（2026-10-13）：⑤ 那一档同样**原来只有 `Debug.Log`** —— 一并变成断言。
+        //    现读（2026-10-13 · 探针 `willrun`，与本法**同一份比法**：两边都用「全卡 `op` 并集」`rawGot`）：
+        //    无头段 108 条（事件层 81 · 回合起止 19 · 光环 7 · 降费触发器 1）· **无消费点 0 条**。
+        //    ⇒ 本条红的含义只有一个：**全仓没有任何一层会执行那句卡面正文**（`A1459` 治的就是这道缝）。
+        Check(headNone, 0, "★ `A1594`：⑤ **" + WRHeadNone + "** 必须是 **0 条**"
+                         + "（`HandledByOtherLayer` / `AtTurnClauses` / `CostWhens` 三道闸全空）");
         sb.AppendLine("## ⑤ 🔴 「无头正文」逐句报账（口径同探针的 `A1459`）");
         sb.AppendLine();
         sb.AppendLine("🔴 **这一档为什么必须单开**：腿 B 只抽 `Head: body`（`AddWillRunFace` 里 `col <= 0` 直接 return）");
@@ -9351,6 +9399,65 @@ public static partial class RuleEngineTest
                       + "（实得 无头段 " + ctrl2Row.Headless.Count + " 条）。"
                       + "⛔ 谁把三道闸里任何一道改成「一律认领」，这条红");
         }
+
+        // ---------------- 哨兵④（`A1594`）：**段级（④）三档各钉一条** ----------------
+        // 🔴 **为什么非有不可**：④ 那一档原来**只有 `Debug.Log`、一条断言都没有** ⇒
+        //    `AddWillRunFace` / `ClassifyWillRunFace` 被改坏（不报孤儿、或档位一律 `收漏`）**不会红**，
+        //    而 ④ 的条数正是全池「射程」那本账的来源。
+        // ⚠️ 夹具卡**在内存里现造**（⛔ 不进卡池、⛔ 不碰 `Resources/`）；形状照
+        //    `工具/ruleprobe/WillRun.cs` 的 `SelfCheck` ⑦（那边**实测全过**，读数见 `ruleprobe/README.md` §⑦）。
+        {
+            Func<string, string, CardDef> wfx = (id, desc) =>
+                new CardDef(id, id, "unit", desc, "common", "Fixture",
+                            1, 1, 1, 0, null, subtype: "Troop");
+
+            // ④-a **付费段档**：`2 [Energy]:` 那半句载的是 `gainquest`，而 `Rally:` 那条只注册了 `deal 1`
+            //      ⇒ 签名撞不上 ⇒ **并集比法下也必须报它**。
+            //      ⚠️ 为什么不用探针 §⑦ 断言 A 那个 `Deal 1 additional damage` 形状：它在**并集**比法下
+            //        会被 `Rally:` 那条顶成「已收到」⇒ 本法**拿不到那个形状**（那正是 `A1593` 修的东西）。
+            var wfPaid = wfx("ZZCTRL_A1594A", "Rally: Deal 1 damage. 2 [Energy]: Gain 1 Quest Point");
+            var wfPaidRow = MeasureWillRunRow(wfPaid, null, new List<CardDef> { wfPaid });
+            Check(wfPaidRow.RunOps.Count, 1,
+                  "★ `A1594` 哨兵④-a（**灭自证的前半**）：夹具「" + wfPaid.Desc + "」的**腿 A 只收到 1 条**"
+                + "（`Rally: Deal 1 damage`）—— 付费那半句的货币是 `energy`、`WillRunOps` 的 unit/hero 支"
+                + "**没有这条通道** ⇒ 它**结构上**不可能在腿 A 里（谁把「收到了」判宽，这条先红）");
+            Check(wfPaidRow.Orphans.Count, 1,
+                  "★ ……**孤儿恰好 1 条**（`Rally:` 那半句收到了 ⇒ 只剩 `2 [Energy]:` 这半句）");
+            string wfPaidKind = wfPaidRow.Orphans.Count > 0 ? wfPaidRow.Orphans[0].Kind : "(没有孤儿)";
+            int wfPaidCost = wfPaidRow.Orphans.Count > 0 ? wfPaidRow.Orphans[0].PaidCost : -1;
+            Check(wfPaidKind, WRSegPaid,
+                  "★ ……档位 = **" + WRSegPaid + "**（⛔ 不是 `" + WRSegMiss + "` —— 那会把「覆盖面缺口」"
+                + "记成「表里缺词」，两条账混成一笔）");
+            Check(wfPaidCost, 2,
+                  "★ ……而这个档位的判据是**引擎的 `EffectText.ParseSegment`**（`PaidCost` = 2），"
+                + "⛔ 不是头正则（旧正则认不出 `Oath N:`，探针实测 `UM*` 那 18 张会被误判成 `" + WRSegMiss + "`）");
+
+            // ④-b **同头两写档**：同一个头 `Rally:` 注册过、两份正文不一样（后者被「先到先得」丢掉）
+            var wfTwice = wfx("ZZCTRL_A1594B", "Rally: Deal 1 damage. Rally: Deal 3 damage");
+            var wfTwiceRow = MeasureWillRunRow(wfTwice, null, new List<CardDef> { wfTwice });
+            string wfTwiceKind = wfTwiceRow.Orphans.Count > 0 ? wfTwiceRow.Orphans[0].Kind : "(没有孤儿)";
+            Check(wfTwiceRow.Orphans.Count, 1,
+                  "★ `A1594` 哨兵④-b：夹具「" + wfTwice.Desc + "」—— 第二条 `Rally:` 的正文在腿 A 里"
+                + "没有同签名 op ⇒ 孤儿 **1 条**（实得 " + wfTwiceRow.Orphans.Count + " 条）");
+            Check(wfTwiceKind, WRSegTwice,
+                  "★ ……档位 = **" + WRSegTwice + "**（⛔ 不是「收到了」：头注册过**不等于**这一段收到 —— "
+                + "探针 §⑦ 断言 C 钉的就是这一条）");
+
+            // ④-c **② 判别式（灭自证）**：`Oath N:` 这个形状 —— 引擎 `ParseSegment` 认得出、旧头正则认不出
+            //      ⇒ 两个判据在**同一个输入**上答案**相反** ⇒ 谁把 ② 改回正则，本条必红。
+            //      ⚠️ 它**只能**这么钉：`Oath N:` 的 op 会被 `CardDef.CollectOathOps` 收进 `OathOps`、
+            //        腿 A 必然收到 ⇒ 它**永远不会是孤儿** ⇒ 走不到 `ClassifyWillRunFace`（卡片级夹具做不出来）。
+            string wfOathKind;
+            Check(WillRunPaid("Oath 2: Gain 1 Quest Point", out wfOathKind), 2,
+                  "★ `A1594` 哨兵④-c（**灭自证**）：② 的判据必须是**引擎自己的 `ParseSegment`** —— "
+                + "`Oath 2:` 也要认（金额 2）。🔴 旧的头正则首位要求数字 ⇒ 它认不出 `Oath N:`");
+            CheckTrue(!System.Text.RegularExpressions.Regex.IsMatch(
+                          "oath 2", "^\\d+\\s*[\\[\\(]?\\s*[a-z\\u2600]"),
+                      "★ ……同一行把**旧判据的答案**并排量出来（`oath 2` **不匹配**那条正则）——"
+                    + "两个判据在同一个输入上【相反】⇒ 上面那条不是自证");
+            Check(WillRunPaid("Gain 1 Quest Point", out wfOathKind), 0,
+                  "★ ……**反例**：不带付费前缀的那半句必须给 0（否则这个判据恒真、四条断言全成空话）");
+        }
     }
 
     /// <summary>把卡表的 `keywords` **原文条目**读回来 —— 腿 B 要的是**原始串**
@@ -9406,7 +9513,7 @@ public static partial class RuleEngineTest
 
     /// <summary>段级三档 —— 口径与探针 <c>WillRun.KMiss/KPaid/KTwice</c> **逐字一致**。</summary>
     const string WRSegMiss = "收漏";             // 触发头没进本卡 `TriggerTexts`（`A1386` 那一族）
-    const string WRSegPaid = "付费段";           // `N ☀:` 形状的付费能力段 —— `WillRunOps` 的 unit/hero 支压根不看
+    const string WRSegPaid = "付费段";           // 引擎认的付费前缀（`N <货币>:` / `Oath N:`）而它自己那条货币通道没收下来
     const string WRSegTwice = "同头两写";        // 同一个头注册过、但两份正文不一样（数据不一致）
 
     /// <summary>无头档三档 —— 口径与探针 <c>WillRun.KHNone/KHAtTurn/KHCostWhen</c> **逐字一致**。</summary>
@@ -9426,6 +9533,15 @@ public static partial class RuleEngineTest
         public List<EffectOp> Ops;
         public string Kind = "";     // 没收下来 / 没消费点时的档（`收漏` / `付费段` / `同头两写` / …）
         public string Why = "";      // 上面那一档的人话
+        /// <summary>🆕 `A1594`（2026-10-13）：这一段**自带付费前缀**吗（`0` = 不是付费段）。
+        ///   判据 = **引擎自己的 `EffectText.ParseSegment`**（<see cref="WillRunPaid"/>）——
+        ///   与探针 `WillRun.cs` 的 `FaceBody.PaidCost` **同一份**（⛔ 别再另写一条头正则：
+        ///   那条正则漏掉引擎同样认的 `Oath N:`）。</summary>
+        public int PaidCost;
+        /// <summary>引擎给的付费货币原文（`☀` / `faith` / `oath` / `energy` / `might` …），`""` = 不是付费段。</summary>
+        public string PaidKind = "";
+        /// <summary>`EffectText.CostKindOf(PaidKind)` 的规范值（`faith` / `spirit` / `oath` / …），`""` = 不是付费段。</summary>
+        public string Currency = "";
     }
 
     /// <summary>一张卡在「正文收到没有」这把尺子上的账 —— 与探针 <c>WillRun.Row</c> **同口径**。
@@ -9441,6 +9557,25 @@ public static partial class RuleEngineTest
         public List<WillRunFace> Headless = new List<WillRunFace>(); // ⑤ 无头段
         public string EmptyKind = "";                             // 空表三档
         public bool MissingRawKw;                                 // ⚠️ 这张卡没拿到 `keywords` 原文（腿 B 会少一半）
+    }
+
+    /// <summary>🆕 `A1594`（2026-10-13）：一段卡面正文**自带付费前缀**吗（返回 `PaidCost`，`0` = 不是付费段）。
+    ///
+    /// 判据 = **引擎自己的 `EffectText.ParseSegment`** —— 与探针 `工具/ruleprobe/WillRun.cs` 的
+    ///   `AddFaceBody` 用的是**同一份**（那边落在 `FaceBody.PaidCost` / `PaidKind` 上）。
+    ///   ⛔ **别换回头正则** `^\d+\s*[\[\(]?\s*[a-z☀]`：那条只覆盖 `N <货币>:` 那一半、
+    ///   **漏掉引擎同样认的 `Oath N:`**（探针实测：`UM*` 那 18 张 `Oath N: …` 全被误判成「收漏」，
+    ///   `A1593` 落地当时跑出来的）。
+    /// ⚠️ 本方法**只用引擎的公开面、不碰任何 Unity 类型** ⇒ 可以待在 `A1440` 的纯逻辑块里
+    ///   （那个块的边界约束见 `A1440-PURE-BEGIN` 上方那段）。</summary>
+    static int WillRunPaid(string raw, out string kind)
+    {
+        kind = "";
+        if (string.IsNullOrEmpty(raw)) return 0;
+        var sr = EffectText.ParseSegment(raw);
+        if (sr == null || sr.PaidCost <= 0) return 0;
+        kind = sr.PaidKind ?? "";
+        return sr.PaidCost;
     }
 
     /// <summary>⚠️ **op 的身份【不含 `Source`】** —— 这一点是探针实测踩出来的，两边同一把尺子，别加回去：
@@ -9579,7 +9714,17 @@ public static partial class RuleEngineTest
         if (CardDef.HandledByOtherLayer(c, seg) != null) return;   // 已有别的层接手 ⇒ 不是「漏」
         string key = head + "\u0001" + body;
         foreach (var x in into) if (x.Head + "\u0001" + x.Text == key) return;
-        into.Add(new WillRunFace { Head = head, Text = body, Raw = s, Where = where, Ops = ops });
+        // 🆕 `A1594`（2026-10-13）：这一段**自带付费前缀**吗 —— 判据是**引擎自己那一次 `ParseSegment`**
+        //   （与探针 `工具/ruleprobe/WillRun.cs` 的 `AddFaceBody` **同一份**，
+        //    ⛔ 不是本文件原来那条头正则 —— 它漏掉引擎同样认的 `Oath N:`，探针实测 `UM*` 那 18 张被误判）。
+        string paidKind;
+        int paidCost = WillRunPaid(s, out paidKind);
+        into.Add(new WillRunFace
+        {
+            Head = head, Text = body, Raw = s, Where = where, Ops = ops,
+            PaidCost = paidCost, PaidKind = paidKind,
+            Currency = paidCost > 0 ? EffectText.CostKindOf(paidKind) : "",
+        });
     }
 
     /// <summary>收一条「无头段」—— 卡面**没有 `Head:`**、而**主解析器**解得出一批 op 的段。
@@ -9671,15 +9816,22 @@ public static partial class RuleEngineTest
             return;
         }
 
-        // ② `N ☀:` / `N [Energy]:` / `N [Spirit Stone]:` 形状 —— 「付 N 点换这个效果」的**付费能力段**。
-        //    🔴 它**不是触发头**，`WillRunOps` 的 unit/hero 那一支也不看它
+        // ② `N ☀:` / `N [Energy]:` / `N [Spirit Stone]:` / `Oath N:` 形状 —— 「付 N 点换这个效果」的
+        //    **付费能力段**。
+        //    🔴 它**不是触发头**，`WillRunOps` 的 unit/hero 那一支也只认**自己那条货币通道**
         //    （七个来源：`WhenTriggers` / `TriggerTexts` / `SpiritOps` / `OathOps` / `FaithOps` / `AttackedOps` / `AuraSpecs`）
-        //    ⇒ 这是**覆盖面**的洞，不是「表里缺词」。
-        //    ⚠️ 那个 `☀`（U+2600）用转义写，免得这份源码的编码把判据悄悄改掉（`\u2600` 就是它）。
-        if (System.Text.RegularExpressions.Regex.IsMatch(b.Head, "^\\d+\\s*[\\[\\(]?\\s*[a-z\\u2600]"))
+        //    ⇒ 货币没有通道（`energy` / `might` …）、或那条通道没收到这一段时，才是**覆盖面**的洞，
+        //      不是「表里缺词」。
+        //    🔴 **2026-10-13（`A1594`）判据换了**：原来是**头正则** `^\d+\s*[\[\(]?\s*[a-z\u2600]` ——
+        //      它**漏掉引擎同样认的 `Oath N:`**（首位要求是数字）⇒ 探针实测：`UM*` 那 18 张的
+        //      `Oath N: …` 全被误判成「收漏」（`A1593` 落地当时跑出来的）。
+        //      现在**与探针用同一份判据** = 引擎自己的 `EffectText.ParseSegment`（`WillRunPaid`，见其注）。
+        if (b.PaidCost > 0)
         {
             b.Kind = WRSegPaid;
-            b.Why = "付费能力段（`N ☀:` / `N [Energy]:` 形状）—— `WillRunOps` 的 unit/hero 支不收这类段";
+            b.Why = "付费能力段（引擎认的付费前缀 `N <货币>:` / `Oath N:`，货币 = `"
+                  + (b.Currency.Length == 0 ? b.PaidKind : b.Currency) + "`）—— "
+                  + "`WillRunOps` 的 unit/hero 支不收这类段";
             return;
         }
 
@@ -13288,6 +13440,47 @@ public static partial class RuleEngineTest
             CheckCode(RuleCore.UseAlternative(ctx, 0, 3, "pray"), RuleCodes.ErrNoAction,
                       "★ 卡上只有裸关键词、没有正文 ⇒ **明说不支持** —— "
                       + "放行的话就是一个「点了什么都不发生」的按钮（红线）");
+        }
+
+        // ---- ⑥ 🔴 `A1745`：卡面印着 `Pray:` 而 `keywords` 数组里**没有**那个词 ----
+        //    判据（原版第一权威 = 反编译）= 能不能发这条替代行动看的是**能力数据**里有没有
+        //    对应的触发器（`CardScript__TriggeredPray.c` / `CardAbility__CanTriggerAbility.c:72` /
+        //    `RawCardScript__GetActiveAbility.c` 的 `hasAlternativeAbility`），
+        //    而 `card_stats.json` 里那些 `keyword` 字符串是**卡面 OCR 的产物**
+        //    （`Battle Sister` 卡面印着 `Pray:` 而它 `keyword` 字段是 `None`）⇒ **关键词表不是闸**。
+        //    实测全池受影响的 **20 张**（`desc` 里出现这四个头的一共 55 张）。
+        //    ⇒ 判据收成**唯一一份** `RuleCore.HasAlternativeAction`（= `UnitState.HasFx`）。
+        {
+            var noKw = new CardDef("FixtureAltNoKw", "FixtureAltNoKw", "unit", "Pray: Gain +1 Health",
+                                   "common", "Test", 1, 1, 9, 0, new string[0], subtype: "Infantry");
+            var ctx = Battle(new[] { noKw }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(ctx, 1);
+            var u = Place(ctx, 0, 3, noKw);
+            u.Exhausted = false;
+            CheckTrue(!u.Has("pray"), "★ 前提：这张卡的 `keywords` 里**没有** `pray`（正是 `A1745` 那一族）");
+            Check(RuleCore.AlternativeActionKeyword(u), "pray",
+                  "★ **按钮要给**（改前这里是 null ⇒ 玩家根本看不到那颗钮）");
+            CheckCode(RuleCore.CanUseAlternative(ctx, 0, 3, "pray"), RuleCodes.OK,
+                      "★ **发得出来**（改前 = `ErrNoAction`）—— 判据是「卡上有没有这条行动的正文」");
+            CheckCode(RuleCore.UseAlternative(ctx, 0, 3, "pray"), RuleCodes.OK, "真用一次");
+            Check(u.Health, 10, "★ 正文**真的结算了**（9 → 10 血）—— 不是「认了但什么都不做」");
+        }
+
+        // ---- ⑦ 🔴 上一条的**灭自证**：只断「① 能过」不够 ----
+        //    若把闸整个删掉，⑥ 会变绿而这一条必须仍然红 —— 两个方向同时成立才算判据对。
+        //    （本条的卡与 ⑥ 恰好相反：`keywords` **有** `pray`、正文**没有**。）
+        {
+            var kwOnly = new CardDef("FixtureAltKwOnly", "FixtureAltKwOnly", "unit", "Pray",
+                                     "common", "Test", 1, 1, 9, 0, new[] { "Pray" }, subtype: "Infantry");
+            var ctx = Battle(new[] { kwOnly }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(ctx, 1);
+            var u = Place(ctx, 0, 3, kwOnly);
+            u.Exhausted = false;
+            CheckTrue(u.Has("pray"), "★ 前提：这一张 `keywords` **有** `pray`（与 ⑥ 恰好相反）");
+            Check(RuleCore.AlternativeActionKeyword(u), null,
+                  "★ **关键词有、正文没有 ⇒ 仍然不给钮** —— 这条挡的就是「把闸整个删掉」那种改法");
+            CheckCode(RuleCore.CanUseAlternative(ctx, 0, 3, "pray"), RuleCodes.ErrNoAction,
+                      "★ 同上：不给发。判据是**正文**、不是关键词表 —— 两个方向都要成立");
         }
     }
 

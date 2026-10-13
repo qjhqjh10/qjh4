@@ -47,6 +47,23 @@ using RuleEngine;
 /// ⛔ **本文件一行都不改引擎**（`MyGame/Assets/**` 不在本工具的白名单里）——
 ///   它把「空表 / 收漏」**报出来**，判决（改哪张表、补哪个消费点）由调度台另派。
 /// ⚠️ **它是【快速内环 / 旁证】**：正式验收仍是 `RuleEngineTest.Run`；但它不跑 Unity（整趟 &lt; 2 秒）。
+///
+/// 🔴🔴 **`A1594`（2026-10-13）：本文件是【权威】那一份；`MyGame/Assets/RuleEngine/Editor/RuleEngineTest.cs`
+///   里有一份【移植副本】**（`ReportWillRunMechanism` + `[A1440-PURE-BEGIN]` 那一块 —— 档位同名同字、
+///   逻辑同形不同语言）。本仓红线「两处写同一条规则 = 迟早不一致」在这里**暂时无法根治**，原因与纪律：
+///   · **为什么收不成一份**：`ruleprobe.csproj` 只编 `RuleEngine/Core/*.cs` + 本目录那几个文件，
+///     而那一份住在 Unity 的**编辑器程序集**里、且**裸用 Unity 类型**（`Debug.Log` / `Resources` /
+///     `JsonUtility`）⇒ 两个工程**互相看不见**，没有任何一个 csc 能同时编到这两份。
+///     真要走「一份」⇒ 把判据**搬进 `RuleEngine/Core/`**（两个工程都编那一份）。
+///   · **今天【已查实】的两处分叉**（改一侧必须同时改另一侧，反之亦然）：
+///     ① **④ 档「这一段收到了没有」的比法**：本文件自 `A1593` 起**按【通道】比**（`ClaimChannel`），
+///        那份副本还停在**全卡 `op` 签名并集** ⇒ 并集更宽、那份副本**结构上会少报**
+///        （实测：`SOR28` / `SOR36` 两张的付费段就是被并集顶成「已收到」的，见 `SelfCheck` ⑦ 断言 A/B）。
+///     ② **② 判别式（付费段）**：本文件用**引擎自己的 `EffectText.ParseSegment`**（`FaceBody.PaidCost`），
+///        那份副本原来用**头正则**（会漏掉引擎同样认的 `Oath N:`）—— `A1594` 已把那份改成同一份判据
+///        （`RuleEngineTest.cs` 的 `WillRunPaid`），⛔ 别再让它长回正则。
+///   ⇒ **改档位 / 改比法 / 改判据之前，先看对面那一份是不是也要动**；改完**两边都要报读数**
+///     （本文件 = `bash 工具/ruleprobe.sh willrun`；那份副本 = `RuleEngineTest.Run` 的 ④/⑤ 几行 + 哨兵④）。
 /// </summary>
 class WillRun
 {
@@ -550,6 +567,46 @@ class WillRun
             Console.WriteLine("        期望：第二条报「" + KTwice + "」 **1 条**；实得 **" + tw.Count + " 条**"
                               + "（孤儿 " + row.Orphans.Count + "）");
             if (!ok) fail++;
+        }
+
+        // ---- 断言 D（`A1594`，2026-10-13）：把**移植副本**（`RuleEngineTest.cs` 的 哨兵④-a / ④-b）
+        //      的夹具在**探针侧**再量一遍 —— 两份实现今天编不到一起（见文件头 `A1594` 那段），
+        //      所以「同一个夹具在两份实现里判成同一档」这件事只能**各测各的**，这两条就是探针侧那一半。
+        //      ⚠️ 夹具本体与 `RuleEngineTest.cs` 的 哨兵④-a / ④-b **逐字相同**（改一处必须同时改另一处）。
+        //      🔴 **它比断言 A 多要求一样东西**：**旧口径（全卡 `op` 签名并集）也必须报 1 条**
+        //         —— 那份副本今天**就是**用全卡并集比的（`A1594` 如实记下这处分叉）⇒
+        //         这一条量的是「同一个夹具在**两种比法**下答案一致」，因此它同时钉住两份实现。
+        //         ⚠️ 挑 `Gain 1 Quest Point`（而不是 A 那个 `Deal 1 additional damage`）正是为此：
+        //            后者在并集比法下会被 `Rally:` 那条顶成「已收到」⇒ 副本拿不到它。
+        {
+            var d1 = fx("FX-D1", "Rally: Deal 1 damage. 2 [Energy]: Gain 1 Quest Point");
+            var row = Measure(d1, null, pool);
+            int oldOrphans = row.Bodies.Count(b => !b.GlobalHit);
+            var paid = row.Orphans.Where(b => b.Kind == KPaid).ToList();
+            bool ok = paid.Count == 1 && oldOrphans == 1 && row.RunOps.Count == 1
+                      && paid[0].PaidCost == 2;
+            Console.WriteLine("    " + (ok ? "✅" : "🔴") + " D 「" + d1.Id + "」`" + d1.Desc + "`");
+            Console.WriteLine("        期望：腿 A **1** 条 · 旧口径孤儿 **1** 条 · 付费段孤儿 **1** 条 · `PaidCost` **2**；"
+                              + "实得 腿 A " + row.RunOps.Count + " 条 · 旧口径孤儿 " + oldOrphans + " 条 · "
+                              + "付费段孤儿 " + paid.Count + " 条 · `PaidCost` "
+                              + (paid.Count > 0 ? paid[0].PaidCost.ToString() : "-"));
+            if (!ok)
+            {
+                fail++;
+                Console.WriteLine("        🔴 副本（`RuleEngineTest.cs` 哨兵④-a）按的是**旧口径** ⇒ 旧口径孤儿"
+                                  + "必须是 **1**（否则那份副本的 `Orphans.Count == 1` 会红，而错在夹具挑得不对，"
+                                  + "不是错在断言）。");
+            }
+
+            var d2 = fx("FX-D2", "Rally: Deal 1 damage. Rally: Deal 3 damage");
+            var row2 = Measure(d2, null, pool);
+            int old2 = row2.Bodies.Count(b => !b.GlobalHit);
+            var tw = row2.Orphans.Where(b => b.Kind == KTwice).ToList();
+            bool ok2 = tw.Count == 1 && old2 == 1;
+            Console.WriteLine("    " + (ok2 ? "✅" : "🔴") + " D 「" + d2.Id + "」`" + d2.Desc + "`");
+            Console.WriteLine("        期望：「" + KTwice + "」孤儿 **1** 条 · 旧口径孤儿 **1** 条；"
+                              + "实得 " + tw.Count + " 条 · 旧口径 " + old2 + " 条");
+            if (!ok2) fail++;
         }
         Console.WriteLine("    ⇒ 自检 **" + (fail == 0 ? "全过 ✅" : "红 " + fail + " 条 🔴") + "**"
                           + "（⛔ 它计入 rc —— 那条闸一旦退回「全卡并集比」，这里立刻红）");

@@ -1138,6 +1138,13 @@ namespace RuleEngine
             //      **整条**摘掉、不看来源。全池 **0 张**卡用光环授予 `Stealth`
             //      （`cards_engine.json` 1126 张扫 `have Stealth` / `gain Stealth`：只有一次性的
             //       `Give Stealth`，没有「友方单位都有」那种）⇒ 今天不可观测。
+            //      ✅ **2026-10-13（`W1`）现扫复核：这句话【成立】** —— 重扫全池 1126 张的
+            //        `desc` **与** `keywords` 原文条目（光环的收句源就是这两个，见
+            //        `CardDef.CollectAuras:1285-1288`）：\b(have|has)\b 后 90 字内出现 `stealth`
+            //        的**只有 1 处**，且**不是光环** —— `ASH_Flickerjump` 的
+            //        `If it has Stealth, give it Flank`（条件句）。**0 处** `… have/has Stealth` 形状。
+            //        旁证：`GivePayload.cs:146` 那张表**认** `stealth`（所以「真写了就能挂」），
+            //        即这是**数据侧今天没有**，不是**代码侧不可能** —— 将来谁加了这种卡，本条要重核。
             //      ⛔ 别为了「保住」这条副作用把整段挪回去：那正是 `A1397②` 要修的东西。
             //    ⚠️ **另一条已知近似（未变）**：原版 stealth 到期在本卡的**逐卡**序列里，
             //      而 `stealth` 那个词本身不带触发 ⇒ 我们把它放在**同一圈循环**里紧挨着开舱，
@@ -5280,15 +5287,58 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// 这个单位**有没有这条替代行动**（`Duty` / `Pray` / `Ferocity` / `Agenda`；不是这一族 = false）。
+        ///
+        /// 🔴 **全仓只此一处判据** —— <see cref="AlternativeActionKeyword"/> 与
+        ///    <see cref="CanUseAlternative"/> **都转发到这里**。⚠️ 这两处原来**各写了一遍**，
+        ///    而且**口径还不一样**（前者 `Has(k) &amp;&amp; TriggerOps(k) != null`，
+        ///    后者只剩 `Has(k)` 一道闸）—— 正是本仓红线「两处写同一条规则 = 迟早不一致」。
+        ///
+        /// 🔴 **为什么是 <see cref="UnitState.HasFx"/> 而不是 `u.Has(keyword)`**（2026-10-13 `A1745` 修）：
+        ///    `u.Has` 读的是**运行时关键词字典**，而我们卡表里有一批卡 `desc` 明明印着 `Pray: …`
+        ///    却**没把那个词写进 `keywords` 数组** ⇒ 拿 `Has` 当闸会把它们全部误判成「没有这条行动」
+        ///    —— 表现是**按钮不出现、点了也没反应**（静默失败，本仓红线）。
+        ///    实测（现读 `RuleEngine/Resources/cards_engine.json`，1126 张）：
+        ///    `desc` 里出现这四个头的卡共 **55 张**，其中 **21 张**的 `keywords` 数组**不含**该词 ——
+        ///    `AM32` `AM39` · `DA9` `DA18` `DA30` · `SOR9` `SOR10` `SOR15` `SOR21` `SOR26` `SOR29`
+        ///    `SOR31` `SOR33` `SOR36` `SOR39` `SOR71` `SOR1` `SOR5` `SOR_Celestian_Sacresant_Aveline` ·
+        ///    `SW13` `SW31`。
+        ///    🔴 **其中真被 `Has` 拦掉的 = 20 张**（不是 21）—— `DA9` 的 `keywords` 里写的是**原文条目**
+        ///    `Agenda: Gain 1 Quest Point`，`CardDef` 会把它规范化成 `agenda` ⇒ 它**改前就能用**
+        ///    （离线实测：`u.Has("agenda") == true`）。⇒ 别照「21」写结论。
+        ///
+        /// **原版怎么判（第一权威 = `d:/2/tools/decomp_full/`）**：原版**没有**「字符串关键词 = Pray」
+        ///    这种字段，也不解析 `desc` 头 —— 能不能发这条替代行动，看的是该卡的**能力数据**里
+        ///    有没有 `CardAbility.trigger == 该触发器枚举`：
+        ///    `CardScript__TriggeredPray.c`（= `OnTrigger(rawCard, 0x294/660)`）· 收侧
+        ///    `CardAbility__CanTriggerAbility.c:72` 只比 `+0x10` 那个 trigger · 按钮给不给见
+        ///    `RawCardScript__GetActiveAbility.c`（`hasAlternativeAbility(0x2AA)` + 板面判据）。
+        ///    而 `card_stats.json` 里那些 `keyword` 字符串是**卡面 OCR 的产物、不是游戏数据**
+        ///    （实测 `Battle Sister` 带 `Pray:` 而它 `keyword` 字段是 `None`，原版明明能用）
+        ///    ⇒ **关键词表不是闸**。
+        ///    ⚠️ 我们卡表**没有**原版那份能力数据 ⇒ 代用品只能是「**卡上有没有这条行动的正文**」，
+        ///    也就是 `HasFx`（原生正文 `Card.TriggerOps` / 运行时挂上去的正文 / 封闭文法那条，
+        ///    三合一；`UnitState.cs` 那一处注着「全仓只此一处」）。
+        ///    ⚠️ **如实标着**：这是**代用品**，不是原版那条判据本身 —— 卡面上有正文
+        ///    而原版数据里恰好没有那条 ability 的情形我们分辨不了（反之亦然）。
+        /// </summary>
+        public static bool HasAlternativeAction(UnitState u, string keyword)
+        {
+            if (u == null || u.Card == null) return false;
+            if (!IsAlternativeAction(keyword)) return false;   // 「是不是这一族」仍只此一处（`IsAlternativeAction`）
+            return u.HasFx(keyword);
+        }
+
+        /// <summary>
         /// 这个单位的**替代行动**关键词（`Duty` / `Pray` / `Ferocity` / `Agenda`；没有 = null）。
         /// 实测全卡池**没有一张卡同时带两个**（见 <see cref="AvailableAlternative"/>）⇒ 取第一个就够。
-        /// 🔴 **全仓只此一处判据** —— `BattleDriver.AltActionOf` 转发到它（原来两边各写一遍）。
+        /// 🔴 **判据不在这里** —— 转发到 <see cref="HasAlternativeAction"/>（全仓唯一那份）；
+        ///    `BattleDriver.AltActionOf` 再转发到这里（表现层也别另写一份）。
         /// </summary>
         public static string AlternativeActionKeyword(UnitState u)
         {
-            if (u == null || u.Card == null) return null;
             foreach (string k in AlternativeActions)
-                if (u.Has(k) && u.Card.TriggerOps(k) != null) return k;
+                if (HasAlternativeAction(u, k)) return k;
             return null;
         }
 
@@ -7222,11 +7272,18 @@ namespace RuleEngine
 
             var u = ctx.Players[p].Board[slot];
             if (u == null) return RuleCodes.ErrNotUnit;
-            if (!u.Has(keyword)) return RuleCodes.ErrNoAction;
-            // 正文一条都收不到 = 这条替代行动**没有效果可放** ⇒ 明说不支持（别给一个点了没反应的按钮）
-            // ⚠️ 判据走 `HasFx`（原生正文 / **运行时挂上去的**正文 / 封闭文法那条，三合一，
-            //    全仓只此一处）—— 原来这儿只查前两者里的两个，**漏了挂上去的那份**。
-            if (!u.HasFx(keyword)) return RuleCodes.ErrNoAction;
+            // 「这个单位有没有这条替代行动」= **全仓唯一那份判据**（`HasAlternativeAction` →
+            //   `UnitState.HasFx`，原生正文 / 运行时挂上去的 / 封闭文法三合一）。
+            // 🔴 **2026-10-13（`A1745`）就地订正**：这里原来**两道闸**——
+            //   ① `if (!u.Has(keyword)) return ErrNoAction;`（读**运行时关键词字典**）
+            //   ② `if (!u.HasFx(keyword)) return ErrNoAction;`
+            //   ①**是错的**：卡面上印着 `Pray: …` 而 `keywords` 数组没写那个词的卡里，
+            //   **20 张被 ① 拦掉**（第 21 张 `DA9` 的 `keywords` 里有原文条目 `Agenda: …`、
+            //   被规范化成了 `agenda` ⇒ 它改前就能用；清单与离线读数见 `HasAlternativeAction` 的 doc）
+            //   ⇒ 按钮不出现、点了没反应（静默失败）。② 才是对的，且**由它单独成立就够**
+            //   （`HasFx` 为真 ⇒ 一定有正文可跑）。⇒ **合成一条**（原来那两条是同一个错误码，
+            //   合并后对外行为在 `HasFx` 为真且 `Has` 为假的那 **20 张**上**由红转绿**，其余不变）。
+            if (!HasAlternativeAction(u, keyword)) return RuleCodes.ErrNoAction;
             if (u.IsStunned) return RuleCodes.ErrStunned;
             if (u.Exhausted) return RuleCodes.ErrExhausted;
             // 职责：**本局一次**（`Exhausted` 每回合重置，这个不重置）

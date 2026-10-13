@@ -5,7 +5,8 @@
 //
 // ---- 结构照运行时 dump（`资料/原版参照图/Unity参照管线_0825/data/runtime_ui_dump_drive_0912.tsv:437-450`）----
 //   Mulligan（整屏，FrontCanvas 下）
-//     ├ MulliganAnchor              —— 卡片的布局锚（原版挂的是 `CardsHorizontalLayout`；我们用手牌那套）
+//     ├ MulliganAnchor              —— 卡片的布局锚（**只有 Transform、没有 RectTransform**，
+//     │                                  `m_LocalPosition = (0, 29, 0)`；原版把起手牌**搬进它那一行**）
 //     ├ ButtonsGroup
 //     │   ├ MulliganContinueButton  —— 容器 x[1062.9,1895.8] y[921.5,1039]
 //     │   │     （底右锚 `pos(-24.2,41.0)`、`size(832.9,117.5)` → 绝对值由锚点算出）
@@ -16,10 +17,14 @@
 //     └ MulliganText（提示行）1344×79.4 @中心 (967, 106.5)（里面还有一行 `TurnText`）
 //
 // ---- ⚠️ 哪些是我们的 ----
-//  · **每张牌的「换」按钮**（原版 `MulliganFrame.changeCardButton`）：它是**运行时按卡生成的**，
-//    dump 是静态树、**没有它** → **位置和大小是我们排的**（贴在每张手牌的下缘、宽 = 卡宽，
-//    图用原版三态 `UI_Button_Mulligan` 410×124）。钮上的字原来是写死的中文「换」，
-//    **2026-10-18 起改成原版词条** `Battle/Mulligan/Replace` ⇄ `Undo`（判据 → `CardBtnWord`）。
+//  · **每张牌的「替换」按钮**（原版 `MulliganFrame.changeCardButton`）：它是**运行时按卡生成的**，
+//    dump 是静态树、**没有它** → 原来位置和大小是我们排的（贴在手牌下缘、宽 = 卡宽）。
+//    🔴 **2026-10-13 拿到判据并照它改了**：原版那个 prefab 是
+//    `bundle_battlesharedresources_assets_all/GameObject/CardMulliganButtonFrame.json`
+//    （内部 `Change Card Button` `sd = (1.30, 0.33)`、中心 `ap = (0, −1.7513)`、那层框 `2.3335 × 4.167`）
+//    —— 即**卡宽的 55.7%、压在卡下沿下方一点**，而且它是**拉伸**画的（框比例 3.94 ≠ 图 410×124 的 3.31）。
+//    几何判据全文写在 `BtnWFactor/BtnHFactor/BtnBelowCardPx` 那三个常量的 doc 里。
+//    钮上的字走原版词条 `Battle/Mulligan/Replace` ⇄ `Undo`（判据 → `CardBtnWord`）。
 //  · 🔴 **点手牌本身 = 「看牌」，不是标记**（`CardScript__OnTouchUpAsButton.c:52-58`：换牌期
 //    `cardState ∈ {0xD,0xE}` 这一段只做「置 `displayingCardFlag(+0x24a)` → `BattleManager.DisplayCard(bm, this, 1, 1)`」，
 //    第 4 参 = 强制展示；指针移开由 `OnTouchExit.c:15-16` 收）。换牌期卡的碰撞体是**开着且原始尺寸**
@@ -64,6 +69,7 @@
 //    我们让 AI 一张不换 = **有据的偏离**（见 `BattleDriver.OpenMulligan` 的注释）。
 using System;
 using System.Collections.Generic;
+using DG.Tweening;
 using UnityEngine;
 
 namespace CardPresentation
@@ -194,6 +200,12 @@ namespace CardPresentation
         readonly List<ImageQuad> _cardBtns = new List<ImageQuad>();
         readonly List<Label> _cardTexts = new List<Label>();
         readonly List<CardView> _cards = new List<CardView>();
+        /// <summary>🔴 **2026-10-13**：那几张牌**搬进换牌区之前**的位姿（`Open` 时存、`ClearCardButtons` 还）。
+        /// 不复位的话换牌结束后它们会**留在屏幕中央** —— `RefreshAll()` 只按 `_dealt`（这一轮新进手牌）
+        /// 重摆，**不保证覆盖到这几张**（`HandLayout.Place` 的调用面看的是那一份）。
+        /// ⚠️ 存的是**世界位**（`transform.position`），不是 `localPosition` —— 卡的父链是 `HandArea`。</summary>
+        readonly List<Vector3> _savedPos = new List<Vector3>();
+        readonly List<Vector3> _savedScale = new List<Vector3>();
         readonly List<int> _marked = new List<int>();
 
         // ---- 原版绝对坐标（1920×1080，y 从**上**）----
@@ -257,6 +269,135 @@ namespace CardPresentation
         /// <summary>补间/自检用：面板的 z。和日志面板一样推到 −0.9 一带 ——
         /// 场上的粒子在 −0.5 那层会飘到面板上面（那个坑记在 `BattleLogPanel` 的注释里）</summary>
         const float Z = -0.9f;
+
+
+        // ==================================================================
+        //  换牌区那一行（原版 `MulliganAnchor` + 它身上的 `CardsHorizontalLayout`）
+        //
+        //  🔴 **2026-10-13（用户点名「开局的手卡替换你改错了，要求是原版」+ 给了实拍之后重做）**：
+        //     原来我们把「换」钮贴在手牌原位（屏幕底部那排小牌）上 —— 原版**不是**那样：
+        //     起手牌会被**逐张搬进 `MulliganAnchor` 那一行**（`PlayerHand.MoveCardToMulliganPos.c`
+        //     的位 = `MulliganAnchor` 的 `CardsHorizontalLayout.GetPosition(i,n)`），换完
+        //     `CompleteMulliganPhase` 把**同一批对象**并进真手牌列表 ⇒ 牌**从来不回手牌位**。
+        // ==================================================================
+
+        /// <summary>行中心 = **屏幕中心 + (0, −29) 设计px**（即 y = 540 − 29 = **511**）。
+        /// 判据：原版 `MulliganAnchor` 是**只有 Transform、没有 RectTransform** 的节点，
+        /// `m_LocalPosition = (0, **29**, 0)`，父件 `Mulligan` 整屏拉伸（pivot 居中）
+        /// ⇒ 世界位 = 屏幕中心 + 29 px（Unity y 向上 ⇒ 从**上**数是 511）。
+        /// 出处 = `bundle_scenes_scenes_battlearena1/Transform/Transform_1292.json` +
+        /// 运行期 dump `资料/原版参照图/Unity参照管线_0825/data/panel_0914/runtime_rect_mulligan.tsv`
+        /// （`/MulliganAnchor` 那行是 `TF`、没有 rect）。
+        /// ✅ 与用户实拍互证：那张图上三张牌的**中心**量出来 ≈ 514 设计 px（差 &lt;1%）。</summary>
+        const float RowCx = 960f, RowCy = 511f;
+
+        /// <summary>换牌区那张卡的宽度（设计 px）= **292**。判据 = 用户给的原版实拍
+        /// `C:/Users/qjh36/Desktop/warpforge参考图/战斗—替换手卡参考图（先手）.png` 逐像素量：
+        /// 三张卡**同为 240 帧px**（x 372–612 / 700–940 / 1028–1268），而那一帧就是整块 1920×1080
+        /// 画布（纵向量得的行中心 514 ↔ 预制体锚点 511，**两轴自洽**）⇒ `240 × 1080/887 = 292`。
+        /// 🔴 **与预制体字段对不上，如实记着（`A1749`）**：换牌区那个布局实例
+        /// （`MonoBehaviour_4881.json`）`m_scale = 183.41`、`m_betweenElementsSpacing = 502.2`，
+        /// 与选牌面板 `MB_4052` **逐字段相同**；若按「183.41 px / 卡本地单位」读 ⇒ 卡宽 **383.9**、
+        /// 间距 **502.2** ⇒ 三张一行要 **2156 px，根本装不进 1920**（实拍那一行只占 1091 px，差 31%）。
+        /// ⇒ **本处以实拍为准**；「选牌面板是不是也偏大」**没有核过**，另立账 `A1749`，⛔ 别照抄过去。</summary>
+        const float CardWidthPx = 292f;
+
+        /// <summary>换牌区相邻两张的**中心距**（设计 px）= **414**。判据 = 同上那张实拍量得
+        /// 卡中心 485 / 840 / 1205 帧px ⇒ 间距 340 帧px ⇒ `340 × 1080/887 = 414`。
+        /// （实拍比值 间距/卡宽 = 1.42；预制体那边是 `502.2/383.9 = 1.31` —— 同一套设计，量出来差 8%。）</summary>
+        const float RowSpacingPx = 414f;
+
+        /// <summary>每张牌那颗钮（原版 `CardMulliganButtonFrame/Change Card Button`：
+        /// `sd = (1.30, 0.33)`，中心 `ap = (0, −1.7513)`，而那一层框是 `2.3335 × 4.167`）。
+        /// 换算：框宽 2.3335 ↔ 卡宽 ⇒ 每一「框单位」= 卡宽 / 2.3335 ⇒
+        /// · 钮宽 = `1.30 / 2.3335 = **卡宽的 55.7%**`；
+        /// · 钮高 = `0.33 / 2.3335`（同上换算）；
+        /// · 钮中心在**卡下沿下方** `(1.7513 − 卡半高 1.6655) = 0.0858` 框单位
+        ///   —— ⚠️ 这一格**取自实拍更直接**：实拍量得卡底 600、钮中心 632 ⇒ 32 帧px = **39 设计 px**。
+        ///   （两个读法差 3 px，取实拍那个。）</summary>
+        const float BtnWFactor = 1.30f / 2.3335f;      // 钮宽 = 卡宽 × 它
+        const float BtnHFactor = 0.33f / 2.3335f;      // 钮高 = 卡宽 × 它
+        const float BtnBelowCardPx = 39f;              // 钮**中心**在卡下沿下方多少 px
+
+        /// <summary>换牌区那张卡的 `localScale`（= 卡宽 292 px）。⚠️ 与手牌同一份换算
+        /// （`HandLayout.DefaultCardScale = 165/(CardView.Width×108)`）：卡宽 = `CardView.Width × scale × 108` px。</summary>
+        static readonly float MulliganCardScale = CardWidthPx / (CardView.Width * 108f);
+
+        /// <summary>换牌区那一行里**第 i 张（共 n 张）**的**世界位**。
+        ///
+        /// 🔴 **2026-10-13（实机才暴露的一条）**：`At()` 给的是**本面板子件用的局部位**
+        ///    （本文件所有子件的口径），而**卡不在本面板的父链下**（它们在 `HandArea` 里）
+        ///    ⇒ 两者**不是一回事**（批处理里恰好相等 ⇒ 自检全绿；实机里差一个缩放 ⇒ 牌摆歪）。
+        ///    所以这里**必须**经 `transform.TransformPoint` 换成真世界位。
+        /// ⚠️ 喂 `transform.position` / `DOMove`（世界）的用它；喂 `CardView.SetPose`（局部）的用
+        ///    <see cref="RowLocalPos"/>。⛔ 判据（行心/卡宽/间距）仍只在这一处算。</summary>
+        public Vector3 RowWorldPosAt(int i, int n)
+        {
+            // ⚠️ 局部位里**连 `Z`（这一层的深度）一起**给上 —— 面板子件都是 `At(...) + (0,0,Z)` 的口径，
+            //    少了它卡会落在**压暗层后面**（`_shade` 就在 `Z` 上）。
+            return transform.TransformPoint(RowLocalAt(i, n) + new Vector3(0f, 0f, Z));
+        }
+
+        /// <summary>换牌区那一行第 i 张（共 n 张）在**本面板局部位**里的位置（**不含**深度 `Z`）。
+        /// 🔴 **判据只此一处**：卡走 <see cref="RowWorldPosAt"/>（世界）、钮直接用它（面板子件就是局部位）
+        /// —— 两边各算一遍间距，迟早不一致（本仓红线）。</summary>
+        public Vector3 RowLocalAt(int i, int n)
+        {
+            float spacing = U(RowSpacingPx);
+            float total = spacing * (n - 1);
+            var c = At(RowCx, RowCy);
+            return new Vector3(c.x - total * 0.5f + spacing * i, c.y, c.z);
+        }
+
+        /// <summary>这张牌在换牌区那一行里的**世界位**；**它不在这一批里** ⇒ 返回 `Vector3.zero`。
+        /// ⚠️ **世界**位是给「飞牌动画」那条路的（`CardFeel.DealInPose` → `DOMove` 收世界位）；
+        ///    要给 `CardView.SetPose` 用请走 <see cref="RowLocalPos"/>（那个吃**局部**位）。</summary>
+        public Vector3 RowWorldPos(CardView c)
+        {
+            int i = _cards.IndexOf(c);
+            return i < 0 ? Vector3.zero : RowWorldPosAt(i, _cards.Count);
+        }
+
+        /// <summary>同上，但换算成**这张卡父空间的局部位** —— 给 `CardView.SetPose` 用。
+        ///
+        /// 🔴 **2026-10-13（实机才暴露的一条）**：`RowWorldPosAt` 给的是**世界**位，而
+        ///    `CardView.SetPose` 写的是 `transform.localPosition` ⇒ **两者在批处理里恰好相等**
+        ///    （父链是单位变换 ⇒ 自检全绿），**实机里不等** ⇒ 牌被摆到别处
+        ///    （症状：`-wfscene Battle` 起 player，「替换」钮留在换牌区、牌落到右下角那一带）。
+        ///    ⇒ 凡是喂 `SetPose` 的都走这一条，凡是喂 `DOMove` 的都走 `RowWorldPos`。</summary>
+        public Vector3 RowLocalPos(CardView c)
+        {
+            var w = RowWorldPos(c);
+            var parent = c != null ? c.transform.parent : null;
+            return parent != null ? parent.InverseTransformPoint(w) : w;
+        }
+
+        /// <summary>这张牌在这一批换牌区里吗（`BattleDriver` 判「发牌该落到哪一行」用）。</summary>
+        public bool HasCard(CardView c) { return c != null && _cards.IndexOf(c) >= 0; }
+
+        /// <summary>把换牌区这几张**再摆一遍**（幂等，可反复调）。
+        ///
+        /// 🔴 **2026-10-13：为什么需要它（实机才暴露的一条）** —— 手牌布局
+        /// （`interaction.SetCards` → `HandLayout.Place`）**每一轮 `SyncHand`（= 每次 `RefreshAll`）
+        /// 都会跑**，而它算的是**手牌位** ⇒ 换牌期会把这几张从换牌区**拉回屏幕底部那排**。
+        /// 症状（`-wfscene Battle` 起 player 实测）：**「替换」钮留在换牌区、牌自己跑回去了**。
+        /// ⚠️ **自检里结构上测不出来**：批处理 `animateRelayout = false`，而 `CommitDealtPoses`
+        /// 只管**发牌那一帧** —— 断言过的是「那一帧」的位姿，管不到后面每一轮 `RefreshAll`。
+        /// ⛔ 判据仍只有 <see cref="RowWorldPosAt"/> 一处（⛔ 别在这里重算一遍间距）。</summary>
+        public void ReapplyRowPoses()
+        {
+            if (!Visible) return;
+            for (int i = 0; i < _cards.Count; i++)
+            {
+                var c = _cards[i];
+                if (c == null) continue;
+                c.transform.DOKill();                                   // 掐掉手牌布局刚开的重排补间
+                c.SetPose(RowLocalPos(c), 0f, MulliganCardScale);       // ⚠️ `SetPose` 吃**局部**位
+            }
+        }
+
+        /// <summary>换牌区那张卡的 `localScale`（= 卡宽 292 px）。⛔ 与 `BuildCardButtons` 同一份判据。</summary>
+        public static float RowCardScale { get { return MulliganCardScale; } }
 
         public static MulliganPanel Create(Transform parent)
         {
@@ -379,26 +520,46 @@ namespace CardPresentation
         }
 
         /// <summary>
-        /// 每张起手牌贴一个「换」按钮。
-        /// ⚠️ **位置是我们排的** —— 原版那个 `MulliganFrame` 是运行时实例化的，静态 dump 里没有它
-        ///    （见文件头）。这里贴在卡下缘往上 30% 卡高处、宽 = 卡宽（图 410×124 按比例得高）。
+        /// 把起手牌**搬进换牌区那一行**，并在每张牌下面贴一颗「替换」钮。
+        ///
+        /// 🔴 **2026-10-13 重做**（用户点名「开局的手卡替换你改错了，要求是原版」并给了实拍）：
+        ///   原来这里**只贴钮、不动牌** —— 牌留在屏幕底部那排小手牌上，钮贴在手牌下缘外侧。
+        ///   原版不是那样：`PlayerHand.MoveCardToMulliganPos.c` 把牌**逐张搬进 `MulliganAnchor` 那一行**
+        ///   （位 = 它身上那个 `CardsHorizontalLayout.GetPosition(i,n)`），换完
+        ///   `CompleteMulliganPhase` 再把**同一批对象**并进真手牌列表 ⇒ 换牌期牌**不在手牌位**。
+        /// 几何判据全部写在 `RowCy` / `CardWidthPx` / `RowSpacingPx` / `Btn*Factor` 那几个常量的 doc 里
+        /// （⛔ 别在这里另抄一份数）。
         /// </summary>
         void BuildCardButtons(IReadOnlyList<CardView> hand)
         {
-            ClearCardButtons();
+            ClearCardButtons();                 // ⚠️ 它内含「把上一批的位姿复位」
             _cards.Clear();
             if (hand == null) return;
+            for (int i = 0; i < hand.Count; i++) if (hand[i] != null) _cards.Add(hand[i]);
+            int n = _cards.Count;
+            if (n == 0) return;
 
-            for (int i = 0; i < hand.Count; i++)
+            // ---- ① 起手牌搬进换牌区那一行 ----
+            // 🔴 **一律写世界位**（`transform.position`）：这几张卡**不在本面板的父链下**
+            //    （它们在 `HandArea` 里，那条链的 `lossyScale` 与我们差着数量级）⇒
+            //    写 `localPosition` 会把牌甩到屏幕外（`CardChoicePanel` 能写局部是因为那几张是它自己的子件）。
+            float cardScale = MulliganCardScale;
+            for (int i = 0; i < n; i++)
             {
-                var c = hand[i];
-                if (c == null) continue;
-                _cards.Add(c);
+                var c = _cards[i];
+                _savedPos.Add(c.transform.position);
+                _savedScale.Add(c.transform.localScale);
+                c.transform.localScale = new Vector3(cardScale, cardScale, 1f);
+                c.transform.position = RowWorldPosAt(i, n);   // 🔴 判据只此一处
+            }
 
-                float cardW = CardView.Width * c.transform.localScale.x;
-                float cardH = CardView.Height * c.transform.localScale.y;
-                float btnW = cardW;                                  // 宽 = 卡宽（我们排的）
-                float btnH = btnW * (124f / 410f);                   // 图 `UI_Button_Mulligan` 的原比例
+            // ---- ② 每张牌下面那颗「替换」钮 ----
+            float btnW = CardWidthPx * BtnWFactor;                       // 原版 `sd.x = 1.30` 框单位
+            float btnH = CardWidthPx * BtnHFactor;                       // 原版 `sd.y = 0.33` 框单位
+            float halfCardPx = CardView.Height * cardScale * 108f * 0.5f; // 卡的世界半高（设计 px）
+            for (int i = 0; i < n; i++)
+            {
+                var c = _cards[i];
                 // ⚠️ x/y 拿**卡的世界坐标当局部坐标**（「面板与棋盘同在世界空间」的老口径，今天等价）；
                 // 🔴 **A276（2026-10-11）：z 改成裸局部 `Z`** —— 原来写的是
                 //    `c.transform.position + (0, −h, Z − c.transform.position.z)`，那个 `− c…z` 项
@@ -410,26 +571,36 @@ namespace CardPresentation
                 //    （`Z` 这个常量本身是我们挑的，见 `资料/普查产出_1010/V4b_三件口径.md` §Q2）。
                 //    改坏法：把 z 写成 `c.transform.position.z`（或整个 `c.transform.position`）⇒
                 //    `Editor/BattleScene.cs` 的 A276 那条断言红（它把卡的世界 z 挪 0.4 再重建按钮）。
-                var pos = new Vector3(c.transform.position.x, c.transform.position.y - cardH * 0.30f, Z);
+                // ⚠️ 钮是**本面板的子件** ⇒ 位置用**本面板的局部位**（`RowLocalAt`，判据只此一处）。
+                // 🔴 **2026-10-13（实机踩到）**：原来这里拿 `c.transform.position`（**世界**坐标）当
+                //    钮的**局部**坐标用，注释写着「面板与棋盘同在世界空间，今天等价」——**实机里不等**
+                //    （卡在 `HandArea` 那条父链下，两者差一个缩放）⇒ 钮会整体偏离那一行。
+                //    批处理里恰好相等 ⇒ 自检结构上测不出来。
+                var lp = RowLocalAt(i, n);
+                var pos = new Vector3(lp.x, lp.y - U(halfCardPx + BtnBelowCardPx), Z);
 
-                var q = ImageQuad.Create(transform, CardArt.Ui("UI_Button_Mulligan"), pos, btnH,
+                var q = ImageQuad.Create(transform, CardArt.Ui("UI_Button_Mulligan"), pos, U(btnH),
                                          new Vector2(0.5f, 0.5f), "MulliganBtn_" + i);
                 // 🔴 **2026-10-12（`A1663`）**：这句原来是「没图就只靠『点卡』那条路，不静默失败」——
                 //    **那个兜底已经不成立**（点卡那条路是**我们加的**、原版没有它，已删）⇒ 改成**出声**。
                 //    ⛔ 不许退回「点卡也能标记」：那会把原版「点卡 = 看牌」整段盖掉（就是本次要修的偏离）。
                 if (q == null)
                 {
-                    Debug.LogWarning($"[Battle] 换牌面板：第 {i} 张牌那颗「换」钮没取到图 `UI_Button_Mulligan`"
+                    Debug.LogWarning($"[Battle] 换牌面板：第 {i} 张牌那颗「替换」钮没取到图 `UI_Button_Mulligan`"
                                    + " ⇒ **这一张标记不了、钮上的字也画不出来**"
                                    + "（那张图应该在 `Resources/` 里；跑一次素材导入。⛔ 不退回「点卡标记」那条路）");
                     continue;
                 }
-                q.SetAspect(410f / 124f);                            // 图是 410×124 的横条
+                // ⚠️ **原版那颗钮是【拉伸】的**（它 `Image` 的子节点把 rect 拉满 ⇒ 画出来的 = 框）：
+                //    `sd = 1.30 × 0.33` = 比例 **3.94**，而这张图本身是 `410×124` = **3.31**
+                //    ⇒ 照框画就是**横向拉宽**。⛔ 别退回「按图的原比例」。
+                q.SetAspect(btnW / btnH);
                 _cardBtns.Add(q);
 
                 // 🔴 **2026-10-18（第十二轮 · W6）**：那颗钮上的字走**原版词条**
                 //    `Battle/Mulligan/Replace`（TMP 原文 `Replace`，全库只 1 颗 —— `battleprefabs_vfxandmisc`
                 //    的 `ReplaceText`；判据全文 → `Core/Loc.cs`）。原来那个写死的 `"换"` 已删。
+                //    ⚠️ 中文那一列 2026-10-13 按**用户实拍**订正成「**替换**」（原来是我们自拟的「换」）。
                 // 🔴 **2026-10-18（第十三轮 · G2b）**：**同一颗钮有两档字** —— 被标记的牌印
                 //    `Battle/Mulligan/Undo`（判据见 `UndoTerm` 的 doc）。原来我们**只有一档**，
                 //    标记之后那张牌上还写着「换」（= 原版那一刻印的是 Undo）。
@@ -445,12 +616,25 @@ namespace CardPresentation
             }
         }
 
+
         void ClearCardButtons()
         {
             for (int i = 0; i < _cardBtns.Count; i++) if (_cardBtns[i] != null) Kill(_cardBtns[i].gameObject);
             for (int i = 0; i < _cardTexts.Count; i++) if (_cardTexts[i] != null) Kill(_cardTexts[i].gameObject);
             _cardBtns.Clear();
             _cardTexts.Clear();
+
+            // 🔴 **2026-10-13**：把起手牌**放回搬进来之前**的位姿（`Open` 存、这里还）。
+            //   ⛔ **别依赖换牌结束后的 `RefreshAll()` 替我们复位** —— 它重摆的是 `_dealt`
+            //   （这一轮新进手牌）那一份，**不保证覆盖到这几张**；不复位它们就会**留在屏幕中央**。
+            for (int i = 0; i < _cards.Count && i < _savedPos.Count; i++)
+            {
+                if (_cards[i] == null) continue;
+                _cards[i].transform.position = _savedPos[i];
+                _cards[i].transform.localScale = _savedScale[i];
+            }
+            _savedPos.Clear();
+            _savedScale.Clear();
             _cards.Clear();
         }
 

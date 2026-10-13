@@ -1507,6 +1507,16 @@ public static partial class RuleEngineTest
                   "★ **能量只掉 3**（1 卡费 + 2 誓约）—— ⛔ 不是 −5（付费组各收一遍的旧缺陷）"
                 + $"｜🧨 抹掉 `CostShared` ⇒ 本行实得 −5{LogTail(ctx, 8)}");
             CheckTrue(S14Log(ctx, "不再收"), "★ 日志里明说第二条那 2 点「不再收」");
+            // 🆕 `A1412`（2026-10-13 落地 2026-10-12 `W11` 交的补丁）：钱在 `ResolveOps` 顶端
+            //    （**ability 层**）就收掉了 ⇒ 执行段里**连付钱那条自己**也走「已经收过」那一支
+            //    （判据 = `EffectResolver.Prepaid` 把**含付钱那条在内**的整组 op 都递成 `CostShared`；
+            //     措辞见 `EffectResolver.cs` 的 `不再收` 那一支）。
+            //    🧨 **改前**（逐 op 收、靠 `pays[]` 顺延认「谁付钱」）付钱那条走的是「扣钱」支
+            //    ⇒ 这一行**结构上不可能存在** ⇒ 本断言在旧写法下必红。
+            CheckTrue(S14Log(ctx, "「lower its cost by 2 and give it flank」的 2 点能量"),
+                      "★★ 判别式（`A1412`）：钱在 `ResolveOps` 顶端（ability 层）**先**收掉 ⇒ "
+                    + "执行段里**连付钱那条自己**也走「已经收过」那一支"
+                    + "（🧨 改前它走「扣钱」那支 ⇒ 这行不存在）");
             Check(SlotOf(ctx, 0, "S14_Troop"), -1,
                   "★ **第一条效果真发生了**：部队回手了（`Return a friendly troop to your hand`）");
             CheckTrue(HandIdx(ctx, 0, "S14_Troop") >= 0, "……它在手里");
@@ -1536,6 +1546,38 @@ public static partial class RuleEngineTest
                 + $" —— 实得 {mine.Attack}。⚠️ 如实标着：实测 **4**（= 1 + 第一段的 +1 + 付费段的 +2），"
                 + "而这一段卡面写的是 `instead`（本该**替换**掉第一段）⇒ **我们没按 `instead` 抑制第一段**，"
                 + "这里只断「付费那份加上了」，不把它固化成期望");
+        }
+        // ==================================================================
+        //  🆕 `A1412` / `A1597`（2026-10-13 落地 2026-10-12 `W11` 交的补丁）
+        //  判据出处：`资料/普查产出_第二十二会话/W11_引擎A1597A1412.md` §三（那两条断言）
+        //            + `资料/任务_卡组卡牌战斗.md` 的 `A1412` / `A1597` 两行。
+        // ==================================================================
+
+        // ---- 🆕 `A1412`：收费抬到 ability 层 ⇒ 付不起时**整组一条都不结算**（能力层那条路；
+        //      形状 = `UM93` 那句的组形状，但挂在**单位**上 ⇒ 走 `UseOathAbility` 那条重载）----
+        {
+            var oathProbe = new CardDef("W11_OATH", "W11 Oath Probe", "unit", "Oath 2: Lower its cost by 2 and give it Flank.",
+                                        "common", "Ultramarines", 1, 1, 5, 0, new[] { "Oath" });
+            var ctx = ProbeBattle(new[] { oathProbe }, new CardDef[0]);
+            ToP1Turn(ctx, 2);
+            var u = Place(ctx, 0, 3, oathProbe, exhausted: false);
+            ctx.Players[0].Energy = 1;                        // ⚠️ 差 1 点付不起（`Oath 2`）
+            CheckCode(RuleCore.UseOathAbility(ctx, 0, 3), RuleCodes.ErrUnimplemented, "★ 能量 1 < `Oath 2` ⇒ 没生效");
+            Check(ctx.Players[0].Energy, 1, "★ 付不起 ⇒ 一分钱都不扣"); Check(u.OathUsesThisTurn, 0, "★ ……次数也不涨");
+            CheckTrue(!u.Has("flank"),
+                      "★★ 判别式（`A1412`）：**标着 `CostShared` 的后半句也不许落地**"
+                    + "（🧨 改前：付费逐 op 判、后半句不查余额 ⇒ **白给 `Flank`** ⇒ 本行实得 true）");
+            CheckTrue(HasLog(ctx, "一并跳过"), "★ 而且**出声**：付不了 ⇒ 其余效果一并跳过（⛔ 不静默）");
+        }
+        // ---- 🆕 `A1597`：落点只能从这个口拿，⛔ 别拿请求格断言 ----
+        {
+            var sp = new CardDef("W11_SLOT", "W11 Slot Probe", "unit", "", "common", "Ultramarines", 1, 1, 5, 0, null);
+            var ctx = ProbeBattle(new[] { sp }, new CardDef[0]);
+            ToP1Turn(ctx, 2);
+            int landed;
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "W11 Slot Probe"), 2, out landed), RuleCodes.OK, "打出一张部队（**请求**格 2）");
+            Check(landed, 3, "★★ `A1597`：空盘上请求 2 ⇒ **实际落 3**（夹到贴督军那格）");
+            Check(SlotOf(ctx, 0, "W11 Slot Probe"), landed, "★ `out` 的落点 = 棋盘上真实的落点");
         }
     }
 

@@ -11799,10 +11799,55 @@ namespace CardPresentation
                 var v = _dealt[i];
                 if (v == null) continue;
                 Vector3 p; float ang, sc;
-                if (!hl.TryLastPose(v, out p, out ang, out sc)) continue;
+                // 🔴 换牌期这几张的「真牌位」= **换牌区那一行**（`MulliganRowLocalPose`），
+                //    不是手牌位 —— 见那个函数的 doc。⚠️ `SetPose` 吃**局部**位，所以这里要 `…Local…`。
+                if (!MulliganRowLocalPose(v, out p, out ang, out sc)
+                    && !hl.TryLastPose(v, out p, out ang, out sc)) continue;
                 v.transform.DOKill();
                 v.SetPose(p, ang, sc);
             }
+            // 🔴 **2026-10-13：换牌期【最后】再摆一遍换牌区** —— 上面那一跳只管**发牌那一帧**，
+            //    而 `interaction.SetCards`（本函数上面几行）**每一轮**都会按**手牌位**重排这几张
+            //    ⇒ 不补这一下，牌会被拉回屏幕底部那排（**只有实机看得见**，批处理 `animateRelayout`
+            //    是关的 ⇒ 自检结构上测不出来）。判据仍只有 `MulliganPanel.RowWorldPosAt` 一处。
+            if (Ctx.MulliganOpen && _mulligan != null) _mulligan.ReapplyRowPoses();
+        }
+
+        /// <summary>换牌期这几张牌该落到**哪一行**（**世界**位姿）—— 给「飞牌动画」那条路用
+        /// （`CardFeel.DealInPose` → `DOMove` 收的是世界位）。
+        /// ⛔ **判据只此一处**（`PlayDealAnimation` 与 `MulliganRowLocalPose` 都问它）。
+        ///
+        /// **为什么要有它**：原版换牌期把起手牌**搬进 `MulliganAnchor` 那一行**
+        /// （`PlayerHand.MoveCardToMulliganPos.c`：位 = 它的 `CardsHorizontalLayout.GetPosition(i,n)`），
+        /// 手牌位**根本不是它们该待的地方**。而 `HandLayout.TryLastPose` 给的是**手牌位**
+        /// （0.73 倍、屏幕底部那排）⇒ 换牌期照它走，发牌动画会把牌**从换牌区拉回手牌位**，
+        /// 把 `MulliganPanel` 刚摆好的那一行拆掉（症状：换牌期牌又跑回屏幕底部）。
+        ///
+        /// 返回 `false` = **不在换牌期**（调用方照旧用 `TryLastPose`）。</summary>
+        bool MulliganRowPose(CardView v, out Vector3 worldPos, out float scale)
+        {
+            worldPos = Vector3.zero; scale = 1f;
+            if (Ctx == null || !Ctx.MulliganOpen || _mulligan == null) return false;
+            if (!_mulligan.HasCard(v)) return false;
+            worldPos = _mulligan.RowWorldPos(v);
+            scale = MulliganPanel.RowCardScale;
+            return true;
+        }
+
+        /// <summary>同上的**父空间局部位**（`CardView.SetPose` 吃局部位）。
+        ///
+        /// 🔴 **2026-10-13（实机才暴露）**：`SetPose` 写的是 `transform.localPosition`，而
+        ///    `RowWorldPos` 给的是**世界**位 —— 批处理里两者恰好相等（父链单位变换 ⇒ 自检全绿），
+        ///    **实机里不等** ⇒ 牌被摆到别处（「替换」钮留在换牌区、牌落到右下角那一带）。
+        ///    ⇒ 喂 `SetPose` 的一律走这一条，喂 `DOMove` 的一律走 `MulliganRowPose`。</summary>
+        bool MulliganRowLocalPose(CardView v, out Vector3 localPos, out float ang, out float scale)
+        {
+            ang = 0f;
+            Vector3 w;
+            if (!MulliganRowPose(v, out w, out scale)) { localPos = Vector3.zero; return false; }
+            var parent = v.transform.parent;
+            localPos = parent != null ? parent.InverseTransformPoint(w) : w;
+            return true;
         }
 
         /// <summary>
@@ -11833,7 +11878,12 @@ namespace CardPresentation
                 var v = _dealt[i];
                 if (v == null) continue;
                 Vector3 p; float ang, sc;
-                if (hl != null && hl.TryLastPose(v, out p, out ang, out sc))
+                // 🔴 换牌期落点 = **换牌区那一行**，而且是**世界**位（`DealInPose` 走 `DOMove`）。
+                if (MulliganRowPose(v, out p, out sc))
+                {
+                    CardFeel.DealInPose(v, deck, p, 0f, sc);
+                }
+                else if (hl != null && hl.TryLastPose(v, out p, out ang, out sc))
                 {
                     // ⛔ 不能退回 `CardFeel.DealIn`：它把 rot 收 0、scale 收 1，牌会停在**原尺寸**
                     //   （226 设计 px，手牌档应是 165 —— 实拍 `_tmp_view/ui_1019/17_battle.png` 量得）。

@@ -874,9 +874,13 @@ namespace CardPresentation
             //     → MB 5183；判据全文写在 `Battle/MulliganPanel.cs` 的 `TurnText` 那段 doc 里）。
             //     ⛔ **别删那份 dump**（同批查出：`localization_assets_all.bundle` 本机没有、远端 URL 钉在
             //     `catalog_main.json` 里；那两句今天已不在盘上）。
-            //   ⚠️ **同一对的另一半（`Battle/Tips/GoFirst` = `你先手`）本轮【没动】** —— 那份 dump 抓的是
-            //     **后手那一局**，原版「先手」那句的真渲中文**本地没有任何记录** ⇒ 按铁律 2 如实留着，
-            //     ⛔ 不许照这一句的形状替它编一个「你是第一个行动」。
+            //   ✅ **2026-10-13：同一对的另一半（`Battle/Tips/GoFirst`）【有原版实拍判据了】** —— 用户给的
+            //     🔴 **两张**原版实拍：`战斗—替换手卡参考图（先手）.png` 上那行白字逐字印着 **「你先行」**，
+            //     `战斗—替换手卡参考图（后手）.png` 上印的是 **「你是第二个行动」**（与下面那条 `Entry` 的中文列
+            //     **逐字相同** ✅）—— 而且**后手那张确实是 4 张起手牌** ⇒ 「先手 3 / 后手 4」这条算式
+            //     （`startingHand` + `secondaryExtraCards`，见 `RuleCore.StartHand`）**与用户实拍互证**。
+            //     ⇒ 把自拟的「你先手」改掉（见下面那条 `Entry`）。
+            //     ⛔ 仍不许**照这一句的形状替它编**（例如「你是第一个行动」）—— 有实拍就照实拍。
             { "Battle/Mulligan/secondTurn",        new Entry("你是第二个行动", "You go second") }, // TMP 原文；🔴 中文 = **原版运行期真渲**（`p3_mulligan_tree.tsv:15`），⛔ 不是 `zh_CN.csv`
             //   `Battle/Mulligan/Instructions`：`…battlearena1/MonoBehaviour_5197.json`，TMP 原文 `Choose cards to replace in first hand`
             //   🔴 **2026-10-10（`A1103`）中文列同上改成原版运行期真渲的那一句**：原写 `选择首局替换的卡牌`
@@ -887,7 +891,10 @@ namespace CardPresentation
             { "Battle/Mulligan/Instructions",      new Entry("选择要在首轮替换的牌", "Choose cards to replace in first hand") }, // TMP 原文；🔴 中文 = **原版运行期真渲**（`p3_mulligan_tree.tsv:13`）
             //   `Battle/Mulligan/Replace`：**全库只此 1 颗** —— `bundle_battleprefabs_vfxandmisc_assets_all/
             //   MonoBehaviour_4126337295248883513.json`（那颗 `ReplaceText`），TMP 原文 `Replace`
-            { "Battle/Mulligan/Replace",           new Entry("换",       "Replace") },      // TMP 原文；中文**自拟**（csv 无 `Replace` 这个英文串）
+            //   ⚠️ 中文**一直是自拟的** —— 🔴 **2026-10-13 订正：原版印的是「替换」**（判据 = 用户给的原版实拍
+            //   `C:/Users/qjh36/Desktop/warpforge参考图/战斗—替换手卡参考图（先手）.png`：每张起手牌下面那颗钮上
+            //   逐字印着「替换」）⇒ 把我们自拟的「换」改掉。⛔ 别退回「换」。
+            { "Battle/Mulligan/Replace",           new Entry("替换",     "Replace") },      // TMP 原文 `Replace`；🔴 中文 = **原版实拍**（2026-10-13 用户参考图）
             //   🆕 **2026-10-18（第十三轮 · G2b）`Battle/Mulligan/Undo`**：**同一颗钮的第二档字**
             //   （牌被标记要换时印这条）。判据 = `MulliganFrame.{ChangeCardButtonOnClick,SetupMulligan,
             //   UpdateButtonText}` 三处逐字相同的
@@ -931,7 +938,7 @@ namespace CardPresentation
             //   `Battle/Tips/GoFirst`：**没有 `Localize`（只此载波②）** —— `d:/2/tools/il2cpp_out/stringliteral.json`
             //   `0x428A128` = `Battle/Tips/GoFirst`。消费侧判据 = `MulliganManager.ActivateMulligan` 的先手/后手二选一
             //   （`MulliganPanel` 的 `TurnFirst`）——⚠️ **它的英文原文本地取不到**（远端 I2 表）⇒ EN/ZH 都**自拟**。
-            { "Battle/Tips/GoFirst",               new Entry("你先手",   "You go first") }, // 🔴 EN/ZH **都自拟**（键名本地读得到，文案在远端）
+            { "Battle/Tips/GoFirst",               new Entry("你先行",   "You go first") }, // 🔴 中文 = **原版实拍**（2026-10-13 用户参考图）；EN 仍自拟（值在远端 I2 表）
 
             // ============================================================ 🆕 **2026-10-08（第六会话 · `Core双语-第一步`）：`Tips/` 那一族**
             //

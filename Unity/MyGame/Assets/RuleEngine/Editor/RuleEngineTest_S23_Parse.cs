@@ -325,16 +325,18 @@ public static partial class RuleEngineTest
         // ---- ③ 真卡对照：真池里那几张降费卡**逐张不受影响** ----
         //   全池 `desc` 含 `Lower cost by` 的 5 张（现读，`cards_engine.json`）：
         //     `AM60` / `AM61` / `TAU66` / `TL83` / `UM_Avenging_Zeal`。
-        //   ⚠️ `UM_Avenging_Zeal` **故意不在下面这张名单里** —— 它**今天本来就没注册上**
-        //      （🔴 **顺手发现，本笔没改**：实测 `WFPROBE_POOL=… ruleprobe willrun` ⇒ 它的那句
-        //       `Lower cost by 1 when a friendly Troop or Stratagem trigger [Codex icon] Codex`
-        //       落在「⑤ 无消费点」栏里、`CardDef.CostWhens` 是空的 —— 事件短语
-        //       `… trigger codex icon codex` 认不出。**不是本笔引入**：改前改后送进
-        //       `WhenEvents.Parse` 的字符串**逐字相同**（改前那一支自己的 `Clean` 也剥 `[]`）。
-        //       它的修补点在 `Core/WhenEvent.cs`（本写手的白名单外）⇒ 只报不改）。
+        //   ✅ **2026-10-13（第二十五会话 · `A1689`）`UM_Avenging_Zeal` 已经注册上了** —— 它原来
+        //      **不在**下面这张名单里，它那句
+        //      `Lower cost by 1 when a friendly Troop or Stratagem trigger [Codex icon] Codex`
+        //      认不出，三个卡点：**动词不带 `s`**（`… stratagem trigger codex …`）· **图标记号
+        //      `[Codex icon]` 被剥成裸字 `codex icon`** · **并列主语 `troop or stratagem` 不是兵种词**
+        //      （退化成一个永不匹配的卡名）。修补点 = `Core/WhenEvent.cs` 三处（`Clean` 整块丢图标记号 ·
+        //      `TryParseKeywordTrigger` 收中缀不带 `s` · `Subjects.Parse` 拆并列兵种词）。
+        //      🔴 **原来这里写「它落在 ⑤ 无消费点栏里」【不成立】**（2026-10-13 现核）：⑤ 那道闸
+        //      **只对 `unit`/`hero` 做**，而它是 `tactic` ⇒ 它**从来没进过**那一栏（铁律 5 就地订正）。
         //   ⚠️ 下面 4 张**量过**（同一把尺子）：把它们的**原句**塞进卡池副本当夹具跑 `willrun`
-        //      ⇒ 「降费触发器」那一栏 **1 条 → 4 条**（1 = `TL83`，＋ 这 3 句），
-        //      且 `⑤ 无消费点` 只多出 `UM_Avenging_Zeal` 那一句 ⇒ 这 4 句确实都在 `CostWhens` 里。
+        //      ⇒ 「降费触发器」那一栏 **1 条 → 4 条**（1 = `TL83`，＋ 这 3 句）。
+        //      `UM_Avenging_Zeal` 现在**一并列进来**（改前它会让 `CostWhens.Count >= 1` 直接红）。
         {
             var pool = CardDatabase.Load();
             var expect = new[]
@@ -343,6 +345,7 @@ public static partial class RuleEngineTest
                 "Vengeance for Cadia",      // AM61
                 "Burgeoning Empire",        // TAU66
                 "Norn Emissary",            // TL83（全池唯一落「降费触发器」栏的那张）
+                "Avenging Zeal",            // UM_Avenging_Zeal（`A1689` 修好之后才进得来 —— 见上面那段）
             };
             foreach (var name in expect)
             {
@@ -372,6 +375,84 @@ public static partial class RuleEngineTest
             }
             Check(bad, 0, $"★ 全池 {n} 条降费监听器里，带 `instead` 的必须 **0** 条（真池里没有这种卡）");
             CheckTrue(n >= 4, $"★ 而且确实扫到了若干条（`n = {n}`）—— 若为 0 就是**恒真的空断言**");
+        }
+    }
+
+    /// <summary>
+    /// **降费句里的【图标记号】与【并列主语】**（2026-10-13 · 账 `A1689`）。
+    ///
+    /// 验收本体 = 真卡 `UM_Avenging_Zeal` 那句
+    /// `Lower cost by 1 when a friendly Troop or Stratagem trigger [Codex icon] Codex`
+    /// **注册进 `CardDef.CostWhens`**（改前 = 0 —— 卡面印着降费、机制静默不发生）。
+    /// 三个卡点：① 动词**不带 `s`**（`… stratagem trigger codex …`）② 图标记号 `[Codex icon]`
+    /// 被上游剥成裸字 `codex icon` ⇒ 关键词归一成 `codexiconcodex` ③ 并列主语
+    /// `troop or stratagem` 不是兵种词 ⇒ 退化成永不匹配的卡名。修法 = `Core/WhenEvent.cs` 三处。
+    ///
+    /// 🔴 **灭自证**：只断「注册上了」不够 —— 若把闸整个删掉 / 放宽，下面 ②③ 会一起变绿。
+    ///   所以同时钉住：② 假关键词仍然不收 · ③ `[Shield]` 那种「**括号里就是词**」的记号不许被整块吃掉 ·
+    ///   ④ 主语那一维的**三向判别式**（`troop` 命中 / `stratagem` 命中 / **督军不命中**）。
+    /// </summary>
+    static void TestS23ParseCostWhenIconMarker()
+    {
+        // ---- ① 注册层（验收本体）----
+        {
+            var t = Tactic("T_A1689Zeal", 12,
+                "Give +2 [Attack] and +2 [Ranged] to all your units in play and in hand. "
+                + "Lower cost by 1 when a friendly Troop or Stratagem trigger [Codex icon] Codex");
+            Check(t.CostWhens.Count, 1, "★ `[Codex icon]` 那一句**注册上了**（改前 = 0）");
+            if (t.CostWhens.Count == 1)
+            {
+                var cw = t.CostWhens[0];
+                Check(cw.Delta, 1, "★ 降 1 费");
+                Check(cw.Ev != null ? cw.Ev.Kind : null, "triggers:codex", "★ 事件种类 = 典籍被触发");
+                if (cw.Ev != null)
+                {
+                    Check(cw.Ev.OwnerIs, WhenEvent.RelFriendly, "★ 方向 = 本方（卡面写的是 `friendly`）");
+                    var crit = cw.Ev.Criteria;
+                    CheckTrue(crit != null, "★ 主语那一维**不是空的**（退化版会落 `Name`，不是 null）");
+                    if (crit != null)
+                    {
+                        CheckTrue(crit.Matches(Unit("FxTroop", 1, 1, 1)), "★ 命中部队");
+                        CheckTrue(crit.Matches(Tactic("FxStrat", 1, "")),
+                                  "★ 命中战术大类（`or` 那半必须**真进筛选**）");
+                        CheckTrue(!crit.Matches(Hero("FxHero", 1, 1)),
+                                  "★ **督军不算** —— `troop` 是真筛选，⛔ 不许把它当「不限」"
+                                  + "（三种改法里只有「并集」这一版是 [T, T, F]）");
+                    }
+                }
+            }
+        }
+
+        // ---- ② 两道闸不许被放宽：关键词不在 `Implemented` ⇒ 仍然不收 ----
+        {
+            var bad = Tactic("T_A1689Nonsense", 5,
+                "Lower cost by 1 when a friendly Troop or Stratagem trigger [Codex icon] Nonsenseword");
+            Check(bad.CostWhens.Count, 0, "★ 改后仍然**挡得住**假关键词（⛔ 不许为了让它亮而放宽那道闸）");
+        }
+
+        // ---- ③ 两种图标记号形态都要吃；`[Shield]` 不许被整块吃掉 ----
+        {
+            CheckTrue(WhenEvents.Parse("a friendly Troop or Stratagem trigger [Codex icon] Codex") != null,
+                      "★ 带方括号那一路认得出");
+            CheckTrue(WhenEvents.Parse("a friendly troop or stratagem trigger codex icon codex") != null,
+                      "★ 已脱方括号那一路（降费那一支交出来的形态）也认得出");
+            var sh = WhenEvents.Parse("a friendly unit with [Shield] dies");
+            CheckTrue(sh != null && sh.Criteria != null && sh.Criteria.Keyword == "shield",
+                      "★ 反例 · `[Shield]` 这种「**括号里就是词**」的记号**不许**被整块吃掉"
+                      + "（只有以 ` icon` 结尾的图标记号才丢）");
+        }
+
+        // ---- ④ 真卡对照（挡「夹具能过、真卡不行」）----
+        {
+            var pool = CardDatabase.Load();
+            var c = CardDatabase.Find(pool, "Avenging Zeal");
+            CheckTrue(c != null, "卡池里找得到「Avenging Zeal」");
+            if (c != null)
+            {
+                Check(c.CostWhens.Count, 1, "★ 真卡上那条监听器在（改前 = 0）");
+                if (c.CostWhens.Count == 1)
+                    Check(c.CostWhens[0].Delta, 1, "★ 降 1 费");
+            }
         }
     }
 }
