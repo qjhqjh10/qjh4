@@ -12,19 +12,19 @@
    "armyOrder": 100,
    "gameMode": 13,
    "difficulty": 5,
-   "heroId": "AM3",
-   "heroNote": "id命中",
+   "heroId": "",
+   "heroNote": "对不上",
    "cardback": "Cardback_AM_Shield of Humanity",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_AM_Shield of Humanity",
-   "defensiveId": "AM64",
-   "defensiveName": "Defence Batteries",
-   "defensiveNameZh": "防御炮组",
+   "defensiveId": "AM60",
+   "defensiveName": "Timely Reinforcements",
+   "defensiveNameZh": "及时增援",
    "cardIds": [
     "AM12",
     "AM11",
     "AM15",
-    "AM59",
+    "AM_Astropath",
     "AM10",
     "AM17",
     "AM22",
@@ -34,7 +34,7 @@
     "AM47",
     "AM49"
    ],
-   "complete": true,
+   "complete": false,
    "missing": [],
    "problems": [],
    "overLegendary": []
@@ -47,14 +47,14 @@
    "armyOrder": 100,
    "gameMode": 13,
    "difficulty": 10,
-   "heroId": "AM5",
-   "heroNote": "名字命中",
+   "heroId": "AM2",
+   "heroNote": "id命中",
    "cardback": "Cardback_AM_Regimental Liveries",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_AM_Regimental Liveries",
-   "defensiveId": "AM64",
-   "defensiveName": "Defence Batteries",
-   "defensiveNameZh": "防御炮组",
+   "defensiveId": "AM60",
+   "defensiveName": "Timely Reinforcements",
+   "defensiveNameZh": "及时增援",
    "cardIds": [
     "AM7",
     "AM14",
@@ -87,9 +87,9 @@
    "cardback": "Cardback_AM_Unsung Heroes",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_AM_Unsung Heroes",
-   "defensiveId": "AM64",
-   "defensiveName": "Defence Batteries",
-   "defensiveNameZh": "防御炮组",
+   "defensiveId": "AM60",
+   "defensiveName": "Timely Reinforcements",
+   "defensiveNameZh": "及时增援",
    "cardIds": [
     "AM8",
     "AM6",
@@ -97,7 +97,7 @@
     "AM9",
     "AM25",
     "AM31",
-    "AM32",
+    "AM_Leman_Russ",
     "AM36",
     "AM37",
     "AM48",
@@ -122,9 +122,9 @@
    "cardback": "Cardback_AM_Cold Blood",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_AM_Cold Blood",
-   "defensiveId": "AM64",
-   "defensiveName": "Defence Batteries",
-   "defensiveNameZh": "防御炮组",
+   "defensiveId": "AM60",
+   "defensiveName": "Timely Reinforcements",
+   "defensiveNameZh": "及时增援",
    "cardIds": [
     "AM67",
     "AM68",
@@ -137,7 +137,7 @@
     "AM27",
     "AM74",
     "AM75",
-    "AM76"
+    "AM_Armoured_Lightning"
    ],
    "complete": true,
    "missing": [],
@@ -157,7 +157,7 @@
    "cardback": "Cardback_ASH_Warlord_Ghaelyn",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_ASH_Warlord_Ghaelyn",
-   "defensiveId": "ASH65",
+   "defensiveId": "ASH56",
    "defensiveName": "Inspiring Legacy",
    "defensiveNameZh": "激励传承",
    "cardIds": [
@@ -192,7 +192,7 @@
    "cardback": "Cardback_ASH_Warlord_Ghaelyn",
    "cardbackFrom": "substitute",
    "cardbackOrig": "Cardback_ASH_Warlord_Anvirr",
-   "defensiveId": "ASH65",
+   "defensiveId": "ASH56",
    "defensiveName": "Inspiring Legacy",
    "defensiveNameZh": "激励传承",
    "cardIds": [
@@ -222,12 +222,12 @@
    "armyOrder": 30,
    "gameMode": 13,
    "difficulty": 15,
-   "heroId": "ASH3",
-   "heroNote": "名字命中",
+   "heroId": "ASH2",
+   "heroNote": "id命中",
    "cardback": "Cardback_ASH_Presale_Eliac",
    "cardbackFrom": "alias",
    "cardbackOrig": "Cardback_ASH_Warlord_Eliac",
-   "defensiveId": "ASH65",
+   "defensiveId": "ASH56",
    "defensiveName": "Inspiring Legacy",
    "defensiveNameZh": "激励传承",
    "cardIds": [
@@ -247,9 +247,7 @@
    "complete": true,
    "missing": [],
    "problems": [],
-   "overLegendary": [
-    "ASH27 x2 (Striking Scorpion Exarch)"
-   ]
+   "overLegendary": []
   },
   {
    "deckId": "ASH_SK_4",
@@ -264,29 +262,26 @@
    "cardback": "Cardback_ASH_Jain Zar",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_ASH_Jain Zar",
-   "defensiveId": "ASH65",
+   "defensiveId": "ASH56",
    "defensiveName": "Inspiring Legacy",
    "defensiveNameZh": "激励传承",
    "cardIds": [
     "ASH65",
     "ASH66",
     "ASH67",
+    "ASH69",
+    "ASH70",
+    "ASH68",
     "ASH75",
     "ASH15",
-    "ASH45"
+    "ASH71",
+    "ASH72",
+    "ASH45",
+    "ASH73"
    ],
-   "complete": false,
-   "missing": [
-    "ASH69 x1 (miss-unknown)",
-    "ASH70 x1 (miss-unknown)",
-    "ASH68 x1 (miss-unknown)",
-    "ASH71 x1 (miss-unknown)",
-    "ASH72 x1 (miss-unknown)",
-    "ASH73 x1 (miss-unknown)"
-   ],
-   "problems": [
-    "size:6/12"
-   ],
+   "complete": true,
+   "missing": [],
+   "problems": [],
    "overLegendary": []
   },
   {
@@ -297,12 +292,12 @@
    "armyOrder": 30,
    "gameMode": 13,
    "difficulty": 15,
-   "heroId": "ASH74",
-   "heroNote": "名字命中",
+   "heroId": "ASH76",
+   "heroNote": "id命中",
    "cardback": "Cardback_ASH_Warp Spider",
    "cardbackFrom": "alias",
    "cardbackOrig": "Cardback_ASH_Warp Spiders",
-   "defensiveId": "ASH65",
+   "defensiveId": "ASH56",
    "defensiveName": "Inspiring Legacy",
    "defensiveNameZh": "激励传承",
    "cardIds": [
@@ -316,15 +311,12 @@
     "ASH82",
     "ASH83",
     "ASH84",
-    "ASH85"
+    "ASH85",
+    "ASH86"
    ],
-   "complete": false,
-   "missing": [
-    "ASH86 x1 (miss-unknown)"
-   ],
-   "problems": [
-    "size:11/12"
-   ],
+   "complete": true,
+   "missing": [],
+   "problems": [],
    "overLegendary": []
   },
   {
@@ -335,12 +327,12 @@
    "armyOrder": 30,
    "gameMode": 0,
    "difficulty": 5,
-   "heroId": "ASH3",
-   "heroNote": "名字命中",
+   "heroId": "ASH2",
+   "heroNote": "id命中",
    "cardback": "Cardback_ASH_Campaign_Premium",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_ASH_Campaign_Premium",
-   "defensiveId": "ASH65",
+   "defensiveId": "ASH56",
    "defensiveName": "Inspiring Legacy",
    "defensiveNameZh": "激励传承",
    "cardIds": [
@@ -378,10 +370,7 @@
    "complete": true,
    "missing": [],
    "problems": [],
-   "overLegendary": [
-    "ASH21 x2 (Nuadhu Fireheart)",
-    "ASH27 x2 (Striking Scorpion Exarch)"
-   ]
+   "overLegendary": []
   },
   {
    "deckId": "AeldariDeck2",
@@ -396,7 +385,7 @@
    "cardback": "Cardback_ASH_Warlord_Ghaelyn",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_ASH_Warlord_Ghaelyn",
-   "defensiveId": "ASH65",
+   "defensiveId": "ASH56",
    "defensiveName": "Inspiring Legacy",
    "defensiveNameZh": "激励传承",
    "cardIds": [
@@ -434,11 +423,7 @@
    "complete": true,
    "missing": [],
    "problems": [],
-   "overLegendary": [
-    "ASH4 x2 (Path of the Warrior)",
-    "ASH27 x2 (Striking Scorpion Exarch)",
-    "ASH43 x2 (Wrath of Khaine)"
-   ]
+   "overLegendary": []
   },
   {
    "deckId": "AeldariDeck4",
@@ -453,7 +438,7 @@
    "cardback": "Cardback_ASH_Campaign_Free",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_ASH_Campaign_Free",
-   "defensiveId": "ASH65",
+   "defensiveId": "ASH56",
    "defensiveName": "Inspiring Legacy",
    "defensiveNameZh": "激励传承",
    "cardIds": [
@@ -506,7 +491,7 @@
    "cardback": "Cardback_ASH_RF_Path of the Warrior",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_ASH_RF_Path of the Warrior",
-   "defensiveId": "ASH65",
+   "defensiveId": "ASH56",
    "defensiveName": "Inspiring Legacy",
    "defensiveNameZh": "激励传承",
    "cardIds": [
@@ -523,24 +508,27 @@
     "ASH66",
     "ASH67",
     "ASH67",
+    "ASH69",
+    "ASH69",
+    "ASH70",
+    "ASH70",
+    "ASH68",
+    "ASH68",
     "ASH75",
+    "ASH71",
+    "ASH71",
     "ASH39",
+    "ASH72",
+    "ASH72",
     "ASH64",
     "ASH45",
-    "ASH45"
+    "ASH45",
+    "ASH73",
+    "ASH73"
    ],
-   "complete": false,
-   "missing": [
-    "ASH69 x2 (miss-unknown)",
-    "ASH70 x2 (miss-unknown)",
-    "ASH68 x2 (miss-unknown)",
-    "ASH71 x2 (miss-unknown)",
-    "ASH72 x2 (miss-unknown)",
-    "ASH73 x2 (miss-unknown)"
-   ],
-   "problems": [
-    "size:18/30"
-   ],
+   "complete": true,
+   "missing": [],
+   "problems": [],
    "overLegendary": []
   },
   {
@@ -551,15 +539,17 @@
    "armyOrder": 100,
    "gameMode": 0,
    "difficulty": 10,
-   "heroId": "AM3",
-   "heroNote": "id命中",
+   "heroId": "",
+   "heroNote": "对不上",
    "cardback": "Cardback_AM_Shield of Humanity",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_AM_Shield of Humanity",
-   "defensiveId": "AM64",
-   "defensiveName": "Defence Batteries",
-   "defensiveNameZh": "防御炮组",
+   "defensiveId": "AM60",
+   "defensiveName": "Timely Reinforcements",
+   "defensiveNameZh": "及时增援",
    "cardIds": [
+    "AM4",
+    "AM4",
     "AM5",
     "AM5",
     "AM12",
@@ -569,8 +559,8 @@
     "AM11",
     "AM11",
     "AM15",
-    "AM59",
-    "AM59",
+    "AM_Astropath",
+    "AM_Astropath",
     "AM10",
     "AM10",
     "AM17",
@@ -590,16 +580,9 @@
     "AM54"
    ],
    "complete": false,
-   "missing": [
-    "AM4 x2 (miss-known)"
-   ],
-   "problems": [
-    "size:28/30"
-   ],
-   "overLegendary": [
-    "AM17 x2 (Cadian Honour)",
-    "AM41 x2 (Maelon Dhrost)"
-   ]
+   "missing": [],
+   "problems": [],
+   "overLegendary": []
   },
   {
    "deckId": "AstraMilitarumDeck3",
@@ -609,14 +592,14 @@
    "armyOrder": 100,
    "gameMode": 0,
    "difficulty": 5,
-   "heroId": "AM5",
-   "heroNote": "名字命中",
+   "heroId": "AM2",
+   "heroNote": "id命中",
    "cardback": "Cardback_AM_Hammer of the Emperor",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_AM_Hammer of the Emperor",
-   "defensiveId": "AM64",
-   "defensiveName": "Defence Batteries",
-   "defensiveNameZh": "防御炮组",
+   "defensiveId": "AM60",
+   "defensiveName": "Timely Reinforcements",
+   "defensiveNameZh": "及时增援",
    "cardIds": [
     "AM5",
     "AM5",
@@ -627,7 +610,7 @@
     "AM11",
     "AM11",
     "AM15",
-    "AM59",
+    "AM_Astropath",
     "AM21",
     "AM26",
     "AM26",
@@ -667,10 +650,12 @@
    "cardback": "Cardback_AM_Regimental Liveries",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_AM_Regimental Liveries",
-   "defensiveId": "AM64",
-   "defensiveName": "Defence Batteries",
-   "defensiveNameZh": "防御炮组",
+   "defensiveId": "AM60",
+   "defensiveName": "Timely Reinforcements",
+   "defensiveNameZh": "及时增援",
    "cardIds": [
+    "AM4",
+    "AM4",
     "AM8",
     "AM8",
     "AM12",
@@ -700,17 +685,10 @@
     "AM54",
     "AM57"
    ],
-   "complete": false,
-   "missing": [
-    "AM4 x2 (miss-known)"
-   ],
-   "problems": [
-    "size:28/30"
-   ],
-   "overLegendary": [
-    "AM17 x2 (Cadian Honour)",
-    "AM25 x2 (Tech-Priest Enginseer)"
-   ]
+   "complete": true,
+   "missing": [],
+   "problems": [],
+   "overLegendary": []
   },
   {
    "deckId": "BL_SK_1",
@@ -720,14 +698,14 @@
    "armyOrder": 50,
    "gameMode": 13,
    "difficulty": 5,
-   "heroId": "BL3",
-   "heroNote": "疑似(子串)",
+   "heroId": "BL35",
+   "heroNote": "id命中",
    "cardback": "Cardback_BL_Campaign_Free",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_BL_Campaign_Free",
-   "defensiveId": "BL69",
-   "defensiveName": "Hellfire Torch",
-   "defensiveNameZh": "地狱火火炬",
+   "defensiveId": "BL56",
+   "defensiveName": "Throne of the Heretic",
+   "defensiveNameZh": "异端王座",
    "cardIds": [
     "BL4",
     "BL8",
@@ -755,14 +733,14 @@
    "armyOrder": 50,
    "gameMode": 13,
    "difficulty": 10,
-   "heroId": "BL5",
+   "heroId": "BL_Sylar_Hexcorn",
    "heroNote": "疑似(子串)",
    "cardback": "Cardback_BL_Premium_Dark Hereticus",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_BL_Premium_Dark Hereticus",
-   "defensiveId": "BL69",
-   "defensiveName": "Hellfire Torch",
-   "defensiveNameZh": "地狱火火炬",
+   "defensiveId": "BL56",
+   "defensiveName": "Throne of the Heretic",
+   "defensiveNameZh": "异端王座",
    "cardIds": [
     "BL6",
     "BL11",
@@ -790,14 +768,14 @@
    "armyOrder": 50,
    "gameMode": 13,
    "difficulty": 15,
-   "heroId": "BL1",
-   "heroNote": "疑似(子串)",
+   "heroId": "BL34",
+   "heroNote": "id命中",
    "cardback": "Cardback_BL_Premium_Eye of Horus",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_BL_Premium_Eye of Horus",
-   "defensiveId": "BL69",
-   "defensiveName": "Hellfire Torch",
-   "defensiveNameZh": "地狱火火炬",
+   "defensiveId": "BL56",
+   "defensiveName": "Throne of the Heretic",
+   "defensiveNameZh": "异端王座",
    "cardIds": [
     "BL5",
     "BL7",
@@ -825,14 +803,14 @@
    "armyOrder": 50,
    "gameMode": 13,
    "difficulty": 15,
-   "heroId": "BL1",
-   "heroNote": "疑似(子串)",
+   "heroId": "BL65",
+   "heroNote": "id命中",
    "cardback": "Cardback_BL_RF1_Unholy Prayers",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_BL_RF1_Unholy Prayers",
-   "defensiveId": "BL69",
-   "defensiveName": "Hellfire Torch",
-   "defensiveNameZh": "地狱火火炬",
+   "defensiveId": "BL56",
+   "defensiveName": "Throne of the Heretic",
+   "defensiveNameZh": "异端王座",
    "cardIds": [
     "BL66",
     "BL67",
@@ -844,8 +822,8 @@
     "BL71",
     "BL72",
     "BL73",
-    "BL74",
-    "BL75"
+    "BL_Spreading_Corruption",
+    "BL_Idolatrous_Despoilers"
    ],
    "complete": true,
    "missing": [],
@@ -860,14 +838,14 @@
    "armyOrder": 50,
    "gameMode": 0,
    "difficulty": 10,
-   "heroId": "BL1",
-   "heroNote": "疑似(子串)",
+   "heroId": "BL34",
+   "heroNote": "id命中",
    "cardback": "Cardback_BL_Campaign_Premium",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_BL_Campaign_Premium",
-   "defensiveId": "BL69",
-   "defensiveName": "Hellfire Torch",
-   "defensiveNameZh": "地狱火火炬",
+   "defensiveId": "BL56",
+   "defensiveName": "Throne of the Heretic",
+   "defensiveNameZh": "异端王座",
    "cardIds": [
     "BL1",
     "BL1",
@@ -903,11 +881,7 @@
    "complete": true,
    "missing": [],
    "problems": [],
-   "overLegendary": [
-    "BL1 x2 (Abaddon the Despoiler)",
-    "BL40 x2 (Dark Apostle)",
-    "BL51 x2 (Dark Oratory)"
-   ]
+   "overLegendary": []
   },
   {
    "deckId": "BlackLegionDeck2",
@@ -917,14 +891,14 @@
    "armyOrder": 50,
    "gameMode": 0,
    "difficulty": 10,
-   "heroId": "BL3",
-   "heroNote": "疑似(子串)",
+   "heroId": "BL35",
+   "heroNote": "id命中",
    "cardback": "Cardback_BL_Campaign_Free",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_BL_Campaign_Free",
-   "defensiveId": "BL69",
-   "defensiveName": "Hellfire Torch",
-   "defensiveNameZh": "地狱火火炬",
+   "defensiveId": "BL56",
+   "defensiveName": "Throne of the Heretic",
+   "defensiveNameZh": "异端王座",
    "cardIds": [
     "BL1",
     "BL1",
@@ -960,11 +934,7 @@
    "complete": true,
    "missing": [],
    "problems": [],
-   "overLegendary": [
-    "BL1 x2 (Abaddon the Despoiler)",
-    "BL2 x2 (Chosen of the Four)",
-    "BL40 x2 (Dark Apostle)"
-   ]
+   "overLegendary": []
   },
   {
    "deckId": "BlackLegionDeck3",
@@ -974,14 +944,14 @@
    "armyOrder": 50,
    "gameMode": 0,
    "difficulty": 10,
-   "heroId": "BL5",
+   "heroId": "BL_Sylar_Hexcorn",
    "heroNote": "疑似(子串)",
    "cardback": "Cardback_BL_Premium_Dark Hereticus",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_BL_Premium_Dark Hereticus",
-   "defensiveId": "BL69",
-   "defensiveName": "Hellfire Torch",
-   "defensiveNameZh": "地狱火火炬",
+   "defensiveId": "BL56",
+   "defensiveName": "Throne of the Heretic",
+   "defensiveNameZh": "异端王座",
    "cardIds": [
     "BL3",
     "BL3",
@@ -1017,9 +987,7 @@
    "complete": true,
    "missing": [],
    "problems": [],
-   "overLegendary": [
-    "BL51 x2 (Dark Oratory)"
-   ]
+   "overLegendary": []
   },
   {
    "deckId": "BlackLegionDeck5",
@@ -1029,14 +997,14 @@
    "armyOrder": 50,
    "gameMode": 0,
    "difficulty": 15,
-   "heroId": "BL1",
-   "heroNote": "疑似(子串)",
+   "heroId": "BL34",
+   "heroNote": "id命中",
    "cardback": "Cardback_BL_Campaign_Premium",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_BL_Campaign_Premium",
-   "defensiveId": "BL69",
-   "defensiveName": "Hellfire Torch",
-   "defensiveNameZh": "地狱火火炬",
+   "defensiveId": "BL56",
+   "defensiveName": "Throne of the Heretic",
+   "defensiveNameZh": "异端王座",
    "cardIds": [
     "BL3",
     "BL3",
@@ -1072,10 +1040,7 @@
    "complete": true,
    "missing": [],
    "problems": [],
-   "overLegendary": [
-    "BL40 x2 (Dark Apostle)",
-    "BL51 x2 (Dark Oratory)"
-   ]
+   "overLegendary": []
   },
   {
    "deckId": "BlackLegionDeck6",
@@ -1085,14 +1050,14 @@
    "armyOrder": 50,
    "gameMode": 0,
    "difficulty": 10,
-   "heroId": "BL1",
-   "heroNote": "疑似(子串)",
+   "heroId": "BL65",
+   "heroNote": "id命中",
    "cardback": "Cardback_BL_Campaign_Premium",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_BL_Campaign_Premium",
-   "defensiveId": "BL69",
-   "defensiveName": "Hellfire Torch",
-   "defensiveNameZh": "地狱火火炬",
+   "defensiveId": "BL56",
+   "defensiveName": "Throne of the Heretic",
+   "defensiveNameZh": "异端王座",
    "cardIds": [
     "BL66",
     "BL66",
@@ -1119,10 +1084,10 @@
     "BL73",
     "BL47",
     "BL45",
-    "BL74",
-    "BL74",
-    "BL75",
-    "BL75",
+    "BL_Spreading_Corruption",
+    "BL_Spreading_Corruption",
+    "BL_Idolatrous_Despoilers",
+    "BL_Idolatrous_Despoilers",
     "BL53"
    ],
    "complete": true,
@@ -1138,12 +1103,12 @@
    "armyOrder": 110,
    "gameMode": 13,
    "difficulty": 5,
-   "heroId": "DA3",
-   "heroNote": "id命中",
+   "heroId": "DA_Asmodai",
+   "heroNote": "名字命中",
    "cardback": "Cardback_DA_The First Legion",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_DA_The First Legion",
-   "defensiveId": "DA64",
+   "defensiveId": "DA60",
    "defensiveName": "Defensive Turrets",
    "defensiveNameZh": "防御炮塔",
    "cardIds": [
@@ -1173,12 +1138,12 @@
    "armyOrder": 110,
    "gameMode": 13,
    "difficulty": 10,
-   "heroId": "DA5",
+   "heroId": "DA_Belial",
    "heroNote": "名字命中",
    "cardback": "Cardback_DA_Relic Shield",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_DA_Relic Shield",
-   "defensiveId": "DA64",
+   "defensiveId": "DA60",
    "defensiveName": "Defensive Turrets",
    "defensiveNameZh": "防御炮塔",
    "cardIds": [
@@ -1208,12 +1173,12 @@
    "armyOrder": 110,
    "gameMode": 13,
    "difficulty": 15,
-   "heroId": "DA1",
-   "heroNote": "id命中",
+   "heroId": "DA_Azrael",
+   "heroNote": "名字命中",
    "cardback": "Cardback_DA_Ancient Rites",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_DA_Ancient Rites",
-   "defensiveId": "DA64",
+   "defensiveId": "DA60",
    "defensiveName": "Defensive Turrets",
    "defensiveNameZh": "防御炮塔",
    "cardIds": [
@@ -1248,12 +1213,12 @@
    "cardback": "Cardback_DA_Ancient Rites",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_DA_Ancient Rites",
-   "defensiveId": "DA64",
+   "defensiveId": "DA60",
    "defensiveName": "Defensive Turrets",
    "defensiveNameZh": "防御炮塔",
    "cardIds": [
-    "DA65",
-    "DA66",
+    "DA_Grim_Effigy",
+    "DA_Plasma_Generator",
     "DA25",
     "DA17"
    ],
@@ -1281,12 +1246,12 @@
    "armyOrder": 110,
    "gameMode": 0,
    "difficulty": 10,
-   "heroId": "DA3",
-   "heroNote": "id命中",
+   "heroId": "DA_Asmodai",
+   "heroNote": "名字命中",
    "cardback": "Cardback_DA_Ancient Rites",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_DA_Ancient Rites",
-   "defensiveId": "DA64",
+   "defensiveId": "DA60",
    "defensiveName": "Defensive Turrets",
    "defensiveNameZh": "防御炮塔",
    "cardIds": [
@@ -1324,10 +1289,7 @@
    "complete": true,
    "missing": [],
    "problems": [],
-   "overLegendary": [
-    "DA4 x2 (Supreme Grand Master)",
-    "DA34 x2 (Ezekiel)"
-   ]
+   "overLegendary": []
   },
   {
    "deckId": "DarkAngelsDeck3",
@@ -1337,12 +1299,12 @@
    "armyOrder": 110,
    "gameMode": 0,
    "difficulty": 5,
-   "heroId": "DA5",
+   "heroId": "DA_Belial",
    "heroNote": "名字命中",
    "cardback": "Cardback_DA_Insular Brotherhood",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_DA_Insular Brotherhood",
-   "defensiveId": "DA64",
+   "defensiveId": "DA60",
    "defensiveName": "Defensive Turrets",
    "defensiveNameZh": "防御炮塔",
    "cardIds": [
@@ -1380,9 +1342,7 @@
    "complete": true,
    "missing": [],
    "problems": [],
-   "overLegendary": [
-    "DA30 x2 (Ravenwing Talonmaster)"
-   ]
+   "overLegendary": []
   },
   {
    "deckId": "DarkAngelsDeck5",
@@ -1392,12 +1352,12 @@
    "armyOrder": 110,
    "gameMode": 0,
    "difficulty": 15,
-   "heroId": "DA3",
-   "heroNote": "id命中",
+   "heroId": "DA_Asmodai",
+   "heroNote": "名字命中",
    "cardback": "Cardback_DA_Ancient Rites",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_DA_Ancient Rites",
-   "defensiveId": "DA64",
+   "defensiveId": "DA60",
    "defensiveName": "Defensive Turrets",
    "defensiveNameZh": "防御炮塔",
    "cardIds": [
@@ -1435,10 +1395,7 @@
    "complete": true,
    "missing": [],
    "problems": [],
-   "overLegendary": [
-    "DA34 x2 (Ezekiel)",
-    "DA35 x2 (Master Interromancer)"
-   ]
+   "overLegendary": []
   },
   {
    "deckId": "DarkAngelsDeck7",
@@ -1453,7 +1410,7 @@
    "cardback": "Cardback_DA_Insular Brotherhood",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_DA_Insular Brotherhood",
-   "defensiveId": "DA64",
+   "defensiveId": "DA60",
    "defensiveName": "Defensive Turrets",
    "defensiveNameZh": "防御炮塔",
    "cardIds": [
@@ -1464,9 +1421,9 @@
     "DA23",
     "DA25",
     "DA30",
-    "DA65",
-    "DA66",
-    "DA66",
+    "DA_Grim_Effigy",
+    "DA_Plasma_Generator",
+    "DA_Plasma_Generator",
     "DA39",
     "DA53",
     "DA54",
@@ -1496,52 +1453,49 @@
    "armyOrder": 10,
    "gameMode": 0,
    "difficulty": 10,
-   "heroId": "UM_Lieutenant_Titus",
-   "heroNote": "疑似(子串)",
+   "heroId": "UM76",
+   "heroNote": "id命中",
    "cardback": "Cardback_UM_Warlord_Titus",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_UM_Warlord_Titus",
-   "defensiveId": "UM67",
-   "defensiveName": "Hive Factory",
-   "defensiveNameZh": "蜂巢工厂",
+   "defensiveId": "UM52",
+   "defensiveName": "Firestrike Turrets",
+   "defensiveNameZh": "火击炮塔",
    "cardIds": [
     "UM1",
     "UM2",
     "UM4",
     "UM7",
+    "UM55",
     "UM9",
     "UM11",
+    "UM56",
     "UM10",
     "UM10",
     "UM16",
     "UM14",
+    "UM20",
+    "UM15",
     "UM17",
+    "UM21",
     "UM23",
     "UM18",
+    "UM22",
     "UM59",
+    "UM27",
     "UM30",
     "UM41",
+    "UM42",
+    "UM33",
     "UM34",
+    "UM36",
+    "UM43",
+    "UM38",
     "UM39"
    ],
-   "complete": false,
-   "missing": [
-    "UM55 x1 (miss-unknown)",
-    "UM56 x1 (miss-unknown)",
-    "UM20 x1 (miss-unknown)",
-    "UM15 x1 (miss-unknown)",
-    "UM21 x1 (miss-unknown)",
-    "UM22 x1 (miss-unknown)",
-    "UM27 x1 (miss-unknown)",
-    "UM42 x1 (miss-unknown)",
-    "UM33 x1 (miss-unknown)",
-    "UM36 x1 (miss-unknown)",
-    "UM43 x1 (miss-unknown)",
-    "UM38 x1 (miss-unknown)"
-   ],
-   "problems": [
-    "size:18/30"
-   ],
+   "complete": true,
+   "missing": [],
+   "problems": [],
    "overLegendary": []
   },
   {
@@ -1552,23 +1506,23 @@
    "armyOrder": 120,
    "gameMode": 13,
    "difficulty": 5,
-   "heroId": "EC1",
-   "heroNote": "名字命中",
+   "heroId": "EC56",
+   "heroNote": "id命中",
    "cardback": "Cardback_CSM_EmperorsChildren_Feeding the Addiction",
    "cardbackFrom": "alias",
    "cardbackOrig": "Cardback_EC_Feeding the Addiction",
-   "defensiveId": "EC62",
-   "defensiveName": "Armoury of Excess",
-   "defensiveNameZh": "纵欲军械库",
+   "defensiveId": "EC59",
+   "defensiveName": "Vial Tanks",
+   "defensiveNameZh": "药剂罐",
    "cardIds": [
     "EC18",
     "EC6",
     "EC22",
     "EC3",
     "EC13",
-    "EC14",
+    "EC_Lord_Kakophonist",
     "EC23",
-    "EC26",
+    "EC_Terminator",
     "EC44",
     "EC49",
     "EC52",
@@ -1587,14 +1541,14 @@
    "armyOrder": 120,
    "gameMode": 13,
    "difficulty": 10,
-   "heroId": "EC5",
-   "heroNote": "名字命中",
+   "heroId": "EC57",
+   "heroNote": "id命中",
    "cardback": "Cardback_CSM_EmperorsChildren_Dark Tempations",
    "cardbackFrom": "alias",
    "cardbackOrig": "Cardback_EC_Dark Tempations",
-   "defensiveId": "EC62",
-   "defensiveName": "Armoury of Excess",
-   "defensiveNameZh": "纵欲军械库",
+   "defensiveId": "EC59",
+   "defensiveName": "Vial Tanks",
+   "defensiveNameZh": "药剂罐",
    "cardIds": [
     "EC32",
     "EC33",
@@ -1612,9 +1566,7 @@
    "complete": true,
    "missing": [],
    "problems": [],
-   "overLegendary": [
-    "EC34 x2 (Turyan Ghauze)"
-   ]
+   "overLegendary": []
   },
   {
    "deckId": "EC_SK_3",
@@ -1624,31 +1576,34 @@
    "armyOrder": 120,
    "gameMode": 13,
    "difficulty": 15,
-   "heroId": "EC3",
-   "heroNote": "疑似(子串)",
+   "heroId": "EC55",
+   "heroNote": "id命中",
    "cardback": "Cardback_CSM_EmperorsChildren_Genesis of Perfection",
    "cardbackFrom": "alias",
    "cardbackOrig": "Cardback_EC_Genesis of Perfection",
-   "defensiveId": "EC62",
-   "defensiveName": "Armoury of Excess",
-   "defensiveNameZh": "纵欲军械库",
+   "defensiveId": "EC59",
+   "defensiveName": "Vial Tanks",
+   "defensiveNameZh": "药剂罐",
    "cardIds": [
     "EC5",
-    "EC9",
-    "EC19",
-    "EC25",
+    "EC_Icon_of_Excess_Infractor",
+    "EC_Threnodic_Choir_Noise_Marine",
+    "EC_Terminator",
     "EC7",
     "EC12",
     "EC21",
     "EC31",
-    "EC30",
     "EC40",
     "EC39",
     "EC42"
    ],
-   "complete": true,
-   "missing": [],
-   "problems": [],
+   "complete": false,
+   "missing": [
+    "EC30 x1 (miss-known)"
+   ],
+   "problems": [
+    "size:11/12"
+   ],
    "overLegendary": []
   },
   {
@@ -1659,14 +1614,14 @@
    "armyOrder": 120,
    "gameMode": 0,
    "difficulty": 10,
-   "heroId": "EC3",
-   "heroNote": "疑似(子串)",
+   "heroId": "EC55",
+   "heroNote": "id命中",
    "cardback": "Cardback_EC_Emperors Children",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_EC_Emperors Children",
-   "defensiveId": "EC62",
-   "defensiveName": "Armoury of Excess",
-   "defensiveNameZh": "纵欲军械库",
+   "defensiveId": "EC59",
+   "defensiveName": "Vial Tanks",
+   "defensiveNameZh": "药剂罐",
    "cardIds": [
     "EC8",
     "EC8",
@@ -1680,8 +1635,8 @@
     "EC4",
     "EC23",
     "EC23",
-    "EC26",
-    "EC26",
+    "EC_Terminator",
+    "EC_Terminator",
     "EC29",
     "EC15",
     "EC28",
@@ -1695,17 +1650,14 @@
     "EC58",
     "EC47",
     "EC48",
-    "EC16",
+    "EC_Dual_Screamer_Kakophonist",
     "EC35",
     "EC35"
    ],
    "complete": true,
    "missing": [],
    "problems": [],
-   "overLegendary": [
-    "EC4 x2 (Duelist's Hubris (Lucius' Talent))",
-    "EC58 x2 (Exquisite Swordsmanship)"
-   ]
+   "overLegendary": []
   },
   {
    "deckId": "EmperorsChildrenDeck3",
@@ -1715,14 +1667,14 @@
    "armyOrder": 120,
    "gameMode": 0,
    "difficulty": 5,
-   "heroId": "EC1",
-   "heroNote": "名字命中",
+   "heroId": "EC56",
+   "heroNote": "id命中",
    "cardback": "Cardback_CSM_EmperorsChildren_Chorus of Excess",
    "cardbackFrom": "alias",
    "cardbackOrig": "Cardback_EC_Chorus of Excess",
-   "defensiveId": "EC62",
-   "defensiveName": "Armoury of Excess",
-   "defensiveNameZh": "纵欲军械库",
+   "defensiveId": "EC59",
+   "defensiveName": "Vial Tanks",
+   "defensiveNameZh": "药剂罐",
    "cardIds": [
     "EC17",
     "EC17",
@@ -1758,9 +1710,7 @@
    "complete": true,
    "missing": [],
    "problems": [],
-   "overLegendary": [
-    "EC3 x2 (Lucius The Eternal)"
-   ]
+   "overLegendary": []
   },
   {
    "deckId": "EmperorsChildrenDeck5",
@@ -1770,25 +1720,25 @@
    "armyOrder": 120,
    "gameMode": 0,
    "difficulty": 15,
-   "heroId": "EC3",
-   "heroNote": "疑似(子串)",
+   "heroId": "EC55",
+   "heroNote": "id命中",
    "cardback": "Cardback_EC_Emperors Children",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_EC_Emperors Children",
-   "defensiveId": "EC62",
-   "defensiveName": "Armoury of Excess",
-   "defensiveNameZh": "纵欲军械库",
+   "defensiveId": "EC59",
+   "defensiveName": "Vial Tanks",
+   "defensiveNameZh": "药剂罐",
    "cardIds": [
     "EC5",
     "EC5",
     "EC18",
     "EC18",
-    "EC9",
-    "EC9",
-    "EC19",
-    "EC19",
-    "EC25",
-    "EC25",
+    "EC_Icon_of_Excess_Infractor",
+    "EC_Icon_of_Excess_Infractor",
+    "EC_Threnodic_Choir_Noise_Marine",
+    "EC_Threnodic_Choir_Noise_Marine",
+    "EC_Terminator",
+    "EC_Terminator",
     "EC7",
     "EC7",
     "EC12",
@@ -1796,8 +1746,6 @@
     "EC21",
     "EC31",
     "EC31",
-    "EC30",
-    "EC30",
     "EC43",
     "EC40",
     "EC40",
@@ -1810,9 +1758,13 @@
     "EC43",
     "EC36"
    ],
-   "complete": true,
-   "missing": [],
-   "problems": [],
+   "complete": false,
+   "missing": [
+    "EC30 x2 (miss-known)"
+   ],
+   "problems": [
+    "size:28/30"
+   ],
    "overLegendary": []
   },
   {
@@ -1823,12 +1775,12 @@
    "armyOrder": 90,
    "gameMode": 13,
    "difficulty": 5,
-   "heroId": "GSC3",
-   "heroNote": "id命中",
+   "heroId": "GSC_Acolyte_Iconward",
+   "heroNote": "疑似(子串)",
    "cardback": "Cardback_GSC_Genetic Lineage",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_GSC_Genetic Lineage",
-   "defensiveId": "GSC66",
+   "defensiveId": "GSC63",
    "defensiveName": "Alien Idol",
    "defensiveNameZh": "异形偶像",
    "cardIds": [
@@ -1858,12 +1810,12 @@
    "armyOrder": 90,
    "gameMode": 13,
    "difficulty": 10,
-   "heroId": "GSC3",
-   "heroNote": "疑似(子串)",
+   "heroId": "GSC2",
+   "heroNote": "id命中",
    "cardback": "Cardback_GSC_Tainted Offspring",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_GSC_Tainted Offspring",
-   "defensiveId": "GSC66",
+   "defensiveId": "GSC63",
    "defensiveName": "Alien Idol",
    "defensiveNameZh": "异形偶像",
    "cardIds": [
@@ -1898,7 +1850,7 @@
    "cardback": "Cardback_GSC_Dawn of Uprising",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_GSC_Dawn of Uprising",
-   "defensiveId": "GSC66",
+   "defensiveId": "GSC63",
    "defensiveName": "Alien Idol",
    "defensiveNameZh": "异形偶像",
    "cardIds": [
@@ -1908,7 +1860,7 @@
     "GSC27",
     "GSC21",
     "GSC35",
-    "GSC40",
+    "GSC_Backstab",
     "GSC50",
     "GSC45",
     "GSC56",
@@ -1933,7 +1885,7 @@
    "cardback": "Cardback_GSC_Industrial Affinity",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_GSC_Industrial Affinity",
-   "defensiveId": "GSC66",
+   "defensiveId": "GSC63",
    "defensiveName": "Alien Idol",
    "defensiveNameZh": "异形偶像",
    "cardIds": [
@@ -1948,7 +1900,7 @@
     "GSC36",
     "GSC74",
     "GSC76",
-    "GSC75"
+    "GSC_Roaming_Outriders"
    ],
    "complete": true,
    "missing": [],
@@ -1963,12 +1915,12 @@
    "armyOrder": 90,
    "gameMode": 0,
    "difficulty": 10,
-   "heroId": "GSC3",
-   "heroNote": "id命中",
+   "heroId": "GSC_Acolyte_Iconward",
+   "heroNote": "疑似(子串)",
    "cardback": "Cardback_GSC_Tainted Offspring",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_GSC_Tainted Offspring",
-   "defensiveId": "GSC66",
+   "defensiveId": "GSC63",
    "defensiveName": "Alien Idol",
    "defensiveNameZh": "异形偶像",
    "cardIds": [
@@ -2006,10 +1958,7 @@
    "complete": true,
    "missing": [],
    "problems": [],
-   "overLegendary": [
-    "GSC6 x2 (Inscrutable Cunning)",
-    "GSC47 x2 (Perfect Ambush)"
-   ]
+   "overLegendary": []
   },
   {
    "deckId": "GenestealersDeck4",
@@ -2019,12 +1968,12 @@
    "armyOrder": 90,
    "gameMode": 0,
    "difficulty": 15,
-   "heroId": "GSC3",
-   "heroNote": "疑似(子串)",
+   "heroId": "GSC2",
+   "heroNote": "id命中",
    "cardback": "Cardback_GSC_Genestealer Curse",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_GSC_Genestealer Curse",
-   "defensiveId": "GSC66",
+   "defensiveId": "GSC63",
    "defensiveName": "Alien Idol",
    "defensiveNameZh": "异形偶像",
    "cardIds": [
@@ -2049,8 +1998,8 @@
     "GSC33",
     "GSC33",
     "GSC32",
-    "GSC40",
-    "GSC40",
+    "GSC_Backstab",
+    "GSC_Backstab",
     "GSC50",
     "GSC50",
     "GSC45",
@@ -2062,9 +2011,7 @@
    "complete": true,
    "missing": [],
    "problems": [],
-   "overLegendary": [
-    "GSC56 x2 (Living Icon)"
-   ]
+   "overLegendary": []
   },
   {
    "deckId": "GenestealersDeck5",
@@ -2079,7 +2026,7 @@
    "cardback": "Cardback_GSC_Dawn of Uprising",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_GSC_Dawn of Uprising",
-   "defensiveId": "GSC66",
+   "defensiveId": "GSC63",
    "defensiveName": "Alien Idol",
    "defensiveNameZh": "异形偶像",
    "cardIds": [
@@ -2132,46 +2079,44 @@
    "cardback": "Cardback_TL_Warlord_Alien_Menace",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_TL_Warlord_Alien_Menace",
-   "defensiveId": "TL64",
+   "defensiveId": "TL54",
    "defensiveName": "Digestion Pool",
    "defensiveNameZh": "消化池",
    "cardIds": [
     "TL1",
     "TL32",
-    "TL66",
+    "TL_Neurogaunt",
     "TL3",
     "TL31",
     "TL33",
+    "TL_Barbgaunt",
     "TL9",
     "TL7",
     "TL7",
     "TL5",
     "TL44",
     "TL43",
+    "TL52",
+    "TL52",
     "TL13",
-    "TL75",
+    "TL_Termagant_Brood",
     "TL10",
     "TL11",
+    "TL_Toxic_Entanglement",
     "TL17",
+    "TL_Psychophage",
     "TL20",
     "TL12",
     "TL12",
     "TL46",
     "TL22",
     "TL21",
+    "TL_Tyranid_Invasion",
     "TL27"
    ],
-   "complete": false,
-   "missing": [
-    "TL67 x1 (miss-unknown)",
-    "TL52 x2 (miss-unknown)",
-    "TL71 x1 (miss-unknown)",
-    "TL68 x1 (miss-unknown)",
-    "TL72 x1 (miss-unknown)"
-   ],
-   "problems": [
-    "size:24/30"
-   ],
+   "complete": true,
+   "missing": [],
+   "problems": [],
    "overLegendary": []
   },
   {
@@ -2182,12 +2127,12 @@
    "armyOrder": 60,
    "gameMode": 0,
    "difficulty": 5,
-   "heroId": "TL5",
-   "heroNote": "名字命中",
+   "heroId": "TL34",
+   "heroNote": "id命中",
    "cardback": "Cardback_TL_Warlord_Alien_Menace",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_TL_Warlord_Alien_Menace",
-   "defensiveId": "TL64",
+   "defensiveId": "TL54",
    "defensiveName": "Digestion Pool",
    "defensiveNameZh": "消化池",
    "cardIds": [
@@ -2225,10 +2170,7 @@
    "complete": true,
    "missing": [],
    "problems": [],
-   "overLegendary": [
-    "TL38 x2 (Synaptic Imperative)",
-    "TL53 x2 (Infinite Biomorphologies)"
-   ]
+   "overLegendary": []
   },
   {
    "deckId": "LeviathanDeck3",
@@ -2238,12 +2180,12 @@
    "armyOrder": 60,
    "gameMode": 0,
    "difficulty": 15,
-   "heroId": "TL3",
-   "heroNote": "名字命中",
+   "heroId": "TL35",
+   "heroNote": "id命中",
    "cardback": "Cardback_TL_Campaign_Premium",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_TL_Campaign_Premium",
-   "defensiveId": "TL64",
+   "defensiveId": "TL54",
    "defensiveName": "Digestion Pool",
    "defensiveNameZh": "消化池",
    "cardIds": [
@@ -2291,12 +2233,12 @@
    "armyOrder": 60,
    "gameMode": 0,
    "difficulty": 5,
-   "heroId": "TL1",
-   "heroNote": "名字命中",
+   "heroId": "TL36",
+   "heroNote": "id命中",
    "cardback": "Cardback_TL_SoulLeech",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_TL_SoulLeech",
-   "defensiveId": "TL64",
+   "defensiveId": "TL54",
    "defensiveName": "Digestion Pool",
    "defensiveNameZh": "消化池",
    "cardIds": [
@@ -2320,7 +2262,6 @@
     "TL19",
     "TL29",
     "TL32",
-    "TL40",
     "TL49",
     "TL49",
     "TL44",
@@ -2331,12 +2272,14 @@
     "TL32",
     "TL21"
    ],
-   "complete": true,
-   "missing": [],
-   "problems": [],
-   "overLegendary": [
-    "TL3 x2 (SwarmLord)"
-   ]
+   "complete": false,
+   "missing": [
+    "TL40 x1 (miss-known)"
+   ],
+   "problems": [
+    "size:29/30"
+   ],
+   "overLegendary": []
   },
   {
    "deckId": "ORK_SK_1",
@@ -2346,14 +2289,14 @@
    "armyOrder": 20,
    "gameMode": 13,
    "difficulty": 5,
-   "heroId": "GOF1",
-   "heroNote": "疑似(子串)",
+   "heroId": "GOF29",
+   "heroNote": "id命中",
    "cardback": "Cardback_GOF_Face-Rippa",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_GOF_Face-Rippa",
-   "defensiveId": "GOF60",
-   "defensiveName": "Extractor Rig",
-   "defensiveNameZh": "回收塔车",
+   "defensiveId": "GOF49",
+   "defensiveName": "Gretchin Tower",
+   "defensiveNameZh": "地精塔",
    "cardIds": [
     "GOF1",
     "GOF55",
@@ -2363,16 +2306,14 @@
     "GOF17",
     "GOF58",
     "GOF39",
-    "GOF40"
+    "GOF64",
+    "GOF40",
+    "GOF37",
+    "GOF37"
    ],
-   "complete": false,
-   "missing": [
-    "GOF64 x1 (miss-unknown)",
-    "GOF37 x2 (miss-unknown)"
-   ],
-   "problems": [
-    "size:9/12"
-   ],
+   "complete": true,
+   "missing": [],
+   "problems": [],
    "overLegendary": []
   },
   {
@@ -2383,31 +2324,34 @@
    "armyOrder": 20,
    "gameMode": 13,
    "difficulty": 10,
-   "heroId": "GOF2",
-   "heroNote": "疑似(子串)",
+   "heroId": "GOF27",
+   "heroNote": "id命中",
    "cardback": "Cardback_GOF_Kustom_Job",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_GOF_Kustom_Job",
-   "defensiveId": "GOF60",
-   "defensiveName": "Extractor Rig",
-   "defensiveNameZh": "回收塔车",
+   "defensiveId": "GOF49",
+   "defensiveName": "Gretchin Tower",
+   "defensiveNameZh": "地精塔",
    "cardIds": [
     "GOF6",
     "GOF10",
     "GOF7",
-    "GOF12",
+    "GOF_Ork_Spanner",
     "GOF15",
     "GOF56",
     "GOF21",
     "GOF17",
-    "GOF20",
     "GOF38",
     "GOF44",
     "GOF46"
    ],
-   "complete": true,
-   "missing": [],
-   "problems": [],
+   "complete": false,
+   "missing": [
+    "GOF20 x1 (miss-known)"
+   ],
+   "problems": [
+    "size:11/12"
+   ],
    "overLegendary": []
   },
   {
@@ -2418,14 +2362,14 @@
    "armyOrder": 20,
    "gameMode": 13,
    "difficulty": 15,
-   "heroId": "GOF3",
-   "heroNote": "疑似(子串)",
+   "heroId": "GOF28",
+   "heroNote": "id命中",
    "cardback": "Cardback_GOF_Campaign_Premium",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_GOF_Campaign_Premium",
-   "defensiveId": "GOF60",
-   "defensiveName": "Extractor Rig",
-   "defensiveNameZh": "回收塔车",
+   "defensiveId": "GOF49",
+   "defensiveName": "Gretchin Tower",
+   "defensiveNameZh": "地精塔",
    "cardIds": [
     "GOF3",
     "GOF16",
@@ -2458,29 +2402,26 @@
    "cardback": "Cardback_GOF_Gordrang_Reinforcement_2",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_GOF_Gordrang_Reinforcement_2",
-   "defensiveId": "GOF60",
-   "defensiveName": "Extractor Rig",
-   "defensiveNameZh": "回收塔车",
+   "defensiveId": "GOF49",
+   "defensiveName": "Gretchin Tower",
+   "defensiveNameZh": "地精塔",
    "cardIds": [
+    "GOF65",
     "GOF9",
-    "GOF25"
+    "GOF66",
+    "GOF67",
+    "GOF68",
+    "GOF69",
+    "GOF70",
+    "GOF25",
+    "GOF71",
+    "GOF73",
+    "GOF72",
+    "GOF74"
    ],
-   "complete": false,
-   "missing": [
-    "GOF65 x1 (miss-unknown)",
-    "GOF66 x1 (miss-unknown)",
-    "GOF67 x1 (miss-unknown)",
-    "GOF68 x1 (miss-unknown)",
-    "GOF69 x1 (miss-unknown)",
-    "GOF70 x1 (miss-unknown)",
-    "GOF71 x1 (miss-unknown)",
-    "GOF73 x1 (miss-unknown)",
-    "GOF72 x1 (miss-unknown)",
-    "GOF74 x1 (miss-unknown)"
-   ],
-   "problems": [
-    "size:2/12"
-   ],
+   "complete": true,
+   "missing": [],
+   "problems": [],
    "overLegendary": []
   },
   {
@@ -2491,14 +2432,14 @@
    "armyOrder": 20,
    "gameMode": 13,
    "difficulty": 10,
-   "heroId": "GOF75",
-   "heroNote": "名字命中",
+   "heroId": "GOF77",
+   "heroNote": "id命中",
    "cardback": "Cardback_ORK_Beast Snagga",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_ORK_Beast Snagga",
-   "defensiveId": "GOF60",
-   "defensiveName": "Extractor Rig",
-   "defensiveNameZh": "回收塔车",
+   "defensiveId": "GOF49",
+   "defensiveName": "Gretchin Tower",
+   "defensiveNameZh": "地精塔",
    "cardIds": [
     "GOF84",
     "GOF82",
@@ -2526,14 +2467,14 @@
    "armyOrder": 20,
    "gameMode": 13,
    "difficulty": 15,
-   "heroId": "GOF75",
-   "heroNote": "名字命中",
+   "heroId": "GOF77",
+   "heroNote": "id命中",
    "cardback": "Cardback_ORK_Big Chompa",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_ORK_Big Chompa",
-   "defensiveId": "GOF60",
-   "defensiveName": "Extractor Rig",
-   "defensiveNameZh": "回收塔车",
+   "defensiveId": "GOF49",
+   "defensiveName": "Gretchin Tower",
+   "defensiveNameZh": "地精塔",
    "cardIds": [
     "GOF81",
     "GOF83",
@@ -2561,14 +2502,14 @@
    "armyOrder": 20,
    "gameMode": 0,
    "difficulty": 15,
-   "heroId": "GOF2",
-   "heroNote": "疑似(子串)",
+   "heroId": "GOF27",
+   "heroNote": "id命中",
    "cardback": "Cardback_GOF_Ghazgkhull_AA_HB",
    "cardbackFrom": "substitute",
    "cardbackOrig": "Cardback_GOF_Warlord_Zagstruk",
-   "defensiveId": "GOF60",
-   "defensiveName": "Extractor Rig",
-   "defensiveNameZh": "回收塔车",
+   "defensiveId": "GOF49",
+   "defensiveName": "Gretchin Tower",
+   "defensiveNameZh": "地精塔",
    "cardIds": [
     "GOF1",
     "GOF2",
@@ -2597,19 +2538,16 @@
     "GOF16",
     "GOF45",
     "GOF45",
-    "GOF20",
-    "GOF20",
     "GOF46"
    ],
-   "complete": true,
-   "missing": [],
-   "problems": [],
-   "overLegendary": [
-    "GOF3 x2 (Ghazghkull Thraka)",
-    "GOF32 x2 (Ardshell Gurk)",
-    "GOF45 x2 (Prophet of the Waaagh)",
-    "GOF20 x2 (Ork Nob)"
-   ]
+   "complete": false,
+   "missing": [
+    "GOF20 x2 (miss-known)"
+   ],
+   "problems": [
+    "size:28/30"
+   ],
+   "overLegendary": []
   },
   {
    "deckId": "OrksDeck4",
@@ -2619,14 +2557,14 @@
    "armyOrder": 20,
    "gameMode": 0,
    "difficulty": 10,
-   "heroId": "GOF1",
-   "heroNote": "疑似(子串)",
+   "heroId": "GOF29",
+   "heroNote": "id命中",
    "cardback": "Cardback_GOF_Campaign_Free",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_GOF_Campaign_Free",
-   "defensiveId": "GOF60",
-   "defensiveName": "Extractor Rig",
-   "defensiveNameZh": "回收塔车",
+   "defensiveId": "GOF49",
+   "defensiveName": "Gretchin Tower",
+   "defensiveNameZh": "地精塔",
    "cardIds": [
     "GOF32",
     "GOF32",
@@ -2642,8 +2580,8 @@
     "GOF10",
     "GOF43",
     "GOF43",
-    "GOF12",
-    "GOF12",
+    "GOF_Ork_Spanner",
+    "GOF_Ork_Spanner",
     "GOF40",
     "GOF40",
     "GOF17",
@@ -2662,10 +2600,7 @@
    "complete": true,
    "missing": [],
    "problems": [],
-   "overLegendary": [
-    "GOF32 x2 (Ardshell Gurk)",
-    "GOF5 x2 (Makari the Grot)"
-   ]
+   "overLegendary": []
   },
   {
    "deckId": "OrksDeck5",
@@ -2675,14 +2610,14 @@
    "armyOrder": 20,
    "gameMode": 0,
    "difficulty": 15,
-   "heroId": "GOF3",
-   "heroNote": "疑似(子串)",
+   "heroId": "GOF28",
+   "heroNote": "id命中",
    "cardback": "Cardback_GOF_Campaign_Premium",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_GOF_Campaign_Premium",
-   "defensiveId": "GOF60",
-   "defensiveName": "Extractor Rig",
-   "defensiveNameZh": "回收塔车",
+   "defensiveId": "GOF49",
+   "defensiveName": "Gretchin Tower",
+   "defensiveNameZh": "地精塔",
    "cardIds": [
     "GOF30",
     "GOF30",
@@ -2701,7 +2636,6 @@
     "GOF16",
     "GOF44",
     "GOF44",
-    "GOF20",
     "GOF46",
     "GOF46",
     "GOF22",
@@ -2715,13 +2649,14 @@
     "GOF43",
     "GOF22"
    ],
-   "complete": true,
-   "missing": [],
-   "problems": [],
-   "overLegendary": [
-    "GOF3 x2 (Ghazghkull Thraka)",
-    "GOF32 x2 (Ardshell Gurk)"
-   ]
+   "complete": false,
+   "missing": [
+    "GOF20 x1 (miss-known)"
+   ],
+   "problems": [
+    "size:29/30"
+   ],
+   "overLegendary": []
   },
   {
    "deckId": "OrksDeck7",
@@ -2736,38 +2671,44 @@
    "cardback": "Cardback_GOF_Campaign_Premium",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_GOF_Campaign_Premium",
-   "defensiveId": "GOF60",
-   "defensiveName": "Extractor Rig",
-   "defensiveNameZh": "回收塔车",
+   "defensiveId": "GOF49",
+   "defensiveName": "Gretchin Tower",
+   "defensiveNameZh": "地精塔",
    "cardIds": [
     "GOF6",
     "GOF6",
+    "GOF65",
+    "GOF65",
     "GOF9",
+    "GOF66",
+    "GOF66",
     "GOF14",
+    "GOF67",
+    "GOF67",
     "GOF17",
     "GOF60",
     "GOF59",
+    "GOF68",
     "GOF22",
+    "GOF70",
+    "GOF70",
     "GOF32",
+    "GOF71",
+    "GOF71",
+    "GOF72",
+    "GOF72",
+    "GOF73",
+    "GOF73",
     "GOF38",
-    "GOF40"
+    "GOF40",
+    "GOF74",
+    "GOF74",
+    "GOF69",
+    "GOF69"
    ],
-   "complete": false,
-   "missing": [
-    "GOF65 x2 (miss-unknown)",
-    "GOF66 x2 (miss-unknown)",
-    "GOF67 x2 (miss-unknown)",
-    "GOF68 x1 (miss-unknown)",
-    "GOF70 x2 (miss-unknown)",
-    "GOF71 x2 (miss-unknown)",
-    "GOF72 x2 (miss-unknown)",
-    "GOF73 x2 (miss-unknown)",
-    "GOF74 x2 (miss-unknown)",
-    "GOF69 x2 (miss-unknown)"
-   ],
-   "problems": [
-    "size:11/30"
-   ],
+   "complete": true,
+   "missing": [],
+   "problems": [],
    "overLegendary": []
   },
   {
@@ -2778,17 +2719,16 @@
    "armyOrder": 40,
    "gameMode": 13,
    "difficulty": 5,
-   "heroId": "SAU3",
-   "heroNote": "疑似(近似)",
+   "heroId": "SAU36",
+   "heroNote": "id命中",
    "cardback": "Cardback_SAU_Campaign_Free",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_SAU_Campaign_Free",
-   "defensiveId": "SAU65",
+   "defensiveId": "SAU59",
    "defensiveName": "Awakened Obelisk",
    "defensiveNameZh": "觉醒方尖碑",
    "cardIds": [
     "SAU5",
-    "SAU4",
     "SAU12",
     "SAU14",
     "SAU16",
@@ -2800,9 +2740,13 @@
     "SAU47",
     "SAU54"
    ],
-   "complete": true,
-   "missing": [],
-   "problems": [],
+   "complete": false,
+   "missing": [
+    "SAU4 x1 (miss-known)"
+   ],
+   "problems": [
+    "size:11/12"
+   ],
    "overLegendary": []
   },
   {
@@ -2813,31 +2757,34 @@
    "armyOrder": 40,
    "gameMode": 13,
    "difficulty": 10,
-   "heroId": "SAU5",
-   "heroNote": "疑似(子串)",
+   "heroId": "SAU37",
+   "heroNote": "id命中",
    "cardback": "Cardback_SAU_Campaign_Premium",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_SAU_Campaign_Premium",
-   "defensiveId": "SAU65",
+   "defensiveId": "SAU59",
    "defensiveName": "Awakened Obelisk",
    "defensiveNameZh": "觉醒方尖碑",
    "cardIds": [
-    "SAU6",
     "SAU9",
     "SAU25",
     "SAU25",
     "SAU26",
     "SAU26",
     "SAU34",
-    "SAU39",
-    "SAU38",
+    "SAU_Reconstitution_Protocols",
+    "SAU_Extermination_Protocols",
     "SAU42",
     "SAU43",
     "SAU51"
    ],
-   "complete": true,
-   "missing": [],
-   "problems": [],
+   "complete": false,
+   "missing": [
+    "SAU6 x1 (miss-known)"
+   ],
+   "problems": [
+    "size:11/12"
+   ],
    "overLegendary": []
   },
   {
@@ -2848,12 +2795,12 @@
    "armyOrder": 40,
    "gameMode": 13,
    "difficulty": 15,
-   "heroId": "SAU1",
-   "heroNote": "疑似(子串)",
+   "heroId": "SAU35",
+   "heroNote": "id命中",
    "cardback": "Cardback_SAU_Biotransference",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_SAU_Biotransference",
-   "defensiveId": "SAU65",
+   "defensiveId": "SAU59",
    "defensiveName": "Awakened Obelisk",
    "defensiveNameZh": "觉醒方尖碑",
    "cardIds": [
@@ -2883,12 +2830,12 @@
    "armyOrder": 40,
    "gameMode": 13,
    "difficulty": 15,
-   "heroId": "SAU_Ramatekh_The_Cruel",
-   "heroNote": "疑似(子串)",
+   "heroId": "SAU66",
+   "heroNote": "id命中",
    "cardback": "Cardback_SAU_Soulless Reaper",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_SAU_Soulless Reaper",
-   "defensiveId": "SAU65",
+   "defensiveId": "SAU59",
    "defensiveName": "Awakened Obelisk",
    "defensiveNameZh": "觉醒方尖碑",
    "cardIds": [
@@ -2923,9 +2870,9 @@
    "cardback": "Cardback_SOR_Campaign_Free",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_SOR_Campaign_Free",
-   "defensiveId": "SOR63",
-   "defensiveName": "Guidance of the Saints",
-   "defensiveNameZh": "圣徒指引",
+   "defensiveId": "SOR60",
+   "defensiveName": "Holy Fire",
+   "defensiveNameZh": "圣火",
    "cardIds": [
     "SOR7",
     "SOR9",
@@ -2953,14 +2900,14 @@
    "armyOrder": 80,
    "gameMode": 13,
    "difficulty": 10,
-   "heroId": "",
-   "heroNote": "id指向非督军(tactic)",
+   "heroId": "SOR2",
+   "heroNote": "id命中",
    "cardback": "Cardback_SOR_Campaign_Premium",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_SOR_Campaign_Premium",
-   "defensiveId": "SOR63",
-   "defensiveName": "Guidance of the Saints",
-   "defensiveNameZh": "圣徒指引",
+   "defensiveId": "SOR60",
+   "defensiveName": "Holy Fire",
+   "defensiveNameZh": "圣火",
    "cardIds": [
     "SOR16",
     "SOR12",
@@ -2975,7 +2922,7 @@
     "SOR50",
     "SOR51"
    ],
-   "complete": false,
+   "complete": true,
    "missing": [],
    "problems": [],
    "overLegendary": []
@@ -2993,18 +2940,18 @@
    "cardback": "Cardback_SOR_Sisters of Battle",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_SOR_Sisters of Battle",
-   "defensiveId": "SOR63",
-   "defensiveName": "Guidance of the Saints",
-   "defensiveNameZh": "圣徒指引",
+   "defensiveId": "SOR60",
+   "defensiveName": "Holy Fire",
+   "defensiveNameZh": "圣火",
    "cardIds": [
     "SOR8",
     "SOR21",
-    "SOR10",
+    "SOR_Sisters_Repentia",
     "SOR17",
     "SOR20",
     "SOR22",
     "SOR27",
-    "SOR31",
+    "SOR_Sister_Dogmata",
     "SOR32",
     "SOR55",
     "SOR57",
@@ -3023,14 +2970,14 @@
    "armyOrder": 80,
    "gameMode": 13,
    "difficulty": 15,
-   "heroId": "",
-   "heroNote": "id指向非督军(defence)",
+   "heroId": "SOR65",
+   "heroNote": "id命中",
    "cardback": "Cardback_SOR_Sacred Rose",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_SOR_Sacred Rose",
-   "defensiveId": "SOR63",
-   "defensiveName": "Guidance of the Saints",
-   "defensiveNameZh": "圣徒指引",
+   "defensiveId": "SOR60",
+   "defensiveName": "Holy Fire",
+   "defensiveNameZh": "圣火",
    "cardIds": [
     "SOR66",
     "SOR67",
@@ -3043,9 +2990,9 @@
     "SOR50",
     "SOR73",
     "SOR75",
-    "SOR74"
+    "SOR_Emperor_s_Judgement"
    ],
-   "complete": false,
+   "complete": true,
    "missing": [],
    "problems": [],
    "overLegendary": []
@@ -3163,19 +3110,17 @@
    "armyOrder": 40,
    "gameMode": 0,
    "difficulty": 5,
-   "heroId": "SAU3",
-   "heroNote": "疑似(近似)",
+   "heroId": "SAU36",
+   "heroNote": "id命中",
    "cardback": "Cardback_SAU_Campaign_Free",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_SAU_Campaign_Free",
-   "defensiveId": "SAU65",
+   "defensiveId": "SAU59",
    "defensiveName": "Awakened Obelisk",
    "defensiveNameZh": "觉醒方尖碑",
    "cardIds": [
     "SAU3",
     "SAU3",
-    "SAU4",
-    "SAU4",
     "SAU12",
     "SAU11",
     "SAU11",
@@ -3186,6 +3131,7 @@
     "SAU19",
     "SAU23",
     "SAU24",
+    "SAU30",
     "SAU29",
     "SAU33",
     "SAU40",
@@ -3204,14 +3150,12 @@
    ],
    "complete": false,
    "missing": [
-    "SAU30 x1 (miss-unknown)"
+    "SAU4 x2 (miss-known)"
    ],
    "problems": [
-    "size:29/30"
+    "size:28/30"
    ],
-   "overLegendary": [
-    "SAU15 x2 (Ophydian Destroyer)"
-   ]
+   "overLegendary": []
   },
   {
    "deckId": "SautekhDeck2",
@@ -3221,18 +3165,15 @@
    "armyOrder": 40,
    "gameMode": 0,
    "difficulty": 10,
-   "heroId": "SAU5",
-   "heroNote": "疑似(子串)",
+   "heroId": "SAU37",
+   "heroNote": "id命中",
    "cardback": "Cardback_SAU_Warlord_Orikan",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_SAU_Warlord_Orikan",
-   "defensiveId": "SAU65",
+   "defensiveId": "SAU59",
    "defensiveName": "Awakened Obelisk",
    "defensiveNameZh": "觉醒方尖碑",
    "cardIds": [
-    "SAU4",
-    "SAU4",
-    "SAU8",
     "SAU11",
     "SAU11",
     "SAU12",
@@ -3248,8 +3189,8 @@
     "SAU28",
     "SAU29",
     "SAU31",
-    "SAU39",
-    "SAU39",
+    "SAU_Reconstitution_Protocols",
+    "SAU_Reconstitution_Protocols",
     "SAU43",
     "SAU40",
     "SAU40",
@@ -3257,16 +3198,19 @@
     "SAU47",
     "SAU58",
     "SAU51",
-    "SAU38",
-    "SAU38",
+    "SAU_Extermination_Protocols",
+    "SAU_Extermination_Protocols",
     "SAU17"
    ],
-   "complete": true,
-   "missing": [],
-   "problems": [],
-   "overLegendary": [
-    "SAU38 x2 (Indomitable Will)"
-   ]
+   "complete": false,
+   "missing": [
+    "SAU4 x2 (miss-known)",
+    "SAU8 x1 (miss-known)"
+   ],
+   "problems": [
+    "size:27/30"
+   ],
+   "overLegendary": []
   },
   {
    "deckId": "SautekhDeck7",
@@ -3276,12 +3220,12 @@
    "armyOrder": 40,
    "gameMode": 0,
    "difficulty": 10,
-   "heroId": "SAU_Ramatekh_The_Cruel",
-   "heroNote": "疑似(子串)",
+   "heroId": "SAU66",
+   "heroNote": "id命中",
    "cardback": "Cardback_SAU_Warlord_Orikan",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_SAU_Warlord_Orikan",
-   "defensiveId": "SAU65",
+   "defensiveId": "SAU59",
    "defensiveName": "Awakened Obelisk",
    "defensiveNameZh": "觉醒方尖碑",
    "cardIds": [
@@ -3305,23 +3249,21 @@
     "SAU73",
     "SAU73",
     "SAU32",
-    "SAU38",
+    "SAU_Extermination_Protocols",
     "SAU41",
     "SAU74",
     "SAU74",
     "SAU75",
     "SAU75",
-    "SAU76",
-    "SAU76",
+    "SAU_Inescapable_Retribution",
+    "SAU_Inescapable_Retribution",
     "SAU55",
     "SAU56"
    ],
    "complete": true,
    "missing": [],
    "problems": [],
-   "overLegendary": [
-    "SAU73 x2 (Lokhust Lord)"
-   ]
+   "overLegendary": []
   },
   {
    "deckId": "SautekhDeck8",
@@ -3331,17 +3273,15 @@
    "armyOrder": 40,
    "gameMode": 0,
    "difficulty": 10,
-   "heroId": "SAU1",
-   "heroNote": "疑似(子串)",
+   "heroId": "SAU35",
+   "heroNote": "id命中",
    "cardback": "Cardback_SAU_Campaign_Premium",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_SAU_Campaign_Premium",
-   "defensiveId": "SAU65",
+   "defensiveId": "SAU59",
    "defensiveName": "Awakened Obelisk",
    "defensiveNameZh": "觉醒方尖碑",
    "cardIds": [
-    "SAU6",
-    "SAU6",
     "SAU12",
     "SAU10",
     "SAU10",
@@ -3359,7 +3299,7 @@
     "SAU31",
     "SAU31",
     "SAU33",
-    "SAU39",
+    "SAU_Reconstitution_Protocols",
     "SAU40",
     "SAU43",
     "SAU47",
@@ -3371,9 +3311,13 @@
     "SAU58",
     "SAU58"
    ],
-   "complete": true,
-   "missing": [],
-   "problems": [],
+   "complete": false,
+   "missing": [
+    "SAU6 x2 (miss-known)"
+   ],
+   "problems": [
+    "size:28/30"
+   ],
    "overLegendary": []
   },
   {
@@ -3389,9 +3333,9 @@
    "cardback": "Cardback_SOR_Campaign_Free",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_SOR_Campaign_Free",
-   "defensiveId": "SOR63",
-   "defensiveName": "Guidance of the Saints",
-   "defensiveNameZh": "圣徒指引",
+   "defensiveId": "SOR60",
+   "defensiveName": "Holy Fire",
+   "defensiveNameZh": "圣火",
    "cardIds": [
     "SOR6",
     "SOR6",
@@ -3427,9 +3371,7 @@
    "complete": true,
    "missing": [],
    "problems": [],
-   "overLegendary": [
-    "SOR6 x2 (Righteous Repugnance)"
-   ]
+   "overLegendary": []
   },
   {
    "deckId": "SororitasDeck4",
@@ -3444,15 +3386,15 @@
    "cardback": "Cardback_SOR_Campaign_Free",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_SOR_Campaign_Free",
-   "defensiveId": "SOR63",
-   "defensiveName": "Guidance of the Saints",
-   "defensiveNameZh": "圣徒指引",
+   "defensiveId": "SOR60",
+   "defensiveName": "Holy Fire",
+   "defensiveNameZh": "圣火",
    "cardIds": [
     "SOR6",
     "SOR8",
     "SOR8",
-    "SOR10",
-    "SOR10",
+    "SOR_Sisters_Repentia",
+    "SOR_Sisters_Repentia",
     "SOR13",
     "SOR21",
     "SOR21",
@@ -3463,7 +3405,7 @@
     "SOR24",
     "SOR27",
     "SOR27",
-    "SOR31",
+    "SOR_Sister_Dogmata",
     "SOR32",
     "SOR32",
     "SOR36",
@@ -3473,17 +3415,15 @@
     "SOR55",
     "SOR55",
     "SOR43",
+    "SOR41",
+    "SOR41",
     "SOR57",
     "SOR52",
     "SOR52"
    ],
-   "complete": false,
-   "missing": [
-    "SOR41 x2 (miss-unknown)"
-   ],
-   "problems": [
-    "size:28/30"
-   ],
+   "complete": true,
+   "missing": [],
+   "problems": [],
    "overLegendary": []
   },
   {
@@ -3494,14 +3434,14 @@
    "armyOrder": 80,
    "gameMode": 0,
    "difficulty": 10,
-   "heroId": "",
-   "heroNote": "id指向非督军(tactic)",
+   "heroId": "SOR2",
+   "heroNote": "id命中",
    "cardback": "Cardback_SOR_Campaign_Premium",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_SOR_Campaign_Premium",
-   "defensiveId": "SOR63",
-   "defensiveName": "Guidance of the Saints",
-   "defensiveNameZh": "圣徒指引",
+   "defensiveId": "SOR60",
+   "defensiveName": "Holy Fire",
+   "defensiveNameZh": "圣火",
    "cardIds": [
     "SOR5",
     "SOR5",
@@ -3534,14 +3474,10 @@
     "SOR45",
     "SOR45"
    ],
-   "complete": false,
+   "complete": true,
    "missing": [],
    "problems": [],
-   "overLegendary": [
-    "SOR5 x2 (Morvenn Vahl)",
-    "SOR6 x2 (Righteous Repugnance)",
-    "SOR58 x2 (Divine Intervention)"
-   ]
+   "overLegendary": []
   },
   {
    "deckId": "SpaceWolvesDeck1",
@@ -3717,14 +3653,14 @@
    "armyOrder": 70,
    "gameMode": 13,
    "difficulty": 5,
-   "heroId": "TAU4",
-   "heroNote": "疑似(子串)",
+   "heroId": "TAU3",
+   "heroNote": "id命中",
    "cardback": "Cardback_TAU_Campaign_Premium",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_TAU_Campaign_Premium",
-   "defensiveId": "TAU67",
-   "defensiveName": "Tidewall Droneport",
-   "defensiveNameZh": "潮墙无人机港",
+   "defensiveId": "TAU62",
+   "defensiveName": "Watch Tower",
+   "defensiveNameZh": "瞭望塔",
    "cardIds": [
     "TAU8",
     "TAU10",
@@ -3735,8 +3671,8 @@
     "TAU24",
     "TAU25",
     "TAU34",
-    "TAU51",
-    "TAU42",
+    "TAU_Saviour_Protocolst",
+    "TAU_Experimental_Drone",
     "TAU56"
    ],
    "complete": true,
@@ -3752,22 +3688,22 @@
    "armyOrder": 70,
    "gameMode": 13,
    "difficulty": 10,
-   "heroId": "TAU1",
-   "heroNote": "名字命中",
+   "heroId": "TAU2",
+   "heroNote": "id命中",
    "cardback": "Cardback_TAU_Campaign_Sphere of Expansion",
    "cardbackFrom": "alias",
    "cardbackOrig": "Cardback_TAU_Sphere of Expansion",
-   "defensiveId": "TAU67",
-   "defensiveName": "Tidewall Droneport",
-   "defensiveNameZh": "潮墙无人机港",
+   "defensiveId": "TAU62",
+   "defensiveName": "Watch Tower",
+   "defensiveNameZh": "瞭望塔",
    "cardIds": [
     "TAU5",
     "TAU9",
-    "TAU14",
+    "TAU_Breacher_Fire_Warrior",
     "TAU18",
     "TAU19",
     "TAU23",
-    "TAU32",
+    "TAU_Aunshi_Ethereal",
     "TAU29",
     "TAU36",
     "TAU44",
@@ -3792,9 +3728,9 @@
    "cardback": "Cardback_TAU_Shadowsun",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_TAU_Shadowsun",
-   "defensiveId": "TAU67",
-   "defensiveName": "Tidewall Droneport",
-   "defensiveNameZh": "潮墙无人机港",
+   "defensiveId": "TAU62",
+   "defensiveName": "Watch Tower",
+   "defensiveNameZh": "瞭望塔",
    "cardIds": [
     "TAU11",
     "TAU17",
@@ -3806,15 +3742,12 @@
     "TAU35",
     "TAU40",
     "TAU47",
+    "TAU58",
     "TAU55"
    ],
-   "complete": false,
-   "missing": [
-    "TAU58 x1 (miss-unknown)"
-   ],
-   "problems": [
-    "size:11/12"
-   ],
+   "complete": true,
+   "missing": [],
+   "problems": [],
    "overLegendary": []
   },
   {
@@ -3825,14 +3758,14 @@
    "armyOrder": 70,
    "gameMode": 13,
    "difficulty": 15,
-   "heroId": "TAU_War_Shaper",
-   "heroNote": "名字命中",
+   "heroId": "TAU65",
+   "heroNote": "id命中",
    "cardback": "Cardback_TAU_Feral Hunters",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_TAU_Feral Hunters",
-   "defensiveId": "TAU67",
-   "defensiveName": "Tidewall Droneport",
-   "defensiveNameZh": "潮墙无人机港",
+   "defensiveId": "TAU62",
+   "defensiveName": "Watch Tower",
+   "defensiveNameZh": "瞭望塔",
    "cardIds": [
     "TAU66",
     "TAU67",
@@ -3842,10 +3775,10 @@
     "TAU70",
     "TAU71",
     "TAU72",
-    "TAU38",
+    "TAU_Stormsurge_Battlesuit",
     "TAU73",
     "TAU74",
-    "TAU75"
+    "TAU_Hunters_Instincts"
    ],
    "complete": true,
    "missing": [],
@@ -3860,12 +3793,12 @@
    "armyOrder": 60,
    "gameMode": 13,
    "difficulty": 5,
-   "heroId": "TL5",
-   "heroNote": "名字命中",
+   "heroId": "TL34",
+   "heroNote": "id命中",
    "cardback": "Cardback_TL_Campaign_Premium",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_TL_Campaign_Premium",
-   "defensiveId": "TL64",
+   "defensiveId": "TL54",
    "defensiveName": "Digestion Pool",
    "defensiveNameZh": "消化池",
    "cardIds": [
@@ -3885,9 +3818,7 @@
    "complete": true,
    "missing": [],
    "problems": [],
-   "overLegendary": [
-    "TL4 x2 (Hive Commander)"
-   ]
+   "overLegendary": []
   },
   {
    "deckId": "TL_SK_2",
@@ -3897,12 +3828,12 @@
    "armyOrder": 60,
    "gameMode": 13,
    "difficulty": 10,
-   "heroId": "TL1",
-   "heroNote": "名字命中",
+   "heroId": "TL36",
+   "heroNote": "id命中",
    "cardback": "Cardback_TL_SoulLeech",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_TL_SoulLeech",
-   "defensiveId": "TL64",
+   "defensiveId": "TL54",
    "defensiveName": "Digestion Pool",
    "defensiveNameZh": "消化池",
    "cardIds": [
@@ -3912,19 +3843,16 @@
     "TL18",
     "TL12",
     "TL22",
+    "TL_Neurotyrant",
     "TL26",
+    "TL_Norn_Emissary",
     "TL33",
     "TL49",
     "TL45"
    ],
-   "complete": false,
-   "missing": [
-    "TL69 x1 (miss-unknown)",
-    "TL70 x1 (miss-unknown)"
-   ],
-   "problems": [
-    "size:10/12"
-   ],
+   "complete": true,
+   "missing": [],
+   "problems": [],
    "overLegendary": []
   },
   {
@@ -3935,12 +3863,12 @@
    "armyOrder": 60,
    "gameMode": 13,
    "difficulty": 15,
-   "heroId": "TL3",
-   "heroNote": "名字命中",
+   "heroId": "TL35",
+   "heroNote": "id命中",
    "cardback": "Cardback_TL_Campaign_Free",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_TL_Campaign_Free",
-   "defensiveId": "TL64",
+   "defensiveId": "TL54",
    "defensiveName": "Digestion Pool",
    "defensiveNameZh": "消化池",
    "cardIds": [
@@ -3975,29 +3903,26 @@
    "cardback": "Cardback_TL_Reinforcement2",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_TL_Reinforcement2",
-   "defensiveId": "TL64",
+   "defensiveId": "TL54",
    "defensiveName": "Digestion Pool",
    "defensiveNameZh": "消化池",
    "cardIds": [
     "TL1",
     "TL1",
-    "TL66",
-    "TL75",
+    "TL_Neurogaunt",
+    "TL_Barbgaunt",
+    "TL_Termagant_Brood",
+    "TL_Psychophage",
     "TL23",
     "TL27",
-    "TL29"
+    "TL29",
+    "TL_Toxic_Entanglement",
+    "TL_Tyranid_Invasion",
+    "TL_Bestial_Rage"
    ],
-   "complete": false,
-   "missing": [
-    "TL67 x1 (miss-unknown)",
-    "TL68 x1 (miss-unknown)",
-    "TL71 x1 (miss-unknown)",
-    "TL72 x1 (miss-unknown)",
-    "TL73 x1 (miss-unknown)"
-   ],
-   "problems": [
-    "size:7/12"
-   ],
+   "complete": true,
+   "missing": [],
+   "problems": [],
    "overLegendary": []
   },
   {
@@ -4008,21 +3933,21 @@
    "armyOrder": 70,
    "gameMode": 0,
    "difficulty": 5,
-   "heroId": "TAU4",
-   "heroNote": "疑似(子串)",
+   "heroId": "TAU3",
+   "heroNote": "id命中",
    "cardback": "Cardback_TAU_Campaign_Premium",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_TAU_Campaign_Premium",
-   "defensiveId": "TAU67",
-   "defensiveName": "Tidewall Droneport",
-   "defensiveNameZh": "潮墙无人机港",
+   "defensiveId": "TAU62",
+   "defensiveName": "Watch Tower",
+   "defensiveNameZh": "瞭望塔",
    "cardIds": [
     "TAU9",
     "TAU9",
     "TAU10",
     "TAU10",
     "TAU12",
-    "TAU14",
+    "TAU_Breacher_Fire_Warrior",
     "TAU17",
     "TAU20",
     "TAU20",
@@ -4031,19 +3956,19 @@
     "TAU26",
     "TAU27",
     "TAU27",
-    "TAU32",
+    "TAU_Aunshi_Ethereal",
     "TAU31",
     "TAU28",
     "TAU34",
-    "TAU38",
+    "TAU_Stormsurge_Battlesuit",
     "TAU39",
     "TAU44",
     "TAU47",
-    "TAU51",
-    "TAU51",
+    "TAU_Saviour_Protocolst",
+    "TAU_Saviour_Protocolst",
     "TAU48",
     "TAU52",
-    "TAU42",
+    "TAU_Experimental_Drone",
     "TAU56",
     "TAU56",
     "TAU57"
@@ -4061,19 +3986,19 @@
    "armyOrder": 70,
    "gameMode": 0,
    "difficulty": 15,
-   "heroId": "TAU1",
-   "heroNote": "名字命中",
+   "heroId": "TAU2",
+   "heroNote": "id命中",
    "cardback": "Cardback_TAU_Ethereal",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_TAU_Ethereal",
-   "defensiveId": "TAU67",
-   "defensiveName": "Tidewall Droneport",
-   "defensiveNameZh": "潮墙无人机港",
+   "defensiveId": "TAU62",
+   "defensiveName": "Watch Tower",
+   "defensiveNameZh": "瞭望塔",
    "cardIds": [
     "TAU4",
     "TAU10",
     "TAU10",
-    "TAU14",
+    "TAU_Breacher_Fire_Warrior",
     "TAU13",
     "TAU11",
     "TAU11",
@@ -4087,7 +4012,7 @@
     "TAU27",
     "TAU28",
     "TAU34",
-    "TAU33",
+    "TAU_Razorshark",
     "TAU36",
     "TAU39",
     "TAU40",
@@ -4104,9 +4029,7 @@
    "complete": true,
    "missing": [],
    "problems": [],
-   "overLegendary": [
-    "TAU17 x2 (Structural Analyzer)"
-   ]
+   "overLegendary": []
   },
   {
    "deckId": "TauEmpireDeck6",
@@ -4121,9 +4044,9 @@
    "cardback": "Cardback_TAU_Campaign_Free",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_TAU_Campaign_Free",
-   "defensiveId": "TAU67",
-   "defensiveName": "Tidewall Droneport",
-   "defensiveNameZh": "潮墙无人机港",
+   "defensiveId": "TAU62",
+   "defensiveName": "Watch Tower",
+   "defensiveNameZh": "瞭望塔",
    "cardIds": [
     "TAU7",
     "TAU7",
@@ -4131,8 +4054,8 @@
     "TAU9",
     "TAU10",
     "TAU10",
-    "TAU14",
-    "TAU14",
+    "TAU_Breacher_Fire_Warrior",
+    "TAU_Breacher_Fire_Warrior",
     "TAU16",
     "TAU16",
     "TAU20",
@@ -4141,31 +4064,25 @@
     "TAU18",
     "TAU25",
     "TAU25",
-    "TAU32",
+    "TAU_Aunshi_Ethereal",
     "TAU31",
-    "TAU33",
+    "TAU_Razorshark",
     "TAU35",
-    "TAU38",
+    "TAU_Stormsurge_Battlesuit",
     "TAU43",
     "TAU44",
     "TAU45",
     "TAU45",
+    "TAU58",
+    "TAU58",
     "TAU50",
     "TAU50",
     "TAU56"
    ],
-   "complete": false,
-   "missing": [
-    "TAU58 x2 (miss-unknown)"
-   ],
-   "problems": [
-    "size:28/30"
-   ],
-   "overLegendary": [
-    "TAU7 x2 (Hero of the Empire)",
-    "TAU16 x2 (Darkstrider)",
-    "TAU50 x2 (For the Greater Good)"
-   ]
+   "complete": true,
+   "missing": [],
+   "problems": [],
+   "overLegendary": []
   },
   {
    "deckId": "TauEmpireDeck7",
@@ -4175,14 +4092,14 @@
    "armyOrder": 70,
    "gameMode": 0,
    "difficulty": 10,
-   "heroId": "TAU_War_Shaper",
-   "heroNote": "名字命中",
+   "heroId": "TAU65",
+   "heroNote": "id命中",
    "cardback": "Cardback_TAU_Campaign_Free",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_TAU_Campaign_Free",
-   "defensiveId": "TAU67",
-   "defensiveName": "Tidewall Droneport",
-   "defensiveNameZh": "潮墙无人机港",
+   "defensiveId": "TAU62",
+   "defensiveName": "Watch Tower",
+   "defensiveNameZh": "瞭望塔",
    "cardIds": [
     "TAU66",
     "TAU66",
@@ -4200,7 +4117,7 @@
     "TAU70",
     "TAU23",
     "TAU23",
-    "TAU32",
+    "TAU_Aunshi_Ethereal",
     "TAU71",
     "TAU71",
     "TAU72",
@@ -4210,18 +4127,15 @@
     "TAU74",
     "TAU74",
     "TAU44",
-    "TAU75",
-    "TAU75",
+    "TAU_Hunters_Instincts",
+    "TAU_Hunters_Instincts",
     "TAU54",
     "TAU57"
    ],
    "complete": true,
    "missing": [],
    "problems": [],
-   "overLegendary": [
-    "TAU16 x2 (Darkstrider)",
-    "TAU71 x2 (Flesh Shaper)"
-   ]
+   "overLegendary": []
   },
   {
    "deckId": "UMDeck1",
@@ -4231,14 +4145,14 @@
    "armyOrder": 10,
    "gameMode": 0,
    "difficulty": 5,
-   "heroId": "UM3",
-   "heroNote": "名字命中",
+   "heroId": "UM47",
+   "heroNote": "id命中",
    "cardback": "Cardback_UM_Campaign_Free",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_UM_Campaign_Free",
-   "defensiveId": "UM67",
-   "defensiveName": "Hive Factory",
-   "defensiveNameZh": "蜂巢工厂",
+   "defensiveId": "UM52",
+   "defensiveName": "Firestrike Turrets",
+   "defensiveNameZh": "火击炮塔",
    "cardIds": [
     "UM1",
     "UM1",
@@ -4246,6 +4160,10 @@
     "UM4",
     "UM5",
     "UM5",
+    "UM6",
+    "UM6",
+    "UM8",
+    "UM8",
     "UM7",
     "UM7",
     "UM11",
@@ -4256,28 +4174,21 @@
     "UM16",
     "UM18",
     "UM18",
+    "UM19",
+    "UM22",
+    "UM27",
     "UM41",
     "UM41",
     "UM34",
-    "UM34"
+    "UM34",
+    "UM36",
+    "UM38",
+    "UM37"
    ],
-   "complete": false,
-   "missing": [
-    "UM6 x2 (miss-unknown)",
-    "UM8 x2 (miss-unknown)",
-    "UM19 x1 (miss-unknown)",
-    "UM22 x1 (miss-unknown)",
-    "UM27 x1 (miss-unknown)",
-    "UM36 x1 (miss-unknown)",
-    "UM38 x1 (miss-unknown)",
-    "UM37 x1 (miss-unknown)"
-   ],
-   "problems": [
-    "size:20/30"
-   ],
-   "overLegendary": [
-    "UM1 x2 (Marneus Calgar)"
-   ]
+   "complete": true,
+   "missing": [],
+   "problems": [],
+   "overLegendary": []
   },
   {
    "deckId": "UMDeck4",
@@ -4287,14 +4198,14 @@
    "armyOrder": 10,
    "gameMode": 0,
    "difficulty": 10,
-   "heroId": "UM5",
-   "heroNote": "名字命中",
+   "heroId": "UM48",
+   "heroNote": "id命中",
    "cardback": "Cardback_UM_Warlord_Tigurius",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_UM_Warlord_Tigurius",
-   "defensiveId": "UM67",
-   "defensiveName": "Hive Factory",
-   "defensiveNameZh": "蜂巢工厂",
+   "defensiveId": "UM52",
+   "defensiveName": "Firestrike Turrets",
+   "defensiveNameZh": "火击炮塔",
    "cardIds": [
     "UM1",
     "UM1",
@@ -4302,37 +4213,35 @@
     "UM3",
     "UM4",
     "UM4",
+    "UM8",
+    "UM8",
     "UM9",
     "UM9",
     "UM14",
     "UM14",
     "UM16",
     "UM16",
+    "UM20",
+    "UM24",
+    "UM24",
+    "UM25",
+    "UM25",
     "UM28",
     "UM32",
     "UM32",
+    "UM38",
     "UM45",
     "UM39",
+    "UM26",
     "UM40",
     "UM35",
     "UM35",
     "UM41"
    ],
-   "complete": false,
-   "missing": [
-    "UM8 x2 (miss-unknown)",
-    "UM20 x1 (miss-unknown)",
-    "UM24 x2 (miss-unknown)",
-    "UM25 x2 (miss-unknown)",
-    "UM38 x1 (miss-unknown)",
-    "UM26 x1 (miss-unknown)"
-   ],
-   "problems": [
-    "size:21/30"
-   ],
-   "overLegendary": [
-    "UM1 x2 (Marneus Calgar)"
-   ]
+   "complete": true,
+   "missing": [],
+   "problems": [],
+   "overLegendary": []
   },
   {
    "deckId": "UMDeck5",
@@ -4342,14 +4251,14 @@
    "armyOrder": 10,
    "gameMode": 0,
    "difficulty": 15,
-   "heroId": "UM1",
-   "heroNote": "名字命中",
+   "heroId": "UM46",
+   "heroNote": "id命中",
    "cardback": "Cardback_UM_Campaign_Premium",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_UM_Campaign_Premium",
-   "defensiveId": "UM67",
-   "defensiveName": "Hive Factory",
-   "defensiveNameZh": "蜂巢工厂",
+   "defensiveId": "UM52",
+   "defensiveName": "Firestrike Turrets",
+   "defensiveNameZh": "火击炮塔",
    "cardIds": [
     "UM2",
     "UM5",
@@ -4369,23 +4278,22 @@
     "UM17",
     "UM17",
     "UM23",
+    "UM26",
+    "UM27",
+    "UM29",
+    "UM33",
+    "UM33",
+    "UM42",
+    "UM42",
+    "UM31",
+    "UM43",
     "UM39",
     "UM39",
     "UM40"
    ],
-   "complete": false,
-   "missing": [
-    "UM26 x1 (miss-unknown)",
-    "UM27 x1 (miss-unknown)",
-    "UM29 x1 (miss-unknown)",
-    "UM33 x2 (miss-unknown)",
-    "UM42 x2 (miss-unknown)",
-    "UM31 x1 (miss-unknown)",
-    "UM43 x1 (miss-unknown)"
-   ],
-   "problems": [
-    "size:21/30"
-   ],
+   "complete": true,
+   "missing": [],
+   "problems": [],
    "overLegendary": []
   },
   {
@@ -4401,9 +4309,9 @@
    "cardback": "Cardback_UM_Campaign_Premium",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_UM_Campaign_Premium",
-   "defensiveId": "UM67",
-   "defensiveName": "Hive Factory",
-   "defensiveNameZh": "蜂巢工厂",
+   "defensiveId": "UM52",
+   "defensiveName": "Firestrike Turrets",
+   "defensiveNameZh": "火击炮塔",
    "cardIds": [
     "UM66",
     "UM66",
@@ -4413,6 +4321,8 @@
     "UM68",
     "UM69",
     "UM69",
+    "UM57",
+    "UM57",
     "UM12",
     "UM70",
     "UM70",
@@ -4434,18 +4344,10 @@
     "UM75",
     "UM75"
    ],
-   "complete": false,
-   "missing": [
-    "UM57 x2 (miss-unknown)"
-   ],
-   "problems": [
-    "size:28/30"
-   ],
-   "overLegendary": [
-    "UM66 x2 (Exhortation of Rage)",
-    "UM69 x2 (Supreme Strategist)",
-    "UM44 x2 (Captain Sicarius)"
-   ]
+   "complete": true,
+   "missing": [],
+   "problems": [],
+   "overLegendary": []
   },
   {
    "deckId": "UM_SK_1",
@@ -4455,17 +4357,18 @@
    "armyOrder": 10,
    "gameMode": 13,
    "difficulty": 5,
-   "heroId": "UM3",
-   "heroNote": "名字命中",
+   "heroId": "UM47",
+   "heroNote": "id命中",
    "cardback": "Cardback_UM_Campaign_Free",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_UM_Campaign_Free",
-   "defensiveId": "UM67",
-   "defensiveName": "Hive Factory",
-   "defensiveNameZh": "蜂巢工厂",
+   "defensiveId": "UM52",
+   "defensiveName": "Firestrike Turrets",
+   "defensiveNameZh": "火击炮塔",
    "cardIds": [
     "UM66",
     "UM11",
+    "UM57",
     "UM12",
     "UM69",
     "UM70",
@@ -4476,13 +4379,9 @@
     "UM44",
     "UM62"
    ],
-   "complete": false,
-   "missing": [
-    "UM57 x1 (miss-unknown)"
-   ],
-   "problems": [
-    "size:11/12"
-   ],
+   "complete": true,
+   "missing": [],
+   "problems": [],
    "overLegendary": []
   },
   {
@@ -4493,34 +4392,31 @@
    "armyOrder": 10,
    "gameMode": 13,
    "difficulty": 10,
-   "heroId": "UM5",
-   "heroNote": "名字命中",
+   "heroId": "UM48",
+   "heroNote": "id命中",
    "cardback": "Cardback_UM_Warlord_Tigurius",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_UM_Warlord_Tigurius",
-   "defensiveId": "UM67",
-   "defensiveName": "Hive Factory",
-   "defensiveNameZh": "蜂巢工厂",
+   "defensiveId": "UM52",
+   "defensiveName": "Firestrike Turrets",
+   "defensiveNameZh": "火击炮塔",
    "cardIds": [
     "UM3",
+    "UM55",
     "UM9",
+    "UM56",
     "UM13",
     "UM16",
+    "UM15",
     "UM17",
+    "UM20",
     "UM32",
-    "UM35"
+    "UM35",
+    "UM37"
    ],
-   "complete": false,
-   "missing": [
-    "UM55 x1 (miss-unknown)",
-    "UM56 x1 (miss-unknown)",
-    "UM15 x1 (miss-unknown)",
-    "UM20 x1 (miss-unknown)",
-    "UM37 x1 (miss-unknown)"
-   ],
-   "problems": [
-    "size:7/12"
-   ],
+   "complete": true,
+   "missing": [],
+   "problems": [],
    "overLegendary": []
   },
   {
@@ -4531,33 +4427,31 @@
    "armyOrder": 10,
    "gameMode": 13,
    "difficulty": 15,
-   "heroId": "UM1",
-   "heroNote": "名字命中",
+   "heroId": "UM46",
+   "heroNote": "id命中",
    "cardback": "Cardback_UM_Campaign_Premium",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_UM_Campaign_Premium",
-   "defensiveId": "UM67",
-   "defensiveName": "Hive Factory",
-   "defensiveNameZh": "蜂巢工厂",
+   "defensiveId": "UM52",
+   "defensiveName": "Firestrike Turrets",
+   "defensiveNameZh": "火击炮塔",
    "cardIds": [
+    "UM55",
+    "UM55",
+    "UM56",
     "UM14",
     "UM13",
+    "UM15",
+    "UM20",
     "UM59",
+    "UM29",
     "UM32",
+    "UM64",
     "UM40"
    ],
-   "complete": false,
-   "missing": [
-    "UM55 x2 (miss-unknown)",
-    "UM56 x1 (miss-unknown)",
-    "UM15 x1 (miss-unknown)",
-    "UM20 x1 (miss-unknown)",
-    "UM29 x1 (miss-unknown)",
-    "UM64 x1 (miss-unknown)"
-   ],
-   "problems": [
-    "size:5/12"
-   ],
+   "complete": true,
+   "missing": [],
+   "problems": [],
    "overLegendary": []
   },
   {
@@ -4573,9 +4467,9 @@
    "cardback": "Cardback_UM_Primaris Chaplain",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_UM_Primaris Chaplain",
-   "defensiveId": "UM67",
-   "defensiveName": "Hive Factory",
-   "defensiveNameZh": "蜂巢工厂",
+   "defensiveId": "UM52",
+   "defensiveName": "Firestrike Turrets",
+   "defensiveNameZh": "火击炮塔",
    "cardIds": [
     "UM66",
     "UM67",
@@ -4603,34 +4497,31 @@
    "armyOrder": 10,
    "gameMode": 13,
    "difficulty": 15,
-   "heroId": "UM_Lieutenant_Titus",
-   "heroNote": "疑似(子串)",
+   "heroId": "UM76",
+   "heroNote": "id命中",
    "cardback": "Cardback_UM_Primaris Lieutenant",
    "cardbackFrom": "column",
    "cardbackOrig": "Cardback_UM_Primaris Lieutenant",
-   "defensiveId": "UM67",
-   "defensiveName": "Hive Factory",
-   "defensiveNameZh": "蜂巢工厂",
+   "defensiveId": "UM52",
+   "defensiveName": "Firestrike Turrets",
+   "defensiveNameZh": "火击炮塔",
    "cardIds": [
     "UM77",
     "UM78",
     "UM79",
+    "UM15",
     "UM80",
     "UM81",
+    "UM8",
     "UM82",
     "UM83",
     "UM84",
     "UM85",
     "UM86"
    ],
-   "complete": false,
-   "missing": [
-    "UM15 x1 (miss-unknown)",
-    "UM8 x1 (miss-unknown)"
-   ],
-   "problems": [
-    "size:10/12"
-   ],
+   "complete": true,
+   "missing": [],
+   "problems": [],
    "overLegendary": []
   }
  ]

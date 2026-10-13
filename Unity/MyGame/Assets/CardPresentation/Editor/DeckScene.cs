@@ -3888,7 +3888,7 @@ public static class DeckScene
                     //     · 英文名序：`Autarch < Dire Avenger Exarch < Fire Dragon < Spiritseer Qelenaris < Swooping Hawk Exarch`（总督打头）
                     //     · `Id` 序：`ASH32 < ASH34 < ASH35 < ASH80 < ASH_Autarch`（复仇者长老打头）
                     //   两条都与下面这个序**不同** ⇒ 任一把键换错都红（而上一条只能管「不升序」）。
-                    string[] want6 = { "ASH80", "ASH32", "ASH_Autarch", "ASH34", "ASH35" };
+                    string[] want6 = { "ASH70", "ASH63", "ASH83", "ASH22", "ASH28" };
                     var got6 = new List<string>();
                     for (int i = seg; i < entries.Count; i++)
                         if (entries[i] != null && entries[i].Cost == 6) got6.Add(entries[i].Id);
@@ -3947,16 +3947,16 @@ public static class DeckScene
                 //     刷新**只走 `UiScrollDeck`**（它只调 `RefreshDeckList`），⛔ 不走 `RefreshAll`。
                 {
                     string wlProbe = state.Deck.WarlordId, dfProbe = state.Deck.DefensiveId;
-                    state.Deck.WarlordId = "ASH_Autarch";      // 费用 6 · SaimHann
-                    state.Deck.DefensiveId = "DA66";           // 费用 3 · `Plasma Generator`
+                    state.Deck.WarlordId = "ASH83";      // 费用 6 · SaimHann
+                    state.Deck.DefensiveId = "DA_Plasma_Generator";           // 费用 3 · `Plasma Generator`
                     _rt.UiScrollDeck(-9999f);
                     var pr = _rt.DeckEntries();
                     string p0 = (pr.Count > 0 && pr[0] != null) ? pr[0].Id : "<空>";
                     string p1 = (pr.Count > 1 && pr[1] != null) ? pr[1].Id : "<空>";
-                    Check(p0, "ASH_Autarch",
+                    Check(p0, "ASH83",
                           "★ 探针：**督军位那张（费用 6）钉在第 0 行**（`DeckEntries` 前两行按 `WarlordId` / `DefensiveId` 取卡、不进排序）"
                         + "｜🧨 把它也丢进 `cards.Sort` ⇒ 它按费用 6 被排到后面去 ⇒ 红");
-                    Check(p1, "DA66",
+                    Check(p1, "DA_Plasma_Generator",
                           "★ 探针：**防御位那张（费用 3）钉在第 1 行**｜🧨 同上 ⇒ 红");
                     bool tail = pr.Count > 2 && pr[2] != null;
                     int c2 = tail ? pr[2].Cost : -1;

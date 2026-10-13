@@ -985,7 +985,7 @@ public static class BattleScene
                     new Badge { sprite = "vulnerable", counter = 1, active = true },
                 };
                 var d = CardData.Simple("BadgeProbe", 3, 3, 4);
-                d.artId = "UM_Heavy_Intercessor";  // 借一张有立绘的卡，截图里好看（立绘按 **id** 取名）
+                d.artId = "UM78";  // 借一张有立绘的卡，截图里好看（立绘按 **id** 取名）
                 d.badges = badges;
                 var probe = CardView.Create(driver.transform, d, "BadgeProbe");
                 probe.transform.localPosition = new Vector3(-0.62f, 0.86f, -0.5f);
@@ -1038,7 +1038,7 @@ public static class BattleScene
             {
                 var sd = CardData.Simple("StatProbe", 3, 4, 5);
                 sd.melee = 3; sd.ranged = 2; sd.armor = 1; sd.health = 5; sd.isUnit = true;
-                sd.artId = "UM_Heavy_Intercessor";
+                sd.artId = "UM78";
                 var sv = CardView.Create(driver.transform, sd, "StatProbe", CardFace.Board);
                 sv.transform.localPosition = new Vector3(-1.5f, 0.86f, -0.5f);
                 sv.transform.localScale = Vector3.one * 1.9f;
@@ -8134,7 +8134,7 @@ public static class BattleScene
                 id = "Aggressor Sergeant", title = "TEST", cost = 1, melee = 1, ranged = 0,
                 // ⚠️ 立绘按**引擎卡 id** 取名（2026-09-15 起）—— 这里必须给 artId，
                 //    只给 `id`（卡名）会取不到图（`CardArt.Portrait` 的键是 id）。
-                artId = "UM_Aggressor_Sergeant",
+                artId = "UM19",
                 health = 1, armor = 0, keywords = "", isUnit = true,
                 frame = BattleDriver.FactionColor("Ultramarines"), faction = "Ultramarines",
                 rarity = "legendary",     // ⚠️ 与下面那颗 `GemTierProbe`(common) 成对，用来验「宝石按稀有度变」
@@ -12222,7 +12222,7 @@ public static class BattleScene
                 Check(withLink > 100, $"★ 效果正文里带 `<link>` 的卡 **{withLink} 张**"
                                     + "（行内图标那条路接了 link ⇒ 悬停图标能出解释）");
                 // 反例：正文里**什么都没有**的卡不该被塞进 link
-                Check(CardIcons.Rewrite("UM_Light_Cover", "desc", "Hello world") == "Hello world",
+                Check(CardIcons.Rewrite("UM54", "desc", "Hello world") == "Hello world",
                       "★ 反例：正文里没有记号 ⇒ `Rewrite` 原样返回、不塞 link");
             }
 
@@ -13889,11 +13889,16 @@ public static class BattleScene
                 Check(mp.TurnText == (drv.Ctx.FirstSeat == 0 ? MulliganPanel.TurnFirst : MulliganPanel.TurnSecond),
                       $"★ 换牌面板那行「你先手 / 你后手」跟**这一局谁先手**对得上：「{mp.TurnText}」"
                     + $"（先手 = {drv.Ctx.Players[drv.Ctx.FirstSeat].Name}）");
-                // 🔴 **2026-09-30 新加**：那两行的**颜色**照原版 —— **纯白**。
-                //   判据（亲读原版资产）= `bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_3731.json`
-                //   （`Choose cards to replace in first hand`）与 `MonoBehaviour_3856.json`（`You go second`）的
-                //   **`m_fontColor32` 都是 `4294967295`（= `0xFFFFFFFF` 纯白）**、`m_fontColor` 都是 `(1,1,1,1)`。
-                //   ⚠️ 原来**两行都是暖色 `(1, 0.94, 0.82)`**（我们挑的，没有出处）⇒ 已改成纯白。
+                // 🔴 **颜色：那两行【不是同一个颜色】—— 提示行【橙】、先后手行【白】。**
+                //   **2026-10-13 就地订正（铁律 5 · `A1752`）**：本条原来断的是「两行都纯白」，判据只读了
+                //   `MonoBehaviour_3731/3856` 的 `m_fontColor32`（两行都是 `0xFFFFFFFF`）——
+                //   **那一半没读错，结论错了**：顶点色是**乘在材质 `_FaceColor` 上**的，而两行挂的**不是同一份材质**
+                //   （`m_sharedMaterial` 是两个不同 PathID）：
+                //   · 提示行 → **`Pragati-Regular Orange`**（`bundle_fonts_assets_all/Material/Material_-5772249770677823286.json`）
+                //     `_FaceColor = (0.9960785, 0.5960785, 0.1176471, 1)` = **#FE981E**（材质名自己就叫 `Orange`）；
+                //   · 先后手行 → `Pragati-Regular Atlas Material`（`…/Material_-5050103597772954521.json`）`_FaceColor` = 白。
+                //   旁证 = 用户实拍 `C:/Users/qjh36/Desktop/warpforge参考图/战斗—替换手卡参考图（先手/后手）.png`
+                //   （两行**一橙一白**，同一帧内两色不同 ⇒ 不是视频调色）。
                 // ⚠️ **A195 核过：这个 `&&` 门是安全的**（没改）—— 它**不可能为假**：
                 //    `Label.Create` **从不返回 null**（`Battle/Label.cs:64` 无条件 `return l`；TMP 不在时退**点阵**
                 //    后端、`_tmp` 为 null 但 Label 对象照样在），而两行 label 是 `MulliganPanel.Create` 里无条件建的
@@ -13901,11 +13906,16 @@ public static class BattleScene
                 if (mp.PromptLabel != null && mp.TurnLabel != null)
                 {
                     var c1 = mp.PromptLabel.color; var c2 = mp.TurnLabel.color;
-                    Check(c1.r > 0.999f && c1.g > 0.999f && c1.b > 0.999f
-                       && c2.r > 0.999f && c2.g > 0.999f && c2.b > 0.999f,
-                          $"★ 换牌那两行的颜色 = **原版纯白**（`m_fontColor32 = 0xFFFFFFFF`）—— 实测"
-                        + $" 提示行 ({c1.r:F3},{c1.g:F3},{c1.b:F3}) · 先后手行 ({c2.r:F3},{c2.g:F3},{c2.b:F3})"
-                        + "（原来两行都是暖色 (1,0.94,0.82)，无出处）");
+                    var wantPrompt = new Color(0.9960785f, 0.5960785f, 0.1176471f, 1f);
+                    Check(Mathf.Abs(c1.r - wantPrompt.r) < 0.01f && Mathf.Abs(c1.g - wantPrompt.g) < 0.01f
+                          && Mathf.Abs(c1.b - wantPrompt.b) < 0.01f,
+                          $"★ 换牌提示行 = **原版 `Pragati-Regular Orange` 那个橙 `#FE981E`** —— 实测"
+                        + $" ({c1.r:F3},{c1.g:F3},{c1.b:F3})，期望 ({wantPrompt.r:F3},{wantPrompt.g:F3},{wantPrompt.b:F3})"
+                        + "（⛔ 别照 `m_fontColor32` 改回纯白 —— 那只是顶点色，乘在材质 `_FaceColor` 上）");
+                    Check(c2.r > 0.999f && c2.g > 0.999f && c2.b > 0.999f,
+                          $"★ 先后手行 = **纯白**（原版那颗挂的是 `Pragati-Regular Atlas Material`）—— 实测"
+                        + $" ({c2.r:F3},{c2.g:F3},{c2.b:F3})"
+                        + "（⚠️ 它与提示行**不是同一个颜色**，两行一并断「都白」是旧口径，已作废）");
                 }
                 // 🔴 **2026-09-29 新加**：这一行**照原版 rect 摆**（原来是我们自己放在其下方 21.5 px 处）。
                 //   判据 = `bundle_scenes_scenes_battlearena1/RectTransform/RectTransform_3403.json`：
@@ -21914,7 +21924,7 @@ public static class BattleScene
     {
         var wd = CardData.Simple("BoardStatProbe", 3, 4, 5);
         wd.melee = 3; wd.ranged = 2; wd.armor = 1; wd.health = 5; wd.isUnit = true;
-        wd.artId = "UM_Heavy_Intercessor";
+        wd.artId = "UM78";
         var place = new Vector3(-1.5f, 0.86f, -0.5f);
 
         // ── ① 底光在不在本卡的队列段里 ──────────────────────────────────────────

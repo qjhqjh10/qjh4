@@ -253,8 +253,8 @@ def build_card_resolver(pool):
 #    ⛔ `Bladeguard Lieutenant` **故意不在这张表里**：`card_stats.json` 里有、我们池里**没有** ⇒ 那是**池缺卡**，
 #       另开一件查（硬塞一张相近的卡 = 静默错一张，项目红线）。
 OCR_NAME_FIX = {
-    "Gauss Warrior (tutorial)": "SAU10",
-    "Tesla Immortal": "SAU12",
+    "Gauss Warrior (tutorial)": "SAU_Gauss_Reaper_Warrior",
+    "Tesla Immortal": "SAU_Tesla_Carbine_Immortal",
 }
 
 

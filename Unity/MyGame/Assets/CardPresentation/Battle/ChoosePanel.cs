@@ -141,7 +141,7 @@ namespace CardPresentation
         ///    因为原版 `isEnviromental` 到底改了哪些视觉/文案**查不到**（那个方法体没有反编译产物）。
         /// `uniqueId` = 原版 `SetUpTitleText(string uniqueId)` 的入参：**卡定义 id**（`RawCardScript.uniqueId`
         /// 是 `string`、偏移 +0x38，`dump.cs:18813`；我们的 `CardDef.Id` 与原版同一 id 空间 —— 旁证
-        /// `资料/全量反编译复核_靠推断的清单.md` §一 第 9 条：原版预组卡资产里逐字写着 `"AM3"`）。
+        /// `资料/全量反编译复核_靠推断的清单.md` §一 第 9 条：原版预组卡资产里逐字写着 `"AM1"`）。
         /// 三处调用点：进攻卡传 `"offensive"` · 防御卡传 `"defensive"` · 选牌/选效果传**那张正在结算的卡**的 id。</summary>
         public void Open(IReadOnlyList<CardView> cards, string title = null, string uniqueId = null)
         {

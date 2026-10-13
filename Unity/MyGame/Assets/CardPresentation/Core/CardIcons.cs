@@ -3,7 +3,7 @@
 // **它干什么**：把效果文字里的**记号**换成 TMP 的行内 sprite 标签。
 //
 //     "Give +3 [Attack], +3 [Ranged] or +3 Health to a friendly troop"   ← `DA44` 的**真** desc（**现读**）
-//       ↓ Rewrite("DA44", "desc", …)
+//       ↓ Rewrite("DA39", "desc", …)
 //     "Give +3 <link=melee><sprite name=\"Melee\"></link>, +3 <link=ranged><sprite name=\"Ranged\"></link> or +3 Health to a friendly troop"
 //     （方括号那一支是「整串换掉」⇒ 记号不再出现；`<link>` **只包一层**、判据见 `Rewrite` 里那条 2026-10-20 的注释）
 //

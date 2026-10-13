@@ -18,7 +18,7 @@
     "armyOrder": 10,
     "gameMode": 0,
     "difficulty": 10,
-    "heroId": "UM3",
+    "heroId": "UM47",
     "heroNote": "名字命中",
     "cardback": "Cardback_UM_Campaign_Free",
     "cardbackFrom": "column",
@@ -33,7 +33,17 @@
      "UM9",
      "UM9",
      "UM1",
-     "UM1"
+     "UM1",
+     "UM19",
+     "UM19",
+     "UM19",
+     "UM19",
+     "UM22",
+     "UM22",
+     "UM22",
+     "UM26",
+     "UM26",
+     "UM26"
     ],
     "complete": false,
     "missing": [
@@ -43,16 +53,13 @@
      "711ec03391d6f46a3a07de5ffb409d6b x1 (miss-unknown)",
      "eb815e1e93912d24394c7fca6d3558f4 x1 (miss-unknown)",
      "d0ac7c259308ab540aabb5123d0c1633 x2 (miss-unknown)",
-     "77fd626140a8c164fbb708a46956898d x6 (miss-unknown)",
-     "UM19 x4 (miss-unknown)",
-     "UM22 x3 (miss-unknown)",
-     "UM26 x3 (miss-unknown)"
+     "77fd626140a8c164fbb708a46956898d x6 (miss-unknown)"
     ],
     "problems": [
-     "over2:UM9 x5"
+     "over2:UM9 x5;UM19 x4;UM22 x3;UM26 x3"
     ],
     "overLegendary": [
-     "UM1 x2 (Marneus Calgar)"
+     "UM26 x3 (Epistolary Librarian)"
     ],
     "so": "Ultramarines_Deck0_Tutorial1_Uriel"
    },
@@ -64,7 +71,7 @@
     "armyOrder": 10,
     "gameMode": 0,
     "difficulty": 10,
-    "heroId": "UM1",
+    "heroId": "UM46",
     "heroNote": "名字命中",
     "cardback": "Cardback_UM_Campaign_Free",
     "cardbackFrom": "column",
@@ -72,15 +79,44 @@
     "defensiveId": "",
     "defensiveName": "",
     "defensiveNameZh": "",
-    "cardIds": [],
+    "cardIds": [
+     "UM26",
+     "UM26",
+     "UM26",
+     "UM26",
+     "UM26",
+     "UM26",
+     "UM26",
+     "UM26",
+     "UM26",
+     "UM26",
+     "UM26",
+     "UM26",
+     "UM26",
+     "UM26",
+     "UM26",
+     "UM26",
+     "UM26",
+     "UM26",
+     "UM26",
+     "UM26",
+     "UM26",
+     "UM26",
+     "UM26",
+     "UM26",
+     "UM26"
+    ],
     "complete": false,
     "missing": [
      "d0ac7c259308ab540aabb5123d0c1633 x2 (miss-unknown)",
-     "eb815e1e93912d24394c7fca6d3558f4 x3 (miss-unknown)",
-     "UM26 x25 (miss-unknown)"
+     "eb815e1e93912d24394c7fca6d3558f4 x3 (miss-unknown)"
     ],
-    "problems": [],
-    "overLegendary": [],
+    "problems": [
+     "over2:UM26 x25"
+    ],
+    "overLegendary": [
+     "UM26 x25 (Epistolary Librarian)"
+    ],
     "so": "Ultramarines_Deck0_Tutorial1_Marneus"
    }
   },
@@ -94,8 +130,8 @@
     "armyOrder": 20,
     "gameMode": 0,
     "difficulty": 10,
-    "heroId": "GOF3",
-    "heroNote": "疑似(子串)",
+    "heroId": "GOF28",
+    "heroNote": "id命中",
     "cardback": "Cardback_GOF_Campaign_Premium",
     "cardbackFrom": "column",
     "cardbackOrig": "Cardback_GOF_Campaign_Premium",
@@ -136,7 +172,7 @@
      "over2:GOF1 x3;GOF9 x3;GOF32 x3;GOF4 x3;GOF16 x3"
     ],
     "overLegendary": [
-     "GOF32 x3 (Ardshell Gurk)"
+     "GOF21 x2 (Mekboy Gazmek)"
     ],
     "so": "Orks_Deck0_Tutorial2_Ghazghkull"
    },
@@ -148,8 +184,8 @@
     "armyOrder": 10,
     "gameMode": 0,
     "difficulty": 10,
-    "heroId": "UM3",
-    "heroNote": "名字命中",
+    "heroId": "UM47",
+    "heroNote": "id命中",
     "cardback": "Cardback_UM_Campaign_Free",
     "cardbackFrom": "column",
     "cardbackOrig": "Cardback_UM_Campaign_Free",
@@ -158,27 +194,27 @@
     "defensiveNameZh": "",
     "cardIds": [
      "UM34",
+     "UM33",
+     "UM33",
      "UM2",
      "UM7",
      "UM7",
      "UM10",
+     "UM15",
      "UM17",
+     "UM19",
+     "UM20",
      "UM35",
+     "UM38",
      "UM41"
     ],
     "complete": false,
     "missing": [
      "0fca8843c85ec1148b3bb77cc834a010 x1 (miss-unknown)",
-     "eb815e1e93912d24394c7fca6d3558f4 x1 (miss-unknown)",
-     "UM33 x2 (miss-unknown)",
-     "eb815e1e93912d24394c7fca6d3558f4 x1 (miss-unknown)",
+     "eb815e1e93912d24394c7fca6d3558f4 x2 (miss-unknown)",
      "0fca8843c85ec1148b3bb77cc834a010 x1 (miss-unknown)",
      "eb815e1e93912d24394c7fca6d3558f4 x1 (miss-unknown)",
-     "0fca8843c85ec1148b3bb77cc834a010 x1 (miss-unknown)",
-     "UM15 x1 (miss-unknown)",
-     "UM19 x1 (miss-unknown)",
-     "UM20 x1 (miss-unknown)",
-     "UM38 x1 (miss-unknown)"
+     "0fca8843c85ec1148b3bb77cc834a010 x1 (miss-unknown)"
     ],
     "problems": [],
     "overLegendary": [],
@@ -195,7 +231,7 @@
     "armyOrder": 40,
     "gameMode": 0,
     "difficulty": 10,
-    "heroId": "SAU3",
+    "heroId": "SAU36",
     "heroNote": "疑似(近似)",
     "cardback": "Cardback_SAU_Campaign_Free",
     "cardbackFrom": "column",
@@ -207,7 +243,7 @@
      "SAU26",
      "SAU41",
      "SAU11",
-     "SAU38",
+     "SAU_Extermination_Protocols",
      "SAU19",
      "SAU15",
      "SAU23",
@@ -225,7 +261,7 @@
      "SAU40",
      "SAU22",
      "SAU28",
-     "SAU38",
+     "SAU_Extermination_Protocols",
      "SAU40",
      "SAU44",
      "SAU44",
@@ -239,7 +275,7 @@
     ],
     "problems": [],
     "overLegendary": [
-     "SAU38 x2 (Indomitable Will)"
+     "SAU53 x2 (Undying Legions)"
     ],
     "so": "Sautekh_Deck0_Tutorial3_Zahndrekh"
    },
@@ -251,8 +287,8 @@
     "armyOrder": 40,
     "gameMode": 0,
     "difficulty": 10,
-    "heroId": "SAU5",
-    "heroNote": "疑似(子串)",
+    "heroId": "SAU37",
+    "heroNote": "id命中",
     "cardback": "Cardback_SAU_Warlord_Orikan",
     "cardbackFrom": "column",
     "cardbackOrig": "Cardback_SAU_Warlord_Orikan",
@@ -261,7 +297,7 @@
     "defensiveNameZh": "",
     "cardIds": [
      "SAU3",
-     "SAU38",
+     "SAU_Extermination_Protocols",
      "SAU21",
      "SAU16",
      "SAU14",
@@ -273,11 +309,7 @@
      "SAU41",
      "SAU53",
      "SAU31",
-     "SAU8",
      "SAU5",
-     "SAU6",
-     "SAU6",
-     "SAU8",
      "SAU12",
      "SAU16",
      "SAU18",
@@ -291,11 +323,15 @@
     ],
     "complete": false,
     "missing": [
-     "847acecf682cb0748bc4445b52125cb4 x2 (miss-unknown)"
+     "847acecf682cb0748bc4445b52125cb4 x1 (miss-unknown)",
+     "SAU8 x1 (miss-known)",
+     "847acecf682cb0748bc4445b52125cb4 x1 (miss-unknown)",
+     "SAU6 x2 (miss-known)",
+     "SAU8 x1 (miss-known)"
     ],
     "problems": [],
     "overLegendary": [
-     "SAU42 x2 (Vargard Obyron)"
+     "SAU20 x2 (Chronomancer)"
     ],
     "so": "Sautekh_Deck0_Tutorial3_Orikan"
    }
@@ -310,7 +346,7 @@
     "armyOrder": 50,
     "gameMode": 0,
     "difficulty": 10,
-    "heroId": "BL5",
+    "heroId": "BL_Sylar_Hexcorn",
     "heroNote": "疑似(子串)",
     "cardback": "Cardback_BL_Premium_Dark Hereticus",
     "cardbackFrom": "column",
@@ -354,10 +390,7 @@
      "319bfeba880818c4690067f2596cd6f9 x1 (miss-unknown)"
     ],
     "problems": [],
-    "overLegendary": [
-     "BL2 x2 (Chosen of the Four)",
-     "BL1 x2 (Abaddon the Despoiler)"
-    ],
+    "overLegendary": [],
     "so": "BlackLegion_Deck0_Tutorial4_Sylar"
    },
    "ai": {
@@ -368,8 +401,8 @@
     "armyOrder": 10,
     "gameMode": 0,
     "difficulty": 10,
-    "heroId": "UM5",
-    "heroNote": "名字命中",
+    "heroId": "UM48",
+    "heroNote": "id命中",
     "cardback": "Cardback_UM_Warlord_Tigurius",
     "cardbackFrom": "column",
     "cardbackOrig": "Cardback_UM_Warlord_Tigurius",
@@ -377,39 +410,39 @@
     "defensiveName": "",
     "defensiveNameZh": "",
     "cardIds": [
+     "UM6",
      "UM4",
      "UM5",
+     "UM8",
+     "UM19",
      "UM9",
+     "UM25",
      "UM16",
      "UM7",
      "UM2",
+     "UM15",
      "UM1",
      "UM9",
+     "UM6",
      "UM4",
      "UM5",
+     "UM19",
+     "UM25",
      "UM34",
      "UM32",
      "UM34",
-     "UM16"
+     "UM15",
+     "UM16",
+     "UM21"
     ],
     "complete": false,
     "missing": [
-     "UM6 x1 (miss-unknown)",
      "f8ba395632901b84397bd14282472c35 x1 (miss-unknown)",
      "d2b16a347052dc541a07c40cd9b40b78 x1 (miss-unknown)",
      "5b427f1ad98e8534f8590dad5bd560af x1 (miss-unknown)",
-     "UM8 x1 (miss-unknown)",
-     "UM19 x1 (miss-unknown)",
-     "UM25 x1 (miss-unknown)",
      "8204f59a011f94d5c9ea1bed18ae9c57 x1 (miss-unknown)",
-     "UM15 x1 (miss-unknown)",
-     "UM6 x1 (miss-unknown)",
      "f8ba395632901b84397bd14282472c35 x1 (miss-unknown)",
-     "d2b16a347052dc541a07c40cd9b40b78 x1 (miss-unknown)",
-     "UM19 x1 (miss-unknown)",
-     "UM25 x1 (miss-unknown)",
-     "UM15 x1 (miss-unknown)",
-     "UM21 x1 (miss-unknown)"
+     "d2b16a347052dc541a07c40cd9b40b78 x1 (miss-unknown)"
     ],
     "problems": [],
     "overLegendary": [],
@@ -426,8 +459,8 @@
     "armyOrder": 30,
     "gameMode": 0,
     "difficulty": 10,
-    "heroId": "ASH5",
-    "heroNote": "SO尾段裁定（SO 资产名尾段 Ghaelyn ⇒ ASH5 Medreyal Ghaelyn（2026-10-17 裁定））",
+    "heroId": "ASH3",
+    "heroNote": "SO尾段裁定（SO 资产名尾段 Ghaelyn ⇒ ASH5 Medreyal Ghaelyn（2026-10-13 id 换真值：原写 ASH5，现为 ASH3））",
     "cardback": "Cardback_ASH_Warlord_Ghaelyn",
     "cardbackFrom": "column",
     "cardbackOrig": "Cardback_ASH_Warlord_Ghaelyn",
@@ -470,9 +503,7 @@
      "7a02359776e89f243b8cf41642dc44c9 x1 (miss-unknown)"
     ],
     "problems": [],
-    "overLegendary": [
-     "ASH43 x2 (Wrath of Khaine)"
-    ],
+    "overLegendary": [],
     "so": "Aeldari_Deck0_Tutorial5_Ghaelyn"
    },
    "ai": {
@@ -483,8 +514,8 @@
     "armyOrder": 40,
     "gameMode": 0,
     "difficulty": 10,
-    "heroId": "SAU1",
-    "heroNote": "疑似(子串)",
+    "heroId": "SAU35",
+    "heroNote": "id命中",
     "cardback": "Cardback_SAU_Campaign_Premium",
     "cardbackFrom": "column",
     "cardbackOrig": "Cardback_SAU_Campaign_Premium",
@@ -504,7 +535,6 @@
      "SAU11",
      "SAU20",
      "SAU16",
-     "SAU4",
      "SAU26",
      "SAU26",
      "SAU16",
@@ -513,8 +543,6 @@
      "SAU11",
      "SAU40",
      "SAU14",
-     "SAU8",
-     "SAU8",
      "SAU9",
      "SAU9",
      "SAU22",
@@ -523,10 +551,15 @@
      "SAU5",
      "SAU32"
     ],
-    "complete": true,
-    "missing": [],
+    "complete": false,
+    "missing": [
+     "SAU4 x1 (miss-known)",
+     "SAU8 x2 (miss-known)"
+    ],
     "problems": [],
-    "overLegendary": [],
+    "overLegendary": [
+     "SAU9 x2 (Ophydian Destroyer)"
+    ],
     "so": "Sautekh_Deck0_Tutorial5_Imotekh"
    }
   },
@@ -540,8 +573,8 @@
     "armyOrder": 60,
     "gameMode": 0,
     "difficulty": 10,
-    "heroId": "TL5",
-    "heroNote": "名字命中",
+    "heroId": "TL34",
+    "heroNote": "id命中",
     "cardback": "Cardback_TL_Warlord_Alien_Menace",
     "cardbackFrom": "column",
     "cardbackOrig": "Cardback_TL_Warlord_Alien_Menace",
@@ -583,9 +616,7 @@
     "complete": true,
     "missing": [],
     "problems": [],
-    "overLegendary": [
-     "TL53 x2 (Infinite Biomorphologies)"
-    ],
+    "overLegendary": [],
     "so": "Leviathan_Deck0_Tutorial6_Tervigon"
    },
    "ai": {
@@ -596,8 +627,8 @@
     "armyOrder": 10,
     "gameMode": 0,
     "difficulty": 10,
-    "heroId": "UM3",
-    "heroNote": "名字命中",
+    "heroId": "UM47",
+    "heroNote": "id命中",
     "cardback": "Cardback_UM_Campaign_Free",
     "cardbackFrom": "column",
     "cardbackOrig": "Cardback_UM_Campaign_Free",
@@ -606,37 +637,42 @@
     "defensiveNameZh": "",
     "cardIds": [
      "UM23",
+     "UM33",
      "UM7",
+     "UM33",
      "UM2",
      "UM7",
      "UM10",
+     "UM15",
+     "UM19",
+     "UM20",
      "UM35",
+     "UM38",
      "UM41",
+     "UM6",
      "UM3",
+     "UM19",
      "UM3",
      "UM10",
+     "UM19",
      "UM5",
+     "UM36",
      "UM5",
+     "UM36",
+     "UM15",
      "UM11",
      "UM35",
-     "UM11"
+     "UM11",
+     "UM8",
+     "UM15"
     ],
     "complete": false,
     "missing": [
-     "UM33 x2 (miss-unknown)",
-     "UM15 x1 (miss-unknown)",
-     "d2b16a347052dc541a07c40cd9b40b78 x1 (miss-unknown)",
-     "UM19 x1 (miss-unknown)",
-     "UM20 x1 (miss-unknown)",
-     "UM38 x1 (miss-unknown)",
-     "UM6 x1 (miss-unknown)",
-     "UM19 x2 (miss-unknown)",
-     "UM36 x2 (miss-unknown)",
-     "UM15 x1 (miss-unknown)",
-     "UM8 x1 (miss-unknown)",
-     "UM15 x1 (miss-unknown)"
+     "d2b16a347052dc541a07c40cd9b40b78 x1 (miss-unknown)"
     ],
-    "problems": [],
+    "problems": [
+     "over2:UM15 x3;UM19 x3"
+    ],
     "overLegendary": [],
     "so": "Ultramarines_Deck0_Tutorial6_Uriel"
    }

@@ -2091,7 +2091,7 @@ public static partial class RuleEngineTest
             var fresh = CardDatabase.Load();               // ← 真入口：装载（索引该在构造之前建好）
             CheckTrue(fresh.Count >= 1000, $"（前提）重新装载拿到 {fresh.Count} 张");
             CardDef aod = null;
-            foreach (var c in fresh) if (c != null && c.Id == "UM_Angels_of_Death") { aod = c; break; }
+            foreach (var c in fresh) if (c != null && c.Id == "UM64") { aod = c; break; }
             CheckTrue(aod != null, "（前提）新装的那一份里有 `UM_Angels_of_Death`");
             if (aod != null)
             {
@@ -8451,15 +8451,15 @@ public static partial class RuleEngineTest
         //    ⇒ 同名跨阵营的**自造 id** 那条路现在没有样本了；以后再出现自造 id 要另立断言。
         var pairs = new[]
         {
-            new[] { "Terminator Champion", "BlackLegion",     "EC33" },
-            new[] { "Maulerfiend",         "BlackLegion",     "EC39" },
+            new[] { "Terminator Champion", "BlackLegion",     "EC_Terminator_Champion" },
+            new[] { "Maulerfiend",         "BlackLegion",     "EC_Maulerfiend" },
             // ⚠️ **2026-10-17 删掉了一行**：原来是第 4 组
-            //    `new[] { "Bladeguard Veteran", "DarkAngels", "UM34" }` —— 它量的**不是**同名跨阵营了：
+            //    `new[] { "Bladeguard Veteran", "DarkAngels", "UM23" }` —— 它量的**不是**同名跨阵营了：
             //    `DA26` 仍叫 `Bladeguard Veteran`，而 `UM34` 已撤回成 `Bladeguard Lieutenant`
             //    （判据见 `资料/普查产出_1017/W_B16_教程数据缺口.md` §①）。三条断言虽然还绿
             //    （找得到 / id 不同 / 按 id 反查），但**前提没了** ⇒ 整组删掉，别留着凑数
             //    （留着的话，下一个人会以为「UM34 和它同名」）。撤回后同名组 4 → 3，就是下面三行。
-            new[] { "Terminator",          "EmperorsChildren","UM82" },
+            new[] { "Terminator",          "EmperorsChildren","UM_Terminator" },
         };
         foreach (var p in pairs)
         {
@@ -18964,7 +18964,7 @@ public static partial class RuleEngineTest
         // ① 前提：那一族**正好 4 张**，id 就是判据里写的那四个
         var contracts = CreatePool.DarkPactContracts(pool, null);
         Check(contracts.Count, 4, "★ `subtype = Dark Pact` 的卡正好 **4 张**（判据点名的 BL16/18/20/22）");
-        var wantIds = new[] { "BL16", "BL18", "BL20", "BL22" };
+        var wantIds = new[] { "BL_Dark_Pact_of_Fate", "BL_Dark_Pact_of_Blood", "BL_Dark_Pact_of_Excess", "BL_Dark_Pact_of_Resilience" };
         foreach (var id in wantIds)
         {
             bool hit = false;
@@ -18976,7 +18976,7 @@ public static partial class RuleEngineTest
         //    ⇒ 四张契约**全列上**。⚠️ 这一张正是改动**之前**一张都跟不出来的那种
         //    （`Dark Pact` 不是卡名 ⇒ 「点名」那一支看不见它）。
         CardDef cs = null;
-        foreach (var c in pool) if (c.Id == "BL13") cs = c;
+        foreach (var c in pool) if (c.Id == "BL4") cs = c;
         CheckTrue(cs != null, "（前提）卡池里有 `BL13 Chaos Sergeant`");
         if (cs != null)
         {
@@ -18988,7 +18988,7 @@ public static partial class RuleEngineTest
 
         // ③ **主卡本身就是契约** —— `Dark Pact of Fate`：列出另外三张、**不含自己**
         CardDef fate = null;
-        foreach (var c in pool) if (c.Id == "BL16") fate = c;
+        foreach (var c in pool) if (c.Id == "BL_Dark_Pact_of_Fate") fate = c;
         CheckTrue(fate != null, "（前提）卡池里有 `BL16 Dark Pact of Fate`");
         if (fate != null)
         {
@@ -19003,7 +19003,7 @@ public static partial class RuleEngineTest
         // ④ **去重**：卡面写全名的那种（`Khorne Berzerker` → `Dark Pact of Blood`）—— ① 与 ③ 会撞上
         //    同一张 ⇒ 合起来仍是 **4 张**，不许出现两张 `Dark Pact of Blood`。
         CardDef kb = null;
-        foreach (var c in pool) if (c.Id == "BL17") kb = c;
+        foreach (var c in pool) if (c.Id == "BL7") kb = c;
         if (kb != null)
         {
             var rel = CardPresentation.RelatedCards.Find(kb, 8);
@@ -19128,7 +19128,7 @@ public static partial class RuleEngineTest
                 CheckTrue(got.EphemeralMarked,
                           "它和普通天赋一样是**临时卡**（回合结束没用掉就移出游戏）");
                 // 池子实算 3 张（BL6/BL7/BL8）—— 抽哪张由种子定，**这里只钉「抽到的是池内的」**
-                CheckTrue(got.Card.Id == "BL6" || got.Card.Id == "BL7" || got.Card.Id == "BL8",
+                CheckTrue(got.Card.Id == "BL_Diabolic_Strength" || got.Card.Id == "BL_Infernal_Gaze" || got.Card.Id == "BL_Unhallowed_Gifts",
                           $"抽到的是池子那 3 张之一（实得 `{got.Card.Id}`）");
             }
 
@@ -27790,7 +27790,7 @@ public static partial class RuleEngineTest
         CheckTrue(half >= 1, $"（基数）实测面「半懂」= {half} 条（改前引擎侧一条痕迹都没有）");
 
         // ---- ④ 两个判据在半懂那一档必须分得开 ----
-        var ec8 = pool.Find(c => c.Id == "EC8");
+        var ec8 = pool.Find(c => c.Id == "EC33");
         if (ec8 == null) CheckTrue(false, "（前提）池里有 `EC8 Alluress`");
         else
         {
@@ -27926,8 +27926,8 @@ public static partial class RuleEngineTest
     {
         var pool = CardDatabase.Load();
         CheckTrue(pool.Count > 1000, $"（前提）真卡池装载成功（{pool.Count} 张）");
-        A1455Resolve(pool, "shock trooper", "AM10", "Shock Trooper");
-        A1455Resolve(pool, "sister novitiate", "SOR7", "Sister Novitiate");
+        A1455Resolve(pool, "shock trooper", "AM5", "Shock Trooper");
+        A1455Resolve(pool, "sister novitiate", "SOR4", "Sister Novitiate");
 
         // 灭自证：**空池**上照旧筛不到 —— 上一批那条读数的真实来源就是它
         var empty = CreatePool.Resolve(new List<CardDef>(), "shock trooper", "AstraMilitarum",
@@ -27937,7 +27937,7 @@ public static partial class RuleEngineTest
                 + "—— 上一批「部署不了」那条读数就是**空池夹具**的产物，不是缺陷");
 
         // ---- ③ 端到端：`AM56 Cadia Stands` 打出去，自己回合开始真的多一个 Shock Trooper ----
-        var am56 = pool.Find(c => c.Id == "AM56");
+        var am56 = pool.Find(c => c.Id == "AM51");
         if (am56 == null) { CheckTrue(false, "（前提）池里有 `AM56 Cadia Stands`"); return; }
         var d0 = new List<CardDef> { HeroOf("A1455W0", "AstraMilitarum", 2, 30) };
         for (int i = 0; i < 20; i++) d0.Add(Unit("A1455FillA" + i, 1, 0, 1));

@@ -1477,13 +1477,13 @@ namespace CardPresentation
 
         public static readonly AltArtCard[] AltArtCards =
         {
-            new AltArtCard("AM5",                 "AA_HB"),
-            new AltArtCard("BL1",                 "AA_HB"),
-            new AltArtCard("SAU1",                "AA_HB"),
-            new AltArtCard("GOF3",                "AA_HB"),
+            new AltArtCard("AM2",                 "AA_HB"),
+            new AltArtCard("BL34",                 "AA_HB"),
+            new AltArtCard("SAU35",                "AA_HB"),
+            new AltArtCard("GOF28",                "AA_HB"),
             new AltArtCard("SW1",                 "AA_HB"),
-            new AltArtCard("UM_Lieutenant_Titus", "AA_HB"),
-            new AltArtCard("DA3",                 "v2"),
+            new AltArtCard("UM76", "AA_HB"),
+            new AltArtCard("DA_Azrael",                 "v2"),
         };
 
         /// <summary>风格顺序（**表里第一次出现的次序**，稳定）。</summary>

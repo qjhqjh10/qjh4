@@ -1575,16 +1575,18 @@ public static class MainMenuScene
         CheckTrue(modes != null, "`GameModes` 容器建了");
         var content = FindChild(modes, "Content");
         CheckTrue(content != null, "`Viewport/Content` 建了（原版出厂 0 子，靠 liveop 数据灌）");
-        // 🔴 **2026-10-11（`A1522⑤` 连带 · 铁律 5）就地改期望值**：`Shell/MainMenuRuntime.cs` 的
-        //   `BuildGameModes` 把 `Practice` / `Tutorial` 两个 `Put` 的**次序**改成了
-        //   「**`Practice` 先（col0/row0 = 上）**」（判据 = 用户参考图 `warpforge参考图/主界面参考图.png`
-        //   右缘那一列「**练习在上、教学在下**」，那条判据本来就写在 `BuildGameModes` 上面那段注释里）。
-        //   ⇒ `Tutorial` 现在落 **col0 / row1**，行顶 = `182.8 + 414.4 + 20` = **617.2**。
-        //   ⚠️ 本条与下面 `CheckCard(… Practice …)` 那条是**一对**：改一条必须改另一条
+        // 🔴 **2026-10-13（铁律 5）就地改期望值**：`Shell/MainMenuRuntime.cs` 的 `BuildGameModes`
+        //   **按用户原版实拍重排了五张卡的 `Put` 次序**（小冲突 · 排位 · 选秀 · 练习 · 教学）⇒
+        //   两张 `1×1` 由 col0 **挪到最后一列 col3**（上 = `Practice` row0 · 下 = `Tutorial` row1），
+        //   三张 `1×2` 落到 **col0/col1/col2**。
+        //   判据 = 用户原版实拍 `C:/Users/qjh36/Desktop/warpforge参考图/主界面参考图.png`（1503×883）逐列放大核过
+        //   （放大件 `d:/4/_tmp_view/refcrop/`，⚠️ 该目录在 `.gitignore` 里、是临时件）—— 详见 `BuildGameModes` 那段注释。
+        //   ⇒ `Tutorial` = **col3 / row1**（x = `205 + 3×555` = **1870**），行顶 = `182.8 + 414.4 + 20` = **617.2**。
+        //   ⚠️ 本条与下面 §「战斗入口」那几条 `CheckCard` 是**一对**：改一条必须改另一条
         //   （上一轮 `1x1 → 1x2` 改名只改一半、第一趟 7 条假红，就是这一族）。
-        CheckCard(menu, "Base Game Mode Container 1x1 - Tutorial", 205f, 535f, 414.4f,
-                  "Tutorial（1x1 · col0/**row1** —— `Practice` 下面那一格）", 617.2f);
-        CheckCard(menu, "Draft Game Mode Container 1x2", 760f, 535f, 848.8f, "Draft（1x2 · col1 独占整列）", 182.8f);
+        CheckCard(menu, "Base Game Mode Container 1x1 - Tutorial", 205f + 3 * 555f, 535f, 414.4f,
+                  "Tutorial（1x1 · **col3**/row1 —— `Practice` 下面那一格）", 617.2f);
+        CheckCard(menu, "Draft Game Mode Container 1x2", 205f + 2 * 555f, 535f, 848.8f, "Draft（1x2 · **col2** 独占整列）", 182.8f);
 
         // ============================================================ 🆕 2026-10-17（A789 收口 · 用户拍板「按建议执行」）
         // 模式卡的**命中区** —— 「卡建出来了」≠「点得动」。
@@ -1721,21 +1723,20 @@ public static class MainMenuScene
         //    🔴 原版这张「模式 → 卡图 → 窗」的映射在 **liveop 服务端**（本地查不到、正本也写着「别自己编」）
         //    ⇒ **这三张 + 它们点开哪扇窗，都是我们定的**（逐条记在 `资料/阶段二_战斗入口_原版规格.md` §〇/§五）。
         Section("战斗入口：三张模式卡（**入口是我们定的**，见 `资料/阶段二_战斗入口_原版规格.md`）");
-        // 🔴 **2026-10-11（界面复刻）**：下面这几条的**列号改了** —— 两张 1×1 现在**叠在同一列**（col0）：
-        //   **`Practice` 在上（row0）· `Tutorial` 在下（row1）**，`Draft` = col1，`Skirmish` / `Ranked` = col2 / col3。
-        //   判据 = 参考图右缘那一列（两张 1×1 上下叠着、中间留 20px 缝）；详见 `BuildGameModes` 那段注释。
+        // 🔴 **2026-10-13（铁律 5）就地改期望值 —— 五张卡的列位按用户原版实拍重排后的值。**
+        //   判据 = 用户原版实拍 `C:/Users/qjh36/Desktop/warpforge参考图/主界面参考图.png`（1503×883）逐列放大核过；
+        //   详见 `Shell/MainMenuRuntime.cs` 的 `BuildGameModes` 那段注释。**新列位**：
+        //     **col0 = Skirmish · col1 = Ranked · col2 = Draft · col3 = Practice(上)/Tutorial(下)**。
         //   ⚠️ 期望值里 `182.8 / 617.2` 是**抄** `MainMenuRuntime.CardRow0Top`（`182.8`）与其 +`414.4+20`；
         //   那个常量是 `private`、宿主读不到 ⇒ 抄一份并把算式写在这里（改常量时这里会红，是**故意的**）。
-        // 🔴 **2026-10-11（A1521⑦）就地改期望值**（改前三条红的是**断言过期**、不是实现错）：
-        //   排布从「手写死列/行号」改成 **first-fit 不留洞** ⇒ 两张 1×1 自动叠进 col0（谁先 `Put` 谁在 row0）、
-        //   Skirmish / Ranked 的尺寸档按原版 prefab 名改成 **1×2**（`Skirmish Ranked Game Mode Container 1x2`）。
-        //   🔴 **2026-10-11（`A1522⑤` 连带 · 铁律 5）再改一次**：实现把两个 `Put` 的**次序**换成了
-        //   「`Practice` 先」⇒ 落在 row0 的**由 `Tutorial` 变成 `Practice`** ⇒ 两条期望值**互换**：
-        //   **`Practice` = 182.8（row0）· `Tutorial` = 617.2（row1）**（`Tutorial` 那条在上面 §五 E 那一节）。
-        CheckCard(menu, "Base Game Mode Container 1x1 - Practice", 205f, 535f, 414.4f,
-                  "Practice（1x1 · col0/**row0** —— 与 `Tutorial` 同列、它在**上**）", 182.8f);
-        CheckCard(menu, "Base Game Mode Container 1x2 - Skirmish", 205f + 2 * 555f, 535f, 848.8f, "Skirmish（1x2 · col2 · 独占整列）", 182.8f);
-        CheckCard(menu, "Base Game Mode Container 1x2 - Ranked", 205f + 3 * 555f, 535f, 848.8f, "Ranked（1x2 · col3 · 独占整列）", 182.8f);
+        // 🔴 **2026-10-11（A1521⑦）**（历史，仍是本节的另一半判据）：排布从「手写死列/行号」改成
+        //   **first-fit 不留洞**；Skirmish / Ranked / Draft 的尺寸档按原版 prefab 名改成 **1×2**。
+        //   🔴 **2026-10-11（`A1522⑤`）那一版只把 `Practice`/`Tutorial` 的上下换了**，三张 `1×2` 的列位
+        //   仍与实拍不符 ⇒ **2026-10-13 整列重排**（上面那一段）；`Practice`/`Tutorial` 的**上下未变**。
+        CheckCard(menu, "Base Game Mode Container 1x2 - Skirmish", 205f, 535f, 848.8f, "Skirmish（1x2 · **col0** · 独占整列）", 182.8f);
+        CheckCard(menu, "Base Game Mode Container 1x2 - Ranked", 205f + 1 * 555f, 535f, 848.8f, "Ranked（1x2 · **col1** · 独占整列）", 182.8f);
+        CheckCard(menu, "Base Game Mode Container 1x1 - Practice", 205f + 3 * 555f, 535f, 414.4f,
+                  "Practice（1x1 · **col3**/row0 —— 与 `Tutorial` 同列、它在**上**）", 182.8f);
 
         // ============================================================ 🔴 **2026-10-11（A1521⑦）· 正反成对**
         // **① 「零洞」**（结构）：按 `(col,row)` 扫一遍 —— **不许有「上半格有卡、下半格空着」的列**（反过来也不许）。
@@ -1799,7 +1800,7 @@ public static class MainMenuScene
             CheckTrue(!gmOut, "（前提）五张卡都落在第 0..3 列（列左 = 205 + 555c）—— 有卡跑到列外，下面几条就不必看了");
             int gmCols = 0; for (int c = 0; c < 4; c++) if (gmColSeen[c]) gmCols++;
             Check(gmCols, 4, "★ 模式卡用满 **4 列**"
-                           + "（`col0 = Practice(上)/Tutorial(下) · col1 = Draft · col2 = Skirmish · col3 = Ranked`）");
+                           + "（`col0 = Skirmish · col1 = Ranked · col2 = Draft · col3 = Practice(上)/Tutorial(下)`）");
             for (int c = 0; c < 4; c++)
             {
                 if (!gmColSeen[c]) continue;
@@ -1829,7 +1830,7 @@ public static class MainMenuScene
         //   ③ **反面也要断**（非排位卡的子树里**不许**有 `Rating`）⇒ 闸口改成无条件就红。
         Section("排位卡的段位印玺行（A1521⑧ · 判据见 S 的报告）");
         var rankCard = menu.Find("Base Game Mode Container 1x2 - Ranked");
-        CheckTrue(rankCard != null, "前提：`RANKED` 卡在（`Base Game Mode Container 1x2 - Ranked`）");
+        CheckTrue(rankCard != null, "前提：`排位` 卡在（`Base Game Mode Container 1x2 - Ranked`）");
         if (rankCard != null)
         {
             var rating = FindChild(rankCard, "Rating");
@@ -6419,7 +6420,7 @@ public static class MainMenuScene
                                       "**没配对时不注册**「切场景前那一口气」（单机那条 12 秒链行为一字不改）");
                             // 拿原版那张立绘的主人当例子：`UM3` = Uriel Ventris
                             //（原版 prefab 敌方那格填的就是 `UI_Deck_Warlord_Uriel Ventris`，正本 §6·2）
-                            so.ShowOpponent("UM3", "青剑湖");
+                            so.ShowOpponent("UM47", "青剑湖");
                             CheckTrue(ef != null && ef.gameObject.activeSelf, "配到人 ⇒ **对手那格翻成 `Found`**");
                             var nf2 = FindChild(en, "Not Found Container");
                             CheckTrue(nf2 != null && !nf2.gameObject.activeSelf,

@@ -342,19 +342,36 @@ namespace CardPresentation
             { "MainMenu/NavigationPanel/Friends",             new Entry("社交",     "SOCIAL") },      // 中文 = 用户实拍（表里没有）
 
             // ============================================================ 🆕 **2026-10-11（界面复刻·模式卡标题）**
-            // 🔴 **先说清这三条不是「原版词条」**：原版模式卡那颗 `Event Title` 的字是
+            // 🔴 **先说清这五条不是「原版词条」**：原版模式卡那颗 `Event Title` 的字是
             //   `LiveOpsAssetUtility.GetLabel(event)` 灌的（= **liveop 事件自己的 label**，服务端数据），
             //   本地**查不到**（`资料/主菜单_原版规格.md` §9·3）。⇒ 我们这五张卡的标题本来就是**自定的**。
-            // 中文列的出处 **只有一个**：**用户给的原版客户端实拍**
-            //   `C:/Users/qjh36/Desktop/warpforge参考图/主界面参考图.png` 上逐字读到的三个
-            //   （教学 / 练习 / 小冲突）。✅ **用户 2026-10-11 拍板**：「把那三个改成中文」。
-            // ⚠️ **另外两张（Draft / Ranked）参考图上没有** ⇒ ⛔ **不自己译**，调用点直接传英文原文
-            //   （`BuildModeCard(..., "DRAFT MODE"/"RANKED", ...)`），**故意不在这里留空条目**。
-            // 消费侧 = `Shell/MainMenuRuntime.cs` 的 `BuildGameModes` 三个调用点。
-            // ------------- E2 模式卡标题（三个有实拍出处的）------------
+            // 中文列按本仓既定优先级取（实拍 > `zh_CN.csv` 精确英文键 > 自译并如实标注）：
+            //   · **三个有实拍出处**：**用户给的原版客户端实拍**
+            //     `C:/Users/qjh36/Desktop/warpforge参考图/主界面参考图.png` 上逐字读到的三个
+            //     （教学 / 练习 / 小冲突）。✅ **用户 2026-10-11 拍板**：「把那三个改成中文」。
+            //   · **另两张（Draft / Ranked）实拍上读不到** ⇒ 退第二档、**精确英文键命中**
+            //     `d:/4/Unity/数据/本地化/i18n/zh_CN.csv`：**第 19 行 `Draft,~,选秀`** ·
+            //     **第 149 行 `Ranked,~,排位`** —— **不是我们自译的**。
+            // ⚠️ **2026-10-13 就地更正（铁律 5）**：这一节原来写「另外两张（Draft / Ranked）参考图上没有
+            //   ⇒ ⛔ **不自己译**，调用点直接传英文原文（`"DRAFT MODE"`/`"RANKED"`），**故意不在这里留空条目**」
+            //   —— **那个理由已经不成立**（用户 2026-10-13 明确要求「模式卡需要中文」，
+            //   且中文出处已按上面第二档查到）⇒ 那两条已补进本表，调用点改走 `Loc.T`。
+            // 消费侧 = `Shell/MainMenuRuntime.cs` 的 `BuildGameModes` 五个调用点。
+            // ------------- E2 模式卡标题（五张全走 `Loc.T`）------------
             { "MainMenu/GameModes/Tutorial",                  new Entry("教学",     "TUTORIAL") },    // 中文 = 参考图「教学」
             { "MainMenu/GameModes/Practice",                  new Entry("练习",     "PRACTICE") },    // 中文 = 参考图「练习」
             { "MainMenu/GameModes/Skirmish",                  new Entry("小冲突",   "SKIRMISH") },    // 中文 = 参考图「小冲突」
+            { "MainMenu/GameModes/Draft",                     new Entry("选秀",     "DRAFT MODE") },  // 中文 = zh_CN.csv:19（`Draft,~,选秀`）
+            { "MainMenu/GameModes/Ranked",                    new Entry("排位",     "RANKED") },      // 中文 = zh_CN.csv:149（`Ranked,~,排位`）
+            // 🆕 **2026-10-13（`A1755`）**：`选秀`那张卡点下去的那句提示。
+            // 🔴 **这一条【没有原版出处】**：原版 `Draft Game Mode Container 1x2` 点下去开哪扇窗由 **liveop 事件数据**给
+            //   （`资料/主菜单_原版规格.md` §9·3 本地 `?`），而本地既没有服务器也没有活动数据 ⇒ 照项目边界③
+            //   「**入口照做、点了如实说「暂无服务器」**」——**这句话本身是我们写的**。
+            //   原来调用点直接把英文串写死在代码里（`"Draft mode is not available offline."`）⇒ **中文档下玩家看到英文**
+            //   （用户 2026-10-13 点名「模式卡需要中文」的同一条线上）。⇒ 收进本表，两边都走 `Loc.T`。
+            //   EN = 我们原来那串（逐字保留，英文档行为不变）· ZH = **我们自译**（⛔ 不是原版词条）。
+            //   钮上那两个字走已有的 `MainMenu/General/OK`（中文「确定」）—— ⛔ 别在这里再立一条。
+            { "MainMenu/GameModes/DraftOffline",              new Entry("选秀模式在离线版里不可用。", "Draft mode is not available offline.") },
 
             // ============================================================ 🆕 **2026-10-19（第十七会话 · `A1498`）：
             //   收藏窗（`Collection Menu Variant`）左栏四颗页签的文案。**

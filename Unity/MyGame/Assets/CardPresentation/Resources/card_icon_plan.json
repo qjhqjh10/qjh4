@@ -3,7 +3,7 @@
  "note": "卡面图标计划（运行时那一份，由 工具/gen_icon_plan.py 与 数据/ 下那份一起写）。",
  "cards": [
   {
-   "id": "ASH_Autarch",
+   "id": "ASH83",
    "fields": [
     {
      "name": "desc",
@@ -48,7 +48,7 @@
    ]
   },
   {
-   "id": "ASH_Death_Spinner_Warp_Spider",
+   "id": "ASH77",
    "fields": [
     {
      "name": "desc",
@@ -103,7 +103,7 @@
    ]
   },
   {
-   "id": "ASH32",
+   "id": "ASH63",
    "fields": [
     {
      "name": "desc",
@@ -168,7 +168,7 @@
    ]
   },
   {
-   "id": "ASH19",
+   "id": "ASH62",
    "fields": [
     {
      "name": "desc",
@@ -203,7 +203,7 @@
    ]
   },
   {
-   "id": "ASH_Farseer",
+   "id": "ASH80",
    "fields": [
     {
      "name": "desc",
@@ -238,7 +238,7 @@
    ]
   },
   {
-   "id": "ASH34",
+   "id": "ASH22",
    "fields": [
     {
      "name": "desc",
@@ -273,7 +273,7 @@
    ]
   },
   {
-   "id": "ASH7",
+   "id": "ASH4",
    "fields": [
     {
      "name": "desc",
@@ -308,7 +308,7 @@
    ]
   },
   {
-   "id": "ASH79",
+   "id": "ASH69",
    "fields": [
     {
      "name": "desc",
@@ -363,7 +363,7 @@
    ]
   },
   {
-   "id": "ASH20",
+   "id": "ASH15",
    "fields": [
     {
      "name": "desc",
@@ -398,7 +398,7 @@
    ]
   },
   {
-   "id": "ASH_Orian_Laratharjos",
+   "id": "ASH79",
    "fields": [
     {
      "name": "desc",
@@ -463,7 +463,7 @@
    ]
   },
   {
-   "id": "ASH9",
+   "id": "ASH6",
    "fields": [
     {
      "name": "desc",
@@ -508,7 +508,7 @@
    ]
   },
   {
-   "id": "ASH26",
+   "id": "ASH17",
    "fields": [
     {
      "name": "desc",
@@ -533,7 +533,7 @@
    ]
   },
   {
-   "id": "ASH8",
+   "id": "ASH5",
    "fields": [
     {
      "name": "desc",
@@ -558,7 +558,7 @@
    ]
   },
   {
-   "id": "ASH27",
+   "id": "ASH23",
    "fields": [
     {
      "name": "desc",
@@ -603,7 +603,7 @@
    ]
   },
   {
-   "id": "ASH15",
+   "id": "ASH11",
    "fields": [
     {
      "name": "desc",
@@ -648,7 +648,7 @@
    ]
   },
   {
-   "id": "ASH80",
+   "id": "ASH70",
    "fields": [
     {
      "name": "desc",
@@ -683,7 +683,7 @@
    ]
   },
   {
-   "id": "ASH16",
+   "id": "ASH12",
    "fields": [
     {
      "name": "desc",
@@ -728,7 +728,7 @@
    ]
   },
   {
-   "id": "ASH28",
+   "id": "ASH24",
    "fields": [
     {
      "name": "desc",
@@ -773,7 +773,7 @@
    ]
   },
   {
-   "id": "ASH10",
+   "id": "ASH7",
    "fields": [
     {
      "name": "desc",
@@ -808,7 +808,7 @@
    ]
   },
   {
-   "id": "ASH11",
+   "id": "ASH8",
    "fields": [
     {
      "name": "desc",
@@ -843,7 +843,7 @@
    ]
   },
   {
-   "id": "ASH_Warp_Spider_Exarch",
+   "id": "ASH78",
    "fields": [
     {
      "name": "desc",
@@ -888,7 +888,7 @@
    ]
   },
   {
-   "id": "ASH17",
+   "id": "ASH13",
    "fields": [
     {
      "name": "desc",
@@ -913,7 +913,7 @@
    ]
   },
   {
-   "id": "ASH39",
+   "id": "ASH31",
    "fields": [
     {
      "name": "desc",
@@ -958,7 +958,7 @@
    ]
   },
   {
-   "id": "ASH23",
+   "id": "ASH19",
    "fields": [
     {
      "name": "desc",
@@ -993,7 +993,7 @@
    ]
   },
   {
-   "id": "ASH18",
+   "id": "ASH14",
    "fields": [
     {
      "name": "desc",
@@ -1028,7 +1028,7 @@
    ]
   },
   {
-   "id": "ASH25",
+   "id": "ASH20",
    "fields": [
     {
      "name": "desc",
@@ -1063,7 +1063,7 @@
    ]
   },
   {
-   "id": "ASH82",
+   "id": "ASH75",
    "fields": [
     {
      "name": "desc",
@@ -1088,7 +1088,7 @@
    ]
   },
   {
-   "id": "ASH42",
+   "id": "ASH34",
    "fields": [
     {
      "name": "desc",
@@ -1153,7 +1153,7 @@
    ]
   },
   {
-   "id": "ASH_Ahnakh_Yth_Shrine",
+   "id": "ASH84",
    "fields": [
     {
      "name": "desc",
@@ -1188,7 +1188,7 @@
    ]
   },
   {
-   "id": "ASH51",
+   "id": "ASH45",
    "fields": [
     {
      "name": "desc",
@@ -1213,57 +1213,7 @@
    ]
   },
   {
-   "id": "ASH57",
-   "fields": [
-    {
-     "name": "desc",
-     "items": [
-      {
-       "token": "Shuriken",
-       "sprite": "shuriken",
-       "why": "**卡面逐处双写 10/10**（10 张「正文里有 `Shuriken` 而计划表没画」的卡，逐张核 `_还原效果文字.md`；`ASH_Ahnakh_Yth_Shrine` 那一行 2026-10-12 补核 —— 见本表上方那段订正）——出处与亲读卡面见本表上方那段。"
-      }
-     ]
-    },
-    {
-     "name": "descZh",
-     "items": [
-      {
-       "token": "星镖",
-       "sprite": "shuriken",
-       "why": "同英文那条（`descZh` 的写法，出现次数与英文那批**逐处对应**）。"
-      }
-     ]
-    }
-   ]
-  },
-  {
-   "id": "ASH52",
-   "fields": [
-    {
-     "name": "desc",
-     "items": [
-      {
-       "token": "[Spirit Stone]",
-       "sprite": "SpiritStone_2",
-       "why": "档位看紧挨着的数字：`N [Spirit Stone]:` → `SpiritStone_N`（**数字烘在图里**，所以卡面文本里那个 `N ` 要一起吃掉）。图集 `Atlas_SpiritStone_1..5` 逐张看过；真卡 Spiritseer(2) / Wraithknight(3) 核过（本卡 n=2）"
-      }
-     ]
-    },
-    {
-     "name": "descZh",
-     "items": [
-      {
-       "token": "②",
-       "sprite": "SpiritStone_2",
-       "why": "② = 灵魂石 2 档（同上）"
-      }
-     ]
-    }
-   ]
-  },
-  {
-   "id": "ASH58",
+   "id": "ASH47",
    "fields": [
     {
      "name": "desc",
@@ -1289,6 +1239,56 @@
   },
   {
    "id": "ASH48",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Spirit Stone]",
+       "sprite": "SpiritStone_2",
+       "why": "档位看紧挨着的数字：`N [Spirit Stone]:` → `SpiritStone_N`（**数字烘在图里**，所以卡面文本里那个 `N ` 要一起吃掉）。图集 `Atlas_SpiritStone_1..5` 逐张看过；真卡 Spiritseer(2) / Wraithknight(3) 核过（本卡 n=2）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "②",
+       "sprite": "SpiritStone_2",
+       "why": "② = 灵魂石 2 档（同上）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "ASH42",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Shuriken",
+       "sprite": "shuriken",
+       "why": "**卡面逐处双写 10/10**（10 张「正文里有 `Shuriken` 而计划表没画」的卡，逐张核 `_还原效果文字.md`；`ASH_Ahnakh_Yth_Shrine` 那一行 2026-10-12 补核 —— 见本表上方那段订正）——出处与亲读卡面见本表上方那段。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "星镖",
+       "sprite": "shuriken",
+       "why": "同英文那条（`descZh` 的写法，出现次数与英文那批**逐处对应**）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "ASH39",
    "fields": [
     {
      "name": "desc",
@@ -1323,7 +1323,7 @@
    ]
   },
   {
-   "id": "ASH53",
+   "id": "ASH64",
    "fields": [
     {
      "name": "desc",
@@ -1358,7 +1358,7 @@
    ]
   },
   {
-   "id": "ASH59",
+   "id": "ASH49",
    "fields": [
     {
      "name": "desc",
@@ -1418,7 +1418,7 @@
    ]
   },
   {
-   "id": "ASH60",
+   "id": "ASH50",
    "fields": [
     {
      "name": "desc",
@@ -1443,7 +1443,7 @@
    ]
   },
   {
-   "id": "ASH_Fate_Inescapable",
+   "id": "ASH85",
    "fields": [
     {
      "name": "desc",
@@ -1543,7 +1543,7 @@
    ]
   },
   {
-   "id": "ASH_Forewarned",
+   "id": "ASH86",
    "fields": [
     {
      "name": "desc",
@@ -1598,7 +1598,7 @@
    ]
   },
   {
-   "id": "ASH84",
+   "id": "ASH72",
    "fields": [
     {
      "name": "desc",
@@ -1633,7 +1633,7 @@
    ]
   },
   {
-   "id": "ASH65",
+   "id": "ASH56",
    "fields": [
     {
      "name": "desc",
@@ -1658,7 +1658,7 @@
    ]
   },
   {
-   "id": "ASH49",
+   "id": "ASH40",
    "fields": [
     {
      "name": "desc",
@@ -1683,7 +1683,7 @@
    ]
   },
   {
-   "id": "ASH6",
+   "id": "ASH_Path_of_Command",
    "fields": [
     {
      "name": "desc",
@@ -1708,7 +1708,7 @@
    ]
   },
   {
-   "id": "ASH2",
+   "id": "ASH_Path_of_the_Seer",
    "fields": [
     {
      "name": "desc",
@@ -1738,7 +1738,7 @@
    ]
   },
   {
-   "id": "ASH4",
+   "id": "ASH_Path_of_the_Warrior",
    "fields": [
     {
      "name": "desc",
@@ -1773,7 +1773,7 @@
    ]
   },
   {
-   "id": "ASH63",
+   "id": "ASH53",
    "fields": [
     {
      "name": "desc",
@@ -1798,7 +1798,7 @@
    ]
   },
   {
-   "id": "ASH75",
+   "id": "ASH_Storm_of_Silence",
    "fields": [
     {
      "name": "desc",
@@ -1843,7 +1843,7 @@
    ]
   },
   {
-   "id": "ASH54",
+   "id": "ASH43",
    "fields": [
     {
      "name": "desc",
@@ -1868,7 +1868,7 @@
    ]
   },
   {
-   "id": "ASH64",
+   "id": "ASH54",
    "fields": [
     {
      "name": "desc",
@@ -1893,7 +1893,7 @@
    ]
   },
   {
-   "id": "ASH50",
+   "id": "ASH41",
    "fields": [
     {
      "name": "desc",
@@ -1918,7 +1918,7 @@
    ]
   },
   {
-   "id": "ASH46",
+   "id": "ASH37",
    "fields": [
     {
      "name": "desc",
@@ -1943,7 +1943,7 @@
    ]
   },
   {
-   "id": "ASH47",
+   "id": "ASH38",
    "fields": [
     {
      "name": "desc",
@@ -1978,7 +1978,7 @@
    ]
   },
   {
-   "id": "ASH24",
+   "id": "ASH_Witchfire",
    "fields": [
     {
      "name": "desc",
@@ -2003,7 +2003,7 @@
    ]
   },
   {
-   "id": "ASH43",
+   "id": "ASH_Wrath_of_Khaine",
    "fields": [
     {
      "name": "desc",
@@ -2048,7 +2048,7 @@
    ]
   },
   {
-   "id": "ASH_Bright_Lance_Vyper",
+   "id": "ASH81",
    "fields": [
     {
      "name": "desc",
@@ -2083,7 +2083,7 @@
    ]
   },
   {
-   "id": "ASH31",
+   "id": "ASH21",
    "fields": [
     {
      "name": "desc",
@@ -2118,7 +2118,7 @@
    ]
   },
   {
-   "id": "ASH33",
+   "id": "ASH27",
    "fields": [
     {
      "name": "desc",
@@ -2153,7 +2153,7 @@
    ]
   },
   {
-   "id": "ASH_Farseer_Skyrunner",
+   "id": "ASH82",
    "fields": [
     {
      "name": "desc",
@@ -2178,7 +2178,7 @@
    ]
   },
   {
-   "id": "ASH36",
+   "id": "ASH30",
    "fields": [
     {
      "name": "desc",
@@ -2203,7 +2203,7 @@
    ]
   },
   {
-   "id": "ASH40",
+   "id": "ASH33",
    "fields": [
     {
      "name": "desc",
@@ -2238,7 +2238,7 @@
    ]
   },
   {
-   "id": "ASH78",
+   "id": "ASH67",
    "fields": [
     {
      "name": "desc",
@@ -2273,7 +2273,7 @@
    ]
   },
   {
-   "id": "ASH81",
+   "id": "ASH68",
    "fields": [
     {
      "name": "desc",
@@ -2318,7 +2318,7 @@
    ]
   },
   {
-   "id": "ASH21",
+   "id": "ASH16",
    "fields": [
     {
      "name": "desc",
@@ -2353,7 +2353,7 @@
    ]
   },
   {
-   "id": "ASH77",
+   "id": "ASH66",
    "fields": [
     {
      "name": "desc",
@@ -2398,7 +2398,7 @@
    ]
   },
   {
-   "id": "ASH76",
+   "id": "ASH65",
    "fields": [
     {
      "name": "desc",
@@ -2433,7 +2433,7 @@
    ]
   },
   {
-   "id": "ASH14",
+   "id": "ASH10",
    "fields": [
     {
      "name": "desc",
@@ -2478,7 +2478,7 @@
    ]
   },
   {
-   "id": "ASH22",
+   "id": "ASH18",
    "fields": [
     {
      "name": "desc",
@@ -2503,7 +2503,7 @@
    ]
   },
   {
-   "id": "ASH29",
+   "id": "ASH26",
    "fields": [
     {
      "name": "desc",
@@ -2538,7 +2538,7 @@
    ]
   },
   {
-   "id": "ASH30",
+   "id": "ASH25",
    "fields": [
     {
      "name": "desc",
@@ -2563,7 +2563,7 @@
    ]
   },
   {
-   "id": "ASH37",
+   "id": "ASH29",
    "fields": [
     {
      "name": "desc",
@@ -2598,7 +2598,7 @@
    ]
   },
   {
-   "id": "ASH13",
+   "id": "ASH9",
    "fields": [
     {
      "name": "desc",
@@ -2643,7 +2643,7 @@
    ]
   },
   {
-   "id": "ASH44",
+   "id": "ASH35",
    "fields": [
     {
      "name": "desc",
@@ -2678,7 +2678,7 @@
    ]
   },
   {
-   "id": "ASH41",
+   "id": "ASH32",
    "fields": [
     {
      "name": "desc",
@@ -2748,7 +2748,7 @@
    ]
   },
   {
-   "id": "ASH3",
+   "id": "ASH2",
    "fields": [
     {
      "name": "desc",
@@ -2773,7 +2773,7 @@
    ]
   },
   {
-   "id": "ASH5",
+   "id": "ASH3",
    "fields": [
     {
      "name": "desc",
@@ -2833,7 +2833,7 @@
    ]
   },
   {
-   "id": "ASH_Lhykhis",
+   "id": "ASH76",
    "fields": [
     {
      "name": "desc",
@@ -2868,7 +2868,7 @@
    ]
   },
   {
-   "id": "AM5",
+   "id": "AM2",
    "fields": [
     {
      "name": "desc",
@@ -2903,7 +2903,7 @@
    ]
   },
   {
-   "id": "AM16",
+   "id": "AM15",
    "fields": [
     {
      "name": "descZh",
@@ -2918,7 +2918,7 @@
    ]
   },
   {
-   "id": "AM20",
+   "id": "AM_Astropath",
    "fields": [
     {
      "name": "desc",
@@ -2943,7 +2943,7 @@
    ]
   },
   {
-   "id": "AM21",
+   "id": "AM19",
    "fields": [
     {
      "name": "desc",
@@ -2978,7 +2978,7 @@
    ]
   },
   {
-   "id": "AM28",
+   "id": "AM24",
    "fields": [
     {
      "name": "desc",
@@ -3023,7 +3023,7 @@
    ]
   },
   {
-   "id": "AM22",
+   "id": "AM10",
    "fields": [
     {
      "name": "desc",
@@ -3068,7 +3068,7 @@
    ]
   },
   {
-   "id": "AM23",
+   "id": "AM17",
    "fields": [
     {
      "name": "desc",
@@ -3103,7 +3103,7 @@
    ]
   },
   {
-   "id": "AM13",
+   "id": "AM12",
    "fields": [
     {
      "name": "desc",
@@ -3138,7 +3138,7 @@
    ]
   },
   {
-   "id": "AM14",
+   "id": "AM9",
    "fields": [
     {
      "name": "desc",
@@ -3163,7 +3163,7 @@
    ]
   },
   {
-   "id": "AM41",
+   "id": "AM36",
    "fields": [
     {
      "name": "desc",
@@ -3198,7 +3198,7 @@
    ]
   },
   {
-   "id": "AM71",
+   "id": "AM70",
    "fields": [
     {
      "name": "desc",
@@ -3233,7 +3233,7 @@
    ]
   },
   {
-   "id": "AM35",
+   "id": "AM27",
    "fields": [
     {
      "name": "desc",
@@ -3258,7 +3258,7 @@
    ]
   },
   {
-   "id": "AM18",
+   "id": "AM13",
    "fields": [
     {
      "name": "desc",
@@ -3283,7 +3283,7 @@
    ]
   },
   {
-   "id": "AM29",
+   "id": "AM22",
    "fields": [
     {
      "name": "desc",
@@ -3323,7 +3323,7 @@
    ]
   },
   {
-   "id": "AM9",
+   "id": "AM6",
    "fields": [
     {
      "name": "desc",
@@ -3348,7 +3348,7 @@
    ]
   },
   {
-   "id": "AM25",
+   "id": "AM21",
    "fields": [
     {
      "name": "desc",
@@ -3383,7 +3383,7 @@
    ]
   },
   {
-   "id": "AM70",
+   "id": "AM69",
    "fields": [
     {
      "name": "desc",
@@ -3428,7 +3428,7 @@
    ]
   },
   {
-   "id": "AM72",
+   "id": "AM71",
    "fields": [
     {
      "name": "desc",
@@ -3463,7 +3463,7 @@
    ]
   },
   {
-   "id": "AM69",
+   "id": "AM68",
    "fields": [
     {
      "name": "desc",
@@ -3508,7 +3508,7 @@
    ]
   },
   {
-   "id": "AM73",
+   "id": "AM72",
    "fields": [
     {
      "name": "desc",
@@ -3553,7 +3553,7 @@
    ]
   },
   {
-   "id": "AM11",
+   "id": "AM7",
    "fields": [
     {
      "name": "desc",
@@ -3578,7 +3578,7 @@
    ]
   },
   {
-   "id": "AM77",
+   "id": "AM_Armoured_Lightning",
    "fields": [
     {
      "name": "desc",
@@ -3613,7 +3613,7 @@
    ]
   },
   {
-   "id": "AM17",
+   "id": "AM_Cadian_Honour",
    "fields": [
     {
      "name": "desc",
@@ -3648,7 +3648,7 @@
    ]
   },
   {
-   "id": "AM67",
+   "id": "AM_Efficiency_and_Excellence",
    "fields": [
     {
      "name": "desc",
@@ -3673,7 +3673,7 @@
    ]
   },
   {
-   "id": "AM75",
+   "id": "AM74",
    "fields": [
     {
      "name": "desc",
@@ -3698,7 +3698,7 @@
    ]
   },
   {
-   "id": "AM2",
+   "id": "AM_Lead_by_Example",
    "fields": [
     {
      "name": "desc",
@@ -3733,7 +3733,7 @@
    ]
   },
   {
-   "id": "AM6",
+   "id": "AM_Legendary_Commandant",
    "fields": [
     {
      "name": "desc",
@@ -3758,7 +3758,7 @@
    ]
   },
   {
-   "id": "AM46",
+   "id": "AM41",
    "fields": [
     {
      "name": "desc",
@@ -3783,7 +3783,7 @@
    ]
   },
   {
-   "id": "AM47",
+   "id": "AM42",
    "fields": [
     {
      "name": "desc",
@@ -3808,7 +3808,7 @@
    ]
   },
   {
-   "id": "AM51",
+   "id": "AM47",
    "fields": [
     {
      "name": "desc",
@@ -3833,7 +3833,7 @@
    ]
   },
   {
-   "id": "AM48",
+   "id": "AM43",
    "fields": [
     {
      "name": "desc",
@@ -3868,7 +3868,7 @@
    ]
   },
   {
-   "id": "AM52",
+   "id": "AM48",
    "fields": [
     {
      "name": "desc",
@@ -3893,7 +3893,7 @@
    ]
   },
   {
-   "id": "AM36",
+   "id": "AM_Renowned_Bodyguard",
    "fields": [
     {
      "name": "desc",
@@ -3918,7 +3918,7 @@
    ]
   },
   {
-   "id": "AM54",
+   "id": "AM50",
    "fields": [
     {
      "name": "desc",
@@ -3953,7 +3953,7 @@
    ]
   },
   {
-   "id": "AM50",
+   "id": "AM45",
    "fields": [
     {
      "name": "desc",
@@ -3988,7 +3988,7 @@
    ]
   },
   {
-   "id": "AM61",
+   "id": "AM56",
    "fields": [
     {
      "name": "desc",
@@ -4013,7 +4013,7 @@
    ]
   },
   {
-   "id": "AM26",
+   "id": "AM25",
    "fields": [
     {
      "name": "desc",
@@ -4058,7 +4058,7 @@
    ]
   },
   {
-   "id": "AM12",
+   "id": "AM14",
    "fields": [
     {
      "name": "desc",
@@ -4093,7 +4093,7 @@
    ]
   },
   {
-   "id": "AM43",
+   "id": "AM38",
    "fields": [
     {
      "name": "desc",
@@ -4138,7 +4138,7 @@
    ]
   },
   {
-   "id": "AM37",
+   "id": "AM33",
    "fields": [
     {
      "name": "desc",
@@ -4173,7 +4173,7 @@
    ]
   },
   {
-   "id": "AM32",
+   "id": "AM28",
    "fields": [
     {
      "name": "desc",
@@ -4208,7 +4208,7 @@
    ]
   },
   {
-   "id": "AM33",
+   "id": "AM29",
    "fields": [
     {
      "name": "desc",
@@ -4243,7 +4243,7 @@
    ]
   },
   {
-   "id": "AM40",
+   "id": "AM35",
    "fields": [
     {
      "name": "desc",
@@ -4288,7 +4288,7 @@
    ]
   },
   {
-   "id": "AM34",
+   "id": "AM30",
    "fields": [
     {
      "name": "desc",
@@ -4323,7 +4323,7 @@
    ]
   },
   {
-   "id": "AM42",
+   "id": "AM37",
    "fields": [
     {
      "name": "desc",
@@ -4358,7 +4358,7 @@
    ]
   },
   {
-   "id": "AM74",
+   "id": "AM73",
    "fields": [
     {
      "name": "desc",
@@ -4403,7 +4403,7 @@
    ]
   },
   {
-   "id": "AM30",
+   "id": "AM26",
    "fields": [
     {
      "name": "desc",
@@ -4428,7 +4428,7 @@
    ]
   },
   {
-   "id": "AM39",
+   "id": "AM34",
    "fields": [
     {
      "name": "desc",
@@ -4453,7 +4453,7 @@
    ]
   },
   {
-   "id": "AM1",
+   "id": "AM_Commissar_Elan",
    "fields": [
     {
      "name": "desc",
@@ -4533,7 +4533,7 @@
    ]
   },
   {
-   "id": "AM3",
+   "id": "AM1",
    "fields": [
     {
      "name": "desc",
@@ -4568,7 +4568,7 @@
    ]
   },
   {
-   "id": "BL25",
+   "id": "BL12",
    "fields": [
     {
      "name": "desc",
@@ -4603,7 +4603,7 @@
    ]
   },
   {
-   "id": "BL31",
+   "id": "BL18",
    "fields": [
     {
      "name": "desc",
@@ -4628,7 +4628,7 @@
    ]
   },
   {
-   "id": "BL12",
+   "id": "BL3",
    "fields": [
     {
      "name": "desc",
@@ -4653,7 +4653,7 @@
    ]
   },
   {
-   "id": "BL45",
+   "id": "BL30",
    "fields": [
     {
      "name": "desc",
@@ -4676,6 +4676,151 @@
       {
        "token": "集结：",
        "sprite": "rally",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "BL4",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Rally:",
+       "sprite": "rally",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "集结：",
+       "sprite": "rally",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "BL1",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Flank",
+       "sprite": "flank",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "侧翼",
+       "sprite": "flank",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "BL19",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Vanguard",
+       "sprite": "vanguard",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "先锋",
+       "sprite": "vanguard",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "BL20",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[Ranged]",
+       "sprite": "Ranged",
+       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[远程]",
+       "sprite": "Ranged",
+       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "BL24",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Strike:",
+       "sprite": "strike",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "猛击：",
+       "sprite": "strike",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -4723,152 +4868,7 @@
    ]
   },
   {
-   "id": "BL9",
-   "fields": [
-    {
-     "name": "desc",
-     "items": [
-      {
-       "token": "Flank",
-       "sprite": "flank",
-       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
-      }
-     ]
-    },
-    {
-     "name": "descZh",
-     "items": [
-      {
-       "token": "侧翼",
-       "sprite": "flank",
-       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
-      }
-     ]
-    }
-   ]
-  },
-  {
-   "id": "BL37",
-   "fields": [
-    {
-     "name": "desc",
-     "items": [
-      {
-       "token": "Vanguard",
-       "sprite": "vanguard",
-       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
-      }
-     ]
-    },
-    {
-     "name": "descZh",
-     "items": [
-      {
-       "token": "先锋",
-       "sprite": "vanguard",
-       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
-      }
-     ]
-    }
-   ]
-  },
-  {
-   "id": "BL38",
-   "fields": [
-    {
-     "name": "desc",
-     "items": [
-      {
-       "token": "[Ranged]",
-       "sprite": "Ranged",
-       "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
-      }
-     ]
-    },
-    {
-     "name": "descZh",
-     "items": [
-      {
-       "token": "[远程]",
-       "sprite": "Ranged",
-       "why": "中文「远程」记号（本批新写的；全池既有 7 处全部 = 枪）"
-      }
-     ]
-    }
-   ]
-  },
-  {
-   "id": "BL39",
-   "fields": [
-    {
-     "name": "desc",
-     "items": [
-      {
-       "token": "Strike:",
-       "sprite": "strike",
-       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
-      },
-      {
-       "token": "Dark Pact",
-       "sprite": "markOfChaos",
-       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
-      }
-     ]
-    },
-    {
-     "name": "descZh",
-     "items": [
-      {
-       "token": "猛击：",
-       "sprite": "strike",
-       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
-      },
-      {
-       "token": "黑暗契约",
-       "sprite": "markOfChaos",
-       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
-      }
-     ]
-    }
-   ]
-  },
-  {
-   "id": "BL26",
-   "fields": [
-    {
-     "name": "desc",
-     "items": [
-      {
-       "token": "Rally:",
-       "sprite": "rally",
-       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
-      },
-      {
-       "token": "Dark Pact",
-       "sprite": "markOfChaos",
-       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
-      }
-     ]
-    },
-    {
-     "name": "descZh",
-     "items": [
-      {
-       "token": "集结：",
-       "sprite": "rally",
-       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
-      },
-      {
-       "token": "黑暗契约",
-       "sprite": "markOfChaos",
-       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
-      }
-     ]
-    }
-   ]
-  },
-  {
-   "id": "BL27",
+   "id": "BL14",
    "fields": [
     {
      "name": "desc",
@@ -4893,7 +4893,7 @@
    ]
   },
   {
-   "id": "BL40",
+   "id": "BL25",
    "fields": [
     {
      "name": "desc",
@@ -4918,7 +4918,7 @@
    ]
   },
   {
-   "id": "BL_Ghallaron_s_Champion",
+   "id": "BL67",
    "fields": [
     {
      "name": "desc",
@@ -4943,7 +4943,7 @@
    ]
   },
   {
-   "id": "BL_Ghallaron_s_Disciple",
+   "id": "BL66",
    "fields": [
     {
      "name": "desc",
@@ -4968,7 +4968,7 @@
    ]
   },
   {
-   "id": "BL73",
+   "id": "BL71",
    "fields": [
     {
      "name": "desc",
@@ -4993,7 +4993,7 @@
    ]
   },
   {
-   "id": "BL32",
+   "id": "BL63",
    "fields": [
     {
      "name": "desc",
@@ -5018,7 +5018,7 @@
    ]
   },
   {
-   "id": "BL14",
+   "id": "BL5",
    "fields": [
     {
      "name": "desc",
@@ -5043,7 +5043,7 @@
    ]
   },
   {
-   "id": "BL17",
+   "id": "BL7",
    "fields": [
     {
      "name": "desc",
@@ -5068,7 +5068,7 @@
    ]
   },
   {
-   "id": "BL33",
+   "id": "BL21",
    "fields": [
     {
      "name": "desc",
@@ -5103,7 +5103,7 @@
    ]
   },
   {
-   "id": "BL34",
+   "id": "BL22",
    "fields": [
     {
      "name": "desc",
@@ -5128,7 +5128,7 @@
    ]
   },
   {
-   "id": "BL_Meltagun_Legionary",
+   "id": "BL69",
    "fields": [
     {
      "name": "desc",
@@ -5163,7 +5163,7 @@
    ]
   },
   {
-   "id": "BL19",
+   "id": "BL8",
    "fields": [
     {
      "name": "desc",
@@ -5188,7 +5188,7 @@
    ]
   },
   {
-   "id": "BL21",
+   "id": "BL10",
    "fields": [
     {
      "name": "desc",
@@ -5213,7 +5213,57 @@
    ]
   },
   {
-   "id": "BL29",
+   "id": "BL16",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Dark Pact",
+       "sprite": "markOfChaos",
+       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "黑暗契约",
+       "sprite": "markOfChaos",
+       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "BL9",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Flank",
+       "sprite": "flank",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "侧翼",
+       "sprite": "flank",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "BL6",
    "fields": [
     {
      "name": "desc",
@@ -5244,56 +5294,6 @@
      "name": "desc",
      "items": [
       {
-       "token": "Flank",
-       "sprite": "flank",
-       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
-      }
-     ]
-    },
-    {
-     "name": "descZh",
-     "items": [
-      {
-       "token": "侧翼",
-       "sprite": "flank",
-       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
-      }
-     ]
-    }
-   ]
-  },
-  {
-   "id": "BL15",
-   "fields": [
-    {
-     "name": "desc",
-     "items": [
-      {
-       "token": "Dark Pact",
-       "sprite": "markOfChaos",
-       "why": "**恒带**（37 卡 39 处 · 改前只画 3 处 · **卡面 38 枚**）—— 逐处判据 = `_还原效果文字.md` 的**双写**（`Dark PactDark Pact`）＋ 37 张成品卡图逐张开图亲读。见上面那一段。"
-      }
-     ]
-    },
-    {
-     "name": "descZh",
-     "items": [
-      {
-       "token": "黑暗契约",
-       "sprite": "markOfChaos",
-       "why": "同英文那条（`descZh` 的写法；41 处 —— 多出来的几处是我们自己的译法把词写了两遍、而卡面只有一枚 ⇒ 例外见 `DARKPACT_ALREADY` 与 `_A1613_GAP` 里的 `BL74`）。"
-      }
-     ]
-    }
-   ]
-  },
-  {
-   "id": "BL36",
-   "fields": [
-    {
-     "name": "desc",
-     "items": [
-      {
        "token": "Talent:",
        "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -5313,7 +5313,7 @@
    ]
   },
   {
-   "id": "BL44",
+   "id": "BL29",
    "fields": [
     {
      "name": "desc",
@@ -5338,7 +5338,7 @@
    ]
   },
   {
-   "id": "BL24",
+   "id": "BL11",
    "fields": [
     {
      "name": "desc",
@@ -5363,7 +5363,7 @@
    ]
   },
   {
-   "id": "BL30",
+   "id": "BL17",
    "fields": [
     {
      "name": "desc",
@@ -5398,7 +5398,7 @@
    ]
   },
   {
-   "id": "BL_Zealot_Legionary",
+   "id": "BL68",
    "fields": [
     {
      "name": "desc",
@@ -5423,7 +5423,7 @@
    ]
   },
   {
-   "id": "BL49",
+   "id": "BL37",
    "fields": [
     {
      "name": "desc",
@@ -5448,7 +5448,7 @@
    ]
   },
   {
-   "id": "BL54",
+   "id": "BL43",
    "fields": [
     {
      "name": "desc",
@@ -5493,7 +5493,7 @@
    ]
   },
   {
-   "id": "BL60",
+   "id": "BL44",
    "fields": [
     {
      "name": "desc",
@@ -5528,7 +5528,7 @@
    ]
   },
   {
-   "id": "BL51",
+   "id": "BL38",
    "fields": [
     {
      "name": "desc",
@@ -5553,7 +5553,7 @@
    ]
   },
   {
-   "id": "BL61",
+   "id": "BL49",
    "fields": [
     {
      "name": "desc",
@@ -5578,7 +5578,7 @@
    ]
   },
   {
-   "id": "BL6",
+   "id": "BL_Diabolic_Strength",
    "fields": [
     {
      "name": "desc",
@@ -5603,7 +5603,7 @@
    ]
   },
   {
-   "id": "BL55",
+   "id": "BL47",
    "fields": [
     {
      "name": "desc",
@@ -5638,7 +5638,7 @@
    ]
   },
   {
-   "id": "BL64",
+   "id": "BL54",
    "fields": [
     {
      "name": "desc",
@@ -5663,7 +5663,7 @@
    ]
   },
   {
-   "id": "BL56",
+   "id": "BL46",
    "fields": [
     {
      "name": "desc",
@@ -5688,7 +5688,7 @@
    ]
   },
   {
-   "id": "BL4",
+   "id": "BL_Helspear_Assault",
    "fields": [
     {
      "name": "desc",
@@ -5733,7 +5733,7 @@
    ]
   },
   {
-   "id": "BL50",
+   "id": "BL39",
    "fields": [
     {
      "name": "desc",
@@ -5758,7 +5758,7 @@
    ]
   },
   {
-   "id": "BL76",
+   "id": "BL_Idolatrous_Despoilers",
    "fields": [
     {
      "name": "desc",
@@ -5783,7 +5783,7 @@
    ]
   },
   {
-   "id": "BL52",
+   "id": "BL40",
    "fields": [
     {
      "name": "desc",
@@ -5863,7 +5863,7 @@
    ]
   },
   {
-   "id": "BL75",
+   "id": "BL73",
    "fields": [
     {
      "name": "desc",
@@ -5888,7 +5888,7 @@
    ]
   },
   {
-   "id": "BL58",
+   "id": "BL48",
    "fields": [
     {
      "name": "desc",
@@ -5923,7 +5923,7 @@
    ]
   },
   {
-   "id": "BL77",
+   "id": "BL_Spreading_Corruption",
    "fields": [
     {
      "name": "desc",
@@ -5948,7 +5948,7 @@
    ]
   },
   {
-   "id": "BL8",
+   "id": "BL_Unhallowed_Gifts",
    "fields": [
     {
      "name": "desc",
@@ -5983,7 +5983,7 @@
    ]
   },
   {
-   "id": "BL66",
+   "id": "BL52",
    "fields": [
     {
      "name": "desc",
@@ -6008,7 +6008,7 @@
    ]
   },
   {
-   "id": "BL74",
+   "id": "BL72",
    "fields": [
     {
      "name": "desc",
@@ -6033,7 +6033,7 @@
    ]
   },
   {
-   "id": "BL42",
+   "id": "BL28",
    "fields": [
     {
      "name": "desc",
@@ -6068,7 +6068,7 @@
    ]
   },
   {
-   "id": "BL46",
+   "id": "BL31",
    "fields": [
     {
      "name": "desc",
@@ -6093,7 +6093,7 @@
    ]
   },
   {
-   "id": "BL41",
+   "id": "BL27",
    "fields": [
     {
      "name": "desc",
@@ -6118,7 +6118,7 @@
    ]
   },
   {
-   "id": "BL48",
+   "id": "BL33",
    "fields": [
     {
      "name": "desc",
@@ -6143,7 +6143,7 @@
    ]
   },
   {
-   "id": "BL3",
+   "id": "BL35",
    "fields": [
     {
      "name": "desc",
@@ -6178,7 +6178,7 @@
    ]
   },
   {
-   "id": "BL5",
+   "id": "BL_Sylar_Hexcorn",
    "fields": [
     {
      "name": "desc",
@@ -6203,7 +6203,7 @@
    ]
   },
   {
-   "id": "BL_Ghallaron_the_Pious",
+   "id": "BL65",
    "fields": [
     {
      "name": "desc",
@@ -6238,7 +6238,7 @@
    ]
   },
   {
-   "id": "DA12",
+   "id": "DA9",
    "fields": [
     {
      "name": "desc",
@@ -6273,7 +6273,7 @@
    ]
   },
   {
-   "id": "DA8",
+   "id": "DA5",
    "fields": [
     {
      "name": "desc",
@@ -6308,7 +6308,7 @@
    ]
   },
   {
-   "id": "DA26",
+   "id": "DA23",
    "fields": [
     {
      "name": "desc",
@@ -6363,7 +6363,7 @@
    ]
   },
   {
-   "id": "DA14",
+   "id": "DA11",
    "fields": [
     {
      "name": "desc",
@@ -6388,7 +6388,7 @@
    ]
   },
   {
-   "id": "DA27",
+   "id": "DA24",
    "fields": [
     {
      "name": "desc",
@@ -6413,7 +6413,7 @@
    ]
   },
   {
-   "id": "DA15",
+   "id": "DA12",
    "fields": [
     {
      "name": "desc",
@@ -6438,7 +6438,7 @@
    ]
   },
   {
-   "id": "DA36",
+   "id": "DA32",
    "fields": [
     {
      "name": "desc",
@@ -6493,7 +6493,7 @@
    ]
   },
   {
-   "id": "DA42",
+   "id": "DA37",
    "fields": [
     {
      "name": "desc",
@@ -6538,7 +6538,7 @@
    ]
   },
   {
-   "id": "DA28",
+   "id": "DA25",
    "fields": [
     {
      "name": "desc",
@@ -6583,7 +6583,7 @@
    ]
   },
   {
-   "id": "DA33",
+   "id": "DA30",
    "fields": [
     {
      "name": "desc",
@@ -6638,7 +6638,7 @@
    ]
   },
   {
-   "id": "DA20",
+   "id": "DA17",
    "fields": [
     {
      "name": "desc",
@@ -6673,7 +6673,7 @@
    ]
   },
   {
-   "id": "DA34",
+   "id": "DA31",
    "fields": [
     {
      "name": "desc",
@@ -6718,7 +6718,7 @@
    ]
   },
   {
-   "id": "DA21",
+   "id": "DA18",
    "fields": [
     {
      "name": "desc",
@@ -6753,7 +6753,7 @@
    ]
   },
   {
-   "id": "DA7",
+   "id": "DA4",
    "fields": [
     {
      "name": "desc",
@@ -6788,7 +6788,7 @@
    ]
   },
   {
-   "id": "DA22",
+   "id": "DA19",
    "fields": [
     {
      "name": "desc",
@@ -6813,7 +6813,7 @@
    ]
   },
   {
-   "id": "DA16",
+   "id": "DA13",
    "fields": [
     {
      "name": "desc",
@@ -6858,7 +6858,7 @@
    ]
   },
   {
-   "id": "DA24",
+   "id": "DA20",
    "fields": [
     {
      "name": "desc",
@@ -6923,7 +6923,7 @@
    ]
   },
   {
-   "id": "DA10",
+   "id": "DA8",
    "fields": [
     {
      "name": "desc",
@@ -6948,7 +6948,7 @@
    ]
   },
   {
-   "id": "DA11",
+   "id": "DA_Sergeant_Naaman",
    "fields": [
     {
      "name": "desc",
@@ -6983,7 +6983,7 @@
    ]
   },
   {
-   "id": "DA25",
+   "id": "DA22",
    "fields": [
     {
      "name": "desc",
@@ -7008,7 +7008,7 @@
    ]
   },
   {
-   "id": "DA44",
+   "id": "DA39",
    "fields": [
     {
      "name": "desc",
@@ -7043,7 +7043,7 @@
    ]
   },
   {
-   "id": "DA52",
+   "id": "DA47",
    "fields": [
     {
      "name": "desc",
@@ -7068,7 +7068,7 @@
    ]
   },
   {
-   "id": "DA53",
+   "id": "DA48",
    "fields": [
     {
      "name": "desc",
@@ -7113,7 +7113,7 @@
    ]
   },
   {
-   "id": "DA63",
+   "id": "DA58",
    "fields": [
     {
      "name": "desc",
@@ -7138,7 +7138,7 @@
    ]
   },
   {
-   "id": "DA65",
+   "id": "DA_Grim_Effigy",
    "fields": [
     {
      "name": "desc",
@@ -7163,7 +7163,7 @@
    ]
   },
   {
-   "id": "DA48",
+   "id": "DA43",
    "fields": [
     {
      "name": "desc",
@@ -7188,7 +7188,7 @@
    ]
   },
   {
-   "id": "DA54",
+   "id": "DA49",
    "fields": [
     {
      "name": "desc",
@@ -7213,7 +7213,7 @@
    ]
   },
   {
-   "id": "DA57",
+   "id": "DA52",
    "fields": [
     {
      "name": "desc",
@@ -7248,7 +7248,7 @@
    ]
   },
   {
-   "id": "DA46",
+   "id": "DA41",
    "fields": [
     {
      "name": "desc",
@@ -7273,7 +7273,7 @@
    ]
   },
   {
-   "id": "DA35",
+   "id": "DA_Master_Interromancer",
    "fields": [
     {
      "name": "desc",
@@ -7308,7 +7308,7 @@
    ]
   },
   {
-   "id": "DA41",
+   "id": "DA_Master_of_Manoeuvre",
    "fields": [
     {
      "name": "desc",
@@ -7333,7 +7333,7 @@
    ]
   },
   {
-   "id": "DA6",
+   "id": "DA_Master_of_the_Deathwing",
    "fields": [
     {
      "name": "desc",
@@ -7393,7 +7393,7 @@
    ]
   },
   {
-   "id": "DA47",
+   "id": "DA42",
    "fields": [
     {
      "name": "desc",
@@ -7463,7 +7463,7 @@
    ]
   },
   {
-   "id": "DA55",
+   "id": "DA50",
    "fields": [
     {
      "name": "desc",
@@ -7498,7 +7498,7 @@
    ]
   },
   {
-   "id": "DA58",
+   "id": "DA53",
    "fields": [
     {
      "name": "desc",
@@ -7523,7 +7523,7 @@
    ]
   },
   {
-   "id": "DA50",
+   "id": "DA45",
    "fields": [
     {
      "name": "desc",
@@ -7548,7 +7548,7 @@
    ]
   },
   {
-   "id": "DA4",
+   "id": "DA_Supreme_Grand_Master",
    "fields": [
     {
      "name": "desc",
@@ -7593,7 +7593,7 @@
    ]
   },
   {
-   "id": "DA51",
+   "id": "DA46",
    "fields": [
     {
      "name": "desc",
@@ -7618,7 +7618,7 @@
    ]
   },
   {
-   "id": "DA60",
+   "id": "DA55",
    "fields": [
     {
      "name": "desc",
@@ -7643,7 +7643,7 @@
    ]
   },
   {
-   "id": "DA13",
+   "id": "DA10",
    "fields": [
     {
      "name": "desc",
@@ -7688,7 +7688,7 @@
    ]
   },
   {
-   "id": "DA39",
+   "id": "DA35",
    "fields": [
     {
      "name": "desc",
@@ -7713,7 +7713,7 @@
    ]
   },
   {
-   "id": "DA32",
+   "id": "DA29",
    "fields": [
     {
      "name": "desc",
@@ -7748,7 +7748,7 @@
    ]
   },
   {
-   "id": "DA23",
+   "id": "DA21",
    "fields": [
     {
      "name": "desc",
@@ -7773,7 +7773,7 @@
    ]
   },
   {
-   "id": "DA37",
+   "id": "DA33",
    "fields": [
     {
      "name": "desc",
@@ -7818,7 +7818,7 @@
    ]
   },
   {
-   "id": "DA29",
+   "id": "DA26",
    "fields": [
     {
      "name": "desc",
@@ -7873,7 +7873,7 @@
    ]
   },
   {
-   "id": "DA9",
+   "id": "DA7",
    "fields": [
     {
      "name": "desc",
@@ -7918,7 +7918,7 @@
    ]
   },
   {
-   "id": "DA17",
+   "id": "DA15",
    "fields": [
     {
      "name": "desc",
@@ -7953,7 +7953,7 @@
    ]
   },
   {
-   "id": "DA18",
+   "id": "DA14",
    "fields": [
     {
      "name": "desc",
@@ -7988,7 +7988,7 @@
    ]
   },
   {
-   "id": "DA30",
+   "id": "DA27",
    "fields": [
     {
      "name": "desc",
@@ -8033,7 +8033,7 @@
    ]
   },
   {
-   "id": "DA43",
+   "id": "DA38",
    "fields": [
     {
      "name": "desc",
@@ -8088,7 +8088,7 @@
    ]
   },
   {
-   "id": "DA40",
+   "id": "DA36",
    "fields": [
     {
      "name": "desc",
@@ -8113,7 +8113,7 @@
    ]
   },
   {
-   "id": "DA38",
+   "id": "DA34",
    "fields": [
     {
      "name": "desc",
@@ -8148,7 +8148,7 @@
    ]
   },
   {
-   "id": "DA1",
+   "id": "DA_Asmodai",
    "fields": [
     {
      "name": "desc",
@@ -8193,7 +8193,7 @@
    ]
   },
   {
-   "id": "DA3",
+   "id": "DA_Azrael",
    "fields": [
     {
      "name": "descZh",
@@ -8213,7 +8213,7 @@
    ]
   },
   {
-   "id": "DA5",
+   "id": "DA_Belial",
    "fields": [
     {
      "name": "desc",
@@ -8668,7 +8668,7 @@
    ]
   },
   {
-   "id": "EC8",
+   "id": "EC33",
    "fields": [
     {
      "name": "desc",
@@ -8723,7 +8723,7 @@
    ]
   },
   {
-   "id": "EC26",
+   "id": "EC35",
    "fields": [
     {
      "name": "desc",
@@ -8748,7 +8748,7 @@
    ]
   },
   {
-   "id": "EC7",
+   "id": "EC32",
    "fields": [
     {
      "name": "desc",
@@ -8783,7 +8783,7 @@
    ]
   },
   {
-   "id": "EC16",
+   "id": "EC24",
    "fields": [
     {
      "name": "desc",
@@ -8828,7 +8828,7 @@
    ]
   },
   {
-   "id": "EC40",
+   "id": "EC15",
    "fields": [
     {
      "name": "desc",
@@ -8873,7 +8873,7 @@
    ]
   },
   {
-   "id": "EC19",
+   "id": "EC2",
    "fields": [
     {
      "name": "desc",
@@ -8898,7 +8898,7 @@
    ]
   },
   {
-   "id": "EC27",
+   "id": "EC3",
    "fields": [
     {
      "name": "desc",
@@ -8933,7 +8933,7 @@
    ]
   },
   {
-   "id": "EC32",
+   "id": "EC_Dual_Screamer_Kakophonist",
    "fields": [
     {
      "name": "desc",
@@ -8978,7 +8978,7 @@
    ]
   },
   {
-   "id": "EC28",
+   "id": "EC12",
    "fields": [
     {
      "name": "desc",
@@ -9023,7 +9023,7 @@
    ]
   },
   {
-   "id": "EC13",
+   "id": "EC11",
    "fields": [
     {
      "name": "desc",
@@ -9048,7 +9048,7 @@
    ]
   },
   {
-   "id": "EC9",
+   "id": "EC18",
    "fields": [
     {
      "name": "desc",
@@ -9093,7 +9093,7 @@
    ]
   },
   {
-   "id": "EC14",
+   "id": "EC_Icon_of_Excess_Infractor",
    "fields": [
     {
      "name": "desc",
@@ -9128,7 +9128,7 @@
    ]
   },
   {
-   "id": "EC21",
+   "id": "EC10",
    "fields": [
     {
      "name": "desc",
@@ -9173,7 +9173,7 @@
    ]
   },
   {
-   "id": "EC10",
+   "id": "EC8",
    "fields": [
     {
      "name": "desc",
@@ -9218,7 +9218,7 @@
    ]
   },
   {
-   "id": "EC35",
+   "id": "EC13",
    "fields": [
     {
      "name": "desc",
@@ -9263,7 +9263,7 @@
    ]
   },
   {
-   "id": "EC37",
+   "id": "EC_Lord_Kakophonist",
    "fields": [
     {
      "name": "desc",
@@ -9308,7 +9308,7 @@
    ]
   },
   {
-   "id": "EC29",
+   "id": "EC21",
    "fields": [
     {
      "name": "desc",
@@ -9363,7 +9363,7 @@
    ]
   },
   {
-   "id": "EC15",
+   "id": "EC6",
    "fields": [
     {
      "name": "desc",
@@ -9398,7 +9398,7 @@
    ]
   },
   {
-   "id": "EC36",
+   "id": "EC27",
    "fields": [
     {
      "name": "desc",
@@ -9423,7 +9423,7 @@
    ]
   },
   {
-   "id": "EC30",
+   "id": "EC23",
    "fields": [
     {
      "name": "desc",
@@ -9458,7 +9458,7 @@
    ]
   },
   {
-   "id": "EC17",
+   "id": "EC1",
    "fields": [
     {
      "name": "desc",
@@ -9503,7 +9503,7 @@
    ]
   },
   {
-   "id": "EC33",
+   "id": "EC_Terminator_Champion",
    "fields": [
     {
      "name": "desc",
@@ -9558,7 +9558,7 @@
    ]
   },
   {
-   "id": "EC22",
+   "id": "EC_Terminator",
    "fields": [
     {
      "name": "desc",
@@ -9603,7 +9603,7 @@
    ]
   },
   {
-   "id": "EC18",
+   "id": "EC_Threnodic_Choir_Noise_Marine",
    "fields": [
     {
      "name": "desc",
@@ -9638,7 +9638,7 @@
    ]
   },
   {
-   "id": "EC23",
+   "id": "EC7",
    "fields": [
     {
      "name": "desc",
@@ -9673,7 +9673,7 @@
    ]
   },
   {
-   "id": "EC12",
+   "id": "EC5",
    "fields": [
     {
      "name": "desc",
@@ -9698,7 +9698,7 @@
    ]
   },
   {
-   "id": "EC34",
+   "id": "EC20",
    "fields": [
     {
      "name": "desc",
@@ -9723,7 +9723,7 @@
    ]
   },
   {
-   "id": "EC25",
+   "id": "EC4",
    "fields": [
     {
      "name": "desc",
@@ -9748,7 +9748,7 @@
    ]
   },
   {
-   "id": "EC42",
+   "id": "EC36",
    "fields": [
     {
      "name": "desc",
@@ -9773,7 +9773,7 @@
    ]
   },
   {
-   "id": "EC43",
+   "id": "EC54",
    "fields": [
     {
      "name": "desc",
@@ -9798,7 +9798,7 @@
    ]
   },
   {
-   "id": "EC4",
+   "id": "EC_Duelist_s_Hubris_Lucius_Talent",
    "fields": [
     {
      "name": "desc",
@@ -9958,7 +9958,7 @@
    ]
   },
   {
-   "id": "EC6",
+   "id": "EC_Excessive_Vigour_Daemon_Prince_s_Talent",
    "fields": [
     {
      "name": "desc",
@@ -9983,7 +9983,7 @@
    ]
   },
   {
-   "id": "EC58",
+   "id": "EC47",
    "fields": [
     {
      "name": "desc",
@@ -10008,7 +10008,7 @@
    ]
   },
   {
-   "id": "EC50",
+   "id": "EC41",
    "fields": [
     {
      "name": "desc",
@@ -10033,7 +10033,7 @@
    ]
   },
   {
-   "id": "EC52",
+   "id": "EC38",
    "fields": [
     {
      "name": "desc",
@@ -10068,7 +10068,7 @@
    ]
   },
   {
-   "id": "EC48",
+   "id": "EC44",
    "fields": [
     {
      "name": "desc",
@@ -10093,7 +10093,7 @@
    ]
   },
   {
-   "id": "EC53",
+   "id": "EC49",
    "fields": [
     {
      "name": "desc",
@@ -10123,7 +10123,7 @@
    ]
   },
   {
-   "id": "EC57",
+   "id": "EC58",
    "fields": [
     {
      "name": "desc",
@@ -10148,7 +10148,7 @@
    ]
   },
   {
-   "id": "EC41",
+   "id": "EC28",
    "fields": [
     {
      "name": "desc",
@@ -10183,7 +10183,7 @@
    ]
   },
   {
-   "id": "EC39",
+   "id": "EC_Maulerfiend",
    "fields": [
     {
      "name": "desc",
@@ -10228,7 +10228,7 @@
    ]
   },
   {
-   "id": "EC3",
+   "id": "EC55",
    "fields": [
     {
      "name": "desc",
@@ -10263,7 +10263,7 @@
    ]
   },
   {
-   "id": "EC5",
+   "id": "EC57",
    "fields": [
     {
      "name": "desc",
@@ -10308,7 +10308,7 @@
    ]
   },
   {
-   "id": "GSC67",
+   "id": "GSC65",
    "fields": [
     {
      "name": "desc",
@@ -10333,7 +10333,7 @@
    ]
   },
   {
-   "id": "GSC68",
+   "id": "GSC64",
    "fields": [
     {
      "name": "desc",
@@ -10358,7 +10358,7 @@
    ]
   },
   {
-   "id": "GSC33",
+   "id": "GSC26",
    "fields": [
     {
      "name": "desc",
@@ -10393,7 +10393,7 @@
    ]
   },
   {
-   "id": "GSC27",
+   "id": "GSC20",
    "fields": [
     {
      "name": "desc",
@@ -10438,7 +10438,7 @@
    ]
   },
   {
-   "id": "GSC38",
+   "id": "GSC32",
    "fields": [
     {
      "name": "desc",
@@ -10483,7 +10483,7 @@
    ]
   },
   {
-   "id": "GSC21",
+   "id": "GSC16",
    "fields": [
     {
      "name": "desc",
@@ -10538,7 +10538,7 @@
    ]
   },
   {
-   "id": "GSC13",
+   "id": "GSC9",
    "fields": [
     {
      "name": "desc",
@@ -10583,7 +10583,7 @@
    ]
   },
   {
-   "id": "GSC22",
+   "id": "GSC14",
    "fields": [
     {
      "name": "desc",
@@ -10608,7 +10608,7 @@
    ]
   },
   {
-   "id": "GSC23",
+   "id": "GSC15",
    "fields": [
     {
      "name": "desc",
@@ -10633,7 +10633,7 @@
    ]
   },
   {
-   "id": "GSC14",
+   "id": "GSC10",
    "fields": [
     {
      "name": "desc",
@@ -10678,7 +10678,7 @@
    ]
   },
   {
-   "id": "GSC28",
+   "id": "GSC21",
    "fields": [
     {
      "name": "desc",
@@ -10723,7 +10723,7 @@
    ]
   },
   {
-   "id": "GSC9",
+   "id": "GSC5",
    "fields": [
     {
      "name": "desc",
@@ -10758,7 +10758,7 @@
    ]
   },
   {
-   "id": "GSC7",
+   "id": "GSC4",
    "fields": [
     {
      "name": "desc",
@@ -10803,7 +10803,7 @@
    ]
   },
   {
-   "id": "GSC35",
+   "id": "GSC28",
    "fields": [
     {
      "name": "desc",
@@ -10858,7 +10858,7 @@
    ]
   },
   {
-   "id": "GSC24",
+   "id": "GSC23",
    "fields": [
     {
      "name": "desc",
@@ -10948,7 +10948,7 @@
    ]
   },
   {
-   "id": "GSC31",
+   "id": "GSC29",
    "fields": [
     {
      "name": "desc",
@@ -10973,7 +10973,7 @@
    ]
   },
   {
-   "id": "GSC36",
+   "id": "GSC30",
    "fields": [
     {
      "name": "desc",
@@ -11008,7 +11008,7 @@
    ]
   },
   {
-   "id": "GSC10",
+   "id": "GSC7",
    "fields": [
     {
      "name": "desc",
@@ -11033,7 +11033,7 @@
    ]
   },
   {
-   "id": "GSC20",
+   "id": "GSC18",
    "fields": [
     {
      "name": "desc",
@@ -11068,7 +11068,7 @@
    ]
   },
   {
-   "id": "GSC11",
+   "id": "GSC13",
    "fields": [
     {
      "name": "desc",
@@ -11093,7 +11093,7 @@
    ]
   },
   {
-   "id": "GSC12",
+   "id": "GSC8",
    "fields": [
     {
      "name": "desc",
@@ -11138,7 +11138,7 @@
    ]
   },
   {
-   "id": "GSC25",
+   "id": "GSC24",
    "fields": [
     {
      "name": "desc",
@@ -11183,7 +11183,7 @@
    ]
   },
   {
-   "id": "GSC43",
+   "id": "GSC37",
    "fields": [
     {
      "name": "desc",
@@ -11238,7 +11238,7 @@
    ]
   },
   {
-   "id": "GSC26",
+   "id": "GSC19",
    "fields": [
     {
      "name": "desc",
@@ -11263,7 +11263,7 @@
    ]
   },
   {
-   "id": "GSC61",
+   "id": "GSC56",
    "fields": [
     {
      "name": "desc",
@@ -11288,7 +11288,7 @@
    ]
   },
   {
-   "id": "GSC48",
+   "id": "GSC_Backstab",
    "fields": [
     {
      "name": "desc",
@@ -11313,7 +11313,7 @@
    ]
   },
   {
-   "id": "GSC54",
+   "id": "GSC46",
    "fields": [
     {
      "name": "desc",
@@ -11338,7 +11338,7 @@
    ]
   },
   {
-   "id": "GSC49",
+   "id": "GSC50",
    "fields": [
     {
      "name": "desc",
@@ -11363,7 +11363,7 @@
    ]
   },
   {
-   "id": "GSC50",
+   "id": "GSC53",
    "fields": [
     {
      "name": "desc",
@@ -11398,7 +11398,7 @@
    ]
   },
   {
-   "id": "GSC51",
+   "id": "GSC42",
    "fields": [
     {
      "name": "desc",
@@ -11423,7 +11423,7 @@
    ]
   },
   {
-   "id": "GSC52",
+   "id": "GSC43",
    "fields": [
     {
      "name": "desc",
@@ -11448,7 +11448,7 @@
    ]
   },
   {
-   "id": "GSC55",
+   "id": "GSC58",
    "fields": [
     {
      "name": "desc",
@@ -11473,7 +11473,7 @@
    ]
   },
   {
-   "id": "GSC56",
+   "id": "GSC51",
    "fields": [
     {
      "name": "desc",
@@ -11553,7 +11553,7 @@
    ]
   },
   {
-   "id": "GSC2",
+   "id": "GSC_Nexus_of_Devotion",
    "fields": [
     {
      "name": "desc",
@@ -11598,7 +11598,7 @@
    ]
   },
   {
-   "id": "GSC58",
+   "id": "GSC41",
    "fields": [
     {
      "name": "desc",
@@ -11633,7 +11633,7 @@
    ]
   },
   {
-   "id": "GSC47",
+   "id": "GSC57",
    "fields": [
     {
      "name": "desc",
@@ -11658,7 +11658,7 @@
    ]
   },
   {
-   "id": "GSC78",
+   "id": "GSC_Roaming_Outriders",
    "fields": [
     {
      "name": "desc",
@@ -11683,7 +11683,7 @@
    ]
   },
   {
-   "id": "GSC75",
+   "id": "GSC74",
    "fields": [
     {
      "name": "desc",
@@ -11708,7 +11708,7 @@
    ]
   },
   {
-   "id": "GSC64",
+   "id": "GSC49",
    "fields": [
     {
      "name": "desc",
@@ -11733,7 +11733,7 @@
    ]
   },
   {
-   "id": "GSC60",
+   "id": "GSC45",
    "fields": [
     {
      "name": "desc",
@@ -11758,7 +11758,7 @@
    ]
   },
   {
-   "id": "GSC29",
+   "id": "GSC_Vox_Hacker",
    "fields": [
     {
      "name": "desc",
@@ -11783,7 +11783,7 @@
    ]
   },
   {
-   "id": "GSC34",
+   "id": "GSC27",
    "fields": [
     {
      "name": "desc",
@@ -11818,7 +11818,7 @@
    ]
   },
   {
-   "id": "GSC69",
+   "id": "GSC68",
    "fields": [
     {
      "name": "desc",
@@ -11888,7 +11888,7 @@
    ]
   },
   {
-   "id": "GSC73",
+   "id": "GSC72",
    "fields": [
     {
      "name": "desc",
@@ -11913,7 +11913,7 @@
    ]
   },
   {
-   "id": "GSC45",
+   "id": "GSC38",
    "fields": [
     {
      "name": "desc",
@@ -11958,7 +11958,7 @@
    ]
   },
   {
-   "id": "GSC41",
+   "id": "GSC36",
    "fields": [
     {
      "name": "desc",
@@ -11993,7 +11993,7 @@
    ]
   },
   {
-   "id": "GSC40",
+   "id": "GSC33",
    "fields": [
     {
      "name": "desc",
@@ -12028,7 +12028,7 @@
    ]
   },
   {
-   "id": "GSC70",
+   "id": "GSC69",
    "fields": [
     {
      "name": "desc",
@@ -12073,7 +12073,7 @@
    ]
   },
   {
-   "id": "GSC_Jackal_Scout",
+   "id": "GSC67",
    "fields": [
     {
      "name": "desc",
@@ -12098,7 +12098,7 @@
    ]
   },
   {
-   "id": "GSC72",
+   "id": "GSC70",
    "fields": [
     {
      "name": "desc",
@@ -12123,7 +12123,7 @@
    ]
   },
   {
-   "id": "GSC74",
+   "id": "GSC73",
    "fields": [
     {
      "name": "desc",
@@ -12178,7 +12178,7 @@
    ]
   },
   {
-   "id": "GSC1",
+   "id": "GSC_Acolyte_Iconward",
    "fields": [
     {
      "name": "desc",
@@ -12228,7 +12228,7 @@
    ]
   },
   {
-   "id": "GSC3",
+   "id": "GSC2",
    "fields": [
     {
      "name": "desc",
@@ -12253,7 +12253,7 @@
    ]
   },
   {
-   "id": "GSC5",
+   "id": "GSC1",
    "fields": [
     {
      "name": "desc",
@@ -12278,7 +12278,7 @@
    ]
   },
   {
-   "id": "SAU15",
+   "id": "SAU9",
    "fields": [
     {
      "name": "desc",
@@ -12323,7 +12323,7 @@
    ]
   },
   {
-   "id": "SAU8",
+   "id": "SAU2",
    "fields": [
     {
      "name": "desc",
@@ -12358,7 +12358,7 @@
    ]
   },
   {
-   "id": "SAU7",
+   "id": "SAU1",
    "fields": [
     {
      "name": "desc",
@@ -12383,7 +12383,7 @@
    ]
   },
   {
-   "id": "SAU19",
+   "id": "SAU13",
    "fields": [
     {
      "name": "desc",
@@ -12418,7 +12418,7 @@
    ]
   },
   {
-   "id": "SAU13",
+   "id": "SAU7",
    "fields": [
     {
      "name": "desc",
@@ -12443,7 +12443,7 @@
    ]
   },
   {
-   "id": "SAU27",
+   "id": "SAU20",
    "fields": [
     {
      "name": "desc",
@@ -12478,7 +12478,7 @@
    ]
   },
   {
-   "id": "SAU20",
+   "id": "SAU14",
    "fields": [
     {
      "name": "desc",
@@ -12513,7 +12513,7 @@
    ]
   },
   {
-   "id": "SAU68",
+   "id": "SAU67",
    "fields": [
     {
      "name": "desc",
@@ -12538,7 +12538,7 @@
    ]
   },
   {
-   "id": "SAU21",
+   "id": "SAU15",
    "fields": [
     {
      "name": "desc",
@@ -12573,7 +12573,7 @@
    ]
   },
   {
-   "id": "SAU9",
+   "id": "SAU3",
    "fields": [
     {
      "name": "desc",
@@ -12598,7 +12598,7 @@
    ]
   },
   {
-   "id": "SAU14",
+   "id": "SAU_Gauss_Blaster_Immortal",
    "fields": [
     {
      "name": "desc",
@@ -12633,7 +12633,7 @@
    ]
   },
   {
-   "id": "SAU10",
+   "id": "SAU_Gauss_Reaper_Warrior",
    "fields": [
     {
      "name": "desc",
@@ -12658,7 +12658,7 @@
    ]
   },
   {
-   "id": "SAU73",
+   "id": "SAU72",
    "fields": [
     {
      "name": "desc",
@@ -12683,7 +12683,7 @@
    ]
   },
   {
-   "id": "SAU_Lychguard",
+   "id": "SAU23",
    "fields": [
     {
      "name": "desc",
@@ -12728,7 +12728,7 @@
    ]
   },
   {
-   "id": "SAU37",
+   "id": "SAU29",
    "fields": [
     {
      "name": "desc",
@@ -12773,7 +12773,7 @@
    ]
   },
   {
-   "id": "SAU11",
+   "id": "SAU5",
    "fields": [
     {
      "name": "desc",
@@ -12808,7 +12808,7 @@
    ]
   },
   {
-   "id": "SAU33",
+   "id": "SAU26",
    "fields": [
     {
      "name": "desc",
@@ -12833,7 +12833,7 @@
    ]
   },
   {
-   "id": "SAU23",
+   "id": "SAU17",
    "fields": [
     {
      "name": "desc",
@@ -12868,7 +12868,7 @@
    ]
   },
   {
-   "id": "SAU34",
+   "id": "SAU65",
    "fields": [
     {
      "name": "desc",
@@ -12893,7 +12893,7 @@
    ]
   },
   {
-   "id": "SAU35",
+   "id": "SAU27",
    "fields": [
     {
      "name": "desc",
@@ -12918,7 +12918,7 @@
    ]
   },
   {
-   "id": "SAU24",
+   "id": "SAU18",
    "fields": [
     {
      "name": "desc",
@@ -12963,7 +12963,7 @@
    ]
   },
   {
-   "id": "SAU41",
+   "id": "SAU32",
    "fields": [
     {
      "name": "desc",
@@ -12998,7 +12998,7 @@
    ]
   },
   {
-   "id": "SAU16",
+   "id": "SAU11",
    "fields": [
     {
      "name": "desc",
@@ -13033,7 +13033,7 @@
    ]
   },
   {
-   "id": "SAU18",
+   "id": "SAU10",
    "fields": [
     {
      "name": "desc",
@@ -13068,7 +13068,7 @@
    ]
   },
   {
-   "id": "SAU42",
+   "id": "SAU33",
    "fields": [
     {
      "name": "desc",
@@ -13093,7 +13093,7 @@
    ]
   },
   {
-   "id": "SAU25",
+   "id": "SAU19",
    "fields": [
     {
      "name": "desc",
@@ -13138,7 +13138,7 @@
    ]
   },
   {
-   "id": "SAU62",
+   "id": "SAU54",
    "fields": [
     {
      "name": "desc",
@@ -13163,7 +13163,7 @@
    ]
   },
   {
-   "id": "SAU54",
+   "id": "SAU47",
    "fields": [
     {
      "name": "desc",
@@ -13188,7 +13188,7 @@
    ]
   },
   {
-   "id": "SAU51",
+   "id": "SAU44",
    "fields": [
     {
      "name": "desc",
@@ -13288,7 +13288,7 @@
    ]
   },
   {
-   "id": "SAU57",
+   "id": "SAU55",
    "fields": [
     {
      "name": "desc",
@@ -13313,7 +13313,7 @@
    ]
   },
   {
-   "id": "SAU2",
+   "id": "SAU_Lord_of_the_Storm",
    "fields": [
     {
      "name": "desc",
@@ -13338,7 +13338,7 @@
    ]
   },
   {
-   "id": "SAU44",
+   "id": "SAU_Particle_Whip",
    "fields": [
     {
      "name": "desc",
@@ -13363,7 +13363,7 @@
    ]
   },
   {
-   "id": "SAU49",
+   "id": "SAU40",
    "fields": [
     {
      "name": "desc",
@@ -13398,7 +13398,7 @@
    ]
   },
   {
-   "id": "SAU26",
+   "id": "SAU_Reanimate",
    "fields": [
     {
      "name": "desc",
@@ -13423,7 +13423,7 @@
    ]
   },
   {
-   "id": "SAU46",
+   "id": "SAU41",
    "fields": [
     {
      "name": "desc",
@@ -13448,7 +13448,7 @@
    ]
   },
   {
-   "id": "SAU67",
+   "id": "SAU61",
    "fields": [
     {
      "name": "desc",
@@ -13473,7 +13473,7 @@
    ]
   },
   {
-   "id": "SAU55",
+   "id": "SAU43",
    "fields": [
     {
      "name": "desc",
@@ -13508,7 +13508,7 @@
    ]
   },
   {
-   "id": "SAU74",
+   "id": "SAU73",
    "fields": [
     {
      "name": "desc",
@@ -13533,7 +13533,7 @@
    ]
   },
   {
-   "id": "SAU31",
+   "id": "SAU24",
    "fields": [
     {
      "name": "desc",
@@ -13568,7 +13568,7 @@
    ]
   },
   {
-   "id": "SAU28",
+   "id": "SAU21",
    "fields": [
     {
      "name": "desc",
@@ -13603,7 +13603,7 @@
    ]
   },
   {
-   "id": "SAU36",
+   "id": "SAU28",
    "fields": [
     {
      "name": "desc",
@@ -13638,7 +13638,7 @@
    ]
   },
   {
-   "id": "SAU43",
+   "id": "SAU34",
    "fields": [
     {
      "name": "desc",
@@ -13683,7 +13683,7 @@
    ]
   },
   {
-   "id": "SAU17",
+   "id": "SAU12",
    "fields": [
     {
      "name": "desc",
@@ -13728,7 +13728,7 @@
    ]
   },
   {
-   "id": "SAU39",
+   "id": "SAU30",
    "fields": [
     {
      "name": "desc",
@@ -13753,7 +13753,7 @@
    ]
   },
   {
-   "id": "SAU1",
+   "id": "SAU35",
    "fields": [
     {
      "name": "desc",
@@ -13778,7 +13778,7 @@
    ]
   },
   {
-   "id": "SAU3",
+   "id": "SAU36",
    "fields": [
     {
      "name": "desc",
@@ -13803,7 +13803,7 @@
    ]
   },
   {
-   "id": "SAU5",
+   "id": "SAU37",
    "fields": [
     {
      "name": "desc",
@@ -13838,7 +13838,7 @@
    ]
   },
   {
-   "id": "SAU_Ramatekh_The_Cruel",
+   "id": "SAU66",
    "fields": [
     {
      "name": "desc",
@@ -13883,7 +13883,7 @@
    ]
   },
   {
-   "id": "GOF3",
+   "id": "GOF28",
    "fields": [
     {
      "name": "desc",
@@ -13908,7 +13908,7 @@
    ]
   },
   {
-   "id": "GOF78",
+   "id": "GOF79",
    "fields": [
     {
      "name": "desc",
@@ -13963,7 +13963,7 @@
    ]
   },
   {
-   "id": "GOF90",
+   "id": "GOF91",
    "fields": [
     {
      "name": "desc",
@@ -13998,7 +13998,7 @@
    ]
   },
   {
-   "id": "GOF96",
+   "id": "GOF97",
    "fields": [
     {
      "name": "desc",
@@ -14053,7 +14053,7 @@
    ]
   },
   {
-   "id": "GOF79",
+   "id": "GOF80",
    "fields": [
     {
      "name": "desc",
@@ -14078,7 +14078,7 @@
    ]
   },
   {
-   "id": "GOF82",
+   "id": "GOF83",
    "fields": [
     {
      "name": "desc",
@@ -14103,7 +14103,7 @@
    ]
   },
   {
-   "id": "GOF92",
+   "id": "GOF93",
    "fields": [
     {
      "name": "desc",
@@ -14138,7 +14138,7 @@
    ]
   },
   {
-   "id": "GOF94",
+   "id": "GOF95",
    "fields": [
     {
      "name": "desc",
@@ -14163,7 +14163,7 @@
    ]
   },
   {
-   "id": "GOF87",
+   "id": "GOF88",
    "fields": [
     {
      "name": "desc",
@@ -14198,7 +14198,7 @@
    ]
   },
   {
-   "id": "GOF93",
+   "id": "GOF94",
    "fields": [
     {
      "name": "desc",
@@ -14233,7 +14233,7 @@
    ]
   },
   {
-   "id": "GOF83",
+   "id": "GOF84",
    "fields": [
     {
      "name": "desc",
@@ -14258,7 +14258,7 @@
    ]
   },
   {
-   "id": "GOF77",
+   "id": "GOF78",
    "fields": [
     {
      "name": "desc",
@@ -14293,7 +14293,7 @@
    ]
   },
   {
-   "id": "GOF88",
+   "id": "GOF89",
    "fields": [
     {
      "name": "desc",
@@ -14348,7 +14348,7 @@
    ]
   },
   {
-   "id": "GOF80",
+   "id": "GOF81",
    "fields": [
     {
      "name": "desc",
@@ -14373,7 +14373,7 @@
    ]
   },
   {
-   "id": "GOF99",
+   "id": "GOF100",
    "fields": [
     {
      "name": "desc",
@@ -14408,7 +14408,7 @@
    ]
   },
   {
-   "id": "GOF101",
+   "id": "GOF103",
    "fields": [
     {
      "name": "desc",
@@ -14433,7 +14433,7 @@
    ]
   },
   {
-   "id": "GOF100",
+   "id": "GOF101",
    "fields": [
     {
      "name": "desc",
@@ -14523,7 +14523,7 @@
    ]
   },
   {
-   "id": "GOF97",
+   "id": "GOF98",
    "fields": [
     {
      "name": "desc",
@@ -14548,7 +14548,7 @@
    ]
   },
   {
-   "id": "GOF103",
+   "id": "GOF106",
    "fields": [
     {
      "name": "desc",
@@ -14583,7 +14583,7 @@
    ]
   },
   {
-   "id": "GOF98",
+   "id": "GOF99",
    "fields": [
     {
      "name": "desc",
@@ -14608,7 +14608,7 @@
    ]
   },
   {
-   "id": "GOF95",
+   "id": "GOF96",
    "fields": [
     {
      "name": "desc",
@@ -14633,7 +14633,7 @@
    ]
   },
   {
-   "id": "GOF75",
+   "id": "GOF77",
    "fields": [
     {
      "name": "desc",
@@ -14693,32 +14693,7 @@
    ]
   },
   {
-   "id": "GOF81",
-   "fields": [
-    {
-     "name": "desc",
-     "items": [
-      {
-       "token": "[Attack]",
-       "sprite": "Melee",
-       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
-      }
-     ]
-    },
-    {
-     "name": "descZh",
-     "items": [
-      {
-       "token": "[攻击]",
-       "sprite": "Melee",
-       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
-      }
-     ]
-    }
-   ]
-  },
-  {
-   "id": "GOF84",
+   "id": "GOF82",
    "fields": [
     {
      "name": "desc",
@@ -14749,6 +14724,31 @@
      "name": "desc",
      "items": [
       {
+       "token": "[Attack]",
+       "sprite": "Melee",
+       "why": "本批新写的近战记号 —— 原文那一处是**裸词** `Attack`、卡面只印**粉拳**（亲读的 26 张见 `数据/游戏数据/cardface_fixes.json` 的 `_2026-10-18_属性图标方括号`）。"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "[攻击]",
+       "sprite": "Melee",
+       "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GOF86",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
        "token": "Flying",
        "sprite": "flying",
        "why": "**恒带**（42 卡 42 处 · 原画 27 卡 · 双写 46 处 ⇒ 缺 15 卡）—— 逐处判据 = `_还原效果文字.md` 的**双写**。中文 44 张（多 `TAU14`/`TAU20`：卡面确实印着那枚，是我们 `desc` 漏了那个词）。"
@@ -14768,7 +14768,7 @@
    ]
   },
   {
-   "id": "GOF91",
+   "id": "GOF92",
    "fields": [
     {
      "name": "desc",
@@ -14918,7 +14918,7 @@
    ]
   },
   {
-   "id": "GOF32",
+   "id": "GOF23",
    "fields": [
     {
      "name": "desc",
@@ -14963,7 +14963,7 @@
    ]
   },
   {
-   "id": "GOF16",
+   "id": "GOF11",
    "fields": [
     {
      "name": "desc",
@@ -14998,7 +14998,7 @@
    ]
   },
   {
-   "id": "GOF_Big_Choppa_Nob",
+   "id": "GOF68",
    "fields": [
     {
      "name": "desc",
@@ -15023,7 +15023,7 @@
    ]
   },
   {
-   "id": "GOF22",
+   "id": "GOF16",
    "fields": [
     {
      "name": "desc",
@@ -15048,7 +15048,7 @@
    ]
   },
   {
-   "id": "GOF6",
+   "id": "GOF3",
    "fields": [
     {
      "name": "desc",
@@ -15073,7 +15073,7 @@
    ]
   },
   {
-   "id": "GOF_Boss_Nob",
+   "id": "GOF67",
    "fields": [
     {
      "name": "desc",
@@ -15098,7 +15098,7 @@
    ]
   },
   {
-   "id": "GOF17",
+   "id": "GOF15",
    "fields": [
     {
      "name": "desc",
@@ -15123,7 +15123,7 @@
    ]
   },
   {
-   "id": "GOF4",
+   "id": "GOF1",
    "fields": [
     {
      "name": "desc",
@@ -15148,7 +15148,7 @@
    ]
   },
   {
-   "id": "GOF34",
+   "id": "GOF62",
    "fields": [
     {
      "name": "desc",
@@ -15183,7 +15183,7 @@
    ]
   },
   {
-   "id": "GOF5",
+   "id": "GOF2",
    "fields": [
     {
      "name": "desc",
@@ -15218,7 +15218,7 @@
    ]
   },
   {
-   "id": "GOF28",
+   "id": "GOF19",
    "fields": [
     {
      "name": "desc",
@@ -15253,7 +15253,7 @@
    ]
   },
   {
-   "id": "GOF25",
+   "id": "GOF21",
    "fields": [
     {
      "name": "desc",
@@ -15288,7 +15288,7 @@
    ]
   },
   {
-   "id": "GOF7",
+   "id": "GOF55",
    "fields": [
     {
      "name": "desc",
@@ -15313,7 +15313,7 @@
    ]
   },
   {
-   "id": "GOF20",
+   "id": "GOF57",
    "fields": [
     {
      "name": "desc",
@@ -15338,7 +15338,7 @@
    ]
   },
   {
-   "id": "GOF26",
+   "id": "GOF18",
    "fields": [
     {
      "name": "desc",
@@ -15363,7 +15363,7 @@
    ]
   },
   {
-   "id": "GOF_Rokkit_Boy",
+   "id": "GOF66",
    "fields": [
     {
      "name": "desc",
@@ -15398,7 +15398,7 @@
    ]
   },
   {
-   "id": "GOF13",
+   "id": "GOF9",
    "fields": [
     {
      "name": "desc",
@@ -15423,7 +15423,7 @@
    ]
   },
   {
-   "id": "GOF21",
+   "id": "GOF14",
    "fields": [
     {
      "name": "desc",
@@ -15458,7 +15458,7 @@
    ]
   },
   {
-   "id": "GOF8",
+   "id": "GOF4",
    "fields": [
     {
      "name": "desc",
@@ -15503,7 +15503,7 @@
    ]
   },
   {
-   "id": "GOF_Stikkbomb_Boy",
+   "id": "GOF65",
    "fields": [
     {
      "name": "desc",
@@ -15528,7 +15528,7 @@
    ]
   },
   {
-   "id": "GOF9",
+   "id": "GOF6",
    "fields": [
     {
      "name": "desc",
@@ -15563,7 +15563,7 @@
    ]
   },
   {
-   "id": "GOF30",
+   "id": "GOF60",
    "fields": [
     {
      "name": "desc",
@@ -15588,7 +15588,7 @@
    ]
   },
   {
-   "id": "GOF10",
+   "id": "GOF5",
    "fields": [
     {
      "name": "desc",
@@ -15623,7 +15623,7 @@
    ]
   },
   {
-   "id": "GOF31",
+   "id": "GOF_Veteran_Flyboy",
    "fields": [
     {
      "name": "desc",
@@ -15648,7 +15648,7 @@
    ]
   },
   {
-   "id": "GOF40",
+   "id": "GOF30",
    "fields": [
     {
      "name": "desc",
@@ -15673,7 +15673,7 @@
    ]
   },
   {
-   "id": "GOF43",
+   "id": "GOF31",
    "fields": [
     {
      "name": "desc",
@@ -15723,7 +15723,7 @@
    ]
   },
   {
-   "id": "GOF_Dead_Choppy",
+   "id": "GOF72",
    "fields": [
     {
      "name": "desc",
@@ -15783,7 +15783,7 @@
    ]
   },
   {
-   "id": "GOF53",
+   "id": "GOF45",
    "fields": [
     {
      "name": "desc",
@@ -15833,7 +15833,7 @@
    ]
   },
   {
-   "id": "GOF47",
+   "id": "GOF43",
    "fields": [
     {
      "name": "desc",
@@ -15858,7 +15858,7 @@
    ]
   },
   {
-   "id": "GOF_Grizzled_Skarboy",
+   "id": "GOF74",
    "fields": [
     {
      "name": "desc",
@@ -15883,7 +15883,7 @@
    ]
   },
   {
-   "id": "GOF_Krump_da_Gitz",
+   "id": "GOF71",
    "fields": [
     {
      "name": "desc",
@@ -15943,7 +15943,7 @@
    ]
   },
   {
-   "id": "GOF44",
+   "id": "GOF35",
    "fields": [
     {
      "name": "desc",
@@ -15978,7 +15978,7 @@
    ]
   },
   {
-   "id": "GOF48",
+   "id": "GOF38",
    "fields": [
     {
      "name": "desc",
@@ -16003,7 +16003,7 @@
    ]
   },
   {
-   "id": "GOF49",
+   "id": "GOF64",
    "fields": [
     {
      "name": "desc",
@@ -16028,7 +16028,7 @@
    ]
   },
   {
-   "id": "GOF46",
+   "id": "GOF36",
    "fields": [
     {
      "name": "desc",
@@ -16063,7 +16063,7 @@
    ]
   },
   {
-   "id": "GOF_Stomp_Em",
+   "id": "GOF73",
    "fields": [
     {
      "name": "desc",
@@ -16098,7 +16098,7 @@
    ]
   },
   {
-   "id": "GOF50",
+   "id": "GOF39",
    "fields": [
     {
      "name": "desc",
@@ -16123,7 +16123,7 @@
    ]
   },
   {
-   "id": "GOF62",
+   "id": "GOF52",
    "fields": [
     {
      "name": "desc",
@@ -16283,7 +16283,7 @@
    ]
   },
   {
-   "id": "GOF23",
+   "id": "GOF58",
    "fields": [
     {
      "name": "desc",
@@ -16328,7 +16328,7 @@
    ]
   },
   {
-   "id": "GOF33",
+   "id": "GOF22",
    "fields": [
     {
      "name": "desc",
@@ -16363,7 +16363,7 @@
    ]
   },
   {
-   "id": "GOF19",
+   "id": "GOF56",
    "fields": [
     {
      "name": "desc",
@@ -16398,7 +16398,7 @@
    ]
   },
   {
-   "id": "GOF38",
+   "id": "GOF25",
    "fields": [
     {
      "name": "desc",
@@ -16423,7 +16423,7 @@
    ]
   },
   {
-   "id": "GOF11",
+   "id": "GOF10",
    "fields": [
     {
      "name": "desc",
@@ -16458,7 +16458,7 @@
    ]
   },
   {
-   "id": "GOF36",
+   "id": "GOF63",
    "fields": [
     {
      "name": "desc",
@@ -16493,7 +16493,7 @@
    ]
   },
   {
-   "id": "GOF24",
+   "id": "GOF17",
    "fields": [
     {
      "name": "desc",
@@ -16528,7 +16528,7 @@
    ]
   },
   {
-   "id": "GOF_Krumpaklaw",
+   "id": "GOF70",
    "fields": [
     {
      "name": "desc",
@@ -16573,7 +16573,7 @@
    ]
   },
   {
-   "id": "GOF29",
+   "id": "GOF61",
    "fields": [
     {
      "name": "desc",
@@ -16618,7 +16618,7 @@
    ]
   },
   {
-   "id": "GOF39",
+   "id": "GOF26",
    "fields": [
     {
      "name": "desc",
@@ -16683,7 +16683,7 @@
    ]
   },
   {
-   "id": "GOF15",
+   "id": "GOF7",
    "fields": [
     {
      "name": "desc",
@@ -16718,7 +16718,7 @@
    ]
   },
   {
-   "id": "GOF2",
+   "id": "GOF27",
    "fields": [
     {
      "name": "desc",
@@ -16743,7 +16743,7 @@
    ]
   },
   {
-   "id": "GOF1",
+   "id": "GOF29",
    "fields": [
     {
      "name": "desc",
@@ -16788,7 +16788,7 @@
    ]
   },
   {
-   "id": "GOF_Warboss_Gordrang",
+   "id": "GOF75",
    "fields": [
     {
      "name": "desc",
@@ -16813,7 +16813,7 @@
    ]
   },
   {
-   "id": "GOF_Mega_Blasta_Deffkopta",
+   "id": "GOF69",
    "fields": [
     {
      "name": "desc",
@@ -16868,7 +16868,7 @@
    ]
   },
   {
-   "id": "SOR72",
+   "id": "SOR71",
    "fields": [
     {
      "name": "desc",
@@ -17008,7 +17008,7 @@
    ]
   },
   {
-   "id": "SOR67",
+   "id": "SOR66",
    "fields": [
     {
      "name": "desc",
@@ -17063,7 +17063,7 @@
    ]
   },
   {
-   "id": "SOR10",
+   "id": "SOR6",
    "fields": [
     {
      "name": "desc",
@@ -17088,7 +17088,7 @@
    ]
   },
   {
-   "id": "SOR9",
+   "id": "SOR5",
    "fields": [
     {
      "name": "desc",
@@ -17133,7 +17133,7 @@
    ]
   },
   {
-   "id": "SOR27",
+   "id": "SOR23",
    "fields": [
     {
      "name": "desc",
@@ -17188,7 +17188,7 @@
    ]
   },
   {
-   "id": "SOR31",
+   "id": "SOR30",
    "fields": [
     {
      "name": "desc",
@@ -17213,7 +17213,7 @@
    ]
   },
   {
-   "id": "SOR36",
+   "id": "SOR34",
    "fields": [
     {
      "name": "desc",
@@ -17283,7 +17283,7 @@
    ]
   },
   {
-   "id": "SOR11",
+   "id": "SOR7",
    "fields": [
     {
      "name": "desc",
@@ -17328,7 +17328,7 @@
    ]
   },
   {
-   "id": "SOR16",
+   "id": "SOR21",
    "fields": [
     {
      "name": "desc",
@@ -17353,7 +17353,7 @@
    ]
   },
   {
-   "id": "SOR20",
+   "id": "SOR18",
    "fields": [
     {
      "name": "desc",
@@ -17388,7 +17388,7 @@
    ]
   },
   {
-   "id": "SOR28",
+   "id": "SOR22",
    "fields": [
     {
      "name": "desc",
@@ -17423,7 +17423,7 @@
    ]
   },
   {
-   "id": "SOR17",
+   "id": "SOR11",
    "fields": [
     {
      "name": "desc",
@@ -17448,67 +17448,67 @@
    ]
   },
   {
-   "id": "SOR33",
-   "fields": [
-    {
-     "name": "desc",
-     "items": [
-      {
-       "token": "Pray:",
-       "sprite": "pray",
-       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
-      },
-      {
-       "token": "☀",
-       "sprite": "faith",
-       "why": "☀ 金太阳 = **信仰**（修女会）。逐张核过 7 张：Sister Novitiate / Blade of Faith / Sacred Rose / Paragon Warsuit / Preacher / Miraculous Feat / Daemonbreaker 同一张图；数字写在图标**外面左侧**"
-      }
-     ]
-    },
-    {
-     "name": "descZh",
-     "items": [
-      {
-       "token": "祈祷：",
-       "sprite": "pray",
-       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
-      },
-      {
-       "token": "☀",
-       "sprite": "faith",
-       "why": "☀ 金太阳 = **信仰**（修女会）。逐张核过 7 张：Sister Novitiate / Blade of Faith / Sacred Rose / Paragon Warsuit / Preacher / Miraculous Feat / Daemonbreaker 同一张图；数字写在图标**外面左侧**"
-      }
-     ]
-    }
-   ]
-  },
-  {
-   "id": "SOR21",
-   "fields": [
-    {
-     "name": "desc",
-     "items": [
-      {
-       "token": "Pray:",
-       "sprite": "pray",
-       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
-      }
-     ]
-    },
-    {
-     "name": "descZh",
-     "items": [
-      {
-       "token": "祈祷：",
-       "sprite": "pray",
-       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
-      }
-     ]
-    }
-   ]
-  },
-  {
    "id": "SOR29",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Pray:",
+       "sprite": "pray",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "☀",
+       "sprite": "faith",
+       "why": "☀ 金太阳 = **信仰**（修女会）。逐张核过 7 张：Sister Novitiate / Blade of Faith / Sacred Rose / Paragon Warsuit / Preacher / Miraculous Feat / Daemonbreaker 同一张图；数字写在图标**外面左侧**"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "祈祷：",
+       "sprite": "pray",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "☀",
+       "sprite": "faith",
+       "why": "☀ 金太阳 = **信仰**（修女会）。逐张核过 7 张：Sister Novitiate / Blade of Faith / Sacred Rose / Paragon Warsuit / Preacher / Miraculous Feat / Daemonbreaker 同一张图；数字写在图标**外面左侧**"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "SOR20",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Pray:",
+       "sprite": "pray",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "祈祷：",
+       "sprite": "pray",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "SOR25",
    "fields": [
     {
      "name": "desc",
@@ -17563,7 +17563,7 @@
    ]
   },
   {
-   "id": "SOR69",
+   "id": "SOR68",
    "fields": [
     {
      "name": "desc",
@@ -17598,7 +17598,7 @@
    ]
   },
   {
-   "id": "SOR22",
+   "id": "SOR16",
    "fields": [
     {
      "name": "desc",
@@ -17643,7 +17643,7 @@
    ]
   },
   {
-   "id": "SOR12",
+   "id": "SOR9",
    "fields": [
     {
      "name": "desc",
@@ -17683,7 +17683,7 @@
    ]
   },
   {
-   "id": "SOR23",
+   "id": "SOR12",
    "fields": [
     {
      "name": "desc",
@@ -17708,7 +17708,7 @@
    ]
   },
   {
-   "id": "SOR68",
+   "id": "SOR67",
    "fields": [
     {
      "name": "desc",
@@ -17773,7 +17773,7 @@
    ]
   },
   {
-   "id": "SOR38",
+   "id": "SOR33",
    "fields": [
     {
      "name": "desc",
@@ -17808,7 +17808,7 @@
    ]
   },
   {
-   "id": "SOR24",
+   "id": "SOR19",
    "fields": [
     {
      "name": "desc",
@@ -17843,7 +17843,7 @@
    ]
   },
   {
-   "id": "SOR18",
+   "id": "SOR13",
    "fields": [
     {
      "name": "desc",
@@ -17868,7 +17868,7 @@
    ]
   },
   {
-   "id": "SOR30",
+   "id": "SOR24",
    "fields": [
     {
      "name": "desc",
@@ -17913,7 +17913,7 @@
    ]
   },
   {
-   "id": "SOR32",
+   "id": "SOR_Sister_Dogmata",
    "fields": [
     {
      "name": "desc",
@@ -17943,7 +17943,7 @@
    ]
   },
   {
-   "id": "SOR7",
+   "id": "SOR4",
    "fields": [
     {
      "name": "desc",
@@ -17978,7 +17978,7 @@
    ]
   },
   {
-   "id": "SOR25",
+   "id": "SOR17",
    "fields": [
     {
      "name": "desc",
@@ -18003,7 +18003,7 @@
    ]
   },
   {
-   "id": "SOR19",
+   "id": "SOR_Sisters_Repentia",
    "fields": [
     {
      "name": "desc",
@@ -18048,7 +18048,7 @@
    ]
   },
   {
-   "id": "SOR_Triumph_of_Saint_Katherine",
+   "id": "SOR37",
    "fields": [
     {
      "name": "desc",
@@ -18093,7 +18093,7 @@
    ]
   },
   {
-   "id": "SOR71",
+   "id": "SOR69",
    "fields": [
     {
      "name": "desc",
@@ -18118,7 +18118,7 @@
    ]
   },
   {
-   "id": "SOR35",
+   "id": "SOR28",
    "fields": [
     {
      "name": "desc",
@@ -18153,7 +18153,7 @@
    ]
   },
   {
-   "id": "SOR44",
+   "id": "SOR56",
    "fields": [
     {
      "name": "desc",
@@ -18198,7 +18198,7 @@
    ]
   },
   {
-   "id": "SOR50",
+   "id": "SOR53",
    "fields": [
     {
      "name": "desc",
@@ -18223,7 +18223,7 @@
    ]
   },
   {
-   "id": "SOR51",
+   "id": "SOR41",
    "fields": [
     {
      "name": "desc",
@@ -18248,7 +18248,7 @@
    ]
   },
   {
-   "id": "SOR66",
+   "id": "SOR_Daemonbreaker",
    "fields": [
     {
      "name": "desc",
@@ -18328,31 +18328,6 @@
    ]
   },
   {
-   "id": "SOR43",
-   "fields": [
-    {
-     "name": "desc",
-     "items": [
-      {
-       "token": "☀",
-       "sprite": "faith",
-       "why": "☀ 金太阳 = **信仰**（修女会）。逐张核过 7 张：Sister Novitiate / Blade of Faith / Sacred Rose / Paragon Warsuit / Preacher / Miraculous Feat / Daemonbreaker 同一张图；数字写在图标**外面左侧**"
-      }
-     ]
-    },
-    {
-     "name": "descZh",
-     "items": [
-      {
-       "token": "☀",
-       "sprite": "faith",
-       "why": "☀ 金太阳 = **信仰**（修女会）。逐张核过 7 张：Sister Novitiate / Blade of Faith / Sacred Rose / Paragon Warsuit / Preacher / Miraculous Feat / Daemonbreaker 同一张图；数字写在图标**外面左侧**"
-      }
-     ]
-    }
-   ]
-  },
-  {
    "id": "SOR58",
    "fields": [
     {
@@ -18378,7 +18353,32 @@
    ]
   },
   {
-   "id": "SOR55",
+   "id": "SOR51",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "☀",
+       "sprite": "faith",
+       "why": "☀ 金太阳 = **信仰**（修女会）。逐张核过 7 张：Sister Novitiate / Blade of Faith / Sacred Rose / Paragon Warsuit / Preacher / Miraculous Feat / Daemonbreaker 同一张图；数字写在图标**外面左侧**"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "☀",
+       "sprite": "faith",
+       "why": "☀ 金太阳 = **信仰**（修女会）。逐张核过 7 张：Sister Novitiate / Blade of Faith / Sacred Rose / Paragon Warsuit / Preacher / Miraculous Feat / Daemonbreaker 同一张图；数字写在图标**外面左侧**"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "SOR54",
    "fields": [
     {
      "name": "desc",
@@ -18423,7 +18423,7 @@
    ]
   },
   {
-   "id": "SOR45",
+   "id": "SOR46",
    "fields": [
     {
      "name": "desc",
@@ -18458,7 +18458,7 @@
    ]
   },
   {
-   "id": "SOR2",
+   "id": "SOR_Fury_of_the_Righteous",
    "fields": [
     {
      "name": "desc",
@@ -18493,7 +18493,7 @@
    ]
   },
   {
-   "id": "SOR56",
+   "id": "SOR57",
    "fields": [
     {
      "name": "desc",
@@ -18518,7 +18518,7 @@
    ]
   },
   {
-   "id": "SOR64",
+   "id": "SOR60",
    "fields": [
     {
      "name": "desc",
@@ -18563,7 +18563,7 @@
    ]
   },
   {
-   "id": "SOR13",
+   "id": "SOR_Hymn_of_Battle",
    "fields": [
     {
      "name": "desc",
@@ -18588,7 +18588,7 @@
    ]
   },
   {
-   "id": "SOR59",
+   "id": "SOR48",
    "fields": [
     {
      "name": "desc",
@@ -18623,7 +18623,7 @@
    ]
   },
   {
-   "id": "SOR46",
+   "id": "SOR40",
    "fields": [
     {
      "name": "desc",
@@ -18658,7 +18658,7 @@
    ]
   },
   {
-   "id": "SOR4",
+   "id": "SOR_Lead_the_Righteous",
    "fields": [
     {
      "name": "desc",
@@ -18683,7 +18683,7 @@
    ]
   },
   {
-   "id": "SOR52",
+   "id": "SOR47",
    "fields": [
     {
      "name": "desc",
@@ -18718,7 +18718,7 @@
    ]
   },
   {
-   "id": "SOR48",
+   "id": "SOR39",
    "fields": [
     {
      "name": "desc",
@@ -18763,7 +18763,7 @@
    ]
   },
   {
-   "id": "SOR_Relics_of_Saint_Katherine",
+   "id": "SOR50",
    "fields": [
     {
      "name": "desc",
@@ -18788,7 +18788,7 @@
    ]
   },
   {
-   "id": "SOR6",
+   "id": "SOR_Righteous_Repugnance",
    "fields": [
     {
      "name": "desc",
@@ -18843,7 +18843,7 @@
    ]
   },
   {
-   "id": "SOR65",
+   "id": "SOR59",
    "fields": [
     {
      "name": "desc",
@@ -18888,7 +18888,7 @@
    ]
   },
   {
-   "id": "SOR74",
+   "id": "SOR73",
    "fields": [
     {
      "name": "desc",
@@ -18923,7 +18923,7 @@
    ]
   },
   {
-   "id": "SOR62",
+   "id": "SOR49",
    "fields": [
     {
      "name": "desc",
@@ -18948,7 +18948,7 @@
    ]
   },
   {
-   "id": "SOR49",
+   "id": "SOR55",
    "fields": [
     {
      "name": "desc",
@@ -18983,7 +18983,7 @@
    ]
   },
   {
-   "id": "SOR73",
+   "id": "SOR72",
    "fields": [
     {
      "name": "desc",
@@ -19008,7 +19008,7 @@
    ]
   },
   {
-   "id": "SOR42",
+   "id": "SOR36",
    "fields": [
     {
      "name": "desc",
@@ -19033,7 +19033,7 @@
    ]
   },
   {
-   "id": "SOR39",
+   "id": "SOR35",
    "fields": [
     {
      "name": "desc",
@@ -19058,7 +19058,7 @@
    ]
   },
   {
-   "id": "SOR37",
+   "id": "SOR32",
    "fields": [
     {
      "name": "desc",
@@ -19083,7 +19083,7 @@
    ]
   },
   {
-   "id": "SOR40",
+   "id": "SOR38",
    "fields": [
     {
      "name": "desc",
@@ -19128,7 +19128,7 @@
    ]
   },
   {
-   "id": "SOR34",
+   "id": "SOR27",
    "fields": [
     {
      "name": "desc",
@@ -19173,7 +19173,7 @@
    ]
   },
   {
-   "id": "SOR_Celestian_Sacresant_Aveline",
+   "id": "SOR65",
    "fields": [
     {
      "name": "desc",
@@ -19263,7 +19263,7 @@
    ]
   },
   {
-   "id": "SOR3",
+   "id": "SOR2",
    "fields": [
     {
      "name": "desc",
@@ -19298,7 +19298,7 @@
    ]
   },
   {
-   "id": "SOR5",
+   "id": "SOR3",
    "fields": [
     {
      "name": "desc",
@@ -21228,7 +21228,7 @@
    ]
   },
   {
-   "id": "TAU30",
+   "id": "TAU27",
    "fields": [
     {
      "name": "desc",
@@ -21273,7 +21273,7 @@
    ]
   },
   {
-   "id": "TAU38",
+   "id": "TAU34",
    "fields": [
     {
      "name": "desc",
@@ -21298,7 +21298,7 @@
    ]
   },
   {
-   "id": "TAU15",
+   "id": "TAU11",
    "fields": [
     {
      "name": "desc",
@@ -21323,7 +21323,7 @@
    ]
   },
   {
-   "id": "TAU22",
+   "id": "TAU17",
    "fields": [
     {
      "name": "desc",
@@ -21358,7 +21358,7 @@
    ]
   },
   {
-   "id": "TAU36",
+   "id": "TAU28",
    "fields": [
     {
      "name": "desc",
@@ -21403,7 +21403,7 @@
    ]
   },
   {
-   "id": "TAU42",
+   "id": "TAU36",
    "fields": [
     {
      "name": "desc",
@@ -21438,7 +21438,7 @@
    ]
   },
   {
-   "id": "TAU26",
+   "id": "TAU21",
    "fields": [
     {
      "name": "desc",
@@ -21473,7 +21473,7 @@
    ]
   },
   {
-   "id": "TAU33",
+   "id": "TAU26",
    "fields": [
     {
      "name": "desc",
@@ -21508,7 +21508,7 @@
    ]
   },
   {
-   "id": "TAU45",
+   "id": "TAU_Stormsurge_Battlesuit",
    "fields": [
     {
      "name": "desc",
@@ -21533,7 +21533,7 @@
    ]
   },
   {
-   "id": "TAU8",
+   "id": "TAU4",
    "fields": [
     {
      "name": "desc",
@@ -21558,7 +21558,7 @@
    ]
   },
   {
-   "id": "TAU11",
+   "id": "TAU7",
    "fields": [
     {
      "name": "desc",
@@ -21593,7 +21593,7 @@
    ]
   },
   {
-   "id": "TAU12",
+   "id": "TAU8",
    "fields": [
     {
      "name": "desc",
@@ -21628,7 +21628,7 @@
    ]
   },
   {
-   "id": "TAU20",
+   "id": "TAU15",
    "fields": [
     {
      "name": "desc",
@@ -21668,7 +21668,7 @@
    ]
   },
   {
-   "id": "TAU14",
+   "id": "TAU10",
    "fields": [
     {
      "name": "desc",
@@ -21698,7 +21698,7 @@
    ]
   },
   {
-   "id": "TAU34",
+   "id": "TAU_Aunshi_Ethereal",
    "fields": [
     {
      "name": "desc",
@@ -21733,7 +21733,32 @@
    ]
   },
   {
-   "id": "TAU19",
+   "id": "TAU_Breacher_Fire_Warrior",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Vanguard",
+       "sprite": "vanguard",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "先锋",
+       "sprite": "vanguard",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "TAU23",
    "fields": [
     {
      "name": "desc",
@@ -21764,31 +21789,6 @@
      "name": "desc",
      "items": [
       {
-       "token": "Vanguard",
-       "sprite": "vanguard",
-       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
-      }
-     ]
-    },
-    {
-     "name": "descZh",
-     "items": [
-      {
-       "token": "先锋",
-       "sprite": "vanguard",
-       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
-      }
-     ]
-    }
-   ]
-  },
-  {
-   "id": "TAU35",
-   "fields": [
-    {
-     "name": "desc",
-     "items": [
-      {
        "token": "[Ranged]",
        "sprite": "Ranged",
        "why": "英文远程记号（本批新写的；全池既有 8 处全部 = 枪）"
@@ -21808,7 +21808,7 @@
    ]
   },
   {
-   "id": "TAU16",
+   "id": "TAU12",
    "fields": [
     {
      "name": "desc",
@@ -21858,7 +21858,7 @@
    ]
   },
   {
-   "id": "TAU23",
+   "id": "TAU18",
    "fields": [
     {
      "name": "desc",
@@ -21903,7 +21903,7 @@
    ]
   },
   {
-   "id": "TAU9",
+   "id": "TAU5",
    "fields": [
     {
      "name": "desc",
@@ -21928,7 +21928,7 @@
    ]
   },
   {
-   "id": "TAU32",
+   "id": "TAU25",
    "fields": [
     {
      "name": "desc",
@@ -21983,7 +21983,7 @@
    ]
   },
   {
-   "id": "TAU71",
+   "id": "TAU70",
    "fields": [
     {
      "name": "desc",
@@ -22018,7 +22018,7 @@
    ]
   },
   {
-   "id": "TAU24",
+   "id": "TAU19",
    "fields": [
     {
      "name": "desc",
@@ -22063,7 +22063,7 @@
    ]
   },
   {
-   "id": "TAU_Kroot_Carnivore",
+   "id": "TAU66",
    "fields": [
     {
      "name": "desc",
@@ -22088,7 +22088,7 @@
    ]
   },
   {
-   "id": "TAU_Kroot_Hound",
+   "id": "TAU67",
    "fields": [
     {
      "name": "desc",
@@ -22113,7 +22113,7 @@
    ]
   },
   {
-   "id": "TAU72",
+   "id": "TAU71",
    "fields": [
     {
      "name": "desc",
@@ -22158,7 +22158,7 @@
    ]
   },
   {
-   "id": "TAU70",
+   "id": "TAU69",
    "fields": [
     {
      "name": "desc",
@@ -22183,7 +22183,7 @@
    ]
   },
   {
-   "id": "TAU73",
+   "id": "TAU72",
    "fields": [
     {
      "name": "desc",
@@ -22218,7 +22218,7 @@
    ]
   },
   {
-   "id": "TAU13",
+   "id": "TAU9",
    "fields": [
     {
      "name": "desc",
@@ -22263,7 +22263,7 @@
    ]
   },
   {
-   "id": "TAU28",
+   "id": "TAU22",
    "fields": [
     {
      "name": "desc",
@@ -22288,7 +22288,7 @@
    ]
   },
   {
-   "id": "TAU_Trail_Shaper",
+   "id": "TAU68",
    "fields": [
     {
      "name": "desc",
@@ -22313,7 +22313,7 @@
    ]
   },
   {
-   "id": "TAU21",
+   "id": "TAU16",
    "fields": [
     {
      "name": "desc",
@@ -22358,7 +22358,7 @@
    ]
   },
   {
-   "id": "TAU53",
+   "id": "TAU58",
    "fields": [
     {
      "name": "desc",
@@ -22383,7 +22383,7 @@
    ]
   },
   {
-   "id": "TAU46",
+   "id": "TAU_Deploy_Anchors",
    "fields": [
     {
      "name": "desc",
@@ -22408,7 +22408,7 @@
    ]
   },
   {
-   "id": "TAU54",
+   "id": "TAU47",
    "fields": [
     {
      "name": "desc",
@@ -22433,7 +22433,7 @@
    ]
   },
   {
-   "id": "TAU64",
+   "id": "TAU_Experimental_Drone",
    "fields": [
     {
      "name": "desc",
@@ -22458,7 +22458,7 @@
    ]
   },
   {
-   "id": "TAU50",
+   "id": "TAU43",
    "fields": [
     {
      "name": "desc",
@@ -22493,7 +22493,7 @@
    ]
   },
   {
-   "id": "TAU59",
+   "id": "TAU53",
    "fields": [
     {
      "name": "desc",
@@ -22543,7 +22543,7 @@
    ]
   },
   {
-   "id": "TAU7",
+   "id": "TAU_Hero_of_the_Empire",
    "fields": [
     {
      "name": "desc",
@@ -22578,7 +22578,7 @@
    ]
   },
   {
-   "id": "TAU74",
+   "id": "TAU73",
    "fields": [
     {
      "name": "desc",
@@ -22613,7 +22613,7 @@
    ]
   },
   {
-   "id": "TAU27",
+   "id": "TAU_Homing_Beacon",
    "fields": [
     {
      "name": "desc",
@@ -22648,7 +22648,7 @@
    ]
   },
   {
-   "id": "TAU76",
+   "id": "TAU_Hunters_Instincts",
    "fields": [
     {
      "name": "desc",
@@ -22673,7 +22673,7 @@
    ]
   },
   {
-   "id": "TAU56",
+   "id": "TAU49",
    "fields": [
     {
      "name": "desc",
@@ -22698,7 +22698,7 @@
    ]
   },
   {
-   "id": "TAU47",
+   "id": "TAU39",
    "fields": [
     {
      "name": "desc",
@@ -22728,7 +22728,7 @@
    ]
   },
   {
-   "id": "TAU60",
+   "id": "TAU50",
    "fields": [
     {
      "name": "desc",
@@ -22753,7 +22753,7 @@
    ]
   },
   {
-   "id": "TAU57",
+   "id": "TAU45",
    "fields": [
     {
      "name": "desc",
@@ -22788,7 +22788,7 @@
    ]
   },
   {
-   "id": "TAU62",
+   "id": "TAU55",
    "fields": [
     {
      "name": "desc",
@@ -22813,7 +22813,7 @@
    ]
   },
   {
-   "id": "TAU52",
+   "id": "TAU46",
    "fields": [
     {
      "name": "desc",
@@ -22838,7 +22838,7 @@
    ]
   },
   {
-   "id": "TAU3",
+   "id": "TAU_Serene_Unifier",
    "fields": [
     {
      "name": "desc",
@@ -22863,7 +22863,7 @@
    ]
   },
   {
-   "id": "TAU43",
+   "id": "TAU_Shield_Generator",
    "fields": [
     {
      "name": "desc",
@@ -22898,7 +22898,7 @@
    ]
   },
   {
-   "id": "TAU_Storm_of_Fire",
+   "id": "TAU52",
    "fields": [
     {
      "name": "desc",
@@ -22923,7 +22923,7 @@
    ]
   },
   {
-   "id": "TAU17",
+   "id": "TAU_Structural_Analyzer",
    "fields": [
     {
      "name": "desc",
@@ -22948,7 +22948,7 @@
    ]
   },
   {
-   "id": "TAU48",
+   "id": "TAU40",
    "fields": [
     {
      "name": "desc",
@@ -22973,7 +22973,7 @@
    ]
   },
   {
-   "id": "TAU75",
+   "id": "TAU74",
    "fields": [
     {
      "name": "desc",
@@ -23008,7 +23008,7 @@
    ]
   },
   {
-   "id": "TAU65",
+   "id": "TAU56",
    "fields": [
     {
      "name": "desc",
@@ -23038,7 +23038,7 @@
    ]
   },
   {
-   "id": "TAU69",
+   "id": "TAU62",
    "fields": [
     {
      "name": "desc",
@@ -23063,7 +23063,7 @@
    ]
   },
   {
-   "id": "TAU49",
+   "id": "TAU41",
    "fields": [
     {
      "name": "desc",
@@ -23093,7 +23093,7 @@
    ]
   },
   {
-   "id": "TAU31",
+   "id": "TAU24",
    "fields": [
     {
      "name": "desc",
@@ -23128,7 +23128,7 @@
    ]
   },
   {
-   "id": "TAU37",
+   "id": "TAU31",
    "fields": [
     {
      "name": "desc",
@@ -23163,7 +23163,7 @@
    ]
   },
   {
-   "id": "TAU41",
+   "id": "TAU35",
    "fields": [
     {
      "name": "desc",
@@ -23198,7 +23198,7 @@
    ]
   },
   {
-   "id": "TAU40",
+   "id": "TAU30",
    "fields": [
     {
      "name": "desc",
@@ -23223,7 +23223,7 @@
    ]
   },
   {
-   "id": "TAU44",
+   "id": "TAU37",
    "fields": [
     {
      "name": "desc",
@@ -23258,7 +23258,7 @@
    ]
   },
   {
-   "id": "TAU1",
+   "id": "TAU2",
    "fields": [
     {
      "name": "descZh",
@@ -23273,7 +23273,7 @@
    ]
   },
   {
-   "id": "TAU4",
+   "id": "TAU3",
    "fields": [
     {
      "name": "desc",
@@ -23318,7 +23318,7 @@
    ]
   },
   {
-   "id": "TAU6",
+   "id": "TAU1",
    "fields": [
     {
      "name": "desc",
@@ -23343,7 +23343,7 @@
    ]
   },
   {
-   "id": "TAU_War_Shaper",
+   "id": "TAU65",
    "fields": [
     {
      "name": "desc",
@@ -23378,7 +23378,7 @@
    ]
   },
   {
-   "id": "TL32",
+   "id": "TL38",
    "fields": [
     {
      "name": "desc",
@@ -23438,7 +23438,7 @@
    ]
   },
   {
-   "id": "TL78",
+   "id": "TL_Barbgaunt",
    "fields": [
     {
      "name": "desc",
@@ -23483,7 +23483,7 @@
    ]
   },
   {
-   "id": "TL30",
+   "id": "TL19",
    "fields": [
     {
      "name": "desc",
@@ -23508,7 +23508,7 @@
    ]
   },
   {
-   "id": "TL26",
+   "id": "TL17",
    "fields": [
     {
      "name": "desc",
@@ -23533,7 +23533,7 @@
    ]
   },
   {
-   "id": "TL15",
+   "id": "TL7",
    "fields": [
     {
      "name": "desc",
@@ -23588,7 +23588,7 @@
    ]
   },
   {
-   "id": "TL9",
+   "id": "TL2",
    "fields": [
     {
      "name": "desc",
@@ -23623,7 +23623,7 @@
    ]
   },
   {
-   "id": "TL19",
+   "id": "TL13",
    "fields": [
     {
      "name": "desc",
@@ -23648,7 +23648,7 @@
    ]
   },
   {
-   "id": "TL10",
+   "id": "TL3",
    "fields": [
     {
      "name": "desc",
@@ -23673,7 +23673,7 @@
    ]
   },
   {
-   "id": "TL11",
+   "id": "TL60",
    "fields": [
     {
      "name": "desc",
@@ -23718,7 +23718,7 @@
    ]
   },
   {
-   "id": "TL77",
+   "id": "TL_Neurogaunt",
    "fields": [
     {
      "name": "desc",
@@ -23763,7 +23763,7 @@
    ]
   },
   {
-   "id": "TL76",
+   "id": "TL_Neuroloid",
    "fields": [
     {
      "name": "desc",
@@ -23788,7 +23788,7 @@
    ]
   },
   {
-   "id": "TL20",
+   "id": "TL62",
    "fields": [
     {
      "name": "desc",
@@ -23823,7 +23823,7 @@
    ]
   },
   {
-   "id": "TL7",
+   "id": "TL1",
    "fields": [
     {
      "name": "desc",
@@ -23858,7 +23858,7 @@
    ]
   },
   {
-   "id": "TL79",
+   "id": "TL_Termagant_Brood",
    "fields": [
     {
      "name": "desc",
@@ -23898,7 +23898,7 @@
    ]
   },
   {
-   "id": "TL13",
+   "id": "TL4",
    "fields": [
     {
      "name": "desc",
@@ -23933,7 +23933,7 @@
    ]
   },
   {
-   "id": "TL22",
+   "id": "TL15",
    "fields": [
     {
      "name": "desc",
@@ -23978,7 +23978,7 @@
    ]
   },
   {
-   "id": "TL18",
+   "id": "TL5",
    "fields": [
     {
      "name": "desc",
@@ -24003,7 +24003,7 @@
    ]
   },
   {
-   "id": "TL28",
+   "id": "TL12",
    "fields": [
     {
      "name": "desc",
@@ -24038,7 +24038,7 @@
    ]
   },
   {
-   "id": "TL24",
+   "id": "TL10",
    "fields": [
     {
      "name": "desc",
@@ -24083,7 +24083,7 @@
    ]
   },
   {
-   "id": "TL29",
+   "id": "TL18",
    "fields": [
     {
      "name": "desc",
@@ -24118,7 +24118,7 @@
    ]
   },
   {
-   "id": "TL25",
+   "id": "TL20",
    "fields": [
     {
      "name": "desc",
@@ -24173,7 +24173,7 @@
    ]
   },
   {
-   "id": "TL40",
+   "id": "TL27",
    "fields": [
     {
      "name": "desc",
@@ -24198,7 +24198,7 @@
    ]
   },
   {
-   "id": "TL36",
+   "id": "TL24",
    "fields": [
     {
      "name": "desc",
@@ -24223,7 +24223,7 @@
    ]
   },
   {
-   "id": "TL41",
+   "id": "TL28",
    "fields": [
     {
      "name": "desc",
@@ -24248,7 +24248,7 @@
    ]
   },
   {
-   "id": "TL37",
+   "id": "TL25",
    "fields": [
     {
      "name": "desc",
@@ -24283,7 +24283,7 @@
    ]
   },
   {
-   "id": "TL39",
+   "id": "TL26",
    "fields": [
     {
      "name": "desc",
@@ -24308,7 +24308,7 @@
    ]
   },
   {
-   "id": "TL27",
+   "id": "TL16",
    "fields": [
     {
      "name": "desc",
@@ -24333,7 +24333,7 @@
    ]
   },
   {
-   "id": "TL82",
+   "id": "TL_Neurotyrant",
    "fields": [
     {
      "name": "desc",
@@ -24358,7 +24358,7 @@
    ]
   },
   {
-   "id": "TL83",
+   "id": "TL_Norn_Emissary",
    "fields": [
     {
      "name": "desc",
@@ -24383,7 +24383,7 @@
    ]
   },
   {
-   "id": "TL80",
+   "id": "TL_Psychophage",
    "fields": [
     {
      "name": "desc",
@@ -24433,7 +24433,7 @@
    ]
   },
   {
-   "id": "TL33",
+   "id": "TL21",
    "fields": [
     {
      "name": "desc",
@@ -24468,7 +24468,7 @@
    ]
   },
   {
-   "id": "TL34",
+   "id": "TL23",
    "fields": [
     {
      "name": "desc",
@@ -24503,7 +24503,7 @@
    ]
   },
   {
-   "id": "TL43",
+   "id": "TL30",
    "fields": [
     {
      "name": "desc",
@@ -24528,7 +24528,7 @@
    ]
   },
   {
-   "id": "TL42",
+   "id": "TL29",
    "fields": [
     {
      "name": "desc",
@@ -24553,7 +24553,7 @@
    ]
   },
   {
-   "id": "TL47",
+   "id": "TL33",
    "fields": [
     {
      "name": "desc",
@@ -24588,7 +24588,7 @@
    ]
   },
   {
-   "id": "TL75",
+   "id": "TL_Alpha_Warrior",
    "fields": [
     {
      "name": "desc",
@@ -24633,7 +24633,7 @@
    ]
   },
   {
-   "id": "TL44",
+   "id": "TL39",
    "fields": [
     {
      "name": "desc",
@@ -24658,7 +24658,7 @@
    ]
   },
   {
-   "id": "TL61",
+   "id": "TL45",
    "fields": [
     {
      "name": "desc",
@@ -24693,7 +24693,7 @@
    ]
   },
   {
-   "id": "TL54",
+   "id": "TL43",
    "fields": [
     {
      "name": "desc",
@@ -24718,7 +24718,7 @@
    ]
   },
   {
-   "id": "TL86",
+   "id": "TL_Bestial_Rage",
    "fields": [
     {
      "name": "desc",
@@ -24743,7 +24743,7 @@
    ]
   },
   {
-   "id": "TL48",
+   "id": "TL63",
    "fields": [
     {
      "name": "desc",
@@ -24768,7 +24768,7 @@
    ]
   },
   {
-   "id": "TL45",
+   "id": "TL32",
    "fields": [
     {
      "name": "desc",
@@ -24793,7 +24793,7 @@
    ]
   },
   {
-   "id": "TL55",
+   "id": "TL44",
    "fields": [
     {
      "name": "desc",
@@ -24818,7 +24818,7 @@
    ]
   },
   {
-   "id": "TL4",
+   "id": "TL_Hive_Commander",
    "fields": [
     {
      "name": "desc",
@@ -24863,7 +24863,7 @@
    ]
   },
   {
-   "id": "TL46",
+   "id": "TL48",
    "fields": [
     {
      "name": "desc",
@@ -24888,7 +24888,7 @@
    ]
   },
   {
-   "id": "TL59",
+   "id": "TL64",
    "fields": [
     {
      "name": "desc",
@@ -24913,7 +24913,7 @@
    ]
   },
   {
-   "id": "TL2",
+   "id": "TL_Spirit_Leech",
    "fields": [
     {
      "name": "desc",
@@ -24938,7 +24938,7 @@
    ]
   },
   {
-   "id": "TL60",
+   "id": "TL53",
    "fields": [
     {
      "name": "desc",
@@ -24963,7 +24963,7 @@
    ]
   },
   {
-   "id": "TL38",
+   "id": "TL_Synaptic_Imperative",
    "fields": [
     {
      "name": "desc",
@@ -24998,7 +24998,7 @@
    ]
   },
   {
-   "id": "TL84",
+   "id": "TL_Toxic_Entanglement",
    "fields": [
     {
      "name": "desc",
@@ -25033,7 +25033,7 @@
    ]
   },
   {
-   "id": "TL58",
+   "id": "TL51",
    "fields": [
     {
      "name": "desc",
@@ -25058,7 +25058,7 @@
    ]
   },
   {
-   "id": "TL1",
+   "id": "TL36",
    "fields": [
     {
      "name": "desc",
@@ -25093,7 +25093,7 @@
    ]
   },
   {
-   "id": "TL3",
+   "id": "TL35",
    "fields": [
     {
      "name": "desc",
@@ -25118,7 +25118,7 @@
    ]
   },
   {
-   "id": "TL5",
+   "id": "TL34",
    "fields": [
     {
      "name": "desc",
@@ -25143,7 +25143,7 @@
    ]
   },
   {
-   "id": "UM_Lieutenant_Titus",
+   "id": "UM76",
    "fields": [
     {
      "name": "desc",
@@ -25168,7 +25168,7 @@
    ]
   },
   {
-   "id": "UM_Desolation_Marine",
+   "id": "UM58",
    "fields": [
     {
      "name": "desc",
@@ -25193,7 +25193,7 @@
    ]
   },
   {
-   "id": "UM83",
+   "id": "UM_2nd_Company_Terminator",
    "fields": [
     {
      "name": "desc",
@@ -25238,7 +25238,7 @@
    ]
   },
   {
-   "id": "UM_Aggressor_Sergeant",
+   "id": "UM19",
    "fields": [
     {
      "name": "desc",
@@ -25263,7 +25263,7 @@
    ]
   },
   {
-   "id": "UM_Antaro_Chronus",
+   "id": "UM12",
    "fields": [
     {
      "name": "desc",
@@ -25298,7 +25298,7 @@
    ]
   },
   {
-   "id": "UM30",
+   "id": "UM15",
    "fields": [
     {
      "name": "desc",
@@ -25323,7 +25323,7 @@
    ]
   },
   {
-   "id": "UM_Assault_Centurion",
+   "id": "UM27",
    "fields": [
     {
      "name": "desc",
@@ -25358,7 +25358,7 @@
    ]
   },
   {
-   "id": "UM12",
+   "id": "UM4",
    "fields": [
     {
      "name": "desc",
@@ -25428,7 +25428,7 @@
    ]
   },
   {
-   "id": "UM34",
+   "id": "UM23",
    "fields": [
     {
      "name": "desc",
@@ -25473,7 +25473,7 @@
    ]
   },
   {
-   "id": "UM_Bladeguard_Sergeant",
+   "id": "UM80",
    "fields": [
     {
      "name": "desc",
@@ -25508,7 +25508,7 @@
    ]
   },
   {
-   "id": "UM44",
+   "id": "UM29",
    "fields": [
     {
      "name": "desc",
@@ -25553,7 +25553,7 @@
    ]
   },
   {
-   "id": "UM84",
+   "id": "UM_Chaplain_Cassius",
    "fields": [
     {
      "name": "desc",
@@ -25588,7 +25588,7 @@
    ]
   },
   {
-   "id": "UM78",
+   "id": "UM_Chapter_Champion",
    "fields": [
     {
      "name": "desc",
@@ -25658,7 +25658,7 @@
    ]
   },
   {
-   "id": "UM35",
+   "id": "UM18",
    "fields": [
     {
      "name": "desc",
@@ -25693,7 +25693,7 @@
    ]
   },
   {
-   "id": "UM39",
+   "id": "UM25",
    "fields": [
     {
      "name": "desc",
@@ -25728,7 +25728,7 @@
    ]
   },
   {
-   "id": "UM80",
+   "id": "UM_Devastator_Marine",
    "fields": [
     {
      "name": "desc",
@@ -25753,7 +25753,7 @@
    ]
   },
   {
-   "id": "UM79",
+   "id": "UM81",
    "fields": [
     {
      "name": "desc",
@@ -25778,7 +25778,7 @@
    ]
   },
   {
-   "id": "UM17",
+   "id": "UM8",
    "fields": [
     {
      "name": "desc",
@@ -25813,7 +25813,7 @@
    ]
   },
   {
-   "id": "UM40",
+   "id": "UM26",
    "fields": [
     {
      "name": "desc",
@@ -25873,7 +25873,7 @@
    ]
   },
   {
-   "id": "UM13",
+   "id": "UM3",
    "fields": [
     {
      "name": "desc",
@@ -25918,7 +25918,7 @@
    ]
   },
   {
-   "id": "UM_Heavy_Intercessor",
+   "id": "UM78",
    "fields": [
     {
      "name": "desc",
@@ -25963,7 +25963,7 @@
    ]
   },
   {
-   "id": "UM_Hellblaster",
+   "id": "UM10",
    "fields": [
     {
      "name": "desc",
@@ -25988,7 +25988,7 @@
    ]
   },
   {
-   "id": "UM_Inceptor_Sergeant",
+   "id": "UM22",
    "fields": [
     {
      "name": "desc",
@@ -26013,7 +26013,7 @@
    ]
   },
   {
-   "id": "UM71",
+   "id": "UM_Incursor",
    "fields": [
     {
      "name": "desc",
@@ -26058,7 +26058,7 @@
    ]
   },
   {
-   "id": "UM18",
+   "id": "UM56",
    "fields": [
     {
      "name": "desc",
@@ -26083,7 +26083,7 @@
    ]
   },
   {
-   "id": "UM_Lieutenant_Calsius",
+   "id": "UM24",
    "fields": [
     {
      "name": "desc",
@@ -26108,7 +26108,7 @@
    ]
   },
   {
-   "id": "UM10",
+   "id": "UM2",
    "fields": [
     {
      "name": "desc",
@@ -26143,7 +26143,7 @@
    ]
   },
   {
-   "id": "UM81",
+   "id": "UM_Phobos_Librarian",
    "fields": [
     {
      "name": "desc",
@@ -26238,7 +26238,7 @@
    ]
   },
   {
-   "id": "UM_Primaris_Chaplain",
+   "id": "UM13",
    "fields": [
     {
      "name": "desc",
@@ -26278,7 +26278,7 @@
    ]
   },
   {
-   "id": "UM_Primaris_Eradicator",
+   "id": "UM79",
    "fields": [
     {
      "name": "desc",
@@ -26323,7 +26323,7 @@
    ]
   },
   {
-   "id": "UM_Primaris_Inceptor",
+   "id": "UM9",
    "fields": [
     {
      "name": "desc",
@@ -26358,7 +26358,7 @@
    ]
   },
   {
-   "id": "UM32",
+   "id": "UM21",
    "fields": [
     {
      "name": "desc",
@@ -26383,7 +26383,7 @@
    ]
   },
   {
-   "id": "UM_Primaris_Reiver",
+   "id": "UM5",
    "fields": [
     {
      "name": "desc",
@@ -26408,7 +26408,7 @@
    ]
   },
   {
-   "id": "UM_Primaris_Techmarine",
+   "id": "UM68",
    "fields": [
     {
      "name": "desc",
@@ -26458,7 +26458,7 @@
    ]
   },
   {
-   "id": "UM11",
+   "id": "UM1",
    "fields": [
     {
      "name": "desc",
@@ -26493,7 +26493,7 @@
    ]
   },
   {
-   "id": "UM28",
+   "id": "UM16",
    "fields": [
     {
      "name": "desc",
@@ -26518,7 +26518,7 @@
    ]
   },
   {
-   "id": "UM_Sergeant_Gadriel",
+   "id": "UM82",
    "fields": [
     {
      "name": "desc",
@@ -26543,7 +26543,7 @@
    ]
   },
   {
-   "id": "UM_Sternguard_Sergeant",
+   "id": "UM55",
    "fields": [
     {
      "name": "desc",
@@ -26613,7 +26613,7 @@
    ]
   },
   {
-   "id": "UM73",
+   "id": "UM_Tactical_Marine",
    "fields": [
     {
      "name": "desc",
@@ -26703,7 +26703,7 @@
    ]
   },
   {
-   "id": "UM82",
+   "id": "UM_Terminator",
    "fields": [
     {
      "name": "desc",
@@ -26738,7 +26738,7 @@
    ]
   },
   {
-   "id": "UM_Tyrannic_War_Veteran",
+   "id": "UM7",
    "fields": [
     {
      "name": "desc",
@@ -26918,7 +26918,7 @@
    ]
   },
   {
-   "id": "UM_Angels_of_Death",
+   "id": "UM64",
    "fields": [
     {
      "name": "desc",
@@ -26963,7 +26963,7 @@
    ]
   },
   {
-   "id": "UM7",
+   "id": "UM_Might_of_Heroes",
    "fields": [
     {
      "name": "desc",
@@ -26988,7 +26988,7 @@
    ]
   },
   {
-   "id": "UM59",
+   "id": "UM44",
    "fields": [
     {
      "name": "desc",
@@ -27038,7 +27038,7 @@
    ]
   },
   {
-   "id": "UM_Avenging_Zeal",
+   "id": "UM40",
    "fields": [
     {
      "name": "desc",
@@ -27083,7 +27083,7 @@
    ]
   },
   {
-   "id": "UM85",
+   "id": "UM_Catechism_of_Death",
    "fields": [
     {
      "name": "desc",
@@ -27163,7 +27163,7 @@
    ]
   },
   {
-   "id": "UM_Codex_Discipline",
+   "id": "UM35",
    "fields": [
     {
      "name": "desc",
@@ -27198,7 +27198,7 @@
    ]
   },
   {
-   "id": "UM_Death_from_Above",
+   "id": "UM37",
    "fields": [
     {
      "name": "desc",
@@ -27268,7 +27268,7 @@
    ]
   },
   {
-   "id": "UM66",
+   "id": "UM_Exhortation_of_Rage",
    "fields": [
     {
      "name": "desc",
@@ -27338,7 +27338,7 @@
    ]
   },
   {
-   "id": "UM_Forward_Deployment",
+   "id": "UM42",
    "fields": [
     {
      "name": "desc",
@@ -27383,7 +27383,7 @@
    ]
   },
   {
-   "id": "UM52",
+   "id": "UM60",
    "fields": [
     {
      "name": "desc",
@@ -27443,7 +27443,7 @@
    ]
   },
   {
-   "id": "UM58",
+   "id": "UM43",
    "fields": [
     {
      "name": "desc",
@@ -27478,7 +27478,7 @@
    ]
   },
   {
-   "id": "UM_Light_Cover",
+   "id": "UM54",
    "fields": [
     {
      "name": "desc",
@@ -27513,7 +27513,7 @@
    ]
   },
   {
-   "id": "UM2",
+   "id": "UM_Master_Tactician",
    "fields": [
     {
      "name": "desc",
@@ -27583,7 +27583,7 @@
    ]
   },
   {
-   "id": "UM68",
+   "id": "UM_Master_of_Battle",
    "fields": [
     {
      "name": "desc",
@@ -27678,7 +27678,7 @@
    ]
   },
   {
-   "id": "UM_Oath_of_Moment",
+   "id": "UM73",
    "fields": [
     {
      "name": "desc",
@@ -27748,7 +27748,7 @@
    ]
   },
   {
-   "id": "UM_Pariah_Vanguard",
+   "id": "UM33",
    "fields": [
     {
      "name": "desc",
@@ -27843,7 +27843,7 @@
    ]
   },
   {
-   "id": "UM48",
+   "id": "UM41",
    "fields": [
     {
      "name": "desc",
@@ -27923,7 +27923,7 @@
    ]
   },
   {
-   "id": "UM49",
+   "id": "UM31",
    "fields": [
     {
      "name": "desc",
@@ -27948,7 +27948,7 @@
    ]
   },
   {
-   "id": "UM23",
+   "id": "UM_Spear_of_Macragge",
    "fields": [
     {
      "name": "desc",
@@ -27998,7 +27998,7 @@
    ]
   },
   {
-   "id": "UM69",
+   "id": "UM_Supreme_Strategist",
    "fields": [
     {
      "name": "desc",
@@ -28033,7 +28033,7 @@
    ]
   },
   {
-   "id": "UM16",
+   "id": "UM11",
    "fields": [
     {
      "name": "desc",
@@ -28058,7 +28058,7 @@
    ]
   },
   {
-   "id": "UM77",
+   "id": "UM_Attack_Bike",
    "fields": [
     {
      "name": "desc",
@@ -28128,7 +28128,7 @@
    ]
   },
   {
-   "id": "UM86",
+   "id": "UM_Dreadnought",
    "fields": [
     {
      "name": "desc",
@@ -28153,7 +28153,7 @@
    ]
   },
   {
-   "id": "UM74",
+   "id": "UM_Firestrike_Servo_Turret",
    "fields": [
     {
      "name": "desc",
@@ -28188,7 +28188,7 @@
    ]
   },
   {
-   "id": "UM_Land_Speeder",
+   "id": "UM69",
    "fields": [
     {
      "name": "desc",
@@ -28223,7 +28223,7 @@
    ]
   },
   {
-   "id": "UM_Outrider",
+   "id": "UM67",
    "fields": [
     {
      "name": "desc",
@@ -28278,7 +28278,7 @@
    ]
   },
   {
-   "id": "UM_Primaris_Impulsor",
+   "id": "UM17",
    "fields": [
     {
      "name": "desc",
@@ -28303,7 +28303,7 @@
    ]
   },
   {
-   "id": "UM_Primaris_Invader",
+   "id": "UM57",
    "fields": [
     {
      "name": "desc",
@@ -28338,7 +28338,7 @@
    ]
   },
   {
-   "id": "UM_Repulsor_Executioner",
+   "id": "UM30",
    "fields": [
     {
      "name": "desc",
@@ -28373,7 +28373,7 @@
    ]
   },
   {
-   "id": "UM72",
+   "id": "UM71",
    "fields": [
     {
      "name": "desc",
@@ -28398,7 +28398,7 @@
    ]
   },
   {
-   "id": "UM_Valtus",
+   "id": "UM83",
    "fields": [
     {
      "name": "desc",
@@ -28483,7 +28483,7 @@
    ]
   },
   {
-   "id": "UM1",
+   "id": "UM46",
    "fields": [
     {
      "name": "desc",
@@ -28543,7 +28543,7 @@
    ]
   },
   {
-   "id": "UM3",
+   "id": "UM47",
    "fields": [
     {
      "name": "desc",
@@ -28568,7 +28568,7 @@
    ]
   },
   {
-   "id": "UM70",
+   "id": "UM_Valius_Paxor",
    "fields": [
     {
      "name": "desc",
@@ -28603,7 +28603,7 @@
    ]
   },
   {
-   "id": "UM5",
+   "id": "UM48",
    "fields": [
     {
      "name": "desc",
@@ -28628,7 +28628,7 @@
    ]
   },
   {
-   "id": "UM_Assault_Doctrine",
+   "id": "UM86",
    "fields": [
     {
      "name": "desc",
@@ -28673,7 +28673,7 @@
    ]
   },
   {
-   "id": "UM_Devastator_Doctrine",
+   "id": "UM84",
    "fields": [
     {
      "name": "desc",
@@ -28718,7 +28718,7 @@
    ]
   },
   {
-   "id": "UM_Tactical_Doctrine",
+   "id": "UM85",
    "fields": [
     {
      "name": "desc",
@@ -28798,7 +28798,7 @@
    ]
   },
   {
-   "id": "BL16",
+   "id": "BL_Dark_Pact_of_Fate",
    "fields": [
     {
      "name": "desc",
@@ -28823,7 +28823,7 @@
    ]
   },
   {
-   "id": "BL18",
+   "id": "BL_Dark_Pact_of_Blood",
    "fields": [
     {
      "name": "desc",
@@ -28858,7 +28858,7 @@
    ]
   },
   {
-   "id": "BL20",
+   "id": "BL_Dark_Pact_of_Excess",
    "fields": [
     {
      "name": "desc",
@@ -28893,7 +28893,7 @@
    ]
   },
   {
-   "id": "BL22",
+   "id": "BL_Dark_Pact_of_Resilience",
    "fields": [
     {
      "name": "desc",
@@ -28918,7 +28918,7 @@
    ]
   },
   {
-   "id": "DA2",
+   "id": "DA_Master_of_Repentance",
    "fields": [
     {
      "name": "desc",
@@ -28953,7 +28953,7 @@
    ]
   },
   {
-   "id": "EC1",
+   "id": "EC56",
    "fields": [
     {
      "name": "desc",
@@ -28998,7 +28998,7 @@
    ]
   },
   {
-   "id": "EC24",
+   "id": "EC22",
    "fields": [
     {
      "name": "desc",
@@ -29043,7 +29043,7 @@
    ]
   },
   {
-   "id": "EC62",
+   "id": "EC_Armoury_of_Excess",
    "fields": [
     {
      "name": "desc",
@@ -29068,7 +29068,7 @@
    ]
   },
   {
-   "id": "SAU61",
+   "id": "SAU53",
    "fields": [
     {
      "name": "desc",
@@ -29093,7 +29093,7 @@
    ]
   },
   {
-   "id": "SOR47",
+   "id": "SOR44",
    "fields": [
     {
      "name": "desc",
@@ -29133,7 +29133,7 @@
    ]
   },
   {
-   "id": "BL69",
+   "id": "BL_Hellfire_Torch",
    "fields": [
     {
      "name": "desc",
@@ -29158,7 +29158,7 @@
    ]
   },
   {
-   "id": "TL65",
+   "id": "TL_Protective_Bio_structure",
    "fields": [
     {
      "name": "desc",
@@ -29183,7 +29183,7 @@
    ]
   },
   {
-   "id": "BL2",
+   "id": "BL_Chosen_of_the_Four",
    "fields": [
     {
      "name": "desc",

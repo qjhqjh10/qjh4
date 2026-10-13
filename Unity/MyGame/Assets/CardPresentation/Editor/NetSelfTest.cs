@@ -653,9 +653,9 @@ public static class NetSelfTest
                "L② 两边握手到 `Lobby`");
 
             var d1 = new PlayerDeck { Name = "自检主机牌", WarlordId = "UM_WARLORD" };
-            d1.CardIds.Add("UM1");
+            d1.CardIds.Add("UM46");
             var d2 = new PlayerDeck { Name = "自检客机牌", WarlordId = "UM_WARLORD" };
-            d2.CardIds.Add("UM2");
+            d2.CardIds.Add("UM_Master_Tactician");
 
             // ---- ① **大厅阶段**：取消得了，而且对面会收到 ----
             NetMatchmaking.Reset();
@@ -1076,7 +1076,7 @@ public static class NetSelfTest
             Ok(!NetMatchmaking.PeerGone, "M③ 起手：「对面不在」那个边沿是清的");
 
             var d1 = new PlayerDeck { Name = "自检大厅牌", WarlordId = "UM_WARLORD" };
-            d1.CardIds.Add("UM1");
+            d1.CardIds.Add("UM46");
             Ok(NetMatchmaking.TryStart(d1, "Classic", "Ultramarines", out string _), "M④ 主机点 `Battle!` ⇒ 进匹配");
             Ok(NetMatchmaking.Waiting, "M⑤ 主机在等对面交卡组（`Waiting`）");
             NetRuntime.DrainNoticesForTest();
@@ -1394,7 +1394,7 @@ public static class NetSelfTest
             rt.LobbyHandled = true;              // 夹具前提 = **大厅阶段**（对局那一半还没接管这台会话）
             rt.AttachForTest(host);
             var d1 = new PlayerDeck { Name = "自检提示行牌", WarlordId = "UM_WARLORD" };
-            d1.CardIds.Add("UM1");
+            d1.CardIds.Add("UM46");
             Ok(NetMatchmaking.TryStart(d1, "Classic", "Ultramarines", out string _),
                "N③ 主机点 `Battle!` ⇒ 进匹配（下面那条提示才有「这一局的匹配已撤销」那半句）");
 
@@ -1996,8 +1996,8 @@ public static class NetSelfTest
                 Ok(PumpUntil(host6, cli6, () => host6.State == NetState.Lobby && cli6.State == NetState.Lobby, 5000),
                    "Q⑮-b 两边握手到 `Lobby`（对面报上来的就是那条 200+ 字的名字）");
 
-                var d1 = new PlayerDeck { Name = "自检主机牌", WarlordId = "UM_WARLORD" }; d1.CardIds.Add("UM1");
-                var d2 = new PlayerDeck { Name = "自检客机牌", WarlordId = "UM_WARLORD" }; d2.CardIds.Add("UM2");
+                var d1 = new PlayerDeck { Name = "自检主机牌", WarlordId = "UM_WARLORD" }; d1.CardIds.Add("UM46");
+                var d2 = new PlayerDeck { Name = "自检客机牌", WarlordId = "UM_WARLORD" }; d2.CardIds.Add("UM_Master_Tactician");
 
                 NetMatchmaking.Reset();
                 rt6.AttachForTest(host6);

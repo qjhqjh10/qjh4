@@ -262,12 +262,12 @@ namespace CardPresentation
 
         public static readonly StageRow[] Rows =
         {
-            new StageRow { So = "Demo DeckInfo UM Tutorial",          Idx = 0, Deck = "Ultramarines_Deck0_Tutorial1_Uriel",     Hero = "UM3",  Fac = "Ultramarines" },
-            new StageRow { So = "Demo DeckInfo Orks Tutorial",        Idx = 1, Deck = "Orks_Deck0_Tutorial2_Ghazghkull",         Hero = "GOF3", Fac = "Goff" },
-            new StageRow { So = "Demo DeckInfo Sautekh Tutorial",     Idx = 2, Deck = "Sautekh_Deck0_Tutorial3_Zahndrekh",       Hero = "SAU3", Fac = "Sautekh" },
-            new StageRow { So = "Demo DeckInfo BlackLegion Tutorial", Idx = 3, Deck = "BlackLegion_Deck0_Tutorial4_Sylar",       Hero = "BL5",  Fac = "BlackLegion" },
-            new StageRow { So = "Demo DeckInfo Aeldari Tutorial",     Idx = 4, Deck = "Aeldari_Deck0_Tutorial5_Ghaelyn",         Hero = "ASH5", Fac = "SaimHann" },
-            new StageRow { So = "Demo DeckInfo Leviathan Tutorial",   Idx = 5, Deck = "Leviathan_Deck0_Tutorial6_Tervigon",      Hero = "TL5",  Fac = "Leviathan" },
+            new StageRow { So = "Demo DeckInfo UM Tutorial",          Idx = 0, Deck = "Ultramarines_Deck0_Tutorial1_Uriel",     Hero = "UM47",  Fac = "Ultramarines" },
+            new StageRow { So = "Demo DeckInfo Orks Tutorial",        Idx = 1, Deck = "Orks_Deck0_Tutorial2_Ghazghkull",         Hero = "GOF28", Fac = "Goff" },
+            new StageRow { So = "Demo DeckInfo Sautekh Tutorial",     Idx = 2, Deck = "Sautekh_Deck0_Tutorial3_Zahndrekh",       Hero = "SAU36", Fac = "Sautekh" },
+            new StageRow { So = "Demo DeckInfo BlackLegion Tutorial", Idx = 3, Deck = "BlackLegion_Deck0_Tutorial4_Sylar",       Hero = "BL_Sylar_Hexcorn",  Fac = "BlackLegion" },
+            new StageRow { So = "Demo DeckInfo Aeldari Tutorial",     Idx = 4, Deck = "Aeldari_Deck0_Tutorial5_Ghaelyn",         Hero = "ASH3", Fac = "SaimHann" },
+            new StageRow { So = "Demo DeckInfo Leviathan Tutorial",   Idx = 5, Deck = "Leviathan_Deck0_Tutorial6_Tervigon",      Hero = "TL34",  Fac = "Leviathan" },
         };
 
         /// <summary>第 0 关（Ultramarines）的副标题 —— **prefab 出厂原文**（`TutorialSubTitle.m_text`）。

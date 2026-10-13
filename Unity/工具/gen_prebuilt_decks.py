@@ -158,7 +158,7 @@ TUT_ROLE = {
 #       `prebuilt_decks.json` 跟着变（那份要求逐字节不变）。覆盖只在本文件的 `build_tutorial` 里做。
 #    ⚠️ 表里每一条都会**当场核**「目标督军的名字里真的含 SO 尾段」—— 核不上就抛，⛔ 不会静默换一个"看着像"的。
 TUT_HERO_BY_SO = {
-    "Aeldari_Deck0_Tutorial5_Ghaelyn": ("ASH5", "SO 资产名尾段 Ghaelyn ⇒ ASH5 Medreyal Ghaelyn（2026-10-17 裁定）"),
+    "Aeldari_Deck0_Tutorial5_Ghaelyn": ("ASH3", "SO 资产名尾段 Ghaelyn ⇒ ASH5 Medreyal Ghaelyn（2026-10-13 id 换真值：原写 ASH5，现为 ASH3）"),
 }
 
 # `CardArmy` 枚举值（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/CardArmy.cs`，10 一档）。

@@ -1242,7 +1242,7 @@ public static class CardBaseDemo
             // ---- ① 中文档：行为**与改之前逐字相同**（默认语档就是中文 ⇒ 零变化）----
             Loc.SetLanguage(AvailableLanguages.Chinese);
             Check(CardText.Zh, "① 中文档下 `CardText.Zh` = true（字体 + 语档两条都满足）");
-            string zhName = CardText.Name("TAU52", "石之感知");
+            string zhName = CardText.Name("TAU46", "石之感知");
             Check(zhName == "石之感知", $"① 中文档卡名走卡表那一列（实得「{zhName}」）");
 
             // ---- ② 英文档：**卡名必须回英文** ----
@@ -1251,8 +1251,8 @@ public static class CardBaseDemo
                   "② 英文档下 `CardText.Zh` = **false** —— 🧨 把 `Zh` 改回只判 `TmpFont.Available` ⇒ 本条红");
 
             // ---- ③ 绕过闸的那一处：`Name(id, nameZh)` 原来无条件返回中文名 ----
-            string enName = CardText.Name("TAU52", "石之感知");
-            Check(enName == "TAU52",
+            string enName = CardText.Name("TAU46", "石之感知");
+            Check(enName == "TAU46",
                   $"③ ★ 英文档卡名回**英文 id**（实得「{enName}」）—— 🧨 只改 `Zh`、不给 `Name(id,nameZh)` 补闸 ⇒ 本条红");
             Check(enName != zhName,
                   "③ 判别式：两档的卡名**不是同一串**（防「两边都返回 id」也照样过）");

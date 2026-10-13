@@ -1800,20 +1800,27 @@ namespace CardPresentation
                 BuildModeCard(content, nm, CardCol0 + col * ColStep, CardRow0Top + row * RowStep,
                               CardW, h, art, title, kind);
             };
-            // 🔴 **2026-10-11（`A1522⑤`）就地改序（铁律 5）：这一列的【上下次序原来与参考图相反】。**
-            //   参考图（`C:/Users/qjh36/Desktop/warpforge参考图/主界面参考图.png`，1568×950）**右缘那张被切的卡**
-            //   放大看清了 = 两张 `1×1` 叠在一列，**上「练习」、下「教学」** —— 而**本函数上面那段「两行网格排布」
-            //   的判据记的就是这一条**，实现当时却把两者**装反了**（文档与代码打架，本条修的正是这个）。
-            //   判据 = 用户参考图实拍（原版「谁在前」由 **liveop 服务端数据**给、本地没有）⇒ **按参考图的可见次序排**：
-            //   **`Practice` 先 `Put` ⇒ first-fit 落 col0/row0（上）**；`Tutorial` 后 `Put` ⇒ 同列 row1（下）。
-            //   🧨 **改坏法**：把这两个 `Put` 换回原次序 ⇒ 画面上「教学上 / 练习下」，与参考图相反。
-            //   ⚠️ **连带**：`Editor/MainMenuScene.cs:1478`（`Tutorial` 期望 y `182.8`）与 `:1624`
-            //   （`Practice` 期望 y `617.2`）两条期望值是照**旧**次序写的 ⇒ 会红，要换成
-            //   「`Practice` `182.8` / `Tutorial` `617.2`」。那两行**不在本写手的白名单里** ⇒ 已写进报告。
-            Put("Base Game Mode Container 1x1 - Practice", "Container_Image_Practice_1x1",
-                Loc.T("MainMenu/GameModes/Practice"), CardH, "practice");                       // col0 / row0（1×1 · 上）
-            Put("Draft Game Mode Container 1x2", "Container_Image_Draft",
-                "DRAFT MODE", CardHTall, "draft");                                              // col1（1×2 · 独占整列）
+            // 🔴 **2026-10-13 就地改序（铁律 5，取代 `A1522⑤` 那一版）：五张卡的 `Put` 次序按【用户原版实拍】重排。**
+            //   判据 = 用户原版客户端实拍 `C:/Users/qjh36/Desktop/warpforge参考图/主界面参考图.png`（1503×883），
+            //   逐列放大核过（放大件 `d:/4/_tmp_view/refcrop/` —— ⚠️ `_tmp_view` 在 `.gitignore` 里、是**临时件**，
+            //   可复查的坐标是上面那张实拍本身）：
+            //     · col0 = **小冲突**（`40k_main_GameMode_Skirmish`）
+            //     · col1 = `Container_Image_Ranked`（与我们的那张**一模一样**，已并排比过）
+            //     · col2 = `Container_Image_Draft`（同上）
+            //     · col3 = **两张 `1×1` 上下叠**（上「练习」· 下「教学」，中间一道 20px 缝）
+            //   ⇒ **原版次序 = 小冲突 · 排位 · 选秀 · 练习 · 教学** —— 三张 `1×2` 在前、两张 `1×1` 在最后一列。
+            //   ⚠️ **本条取代 `A1522⑤`**：那一版只把 `Practice`/`Tutorial` 的**上下**换了，三张 `1×2` 的列位
+            //     仍与实拍不符（那一版画出来是 col0「练习/教学」· col1 Draft · col2 Skirmish · col3 Ranked）
+            //     —— 错因 = 只照那张图**右缘那一列**读出来的次序改，没核左起三列。
+            //   ✅ **判据自洽（不跑引擎就能核）**：本函数 first-fit 逐张填格 ⇒ 按上面次序 `Put`，
+            //     三张 `1×2` 各独占 col0/col1/col2，两张 `1×1` first-fit 落到 **col3 row0/row1**
+            //     ⇒ 与实拍**逐列相同**。⛔ **不要动 first-fit 算法**。
+            //   🧨 **改坏法**：把任意两个 `Put` 换回去（或把某个 `1×2` 改档）⇒ 列位变更、
+            //     `Editor/MainMenuScene.cs` 那五条 `CheckCard`（**逐卡钉死 x / 高 / 行顶**）里对应的会红。
+            Put("Base Game Mode Container 1x2 - Skirmish", "40k_main_GameMode_Skirmish",
+                Loc.T("MainMenu/GameModes/Skirmish"), CardHTall, "skirmish");                   // col0（1×2 · 独占整列）
+            Put("Base Game Mode Container 1x2 - Ranked", "Container_Image_Ranked",
+                Loc.T("MainMenu/GameModes/Ranked"), CardHTall, "ranked");                       // col1（1×2 · 独占整列）
             // 🔴 **2026-10-17（A789 收口 · 用户拍板「按建议执行」）**：这一格原来传的是 `null` ⇒
             //    `BuildModeCard` 的第六步**不建 `Hit`**（命中区只在 `modeKind` 非空时建）⇒ **这张卡点不动**，
             //    而 2026-09-22 裁决（`资料/阶段二外壳_待裁决清单_0922.md:29`，选项 (b)）要的正是
@@ -1822,37 +1829,34 @@ namespace CardPresentation
             //    ⚠️ 当年 A789 之所以挂起，是因为候选名 `Menu Demo [3740]` 被当成了 PathID 去找 ——
             //    它其实是 `资料/说明书/04_界面UI/菜单全树.md` 的**行号**（且已漂到 `:3750`），
             //    而那张「模式卡」的真身是 `Draft Game Mode Container 1x2` —— **本行这一件**。
-
+            Put("Draft Game Mode Container 1x2", "Container_Image_Draft",
+                Loc.T("MainMenu/GameModes/Draft"), CardHTall, "draft");                         // col2（1×2 · 独占整列）
             // 🆕 **2026-09-24 用户拍板：模式卡就是「进对应模式界面」的入口** ——
             //    「是直接点击这些卡片，然后就进去这些对应模式的界面的」。
-            // 🔴 **下面这三张的「模式 → 卡图 → 窗」映射是我们定的，不是复刻**：
+            // 🔴 **这五张的「模式 → 卡图 → 窗」映射是我们定的，不是复刻**：
             //    原版这张映射在 **liveop 服务端数据**里（`资料/主菜单_原版规格.md` §9·3 明写
             //    「本地 `?（查不到）`（**别自己编一套映射**）」）；而**主菜单在原版里根本没有 PLAY 钮**
             //    （只有 Home/Social/Rewards/Collection/Shop 五个导航钮）⇒ 本地入口**只能我们自己定**。
-            //    卡图按名字对：练习 = `Container Image Practice 1x1` · 排位 = `Container Image Ranked` ·
+            //    卡图按名字对：练习 = `Container Image Practice 1x1` · 教学 = `Container Image Tutorial` ·
+            //    排位 = `Container Image Ranked` · 选秀 = `Container Image Draft` ·
             //    遭遇战**没有专属卡图**（`Practice 1x2` 也是练习的）⇒ 用全族唯一带 Skirmish 字样的
             //    `40k_main_GameMode_Skirmish`。逐条出处见 `资料/阶段二_战斗入口_原版规格.md`。
-            Put("Base Game Mode Container 1x1 - Tutorial", "Container_Image_Tutorial",
-                Loc.T("MainMenu/GameModes/Tutorial"), CardH, "tutorial");                       // first-fit ⇒ col0 / row1（**正好填掉 Practice 下面那个洞**）
-            // ⚠️ 它与 `Practice` 的**上下次序**见上面那条 `A1522⑤` 的注释（`Practice` 在上）—— ⛔ 别把两个 `Put` 换回去。
-            // 🔴 **2026-10-11（A1521⑦）尺寸档改了：`1×1` → `1×2`**（判据 = 原版 **prefab 名**
-            //   `Skirmish Ranked Game Mode Container 1x2` —— `bundle_menus_assets_all/GameObject/` 里逐字如此；
-            //   并与用户参考图吻合：那上面左起第 1 张就是「小冲突」、而且是**满高**）
-            //   ⇒ 它现在 first-fit 到 col2、**独占一整列**。
-            //   ✅ **2026-10-11 调度台已把节点名一起改齐**（`1x1 → 1x2`）：本文件这一处 +
-            //   `Editor/MainMenuScene.cs` 的**四处**（名字表 `:1419`/`:1420` · `CheckCard` `:1541`/`:1542` ·
-            //   `modeCases` `:1572`/`:1575` —— 那处从「拼 `1x1 - ` 前缀」改成**逐条给全名**）。
-            //   ⚠️ 这是**改名**、不是改尺寸：尺寸那一行的 `CardHTall` 由 M 那一批落的。
-            Put("Base Game Mode Container 1x2 - Skirmish", "40k_main_GameMode_Skirmish",
-                Loc.T("MainMenu/GameModes/Skirmish"), CardHTall, "skirmish");                   // col2（1×2 · 独占整列）
-            // 🔴 **2026-10-11（A1521⑦）尺寸档同样改了：`1×1` → `1×2`**（判据 = 原版 **prefab 名**
-            //   `Ranked Game Mode Container 1x2`，同上目录逐字如此；同族还有 `Base Game Mode Container 1x2`）。
-            //   **第二条独立理由（结构上的）**：本轮同时要求「不留洞」，而卡片 5 张、其中 `1×1` 有 2 张 ⇒
-            //   若 `Ranked` 仍是 `1×1`，总格数 = 1+2+1+2+1 = **7（奇数）**，两行网格里**必然留一个洞**
+            // 🔴 **2026-10-11（A1521⑦）尺寸档 `1×1` → `1×2`**（判据 = 原版 **prefab 名**
+            //   `Skirmish Ranked Game Mode Container 1x2` / `Ranked Game Mode Container 1x2` /
+            //   `Draft Game Mode Container 1x2` —— `bundle_menus_assets_all/GameObject/` 里逐字如此；
+            //   同族还有 `Base Game Mode Container 1x2`）⇒ 三张 `1×2` 各**独占一整列**。
+            //   **第二条独立理由（结构上的）**：「不留洞」要求下，卡片 5 张、其中 `1×1` 有 2 张 ⇒
+            //   若三张 `1×2` 里任一张退回 `1×1`，总格数变**奇数**，两行网格里**必然留一个洞**
             //   ⇒ 「尺寸档照 prefab 名」与「不留洞」两条判据**同时指向 `1×2`**。
-            //   ✅ 节点名同 `Skirmish`：调度台已一起改成 `1x2`。
-            Put("Base Game Mode Container 1x2 - Ranked", "Container_Image_Ranked",
-                "RANKED", CardHTall, "ranked");                                                 // col3（1×2 · 独占整列）
+            //   ⚠️ 这是**改名**（`1x1 → 1x2`，节点名与尺寸档同步）、不是只改尺寸；
+            //   `Tutorial` / `Practice` 这两张 `1×1` 是**我们按 `Base Game Mode Container 1x1` 那一族取的**
+            //   （原版「哪个模式用哪一档」由 liveop 服务端数据决定、本地查不到）。
+            // ⚠️ **这两张的上下次序 = 用户参考图实拍**（那上面右缘一列「**练习在上、教学在下**」、
+            //   中间一道 20px 缝）—— ⛔ 别把两个 `Put` 换回去：换了 `CheckCard` 那两条行顶期望值就会红。
+            Put("Base Game Mode Container 1x1 - Practice", "Container_Image_Practice_1x1",
+                Loc.T("MainMenu/GameModes/Practice"), CardH, "practice");                       // col3 / row0（1×1 · 上）
+            Put("Base Game Mode Container 1x1 - Tutorial", "Container_Image_Tutorial",
+                Loc.T("MainMenu/GameModes/Tutorial"), CardH, "tutorial");                       // col3 / row1（1×1 · 下）
         }
 
         /// <summary>模式卡点下去 = **进对应模式的界面**（用户 2026-09-24 拍板的那条路）。
@@ -1891,7 +1895,7 @@ namespace CardPresentation
                     {
                         var win = RankedEventWindow.Create(wm);
                         wm.OpenWindow(win);
-                        Debug.Log("[Menu] 模式卡 `RANKED` ⇒ 开 `RankedEventWindowV2`");
+                        Debug.Log("[Menu] 模式卡 `排位` ⇒ 开 `RankedEventWindowV2`");
                     }
                     return;
                 case "draft":
@@ -1904,10 +1908,14 @@ namespace CardPresentation
                     // 同批先例（同一措辞、同一出口）：`Shell/AllianceEventScorePanel.cs` 的 `OnJoinAllianceClick`
                     //   （`Debug.Log` + `WindowsManager.ShowPopUp`）· `Shell/EnergySinglePlayerOnlyEventWindow.cs`
                     //   的 `OnCollectClick`。
-                    Debug.Log("[Menu] 模式卡 `DRAFT MODE` 点了 ⇒ **如实提示「暂无服务器」**"
+                    Debug.Log("[Menu] 模式卡 `选秀` 点了 ⇒ **如实提示「暂无服务器」**"
                             + "（原版 `Draft Game Mode Container 1x2` 由 liveop 事件数据决定开哪扇窗；"
                             + "本地没有服务器、也没有活动数据 —— 照边界③不静默）。");
-                    wm.ShowPopUp("Draft mode is not available offline.", "OK", null);
+                    // 🔴 **2026-10-13（`A1755`）**：正文与钮字都改走 `Loc.T` —— 原来那颗钮写死 `"OK"`、
+                    //   正文写死英文串 ⇒ **中文档下玩家看到英文**（用户当天点名「模式卡需要中文」）。
+                    //   正文键 = `MainMenu/GameModes/DraftOffline`（**我们自拟**，见 `Core/Loc.cs` 那一条的注释）；
+                    //   钮字 = 已有的 `MainMenu/General/OK`（中文「确定」，⛔ 不另立键）。
+                    wm.ShowPopUp(Loc.T("MainMenu/GameModes/DraftOffline"), Loc.T("MainMenu/General/OK"), null);
                     return;
                 default:
                     Debug.LogWarning("[Menu] 模式卡 `" + kind + "` 没有对应动作（**出声**）");

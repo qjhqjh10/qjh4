@@ -1,7 +1,7 @@
 {
  "schema": "card_vfx_by_card/v1",
  "generatedBy": "d:/4/Unity/工具/gen_card_vfx_by_card.py",
- "generatedAt": "2026-10-07 15:24:49",
+ "generatedAt": "2026-10-13 23:43:31",
  "_sources": {
   "cardsEngine": "d:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json",
   "animAddressMap": "d:/4/Unity/数据/索引/anim_address_map.json",
@@ -670,7 +670,7 @@
   }
  },
  "byCard": {
-  "ASH52": {
+  "ASH48": {
    "_unclassified": [
     {
      "cardanim": "CosmicSerpent_Secondary",
@@ -681,7 +681,7 @@
     }
    ]
   },
-  "ASH_Forewarned": {
+  "ASH86": {
    "play": [
     {
      "prefab": "Cosmic Serpent",
@@ -692,7 +692,7 @@
     }
    ]
   },
-  "ASH2": {
+  "ASH_Path_of_the_Seer": {
    "_unclassified": [
     {
      "cardanim": "PathOfTheSeerGreen_self",
@@ -738,7 +738,7 @@
     }
    ]
   },
-  "ASH64": {
+  "ASH54": {
    "_unclassified": [
     {
      "cardanim": "WailingDoom_Adjacent",
@@ -749,7 +749,7 @@
     }
    ]
   },
-  "AM34": {
+  "AM30": {
    "play": [
     {
      "prefab": "Artillery Manticore down 1x",
@@ -769,7 +769,7 @@
     }
    ]
   },
-  "AM39": {
+  "AM34": {
    "_unclassified": [
     {
      "cardanim": "Valkyrie_Hover_Dust",
@@ -799,7 +799,7 @@
     }
    ]
   },
-  "BL68": {
+  "BL55": {
    "play": [
     {
      "prefab": "BlackCrusade_Battleground repeat",
@@ -819,7 +819,7 @@
     }
    ]
   },
-  "BL62": {
+  "BL50": {
    "_unclassified": [
     {
      "cardanim": "Execution_BlackLegion",
@@ -830,7 +830,7 @@
     }
    ]
   },
-  "BL35": {
+  "BL_Rites_of_Possession": {
    "_unclassified": [
     {
      "cardanim": "RitesOfPossession_self",
@@ -848,7 +848,7 @@
     }
    ]
   },
-  "BL53": {
+  "BL42": {
    "play": [
     {
      "prefab": "TraitorsHate_Board",
@@ -868,7 +868,7 @@
     }
    ]
   },
-  "BL66": {
+  "BL52": {
    "_unclassified": [
     {
      "cardanim": "UnholySmite_random",
@@ -879,7 +879,7 @@
     }
    ]
   },
-  "DA35": {
+  "DA_Master_Interromancer": {
    "hit": [
     {
      "prefab": "Psychic_Lightning_down_Intense_white",
@@ -890,7 +890,7 @@
     }
    ]
   },
-  "EC38": {
+  "EC29": {
    "attack_melee": [
     {
      "prefab": "HeldrakeStrike",
@@ -921,7 +921,7 @@
     }
    ]
   },
-  "GSC54": {
+  "GSC46": {
    "_unclassified": [
     {
      "cardanim": "Bore Through Intense",
@@ -943,7 +943,7 @@
     }
    ]
   },
-  "SAU27": {
+  "SAU20": {
    "_unclassified": [
     {
      "cardanim": "Chronomancer_Buff",
@@ -954,7 +954,7 @@
     }
    ]
   },
-  "SAU9": {
+  "SAU3": {
    "deploy": [
     {
      "prefab": "Flayed One Summon",
@@ -967,7 +967,7 @@
     }
    ]
   },
-  "SAU33": {
+  "SAU26": {
    "attack_ranged": [
     {
      "prefab": "Plasmancer_Damage",
@@ -988,7 +988,7 @@
     }
    ]
   },
-  "SAU23": {
+  "SAU17": {
    "_unclassified": [
     {
      "cardanim": "Psychomancer_Stun",
@@ -999,7 +999,7 @@
     }
    ]
   },
-  "SAU16": {
+  "SAU11": {
    "_unclassified": [
     {
      "cardanim": "Technomancer_Buff",
@@ -1010,7 +1010,7 @@
     }
    ]
   },
-  "SAU56": {
+  "SAU50": {
    "play": [
     {
      "prefab": "Sau_Dimensional_Breach_Battleground",
@@ -1030,7 +1030,7 @@
     }
    ]
   },
-  "SAU38": {
+  "SAU_Indomitable_Will": {
    "_unclassified": [
     {
      "cardanim": "Indomitable_Will_Effect",
@@ -1041,7 +1041,7 @@
     }
    ]
   },
-  "SAU2": {
+  "SAU_Lord_of_the_Storm": {
    "hit": [
     {
      "prefab": "Sau_LordOfTheStorm",
@@ -1052,7 +1052,7 @@
     }
    ]
   },
-  "SAU6": {
+  "SAU_Master_Chronomancer": {
    "_unclassified": [
     {
      "cardanim": "Master_Chronomancer_Effect",
@@ -1063,7 +1063,7 @@
     }
    ]
   },
-  "SAU4": {
+  "SAU_Relentless_March": {
    "deploy": [
     {
      "prefab": "GreenSummonCircle",
@@ -1074,7 +1074,7 @@
     }
    ]
   },
-  "SAU55": {
+  "SAU43": {
    "_unclassified": [
     {
      "cardanim": "Solar_Pulse_Effect",
@@ -1085,7 +1085,7 @@
     }
    ]
   },
-  "GOF_Krump_da_Gitz": {
+  "GOF71": {
    "_unclassified": [
     {
      "cardanim": "Krump Da Gitz effect",
@@ -1107,7 +1107,7 @@
     }
    ]
   },
-  "GOF_Krumpaklaw": {
+  "GOF70": {
    "_unclassified": [
     {
      "cardanim": "KrumpaKlawEffect",
@@ -1149,7 +1149,7 @@
     }
    ]
   },
-  "SOR54": {
+  "SOR43": {
    "_unclassified": [
     {
      "cardanim": "CleansingFlamesEffect",
@@ -1160,7 +1160,7 @@
     }
    ]
   },
-  "SOR58": {
+  "SOR51": {
    "play": [
     {
      "prefab": "Sororitas_Divine Intervention_ Battleground",
@@ -1171,7 +1171,7 @@
     }
    ]
   },
-  "TAU7": {
+  "TAU_Hero_of_the_Empire": {
    "_unclassified": [
     {
      "cardanim": "HeroOfTheEmpire_Warlord OLD",
@@ -1182,7 +1182,7 @@
     }
    ]
   },
-  "TAU51": {
+  "TAU44": {
    "_unclassified": [
     {
      "cardanim": "Pulse Onslaught Target",
@@ -1193,7 +1193,7 @@
     }
    ]
   },
-  "TAU62": {
+  "TAU55": {
    "_unclassified": [
     {
      "cardanim": "Relentless Fusillade All enemies",
@@ -1211,7 +1211,7 @@
     }
    ]
   },
-  "TL8": {
+  "TL37": {
    "_unclassified": [
     {
      "cardanim": "SporeMine_Explosion",
@@ -1222,7 +1222,7 @@
     }
    ]
   },
-  "TL75": {
+  "TL_Alpha_Warrior": {
    "_unclassified": [
     {
      "cardanim": "AlphaWarrior_Warlord",
@@ -1233,7 +1233,7 @@
     }
    ]
   },
-  "TL58": {
+  "TL51": {
    "_unclassified": [
     {
      "cardanim": "ToxicMiasma_Venomthrope",
@@ -1258,7 +1258,7 @@
     }
    ]
   },
-  "TL85": {
+  "TL_Tyranid_Invasion": {
    "deploy": [
     {
      "prefab": "TyranidInvasion_Spawn",
@@ -1278,7 +1278,7 @@
     }
    ]
   },
-  "UM_Death_from_Above": {
+  "UM37": {
    "_unclassified": [
     {
      "cardanim": "DeathFromAbove_TargetLock",
@@ -1306,7 +1306,7 @@
     }
    ]
   },
-  "UM9": {
+  "UM_Smite": {
    "_unclassified": [
     {
      "cardanim": "SmiteLightning_Down",
@@ -1317,7 +1317,7 @@
     }
    ]
   },
-  "UM61": {
+  "UM38": {
    "_unclassified": [
     {
      "cardanim": "Stormraven_Center",
@@ -1335,7 +1335,7 @@
     }
    ]
   },
-  "ASH_Death_Spinner_Warp_Spider": {
+  "ASH77": {
    "ability": [
     {
      "prefab": "StealthEffect",
@@ -1347,7 +1347,7 @@
     }
    ]
   },
-  "ASH32": {
+  "ASH63": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -1359,7 +1359,7 @@
     }
    ]
   },
-  "ASH79": {
+  "ASH69": {
    "ability": [
     {
      "prefab": "CamouflageEffect",
@@ -1377,11 +1377,11 @@
      "conf": "inferred-keyword",
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Trigger(3)",
-     "why": "卡的关键词 `Strike: Give +1 to your units` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+     "why": "卡的关键词 `Strike: Give +1 [Attack] to your units` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
     }
    ]
   },
-  "ASH20": {
+  "ASH15": {
    "trigger": [
     {
      "prefab": "FlankEffect",
@@ -1393,7 +1393,7 @@
     }
    ]
   },
-  "ASH_Orian_Laratharjos": {
+  "ASH79": {
    "ability": [
     {
      "prefab": "StealthEffect",
@@ -1405,7 +1405,7 @@
     }
    ]
   },
-  "ASH9": {
+  "ASH6": {
    "ability": [
     {
      "prefab": "StealthEffect",
@@ -1414,94 +1414,94 @@
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.OnPlay(2)",
      "why": "卡的关键词 `Stealth` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
-    }
-   ]
-  },
-  "ASH27": {
-   "ability": [
-    {
-     "prefab": "StealthEffect",
-     "cardanim": "StealthTraitPlay",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
-     "why": "卡的关键词 `Stealth` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
-    }
-   ]
-  },
-  "ASH15": {
-   "ability": [
-    {
-     "prefab": "StealthEffect",
-     "cardanim": "StealthTraitPlay",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
-     "why": "卡的关键词 `Stealth` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
-    }
-   ]
-  },
-  "ASH80": {
-   "ability": [
-    {
-     "prefab": "FlyingEffect",
-     "cardanim": "FlyingTraitPlay",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
-     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
-    }
-   ]
-  },
-  "ASH16": {
-   "ability": [
-    {
-     "prefab": "FlyingEffect",
-     "cardanim": "FlyingTraitPlay",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
-     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
-    }
-   ]
-  },
-  "ASH_Warp_Spider_Exarch": {
-   "ability": [
-    {
-     "prefab": "StealthEffect",
-     "cardanim": "StealthTraitPlay",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
-     "why": "卡的关键词 `Stealth` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
-    }
-   ]
-  },
-  "ASH17": {
-   "ability": [
-    {
-     "prefab": "StealthEffect",
-     "cardanim": "StealthTraitPlay",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
-     "why": "卡的关键词 `Stealth` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
-    }
-   ]
-  },
-  "ASH39": {
-   "ability": [
-    {
-     "prefab": "FlyingEffect",
-     "cardanim": "FlyingTraitPlay",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
-     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
     }
    ]
   },
   "ASH23": {
+   "ability": [
+    {
+     "prefab": "StealthEffect",
+     "cardanim": "StealthTraitPlay",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
+     "why": "卡的关键词 `Stealth` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ]
+  },
+  "ASH11": {
+   "ability": [
+    {
+     "prefab": "StealthEffect",
+     "cardanim": "StealthTraitPlay",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
+     "why": "卡的关键词 `Stealth` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ]
+  },
+  "ASH70": {
+   "ability": [
+    {
+     "prefab": "FlyingEffect",
+     "cardanim": "FlyingTraitPlay",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
+     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ]
+  },
+  "ASH12": {
+   "ability": [
+    {
+     "prefab": "FlyingEffect",
+     "cardanim": "FlyingTraitPlay",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
+     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ]
+  },
+  "ASH78": {
+   "ability": [
+    {
+     "prefab": "StealthEffect",
+     "cardanim": "StealthTraitPlay",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
+     "why": "卡的关键词 `Stealth` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ]
+  },
+  "ASH13": {
+   "ability": [
+    {
+     "prefab": "StealthEffect",
+     "cardanim": "StealthTraitPlay",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
+     "why": "卡的关键词 `Stealth` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ]
+  },
+  "ASH31": {
+   "ability": [
+    {
+     "prefab": "FlyingEffect",
+     "cardanim": "FlyingTraitPlay",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
+     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ]
+  },
+  "ASH19": {
    "trigger": [
     {
      "prefab": "TalentEffect",
@@ -1513,7 +1513,7 @@
     }
    ]
   },
-  "ASH82": {
+  "ASH75": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -1535,7 +1535,7 @@
     }
    ]
   },
-  "ASH42": {
+  "ASH34": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -1552,120 +1552,6 @@
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Trigger(3)",
      "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
-    }
-   ]
-  },
-  "ASH_Bright_Lance_Vyper": {
-   "ability": [
-    {
-     "prefab": "FlyingEffect",
-     "cardanim": "FlyingTraitPlay",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
-     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
-    }
-   ]
-  },
-  "ASH31": {
-   "ability": [
-    {
-     "prefab": "FlyingEffect",
-     "cardanim": "FlyingTraitPlay",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
-     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
-    }
-   ]
-  },
-  "ASH33": {
-   "ability": [
-    {
-     "prefab": "FlyingEffect",
-     "cardanim": "FlyingTraitPlay",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
-     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
-    }
-   ]
-  },
-  "ASH_Farseer_Skyrunner": {
-   "ability": [
-    {
-     "prefab": "FlyingEffect",
-     "cardanim": "FlyingTraitPlay",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
-     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
-    }
-   ]
-  },
-  "ASH36": {
-   "ability": [
-    {
-     "prefab": "FlyingEffect",
-     "cardanim": "FlyingTraitPlay",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
-     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
-    }
-   ],
-   "trigger": [
-    {
-     "prefab": "RallyEffect",
-     "cardanim": "RallyTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    }
-   ]
-  },
-  "ASH40": {
-   "ability": [
-    {
-     "prefab": "FlyingEffect",
-     "cardanim": "FlyingTraitPlay",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
-     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
-    }
-   ],
-   "trigger": [
-    {
-     "prefab": "FlankEffect",
-     "cardanim": "FlankTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Flank` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    }
-   ]
-  },
-  "ASH78": {
-   "ability": [
-    {
-     "prefab": "FlyingEffect",
-     "cardanim": "FlyingTraitPlay",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
-     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
-    }
-   ],
-   "trigger": [
-    {
-     "prefab": "FlankEffect",
-     "cardanim": "FlankTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Flank` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
     }
    ]
   },
@@ -1691,6 +1577,120 @@
      "traitTriggerType": "EffectTriggerType.OnPlay(2)",
      "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
     }
+   ]
+  },
+  "ASH27": {
+   "ability": [
+    {
+     "prefab": "FlyingEffect",
+     "cardanim": "FlyingTraitPlay",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
+     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ]
+  },
+  "ASH82": {
+   "ability": [
+    {
+     "prefab": "FlyingEffect",
+     "cardanim": "FlyingTraitPlay",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
+     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ]
+  },
+  "ASH30": {
+   "ability": [
+    {
+     "prefab": "FlyingEffect",
+     "cardanim": "FlyingTraitPlay",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
+     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ],
+   "trigger": [
+    {
+     "prefab": "RallyEffect",
+     "cardanim": "RallyTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ]
+  },
+  "ASH33": {
+   "ability": [
+    {
+     "prefab": "FlyingEffect",
+     "cardanim": "FlyingTraitPlay",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
+     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ],
+   "trigger": [
+    {
+     "prefab": "FlankEffect",
+     "cardanim": "FlankTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Flank` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ]
+  },
+  "ASH67": {
+   "ability": [
+    {
+     "prefab": "FlyingEffect",
+     "cardanim": "FlyingTraitPlay",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
+     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ],
+   "trigger": [
+    {
+     "prefab": "FlankEffect",
+     "cardanim": "FlankTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Flank` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ]
+  },
+  "ASH68": {
+   "ability": [
+    {
+     "prefab": "FlyingEffect",
+     "cardanim": "FlyingTraitPlay",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
+     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ]
+  },
+  "ASH16": {
+   "ability": [
+    {
+     "prefab": "FlyingEffect",
+     "cardanim": "FlyingTraitPlay",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
+     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
    ],
    "trigger": [
     {
@@ -1711,7 +1711,7 @@
     }
    ]
   },
-  "ASH77": {
+  "ASH66": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -1733,7 +1733,7 @@
     }
    ]
   },
-  "ASH76": {
+  "ASH65": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -1755,7 +1755,7 @@
     }
    ]
   },
-  "ASH14": {
+  "ASH10": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -1777,7 +1777,31 @@
     }
    ]
   },
-  "ASH22": {
+  "ASH18": {
+   "ability": [
+    {
+     "prefab": "FlyingEffect",
+     "cardanim": "FlyingTraitPlay",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
+     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ]
+  },
+  "ASH26": {
+   "trigger": [
+    {
+     "prefab": "ArmourEffect",
+     "cardanim": "ArmourTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Armour 1` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ]
+  },
+  "ASH25": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -1790,30 +1814,6 @@
    ]
   },
   "ASH29": {
-   "trigger": [
-    {
-     "prefab": "ArmourEffect",
-     "cardanim": "ArmourTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Armour 1` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    }
-   ]
-  },
-  "ASH30": {
-   "ability": [
-    {
-     "prefab": "FlyingEffect",
-     "cardanim": "FlyingTraitPlay",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
-     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
-    }
-   ]
-  },
-  "ASH37": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -1835,7 +1835,7 @@
     }
    ]
   },
-  "ASH13": {
+  "ASH9": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -1857,7 +1857,7 @@
     }
    ]
   },
-  "ASH44": {
+  "ASH35": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -1881,7 +1881,7 @@
     }
    ]
   },
-  "ASH3": {
+  "ASH2": {
    "trigger": [
     {
      "prefab": "TalentEffect",
@@ -1905,7 +1905,7 @@
     }
    ]
   },
-  "ASH_Lhykhis": {
+  "ASH76": {
    "ability": [
     {
      "prefab": "StealthEffect",
@@ -1927,7 +1927,7 @@
     }
    ]
   },
-  "AM5": {
+  "AM2": {
    "trigger": [
     {
      "prefab": "TalentEffect",
@@ -1939,7 +1939,7 @@
     }
    ]
   },
-  "AM16": {
+  "AM15": {
    "trigger": [
     {
      "prefab": "TalentEffect",
@@ -1951,7 +1951,7 @@
     }
    ]
   },
-  "AM20": {
+  "AM_Astropath": {
    "ability": [
     {
      "prefab": "ShieldTraitEffect_Idle",
@@ -1971,7 +1971,7 @@
     }
    ]
   },
-  "AM21": {
+  "AM19": {
    "trigger": [
     {
      "prefab": "FlankEffect",
@@ -1991,7 +1991,55 @@
     }
    ]
   },
-  "AM28": {
+  "AM24": {
+   "trigger": [
+    {
+     "prefab": "ArmourEffect",
+     "cardanim": "ArmourTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Armour 1` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ]
+  },
+  "AM10": {
+   "trigger": [
+    {
+     "prefab": "RallyEffect",
+     "cardanim": "RallyTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ]
+  },
+  "AM4": {
+   "trigger": [
+    {
+     "prefab": "RallyEffect",
+     "cardanim": "RallyTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ]
+  },
+  "AM70": {
+   "trigger": [
+    {
+     "prefab": "RallyEffect",
+     "cardanim": "RallyTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ]
+  },
+  "AM27": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -2004,54 +2052,6 @@
    ]
   },
   "AM22": {
-   "trigger": [
-    {
-     "prefab": "RallyEffect",
-     "cardanim": "RallyTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    }
-   ]
-  },
-  "AM7": {
-   "trigger": [
-    {
-     "prefab": "RallyEffect",
-     "cardanim": "RallyTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    }
-   ]
-  },
-  "AM71": {
-   "trigger": [
-    {
-     "prefab": "RallyEffect",
-     "cardanim": "RallyTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    }
-   ]
-  },
-  "AM35": {
-   "trigger": [
-    {
-     "prefab": "ArmourEffect",
-     "cardanim": "ArmourTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Armour 1` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    }
-   ]
-  },
-  "AM29": {
    "ability": [
     {
      "prefab": "ShieldTraitEffect_Idle",
@@ -2063,7 +2063,7 @@
     }
    ]
   },
-  "AM72": {
+  "AM71": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -2075,7 +2075,7 @@
     }
    ]
   },
-  "AM69": {
+  "AM68": {
    "ability": [
     {
      "prefab": "CamouflageEffect",
@@ -2087,7 +2087,7 @@
     }
    ]
   },
-  "AM73": {
+  "AM72": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -2109,43 +2109,7 @@
     }
    ]
   },
-  "AM54": {
-   "trigger": [
-    {
-     "prefab": "ArmourEffect",
-     "cardanim": "ArmourTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Armour 1` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    }
-   ]
-  },
-  "AM26": {
-   "trigger": [
-    {
-     "prefab": "ArmourEffect",
-     "cardanim": "ArmourTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Armour 1` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    }
-   ]
-  },
-  "AM43": {
-   "trigger": [
-    {
-     "prefab": "ArmourEffect",
-     "cardanim": "ArmourTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Armour 2` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    }
-   ]
-  },
-  "AM40": {
+  "AM25": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -2165,11 +2129,11 @@
      "conf": "inferred-keyword",
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Armour 1` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+     "why": "卡的关键词 `Armour 2` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
     }
    ]
   },
-  "AM42": {
+  "AM35": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -2181,7 +2145,31 @@
     }
    ]
   },
-  "AM24": {
+  "AM_Leman_Russ": {
+   "trigger": [
+    {
+     "prefab": "ArmourEffect",
+     "cardanim": "ArmourTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Armour 1` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ]
+  },
+  "AM37": {
+   "trigger": [
+    {
+     "prefab": "ArmourEffect",
+     "cardanim": "ArmourTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Armour 1` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ]
+  },
+  "AM16": {
    "ability": [
     {
      "prefab": "CamouflageEffect",
@@ -2193,7 +2181,7 @@
     }
    ]
   },
-  "AM74": {
+  "AM73": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -2205,7 +2193,7 @@
     }
    ]
   },
-  "AM1": {
+  "AM_Commissar_Elan": {
    "trigger": [
     {
      "prefab": "TalentEffect",
@@ -2229,7 +2217,7 @@
     }
    ]
   },
-  "AM3": {
+  "AM1": {
    "trigger": [
     {
      "prefab": "TalentEffect",
@@ -2241,7 +2229,7 @@
     }
    ]
   },
-  "BL45": {
+  "BL30": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -2250,6 +2238,42 @@
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Start(0)",
      "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ]
+  },
+  "BL4": {
+   "trigger": [
+    {
+     "prefab": "RallyEffect",
+     "cardanim": "RallyTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ]
+  },
+  "BL1": {
+   "trigger": [
+    {
+     "prefab": "FlankEffect",
+     "cardanim": "FlankTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Flank` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ]
+  },
+  "BL24": {
+   "trigger": [
+    {
+     "prefab": "StrikeEffect",
+     "cardanim": "StrikeTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Strike` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
     }
    ]
   },
@@ -2265,19 +2289,7 @@
     }
    ]
   },
-  "BL9": {
-   "trigger": [
-    {
-     "prefab": "FlankEffect",
-     "cardanim": "FlankTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Flank` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    }
-   ]
-  },
-  "BL39": {
+  "BL14": {
    "trigger": [
     {
      "prefab": "StrikeEffect",
@@ -2289,31 +2301,7 @@
     }
    ]
   },
-  "BL26": {
-   "trigger": [
-    {
-     "prefab": "RallyEffect",
-     "cardanim": "RallyTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    }
-   ]
-  },
-  "BL27": {
-   "trigger": [
-    {
-     "prefab": "StrikeEffect",
-     "cardanim": "StrikeTraitTrigger",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Trigger(3)",
-     "why": "卡的关键词 `Strike` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
-    }
-   ]
-  },
-  "BL40": {
+  "BL25": {
    "trigger": [
     {
      "prefab": "ArtificeEffect",
@@ -2325,7 +2313,7 @@
     }
    ]
   },
-  "BL10": {
+  "BL62": {
    "trigger": [
     {
      "prefab": "BacklashEffect",
@@ -2337,7 +2325,7 @@
     }
    ]
   },
-  "BL_Ghallaron_s_Disciple": {
+  "BL66": {
    "trigger": [
     {
      "prefab": "BacklashEffect",
@@ -2349,7 +2337,7 @@
     }
    ]
   },
-  "BL73": {
+  "BL71": {
    "trigger": [
     {
      "prefab": "StrikeEffect",
@@ -2361,7 +2349,7 @@
     }
    ]
   },
-  "BL47": {
+  "BL32": {
    "ability": [
     {
      "prefab": "ShieldTraitEffect_Idle",
@@ -2383,7 +2371,7 @@
     }
    ]
   },
-  "BL28": {
+  "BL15": {
    "trigger": [
     {
      "prefab": "StrikeEffect",
@@ -2395,7 +2383,7 @@
     }
    ]
   },
-  "BL29": {
+  "BL16": {
    "trigger": [
     {
      "prefab": "FlankEffect",
@@ -2415,7 +2403,7 @@
     }
    ]
   },
-  "BL23": {
+  "BL9": {
    "trigger": [
     {
      "prefab": "FlankEffect",
@@ -2427,7 +2415,7 @@
     }
    ]
   },
-  "BL36": {
+  "BL23": {
    "trigger": [
     {
      "prefab": "TalentEffect",
@@ -2439,7 +2427,7 @@
     }
    ]
   },
-  "BL44": {
+  "BL29": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -2451,7 +2439,7 @@
     }
    ]
   },
-  "BL72": {
+  "BL70": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -2463,7 +2451,7 @@
     }
    ]
   },
-  "BL30": {
+  "BL17": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -2483,7 +2471,7 @@
     }
    ]
   },
-  "BL_Zealot_Legionary": {
+  "BL68": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -2495,7 +2483,7 @@
     }
    ]
   },
-  "BL42": {
+  "BL28": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -2507,7 +2495,7 @@
     }
    ]
   },
-  "BL46": {
+  "BL31": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -2527,7 +2515,7 @@
     }
    ]
   },
-  "BL41": {
+  "BL27": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -2539,7 +2527,7 @@
     }
    ]
   },
-  "BL48": {
+  "BL33": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -2551,7 +2539,7 @@
     }
    ]
   },
-  "BL3": {
+  "BL35": {
    "trigger": [
     {
      "prefab": "TalentEffect",
@@ -2563,7 +2551,7 @@
     }
    ]
   },
-  "DA12": {
+  "DA9": {
    "trigger": [
     {
      "prefab": "StrikeEffect",
@@ -2575,7 +2563,7 @@
     }
    ]
   },
-  "DA8": {
+  "DA5": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -2587,7 +2575,7 @@
     }
    ]
   },
-  "DA26": {
+  "DA23": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -2599,7 +2587,7 @@
     }
    ]
   },
-  "DA19": {
+  "DA16": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -2611,7 +2599,7 @@
     }
    ]
   },
-  "DA14": {
+  "DA11": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -2623,7 +2611,7 @@
     }
    ]
   },
-  "DA36": {
+  "DA32": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -2635,7 +2623,7 @@
     }
    ]
   },
-  "DA42": {
+  "DA37": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -2647,7 +2635,7 @@
     }
    ]
   },
-  "DA28": {
+  "DA25": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -2659,7 +2647,7 @@
     }
    ]
   },
-  "DA33": {
+  "DA30": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -2671,7 +2659,7 @@
     }
    ]
   },
-  "DA20": {
+  "DA17": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -2683,7 +2671,7 @@
     }
    ]
   },
-  "DA34": {
+  "DA31": {
    "ability": [
     {
      "prefab": "ShieldTraitEffect_Idle",
@@ -2713,7 +2701,7 @@
     }
    ]
   },
-  "DA21": {
+  "DA18": {
    "ability": [
     {
      "prefab": "StealthEffect",
@@ -2725,7 +2713,7 @@
     }
    ]
   },
-  "DA7": {
+  "DA4": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -2737,7 +2725,7 @@
     }
    ]
   },
-  "DA16": {
+  "DA13": {
    "ability": [
     {
      "prefab": "ShieldTraitEffect_Idle",
@@ -2749,7 +2737,7 @@
     }
    ]
   },
-  "DA24": {
+  "DA20": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -2761,7 +2749,7 @@
     }
    ]
   },
-  "DA10": {
+  "DA8": {
    "ability": [
     {
      "prefab": "CamouflageEffect",
@@ -2773,7 +2761,7 @@
     }
    ]
   },
-  "DA11": {
+  "DA_Sergeant_Naaman": {
    "ability": [
     {
      "prefab": "StealthEffect",
@@ -2785,7 +2773,7 @@
     }
    ]
   },
-  "DA13": {
+  "DA10": {
    "trigger": [
     {
      "prefab": "FlankEffect",
@@ -2797,7 +2785,7 @@
     }
    ]
   },
-  "DA39": {
+  "DA35": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -2816,92 +2804,10 @@
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Start(0)",
      "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    }
-   ]
-  },
-  "DA32": {
-   "ability": [
-    {
-     "prefab": "FlyingEffect",
-     "cardanim": "FlyingTraitPlay",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
-     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
-    }
-   ]
-  },
-  "DA23": {
-   "ability": [
-    {
-     "prefab": "FlyingEffect",
-     "cardanim": "FlyingTraitPlay",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
-     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
-    }
-   ],
-   "trigger": [
-    {
-     "prefab": "RallyEffect",
-     "cardanim": "RallyTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    }
-   ]
-  },
-  "DA37": {
-   "ability": [
-    {
-     "prefab": "FlyingEffect",
-     "cardanim": "FlyingTraitPlay",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
-     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
     }
    ]
   },
   "DA29": {
-   "trigger": [
-    {
-     "prefab": "FlankEffect",
-     "cardanim": "FlankTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Flank` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    }
-   ]
-  },
-  "DA9": {
-   "trigger": [
-    {
-     "prefab": "FlankEffect",
-     "cardanim": "FlankTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Flank` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    }
-   ]
-  },
-  "DA17": {
-   "trigger": [
-    {
-     "prefab": "RallyEffect",
-     "cardanim": "RallyTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    }
-   ]
-  },
-  "DA18": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -2913,7 +2819,29 @@
     }
    ]
   },
-  "DA30": {
+  "DA21": {
+   "ability": [
+    {
+     "prefab": "FlyingEffect",
+     "cardanim": "FlyingTraitPlay",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
+     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ],
+   "trigger": [
+    {
+     "prefab": "RallyEffect",
+     "cardanim": "RallyTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ]
+  },
+  "DA33": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -2925,16 +2853,32 @@
     }
    ]
   },
-  "DA43": {
+  "DA26": {
    "trigger": [
     {
-     "prefab": "ArmourEffect",
-     "cardanim": "ArmourTraitStart",
+     "prefab": "FlankEffect",
+     "cardanim": "FlankTraitStart",
      "conf": "inferred-keyword",
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Armour 1` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    },
+     "why": "卡的关键词 `Flank` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ]
+  },
+  "DA7": {
+   "trigger": [
+    {
+     "prefab": "FlankEffect",
+     "cardanim": "FlankTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Flank` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ]
+  },
+  "DA15": {
+   "trigger": [
     {
      "prefab": "RallyEffect",
      "cardanim": "RallyTraitStart",
@@ -2945,23 +2889,27 @@
     }
    ]
   },
-  "DA40": {
-   "trigger": [
+  "DA14": {
+   "ability": [
     {
-     "prefab": "FlankEffect",
-     "cardanim": "FlankTraitStart",
+     "prefab": "FlyingEffect",
+     "cardanim": "FlyingTraitPlay",
      "conf": "inferred-keyword",
      "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Flank` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    },
+     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
+     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ]
+  },
+  "DA27": {
+   "ability": [
     {
-     "prefab": "TalentEffect",
-     "cardanim": "TalentTraitTrigger",
+     "prefab": "FlyingEffect",
+     "cardanim": "FlyingTraitPlay",
      "conf": "inferred-keyword",
      "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Trigger(3)",
-     "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
+     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
     }
    ]
   },
@@ -2974,10 +2922,50 @@
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Start(0)",
      "why": "卡的关键词 `Armour 1` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    },
+    {
+     "prefab": "RallyEffect",
+     "cardanim": "RallyTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
     }
    ]
   },
-  "DA1": {
+  "DA36": {
+   "trigger": [
+    {
+     "prefab": "FlankEffect",
+     "cardanim": "FlankTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Flank` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    },
+    {
+     "prefab": "TalentEffect",
+     "cardanim": "TalentTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ]
+  },
+  "DA34": {
+   "trigger": [
+    {
+     "prefab": "ArmourEffect",
+     "cardanim": "ArmourTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Armour 1` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ]
+  },
+  "DA_Asmodai": {
    "trigger": [
     {
      "prefab": "TalentEffect",
@@ -2989,7 +2977,7 @@
     }
    ]
   },
-  "DA3": {
+  "DA_Azrael": {
    "trigger": [
     {
      "prefab": "TalentEffect",
@@ -3001,7 +2989,7 @@
     }
    ]
   },
-  "DA5": {
+  "DA_Belial": {
    "trigger": [
     {
      "prefab": "TalentEffect",
@@ -3085,7 +3073,7 @@
     }
    ]
   },
-  "EC26": {
+  "EC35": {
    "trigger": [
     {
      "prefab": "FlankEffect",
@@ -3095,64 +3083,6 @@
      "traitTriggerType": "EffectTriggerType.Start(0)",
      "why": "卡的关键词 `Flank` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
     },
-    {
-     "prefab": "CrueltyEffect",
-     "cardanim": "CrueltyTraitTrigger",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Trigger(3)",
-     "why": "卡的关键词 `Cruelty` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
-    }
-   ]
-  },
-  "EC7": {
-   "trigger": [
-    {
-     "prefab": "RallyEffect",
-     "cardanim": "RallyTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    }
-   ]
-  },
-  "EC20": {
-   "trigger": [
-    {
-     "prefab": "FlankEffect",
-     "cardanim": "FlankTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Flank` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    }
-   ]
-  },
-  "EC16": {
-   "trigger": [
-    {
-     "prefab": "CrueltyEffect",
-     "cardanim": "CrueltyTraitTrigger",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Trigger(3)",
-     "why": "卡的关键词 `Cruelty` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
-    }
-   ]
-  },
-  "EC40": {
-   "ability": [
-    {
-     "prefab": "FlyingEffect",
-     "cardanim": "FlyingTraitPlay",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
-     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
-    }
-   ],
-   "trigger": [
     {
      "prefab": "CrueltyEffect",
      "cardanim": "CrueltyTraitTrigger",
@@ -3175,19 +3105,53 @@
     }
    ]
   },
-  "EC14": {
+  "EC34": {
    "trigger": [
     {
-     "prefab": "EcstasyEffect",
-     "cardanim": "EcstasyTraitTrigger",
+     "prefab": "FlankEffect",
+     "cardanim": "FlankTraitStart",
      "conf": "inferred-keyword",
      "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Trigger(3)",
-     "why": "卡的关键词 `Ecstasy` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Flank` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
     }
    ]
   },
-  "EC21": {
+  "EC24": {
+   "trigger": [
+    {
+     "prefab": "CrueltyEffect",
+     "cardanim": "CrueltyTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Cruelty` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ]
+  },
+  "EC15": {
+   "ability": [
+    {
+     "prefab": "FlyingEffect",
+     "cardanim": "FlyingTraitPlay",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
+     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ],
+   "trigger": [
+    {
+     "prefab": "CrueltyEffect",
+     "cardanim": "CrueltyTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Cruelty` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ]
+  },
+  "EC_Dual_Screamer_Kakophonist": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -3199,31 +3163,31 @@
     }
    ]
   },
+  "EC_Icon_of_Excess_Infractor": {
+   "trigger": [
+    {
+     "prefab": "EcstasyEffect",
+     "cardanim": "EcstasyTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Ecstasy` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ]
+  },
   "EC10": {
    "trigger": [
     {
-     "prefab": "CrueltyEffect",
-     "cardanim": "CrueltyTraitTrigger",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Trigger(3)",
-     "why": "卡的关键词 `Cruelty` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
-    }
-   ]
-  },
-  "EC29": {
-   "trigger": [
-    {
-     "prefab": "ArmourEffect",
-     "cardanim": "ArmourTraitStart",
+     "prefab": "RallyEffect",
+     "cardanim": "RallyTraitStart",
      "conf": "inferred-keyword",
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Armour 1` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
     }
    ]
   },
-  "EC30": {
+  "EC8": {
    "trigger": [
     {
      "prefab": "CrueltyEffect",
@@ -3235,7 +3199,7 @@
     }
    ]
   },
-  "EC33": {
+  "EC21": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -3247,7 +3211,39 @@
     }
    ]
   },
-  "EC22": {
+  "EC23": {
+   "trigger": [
+    {
+     "prefab": "CrueltyEffect",
+     "cardanim": "CrueltyTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Cruelty` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ]
+  },
+  "EC_Terminator_Champion": {
+   "trigger": [
+    {
+     "prefab": "ArmourEffect",
+     "cardanim": "ArmourTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Armour 1` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    },
+    {
+     "prefab": "CrueltyEffect",
+     "cardanim": "CrueltyTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Cruelty` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ]
+  },
+  "EC_Terminator": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -3267,7 +3263,7 @@
     }
    ]
   },
-  "EC23": {
+  "EC7": {
    "trigger": [
     {
      "prefab": "EcstasyEffect",
@@ -3279,7 +3275,7 @@
     }
    ]
   },
-  "EC12": {
+  "EC5": {
    "trigger": [
     {
      "prefab": "EcstasyEffect",
@@ -3291,7 +3287,7 @@
     }
    ]
   },
-  "EC34": {
+  "EC20": {
    "ability": [
     {
      "prefab": "ShieldTraitEffect_Idle",
@@ -3313,7 +3309,7 @@
     }
    ]
   },
-  "EC41": {
+  "EC28": {
    "trigger": [
     {
      "prefab": "CrueltyEffect",
@@ -3345,7 +3341,7 @@
     }
    ]
   },
-  "EC39": {
+  "EC_Maulerfiend": {
    "trigger": [
     {
      "prefab": "EcstasyEffect",
@@ -3357,7 +3353,7 @@
     }
    ]
   },
-  "GSC33": {
+  "GSC26": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -3369,7 +3365,7 @@
     }
    ]
   },
-  "GSC27": {
+  "GSC20": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -3381,7 +3377,7 @@
     }
    ]
   },
-  "GSC38": {
+  "GSC32": {
    "trigger": [
     {
      "prefab": "ConcussiveEffect",
@@ -3401,7 +3397,7 @@
     }
    ]
   },
-  "GSC21": {
+  "GSC16": {
    "trigger": [
     {
      "prefab": "StrikeEffect",
@@ -3413,7 +3409,7 @@
     }
    ]
   },
-  "GSC39": {
+  "GSC35": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -3425,7 +3421,7 @@
     }
    ]
   },
-  "GSC14": {
+  "GSC10": {
    "ability": [
     {
      "prefab": "StealthEffect",
@@ -3455,7 +3451,7 @@
     }
    ]
   },
-  "GSC28": {
+  "GSC21": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -3475,7 +3471,7 @@
     }
    ]
   },
-  "GSC7": {
+  "GSC4": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -3487,7 +3483,7 @@
     }
    ]
   },
-  "GSC35": {
+  "GSC28": {
    "trigger": [
     {
      "prefab": "ConcussiveEffect",
@@ -3529,7 +3525,7 @@
     }
    ]
   },
-  "GSC31": {
+  "GSC29": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -3541,7 +3537,7 @@
     }
    ]
   },
-  "GSC11": {
+  "GSC13": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -3553,7 +3549,7 @@
     }
    ]
   },
-  "GSC25": {
+  "GSC24": {
    "ability": [
     {
      "prefab": "StealthEffect",
@@ -3575,7 +3571,7 @@
     }
    ]
   },
-  "GSC43": {
+  "GSC37": {
    "trigger": [
     {
      "prefab": "TalentEffect",
@@ -3587,7 +3583,7 @@
     }
    ]
   },
-  "GSC26": {
+  "GSC19": {
    "trigger": [
     {
      "prefab": "FlankEffect",
@@ -3599,7 +3595,7 @@
     }
    ]
   },
-  "GSC37": {
+  "GSC31": {
    "ability": [
     {
      "prefab": "StealthEffect",
@@ -3621,7 +3617,7 @@
     }
    ]
   },
-  "GSC34": {
+  "GSC27": {
    "trigger": [
     {
      "prefab": "FlankEffect",
@@ -3641,7 +3637,7 @@
     }
    ]
   },
-  "GSC69": {
+  "GSC68": {
    "ability": [
     {
      "prefab": "CamouflageEffect",
@@ -3673,7 +3669,7 @@
     }
    ]
   },
-  "GSC73": {
+  "GSC72": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -3685,7 +3681,7 @@
     }
    ]
   },
-  "GSC45": {
+  "GSC38": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -3697,7 +3693,7 @@
     }
    ]
   },
-  "GSC41": {
+  "GSC36": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -3709,7 +3705,7 @@
     }
    ]
   },
-  "GSC40": {
+  "GSC33": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -3729,7 +3725,7 @@
     }
    ]
   },
-  "GSC_Jackal_Scout": {
+  "GSC67": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -3741,7 +3737,7 @@
     }
    ]
   },
-  "GSC74": {
+  "GSC73": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -3765,7 +3761,7 @@
     }
    ]
   },
-  "GSC3": {
+  "GSC2": {
    "trigger": [
     {
      "prefab": "TalentEffect",
@@ -3777,7 +3773,7 @@
     }
    ]
   },
-  "GSC5": {
+  "GSC1": {
    "trigger": [
     {
      "prefab": "TalentEffect",
@@ -3789,7 +3785,7 @@
     }
    ]
   },
-  "SAU15": {
+  "SAU9": {
    "trigger": [
     {
      "prefab": "OrkBuffGreenWaaagh",
@@ -3801,7 +3797,7 @@
     }
    ]
   },
-  "SAU8": {
+  "SAU2": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -3821,7 +3817,7 @@
     }
    ]
   },
-  "SAU7": {
+  "SAU1": {
    "trigger": [
     {
      "prefab": "ArtificeEffect",
@@ -3833,7 +3829,7 @@
     }
    ]
   },
-  "SAU19": {
+  "SAU13": {
    "trigger": [
     {
      "prefab": "OrkBuffGreenWaaagh",
@@ -3853,7 +3849,7 @@
     }
    ]
   },
-  "SAU71": {
+  "SAU70": {
    "trigger": [
     {
      "prefab": "ArtificeEffect",
@@ -3865,7 +3861,7 @@
     }
    ]
   },
-  "SAU68": {
+  "SAU67": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -3877,7 +3873,7 @@
     }
    ]
   },
-  "SAU21": {
+  "SAU15": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -3901,7 +3897,7 @@
     }
    ]
   },
-  "SAU14": {
+  "SAU_Gauss_Blaster_Immortal": {
    "trigger": [
     {
      "prefab": "OrkBuffGreenWaaagh",
@@ -3913,7 +3909,7 @@
     }
    ]
   },
-  "SAU32": {
+  "SAU25": {
    "trigger": [
     {
      "prefab": "ArtificeEffect",
@@ -3925,7 +3921,7 @@
     }
    ]
   },
-  "SAU72": {
+  "SAU71": {
    "trigger": [
     {
      "prefab": "OrkBuffGreenWaaagh",
@@ -3937,7 +3933,7 @@
     }
    ]
   },
-  "SAU73": {
+  "SAU72": {
    "trigger": [
     {
      "prefab": "OrkBuffGreenWaaagh",
@@ -3949,7 +3945,7 @@
     }
    ]
   },
-  "SAU_Lychguard": {
+  "SAU23": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -3961,7 +3957,7 @@
     }
    ]
   },
-  "SAU37": {
+  "SAU29": {
    "trigger": [
     {
      "prefab": "OrkBuffGreenWaaagh",
@@ -3981,7 +3977,7 @@
     }
    ]
   },
-  "SAU34": {
+  "SAU65": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -3993,7 +3989,7 @@
     }
    ]
   },
-  "SAU35": {
+  "SAU27": {
    "trigger": [
     {
      "prefab": "OrkBuffGreenWaaagh",
@@ -4005,7 +4001,7 @@
     }
    ]
   },
-  "SAU24": {
+  "SAU18": {
    "trigger": [
     {
      "prefab": "FlankEffect",
@@ -4017,7 +4013,7 @@
     }
    ]
   },
-  "SAU12": {
+  "SAU_Tesla_Carbine_Immortal": {
    "trigger": [
     {
      "prefab": "ArtificeEffect",
@@ -4029,7 +4025,7 @@
     }
    ]
   },
-  "SAU42": {
+  "SAU33": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -4041,7 +4037,7 @@
     }
    ]
   },
-  "SAU74": {
+  "SAU73": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -4053,7 +4049,7 @@
     }
    ]
   },
-  "SAU31": {
+  "SAU24": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -4075,7 +4071,7 @@
     }
    ]
   },
-  "SAU28": {
+  "SAU21": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -4097,7 +4093,7 @@
     }
    ]
   },
-  "SAU36": {
+  "SAU28": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -4109,7 +4105,7 @@
     }
    ]
   },
-  "SAU43": {
+  "SAU34": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -4137,7 +4133,7 @@
     }
    ]
   },
-  "SAU22": {
+  "SAU16": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -4159,7 +4155,7 @@
     }
    ]
   },
-  "SAU17": {
+  "SAU12": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -4181,7 +4177,7 @@
     }
    ]
   },
-  "SAU39": {
+  "SAU30": {
    "trigger": [
     {
      "prefab": "OrkBuffGreenWaaagh",
@@ -4193,7 +4189,7 @@
     }
    ]
   },
-  "SAU3": {
+  "SAU36": {
    "trigger": [
     {
      "prefab": "TalentEffect",
@@ -4205,7 +4201,7 @@
     }
    ]
   },
-  "GOF78": {
+  "GOF79": {
    "trigger": [
     {
      "prefab": "TideEffect",
@@ -4225,7 +4221,7 @@
     }
    ]
   },
-  "GOF96": {
+  "GOF97": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -4237,7 +4233,7 @@
     }
    ]
   },
-  "GOF79": {
+  "GOF80": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -4249,7 +4245,7 @@
     }
    ]
   },
-  "GOF82": {
+  "GOF83": {
    "trigger": [
     {
      "prefab": "FlankEffect",
@@ -4261,7 +4257,7 @@
     }
    ]
   },
-  "GOF92": {
+  "GOF93": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -4273,7 +4269,7 @@
     }
    ]
   },
-  "GOF94": {
+  "GOF95": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -4285,7 +4281,7 @@
     }
    ]
   },
-  "GOF87": {
+  "GOF88": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -4297,7 +4293,7 @@
     }
    ]
   },
-  "GOF93": {
+  "GOF94": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -4317,7 +4313,7 @@
     }
    ]
   },
-  "GOF83": {
+  "GOF84": {
    "trigger": [
     {
      "prefab": "MobEffect",
@@ -4329,7 +4325,7 @@
     }
    ]
   },
-  "GOF77": {
+  "GOF78": {
    "trigger": [
     {
      "prefab": "TideEffect",
@@ -4341,7 +4337,7 @@
     }
    ]
   },
-  "GOF88": {
+  "GOF89": {
    "trigger": [
     {
      "prefab": "TideEffect",
@@ -4361,7 +4357,7 @@
     }
    ]
   },
-  "GOF80": {
+  "GOF81": {
    "trigger": [
     {
      "prefab": "TideEffect",
@@ -4381,7 +4377,7 @@
     }
    ]
   },
-  "GOF86": {
+  "GOF87": {
    "trigger": [
     {
      "prefab": "MobEffect",
@@ -4393,7 +4389,7 @@
     }
    ]
   },
-  "GOF95": {
+  "GOF96": {
    "trigger": [
     {
      "prefab": "MobEffect",
@@ -4417,7 +4413,7 @@
     }
    ]
   },
-  "GOF84": {
+  "GOF85": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -4429,7 +4425,7 @@
     }
    ]
   },
-  "GOF91": {
+  "GOF92": {
    "ability": [
     {
      "prefab": "ShieldTraitEffect_Idle",
@@ -4451,7 +4447,7 @@
     }
    ]
   },
-  "GOF32": {
+  "GOF23": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -4471,7 +4467,7 @@
     }
    ]
   },
-  "GOF_Big_Choppa_Nob": {
+  "GOF68": {
    "trigger": [
     {
      "prefab": "ConcussiveEffect",
@@ -4483,7 +4479,7 @@
     }
    ]
   },
-  "GOF22": {
+  "GOF16": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -4495,7 +4491,7 @@
     }
    ]
   },
-  "GOF27": {
+  "GOF59": {
    "trigger": [
     {
      "prefab": "MobEffect",
@@ -4507,7 +4503,7 @@
     }
    ]
   },
-  "GOF_Boss_Nob": {
+  "GOF67": {
    "trigger": [
     {
      "prefab": "MobEffect",
@@ -4519,7 +4515,7 @@
     }
    ]
   },
-  "GOF17": {
+  "GOF15": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -4531,7 +4527,7 @@
     }
    ]
   },
-  "GOF4": {
+  "GOF1": {
    "trigger": [
     {
      "prefab": "TideEffect",
@@ -4543,7 +4539,7 @@
     }
    ]
   },
-  "GOF12": {
+  "GOF8": {
    "trigger": [
     {
      "prefab": "TideEffect",
@@ -4555,7 +4551,7 @@
     }
    ]
   },
-  "GOF34": {
+  "GOF62": {
    "ability": [
     {
      "prefab": "StealthEffect",
@@ -4577,7 +4573,7 @@
     }
    ]
   },
-  "GOF5": {
+  "GOF2": {
    "trigger": [
     {
      "prefab": "BacklashEffect",
@@ -4589,7 +4585,7 @@
     }
    ]
   },
-  "GOF28": {
+  "GOF19": {
    "trigger": [
     {
      "prefab": "MobEffect",
@@ -4601,7 +4597,7 @@
     }
    ]
   },
-  "GOF25": {
+  "GOF21": {
    "trigger": [
     {
      "prefab": "TalentEffect",
@@ -4621,7 +4617,7 @@
     }
    ]
   },
-  "GOF7": {
+  "GOF55": {
    "trigger": [
     {
      "prefab": "TideEffect",
@@ -4630,6 +4626,42 @@
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Start(0)",
      "why": "卡的关键词 `Tide 1` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ]
+  },
+  "GOF_Ork_Spanner": {
+   "trigger": [
+    {
+     "prefab": "MobEffect",
+     "cardanim": "MobTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Mob` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ]
+  },
+  "GOF18": {
+   "trigger": [
+    {
+     "prefab": "RallyEffect",
+     "cardanim": "RallyTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ]
+  },
+  "GOF9": {
+   "trigger": [
+    {
+     "prefab": "MobEffect",
+     "cardanim": "MobTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Mob` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
     }
    ]
   },
@@ -4645,43 +4677,7 @@
     }
    ]
   },
-  "GOF26": {
-   "trigger": [
-    {
-     "prefab": "RallyEffect",
-     "cardanim": "RallyTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    }
-   ]
-  },
-  "GOF13": {
-   "trigger": [
-    {
-     "prefab": "MobEffect",
-     "cardanim": "MobTraitTrigger",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Trigger(3)",
-     "why": "卡的关键词 `Mob` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
-    }
-   ]
-  },
-  "GOF21": {
-   "trigger": [
-    {
-     "prefab": "MobEffect",
-     "cardanim": "MobTraitTrigger",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Trigger(3)",
-     "why": "卡的关键词 `Mob` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
-    }
-   ]
-  },
-  "GOF8": {
+  "GOF4": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -4701,7 +4697,7 @@
     }
    ]
   },
-  "GOF_Stikkbomb_Boy": {
+  "GOF65": {
    "trigger": [
     {
      "prefab": "TideEffect",
@@ -4713,7 +4709,7 @@
     }
    ]
   },
-  "GOF9": {
+  "GOF6": {
    "trigger": [
     {
      "prefab": "TideEffect",
@@ -4735,7 +4731,7 @@
     }
    ]
   },
-  "GOF10": {
+  "GOF5": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -4747,7 +4743,7 @@
     }
    ]
   },
-  "GOF31": {
+  "GOF_Veteran_Flyboy": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -4769,7 +4765,7 @@
     }
    ]
   },
-  "GOF_Stomp_Em": {
+  "GOF73": {
    "trigger": [
     {
      "prefab": "MobEffect",
@@ -4781,7 +4777,7 @@
     }
    ]
   },
-  "GOF35": {
+  "GOF24": {
    "trigger": [
     {
      "prefab": "MobEffect",
@@ -4793,7 +4789,7 @@
     }
    ]
   },
-  "GOF23": {
+  "GOF58": {
    "trigger": [
     {
      "prefab": "FlankEffect",
@@ -4813,7 +4809,7 @@
     }
    ]
   },
-  "GOF33": {
+  "GOF22": {
    "trigger": [
     {
      "prefab": "MobEffect",
@@ -4825,7 +4821,7 @@
     }
    ]
   },
-  "GOF19": {
+  "GOF56": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -4847,7 +4843,7 @@
     }
    ]
   },
-  "GOF38": {
+  "GOF25": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -4859,7 +4855,7 @@
     }
    ]
   },
-  "GOF11": {
+  "GOF10": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -4871,7 +4867,7 @@
     }
    ]
   },
-  "GOF36": {
+  "GOF63": {
    "trigger": [
     {
      "prefab": "ConcussiveEffect",
@@ -4883,7 +4879,7 @@
     }
    ]
   },
-  "GOF24": {
+  "GOF17": {
    "trigger": [
     {
      "prefab": "TideEffect",
@@ -4903,7 +4899,7 @@
     }
    ]
   },
-  "GOF29": {
+  "GOF61": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -4923,7 +4919,7 @@
     }
    ]
   },
-  "GOF39": {
+  "GOF26": {
    "trigger": [
     {
      "prefab": "ConcussiveEffect",
@@ -4951,7 +4947,7 @@
     }
    ]
   },
-  "GOF15": {
+  "GOF7": {
    "trigger": [
     {
      "prefab": "FlankEffect",
@@ -4971,7 +4967,7 @@
     }
    ]
   },
-  "GOF_Warboss_Gordrang": {
+  "GOF75": {
    "trigger": [
     {
      "prefab": "TalentEffect",
@@ -4983,7 +4979,7 @@
     }
    ]
   },
-  "GOF_Mega_Blasta_Deffkopta": {
+  "GOF69": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -5005,7 +5001,7 @@
     }
    ]
   },
-  "SOR72": {
+  "SOR71": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -5055,7 +5051,7 @@
     }
    ]
   },
-  "SOR67": {
+  "SOR66": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -5077,7 +5073,7 @@
     }
    ]
   },
-  "SOR31": {
+  "SOR30": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -5089,7 +5085,7 @@
     }
    ]
   },
-  "SOR16": {
+  "SOR21": {
    "ability": [
     {
      "prefab": "CamouflageEffect",
@@ -5101,7 +5097,7 @@
     }
    ]
   },
-  "SOR28": {
+  "SOR22": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -5113,7 +5109,7 @@
     }
    ]
   },
-  "SOR33": {
+  "SOR29": {
    "ability": [
     {
      "prefab": "CamouflageEffect",
@@ -5125,7 +5121,7 @@
     }
    ]
   },
-  "SOR12": {
+  "SOR9": {
    "trigger": [
     {
      "prefab": "TalentEffect",
@@ -5137,7 +5133,7 @@
     }
    ]
   },
-  "SOR38": {
+  "SOR33": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -5167,7 +5163,7 @@
     }
    ]
   },
-  "SOR24": {
+  "SOR19": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -5189,7 +5185,7 @@
     }
    ]
   },
-  "SOR32": {
+  "SOR_Sister_Dogmata": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -5201,7 +5197,7 @@
     }
    ]
   },
-  "SOR_Triumph_of_Saint_Katherine": {
+  "SOR37": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -5213,7 +5209,7 @@
     }
    ]
   },
-  "SOR71": {
+  "SOR69": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -5232,32 +5228,56 @@
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Start(0)",
      "why": "卡的关键词 `Flank` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ]
+  },
+  "SOR28": {
+   "ability": [
+    {
+     "prefab": "FlyingEffect",
+     "cardanim": "FlyingTraitPlay",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
+     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ],
+   "trigger": [
+    {
+     "prefab": "FlankEffect",
+     "cardanim": "FlankTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Flank` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ]
+  },
+  "SOR72": {
+   "trigger": [
+    {
+     "prefab": "ArmourEffect",
+     "cardanim": "ArmourTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Armour 1` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ]
+  },
+  "SOR36": {
+   "trigger": [
+    {
+     "prefab": "ArmourEffect",
+     "cardanim": "ArmourTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Armour 1` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
     }
    ]
   },
   "SOR35": {
-   "ability": [
-    {
-     "prefab": "FlyingEffect",
-     "cardanim": "FlyingTraitPlay",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
-     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
-    }
-   ],
-   "trigger": [
-    {
-     "prefab": "FlankEffect",
-     "cardanim": "FlankTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Flank` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    }
-   ]
-  },
-  "SOR73": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -5269,31 +5289,7 @@
     }
    ]
   },
-  "SOR42": {
-   "trigger": [
-    {
-     "prefab": "ArmourEffect",
-     "cardanim": "ArmourTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Armour 1` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    }
-   ]
-  },
-  "SOR39": {
-   "trigger": [
-    {
-     "prefab": "ArmourEffect",
-     "cardanim": "ArmourTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Armour 1` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    }
-   ]
-  },
-  "SOR37": {
+  "SOR32": {
    "trigger": [
     {
      "prefab": "PenitenceEffect",
@@ -5305,7 +5301,7 @@
     }
    ]
   },
-  "SOR40": {
+  "SOR38": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -5317,7 +5313,7 @@
     }
    ]
   },
-  "SOR3": {
+  "SOR2": {
    "trigger": [
     {
      "prefab": "TalentEffect",
@@ -5663,7 +5659,7 @@
     }
    ]
   },
-  "TAU30": {
+  "TAU27": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -5683,7 +5679,7 @@
     }
    ]
   },
-  "TAU38": {
+  "TAU34": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -5705,7 +5701,7 @@
     }
    ]
   },
-  "TAU15": {
+  "TAU11": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -5717,7 +5713,7 @@
     }
    ]
   },
-  "TAU22": {
+  "TAU17": {
    "ability": [
     {
      "prefab": "ShieldTraitEffect_Idle",
@@ -5729,7 +5725,7 @@
     }
    ]
   },
-  "TAU36": {
+  "TAU28": {
    "trigger": [
     {
      "prefab": "CompanionEffect",
@@ -5749,7 +5745,7 @@
     }
    ]
   },
-  "TAU42": {
+  "TAU36": {
    "ability": [
     {
      "prefab": "ShieldTraitEffect_Idle",
@@ -5761,7 +5757,7 @@
     }
    ]
   },
-  "TAU26": {
+  "TAU21": {
    "ability": [
     {
      "prefab": "StealthEffect",
@@ -5783,7 +5779,7 @@
     }
    ]
   },
-  "TAU33": {
+  "TAU26": {
    "ability": [
     {
      "prefab": "StealthEffect",
@@ -5805,7 +5801,7 @@
     }
    ]
   },
-  "TAU45": {
+  "TAU_Stormsurge_Battlesuit": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -5814,6 +5810,54 @@
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Start(0)",
      "why": "卡的关键词 `Armour 1` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ]
+  },
+  "TAU6": {
+   "ability": [
+    {
+     "prefab": "FlyingEffect",
+     "cardanim": "FlyingTraitPlay",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
+     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ]
+  },
+  "TAU7": {
+   "ability": [
+    {
+     "prefab": "FlyingEffect",
+     "cardanim": "FlyingTraitPlay",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
+     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ]
+  },
+  "TAU8": {
+   "ability": [
+    {
+     "prefab": "FlyingEffect",
+     "cardanim": "FlyingTraitPlay",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
+     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ]
+  },
+  "TAU15": {
+   "ability": [
+    {
+     "prefab": "FlyingEffect",
+     "cardanim": "FlyingTraitPlay",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
+     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
     }
    ]
   },
@@ -5826,54 +5870,6 @@
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.OnPlay(2)",
      "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
-    }
-   ]
-  },
-  "TAU11": {
-   "ability": [
-    {
-     "prefab": "FlyingEffect",
-     "cardanim": "FlyingTraitPlay",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
-     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
-    }
-   ]
-  },
-  "TAU12": {
-   "ability": [
-    {
-     "prefab": "FlyingEffect",
-     "cardanim": "FlyingTraitPlay",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
-     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
-    }
-   ]
-  },
-  "TAU20": {
-   "ability": [
-    {
-     "prefab": "FlyingEffect",
-     "cardanim": "FlyingTraitPlay",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
-     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
-    }
-   ]
-  },
-  "TAU14": {
-   "ability": [
-    {
-     "prefab": "FlyingEffect",
-     "cardanim": "FlyingTraitPlay",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
-     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
     },
     {
      "prefab": "StealthEffect",
@@ -5885,7 +5881,7 @@
     }
    ]
   },
-  "TAU34": {
+  "TAU_Aunshi_Ethereal": {
    "ability": [
     {
      "prefab": "ShieldTraitEffect_Idle",
@@ -5907,7 +5903,7 @@
     }
    ]
   },
-  "TAU16": {
+  "TAU12": {
    "ability": [
     {
      "prefab": "StealthEffect",
@@ -5937,7 +5933,7 @@
     }
    ]
   },
-  "TAU23": {
+  "TAU18": {
    "trigger": [
     {
      "prefab": "StrikeEffect",
@@ -5949,7 +5945,7 @@
     }
    ]
   },
-  "TAU32": {
+  "TAU25": {
    "ability": [
     {
      "prefab": "StealthEffect",
@@ -5961,7 +5957,7 @@
     }
    ]
   },
-  "TAU71": {
+  "TAU70": {
    "ability": [
     {
      "prefab": "CamouflageEffect",
@@ -5973,7 +5969,7 @@
     }
    ]
   },
-  "TAU24": {
+  "TAU19": {
    "ability": [
     {
      "prefab": "ShieldTraitEffect_Idle",
@@ -5985,7 +5981,7 @@
     }
    ]
   },
-  "TAU_Kroot_Carnivore": {
+  "TAU66": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -5997,7 +5993,7 @@
     }
    ]
   },
-  "TAU_Kroot_Hound": {
+  "TAU67": {
    "ability": [
     {
      "prefab": "CamouflageEffect",
@@ -6009,7 +6005,7 @@
     }
    ]
   },
-  "TAU72": {
+  "TAU71": {
    "trigger": [
     {
      "prefab": "FlankEffect",
@@ -6029,7 +6025,7 @@
     }
    ]
   },
-  "TAU70": {
+  "TAU69": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -6041,7 +6037,7 @@
     }
    ]
   },
-  "TAU73": {
+  "TAU72": {
    "ability": [
     {
      "prefab": "CamouflageEffect",
@@ -6053,7 +6049,7 @@
     }
    ]
   },
-  "TAU13": {
+  "TAU9": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -6073,7 +6069,7 @@
     }
    ]
   },
-  "TAU_Trail_Shaper": {
+  "TAU68": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -6085,7 +6081,7 @@
     }
    ]
   },
-  "TAU21": {
+  "TAU16": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -6115,7 +6111,7 @@
     }
    ]
   },
-  "TAU31": {
+  "TAU24": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -6127,7 +6123,7 @@
     }
    ]
   },
-  "TAU37": {
+  "TAU31": {
    "trigger": [
     {
      "prefab": "CompanionEffect",
@@ -6139,7 +6135,7 @@
     }
    ]
   },
-  "TAU41": {
+  "TAU35": {
    "trigger": [
     {
      "prefab": "FlankEffect",
@@ -6151,7 +6147,7 @@
     }
    ]
   },
-  "TAU25": {
+  "TAU20": {
    "trigger": [
     {
      "prefab": "CompanionEffect",
@@ -6163,7 +6159,7 @@
     }
    ]
   },
-  "TAU39": {
+  "TAU_Razorshark": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -6185,7 +6181,7 @@
     }
    ]
   },
-  "TAU44": {
+  "TAU37": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -6197,7 +6193,7 @@
     }
    ]
   },
-  "TAU1": {
+  "TAU2": {
    "trigger": [
     {
      "prefab": "TalentEffect",
@@ -6209,7 +6205,7 @@
     }
    ]
   },
-  "TAU4": {
+  "TAU3": {
    "ability": [
     {
      "prefab": "ShieldTraitEffect_Idle",
@@ -6231,7 +6227,7 @@
     }
    ]
   },
-  "TAU6": {
+  "TAU1": {
    "trigger": [
     {
      "prefab": "TalentEffect",
@@ -6243,7 +6239,7 @@
     }
    ]
   },
-  "TL78": {
+  "TL_Barbgaunt": {
    "trigger": [
     {
      "prefab": "TideEffect",
@@ -6255,7 +6251,7 @@
     }
    ]
   },
-  "TL30": {
+  "TL19": {
    "ability": [
     {
      "prefab": "StealthEffect",
@@ -6267,7 +6263,7 @@
     }
    ]
   },
-  "TL26": {
+  "TL17": {
    "ability": [
     {
      "prefab": "StealthEffect",
@@ -6289,7 +6285,7 @@
     }
    ]
   },
-  "TL15": {
+  "TL7": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -6319,7 +6315,7 @@
     }
    ]
   },
-  "TL16": {
+  "TL8": {
    "ability": [
     {
      "prefab": "StealthEffect",
@@ -6331,7 +6327,7 @@
     }
    ]
   },
-  "TL9": {
+  "TL2": {
    "trigger": [
     {
      "prefab": "TideEffect",
@@ -6343,7 +6339,7 @@
     }
    ]
   },
-  "TL19": {
+  "TL13": {
    "ability": [
     {
      "prefab": "StealthEffect",
@@ -6355,7 +6351,7 @@
     }
    ]
   },
-  "TL10": {
+  "TL3": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -6367,7 +6363,7 @@
     }
    ]
   },
-  "TL11": {
+  "TL60": {
    "trigger": [
     {
      "prefab": "TideEffect",
@@ -6379,7 +6375,7 @@
     }
    ]
   },
-  "TL77": {
+  "TL_Neurogaunt": {
    "trigger": [
     {
      "prefab": "TideEffect",
@@ -6388,6 +6384,88 @@
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Start(0)",
      "why": "卡的关键词 `Tide 2` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ]
+  },
+  "TL62": {
+   "trigger": [
+    {
+     "prefab": "RallyEffect",
+     "cardanim": "RallyTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ]
+  },
+  "TL1": {
+   "trigger": [
+    {
+     "prefab": "TideEffect",
+     "cardanim": "TideTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Tide 3` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ]
+  },
+  "TL_Termagant_Brood": {
+   "trigger": [
+    {
+     "prefab": "TideEffect",
+     "cardanim": "TideTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Tide 3` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ]
+  },
+  "TL4": {
+   "trigger": [
+    {
+     "prefab": "TideEffect",
+     "cardanim": "TideTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Tide 2` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ]
+  },
+  "TL12": {
+   "trigger": [
+    {
+     "prefab": "ArmourEffect",
+     "cardanim": "ArmourTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Armour 2` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ]
+  },
+  "TL10": {
+   "trigger": [
+    {
+     "prefab": "TideEffect",
+     "cardanim": "TideTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Tide 1` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ],
+   "ability": [
+    {
+     "prefab": "StealthEffect",
+     "cardanim": "StealthTraitPlay",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
+     "why": "卡的关键词 `Stealth` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
     }
    ]
   },
@@ -6403,135 +6481,53 @@
     }
    ]
   },
-  "TL7": {
+  "TL27": {
    "trigger": [
     {
-     "prefab": "TideEffect",
-     "cardanim": "TideTraitStart",
+     "prefab": "RallyEffect",
+     "cardanim": "RallyTraitStart",
      "conf": "inferred-keyword",
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Tide 3` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    }
-   ]
-  },
-  "TL79": {
-   "trigger": [
-    {
-     "prefab": "TideEffect",
-     "cardanim": "TideTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Tide 3` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    }
-   ]
-  },
-  "TL13": {
-   "trigger": [
-    {
-     "prefab": "TideEffect",
-     "cardanim": "TideTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Tide 2` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    }
-   ]
-  },
-  "TL28": {
-   "trigger": [
-    {
-     "prefab": "ArmourEffect",
-     "cardanim": "ArmourTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Armour 2` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
     }
    ]
   },
   "TL24": {
-   "trigger": [
-    {
-     "prefab": "TideEffect",
-     "cardanim": "TideTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Tide 1` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    }
-   ],
    "ability": [
     {
-     "prefab": "StealthEffect",
-     "cardanim": "StealthTraitPlay",
+     "prefab": "FlyingEffect",
+     "cardanim": "FlyingTraitPlay",
      "conf": "inferred-keyword",
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.OnPlay(2)",
-     "why": "卡的关键词 `Stealth` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ]
+  },
+  "TL22": {
+   "ability": [
+    {
+     "prefab": "FlyingEffect",
+     "cardanim": "FlyingTraitPlay",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
+     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ],
+   "trigger": [
+    {
+     "prefab": "RallyEffect",
+     "cardanim": "RallyTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
     }
    ]
   },
   "TL25": {
-   "trigger": [
-    {
-     "prefab": "RallyEffect",
-     "cardanim": "RallyTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    }
-   ]
-  },
-  "TL40": {
-   "trigger": [
-    {
-     "prefab": "RallyEffect",
-     "cardanim": "RallyTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    }
-   ]
-  },
-  "TL36": {
-   "ability": [
-    {
-     "prefab": "FlyingEffect",
-     "cardanim": "FlyingTraitPlay",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
-     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
-    }
-   ]
-  },
-  "TL31": {
-   "ability": [
-    {
-     "prefab": "FlyingEffect",
-     "cardanim": "FlyingTraitPlay",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
-     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
-    }
-   ],
-   "trigger": [
-    {
-     "prefab": "RallyEffect",
-     "cardanim": "RallyTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    }
-   ]
-  },
-  "TL37": {
    "trigger": [
     {
      "prefab": "TalentEffect",
@@ -6543,7 +6539,7 @@
     }
    ]
   },
-  "TL39": {
+  "TL26": {
    "trigger": [
     {
      "prefab": "ArtificeEffect",
@@ -6555,7 +6551,7 @@
     }
    ]
   },
-  "TL27": {
+  "TL16": {
    "ability": [
     {
      "prefab": "StealthEffect",
@@ -6567,7 +6563,7 @@
     }
    ]
   },
-  "TL82": {
+  "TL_Neurotyrant": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -6579,7 +6575,7 @@
     }
    ]
   },
-  "TL83": {
+  "TL_Norn_Emissary": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -6591,7 +6587,7 @@
     }
    ]
   },
-  "TL80": {
+  "TL_Psychophage": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -6611,7 +6607,7 @@
     }
    ]
   },
-  "TL33": {
+  "TL21": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -6623,7 +6619,7 @@
     }
    ]
   },
-  "TL21": {
+  "TL14": {
    "trigger": [
     {
      "prefab": "ArtificeEffect",
@@ -6635,7 +6631,7 @@
     }
    ]
   },
-  "TL34": {
+  "TL23": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -6657,7 +6653,7 @@
     }
    ]
   },
-  "TL43": {
+  "TL30": {
    "trigger": [
     {
      "prefab": "StrikeEffect",
@@ -6669,7 +6665,7 @@
     }
    ]
   },
-  "TL42": {
+  "TL29": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -6681,7 +6677,7 @@
     }
    ]
   },
-  "TL1": {
+  "TL36": {
    "trigger": [
     {
      "prefab": "TalentEffect",
@@ -6693,7 +6689,7 @@
     }
    ]
   },
-  "TL3": {
+  "TL35": {
    "trigger": [
     {
      "prefab": "TalentEffect",
@@ -6705,7 +6701,7 @@
     }
    ]
   },
-  "TL5": {
+  "TL34": {
    "trigger": [
     {
      "prefab": "TalentEffect",
@@ -6717,7 +6713,7 @@
     }
    ]
   },
-  "UM_Lieutenant_Titus": {
+  "UM76": {
    "trigger": [
     {
      "prefab": "TalentEffect",
@@ -6729,7 +6725,7 @@
     }
    ]
   },
-  "UM83": {
+  "UM_2nd_Company_Terminator": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -6741,7 +6737,7 @@
     }
    ]
   },
-  "UM30": {
+  "UM15": {
    "trigger": [
     {
      "prefab": "CodexEffect",
@@ -6753,7 +6749,7 @@
     }
    ]
   },
-  "UM_Assault_Centurion": {
+  "UM27": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -6765,7 +6761,7 @@
     }
    ]
   },
-  "UM34": {
+  "UM23": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -6785,7 +6781,7 @@
     }
    ]
   },
-  "UM_Bladeguard_Sergeant": {
+  "UM80": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -6797,7 +6793,7 @@
     }
    ]
   },
-  "UM44": {
+  "UM29": {
    "trigger": [
     {
      "prefab": "CodexEffect",
@@ -6817,7 +6813,7 @@
     }
    ]
   },
-  "UM_Chairon": {
+  "UM77": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -6826,6 +6822,86 @@
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Start(0)",
      "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ]
+  },
+  "UM_Chapter_Champion": {
+   "trigger": [
+    {
+     "prefab": "ArmourEffect",
+     "cardanim": "ArmourTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Armour 1` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    },
+    {
+     "prefab": "CodexEffect",
+     "cardanim": "CodexTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Codex` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ]
+  },
+  "UM25": {
+   "trigger": [
+    {
+     "prefab": "CodexEffect",
+     "cardanim": "CodexTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Codex` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ]
+  },
+  "UM81": {
+   "ability": [
+    {
+     "prefab": "StealthEffect",
+     "cardanim": "StealthTraitPlay",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
+     "why": "卡的关键词 `Stealth` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ]
+  },
+  "UM8": {
+   "ability": [
+    {
+     "prefab": "CamouflageEffect",
+     "cardanim": "CamouflageTraitPlay",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
+     "why": "卡的关键词 `Camouflage` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ]
+  },
+  "UM26": {
+   "trigger": [
+    {
+     "prefab": "CodexEffect",
+     "cardanim": "CodexTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Codex` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ]
+  },
+  "UM3": {
+   "trigger": [
+    {
+     "prefab": "CodexEffect",
+     "cardanim": "CodexTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Codex` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
     }
    ]
   },
@@ -6849,7 +6925,49 @@
     }
    ]
   },
-  "UM39": {
+  "UM22": {
+   "ability": [
+    {
+     "prefab": "FlyingEffect",
+     "cardanim": "FlyingTraitPlay",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
+     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+    }
+   ],
+   "trigger": [
+    {
+     "prefab": "FlankEffect",
+     "cardanim": "FlankTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Flank` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    },
+    {
+     "prefab": "CodexEffect",
+     "cardanim": "CodexTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Codex` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    }
+   ]
+  },
+  "UM_Incursor": {
+   "trigger": [
+    {
+     "prefab": "RallyEffect",
+     "cardanim": "RallyTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ]
+  },
+  "UM56": {
    "trigger": [
     {
      "prefab": "CodexEffect",
@@ -6861,19 +6979,31 @@
     }
    ]
   },
-  "UM79": {
-   "ability": [
+  "UM24": {
+   "trigger": [
     {
-     "prefab": "StealthEffect",
-     "cardanim": "StealthTraitPlay",
+     "prefab": "CodexEffect",
+     "cardanim": "CodexTraitTrigger",
      "conf": "inferred-keyword",
      "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
-     "why": "卡的关键词 `Stealth` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Codex` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
     }
    ]
   },
-  "UM17": {
+  "UM2": {
+   "trigger": [
+    {
+     "prefab": "RallyEffect",
+     "cardanim": "RallyTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    }
+   ]
+  },
+  "UM_Phobos_Librarian": {
    "ability": [
     {
      "prefab": "CamouflageEffect",
@@ -6882,18 +7012,6 @@
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.OnPlay(2)",
      "why": "卡的关键词 `Camouflage` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
-    }
-   ]
-  },
-  "UM40": {
-   "trigger": [
-    {
-     "prefab": "CodexEffect",
-     "cardanim": "CodexTraitTrigger",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Trigger(3)",
-     "why": "卡的关键词 `Codex` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
     }
    ]
   },
@@ -6909,7 +7027,7 @@
     }
    ]
   },
-  "UM_Heavy_Intercessor": {
+  "UM79": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -6929,7 +7047,7 @@
     }
    ]
   },
-  "UM_Inceptor_Sergeant": {
+  "UM9": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -6959,19 +7077,7 @@
     }
    ]
   },
-  "UM71": {
-   "trigger": [
-    {
-     "prefab": "RallyEffect",
-     "cardanim": "RallyTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    }
-   ]
-  },
-  "UM18": {
+  "UM21": {
    "trigger": [
     {
      "prefab": "CodexEffect",
@@ -6983,117 +7089,7 @@
     }
    ]
   },
-  "UM_Lieutenant_Calsius": {
-   "trigger": [
-    {
-     "prefab": "CodexEffect",
-     "cardanim": "CodexTraitTrigger",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Trigger(3)",
-     "why": "卡的关键词 `Codex` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
-    }
-   ]
-  },
-  "UM10": {
-   "trigger": [
-    {
-     "prefab": "RallyEffect",
-     "cardanim": "RallyTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    }
-   ]
-  },
-  "UM81": {
-   "ability": [
-    {
-     "prefab": "CamouflageEffect",
-     "cardanim": "CamouflageTraitPlay",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
-     "why": "卡的关键词 `Camouflage` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
-    }
-   ]
-  },
-  "UM_Primaris_Chaplain": {
-   "trigger": [
-    {
-     "prefab": "CodexEffect",
-     "cardanim": "CodexTraitTrigger",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Trigger(3)",
-     "why": "卡的关键词 `Codex` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
-    }
-   ]
-  },
-  "UM_Primaris_Eradicator": {
-   "trigger": [
-    {
-     "prefab": "ArmourEffect",
-     "cardanim": "ArmourTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Armour 1` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    },
-    {
-     "prefab": "CodexEffect",
-     "cardanim": "CodexTraitTrigger",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Trigger(3)",
-     "why": "卡的关键词 `Codex` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
-    }
-   ]
-  },
-  "UM_Primaris_Inceptor": {
-   "ability": [
-    {
-     "prefab": "FlyingEffect",
-     "cardanim": "FlyingTraitPlay",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.OnPlay(2)",
-     "why": "卡的关键词 `Flying` → 原版天赋动画名的构词法 `<关键词>TraitPlay`（= `EffectTriggerType.OnPlay(2)`）"
-    }
-   ],
-   "trigger": [
-    {
-     "prefab": "FlankEffect",
-     "cardanim": "FlankTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Flank` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    },
-    {
-     "prefab": "CodexEffect",
-     "cardanim": "CodexTraitTrigger",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Trigger(3)",
-     "why": "卡的关键词 `Codex` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
-    }
-   ]
-  },
-  "UM32": {
-   "trigger": [
-    {
-     "prefab": "CodexEffect",
-     "cardanim": "CodexTraitTrigger",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Trigger(3)",
-     "why": "卡的关键词 `Codex` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
-    }
-   ]
-  },
-  "UM_Primaris_Reiver": {
+  "UM5": {
    "trigger": [
     {
      "prefab": "FlankEffect",
@@ -7105,7 +7101,7 @@
     }
    ]
   },
-  "UM_Primaris_Techmarine": {
+  "UM68": {
    "trigger": [
     {
      "prefab": "CodexEffect",
@@ -7129,7 +7125,7 @@
     }
    ]
   },
-  "UM11": {
+  "UM1": {
    "ability": [
     {
      "prefab": "CamouflageEffect",
@@ -7151,7 +7147,7 @@
     }
    ]
   },
-  "UM28": {
+  "UM16": {
    "trigger": [
     {
      "prefab": "CodexEffect",
@@ -7163,7 +7159,7 @@
     }
    ]
   },
-  "UM_Sergeant_Gadriel": {
+  "UM82": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -7185,7 +7181,7 @@
     }
    ]
   },
-  "UM_Sergeant_Telion": {
+  "UM20": {
    "ability": [
     {
      "prefab": "CamouflageEffect",
@@ -7207,7 +7203,7 @@
     }
    ]
   },
-  "UM_Sternguard_Sergeant": {
+  "UM55": {
    "trigger": [
     {
      "prefab": "CodexEffect",
@@ -7243,7 +7239,7 @@
     }
    ]
   },
-  "UM_Tyrannic_War_Veteran": {
+  "UM7": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -7267,7 +7263,7 @@
     }
    ]
   },
-  "UM_Angels_of_Death": {
+  "UM64": {
    "trigger": [
     {
      "prefab": "CodexEffect",
@@ -7279,7 +7275,7 @@
     }
    ]
   },
-  "UM16": {
+  "UM11": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -7291,7 +7287,7 @@
     }
    ]
   },
-  "UM_Land_Speeder": {
+  "UM69": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -7313,7 +7309,7 @@
     }
    ]
   },
-  "UM_Outrider": {
+  "UM67": {
    "trigger": [
     {
      "prefab": "FlankEffect",
@@ -7333,7 +7329,7 @@
     }
    ]
   },
-  "UM_Primaris_Impulsor": {
+  "UM17": {
    "trigger": [
     {
      "prefab": "CodexEffect",
@@ -7345,7 +7341,7 @@
     }
    ]
   },
-  "UM_Primaris_Invader": {
+  "UM57": {
    "trigger": [
     {
      "prefab": "CodexEffect",
@@ -7357,7 +7353,7 @@
     }
    ]
   },
-  "UM_Redemptor_Dreadnought": {
+  "UM28": {
    "trigger": [
     {
      "prefab": "CodexEffect",
@@ -7369,7 +7365,7 @@
     }
    ]
   },
-  "UM_Repulsor_Executioner": {
+  "UM30": {
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -7381,7 +7377,7 @@
     }
    ]
   },
-  "UM_Scout_bike": {
+  "UM66": {
    "ability": [
     {
      "prefab": "CamouflageEffect",
@@ -7393,7 +7389,7 @@
     }
    ]
   },
-  "UM72": {
+  "UM71": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -7415,7 +7411,7 @@
     }
    ]
   },
-  "UM41": {
+  "UM59": {
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -7437,7 +7433,7 @@
     }
    ]
   },
-  "UM_Valtus": {
+  "UM83": {
    "trigger": [
     {
      "prefab": "ArmourEffect",
@@ -7469,7 +7465,7 @@
     }
    ]
   },
-  "UM1": {
+  "UM46": {
    "trigger": [
     {
      "prefab": "TalentEffect",
@@ -7493,7 +7489,7 @@
     }
    ]
   },
-  "UM70": {
+  "UM_Valius_Paxor": {
    "trigger": [
     {
      "prefab": "TalentEffect",
@@ -7505,7 +7501,7 @@
     }
    ]
   },
-  "UM5": {
+  "UM48": {
    "trigger": [
     {
      "prefab": "TalentEffect",
@@ -7517,7 +7513,7 @@
     }
    ]
   },
-  "UM_Tactical_Doctrine": {
+  "UM85": {
    "trigger": [
     {
      "prefab": "CodexEffect",
@@ -7529,7 +7525,7 @@
     }
    ]
   },
-  "UM_Predator_Annihilator": {
+  "UM72": {
    "trigger": [
     {
      "prefab": "CodexEffect",
@@ -7741,10 +7737,10 @@
  ],
  "stats": {
   "cardsInPool": 1126,
-  "cardsCovered": 466,
-  "cardsUncovered": 660,
+  "cardsCovered": 465,
+  "cardsUncovered": 661,
   "cardsCoveredByEvent": {
-   "trigger": 357,
+   "trigger": 356,
    "ability": 137,
    "_unclassified": 31,
    "play": 6,
@@ -7758,7 +7754,7 @@
    "inferred-keyword": 555
   },
   "cardsByConf": {
-   "inferred-keyword": 430,
+   "inferred-keyword": 429,
    "inferred-name": 42
   },
   "authoritativePerCardEntries": 0,

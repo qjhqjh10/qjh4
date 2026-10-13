@@ -117,8 +117,22 @@ namespace CardPresentation
         /// 判据 → `资料/加时与冲突模式_原版规格.md` §2.8（原版 `MulliganManager.ActivateMulligan` 的二选一）。</summary>
         public void SetTurnText(bool playerGoesSecond)
         {
+            // 🔴 **2026-10-13（`A1751` · 用户真机点名「第二行没显示」）**：**只记下这一档，写字的活交给 `ApplyTurnText()`**。
+            //   为什么不能在这里直接写：调用点在 `BattleDriver.OpenMulligan` 里**排在 `Open()` 之前**
+            //   ⇒ 这一下是在**面板还关着**（`SetVisible(false)`）的时候写的，而**未激活时 `ForceMeshUpdate()`
+            //   是空操作** ⇒ `textBounds` 是哨兵 `4.29e9` ⇒ `RefreshBounds()` 会把 TMP 子节点扔到 2.1e9 之外
+            //   —— **画面上什么都没有、也不报错**（这条机制本仓 `Label.cs:1284` 早就记过）。
+            //   ⇒ 现在 `SetVisible(true)` 那一刻（对象真激活了）**再写一遍**，这时量得准、摆得对。
+            _turnSecond = playerGoesSecond;
+            ApplyTurnText();
+        }
+
+        /// <summary>把记住的那一句（先手 / 后手）写到那一行上。
+        /// ⚠️ 只在**对象已激活**时量得准 —— `SetVisible(true)` 会再调一次，所以两头都不漏。</summary>
+        void ApplyTurnText()
+        {
             if (_turnText == null) return;
-            string t = playerGoesSecond ? TurnSecond : TurnFirst;
+            string t = _turnSecond ? TurnSecond : TurnFirst;
             _turnText.SetText(t);
             // 🔴 **字号按【这一串字】的语种选** —— 汉字 ≈ 1 em、拉丁大写 ≈ 0.72 em
             //    （判据 = `Battle/Label.SetCapHeight`/`SetGlyphHeight` 的 doc，`Loc.HasCjk` 是那条判据的**唯一一份**）。
@@ -197,6 +211,9 @@ namespace CardPresentation
         Label _prompt, _doneText;
         /// <summary>🆕 2026-09-26：「你先手 / 你后手」那一行（原版 `MulliganText/TurnText`）。</summary>
         Label _turnText;
+        /// <summary>🔴 **2026-10-13（`A1751`）**：那一行该显示哪一档（`true` = 我方后手）。
+        /// 由 `SetTurnText` 记下、`SetVisible(true)` 再写一遍 —— 见 `ApplyTurnText` 的注释。</summary>
+        bool _turnSecond;
         readonly List<ImageQuad> _cardBtns = new List<ImageQuad>();
         readonly List<Label> _cardTexts = new List<Label>();
         readonly List<CardView> _cards = new List<CardView>();
@@ -428,14 +445,27 @@ namespace CardPresentation
             //      括号半句就等于**又开一条写死路径**（本工程红线）。回车那把快捷键**照旧能用**
             //      （接线在 `BattleDriver` 的键处理里），只是不再印在提示行上。
             //   ⚠️ 字号按那块框的高度取 —— **原来是我们挑的**（保留原样，本轮不动版面）。
-            // 🔴 **颜色照原版（2026-09-30 亲读原版资产）**：`bundle_scenes_scenes_battlearena1/MonoBehaviour/`
-            //   `MonoBehaviour_3731.json`（`Choose cards to replace in first hand`）与 `MonoBehaviour_3856.json`
-            //   （`You go second`）的 **`m_fontColor32` 都是 `4294967295`（= `0xFFFFFFFF` 纯白）**、
-            //   `m_fontColor` 都是 `(1,1,1,1)`。原来两行都用暖色 `(1, 0.94, 0.82)` ⇒ **改成纯白**。
-            //   （旁证：`资料/战斗规格/战斗重建_0827/战斗界面JSON权威表_0827.md:274-275` 记「白」。）
+            // 🔴 **颜色那句 2026-10-13 就地订正（铁律 5 · `A1752`）：下面这半段【已被推翻】，保留更正痕。**
+            //   原文写：「`MonoBehaviour_3731/3856` 的 `m_fontColor32` 都是纯白 ⇒ 两行都改成纯白」——
+            //   **`m_fontColor32` 那一半没读错，结论错了**：顶点色是**乘在材质 `_FaceColor` 上**的，
+            //   而两行挂的**不是同一份材质** ⇒ 提示行实际是**橙色**。
+            //   逐条判据（材质名 / `_FaceColor` / 实拍）写在下面那一行上方，⛔ 别照本段改回去。
+            //   （原文另一句「旁证：`战斗界面JSON权威表_0827.md:274-275` 记「白」」—— 那份表记的也是 `m_fontColor32`，
+            //    同源错误，一并作废。）
             string promptText = Loc.T(PromptTerm);
+            // 🔴 **2026-10-13（`A1752`）就地订正（铁律 5）：提示行是【橙色】，不是白。**
+            //   上一轮只读了 `m_fontColor32`（`MonoBehaviour_3731.json` = `4294967295` = 白）就写成「两行都用纯白」
+            //   —— **漏了【材质】**：原版这两行挂的**不是同一份 TMP 材质**（`m_sharedMaterial` 两个不同 PathID）：
+            //   · 提示行 → **`Pragati-Regular Orange`**（`bundle_fonts_assets_all/Material/Material_-5772249770677823286.json`）
+            //     `_FaceColor = (0.9960785, 0.5960785, 0.1176471, 1)` = **#FE981E**（材质名自己就叫 `Orange`）；
+            //   · 第二行 → `Pragati-Regular Atlas Material`（`…/Material_-5050103597772954521.json`）`_FaceColor` = 白。
+            //   `m_fontColor32`（顶点色，两行都是白）**是乘在材质 `_FaceColor` 上的** ⇒ 单看它一档推不出屏上颜色。
+            //   旁证（两条独立）：① 用户实拍 `战斗—替换手卡参考图（先手/后手）.png` 两行**明显一橙一白**；
+            //   ② `Battle/Label.cs` 的 `SetColor`/`TmpFont` 那一路：我们自己的字体材质 `_FaceColor` 是白
+            //   ⇒ 这里直接给顶点色就能画出原版那个橙。
+            Color promptColor = new Color(0.9960785f, 0.5960785f, 0.1176471f, 1f);   // = 原版 `Pragati-Regular Orange` 的 `_FaceColor`
             p._prompt = Label.Create(go.transform, promptText, At(PromptCx, PromptCy), 8,
-                                     Color.white, new Vector2(0.5f, 0.5f), "MulliganPrompt");
+                                     promptColor, new Vector2(0.5f, 0.5f), "MulliganPrompt");
             SetScriptFont(p._prompt, promptText, PromptH * 0.55f);
 
             // 🆕 2026-09-26：**开局谁先手那一行** —— 判据（唯一）→ `资料/加时与冲突模式_原版规格.md` §2.8：
@@ -513,6 +543,11 @@ namespace CardPresentation
             if (_prompt != null) _prompt.gameObject.SetActive(v);
             if (_doneText != null) _doneText.gameObject.SetActive(v);
             if (_turnText != null) _turnText.gameObject.SetActive(v);
+            // 🔴 **2026-10-13（`A1751`）**：**激活那一刻把那一行重写一遍** ——
+            //    `SetTurnText` 的调用点排在 `Open()` 之前，那一下是在**面板关着**的时候写的：
+            //    未激活时 `ForceMeshUpdate()` 是空操作、`textBounds` 是哨兵 ⇒ 量不准。
+            //    这里紧跟着 `SetActive(true)` 再走一次，量得准、摆得对（幂等，多走几次无副作用）。
+            if (v) ApplyTurnText();
             for (int i = 0; i < _cardBtns.Count; i++)
                 if (_cardBtns[i] != null) _cardBtns[i].gameObject.SetActive(v);
             for (int i = 0; i < _cardTexts.Count; i++)

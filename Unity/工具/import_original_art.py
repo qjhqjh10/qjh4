@@ -186,51 +186,54 @@ ART_NAME_ALIAS = {
 #   `SM_SpaceWolves_inf_Blackmane Aggressor.png` **MD5 完全相同**（2026-09-15 实测）。
 # 出处（逐张目视核对，含 `文件:行号` 级证据）：`资料/PnP卡图_逐张对账_0915.md` §五 / §六。
 # ⚠️ 加条目之前**先验 PNG 和同目录 `Sprite/<同名>.json` 都在**，否则卡面会缺 rect 裁歪。
+# 🔴 **2026-10-13（第二十六会话）本表的【键】已整族换成真值 id** —— 卡 id 从 PnP 自建编号
+#   换成原版卡 SO 的 uniqueId（判据 → d:/2/远端缓存_旧profile_1013/README.md）。
+#   22 个键按「旧 id → 同名同阵营的新 id」逐条换算；**值（贴图名）与注释一字未动**。
 ART_ID_ALIAS = {
     # ---- 黑军团：4 张黑暗契约 + 天赋，原版叫「Mark of Chaos_<神>」/「Warmaster」 ----
-    'BL16': 'CSM_BlackLegion_strat_Mark of Chaos_Tzeench',      # Dark Pact of Fate
-    'BL18': 'CSM_BlackLegion_strat_Mark of Chaos_Khorne',       # Dark Pact of Blood
-    'BL20': 'CSM_BlackLegion_strat_Mark of Chaos_Slaanesh',     # Dark Pact of Excess
-    'BL22': 'CSM_BlackLegion_strat_Mark of Chaos_Nurgle',       # Dark Pact of Resilience
-    'BL2':  'CSM_BlackLegion_strat_Warmaster',                  # Chosen of the Four
+    'BL_Dark_Pact_of_Fate': 'CSM_BlackLegion_strat_Mark of Chaos_Tzeench',      # Dark Pact of Fate
+    'BL_Dark_Pact_of_Blood': 'CSM_BlackLegion_strat_Mark of Chaos_Khorne',       # Dark Pact of Blood
+    'BL_Dark_Pact_of_Excess': 'CSM_BlackLegion_strat_Mark of Chaos_Slaanesh',     # Dark Pact of Excess
+    'BL_Dark_Pact_of_Resilience': 'CSM_BlackLegion_strat_Mark of Chaos_Nurgle',       # Dark Pact of Resilience
+    'BL_Chosen_of_the_Four':  'CSM_BlackLegion_strat_Warmaster',                  # Chosen of the Four
     # ---- 黑军团：这两张是**卡池重复行**把图抢走了（`BL69/BL71` 见对账文档 §六）----
     # ---- 黑军团：这两张的卡名拼写（`Hellfire` 双 l）和原版贴图名（`Helfire` 单 l）对不上 ----
     # ⚠️ 2026-09-15 改：原来这里点的是**卡池重复行** `BL_Helfire_Pit` / `BL_Helfire_Torch`；
     #    那两行已作为幽灵卡删掉（`card_stats.json` 的 `noise`），**存活的是编号型的 `BL69` / `BL71`**，
     #    所以点名表要跟着挪到它们身上，否则它们会掉到相似度兜底（0.96）去碰运气。
-    'BL69': 'CSM_BlackLegion_strat_Helfire Torch',   # Hellfire Torch
-    'BL71': 'CSM_BlackLegion_strat_Helfire Pit',     # Hellfire Pit
+    'BL_Hellfire_Torch': 'CSM_BlackLegion_strat_Helfire Torch',   # Hellfire Torch
+    'BL_Hellfire_Pit': 'CSM_BlackLegion_strat_Helfire Pit',     # Hellfire Pit
     # ---- 极限战士：原版把 Bladeguard Lieutenant 改名成了 Veteran ----
-    'UM34': 'SM_UM_inf_Bladeguard Lieutenant',
+    'UM23': 'SM_UM_inf_Bladeguard Lieutenant',
     # ⚠️ 与现存卡 `Righteous Fury` **共用同一张图**（原版 00a/00b 两张天赋同一幅画，
     #    插图区指纹 2/256 vs 无关对照 90/256，2026-09-15 实测）
     'UM_Exemplary_Warrior': 'SM_UM_strat_Righteous Fury',
-    'UM_Predator_Annihilator': 'SM_UM_veh_Predator Destructor',
+    'UM72': 'SM_UM_veh_Predator Destructor',
     # ⚠️ 它的图在两个**重复行**之间抢：`Terminator`(UM82) 的子串也命中 `2nd Company Terminator`，
     #    按 id 钉死才稳（卡表把 2nd 改名成了 1st，贴图名留的还是 2nd）
-    'UM83': 'SM_UM_inf_2nd Company Terminator',
+    'UM_2nd_Company_Terminator': 'SM_UM_inf_2nd Company Terminator',
     'AM_Lord_Commander': 'AstraMilitarum_strat_Righteous Gaze',
-    'DA2': 'DarkAngels_strat_Exemplar of Hate',
+    'DA_Master_of_Repentance': 'DarkAngels_strat_Exemplar of Hate',
     # ---- 帝皇之子：4 张全是原版旧名 ----
-    'EC1':  'CSM_EmperorsChildren_warlord_Lord Exultant',
+    'EC56':  'CSM_EmperorsChildren_warlord_Lord Exultant',
     # ⚠️ 别写成 `Threnodic Choir Flawless` 的裸子串：那个前缀还命中
     #    `..._inf_Threnodic Choir Flawless Blade.png`（另一张卡），这里是**全名点名**才安全
-    'EC24': 'CSM_EmperorsChildren_inf_Threnodic Choir Flawless',
-    'EC62': 'CSM_EmperorsChildren_strat_Tools of Torture',
-    'EC63': 'CSM_EmperorsChildren_strat_Dark Prince´s Throne',  # ´ 是 U+00B4，原版就长这样
+    'EC22': 'CSM_EmperorsChildren_inf_Threnodic Choir Flawless',
+    'EC_Armoury_of_Excess': 'CSM_EmperorsChildren_strat_Tools of Torture',
+    'EC_Decadent_Throne': 'CSM_EmperorsChildren_strat_Dark Prince´s Throne',  # ´ 是 U+00B4，原版就长这样
     # ---- 死灵：这两张都有**重复行**（`SAU_Awakening_Obelisk` / `TL_Sporecaster_Biostructure`）----
-    'SAU61': 'Necron_Sautekh_strat_Annihilation Command',
-    'SAU65': 'Necron_Sautekh_strat_Awakening Obelisk',
-    'TL65':  'Tyranid_Leviathan_strat_Sporecaster Biostructure',
+    'SAU53': 'Necron_Sautekh_strat_Annihilation Command',
+    'SAU59': 'Necron_Sautekh_strat_Awakening Obelisk',
+    'TL_Protective_Bio_structure':  'Tyranid_Leviathan_strat_Sporecaster Biostructure',
     # ---- 钛：按卡面改过名（`ART_NAME_ALIAS` 那条也覆盖它，这里按 id 再钉一遍）----
-    'TAU23': 'Tau_Empire_inf_Fire Warrior Sniper',
+    'TAU18': 'Tau_Empire_inf_Fire Warrior Sniper',
     # ---- 修女会：**原版旧名和现名错开了一位**（2026-09-15 用户指出后实测）----
     #   贴图 `strat_Righteous Repugnance` 画的是「红头巾负伤修女 + 枪口焰」= 现卡 `Moment of Grace`（PnP 47）
     #   贴图 `strat_Purgator Mirabilis`    画的是「金色赎罪引擎」      = 现卡 `Righteous Repugnance`（PnP 06）
     # ⚠️ 教训：**贴图文件名是原版的旧名，不能拿它当现卡名的索引** —— 这正是那 21 张里 15 张「缺图」的根因。
     #   名字对不上时必须**开图看**（铁律 7），不能拿「没有同名文件」当成「原版没有这张图」。
-    'SOR6':  'Sororitas_strat_Purgator Mirabilis',       # Righteous Repugnance（原名对应的是别人）
-    'SOR47': 'Sororitas_strat_Righteous Repugnance',     # Moment of Grace（原名被 SOR6 占了）
+    'SOR_Righteous_Repugnance':  'Sororitas_strat_Purgator Mirabilis',       # Righteous Repugnance（原名对应的是别人）
+    'SOR44': 'Sororitas_strat_Righteous Repugnance',     # Moment of Grace（原名被 SOR6 占了）
     # ---- 星界军：**原版把这张督军画了两张图**，子串匹配分不出哪张是主立绘（2026-09-16）----
     #   目录里同时有 `AstraMilitarum_warlord_Ursula Creed.png`（灰金发、年老女性、持动力锤）
     #   与 `AA_HB_AstraMilitarum_war_Ursula Creed.png`（举剑嘶吼、扛 CADIA 旗的**另一个人**）。
@@ -238,7 +241,7 @@ ART_ID_ALIAS = {
     #   于是 `files` 里先出现的 `AA_HB_…` 赢了 —— 而那是**替身画**。
     #   判据：`D:/2/Warpforge部队卡片/AstraMilitarum/1督军/Warpforge_05_Ursula-Creed.png` 亲读
     #   （原版印的是持锤的老妇人），两张贴图逐处比对见 `资料/PnP卡图_逐张对账_0915.md` §六 B。
-    'AM5':   'AstraMilitarum_warlord_Ursula Creed',
+    'AM2':   'AstraMilitarum_warlord_Ursula Creed',
 }
 
 

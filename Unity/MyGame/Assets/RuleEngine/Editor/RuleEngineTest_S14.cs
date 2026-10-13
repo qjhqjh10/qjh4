@@ -1353,7 +1353,7 @@ public static partial class RuleEngineTest
     static void TestS14PaidPrefixCarry()
     {
         // ---- #44 真卡 UM81 ----
-        var um81 = new CardDef("UM81", "Phobos Librarian", "unit",
+        var um81 = new CardDef("UM_Phobos_Librarian", "Phobos Librarian", "unit",
                                "Oath 3: Deal 2-4 damage to an enemy. If target dies, gain Shield",
                                "common", "Ultramarines", 3, 3, 3, 0,
                                new[] { "Camouflage", "Oath" }, subtype: "Infantry");
@@ -1410,7 +1410,7 @@ public static partial class RuleEngineTest
     /// </summary>
     static void TestS14OathActivationChargesOnce()
     {
-        var um81 = new CardDef("UM81", "Phobos Librarian", "unit",
+        var um81 = new CardDef("UM_Phobos_Librarian", "Phobos Librarian", "unit",
                                "Oath 3: Deal 2-4 damage to an enemy. If target dies, gain Shield",
                                "common", "Ultramarines", 3, 3, 3, 0,
                                new[] { "Camouflage", "Oath" }, subtype: "Infantry");
@@ -1525,7 +1525,7 @@ public static partial class RuleEngineTest
                 + "（`WhenFired` 那类日志量不到它 —— 它量的是**监听器**，这条是**结算**）");
         }
         {
-            var sor6Card = new CardDef("SOR6", "Righteous Repugnance", "tactic",
+            var sor6Card = new CardDef("SOR_Righteous_Repugnance", "Righteous Repugnance", "tactic",
                                        "Give +1 [Attack] and +1 [Ranged] to your units this turn. "
                                      + "4 Energy: Give +2 [Attack] and +2 [Ranged] instead and Heal them 1",
                                        "common", "Sororitas", 2, 0, 0, 0, null);
@@ -1743,10 +1743,10 @@ public static partial class RuleEngineTest
 
         // ---- #55 四张 ----
         var c55 = new (string id, string name, string desc, string[] kw)[] {
-            ("SOR11", "Crusader",              "3 ☀: Gain +1 [Attack] and Armour 2", new[] { "Vanguard" }),
-            ("SOR23", "Retributor",            "1 ☀: Deal 3 damage to a random enemy", new string[0]),
-            ("SOR24", "Seraphim",              "3 ☀: Gain +1 [Ranged] and +1 Health", new[] { "Flying", "Flank" }),
-            ("SOR72", "Adelaide the Serene",
+            ("SOR7", "Crusader",              "3 ☀: Gain +1 [Attack] and Armour 2", new[] { "Vanguard" }),
+            ("SOR12", "Retributor",            "1 ☀: Deal 3 damage to a random enemy", new string[0]),
+            ("SOR19", "Seraphim",              "3 ☀: Gain +1 [Ranged] and +1 Health", new[] { "Flying", "Flank" }),
+            ("SOR71", "Adelaide the Serene",
                 "6 ☀ Gain Flank and Shield. Rally: If you have less than 6 ☀, gain 1 ☀ for each enemy unit.",
                 new[] { "Flying", "Flank", "Shield", "Rally" }),
         };
@@ -1770,15 +1770,15 @@ public static partial class RuleEngineTest
 
         // ---- #56 五张 ----
         var c56 = new (string id, string name, string desc, string[] kw)[] {
-            ("SOR28", "Dominion Superior", "Rally: Deal 1 damage. 2 ☀: Deal 1 additional damage", new[] { "Rally" }),
-            ("SOR43", "Devout Warriors",   "Draw a troop. 2 ☀: Draw an additional troop", new string[0]),
-            ("SOR44", "Beacon of Faith",
+            ("SOR22", "Dominion Superior", "Rally: Deal 1 damage. 2 ☀: Deal 1 additional damage", new[] { "Rally" }),
+            ("SOR58", "Devout Warriors",   "Draw a troop. 2 ☀: Draw an additional troop", new string[0]),
+            ("SOR56", "Beacon of Faith",
                 "Give +2 Health to your units.\n4 ☀: Give an additional +1 Health.\n"
               + "7 ☀: Give them +1 [Attack] and +1 [Ranged] as well.", new string[0]),
-            ("SOR49", "Trial of Suffering",
+            ("SOR55", "Trial of Suffering",
                 "Deal 1 damage to a friendly troop and give it Armour 1. 2 ☀: Give it Armour 2 instead",
                 new string[0]),
-            ("SOR59", "Imperial Creed",    "Stun three random enemies.\n4 ☀: Refill 3 Energy", new string[0]),
+            ("SOR48", "Imperial Creed",    "Stun three random enemies.\n4 ☀: Refill 3 Energy", new string[0]),
         };
         foreach (var (id, nm, desc, kw) in c56)
         {
@@ -1830,7 +1830,7 @@ public static partial class RuleEngineTest
 
         // ---- #55 运行期：真打一张 `☀` 计策，看**哪个字段都没被扣**、而效果真的激活了 ----
         {
-            var sor43 = new CardDef("SOR43", "Devout Warriors", "tactic",
+            var sor43 = new CardDef("SOR58", "Devout Warriors", "tactic",
                                     "Draw a troop. 2 ☀: Draw an additional troop",
                                     "common", "Sororitas", 1, 0, 0, 0, null);
             var ctx = ProbeBattle(new[] { sor43 }, new[] { Unit("S14_Foe", 1, 0, 9) });

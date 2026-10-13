@@ -1027,10 +1027,34 @@ namespace CardPresentation
         /// （= `textBounds` 的**尺寸**）**一个都不动** —— 命中区（`Contains`）与两个 `Align*On` 的口径不变。
         /// ⚠️ **每一次都从零重算**（字号会被自适应改掉）⇒ 本函数**幂等**，重排几次都不会累积漂移
         /// （`Editor/BattleScene.cs` 的 A712 那一节有一条专门咬这个的断言）。</para></summary>
+        /// <summary>🔴 **2026-10-13（`A1751`）**：`textBounds` 这一趟是不是**真测量**
+        /// （不是哨兵 `4.29e9`、不是未激活的半成品、不是 `NaN`）。
+        /// 判据与 <see cref="HasMeasuredWidth"/> **同一套**：有限、且 ≤ **画布尺度**
+        /// （100 世界单位 = 10800px，而整块画布只有 1920px 宽 ⇒ 比画布宽五倍多的都不是测量值）。
+        /// ⚠️ 只看数值、**不看 `_text`** —— `SetSizes` 会先把 `_text` 置 null 再回调进来。</summary>
+        static bool UsableBounds(Vector3 size)
+        {
+            float w = Mathf.Abs(size.x), h = Mathf.Abs(size.y);
+            if (float.IsNaN(w) || float.IsInfinity(w)) return false;
+            if (float.IsNaN(h) || float.IsInfinity(h)) return false;
+            return w <= 100f && h <= 100f;
+        }
+
         public void RefreshBounds()
         {
             if (_tmp == null) return;
             var b = _tmp.textBounds;
+
+            // 🔴 **2026-10-13（`A1751` · 用户真机点名「换牌第二行没显示」）**：**量不出来时一个字都不动。**
+            //   判据与 `HasMeasuredWidth()`（本文件 :1295）**同一条**：空文本 / **未激活**（`ForceMeshUpdate`
+            //   在未激活时是空操作）/ 没生成过 的 TMP，`textBounds` 给的是**哨兵 `4.29e9`**（`:1282` 的实测记录）
+            //   ⇒ 照它摆位会把 TMP 子节点扔到 **2.1e9 世界单位**之外 —— **画面上什么都没有、也不报错**
+            //   （`:1284` 记的 `TrophyInfoPopup` 那次就是这么红的）。
+            //   ⚠️ 这一档**既不写 `_tmpW/_tmpH`**（`WorldW/WorldH` 读到的仍是上一次的真值或初值 0），
+            //   也**不挪节点** ⇒ 文字停在 `Label.Create` 给的框心（居中锚点下就是它该在的地方），
+            //   等真测量到了（对象激活后有人再调一次 `SetText`/本函数）再摆精确位。
+            if (!UsableBounds(b.size) || !UsableBounds(b.min)) return;
+
             _tmpW = Mathf.Max(Mathf.Abs(b.size.x), 1e-4f);
             _tmpH = Mathf.Max(Mathf.Abs(b.size.y), 1e-4f);
 
