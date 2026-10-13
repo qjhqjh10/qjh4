@@ -66,3 +66,22 @@ python -I -X utf8 -c "import json,os;D=r'd:/4/Unity/MyGame/Assets/CardPresentati
 
 # ④ 引擎侧自检（不跑全套）：RuleEngineTest.Run
 ```
+
+## 七、同批还挖出了什么（同一批远端包里，**新会话优先做**）
+
+> 详账 → `资料/交接_第二十七会话.md` §二·甲；下面只记「挖到了什么 + 判据在哪」。
+
+1. 🔴🔴 **原版卡牌效果数据库**（`A1759`）：`cardAbilities[].abilityLogic[]` = 效果步骤列表，
+   每步 = **`chosenAbility` 枚举** + `targetCriteria` + `multiplier` + 参数块（`damageCriteria` / `healCriteria` /
+   `buffEffect` / `summonCriteria` / `handBuff` / `manaBuff` / `chanceOfHappening`）。
+   **规模** 1,622 步 / 51 种效果 / 1,066 张卡有。**枚举词典**（51/51 已译名）→
+   `d:/2/远端缓存_旧profile_1013/导出/AbilityEffect_枚举词典.tsv`。
+   🔑 **反证**：`ASH15 Howling Banshee` 卡面「Rally: **Stun** an enemy」= `chosenAbility 130` = `stun` ✓
+2. 🔴 **督军后手防御卡**（`A1070③`）：55 督军 → 11 张阵营专属防御卡，**已解析成卡 id** →
+   `导出/督军后手防御卡_goSecondCardInHand_已解析.json`（判据 = 同包内 PPtr 按 `m_PathID` 解，55/55 无失败）。
+3. **trait 词典**：每张卡的 `CardTraits` 带 `name` + **`_trait` 数字** + `_traitValue`（650 张非空），
+   可直接判「原版给这张卡挂了什么 trait」（`A1748` 那 20 张卡能用它补 `keywords`）。
+4. **卡 → 立绘 / 语音 / 特效 的 GUID**：`cardImageReference` 1,171 · `summonAudio` 537 · `attackAudio` 59 ·
+   `deathAudio` 61 · `customRangedAttackParticles` 484 · `customDeathParticles` 72 · `remnantBodyPrefab` 73 ·
+   `whileInPlayAnim` 28。⚠️ **全是 AssetGUID ⇒ 要解析 Addressables 目录的 blob 才能落到资源上**（本会话没做）。
+5. ⚠️ **没解开的那一只**：`localization`（I2 词条表，9.4 MB，疑似加密）—— 解开能一次清掉一整族账。
