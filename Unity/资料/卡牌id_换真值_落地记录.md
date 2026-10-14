@@ -69,7 +69,7 @@ python -I -X utf8 -c "import json,os;D=r'd:/4/Unity/MyGame/Assets/CardPresentati
 
 ## 七、同批还挖出了什么（同一批远端包里，**新会话优先做**）
 
-> 详账 → `资料/交接_第二十七会话.md` §二·甲；下面只记「挖到了什么 + 判据在哪」。
+> 详账 → `资料/历史/交接_第二十七会话.md` §二·甲；下面只记「挖到了什么 + 判据在哪」。
 
 1. 🔴🔴 **原版卡牌效果数据库**（`A1759`）：`cardAbilities[].abilityLogic[]` = 效果步骤列表，
    每步 = **`chosenAbility` 枚举** + `targetCriteria` + `multiplier` + 参数块（`damageCriteria` / `healCriteria` /

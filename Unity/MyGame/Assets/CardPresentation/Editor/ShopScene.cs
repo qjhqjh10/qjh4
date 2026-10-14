@@ -1429,7 +1429,7 @@ public static class ShopScene
             if (asText)
                 Check(TextOf(FindChild(tc, "RefreshText")), Loc.T("MenuShop/RefreshCounter"),
                       "★ 时间条那颗字的**文案** = `Loc.T(\"MenuShop/RefreshCounter\")`（随语档；"
-                    + "原版 `Card Shop Tab` 那颗 TMP 原文 = `Refreshes in:` / 中文「刷新于：」`zh_CN.csv:303`）");
+                    + "原版 `Card Shop Tab` 那颗 TMP 原文 = `Refreshes in:` / 中文「可用的」（2026-10-14 官方 zh-CN 表；原「刷新于：」= `zh_CN.csv:303` 精确命中）");
             if (!asText)
             {
                 CheckArt(FindChild(tc, "Clock Icon"), "WF_icon_clock", "时钟图标");

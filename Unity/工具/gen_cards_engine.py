@@ -606,6 +606,90 @@ def pick_id(cands, faction):
     return hit[0] if len(hit) == 1 else None
 
 
+# ============================================================================
+#  督军后手那张防御卡（原版 `RawCardScript.goSecondCardInHand`，偏移 +0x150）
+# ============================================================================
+# 🔴 **2026-10-14（`A1070` 第 ③ 档）：这份数据是【原版真值】，不是我们推的。**
+#   来源 = 旧 Windows 用户缓存里抢救出的原版远端包 `allcards_assets_all`（1195 张卡 SO，全字段）；
+#   原件与导出 → `d:/2/远端缓存_旧profile_1013/`。判据链：那个字段是**同包内 PPtr**
+#   （`m_FileID = 0`）⇒ 按 `m_PathID` 解成卡 id，55/55 全解出、0 失败。
+#   在它到手之前，`RuleCore.GoesSecondCard` 的第 ③ 档只能「出声 + 不给卡」。
+#
+# 🔴 **本表实测的不变量（55/55 全中）**：**同一阵营的督军指向同一张** ——
+#   11 个阵营各一张（GOF49 / SAU59 / ASH57 / UM53 / BL57 / TL54 / SOR59 / TAU62 / AM60 / GSC63 / DA59）。
+#   ⇒ 我们按【阵营】落位（`resolve_warlord_defence` 每次生成都重新断言这条不变量）。
+#   ⚠️ 这是原版数据的**实测形状**，不是我们对规则的推断：原版那个字段确实是督军 SO 上的 PPtr，
+#      只是这份快照里同阵营督军填的都是同一张。**断言不成立就抛**，⛔ 不静默取一张。
+DEFENCE_SRC = r"d:/4/Unity/数据/游戏数据/warlord_goes_second.json"
+
+
+def load_warlord_defence():
+    """读 `warlord_goes_second.json` → `{督军id: {"refId","refName","warlord"}}`。
+
+    取不到就返回空表并**出声**（卡表照旧生成，只是 `goesSecond` 一列全空 —— 不许静默）。
+    """
+    if not os.path.exists(DEFENCE_SRC):
+        print(f"⚠️ 找不到 {DEFENCE_SRC} —— 卡表的 `goesSecond` 一列将**全空**"
+              f"（`RuleCore.GoesSecondCard` 第 ③ 档会退回「出声 + 不给卡」）")
+        return {}
+    d = json.load(open(DEFENCE_SRC, encoding="utf-8"))
+    m = d.get("map") or {}
+    if not m:
+        print(f"⚠️ {DEFENCE_SRC} 的 `map` 是空的 —— `goesSecond` 一列将全空")
+    return m
+
+
+def resolve_warlord_defence(raw_map, cards):
+    """把真值表按【阵营】落到我们的卡池上 → `({阵营: 我们的防御卡id}, 报告行)`。
+
+    每一张 refId 都要在我们卡池里**唯一定位**到一张 `type == "defence"` 的同阵营卡：
+      ① 按**原版 id** 直接命中（我们卡池里 9/11 是这一档）；
+      ② 按**归一化卡名**相等；
+      ③ 卡名有出入时**模糊匹配**（difflib ≥ 0.80，只在本阵营的防御卡里挑）——
+         实测有一处：原版写 `Helfire Torch`（原版自己的拼写），我们卡池是 `Hellfire Torch`。
+    三条都落空、或落到不止一张 ⇒ **当场抛**（数据/卡池对不上是要人判的事，不是可以糊过去的）。
+    """
+    by_faction = {}
+    for c in cards:
+        if c.get("type") == "defence":
+            by_faction.setdefault(c["faction"], []).append(c)
+
+    ref_of_fac, report = {}, []
+    for rid in sorted({v["refId"] for v in raw_map.values()}):
+        pre = re.match(r"^[A-Za-z]+", rid)
+        fac = ID_PREFIX.get(pre.group(0) if pre else "")
+        if not fac:
+            raise SystemExit(f"❌ 真值里的防御卡 id `{rid}` 前缀认不出阵营 —— ID_PREFIX 要补")
+        cands = by_faction.get(fac) or []
+        if not cands:
+            raise SystemExit(f"❌ 阵营 {fac} 在我们卡池里**一张防御卡都没有** —— 真值说它有一张 `{rid}`")
+        hit = [c for c in cands if c["id"] == rid]
+        how = "原版 id 命中"
+        if not hit:
+            nm = _norm_name(next(v["refName"] for v in raw_map.values() if v["refId"] == rid))
+            hit = [c for c in cands if _norm_name(c["name"]) == nm]
+            how = "归一化卡名命中"
+        if not hit:
+            nm = _norm_name(next(v["refName"] for v in raw_map.values() if v["refId"] == rid))
+            scored = sorted(((difflib.SequenceMatcher(None, nm, _norm_name(c["name"])).ratio(), c)
+                             for c in cands), key=lambda x: -x[0])
+            if scored and scored[0][0] >= 0.80:
+                hit = [scored[0][1]]
+                how = f"模糊匹配 {scored[0][0]:.2f}"
+        if len(hit) != 1:
+            raise SystemExit(
+                f"❌ 真值里的 `{rid}` 在 {fac} 的 {len(cands)} 张防御卡里定位到 {len(hit)} 张 "
+                f"（候选：{'、'.join(c['id'] + '/' + c['name'] for c in cands)}）—— 要人判，不猜")
+        c = hit[0]
+        if fac in ref_of_fac:
+            raise SystemExit(f"❌ 阵营 {fac} 被两条真值指到两张卡（`{ref_of_fac[fac]}` 与 `{rid}`）"
+                             f"—— 「同阵营督军同卡」这条不变量不成立了，`RuleCore` 那边要改口径")
+        ref_of_fac[fac] = c["id"]
+        report.append((rid, next(v["refName"] for v in raw_map.values() if v["refId"] == rid),
+                       c["id"], c["name"], how, sum(1 for v in raw_map.values() if v["refId"] == rid)))
+    return ref_of_fac, report
+
+
 def load_zh():
     """读中文卡名/效果文字表 → {英文卡名: {"nameZh":..., "descZh":...}}。
 
@@ -673,6 +757,7 @@ def build():
     #    —— 合并时阵营键赢、裸键那一份**被静默丢掉**。见下面 `_ff_bare` / `_ff_fac` 那一支的长注释。
     key_conflicts = []
     id_by_name = load_ids()                 # 原版 id（见 `IDS_SRC` 那段长注释）
+    raw_def = load_warlord_defence()        # 督军后手那张防御卡（原版真值，见 `DEFENCE_SRC` 那段）
     id_orig, id_made = [], []               # 用上原版 id 的 / 自造 id 的（跑完打出来给人看）
     cards, skipped = [], []
     _seen_ids = set()                       # 生成的 id 必须两两不同（下面有断言）
@@ -858,6 +943,20 @@ def build():
             entry["descZh"] = _ff["descZh"]
         cards.append(entry)
 
+    # ---- 督军后手那张防御卡（`A1070` 第 ③ 档，2026-10-14）----
+    # 🔴 **落在 `cards` 造完之后**（要按阵营在**我们自己卡池的防御卡**里定位 —— 见那个函数）。
+    #    值写在**督军卡**上（原版那个字段本来就长在督军 SO 上），按【阵营】填 ——
+    #    真值实测「同阵营督军同卡」55/55，不变量在 `resolve_warlord_defence` 里重新断言过。
+    ref_of_fac, def_report = resolve_warlord_defence(raw_def, cards)
+    for _c in cards:
+        if _c["type"] == "hero" and _c["faction"] in ref_of_fac:
+            _c["goesSecond"] = ref_of_fac[_c["faction"]]
+    _gs_n = sum(1 for _c in cards if _c.get("goesSecond"))
+    _gs_hero = sum(1 for _c in cards if _c["type"] == "hero")
+    # ⚠️ **覆盖不到就要出声**：我们卡池里有 13 个阵营，真值只覆盖 11 个
+    #    （原版那份 2025-07-30 快照里 EmperorsChildren / SpaceWolves 的督军**根本没有这个字段**）。
+    _gs_missing_fac = sorted({c["faction"] for c in cards if c["type"] == "hero"} - set(ref_of_fac))
+
     # 🔴 **「改名后失配」守卫**（2026-09-18 加）—— 修正表是**按卡名做键**的，而 `name` 在上面
     #    `STAT_FIXES` 那一步会**改名** ⇒ 旧键**静默失配**：表里那条修正再也不会生效，而且**没有任何提示**。
     #    实测事故：`stormlord` / `Diviner` 改名成 `Imotekh the Stormlord` / `Orikan the Diviner` 之后，
@@ -876,18 +975,22 @@ def build():
         "source": "Unity/数据/游戏数据/card_stats.json（稀有度另取 资料/卡牌数据表/卡牌宝石稀有度_0824.md；"
                   "中文另取 数据/卡牌翻译/zh_cards.json；"
                   "subtype/keywords 另按 数据/游戏数据/cardface_fixes.json 修正；"
-                  "id 另取 数据/游戏数据/card_ids.json，对不上的自造）",
+                  "id 另取 数据/游戏数据/card_ids.json，对不上的自造；"
+                  "督军的 goesSecond 另取 数据/游戏数据/warlord_goes_second.json —— **原版真值**，"
+                  "来源 = 抢救出的原版远端包 allcards（见该文件里的 provenance））",
         "note": "由 工具/gen_cards_engine.py 生成，不要手改。"
                 "改数据请改 card_stats.json / 数据/卡牌翻译/zh_cards.json / 数据/游戏数据/cardface_fixes.json 后重跑。"
                 "nameZh / descZh 是可选字段 —— 没有的卡面回英文；"
                 "subtype 是**卡面那行橙字**（部队卡=兵种 Infantry/Vehicle/…；防御卡=Defence；"
                 "督军=Warlord；有些计策=Dark Pact/Overlord Power/Combat Elixir…），空串=卡面没这行。"
                 "id 是**稳定身份**：原版 id 形如 `AM12`（字母前缀+纯数字）；"
-                "**自造 id 形如 `AM_Some_Card`（带下划线）** —— 一眼能分出「原版有 id」和「我们补的」。",
+                "**自造 id 形如 `AM_Some_Card`（带下划线）** —— 一眼能分出「原版有 id」和「我们补的」。"
+                "goesSecond = 原版 `RawCardScript.goSecondCardInHand`（只写在督军卡上）："
+                "该督军后手那一局会拿到的防御卡 id；空串 = 真值里没有这个阵营的督军。",
         "count": len(cards),
         "cards": cards,
     }, skipped, len(raw), filled, still_missing, stat_fixed, face_fixed, id_orig, id_made, orphan_face_fix, \
-       key_conflicts
+       key_conflicts, (def_report, _gs_n, _gs_hero, _gs_missing_fac)
 
 
 def fix_own_armour(entry):
@@ -919,7 +1022,8 @@ def main():
     args = ap.parse_args()
 
     (doc, skipped, total, filled, still_missing, stat_fixed, face_fixed,
-     id_orig, id_made, orphan_face_fix, key_conflicts) = build()
+     id_orig, id_made, orphan_face_fix, key_conflicts, goes_second) = build()
+    def_report, _gs_n, _gs_hero, _gs_missing_fac = goes_second
 
     by_type = {}
     for c in doc["cards"]:
@@ -1032,6 +1136,16 @@ def main():
     missing = doc["count"] - zh_n
     print(f"\n中文名       {zh_n}/{doc['count']}   中文效果 {zh_d}/{doc['count']}"
           f"   （缺 {missing} 张，卡面回英文、不静默）")
+
+    # 督军后手那张防御卡（`A1070` 第 ③ 档）—— 原版真值，来源见 `DEFENCE_SRC` 那段
+    print(f"\n督军防御卡   字段 `goesSecond` 落在 **{_gs_n} 张督军**上（全池督军 {_gs_hero} 张）"
+          f"· 真值覆盖 {len(def_report)} 个阵营")
+    for rid, rname, cid, cname, how, nw in def_report:
+        flag = "" if rid == cid else "  ⚠️ 我们的 id 不是原版的"
+        print(f"            · {rid:<7} {rname:<22} → {cid:<22} {cname:<22} [{how}·{nw} 个督军]{flag}")
+    if _gs_missing_fac:
+        print(f"  ⚠️ 真值里没有这些阵营的督军（原版那份快照**根本没有这个字段**）⇒ "
+              f"`goesSecond` 空着，引擎第 ③ 档会**出声 + 不给卡**：{'、'.join(_gs_missing_fac)}")
 
     # 稳定 id（2026-09-13 第三十三轮）—— **自造的必须报出来**，不许静默
     print(f"\n卡 id        用原版 {len(id_orig)} 张 · 自造 {len(id_made)} 张（共 {doc['count']}）")

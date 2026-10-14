@@ -75,7 +75,7 @@ namespace CardPresentation
         /// <para>键 = 原版那颗 `Placeholder` 的 `Localize.mTerm` 原文 `Demo/FriendsMenu/EnterPlayerName`
         /// （2 颗同键，另一颗在 `Friends Menu Demo`；本窗这一颗的父链 =
         /// `Placeholder &lt; Text Area &lt; Search Field &lt; Find players panel &lt; Header &lt; Friends Tab` ⇒ **与我们同一条**）。
-        /// 英文列 = TMP 原文 `Enter player name`；中文列 = 「输入玩家名」(`zh_CN.csv:101` 精确命中)。</para>
+        /// 英文列 = TMP 原文 `Enter player name`；中文列 = 「输入玩家名字」（2026-10-14 官方 zh-CN 表；原「输入玩家名」= `zh_CN.csv:101` 精确命中）。</para>
         /// <para>⛔ **别改回 `const`** —— 常量跟不了语言（这正是它原来「中文档印英文」的原因）；
         /// 消费点只有 `:158` 那一处 `Text(sf, PlaceholderR, PlaceholderText, …)`。</para></summary>
         static string PlaceholderText { get { return Loc.T(PlaceholderTerm); } }
@@ -223,7 +223,7 @@ namespace CardPresentation
             // 🔴 **2026-10-18（第七轮）：字走 `Loc.T`** —— 键 = 原版那颗 `Friends Title` 的
             //   `Localize.mTerm` 原文 `Demo/FriendsMenu/YourFriends`（2 颗同键；本颗的父链 =
             //   `Friends Title < Friends List < Friends Tab` ⇒ **节点名与路径都和我们这颗一致**）。
-            //   英文列 = TMP 原文 `Your friends:`（**带冒号**，照抄）；中文列 = 「你的好友：」(`zh_CN.csv:342` 精确命中)。
+            //   英文列 = TMP 原文 `Your friends:`（**带冒号**，照抄）；中文列 = 「你的朋友：」（2026-10-14 官方 zh-CN 表；原「你的好友：」= `zh_CN.csv:342` 精确命中）。
             //   ⛔ 节点名 `"Friends Title"` 与那串字号/对齐实参没动。
             Text(list, TitleR, Loc.T("Demo/FriendsMenu/YourFriends"), Color.white, "Friends Title", HeadPx, L_Text, 0f,
                  wrap: true, alignLeft: true);

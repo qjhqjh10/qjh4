@@ -4020,15 +4020,24 @@ namespace CardPresentation
         /// <summary>`Battle/Tips/HandFull` 的**文案**。
         /// <para>🔴 **`Core/Loc.cs` 那张表是权威**（同族两条 `Battle/Tips/{DragToTarget,UnitNotReady}` 就在那儿）
         /// —— 本件**不在那份文件的白名单里** ⇒ 这里只做**转发**：表里有这条键就走它（**两档都对**），
-        /// 没有才用下面那两句。📌 那张表补上这一条之后，这段兜底**自动失效、这里一个字都不用改**。</para>
-        /// <para>⚠️ **英文列是我们写的、⛔ 不是「原版就是这样」**：原版显示串在远端 I2 表，本地取不到
-        /// （铁律 11 例外①）。中文列是我们自拟的直白说法。</para>
+        /// 没有才用下面那两句。📌 那张表补上这一条之后，这段兜底**自动失效**。
+        /// 🔴 **2026-10-14（第二十七会话）就地订正**：那条键**已在表**，且中文列换成了**官方 zh-CN 表**的
+        /// 「手牌已满」（原来是我们自译的「手牌已满，抽到的牌直接进弃牌堆」）⇒ 下面那句兜底**同步跟成官方值**
+        /// （今天走不到它 —— `Loc.HasEntry` 为真；但两层保持同词，避免哪天键掉了露出被顶掉的旧译）；
+        /// 原文那句「这里一个字都不用改」**从此作废**。</para>
+        /// <para>⚠️ **英文列仍是我们写的、⛔ 不是「原版就是这样」**：表里这一条的英文列 = 我们写的那句，
+        /// 而**官方 en 列其实是 `Hand is full`** —— 两者的差异已记进《旧译文残留_订正.md》（那是另一件活）。</para>
+        /// <para>✅ **2026-10-14（第二十七会话）就地订正**：原写「原版显示串在远端 I2 表，本地取不到 ·
+        /// 中文列是我们自拟的直白说法」—— **两句都不成立了**：官方 zh-CN 表 2026-10-14 已到手
+        /// （`数据/游戏数据/官方本地化_en+zh-CN.json`），表里这一条的中文列 = **「手牌已满」**（官方值）。</para>
         /// <para>📌 **`public` 是给自检当期望值用的**（断言端只能拿到 `HintText` 这个字符串，
         /// 而这条文案**必须与实现同源**，⛔ 别在断言里另抄一份 —— 「两处写同一条规则」）。</para></summary>
         public static string HandFullText()
         {
             if (Loc.HasEntry(HandFullTerm)) return CardText.Term(HandFullTerm);
-            return CardText.Zh ? "手牌已满，抽到的牌直接进弃牌堆"
+            // 🔴 2026-10-14（第二十七会话）就地改期望值：Battle/Tips/HandFull 原来是我们自译的
+            //   「手牌已满，抽到的牌直接进弃牌堆」，官方 zh-CN = 「手牌已满」（兜底同步跟官方值）。
+            return CardText.Zh ? "手牌已满"
                                : "Hand full - the drawn card goes to the discard pile";
         }
 
@@ -4460,8 +4469,8 @@ namespace CardPresentation
             if (_net != null)
             {
                 // 🔴 **2026-10-18（双语③ 波 1·P4）**：`等待对手…` 原来写死中文 ⇒ **英文档露中文**。
-                //   复用**已在表**的 `Battle/Mulligan/WaitEnemy`（EN `Waiting for enemy` / ZH「等待对手」，
-                //   原版词条，同 `Battle/WaitBanner` 里 `Loc.T(WaitTerm)` 那一处）—— 中文档**逐字不变**（末那个 `…`
+                //   复用**已在表**的 `Battle/Mulligan/WaitEnemy`（EN `Waiting for enemy` / ZH「等待敌人」（2026-10-14 官方 zh-CN 表；原「等待对手」），
+                //   原版词条，同 `Battle/WaitBanner` 里 `Loc.T(WaitTerm)` 那一处）—— 中文档**逐字变了**（同上，2026-10-14 换成官方值）（末那个 `…`
                 //   是**我们加的**，留在外面；⛔ 别把它并进词条）。
                 if (_mulligan != null) _mulligan.SetDoneText(Loc.T("Battle/Mulligan/WaitEnemy") + "…");
                 _net.OnLocalMulligan(marks != null ? marks.ToArray() : new int[0]);
@@ -13595,7 +13604,7 @@ namespace CardPresentation
                 //     「OVERTIME!」一个字母占了大半屏 ≈335 px。）跨工程能对齐的只有**渲染出来的高度**：
                 //    原版 fontSize 80 ⇒ 大写高 ≈ 0.72 em = **57.6 px**（`TmpFont` 里那条
                 //    「拉丁大写高约 0.72 em」），本工程 108 px = 1 世界单位 ⇒ **0.5333 世界单位**。
-                //    ⚠️ **2026-10-18（W6）**：语种要跟着走 —— 中文档那格是「加时！」，按**汉字**（1 em）量，
+                //    ⚠️ **2026-10-18（W6）**：语种要跟着走 —— 中文档那格是「加时赛！」（2026-10-14 官方 zh-CN 表；原「加时！」），按**汉字**（1 em）量，
                 //    写死 0.72 em 会小 28% ⇒ 转发到 `Label.SetScriptHeight`（唯一那份语种判据）。
                 const float origFontSize = 80f;         // `MonoBehaviour_3973.json` 的 m_fontSize
                 _overtimeSplashText.SetScriptHeight(Loc.T(OvertimeTerm), origFontSize, 108f);

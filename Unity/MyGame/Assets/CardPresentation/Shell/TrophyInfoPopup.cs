@@ -162,7 +162,7 @@ namespace CardPresentation
         /// <summary>🔴 **2026-10-18（第十一轮）：`Next Tier` 那一行走词条**。
         /// <para>键 = 原版那颗 `Next Tier` 的 `Localize.mTerm` 原文 **`SocialMenu/Alliances/Trophies/NextTier`**
         /// （本批按 pid 亲读；父链 = `Next Tier &lt; Progress &lt; Controls &lt; RightSide &lt; window &lt; Alliance Trophy Info Popup`）。
-        /// 英文列 = 那颗 TMP 的 `m_text` 原文 **`Next Tier:`（带冒号）**；中文列「下一档：」**我们自拟**（`zh_CN.csv` 无该串）。</para>
+        /// 英文列 = 那颗 TMP 的 `m_text` 原文 **`Next Tier:`（带冒号）**；中文列「下一层：」（2026-10-14 官方 zh-CN 表；原「下一档：」是我们自拟的，`zh_CN.csv` 无该串）。</para>
         /// <para>⚠️ **2026-10-18（第十一轮）就地订正（铁律 5）**：下面这段原来写「它身上带 `Localize` ⇒ 原版走 I2 词条，
         /// 而**词条表在远端 CCD** ⇒ 只能照抄 prefab 里那个串本身」—— **后半不成立**：
         /// 那颗 `Localize` 的 **`mTerm` 就在 prefab 上**（键名本地读得到），取不到的是**译文**（远端 I2），
@@ -174,7 +174,7 @@ namespace CardPresentation
         /// <summary>勾选行那句 —— 同上（键 = 原版那颗 `Label` 的 `Localize.mTerm` 原文
         /// **`SocialMenu/Alliances/Trophies/FeaturedTrophyLabel`**；父链 = `Label &lt; Checkbox &lt; selectButton
         /// &lt; Controls &lt; RightSide &lt; window`）。英文列 = TMP 原文 `Alliance featured trophy`；
-        /// 中文列「联盟精选奖杯」= **`zh_CN.csv:53` 精确命中**。⛔ 别改回 `const`（理由同上）。</summary>
+        /// 中文列「联盟特色战利品」（2026-10-14 官方 zh-CN 表；原「联盟精选奖杯」= `zh_CN.csv:53` 精确命中）。⛔ 别改回 `const`（理由同上）。</summary>
         public static string FeatureLabel { get { return Loc.T("SocialMenu/Alliances/Trophies/FeaturedTrophyLabel"); } }
 
         /// <summary>最近一次开出来的那一扇（自检用，同 `SocialWindow.LastOpened` 那条先例）。</summary>

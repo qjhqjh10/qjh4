@@ -96,7 +96,7 @@ namespace CardPresentation
         /// <para>键 = 原版那颗 `Warning` 的 `Localize.mTerm` 原文 **`MenuCollection/NoDecksFound`**
         /// （原版 `Collection Menu Variant > Decks Tab … > Empty Collection Warning/Warning` 那一份，
         /// **与本窗这一份同一条 mTerm**）。英文列 = 那颗 TMP 的 `m_text` 原文、**含原版自己的语病**
-        /// （`There are no **deck** …` 单数，见 <see cref="TxtEmptyEn"/>）；中文列 = 「没有符合当前筛选的卡组」。</para>
+        /// （`There are no **deck** …` 单数，见 <see cref="TxtEmptyEn"/>）；中文列 = 「在您选择的过滤器中，您的收藏里没有卡组」（2026-10-14 官方 zh-CN 表；原「没有符合当前筛选的卡组」）。</para>
         /// <para>⛔ **别改回 `const`** —— 常量跟不了语言（这正是它原来「中文档印英文」的原因）。
         /// 渲染只读本属性；消费点 = `Build()` 那一处 `_win.Text(ew, TxtEmpty, …)`。</para>
         /// <para>⚠️ 本窗每一页都有商品 ⇒ 它**恒不显示**（`ew.gameObject.SetActive(false)`），

@@ -22,7 +22,7 @@
 //            MonoBehaviour_4804.json` 的 `mTerm` + 同族那颗 TMP，2026-10-18 亲读；13 个 arena 每场 1 颗）。
 //      **错因**：当年只看了运行时 dump（那一刻节点是空的），**没回 prefab 里找 `Localize.mTerm`**。
 //      ⇒ 现在走 `Loc.T(WaitTerm)`（键名照原版），**不再是我们的词条**。
-//      ⚠️ 中文那一列（`等待对手`）仍然是我们的译法，出处写在 `Core/Loc.cs` 那一行。
+//      ⚠️ 中文那一列（`等待敌人`）**已换成官方 zh-CN 表的值**（2026-10-14；原来是我们的译法「等待对手」），出处写在 `Core/Loc.cs` 那一行。
 //
 // ⚠️ **底板：2026-09-17 已改回原版**（原来写「我们没九宫格 ⇒ 自建实底」，见 `Build()` 里那段更正）——
 //    现在用 `MenuDraw.Nine`（`40k_popup`，Sliced）+ `MenuDraw.Tiled`（`40k_popup_texture`，Tiled）。

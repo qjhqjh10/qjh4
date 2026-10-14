@@ -40,6 +40,8 @@ using RuleEngine;
 ///   `check`（台账 `A1374`，出处 = `W9_A1368探针补列.md` 顺手发现 1/2）：
 ///     · `costKind`   ← `EffectOp.CostKind`（货币名：`energy` / `faith` / `""`）——
 ///       🔴 **`A1357` 正是这一类改动**（`SOR72` 的 `Energy` → `☀`，货币由 `energy` 变 `faith`）：
+///       ⚠️ 2026-10-14：那张卡（`Adelaide the Serene`）的 id 现已是 `SOR71`（换真值那批改的），
+///          `SOR72` 现在是 `Castigator` —— 本行是**当时**的记录，别照它去认卡。
 ///       它当时能被 `check` 看见**纯属侥幸** —— 只因动词也跟着从 `gain` 变成了 `gainfaith`。
 ///       若**只**改货币名、动词不动，`check` 依然全绿 ⇒ **这不是将来的洞，是已经发生过的**
 ///       （`Program.Dump` 一直打 `ck=`，`scan` 不打 ⇒ 两个入口口径不一致）。

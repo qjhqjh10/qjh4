@@ -8253,7 +8253,7 @@ public static class MainMenuScene
                               "（前提）词条 `Demo/FriendsMenu/EnterPlayerName` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
                     CheckText(TextOf(FindChild(fp, "Search Field")), Loc.T("Demo/FriendsMenu/EnterPlayerName"),
                               "占位文案 = `Loc.T(\"Demo/FriendsMenu/EnterPlayerName\")`（随语档；"
-                            + "原版 TMP 原文 `Enter player name` / 中文「输入玩家名」`zh_CN.csv:101`）");
+                            + "原版 TMP 原文 `Enter player name` / 中文「输入玩家名字」（2026-10-14 官方 zh-CN 表；原「输入玩家名」= `zh_CN.csv:101` 精确命中）");
                     // 🆕 **2026-10-09（A263）**：搜索框占位那颗的**折行真值**（原版 **`折行=0`**）。
                     //   波 C3 + 收尾件 Y 已把 `wrap: false` 落进实现（`Shell/FriendsTab.cs` 里那句 `wrap: false`），
                     //   **但当时一条断言都没有** ⇒ 谁改回去都不会红（Y 报告 §4·4 明写这条缺口）。
@@ -8282,7 +8282,7 @@ public static class MainMenuScene
                               "（前提）词条 `Demo/FriendsMenu/YourFriends` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
                     CheckText(TextOf(FindChild(fl, "Friends Title")), Loc.T("Demo/FriendsMenu/YourFriends"),
                               "`Friends Title` 的字 = `Loc.T(\"Demo/FriendsMenu/YourFriends\")`（随语档；"
-                            + "原版 TMP 原文 `Your friends:` **带冒号** / 中文「你的好友：」`zh_CN.csv:342`）");
+                            + "原版 TMP 原文 `Your friends:` **带冒号** / 中文「你的朋友：」（2026-10-14 官方 zh-CN 表；原「你的好友：」= `zh_CN.csv:342` 精确命中）");
                     CheckAtWorld(FindChild(fl, "Divisor line"), 343.14f, 1898.89f, 311.12f, 314.80f, "分隔线");
                     var fcont = FindChild(fl, "Friends Container");
                     CheckAtWorld(fcont, 332.15f, 1875.80f, 314.80f, 1080.06f, "`Friends Container`（`ScrollRect`）");
@@ -9851,7 +9851,7 @@ public static class MainMenuScene
                                                       Loc.T("SocialMenu/Alliances/Trophies/FeaturedTrophyLabel"),
                                                       "└ `Label` 的字 = `Loc.T(\"SocialMenu/Alliances/Trophies/FeaturedTrophyLabel\")`"
                                                     + "（随语档；原版 TMP 原文 `Alliance featured trophy` /"
-                                                    + " 中文「联盟精选奖杯」= `zh_CN.csv:53` 精确命中）");
+                                                    + " 中文「联盟特色战利品」（2026-10-14 官方 zh-CN 表；原「联盟精选奖杯」= `zh_CN.csv:53` 精确命中）");
 
                                             // ---- 数据路（自检喂一条；产品路径上那份数据来自服务器）----
                                             popT.SetTrophy(new TrophyInfoPopup.TrophyView
@@ -11353,11 +11353,11 @@ public static class MainMenuScene
         MeasureText(FindChild(menu.Find("Base Game Mode Container 1x1 - Tutorial"), "Event Title"),
                     "教学", 58.8f);   // 🔴 2026-10-11：模式卡标题改走 `Loc.T`（中文档 = 参考图实拍的「教学」）
         // 🔴 **2026-10-11（界面复刻 · A1493②）**：这两条的**标注串改了** —— 导航文案不再写死英文，
-        //   改走 `Loc.T`（键名与中文出处 = `Core/Loc.cs` 的 E1 那一节）⇒ 屏上是 **游玩 / 收藏**。
+        //   改走 `Loc.T`（键名与中文出处 = `Core/Loc.cs` 的 E1 那一节）⇒ 屏上是 **玩 / 收藏**（2026-10-14 官方 zh-CN 表：`MainMenu/NavigationPanel/HomeButton` 原「游玩」）。
         //   ⚠️ `MeasureText` **只打日志、不断言**（见它的实现），所以这里改的只是「量的是谁」。
         //   ⚠️ 期望 em 两处都给 **33**：原来 `COLLECTION` 那个 30.45 是**拉丁字母被 autofit 缩出来**的结果，
         //   换成两个汉字后放得下、不会缩（⛔ 别再按 30.45 去核汉字）。
-        MeasureText(FindChild(menu.Find("Main Menu Navigation Button - Home"), "Text"), "游玩", 33f);
+        MeasureText(FindChild(menu.Find("Main Menu Navigation Button - Home"), "Text"), "玩", 33f);   // 2026-10-14：官方 zh-CN 表 HomeButton 中文 = 「玩」（原「游玩」）
         MeasureText(FindChild(menu.Find("Main Menu Navigation Button - Collection"), "Text"), "收藏", 33f);
 
         // ============================================================ §A92 节点类型（2026-10-07 新增）

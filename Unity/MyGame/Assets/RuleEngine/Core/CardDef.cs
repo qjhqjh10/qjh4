@@ -117,6 +117,28 @@ namespace RuleEngine
         /// （`卡面.png` 上就是那段字，见 `Desc`），而我们自设计的卡卡面写的是
         /// **引擎结算得到的关键词**（`Desc` 对我们那 26 张是风味文字，不是效果）。</para></summary>
         public bool FromOriginalPool { get; }
+
+        /// <summary>🔴 🆕 **2026-10-14（`A1070` 第 ③ 档）：督军后手那一局会拿到的那张防御卡**
+        /// —— 原版 `RawCardScript.goSecondCardInHand`（督军 SO 上的一个 **PPtr**，偏移 +0x150）。
+        /// **只有督军卡（`Type == "hero"`）可能有值**，其余卡恒 `null`。
+        ///
+        /// 它由 <see cref="CardDatabase.Parse"/> 在建完卡表之后**按 id 反查**置上（数据里存的是
+        /// <see cref="GoesSecondId"/> 这个字符串 —— 序列化格式存不了对象引用，原版那个 PPtr 也一样）。
+        /// 数据源 = `Unity/数据/游戏数据/warlord_goes_second.json`（**原版真值**，从抢救出的远端包
+        /// `allcards` 解出，见该文件的 `provenance`），由 `工具/gen_cards_engine.py` 写进卡表的
+        /// `goesSecond` 一列。
+        ///
+        /// ⚠️ **真值只覆盖 11 个阵营**（原版那份 2025-07-30 快照里 EmperorsChildren / SpaceWolves
+        /// 的督军**根本没有这个字段**）⇒ 那两族的督军这里是 `null`，引擎会**出声 + 不给卡**
+        /// （⛔ 不许拿卡组里那张顶上，那是猜）。
+        /// ⚠️ 消费点**只此一处**：`RuleCore.GoesSecondCard` 的第 ③ 档。
+        /// </summary>
+        public CardDef GoesSecondCard { get; set; }
+
+        /// <summary>数据里原样存的那条 id（<see cref="GoesSecondCard"/> 的来源；反查失败时非空
+        /// —— 那时 <see cref="GoesSecondCard"/> 是 null 且 `CardDatabase` 已经**出过声**）。</summary>
+        public string GoesSecondId { get; }
+
         /// <summary>
         /// 费用（能量）。**这是印在卡上的基准值** —— 真正要付多少要看降费/加费那几族
         /// （`CardDef.CostWhens` / `CostIfControls` / `ctx.CostMods`），判据只有 `RuleCore.CostOf` 一处。
@@ -150,11 +172,14 @@ namespace RuleEngine
                        int cost, int attack, int health, int rangedAttack,
                        IEnumerable<string> keywords,
                        string nameZh = null, string descZh = null, bool fromOriginalPool = false,
-                       string subtype = null)
+                       string subtype = null, string goesSecondId = null)
         {
             Id = id; Name = name; Type = type ?? ""; Desc = desc ?? ""; Rarity = rarity; Faction = faction;
             NameZh = nameZh ?? ""; DescZh = descZh ?? "";
             Subtype = subtype ?? "";
+            // 督军后手那张防御卡：这里只收**数据里的 id**；对象引用由 `CardDatabase.Parse`
+            // 建完卡表之后按 id 反查置上（见 `GoesSecondCard` 的说明）。
+            GoesSecondId = goesSecondId ?? "";
             FromOriginalPool = fromOriginalPool;
             Cost = cost; Attack = attack; Health = health; RangedAttack = rangedAttack;
             _keywords = KeywordTable.Parse(keywords);

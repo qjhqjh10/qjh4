@@ -3462,8 +3462,9 @@ public static class CollectionScene
                         //   `mTerm = MenuDeck/Tip/SelectDeckAgainst`
                         //   （实读 `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_4152179270747796863.json`；
                         //    它的 GameObject = `bundle_menus_assets_all/GameObject/Instructions 2.json`）。
-                        //   · 中文 = **实拍那四个字「选择卡组」**
-                        //     （`资料/原版参照图/用户实拍_1017/更换卡组的参考.png` 右上角）；
+                        //   · 中文 = **官方 zh-CN 表「选择一个卡组进行对战」**（2026-10-14 换；原值是我们自译的「选择卡组」）；
+                        //     ⚠️ 用户 1017 实拍那颗（`资料/原版参照图/用户实拍_1017/更换卡组的参考.png` 右上角）印的是
+                        //     「选择卡组」四个字 —— **与官方表不同**，差异已报主对话（本轮照官方表，见报告「5. 顺手发现」）。
                         //   · 英文 = 我们原来写死的那句 `Select deck`。
                         // ⛔ **版面一个字都不改**：照 prefab（那颗节点 1236.12→1770.24、中心 1503.18、居中）
                         //   —— 实拍那版右端贴分隔线，与 prefab 有漂移，**不照它**。
@@ -3473,14 +3474,15 @@ public static class CollectionScene
                                       "标题的词条键 = 原版 `Instructions 2` 上的 `mTerm`"
                                     + $"（`{TitleTerm}`）—— ⛔ 不是自拟的键");
 
-                            // ---- ① 词条层：两列各钉一次（★实拍的中文 + 我们原来那句英文）----
+                            // ---- ① 词条层：两列各钉一次（★官方 zh-CN 的中文 + 我们原来那句英文）----
                             var langBack = Loc.Current;
                             Loc.PersistOverride = true;                 // 自检不许动玩家的真设置
                             try
                             {
                                 Loc.SetLanguage(AvailableLanguages.Chinese);
-                                CheckText(Loc.T(TitleTerm), "选择卡组",
-                                          "★ 中文列 = 实拍那四个字（`更换卡组的参考.png` 右上角）");
+                                // 🔴 2026-10-14（第二十七会话）就地改期望值：MenuDeck/Tip/SelectDeckAgainst 原来是我们自译的「选择卡组」，官方 zh-CN = 「选择一个卡组进行对战」
+                                CheckText(Loc.T(TitleTerm), "选择一个卡组进行对战",
+                                          "★ 中文列 = 官方 zh-CN 表的值（⚠️ 用户 1017 实拍那颗是「选择卡组」，两者不同）");
                                 Loc.SetLanguage(AvailableLanguages.English);
                                 CheckText(Loc.T(TitleTerm), "Select deck", "…英文列 = 我们原来写死的那一句");
                             }
@@ -4041,7 +4043,7 @@ public static class CollectionScene
                 // ============================================================ ⑨ 占位符**走词条**（两语档各断一个字面量）
                 // 🔴 **2026-10-17（F2 · 修 (α)：这条断言原来把期望值写死成英文）** —— 本批 B11/A884 已经把
                 //   占位符改成走词条（`Shell/ImportDeckPopup.cs` 的 `PlaceholderTerm` =
-                //   `MenuDeck/HUD/EnterText`，`Core/Loc.cs` 中文列 = 「输入文字...」），而本宿主跑在
+                //   `MenuDeck/HUD/EnterText`，`Core/Loc.cs` 中文列 = 「输入文本...」（官方 zh-CN 表，2026-10-14 换）），而本宿主跑在
                 //   **出厂语言 = 中文**（`Core/Loc.cs` 的 `Default`）⇒ 写死 `"Enter text..."` 必红。
                 //   正本写法 → `Editor/ShellScene.cs` 的 B11/A884 那一节（那边明写「⛔ 写死 `"Enter text..."`
                 //   或写死中文，都过不了这一条」）。
@@ -4068,8 +4070,9 @@ public static class CollectionScene
                 Loc.RestoreForTest(langImp);                         // 收尾：语言放回原值
                 CheckTrue(wZh != null && wEn != null, "（前提）两语档各开出了一扇 `Import Deck Popup`"
                           + "（取不到 ⇒ 下面几条恒红，⛔ 不静默）");
-                Check(phZh, "输入文字...", "★ 空输入时显示**占位符**：**中文档** = `Loc.T(\"MenuDeck/HUD/EnterText\")`"
-                    + " 的**中文列**（⚠️ 那一列是**我们译的**：原版中文在远端 I2 表里 —— 源 `数据/本地化/i18n/zh_CN.csv:102`）");
+                // 🔴 2026-10-14（第二十七会话）就地改期望值：MenuDeck/HUD/EnterText 原来是我们自译的「输入文字...」，官方 zh-CN = 「输入文本...」
+                Check(phZh, "输入文本...", "★ 空输入时显示**占位符**：**中文档** = `Loc.T(\"MenuDeck/HUD/EnterText\")`"
+                    + " 的**中文列**（2026-10-14 官方 zh-CN 表 = 「输入文本...」，原「输入文字...」）");
                 Check(phEn, "Enter text...", "★ …**英文档** = 同一条词条的**英文列**"
                     + "（= 原版那颗 TMP 的 `m_text` 原文逐字符照抄，含末尾那三个点）");
                 CheckTrue(!string.IsNullOrEmpty(phZh) && phZh != phEn,
@@ -4078,8 +4081,9 @@ public static class CollectionScene
                 // 🆕 **2026-10-17（A891）：提示行 / `Confirm` 钮 也走词条了**（同一扇窗的另两颗，判据同占位符那一条）——
                 //   `Main Search message` 的词条 = `MenuDeck/Share/PasteDeck`、`Confirm Text` 的词条 =
                 //   `MainMenu/General/Confirm`（⛔ 别按行号找那两条老断言，它们在本节后半，已改成**随语档**的期望值）。
-                Check(msgZh, "粘贴你的卡组", "★ **提示行（标题）**：**中文档** = `Loc.T(\"MenuDeck/Share/PasteDeck\")` 的中文列"
-                    + "（⚠️ 是我们译的 —— 源 `数据/本地化/i18n/zh_CN.csv:143`）");
+                // 🔴 2026-10-14（第二十七会话）就地改期望值：MenuDeck/Share/PasteDeck 原来是我们自译的「粘贴你的卡组」，官方 zh-CN = 「粘贴您的卡组」
+                Check(msgZh, "粘贴您的卡组", "★ **提示行（标题）**：**中文档** = `Loc.T(\"MenuDeck/Share/PasteDeck\")` 的中文列"
+                    + "（2026-10-14 官方 zh-CN 表 = 「粘贴您的卡组」，原「粘贴你的卡组」）");
                 Check(msgEn, "Paste your deck", "★ …**英文档** = 同一条词条的英文列"
                     + "（= 原版 `Main Search message` 那颗 TMP 的 `m_text` 原文）");
                 CheckTrue(!string.IsNullOrEmpty(msgZh) && msgZh != msgEn,
@@ -4106,7 +4110,8 @@ public static class CollectionScene
                     //   而提示行 B11 那批改走词条、宿主又跑中文档 ⇒ 那条**必红**。⛔ 不是删掉，是换成随语档的字面量；
                     //   两语档的**固定值**在 ⑨ 那一段各断一条（那一对才是不自证的口径）。
                     CheckText(TextOf(FindChild(iroot, "Main Search message")),
-                              Loc.Current == AvailableLanguages.English ? "Paste your deck" : "粘贴你的卡组",
+                              // 🔴 2026-10-14（第二十七会话）就地改期望值：MenuDeck/Share/PasteDeck 原来是我们自译的「粘贴你的卡组」，官方 zh-CN = 「粘贴您的卡组」
+                              Loc.Current == AvailableLanguages.English ? "Paste your deck" : "粘贴您的卡组",
                               "提示行文案（随当前语档）");
                     var ph = FindChild(iroot, "Input Text");
                     // ⚠️ 占位符那条断言**已挪到本块最前面**（两语档各断一个字面量 + 判别式）——

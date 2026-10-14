@@ -108,7 +108,19 @@ class Program
     //    ⇒ 按本文件上面写的流程把**两个**指纹一起重钉到现值（卡池 ＋ 基线，见下）。
     //    ⚠️ 卡池还在别人手里改（同会话并行写手）⇒ 它一变，这一条**又会**回到「此时不判」那一支；
     //      那是本哨兵**已知的**限制（判据原文见上面那段长注释），⛔ 不是失败。
-    public const string PinnedPoolMd5 = "0acd13bde721a78297f11e1a35681a97";
+    // 🔴 **2026-10-14（第二十七会话）三个指纹【有意重钉】—— 依据是下面四条，⛔ 不是为了把红抹平。**
+    //   ① 变化的性质 = **纯改标签、解析逐字节没动**。实测：现算 dump 与旧基线**逐行比**，
+    //      1120 行里 949 行不同，而**去掉第 1 列（id）之后 0 行不同** ⇒ 只有 id 变了
+    //      （`diff <(cut -d'|' -f2- 新) <(cut -d'|' -f2- 旧)` = 0 行）。
+    //   ② 成因是**别人改的**：第二十六会话把全池卡牌 id 换成原版真值（`A1758`，落地记录
+    //      `资料/卡牌id_换真值_落地记录.md`）⇒ `cards_engine.json` 的 id 列整体置换，本探针只读它。
+    //      那次换 id **已被 `RuleEngineTest.Run` 实跑确认**（5294 / 5294 全过，见
+    //      `资料/交接_第二十七会话.md` §一）—— 这就是本哨兵要的「重钉前先确认」。
+    //   ③ 两条**哨兵卡自己也过期了**（它们报的红是假红），同日就地换卡：
+    //      `UM_Angels_of_Death` → **`UM64`**（`Angels of Death`）· `SOR72` → **`SOR71`**
+    //      （`SOR72` 现在是 `Castigator`）。判据 = 现读卡表 + 卡图（见那两处的行内注释）。
+    //   ④ ⚠️ 上一次重钉（`A1619`）漏了第三个指纹 ⇒ 这次三个一起钉（否则哨兵 ⑦ 永远红）。
+    public const string PinnedPoolMd5 = "fe3362d90471e94e8fc06a89c958e1fa";
 
     /// <summary>钉住的基线内容指纹（`工具/ruleprobe/基线/out_baseline.txt` 的 md5，**按字节**）。
     /// 与上面那个配对使用 —— 判据见上面那段长注释。</summary>
@@ -122,7 +134,10 @@ class Program
     //    ⚠️ 本轮**同时**把 `PinnedPoolMd5` 也重钉了（同会话里卡池文件被并行写手 `C1` 改过）——
     //      两条一起钉，上面那段判据的「输入没变 ＋ 基线变了」这一对才配得上。
     //    ⛔ **不是**为了抹平红（本轮没有解析差异；红的只有哨兵 ⑥ `A1462`，它**不读基线**）。
-    public const string PinnedBaselineMd5 = "bf852491965a8a55f5b7446cbc428ff8";
+    // 🔴 **2026-10-14（第二十七会话）有意重钉** —— 与 `PinnedPoolMd5` 同一批、同一条理由
+    //    （卡池 id 整列置换 ⇒ 基线里的第 1 列跟着换，**解析列逐字节没动**）。
+    //    重生成只动 id 列：1120 行去第 1 列后 **0 行差异**（判据见上一行那段 ①②③④）。
+    public const string PinnedBaselineMd5 = "ff79931b9c5cd301ae6dac12f4e4b4ce";
 
     /// <summary>🆕 **解析输出指纹**（`A1382` **一般情形**的堵法，2026-10-12 第二十一会话 · 写手 `E5`）
     /// —— 「`check` 的判据是『与**基线文件**比』，而**基线文件同一个工具就能重写**」这条洞的机器级补丁。
@@ -164,7 +179,11 @@ class Program
     //   ③ 卡池 md5 变了是**别人改的**（`cards_engine.json` 由 `工具/gen_cards_engine.py` 生成，本探针只读）。
     //   ④ ⚠️ **上一次重钉（`A1619`）漏了第三个指纹** —— 这次三个一起钉（否则哨兵 ⑦ 永远红）。
     //   判据与纪律 → `README.md` 的「改探针输出格式三步」那一节；⛔ **重钉只能手改源码**（没有自动口子）。
-    public const string PinnedParseMd5 = "c40f8f2191fb53cdd3eb76880fdec235";
+    // 🔴 **2026-10-14（第二十七会话）有意重钉** —— 与上面 `PinnedPoolMd5` 同一批、同一条理由：
+    //   本条把**卡名吃掉、按 id 排序** ⇒ 卡池 id 整列置换之后它必然变号，
+    //   而**解析结果本身逐字节没动**（去 id 列 diff = 0 行，判据见 `PinnedPoolMd5` 上面那段 ①②③④）。
+    //   确认依据 = 第二十六会话换 id 之后 `RuleEngineTest.Run` **5294 / 5294 全过**。
+    public const string PinnedParseMd5 = "3070ac7c456c3b51dad769b417c2b798";
 
     /// <summary>一个文件的 md5（按字节；读不到返回 `null` —— ⛔ 不静默当成空串）。</summary>
     public static string Md5File(string path)
@@ -239,6 +258,10 @@ class Program
                 case "jackal": LoadPool(); BattleProbe.Jackal(Pool); i += 1; break;
                 case "emergency": LoadPool(); BattleProbe.Emergency(Pool); i += 1; break;
                 case "suppressor": LoadPool(); BattleProbe.Suppressor(Pool); i += 1; break;
+                // 🆕 **`defence`**（2026-10-14 · `A1070` 第 ③ 档）：督军后手那张防御卡 ——
+                //    原版三条来路（卡组自带 / 阵营池随机 / 督军 `goSecondCardInHand`）逐条离线真跑。
+                //    有不对的 ⇒ rc=1。
+                case "defence": LoadPool(); if (BattleProbe.Defence(Pool) > 0) Environment.Exit(1); i += 1; break;
                 case "played": LoadPool(); BattleProbe19.Run(Pool); i += 1; break;
                 case "b19test": LoadPool(); if (B19Test.Run(Pool) > 0) Environment.Exit(1); i += 1; break;
                 // 🆕 **`willrun`**（`A1432`）：量「卡面正文收到没有」，把「空表」拆成
@@ -358,7 +381,7 @@ class Program
                 foreach (var k in kw.EnumerateArray()) if (k.ValueKind == JsonValueKind.String) kws.Add(k.GetString());
             list.Add(new CardDef(S("id"), S("name"), S("type"), S("desc"), S("rarity"), S("faction"),
                                  I("cost"), I("attack"), I("health"), I("ranged"), kws,
-                                 S("nameZh"), S("descZh"), true, S("subtype")));
+                                 S("nameZh"), S("descZh"), true, S("subtype"), S("goesSecond")));
         rawKw.Add(kws);
         }
         Pool = list;
@@ -371,11 +394,18 @@ class Program
         //   「没建索引时一律返回 null ⇒ 解析行为与从前完全一致」）⇒ 凡「目标靠**卡名**指」的句子，
         //   探针一律报 `target=[]` ＋ 落 `partial` 列。**它已经产出过两次假证据**：
         //   ① `A1334` 的前提（`UM_Angels_of_Death` 的 `Target == null`）
+        //      ⚠️ 2026-10-14：那张卡的 id 现已是 `UM64`（换真值那批改的）—— 本行是**当时**的记录，别照它去认卡。
         //   ② `A1311` 的「它是 3 参重载唯一的真卡用户」（引擎里它 `Side=own`、走 4 参）。
         //   ⇒ 修法见 `资料/普查产出_第十三会话/D_A1334诊断.md` 顺手发现 2。
         // ⚠️ 建在**全池**上（含 `desc` 为空那几张卡）—— 与引擎一致：那几张照样能被别的卡的文本指到。
         // ⚠️ 它同时建**两张**表（英文 `_nameIndex` ＋ 中文 `_nameIndexCjk`），别只当英文那张看。
         CreatePool.BuildNameIndex(list);
+        // 🆕 **2026-10-14（`A1070` 第 ③ 档）**：与引擎同口径的第二处 —— 引擎在 `CardDatabase.Parse`
+        //   末尾调 `ResolveGoesSecond`（督军 `goesSecond` 的 id → 对象引用）。探针**不走 `Parse`**
+        //   （它自己造 `CardDef`，为的是同时留一份 `keywords` 原文）⇒ 这里必须跟着调一次，
+        //   否则探针会报「`GoesSecondCard` 有值 0 张」这种**看起来像工程缺陷**的假读数
+        //   （与上面 `A1339` 那条同族：**探针与引擎不同口径**）。
+        CreatePool.ResolveGoesSecond(list);
     }
 
     static void Dump(string line, string tag = "SEG")
@@ -756,10 +786,15 @@ class Sentinel
         // ---------------------------------------------------------------- ② `scan` 那条路上索引真的生效了（数据级）
         // ⚠️ ① 只证明「库函数调用得通」，证明不了「**`scan` 自己读 JSON 那条路**也过了 `LoadPool`」
         //    （`Scan.ScanMain` 是**第二条**装池路径 —— `A1339` 的病灶正是「只补一处 = 静默偏一半」）。
-        //    ⇒ 这条读**当次现算的 dump**：索引不在时，`UM_Angels_of_Death` 的第 3 句
+        //    ⇒ 这条读**当次现算的 dump**：索引不在时，`UM64` 的第 3 句
         //    （`Codex: Give +1 [Ranged] to your Primaris Intercessor`）会**落进 `partial` 列**。
         //    这一段就是 `README.md` 那条 `:1024` 哨兵的**机器级**版本。
-        const string SentinelCard1 = "UM_Angels_of_Death";
+        // 🔴 **2026-10-14 就地换卡**：原来这里写的是 `UM_Angels_of_Death`（**自造 id**）——
+        //    第二十六会话把全池 id 换成原版真值之后，这张卡的 id 变成 **`UM64`**
+        //    （名字 `Angels of Death`，`desc` 逐字没变、仍是那句 `Codex: Give +1 [Ranged] …`）
+        //    ⇒ 本哨兵当时**静默变成「哨兵卡不在 dump 里」那条红**（这正是它自己要抓的「哨兵要跟着换」）。
+        //    判据 = 现读 `cards_engine.json`：`UM64` 的 desc 与旧哨兵要的那句一字不差。
+        const string SentinelCard1 = "UM64";
         var r1 = Row(newLines, SentinelCard1);
         if (r1 == null)
         {
@@ -781,11 +816,16 @@ class Sentinel
         // ---------------------------------------------------------------- ③ 货币名（`A1357` 那一类）
         // 「**只改货币名**」（`energy` ↔ `faith`）在 `A1374` 补列**之前**是 `check` 的盲区
         // （⚠️ 而 `A1357` 正是这种改动，今天之前它被看见纯属侥幸 —— 动词也跟着变了）。
-        // `SOR72` 的期望值出处 = **卡图**：`Sorotitas/3部队/Warpforge_08_Adelaide-the-Serene.png`
+        // `SOR71` 的期望值出处 = **卡图**：`Sorotitas/3部队/Warpforge_08_Adelaide-the-Serene.png`
         // 亲读是**金太阳**；`☀` = **信仰**、⛔ 不是能量（`EffectText.cs:7802-7812` 的 `MentionsFaith`，
         // 那里写着「`Contains("energy")` 失配 ⇒ 判不了 ⇒ 那半句永远不发生」）。
         // 我们 `desc` 原来错抄成 `Energy`（`cardface_fixes.json` 已按卡图改正）。
-        const string SentinelCard2 = "SOR72";
+        // 🔴 **2026-10-14 就地换卡**：原来这里是 `SOR72`（换 id 之前那张 `Adelaide the Serene`）——
+        //    换真值之后 `SOR72` 变成 **`Castigator`**（`Armour 1. When a friendly unit Prays…`，**没有付费 op**），
+        //    而 `Adelaide the Serene` 现在是 **`SOR71`**（`6 ☀ Gain Flank and Shield. Rally: …`）
+        //    ⇒ 旧写法让本哨兵报「`SOR72` 那行**没有付费 op 了**」那条**假红**。
+        //    判据 = 现读 `cards_engine.json` + 卡图（卡名与那句 `6 ☀` 都对上 `SOR71`）。
+        const string SentinelCard2 = "SOR71";
         var r2 = Row(newLines, SentinelCard2);
         if (r2 == null)
         {

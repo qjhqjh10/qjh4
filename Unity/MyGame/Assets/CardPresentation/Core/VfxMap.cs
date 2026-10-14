@@ -14,6 +14,7 @@
 // `只有原版有内容（导出整个丢了）` / `两边全程空（纯脚本驱动）`，播出来是**空的**。
 // 下面这些全是「对得上 + 高置信」的。
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace CardPresentation
 {
@@ -186,9 +187,108 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>逐卡覆盖（键 = 卡名，和 `CardData.id` 一致）。现在是空的，留给以后配。</summary>
+        /// <summary>逐卡覆盖（键 = **卡 id**，与 `CardDef.Id` / `BattleEvent.CardId` 同一套；事件名同 <see cref="Resolve"/>）。
+        /// **2026-10-14 起它由 `Resources/card_vfx_by_card.json` 载入**（见 <see cref="EnsureLoaded"/>），
+        /// ⛔ 不再是写死的空字典。
+        /// <para>值 = 该 (卡, 事件) 下**按 `confPriority` 取第一个命中**的那个 prefab 名。</para></summary>
         static readonly Dictionary<string, Dictionary<string, string>> ByCard =
             new Dictionary<string, Dictionary<string, string>>();
+
+        /// <summary>运行时那份逐卡表的 Resources 路径（**没有扩展名**）。
+        /// 由 `工具/gen_card_vfx_by_card.py` 与 `数据/游戏数据/card_vfx_by_card.json` **同一次运行**产出。</summary>
+        public const string CardTableResourcePath = "card_vfx_by_card";
+
+        static bool _triedCardTable;
+        /// <summary>`Resources` 里那份表载进来几张卡（0 = 没载到/空表 —— 那时逐卡那一档**恒不命中**，
+        /// 退回 <see cref="ByFaction"/> / <see cref="ByEvent"/> 的老行为，**并已经出过声**）。</summary>
+        public static int CardTableCards { get { EnsureLoaded(); return ByCard.Count; } }
+        public static int CardTableEntries { get; private set; }
+
+        // ---- 运行时那份 JSON 的形状（**数组，不是字典** —— `JsonUtility` 不支持字典）----
+        [System.Serializable] public class RtEntry { public string n; public string c; public string a; }
+        [System.Serializable] public class RtEvent { public string ev; public RtEntry[] es; }
+        [System.Serializable] public class RtCard { public string id; public RtEvent[] events; }
+        [System.Serializable] public class RtFile
+        {
+            public string[] confPriority;      // 权威优先；不认识的一律排最后
+            public RtCard[] cards;
+            public int cardCount;
+            public int entryCount;
+        }
+
+        /// <summary>🔴 **2026-10-14（第二十七会话）：把逐卡表从 `Resources` 载进来（懒加载、只做一次）。**
+        ///
+        /// **为什么要它**：在这之前 <see cref="ByCard"/> 是一句
+        /// `new Dictionary<…>()` 写死的空表（注释写着「留给以后配」），而 `工具/gen_card_vfx_by_card.py`
+        /// 早在造一份 2.2 MB 的逐卡表 —— **全仓没有一行代码读过它**（`grep card_vfx_by_card` 只有 4 处注释）。
+        /// ⇒ 原版真值（卡 SO 的 `customRangedAttackParticles` / `customDeathParticles` /
+        /// `cardAbilities[].abilityLogic[].cardAnimations[]` 解出来的 **3326 条**）**一条都没进游戏**。
+        ///
+        /// **数据**：`Resources/card_vfx_by_card.json`（240 KB · 979 张卡 · 2323 条），
+        /// 与 `数据/游戏数据/card_vfx_by_card.json`（全量、给工具看）**由同一次运行产出** ⇒ 不会分叉。
+        ///
+        /// **取哪一条**：同一条 (卡, 事件) 可能有多个候选（原版真值 + 我们早先按名/按关键词推的），
+        /// 按 JSON 自带的 `confPriority`（`authoritative` 最前）**取第一个命中的**。
+        /// ⚠️ 这与 `gen_card_vfx_by_card.py` 打印的优先级**是同一份**（数据自带，⛔ 别在这儿再写一张表）。
+        ///
+        /// **载不到怎么办**：**出声 + 退回老行为**（`ByFaction` → `ByEvent`），⛔ **不静默**。
+        /// ⚠️ 效果名**不在这里校验是否在效果库里** —— 那是 `BattleDriver` 那一侧的事
+        /// （缺的那些会走它自己的「找不到就跳过」并出声）。
+        /// </summary>
+        public static void EnsureLoaded()
+        {
+            if (_triedCardTable) return;
+            _triedCardTable = true;                       // 失败也只试一次（别每帧重试）
+            var asset = Resources.Load<TextAsset>(CardTableResourcePath);
+            if (asset == null)
+            {
+                Debug.LogWarning($"[Vfx] `Resources/{CardTableResourcePath}.json` **没载到** ⇒ "
+                               + "逐卡特效这一档**不起作用**，退回「按阵营 + 按事件」的老兜底。"
+                               + "重跑：\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_card_vfx_by_card.py");
+                return;
+            }
+            RtFile dto;
+            try { dto = JsonUtility.FromJson<RtFile>(asset.text); }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[Vfx] `Resources/{CardTableResourcePath}.json` 解析失败：{e.Message} ⇒ "
+                             + "逐卡特效这一档**不起作用**（退回老兜底）");
+                return;
+            }
+            if (dto == null || dto.cards == null)
+            {
+                Debug.LogError($"[Vfx] `Resources/{CardTableResourcePath}.json` 是空的 / 形状不对 ⇒ 逐卡特效不起作用");
+                return;
+            }
+            // `conf` → 优先级序数（不认识的一律排最后；⛔ 不猜它比谁高）
+            var prio = new Dictionary<string, int>();
+            if (dto.confPriority != null)
+                for (int i = 0; i < dto.confPriority.Length; i++)
+                    if (!string.IsNullOrEmpty(dto.confPriority[i])) prio[dto.confPriority[i]] = i;
+            int worst = prio.Count;
+
+            foreach (var c in dto.cards)
+            {
+                if (c == null || string.IsNullOrEmpty(c.id) || c.events == null) continue;
+                Dictionary<string, string> m;
+                if (!ByCard.TryGetValue(c.id, out m)) { m = new Dictionary<string, string>(); ByCard[c.id] = m; }
+                foreach (var ev in c.events)
+                {
+                    if (ev == null || string.IsNullOrEmpty(ev.ev) || ev.es == null) continue;
+                    string best = null; int bestRank = int.MaxValue;
+                    foreach (var e in ev.es)
+                    {
+                        if (e == null || string.IsNullOrEmpty(e.n)) continue;
+                        int rank;
+                        if (!prio.TryGetValue(e.c ?? "", out rank)) rank = worst;
+                        if (rank < bestRank) { bestRank = rank; best = e.n; }
+                    }
+                    if (best != null) { m[ev.ev] = best; CardTableEntries++; }
+                }
+            }
+            Debug.Log($"[Vfx] 逐卡特效表已载入：{ByCard.Count} 张卡 / {CardTableEntries} 条"
+                    + $"（`Resources/{CardTableResourcePath}.json`，按 `confPriority` 取权威优先）");
+        }
 
         /// <summary>查一个事件该播什么。查不到返回 null（调用处会跳过）。</summary>
         public static string Resolve(string evt, string faction = null, string cardId = null)
@@ -196,10 +296,16 @@ namespace CardPresentation
             if (string.IsNullOrEmpty(evt)) return null;
 
             Dictionary<string, string> m;
-            if (!string.IsNullOrEmpty(cardId) && ByCard.TryGetValue(cardId, out m))
+            // ⚠️ 逐卡那一档**要先载表**（2026-10-14 起它不再是空字典 —— 见 `EnsureLoaded` 的说明）。
+            //    它排在最前面：**原版真值优先于我们按阵营/按事件的兜底**。
+            if (!string.IsNullOrEmpty(cardId))
             {
-                string s;
-                if (m.TryGetValue(evt, out s)) return s;
+                EnsureLoaded();
+                if (ByCard.TryGetValue(cardId, out m))
+                {
+                    string s;
+                    if (m.TryGetValue(evt, out s)) return s;
+                }
             }
             if (!string.IsNullOrEmpty(faction) && ByFaction.TryGetValue(faction, out m))
             {
@@ -225,6 +331,11 @@ namespace CardPresentation
         {
             PlayCard, Deploy, AttackMelee, AttackRanged, Hit, Heal, Death, Ability, Trigger,
             Return, GainFaith, GainSpirit, GainQuest,
+            // 🔴 **2026-10-14（第二十七会话）补 `CollectWaystone`** —— 常量早就在 `:43`、
+            //    `BattleDriver.PlaySignal` 也有它的 case，**就是没进这张表** ⇒
+            //    `Unmapped()` / `Describe()` 两个自检口**覆盖不到它**（本表自己的注释就写着
+            //    「加了新事件、列表没跟上，正是 2026-09-15 那个 bug 的形状」—— 同一形状又犯了一次）。
+            CollectWaystone,
         };
 
         /// <summary>自检用：**解析不出特效名**的事件（正常应当为空）。见 <see cref="Events"/>。</summary>

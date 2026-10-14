@@ -626,6 +626,46 @@ namespace RuleEngine
             BuildNameIndexFromNames(pairs);
         }
 
+        /// <summary>🔴 🆕 **2026-10-14（`A1070` 第 ③ 档）：督军后手那张防御卡 —— id → 对象引用反查。**
+        ///
+        /// 原版那个字段（`RawCardScript.goSecondCardInHand`，+0x150）是督军 SO 上的一个 **PPtr**
+        /// （指向同一包里那张防御卡 SO）；我们的卡表里只能存 id ⇒ **整份卡池都造完之后**
+        /// 统一反查一次，把 <see cref="CardDef.GoesSecondCard"/> 置上。这样引擎侧读到的是**直接引用**，
+        /// ⛔ 不必依赖调用方传没传 `ctx.CardPool`（那个参数是可以为 null 的）。
+        ///
+        /// ⚠️ **反查失败要出声**（不许静默失败）：那说明卡表里的 id 在池子里找不到 ——
+        /// 引擎那一档会退回「出声 + 不给卡」，但**那是另一件事**，别让这里悄悄过去。
+        ///
+        /// 🔴 **只此一处**：`CardDatabase.Parse` 与探针 `ruleprobe`（`Program.LoadPool` 自己造
+        /// `CardDef`、不走 `Parse`）**都调它** —— 各写一份必然分叉（`A1339` 那条教训）。
+        /// ⚠️ 它住在 `Core/` 是因为**探针只编 `Core/*.cs`**（见 `ruleprobe.csproj`）——
+        /// 放进 `Data/` 探针就调不到，又会逼出第二份实现。
+        /// ⚠️ 幂等：重复调用只是把同一批引用再置一遍。
+        /// </summary>
+        public static void ResolveGoesSecond(IReadOnlyList<CardDef> pool)
+        {
+            if (pool == null) return;
+            var bad = new List<string>();
+            foreach (var c in pool)
+            {
+                if (c == null || string.IsNullOrEmpty(c.GoesSecondId)) continue;
+                CardDef target = null;
+                for (int i = 0; i < pool.Count; i++)
+                {
+                    var x = pool[i];
+                    if (x != null && x.Id == c.GoesSecondId) { target = x; break; }
+                }
+                if (target == null) { bad.Add($"「{c.Name}」({c.Id}) → {c.GoesSecondId}"); continue; }
+                c.GoesSecondCard = target;
+            }
+            if (bad.Count > 0)
+                UnityEngine.Debug.LogError($"[RuleEngine] 卡表里有 {bad.Count} 张督军的 `goesSecond`"
+                    + $" 指向**池子里没有的卡**（引擎第 ③ 档会退回「出声 + 不给卡」）："
+                    + $"{string.Join("、", bad)}"
+                    + " —— 多半是 `warlord_goes_second.json` 与 `card_ids.json` 对不上了，"
+                    + "重跑 `工具/gen_cards_engine.py`。");
+        }
+
         /// <summary>
         /// 同一件事的**只给名字**的形态 —— 还没有 `CardDef` 时用（`CardDatabase.Parse` 那**两趟**）。
         ///

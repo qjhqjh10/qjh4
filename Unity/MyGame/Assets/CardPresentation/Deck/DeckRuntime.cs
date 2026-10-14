@@ -1484,8 +1484,8 @@ namespace CardPresentation
             //   —— 本行原来写的是 `… > Header/Filters/**Clear Filter Button**/Button Text`：**中间那个节点名写错了**。
             //   `Clear Filter Button` 是**收藏窗那 4 颗**的父名（`… > Header Filters/Header > Clear Filter Button >
             //   Button Text`）—— 两棵树的中间节点名**不同**，当时混成一个了。
-            //   英文那一列 = 那颗 TMP 的 `m_text` 原文 `Clear filters`；中文列 = 「清除筛选」
-            //   （源 `数据/本地化/i18n/zh_CN.csv:9`，⚠️ 是我们译的）。
+            //   英文那一列 = 那颗 TMP 的 `m_text` 原文 `Clear filters`；中文列 = 「清除过滤器」（2026-10-14 官方 zh-CN 表；原「清除筛选」）
+            //   （源 `数据/本地化/i18n/zh_CN.csv:9` —— 该中文列 2026-10-14 已被**官方 zh-CN 表**顶掉，不再是「我们译的」）。
             //   ⛔ 节点名 `hdr_clear_t` 不动（`Editor/DeckScene.cs` 按名找）。
             var hdrClearTx = Txt("hdr_clear_t", Loc.T("MenuDeck/Filters/ClearFilters"),
                 HdrClearX, HdrClearY, HdrClearW, HdrClearH, 2, Ink, QText);
@@ -1723,7 +1723,7 @@ namespace CardPresentation
             // 🔴 **2026-10-18（A891 的续 · 第三轮整改 · 审查 P4）：占位符走 `Loc.T`** —— 键 = 原版那颗
             //   `Placeholder` 的 `Localize.mTerm` 原文 `MenuDeck/HUD/EditDeckName`（全库只 1 颗，就是这一颗：
             //   `Deck Editing Menu > Content Area > Sidebar > Window Options > Deck Name > Text Area > Placeholder`）。
-            //   英文列 = TMP 原文 `Tap to edit deck name`；中文列 = 「点击编辑卡组名」(`zh_CN.csv:172`)。
+            //   英文列 = TMP 原文 `Tap to edit deck name`；中文列 = 「点击以编辑卡组名称」(`zh_CN.csv:172`；2026-10-14 换官方 zh-CN 表，原「点击编辑卡组名」)。
             //   ⛔ 节点名 `name_h` 不动（`Editor/DeckScene.cs` 的 D34 那一节按名找它量档位/左沿）；
             //   ⚠️ 它左对齐 ⇒ 文案变宽窄**不动左沿**，D34 那条 19.5 不受影响。
             _deckNameHint = Txt("name_h", Loc.T("MenuDeck/HUD/EditDeckName"), NameTxX, NameTxY, NameTxW, NameTxH, 2,
@@ -1954,7 +1954,7 @@ namespace CardPresentation
             //   `Arraste as cartas aqui para criar seu deck` ⇒ 原版英文在远端 I2 表、本地拿不到 ⇒ EN 得自拟）。
             //   ✅ **2026-10-18 收口（铁律 5）**：这一行原来写「⚠️ 该键**波 0 未进表** ⇒ 走 `TermOr` 闸门
             //      （今天仍印中文那串，补键后自动生效）」—— **已过期**：键 `MenuDeck/HUD/DragCardsTip`
-            //      **已在表**（`Core/Loc.cs` 实读：`("把卡拖到这里", "Drag cards here")`），闸门**已删除**
+            //      **已在表**（`Core/Loc.cs` 实读：`("将牌拖到这里以创建您的卡组", "Drag cards here")` —— 该中文列 2026-10-14 已换成官方 zh-CN 表的值），闸门**已删除**
             //      （静默兜底，与「不许静默失败」冲突）⇒ 现在是**裸 `Loc.T`**。
             var warnLabel = Txt("empty_warn_l", Loc.T("MenuDeck/HUD/DragCardsTip"),
                                 20.3f, 500f, 295.3f, 60f, 2,
@@ -3145,7 +3145,7 @@ namespace CardPresentation
             // 🔴 **2026-10-18（第三轮整改 · 审查 P4）：字走 `Loc.T`** —— 卡背抽屉这一份与收藏窗 Cards 页
             //   **同一条键**（`MenuCollection/NoCardsFound`，原版 4 颗里的 `Deck Editing Menu` 那一颗：
             //   `… > Content Area > Cosmetic Display > Scroll View > Empty Collection Warning/Warning`）。
-            //   英文列 = TMP 原文逐字符；中文列 = 「没有符合当前筛选的卡牌」(`zh_CN.csv:177`)。
+            //   英文列 = TMP 原文逐字符；中文列 = 「在您选择的过滤器中，您的收藏里没有任何张牌」（2026-10-14 官方 zh-CN 表；原「没有符合当前筛选的卡牌」）。
             //   ⛔ 节点名 `cosm_empty_t` 不动。
             var emptyTx = Txt("cosm_empty_t", Loc.T("MenuCollection/NoCardsFound"),
                               135.23f, 70.97f, 1970.00f, 1080.03f, 5, Ink, QText);
@@ -5258,7 +5258,7 @@ namespace CardPresentation
         /// 🔴 **2026-10-19（`A1012`）就地订正（铁律 5）**：这里原来写「I2 语言表在**远端**、本地没有
         /// ⇒ 今天画面上显示的就是**这个键**」—— **那句已经不成立**：`Term()` 现在转全工程的
         /// `Core/Loc.cs`，而 `MenuDeck/HUD/DiscardChanges` **就在那张表里**
-        /// （键 `MenuDeck/HUD/DiscardChanges`：「丢弃未保存的改动？」/`Discard unsaved changes?`）⇒ 屏上印的是**这条词条**。</summary>
+        /// （键 `MenuDeck/HUD/DiscardChanges`：「放弃更改」/`Discard unsaved changes?` —— 2026-10-14 换官方 zh-CN 表，原「丢弃未保存的改动？」）⇒ 屏上印的是**这条词条**。</summary>
         public const string DiscardChangesKey = "MenuDeck/HUD/DiscardChanges";
 
         /// <summary>= 原版 `DeckEditingWindow.TryClose()`：**关闭钮**（`hdr_back`）那一下。
@@ -5502,7 +5502,7 @@ namespace CardPresentation
         /// 🔴 **2026-10-19（`A1012`）就地订正（铁律 5）**：这里原来写「本地没有那张语言表（I2 在远端 CCD）
         /// ⇒ 画面今天显示的就是**键**，如实标注在 `Shell/PopUpGameWindow.cs` 文件头 ③」—— **两处都不对了**：
         /// ① `Term()` 现在转 `Core/Loc.cs`、`MenuDeck/Error/InvalidDeck` **就在那张表里**
-        /// （键 `MenuDeck/Error/InvalidDeck`：「卡组不合法」/`Invalid deck`）⇒ 正文印的是**这条词条**；
+        /// （键 `MenuDeck/Error/InvalidDeck`：「所选卡组无效，请编辑或选择其他卡组。」/`Invalid deck` —— 2026-10-14 换官方 zh-CN 表，原「卡组不合法」）⇒ 正文印的是**这条词条**；
         /// ② 那句「如实标注」的文件头编号是 **①**（本文件里也有一处写成 ③，同批改掉）。</para>
         /// <para>⚠️ **本类自己不是 `GameWindow`** ⇒ 开窗要现拿宿主：
         /// `WindowsManager.EnsureHost()` 是**幂等**的（没有就建一台 `WindowsManager` + 三颗锚点 + 指针层；

@@ -368,8 +368,10 @@ namespace CardPresentation
         /// <para>⇒ 现在**属性那几行走原版键**（`Battle/Effect/Change{MeleeAttack,RangedAttack,Health,Armour}OneTurn`，
         /// 占位符 `{0}` 填**带符号的数值**）；**关键词那几行照旧走 `CardText`**（关键词有它自己那一族词条，
         /// ⛔ 不是 `Battle/Effect/*`）。认不出来的名字**原样打出来**（不静默、不自造）。</para>
-        /// <para>⚠️ 中文列 = 改之前 `AttrZh` 的原话（`"{0} 近战"` + `+2` ⇒ 逐字等于原来的 `"+2 近战"`）
-        /// ⇒ **今天中文档零变化**；英文档从「中文」变成英文。</para>
+        /// <para>⚠️ 中文列 **原来** = 改之前 `AttrZh` 的原话（`"{0} 近战"` + `+2` ⇒ 逐字等于原来的 `"+2 近战"`）
+        /// ⇒ 当时「**中文档零变化**」。🔴 **2026-10-14（第二十七会话）就地订正**：这两条（`Battle/Effect/`
+        /// `ChangeMeleeAttackOneTurn` 等）的中文列**已换成官方 zh-CN 表**的值
+        /// （`获得 {0} 近战攻击一回合`）⇒ 这一族的中文档**不再零变化**（英文档照旧）。</para>
         /// 「谁给的」用 `SourceCard`（施加它的**真卡名**，不是那个恒为「战术卡」的 `Src` —— 两者**别混**）。</summary>
         public static List<EffectRow> RowsOf(IReadOnlyList<UnitState.TempBuff> buffs)
         {

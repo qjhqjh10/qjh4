@@ -965,7 +965,7 @@ namespace CardPresentation
                 //   `Warning` 的 `Localize.mTerm` 原文 `MenuCollection/NoCardsFound`
                 //   （4 颗同键；本窗这一颗 = `… > CardsTab > Collection Display > Scroll View >
                 //   Empty Collection Warning/Warning`）。英文列 = 那颗 TMP 的 `m_text` 原文逐字符；
-                //   中文列 = 「没有符合当前筛选的卡牌」(`zh_CN.csv:177`)。⛔ 节点名 `"Warning"` 不动。
+                //   中文列 = 「在您选择的过滤器中，您的收藏里没有任何张牌」（2026-10-14 官方 zh-CN 表；原「没有符合当前筛选的卡牌」）。⛔ 节点名 `"Warning"` 不动。
                 var wt = Text(ew, Loc.T("MenuCollection/NoCardsFound"),
                               135.22f, 1970.01f, 70.94f, 1080f, 5, PageInk, "Warning", 36f);
                 if (wt != null) wt.SetRenderQueue(QPageText);
@@ -1154,7 +1154,7 @@ namespace CardPresentation
             // 🔴 **2026-10-18（第三轮整改 · 审查 P4）字走 `Loc.T`** —— 键 = 原版那颗 `label` 的
             //   `Localize.mTerm` 原文 `MenuCollection/Label/Cosmetics`（全库只 1 颗，就是本页这一点：
             //   `… > Cardback Tab > Header > label`）。英文列 = TMP 原文 `Your cosmetics collection`；
-            //   中文列 = 「你的装饰收藏」(`zh_CN.csv:25`)。⛔ 节点名 `"Header Label"` 不动（自检按名找）。
+            //   中文列 = 「你的化妆品收藏」（2026-10-14 官方 zh-CN 表；原「你的装饰收藏」= `zh_CN.csv:25` 精确命中）。⛔ 节点名 `"Header Label"` 不动（自检按名找）。
             var title = Text(page, Loc.T("MenuCollection/Label/Cosmetics"), 1200f, 1821.01f, 80.94f, 140.94f, 5, PageInk,
                              "Header Label", 38f);
             if (title != null) { title.SetRenderQueue(QPageText); title.AlignRightOn(LayoutSpace.FromPixel(1821.01f, 0f).x); }
@@ -2548,7 +2548,7 @@ namespace CardPresentation
             //   `Localize.mTerm` 的原文 `MenuDeck/Filters/ClearFilters`（5 颗同键，节点名一律 `Button Text`；
             //   本窗这一棵 = `Collection Menu Variant > … > {CardsTab 的 Header Filters / Cardback Tab 的
             //   Header / Alternate Art Tab 的 Header Filters / Select Deck Tab 的 Header}/Clear Filter Button/Button Text`）。
-            //   英文列 = 那颗 TMP 的 `m_text` 原文 `Clear filters`；中文列 = 「清除筛选」(`zh_CN.csv:9`)。
+            //   英文列 = 那颗 TMP 的 `m_text` 原文 `Clear filters`；中文列 = 「清除过滤器」（2026-10-14 官方 zh-CN 表；原「清除筛选」= `zh_CN.csv:9`）。
             //   ⛔ **上一个实参（节点名 `"Clear filters"`）与 `"Clear filters Text"` 都不动**
             //      （`Editor/CollectionScene` 里按名找它的那两处 —— 底图 `FindChild(…, "Clear filters")`、字 `…"Clear filters Text"`）。
             var clrLab = Text(page, Loc.T("MenuDeck/Filters/ClearFilters"),

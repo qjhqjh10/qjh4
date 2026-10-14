@@ -108,6 +108,122 @@ static class BattleProbe
         var e = ctx.Events;
         return string.Join(" | ", e.Skip(Math.Max(0, e.Count - n)));
     }
+
+    // ==================================================================
+    //  督军后手那张防御卡（`A1070` 第 ③ 档）—— 离线真跑
+    //
+    //  判据 = `BattleManager__AddGoesSecondCardToDeck.c` 的三条来路
+    //  （逐段控制流 → `资料/普查产出_第五会话/查证_防御卡电脑随机.md` §二）：
+    //    ① 玩家侧：卡组自带那张；② `matchType ∈ {50,80,110,120}` 的电脑侧：后手方阵营防御池随机；
+    //    ③ 其余 AI 模式：**督军自己的 `goSecondCardInHand`**（真值 → `数据/游戏数据/warlord_goes_second.json`）。
+    //  这一支是本轮新接的线（`CardDef.GoesSecondCard`）⇒ 用真卡池跑一遍，看「哪一张」对不对。
+    // ==================================================================
+    public static int Defence(List<CardDef> pool)
+    {
+        int bad = 0;
+        Console.WriteLine("== 督军后手那张防御卡（A1070 第 ③ 档）==");
+
+        var heroes = pool.Where(c => c.Type == "hero").ToList();
+        var withGs = heroes.Where(c => c.GoesSecondCard != null).ToList();
+        Console.WriteLine($"  卡池督军 {heroes.Count} 张 · `GoesSecondCard` 有值 {withGs.Count} 张"
+                          + "（期望 50 —— 真值只覆盖 11 个阵营，EC/SW 没有）");
+        var byFac = withGs.GroupBy(c => c.Faction)
+                          .ToDictionary(g => g.Key, g => g.Select(c => c.GoesSecondCard).Distinct().ToList());
+        foreach (var kv in byFac.OrderBy(k => k.Key))
+        {
+            string names = string.Join("/", kv.Value.Select(c => c.Name + "(" + c.Id + ")"));
+            Console.WriteLine($"    {kv.Key,-16} {kv.Value.Count} 张 → {names}");
+            if (kv.Value.Count != 1) { Console.WriteLine("      ❌ 同阵营督军指向了不止一张（不变量破了）"); bad++; }
+        }
+        if (withGs.Count != 50) { Console.WriteLine("  ❌ 有值的督军数不是 50"); bad++; }
+        if (byFac.Count != 11) { Console.WriteLine($"  ❌ 覆盖阵营数 {byFac.Count} ≠ 11"); bad++; }
+
+        var umHero = pool.FirstOrDefault(c => c.Type == "hero" && c.Faction == "Ultramarines" && c.GoesSecondCard != null);
+        var ecHero = pool.FirstOrDefault(c => c.Type == "hero" && c.Faction == "EmperorsChildren");
+        var umDefs = pool.Where(c => c.Type == "defence" && c.Faction == "Ultramarines").ToList();
+        var goffDef = pool.FirstOrDefault(c => c.Type == "defence" && c.Faction == "Goff");
+        // ⚠️ 玩家那副牌**必须带一个真督军**：不带的话 `BuildPlayer` 会落 `FallbackWarlord`
+        //    （无阵营）⇒ ③ 那道「玩家自阵营有防御卡」的闸判假 —— 我第一次就是这么写错的。
+        var myHero = pool.FirstOrDefault(c => c.Type == "hero" && c.Faction == "Ultramarines" && c != umHero);
+        if (umHero == null || ecHero == null || umDefs.Count != 3 || goffDef == null || myHero == null)
+        { Console.WriteLine("  ❌ 尺子不对（Ultramarines 两名督军/3 张防御卡 · EC 督军 · Goff 防御卡）"); return bad + 1; }
+        Console.WriteLine($"  尺子：{umHero.Name}({umHero.Id}) → {umHero.GoesSecondCard.Name}"
+                          + $" · EC 督军 {ecHero.Name}({ecHero.Id}) 无真值 · UM 防御卡 {umDefs.Count} 张");
+
+        // 电脑那一侧：卡组里**故意带一张【外阵营】的防御卡**（Goff 的）——
+        // 「电脑改回从卡组取」时 ③ 那两条必红。
+        var botDeck = new List<CardDef> { umHero };
+        for (int i = 0; i < 10; i++) botDeck.Add(Fixture("botFiller" + i, 1, 0, 1));
+        botDeck.Add(goffDef);
+        var myDeck = new List<CardDef> { myHero };
+        for (int i = 0; i < 10; i++) myDeck.Add(Fixture("myFiller" + i, 1, 0, 1));
+        myDeck.Add(umDefs[0]);          // 玩家后手时该拿的**就是卡组里这张**
+
+        string Got(BattleContext c, int seat)
+        {
+            var d = c.Players[seat].Hand.Where(h => h != null && h.Card != null && h.Card.Type == "defence")
+                                        .Select(h => h.Card.Name).ToList();
+            return d.Count == 0 ? "（无）" : string.Join("+", d);
+        }
+
+        // ---- ① 玩家后手：还是**卡组里那张**（③ 只管电脑侧，老行为逐字不变）----
+        {
+            var c = RuleCore.NewBattle(myDeck, botDeck, seed: 71, shuffle: false,
+                                       cardPool: pool, firstSeat: 1);
+            string got = Got(c, 0);
+            Console.WriteLine($"  ① 玩家后手 → 「{got}」（期望卡组里那张「{umDefs[0].Name}」）");
+            if (got != umDefs[0].Name) { bad++; Console.WriteLine("     ❌ 玩家侧变了"); }
+        }
+
+        // ---- ② 电脑后手 + 经典（翻转 `RankedBot 20`，**不在**四档）⇒ ③ 督军自带 ----
+        {
+            var c = RuleCore.NewBattle(myDeck, botDeck, seed: 72, shuffle: false,
+                                       cardPool: pool, botSeat: 1);
+            string got = Got(c, 1);
+            Console.WriteLine($"  ② 经典（RankedBot 20）→ 「{got}」"
+                              + $"（期望「{umHero.GoesSecondCard.Name}」）");
+            if (got != umHero.GoesSecondCard.Name) { bad++; Console.WriteLine("     ❌ ③ 那一档没发对"); }
+            if (got == goffDef.Name) { bad++; Console.WriteLine("     ❌ 拿了卡组里那张（= 改回从卡组取了）"); }
+        }
+
+        // ---- ③ 电脑后手 + 遭遇（`FastModeBot 210`，也不在四档）⇒ 同样落 ③ ----
+        {
+            var c = RuleCore.NewBattle(myDeck, botDeck, seed: 73, shuffle: false,
+                                       cardPool: pool, vars: GameplayVariables.Skirmish, botSeat: 1);
+            c.PlayMode = GameMode.Skirmish;
+            string got = Got(c, 1);
+            Console.WriteLine($"  ③ 遭遇（FastModeBot 210）→ 「{got}」"
+                              + $"（期望「{umHero.GoesSecondCard.Name}」）");
+            if (got != umHero.GoesSecondCard.Name) { bad++; Console.WriteLine("     ❌ 遭遇档没发对"); }
+        }
+
+        // ---- ④ 电脑后手 + 练习（`PracticeOffline 50`，**在**四档里）⇒ ② 从本阵营防御池随机 ----
+        {
+            var c = RuleCore.NewBattle(myDeck, botDeck, seed: 74, shuffle: false,
+                                       cardPool: pool, openMulligan: true, botSeat: 1);
+            c.PlayMode = GameMode.OfflinePractice;      // 模式号是入口窗在 NewBattle 之后落的
+            RuleCore.EndMulligan(c);
+            string got = Got(c, 1);
+            bool inPool = umDefs.Any(d => d.Name == got);
+            Console.WriteLine($"  ④ 练习（PracticeOffline 50）→ 「{got}」"
+                              + $"（期望落 UM 防御池 {string.Join("/", umDefs.Select(d => d.Name))}）");
+            if (!inPool) { bad++; Console.WriteLine("     ❌ 不在本阵营池子里"); }
+        }
+
+        // ---- ⑤ 电脑后手 + EC 督军（真值里**没有这个阵营**）⇒ 出声 + **不给卡** ----
+        {
+            var ecDeck = new List<CardDef> { ecHero };
+            for (int i = 0; i < 10; i++) ecDeck.Add(Fixture("ecFiller" + i, 1, 0, 1));
+            var c = RuleCore.NewBattle(myDeck, ecDeck, seed: 75, shuffle: false,
+                                       cardPool: pool, botSeat: 1);
+            string got = Got(c, 1);
+            Console.WriteLine($"  ⑤ EC 督军（真值没有）→ 「{got}」（期望「（无）」= 出声 + 不给卡）");
+            if (got != "（无）") { bad++; Console.WriteLine("     ❌ 没真值却发了卡（猜了一张）"); }
+        }
+
+        Console.WriteLine(bad == 0 ? "  ✅ 全过" : $"  ❌ {bad} 条不对");
+        return bad;
+    }
 }
 
 // ====================================================================

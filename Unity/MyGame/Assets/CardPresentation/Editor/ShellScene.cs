@@ -4300,8 +4300,9 @@ public static class ShellScene
                 ipB.Close();
                 CheckTrue(ipB.TryOpen(null), "（前提）第二趟同上");
                 string phEn = placeholderNow();
-                Check(phZh, "输入文字...", "★ 中文档的占位符 = `Loc.T(\"MenuDeck/HUD/EnterText\")` 的**中文列**"
-                    + "（⚠️ **我们译的**：原版中文在远端 I2 表里、本地 24.7 万文件扫不到 —— 源 `数据/本地化/i18n/zh_CN.csv:102`）");
+                // 🔴 2026-10-14（第二十七会话）就地改期望值：MenuDeck/HUD/EnterText 原来是我们自译的「输入文字...」，官方 zh-CN = 「输入文本...」
+                Check(phZh, "输入文本...", "★ 中文档的占位符 = `Loc.T(\"MenuDeck/HUD/EnterText\")` 的**中文列**"
+                    + "（2026-10-14 官方 zh-CN 表 = 「输入文本...」，原「输入文字...」）");
                 Check(phEn, "Enter text...", "★ 英文档的占位符 = `Loc.T(\"MenuDeck/HUD/EnterText\")` 的**英文列**"
                     + "（= 原版那颗 TMP 的 `m_text` 原文逐字符，含末尾那三个点）");
                 CheckTrue(phZh != phEn, "★ 判别式：两语档下那句字**必须不一样**"

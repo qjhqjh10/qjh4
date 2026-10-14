@@ -48,6 +48,11 @@ namespace RuleEngine
             /// <summary>中文名（可选 —— 没翻译的卡没有这两个字段）。来自 `数据/卡牌翻译/zh_cards.json`</summary>
             public string nameZh;
             public string descZh;
+            /// <summary>🔴 🆕 2026-10-14（`A1070`）：督军后手那一局会拿到的那张**防御卡的 id**
+            /// —— 原版 `RawCardScript.goSecondCardInHand`（督军 SO 上的 PPtr）。
+            /// 只有督军卡有值；**只有 11 个阵营有真值**（见 `CardDef.GoesSecondCard`）。
+            /// 数据源 = `数据/游戏数据/warlord_goes_second.json` → `工具/gen_cards_engine.py`。</summary>
+            public string goesSecond;
         }
 
         /// <summary>从 Resources 读卡表。取不到返回空表（不抛异常 —— 让调用方能自己决定怎么报）。</summary>
@@ -121,7 +126,8 @@ namespace RuleEngine
                     nameZh: c.nameZh,
                     descZh: c.descZh,
                     fromOriginalPool: true,     // 这条路上来的都是原版卡（卡面文字取它自己的效果原文）
-                    subtype: c.subtype));
+                    subtype: c.subtype,
+                    goesSecondId: c.goesSecond));
             }
             // ⚠️ 2026-10-17 订正：下面这句原来写「跨阵营那 **4** 组」—— 第 4 组
             //    （`Bladeguard Veteran` = DarkAngels / Ultramarines）是 09-13 一次错改名的产物，
@@ -134,6 +140,12 @@ namespace RuleEngine
             // 卡名索引（2026-09-16）：「按卡名指目标」那条路的判据 —— `ParseTarget` 要问
             // 「卡面写的那个名词是不是一张卡的名字」。**只此一处建**，见 `CreatePool.BuildNameIndex`。
             CreatePool.BuildNameIndex(list);
+
+            // 🔴 🆕 **2026-10-14（`A1070` 第 ③ 档）：督军后手那张防御卡 —— id → 对象引用反查。**
+            //   **只此一处**（`CreatePool.ResolveGoesSecond`），探针 `ruleprobe` 也调它 ——
+            //   两处各写一份必然分叉（`A1339` 那条「探针与引擎不同口径」的教训）。
+            //   ⚠️ 它**住在 `Core/`**（探针只编 `Core/*.cs`，见 `ruleprobe.csproj`）。
+            CreatePool.ResolveGoesSecond(list);
             return list;
         }
 

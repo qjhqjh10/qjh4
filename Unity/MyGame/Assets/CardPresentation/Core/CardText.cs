@@ -582,7 +582,7 @@ namespace CardPresentation
         /// <para>🔴 **2026-10-10（`A1084`）：原来那两张表（`FactionNames` 16 条 + `FactionNamesEn` 13 条）
         /// 已合并成【一条词条两列】搬进 `Core/Loc.cs`**（键 = `Armies/&lt;Faction&gt;`）——
         /// 原先两张表并存就是「同一个阵营两条路」（英文那一列还是**另起**的一个函数形状）。</para>
-        /// <para>⚠️ **两列不是同一串、别当直译**：`Goff` 中文列 `高夫兽人` / 英文列 `Orks`；
+        /// <para>⚠️ **两列不是同一串、别当直译**：`Goff` 中文列 `欧克蛮人`（2026-10-14 官方 zh-CN 表；原「高夫兽人」）/ 英文列 `Orks`；
         /// `Leviathan` 英文列 `Hive Fleet Leviathan`。两列的出处（`factions.json` 的 `cn` 字段 ·
         /// `card_stats.json` `subtitle` 的逐阵营众数 · `Goff` 那个例外）**整段搬在 `Loc.cs` 那一块**，
         /// ⛔ 别在这儿抄第二份。</para>
@@ -713,7 +713,7 @@ namespace CardPresentation
         public static string TargetsAvailable(int n)
         {
             string s = Term("Battle/HUD/TargetsAvailable");
-            // 词条值 = `{0} available` / `可用 {0}`；表里万一没有 ⇒ `Term` 已回键名（不静默），这里原样返回
+            // 词条值 = `{0} available` / `{0} 可用`（2026-10-14 官方 zh-CN 表；原 `可用 {0}`）；表里万一没有 ⇒ `Term` 已回键名（不静默），这里原样返回
             return s.IndexOf("{0}", System.StringComparison.Ordinal) >= 0
                  ? s.Replace("{0}", n.ToString())
                  : s;

@@ -7062,7 +7062,7 @@ public static class DeckScene
                                   "（前提）词条 `MenuDeck/HUD/EditDeckName` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名）");
                         Check(hlb.Text, Loc.T("MenuDeck/HUD/EditDeckName"),
                               "★ D34：占位符文案 = `Loc.T(\"MenuDeck/HUD/EditDeckName\")`（随语档；"
-                            + "原版 TMP 原文 `Tap to edit deck name` / 中文「点击编辑卡组名」）");
+                            + "原版 TMP 原文 `Tap to edit deck name` / 中文「点击以编辑卡组名称」）");   // 2026-10-14：中文列换官方 zh-CN 表
                         float w = hlb.WorldW * PxPerUnit;
                         CheckTrue(w > 20f && w < 2000f, "（前提）占位符量到了真实宽度（" + w.ToString("F1") + "px）");
                         if (w > 20f && w < 2000f)
@@ -7674,12 +7674,14 @@ public static class DeckScene
                                 "Collection Menu Variant/…/Cardback Tab/Header/label",
                                 "Collection Menu Variant/…/Tabs/Shared/Close Button/Button Text",
                             };
+                            // 🔴 2026-10-14（第二十七会话）就地改期望值：下面 7 条中文列原是 `zh_CN.csv` 的我们自译版，
+                            //   官方 zh-CN 表已到手 ⇒ 换成官方值（清洗/能量/编辑名/三条空收藏/装饰）。
                             var sZh = new[]
                             {
-                                "过滤器", "清除筛选", "搜索", "军队", "稀有度", "类型", "能量费用",
-                                "创建卡组", "导入卡组", "随机", "确认", "创建卡组", "点击编辑卡组名",
-                                "没有符合当前筛选的卡牌", "没有符合当前筛选的卡背", "没有符合当前筛选的卡组",
-                                "你的装饰收藏", "返回",
+                                "过滤器", "清除过滤器", "搜索", "军队", "稀有度", "类型", "能量花费",
+                                "创建卡组", "导入卡组", "随机", "确认", "创建卡组", "点击以编辑卡组名称",
+                                "在您选择的过滤器中，您的收藏里没有任何张牌", "在您选择的过滤器中，您的收藏里没有任何卡背", "在您选择的过滤器中，您的收藏里没有卡组",
+                                "你的化妆品收藏", "返回",
                             };
                             var sEn = new[]
                             {

@@ -637,7 +637,11 @@ namespace RuleEngine
         ///   · **①** 后手方**卡组自带**那张（`DeckAndWarlordData.defensiveCard +0x20`，
         ///     `…AddGoesSecondCardToDeck.c:28-48`）—— **玩家侧就是它**（= 玩家在卡组编辑器里挑的那张）；
         ///   · **③** 电脑后手、卡组那张为空 ⇒ 该督军自己的 `goSecondCardInHand(+0x150)`（`:49-96`，
-        ///     还挂着两闸：`IsAgainstAI()` **且**玩家收藏里有同玩家阵营的 `spellType=210` 卡）；
+        ///     还挂着两闸：`IsAgainstAI()` **且**玩家收藏里有同玩家阵营的 `spellType=210` 卡）。
+        ///     ✅ 🔴 **2026-10-14：这份数据已到手并接线**（真值 → `数据/游戏数据/warlord_goes_second.json`
+        ///     → 卡表 `goesSecond` 列 → `CardDef.GoesSecondCard`）；**只覆盖 11 个阵营**
+        ///     （EmperorsChildren / SpaceWolves 的督军在原版那份 2025-07-30 快照里没有这个字段）
+        ///     ⇒ 那两族仍走「出声 + 不给卡」。两闸的落地见下面 `PlayerHasOwnFactionDefence`。
         ///   · **②** `matchType ∈ {50,80,110,120}` ⇒ **后手方阵营**的防御池随机一张（`:98-153`），
         ///     **它会覆盖 ③**（唯一能盖回来的是 `:154-167` 那个「覆盖回玩家那张」的守卫，
         ///     而它**只对玩家后手成立**）。
@@ -673,17 +677,69 @@ namespace RuleEngine
                 return RandomSecondSeatDefence(ctx, seat, t);
 
             // ---- ③ 其余 AI 模式：督军自己的 `goSecondCardInHand`(+0x150) ----
-            //  🔴 **我们没这份数据** —— 本地全仓零命中（搜过：`goSecondCardInHand` / `startingCardInHand`
-            //     → `Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json` 无此字段 ·
-            //       `Unity/数据/游戏数据/**` 无命中 · `d:/2/新解包资源/assets_full/**` 只有反编译与
-            //       文档命中），见 `资料/普查产出_第五会话/查证_防御卡电脑随机.md` §六·2。
-            //  ⇒ **如实出声、不给卡**；⛔ **不许静默换一张别的**（那就是拿猜想着规则 —— 红线）。
+            //  ✅ **2026-10-14（`A1070` 第 ③ 档）：这份数据到手中了** —— 抢救出的原版远端包
+            //     `allcards` 里 55/55 张督军都有这个字段（同包内 PPtr，按 `m_PathID` 解成卡 id）。
+            //     接线：`数据/游戏数据/warlord_goes_second.json` → `gen_cards_engine.py` 的 `goesSecond` 列
+            //     → `CardDef.GoesSecondCard`（`CardDatabase.Parse` 建完卡表后按 id 反查一次）。
+            //     ⛔ **别在这里改回「本地没有这份数据」** —— 那是它到手之前的说法。
+            //  原版这一支还挂着**两闸**（`AddGoesSecondCardToDeck.c:65-89`），逐条对上：
+            //     ① `IsAgainstAI()` —— 本函数只对 `IsBotSeat(seat)` 为真才走到这里 ⇒ **恒满足**；
+            //     ② **玩家收藏里有「同玩家阵营 + `spellType=210`(DefensiveCard) + `cardType=Tactic`」的卡**
+            //        —— 见下面 `PlayerHasOwnFactionDefence` 的说明（本项目**恒真**，理由与判据都写在那里）。
+            var botWarlord = ctx.Players[seat] == null ? null : ctx.Players[seat].Warlord;
+            var botWarlordCard = botWarlord == null ? null : botWarlord.Card;
+            var pick = botWarlordCard == null ? null : botWarlordCard.GoesSecondCard;
+            if (pick != null && PlayerHasOwnFactionDefence(ctx, seat))
+            {
+                UnityEngine.Debug.Log($"[RuleEngine] 电脑（P{seat + 1}）后手那张防御卡："
+                    + $"**照原版读督军自己的 `goSecondCardInHand`** ⇒「{pick.Name}」({pick.Id})"
+                    + $"（`matchType = {(int)t}`（{t}）不在 `{{50,80,110,120}}` 里 ⇒ 不走随机池那支；"
+                    + "原版 `AddGoesSecondCardToDeck.c:65-89`）");
+                return pick;
+            }
+            // 走到这里 = **真拿不到**：要么两闸没过，要么真值里没有这个阵营的督军
+            //   （原版那份 2025-07-30 快照里 EmperorsChildren / SpaceWolves 的督军**根本没有这个字段**）。
+            //   ⇒ **如实出声、不给卡**；⛔ **不许静默换一张别的**（那就是拿猜想着规则 —— 红线）。
             UnityEngine.Debug.LogWarning($"[RuleEngine] 电脑（P{seat + 1}）后手那张防御卡**发不出来**："
                 + $"原版这一档 `matchType = {(int)t}`（{t}）不在 `{{50,80,110,120}}` 里 ⇒ 该读"
-                + "**督军自己的 `goSecondCardInHand`(+0x150)**，而**我们本地没有这份数据**（全仓零命中）"
+                + "**督军自己的 `goSecondCardInHand`(+0x150)**，而"
+                + (botWarlordCard == null
+                    ? "**这一局电脑的督军还没落位**"
+                    : $"督军「{botWarlordCard.Name}」({botWarlordCard.Id}) **这一格是空的**"
+                      + "（真值只覆盖 11 个阵营 —— EmperorsChildren / SpaceWolves 的督军在原版那份"
+                      + "2025-07-30 快照里没有这个字段）")
                 + " ⇒ 这一局电脑**没有防御卡**。⛔ 不静默换一张别的"
-                + "（判据 → `资料/普查产出_第五会话/查证_防御卡电脑随机.md` §五/§六）");
+                + "（判据 → `资料/普查产出_第五会话/查证_防御卡电脑随机.md` §二/§五"
+                + " · 真值 → `数据/游戏数据/warlord_goes_second.json`）");
             return null;
+        }
+
+        /// <summary>🔴 🆕 **2026-10-14（`A1070` 第 ③ 档的第二道闸）** —— 原版那一支除了
+        /// `IsAgainstAI()`，还要求「**玩家收藏里有「同玩家阵营 + `spellType=210`(DefensiveCard)
+        /// + `cardType=Tactic`」的卡**」（`AddGoesSecondCardToDeck.c:65-89`，判据
+        /// `资料/普查产出_第五会话/查证_防御卡电脑随机.md` §二/§七）。
+        ///
+        /// 🔴 **本项目这一闸恒真**，而且**是用户拍板的**，不是我们省略：用户 2026-09-17 定的三条边界里
+        /// 第 ② 条 = 「不做真实经济：资源固定 9999、商店与卡包照常能买、**卡池 / 锻造厂 / 卡牌 / 头像
+        /// 全解锁**」⇒ **玩家收藏 = 全池**，任何原版卡都在手里。
+        ///
+        /// ⚠️ **闸门本身仍然留在这里**（不是删掉）：将来若真做了「收藏/未解锁」这套经济，
+        /// **改这一处**即可，⛔ 不必回头去翻反编译找它当年挂在哪。
+        /// 「玩家阵营」取的是**座位 0**（玩家那一方）的督军阵营 —— 原版那个 `player` 就是本地玩家。
+        /// </summary>
+        static bool PlayerHasOwnFactionDefence(BattleContext ctx, int seat)
+        {
+            if (ctx == null) return false;
+            // 原版判的是「玩家收藏里有 **自阵营** 的防御卡」；我们全解锁 ⇒ 只看「这个阵营到底有没有防御卡」
+            //   （连这个都没有 = 卡池对不上，那时**不该**发卡，让上面那条警告说话）。
+            var me = ctx.Players[0];
+            var w = me == null ? null : me.Warlord;
+            string faction = (w == null || w.Card == null) ? null : w.Card.Faction;
+            if (string.IsNullOrEmpty(faction)) return false;
+            if (ctx.CardPool == null) return true;      // 没给卡池 ⇒ 无从否决（老调用方一个字不用改）
+            foreach (var c in ctx.CardPool)
+                if (c != null && c.Type == "defence" && DeckRules.SameFaction(c.Faction, faction)) return true;
+            return false;
         }
 
         /// <summary>🔴 🆕 **2026-10-19（`A1070`）：原版 ② 那一支** —— 从**后手那一方阵营**的防御池里

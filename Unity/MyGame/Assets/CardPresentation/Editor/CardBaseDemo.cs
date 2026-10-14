@@ -1317,7 +1317,8 @@ public static class CardBaseDemo
                 + "12 条那张里没有 ⇒ 合并只许合并、⛔ 不许合并时丢词）");
             Check(CardText.KeywordZh("armour") == "护甲", "③ `armour` → `护甲`（⛔ 不是别名 `装甲`）");
             Check(CardText.Keyword("armour") == "护甲", "③ `Keyword(\"armour\")` 仍 → `护甲`（带数值那一格由调用方拼）");
-            Check(CardText.Faction("Goff") == "高夫兽人", "③ 阵营 `Goff` → `高夫兽人`");
+    // 🔴 2026-10-14（第二十七会话）就地改期望值：Armies/Goff 原来是我们自译的「高夫兽人」，官方 zh-CN = 「欧克蛮人」
+        Check(CardText.Faction("Goff") == "欧克蛮人", "③ 阵营 `Goff` → `欧克蛮人`");
             Check(CardText.Phrase("GAME OVER") == "对局结束" && CardText.Phrase("YOU LOSE") == "你输了",
                   "③ HUD 短语 `GAME OVER` / `YOU LOSE` → `对局结束` / `你输了`");
             Check(CardText.TurnLabel(3) == "第 3 回合",
@@ -1371,7 +1372,7 @@ public static class CardBaseDemo
             var sb = new System.Text.StringBuilder();
             foreach (var s in CardText.AllChinese()) sb.Append(s);
             string all = sb.ToString();
-            string[] must = { "余烬督军", "路标石", "高夫兽人", "对局结束", "对{1}造成 {0} 点伤害", "护甲", "眩晕" };
+            string[] must = { "余烬督军", "路标石", "欧克蛮人", "对局结束", "对{1}造成 {0} 点伤害", "护甲", "眩晕" };
             int no = 0; string wh = "";
             foreach (var m in must)
                 if (all.IndexOf(m, System.StringComparison.Ordinal) < 0) { no++; wh += "「" + m + "」"; }

@@ -595,6 +595,32 @@ public static class BattleScene
                 Check(unmapped == 0, $"事件表里每个事件都配了特效（没配的 {unmapped} 个）");
             }
 
+            // ---- 🔴 🆕 2026-10-14（第二十七会话）：**逐卡那一档真的接上了** ----
+            //   为什么单开这一组：在这之前 `VfxMap.ByCard` 是一句 `new Dictionary<…>()`
+            //   —— **写死的空表**（注释写着「留给以后配」），而生成器早在造一份 2.2 MB 的逐卡表
+            //   ⇒ **全仓没有一行代码读过它**（`grep card_vfx_by_card` 只有 4 处注释）。
+            //   表现症状：**原版真值 3326 条一条都没进游戏**，场上播的还是 5 个阵营手写 + 8 条兜底
+            //   —— 而且**当时没有任何断言会红**（名字都在库里，只是永远取不到逐卡那一条）。
+            //   这一组就是给那个形状上的锁。
+            {
+                VfxMap.EnsureLoaded();
+                Debug.Log(P + $"   逐卡表：{VfxMap.CardTableCards} 张卡 / {VfxMap.CardTableEntries} 条"
+                             + $"（`Resources/{VfxMap.CardTableResourcePath}.json`）");
+                Check(VfxMap.CardTableCards > 0,
+                      "★ 逐卡特效表**载进来了**（⛔ 不是那个写死的空字典 —— `VfxMap.EnsureLoaded`）");
+                // 尺子：`SOR5`（修女会 Battle Sister，真值 `activeAbility…cardAnimations[0]` 解出）
+                //   · 逐卡权威值 = `Buff_Sororitas_quick`
+                //   · 按事件兜底 = `ByEvent[ability]` = `Buff_Blue_SW`
+                //   ⇒ 两者**必然不同** ⇒ 下面那两条**结构上不可能同时满足**（灭自证）。
+                string perCard = VfxMap.Resolve(VfxMap.Ability, null, "SOR5");
+                string fallback = VfxMap.Resolve(VfxMap.Ability);
+                Check(perCard == "Buff_Sororitas_quick",
+                      $"★ 逐卡那一档取到了**原版真值**（`SOR5` 的 ability —— 实得「{perCard}」，期望 `Buff_Sororitas_quick`）");
+                Check(perCard != fallback,
+                      $"★ **灭自证**：逐卡值「{perCard}」≠ 按事件兜底「{fallback}」 ⇒ "
+                    + "「把 `ByCard` 改回空字典」时上面那条与这条**同时**变红");
+            }
+
             // ---- 事件时序表（`EventTiming`）：数错一位整段动作的节奏就全乱，**截图看不出来** ----
             // 🔴 2026-09-18 改口径（全量反编译查实，规格见 `资料/普查产出_0918/第18行_UI三小条_规格.md` §③）：
             //    **出手那一下的判据是 `attackStepTime`（0.1），不是 `timeToChargeAttack`（0.35 没消费点）**；
@@ -3837,10 +3863,13 @@ public static class BattleScene
                       $"★ `END TURN` 钮上写「{driver.EndTurnText}」—— 期望「{(turnZh ? "结束回合" : "END TURN")}」"
                     + "（中文出处 `zh_CN.csv:34`；英文 = 原版显示串）"
                     + "，判据 = `ClockManager.SetEndTurnText` 里那颗字面量 `0x4288678`");
+                // 🔴 **2026-10-14（第二十七会话）就地改期望值**：这一格原来断「对手回合」——
+                //   那是**我们自译的**；官方 zh-CN 表解开之后，`Battle/HUD/EnemyTurn` 换成了 **「敌方回合」**
+                //   （`Battle/HUD/YourTurn` 同样是「你的回合」）。⛔ 期望值仍写**字面量**（不拿 `Loc.T` 自证）。
                 Check(driver.TurnLineText != null
-                   && driver.TurnLineText.EndsWith(turnZh ? "对手回合" : "ENEMY TURN", System.StringComparison.Ordinal),
-                      $"★ 回合行「{driver.TurnLineText}」的**归属那段** = " + (turnZh ? "「对手回合」" : "`ENEMY TURN`")
-                    + " —— 现在是**对手回合**（判据 = `BattleManager.NextTurn` 那条链）");
+                   && driver.TurnLineText.EndsWith(turnZh ? "敌方回合" : "ENEMY TURN", System.StringComparison.Ordinal),
+                      $"★ 回合行「{driver.TurnLineText}」的**归属那段** = " + (turnZh ? "「敌方回合」" : "`ENEMY TURN`")
+                    + " —— 现在是**敌方回合**（判据 = `BattleManager.NextTurn` 那条链；中文 = 官方 zh-CN 词条 `Battle/HUD/EnemyTurn`）");
 
                 var langWasTurn = Loc.Current;
                 try
@@ -3863,7 +3892,7 @@ public static class BattleScene
                     driver.RefreshAll();
                 }
                 Check(driver.EndTurnText == (turnZh ? "结束回合" : "END TURN")
-                   && driver.TurnLineText.EndsWith(turnZh ? "对手回合" : "ENEMY TURN", System.StringComparison.Ordinal),
+                   && driver.TurnLineText.EndsWith(turnZh ? "敌方回合" : "ENEMY TURN", System.StringComparison.Ordinal),
                       $"★ 切回 {langWasTurn} 档后两处复原（「{driver.EndTurnText}」/「{driver.TurnLineText}」）"
                     + " —— 这一条同时验「换语言真的会重设 HUD 那两处」");
             }
@@ -4880,7 +4909,10 @@ public static class BattleScene
                       $"…而且效果清单露了 2 行（实际 {driver.CardDisplay.EffectRowCount}）");
                 Check(driver.CardDisplay.EffectWho(0) == "Blind Librarian",
                       $"第 1 行「谁给的」= **施加者真卡名**（`SourceCard`，不是恒为「战术卡」的 `Src`）：{driver.CardDisplay.EffectWho(0)}");
-                Check(driver.CardDisplay.EffectWhat(0) == "+2 近战", $"第 1 行「给了什么」：{driver.CardDisplay.EffectWhat(0)}");
+                // 🔴 **2026-10-14（第二十七会话）就地改期望值**：`Battle/Effect/ChangeMeleeAttackOneTurn`
+                //   原来是我们自译的 `{0} 近战`（⇒「+2 近战」），官方 zh-CN = **`获得 {0} 近战攻击一回合`**
+                //   ⇒ 中文档现在印「获得 +2 近战攻击一回合」。⛔ 期望值仍写字面量。
+                Check(driver.CardDisplay.EffectWhat(0) == "获得 +2 近战攻击一回合", $"第 1 行「给了什么」：{driver.CardDisplay.EffectWhat(0)}");
                 Check(driver.CardDisplay.EffectWhat(1) == "先锋",
                       $"第 2 行是**关键词**（🔴 **2026-10-19（A1316②）起走 `CardText.KeywordDisplay`**"
                     + $" = 跟语档的显示名，中文档 = 「先锋」）：{driver.CardDisplay.EffectWhat(1)}");
@@ -4924,7 +4956,7 @@ public static class BattleScene
                     Loc.RestoreForTest(effLangWas);
                     driver.SimulateTapUnit(0, mine);      // 关
                     driver.SimulateTapUnit(0, mine);      // 再开 ⇒ 语档放回，下面那几条量几何时窗口是开的
-                    Check(driver.CardDisplay.EffectWhat(0) == "+2 近战",
+                    Check(driver.CardDisplay.EffectWhat(0) == "获得 +2 近战攻击一回合",
                           $"★ …放回中文档后**逐字回到原来那句**（实得「{driver.CardDisplay.EffectWhat(0)}」）");
                 }
                 Debug.Log(P + $"   效果清单：{driver.CardDisplay.EffectWho(0)} / {driver.CardDisplay.EffectWhat(0)}"
@@ -5010,7 +5042,7 @@ public static class BattleScene
                         Check(e9Dup == 0,
                               $"★ 5 个槽的「给了什么」**两两不同**（{string.Join(" / ", e9Aw)}）—— "
                             + "⛔ 不是同一行抄 5 遍；这一条**只用位置与相异，不依赖上面那两条夹具的文字**");
-                        Check(driver.CardDisplay.EffectWhat(0) == "+2 近战" && driver.CardDisplay.EffectWhat(1) == "先锋",
+                        Check(driver.CardDisplay.EffectWhat(0) == "获得 +2 近战攻击一回合" && driver.CardDisplay.EffectWhat(1) == "先锋",
                               "★ …而且前两槽仍是 ①′ 那两条（本节**只加不改**，没动既有夹具）");
                         // **没有第 6 个槽** —— `EffectWho` 的界是**数组真实长度**：只有 5 个 ⇒ 答 `null`；
                         //   若有人把数组建成 6 个，它会答**空串**（非 null）⇒ 同样红。
@@ -6532,12 +6564,14 @@ public static class BattleScene
                     //   （`SupportMethods__GetTargetsAvailableText.c`）= `GetTranslation(词条)` 之后
                     //   `String.Replace("{0}", n)`（占位符字面量 `0x4265d10` = `"{0}"`）。
                     // 期望值一律用**字面量**（英文 = 那颗节点静态 TMP `0 available` 的同一模式；
-                    //   中文 = `zh_CN.csv:49` 的 `0 available,~,可用 0`）—— ⛔ 不拿 `CardText` 当期望。
+                    //   🔴 **2026-10-14 改**：中文原来按 `zh_CN.csv:49` 写成 `可用 0`；
+                    //      官方 zh-CN 词条 `Battle/HUD/TargetsAvailable` = **`{0} 可用`**（数在前）⇒ 跟着改。
+                    //      ⛔ 仍不拿 `CardText` / `Loc.T` 当期望。
                     {
                         bool zhT = CardText.Zh && Loc.Current == AvailableLanguages.Chinese;
-                        Check(sp.TargetsText == (zhT ? ("可用 " + wantT) : (wantT + " available")),
-                              $"★ 面板那行「{sp.TargetsText}」= 原版拼法「{(zhT ? "可用 " : "")}{wantT}"
-                            + $"{(zhT ? "" : " available")}」—— 判据 = `Replace(\"{{0}}\", n)` + 词条值 `可用 {{0}}` / `{{0}} available`");
+                        Check(sp.TargetsText == (zhT ? (wantT + " 可用") : (wantT + " available")),
+                              $"★ 面板那行「{sp.TargetsText}」= 原版拼法「{wantT}{(zhT ? " 可用" : " available")}"
+                            + $"」—— 判据 = `Replace(\"{{0}}\", n)` + 词条值 `{{0}} 可用` / `{{0}} available`");
                         Check(Loc.HasEntry("Battle/HUD/TargetsAvailable"),
                               "★（坑表 #18）`Loc` 表里**真有** `Battle/HUD/TargetsAvailable`");
 
@@ -6554,7 +6588,7 @@ public static class BattleScene
                             Loc.RestoreForTest(langWasTargets);
                             sp.SetTargetsAvailable(wantT);
                         }
-                        Check(sp.TargetsText == (zhT ? ("可用 " + wantT) : (wantT + " available")),
+                        Check(sp.TargetsText == (zhT ? (wantT + " 可用") : (wantT + " available")),
                               $"★ 切回 {langWasTargets} 档后那行复原（实得「{sp.TargetsText}」）");
                     }
                     Check(sp.Alpha > 0.9f, $"淡入推完了（alpha {sp.Alpha:F2}）");
@@ -7608,8 +7642,12 @@ public static class BattleScene
                 //   §W6 那组收口扫描负责（那一条断的是「两档都取到真文案且不等于键名」）。
                 {
                     bool zhNow = Loc.Current == AvailableLanguages.Chinese;
-                    string wantMiss  = zhNow ? "拖到目标上再松手"   : "Drag to a target";
-                    string wantReady = zhNow ? "这个单位已经行动过了" : "This unit is not ready";
+                    // 🔴 **2026-10-14（第二十七会话）就地改期望值**：这两条原来写的是**我们自译的**
+                    //   「拖到目标上再松手」/「这个单位已经行动过了」；官方 zh-CN 词条是
+                    //   `Battle/Tips/DragToTarget` = **「拖动到有效目标」** · `Battle/Tips/UnitNotReady` = **「单位未准备好」**。
+                    //   ⛔ 期望值一律用**字面量**（不拿 `Loc.T` 证明 `Loc.T`）。
+                    string wantMiss  = zhNow ? "拖动到有效目标"   : "Drag to a target";
+                    string wantReady = zhNow ? "单位未准备好" : "This unit is not ready";
 
                     // ---- ① 拖出去、松手时没落到有效目标 ⇒ 提示行出那句 ----
                     int missIdx = -1;
@@ -8387,7 +8425,9 @@ public static class BattleScene
                     Loc.RestoreForTest(AvailableLanguages.English);
                     string enNote; BattleDriver.PickSavedDeck(out enNote);
                     Loc.RestoreForTest(AvailableLanguages.Chinese);      // 收尾：还给本节的语档
-                    Check(zhNote == "卡组存档读取失败",
+                    // 🔴 **2026-10-14（第二十七会话）就地改期望值**：`CustomErrors/ErrorLoadDeck`
+                    //   原来是我们自译的「卡组存档读取失败」；官方 zh-CN = **「加载玩家卡组出错。」**（**带句号**）。
+                    Check(zhNote == "加载玩家卡组出错。",
                           "★ G9 **中文档**：`note` 是那条词条的**中文列**（钉的是**字面量**，"
                         + "不是从 `Loc` 里现读出来当期望；实得「" + Short(zhNote, 26) + "」）"
                         + "｜🧨 改回 `note = lib.LastError`（诊断串）⇒ 红");
@@ -9782,14 +9822,17 @@ public static class BattleScene
                 //   ⚠️ 语料**永远是中文**（建资产那会儿字体还不存在、语言闸必然是假）⇒ ⛔ 别给它加语言闸。
                 //   📌 **改完要重跑一次 `TmpSetup.BuildCjkFontAsset`**（那是 Unity 腿，本笔没跑）。
                 {
+                    // 🔴 **2026-10-14 就地改期望值**：`Battle/HUD/CardsInHand` 官方 zh-CN = **「手牌」**
+                    //   （我们原来自译的是「手牌剩余」）· `Battle/HUD/TargetsAvailable` = **「{0} 可用」**
+                    //   （原来是「可用 {0}」）· `Battle/Tips/DragToTarget` = **「拖动到有效目标」**。
                     var corpus = new System.Text.StringBuilder();
                     foreach (var s in CardText.AllChinese()) corpus.Append(s);
                     string all = corpus.ToString();
-                    Check(all.Contains("手牌剩余"),
+                    Check(all.Contains("手牌"),
                           "★ 字体语料里有 `Loc` 表的中文（`W6` 那条 `Battle/HUD/CardsInHand` 的中文列）");
-                    Check(all.Contains("拖到目标上再松手"),
+                    Check(all.Contains("拖动到有效目标"),
                           "★ …以及本批新加的那条（`Battle/Tips/DragToTarget`）");
-                    Check(all.Contains("可用 {0}"),
+                    Check(all.Contains("{0} 可用"),
                           "★ …以及**带占位符**那条（`Battle/HUD/TargetsAvailable`）—— 语料要收它的原文形态");
                 }
 
