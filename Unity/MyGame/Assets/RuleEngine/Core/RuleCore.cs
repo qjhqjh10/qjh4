@@ -1282,8 +1282,13 @@ namespace RuleEngine
                 if (u.IsBlind) u.BlindedAtStartOfTurn = true;
             }
             if (lostStealth > 0)
-                ctx.Log($"（{lostStealth} 个单位的 Stealth 到一回合、失效 —— 规则书 :211"
-                      + $"；原版 `CardScript__OnTurnStart.c:110-118`）");
+                // 🔴 2026-10-14（账 `A1666`）：本句原来写「…失效 —— **规则书 :211**；原版 `CardScript__OnTurnStart.c:110-118`」。
+                //    那个「规则书 :N」指向的《Warpforge Offline Rulebook》**自己第 5 行就写着
+                //    `Not official. Fan project.`** ⇒ **粉丝实体版，⛔ 不当出处**，已从**日志字符串**里删掉
+                //    （它只是**第二来源**，见 `CLAUDE.md` §一·2；留下那句原版方法引用才是**权威**那一档）。
+                //    ⚠️ 本文件的**注释**里另有大量「规则书 :N」引用，**本笔没动**（`A1666` 只点名活字符串）。
+                ctx.Log($"（{lostStealth} 个单位的 Stealth 到一回合、失效"
+                      + $" —— 原版 `CardScript__OnTurnStart.c:110-118`）");
 
             // ============================================================
             // 🔴 **`turn_start` 相位（原版 `OnTurnStart`）—— 位置 = 上面那一圈【逐卡】之后**
@@ -1737,7 +1742,11 @@ namespace RuleEngine
                 if (!ps.Hand.Remove(c)) continue;         // 按**实例**去一份 —— 同名两张也分得开
                 if (first)
                 {
-                    ctx.Log($"—— 回合 {ctx.Turn} 结束：{ps.Name} 手牌里的临时卡从游戏中移除（规则书 :229「非弃置」）——");
+                    // 🔴 2026-10-14（账 `A1666`）：句里原来带「（**规则书 :229**）」—— 那份是**粉丝实体版**
+                    //    （`Not official. Fan project.`，见 `CLAUDE.md` §一·2）⇒ ⛔ 不当出处，已删。
+                    //    「**非弃置**」这个**语义保留**（判据与出处见本方法上方那份 `<summary>`：
+                    //    原版这一段**没查到** ⇒ 按规则书做的，⚠️ 强度如实标在那边，别在这儿重复）。
+                    ctx.Log($"—— 回合 {ctx.Turn} 结束：{ps.Name} 手牌里的临时卡从游戏中移除（**非弃置**）——");
                     first = false;
                 }
                 ctx.Removed.Add(new RemovedCard
@@ -7534,7 +7543,11 @@ namespace RuleEngine
                     ctx.Players[p].Deck.Add(u.Instance);   // 第 7 行第 2 步：**同一份**洗回牌库（不新发）
                     Shuffle(ctx.Players[p].Deck, ctx.Rng);
                     Auras.Recompose(ctx);  // 🆕 A7：棋盘变动 ⇒ 光环重算
-                    ctx.Log($"{u.Name} 的狂暴结算完 —— **洗回牌库**（规则书 :186）");
+                    // 🔴 2026-10-14（账 `A1666`）：句里原来带「（**规则书 :186**）」—— 那份是**粉丝实体版**
+                    //    （`Not official. Fan project.`，见 `CLAUDE.md` §一·2）⇒ ⛔ 不当出处，已删；
+                    //    「洗回牌库」这件事的**权威**判据 = 上面那两行引的原版
+                    //    `_ResolveRecallToDeck` / `RemoveMinion`（还带一条「离场要补位」）。
+                    ctx.Log($"{u.Name} 的狂暴结算完 —— **洗回牌库**");
                     // ⚠️ 发 `Return`（「离开格位但不是阵亡」）而不是 `Death` —— 表现层据此播
                     //    「回手/回牌库」那套，不会误播阵亡消散
                     ctx.Emit(new BattleEvent { Kind = EvtKind.Return, Player = p, Slot = slot, CardId = u.Name });

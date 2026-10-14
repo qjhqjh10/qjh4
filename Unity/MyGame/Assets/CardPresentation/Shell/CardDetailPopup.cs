@@ -232,6 +232,28 @@ namespace CardPresentation
         public const float AltBtnCxL = (PanL + PanR) * 0.5f - 177.1f;   // 1341.9
         public const float AltBtnCxR = (PanL + PanR) * 0.5f + 171.9f;   // 1690.9
         public const float AltBtnCy = (AltT + AltB) * 0.5f - 65.0f;     // 723.215
+        /// <summary>🆕 **2026-10-14（账 `A1837`）**：`Alternate Art Panel` 的 **`Current Style`** 那一格 ——
+        /// 原版喂的是**图**（`AlternateArtPanel` 的 `+0x30 styleImageContainer`，一颗 `private Image`），
+        /// 我们原来印的是**文字**「风格名 (N/M)」（**我们挑的** → `资料/普查产出_第二十三会话/YI_恢复两块面板与异画钮.md` §七·3）。
+        ///
+        /// <para>**矩形判据（三路互证，全部 2026-10-14 现读；全文 → `资料/普查产出_第二十九会话/A1837_风格格换图.md` §一）**：
+        /// ① **场景资产** `bundle_scenes_scenes_mainmenuwarpforge/RectTransform/RectTransform_1309.json` ——
+        ///    经「`AlternateArtPanel` 的 `styleImageContainer` PPtr `2237` → `GameObject/Current Style.json` 的
+        ///    `m_Component=[1309,1039,2237]` → `RectTransform_1309.m_Father=1284`（= `Alternate Art Panel`）」
+        ///    这一条链闭合对上：`anchor (0.5,0.5)` · **`aPos (0, −26.8)`** · **`sd (406.022, 101.505)`** ·
+        ///    `pivot (0.5,0.5)` · `m_Children` 空；
+        /// ② 🔴 **运行时实况 dump**（铁律 4 的第一手）`资料/原版实拍/menu_forge_1016/runtime_ui_dump_menu_forge.tsv:151`：
+        ///    `…/Panel/Alternate Art Panel ▸ Current Style ▸ pos 0.0,−26.8 ▸ rect 406.0,101.5 ▸ IMG`；
+        /// ③ **树 dump** `资料/说明书/04_界面UI/主菜单全树.md:157` 的 `Current Style [356,1304 406x102]`
+        ///    （那份 dump 以**屏心为原点** ⇒ `x_abs = x + 960` · `y_顶向下 = y − 540`；本笔在 7 个节点上验过）。
+        /// ⇒ 屏（1920×1080 · **左上原点 · y 向下**）：**x 1315.989 → 1722.011 · y 764.264 → 865.769**。</para>
+        /// <para>**图档照原版**：`m_Type = 0 (Simple)` · **`m_PreserveAspect = 0`**（`MonoBehaviour_2237.json` 实读
+        /// —— ⛔ **别按习惯开 PA**：这一格是**固定矩形画**；`A1808` §三·2 当时记的「PA 值没查」本笔销掉）。
+        /// ⚠️ 框比 `4.00002` ≈ 图比 `4.0` ⇒ 开不开 PA 画出来**逐位相同**，但**原版值就是不收边**，别写成 `true`。</para>
+        /// <para>📌 它与那颗价签（`Buy Original Card Button`）**中心逐位相同**（都是 `(1519, 815.017)`）——
+        /// 不是巧合：原版这两件**互斥**（见 `BuildAltArt` 里 `canBuyOriginal` 那一段）。</para></summary>
+        public const float AltStyleImgL = 1315.99f, AltStyleImgT = 764.26f,
+                           AltStyleImgR = 1722.01f, AltStyleImgB = 865.77f;
         /// <summary>`Card Counter` 825.07,829.81→1094.93,909.19；`Duplicate Counter` 底 840,834.21→1080,904.79。</summary>
         public const float CcBgL = 840f, CcBgT = 834.21f, CcBgR = 1080f, CcBgB = 904.79f;
         public const float CcX1L = 869.41f, CcX1R = 942.69f, CcY1 = 846.61f, CcY2 = 917.19f, CcX1Px = 52.6f;
@@ -1027,6 +1049,14 @@ namespace CardPresentation
             var styles = AltStylesOf(Card != null ? Card.Id : null);
             var has = styles.Count > 0;
             AltStyleIndex = has ? Mathf.Clamp(AltStyleIndex, 0, styles.Count) : 0;   // 0..Count（原版 1 基那一段）
+            // 🆕 **2026-10-14（账 `A1837`）**：「可购买原画」（= 原版 `AlternateArtPanel.TogglePurchaseBasicCard`
+            //   的那个人布尔）—— 它**与上面那颗风格 logo 互斥**（判据/推导全文 → 本方法末尾
+            //   `buyRoot.gameObject.SetActive(canBuyOriginal)` 那一段）。
+            //   原版表达式 = `(style == 0) && !拥有那张的原画版 && 拥有一张它的异画`；
+            //   本工程里**第二项恒假** ⇒ 结论恒 `false`（理由：`CardProgress.Owned` 是「给足」口径。
+            //   ⚠️ 短路的顺序有意义：`has` 为假时 `Card` 可能是 null，**不能让第三个条件被求值**。
+            bool canBuyOriginal = has && AltStyleIndex == 0
+                                  && CardProgress.Owned(Card.Id, Card.Rarity) <= 0;   // 原版 `!Inv.HasItem(+0x58)`
 
             // ---- ① 左右两颗换画圆钮（原版 `Alternate Art Panel` 的 `Select Art Button Left/Right`）----
             // 判据链（`d:/2/tools/decomp_full/`，本笔逐字读过）：
@@ -1043,25 +1073,74 @@ namespace CardPresentation
             // ⚠️ 原版这一格的 `Title` 印的是**升级文案**（复制粘贴 bug）⇒ **我们不抄那个 bug**，
             //    照这一格自己的意思写（**出声**）。
             Title(p, "AltArt Title", has ? "Alternate art (owned)" : "Alternate art", 1307.5f, 690f, 1726f, 760f, 31.7f);
-            // `Current Style`：原版那一格跟着当前档走（`SetStyle` 里写 `+0x30 styleImageContainer` 的
-            //   `set_enabled` + `set_sprite(该风格的图标)`）。
-            //   🔴 **2026-10-14 就地订正（铁律 5 · 账 `A1808`）**：原文写「**风格图标 SO 在服务端**（本地没有）」
-            //   —— **不成立**：SO 的本体在**本地内置文件**里，它那两张 logo 图**已在工程**（`Resources/Art/ui_menu/`；
-            //   映射与判据 → `CollectionWindow.StyleLogoName` 头注）。
-            //   ⇒ **要做**（铁律 11）：那一格原版喂的是 **`Image`**，我们现在印的是**文字**
-            //   （**显示名与档号是我们挑的**，如实标；风格名走 `CollectionWindow.StyleLabel` 那一份，不另写映射）。
-            //   ⚠️ **本轮没做**：换成图要原版那个 `styleImageContainer`（`AlternateArtPanel` 的 `+0x30`）
-            //   的**矩形**，那个值本地还没核 ⇒ 已立账（`A1837`），别照着这一行的文字框硬套。
-            string cur = !has ? "No alternate art"
-                       : AltStyleIndex == 0 ? "Original art  (0/" + styles.Count + ")"
-                       : CollectionWindow.StyleLabel(styles[AltStyleIndex - 1].Style)
-                         + "  (" + AltStyleIndex + "/" + styles.Count + ")";
-            MenuDraw.Text(p, new PxRect(1307.5f, 762f, 1726f, 800f), cur, Color.white, "Current Style", 28f, QCdText);
+            // ---- ② `Current Style` 那一格 = **原版的图**（账 `A1837` · 2026-10-14 落地）----
+            // 判据链（`d:/2/tools/decomp_full/`，逐行读过）：
+            //   `AlternateArtPanel__SetStyle.c`：`uVar5 = AlternateArtStylesUtilities.GetStyleIcon(style)`
+            //   → `UnityEngine_UI_Image__set_sprite(*(param_1 + 0x30), uVar5)`；而 `+0x30` 那颗 Image 的
+            //   场景真身 = **`Current Style`**（`private Image styleImageContainer`，`m_Children` 空
+            //   ⇒ 图长在它自己身上，**全树没有 TMP**）。
+            //   ⇒ 喂哪张 = **那一档 `style` 的 logo**：**原画档（`style 0`）→ `WarpForgeLogo_Style` 徽标 ·
+            //     异画档（`5`）→ `Cell_Shaded_Alternative_Art_Style`**（映射与判据 → `CollectionWindow.StyleLogoName` 头注）。
+            //   `AlternateArtPanel__Initialize.c:82-95`：**看原画时传的就是 `0`**（`iVar7 = iVar6 = 0`）、
+            //   看异画才传该异画自己的 style ⇒ 我们这一侧 `AltStyleIndex == 0` ⇔ 原画档 ⇒ `StyleDefault`。
+            // ⚠️ **改前是文字**「风格名 (N/M)」，框 `1307.5,762→1726,800` 与文案**都是我们挑的**；
+            //   **文字这一支现在只当兜底**（图载不到 ⇒ **出声** + 退回画它 —— 红线：不许静默失败）。
+            string curStyle = AltStyleIndex == 0 ? CollectionWindow.StyleDefault
+                                                 : styles[AltStyleIndex - 1].Style;
+            var _styleTex = CollectionWindow.StyleLogo(curStyle);
+            if (_styleTex != null)
+            {
+                // 🔴 **队列取 `QCdText`(3117)，⛔ 不是 `QCdRow`(3116)** —— 因为这一格**整块落在
+                //   面板底板 `Background`（`PanelBox` 画的，**也是 `QCdRow`**）之内**：
+                //   本仓**没有 uGUI** ⇒ 每个 quad 都躺在**同一个设计平面上（z=0）**，而透明队列是按
+                //   「到相机的 3D 距离」排的 ⇒ **同队列 + 同平面 = 顺序不可靠**（这条踩过：铺满屏的图
+                //   互相盖错、卡组编辑侧栏被底板盖死 ⇒ `CLAUDE.md` §三「分层要用渲染队列，不能用 z」）
+                //   ⇒ 必须**严格大于**底板那一层。
+                //   **同族先例（不是我自造的层级）**：收藏窗 Styles 页那颗同名的 `Art Style Logo`
+                //   （`CollectionWindow.cs:1646-1648`）用的就是**它那边的文字层 `QPageText`**(3033)，
+                //   而那页的行/底是 `QPageRow`(3032) —— 同一个梯子、同样的相对关系。
+                //   ⚠️ 这一格与价签**互斥**（见下面 `canBuyOriginal` 那一段）⇒ 它还**不会**去压价签；
+                //      几何上也没有别的件与它相交（`Title` 到 760 为止 · 两钮/锁到 761 为止）。
+                MenuDraw.Rect(p, _styleTex,
+                              new PxRect(AltStyleImgL, AltStyleImgT, AltStyleImgR, AltStyleImgB),
+                              "Current Style", QCdText, null, keepAspect: false);   // 原版 = Simple · PA = 0
+            }
+            else
+            {
+                Debug.LogWarning("[CardDetail] 风格 logo 图载不到（style=" + curStyle
+                                 + "）⇒ 退回画风格名 —— 查 `Resources/Art/ui_menu/` 与 `CollectionWindow.StyleLogoName`");
+                string cur = !has ? "No alternate art"
+                           : AltStyleIndex == 0 ? "Original art  (0/" + styles.Count + ")"
+                           : CollectionWindow.StyleLabel(styles[AltStyleIndex - 1].Style)
+                             + "  (" + AltStyleIndex + "/" + styles.Count + ")";
+                MenuDraw.Text(p, new PxRect(1307.5f, 762f, 1726f, 800f), cur, Color.white, "Current Style", 28f, QCdText);
+            }
             // 🔴 **异画绑死在那张卡上**（`AlternateArtCard.GetIdForClonedCard` 对原卡 id 做一次 `String.Replace`）
             //    ⇒ 这张卡没有异画就是没有，不给别的督军换。本地只有 7 张督军异画。
+            //
+            // 🆕 **2026-10-14（账 `A1837`）**：这颗价签**整棵**收进一个同名根节点里 —— 原版
+            //   `priceDisplayButton`（`AlternateArtPanel` 的 `+0x40`，PPtr **`2261`**）**就长在
+            //   `Buy Original Card Button` 这个 GO 上**（那一包的 `GameObject/Buy Original Card Button.json`
+            //   的 `m_Component = [1500(RT), 2261]`）⇒ 原版 `SetActive` 关的是**整棵**（含它的命中区）。
             float bw = 328.71f, bh = 73.38f;
-            float bx = PanL + (PanR - PanL - bw) * 0.5f, by = 820f;
-            var buyBg = MenuDraw.Rect(p, CardArt.MenuUi("UI_Button_Mulligan"), new PxRect(bx, by, bx + bw, by + bh),
+            float bx = (PanL + PanR) * 0.5f - bw * 0.5f;             // 原版锚 (0,0) + `aPos.x = 225` ⇒ 屏 1519 为中心
+            // 🔴 `by` **820 → 778.33**：`YI_恢复两块面板与异画钮.md` §七·4 记的那条偏离，**本笔销账**。
+            //   判据 = 原版锚 `(0,0)`（面板左下）· `aPos (225, 88.0)` · `sd (328.7,73.4)` · `pivot (0.5,0.5)`
+            //   ⇒ 顶边 = `AltB − 88.00 − bh/2` = `903.01 − 88 − 36.69` = **778.33**。四路同值：
+            //   ① **运行时实况 dump** `资料/原版实拍/menu_forge_1016/runtime_ui_dump_menu_forge.tsv:160`
+            //      （`Buy Original Card Button ▸ pos 225.0,88.0 ▸ rect 328.7,73.4`）；
+            //   ② 树 dump `资料/说明书/04_界面UI/主菜单全树.md:163`（`[395,1318 329x73]` ⇒ 屏 **1355, 778.33**）；
+            //   ③ 场景 JSON（`RectTransform_1500`）复算；④ §七·4 自己那次实读。
+            //   ⚠️ `bx` 原式是 `PanL + (PanR−PanL−bw)*0.5`（与上式差 **1.3e-3 px**）—— 本笔一并写成**中心式**，
+            //      与原版那条锚/algo 同形（`(PanL+PanR)/2 − bw/2`）。
+            //   🔴 **为什么现在可以改了（旧理由为什么失效）**：那次不动它的理由是
+            //      「动它会与上面那行 `Current Style` **文字**（762..800）撞上 ⇒ 把一个偏离换成一个更差的重叠」——
+            //      而**那一行字本笔已经删掉**（换成原版**原位**的图 `764.26..865.77`），并且
+            //      **原位本来就是「图与价签同中心、互斥两态」**（两者中心逐位都是 `(1519, 815.017)`，
+            //      判据见下面 `canBuyOriginal` 那一段）⇒ 旧理由指的那一对东西已经不存在了。
+            float by = AltB - 88.0f - bh * 0.5f;                     // = 778.33
+            var buyRoot = MenuDraw.Node(p, "Buy Original Card Button", new PxRect(bx, by, bx + bw, by + bh));
+            var buyBg = MenuDraw.Rect(buyRoot, CardArt.MenuUi("UI_Button_Mulligan"), new PxRect(bx, by, bx + bw, by + bh),
                           "Buy Bg", QCdRow);
             // 🔴 **2026-10-09（A1126 · A2 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 32px。
             //   判据 = 原版 `Alternate Art Panel/Buy Original Card Button/Generic UI Button/Price Display/text`
@@ -1070,7 +1149,7 @@ namespace CardPresentation
             //   `m_fontSizeBase = **39**` · **折行 = 0**。
             //   ⚠️ 我们这一格的框 `328.71 × 73.38` 与原版那颗钮**逐位相同** ⇒ 就是它。
             //   ⚠️ 本窗刻度 = 原版刻度 ⇒ 四格照抄；⚠️ 折行 0 ⇒ 紧跟一句 `SetWrapping(false)`。
-            var buyLb = MenuDraw.Text(p, new PxRect(bx, by, bx + bw, by + bh), has ? "Alternate art" : "No alternate art",
+            var buyLb = MenuDraw.Text(buyRoot, new PxRect(bx, by, bx + bw, by + bh), has ? "Alternate art" : "No alternate art",
                           Color.white, "Buy Original Card", 32f, QCdText, bw, 12f, 54f, 39f);
             if (buyLb != null) buyLb.SetWrapping(false);            // 原版折行=0
             MenuDraw.Rect(p, CardArt.MenuUi("WF_Lock_Icon_Simple"), new PxRect(1310f, 690f, 1360f, 740f),
@@ -1083,8 +1162,40 @@ namespace CardPresentation
             //   `WindowsManager.ShowPopUp(<确认弹窗>)` + `PlayfabWrapper.GenericCloudScriptHandler(0x385, …)`
             //   —— **服务端 CloudScript**，而且**价格 / 余额 / 持有物全在远端**（正本 §六·7 那几条老账）。
             //   ⇒ 按本笔的口径：**接上命中区 + 出声**（⛔ 不留哑钮，也不假装买成功）。
-            Hit(p, "BuyHit", new PxRect(bx, by, bx + bw, by + bh),
+            // ⚠️ **2026-10-14（`A1837`）**：那两句「不留哑钮」的前提是**它会被画出来** —— 而按下面那段
+            //   互斥判据，本工程**恒走「价签关」那一支** ⇒ 这颗命中区与 `Buy Bg` / 那行字**一起关着**。
+            //   本笔**没有删掉**这一段（判据/出声都留着，`p` 换成 `buyRoot`），理由同 `A856` 那条：
+            //   原版也是**建好、`SetActive` 关**，节点留在树上（自检两向都断得到）。
+            Hit(buyRoot, "BuyHit", new PxRect(bx, by, bx + bw, by + bh),
                 () => { OnBuyOriginalCardClicked(); }, QCdHit, buyBg, "UI_Button_Mulligan");
+
+            // 🔴 **2026-10-14（账 `A1837` · 简报 §四·1 的「互斥」）：「风格 logo」与「这颗价签」永远不同时出现。**
+            //   判据 = `d:/2/tools/decomp_full/AlternateArtPanel__TogglePurchaseBasicCard.c`（逐行读过）：
+            //     `UnityEngine_Behaviour__set_enabled(*(param_1 + 0x30) /* styleImageContainer */, param_2 ^ 1)`
+            //     `... + 0x40 /* priceDisplayButton */ 那个 GO：SetActive(param_2)`
+            //   —— `param_2` = 「可购买」⇒ **可购买 ⇒ logo `enabled=false`、价签开**；**不可购买 ⇒ 反过来**。
+            //   ⚠️ 那一支里还有第二道闸：`price != 0` 才算真能买（`ItemsConfig.GetOriginalArtPrice(rarity)`，
+            //      **远端 LiveOps 配置**）；`price == 0` ⇒ 价签关 + **logo 又开回来**。
+            //   🔴 **「可购买」在本工程恒 `false`（按代码里的真实判据推，不是拍脑袋）** ——
+            //      `AlternateArtPanel__SetStyle.c` 末尾那段（逐行读过）是：
+            //        `(style == 0 /*原画档*/) && !Inv.HasItem(那张卡的**原画版** /*+0x58*/)
+            //         && Inv.Any(该卡的异画表, x => Inv.HasItem(x))`
+            //      · 第一项在 `AltStyleIndex == 0`（= 原画档）时**成立**；
+            //      · 🔴 **第二项本工程恒假** —— 本窗「拥有」的判据**只有 `CardProgress.Owned` 这一处**
+            //        （同族使用者可互证：`Shell/DeckInfoPopup.cs:1295` 的 `CheckOwnership`、
+            //        `Shell/CollectionWindow.cs:246`、`Shell/BoosterPackOpenWindow.cs:631`），而它是
+            //        **「给足」口径**：`DeckCap(rarity) + (NeedCopies[MaxLevel] − NeedCopies[1])` **任何 id 都 ≥ 1**
+            //        （用户 2026-09-22 裁决「全解锁 / 拥有数给足」）⇒ `!HasItem(那张)` **恒假**；
+            //      · ⇒ 第三项**够不着**，本版也**没有异画拥有表**可读（如实记，⛔ 不编一个）。
+            //   ⇒ 照原版这一支：**logo 开（上面已画）· 价签整棵 `SetActive(false)`**。
+            //   ⚠️ **另一支（可购买 ⇒ 价签开、logo 关）本版永远走不到** ⇒ 那条链上的
+            //      `GetOriginalArtPrice` / `PriceDisplayButton.Setup` **无从验**（⛔ 不假装买成功）。
+            //   ⚠️ 顺带：`+0x38`（`lockIcon`）的判据是同一次调用里的 `SetActive(!HasItem(当前那张))` ——
+            //      **同一条「恒拥有」⇒ 原版在我们这种全解锁态下锁恒关**，而我们那颗 `Lock Icon` 仍在
+            //      `p` 下恒画、位置也不同（`1310,690→1360,740` ↔ 原版 `Lock Background` 1716.6,722.06→1782.4,846.98）
+            //      —— 那是**另一笔已立案的偏离**（`资料/普查产出_第二十三会话/YI_恢复两块面板与异画钮.md` §八·2），
+            //      **不在本笔口径内**（whitelist / 分工），⛔ 本轮**没动它**。
+            buyRoot.gameObject.SetActive(canBuyOriginal);
 
             // 🔴 **2026-10-17（D17 = 账上 A856）：「没有异画 ⇒ 整块关」** —— 判据 = 第一权威（反编译方法体）
             //    `d:/2/tools/decomp_full/AlternateArtPanel__Initialize.c` **:22-38**（现读）：

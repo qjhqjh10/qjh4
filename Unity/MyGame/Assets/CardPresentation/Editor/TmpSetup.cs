@@ -255,6 +255,70 @@ public static class TmpSetup
                "　｜　HUD（scale 3）字号 " + CardPresentation.Label.FontSizeFor(3).ToString("F1"));
         bad += wgOk ? 0 : 1;
 
+        // ⑨ 🆕 **2026-10-14（第二十九会话 · `A1024` ②现核 + ③的前置）—— 那三份原版拉丁字体到底能不能用。**
+        //   **为什么单开这一格**：账 `A1024` 一直写着「② 没做」，而盘上那三份资产**早就在**
+        //   （`git log --diff-filter=A` 现读 = `9998ebd`，第十三会话）⇒ 本会话已把三处记录订正成
+        //   「② 已完成、只剩 ③」。**但「结构完整」不等于「加载得到、渲得对」** —— 这一格就是那条缺口的最小验证。
+        //   ⚠️ 走 `Resources.Load`（三份都在 `Resources/Fonts/` 下）—— 这**同时验了「它们零引用」那条**：
+        //      能 Load 到 ⇒ ③「按用途选字体」只是**接线**问题，不是资产问题。
+        //   🔴 **`faceInfo` 那几个数就是 ③ 要的**：`WorldGlyphPerFontSize` / `WorldCapPerFontSize`
+        //      是**按字体标定**的 ⇒ 换字体必须按新字体重测（这就是「会牵动全仓版面」那句话的由来）。
+        //      例：原版 `Pragati` 行盒 `0.9474 em` ↔ 我们的 `NotoSerifCJK` `1.437 em`
+        //      ⇒ 同一个框里字号能差一大截（账 `A1927` 就是这么暴露的）。
+        string[] latinNames = { "Pragati-Regular SDF", "Asar-Regular SDF", "RobotoCondensed-Regular SDF" };
+        foreach (var nm in latinNames)
+        {
+            var lf = Resources.Load<TMP_FontAsset>("Fonts/" + nm);
+            if (lf == null)
+            {
+                Report(false, "⑨ `Resources/Fonts/" + nm + "` **加载不到**（`Resources.Load` 返回 null）");
+                bad++;
+                continue;
+            }
+            var fi = lf.faceInfo;
+            var lgo = new GameObject("latinprobe");
+            var ltmp = lgo.AddComponent<TextMeshPro>();
+            ltmp.font = lf;
+            ltmp.fontSize = 50;
+            ltmp.text = "5";
+            ltmp.ForceMeshUpdate();                 // 批处理没有帧循环，必须手动推
+            int lvis = ltmp.textInfo.characterCount;
+            var lmesh = ltmp.GetComponent<MeshFilter>().sharedMesh;
+            // 🔴 **顺手把 ③ 要的【逐字体标定值】量出来**：`Label` 那条 px 口径 =
+            //    `fontSize × WorldGlyphPerFontSize × 108`，而 `WorldGlyphPerFontSize` / `WorldCapPerFontSize`
+            //    **是按字体标定的**（`TmpFont.MeasureGlyph` 拿 `Font` 那一个资产量一次就缓存）
+            //    ⇒ **换字体必须重量**（这就是「会牵动全仓版面」那句话的由来）。
+            //    这里用与 `MeasureGlyph` **逐字相同**的算法（`|topLeft.y − bottomLeft.y| / fontSize`），
+            //    好让读数能直接和 `TmpFont` 里那个缓存值对得上。
+            string ratios = "";
+            foreach (var pr in new[] { "国", "M", "5" })
+            {
+                ltmp.text = pr;
+                ltmp.ForceMeshUpdate();
+                float r = 0f;
+                var info = ltmp.textInfo;
+                if (info != null && info.characterCount > 0)
+                    r = Mathf.Abs(info.characterInfo[0].topLeft.y - info.characterInfo[0].bottomLeft.y) / 50f;
+                ratios += " " + pr + "=" + (r > 0f ? r.ToString("F4") : "**量不出**");
+            }
+            ltmp.text = "5";
+            ltmp.ForceMeshUpdate();
+            Report(lvis == 1 && lmesh != null && lmesh.vertexCount >= 4,
+                   "⑨ `" + nm + "` 加载得到 · 字形数 " + lf.characterTable.Count
+                 + " · PointSize " + fi.pointSize.ToString("F0")
+                 + " · **行盒 " + (fi.lineHeight / fi.pointSize).ToString("F4") + " em**"
+                 + "（" + fi.lineHeight.ToString("F2") + "/" + fi.pointSize.ToString("F0") + "）"
+                 + " · **大写字高 " + (fi.capLine / fi.pointSize).ToString("F4") + " em**"
+                 + " · ascentLine " + fi.ascentLine.ToString("F1") + " · descentLine " + fi.descentLine.ToString("F1")
+                 + "　｜　字号 50 下 '5'：命中字形 " + lvis + "/1 · 顶点 " + (lmesh == null ? 0 : lmesh.vertexCount)
+                 + "　｜　`atlasPopulationMode` " + lf.atlasPopulationMode
+                 + "　｜　图集 " + (lf.atlasTextures != null && lf.atlasTextures.Length > 0 && lf.atlasTextures[0] != null
+                                    ? lf.atlasTextures[0].width + "×" + lf.atlasTextures[0].height : "**没有**")
+                 + "　｜　**逐字体标定值**（`|topLeft−bottomLeft| ÷ fontSize`，字号 50）：" + ratios);
+            bad += (lvis == 1 && lmesh != null && lmesh.vertexCount >= 4) ? 0 : 1;
+            Object.DestroyImmediate(lgo);
+        }
+
         Object.DestroyImmediate(go);
         Finish(bad);
     }

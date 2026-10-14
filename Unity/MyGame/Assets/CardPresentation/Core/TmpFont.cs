@@ -27,11 +27,26 @@
 //      ⚠️ 只有 `NotoSerifCJK-Regular SDF` 那份是 Dynamic（`= 1`）、图集是 **1×1 占位** ——
 //         所以汉字只能自己从 TTF 生成（见 `TmpSetup` 头那段「像原版 = 同样的参数 + 同样的 Dynamic 模式」）。
 //
-//   🚧 **`A1024` 的三步里只做完第 ① 步，②③ 都【没做】（⛔ 别以为字体已经换过了）**：
+//   🚧 **`A1024` 的三步：【①② 已做完】、③ 没做（⛔ 但别因此以为字体已经换过了 —— 见下面 ③）**：
 //      ① ✅ **判据路径已记**（`资料/待办判据_第四会话.md` §A1024；上面这两段就是它的代码侧副本）；
-//      ② ⛔ **没做** —— 从「原版 JSON + 原版图集 PNG」重建三份 Static 资产（**要跑 Unity**；
-//         且 `Asar Regular White` 等 58 个 Material 要不要一并复刻、重建后 `ApplyOutline` 那套
-//         `_OutlineWidth/_Underlay*` 会不会被覆盖 —— **这两条还没查清**）；
+//      ② ✅ **2026-10-14（第二十九会话）现核：这一条【其实早就做完了】，本行原来的「⛔ 没做」是过期记录。**
+//         三份都在盘上、且**结构完整**（逐项现读）：`Resources/Fonts/` 下
+//         **`Pragati-Regular SDF.asset`**（250 个字形 · `m_AtlasPopulationMode = 0` Static ·
+//         `m_AtlasWidth/Height = 1024×2048` · **`m_PointSize = 95`（原版就是 95）** ·
+//         `m_UsedGlyphRects` 非空）· **`Asar-Regular SDF.asset`**（250 · Static · 1024×1024 · **94**（原版 94））·
+//         **`RobotoCondensed-Regular SDF.asset`**（304 · Static · 512×512 · 35）。
+//         **三份的 `m_AtlasTextures` guid 全都解得开**（Pragati/Asar 的图集在 `WarpforgeVFX/Textures/`、
+//         RobotoCondensed 的在 `Resources/Fonts/`，另有配套 `… Atlas Material.mat`）。
+//         ⇒ 来路 = `git log --diff-filter=A` 现读 **`9998ebd`（第十三会话）**，此后没再动过。
+//         ⚠️ **仍没验的是「`Resources.Load` 拿得到、且渲得对」** —— 那要跑一次 Unity（见 ③ 的验收办法）。
+//         ⚠️ 原来这一行还挂着「`Asar Regular White` 等 58 个 Material 要不要一并复刻、
+//            `ApplyOutline` 的 `_OutlineWidth/_Underlay*` 会不会被覆盖」—— **这两条仍未查**，挪到 ③ 一起办。
+//      ③ ⛔ **没做【这一条才是今天真正的缺口】** —— 接 fallback 链（`Asar/Pragati` 主 → `NotoSerifCJK` 兜底 CJK；
+//         TMP 原生支持：`TMP_FontAsset.fallbackFontAssetTable` + `SearchFallbacksForCharacter`，
+//         我们现在「表内 fallback」与「`TMP Settings` 全局 fallback」**两条都是空的**），
+//         并把 `NewText` 里 `t.font = Font` 那一跳改成「**按用途选字体**」的入口。
+//         🔴 **就是因为 ③ 没做，那三份资产【零引用】** —— 全仓给 TMP 赋字体的仍然只有 `Font` 这一个属性
+//            （+ 三个探针），而 `Font` 写死 `ResourcePath = "Fonts/NotoSerifCJK-Regular SDF"`。
 //      ③ ⛔ **没做** —— 接 fallback 链（`Asar/Pragati` 主 → `NotoSerifCJK` 兜底 CJK；
 //         TMP 原生支持：`TMP_FontAsset.fallbackFontAssetTable` + `SearchFallbacksForCharacter`，
 //         我们现在「表内 fallback」与「`TMP Settings` 全局 fallback」**两条都是空的**），
@@ -41,6 +56,20 @@
 //         （`WorldGlyphPerFontSize` / `WorldCapPerFontSize`，是**按字体标定**的）⇒ 换字体会**牵动全仓版面**
 //         （页签、按钮、卡面都会位移）⇒ 已裁：**逐件换、逐件验收**，别一次全开。
 //         ⚠️ 中文那一侧**判据本来就空**（原版客户端没有中文表）⇒ **只有拉丁这一侧可逐字对**。
+//            🔴 **2026-10-14 更正（铁律 5）**：这句的**前提不成立** —— 原版**有**官方中文表（9,440/9,447
+//               条非空），由**远端 Addressables 包 `localization_assets_all`** 下发，**2026-10-14 已解开**
+//               并落至 `Unity/数据/游戏数据/官方本地化_en+zh-CN.json`。**错因** = 把「不在离线包体里」
+//               读成了「根本没有」。判据全文 → `CLAUDE.md` §一·7 的「2026-10-14 更正」段。
+//               ⇒ **「中文那一侧判据本来就空」不再成立**，两半都要重看：
+//                 · **文本层**：官方 zh-CN 词条已在手（`Card_Description/*` 还是 I2 占位符模板、
+//                   要等 `Core/CardIcons` 的 `[[…]]`/`((…))` 记号层，见 `A1763`）；
+//                 · **字形 / 版面层（本段真正在讲的那件事）**：原版**确实在运行期渲过中文** ——
+//                   实据 = 2026-09-14 的运行期 dump（`资料/原版参照图/Unity参照管线_0825/data/
+//                   panel_0914b/p3_mulligan_tree.tsv` 的 `:15`/`:13`，即 `A1103` 那一笔用的那份）
+//                   ⇒ **中文侧不再是「无判据」**，可以拿原版实拍逐处对（原先那句「只有拉丁这一侧可逐字对」
+//                   是**当时**的实情，现在**待重核**）。
+//               ⚠️ **本段其余结论不变**（换字体牵动全仓版面、逐件换逐件验收）。
+//               ⚠️ 订正只到措辞：**这两半各自怎么重核 = 另记的账**（本笔没动任何换算常量）。
 //
 // 走的是 TMP 的**世界空间**组件 `TextMeshPro`，不是 UGUI 那版 `TextMeshProUGUI` ——
 // 它本身就摆在 3D 世界里（`TextMeshPro.cs:17` 要 `MeshRenderer`），不需要 Canvas，
@@ -87,6 +116,122 @@ namespace CardPresentation
 
         /// <summary>能不能走 TMP。不能的话调用方自己退回点阵字库（**别静默变成空白**）</summary>
         public static bool Available { get { return Font != null; } }
+
+        // ============================================================================================
+        // 🆕 **2026-10-14（第二十九会话 · 账 `A1024` 的第 ③ 步）—— 原版的【按用途选字体】。**
+        //
+        // **为什么要有这一段**：原版给不同的文字用**不同的字体资产**（出处 =
+        //   `d:/2/新解包资源/assets_full/bundle_fonts_assets_all/Material/` 的材质名 —— 名字本身就写着用途：
+        //   `Asar-Regular White-Card name` / `Pragati-Regular Card Content` / `Pragati-Regular Card Unit type`）：
+        //     · **`Asar-Regular`**   —— 正文 / UI（卡名也用它）
+        //     · **`Pragati-Regular`** —— 卡面效果文字 / 兵种 / **数字**
+        //     · **`RobotoCondensed-Regular`** —— 另一档窄体
+        //   而我们今天全仓**只有一个 `NotoSerifCJK`**（给 TMP 赋字体的只有 `Font` 这一个属性 + 三个探针）
+        //   ⇒ **拉丁文本（页签、按钮、卡面英文、数字）也在用汉字字体渲**。
+        //
+        // 🔴 **它造成的真实后果（账 `A1927` 就是这么暴露的）**：三份拉丁字体的**字形高度其实差不多**
+        //   （实测「拉丁大写高 ÷ fontSize」`Asar 0.0685` / `Pragati 0.0656` / `Noto ≈0.0683`），
+        //   **差得多的是【行盒】**：`Pragati 0.9474 em` ↔ `Noto 1.437 em`。
+        //   而 TMP 的**自适应是按行盒判「装不装得下」**的 ⇒ 卡组左栏那颗费用数字：
+        //   原版（Pragati，`em≈50px` ⇒ 行盒 `47.4px`）**装得下、停在 `m_fontSizeMax = 50`**；
+        //   我们（Noto ⇒ 行盒 `1.437×50 = 71.85px > 框 47.88px`）**必然被压** ⇒ 实测只到 **3.05**。
+        //
+        // 🔴 **口径：本步【零行为变化】** —— `Face.Cjk` 就是今天那条路（`ResourcePath` / `Font` / 现有那个
+        //   `WorldGlyphPerFontSize` 缓存**一个字都没动**），新入口一律**显式传**才生效。
+        //   仓规已裁：**逐件换、逐件验收**（换字体会牵动全仓版面）⇒ ⛔ 不许一把全开。
+        //
+        // ⚠️ **汉字的兜底：那三份拉丁资产【没有汉字字形】**（实测 `'国'` 量出来的是 `.notdef` 方框，
+        //   `Asar`/`Pragati` 都是 `0.0622`）⇒ 本工程的做法是**按文本判**：
+        //   一个 Label 的文本里**只要有汉字，就用 CJK 那面**（见 `Label.ActualFace`），
+        //   ⛔ **不去改那三份资产的 `fallbackFontAssetTable`** —— 那会**静默弄脏 git 里跟踪的 `.asset`**
+        //   （自检宿主会 `SaveAssets`），而且原版那三份本来就是「只有拉丁」的 Static 资产。
+        //   ⇒ 「接 TMP 原生 fallback 链」这一半**仍未做**，如实记在账上。
+        // ============================================================================================
+
+        /// <summary>按用途选字体（见上面那一段）。**默认 `Cjk` = 今天的行为**。</summary>
+        public enum Face
+        {
+            Cjk = 0,            // NotoSerifCJK —— 今天全仓走的那一份（汉字/拉丁都用它）
+            LatinUi,            // Asar-Regular      —— 原版：正文 / UI / 卡名
+            LatinCardBody,      // Pragati-Regular   —— 原版：卡面效果文字 / 兵种 / **数字**
+            LatinNarrow,        // RobotoCondensed-Regular
+        }
+
+        static readonly string[] FaceResource =
+        {
+            "Fonts/NotoSerifCJK-Regular SDF",
+            "Fonts/Asar-Regular SDF",
+            "Fonts/Pragati-Regular SDF",
+            "Fonts/RobotoCondensed-Regular SDF",
+        };
+
+        static readonly TMP_FontAsset[] _faceAsset = new TMP_FontAsset[4];
+        static readonly float[] _faceEm = new float[4];
+
+        /// <summary>取某一面的字体资产。**取不到就退回 CJK 那一份并出声**（⛔ 不返回 null、不静默变空白）。</summary>
+        public static TMP_FontAsset FaceAsset(Face f)
+        {
+            int i = (int)f;
+            if (_faceAsset[i] != null) return _faceAsset[i];
+            var a = Resources.Load<TMP_FontAsset>(FaceResource[i]);
+            if (a == null)
+            {
+                if (f == Face.Cjk) return null;                  // CJK 那份取不到 = 今天那条路的既有症状，由 `Font` 出声
+                Debug.LogWarning("[TmpFont] 按用途选字体：`Resources/" + FaceResource[i] +
+                                 "` 取不到 ⇒ **退回 CJK 那一份**（字形高度换算跟着 CJK 走，版面会与预期不同）");
+                a = FaceAsset(Face.Cjk);
+                if (a == null) return null;
+            }
+            _faceAsset[i] = a;
+            return a;
+        }
+
+        /// <summary>「**1 em** 在世界空间里有多高」÷「fontSize」—— 这是本工程 px 口径的基准
+        /// （`Label.FontSizeToPx` = `fontSize × 本值 × 108`）。
+        ///
+        /// 🔴 **为什么不能直接量 `'国'`**：只有 CJK 那份有汉字；拉丁三份量出来的是 `.notdef` 方框（实测 0.0622），
+        ///   拿它当 em 会把字号算错一大截。**统一口径** = `量一个大写字母 ÷ (faceInfo.capLine ÷ pointSize)`：
+        ///   大写字母高 = `capLine/pointSize` em ⇒ 反推出 1 em。**对 `Noto` 自洽验证过**：
+        ///   `0.0683 ÷ 0.72 ≈ 0.0948` = 汉字实测值（两者一致 ⇒ 这条式子是通的）。
+        /// ⚠️ `Face.Cjk` 这一支**直接返回既有那个缓存值**（`WorldGlyphPerFontSize`）—— 保证零行为变化。</summary>
+        public static float EmPerFontSize(Face f)
+        {
+            if (f == Face.Cjk) return WorldGlyphPerFontSize;      // 既有口径，一个字不动
+            int i = (int)f;
+            if (_faceEm[i] > 0f) return _faceEm[i];
+            var a = FaceAsset(f);
+            if (a == null) return WorldGlyphPerFontSize;
+            float cap = MeasureGlyph(a, 'M', "拉丁大写（" + f + "）");
+            var fi = a.faceInfo;
+            float capEm = fi.pointSize > 0f ? fi.capLine / fi.pointSize : 0.72f;
+            float em = capEm > 0.01f ? cap / capEm : WorldGlyphPerFontSize;
+            _faceEm[i] = em;
+            return em;
+        }
+
+        /// <summary>要让 1 em 占 `worldHeight` 个世界单位高，fontSize 该给多少（按面折算）。</summary>
+        public static float FontSizeForEm(Face f, float worldHeight)
+        {
+            float e = EmPerFontSize(f);
+            return e > 0f ? worldHeight / e : 0f;
+        }
+
+        static readonly float[] _faceCap = new float[4];
+
+        /// <summary>「一个**拉丁大写字母**有多高 ÷ fontSize」，**按面**。`Face.Cjk` 这一支返回既有缓存值
+        /// （`WorldCapPerFontSize`）⇒ 零行为变化。
+        /// ⚠️ 三份拉丁字体这一项实测**很接近**（`Pragati 0.0656` · `Asar 0.0685` · `Noto ≈0.0683`）
+        ///   ⇒ **换面本身几乎不改变字形大小**；真正会变的量在**行盒**（见 `EmPerFontSize` 上面那段）。</summary>
+        public static float CapPerFontSize(Face f)
+        {
+            if (f == Face.Cjk) return WorldCapPerFontSize;
+            int i = (int)f;
+            if (_faceCap[i] > 0f) return _faceCap[i];
+            var a = FaceAsset(f);
+            if (a == null) return WorldCapPerFontSize;
+            _faceCap[i] = MeasureGlyph(a, 'M', "拉丁大写（" + f + "）");
+            return _faceCap[i];
+        }
 
         /// <summary>
         /// 「一个**汉字**在世界空间里有多高」÷「fontSize」。
@@ -183,13 +328,24 @@ namespace CardPresentation
         /// </summary>
         public static TextMeshPro NewText(Transform parent, string name, string text, float fontSize, Color color)
         {
-            if (!Available) return null;
+            return NewText(parent, name, text, fontSize, color, Face.Cjk);
+        }
+
+        /// <summary>同上，但**指定字体面**（🆕 2026-10-14 · `A1024` ③）。
+        /// ⚠️ 旧的那个五参重载**原样保留并转发 `Face.Cjk`** ⇒ 既有调用点**零行为变化**。</summary>
+        public static TextMeshPro NewText(Transform parent, string name, string text, float fontSize,
+                                          Color color, Face face)
+        {
+            // ⚠️ `Face.Cjk` 特意**走 `Font`**（不是 `FaceAsset`）—— 那份带 `_tried` 闩与那条既有告警，
+            //   换成 `FaceAsset` 会把「取不到字体」的既有告警文案悄悄换掉。
+            var fa = face == Face.Cjk ? Font : FaceAsset(face);
+            if (fa == null) return null;
 
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
 
             var t = go.AddComponent<TextMeshPro>();
-            t.font = Font;
+            t.font = fa;
             t.fontSize = fontSize;
             t.color = color;
             t.alignment = TextAlignmentOptions.Center;
@@ -308,11 +464,19 @@ namespace CardPresentation
         /// </summary>
         static float MeasureGlyph(char probe, string what)
         {
-            if (!Available) return 1f;
+            return MeasureGlyph(Font, probe, what);
+        }
+
+        /// <summary>同上，但**指定字体资产**（🆕 2026-10-14 · `A1024` ③ 的按用途换算要用）。
+        /// ⚠️ 算法与上面那条**逐字相同**（`|topLeft.y − bottomLeft.y| ÷ fontSize`）—— 别改成量墨迹/量行盒，
+        ///   那会让新老两套口径对不上（`TmpSetup.Verify` 的第 ⑨ 格打的就是这一条）。</summary>
+        static float MeasureGlyph(TMP_FontAsset fa, char probe, string what)
+        {
+            if (fa == null) return 1f;
 
             var go = new GameObject("TmpFontMeasure") { hideFlags = HideFlags.HideAndDontSave };
             var t = go.AddComponent<TextMeshPro>();
-            t.font = Font;
+            t.font = fa;
             t.fontSize = 100f;                    // 基准字号，量完按比例换算
             t.textWrappingMode = TextWrappingModes.NoWrap;
             t.text = probe.ToString();

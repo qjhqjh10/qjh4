@@ -134,6 +134,7 @@ class Scan
         {
             string S(string k) => c.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
             string name = S("name"), desc = S("desc");
+            // 🔴 **2026-10-14（第二十九会话 · 账 `A1941`）**：这一句就是「**全池 1120**」与「卡池 `count = 1126`」对不上的**全部**原因 —— `desc` 为空的卡**不进全池 dump**，现读正好 **6 张**：`ASH61` · `BL2` · `BL26` · `GOF8` · `TL61` · `UM6`（`1126 − 6 = 1120`）。⚠️ **后果**：这 6 张的效果**永远不在基线里** ⇒ 改 `EffectText` 时动到它们，`check` **不会出声**。⇒ 本句**保留**（没 desc 本来就没得解析），但**这条盲区要写在案上**，⛔ 别再把 1120 当「卡池张数」。
             if (string.IsNullOrEmpty(desc)) continue;
             var ops = EffectText.Parse(desc, out var unparsed, out var partial, false);
             sb.Append(S("id") ?? "").Append("|").Append(name ?? "").Append("|")

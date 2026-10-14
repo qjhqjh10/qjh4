@@ -637,7 +637,26 @@ class PlayProbe
             }
         return new CardDef(c.Id, c.Name, c.Type, "", c.Rarity, c.Faction,
                            c.Cost, c.Attack, c.Health, c.RangedAttack, kw,
-                           subtype: c.Subtype);
+                           subtype: c.Subtype,
+                           // 🔴 🆕 **2026-10-14（账 `A1942`）：卡表后加的那三列必须【原样传下去】。**
+                           //   本函数造的替身与源卡**必须在除 `desc`/`descZh` 之外**逐格相同（见上面的
+                           //   `<summary>`：`同 id / 同卡名 / 同类型 / 同印数 / 同兵种 / 同关键词标记`）——
+                           //   而 `CardDef` 这三个可选参数（`Core/CardDef.cs:215-216`）**默认全是 `-1`**，
+                           //   原来只传到 `subtype` 为止 ⇒ 替身恒 `-1`（=「真值里查不到这张卡」）。
+                           //   ⇒ 形状与 `A1911`（`Program.LoadPool` 同一个坑位）**一模一样**：
+                           //     探针现造的 `CardDef` **静默丢列**，而 `-1` 长得和「没数据」一样。
+                           //   实测（`play all pf` · 2026-10-14）：改前替身 `inv/show/init` **全 `-1` ×
+                           //     1126**，源卡分布 `init 20×955 · -1×171` / `inv 10×98 · 5×31 · 0×826 · -1×171` /
+                           //     `show 5×862 · 0×93 · -1×171` ⇒ **955 张**三列全被抹掉（余 171 张源卡本就是 `-1`）。
+                           //   ⛔ **不许**借 `Program.LoadPool` 里那个 `I()` 缺列返回 `0` 的口径：这三列的
+                           //     `0` 都是**合法真值**（`InInventory` / `Hide` / `Initiative.Undefined`）。
+                           //   消费点（引擎侧）= `DeckRules.CannotAddToDeck`（能不能进卡组）·
+                           //     `FirstSeatRules.ByInitiative`（谁先手）—— `play` 这条路今天**一个都不走**
+                           //     ⇒ 本次**零读数影响**（改前/改后 `play all pf` 指纹逐字节相同，见下）；
+                           //     补它是为了**将来拿探针量这两件事**时口径是对的。
+                           inventoryOptions: c.InventoryOptions,
+                           showInCollectionOptions: c.ShowInCollectionOptions,
+                           initiative: c.Initiative);
     }
 
     /// <summary>敌人那侧**有单位的**一格（先非督军格；都没有才退督军格）。⛔ 只决定「打哪一格」，

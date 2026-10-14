@@ -3722,7 +3722,11 @@ public static class DeckScene
             // 判据 = 原版 prefab 现读（`工具/menu_dump.py bundle_menus_assets_all "Deck Editing Menu"
             //   --depth 14`）：`…/Deck Selector Card Info button/Background/Cost Image/Cost` =
             //   **48.82 × 47.88**（`字号=50.0` · `基准=32.0` · `auto[18.0~50.0]` · `Center/Capline`），
-            //   父 `Cost Image` = **61.70 × 61.70**；督军行那一族（Hero Card Info button）逐位同值。
+            //   父 `Cost Image` = **61.70 × 61.70**。
+            //   🔴 **2026-10-14（第二十九会话）就地订正**：这里原来还写「督军行那一族
+            //   （Hero Card Info button）逐位同值」—— **错的**，督军行子树里**没有** `Cost Image`/`Cost`。
+            //   现读全树只有 3 个 `Cost Image`：卡行 61.70（有 ARF）· 防御卡槽 61.70（有 ARF，与卡行逐位同值）·
+            //   卡槽预览 **62.00（无 ARF，另一族）**。判据与订正痕 → `DeckRuntime.cs` 的 `RowCostTxW` 那一段。
             // 🔴 **为什么会漏**：我们把**图框**（`RowCostS 61.7`）直接当字框用了 —— 今天两边都停在
             //   自适应上限 50（`row_cnt` 是 1~2 位数字，两个框都塞得下）⇒ 画面同级、一直没露；
             //   **要缩字时我们会比原版【晚缩】**（原版框窄 12.88px）—— 那才是不符原版的那一半。

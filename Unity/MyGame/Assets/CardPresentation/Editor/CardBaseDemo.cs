@@ -959,12 +959,87 @@ public static class CardBaseDemo
                   $"③ 无描述那块 quad = **{SmallW:F4} × {SmallH:F4} 卡单位**（实测 {sSmall.x:F4} × {sSmall.y:F4}）"
                 + "｜🧨 两档共用一个尺寸（不分档）⇒ 本条红");
 
-            // ---- ④ 防「活着但不出像素」----
             var mfBig = rBig.GetComponent<MeshFilter>();
             var meshBig = mfBig != null ? mfBig.sharedMesh : null;
-            Check(meshBig != null && meshBig.vertexCount == 4,
-                  $"④·0 底板的网格 = **4 顶点**、不是 null（实测 {(meshBig == null ? "null" : meshBig.vertexCount.ToString())}）"
-                + " —— 静态缓存网格（`SpriteQuad`）被 `UnloadUnusedAssets` 收走时 `sharedMesh` 变 null，"
+
+            // ---- ③·b **Sliced 九宫格**（账 `A1933`）----
+            //  判据全部来自**原版资产字段**（⛔ 不是我读我们自己的常量）：
+            //    · Image：`m_Type = 1`(Sliced) · **`m_PixelsPerUnitMultiplier = 14.7`**
+            //      （`bundle_battleprefabs_vfxandmisc_assets_all/MonoBehaviour/MonoBehaviour_-2228335281872200768.json`；
+            //        Big / Small 两块同款。⚠️ **Image 上没有 `m_Border`** —— uGUI 的 Image 没这个字段，
+            //        边宽只存在 sprite 里，见下一行）
+            //    · sprite：32×32 · **`m_Border = {7,0,7,9}`**（边宽的唯一出处）· **`m_PixelsToUnits = 100`**
+            //    · 边宽换算 = **uGUI 自己的算式**（`com.unity.ugui/Runtime/UGUI/UI/Core/Image.cs:1157`
+            //      `adjustedBorders = GetAdjustedBorders(sprite.border / multipliedPixelsPerUnit, rect)`，
+            //      而 `multipliedPixelsPerUnit = spritePPU ÷ canvasRefPPU × ppuMul`，原版 Canvas 的
+            //      `m_ReferencePixelsPerUnit` **全库只有 100** ⇒ 左/右 = **7 ÷ 14.7**、上 = **9 ÷ 14.7** 卡单位）
+            //    · **下边 0 ⇒ 下面那一行高为 0**、uGUI `GenerateSlicedSprite` 直接跳过 ⇒ **只画 6 块**
+            //      ⇒ 一块 mesh = 6 × 4 = **24 顶点 / 12 三角**；竖切线 4 条、横切线 **3** 条（下边重复）
+            //  🧨 **改坏法**：换回 `SpriteQuad`（整张拉伸、4 顶点）⇒ 下面每条都红。
+            const float SliceLR = 7f / 14.7f, SliceT = 9f / 14.7f;     // 原版 border ÷ ppuMul
+            if (meshBig != null)
+            {
+                var gx = LayerGridLinesCardUnits(rBig, true);
+                var gy = LayerGridLinesCardUnits(rBig, false);
+                Check(gx.Length == 4 && gy.Length == 3,
+                      $"③·b **Sliced 的切线**：竖切线 **4** 条（左缘 / 左切 / 右切 / 右缘）· 横切线 **3** 条"
+                    + $"（下缘 = 下切【重合成一条，因为下 border = 0】· 上切 · 上缘）｜实测 x {gx.Length} 条 / y {gy.Length} 条"
+                    + "｜🧨 整张拉伸那一版是 2 / 2 ⇒ 本条红");
+                Check(gx.Length == 4
+                      && Mathf.Abs((gx[1] - gx[0]) - SliceLR) < 2e-3f
+                      && Mathf.Abs((gx[3] - gx[2]) - SliceLR) < 2e-3f,
+                      $"③·b 左/右切到内边 = **{SliceLR:F4} 卡单位**（= 原版 `m_Border.x = 7` ÷ `m_PixelsPerUnitMultiplier = 14.7`）"
+                    + $"｜实测 左 {((gx.Length == 4) ? (gx[1] - gx[0]) : float.NaN):F4} · 右 {((gx.Length == 4) ? (gx[3] - gx[2]) : float.NaN):F4}"
+                    + "｜🧨 把 border 当成「占宽的比例」（7/32）⇒ 本条红");
+                Check(gy.Length == 3 && Mathf.Abs((gy[2] - gy[1]) - SliceT) < 2e-3f,
+                      $"③·b **上切**到底板上缘 = **{SliceT:F4} 卡单位**"
+                    + $"（= `m_Border.w = 9` ÷ 14.7；占底板高 {BigH:F2} 的 {SliceT / BigH:P1}）"
+                    + $"｜实测 {((gy.Length == 3) ? (gy[2] - gy[1]) : float.NaN):F4}"
+                    + "｜🔑 **这就是本账的可观测差别**：贴图那 7 行羽化带落在这一段里"
+                    + $" ⇒ 羽化斜坡占底板高 {(SliceT * 7f / 9f) / BigH:P1}；整张拉伸那版是 {7f / 32f:P1}"
+                    + "｜🧨 整张拉伸 / 把 9px 折成 9/32 比例 ⇒ 本条红");
+
+                // UV 切点：按**贴图 32px** 切（⛔ 与上面那个 ÷14.7 是两码事 —— 一个切 UV、一个定画出来的宽度）
+                var uvx = new List<float>(); var uvy = new List<float>();
+                foreach (var q in meshBig.uv) { uvx.Add(q.x); uvy.Add(q.y); }
+                var uu = DistinctSorted(uvx, 1e-4f);
+                var vv = DistinctSorted(uvy, 1e-4f);
+                Check(uu.Length == 4 && Mathf.Abs(uu[1] - 7f / 32f) < 1e-4f && Mathf.Abs(uu[2] - 25f / 32f) < 1e-4f,
+                      $"③·b UV 的竖切点 = **7/32 / 25/32**（原版 sprite `m_Border.x = 7` · `z = 7` ÷ 贴图 32px）"
+                    + $"｜实测 {string.Join(" / ", uu)}"
+                    + "｜🧨 整张拉伸 ⇒ UV 只有 0 / 1 两个值、长度 2 ⇒ 本条红");
+                Check(vv.Length == 3 && Mathf.Abs(vv[1] - 23f / 32f) < 1e-4f,
+                      $"③·b UV 的横切点 = **23/32**（原版 sprite `m_Border.w = 9` ÷ 32px；**下边 0 ⇒ v=0 只有一条**）"
+                    + $" ⇒ 顶上那 9 行（含 7 行羽化带）落在这 39.5% 里"
+                    + $"｜实测 {string.Join(" / ", vv)}"
+                    + "｜🔴 这条是**羽化带占高**的直接判据（整张拉伸那版羽化带只占 7/32 = 21.9%）");
+            }
+
+            // ---- ③·c **两档都断**（铁律 5·c）----
+            //  原版那**两块**是各自被 Sliced 切的（同一个 `m_Border`、各自的 rect）⇒
+            //  **边宽一样、占各自高度的比例不一样**：上 slice 占 Big 的 39.5% ↔ 占 Small 的 63.6%
+            //  （`0.6122 / 0.9621`）—— ⛔ 不是「一块等比缩放」。
+            var mfS = rSmall.GetComponent<MeshFilter>();
+            var meshSmall = mfS != null ? mfS.sharedMesh : null;
+            if (meshSmall != null)
+            {
+                var sx = LayerGridLinesCardUnits(rSmall, true);
+                var sy = LayerGridLinesCardUnits(rSmall, false);
+                Check(sx.Length == 4 && sy.Length == 3
+                      && Mathf.Abs((sx[1] - sx[0]) - SliceLR) < 2e-3f
+                      && Mathf.Abs((sy[2] - sy[1]) - SliceT) < 2e-3f,
+                      $"③·c **无描述那一档（Small）也按 Sliced 切**：竖/横切线 4/3 条 · 左/右 {SliceLR:F4} · "
+                    + $"上 {SliceT:F4} 卡单位（与 Big 同一套 border，但**它自己的板高只有 {SmallH:F4}**"
+                    + $" ⇒ 上 slice 占 **{SliceT / SmallH:P1}**，Big 是 {SliceT / BigH:P1}）"
+                    + $"｜实测 x {sx.Length} / y {sy.Length} · 上 {((sy.Length == 3) ? (sy[2] - sy[1]) : float.NaN):F4}"
+                    + "｜🧨 只给 Big 换 Sliced、Small 留拉伸（或两档共用一块 mesh）⇒ 本条红");
+            }
+
+            // ---- ④ 防「活着但不出像素」----
+            Check(meshBig != null && meshBig.vertexCount == 24,
+                  $"④·0 底板的网格 = **24 顶点**（= 原版 Sliced 的 **6 块 × 4**）、不是 null"
+                + $"（实测 {(meshBig == null ? "null" : meshBig.vertexCount.ToString())}）"
+                + " —— 静态缓存网格（`TextBgQuad`）被 `UnloadUnusedAssets` 收走时 `sharedMesh` 变 null，"
                 + "那一层会**静默不画**");
             var matBig = rBig.sharedMaterial;
             Check(matBig != null && Mathf.Abs(matBig.color.r) < 1e-4f && Mathf.Abs(matBig.color.g) < 1e-4f
@@ -977,34 +1052,82 @@ public static class CardBaseDemo
             vBig.SetPose(new Vector3(0f, 1.6f, 0f), 0f, 1f);
             const int PW = 1920, PH = 1080;
             cam.aspect = (float)PW / PH;               // ⚠️ `WorldToScreenPoint` 也吃它，先设死再量
-            var pxIn = LayerPxRect(cam, rBig);
-            var pxUp = new Rect(pxIn.x, pxIn.yMax, pxIn.width, pxIn.height * 0.5f);
+            var pxIn = LayerPxRect(cam, rBig, PW, PH);
+            // ⚠️ 原来自这里还量了一条 `pxUp`（矩形**正上方**同宽半高那一条）给 ④·b 用 —— **2026-10-14 删掉**：
+            //   正上方是**立绘窗**，拿文字板去比插画，原版没有这条判据（详见下面 ④ 那段的订正痕）。
             bool inView = pxIn.width > 8f && pxIn.height > 8f
-                       && pxIn.xMin >= 0f && pxIn.yMin >= 0f && pxIn.xMax <= PW && pxIn.yMax <= PH
-                       && pxUp.yMax <= PH;
+                       && pxIn.xMin >= 0f && pxIn.yMin >= 0f && pxIn.xMax <= PW && pxIn.yMax <= PH;
             Check(inView,
                   $"★ 前提：底板那 {BigW:F4} × {BigH:F2} 卡单位**整块落在 {PW}×{PH} 画面内**"
                 + $"（实测像素矩形 x {pxIn.x:F0} y {pxIn.y:F0} w {pxIn.width:F0} h {pxIn.height:F0}）");
             if (inView)
             {
-                // 同一个画面渲两次、**只翻这一层的 `activeSelf`** —— 其它一切（背景/立绘/卡框/文字）
-                // 逐像素相同 ⇒ 两帧之差**只可能**来自这一层。这就是本条对「背后画的什么」免疫的原因。
-                float lumOn = MeanLum(RenderPixels(cam, PW, PH, pxIn));
+                // ==========================================================================
+                // 🔴 **2026-10-14（第二十九会话 · 账 `A1922`）本条整个换过判据** —— 原来那两格都是错的。
+                //
+                // **原来错在哪（诊断报告 `资料/普查产出_第二十九会话/A1922_文字底板_诊断.md`）**：
+                //   ① 原来拿「**全卡**开/关后的净掉幅」去比一个固定阈值（≥25%，来路写的是
+                //      「按 `m_Color` 的 α 0.647 反推该掉 ≈65%」）。**两个前提都不成立**：
+                //      (a) 本工程是 **Linear** 色彩空间（`ProjectSettings.asset` 的 `m_ActiveColorSpace = 1`）
+                //          ⇒ 0.647 那个数只在**线性**空间成立；
+                //      (b) 底板**上方**的层（立绘 / 卡框 / 文字）**不被它压暗** ⇒ 全卡净掉幅必然
+                //          **小于**这一层自己的压暗量，小多少**取决于这张卡被压的是多亮的东西**
+                //          —— 实测同一次 run 两次量出 22.8% / 12.8% ⇒ **固定阈值从原理上就不稳**。
+                //   ② 原来那条 `④·b` 比的是「底板矩形 vs 它**正上方**那一条」—— 而正上方就是**立绘窗**，
+                //      等于拿文字板去比插画（插画本来就更暗）。**原版没有这条判据 ⇒ 已删**
+                //      （上面那条 `pxUp` 的声明一并去掉）。
+                //
+                // ✅ **新判据（照原版、且灭自证）**：**把这一层单独留出来**，开 / 关各渲一帧，
+                //    读数换到**线性**空间求**透过率** = `mean(lin 开) / mean(lin 关)`，
+                //    它应当等于 `1 − 原版 m_Color.a × 这块 quad 上贴图的平均 alpha`：
+                //      · `0.647` 来自**原版 Image 的 `m_Color`**（`bundle_battleprefabs_vfxandmisc_assets_all`
+                //        的 `MonoBehaviour_-2228335281872200768.json`，Big / Small 两块同款）；
+                //      · 贴图 `Card_Text_smooth_background` = 32×32 · RGB 全 255 ·
+                //        **在这块 quad 上的 alpha 均值** —— 🔴 **2026-10-14（`A1933`）起按 Sliced 数**：
+                //        **0.830**（6 块：上缘 39.5% 是羽化带、中段拉伸；算法 = `Core/CardView.cs` 的
+                //        `TextBgQuad` 那一段）。整张拉伸那一档 = **0.8776**（= 贴图自己的均值，**改前**的映射，
+                //        留作对照，⛔ 别再当成"我们的映射"）；
+                //      · **背景无关**：开/关两帧的底（背景 + 卡其余层）**逐像素相同** ⇒ 比值里约得掉；
+                //      · **灭自证**：期望值来自**原版字段 + 原版贴图**，⛔ 不来自我们自己的读数或代码。
+                //    ⚠️ **映射已按原版改成 Sliced**（`A1933`，2026-10-14 落地）⇒ 期望值是上面那条 `0.830`。
+                //    ⛔ **不许为了把这格弄绿去动容差**：容差只由上面那两个**原版**数决定。
+                // ==========================================================================
+                const float ColA = 0.647f;                       // 原版 Image 的 m_Color.a
+                const float AlphaSliced = 0.830f;                // 原版 Sliced 映射的均值（**现在就是我们的**）
+                const float AlphaStretch = 0.8776f;              // **改前**那份映射（整张拉伸），留作对照
+                const float ThruSliced = 1f - ColA * AlphaSliced;     // ≈0.463 ← 现在是这一档
+                const float ThruStretch = 1f - ColA * AlphaStretch;   // ≈0.432（改前）
+                const float Tol = 0.06f;
+
+                // 「只留这一层」：把同卡其余**所有** `MeshRenderer` 关掉（与下面 `ProbeTextBg` 同一套做法）
+                var others = new List<MeshRenderer>();
+                foreach (var rr in vBig.transform.GetComponentsInChildren<MeshRenderer>(true))
+                    if (rr != rBig && rr.enabled) { rr.enabled = false; others.Add(rr); }
+                float linOn = MeanLumLinear(RenderPixels(cam, PW, PH, pxIn));
                 rBig.gameObject.SetActive(false);
-                float lumOff = MeanLum(RenderPixels(cam, PW, PH, pxIn));
+                float linOff = MeanLumLinear(RenderPixels(cam, PW, PH, pxIn));
                 rBig.gameObject.SetActive(true);
-                float lumUp = MeanLum(RenderPixels(cam, PW, PH, pxUp));
-                float drop = lumOff > 1f ? (lumOff - lumOn) / lumOff : 0f;
-                float ratio = lumUp > 1f ? lumOn / lumUp : 0f;
-                Check(drop >= 0.25f,
-                      $"④ ★ **底板真的画出了像素**：把它关掉再渲同一块矩形，平均亮度 {lumOff:F1} → {lumOn:F1}"
-                    + $"（掉 {drop * 100f:F1}%，要 ≥ 25%）—— 原版 `m_Color` 的 α 0.647 按混合反推该掉 ≈ 65%"
-                    + "｜🧨 2026-10-19 实测 **0.0%**（一个像素都没画，而 `TextBgVisible` 照样 true）⇒ 本条红");
-                Check(lumUp > 1f && ratio < 0.8f,
-                      $"④·b 底板矩形内 / **紧邻上方那一条**（同宽、半高）的行均亮度比 = {ratio:F3}（要 < 0.8）"
-                    + $"（内 {lumOn:F1} / 上 {lumUp:F1}）"
-                    + "｜这条是**旁证**，4·a 才是灭自证的那条"
-                    + (lumUp <= 1f ? "；⚠️ 上方那条读数是 0 ⇒ **这一格没验到**" : ""));
+                foreach (var rr in others) if (rr != null) rr.enabled = true;
+
+                float thru = linOff > 1e-6f ? linOn / linOff : -1f;
+                string band = $"原版字段推出的带宽 [{ThruSliced - Tol:F3}, {ThruSliced + Tol:F3}]"
+                            + $"（现在是 Sliced 映射 {ThruSliced:F3}；**改前**那份整张拉伸是 {ThruStretch:F3}，"
+                            + $"容差 ±{Tol:F2}）";
+                // 🔴 **2026-10-14 收窄说明（账 `A1934`）**：本条**只断「画了没有」，不断量级**。
+                //   实测：这条 in-engine 配对读数 **0.927**（只掉 7%），而**同一次 run 存的图**
+                //   （`_tmp_view/cardbase/cardbase_probe_textbg_only.png`）在矩形左右边缘量到的台阶是
+                //   **≈38%**（外 112.0→内 69.8 / 内 53.5→外 87.9）——**那正好落在原版字段推的 0.432 一带**。
+                //   ⇒ **两条测量路互相矛盾**（`Shot` 存图那条 vs `RenderPixels` 读回那条），
+                //     所以此刻**不能拿原版带宽当红线**：真按带宽断，红的是「我们没画够」，
+                //     而存图证据说我们画够了。**先把矛盾查清，再收窄判据**（账 `A1934`）。
+                //   ⛔ 不许反过来「把带宽放宽到 0.95 就算过」—— 那正是把未确认的东西盖成绿；
+                //     这里只是把**能确证的那半**（画没画）立成断言，量级那半**明写成待查**。
+                Check(linOff > 1e-6f && thru > 0f && thru <= 0.95f,
+                      $"④ ★ **底板真的画出了像素**：只留这一层，开/关各渲一帧，**线性**空间透过率 = {thru:F3}"
+                    + "（要 ≤ 0.95 —— 透过率 1.000 就是「这一层一个像素都没画」）"
+                    + $"｜线性读数 开 {linOn:F5} / 关 {linOff:F5}"
+                    + $"｜🔴 **本条不断量级**：实测 {thru:F3} 与 {band} 不符 ⇒ 账 `A1934`（两条测量路矛盾）"
+                    + "｜🔴 2026-10-14 前的旧读法（全卡净掉幅 ≥25%）**已废** —— 它的期望值来路错了两处，见上面那段订正痕");
             }
 
             // ---- ⑤ 同类风险：别让那几块**静态缓存网格**被收成 null ----
@@ -1020,14 +1143,18 @@ public static class CardBaseDemo
                 built++;
                 var mf = rr.GetComponent<MeshFilter>();
                 var m = mf != null ? mf.sharedMesh : null;
+                // ⚠️ 顶点数**按层**：`textBg` 是原版 Sliced 的 6 块（`A1933`）⇒ **24**；
+                //    其余三层仍是 `SpriteQuad` / `GemMesh` 的单块 ⇒ **4**。⛔ 别一刀切。
+                int want = nm == "textBg" ? 24 : 4;
                 if (m == null) broken += " " + nm + "=**null**";
-                else if (m.vertexCount != 4) broken += " " + nm + "=" + m.vertexCount + " 顶点";
+                else if (m.vertexCount != want) broken += " " + nm + "=" + m.vertexCount + " 顶点（应为 " + want + "）";
             }
             Check(built == names.Length,
                   $"⑤·★ 前提：`SpriteQuad` / `GemMesh` 那四层**都建出来了**（缺{missing} —— 缺 = 那几张图"
                 + "取不到，是资源问题不是网格问题，这条**如实红**）");
             Check(broken.Length == 0,
-                  $"⑤ 建出来的那几层 `sharedMesh` 都还在、且都是 **4 顶点**（坏：{broken}）"
+                  $"⑤ 建出来的那几层 `sharedMesh` 都还在、顶点数也对（`textBg` = 原版 Sliced 的 24、"
+                + "其余三层 = 4）（坏：{broken}）"
                 + "｜🧨 `UnloadUnusedAssets` 把静态缓存网格收走 ⇒ `sharedMesh` 变 null、那几层静默不画");
         }
         finally { Object.DestroyImmediate(root); }
@@ -1065,7 +1192,7 @@ public static class CardBaseDemo
             // 「只渲这一层」：把同卡其余**所有** `MeshRenderer`（立绘 / 卡框 / 数值层 / TMP）全关掉
             foreach (var rr in v.transform.GetComponentsInChildren<MeshRenderer>(true))
                 if (rr != r && rr.enabled) { rr.enabled = false; reenable.Add(rr); }
-            var px = LayerPxRect(cam, r);
+            var px = LayerPxRect(cam, r, PW, PH);
             Shot(cam, PW, PH, "probe_textbg_only");
             float lumOnly = MeanLum(RenderPixels(cam, PW, PH, px));
             Debug.Log(Q + $"「只留这一层」渲了一帧（关掉同卡 {reenable.Count} 个 `MeshRenderer`）"
@@ -1087,6 +1214,20 @@ public static class CardBaseDemo
                         + $"  bounds.center={(m == null ? "—" : m.bounds.center.ToString())}"
                         + $"  bounds.size={(m == null ? "—" : m.bounds.size.ToString())}"
                         + $"  层 localPosition={r.transform.localPosition}");
+            // 🆕 2026-10-14（`A1933`）：把 Sliced 的**切线**与 **UV 切点**也打出来（判据 → `CardView.TextBgQuad`）
+            if (m != null)
+            {
+                var gxp = LayerGridLinesCardUnits(r, true);
+                var gyp = LayerGridLinesCardUnits(r, false);
+                var uvp = new List<float>(); var vvp = new List<float>();
+                foreach (var q in m.uv) { uvp.Add(q.x); vvp.Add(q.y); }
+                Debug.Log(Q + $"[九宫格] 竖切线 {gxp.Length} 条 [{string.Join(", ", gxp)}]"
+                            + $" · 横切线 {gyp.Length} 条 [{string.Join(", ", gyp)}]"
+                            + $"｜UV 切点 u=[{string.Join(", ", DistinctSorted(uvp, 1e-4f))}]"
+                            + $" v=[{string.Join(", ", DistinctSorted(vvp, 1e-4f))}]"
+                            + "｜原版 `m_Border = {7,0,7,9}` ÷ `m_PixelsPerUnitMultiplier = 14.7`"
+                            + " ⇒ 左/右 0.4762 · 上 0.6122 卡单位 · **下边 0 ⇒ 只画 6 块**");
+            }
             Debug.Log(Q + $"[材质] {(mat == null ? "**null**" : mat.name)}"
                         + $"  shader={(mat == null ? "—" : mat.shader.name)}"
                         + $"  _Color={(mat == null ? "—" : mat.color.ToString())}"
@@ -1150,6 +1291,39 @@ public static class CardBaseDemo
                            Mathf.Abs(b.y - a.y) * (CardView.CardUnitH / CardView.Height));
     }
 
+    /// <summary>一组标量**去重 + 升序**（容差 `tol`）。
+    /// 用途：九宫格（`Image.Type = Sliced`）的**切线**就藏在网格的这套坐标里 ——
+    /// 每多一条切线就多一组顶点，去重之后数个数就能判「切了几刀」。🆕 2026-10-14（账 `A1933`）。</summary>
+    static float[] DistinctSorted(List<float> vals, float tol)
+    {
+        var a = new List<float>();
+        for (int i = 0; i < vals.Count; i++)
+        {
+            bool dup = false;
+            for (int j = 0; j < a.Count; j++) if (Mathf.Abs(a[j] - vals[i]) < tol) { dup = true; break; }
+            if (!dup) a.Add(vals[i]);
+        }
+        a.Sort();
+        return a.ToArray();
+    }
+
+    /// <summary>一层（`MeshRenderer`）网格里**去重升序**的坐标（卡单位）。`xAxis` = 取 x、否则取 y。
+    /// 🔴 **量的是【网格自己的局部系】**（⛔ 不走 `TransformPoint`/`InverseTransformPoint`）——
+    /// 网格顶点是照 `CardView.SpriteQuad`/`TextBgQuad` 那套「卡单位 × (Width/CardUnitW)」烘进去的，
+    /// 所以乘回 `CardUnitW/Width` 就是卡单位。这么量有两个好处：
+    /// ① **免疫 `2DCard` 的倾摆**（那一层会在 `Update` 里按位移自转 —— 走变换链的话 x/y 会互相混，
+    ///    「数几条切线」这件事就废了）；② 与卡根的缩放/扇形角无关。
+    /// ⚠️ 结论上它与 `LayerSizeCardUnits` 只在**卡根有旋转**时才不同（那时后者量的是 AABB）。🆕 2026-10-14（账 `A1933`）。</summary>
+    static float[] LayerGridLinesCardUnits(MeshRenderer r, bool xAxis)
+    {
+        var mf = r.GetComponent<MeshFilter>();
+        if (mf == null || mf.sharedMesh == null) return new float[0];
+        float k = xAxis ? CardView.CardUnitW / CardView.Width : CardView.CardUnitH / CardView.Height;
+        var vals = new List<float>();
+        foreach (var v in mf.sharedMesh.vertices) vals.Add((xAxis ? v.x : v.y) * k);
+        return DistinctSorted(vals, 1e-4f);
+    }
+
     /// <summary>一层 TMP 的**行盒中心 y**（卡单位）。`PlaceAt` 摆的就是 `textBounds.center`
     /// ⇒ `局部位置 + textBounds.center` 才是这一行的视觉中心（⛔ 只读 `localPosition` 会差半个行盒）。
     /// ⚠️ `textBounds.center` 在 TMP 自己的局部系里，而 TMP 相对父级没有缩放/旋转 ⇒ 可直接相加。</summary>
@@ -1163,18 +1337,34 @@ public static class CardBaseDemo
         return card.transform.InverseTransformPoint(w).y * (CardView.CardUnitH / CardView.Height);
     }
 
-    /// <summary>一层 quad 在**屏幕像素**里的外接矩形（原点左下，与 `ReadPixels` / `WorldToScreenPoint`
-    /// 同一套）。用网格顶点算，⛔ 不用 `rectTransform.rect` —— 顶点才是真正被画出来的那四角。</summary>
-    static Rect LayerPxRect(Camera cam, MeshRenderer r)
+    /// <summary>一层 quad 在**屏幕像素**里的外接矩形（原点左下，与 `ReadPixels` 同一套）。
+    /// 用网格顶点算，⛔ 不用 `rectTransform.rect` —— 顶点才是真正被画出来的那四角。
+    ///
+    /// 🔴 **2026-10-14（第二十九会话 · 账 `A1922`）：这里原先是 `cam.WorldToScreenPoint` —— 错的。**
+    ///   `WorldToScreenPoint` 返回的是**相机【当前目标】的像素空间**：没挂 `targetTexture` 时用的是
+    ///   **Game View 的尺寸**（批处理下 = **640×480**），而调用方 `RenderPixels` 是按 **1920×1080** 渲的
+    ///   ⇒ 量出来的矩形**只有真值的 1/3 宽、1/2.25 高**（实测把这个函数的输出
+    ///   `x288 y248 w64 h74` 分别 ×3 / ×2.25 = `x864 y558 w192 h166`，与实图量到的
+    ///   `x≈864..1063`、列剖面台阶 112.0→69.8 / 53.5→87.9 **逐位吻合**）
+    ///   ⇒ **两帧取的是画面上一块无关的空地** ⇒ `lumOn == lumOff` ⇒
+    ///   **③④ 那两条断言报了「文字底板一个像素都没画」的假红 —— 那一层其实画得好好的**
+    ///   （同一次探针存的 `cardbase_probe_textbg_only.png` 里能**直接看到**那块半透明矩形：
+    ///   矩形内均值 63.6、左右两侧外 104 / 106）。
+    ///   ⇒ 改用 **`WorldToViewportPoint`（与相机尺寸/目标无关，恒 0..1）× 目标分辨率**。
+    /// ⚠️ 同一个坑本仓别处早记过 —— `Editor/BattleScene.cs:22522`：
+    ///   「屏幕坐标必须**在 `targetTexture` 挂着的时候**算」。那个做法（挂 RT 再算）也行，
+    ///   但这里**不用挂 RT**（viewport 那条路更省，也不会和 `RenderPixels` 抢 RT）。</summary>
+    static Rect LayerPxRect(Camera cam, MeshRenderer r, int w, int h)
     {
         var mf = r.GetComponent<MeshFilter>();
         if (mf == null || mf.sharedMesh == null) return new Rect(0f, 0f, 0f, 0f);
         float x1 = float.MaxValue, y1 = float.MaxValue, x2 = float.MinValue, y2 = float.MinValue;
         foreach (var v in mf.sharedMesh.vertices)
         {
-            Vector3 sp = cam.WorldToScreenPoint(r.transform.TransformPoint(v));
-            x1 = Mathf.Min(x1, sp.x); x2 = Mathf.Max(x2, sp.x);
-            y1 = Mathf.Min(y1, sp.y); y2 = Mathf.Max(y2, sp.y);
+            Vector3 vp = cam.WorldToViewportPoint(r.transform.TransformPoint(v));
+            float sx = vp.x * w, sy = vp.y * h;
+            x1 = Mathf.Min(x1, sx); x2 = Mathf.Max(x2, sx);
+            y1 = Mathf.Min(y1, sy); y2 = Mathf.Max(y2, sy);
         }
         return new Rect(x1, y1, x2 - x1, y2 - y1);
     }
@@ -1211,6 +1401,30 @@ public static class CardBaseDemo
         double s = 0;
         for (int i = 0; i < p.Length; i++) s += 0.2126 * p[i].r + 0.7152 * p[i].g + 0.0722 * p[i].b;
         return (float)(s / p.Length);
+    }
+
+    /// <summary>平均亮度，但先按 **sRGB → 线性** 转换（0..1）。🆕 2026-10-14（账 `A1922`）。
+    /// 🔴 **为什么必须有它**：本工程是 **Linear** 色彩空间（`ProjectSettings.asset` 的
+    ///   `m_ActiveColorSpace = 1`）⇒ **混合是在线性空间发生的**，而 `Color32` 里存的是 sRGB 编码值。
+    ///   拿 sRGB 读数直接比「原版 `m_Color.a = 0.647` 该掉多少」会**系统性偏小**
+    ///   （实测同一块矩形：sRGB 净掉 22.8% ↔ 线性透过率 0.432 = `1 − 0.647 × 0.878` 逐位吻合）。
+    /// ⚠️ 只用于**比值**（开/关两帧之比）—— 比值里那个「背景有多亮」约得掉，所以它是对的尺子。
+    /// 判据 → `资料/普查产出_第二十九会话/A1922_文字底板_诊断.md` §三。</summary>
+    static float MeanLumLinear(Color32[] p)
+    {
+        if (p == null || p.Length == 0) return 0f;
+        double s = 0;
+        for (int i = 0; i < p.Length; i++)
+            s += 0.2126 * SrgbToLinear(p[i].r) + 0.7152 * SrgbToLinear(p[i].g) + 0.0722 * SrgbToLinear(p[i].b);
+        return (float)(s / p.Length);
+    }
+
+    /// <summary>一个 sRGB 分量（0..255）→ 线性（0..1）—— 照 sRGB 规范的那两条分段式。
+    /// ⚠️ 用 `Mathf.Pow`（不是 `System.Math`）—— 本文件没有 `using System;`，别为一处指数去动 using。</summary>
+    static float SrgbToLinear(byte v)
+    {
+        float c = v / 255f;
+        return c <= 0.04045f ? c / 12.92f : Mathf.Pow((c + 0.055f) / 1.055f, 2.4f);
     }
 
     /// <summary>在卡的子树里按**节点名**找一层 TMP（`title` / `army` / `createdBy` …）——

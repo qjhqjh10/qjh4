@@ -4811,9 +4811,56 @@ namespace RuleEngine
         /// 别在同一个类里写第二份 —— 两份迟早不一致。</summary>
 
         // ==================================================================
-        //  常驻效果 / 手牌陷阱（回合起止触发）
-        //  规则书英文版 `:39-41`「Persistent Effects」= 写「For the rest of this battle」的卡
-        //  **被弃置后依然生效**，要单独放一摞备查 —— 卡本身就是效果来源。
+        //  常驻效果 / 手牌陷阱（回合起止触发）—— 卡面 `For the rest of this battle, …` 那一族
+        //
+        //  🔴 **2026-10-14（账 `A1950`）：判据换成原版。** 本段原来引的是
+        //     《Warpforge Offline Rulebook》英文版 `:39-41`「Persistent Effects = 写
+        //     `For the rest of this battle` 的卡**被弃置后依然生效**，要单独放一摞备查」
+        //     —— 那份**自己第 5 行写着 `Not official. Fan project.`**（见 `CLAUDE.md` §一·2）
+        //     ⇒ **粉丝实体版，⛔ 不当判据**（原话留在这里当痕迹）。
+        //
+        //  **原版实际上是怎么表达「本场战斗有效」的**（判据 = `d:/2/tools/decomp_full/`）：
+        //   · **没有 `PersistentEffect` 这个类型** —— 全量 `dump.cs` 里 `PersistentEffect`
+        //     **0 命中**；13 个带 `persistent` 的类型（`I2BasePersistentStorage` /
+        //     `DebugUIHandlerPersistentCanvas` / `PersistentCall` …）**全是 I2 / Addressables /
+        //     dots / Unity 的**，与卡牌无关。⇒ 本文件这个 `PersistentEffect` 是**我们自设计的**，
+        //     原版没有对应物，⛔ 别写成「原版有这一层」。
+        //   · **没有「本场」这个时长旗标**：`CardEffect` 只有回合级的 `untilEndOfTurn(0x32)` /
+        //     `untilPlayerTurnStart(0x33)` / `untilEnemyTurnStart(0x34)` /
+        //     `untilFollowingPlayerTurnStart(0x35)` / `untilNextAttack(0x36)` + `permanentBuff(0x74)`
+        //     ⇒ **一个旗标都不带的 `CardEffect` 就是「本场」的**（靠「没人来清它」表达）；
+        //     回合边界只清 `untilEndOfTurn` 那一档（`CardScript__ClearEndOfTurnEffects.c:23,27`）。
+        //   · **真正的机制 = 把效果【搬离打出的那张牌】，挂到一张还活着的载体牌身上**：
+        //     ① `CardEffect{buffType = enchantment(12) / singleUseEnchantment(15) /
+        //        choiceEnchantment(16), enchantment = <附魔卡>}` → `CardScript__AddEffect.c:826-828`
+        //        → `CardScript__AddEnchantment.c:25,37,43`（挂进 `card.activeEnchantments`，`+0x110`）；
+        //     ② `BuffType.replaceAbility(40)` → `CardScript__AddEffect.c:242-251`：
+        //        `card.activeAbilityRef(+0x118) = effect.enchantment`、`hasActiveAbility = 1`。
+        //     之后派发触发时 **`RawCardScript__TriggerAbilities.c:50-88` 会把这张牌
+        //     `activeEnchantments(+0x110)` 里每个附魔的 `cardAbilities(+0x290)` 一起算进来**
+        //     （`RawCardScript.GetAbilitiesForTrigger(thisCard, trigger, includeEnchantments)`）
+        //     ⇒ **载体牌在场一天，这份能力就有效一天**；载体不在场了，能力随之没了。
+        //     ⚠️ 打出的那张战术卡本身**进弃牌堆**：`CardScript__GoToCemetery.c:8` 置
+        //     `cardState = inCemetery(6)` → `:17 BattleManager__AddToCemetery` →
+        //     `CemeteryManager__AddCardToCemetery.c:17,52`（入 `cemeteryCardList` + `SetActive(false)`）
+        //     —— **弃牌堆里那张牌只是记录，不是效果来源**。
+        //   · **触发只送到「场上 + 双方手牌」，弃牌堆不在任何遍历范围内**：
+        //     `BattleManagerSupport__BroadcastTurnStart.c:18,25,33,42` ·
+        //     `…__BroadcastTurnEnd.c:18,26,45,54` · `…__BroadcastUnitSummoned.c:20,28,44,54`
+        //     —— 三处都只走 `BattleManager.unitsInPlay(+0x470)`（且要 `CardScript.IsInPlay`）
+        //     + 当前回合方手牌 + 另一方手牌。⇒ **原版不可能让一张已经弃置的牌自己继续触发**；
+        //     粉丝规则书那句「单独放一摞备查」是**实体台面**的备忘办法，数字版没有对应物。
+        //   · **来源离场时的两种处置，判据 = `CardEffect.extrinsic(0x30)`**（工具提示
+        //     "Effect is tied to acting card, not target card"）+ `CardEffect.enchantingCard(0x18)`：
+        //     ① **有绑定**（`extrinsic` 为真且 `enchantingCard == 离场那张`）⇒ **主动撤回**：
+        //        `PlayerHand__RemoveFromGameCard.c:28,33,39`（手牌那一份）·
+        //        `BattleManager__RemoveExtrinsicEffectsFrom.c:36,45,80`（场上/手牌那一份，
+        //        调用点 `CardScript__ResolveDeadCard.c:244` · `CardScript__AddEffect.c:823`）；
+        //     ② **没绑定** ⇒ 它本来就不在离场那张牌身上（在玩家手上 / 在某张活着的载体上）⇒ 继续有效。
+        //   ⇒ **一句话**：原版**有**「本场战斗有效」这个概念，实现方式是
+        //     「**把效果交给一张活着的载体牌**」；**没有**「弃置后由那张牌自己继续生效」这条路。
+        //     我们这摞 `PersistentEffect`（谁 + 来源卡 + 时机 + 正文，登记后**永不清理**）是
+        //     **我们自己的选型**，落点与上面第 ② 支（没绑定 ⇒ 继续有效）的结果一致。
         // ==================================================================
 
         /// <summary>
@@ -4850,13 +4897,19 @@ namespace RuleEngine
             if (op.AtTurnPhase == "deploy")
             {
                 string what = op.Filter != null && !op.Filter.IsEmpty ? op.Filter.ToString() : "任意单位";
+                // 🔴 2026-10-14（账 `A1666`）：下面**两句**原来结尾都带「（**规则书 :39-41**）」——
+                //    那份《Warpforge Offline Rulebook》**自己第 5 行写着 `Not official. Fan project.`**
+                //    ⇒ **粉丝实体版、⛔ 不当出处**，已从**日志字符串**里删掉（见 `CLAUDE.md` §一·2）。
+                //    ⚠️ 「弃置后照样生效」这件事的判据**不是**它：卡面原文写着 `For the rest of this battle`
+                //       （成品卡图 = 可逐张核），原版侧另有 `AbilityTrigger.OtherUnitSummoned = 190`
+                //       （现读 `d:/2/tools/il2cpp_out/dump.cs:20268`）。
                 ctx.Log($"{by}：「{op.Source}」登记了**常驻效果**（自己部署 {what} 时 → {op.Payload}）"
-                      + " —— 这张卡之后被弃置也照样生效（规则书 :39-41）");
+                      + " —— 这张卡之后被弃置也照样生效");
                 return true;
             }
             string when = op.AtTurnPhase == "turn_start" ? "自己回合开始" : "自己回合结束";
             ctx.Log($"{by}：「{op.Source}」登记了**常驻效果**（{when} → {op.Payload}）"
-                  + " —— 这张卡之后被弃置也照样生效（规则书 :39-41）");
+                  + " —— 这张卡之后被弃置也照样生效");
             return true;
         }
 

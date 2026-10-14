@@ -2767,6 +2767,15 @@ namespace CardPresentation
             if (myFaction != null) _myFaction = myFaction;
             if (foeFaction != null) _foeFaction = foeFaction;
             _seed = seed;
+            // 🆕 **2026-10-14（A1892）**：把**对局种子**锚到震屏的相位基线上。
+            //   病灶：震屏种子原先是 `ShakeSeedBase + 进程内单调序号` ⇒ 同一局重放两次逐位相同 ✅，
+            //   但**两局之间「第一下」的相位相同**（`ResetShakePhases()` 全仓 0 调用点 = 死代码，
+            //   「序号从 0 起」这个前提没人保证）。
+            //   为什么锚在 `Begin` 里这一行：`Begin` 是**所有开局入口的唯一汇合点**
+            //   （本地 `ForceSeed ?? Now.Ticks` / 联机 `pb.Seed` / 重开 `_seed+1` / 教程 `TutorialSeed`），
+            //   锚在这里 = 一行覆盖全部入口；⛔ 不去引擎侧加 `BattleContext.Seed`（不必要，那边也不存种子）。
+            //   判据与三条待跑断言 → `资料/普查产出_第二十九会话/A1892_震屏种子.md`。
+            CardFeel.AnchorShakeSeedToBattle(seed);
             // 🆕 2026-09-26：**本局模式**（经典 / 遭遇）。不传 = 沿用上一局的（首局 = 经典）。
             //   ⚠️ 与 `_seed` 同一条纪律：`Restart()` 也要把它带过去，否则「重开一局」会**悄悄退回经典**
             //      （12 张的遭遇牌按 30 张的规则打，牌库当场抽干）。
@@ -5552,24 +5561,94 @@ namespace CardPresentation
         readonly List<CardView> _chooseViews = new List<CardView>();
 
         /// <summary>🆕 2026-09-14：这一处 `choosecard` **实际摆给玩家的候选**（可能是抽出来的 3 张，
-        /// 见 <see cref="ChooseShowMax"/>）。**不是** `choosecard` 时是 null。
+        /// 见 <see cref="ChooseShowDefault"/>）。**不是** `choosecard` 时是 null。
         /// `OnChooseDone` 靠它把「点了第几张」翻回**卡的身份**（`CardDef.Id`）交给引擎
         /// —— 见 `BattleContext.ChooseCardIds`。</summary>
         List<CardDef> _askCands;
 
         /// <summary>
-        /// 🔴 **规则书英文版 `:475`**：「Whenever a card uses the word "choose", **randomly select 3
-        /// cards** from the set of possibilities and the player chooses which one to keep/draw/resolve.
-        /// Return unchosen cards drawn from your deck and shuffle.」
-        /// 中文版 `:233` 同义。用户 2026-09-14 也点名了这条（「先从大量卡牌里随机抽一些、一般是三个」）。
+        /// 🔴 **这一次选牌最多摆几张卡** —— 判据 = **原版反编译方法体**（第一权威）。
         ///
-        /// ⚠️ **只对「大池子」抽**（`pool` = 全卡池 1130 张 · `deck` = 自己牌库）——
-        ///    手牌 / 对手手牌 / 阵亡堆**不抽**：那几个池子本来就小，而且**自己手牌是看得见的**
-        ///    （抽掉两张会让「选一张手牌降费」变得莫名其妙）。
-        ///    **这一条是我们挑的**，规则书没分来源，如实标着。见
-        ///    `资料/卡牌效果or句_审计.md` §四。
+        /// **原版怎么算**（`d:/2/tools/decomp_full/BattleManager__GetChoiceOptions.c:40-43`）：
+        /// 张数**不是常数**，是**每张卡自己的数据** ——
+        /// ```c
+        /// lVar8 = *(longlong *)(*(longlong *)(param_2 + 0x28) + 0x2a0);   // = choicesDefinition
+        /// iVar1 = *(int *)(lVar8 + 0x40);                                  // = maxTargets
+        /// if (*(int *)(lVar5 + 0x18) <= iVar1) iVar1 = *(int *)(lVar5 + 0x18);  // 夹到候选池张数
+        /// ```
+        /// 偏移链（`d:/2/tools/il2cpp_out/dump.cs` 逐字段给出）：
+        /// `CardScript`/`EntityScript`.`rawCardData` **@0x28**（`dump.cs:21968`）
+        /// → `RawCardScript.choicesDefinition` **@0x2A0**（`dump.cs:23341`）
+        /// → `TargetCriteria.maxTargets` **@0x40**（`il2cpp.h:16727`，`TargetCriteria_Fields` 里那个 `int32_t`）。
+        /// 拿到 `iVar1` 之后**循环 `iVar1` 次**（`:46-70`）：`GetRandomInt(0, pool.Count)` 抽一张、
+        /// `RemoveAll` 去重（**不放回**），抽不满再从池子的副本里按原序补；
+        /// 最后 `if (options.Count <= iVar1) { Sort(CompareChoiceOptions); }`（`:110-113`）。
+        /// 这份列表就是面板上摆的那几张 —— `BattleManager__ChoiceOfCardPlayer.c:27` 取 `GetChoiceOptions`、
+        /// `:50` 原样塞进 `ChooseCardMenu.Setup(...)`（面板的 `chooseCards`）。
+        /// 🔴 **它对【每一个】候选域都这么做** —— 方法体里**没有**「只对大池子抽」这种分支。
+        /// `TargetsAffected`（`dump.cs` 那个枚举）把域分成 `inHandFiltered=50` / `inCemeteryFiltered=60` /
+        /// `inDeckFiltered=65` / `choiceResolution=180`，**四种都照样夹到 `maxTargets`**
+        /// （实据：`Reconnaissance Mission` = `maxTargets 3` + `inHandFiltered`；`Eternal Servitude` = `3` + `inCemeteryFiltered`）。
+        ///
+        /// **「3」这个数**：来源 = **原版卡 SO 实读** ——
+        /// `d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json`
+        /// （1195 张卡，其中 **1192 张有非 null 的 `choicesDefinition`**），实测分布：
+        /// **`maxTargets = 0` 977 张**（= 这张卡不走这条路，`GetChoiceOptions` 会返空表）·
+        /// **`= 3` 204 张** · **`= 4` 10 张** · **`= 2` 1 张**。
+        /// ⇒ **3 是众数、不是规则**；下面 <see cref="ChooseShowByCardId"/> 就是原版那 11 张非 3 的卡
+        /// （能对上我们 `CardDef.Id` 的 6 张）。
+        ///
+        /// ⚠️ **我们还没搬进管线的那一半**：我们自己的卡数据里**没有** `choicesDefinition` 这个字段
+        /// （要搬得动 `数据/游戏数据/cards_engine.json` + 解析层，**不在本文件**）⇒
+        /// 表里没有的卡**一律取众数 3**；而 2022 那版卡表里没有的 **13 张新卡**
+        /// （`Azrael` / `Suppressor` / `Author of the Codex` …）**原值至今未知**，一并按 3 走 ——
+        /// 这两点都是**如实标着的缺口**，不是「原版就是 3」。
+        ///
+        /// ⚠️ **不作出处的那一份**：`《Warpforge Offline Rulebook》` 英文版 `:475`
+        /// （「randomly select 3 cards」）—— 它**自己第 5 行写着 `Not official. Fan project.`**，
+        /// 是**粉丝实体版、只能当第二来源**（口径 → `CLAUDE.md` §一·2）。
+        /// 而且它那个「3」**只覆盖众数那一种情况**：同一句
+        /// `Choose a Sabotage card and add it to your opponent's hand`
+        /// 在 `GSC65 Pilfered Supplies`（原版 **4**）与 `GSC50 Clandestine Operation`（原版 **3**）上
+        /// 值就不一样 ⇒ **数不从文本推、逐卡查表**。
+        /// 🔴 本段原来只引那份规则书 + 用户 2026-09-14 的口头口径，
+        /// **2026-10-14（账 `A1949`）换成上面这第一权威**。
         /// </summary>
-        const int ChooseShowMax = 3;
+        const int ChooseShowDefault = 3;
+
+        /// <summary>
+        /// 原版 `choicesDefinition.maxTargets` **≠ 3** 的那几张卡（键 = `CardDef.Id`）。
+        /// 我们的 `CardDef.Id` 与原版 `uniqueId` **同源**（实测：823 张逐字相同，另 14 张只差撇号/句点）
+        /// ⇒ 这张表可以直接拿原版卡表复查。
+        /// ⚠️ **今天只有 `GSC65` 一张真的走得到这个面板** —— 我们的解析层只对卡面以 `choose …` 开头的句子
+        /// 发 `choosecard`（`RuleEngine/Core/EffectText.cs:5012 TryChooseCard`）；其余几张原版也是
+        /// 「让玩家挑」（`Gain a Dark Pact` 那张的候选正好是 4 张契约），**我们这一层还没接**
+        /// —— 那 4 张契约眼下只喂给卡片详情窗的「相关卡」（`CreatePool.DarkPactContracts`，只有
+        /// `CardPresentation/Core/RelatedCards.cs:163` 一个调用点）⇒ **是记账，别当已实现**。
+        /// 留着这 5 条是因为**它们就是原版的数**，接那一层时不必再查。
+        /// ⚠️ **没进来的 4 张**（`BL57 Helfire Torch` 我们叫 `Hellfire Torch`、`EC60 Tools of Torture`
+        /// 不在我们池里、`Storm of Silence` / `Unhallowed Gifts` 在原版表里是 **GUID 型 `uniqueId`
+        /// 且同名重复**（`Storm of Silence` 三条：`0/2/0` · `Unhallowed Gifts` 两条：`0/4`）
+        /// ⇒ **对不上号，不猜**）—— 要用得先把 id 关系查出来。
+        /// </summary>
+        static readonly System.Collections.Generic.Dictionary<string, int> ChooseShowByCardId =
+            new System.Collections.Generic.Dictionary<string, int>
+            {
+                { "GSC65", 4 },     // Pilfered Supplies —— ✅ **唯一活的一条**：候选 = 4 张 `Sabotage`，原版四张全摆
+                { "BL4",   4 },     // Chaos Sergeant    —— `Rally: Gain a Dark Pact`（候选 = 4 张契约，我们还没接）
+                { "BL13",  4 },     // Chosen            —— 同上
+                { "BL29",  4 },     // Terminator Champion
+                { "BL37",  4 },     // Abaddons Chosen
+                { "BL38",  4 },     // Dark Oratory
+            };
+
+        /// <summary>这一张卡这次最多摆几张候选 —— 表里查不到就取众数 <see cref="ChooseShowDefault"/>。</summary>
+        static int ChooseShowLimit(CardDef c)
+        {
+            int v;
+            if (c != null && c.Id != null && ChooseShowByCardId.TryGetValue(c.Id, out v)) return v;
+            return ChooseShowDefault;
+        }
 
         /// <summary>从 <paramref name="n"/> 个候选里**随机抽 <paramref name="k"/> 个**（不放回）。
         /// 用 `ctx.ShowRng`（**不是** `ctx.Rng` —— 理由见 `BattleContext.ShowRng` 的注释）。</summary>
@@ -6046,14 +6125,27 @@ namespace CardPresentation
                 var cands = RuleCore.ChooseCardCandidates(Ctx, _me, op, out srcName, out detail, out why);
                 if (why == null && cands != null && cands.Count > 0)
                 {
-                    // 🔴 **先随机抽 3 张再给玩家挑**（规则书 `:475`，见 `ChooseShowMax`）。
-                    bool bigPool = op.ChooseSrc == "pool" || op.ChooseSrc == "deck";
-                    if (bigPool && cands.Count > ChooseShowMax)
+                    // 🔴 **先随机抽 min(上限, 候选数) 张再给玩家挑**（判据见 `ChooseShowDefault` 那段，
+                    //    = 原版 `BattleManager__GetChoiceOptions.c:40-70`）。
+                    //    ⚠️ **不分候选域**：原版对 `inHandFiltered` / `inCemeteryFiltered` /
+                    //    `inDeckFiltered` / `choiceResolution` 一视同仁（方法体里没有分域的分支）。
+                    //    🔴 2026-10-14（账 `A1949`）：这里原来多一个 `bigPool`
+                    //    （`op.ChooseSrc == "pool" || "deck"` 才抽）—— **那是我们自加的、与原版不符**
+                    //    （反例就在数据里：`Reconnaissance Mission` 的 `choicesDefinition` 是
+                    //    `maxTargets = 3` + `targetsAffected = inHandFiltered` ⇒ 手牌也只摆 3 张）
+                    //    ⇒ **已删**。
+                    int showMax = ChooseShowLimit(PendingCard);
+                    if (cands.Count > showMax)
                     {
                         int all = cands.Count;
-                        cands = DrawForDisplay(cands, ChooseShowMax);
-                        Ctx.Log($"（选牌面板：{srcName}里共 {all} 张候选 —— 按规则书 `:475` "
+                        cands = DrawForDisplay(cands, showMax);
+                        Ctx.Log($"（选牌面板：{srcName}里共 {all} 张候选 —— "
                               + $"**随机抽出 {cands.Count} 张**给玩家挑）");
+                        // 🔴 2026-10-14（账 `A1666`）：这句原来夹着「**按规则书 `:475`**」——
+                        //    那份《Warpforge Offline Rulebook》**自己第 5 行写着 `Not official. Fan project.`**
+                        //    ⇒ **粉丝实体版、⛔ 不当出处**，已从**日志字符串**里删掉（见 `CLAUDE.md` §一·2）。
+                        //    ✅ 同一天（账 `A1949`）**判据本身也换掉了**：原版 `choicesDefinition.maxTargets`
+                        //    （逐卡数据）已写进本文件 `ChooseShowDefault` 那段 —— ⛔ 别再引规则书。
                     }
                     _askCands = cands;
                     // ⚠️ 挂在**面板自己**下面 —— `CardChoicePanel` 是按 localPosition 排这一行的
@@ -9422,7 +9514,20 @@ namespace CardPresentation
         ///   · **说什么**：`ScriptedAction.GetLocalizedText(action)` → 远端 I2 表按
         ///     `textReference`（`Tutorial1/Turn1/Ventris1` 这类键）取词条；**本地没有那张表**
         ///     （84 个 bundle 里零命中）⇒ 落回 SO 内嵌的 `arg`（= 数据里那句话本身，见
-        ///     `TutorialAction.arg`）。**中文同理**（原版客户端根本没有中文表）。
+        ///     `TutorialAction.arg`）。
+        ///     🔴 **2026-10-14 更正（铁律 5）**：原句末尾写「**中文同理**（原版客户端根本没有中文表）」——
+        ///        **该前提不成立**：原版**有**官方中文表，由**远端 Addressables 包 `localization_assets_all`**
+        ///        （2025-07-30 快照）下发，**2026-10-14 已解开**并落至
+        ///        `Unity/数据/游戏数据/官方本地化_en+zh-CN.json`。**错因** = 把「246,807 个文件扫中文串
+        ///        零命中 · 84 个 bundle 无本地化包」这份**只证明「不在离线包体里」**的实测读成了「根本没有」。
+        ///        **现核（2026-10-14）**：那张表里**就有本族的键** —— `TutorialData/Tutorial1/Turn1/Ventris1`
+        ///        （值 = `I could not ask for a more worthy opponent.` / `我无法找到比你更值得的对手。`），
+        ///        `TutorialData/` 前缀共 **197** 条；词条键的形状 = **`"TutorialData/"` + `textReference`**
+        ///        （前缀字面量实读：`d:/2/tools/il2cpp_out/stringliteral.json:1798` = `TutorialData/`
+        ///        @ `0x423EB20`，正是 `ScriptedAction__GetLocalizedText.c` 里那个 `Concat` 的前缀实参
+        ///        —— 所以上面括号里那串是 `textReference` 的**值**，**完整键名要加前缀**）。
+        ///        ⇒ **「落回 SO 内嵌的 `arg`」今天只是【兜底】、不再是唯一路**（中英两份都能从官方表取）。
+        ///        ⚠️ **本笔只订正措辞、没改代码**（要不要改成取官方表 = 另一笔账）。
         ///   · **配音**：`DisplayChatBox` 第 4 个实参 = `(action + 0x18)` 里那个 `SoundAsset` 的 clip
         ///     ⇒ 就是 `action.sound`（本批新接进 DTO）。
         ///

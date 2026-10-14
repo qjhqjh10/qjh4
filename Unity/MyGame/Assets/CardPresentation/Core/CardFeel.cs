@@ -509,7 +509,7 @@ namespace CardPresentation
             P("ShakeVerticalFrac", ShakeVerticalFrac, Src.Derived, "`normalize((0,0.2,0.2)).y` = 0.7071 —— **z 分量在屏幕上不动、只有 y 走屏幕上下**是我们的换算（3D→2D）"),
             P("ShakeOriginalPxPerUnit", ShakeOriginalPxPerUnit, Src.Derived, "原版 BoardCamera **在棋盘平面**的像素密度 73.1 px/单位（2×17.23×tan(46.397/2)=14.77 单位=1080px）。⚠️ **别和 `OriginalBoardPxPerUnit`(182.14) 混** —— 那个是棋盘排版密度，这个是相机像平面密度"),
             P("ShakePhaseRange", ShakePhaseRange, Src.Ours, "噪声的**起播时刻**取值范围（信号时间轴秒）。**语义有出处**（`CinemachineImpulseDefinition.m_Randomize` 的 Tooltip：「Legacy mode only: Randomize the signal start time」，桩在本地）但 **Cinemachine 没写范围/分布**（方法体本地读不到）⇒ 取 100 s 是我们的"),
-            P("ShakeSeedBaseDefault", ShakeSeedBaseDefault, Src.Ours, "相位种子的出厂基线（固定常量 ⇒ 同一串事件给同一串相位 = 可复现）。⛔ 不是原版值"),
+            P("ShakeSeedBaseDefault", ShakeSeedBaseDefault, Src.Ours, "相位种子的出厂基线（固定常量 ⇒ 同一串事件给同一串相位 = 可复现）。⛔ 不是原版值。⚠️ **只在「没接锚点」的场合生效** —— 真机开局由 `AnchorShakeSeedToBattle(对局种子)` 覆盖它（`A1892`，落地那一行在 `BattleDriver.Begin`）"),
             P("ShakeFrequencyGain", ShakeFrequencyGain, Src.Field, "`Shake Hit Small` 的 `frequency=0.05` → Cinemachine `m_FrequencyGain`（信号时间轴缩放，0.05 = 放慢 20 倍），乘在 `ShakeBandHz` 上"),
             P("ShakeBandPeak", ShakeBandPeak, Src.Field, "`Warpforge 6D Shake`(Cinemachine `NoiseSettings`) 的 `PositionNoise[*].Y.Amplitude` 三条带之和 = 0.059+0.040+0.050；拿去归一化，让 `ShakeWorldAmplitude` 表示**峰值**"),
             P("ShakeWorldAmplitude", ShakeWorldAmplitude, Src.Derived, "**只在「尺寸 0/1」这一档** = `ShakeWorldAmplitudeFor(0)` 的近似：0.149(带峰) × 0.5657(`amplitude × |direction|`) × 0.7071(velocity 的竖直分量) = 0.0596 原版世界单位 → 按 73.1 px/单位 → 4.36 px @1080p → ÷108 = 0.0403。🔴 **2026-10-14 起运行时应走 `ShakeWorldAmplitudeFor(size)`**（2/4/8 三档），本常量只是 `BattleDriver` 那两个调用点还没换过来的兜底。⚠️ **两处软连接**（Cinemachine impulse 公式未从二进制验；y→屏幕竖直是我们的换算）见常量注释"),
@@ -807,7 +807,9 @@ namespace CardPresentation
         /// 原版是按攻击方的近战档取 2/4/8（→ 世界单位 0.04 / 0.08 / 0.16），
         /// 走 `ShakeWorldAmplitudeFor` / 更省事的 `ShakeCameraForHit`。</param>
         /// <param name="phaseSeed">噪声的**起播时刻**种子（见 `ShakePhaseOffset`）。
-        /// `-1`（默认）= 用本进程内单调递增的序号 ⇒ **同一串事件必然给同一串相位**（对局可复现）。
+        /// `-1`（默认）= `ShakeSeedBase + 本局序号` ⇒ **同一局必然给同一串相位**（对局可复现）；
+        /// `ShakeSeedBase` 由开局时的 <see cref="AnchorShakeSeedToBattle"/> 定成该局的对局种子
+        /// （没接锚点的场合 = 出厂常量 `ShakeSeedBaseDefault`，与改动前逐字相同）。
         /// 传具体值 = 逐帧可复算（自检用）。</param>
         public static Tween ShakeCamera(Camera cam, Transform hudRoot, float worldAmp, float delay = 0f,
                                         Camera extraCam = null, int phaseSeed = -1)
@@ -901,14 +903,65 @@ namespace CardPresentation
         ///   · 种子**全部**来自 `System.Random`（纯托管、定序），⛔ **一处都没用 `UnityEngine.Random`**；
         ///   · 序号是**本进程内的单调计数** ⇒ **同一串事件流**（= 同一局重放两次，事件顺序与条数相同）
         ///     必然给**同一串种子** ⇒ 逐帧位移逐位相同；
-        ///   · `ShakeSeedBase` 是**可写**的：要让「两局之间也不同」（更贴原版 `m_Randomize`）——
-        ///     开局时把它设成该局的种子即可。⚠️ **那一句还没接**（`BattleDriver` 不在本件白名单；
-        ///     而且 `BattleEngine` 的 `BattleContext` **没有暴露对局种子** —— 只有 `System.Random` 实例）
-        ///     ⇒ **今天的口径**：同一局可复现 ✅，两局之间第一下的相位相同（如实标注，不是「原版那样」）。
+        ///   · **基线按局接** —— 开局时由 <see cref="AnchorShakeSeedToBattle"/> 把它设成**该局的对局种子**，
+        ///     并把序号归零。这一格出厂值是固定的（`ShakeSeedBaseDefault`），所以
+        ///     **没有接锚点的场合（自检、纯特效震动）行为与从前逐字相同**。
+        ///
+        /// 🔴 **2026-10-14（`A1892`）就地订正（铁律 5）**：这一段原来写的是
+        ///   «`ShakeSeedBase` 是**可写**的：要让「两局之间也不同」——**开局时把它设成该局的种子即可**。
+        ///   ⚠️ **那一句还没接**（`BattleDriver` 不在本件白名单；而且 `BattleContext` **没有暴露对局种子**）»
+        ///   —— 三处都要改口径：
+        ///   ① **`BattleContext` 确实没有对局种子**（`Core/BattleContext.cs:558` 的 `.ctor(int seed)`
+        ///      只拿它造 `Rng` / `ShowRng` / `AiRng` 三个 `System.Random`，**一个字段都不存**）——
+        ///      这一句**成立、不用改**；但它**不是卡点**：对局种子在**表现层**本来就有，
+        ///      就是 `BattleDriver._seed`（`Battle/BattleDriver.cs:852` 的字段、`:2769` 在 `Begin` 里赋值，
+        ///      一次 `Begin` 覆盖本地 / 联机 / 回放 / 重开 / 教程**所有开局入口**）。
+        ///   ② 所以真正的卡点**只有**「`Begin` 里少一行调用」—— 见 <see cref="AnchorShakeSeedToBattle"/>。
+        ///   ③ 「**同一局可复现 ✅**」这句**带着一个没写出来的前提**：那个「进程内单调序号」在开局时
+        ///      **必须正好是 0**。而 `ResetShakePhases()` 全仓**一个调用点都没有** ⇒
+        ///      同一进程里「先打 A 局、再放 A 局的录像」时序号是从半途接上的，
+        ///      两次的相位**并不相同**（回放与原始那一局的观感对不上）。
+        ///      锚点里那句 `_shakeSeq = 0` 就是把这个前提**做实**（不再靠调用方自觉）。
         /// </summary>
         public static int ShakeSeedBase = ShakeSeedBaseDefault;
         /// <summary>`ShakeSeedBase` 的出厂值（固定常量 ⇒ 可复现）</summary>
         public const int ShakeSeedBaseDefault = 0x5D2A17;
+
+        /// <summary>🆕 **把震屏种子接到「这一局」上**（`A1892`）—— **每局开局调一次**。
+        ///
+        /// 🔴 **调用点（唯一一处，一行）**：`Battle/BattleDriver.cs` 的 `Begin(...)` 里
+        /// `_seed = seed;`（`:2769`）那一句**的下一行**：
+        /// <code>CardFeel.AnchorShakeSeedToBattle(seed);</code>
+        /// ⚠️ 那一处**不在本件的白名单里**（本件只被授权改 `Core/CardFeel.cs`）⇒
+        ///    这一行由**主对话 / battle 线**落，落地前本锚点**没有任何调用者**
+        ///    （= 行为与改动前逐字相同，不会静默改变现状）。
+        ///
+        /// **它管三件事**（都在 `A1892` 的验收标准里）：
+        ///   ① `ShakeSeedBase = 对局种子` ⇒ **两局之间「第一下」的相位不同**
+        ///      （本局第一下的种子 = `battleSeed + 0`，相位 = <see cref="ShakePhaseOffset"/>(`battleSeed`)，
+        ///      纯函数 ⇒ **这一条可直接算着验**，不必真跑抖动）；
+        ///   ② `_shakeSeq = 0` ⇒ **同一局（同一个种子）无论在本进程里第几次被播放**，
+        ///      相位序列都**逐位相同**（「同一局重放两次逐位相同」从此**无条件**成立，
+        ///      不再依赖「序号恰好从 0 起」——见 `ShakeSeedBase` 的注释 ③）；
+        ///   ③ 顺手 `SettleShake()`：上一局尾巴上没跑完的那一次先收掉，别把「歪着的位」带进新一局
+        ///      （`ShakeCamera` 自己开头也会收，这里是**进新局**这个语义点上再收一次，幂等）。
+        ///
+        /// **为什么是「对局种子」而不是别的**：原版 `CinemachineImpulseDefinition.m_Randomize`
+        /// （Tooltip：«Legacy mode only: Randomize the signal start time»）只要求
+        /// 「**每次**起播时刻不同」，**没说**它跟对局种子是什么关系 ⇒
+        /// 用对局种子派生是**我们挑的**（⛔ 不是原版做法）。挑它的理由只有一个：
+        /// 工程红线「对局必须可复现」—— 拿时间 / `UnityEngine.Random` 当种子都会让同一局两次不一样。
+        /// </summary>
+        /// <param name="battleSeed">**这一局的对局种子**（`BattleDriver._seed`，也就是
+        /// `Begin(..., int seed, ...)` 收到的那个 `seed`）。同一个种子 ⇒ 同一条相位序列。</param>
+        public static void AnchorShakeSeedToBattle(int battleSeed)
+        {
+            SettleShake();                    // ① 见上面 ③
+            ShakeSeedBase = battleSeed;       // ② 本局的第一下 = `ShakePhaseOffset(battleSeed)`
+            _shakeSeq = 0;                    // ③ 序号从 0 起 ⇒ 同种子必然同序列
+            LastShakeSeed = 0;                // ④ 诊断那两格别留着上一局的读数（同 `ResetShakePhases`）
+            LastShakePhase = 0f;
+        }
 
         /// <summary>起播时刻的取值范围（秒，**信号时间轴**上的量，不是真实秒）。
         /// ⚠️ **这个范围是我们的**：Cinemachine 的方法体本地读不到（只有桩），
@@ -923,7 +976,10 @@ namespace CardPresentation
         public static int LastShakeSeed { get; private set; }
         public static float LastShakePhase { get; private set; }
 
-        /// <summary>把「震过几次」的计数清零（**自检专用**：批处理里跑两遍要拿到同一串相位）。</summary>
+        /// <summary>把「震过几次」的计数清零（**自检专用**：批处理里跑两遍要拿到同一串相位）。
+        /// ⚠️ **2026-10-14（`A1892`）实测：本方法全仓【一个调用点都没有】**（只在本文件里有定义）——
+        /// 真机上的「每局从 0 起」现在由 <see cref="AnchorShakeSeedToBattle"/> 负责
+        /// （它多做一件：把基线也换成该局的对局种子）。留着它是给自检用的复位口。</summary>
         public static void ResetShakePhases() { _shakeSeq = 0; LastShakeSeed = 0; LastShakePhase = 0f; }
 
         /// <summary>一个种子 → 该次震动的**起播时刻**（秒，信号时间轴）。

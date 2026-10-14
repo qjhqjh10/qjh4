@@ -21,6 +21,14 @@
 # 为什么快：`RuleEngine/Core/` 只碰 `UnityEngine.Debug`/`Random` ⇒ net8 直接编，**不跑 Unity**（实测重编 ~1.5 秒，
 #   而 Unity 批处理 1–9 分钟、且同一工程只能跑一个实例）。原理与坑 → `资料/引擎离线对拍_探针.md`
 set -u
+# 🔴 **2026-10-14（第二十九会话）修一个【静默写错地方】的坑**：本脚本下面会 `cd` 进探针目录，
+#   而参数里的**相对路径**是在 `cd` **之后**才被解析的 ⇒ `scan 工具/ruleprobe/基线/out_baseline.txt`
+#   会写到 `工具/ruleprobe/工具/ruleprobe/基线/out_baseline.txt`（**嵌套一层、而且它照样印
+#   「wrote …」、rc=0**）。实测踩过一次：以为重生成过基线，其实盘上那份**一个字没动**。
+#   修法 = 记下调用者目录，**跑 dll 前切回去**（`dotnet build` 仍要在探针目录里跑）。
+#   ⚠️ 安全性：探针自己的路径一个都不依赖 CWD（`Program.ResolveOutDir` 按
+#      `Assembly.GetExecutingAssembly().Location` 往上找 `MyGame/Assets`）⇒ 切回去不影响它。
+CALLER_PWD="$PWD"
 cd /d/4/Unity/工具/ruleprobe || exit 1
 
 MODE="${1:-check}"
@@ -66,8 +74,14 @@ if [ "$build_rc" -ne 0 ]; then
   exit 1
 fi
 rm -f "$BUILD_LOG"
-DLL="bin/Debug/net8.0/wfprobe.dll"
+# ⚠️ **必须写成 Windows 盘符形式 `D:/…`** —— `dotnet` 是 Windows 程序，Git-Bash 的 `/d/4/…`
+#   它认不出来（实测报「你打算运行全局工具，但在 PATH 上找不到…」，退出码 1）。
+DLL="D:/4/Unity/工具/ruleprobe/bin/Debug/net8.0/wfprobe.dll"
 if [ ! -f "$DLL" ]; then echo "!! 构建报成功、但 $DLL 不存在（bin/ 被清过？）"; exit 1; fi
+
+# ⚠️ **切回调用者目录再跑 dll** —— 这样参数里的相对路径与调用者看到的**同一处**
+#   （修的是本头上半段那个「写到嵌套目录」的坑）。`dotnet build` 已经在上面跑完了。
+cd "$CALLER_PWD" 2>/dev/null || true
 
 echo "=== $(date +%H:%M:%S) ruleprobe $MODE ==="
 # 🔴 **2026-10-18 修（同族血案第二例）**：原来正文跑完直接 `echo` 收尾 ⇒ **末行那句 `echo` 把探针的退出码吃掉了**
@@ -75,13 +89,16 @@ echo "=== $(date +%H:%M:%S) ruleprobe $MODE ==="
 #    —— **两头打架**。（同族：`typecheck.sh` 的 `$?` 被 `$(date)` 吃掉 ⇒ 编译错误也报 0。）
 #    做法照 `_run_8_checks.sh` 的形状：**先把 `rc` 存下来，再打印，最后 `exit $rc`**。
 if [ "$MODE" = "check" ]; then
-  # ⚠️ 第二参数（基线路径）原来被写死 ⇒ 传了也没用；现在接上，缺省仍是那一条。
-  dotnet bin/Debug/net8.0/wfprobe.dll check "${2:-基线/out_baseline.txt}"
+  # ⚠️ 第二参数（基线路径）原来被写死 ⇒ 传了也没用；现在接上。
+  #   🔴 **缺省值必须是【绝对路径】**：上面 `cd "$CALLER_PWD"` 之后，相对路径会按**调用者**目录解析
+  #      ⇒ 写成相对会**找不到基线**（而那会变成「解析差异 N 行」的假红）。
+  #      ⚠️ 调用者**显式传**的相对路径仍按调用者目录解析（那正是这次修法的目的）。
+  dotnet "$DLL" check "${2:-D:/4/Unity/工具/ruleprobe/基线/out_baseline.txt}"
 else
   # 🔴 2026-10-18 修：原来只传 `"$MODE"`（= `$1`）⇒ 后面的参数**全被吞掉**，
   #    于是 README/本头的用法 `… seg "<文本>"` 必崩（`Program.cs:47` 取 `args[i+1]` ⇒ IndexOutOfRange）。
   #    转发**全部**参数（`"$@"`），模式仍是 `$1`。
-  dotnet bin/Debug/net8.0/wfprobe.dll "$@"
+  dotnet "$DLL" "$@"
 fi
 rc=$?                                   # ← 必须在 `echo` **之前**取（见上面那段）
 echo "=== $(date +%H:%M:%S) 结束（rc=$rc）==="

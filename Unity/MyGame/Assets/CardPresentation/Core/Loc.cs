@@ -93,8 +93,12 @@
 //    这是**我们挑的**（同 `AutoZoom` / `SuperSampling` 那两条如实标注）。
 //
 // ============================ 忘了接的地方不会静默 ============================
-//  · `T()` 拿到**表里没有**的键 ⇒ 返回**键名本身** + `Debug.LogWarning`（键名会直接显示在界面上 = 看得见），
-//    并把 `MissingCount` / `LastMissingKey` 记下来（自检有一条钉它）。
+//  · `T()` 拿到**表里没有**的键 ⇒ 返回**键名本身** + `Debug.LogWarning`，并把 `MissingCount` / `LastMissingKey` 记下来（自检有一条钉它）。
+//    ⚠️ **2026-10-14（第二十九会话 · `A1924`）更正**：原来这里补了一句「（键名会直接显示在界面上 = 看得见）」——
+//    **只对【直接吃返回值】的调用点成立**；`CardText` 里那几族走的是「先 `HasEntry`、缺键时调一次 `T` 只为出声/记账、
+//    然后回自己那条兜底」（`TermOr` `Core/CardText.cs:547-553` · `KeywordZh`/`KeywordDisplay`/`KeywordEn` 同文件
+//    `:112`/`:125`/`:140`）⇒ **界面照旧印兜底**（卡名/阵营/兵种/关键词那几族都在此列）⇒ 「出声」是**无条件**的，
+//    「界面印什么」**按调用点分**。详见 `T()` 的 doc。
 //  · 对话语言回退 ⇒ 计数记在 `FallbackCount`（自检的第 ④ 条就断这个 + 回退后的文本）。
 using System.Collections.Generic;
 using UnityEngine;
@@ -2678,7 +2682,17 @@ namespace CardPresentation
         /// <para>当前语言没有这一套文案（西/法/德/…）⇒ **回退英文** + 出声，见文件头。</para>
         /// <para>🔴 **2026-10-18（第四轮 · 审查 S2）**：缺键那声 `LogWarning` **按键去重**（`_warnedMissing`）——
         /// 同一条键**只出声一次**（不然被每帧调用时会刷屏，把抓日志型自检淹掉）。
-        /// ⚠️ 记账（<see cref="MissingCount"/> / <see cref="LastMissingKey"/>）**照旧每次 +1**，不受去重影响。</para></summary>
+        /// ⚠️ 记账（<see cref="MissingCount"/> / <see cref="LastMissingKey"/>）**照旧每次 +1**，不受去重影响。</para>
+        /// <para>⚠️ **2026-10-14（第二十九会话 · `A1924`）更正**：本条**返回键名**这一半是对的（下面 `return key;`），
+        /// 但**旧告警文案把它写成了「界面上现在印的是键名本身」** —— **不成立**：「界面印什么」由**调用方**决定，
+        /// 而本族的调用点**没有一处吃这个返回值**（形状都是「先 `Loc.HasEntry` 判、缺了才调一次 `Loc.T` **只为出声/记账**、
+        /// 然后回自己那条兜底」）：`CardText.TermOr`（`Core/CardText.cs:547-553`，回调用方给的英文 id ——
+        /// 卡名/阵营/兵种那几族）与 `KeywordZh`/`KeywordDisplay`/`KeywordEn`（同文件 `:112`/`:125`/`:140`，
+        /// 分别回 `null`/`null`/首字母大写的英文 —— `Card_Trait/*` 那一族）⇒ 那 14 条（12 `Card_Name/*`
+        /// + 2 `Card_Trait/*`）在界面上**都不是键名**，卡面没坏。**错因** = 只读 `T` 自己的实现就下了
+        /// 「界面会印键名」的结论（违反铁律 5·c：同一个函数在不同调用点，界面上看到的不一样）。
+        /// 告警文案已按此改准（⛔ 出声照旧、没删）。
+        /// 判据 → `资料/普查产出_第二十八会话/DIAG_battle六条红.md` §顺手发现 1（那一行的调用链是 `log:58204`）。</para></summary>
         public static string T(string key)
         {
             if (string.IsNullOrEmpty(key)) return "";
@@ -2690,7 +2704,13 @@ namespace CardPresentation
                 // 🔴 按键去重地出声（第一次问到这个键才出声；见 `_warnedMissing` 的 doc）
                 if (_warnedMissing.Add(key))
                     Debug.LogWarning($"[Loc] 语言表里**没有**这个词条：`{key}`"
-                                   + "（⇒ 界面上现在印的是**键名本身**，不是英文、更不是中文 —— 不许静默）。"
+                                   + "（⇒ 本函数返回的是**键名本身**。⚠️ **它会不会印到界面上，由【调用方】决定**："
+                                   + "直接吃返回值的 ⇒ 界面印的就是键名（那才是「不许静默」要抓的那种）；"
+                                   + "先 `Loc.HasEntry` 判过、缺了就回自己那条兜底的 ⇒ 界面**照旧印兜底**，本条日志"
+                                   + "只是那声「表里少一条」的出声。两处例子都在 `Core/CardText.cs`：`TermOr`"
+                                   + "（`:547-553`，缺键回调用方给的英文 id/原值 —— 卡名/阵营/兵种那几族走它）"
+                                   + "与 `KeywordZh`/`KeywordDisplay`/`KeywordEn`（`:112`/`:125`/`:140`，缺键分别回"
+                                   + " `null`/`null`/首字母大写的英文 —— `Card_Trait/*` 那一族走它们））。"
                                    + "加词条的规矩见 `Core/Loc.cs` 文件头（键名照原版 `Localize.mTerm`）；"
                                    + "⛔ 同一条键**只出声这一次**（去重表见 `_warnedMissing`）。");
                 return key;

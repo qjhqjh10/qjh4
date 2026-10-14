@@ -669,10 +669,53 @@ namespace CardPresentation
             return fontSize * TmpFont.WorldGlyphPerFontSize * PxPerWorld;
         }
 
+        /// <summary>同上，但**按字体面**（🆕 2026-10-14 · `A1024` ③）。`Face.Cjk` 给出的值与上面那条**逐位相同**。</summary>
+        public static float FontSizeToPx(float fontSize, TmpFont.Face face)
+        {
+            return fontSize * TmpFont.EmPerFontSize(face) * PxPerWorld;
+        }
+
         /// <summary>当前**实际生效**的字号换算成「像素」口径（= `fontSize × WorldGlyphPerFontSize × 108`）。
         /// **自检拿它跟原版的 `m_fontSize` 比**（原版那也是画布像素）。
         /// ⚠️ 别用 `CapHeightWorld` / `GlyphHeightWorld` 去量 —— 那两个是**回读传入值**的伪测量（见 `已知的坑.md`）。</summary>
-        public float FontPxNow { get { return _tmp != null ? FontSizeToPx(_tmp.fontSize) : 0f; } }
+        public float FontPxNow { get { return _tmp != null ? FontSizeToPx(_tmp.fontSize, ActualFace) : 0f; } }
+
+        // ============================================================================================
+        // 🆕 **2026-10-14（第二十九会话 · 账 `A1024` ③）—— 这一个 Label 用哪一面字体。**
+        //   · 默认 `TmpFont.Face.Cjk` = 今天的行为（⛔ 旧调用点一个字不用改）；
+        //   · 调用方显式 `SetFace(...)` 才生效 —— 仓规已裁「**逐件换、逐件验收**」。
+        //   🔴 **文本里有汉字 ⇒ 强制回 CJK**（`ActualFace`）：那三份拉丁资产**没有汉字字形**
+        //     （实测 `'国'` 量出来是 `.notdef` 方框）⇒ 拿它们渲汉字会出一排方框，而那是**静默的**。
+        //     判据 → `Core/TmpFont.cs` 的 `Face` 那一段长注释。
+        // ============================================================================================
+        TmpFont.Face _face = TmpFont.Face.Cjk;
+
+        /// <summary>本 Label 被指派的字体面（**未必是实际生效的那个** —— 见 <see cref="ActualFace"/>）。</summary>
+        public TmpFont.Face Face { get { return _face; } }
+
+        /// <summary>**实际生效**的字体面：指派了拉丁面、但文本里有汉字 ⇒ 回 CJK。</summary>
+        public TmpFont.Face ActualFace
+        {
+            get { return (_face != TmpFont.Face.Cjk && Loc.HasCjk(_text)) ? TmpFont.Face.Cjk : _face; }
+        }
+
+        /// <summary>指定字体面。当场换掉已有的 TMP 并重排（字号要按新面重算）。</summary>
+        public void SetFace(TmpFont.Face f)
+        {
+            if (_face == f) return;
+            _face = f;
+            SyncFace();
+            if (_tmp != null) SetText(_text);       // 字号按新面重算 + 重新排
+        }
+
+        /// <summary>把 `_tmp.font` 对到当前该用的那一面上去（没换就不动）。</summary>
+        void SyncFace()
+        {
+            if (_tmp == null) return;
+            var f = ActualFace;
+            var want = f == TmpFont.Face.Cjk ? TmpFont.Font : TmpFont.FaceAsset(f);
+            if (want != null && _tmp.font != want) _tmp.font = want;
+        }
 
         /// <summary>🆕 2026-10-04（A50①）：TMP 现在的**自适应下限/上限**（`fontSize` 单位，**不是**世界单位、
         /// 也不是 px —— 倍率见 <see cref="FontSizeToPx"/>）。自检要能把它读出来**断死**：
@@ -940,7 +983,7 @@ namespace CardPresentation
         float NominalPx()
         {
             // ⚠️ 走 `FontSizeToPx`（**唯一那份 px 口径**）—— 别自己再乘一次 108，那等于把口径写成两份
-            return FontSizeToPx(TmpFontSize());
+            return FontSizeToPx(TmpFontSize(), ActualFace);
         }
 
         void SetSizes(float capWorld, float glyphWorld)
@@ -965,8 +1008,12 @@ namespace CardPresentation
         float TmpFontSize()
         {
             float k = _iconBoost;                 // 含图标时 > 1：图标按世界单位摆、不随字号缩，见 `_iconBoost`
-            if (_glyphHeight > 0f) return TmpFont.FontSizeForGlyphHeight(_glyphHeight) * k;
-            return TmpFont.FontSizeForCapHeight(CapWorld) * k;
+            var f = ActualFace;
+            // ⚠️ `Face.Cjk` 时 `FontSizeForEm` / `CapPerFontSize` 与原来那两条**逐位相同**
+            //    （`EmPerFontSize(Cjk)` 就是 `WorldGlyphPerFontSize`、`CapPerFontSize(Cjk)` 就是 `WorldCapPerFontSize`）
+            //    ⇒ 这一段对既有调用点是**零行为变化**（`A1024` ③ 的硬要求）。
+            if (_glyphHeight > 0f) return TmpFont.FontSizeForEm(f, _glyphHeight) * k;
+            return CapWorld / TmpFont.CapPerFontSize(f) * k;
         }
 
         /// <summary>
@@ -1004,12 +1051,14 @@ namespace CardPresentation
         void BuildTmp()
         {
             // 点阵那套的 MeshFilter / MeshRenderer **一个都不要挂** —— 两套同时画就是重影
-            _tmp = TmpFont.NewText(transform, "text", "", TmpFontSize(), color);
+            var f = ActualFace;
+            _tmp = TmpFont.NewText(transform, "text", "", TmpFontSize(), color, f);
             if (_tmp != null) _tmp.textWrappingMode = TextWrappingModes.NoWrap;
         }
 
         void SetTextTmp(string text)
         {
+            SyncFace();                              // 🆕 文本里有汉字而本 Label 被指了拉丁面 ⇒ 这里换回 CJK
             _tmp.text = text;
             _tmp.fontSize = TmpFontSize();
             _tmp.ForceMeshUpdate();                  // 批处理没有帧循环，尺寸得手动推

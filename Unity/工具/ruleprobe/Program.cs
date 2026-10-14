@@ -120,7 +120,20 @@ class Program
     //      `UM_Angels_of_Death` → **`UM64`**（`Angels of Death`）· `SOR72` → **`SOR71`**
     //      （`SOR72` 现在是 `Castigator`）。判据 = 现读卡表 + 卡图（见那两处的行内注释）。
     //   ④ ⚠️ 上一次重钉（`A1619`）漏了第三个指纹 ⇒ 这次三个一起钉（否则哨兵 ⑦ 永远红）。
-    public const string PinnedPoolMd5 = "fe3362d90471e94e8fc06a89c958e1fa";
+    // 🔴 **2026-10-14（第二十九会话 · 账 `A1908`）有意重钉** —— 三个指纹一起钉，依据如下：
+    //   ① 基线 vs 现算共 **218 行**差异，逐行分类（脚本 `_tmp_view/arena2/classify2.py`）：
+    //      · **A 类 114 行** = 只多了新的可选块（`/{ATTR:}` `/{TAIL:}` 等），**把块删掉后逐字节相同**；
+    //      · **B 类 104 行** = 真变化，且**只有两族、零条删除既有 op**：
+    //          - **86 行**：`Talent: X` 从 `unparsed` 列搬成一条 `create/pool///1/X/…` op
+    //            （`AM2 Ursula Creed` 等；`GSC37` 是复合句 `Talent: X,Costs 1 less…` 被正确切开）；
+    //          - **18 行**：新增 `triggerability/pool///0/pray/…` op（战祷那一族）。
+    //      ⚠️ 唯一一处「op 少了」是**假警报**：`SOR5 Battle Sister` 的 `gain` op 多了 `/{TAIL:heal 1}/`
+    //         块 ⇒ 字符串不等被我那个朴素 `;` 切分读成「删了一条」；**op 本身没少**。
+    //   ② **确认依据 = `RuleEngineTest.Run` 5386 / 5386 全过**（第二十八会话收口，
+    //      见 `资料/交接_第二十九会话.md` §一）—— 这就是本哨兵要的「重钉前先确认」。
+    //   ③ 卡池 md5 变了是**别人改的**（`cards_engine.json` 由 `工具/gen_cards_engine.py` 生成，本探针只读）。
+    //   ④ 承上一次教训（`A1619` 漏第三个）：三个一起钉，否则哨兵 ⑦ 永远红。
+    public const string PinnedPoolMd5 = "9ab791869c375210bd5eb8376aa37b75";
 
     /// <summary>钉住的基线内容指纹（`工具/ruleprobe/基线/out_baseline.txt` 的 md5，**按字节**）。
     /// 与上面那个配对使用 —— 判据见上面那段长注释。</summary>
@@ -137,7 +150,9 @@ class Program
     // 🔴 **2026-10-14（第二十七会话）有意重钉** —— 与 `PinnedPoolMd5` 同一批、同一条理由
     //    （卡池 id 整列置换 ⇒ 基线里的第 1 列跟着换，**解析列逐字节没动**）。
     //    重生成只动 id 列：1120 行去第 1 列后 **0 行差异**（判据见上一行那段 ①②③④）。
-    public const string PinnedBaselineMd5 = "ff79931b9c5cd301ae6dac12f4e4b4ce";
+    // 🔴 **2026-10-14（第二十九会话 · `A1908`）有意重钉** —— 与上面 `PinnedPoolMd5` 同一批、
+    //    同一份分类判据（候选值由 `check` 现打：`6c0e41d7…`）。重生成后「解析差异 0 行」。
+    public const string PinnedBaselineMd5 = "6c0e41d71599bd7a42f078a50e90f614";
 
     /// <summary>🆕 **解析输出指纹**（`A1382` **一般情形**的堵法，2026-10-12 第二十一会话 · 写手 `E5`）
     /// —— 「`check` 的判据是『与**基线文件**比』，而**基线文件同一个工具就能重写**」这条洞的机器级补丁。
@@ -183,7 +198,10 @@ class Program
     //   本条把**卡名吃掉、按 id 排序** ⇒ 卡池 id 整列置换之后它必然变号，
     //   而**解析结果本身逐字节没动**（去 id 列 diff = 0 行，判据见 `PinnedPoolMd5` 上面那段 ①②③④）。
     //   确认依据 = 第二十六会话换 id 之后 `RuleEngineTest.Run` **5294 / 5294 全过**。
-    public const string PinnedParseMd5 = "3070ac7c456c3b51dad769b417c2b798";
+    // 🔴 **2026-10-14（第二十九会话 · `A1908`）有意重钉** —— 与上面两个同一批、同一份判据；
+    //    ⛔ **不是为了把红抹平**：本条现读的那 104 行漂移已逐行分类过（见 `PinnedPoolMd5` 上面那段 ①），
+    //    且 `RuleEngineTest.Run` **5386 / 5386 全过**（②）。值由 `check` 的 ⑦ 现打、整行照抄。
+    public const string PinnedParseMd5 = "e3a4b0820b1ff2f274b208a0732b5e88";
 
     /// <summary>一个文件的 md5（按字节；读不到返回 `null` —— ⛔ 不静默当成空串）。</summary>
     public static string Md5File(string path)
@@ -383,6 +401,20 @@ class Program
         var doc = JsonDocument.Parse(File.ReadAllText(PoolPath));
         var list = new List<CardDef>();
         var rawKw = new List<List<string>>();      // 🆕 与 list **同序**的 `keywords` 原文（见 PoolRawKeywords）
+        // 🔴 🆕 **2026-10-14（`A1911`）：卡表后加的那三列也要传进 `CardDef`** ——
+        //   `CardDef` 有 `inventoryOptions` / `showInCollectionOptions` / `initiative` 三个**可选参数**
+        //   （`Core/CardDef.cs:215-216`，默认全是 `-1` = 「真值里查不到这张卡」），
+        //   而这里原来只传到 `goesSecond` 为止 ⇒ **探针侧恒 `-1`**：谁拿探针量
+        //   「这张卡能不能进卡组（`DeckRules.CannotAddToDeck`）· 谁先手（`FirstSeatRules.ByInitiative`）」
+        //   都会拿到「没数据」——**静默错**（同 `A1339` 那一族：**探针与引擎口径不同**）。
+        //   引擎那边的对应调用点 = `RuleEngine/Data/CardDatabase.cs:159-161`（**同一个 JSON、同一批列名**）。
+        //   ⚠️ **缺列【不许】当 `0`**：这三列的 `0` 都是**合法取值**
+        //     （`CardInventoryOptions.InInventory` / `ShowInCollectionOptions.Hide` / `Initiative.Undefined`）
+        //     ⇒ 上面那个 `I()`（缺列返回 `0`）对它们**不能用**：缺列一律 `-1`（= 缺值）**并出声**。
+        //     这与 `CardDef` 那三个属性的 doc 口径一致（「`-1` = 真值里查不到」）。
+        int poolVersion = doc.RootElement.TryGetProperty("version", out var vEl) && vEl.ValueKind == JsonValueKind.Number
+                          ? vEl.GetInt32() : -1;
+        int nMissInv = 0, nMissShow = 0, nMissInit = 0;
         foreach (var c in doc.RootElement.GetProperty("cards").EnumerateArray())
         {
             string S(string k) => c.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
@@ -390,11 +422,31 @@ class Program
             var kws = new List<string>();
             if (c.TryGetProperty("keywords", out var kw) && kw.ValueKind == JsonValueKind.Array)
                 foreach (var k in kw.EnumerateArray()) if (k.ValueKind == JsonValueKind.String) kws.Add(k.GetString());
+            // 三列逐个判「有没有这一格」（⛔ 不借 `I()` —— 它对缺列返回 `0`，而 `0` 在这三列上是**真值**）
+            bool hasInv  = c.TryGetProperty("inventoryOptions", out var invEl) && invEl.ValueKind == JsonValueKind.Number;
+            bool hasShow = c.TryGetProperty("showInCollectionOptions", out var showEl) && showEl.ValueKind == JsonValueKind.Number;
+            bool hasInit = c.TryGetProperty("initiative", out var initEl) && initEl.ValueKind == JsonValueKind.Number;
+            if (!hasInv) nMissInv++;
+            if (!hasShow) nMissShow++;
+            if (!hasInit) nMissInit++;
             list.Add(new CardDef(S("id"), S("name"), S("type"), S("desc"), S("rarity"), S("faction"),
                                  I("cost"), I("attack"), I("health"), I("ranged"), kws,
-                                 S("nameZh"), S("descZh"), true, S("subtype"), S("goesSecond")));
+                                 S("nameZh"), S("descZh"), true, S("subtype"), S("goesSecond"),
+                                 inventoryOptions: hasInv ? invEl.GetInt32() : -1,
+                                 showInCollectionOptions: hasShow ? showEl.GetInt32() : -1,
+                                 initiative: hasInit ? initEl.GetInt32() : -1));
         rawKw.Add(kws);
         }
+        // 🔴 **缺列一律出声**（铁律「不许静默失败」）：缺了就是缺了，⛔ 不让它静默变成「某张卡的值是 X」。
+        if (poolVersion < 8)
+            Console.WriteLine("⚠️ 卡池 `version`=" + poolVersion + " < 8 —— 这一版没有 `initiative` 一列"
+                              + "（引擎侧同样会为此出声：`CardDatabase.cs:108-111`）⇒ 探针把它读成 **-1（缺值）**，"
+                              + "⛔ 不是 `0`（`Initiative.Undefined`）。本次任何「先后手」读数都缺真值。"
+                              + "跑 `工具/gen_cards_engine.py` 重生成。");
+        if (nMissInv > 0 || nMissShow > 0 || nMissInit > 0)
+            Console.WriteLine("⚠️ 卡池有缺列（探针按 **-1 = 缺值** 收下，⛔ 没当成 `0`）：`inventoryOptions` 缺 "
+                              + nMissInv + " 行 · `showInCollectionOptions` 缺 " + nMissShow + " 行 · `initiative` 缺 "
+                              + nMissInit + " 行 —— 先看生成器是不是漏了这一列（`gen_cards_engine.py`）。");
         Pool = list;
         // 🆕 **同序留一份 `keywords` 原文**（见 `PoolRawKeywords` 的说明）——
         //    `CardDef.Keywords` 只有规范化之后的键，`willrun` 要判「卡面上写着哪几段正文」得看原文。

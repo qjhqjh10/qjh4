@@ -228,7 +228,19 @@ namespace CardPresentation
         ///   （`TextMeshProUGUI` · `'5'` · `字号=50.0` · `基准=32.0` · `auto[18.0~50.0]` · `Center/Capline` · 白）；
         /// · 它的父 `Cost Image` = **61.70 × 61.70**（= 我们的 `RowCostS`）⇒ 四边**等距内缩**
         ///   （宽 `(61.7−48.82)/2 = 6.44` · 高 `(61.7−47.88)/2 = 6.91`）⇒ **框心 = 图心**；
-        /// · 督军行那一族（`Deck Selector Hero Card Info button/…/Cost`）**逐位同值**（48.82 × 47.88）。</para>
+        /// · 🔴 **2026-10-14（第二十九会话）就地订正（铁律 5）**：本行原来写「督军行那一族
+        ///   （`Deck Selector Hero Card Info button/…/Cost`）**逐位同值**」—— **那是错的**：
+        ///   该 prefab 里**督军行子树根本没有 `Cost Image` 也没有 `Cost`**（`Content` 下只有
+        ///   `Background` / `Rarity Gradient` / `Background Border` / `Card Name` / `Count` /
+        ///   `Ban Icon` / `Background Slot Free` / `Slot Free Text`）⇒ 「督军行同值」这句话
+        ///   **没有出处**（当年大概是照「同族应该一样」推的）。
+        ///   现读（2026-10-14 自己跑 `工具/menu_dump.py bundle_menus_assets_all "Deck Editing Menu" --depth 14`
+        ///   逐行核过）：**全树只有 3 个 `Cost Image`** ——
+        ///   ① `Deck Selector Defensive Card Slot` 那一颗 **61.70 × 61.70** + `AspectRatioFitter 高控宽(1)`；
+        ///   ② `Deck Selector Card Info button` 那一颗 **61.70 × 61.70** + 同款 ARF（**与①逐位同值**）；
+        ///   ③ 卡槽**预览**那一颗 **62.00 × 62.00** · **没有 ARF** · 只有 `Image`（**另一族**，
+        ///     它的 `Cost` 是 `m_SizeDelta = (−1.5, 0)` · 字号 32）。
+        ///   ⇒ **本段那对 `48.82 / 47.88` 的旁证只有①②**（③不是同一件东西）。</para>
         /// <para>🔴 **改前我们把【图框】61.7 直接当字框用** —— 今天两边都停在自适应上限 `50`
         /// （`row_cnt` 是 1~2 位数字，61.7 与 48.82 都塞得下）⇒ **画面同级、一直没露**；
         /// 但**要缩字时我们会比原版【晚缩】**（原版的框窄 12.88px）—— 那才是不符原版的那一半。
@@ -1892,7 +1904,19 @@ namespace CardPresentation
                 //   ⚠️ 折行 = `1` ⇒ 与 `SetAutoFitBox` 内部那一档同档，不必还原。
                 //   ⚠️ 变的只是**框**（61.7 → 原版 48.82 × 47.88），不是字号的上下限。
                 if (rowCntLb != null)
+                {
+                    // 🔴 **2026-10-14（第二十九会话 · 账 `A1927` + `A1024` ③）—— 这一颗换成【原版那份字体】。**
+                    //   判据：原版这颗 `Cost` 的 `m_fontAsset` = **`Pragati-Regular SDF`**
+                    //   （只读代理扫真包 `fonts_assets_all.bundle` 反查 `pid 3485036404935369831` 得到）；
+                    //   而它停在 `m_fontSize = 50 = m_fontSizeMax` 的**原因就是这个字体**：
+                    //   `Pragati` 行盒 **0.9474 em** ⇒ `50 × 0.9474 = 47.37 ≤ 框 47.88` ⇒ **装得下、不缩**；
+                    //   我们过去用 `NotoSerifCJK`（行盒 **1.437 em**）⇒ `50 × 1.437 = 71.85 > 47.88` ⇒
+                    //   **必然被自适应压下去**（实测只到 **3.05**，而断言要它停在上限）。
+                    //   ⚠️ 这一颗是**纯数字**（0–9）⇒ **不会触发 `ActualFace` 的汉字回退**，换面是安全的。
+                    //   ⚠️ ⛔ **只换面、不动下面那三个数**（18 / 50 / 32 是与原版实读逐位吻合的）。
+                    rowCntLb.SetFace(TmpFont.Face.LatinCardBody);
                     rowCntLb.SetAutoFitBox(U(RowCostTxW), U(RowCostTxH), 18f, 50f, 32f);
+                }
                 _deckRowCount.Add(rowCntLb);
                 // 🆕 **2026-10-20**：行右缘那颗**份数**（原版 TMP 名 `Count`）——
                 //   判据（三条，逐条）：① 文本 = `"x" + n`（原版 `UICardInfoItem__SetCount.c` 的

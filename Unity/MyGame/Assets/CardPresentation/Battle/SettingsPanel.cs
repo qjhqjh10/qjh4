@@ -295,7 +295,17 @@ namespace CardPresentation
         public const string AutoZoomLabelEn = "Auto zoom";
         /// <summary>原版那一格的 I2 词条键（`MonoBehaviour_5032.json` 的 `mTerm`）。
         /// 🔴 **客户端没有本地 I2 词条表**（246,807 个文件扫中文串零命中、84 个 bundle 无本地化包，
-        /// 词条表在远端 CCD）⇒ 正式译文**拿不到**，只当「键 + 兜底」里的那个键记着（同 `Resign` 那条口径）。</summary>
+        /// 词条表在远端 CCD）—— ⚠️ **这半句仍然成立**（说的是「**不在客户端安装目录**里」）；
+        /// 🔴 **2026-10-14 更正（铁律 5）**：它后面原来接着「⇒ 正式译文**拿不到**」—— **该结论已不成立**。
+        ///   原版**有**官方中文表，由**远端 Addressables 包 `localization_assets_all`**（2025-07-30 快照）下发，
+        ///   **2026-10-14 已解开**并落至 `Unity/数据/游戏数据/官方本地化_en+zh-CN.json`；
+        ///   **现读确认那张表里就有本键**：`Settings/Graphics/AutoZoom` = `Auto zoom` / **`自动缩放`**。
+        ///   **错因** = 把「不在离线包体里」读成了「原版根本没有」。判据全文 → `CLAUDE.md` §一·7 的
+        ///   「2026-10-14 更正」段（⛔ 别在这儿抄第二份）。
+        ///   ⇒ **本工程【已经接了这颗键】**：`Core/Loc.cs` 登记 `Settings/Graphics/AutoZoom`，
+        ///     调用点见本文件 `Loc.T(AutoZoomTermKey)`（建行那一处 + `RefreshTexts()` 那一处）与
+        ///     本文件下面那段 2026-10-18 的订正 ⇒ 「只当键 + 兜底记着」是**过期描述**，
+        ///     `AutoZoomLabelEn` 今天只在**英文档**（或键掉了时）兜底。</summary>
         public const string AutoZoomTermKey = "Settings/Graphics/AutoZoom";
 
         // ---- 🆕 2026-10-17：「Language Selector」那一行（原版 `BattleSettingsPanel/Language Selector`，
@@ -654,6 +664,9 @@ namespace CardPresentation
 
             // 文字：原版 TMP 印的就是英文 `"Auto zoom"`（**小写 z**，逐字符照抄）；I2 词条 = `Settings/Graphics/AutoZoom`
             //   （客户端**没有**本地 I2 词条表 ⇒ 正式译文拿不到）。
+            //   ⚠️ 上面括号那句是**旧话**：🔴 **2026-10-14 更正（铁律 5）**「⇒ 正式译文拿不到」**已不成立**
+            //      —— 官方 zh-CN 表已在本地、且**就有本键**；**判据与「仍然成立的那半句」在本文件
+            //      `AutoZoomTermKey` 的 `<summary>` 里**（⛔ 别在这儿抄第二份）。
             // 🔴 **2026-10-18（双语③ 波 1 · P4）就地改（铁律 5）**：原来这里直接印 `AutoZoomLabelEn`
             //   ——**写死英文**⇒ 英文档对、**中文档也印英文**。现在走上面那条键（`:254` 已经记着它）：
             //   EN 列逐字照抄原版 TMP ⇒ **英文档零变化**；ZH 列「自动缩放」= `zh_CN.csv:57`（`Auto Zoom`，

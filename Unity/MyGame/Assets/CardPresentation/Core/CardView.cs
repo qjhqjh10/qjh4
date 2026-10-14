@@ -1972,9 +1972,13 @@ namespace CardPresentation
                 else if (textBgTex != null)
                 {
                     bool hasDesc = !string.IsNullOrEmpty(d.keywords);
+                    // 🔴 **2026-10-14（`A1933`）：网格由 `SpriteQuad`（整张拉伸、4 顶点）换成
+                    //    `TextBgQuad`（原版 `m_Type = 1` 的 **Sliced 九宫格**、6 块 = 24 顶点）** ——
+                    //    判据（`m_Border = {7,0,7,9}` · `m_PixelsPerUnitMultiplier = 14.7` · 边宽换算走
+                    //    uGUI `Image.GenerateSlicedSprite`）全文在 `TextBgQuad` 那一段，⛔ 别在别处再写一份。
                     _textBg = AddLayer("textBg", textBgTex, TextBgZ, textBgTex,
-                                       hasDesc ? SpriteQuad("textBg", TextBgAt, TextBgW, TextBgH)
-                                               : SpriteQuad("textBgSmall", TextBgSmallAt,
+                                       hasDesc ? TextBgQuad("textBg", TextBgAt, TextBgW, TextBgH)
+                                               : TextBgQuad("textBgSmall", TextBgSmallAt,
                                                             TextBgSmallW, TextBgSmallH));
                     _textBg.sharedMaterial.color = new Color(0f, 0f, 0f, TextBgAlpha);
                 }
@@ -4388,8 +4392,13 @@ namespace CardPresentation
         //     外接矩形 ⇒ 会**多画一点**（越界方向上不裁到底）。检测到旋转会**出声一次**（不静默）。
         //   · 只裁 `MeshRenderer`（且**跳过 `ImageQuad`** —— 它自己会 `RebuildMesh`，是战斗里光环/描边那一族，
         //     收藏窗不建它们）与 TMP 文字。
-        //   · 网格只支持 **4 顶点、轴对齐矩形**的 quad（本卡每一层都是：卡框/立绘/数值/宝石/SDF 影）。
+        //   · 网格按「**每 4 个顶点一块**」逐块裁：块内要求是 **轴对齐矩形**、四角齐、无顶点色
+        //     （卡框/立绘/数值/宝石/SDF 影是 1 块；🆕 **文字底板自 `A1933` 起是 6 块 / 24 顶点**）。
         //     别的网格（3D 卡体那种）**只挡「整块进出」**，部分越界时**出声一次不裁**（⛔ 不静默）。
+        //     🔴 **2026-10-14 就地订正（铁律 5）**：本行原来写「网格只支持 **4 顶点**」——
+        //        那是当时的实情，`A1933` 把文字底板改成 6 块之后**已不成立**，
+        //        而且它当场把一个真缺陷做出来了（`A1702③`：卡池第一排的底板画到页头空带上）。
+        //        ⇒ 改成逐块裁，同时解掉账 `A1728`（「`CropLayer` 只支持 4 顶点」）。
         //   · **代价**：每设一次都会重裁一遍（网格重建成品 + TMP 各 `ForceMeshUpdate` 一次）。
         //     收藏窗一张卡从 `Create` 到 `SetData` 会走 2~3 次（`SetClip` 放最后 = 1 次）；
         //     若将来这条路变成每帧热点，再按「只在最后一次设」收口（本件没做）。
@@ -4577,8 +4586,26 @@ namespace CardPresentation
             }
             // ② 整块在视口内 ⇒ **一个字节都不动**（所以没被裁到的那几排卡与旧行为逐字相同）
             if (x1 >= lx1 && x2 <= lx2 && y1 >= ly1 && y2 <= ly2) return;
-            // ③ 部分越界：只支持 4 顶点、轴对齐矩形、无顶点色的 quad（本卡每一层都是）
-            if (vs.Length != 4 || !IsRectQuad(vs, x1, x2, y1, y2)
+            // 🔴 **2026-10-14（第二十九会话）**：TMP 的文字网格是**多顶点**的，而它**另有专管** ——
+            //   `ApplyClip` 收尾那个 `ClipTextMesh` → `MenuDraw.ClipTmpMesh`（全工程唯一一份）。
+            //   ⇒ 本函数对 TMP **只保留上面那两档**（整块在外 ⇒ 关掉；整块在内 ⇒ 不动），
+            //     到这就交还给文字那条路。否则它会掉进下面「不是 4 顶点轴对齐矩形」那一支，
+            //     刷出**误导**的告警（文案说「没裁」，其实 TMP 那半裁了）—— 实测卡池那一屏刷了一整排。
+            if (mr.GetComponent<TMPro.TextMeshPro>() != null) return;
+
+            // ③ 部分越界：**按「每 4 个顶点一块」逐块裁**。
+            //    🔴 **2026-10-14（第二十九会话）就地订正** —— 这一段原来写死「**只支持 4 顶点**」
+            //      （`vs.Length != 4` ⇒ `WarnNotCroppable` 然后**整层不裁**）。而卡面「文字底板」自 `A1933`
+            //      起是 **6 块 / 24 顶点**的网格（`TextBgQuad`，照原版的 `Sliced` 画）
+            //      ⇒ 它一旦**部分越界**就整层不裁 ⇒ 实测把**卡池第一排的底板画到页头空带上**
+            //      （`DeckScene.Run` 的 `A1702③` 当场红 —— 这正是账 `A1940` 记的那条风险的**第一次兑现**）。
+            //      ⇒ 改成**逐块**处理：块内那份「矩形求交 + 按参数截 uv」的逻辑与原来**逐字相同**，
+            //      只是从「整网格算一块」变成「每 4 个顶点算一块」；4 顶点网格（块数 = 1）与旧行为**逐位相同**。
+            //      ⚠️ 这同时把账 `A1728`（「`CropLayer` 只支持 4 顶点」）那条限制**解掉**了。
+            //    ⚠️ **仍要求**：顶点数能被 4 整除 · 每块是**轴对齐矩形**且四角齐（顶点序 BL·BR·TR·TL，
+            //      `SpriteQuad` 与 `TextBgQuad` 都是这个序）· 网格**没有顶点色 / uv3 / uv4**
+            //      —— 任一条不满足就**出声一次、不裁**（⛔ 不静默）。
+            if (vs.Length % 4 != 0
                 || (mesh.colors != null && mesh.colors.Length == vs.Length)
                 || (mesh.uv3 != null && mesh.uv3.Length == vs.Length)
                 || (mesh.uv4 != null && mesh.uv4.Length == vs.Length))
@@ -4587,39 +4614,84 @@ namespace CardPresentation
                 return;
             }
 
-            float cx1 = Mathf.Max(x1, lx1), cx2 = Mathf.Min(x2, lx2);
-            float cy1 = Mathf.Max(y1, ly1), cy2 = Mathf.Min(y2, ly2);
-            if (cx2 - cx1 < 1e-4f || cy2 - cy1 < 1e-4f)
+            bool hasUv2 = mesh.uv2 != null && mesh.uv2.Length == vs.Length;
+            var nv = new List<Vector3>(vs.Length);
+            var nUv = new List<Vector2>(vs.Length);
+            var nUv2 = hasUv2 ? new List<Vector2>(vs.Length) : null;
+            var nTris = new List<int>(vs.Length / 4 * 6);
+
+            for (int q = 0; q < vs.Length; q += 4)
+            {
+                float qx1 = float.MaxValue, qx2 = float.MinValue, qy1 = float.MaxValue, qy2 = float.MinValue;
+                for (int i = q; i < q + 4; i++)
+                {
+                    if (vs[i].x < qx1) qx1 = vs[i].x;
+                    if (vs[i].x > qx2) qx2 = vs[i].x;
+                    if (vs[i].y < qy1) qy1 = vs[i].y;
+                    if (vs[i].y > qy2) qy2 = vs[i].y;
+                }
+                if (!IsRectQuad(vs, q, qx1, qx2, qy1, qy2)) { WarnNotCroppable(mesh.name); return; }
+
+                // 本块**整块在视口外** ⇒ 丢掉它，其余块照常（⛔ 不是把整层关掉）
+                if (qx2 <= lx1 || qx1 >= lx2 || qy2 <= ly1 || qy1 >= ly2) continue;
+
+                int b = nv.Count;
+                if (qx1 >= lx1 && qx2 <= lx2 && qy1 >= ly1 && qy2 <= ly2)
+                {
+                    // 本块**整块在视口内** ⇒ 原样搬（⛔ 一个字节都不改）
+                    for (int i = 0; i < 4; i++) { nv.Add(vs[q + i]); nUv.Add(mesh.uv[q + i]); }
+                    if (hasUv2) for (int i = 0; i < 4; i++) nUv2.Add(mesh.uv2[q + i]);
+                }
+                else
+                {
+                    float cx1 = Mathf.Max(qx1, lx1), cx2 = Mathf.Min(qx2, lx2);
+                    float cy1 = Mathf.Max(qy1, ly1), cy2 = Mathf.Min(qy2, ly2);
+                    // 参数化：本块在**自身矩形**里的归一化坐标（左 0 / 右 1、下 0 / 上 1）
+                    var sq = new float[4]; var tq = new float[4];
+                    for (int i = 0; i < 4; i++)
+                    {
+                        sq[i] = (vs[q + i].x - qx1) / (qx2 - qx1);
+                        tq[i] = (vs[q + i].y - qy1) / (qy2 - qy1);
+                    }
+                    float sA = (cx1 - qx1) / (qx2 - qx1), sB = (cx2 - qx1) / (qx2 - qx1);
+                    float tA = (cy1 - qy1) / (qy2 - qy1), tB = (cy2 - qy1) / (qy2 - qy1);
+                    nv.Add(new Vector3(cx1, cy1, vs[q].z));
+                    nv.Add(new Vector3(cx2, cy1, vs[q].z));
+                    nv.Add(new Vector3(cx2, cy2, vs[q].z));
+                    nv.Add(new Vector3(cx1, cy2, vs[q].z));
+                    float[] ns = { sA, sB, sB, sA }, nts = { tA, tA, tB, tB };
+                    var c4 = new Vector2[4];
+                    for (int i = 0; i < 4; i++) c4[i] = mesh.uv[q + i];
+                    var got = RemapChannel(c4, sq, tq, ns, nts, 4);
+                    for (int i = 0; i < 4; i++) nUv.Add(got[i]);
+                    if (hasUv2)
+                    {
+                        var d4 = new Vector2[4];
+                        for (int i = 0; i < 4; i++) d4[i] = mesh.uv2[q + i];
+                        var g2 = RemapChannel(d4, sq, tq, ns, nts, 4);
+                        for (int i = 0; i < 4; i++) nUv2.Add(g2[i]);
+                    }
+                }
+                nTris.Add(b); nTris.Add(b + 2); nTris.Add(b + 1);   // 顶点序 BL·BR·TR·TL（与各层原件同序）
+                nTris.Add(b); nTris.Add(b + 3); nTris.Add(b + 2);
+            }
+
+            // 一块都没剩下 ⇒ 这一层整体关掉（同 ①：记**原来的** enabled，还原时别把它打开）
+            if (nv.Count == 0)
             {
                 _crops.Add(new LayerCrop { mr = mr, wasEnabled = mr.enabled });
                 mr.enabled = false;
                 return;
             }
-            // 参数化：本块在自身矩形里的归一化坐标（左 0 / 右 1、下 0 / 上 1）
-            float[] s = new float[4], tt = new float[4];
-            for (int i = 0; i < 4; i++)
-            {
-                s[i] = (vs[i].x - x1) / (x2 - x1);
-                tt[i] = (vs[i].y - y1) / (y2 - y1);
-            }
-            float sA = (cx1 - x1) / (x2 - x1), sB = (cx2 - x1) / (x2 - x1);
-            float tA = (cy1 - y1) / (y2 - y1), tB = (cy2 - y1) / (y2 - y1);
-
-            var nv = new Vector3[]
-            {
-                new Vector3(cx1, cy1, vs[0].z), new Vector3(cx2, cy1, vs[0].z),
-                new Vector3(cx2, cy2, vs[0].z), new Vector3(cx1, cy2, vs[0].z),
-            };
-            float[] ns = { sA, sB, sB, sA }, nt = { tA, tA, tB, tB };
 
             var m = new Mesh { name = mesh.name + "_clip" };
-            m.vertices = nv;
-            // ⚠️ 最后一个实参 = **新网格的顶点数（4）**，不是「uv 是几维」——
-            //    传 2 的话 `m.uv` 只有两个元素、和 4 个顶点对不上（Unity 当场报数组尺寸不符 ⇒ 网格作废）。
-            m.uv = RemapChannel(mesh.uv, s, tt, ns, nt, 4);
-            bool hasUv2 = mesh.uv2 != null && mesh.uv2.Length == 4;
-            if (hasUv2) m.uv2 = RemapChannel(mesh.uv2, s, tt, ns, nt, 4);
-            m.triangles = new[] { 0, 2, 1, 0, 3, 2 };      // 顶点序 BL·BR·TR·TL（与各层原件同序）
+            // ⚠️ 用 `SetVertices/SetUVs/SetTriangles`（**按长度自己配**）—— 原来那句 `m.uv = RemapChannel(…, 4)`
+            //    的注释警告过「实参传错会让数组尺寸对不上、网格当场作废」；多块之后顶点数不再是常量，
+            //    这条路把那个坑从**手写长度**改成**由列表决定**。
+            m.SetVertices(nv);
+            m.SetUVs(0, nUv);
+            if (hasUv2) m.SetUVs(1, nUv2);
+            m.SetTriangles(nTris, 0);
             m.RecalculateBounds();
 
             var rec = new LayerCrop { mr = mr, mf = mf, original = mesh, cropped = m, wasEnabled = mr.enabled };
@@ -4631,9 +4703,17 @@ namespace CardPresentation
         /// 不是的话这套「矩形求交 + 按比例截 uv」就不成立 ⇒ 调用方只挡整块并出声。</summary>
         static bool IsRectQuad(Vector3[] vs, float x1, float x2, float y1, float y2)
         {
+            return IsRectQuad(vs, 0, x1, x2, y1, y2);
+        }
+
+        /// <summary>同上，但**从第 `off` 个顶点起**看 4 个 —— 🆕 2026-10-14（`CropLayer` 改成逐块裁）。
+        /// 判据逐字相同：4 个角都落在 `{x1,x2} × {y1,y2}` 上、且四个角各出现一次（双线性插值才可解）。</summary>
+        static bool IsRectQuad(Vector3[] vs, int off, float x1, float x2, float y1, float y2)
+        {
             int mask = 0;
-            for (int i = 0; i < 4; i++)
+            for (int k = 0; k < 4; k++)
             {
+                int i = off + k;
                 bool left = Mathf.Abs(vs[i].x - x1) < 1e-5f, right = Mathf.Abs(vs[i].x - x2) < 1e-5f;
                 bool bot = Mathf.Abs(vs[i].y - y1) < 1e-5f, top = Mathf.Abs(vs[i].y - y2) < 1e-5f;
                 if (!(left || right) || !(bot || top)) return false;
@@ -5017,6 +5097,138 @@ namespace CardPresentation
                 new Vector2(1f, 1f), new Vector2(0f, 1f),
             };
             m.triangles = new[] { 0, 2, 1, 0, 3, 2 };
+            m.RecalculateBounds();
+            _spriteQuads[name] = m;
+            return m;
+        }
+
+        // ==================================================================================
+        //  🔴 **文字底板 = 原版的 Sliced（九宫格）** —— 账 `A1933`（2026-10-14）
+        //
+        //  原来这一层走 `SpriteQuad`：**一张贴图整块拉伸**（4 顶点、UV 拉满 0..1）。**原版不是这么画的。**
+        //
+        //  **判据（解包资源 = 第二权威，逐字段现读）**
+        //    · Image：`bundle_battleprefabs_vfxandmisc_assets_all/MonoBehaviour/`
+        //        `MonoBehaviour_-2228335281872200768.json`（`TextBackground Big UI`）
+        //        `MonoBehaviour_-1216900743962780736.json`（`TextBackground Small UI`，**同款**）
+        //        → **`m_Type = 1`（Sliced）** · **`m_PixelsPerUnitMultiplier = 14.699999809265137`**
+        //          · `m_FillCenter = 1` · `m_PreserveAspect = 0` · `m_UseSpriteMesh = 0` · `m_RaycastTarget = 0`
+        //          ⚠️ **这个 Image 上没有 `m_Border`**（uGUI 的 Image 本来就没有这个字段）——
+        //             边宽只存在 sprite 里（下一行）。⚠️ 2026-10-14 现核：本文件全部键 = `m_GameObject /
+        //             m_Enabled / m_Script / m_Name / m_Material / m_Color / m_RaycastTarget / m_RaycastPadding /
+        //             m_Maskable / m_OnCullStateChanged / m_Sprite / m_Type / m_PreserveAspect / m_FillCenter /
+        //             m_FillMethod / m_FillAmount / m_FillClockwise / m_FillOrigin / m_UseSpriteMesh /
+        //             m_PixelsPerUnitMultiplier`（20 个，**没有 border**）。
+        //    · sprite：`bundle_duplicateassetisolation_assets_all/Sprite/Card Text smooth background.json`
+        //        → 32×32 · **`m_Border = {x:7, y:0, z:7, w:9}`**（**边宽的唯一出处**）
+        //          · **`m_PixelsToUnits = 100`** · `m_Pivot = (.5,.5)`
+        //    · 贴图：同包 `Texture2D/Card Text smooth background.png` —— RGB 全 `(255,255,255)` ·
+        //        alpha 均值 **0.8776**（我们导入那份逐项相同）· **上缘 7 行是羽化带**
+        //        （行 0..6 的 alpha = 4,21,58,110,170,219,243）、行 7..29 = 255
+        //
+        //  **边宽怎么换成卡单位**（照 **uGUI 自己的算式**，⛔ 不是我们挑的数）：
+        //    `…/Hub/Editor/6000.3.23f1/Editor/Data/Resources/PackageManager/BuiltInPackages/com.unity.ugui/`
+        //      `Runtime/UGUI/UI/Core/Image.cs:1157`
+        //        `adjustedBorders = GetAdjustedBorders(sprite.border / multipliedPixelsPerUnit, rect)`
+        //    其中 `pixelsPerUnit = spritePPU ÷ canvas.referencePixelsPerUnit`（同文件 `:741`）、
+        //         `multipliedPixelsPerUnit = pixelsPerUnit × m_PixelsPerUnitMultiplier`（`:757`）
+        //    ⇒ **画出来的边宽 = 边宽px × refPPU ÷ (spritePPU × ppuMul)**（同一份 `rect` 单位 = 卡单位）。
+        //    `canvasRefPPU = 100` —— 原版 **两款 Canvas 实测都只有这一个值**：`07_场景/battlearena1/Canvas/*`
+        //      与 `bundle_menus*` 的 `m_ReferencePixelsPerUnit` 全库只有 `100.0`（30 处）；
+        //      `spritePPU = 100` ⇒ **1 贴图px = 1/14.7 卡单位**。
+        //    ⚠️ 是 **÷ 14.7**，⛔ 不是 ×14.7 —— 与 `MenuDraw.Nine` 那条「角块 = `m_Border ÷ ppuMul`」
+        //      （左栏 `Highlight`：30 ÷ 0.92 = **32.61**，**渲图核过**）同一条算式。
+        //    ⇒ 左/右 = 7/14.7 = **0.4762 卡单位**（占底板宽 1.7766 的 **26.8%**）·
+        //      上 = 9/14.7 = **0.6122**（占底板高 1.55 的 **39.5%**）· **下 = 0**。
+        //
+        //  **为什么是 6 块不是 9 块**：sprite 的 `m_Border.y`（下）= **0** ⇒ 下面那一行的 3 个格子**高为 0**，
+        //    uGUI 的 `GenerateSlicedSprite` 对零尺寸格是 `continue`（同文件 `:1193` 那句，
+        //    `Check for zero or negative dimensions to prevent invalid quads`）⇒ **下面那 3 块不画**。
+        //    ⇒ 落地就是 **上左 / 上中 / 上右 / 下(中)左 / 下(中)中 / 下(中)右 = 6 块**（横竖各切两刀、只保留下两行）。
+        //    ⚠️ **同族先例**：`ImageQuad.CreateNineSlice` 的 `if (w <= 0f || h <= 0f) continue;`
+        //      与 `Editor/CollectionScene.cs:2909` 那条「这一档尺寸下**原版只画得出 6 块**」（`A1726`）。
+        //
+        //  **改出来的可观测差别**：上缘羽化带占底板高 **原版 39.5%**（7/9 × 0.6122 ÷ 1.55 = **30.7%** 是那条
+        //    从近透明到不透明的斜坡，剩下 8.8% 是羽化带下面那 2 行实心）**↔ 我们原来只占 21.9%**（7/32）；
+        //    整块矩形上的 alpha 均值 **原版 ≈ 0.830 ↔ 我们原来 0.8776**。
+        // ==================================================================================
+
+        /// <summary>原版 sprite 的 `m_Border`（**贴图像素**；Unity 的顺序 = **左 / 下 / 右 / 上**）
+        /// —— ⚠️ 这个字段在 **sprite** 上，Image 上**没有**（见上面那一段的现核）。</summary>
+        static readonly Vector4 TextBgBorderPx = new Vector4(7f, 0f, 7f, 9f);
+        /// <summary>原版 `Image.m_PixelsPerUnitMultiplier`（实读 `14.699999809265137`）。</summary>
+        const float TextBgPPUMult = 14.7f;
+        /// <summary>原版 sprite 的 `m_PixelsToUnits`（`Card Text smooth background`）。</summary>
+        const float TextBgSpritePPU = 100f;
+        /// <summary>原版 `Canvas.m_ReferencePixelsPerUnit`（全库实测只有 `100` 这一个值）。</summary>
+        const float TextBgCanvasRefPPU = 100f;
+        /// <summary>原版贴图的边长（px）—— `Card Text smooth background` = **32×32**（UV 切点按它切）。</summary>
+        const float TextBgTexPx = 32f;
+
+        /// <summary>文字底板的 **Sliced 九宫格**网格（原版 `Image.m_Type = 1`；上面那一段是判据全文）。
+        /// 一块 mesh 里放 **6 个 quad**（下边 border = 0 ⇒ 下面那一行整排不画），
+        /// 顶点烘的是**绝对坐标**、单位与 `SpriteQuad` 一致（卡单位 × `Width/CardUnitW`，今天 = 1）
+        /// —— 位置在网格里、⛔ 不在 transform 上。
+        ///
+        /// 🔴 **必须仍然是【一个 GameObject / 一个 MeshRenderer / 一份材质 / 同一个 z】**：
+        ///    卡内所有层共用一个 `renderQueue`（`StampQueue`，实测 3000）⇒ 卡内的层序**完全靠「到相机的距离」排**。
+        ///    把 6 块拆成 6 个 GameObject 会让每块各自有一个 z ⇒ 层序就乱了
+        ///    （诊断细节 → `资料/普查产出_第二十九会话/A1922_文字底板_诊断.md` §七③）。
+        ///    ⇒ 6 块进**同一个** mesh、全部 `z = 0`（层自己的 `localPosition.z` 仍是 `TextBgZ`）。
+        /// ⚠️ 网格按 `name` 缓存（与 `SpriteQuad` 共用 `_spriteQuads`）：只有 `textBg` / `textBgSmall` 两个名字，
+        ///    各自的几何是**常量**（不随卡变），所以按名字缓存是安全的。</summary>
+        static Mesh TextBgQuad(string name, Vector2 at01, float w, float h)
+        {
+            Mesh m;
+            if (_spriteQuads.TryGetValue(name, out m) && m != null) return m;
+
+            float s = Width / CardUnitW;                          // 卡单位 → 世界（今天 = 1）
+            float ww = w * s, hh = h * s;
+            float x0 = (at01.x - 0.5f) * Width - ww * 0.5f;       // 底板左下角（世界）
+            float y0 = (0.5f - at01.y) * Height - hh * 0.5f;
+
+            // 画出来的边宽（世界）= 边宽px × (refPPU ÷ (spritePPU × ppuMul)) × s   ← 判据见上面那一段
+            float k = TextBgCanvasRefPPU / (TextBgSpritePPU * TextBgPPUMult) * s;
+            float bl = TextBgBorderPx.x * k, bb = TextBgBorderPx.y * k;
+            float br = TextBgBorderPx.z * k, bt = TextBgBorderPx.w * k;
+            // 目标比「两边角加起来」还小 ⇒ 按【轴】缩（uGUI `GetAdjustedBorders`，`Image.cs:1479`——
+            // 它是 `for (axis = 0; axis <= 1; axis++)` 逐轴判，⛔ 不是两轴共用一个比例）。
+            // ⚠️ 今天这两轴都够（0.4762+0.4762 = 0.9524 < 1.7766 · 0+0.6122 < 1.55）⇒ 这一段**不出力**，
+            //    留着是为了「以后有人把底板改窄」时与原版同形，别删。
+            float scX = (bl + br) > ww ? ww / Mathf.Max(1e-4f, bl + br) : 1f;
+            float scY = (bb + bt) > hh ? hh / Mathf.Max(1e-4f, bb + bt) : 1f;
+            bl *= scX; br *= scX; bb *= scY; bt *= scY;
+
+            float[] xs = { x0, x0 + bl, x0 + ww - br, x0 + ww };
+            float[] ys = { y0, y0 + bb, y0 + hh - bt, y0 + hh };
+            // UV 切点按**贴图 px ÷ 边长**（⛔ 与上面那个 ÷14.7 是两码事：一个切 UV、一个定画出来的宽度）
+            float[] us = { 0f, TextBgBorderPx.x / TextBgTexPx, 1f - TextBgBorderPx.z / TextBgTexPx, 1f };
+            float[] vs = { 0f, TextBgBorderPx.y / TextBgTexPx, 1f - TextBgBorderPx.w / TextBgTexPx, 1f };
+
+            var verts = new List<Vector3>(24);
+            var uvs = new List<Vector2>(24);
+            var tris = new List<int>(36);
+            for (int i = 0; i < 3; i++)
+                for (int j = 0; j < 3; j++)
+                {
+                    float xa = xs[i], xb = xs[i + 1], ya = ys[j], yb = ys[j + 1];
+                    // 零尺寸格跳过（uGUI `GenerateSlicedSprite` 同款）—— 下边 border = 0 ⇒ 下面那一行整排没有
+                    // ⇒ 正常一档落地就是 **6 块**（`A1933` 的验收数：24 顶点 / 12 三角 / 6 个 quad）。
+                    if (xb - xa <= 0f || yb - ya <= 0f) continue;
+                    int o = verts.Count;
+                    verts.Add(new Vector3(xa, ya, 0f)); uvs.Add(new Vector2(us[i], vs[j]));
+                    verts.Add(new Vector3(xb, ya, 0f)); uvs.Add(new Vector2(us[i + 1], vs[j]));
+                    verts.Add(new Vector3(xb, yb, 0f)); uvs.Add(new Vector2(us[i + 1], vs[j + 1]));
+                    verts.Add(new Vector3(xa, yb, 0f)); uvs.Add(new Vector2(us[i], vs[j + 1]));
+                    // 绕序与 `SpriteQuad` 逐位一致（⛔ 别按 u/v 的方向去定绕序）
+                    tris.Add(o); tris.Add(o + 2); tris.Add(o + 1);
+                    tris.Add(o); tris.Add(o + 3); tris.Add(o + 2);
+                }
+
+            m = new Mesh { name = "TextBgQuad_" + name };
+            m.vertices = verts.ToArray();
+            m.uv = uvs.ToArray();
+            m.triangles = tris.ToArray();
             m.RecalculateBounds();
             _spriteQuads[name] = m;
             return m;
